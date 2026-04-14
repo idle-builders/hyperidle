@@ -12,73 +12,24 @@ Generate a security threat model for: **$ARGUMENTS**
 
 ## Step 1 — Scope
 
-Determine what we're threat-modeling:
-- If `$ARGUMENTS` names a feature or story: read the relevant work package and architecture sections.
-- If `$ARGUMENTS` is "full" or "system": model the entire system from `ARCHITECTURE.md`.
-- If `$ARGUMENTS` names a file or component: focus on that component's trust boundaries.
-
-Read the relevant source files and architecture documents.
+Determine what to model: a feature/story (read work package + architecture), "full" system (read `ARCHITECTURE.md`), or a specific component (focus on that component's trust boundaries).
 
 ## Step 2 — Identify Assets
 
-List what we're protecting:
-- **Data assets:** User data, agent credentials, knowledge items, session artifacts, cost records
-- **Compute assets:** Agent workspaces, job queues, database connections
-- **Trust assets:** Agent identities, authorization tokens, knowledge integrity
+List what we're protecting: data assets (user data, agent credentials, knowledge items, session artifacts, cost records), compute assets (agent workspaces, job queues, database connections), trust assets (agent identities, authorization tokens, knowledge integrity).
 
 ## Step 3 — Map Trust Boundaries
 
-Identify where trust changes:
-- Human Interface ↔ API Layer (user authentication boundary)
-- API Layer ↔ Meta Layer (authorization boundary)
-- Meta Layer ↔ Agent Runtime (agent sandbox boundary)
-- Knowledge Fabric ↔ Agent Context (prompt injection boundary)
-- Agent ↔ Workspace (container escape boundary)
-- Factory ↔ External Services (network boundary)
+Identify where trust changes: Human Interface ↔ API Layer, API Layer ↔ Meta Layer, Meta Layer ↔ Agent Runtime, Knowledge Fabric ↔ Agent Context, Agent ↔ Workspace, Factory ↔ External Services.
 
 ## Step 4 — Spawn Security Researcher
 
-**Spawn the security-researcher agent:**
-
-> Analyze the security threat landscape for: [scope description]
->
-> Context: [relevant architecture sections, code files, data flows]
->
-> For each trust boundary in scope, apply STRIDE analysis:
-> - Spoofing, Tampering, Repudiation, Information Disclosure, Denial of Service, Elevation of Privilege
->
-> Pay special attention to:
-> - Agent trust boundaries (workspace escape, prompt injection via knowledge, cost amplification)
-> - Knowledge layer integrity (L0-L4 poisoning, cross-product leakage)
-> - Multi-tenancy isolation (product boundary enforcement)
->
-> Produce a threat model with: Asset, Threat, Attack Vector, Impact (Critical/High/Medium/Low), Likelihood (High/Medium/Low), and Mitigation for each threat.
+Spawn the security-researcher agent with the scope, context, and trust boundaries. Ask for STRIDE analysis on each boundary, with special attention to agent-specific threats (workspace escape, prompt injection via knowledge, cost amplification), knowledge layer integrity (L0-L4 poisoning, cross-product leakage), and multi-tenancy isolation.
 
 ## Step 5 — Prioritize
 
-Take the security researcher's output and organize into a prioritized threat model:
-
-### Risk Matrix
-
-| # | Threat | Impact | Likelihood | Risk | Mitigation |
-|---|--------|--------|------------|------|------------|
-| 1 | ...    | ...    | ...        | ...  | ...        |
-
-**Risk = Impact × Likelihood**
-
-Priority order:
-1. Critical impact + High likelihood → **Must address before shipping**
-2. Critical impact + Medium/Low likelihood → **Address in current track**
-3. High impact + High likelihood → **Address in current track**
-4. Everything else → **Track as known risks**
+Organize findings into a risk matrix: Impact × Likelihood. Priority: Critical+High first (must fix before shipping), then High+Medium (address in current track), then track the rest as known risks.
 
 ## Step 6 — Output
 
-Produce a `THREAT_MODEL.md` document with:
-
-1. **Scope** — What was analyzed
-2. **Trust Boundary Diagram** — ASCII diagram showing boundaries
-3. **Threat Inventory** — Full list with STRIDE classification
-4. **Risk Matrix** — Prioritized table
-5. **Recommended Mitigations** — Ordered by risk priority
-6. **Accepted Risks** — Threats we acknowledge but won't address now, with justification
+Produce a `THREAT_MODEL.md` with: scope, trust boundary diagram, threat inventory (STRIDE classified), risk matrix, recommended mitigations, and accepted risks with justification.

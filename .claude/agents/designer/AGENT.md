@@ -34,6 +34,7 @@ Before designing anything, read:
 
 ## Component Budget
 
+**Tier 0 (Base):** Daisy UI components
 **Tier 1 (5 Primitives):** StatusChip, Tag, KeyValue, NavItem, SearchField
 **Tier 2 (6 Blocks):** ThreadRow, BetCard, PitchCard, TaskCard, KnowledgeRow, NotificationRow
 **Tier 3 (8 Regions):** IconRail, Submenu, Rail, ArtifactView (5 shapes), ReviewHeader, Canvas, Kanban, PitchSelector

@@ -25,20 +25,11 @@ Read the specified files and identify decisions worth documenting:
    - Performance tradeoffs (chose speed over readability, or vice versa)
    - Architecture boundary enforcement (why this import/dependency exists or is forbidden)
 
-2. **Add `@lore` comments** at the relevant code location:
-
-```typescript
-/**
- * @lore 2026-04-14
- * @tags architecture, knowledge-fabric
- * @kind constraint
- *
- * Knowledge items at L2+ are materialized as TOON (compact binary) for agent
- * context windows. This means field names are abbreviated to single chars.
- * Don't "fix" the short names — agents receive them as-is and the TOON codec
- * handles the mapping. See KNOWLEDGE_ARCHITECTURE.md §3.2.
- */
-```
+2. **Add `@lore` comments** at the relevant code location with these fields:
+   - Date (so readers know when this was true)
+   - `@tags` (for searchability)
+   - `@kind` (one of the kinds below)
+   - Concise explanation (under 6 lines, link to architecture docs for details)
 
 ### Lore Kinds
 - **`decision`** — A choice was made between alternatives. Document what was chosen and why.
@@ -60,27 +51,11 @@ Read the specified files and identify decisions worth documenting:
 
 Scan the codebase for decisions that should have lore but don't:
 
-1. Look for patterns that suggest undocumented decisions:
-   ```bash
-   # TODO/FIXME/HACK/WORKAROUND comments without @lore
-   # eslint-disable / biome-ignore / @ts-ignore without explanation
-   # Unusual patterns that differ from the rest of the codebase
-   ```
+1. Look for patterns that suggest undocumented decisions: TODO/FIXME/HACK/WORKAROUND comments without `@lore`, biome-ignore / `@ts-ignore` without explanation, unusual patterns that differ from the rest of the codebase.
 
 2. Read files around each finding. Determine if a `@lore` comment is warranted.
 
-3. Report findings:
-   ```
-   Found N undocumented decisions:
-   
-   1. packages/fabric/src/materializer.ts:42
-      Pattern: Manual TOON encoding instead of using codec
-      Suggested kind: workaround
-      
-   2. packages/server/src/routes/bets.ts:15
-      Pattern: Authorization check duplicated from middleware
-      Suggested kind: gotcha
-   ```
+3. Report findings with file:line, the pattern found, and suggested lore kind.
 
 4. Ask the user which ones to document, then add `@lore` comments.
 
@@ -88,19 +63,4 @@ Scan the codebase for decisions that should have lore but don't:
 
 ## Mode: Index (`/lore index`)
 
-List all existing `@lore` comments across the codebase:
-
-```bash
-# Find all @lore comments
-```
-
-Produce a table:
-
-```
-| File | Line | Kind | Tags | Summary |
-|------|------|------|------|---------|
-| packages/fabric/src/materializer.ts | 42 | constraint | knowledge-fabric | TOON field abbreviation is intentional |
-| packages/server/src/routes/bets.ts | 15 | gotcha | authorization | Auth check duplicated for historical reason |
-```
-
-Group by tags for a knowledge map of the codebase.
+Find all existing `@lore` comments across the codebase. Produce a table with file, line, kind, tags, and summary. Group by tags for a knowledge map of the codebase.

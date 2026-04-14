@@ -23,44 +23,13 @@ Start with the acceptance criteria from `WORK_PACKAGES.md`. For each criterion, 
 
 ## Test Taxonomy
 
-### Unit Tests
-- Isolated function/module behavior
-- Fast, deterministic, no external dependencies
-- Location: `packages/<pkg>/src/__tests__/<name>.test.ts`
-- Use Vitest `describe`/`it`/`expect`
-
-### Integration Tests
-- Cross-module behavior, database queries, API endpoints
-- Use `createTestDb()` for database, `createTestApp()` for API
-- Location: `packages/<pkg>/src/__tests__/<name>.integration.test.ts`
-
-### Boundary Tests
-- Input validation at system edges (API endpoints, form handlers)
-- Test with: empty strings, very long strings, special characters, SQL injection attempts, XSS payloads, negative numbers, zero, MAX_SAFE_INTEGER
-
-## Test Patterns
-
-```typescript
-describe("<Feature>", () => {
-  describe("happy path", () => {
-    it("should <expected behavior> when <condition>", () => {
-      // Arrange → Act → Assert (AAA pattern, always)
-    });
-  });
-
-  describe("error handling", () => {
-    it("should <error behavior> when <error condition>", () => {});
-  });
-
-  describe("edge cases", () => {
-    it("should handle <boundary condition>", () => {});
-  });
-});
-```
+- **Unit tests** — Isolated function/module behavior. Fast, deterministic, no external dependencies.
+- **Integration tests** — Cross-module behavior, database queries, API endpoints. Use `createTestDb()` and `createTestApp()`.
+- **Boundary tests** — Input validation at system edges. Test with empty strings, very long strings, special characters, injection attempts, negative numbers, zero, MAX_SAFE_INTEGER.
 
 ## Coverage Strategy
 
-- **Critical paths:** 100% branch coverage (authentication, authorization, data mutations, payment flows)
+- **Critical paths:** 100% branch coverage (authentication, authorization, data mutations)
 - **Business logic:** 80%+ line coverage
 - **Utilities:** Test exported functions, skip internal helpers unless complex
 - **UI components:** Test behavior (user interactions, state changes), not rendering
@@ -70,6 +39,6 @@ describe("<Feature>", () => {
 - Write implementation code (that's the developer's domain)
 - Design architecture or UX
 - Skip error path testing because the happy path works
-- Write tests that only assert `toBeDefined()` or `not.toThrow()` — these prove nothing
+- Write tests that only assert `toBeDefined()` or `not.toThrow()`
 - Mock everything — prefer `createTestDb()` over mocking Drizzle
 - Write tests that depend on execution order
