@@ -12,61 +12,25 @@ Review and simplify code without changing behavior. Run this after `/implement`,
 
 ## Step 1 — Identify Scope
 
-If `$ARGUMENTS` is provided, use those files. Otherwise, find recently changed files:
-
-```bash
-git diff --name-only HEAD~1
-```
-
-If no git history, ask the user which files to review.
+Use `$ARGUMENTS` if provided, otherwise find recently changed files via `git diff --name-only HEAD~1`.
 
 ## Step 2 — Analyze Each File
 
-For each file, check for:
+Check for:
 
-### Unnecessary Complexity
-- **Over-abstraction:** Helpers/utilities used only once. Extract them back inline.
-- **Premature generics:** Type parameters that are always the same concrete type. Remove the generic.
-- **Config-driven behavior:** Configuration that's really just code in disguise. Replace with the code.
-- **Factory functions** that produce a single product. Replace with the product.
-
-### Duplication
-- **Copy-paste code:** Three or more identical blocks → extract (two is fine, leave them).
-- **Parallel structures:** Multiple objects/arrays that should be one data structure.
-
-### Dead Code
-- **Unused exports:** Functions/types exported but never imported elsewhere.
-- **Unreachable branches:** Conditions that can never be true given the types.
-- **Commented-out code:** Delete it. Git has history.
-
-### Over-Engineering
-- **"Just in case" error handling:** Catching errors that can't happen given the call site.
-- **Defensive copies:** Cloning data that's never mutated.
-- **Unnecessary async:** `async` functions that never `await`.
-- **Wrapper types:** Types that add no information over the wrapped type.
+- **Over-abstraction:** Helpers/utilities used only once — inline them. Premature generics — remove them. Config-driven behavior that's really code — replace with code. Factory functions producing one product — just construct it.
+- **Duplication:** Three or more identical blocks — extract. Two is fine, leave them.
+- **Dead code:** Unused exports. Unreachable branches. Commented-out code — delete it, git has history.
+- **Over-engineering:** Error handling for impossible scenarios. Defensive copies of never-mutated data. Unnecessary async. Wrapper types adding no information.
 
 ## Step 3 — Fix
 
-For each issue found:
-1. Fix it directly. Don't ask — simplification is always safe when tests pass.
-2. Keep changes behavior-preserving. If you're unsure whether a change is safe, skip it.
+Fix directly. Keep changes behavior-preserving. If unsure whether a change is safe, skip it.
 
 ## Step 4 — Verify
 
-After all simplifications:
-
-```bash
-bun run check && bun run lint && bun test
-```
-
-If anything breaks, revert the change that caused it. Simplification must never break tests.
+Run `bun run check && bun run lint && bun test`. If anything breaks, revert the change that caused it.
 
 ## Step 5 — Report
 
-```
-Simplified N files:
-- path/to/file.ts: removed unused helper, inlined single-use abstraction
-- path/to/other.ts: deleted dead code (3 unreachable branches)
-
-Validation: ✓ typecheck ✓ lint ✓ tests
-```
+List simplified files with what changed. Report validation status.

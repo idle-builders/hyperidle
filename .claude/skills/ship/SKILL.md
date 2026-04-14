@@ -12,102 +12,38 @@ Take the current changes from working tree to pull request.
 
 ## Step 1 — Pre-flight
 
-Run validation to ensure we're shipping clean code:
-
-```bash
-bun run check && bun run lint && bun test
-```
-
-If anything fails, **stop**. Tell the user to run `/verify` first. Do not ship broken code.
+Run `bun run check && bun run lint && bun test`. If anything fails, stop and tell the user to run `/verify` first.
 
 ## Step 2 — Assess Changes
 
-```bash
-git status
-git diff --stat
-git diff
-```
-
-Read the diff to understand what changed. If a story ID was provided in `$ARGUMENTS`, read the relevant work package from `WORK_PACKAGES.md` for context.
+Run `git status` and `git diff --stat`. Read the diff. If a story ID was provided, read the relevant work package for context.
 
 ## Step 3 — Branch
 
-If not already on a feature branch:
-
-```bash
-git checkout -b <type>/<story-id>-<description>
-```
-
-Branch naming: `feat/A1-project-scaffolding`, `fix/B3-materialization-race`, `refactor/C2-task-state-machine`.
+If not on a feature branch, create one: `<type>/<story-id>-<description>` (e.g., `feat/A1-project-scaffolding`).
 
 ## Step 4 — Commit
 
-Stage the relevant files (be specific, don't use `git add -A`):
+Stage specific files (never `git add -A`). Generate a commit message: `<type>(<scope>): <imperative description>` with a short body, story reference, and Co-Authored-By line. If changes span multiple logical units, make multiple atomic commits.
 
-```bash
-git add <specific-files>
-```
-
-Generate a commit message from the diff. Format:
-
-```
-<type>(<scope>): <imperative description>
-
-<body — what changed and why, 2-3 lines max>
-
-Story: <story-id if applicable>
-
-Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>
-```
-
-Types: `feat`, `fix`, `refactor`, `test`, `docs`, `chore`
-Scopes: `db`, `server`, `web`, `fabric`, `shared`, or omit for cross-cutting
-
-If the changes span multiple logical units, make multiple atomic commits.
+Commit types: feat, fix, refactor, test, docs, chore. Scopes: db, server, web, fabric, shared, or omit.
 
 ## Step 5 — Push
 
-```bash
-git push -u origin <branch-name>
-```
+Push with `-u` flag to set upstream tracking.
 
 ## Step 6 — Pull Request
 
-Create the PR using `gh`:
-
-```bash
-gh pr create --title "<concise title>" --body "$(cat <<'EOF'
-## Summary
-<2-3 bullet points describing what this PR does and why>
-
-## Story
-<Story ID and title from WORK_PACKAGES.md, if applicable>
-
-## Changes
-<List of key changes by package>
-
-## Acceptance Criteria
-<Checklist from work package, checked off>
-
-## Test Plan
-- [ ] All existing tests pass
-- [ ] New tests cover acceptance criteria
-- [ ] Typecheck clean
-- [ ] Lint clean
-
-🤖 Generated with [Claude Code](https://claude.com/claude-code)
-EOF
-)"
-```
+Create PR via `gh pr create` with: summary bullets, story reference, changes by package, acceptance criteria checklist, and test plan.
 
 ## Step 7 — Report
 
-Output the PR URL so the user can review it.
+Output the PR URL.
 
 ## Rules
 
-- **Never ship failing tests or lint errors.** Pre-flight is mandatory.
-- **Never `git add -A` or `git add .`.** Stage specific files.
-- **Never force push.** If push fails, diagnose why.
-- **One PR per story.** Don't bundle unrelated changes.
-- **Ask before pushing** if there are uncommitted changes that look unrelated to the story.
+- Never ship failing tests or lint errors.
+- Never `git add -A` or `git add .`.
+- Never force push.
+- One PR per story.
+- Ask before pushing if there are unrelated uncommitted changes.
