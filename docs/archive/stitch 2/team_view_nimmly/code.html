@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Nimmly | Core Operations</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;800;900&amp;family=Space+Grotesk:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-error": "#490106",
+                        "surface-variant": "#252626",
+                        "surface-container": "#191a1a",
+                        "surface-bright": "#2c2c2c",
+                        "surface": "#0e0e0e",
+                        "inverse-surface": "#fcf9f8",
+                        "tertiary-fixed": "#91f78e",
+                        "tertiary-container": "#91f78e",
+                        "inverse-on-surface": "#565555",
+                        "secondary-fixed": "#ffddb6",
+                        "background": "#0e0e0e",
+                        "on-secondary": "#301c00",
+                        "on-primary-fixed": "#003d85",
+                        "secondary": "#d58f24",
+                        "secondary-fixed-dim": "#ffcb8b",
+                        "on-primary-container": "#bcd0ff",
+                        "on-surface": "#e7e5e4",
+                        "surface-container-highest": "#252626",
+                        "on-tertiary-fixed-variant": "#00691a",
+                        "on-tertiary-fixed": "#00480f",
+                        "surface-container-low": "#131313",
+                        "outline": "#767575",
+                        "tertiary-fixed-dim": "#83e881",
+                        "error": "#ee7d77",
+                        "surface-container-lowest": "#000000",
+                        "on-surface-variant": "#acabaa",
+                        "surface-dim": "#0e0e0e",
+                        "on-background": "#e7e5e4",
+                        "surface-tint": "#adc6ff",
+                        "on-secondary-fixed": "#5a3800",
+                        "inverse-primary": "#005bc2",
+                        "tertiary": "#bbffb3",
+                        "on-tertiary-container": "#005e17",
+                        "on-primary": "#003d87",
+                        "tertiary-dim": "#83e881",
+                        "primary-dim": "#97b9ff",
+                        "error-container": "#7f2927",
+                        "primary-fixed": "#d8e2ff",
+                        "primary": "#adc6ff",
+                        "on-tertiary": "#00671a",
+                        "surface-container-high": "#1f2020",
+                        "on-secondary-fixed-variant": "#805100",
+                        "outline-variant": "#484848",
+                        "error-dim": "#bb5551",
+                        "secondary-dim": "#d58f24",
+                        "primary-container": "#004493",
+                        "on-error-container": "#ff9993",
+                        "on-secondary-container": "#fcb044",
+                        "secondary-container": "#553400",
+                        "primary-fixed-dim": "#c2d4ff",
+                        "on-primary-fixed-variant": "#0058bb"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "fontFamily": {
+                        "headline": ["Inter"],
+                        "body": ["Inter"],
+                        "label": ["Space Grotesk"]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            vertical-align: middle;
+            font-size: 1.25rem;
+        }
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #0e0e0e;
+            color: #e7e5e4;
+        }
+        .font-mono-tech {
+            font-family: 'Space Grotesk', monospace;
+        }
+    </style>
+</head>
+<body class="overflow-hidden">
+<!-- TopAppBar -->
+<nav class="fixed top-0 w-full z-50 bg-[#0e0e0e] border-b border-[#252626]/20 flex justify-between items-center px-4 h-12 w-full">
+<div class="text-lg font-black tracking-tighter text-[#adc6ff]">HYPERIDLE</div>
+<div class="flex items-center gap-6 h-full">
+<div class="flex gap-4 h-full items-center">
+<span class="text-[#f5f5f5]/60 hover:bg-[#191a1a] transition-colors h-full flex items-center px-2 cursor-pointer text-sm font-sans tracking-tight Inter">Global Feed</span>
+<span class="text-[#adc6ff] font-bold h-full flex items-center px-2 cursor-pointer border-b-2 border-[#adc6ff] text-sm font-sans tracking-tight Inter">Bet Canvas</span>
+<span class="text-[#f5f5f5]/60 hover:bg-[#191a1a] transition-colors h-full flex items-center px-2 cursor-pointer text-sm font-sans tracking-tight Inter">Infrastructure</span>
+</div>
+<div class="flex items-center gap-3 ml-4 border-l border-[#252626] pl-4">
+<span class="material-symbols-outlined text-[#f5f5f5]/60 hover:text-[#adc6ff] cursor-pointer">notifications</span>
+<span class="material-symbols-outlined text-[#f5f5f5]/60 hover:text-[#adc6ff] cursor-pointer">settings</span>
+<div class="w-6 h-6 rounded-sm bg-surface-container-highest overflow-hidden">
+<img alt="User avatar" class="w-full h-full object-cover" data-alt="minimalist abstract shape avatar with geometric forms in primary blue and dark grey tones" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAKKSa7ZVHmoqicyJF15oC_rm09vJbi0K3iLKA7fZBRu6PYP0sYc3iJX3Cak51tZ6pykYEn_r6C3hpm4i3mxXVRIs_F63wPPhdAzCWvdB_NA7SkIwmB5uRHomvkEeWYmmTxXIF8mnQv_9U0O2Q25hZO2aOrxIhKOVB9NSihZCM58ynbrdphtuxjwNTM7xTd9_QZNu26W390lYOKAZVU8f0V_xnHoHH7N0Eojzw_VvEiWrnARq34eubRzV1ad41iUjSLDXjd5VV6KF7-"/>
+</div>
+</div>
+</div>
+</nav>
+<!-- SideNavBar -->
+<aside class="fixed left-0 top-12 h-screen w-64 border-r border-[#252626]/10 bg-[#131313] flex flex-col py-4 gap-2">
+<div class="px-4 mb-6 flex items-center gap-3">
+<div class="w-8 h-8 bg-primary-container flex items-center justify-center rounded-sm">
+<span class="material-symbols-outlined text-on-primary-container" style="font-variation-settings: 'FILL' 1;">architecture</span>
+</div>
+<div>
+<div class="text-[11px] font-mono-tech uppercase tracking-wider text-[#f5f5f5]/40 leading-none">Core Operations</div>
+<div class="text-[13px] font-bold text-primary tracking-tight">Product Alpha</div>
+</div>
+</div>
+<div class="flex flex-col gap-1 px-2">
+<div class="flex items-center gap-3 px-3 py-2 text-[#f5f5f5]/40 hover:text-[#f5f5f5] hover:bg-[#191a1a] transition-all duration-200 cursor-pointer font-mono-tech text-[11px] uppercase tracking-wider">
+<span class="material-symbols-outlined">dashboard</span>
+<span>Overview</span>
+</div>
+<div class="flex items-center gap-3 px-3 py-2 text-[#f5f5f5]/40 hover:text-[#f5f5f5] hover:bg-[#191a1a] transition-all duration-200 cursor-pointer font-mono-tech text-[11px] uppercase tracking-wider">
+<span class="material-symbols-outlined">inventory_2</span>
+<span>Product</span>
+</div>
+<div class="flex items-center gap-3 px-3 py-2 text-[#adc6ff] border-r-2 border-[#adc6ff] bg-[#191a1a] transition-all duration-200 cursor-pointer font-mono-tech text-[11px] uppercase tracking-wider">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">architecture</span>
+<span>Bet Canvas</span>
+</div>
+<div class="flex items-center gap-3 px-3 py-2 text-[#f5f5f5]/40 hover:text-[#f5f5f5] hover:bg-[#191a1a] transition-all duration-200 cursor-pointer font-mono-tech text-[11px] uppercase tracking-wider">
+<span class="material-symbols-outlined">view_kanban</span>
+<span>Task Kanban</span>
+</div>
+<div class="flex items-center gap-3 px-3 py-2 text-[#f5f5f5]/40 hover:text-[#f5f5f5] hover:bg-[#191a1a] transition-all duration-200 cursor-pointer font-mono-tech text-[11px] uppercase tracking-wider">
+<span class="material-symbols-outlined">analytics</span>
+<span>Analytics</span>
+</div>
+</div>
+<div class="mt-auto pb-16 px-2 flex flex-col gap-1">
+<div class="flex items-center gap-3 px-3 py-2 text-[#f5f5f5]/40 hover:text-[#f5f5f5] hover:bg-[#191a1a] transition-all duration-200 cursor-pointer font-mono-tech text-[11px] uppercase tracking-wider">
+<span class="material-symbols-outlined">help</span>
+<span>Support</span>
+</div>
+<div class="flex items-center gap-3 px-3 py-2 text-[#f5f5f5]/40 hover:text-[#f5f5f5] hover:bg-[#191a1a] transition-all duration-200 cursor-pointer font-mono-tech text-[11px] uppercase tracking-wider">
+<span class="material-symbols-outlined">terminal</span>
+<span>Logs</span>
+</div>
+</div>
+</aside>
+<!-- Main Content -->
+<main class="ml-64 mr-16 mt-12 h-[calc(100vh-3rem)] overflow-y-auto bg-surface flex flex-col">
+<!-- Left Product Submenu & Main Layout -->
+<div class="flex h-full">
+<!-- Product Vertical List (Submenu) -->
+<div class="w-48 bg-surface-container-low border-r border-[#252626]/10 flex flex-col py-4 px-3 gap-2">
+<span class="font-mono-tech text-[10px] text-outline px-2 uppercase tracking-widest mb-2">Portfolio</span>
+<div class="group flex items-center justify-between px-2 py-1.5 text-on-surface-variant hover:bg-surface-container transition-colors cursor-pointer text-sm">
+<span>Ambrovia</span>
+</div>
+<div class="group flex items-center justify-between px-2 py-1.5 bg-primary-container/20 text-primary border-l-2 border-primary transition-colors cursor-pointer text-sm font-bold">
+<span>Nimmly</span>
+</div>
+<div class="group flex items-center justify-between px-2 py-1.5 text-on-surface-variant hover:bg-surface-container transition-colors cursor-pointer text-sm">
+<span>HyperIdle</span>
+</div>
+<div class="group flex items-center justify-between px-2 py-1.5 text-on-surface-variant hover:bg-surface-container transition-colors cursor-pointer text-sm">
+<span>Pulse</span>
+</div>
+</div>
+<!-- Dashboard Panes -->
+<div class="flex-1 overflow-y-auto">
+<!-- Top 40%: Bet Canvas -->
+<section class="h-[40%] min-h-[320px] p-8 flex flex-col">
+<div class="flex justify-between items-end mb-8">
+<div>
+<h1 class="text-3xl font-black tracking-tight text-on-surface leading-none">Nimmly</h1>
+<div class="flex items-center gap-4 mt-2">
+<div class="flex items-center gap-2">
+<span class="w-2 h-2 rounded-full bg-tertiary"></span>
+<span class="font-mono-tech text-xs text-on-surface-variant">Cycle #42 · Building</span>
+</div>
+<div class="h-1 w-24 bg-surface-container-highest overflow-hidden">
+<div class="bg-tertiary h-full w-[65%]"></div>
+</div>
+</div>
+</div>
+<div class="text-right">
+<div class="font-mono-tech text-[10px] uppercase text-outline tracking-widest">Team Capacity</div>
+<div class="text-lg font-bold text-on-surface">1/3 <span class="text-on-surface-variant font-normal">committed</span></div>
+</div>
+</div>
+<div class="grid grid-cols-3 gap-6 flex-1">
+<!-- Active Bet Card -->
+<div class="bg-surface-container border border-outline-variant/20 p-4 flex flex-col justify-between group hover:border-primary/40 transition-colors">
+<div>
+<div class="flex justify-between items-start mb-4">
+<h3 class="font-bold text-on-surface text-base">Pricing overhaul</h3>
+<span class="font-mono-tech text-[10px] bg-tertiary/10 text-tertiary px-1.5 py-0.5">ON TRACK</span>
+</div>
+<div class="space-y-4">
+<div class="flex justify-between text-[11px] font-mono-tech">
+<span class="text-on-surface-variant">TIMEFRAME</span>
+<span class="text-on-surface">6 WEEKS</span>
+</div>
+<div class="flex justify-between text-[11px] font-mono-tech">
+<span class="text-on-surface-variant">TASKS</span>
+<span class="text-on-surface">4/7 COMPLETE</span>
+</div>
+<div class="space-y-1">
+<div class="flex justify-between items-end text-[10px] font-mono-tech uppercase text-outline">
+<span>Progress</span>
+<span>Week 3 of 6</span>
+</div>
+<div class="h-1 bg-surface-container-highest w-full overflow-hidden">
+<div class="h-full bg-primary w-[50%]"></div>
+</div>
+</div>
+</div>
+</div>
+<div class="pt-4 flex justify-between items-center border-t border-outline-variant/10 mt-4">
+<div class="flex items-center gap-1.5">
+<span class="material-symbols-outlined text-[14px] text-secondary">payments</span>
+<span class="font-mono-tech text-xs font-bold">$35.10</span>
+</div>
+<button class="text-xs font-mono-tech text-primary uppercase tracking-wider opacity-0 group-hover:opacity-100 transition-opacity">View Details</button>
+</div>
+</div>
+<!-- Empty Slot 1 -->
+<div class="border border-dashed border-outline-variant/30 flex flex-center items-center justify-center p-6 bg-surface-container-low/30">
+<div class="text-center">
+<div class="text-[10px] font-mono-tech text-outline uppercase tracking-widest mb-1">Slot Available</div>
+<button class="flex items-center gap-2 px-3 py-1.5 bg-surface-container-highest text-[11px] font-mono-tech text-on-surface hover:bg-surface-container transition-colors uppercase tracking-wider">
+<span class="material-symbols-outlined text-sm">add</span> Add Bet from pitches
+                                </button>
+</div>
+</div>
+<!-- Empty Slot 2 -->
+<div class="border border-dashed border-outline-variant/30 flex flex-center items-center justify-center p-6 bg-surface-container-low/30">
+<div class="text-center">
+<div class="text-[10px] font-mono-tech text-outline uppercase tracking-widest mb-1">Slot Available</div>
+<span class="material-symbols-outlined text-outline-variant scale-125">lock</span>
+</div>
+</div>
+</div>
+</section>
+<!-- Bottom 60%: Task Kanban -->
+<section class="flex-1 bg-surface-container-low p-8 border-t border-[#252626]/20">
+<div class="flex justify-between items-center mb-8">
+<h2 class="text-sm font-mono-tech uppercase tracking-[0.2em] text-on-surface-variant">Tasks across current bets</h2>
+<div class="flex gap-2">
+<button class="p-1 text-on-surface-variant hover:text-on-surface"><span class="material-symbols-outlined">filter_list</span></button>
+<button class="p-1 text-on-surface-variant hover:text-on-surface"><span class="material-symbols-outlined">more_vert</span></button>
+</div>
+</div>
+<div class="grid grid-cols-4 gap-6 h-full items-start">
+<!-- Planned -->
+<div class="space-y-4">
+<div class="flex items-center justify-between px-1">
+<span class="font-mono-tech text-[11px] text-outline font-bold">PLANNED (2)</span>
+</div>
+<div class="space-y-3">
+<div class="bg-surface-container p-3 border-l border-outline-variant hover:bg-surface-container-high transition-colors cursor-grab">
+<div class="text-xs text-on-surface mb-2 leading-snug">Update documentation</div>
+<div class="flex items-center justify-between">
+<span class="text-[10px] font-mono-tech text-outline uppercase">Nimmly Writer</span>
+<div class="w-4 h-4 bg-surface-container-highest rounded-full overflow-hidden">
+<img alt="Writer Icon" data-alt="minimal circle icon with initials NW in high contrast dark theme" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDyBDEVKPsDzUqfMLewIRGpzXKHEH-envTKCkQLFSQa9OpcuWwnPXeXW4n5GyIie3ZV606IlUaNjzFkYSyjkY4GewcsDcsLhp5QaQZnXxwEHvSx57onbKFStRsCU5Dub5P4kYG1RrS5cKZdDRO0tk4Tc9ko3e-cOJHcTUYVANVqjjWmSa2JcRilHRZhEzzo9fpuVnpzVwtpGTiqe5JJzM9753AmhDR9_3fQeP66LGNtazg_uM47T9ujbaBGB2vbRqOvFzgV2qa6KoVH"/>
+</div>
+</div>
+</div>
+<div class="bg-surface-container p-3 border-l border-outline-variant hover:bg-surface-container-high transition-colors cursor-grab">
+<div class="text-xs text-on-surface mb-2 leading-snug">Deploy to production</div>
+<div class="flex items-center justify-between">
+<span class="text-[10px] font-mono-tech text-outline uppercase">Nimmly Backend</span>
+<div class="w-4 h-4 bg-surface-container-highest rounded-full overflow-hidden">
+<img alt="Backend Icon" data-alt="minimal circle icon with initials BB in high contrast dark theme" src="https://lh3.googleusercontent.com/aida-public/AB6AXuABs_cieJE7d08A0t2L9zlswdUeaRbGoLaUwOMrfnUaiA6VBwbIqMQOU9NBak04DRibg38wUefJX1-ZvJNQur4YVwwh8ZGaJylKHL-F7OcIj5-291Vu_BTToMo8Pqvpjp099ZTTe4qVGn39C7wVRQwxac-TJAkq-pqcDSS8BY4ywd70nC-XwsCf80cZdr-bD1fY6K9C06WghNo2q3qNeOemKKwDndRO9WPLn2OrO_P86xQeK23NEUlhJcJlBP5FWTyHIU-wrhLt9OFw"/>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- In Progress -->
+<div class="space-y-4">
+<div class="flex items-center justify-between px-1">
+<span class="font-mono-tech text-[11px] text-primary font-bold">IN PROGRESS (1)</span>
+</div>
+<div class="space-y-3">
+<div class="bg-surface-container p-3 border-l border-primary shadow-[0_0_15px_-5px_rgba(173,198,255,0.1)] hover:bg-surface-container-high transition-colors cursor-grab">
+<div class="flex items-start justify-between gap-2 mb-2">
+<div class="text-xs text-on-surface leading-snug">Validate with sample invoices</div>
+<div class="w-1.5 h-1.5 rounded-full bg-tertiary animate-pulse shrink-0 mt-1"></div>
+</div>
+<div class="flex items-center justify-between">
+<div class="flex flex-col">
+<span class="text-[10px] font-mono-tech text-outline uppercase">Nimmly QA Agent</span>
+<span class="text-[10px] font-mono-tech text-primary font-bold mt-1">$4.50 CONSUMED</span>
+</div>
+<div class="w-4 h-4 bg-surface-container-highest rounded-full overflow-hidden">
+<img alt="QA Icon" data-alt="minimal circle icon with initials QA in high contrast dark theme" src="https://lh3.googleusercontent.com/aida-public/AB6AXuB0FqbBaoCQgDc16Awg4bwtQUeuYlxBuOh-hwqFWf-UqrlgKVFUDsCN7C4wiK3F-w6tMCxT2RTiQXd4rikRDK9heq94k7DnUfvQFul7Xn8dvLMYnLEVkTMAGEQsxalc5BaaBpTH47Np4wa0XGiPov9I4jQ7aW-1OfA6wqWPFH4DmOfGZ9G9SeiVzOAXThBSWnXgB2Hp0QYgn5FfeMSP9X5FoRXTOeafJBJfTam6JPB7nGqtnutSL8gUUe8VTGairjGKurB4j1byYidY"/>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Blocked -->
+<div class="space-y-4">
+<div class="flex items-center justify-between px-1">
+<span class="font-mono-tech text-[11px] text-outline font-bold">BLOCKED (0)</span>
+</div>
+<div class="border border-dashed border-outline-variant/10 p-6 flex flex-col items-center justify-center gap-2 opacity-30">
+<span class="material-symbols-outlined text-xl">block</span>
+<span class="text-[10px] font-mono-tech uppercase tracking-widest text-outline">No blocked tasks</span>
+</div>
+</div>
+<!-- Done -->
+<div class="space-y-4">
+<div class="flex items-center justify-between px-1">
+<span class="font-mono-tech text-[11px] text-tertiary font-bold">DONE (4)</span>
+</div>
+<div class="space-y-3 opacity-60">
+<div class="bg-surface-container p-3 border-l border-tertiary/40">
+<div class="text-xs text-on-surface mb-2 leading-snug line-through decoration-outline">Rebuild margin calculation</div>
+<span class="text-[10px] font-mono-tech text-outline uppercase">System Core</span>
+</div>
+<div class="bg-surface-container p-3 border-l border-tertiary/40">
+<div class="text-xs text-on-surface mb-2 leading-snug line-through decoration-outline">Update invoice generation</div>
+<span class="text-[10px] font-mono-tech text-outline uppercase">API Layer</span>
+</div>
+<div class="bg-surface-container p-3 border-l border-tertiary/40">
+<div class="text-xs text-on-surface mb-2 leading-snug line-through decoration-outline">Add regression tests</div>
+<span class="text-[10px] font-mono-tech text-outline uppercase">QA Suite</span>
+</div>
+<div class="bg-surface-container p-3 border-l border-tertiary/40">
+<div class="text-xs text-on-surface mb-2 leading-snug line-through decoration-outline">Update pricing API format</div>
+<span class="text-[10px] font-mono-tech text-outline uppercase">Gateway</span>
+</div>
+</div>
+</div>
+</div>
+</section>
+</div>
+</div>
+</main>
+<!-- Rail (Minimized Sidebar) -->
+<nav class="fixed right-0 top-12 h-screen w-16 bg-[#0e0e0e] border-l border-[#252626]/20 flex flex-col items-center py-6 gap-8">
+<div class="text-[#adc6ff] flex flex-col items-center gap-1 cursor-pointer group">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">group</span>
+<span class="text-[8px] font-mono-tech text-outline uppercase group-hover:text-[#adc6ff]">Team</span>
+</div>
+<div class="text-[#f5f5f5]/40 hover:text-[#adc6ff] flex flex-col items-center gap-1 cursor-pointer group">
+<span class="material-symbols-outlined">hub</span>
+<span class="text-[8px] font-mono-tech text-outline uppercase group-hover:text-[#adc6ff]">Node</span>
+</div>
+<div class="text-[#f5f5f5]/40 hover:text-[#adc6ff] flex flex-col items-center gap-1 cursor-pointer group">
+<span class="material-symbols-outlined">data_object</span>
+<span class="text-[8px] font-mono-tech text-outline uppercase group-hover:text-[#adc6ff]">API</span>
+</div>
+<div class="text-[#f5f5f5]/40 hover:text-[#adc6ff] flex flex-col items-center gap-1 cursor-pointer group">
+<span class="material-symbols-outlined">security</span>
+<span class="text-[8px] font-mono-tech text-outline uppercase group-hover:text-[#adc6ff]">Auth</span>
+</div>
+<div class="mt-auto mb-16 flex flex-col items-center gap-4">
+<div class="w-8 h-8 rounded-full border border-outline-variant/30 flex items-center justify-center hover:bg-surface-container transition-colors cursor-pointer">
+<span class="material-symbols-outlined text-on-surface-variant text-sm">history</span>
+</div>
+</div>
+</nav>
+</body></html>

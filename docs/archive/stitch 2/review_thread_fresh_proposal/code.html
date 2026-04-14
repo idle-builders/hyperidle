@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&amp;family=Space+Grotesk:wght@300..700&amp;family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          "colors": {
+                  "on-surface": "#e7e5e4",
+                  "on-primary-container": "#bcd0ff",
+                  "surface-container-low": "#131313",
+                  "surface-container-highest": "#252626",
+                  "on-tertiary-fixed-variant": "#00691a",
+                  "on-tertiary-fixed": "#00480f",
+                  "surface-container-lowest": "#000000",
+                  "on-surface-variant": "#acabaa",
+                  "error": "#ee7d77",
+                  "tertiary-fixed-dim": "#83e881",
+                  "outline": "#767575",
+                  "on-background": "#e7e5e4",
+                  "surface-tint": "#adc6ff",
+                  "surface-dim": "#0e0e0e",
+                  "surface-container": "#191a1a",
+                  "surface-bright": "#2c2c2c",
+                  "surface-variant": "#252626",
+                  "on-error": "#490106",
+                  "tertiary-fixed": "#91f78e",
+                  "inverse-surface": "#fcf9f8",
+                  "surface": "#0e0e0e",
+                  "on-secondary": "#301c00",
+                  "on-primary-fixed": "#003d85",
+                  "secondary-fixed": "#ffddb6",
+                  "background": "#0e0e0e",
+                  "inverse-on-surface": "#565555",
+                  "tertiary-container": "#91f78e",
+                  "secondary": "#d58f24",
+                  "secondary-fixed-dim": "#ffcb8b",
+                  "primary-container": "#004493",
+                  "secondary-dim": "#d58f24",
+                  "on-error-container": "#ff9993",
+                  "secondary-container": "#553400",
+                  "on-secondary-container": "#fcb044",
+                  "primary-fixed-dim": "#c2d4ff",
+                  "on-primary-fixed-variant": "#0058bb",
+                  "tertiary": "#bbffb3",
+                  "on-tertiary-container": "#005e17",
+                  "on-secondary-fixed": "#5a3800",
+                  "inverse-primary": "#005bc2",
+                  "on-primary": "#003d87",
+                  "on-tertiary": "#00671a",
+                  "surface-container-high": "#1f2020",
+                  "on-secondary-fixed-variant": "#805100",
+                  "primary-fixed": "#d8e2ff",
+                  "primary": "#adc6ff",
+                  "tertiary-dim": "#83e881",
+                  "primary-dim": "#97b9ff",
+                  "error-container": "#7f2927",
+                  "error-dim": "#bb5551",
+                  "outline-variant": "#484848"
+          },
+          "borderRadius": {
+                  "DEFAULT": "0.125rem",
+                  "lg": "0.25rem",
+                  "xl": "0.5rem",
+                  "full": "0.75rem"
+          },
+          "fontFamily": {
+                  "headline": ["Inter"],
+                  "body": ["Inter"],
+                  "label": ["Space Grotesk"]
+          }
+        },
+      },
+    }
+  </script>
+<style>
+    .material-symbols-outlined {
+      font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+      font-size: 20px;
+    }
+    .scrollbar-hide::-webkit-scrollbar { display: none; }
+    .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+    .line-addition { background-color: rgba(187, 255, 179, 0.08); }
+    .line-deletion { background-color: rgba(238, 125, 119, 0.08); }
+  </style>
+</head>
+<body class="bg-surface text-on-surface font-body selection:bg-primary/30 antialiased overflow-hidden">
+<!-- TopAppBar -->
+<header class="flex justify-between items-center w-full px-6 h-14 bg-[#0e0e0e] border-b border-[#252626] fixed top-0 z-50">
+<div class="flex items-center gap-8">
+<span class="text-lg font-bold tracking-tighter text-[#adc6ff] font-headline">OpsTerminal</span>
+<nav class="hidden md:flex gap-6">
+<a class="text-zinc-500 font-label text-xs tracking-wider uppercase hover:text-zinc-300 transition-colors" href="#">Queue</a>
+<a class="text-[#adc6ff] border-b-2 border-[#adc6ff] pb-1 font-label text-xs tracking-wider uppercase" href="#">Active</a>
+<a class="text-zinc-500 font-label text-xs tracking-wider uppercase hover:text-zinc-300 transition-colors" href="#">Archive</a>
+<a class="text-zinc-500 font-label text-xs tracking-wider uppercase hover:text-zinc-300 transition-colors" href="#">Insights</a>
+</nav>
+</div>
+<div class="flex items-center gap-4">
+<div class="flex items-center gap-2 px-3 py-1 bg-surface-container rounded-sm border border-outline-variant/10">
+<span class="material-symbols-outlined text-zinc-500 text-sm">search</span>
+<input class="bg-transparent border-none focus:ring-0 text-sm w-48 text-on-surface-variant font-label" placeholder="Search operations..." type="text"/>
+</div>
+<span class="material-symbols-outlined text-zinc-500 cursor-pointer hover:text-primary transition-colors">notifications</span>
+<span class="material-symbols-outlined text-zinc-500 cursor-pointer hover:text-primary transition-colors">settings</span>
+<div class="h-8 w-8 rounded-sm bg-primary/20 flex items-center justify-center border border-primary/30">
+<span class="text-[10px] font-bold text-primary">JD</span>
+</div>
+</div>
+</header>
+<!-- SideNavBar -->
+<aside class="fixed left-0 top-14 h-[calc(100vh-3.5rem)] w-20 flex flex-col items-center py-4 bg-[#131313] z-40">
+<div class="flex flex-col items-center gap-6 w-full">
+<button class="p-3 text-zinc-600 hover:text-zinc-300 transition-all duration-150">
+<span class="material-symbols-outlined">dashboard</span>
+</button>
+<button class="p-3 text-[#adc6ff] bg-[#191a1a] rounded-sm transition-all duration-150 border-r-2 border-primary">
+<span class="material-symbols-outlined">rule</span>
+</button>
+<button class="p-3 text-zinc-600 hover:text-zinc-300 transition-all duration-150">
+<span class="material-symbols-outlined">security</span>
+</button>
+<button class="p-3 text-zinc-600 hover:text-zinc-300 transition-all duration-150">
+<span class="material-symbols-outlined">inventory_2</span>
+</button>
+<button class="p-3 text-zinc-600 hover:text-zinc-300 transition-all duration-150">
+<span class="material-symbols-outlined">terminal</span>
+</button>
+</div>
+<div class="mt-auto flex flex-col items-center gap-6 w-full mb-4">
+<button class="p-3 text-zinc-600 hover:text-zinc-300 transition-all duration-150">
+<span class="material-symbols-outlined">help_outline</span>
+</button>
+<div class="h-8 w-8 rounded-full overflow-hidden border border-outline-variant/30">
+<img class="h-full w-full object-cover" data-alt="close-up portrait of a digital agent avatar with a neutral expression and sleek tech-inspired aesthetic" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCTBqvHJ5w1NlKii1G8i3Y1ZNiMyUvN6i4DHUQTqIWZW_29WdlpPqP0upfhtNVmjEeKA8mURQNOIy32BQtnkfeBNPzKTCmcCChThEjFwF28WlGn_Q5sQIEzq-HOWC_otZiiZVpbWvqVtBLLX7oUX9B8Z9R8VTR-S4lJZ4f8JCf7AMCtasQP0OqYSvFdUQbUMAYwPH1BcZMhhMIfM9835CJR033DLxOzFhtmAbMy_mUuEeweu0lVNy44QPtNxg2Z9e1zXflX4NdzZXkQ"/>
+</div>
+</div>
+</aside>
+<!-- Main Content Canvas -->
+<main class="ml-20 mt-14 h-[calc(100vh-3.5rem)] overflow-y-auto scrollbar-hide bg-surface p-8 pb-24">
+<div class="max-w-6xl mx-auto space-y-6">
+<!-- Review Header Section -->
+<section class="space-y-4">
+<div class="flex justify-between items-start">
+<div class="space-y-1">
+<div class="flex items-center gap-2 font-label text-xs text-on-surface-variant">
+<span class="text-primary font-bold">Backend</span>
+<span class="opacity-30">•</span>
+<span>Nimmly</span>
+</div>
+<h1 class="text-2xl font-bold tracking-tight font-headline">Deploy pricing-engine v1.4.2 to staging</h1>
+<div class="flex items-center gap-3 mt-2">
+<div class="bg-primary/10 text-primary px-2 py-0.5 rounded-sm font-label text-[10px] font-bold tracking-widest uppercase border border-primary/20">REVIEW</div>
+<div class="bg-secondary/10 text-secondary px-2 py-0.5 rounded-sm font-label text-[10px] font-bold tracking-widest uppercase border border-secondary/20 flex items-center gap-1">
+<span class="w-1.5 h-1.5 bg-secondary rounded-full"></span>
+                BLOCKED
+              </div>
+<span class="text-zinc-500 font-label text-[11px] uppercase tracking-wider">45m ago</span>
+<div class="flex items-center gap-1.5 px-2 py-0.5 bg-tertiary/5 border border-tertiary/20 rounded-full">
+<span class="w-1.5 h-1.5 bg-tertiary rounded-full shadow-[0_0_8px_rgba(187,255,179,0.6)]"></span>
+<span class="font-label text-[11px] text-tertiary font-medium">High confidence</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Reasoning Card -->
+<div class="bg-surface-container border border-outline-variant/10 p-5 rounded-sm">
+<div class="flex items-start gap-4">
+<div class="mt-1">
+<span class="material-symbols-outlined text-primary-dim">info</span>
+</div>
+<div class="space-y-2">
+<span class="font-label text-[10px] text-zinc-500 uppercase tracking-widest font-bold">Reasoning</span>
+<p class="text-sm leading-relaxed text-on-surface-variant max-w-3xl">
+                The pricing engine currently rounds to the nearest cent, but contracts specify 4 decimal places. This causes compounding discrepancies. I've fixed the margin calculation and added regression tests. All 47 tests pass. No customer-facing changes until production deploy.
+              </p>
+</div>
+</div>
+</div>
+</section>
+<!-- Artifact Section (Diff) -->
+<section class="space-y-3">
+<div class="flex justify-between items-center px-1">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-zinc-500 text-sm">description</span>
+<span class="font-label text-xs font-medium tracking-tight text-on-surface">pricing-engine/src/calculate.ts</span>
+<div class="flex items-center gap-1 font-label text-[10px]">
+<span class="text-tertiary-dim">+12</span>
+<span class="text-error-dim">-4</span>
+</div>
+</div>
+<button class="text-xs font-label text-primary hover:underline transition-all">View Full File</button>
+</div>
+<!-- Code Diff Container -->
+<div class="bg-surface-container-lowest border border-outline-variant/20 rounded-sm overflow-hidden font-mono text-xs">
+<div class="grid grid-cols-[3rem_1fr_3rem_1fr] divide-x divide-outline-variant/10">
+<!-- Header for side-by-side -->
+<div class="col-span-2 bg-surface-container-high py-2 px-4 text-zinc-500 font-label text-[10px] uppercase tracking-wider">Original</div>
+<div class="col-span-2 bg-surface-container-high py-2 px-4 text-zinc-500 font-label text-[10px] uppercase tracking-wider border-l border-outline-variant/20">Modified</div>
+<!-- Diff Content Row 1 (Context) -->
+<div class="bg-surface-container py-1 px-3 text-right text-zinc-600 select-none">41</div>
+<div class="py-1 px-4 text-zinc-400">export const calculateMargin = (price: number) =&gt; {</div>
+<div class="bg-surface-container py-1 px-3 text-right text-zinc-600 select-none">41</div>
+<div class="py-1 px-4 text-zinc-400">export const calculateMargin = (price: number) =&gt; {</div>
+<!-- Diff Content Row 2 (Change) -->
+<div class="bg-error/10 py-1 px-3 text-right text-error-dim/80 select-none">42</div>
+<div class="line-deletion py-1 px-4 text-on-surface/90"><span class="text-error-dim/40">-</span>   return Math.round(price * 100) / 100;</div>
+<div class="bg-tertiary/10 py-1 px-3 text-right text-tertiary-dim/80 select-none">42</div>
+<div class="line-addition py-1 px-4 text-on-surface/90"><span class="text-tertiary-dim/40">+</span>   const base = Math.floor(price * 10000) / 10000;</div>
+<!-- Diff Content Row 3 (New Lines) -->
+<div class="bg-surface-container py-1 px-3 text-right text-zinc-600 select-none"></div>
+<div class="bg-surface-container/30 py-1 px-4"></div>
+<div class="bg-tertiary/10 py-1 px-3 text-right text-tertiary-dim/80 select-none">43</div>
+<div class="line-addition py-1 px-4 text-on-surface/90"><span class="text-tertiary-dim/40">+</span>   return applyMarginBuffer(base, 4);</div>
+<!-- Diff Content Row 4 (Context) -->
+<div class="bg-surface-container py-1 px-3 text-right text-zinc-600 select-none">43</div>
+<div class="py-1 px-4 text-zinc-400">}</div>
+<div class="bg-surface-container py-1 px-3 text-right text-zinc-600 select-none">44</div>
+<div class="py-1 px-4 text-zinc-400">}</div>
+</div>
+</div>
+<!-- Test Results Bar -->
+<div class="bg-surface-container-low flex items-center gap-6 px-4 py-2 border-l-2 border-tertiary-dim/40">
+<div class="flex items-center gap-2">
+<span class="text-tertiary material-symbols-outlined text-[16px]" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+<span class="font-label text-[11px] text-on-surface-variant font-medium">47 tests passed</span>
+</div>
+<div class="flex items-center gap-2">
+<span class="text-tertiary material-symbols-outlined text-[16px]" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+<span class="font-label text-[11px] text-on-surface-variant font-medium">Lint clean</span>
+</div>
+<div class="flex items-center gap-2">
+<span class="text-tertiary material-symbols-outlined text-[16px]" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+<span class="font-label text-[11px] text-on-surface-variant font-medium">No security issues</span>
+</div>
+</div>
+</section>
+<!-- Empty State / Conversation Area -->
+<section class="pt-8 pb-12 flex flex-col items-center justify-center text-center space-y-3 opacity-40">
+<div class="w-12 h-12 rounded-full border border-outline-variant/30 flex items-center justify-center">
+<span class="material-symbols-outlined text-zinc-500">forum</span>
+</div>
+<div>
+<h3 class="font-headline font-semibold text-sm">No comments yet</h3>
+<p class="text-xs font-label">Start the conversation by highlighting code or using the box below.</p>
+</div>
+</section>
+</div>
+</main>
+<!-- Sticky BottomNavBar (Action Bar) -->
+<footer class="fixed bottom-0 left-0 w-full px-8 h-16 flex justify-between items-center bg-[#191a1a] bg-opacity-95 backdrop-blur-md border-t border-[#252626] z-50">
+<div class="flex items-center gap-4 flex-1 max-w-xl">
+<div class="relative w-full">
+<input class="w-full bg-surface-container-lowest border border-outline-variant/30 rounded-sm py-2 pl-4 pr-12 text-sm focus:border-primary/50 focus:ring-0 font-body placeholder:text-zinc-600" placeholder="Add a comment..." type="text"/>
+<div class="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-2">
+<span class="material-symbols-outlined text-zinc-600 text-sm cursor-pointer hover:text-zinc-300">alternate_email</span>
+<span class="material-symbols-outlined text-zinc-600 text-sm cursor-pointer hover:text-zinc-300">sentiment_satisfied</span>
+</div>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<button class="group flex flex-col items-center gap-1 transition-all">
+<div class="flex items-center gap-2 text-zinc-400 hover:bg-[#252626] px-3 py-1 rounded-sm transition-colors text-xs font-label">
+<span class="material-symbols-outlined text-sm">schedule</span>
+          Snooze
+        </div>
+<span class="text-[9px] text-zinc-600 font-label tracking-tighter opacity-0 group-hover:opacity-100">S</span>
+</button>
+<button class="group flex flex-col items-center gap-1 transition-all">
+<div class="flex items-center gap-2 text-error/80 hover:bg-error/10 px-3 py-1 rounded-sm transition-colors text-xs font-label">
+<span class="material-symbols-outlined text-sm">cancel</span>
+          Reject
+        </div>
+<span class="text-[9px] text-zinc-600 font-label tracking-tighter opacity-0 group-hover:opacity-100">X</span>
+</button>
+<button class="group flex flex-col items-center gap-1 transition-all">
+<div class="flex items-center gap-2 text-secondary/80 hover:bg-secondary/10 px-3 py-1 rounded-sm transition-colors text-xs font-label border border-secondary/20">
+<span class="material-symbols-outlined text-sm">edit_note</span>
+          Request Changes
+        </div>
+<span class="text-[9px] text-zinc-600 font-label tracking-tighter opacity-0 group-hover:opacity-100">R</span>
+</button>
+<button class="group flex flex-col items-center gap-1 transition-all">
+<div class="flex items-center gap-2 bg-[#adc6ff] text-[#0e0e0e] hover:bg-white px-4 py-1 rounded-sm font-bold shadow-[0_0_15px_rgba(173,198,255,0.3)] transition-all text-xs font-label">
+<span class="material-symbols-outlined text-sm" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+          Approve
+        </div>
+<span class="text-[9px] text-zinc-600 font-label tracking-tighter opacity-0 group-hover:opacity-100">A</span>
+</button>
+</div>
+</footer>
+</body></html>
