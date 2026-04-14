@@ -2,7 +2,7 @@
 
 HyperIdle is an agentic operating system that manages product teams of AI agents. Two founders (CEO + CPO) run a "Product Factory" — a portfolio of digital products where AI agents do the implementation work.
 
-**Status:** Pre-implementation. Architecture docs are complete. Code is being built story-by-story from `WORK_PACKAGES.md`.
+**Status:** Pre-implementation. Architecture docs are complete. Code is being built story-by-story from `docs/WORK_PACKAGES.md`.
 
 **Builder philosophy:** Read `ETHOS.md` — three principles (Boil the Lake, Search Before Building, User Sovereignty) that guide all agent behavior.
 
@@ -10,15 +10,15 @@ HyperIdle is an agentic operating system that manages product teams of AI agents
 
 ## Architecture
 
-Three-layer system with strict downward dependency: Human Interface → Meta Layer → Agent Runtime. No layer reaches past its neighbor. Read `ARCHITECTURE.md` before writing code.
+Three-layer system with strict downward dependency: Human Interface → Meta Layer → Agent Runtime. No layer reaches past its neighbor. Read `docs/ARCHITECTURE.md` before writing code.
 
-**Source of truth:** ARCHITECTURE.md, WORK_PACKAGES.md, PROCESS_LAYER.md, KNOWLEDGE_ARCHITECTURE.md, HUMAN_INTERFACE_LAYER.md, UI_DESIGN.md, REQUIREMENTS.md, INFORMATION_ARCHITECTURE.md.
+**Source of truth (all in `docs/`):** ARCHITECTURE.md, WORK_PACKAGES.md, PROCESS_LAYER.md, KNOWLEDGE_ARCHITECTURE.md, HUMAN_INTERFACE_LAYER.md, UI_DESIGN.md, REQUIREMENTS.md, INFORMATION_ARCHITECTURE.md.
 
 ---
 
 ## Tech Stack
 
-Bun, TypeScript strict, Hono, Drizzle ORM (SQLite + PostgreSQL), React + Vite, Tailwind CSS + DaisyUI (factory-dark theme), Vitest, Biome, BullMQ.
+Bun, TypeScript strict, Hono, Drizzle ORM (SQLite + PostgreSQL), React + Vite, Tailwind CSS + DaisyUI (factory-dark theme), Vitest, Playwright, Biome, BullMQ.
 
 ---
 
@@ -38,7 +38,7 @@ Bun, TypeScript strict, Hono, Drizzle ORM (SQLite + PostgreSQL), React + Vite, T
 
 **No code is written until the definition of done and validation setup exist.** This is non-negotiable. For every work package or task:
 
-1. Extract the acceptance criteria from `WORK_PACKAGES.md`.
+1. Extract the acceptance criteria from `docs/WORK_PACKAGES.md`.
 2. Define the verification method for each criterion (automated test, Playwright E2E, eval, screenshot, inspection).
 3. Write the failing tests that prove the criteria (red phase).
 4. Only then begin implementation.
@@ -53,8 +53,13 @@ Before any work is complete: `bun run check` (zero type errors) + `bun run lint`
 
 ## Workflow
 
+**Multi-story development:**
+- **`bin/pipeline [target]`** — External heartbeat script that invokes `/pipeline` with fresh Claude sessions. Restarts every hour or on crash. Progress persists in `.claude/pipeline-progress.json`. Usage: `bin/pipeline all`, `bin/pipeline A`, `bin/pipeline "A1 A2 A3"`.
+- **`/pipeline <stories or track>`** — Meta-orchestrator (single session): spawns fresh agent per story, creates branches/PRs, self-merges, tracks progress.
+
+**Single-story development:**
 1. **`/implement <story>`** — TDD: understand → design (architect + adversary) → test → implement → validate → check DoD → self-review
-2. **`/check-definition-of-done <story>`** — Independently verify every acceptance criterion with evidence (tests, screenshots, evals)
+2. **`/check-definition-of-done <story>`** — Independently verify every acceptance criterion with evidence
 3. **`/simplify`** — Remove over-abstraction, dead code
 4. **`/slop-scan`** — Catch AI-specific anti-patterns
 5. **`/review`** — Multi-agent review with auto-iterate on NEEDS WORK

@@ -18,7 +18,7 @@ This review acts lika a staff-level engineering review at a company where qualit
 
 1. Identify all changed files via `git diff --name-only` or the provided paths.
 2. Read every changed file completely.
-3. Read the relevant work package in `WORK_PACKAGES.md` for the intended goal.
+3. Read the relevant work package in `docs/WORK_PACKAGES.md` for the intended goal.
 4. Read relevant architecture documents for expected patterns.
 
 ---

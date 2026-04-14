@@ -14,7 +14,7 @@ Independently verify that every acceptance criterion for **$ARGUMENTS** is met. 
 
 ## Step 1 — Extract Criteria
 
-Read the work package story in `WORK_PACKAGES.md` matching `$ARGUMENTS`. Extract every acceptance criterion as a numbered checklist. Read the relevant architecture documents to understand the expected behavior.
+Read the work package story in `docs/WORK_PACKAGES.md` matching `$ARGUMENTS`. Extract every acceptance criterion as a numbered checklist. Read the relevant architecture documents to understand the expected behavior.
 
 ---
 

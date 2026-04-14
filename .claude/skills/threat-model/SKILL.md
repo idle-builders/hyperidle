@@ -12,7 +12,7 @@ Generate a security threat model for: **$ARGUMENTS**
 
 ## Step 1 — Scope
 
-Determine what to model: a feature/story (read work package + architecture), "full" system (read `ARCHITECTURE.md`), or a specific component (focus on that component's trust boundaries).
+Determine what to model: a feature/story (read work package + architecture), "full" system (read `docs/ARCHITECTURE.md`), or a specific component (focus on that component's trust boundaries).
 
 ## Step 2 — Identify Assets
 
