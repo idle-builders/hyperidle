@@ -25,11 +25,11 @@ HyperIdle follows these design principles — internalize them:
 ## Source of Truth
 
 Before designing anything, read:
-- `HUMAN_INTERFACE_LAYER.md` — Desktop/mobile layouts, three views (Conversations, Work, Knowledge), Rail behavior
-- `UI_DESIGN.md` — Component budget, theme tokens, building order, DaisyUI primitives
-- `INFORMATION_ARCHITECTURE.md` — Component-to-data mapping, user journeys
-- `REQUIREMENTS.md` — Usability requirements, accessibility standards
-- `PROCESS_LAYER.md` — Work primitives that the UI surfaces (Bets, Tasks, Sessions)
+- `docs/HUMAN_INTERFACE_LAYER.md` — Desktop/mobile layouts, three views (Conversations, Work, Knowledge), Rail behavior
+- `docs/UI_DESIGN.md` — Component budget, theme tokens, building order, DaisyUI primitives
+- `docs/INFORMATION_ARCHITECTURE.md` — Component-to-data mapping, user journeys
+- `docs/REQUIREMENTS.md` — Usability requirements, accessibility standards
+- `docs/PROCESS_LAYER.md` — Work primitives that the UI surfaces (Bets, Tasks, Sessions)
 - Design mockups in `stitch 2/` — Visual reference for implemented designs
 
 ## Component Budget

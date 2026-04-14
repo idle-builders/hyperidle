@@ -20,8 +20,8 @@ This workflow follows Test-Driven Development with architectural validation. You
 
 Build complete understanding of what needs to be built and why.
 
-1. Read the relevant work package story in `WORK_PACKAGES.md` matching `$ARGUMENTS`.
-2. Read `ARCHITECTURE.md` sections relevant to this story.
+1. Read the relevant work package story in `docs/WORK_PACKAGES.md` matching `$ARGUMENTS`.
+2. Read `docs/ARCHITECTURE.md` sections relevant to this story.
 3. Read any other referenced architecture documents.
 4. Read existing code in the packages this story touches. Understand current patterns.
 5. List the **acceptance criteria** — these are your definition of done.

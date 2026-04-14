@@ -1,0 +1,214 @@
+#!/usr/bin/env bash
+#
+# Heartbeat wrapper for /pipeline.
+# Invokes Claude Code with the pipeline skill in a loop.
+# Each session self-exits after ~45 minutes or on context degradation.
+# This script restarts it with fresh context.
+# Progress persists in .claude/pipeline-progress.json.
+#
+# The script polls .claude/pipeline-heartbeat to know when it's
+# safe to kill Claude. It only kills between stories (when "idle"),
+# never mid-work (when "busy").
+#
+# Usage:
+#   bin/pipeline              # defaults to "all"
+#   bin/pipeline "A1 A2 A3"   # specific stories
+#   bin/pipeline "A"           # specific track
+
+set -euo pipefail
+
+TARGET="${1:-all}"
+PROGRESS_FILE=".claude/pipeline-progress.json"
+HEARTBEAT_FILE=".claude/pipeline-heartbeat"
+SOFT_TIMEOUT=2700         # 45 min — start checking heartbeat for safe kill
+HARD_TIMEOUT=7200         # 2 hr — absolute safety net, kill regardless
+COOLDOWN_SECONDS=10       # pause between restarts
+
+# Colors
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+RED='\033[0;31m'
+CYAN='\033[0;36m'
+NC='\033[0m'
+
+log() { echo -e "${GREEN}[pipeline]${NC} $(date '+%H:%M:%S') $*"; }
+warn() { echo -e "${YELLOW}[pipeline]${NC} $(date '+%H:%M:%S') $*"; }
+err() { echo -e "${RED}[pipeline]${NC} $(date '+%H:%M:%S') $*"; }
+info() { echo -e "${CYAN}[pipeline]${NC} $(date '+%H:%M:%S') $*"; }
+
+is_idle() {
+  if [ ! -f "$HEARTBEAT_FILE" ]; then
+    return 0  # no heartbeat file = not started yet = safe
+  fi
+  local status
+  status=$(cat "$HEARTBEAT_FILE" 2>/dev/null || echo "unknown")
+  [[ "$status" == idle:* ]]
+}
+
+check_progress() {
+  if [ ! -f "$PROGRESS_FILE" ]; then
+    echo "no_progress"
+    return
+  fi
+
+  python3 -c "
+import json, sys
+try:
+    data = json.load(open('$PROGRESS_FILE'))
+    stories = data.get('stories', [])
+    if not stories:
+        print('no_stories')
+        sys.exit(0)
+    done = [s for s in stories if s.get('status') == 'done']
+    failed = [s for s in stories if s.get('status') == 'failed']
+    pending = [s for s in stories if s.get('status') in ('pending', 'in_progress')]
+    total = len(stories)
+    if failed:
+        ids = ', '.join(s['id'] for s in failed)
+        print(f'failed:{len(done)}/{total}:blocked_by:{ids}')
+    elif not pending:
+        print(f'done:{len(done)}/{total}')
+    else:
+        print(f'pending:{len(done)}/{total}')
+except Exception as e:
+    print(f'error:{e}')
+" 2>/dev/null || echo "error"
+}
+
+should_stop() {
+  local status
+  status=$(check_progress)
+
+  case "$status" in
+    done:*)
+      log "All stories complete! (${status#done:})"
+      return 0
+      ;;
+    failed:*)
+      local counts="${status#failed:}"
+      local progress="${counts%%:*}"
+      local blocker="${status##*blocked_by:}"
+      err "Pipeline blocked: story $blocker failed after max retries. ($progress completed)"
+      return 0
+      ;;
+    *)
+      return 1
+      ;;
+  esac
+}
+
+show_progress() {
+  local status
+  status=$(check_progress)
+
+  case "$status" in
+    pending:*|done:*|failed:*)
+      local progress="${status#*:}"
+      progress="${progress%%:*}"
+      info "Progress: $progress stories complete"
+      ;;
+    no_progress|no_stories)
+      info "No progress yet (first run)"
+      ;;
+  esac
+}
+
+run_session() {
+  local session_num=$1
+  log "Starting session #$session_num"
+  info "  Target: $TARGET"
+  info "  Skill self-exits at ~45min. Safe-kill polling starts at ${SOFT_TIMEOUT}s."
+  echo ""
+
+  # Clear heartbeat for fresh start
+  echo "idle:$(date -u +%Y-%m-%dT%H:%M:%SZ)" > "$HEARTBEAT_FILE"
+
+  # Launch claude in background so we can monitor
+  claude -p "/pipeline $TARGET" 2>&1 &
+  local claude_pid=$!
+  local start_time=$SECONDS
+
+  # Monitor loop
+  while kill -0 "$claude_pid" 2>/dev/null; do
+    local elapsed=$(( SECONDS - start_time ))
+
+    # Hard timeout — kill regardless (something is very wrong)
+    if [ $elapsed -ge $HARD_TIMEOUT ]; then
+      err "Hard timeout (${HARD_TIMEOUT}s). Killing session."
+      kill "$claude_pid" 2>/dev/null || true
+      wait "$claude_pid" 2>/dev/null || true
+      return
+    fi
+
+    # Soft timeout — kill only when idle (between stories)
+    if [ $elapsed -ge $SOFT_TIMEOUT ]; then
+      if is_idle; then
+        warn "Soft timeout (${SOFT_TIMEOUT}s) + idle. Ending session for fresh context."
+        kill "$claude_pid" 2>/dev/null || true
+        wait "$claude_pid" 2>/dev/null || true
+        return
+      fi
+      # Busy — log and keep waiting
+      if (( elapsed % 60 < 5 )); then  # log roughly every minute
+        local busy_story
+        busy_story=$(cat "$HEARTBEAT_FILE" 2>/dev/null || echo "unknown")
+        info "Past soft timeout but agent is $busy_story — waiting for idle..."
+      fi
+    fi
+
+    sleep 5
+  done
+
+  # Claude exited on its own
+  wait "$claude_pid" 2>/dev/null || true
+  log "Session ended on its own."
+}
+
+# Main
+log "═══════════════════════════════════════"
+log "  HyperIdle Development Pipeline"
+log "═══════════════════════════════════════"
+log "Target: $TARGET"
+log "Progress: $PROGRESS_FILE"
+log "Heartbeat: $HEARTBEAT_FILE"
+log "Soft timeout: ${SOFT_TIMEOUT}s (kills when idle)"
+log "Hard timeout: ${HARD_TIMEOUT}s (kills regardless)"
+log ""
+log "Each session gets fresh Claude context."
+log "Progress persists between sessions."
+log "Press Ctrl+C to stop between sessions."
+log "═══════════════════════════════════════"
+echo ""
+
+iteration=0
+while true; do
+  iteration=$((iteration + 1))
+
+  # Check if done before starting a session
+  if should_stop; then
+    break
+  fi
+
+  show_progress
+
+  # Run session
+  run_session "$iteration"
+
+  # Check if done after session
+  if should_stop; then
+    break
+  fi
+
+  # Cooldown
+  log "Restarting in ${COOLDOWN_SECONDS}s (Ctrl+C to stop)..."
+  sleep "$COOLDOWN_SECONDS"
+done
+
+echo ""
+log "═══════════════════════════════════════"
+log "  Pipeline finished after $iteration session(s)"
+show_progress
+log "═══════════════════════════════════════"
+
+# Cleanup heartbeat
+rm -f "$HEARTBEAT_FILE"

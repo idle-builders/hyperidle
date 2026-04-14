@@ -26,14 +26,14 @@ Tech stack: TypeScript on Bun, Hono, Drizzle ORM (SQLite + PostgreSQL), BullMQ, 
 ## Source of Truth
 
 Before designing anything, read the relevant architecture documents:
-- `ARCHITECTURE.md` — System layering, component boundaries, data flow
-- `WORK_PACKAGES.md` — Implementation stories with acceptance criteria
-- `PROCESS_LAYER.md` — Work primitives (Bets, Tasks, Sessions, Teams, Routines)
-- `KNOWLEDGE_ARCHITECTURE.md` — Five knowledge layers (L0-L4)
-- `HUMAN_INTERFACE_LAYER.md` — UI structure, views, interaction grammar
-- `INFORMATION_ARCHITECTURE.md` — Component-to-data mapping
-- `UI_DESIGN.md` — Component budget (19 custom components only)
-- `REQUIREMENTS.md` — Functional and non-functional requirements
+- `docs/ARCHITECTURE.md` — System layering, component boundaries, data flow
+- `docs/WORK_PACKAGES.md` — Implementation stories with acceptance criteria
+- `docs/PROCESS_LAYER.md` — Work primitives (Bets, Tasks, Sessions, Teams, Routines)
+- `docs/KNOWLEDGE_ARCHITECTURE.md` — Five knowledge layers (L0-L4)
+- `docs/HUMAN_INTERFACE_LAYER.md` — UI structure, views, interaction grammar
+- `docs/INFORMATION_ARCHITECTURE.md` — Component-to-data mapping
+- `docs/UI_DESIGN.md` — Component budget (19 custom components only)
+- `docs/REQUIREMENTS.md` — Functional and non-functional requirements
 
 These documents are authoritative. Your designs must be consistent with them. If you find a conflict, flag it explicitly.
 
