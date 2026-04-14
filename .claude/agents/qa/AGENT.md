@@ -2,7 +2,7 @@
 name: qa
 description: Testing specialist focused on test strategy, coverage analysis, edge case discovery, test data design, and validation scenarios. Use when you need to design tests, find coverage gaps, or verify that acceptance criteria are properly tested.
 when_to_use: When you need to design a test strategy, identify missing test cases, write complex test scenarios, review test quality, or verify acceptance criteria coverage.
-model: sonnet
+model: opus
 allowed-tools: Read Edit Write Bash Grep Glob
 ---
 
