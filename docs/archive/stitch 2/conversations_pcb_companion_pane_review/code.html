@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>HyperIdle Protocol | Conversations</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&amp;family=Space+Grotesk:wght@300;400;500;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "secondary-container": "#553400",
+                        "secondary-dim": "#d58f24",
+                        "on-primary-fixed": "#003d85",
+                        "surface-tint": "#adc6ff",
+                        "primary": "#adc6ff",
+                        "primary-fixed-dim": "#c2d4ff",
+                        "on-error-container": "#ff9993",
+                        "surface-container-lowest": "#000000",
+                        "primary-container": "#004493",
+                        "on-secondary": "#301c00",
+                        "on-tertiary": "#00671a",
+                        "surface-container-low": "#131313",
+                        "tertiary-fixed": "#91f78e",
+                        "inverse-primary": "#005bc2",
+                        "on-surface-variant": "#acabaa",
+                        "on-primary-fixed-variant": "#0058bb",
+                        "tertiary-dim": "#83e881",
+                        "secondary-fixed": "#ffddb6",
+                        "inverse-on-surface": "#565555",
+                        "on-primary": "#003d87",
+                        "tertiary": "#bbffb3",
+                        "on-tertiary-fixed-variant": "#00691a",
+                        "surface-container-high": "#1f2020",
+                        "outline-variant": "#484848",
+                        "outline": "#767575",
+                        "surface-container-highest": "#252626",
+                        "tertiary-container": "#91f78e",
+                        "error": "#ee7d77",
+                        "tertiary-fixed-dim": "#83e881",
+                        "on-secondary-container": "#fcb044",
+                        "secondary-fixed-dim": "#ffcb8b",
+                        "on-secondary-fixed-variant": "#805100",
+                        "on-tertiary-fixed": "#00480f",
+                        "on-primary-container": "#bcd0ff",
+                        "surface-dim": "#0e0e0e",
+                        "on-tertiary-container": "#005e17",
+                        "on-surface": "#e7e5e4",
+                        "background": "#0e0e0e",
+                        "surface-container": "#191a1a",
+                        "secondary": "#d58f24",
+                        "surface": "#0e0e0e",
+                        "primary-fixed": "#d8e2ff",
+                        "on-background": "#e7e5e4",
+                        "error-container": "#7f2927",
+                        "on-secondary-fixed": "#5a3800",
+                        "primary-dim": "#97b9ff",
+                        "surface-variant": "#252626",
+                        "surface-bright": "#2c2c2c",
+                        "on-error": "#490106",
+                        "error-dim": "#bb5551",
+                        "inverse-surface": "#fcf9f8"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "fontFamily": {
+                        "headline": ["Inter"],
+                        "body": ["Inter"],
+                        "label": ["Space Grotesk"]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            font-size: 18px;
+        }
+        body {
+            background-color: #0e0e0e;
+            color: #e7e5e4;
+            font-family: 'Inter', sans-serif;
+        }
+        .technical-mono { font-family: 'Space Grotesk', monospace; }
+        ::-webkit-scrollbar { width: 4px; }
+        ::-webkit-scrollbar-track { background: #0e0e0e; }
+        ::-webkit-scrollbar-thumb { background: #252626; border-radius: 2px; }
+        ::-webkit-scrollbar-thumb:hover { background: #484848; }
+    </style>
+</head>
+<body class="overflow-hidden">
+<!-- TopNavBar -->
+<header class="bg-neutral-950 text-blue-300 dark:text-blue-200 border-b border-neutral-800/50 flex justify-between items-center w-full px-4 h-12 fixed top-0 left-0 z-50">
+<div class="flex items-center gap-8">
+<span class="text-lg font-bold text-blue-300 dark:text-blue-200 tracking-tighter">HyperIdle Protocol</span>
+<nav class="hidden md:flex items-center gap-6">
+<a class="text-blue-300 border-b-2 border-blue-300 pb-1 Inter text-sm font-bold tracking-tight" href="#">Review Queue</a>
+<a class="text-neutral-500 hover:text-neutral-300 Inter text-sm font-bold tracking-tight transition-colors" href="#">Inventory</a>
+<a class="text-neutral-500 hover:text-neutral-300 Inter text-sm font-bold tracking-tight transition-colors" href="#">Network</a>
+<a class="text-neutral-500 hover:text-neutral-300 Inter text-sm font-bold tracking-tight transition-colors" href="#">Telemetry</a>
+</nav>
+</div>
+<div class="flex items-center gap-4">
+<div class="hidden lg:flex items-center bg-surface-container-low px-3 py-1 border border-outline-variant/20">
+<span class="material-symbols-outlined text-neutral-500 scale-75">search</span>
+<input class="bg-transparent border-none text-[11px] focus:ring-0 w-48 uppercase tracking-wider technical-mono text-neutral-400" placeholder="Search protocol..." type="text"/>
+</div>
+<button class="material-symbols-outlined text-neutral-500 hover:text-neutral-300 hover:bg-neutral-900 p-1 transition-colors">settings</button>
+<button class="material-symbols-outlined text-neutral-500 hover:text-neutral-300 hover:bg-neutral-900 p-1 transition-colors">help</button>
+<div class="h-6 w-6 rounded-full overflow-hidden border border-primary/30">
+<img alt="Agent Operator Avatar" class="w-full h-full object-cover" data-alt="Professional agent profile portrait in futuristic blue ambient lighting with data overlays" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBMAPaR5U-F6nIhJMcYVTBDKkLHMtgd-e9-gi1_eiSn2Cjkt1IU_kIkHm7MQzeC62hCuh0SNUaaiAZXRoqPipU7PPZ3xjw0x5uZ8lke_E5fdhZikl23miAJmZuWXRxUT3RTknlQfpApDtoIQh9HRlBFHz3GGAl1ER-7xv76PHKmq8PvvbQ_fX5F_2uu4Kz9f7UPuPLK6eZQmVTW4h0wRrc9OpzgWmSOeTXal2-Ba0afPKbqnriBgV0yHU688uRausutp2nBWSSmwoQP"/>
+</div>
+</div>
+</header>
+<!-- SideNavBar -->
+<aside class="bg-neutral-900 fixed left-0 top-12 bottom-0 flex flex-col items-center py-4 z-40 w-16">
+<div class="flex flex-col gap-6 w-full items-center">
+<div class="flex flex-col items-center gap-1 group cursor-pointer transition-transform active:scale-95">
+<div class="w-10 h-10 flex items-center justify-center rounded-sm text-neutral-600 hover:text-neutral-300">
+<span class="material-symbols-outlined">dashboard</span>
+</div>
+<span class="technical-mono text-[10px] text-neutral-600 uppercase">Over</span>
+</div>
+<div class="flex flex-col items-center gap-1 group cursor-pointer bg-blue-900/20 text-blue-300 border-r-2 border-blue-300 w-full transition-transform active:scale-95 py-1">
+<div class="w-10 h-10 flex items-center justify-center">
+<span class="material-symbols-outlined">layers</span>
+</div>
+<span class="technical-mono text-[10px] uppercase">Layers</span>
+</div>
+<div class="flex flex-col items-center gap-1 group cursor-pointer transition-transform active:scale-95">
+<div class="w-10 h-10 flex items-center justify-center rounded-sm text-neutral-600 hover:text-neutral-300">
+<span class="material-symbols-outlined">adjust</span>
+</div>
+<span class="technical-mono text-[10px] text-neutral-600 uppercase">Drill</span>
+</div>
+<div class="flex flex-col items-center gap-1 group cursor-pointer transition-transform active:scale-95">
+<div class="w-10 h-10 flex items-center justify-center rounded-sm text-neutral-600 hover:text-neutral-300">
+<span class="material-symbols-outlined">list_alt</span>
+</div>
+<span class="technical-mono text-[10px] text-neutral-600 uppercase">Bom</span>
+</div>
+<div class="flex flex-col items-center gap-1 group cursor-pointer transition-transform active:scale-95">
+<div class="w-10 h-10 flex items-center justify-center rounded-sm text-neutral-600 hover:text-neutral-300">
+<span class="material-symbols-outlined">difference</span>
+</div>
+<span class="technical-mono text-[10px] text-neutral-600 uppercase">Diff</span>
+</div>
+</div>
+</aside>
+<!-- Main Workspace -->
+<main class="ml-16 mt-12 h-[calc(100vh-3rem)] flex overflow-hidden">
+<!-- Left Column: Conversation Thread -->
+<section class="w-[45%] flex flex-col border-r border-outline-variant/15 bg-surface relative">
+<!-- Header -->
+<div class="px-6 py-4 surface-container-low border-b border-outline-variant/10">
+<div class="flex justify-between items-start mb-2">
+<div class="flex items-center gap-2">
+<span class="technical-mono text-[10px] uppercase tracking-widest text-primary font-bold">Pulse Hardware Agent</span>
+<span class="text-neutral-600">•</span>
+<span class="technical-mono text-[10px] uppercase tracking-widest text-neutral-400">3 min ago</span>
+</div>
+<div class="flex gap-2">
+<span class="bg-primary/10 text-primary technical-mono text-[9px] px-1.5 py-0.5 rounded-sm border border-primary/20">REVIEW</span>
+<span class="bg-secondary/10 text-secondary technical-mono text-[9px] px-1.5 py-0.5 rounded-sm border border-secondary/20">BLOCKING</span>
+</div>
+</div>
+<h1 class="headline-sm font-bold tracking-tight text-on-surface">Approve PCB layout rev C</h1>
+</div>
+<!-- Thread Content -->
+<div class="flex-1 overflow-y-auto p-6 space-y-8">
+<!-- Agent Message -->
+<div class="space-y-4">
+<div class="flex items-center gap-3">
+<div class="w-6 h-6 bg-primary-container rounded-sm flex items-center justify-center">
+<span class="material-symbols-outlined text-primary text-xs" style="font-variation-settings: 'FILL' 1;">smart_toy</span>
+</div>
+<span class="text-sm font-bold tracking-tight text-on-surface">Pulse Agent</span>
+</div>
+<div class="bg-surface-container-low p-4 border-l-2 border-primary/50">
+<p class="body-md leading-relaxed text-on-surface-variant">
+                            Switched from <span class="technical-mono text-primary">TPA3255</span> to <span class="technical-mono text-primary">TPA3251</span> to resolve thermal shutdown at 4Ω loads. Redesigned gain stage for better linearity at lower rail voltages. 
+                        </p>
+<div class="mt-4 space-y-3">
+<div class="flex items-start gap-3">
+<span class="material-symbols-outlined text-tertiary scale-75 mt-0.5">check_circle</span>
+<div>
+<h4 class="text-xs font-bold uppercase technical-mono text-neutral-300">Thermal Optimization</h4>
+<p class="text-xs text-neutral-500 mt-1">Increased thermal pad surface area by 15% and relocated decoupling caps for improved airflow.</p>
+</div>
+</div>
+<div class="flex items-start gap-3">
+<span class="material-symbols-outlined text-secondary scale-75 mt-0.5">error</span>
+<div>
+<h4 class="text-xs font-bold uppercase technical-mono text-neutral-300">EMI Shielding</h4>
+<p class="text-xs text-neutral-500 mt-1">Ground planes adjusted to isolate switching nodes. Trace impedance matched to 50Ω +/- 5%.</p>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- User Context -->
+<div class="space-y-4 opacity-70 hover:opacity-100 transition-opacity">
+<div class="flex items-center gap-3">
+<div class="w-6 h-6 bg-neutral-800 rounded-sm flex items-center justify-center">
+<span class="material-symbols-outlined text-neutral-400 text-xs">person</span>
+</div>
+<span class="text-sm font-bold tracking-tight text-on-surface">System Operator</span>
+</div>
+<p class="body-md text-on-surface-variant">
+                        Confirming current power supply rails can sustain the 35W transients without sag. Checking BOM for TPA3251 lead times.
+                    </p>
+</div>
+</div>
+<!-- Sticky Bottom Verdict Bar -->
+<div class="p-4 bg-surface-container-highest border-t border-outline-variant/20 flex gap-2">
+<button class="flex-1 py-2 bg-primary-container text-on-primary-container font-bold text-xs uppercase tracking-wider transition-all active:scale-[0.98]">
+                    Approve
+                </button>
+<button class="flex-1 py-2 border border-outline-variant/30 text-on-surface font-bold text-xs uppercase tracking-wider transition-all hover:bg-neutral-800 active:scale-[0.98]">
+                    Request Changes
+                </button>
+<button class="px-3 py-2 border border-outline-variant/30 text-error font-bold text-xs uppercase tracking-wider transition-all hover:bg-error-container/10 active:scale-[0.98]">
+                    Reject
+                </button>
+<button class="px-3 py-2 border border-outline-variant/30 text-neutral-500 font-bold text-xs uppercase tracking-wider transition-all hover:bg-neutral-800 active:scale-[0.98]">
+<span class="material-symbols-outlined scale-75">schedule</span>
+</button>
+</div>
+</section>
+<!-- Right Column: Visual Comparison Artifact -->
+<section class="w-[55%] flex flex-col bg-surface-container-lowest">
+<!-- Artifact Header -->
+<div class="px-6 py-3 border-b border-outline-variant/10 flex justify-between items-center bg-surface-container">
+<div class="flex items-center gap-4">
+<span class="technical-mono text-xs font-bold text-primary">Rev B <span class="text-neutral-600">→</span> Rev C</span>
+<div class="h-4 w-px bg-outline-variant/30"></div>
+<div class="flex bg-surface-container-lowest p-0.5 rounded-sm">
+<button class="px-3 py-1 bg-surface-container-high text-[10px] uppercase font-bold technical-mono text-on-surface">Side by side</button>
+<button class="px-3 py-1 text-[10px] uppercase font-bold technical-mono text-neutral-500 hover:text-on-surface">Overlay</button>
+<button class="px-3 py-1 text-[10px] uppercase font-bold technical-mono text-neutral-500 hover:text-on-surface">Annotations</button>
+</div>
+</div>
+<div class="flex gap-2">
+<button class="material-symbols-outlined text-neutral-400 hover:text-primary transition-colors">fullscreen</button>
+<button class="material-symbols-outlined text-neutral-400 hover:text-primary transition-colors">share</button>
+</div>
+</div>
+<!-- Viewer -->
+<div class="flex-1 relative flex overflow-hidden">
+<!-- Side by Side Viewer -->
+<div class="grid grid-cols-2 w-full h-full p-6 gap-4">
+<div class="relative group bg-surface-container rounded-sm border border-outline-variant/10 overflow-hidden">
+<div class="absolute top-2 left-2 z-10 technical-mono text-[9px] bg-black/60 px-2 py-1 uppercase tracking-widest text-neutral-400">Previous: Rev B</div>
+<img class="w-full h-full object-cover opacity-60 grayscale-[0.5]" data-alt="Detailed macro photograph of a dark green circuit board with copper traces and silver solder points, focused on central IC" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCQf9OzdZsBElaOVYPbFvUZMwYD7v6gkkA164YzuuooBC96aMeYtiiBieQ4OVLW0kZw_bA7v7Rkvtc-wEIQZb0Ukl2g5CvofYiHMDrCbmDwHKmZ8DElb4JDJxPm4l9buWXVPNd-NXxbz_BmhO98NVspGelgNl0IiZ_jlJWH_5t-b_fqBTyLrgzQjU9nsNpXhVvslrRGfu0qBQ1hlwGuzGzlA_xTXpHUyZ7OePGfRpAGntHL9--uWno4ubi4iRDms2uYfBvMft-an6qk"/>
+</div>
+<div class="relative group bg-surface-container-high rounded-sm border border-primary/20 overflow-hidden">
+<div class="absolute top-2 left-2 z-10 technical-mono text-[9px] bg-primary/20 px-2 py-1 uppercase tracking-widest text-primary font-bold">Current: Rev C</div>
+<!-- Image with Overlay Annotations -->
+<div class="relative w-full h-full">
+<img class="w-full h-full object-cover" data-alt="Modern high-density black PCB layout with colorful gold plated components and complex routing shown in sharp detail" src="https://lh3.googleusercontent.com/aida-public/AB6AXuC-AD3l_YooTnatHMu3iPqWkV_rEVFiF6B5oFIkrXFzDfsM155x9e8tO17hUSp1Ggns0pSBRVcBXdNB0oVcvb1TXMbpv6QjL7uZlDYSV4NRWDWsW4Ta9y8uXM9645SdhjLUynTQ1zGh5ST1GeG1_Lvuc35Ud_MuSuNXu_zw7F975NvXvq99cyeA5VZP1f0eTo1nucMX0ikl3noGEW2JGVKYAYJ54soKN1aVCL528cnQ8hV9Tt4v2Vq28TlOt_WJ2O78D3Y9Na7sDd-9"/>
+<!-- Annotation Markers -->
+<div class="absolute top-[25%] left-[40%] w-6 h-6 rounded-full bg-primary/80 border-2 border-white flex items-center justify-center text-[10px] font-bold text-black cursor-pointer shadow-lg shadow-primary/20">1</div>
+<div class="absolute top-[60%] left-[30%] w-6 h-6 rounded-full bg-primary/80 border-2 border-white flex items-center justify-center text-[10px] font-bold text-black cursor-pointer shadow-lg shadow-primary/20">2</div>
+<div class="absolute top-[45%] left-[70%] w-6 h-6 rounded-full bg-primary/80 border-2 border-white flex items-center justify-center text-[10px] font-bold text-black cursor-pointer shadow-lg shadow-primary/20">3</div>
+<div class="absolute top-[80%] left-[60%] w-6 h-6 rounded-full bg-primary/80 border-2 border-white flex items-center justify-center text-[10px] font-bold text-black cursor-pointer shadow-lg shadow-primary/20">4</div>
+</div>
+<!-- Zoom Controls -->
+<div class="absolute bottom-4 right-4 flex flex-col gap-1 bg-surface-container-lowest/80 backdrop-blur-sm p-1 border border-outline-variant/30 rounded-sm">
+<button class="material-symbols-outlined p-1 hover:text-primary transition-colors">add</button>
+<div class="h-px w-full bg-outline-variant/20"></div>
+<span class="technical-mono text-[9px] text-center py-1">145%</span>
+<div class="h-px w-full bg-outline-variant/20"></div>
+<button class="material-symbols-outlined p-1 hover:text-primary transition-colors">remove</button>
+</div>
+</div>
+</div>
+</div>
+<!-- Legend & Meta -->
+<div class="px-6 py-4 bg-surface-container border-t border-outline-variant/10">
+<div class="grid grid-cols-2 gap-8">
+<div>
+<h4 class="technical-mono text-[10px] uppercase text-neutral-500 mb-3 tracking-widest">Change Legend</h4>
+<div class="space-y-2">
+<div class="flex items-center gap-3">
+<span class="w-4 h-4 rounded-full bg-primary/30 flex items-center justify-center text-[8px] font-bold">1</span>
+<span class="text-xs text-on-surface-variant"><span class="font-bold text-on-surface">IC-304:</span> Swapped for TPA3251 thermal package.</span>
+</div>
+<div class="flex items-center gap-3">
+<span class="w-4 h-4 rounded-full bg-primary/30 flex items-center justify-center text-[8px] font-bold">2</span>
+<span class="text-xs text-on-surface-variant"><span class="font-bold text-on-surface">PWR-NODE:</span> Expanded copper pour +2.4mm².</span>
+</div>
+</div>
+</div>
+<div>
+<h4 class="technical-mono text-[10px] uppercase text-neutral-500 mb-3 tracking-widest invisible">Change Legend Cont.</h4>
+<div class="space-y-2">
+<div class="flex items-center gap-3">
+<span class="w-4 h-4 rounded-full bg-primary/30 flex items-center justify-center text-[8px] font-bold">3</span>
+<span class="text-xs text-on-surface-variant"><span class="font-bold text-on-surface">L-702:</span> High-current inductor clearance check.</span>
+</div>
+<div class="flex items-center gap-3">
+<span class="w-4 h-4 rounded-full bg-primary/30 flex items-center justify-center text-[8px] font-bold">4</span>
+<span class="text-xs text-on-surface-variant"><span class="font-bold text-on-surface">FB-TRACES:</span> Feedback loops shortened by 8mm.</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Check Results Bar -->
+<div class="px-4 py-2 bg-neutral-950 border-t border-outline-variant/20 flex items-center gap-6 overflow-x-auto whitespace-nowrap">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-tertiary scale-75">verified</span>
+<span class="technical-mono text-[10px] uppercase tracking-wider text-neutral-300">DRC: 0 errors, 2 warnings</span>
+</div>
+<div class="h-3 w-px bg-outline-variant/40"></div>
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-tertiary scale-75">inventory_2</span>
+<span class="technical-mono text-[10px] uppercase tracking-wider text-neutral-300">BOM validated</span>
+</div>
+<div class="h-3 w-px bg-outline-variant/40"></div>
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-secondary scale-75">thermometer</span>
+<span class="technical-mono text-[10px] uppercase tracking-wider text-secondary">Thermal: caution at 4Ω &gt;35W</span>
+</div>
+<div class="ml-auto flex items-center gap-2 opacity-50">
+<span class="technical-mono text-[9px] uppercase">Sim-Time: 1.4s</span>
+</div>
+</div>
+</section>
+</main>
+</body></html>

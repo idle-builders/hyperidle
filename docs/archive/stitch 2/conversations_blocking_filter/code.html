@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>HyperIdle - Blocking Threads</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&amp;family=Space+Grotesk:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "secondary-container": "#553400",
+                    "on-secondary-container": "#fcb044",
+                    "primary-fixed-dim": "#c2d4ff",
+                    "on-primary-fixed-variant": "#0058bb",
+                    "primary-container": "#004493",
+                    "secondary-dim": "#d58f24",
+                    "on-error-container": "#ff9993",
+                    "on-tertiary": "#00671a",
+                    "surface-container-high": "#1f2020",
+                    "on-secondary-fixed-variant": "#805100",
+                    "primary-fixed": "#d8e2ff",
+                    "primary": "#adc6ff",
+                    "tertiary-dim": "#83e881",
+                    "primary-dim": "#97b9ff",
+                    "error-container": "#7f2927",
+                    "error-dim": "#bb5551",
+                    "outline-variant": "#484848",
+                    "tertiary": "#bbffb3",
+                    "on-tertiary-container": "#005e17",
+                    "on-secondary-fixed": "#5a3800",
+                    "inverse-primary": "#005bc2",
+                    "on-primary": "#003d87",
+                    "surface-container-lowest": "#000000",
+                    "on-surface-variant": "#acabaa",
+                    "error": "#ee7d77",
+                    "tertiary-fixed-dim": "#83e881",
+                    "outline": "#767575",
+                    "on-background": "#e7e5e4",
+                    "surface-tint": "#adc6ff",
+                    "surface-dim": "#0e0e0e",
+                    "on-surface": "#e7e5e4",
+                    "on-primary-container": "#bcd0ff",
+                    "surface-container-low": "#131313",
+                    "surface-container-highest": "#252626",
+                    "on-tertiary-fixed-variant": "#00691a",
+                    "on-tertiary-fixed": "#00480f",
+                    "on-secondary": "#301c00",
+                    "on-primary-fixed": "#003d85",
+                    "secondary-fixed": "#ffddb6",
+                    "background": "#0e0e0e",
+                    "inverse-on-surface": "#565555",
+                    "tertiary-container": "#91f78e",
+                    "secondary": "#d58f24",
+                    "secondary-fixed-dim": "#ffcb8b",
+                    "surface-container": "#191a1a",
+                    "surface-bright": "#2c2c2c",
+                    "surface-variant": "#252626",
+                    "on-error": "#490106",
+                    "tertiary-fixed": "#91f78e",
+                    "inverse-surface": "#fcf9f8",
+                    "surface": "#0e0e0e"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.125rem",
+                    "lg": "0.25rem",
+                    "xl": "0.5rem",
+                    "full": "0.75rem"
+            },
+            "fontFamily": {
+                    "headline": ["Inter"],
+                    "body": ["Inter"],
+                    "label": ["Space Grotesk"]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 300, 'GRAD' 0, 'opsz' 24;
+        }
+        .tonal-shift { background-color: #0e0e0e; }
+        .background-nesting { background-color: #131313; }
+        ::-webkit-scrollbar { width: 4px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #252626; border-radius: 2px; }
+    </style>
+</head>
+<body class="bg-background text-on-surface font-body overflow-hidden">
+<!-- TopNavBar (Shared Component Integration) -->
+<header class="fixed top-0 w-full border-b border-[#252626]/20 bg-[#0e0e0e] text-[#adc6ff] font-sans text-sm tracking-tight Inter flex items-center justify-between px-6 py-3 z-50">
+<div class="flex items-center gap-8">
+<span class="text-lg font-bold tracking-tighter text-[#adc6ff]">OS_CORE</span>
+<nav class="hidden md:flex items-center gap-6">
+<a class="text-gray-500 hover:bg-[#191a1a] transition-colors px-2 py-1" href="#">Nodes</a>
+<a class="text-[#adc6ff] border-b border-[#adc6ff] px-2 py-1" href="#">Active Threads</a>
+<a class="text-gray-500 hover:bg-[#191a1a] transition-colors px-2 py-1" href="#">Kernel</a>
+</nav>
+</div>
+<div class="flex items-center gap-4">
+<div class="relative group">
+<span class="material-symbols-outlined absolute left-2 top-1/2 -translate-y-1/2 text-gray-500 text-base">search</span>
+<input class="bg-surface-container-lowest border border-outline-variant/20 rounded-sm pl-8 pr-4 py-1 text-xs focus:ring-1 focus:ring-primary outline-none w-48 transition-all" placeholder="Jump to..." type="text"/>
+</div>
+<span class="material-symbols-outlined text-gray-500 hover:text-primary cursor-pointer" data-icon="settings">settings</span>
+<span class="material-symbols-outlined text-gray-500 hover:text-primary cursor-pointer" data-icon="terminal">terminal</span>
+<img alt="User profile" class="w-7 h-7 rounded-full grayscale brightness-90" data-alt="Close up portrait of a professional man with clean-cut appearance in neutral lighting, professional corporate avatar style" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCHCMCopBoKC4gMViZbsH1LAk7smnXEW5aTqa-j4am83jLWfnemvrE4fqNBKoX_UxKbP6c54Wkoe62RBM6vqOuZ-ilftO3g_Og8Q_-LRKsMwij29hAECmnzJa-glJZLcEK5OydZHw0sI7Ex5-TK2kpBZS_r1K63MHM4VJszBsDDtPtXDXQca35LrzjqSoQzg44GMATarSLM037vsTinvmX20JGzGiokbveROltvZXJiJKE098d1kOprh1HKyWRi729v3taBud1HNAo_"/>
+</div>
+</header>
+<div class="flex h-screen pt-[53px]">
+<!-- Zone 1: SideNavBar (Icon Menu / Rail) -->
+<aside class="fixed left-0 top-0 h-full flex flex-col pt-16 pb-4 bg-[#131313] text-[#adc6ff] font-mono text-xs uppercase tracking-widest Space Grotesk h-screen w-16 items-center border-r border-outline-variant/10">
+<div class="flex flex-col gap-8 items-center">
+<div class="p-2 bg-[#191a1a] border-l-2 border-[#adc6ff] text-[#adc6ff] cursor-pointer">
+<span class="material-symbols-outlined" data-icon="psychology" style="font-variation-settings: 'FILL' 1;">psychology</span>
+</div>
+<div class="p-2 text-gray-400 opacity-70 hover:text-white hover:bg-[#191a1a] cursor-pointer transition-all">
+<span class="material-symbols-outlined" data-icon="chat_bubble">chat_bubble</span>
+</div>
+<div class="p-2 text-gray-400 opacity-70 hover:text-white hover:bg-[#191a1a] cursor-pointer transition-all">
+<span class="material-symbols-outlined" data-icon="inventory_2">inventory_2</span>
+</div>
+<div class="p-2 text-gray-400 opacity-70 hover:text-white hover:bg-[#191a1a] cursor-pointer transition-all">
+<span class="material-symbols-outlined" data-icon="analytics">analytics</span>
+</div>
+</div>
+<div class="mt-auto flex flex-col gap-6 items-center">
+<span class="material-symbols-outlined text-gray-400 opacity-70 hover:text-primary cursor-pointer" data-icon="help_outline">help_outline</span>
+<span class="material-symbols-outlined text-gray-400 opacity-70 hover:text-primary cursor-pointer" data-icon="tune">tune</span>
+</div>
+</aside>
+<!-- Zone 2: Submenu (Thread List) -->
+<section class="ml-16 w-80 bg-surface-container-low border-r border-outline-variant/10 flex flex-col h-full">
+<div class="p-4 border-b border-outline-variant/10">
+<div class="flex items-center justify-between mb-4">
+<h2 class="font-headline font-bold text-sm tracking-tight text-on-surface">Active Threads</h2>
+<span class="material-symbols-outlined text-primary text-lg cursor-pointer">add_box</span>
+</div>
+<!-- Search Bar -->
+<div class="relative mb-4">
+<span class="material-symbols-outlined absolute left-2 top-1/2 -translate-y-1/2 text-gray-500 text-sm">search</span>
+<input class="w-full bg-surface-container-lowest border border-outline-variant/20 rounded-sm pl-8 pr-3 py-1.5 text-xs text-on-surface focus:outline-none focus:border-primary/50" placeholder="Jump to..." type="text"/>
+</div>
+<!-- Filter Chips -->
+<div class="flex flex-wrap gap-1.5">
+<button class="px-2 py-0.5 text-[10px] font-label uppercase tracking-wider rounded-sm bg-surface-container-highest text-on-surface-variant hover:text-on-surface">All</button>
+<button class="px-2 py-0.5 text-[10px] font-label uppercase tracking-wider rounded-sm bg-primary/20 text-primary border border-primary/30">Blocking</button>
+<button class="px-2 py-0.5 text-[10px] font-label uppercase tracking-wider rounded-sm bg-surface-container-highest text-on-surface-variant hover:text-on-surface">Reviews</button>
+<button class="px-2 py-0.5 text-[10px] font-label uppercase tracking-wider rounded-sm bg-surface-container-highest text-on-surface-variant hover:text-on-surface">Chats</button>
+<button class="px-2 py-0.5 text-[10px] font-label uppercase tracking-wider rounded-sm bg-surface-container-highest text-on-surface-variant hover:text-on-surface">Product v.</button>
+</div>
+</div>
+<div class="flex-1 overflow-y-auto">
+<!-- PINNED Section -->
+<div class="mt-4 px-4">
+<header class="flex items-center gap-2 mb-2">
+<span class="material-symbols-outlined text-[10px] text-gray-500" style="font-variation-settings: 'FILL' 1;">push_pin</span>
+<span class="text-[10px] font-label uppercase tracking-widest text-gray-500">Pinned</span>
+</header>
+<div class="group flex items-center gap-3 p-2 rounded-sm hover:bg-surface-container transition-colors cursor-pointer">
+<img alt="Chief of Staff" class="w-8 h-8 rounded-sm grayscale" data-alt="Professional portrait of an executive woman in a dark suit with a neutral office background" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDd5Jw4gdgBNsApzBYmoKBqwwKTGSS_UMhKoZNhFNE1mlaks8l45xMY0JydJD8M6HSM3OBA5h-4G9b50KAPOyownMJnYfUr9XLHV2yXuGfqr-9NH7CyP3xardq8iLzrR8pwgWnbLf_KkhcFenyuhNUsDQCOHvQtxUsm4GorZdbPFN95XaV6WRyOzRyM60MpXI6gfaimtCNG6qfnB8t6kjc1OI87IBryGR1NzoAgObfFDxcfKkNOgaEydjmqPyNZlh1iKCytIsAoO8Kw"/>
+<div class="flex-1 min-w-0">
+<div class="flex justify-between items-baseline">
+<span class="text-xs font-semibold truncate">Chief of Staff</span>
+<span class="text-[9px] font-label text-gray-500">2h ago</span>
+</div>
+<p class="text-[10px] text-gray-500 truncate italic">Awaiting quarterly metrics...</p>
+</div>
+</div>
+</div>
+<!-- ACTIVE / BLOCKING Section -->
+<div class="mt-6 px-2">
+<header class="flex items-center gap-2 mb-2 px-2">
+<div class="w-1.5 h-1.5 rounded-full bg-secondary"></div>
+<span class="text-[10px] font-label uppercase tracking-widest text-secondary">Blocking Threads</span>
+</header>
+<div class="space-y-1">
+<!-- Thread 1 -->
+<div class="p-3 bg-surface-container border-l-2 border-primary rounded-sm cursor-pointer hover:bg-surface-container-highest transition-all group">
+<div class="flex justify-between items-start mb-1">
+<h3 class="text-xs font-bold text-on-primary-container leading-none">Pulse Hardware Agent</h3>
+<span class="text-[9px] font-label text-primary">3m ago</span>
+</div>
+<p class="text-[11px] text-on-surface mb-2 font-medium">Approve PCB layout rev C</p>
+<div class="flex items-center justify-between">
+<div class="flex gap-2">
+<span class="px-1.5 py-0.5 text-[9px] font-label rounded-sm bg-surface-container-lowest border border-outline-variant/30 text-on-surface-variant">REVIEW</span>
+<span class="flex items-center gap-1 px-1.5 py-0.5 text-[9px] font-label rounded-sm bg-secondary-container text-on-secondary-container">
+<span class="w-1 h-1 rounded-full bg-secondary"></span>
+                                        BLOCKED
+                                    </span>
+</div>
+<span class="text-[9px] font-label text-gray-500 flex items-center gap-1">
+<span class="material-symbols-outlined text-[12px]">schedule</span>
+                                    ~15 min
+                                </span>
+</div>
+</div>
+<!-- Thread 2 -->
+<div class="p-3 bg-surface-container border-l-2 border-transparent rounded-sm cursor-pointer hover:bg-surface-container-highest transition-all group">
+<div class="flex justify-between items-start mb-1">
+<h3 class="text-xs font-bold text-on-surface leading-none opacity-80">Nimmly Backend Builder</h3>
+<span class="text-[9px] font-label text-gray-500">45m ago</span>
+</div>
+<p class="text-[11px] text-on-surface-variant mb-2">Deploy pricing-engine v1.4.2 to staging</p>
+<div class="flex items-center justify-between">
+<div class="flex gap-2">
+<span class="px-1.5 py-0.5 text-[9px] font-label rounded-sm bg-surface-container-lowest border border-outline-variant/30 text-on-surface-variant">REVIEW</span>
+<span class="flex items-center gap-1 px-1.5 py-0.5 text-[9px] font-label rounded-sm bg-secondary-container text-on-secondary-container">
+<span class="w-1 h-1 rounded-full bg-secondary"></span>
+                                        BLOCKED
+                                    </span>
+</div>
+<span class="text-[9px] font-label text-gray-500 flex items-center gap-1">
+<span class="material-symbols-outlined text-[12px]">schedule</span>
+                                    ~2 min
+                                </span>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Thread Footer Actions -->
+<div class="p-3 border-t border-outline-variant/10 bg-surface-container-lowest">
+<button class="w-full flex items-center justify-center gap-2 py-2 text-[10px] font-label uppercase tracking-widest text-primary border border-primary/20 hover:bg-primary/5 transition-colors rounded-sm">
+<span class="material-symbols-outlined text-sm">history</span>
+                    View History
+                </button>
+</div>
+</section>
+<!-- Zone 3: Main Pane -->
+<main class="flex-1 bg-surface flex flex-col overflow-hidden relative">
+<!-- Glassmorphism Overlay for empty main state / detail view -->
+<div class="absolute inset-0 z-0 opacity-10">
+<div class="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,#adc6ff_0%,transparent_50%)]"></div>
+</div>
+<!-- Content Header -->
+<header class="flex items-center justify-between px-8 py-6 border-b border-outline-variant/10 z-10">
+<div class="flex items-center gap-4">
+<div class="w-10 h-10 bg-primary/10 rounded-sm flex items-center justify-center border border-primary/20">
+<span class="material-symbols-outlined text-primary" data-icon="memory" style="font-variation-settings: 'FILL' 1;">memory</span>
+</div>
+<div>
+<h1 class="text-xl font-headline font-bold text-on-surface tracking-tight">Pulse Hardware Agent</h1>
+<p class="text-xs font-label text-gray-500 flex items-center gap-2">
+                            INSTANCE: HARDWARE_CORE_V3 <span class="text-secondary">• STATUS: BLOCKED</span>
+</p>
+</div>
+</div>
+<div class="flex gap-3">
+<button class="px-4 py-2 bg-surface-container-high text-on-surface text-xs font-label uppercase tracking-widest rounded-sm hover:bg-surface-container-highest border border-outline-variant/20">Reject</button>
+<button class="px-4 py-2 bg-primary-container text-on-primary-container text-xs font-label uppercase tracking-widest rounded-sm flex items-center gap-2 shadow-[0_0_15px_rgba(173,198,255,0.15)]">
+                        Approve Change
+                        <span class="material-symbols-outlined text-sm">verified</span>
+</button>
+</div>
+</header>
+<!-- Bento Content Grid Preview -->
+<div class="flex-1 p-8 grid grid-cols-12 grid-rows-6 gap-6 z-10 overflow-y-auto">
+<!-- Large Card: Main Diff -->
+<div class="col-span-8 row-span-4 bg-surface-container-low rounded-sm p-6 border border-outline-variant/10">
+<div class="flex items-center justify-between mb-6">
+<span class="text-[10px] font-label text-gray-500 uppercase tracking-widest">Diff Visualization: PCB_REV_B vs PCB_REV_C</span>
+<div class="flex gap-2">
+<span class="material-symbols-outlined text-sm text-gray-500 cursor-pointer">fullscreen</span>
+<span class="material-symbols-outlined text-sm text-gray-500 cursor-pointer">more_vert</span>
+</div>
+</div>
+<div class="aspect-video bg-surface-container-lowest rounded-sm overflow-hidden flex items-center justify-center border border-outline-variant/5">
+<img alt="PCB Layout Diff" class="w-full h-full object-cover opacity-60 mix-blend-screen" data-alt="Technical macro shot of a complex green circuit board with neon blue lighting accents, highly detailed futuristic hardware aesthetic" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDrr6rVEy_sG0rAe-BdHv7MPyQdLe2TN5tqf4OQz3fa6jWmkh2SEL309OJSGqvRbJSh9zxT5zchPypvLVaTXo9FEIhMADAbNNJi10Teeh8LpXLlgZ0hVd12U6uVR-uRWJ01j5Im2WiCjIwsJCaoUVJ6m_cohkm_gmqRXRAeAaOLigo5ecqy8HFBF3TPeKdTFKhamJ77SI4mge-0vvCv3UM04ttzp8ingiRnxP1B2Cq6YAXJdSN4pDx_te45rD3f7jCkYU2Uinj1M2cP"/>
+</div>
+</div>
+<!-- Small Card: Status -->
+<div class="col-span-4 row-span-2 bg-surface-container-low rounded-sm p-6 border border-outline-variant/10">
+<h4 class="text-[10px] font-label text-gray-500 uppercase tracking-widest mb-4">Signal Integrity</h4>
+<div class="space-y-4">
+<div class="flex justify-between items-center">
+<span class="text-xs text-on-surface-variant">EMI Shielding</span>
+<span class="text-xs font-mono text-tertiary">STABLE</span>
+</div>
+<div class="w-full bg-surface-container-highest h-1 rounded-full overflow-hidden">
+<div class="bg-tertiary h-full w-[94%]"></div>
+</div>
+<div class="flex justify-between items-center">
+<span class="text-xs text-on-surface-variant">Trace Resistance</span>
+<span class="text-xs font-mono text-secondary">DEGRADED</span>
+</div>
+<div class="w-full bg-surface-container-highest h-1 rounded-full overflow-hidden">
+<div class="bg-secondary h-full w-[62%]"></div>
+</div>
+</div>
+</div>
+<!-- Small Card: Timeline -->
+<div class="col-span-4 row-span-2 bg-surface-container-low rounded-sm p-6 border border-outline-variant/10">
+<h4 class="text-[10px] font-label text-gray-500 uppercase tracking-widest mb-4">Agent Activity</h4>
+<div class="space-y-4 font-mono text-[10px]">
+<div class="flex gap-3 text-on-surface-variant">
+<span class="text-gray-600">14:02:11</span>
+<span>Parsing Gerbers...</span>
+</div>
+<div class="flex gap-3 text-on-surface-variant">
+<span class="text-gray-600">14:02:45</span>
+<span>Conflict detected at Layer 4</span>
+</div>
+<div class="flex gap-3 text-secondary">
+<span class="text-gray-600">14:03:00</span>
+<span>BLOCKING: Human bypass required</span>
+</div>
+</div>
+</div>
+<!-- Botton Wide Card -->
+<div class="col-span-12 row-span-2 bg-surface-container-low rounded-sm p-6 border border-outline-variant/10 flex gap-8">
+<div class="flex-1">
+<h4 class="text-[10px] font-label text-gray-500 uppercase tracking-widest mb-2">Agent Rationale</h4>
+<p class="text-xs text-on-surface-variant leading-relaxed">The revision C introduces a via-in-pad structure on the power delivery network. While this optimizes space for the new ARM cluster, it might compromise thermal dissipation under peak load. I have flagged this for manual validation against the environmental spec sheet.</p>
+</div>
+<div class="w-px h-full bg-outline-variant/10"></div>
+<div class="w-64">
+<h4 class="text-[10px] font-label text-gray-500 uppercase tracking-widest mb-4">Verification Map</h4>
+<div class="h-20 bg-surface-container-lowest rounded-sm border border-outline-variant/20 flex items-center justify-center grayscale opacity-50">
+<span class="material-symbols-outlined text-4xl">map</span>
+</div>
+</div>
+</div>
+</div>
+</main>
+<!-- Zone 4: Rail (Right Info Rail) -->
+<aside class="w-12 border-l border-outline-variant/10 flex flex-col items-center py-6 gap-6 bg-[#0e0e0e]">
+<span class="material-symbols-outlined text-gray-500 hover:text-primary cursor-pointer text-xl">info</span>
+<span class="material-symbols-outlined text-gray-500 hover:text-primary cursor-pointer text-xl">history_edu</span>
+<span class="material-symbols-outlined text-gray-500 hover:text-primary cursor-pointer text-xl">share</span>
+<div class="mt-auto flex flex-col items-center gap-6">
+<span class="material-symbols-outlined text-gray-600 text-xl">expand_less</span>
+<span class="material-symbols-outlined text-gray-500 hover:text-primary cursor-pointer text-xl">notifications_active</span>
+</div>
+</aside>
+</div>
+</body></html>

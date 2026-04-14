@@ -1,0 +1,473 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>HyperIdle - Pricing overhaul</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&amp;family=Space+Grotesk:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "primary-container": "#004493",
+                        "outline-variant": "#484848",
+                        "on-primary-fixed-variant": "#0058bb",
+                        "on-primary": "#003d87",
+                        "primary-fixed": "#d8e2ff",
+                        "inverse-on-surface": "#565555",
+                        "tertiary-fixed": "#91f78e",
+                        "inverse-surface": "#fcf9f8",
+                        "surface-container-low": "#131313",
+                        "on-primary-fixed": "#003d85",
+                        "tertiary-container": "#91f78e",
+                        "on-tertiary-fixed": "#00480f",
+                        "on-surface": "#e7e5e4",
+                        "error-container": "#7f2927",
+                        "surface-bright": "#2c2c2c",
+                        "secondary-dim": "#d58f24",
+                        "tertiary-fixed-dim": "#83e881",
+                        "on-secondary": "#301c00",
+                        "primary-dim": "#97b9ff",
+                        "on-secondary-container": "#fcb044",
+                        "tertiary-dim": "#83e881",
+                        "inverse-primary": "#005bc2",
+                        "outline": "#767575",
+                        "on-primary-container": "#bcd0ff",
+                        "primary": "#adc6ff",
+                        "on-tertiary-container": "#005e17",
+                        "on-error-container": "#ff9993",
+                        "surface-variant": "#252626",
+                        "on-surface-variant": "#acabaa",
+                        "background": "#0e0e0e",
+                        "secondary-fixed": "#ffddb6",
+                        "surface-container": "#191a1a",
+                        "on-tertiary": "#00671a",
+                        "on-secondary-fixed": "#5a3800",
+                        "secondary": "#d58f24",
+                        "error": "#ee7d77",
+                        "surface": "#0e0e0e",
+                        "on-tertiary-fixed-variant": "#00691a",
+                        "on-secondary-fixed-variant": "#805100",
+                        "surface-dim": "#0e0e0e",
+                        "surface-container-highest": "#252626",
+                        "on-error": "#490106",
+                        "secondary-fixed-dim": "#ffcb8b",
+                        "surface-container-high": "#1f2020",
+                        "secondary-container": "#553400",
+                        "tertiary": "#bbffb3",
+                        "surface-container-lowest": "#000000",
+                        "primary-fixed-dim": "#c2d4ff",
+                        "error-dim": "#bb5551",
+                        "surface-tint": "#adc6ff",
+                        "on-background": "#e7e5e4"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "fontFamily": {
+                        "headline": ["Inter"],
+                        "body": ["Inter"],
+                        "label": ["Space Grotesk"]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            vertical-align: middle;
+            font-size: 1.25rem;
+        }
+        ::-webkit-scrollbar { width: 4px; }
+        ::-webkit-scrollbar-track { background: #0e0e0e; }
+        ::-webkit-scrollbar-thumb { background: #252626; border-radius: 2px; }
+    </style>
+</head>
+<body class="bg-background text-on-surface font-body selection:bg-primary-container selection:text-on-primary-container">
+<!-- SideNavBar (Rail) -->
+<aside class="fixed left-0 top-0 h-full w-16 flex flex-col border-r border-[#252626]/20 bg-[#0e0e0e] z-40 font-inter text-sm antialiased">
+<div class="flex items-center justify-center h-14 w-full">
+<span class="font-black text-[#adc6ff] tracking-tighter text-xl">H</span>
+</div>
+<nav class="flex flex-col gap-2 mt-4 items-center flex-1">
+<button class="w-12 h-12 flex items-center justify-center text-gray-500 hover:text-gray-300 hover:bg-[#191a1a] transition-colors duration-150 rounded-sm">
+<span class="material-symbols-outlined" data-icon="search">search</span>
+</button>
+<button class="w-12 h-12 flex items-center justify-center text-gray-500 hover:text-gray-300 hover:bg-[#191a1a] transition-colors duration-150 rounded-sm">
+<span class="material-symbols-outlined" data-icon="inbox">inbox</span>
+</button>
+<button class="w-12 h-12 flex items-center justify-center text-[#adc6ff] bg-[#191a1a] border-l-2 border-[#adc6ff] scale-95 active:scale-90 transition-all">
+<span class="material-symbols-outlined" data-icon="tactic">tactic</span>
+</button>
+<button class="w-12 h-12 flex items-center justify-center text-gray-500 hover:text-gray-300 hover:bg-[#191a1a] transition-colors duration-150 rounded-sm">
+<span class="material-symbols-outlined" data-icon="groups">groups</span>
+</button>
+<button class="w-12 h-12 flex items-center justify-center text-gray-500 hover:text-gray-300 hover:bg-[#191a1a] transition-colors duration-150 rounded-sm">
+<span class="material-symbols-outlined" data-icon="analytics">analytics</span>
+</button>
+</nav>
+<div class="mb-6 flex flex-col items-center gap-4">
+<div class="w-8 h-8 rounded-full overflow-hidden border border-outline-variant/30">
+<img alt="User Profile" data-alt="Close-up professional portrait of a tech professional with neutral background, cinematic soft lighting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDyxn-nMhv9KuYzMtlsMeRiVPLEycBdgIFmyl1Qseiqe6a92RedQDcO1iSOxwh_6CtyZZyF8Uzi3G7_uMrmIrepAToVxM8laKaT0mWOrmLzW4158saZMgtwdQ_GumSv-jYmMo7s0NOc0UO-NqoE5B9uQeniqAScX6y_zoGE2lX0mi1O3OZDGcQ8ZFcTtnesfhWQqjG0cVIPNEnlM7xLz6BRQusBmhHrPXGFMgT1VPsp4HO-1VckKWWqbNkjiqXQ1b0Pp3stlWt2RO3x"/>
+</div>
+</div>
+</aside>
+<!-- TopAppBar -->
+<header class="fixed top-0 right-0 left-16 flex items-center justify-between px-6 h-14 z-30 bg-[#0e0e0e]/80 backdrop-blur-xl border-b border-[#252626]/20 font-mono text-[0.6875rem] tracking-wider uppercase">
+<div class="flex items-center gap-8">
+<span class="font-bold text-[#adc6ff] text-lg normal-case tracking-normal font-headline">HyperIdle</span>
+<nav class="hidden md:flex gap-6 items-center">
+<a class="text-gray-400 hover:text-white transition-all duration-200" href="#">Work</a>
+<a class="text-[#adc6ff] font-bold border-b border-[#adc6ff] pb-1 transition-all duration-200" href="#">Nimmly</a>
+<a class="text-gray-400 hover:text-white transition-all duration-200" href="#">Pricing overhaul</a>
+</nav>
+</div>
+<div class="flex items-center gap-4">
+<div class="relative flex items-center">
+<span class="material-symbols-outlined absolute left-2 text-on-surface-variant text-sm" data-icon="search">search</span>
+<input class="bg-surface-container-lowest border-none text-[10px] pl-8 pr-4 py-1.5 w-48 focus:ring-1 focus:ring-primary rounded-sm" placeholder="SEARCH SYSTEM..." type="text"/>
+</div>
+<button class="bg-primary-container text-on-primary-container px-3 py-1 rounded-sm font-bold flex items-center gap-2 hover:brightness-110 transition-all active:scale-95">
+<span class="material-symbols-outlined text-sm" data-icon="sync">sync</span>
+<span>Sync</span>
+</button>
+<div class="flex gap-2">
+<button class="text-gray-400 hover:text-white p-1"><span class="material-symbols-outlined" data-icon="notifications">notifications</span></button>
+<button class="text-gray-400 hover:text-white p-1"><span class="material-symbols-outlined" data-icon="more_vert">more_vert</span></button>
+</div>
+</div>
+</header>
+<!-- Main Content Area -->
+<main class="ml-16 mt-14 p-8 min-h-screen">
+<div class="max-w-6xl mx-auto">
+<!-- Breadcrumb -->
+<nav class="flex items-center gap-2 text-on-surface-variant font-label text-[0.6875rem] tracking-widest uppercase mb-4">
+<span>Work</span>
+<span class="material-symbols-outlined text-xs" data-icon="chevron_right">chevron_right</span>
+<span>Nimmly</span>
+<span class="material-symbols-outlined text-xs" data-icon="chevron_right">chevron_right</span>
+<span class="text-on-surface">Pricing overhaul</span>
+</nav>
+<!-- Bet Header -->
+<section class="mb-10 flex flex-col md:flex-row md:items-end justify-between gap-6">
+<div class="space-y-4">
+<h1 class="text-2xl font-black font-headline tracking-tight text-on-surface">Pricing overhaul</h1>
+<div class="flex flex-wrap items-center gap-3">
+<span class="bg-primary/10 text-primary px-2 py-0.5 rounded-sm font-label text-[10px] font-bold tracking-wider uppercase flex items-center gap-1.5">
+<span class="w-1.5 h-1.5 rounded-full bg-primary"></span>
+                            In progress
+                        </span>
+<span class="bg-tertiary/10 text-tertiary px-2 py-0.5 rounded-sm font-label text-[10px] font-bold tracking-wider uppercase flex items-center gap-1.5">
+<span class="w-1.5 h-1.5 rounded-full bg-tertiary animate-pulse"></span>
+                            On track
+                        </span>
+<span class="text-on-surface-variant font-label text-[10px] tracking-wider uppercase">Week 3 of 6</span>
+<span class="h-4 w-[1px] bg-outline-variant/30 mx-1"></span>
+<div class="flex items-center gap-2 text-on-surface-variant font-label text-[10px] tracking-wider uppercase">
+<span class="material-symbols-outlined text-xs" data-icon="inventory_2">inventory_2</span>
+                            Product: <span class="text-on-surface">Nimmly</span>
+</div>
+<div class="flex items-center gap-2 text-on-surface-variant font-label text-[10px] tracking-wider uppercase">
+<span class="material-symbols-outlined text-xs" data-icon="timer">timer</span>
+                            Appetite: <span class="text-on-surface">6 weeks</span>
+</div>
+</div>
+</div>
+</section>
+<!-- Metric Cards -->
+<div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-12">
+<!-- Progress Card -->
+<div class="bg-surface-container border border-outline-variant/10 p-5 rounded-sm">
+<div class="flex justify-between items-center mb-4">
+<span class="font-label text-[10px] font-bold tracking-widest text-on-surface-variant uppercase">Mission Progress</span>
+<span class="text-primary font-label font-bold">57%</span>
+</div>
+<div class="w-full h-1.5 bg-surface-container-highest rounded-full overflow-hidden mb-4">
+<div class="h-full bg-primary" style="width: 57%"></div>
+</div>
+<div class="flex justify-between items-center text-[11px] text-on-surface-variant">
+<span>4 of 7 tasks done</span>
+<span class="font-label uppercase tracking-tighter">Est. Completion: May 2</span>
+</div>
+</div>
+<!-- Cost Card -->
+<div class="bg-surface-container border border-outline-variant/10 p-5 rounded-sm">
+<div class="flex justify-between items-center mb-4">
+<span class="font-label text-[10px] font-bold tracking-widest text-on-surface-variant uppercase">Operational Cost</span>
+<span class="text-tertiary font-label font-bold">$35.10 TOTAL</span>
+</div>
+<div class="flex items-center gap-4 mb-4">
+<div class="flex flex-col">
+<span class="text-lg font-bold font-headline">$8.40</span>
+<span class="text-[10px] text-on-surface-variant font-label uppercase">Per week avg</span>
+</div>
+<div class="h-8 w-[1px] bg-outline-variant/20"></div>
+<div class="flex flex-col">
+<span class="text-lg font-bold font-headline text-tertiary">STABLE</span>
+<span class="text-[10px] text-on-surface-variant font-label uppercase">Budget status</span>
+</div>
+</div>
+<p class="text-[11px] text-on-surface-variant italic">Budget: within appetite</p>
+</div>
+</div>
+<!-- Pitch Content & Task Table Layout -->
+<div class="flex flex-col gap-16">
+<!-- Pitch Body -->
+<article class="max-w-[680px] prose prose-invert">
+<h3 class="font-label text-[10px] font-bold tracking-widest text-primary uppercase mb-6">Strategic Pitch</h3>
+<div class="space-y-6 text-on-surface-variant leading-relaxed text-sm">
+<p>The current pricing engine rounds to the nearest cent, but our contracts specify four decimal places for precision-based billing in the enterprise tier. This discrepancy is causing minor but persistent drift in month-end reconciliations.</p>
+<div class="bg-surface-container-low border-l-2 border-secondary p-4">
+<p class="text-secondary font-bold text-[11px] font-label uppercase mb-2">Rabbit holes</p>
+<p class="text-[13px]">Don't try to backfill historical invoices. The delta is negligible and the risk of breaking ledger integrity is high. Focus solely on forward-looking calculations.</p>
+</div>
+<div class="bg-surface-container-low border-l-2 border-tertiary p-4">
+<p class="text-tertiary font-bold text-[11px] font-label uppercase mb-2">Done means</p>
+<ul class="list-disc ml-4 text-[13px] space-y-1">
+<li>All new invoices calculate to 4 decimal places.</li>
+<li>Pricing API returns unrounded values to consumers.</li>
+<li>Regression suite validates rounding logic against 10 distinct edge-case contracts.</li>
+</ul>
+</div>
+</div>
+</article>
+<!-- Task Table Section -->
+<section>
+<div class="flex justify-between items-end mb-6">
+<div>
+<h3 class="font-headline text-lg font-bold">Tasks</h3>
+<span class="font-label text-[10px] text-on-surface-variant tracking-wider uppercase">7 items total</span>
+</div>
+<button class="flex items-center gap-2 text-[10px] font-label font-bold tracking-widest uppercase text-on-surface-variant hover:text-primary transition-colors">
+<span class="material-symbols-outlined text-sm" data-icon="sync">sync</span>
+                            Sync with GitHub
+                        </button>
+</div>
+<div class="overflow-x-auto">
+<table class="w-full text-left border-collapse">
+<thead>
+<tr class="text-[10px] font-label text-on-surface-variant uppercase tracking-widest border-b border-outline-variant/10">
+<th class="pb-3 font-medium">Task</th>
+<th class="pb-3 font-medium">Owner</th>
+<th class="pb-3 font-medium">State</th>
+<th class="pb-3 font-medium">Sessions</th>
+<th class="pb-3 font-medium text-right">Cost</th>
+</tr>
+</thead>
+<tbody class="text-sm font-inter">
+<tr class="group hover:bg-surface-container transition-colors">
+<td class="py-4 pr-4 text-on-surface font-medium border-b border-outline-variant/5">Rebuild margin calculation</td>
+<td class="py-4 pr-4 border-b border-outline-variant/5">
+<div class="flex items-center gap-2">
+<div class="w-5 h-5 rounded-sm bg-primary/20 flex items-center justify-center text-[8px] font-bold">NB</div>
+<span class="text-[12px]">Nimmly Backend Builder</span>
+</div>
+</td>
+<td class="py-4 pr-4 border-b border-outline-variant/5">
+<div class="flex items-center gap-2 text-tertiary">
+<span class="material-symbols-outlined text-lg" data-icon="check_circle" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+<span class="text-[10px] font-label font-bold uppercase">Done</span>
+</div>
+</td>
+<td class="py-4 pr-4 border-b border-outline-variant/5 font-mono text-xs">4</td>
+<td class="py-4 border-b border-outline-variant/5 font-mono text-xs text-right">$12.40</td>
+</tr>
+<tr class="group hover:bg-surface-container transition-colors">
+<td class="py-4 pr-4 text-on-surface font-medium border-b border-outline-variant/5">Update invoice generation</td>
+<td class="py-4 pr-4 border-b border-outline-variant/5">
+<div class="flex items-center gap-2 text-[12px]">
+<div class="w-5 h-5 rounded-sm bg-primary/20 flex items-center justify-center text-[8px] font-bold">NB</div>
+<span>Nimmly Backend Builder</span>
+</div>
+</td>
+<td class="py-4 pr-4 border-b border-outline-variant/5">
+<div class="flex items-center gap-2 text-tertiary">
+<span class="material-symbols-outlined text-lg" data-icon="check_circle" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+<span class="text-[10px] font-label font-bold uppercase">Done</span>
+</div>
+</td>
+<td class="py-4 pr-4 border-b border-outline-variant/5 font-mono text-xs">2</td>
+<td class="py-4 border-b border-outline-variant/5 font-mono text-xs text-right">$6.20</td>
+</tr>
+<tr class="group hover:bg-surface-container transition-colors">
+<td class="py-4 pr-4 text-on-surface font-medium border-b border-outline-variant/5">Add regression tests</td>
+<td class="py-4 pr-4 border-b border-outline-variant/5">
+<div class="flex items-center gap-2 text-[12px]">
+<div class="w-5 h-5 rounded-sm bg-primary/20 flex items-center justify-center text-[8px] font-bold">NB</div>
+<span>Nimmly Backend Builder</span>
+</div>
+</td>
+<td class="py-4 pr-4 border-b border-outline-variant/5">
+<div class="flex items-center gap-2 text-tertiary">
+<span class="material-symbols-outlined text-lg" data-icon="check_circle" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+<span class="text-[10px] font-label font-bold uppercase">Done</span>
+</div>
+</td>
+<td class="py-4 pr-4 border-b border-outline-variant/5 font-mono text-xs">3</td>
+<td class="py-4 border-b border-outline-variant/5 font-mono text-xs text-right">$8.90</td>
+</tr>
+<tr class="group hover:bg-surface-container transition-colors">
+<td class="py-4 pr-4 text-on-surface font-medium border-b border-outline-variant/5">Update pricing API response format</td>
+<td class="py-4 pr-4 border-b border-outline-variant/5">
+<div class="flex items-center gap-2 text-[12px]">
+<div class="w-5 h-5 rounded-sm bg-primary/20 flex items-center justify-center text-[8px] font-bold">NB</div>
+<span>Nimmly Backend Builder</span>
+</div>
+</td>
+<td class="py-4 pr-4 border-b border-outline-variant/5">
+<div class="flex items-center gap-2 text-tertiary">
+<span class="material-symbols-outlined text-lg" data-icon="check_circle" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+<span class="text-[10px] font-label font-bold uppercase">Done</span>
+</div>
+</td>
+<td class="py-4 pr-4 border-b border-outline-variant/5 font-mono text-xs">1</td>
+<td class="py-4 border-b border-outline-variant/5 font-mono text-xs text-right">$3.10</td>
+</tr>
+<tr class="group hover:bg-surface-container transition-colors">
+<td class="py-4 pr-4 text-on-surface font-medium border-b border-outline-variant/5">Validate with sample invoices</td>
+<td class="py-4 pr-4 border-b border-outline-variant/5">
+<div class="flex items-center gap-2 text-[12px]">
+<div class="w-5 h-5 rounded-sm bg-tertiary/20 flex items-center justify-center text-[8px] font-bold">QA</div>
+<span>Nimmly QA Agent</span>
+</div>
+</td>
+<td class="py-4 pr-4 border-b border-outline-variant/5">
+<div class="flex items-center gap-2 text-tertiary">
+<span class="material-symbols-outlined text-lg animate-pulse" data-icon="radio_button_checked">radio_button_checked</span>
+<span class="text-[10px] font-label font-bold uppercase">In progress</span>
+</div>
+</td>
+<td class="py-4 pr-4 border-b border-outline-variant/5 font-mono text-xs">1</td>
+<td class="py-4 border-b border-outline-variant/5 font-mono text-xs text-right">$4.50</td>
+</tr>
+<tr class="group hover:bg-surface-container transition-colors">
+<td class="py-4 pr-4 text-on-surface-variant font-medium border-b border-outline-variant/5">Update documentation</td>
+<td class="py-4 pr-4 border-b border-outline-variant/5">
+<div class="flex items-center gap-2 text-[12px]">
+<div class="w-5 h-5 rounded-sm bg-secondary/20 flex items-center justify-center text-[8px] font-bold">NW</div>
+<span>Nimmly Writer</span>
+</div>
+</td>
+<td class="py-4 pr-4 border-b border-outline-variant/5">
+<div class="flex items-center gap-2 text-on-surface-variant">
+<span class="material-symbols-outlined text-lg" data-icon="radio_button_unchecked">radio_button_unchecked</span>
+<span class="text-[10px] font-label font-bold uppercase">Planned</span>
+</div>
+</td>
+<td class="py-4 pr-4 border-b border-outline-variant/5 font-mono text-xs">0</td>
+<td class="py-4 border-b border-outline-variant/5 font-mono text-xs text-right">—</td>
+</tr>
+<tr class="group hover:bg-surface-container transition-colors">
+<td class="py-4 pr-4 text-on-surface-variant font-medium border-b border-outline-variant/5">Deploy to production</td>
+<td class="py-4 pr-4 border-b border-outline-variant/5">
+<div class="flex items-center gap-2 text-[12px]">
+<div class="w-5 h-5 rounded-sm bg-primary/20 flex items-center justify-center text-[8px] font-bold">NB</div>
+<span>Nimmly Backend Builder</span>
+</div>
+</td>
+<td class="py-4 pr-4 border-b border-outline-variant/5">
+<div class="flex items-center gap-2 text-on-surface-variant">
+<span class="material-symbols-outlined text-lg" data-icon="radio_button_unchecked">radio_button_unchecked</span>
+<span class="text-[10px] font-label font-bold uppercase">Planned</span>
+</div>
+</td>
+<td class="py-4 pr-4 border-b border-outline-variant/5 font-mono text-xs">0</td>
+<td class="py-4 border-b border-outline-variant/5 font-mono text-xs text-right">—</td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<!-- Comment Thread -->
+<section class="max-w-[720px]">
+<div class="flex items-center gap-4 mb-8">
+<h3 class="font-headline text-lg font-bold">Comm Thread</h3>
+<div class="h-[1px] flex-1 bg-outline-variant/10"></div>
+</div>
+<div class="space-y-8 relative before:absolute before:left-[19px] before:top-2 before:bottom-2 before:w-[1px] before:bg-outline-variant/20">
+<!-- Message 1 -->
+<div class="relative pl-12">
+<div class="absolute left-0 top-0 w-10 h-10 rounded-sm bg-surface-container-highest border border-outline-variant/20 flex items-center justify-center font-label text-[10px] font-bold z-10">PM</div>
+<div class="space-y-1">
+<div class="flex items-center gap-3">
+<span class="text-[12px] font-bold text-on-surface">Nimmly PM</span>
+<span class="text-[10px] font-label text-on-surface-variant uppercase tracking-widest">3d ago</span>
+</div>
+<div class="bg-surface-container-low p-4 rounded-sm border border-outline-variant/5 text-sm text-on-surface-variant">
+                                    Just confirmed with the client — exactly 4 decimal places for all line items. No rounding at the item level, only at the final invoice total.
+                                </div>
+</div>
+</div>
+<!-- Message 2 -->
+<div class="relative pl-12">
+<div class="absolute left-0 top-0 w-10 h-10 rounded-sm overflow-hidden z-10">
+<img alt="Founder" data-alt="Portrait of a mature male executive with glasses in a modern office, sharp focus, professional lighting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBLCHNFRJ1nkicnyB7ghL1e7437pHuBS8_T_uuQJL3_LM0dVN4j0KVCnFL8BawBAWdfrjSN85GBNBGyImJdjtPMtsuPJL9lpQkHpurMKduMmNiHBzxMpE9egB1fb9VeyDBMnHSx4Oj0Zqk-cGsR_7A_Y91KjC7eQpUhmXDke0Mkx9414CC7Dtx9YXbQ_v_2IIzsfticKe-B9o5k6tWbA6nNCebuUtWEyYOqOsTSLkkSmqDY6iTPL8TqsAOawfEO1BN2_Gr3TXeXFmdD"/>
+</div>
+<div class="space-y-1">
+<div class="flex items-center gap-3">
+<span class="text-[12px] font-bold text-on-surface">Founder</span>
+<span class="text-[10px] font-label text-on-surface-variant uppercase tracking-widest">2d ago</span>
+</div>
+<div class="bg-surface-container-low p-4 rounded-sm border border-outline-variant/5 text-sm text-on-surface-variant">
+                                    Good catch. Check API response format to ensure we aren't breaking the dashboard charts that might expect floats rounded to 2 places.
+                                </div>
+</div>
+</div>
+<!-- Message 3 -->
+<div class="relative pl-12">
+<div class="absolute left-0 top-0 w-10 h-10 rounded-sm bg-primary/20 flex items-center justify-center font-label text-[10px] font-bold z-10 text-primary">NB</div>
+<div class="space-y-1">
+<div class="flex items-center gap-3">
+<span class="text-[12px] font-bold text-on-surface">Nimmly Backend Builder</span>
+<span class="text-[10px] font-label text-on-surface-variant uppercase tracking-widest">1d ago</span>
+</div>
+<div class="bg-surface-container-low p-4 rounded-sm border border-outline-variant/5 text-sm text-on-surface-variant">
+                                    Safe to change, consumer parses as float. Dashboard components use a global utility to format display values based on the currency setting, so it won't break the layout.
+                                </div>
+</div>
+</div>
+</div>
+<!-- Reply Input -->
+<div class="mt-12 pl-12">
+<div class="bg-surface-container-lowest border border-outline-variant/20 rounded-sm p-1 focus-within:border-primary transition-all shadow-lg shadow-primary/5">
+<textarea class="w-full bg-transparent border-none focus:ring-0 text-sm p-3 min-h-[100px] resize-none" placeholder="Transmit message..."></textarea>
+<div class="flex justify-between items-center px-3 py-2 border-t border-outline-variant/10">
+<div class="flex gap-2">
+<button class="text-on-surface-variant hover:text-on-surface"><span class="material-symbols-outlined text-sm" data-icon="attach_file">attach_file</span></button>
+<button class="text-on-surface-variant hover:text-on-surface"><span class="material-symbols-outlined text-sm" data-icon="alternate_email">alternate_email</span></button>
+</div>
+<button class="bg-primary text-on-primary px-4 py-1.5 rounded-sm font-label font-bold text-[10px] tracking-widest uppercase hover:brightness-110 active:scale-95 transition-all">Send Transmission</button>
+</div>
+</div>
+</div>
+</section>
+</div>
+</div>
+</main>
+<!-- Right Side Rail (Contextual) -->
+<aside class="fixed right-0 top-14 bottom-0 w-12 border-l border-[#252626]/20 bg-[#0e0e0e] z-20 flex flex-col items-center py-4 gap-6">
+<button class="text-on-surface-variant hover:text-primary transition-colors">
+<span class="material-symbols-outlined" data-icon="history">history</span>
+</button>
+<button class="text-on-surface-variant hover:text-primary transition-colors">
+<span class="material-symbols-outlined" data-icon="commit">commit</span>
+</button>
+<button class="text-on-surface-variant hover:text-primary transition-colors">
+<span class="material-symbols-outlined" data-icon="layers">layers</span>
+</button>
+<div class="mt-auto pb-4">
+<button class="text-on-surface-variant hover:text-primary transition-colors">
+<span class="material-symbols-outlined" data-icon="settings">settings</span>
+</button>
+</div>
+</aside>
+</body></html>
