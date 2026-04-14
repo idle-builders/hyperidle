@@ -1,6 +1,6 @@
 ---
 name: pipeline
-description: Meta-orchestrator that runs through multiple work packages sequentially, spawning a fresh agent for each. Creates branches, commits, PRs, and self-merges to maintain proper development history. Respects the dependency graph in WORK_PACKAGES.md.
+description: "Use when multiple work packages need to be built in sequence or parallel. Triggers: batch implementation requested, track or story list provided, 'all' target given."
 argument-hint: "[story-ids like 'A1 A2 A3' or track like 'A' or 'all']"
 user-invocable: true
 allowed-tools: Read Edit Write Bash Grep Glob Agent
@@ -58,13 +58,16 @@ JSON structure:
 - `stories`: array of story objects, each with:
   - `id`: story ID (e.g., "A1")
   - `title`: story title
-  - `status`: `pending` | `in_progress` | `done` | `failed`
+  - `status`: `pending` | `in_progress` | `done` | `failed` | `blocked`
   - `branch`: branch name (once created)
   - `pr`: PR number (once created)
   - `attempts`: number of implementation attempts
   - `error`: last error message (if failed)
+  - `blocked_reason`: why this story is blocked (if blocked)
+  - `blocked_at`: ISO timestamp of when it was blocked
+  - `needs_human`: boolean — true if the blockage requires human input
 
-**On resume:** Read existing progress. Skip stories with status `done`. Retry stories with status `in_progress` (previous session died mid-story — clean up their branch first). Stop on `failed` stories.
+**On resume:** Read existing progress. Skip stories with status `done`. Retry stories with status `in_progress` (previous session died mid-story — clean up their branch first). For `blocked` stories, check if the blockage is still valid and skip if so. For `failed` stories, stop that stream but continue other independent streams.
 
 **Write the progress file after every status change.** This is your checkpoint — if you get killed mid-session, the next invocation must know exactly where to resume.
 
@@ -87,7 +90,10 @@ Check elapsed time since session start. **If > 45 minutes: stop.** Write `idle` 
 
 ### 3b. Check Dependencies
 
-Verify all blocking stories are `done` in the progress file. If any dependency is `failed` or `pending`, stop and report the blocker.
+Verify all blocking stories are `done` in the progress file.
+
+- If a dependency is `blocked` or `failed`: **do NOT stop the entire pipeline.** Instead, skip this story and move to the next story that has all dependencies met. This story becomes `dependency_blocked` — it will be retried when its dependency is resolved.
+- If NO stories in the remaining queue have all dependencies met (all remaining stories are blocked by failed/blocked stories): stop the pipeline and report the full dependency graph with blockers.
 
 ### 3c. Update Progress
 
@@ -137,7 +143,12 @@ Read the agent's output. Check:
 If the agent reports failures:
 1. Update progress: `attempts += 1`. Write progress file.
 2. If `attempts < 3`: spawn a fresh agent with the failure context and ask it to fix the gaps. Include what failed and why.
-3. If `attempts >= 3`: mark story as `failed`, write progress, report to user, and stop the pipeline.
+3. If `attempts >= 3`: **Block the story, don't stop the pipeline.**
+   - Set status to `blocked`, set `needs_human: true`.
+   - Write `blocked_reason` with a clear summary: what was attempted, what failed, and what needs human decision (architecture question? ambiguous requirement? fundamental approach wrong?).
+   - Write `blocked_at` timestamp.
+   - **Continue processing other stories** that don't depend on this blocked story.
+   - The pipeline only stops when ALL remaining stories are blocked or their dependencies are blocked.
 
 ### 3g. Verify Independently
 
@@ -177,14 +188,29 @@ Move to the next story (back to 3a for time check).
 
 ## Step 4 — Session Exit
 
-When stopping (time limit, compaction, all done, or failure):
+When stopping (time limit, compaction, all done, all blocked, or no progress possible):
 
 1. Write final progress file.
 2. Output a clear status summary:
    - Stories completed this session (with PR numbers)
-   - Reason for stopping: `time_limit` | `compaction` | `all_done` | `failure` | `dependency_blocked`
-   - Stories remaining
+   - Stories blocked (with reasons and which need human input)
+   - Reason for stopping: `time_limit` | `compaction` | `all_done` | `all_blocked` | `no_progress_possible`
+   - Stories remaining (unblocked)
    - Total elapsed time this session
+
+3. If any stories are `blocked` with `needs_human: true`, output a **HUMAN INPUT REQUIRED** section:
+   ```
+   ⚠️ HUMAN INPUT REQUIRED
+   
+   Story A3: [title]
+   Blocked because: [clear summary of what went wrong]
+   Attempts: 3
+   What's needed: [specific question or decision needed from human]
+   Downstream impact: Stories [B1, B2] are waiting on this.
+   
+   To unblock: Edit .claude/pipeline-progress.json, set story status to "pending",
+   fix the underlying issue, and restart the pipeline.
+   ```
 
 This output is consumed by `bin/pipeline` to decide whether to restart.
 
@@ -195,10 +221,12 @@ This output is consumed by `bin/pipeline` to decide whether to restart.
 - **Fresh agent per story.** Never reuse an agent across stories. Context pollution degrades quality.
 - **Dependency order is sacred.** Never start a story whose dependencies aren't done.
 - **Verify independently.** Always run validation yourself after the agent reports success. Trust but verify.
-- **Max 3 attempts per story.** If a story fails 3 times, stop — it needs human attention.
+- **Max 3 attempts per story.** If a story fails 3 times, block it — it needs human attention.
+- **Block, don't stop.** A blocked story halts its stream but NOT independent streams. Continue processing stories whose dependencies are all `done`.
 - **One PR per story.** Clean development history. No bundling.
 - **Self-merge to main.** Each story merges before the next begins, so the next agent sees the latest code.
 - **Never implement yourself.** You orchestrate. Agents implement.
 - **Progress file is the source of truth.** Write it after every status change. Always read it on resume.
 - **Respect the 45-minute session limit.** Finish the current story, then stop. Never start a new story past the limit.
 - **Stop on compaction.** If you detect context degradation, finish current story and exit. Fresh context beats degraded context.
+- **Human input is a first-class state.** When a story is blocked and needs human input, clearly describe what decision is needed and what downstream stories are affected. The pipeline should make it easy for a human to unblock and resume.

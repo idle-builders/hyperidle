@@ -15,3 +15,4 @@ paths:
 - Use result types for expected errors. Let unexpected errors propagate — no swallowing with try-catch.
 - No `console.log` in production code. Use the observability adapter.
 - All database queries through Drizzle ORM. Never raw SQL except in migration files.
+- Source-driven development: when using framework APIs (Hono, Drizzle, React, BullMQ), verify patterns against official docs — don't rely on training data. Flag unverified patterns with `⚠️ UNVERIFIED`. Cite doc URLs for non-obvious usage.

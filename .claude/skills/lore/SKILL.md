@@ -1,6 +1,6 @@
 ---
 name: lore
-description: Capture cross-cutting architectural decisions, constraints, gotchas, and tribal knowledge as structured @lore comments in code or as standalone lore documents.
+description: "Use when you encounter or make a non-obvious decision that would surprise future developers. Triggers: architectural tradeoff, workaround, cross-cutting constraint, undocumented gotcha."
 argument-hint: "[file paths, 'scan' to find undocumented decisions, or 'index' to list all lore]"
 user-invocable: true
 allowed-tools: Read Edit Grep Glob Bash

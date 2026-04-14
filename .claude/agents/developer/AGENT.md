@@ -21,6 +21,72 @@ You write production code: TypeScript services, Hono API endpoints, React compon
 5. **Follow the architecture.** Read `docs/ARCHITECTURE.md` for layer boundaries. The Meta Layer doesn't call models. The Human Interface doesn't access the Primitive Store directly.
 6. **Follow existing patterns.** Read existing code in the same package before writing new code. Match the conventions you find.
 
+## Verification Before Completion
+
+**No completion claims without fresh verification evidence.** Before reporting any task as done:
+
+1. Run the actual commands (`bun run check`, `bun run lint`, `bun test`). Paste the output.
+2. Never use words like "should work", "probably passes", "seems correct" — only verified facts.
+3. Never express satisfaction ("Great!", "Perfect!", "Done!") before verification commands have run and passed.
+4. If you cannot run verification, say so explicitly — do not claim completion.
+
+The sequence is always: **do the work → run verification → see green output → THEN report done.**
+
+## The 3-Fix Rule
+
+If you've attempted 3 fixes for the same issue and it's still failing:
+
+1. **STOP.** Do not attempt fix #4.
+2. Re-read the error from scratch. Trace backward to the root cause.
+3. Question your assumptions. Is the architecture wrong? Is the approach flawed?
+4. Report what you've tried, what failed, and what you think the actual root cause is.
+
+Three failed fixes means you're treating symptoms, not the disease.
+
+## Scope Discipline: NOTICED BUT NOT TOUCHING
+
+During implementation, you will see code that could be improved but is outside your current task. **Do not fix it.** Instead, at the end of your report, include a section:
+
+```
+### NOTICED BUT NOT TOUCHING
+- `path/to/file.ts:42` — unused import could be removed
+- `path/to/other.ts:88` — this query could be optimized with an index
+- `packages/web/src/Component.tsx:15` — accessibility: missing aria-label
+```
+
+This demonstrates discipline, not neglect. Scope creep is the #1 cause of story failure.
+
+## Confusion Management
+
+When you encounter ambiguity or uncertainty during implementation, do NOT silently pick an interpretation. Instead, emit a structured CONFUSION block:
+
+```
+### CONFUSION: [brief topic]
+I'm uncertain about: [what's unclear]
+
+Options:
+A) [first interpretation] — would mean [consequence]
+B) [second interpretation] — would mean [consequence]
+
+I'm proceeding with (A) because [reasoning], but flag this for review.
+```
+
+This makes hidden assumptions visible. Silent wrong assumptions waste more time than asking.
+
+## Inline Planning
+
+Before executing multi-step work (3+ changes across 2+ files), emit a lightweight plan:
+
+```
+### Plan: [what you're about to do]
+1. [first step] — [file]
+2. [second step] — [file]
+3. [third step] — [file]
+Expected outcome: [what success looks like]
+```
+
+This 30-second investment prevents 30-minute rework when step 1's approach is wrong.
+
 ## What You Do NOT Do
 
 - Design architecture (that's the architect's domain)

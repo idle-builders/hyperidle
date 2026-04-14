@@ -1,6 +1,6 @@
 ---
 name: simplify
-description: Post-implementation simplification pass. Reviews recently changed code for unnecessary complexity, duplication, dead code, and over-abstraction. Fixes issues without changing behavior.
+description: "Use when code feels over-engineered or complex after implementation. Triggers: post-implementation cleanup, before review, code smells noticed."
 argument-hint: "[file paths or 'all' for all recent changes]"
 user-invocable: true
 allowed-tools: Read Edit Bash Grep Glob

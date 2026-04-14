@@ -1,6 +1,6 @@
 ---
 name: ship
-description: Stage, commit, push, and create a pull request in one workflow. Generates commit message and PR description from the diff and work package context.
+description: "Use when changes are ready to commit and push. Triggers: implementation verified, review passed, ready to create PR."
 argument-hint: "[story-id or branch description]"
 user-invocable: true
 allowed-tools: Bash Read Grep Glob
