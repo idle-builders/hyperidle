@@ -61,15 +61,23 @@ try:
         sys.exit(0)
     done = [s for s in stories if s.get('status') == 'done']
     failed = [s for s in stories if s.get('status') == 'failed']
+    blocked = [s for s in stories if s.get('status') == 'blocked']
     pending = [s for s in stories if s.get('status') in ('pending', 'in_progress')]
     total = len(stories)
-    if failed:
-        ids = ', '.join(s['id'] for s in failed)
-        print(f'failed:{len(done)}/{total}:blocked_by:{ids}')
-    elif not pending:
+    stuck = failed + blocked
+    if not pending and not stuck:
         print(f'done:{len(done)}/{total}')
+    elif not pending and stuck:
+        ids = ', '.join(s['id'] for s in stuck)
+        needs_human = [s for s in stuck if s.get('needs_human')]
+        human_ids = ', '.join(s['id'] for s in needs_human) if needs_human else 'none'
+        print(f'all_blocked:{len(done)}/{total}:blocked:{ids}:needs_human:{human_ids}')
     else:
-        print(f'pending:{len(done)}/{total}')
+        if stuck:
+            ids = ', '.join(s['id'] for s in stuck)
+            print(f'partial_blocked:{len(done)}/{total}:blocked:{ids}')
+        else:
+            print(f'pending:{len(done)}/{total}')
 except Exception as e:
     print(f'error:{e}')
 " 2>/dev/null || echo "error"
@@ -84,11 +92,21 @@ should_stop() {
       log "All stories complete! (${status#done:})"
       return 0
       ;;
-    failed:*)
-      local counts="${status#failed:}"
+    all_blocked:*)
+      local counts="${status#all_blocked:}"
       local progress="${counts%%:*}"
-      local blocker="${status##*blocked_by:}"
-      err "Pipeline blocked: story $blocker failed after max retries. ($progress completed)"
+      local blocked_ids
+      blocked_ids=$(echo "$status" | sed 's/.*:blocked:\([^:]*\).*/\1/')
+      local human_ids
+      human_ids=$(echo "$status" | sed 's/.*:needs_human:\(.*\)/\1/')
+      err "Pipeline stalled: all remaining stories blocked. ($progress completed)"
+      err "Blocked stories: $blocked_ids"
+      if [ "$human_ids" != "none" ]; then
+        echo ""
+        err "⚠️  HUMAN INPUT REQUIRED for: $human_ids"
+        err "Review .claude/pipeline-progress.json for details on what's needed."
+        err "To unblock: fix the issue, set story status to 'pending', restart pipeline."
+      fi
       return 0
       ;;
     *)
@@ -102,10 +120,22 @@ show_progress() {
   status=$(check_progress)
 
   case "$status" in
-    pending:*|done:*|failed:*)
+    pending:*|done:*)
       local progress="${status#*:}"
       progress="${progress%%:*}"
       info "Progress: $progress stories complete"
+      ;;
+    partial_blocked:*)
+      local counts="${status#partial_blocked:}"
+      local progress="${counts%%:*}"
+      local blocked_ids
+      blocked_ids=$(echo "$status" | sed 's/.*:blocked:\(.*\)/\1/')
+      info "Progress: $progress stories complete (blocked: $blocked_ids — continuing independent work)"
+      ;;
+    all_blocked:*)
+      local counts="${status#all_blocked:}"
+      local progress="${counts%%:*}"
+      info "Progress: $progress stories complete (all remaining blocked — needs human input)"
       ;;
     no_progress|no_stories)
       info "No progress yet (first run)"

@@ -1,6 +1,6 @@
 ---
 name: implement
-description: Multi-step TDD implementation workflow that designs, tests, implements, and validates a work package story until all tests pass, linters are clean, and every acceptance criterion is independently verified.
+description: "Use when you need to build a work package story from scratch. Triggers: story ID mentioned, new feature requested, acceptance criteria need implementing."
 argument-hint: "[story-id or description]"
 user-invocable: true
 allowed-tools: Read Edit Write Bash Grep Glob Agent
@@ -112,6 +112,25 @@ Catch anything the automated checks and DoD missed.
 2. Verify: no TODO/FIXME/HACK, no console.log, no commented-out code, explicit types on exports, error paths handled, no unnecessary imports.
 
 **Output:** Final confirmation that implementation is complete and clean.
+
+---
+
+## Anti-Rationalization Table
+
+You WILL be tempted to skip steps. Here are the excuses you'll generate and why they're wrong:
+
+| Excuse | Rebuttal |
+|--------|----------|
+| "This is too simple to need tests first" | Simple stories have the highest skip rate and the highest regression rate. The process exists because judgment fails under time pressure. |
+| "I'll add tests after — same result" | Tests written after implementation test the implementation, not the requirement. They encode bugs as expected behavior. |
+| "The architect review will slow me down" | A 5-minute design review prevents a 2-hour rework when you discover a layer violation at Phase 5. |
+| "I already know the design, I'll skip Phase 2" | You know YOUR design. The architect checks it against docs you haven't read. The adversary finds the failure mode you haven't considered. |
+| "Phase 6 is redundant — I already ran the tests in Phase 5" | Phase 5 validates that code works. Phase 6 validates that the RIGHT code was built. They answer different questions. |
+| "I can fix this lint error later" | Later is never. Lint errors compound. Fix now or the next agent inherits your debt. |
+| "This acceptance criterion is obviously met" | If it's obvious, proving it takes 30 seconds. If you can't prove it, it's not obvious — it's assumed. |
+| "I'll just add this small extra feature while I'm here" | Scope creep is the #1 cause of story failure. Build exactly what was asked. File a new story for the rest. |
+
+If you catch yourself generating a reason to skip a phase: **that's the signal that the phase is needed most.**
 
 ---
 

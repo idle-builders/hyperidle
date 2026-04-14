@@ -1,6 +1,6 @@
 ---
 name: check-definition-of-done
-description: Validate that all acceptance criteria of a work package or task are verifiably met before proceeding. Spawns the most suitable agent to independently verify each criterion through tests, evals, screenshots, or manual inspection.
+description: "Use when implementation is complete and you need independent proof that every acceptance criterion is met. Triggers: post-implementation verification, before shipping, DoD gate."
 argument-hint: "[story-id or work package reference]"
 user-invocable: true
 allowed-tools: Read Grep Glob Bash Agent
@@ -71,6 +71,19 @@ Produce a DoD report:
 - **NOT DONE** — One or more criteria FAIL or PARTIAL. List every gap. Do NOT proceed.
 
 If NOT DONE, list the specific work remaining to close each gap. This list becomes the input for the next `/implement` iteration.
+
+---
+
+## Anti-Rationalization Table
+
+| Excuse | Rebuttal |
+|--------|----------|
+| "I just implemented this, I know it works" | You're the implementer — you're the LEAST qualified to verify. That's why this is an independent check. |
+| "The tests pass, so the criterion is met" | Tests prove code behavior. Criteria describe user outcomes. A passing test doesn't mean the RIGHT thing was built. |
+| "This criterion is subjective, I can't test it" | Then classify it as inspection/screenshot and get specific. "Looks good" is not evidence — "matches mockup X with density Y" is. |
+| "PARTIAL is close enough to PASS" | PARTIAL means the user gets an incomplete feature. Ship complete or don't ship. |
+| "Coverage is at 95%, that's good enough" | The 5% you skipped is where the bugs live. 100% of new code means 100%. |
+| "I'll mark this PASS and fix it in the next story" | The next story has its own criteria. Deferred fixes become permanent gaps. Fix it now. |
 
 ---
 

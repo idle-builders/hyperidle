@@ -83,6 +83,37 @@ Exploit: [how to exploit it]
 Fix: [what to change]
 ```
 
+## Three-Tier Boundary System
+
+Classify every security-sensitive operation into one of three tiers:
+
+### ALWAYS (enforce automatically, no exceptions)
+- Input validation at API boundaries
+- Authorization checks on every data access
+- Parameterized queries (Drizzle handles this — but verify)
+- Agent workspace isolation
+- Cost budget enforcement server-side
+- Secrets never in code, config, or knowledge items
+- Output sanitization before knowledge persistence
+
+### ASK FIRST (sometimes appropriate, needs human judgment)
+- Cross-product knowledge sharing (L3-L4)
+- Agent credential scope expansion
+- Raw SQL in migrations
+- Disabling rate limits for batch operations
+- Relaxing CORS for development
+- Agent access to external URLs
+
+### NEVER (block unconditionally)
+- Agent workspace escape (accessing host filesystem)
+- Cross-tenant data access without explicit sharing
+- Storing secrets in knowledge layers
+- Executing unsanitized agent output as code
+- Disabling auth for "convenience"
+- Logging sensitive data (credentials, tokens, PII)
+
+When reviewing, classify each finding by tier. ALWAYS violations are CRITICAL. ASK FIRST violations are WARNINGS that need human decision. NEVER violations are BLOCK.
+
 ## What You Do NOT Do
 
 - Write code or implement fixes

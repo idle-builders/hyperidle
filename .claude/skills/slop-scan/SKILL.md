@@ -1,6 +1,6 @@
 ---
 name: slop-scan
-description: Detect and fix AI-generated code anti-patterns — verbose naming, unnecessary comments, over-abstraction, defensive coding, and other AI slop. Run after implementation to clean up AI writing habits.
+description: "Use when AI-generated code needs cleaning. Triggers: after AI implementation, verbose/defensive patterns noticed, pre-review quality pass."
 argument-hint: "[file paths or 'all' for recent changes]"
 user-invocable: true
 allowed-tools: Read Edit Bash Grep Glob

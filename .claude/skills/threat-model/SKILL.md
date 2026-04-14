@@ -1,6 +1,6 @@
 ---
 name: threat-model
-description: Generate a security threat model for a feature, component, or the full system. Spawns the security-researcher agent to analyze attack surface, trust boundaries, and threat vectors.
+description: "Use when a feature touches trust boundaries, credentials, agent isolation, or knowledge flow. Triggers: new attack surface, security-sensitive changes, pre-launch security audit."
 argument-hint: "[feature name, component, or 'full' for system-wide]"
 user-invocable: true
 allowed-tools: Read Grep Glob Agent
