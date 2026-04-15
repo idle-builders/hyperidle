@@ -101,7 +101,17 @@ Fall back to sequential processing if stories have dependencies or might conflic
 
 ### Sequential execution
 
-**CRITICAL: Each step below is a separate, explicit action YOU perform.** Do NOT collapse multiple steps into a single agent call. Do NOT spawn a "developer agent" to handle the whole story. YOU are the orchestrator — YOU invoke each skill one at a time, evaluate the result, and decide whether to proceed to the next step. The skills themselves may spawn subagents internally, but the step-by-step sequencing is YOUR responsibility.
+**MANDATORY: You MUST execute ALL 17 steps below for EVERY story. No exceptions. No shortcuts.**
+
+Before each step, output exactly: `## Step N — <name>` so the orchestrator and human can verify you are following the sequence. If you skip a step, the story is considered FAILED.
+
+You MUST call each skill via the Skill tool individually. You MUST NOT:
+- Spawn a single agent to do multiple steps
+- Skip steps because "the implementation is simple"
+- Mark a story done before completing steps 1 through 17
+- Combine steps (e.g., doing implement + review in one agent)
+
+**After completing step 5 (planning), you MUST call the Skill tool for step 6 (implement). After step 6, you MUST do step 7 (evaluate). After step 7, you MUST call step 8 (check-definition-of-done). And so on through step 17. There is no shortcut.**
 
 For each story in dependency order:
 
@@ -135,15 +145,25 @@ If worktree creation fails (branch exists), clean up first:
 - `git worktree prune`
 - Retry
 
-### Step 5. `/planning` — YOU call this skill
+### Step 5. `/planning` — CALL THE SKILL TOOL
 
-Call the Skill tool: `skill: "planning", args: "<story-id>"`. Wait for completion. Save the plan output — it feeds into step 6.
+```
+Skill(skill: "planning", args: "<story-id>")
+```
 
-If the plan surfaces open questions that block implementation, set story to `blocked` with `needs_human: true` and skip to step 17.
+Wait for completion. Save the plan output. If open questions block implementation, set `blocked` + `needs_human: true` and skip to step 17.
 
-### Step 6. `/implement` — YOU call this skill
+**DO NOT PROCEED TO STEP 6 WITHOUT HAVING CALLED THE SKILL TOOL ABOVE.**
 
-Call the Skill tool: `skill: "implement", args: "<story-id>"`. Wait for completion.
+### Step 6. `/implement` — CALL THE SKILL TOOL
+
+```
+Skill(skill: "implement", args: "<story-id>")
+```
+
+Wait for completion. The implement skill handles its own internal phases.
+
+**DO NOT PROCEED TO STEP 7 WITHOUT HAVING CALLED THE SKILL TOOL ABOVE. Planning alone is NOT implementation. You MUST call /implement.**
 
 ### Step 7. Evaluate Result — YOU do this
 
@@ -154,68 +174,103 @@ If failures:
 2. If `attempts < 3`: go back to step 6 with failure context.
 3. If `attempts >= 3`: set `blocked`, `needs_human: true`, skip to step 17.
 
-### Step 8. `/check-definition-of-done` — YOU call this skill
+### Step 8. `/check-definition-of-done` — CALL THE SKILL TOOL
 
-Call the Skill tool: `skill: "check-definition-of-done", args: "<story-id>"`. Independent audit gate. If NOT DONE, feed gaps back to step 6. Count as an attempt.
+```
+Skill(skill: "check-definition-of-done", args: "<story-id>")
+```
 
-### Step 9. `/simplify` — YOU call this skill
+Independent audit gate. If NOT DONE, feed gaps back to step 6. Count as an attempt.
 
-Call the Skill tool: `skill: "simplify"`. Reviews changed files for over-abstraction and dead code.
+### Step 9. `/simplify` — CALL THE SKILL TOOL
 
-### Step 10. `/slop-scan` — YOU call this skill
+```
+Skill(skill: "simplify")
+```
 
-Call the Skill tool: `skill: "slop-scan"`. Catches AI-specific anti-patterns.
+Reviews changed files for over-abstraction and dead code.
 
-### Step 11. Verify — YOU do this directly
+### Step 10. `/slop-scan` — CALL THE SKILL TOOL
 
-Run these commands yourself (not delegated):
-- `bun run check` — must pass
-- `bun run lint` — must pass
-- `bun run test` — must pass
+```
+Skill(skill: "slop-scan")
+```
 
-If any fail, fix or revert the simplify/slop-scan changes that broke it.
+Catches AI-specific anti-patterns.
 
-### Step 12. `/review` — YOU call this skill
+### Step 11. Verify — RUN THESE COMMANDS
 
-Call the Skill tool: `skill: "review"`. If BLOCK, feed issues back to step 6 (count as attempt). If NEEDS WORK, the review skill auto-iterates.
+Run yourself (not delegated):
+```
+bun run check
+bun run lint
+bun run test
+```
+All must pass. If any fail, fix or revert the simplify/slop-scan changes.
 
-### Step 13. `/ship` — YOU call this skill
+### Step 12. `/review` — CALL THE SKILL TOOL
 
-Call the Skill tool: `skill: "ship", args: "<story-id>"`.
+```
+Skill(skill: "review")
+```
+
+If BLOCK, feed issues back to step 6 (count as attempt). If NEEDS WORK, the review skill auto-iterates.
+
+### Step 13. `/ship` — CALL THE SKILL TOOL
+
+```
+Skill(skill: "ship", args: "<story-id>")
+```
 
 ### Step 14. Self-Merge + Worktree Cleanup
 
-Return to the main repo and merge:
-
-- `cd <original-repo-root>`
-- `git checkout main`
-- `git merge --squash feat/<story-id>-<short-description>`
-- `git commit -m "feat(<story-id>): <title>"`
-- `git worktree remove .worktrees/<story-id> --force`
-- `git branch -D feat/<story-id>-<short-description>`
+```
+cd <original-repo-root>
+git checkout main
+git merge --squash feat/<story-id>-<short-description>
+git commit -m "feat(<story-id>): <title>"
+git worktree remove .worktrees/<story-id> --force
+git branch -D feat/<story-id>-<short-description>
+```
 
 Update progress: status -> `done`. Write progress file.
 
-### Step 15. `/retro` — YOU call this skill
+### Step 15. `/retro` — CALL THE SKILL TOOL
 
-Call the Skill tool: `skill: "retro", args: "<story-id>"`. Fast (< 2 minutes). Always run it.
+```
+Skill(skill: "retro", args: "<story-id>")
+```
+
+Fast (< 2 minutes). Always run it.
 
 ### Step 16. Compound review (periodic)
 
-Every **3 completed stories**, spawn the **compound agent**.
-
-If it proposes skill file edits, apply if clearly correct. For CLAUDE.md changes, skip — needs human approval.
+Every **3 completed stories**, spawn the **compound agent**. Apply clearly correct skill edits. Skip CLAUDE.md changes.
 
 ### Step 17. Log and Continue
 
-Write `idle:<timestamp>` to `.claude/pipeline-heartbeat`. Report progress:
-- Story ID, status
-- Cumulative: N of M stories complete
-- Elapsed time this session
+Before moving on, output this checklist to prove you completed all steps:
 
-Move to the next story (back to step 1).
+```
+## Story <id> — Step Completion Checklist
+- [x] Step 5:  /planning called via Skill tool
+- [x] Step 6:  /implement called via Skill tool
+- [x] Step 7:  Evaluate result — checked AC evidence
+- [x] Step 8:  /check-definition-of-done called via Skill tool
+- [x] Step 9:  /simplify called via Skill tool
+- [x] Step 10: /slop-scan called via Skill tool
+- [x] Step 11: bun run check + lint + test — all passed
+- [x] Step 12: /review called via Skill tool
+- [x] Step 13: /ship called via Skill tool
+- [x] Step 14: Merged to main, worktree cleaned
+- [x] Step 15: /retro called via Skill tool
+```
 
-**Full sequence per story:** 1-time check → 2-deps → 3-progress → 4-worktree → 5-planning → 6-implement → 7-evaluate → 8-check-dod → 9-simplify → 10-slop-scan → 11-verify → 12-review → 13-ship → 14-merge → 15-retro → 16-compound → 17-continue
+**If ANY step above is not checked, the story is NOT done. Go back and complete the missing steps.**
+
+Write `idle:<timestamp>` to `.claude/pipeline-heartbeat`. Move to the next story (back to step 1).
+
+**Full sequence:** 1→2→3→4→5-planning→6-implement→7-evaluate→8-check-dod→9-simplify→10-slop-scan→11-verify→12-review→13-ship→14-merge→15-retro→16-compound→17-log
 
 ---
 

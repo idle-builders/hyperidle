@@ -26,6 +26,8 @@ const STATUS_COLORS: Record<string, string> = {
 
 export function PipelineApp(): React.JSX.Element {
 	const [state, setState] = useState<PipelineStore>(getStore());
+	const [scrollOffset, setScrollOffset] = useState(0);
+	const [autoScroll, setAutoScroll] = useState(true);
 	const { stdout } = useStdout();
 	const rows = stdout?.rows ?? 24;
 	const cols = stdout?.columns ?? 80;
@@ -40,6 +42,14 @@ export function PipelineApp(): React.JSX.Element {
 		};
 	}, []);
 
+	// Reset scroll when switching stories
+	const selectedStory = state.selectedStory;
+	// biome-ignore lint/correctness/useExhaustiveDependencies: need to trigger on story change
+	useEffect(() => {
+		setScrollOffset(0);
+		setAutoScroll(true);
+	}, [selectedStory]);
+
 	useInput((input, key) => {
 		const storyList = state.stories.map((s) => s.id);
 		const currentIdx = storyList.indexOf(state.selectedStory ?? "");
@@ -50,6 +60,16 @@ export function PipelineApp(): React.JSX.Element {
 		} else if (input === "k" || key.upArrow) {
 			const prev = storyList[currentIdx - 1];
 			if (prev) setSelectedStory(prev);
+		} else if (key.pageDown || input === "n") {
+			setAutoScroll(false);
+			setScrollOffset((s) => s + 10);
+		} else if (key.pageUp || input === "p") {
+			setAutoScroll(false);
+			setScrollOffset((s) => Math.max(0, s - 10));
+		} else if (input === "e") {
+			// Jump to end / resume auto-scroll
+			setScrollOffset(0);
+			setAutoScroll(true);
 		} else if (input === "a" && state.approvals.length > 0) {
 			const approval = state.approvals[0];
 			if (approval) {
@@ -73,17 +93,23 @@ export function PipelineApp(): React.JSX.Element {
 
 	const selectedFeed = state.selectedStory ? state.feeds.get(state.selectedStory) : null;
 
-	// Layout: reserve space for tools/agents panels
-	const toolsHeight = selectedFeed
-		? Math.min(
-				[...selectedFeed.tools.values()].filter((t) => t.status === "running").length +
-					[...selectedFeed.subagents.values()].filter((a) => a.status === "running").length +
-					2,
-				8,
-			)
-		: 0;
-	const logHeight = contentHeight - toolsHeight;
-	const visibleLines = selectedFeed?.lines.slice(-logHeight) ?? [];
+	// Running agents pinned at bottom
+	const runningAgents = selectedFeed
+		? [...selectedFeed.subagents.values()].filter((a) => a.status === "running")
+		: [];
+	const pinnedHeight = runningAgents.length > 0 ? runningAgents.length + 1 : 0;
+	const logHeight = contentHeight - pinnedHeight - 1;
+	const allLines = selectedFeed?.lines ?? [];
+	const totalLines = allLines.length;
+
+	let visibleLines: string[];
+	if (autoScroll) {
+		visibleLines = allLines.slice(-logHeight);
+	} else {
+		const end = Math.max(0, totalLines - scrollOffset);
+		const start = Math.max(0, end - logHeight);
+		visibleLines = allLines.slice(start, end);
+	}
 
 	const elapsed = Math.floor((Date.now() - state.startedAt) / 1000);
 	const minutes = Math.floor(elapsed / 60);
@@ -94,13 +120,6 @@ export function PipelineApp(): React.JSX.Element {
 	const blockedCount = state.stories.filter(
 		(s) => s.status === "blocked" || s.status === "failed",
 	).length;
-
-	const runningTools = selectedFeed
-		? [...selectedFeed.tools.values()].filter((t) => t.status === "running")
-		: [];
-	const runningAgents = selectedFeed
-		? [...selectedFeed.subagents.values()].filter((a) => a.status === "running")
-		: [];
 
 	return (
 		<Box flexDirection="column" width={cols} height={rows}>
@@ -154,38 +173,41 @@ export function PipelineApp(): React.JSX.Element {
 
 				{/* Main panel */}
 				<Box flexDirection="column" width={mainWidth}>
-					{/* Active tools + subagents */}
-					{(runningTools.length > 0 || runningAgents.length > 0) && (
-						<Box flexDirection="column" marginBottom={0}>
-							{runningAgents.map((agent) => (
-								<Text key={agent.taskId} color="magenta" wrap="truncate">
-									{`  agent: ${agent.description.slice(0, mainWidth - 12)}${agent.lastTool ? ` [${agent.lastTool}]` : ""}`}
-								</Text>
-							))}
-							{runningTools.map((tool) => (
-								<Text key={tool.id} color="cyan" wrap="truncate">
-									{`  ${tool.elapsed > 0 ? `${tool.elapsed.toFixed(0)}s` : "..."} ${tool.name}`}
-								</Text>
-							))}
-							<Text color="gray">{"─".repeat(mainWidth)}</Text>
-						</Box>
-					)}
-
-					{/* Log output */}
 					<Text bold wrap="truncate">
 						{state.selectedStory
 							? `[${state.selectedStory}] ${selectedFeed?.status ?? "pending"}`
 							: "Select a story"}
 					</Text>
-					{visibleLines.map((line, i) => (
-						<Text key={`${i}-${line.slice(0, 10)}`} wrap="truncate">
-							{line.slice(0, mainWidth - 1)}
-						</Text>
-					))}
+
+					{/* Log output — agent start/end lines are colored inline */}
+					{visibleLines.map((line, i) => {
+						let color: string | undefined;
+						if (line.startsWith(">>>")) color = "magenta";
+						else if (line.startsWith("<<<")) color = "green";
+						else if (line.startsWith("<!>")) color = "red";
+
+						return (
+							<Text key={`${i}-${line.slice(0, 10)}`} wrap="truncate" color={color}>
+								{line.slice(0, mainWidth - 1)}
+							</Text>
+						);
+					})}
 					{!selectedFeed && (
 						<Text color="gray" dimColor>
 							Waiting for agent output...
 						</Text>
+					)}
+
+					{/* Pinned running agents at bottom */}
+					{runningAgents.length > 0 && (
+						<Box flexDirection="column">
+							<Text color="gray">{"─".repeat(mainWidth)}</Text>
+							{runningAgents.map((agent) => (
+								<Text key={agent.taskId} color="magenta" wrap="truncate">
+									{`> ${agent.description}${agent.lastTool ? ` [${agent.lastTool}]` : ""}`}
+								</Text>
+							))}
+						</Box>
 					)}
 				</Box>
 			</Box>
@@ -195,7 +217,9 @@ export function PipelineApp(): React.JSX.Element {
 				<Text color="gray">{"─".repeat(cols)}</Text>
 			</Box>
 			<Box>
-				<Text color="gray">j/k: navigate | a: approve | d: deny | q: quit</Text>
+				<Text color="gray">
+					{`j/k: stories | p/n: scroll | e: end | a: approve | d: deny | q: quit${autoScroll ? "" : ` [scroll: ${scrollOffset}]`}`}
+				</Text>
 			</Box>
 		</Box>
 	);
