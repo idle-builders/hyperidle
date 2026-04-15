@@ -8,121 +8,62 @@ allowed-tools: Read Grep Glob Bash Agent
 
 # Plan
 
-You are planning the development work for: **$ARGUMENTS**
+You are creating an internal plan for yourself to execute in the next step (/implement). This plan is NOT for a human — it is YOUR roadmap. Keep it concise. No presentation, no formatting for readability. Just the facts you need to build this correctly.
 
-Planning is not implementation. You write zero code here. Your job is to produce a plan so clear and complete that an agent with no context could pick it up and build exactly the right thing.
+Target: **$ARGUMENTS**
 
 ---
 
-## Step 1 — Understand the full picture
+## Step 1 — Read everything
 
 1. Read the work package story in `docs/WORK_PACKAGES.md` matching `$ARGUMENTS`.
-2. Read `docs/ARCHITECTURE.md` and any other referenced architecture docs.
-3. Read `ETHOS.md` for builder principles.
-4. Read existing code in the packages this story touches. Understand what already exists — patterns, conventions, utilities, tests.
-5. Check git history for recent changes in the relevant packages — know what's in flux.
+2. Read `docs/ARCHITECTURE.md` sections relevant to this story.
+3. Read existing code in the packages this story touches — patterns, conventions, what exists.
+4. Check git log for recent changes in relevant packages.
 
-Do not skim. Read thoroughly. Misunderstanding the spec is the #1 source of wasted work.
-
----
-
-## Step 2 — Extract and interrogate the acceptance criteria
-
-List every acceptance criterion from the story. For each one:
-
-1. **Restate it in your own words.** If you can't, you don't understand it.
-2. **Identify ambiguities.** What's left unsaid? What assumptions are you making? What could be interpreted two ways?
-3. **Define the verification method.** How will you prove this criterion is met? (Test, E2E, screenshot, inspection.) If you can't define verification, the criterion is underspecified — flag it.
-4. **Identify dependencies.** Does this criterion require another criterion to be done first? Does it depend on external code, a migration, an API that doesn't exist yet?
-
-If you find ambiguities or underspecified criteria, list them explicitly as **open questions**. Do not guess — these must be resolved before implementation begins.
+Do not skim. Misunderstanding the spec wastes implementation time.
 
 ---
 
-## Step 3 — Identify the gaps
+## Step 2 — Extract acceptance criteria
 
-What needs to exist that doesn't exist yet? Be exhaustive:
+For each criterion from the story:
+1. Restate it — if you can't, you don't understand it.
+2. Identify ambiguities — what's assumed? What could go two ways?
+3. Define verification — test, E2E, inspection. If you can't verify it, flag it.
+4. Note dependencies between criteria.
 
-- **New files** — schemas, routes, components, tests, migrations
-- **Modified files** — existing code that needs changes
-- **New dependencies** — packages to install
-- **Infrastructure** — database tables, API endpoints, queue jobs
-- **Patterns to follow** — existing conventions to match
-- **Patterns to establish** — new conventions this story introduces
+---
 
-For each gap, note what it connects to. A migration affects the schema which affects the API which affects the frontend. Trace the chain.
+## Step 3 — Identify gaps
+
+What needs to be created or changed? New files, modified files, new dependencies, new patterns.
 
 ---
 
 ## Step 4 — Decompose into ordered tasks
 
-Break the work into thin vertical slices. Each task should be:
+Small tasks (~100 lines each), independently testable, ordered by dependency. For each:
+- What to do (one sentence)
+- Which files
+- Which test verifies it
+- What it depends on
 
-- **Small** — ~100 lines of change or less. If it's bigger, split it.
-- **Independently testable** — you can write a test for it and verify it passes without the other tasks.
-- **Ordered by dependency** — task B depends on task A, never circular.
-
-For each task:
-- **What:** One sentence describing the change.
-- **Where:** Which files are created or modified.
-- **Tests:** Which test(s) verify this task is done.
-- **Depends on:** Which prior tasks must be complete.
-
-Order them so that at every step, you have a working (if incomplete) system. Database first, then API, then frontend. Never build top-down with stubs.
+Database first, then API, then frontend. Always keep the system buildable.
 
 ---
 
 ## Step 5 — Risk check
 
-**Spawn the adversary agent** with your plan. Ask it to find:
-
-- Tasks that are too large or vague
-- Missing dependencies between tasks
-- Gaps in the acceptance criteria coverage — is every criterion addressed by at least one task?
-- Over-engineering — are you planning more than what's needed?
-- Assumptions that could be wrong
-
-Address critical issues. Max 1 round — then finalize.
+Spawn the adversary agent with your task list. Ask it to find: tasks too large, missing dependencies, gaps in AC coverage, over-engineering. Address critical issues. Max 1 round.
 
 ---
 
-## Step 6 — Output the plan
+## Step 6 — Save the plan
 
-Produce a structured plan:
+Write your plan to a task list (using TaskCreate) so you can reference it during /implement. Include:
+- The ordered task list with files and tests
+- Any risks or decisions made
+- Any open questions that couldn't be resolved
 
-```
-## Plan: [story-id] — [title]
-
-### Open Questions
-[List any ambiguities that need resolution before implementation. If none, state "None — all criteria are clear."]
-
-### Acceptance Criteria
-| # | Criterion | Verification | Addressed by Task |
-|---|-----------|-------------|-------------------|
-| 1 | ...       | test/e2e/...| T3, T5            |
-
-### Gaps
-[Bulleted list of what needs to be created/modified]
-
-### Tasks (in order)
-| # | Task | Files | Tests | Depends on |
-|---|------|-------|-------|------------|
-| T1 | ... | ...   | ...   | —          |
-| T2 | ... | ...   | ...   | T1         |
-
-### Risks
-[Anything the adversary flagged that you accepted with rationale]
-```
-
-This plan is the input to `/implement`. It replaces Phase 1 and Phase 2 of the implement skill — the agent skips straight to writing tests.
-
----
-
-## Rules
-
-- Zero code. This is a thinking exercise, not an implementation exercise.
-- Every acceptance criterion must map to at least one task. If it doesn't, the plan is incomplete.
-- Every task must map to at least one test. If it doesn't, the task is unverifiable.
-- Flag ambiguities rather than guessing. A wrong assumption wastes more time than a question.
-- Prefer many small tasks over few large ones. Small tasks are easier to test, review, and retry.
-- The plan must be understandable by an agent that has never seen this codebase. Include enough context.
+**This is NOT the end of your work.** Planning is step 1 of 11 in the pipeline. /implement comes next. Do not stop.

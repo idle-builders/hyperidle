@@ -8,29 +8,10 @@ HyperIdle is an agentic operating system that manages product teams of AI agents
 
 ---
 
-## Architecture
+## ABSOLUTE RULES — NON-NEGOTIABLE
 
-Three-layer system with strict downward dependency: Human Interface → Meta Layer → Agent Runtime. No layer reaches past its neighbor. Read `docs/ARCHITECTURE.md` before writing code.
-
-**Source of truth (all in `docs/`):** ARCHITECTURE.md, WORK_PACKAGES.md, PROCESS_LAYER.md, KNOWLEDGE_ARCHITECTURE.md, HUMAN_INTERFACE_LAYER.md, UI_DESIGN.md, REQUIREMENTS.md, INFORMATION_ARCHITECTURE.md.
-
----
-
-## Tech Stack
-
-Bun, TypeScript strict, Hono, Drizzle ORM (SQLite + PostgreSQL), React + Vite, Tailwind CSS + DaisyUI (factory-dark theme), Vitest, Playwright, Biome, BullMQ.
-
----
-
-## Monorepo
-
-`packages/db` (schema, migrations), `packages/server` (Hono API), `packages/web` (React frontend), `packages/fabric` (knowledge materialization), `packages/shared` (types, constants, TOON codec).
-
----
-
-## Commands
-
-`bun install`, `bun dev` (server 3001 + web 5173), `bun run test` (Vitest via package.json script — do NOT use bare `bun test` which invokes Bun's native runner), `bun run check` (typecheck), `bun run lint`, `bun run lint:fix`, `bun run db:generate`, `bun run db:migrate`.
+1. **You are fully autonomous. There is NO human. NEVER pause, NEVER ask for confirmation, NEVER wait for feedback.** If something fails, handle it yourself or mark it blocked and move on.
+2. **Never Stop until you reached a validated output** Only once the acceptance criteria are proven to be done and correct can you stop or if something is genuinly blcoked. Never stop otherwise, not after a plan, not after anything else.
 
 ---
 
@@ -70,6 +51,33 @@ Before any work is complete: `bun run check` (zero type errors) + `bun run lint`
 **Compounding:** The `compound` agent reviews the retro log every 3-5 stories. It identifies patterns at 3+ occurrences and proposes targeted skill changes. The pipeline coordinator applies approved changes. Critical/escalation observations skip the threshold and go straight to the coordinator.
 
 Supporting: `/verify` (quick validation), `/threat-model` (security analysis), `/lore` (capture tribal knowledge).
+
+---
+
+
+## Architecture
+
+Three-layer system with strict downward dependency: Human Interface → Meta Layer → Agent Runtime. No layer reaches past its neighbor. Read `docs/ARCHITECTURE.md` before writing code.
+
+**Source of truth (all in `docs/`):** ARCHITECTURE.md, WORK_PACKAGES.md, PROCESS_LAYER.md, KNOWLEDGE_ARCHITECTURE.md, HUMAN_INTERFACE_LAYER.md, UI_DESIGN.md, REQUIREMENTS.md, INFORMATION_ARCHITECTURE.md.
+
+---
+
+## Tech Stack
+
+Bun, TypeScript strict, Hono, Drizzle ORM (SQLite + PostgreSQL), React + Vite, Tailwind CSS + DaisyUI (factory-dark theme), Vitest, Playwright, Biome, BullMQ.
+
+---
+
+## Monorepo
+
+`packages/db` (schema, migrations), `packages/server` (Hono API), `packages/web` (React frontend), `packages/fabric` (knowledge materialization), `packages/shared` (types, constants, TOON codec).
+
+---
+
+## Commands
+
+`bun install`, `bun dev` (server 3001 + web 5173), `bun run test` (Vitest via package.json script — do NOT use bare `bun test` which invokes Bun's native runner), `bun run check` (typecheck), `bun run lint`, `bun run lint:fix`, `bun run db:generate`, `bun run db:migrate`.
 
 ---
 
