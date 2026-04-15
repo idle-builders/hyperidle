@@ -99,129 +99,123 @@ When 2+ stories are independent and ready:
 
 Fall back to sequential processing if stories have dependencies or might conflict on files.
 
-### Sequential execution (subagents)
+### Sequential execution
+
+**CRITICAL: Each step below is a separate, explicit action YOU perform.** Do NOT collapse multiple steps into a single agent call. Do NOT spawn a "developer agent" to handle the whole story. YOU are the orchestrator — YOU invoke each skill one at a time, evaluate the result, and decide whether to proceed to the next step. The skills themselves may spawn subagents internally, but the step-by-step sequencing is YOUR responsibility.
 
 For each story in dependency order:
 
-### 3a. Time Check
+### Step 1. Time Check
 
 Check elapsed time since session start. **If > 45 minutes: stop.** Write `idle` to heartbeat file, write progress, output status, exit. Do not start this story.
 
-### 3b. Check Dependencies
+### Step 2. Check Dependencies
 
 Verify all blocking stories are `done` in the progress file.
 
-- If a dependency is `blocked` or `failed`: **do NOT stop the entire pipeline.** Instead, skip this story and move to the next story that has all dependencies met. This story becomes `dependency_blocked` — it will be retried when its dependency is resolved.
-- If NO stories in the remaining queue have all dependencies met (all remaining stories are blocked by failed/blocked stories): stop the pipeline and report the full dependency graph with blockers.
+- If a dependency is `blocked` or `failed`: skip this story and move to the next that has all dependencies met.
+- If NO stories have all dependencies met: stop and report blockers.
 
-### 3c. Update Progress
+### Step 3. Update Progress
 
 Set story status to `in_progress`. Write progress file immediately. Write `busy:<story-id>` to `.claude/pipeline-heartbeat`.
 
-### 3d. Create Worktree
+### Step 4. Create Worktree
 
-Create an isolated worktree for this story so parallel stories don't conflict:
+Create an isolated worktree for this story:
 
 - `git worktree add .worktrees/<story-id> -b feat/<story-id>-<short-description> main`
 - `cd .worktrees/<story-id>`
 - `bun install --frozen-lockfile`
 
-All subsequent work for this story happens inside the worktree. When the story is done (step 3n), merge back to main and clean up the worktree.
+All subsequent steps happen inside the worktree. Step 14 merges back and cleans up.
 
-If worktree creation fails (e.g., branch already exists), clean up first:
-- `git branch -D feat/<story-id>-<short-description>` (delete stale branch)
-- `git worktree prune` (clean stale worktree refs)
-- Retry creation
+If worktree creation fails (branch exists), clean up first:
+- `git branch -D feat/<story-id>-<short-description>`
+- `git worktree prune`
+- Retry
 
-### 3e. `/planning <story-id>`
+### Step 5. `/planning` — YOU call this skill
 
-Invoke the planning skill. Save the plan output — it feeds into the implementation step.
+Call the Skill tool: `skill: "planning", args: "<story-id>"`. Wait for completion. Save the plan output — it feeds into step 6.
 
-If the plan surfaces open questions that block implementation, set story to `blocked` with `needs_human: true` and move on.
+If the plan surfaces open questions that block implementation, set story to `blocked` with `needs_human: true` and skip to step 17.
 
-### 3f. `/implement <story-id>`
+### Step 6. `/implement` — YOU call this skill
 
-Invoke the implement skill with the plan from 3e as context.
+Call the Skill tool: `skill: "implement", args: "<story-id>"`. Wait for completion.
 
-### 3g. Evaluate Result
+### Step 7. Evaluate Result — YOU do this
 
-Read the agent's output. Check:
-- Did all acceptance criteria pass?
-- Are there any reported failures or blockers?
-- Is there convincing evidence for each criterion (not just assertions)?
+Read the implement output yourself. Check: did all acceptance criteria pass? Is there convincing evidence?
 
-If the agent reports failures:
-1. Update progress: `attempts += 1`. Write progress file.
-2. If `attempts < 3`: re-invoke `/implement` with the failure context. Include what failed and why.
-3. If `attempts >= 3`: **Block the story, don't stop the pipeline.**
-   - Set status to `blocked`, set `needs_human: true`.
-   - Write `blocked_reason` with a clear summary: what was attempted, what failed, and what needs human decision (architecture question? ambiguous requirement? fundamental approach wrong?).
-   - Write `blocked_at` timestamp.
-   - **Continue processing other stories** that don't depend on this blocked story.
-   - The pipeline only stops when ALL remaining stories are blocked or their dependencies are blocked.
+If failures:
+1. `attempts += 1`. Write progress file.
+2. If `attempts < 3`: go back to step 6 with failure context.
+3. If `attempts >= 3`: set `blocked`, `needs_human: true`, skip to step 17.
 
-### 3h. `/check-definition-of-done <story-id>`
+### Step 8. `/check-definition-of-done` — YOU call this skill
 
-Invoke the definition-of-done skill for independent audit. This is a gate — if NOT DONE, feed the gap list back to 3f. Count as an attempt.
+Call the Skill tool: `skill: "check-definition-of-done", args: "<story-id>"`. Independent audit gate. If NOT DONE, feed gaps back to step 6. Count as an attempt.
 
-### 3i. `/simplify`
+### Step 9. `/simplify` — YOU call this skill
 
-Invoke the simplify skill on the changed files. Removes over-abstraction and dead code.
+Call the Skill tool: `skill: "simplify"`. Reviews changed files for over-abstraction and dead code.
 
-### 3j. `/slop-scan`
+### Step 10. `/slop-scan` — YOU call this skill
 
-Invoke the slop-scan skill on the changed files. Catches AI-specific anti-patterns.
+Call the Skill tool: `skill: "slop-scan"`. Catches AI-specific anti-patterns.
 
-### 3k. Verify
+### Step 11. Verify — YOU do this directly
 
-Run verification yourself (not delegated) after simplify/slop-scan changes:
+Run these commands yourself (not delegated):
 - `bun run check` — must pass
 - `bun run lint` — must pass
-- `bun test` — must pass
+- `bun run test` — must pass
 
 If any fail, fix or revert the simplify/slop-scan changes that broke it.
 
-### 3l. `/review`
+### Step 12. `/review` — YOU call this skill
 
-Invoke the review skill. If verdict is BLOCK, feed critical issues back to 3f. Count as an attempt. If NEEDS WORK, the review skill auto-iterates.
+Call the Skill tool: `skill: "review"`. If BLOCK, feed issues back to step 6 (count as attempt). If NEEDS WORK, the review skill auto-iterates.
 
-### 3m. `/ship <story-id>`
+### Step 13. `/ship` — YOU call this skill
 
-Invoke the ship skill to stage, commit, push, and create a PR.
+Call the Skill tool: `skill: "ship", args: "<story-id>"`.
 
-### 3n. Self-Merge + Worktree Cleanup
+### Step 14. Self-Merge + Worktree Cleanup
 
-Return to the main repo and merge the worktree branch:
+Return to the main repo and merge:
 
-- `cd <original-repo-root>` (exit the worktree)
+- `cd <original-repo-root>`
 - `git checkout main`
 - `git merge --squash feat/<story-id>-<short-description>`
 - `git commit -m "feat(<story-id>): <title>"`
 - `git worktree remove .worktrees/<story-id> --force`
 - `git branch -D feat/<story-id>-<short-description>`
 
-Update progress: status → `done`. Write progress file.
+Update progress: status -> `done`. Write progress file.
 
-### 3o. `/retro <story-id>`
+### Step 15. `/retro` — YOU call this skill
 
-Invoke the retro skill. Fast (< 2 minutes). Always run it — even under time pressure. The compound agent needs data.
+Call the Skill tool: `skill: "retro", args: "<story-id>"`. Fast (< 2 minutes). Always run it.
 
-### 3p. Compound review (periodic)
+### Step 16. Compound review (periodic)
 
-Every **3 completed stories**, spawn the **compound agent** (see `.claude/agents/compound/AGENT.md`).
+Every **3 completed stories**, spawn the **compound agent**.
 
-If the compound agent proposes changes: evaluate them yourself. For skill file edits, apply them if they're clearly correct and targeted. For CLAUDE.md changes or new skills, skip — those need human approval. Log what you applied and what you deferred.
+If it proposes skill file edits, apply if clearly correct. For CLAUDE.md changes, skip — needs human approval.
 
-### 3q. Log and Continue
+### Step 17. Log and Continue
 
 Write `idle:<timestamp>` to `.claude/pipeline-heartbeat`. Report progress:
-- Story ID, status, PR number
+- Story ID, status
 - Cumulative: N of M stories complete
 - Elapsed time this session
 
-Move to the next story (back to 3a for time check).
+Move to the next story (back to step 1).
 
-**Full skill sequence per story:** `/planning` → `/implement` → evaluate → `/check-definition-of-done` → `/simplify` → `/slop-scan` → verify → `/review` → `/ship` → self-merge → `/retro` → compound (periodic)
+**Full sequence per story:** 1-time check → 2-deps → 3-progress → 4-worktree → 5-planning → 6-implement → 7-evaluate → 8-check-dod → 9-simplify → 10-slop-scan → 11-verify → 12-review → 13-ship → 14-merge → 15-retro → 16-compound → 17-continue
 
 ---
 

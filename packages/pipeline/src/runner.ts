@@ -1,5 +1,12 @@
 import { query } from "@anthropic-ai/claude-agent-sdk";
-import { addApproval, appendOutput, removeApproval } from "./store.js";
+import {
+	addApproval,
+	appendOutput,
+	completeToolCall,
+	removeApproval,
+	updateSubAgent,
+	updateToolCall,
+} from "./store.js";
 
 export interface RunResult {
 	success: boolean;
@@ -54,6 +61,7 @@ export async function runStory(options: RunOptions): Promise<RunResult> {
 		for await (const message of q) {
 			switch (message.type) {
 				case "assistant": {
+					// Extract text content
 					const text =
 						message.message?.content
 							?.filter((c: { type: string }) => c.type === "text")
@@ -66,13 +74,89 @@ export async function runStory(options: RunOptions): Promise<RunResult> {
 							appendOutput(storyId, text);
 						}
 					}
+
+					// Extract tool_use blocks (tool calls starting)
+					const toolUses =
+						message.message?.content?.filter((c: { type: string }) => c.type === "tool_use") ?? [];
+					for (const tu of toolUses) {
+						const t = tu as { type: string; id: string; name: string };
+						updateToolCall(storyId, {
+							id: t.id,
+							name: t.name,
+							status: "running",
+							elapsed: 0,
+						});
+					}
+					break;
+				}
+
+				case "tool_progress": {
+					updateToolCall(storyId, {
+						id: message.tool_use_id,
+						name: message.tool_name,
+						status: "running",
+						elapsed: message.elapsed_time_seconds,
+						parentTaskId: message.task_id,
+					});
+					break;
+				}
+
+				case "tool_use_summary": {
+					// Mark preceding tools as done
+					for (const id of message.preceding_tool_use_ids) {
+						completeToolCall(storyId, id);
+					}
+					appendOutput(storyId, message.summary);
+					break;
+				}
+
+				case "system": {
+					const sys = message as { subtype: string; [key: string]: unknown };
+
+					if (sys.subtype === "task_started") {
+						const ts = sys as {
+							task_id: string;
+							description: string;
+							task_type?: string;
+						};
+						updateSubAgent(storyId, {
+							taskId: ts.task_id,
+							description: ts.description,
+							status: "running",
+						});
+					} else if (sys.subtype === "task_progress") {
+						const tp = sys as {
+							task_id: string;
+							description: string;
+							last_tool_name?: string;
+							usage?: { total_tokens: number; tool_uses: number };
+						};
+						updateSubAgent(storyId, {
+							taskId: tp.task_id,
+							description: tp.description,
+							status: "running",
+							lastTool: tp.last_tool_name,
+							tokenCount: tp.usage?.total_tokens,
+							toolUses: tp.usage?.tool_uses,
+						});
+					} else if (sys.subtype === "task_notification") {
+						const tn = sys as {
+							task_id: string;
+							status: string;
+							summary: string;
+						};
+						updateSubAgent(storyId, {
+							taskId: tn.task_id,
+							description: tn.summary,
+							status: tn.status === "completed" ? "completed" : "failed",
+						});
+					}
 					break;
 				}
 
 				case "result": {
 					sessionId = message.session_id;
 					totalCost = message.total_cost_usd;
-
 					return {
 						success: message.subtype === "success",
 						sessionId,
