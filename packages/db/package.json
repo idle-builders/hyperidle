@@ -9,13 +9,11 @@
 	"scripts": {
 		"check": "tsc --noEmit",
 		"generate": "drizzle-kit generate",
-		"migrate": "drizzle-kit migrate",
-		"seed": "bun run src/seed.ts"
+		"migrate": "drizzle-kit migrate"
 	},
 	"dependencies": {
 		"better-sqlite3": "^11.7.0",
-		"drizzle-orm": "^0.39.0",
-		"postgres": "^3.4.0"
+		"drizzle-orm": "^0.39.0"
 	},
 	"devDependencies": {
 		"@types/better-sqlite3": "^7.6.0",

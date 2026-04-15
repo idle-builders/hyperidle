@@ -7,6 +7,5 @@ export type HyperIdleDb = ReturnType<typeof drizzle<typeof schema>>;
 export function createDb(path: string): HyperIdleDb {
 	const sqlite = new Database(path);
 	sqlite.pragma("journal_mode = WAL");
-	sqlite.pragma("foreign_keys = ON");
 	return drizzle(sqlite, { schema });
 }
