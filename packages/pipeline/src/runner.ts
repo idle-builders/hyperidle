@@ -60,8 +60,11 @@ export async function runStory(options: RunOptions): Promise<RunResult> {
 							.map((c: { type: string; text?: string }) => c.text ?? "")
 							.join("") ?? "";
 					if (text) {
-						appendOutput(storyId, text);
-						options.onOutput?.(text);
+						if (options.onOutput) {
+							options.onOutput(text);
+						} else {
+							appendOutput(storyId, text);
+						}
 					}
 					break;
 				}
