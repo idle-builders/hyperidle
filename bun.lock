@@ -28,7 +28,9 @@
       "name": "@hyperidle/fabric",
       "version": "0.0.1",
       "dependencies": {
+        "@hyperidle/db": "workspace:*",
         "@hyperidle/shared": "workspace:*",
+        "drizzle-orm": "^0.39.0",
       },
     },
     "packages/pipeline": {
