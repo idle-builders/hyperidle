@@ -1,12 +1,29 @@
 import type { StoryProgress, StoryStatus } from "./types.js";
 
+export interface ToolCall {
+	id: string;
+	name: string;
+	status: "running" | "done";
+	elapsed: number;
+	parentTaskId?: string;
+}
+
+export interface SubAgent {
+	taskId: string;
+	description: string;
+	status: "running" | "completed" | "failed";
+	lastTool?: string;
+	tokenCount?: number;
+	toolUses?: number;
+}
+
 export interface AgentFeed {
 	storyId: string;
 	lines: string[];
 	status: StoryStatus;
-	step: string;
-	elapsed: number;
 	cost: number;
+	tools: Map<string, ToolCall>;
+	subagents: Map<string, SubAgent>;
 }
 
 export interface PipelineStore {
@@ -58,9 +75,9 @@ export function initFeed(storyId: string): void {
 		storyId,
 		lines: [],
 		status: "in_progress",
-		step: "starting",
-		elapsed: 0,
 		cost: 0,
+		tools: new Map(),
+		subagents: new Map(),
 	});
 	if (!store.selectedStory) store.selectedStory = storyId;
 	notify();
@@ -72,7 +89,6 @@ export function appendOutput(storyId: string, text: string): void {
 	for (const line of text.split("\n")) {
 		if (line.trim()) feed.lines.push(line);
 	}
-	// Keep last 500 lines
 	if (feed.lines.length > 500) {
 		feed.lines.splice(0, feed.lines.length - 500);
 	}
@@ -87,6 +103,36 @@ export function updateFeedStatus(storyId: string, status: StoryStatus, cost?: nu
 		feed.cost = cost;
 		store.totalCost = [...store.feeds.values()].reduce((sum, f) => sum + f.cost, 0);
 	}
+	notify();
+}
+
+export function updateToolCall(storyId: string, tool: ToolCall): void {
+	const feed = store.feeds.get(storyId);
+	if (!feed) return;
+	feed.tools.set(tool.id, tool);
+	// Clean up old completed tools (keep last 20)
+	const tools = [...feed.tools.entries()];
+	if (tools.length > 20) {
+		const done = tools.filter(([, t]) => t.status === "done");
+		for (const [id] of done.slice(0, done.length - 10)) {
+			feed.tools.delete(id);
+		}
+	}
+	notify();
+}
+
+export function completeToolCall(storyId: string, toolId: string): void {
+	const feed = store.feeds.get(storyId);
+	if (!feed) return;
+	const tool = feed.tools.get(toolId);
+	if (tool) tool.status = "done";
+	notify();
+}
+
+export function updateSubAgent(storyId: string, agent: SubAgent): void {
+	const feed = store.feeds.get(storyId);
+	if (!feed) return;
+	feed.subagents.set(agent.taskId, agent);
 	notify();
 }
 

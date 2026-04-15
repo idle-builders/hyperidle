@@ -32,14 +32,16 @@ export function PipelineApp(): React.JSX.Element {
 	const { exit } = useApp();
 
 	useEffect(() => {
-		return subscribe(() => setState({ ...getStore() }));
+		const unsub = subscribe(() => setState({ ...getStore() }));
+		const timer = setInterval(() => setState({ ...getStore() }), 1000);
+		return () => {
+			unsub();
+			clearInterval(timer);
+		};
 	}, []);
 
-	// Keyboard navigation
 	useInput((input, key) => {
-		const feeds = [...state.feeds.keys()];
-		const allStories = state.stories.map((s) => s.id);
-		const storyList = allStories.length > 0 ? allStories : feeds;
+		const storyList = state.stories.map((s) => s.id);
 		const currentIdx = storyList.indexOf(state.selectedStory ?? "");
 
 		if (input === "j" || key.downArrow) {
@@ -49,14 +51,12 @@ export function PipelineApp(): React.JSX.Element {
 			const prev = storyList[currentIdx - 1];
 			if (prev) setSelectedStory(prev);
 		} else if (input === "a" && state.approvals.length > 0) {
-			// Approve first pending approval
 			const approval = state.approvals[0];
 			if (approval) {
 				approval.resolve(true);
 				removeApproval(approval.id);
 			}
 		} else if (input === "d" && state.approvals.length > 0) {
-			// Deny first pending approval
 			const approval = state.approvals[0];
 			if (approval) {
 				approval.resolve(false);
@@ -67,12 +67,23 @@ export function PipelineApp(): React.JSX.Element {
 		}
 	});
 
-	const sidebarWidth = 30;
-	const mainWidth = cols - sidebarWidth - 3;
-	const contentHeight = rows - 4; // header + footer
+	const sidebarWidth = 32;
+	const mainWidth = cols - sidebarWidth - 1;
+	const contentHeight = rows - 4;
 
 	const selectedFeed = state.selectedStory ? state.feeds.get(state.selectedStory) : null;
-	const visibleLines = selectedFeed?.lines.slice(-(contentHeight - 2)) ?? [];
+
+	// Layout: reserve space for tools/agents panels
+	const toolsHeight = selectedFeed
+		? Math.min(
+				[...selectedFeed.tools.values()].filter((t) => t.status === "running").length +
+					[...selectedFeed.subagents.values()].filter((a) => a.status === "running").length +
+					2,
+				8,
+			)
+		: 0;
+	const logHeight = contentHeight - toolsHeight;
+	const visibleLines = selectedFeed?.lines.slice(-logHeight) ?? [];
 
 	const elapsed = Math.floor((Date.now() - state.startedAt) / 1000);
 	const minutes = Math.floor(elapsed / 60);
@@ -84,6 +95,13 @@ export function PipelineApp(): React.JSX.Element {
 		(s) => s.status === "blocked" || s.status === "failed",
 	).length;
 
+	const runningTools = selectedFeed
+		? [...selectedFeed.tools.values()].filter((t) => t.status === "running")
+		: [];
+	const runningAgents = selectedFeed
+		? [...selectedFeed.subagents.values()].filter((a) => a.status === "running")
+		: [];
+
 	return (
 		<Box flexDirection="column" width={cols} height={rows}>
 			{/* Header */}
@@ -92,17 +110,16 @@ export function PipelineApp(): React.JSX.Element {
 					HyperIdle Pipeline
 				</Text>
 				<Text color="gray">
-					{` ${doneCount} done | ${activeCount} active | ${blockedCount} blocked | $${state.totalCost.toFixed(2)} | ${minutes}m${seconds.toString().padStart(2, "0")}s`}
+					{` ${doneCount} done | ${activeCount} active | ${blockedCount} blocked | $${state.totalCost.toFixed(2)} | ${minutes}m${String(seconds).padStart(2, "0")}s`}
 				</Text>
 			</Box>
-
-			<Box height={1}>
+			<Box>
 				<Text color="gray">{"─".repeat(cols)}</Text>
 			</Box>
 
 			{/* Main content */}
 			<Box height={contentHeight}>
-				{/* Sidebar — story list */}
+				{/* Sidebar */}
 				<Box flexDirection="column" width={sidebarWidth}>
 					<Text bold underline>
 						Stories
@@ -112,20 +129,19 @@ export function PipelineApp(): React.JSX.Element {
 						const isSelected = story.id === state.selectedStory;
 						const color = STATUS_COLORS[story.status] ?? "white";
 						return (
-							<Text key={story.id} color={color} bold={isSelected}>
+							<Text key={story.id} color={color} bold={isSelected} wrap="truncate">
 								{isSelected ? ">" : " "} {icon} {story.id} {story.title.slice(0, sidebarWidth - 10)}
 							</Text>
 						);
 					})}
 
-					{/* Approvals */}
 					{state.approvals.length > 0 && (
 						<Box flexDirection="column" marginTop={1}>
 							<Text bold color="yellow">
 								Approvals ({state.approvals.length})
 							</Text>
-							{state.approvals.slice(0, 5).map((a) => (
-								<Text key={a.id} color="yellow">
+							{state.approvals.slice(0, 3).map((a) => (
+								<Text key={a.id} color="yellow" wrap="truncate">
 									{a.storyId}: {a.toolName}
 								</Text>
 							))}
@@ -136,21 +152,34 @@ export function PipelineApp(): React.JSX.Element {
 					)}
 				</Box>
 
-				{/* Divider */}
-				<Box flexDirection="column" width={1}>
-					<Text color="gray">{"│\n".repeat(contentHeight)}</Text>
-				</Box>
+				{/* Main panel */}
+				<Box flexDirection="column" width={mainWidth}>
+					{/* Active tools + subagents */}
+					{(runningTools.length > 0 || runningAgents.length > 0) && (
+						<Box flexDirection="column" marginBottom={0}>
+							{runningAgents.map((agent) => (
+								<Text key={agent.taskId} color="magenta" wrap="truncate">
+									{`  agent: ${agent.description.slice(0, mainWidth - 12)}${agent.lastTool ? ` [${agent.lastTool}]` : ""}`}
+								</Text>
+							))}
+							{runningTools.map((tool) => (
+								<Text key={tool.id} color="cyan" wrap="truncate">
+									{`  ${tool.elapsed > 0 ? `${tool.elapsed.toFixed(0)}s` : "..."} ${tool.name}`}
+								</Text>
+							))}
+							<Text color="gray">{"─".repeat(mainWidth)}</Text>
+						</Box>
+					)}
 
-				{/* Main panel — agent output */}
-				<Box flexDirection="column" width={mainWidth} paddingLeft={1}>
-					<Text bold>
+					{/* Log output */}
+					<Text bold wrap="truncate">
 						{state.selectedStory
 							? `[${state.selectedStory}] ${selectedFeed?.status ?? "pending"}`
 							: "Select a story"}
 					</Text>
 					{visibleLines.map((line, i) => (
-						<Text key={`${i}-${line.slice(0, 20)}`} wrap="truncate">
-							{line.slice(0, mainWidth - 2)}
+						<Text key={`${i}-${line.slice(0, 10)}`} wrap="truncate">
+							{line.slice(0, mainWidth - 1)}
 						</Text>
 					))}
 					{!selectedFeed && (
@@ -166,7 +195,7 @@ export function PipelineApp(): React.JSX.Element {
 				<Text color="gray">{"─".repeat(cols)}</Text>
 			</Box>
 			<Box>
-				<Text color="gray"> j/k: navigate | a: approve | d: deny | q: quit</Text>
+				<Text color="gray">j/k: navigate | a: approve | d: deny | q: quit</Text>
 			</Box>
 		</Box>
 	);
