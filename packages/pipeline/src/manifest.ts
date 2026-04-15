@@ -27,14 +27,14 @@ export function filterStories(stories: Story[], target: string): Story[] {
 
 	const ids = target.split(/\s+/);
 
-	// Single letter = track name
-	const first = ids[0] ?? "";
-	if (ids.length === 1 && /^[A-Z]+$/i.test(first)) {
-		const track = first.toUpperCase();
-		return stories.filter((s) => s.track.toUpperCase() === track);
+	// Check if ALL tokens are single letters = track names (e.g. "A B C D E")
+	const allTracks = ids.every((id) => /^[A-Z]$/i.test(id));
+	if (allTracks) {
+		const tracks = new Set(ids.map((id) => id.toUpperCase()));
+		return stories.filter((s) => tracks.has(s.track.toUpperCase()));
 	}
 
-	// Specific story IDs
+	// Otherwise treat as specific story IDs (e.g. "A2 A3 B1")
 	const idSet = new Set(ids.map((id) => id.toUpperCase()));
 	return stories.filter((s) => idSet.has(s.id.toUpperCase()));
 }
