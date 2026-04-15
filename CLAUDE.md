@@ -55,15 +55,19 @@ Before any work is complete: `bun run check` (zero type errors) + `bun run lint`
 
 **Multi-story development:**
 - **`bin/pipeline [target]`** — External heartbeat script that invokes `/pipeline` with fresh Claude sessions. Restarts every hour or on crash. Progress persists in `.claude/pipeline-progress.json`. Usage: `bin/pipeline all`, `bin/pipeline A`, `bin/pipeline "A1 A2 A3"`.
-- **`/pipeline <stories or track>`** — Meta-orchestrator (single session): spawns fresh agent per story, creates branches/PRs, self-merges, tracks progress.
+- **`/pipeline <stories or track>`** — Meta-orchestrator: spawns agent teams for parallel independent stories, falls back to sequential subagents for dependent stories. Creates branches/PRs, self-merges, tracks progress.
 
 **Single-story development:**
-1. **`/implement <story>`** — TDD: understand → design (architect + adversary) → test → implement → validate → check DoD → self-review
-2. **`/check-definition-of-done <story>`** — Independently verify every acceptance criterion with evidence
-3. **`/simplify`** — Remove over-abstraction, dead code
-4. **`/slop-scan`** — Catch AI-specific anti-patterns
-5. **`/review`** — Multi-agent review with auto-iterate on NEEDS WORK
-6. **`/ship`** — Stage, commit, push, create PR
+1. **`/planning <story>`** — Decompose the work: understand spec, identify gaps, define ordered tasks with tests. Zero code — pure thinking.
+2. **`/implement <story>`** — TDD: test → implement → validate → prove (completeness + correctness + evidence) → self-review
+3. **`/check-definition-of-done <story>`** — Independent audit: is it complete, correct, and proven?
+4. **`/simplify`** — Remove over-abstraction, dead code
+5. **`/slop-scan`** — Catch AI-specific anti-patterns
+6. **`/review`** — Multi-agent review with auto-iterate on NEEDS WORK
+7. **`/ship`** — Stage, commit, push, create PR
+8. **`/retro <story>`** — Lightweight: append observations to `.claude/retro-log.jsonl`. No skill changes — observe only.
+
+**Compounding:** The `compound` agent reviews the retro log every 3-5 stories. It identifies patterns at 3+ occurrences and proposes targeted skill changes. The pipeline coordinator applies approved changes. Critical/escalation observations skip the threshold and go straight to the coordinator.
 
 Supporting: `/verify` (quick validation), `/threat-model` (security analysis), `/lore` (capture tribal knowledge).
 
