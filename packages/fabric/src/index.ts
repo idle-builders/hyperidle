@@ -24,3 +24,16 @@ export type {
 } from "./materialization.js";
 export { buildSessionContext } from "./session-context.js";
 export type { SessionContextConfig, SessionContextData } from "./session-context.js";
+export { startWatcher } from "./file-watcher.js";
+export type { FileWatcher, FileWatcherConfig } from "./file-watcher.js";
+export { startPollingWatcher } from "./polling-watcher.js";
+export {
+	processWriteback,
+	readManifest,
+	writeManifest,
+	getRelativePath,
+	isKnowledgePath,
+	isSessionNotesPath,
+	isWatchedPath,
+} from "./writeback.js";
+export type { WritebackConfig, WritebackChange, WritebackResult } from "./writeback.js";

@@ -266,6 +266,21 @@ export const knowledgeEditLog = sqliteTable("knowledge_edit_log", {
 	createdAt: text("created_at").notNull(),
 });
 
+// --- Knowledge conflicts ---
+
+export const knowledgeConflicts = sqliteTable("knowledge_conflicts", {
+	id: text("id").primaryKey(),
+	itemId: text("item_id")
+		.notNull()
+		.references(() => knowledgeItems.id),
+	versionBase: integer("version_base").notNull(),
+	versionCurrent: integer("version_current").notNull(),
+	proposedBody: text("proposed_body").notNull(),
+	proposedBy: text("proposed_by").notNull(),
+	status: text("status").notNull().default("open"),
+	createdAt: text("created_at").notNull(),
+});
+
 // --- File leases ---
 
 export const fileLeases = sqliteTable("file_leases", {
@@ -327,3 +342,6 @@ export type NewKnowledgeEditLogEntry = typeof knowledgeEditLog.$inferInsert;
 
 export type FileLease = typeof fileLeases.$inferSelect;
 export type NewFileLease = typeof fileLeases.$inferInsert;
+
+export type KnowledgeConflict = typeof knowledgeConflicts.$inferSelect;
+export type NewKnowledgeConflict = typeof knowledgeConflicts.$inferInsert;
