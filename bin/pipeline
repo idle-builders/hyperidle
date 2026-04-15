@@ -181,9 +181,13 @@ run_session() {
   echo "idle:$(date -u +%Y-%m-%dT%H:%M:%SZ)" > "$HEARTBEAT_FILE"
 
   # Launch claude in background so we can monitor
-  # --permission-mode auto: AI classifier approves/denies tool calls.
-  # Safe for local dev — blocks destructive ops, allows in-project edits.
-  claude -p --permission-mode auto "/pipeline $TARGET" \
+  # --permission-mode auto: AI classifier approves/denies non-Bash tool calls.
+  # Sandbox (configured in settings.json): auto-allows Bash commands within
+  # filesystem/network boundaries. Together they provide full autonomy
+  # with OS-level safety.
+  claude -p \
+    --permission-mode auto \
+    "/pipeline $TARGET" \
     > "$log_file" 2>&1 &
   claude_pid=$!
   local start_time=$SECONDS

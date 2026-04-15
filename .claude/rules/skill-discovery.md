@@ -7,17 +7,19 @@ Before responding to ANY implementation or review request, check if a skill shou
 ```
 User request arrives
     │
-    ├── Is it about building a feature? ──────→ /implement <story>
+    ├── Is it about planning work? ──────────→ /planning <story>
+    ├── Is it about building a feature? ─────→ /implement <story>
     ├── Is it about running multiple stories? → /pipeline <target>
-    ├── Is it about reviewing code? ──────────→ /review <changes>
-    ├── Is it about verifying code works? ────→ /verify
-    ├── Is it about shipping/committing? ─────→ /ship <story>
-    ├── Is it about checking if done? ────────→ /check-definition-of-done <story>
-    ├── Is it about simplifying code? ────────→ /simplify <files>
-    ├── Is it about AI code quality? ─────────→ /slop-scan <files>
-    ├── Is it about security analysis? ───────→ /threat-model <scope>
-    ├── Is it about documenting decisions? ───→ /lore <files|scan|index>
-    └── None of the above? ───────────────────→ Proceed normally
+    ├── Is it about reviewing code? ─────────→ /review <changes>
+    ├── Is it about verifying code works? ───→ /verify
+    ├── Is it about shipping/committing? ────→ /ship <story>
+    ├── Is it about checking if done? ───────→ /check-definition-of-done <story>
+    ├── Is it about simplifying code? ───────→ /simplify <files>
+    ├── Is it about AI code quality? ────────→ /slop-scan <files>
+    ├── Is it about security analysis? ──────→ /threat-model <scope>
+    ├── Is it about documenting decisions? ──→ /lore <files|scan|index>
+    ├── Is it about process improvement? ────→ /retro <story|pipeline>
+    └── None of the above? ──────────────────→ Proceed normally
 ```
 
 ## Red Flags — Rationalizations for Skipping Skills
@@ -30,9 +32,13 @@ User request arrives
 | "I'll just do a quick fix" | Quick fixes without /verify leave broken states for the next agent. |
 | "The user didn't ask for a review" | If code changed, it needs review. That's not optional. |
 | "I can skip the design phase" | You can. You shouldn't. The adversary exists because your designs have blind spots. |
+| "I don't need to plan, I'll figure it out as I go" | That's how you end up rewriting half the implementation. 10 minutes of /planning saves hours of rework. |
+| "A retro is navel-gazing" | Without /retro, you repeat the same mistakes every story. Compounding improvement is the whole point. |
 
 ## Skill Priority
 
-1. **Process skills first:** /implement, /pipeline, /review, /check-definition-of-done
-2. **Quality skills second:** /verify, /simplify, /slop-scan
-3. **Support skills as needed:** /ship, /threat-model, /lore
+1. **Planning first:** /planning (before any implementation)
+2. **Process skills:** /implement, /pipeline, /review, /check-definition-of-done
+3. **Quality skills:** /verify, /simplify, /slop-scan
+4. **Support skills:** /ship, /threat-model, /lore
+5. **Compounding:** /retro (after shipping — feeds improvements back into skills)

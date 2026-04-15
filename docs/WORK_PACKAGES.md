@@ -1,54 +1,84 @@
 # Work Packages — HyperIdle Implementation
 
-How to build HyperIdle, story by story. Every story is a logical unit with testable acceptance criteria. Each story's implementation follows the same discipline: set up the validation/test infrastructure first, implement the feature, then prove all acceptance criteria pass.
+Agent-friendly user stories organized in eight parallel tracks with outcome-level acceptance criteria.
 
 ---
 
 ## Tech Stack Decision
 
-**Backend: TypeScript on Bun** with Hono (HTTP + WebSocket), Drizzle ORM (SQLite + PostgreSQL dual support, type-safe schema), and BullMQ (Redis-backed job scheduling for production, in-memory fallback for laptop).
+**Backend:** TypeScript on Bun, Hono (HTTP/WebSocket), Drizzle ORM (SQLite + PostgreSQL), BullMQ (production scheduling).
+**Frontend:** React + Vite + TypeScript, Tailwind CSS + DaisyUI + `factory-dark` theme.
+**Database:** Drizzle dual-driver schema (better-sqlite3 default, postgres.js for scale).
+**Monorepo:** Five packages: `db`, `server`, `web`, `fabric`, `shared`.
 
-**Frontend: React + Vite + TypeScript** with Tailwind CSS + DaisyUI + custom `factory-dark` theme. Behavior gaps filled with `focus-trap-react` and `@floating-ui/react`.
+---
 
-**Database: Drizzle ORM schema** targeting both better-sqlite3 (laptop default) and postgres.js (scale option). Same schema definition, two drivers. Migrations as versioned SQL files.
+## Shared Contracts (consolidated)
 
-**Monorepo: single repo** with `packages/db` (schema + migrations), `packages/server` (Hono API + workers), `packages/web` (React + Vite), `packages/fabric` (materialization + writeback + watcher), `packages/shared` (types, constants, TOON codec).
+**KnowledgeMetadata schema signature:**
+```
+{
+  layer: 'L0' | 'L1' | 'L2' | 'L3' | 'L4',
+  scope_id: string | null,
+  kind: string,
+  topic: string | null,
+  title: string,
+  body: string,
+  format: 'markdown' | 'toon',
+  status: 'captured' | 'provisional' | 'validated' | 'active' | 'stale' | 'archived',
+  version: number,
+  updated_by: string,
+  meta: Record<string, unknown>
+}
+```
 
-**Rationale:** TypeScript gives full-stack type safety (shared types between API and UI), Drizzle gives first-class SQLite + Postgres with zero runtime overhead, Bun gives fast startup and native file watching (`Bun.watch()`), and AI agents are most proficient in TypeScript — the codebase will be maintained by agents using HyperIdle itself.
+**RevisionLogEntry shape (for bets):**
+```
+{ timestamp: string, field: string, old_value: unknown, new_value: unknown, reason: string }
+```
+
+**Event bus guarantees:** Per-stream ordering (same stream ID events arrive in order), at-least-once delivery (emitted after database write durability).
+
+**WebSocket push contract:** All real-time endpoints (`/api/ws/*`) deliver updates in same shape as corresponding REST response + `_event: 'update' | 'delete'` field.
+
+**Harness error taxonomy:** `InvalidTransitionError`, `VersionConflictError`, `CapacityExceededError`, `CostCapExceededError`, `ConcurrencyLimitError`, `MissingCredentialError`, `ActiveRoutinesError`.
+
+**8-state task lifecycle:** proposed → accepted → hold → in_progress → blocked → review → done → killed. `hold` auto-transitions to `accepted` when all dependencies complete.
+
+**10 verdict actions:** approve, approve-with-comments, comment, inline-comment, request-changes, edit, reject, reply, snooze, escalate. Keyboard shortcuts: A, A+C, C, I, R, E, X, ↵, S, ↑.
+
+**5 ArtifactView shapes:** text_diff, content_preview, visual_comparison, action_summary, data_metrics.
 
 ---
 
 ## UI Stack & Component Budget
 
-**Foundation:** Tailwind CSS + DaisyUI (for unstyled, accessible component primitives) + custom `factory-dark` theme (surface colors, accent colors, text hierarchy, radius overrides, font loading for Inter + Space Grotesk).
+**Foundation:** Tailwind CSS + DaisyUI + custom `factory-dark` theme (surfaces, accents, text hierarchy, radius, fonts).
 
-**Behavior gaps:** `focus-trap-react` (focus management in modals/drawers) + `@floating-ui/react` (positioning for tooltips, dropdowns, popovers).
+**Behavior:** `focus-trap-react` (modals), `@floating-ui/react` (positioning).
 
-**DaisyUI primitives used directly (no wrapping):** `btn`, `input`, `textarea`, `select`, `checkbox`, `radio`, `toggle`, `range`, `file-input`, `kbd`, `badge`, `tabs`, `menu`, `dropdown`, `modal`, `drawer`, `alert`, `toast`, `tooltip`, `skeleton`, `breadcrumbs`, `avatar`, `divider`, `collapse`, `loading`.
-
-**Custom component budget:** **19 components total** across three tiers:
-- **Tier 1 (5 Primitives):** StatusChip, Tag, KeyValue, NavItem, SearchField
-- **Tier 2 (6 Blocks):** ThreadRow, BetCard, PitchCard, TaskCard, KnowledgeRow, NotificationRow
-- **Tier 3 (8 Regions):** IconRail, Submenu, Rail, ArtifactView (5 shapes: text_diff, content_preview, visual_comparison, action_summary, data_metrics), ReviewHeader, Canvas, Kanban, PitchSelector
-
-These 19 are the **only custom UI components allowed.** Any new component outside this list requires updating UI_DESIGN.md first.
+**Custom components:** 19 total across three tiers:
+- **Tier 1 (5):** StatusChip, Tag, KeyValue, NavItem, SearchField
+- **Tier 2 (6):** ThreadRow, BetCard, PitchCard, TaskCard, KnowledgeRow, NotificationRow
+- **Tier 3 (8):** IconRail, Submenu, Rail, ArtifactView, ReviewHeader, Canvas, Kanban, PitchSelector
 
 ---
 
-## Implementation Tracks
+## Implementation Tracks & Dependency Graph
 
-Eight parallel tracks. The dependency graph below shows what blocks what. Stories within a track are sequential; tracks run in parallel where dependencies allow.
+Eight parallel tracks. Within each track, stories are sequential. Tracks run in parallel where dependencies allow.
+
+Critical path: **A1 → A2 → B1 → B2 → B4 → C3 → D5 → E6 → UI-00 → UI-10 → UI-20 → UI-30 → UI-31 → UI-32 → UI-40 → G1 → G2 → G3 → G4 → H4**
+
+Parallel windows:
+- B (Knowledge Fabric) and C (Process Primitives) fully parallel after A2.
+- E (API Layer) starts after A3.
+- D (Agent Runtime) needs B2 + C3 before starting.
+- UI starts after E6 (all endpoints).
+- G (Facilitators) needs D4 + B4 + C5.
+- H (Operations) can start once D5 core loop works.
 
 ```
-Track A: Foundation          ──────────────────────────────────────────────►
-Track B: Knowledge Fabric       ║══════════════════════════════════════════►
-Track C: Process Primitives     ║══════════════════════════════════════════►
-Track D: Agent Runtime              ║══════════════════════════════════════►
-Track E: API Layer                  ║══════════════════════════════════════►
-Track F: Human Interface (UI)           ║══════════════════════════════════►
-Track G: Facilitator Pipeline               ║══════════════════════════════►
-Track H: Operations                              ║═════════════════════════►
-
 A1 ─► A2 ─► A3
       │      │
       ├──────┼─► B1 ─► B2 ─► B3 ─► B4 ─► B5 ─► B6
@@ -58,6 +88,9 @@ A1 ─► A2 ─► A3
       │      ├─► E1 ─► E2 ─► E3 ─► E4 ─► E5 ─► E6
       │      │         │                         │
       │      │         │                         └─► UI-00 ─► UI-10 ─► UI-20 ─► UI-30 ─► UI-31 ─► UI-40 ─► UI-50
+      │      │         │                              │      │      │      │      │                    │
+      │      │         │                              └──────┘      │      │      └─── UI-32 ─────────┘
+      │      │         │                                           UI-42  UI-45 (parallel with UI-31/32)
       │      │
       ├──────┼───────────────────────► D1 ─► D2 ─► D3 ─► D4 ─► D5
       │      │                                              │
@@ -66,107 +99,91 @@ A1 ─► A2 ─► A3
       └─────────────────────────────────────────────────────┴─► H1 ─► H2 ─► H3 ─► H4
 ```
 
-**Parallel opportunities:**
-- B (Knowledge Fabric) and C (Process Primitives) can run fully in parallel after A2.
-- E (API Layer) can start after A3 and runs parallel to B and C.
-- UI (UI-00..UI-50) can start after E6 is done (all API endpoints needed).
-- D (Agent Runtime) needs B2 (materialization) and C3 (sessions), so starts later.
-- G (Facilitator Pipeline) needs D4 (agent skills), B4 (writeback), and C5 (routines).
-- H (Operations) can start once the core loop (D5) is working.
-
 ---
 
 ## Track A: Foundation
 
 ### A1 — Project Scaffolding
 
-Set up the monorepo, toolchain, and test infrastructure that every subsequent story depends on.
+**Story.** As an agent, I want a working monorepo with TypeScript, testing, and database tooling configured, so that I can begin implementing features with type safety and confidence that changes are tested.
 
-**Scope:**
-- Bun workspace monorepo with packages: `db`, `server`, `web`, `fabric`, `shared`
-- TypeScript strict mode, shared `tsconfig.base.json`
-- Vitest for unit + integration tests across all packages
-- Drizzle ORM configured with better-sqlite3 driver (SQLite) + postgres.js driver (Postgres)
-- Drizzle Kit for migration generation
-- React + Vite app in `packages/web` with Tailwind CSS + DaisyUI installed and the `factory-dark` theme wired (see UI_DESIGN.md)
-- Hono app in `packages/server` with health endpoint
-- Biome for linting + formatting
-- Single `bun dev` command starts server + web concurrently
+**Depends on.** None.
 
-**Acceptance Criteria:**
-1. `bun install` completes with zero errors.
-2. `bun test` runs Vitest across all packages with minimum coverage: at least 3 tests each in `packages/db`, `packages/server`, `packages/fabric` (critical paths), 1+ test per other package.
-3. `bun dev` starts the Hono server on port 3001 and the Vite dev server on port 5173.
-4. `GET /health` returns `{ status: "ok", timestamp: ... }`.
-5. The React app renders a placeholder page at `localhost:5173`.
-6. `packages/shared` exports a type that `packages/server` and `packages/web` both import — proving cross-package type sharing works.
-7. Drizzle can connect to an in-memory SQLite database in a test and execute a trivial query.
-8. Test infrastructure is explicitly owned: `createTestDb()` and `createTestApp()` utilities exported from test helper, coverage targets enforced (unit 80%, integration for critical paths).
+**Acceptance criteria.**
+- `bun install` completes with zero errors.
+- `bun test` runs Vitest across all packages with ≥3 tests per critical package (db, server, fabric).
+- `bun dev` starts both Hono (port 3001) and Vite (port 5173).
+- `GET /health` returns `{ status: "ok", timestamp: ... }`.
+- React app renders at `localhost:5173`.
+- Cross-package type import works: `packages/shared` type imported in both server and web.
+- Drizzle connects to in-memory SQLite in a test and executes a query.
 
-**Test setup (built as part of this story):**
-- Vitest config with workspace support
-- Test utility: `createTestDb()` — returns a fresh in-memory SQLite connection with Drizzle
-- Test utility: `createTestApp()` — returns a Hono app instance wired to the test DB
+**Validation scenarios.**
+- Given monorepo initialized, when running tests, then all tests pass and coverage is reported.
+- Given app running, when requesting health endpoint, then response is valid and immediate.
+
+**Contracts / constraints.**
+- Test utilities (`createTestDb()`, `createTestApp()`) are exported and reusable by all downstream stories.
+- Coverage targets: 80% unit, critical paths in integration.
+
+**Effort.** M (~2d)
 
 ---
 
 ### A2 — Database Schema + Migrations
 
-Define the complete Drizzle schema for all tables from the architecture. Generate and apply the initial migration.
+**Story.** As an agent, I want the complete database schema defined and migrated, with seed data in place, so that I can interact with the canonical stores (process primitives, knowledge, items, responses) as I build features.
 
-**Scope:**
-- All tables from ARCHITECTURE.md §2.1 defined as Drizzle schema in `packages/db/schema/`:
-  - `bets`, `tasks`, `sessions`, `teams`, `routines`
-  - `messages`, `threads`
-  - `items`, `responses`
-  - `agents`, `products`, `agent_skills`
-  - `factory_settings`
-  - `file_leases`
-  - `knowledge_items` (with all indexes from KNOWLEDGE_ARCHITECTURE.md §3)
-  - `knowledge_conflicts`
-  - `knowledge_edit_log`
-- All enum-like fields (status, state, layer, kind, etc.) defined as TypeScript union types in `packages/shared`
-- Drizzle migration generated and committed
-- Seed script for dev/test data (one factory, one product, two agents, one team, sample knowledge items across L1–L4)
+**Depends on.** A1.
 
-**Acceptance Criteria:**
-1. `bun run db:migrate` applies the migration to a fresh SQLite file with zero errors.
-2. Every table can be inserted into and queried via Drizzle with full type safety — a test inserts one row per table and reads it back, asserting all fields.
-3. All five indexes on `knowledge_items` exist (verified by `PRAGMA index_list`).
-4. The seed script populates the database and a test verifies: ≥1 row in each of `agents`, `teams`, `products`, `knowledge_items`, `factory_settings`.
-5. The same Drizzle schema connects to a PostgreSQL test database (via Docker) and all tables are created correctly — proving dual-driver support.
-6. All shared types (e.g., `TaskState`, `KnowledgeLayer`, `ItemVerb`) are importable from `packages/shared` in both `packages/server` and `packages/db`.
-7. Foreign key constraints hold: inserting a task with a non-existent `bet_id` fails.
+**Acceptance criteria.**
+- `bun run db:migrate` applies migrations to fresh SQLite without errors.
+- All tables insert/read/update correctly with full type safety.
+- All five knowledge_items indexes exist.
+- Seed script populates ≥1 row per major table (agents, teams, products, knowledge_items, factory_settings).
+- Same schema works against PostgreSQL (via Docker) — dual-driver support proven.
+- Foreign key constraints enforced.
 
-**Test setup (built as part of this story):**
-- `createSeededTestDb()` — returns a test DB with the seed data pre-loaded
-- Docker Compose file for a PostgreSQL test instance
-- CI-friendly test that runs the schema against both SQLite and Postgres
+**Validation scenarios.**
+- Given empty database, when running migrations, then schema is created correctly.
+- Given seeded database, when querying each table, then seed data is present and well-formed.
+- Given PostgreSQL enabled, when running migrations, then schema created correctly in Postgres.
+
+**Contracts / constraints.**
+- Schema must be versionable (migrations as SQL files, numbered sequentially).
+- Shared types (TaskState, KnowledgeLayer, etc.) must be importable from `packages/shared`.
+
+**Effort.** M (~2d)
 
 ---
 
 ### A3 — Event Bus
 
-In-process pub/sub for state-change events with per-stream ordering and at-least-once delivery semantics. Every subsequent component that reacts to state changes (dependency watcher, WebSocket push, cost sentinel, file watcher notifications) subscribes to this bus.
+**Story.** As an agent, I want typed events flowing through an in-process pub/sub system with per-stream ordering and at-least-once delivery, so that components can react to state changes without tight coupling.
 
-**Scope:**
-- Typed event emitter in `packages/shared/events.ts`
-- Event types defined: `task_state_changed`, `item_created`, `response_recorded`, `session_started`, `session_ended`, `routine_fired`, `cost_cap_warning`, `cost_cap_breached`, `bet_committed`, `bet_shipped`, `bet_revised`, `knowledge_item_updated`, `knowledge_conflict_created`, `handoff_initiated`
-- Each event type has a typed payload interface
-- Subscribe/unsubscribe/emit API
-- Per-stream ordering: events for the same stream (e.g., task ID) are delivered in order
-- At-least-once delivery: events are emitted synchronously after database writes are durable
-- Optional: Redis pub/sub adapter for multi-process deployments (interface defined, implementation deferred)
+**Depends on.** A1.
 
-**Acceptance Criteria:**
-1. A test subscribes to `task_state_changed`, emits the event, and the subscriber receives the typed payload with correct fields.
-2. Multiple subscribers to the same event all receive the emission.
-3. Unsubscribing prevents further delivery.
-4. Type errors: emitting `task_state_changed` with a malformed payload fails at compile time (not runtime).
-5. The event bus can handle 1000 emissions/sec without dropping events (throughput test).
-6. A wildcard subscription (`bus.on('*', ...)`) receives all events (for audit logging).
-7. Per-stream ordering: emit 5 events for the same task (state_changed events) → all 5 arrive in order at subscribers.
-8. At-least-once delivery: events are emitted only after the triggering database write is committed.
+**Acceptance criteria.**
+- Subscribers receive events in order for the same stream.
+- Multiple subscribers to same event both receive it.
+- Unsubscribe prevents future delivery.
+- Type errors on malformed payloads fail at compile time.
+- Throughput: 1000 events/sec without drops.
+- Wildcard subscription (`bus.on('*', ...)`) receives all events.
+- Per-stream ordering: 5 sequential events for same task arrive in order.
+- At-least-once delivery: events emitted only after database write durability.
+
+**Validation scenarios.**
+- Given subscriber to `task_state_changed`, when event is emitted, then subscriber receives typed payload.
+- Given 1000 events emitted, when throughput test runs, then all events delivered without loss.
+- Given wildcard subscription, when event emitted, then wildcard subscriber receives it.
+
+**Contracts / constraints.**
+- Event types defined in `packages/shared/events.ts` as TypeScript union types.
+- Redis adapter interface defined (implementation deferred).
+- Synchronous emission after database durability (not async).
+
+**Effort.** S (~1d)
 
 ---
 
@@ -174,169 +191,164 @@ In-process pub/sub for state-change events with per-stream ordering and at-least
 
 ### B1 — Knowledge Items CRUD + Search
 
-The canonical store API. All knowledge reads and writes go through this module.
+**Story.** As an agent or human, I want to create, read, update, and search knowledge items from a canonical SQLite store, with optimistic versioning and full-text search, so that knowledge can be queried and modified reliably.
 
-**Scope:**
-- `packages/fabric/knowledge-store.ts`: CRUD operations on `knowledge_items`
-  - `create(item)` → inserts with version=1, returns full row
-  - `read(id)` → returns row or null
-  - `update(id, changes, expectedVersion)` → optimistic update, bumps version, returns new row. Throws `VersionConflictError` if version mismatch.
-  - `list(filters)` → filter by layer, scope_id, kind, topic, status; paginated
-  - `search(query)` → FTS5 full-text search across title + body
-  - `archive(id)` → sets status to 'archived'
-- FTS5 virtual table created alongside `knowledge_items`
-- `knowledge_edit_log` entries created automatically on every `update()` call
-- Emits `knowledge_item_updated` event on every write
+**Depends on.** A2.
 
-**Acceptance Criteria:**
-1. Create a knowledge item, read it back — all fields match.
-2. Update with correct version succeeds; version is incremented.
-3. Update with stale version throws `VersionConflictError` with current version in the error.
-4. `list({ layer: 'L3', scope_id: 'building' })` returns only matching items.
-5. FTS5 search: insert 10 items with varied content, search for a keyword — returns only matching items with relevance ranking.
-6. Every `update()` call creates a row in `knowledge_edit_log` with correct old/new values.
-7. `knowledge_item_updated` event fires on create, update, and archive — a test subscriber verifies.
-8. Pagination: list with `limit: 5, offset: 0` returns first 5; `offset: 5` returns next batch.
+**Acceptance criteria.**
+- Create, read, update operations succeed with version control.
+- Update with stale version throws `VersionConflictError` with current version.
+- FTS5 search on 10 items returns matching items ranked by relevance.
+- Every update creates `knowledge_edit_log` entry.
+- `knowledge_item_updated` event fires on every write.
+- Pagination works: limit 5, offset 0 returns first 5.
+- List by layer, scope_id, kind, topic filters correctly.
+
+**Validation scenarios.**
+- Given knowledge item, when updated with correct version, then version increments and new row appears in edit log.
+- Given 10 knowledge items, when searched for keyword, then matching items returned with relevance ranking.
+- Given stale version, when update attempted, then error thrown with current version in response.
+
+**Contracts / constraints.**
+- `version` column for optimistic concurrency (per-field last-writer-wins strategy lives in B5).
+- FTS5 virtual table required for search.
+
+**Effort.** M (~2d)
 
 ---
 
 ### B2 — Materialization Engine
 
-Given a session context, produce a workspace directory with the three-zone layout.
+**Story.** As an agent starting a session, I want a workspace directory materialized with relevant knowledge (context/, knowledge/, work/ zones), so that I have exactly what I need for the task without wasting context tokens.
 
-**Scope:**
-- `packages/fabric/materialize.ts`:
-  - `materialize({ sessionId, taskId, agentId, productId, role })` → creates workspace directory
-  - Queries `knowledge_items` for the relevant slice (L4 factory, L2 product, L3 practices filtered by role/task relevance, L1 task state)
-  - Writes files to `context/`, `work/`, `knowledge/` zones
-  - Generates `.fabric/manifest.json` with version tracking per item
-  - Format selection: TOON for practices in `context/`, markdown for product docs, markdown for editable copies in `knowledge/`
-- Workspace layout matches KNOWLEDGE_ARCHITECTURE.md §4.2 exactly
+**Depends on.** B1, B3.
 
-**Acceptance Criteria:**
-1. Materialize a session for a Builder agent on product P: workspace contains `context/factory/PRINCIPLES.md`, `context/product/BRIEF.md`, `context/practices/*.toon` (only building-relevant practices), `work/` (empty), `knowledge/practices/` (editable markdown copies).
-2. `.fabric/manifest.json` exists and contains version numbers for every materialized item.
-3. `context/` files are read-only (file permissions `0444`).
-4. `knowledge/` files are read-write.
-5. A practice at L3 with `scope_id: 'growth'` is NOT materialized for a Builder agent — role filtering works.
-6. Materialization of 200 knowledge items completes in <10 seconds (performance requirement NF-1.3).
-7. Re-materializing the same session overwrites the workspace cleanly.
-8. The `session.toon` context pack in `context/` contains task state, bet context, and handoff history.
+**Acceptance criteria.**
+- Materialized workspace contains context/, work/, knowledge/ zones with correct permissions (context/ read-only).
+- `.fabric/manifest.json` exists with version tracking per item.
+- Role-filtered practices: growth practices NOT materialized for a Builder.
+- Materialization of 200 items completes in <10 seconds.
+- Re-materialization overwrites workspace cleanly.
+- `session.toon` context pack in context/ contains task state and bet context.
 
-**Design decisions to make in this story:**
-- Define the exact file naming convention (e.g., `{kind}-{slug}.md` or `{id}.md`)
-- Define the `session.toon` pack structure
+**Validation scenarios.**
+- Given task for Builder agent, when materialization runs, then workspace contains only building-relevant practices in context/.
+- Given 200 knowledge items, when materialization runs, then completes within time budget.
+
+**Contracts / constraints.**
+- Workspace layout must match KNOWLEDGE_ARCHITECTURE.md §4.2 exactly.
+- Materialization budget applied via B6 (relevance + token budget).
+
+**Effort.** M (~2d)
 
 ---
 
 ### B3 — TOON Codec
 
-Encode and decode the TOON format for context packs.
+**Story.** As a materialization engine, I want to encode/decode TOON format for compact context packs, so that agent context windows can hold more knowledge.
 
-**Scope:**
-- `packages/shared/toon.ts`:
-  - `encode(data: Record<string, unknown>)` → TOON string
-  - `decode(toon: string)` → Record<string, unknown>
-  - Follows the spec at github.com/toon-format/toon
-- Used by materialization (B2) and session context pack building
+**Depends on.** A1.
 
-**Acceptance Criteria:**
-1. Round-trip: `decode(encode(obj))` produces an identical object for 10 varied test cases.
-2. A TOON-encoded practice is ≥30% smaller than the equivalent JSON encoding (token count, measured by splitting on whitespace).
-3. Encoding a complex nested object (3 levels deep, arrays, nulls) works correctly.
-4. Decoding malformed TOON throws a descriptive `ToonParseError`.
-5. Encoding/decoding 1000 items takes <100ms.
+**Acceptance criteria.**
+- Round-trip encode/decode identical for 10 test cases.
+- TOON-encoded practice ≥30% smaller than JSON (by token count).
+- Nested objects (3 levels, arrays, nulls) encode/decode correctly.
+- Malformed TOON throws descriptive `ToonParseError`.
+- 1000 items encode/decode in <100ms.
+
+**Validation scenarios.**
+- Given complex nested object, when round-trip encode/decode, then result is identical.
+- Given practice and JSON version, when token count compared, then TOON is ≥30% smaller.
+
+**Contracts / constraints.**
+- Follows spec at github.com/toon-format/toon.
+
+**Effort.** S (~1d)
 
 ---
 
-### B4 — File Watcher + Continuous Writeback + Workspace Layout
+### B4 — File Watcher + Continuous Writeback
 
-The core sync loop: watch `knowledge/` and `work/` directories, write changes back to SQLite incrementally. Also defines the workspace folder structure.
+**Story.** As an agent writing files in a session workspace, I want changes automatically synced back to SQLite with conflict detection and versioning, so that knowledge persists across session boundaries without manual checkpoints.
 
-**Scope:**
-- Workspace layout (files written by agents):
-  - `context/` (read-only): factory principles, product brief, materialized practices, session context pack
-  - `knowledge/` (read-write): editable copies of knowledge items, indexed by `{kind}-{slug}.md` naming convention
-  - `work/` (read-write): task notes, session notes, artifacts
-  - `.fabric/manifest.json`: version tracking per materialized item
-- `packages/fabric/watcher.ts`:
-  - `startWatcher(sessionId, workspacePath)` → starts file watcher
-  - `stopWatcher(sessionId)` → stops watcher, runs final pass
-  - Uses `Bun.watch()` with 500ms debounce, last-writer-wins for concurrent edits
-  - On file change in `knowledge/`:
-    - Modified files: diff against manifest version, update `knowledge_items`, bump version, update manifest
-    - New files: create new `knowledge_items` rows (status: CAPTURED)
-    - Deleted files: flag for facilitator review (create item)
-  - On file change in `work/`:
-    - Link artifacts to task record
-    - Update session notes
-  - Emits `knowledge_item_updated` event per writeback
-  - Polling fallback (2s interval) when native watch isn't available
-- `packages/fabric/writeback.ts`:
-  - `writebackFile(sessionId, filePath, manifest)` → processes a single file change
-  - `finalPass(sessionId, workspacePath)` → scans all files, catches any remaining changes
-  - Version conflict handling: detect from manifest, create `knowledge_conflicts` row
-  - Last-writer-wins: when both agent and human edit same field within 500ms, human write wins
-- **E4 contract:** B4 completion unblocks E4. E4 uses the file naming convention to serve workspace files via API.
+**Depends on.** B2, B1.
 
-**Acceptance Criteria:**
-1. Start watcher on a workspace. Write a new file to `knowledge/practices/new-practice.md`. Within 2 seconds, a new row exists in `knowledge_items` with status CAPTURED.
-2. Modify an existing file in `knowledge/`. Within 2 seconds, the corresponding `knowledge_items` row is updated and version is incremented.
-3. Delete a file in `knowledge/`. An `item_created` event fires for facilitator review — the knowledge item is NOT auto-deleted.
-4. Rapid burst: write 10 files within 200ms. The debounce collapses them into fewer writeback operations (verify by counting `knowledge_item_updated` events — should be ≤10, not 0).
-5. Version conflict: externally update a `knowledge_items` row (simulating a human edit), then modify the same file. A `knowledge_conflicts` row is created.
-6. `stopWatcher()` runs a final pass and returns. After stopping, file changes are not written back.
-7. Manifest is updated after each successful writeback — re-reading it shows new version numbers.
-8. `work/session-notes.md` changes are reflected in the session's `notes` field in the `sessions` table.
-9. Polling fallback: disable native watcher, verify polling detects file changes within 3 seconds.
-10. Last-writer-wins conflict strategy: agent writes file at T=0, human PATCHes same field at T=250ms (within 500ms window) → human's change wins; conflict flag set for facilitator awareness.
+**Acceptance criteria.**
+- New file in knowledge/ creates knowledge_items row with status CAPTURED within 2 seconds.
+- Modified file updates corresponding row, version increments.
+- Deleted file flags for facilitator review (item created), NOT auto-deleted.
+- 10 files written in 200ms debounce collapses to ≤10 writeback operations.
+- Version conflict: external update + agent file change creates knowledge_conflicts row.
+- stopWatcher() final pass completes, subsequent writes not recorded.
+- Manifest updated after each writeback.
+- work/session-notes.md changes reflected in sessions.notes.
+- Polling fallback detects changes within 3 seconds.
+- Last-writer-wins: agent writes T=0, human patches T=250ms (within 500ms window) → human change wins, conflict flagged.
+
+**Validation scenarios.**
+- Given file written to knowledge/ directory, when 2 seconds elapse, then corresponding row exists in knowledge_items.
+- Given version conflict, when manifest checked after writeback, then version bumped and conflict record created.
+- Given human update within 500ms window, when file also updated by agent, then human change takes precedence.
+
+**Contracts / constraints.**
+- Uses `Bun.watch()` with 500ms debounce; polling fallback for environments without native watcher.
+- Workspace layout: context/ (read-only), knowledge/ (read-write), work/ (read-write), .fabric/manifest.json (metadata).
+- E4 contract: B4 unblocks E4 for workspace file serving.
+
+**Effort.** M (~3d)
 
 ---
 
 ### B5 — Conflict Resolution
 
-Per-field LWW merge for structured items, facilitator routing for prose conflicts.
+**Story.** As the knowledge system, I want concurrent edits to same items to resolve automatically for structured data (per-field LWW) and escalate to humans for prose, so that knowledge updates don't block each other.
 
-**Scope:**
-- `packages/fabric/conflict.ts`:
-  - `resolveConflict(itemId, proposedChanges, proposedBy)` → attempts merge
-  - For structured items (practices, decisions, failures): per-field last-writer-wins
-  - For prose items (briefs, principles, reflections): create conflict record, route to facilitator
-  - Conflict record creation in `knowledge_conflicts` table
-- Integration with writeback (B4): when writeback detects version mismatch, calls conflict resolution
+**Depends on.** B4, B1.
 
-**Acceptance Criteria:**
-1. Two concurrent edits to different fields of a structured practice: both edits apply, no conflict record created.
-2. Two concurrent edits to the same field of a structured practice: last writer wins for that field, a conflict record is created for facilitator review.
-3. Two concurrent edits to a prose item (brief): both versions stored, conflict record created with status 'open', earlier version remains active.
-4. Conflict record contains: `version_base`, `version_current`, `proposed_body`, `proposed_by`.
-5. An open conflict on an item prevents it from being promoted to VALIDATED status (verified by attempting status update and getting rejection).
-6. Resolving a conflict (setting status to 'resolved') allows the item to be promoted.
+**Acceptance criteria.**
+- Two edits to different fields of structured practice: both apply, no conflict record.
+- Two edits to same field of structured practice: last writer wins for field, conflict record created.
+- Two edits to prose item: both versions stored, conflict record with status 'open', older version remains active.
+- Conflict record contains version_base, version_current, proposed_body, proposed_by.
+- Open conflict prevents promotion to VALIDATED status.
+- Resolving conflict (status 'resolved') allows promotion.
+
+**Validation scenarios.**
+- Given two concurrent edits to different fields, when writeback runs, then both changes apply without conflict.
+- Given two concurrent edits to same field, when writeback runs, then last writer wins and conflict record created.
+
+**Contracts / constraints.**
+- Per-field merge only for structured items (practices, decisions, failures).
+- Prose conflicts require facilitator review.
+
+**Effort.** S (~1d)
 
 ---
 
 ### B6 — Materialization Budget + Relevance Scoring
 
-The intelligence layer that decides what gets loaded into a session.
+**Story.** As materialization, I want to score knowledge relevance and enforce a token budget, so that agents load exactly what they need without wasting context.
 
-**Scope:**
-- `packages/fabric/relevance.ts`:
-  - `scoreRelevance(item, taskContext)` → 0.0–1.0 score
-  - Factors: task tag match, role match, recency, confidence, usage frequency, layer proximity
-  - Weights configurable per deployment
-- `packages/fabric/budget.ts`:
-  - `applyBudget(items, contextWindowSize)` → filtered items list within token budget
-  - Budget allocation: 40% task execution, 30% L0 session pack, 20% L2+L3 knowledge, 10% L4 factory
-  - Token counting via whitespace-split approximation (good enough for budgeting)
-- Integration with materialization (B2): relevance scoring filters which items get materialized
+**Depends on.** B1, B2.
 
-**Acceptance Criteria:**
-1. A practice tagged "file-handling" scores higher than one tagged "email-marketing" when the task is about file uploads.
-2. A recently updated practice scores higher than a stale one (same relevance otherwise).
-3. Budget enforcement: given 200 items but a 40K token budget for knowledge, only the top-scoring items that fit within budget are returned.
-4. L4 factory items are always included regardless of relevance score (they're non-negotiable context).
-5. With a 200K token context window, the materialization budget allocates ~40K tokens for knowledge — verify the math.
-6. The scoring weights can be overridden via `factory_settings` without code changes.
+**Acceptance criteria.**
+- Practice tagged "file-handling" scores higher than "email-marketing" for file-upload task.
+- Recently updated practice scores higher than stale one (same relevance).
+- Budget enforcement: 200 items, 40K token budget → only top-scoring items returned.
+- L4 factory items always included (non-negotiable context).
+- 200K context window allocates ~40K for knowledge (verify math).
+- Scoring weights overridable via factory_settings (no code changes).
+
+**Validation scenarios.**
+- Given task about file handling, when relevance scoring runs, then file-handling practice ranked higher.
+- Given 200 items, 40K token budget, when materialization runs, then items within budget returned.
+
+**Contracts / constraints.**
+- Scoring factors: task tag match, role match, recency, confidence, usage frequency, layer proximity.
+- Budget allocation: 40% task, 30% L0 session, 20% L2+L3, 10% L4.
+- Token counting via whitespace-split approximation.
+
+**Effort.** S (~1d)
 
 ---
 
@@ -344,170 +356,197 @@ The intelligence layer that decides what gets loaded into a session.
 
 ### C1 — Task State Machine + Dependency Watcher
 
-The core task lifecycle from PROCESS_LAYER.md §6.1. Eight-state lifecycle with automatic dependency-driven transitions.
+**Story.** As the system, I want tasks to flow through an 8-state lifecycle with automatic dependency-driven transitions, so that blocked work unblocks automatically when dependencies complete.
 
-**Scope:**
-- `packages/server/domain/tasks.ts`:
-  - `createTask(data)` → creates task in `proposed` state
-  - `transitionTask(id, toState, metadata)` → validates transition, updates state, emits event
-  - Valid transitions for 8-state machine: proposed→accepted, proposed→killed, accepted→hold, accepted→in_progress, hold→accepted (auto, via dependency watcher), in_progress→blocked, in_progress→review, in_progress→done, blocked→in_progress, review→done, review→in_progress, on_hold→accepted (auto), *→killed
-  - Invalid transitions throw `InvalidTransitionError`
-- `packages/server/workers/dependency-watcher.ts`:
-  - Subscribes to `task_state_changed` events
-  - When a task moves to `done`: find all tasks with this task in their `dependencies` list. For each, check if ALL dependencies are now `done`. If yes, **transition from `on_hold` → `accepted` automatically and notify owner** (this is the Dependency Watcher).
-  - When a task enters `on_hold` state, it waits for all blocking dependencies to reach `done` before auto-transitioning to `accepted`.
+**Depends on.** A2, A3.
 
-**Acceptance Criteria:**
-1. Create a task → state is `proposed`. Transition to `accepted` → state is `accepted`. Transition to `in_progress` → state is `in_progress`. Each transition emits `task_state_changed`.
-2. Invalid transition `proposed → in_progress` throws `InvalidTransitionError`.
-3. Dependency watcher: create tasks A and B. B depends on A. B is in `on_hold`. Complete A → B automatically transitions to `accepted`.
-4. Complex dependency: C depends on both A and B. Complete A → C stays in `on_hold`. Complete B → C transitions to `accepted`.
-5. Every transition is logged in an audit trail (a `task_transitions` log or event stream).
-6. Transitioning to `killed` works from any state.
-7. The `on_hold` → `accepted` auto-transition emits a notification event (for the owner's inbox).
-8. Verify 8-state lifecycle: proposed, accepted, planned, blocked, in_progress, on_hold, done, cancelled. Dependency Watcher handles on_hold → accepted transitions only when all dependencies are done.
+**Acceptance criteria.**
+- Valid transitions execute; invalid transitions throw `InvalidTransitionError`.
+- Dependencies: task B depends on A. B in `on_hold`. Complete A → B auto-transitions to `accepted` and owner notified.
+- Complex: C depends on A and B. Complete A → C stays `on_hold`. Complete B → C transitions to `accepted`.
+- Every transition logged in audit trail.
+- Transitioning to `killed` works from any state.
+- `on_hold` → `accepted` auto-transition emits notification event.
+- All 8 states achievable: proposed, accepted, hold, in_progress, blocked, review, done, killed.
+
+**Validation scenarios.**
+- Given task B depends on A, when A completes, then B auto-transitions to accepted.
+- Given task C depends on A and B, when only A completes, then C stays in hold. When B completes, then C transitions to accepted.
+- Given invalid transition, when attempted, then error thrown with clear message.
+
+**Contracts / constraints.**
+- on_hold → accepted transitions are automatic (Dependency Watcher).
+- Other transitions are explicit requests.
+
+**Effort.** M (~2d)
 
 ---
 
 ### C2 — Bet State Machine + Revision Logging
 
-**Scope:**
-- `packages/server/domain/bets.ts`:
-  - `createBet(data)` → creates bet in `shaped` state with required fields: product, team, pitch, appetite, done_condition, hypothesis
-  - `transitionBet(id, toState, reason)` → validates transition, logs revision
-  - Valid transitions: shaped→committed, shaped→killed, committed→in_progress, in_progress→shipped, in_progress→killed, committed→shaped (reshaping)
-  - A bet cannot enter `committed` if the team's committed bets ≥ capacity limit
-  - Every state change appends to `revision_log` JSON array
-- Revision logging: changes to `done_condition`, `hypothesis`, or `appetite` are first-class events, each creating a review thread item
+**Story.** As the system, I want bets to flow through a shaped→committed→in_progress→shipped lifecycle with revision logging, so that changes to bet scope (done_condition, hypothesis, appetite) are logged and surfaced for human approval.
 
-**Acceptance Criteria:**
-1. Create a bet → state is `shaped`. Commit it → state is `committed`, `revision_log` contains the commit entry with timestamp and reason.
-2. Attempting to commit when team capacity is full throws `CapacityExceededError`.
-3. Changing `done_condition` on an in_progress bet: revision_log entry added, `item_created` event fires (for review thread).
-4. Shipping a bet triggers `bet_shipped` event.
-5. Killing a bet requires a reason — calling without reason throws validation error.
-6. Reshaping: committed→shaped transition works with reason logged.
-7. Revision log is a JSON array in the `revision_log` column — each entry has `{ timestamp, field, old_value, new_value, reason }`.
+**Depends on.** A2, A3.
+
+**Acceptance criteria.**
+- Create bet → `shaped`. Commit → `committed`, revision_log contains entry.
+- Committing when team capacity full → `CapacityExceededError`.
+- Changing done_condition on in_progress bet: revision_log entry added, item_created event fires.
+- Shipping bet → `bet_shipped` event.
+- Killing bet requires reason (validation enforced).
+- Reshaping: committed → shaped with reason logged.
+- Revision log is JSON array with `{ timestamp, field, old_value, new_value, reason }` entries.
+
+**Validation scenarios.**
+- Given capacity at limit, when attempting to commit, then error thrown.
+- Given in_progress bet, when done_condition changed, then revision logged and review item created.
+
+**Contracts / constraints.**
+- Capacity check at commit time (enforced at state machine level).
+- Revision log immutable once written.
+
+**Effort.** M (~2d)
 
 ---
 
 ### C3 — Session Lifecycle
 
-**Scope:**
-- `packages/server/domain/sessions.ts`:
-  - `createSession(taskId, agentId, modelTier)` → creates session in `active` state, calls materialization (B2), starts watcher (B4)
-  - `endSession(sessionId, outcome)` → stops watcher (final pass), records outcome and cost, transitions to `done`
-  - `crashSession(sessionId)` → stops watcher (final pass), records as `crashed`, ensures notes are preserved
-  - States: active → paused → done | crashed
-  - Cost tracking: accumulates cost from harness adapter callbacks
-- Integration with Knowledge Fabric: session creation triggers materialization, session end triggers watcher stop + final pass
+**Story.** As a task, I want agent sessions to materialize knowledge, watch files, track cost, and clean up gracefully, so that work is persisted and context window limits are respected.
 
-**Acceptance Criteria:**
-1. Create a session → state is `active`, workspace directory exists with materialized files, file watcher is running.
-2. End session → state is `done`, watcher stopped, final pass completed, `session_ended` event fires.
-3. Crash session → state is `crashed`, watcher stopped, final pass completed, any knowledge written during session is preserved in SQLite.
-4. Session cost is recorded: set a mock cost of $0.15 during session, verify it's stored on session end.
-5. Creating a session when the agent's `max_concurrent_sessions` is reached throws `ConcurrencyLimitError`.
-6. The session's `workspace_snapshot` field contains the path to the workspace.
-7. After session end, the workspace directory is cleaned up (deleted).
+**Depends on.** C1, B2, B4.
+
+**Acceptance criteria.**
+- Create session → `active`, workspace exists, materialized files present, watcher running.
+- End session → `done`, watcher stopped, final pass complete, session_ended event fires.
+- Crash session → `crashed`, watcher stopped, final pass complete, knowledge preserved in SQLite.
+- Session cost recorded: $0.15 in session → stored on end.
+- Creating session at agent's max_concurrent_sessions → `ConcurrencyLimitError`.
+- Session workspace_snapshot contains path to workspace.
+- After session end, workspace cleaned up (deleted).
+
+**Validation scenarios.**
+- Given task and agent, when session created, then materialization runs and watcher starts.
+- Given active session at cost limit, when new session attempted, then error thrown.
+
+**Contracts / constraints.**
+- Materialization and watcher start/stop integrated into session lifecycle.
+- Cost accumulation per session.
+
+**Effort.** M (~2d)
 
 ---
 
 ### C4 — Team Management
 
-**Scope:**
-- `packages/server/domain/teams.ts`:
-  - `createTeam(productId, members, leadAgentId, capacity)` → creates team
-  - `addMember(teamId, agentId)` / `removeMember(teamId, agentId)`
-  - `updateCapacity(teamId, newCapacity)`
-  - `dissolveTeam(teamId)` → archives team, unlinks agents
-  - Capacity enforcement: `getAvailableCapacity(teamId)` returns remaining bet slots
-  - Cost cap tracking: `getTeamCost(teamId)` aggregates session costs for current cycle
+**Story.** As the system, I want to create teams, add/remove members, enforce capacity, and track team-level costs, so that work can be organized by product with clear constraints.
 
-**Acceptance Criteria:**
-1. Create a team with 3 agents → team exists, all agents have `team_id` set.
-2. Adding a member updates their `team_id`.
-3. Removing a member with active routines throws `ActiveRoutinesError` (routines must be reassigned first).
-4. `getAvailableCapacity` returns `capacity - active_bets_count`.
-5. Dissolving a team sets `dissolved_at`, unlinks all agents (sets `team_id` to null).
-6. Team cost is the sum of all session costs for agents on the team within the current cost cycle.
-7. Attempting to commit a bet when available capacity is 0 is rejected.
+**Depends on.** A2, A3.
+
+**Acceptance criteria.**
+- Create team with 3 agents → team exists, agents have team_id set.
+- Add member updates agent team_id.
+- Remove member with active routines → `ActiveRoutinesError` (routines must reassign first).
+- getAvailableCapacity returns capacity - active_bets_count.
+- Dissolving team sets dissolved_at, unlinks agents.
+- Team cost = sum of session costs for agents in current cycle.
+- Committing bet at capacity 0 rejected.
+
+**Validation scenarios.**
+- Given team with 5 bet slots and 3 active bets, when querying capacity, then 2 slots available.
+- Given agent with active routine, when removal attempted, then error thrown.
+
+**Contracts / constraints.**
+- Capacity is enforced at bet commit time (via C2).
+- Team dissolution is soft (marked dissolved_at, not deleted).
+
+**Effort.** S (~1d)
 
 ---
 
 ### C5 — Routine Scheduler
 
-**Scope:**
-- `packages/server/workers/scheduler.ts`:
-  - Polls `routines` table for due triggers every 30 seconds
-  - Trigger types: `calendar` (cron expression), `event` (fires on specific event bus event), `heartbeat` (every N minutes/hours), `inbox` (fires when agent inbox has unread messages), `continuous` (re-fires after each session completes)
-  - When a routine fires: create a session via C3, using the routine's `skill_id` and `owner_agent_id`
-  - Delegation: if owner is at WIP limit and `delegation_allowed`, find teammate with matching skill
-  - Updates `last_run_at` and `next_run_at` on fire
-  - Respects cost caps: does not fire if agent/team/factory cap is reached
-- Subscribes to event bus for event-triggered routines
+**Story.** As the system, I want to schedule routines by cron, event, heartbeat, and continuous triggers, with cost-aware firing and delegation support, so that agents can run repeating work automatically within constraints.
 
-**Acceptance Criteria:**
-1. A heartbeat routine with interval 60s fires within 60–90 seconds of its last run.
-2. A calendar routine with cron `0 9 * * MON` fires at the correct time (test with mocked clock).
-3. An event-triggered routine fires when its configured event is emitted.
-4. Delegation: routine owner at WIP limit, `delegation_allowed: true`, teammate with matching skill exists → session created for teammate.
-5. Cost cap: factory cost cap reached → routine does NOT fire, `next_run_at` is set to next cycle.
-6. Silent routines (silent=true): session is created but no item is produced (verified by checking `items` table).
-7. `last_run_at` and `next_run_at` are updated after each fire.
-8. Human review routines (human_review=true): session output produces a review item in Conversations.
+**Depends on.** C3, A3.
+
+**Acceptance criteria.**
+- Heartbeat routine with interval 60s fires within 60–90s of last run.
+- Calendar routine with cron `0 9 * * MON` fires at correct time.
+- Event-triggered routine fires when configured event emitted.
+- Delegation: owner at WIP limit, delegation_allowed true, teammate with skill exists → session for teammate.
+- Factory cost cap reached → routine does NOT fire, next_run_at set to next cycle.
+- Silent routine (silent=true) creates session but produces no item (verified in items table).
+- Human review routine (human_review=true) output produces review item in Conversations.
+- last_run_at and next_run_at updated after fire.
+
+**Validation scenarios.**
+- Given heartbeat routine, when 60s elapse, then routine fires.
+- Given event-triggered routine, when event emitted, then routine fires.
+- Given cost cap breached, when routine's fire time reached, then routine skipped and next_run_at moved forward.
+
+**Contracts / constraints.**
+- Polls routines table every 30 seconds for due triggers.
+- Cost cap check before session creation (C7 integration).
+- WIP limit respected (checks agent.max_concurrent_sessions).
+
+**Effort.** M (~2d)
 
 ---
 
 ### C6 — Handoff Protocol
 
-The A2A-inspired structured handoff from PROCESS_LAYER.md §8.
+**Story.** As an agent, I want to hand off a task to another agent or a human with structured metadata (context, status, reason, artifacts, remaining work), so that work can be cleanly transferred with all necessary context.
 
-**Scope:**
-- `packages/server/domain/handoffs.ts`:
-  - `initiateHandoff(handoff: HandoffMessage)` → validates, updates task owner, creates thread message, ends current session, notifies new owner
-  - `HandoffMessage` type: `{ contextId, fromAgent, toAgent, taskId, reason, status, message, artifacts, remainingWork }`
-  - `reason` enum: `phase_complete`, `skill_needed`, `blocked`, `escalation`
-  - `status` enum: `working`, `completed`, `failed`, `canceled`
-  - `toAgent` can be an agent ID or a role string — if role, resolve to best available agent via team + skill lookup
-- Thread message created with structured handoff metadata (not just prose)
-- Previous session ended, new session creation triggered for the receiving agent
+**Depends on.** C3, C1.
 
-**Acceptance Criteria:**
-1. Agent A hands off to Agent B with status `working`: A's session ends, B is set as task owner, B receives a thread message with handoff metadata, B's inbox gets a notification.
-2. Handoff by role: `toAgent: 'builder'` resolves to an available Builder on the team. If no Builder available, creates an escalation item.
-3. Handoff to human: `toAgent: 'human'` → task moves to `blocked`, review item created in Conversations.
-4. The handoff thread message contains structured JSON metadata (context_id, status, reason, artifacts list, remaining_work) — not just a prose string.
-5. Handoff with status `failed` includes error information in the message.
-6. The audit trail on the task shows the full handoff history.
+**Acceptance criteria.**
+- Agent A hands off to agent B → A's session ends, B becomes owner, B receives thread message with handoff metadata.
+- Handoff by role: `toAgent: 'builder'` → resolves to available Builder. No Builder available → escalation item created.
+- Handoff to human → task moves to `blocked`, review item created.
+- Thread message contains structured handoff metadata JSON (context_id, status, reason, artifacts, remaining_work).
+- Handoff with status `failed` includes error information.
+- Task audit trail shows full handoff history.
+
+**Validation scenarios.**
+- Given handoff initiated, when A's session checked, then A's session is done.
+- Given handoff to role, when no agent available, then escalation item created.
+
+**Contracts / constraints.**
+- Handoff message is structured (not prose-only).
+- Task ownership changes atomically with session end.
+
+**Effort.** M (~2d)
 
 ---
 
 ### C7 — Cost Cap Enforcement
 
-**Scope:**
-- `packages/server/domain/costs.ts`:
-  - `checkCostCap(agentId)` → returns `{ allowed: bool, remaining: number, level: 'agent'|'team'|'factory' }`
-  - `recordCost(sessionId, amount)` → increments `cost_actual` on agent, team, and factory
-  - `resetCosts(level, cycle)` → resets `cost_actual` for the given level at cycle boundary
-- `packages/server/workers/cost-sentinel.ts`:
-  - Heartbeat routine: checks burn rate at all three levels
-  - Emits `cost_cap_warning` at 80% of cap
-  - Emits `cost_cap_breached` when cap is hit
-  - On breach: pauses non-essential routines, blocks new session creation at that level
-- Integration with session creation (C3): check cost cap before starting a session
-- Integration with scheduler (C5): skip routines when cap is breached
+**Story.** As the system, I want to enforce cost caps at agent, team, and factory levels with warnings and pausing, so that spending stays within budget.
 
-**Acceptance Criteria:**
-1. Agent cost cap of $10: after $10 in session costs, `checkCostCap(agentId)` returns `{ allowed: false, level: 'agent' }`.
-2. Team cost cap of $50: even if agent has budget, if team total reaches $50, `checkCostCap` returns `{ allowed: false, level: 'team' }`.
-3. Factory cost cap of $200: overrides all. When reached, no agent can start new sessions.
-4. Cost cap breach emits `cost_cap_breached` event with level and current spend.
-5. Warning at 80%: factory cap of $200, current spend $160 → `cost_cap_warning` event fires.
-6. Cost reset: after resetting factory costs, agents can start sessions again.
-7. In-progress sessions are NOT killed when cap is reached — they finish naturally.
-8. A review thread item is created when any cap is breached.
-9. Idempotency: duplicate `cost_cap_warning` events with the same session ID are idempotent — warning is not re-created if already present. Event consumers use idempotency keys (session_id + event_type) to deduplicate.
+**Depends on.** C3, A3.
+
+**Acceptance criteria.**
+- Agent cap $10 → after $10 spent, checkCostCap returns `{ allowed: false, level: 'agent' }`.
+- Team cap $50 → team total at $50 blocks new sessions even if agent has budget.
+- Factory cap $200 → no agent can start session when hit.
+- Breach emits `cost_cap_breached` event with level and spend.
+- Warning at 80%: factory cap $200, spend $160 → `cost_cap_warning` emits.
+- After reset, agents can start sessions again.
+- In-progress sessions NOT killed (finish naturally).
+- Review thread item created on breach.
+- Idempotency: duplicate warnings deduplicated by session_id + event_type.
+
+**Validation scenarios.**
+- Given agent at daily budget limit, when new session attempted, then `CostCapExceededError` thrown.
+- Given factory cost at 80% of cap, when cost incremented, then warning event fires.
+- Given in-progress session at factory cap, when cap breach occurs, then session continues to completion.
+
+**Contracts / constraints.**
+- Caps checked at session creation time (C5/D5 integration).
+- Cost reset on cycle boundary (daily default).
+- Per-level hierarchy: agent < team < factory (agent cap applies even if team has budget).
+
+**Effort.** M (~2d)
 
 ---
 
@@ -515,135 +554,139 @@ The A2A-inspired structured handoff from PROCESS_LAYER.md §8.
 
 ### D1 — Harness Adapter Interface
 
-The abstraction layer between HyperIdle and any agent harness.
+**Story.** As a harness integrator, I want an abstraction layer that defines how to spawn agents, stream events, and stop sessions, so that any harness (Claude, Goose, OpenHands) can be plugged in.
 
-**Scope:**
-- `packages/server/adapters/harness.ts`:
-  - Interface `HarnessAdapter`:
-    - `startSession(config: SessionConfig)` → starts the agent, returns a session handle
-    - `streamEvents(sessionId)` → async iterable of session events (token usage, tool calls, completions)
-    - `stopSession(sessionId)` → gracefully stops the agent
-    - `getCapabilities()` → returns what the harness supports (pre-compaction trigger, sub-agents, etc.)
-  - `SessionConfig`: agent identity (soul prompt path), workspace path, model tier, credential map, available tools
-  - Event types: `token_usage`, `tool_call`, `completion`, `error`, `cost_update`, `pre_compaction`
-- No concrete implementation yet — this is the interface + mock adapter for testing
+**Depends on.** A1.
 
-**Acceptance Criteria:**
-1. The `HarnessAdapter` interface compiles with full type safety.
-2. A `MockHarnessAdapter` implements the interface: `startSession` returns a handle, `streamEvents` yields 3 mock events, `stopSession` completes.
-3. A test uses the mock adapter to create a session, stream events, and stop — all events received in order.
-4. `SessionConfig` includes all required fields: workspace path, soul prompt path, model tier, tools list.
-5. The mock adapter's `getCapabilities()` returns `{ preCompactionTrigger: true, subAgents: true }`.
-6. The interface is generic enough that future adapters (Claude, Goose, OpenHands) can implement it without changes to the interface.
+**Acceptance criteria.**
+- HarnessAdapter interface compiles with full type safety.
+- MockHarnessAdapter implements interface: startSession, streamEvents (yields 3 mock events), stopSession.
+- Test uses mock adapter to create, stream, and stop session — all events received in order.
+- SessionConfig includes workspace path, soul prompt path, model tier, tools list.
+- Mock adapter getCapabilities returns `{ preCompactionTrigger: true, subAgents: true }`.
+- Interface generic enough for future adapters without changes.
+
+**Validation scenarios.**
+- Given mock adapter, when session started, then handle returned.
+- Given session running, when streamEvents consumed, then events received in order.
+
+**Contracts / constraints.**
+- Interface only — no concrete implementation in D1 (that's D2).
+- Event types: token_usage, tool_call, completion, error, cost_update, pre_compaction.
+
+**Effort.** S (~1d)
 
 ---
 
 ### D2 — Claude Agent SDK Adapter
 
-Concrete adapter for the Claude Agent SDK.
+**Story.** As a Claude SDK user, I want a concrete harness adapter for Claude Agent SDK that handles model tier mapping, pre-compaction triggers, and cost tracking, so that Claude agents can be spun up from the factory.
 
-**Scope:**
-- `packages/server/adapters/claude.ts`:
-  - Implements `HarnessAdapter` for Claude Agent SDK
-  - `startSession` → spawns a Claude Agent SDK process with the configured model, tools, and workspace
-  - `streamEvents` → parses Claude's output stream for token counts, tool calls, and completions
-  - `stopSession` → sends termination signal to the Claude process
-  - Pre-compaction trigger: monitors token count and fires `pre_compaction` event when approaching context limit
-  - Model tier mapping: Reasoning → claude-opus, Workhorse → claude-sonnet, Fast → claude-haiku
-  - Credential injection: environment variables passed to the agent process
+**Depends on.** D1.
 
-**Acceptance Criteria:**
-1. Integration test (requires Claude API key): start a session with a trivial task prompt, receive at least one `completion` event, stop the session cleanly.
-2. Token counting: after a session, the total token count from `token_usage` events matches the actual usage reported by the API.
-3. Model tier mapping: Reasoning tier creates a session with the opus model.
-4. Pre-compaction trigger: simulate approaching context limit → `pre_compaction` event fires.
-5. The adapter can be instantiated without a Claude API key (for testing) — it throws `MissingCredentialError` on `startSession` instead of on construction.
-6. Cost tracking: `cost_update` events report dollar costs accurately (within 10% of the API's reported cost).
+**Acceptance criteria.**
+- Integration test (requires API key): start session → receive completion event → stop cleanly.
+- Token count from events matches actual API usage.
+- Model tier mapping: Reasoning → opus, Workhorse → sonnet, Fast → haiku.
+- Pre-compaction trigger: approaching context limit → pre_compaction event fires.
+- Can instantiate without API key (throws MissingCredentialError on startSession, not construction).
+- cost_update events report costs within 10% of API reported.
+
+**Validation scenarios.**
+- Given Claude API key, when session started with Reasoning tier, then opus model used.
+- Given context near limit, when threshold crossed, then pre_compaction event fires.
+
+**Contracts / constraints.**
+- Credential injection via environment variables.
+- Token counting from Claude's output stream.
+
+**Effort.** M (~2d)
 
 ---
 
 ### D3 — Workspace Adapter + Docker Implementation
 
-Sandboxed execution environments for agent sessions.
+**Story.** As a session provisioner, I want workspaces (local directories or Docker containers) where agents run with isolated file systems, so that work is sandboxed and reproducible.
 
-**Scope:**
-- `packages/server/adapters/workspace.ts`:
-  - Interface `WorkspaceAdapter`:
-    - `spawn(config)` → creates an isolated workspace environment, returns workspace path
-    - `exec(workspaceId, command)` → run a command inside the workspace
-    - `destroy(workspaceId)` → tear down the workspace
-  - `LocalWorkspaceAdapter`: creates workspaces as directories on the local filesystem (laptop profile)
-  - `DockerWorkspaceAdapter`: creates Docker containers with volume mounts (gVisor optional)
-- The workspace path is what gets passed to the materialization engine (B2) and the harness adapter (D1)
+**Depends on.** D1.
 
-**Acceptance Criteria:**
-1. Local adapter: `spawn()` creates a directory with correct permissions. `exec('ls')` lists the directory. `destroy()` removes it.
-2. Docker adapter: `spawn()` creates a running container. `exec('echo hello')` returns "hello". `destroy()` stops and removes the container.
-3. The materialized workspace (from B2) is accessible inside the Docker container at the expected path.
-4. File changes inside the Docker container's workspace are visible to the host-side file watcher (B4).
-5. The workspace is isolated: the agent cannot access files outside its workspace directory.
-6. Spawning 5 concurrent workspaces works without conflict.
+**Acceptance criteria.**
+- Local adapter: spawn creates directory, exec('ls') lists it, destroy removes it.
+- Docker adapter: spawn creates running container, exec('echo hello') returns hello, destroy stops/removes.
+- Materialized workspace accessible inside container at expected path.
+- File changes in container visible to host-side file watcher.
+- Workspace isolated: agent cannot access files outside workspace directory.
+- 5 concurrent workspaces spawn without conflict.
+
+**Validation scenarios.**
+- Given Docker enabled, when 5 workspaces spawned, then all running independently.
+- Given file written inside container, when host file watcher checked, then change visible.
+
+**Contracts / constraints.**
+- WorkspaceAdapter interface: spawn, exec, destroy.
+- LocalWorkspaceAdapter for laptop profile, DockerWorkspaceAdapter for production.
+- Materialized workspace path passed to both D2 and B2.
+
+**Effort.** M (~2d)
 
 ---
 
 ### D4 — Agent Skill Tools
 
-The tools that agents call during sessions to interact with HyperIdle.
+**Story.** As an agent running a session, I want tools to read inbox, send messages, log tasks, query practices, write memory, initiate handoffs, create items, and write session notes, so that I can interact with the factory's coordination layer.
 
-**Scope:**
-- `packages/server/tools/`:
-  - `read_inbox.ts` → reads agent's unread messages
-  - `send_message.ts` → sends a message to another agent or thread
-  - `log_task.ts` → appends notes to the current task
-  - `query_practice.ts` → searches L3 knowledge via FTS5
-  - `write_memory.ts` → writes to knowledge_items (any layer the agent has access to)
-  - `handoff_to.ts` → initiates handoff (calls C6)
-  - `create_item.ts` → surfaces something to humans via the Item data model
-  - `write_session_notes.ts` → writes/updates session notes in `work/session-notes.md`
-- Each tool is a function with typed input/output that can be registered with any harness adapter
-- Tool definitions follow the Claude tool_use schema (name, description, input_schema)
+**Depends on.** B1, C1, C6.
 
-**Acceptance Criteria:**
-1. `read_inbox`: agent has 3 unread messages → tool returns all 3 with correct fields.
-2. `send_message`: sends a message to agent B → message appears in B's inbox and on the thread.
-3. `log_task`: appends "Discovered X" to task notes → task's `notes` field contains the text.
-4. `query_practice`: searches for "file handling" → returns matching L3 practices.
-5. `handoff_to`: initiates handoff to agent B → task owner changes, session ends (via C6).
-6. `create_item`: creates a review item with risk_tier "high" → item routes to Conversations.
-7. Each tool has a valid Claude tool_use JSON schema definition.
-8. Calling a tool with invalid input returns a structured error (not a crash).
+**Acceptance criteria.**
+- read_inbox: agent with 3 messages → tool returns all 3.
+- send_message: sends to agent B → appears in B's inbox.
+- log_task: appends "Discovered X" → task.notes contains text.
+- query_practice: searches "file handling" → returns matching L3 practices.
+- handoff_to: initiates to B → task owner changes, session ends (C6).
+- create_item: creates review with risk_tier high → routes to Conversations.
+- write_session_notes: writes to work/session-notes.md → reflected in sessions.notes.
+- Each tool has valid Claude tool_use JSON schema.
+- Invalid input returns structured error (not crash).
+
+**Validation scenarios.**
+- Given agent with unread messages, when read_inbox called, then all unread returned.
+- Given create_item called, when item_created event checked, then event contains correct fields.
+
+**Contracts / constraints.**
+- Tools are functions registered with harness adapter.
+- Tool schemas follow Claude tool_use format.
+
+**Effort.** M (~2d)
 
 ---
 
 ### D5 — Session Provisioning (End-to-End)
 
-The full loop: receive a task assignment, provision a session, run the agent, write back knowledge, emit session end hook to E2.
+**Story.** As a task awaiting agent work, I want a full session provisioning flow (cost check, workspace spawn, knowledge materialize, watcher start, agent start, event streaming, cost tracking, cleanup), so that end-to-end work execution is reliable and observable.
 
-**Scope:**
-- `packages/server/domain/session-provisioner.ts`:
-  - `provisionSession(taskId, agentId)`:
-    1. Check cost caps (C7)
-    2. Spawn workspace (D3)
-    3. Materialize knowledge into workspace (B2)
-    4. Start file watcher (B4)
-    5. Configure tools (D4) with session context
-    6. Start agent via harness adapter (D1/D2)
-    7. Stream events, track cost, aggregate cost from sub-agent runs
-    8. On session end: stop watcher (final pass), record outcome, clean up workspace, emit `session_ended` event with final cost_delta
-  - Handles crashes: if agent process dies, run crash recovery (stop watcher with final pass, mark session as crashed)
-  - Sub-agent cost aggregation: tracks cost from all sub-agent spawns and rolls up to parent session
-- This is the integration point — it wires together everything from tracks B, C, and D
-- **Dependency contract with E2:** D5 emits `session_ended` event; E2 (review queue) subscribes to route created items into Conversations
+**Depends on.** D1, D2/D3, B2, B4, C3, C7, D4.
 
-**Acceptance Criteria:**
-1. End-to-end (with mock adapter): provision a session → workspace is created with materialized files → watcher is running → mock agent writes a file to `knowledge/` → file is written back to SQLite → session ends → workspace cleaned up.
-2. With Claude adapter (integration test): provision a real session with a trivial task → agent runs, produces output, session completes.
-3. Crash recovery: kill the mock agent process mid-session → session marked as `crashed`, knowledge written before the crash is preserved in SQLite.
-4. Cost cap rejection: set agent cost cap to $0 → provisioning fails with `CostCapExceededError`.
-5. Concurrent sessions: provision 3 sessions for the same agent (if WIP limit allows) → all run independently.
-6. The task's state moves to `in_progress` when the session starts.
-7. Sub-agent cost aggregation: provision a session where the agent spawns 2 sub-agents. Verify session cost = cost(main) + cost(sub1) + cost(sub2).
-8. `session_ended` event fires with `{ sessionId, cost_delta, outcome, taskId }`. E2 subscribes to create review items for high-value session ends.
+**Acceptance criteria.**
+- End-to-end mock: provision session → workspace created, materialized, watcher running → agent writes file → writeback to SQLite → session ends → workspace cleaned.
+- Claude integration test: provision real session → agent runs → session completes.
+- Crash recovery: agent process dies → session marked crashed, pre-crash knowledge preserved.
+- Cost cap rejection: set agent cap $0 → provisioning fails with CostCapExceededError.
+- Concurrent sessions: provision 3 sessions for agent (if WIP allows) → all independent.
+- Task state: moves to `in_progress` on session start.
+- Sub-agent aggregation: agent spawns 2 sub-agents, verify session cost = main + sub1 + sub2.
+- session_ended event fires with `{ sessionId, cost_delta, outcome, taskId }`. E2 subscribes to create review items.
+
+**Validation scenarios.**
+- Given task and agent, when session provisioned, then all steps complete (cost check, spawn, materialize, start).
+- Given agent at cost cap, when session provisioned, then CostCapExceededError thrown.
+- Given agent crashes mid-session, when recovery runs, then knowledge written before crash is in SQLite.
+
+**Contracts / constraints.**
+- Integrates B2 (materialization), B4 (watcher), C3 (session lifecycle), C7 (cost checks), D4 (tools), D1/D2/D3 (adapters).
+- Task.state → in_progress on session start.
+- E2 subscribes to session_ended events to create review items for high-value completions.
+
+**Effort.** L (~4d)
 
 ---
 
@@ -651,616 +694,489 @@ The full loop: receive a task assignment, provision a session, run the agent, wr
 
 ### E1 — API Scaffold + Auth
 
-**Scope:**
-- `packages/server/api/`:
-  - Hono app with route groups: `/api/conversations`, `/api/rail`, `/api/work`, `/api/knowledge`, `/api/tasks`, `/api/sessions`, `/api/agents`, `/api/items`
-  - Auth middleware: API key validation (keys stored in `factory_settings`)
-  - Error handling middleware: all errors return consistent `{ error: string, code: string, details?: object }` shape
-  - Request validation middleware: Zod schemas for all request bodies, auto-generated from Drizzle types where possible
-  - CORS configuration for the Vite dev server
-  - WebSocket upgrade support on Hono
+**Story.** As a client, I want a Hono API with auth middleware, error handling, request validation, and WebSocket support, so that requests are routed correctly, validated, and errors are consistent.
 
-**Acceptance Criteria:**
-1. `GET /api/health` returns 200 with status.
-2. A request without API key to any `/api/*` endpoint returns 401.
-3. A request with valid API key passes auth.
-4. A request with invalid JSON body returns 400 with validation errors.
-5. An unhandled error in a route handler returns 500 with consistent error shape (not a stack trace).
-6. WebSocket upgrade works on `/api/ws`.
-7. CORS allows requests from `localhost:5173`.
+**Depends on.** A2, A3.
+
+**Acceptance criteria.**
+- GET /api/health returns 200 with status.
+- Request without API key to /api/* returns 401.
+- Request with valid API key passes auth.
+- Invalid JSON body returns 400 with validation errors.
+- Unhandled error returns 500 with consistent error shape (no stack trace).
+- WebSocket upgrade works on /api/ws.
+- CORS allows localhost:5173.
+
+**Validation scenarios.**
+- Given invalid API key, when request made, then 401 returned.
+- Given invalid JSON body, when request made, then 400 with validation errors.
+
+**Contracts / constraints.**
+- Error response shape: `{ error: string, code: string, details?: object }`.
+- Request validation via Zod (auto-generated from types where possible).
+
+**Effort.** S (~1d)
 
 ---
 
 ### E2 — Conversations + Items + Responses Endpoints
 
-Review queue and verdict flow. E2 receives review items from agents (via D5 session end hook) and routes them to the right founder.
+**Story.** As a human, I want to see review items and chat threads, respond with verdicts (approve, request changes, reject, snooze, etc.), and receive real-time push updates, so that I can oversee agent work and provide feedback.
 
-**Scope:**
-- `GET /api/conversations` → list threads with latest item, paginated, sorted by recency or attention_score
-- `GET /api/conversations/:threadId` → thread with all items and responses
-- `POST /api/items` → create an item (used by agents via tools, and by facilitators)
-- `POST /api/responses` → record a human response to an item (the 10 verdict actions: approve, approve-with-comments, comment, inline-comment, request-changes, edit, reject, reply, snooze, escalate)
-- `GET /api/items/:id` → single item with responses and verdict history
-- WebSocket: `/api/ws/conversations` → push new items and responses in real time
-- Item routing: on item creation, apply routing rules from HUMAN_INTERFACE_LAYER.md §7 to determine which view it targets
-- Founder responsibility routing: domain-based routing to CEO vs CPO (Market/Growth → CEO; Product/Design/Tech → CPO; Strategic → Both) per AGENT_LAYER.md §7
-- **Integration with D5:** E2 subscribes to `session_ended` events from D5 and creates review items for high-value session completions
+**Depends on.** E1, B1, C1, D5.
 
-**Acceptance Criteria:**
-1. Create an item with `kind: 'review'`, `risk_tier: 'high'` → it appears in the conversation list.
-2. Respond to the item with `decision: 'approve'` → response recorded, `response_recorded` event fires.
-3. Conversation list returns threads sorted by most recent item.
-4. Filtering: `GET /api/conversations?kind=review&blocking=true` returns only blocking review threads.
-5. WebSocket: connect to `/api/ws/conversations`, create an item → the item appears on the WebSocket stream within 1 second.
-6. Pagination: 50 threads, request page 1 (limit 20) and page 2 → correct threads returned.
-7. Item routing: `risk_tier: 'low'` item routes to Rail, not Conversations.
-8. Founder routing: a Market-domain item routes to the CEO founder. A Product-domain item routes to the CPO founder. A Strategic item routes to both.
+**Acceptance criteria.**
+- GET /api/conversations list threads, paginated, sorted by recency or attention_score.
+- GET /api/conversations/:threadId thread with items and responses.
+- POST /api/items create item (from agent tools, facilitators).
+- POST /api/responses record verdict (10 actions: approve, approve-with-comments, comment, inline-comment, request-changes, edit, reject, reply, snooze, escalate).
+- WebSocket /api/ws/conversations pushes new items/responses in real time.
+- Item routing: risk_tier, kind → correct view (Conversations vs Rail vs Knowledge).
+- Founder routing: Market/Growth → CEO; Product/Design/Tech → CPO; Strategic → Both.
+- E2 subscribes to session_ended, creates review items for high-value outcomes.
+
+**Validation scenarios.**
+- Given new item created, when WebSocket connected, then item received within 1 second.
+- Given human responds with approve, when response recorded, then response_recorded event fires.
+
+**Contracts / constraints.**
+- Item routing rules per HUMAN_INTERFACE_LAYER.md §7.
+- Founder routing per AGENT_LAYER.md §7.
+
+**Effort.** L (~4d)
 
 ---
 
 ### E3 — Work Endpoints (Bets + Tasks)
 
-**Scope:**
-- `GET /api/bets` → list bets grouped by status (shaped, committed, in_progress, shipped)
-- `GET /api/bets/:id` → bet detail with tasks
-- `POST /api/bets` → create a shaped bet
-- `PATCH /api/bets/:id` → update bet fields (triggers revision logging from C2)
-- `POST /api/bets/:id/commit` → transition shaped→committed (checks capacity)
-- `POST /api/bets/:id/ship` → transition in_progress→shipped
-- `POST /api/bets/:id/kill` → kill a bet with reason
-- `GET /api/tasks` → list tasks, filterable by bet_id, state, owner
-- `PATCH /api/tasks/:id` → update task fields
-- `POST /api/tasks/:id/transition` → state transition (validates via C1)
-- `GET /api/bets/canvas` → the data for the **Canvas** region: shaped bets and committed bets with capacity info
+**Story.** As a human planning work, I want to see bets grouped by status, commit bets to cycles respecting capacity, transition tasks through states, and view the canvas, so that work planning is visible and constrained.
 
-**Acceptance Criteria:**
-1. Create a bet → it appears in `GET /api/bets` under the "shaped" group.
-2. Commit a bet → it moves to "committed". Committing when at capacity returns 409.
-3. `GET /api/bets/canvas` returns `{ shaped: [...], committed: [...], capacity: { used: N, max: M } }`.
-4. Task transition: `POST /api/tasks/:id/transition { state: 'in_progress' }` succeeds when valid, returns 400 when invalid.
-5. `GET /api/tasks?state=blocked` returns only blocked tasks.
-6. Shipping a bet triggers `bet_shipped` event — verified by a test subscriber.
-7. Killing a bet without a `reason` in the body returns 400.
-8. Concurrent commit at capacity: team capacity is 5 bets. Two concurrent `POST /api/bets/{id1}/commit` and `POST /api/bets/{id2}/commit` both at team capacity → first succeeds, second rejected with 409 and typed error `CapacityExceededError`. No race condition, strong consistency.
+**Depends on.** E1, C1, C2.
+
+**Acceptance criteria.**
+- GET /api/bets list grouped by status (shaped, committed, in_progress, shipped).
+- GET /api/bets/:id bet detail with tasks.
+- POST /api/bets create shaped bet.
+- PATCH /api/bets/:id update fields (triggers revision logging).
+- POST /api/bets/:id/commit transition shaped→committed (capacity enforced).
+- POST /api/bets/:id/ship transition in_progress→shipped.
+- POST /api/bets/:id/kill kill with reason.
+- GET /api/tasks list, filterable by bet_id, state, owner.
+- PATCH /api/tasks/:id update.
+- POST /api/tasks/:id/transition state transition (validates).
+- GET /api/bets/canvas data for Canvas region: shaped, committed, capacity info.
+- Concurrent commit at capacity: first succeeds, second rejected 409 (no race).
+
+**Validation scenarios.**
+- Given shaped bet, when committed and capacity checked, then bet_shipped event fires.
+- Given team at capacity, when concurrent commits attempted, then first succeeds, second rejected 409.
+
+**Contracts / constraints.**
+- Canvas data: `{ shaped: [...], committed: [...], capacity: { used, max } }`.
+- Kill requires reason (validation).
+
+**Effort.** L (~4d)
 
 ---
 
 ### E4 — Knowledge Endpoints
 
-**Scope:**
-- `GET /api/knowledge/:layer` → list knowledge items by layer (L2, L3, L4), with nested grouping by `topic` then `kind`
-- `GET /api/knowledge/:layer/:id` → single knowledge item
-- `POST /api/knowledge/:layer` → create a knowledge item (with version=1)
-- `PATCH /api/knowledge/:layer/:id` → update a knowledge item (with optimistic locking via version)
-- `POST /api/knowledge/:layer/:id/merge` → merge two items into one
-- `POST /api/knowledge/:layer/:id/split` → split an item into two
-- `POST /api/knowledge/:layer/:id/archive` → archive an item
-- `POST /api/knowledge/:layer/:id/flag` → flag for facilitator review
-- `GET /api/knowledge/search?q=...` → FTS5 search across all knowledge
-- WebSocket: `/api/ws/knowledge` → push updates when file watcher writes back agent changes
+**Story.** As a human curator, I want to view knowledge items by layer/scope, create/update/merge/split/archive items, search across knowledge, and receive real-time updates, so that knowledge can be curated and kept coherent.
 
-**Acceptance Criteria:**
-1. `GET /api/knowledge/practice` returns all L3 knowledge items grouped by community (building, growth, etc.).
-2. Update with correct version → succeeds, version bumped. Update with stale version → 409 Conflict with current version in response.
-3. Merge: item A and item B → merged item with combined body, both original IDs redirect to merged.
-4. Search: `GET /api/knowledge/search?q=file%20handling` returns matching items ranked by relevance.
-5. WebSocket: agent writes a practice file → writeback fires → WebSocket push delivers the update to connected clients within 2 seconds.
-6. Archive: item status changes to 'archived', item no longer appears in default list (but still accessible via explicit filter).
-7. Edit log: every PATCH creates a `knowledge_edit_log` entry.
-8. WebSocket push contract: `/api/ws/knowledge` delivers updates in the same shape as `PATCH /api/knowledge/:layer/:id` response, with an `_event: 'update'` field. Client re-fetches affected item if conflict detected.
+**Depends on.** E1, B1, B4.
+
+**Acceptance criteria.**
+- GET /api/knowledge/:layer list by layer, grouped by topic, kind.
+- GET /api/knowledge/:layer/:id single item.
+- POST /api/knowledge/:layer create (version=1).
+- PATCH /api/knowledge/:layer/:id update (optimistic locking).
+- Update stale version → 409 with current version.
+- POST /api/knowledge/:layer/:id/merge merge two items (combine body, both IDs redirect).
+- POST /api/knowledge/:layer/:id/split split into two.
+- POST /api/knowledge/:layer/:id/archive archive (status = 'archived').
+- POST /api/knowledge/:layer/:id/flag flag for review.
+- GET /api/knowledge/search?q=... FTS5 search, ranked by relevance.
+- WebSocket /api/ws/knowledge pushes updates when files written back by agents.
+- Edit log: every PATCH creates knowledge_edit_log entry.
+- WebSocket delivers updates in same shape as PATCH response + `_event` field.
+
+**Validation scenarios.**
+- Given knowledge search, when results returned, then ranked by relevance.
+- Given agent writes practice file, when writeback occurs, then WebSocket push delivered within 2s.
+
+**Contracts / constraints.**
+- Optimistic concurrency via version column.
+- Merge/split maintain cross-links and edit log.
+
+**Effort.** L (~4d)
 
 ---
 
 ### E5 — Rail Endpoint + WebSocket
 
-**Scope:**
-- `GET /api/rail` → current Rail state: active bets with status, blockers, awaiting-ordering items, cost burn rate
-- WebSocket: `/api/ws/rail` → push updates for all Rail-relevant state changes
-  - Subscribes to event bus: `task_state_changed` (blockers), `bet_committed`/`bet_shipped` (bet status), `cost_cap_warning`/`cost_cap_breached` (cost), `item_created` (new items for ordering)
-- Rail data assembled from: bets (status), tasks (blocked count, state), factory_settings (cost_cap, cost_actual), items (unresolved, awaiting ordering)
+**Story.** As a human at a glance, I want to see active bets, blockers, awaiting-ordering items, and cost burn rate on the Rail, with real-time updates via WebSocket, so that I have ambient awareness without opening conversations.
 
-**Acceptance Criteria:**
-1. `GET /api/rail` returns `{ bets: [...], blockers: [...], awaitingOrder: [...], cost: { burn: N, cap: M, pct: P } }`.
-2. WebSocket: connect, then block a task → WebSocket receives a `blocker_added` message within 5 seconds (NF-1.2).
-3. WebSocket: cost sentinel fires warning → WebSocket receives `cost_warning` message.
-4. Bets are returned with one-line status: id, title, status, progress indicator.
-5. Blockers include: task id, title, owner, how long blocked.
-6. Cost burn updates are pushed at least every 30 seconds (or on every session cost update).
+**Depends on.** E1, A3, C1, C7.
+
+**Acceptance criteria.**
+- GET /api/rail current state: bets with status, blockers, awaiting-ordering items, cost burn rate.
+- WebSocket /api/ws/rail subscribes to: task_state_changed (blockers), bet_committed/shipped (status), cost_cap_warning/breached (cost), item_created (ordering queue).
+- Block task → WebSocket blocker_added within 5s (NF-1.2).
+- Cost warning → WebSocket cost_warning within 5s.
+- Bets returned with one-liner: id, title, status, progress.
+- Blockers include: task id, title, owner, duration blocked.
+- Cost updates pushed every 30s or per session cost.
+
+**Validation scenarios.**
+- Given task blocked, when Rail WebSocket connected, then blocker received within 5s.
+- Given factory cost at warning threshold, when cost incremented, then warning pushed.
+
+**Contracts / constraints.**
+- Rail data assembled from bets, tasks, factory_settings, items.
+- Push latency target: 5s (NF-1.2).
+
+**Effort.** M (~2d)
 
 ---
 
 ### E6 — Agents + Sessions + Status Endpoints
 
-**Scope:**
-- `GET /api/agents` → list all agents with status, team, role, current sessions
-- `GET /api/agents/:id` → agent detail with skills, autonomy levels, cost
-- `PATCH /api/agents/:id/skills/:skillId` → update autonomy level for an agent-skill pair (creates review thread if level changes)
-- `GET /api/routines` → list all routines with status, trigger config, last/next run
-- `PATCH /api/routines/:id` → update routine (enable/disable, change config)
-- `POST /api/routines/:id/retire` → retire a routine (reassign or deactivate)
-- `POST /api/routines/:id/trigger` → manually trigger a routine (for testing)
-- `GET /api/agents/:id/inbox` → agent's inbox (messages)
-- `POST /api/agents/:id/inbox` → send message to agent
-- `POST /api/sessions` → create a session (triggers provisioning via D5)
-- `PATCH /api/sessions/:id` → update session state (end, crash)
-- `GET /api/status` → factory-wide status: active sessions, agent states, total cost, uptime
-- `GET /api/settings` → factory settings
-- `PATCH /api/settings` → update factory settings (cost caps, etc.)
+**Story.** As an operator, I want to view and manage agents (skills, autonomy levels), routines (trigger config, status), inbox, and factory status (active sessions, cost, uptime), so that operations are visible and configurable.
 
-**Acceptance Criteria:**
-1. `GET /api/agents` returns all agents with their current session count.
-2. Agent inbox: send a message, then read inbox → message appears.
-3. `POST /api/sessions` with valid task and agent → session provisioned, 201 returned with session ID.
-4. `GET /api/status` returns `{ activeSessions: N, agents: { total: M, active: K }, cost: { today: $X, cap: $Y } }`.
-5. `PATCH /api/settings` with new cost_cap → factory_settings updated, subsequent cost checks use new cap.
-6. Agent skill autonomy levels are included in `GET /api/agents/:id` response.
-7. Autonomy update: `PATCH /api/agents/:id/skills/:skillId { autonomy_level: 'L3' }` → updates `agent_skills` row, creates a review thread item (autonomy changes need human awareness).
-8. Routine management: list routines, disable a routine, manually trigger a routine.
-9. Retiring a routine with an active owner works; retiring when the owner has other routines on the same skill raises a warning.
+**Depends on.** E1, D5.
+
+**Acceptance criteria.**
+- GET /api/agents list all with status, team, role, current sessions.
+- GET /api/agents/:id detail with skills, autonomy levels, cost.
+- PATCH /api/agents/:id/skills/:skillId update autonomy level (creates review thread if changed).
+- GET /api/routines list with trigger config, last/next run.
+- PATCH /api/routines/:id update (enable/disable, change config).
+- POST /api/routines/:id/retire retire (reassign or deactivate).
+- POST /api/routines/:id/trigger manually trigger for testing.
+- GET /api/agents/:id/inbox agent's inbox.
+- POST /api/agents/:id/inbox send message to agent.
+- POST /api/sessions create session (triggers D5).
+- PATCH /api/sessions/:id update state (end, crash).
+- GET /api/status factory-wide: active sessions, agent states, total cost, uptime.
+- GET /api/settings factory settings.
+- PATCH /api/settings update settings (cost caps, etc.).
+- Autonomy update creates review thread item.
+
+**Validation scenarios.**
+- Given agent, when autonomy level changed, then review item created.
+- Given routine, when manually triggered, then session created.
+
+**Contracts / constraints.**
+- Autonomy changes require human awareness (review thread created).
+- Routine retirement respects mutual dependencies.
+
+**Effort.** L (~4d)
 
 ---
 
-### E7 — Autonomy + Silence Policy Engine (Backend in v1, UI deferred to v2)
+### E7 — Autonomy + Silence Policy Engine (Backend v1, UI deferred to v2)
 
-The gating layer that decides which items get pushed, which queue silently, and which auto-resolve based on autonomy levels and silence modes.
+**Story.** As the system, I want to evaluate each item against autonomy levels and silence modes to decide whether to push, queue silently, or auto-resolve, so that humans only see what needs their attention and low-risk work auto-approves.
 
-**Scope (v1 — backend only):**
-- `packages/server/domain/policy-engine.ts`:
-  - `evaluateItem(item, agentSkill, silenceConfig)` → returns `{ action: 'push' | 'queue' | 'auto_resolve', reason: string }`
-  - Rules:
-    - Autonomy L4 + risk_tier low → auto-resolve (approve without human)
-    - Autonomy L3 + risk_tier low → queue silently (include in daily digest)
-    - Autonomy L2 or risk_tier ≥ medium → push notification
-    - Autonomy L1 → push notification for every action
-    - Silence mode active → queue all non-blocking items
-  - Auto-resolution: creates a Response automatically with `approver: 'policy_engine'`
-- Integration with item creation (E2): every new item passes through the policy engine before routing
-- Silence modes: per-human time windows (e.g., "don't push between 10pm-7am"), per-product (e.g., "this product is in maintenance, queue everything")
-- Configuration: silence windows and per-product modes stored in `factory_settings`
+**Depends on.** E2, C7.
 
-**UI portion (deferred to v2):**
-- Settings panel for silence modes, autonomy level toggles per agent/skill, policy rule configuration
-- These UI elements are part of UI-42 (Settings Panel) scope but marked as v2
+**Acceptance criteria.**
+- Autonomy L4 + risk_tier low → auto-resolve (no notification).
+- Autonomy L3 + risk_tier low → queue silently (in daily digest).
+- Autonomy L2 or risk_tier ≥ medium → push notification.
+- Autonomy L1 → push for every action.
+- Silence mode active → queue all non-blocking items.
+- Auto-resolution creates Response with approver='policy_engine'.
+- High-risk items NEVER auto-resolve (regardless of autonomy).
+- Skill-change items NEVER auto-resolve.
+- Daily digest includes all queued items from past 24h.
+- Per-product silence: silence product P → all P items queued.
+- Silence windows: time-based quiet hours (e.g., 10pm–7am, no pushes).
 
-**Acceptance Criteria (v1):**
-1. Agent skill at L4, low-risk item → item is auto-resolved, no notification sent. Response exists with `approver: 'policy_engine'`.
-2. Agent skill at L1, any item → push notification fires.
-3. Silence mode active → item is queued, not pushed. After silence window ends, queued items are delivered.
-4. A high-risk item is NEVER auto-resolved regardless of autonomy level.
-5. Skill-change items are NEVER auto-resolved regardless of autonomy level.
-6. The daily digest contains all queued items from the past 24 hours.
-7. Per-product silence: enable silence on product P → all items from P are queued.
+**Validation scenarios.**
+- Given L4 agent and low-risk item, when policy engine runs, then item auto-resolved.
+- Given silence mode active, when item created, then item queued (not pushed).
+
+**Contracts / constraints.**
+- Policy engine runs on every item creation (E2).
+- Auto-resolution policy configurable via factory_settings.
+- UI for silence modes deferred to v2 (backend only in v1).
+
+**Effort.** M (~2d)
 
 ---
 
 ## Track F: Human Interface (UI)
 
-Built bottom-up from foundation through pages. The canonical component tree is the single source of truth — no custom components outside the 19-component budget without updating UI_DESIGN.md first.
+### UI-00 — Foundation
 
-### UI-00 — Foundation (~2 days)
+**Story.** As a UI developer, I want Tailwind CSS, DaisyUI, and custom theme wired up with fonts and behavior dependencies, so that all downstream components inherit consistent styling.
 
-Install Tailwind + DaisyUI, author the `factory-dark` theme, wire up behavior dependencies.
+**Depends on.** A1.
 
-**Scope:**
-- `packages/web/`:
-  - Tailwind CSS + DaisyUI installed and configured in `vite.config.ts`
-  - Custom `factory-dark` theme in `tailwind.config.ts`:
-    - Surface colors: #000000, #0e0e0e, #131313, #191a1a, #1f2020, #252626, #2c2c2c
-    - Primary: #adc6ff; warn: #d58f24; ok: #bbffb3; danger: #ee7d77
-    - Text: #e7e5e4, #acabaa, #767575
-    - Radius overrides: 0, 2px, 4px, 8px
-  - Font loading: Inter (body) + Space Grotesk (headings) in `index.html` or CSS
-  - `FocusRing` utility component (1-2px outline using focus-visible)
-  - `focus-trap-react` imported and ready for modal/drawer use
-  - `@floating-ui/react` imported and ready for positioning
-  - Grid system configured to 4px base
+**Acceptance criteria.**
+- `npm run dev` starts with Tailwind styles applied.
+- DaisyUI button renders with factory-dark colors.
+- Focus ring visible on keyboard focus.
+- Fonts load correctly (Inter body, Space Grotesk headings).
+- Grid alignment 4px verified.
+- No custom CSS — only utilities and DaisyUI.
 
-**Deliverables:**
-- Tailwind config with factory-dark theme
-- FocusRing utility
-- Proof-of-concept: render a DaisyUI button with factory-dark styling
+**Validation scenarios.**
+- Given Vite running, when DaisyUI button rendered, then factory-dark colors applied.
 
-**Acceptance Criteria:**
-1. `npm run dev` starts Vite with Tailwind styles applied.
-2. A DaisyUI `<button class="btn">` renders with factory-dark colors.
-3. Focus ring visible on button with keyboard focus.
-4. Fonts load correctly (Inter body, Space Grotesk headings).
-5. Grid alignment (4px) verified visually or via design inspection.
-6. No custom CSS — only Tailwind utilities and DaisyUI classes.
+**Contracts / constraints.**
+- Theme config in tailwind.config.ts.
+- Surface colors, accents, text hierarchy defined (see UI_DESIGN.md).
+
+**Effort.** S (~1d)
 
 ---
 
-### UI-10 — Tier 1 Primitives (~3 days)
+### UI-10 — Tier 1 Primitives
 
-Five foundational components used by every Block and Region above.
+**Story.** As a component library, I want five foundational primitives (StatusChip, Tag, KeyValue, NavItem, SearchField) that wrap DaisyUI with semantic mapping, so that all blocks and regions use consistent, semantically correct base elements.
 
-**Scope:**
+**Depends on.** UI-00.
 
-**StatusChip:** small inline status indicator
-- Props: status (enum: 'proposed', 'accepted', 'in_progress', 'hold', 'blocked', 'review', 'done', 'killed', 'captured', 'provisional', 'validated', 'active', 'stale', 'shaped', 'committed', 'shipped')
-- Rendered as: DaisyUI `<badge>` with theme color mapped to status
-- States: default, with icon, with tooltip
+**Acceptance criteria.**
+- StatusChip: status enum → correct color, icon, tooltip.
+- Tag: label + color → DaisyUI badge-outline.
+- KeyValue: label + value → two-column or stacked layout.
+- NavItem: label + active state → DaisyUI menu-item with left bar indicator.
+- SearchField: input with icons → loading state, clear button, results indicator.
+- All five have ≥3 Storybook stories covering states and variants.
+- Storybook build succeeds.
 
-**Tag:** label / category indicator
-- Props: label (string), color (optional, default neutral)
-- Rendered as: DaisyUI `<badge class="badge-outline">`
-- States: default, closable, with count
+**Validation scenarios.**
+- Given StatusChip with status='blocked', when rendered, then red color applied.
+- Given KeyValue in two-column layout, when rendered, then label left, value right.
 
-**KeyValue:** label + value pair (often in lists)
-- Props: label (string), value (string | ReactNode), emphasized (bool)
-- Layout: two-column (label on left, value on right, or stacked on mobile)
-- States: normal, emphasized, with unit/suffix
+**Contracts / constraints.**
+- Only DaisyUI classes and Tailwind utilities (no custom CSS).
+- Semantic focus on state mapping (status → color, active → style).
 
-**NavItem:** sidebar or menu navigation item
-- Props: label (string), active (bool), icon (ReactNode), count (number, optional)
-- Rendered as: DaisyUI `<menu-item>` or semantic `<li>` with Tailwind active state
-- States: default, active, focused, with badge/count
-
-**SearchField:** text input for search
-- Props: placeholder (string), value (string), onChange (handler), onSubmit (handler), loading (bool)
-- Rendered as: DaisyUI `<input type="text">` with icons (search icon, clear button, spinner when loading)
-- States: default, filled, loading, empty, with results indicator
-
-**Deliverables:**
-- Five component files in `packages/web/src/components/Tier1/`
-- Storybook stories for each with all states
-- Integration tests (props, rendering, events)
-
-**Dependencies:**
-- UI-00 (Tailwind + DaisyUI + theme loaded)
-
-**Acceptance Criteria:**
-1. All five components render without errors.
-2. StatusChip displays correct color for each status enum value.
-3. Each component has ≥3 Storybook stories covering all variants and states.
-4. KeyValue layouts correctly (two-column desktop, stacked mobile).
-5. NavItem active state is visually distinct and keyboard-navigable.
-6. SearchField handles user input and onChange without lag.
-7. All components use only DaisyUI classes and Tailwind utilities — no custom CSS.
-8. Storybook build succeeds.
+**Effort.** M (~2d)
 
 ---
 
-### UI-20 — Tier 2 Blocks (~4 days)
+### UI-20 — Tier 2 Blocks
 
-Six reusable card/row components composed from Tier 1 and DaisyUI primitives.
+**Story.** As a component library, I want six reusable card/row components (ThreadRow, BetCard, PitchCard, TaskCard, KnowledgeRow, NotificationRow) composed from Tier 1, so that pages can quickly assemble domain objects into lists.
 
-**Scope:**
+**Depends on.** UI-00, UI-10.
 
-**ThreadRow:** message or thread item in a list
-- Props: id, title (string), snippet (string), timestamp (Date), unread (bool), avatar (ReactNode), actions (array of { label, onClick })
-- Layout: avatar | content (title + snippet, timestamp) | actions
-- States: default, unread (bold/highlight), focused, hovered, with badge
+**Acceptance criteria.**
+- ThreadRow: avatar + title + snippet + timestamp + actions.
+- BetCard: pitch + appetite badge + status + actions.
+- PitchCard: hypothesis + proposer + status + actions.
+- TaskCard: title + owner + state badge + cost + actions.
+- KnowledgeRow: layer badge + title + kind + status + timestamp + actions.
+- NotificationRow: severity icon + message + timestamp + actions.
+- Each composes ≥2 Tier 1 primitives.
+- ≥2 Storybook stories per component.
+- Storybook build succeeds.
 
-**BetCard:** bet opportunity card (used in Canvas shaped column)
-- Props: id, title, pitch (brief description), appetite (string: S, M, L, XL), appetite_detail (number), actions (array)
-- Rendered as: DaisyUI `<card>` with header (title), body (pitch + appetite badge), actions
-- States: default, selected, disabled, with activity indicator
+**Validation scenarios.**
+- Given BetCard, when rendered, then appetite badge visible.
+- Given TaskCard in blocked state, then red border visible.
 
-**PitchCard:** proposal card (similar to BetCard but for pitches)
-- Props: id, title, proposedBy (agent name), hypothesis (string), actions (array)
-- Layout: header (title + proposer), body (hypothesis), actions
-- States: default, selected, with attachment indicator
+**Contracts / constraints.**
+- Compose only Tier 1 + DaisyUI.
+- All states (unread, active, blocked, etc.) visually distinct.
 
-**TaskCard:** single task unit
-- Props: id, title, owner (agent name), state (StatusChip), sessionCount (number), cost (string), actions (array)
-- Layout: header (title + owner) | state badge | metadata (session count, cost) | actions
-- States: all task states (hold, blocked, in_progress, review, done); blocked state has red border
-
-**KnowledgeRow:** knowledge item in a list
-- Props: id, title, layer (L1–L4), kind (practice, decision, etc.), status (StatusChip), lastModified (Date), actions (array)
-- Layout: layer badge | title | kind badge | status | timestamp | actions
-- States: default, conflict warning (yellow badge), favorite, focused
-
-**NotificationRow:** message or alert item
-- Props: id, title, message (string), severity (low/medium/high, maps to color), timestamp (Date), actions (array)
-- Layout: severity icon | message | timestamp | actions
-- States: unread, read, acknowledged, with action menu
-
-**Deliverables:**
-- Six component files in `packages/web/src/components/Tier2/`
-- Storybook stories (all states per component)
-- Integration with Tier 1 (each Block composes at least two Primitives)
-
-**Dependencies:**
-- UI-00, UI-10
-
-**Acceptance Criteria:**
-1. All six components render without errors.
-2. Each composes at least two Tier 1 primitives (StatusChip, Tag, KeyValue, etc.).
-3. Each has ≥2 Storybook stories covering main variants.
-4. BetCard and PitchCard are visually distinct.
-5. TaskCard blocked state renders with red border per design.
-6. All states (unread, active, blocked, etc.) are visually distinct.
-7. Storybook build succeeds.
+**Effort.** M (~3d)
 
 ---
 
-### UI-30 — Tier 3 Shell Regions (~4 days)
+### UI-30 — Tier 3 Shell Regions
 
-Three core layout regions that form the shell of every page.
+**Story.** As a page layout, I want IconRail (left), Submenu (contextual), and Rail (right notification sidebar) so that every page has consistent navigation and ambient awareness.
 
-**Scope:**
+**Depends on.** UI-00, UI-10, UI-20.
 
-**IconRail:** left sidebar with icon buttons and badge
-- Props: items (array of { id, icon, label, count, onClick, active }), onHomeClick, onSettingsClick
-- Layout: vertical menu of icon buttons (only icons visible by default, label on hover or in tooltip)
-- States: default (icons only), expanded (shows labels), with unread badges
+**Acceptance criteria.**
+- IconRail: vertical icon menu, labels on hover/expand.
+- Submenu: collapsible, nested items, active highlight.
+- Rail: bets + blockers + cost sections, collapsible.
+- Keyboard nav: arrow keys, Enter to expand, Esc to close.
+- Active item state distinct.
+- Rail only notification surface (no bell, no global toast).
+- Storybook build succeeds.
 
-**Submenu:** collapsible menu below IconRail (or nested inside it)
-- Props: items (array of { id, label, icon, active, onClick, children (optional for nested) })
-- Layout: vertical list, indented for nested items
-- States: collapsed (icon only), expanded (full labels), active item highlighted
-- Behavior: toggle collapse/expand, select items, navigate nested
+**Validation scenarios.**
+- Given IconRail, when arrow keys pressed, then focus moves between items.
+- Given Rail expanded, when collapsed, then icons only visible.
 
-**Rail:** right notification/status sidebar (the only notification surface)
-- Props: bets (array with status), blockers (array with duration), awaitingOrder (array), cost ({ burn, cap, pct })
-- Layout: vertical sections (active bets, blockers, cost bar)
-- States: collapsed (icons/badges only), expanded (full detail)
-- Behavior: keyboard nav (arrow keys), expand item to open in main pane, acknowledge blocker
+**Contracts / constraints.**
+- Rail is the **only** notification surface in app.
+- Keyboard-first interaction (arrow keys, Enter, Esc).
 
-**Deliverables:**
-- Three component files in `packages/web/src/components/Tier3/`
-- Storybook stories
-- Keyboard navigation (arrow keys, Enter to expand)
-
-**Dependencies:**
-- UI-00, UI-10, UI-20
-
-**Acceptance Criteria:**
-1. IconRail renders vertical icon menu correctly.
-2. Submenu toggles expand/collapse and shows/hides labels.
-3. Rail displays bets, blockers, cost in sections.
-4. Keyboard nav works: arrow keys move focus, Enter expands/collapses.
-5. Active item state is visually distinct.
-6. Rail is the **only** component that can display notifications (confirm no notification bell or global toast elsewhere).
-7. Storybook build succeeds.
+**Effort.** M (~3d)
 
 ---
 
-### UI-31 — Tier 3 Domain Regions: Work/Planning (~3 days)
+### UI-31 — Tier 3 Work/Planning Regions
 
-Three specialized regions for work planning: Canvas, Kanban, PitchSelector.
+**Story.** As a work planning surface, I want Canvas (shaped/committed columns with drag), Kanban (four state columns), and PitchSelector (pitch picker modal), so that humans can compose and organize work visually.
 
-**Scope:**
+**Depends on.** UI-00, UI-10, UI-20, UI-30.
 
-**Canvas:** two-column layout (shaped / committed) for bet placement
-- Props: shaped (array of BetCard), committed (array of BetCard), capacity ({ used, max }), onDragEnd (handler)
-- Layout: left column (shaped), right column (committed with capacity badge at top)
-- States: default, dragging, over-capacity (visual warning)
-- Behavior: drag-and-drop from shaped to committed (or use click-to-commit UI)
+**Acceptance criteria.**
+- Canvas: drag-drop shaped → committed, capacity badge, over-capacity warning.
+- Kanban: drag-drop between state columns (hold, in_progress, review, done).
+- PitchSelector: SearchField + pitch list, filter/select, checkmark on select.
+- Empty states: "No bets yet", "No tasks in blocked", "No pitches available".
+- Storybook build succeeds.
 
-**Kanban:** four-column task board (for task states: hold, in_progress, review, done)
-- Props: columns (array of { state, tasks (array of TaskCard) }), onMove (handler)
-- Layout: four vertical columns, drag-drop between columns or click-state-menu
-- States: default, dragging, empty column
-- Behavior: drag-drop or state-change menu
+**Validation scenarios.**
+- Given Canvas, when drag bet from shaped to committed, then card moves.
+- Given Kanban, when dragging task between columns, then task state updates.
 
-**PitchSelector:** modal or expanded pane to pick a pitch for a new task or bet
-- Props: pitches (array of PitchCard), onSelect (handler), onCancel (handler)
-- Layout: grid or list of pitches with search/filter at top (SearchField)
-- States: default, loading, no-results, selected (checkmark)
+**Contracts / constraints.**
+- Drag-drop via React libraries (e.g., react-beautiful-dnd).
+- Only Tier 1 + Tier 2 + DaisyUI.
 
-**Deliverables:**
-- Three component files in `packages/web/src/components/Tier3/`
-- Storybook stories for each region
-- Drag-drop logic (Canvas, Kanban)
-
-**Dependencies:**
-- UI-00, UI-10, UI-20, UI-30
-
-**Acceptance Criteria:**
-1. Canvas drag-drop moves cards between shaped and committed columns.
-2. Canvas over-capacity state shows visual warning.
-3. Kanban drag-drop moves TaskCards between state columns.
-4. PitchSelector filters pitches by search and allows selection.
-5. All regions use only Tier 1 + Tier 2 + DaisyUI.
-6. Storybook build succeeds.
-7. Empty states: Canvas with no bets shows "No bets yet. Click + to add one."; Kanban columns show "No tasks in {state}"; PitchSelector shows "No pitches available."
+**Effort.** M (~3d)
 
 ---
 
-### UI-32 — Tier 3 Review Regions: Artifact + Verdict (~3 days)
+### UI-32 — Tier 3 Review Regions
 
-Two specialized regions for reviewing work: ArtifactView (five shapes) and ReviewHeader (verdict actions, keyboard shortcuts).
+**Story.** As a review surface, I want ArtifactView (five data shapes) and ReviewHeader (verdict actions with keyboard shortcuts), so that humans can evaluate agent work and respond quickly with structured verdicts.
 
-**Scope:**
+**Depends on.** UI-00, UI-10, UI-20, UI-30.
 
-**ArtifactView:** renders content in one of five canonical shapes
-- Props: shape ('text_diff' | 'content_preview' | 'visual_comparison' | 'action_summary' | 'data_metrics'), data (shape-specific payload)
-- Rendered as DaisyUI `<card>` or `<modal>`
-- **text_diff:** two-column code diff with syntax highlighting (additions green, deletions red, context lines)
-- **content_preview:** rendered HTML/markdown content + metadata sidebar
-- **visual_comparison:** before/after images or visual elements, zoom controls, annotations with legend
-- **action_summary:** summary card (what, why, impact, rollback, checks, timeline, cost)
-- **data_metrics:** headline metrics with trend indicators, charts (line/bar), narrative insights, recommendations
-- States: default, loading, error, empty data
+**Acceptance criteria.**
+- ArtifactView: text_diff (green/red), content_preview (HTML+metadata), visual_comparison (before/after), action_summary (structured fields), data_metrics (headlines + charts).
+- Each shape has Storybook stories: default, loading, error, empty.
+- ReviewHeader: proposer info + all 10 verdict buttons + keyboard shortcuts.
+- Keyboard shortcuts work: A → Approve, R → Request Changes, X → Reject, S → Snooze.
+- All regions use only Tier 1 + Tier 2 + DaisyUI.
+- Accessibility tests (axe) pass.
 
-**ReviewHeader:** approval bar with all 10 verdict actions
-- Props: proposedBy (agent name), proposedAt (Date), reasoning (string), actions array with keyboard shortcuts
-- Layout: header bar with avatar | proposedBy + time | reasoning snippet | action buttons
-- Actions: approve (A), approve-with-comments (A+C), comment, inline-comment, request-changes (R), edit, reject (X), reply, snooze (S), escalate
-- States: default, loading (buttons disabled), completed (checkmark), rejected (X)
-- Keyboard shortcuts: A → Approve, R → Request Changes, X → Reject, S → Snooze (only when appropriate state)
+**Validation scenarios.**
+- Given ArtifactView with text_diff, when rendered, then additions green, deletions red.
+- Given ReviewHeader, when A pressed, then Approve button focused/activated.
 
-**Deliverables:**
-- Two component files in `packages/web/src/components/Tier3/`
-- Storybook stories for all five ArtifactView shapes with empty/loading/error/default states
-- ReviewHeader with all 10 verdict buttons and keyboard shortcut hints
-- Inline comment and reply composer hooks
+**Contracts / constraints.**
+- Syntax highlighting for text_diff (e.g., Prism or highlight.js).
+- Keyboard shortcuts pre-fill verdict, user presses Enter to confirm.
+- 10 verdict actions: approve, approve-with-comments, comment, inline-comment, request-changes, edit, reject, reply, snooze, escalate.
 
-**Dependencies:**
-- UI-00, UI-10, UI-20, UI-30
-
-**Acceptance Criteria:**
-1. ArtifactView renders all five shapes without errors.
-2. text_diff: renders additions (green), deletions (red), context lines, per INFORMATION_ARCHITECTURE.md.
-3. content_preview: renders HTML/markdown content with metadata.
-4. visual_comparison: renders before/after images, zoom, annotations, legend.
-5. action_summary: renders summary card with structured fields (what, why, impact, rollback, checks, timeline, cost).
-6. data_metrics: renders headline metrics with trend indicators, charts, narrative, recommendations.
-7. Each shape has Storybook stories covering: default render, loading, error, empty data states.
-8. ReviewHeader displays proposer info and shows all 10 verdict buttons in correct grouping (primary: Approve, Request Changes, Reject, Snooze; secondary overflow: Edit, Escalate, Delegate, Comment Only).
-9. Keyboard shortcuts work: press A → Approve, R → Request Changes, X → Reject, S → Snooze. Shortcuts pre-fill verdict but don't submit; user presses Enter or clicks button to confirm.
-10. All regions use only Tier 1 + Tier 2 + DaisyUI.
-11. Storybook build succeeds with accessibility tests passing (axe).
+**Effort.** M (~3d)
 
 ---
 
-### UI-40 — Tier 4 Pages (~1 week)
+### UI-40 — Tier 4 Pages
 
-Nine domain pages composed entirely from Tier 3 Regions (and smaller primitives where needed).
+**Story.** As a human user, I want nine domain pages (Conversations/Review, Conversations/Chat, Work/Portfolio, Work/Team, Work/Team+Pitch, Work/Bet, Knowledge/List, Knowledge/Detail, Settings) composed entirely from Tier 3 regions, so that all app functionality is navigable and usable.
 
-**Scope:**
+**Depends on.** UI-30, UI-31, UI-32, E2, E3, E4, E5, E6.
 
-Pages (each composed from: IconRail + Submenu on left, Main pane in center, Rail on right):
+**Acceptance criteria.**
+- All nine pages render without errors.
+- Each composed only from Tier 3 regions (no custom components outside 19-component budget).
+- Navigation between pages works (Submenu items link to routes).
+- Main pane content distinct per domain (thread list, bet list, knowledge list, etc.).
+- Rail updates in real time from /api/ws/rail.
+- Shell layout (IconRail | Submenu | Main | Rail) consistent.
+- Responsive: single-column or tabs on mobile.
+- Storybook build succeeds.
 
-1. **Conversations/Review:** thread list (ThreadRow blocks) + detail (ReviewHeader + ArtifactView) + action buttons
-2. **Conversations/Chat:** thread list + chat bubbles (ThreadRow variants) + reply input
-3. **Work/Portfolio:** bets overview (BetCard list, grouped by status)
-4. **Work/Team:** team member list (agent cards), team capacity, cost
-5. **Work/Team+Pitch:** workspace for a specific bet/pitch (Canvas or kanban board)
-6. **Work/Bet:** single bet detail (BetCard + linked tasks + revision log)
-7. **Knowledge/List:** scope selector + KnowledgeRow list grouped by layer/kind
-8. **Knowledge/Detail:** single knowledge item (title + body editor + metadata + conflict indicator)
-9. **Settings:** factory settings form (cost caps, thresholds, etc.)
+**Validation scenarios.**
+- Given Conversations page, when item created via API, then item appears in list within 1s.
+- Given Work page, when bet transitioned, then Canvas updates in real time.
 
-**Deliverables:**
-- Nine page files in `packages/web/src/pages/`
-- React Router routes wired to each page
-- Navigation between pages via Submenu and IconRail
-- Full Shell layout (IconRail + Submenu + Main + Rail) on each page
+**Contracts / constraints.**
+- No custom components outside the 19-component budget (StatusChip, Tag, KeyValue, NavItem, SearchField, ThreadRow, BetCard, PitchCard, TaskCard, KnowledgeRow, NotificationRow, IconRail, Submenu, Rail, ArtifactView, ReviewHeader, Canvas, Kanban, PitchSelector).
+- React Router for navigation.
 
-**Dependencies:**
-- UI-00, UI-10, UI-20, UI-30, UI-31, UI-32
-
-**Acceptance Criteria:**
-1. All nine pages render without errors.
-2. Each page is composed **only** from Tier 3 Regions (no custom component outside the canonical 19).
-3. Navigation between pages works (Submenu items link to routes).
-4. Main pane content is distinct and matches domain (conversations thread list, work bets, knowledge items, etc.).
-5. Rail updates in real-time from `/api/ws/rail`.
-6. Shell layout (three zones) is consistent across all pages.
-7. Responsive: pages adapt to mobile viewport (breaks to single-column or tabs per domain).
+**Effort.** L (~4d)
 
 ---
 
-### UI-42 — Settings Panel (~3 days)
+### UI-42 — Settings Panel
 
-User settings accessible from IconRail avatar menu. Composes existing Tier 1/2 components only.
+**Story.** As a human, I want to access settings from a user avatar menu with five tabs (Profile, Products, Agents, Notifications, Appearance), so that I can configure my experience and agent autonomy levels.
 
-**Scope:**
-- Modal or drawer opened from user avatar in IconRail
-- Five tabs (DaisyUI `tabs` component): Profile, Products, Agents, Notifications, Appearance
-- Each tab is a form with KeyValue rows + DaisyUI `input` / `toggle` / `select` controls
-- **Profile:** user name, email (read-only), avatar
-- **Products:** list of products with activation toggles (which products the user can see/act on)
-- **Agents:** list of agents with autonomy level selectors (dropdown), pause/reactivate buttons (v2: detailed autonomy UI deferred)
-- **Notifications:** toggles for review/cost/blocker, time picker for quiet hours, product list with mute toggles
-- **Appearance:** theme selector (light/dark, deferred), density setting (compact/normal)
-- Save button disables while request in flight; shows success/error feedback via Rail
-- Validation: all caps must be >= 0, time fields are valid times
-- No new components — only composes IconRail NavItem for Settings, Submenu section NavItems, KeyValue rows with DaisyUI inputs/toggles/selects in Main pane
+**Depends on.** UI-00, UI-10, UI-20, UI-30.
 
-**Deliverables:**
-- Settings page in `packages/web/src/pages/Settings.tsx`
-- Integration with IconRail avatar click
-- React Router route `/settings`
+**Acceptance criteria.**
+- Settings modal opens from avatar click in IconRail.
+- Five tabs: Profile (name/email/avatar), Products (activate/deactivate per product), Agents (autonomy level dropdowns, pause/reactivate), Notifications (toggles for review/cost/blocker, quiet hours, product mutes), Appearance (theme, density).
+- Save button disables while request in flight.
+- Validation: cost caps ≥0, times valid 24h format.
+- Feedback routed to Rail (not inline toast).
+- Only composes existing Tier 1/2 + DaisyUI.
 
-**Dependencies:**
-- UI-00, UI-10, UI-20, UI-30
+**Validation scenarios.**
+- Given Settings opened, when autonomy level changed, then Save button enabled.
+- Given invalid cost cap, when Save attempted, then validation error shown.
 
-**Acceptance Criteria:**
-1. Settings modal opens from avatar click in IconRail.
-2. Five tabs render and are independently scrollable.
-3. Profile tab shows user name, email, avatar.
-4. Products tab: list of products with toggle switches for activation.
-5. Agents tab: list of agents with autonomy level dropdowns, pause/reactivate buttons.
-6. Notifications tab: toggles for review/cost/blocker, time picker for quiet hours, product mute toggles.
-7. Appearance tab: theme selector (light/dark deferred to v2), density picker.
-8. Save button disables while request in flight.
-9. Validation: cost caps must be >= 0, times are valid (24-hour format).
-10. Success/error feedback routed through Rail, not inline toast.
-11. Only composes existing Tier 1/2 components and DaisyUI primitives.
+**Contracts / constraints.**
+- Five tabs using DaisyUI tabs component.
+- No new components outside 19-component budget.
+- Theme UI (light/dark) deferred to v2.
+
+**Effort.** S (~2d)
 
 ---
 
-### UI-45 — Global Search Panel (~2 days)
+### UI-45 — Global Search Panel
 
-Command-palette-style global search accessible via ⌘K. Composes existing components only.
+**Story.** As a human, I want to press ⌘K to open a global search modal that searches conversations, bets, and knowledge items with real-time results grouped by type, so that I can quickly navigate to any item.
 
-**Scope:**
-- Modal triggered by ⌘K keyboard shortcut (or Ctrl+K on Windows/Linux)
-- DaisyUI `modal` + SearchField primitive + scrollable list
-- Results composed of existing Tier-2 rows: ThreadRow, BetCard (lite), KnowledgeRow
-- Searches across: conversations, bets, tasks, knowledge items
-- Groups results by type
-- Arrow keys navigate, Enter selects
-- ESC closes modal
+**Depends on.** UI-00, UI-10, UI-20.
 
-**Deliverables:**
-- Global search modal component in `packages/web/src/components/GlobalSearch.tsx`
-- Keyboard event handler wired into app shell
-- Integration with `/api/search` endpoint (if needed; otherwise use existing endpoints)
+**Acceptance criteria.**
+- ⌘K opens search modal (Ctrl+K on Windows/Linux).
+- SearchField focused automatically.
+- Typing filters results in real time.
+- Results grouped by type (Conversations, Work, Knowledge).
+- Arrow keys navigate, Enter selects, Esc closes.
+- Results rendered as ThreadRow, BetCard-lite, KnowledgeRow.
+- No results → "No matches. Try different query."
+- Only composes existing Tier 1/2 + DaisyUI.
 
-**Dependencies:**
-- UI-00, UI-10, UI-20
+**Validation scenarios.**
+- Given ⌘K pressed, when search modal opened, then SearchField focused.
+- Given search typed, when results loaded, then grouped by type.
 
-**Acceptance Criteria:**
-1. ⌘K opens search modal.
-2. Search field focused automatically on open.
-3. Typing filters results in real time.
-4. Results grouped by type (Conversations, Work, Knowledge).
-5. Arrow keys navigate results, Enter selects.
-6. ESC closes modal.
-7. Results show as ThreadRow (conversations), BetCard-lite (work), KnowledgeRow (knowledge).
-8. No results shows "No matches. Try a different query."
-9. Only composes existing Tier-2 components and DaisyUI primitives.
+**Contracts / constraints.**
+- No new components outside 19-component budget.
+- Results use existing Tier 2 rows.
+
+**Effort.** S (~2d)
 
 ---
 
-### UI-50 — Polish (~3 days)
+### UI-50 — Polish
 
-Motion, states, keyboard shortcuts, accessibility.
+**Story.** As a user, I want smooth transitions, loading states, empty states, keyboard shortcuts, and accessibility features, so that the app feels polished and is usable without a mouse.
 
-**Scope:**
-- Transitions and animations:
-  - Page transitions (fade, slide)
-  - Component hover/focus states (subtle scale, color shift)
-  - Loading skeletons for async content
-- Empty/loading/error states:
-  - Empty state placeholders (no conversations, no bets, etc.)
-  - Loading spinner (DaisyUI `<loading>`)
-  - Error toast notifications (DaisyUI `<alert>`)
-- Keyboard shortcuts:
-  - Alt+1 → Conversations, Alt+2 → Work, Alt+3 → Knowledge, Alt+4 → Settings
-  - Arrow keys in Rail and Submenu (already wired in UI-30/31)
-  - Enter to expand, Esc to close modals
-- Accessibility:
-  - ARIA labels on all interactive elements
-  - Color contrast verified (WCAG AA minimum)
-  - Keyboard-only navigation works (no mouse required)
-  - Screen reader testing (Storybook with axe plugin)
+**Depends on.** UI-00 through UI-45.
 
-**Deliverables:**
-- Tailwind animation utilities (or CSS keyframes if needed)
-- Loading skeleton components
-- Error/empty state components
-- Keyboard event handlers integrated into existing pages
+**Acceptance criteria.**
+- Page transitions smooth (fade, slide).
+- Empty state placeholders for: no conversations, no bets, no knowledge.
+- Loading spinner and error toasts.
+- Keyboard shortcuts: Alt+1 (Conversations), Alt+2 (Work), Alt+3 (Knowledge), Alt+4 (Settings). Arrow keys in Rail/Submenu. Enter to expand, Esc to close modals.
+- ARIA labels on all interactive elements.
+- Color contrast WCAG AA minimum.
+- Keyboard-only navigation works (no mouse).
+- axe accessibility tests pass (Storybook).
 
-**Dependencies:**
-- UI-00 through UI-45 (all UI layers)
+**Validation scenarios.**
+- Given page transition, when smooth animation plays, then no jarring jumps.
+- Given empty conversations list, when rendered, then placeholder shown.
+- Given Alt+1 pressed, then Conversations view opens.
 
-**Acceptance Criteria:**
-1. All pages have smooth transitions (no jarring jumps).
-2. Empty states render for: conversations (no threads), work (no bets), knowledge (no items).
-3. Loading state shows spinner or skeleton while fetching.
-4. Error state shows toast with dismiss button.
-5. Keyboard shortcuts work (Alt+1, Alt+2, etc.).
-6. Arrow keys navigate Rail/Submenu, Enter expands items.
-7. All interactive elements have proper focus rings and ARIA labels.
-8. axe accessibility tests pass (Storybook integration).
-9. No custom CSS — only Tailwind + DaisyUI.
+**Contracts / constraints.**
+- No custom CSS — Tailwind animations.
+- axe integration in Storybook.
+
+**Effort.** S (~2d)
 
 ---
 
@@ -1268,88 +1184,106 @@ Motion, states, keyboard shortcuts, accessibility.
 
 ### G1 — Facilitator Agent Infrastructure
 
-**Scope:**
-- Agent identity model: Chief of Staff, Practice Facilitators (per community), Product Managers (per product)
-- `IDENTITY.md` (soul prompt) templates for each facilitator type
-- Seed data: create the facilitator agents in the database with correct roles, teams, and skills
-- Facilitator-specific tools: in addition to the standard agent tools (D4), facilitators get:
-  - `route_item.ts` → route an item to a specific view
-  - `score_attention.ts` → set attention score on a knowledge item
-  - `promote_knowledge.ts` → transition knowledge item status
-  - `create_conflict_review.ts` → create a review thread for a knowledge conflict
+**Story.** As the system, I want facilitator agents (Chief of Staff, Practice Facilitators, Product Managers) seeded into the database with their own soul prompts and facilitator-specific tools (route_item, score_attention, promote_knowledge, create_conflict_review), so that facilitation workflows can run autonomously.
 
-**Acceptance Criteria:**
-1. After seeding, the database contains: 1 Chief of Staff, at least 1 Practice Facilitator, and 1 Product Manager.
-2. Each facilitator has a valid `soul_prompt_path` pointing to an `IDENTITY.md` file.
-3. The facilitator-specific tools compile and return correct types.
-4. `route_item` creates an item and assigns it to the correct view based on risk_tier and kind.
-5. `promote_knowledge` transitions a knowledge item from CAPTURED to PROVISIONAL — verified by re-reading the item.
-6. A session can be provisioned for a facilitator agent using the standard flow (D5).
+**Depends on.** D4, B1.
+
+**Acceptance criteria.**
+- After seeding, database contains: 1 Chief of Staff, ≥1 Practice Facilitator, ≥1 Product Manager.
+- Each has valid soul_prompt_path.
+- Facilitator-specific tools compile and return correct types.
+- route_item creates item assigned to correct view.
+- promote_knowledge transitions item from CAPTURED to PROVISIONAL.
+- Session can be provisioned for facilitator using standard D5 flow.
+
+**Validation scenarios.**
+- Given facilitator agent, when session provisioned, then tools available.
+- Given promote_knowledge called, when item checked, then status = PROVISIONAL.
+
+**Contracts / constraints.**
+- Facilitator agent identities: Chief of Staff (factory-wide), Practice Facilitators (per community), Product Managers (per product).
+
+**Effort.** S (~1d)
 
 ---
 
 ### G2 — Attention Scoring Engine
 
-**Scope:**
-- `packages/server/domain/attention.ts`:
-  - `computeAttentionScore(item, context)` → 0.0–1.0
-  - Factors: novelty (new topic = higher), impact (broad applicability = higher), conflict (contradicts existing = higher), repetition (repeated discovery = lower need for human review), confidence (high confidence = lower need), taste sensitivity (brand/voice/style = higher), recency of last human review, usage frequency
-  - Scores are recomputed periodically by facilitator routines and on-demand when items change
-- Threshold crossing: when an item's attention score crosses the threshold (configurable, default 0.7), create an item for the human's queue
+**Story.** As knowledge items accumulate, I want an attention scoring algorithm that factors novelty, impact, conflict, repetition, confidence, taste sensitivity, recency, and usage frequency, so that items crossing a threshold are surfaced to humans automatically.
 
-**Acceptance Criteria:**
-1. A knowledge item that conflicts with an existing item gets a higher attention score than one that doesn't.
-2. A brand-voice item (taste-sensitive) scores higher than a technical implementation detail.
-3. An item reviewed by a human recently has a lower score than one never reviewed.
-4. Threshold: item score crosses 0.7 → an item_created event fires to surface it in the Rail.
-5. Score computation is deterministic: same inputs produce same output.
-6. Scoring 1000 items takes <1 second.
+**Depends on.** G1, B1.
+
+**Acceptance criteria.**
+- Item conflicting with existing scores higher than non-conflicting.
+- Brand-voice item scores higher than technical detail.
+- Recently reviewed item scores lower than never-reviewed.
+- Threshold crossing (0.7) triggers item_created event.
+- Scoring deterministic: same inputs → same output.
+- 1000 items scored in <1 second.
+
+**Validation scenarios.**
+- Given item with conflict, when scored, then score > item without conflict.
+- Given item score crosses 0.7, when event checked, then item_created fired.
+
+**Contracts / constraints.**
+- Scoring factors and weights configurable per deployment.
+- Recomputed periodically (facilitator routines) or on-demand.
+
+**Effort.** S (~1d)
 
 ---
 
 ### G3 — Knowledge Promotion Pipeline
 
-**Scope:**
-- `packages/server/workers/promotion-pipeline.ts`:
-  - CAPTURED → PROVISIONAL: automatic when a facilitator validates the item's structure and relevance
-  - PROVISIONAL → VALIDATED: automatic when the same learning appears in 5+ sessions (cross-product repetition) AND no contradictions
-  - VALIDATED → ACTIVE: facilitator promotes after organizing, tagging, and deduplicating
-  - ACTIVE → STALE: attention score decay over time without usage
-  - STALE → ARCHIVED: facilitator or human archives
-  - Layer precedence: L4 > L3 > L2 > L1 — a proposed L3 practice contradicting an L4 principle is flagged for human review
-- The 3-turn practice meeting conversation:
-  1. All agents propose findings
-  2. All agents react with context and relevance
-  3. Practice Facilitator synthesizes — routing items to L3 or L2
+**Story.** As the system, I want knowledge to flow through a promotion lifecycle (CAPTURED → PROVISIONAL → VALIDATED → ACTIVE → STALE → ARCHIVED) with automatic promotion on cross-product repetition and layer-precedence conflict detection, so that knowledge quality improves over time and stale items are archived.
 
-**Acceptance Criteria:**
-1. A CAPTURED item promoted by a facilitator moves to PROVISIONAL — status updated, event fired.
-2. Auto-promotion: same finding in 5 different sessions → item auto-promoted to VALIDATED (no human needed).
-3. Contradiction check: a proposed practice that contradicts an L4 principle → flagged for human review (item created), NOT auto-promoted.
-4. Stale detection: an ACTIVE item unused for 90 days → status moves to STALE.
-5. An item with an open conflict cannot be promoted past PROVISIONAL.
-6. The 3-turn meeting: a test simulates the three turns → synthesized output creates/updates knowledge items.
+**Depends on.** G2, B5.
+
+**Acceptance criteria.**
+- Facilitator promotion: CAPTURED → PROVISIONAL status updates.
+- Auto-promotion: same finding in 5+ sessions → VALIDATED (no human needed).
+- Contradiction check: proposed L3 contradicting L4 principle → flagged for human review (NOT auto-promoted).
+- Stale detection: ACTIVE unused >90 days → STALE.
+- Open conflict prevents promotion past PROVISIONAL.
+- 3-turn practice meeting: turn 1 (proposals) → turn 2 (reactions) → turn 3 (synthesis) creates/updates items.
+
+**Validation scenarios.**
+- Given same finding in 5 sessions, when promotion checked, then status = VALIDATED.
+- Given proposed practice contradicting L4 principle, when checked, then flagged for review (not promoted).
+
+**Contracts / constraints.**
+- Automatic promotion only on strong signal (5+ repetitions, no contradictions).
+- Layer precedence: L4 > L3 > L2 > L1 (higher layers override lower).
+
+**Effort.** M (~2d)
 
 ---
 
-### G4 — Built-in Routines (Retro, Practice Meeting, Cost Sentinel)
+### G4 — Built-in Routines
 
-**Scope:**
-- Pre-configured routines created during factory initialization:
-  - **Cost Sentinel:** heartbeat every 15 minutes, owned by Chief of Staff, monitors burn rate (C7)
-  - **Practice Meeting:** weekly calendar trigger, owned by Practice Facilitators, runs the 3-turn conversation
-  - **Post-Bet Retro:** event trigger on `bet_shipped`, owned by Product Manager, compares hypothesis vs. reality
-  - **Monthly Portfolio Retro:** calendar trigger first Monday, owned by Chief of Staff, cross-product patterns
-  - **Knowledge Decay Check:** daily heartbeat, owned by Practice Facilitators, flags stale items
-- Each routine is seeded with correct trigger_type, trigger_config, skill_id, owner, and autonomy_level
+**Story.** As the factory, I want five core routines (Cost Sentinel, Practice Meeting, Post-Bet Retro, Monthly Portfolio Retro, Knowledge Decay Check) seeded and running on schedule, so that facilitator work, learning, and monitoring happen automatically.
 
-**Acceptance Criteria:**
-1. After factory initialization, all 5 routines exist in the `routines` table with correct configs.
-2. Cost Sentinel: fires on heartbeat, checks costs, emits warning/breach events as appropriate.
-3. Post-Bet Retro: shipping a bet triggers the routine → a retro session runs → produces a reflection item.
-4. Knowledge Decay: daily check finds items unused for >90 days → transitions to STALE.
-5. Each routine can be manually triggered via API for testing (`POST /api/routines/:id/trigger`).
-6. Disabling a routine (`active: false`) prevents it from firing.
+**Depends on.** G3, C5.
+
+**Acceptance criteria.**
+- Cost Sentinel: 15-min heartbeat, monitors burn rate, emits warnings/breaches.
+- Practice Meeting: weekly, runs 3-turn conversation, produces reflection items.
+- Post-Bet Retro: event-triggered on bet_shipped, compares hypothesis vs reality.
+- Portfolio Retro: first Monday, monthly, cross-product patterns.
+- Knowledge Decay: daily, finds items unused >90 days, transitions to STALE.
+- All routines created during factory init with correct config.
+- Can be manually triggered via API for testing.
+- Disabling routine (active=false) prevents firing.
+
+**Validation scenarios.**
+- Given routine fire time reached, when scheduler checks, then routine fires.
+- Given Cost Sentinel at warning threshold, when incremented, then warning event emitted.
+
+**Contracts / constraints.**
+- Routines seeded during factory initialization.
+- E7 integration: Policy Engine respects autonomy levels for routine outputs.
+
+**Effort.** M (~2d)
 
 ---
 
@@ -1357,166 +1291,141 @@ Motion, states, keyboard shortcuts, accessibility.
 
 ### H1 — Git Export Routine
 
-**Scope:**
-- Routine that exports human-readable knowledge items to a Git repository
-- Triggers: after any human edit to L2 or L4 knowledge items, or on a daily schedule
-- Exports: L2 product docs (BRIEF.md, ARCHITECTURE.md, etc.) and L4 factory docs (PRINCIPLES.md, FOCUS.md) as markdown files
-- Git operations: commit with descriptive message, push to configured remote
-- Configurable: Git repo path, remote URL, branch
+**Story.** As the knowledge system, I want human-readable knowledge items (L2 product docs, L4 factory docs) exported to a Git repository on schedule or after human edits, so that version history is preserved and documents are accessible outside the app.
 
-**Acceptance Criteria:**
-1. After a human edits an L4 PRINCIPLES item, the Git export runs and commits a new `PRINCIPLES.md` to the repo.
-2. The commit message includes which items were changed.
-3. If no items changed since last export, no commit is created.
-4. The exported markdown matches the item's body exactly.
-5. Configure a different branch → exports go to that branch.
+**Depends on.** B1, G1.
+
+**Acceptance criteria.**
+- Human edit to L4 PRINCIPLES → Git export runs, commits new PRINCIPLES.md.
+- Commit message includes which items changed.
+- No commit if no changes since last export.
+- Exported markdown matches item body exactly.
+- Configurable: repo path, remote URL, branch.
+
+**Validation scenarios.**
+- Given PRINCIPLES item edited, when export runs, then commit created with message.
+- Given no changes since last export, when export runs, then no commit created.
+
+**Contracts / constraints.**
+- Git operations: commit with message, push to remote.
+- L2 exports: BRIEF.md, ARCHITECTURE.md, BRAND.md, PRINCIPLES.md per product.
+- L4 exports: PRINCIPLES.md, FOCUS.md, PORTFOLIO.md, REFLECTIONS/ per factory.
+
+**Effort.** S (~1d)
 
 ---
 
 ### H2 — Notification Adapter
 
-**Scope:**
-- `packages/server/adapters/notification.ts`:
-  - Interface `NotificationAdapter`: `send(recipient, notification)`
-  - `ConsoleNotificationAdapter`: logs to console (development)
-  - `NtfyAdapter`: sends to ntfy.sh topic (self-hosted push)
-  - `SmtpAdapter`: sends email (fallback)
-- Notification triggers: blocking review items, cost cap breaches, urgent agent chats
-- Notification policy: respect silence modes, daily digest batching for non-urgent items
-- Configuration: adapter selection and credentials in `factory_settings`
+**Story.** As the system, I want pluggable notification adapters (console for dev, ntfy.sh for self-hosted, SMTP for email fallback), so that blocking items and cost breaches reach humans via their preferred channel.
 
-**Acceptance Criteria:**
-1. Console adapter: creates a blocking review item → notification logged to console.
-2. Ntfy adapter: sends a push to a configured ntfy.sh topic (integration test with a test topic).
-3. SMTP adapter: sends an email (integration test with a test SMTP server like MailHog).
-4. Silence mode: enable silence for a time window → notifications during that window are queued, not sent.
-5. Only blocking review items and cost breaches trigger push notifications — low-risk items do not.
-6. Daily digest: non-urgent items accumulate and are sent as a single digest.
+**Depends on.** E2, A3.
+
+**Acceptance criteria.**
+- Console adapter: blocking item logged to console.
+- Ntfy adapter: push sent to ntfy.sh topic (integration test).
+- SMTP adapter: email sent (integration test with MailHog).
+- Silence mode: items queued during quiet hours, not pushed.
+- Push policy: only blocking items + cost breaches (not low-risk).
+- Daily digest: non-urgent items accumulated and sent.
+
+**Validation scenarios.**
+- Given blocking item, when ntfy adapter enabled, then push sent to topic.
+- Given silence mode active during quiet hours, when item created, then item queued.
+
+**Contracts / constraints.**
+- Adapter interface: `send(recipient, notification)`.
+- Configuration via factory_settings.
+
+**Effort.** M (~2d)
 
 ---
 
 ### H3 — Observability Adapter
 
-**Scope:**
-- `packages/server/adapters/observability.ts`:
-  - Interface `ObservabilityAdapter`: `logEvent(event)`, `startSpan(name)`, `endSpan(spanId)`
-  - `ConsoleObservabilityAdapter`: structured JSON logs to console
-  - `LangfuseAdapter`: sends traces to Langfuse (optional)
-- Events logged: session start/end, tool calls, cost, state transitions, knowledge writes
-- Trace correlation: each session gets a trace ID that links all events
+**Story.** As an operator, I want structured event logging with trace correlation (console or Langfuse), so that session execution, tool calls, cost, and state changes are observable for debugging and analysis.
 
-**Acceptance Criteria:**
-1. Console adapter: starting a session logs a structured JSON event with session ID, agent ID, task ID.
-2. Trace correlation: all events within a session share the same trace ID.
-3. Langfuse adapter: sends a trace to a Langfuse project (integration test with test credentials).
-4. Performance: logging 1000 events takes <100ms (non-blocking).
-5. Adapter is configurable via `factory_settings`.
+**Depends on.** A3.
+
+**Acceptance criteria.**
+- Console adapter: structured JSON logs to stdout.
+- Langfuse adapter: traces sent to Langfuse project (integration test).
+- Trace correlation: all session events share same trace ID.
+- Events logged: session start/end, tool calls, cost, state transitions, knowledge writes.
+- Performance: 1000 events logged in <100ms (non-blocking).
+- Adapter configurable via factory_settings.
+
+**Validation scenarios.**
+- Given session started, when logged, then trace ID in log.
+- Given 1000 events, when logged, then <100ms elapsed.
+
+**Contracts / constraints.**
+- Event logging non-blocking (async or buffered).
+- TraceID correlates all events within session.
+
+**Effort.** S (~1d)
 
 ---
 
 ### H4 — Deployment Profiles + PostgreSQL Adapter
 
-**Scope:**
-- Deployment profile configuration: `laptop`, `vps`, `cloud`
-  - Laptop: SQLite, local workspaces, console notifications, single process
-  - VPS: Postgres optional, Docker workspaces, ntfy notifications, single process
-  - Cloud: Postgres required, E2B/Daytona workspaces, full notification stack
-- PostgreSQL adapter for Drizzle: same schema, postgres.js driver
-  - Migration script that works for both SQLite and Postgres
-  - Connection pooling configuration
-- Docker Compose files for each profile
-- Single-command setup: `bun run setup --profile laptop`
+**Story.** As an operator, I want three deployment profiles (laptop, VPS, cloud) with corresponding database drivers (SQLite for laptop, Postgres optional for scale), workspace adapters (local, Docker, E2B), and a single-command setup, so that deployments are reproducible across contexts.
 
-**Acceptance Criteria:**
-1. `bun run setup --profile laptop` creates the SQLite database, runs migrations, seeds data, and starts the server.
-2. `bun run setup --profile vps` starts with Docker Compose (Postgres + server + web).
-3. All tests pass against PostgreSQL (run the full test suite with Postgres driver).
-4. Switching from SQLite to Postgres requires only changing a config value (no code changes).
-5. The Postgres adapter handles connection pooling (10 connections default).
-6. Documentation exists for each profile's setup steps.
+**Depends on.** A2, H1–H3.
 
----
+**Acceptance criteria.**
+- `bun run setup --profile laptop` creates SQLite DB, runs migrations, seeds, starts server.
+- `bun run setup --profile vps` starts with Docker Compose (Postgres + server + web).
+- All tests pass against PostgreSQL (full suite with Postgres driver).
+- Switching SQLite → Postgres is a config change (no code changes).
+- Postgres adapter uses connection pooling (10 connections default).
+- Documentation exists for each profile's setup.
 
-## Dependency Summary
+**Validation scenarios.**
+- Given laptop profile, when setup runs, then SQLite database created and seeded.
+- Given vps profile, when setup runs, then Docker Compose starts all services.
 
-```
-STORY    DEPENDS ON              PARALLEL WITH
-─────    ──────────              ─────────────
-A1       (none)                  (none — everything starts here)
-A2       A1                      (none)
-A3       A1                      A2
+**Contracts / constraints.**
+- Single schema definition (Drizzle) targets both SQLite and Postgres.
+- Profile config in `.env` or CLI flag.
+- Migrations work identically on both databases.
 
-B1       A2                      C1, E1
-B2       B1, B3                  C2, C3
-B3       A1                      B1, C1 (can start early)
-B4       B2                      C4
-B5       B4, B1                  C5
-B6       B1, B2, B4              C6
-
-C1       A2, A3                  B1, E1
-C2       A2, A3                  B1, C1, E1
-C3       C1, B2, B4             C4
-C4       A2                      B1, C1, C2
-C5       C3, A3                  B5
-C6       C3, C1                  C5
-C7       C3, A3                  C6
-
-D1       A1                      B1, C1 (interface only)
-D2       D1                      B2, C3
-D3       D1                      D2
-D4       B1, C1, C6              D2, D3
-D5       D1, D2 or D3, B2, B4, C3, C7, D4    (integration point, E2 sequencing)
-
-E1       A2, A3                  B1, C1
-E2       E1, B1, C1              B2, C2, D5 (receives session_ended events)
-E3       E1, C1, C2              E2, B2
-E4       E1, B1, B4              E2, E3 (B4 unblocks E4 for workspace layout contract)
-E5       E1, A3, C1, C7          E2, E3, E4
-E6       E1, D5                  E5
-E7       E2, C7                  E6
-
-UI-00    A1                      (foundation)
-UI-10    UI-00                   (primitives)
-UI-20    UI-00, UI-10            (blocks)
-UI-30    UI-00, UI-10, UI-20     (shell regions)
-UI-31    UI-00, UI-10, UI-20, UI-30  (work/planning domains: Canvas, Kanban, PitchSelector)
-UI-32    UI-00, UI-10, UI-20, UI-30  (review domains: ArtifactView + ReviewHeader, all verdict actions + keyboard shortcuts)
-UI-40    UI-30, UI-31, UI-32, E2, E3, E4, E5, E6  (pages, needs all API endpoints)
-UI-42    UI-00, UI-10, UI-20, UI-30  (Settings Panel — 5 tabs, composed from existing components)
-UI-45    UI-00, UI-10, UI-20     (Global Search — modal with ⌘K, composes existing Tier-2 rows)
-UI-50    UI-00 through UI-45     (polish, final pass)
-
-G1       D4, B1                  E6
-G2       G1, B1                  G3
-G3       G2, B5                  G4
-G4       G3, C5                  H1
-
-H1       B1, G1                  H2
-H2       E2, A3                  H1, H3
-H3       A3                      H1, H2
-H4       A2, H1-H3              (final)
-```
+**Effort.** M (~2d)
 
 ---
 
-## Critical Path
+## Previous Decisions Preserved
 
-The longest dependency chain determines the minimum time to a working system:
-
-```
-A1 → A2 → B1 → B2 (+B3) → B4 → C3 → D5 → E6 → UI-00 → UI-10 → UI-20 → UI-30 → UI-31 → UI-32 → UI-40 → G1 → G2 → G3 → G4 → H4
-```
-
-This is the critical path: **Foundation → Knowledge Store → Materialization → Writeback → Sessions → Provisioning → API (E6) → UI Foundation → Tier1 → Tier2 → Shell Regions → Work/Planning Regions (UI-31) → Review Regions (UI-32) → Pages → Facilitators → Operations**.
-
-(UI-42 Settings and UI-45 Global Search run in parallel with UI-31/UI-32 after UI-30; they join the critical path at UI-40.)
-
-**First demo milestone (the "hello world"):** After D5 (Session Provisioning), a real agent can be given a task, materialize knowledge, work on it, and write knowledge back. This is the core loop — everything else is orchestration and UI on top.
-
-**Second milestone (human in the loop):** After UI-40 (Tier 4 Pages), a human can see what agents are doing via Conversations and respond to review items via the Review page. The feedback loop is closed. The Rail provides real-time notifications.
-
-**Third milestone (self-improving):** After G4 (Built-in Routines), the facilitator pipeline runs automatically: practices accumulate, retros happen, knowledge is curated. The factory learns. Humans direct via the Knowledge and Settings pages.
+- Tailwind + DaisyUI + factory-dark theme
+- TOON format for context packs (~40% token savings)
+- Desktop-first UI (mobile deferred to v2); desktop = web app (Tauri optional later)
+- 19-component budget (5 Tier 1, 6 Tier 2, 8 Tier 3)
+- Rail as sole notification surface
+- 10 verdict actions on review items
+- 5 ArtifactView shapes
+- 8-state task lifecycle
+- D5 ↔ E2 sequencing (session_ended events trigger review item creation)
+- B4 → E4 contract (workspace layout)
+- A3 event ordering + C7 idempotency (cost cap warnings deduplicated by key)
+- UI-31/UI-32 split (work/planning vs review)
+- UI-42 Settings Panel (5 tabs, Profile/Products/Agents/Notifications/Appearance)
+- UI-45 Global Search (⌘K, results grouped by type)
+- E7 deferred UI (backend-only in v1)
 
 ---
 
-*This document is the companion to ARCHITECTURE.md (how the system is structured), REQUIREMENTS.md (what it must do), and the other design docs (why it's designed this way). WORK_PACKAGES.md is the bridge to implementation — it's how the design becomes code.*
+## Critical Path Summary
+
+**A1 → A2 → B1 → B2 → B4 → C3 → D5 → E6 → UI-00 → UI-10 → UI-20 → UI-30 → UI-31 → UI-32 → UI-40 → G1 → G2 → G3 → G4 → H4**
+
+Approximately **32–36 story-weeks** (assuming M = 2d, S = 1d, L = 4d, adjusting for real parallelism and team coordination).
+
+**First working system ("hello world"):** After D5, agents can be assigned work, materialize knowledge, and write back. This is the core loop.
+
+**Human in the loop:** After UI-40, humans see and respond to agent work via Conversations and Review pages.
+
+**Self-improving factory:** After G4, facilitators run automatically: practices accumulate, retros happen, knowledge curates.
+
+---
+
+*Companion to ARCHITECTURE.md (structure), REQUIREMENTS.md (what it must do), and design docs (why). This document is the bridge from design to implementation: each story is a unit an agent can decompose and execute.*
