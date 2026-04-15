@@ -72,14 +72,31 @@ check_progress() {
     return
   fi
 
-  PROGRESS_FILE="$PROGRESS_FILE" python3 -c "
-import json, os, sys
+  PROGRESS_FILE="$PROGRESS_FILE" PIPELINE_TARGET="$TARGET" python3 -c "
+import json, os, sys, re
 try:
     data = json.load(open(os.environ['PROGRESS_FILE']))
-    stories = data.get('stories', [])
+    all_stories = data.get('stories', [])
+    target = os.environ.get('PIPELINE_TARGET', 'all')
+
+    # Filter stories to only those matching the current target
+    if target == 'all':
+        stories = all_stories
+    else:
+        target_ids = target.split()
+        # If target is a single letter (track name), match story IDs starting with it
+        if len(target_ids) == 1 and re.match(r'^[A-Z]$', target_ids[0]):
+            track = target_ids[0]
+            stories = [s for s in all_stories if s['id'].startswith(track)]
+        else:
+            # Specific story IDs
+            stories = [s for s in all_stories if s['id'] in target_ids]
+
+    # If no matching stories in progress file yet, first session needs to initialize them
     if not stories:
-        print('no_stories')
+        print('no_progress')
         sys.exit(0)
+
     done = [s for s in stories if s.get('status') == 'done']
     failed = [s for s in stories if s.get('status') == 'failed']
     blocked = [s for s in stories if s.get('status') == 'blocked']
