@@ -113,6 +113,19 @@ export async function runStory(options: RunOptions): Promise<RunResult> {
 				case "system": {
 					const sys = message as { subtype: string; [key: string]: unknown };
 
+					// Log all system events for visibility
+					if (
+						sys.subtype !== "task_started" &&
+						sys.subtype !== "task_progress" &&
+						sys.subtype !== "task_notification" &&
+						sys.subtype !== "init"
+					) {
+						appendOutput(
+							storyId,
+							`[system:${sys.subtype}] ${sys.status ?? sys.compact_result ?? sys.message ?? ""}`,
+						);
+					}
+
 					if (sys.subtype === "task_started") {
 						const ts = sys as {
 							task_id: string;
@@ -164,12 +177,33 @@ export async function runStory(options: RunOptions): Promise<RunResult> {
 				case "result": {
 					sessionId = message.session_id;
 					totalCost = message.total_cost_usd;
+					const resultMsg = message as {
+						subtype: string;
+						result: string;
+						num_turns: number;
+						stop_reason: string | null;
+						terminal_reason?: string;
+						permission_denials?: Array<{ tool: string }>;
+					};
+					appendOutput(
+						storyId,
+						`[RESULT] ${resultMsg.subtype} | turns: ${resultMsg.num_turns} | stop: ${resultMsg.stop_reason ?? "none"} | terminal: ${resultMsg.terminal_reason ?? "none"} | cost: $${totalCost.toFixed(4)}`,
+					);
+					if (resultMsg.permission_denials && resultMsg.permission_denials.length > 0) {
+						appendOutput(
+							storyId,
+							`[RESULT] Permission denials: ${resultMsg.permission_denials.map((d) => d.tool).join(", ")}`,
+						);
+					}
+					if (resultMsg.subtype !== "success") {
+						appendOutput(storyId, `[RESULT] Error: ${resultMsg.result}`);
+					}
 					return {
-						success: message.subtype === "success",
+						success: resultMsg.subtype === "success",
 						sessionId,
 						cost: totalCost,
 						durationMs: Date.now() - startTime,
-						error: message.subtype === "success" ? null : String(message.result),
+						error: resultMsg.subtype === "success" ? null : resultMsg.result,
 					};
 				}
 			}
