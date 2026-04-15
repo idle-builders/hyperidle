@@ -18,13 +18,12 @@ You are autonomous. There is NO human. Never pause, never ask, never stop until 
 
 **Every story requires ALL 17 steps.** No exceptions. No shortcuts. No "this is simple enough to skip X".
 
-
 ---
 
 ## Setup
 
 1. Read `docs/WORK_PACKAGES.md` — extract story IDs, titles, dependencies for your target.
-2. Read or create `.pipeline/progress.json` — skip stories already `done`. Resume `in_progress` stories from their `currentStep`.
+2. Read or create `.pipeline/progress.json` — skip `done` stories, resume `in_progress` from `currentStep`.
 3. Record session start time.
 
 ---
@@ -33,42 +32,47 @@ You are autonomous. There is NO human. Never pause, never ask, never stop until 
 
 Check dependencies are `done`. If not, skip to next. If none ready, exit.
 
-Set status to `in_progress` in progress file. Create worktree:
+Set status to `in_progress`. Create worktree:
 ```
 git worktree add .worktrees/<id> -b feat/<id>-<desc> main
 cd .worktrees/<id> && bun install
 ```
 
-Then execute this skill sequence. **Every skill call is mandatory. Call them one by one via the Skill tool.**
+Then execute these steps. **Each step spawns an agent with a skill. Update `currentStep` in progress file before each step.**
 
-| Step | Action | How |
-|------|--------|-----|
-| 1 | Plan | `Skill(skill: "planning", args: "<id>")` |
-| 2 | Implement | `Skill(skill: "implement", args: "<id>")` |
-| 3 | Check DoD | `Skill(skill: "check-definition-of-done", args: "<id>")` |
-| 4 | Simplify | `Skill(skill: "simplify")` |
-| 5 | Slop scan | `Skill(skill: "slop-scan")` |
-| 6 | Verify | Run `bun run check && bun run lint && bun run test` yourself |
-| 7 | Review | `Skill(skill: "review")` |
-| 8 | Ship | `Skill(skill: "ship", args: "<id>")` |
-| 9 | Merge | `cd <repo-root> && git checkout main && git merge --squash feat/<id>-<desc> && git commit -m "feat(<id>): <title>"` |
-| 10 | Cleanup | `git worktree remove .worktrees/<id> --force && git branch -D feat/<id>-<desc>` |
-| 11 | Retro | `Skill(skill: "retro", args: "<id>")` |
+| Step | Agent | Skill | Why |
+|------|-------|-------|-----|
+| 1 | architect | `/plan <id>` | Plan before building — prevents wasted implementation time and catches design flaws early |
+| 2 | developer | `/write-tests <id>` | Tests first define the requirement, not the implementation — catches when the wrong thing gets built |
+| 3 | developer | `/write-code <id>` | With tests as targets, implementation stays lean and every line exists because a test demands it |
+| 4 | — | `bun run check && lint && test` | Automated gates catch regressions before they compound — the next agent inherits what you leave |
+| 5 | qa | `/check-definition-of-done <id>` | The builder is biased — an independent auditor catches gaps the implementer rationalized away |
+| 6 | developer | `/simplify` | AI code trends toward over-abstraction — simplifying keeps the codebase maintainable for the next story |
+| 7 | developer | `/slop-scan` | AI-specific anti-patterns (verbose names, restating comments) make code harder to read if left unchecked |
+| 8 | — | `bun run check && lint && test` | Verify simplify/slop-scan didn't break anything — cleanup must be behavior-preserving |
+| 9 | — | `/review` | Multiple specialists catch different issue classes — architect sees layer violations, adversary finds over-engineering |
+| 10 | — | `/ship <id>` | Clean git history with atomic commits lets future agents trace decisions |
+| 11 | — | Merge yourself | Self-merge to main so the next story sees the latest code |
+| 12 | — | Cleanup yourself | Remove worktree and branch to keep the repo clean |
+| 13 | — | `/retro <id>` | Recording what went well/badly feeds the compound agent to improve the process over time |
 
-**Update `currentStep` in progress file before each step.**
+If step 5 (DoD) fails: back to step 3. Max 3 attempts, then `blocked`.
+If step 9 (review) blocks: back to step 3. Max 3 attempts.
 
-If step 3 (DoD) fails: go back to step 2. Max 3 attempts, then mark `blocked`.
-If step 7 (review) blocks: go back to step 2. Max 3 attempts.
-
-After step 11: set status to `done` in progress file. Move to next story.
+After step 13: set status to `done`. Move to next story.
 
 ---
 
 ## Rules
 
-- **Never stop after planning.** Step 1 (plan) is just the beginning. You MUST call step 2 (implement) immediately after.
-- **Never end your turn without a tool call** unless all stories are done/blocked.
+- **Never stop after planning.** Step 1 is just the beginning. Immediately proceed to step 2.
 - After each story, check elapsed time. If > 45 minutes, save progress and exit.
 - If context degrades (compaction), finish current story and exit.
-- Max 3 attempts per story. After 3, mark `blocked` with `needsHuman: true`.
-- Progress file is the checkpoint. Write it after every status change.
+- Max 3 attempts per story. After 3, mark `blocked`.
+- Progress file is the checkpoint. Write it after every status/step change.
+
+**Don't rationalize skipping steps:**
+- "Planning is done, I can stop" → planning is step 1 of 13. You haven't built anything yet.
+- "This story is simple, skip to code" → simple stories have the highest skip rate and highest regression rate
+- "The DoD check is redundant, tests passed" → tests prove behavior, DoD proves the RIGHT thing was built against the spec
+- "Simplify/slop-scan aren't needed" → AI code accumulates cruft that compounds across stories. 2 minutes now saves hours later.

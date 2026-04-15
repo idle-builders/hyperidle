@@ -39,7 +39,7 @@ Before any work is complete: `bun run check` (zero type errors) + `bun run lint`
 - **`/pipeline <stories or track>`** — Meta-orchestrator: spawns agent teams for parallel independent stories, falls back to sequential subagents for dependent stories. Creates branches/PRs, self-merges, tracks progress.
 
 **Single-story development:**
-1. **`/planning <story>`** — Decompose the work: understand spec, identify gaps, define ordered tasks with tests. Zero code — pure thinking.
+1. **`/plan <story>`** — Produce a task list: read spec, extract acceptance criteria, order tasks, adversary challenge. Zero code — pure thinking.
 2. **`/implement <story>`** — TDD: test → implement → validate → prove (completeness + correctness + evidence) → self-review
 3. **`/check-definition-of-done <story>`** — Independent audit: is it complete, correct, and proven?
 4. **`/simplify`** — Remove over-abstraction, dead code
