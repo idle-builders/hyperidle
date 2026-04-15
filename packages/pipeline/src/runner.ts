@@ -119,6 +119,7 @@ export async function runStory(options: RunOptions): Promise<RunResult> {
 							description: string;
 							task_type?: string;
 						};
+						appendOutput(storyId, `>>> AGENT STARTED: ${ts.description}`);
 						updateSubAgent(storyId, {
 							taskId: ts.task_id,
 							description: ts.description,
@@ -144,7 +145,13 @@ export async function runStory(options: RunOptions): Promise<RunResult> {
 							task_id: string;
 							status: string;
 							summary: string;
+							usage?: { tool_uses: number; duration_ms: number };
 						};
+						const icon = tn.status === "completed" ? "<<<" : "<!>";
+						const dur = tn.usage?.duration_ms
+							? ` (${Math.round(tn.usage.duration_ms / 1000)}s)`
+							: "";
+						appendOutput(storyId, `${icon} AGENT ${tn.status.toUpperCase()}${dur}: ${tn.summary}`);
 						updateSubAgent(storyId, {
 							taskId: tn.task_id,
 							description: tn.summary,
