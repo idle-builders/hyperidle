@@ -136,51 +136,76 @@ async function runStream(
 		}
 	}
 
-	const result = await runStory({
-		storyId: prompt,
-		cwd,
-		interactive,
-		onOutput: (text) => {
-			// Route output to the appropriate story feed
-			// Try to detect which story is active from the output
-			const activeStory = stream.storyIds.find(
-				(id) => state.stories.find((s) => s.id === id)?.status === "in_progress",
-			);
-			if (activeStory) appendOutput(activeStory, text);
-		},
-	});
+	const MAX_RETRIES = 3;
 
-	// On completion, mark all stories based on result
-	if (result.success) {
+	for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+		const result = await runStory({
+			storyId: prompt,
+			cwd,
+			interactive,
+			onOutput: (text) => {
+				const activeStory = stream.storyIds.find(
+					(id) => state.stories.find((s) => s.id === id)?.status === "in_progress",
+				);
+				if (activeStory) appendOutput(activeStory, text);
+			},
+		});
+
+		// Check what the agent actually accomplished by reading the progress file
+		const postProgress = loadProgress();
+		const agentDone = new Set(
+			postProgress?.stories.filter((s) => s.status === "done").map((s) => s.id) ?? [],
+		);
+
+		// Sync done stories
 		for (const id of stream.storyIds) {
-			if (!done.has(id)) {
-				updateStory(state, id, {
-					status: "done",
-					completedAt: new Date().toISOString(),
-					cost: result.cost / stream.storyIds.length,
-				});
-				updateFeedStatus(id, "done", result.cost / stream.storyIds.length);
+			if (!done.has(id) && agentDone.has(id)) {
+				updateStory(state, id, { status: "done", completedAt: new Date().toISOString() });
+				updateFeedStatus(id, "done");
 				done.add(id);
 			}
 		}
-		appendOutput(
-			stream.storyIds[0] ?? stream.name,
-			`${streamLabel}: all done! Cost: $${result.cost.toFixed(4)}`,
-		);
-	} else {
-		// Find which story failed (last in_progress one)
-		const failedId = stream.storyIds.find(
-			(id) => state.stories.find((s) => s.id === id)?.status === "in_progress",
-		);
-		if (failedId) {
-			updateStory(state, failedId, {
-				status: "blocked",
-				error: result.error,
-				blockedReason: result.error,
-				needsHuman: true,
-			});
-			updateFeedStatus(failedId, "blocked");
-			appendOutput(failedId, `Failed: ${result.error}`);
+
+		// Check if all stories in this stream are done
+		const allDone = stream.storyIds.every((id) => done.has(id));
+		if (allDone) {
+			appendOutput(
+				stream.storyIds[0] ?? stream.name,
+				`${streamLabel}: all done! Cost: $${result.cost.toFixed(4)}`,
+			);
+			break;
+		}
+
+		// Not all done — retry or give up
+		if (attempt < MAX_RETRIES) {
+			const remaining = stream.storyIds.filter((id) => !done.has(id));
+			appendOutput(
+				remaining[0] ?? stream.name,
+				`${streamLabel}: session ended but ${remaining.length} stories not done. Retrying (attempt ${attempt + 1}/${MAX_RETRIES})...`,
+			);
+			// Re-mark first incomplete story as in_progress for the retry
+			for (const id of remaining) {
+				updateStory(state, id, { status: "in_progress" });
+				setStories(state.stories);
+				break;
+			}
+		} else {
+			// Final attempt exhausted — mark remaining as blocked
+			for (const id of stream.storyIds) {
+				if (!done.has(id)) {
+					updateStory(state, id, {
+						status: "blocked",
+						error: "Agent failed to complete after 3 attempts",
+						blockedReason: "Agent session ended 3 times without completing this story",
+						needsHuman: true,
+					});
+					updateFeedStatus(id, "blocked");
+				}
+			}
+			appendOutput(
+				stream.storyIds[0] ?? stream.name,
+				`${streamLabel}: gave up after ${MAX_RETRIES} attempts. Cost: $${result.cost.toFixed(4)}`,
+			);
 		}
 	}
 
