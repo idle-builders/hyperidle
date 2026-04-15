@@ -151,16 +151,22 @@ async function runStream(
 			},
 		});
 
-		// Check what the agent actually accomplished by reading the progress file
+		// Read the progress file the AGENT wrote — only the agent decides "done"
 		const postProgress = loadProgress();
 		const agentDone = new Set(
 			postProgress?.stories.filter((s) => s.status === "done").map((s) => s.id) ?? [],
 		);
 
-		// Sync done stories
+		// Sync: if the agent marked stories as done, update our in-memory state
+		// We do NOT write "done" — we just read what the agent wrote
 		for (const id of stream.storyIds) {
 			if (!done.has(id) && agentDone.has(id)) {
-				updateStory(state, id, { status: "done", completedAt: new Date().toISOString() });
+				// Agent decided this story is done — sync to our state
+				const agentStory = postProgress?.stories.find((s) => s.id === id);
+				if (agentStory) {
+					const existing = state.stories.find((s) => s.id === id);
+					if (existing) Object.assign(existing, agentStory);
+				}
 				updateFeedStatus(id, "done");
 				done.add(id);
 			}
