@@ -49,3 +49,16 @@ export {
 	isWatchedPath,
 } from "./writeback.js";
 export type { WritebackConfig, WritebackChange, WritebackResult } from "./writeback.js";
+export {
+	resolveConflict,
+	mergeStructuredEdits,
+	canPromote,
+	resolveConflictRecord,
+	promote,
+} from "./conflict-resolution.js";
+export type {
+	ConcurrentEdit,
+	FieldConflict,
+	MergeResult,
+	ConflictResult,
+} from "./conflict-resolution.js";
