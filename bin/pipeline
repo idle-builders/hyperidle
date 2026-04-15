@@ -30,6 +30,7 @@ LOG_DIR=".claude/pipeline-logs"
 SOFT_TIMEOUT=2700         # 45 min — start checking heartbeat for safe kill
 HARD_TIMEOUT=7200         # 2 hr — absolute safety net, kill regardless
 COOLDOWN_SECONDS=10       # pause between restarts
+MAX_SESSIONS=50           # safety net — stop after this many sessions
 
 # Colors
 GREEN='\033[0;32m'
@@ -128,6 +129,11 @@ should_stop() {
         err "To unblock: fix the issue, set story status to 'pending', restart pipeline."
       fi
       return 0
+      ;;
+    error:*|error)
+      err "Failed to read progress: $status"
+      err "Check python3 is available and $PROGRESS_FILE is valid JSON."
+      return 0  # stop rather than loop infinitely
       ;;
     *)
       return 1
@@ -257,6 +263,12 @@ mkdir -p "$LOG_DIR"
 iteration=0
 while true; do
   iteration=$((iteration + 1))
+
+  # Safety net — don't loop forever
+  if [ $iteration -gt $MAX_SESSIONS ]; then
+    err "Hit max sessions ($MAX_SESSIONS). Stopping."
+    break
+  fi
 
   # Check if done before starting a session
   if should_stop; then

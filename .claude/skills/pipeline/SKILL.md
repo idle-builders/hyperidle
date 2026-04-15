@@ -89,12 +89,12 @@ Record `last_session_at` with the current timestamp so the heartbeat script can 
 When 2+ stories are independent and ready:
 
 1. **Create an agent team.** You are the team lead.
-2. **Spawn one teammate per independent story** using the `developer` agent type. Each teammate gets its own branch and owns a complete story lifecycle (plan → implement → prove → commit → PR).
-3. **Assign tasks** via the shared task list. Each story becomes a task with subtasks for planning, implementation, verification, commit, and PR.
-4. **Require plan approval** — each teammate must plan before implementing. Review and approve their plan before they proceed.
+2. **Spawn one teammate per independent story** using the `developer` agent type. Each teammate gets its own branch and owns the complete story lifecycle — the full skill sequence from the sequential execution section (3e–3q).
+3. **Assign tasks** via the shared task list. Each story becomes a task with subtasks matching the skill sequence: `/planning`, `/implement`, `/check-definition-of-done`, `/simplify`, `/slop-scan`, `/review`, `/ship`, `/retro`.
+4. **Require plan approval** — each teammate must run `/planning` before `/implement`. Review and approve their plan before they proceed.
 5. **Monitor progress.** Check in on teammates, redirect if stuck. When a teammate finishes, merge their PR before spawning the next batch.
 6. **Avoid file conflicts.** Only run stories in parallel if they touch different packages/files. If two stories might edit the same file, run them sequentially.
-7. **Each teammate runs retro** at the end of their story — appending observations to `.claude/retro-log.jsonl`.
+7. **Each teammate runs `/retro`** at the end of their story.
 8. **Clean up the team** after the parallel batch finishes, before starting the next batch.
 
 Fall back to sequential processing if stories have dependencies or might conflict on files.
@@ -125,50 +125,15 @@ From main (or the latest merged branch):
 - `git checkout main && git pull`
 - `git checkout -b feat/<story-id>-<short-description>`
 
-### 3e. Spawn Planning Agent
+### 3e. `/planning <story-id>`
 
-**Spawn a fresh agent** to plan the work before implementation:
+Invoke the planning skill. Save the plan output — it feeds into the implementation step.
 
-> You are planning work package story **[story-id]: [title]** for HyperIdle.
->
-> Read `docs/WORK_PACKAGES.md` and find story [story-id]. Read `docs/ARCHITECTURE.md` and relevant architecture docs. Read existing code in the packages this story touches.
->
-> Produce a development plan:
-> 1. List every acceptance criterion with its verification method.
-> 2. Identify all gaps — new files, modified files, dependencies, migrations.
-> 3. Decompose into ordered tasks (~100 lines each), each independently testable.
-> 4. Map every criterion to at least one task. Map every task to at least one test.
-> 5. Flag any ambiguities or open questions — do not guess.
->
-> Output a structured plan: criteria table, gaps list, ordered task table with files/tests/dependencies, and risks.
+If the plan surfaces open questions that block implementation, set story to `blocked` with `needs_human: true` and move on.
 
-The agent must have access to: Read, Bash, Grep, Glob (but NOT Edit, Write, or Agent — planning only).
+### 3f. `/implement <story-id>`
 
-Save the plan output — it feeds into the implementation agent.
-
-### 3f. Spawn Implementation Agent
-
-**Spawn a fresh agent** with the plan from 3e:
-
-> You are implementing work package story **[story-id]: [title]** for HyperIdle.
->
-> Here is the development plan: [paste plan from 3e]
->
-> Follow this workflow exactly:
->
-> 1. **Write Tests**: For each task in the plan, write a failing test. Run tests to confirm they fail. Do NOT write implementation code yet.
->
-> 2. **Implement**: Follow the task order from the plan. Write the minimum code to make all tests pass. Run tests after each change.
->
-> 3. **Validate**: Run `bun run check`, `bun run lint`, `bun test` until all pass. Max 5 fix attempts per step.
->
-> 4. **Prove**: For each acceptance criterion, prove it is complete, correct, and working with observable evidence (test output, command output, screenshots). Words are not proof — only evidence is proof. Run `bun test --coverage` and show 100% coverage of new code.
->
-> 5. **Self-Review**: No TODO/FIXME/HACK, no console.log, no commented-out code.
->
-> Report: list every acceptance criterion with PASS/FAIL and the evidence itself. List all files created or modified.
-
-The agent must have access to: Read, Edit, Write, Bash, Grep, Glob (but NOT Agent — no nesting).
+Invoke the implement skill with the plan from 3e as context.
 
 ### 3g. Evaluate Result
 
@@ -179,7 +144,7 @@ Read the agent's output. Check:
 
 If the agent reports failures:
 1. Update progress: `attempts += 1`. Write progress file.
-2. If `attempts < 3`: spawn a fresh agent with the failure context and ask it to fix the gaps. Include what failed and why.
+2. If `attempts < 3`: re-invoke `/implement` with the failure context. Include what failed and why.
 3. If `attempts >= 3`: **Block the story, don't stop the pipeline.**
    - Set status to `blocked`, set `needs_human: true`.
    - Write `blocked_reason` with a clear summary: what was attempted, what failed, and what needs human decision (architecture question? ambiguous requirement? fundamental approach wrong?).
@@ -187,24 +152,36 @@ If the agent reports failures:
    - **Continue processing other stories** that don't depend on this blocked story.
    - The pipeline only stops when ALL remaining stories are blocked or their dependencies are blocked.
 
-### 3h. Verify Independently
+### 3h. `/check-definition-of-done <story-id>`
 
-After the agent reports success, run verification yourself (not delegated):
+Invoke the definition-of-done skill for independent audit. This is a gate — if NOT DONE, feed the gap list back to 3f. Count as an attempt.
+
+### 3i. `/simplify`
+
+Invoke the simplify skill on the changed files. Removes over-abstraction and dead code.
+
+### 3j. `/slop-scan`
+
+Invoke the slop-scan skill on the changed files. Catches AI-specific anti-patterns.
+
+### 3k. Verify
+
+Run verification yourself (not delegated) after simplify/slop-scan changes:
 - `bun run check` — must pass
 - `bun run lint` — must pass
 - `bun test` — must pass
 
-If any fail, go back to 3f with the error output.
+If any fail, fix or revert the simplify/slop-scan changes that broke it.
 
-### 3i. Commit and PR
+### 3l. `/review`
 
-Stage all changed files (be specific, not `git add -A`). Create a commit:
+Invoke the review skill. If verdict is BLOCK, feed critical issues back to 3f. Count as an attempt. If NEEDS WORK, the review skill auto-iterates.
 
-`feat(<scope>): <story-id> — <short description>`
+### 3m. `/ship <story-id>`
 
-Push the branch and create a PR via `gh pr create` with: summary, story reference, acceptance criteria checklist, and files changed.
+Invoke the ship skill to stage, commit, push, and create a PR.
 
-### 3j. Self-Merge
+### 3n. Self-Merge
 
 Merge the PR to maintain development history:
 
@@ -212,41 +189,17 @@ Merge the PR to maintain development history:
 
 Update progress: status → `done`, record PR number. Write progress file.
 
-### 3k. Retro (lightweight)
+### 3o. `/retro <story-id>`
 
-**Spawn a fresh agent** to contribute observations from this story to the retro log:
+Invoke the retro skill. Fast (< 2 minutes). Always run it — even under time pressure. The compound agent needs data.
 
-> You just finished story **[story-id]**. Review what happened:
-> - Check the git log for this branch (commits, fixups, reverts).
-> - Check `.claude/pipeline-progress.json` for attempt count.
-> - Note any errors, retries, permission denials, or rework.
->
-> Append observations to `.claude/retro-log.jsonl` — one JSON line per observation:
-> `{"date": "[today]", "story": "[id]", "type": "[friction|failure|gap|success|escalation]", "observation": "[specific sentence]", "severity": "[low|medium|high|critical]", "tags": ["tag1", "tag2"]}`
->
-> Record everything notable — problems AND successes. Be specific: name the skill, the step, the file, the error.
-> If something is critically broken and will break the next story: output an ESCALATION warning.
-> Do NOT change any skills or process files. Observe and record only.
+### 3p. Compound review (periodic)
 
-The agent must have access to: Read, Write, Bash, Grep, Glob (but NOT Edit or Agent — observation only).
-
-This step is fast (< 2 minutes). Always run it — even under time pressure. The compound agent needs data.
-
-### 3l. Compound review (periodic)
-
-Every **3 completed stories**, spawn the **compound agent** to review accumulated observations:
-
-> You are the compound agent. Read `.claude/retro-log.jsonl` and identify patterns.
-> A pattern requires 3+ occurrences across different stories.
-> Propose specific, surgical skill changes for confirmed patterns.
-> Do NOT apply changes directly — output proposals for the coordinator.
-> See `.claude/agents/compound/AGENT.md` for your full instructions.
-
-The compound agent has access to: Read, Grep, Glob, Bash (read-only review).
+Every **3 completed stories**, spawn the **compound agent** (see `.claude/agents/compound/AGENT.md`).
 
 If the compound agent proposes changes: evaluate them yourself. For skill file edits, apply them if they're clearly correct and targeted. For CLAUDE.md changes or new skills, skip — those need human approval. Log what you applied and what you deferred.
 
-### 3m. Log and Continue
+### 3q. Log and Continue
 
 Write `idle:<timestamp>` to `.claude/pipeline-heartbeat`. Report progress:
 - Story ID, status, PR number
@@ -254,6 +207,8 @@ Write `idle:<timestamp>` to `.claude/pipeline-heartbeat`. Report progress:
 - Elapsed time this session
 
 Move to the next story (back to 3a for time check).
+
+**Full skill sequence per story:** `/planning` → `/implement` → evaluate → `/check-definition-of-done` → `/simplify` → `/slop-scan` → verify → `/review` → `/ship` → self-merge → `/retro` → compound (periodic)
 
 ---
 
