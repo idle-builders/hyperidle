@@ -8,6 +8,17 @@ export class InvalidTransitionError extends Error {
 	}
 }
 
+export class VersionConflictError extends Error {
+	constructor(
+		public readonly entityId: string,
+		public readonly expected: number,
+		public readonly actual: number,
+	) {
+		super(`Version conflict for '${entityId}': expected ${expected}, got ${actual}`);
+		this.name = "VersionConflictError";
+	}
+}
+
 export class CapacityExceededError extends Error {
 	constructor(
 		public readonly teamId: string,
@@ -39,16 +50,6 @@ export class ConcurrencyLimitError extends Error {
 	}
 }
 
-export class ActiveRoutinesError extends Error {
-	constructor(
-		public readonly agentId: string,
-		public readonly count: number,
-	) {
-		super(`Agent '${agentId}' has ${count} active routines`);
-		this.name = "ActiveRoutinesError";
-	}
-}
-
 export class MissingCredentialError extends Error {
 	constructor(public readonly credential: string) {
 		super(`Missing credential: '${credential}'`);
@@ -56,13 +57,12 @@ export class MissingCredentialError extends Error {
 	}
 }
 
-export class VersionConflictError extends Error {
+export class ActiveRoutinesError extends Error {
 	constructor(
-		public readonly entityId: string,
-		public readonly expected: number,
-		public readonly actual: number,
+		public readonly agentId: string,
+		public readonly count: number,
 	) {
-		super(`Version conflict for '${entityId}': expected ${expected}, got ${actual}`);
-		this.name = "VersionConflictError";
+		super(`Agent '${agentId}' has ${count} active routines`);
+		this.name = "ActiveRoutinesError";
 	}
 }
