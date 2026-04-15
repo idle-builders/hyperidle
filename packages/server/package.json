@@ -13,6 +13,8 @@
 	},
 	"dependencies": {
 		"hono": "^4.7.0",
+		"drizzle-orm": "^0.38.0",
+		"@hyperidle/db": "workspace:*",
 		"@hyperidle/shared": "workspace:*"
 	}
 }
