@@ -1,4 +1,56 @@
 export { createDb, type HyperIdleDb } from "./connection.js";
-export { createTestDb } from "./test-utils.js";
-export { factorySettings, type FactorySetting, type NewFactorySetting } from "./schema.js";
+export { createTestDb, createSeededTestDb } from "./test-utils.js";
+export { seed } from "./seed.js";
+export {
+	// Tables
+	products,
+	factorySettings,
+	threads,
+	agents,
+	teams,
+	bets,
+	tasks,
+	sessions,
+	routines,
+	messages,
+	items,
+	responses,
+	agentSkills,
+	knowledgeItems,
+	knowledgeEditLog,
+	fileLeases,
+	// Types
+	type Product,
+	type NewProduct,
+	type FactorySetting,
+	type NewFactorySetting,
+	type Thread,
+	type NewThread,
+	type Agent,
+	type NewAgent,
+	type Team,
+	type NewTeam,
+	type Bet,
+	type NewBet,
+	type Task,
+	type NewTask,
+	type Session,
+	type NewSession,
+	type Routine,
+	type NewRoutine,
+	type Message,
+	type NewMessage,
+	type Item,
+	type NewItem,
+	type Response,
+	type NewResponse,
+	type AgentSkill,
+	type NewAgentSkill,
+	type KnowledgeItem,
+	type NewKnowledgeItem,
+	type KnowledgeEditLogEntry,
+	type NewKnowledgeEditLogEntry,
+	type FileLease,
+	type NewFileLease,
+} from "./schema.js";
 export * as schema from "./schema.js";
