@@ -10,7 +10,7 @@ allowed-tools: Read Grep Glob Bash Edit Agent
 
 **Why:** A single agent has blind spots. Multiple specialists reviewing in parallel catch different classes of issues — the architect sees layer violations, the adversary finds over-engineering, the security researcher spots injection vectors, the designer catches UX gaps. This is cheaper than fixing issues in production.
 
-Identify changed files via `git diff --name-only`. Read the relevant story in `docs/WORK_PACKAGES.md`.
+Identify changed files via `git diff --name-only`. Read the relevant story in the appropriate track file under `docs/work-packages/`.
 
 Spawn **all four agents in parallel**:
 

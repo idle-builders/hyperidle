@@ -2,7 +2,7 @@
 
 HyperIdle is an agentic operating system that manages product teams of AI agents. Two founders (CEO + CPO) run a "Product Factory" — a portfolio of digital products where AI agents do the implementation work.
 
-**Status:** Pre-implementation. Architecture docs are complete. Code is being built story-by-story from `docs/WORK_PACKAGES.md`.
+**Status:** Pre-implementation. Architecture docs are complete. Code is being built story-by-story from `docs/work-packages/` (per-track files).
 
 **Builder philosophy:** Read `ETHOS.md` — three principles (Boil the Lake, Search Before Building, User Sovereignty) that guide all agent behavior.
 
@@ -19,7 +19,7 @@ HyperIdle is an agentic operating system that manages product teams of AI agents
 
 **No code is written until the definition of done and validation setup exist.** This is non-negotiable. For every work package or task:
 
-1. Extract the acceptance criteria from `docs/WORK_PACKAGES.md`.
+1. Extract the acceptance criteria from the relevant track file in `docs/work-packages/`.
 2. Define the verification method for each criterion (automated test, Playwright E2E, eval, screenshot, inspection).
 3. Write the failing tests that prove the criteria (red phase).
 4. Only then begin implementation.
@@ -59,7 +59,7 @@ Supporting: `/verify` (quick validation), `/threat-model` (security analysis), `
 
 Three-layer system with strict downward dependency: Human Interface → Meta Layer → Agent Runtime. No layer reaches past its neighbor. Read `docs/ARCHITECTURE.md` before writing code.
 
-**Source of truth (all in `docs/`):** ARCHITECTURE.md, WORK_PACKAGES.md, PROCESS_LAYER.md, KNOWLEDGE_ARCHITECTURE.md, HUMAN_INTERFACE_LAYER.md, UI_DESIGN.md, REQUIREMENTS.md, INFORMATION_ARCHITECTURE.md.
+**Source of truth (all in `docs/`):** ARCHITECTURE.md, `work-packages/` (per-track story files), PROCESS_LAYER.md, KNOWLEDGE_ARCHITECTURE.md, HUMAN_INTERFACE_LAYER.md, UI_DESIGN.md, REQUIREMENTS.md, INFORMATION_ARCHITECTURE.md.
 
 ---
 

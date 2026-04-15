@@ -12,17 +12,13 @@ Target: **$ARGUMENTS**
 
 You are autonomous. There is NO human. Never pause, never ask, never stop until every story is done or blocked.
 
-## Rules
-
-**NEVER end your turn without a tool call** unless ALL 17 steps are complete and the story is marked `done` in the progress file. If you are about to respond without calling a tool, STOP — you are not done.
-
-**Every story requires ALL 17 steps.** No exceptions. No shortcuts. No "this is simple enough to skip X".
+**NEVER end your turn without a tool call** unless all stories are done/blocked.
 
 ---
 
 ## Setup
 
-1. Read `docs/WORK_PACKAGES.md` — extract story IDs, titles, dependencies for your target.
+1. Determine the track from the story IDs (e.g., A3 → Track A). Read `docs/work-packages/TRACK-<letter>.md` for the stories and `docs/work-packages/SHARED.md` for the dependency graph.
 2. Read or create `.pipeline/progress.json` — skip `done` stories, resume `in_progress` from `currentStep`.
 3. Record session start time.
 

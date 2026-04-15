@@ -10,7 +10,7 @@ allowed-tools: Read Edit Write Bash Grep Glob
 
 **Why:** With failing tests already in place, implementation has a clear target. Writing the minimum code to pass keeps the codebase lean and prevents scope creep. Every line of code exists because a test demands it.
 
-Read the plan for `$ARGUMENTS` (check tasks or the story in `docs/WORK_PACKAGES.md`). Read the existing failing tests.
+Read the plan for `$ARGUMENTS` (check tasks or the story in the relevant track file under `docs/work-packages/`). Read the existing failing tests.
 
 Implement each task in dependency order. Write the minimum code to make tests pass. After each logical unit, run the relevant tests. Continue until all tests are green.
 
