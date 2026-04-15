@@ -15,3 +15,12 @@ export type {
 	UpdateKnowledgeItemInput,
 	ListFilters,
 } from "./knowledge-repository.js";
+export { materialize } from "./materialization.js";
+export type {
+	MaterializationConfig,
+	MaterializationResult,
+	ManifestEntry,
+	Manifest,
+} from "./materialization.js";
+export { buildSessionContext } from "./session-context.js";
+export type { SessionContextConfig, SessionContextData } from "./session-context.js";
