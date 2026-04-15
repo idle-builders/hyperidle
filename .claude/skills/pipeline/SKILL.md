@@ -118,12 +118,20 @@ Verify all blocking stories are `done` in the progress file.
 
 Set story status to `in_progress`. Write progress file immediately. Write `busy:<story-id>` to `.claude/pipeline-heartbeat`.
 
-### 3d. Create Branch
+### 3d. Create Worktree
 
-From main (or the latest merged branch):
+Create an isolated worktree for this story so parallel stories don't conflict:
 
-- `git checkout main && git pull`
-- `git checkout -b feat/<story-id>-<short-description>`
+- `git worktree add .worktrees/<story-id> -b feat/<story-id>-<short-description> main`
+- `cd .worktrees/<story-id>`
+- `bun install --frozen-lockfile`
+
+All subsequent work for this story happens inside the worktree. When the story is done (step 3n), merge back to main and clean up the worktree.
+
+If worktree creation fails (e.g., branch already exists), clean up first:
+- `git branch -D feat/<story-id>-<short-description>` (delete stale branch)
+- `git worktree prune` (clean stale worktree refs)
+- Retry creation
 
 ### 3e. `/planning <story-id>`
 
@@ -181,13 +189,18 @@ Invoke the review skill. If verdict is BLOCK, feed critical issues back to 3f. C
 
 Invoke the ship skill to stage, commit, push, and create a PR.
 
-### 3n. Self-Merge
+### 3n. Self-Merge + Worktree Cleanup
 
-Merge the PR to maintain development history:
+Return to the main repo and merge the worktree branch:
 
-- `gh pr merge <pr-number> --squash --delete-branch`
+- `cd <original-repo-root>` (exit the worktree)
+- `git checkout main`
+- `git merge --squash feat/<story-id>-<short-description>`
+- `git commit -m "feat(<story-id>): <title>"`
+- `git worktree remove .worktrees/<story-id> --force`
+- `git branch -D feat/<story-id>-<short-description>`
 
-Update progress: status → `done`, record PR number. Write progress file.
+Update progress: status → `done`. Write progress file.
 
 ### 3o. `/retro <story-id>`
 

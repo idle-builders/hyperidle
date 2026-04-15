@@ -24,7 +24,9 @@ function parseArgs(args: string[]): { target: string; concurrency: number; inter
 		}
 	}
 
-	if (positional.length > 0) target = positional.join(" ");
+	// Normalize: "A2,A3" or "A2 A3" both become "A2 A3"
+	if (positional.length > 0)
+		target = positional.join(" ").replace(/,/g, " ").replace(/\s+/g, " ").trim();
 	return { target, concurrency, interactive };
 }
 

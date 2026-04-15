@@ -1,30 +1,32 @@
 import { createLogger } from "@hyperidle/shared";
-import { filterStories, getReadyStories, loadManifest, validateDependencies } from "./manifest.js";
+import { filterStories, loadManifest, validateDependencies } from "./manifest.js";
 import { initProgress, loadProgress, updateStory } from "./progress.js";
 import { runStory } from "./runner.js";
 import { appendOutput, initFeed, setStories, updateFeedStatus } from "./store.js";
-import type { PipelineOptions, PipelineState, Story } from "./types.js";
-import {
-	cleanOrphanedWorktrees,
-	createWorktree,
-	mergeWorktree,
-	removeWorktree,
-} from "./worktree.js";
+import type { PipelineOptions, Story } from "./types.js";
 
 const log = createLogger({ pkg: "pipeline" });
-const MAX_ATTEMPTS = 3;
 
-let merging = false;
-async function withMergeLock<T>(fn: () => Promise<T>): Promise<T> {
-	while (merging) {
-		await new Promise((r) => setTimeout(r, 500));
+interface Stream {
+	name: string;
+	storyIds: string[];
+}
+
+/**
+ * Group stories into parallel streams. Stories in the same track run
+ * sequentially within a stream. Independent tracks run in parallel.
+ */
+function buildStreams(stories: Story[]): Stream[] {
+	const tracks = new Map<string, string[]>();
+	for (const s of stories) {
+		const list = tracks.get(s.track) ?? [];
+		list.push(s.id);
+		tracks.set(s.track, list);
 	}
-	merging = true;
-	try {
-		return await fn();
-	} finally {
-		merging = false;
-	}
+	return [...tracks.entries()].map(([track, ids]) => ({
+		name: track,
+		storyIds: ids,
+	}));
 }
 
 export async function runPipeline(options: PipelineOptions): Promise<void> {
@@ -47,9 +49,6 @@ export async function runPipeline(options: PipelineOptions): Promise<void> {
 	}
 
 	const state = initProgress(target, stories);
-	cleanOrphanedWorktrees(cwd);
-
-	// Publish stories to the UI store
 	setStories(state.stories);
 
 	const fullProgress = loadProgress();
@@ -57,34 +56,37 @@ export async function runPipeline(options: PipelineOptions): Promise<void> {
 		...state.stories.filter((s) => s.status === "done").map((s) => s.id),
 		...(fullProgress?.stories.filter((s) => s.status === "done").map((s) => s.id) ?? []),
 	]);
-	const inProgress = new Set<string>();
-	const blocked = new Set(
-		state.stories.filter((s) => s.status === "blocked" || s.status === "failed").map((s) => s.id),
+
+	const streams = buildStreams(stories);
+
+	// Filter out streams where all stories are already done
+	const activeStreams = streams.filter((s) => s.storyIds.some((id) => !done.has(id)));
+
+	log.info(
+		`${activeStreams.length} streams: ${activeStreams.map((s) => `${s.name}(${s.storyIds.length})`).join(", ")}`,
 	);
 
-	const targetIds = new Set(stories.map((s) => s.id));
-	const activeJobs = new Map<string, Promise<void>>();
+	// Run streams in parallel up to concurrency limit
+	const running = new Map<string, Promise<void>>();
+	const queue = [...activeStreams];
 
-	while (true) {
-		const ready = getReadyStories(stories, done, inProgress, blocked);
+	while (queue.length > 0 || running.size > 0) {
+		while (running.size < concurrency && queue.length > 0) {
+			const stream = queue.shift();
+			if (!stream) break;
 
-		if (activeJobs.size === 0 && ready.length === 0) break;
-
-		while (activeJobs.size < concurrency && ready.length > 0) {
-			const story = ready.shift();
-			if (!story) break;
-			inProgress.add(story.id);
-
-			const job = processStory(story, state, options, done, inProgress, blocked);
-			activeJobs.set(story.id, job);
-			job.then(() => activeJobs.delete(story.id));
+			const prompt = stream.storyIds.join(" ");
+			const job = runStream(stream, prompt, state, options, done);
+			running.set(stream.name, job);
+			job.then(() => running.delete(stream.name));
 		}
 
-		if (activeJobs.size > 0) {
-			await Promise.race(activeJobs.values());
+		if (running.size > 0) {
+			await Promise.race(running.values());
 		}
 	}
 
+	const targetIds = new Set(stories.map((s) => s.id));
 	const doneCount = state.stories.filter((s) => s.status === "done" && targetIds.has(s.id)).length;
 	const blockedCount = state.stories.filter(
 		(s) => (s.status === "blocked" || s.status === "failed") && targetIds.has(s.id),
@@ -97,116 +99,90 @@ export async function runPipeline(options: PipelineOptions): Promise<void> {
 	);
 }
 
-async function processStory(
-	story: Story,
-	state: PipelineState,
+/**
+ * Run a stream of stories as a single agent session.
+ * The agent gets all story IDs and processes them sequentially,
+ * creating worktrees internally via the pipeline skill.
+ */
+async function runStream(
+	stream: Stream,
+	prompt: string,
+	state: ReturnType<typeof initProgress>,
 	options: PipelineOptions,
 	done: Set<string>,
-	inProgress: Set<string>,
-	blocked: Set<string>,
 ): Promise<void> {
 	const { cwd, interactive } = options;
-	const branchName = `feat/${story.id.toLowerCase()}-${slugify(story.title)}`;
+	const streamLabel = `Stream ${stream.name}`;
 
-	initFeed(story.id);
-	appendOutput(story.id, `Starting: ${story.title}`);
-	updateStory(state, story.id, {
-		status: "in_progress",
-		startedAt: new Date().toISOString(),
+	// Initialize feeds for all stories in the stream
+	for (const id of stream.storyIds) {
+		if (!done.has(id)) initFeed(id);
+	}
+
+	appendOutput(
+		stream.storyIds[0] ?? stream.name,
+		`${streamLabel}: starting ${stream.storyIds.length} stories`,
+	);
+
+	// Mark first pending story as in_progress
+	for (const id of stream.storyIds) {
+		if (!done.has(id)) {
+			updateStory(state, id, {
+				status: "in_progress",
+				startedAt: new Date().toISOString(),
+			});
+			setStories(state.stories);
+			break;
+		}
+	}
+
+	const result = await runStory({
+		storyId: prompt,
+		cwd,
+		interactive,
+		onOutput: (text) => {
+			// Route output to the appropriate story feed
+			// Try to detect which story is active from the output
+			const activeStory = stream.storyIds.find(
+				(id) => state.stories.find((s) => s.id === id)?.status === "in_progress",
+			);
+			if (activeStory) appendOutput(activeStory, text);
+		},
 	});
-	setStories(state.stories);
 
-	let worktreePath: string | null = null;
-
-	try {
-		appendOutput(story.id, "Creating worktree...");
-		worktreePath = createWorktree(story.id, branchName, cwd);
-		updateStory(state, story.id, { worktree: worktreePath, branch: branchName });
-		appendOutput(story.id, "Worktree ready. Running agent...");
-
-		const result = await runStory({
-			storyId: story.id,
-			cwd: worktreePath,
-			interactive,
-		});
-
-		updateStory(state, story.id, {
-			sessionId: result.sessionId,
-			cost: result.cost,
-			attempts: (state.stories.find((s) => s.id === story.id)?.attempts ?? 0) + 1,
-		});
-
-		if (result.success) {
-			await withMergeLock(async () => {
-				appendOutput(story.id, "Merging to main...");
-				mergeWorktree(story.id, branchName, cwd);
-			});
-
-			updateStory(state, story.id, {
-				status: "done",
-				completedAt: new Date().toISOString(),
-			});
-			updateFeedStatus(story.id, "done", result.cost);
-			done.add(story.id);
-			appendOutput(story.id, `Done! Cost: $${result.cost.toFixed(4)}`);
-		} else {
-			appendOutput(story.id, `Failed: ${result.error}`);
-			handleFailure(story, state, result.error, blocked, cwd, worktreePath);
+	// On completion, mark all stories based on result
+	if (result.success) {
+		for (const id of stream.storyIds) {
+			if (!done.has(id)) {
+				updateStory(state, id, {
+					status: "done",
+					completedAt: new Date().toISOString(),
+					cost: result.cost / stream.storyIds.length,
+				});
+				updateFeedStatus(id, "done", result.cost / stream.storyIds.length);
+				done.add(id);
+			}
 		}
-	} catch (err) {
-		const errorMsg = err instanceof Error ? err.message : String(err);
-		appendOutput(story.id, `Error: ${errorMsg}`);
-		handleFailure(story, state, errorMsg, blocked, cwd, worktreePath);
-	} finally {
-		inProgress.delete(story.id);
-		setStories(state.stories);
-	}
-}
-
-function handleFailure(
-	story: Story,
-	state: PipelineState,
-	error: string | null,
-	blocked: Set<string>,
-	cwd: string,
-	worktreePath: string | null,
-): void {
-	const storyProgress = state.stories.find((s) => s.id === story.id);
-	const attempts = (storyProgress?.attempts ?? 0) + 1;
-
-	// Clean up worktree on failure
-	if (worktreePath) {
-		try {
-			removeWorktree(story.id, cwd);
-		} catch {
-			// Ignore cleanup errors
-		}
-	}
-
-	if (attempts >= MAX_ATTEMPTS) {
-		updateStory(state, story.id, {
-			status: "blocked",
-			attempts,
-			error,
-			blockedReason: `Failed after ${attempts} attempts: ${error}`,
-			needsHuman: true,
-		});
-		updateFeedStatus(story.id, "blocked");
-		blocked.add(story.id);
+		appendOutput(
+			stream.storyIds[0] ?? stream.name,
+			`${streamLabel}: all done! Cost: $${result.cost.toFixed(4)}`,
+		);
 	} else {
-		updateStory(state, story.id, {
-			status: "pending",
-			attempts,
-			error,
-		});
-		updateFeedStatus(story.id, "pending");
+		// Find which story failed (last in_progress one)
+		const failedId = stream.storyIds.find(
+			(id) => state.stories.find((s) => s.id === id)?.status === "in_progress",
+		);
+		if (failedId) {
+			updateStory(state, failedId, {
+				status: "blocked",
+				error: result.error,
+				blockedReason: result.error,
+				needsHuman: true,
+			});
+			updateFeedStatus(failedId, "blocked");
+			appendOutput(failedId, `Failed: ${result.error}`);
+		}
 	}
-}
 
-function slugify(text: string): string {
-	return text
-		.toLowerCase()
-		.replace(/[^a-z0-9]+/g, "-")
-		.replace(/^-|-$/g, "")
-		.slice(0, 40);
+	setStories(state.stories);
 }
