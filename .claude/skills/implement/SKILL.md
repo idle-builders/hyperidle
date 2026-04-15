@@ -85,22 +85,58 @@ Run in sequence: `bun run check`, `bun run lint`, `bun test`. Fix any issues. Ma
 
 ---
 
-## Phase 6 — Check Definition of Done
+## Phase 6 — Prove
 
-Independently verify every acceptance criterion is met. This is not a self-review — this is proof.
+This is a proper "is it done?" review. You must prove three things to a skeptic who trusts nothing you say:
 
-1. For each acceptance criterion from Phase 1, verify using the planned verification method:
-   - Run the specific test(s) that prove this criterion and confirm they pass.
-   - For UI criteria: run Playwright tests and/or take screenshots showing the correct state.
-   - For structural criteria: inspect the code to verify compliance.
+1. **Completeness** — every acceptance criterion was addressed. Nothing was skipped or forgotten.
+2. **Correctness** — each criterion was implemented according to the spec, not just "something that works."
+3. **Evidence** — each claim above is backed by observable proof. Words are not proof. Only evidence is proof.
 
-2. Check coverage: run `bun test --coverage` and verify 100% coverage of new code.
+### Step 1: Completeness audit
 
-3. For each criterion, record: PASS (with evidence) or FAIL (with gap description).
+Go back to the acceptance criteria from Phase 1. List every single one. For each, identify exactly which code, test, or artifact addresses it. If a criterion has no corresponding implementation — that's a gap. Stop and fix it before continuing.
 
-4. If any criterion is FAIL: go back to Phase 4 and fix it. Do not proceed with failures.
+Check for subtle misses: a criterion that asks for "error handling on X" isn't satisfied by a happy-path implementation. A criterion that says "accessible" isn't satisfied by "it renders."
 
-**Output:** DoD report — every criterion with PASS and evidence. Zero failures.
+### Step 2: Correctness check
+
+For each criterion, compare what the spec asked for against what was actually built:
+
+- Does the API contract match what the architecture docs specified?
+- Do the data models match the schema requirements?
+- Do the UI components match the design specs (states, interactions, layout)?
+- Are edge cases from the spec handled, not just the golden path?
+
+If anything diverges from the spec — even if your version "works" — that's a failure. The spec is the contract. Fix the code or clarify the requirement.
+
+### Step 3: Prove it with evidence
+
+Now prove each criterion passes. Imagine presenting to a skeptical reviewer who will reject anything unsubstantiated.
+
+**What counts as evidence:**
+- A test that exercises the exact behavior and passes — with the output shown.
+- A command that produces observable, correct output — with the output shown.
+- A screenshot of the UI in the correct state.
+- A coverage report showing the exact lines covered.
+
+**What does NOT count as evidence:**
+- "I implemented this" — that's a claim, not proof.
+- "The test covers this" — show the test running and passing.
+- "This follows the pattern" — show the code and explain why it satisfies the criterion.
+- Paraphrasing what you did — the reviewer can read the diff. Show what the code *does*.
+
+For each criterion: run the proof, capture the output, show it inline. If the evidence doesn't convince YOU, it won't convince the reviewer. Fix the code or write a better test until it does.
+
+### Step 4: Coverage
+
+Run `bun test --coverage` and show the coverage numbers for new files. 100% of new code.
+
+### Verdict
+
+If any criterion is incomplete, incorrect, or lacks convincing evidence: go back to Phase 4. Do not proceed with gaps.
+
+**Output:** For each criterion — completeness status, correctness assessment, and the evidence itself. Zero gaps.
 
 ---
 
@@ -125,7 +161,7 @@ You WILL be tempted to skip steps. Here are the excuses you'll generate and why 
 | "I'll add tests after — same result" | Tests written after implementation test the implementation, not the requirement. They encode bugs as expected behavior. |
 | "The architect review will slow me down" | A 5-minute design review prevents a 2-hour rework when you discover a layer violation at Phase 5. |
 | "I already know the design, I'll skip Phase 2" | You know YOUR design. The architect checks it against docs you haven't read. The adversary finds the failure mode you haven't considered. |
-| "Phase 6 is redundant — I already ran the tests in Phase 5" | Phase 5 validates that code works. Phase 6 validates that the RIGHT code was built. They answer different questions. |
+| "Phase 6 is redundant — I already ran the tests in Phase 5" | Phase 5 validates that code compiles and passes. Phase 6 proves the RIGHT thing was built — to a skeptic, with evidence. They answer different questions. |
 | "I can fix this lint error later" | Later is never. Lint errors compound. Fix now or the next agent inherits your debt. |
 | "This acceptance criterion is obviously met" | If it's obvious, proving it takes 30 seconds. If you can't prove it, it's not obvious — it's assumed. |
 | "I'll just add this small extra feature while I'm here" | Scope creep is the #1 cause of story failure. Build exactly what was asked. File a new story for the rest. |

@@ -1,0 +1,4 @@
+node_modules/
+.claude/pipeline-logs/
+.claude/pipeline-progress.json
+.claude/pipeline-heartbeat
