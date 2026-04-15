@@ -10,6 +10,8 @@
 		"check": "tsc --noEmit"
 	},
 	"dependencies": {
-		"@hyperidle/shared": "workspace:*"
+		"@hyperidle/db": "workspace:*",
+		"@hyperidle/shared": "workspace:*",
+		"drizzle-orm": "^0.39.0"
 	}
 }
