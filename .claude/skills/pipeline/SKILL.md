@@ -16,6 +16,15 @@ Target: **$ARGUMENTS**
 
 ---
 
+## ABSOLUTE RULES — NON-NEGOTIABLE
+
+1. **You are fully autonomous. There is NO human. NEVER pause, NEVER ask for confirmation, NEVER wait for feedback.** If something fails, handle it yourself or mark it blocked and move on.
+2. **NEVER end your turn without a tool call** unless ALL 17 steps are complete and the story is marked `done` in the progress file. If you are about to respond without calling a tool, STOP — you are not done.
+3. **Planning is step 5 of 17. It is NOT the end.** After `/planning`, you MUST immediately call `/implement` (step 6). After `/implement`, continue through steps 7–17. If you stop after planning, the story FAILS and wastes money.
+4. **Every story requires ALL 17 steps.** No exceptions. No shortcuts. No "this is simple enough to skip X".
+
+---
+
 ## Session Lifecycle — READ THIS FIRST
 
 You are likely being invoked by `bin/pipeline`, which restarts you with fresh context when sessions end. This means:
@@ -49,7 +58,7 @@ Read `docs/WORK_PACKAGES.md` and extract:
 
 ## Step 2 — Initialize Progress Tracking
 
-Create or read `.claude/pipeline-progress.json` to track state. This file is critical — it enables the external heartbeat (`bin/pipeline`) to restart you with fresh context while preserving progress.
+Create or read `.pipeline/progress.json` to track state. This file is critical — it enables the external heartbeat (`bin/pipeline`) to restart you with fresh context while preserving progress.
 
 JSON structure:
 - `target`: the original `$ARGUMENTS`
@@ -59,6 +68,7 @@ JSON structure:
   - `id`: story ID (e.g., "A1")
   - `title`: story title
   - `status`: `pending` | `in_progress` | `done` | `failed` | `blocked`
+  - `currentStep`: number (1–17) of the step currently being executed, or null if not started
   - `branch`: branch name (once created)
   - `pr`: PR number (once created)
   - `attempts`: number of implementation attempts
@@ -67,13 +77,21 @@ JSON structure:
   - `blocked_at`: ISO timestamp of when it was blocked
   - `needs_human`: boolean — true if the blockage requires human input
 
-**On resume:** Read existing progress. Skip stories with status `done`. Retry stories with status `in_progress` (previous session died mid-story — clean up their branch first). For `blocked` stories, check if the blockage is still valid and skip if so. For `failed` stories, stop that stream but continue other independent streams.
+**On resume:** Read existing progress. Skip stories with status `done`. For stories with status `in_progress`:
+- Check `currentStep` — this tells you where the previous session stopped.
+- If `currentStep` is null or ≤ 4: start from step 1 (clean slate — no meaningful work was done).
+- If `currentStep` is 5–6: the worktree and branch likely exist. Verify with `git worktree list`. If the worktree exists, `cd` into it and resume from the recorded step. If not, start from step 4.
+- If `currentStep` is 7–13: worktree exists with implementation. Resume from the recorded step — do NOT re-run earlier steps (planning, implement) that already completed.
+- If `currentStep` is 14–17: the merge/ship phase. Check if the branch was already merged to main. If so, just run remaining post-merge steps (retro, compound, log).
+For `blocked` stories, check if the blockage is still valid and skip if so. For `failed` stories, stop that stream but continue other independent streams.
 
-**Write the progress file after every status change.** This is your checkpoint — if you get killed mid-session, the next invocation must know exactly where to resume.
+**Write the progress file after every status change AND every step transition.** Before starting each step, update `currentStep` to that step number and write the progress file. This is your checkpoint — if you get killed mid-session, the next invocation must know exactly where to resume.
+
+Example: before starting step 6, write `"currentStep": 6` to the story's entry in the progress file.
 
 Record `last_session_at` with the current timestamp so the heartbeat script can see when you last ran.
 
-**Also maintain `.claude/pipeline-heartbeat`** — a single-line file that the bash script polls to know when it's safe to kill you:
+**Also maintain `.pipeline/heartbeat`** — a single-line file that the bash script polls to know when it's safe to kill you:
 - Write `busy:<story-id>` when you start working on a story (step 3c).
 - Write `idle:<timestamp>` after completing a story (step 3j) or when exiting.
 - The bash script only kills you when the file says `idle`. This prevents mid-story kills.
@@ -128,7 +146,7 @@ Verify all blocking stories are `done` in the progress file.
 
 ### Step 3. Update Progress
 
-Set story status to `in_progress`. Write progress file immediately. Write `busy:<story-id>` to `.claude/pipeline-heartbeat`.
+Set story status to `in_progress`. Write progress file immediately. Write `busy:<story-id>` to `.pipeline/heartbeat`.
 
 ### Step 4. Create Worktree
 
@@ -153,9 +171,12 @@ Skill(skill: "planning", args: "<story-id>")
 
 Wait for completion. Save the plan output. If open questions block implementation, set `blocked` + `needs_human: true` and skip to step 17.
 
-**DO NOT PROCEED TO STEP 6 WITHOUT HAVING CALLED THE SKILL TOOL ABOVE.**
+**⚠️ PLANNING IS NOT THE END. YOU ARE ONLY 30% DONE. IMMEDIATELY PROCEED TO STEP 6.**
+**If you stop here, the story FAILS. Planning without implementation is worthless.**
 
 ### Step 6. `/implement` — CALL THE SKILL TOOL
+
+**YOU MUST CALL THIS IMMEDIATELY AFTER STEP 5. DO NOT END THE SESSION.**
 
 ```
 Skill(skill: "implement", args: "<story-id>")
@@ -268,7 +289,7 @@ Before moving on, output this checklist to prove you completed all steps:
 
 **If ANY step above is not checked, the story is NOT done. Go back and complete the missing steps.**
 
-Write `idle:<timestamp>` to `.claude/pipeline-heartbeat`. Move to the next story (back to step 1).
+Write `idle:<timestamp>` to `.pipeline/heartbeat`. Move to the next story (back to step 1).
 
 **Full sequence:** 1→2→3→4→5-planning→6-implement→7-evaluate→8-check-dod→9-simplify→10-slop-scan→11-verify→12-review→13-ship→14-merge→15-retro→16-compound→17-log
 
@@ -296,7 +317,7 @@ When stopping (time limit, compaction, all done, all blocked, or no progress pos
    What's needed: [specific question or decision needed from human]
    Downstream impact: Stories [B1, B2] are waiting on this.
    
-   To unblock: Edit .claude/pipeline-progress.json, set story status to "pending",
+   To unblock: Edit .pipeline/progress.json, set story status to "pending",
    fix the underlying issue, and restart the pipeline.
    ```
 

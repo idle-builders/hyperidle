@@ -11,6 +11,7 @@ export interface StoryProgress {
 	id: string;
 	title: string;
 	status: StoryStatus;
+	currentStep: number | null;
 	branch: string | null;
 	worktree: string | null;
 	sessionId: string | null;
