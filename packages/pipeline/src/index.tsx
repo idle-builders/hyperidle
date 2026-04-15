@@ -1,14 +1,13 @@
 #!/usr/bin/env bun
-import { createLogger } from "@hyperidle/shared";
+import { render } from "ink";
+import React from "react";
 import { runPipeline } from "./scheduler.js";
-
-const log = createLogger({ pkg: "pipeline" });
+import { PipelineApp } from "./ui.js";
 
 function parseArgs(args: string[]): { target: string; concurrency: number; interactive: boolean } {
 	let target = "all";
 	let concurrency = 3;
 	let interactive = false;
-
 	const positional: string[] = [];
 
 	for (let i = 0; i < args.length; i++) {
@@ -25,10 +24,7 @@ function parseArgs(args: string[]): { target: string; concurrency: number; inter
 		}
 	}
 
-	if (positional.length > 0) {
-		target = positional.join(" ");
-	}
-
+	if (positional.length > 0) target = positional.join(" ");
 	return { target, concurrency, interactive };
 }
 
@@ -50,22 +46,20 @@ Options:
 `);
 }
 
-async function main(): Promise<void> {
-	const { target, concurrency, interactive } = parseArgs(process.argv.slice(2));
-	const cwd = process.cwd();
+const { target, concurrency, interactive } = parseArgs(process.argv.slice(2));
+const cwd = process.cwd();
 
-	log.info("═══════════════════════════════════════");
-	log.info("  HyperIdle Development Pipeline");
-	log.info("═══════════════════════════════════════");
-	log.info(`Target: ${target}`);
-	log.info(`Concurrency: ${concurrency}`);
-	log.info(`Mode: ${interactive ? "interactive" : "auto"}`);
-	log.info("═══════════════════════════════════════");
+// Render the TUI
+const { unmount, waitUntilExit } = render(React.createElement(PipelineApp));
 
-	await runPipeline({ target, concurrency, interactive, cwd });
-}
-
-main().catch((err) => {
-	log.error(`Pipeline crashed: ${err}`);
-	process.exit(1);
+// Run pipeline in background
+runPipeline({ target, concurrency, interactive, cwd }).finally(() => {
+	// Give UI a moment to show final state, then exit
+	setTimeout(() => {
+		unmount();
+		process.exit(0);
+	}, 3000);
 });
+
+// Handle clean exit
+waitUntilExit().then(() => process.exit(0));
