@@ -5,25 +5,28 @@ const PROGRESS_PATH = ".claude/pipeline-progress.json";
 
 export function initProgress(target: string, stories: Story[]): PipelineState {
 	const existing = loadProgress();
-
-	// Merge: keep done stories from previous runs, add new ones as pending
 	const existingMap = new Map(existing?.stories.map((s) => [s.id, s]) ?? []);
+	// Start with all existing stories (preserves history like A1=done)
+	const merged = new Map(existingMap);
 
-	const merged: StoryProgress[] = stories.map((s) => {
+	// Add/update target stories
+	for (const s of stories) {
 		const prev = existingMap.get(s.id);
-		if (prev && prev.status === "done") return prev;
-		if (prev && prev.status === "in_progress") {
+		if (prev && prev.status === "done") {
+			// Already done — keep it
+		} else if (prev && prev.status === "in_progress") {
 			// Previous session died mid-story — reset to pending
-			return { ...prev, status: "pending" as const, attempts: prev.attempts };
+			merged.set(s.id, { ...prev, status: "pending" as const });
+		} else if (!prev) {
+			merged.set(s.id, makeStoryProgress(s));
 		}
-		return makeStoryProgress(s);
-	});
+	}
 
 	const state: PipelineState = {
 		target,
 		startedAt: existing?.startedAt ?? new Date().toISOString(),
 		lastSessionAt: new Date().toISOString(),
-		stories: merged,
+		stories: [...merged.values()],
 	};
 
 	saveProgress(state);

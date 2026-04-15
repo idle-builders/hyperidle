@@ -1,6 +1,6 @@
 import { createLogger } from "@hyperidle/shared";
 import { filterStories, getReadyStories, loadManifest, validateDependencies } from "./manifest.js";
-import { initProgress, updateStory } from "./progress.js";
+import { initProgress, loadProgress, updateStory } from "./progress.js";
 import { runStory } from "./runner.js";
 import type { PipelineOptions, PipelineState, Story } from "./types.js";
 import {
@@ -40,7 +40,7 @@ export async function runPipeline(options: PipelineOptions): Promise<void> {
 		return;
 	}
 
-	const errors = validateDependencies(stories);
+	const errors = validateDependencies(allStories);
 	if (errors.length > 0) {
 		log.error("Dependency errors in manifest:");
 		for (const e of errors) log.error(`  ${e}`);
@@ -55,7 +55,12 @@ export async function runPipeline(options: PipelineOptions): Promise<void> {
 
 	log.info(`Pipeline starting: ${stories.length} stories, concurrency=${concurrency}`);
 
-	const done = new Set(state.stories.filter((s) => s.status === "done").map((s) => s.id));
+	// Include done stories from the full progress file (dependencies outside target)
+	const fullProgress = loadProgress();
+	const done = new Set([
+		...state.stories.filter((s) => s.status === "done").map((s) => s.id),
+		...(fullProgress?.stories.filter((s) => s.status === "done").map((s) => s.id) ?? []),
+	]);
 	const inProgress = new Set<string>();
 	const blocked = new Set(
 		state.stories.filter((s) => s.status === "blocked" || s.status === "failed").map((s) => s.id),
