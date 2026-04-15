@@ -1,0 +1,537 @@
+import type { Query, SDKMessage } from "@anthropic-ai/claude-agent-sdk";
+import type { HarnessAdapter, HarnessEvent, SessionConfig } from "@hyperidle/shared";
+import { MissingCredentialError } from "@hyperidle/shared";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { ClaudeAgentSdkAdapter } from "../claude-agent-sdk-adapter.js";
+import { MODEL_TIER_MAP, resolveModel } from "../model-tier-map.js";
+
+const TEST_CONFIG: SessionConfig = {
+	workspacePath: "/workspace/test",
+	soulPromptPath: "/workspace/prompts/builder.md",
+	modelTier: "workhorse",
+	tools: ["Read", "Write", "Bash"],
+};
+
+/** Create a mock Query from a sequence of SDK messages. */
+function createMockQuery(messages: SDKMessage[]): Query {
+	let aborted = false;
+
+	async function* generate(): AsyncGenerator<SDKMessage, void> {
+		for (const msg of messages) {
+			if (aborted) return;
+			yield msg;
+		}
+	}
+
+	const gen = generate();
+	const query = gen as unknown as Query;
+
+	// Add control methods
+	query.interrupt = vi.fn(async () => {
+		aborted = true;
+	});
+	query.close = vi.fn(() => {
+		aborted = true;
+	});
+	query.getContextUsage = vi.fn(async () => ({
+		categories: [],
+		totalTokens: 5000,
+		maxTokens: 200000,
+		rawMaxTokens: 200000,
+		percentage: 2.5,
+		gridRows: [],
+	}));
+	// Stub other Query methods
+	query.setPermissionMode = vi.fn(async () => {});
+	query.setModel = vi.fn(async () => {});
+	query.setMaxThinkingTokens = vi.fn(async () => {});
+	query.applyFlagSettings = vi.fn(async () => {});
+	query.initializationResult = vi.fn(async () => ({}) as ReturnType<Query["initializationResult"]>);
+	query.supportedCommands = vi.fn(async () => []);
+	query.supportedModels = vi.fn(async () => []);
+	query.supportedAgents = vi.fn(async () => []);
+	query.mcpServerStatus = vi.fn(async () => []);
+	query.reloadPlugins = vi.fn(async () => ({}) as ReturnType<Query["reloadPlugins"]>);
+	query.accountInfo = vi.fn(async () => ({}) as ReturnType<Query["accountInfo"]>);
+	query.rewindFiles = vi.fn(async () => ({}) as ReturnType<Query["rewindFiles"]>);
+	query.reconnectMcpServer = vi.fn(async () => {});
+	query.toggleMcpServer = vi.fn(async () => {});
+	query.setMcpServers = vi.fn(async () => ({}) as ReturnType<Query["setMcpServers"]>);
+	query.streamInput = vi.fn(async () => {});
+	query.stopTask = vi.fn(async () => {});
+
+	return query;
+}
+
+function mockAssistantMessage(
+	inputTokens: number,
+	outputTokens: number,
+	textContent?: string,
+	toolUse?: { name: string; input: Record<string, unknown> },
+): SDKMessage {
+	const content: Array<{
+		type: string;
+		text?: string;
+		name?: string;
+		input?: Record<string, unknown>;
+		id?: string;
+	}> = [];
+	if (textContent) {
+		content.push({ type: "text", text: textContent });
+	}
+	if (toolUse) {
+		content.push({ type: "tool_use", name: toolUse.name, input: toolUse.input, id: "tool-1" });
+	}
+
+	return {
+		type: "assistant",
+		message: {
+			usage: {
+				input_tokens: inputTokens,
+				output_tokens: outputTokens,
+				cache_creation_input_tokens: 0,
+				cache_read_input_tokens: 0,
+			},
+			content,
+		},
+		parent_tool_use_id: null,
+		uuid: "msg-1",
+		session_id: "sess-1",
+	} as unknown as SDKMessage;
+}
+
+function mockResultMessage(totalCostUsd: number): SDKMessage {
+	return {
+		type: "result",
+		subtype: "success",
+		duration_ms: 1000,
+		duration_api_ms: 800,
+		is_error: false,
+		num_turns: 1,
+		result: "Task completed.",
+		stop_reason: "end_turn",
+		total_cost_usd: totalCostUsd,
+		usage: {
+			input_tokens: 500,
+			output_tokens: 200,
+			cache_creation_input_tokens: 0,
+			cache_read_input_tokens: 0,
+		},
+		modelUsage: {},
+		permission_denials: [],
+		uuid: "result-1",
+		session_id: "sess-1",
+	} as unknown as SDKMessage;
+}
+
+function mockCompactBoundaryMessage(preTokens: number): SDKMessage {
+	return {
+		type: "system",
+		subtype: "compact_boundary",
+		compact_metadata: {
+			trigger: "auto",
+			pre_tokens: preTokens,
+		},
+		uuid: "compact-1",
+		session_id: "sess-1",
+	} as unknown as SDKMessage;
+}
+
+describe("ClaudeAgentSdkAdapter (D2)", () => {
+	const originalEnv = { ...process.env };
+
+	beforeEach(() => {
+		process.env.ANTHROPIC_API_KEY = "test-key-12345";
+	});
+
+	afterEach(() => {
+		process.env = { ...originalEnv };
+	});
+
+	describe("model tier mapping", () => {
+		it("maps Reasoning → opus", () => {
+			expect(resolveModel("reasoning")).toBe("claude-opus-4-20250514");
+		});
+
+		it("maps Workhorse → sonnet", () => {
+			expect(resolveModel("workhorse")).toBe("claude-sonnet-4-20250514");
+		});
+
+		it("maps Fast → haiku", () => {
+			expect(resolveModel("fast")).toBe("claude-haiku-3-5-20241022");
+		});
+
+		it("covers all ModelTier values", () => {
+			expect(Object.keys(MODEL_TIER_MAP)).toEqual(["reasoning", "workhorse", "fast"]);
+		});
+	});
+
+	describe("construction and credentials", () => {
+		it("can be instantiated without API key", () => {
+			process.env.ANTHROPIC_API_KEY = undefined;
+			const adapter = new ClaudeAgentSdkAdapter();
+			expect(adapter).toBeDefined();
+		});
+
+		it("throws MissingCredentialError on startSession without API key", async () => {
+			process.env.ANTHROPIC_API_KEY = undefined;
+			const adapter = new ClaudeAgentSdkAdapter();
+
+			await expect(adapter.startSession(TEST_CONFIG)).rejects.toThrow(MissingCredentialError);
+		});
+
+		it("implements HarnessAdapter interface", () => {
+			const adapter: HarnessAdapter = new ClaudeAgentSdkAdapter();
+			expect(typeof adapter.startSession).toBe("function");
+			expect(typeof adapter.streamEvents).toBe("function");
+			expect(typeof adapter.stopSession).toBe("function");
+			expect(typeof adapter.getCapabilities).toBe("function");
+		});
+	});
+
+	describe("startSession", () => {
+		it("returns a session handle with sessionId", async () => {
+			const mockQuery = createMockQuery([]);
+			const queryFn = vi.fn(() => mockQuery);
+
+			const adapter = new ClaudeAgentSdkAdapter({ queryFn });
+			const handle = await adapter.startSession(TEST_CONFIG);
+
+			expect(handle.sessionId).toBeDefined();
+			expect(typeof handle.sessionId).toBe("string");
+		});
+
+		it("passes correct model to SDK query", async () => {
+			const mockQuery = createMockQuery([]);
+			const queryFn = vi.fn(() => mockQuery);
+
+			const adapter = new ClaudeAgentSdkAdapter({ queryFn });
+			await adapter.startSession({
+				...TEST_CONFIG,
+				modelTier: "reasoning",
+			});
+
+			expect(queryFn).toHaveBeenCalledWith(
+				expect.objectContaining({
+					options: expect.objectContaining({
+						model: "claude-opus-4-20250514",
+					}),
+				}),
+			);
+		});
+
+		it("passes tools and workspace to SDK query", async () => {
+			const mockQuery = createMockQuery([]);
+			const queryFn = vi.fn(() => mockQuery);
+
+			const adapter = new ClaudeAgentSdkAdapter({ queryFn });
+			await adapter.startSession(TEST_CONFIG);
+
+			expect(queryFn).toHaveBeenCalledWith(
+				expect.objectContaining({
+					options: expect.objectContaining({
+						cwd: "/workspace/test",
+						tools: ["Read", "Write", "Bash"],
+					}),
+				}),
+			);
+		});
+	});
+
+	describe("streamEvents", () => {
+		it("yields token_usage events from assistant messages", async () => {
+			const messages: SDKMessage[] = [mockAssistantMessage(100, 50, "Hello")];
+			const mockQuery = createMockQuery(messages);
+			const queryFn = vi.fn(() => mockQuery);
+
+			const adapter = new ClaudeAgentSdkAdapter({ queryFn });
+			const handle = await adapter.startSession(TEST_CONFIG);
+
+			const events: HarnessEvent[] = [];
+			for await (const event of adapter.streamEvents(handle)) {
+				events.push(event);
+			}
+
+			const tokenEvents = events.filter((e) => e.type === "token_usage");
+			expect(tokenEvents.length).toBeGreaterThanOrEqual(1);
+			const tokenEvent = tokenEvents[0];
+			if (tokenEvent.type === "token_usage") {
+				expect(tokenEvent.inputTokens).toBe(100);
+				expect(tokenEvent.outputTokens).toBe(50);
+			}
+		});
+
+		it("yields tool_call events from assistant tool_use blocks", async () => {
+			const messages: SDKMessage[] = [
+				mockAssistantMessage(50, 30, undefined, {
+					name: "Read",
+					input: { path: "/test.ts" },
+				}),
+			];
+			const mockQuery = createMockQuery(messages);
+			const queryFn = vi.fn(() => mockQuery);
+
+			const adapter = new ClaudeAgentSdkAdapter({ queryFn });
+			const handle = await adapter.startSession(TEST_CONFIG);
+
+			const events: HarnessEvent[] = [];
+			for await (const event of adapter.streamEvents(handle)) {
+				events.push(event);
+			}
+
+			const toolEvents = events.filter((e) => e.type === "tool_call");
+			expect(toolEvents).toHaveLength(1);
+			if (toolEvents[0].type === "tool_call") {
+				expect(toolEvents[0].toolName).toBe("Read");
+				expect(toolEvents[0].args).toEqual({ path: "/test.ts" });
+			}
+		});
+
+		it("yields completion events from text content", async () => {
+			const messages: SDKMessage[] = [mockAssistantMessage(50, 30, "Analysis complete.")];
+			const mockQuery = createMockQuery(messages);
+			const queryFn = vi.fn(() => mockQuery);
+
+			const adapter = new ClaudeAgentSdkAdapter({ queryFn });
+			const handle = await adapter.startSession(TEST_CONFIG);
+
+			const events: HarnessEvent[] = [];
+			for await (const event of adapter.streamEvents(handle)) {
+				events.push(event);
+			}
+
+			const completionEvents = events.filter((e) => e.type === "completion");
+			expect(completionEvents.length).toBeGreaterThanOrEqual(1);
+			if (completionEvents[0].type === "completion") {
+				expect(completionEvents[0].text).toBe("Analysis complete.");
+			}
+		});
+
+		it("yields cost_update events from result messages", async () => {
+			const messages: SDKMessage[] = [
+				mockAssistantMessage(100, 50, "Done"),
+				mockResultMessage(0.0045),
+			];
+			const mockQuery = createMockQuery(messages);
+			const queryFn = vi.fn(() => mockQuery);
+
+			const adapter = new ClaudeAgentSdkAdapter({ queryFn });
+			const handle = await adapter.startSession(TEST_CONFIG);
+
+			const events: HarnessEvent[] = [];
+			for await (const event of adapter.streamEvents(handle)) {
+				events.push(event);
+			}
+
+			const costEvents = events.filter((e) => e.type === "cost_update");
+			expect(costEvents.length).toBeGreaterThanOrEqual(1);
+			const lastCostEvent = costEvents[costEvents.length - 1];
+			if (lastCostEvent.type === "cost_update") {
+				expect(lastCostEvent.totalCost).toBe(0.0045);
+			}
+		});
+
+		it("yields pre_compaction events from compact_boundary messages", async () => {
+			const messages: SDKMessage[] = [
+				mockAssistantMessage(100, 50, "Working..."),
+				mockCompactBoundaryMessage(150000),
+				mockAssistantMessage(50, 25, "Continuing..."),
+			];
+			const mockQuery = createMockQuery(messages);
+			const queryFn = vi.fn(() => mockQuery);
+
+			const adapter = new ClaudeAgentSdkAdapter({ queryFn });
+			const handle = await adapter.startSession(TEST_CONFIG);
+
+			const events: HarnessEvent[] = [];
+			for await (const event of adapter.streamEvents(handle)) {
+				events.push(event);
+			}
+
+			const preCompactionEvents = events.filter((e) => e.type === "pre_compaction");
+			expect(preCompactionEvents).toHaveLength(1);
+			if (preCompactionEvents[0].type === "pre_compaction") {
+				expect(preCompactionEvents[0].contextTokens).toBe(150000);
+				expect(preCompactionEvents[0].maxTokens).toBeGreaterThan(0);
+			}
+		});
+
+		it("handles full session lifecycle: start → stream → stop", async () => {
+			const messages: SDKMessage[] = [
+				mockAssistantMessage(100, 50, "Hello, I'll help you."),
+				mockAssistantMessage(80, 40, undefined, {
+					name: "Bash",
+					input: { command: "ls" },
+				}),
+				mockResultMessage(0.003),
+			];
+			const mockQuery = createMockQuery(messages);
+			const queryFn = vi.fn(() => mockQuery);
+
+			const adapter = new ClaudeAgentSdkAdapter({ queryFn });
+			const handle = await adapter.startSession(TEST_CONFIG);
+
+			const events: HarnessEvent[] = [];
+			for await (const event of adapter.streamEvents(handle)) {
+				events.push(event);
+			}
+
+			expect(events.length).toBeGreaterThan(0);
+
+			const eventTypes = new Set(events.map((e) => e.type));
+			expect(eventTypes.has("token_usage")).toBe(true);
+			expect(eventTypes.has("completion")).toBe(true);
+			expect(eventTypes.has("tool_call")).toBe(true);
+			expect(eventTypes.has("cost_update")).toBe(true);
+
+			const result = await adapter.stopSession(handle);
+			expect(result.outcome).toBe("completed");
+			expect(result.totalCost).toBe(0.003);
+			expect(result.totalTokens).toBeGreaterThan(0);
+		});
+
+		it("yields error event when stream throws", async () => {
+			async function* errorStream(): AsyncGenerator<SDKMessage, void> {
+				yield mockAssistantMessage(50, 25, "Starting...");
+				throw new Error("Connection lost");
+			}
+
+			const gen = errorStream();
+			const mockQuery = gen as unknown as Query;
+			mockQuery.interrupt = vi.fn(async () => {});
+			mockQuery.close = vi.fn();
+			mockQuery.getContextUsage = vi.fn(async () => ({
+				categories: [],
+				totalTokens: 0,
+				maxTokens: 200000,
+				rawMaxTokens: 200000,
+				percentage: 0,
+				gridRows: [],
+			}));
+			mockQuery.setPermissionMode = vi.fn(async () => {});
+			mockQuery.setModel = vi.fn(async () => {});
+			mockQuery.setMaxThinkingTokens = vi.fn(async () => {});
+			mockQuery.applyFlagSettings = vi.fn(async () => {});
+			mockQuery.initializationResult = vi.fn(
+				async () => ({}) as ReturnType<Query["initializationResult"]>,
+			);
+			mockQuery.supportedCommands = vi.fn(async () => []);
+			mockQuery.supportedModels = vi.fn(async () => []);
+			mockQuery.supportedAgents = vi.fn(async () => []);
+			mockQuery.mcpServerStatus = vi.fn(async () => []);
+			mockQuery.reloadPlugins = vi.fn(async () => ({}) as ReturnType<Query["reloadPlugins"]>);
+			mockQuery.accountInfo = vi.fn(async () => ({}) as ReturnType<Query["accountInfo"]>);
+			mockQuery.rewindFiles = vi.fn(async () => ({}) as ReturnType<Query["rewindFiles"]>);
+			mockQuery.reconnectMcpServer = vi.fn(async () => {});
+			mockQuery.toggleMcpServer = vi.fn(async () => {});
+			mockQuery.setMcpServers = vi.fn(async () => ({}) as ReturnType<Query["setMcpServers"]>);
+			mockQuery.streamInput = vi.fn(async () => {});
+			mockQuery.stopTask = vi.fn(async () => {});
+
+			const queryFn = vi.fn(() => mockQuery);
+
+			const adapter = new ClaudeAgentSdkAdapter({ queryFn });
+			const handle = await adapter.startSession(TEST_CONFIG);
+
+			const events: HarnessEvent[] = [];
+			for await (const event of adapter.streamEvents(handle)) {
+				events.push(event);
+			}
+
+			const errorEvents = events.filter((e) => e.type === "error");
+			expect(errorEvents).toHaveLength(1);
+			if (errorEvents[0].type === "error") {
+				expect(errorEvents[0].message).toBe("Connection lost");
+			}
+		});
+
+		it("throws for unknown session handle", async () => {
+			const adapter = new ClaudeAgentSdkAdapter();
+			const fakeHandle = { sessionId: "nonexistent" };
+
+			const collectEvents = async (): Promise<HarnessEvent[]> => {
+				const events: HarnessEvent[] = [];
+				for await (const event of adapter.streamEvents(fakeHandle)) {
+					events.push(event);
+				}
+				return events;
+			};
+
+			await expect(collectEvents()).rejects.toThrow("Unknown session");
+		});
+	});
+
+	describe("stopSession", () => {
+		it("returns session result with accumulated totals", async () => {
+			const messages: SDKMessage[] = [
+				mockAssistantMessage(100, 50, "Done"),
+				mockResultMessage(0.005),
+			];
+			const mockQuery = createMockQuery(messages);
+			const queryFn = vi.fn(() => mockQuery);
+
+			const adapter = new ClaudeAgentSdkAdapter({ queryFn });
+			const handle = await adapter.startSession(TEST_CONFIG);
+
+			// Consume events to accumulate totals
+			for await (const _event of adapter.streamEvents(handle)) {
+				// consume
+			}
+
+			const result = await adapter.stopSession(handle);
+			expect(result.outcome).toBe("completed");
+			expect(result.totalCost).toBe(0.005);
+			// 100 input + 50 output from assistant message
+			expect(result.totalTokens).toBe(100 + 50);
+		});
+
+		it("throws for unknown session handle", async () => {
+			const adapter = new ClaudeAgentSdkAdapter();
+			const fakeHandle = { sessionId: "nonexistent" };
+
+			await expect(adapter.stopSession(fakeHandle)).rejects.toThrow("Unknown session");
+		});
+	});
+
+	describe("getCapabilities", () => {
+		it("returns expected capabilities", () => {
+			const adapter = new ClaudeAgentSdkAdapter();
+			const caps = adapter.getCapabilities();
+
+			expect(caps).toEqual({
+				preCompactionTrigger: true,
+				subAgents: true,
+			});
+		});
+	});
+
+	describe("cost_update accuracy", () => {
+		it("cost_update from result matches SDK reported cost", async () => {
+			const sdkCost = 0.0123;
+			const messages: SDKMessage[] = [
+				mockAssistantMessage(500, 200, "Work done"),
+				mockResultMessage(sdkCost),
+			];
+			const mockQuery = createMockQuery(messages);
+			const queryFn = vi.fn(() => mockQuery);
+
+			const adapter = new ClaudeAgentSdkAdapter({ queryFn });
+			const handle = await adapter.startSession(TEST_CONFIG);
+
+			const events: HarnessEvent[] = [];
+			for await (const event of adapter.streamEvents(handle)) {
+				events.push(event);
+			}
+
+			const costEvents = events.filter((e) => e.type === "cost_update");
+			expect(costEvents.length).toBeGreaterThanOrEqual(1);
+
+			const lastCost = costEvents[costEvents.length - 1];
+			if (lastCost.type === "cost_update") {
+				// Within 10% of SDK reported cost
+				expect(lastCost.totalCost).toBeCloseTo(sdkCost, 4);
+				expect(Math.abs(lastCost.totalCost - sdkCost) / sdkCost).toBeLessThan(0.1);
+			}
+		});
+	});
+});
