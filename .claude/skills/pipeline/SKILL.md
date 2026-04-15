@@ -244,6 +244,7 @@ This output is consumed by `bin/pipeline` to decide whether to restart.
 
 ## Rules
 
+- **Never ask, always continue.** The pipeline runs autonomously. Never pause to ask the user for confirmation between steps or stories. Proceed through the full skill sequence (`/planning` → `/implement` → ... → `/retro`) without stopping. The only reasons to stop are: time limit, compaction, all done, all blocked, or a story that needs human input (which gets marked `blocked` with `needs_human: true` — then you skip it and continue other stories).
 - **Fresh agent per story.** Never reuse an agent across stories. Context pollution degrades quality.
 - **Dependency order is sacred.** Never start a story whose dependencies aren't done.
 - **Verify independently.** Always run validation yourself after the agent reports success. Trust but verify.
