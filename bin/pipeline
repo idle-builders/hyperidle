@@ -10,6 +10,9 @@
 # safe to kill Claude. It only kills between stories (when "idle"),
 # never mid-work (when "busy").
 #
+# Uses --permission-mode auto — Claude's AI classifier approves/denies
+# tool calls automatically. Safe for local development.
+#
 # Usage:
 #   bin/pipeline              # defaults to "all"
 #   bin/pipeline "A1 A2 A3"   # specific stories
@@ -17,9 +20,13 @@
 
 set -euo pipefail
 
+# Ensure we're at the repo root regardless of where the script is called from
+cd "$(git rev-parse --show-toplevel)" || exit 1
+
 TARGET="${1:-all}"
 PROGRESS_FILE=".claude/pipeline-progress.json"
 HEARTBEAT_FILE=".claude/pipeline-heartbeat"
+LOG_DIR=".claude/pipeline-logs"
 SOFT_TIMEOUT=2700         # 45 min — start checking heartbeat for safe kill
 HARD_TIMEOUT=7200         # 2 hr — absolute safety net, kill regardless
 COOLDOWN_SECONDS=10       # pause between restarts
@@ -36,6 +43,19 @@ warn() { echo -e "${YELLOW}[pipeline]${NC} $(date '+%H:%M:%S') $*"; }
 err() { echo -e "${RED}[pipeline]${NC} $(date '+%H:%M:%S') $*"; }
 info() { echo -e "${CYAN}[pipeline]${NC} $(date '+%H:%M:%S') $*"; }
 
+# Track claude PID for cleanup
+claude_pid=""
+
+cleanup() {
+  if [ -n "${claude_pid:-}" ] && kill -0 "$claude_pid" 2>/dev/null; then
+    warn "Caught signal — killing Claude process $claude_pid"
+    kill "$claude_pid" 2>/dev/null || true
+    wait "$claude_pid" 2>/dev/null || true
+  fi
+  rm -f "$HEARTBEAT_FILE"
+}
+trap cleanup EXIT INT TERM
+
 is_idle() {
   if [ ! -f "$HEARTBEAT_FILE" ]; then
     return 0  # no heartbeat file = not started yet = safe
@@ -51,10 +71,10 @@ check_progress() {
     return
   fi
 
-  python3 -c "
-import json, sys
+  PROGRESS_FILE="$PROGRESS_FILE" python3 -c "
+import json, os, sys
 try:
-    data = json.load(open('$PROGRESS_FILE'))
+    data = json.load(open(os.environ['PROGRESS_FILE']))
     stories = data.get('stories', [])
     if not stories:
         print('no_stories')
@@ -103,7 +123,7 @@ should_stop() {
       err "Blocked stories: $blocked_ids"
       if [ "$human_ids" != "none" ]; then
         echo ""
-        err "⚠️  HUMAN INPUT REQUIRED for: $human_ids"
+        err "HUMAN INPUT REQUIRED for: $human_ids"
         err "Review .claude/pipeline-progress.json for details on what's needed."
         err "To unblock: fix the issue, set story status to 'pending', restart pipeline."
       fi
@@ -137,6 +157,9 @@ show_progress() {
       local progress="${counts%%:*}"
       info "Progress: $progress stories complete (all remaining blocked — needs human input)"
       ;;
+    error:*|error)
+      err "Failed to read progress file: $status"
+      ;;
     no_progress|no_stories)
       info "No progress yet (first run)"
       ;;
@@ -145,8 +168,12 @@ show_progress() {
 
 run_session() {
   local session_num=$1
+  local log_file="$LOG_DIR/session-${session_num}.log"
+
   log "Starting session #$session_num"
   info "  Target: $TARGET"
+  info "  Log: $log_file"
+  info "  Permission mode: auto"
   info "  Skill self-exits at ~45min. Safe-kill polling starts at ${SOFT_TIMEOUT}s."
   echo ""
 
@@ -154,9 +181,13 @@ run_session() {
   echo "idle:$(date -u +%Y-%m-%dT%H:%M:%SZ)" > "$HEARTBEAT_FILE"
 
   # Launch claude in background so we can monitor
-  claude -p "/pipeline $TARGET" 2>&1 &
-  local claude_pid=$!
+  # --permission-mode auto: AI classifier approves/denies tool calls.
+  # Safe for local dev — blocks destructive ops, allows in-project edits.
+  claude -p --permission-mode auto "/pipeline $TARGET" \
+    > "$log_file" 2>&1 &
+  claude_pid=$!
   local start_time=$SECONDS
+  local last_log=$SECONDS
 
   # Monitor loop
   while kill -0 "$claude_pid" 2>/dev/null; do
@@ -167,6 +198,7 @@ run_session() {
       err "Hard timeout (${HARD_TIMEOUT}s). Killing session."
       kill "$claude_pid" 2>/dev/null || true
       wait "$claude_pid" 2>/dev/null || true
+      claude_pid=""
       return
     fi
 
@@ -176,10 +208,12 @@ run_session() {
         warn "Soft timeout (${SOFT_TIMEOUT}s) + idle. Ending session for fresh context."
         kill "$claude_pid" 2>/dev/null || true
         wait "$claude_pid" 2>/dev/null || true
+        claude_pid=""
         return
       fi
-      # Busy — log and keep waiting
-      if (( elapsed % 60 < 5 )); then  # log roughly every minute
+      # Busy — log roughly every minute
+      if (( SECONDS - last_log >= 60 )); then
+        last_log=$SECONDS
         local busy_story
         busy_story=$(cat "$HEARTBEAT_FILE" 2>/dev/null || echo "unknown")
         info "Past soft timeout but agent is $busy_story — waiting for idle..."
@@ -191,6 +225,7 @@ run_session() {
 
   # Claude exited on its own
   wait "$claude_pid" 2>/dev/null || true
+  claude_pid=""
   log "Session ended on its own."
 }
 
@@ -201,6 +236,8 @@ log "═════════════════════════
 log "Target: $TARGET"
 log "Progress: $PROGRESS_FILE"
 log "Heartbeat: $HEARTBEAT_FILE"
+log "Logs: $LOG_DIR/"
+log "Permission: auto (AI classifier)"
 log "Soft timeout: ${SOFT_TIMEOUT}s (kills when idle)"
 log "Hard timeout: ${HARD_TIMEOUT}s (kills regardless)"
 log ""
@@ -209,6 +246,9 @@ log "Progress persists between sessions."
 log "Press Ctrl+C to stop between sessions."
 log "═══════════════════════════════════════"
 echo ""
+
+# Ensure log directory exists
+mkdir -p "$LOG_DIR"
 
 iteration=0
 while true; do
@@ -238,7 +278,5 @@ echo ""
 log "═══════════════════════════════════════"
 log "  Pipeline finished after $iteration session(s)"
 show_progress
+log "  Session logs: $LOG_DIR/"
 log "═══════════════════════════════════════"
-
-# Cleanup heartbeat
-rm -f "$HEARTBEAT_FILE"
