@@ -42,3 +42,13 @@ export { EventBus } from "./event-bus.js";
 
 export { encode, decode } from "./toon-codec.js";
 export { ToonParseError } from "./toon-errors.js";
+
+export {
+	InvalidTransitionError,
+	CapacityExceededError,
+	CostCapExceededError,
+	ConcurrencyLimitError,
+	ActiveRoutinesError,
+	MissingCredentialError,
+	VersionConflictError,
+} from "./errors.js";
