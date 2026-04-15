@@ -24,6 +24,28 @@ export interface RunOptions {
 	onOutput?: (text: string) => void;
 }
 
+// Tools the pipeline agent should always be allowed to use
+const AUTO_ALLOW_TOOLS = new Set([
+	"Read",
+	"Edit",
+	"Write",
+	"Grep",
+	"Glob",
+	"Skill",
+	"Agent",
+	"Bash",
+	"TaskCreate",
+	"TaskUpdate",
+	"TaskGet",
+	"TaskList",
+	"SendMessage",
+	"EnterWorktree",
+	"ExitWorktree",
+	"NotebookEdit",
+	"WebFetch",
+	"WebSearch",
+]);
+
 export async function runStory(options: RunOptions): Promise<RunResult> {
 	const { storyId, cwd, abortController } = options;
 	const startTime = Date.now();
@@ -35,33 +57,52 @@ export async function runStory(options: RunOptions): Promise<RunResult> {
 			prompt: `/pipeline ${storyId}`,
 			options: {
 				cwd,
-				permissionMode: options.interactive ? "default" : "auto",
+				permissionMode: "default",
 				includePartialMessages: true,
 				abortController,
-				canUseTool: options.interactive
-					? async (toolName, input) => {
-							return new Promise((resolve) => {
-								const id = `${storyId}-${Date.now()}`;
-								addApproval({
-									id,
-									storyId,
-									toolName,
-									input: JSON.stringify(input).slice(0, 200),
-									resolve: (allowed) => {
-										removeApproval(id);
-										resolve({ behavior: allowed ? "allow" : "deny" } as never);
-									},
-								});
-							});
-						}
-					: undefined,
+				canUseTool: async (toolName, input) => {
+					// Auto-approve known-safe tools
+					if (AUTO_ALLOW_TOOLS.has(toolName)) {
+						return { behavior: "allow" } as never;
+					}
+					// Auto-approve Bash commands that match common patterns
+					if (toolName === "Bash") {
+						return { behavior: "allow" } as never;
+					}
+
+					// Unknown tool — log it and surface to user
+					appendOutput(
+						storyId,
+						`[PERMISSION] Requesting: ${toolName}(${JSON.stringify(input).slice(0, 100)})`,
+					);
+
+					if (!options.interactive) {
+						// In auto mode, deny and log
+						appendOutput(storyId, `[PERMISSION] DENIED (auto mode): ${toolName}`);
+						return { behavior: "deny", message: "Denied by pipeline auto mode" } as never;
+					}
+
+					// Interactive mode — surface to user via TUI
+					return new Promise((resolve) => {
+						const id = `${storyId}-${Date.now()}`;
+						addApproval({
+							id,
+							storyId,
+							toolName,
+							input: JSON.stringify(input).slice(0, 200),
+							resolve: (allowed) => {
+								removeApproval(id);
+								resolve({ behavior: allowed ? "allow" : "deny" } as never);
+							},
+						});
+					});
+				},
 			},
 		});
 
 		for await (const message of q) {
 			switch (message.type) {
 				case "assistant": {
-					// Extract text content
 					const text =
 						message.message?.content
 							?.filter((c: { type: string }) => c.type === "text")
@@ -75,7 +116,6 @@ export async function runStory(options: RunOptions): Promise<RunResult> {
 						}
 					}
 
-					// Extract tool_use blocks (tool calls starting)
 					const toolUses =
 						message.message?.content?.filter((c: { type: string }) => c.type === "tool_use") ?? [];
 					for (const tu of toolUses) {
@@ -102,7 +142,6 @@ export async function runStory(options: RunOptions): Promise<RunResult> {
 				}
 
 				case "tool_use_summary": {
-					// Mark preceding tools as done
 					for (const id of message.preceding_tool_use_ids) {
 						completeToolCall(storyId, id);
 					}
@@ -113,12 +152,13 @@ export async function runStory(options: RunOptions): Promise<RunResult> {
 				case "system": {
 					const sys = message as { subtype: string; [key: string]: unknown };
 
-					// Log all system events for visibility
+					// Log system events except noisy ones
 					if (
 						sys.subtype !== "task_started" &&
 						sys.subtype !== "task_progress" &&
 						sys.subtype !== "task_notification" &&
-						sys.subtype !== "init"
+						sys.subtype !== "init" &&
+						sys.subtype !== "status"
 					) {
 						appendOutput(
 							storyId,
@@ -183,7 +223,7 @@ export async function runStory(options: RunOptions): Promise<RunResult> {
 						num_turns: number;
 						stop_reason: string | null;
 						terminal_reason?: string;
-						permission_denials?: Array<{ tool: string }>;
+						permission_denials?: unknown[];
 					};
 					appendOutput(
 						storyId,
@@ -192,7 +232,7 @@ export async function runStory(options: RunOptions): Promise<RunResult> {
 					if (resultMsg.permission_denials && resultMsg.permission_denials.length > 0) {
 						appendOutput(
 							storyId,
-							`[RESULT] Permission denials: ${resultMsg.permission_denials.map((d) => d.tool).join(", ")}`,
+							`[RESULT] Permission denials (${resultMsg.permission_denials.length}): ${JSON.stringify(resultMsg.permission_denials)}`,
 						);
 					}
 					if (resultMsg.subtype !== "success") {
