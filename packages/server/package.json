@@ -1,0 +1,18 @@
+{
+	"name": "@hyperidle/server",
+	"version": "0.0.1",
+	"private": true,
+	"type": "module",
+	"exports": {
+		".": "./src/index.ts",
+		"./test-utils": "./src/test-utils.ts"
+	},
+	"scripts": {
+		"check": "tsc --noEmit",
+		"dev": "bun run --hot src/index.ts"
+	},
+	"dependencies": {
+		"hono": "^4.7.0",
+		"@hyperidle/shared": "workspace:*"
+	}
+}

@@ -1,0 +1,22 @@
+{
+	"name": "hyperidle",
+	"private": true,
+	"workspaces": ["packages/*"],
+	"scripts": {
+		"dev": "concurrently --names server,web --prefix-colors blue,green \"bun run --filter @hyperidle/server dev\" \"bun run --filter @hyperidle/web dev\"",
+		"test": "vitest run",
+		"test:coverage": "vitest run --coverage",
+		"check": "tsc --noEmit -p tsconfig.json",
+		"lint": "biome check .",
+		"lint:fix": "biome check --write .",
+		"db:generate": "bun run --filter @hyperidle/db generate",
+		"db:migrate": "bun run --filter @hyperidle/db migrate"
+	},
+	"devDependencies": {
+		"@biomejs/biome": "^1.9.0",
+		"@vitest/coverage-v8": "^3.1.0",
+		"concurrently": "^9.1.0",
+		"typescript": "^5.7.0",
+		"vitest": "^3.1.0"
+	}
+}
