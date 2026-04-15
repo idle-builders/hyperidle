@@ -39,3 +39,6 @@ export type {
 } from "./events.js";
 
 export { EventBus } from "./event-bus.js";
+
+export { encode, decode } from "./toon-codec.js";
+export { ToonParseError } from "./toon-errors.js";
