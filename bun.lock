@@ -51,6 +51,7 @@
       "name": "@hyperidle/server",
       "version": "0.0.1",
       "dependencies": {
+        "@anthropic-ai/claude-agent-sdk": "^0.2.109",
         "@hyperidle/db": "workspace:*",
         "@hyperidle/shared": "workspace:*",
         "drizzle-orm": "^0.38.0",
