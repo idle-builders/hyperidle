@@ -24,27 +24,7 @@ export interface RunOptions {
 	onOutput?: (text: string) => void;
 }
 
-// Tools the pipeline agent should always be allowed to use
-const AUTO_ALLOW_TOOLS = new Set([
-	"Read",
-	"Edit",
-	"Write",
-	"Grep",
-	"Glob",
-	"Skill",
-	"Agent",
-	"Bash",
-	"TaskCreate",
-	"TaskUpdate",
-	"TaskGet",
-	"TaskList",
-	"SendMessage",
-	"EnterWorktree",
-	"ExitWorktree",
-	"NotebookEdit",
-	"WebFetch",
-	"WebSearch",
-]);
+const IN_DOCKER = process.env.HYPERIDLE_DOCKER === "1";
 
 export async function runStory(options: RunOptions): Promise<RunResult> {
 	const { storyId, cwd, abortController } = options;
@@ -57,46 +37,38 @@ export async function runStory(options: RunOptions): Promise<RunResult> {
 			prompt: `/pipeline ${storyId}`,
 			options: {
 				cwd,
-				permissionMode: "default",
+				permissionMode: IN_DOCKER ? "bypassPermissions" : "default",
+				allowDangerouslySkipPermissions: IN_DOCKER,
+				maxTurns: 10000,
 				includePartialMessages: true,
 				abortController,
-				canUseTool: async (toolName, input) => {
-					// Auto-approve known-safe tools
-					if (AUTO_ALLOW_TOOLS.has(toolName)) {
-						return { behavior: "allow" } as never;
-					}
-					// Auto-approve Bash commands that match common patterns
-					if (toolName === "Bash") {
-						return { behavior: "allow" } as never;
-					}
+				canUseTool: IN_DOCKER
+					? undefined
+					: async (toolName: string, input: unknown) => {
+							appendOutput(
+								storyId,
+								`[PERMISSION] Requesting: ${toolName}(${JSON.stringify(input).slice(0, 100)})`,
+							);
 
-					// Unknown tool — log it and surface to user
-					appendOutput(
-						storyId,
-						`[PERMISSION] Requesting: ${toolName}(${JSON.stringify(input).slice(0, 100)})`,
-					);
+							if (!options.interactive) {
+								appendOutput(storyId, `[PERMISSION] DENIED (auto mode): ${toolName}`);
+								return { behavior: "deny", message: "Denied by pipeline auto mode" } as never;
+							}
 
-					if (!options.interactive) {
-						// In auto mode, deny and log
-						appendOutput(storyId, `[PERMISSION] DENIED (auto mode): ${toolName}`);
-						return { behavior: "deny", message: "Denied by pipeline auto mode" } as never;
-					}
-
-					// Interactive mode — surface to user via TUI
-					return new Promise((resolve) => {
-						const id = `${storyId}-${Date.now()}`;
-						addApproval({
-							id,
-							storyId,
-							toolName,
-							input: JSON.stringify(input).slice(0, 200),
-							resolve: (allowed) => {
-								removeApproval(id);
-								resolve({ behavior: allowed ? "allow" : "deny" } as never);
-							},
-						});
-					});
-				},
+							return new Promise((resolve) => {
+								const id = `${storyId}-${Date.now()}`;
+								addApproval({
+									id,
+									storyId,
+									toolName,
+									input: JSON.stringify(input).slice(0, 200),
+									resolve: (allowed) => {
+										removeApproval(id);
+										resolve({ behavior: allowed ? "allow" : "deny" } as never);
+									},
+								});
+							});
+						},
 			},
 		});
 
@@ -152,7 +124,6 @@ export async function runStory(options: RunOptions): Promise<RunResult> {
 				case "system": {
 					const sys = message as { subtype: string; [key: string]: unknown };
 
-					// Log system events except noisy ones
 					if (
 						sys.subtype !== "task_started" &&
 						sys.subtype !== "task_progress" &&
@@ -257,7 +228,7 @@ export async function runStory(options: RunOptions): Promise<RunResult> {
 			error: "Session ended without result",
 		};
 	} catch (err) {
-		const errorMsg = err instanceof Error ? err.message : String(err);
+		const errorMsg = err instanceof Error ? `${err.message}\n${err.stack}` : String(err);
 		appendOutput(storyId, `ERROR: ${errorMsg}`);
 		return {
 			success: false,

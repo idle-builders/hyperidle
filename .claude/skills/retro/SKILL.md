@@ -19,8 +19,8 @@ This is a lightweight step. You do NOT change skills. You do NOT change process.
 Collect the raw facts about what happened:
 
 - **Git log:** What was committed? How many commits? Any reverts or fixups?
-- **Attempts:** How many tries did this story/task take? Check `.claude/pipeline-progress.json`.
-- **Session logs:** Scan `.claude/pipeline-logs/` for errors, retries, permission denials, timeouts.
+- **Attempts:** How many tries did this story/task take? Check `.pipeline/progress.json`.
+- **Session logs:** Scan `.pipeline/logs/` for errors, retries, permission denials, timeouts.
 - **Test results:** Any tests that were hard to write, kept failing, or had to be rewritten?
 - **Blockers:** Was anything blocked? Why? Was human input needed?
 
@@ -28,7 +28,7 @@ Collect the raw facts about what happened:
 
 ## Step 2 — Record observations
 
-Append to `.claude/retro-log.jsonl` (create if it doesn't exist). Each observation is one JSON line:
+Append to `.pipeline/retro-log.jsonl` (create if it doesn't exist). Each observation is one JSON line:
 
 ```json
 {"date": "2026-04-15", "story": "A1", "type": "friction", "observation": "Planning step missed that the API route needed auth middleware — caused a rework cycle in implementation", "severity": "medium", "tags": ["planning", "auth", "rework"]}

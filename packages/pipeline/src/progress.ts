@@ -1,7 +1,8 @@
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { dirname } from "node:path";
 import type { PipelineState, Story, StoryProgress } from "./types.js";
 
-const PROGRESS_PATH = ".claude/pipeline-progress.json";
+const PROGRESS_PATH = ".pipeline/progress.json";
 
 export function initProgress(target: string, stories: Story[]): PipelineState {
 	const existing = loadProgress();
@@ -40,6 +41,7 @@ export function loadProgress(): PipelineState | null {
 
 export function saveProgress(state: PipelineState): void {
 	state.lastSessionAt = new Date().toISOString();
+	mkdirSync(dirname(PROGRESS_PATH), { recursive: true });
 	writeFileSync(PROGRESS_PATH, JSON.stringify(state, null, "\t"));
 }
 
@@ -59,6 +61,7 @@ function makeStoryProgress(story: Story): StoryProgress {
 		id: story.id,
 		title: story.title,
 		status: "pending",
+		currentStep: null,
 		branch: null,
 		worktree: null,
 		sessionId: null,

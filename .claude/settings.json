@@ -104,13 +104,6 @@
 			"Read(./secrets/**)"
 		]
 	},
-	"defaultMode": "auto",
-  	"autoMode": {
-		"allow": [
-			"All file edits and writes in this project are safe to execute without confirmation",
-			"All Read, Edit, and Write tool calls are pre-approved"
-		]
-	},
 	"includeGitInstructions": false,
 	"plansDirectory": "./plans",
 	"hooks": {

@@ -54,7 +54,7 @@ Before any work is complete: `bun run check` (zero type errors) + `bun run lint`
 ## Workflow
 
 **Multi-story development:**
-- **`bin/pipeline [target]`** — External heartbeat script that invokes `/pipeline` with fresh Claude sessions. Restarts every hour or on crash. Progress persists in `.claude/pipeline-progress.json`. Usage: `bin/pipeline all`, `bin/pipeline A`, `bin/pipeline "A1 A2 A3"`.
+- **`bin/pipeline [target]`** — External heartbeat script that invokes `/pipeline` with fresh Claude sessions. Restarts every hour or on crash. Progress persists in `.pipeline/progress.json`. Usage: `bin/pipeline all`, `bin/pipeline A`, `bin/pipeline "A1 A2 A3"`.
 - **`/pipeline <stories or track>`** — Meta-orchestrator: spawns agent teams for parallel independent stories, falls back to sequential subagents for dependent stories. Creates branches/PRs, self-merges, tracks progress.
 
 **Single-story development:**
