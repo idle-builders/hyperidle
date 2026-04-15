@@ -18,6 +18,7 @@ export {
 	factorySettings,
 	knowledgeItems,
 	knowledgeEditLog,
+	knowledgeConflicts,
 	fileLeases,
 	// Types
 	type Product,
@@ -52,6 +53,8 @@ export {
 	type NewKnowledgeEditLogEntry,
 	type FileLease,
 	type NewFileLease,
+	type KnowledgeConflict,
+	type NewKnowledgeConflict,
 } from "./schema.js";
 export * as schema from "./schema.js";
 export * as pgSchema from "./schema.pg.js";
