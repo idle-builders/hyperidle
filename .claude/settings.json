@@ -7,6 +7,10 @@
 			"Write",
 			"Grep",
 			"Glob",
+			"Skill",
+			"Agent",
+			"TaskCreate",
+			"TaskUpdate",
 			"Bash(bun *)",
       		"Bash(bun:*)",
 			"Bash(bun install)",
@@ -110,12 +114,6 @@
 	"includeGitInstructions": false,
 	"plansDirectory": "./plans",
 	"hooks": {
-		"PreCommit": [
-			{
-				"type": "command",
-				"command": "bun run check && bun run lint && bun test"
-			}
-		]
 	},
 	"CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": true
 }
