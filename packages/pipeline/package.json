@@ -4,7 +4,7 @@
 	"private": true,
 	"type": "module",
 	"exports": {
-		".": "./src/index.ts"
+		".": "./src/index.tsx"
 	},
 	"scripts": {
 		"check": "tsc --noEmit",
@@ -13,6 +13,11 @@
 	"dependencies": {
 		"@anthropic-ai/claude-agent-sdk": "^0.2.0",
 		"@hyperidle/shared": "workspace:*",
+		"ink": "^6.0.0",
+		"react": "^19.0.0",
 		"yaml": "^2.7.0"
+	},
+	"devDependencies": {
+		"@types/react": "^19.0.0"
 	}
 }

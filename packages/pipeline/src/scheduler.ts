@@ -2,6 +2,7 @@ import { createLogger } from "@hyperidle/shared";
 import { filterStories, getReadyStories, loadManifest, validateDependencies } from "./manifest.js";
 import { initProgress, loadProgress, updateStory } from "./progress.js";
 import { runStory } from "./runner.js";
+import { appendOutput, initFeed, setStories, updateFeedStatus } from "./store.js";
 import type { PipelineOptions, PipelineState, Story } from "./types.js";
 import {
 	cleanOrphanedWorktrees,
@@ -13,7 +14,6 @@ import {
 const log = createLogger({ pkg: "pipeline" });
 const MAX_ATTEMPTS = 3;
 
-// Mutex for serializing merges to main
 let merging = false;
 async function withMergeLock<T>(fn: () => Promise<T>): Promise<T> {
 	while (merging) {
@@ -31,7 +31,6 @@ export async function runPipeline(options: PipelineOptions): Promise<void> {
 	const { target, concurrency, cwd } = options;
 	const manifestPath = `${cwd}/docs/pipeline-manifest.yaml`;
 
-	// Load and validate manifest
 	const allStories = loadManifest(manifestPath);
 	const stories = filterStories(allStories, target);
 
@@ -47,15 +46,12 @@ export async function runPipeline(options: PipelineOptions): Promise<void> {
 		return;
 	}
 
-	// Initialize progress (merges with existing)
 	const state = initProgress(target, stories);
-
-	// Clean up orphaned worktrees from previous crashed sessions
 	cleanOrphanedWorktrees(cwd);
 
-	log.info(`Pipeline starting: ${stories.length} stories, concurrency=${concurrency}`);
+	// Publish stories to the UI store
+	setStories(state.stories);
 
-	// Include done stories from the full progress file (dependencies outside target)
 	const fullProgress = loadProgress();
 	const done = new Set([
 		...state.stories.filter((s) => s.status === "done").map((s) => s.id),
@@ -70,15 +66,10 @@ export async function runPipeline(options: PipelineOptions): Promise<void> {
 	const activeJobs = new Map<string, Promise<void>>();
 
 	while (true) {
-		// Get stories ready to run (deps met, not done/blocked/in-progress)
 		const ready = getReadyStories(stories, done, inProgress, blocked);
 
-		// If nothing is running and nothing is ready, we're done
-		if (activeJobs.size === 0 && ready.length === 0) {
-			break;
-		}
+		if (activeJobs.size === 0 && ready.length === 0) break;
 
-		// Launch stories up to concurrency limit
 		while (activeJobs.size < concurrency && ready.length > 0) {
 			const story = ready.shift();
 			if (!story) break;
@@ -86,41 +77,24 @@ export async function runPipeline(options: PipelineOptions): Promise<void> {
 
 			const job = processStory(story, state, options, done, inProgress, blocked);
 			activeJobs.set(story.id, job);
-
-			// When job finishes, remove from active
 			job.then(() => activeJobs.delete(story.id));
 		}
 
-		// Wait for at least one job to finish
 		if (activeJobs.size > 0) {
 			await Promise.race(activeJobs.values());
 		}
 	}
 
-	// Final summary
 	const doneCount = state.stories.filter((s) => s.status === "done" && targetIds.has(s.id)).length;
 	const blockedCount = state.stories.filter(
 		(s) => (s.status === "blocked" || s.status === "failed") && targetIds.has(s.id),
 	).length;
 	const totalCost = state.stories.reduce((sum, s) => sum + s.cost, 0);
 
-	log.info("═══════════════════════════════════════");
-	log.info(`Pipeline complete: ${doneCount}/${stories.length} done, ${blockedCount} blocked`);
-	log.info(`Total cost: $${totalCost.toFixed(4)}`);
-
-	if (blockedCount > 0) {
-		const blockedStories = state.stories.filter(
-			(s) => (s.status === "blocked" || s.status === "failed") && targetIds.has(s.id),
-		);
-		log.warn("BLOCKED STORIES:");
-		for (const s of blockedStories) {
-			log.warn(`  ${s.id}: ${s.blockedReason ?? s.error ?? "unknown"}`);
-			if (s.needsHuman) {
-				log.warn("    NEEDS HUMAN INPUT");
-			}
-		}
-	}
-	log.info("═══════════════════════════════════════");
+	appendOutput(
+		"_summary",
+		`Pipeline complete: ${doneCount}/${stories.length} done, ${blockedCount} blocked, $${totalCost.toFixed(4)}`,
+	);
 }
 
 async function processStory(
@@ -134,33 +108,26 @@ async function processStory(
 	const { cwd, interactive } = options;
 	const branchName = `feat/${story.id.toLowerCase()}-${slugify(story.title)}`;
 
-	log.info(`[${story.id}] Starting: ${story.title}`);
+	initFeed(story.id);
+	appendOutput(story.id, `Starting: ${story.title}`);
 	updateStory(state, story.id, {
 		status: "in_progress",
 		startedAt: new Date().toISOString(),
 	});
+	setStories(state.stories);
 
 	let worktreePath: string | null = null;
 
 	try {
-		// Create worktree
+		appendOutput(story.id, "Creating worktree...");
 		worktreePath = createWorktree(story.id, branchName, cwd);
 		updateStory(state, story.id, { worktree: worktreePath, branch: branchName });
-		log.info(`[${story.id}] Worktree ready at ${worktreePath}`);
+		appendOutput(story.id, "Worktree ready. Running agent...");
 
-		// Run the agent
 		const result = await runStory({
 			storyId: story.id,
 			cwd: worktreePath,
 			interactive,
-			onOutput: (id, text) => {
-				// Stream output with prefix
-				for (const line of text.split("\n")) {
-					if (line.trim()) {
-						process.stdout.write(`[${id}] ${line}\n`);
-					}
-				}
-			},
 		});
 
 		updateStory(state, story.id, {
@@ -170,9 +137,8 @@ async function processStory(
 		});
 
 		if (result.success) {
-			// Merge back to main (serialized)
 			await withMergeLock(async () => {
-				log.info(`[${story.id}] Merging to main...`);
+				appendOutput(story.id, "Merging to main...");
 				mergeWorktree(story.id, branchName, cwd);
 			});
 
@@ -180,16 +146,20 @@ async function processStory(
 				status: "done",
 				completedAt: new Date().toISOString(),
 			});
+			updateFeedStatus(story.id, "done", result.cost);
 			done.add(story.id);
-			log.info(`[${story.id}] ✓ Done ($${result.cost.toFixed(4)})`);
+			appendOutput(story.id, `Done! Cost: $${result.cost.toFixed(4)}`);
 		} else {
-			handleFailure(story, state, result.error, done, inProgress, blocked, cwd, worktreePath);
+			appendOutput(story.id, `Failed: ${result.error}`);
+			handleFailure(story, state, result.error, blocked, cwd, worktreePath);
 		}
 	} catch (err) {
 		const errorMsg = err instanceof Error ? err.message : String(err);
-		handleFailure(story, state, errorMsg, done, inProgress, blocked, cwd, worktreePath);
+		appendOutput(story.id, `Error: ${errorMsg}`);
+		handleFailure(story, state, errorMsg, blocked, cwd, worktreePath);
 	} finally {
 		inProgress.delete(story.id);
+		setStories(state.stories);
 	}
 }
 
@@ -197,8 +167,6 @@ function handleFailure(
 	story: Story,
 	state: PipelineState,
 	error: string | null,
-	_done: Set<string>,
-	_inProgress: Set<string>,
 	blocked: Set<string>,
 	cwd: string,
 	worktreePath: string | null,
@@ -206,6 +174,7 @@ function handleFailure(
 	const storyProgress = state.stories.find((s) => s.id === story.id);
 	const attempts = (storyProgress?.attempts ?? 0) + 1;
 
+	// Clean up worktree on failure
 	if (worktreePath) {
 		try {
 			removeWorktree(story.id, cwd);
@@ -222,15 +191,15 @@ function handleFailure(
 			blockedReason: `Failed after ${attempts} attempts: ${error}`,
 			needsHuman: true,
 		});
+		updateFeedStatus(story.id, "blocked");
 		blocked.add(story.id);
-		log.error(`[${story.id}] ✗ Blocked after ${attempts} attempts: ${error}`);
 	} else {
 		updateStory(state, story.id, {
 			status: "pending",
 			attempts,
 			error,
 		});
-		log.warn(`[${story.id}] ✗ Attempt ${attempts} failed, will retry: ${error}`);
+		updateFeedStatus(story.id, "pending");
 	}
 }
 

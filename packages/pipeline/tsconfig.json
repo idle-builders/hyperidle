@@ -3,8 +3,12 @@
 	"compilerOptions": {
 		"outDir": "dist",
 		"rootDir": "src",
+		"jsx": "react-jsx",
 		"noUnusedLocals": false,
-		"noUnusedParameters": false
+		"noUnusedParameters": false,
+		"composite": false,
+		"declaration": false,
+		"declarationMap": false
 	},
 	"include": ["src"],
 	"references": [{ "path": "../shared" }]

@@ -1,5 +1,5 @@
 import { query } from "@anthropic-ai/claude-agent-sdk";
-import type { AgentStatus } from "./types.js";
+import { addApproval, appendOutput, removeApproval } from "./store.js";
 
 export interface RunResult {
 	success: boolean;
@@ -7,24 +7,20 @@ export interface RunResult {
 	cost: number;
 	durationMs: number;
 	error: string | null;
-	output: string;
 }
 
 export interface RunOptions {
 	storyId: string;
 	cwd: string;
 	interactive: boolean;
-	onStatus?: (status: AgentStatus) => void;
-	onOutput?: (storyId: string, text: string) => void;
 	abortController?: AbortController;
 }
 
 export async function runStory(options: RunOptions): Promise<RunResult> {
-	const { storyId, cwd, onOutput, abortController } = options;
+	const { storyId, cwd, abortController } = options;
 	const startTime = Date.now();
 	let sessionId: string | null = null;
 	let totalCost = 0;
-	const outputChunks: string[] = [];
 
 	try {
 		const q = query({
@@ -34,6 +30,23 @@ export async function runStory(options: RunOptions): Promise<RunResult> {
 				permissionMode: options.interactive ? "default" : "auto",
 				includePartialMessages: true,
 				abortController,
+				canUseTool: options.interactive
+					? async (toolName, input) => {
+							return new Promise((resolve) => {
+								const id = `${storyId}-${Date.now()}`;
+								addApproval({
+									id,
+									storyId,
+									toolName,
+									input: JSON.stringify(input).slice(0, 200),
+									resolve: (allowed) => {
+										removeApproval(id);
+										resolve({ behavior: allowed ? "allow" : "deny" } as never);
+									},
+								});
+							});
+						}
+					: undefined,
 			},
 		});
 
@@ -45,10 +58,7 @@ export async function runStory(options: RunOptions): Promise<RunResult> {
 							?.filter((c: { type: string }) => c.type === "text")
 							.map((c: { type: string; text?: string }) => c.text ?? "")
 							.join("") ?? "";
-					if (text) {
-						outputChunks.push(text);
-						onOutput?.(storyId, text);
-					}
+					if (text) appendOutput(storyId, text);
 					break;
 				}
 
@@ -56,24 +66,12 @@ export async function runStory(options: RunOptions): Promise<RunResult> {
 					sessionId = message.session_id;
 					totalCost = message.total_cost_usd;
 
-					if (message.subtype === "success") {
-						return {
-							success: true,
-							sessionId,
-							cost: totalCost,
-							durationMs: Date.now() - startTime,
-							error: null,
-							output: outputChunks.join(""),
-						};
-					}
-
 					return {
-						success: false,
+						success: message.subtype === "success",
 						sessionId,
 						cost: totalCost,
 						durationMs: Date.now() - startTime,
-						error: "result" in message ? String(message.result) : "Unknown error",
-						output: outputChunks.join(""),
+						error: message.subtype === "success" ? null : String(message.result),
 					};
 				}
 			}
@@ -85,16 +83,16 @@ export async function runStory(options: RunOptions): Promise<RunResult> {
 			cost: totalCost,
 			durationMs: Date.now() - startTime,
 			error: "Session ended without result",
-			output: outputChunks.join(""),
 		};
 	} catch (err) {
+		const errorMsg = err instanceof Error ? err.message : String(err);
+		appendOutput(storyId, `ERROR: ${errorMsg}`);
 		return {
 			success: false,
 			sessionId,
 			cost: totalCost,
 			durationMs: Date.now() - startTime,
-			error: err instanceof Error ? err.message : String(err),
-			output: outputChunks.join(""),
+			error: errorMsg,
 		};
 	}
 }
