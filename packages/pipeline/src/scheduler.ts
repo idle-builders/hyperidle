@@ -75,7 +75,9 @@ export async function runPipeline(options: PipelineOptions): Promise<void> {
 			const stream = queue.shift();
 			if (!stream) break;
 
-			const prompt = stream.storyIds.join(" ");
+			// Only send stories that aren't done — don't make the agent re-check completed work
+			const pendingIds = stream.storyIds.filter((id) => !done.has(id));
+			const prompt = pendingIds.join(" ");
 			const job = runStream(stream, prompt, state, options, done);
 			running.set(stream.name, job);
 			job.then(() => running.delete(stream.name));
