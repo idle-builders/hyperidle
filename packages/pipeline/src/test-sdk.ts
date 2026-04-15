@@ -15,11 +15,18 @@ for await (const message of q) {
 			?.filter((c: { type: string }) => c.type === "text")
 			.map((c: { type: string; text?: string }) => c.text ?? "")
 			.join("");
+		// biome-ignore lint/suspicious/noConsole: CLI test script
 		if (text) console.log(text);
 	} else if (message.type === "result") {
-		const r = message as { subtype: string; total_cost_usd: number; permission_denials?: unknown[] };
+		const r = message as {
+			subtype: string;
+			total_cost_usd: number;
+			permission_denials?: unknown[];
+		};
+		// biome-ignore lint/suspicious/noConsole: CLI test script
 		console.log(`\nResult: ${r.subtype} | Cost: $${r.total_cost_usd.toFixed(4)}`);
 		if (r.permission_denials?.length) {
+			// biome-ignore lint/suspicious/noConsole: CLI test script
 			console.log("Permission denials:", JSON.stringify(r.permission_denials, null, 2));
 		}
 	}
