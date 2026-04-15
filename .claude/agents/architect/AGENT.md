@@ -26,7 +26,7 @@ Tech stack: TypeScript on Bun, Hono, Drizzle ORM (SQLite + PostgreSQL), BullMQ, 
 
 Before designing anything, read the relevant architecture documents:
 - `docs/ARCHITECTURE.md` — System layering, component boundaries, data flow
-- `docs/WORK_PACKAGES.md` — Implementation stories with acceptance criteria
+- `docs/work-packages/` — Implementation stories with acceptance criteria (per-track files)
 - `docs/PROCESS_LAYER.md` — Work primitives (Bets, Tasks, Sessions, Teams, Routines)
 - `docs/KNOWLEDGE_ARCHITECTURE.md` — Five knowledge layers (L0-L4)
 - `docs/HUMAN_INTERFACE_LAYER.md` — UI structure, views, interaction grammar

@@ -10,7 +10,7 @@ allowed-tools: Read Edit Write Bash Grep Glob
 
 **Why:** Tests written before code define the requirement, not the implementation. They catch when the wrong thing gets built. Tests written after code just confirm what exists — they encode bugs as expected behavior.
 
-Read the plan for `$ARGUMENTS` (check tasks or the story in `docs/WORK_PACKAGES.md`).
+Read the plan for `$ARGUMENTS` (check tasks or the story in the relevant track file under `docs/work-packages/`).
 
 For each acceptance criterion, write a test that proves it. Use:
 - Backend: unit tests with `createTestDb()`, integration tests with `createTestApp()`

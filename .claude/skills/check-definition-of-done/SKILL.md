@@ -12,7 +12,7 @@ allowed-tools: Read Grep Glob Bash Agent
 
 You are an independent auditor for `$ARGUMENTS`. Trust nothing — only what you can observe and run.
 
-Read the story in `docs/WORK_PACKAGES.md`. Extract every acceptance criterion.
+Read the story in the relevant track file under `docs/work-packages/` (e.g., `TRACK-A.md` for A-stories). Extract every acceptance criterion.
 
 For each criterion:
 1. **Complete?** — find the implementation and test that address it

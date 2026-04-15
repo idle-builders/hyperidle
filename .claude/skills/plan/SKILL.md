@@ -10,7 +10,7 @@ allowed-tools: Read Grep Glob Agent
 
 **Why:** A clear plan prevents wasted implementation time. Without planning, developers build the wrong thing or miss edge cases. The adversary catches errors before they become expensive rework.
 
-Read the story `$ARGUMENTS` in `docs/WORK_PACKAGES.md` and relevant sections of `docs/ARCHITECTURE.md`. Read existing code in affected packages.
+Read the story `$ARGUMENTS` in the relevant track file under `docs/work-packages/` (e.g., `TRACK-A.md` for A-stories) and relevant sections of `docs/ARCHITECTURE.md`. Read existing code in affected packages.
 
 Produce:
 1. Acceptance criteria — each with a specific verification method (see table below)
