@@ -18,3 +18,6 @@ export type {
 export { KNOWLEDGE_LAYERS } from "./types.js";
 
 export { createLogger, type Logger } from "./logger.js";
+
+export { encode, decode } from "./toon-codec.js";
+export { ToonParseError } from "./toon-errors.js";
