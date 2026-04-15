@@ -116,16 +116,24 @@ export function processWriteback(
 				break;
 			case "modify":
 				{
-					const conflicted = handleModify(config, change, manifest);
-					if (conflicted) {
+					const modifyResult = handleModify(config, change, manifest);
+					if (modifyResult === "conflict") {
 						result.conflicts++;
+						result.updated++;
+					} else if (modifyResult === "created") {
+						result.created++;
+					} else {
+						result.updated++;
 					}
-					result.updated++;
 				}
 				break;
 			case "delete":
-				handleDelete(config, change, manifest);
-				result.deleted++;
+				{
+					const deleted = handleDelete(config, change, manifest);
+					if (deleted) {
+						result.deleted++;
+					}
+				}
 				break;
 		}
 		result.processed++;
@@ -170,18 +178,18 @@ function handleCreate(config: WritebackConfig, change: WritebackChange, manifest
 	};
 }
 
-/** Handle a modified file in knowledge/. Returns true if conflict detected. */
+/** Handle a modified file in knowledge/. Returns outcome type. */
 function handleModify(
 	config: WritebackConfig,
 	change: WritebackChange,
 	manifest: Manifest,
-): boolean {
+): "updated" | "created" | "conflict" {
 	const existing = findItemByPath(manifest, change.relativePath);
 
 	if (!existing) {
 		// File exists on disk but not in manifest — treat as create
 		handleCreate(config, change, manifest);
-		return false;
+		return "created";
 	}
 
 	const body = fs.readFileSync(change.fullPath, "utf-8");
@@ -199,7 +207,7 @@ function handleModify(
 
 		// Update manifest version
 		manifest.items[existing.itemId].version = updated.version;
-		return false;
+		return "updated";
 	} catch (err) {
 		if (err instanceof VersionConflictError) {
 			// Create conflict record
@@ -221,18 +229,22 @@ function handleModify(
 			// Update manifest to current version so subsequent writes don't keep conflicting
 			manifest.items[existing.itemId].version = err.currentVersion;
 
-			return true;
+			return "conflict";
 		}
 		throw err;
 	}
 }
 
-/** Handle a deleted file — flag for facilitator review, don't auto-delete. */
-function handleDelete(config: WritebackConfig, change: WritebackChange, manifest: Manifest): void {
+/** Handle a deleted file — flag for facilitator review, don't auto-delete. Returns true if flagged. */
+function handleDelete(
+	config: WritebackConfig,
+	change: WritebackChange,
+	manifest: Manifest,
+): boolean {
 	const existing = findItemByPath(manifest, change.relativePath);
 
 	if (!existing) {
-		return; // Not tracked, nothing to do
+		return false; // Not tracked, nothing to do
 	}
 
 	// Create a review item flagging the deletion for facilitator
@@ -253,6 +265,8 @@ function handleDelete(config: WritebackConfig, change: WritebackChange, manifest
 
 	// Remove from manifest (file is gone)
 	delete manifest.items[existing.itemId];
+
+	return true;
 }
 
 /** Handle session notes update. */
