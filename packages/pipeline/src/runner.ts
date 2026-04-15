@@ -14,6 +14,7 @@ export interface RunOptions {
 	cwd: string;
 	interactive: boolean;
 	abortController?: AbortController;
+	onOutput?: (text: string) => void;
 }
 
 export async function runStory(options: RunOptions): Promise<RunResult> {
@@ -58,7 +59,10 @@ export async function runStory(options: RunOptions): Promise<RunResult> {
 							?.filter((c: { type: string }) => c.type === "text")
 							.map((c: { type: string; text?: string }) => c.text ?? "")
 							.join("") ?? "";
-					if (text) appendOutput(storyId, text);
+					if (text) {
+						appendOutput(storyId, text);
+						options.onOutput?.(text);
+					}
 					break;
 				}
 
