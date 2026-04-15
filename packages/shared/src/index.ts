@@ -52,3 +52,21 @@ export {
 	MissingCredentialError,
 	VersionConflictError,
 } from "./errors.js";
+
+export type {
+	HarnessAdapter,
+	HarnessCapabilities,
+	HarnessEvent,
+	HarnessEventType,
+	SessionConfig,
+	SessionHandle,
+	SessionResult,
+	TokenUsageEvent,
+	ToolCallEvent,
+	CompletionEvent,
+	ErrorEvent,
+	CostUpdateEvent,
+	PreCompactionEvent,
+} from "./harness/index.js";
+
+export { MockHarnessAdapter } from "./harness/index.js";
