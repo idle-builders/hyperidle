@@ -1,74 +1,35 @@
 ---
 name: retro
-description: "Use after a story or pipeline run to contribute observations to the retro log. Triggers: post-implementation, pipeline session complete, any agent finishing work."
+description: "Collect observations from all sources after a story or pipeline run. Observe, don't fix."
 argument-hint: "[story-id, 'last-session', or 'pipeline']"
 user-invocable: true
-allowed-tools: Read Write Grep Glob Bash
+allowed-tools: Read Write Grep Glob Bash Agent
 ---
 
-# Retro — Contribute Observations
+# Retro
 
-You are contributing observations from: **$ARGUMENTS**
+**Why:** Without recording what went well and what didn't, the same mistakes repeat every story. The retro log feeds the compound agent which identifies patterns and proposes process improvements. Observations compound — a single friction point noted three times becomes an actionable change.
 
-This is a lightweight step. You do NOT change skills. You do NOT change process. You observe and record. The compound agent reviews the retro log separately and decides when accumulated evidence warrants a change.
+Collect insights about `$ARGUMENTS` from every available source:
 
----
+1. **Pipeline progress** — read `.pipeline/progress.json` for attempts, step failures, blocked stories, cost
+2. **Git history** — `git log` for commits, reverts, fixups. How many commits? Any rework?
+3. **Lore** — `grep -r @lore` in changed files for decisions and workarounds captured during implementation
+4. **Test results** — any tests that were hard to write, kept failing, or had to be rewritten?
+5. **Agent sessions** — spawn an **Explore agent** to scan recent conversation artifacts, task outputs, and any `.pipeline/logs/` for errors, retries, permission denials, timeouts, and context compaction events
 
-## Step 1 — Gather evidence
-
-Collect the raw facts about what happened:
-
-- **Git log:** What was committed? How many commits? Any reverts or fixups?
-- **Attempts:** How many tries did this story/task take? Check `.pipeline/progress.json`.
-- **Session logs:** Scan `.pipeline/logs/` for errors, retries, permission denials, timeouts.
-- **Test results:** Any tests that were hard to write, kept failing, or had to be rewritten?
-- **Blockers:** Was anything blocked? Why? Was human input needed?
-
----
-
-## Step 2 — Record observations
-
-Append to `.pipeline/retro-log.jsonl` (create if it doesn't exist). Each observation is one JSON line:
+Append observations to `.pipeline/retro-log.jsonl` as one JSON line each:
 
 ```json
-{"date": "2026-04-15", "story": "A1", "type": "friction", "observation": "Planning step missed that the API route needed auth middleware — caused a rework cycle in implementation", "severity": "medium", "tags": ["planning", "auth", "rework"]}
+{"date": "2026-04-15", "story": "A1", "type": "friction|failure|gap|success|escalation", "observation": "specific sentence", "severity": "low|medium|high|critical", "tags": ["consistent", "tags"]}
 ```
 
-Fields:
-- **date**: ISO date
-- **story**: story ID or "pipeline" or "session-N"
-- **type**: one of `friction` (slowed work), `failure` (caused a retry/block), `gap` (missing instruction/skill), `success` (something worked well — worth preserving), `escalation` (needs human attention now)
-- **observation**: One clear sentence. What happened and why. Be specific — name the skill, the step, the file, the error.
-- **severity**: `low` (minor annoyance), `medium` (caused rework), `high` (caused a block or failure), `critical` (broke the pipeline)
-- **tags**: Short labels for pattern matching. Use consistent terms across retros so the compound agent can group them.
+Record successes too — they confirm what's working. If something is actively broken and will break the next story, record it as `escalation` with `critical` severity and output a warning.
 
-Record **every** notable observation, not just problems. Successes matter too — they confirm what's working and shouldn't be changed.
-
----
-
-## Step 3 — Flag escalations
-
-If you observed something that is **actively broken right now** and will break the next story too:
-
-1. Record it with `"type": "escalation"` and `"severity": "critical"`.
-2. Output a clear warning to the coordinator:
-
-```
-⚠️ ESCALATION: [one-line summary]
-Evidence: [what happened]
-Impact: [what will break next if this isn't fixed]
-Suggested fix: [specific change needed]
-```
-
-The coordinator (pipeline orchestrator or human) decides whether to act immediately. The retro itself does NOT make the change.
-
----
-
-## Rules
-
-- **Observe, don't fix.** Your job is to record what happened, not to change skills or process. That's the compound agent's job.
-- **Be specific.** "Tests were hard" is useless. "Test for API route /agents/:id required mocking the queue service which isn't documented anywhere" is actionable.
-- **One observation per line.** Don't bundle multiple issues into one entry.
-- **Tag consistently.** Check existing tags in the retro log and reuse them. New tags fragment pattern detection.
-- **Record successes.** If the planning step prevented a rework that would have happened before, record that. It protects the step from being removed in a future optimization.
-- **Escalate rarely.** Only for things that are actively broken and will definitely break the next story. Everything else compounds through the normal review cycle.
+**Rules:**
+- Observe, don't fix — recording is your job, changing process is the compound agent's job
+- Be specific — "tests were hard" is useless; "FK constraint test needed pragma setup not documented anywhere" is actionable
+- One observation per line — don't bundle multiple issues
+- Tag consistently — check existing tags in the retro log and reuse them
+- Record successes — they protect working practices from being removed in future optimization
+- Escalate rarely — only for things actively broken that will definitely break the next story
