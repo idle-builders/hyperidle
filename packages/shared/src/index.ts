@@ -39,3 +39,13 @@ export type {
 } from "./events.js";
 
 export { EventBus } from "./event-bus.js";
+
+export {
+	ActiveRoutinesError,
+	CapacityExceededError,
+	ConcurrencyLimitError,
+	CostCapExceededError,
+	InvalidTransitionError,
+	MissingCredentialError,
+	VersionConflictError,
+} from "./errors.js";
