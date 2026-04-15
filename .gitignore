@@ -1,4 +1,10 @@
 node_modules/
+dist/
+*.db
+coverage/
+playwright-report/
+test-results/
 .claude/pipeline-logs/
 .claude/pipeline-progress.json
 .claude/pipeline-heartbeat
+.env

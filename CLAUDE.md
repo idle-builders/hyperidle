@@ -30,7 +30,7 @@ Bun, TypeScript strict, Hono, Drizzle ORM (SQLite + PostgreSQL), React + Vite, T
 
 ## Commands
 
-`bun install`, `bun dev` (server 3001 + web 5173), `bun test`, `bun run check` (typecheck), `bun run lint`, `bun run lint:fix`, `bun run db:generate`, `bun run db:migrate`.
+`bun install`, `bun dev` (server 3001 + web 5173), `bun run test` (Vitest via package.json script — do NOT use bare `bun test` which invokes Bun's native runner), `bun run check` (typecheck), `bun run lint`, `bun run lint:fix`, `bun run db:generate`, `bun run db:migrate`.
 
 ---
 
@@ -47,7 +47,7 @@ If you cannot define how to verify a criterion, clarify the requirement before w
 
 ## Validation
 
-Before any work is complete: `bun run check` (zero type errors) + `bun run lint` (zero lint errors) + `bun test` (all green). Target 100% test coverage of new code including Playwright E2E tests for all user-facing features. Every change must be independently verifiable by agents — if it can't be proven with a test, it's not done.
+Before any work is complete: `bun run check` (zero type errors) + `bun run lint` (zero lint errors) + `bun run test` (all green). Target 100% test coverage of new code including Playwright E2E tests for all user-facing features. Every change must be independently verifiable by agents — if it can't be proven with a test, it's not done.
 
 ---
 
