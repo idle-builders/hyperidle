@@ -84,6 +84,15 @@ export interface NotificationEvent {
 	timestamp: number;
 }
 
+export interface ResponseRecordedEvent {
+	type: "response_recorded";
+	streamId: string;
+	responseId: string;
+	itemId: string;
+	decision: string;
+	timestamp: number;
+}
+
 /** Discriminated union of all domain events. */
 export type DomainEvent =
 	| TaskStateChangedEvent
@@ -94,7 +103,8 @@ export type DomainEvent =
 	| SessionEndedEvent
 	| CostCapWarningEvent
 	| CostCapBreachedEvent
-	| NotificationEvent;
+	| NotificationEvent
+	| ResponseRecordedEvent;
 
 /** All valid event type strings. */
 export type EventType = DomainEvent["type"];
