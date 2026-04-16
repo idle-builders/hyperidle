@@ -16,6 +16,7 @@ import { createSessionRoutes } from "./routes/sessions-routes.js";
 import { createStatusRoutes } from "./routes/status.js";
 import { createTaskRoutes } from "./routes/tasks.js";
 import { registerTestRoutes } from "./routes/test-routes.js";
+import { registerPolicyEngine } from "./services/policy-engine.js";
 import { registerSessionReviewCreator } from "./services/session-review-creator.js";
 
 interface AppOptions {
@@ -72,6 +73,7 @@ function createApp(options?: AppOptions): Hono {
 		api.route("/sessions", createSessionRoutes(options.db, eventBus));
 		api.route("/status", createStatusRoutes(options.db));
 		registerSessionReviewCreator(options.db, eventBus);
+		registerPolicyEngine(options.db, eventBus);
 	}
 
 	// 404 handler for unknown /api routes

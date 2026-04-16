@@ -3,6 +3,7 @@ import { eq } from "drizzle-orm";
 import { Hono } from "hono";
 import { z } from "zod";
 import { validateBody } from "../middleware/validate.js";
+import { getDailyDigest } from "../services/daily-digest.js";
 
 const updateSettingSchema = z.object({
 	key: z.string().min(1),
@@ -77,6 +78,12 @@ export function createStatusRoutes(db: HyperIdleDb): Hono {
 			.get();
 
 		return c.json(updated);
+	});
+
+	// GET /digest — Daily digest of queued items from past 24h
+	router.get("/digest", (c) => {
+		const digest = getDailyDigest(db);
+		return c.json(digest);
 	});
 
 	return router;
