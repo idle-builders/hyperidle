@@ -113,6 +113,8 @@ describe("registerSessionReviewCreator", () => {
 			agentId: "agent-1",
 			taskId: "task-1",
 			timestamp: Date.now(),
+			costDelta: 0,
+			outcome: "completed",
 		};
 		eventBus.emit(event);
 
@@ -163,6 +165,8 @@ describe("registerSessionReviewCreator", () => {
 			agentId: "agent-1",
 			taskId: "task-low",
 			timestamp: Date.now(),
+			costDelta: 0,
+			outcome: "completed",
 		};
 		eventBus.emit(event);
 
@@ -208,6 +212,8 @@ describe("registerSessionReviewCreator", () => {
 			agentId: "agent-1",
 			taskId: "task-no-thread",
 			timestamp: Date.now(),
+			costDelta: 0,
+			outcome: "completed",
 		};
 		eventBus.emit(event);
 
@@ -266,6 +272,8 @@ describe("registerSessionReviewCreator", () => {
 			agentId: "agent-1",
 			taskId: "task-unsub",
 			timestamp: Date.now(),
+			costDelta: 0,
+			outcome: "completed",
 		};
 		eventBus.emit(event);
 
