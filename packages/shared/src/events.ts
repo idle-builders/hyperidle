@@ -58,6 +58,7 @@ export interface CostCapWarningEvent {
 	type: "cost_cap_warning";
 	streamId: string;
 	level: "warning" | "critical";
+	capLevel: "agent" | "team" | "factory";
 	entityId: string;
 	spend: number;
 	cap: number;
@@ -68,6 +69,7 @@ export interface CostCapBreachedEvent {
 	type: "cost_cap_breached";
 	streamId: string;
 	level: "hard" | "soft";
+	capLevel: "agent" | "team" | "factory";
 	entityId: string;
 	spend: number;
 	cap: number;
