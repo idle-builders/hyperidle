@@ -8,6 +8,7 @@ import { errorHandler } from "./middleware/error-handler.js";
 import { createBetRoutes } from "./routes/bets.js";
 import { health } from "./routes/health.js";
 import { createKnowledgeRoutes } from "./routes/knowledge.js";
+import { createRailRoutes } from "./routes/rail.js";
 import { createTaskRoutes } from "./routes/tasks.js";
 import { registerTestRoutes } from "./routes/test-routes.js";
 
@@ -58,6 +59,7 @@ function createApp(options?: AppOptions): Hono {
 		api.route("/bets", createBetRoutes(options.db, eventBus));
 		api.route("/tasks", createTaskRoutes(options.db, eventBus));
 		api.route("/knowledge", createKnowledgeRoutes(options.db, eventBus));
+		api.route("/rail", createRailRoutes(options.db, eventBus));
 	}
 
 	// 404 handler for unknown /api routes
