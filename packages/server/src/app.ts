@@ -5,11 +5,15 @@ import { Hono } from "hono";
 import { authMiddleware } from "./middleware/auth.js";
 import { corsMiddleware } from "./middleware/cors.js";
 import { errorHandler } from "./middleware/error-handler.js";
+import { createAgentRoutes } from "./routes/agents.js";
 import { createBetRoutes } from "./routes/bets.js";
 import { createConversationRoutes } from "./routes/conversations.js";
 import { health } from "./routes/health.js";
 import { createKnowledgeRoutes } from "./routes/knowledge.js";
 import { createRailRoutes } from "./routes/rail.js";
+import { createRoutineRoutes } from "./routes/routines-routes.js";
+import { createSessionRoutes } from "./routes/sessions-routes.js";
+import { createStatusRoutes } from "./routes/status.js";
 import { createTaskRoutes } from "./routes/tasks.js";
 import { registerTestRoutes } from "./routes/test-routes.js";
 import { registerSessionReviewCreator } from "./services/session-review-creator.js";
@@ -63,6 +67,10 @@ function createApp(options?: AppOptions): Hono {
 		api.route("/knowledge", createKnowledgeRoutes(options.db, eventBus));
 		api.route("/rail", createRailRoutes(options.db, eventBus));
 		api.route("/conversations", createConversationRoutes(options.db, eventBus));
+		api.route("/agents", createAgentRoutes(options.db, eventBus));
+		api.route("/routines", createRoutineRoutes(options.db, eventBus));
+		api.route("/sessions", createSessionRoutes(options.db, eventBus));
+		api.route("/status", createStatusRoutes(options.db));
 		registerSessionReviewCreator(options.db, eventBus);
 	}
 
