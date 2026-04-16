@@ -36,6 +36,7 @@ export type {
 	ItemCreatedEvent,
 	SessionStartedEvent,
 	SessionEndedEvent,
+	SessionOutcome,
 	CostCapWarningEvent,
 	CostCapBreachedEvent,
 	NotificationEvent,

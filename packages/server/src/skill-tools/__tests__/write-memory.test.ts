@@ -22,6 +22,7 @@ function makeContext(db: HyperIdleDb): ToolContext {
 		sessionId: "session-1",
 		taskId: "task-1",
 		workspacePath: path.join(os.tmpdir(), `hi-d4-writemem-${Date.now()}`),
+		watcher: { stop: (): void => {} },
 	};
 }
 

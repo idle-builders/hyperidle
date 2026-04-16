@@ -1,5 +1,4 @@
 import { agents } from "@hyperidle/db";
-import type { FileWatcher } from "@hyperidle/fabric";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { type HandoffMetadata, type HandoffParams, handoff } from "../services/handoff-protocol.js";
@@ -22,13 +21,6 @@ const handoffToInputSchema = z.object({
 });
 
 type HandoffToInput = z.infer<typeof handoffToInputSchema>;
-
-/**
- * No-op file watcher used to satisfy the SessionContext shape required by the
- * handoff protocol. The real watcher is owned by the session provisioner
- * (D5) and will be passed in via a richer context once that lands.
- */
-const NOOP_WATCHER: FileWatcher = { stop: (): void => {} };
 
 async function handler(args: HandoffToInput, ctx: ToolContext): Promise<ToolResult> {
 	const parsed = handoffToInputSchema.safeParse(args);
@@ -64,7 +56,7 @@ async function handler(args: HandoffToInput, ctx: ToolContext): Promise<ToolResu
 		agentId: ctx.agentId,
 		taskId: ctx.taskId,
 		workspacePath: ctx.workspacePath,
-		watcher: NOOP_WATCHER,
+		watcher: ctx.watcher,
 	};
 
 	const params: HandoffParams = {
