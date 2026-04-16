@@ -1,17 +1,25 @@
-import { API_ERROR_CODES } from "@hyperidle/shared";
-import type { ApiErrorResponse, HealthResponse } from "@hyperidle/shared";
+import type { HyperIdleDb } from "@hyperidle/db";
+import { API_ERROR_CODES, EventBus } from "@hyperidle/shared";
+import type { ApiErrorResponse } from "@hyperidle/shared";
 import { Hono } from "hono";
 import { authMiddleware } from "./middleware/auth.js";
 import { corsMiddleware } from "./middleware/cors.js";
 import { errorHandler } from "./middleware/error-handler.js";
+import { createBetRoutes } from "./routes/bets.js";
 import { health } from "./routes/health.js";
+import { createTaskRoutes } from "./routes/tasks.js";
 import { registerTestRoutes } from "./routes/test-routes.js";
+
+interface AppOptions {
+	db?: HyperIdleDb;
+	eventBus?: EventBus;
+}
 
 /**
  * Create the Hono application.
  * WebSocket routes are registered separately via registerWsRoute() in Bun-only context.
  */
-function createApp(): Hono {
+function createApp(options?: AppOptions): Hono {
 	const app = new Hono();
 
 	// Backward-compat: /health without auth
@@ -28,8 +36,8 @@ function createApp(): Hono {
 
 	// Public: /api/health (no auth required)
 	api.get("/health", (c) => {
-		const response: HealthResponse = {
-			status: "ok",
+		const response = {
+			status: "ok" as const,
 			timestamp: new Date().toISOString(),
 		};
 		return c.json(response);
@@ -41,6 +49,13 @@ function createApp(): Hono {
 	// Register test routes only in non-production environments
 	if (process.env.NODE_ENV !== "production") {
 		registerTestRoutes(api);
+	}
+
+	// Register work endpoints if db is provided
+	if (options?.db) {
+		const eventBus = options.eventBus ?? new EventBus();
+		api.route("/bets", createBetRoutes(options.db, eventBus));
+		api.route("/tasks", createTaskRoutes(options.db, eventBus));
 	}
 
 	// 404 handler for unknown /api routes
@@ -73,3 +88,4 @@ function createApp(): Hono {
 const app = createApp();
 
 export { app, createApp };
+export type { AppOptions };
