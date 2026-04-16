@@ -1,3 +1,6 @@
+export type { ApiErrorResponse, ApiErrorCode } from "./api-types.js";
+export { API_ERROR_CODES } from "./api-types.js";
+
 export type {
 	AgentRole,
 	AgentStatus,
