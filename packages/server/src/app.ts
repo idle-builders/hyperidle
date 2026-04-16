@@ -6,11 +6,13 @@ import { authMiddleware } from "./middleware/auth.js";
 import { corsMiddleware } from "./middleware/cors.js";
 import { errorHandler } from "./middleware/error-handler.js";
 import { createBetRoutes } from "./routes/bets.js";
+import { createConversationRoutes } from "./routes/conversations.js";
 import { health } from "./routes/health.js";
 import { createKnowledgeRoutes } from "./routes/knowledge.js";
 import { createRailRoutes } from "./routes/rail.js";
 import { createTaskRoutes } from "./routes/tasks.js";
 import { registerTestRoutes } from "./routes/test-routes.js";
+import { registerSessionReviewCreator } from "./services/session-review-creator.js";
 
 interface AppOptions {
 	db?: HyperIdleDb;
@@ -60,6 +62,8 @@ function createApp(options?: AppOptions): Hono {
 		api.route("/tasks", createTaskRoutes(options.db, eventBus));
 		api.route("/knowledge", createKnowledgeRoutes(options.db, eventBus));
 		api.route("/rail", createRailRoutes(options.db, eventBus));
+		api.route("/conversations", createConversationRoutes(options.db, eventBus));
+		registerSessionReviewCreator(options.db, eventBus);
 	}
 
 	// 404 handler for unknown /api routes

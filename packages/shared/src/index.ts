@@ -39,6 +39,7 @@ export type {
 	CostCapWarningEvent,
 	CostCapBreachedEvent,
 	NotificationEvent,
+	ResponseRecordedEvent,
 } from "./events.js";
 
 export { EventBus } from "./event-bus.js";
