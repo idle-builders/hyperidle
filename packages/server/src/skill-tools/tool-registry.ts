@@ -1,4 +1,5 @@
 import type { HyperIdleDb } from "@hyperidle/db";
+import type { FileWatcher } from "@hyperidle/fabric";
 import type { EventBus } from "@hyperidle/shared";
 import { z } from "zod";
 import { createItemTool } from "./create-item.js";
@@ -25,6 +26,7 @@ export interface ToolContext {
 	readonly sessionId: string;
 	readonly taskId: string;
 	readonly workspacePath: string;
+	readonly watcher: FileWatcher;
 }
 
 /**

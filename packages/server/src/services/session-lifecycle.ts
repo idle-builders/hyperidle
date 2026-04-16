@@ -34,6 +34,28 @@ export interface SessionContext {
 }
 
 /**
+ * Resolve the cost baseline used to compute `costDelta` on a session_ended
+ * event. If an explicit baseline is provided (e.g. the orchestrator captured
+ * it at session-insert time, before `recordCostAndCheck` mutated
+ * `sessions.cost`), use it. Otherwise fall back to reading the currently
+ * persisted cost — this preserves behavior for direct callers of
+ * `endSession`/`crashSession`.
+ */
+function resolveCostBaseline(
+	db: HyperIdleDb,
+	sessionId: string,
+	baselineCost: number | undefined,
+): number {
+	if (baselineCost !== undefined) return baselineCost;
+	const row = db
+		.select({ cost: sessions.cost })
+		.from(sessions)
+		.where(eq(sessions.id, sessionId))
+		.get();
+	return row?.cost ?? 0;
+}
+
+/**
  * Create a new agent session: check concurrency, set up workspace,
  * materialize knowledge, start file watcher, emit event.
  */
@@ -127,22 +149,27 @@ export async function endSession(
 	eventBus: EventBus,
 	context: SessionContext,
 	costInCents: number,
+	baselineCost?: number,
 ): Promise<void> {
 	// 1. Stop watcher (final pass/flush)
 	context.watcher.stop();
 
-	// 2. Update session row
+	// 2. Compute cost delta relative to the resolved baseline.
+	const costDelta = costInCents - resolveCostBaseline(db, context.sessionId, baselineCost);
+
+	// 3. Update session row
 	const now = new Date().toISOString();
 	db.update(sessions)
 		.set({
 			state: "done",
+			outcome: "completed",
 			cost: costInCents,
 			endedAt: now,
 		})
 		.where(eq(sessions.id, context.sessionId))
 		.run();
 
-	// 3. Emit session_ended event
+	// 4. Emit session_ended event
 	eventBus.emit({
 		type: "session_ended",
 		streamId: context.sessionId,
@@ -150,9 +177,11 @@ export async function endSession(
 		agentId: context.agentId,
 		taskId: context.taskId,
 		timestamp: Date.now(),
+		costDelta,
+		outcome: "completed",
 	});
 
-	// 4. Delete workspace directory
+	// 5. Delete workspace directory
 	if (fs.existsSync(context.workspacePath)) {
 		fs.rmSync(context.workspacePath, { recursive: true, force: true });
 	}
@@ -167,6 +196,7 @@ export async function crashSession(
 	eventBus: EventBus,
 	context: SessionContext,
 	costInCents: number,
+	baselineCost?: number,
 ): Promise<void> {
 	// 1. Try to stop watcher (may fail in crash scenario)
 	try {
@@ -175,7 +205,10 @@ export async function crashSession(
 		// Watcher may already be in a bad state during crash
 	}
 
-	// 2. Update session row
+	// 2. Compute cost delta relative to the resolved baseline.
+	const costDelta = costInCents - resolveCostBaseline(db, context.sessionId, baselineCost);
+
+	// 3. Update session row
 	const now = new Date().toISOString();
 	db.update(sessions)
 		.set({
@@ -187,7 +220,7 @@ export async function crashSession(
 		.where(eq(sessions.id, context.sessionId))
 		.run();
 
-	// 3. Emit session_ended event
+	// 4. Emit session_ended event
 	eventBus.emit({
 		type: "session_ended",
 		streamId: context.sessionId,
@@ -195,6 +228,8 @@ export async function crashSession(
 		agentId: context.agentId,
 		taskId: context.taskId,
 		timestamp: Date.now(),
+		costDelta,
+		outcome: "crashed",
 	});
 
 	// Note: Do NOT delete workspace on crash -- knowledge is preserved in DB

@@ -45,6 +45,8 @@ export interface SessionStartedEvent {
 	timestamp: number;
 }
 
+export type SessionOutcome = "completed" | "crashed" | "stopped";
+
 export interface SessionEndedEvent {
 	type: "session_ended";
 	streamId: string;
@@ -52,6 +54,10 @@ export interface SessionEndedEvent {
 	agentId: string;
 	taskId: string;
 	timestamp: number;
+	/** Cost (in cents) attributed to this session since last recorded value. */
+	costDelta: number;
+	/** Final disposition of the session. */
+	outcome: SessionOutcome;
 }
 
 export interface CostCapWarningEvent {
