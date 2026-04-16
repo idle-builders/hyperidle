@@ -7,6 +7,7 @@ import { corsMiddleware } from "./middleware/cors.js";
 import { errorHandler } from "./middleware/error-handler.js";
 import { createBetRoutes } from "./routes/bets.js";
 import { health } from "./routes/health.js";
+import { createKnowledgeRoutes } from "./routes/knowledge.js";
 import { createTaskRoutes } from "./routes/tasks.js";
 import { registerTestRoutes } from "./routes/test-routes.js";
 
@@ -56,6 +57,7 @@ function createApp(options?: AppOptions): Hono {
 		const eventBus = options.eventBus ?? new EventBus();
 		api.route("/bets", createBetRoutes(options.db, eventBus));
 		api.route("/tasks", createTaskRoutes(options.db, eventBus));
+		api.route("/knowledge", createKnowledgeRoutes(options.db, eventBus));
 	}
 
 	// 404 handler for unknown /api routes
