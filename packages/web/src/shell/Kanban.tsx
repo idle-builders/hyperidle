@@ -1,12 +1,13 @@
-// @lore Kanban uses four columns matching the TaskState subset: hold, in_progress, review, done.
-// Other TaskState values (proposed, accepted, blocked, killed) are not shown in this board.
-// If tasks with those states are passed, they are silently excluded.
+// @lore Kanban uses four columns matching UI_DESIGN.md Section 4 (line 100):
+// "Planned / Blocked / In Progress / Done". Tasks with proposed or accepted states
+// map to the "Planned" column. Tasks with hold, review, or killed states are excluded.
 import {
 	DndContext,
 	type DragEndEvent,
 	DragOverlay,
 	type DragStartEvent,
 	PointerSensor,
+	useDraggable,
 	useDroppable,
 	useSensor,
 	useSensors,
@@ -29,12 +30,22 @@ export interface KanbanProps {
 	onMoveTask: (taskId: string, targetState: KanbanColumnState) => void;
 }
 
-export type KanbanColumnState = "hold" | "in_progress" | "review" | "done";
+export type KanbanColumnState = "planned" | "blocked" | "in_progress" | "done";
+
+/** Maps TaskState values to their Kanban column. States not listed (hold, killed) are excluded. */
+const STATE_TO_COLUMN: Partial<Record<TaskState, KanbanColumnState>> = {
+	proposed: "planned",
+	accepted: "planned",
+	blocked: "blocked",
+	in_progress: "in_progress",
+	review: "in_progress",
+	done: "done",
+};
 
 const COLUMNS: { key: KanbanColumnState; label: string }[] = [
-	{ key: "hold", label: "Hold" },
+	{ key: "planned", label: "Planned" },
+	{ key: "blocked", label: "Blocked" },
 	{ key: "in_progress", label: "In Progress" },
-	{ key: "review", label: "Review" },
 	{ key: "done", label: "Done" },
 ];
 
@@ -58,6 +69,21 @@ function KanbanDropZone({
 	);
 }
 
+function DraggableTaskCard({ task }: { task: KanbanTask }): JSX.Element {
+	const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id: task.id });
+	return (
+		<div ref={setNodeRef} {...listeners} {...attributes} style={{ opacity: isDragging ? 0.4 : 1 }}>
+			<TaskCard
+				title={task.title}
+				owner={task.owner}
+				state={task.state}
+				cost={task.cost}
+				betTag={task.betTag}
+			/>
+		</div>
+	);
+}
+
 export function Kanban({ tasks, onMoveTask }: KanbanProps): JSX.Element {
 	const [activeId, setActiveId] = useState<string | null>(null);
 
@@ -65,14 +91,14 @@ export function Kanban({ tasks, onMoveTask }: KanbanProps): JSX.Element {
 
 	const tasksByColumn = useMemo(() => {
 		const grouped: Record<KanbanColumnState, KanbanTask[]> = {
-			hold: [],
+			planned: [],
+			blocked: [],
 			in_progress: [],
-			review: [],
 			done: [],
 		};
 		for (const task of tasks) {
-			const col = task.state as KanbanColumnState;
-			if (grouped[col]) {
+			const col = STATE_TO_COLUMN[task.state];
+			if (col) {
 				grouped[col].push(task);
 			}
 		}
@@ -91,7 +117,7 @@ export function Kanban({ tasks, onMoveTask }: KanbanProps): JSX.Element {
 		if (!over) return;
 
 		const overId = String(over.id);
-		const validColumns: KanbanColumnState[] = ["hold", "in_progress", "review", "done"];
+		const validColumns: KanbanColumnState[] = ["planned", "blocked", "in_progress", "done"];
 		if (validColumns.includes(overId as KanbanColumnState)) {
 			onMoveTask(String(active.id), overId as KanbanColumnState);
 		}
@@ -116,17 +142,7 @@ export function Kanban({ tasks, onMoveTask }: KanbanProps): JSX.Element {
 										No tasks in {col.label.toLowerCase()}
 									</div>
 								) : (
-									columnTasks.map((task) => (
-										<div key={task.id} data-draggable={task.id}>
-											<TaskCard
-												title={task.title}
-												owner={task.owner}
-												state={task.state}
-												cost={task.cost}
-												betTag={task.betTag}
-											/>
-										</div>
-									))
+									columnTasks.map((task) => <DraggableTaskCard key={task.id} task={task} />)
 								)}
 							</KanbanDropZone>
 						</div>

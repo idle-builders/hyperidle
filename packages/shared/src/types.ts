@@ -23,7 +23,8 @@ export type KnowledgeStatus =
 	| "validated"
 	| "active"
 	| "stale"
-	| "archived";
+	| "archived"
+	| "needs_human";
 
 export type KnowledgeFormat = "markdown" | "toon";
 
@@ -37,9 +38,18 @@ export type KnowledgeKind =
 	| "reflection"
 	| "focus";
 
-export type BetStatus = "shaped" | "committed" | "in_progress" | "shipped" | "killed";
+export type BetStatus =
+	| "shaped"
+	| "committed"
+	| "in_progress"
+	| "behind"
+	| "blocked"
+	| "paused"
+	| "review"
+	| "shipped"
+	| "killed";
 
-export type SessionState = "active" | "done" | "crashed";
+export type SessionState = "active" | "paused" | "done" | "crashed";
 
 export type ModelTier = "reasoning" | "workhorse" | "fast";
 

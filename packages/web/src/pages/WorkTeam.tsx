@@ -22,7 +22,7 @@ const INITIAL_TASKS: KanbanTask[] = [
 		id: "t2",
 		title: "Design signup form",
 		owner: "Dev Agent 2",
-		state: "hold" as TaskState,
+		state: "accepted" as TaskState,
 		cost: "$1.80",
 		betTag: "Auth",
 	},
@@ -46,7 +46,7 @@ const INITIAL_TASKS: KanbanTask[] = [
 		id: "t5",
 		title: "Rate limit middleware",
 		owner: "Dev Agent 1",
-		state: "hold" as TaskState,
+		state: "accepted" as TaskState,
 		cost: "$2.00",
 		betTag: "API",
 	},
@@ -83,6 +83,8 @@ export function WorkTeam(): JSX.Element {
 	const [tasks, setTasks] = useState<KanbanTask[]>(INITIAL_TASKS);
 	const [pitchSelectorOpen, setPitchSelectorOpen] = useState(false);
 	const [selectedPitchIds, setSelectedPitchIds] = useState<string[]>([]);
+	const [loading] = useState(false);
+	const [error] = useState<string | null>(null);
 
 	const handleMoveTask = useCallback((taskId: string, targetState: KanbanColumnState): void => {
 		setTasks((prev) =>
@@ -95,6 +97,30 @@ export function WorkTeam(): JSX.Element {
 			prev.includes(pitchId) ? prev.filter((id) => id !== pitchId) : [...prev, pitchId],
 		);
 	}, []);
+
+	if (loading) {
+		return (
+			<div className="flex flex-col gap-3 h-full" data-testid="work-team-page">
+				<div className="skeleton h-6 w-48" />
+				<div className="grid grid-cols-4 gap-4">
+					<div className="skeleton h-48" />
+					<div className="skeleton h-48" />
+					<div className="skeleton h-48" />
+					<div className="skeleton h-48" />
+				</div>
+			</div>
+		);
+	}
+
+	if (error) {
+		return (
+			<div className="flex flex-col gap-3 h-full" data-testid="work-team-page">
+				<div role="alert" className="alert alert-error text-sm">
+					{error}
+				</div>
+			</div>
+		);
+	}
 
 	return (
 		<div className="flex flex-col gap-3 h-full" data-testid="work-team-page">

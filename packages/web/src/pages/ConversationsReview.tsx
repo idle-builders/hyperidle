@@ -1,16 +1,13 @@
 /**
  * Conversations/Review page — composes ArtifactView + ReviewHeader from Tier 3.
- * Shows a list of review items; selecting one shows the artifact + verdict header.
+ * Shows the selected review item's artifact + verdict header.
+ * Thread selection is handled by the Submenu, not duplicated here.
  */
 import { type JSX, useCallback, useState } from "react";
-import { ThreadRow } from "../components/ThreadRow";
 import type { ArtifactViewProps } from "../shell/ArtifactView";
 import { ArtifactView } from "../shell/ArtifactView";
 import { ReviewHeader } from "../shell/ReviewHeader";
 import type { VerdictAction } from "../shell/ReviewHeader";
-
-const AVATAR_PLACEHOLDER =
-	"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32'%3E%3Crect width='32' height='32' fill='%23374151'/%3E%3C/svg%3E";
 
 interface MockReviewItem {
 	id: string;
@@ -68,12 +65,37 @@ const MOCK_REVIEWS: MockReviewItem[] = [
 
 export function ConversationsReview(): JSX.Element {
 	const [selectedId, setSelectedId] = useState<string>(MOCK_REVIEWS[0].id);
+	const [loading] = useState(false);
+	const [error] = useState<string | null>(null);
 
 	const selected = MOCK_REVIEWS.find((r) => r.id === selectedId) ?? MOCK_REVIEWS[0];
+
+	// Expose setSelectedId for parent Submenu integration
+	void setSelectedId;
 
 	const handleVerdict = useCallback((_action: VerdictAction): void => {
 		// Mock verdict — real API wiring deferred
 	}, []);
+
+	if (loading) {
+		return (
+			<div className="flex flex-col gap-3 h-full" data-testid="conversations-review-page">
+				<div className="skeleton h-12 w-full" />
+				<div className="skeleton h-32 w-full" />
+				<div className="skeleton h-4 w-3/4" />
+			</div>
+		);
+	}
+
+	if (error) {
+		return (
+			<div className="flex flex-col gap-3 h-full" data-testid="conversations-review-page">
+				<div role="alert" className="alert alert-error text-sm">
+					{error}
+				</div>
+			</div>
+		);
+	}
 
 	return (
 		<div className="flex flex-col gap-0 h-full" data-testid="conversations-review-page">
@@ -84,26 +106,8 @@ export function ConversationsReview(): JSX.Element {
 				}}
 				onVerdict={handleVerdict}
 			/>
-			<div className="flex flex-1 min-h-0">
-				{/* Thread list sidebar */}
-				<div className="w-72 border-r border-base-300 overflow-y-auto flex-shrink-0">
-					{MOCK_REVIEWS.map((review) => (
-						<ThreadRow
-							key={review.id}
-							avatarUrl={AVATAR_PLACEHOLDER}
-							title={review.title}
-							snippet={review.snippet}
-							timestamp={review.timestamp}
-							kind="review"
-							unread={review.id === "r1"}
-							onClick={() => setSelectedId(review.id)}
-						/>
-					))}
-				</div>
-				{/* Artifact view */}
-				<div className="flex-1 overflow-y-auto p-3">
-					<ArtifactView {...selected.artifact} />
-				</div>
+			<div className="flex-1 overflow-y-auto p-3">
+				<ArtifactView {...selected.artifact} />
 			</div>
 		</div>
 	);

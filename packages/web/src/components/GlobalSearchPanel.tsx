@@ -1,5 +1,5 @@
 import FocusTrap from "focus-trap-react";
-import { type JSX, useCallback, useEffect, useRef } from "react";
+import { type JSX, useCallback, useEffect, useMemo, useRef } from "react";
 import { useGlobalSearch } from "../hooks/useGlobalSearch";
 import { useKeyboardNavigation } from "../hooks/useKeyboardNavigation";
 import { BetCard } from "./BetCard";
@@ -53,16 +53,19 @@ export function GlobalSearchPanel({
 	}, [open, search]);
 
 	// Build flat item list for keyboard navigation
-	const flatItems: FlatItem[] = [];
-	for (const c of search.results.conversations) {
-		flatItems.push({ type: "conversation", id: c.id });
-	}
-	for (const w of search.results.work) {
-		flatItems.push({ type: "work", id: w.id });
-	}
-	for (const k of search.results.knowledge) {
-		flatItems.push({ type: "knowledge", id: k.id });
-	}
+	const flatItems = useMemo<FlatItem[]>(() => {
+		const items: FlatItem[] = [];
+		for (const c of search.results.conversations) {
+			items.push({ type: "conversation", id: c.id });
+		}
+		for (const w of search.results.work) {
+			items.push({ type: "work", id: w.id });
+		}
+		for (const k of search.results.knowledge) {
+			items.push({ type: "knowledge", id: k.id });
+		}
+		return items;
+	}, [search.results.conversations, search.results.work, search.results.knowledge]);
 
 	const flatItemsRef = useRef(flatItems);
 	flatItemsRef.current = flatItems;

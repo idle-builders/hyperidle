@@ -25,7 +25,11 @@ export interface RevisionLogEntry {
 const VALID_TRANSITIONS: Record<BetStatus, ReadonlySet<BetStatus>> = {
 	shaped: new Set(["committed", "killed"]),
 	committed: new Set(["in_progress", "shaped", "killed"]),
-	in_progress: new Set(["shipped", "killed"]),
+	in_progress: new Set(["behind", "blocked", "paused", "review", "shipped", "killed"]),
+	behind: new Set(["in_progress", "blocked", "paused", "killed"]),
+	blocked: new Set(["in_progress", "killed"]),
+	paused: new Set(["in_progress", "killed"]),
+	review: new Set(["shipped", "in_progress", "killed"]),
 	shipped: new Set(),
 	killed: new Set(),
 };
@@ -127,7 +131,12 @@ export async function transitionBet(
 			.run();
 	}
 
-	if (toState === "killed" && (fromState === "committed" || fromState === "in_progress")) {
+	if (
+		toState === "killed" &&
+		fromState !== "shaped" &&
+		fromState !== "shipped" &&
+		fromState !== "killed"
+	) {
 		db.update(teams)
 			.set({ activeBets: Math.max(0, team.activeBets - 1) })
 			.where(eq(teams.id, team.id))
