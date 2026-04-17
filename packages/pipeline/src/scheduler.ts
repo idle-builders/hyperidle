@@ -2,7 +2,7 @@ import { createLogger } from "@hyperidle/shared";
 import { filterStories, loadManifest, validateDependencies } from "./manifest.js";
 import { initProgress, loadProgress, updateStory } from "./progress.js";
 import { runStory } from "./runner.js";
-import { appendOutput, initFeed, setStories, updateFeedStatus } from "./store.js";
+import { appendOutput, initStream, setStories, updateFeedStatus } from "./store.js";
 import type { PipelineOptions, Story } from "./types.js";
 
 const log = createLogger({ pkg: "pipeline" });
@@ -114,15 +114,11 @@ async function runStream(
 	const { cwd, interactive } = options;
 	const streamLabel = `Stream ${stream.name}`;
 
-	// Initialize feeds for all stories in the stream
-	for (const id of stream.storyIds) {
-		if (!done.has(id)) initFeed(id);
-	}
+	// Initialize the stream feed (one feed per agent/stream, not per story)
+	const pendingStoryIds = stream.storyIds.filter((id) => !done.has(id));
+	initStream(stream.name, pendingStoryIds);
 
-	appendOutput(
-		stream.storyIds[0] ?? stream.name,
-		`${streamLabel}: starting ${stream.storyIds.length} stories`,
-	);
+	appendOutput(stream.name, `${streamLabel}: starting ${pendingStoryIds.length} stories`);
 
 	// Mark first pending story as in_progress
 	for (const id of stream.storyIds) {
@@ -151,14 +147,12 @@ async function runStream(
 		);
 
 		await runStory({
+			streamName: stream.name,
 			storyId: prompt,
 			cwd,
 			interactive,
 			onOutput: (text) => {
-				const activeStory = stream.storyIds.find(
-					(id) => state.stories.find((s) => s.id === id)?.status === "in_progress",
-				);
-				if (activeStory) appendOutput(activeStory, text);
+				appendOutput(stream.name, text);
 			},
 		});
 
@@ -176,15 +170,17 @@ async function runStream(
 					const existing = state.stories.find((s) => s.id === id);
 					if (existing) Object.assign(existing, agentStory);
 				}
-				updateFeedStatus(id, "done");
 				done.add(id);
 			}
 		}
+		// Update stream feed status based on story progress
+		setStories(state.stories);
 
 		// Check if all stories in this stream are done
 		const allDone = stream.storyIds.every((id) => done.has(id));
 		if (allDone) {
-			appendOutput(stream.storyIds[0] ?? stream.name, `${streamLabel}: all done!`);
+			updateFeedStatus(stream.name, "done");
+			appendOutput(stream.name, `${streamLabel}: all done!`);
 			break;
 		}
 
@@ -215,16 +211,16 @@ async function runStream(
 					blockedReason: `Story not completed after ${realAttempts} attempts where the agent made progress`,
 					needsHuman: true,
 				});
-				updateFeedStatus(id, "blocked");
 			}
+			updateFeedStatus(stream.name, "blocked");
 			appendOutput(
-				remaining[0] ?? stream.name,
+				stream.name,
 				`${streamLabel}: blocked after ${realAttempts} real attempts (${crashRetries} crash retries).`,
 			);
 		} else {
 			// Retry — re-mark first incomplete story as in_progress
 			appendOutput(
-				remaining[0] ?? stream.name,
+				stream.name,
 				`${streamLabel}: retrying. Real attempts: ${realAttempts}/${MAX_REAL_ATTEMPTS}, crash retries: ${crashRetries}/${MAX_CRASH_RETRIES}`,
 			);
 			for (const id of remaining) {

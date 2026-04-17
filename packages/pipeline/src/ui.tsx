@@ -4,7 +4,7 @@ import {
 	type PipelineStore,
 	getStore,
 	removeApproval,
-	setSelectedStory,
+	setSelectedStream,
 	subscribe,
 } from "./store.js";
 
@@ -42,24 +42,24 @@ export function PipelineApp(): React.JSX.Element {
 		};
 	}, []);
 
-	// Reset scroll when switching stories
-	const selectedStory = state.selectedStory;
-	// biome-ignore lint/correctness/useExhaustiveDependencies: need to trigger on story change
+	// Reset scroll when switching streams
+	const selectedStream = state.selectedStream;
+	// biome-ignore lint/correctness/useExhaustiveDependencies: need to trigger on stream change
 	useEffect(() => {
 		setScrollOffset(0);
 		setAutoScroll(true);
-	}, [selectedStory]);
+	}, [selectedStream]);
 
 	useInput((input, key) => {
-		const storyList = state.stories.map((s) => s.id);
-		const currentIdx = storyList.indexOf(state.selectedStory ?? "");
+		const streamList = state.streams.map((s) => s.name);
+		const currentIdx = streamList.indexOf(state.selectedStream ?? "");
 
 		if (input === "j" || key.downArrow) {
-			const next = storyList[currentIdx + 1];
-			if (next) setSelectedStory(next);
+			const next = streamList[currentIdx + 1];
+			if (next) setSelectedStream(next);
 		} else if (input === "k" || key.upArrow) {
-			const prev = storyList[currentIdx - 1];
-			if (prev) setSelectedStory(prev);
+			const prev = streamList[currentIdx - 1];
+			if (prev) setSelectedStream(prev);
 		} else if (key.pageDown || input === "n") {
 			setAutoScroll(false);
 			setScrollOffset((s) => s + 10);
@@ -67,7 +67,6 @@ export function PipelineApp(): React.JSX.Element {
 			setAutoScroll(false);
 			setScrollOffset((s) => Math.max(0, s - 10));
 		} else if (input === "e") {
-			// Jump to end / resume auto-scroll
 			setScrollOffset(0);
 			setAutoScroll(true);
 		} else if (input === "a" && state.approvals.length > 0) {
@@ -91,7 +90,7 @@ export function PipelineApp(): React.JSX.Element {
 	const mainWidth = cols - sidebarWidth - 1;
 	const contentHeight = rows - 4;
 
-	const selectedFeed = state.selectedStory ? state.feeds.get(state.selectedStory) : null;
+	const selectedFeed = state.selectedStream ? state.feeds.get(state.selectedStream) : null;
 
 	// Running agents pinned at bottom
 	const runningAgents = selectedFeed
@@ -121,6 +120,14 @@ export function PipelineApp(): React.JSX.Element {
 		(s) => s.status === "blocked" || s.status === "failed",
 	).length;
 
+	// Get stories for the selected stream
+	const selectedStreamInfo = state.streams.find((s) => s.name === state.selectedStream);
+	const streamStories = selectedStreamInfo
+		? selectedStreamInfo.storyIds
+				.map((id) => state.stories.find((s) => s.id === id))
+				.filter(Boolean)
+		: [];
+
 	return (
 		<Box flexDirection="column" width={cols} height={rows}>
 			{/* Header */}
@@ -141,18 +148,51 @@ export function PipelineApp(): React.JSX.Element {
 				{/* Sidebar */}
 				<Box flexDirection="column" width={sidebarWidth}>
 					<Text bold underline>
-						Stories
+						Agents
 					</Text>
-					{state.stories.map((story) => {
-						const icon = STATUS_ICONS[story.status] ?? " ";
-						const isSelected = story.id === state.selectedStory;
-						const color = STATUS_COLORS[story.status] ?? "white";
+					{state.streams.map((stream) => {
+						const feed = state.feeds.get(stream.name);
+						const isSelected = stream.name === state.selectedStream;
+						const streamDone = stream.storyIds.filter((id) =>
+							state.stories.find((s) => s.id === id && s.status === "done"),
+						).length;
+						const statusColor =
+							feed?.status === "done"
+								? "green"
+								: feed?.status === "in_progress"
+									? "yellow"
+									: feed?.status === "failed" || feed?.status === "blocked"
+										? "red"
+										: "gray";
+						const activeStory = state.stories.find(
+							(s) => stream.storyIds.includes(s.id) && s.status === "in_progress",
+						);
 						return (
-							<Text key={story.id} color={color} bold={isSelected} wrap="truncate">
-								{isSelected ? ">" : " "} {icon} {story.id} {story.title.slice(0, sidebarWidth - 10)}
+							<Text key={stream.name} color={statusColor} bold={isSelected} wrap="truncate">
+								{isSelected ? ">" : " "} {stream.name} ({streamDone}/{stream.storyIds.length})
+								{activeStory ? ` ▸ ${activeStory.id}` : ""}
 							</Text>
 						);
 					})}
+
+					{/* Stories for selected stream */}
+					{streamStories.length > 0 && (
+						<Box flexDirection="column" marginTop={1}>
+							<Text bold dimColor>
+								Stories
+							</Text>
+							{streamStories.map((story) => {
+								if (!story) return null;
+								const icon = STATUS_ICONS[story.status] ?? " ";
+								const color = STATUS_COLORS[story.status] ?? "white";
+								return (
+									<Text key={story.id} color={color} wrap="truncate">
+										{`  ${icon} ${story.id} ${story.title.slice(0, sidebarWidth - 12)}`}
+									</Text>
+								);
+							})}
+						</Box>
+					)}
 
 					{state.approvals.length > 0 && (
 						<Box flexDirection="column" marginTop={1}>
@@ -174,21 +214,24 @@ export function PipelineApp(): React.JSX.Element {
 				{/* Main panel */}
 				<Box flexDirection="column" width={mainWidth}>
 					<Text bold wrap="truncate">
-						{state.selectedStory
-							? `[${state.selectedStory}] ${selectedFeed?.status ?? "pending"}`
-							: "Select a story"}
+						{state.selectedStream
+							? `[${state.selectedStream}] ${selectedFeed?.status ?? "pending"}`
+							: "Select an agent"}
 					</Text>
 
-					{/* Log output — agent start/end lines are colored inline */}
+					{/* Log output — agent start/end lines are colored, blank lines preserved */}
 					{visibleLines.map((line, i) => {
-						let color: string | undefined;
-						if (line.startsWith(">>>")) color = "magenta";
-						else if (line.startsWith("<<<")) color = "green";
-						else if (line.startsWith("<!>")) color = "red";
-
+						const lineColor = line.startsWith(">>>")
+							? "magenta"
+							: line.startsWith("<<<")
+								? "green"
+								: line.startsWith("<!>")
+									? "red"
+									: undefined;
 						return (
-							<Text key={`${i}-${line.slice(0, 10)}`} wrap="truncate" color={color}>
-								{line.slice(0, mainWidth - 1)}
+							// biome-ignore lint/suspicious/noArrayIndexKey: log lines are positional, index keys are correct
+							<Text key={`l-${i}`} wrap="truncate" color={lineColor}>
+								{line === "" ? " " : line.slice(0, mainWidth - 1)}
 							</Text>
 						);
 					})}
@@ -218,7 +261,7 @@ export function PipelineApp(): React.JSX.Element {
 			</Box>
 			<Box>
 				<Text color="gray">
-					{`j/k: stories | p/n: scroll | e: end | a: approve | d: deny | q: quit${autoScroll ? "" : ` [scroll: ${scrollOffset}]`}`}
+					{`j/k: agents | p/n: scroll | e: end | a: approve | d: deny | q: quit${autoScroll ? "" : ` [scroll: ${scrollOffset}]`}`}
 				</Text>
 			</Box>
 		</Box>

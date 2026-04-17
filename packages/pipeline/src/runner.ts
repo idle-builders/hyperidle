@@ -16,6 +16,7 @@ export interface RunResult {
 }
 
 export interface RunOptions {
+	streamName: string;
 	storyId: string;
 	cwd: string;
 	interactive: boolean;
@@ -26,7 +27,7 @@ export interface RunOptions {
 const IN_DOCKER = process.env.HYPERIDLE_DOCKER === "1";
 
 export async function runStory(options: RunOptions): Promise<RunResult> {
-	const { storyId, cwd, abortController } = options;
+	const { streamName, storyId, cwd, abortController } = options;
 	const startTime = Date.now();
 	let sessionId: string | null = null;
 	try {
@@ -43,20 +44,20 @@ export async function runStory(options: RunOptions): Promise<RunResult> {
 					? undefined
 					: async (toolName: string, input: unknown) => {
 							appendOutput(
-								storyId,
+								streamName,
 								`[PERMISSION] Requesting: ${toolName}(${JSON.stringify(input).slice(0, 100)})`,
 							);
 
 							if (!options.interactive) {
-								appendOutput(storyId, `[PERMISSION] DENIED (auto mode): ${toolName}`);
+								appendOutput(streamName, `[PERMISSION] DENIED (auto mode): ${toolName}`);
 								return { behavior: "deny", message: "Denied by pipeline auto mode" } as never;
 							}
 
 							return new Promise((resolve) => {
-								const id = `${storyId}-${Date.now()}`;
+								const id = `${streamName}-${Date.now()}`;
 								addApproval({
 									id,
-									storyId,
+									storyId: streamName,
 									toolName,
 									input: JSON.stringify(input).slice(0, 200),
 									resolve: (allowed) => {
@@ -81,7 +82,7 @@ export async function runStory(options: RunOptions): Promise<RunResult> {
 						if (options.onOutput) {
 							options.onOutput(text);
 						} else {
-							appendOutput(storyId, text);
+							appendOutput(streamName, text);
 						}
 					}
 
@@ -89,7 +90,7 @@ export async function runStory(options: RunOptions): Promise<RunResult> {
 						message.message?.content?.filter((c: { type: string }) => c.type === "tool_use") ?? [];
 					for (const tu of toolUses) {
 						const t = tu as { type: string; id: string; name: string };
-						updateToolCall(storyId, {
+						updateToolCall(streamName, {
 							id: t.id,
 							name: t.name,
 							status: "running",
@@ -100,7 +101,7 @@ export async function runStory(options: RunOptions): Promise<RunResult> {
 				}
 
 				case "tool_progress": {
-					updateToolCall(storyId, {
+					updateToolCall(streamName, {
 						id: message.tool_use_id,
 						name: message.tool_name,
 						status: "running",
@@ -112,9 +113,9 @@ export async function runStory(options: RunOptions): Promise<RunResult> {
 
 				case "tool_use_summary": {
 					for (const id of message.preceding_tool_use_ids) {
-						completeToolCall(storyId, id);
+						completeToolCall(streamName, id);
 					}
-					appendOutput(storyId, message.summary);
+					appendOutput(streamName, message.summary);
 					break;
 				}
 
@@ -129,7 +130,7 @@ export async function runStory(options: RunOptions): Promise<RunResult> {
 						sys.subtype !== "status"
 					) {
 						appendOutput(
-							storyId,
+							streamName,
 							`[system:${sys.subtype}] ${sys.status ?? sys.compact_result ?? sys.message ?? ""}`,
 						);
 					}
@@ -140,8 +141,8 @@ export async function runStory(options: RunOptions): Promise<RunResult> {
 							description: string;
 							task_type?: string;
 						};
-						appendOutput(storyId, `>>> AGENT STARTED: ${ts.description}`);
-						updateSubAgent(storyId, {
+						appendOutput(streamName, `>>> AGENT STARTED: ${ts.description}`);
+						updateSubAgent(streamName, {
 							taskId: ts.task_id,
 							description: ts.description,
 							status: "running",
@@ -153,7 +154,7 @@ export async function runStory(options: RunOptions): Promise<RunResult> {
 							last_tool_name?: string;
 							usage?: { total_tokens: number; tool_uses: number };
 						};
-						updateSubAgent(storyId, {
+						updateSubAgent(streamName, {
 							taskId: tp.task_id,
 							description: tp.description,
 							status: "running",
@@ -172,8 +173,11 @@ export async function runStory(options: RunOptions): Promise<RunResult> {
 						const dur = tn.usage?.duration_ms
 							? ` (${Math.round(tn.usage.duration_ms / 1000)}s)`
 							: "";
-						appendOutput(storyId, `${icon} AGENT ${tn.status.toUpperCase()}${dur}: ${tn.summary}`);
-						updateSubAgent(storyId, {
+						appendOutput(
+							streamName,
+							`${icon} AGENT ${tn.status.toUpperCase()}${dur}: ${tn.summary}`,
+						);
+						updateSubAgent(streamName, {
 							taskId: tn.task_id,
 							description: tn.summary,
 							status: tn.status === "completed" ? "completed" : "failed",
@@ -193,12 +197,12 @@ export async function runStory(options: RunOptions): Promise<RunResult> {
 						permission_denials?: unknown[];
 					};
 					appendOutput(
-						storyId,
+						streamName,
 						`[RESULT] ${resultMsg.subtype} | turns: ${resultMsg.num_turns} | stop: ${resultMsg.stop_reason ?? "none"} | terminal: ${resultMsg.terminal_reason ?? "none"}`,
 					);
 					if (resultMsg.permission_denials && resultMsg.permission_denials.length > 0) {
 						appendOutput(
-							storyId,
+							streamName,
 							`[RESULT] Permission denials (${resultMsg.permission_denials.length}): ${JSON.stringify(resultMsg.permission_denials)}`,
 						);
 					}
@@ -223,7 +227,7 @@ export async function runStory(options: RunOptions): Promise<RunResult> {
 		};
 	} catch (err) {
 		const errorMsg = err instanceof Error ? `${err.message}\n${err.stack}` : String(err);
-		appendOutput(storyId, `ERROR: ${errorMsg}`);
+		appendOutput(streamName, `ERROR: ${errorMsg}`);
 		return {
 			success: false,
 			sessionId,

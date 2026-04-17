@@ -17,8 +17,14 @@ export interface SubAgent {
 	toolUses?: number;
 }
 
+export interface StreamInfo {
+	name: string;
+	storyIds: string[];
+}
+
 export interface AgentFeed {
-	storyId: string;
+	streamName: string;
+	storyIds: string[];
 	lines: string[];
 	status: StoryStatus;
 	tools: Map<string, ToolCall>;
@@ -27,7 +33,8 @@ export interface AgentFeed {
 
 export interface PipelineStore {
 	feeds: Map<string, AgentFeed>;
-	selectedStory: string | null;
+	streams: StreamInfo[];
+	selectedStream: string | null;
 	approvals: ApprovalRequest[];
 	startedAt: number;
 	stories: StoryProgress[];
@@ -43,7 +50,8 @@ export interface ApprovalRequest {
 
 const store: PipelineStore = {
 	feeds: new Map(),
-	selectedStory: null,
+	streams: [],
+	selectedStream: null,
 	approvals: [],
 	startedAt: Date.now(),
 	stories: [],
@@ -67,21 +75,33 @@ function notify(): void {
 	for (const l of listeners) l();
 }
 
-export function initFeed(storyId: string): void {
-	store.feeds.set(storyId, {
-		storyId,
+export function initStream(streamName: string, storyIds: string[]): void {
+	store.streams.push({ name: streamName, storyIds });
+	store.feeds.set(streamName, {
+		streamName,
+		storyIds,
 		lines: [],
 		status: "in_progress",
 		tools: new Map(),
 		subagents: new Map(),
 	});
-	if (!store.selectedStory) store.selectedStory = storyId;
+	if (!store.selectedStream) store.selectedStream = streamName;
 	notify();
 }
 
-export function appendOutput(storyId: string, text: string): void {
-	const feed = store.feeds.get(storyId);
+/** @deprecated Use initStream instead */
+export function initFeed(storyId: string): void {
+	// Backward compat — creates a single-story stream
+	initStream(storyId, [storyId]);
+}
+
+export function appendOutput(streamName: string, text: string): void {
+	const feed = store.feeds.get(streamName);
 	if (!feed) return;
+	// Add a blank separator line between distinct messages
+	if (feed.lines.length > 0 && feed.lines[feed.lines.length - 1] !== "") {
+		feed.lines.push("");
+	}
 	for (const line of text.split("\n")) {
 		if (line.trim()) feed.lines.push(line);
 	}
@@ -91,15 +111,15 @@ export function appendOutput(storyId: string, text: string): void {
 	notify();
 }
 
-export function updateFeedStatus(storyId: string, status: StoryStatus): void {
-	const feed = store.feeds.get(storyId);
+export function updateFeedStatus(streamName: string, status: StoryStatus): void {
+	const feed = store.feeds.get(streamName);
 	if (!feed) return;
 	feed.status = status;
 	notify();
 }
 
-export function updateToolCall(storyId: string, tool: ToolCall): void {
-	const feed = store.feeds.get(storyId);
+export function updateToolCall(streamName: string, tool: ToolCall): void {
+	const feed = store.feeds.get(streamName);
 	if (!feed) return;
 	feed.tools.set(tool.id, tool);
 	// Clean up old completed tools (keep last 20)
@@ -113,23 +133,29 @@ export function updateToolCall(storyId: string, tool: ToolCall): void {
 	notify();
 }
 
-export function completeToolCall(storyId: string, toolId: string): void {
-	const feed = store.feeds.get(storyId);
+export function completeToolCall(streamName: string, toolId: string): void {
+	const feed = store.feeds.get(streamName);
 	if (!feed) return;
 	const tool = feed.tools.get(toolId);
 	if (tool) tool.status = "done";
 	notify();
 }
 
-export function updateSubAgent(storyId: string, agent: SubAgent): void {
-	const feed = store.feeds.get(storyId);
+export function updateSubAgent(streamName: string, agent: SubAgent): void {
+	const feed = store.feeds.get(streamName);
 	if (!feed) return;
 	feed.subagents.set(agent.taskId, agent);
 	notify();
 }
 
+export function setSelectedStream(streamName: string): void {
+	store.selectedStream = streamName;
+	notify();
+}
+
+/** @deprecated Use setSelectedStream instead */
 export function setSelectedStory(storyId: string): void {
-	store.selectedStory = storyId;
+	store.selectedStream = storyId;
 	notify();
 }
 

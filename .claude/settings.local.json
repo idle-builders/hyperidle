@@ -24,7 +24,8 @@
       "Bash(ls ~/.claude/.oauth* ~/.claude/oauth*)",
       "WebSearch",
       "WebFetch(domain:support.claude.com)",
-      "WebFetch(domain:docs.claude.com)"
+      "WebFetch(domain:docs.claude.com)",
+      "Bash(npx tsc:*)"
     ]
   },
   "autoMode": {
