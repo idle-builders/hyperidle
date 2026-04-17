@@ -21,7 +21,6 @@ export interface AgentFeed {
 	storyId: string;
 	lines: string[];
 	status: StoryStatus;
-	cost: number;
 	tools: Map<string, ToolCall>;
 	subagents: Map<string, SubAgent>;
 }
@@ -30,7 +29,6 @@ export interface PipelineStore {
 	feeds: Map<string, AgentFeed>;
 	selectedStory: string | null;
 	approvals: ApprovalRequest[];
-	totalCost: number;
 	startedAt: number;
 	stories: StoryProgress[];
 }
@@ -47,7 +45,6 @@ const store: PipelineStore = {
 	feeds: new Map(),
 	selectedStory: null,
 	approvals: [],
-	totalCost: 0,
 	startedAt: Date.now(),
 	stories: [],
 };
@@ -75,7 +72,6 @@ export function initFeed(storyId: string): void {
 		storyId,
 		lines: [],
 		status: "in_progress",
-		cost: 0,
 		tools: new Map(),
 		subagents: new Map(),
 	});
@@ -95,14 +91,10 @@ export function appendOutput(storyId: string, text: string): void {
 	notify();
 }
 
-export function updateFeedStatus(storyId: string, status: StoryStatus, cost?: number): void {
+export function updateFeedStatus(storyId: string, status: StoryStatus): void {
 	const feed = store.feeds.get(storyId);
 	if (!feed) return;
 	feed.status = status;
-	if (cost !== undefined) {
-		feed.cost = cost;
-		store.totalCost = [...store.feeds.values()].reduce((sum, f) => sum + f.cost, 0);
-	}
 	notify();
 }
 

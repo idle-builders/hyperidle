@@ -20,7 +20,6 @@ export interface StoryProgress {
 	error: string | null;
 	blockedReason: string | null;
 	needsHuman: boolean;
-	cost: number;
 	startedAt: string | null;
 	completedAt: string | null;
 }
@@ -43,5 +42,4 @@ export interface AgentStatus {
 	storyId: string;
 	step: string;
 	elapsed: number;
-	cost: number;
 }

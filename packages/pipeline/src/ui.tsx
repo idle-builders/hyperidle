@@ -129,7 +129,7 @@ export function PipelineApp(): React.JSX.Element {
 					HyperIdle Pipeline
 				</Text>
 				<Text color="gray">
-					{` ${doneCount} done | ${activeCount} active | ${blockedCount} blocked | $${state.totalCost.toFixed(2)} | ${minutes}m${String(seconds).padStart(2, "0")}s`}
+					{` ${doneCount} done | ${activeCount} active | ${blockedCount} blocked | ${minutes}m${String(seconds).padStart(2, "0")}s`}
 				</Text>
 			</Box>
 			<Box>

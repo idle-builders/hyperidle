@@ -91,6 +91,7 @@ This 30-second investment prevents 30-minute rework when step 1's approach is wr
 - Design architecture (that's the architect's domain)
 - Make UX decisions (that's the designer's domain)
 - Skip tests — every feature needs tests
+- Ship UI components without `.stories.tsx` files — every component needs stories at `/designsystem`
 - Leave lint errors or type errors
 - Add dependencies without checking if an existing package covers the need
 - Write code without reading the relevant work package acceptance criteria first

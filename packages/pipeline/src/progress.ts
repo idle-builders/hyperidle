@@ -70,7 +70,6 @@ function makeStoryProgress(story: Story): StoryProgress {
 		error: null,
 		blockedReason: null,
 		needsHuman: false,
-		cost: 0,
 		startedAt: null,
 		completedAt: null,
 	};

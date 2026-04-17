@@ -3,7 +3,6 @@ name: threat-model
 description: "Security threat model for a feature or component."
 argument-hint: "[feature name, component, or 'full' for system-wide]"
 user-invocable: true
-allowed-tools: Read Grep Glob Agent
 ---
 
 # Threat Model

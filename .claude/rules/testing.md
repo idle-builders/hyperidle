@@ -18,6 +18,7 @@ paths:
 - Never mock what you can use `createTestDb()` or `createTestApp()` for.
 - Never write tests that only assert `toBeDefined()` or `not.toThrow()`.
 - Tests must not depend on execution order.
+- Design system: every UI component must have a `.stories.tsx` file rendering key states at `/designsystem`. A component without stories is not verifiable in isolation.
 - Tests are evidence. Every feature must be independently verifiable by an agent running the test suite. If you can't prove it with a test, it's not done.
 
 ## Anti-Rationalization Table

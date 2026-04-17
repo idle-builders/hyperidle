@@ -141,3 +141,26 @@ See `docs/work-packages/SHARED.md` for tech stack, shared contracts, and depende
 **Effort.** L (~4d)
 
 ---
+
+### D6 — Security Hardening
+
+**Story.** As the system, I want pre-existing security vulnerabilities (surfaced during D5 integration) remediated, so that the agent runtime does not ship with known exploitable paths.
+
+**Depends on.** D5.
+
+**Acceptance criteria.**
+- Path traversal in `toFilename()` (B2): titles containing `..` are sanitized before use in file paths.
+- Claude SDK flags (D2): `bypassPermissions` and `allowDangerouslySkipPermissions` removed or gated behind explicit dev-only config.
+- Environment variable leak (D2): agent subprocess receives an allowlist of env vars, not `...process.env`.
+- Shell injection (D3): all `docker exec` / `execAsync` call sites use argv-style invocation, not shell interpolation.
+- Module-global `emittedEvents` (C7): replaced with DI-scoped or bounded LRU to prevent cross-test/cross-session leak.
+- WebSocket tenant filtering (E5/E6): `session_ended` cost data verified filtered before broadcast.
+- `ToolContext.watcher` (D4): read-only facade passed to tool implementations instead of raw `FileWatcher`.
+- Tool args DoS (D4): bounded validator (64 KiB max) on tool argument payloads.
+- Concurrent provision race (D5/C7): cost-check + concurrency-check + session-insert wrapped in a transaction.
+
+**Detail.** Full findings documented in `docs/work-packages/plans/D5-followups.md`.
+
+**Effort.** L (~3d)
+
+---

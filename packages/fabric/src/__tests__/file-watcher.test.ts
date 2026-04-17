@@ -382,8 +382,10 @@ describe("file-watcher (fs.watch)", () => {
 	}, 5000);
 
 	// AC4: debounce collapses multiple writes
+	// Uses polling watcher for determinism — fs.watch event delivery is
+	// unreliable under parallel test load on macOS (flaked in A2, D4, D5).
 	it("AC4: debounce collapses rapid writes into batch", async () => {
-		const watcher = startWatcher({
+		const watcher = startPollingWatcher({
 			db,
 			workspacePath: workspace,
 			sessionId,
@@ -391,14 +393,14 @@ describe("file-watcher (fs.watch)", () => {
 			debounceMs: 300,
 		});
 
-		// Write 10 files rapidly (within 200ms)
+		// Write 10 files rapidly
 		for (let i = 0; i < 10; i++) {
 			const filePath = path.join(workspace, `knowledge/practices/rapid-${i}.md`);
 			fs.writeFileSync(filePath, `Content ${i}`);
 		}
 
-		// Wait for debounce to fire
-		await sleep(1000);
+		// Wait for poll cycle + debounce
+		await sleep(1500);
 
 		watcher.stop();
 

@@ -3,7 +3,6 @@ name: retro
 description: "Collect observations from all sources after a story or pipeline run. Observe, don't fix."
 argument-hint: "[story-id, 'last-session', or 'pipeline']"
 user-invocable: true
-allowed-tools: Read Write Grep Glob Bash Agent
 ---
 
 # Retro
@@ -12,7 +11,7 @@ allowed-tools: Read Write Grep Glob Bash Agent
 
 Collect insights about `$ARGUMENTS` from every available source:
 
-1. **Pipeline progress** — read `.pipeline/progress.json` for attempts, step failures, blocked stories, cost
+1. **Pipeline progress** — read `.pipeline/progress.json` for attempts, step failures, blocked stories
 2. **Git history** — `git log` for commits, reverts, fixups. How many commits? Any rework?
 3. **Lore** — `grep -r @lore` in changed files for decisions and workarounds captured during implementation
 4. **Test results** — any tests that were hard to write, kept failing, or had to be rewritten?

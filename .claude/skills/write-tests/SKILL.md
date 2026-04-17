@@ -3,7 +3,6 @@ name: write-tests
 description: "Write failing tests for all acceptance criteria. TDD red phase."
 argument-hint: "[story-id]"
 user-invocable: true
-allowed-tools: Read Edit Write Bash Grep Glob
 ---
 
 # Write Tests
@@ -14,7 +13,7 @@ Read the plan for `$ARGUMENTS` (check tasks or the story in the relevant track f
 
 For each acceptance criterion, write a test that proves it. Use:
 - Backend: unit tests with `createTestDb()`, integration tests with `createTestApp()`
-- Frontend: Vitest component tests + Playwright E2E
+- Frontend: Vitest component tests + Playwright E2E + `.stories.tsx` for visual verification at `/designsystem`
 - API: success, error, and edge case tests
 - Data: queries, mutations, validation, constraint violations
 

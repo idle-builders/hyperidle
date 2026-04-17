@@ -3,7 +3,6 @@ name: ship
 description: "Commit and push changes. Create PR if on a feature branch."
 argument-hint: "[story-id or branch description]"
 user-invocable: true
-allowed-tools: Bash Read Grep Glob
 ---
 
 # Ship
@@ -19,6 +18,10 @@ Types: feat, fix, refactor, test, docs, chore. Scopes: db, server, web, fabric, 
 If not on a feature branch, create one: `feat/<story-id>-<description>`.
 
 Push with `-u`. Create PR via `gh pr create` with summary and story reference.
+
+Once the PR exists, self-merge to main so the next story sees the latest code.
+
+Finally clean up the worktree and run `bun install` on main to get back to a clean state.
 
 **Rules:**
 - Never ship failing tests or lint errors

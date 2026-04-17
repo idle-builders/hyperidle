@@ -93,11 +93,9 @@ export async function runPipeline(options: PipelineOptions): Promise<void> {
 	const blockedCount = state.stories.filter(
 		(s) => (s.status === "blocked" || s.status === "failed") && targetIds.has(s.id),
 	).length;
-	const totalCost = state.stories.reduce((sum, s) => sum + s.cost, 0);
-
 	appendOutput(
 		"_summary",
-		`Pipeline complete: ${doneCount}/${stories.length} done, ${blockedCount} blocked, $${totalCost.toFixed(4)}`,
+		`Pipeline complete: ${doneCount}/${stories.length} done, ${blockedCount} blocked`,
 	);
 }
 
@@ -138,10 +136,21 @@ async function runStream(
 		}
 	}
 
-	const MAX_RETRIES = 3;
+	const MAX_REAL_ATTEMPTS = 3;
+	const MAX_CRASH_RETRIES = 5;
+	let realAttempts = 0;
+	let crashRetries = 0;
 
-	for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
-		const result = await runStory({
+	while (realAttempts < MAX_REAL_ATTEMPTS && crashRetries < MAX_CRASH_RETRIES) {
+		// Snapshot story statuses before the agent runs
+		const statusBefore = new Map(
+			stream.storyIds.map((id) => {
+				const s = state.stories.find((st) => st.id === id);
+				return [id, s?.status ?? "pending"] as const;
+			}),
+		);
+
+		await runStory({
 			storyId: prompt,
 			cwd,
 			interactive,
@@ -160,10 +169,8 @@ async function runStream(
 		);
 
 		// Sync: if the agent marked stories as done, update our in-memory state
-		// We do NOT write "done" — we just read what the agent wrote
 		for (const id of stream.storyIds) {
 			if (!done.has(id) && agentDone.has(id)) {
-				// Agent decided this story is done — sync to our state
 				const agentStory = postProgress?.stories.find((s) => s.id === id);
 				if (agentStory) {
 					const existing = state.stories.find((s) => s.id === id);
@@ -177,43 +184,54 @@ async function runStream(
 		// Check if all stories in this stream are done
 		const allDone = stream.storyIds.every((id) => done.has(id));
 		if (allDone) {
-			appendOutput(
-				stream.storyIds[0] ?? stream.name,
-				`${streamLabel}: all done! Cost: $${result.cost.toFixed(4)}`,
-			);
+			appendOutput(stream.storyIds[0] ?? stream.name, `${streamLabel}: all done!`);
 			break;
 		}
 
-		// Not all done — retry or give up
-		if (attempt < MAX_RETRIES) {
-			const remaining = stream.storyIds.filter((id) => !done.has(id));
+		// Determine if the agent actually made progress (any status changed)
+		const madeProgress = stream.storyIds.some((id) => {
+			const before = statusBefore.get(id);
+			const after = postProgress?.stories.find((s) => s.id === id)?.status;
+			return after !== undefined && after !== before;
+		});
+
+		if (madeProgress) {
+			realAttempts++;
+		} else {
+			crashRetries++;
+			log.warn(
+				`${streamLabel}: session ended without progress (crash retry ${crashRetries}/${MAX_CRASH_RETRIES})`,
+			);
+		}
+
+		const remaining = stream.storyIds.filter((id) => !done.has(id));
+
+		if (realAttempts >= MAX_REAL_ATTEMPTS) {
+			// Real attempts exhausted — mark remaining as blocked
+			for (const id of remaining) {
+				updateStory(state, id, {
+					status: "blocked",
+					error: `Agent failed to complete after ${realAttempts} real attempts`,
+					blockedReason: `Story not completed after ${realAttempts} attempts where the agent made progress`,
+					needsHuman: true,
+				});
+				updateFeedStatus(id, "blocked");
+			}
 			appendOutput(
 				remaining[0] ?? stream.name,
-				`${streamLabel}: session ended but ${remaining.length} stories not done. Retrying (attempt ${attempt + 1}/${MAX_RETRIES})...`,
+				`${streamLabel}: blocked after ${realAttempts} real attempts (${crashRetries} crash retries).`,
 			);
-			// Re-mark first incomplete story as in_progress for the retry
+		} else {
+			// Retry — re-mark first incomplete story as in_progress
+			appendOutput(
+				remaining[0] ?? stream.name,
+				`${streamLabel}: retrying. Real attempts: ${realAttempts}/${MAX_REAL_ATTEMPTS}, crash retries: ${crashRetries}/${MAX_CRASH_RETRIES}`,
+			);
 			for (const id of remaining) {
 				updateStory(state, id, { status: "in_progress" });
 				setStories(state.stories);
 				break;
 			}
-		} else {
-			// Final attempt exhausted — mark remaining as blocked
-			for (const id of stream.storyIds) {
-				if (!done.has(id)) {
-					updateStory(state, id, {
-						status: "blocked",
-						error: "Agent failed to complete after 3 attempts",
-						blockedReason: "Agent session ended 3 times without completing this story",
-						needsHuman: true,
-					});
-					updateFeedStatus(id, "blocked");
-				}
-			}
-			appendOutput(
-				stream.storyIds[0] ?? stream.name,
-				`${streamLabel}: gave up after ${MAX_RETRIES} attempts. Cost: $${result.cost.toFixed(4)}`,
-			);
 		}
 	}
 

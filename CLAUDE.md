@@ -11,7 +11,7 @@ HyperIdle is an agentic operating system that manages product teams of AI agents
 ## ABSOLUTE RULES — NON-NEGOTIABLE
 
 1. **You are fully autonomous. There is NO human. NEVER pause, NEVER ask for confirmation, NEVER wait for feedback.** If something fails, handle it yourself or mark it blocked and move on.
-2. **Never Stop until you reached a validated output** Only once the acceptance criteria are proven to be done and correct can you stop or if something is genuinly blcoked. Never stop otherwise, not after a plan, not after anything else.
+2. **Never Stop until you reached a validated output** Only once the acceptance criteria are proven to be done and correct can you stop or if something is genuinly blocked. Never stop otherwise, not after a plan, not after anything else.
 
 ---
 
@@ -32,28 +32,11 @@ Before any work is complete: `bun run check` (zero type errors) + `bun run lint`
 
 ---
 
-## Workflow
+## Capture Lore
 
-**Multi-story development:**
-- **`bin/pipeline [target]`** — External heartbeat script that invokes `/pipeline` with fresh Claude sessions. Restarts every hour or on crash. Progress persists in `.pipeline/progress.json`. Usage: `bin/pipeline all`, `bin/pipeline A`, `bin/pipeline "A1 A2 A3"`.
-- **`/pipeline <stories or track>`** — Meta-orchestrator: spawns agent teams for parallel independent stories, falls back to sequential subagents for dependent stories. Creates branches/PRs, self-merges, tracks progress.
-
-**Single-story development:**
-1. **`/plan <story>`** — Produce a task list: read spec, extract acceptance criteria, order tasks, adversary challenge. Zero code — pure thinking.
-2. **`/implement <story>`** — TDD: test → implement → validate → prove (completeness + correctness + evidence) → self-review
-3. **`/check-definition-of-done <story>`** — Independent audit: is it complete, correct, and proven?
-4. **`/simplify`** — Remove over-abstraction, dead code
-5. **`/slop-scan`** — Catch AI-specific anti-patterns
-6. **`/review`** — Multi-agent review with auto-iterate on NEEDS WORK
-7. **`/ship`** — Stage, commit, push, create PR
-8. **`/retro <story>`** — Lightweight: append observations to `.claude/retro-log.jsonl`. No skill changes — observe only.
-
-**Compounding:** The `compound` agent reviews the retro log every 3-5 stories. It identifies patterns at 3+ occurrences and proposes targeted skill changes. The pipeline coordinator applies approved changes. Critical/escalation observations skip the threshold and go straight to the coordinator.
-
-Supporting: `/verify` (quick validation), `/threat-model` (security analysis), `/lore` (capture tribal knowledge).
+When you make a non-obvious decision, encounter a cross-cutting constraint, or discover a gotcha that would surprise the next agent — capture it as a `@lore` comment in the code. Use `/lore` to scan and index these. Every workaround, every "why not the obvious approach", every platform-specific quirk should be documented where it lives.
 
 ---
-
 
 ## Architecture
 

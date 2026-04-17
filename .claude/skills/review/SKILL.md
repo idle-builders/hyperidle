@@ -3,7 +3,6 @@ name: review
 description: "Multi-perspective code review. Spawns specialist agents in parallel."
 argument-hint: "[file paths, PR number, or description of changes]"
 user-invocable: true
-allowed-tools: Read Grep Glob Bash Edit Agent
 ---
 
 # Code Review
@@ -12,18 +11,27 @@ allowed-tools: Read Grep Glob Bash Edit Agent
 
 Identify changed files via `git diff --name-only`. Read the relevant story in the appropriate track file under `docs/work-packages/`.
 
-Spawn **all four agents in parallel**:
+## Phase 1: Scan (specialists in parallel)
 
-1. **architect** — layer violations, API contracts, data model alignment, naming
-2. **adversary** — over-engineering, error paths, type safety, coupling, test quality
-3. **security-researcher** — STRIDE on new boundaries, input validation, auth, OWASP top 10
-4. **designer** — (skip if no UI files changed) component specs, states, accessibility
+Spawn review agents in parallel — each runs its scan skill, producing findings only:
+
+1. **architect** with `/architecture-review`
+2. **adversary** with `/adversary-review`
+3. **security-researcher** with `/security-review`
+4. **designer** with `/design-review` (skip if no UI files changed)
 
 Merge findings into: CRITICAL (must fix), WARNINGS (should fix), OBSERVATIONS.
 
-Verdict:
+## Phase 2: Fix
+
+If verdict is NEEDS WORK:
+- **developer** with `/apply-review` for code findings
+- **qa** with `/apply-review` for test-related findings
+
+## Verdict
+
 - **SHIP IT** — zero critical issues
-- **NEEDS WORK** — fix warnings automatically, then re-verify
+- **NEEDS WORK** — developer fixes, then re-verify, upgrade to SHIP IT if resolved
 - **BLOCK** — critical issues, needs human review
 
 **Rules:**
@@ -32,4 +40,4 @@ Verdict:
 - Don't nitpick style — Biome handles formatting
 - Distinguish fact from opinion — only facts can be CRITICAL
 - Code without tests for its acceptance criteria is automatically NEEDS WORK
-- NEEDS WORK auto-iterates — fix the issues, re-verify, upgrade to SHIP IT if resolved
+- New UI components without `.stories.tsx` files are automatically NEEDS WORK

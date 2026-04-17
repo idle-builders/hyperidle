@@ -1,7 +1,16 @@
 import type { HealthResponse } from "@hyperidle/shared";
 import { useEffect, useState } from "react";
+import { DesignSystem } from "./designsystem/DesignSystem.js";
 
 export function App(): React.JSX.Element {
+	if (window.location.pathname === "/designsystem") {
+		return <DesignSystem />;
+	}
+
+	return <Home />;
+}
+
+function Home(): React.JSX.Element {
 	const [health, setHealth] = useState<HealthResponse | null>(null);
 	const [error, setError] = useState<string | null>(null);
 
