@@ -1,43 +1,15 @@
-import type { HealthResponse } from "@hyperidle/shared";
-import { useEffect, useState } from "react";
 import { DesignSystem } from "./designsystem/DesignSystem.js";
+import { AppRouter } from "./router";
 
+/**
+ * @lore App routes between the design system and the main router.
+ * The /designsystem path bypasses React Router entirely — it is a standalone
+ * component explorer, not part of the app's route tree.
+ */
 export function App(): React.JSX.Element {
 	if (window.location.pathname === "/designsystem") {
 		return <DesignSystem />;
 	}
 
-	return <Home />;
-}
-
-function Home(): React.JSX.Element {
-	const [health, setHealth] = useState<HealthResponse | null>(null);
-	const [error, setError] = useState<string | null>(null);
-
-	useEffect(() => {
-		fetch("/api/health")
-			.then((r) => r.json() as Promise<HealthResponse>)
-			.then(setHealth)
-			.catch((e: unknown) => {
-				setError(e instanceof Error ? e.message : "Connection failed");
-			});
-	}, []);
-
-	return (
-		<div className="min-h-screen bg-base-100 flex items-center justify-center">
-			<div className="text-center">
-				<h1 className="text-2xl font-heading font-medium text-[var(--text-hi)]">HyperIdle</h1>
-				<p className="text-sm text-[var(--text-mid)] mt-2">
-					{error
-						? `Error: ${error}`
-						: health
-							? `Status: ${health.status}`
-							: "The Factory is loading..."}
-				</p>
-				<button type="button" className="btn btn-primary btn-sm mt-4">
-					Connect
-				</button>
-			</div>
-		</div>
-	);
+	return <AppRouter />;
 }
