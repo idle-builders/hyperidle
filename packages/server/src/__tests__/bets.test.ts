@@ -380,7 +380,7 @@ describe("Bet Endpoints (E3)", () => {
 	// AC12: Concurrent commit at capacity — first succeeds, second rejected 409
 	describe("AC12: Concurrent commit at capacity", () => {
 		it("first commit succeeds, second rejected 409 (no race)", async () => {
-			// Set capacity to 1
+			// eslint-disable-next-line drizzle/enforce-update-with-where -- test setup: single team in test DB
 			db.update(teams).set({ capacity: 1 }).run();
 
 			const bet1 = await createBet({ pitch: "Bet 1" });

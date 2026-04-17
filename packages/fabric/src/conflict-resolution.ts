@@ -192,7 +192,7 @@ function resolveProse(
 	const older = sorted[0];
 	const newer = sorted[1];
 
-	if (!older || !newer) {
+	if (!(older && newer)) {
 		throw new Error("Prose conflict resolution requires exactly 2 edits");
 	}
 
