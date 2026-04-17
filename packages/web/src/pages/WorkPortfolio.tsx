@@ -42,12 +42,36 @@ const INITIAL_BETS: CanvasBet[] = [
 
 export function WorkPortfolio(): JSX.Element {
 	const [bets, setBets] = useState<CanvasBet[]>(INITIAL_BETS);
+	const [loading] = useState(false);
+	const [error] = useState<string | null>(null);
 
 	const handleMoveBet = useCallback((betId: string, targetStatus: "shaped" | "committed"): void => {
 		setBets((prev) =>
 			prev.map((b) => (b.id === betId ? { ...b, status: targetStatus as BetStatus } : b)),
 		);
 	}, []);
+
+	if (loading) {
+		return (
+			<div className="flex flex-col gap-3 h-full" data-testid="work-portfolio-page">
+				<div className="skeleton h-6 w-48" />
+				<div className="flex gap-4">
+					<div className="skeleton h-64 flex-1" />
+					<div className="skeleton h-64 flex-1" />
+				</div>
+			</div>
+		);
+	}
+
+	if (error) {
+		return (
+			<div className="flex flex-col gap-3 h-full" data-testid="work-portfolio-page">
+				<div role="alert" className="alert alert-error text-sm">
+					{error}
+				</div>
+			</div>
+		);
+	}
 
 	return (
 		<div className="flex flex-col gap-3 h-full" data-testid="work-portfolio-page">

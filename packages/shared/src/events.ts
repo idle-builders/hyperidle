@@ -99,6 +99,46 @@ export interface ResponseRecordedEvent {
 	timestamp: number;
 }
 
+export interface KnowledgeUpdatedEvent {
+	type: "knowledge_updated";
+	streamId: string;
+	itemId: string;
+	action: string;
+	timestamp: number;
+}
+
+export interface RoutineFiredEvent {
+	type: "routine_fired";
+	streamId: string;
+	routineId: string;
+	agentId: string;
+	timestamp: number;
+}
+
+export interface DependencyMetEvent {
+	type: "dependency_met";
+	streamId: string;
+	taskId: string;
+	dependencyId: string;
+	timestamp: number;
+}
+
+export interface BetCommittedEvent {
+	type: "bet_committed";
+	streamId: string;
+	betId: string;
+	teamId: string;
+	timestamp: number;
+}
+
+export interface BetRevisedEvent {
+	type: "bet_revised";
+	streamId: string;
+	betId: string;
+	field: string;
+	timestamp: number;
+}
+
 /** Discriminated union of all domain events. */
 export type DomainEvent =
 	| TaskStateChangedEvent
@@ -110,7 +150,12 @@ export type DomainEvent =
 	| CostCapWarningEvent
 	| CostCapBreachedEvent
 	| NotificationEvent
-	| ResponseRecordedEvent;
+	| ResponseRecordedEvent
+	| KnowledgeUpdatedEvent
+	| RoutineFiredEvent
+	| DependencyMetEvent
+	| BetCommittedEvent
+	| BetRevisedEvent;
 
 /** All valid event type strings. */
 export type EventType = DomainEvent["type"];
