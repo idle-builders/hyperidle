@@ -1,4 +1,4 @@
-import type { JSX } from "react";
+import { type JSX, forwardRef } from "react";
 
 export interface SearchFieldProps {
 	placeholder?: string;
@@ -8,13 +8,10 @@ export interface SearchFieldProps {
 	shortcutKey?: string;
 }
 
-export function SearchField({
-	placeholder,
-	value,
-	onChange,
-	loading = false,
-	shortcutKey,
-}: SearchFieldProps): JSX.Element {
+export const SearchField = forwardRef<HTMLInputElement, SearchFieldProps>(function SearchField(
+	{ placeholder, value, onChange, loading = false, shortcutKey },
+	ref,
+): JSX.Element {
 	return (
 		<div className="relative flex items-center">
 			<span className="pointer-events-none absolute left-2">
@@ -38,6 +35,7 @@ export function SearchField({
 				)}
 			</span>
 			<input
+				ref={ref}
 				type="text"
 				className="input input-sm w-full pl-8 pr-16"
 				placeholder={placeholder}
@@ -59,4 +57,4 @@ export function SearchField({
 			</span>
 		</div>
 	);
-}
+});
