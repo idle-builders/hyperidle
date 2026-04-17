@@ -1,5 +1,6 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
+import type { Status } from "../components/StatusChip";
 import { StatusChip } from "../components/StatusChip";
 
 describe("StatusChip", () => {
@@ -55,5 +56,32 @@ describe("StatusChip", () => {
 		const dot = container.querySelector("span > span");
 		expect(dot).toBeInTheDocument();
 		expect(dot).toHaveClass("rounded-full");
+	});
+
+	it("renders all six status values without crashing", () => {
+		const statuses: Status[] = ["healthy", "behind", "blocked", "paused", "done", "error"];
+		for (const status of statuses) {
+			const { unmount } = render(<StatusChip status={status} />);
+			expect(screen.getByText(status.toUpperCase())).toBeInTheDocument();
+			unmount();
+		}
+	});
+
+	it("each status has a dot with a color class", () => {
+		const statuses: Status[] = ["healthy", "behind", "blocked", "paused", "done", "error"];
+		for (const status of statuses) {
+			const { container, unmount } = render(<StatusChip status={status} />);
+			const dot = container.querySelector("span > span");
+			expect(dot).toHaveClass("rounded-full");
+			// Every dot should have a bg-* color class
+			expect(dot?.className).toMatch(/bg-/);
+			unmount();
+		}
+	});
+
+	it("badge has font-mono and text-xs classes for terminal aesthetic", () => {
+		render(<StatusChip status="healthy" />);
+		const chip = screen.getByText("HEALTHY");
+		expect(chip).toHaveClass("font-mono", "text-xs");
 	});
 });

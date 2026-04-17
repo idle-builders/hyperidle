@@ -49,12 +49,25 @@ describe("Canvas", () => {
 		expect(screen.getByText("No bets yet")).toBeInTheDocument();
 	});
 
-	it("calls onMoveBet when drag ends with a new column", () => {
-		// We test the callback contract — DnD context mocking is fragile
-		const onMoveBet = vi.fn();
-		render(<Canvas bets={[shapedBet]} capacity={3} onMoveBet={onMoveBet} />);
-		// The DnD interaction is tested via the onMoveBet contract
-		expect(onMoveBet).not.toHaveBeenCalled();
+	it("renders shaped bets only in the Shaped column", () => {
+		const { container } = render(
+			<Canvas bets={[shapedBet, committedBet]} capacity={3} onMoveBet={vi.fn()} />,
+		);
+		// shapedBet should appear inside the shaped droppable zone
+		const shapedZone = container.querySelector("[data-droppable='shaped']");
+		const committedZone = container.querySelector("[data-droppable='committed']");
+		expect(shapedZone).not.toBeNull();
+		expect(committedZone).not.toBeNull();
+		expect(shapedZone?.textContent).toContain("Mobile App V2");
+		expect(shapedZone?.textContent).not.toContain("Analytics Dashboard");
+		expect(committedZone?.textContent).toContain("Analytics Dashboard");
+		expect(committedZone?.textContent).not.toContain("Mobile App V2");
+	});
+
+	it("renders draggable data attributes on bet cards", () => {
+		const { container } = render(<Canvas bets={[shapedBet]} capacity={3} onMoveBet={vi.fn()} />);
+		const draggable = container.querySelector("[data-draggable='bet-1']");
+		expect(draggable).not.toBeNull();
 	});
 
 	it("renders BetCard components for each bet", () => {

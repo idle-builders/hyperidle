@@ -1,24 +1,24 @@
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
-import type { Status } from "../components/StatusChip";
+import type { BetItem, BlockerItem, CostInfo } from "../shell/Rail";
 import { Rail } from "../shell/Rail";
 
-const sampleBets = [
-	{ id: "bet-1", title: "Launch MVP", product: "HyperIdle", status: "healthy" as Status },
-	{ id: "bet-2", title: "User Onboarding", product: "HyperIdle", status: "behind" as Status },
+const sampleBets: BetItem[] = [
+	{ id: "bet-1", title: "Launch MVP", product: "HyperIdle", status: "healthy" },
+	{ id: "bet-2", title: "User Onboarding", product: "HyperIdle", status: "behind" },
 ];
 
-const sampleBlockers = [
+const sampleBlockers: BlockerItem[] = [
 	{
 		id: "blocker-1",
 		agent: "Agent Alpha",
 		reason: "Waiting for API key",
-		severity: "blocked" as Status,
+		severity: "blocked",
 	},
 ];
 
-const sampleCost = {
+const sampleCost: CostInfo = {
 	todaySpend: "$12.50",
 	todayBudget: "$50.00",
 	weekSpend: "$87.30",
