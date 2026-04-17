@@ -19,19 +19,15 @@ export function NavItem({
 
 	return (
 		<li>
-			{/* biome-ignore lint/a11y/useValidAnchor: DaisyUI menu requires li>a pattern */}
-			<a
-				href="#"
-				className={`flex items-center gap-2 ${selectedClasses}`}
-				onClick={(e) => {
-					e.preventDefault();
-					onClick?.();
-				}}
+			<button
+				type="button"
+				className={`flex w-full items-center gap-2 text-left ${selectedClasses}`}
+				onClick={onClick}
 			>
 				{icon}
 				<span>{label}</span>
 				{count != null && <span className="badge badge-sm">{count}</span>}
-			</a>
+			</button>
 		</li>
 	);
 }

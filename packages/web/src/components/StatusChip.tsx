@@ -11,7 +11,7 @@ const STATUS_BADGE_CLASS: Record<Status, string> = {
 	behind: "badge-secondary",
 	blocked: "badge-error",
 	paused: "badge-neutral",
-	done: "badge-accent",
+	done: "badge-success",
 	error: "badge-error",
 };
 
@@ -20,7 +20,7 @@ const STATUS_DOT_CLASS: Record<Status, string> = {
 	behind: "bg-secondary",
 	blocked: "bg-error",
 	paused: "bg-neutral-content",
-	done: "bg-accent",
+	done: "bg-success",
 	error: "bg-error",
 };
 

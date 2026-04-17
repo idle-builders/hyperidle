@@ -1,3 +1,4 @@
+import DOMPurify from "dompurify";
 import type { JSX } from "react";
 import { KeyValue } from "../components/KeyValue";
 
@@ -104,13 +105,12 @@ function ContentPreviewView({ data }: { data: ContentPreviewData }): JSX.Element
 					))}
 				</div>
 			)}
-			{/* @lore Using dangerouslySetInnerHTML for content_preview — the content
-			    comes from agent-generated artifacts which are sanitized server-side.
-			    A future story should add client-side DOMPurify. */}
+			{/* @lore Content is sanitized client-side with DOMPurify before rendering.
+			    Server-side sanitization is also applied as defense-in-depth. */}
 			<div
 				className="prose prose-sm prose-invert max-w-none"
-				// biome-ignore lint/security/noDangerouslySetInnerHtml: content sanitized server-side, see @lore above
-				dangerouslySetInnerHTML={{ __html: data.html }}
+				// biome-ignore lint/security/noDangerouslySetInnerHtml: content sanitized via DOMPurify before rendering
+				dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(data.html) }}
 			/>
 		</section>
 	);

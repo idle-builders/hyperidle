@@ -1,12 +1,16 @@
 // @lore Canvas uses @dnd-kit/core for drag-drop instead of deprecated react-beautiful-dnd.
 // The DnD context wraps both columns; onDragEnd maps over.id to the target column.
 // BetCard is reused from Tier 2. Only "shaped" and "committed" statuses appear here.
+// @lore UI_DESIGN.md says 4 lanes but HUMAN_INTERFACE_LAYER.md Section 4.3 says 2 columns
+// (Shaped + Committed). We follow HUMAN_INTERFACE_LAYER.md as the more detailed spec.
 import {
 	DndContext,
 	type DragEndEvent,
 	DragOverlay,
 	type DragStartEvent,
 	PointerSensor,
+	useDraggable,
+	useDroppable,
 	useSensor,
 	useSensors,
 } from "@dnd-kit/core";
@@ -62,8 +66,9 @@ function DroppableColumn({
 }
 
 function DraggableBetCard({ bet }: { bet: CanvasBet }): JSX.Element {
+	const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id: bet.id });
 	return (
-		<div data-draggable={bet.id}>
+		<div ref={setNodeRef} {...listeners} {...attributes} style={{ opacity: isDragging ? 0.4 : 1 }}>
 			<BetCard
 				title={bet.title}
 				product={bet.product}
@@ -153,8 +158,6 @@ export function Canvas({ bets, capacity, onMoveBet }: CanvasProps): JSX.Element 
 
 // @lore Using useDroppable from @dnd-kit requires the hook inside a DndContext child.
 // We split it into a separate component to satisfy the hook-in-component rule.
-import { useDroppable } from "@dnd-kit/core";
-
 function CanvasDropZone({
 	columnKey,
 	children,

@@ -57,30 +57,20 @@ const flagSchema = z.object({
 
 /**
  * Emit a knowledge_updated event via the EventBus.
- * The event includes the full item data plus an _event discriminant.
+ * Now properly uses the DomainEvent union since knowledge_updated is a first-class event.
  */
 function emitKnowledgeEvent(
 	eventBus: EventBus,
-	eventName: string,
+	action: string,
 	item: Record<string, unknown>,
 ): void {
-	// We emit on the wildcard-compatible shape. The EventBus expects DomainEvent,
-	// but we use a generic emit for knowledge events via casting since knowledge_updated
-	// is not yet in the DomainEvent union. We emit it as a compatible shape.
-	const event = {
-		type: "knowledge_updated" as const,
-		streamId: `knowledge:${item.id}`,
-		_event: eventName,
-		itemId: item.id,
+	eventBus.emit({
+		type: "knowledge_updated",
+		streamId: `knowledge:${item.id as string}`,
+		itemId: item.id as string,
+		action,
 		timestamp: Date.now(),
-		...item,
-	};
-	// Use the EventBus internal mechanism — emit as any event type
-	// since knowledge_updated isn't in the DomainEvent discriminated union yet
-	for (const handler of (eventBus as unknown as { wildcardHandlers: Set<(e: unknown) => void> })
-		.wildcardHandlers) {
-		handler(event);
-	}
+	});
 }
 
 /**

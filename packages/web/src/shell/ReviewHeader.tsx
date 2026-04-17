@@ -1,4 +1,4 @@
-import { useCallback, useEffect } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import type { JSX } from "react";
 
 export type VerdictAction =
@@ -81,8 +81,15 @@ for (const btn of VERDICT_BUTTONS) {
 const INPUT_TAGS = new Set(["INPUT", "TEXTAREA", "SELECT"]);
 
 export function ReviewHeader({ proposer, onVerdict }: ReviewHeaderProps): JSX.Element {
+	const headerRef = useRef<HTMLElement>(null);
+
 	const handleKeyDown = useCallback(
 		(e: KeyboardEvent) => {
+			// Only activate when the ReviewHeader or its children have focus
+			if (!headerRef.current?.contains(e.target as Node)) {
+				return;
+			}
+
 			// Do not intercept when user is typing in an input field
 			const target = e.target as HTMLElement;
 			if (INPUT_TAGS.has(target.tagName) || target.isContentEditable) {
@@ -104,7 +111,10 @@ export function ReviewHeader({ proposer, onVerdict }: ReviewHeaderProps): JSX.El
 	}, [handleKeyDown]);
 
 	return (
-		<header className="flex items-center gap-3 py-2 px-3 border-b border-[var(--surface-4)]">
+		<header
+			ref={headerRef}
+			className="flex items-center gap-3 py-2 px-3 border-b border-[var(--surface-4)]"
+		>
 			{/* Proposer info */}
 			<div className="flex items-center gap-2 mr-auto">
 				{proposer.avatarUrl ? (
