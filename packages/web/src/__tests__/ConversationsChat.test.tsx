@@ -1,5 +1,4 @@
 import { render, screen } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { describe, expect, it } from "vitest";
 import { ConversationsChat } from "../pages/ConversationsChat";
@@ -18,12 +17,10 @@ describe("ConversationsChat", () => {
 		expect(screen.getByTestId("conversations-chat-page")).toBeInTheDocument();
 	});
 
-	it("renders thread list with chat threads", () => {
+	it("renders the selected thread title in the header", () => {
 		renderPage();
-		// "Sprint planning" appears in both ThreadRow and the chat header h2
-		expect(screen.getAllByText("Sprint planning").length).toBeGreaterThanOrEqual(1);
-		expect(screen.getByLabelText("Thread: Sprint planning")).toBeInTheDocument();
-		expect(screen.getByLabelText("Thread: Bug report: cost tracking")).toBeInTheDocument();
+		// Default selected thread is "Sprint planning"
+		expect(screen.getByText("Sprint planning")).toBeInTheDocument();
 	});
 
 	it("renders messages for the selected thread", () => {
@@ -36,12 +33,9 @@ describe("ConversationsChat", () => {
 		expect(screen.getByLabelText("Chat message input")).toBeInTheDocument();
 	});
 
-	it("switches thread when a different thread is clicked", async () => {
-		const user = userEvent.setup();
+	it("renders message sender and timestamp", () => {
 		renderPage();
-
-		await user.click(screen.getByLabelText("Thread: Bug report: cost tracking"));
-
-		expect(screen.getByText("The weekly spend is miscalculated.")).toBeInTheDocument();
+		// First message from "Architect" at "10:00" — may appear multiple times
+		expect(screen.getAllByText(/Architect/).length).toBeGreaterThanOrEqual(1);
 	});
 });

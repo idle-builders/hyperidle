@@ -3,31 +3,122 @@
 	"organizeImports": {
 		"enabled": true
 	},
+	"javascript": {
+		"globals": ["React", "JSX", "jest"]
+	},
 	"linter": {
 		"enabled": true,
 		"rules": {
 			"recommended": true,
 			"correctness": {
 				"noUnusedImports": "error",
-				"noUnusedVariables": "error"
+				"noUnusedVariables": "error",
+				"useExhaustiveDependencies": "error",
+				"useHookAtTopLevel": "error",
+				"noUndeclaredVariables": "error",
+				"noConstantCondition": "error"
 			},
 			"suspicious": {
 				"noExplicitAny": "error",
-				"noConsole": "error"
+				"noConsole": "error",
+				"noArrayIndexKey": "warn",
+				"noImplicitAnyLet": "error",
+				"noDoubleEquals": "error",
+				"noFallthroughSwitchClause": "error",
+				"noRedeclare": "error",
+				"noShadowRestrictedNames": "error",
+				"noEmptyBlockStatements": "warn",
+				"noMisleadingCharacterClass": "error",
+				"useAwait": "warn",
+				"useIsArray": "error",
+				"noAssignInExpressions": "error"
 			},
 			"complexity": {
 				"noUselessTypeConstraint": "error",
-				"noBannedTypes": "error"
+				"noBannedTypes": "error",
+				"noExcessiveCognitiveComplexity": {
+					"level": "warn",
+					"options": {
+						"maxAllowedComplexity": 25
+					}
+				},
+				"noForEach": "warn",
+				"useFlatMap": "error",
+				"useSimplifiedLogicExpression": "warn"
 			},
 			"style": {
 				"noNonNullAssertion": "error",
 				"useConst": "error",
 				"useImportType": "error",
 				"useExportType": "error",
-				"noParameterAssign": "error"
+				"noParameterAssign": "error",
+				"useNamingConvention": {
+					"level": "warn",
+					"options": {
+						"strictCase": false,
+						"conventions": [
+							{
+								"selector": {
+									"kind": "function"
+								},
+								"formats": ["camelCase", "PascalCase"]
+							},
+							{
+								"selector": {
+									"kind": "typeLike"
+								},
+								"formats": ["PascalCase"]
+							},
+							{
+								"selector": {
+									"kind": "objectLiteralProperty"
+								},
+								"formats": ["camelCase", "snake_case", "CONSTANT_CASE"]
+							},
+							{
+								"selector": {
+									"kind": "enumMember"
+								},
+								"formats": ["CONSTANT_CASE", "PascalCase"]
+							},
+							{
+								"selector": {
+									"kind": "variable"
+								},
+								"formats": ["camelCase", "PascalCase", "CONSTANT_CASE"]
+							}
+						]
+					}
+				},
+				"useCollapsedElseIf": "error",
+				"useShorthandAssign": "error",
+				"useTemplate": "error",
+				"noUselessElse": "error",
+				"useExponentiationOperator": "error",
+				"useNumberNamespace": "error",
+				"useNumericLiterals": "error"
+			},
+			"security": {
+				"noDangerouslySetInnerHtml": "error",
+				"noDangerouslySetInnerHtmlWithChildren": "error",
+				"noGlobalEval": "error"
 			},
 			"nursery": {
 				"useConsistentCurlyBraces": "error"
+			},
+			"a11y": {
+				"noAriaUnsupportedElements": "error",
+				"noNoninteractiveElementToInteractiveRole": "warn",
+				"noRedundantAlt": "error",
+				"useAltText": "error",
+				"useAnchorContent": "error",
+				"useAriaActivedescendantWithTabindex": "error",
+				"useAriaPropsForRole": "error",
+				"useButtonType": "error",
+				"useHeadingContent": "error",
+				"useKeyWithClickEvents": "error",
+				"useValidAnchor": "error",
+				"useValidAriaRole": "error"
 			}
 		}
 	},
@@ -37,7 +128,15 @@
 		"lineWidth": 100
 	},
 	"files": {
-		"ignore": ["node_modules", "dist", "*.db", "coverage", "playwright-report", ".claude"]
+		"ignore": [
+			"node_modules",
+			"dist",
+			"*.db",
+			"coverage",
+			"playwright-report",
+			".claude",
+			".worktrees"
+		]
 	},
 	"overrides": [
 		{
@@ -46,6 +145,23 @@
 				"rules": {
 					"suspicious": {
 						"noConsole": "off"
+					}
+				}
+			}
+		},
+		{
+			"include": [
+				"**/*.test.ts",
+				"**/*.test.tsx",
+				"**/*.spec.ts",
+				"**/*.spec.tsx",
+				"**/*.stories.tsx"
+			],
+			"linter": {
+				"rules": {
+					"suspicious": {
+						"noEmptyBlockStatements": "off",
+						"useAwait": "off"
 					}
 				}
 			}

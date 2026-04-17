@@ -7,16 +7,25 @@
 		"test": "vitest run",
 		"test:coverage": "vitest run --coverage",
 		"check": "tsc --noEmit -p tsconfig.json",
-		"lint": "biome check .",
+		"lint": "biome check . && oxlint --react-plugin --jsx-a11y-plugin --import-plugin --promise-plugin -D correctness -W suspicious -A no-console -A no-debugger -A react/react-in-jsx-scope --ignore-pattern '.worktrees/**' --ignore-pattern '**/dist/**' --ignore-pattern '**/node_modules/**' --ignore-pattern '.claude/**' .",
+		"lint:biome": "biome check .",
+		"lint:oxlint": "oxlint --react-plugin --jsx-a11y-plugin --import-plugin --promise-plugin -D correctness -W suspicious -A no-console -A no-debugger -A react/react-in-jsx-scope --ignore-pattern '.worktrees/**' --ignore-pattern '**/dist/**' --ignore-pattern '**/node_modules/**' --ignore-pattern '.claude/**' .",
 		"lint:fix": "biome check --write .",
 		"db:generate": "bun run --filter @hyperidle/db generate",
 		"db:migrate": "bun run --filter @hyperidle/db migrate"
 	},
 	"devDependencies": {
 		"@biomejs/biome": "^1.9.0",
+		"@eslint/js": "^10.0.1",
 		"@vitest/coverage-v8": "^3.1.0",
 		"concurrently": "^9.1.0",
+		"eslint": "^10.2.0",
+		"eslint-plugin-drizzle": "^0.2.3",
+		"eslint-plugin-react-compiler": "^19.1.0-rc.2",
+		"eslint-plugin-react-hooks": "^7.1.0",
+		"eslint-plugin-security": "^4.0.0",
 		"typescript": "^5.7.0",
+		"typescript-eslint": "^8.58.2",
 		"vitest": "^3.1.0"
 	}
 }

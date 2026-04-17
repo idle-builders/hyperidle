@@ -89,34 +89,43 @@ describe("ReviewHeader", () => {
 	});
 
 	describe("keyboard shortcuts", () => {
-		it("A key triggers approve verdict", async () => {
+		it("A key triggers approve verdict when header is focused", async () => {
 			const user = userEvent.setup();
 			const handleVerdict = vi.fn();
 			render(<ReviewHeader {...defaultProps} onVerdict={handleVerdict} />);
+			// Shortcuts are scoped to the header — need to focus a child element first
+			await user.click(screen.getByRole("button", { name: "Approve" }));
+			handleVerdict.mockClear();
 			await user.keyboard("a");
 			expect(handleVerdict).toHaveBeenCalledWith("approve");
 		});
 
-		it("r key triggers request-changes verdict", async () => {
+		it("r key triggers request-changes verdict when header is focused", async () => {
 			const user = userEvent.setup();
 			const handleVerdict = vi.fn();
 			render(<ReviewHeader {...defaultProps} onVerdict={handleVerdict} />);
+			await user.click(screen.getByRole("button", { name: "Request changes" }));
+			handleVerdict.mockClear();
 			await user.keyboard("r");
 			expect(handleVerdict).toHaveBeenCalledWith("request-changes");
 		});
 
-		it("x key triggers reject verdict", async () => {
+		it("x key triggers reject verdict when header is focused", async () => {
 			const user = userEvent.setup();
 			const handleVerdict = vi.fn();
 			render(<ReviewHeader {...defaultProps} onVerdict={handleVerdict} />);
+			await user.click(screen.getByRole("button", { name: "Reject" }));
+			handleVerdict.mockClear();
 			await user.keyboard("x");
 			expect(handleVerdict).toHaveBeenCalledWith("reject");
 		});
 
-		it("s key triggers snooze verdict", async () => {
+		it("s key triggers snooze verdict when header is focused", async () => {
 			const user = userEvent.setup();
 			const handleVerdict = vi.fn();
 			render(<ReviewHeader {...defaultProps} onVerdict={handleVerdict} />);
+			await user.click(screen.getByRole("button", { name: "Snooze" }));
+			handleVerdict.mockClear();
 			await user.keyboard("s");
 			expect(handleVerdict).toHaveBeenCalledWith("snooze");
 		});

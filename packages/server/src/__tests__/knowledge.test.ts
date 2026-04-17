@@ -494,7 +494,7 @@ describe("Knowledge Endpoints (E4)", () => {
 				(e) => (e as Record<string, unknown>).type === "knowledge_updated",
 			) as Record<string, unknown> | undefined;
 			expect(knowledgeEvent).toBeDefined();
-			expect(knowledgeEvent?._event).toBe("updated");
+			expect(knowledgeEvent?.action).toBe("updated");
 			expect(knowledgeEvent?.itemId).toBe(id);
 		});
 	});

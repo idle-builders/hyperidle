@@ -25,9 +25,9 @@ describe("WorkTeam", () => {
 
 	it("renders kanban columns", () => {
 		renderPage();
-		expect(screen.getByText("Hold")).toBeInTheDocument();
+		expect(screen.getByText("Planned")).toBeInTheDocument();
+		expect(screen.getByText("Blocked")).toBeInTheDocument();
 		expect(screen.getByText("In Progress")).toBeInTheDocument();
-		expect(screen.getByText("Review")).toBeInTheDocument();
 		expect(screen.getByText("Done")).toBeInTheDocument();
 	});
 
