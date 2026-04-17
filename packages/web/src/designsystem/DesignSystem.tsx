@@ -2,10 +2,14 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ComponentType } from "react";
 import type { StoryMeta, StoryModule } from "./types.js";
 
-// Auto-discover all .stories.tsx files in components/
-const storyGlobs = import.meta.glob<Record<string, unknown>>("../components/*.stories.tsx", {
+// Auto-discover all .stories.tsx files in components/ and shell/
+const componentModules = import.meta.glob<Record<string, unknown>>("../components/*.stories.tsx", {
 	eager: true,
 });
+const shellModules = import.meta.glob<Record<string, unknown>>("../shell/*.stories.tsx", {
+	eager: true,
+});
+const storyGlobs = { ...componentModules, ...shellModules };
 
 function parseStoryModules(): StoryModule[] {
 	const modules: StoryModule[] = [];
