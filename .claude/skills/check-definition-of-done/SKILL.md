@@ -3,7 +3,6 @@ name: check-definition-of-done
 description: "Independent audit: is every acceptance criterion met with evidence?"
 argument-hint: "[story-id]"
 user-invocable: true
-allowed-tools: Read Grep Glob Bash Agent
 ---
 
 # Check Definition of Done
@@ -44,7 +43,7 @@ Use every tool at your disposal. "I implemented it" is not proof. Only observabl
 | Config/setup | Show the file exists with correct content | `Read(file_path: "drizzle.config.ts")` |
 | Behavior | Run the specific test that exercises it | `bun run test -- schema.test.ts` and show the output |
 | Performance | Run a benchmark or timed test | `time bun run test` or a specific perf test |
-| UI/visual | Take a screenshot or run Playwright | `bun run test:e2e` or inspect the rendered component |
+| UI/visual | Check `/designsystem` for component stories, run Playwright | Navigate to `/designsystem#ComponentName` to verify all states render correctly |
 | Error handling | Trigger the error path in a test | Show a test that sends bad input and gets the expected error |
 | FK/constraints | Insert violating data, show it rejects | Test that inserts an orphan row and asserts the FK error |
 | Seed/fixtures | Run the seed, count rows | `bun run db:seed && sqlite3 data.db "SELECT count(*) FROM products"` |

@@ -2,7 +2,6 @@
 name: verify
 description: "Run type check, lint, and tests. Auto-fix what's fixable."
 user-invocable: true
-allowed-tools: Bash Read Edit Grep
 ---
 
 # Verify

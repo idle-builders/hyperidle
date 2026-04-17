@@ -3,7 +3,6 @@ name: pipeline
 description: "Use when multiple work packages need to be built in sequence or parallel. Triggers: batch implementation requested, track or story list provided, 'all' target given."
 argument-hint: "[story-ids like 'A1 A2 A3' or track like 'A' or 'all']"
 user-invocable: true
-allowed-tools: Read Edit Write Bash Grep Glob Agent
 ---
 
 # Pipeline — Build Stories End-to-End
@@ -41,21 +40,24 @@ Then execute these steps. **Each step spawns an agent with a skill. Update `curr
 | 1 | architect | `/plan <id>` | Plan before building — prevents wasted implementation time and catches design flaws early |
 | 2 | developer | `/write-tests <id>` | Tests first define the requirement, not the implementation — catches when the wrong thing gets built |
 | 3 | developer | `/write-code <id>` | With tests as targets, implementation stays lean and every line exists because a test demands it |
-| 4 | — | `bun run check && lint && test` | Automated gates catch regressions before they compound — the next agent inherits what you leave |
-| 5 | qa | `/check-definition-of-done <id>` | The builder is biased — an independent auditor catches gaps the implementer rationalized away |
-| 6 | developer | `/simplify` | AI code trends toward over-abstraction — simplifying keeps the codebase maintainable for the next story |
-| 7 | developer | `/slop-scan` | AI-specific anti-patterns (verbose names, restating comments) make code harder to read if left unchecked |
-| 8 | — | `bun run check && lint && test` | Verify simplify/slop-scan didn't break anything — cleanup must be behavior-preserving |
-| 9 | — | `/review` | Multiple specialists catch different issue classes — architect sees layer violations, adversary finds over-engineering |
-| 10 | — | `/ship <id>` | Clean git history with atomic commits lets future agents trace decisions |
-| 11 | — | Merge yourself | Self-merge to main so the next story sees the latest code |
-| 12 | — | Cleanup yourself | Remove worktree and branch to keep the repo clean |
-| 13 | — | `/retro <id>` | Recording what went well/badly feeds the compound agent to improve the process over time |
+| 4 | adversary | `/simplification-scan` | Scan for over-abstraction — findings only, no code changes |
+| 5 | adversary | `/slop-scan` | Scan for AI anti-patterns — findings only, no code changes |
+| 6 | developer | `/apply-review` (steps 4+5) | Apply simplification and slop-scan findings, validate each fix |
+| 7 | architect | `/architecture-review` | Layer violations, API contracts, data model alignment |
+| 8 | adversary | `/adversary-review` | Over-engineering, error paths, type safety, coupling, test quality |
+| 9 | security-researcher | `/security-review` | STRIDE, input validation, auth, OWASP top 10 |
+| 10 | designer | `/design-review` | Component specs, states, accessibility, `/designsystem` (skip if no UI) |
+| 11 | developer | `/apply-review` (steps 7-10) | Apply review findings, validate each fix |
+| 11b | qa | `/apply-review` (steps 7-10) | Apply test-related review findings if any |
+| 12 | qa | `/check-definition-of-done <id>` | Independent auditor catches gaps the implementer rationalized away |
+-- repeat 2 to 12 until done --
+| 13 | developer | `/ship <id>` | Clean git history with atomic commits lets future agents trace decisions |
+| 14 | — | `/retro <id>` | Recording what went well/badly feeds the compound agent to improve the process over time |
 
-If step 5 (DoD) fails: back to step 3. Max 3 attempts, then `blocked`.
-If step 9 (review) blocks: back to step 3. Max 3 attempts.
+If step 12 (DoD) fails: back to step 2. Max 3 attempts, then `blocked`.
+If review (steps 7-10) blocks: back to step 3. Max 3 attempts.
 
-After step 13: set status to `done`. Move to next story.
+After step 14: set status to `done`. Move to next story.
 
 ---
 

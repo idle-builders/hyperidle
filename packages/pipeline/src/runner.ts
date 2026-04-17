@@ -11,7 +11,6 @@ import {
 export interface RunResult {
 	success: boolean;
 	sessionId: string | null;
-	cost: number;
 	durationMs: number;
 	error: string | null;
 }
@@ -30,8 +29,6 @@ export async function runStory(options: RunOptions): Promise<RunResult> {
 	const { storyId, cwd, abortController } = options;
 	const startTime = Date.now();
 	let sessionId: string | null = null;
-	let totalCost = 0;
-
 	try {
 		const q = query({
 			prompt: `/pipeline ${storyId}`,
@@ -187,7 +184,6 @@ export async function runStory(options: RunOptions): Promise<RunResult> {
 
 				case "result": {
 					sessionId = message.session_id;
-					totalCost = message.total_cost_usd;
 					const resultMsg = message as {
 						subtype: string;
 						result: string;
@@ -198,7 +194,7 @@ export async function runStory(options: RunOptions): Promise<RunResult> {
 					};
 					appendOutput(
 						storyId,
-						`[RESULT] ${resultMsg.subtype} | turns: ${resultMsg.num_turns} | stop: ${resultMsg.stop_reason ?? "none"} | terminal: ${resultMsg.terminal_reason ?? "none"} | cost: $${totalCost.toFixed(4)}`,
+						`[RESULT] ${resultMsg.subtype} | turns: ${resultMsg.num_turns} | stop: ${resultMsg.stop_reason ?? "none"} | terminal: ${resultMsg.terminal_reason ?? "none"}`,
 					);
 					if (resultMsg.permission_denials && resultMsg.permission_denials.length > 0) {
 						appendOutput(
@@ -212,7 +208,6 @@ export async function runStory(options: RunOptions): Promise<RunResult> {
 					return {
 						success: resultMsg.subtype === "success",
 						sessionId,
-						cost: totalCost,
 						durationMs: Date.now() - startTime,
 						error: resultMsg.subtype === "success" ? null : resultMsg.result,
 					};
@@ -223,7 +218,6 @@ export async function runStory(options: RunOptions): Promise<RunResult> {
 		return {
 			success: false,
 			sessionId,
-			cost: totalCost,
 			durationMs: Date.now() - startTime,
 			error: "Session ended without result",
 		};
@@ -233,7 +227,6 @@ export async function runStory(options: RunOptions): Promise<RunResult> {
 		return {
 			success: false,
 			sessionId,
-			cost: totalCost,
 			durationMs: Date.now() - startTime,
 			error: errorMsg,
 		};

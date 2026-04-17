@@ -3,7 +3,6 @@ name: write-code
 description: "Write minimum code to make all tests pass. TDD green phase."
 argument-hint: "[story-id]"
 user-invocable: true
-allowed-tools: Read Edit Write Bash Grep Glob
 ---
 
 # Write Code
@@ -12,7 +11,7 @@ allowed-tools: Read Edit Write Bash Grep Glob
 
 Read the plan for `$ARGUMENTS` (check tasks or the story in the relevant track file under `docs/work-packages/`). Read the existing failing tests.
 
-Implement each task in dependency order. Write the minimum code to make tests pass. After each logical unit, run the relevant tests. Continue until all tests are green.
+Implement each task in dependency order. Write the minimum code to make tests pass. For UI components, create a `.stories.tsx` file rendering key states. After each logical unit, run the relevant tests. Continue until all tests are green.
 
 Never weaken a test to make it pass. If a test reveals a design flaw, fix the implementation.
 

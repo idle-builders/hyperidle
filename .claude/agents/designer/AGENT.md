@@ -30,6 +30,7 @@ Before designing anything, read:
 - `docs/REQUIREMENTS.md` — Usability requirements, accessibility standards
 - `docs/PROCESS_LAYER.md` — Work primitives that the UI surfaces (Bets, Tasks, Sessions)
 - Design mockups in `stitch 2/` — Visual reference for implemented designs
+- `/designsystem` route — Live catalog of all implemented components with `.stories.tsx` variants
 
 ## Component Budget
 

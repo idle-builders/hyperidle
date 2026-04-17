@@ -3,7 +3,6 @@ name: simplify
 description: "Review changed code for over-abstraction, dead code, and unnecessary complexity. Fix without changing behavior."
 argument-hint: "[file paths or 'all' for recent changes]"
 user-invocable: true
-allowed-tools: Read Edit Bash Grep Glob
 ---
 
 # Simplify
@@ -12,6 +11,10 @@ allowed-tools: Read Edit Bash Grep Glob
 
 Find recently changed files via `git diff --name-only HEAD~1` (or use `$ARGUMENTS`).
 
-Look for and fix: helpers used only once (inline them), premature generics, dead code, unused exports, commented-out code, error handling for impossible scenarios, unnecessary async, wrapper types adding no value. ... generally anything where the same result could be achieved with simpler means.
+## Phase 1: Scan (adversary)
 
-Keep changes behavior-preserving. Run `bun run check && bun run lint && bun run test` after. Revert anything that breaks.
+Spawn an **adversary** agent with `/simplification-scan $ARGUMENTS`. It produces findings with file paths and line numbers but does NOT make changes.
+
+## Phase 2: Fix (developer)
+
+Spawn a **developer** agent with `/apply-review` passing the adversary's findings. It verifies and applies meaningful & correct simplifications, keeping all changes behavior-preserving. Run `bun run check && bun run lint && bun run test` after. Revert anything that breaks.

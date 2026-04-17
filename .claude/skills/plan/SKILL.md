@@ -3,7 +3,6 @@ name: plan
 description: "Produce a task list for a story. Architect reads the spec, adversary challenges it."
 argument-hint: "[story-id]"
 user-invocable: true
-allowed-tools: Read Grep Glob Agent
 ---
 
 # Plan
