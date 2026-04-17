@@ -63,17 +63,21 @@ export const Closed = {
 	render: (): JSX.Element => <StoryWrapper initialOpen={false} />,
 };
 
+function SaveInFlightRender(): JSX.Element {
+	const [open, setOpen] = useState(true);
+	return (
+		<SettingsPanel
+			open={open}
+			onClose={() => setOpen(false)}
+			onSave={() => new Promise(() => {})}
+			settings={mockSettings}
+		/>
+	);
+}
+
 export const SaveInFlight = {
 	name: "Save In Flight",
 	render: (): JSX.Element => {
-		const [open, setOpen] = useState(true);
-		return (
-			<SettingsPanel
-				open={open}
-				onClose={() => setOpen(false)}
-				onSave={() => new Promise(() => {})}
-				settings={mockSettings}
-			/>
-		);
+		return <SaveInFlightRender />;
 	},
 };

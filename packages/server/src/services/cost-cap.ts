@@ -303,8 +303,11 @@ export async function resetCosts(db: HyperIdleDb, params: ResetCostsParams): Pro
 			break;
 		}
 		case "factory": {
+			// eslint-disable-next-line drizzle/enforce-update-with-where -- intentional: factory reset clears ALL rows
 			db.update(sessions).set({ cost: 0 }).run();
+			// eslint-disable-next-line drizzle/enforce-update-with-where -- intentional: factory reset clears ALL rows
 			db.update(agents).set({ costActual: 0 }).run();
+			// eslint-disable-next-line drizzle/enforce-update-with-where -- intentional: factory reset clears ALL rows
 			db.update(teams).set({ costActual: 0 }).run();
 			break;
 		}
