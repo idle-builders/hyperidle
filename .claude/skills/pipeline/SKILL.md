@@ -51,10 +51,12 @@ Then execute these steps. **Each step spawns an agent with a skill. Update `curr
 | 11b | qa | `/apply-review` (steps 7-10) | Apply test-related review findings if any |
 | 12 | qa | `/check-definition-of-done <id>` | Independent auditor catches gaps the implementer rationalized away |
 -- repeat 2 to 12 until done --
-| 13 | developer | `/ship <id>` | Clean git history with atomic commits lets future agents trace decisions |
+| 12b | developer | `/verify` | Run `bun run check && bun run lint && bun run test` — all three must pass. Lint includes Biome + ESLint (React Compiler, hooks, Drizzle safety). |
+| 13 | developer | `/ship <id>` | Clean git history with atomic commits lets future agents trace decisions. CI must be green before merge. |
 | 14 | — | `/retro <id>` | Recording what went well/badly feeds the compound agent to improve the process over time |
 
 If step 12 (DoD) fails: back to step 2. Max 3 attempts, then `blocked`.
+If step 12b (verify) fails: fix issues and re-run. Max 3 attempts.
 If review (steps 7-10) blocks: back to step 3. Max 3 attempts.
 
 After step 14: set status to `done`. Move to next story.
