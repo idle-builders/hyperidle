@@ -4,24 +4,32 @@ import type { Config } from "tailwindcss";
 export default {
 	content: ["./index.html", "./src/**/*.{ts,tsx}"],
 	theme: {
-		extend: {},
+		extend: {
+			fontFamily: {
+				sans: ["Inter", "system-ui", "sans-serif"],
+				heading: ["Space Grotesk", "system-ui", "sans-serif"],
+			},
+		},
 	},
 	plugins: [daisyui],
 	daisyui: {
 		themes: [
 			{
 				"factory-dark": {
-					primary: "#6366f1",
-					secondary: "#818cf8",
-					accent: "#f59e0b",
-					neutral: "#1e1e2e",
-					"base-100": "#0f0f1a",
-					"base-200": "#1a1a2e",
-					"base-300": "#252540",
-					info: "#38bdf8",
-					success: "#22c55e",
-					warning: "#f59e0b",
-					error: "#ef4444",
+					primary: "#adc6ff",
+					secondary: "#d58f24",
+					accent: "#bbffb3",
+					neutral: "#191a1a",
+					"base-100": "#000000",
+					"base-200": "#0e0e0e",
+					"base-300": "#131313",
+					info: "#adc6ff",
+					success: "#bbffb3",
+					warning: "#d58f24",
+					error: "#ee7d77",
+					"--rounded-box": "4px",
+					"--rounded-btn": "2px",
+					"--rounded-badge": "2px",
 				},
 			},
 		],

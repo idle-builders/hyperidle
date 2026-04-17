@@ -17,14 +17,17 @@ export function App(): React.JSX.Element {
 	return (
 		<div className="min-h-screen bg-base-100 flex items-center justify-center">
 			<div className="text-center">
-				<h1 className="text-4xl font-bold text-primary">HyperIdle</h1>
-				<p className="text-base-content/60 mt-2">
+				<h1 className="text-2xl font-heading font-medium text-[var(--text-hi)]">HyperIdle</h1>
+				<p className="text-sm text-[var(--text-mid)] mt-2">
 					{error
 						? `Error: ${error}`
 						: health
 							? `Status: ${health.status}`
 							: "The Factory is loading..."}
 				</p>
+				<button type="button" className="btn btn-primary btn-sm mt-4">
+					Connect
+				</button>
 			</div>
 		</div>
 	);
