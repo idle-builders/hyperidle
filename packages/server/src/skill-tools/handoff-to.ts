@@ -29,7 +29,7 @@ async function handler(args: HandoffToInput, ctx: ToolContext): Promise<ToolResu
 	}
 	const input = parsed.data;
 
-	if (!input.toAgent && !input.toRole && !input.toHuman) {
+	if (!(input.toAgent || input.toRole || input.toHuman)) {
 		return err("INVALID_INPUT", "One of toAgent, toRole, or toHuman must be specified");
 	}
 

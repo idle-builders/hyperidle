@@ -107,7 +107,7 @@ describe("send_message tool", () => {
 			);
 			expect(first.success).toBe(true);
 			expect(second.success).toBe(true);
-			if (!first.success || !second.success) return;
+			if (!(first.success && second.success)) return;
 			const t1 = (first.data as { threadId: string }).threadId;
 			const t2 = (second.data as { threadId: string }).threadId;
 			expect(t1).toBe(t2);

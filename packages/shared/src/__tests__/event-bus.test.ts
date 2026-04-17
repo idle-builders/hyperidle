@@ -193,17 +193,17 @@ describe("EventBus", () => {
 		// If the types are wrong, tsc will reject this file.
 		bus.on("task_state_changed", (e) => {
 			// These property accesses must type-check
-			const _taskId: string = e.taskId;
-			const _from: string = e.fromState;
-			const _to: string = e.toState;
-			expect(_taskId).toBeDefined();
-			expect(_from).toBeDefined();
-			expect(_to).toBeDefined();
+			const TaskId: string = e.taskId;
+			const From: string = e.fromState;
+			const To: string = e.toState;
+			expect(TaskId).toBeDefined();
+			expect(From).toBeDefined();
+			expect(To).toBeDefined();
 		});
 
 		bus.on("bet_shipped", (e) => {
-			const _betId: string = e.betId;
-			expect(_betId).toBeDefined();
+			const BetId: string = e.betId;
+			expect(BetId).toBeDefined();
 		});
 
 		bus.emit(makeTaskEvent("t1", 1));

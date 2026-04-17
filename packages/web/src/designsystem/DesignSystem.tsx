@@ -20,7 +20,7 @@ const storyGlobs = { ...componentModules, ...shellModules, ...pageModules, ...la
 function parseStoryModules(): StoryModule[] {
 	const modules: StoryModule[] = [];
 
-	for (const [_path, mod] of Object.entries(storyGlobs)) {
+	for (const [Path, mod] of Object.entries(storyGlobs)) {
 		const defaultExport = mod.default as StoryMeta | undefined;
 		if (!defaultExport?.title) continue;
 
