@@ -73,10 +73,12 @@ describe("BetCard", () => {
 		expect(handleClick).toHaveBeenCalledOnce();
 	});
 
-	it("renders progress when provided", () => {
+	it("renders progress bar and text when provided", () => {
 		render(<BetCard {...defaultProps} progress={{ done: 3, total: 5 }} />);
-		expect(screen.getByText(/3/)).toBeInTheDocument();
-		expect(screen.getByText(/5/)).toBeInTheDocument();
+		expect(screen.getByText("3/5")).toBeInTheDocument();
+		const progressBar = screen.getByRole("progressbar");
+		expect(progressBar).toHaveAttribute("value", "3");
+		expect(progressBar).toHaveAttribute("max", "5");
 	});
 
 	it("composes at least 2 Tier 1 primitives (Tag + StatusChip + KeyValue)", () => {

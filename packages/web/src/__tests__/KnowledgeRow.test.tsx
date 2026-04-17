@@ -104,6 +104,22 @@ describe("KnowledgeRow", () => {
 		}
 	});
 
+	it("renders caption when provided", () => {
+		render(<KnowledgeRow {...defaultProps} caption="A short description of the pattern" />);
+		expect(screen.getByText("A short description of the pattern")).toBeInTheDocument();
+	});
+
+	it("does not render caption when omitted", () => {
+		const { container } = render(<KnowledgeRow {...defaultProps} />);
+		const captions = container.querySelectorAll("p");
+		expect(captions.length).toBe(0);
+	});
+
+	it("has aria-label on title", () => {
+		render(<KnowledgeRow {...defaultProps} />);
+		expect(screen.getByLabelText("Knowledge: API Rate Limiting Pattern")).toBeInTheDocument();
+	});
+
 	it("composes at least 2 Tier 1 primitives (Tag + StatusChip)", () => {
 		render(<KnowledgeRow {...defaultProps} />);
 		// Tag for layer

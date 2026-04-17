@@ -65,6 +65,13 @@ describe("NotificationRow", () => {
 		expect(screen.getByText("DONE")).toBeInTheDocument();
 	});
 
+	it("has aria-label on message", () => {
+		render(<NotificationRow {...defaultProps} />);
+		expect(
+			screen.getByLabelText("Notification: Deploy completed successfully"),
+		).toBeInTheDocument();
+	});
+
 	it("composes at least 2 Tier 1 primitives (StatusChip + Tag)", () => {
 		render(<NotificationRow {...defaultProps} source="system" />);
 		// StatusChip for severity

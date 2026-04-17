@@ -1,3 +1,4 @@
+import type React from "react";
 import { describe, expect, it, vi } from "vitest";
 import { clickableProps } from "../components/clickable";
 
@@ -19,9 +20,9 @@ describe("clickableProps", () => {
 	it("onKeyDown calls handler on Enter key", () => {
 		const handler = vi.fn();
 		const result = clickableProps(handler);
-		const onKeyDown = result.onKeyDown as (e: { key: string; preventDefault: () => void }) => void;
+		const { onKeyDown } = result;
 		const preventDefault = vi.fn();
-		onKeyDown({ key: "Enter", preventDefault });
+		onKeyDown?.({ key: "Enter", preventDefault } as unknown as React.KeyboardEvent<HTMLDivElement>);
 		expect(handler).toHaveBeenCalledOnce();
 		expect(preventDefault).toHaveBeenCalledOnce();
 	});
@@ -29,9 +30,9 @@ describe("clickableProps", () => {
 	it("onKeyDown calls handler on Space key", () => {
 		const handler = vi.fn();
 		const result = clickableProps(handler);
-		const onKeyDown = result.onKeyDown as (e: { key: string; preventDefault: () => void }) => void;
+		const { onKeyDown } = result;
 		const preventDefault = vi.fn();
-		onKeyDown({ key: " ", preventDefault });
+		onKeyDown?.({ key: " ", preventDefault } as unknown as React.KeyboardEvent<HTMLDivElement>);
 		expect(handler).toHaveBeenCalledOnce();
 		expect(preventDefault).toHaveBeenCalledOnce();
 	});
@@ -39,9 +40,12 @@ describe("clickableProps", () => {
 	it("onKeyDown does not call handler on other keys", () => {
 		const handler = vi.fn();
 		const result = clickableProps(handler);
-		const onKeyDown = result.onKeyDown as (e: { key: string; preventDefault: () => void }) => void;
+		const { onKeyDown } = result;
 		const preventDefault = vi.fn();
-		onKeyDown({ key: "Escape", preventDefault });
+		onKeyDown?.({
+			key: "Escape",
+			preventDefault,
+		} as unknown as React.KeyboardEvent<HTMLDivElement>);
 		expect(handler).not.toHaveBeenCalled();
 		expect(preventDefault).not.toHaveBeenCalled();
 	});

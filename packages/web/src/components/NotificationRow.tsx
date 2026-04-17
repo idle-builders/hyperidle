@@ -20,7 +20,9 @@ export function NotificationRow({
 	return (
 		<div className="flex items-center gap-2 px-2 py-2">
 			<StatusChip status={severity} />
-			<span className="flex-1 text-sm truncate">{message}</span>
+			<span className="flex-1 text-sm truncate" aria-label={`Notification: ${message}`}>
+				{message}
+			</span>
 			{source && <Tag label={source} />}
 			<span className="text-xs text-base-content/50 whitespace-nowrap">{timestamp}</span>
 			{actions}
