@@ -1,13 +1,13 @@
+import type { BetStatus } from "@hyperidle/shared";
 import { useState } from "react";
-import type { Status } from "../components/StatusChip";
 import { Rail } from "./Rail";
 
 export default { title: "Rail" };
 
 const sampleBets = [
-	{ id: "bet-1", title: "Launch MVP", product: "HyperIdle", status: "healthy" as Status },
-	{ id: "bet-2", title: "User Onboarding", product: "HyperIdle", status: "behind" as Status },
-	{ id: "bet-3", title: "Analytics V2", product: "MetaDash", status: "blocked" as Status },
+	{ id: "bet-1", title: "Launch MVP", product: "HyperIdle", status: "in_progress" as BetStatus },
+	{ id: "bet-2", title: "User Onboarding", product: "HyperIdle", status: "behind" as BetStatus },
+	{ id: "bet-3", title: "Analytics V2", product: "MetaDash", status: "blocked" as BetStatus },
 ];
 
 const sampleBlockers = [
@@ -15,13 +15,13 @@ const sampleBlockers = [
 		id: "blocker-1",
 		agent: "Agent Alpha",
 		reason: "Waiting for API key",
-		severity: "blocked" as Status,
+		severity: "high" as const,
 	},
 	{
 		id: "blocker-2",
 		agent: "Agent Beta",
 		reason: "Rate limited by provider",
-		severity: "behind" as Status,
+		severity: "medium" as const,
 	},
 ];
 

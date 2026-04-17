@@ -1,4 +1,4 @@
-import { index, integer, primaryKey, sqliteTable, text } from "drizzle-orm/sqlite-core";
+import { index, integer, primaryKey, real, sqliteTable, text } from "drizzle-orm/sqlite-core";
 
 // --- Core tables ---
 
@@ -89,6 +89,7 @@ export const tasks = sqliteTable("tasks", {
 	crossTeam: integer("cross_team").default(0),
 	threadId: text("thread_id").references(() => threads.id),
 	notes: text("notes"),
+	auditTrail: text("audit_trail"),
 	createdAt: text("created_at").notNull(),
 	updatedAt: text("updated_at").notNull(),
 });
@@ -236,8 +237,8 @@ export const knowledgeItems = sqliteTable(
 		body: text("body").notNull(),
 		format: text("format").notNull(),
 		status: text("status").notNull(),
-		attentionScore: integer("attention_score"),
-		confidence: integer("confidence"),
+		attentionScore: real("attention_score"),
+		confidence: real("confidence"),
 		version: integer("version").notNull().default(1),
 		updatedBy: text("updated_by").notNull(),
 		createdAt: text("created_at").notNull(),
@@ -250,6 +251,9 @@ export const knowledgeItems = sqliteTable(
 		index("ki_kind_idx").on(table.kind),
 		index("ki_topic_idx").on(table.topic),
 		index("ki_status_idx").on(table.status),
+		index("ki_layer_scope_idx").on(table.layer, table.scopeId),
+		index("ki_attention_desc_idx").on(table.attentionScore),
+		index("ki_updated_desc_idx").on(table.updatedAt),
 	],
 );
 
@@ -276,8 +280,11 @@ export const knowledgeConflicts = sqliteTable("knowledge_conflicts", {
 	versionBase: integer("version_base").notNull(),
 	versionCurrent: integer("version_current").notNull(),
 	proposedBody: text("proposed_body").notNull(),
+	proposedMeta: text("proposed_meta"),
 	proposedBy: text("proposed_by").notNull(),
 	status: text("status").notNull().default("open"),
+	resolvedBy: text("resolved_by"),
+	resolvedAt: text("resolved_at"),
 	createdAt: text("created_at").notNull(),
 });
 

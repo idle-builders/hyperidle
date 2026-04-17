@@ -3,54 +3,23 @@
  * It manages view state, submenu state, settings panel, and global search.
  * This is NOT a custom component — it is a page-level composition assembling Tier 3 regions.
  */
-import { type JSX, useCallback, useMemo, useState } from "react";
-import { Outlet, useLocation, useNavigate } from "react-router-dom";
+import { type JSX, useCallback, useEffect, useMemo, useState } from "react";
+import { Outlet, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { GlobalSearchPanel } from "../components/GlobalSearchPanel";
 import { NavItem } from "../components/NavItem";
 import type { SettingsData } from "../components/SettingsPanel";
 import { SettingsPanel } from "../components/SettingsPanel";
+import {
+	DEFAULT_SETTINGS,
+	MOCK_RAIL_BETS,
+	MOCK_RAIL_BLOCKERS,
+	MOCK_RAIL_COST,
+} from "../fixtures/app-shell-data";
 import { useCommandK } from "../hooks/useCommandK";
 import { IconRail } from "../shell/IconRail";
 import { Rail } from "../shell/Rail";
 import { Submenu } from "../shell/Submenu";
 import type { ViewId } from "../shell/shell-types";
-
-const DEFAULT_SETTINGS: SettingsData = {
-	profile: { name: "Founder", email: "founder@hyperidle.com", avatarUrl: "" },
-	products: [
-		{ id: "p1", name: "Product Alpha", active: true },
-		{ id: "p2", name: "Product Beta", active: false },
-	],
-	agents: [
-		{ id: "a1", name: "Architect", autonomyLevel: "supervised", paused: false },
-		{ id: "a2", name: "Developer", autonomyLevel: "autonomous", paused: false },
-	],
-	notifications: {
-		reviewAlerts: true,
-		costAlerts: true,
-		blockerAlerts: true,
-		quietHoursStart: "22:00",
-		quietHoursEnd: "08:00",
-		mutedProducts: [],
-	},
-	appearance: { density: "comfortable" },
-};
-
-const MOCK_RAIL_BETS = [
-	{ id: "b1", title: "User auth flow", product: "Alpha", status: "active" as const },
-	{ id: "b2", title: "Dashboard redesign", product: "Beta", status: "blocked" as const },
-];
-
-const MOCK_RAIL_BLOCKERS = [
-	{ id: "bl1", agent: "Developer", reason: "Waiting for API spec", severity: "blocked" as const },
-];
-
-const MOCK_RAIL_COST = {
-	todaySpend: "$12.40",
-	todayBudget: "$50.00",
-	weekSpend: "$84.20",
-	weekBudget: "$350.00",
-};
 
 interface SubmenuConfig {
 	title: string;
@@ -92,8 +61,17 @@ export function AppShell(): JSX.Element {
 
 	const [submenuCollapsed, setSubmenuCollapsed] = useState(false);
 	const [railExpanded, setRailExpanded] = useState(true);
+	const [searchParams, setSearchParams] = useSearchParams();
 	const [settingsOpen, setSettingsOpen] = useState(false);
 	const commandK = useCommandK();
+
+	// Open settings panel when navigated to with ?settings=open query param
+	useEffect(() => {
+		if (searchParams.get("settings") === "open") {
+			setSettingsOpen(true);
+			setSearchParams({}, { replace: true });
+		}
+	}, [searchParams, setSearchParams]);
 
 	const handleViewChange = useCallback(
 		(view: ViewId): void => {

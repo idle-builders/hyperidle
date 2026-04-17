@@ -41,6 +41,11 @@ export type {
 	CostCapBreachedEvent,
 	NotificationEvent,
 	ResponseRecordedEvent,
+	KnowledgeUpdatedEvent,
+	RoutineFiredEvent,
+	DependencyMetEvent,
+	BetCommittedEvent,
+	BetRevisedEvent,
 } from "./events.js";
 
 export { EventBus } from "./event-bus.js";

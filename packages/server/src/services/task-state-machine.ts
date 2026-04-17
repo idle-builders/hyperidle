@@ -58,8 +58,8 @@ export function transitionTask(
 		throw new InvalidTransitionError(taskId, fromState, toState);
 	}
 
-	// Build audit trail
-	const existingAudit: AuditEntry[] = task.notes ? JSON.parse(task.notes) : [];
+	// Build audit trail — stored in auditTrail column (notes is for agent-authored prose)
+	const existingAudit: AuditEntry[] = task.auditTrail ? JSON.parse(task.auditTrail) : [];
 	const entry: AuditEntry = {
 		from: fromState,
 		to: toState,
@@ -70,7 +70,7 @@ export function transitionTask(
 	db.update(tasks)
 		.set({
 			state: toState,
-			notes: JSON.stringify(existingAudit),
+			auditTrail: JSON.stringify(existingAudit),
 			updatedAt: new Date().toISOString(),
 		})
 		.where(eq(tasks.id, taskId))

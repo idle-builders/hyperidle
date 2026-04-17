@@ -1,21 +1,52 @@
+import type { BetStatus } from "@hyperidle/shared";
 import { type JSX, useState } from "react";
 import { KeyValue } from "../components/KeyValue";
 import type { Status } from "../components/StatusChip";
 import { StatusChip } from "../components/StatusChip";
 import { useRovingFocus } from "./use-roving-focus";
 
+/** Maps domain BetStatus to presentation Status for StatusChip rendering. */
+function betStatusToChipStatus(status: BetStatus): Status {
+	switch (status) {
+		case "shipped":
+			return "done";
+		case "blocked":
+			return "blocked";
+		case "behind":
+			return "behind";
+		case "paused":
+			return "paused";
+		case "killed":
+			return "error";
+		default:
+			return "healthy";
+	}
+}
+
+/** Maps domain severity string to presentation Status for StatusChip rendering. */
+function severityToChipStatus(severity: "low" | "medium" | "high"): Status {
+	switch (severity) {
+		case "high":
+			return "blocked";
+		case "medium":
+			return "behind";
+		default:
+			return "paused";
+	}
+}
+
 export interface BetItem {
 	id: string;
 	title: string;
 	product: string;
-	status: Status;
+	status: BetStatus;
 }
 
 export interface BlockerItem {
 	id: string;
 	agent: string;
 	reason: string;
-	severity: Status;
+	severity: "low" | "medium" | "high";
 }
 
 export interface CostInfo {
@@ -160,7 +191,7 @@ export function Rail({ expanded, onToggleExpand, bets, blockers, cost }: RailPro
 							<div key={bet.id} className="flex flex-col gap-0.5 py-1">
 								<div className="flex items-center justify-between">
 									<span className="text-sm text-[var(--text-hi)]">{bet.title}</span>
-									<StatusChip status={bet.status} />
+									<StatusChip status={betStatusToChipStatus(bet.status)} />
 								</div>
 								<span className="text-xs text-[var(--text-lo)]">{bet.product}</span>
 							</div>
@@ -186,7 +217,7 @@ export function Rail({ expanded, onToggleExpand, bets, blockers, cost }: RailPro
 							<div key={blocker.id} className="flex flex-col gap-0.5 py-1">
 								<div className="flex items-center justify-between">
 									<span className="text-sm text-[var(--text-hi)]">{blocker.agent}</span>
-									<StatusChip status={blocker.severity} />
+									<StatusChip status={severityToChipStatus(blocker.severity)} />
 								</div>
 								<span className="text-xs text-[var(--text-lo)]">{blocker.reason}</span>
 							</div>

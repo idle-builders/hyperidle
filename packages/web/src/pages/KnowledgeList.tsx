@@ -61,6 +61,29 @@ const MOCK_ITEMS: MockKnowledgeItem[] = [
 
 export function KnowledgeList(): JSX.Element {
 	const navigate = useNavigate();
+	const loading = false;
+	const error: string | null = null;
+
+	if (loading) {
+		return (
+			<div className="flex flex-col gap-3 h-full" data-testid="knowledge-list-page">
+				<div className="skeleton h-6 w-48" />
+				<div className="skeleton h-12 w-full" />
+				<div className="skeleton h-12 w-full" />
+				<div className="skeleton h-12 w-full" />
+			</div>
+		);
+	}
+
+	if (error) {
+		return (
+			<div className="flex flex-col gap-3 h-full" data-testid="knowledge-list-page">
+				<div role="alert" className="alert alert-error text-sm">
+					{error}
+				</div>
+			</div>
+		);
+	}
 
 	return (
 		<div className="flex flex-col gap-3 h-full" data-testid="knowledge-list-page">

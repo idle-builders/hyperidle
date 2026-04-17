@@ -28,6 +28,10 @@ export const router = createBrowserRouter([
 			{ path: "work/bet/:betId", element: <WorkBet /> },
 			{ path: "knowledge", element: <KnowledgeList /> },
 			{ path: "knowledge/:knowledgeId", element: <KnowledgeDetail /> },
+			{
+				path: "settings",
+				element: <Navigate to="/conversations/review?settings=open" replace />,
+			},
 		],
 	},
 ]);
