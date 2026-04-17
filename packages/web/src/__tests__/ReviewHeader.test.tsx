@@ -143,12 +143,98 @@ describe("ReviewHeader", () => {
 			const approveBtn = screen.getByRole("button", { name: "Approve" });
 			expect(approveBtn).toHaveAttribute("title", expect.stringContaining("A"));
 		});
+
+		it("shows shortcut in title for each button", () => {
+			render(<ReviewHeader {...defaultProps} />);
+			const rejectBtn = screen.getByRole("button", { name: "Reject" });
+			expect(rejectBtn).toHaveAttribute("title", expect.stringContaining("X"));
+			const snoozeBtn = screen.getByRole("button", { name: "Snooze" });
+			expect(snoozeBtn).toHaveAttribute("title", expect.stringContaining("S"));
+		});
+
+		it("renders kbd elements for each shortcut", () => {
+			const { container } = render(<ReviewHeader {...defaultProps} />);
+			const kbds = container.querySelectorAll("kbd");
+			// Each of the 10 buttons with a shortcut should have a kbd element
+			expect(kbds.length).toBeGreaterThanOrEqual(10);
+		});
+	});
+
+	describe("keyboard shortcut scoping", () => {
+		it("does not fire shortcuts when textarea is focused", async () => {
+			const user = userEvent.setup();
+			const handleVerdict = vi.fn();
+			render(
+				<div>
+					<textarea data-testid="textarea" />
+					<ReviewHeader {...defaultProps} onVerdict={handleVerdict} />
+				</div>,
+			);
+			const textarea = screen.getByTestId("textarea");
+			await user.click(textarea);
+			await user.keyboard("a");
+			expect(handleVerdict).not.toHaveBeenCalled();
+		});
+
+		it("does not fire shortcuts when select is focused", async () => {
+			const user = userEvent.setup();
+			const handleVerdict = vi.fn();
+			render(
+				<div>
+					<select data-testid="select">
+						<option>a</option>
+					</select>
+					<ReviewHeader {...defaultProps} onVerdict={handleVerdict} />
+				</div>,
+			);
+			const select = screen.getByTestId("select");
+			await user.click(select);
+			await user.keyboard("a");
+			expect(handleVerdict).not.toHaveBeenCalled();
+		});
+
+		it("does not fire for unbound keys", async () => {
+			const user = userEvent.setup();
+			const handleVerdict = vi.fn();
+			render(<ReviewHeader {...defaultProps} onVerdict={handleVerdict} />);
+			await user.keyboard("z");
+			expect(handleVerdict).not.toHaveBeenCalled();
+		});
+
+		it("cleans up keydown listener on unmount", async () => {
+			const user = userEvent.setup();
+			const handleVerdict = vi.fn();
+			const { unmount } = render(<ReviewHeader {...defaultProps} onVerdict={handleVerdict} />);
+			unmount();
+			await user.keyboard("a");
+			expect(handleVerdict).not.toHaveBeenCalled();
+		});
 	});
 
 	describe("accessibility", () => {
 		it("has a toolbar role with accessible label", () => {
 			render(<ReviewHeader {...defaultProps} />);
 			expect(screen.getByRole("toolbar", { name: /verdict/i })).toBeInTheDocument();
+		});
+
+		it("all verdict buttons have aria-label matching their display label", () => {
+			render(<ReviewHeader {...defaultProps} />);
+			const labels = [
+				"Approve",
+				"Approve with comments",
+				"Comment",
+				"Inline comment",
+				"Request changes",
+				"Edit",
+				"Reject",
+				"Reply",
+				"Snooze",
+				"Escalate",
+			];
+			for (const label of labels) {
+				const btn = screen.getByRole("button", { name: label });
+				expect(btn).toHaveAttribute("aria-label", label);
+			}
 		});
 	});
 });

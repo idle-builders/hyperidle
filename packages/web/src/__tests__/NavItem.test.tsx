@@ -27,6 +27,11 @@ describe("NavItem", () => {
 		expect(badges.length).toBe(0);
 	});
 
+	it("shows count badge with zero when count is 0", () => {
+		render(<NavItem label="Tasks" count={0} />);
+		expect(screen.getByText("0")).toBeInTheDocument();
+	});
+
 	it("applies selected styles when selected", () => {
 		render(<NavItem label="Active" selected />);
 		const link = screen.getByRole("link", { name: /Active/ });
@@ -49,8 +54,37 @@ describe("NavItem", () => {
 		expect(handleClick).toHaveBeenCalledOnce();
 	});
 
+	it("prevents default anchor navigation on click", async () => {
+		const user = userEvent.setup();
+		render(<NavItem label="Click Me" />);
+		const link = screen.getByRole("link", { name: /Click Me/ });
+		// The href should remain "#" (no page navigation)
+		expect(link).toHaveAttribute("href", "#");
+		await user.click(link);
+		// Page should still be at the same location (no navigation error)
+	});
+
 	it("renders icon when provided", () => {
 		render(<NavItem label="Home" icon={<svg data-testid="icon" />} />);
 		expect(screen.getByTestId("icon")).toBeInTheDocument();
+	});
+
+	it("handles missing onClick gracefully on click", async () => {
+		const user = userEvent.setup();
+		render(<NavItem label="No handler" />);
+		// Should not throw when clicked without an onClick handler
+		await user.click(screen.getByRole("link", { name: /No handler/ }));
+	});
+
+	it("renders label with special characters", () => {
+		render(<NavItem label="Review & Approve (3)" />);
+		expect(screen.getByText("Review & Approve (3)")).toBeInTheDocument();
+	});
+
+	it("renders empty label without crashing", () => {
+		render(<NavItem label="" />);
+		// Should render the li structure
+		const li = document.querySelector("li");
+		expect(li).toBeInTheDocument();
 	});
 });

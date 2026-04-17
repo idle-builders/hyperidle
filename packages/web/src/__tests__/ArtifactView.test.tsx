@@ -206,6 +206,75 @@ describe("ArtifactView", () => {
 		});
 	});
 
+	describe("content_preview XSS safety", () => {
+		it("renders script tags as raw HTML via dangerouslySetInnerHTML", () => {
+			// @lore This test documents that the current implementation does NOT sanitize
+			// HTML client-side. It uses dangerouslySetInnerHTML directly. A future story
+			// should add DOMPurify. This test verifies the component at least renders
+			// without crashing when given a script tag.
+			const xssData: ArtifactViewProps = {
+				shape: "content_preview",
+				data: {
+					html: '<p>Safe</p><script>alert("xss")</script>',
+					metadata: [],
+				},
+			};
+			render(<ArtifactView {...xssData} />);
+			// The safe content should render
+			expect(screen.getByText("Safe")).toBeInTheDocument();
+		});
+	});
+
+	describe("visual_comparison with missing data", () => {
+		it("renders with empty image sources without crashing", () => {
+			render(
+				<ArtifactView
+					shape="visual_comparison"
+					data={{
+						before: { label: "Old", src: "" },
+						after: { label: "New", src: "" },
+					}}
+				/>,
+			);
+			expect(screen.getByText("Old")).toBeInTheDocument();
+			expect(screen.getByText("New")).toBeInTheDocument();
+		});
+	});
+
+	describe("data_metrics with only charts", () => {
+		it("renders charts even when headlines array is empty", () => {
+			render(
+				<ArtifactView
+					shape="data_metrics"
+					data={{
+						headlines: [],
+						charts: [{ label: "Trend", values: [1, 2, 3] }],
+					}}
+				/>,
+			);
+			expect(screen.getByText("Trend")).toBeInTheDocument();
+		});
+	});
+
+	describe("text_diff with single-line hunks", () => {
+		it("renders a hunk with only context lines", () => {
+			render(
+				<ArtifactView
+					shape="text_diff"
+					data={{
+						hunks: [
+							{
+								header: "@@ -1,1 +1,1 @@",
+								lines: [{ type: "context", content: "unchanged" }],
+							},
+						],
+					}}
+				/>,
+			);
+			expect(screen.getByText("unchanged")).toBeInTheDocument();
+		});
+	});
+
 	describe("accessibility", () => {
 		it("each shape has an accessible region landmark", () => {
 			render(
@@ -222,6 +291,34 @@ describe("ArtifactView", () => {
 				/>,
 			);
 			expect(screen.getByRole("region")).toBeInTheDocument();
+		});
+
+		it("loading state uses output element with aria-label", () => {
+			const { container } = render(
+				<ArtifactView shape="text_diff" data={{ hunks: [] }} loading={true} />,
+			);
+			const output = container.querySelector("output[aria-label='Loading artifact']");
+			expect(output).toBeInTheDocument();
+		});
+
+		it("error state uses role=alert for screen readers", () => {
+			render(<ArtifactView shape="text_diff" data={{ hunks: [] }} error="Something broke" />);
+			const alert = screen.getByRole("alert");
+			expect(alert).toHaveTextContent("Something broke");
+		});
+
+		it("sparkline charts have descriptive aria-labels", () => {
+			render(
+				<ArtifactView
+					shape="data_metrics"
+					data={{
+						headlines: [{ label: "Count", value: "10" }],
+						charts: [{ label: "Tests over time", values: [10, 20, 30] }],
+					}}
+				/>,
+			);
+			const sparkline = screen.getByRole("img", { name: /Tests over time sparkline/i });
+			expect(sparkline).toBeInTheDocument();
 		});
 	});
 });
