@@ -26,12 +26,9 @@ export function BetCard({
 	progress,
 }: BetCardProps): JSX.Element {
 	return (
-		<div
-			{...clickableProps(onClick)}
-			className="border border-base-300 rounded p-2 flex flex-col gap-2"
-		>
+		<div {...clickableProps(onClick)} className="bg-base-200 rounded p-2 flex flex-col gap-2">
 			<div className="flex items-center gap-2">
-				<span className="text-sm font-medium" aria-label={`Bet: ${title}`}>
+				<span className="text-sm font-medium truncate" aria-label={`Bet: ${title}`}>
 					{title}
 				</span>
 				<Tag label={product} />
@@ -39,9 +36,16 @@ export function BetCard({
 			</div>
 			<KeyValue label="Appetite" value={appetite} />
 			{progress && (
-				<span className="text-xs text-base-content/60">
-					{progress.done} / {progress.total}
-				</span>
+				<div className="flex items-center gap-2">
+					<progress
+						className="progress progress-accent w-16 h-1.5"
+						value={progress.done}
+						max={progress.total}
+					/>
+					<span className="text-xs text-base-content/60">
+						{progress.done}/{progress.total}
+					</span>
+				</div>
 			)}
 			{actions}
 		</div>

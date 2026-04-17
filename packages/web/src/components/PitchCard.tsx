@@ -1,3 +1,6 @@
+// @lore PitchCard uses BetStatus because @hyperidle/shared has no PitchStatus type yet.
+// Pitches and bets share a lifecycle in the current spec. If PitchStatus diverges,
+// create a dedicated type and mapping function. See architecture review UI-20.
 import type { BetStatus } from "@hyperidle/shared";
 import type { JSX, ReactNode } from "react";
 import { KeyValue } from "./KeyValue";
@@ -28,18 +31,15 @@ export function PitchCard({
 	onClick,
 }: PitchCardProps): JSX.Element {
 	return (
-		<div
-			{...clickableProps(onClick)}
-			className="border border-base-300 rounded p-2 flex flex-col gap-2"
-		>
+		<div {...clickableProps(onClick)} className="bg-base-200 rounded p-2 flex flex-col gap-2">
 			<div className="flex items-center gap-2">
-				<span className="text-sm font-medium" aria-label={`Pitch: ${title}`}>
+				<span className="text-sm font-medium truncate" aria-label={`Pitch: ${title}`}>
 					{title}
 				</span>
 				{kind && <Tag label={kind} />}
 				<StatusChip status={betStatusToStatus(status)} />
 			</div>
-			<p className="text-xs text-base-content/60">{hypothesis}</p>
+			<p className="text-xs text-base-content/60 line-clamp-2">{hypothesis}</p>
 			<span className="text-xs">{proposer}</span>
 			<KeyValue label="Appetite" value={appetite} />
 			{actions}

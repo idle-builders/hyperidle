@@ -20,6 +20,20 @@ export const ErrorSeverity = (): React.JSX.Element => (
 	/>
 );
 
+export const WithInlineAction = (): React.JSX.Element => (
+	<NotificationRow
+		severity="blocked"
+		message="Agent blocked — awaiting API key"
+		timestamp="2m ago"
+		source="builder-agent"
+		actions={
+			<button type="button" className="btn btn-ghost btn-xs">
+				Resolve
+			</button>
+		}
+	/>
+);
+
 export const AllSeverities = (): React.JSX.Element => (
 	<div className="flex flex-col gap-1">
 		<NotificationRow severity="healthy" message="All systems operational" timestamp="now" />

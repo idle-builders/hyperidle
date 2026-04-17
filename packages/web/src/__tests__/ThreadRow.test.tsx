@@ -1,5 +1,5 @@
 import { render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { ThreadRow } from "../components/ThreadRow";
 
 describe("ThreadRow", () => {
@@ -76,5 +76,42 @@ describe("ThreadRow", () => {
 		expect(screen.getByText("HEALTHY")).toHaveClass("badge");
 		// Tag renders label with badge-neutral class
 		expect(screen.getByText("ops")).toHaveClass("badge-neutral");
+	});
+
+	it("calls onClick when row is clicked", () => {
+		const handleClick = vi.fn();
+		render(<ThreadRow {...defaultProps} onClick={handleClick} />);
+		const row =
+			screen.getByText("Deploy pipeline stuck").closest("[role='button']") ??
+			screen.getByText("Deploy pipeline stuck").parentElement;
+		row?.click();
+		expect(handleClick).toHaveBeenCalledOnce();
+	});
+
+	it("applies border-error when blocking is true", () => {
+		const { container } = render(<ThreadRow {...defaultProps} blocking={true} />);
+		const root = container.firstElementChild;
+		expect(root).toHaveClass("border-error");
+	});
+
+	it("does not apply border-error when blocking is false", () => {
+		const { container } = render(<ThreadRow {...defaultProps} blocking={false} />);
+		const root = container.firstElementChild;
+		expect(root).not.toHaveClass("border-error");
+	});
+
+	it("renders kind as Tag when provided", () => {
+		render(<ThreadRow {...defaultProps} kind="review" />);
+		expect(screen.getByText("review")).toHaveClass("badge-neutral");
+	});
+
+	it("renders chat kind as Tag", () => {
+		render(<ThreadRow {...defaultProps} kind="chat" />);
+		expect(screen.getByText("chat")).toHaveClass("badge-neutral");
+	});
+
+	it("has aria-label on title", () => {
+		render(<ThreadRow {...defaultProps} />);
+		expect(screen.getByLabelText("Thread: Deploy pipeline stuck")).toBeInTheDocument();
 	});
 });

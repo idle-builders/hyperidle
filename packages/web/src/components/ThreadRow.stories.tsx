@@ -33,6 +33,18 @@ export const Unread = (): React.JSX.Element => (
 	/>
 );
 
+export const Blocking = (): React.JSX.Element => (
+	<ThreadRow
+		avatarUrl="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32'%3E%3Crect width='32' height='32' fill='%23991b1b'/%3E%3Ctext x='16' y='20' text-anchor='middle' fill='white' font-size='14'%3EB%3C/text%3E%3C/svg%3E"
+		title="Agent blocked on API key"
+		snippet="Cannot proceed without credentials..."
+		timestamp="5 min ago"
+		status="blocked"
+		blocking={true}
+		kind="review"
+	/>
+);
+
 export const WithActions = (): React.JSX.Element => (
 	<ThreadRow
 		avatarUrl="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32'%3E%3Crect width='32' height='32' fill='%23581c87'/%3E%3Ctext x='16' y='20' text-anchor='middle' fill='white' font-size='14'%3E4%3C/text%3E%3C/svg%3E"
