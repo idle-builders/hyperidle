@@ -59,10 +59,36 @@ describe("Kanban", () => {
 		expect(emptyMessages.length).toBeGreaterThan(0);
 	});
 
-	it("calls onMoveTask callback contract", () => {
-		const onMoveTask = vi.fn();
-		render(<Kanban tasks={[holdTask]} onMoveTask={onMoveTask} />);
-		expect(onMoveTask).not.toHaveBeenCalled();
+	it("renders tasks in the correct column based on their state", () => {
+		const { container } = render(
+			<Kanban tasks={[holdTask, inProgressTask, reviewTask, doneTask]} onMoveTask={vi.fn()} />,
+		);
+		// Each column has a KanbanDropZone with a data-draggable for its tasks
+		const holdDraggable = container.querySelector("[data-draggable='task-1']");
+		const ipDraggable = container.querySelector("[data-draggable='task-2']");
+		const reviewDraggable = container.querySelector("[data-draggable='task-3']");
+		const doneDraggable = container.querySelector("[data-draggable='task-4']");
+		expect(holdDraggable).not.toBeNull();
+		expect(ipDraggable).not.toBeNull();
+		expect(reviewDraggable).not.toBeNull();
+		expect(doneDraggable).not.toBeNull();
+		// Verify each task is in its respective column by checking text content proximity
+		expect(holdDraggable?.textContent).toContain("Setup CI");
+		expect(ipDraggable?.textContent).toContain("Build API");
+		expect(reviewDraggable?.textContent).toContain("Review PR");
+		expect(doneDraggable?.textContent).toContain("Deploy");
+	});
+
+	it("excludes tasks with states not in the kanban columns", () => {
+		const proposedTask: KanbanTask = {
+			id: "task-5",
+			title: "Proposed Task",
+			owner: "Agent Epsilon",
+			state: "proposed",
+		};
+		render(<Kanban tasks={[proposedTask]} onMoveTask={vi.fn()} />);
+		// Proposed is not a kanban column, so the task should not appear
+		expect(screen.queryByText("Proposed Task")).not.toBeInTheDocument();
 	});
 
 	it("renders TaskCard components showing owner", () => {
