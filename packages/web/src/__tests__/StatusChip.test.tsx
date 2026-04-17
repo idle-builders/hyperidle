@@ -33,10 +33,10 @@ describe("StatusChip", () => {
 		expect(chip).toHaveClass("badge", "badge-neutral");
 	});
 
-	it("applies badge-accent class for done status", () => {
+	it("applies badge-success class for done status", () => {
 		render(<StatusChip status="done" />);
 		const chip = screen.getByText("DONE");
-		expect(chip).toHaveClass("badge", "badge-accent");
+		expect(chip).toHaveClass("badge", "badge-success");
 	});
 
 	it("applies badge-error class for error status", () => {

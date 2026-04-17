@@ -9,11 +9,11 @@ describe("NavItem", () => {
 		expect(screen.getByText("Dashboard")).toBeInTheDocument();
 	});
 
-	it("renders as li > a structure", () => {
+	it("renders as li > button structure", () => {
 		render(<NavItem label="Settings" />);
-		const link = screen.getByRole("link", { name: /Settings/ });
-		expect(link).toBeInTheDocument();
-		expect(link.parentElement?.tagName).toBe("LI");
+		const btn = screen.getByRole("button", { name: /Settings/ });
+		expect(btn).toBeInTheDocument();
+		expect(btn.parentElement?.tagName).toBe("LI");
 	});
 
 	it("shows count badge when count is provided", () => {
@@ -34,34 +34,31 @@ describe("NavItem", () => {
 
 	it("applies selected styles when selected", () => {
 		render(<NavItem label="Active" selected />);
-		const link = screen.getByRole("link", { name: /Active/ });
-		expect(link).toHaveClass("bg-[var(--surface-4)]");
-		expect(link).toHaveClass("border-l-2");
-		expect(link).toHaveClass("border-primary");
+		const btn = screen.getByRole("button", { name: /Active/ });
+		expect(btn).toHaveClass("bg-[var(--surface-4)]");
+		expect(btn).toHaveClass("border-l-2");
+		expect(btn).toHaveClass("border-primary");
 	});
 
 	it("does not apply selected styles when not selected", () => {
 		render(<NavItem label="Inactive" />);
-		const link = screen.getByRole("link", { name: /Inactive/ });
-		expect(link).not.toHaveClass("bg-[var(--surface-4)]");
+		const btn = screen.getByRole("button", { name: /Inactive/ });
+		expect(btn).not.toHaveClass("bg-[var(--surface-4)]");
 	});
 
 	it("calls onClick when clicked", async () => {
 		const user = userEvent.setup();
 		const handleClick = vi.fn();
 		render(<NavItem label="Click Me" onClick={handleClick} />);
-		await user.click(screen.getByRole("link", { name: /Click Me/ }));
+		await user.click(screen.getByRole("button", { name: /Click Me/ }));
 		expect(handleClick).toHaveBeenCalledOnce();
 	});
 
-	it("prevents default anchor navigation on click", async () => {
-		const user = userEvent.setup();
+	it("renders as a button element (no anchor navigation)", () => {
 		render(<NavItem label="Click Me" />);
-		const link = screen.getByRole("link", { name: /Click Me/ });
-		// The href should remain "#" (no page navigation)
-		expect(link).toHaveAttribute("href", "#");
-		await user.click(link);
-		// Page should still be at the same location (no navigation error)
+		const btn = screen.getByRole("button", { name: /Click Me/ });
+		expect(btn.tagName).toBe("BUTTON");
+		expect(btn).toHaveAttribute("type", "button");
 	});
 
 	it("renders icon when provided", () => {
@@ -73,7 +70,7 @@ describe("NavItem", () => {
 		const user = userEvent.setup();
 		render(<NavItem label="No handler" />);
 		// Should not throw when clicked without an onClick handler
-		await user.click(screen.getByRole("link", { name: /No handler/ }));
+		await user.click(screen.getByRole("button", { name: /No handler/ }));
 	});
 
 	it("renders label with special characters", () => {

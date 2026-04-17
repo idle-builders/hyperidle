@@ -132,12 +132,12 @@ async function runStream(
 		}
 	}
 
-	const MAX_REAL_ATTEMPTS = 3;
-	const MAX_CRASH_RETRIES = 5;
+	const maxRealAttempts = 3;
+	const maxCrashRetries = 5;
 	let realAttempts = 0;
 	let crashRetries = 0;
 
-	while (realAttempts < MAX_REAL_ATTEMPTS && crashRetries < MAX_CRASH_RETRIES) {
+	while (realAttempts < maxRealAttempts && crashRetries < maxCrashRetries) {
 		// Snapshot story statuses before the agent runs
 		const statusBefore = new Map(
 			stream.storyIds.map((id) => {
@@ -196,13 +196,13 @@ async function runStream(
 		} else {
 			crashRetries++;
 			log.warn(
-				`${streamLabel}: session ended without progress (crash retry ${crashRetries}/${MAX_CRASH_RETRIES})`,
+				`${streamLabel}: session ended without progress (crash retry ${crashRetries}/${maxCrashRetries})`,
 			);
 		}
 
 		const remaining = stream.storyIds.filter((id) => !done.has(id));
 
-		if (realAttempts >= MAX_REAL_ATTEMPTS) {
+		if (realAttempts >= maxRealAttempts) {
 			// Real attempts exhausted — mark remaining as blocked
 			for (const id of remaining) {
 				updateStory(state, id, {
@@ -221,7 +221,7 @@ async function runStream(
 			// Retry — re-mark first incomplete story as in_progress
 			appendOutput(
 				stream.name,
-				`${streamLabel}: retrying. Real attempts: ${realAttempts}/${MAX_REAL_ATTEMPTS}, crash retries: ${crashRetries}/${MAX_CRASH_RETRIES}`,
+				`${streamLabel}: retrying. Real attempts: ${realAttempts}/${maxRealAttempts}, crash retries: ${crashRetries}/${maxCrashRetries}`,
 			);
 			for (const id of remaining) {
 				updateStory(state, id, { status: "in_progress" });

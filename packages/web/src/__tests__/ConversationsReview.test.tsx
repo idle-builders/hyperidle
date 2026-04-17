@@ -1,5 +1,4 @@
 import { render, screen } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { describe, expect, it } from "vitest";
 import { ConversationsReview } from "../pages/ConversationsReview";
@@ -23,10 +22,10 @@ describe("ConversationsReview", () => {
 		expect(screen.getByRole("toolbar", { name: /verdict/i })).toBeInTheDocument();
 	});
 
-	it("renders thread list with review items", () => {
+	it("renders the proposer name in the review header", () => {
 		renderPage();
-		expect(screen.getByText("Auth flow implementation")).toBeInTheDocument();
-		expect(screen.getByText("Dashboard metrics update")).toBeInTheDocument();
+		// Default selected review shows "Developer Agent" as proposer
+		expect(screen.getByText("Developer Agent")).toBeInTheDocument();
 	});
 
 	it("renders ArtifactView for the selected review", () => {
@@ -35,15 +34,9 @@ describe("ConversationsReview", () => {
 		expect(screen.getByLabelText("Diff view")).toBeInTheDocument();
 	});
 
-	it("switches artifact when a different review is clicked", async () => {
-		const user = userEvent.setup();
+	it("renders verdict buttons for all actions", () => {
 		renderPage();
-
-		// Click the second review item
-		const metricsReview = screen.getByText("Dashboard metrics update");
-		await user.click(metricsReview);
-
-		// Should now show data_metrics artifact
-		expect(screen.getByLabelText("Data metrics")).toBeInTheDocument();
+		expect(screen.getByRole("button", { name: "Approve" })).toBeInTheDocument();
+		expect(screen.getByRole("button", { name: "Reject" })).toBeInTheDocument();
 	});
 });

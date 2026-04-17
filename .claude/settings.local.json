@@ -25,7 +25,12 @@
       "WebSearch",
       "WebFetch(domain:support.claude.com)",
       "WebFetch(domain:docs.claude.com)",
-      "Bash(npx tsc:*)"
+      "Bash(npx tsc:*)",
+      "Bash(biome check:*)",
+      "Bash(find:*)",
+      "Bash(npx:*)",
+      "Read(//tmp/**)",
+      "Bash(sed 's/ *$//')"
     ]
   },
   "autoMode": {

@@ -234,7 +234,7 @@ describe("Task State Machine", () => {
 			transitionTask(db, eventBus, "task-1", "in_progress");
 
 			const task = db.select().from(tasks).where(eq(tasks.id, "task-1")).get();
-			const audit: AuditEntry[] = JSON.parse(task?.notes ?? "[]");
+			const audit: AuditEntry[] = JSON.parse(task?.auditTrail ?? "[]");
 			expect(audit).toHaveLength(2);
 			expect(audit[0].from).toBe("proposed");
 			expect(audit[0].to).toBe("accepted");
@@ -242,7 +242,7 @@ describe("Task State Machine", () => {
 			expect(audit[1].to).toBe("in_progress");
 		});
 
-		it("preserves existing notes when appending audit entries", () => {
+		it("preserves existing audit entries when appending new ones", () => {
 			const now = new Date().toISOString();
 			const existingAudit: AuditEntry[] = [{ from: "initial", to: "proposed", timestamp: now }];
 			db.insert(tasks)
@@ -253,7 +253,7 @@ describe("Task State Machine", () => {
 					teamId: "t1",
 					title: "Existing task",
 					state: "proposed",
-					notes: JSON.stringify(existingAudit),
+					auditTrail: JSON.stringify(existingAudit),
 					createdAt: now,
 					updatedAt: now,
 				})
@@ -262,7 +262,7 @@ describe("Task State Machine", () => {
 			transitionTask(db, eventBus, "task-existing", "accepted");
 
 			const task = db.select().from(tasks).where(eq(tasks.id, "task-existing")).get();
-			const audit: AuditEntry[] = JSON.parse(task?.notes ?? "[]");
+			const audit: AuditEntry[] = JSON.parse(task?.auditTrail ?? "[]");
 			expect(audit).toHaveLength(2);
 			expect(audit[0].from).toBe("initial");
 			expect(audit[1].from).toBe("proposed");
