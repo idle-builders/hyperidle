@@ -124,46 +124,46 @@ stories:
     track: E
     depends: [E2, C7]
 
-  # Track UI
+  # Track F: Human Interface
   - id: UI-00
     title: Foundation
-    track: UI
+    track: F
     depends: [A1]
   - id: UI-10
     title: Tier 1 Primitives
-    track: UI
+    track: F
     depends: [UI-00]
   - id: UI-20
     title: Tier 2 Blocks
-    track: UI
+    track: F
     depends: [UI-00, UI-10]
   - id: UI-30
     title: Tier 3 Shell Regions
-    track: UI
+    track: F
     depends: [UI-00, UI-10, UI-20]
   - id: UI-31
     title: Tier 3 Work/Planning Regions
-    track: UI
+    track: F
     depends: [UI-00, UI-10, UI-20, UI-30]
   - id: UI-32
     title: Tier 3 Review Regions
-    track: UI
+    track: F
     depends: [UI-00, UI-10, UI-20, UI-30]
   - id: UI-40
     title: Tier 4 Pages
-    track: UI
+    track: F
     depends: [UI-30, UI-31, UI-32, E2, E3, E4, E5, E6]
   - id: UI-42
     title: Settings Panel
-    track: UI
+    track: F
     depends: [UI-00, UI-10, UI-20, UI-30]
   - id: UI-45
     title: Global Search Panel
-    track: UI
+    track: F
     depends: [UI-00, UI-10, UI-20]
   - id: UI-50
     title: Polish
-    track: UI
+    track: F
     depends: [UI-00, UI-10, UI-20, UI-30, UI-31, UI-32, UI-40, UI-42, UI-45]
 
   # Track G: Facilitators
