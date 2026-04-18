@@ -237,7 +237,9 @@ describe("promotion-pipeline", () => {
 			for (let i = 0; i < 5; i++) {
 				seedKi(db, { id: `old-${i}`, status: "active", updatedAt: OLDER });
 			}
-			const summary = await runStaleSweep(db, eventBus, NOW_MS, STALE_THRESHOLD_MS, 2);
+			const summary = await runStaleSweep(db, eventBus, NOW_MS, STALE_THRESHOLD_MS, {
+				maxBatchSize: 2,
+			});
 			expect(summary.markedIds.length).toBe(2);
 		});
 

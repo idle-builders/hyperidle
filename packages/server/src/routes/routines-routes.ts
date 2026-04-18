@@ -4,6 +4,11 @@ import { eq } from "drizzle-orm";
 import { Hono } from "hono";
 import { z } from "zod";
 import { validateBody } from "../middleware/validate.js";
+import {
+	type PostBetRetroArgs,
+	isBuiltinRoutineId,
+	runBuiltinRoutine,
+} from "../services/builtin-routines.js";
 
 const updateRoutineSchema = z.object({
 	active: z.boolean().optional(),
@@ -27,6 +32,19 @@ export function createRoutineRoutes(db: HyperIdleDb, eventBus: EventBus): Hono {
 	// PATCH /:id — Update routine
 	router.patch("/:id", validateBody(updateRoutineSchema), (c) => {
 		const routineId = c.req.param("id");
+		// @lore G4 Hono zValidator typing: `c.req.valid("json")` returns
+		// `never` when the route builder cannot infer the validator target
+		// chain — specifically when the `validateBody` helper wraps
+		// `zValidator` and the resulting middleware is passed through
+		// Hono's handler positional overloads. The `"json" as never` +
+		// `as z.infer<…>` double cast is load-bearing: dropping either
+		// half resurrects the TS error. This matches the pattern used
+		// across `bets.ts`, `tasks.ts`, `knowledge.ts`, `sessions-routes.ts`,
+		// and `agents.ts`; `git-export-routes.ts` gets away without the
+		// cast because it does not re-export the route factory. Fixing
+		// this properly requires either rewriting `validateBody` to
+		// preserve the generic parameter chain or inlining `zValidator`
+		// at every call site — out of scope for the G4 fix-pack.
 		const body = c.req.valid("json" as never) as z.infer<typeof updateRoutineSchema>;
 
 		const existing = db.select().from(routines).where(eq(routines.id, routineId)).get();
@@ -64,12 +82,44 @@ export function createRoutineRoutes(db: HyperIdleDb, eventBus: EventBus): Hono {
 	});
 
 	// POST /:id/trigger — Manually trigger routine
-	router.post("/:id/trigger", (c) => {
+	router.post("/:id/trigger", async (c) => {
 		const routineId = c.req.param("id");
 
 		const routine = db.select().from(routines).where(eq(routines.id, routineId)).get();
 		if (!routine) {
 			return c.json({ error: "Routine not found", code: API_ERROR_CODES.NOT_FOUND }, 404);
+		}
+
+		// G4 AC8: a disabled routine must not fire, even via manual trigger.
+		if (routine.active === 0) {
+			return c.json(
+				{ error: "Routine is disabled (active=0)", code: API_ERROR_CODES.FORBIDDEN },
+				403,
+			);
+		}
+
+		// G4 AC7: dispatch to the builtin handler when the routine id is a
+		// builtin. The builtin handlers do not create sessions.
+		if (isBuiltinRoutineId(routineId)) {
+			let args: PostBetRetroArgs | undefined;
+			if (routineId === "builtin:post-bet-retro") {
+				const body = (await c.req.json().catch(() => ({}))) as Partial<PostBetRetroArgs>;
+				if (!body.betId || typeof body.betId !== "string") {
+					return c.json(
+						{
+							error: "builtin:post-bet-retro requires { betId } in the request body",
+							code: API_ERROR_CODES.VALIDATION_ERROR,
+						},
+						400,
+					);
+				}
+				args = { betId: body.betId };
+			}
+			const result = await runBuiltinRoutine(db, eventBus, routineId, args);
+			if (!result.fired) {
+				return c.json({ routineId, fired: false, reason: result.reason }, 200);
+			}
+			return c.json({ routineId, fired: true, ...(result.extra ?? {}) }, 200);
 		}
 
 		const sessionId = crypto.randomUUID();
