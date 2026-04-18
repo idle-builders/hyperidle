@@ -15,6 +15,7 @@ import {
 	type ModelTier,
 } from "@hyperidle/shared";
 import { and, eq, sql } from "drizzle-orm";
+import { releaseSessionDedup } from "./cost-cap.js";
 
 export interface CreateSessionParams {
 	taskId: string;
@@ -186,7 +187,11 @@ export async function endSession(
 		outcome: "completed",
 	});
 
-	// 5. Delete workspace directory
+	// 5. Drop the cost-cap dedup state so the per-session map doesn't grow
+	//    unboundedly across the factory's lifetime (I3 / TRACK-I.md L156-159).
+	releaseSessionDedup(context.sessionId);
+
+	// 6. Delete workspace directory
 	if (fs.existsSync(context.workspacePath)) {
 		fs.rmSync(context.workspacePath, { recursive: true, force: true });
 	}
@@ -236,6 +241,10 @@ export async function crashSession(
 		costDelta,
 		outcome: "crashed",
 	});
+
+	// 5. Release cost-cap dedup state (mirror endSession). Crashes still need
+	//    to reclaim the per-session entry — see I3 / TRACK-I.md L156-159.
+	releaseSessionDedup(context.sessionId);
 
 	// Note: Do NOT delete workspace on crash -- knowledge is preserved in DB
 	// and workspace may be needed for debugging

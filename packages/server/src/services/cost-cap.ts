@@ -32,16 +32,67 @@ export interface ResetCostsParams {
 	id?: string;
 }
 
-/** Tracks emitted events by sessionId + eventType + capLevel + entityId to prevent duplicates */
-const emittedEvents = new Set<string>();
+/**
+ * Per-session dedup state. Each session has a small Set of dedup keys
+ * (eventType:capLevel:entityId). The map entry is dropped when the session
+ * ends via `releaseSessionDedup`, preventing the unbounded memory growth
+ * the previous module-level Set produced.
+ *
+ * @lore I3 (TRACK-I.md L156-159): the previous implementation used a
+ * module-level `Set<string>` keyed on `sessionId:…`, so dedup keys for
+ * dead sessions stayed forever. The fix is per-session scoping with a
+ * lifecycle hook called from session-lifecycle.ts.
+ */
+interface SessionDedupEntry {
+	readonly agentId?: string;
+	readonly teamId?: string;
+	readonly keys: Set<string>;
+}
 
-function dedupeKey(
+/** Belt-and-braces cap on per-session key set; events × capLevels × entities is O(10). */
+const MAX_KEYS_PER_SESSION = 100;
+
+const dedupBySession = new Map<string, SessionDedupEntry>();
+
+function dedupKeyPart(eventType: string, capLevel: string, entityId: string): string {
+	return `${eventType}:${capLevel}:${entityId}`;
+}
+
+function getOrCreateSessionEntry(
+	sessionId: string,
+	agentId?: string,
+	teamId?: string,
+): SessionDedupEntry {
+	let entry = dedupBySession.get(sessionId);
+	if (!entry) {
+		entry = { agentId, teamId, keys: new Set() };
+		dedupBySession.set(sessionId, entry);
+	}
+	return entry;
+}
+
+function tryRecordDedupKey(
 	sessionId: string,
 	eventType: string,
 	capLevel: string,
 	entityId: string,
-): string {
-	return `${sessionId}:${eventType}:${capLevel}:${entityId}`;
+	agentId?: string,
+	teamId?: string,
+): boolean {
+	const entry = getOrCreateSessionEntry(sessionId, agentId, teamId);
+	const key = dedupKeyPart(eventType, capLevel, entityId);
+	if (entry.keys.has(key)) {
+		return false;
+	}
+	// Belt-and-braces: cap per-session set size. We only ever have a handful
+	// of unique keys per session in practice; anything beyond this points at
+	// pathological input. Clearing keeps suppression behaviour predictable
+	// (occasional re-emit > unbounded growth).
+	if (entry.keys.size >= MAX_KEYS_PER_SESSION) {
+		entry.keys.clear();
+	}
+	entry.keys.add(key);
+	return true;
 }
 
 function getAgentSpend(db: HyperIdleDb, agentId: string): number {
@@ -147,6 +198,10 @@ export async function recordCostAndCheck(
 		throw new Error(`Agent not found: ${params.agentId}`);
 	}
 
+	// Pre-register the session entry with its agent/team so future
+	// `resetCosts({level:"agent"|"team"})` calls can find and clear it.
+	getOrCreateSessionEntry(params.sessionId, params.agentId, params.teamId);
+
 	const now = Date.now();
 
 	// Check agent cap
@@ -210,9 +265,14 @@ function checkAndEmit(db: HyperIdleDb, eventBus: EventBus, params: CheckAndEmitP
 
 	// Breach at 100%
 	if (ratio >= 1) {
-		const key = dedupeKey(params.sessionId, "cost_cap_breached", params.capLevel, params.entityId);
-		if (!emittedEvents.has(key)) {
-			emittedEvents.add(key);
+		if (
+			tryRecordDedupKey(
+				params.sessionId,
+				"cost_cap_breached",
+				params.capLevel,
+				params.entityId,
+			)
+		) {
 			eventBus.emit({
 				type: "cost_cap_breached",
 				streamId: params.sessionId,
@@ -233,9 +293,14 @@ function checkAndEmit(db: HyperIdleDb, eventBus: EventBus, params: CheckAndEmitP
 
 	// Warning at 80%
 	if (ratio >= 0.8) {
-		const key = dedupeKey(params.sessionId, "cost_cap_warning", params.capLevel, params.entityId);
-		if (!emittedEvents.has(key)) {
-			emittedEvents.add(key);
+		if (
+			tryRecordDedupKey(
+				params.sessionId,
+				"cost_cap_warning",
+				params.capLevel,
+				params.entityId,
+			)
+		) {
 			eventBus.emit({
 				type: "cost_cap_warning",
 				streamId: params.sessionId,
@@ -277,8 +342,19 @@ function createReviewItem(db: HyperIdleDb, _eventBus: EventBus, params: CheckAnd
  * For factory: zeroes all session costs.
  */
 export async function resetCosts(db: HyperIdleDb, params: ResetCostsParams): Promise<void> {
-	// Clear the deduplication set on reset
-	emittedEvents.clear();
+	// Clear the deduplication state on reset (factory reset clears all,
+	// agent/team reset clears entries belonging to those scopes).
+	if (params.level === "factory") {
+		dedupBySession.clear();
+	} else if (params.level === "agent" && params.id) {
+		for (const [sid, entry] of dedupBySession) {
+			if (entry.agentId === params.id) dedupBySession.delete(sid);
+		}
+	} else if (params.level === "team" && params.id) {
+		for (const [sid, entry] of dedupBySession) {
+			if (entry.teamId === params.id) dedupBySession.delete(sid);
+		}
+	}
 
 	switch (params.level) {
 		case "agent": {
@@ -315,9 +391,26 @@ export async function resetCosts(db: HyperIdleDb, params: ResetCostsParams): Pro
 }
 
 /**
- * Clear the in-memory deduplication set.
+ * Clear the in-memory deduplication map.
  * Exposed for testing purposes only.
  */
 export function clearDeduplicationCache(): void {
-	emittedEvents.clear();
+	dedupBySession.clear();
+}
+
+/**
+ * Drop all dedup state for a single session. Call this from session
+ * lifecycle code when a session ends (done / crashed / cancelled) so the
+ * map doesn't grow unboundedly across the factory's lifetime.
+ */
+export function releaseSessionDedup(sessionId: string): void {
+	dedupBySession.delete(sessionId);
+}
+
+/**
+ * Test-only inspection hook. Returns the total count of distinct sessions
+ * currently tracked in the dedup map (NOT the per-session key count).
+ */
+export function getDedupCacheSize(): number {
+	return dedupBySession.size;
 }
