@@ -73,10 +73,10 @@ describe("WorkTeam", () => {
 	it("exports a COLUMN_TO_STATE map that translates Kanban columns to TaskState values", async () => {
 		// I4 K1/K2: dragging a task to the Planned column must produce
 		// TaskState `accepted`, not the literal column key `planned` (which
-		// is NOT a valid TaskState). The page must expose a
-		// `COLUMN_TO_STATE` map as the single source of truth for this
-		// translation.
-		const mod = (await import("../pages/WorkTeam")) as {
+		// is NOT a valid TaskState). The map is co-located with its inverse
+		// `STATE_TO_COLUMN` in Kanban.tsx (the two are inverse relationships
+		// and must not drift) and re-exported for consumers.
+		const mod = (await import("../shell/Kanban")) as {
 			COLUMN_TO_STATE?: Record<string, string>;
 		};
 		expect(mod.COLUMN_TO_STATE).toBeDefined();
