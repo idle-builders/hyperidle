@@ -1,0 +1,1 @@
+ALTER TABLE `sessions` ADD `trace_id` text;

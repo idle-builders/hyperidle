@@ -550,7 +550,11 @@ describe("G4: Built-in Routines", () => {
 		it("suppresses knowledge_updated events when routine.silent=1 (G4 MAJOR-5)", async () => {
 			seedBuiltinRoutines(db);
 			// builtin:knowledge-decay is seeded silent=1 by default. Verify.
-			const row = db.select().from(routines).where(eq(routines.id, "builtin:knowledge-decay")).get();
+			const row = db
+				.select()
+				.from(routines)
+				.where(eq(routines.id, "builtin:knowledge-decay"))
+				.get();
 			expect(row?.silent).toBe(1);
 
 			const longAgo = new Date(Date.now() - 95 * 24 * 60 * 60 * 1000).toISOString();

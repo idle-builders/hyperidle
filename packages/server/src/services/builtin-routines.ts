@@ -9,6 +9,7 @@ import {
 	routines,
 	threads,
 } from "@hyperidle/db";
+import { runStaleSweep } from "@hyperidle/fabric";
 import type {
 	BetShippedEvent,
 	CostCapBreachedEvent,
@@ -17,7 +18,6 @@ import type {
 	EventBus,
 	ItemCreatedEvent,
 } from "@hyperidle/shared";
-import { runStaleSweep } from "@hyperidle/fabric";
 import { and, eq, gte, inArray, like } from "drizzle-orm";
 import { createPracticeMeeting } from "./practice-meeting.js";
 
@@ -174,7 +174,11 @@ export function seedBuiltinRoutines(db: HyperIdleDb): void {
 // --- Dispatcher ---
 
 export type RunBuiltinResult =
-	| { readonly fired: true; readonly emitted?: readonly string[]; readonly extra?: Record<string, unknown> }
+	| {
+			readonly fired: true;
+			readonly emitted?: readonly string[];
+			readonly extra?: Record<string, unknown>;
+	  }
 	| { readonly fired: false; readonly reason: string };
 
 export interface PostBetRetroArgs {
@@ -344,11 +348,7 @@ function classifyLevel(ratio: number): CostSentinelLevel {
 }
 
 function runCostSentinel(db: HyperIdleDb, eventBus: EventBus): RunBuiltinResult {
-	const capRow = db
-		.select()
-		.from(factorySettings)
-		.where(eq(factorySettings.key, "cost_cap"))
-		.get();
+	const capRow = db.select().from(factorySettings).where(eq(factorySettings.key, "cost_cap")).get();
 	const actualRow = db
 		.select()
 		.from(factorySettings)
@@ -512,13 +512,7 @@ function runPostBetRetro(
 				layer: "meta",
 				kind: "review",
 				title: `Post-bet retro: ${bet.pitch}`,
-				body: [
-					marker,
-					`Hypothesis: ${hypothesis}`,
-					"",
-					"Reality:",
-					...realityLines,
-				].join("\n"),
+				body: [marker, `Hypothesis: ${hypothesis}`, "", "Reality:", ...realityLines].join("\n"),
 				threadId,
 				riskTier: "medium",
 				createdAt: isoNow,
@@ -556,10 +550,7 @@ function runPortfolioRetro(
 		.select()
 		.from(knowledgeItems)
 		.where(
-			and(
-				inArray(knowledgeItems.layer, ["L3", "L4"]),
-				gte(knowledgeItems.updatedAt, cutoffIso),
-			),
+			and(inArray(knowledgeItems.layer, ["L3", "L4"]), gte(knowledgeItems.updatedAt, cutoffIso)),
 		)
 		.all();
 

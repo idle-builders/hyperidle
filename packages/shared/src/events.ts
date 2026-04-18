@@ -139,6 +139,25 @@ export interface BetRevisedEvent {
 	timestamp: number;
 }
 
+/**
+ * Emitted by `session-provisioning` each time the harness yields a
+ * `tool_call` event. Observability subscribes to this; the provisioning
+ * layer also invokes the tool registry. Separate from the harness-level
+ * `ToolCallEvent` to keep the pub/sub domain decoupled from the adapter
+ * stream semantics.
+ *
+ * `argsSummary` is the already-scrubbed, length-bounded preview produced
+ * by `summarizeToolArgs` — never the raw args object.
+ */
+export interface ToolCallRecordedEvent {
+	type: "tool_call_recorded";
+	streamId: string;
+	sessionId: string;
+	toolName: string;
+	argsSummary: string;
+	timestamp: number;
+}
+
 /** Discriminated union of all domain events. */
 export type DomainEvent =
 	| TaskStateChangedEvent
@@ -155,7 +174,8 @@ export type DomainEvent =
 	| RoutineFiredEvent
 	| DependencyMetEvent
 	| BetCommittedEvent
-	| BetRevisedEvent;
+	| BetRevisedEvent
+	| ToolCallRecordedEvent;
 
 /** All valid event type strings. */
 export type EventType = DomainEvent["type"];
