@@ -3,7 +3,7 @@ import type { ApiErrorResponse, EventBus } from "@hyperidle/shared";
 import type { Hono } from "hono";
 import { createBunWebSocket } from "hono/bun";
 import type { WSContext } from "hono/ws";
-import type { UpgradeTokenStore } from "../services/upgrade-token-store.js";
+import type { UpgradeTokenStore } from "../auth/upgrade-token-store.js";
 
 const { upgradeWebSocket, websocket: wsHandler } = createBunWebSocket();
 
@@ -32,8 +32,8 @@ interface ClientState {
  */
 function registerWsRoute(
 	apiApp: Hono,
-	eventBus?: EventBus,
-	tokenStore?: UpgradeTokenStore,
+	eventBus: EventBus | undefined,
+	tokenStore: UpgradeTokenStore,
 ): () => void {
 	const clients = new Map<WSContext, ClientState>();
 
@@ -70,7 +70,7 @@ function registerWsRoute(
 	// short-lived token, then open the WS with `?token=<minted>`.
 	apiApp.use("/ws", async (c, next) => {
 		const token = c.req.query("token");
-		if (!(token && tokenStore)) {
+		if (!token) {
 			const response: ApiErrorResponse = {
 				error: "Missing or invalid token",
 				code: API_ERROR_CODES.UNAUTHORIZED,
