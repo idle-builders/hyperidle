@@ -1,0 +1,250 @@
+import type { BetStatus } from "@hyperidle/shared";
+import { type JSX, useState } from "react";
+import { KeyValue } from "../components/KeyValue";
+import type { Status } from "../components/StatusChip";
+import { StatusChip } from "../components/StatusChip";
+import { useRovingFocus } from "./use-roving-focus";
+
+/** Maps domain BetStatus to presentation Status for StatusChip rendering. */
+function betStatusToChipStatus(status: BetStatus): Status {
+	switch (status) {
+		case "shipped":
+			return "done";
+		case "blocked":
+			return "blocked";
+		case "behind":
+			return "behind";
+		case "paused":
+			return "paused";
+		case "killed":
+			return "error";
+		default:
+			return "healthy";
+	}
+}
+
+/** Maps domain severity string to presentation Status for StatusChip rendering. */
+function severityToChipStatus(severity: "low" | "medium" | "high"): Status {
+	switch (severity) {
+		case "high":
+			return "blocked";
+		case "medium":
+			return "behind";
+		default:
+			return "paused";
+	}
+}
+
+export interface BetItem {
+	id: string;
+	title: string;
+	product: string;
+	status: BetStatus;
+}
+
+export interface BlockerItem {
+	id: string;
+	agent: string;
+	reason: string;
+	severity: "low" | "medium" | "high";
+}
+
+export interface CostInfo {
+	todaySpend: string;
+	todayBudget: string;
+	weekSpend: string;
+	weekBudget: string;
+}
+
+export interface RailProps {
+	expanded: boolean;
+	onToggleExpand: () => void;
+	bets: BetItem[];
+	blockers: BlockerItem[];
+	cost: CostInfo;
+}
+
+interface SectionHeaderProps {
+	title: string;
+	count?: number;
+	isOpen: boolean;
+	onToggle: () => void;
+	tabIndex: number;
+	onKeyDown: (e: React.KeyboardEvent<HTMLElement>) => void;
+	itemRef: (el: HTMLElement | null) => void;
+}
+
+function SectionHeader({
+	title,
+	count,
+	isOpen,
+	onToggle,
+	tabIndex,
+	onKeyDown,
+	itemRef,
+}: SectionHeaderProps): JSX.Element {
+	return (
+		<button
+			type="button"
+			className="flex w-full items-center justify-between p-2 text-left hover:bg-[var(--surface-4)]"
+			onClick={onToggle}
+			tabIndex={tabIndex}
+			onKeyDown={onKeyDown}
+			ref={itemRef}
+		>
+			<div className="flex items-center gap-2">
+				<span className="font-heading text-xs uppercase tracking-wider text-[var(--text-lo)]">
+					{title}
+				</span>
+				{count !== undefined && <span className="badge badge-sm">{count}</span>}
+			</div>
+			<svg
+				aria-hidden="true"
+				width={12}
+				height={12}
+				viewBox="0 0 12 12"
+				fill="currentColor"
+				className="text-[var(--text-lo)]"
+			>
+				{isOpen ? <path d="M2 4l4 5 4-5H2z" /> : <path d="M4 2l5 4-5 4V2z" />}
+			</svg>
+		</button>
+	);
+}
+
+export function Rail({ expanded, onToggleExpand, bets, blockers, cost }: RailProps): JSX.Element {
+	const [openSections, setOpenSections] = useState({
+		bets: true,
+		blockers: true,
+		cost: true,
+	});
+
+	const toggleSection = (section: keyof typeof openSections): void => {
+		setOpenSections((prev) => ({ ...prev, [section]: !prev[section] }));
+	};
+
+	const { getItemProps } = useRovingFocus({
+		itemCount: 3,
+		onSelect: (index) => {
+			const sections: (keyof typeof openSections)[] = ["bets", "blockers", "cost"];
+			toggleSection(sections[index]);
+		},
+		onEscape: onToggleExpand,
+	});
+
+	if (!expanded) {
+		return (
+			<div className="flex w-14 flex-col items-center gap-2 p-2">
+				<span className="badge badge-sm" aria-label={`${bets.length} active bets`}>
+					{bets.length}
+				</span>
+				<span className="badge badge-sm" aria-label={`${blockers.length} blockers`}>
+					{blockers.length}
+				</span>
+				<button
+					type="button"
+					className="btn btn-ghost btn-xs"
+					aria-label="Expand rail"
+					onClick={onToggleExpand}
+				>
+					<svg aria-hidden="true" width={12} height={12} viewBox="0 0 12 12" fill="currentColor">
+						<path d="M8 2l-5 4 5 4V2z" />
+					</svg>
+				</button>
+			</div>
+		);
+	}
+
+	const betsProps = getItemProps(0);
+	const blockersProps = getItemProps(1);
+	const costProps = getItemProps(2);
+
+	return (
+		<div className="flex w-[360px] flex-col gap-0.5 p-2">
+			<div className="flex items-center justify-end">
+				<button
+					type="button"
+					className="btn btn-ghost btn-xs"
+					aria-label="Collapse rail"
+					onClick={onToggleExpand}
+				>
+					<svg aria-hidden="true" width={12} height={12} viewBox="0 0 12 12" fill="currentColor">
+						<path d="M4 2l5 4-5 4V2z" />
+					</svg>
+				</button>
+			</div>
+
+			{/* Active Bets Section */}
+			<div>
+				<SectionHeader
+					title="Active Bets"
+					count={bets.length}
+					isOpen={openSections.bets}
+					onToggle={() => toggleSection("bets")}
+					tabIndex={betsProps.tabIndex}
+					onKeyDown={betsProps.onKeyDown}
+					itemRef={betsProps.ref}
+				/>
+				{openSections.bets && (
+					<div className="flex flex-col gap-1 px-2 py-1">
+						{bets.map((bet) => (
+							<div key={bet.id} className="flex flex-col gap-0.5 py-1">
+								<div className="flex items-center justify-between">
+									<span className="text-sm text-[var(--text-hi)]">{bet.title}</span>
+									<StatusChip status={betStatusToChipStatus(bet.status)} />
+								</div>
+								<span className="text-xs text-[var(--text-lo)]">{bet.product}</span>
+							</div>
+						))}
+					</div>
+				)}
+			</div>
+
+			{/* Blockers Section */}
+			<div>
+				<SectionHeader
+					title="Blockers"
+					count={blockers.length}
+					isOpen={openSections.blockers}
+					onToggle={() => toggleSection("blockers")}
+					tabIndex={blockersProps.tabIndex}
+					onKeyDown={blockersProps.onKeyDown}
+					itemRef={blockersProps.ref}
+				/>
+				{openSections.blockers && (
+					<div className="flex flex-col gap-1 px-2 py-1">
+						{blockers.map((blocker) => (
+							<div key={blocker.id} className="flex flex-col gap-0.5 py-1">
+								<div className="flex items-center justify-between">
+									<span className="text-sm text-[var(--text-hi)]">{blocker.agent}</span>
+									<StatusChip status={severityToChipStatus(blocker.severity)} />
+								</div>
+								<span className="text-xs text-[var(--text-lo)]">{blocker.reason}</span>
+							</div>
+						))}
+					</div>
+				)}
+			</div>
+
+			{/* Cost Section */}
+			<div>
+				<SectionHeader
+					title="Cost"
+					isOpen={openSections.cost}
+					onToggle={() => toggleSection("cost")}
+					tabIndex={costProps.tabIndex}
+					onKeyDown={costProps.onKeyDown}
+					itemRef={costProps.ref}
+				/>
+				{openSections.cost && (
+					<div className="flex flex-col gap-1 px-2 py-1">
+						<KeyValue label="Today" value={cost.todaySpend} />
+						<KeyValue label="Today Budget" value={cost.todayBudget} />
+						<KeyValue label="Week" value={cost.weekSpend} />
+						<KeyValue label="Week Budget" value={cost.weekBudget} />
+					</div>
+				)}
+			</div>
+		</div>
+	);
+}

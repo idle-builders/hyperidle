@@ -10,6 +10,7 @@ import {
 	teams,
 } from "@hyperidle/db";
 import { type DomainEvent, EventBus } from "@hyperidle/shared";
+import { eq } from "drizzle-orm";
 import type { Hono } from "hono";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createTestApp } from "../test-utils.js";
@@ -223,6 +224,65 @@ describe("Routine Endpoints (E6)", () => {
 				headers: authHeaders(),
 			});
 			expect(res.status).toBe(404);
+		});
+
+		// G4 AC8: manual trigger must refuse to fire disabled routines
+		it("returns 403 ROUTINE_DISABLED when routine.active=0", async () => {
+			db.update(routines).set({ active: 0 }).where(eq(routines.id, "routine-1")).run();
+
+			const res = await app.request("/api/routines/routine-1/trigger", {
+				method: "POST",
+				headers: authHeaders(),
+			});
+			expect(res.status).toBe(403);
+
+			const body = (await res.json()) as Record<string, unknown>;
+			expect(body.code).toBe("FORBIDDEN");
+
+			// Must not have created a session
+			const allSessions = db.select().from(sessions).all();
+			expect(allSessions).toHaveLength(0);
+
+			// Must not have updated lastRunAt
+			const updated = db.select().from(routines).where(eq(routines.id, "routine-1")).get();
+			expect(updated?.lastRunAt).toBeNull();
+		});
+
+		// G4 AC7 (via API): manual trigger for a builtin invokes the handler
+		it("invokes builtin handler for builtin:knowledge-decay (no session)", async () => {
+			// Seed builtin routine directly (bypass G4 seed helper in this test file).
+			db.insert(routines)
+				.values({
+					id: "builtin:knowledge-decay",
+					ownerAgentId: "agent-1",
+					triggerType: "calendar",
+					triggerConfig: JSON.stringify({ cron: "0 2 * * *" }),
+					active: 1,
+				})
+				.run();
+
+			const sessionsBefore = db.select().from(sessions).all();
+
+			const res = await app.request("/api/routines/builtin:knowledge-decay/trigger", {
+				method: "POST",
+				headers: authHeaders(),
+			});
+			expect(res.status).toBe(200);
+
+			const body = (await res.json()) as Record<string, unknown>;
+			expect(body.routineId).toBe("builtin:knowledge-decay");
+			expect(body.fired).toBe(true);
+
+			// Builtin manual trigger must NOT create a session
+			const sessionsAfter = db.select().from(sessions).all();
+			expect(sessionsAfter).toHaveLength(sessionsBefore.length);
+
+			const updated = db
+				.select()
+				.from(routines)
+				.where(eq(routines.id, "builtin:knowledge-decay"))
+				.get();
+			expect(updated?.lastRunAt).toBeTruthy();
 		});
 	});
 });

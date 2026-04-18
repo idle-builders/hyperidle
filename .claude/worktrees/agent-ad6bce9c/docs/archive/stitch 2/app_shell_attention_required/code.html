@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&amp;family=Space+Grotesk:wght@300;500;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-primary": "#003d87",
+                        "primary-fixed": "#d8e2ff",
+                        "on-primary-container": "#bcd0ff",
+                        "on-tertiary": "#00671a",
+                        "on-background": "#e7e5e4",
+                        "on-tertiary-container": "#005e17",
+                        "surface-tint": "#adc6ff",
+                        "on-tertiary-fixed-variant": "#00691a",
+                        "on-secondary": "#301c00",
+                        "tertiary-container": "#91f78e",
+                        "secondary-container": "#553400",
+                        "inverse-on-surface": "#565555",
+                        "tertiary-fixed-dim": "#83e881",
+                        "surface-variant": "#252626",
+                        "on-error-container": "#ff9993",
+                        "surface-container-high": "#1f2020",
+                        "error-container": "#7f2927",
+                        "error": "#ee7d77",
+                        "outline": "#767575",
+                        "on-surface": "#e7e5e4",
+                        "secondary": "#d58f24",
+                        "background": "#0e0e0e",
+                        "surface-container-lowest": "#000000",
+                        "on-primary-fixed": "#003d85",
+                        "surface-container-low": "#131313",
+                        "tertiary-dim": "#83e881",
+                        "surface-container": "#191a1a",
+                        "on-primary-fixed-variant": "#0058bb",
+                        "secondary-dim": "#d58f24",
+                        "tertiary-fixed": "#91f78e",
+                        "on-surface-variant": "#acabaa",
+                        "primary-dim": "#97b9ff",
+                        "tertiary": "#bbffb3",
+                        "on-tertiary-fixed": "#00480f",
+                        "on-secondary-fixed": "#5a3800",
+                        "on-secondary-container": "#fcb044",
+                        "inverse-surface": "#fcf9f8",
+                        "secondary-fixed": "#ffddb6",
+                        "on-secondary-fixed-variant": "#805100",
+                        "surface": "#0e0e0e",
+                        "primary-fixed-dim": "#c2d4ff",
+                        "outline-variant": "#484848",
+                        "primary-container": "#004493",
+                        "error-dim": "#bb5551",
+                        "surface-bright": "#2c2c2c",
+                        "on-error": "#490106",
+                        "surface-dim": "#0e0e0e",
+                        "surface-container-highest": "#252626",
+                        "inverse-primary": "#005bc2",
+                        "primary": "#adc6ff",
+                        "secondary-fixed-dim": "#ffcb8b"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "fontFamily": {
+                        "headline": ["Inter"],
+                        "body": ["Inter"],
+                        "label": ["Space Grotesk"]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        body {
+            background-color: #0e0e0e;
+            color: #e7e5e4;
+            font-family: 'Inter', sans-serif;
+        }
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #0e0e0e;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #252626;
+        }
+    </style>
+</head>
+<body class="overflow-hidden">
+<!-- TopAppBar -->
+<header class="fixed top-0 w-full z-50 h-12 flex items-center justify-between px-4 bg-[#0e0e0e] border-b border-white/5">
+<div class="flex items-center gap-8">
+<span class="text-lg font-bold tracking-tighter text-[#adc6ff]">HyperIdle</span>
+<div class="hidden md:flex items-center bg-surface-container-low px-3 py-1.5 rounded-sm w-64 group cursor-pointer hover:bg-surface-container transition-colors">
+<span class="material-symbols-outlined text-sm text-slate-500 mr-2">search</span>
+<span class="text-xs text-slate-500 font-label">⌘K to search</span>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<button class="material-symbols-outlined text-xl text-[#adc6ff] hover:bg-[#191a1a] p-1 rounded transition-colors">notifications_active</button>
+<button class="material-symbols-outlined text-xl text-slate-400 hover:bg-[#191a1a] p-1 rounded transition-colors">settings_remote</button>
+<button class="material-symbols-outlined text-xl text-slate-400 hover:bg-[#191a1a] p-1 rounded transition-colors">account_circle</button>
+</div>
+</header>
+<div class="flex h-screen pt-12">
+<!-- Icon Menu (Left, 56px) -->
+<nav class="w-[56px] flex flex-col items-center py-4 bg-[#131313] border-r border-white/5 space-y-4">
+<div class="w-10 h-10 flex items-center justify-center rounded-sm bg-[#191a1a] text-[#adc6ff] border-l-2 border-[#adc6ff] cursor-pointer">
+<span class="material-symbols-outlined" data-weight="fill" style="font-variation-settings: 'FILL' 1;">forum</span>
+</div>
+<div class="w-10 h-10 flex items-center justify-center rounded-sm text-slate-500 hover:bg-[#191a1a] hover:text-slate-300 transition-all cursor-pointer">
+<span class="material-symbols-outlined">factory</span>
+</div>
+<div class="w-10 h-10 flex items-center justify-center rounded-sm text-slate-500 hover:bg-[#191a1a] hover:text-slate-300 transition-all cursor-pointer">
+<span class="material-symbols-outlined">inventory_2</span>
+</div>
+<div class="w-10 h-10 flex items-center justify-center rounded-sm text-slate-500 hover:bg-[#191a1a] hover:text-slate-300 transition-all cursor-pointer">
+<span class="material-symbols-outlined">smart_toy</span>
+</div>
+<div class="w-10 h-10 flex items-center justify-center rounded-sm text-slate-500 hover:bg-[#191a1a] hover:text-slate-300 transition-all cursor-pointer">
+<span class="material-symbols-outlined">monitoring</span>
+</div>
+<div class="mt-auto flex flex-col gap-4">
+<span class="material-symbols-outlined text-slate-500 hover:text-slate-300 cursor-pointer">help_center</span>
+<span class="material-symbols-outlined text-slate-500 hover:text-slate-300 cursor-pointer">check_circle</span>
+</div>
+</nav>
+<!-- Submenu (240px) -->
+<aside class="w-[240px] bg-surface-container-low flex flex-col border-r border-white/5">
+<div class="p-4 border-b border-white/5">
+<h2 class="text-[11px] uppercase tracking-widest font-label text-slate-500">Conversations</h2>
+</div>
+<div class="flex-1 overflow-y-auto custom-scrollbar p-2 space-y-1">
+<div class="p-2 bg-surface-container rounded-sm border-l-2 border-[#adc6ff]">
+<p class="text-xs font-semibold text-on-surface">Hardware Latency Report</p>
+<p class="text-[10px] text-slate-500 font-label uppercase mt-1">2m ago • Agent-42</p>
+</div>
+<div class="p-2 hover:bg-surface-container rounded-sm cursor-pointer transition-colors group">
+<p class="text-xs text-on-surface-variant group-hover:text-on-surface">Nimmly Auth Refactor</p>
+<p class="text-[10px] text-slate-600 font-label uppercase mt-1">14m ago • System</p>
+</div>
+<div class="p-2 hover:bg-surface-container rounded-sm cursor-pointer transition-colors group">
+<p class="text-xs text-on-surface-variant group-hover:text-on-surface">Global Sync Status</p>
+<p class="text-[10px] text-slate-600 font-label uppercase mt-1">1h ago • Admin</p>
+</div>
+<div class="p-2 hover:bg-surface-container rounded-sm cursor-pointer transition-colors group">
+<p class="text-xs text-on-surface-variant group-hover:text-on-surface">Infrastructure Patch 09</p>
+<p class="text-[10px] text-slate-600 font-label uppercase mt-1">3h ago • DevOps</p>
+</div>
+<div class="p-2 hover:bg-surface-container rounded-sm cursor-pointer transition-colors group">
+<p class="text-xs text-on-surface-variant group-hover:text-on-surface">Weekly Burn Audit</p>
+<p class="text-[10px] text-slate-600 font-label uppercase mt-1">Yesterday • Finance</p>
+</div>
+</div>
+</aside>
+<!-- Main Pane (Center) -->
+<main class="flex-1 bg-surface p-8 overflow-y-auto custom-scrollbar">
+<div class="max-w-4xl mx-auto space-y-8">
+<header>
+<h1 class="text-2xl font-bold tracking-tight text-on-surface">Operational Overview</h1>
+<p class="text-sm text-on-surface-variant mt-1">Command center for Plant 01 active processes.</p>
+</header>
+<!-- Bento Grid Layout -->
+<div class="grid grid-cols-12 gap-4">
+<div class="col-span-8 h-64 bg-surface-container rounded-sm flex items-center justify-center relative overflow-hidden">
+<img class="absolute inset-0 w-full h-full object-cover opacity-20 mix-blend-luminosity" data-alt="abstract close-up of blue circuit board with glowing light pathways in a dark futuristic environment" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCemFuwEBfgFmlELs14UKLc8f3dNJm4EH5JGAv2tSVwaxeTQS9TYnm2ikhFe7MsAmC1KCn91uI3y4qGR-XLlyve7AQToEE3NTf8hxurfN5nDLc6VbedgsWYPXvMxNajxaAXAtMBw0I9TwZ5NtFwddy2ZVQG4otQcwX_Q_vkTV5dEGuUhhwf_RAu1Af_Aect_Jx00fuHXvLYKN5--i8KHu0VsrH95eUC3bOjuFHBfii3VoJ-LujpWkAFkazan4_GISDQ57MpeEJwIvM4"/>
+<div class="relative z-10 text-center">
+<span class="material-symbols-outlined text-4xl text-[#adc6ff] opacity-50 mb-2">monitoring</span>
+<p class="text-xs font-label uppercase tracking-widest text-slate-400">Live Telemetry Visualizer</p>
+</div>
+</div>
+<div class="col-span-4 h-64 bg-surface-container-high rounded-sm p-4 space-y-4">
+<h3 class="text-xs font-label uppercase tracking-widest text-slate-500">System Vitality</h3>
+<div class="space-y-4">
+<div class="flex justify-between items-end">
+<span class="text-[10px] font-label text-slate-400 uppercase">CPU Core Alpha</span>
+<span class="text-xs text-tertiary-fixed font-label">98.2%</span>
+</div>
+<div class="w-full bg-surface h-1 rounded-full overflow-hidden">
+<div class="bg-tertiary h-full w-[98%]"></div>
+</div>
+<div class="flex justify-between items-end">
+<span class="text-[10px] font-label text-slate-400 uppercase">Memory Buffer</span>
+<span class="text-xs text-secondary font-label">74.5%</span>
+</div>
+<div class="w-full bg-surface h-1 rounded-full overflow-hidden">
+<div class="bg-secondary h-full w-[74%]"></div>
+</div>
+<div class="flex justify-between items-end">
+<span class="text-[10px] font-label text-slate-400 uppercase">Thread Uplink</span>
+<span class="text-xs text-primary font-label">STABLE</span>
+</div>
+</div>
+</div>
+<div class="col-span-12 grid grid-cols-3 gap-4">
+<div class="h-32 bg-surface-container p-4 flex flex-col justify-between">
+<span class="text-[10px] font-label text-slate-500 uppercase">Active Nodes</span>
+<span class="text-3xl font-bold text-on-surface">1,024</span>
+<div class="flex items-center gap-1 text-[10px] text-tertiary font-label uppercase">
+<span class="material-symbols-outlined text-xs">trending_up</span> +12/h
+                            </div>
+</div>
+<div class="h-32 bg-surface-container p-4 flex flex-col justify-between border-l border-white/5">
+<span class="text-[10px] font-label text-slate-500 uppercase">Response Latency</span>
+<span class="text-3xl font-bold text-on-surface">14ms</span>
+<div class="flex items-center gap-1 text-[10px] text-tertiary font-label uppercase">
+<span class="material-symbols-outlined text-xs">check_circle</span> Nominal
+                            </div>
+</div>
+<div class="h-32 bg-surface-container p-4 flex flex-col justify-between border-l border-white/5">
+<span class="text-[10px] font-label text-slate-500 uppercase">Error Rate</span>
+<span class="text-3xl font-bold text-error">0.02%</span>
+<div class="flex items-center gap-1 text-[10px] text-slate-500 font-label uppercase">
+                                Stable Delta
+                            </div>
+</div>
+</div>
+</div>
+</div>
+</main>
+<!-- Rail (Right, Expanded 320px) -->
+<aside class="w-[320px] bg-surface-container-low border-l border-white/5 flex flex-col">
+<!-- Blocked Section -->
+<section class="p-6 border-b border-white/5">
+<div class="flex items-center justify-between mb-4">
+<h3 class="text-xs font-label uppercase tracking-widest text-slate-500">Attention Required</h3>
+<span class="bg-secondary/10 text-secondary text-[10px] font-bold px-2 py-0.5 rounded-sm flex items-center gap-1">
+<span class="w-1.5 h-1.5 bg-secondary rounded-full"></span> 2 BLOCKED
+                    </span>
+</div>
+<div class="space-y-3">
+<div class="p-3 bg-surface-container-highest/50 border border-secondary/20 rounded-sm">
+<div class="flex items-center justify-between">
+<span class="text-xs font-semibold text-on-surface">Pulse Hardware Agent</span>
+<span class="material-symbols-outlined text-sm text-secondary">warning</span>
+</div>
+<p class="text-[10px] text-slate-400 mt-1">Thermal threshold exceeded in Sector 7G.</p>
+</div>
+<div class="p-3 bg-surface-container-highest/50 border border-secondary/20 rounded-sm">
+<div class="flex items-center justify-between">
+<span class="text-xs font-semibold text-on-surface">Nimmly Backend Builder</span>
+<span class="material-symbols-outlined text-sm text-secondary">block</span>
+</div>
+<p class="text-[10px] text-slate-400 mt-1">Dependency conflict: Auth-v4 required.</p>
+</div>
+</div>
+</section>
+<!-- Active Bets Section -->
+<section class="p-6 border-b border-white/5">
+<h3 class="text-xs font-label uppercase tracking-widest text-slate-500 mb-4">Active Bets</h3>
+<div class="space-y-4">
+<div class="flex items-start gap-3">
+<span class="w-2 h-2 mt-1 rounded-full bg-tertiary"></span>
+<div class="flex-1">
+<p class="text-xs text-on-surface">Pricing overhaul</p>
+<p class="text-[10px] text-slate-500 font-label uppercase">In Progress • 88% Confidence</p>
+</div>
+</div>
+<div class="flex items-start gap-3">
+<span class="w-2 h-2 mt-1 rounded-full bg-tertiary"></span>
+<div class="flex-1">
+<p class="text-xs text-on-surface">Onboarding v2</p>
+<p class="text-[10px] text-slate-500 font-label uppercase">Finalizing • 94% Confidence</p>
+</div>
+</div>
+<div class="flex items-start gap-3">
+<span class="w-2 h-2 mt-1 rounded-full bg-secondary"></span>
+<div class="flex-1">
+<p class="text-xs text-on-surface">Enclosure optimization</p>
+<p class="text-[10px] text-slate-500 font-label uppercase">Review Required • 42% Confidence</p>
+</div>
+</div>
+</div>
+</section>
+<!-- Cost Burn Section -->
+<section class="p-6 mt-auto">
+<div class="flex justify-between items-end mb-2">
+<h3 class="text-xs font-label uppercase tracking-widest text-slate-500">Cost Burn</h3>
+<span class="text-xs font-label text-on-surface">$42 / <span class="text-slate-500">$150</span></span>
+</div>
+<div class="w-full bg-surface-container h-1.5 rounded-full overflow-hidden">
+<div class="bg-primary h-full w-[28%]"></div>
+</div>
+<p class="text-[10px] text-slate-600 font-label uppercase mt-3">Daily allocation remaining: $108.00</p>
+</section>
+</aside>
+</div>
+</body></html>

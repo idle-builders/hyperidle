@@ -30,7 +30,8 @@
       "Bash(find:*)",
       "Bash(npx:*)",
       "Read(//tmp/**)",
-      "Bash(sed 's/ *$//')"
+      "Bash(sed 's/ *$//')",
+      "Bash(npm list:*)"
     ]
   },
   "autoMode": {
