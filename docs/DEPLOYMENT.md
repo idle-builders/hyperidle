@@ -95,8 +95,10 @@ bun run db:migrate:pg
 bun run db:seed:pg
 ```
 
-Cloud profile uses connection pooling (`PG_POOL_SIZE`, default 10) against
-the managed Postgres. See `packages/db/src/pg-connection.ts` for details.
+Cloud profile uses connection pooling against the managed Postgres. The
+pool size defaults to 10 and is configurable via the `PG_POOL_SIZE`
+environment variable (or the `maxConnections` option on `createPgDb`).
+See `packages/db/src/pg-connection.ts` for details.
 
 **Verification**
 ```
@@ -107,16 +109,33 @@ curl $API_URL/health
 
 ## Switching SQLite → Postgres
 
-No code changes required. Set `DATABASE_URL` and switch profile:
+**Status (H4): partially ready.** The Postgres adapter, migrations, and
+pool configuration are in place. The Drizzle schema is driver-agnostic:
+the Postgres schema at `packages/db/src/schema.pg.ts` mirrors the SQLite
+schema table-for-table (pinned by the `pg-schema.test.ts` parity test).
+The pg migrations apply cleanly on pglite (`pg-migration.test.ts`) and a
+real cluster (operator smoke via `DATABASE_URL`).
 
-```
-# From laptop:
-HYPERIDLE_PROFILE=vps DATABASE_URL=postgres://... bun run db:migrate:pg
-```
+**Known constraint — follow-up required before production PG.**
+`drizzle-orm/postgres-js` is async-only (no `.run()`/`.get()`/`.all()`
+terminal methods), while `@hyperidle/server` today uses the synchronous
+better-sqlite3 query API across 800+ call sites. Flipping `DATABASE_URL`
+to a Postgres URL on the current server will crash at the first query.
+Before a production Postgres deployment, a follow-up story must:
 
-Drizzle's schema definitions are driver-agnostic; the Postgres schema
-lives at `packages/db/src/schema.pg.ts` and mirrors the SQLite schema
-table-for-table (pinned by the `pg-schema.test.ts` parity test).
+1. Migrate the 800+ `.run()` / `.get()` / `.all()` server call sites to
+   `await` on the Drizzle builder directly.
+2. Convert the SQLite `seed()` function to a dialect-agnostic async form
+   (or duplicate it onto `schema.pg.ts`).
+3. Re-run `bun run test:pg` with a real `DATABASE_URL` and confirm a
+   full-suite pass.
+
+The `packages/db/src/__tests__/pg-call-site-audit.test.ts` test records
+the current synchronous-call-site count so regressions are visible.
+
+Until that work lands, `HYPERIDLE_PROFILE=laptop` (SQLite) remains the
+supported production-grade default; `vps` and `cloud` run the Postgres
+driver against the DB layer only (migrations + `db:seed:pg` smoke seed).
 
 ---
 

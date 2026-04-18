@@ -3,8 +3,10 @@ export { createTestDb } from "./test-utils.js";
 export { seed } from "./seed.js";
 export {
 	DEFAULT_PG_POOL_SIZE,
+	PG_POOL_SIZE_ENV,
 	createPgDb,
 	parsePgPoolSize,
+	resolvePgPoolSize,
 	type HyperIdlePgDb,
 	type PgDbHandle,
 	type PgDbOptions,

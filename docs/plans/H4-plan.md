@@ -130,6 +130,15 @@ Bind `.env` for secrets.
 - The `--start` server bring-up is stubbed (banner only) because the sandbox can't prove a server spawns correctly across reboots. Verified manually via `bun dev`.
 - Setup CLI lives in `packages/db` because it needs the schema/seed; it does not pull in `@hyperidle/server`. Alternative was `bin/setup.ts` at root — rejected (no tsconfig at root).
 
+### AC4 honest scoping statement (post-review)
+
+AC4 ("config change, no code changes") is **partially satisfied** by H4:
+
+- **Done:** PG driver ready, migrations apply on pglite + real PG, schema parity test green, pool-size plumbing (`PG_POOL_SIZE` env → `createPgDb.maxConnections`) wired and tested, docker-compose interpolates secrets from env.
+- **NOT done:** `@hyperidle/server` uses synchronous better-sqlite3 terminal methods (`.run()`, `.get()`, `.all()`) across 800+ call sites. `drizzle-orm/postgres-js` is async-only. Flipping `DATABASE_URL` on the server will crash at the first query.
+- **Follow-up story required:** convert server call sites to async Drizzle, migrate `seed.ts` to dialect-agnostic async, run a real-PG smoke suite. Tracked by `packages/db/src/__tests__/pg-call-site-audit.test.ts` which pins the current count.
+- **Production default remains `laptop` (SQLite).** `vps` / `cloud` profiles run the PG driver against the DB layer only (migrations + minimal seed) until the server conversion ships.
+
 ## 9. Lore to Capture
 
 - Why pglite and not pg-mem: pglite is WASM-based, runs real Postgres queries; pg-mem reimplements a subset. Drizzle officially supports pglite via `drizzle-orm/pglite`.
