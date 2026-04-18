@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import * as pgSchema from "../schema.pg.js";
 import * as sqliteSchema from "../schema.js";
+import * as pgSchema from "../schema.pg.js";
 
 /**
  * I3 — PG schema alignment acceptance tests.

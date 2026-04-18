@@ -28,12 +28,7 @@ export function checkAndUnblockDependents(
 	const candidates = db
 		.select()
 		.from(tasks)
-		.where(
-			and(
-				eq(tasks.state, "hold"),
-				like(tasks.dependencies, sql`${`%"${completedTaskId}"%`}`),
-			),
-		)
+		.where(and(eq(tasks.state, "hold"), like(tasks.dependencies, sql`${`%"${completedTaskId}"%`}`)))
 		.all();
 
 	for (const task of candidates) {
