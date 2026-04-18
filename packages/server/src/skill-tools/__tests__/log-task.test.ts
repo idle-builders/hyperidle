@@ -82,39 +82,36 @@ describe("log_task tool", () => {
 	});
 
 	describe("AC3: appends 'Discovered X' to task.notes", () => {
-		it("appends a note entry to task.notes JSON array", async () => {
+		it("appends note prose to task.notes", async () => {
+			// I1 C2 decision: log_task writes agent-authored prose (not
+			// audit entries) to tasks.notes. The storage representation is
+			// implementation-defined (JSON array of note objects OR plain
+			// text with a separator) — the assertion here only checks that
+			// the note content shows up somewhere in the notes column.
 			const result = await logTaskTool.handler({ note: "Discovered X" }, makeContext(db));
 			expect(result.success).toBe(true);
 			if (!result.success) return;
 			expect((result.data as { taskId: string }).taskId).toBe("task-1");
 
 			const task = db.select().from(tasks).where(eq(tasks.id, "task-1")).get();
-			const audit = JSON.parse(task?.notes ?? "[]") as Array<Record<string, unknown>>;
-			const noteEntries = audit.filter((e) => e.type === "note");
-			expect(noteEntries).toHaveLength(1);
-			expect(noteEntries[0].text).toBe("Discovered X");
-			expect(noteEntries[0].agentId).toBe("agent-a");
-			expect(noteEntries[0].sessionId).toBe("session-1");
-			expect(noteEntries[0].timestamp).toBeDefined();
+			expect(task?.notes ?? "").toContain("Discovered X");
 		});
 
-		it("preserves existing audit entries (e.g. state transitions)", async () => {
-			const now = new Date().toISOString();
-			const existing = [{ from: "accepted", to: "in_progress", timestamp: now }];
-			db.update(tasks)
-				.set({ notes: JSON.stringify(existing) })
-				.where(eq(tasks.id, "task-1"))
-				.run();
+		it("preserves pre-existing notes content when appending", async () => {
+			// Seed notes with prior agent prose; log_task must preserve it
+			// and append the new note. We use prose (not JSON) to reflect
+			// C2's plain-text lane; if the impl keeps JSON, the assertions
+			// still hold via substring match.
+			const priorNote = "earlier thought";
+			db.update(tasks).set({ notes: priorNote }).where(eq(tasks.id, "task-1")).run();
 
 			const result = await logTaskTool.handler({ note: "Another note" }, makeContext(db));
 			expect(result.success).toBe(true);
 
 			const task = db.select().from(tasks).where(eq(tasks.id, "task-1")).get();
-			const audit = JSON.parse(task?.notes ?? "[]") as Array<Record<string, unknown>>;
-			expect(audit).toHaveLength(2);
-			expect(audit[0].from).toBe("accepted");
-			expect(audit[1].type).toBe("note");
-			expect(audit[1].text).toBe("Another note");
+			const notesText = task?.notes ?? "";
+			expect(notesText).toContain(priorNote);
+			expect(notesText).toContain("Another note");
 		});
 
 		it("appends multiple notes in order", async () => {
@@ -123,9 +120,49 @@ describe("log_task tool", () => {
 			await logTaskTool.handler({ note: "Third" }, makeContext(db));
 
 			const task = db.select().from(tasks).where(eq(tasks.id, "task-1")).get();
-			const audit = JSON.parse(task?.notes ?? "[]") as Array<Record<string, unknown>>;
-			const notes = audit.filter((e) => e.type === "note");
-			expect(notes.map((n) => n.text)).toEqual(["First", "Second", "Third"]);
+			const notesText = task?.notes ?? "";
+			// All three must appear, in order.
+			const posFirst = notesText.indexOf("First");
+			const posSecond = notesText.indexOf("Second");
+			const posThird = notesText.indexOf("Third");
+			expect(posFirst).toBeGreaterThanOrEqual(0);
+			expect(posSecond).toBeGreaterThan(posFirst);
+			expect(posThird).toBeGreaterThan(posSecond);
+		});
+	});
+
+	// ---------------- I1 C2/C3: log_task must never touch auditTrail ----------------
+	describe("I1 C2/C3: log_task never writes to tasks.auditTrail", () => {
+		it("leaves auditTrail untouched when appending a note", async () => {
+			const task = db.select().from(tasks).where(eq(tasks.id, "task-1")).get();
+			const auditBefore = task?.auditTrail ?? null;
+
+			const result = await logTaskTool.handler({ note: "Discovered Y" }, makeContext(db));
+			expect(result.success).toBe(true);
+
+			const after = db.select().from(tasks).where(eq(tasks.id, "task-1")).get();
+			expect(after?.auditTrail ?? null).toBe(auditBefore);
+		});
+
+		it("does not corrupt a pre-existing auditTrail entry (state transition)", async () => {
+			const now = new Date().toISOString();
+			const existing = [{ from: "accepted", to: "in_progress", timestamp: now }];
+			db.update(tasks)
+				.set({ auditTrail: JSON.stringify(existing) })
+				.where(eq(tasks.id, "task-1"))
+				.run();
+
+			await logTaskTool.handler({ note: "Another note" }, makeContext(db));
+
+			const task = db.select().from(tasks).where(eq(tasks.id, "task-1")).get();
+			// auditTrail is still the pristine state transition — log_task
+			// did not append its note to the wrong column.
+			const audit = JSON.parse(task?.auditTrail ?? "[]") as Array<Record<string, unknown>>;
+			expect(audit).toHaveLength(1);
+			expect(audit[0].from).toBe("accepted");
+			expect(audit[0].to).toBe("in_progress");
+			// Note landed in notes, not auditTrail.
+			expect(task?.notes ?? "").toContain("Another note");
 		});
 	});
 

@@ -103,6 +103,14 @@ export function createGitExportRoutes(
 		opts.createRunner ?? ((repoPath: string): GitRunner => createGitRunner(repoPath));
 	const fs = opts.fs ?? createNodeFsAdapter();
 
+	// GET / — Index (I1 S2: proves the route is mounted).
+	router.get("/", (c) =>
+		c.json({
+			config: toSafeConfig(readGitExportConfig(db)),
+			endpoints: ["/config", "/run", "/status"],
+		}),
+	);
+
 	router.get("/config", (c) => c.json(toSafeConfig(readGitExportConfig(db))));
 
 	router.patch("/config", validateBody(patchConfigSchema), (c) => {

@@ -125,6 +125,15 @@ export function createObservabilityRoutes(
 		return cfg;
 	}
 
+	// GET / — Index (I1 S2: proves the route is mounted).
+	router.get("/", (c) => {
+		const cfg = readObservabilityConfig(db);
+		return c.json({
+			config: redactObservabilityConfig(cfg),
+			endpoints: ["/config", "/status", "/flush"],
+		});
+	});
+
 	router.get("/config", (c) => {
 		const cfg = readObservabilityConfig(db);
 		return c.json(redactObservabilityConfig(cfg));

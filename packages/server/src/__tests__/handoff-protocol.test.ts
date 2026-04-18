@@ -358,7 +358,7 @@ describe("Handoff Protocol", () => {
 			});
 
 			const task = db.select().from(tasks).where(eq(tasks.id, "task-1")).get();
-			const audit = JSON.parse(task?.notes ?? "[]");
+			const audit = JSON.parse(task?.auditTrail ?? "[]");
 			const handoffEntry = audit.find((e: Record<string, unknown>) => e.type === "handoff");
 			expect(handoffEntry).toBeDefined();
 			expect(handoffEntry.fromAgent).toBe("agent-a");
@@ -371,9 +371,12 @@ describe("Handoff Protocol", () => {
 			insertAgent(db, "agent-a", "builder", "t1");
 			insertAgent(db, "agent-b", "builder", "t1");
 
-			// Insert task with existing audit trail
+			// Insert task with existing audit trail (in the auditTrail column,
+			// per the schema contract) AND agent prose in `notes` — handoff
+			// must append to auditTrail and leave notes untouched.
 			const now = new Date().toISOString();
 			const existingAudit = [{ from: "proposed", to: "accepted", timestamp: now }];
+			const agentProse = "Pre-handoff agent note prose.";
 			const threadId = "thread-task-2";
 			db.insert(threads).values({ id: threadId, kind: "task", createdAt: now }).run();
 			db.insert(tasks)
@@ -386,7 +389,8 @@ describe("Handoff Protocol", () => {
 					title: "Task 2",
 					state: "in_progress",
 					threadId,
-					notes: JSON.stringify(existingAudit),
+					notes: agentProse,
+					auditTrail: JSON.stringify(existingAudit),
 					createdAt: now,
 					updatedAt: now,
 				})
@@ -403,10 +407,13 @@ describe("Handoff Protocol", () => {
 			});
 
 			const task = db.select().from(tasks).where(eq(tasks.id, "task-2")).get();
-			const audit = JSON.parse(task?.notes ?? "[]");
+			const audit = JSON.parse(task?.auditTrail ?? "[]");
 			expect(audit).toHaveLength(2);
 			expect(audit[0].from).toBe("proposed");
 			expect(audit[1].type).toBe("handoff");
+			// Agent prose in `notes` must survive the handoff unchanged —
+			// handoff writes to auditTrail, not notes.
+			expect(task?.notes).toBe(agentProse);
 		});
 
 		it("tracks multiple handoffs in sequence", async () => {
@@ -434,13 +441,141 @@ describe("Handoff Protocol", () => {
 			});
 
 			const task = db.select().from(tasks).where(eq(tasks.id, "task-1")).get();
-			const audit = JSON.parse(task?.notes ?? "[]");
+			const audit = JSON.parse(task?.auditTrail ?? "[]");
 			const handoffEntries = audit.filter((e: Record<string, unknown>) => e.type === "handoff");
 			expect(handoffEntries).toHaveLength(2);
 			expect(handoffEntries[0].fromAgent).toBe("agent-a");
 			expect(handoffEntries[0].toAgent).toBe("agent-b");
 			expect(handoffEntries[1].fromAgent).toBe("agent-b");
 			expect(handoffEntries[1].toAgent).toBe("agent-c");
+		});
+	});
+
+	// ---------------- I1 / Handoff data integrity (H1, H3) ----------------
+	describe("I1 H1: handoff writes to auditTrail, not notes", () => {
+		it("leaves tasks.notes prose untouched and appends handoff entry to tasks.auditTrail", async () => {
+			insertAgent(db, "agent-a", "builder", "t1");
+			insertAgent(db, "agent-b", "builder", "t1");
+
+			// Seed task with agent-authored prose in `notes`. Handoff must
+			// not touch this column.
+			const now = new Date().toISOString();
+			const agentProse = "Scribbled thought: feature is almost done.";
+			const threadId = "thread-h1";
+			db.insert(threads).values({ id: threadId, kind: "task", createdAt: now }).run();
+			db.insert(tasks)
+				.values({
+					id: "task-h1",
+					betId: "b1",
+					productId: "p1",
+					teamId: "t1",
+					ownerAgentId: "agent-a",
+					title: "H1 task",
+					state: "in_progress",
+					threadId,
+					notes: agentProse,
+					createdAt: now,
+					updatedAt: now,
+				})
+				.run();
+			insertSession(db, "session-h1", "task-h1", "agent-a");
+
+			const ctx = makeSessionContext("session-h1", "agent-a", "task-h1");
+			await handoff(db, eventBus, {
+				sessionContext: ctx,
+				toAgent: "agent-b",
+				metadata: makeMetadata({ reason: "H1 reason" }),
+			});
+
+			const task = db.select().from(tasks).where(eq(tasks.id, "task-h1")).get();
+			// notes prose preserved verbatim.
+			expect(task?.notes).toBe(agentProse);
+			// auditTrail contains the handoff entry (and only JSON, no prose).
+			expect(task?.auditTrail).toBeTruthy();
+			const audit = JSON.parse(task?.auditTrail ?? "[]");
+			const handoffEntry = audit.find((e: Record<string, unknown>) => e.type === "handoff");
+			expect(handoffEntry).toBeDefined();
+			expect(handoffEntry.fromAgent).toBe("agent-a");
+			expect(handoffEntry.toAgent).toBe("agent-b");
+			expect(handoffEntry.reason).toBe("H1 reason");
+		});
+
+		it("never writes the handoff entry into tasks.notes even when notes starts null", async () => {
+			insertAgent(db, "agent-a", "builder", "t1");
+			insertAgent(db, "agent-b", "builder", "t1");
+			insertTask(db, "task-h1-null", "in_progress", "agent-a");
+			insertSession(db, "session-h1-null", "task-h1-null", "agent-a");
+
+			const ctx = makeSessionContext("session-h1-null", "agent-a", "task-h1-null");
+			await handoff(db, eventBus, {
+				sessionContext: ctx,
+				toAgent: "agent-b",
+				metadata: makeMetadata(),
+			});
+
+			const task = db.select().from(tasks).where(eq(tasks.id, "task-h1-null")).get();
+			// notes must not have been populated with a handoff JSON blob.
+			if (task?.notes !== null && task?.notes !== undefined) {
+				// If anything landed in notes, it must not parse as a JSON
+				// array of audit entries — notes is the agent-prose lane.
+				let parsed: unknown = null;
+				try {
+					parsed = JSON.parse(task.notes);
+				} catch {
+					// not JSON — fine, that's prose.
+					parsed = null;
+				}
+				if (Array.isArray(parsed)) {
+					const hasHandoff = parsed.some(
+						(e) =>
+							typeof e === "object" &&
+							e !== null &&
+							(e as Record<string, unknown>).type === "handoff",
+					);
+					expect(hasHandoff).toBe(false);
+				}
+			}
+			// auditTrail is where the handoff entry must live.
+			const audit = JSON.parse(task?.auditTrail ?? "[]");
+			const hasHandoff = audit.some(
+				(e: Record<string, unknown>) => e.type === "handoff",
+			);
+			expect(hasHandoff).toBe(true);
+		});
+	});
+
+	describe("I1 H3: handoff does NOT zero sessions.cost", () => {
+		it("preserves the session's accumulated cost on end", async () => {
+			insertAgent(db, "agent-a", "builder", "t1");
+			insertAgent(db, "agent-b", "builder", "t1");
+			insertTask(db, "task-h3", "in_progress", "agent-a");
+
+			// Seed session with cost already accumulated.
+			const now = new Date().toISOString();
+			db.insert(sessions)
+				.values({
+					id: "session-h3",
+					taskId: "task-h3",
+					agentId: "agent-a",
+					modelTier: "workhorse",
+					startedAt: now,
+					state: "active",
+					cost: 150, // 150 cents already spent
+				})
+				.run();
+
+			const ctx = makeSessionContext("session-h3", "agent-a", "task-h3");
+			await handoff(db, eventBus, {
+				sessionContext: ctx,
+				toAgent: "agent-b",
+				metadata: makeMetadata(),
+			});
+
+			const session = db.select().from(sessions).where(eq(sessions.id, "session-h3")).get();
+			expect(session?.state).toBe("done");
+			expect(session?.endedAt).toBeTruthy();
+			// Key assertion: cost must survive the handoff.
+			expect(session?.cost).toBe(150);
 		});
 	});
 

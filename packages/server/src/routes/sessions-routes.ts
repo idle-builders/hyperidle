@@ -29,6 +29,12 @@ const updateSessionSchema = z.object({
 export function createSessionRoutes(db: HyperIdleDb, eventBus: EventBus): Hono {
 	const router = new Hono();
 
+	// GET / — List sessions (I1 S2: proves the route is mounted)
+	router.get("/", (c) => {
+		const all = db.select().from(sessions).all();
+		return c.json(all);
+	});
+
 	// POST / — Create session
 	router.post("/", validateBody(createSessionSchema), (c) => {
 		const body = c.req.valid("json" as never) as z.infer<typeof createSessionSchema>;

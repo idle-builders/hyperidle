@@ -257,6 +257,93 @@ describe("bet-state-machine", () => {
 				"Reshaping a bet requires a reason",
 			);
 		});
+
+		// ---------------- I1 / Bet state atomicity (B1-B3) ----------------
+		// The two writes that commit a bet — incrementing `teams.activeBets`
+		// and flipping `bets.status` to committed — must happen atomically.
+		// Without a transaction, a failure between them drifts
+		// `teams.activeBets` away from the real count, and two concurrent
+		// commits can lost-update the counter.
+
+		describe("I1 B1: transitionBet wraps mutating writes in db.transaction", () => {
+			it("calls db.transaction exactly once per transition", async () => {
+				db.insert(bets)
+					.values(makeBet({ status: "shaped" }))
+					.run();
+
+				const txSpy = vi.spyOn(db, "transaction");
+
+				await transitionBet(db, eventBus, "bet-1", "committed");
+
+				expect(txSpy).toHaveBeenCalledTimes(1);
+				txSpy.mockRestore();
+			});
+		});
+
+		describe("I1 B2: two sequential commits increment activeBets to 2", () => {
+			it("increments activeBets once per commit with no drift", async () => {
+				// Two shaped bets, capacity 3, team starts at 0.
+				db.insert(bets)
+					.values(makeBet({ id: "bet-a", status: "shaped" }))
+					.run();
+				db.insert(bets)
+					.values(makeBet({ id: "bet-b", status: "shaped" }))
+					.run();
+
+				await transitionBet(db, eventBus, "bet-a", "committed");
+				await transitionBet(db, eventBus, "bet-b", "committed");
+
+				const team = db.select().from(teams).where(eq(teams.id, "team-1")).get();
+				expect(team?.activeBets).toBe(2);
+
+				const a = db.select().from(bets).where(eq(bets.id, "bet-a")).get();
+				const b = db.select().from(bets).where(eq(bets.id, "bet-b")).get();
+				expect(a?.status).toBe("committed");
+				expect(b?.status).toBe("committed");
+			});
+		});
+
+		describe("I1 B3: failed bet UPDATE rolls back activeBets", () => {
+			it("does not leak an activeBets increment when the bet UPDATE fails inside the transaction", async () => {
+				db.insert(bets)
+					.values(makeBet({ status: "shaped" }))
+					.run();
+
+				// Snapshot pre-condition.
+				const teamBefore = db.select().from(teams).where(eq(teams.id, "team-1")).get();
+				expect(teamBefore?.activeBets).toBe(0);
+
+				// Force the bet UPDATE to throw so the transaction rolls back.
+				// We spy on `db.update` and intercept calls targeting the
+				// `bets` table; the `teams` update must still pass through so
+				// that a naive (non-transactional) implementation would leave
+				// activeBets at 1 — making the post-condition assertion
+				// meaningful.
+				const originalUpdate = db.update.bind(db);
+				const updateSpy = vi
+					.spyOn(db, "update")
+					.mockImplementation((table: Parameters<typeof originalUpdate>[0]) => {
+						if (table === bets) {
+							throw new Error("simulated bets UPDATE failure");
+						}
+						return originalUpdate(table);
+					});
+
+				await expect(transitionBet(db, eventBus, "bet-1", "committed")).rejects.toThrow(
+					/simulated bets UPDATE failure/,
+				);
+
+				updateSpy.mockRestore();
+
+				// Post-condition: team.activeBets is back to 0 (transaction
+				// rolled back the teams UPDATE) and bet.status is unchanged.
+				const teamAfter = db.select().from(teams).where(eq(teams.id, "team-1")).get();
+				expect(teamAfter?.activeBets).toBe(0);
+
+				const bet = db.select().from(bets).where(eq(bets.id, "bet-1")).get();
+				expect(bet?.status).toBe("shaped");
+			});
+		});
 	});
 
 	describe("updateBetField", () => {
