@@ -101,7 +101,13 @@ function KanbanDropZone({
 function DraggableTaskCard({ task }: { task: KanbanTask }): JSX.Element {
 	const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id: task.id });
 	return (
-		<div ref={setNodeRef} {...listeners} {...attributes} style={{ opacity: isDragging ? 0.4 : 1 }}>
+		<div
+			ref={setNodeRef}
+			{...listeners}
+			{...attributes}
+			data-testid={`draggable-task-${task.id}`}
+			style={{ opacity: isDragging ? 0.4 : 1 }}
+		>
 			<TaskCard
 				title={task.title}
 				owner={task.owner}
