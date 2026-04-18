@@ -1,6 +1,7 @@
 import { type HyperIdleDb, tasks } from "@hyperidle/db";
 import type { EventBus, TaskState } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
+import type { StateTransitionAuditEntry, TaskAuditEntry } from "./task-audit.js";
 
 /** Map of each state to its valid target states. `killed` is always valid. */
 export const VALID_TRANSITIONS: Record<TaskState, readonly TaskState[]> = {
@@ -28,18 +29,17 @@ export class InvalidTransitionError extends Error {
 	}
 }
 
-interface AuditEntry {
-	from: TaskState;
-	to: TaskState;
-	timestamp: string;
-}
-
 /**
  * Transition a task to a new state, validating the transition, updating the DB,
  * logging to the audit trail, and emitting a task_state_changed event.
  *
  * Throws InvalidTransitionError if the transition is not allowed.
  * Throws Error if the task does not exist.
+ *
+ * @lore I1 — audit entries use the shared `StateTransitionAuditEntry` shape from
+ * `task-audit.ts` so all writers (this function, `handoff`, `revertTaskToAccepted`)
+ * produce values of the same `TaskAuditEntry` union. Readers discriminate via the
+ * `type: "handoff"` tag on handoff entries.
  */
 export function transitionTask(
 	db: HyperIdleDb,
@@ -59,8 +59,10 @@ export function transitionTask(
 	}
 
 	// Build audit trail — stored in auditTrail column (notes is for agent-authored prose)
-	const existingAudit: AuditEntry[] = task.auditTrail ? JSON.parse(task.auditTrail) : [];
-	const entry: AuditEntry = {
+	const existingAudit: TaskAuditEntry[] = task.auditTrail
+		? (JSON.parse(task.auditTrail) as TaskAuditEntry[])
+		: [];
+	const entry: StateTransitionAuditEntry = {
 		from: fromState,
 		to: toState,
 		timestamp: new Date().toISOString(),
