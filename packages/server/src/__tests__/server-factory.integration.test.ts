@@ -205,6 +205,36 @@ describe("server-factory — I1 integration (S1–S5)", () => {
 			const res = await fetch(`http://localhost:${port}/api/health`);
 			expect(res.status).toBe(200);
 		});
+
+		// The five route files that gained `GET /` handlers in I1 must
+		// return a consistent, DB-free descriptor — not an unbounded SELECT
+		// or a redacted-config blob. This assertion pins the contract so any
+		// future regression that reintroduces an unbounded list fails here.
+		// @lore I1 simplification-#2 / architecture-S1.
+		const BOUNDED_INDEX_ROUTES: ReadonlyArray<{ path: string; resource: string }> = [
+			{ path: "/api/sessions", resource: "sessions" },
+			{ path: "/api/knowledge", resource: "knowledge" },
+			{ path: "/api/notifications", resource: "notifications" },
+			{ path: "/api/observability", resource: "observability" },
+			{ path: "/api/git-export", resource: "git-export" },
+		];
+		it.each(BOUNDED_INDEX_ROUTES)(
+			"GET %s returns 200 + { ok: true, resource, endpoints[] }",
+			async ({ path, resource }) => {
+				const res = await fetch(`http://localhost:${port}${path}`, {
+					headers: authHeaders(),
+				});
+				expect(res.status).toBe(200);
+				const body = (await res.json()) as {
+					ok?: unknown;
+					resource?: unknown;
+					endpoints?: unknown;
+				};
+				expect(body.ok).toBe(true);
+				expect(body.resource).toBe(resource);
+				expect(Array.isArray(body.endpoints)).toBe(true);
+			},
+		);
 	});
 
 	// ------------------------------------------------------------ S3
