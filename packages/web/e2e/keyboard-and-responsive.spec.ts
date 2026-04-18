@@ -106,4 +106,53 @@ test.describe("Kanban keyboard drag (I4 KB4)", () => {
 		// pickup did not crash / detach the element.
 		await expect(draggable).toBeFocused();
 	});
+
+	test("Tab → Space → ArrowRight → Space moves a task between columns (I4 DoD B2)", async ({
+		page,
+	}) => {
+		// I4 DoD B2: the spec requires "tab to a Kanban card, use keyboard
+		// to move it between columns". This test drives the full sequence
+		// in a real browser and asserts the card now lives in a different
+		// column's DOM subtree, located via `data-droppable-column` (a
+		// stable test attribute on the Kanban drop zones — never used in
+		// production styling logic).
+		await page.goto("/work/team");
+		await page.waitForSelector("[data-testid='work-team-page']");
+
+		// `t1` ("Implement login endpoint") starts in the In Progress
+		// column per WorkTeam.tsx fixtures (state: "in_progress").
+		const draggable = page.getByTestId("draggable-task-t1");
+		await expect(draggable).toBeVisible();
+
+		// Pre-condition: the card is inside the in_progress drop zone.
+		const inProgressColumn = page.locator("[data-droppable-column='in_progress']");
+		const doneColumn = page.locator("[data-droppable-column='done']");
+		await expect(inProgressColumn.getByTestId("draggable-task-t1")).toBeVisible();
+		await expect(doneColumn.getByTestId("draggable-task-t1")).toHaveCount(0);
+
+		// Focus the draggable (Tab-to-card flow — a real user would chain
+		// Tabs from the page top, which is also valid but slow; focusing
+		// directly proves the keyboard-driven path without depending on
+		// the global tab order, which is exercised separately by the
+		// "Tab key moves focus" test above).
+		await draggable.focus();
+		await expect(draggable).toBeFocused();
+
+		// Pick up.
+		await page.keyboard.press("Space");
+		// Move right one column (in_progress @ col 3 → done @ col 4 in
+		// the lg breakpoint grid). The default keyboard coordinate getter
+		// shifts coordinates by 25px per ArrowRight; column widths in the
+		// 4-up grid at full viewport are well over 100px, so we issue
+		// several presses to ensure we cross the column boundary.
+		for (let i = 0; i < 12; i++) {
+			await page.keyboard.press("ArrowRight");
+		}
+		// Drop.
+		await page.keyboard.press("Space");
+
+		// Post-condition: t1 now lives in the Done column subtree.
+		await expect(doneColumn.getByTestId("draggable-task-t1")).toBeVisible();
+		await expect(inProgressColumn.getByTestId("draggable-task-t1")).toHaveCount(0);
+	});
 });
