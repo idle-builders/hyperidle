@@ -438,34 +438,60 @@ export function runAutoPromotionSweep(
 	};
 }
 
+/** Options for {@link runStaleSweep}. */
+export interface StaleSweepOptions {
+	/** Upper bound on candidates loaded in this pass. */
+	readonly maxBatchSize?: number;
+	/**
+	 * When true, skip emitting `knowledge_updated` events for each
+	 * transition. DB writes still happen — the silent flag is purely
+	 * about whether the event bus is notified.
+	 *
+	 * @lore G4 silent knowledge-decay: the built-in `knowledge-decay`
+	 * routine is seeded with `silent=1` so its scheduled sweep does not
+	 * flood subscribers (e.g. git-export, session-review-creator) with
+	 * decay events every day. When silent is set, the sweep still writes
+	 * the `stale` transitions and the edit log — only the event emission
+	 * is suppressed.
+	 */
+	readonly silent?: boolean;
+}
+
 /**
  * Sweep all stale candidates and transition them to `stale`, emitting a
- * `knowledge_updated` event per transition.
+ * `knowledge_updated` event per transition (unless `silent` is true).
  *
- * @param maxBatchSize Upper bound on candidates loaded in this pass.
- *   Defaults to {@link DEFAULT_SWEEP_MAX_BATCH_SIZE}. Sweeps run on a
- *   schedule so any backlog drains across successive runs.
+ * @param thresholdMs Stale cutoff in milliseconds. Defaults to
+ *   {@link STALE_THRESHOLD_MS}.
+ * @param options.maxBatchSize Upper bound on candidates loaded in this
+ *   pass. Defaults to {@link DEFAULT_SWEEP_MAX_BATCH_SIZE}.
+ * @param options.silent When true, skip emitting events. DB writes still
+ *   occur.
  */
 export function runStaleSweep(
 	db: HyperIdleDb,
 	eventBus: EventBus,
 	nowMs: number,
 	thresholdMs: number = STALE_THRESHOLD_MS,
-	maxBatchSize: number = DEFAULT_SWEEP_MAX_BATCH_SIZE,
+	options: StaleSweepOptions = {},
 ): StaleSweepResult {
+	const maxBatchSize = options.maxBatchSize ?? DEFAULT_SWEEP_MAX_BATCH_SIZE;
+	const silent = options.silent ?? false;
 	const candidates = findStaleItems(db, nowMs, thresholdMs, maxBatchSize);
 	const markedIds: string[] = [];
 	for (const item of candidates) {
 		if (markStale(db, item.id)) {
 			markedIds.push(item.id);
-			const event: KnowledgeUpdatedEvent = {
-				type: "knowledge_updated",
-				streamId: randomUUID(),
-				itemId: item.id,
-				action: "marked_stale",
-				timestamp: nowMs,
-			};
-			eventBus.emit(event);
+			if (!silent) {
+				const event: KnowledgeUpdatedEvent = {
+					type: "knowledge_updated",
+					streamId: randomUUID(),
+					itemId: item.id,
+					action: "marked_stale",
+					timestamp: nowMs,
+				};
+				eventBus.emit(event);
+			}
 		}
 	}
 	return { markedIds };
