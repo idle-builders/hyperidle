@@ -33,13 +33,41 @@ export interface KanbanProps {
 
 export type KanbanColumnState = "planned" | "blocked" | "in_progress" | "done";
 
-/** Maps TaskState values to their Kanban column. States not listed (hold, killed) are excluded. */
-const STATE_TO_COLUMN: Partial<Record<TaskState, KanbanColumnState>> = {
+/**
+ * Maps every TaskState to a Kanban column, or `null` for states the board
+ * deliberately hides (hold, killed). Exhaustive `Record<TaskState, …>` so the
+ * type checker flags any new TaskState — a partial map would silently drop
+ * tasks on union growth, which is what @lore at the top of the file warns
+ * against.
+ *
+ * @lore I4 cross-cutting: the point of the exhaustiveness story is that any
+ * new TaskState forces a decision here. Do not loosen to `Partial<…>`.
+ */
+const STATE_TO_COLUMN: Record<TaskState, KanbanColumnState | null> = {
 	proposed: "planned",
 	accepted: "planned",
+	hold: null,
 	blocked: "blocked",
 	in_progress: "in_progress",
 	review: "in_progress",
+	done: "done",
+	killed: null,
+};
+
+/**
+ * Inverse of `STATE_TO_COLUMN`: when a card is dragged into a column, this
+ * is the canonical TaskState the API should receive. Co-located with the
+ * forward map so the lossy round-trip (proposed/accepted both collapse to
+ * `planned`; dragging into `planned` promotes to `accepted`) is visible in
+ * one file.
+ *
+ * @lore I4 K1/K2: `"planned"` is NOT a valid TaskState — dragging into the
+ * Planned column promotes `proposed` pitches to `accepted` tasks.
+ */
+export const COLUMN_TO_STATE: Record<KanbanColumnState, TaskState> = {
+	planned: "accepted",
+	in_progress: "in_progress",
+	blocked: "blocked",
 	done: "done",
 };
 
@@ -103,7 +131,7 @@ export function Kanban({ tasks, onMoveTask }: KanbanProps): JSX.Element {
 		};
 		for (const task of tasks) {
 			const col = STATE_TO_COLUMN[task.state];
-			if (col) {
+			if (col !== null) {
 				grouped[col].push(task);
 			}
 		}
