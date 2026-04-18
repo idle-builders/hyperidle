@@ -6,10 +6,16 @@ export interface StatusChipProps {
 	status: Status;
 }
 
+/**
+ * @lore I4 S7: `blocked` and `error` were both `badge-error` (red),
+ * indistinguishable to the user. `blocked` is now `badge-warning` (yellow):
+ * blocked = "stuck waiting" (recoverable), error = "broken" (intervention
+ * required). Both still grab attention but encode different urgency.
+ */
 const STATUS_BADGE_CLASS: Record<Status, string> = {
 	healthy: "badge-accent",
 	behind: "badge-secondary",
-	blocked: "badge-error",
+	blocked: "badge-warning",
 	paused: "badge-neutral",
 	done: "badge-success",
 	error: "badge-error",
@@ -18,7 +24,7 @@ const STATUS_BADGE_CLASS: Record<Status, string> = {
 const STATUS_DOT_CLASS: Record<Status, string> = {
 	healthy: "bg-accent",
 	behind: "bg-secondary",
-	blocked: "bg-error",
+	blocked: "bg-warning",
 	paused: "bg-neutral-content",
 	done: "bg-success",
 	error: "bg-error",

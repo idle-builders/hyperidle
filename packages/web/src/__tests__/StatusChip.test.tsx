@@ -21,10 +21,13 @@ describe("StatusChip", () => {
 		expect(chip).toHaveClass("badge", "badge-secondary");
 	});
 
-	it("applies badge-error class for blocked status", () => {
+	it("applies badge-warning class for blocked status", () => {
+		// I4 S7: blocked must be visually distinct from error.
+		// `blocked` = waiting/recoverable → warning (yellow).
+		// `error` = broken/intervention required → error (red).
 		render(<StatusChip status="blocked" />);
 		const chip = screen.getByText("BLOCKED");
-		expect(chip).toHaveClass("badge", "badge-error");
+		expect(chip).toHaveClass("badge", "badge-warning");
 	});
 
 	it("applies badge-neutral class for paused status", () => {

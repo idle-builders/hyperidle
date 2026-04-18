@@ -3,27 +3,19 @@ import { type JSX, useState } from "react";
 import { KeyValue } from "../components/KeyValue";
 import type { Status } from "../components/StatusChip";
 import { StatusChip } from "../components/StatusChip";
+import { betStatusToStatus } from "../components/status-mapping";
 import { useRovingFocus } from "./use-roving-focus";
 
-/** Maps domain BetStatus to presentation Status for StatusChip rendering. */
-function betStatusToChipStatus(status: BetStatus): Status {
-	switch (status) {
-		case "shipped":
-			return "done";
-		case "blocked":
-			return "blocked";
-		case "behind":
-			return "behind";
-		case "paused":
-			return "paused";
-		case "killed":
-			return "error";
-		default:
-			return "healthy";
-	}
-}
-
-/** Maps domain severity string to presentation Status for StatusChip rendering. */
+/**
+ * Maps domain blocker severity to presentation Status for StatusChip rendering.
+ * Lives here (not in status-mapping.ts) because severity is a Rail-local
+ * concept — no other consumer needs the mapping.
+ *
+ * @lore I4 S4: the previous local `betStatusToChipStatus` switch silently
+ * mapped `committed`/`in_progress`/`review` to `healthy` (default branch),
+ * which masked the BetStatus union. We now delegate to the shared
+ * `betStatusToStatus` for the bet mapping.
+ */
 function severityToChipStatus(severity: "low" | "medium" | "high"): Status {
 	switch (severity) {
 		case "high":
@@ -191,7 +183,7 @@ export function Rail({ expanded, onToggleExpand, bets, blockers, cost }: RailPro
 							<div key={bet.id} className="flex flex-col gap-0.5 py-1">
 								<div className="flex items-center justify-between">
 									<span className="text-sm text-[var(--text-hi)]">{bet.title}</span>
-									<StatusChip status={betStatusToChipStatus(bet.status)} />
+									<StatusChip status={betStatusToStatus(bet.status)} />
 								</div>
 								<span className="text-xs text-[var(--text-lo)]">{bet.product}</span>
 							</div>
