@@ -17,10 +17,14 @@ export function WorkPortfolio(): JSX.Element {
 			</h1>
 			<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
 				{MOCK_PRODUCTS.map((product) => (
+					// Design H4: the product status card uses tonal layering
+					// (bg-base-200 + shadow-sm) instead of a decorative border —
+					// UI_DESIGN.md §Rules: "surfaces use tonal layering only,
+					// no borders except ghost".
 					<div
 						key={product.id}
 						data-testid="product-card"
-						className="bg-base-200 rounded p-3 flex flex-col gap-2 border border-[var(--surface-4)]"
+						className="bg-base-200 rounded p-3 flex flex-col gap-2 shadow-sm"
 					>
 						<div className="flex items-center justify-between gap-2">
 							<span className="text-sm font-medium text-[var(--text-hi)]">{product.name}</span>
