@@ -2,7 +2,7 @@ import type { HyperIdleDb } from "@hyperidle/db";
 import * as dbSchema from "@hyperidle/db";
 import { EventBus } from "@hyperidle/shared";
 import { serve } from "bun";
-import { createApp } from "./app.js";
+import { createApp, disposeApp } from "./app.js";
 import { registerWsRoute, wsHandler } from "./routes/ws.js";
 
 /**
@@ -73,6 +73,14 @@ export async function createBunServer(port: number): Promise<BunServerHandle> {
 	});
 
 	const dispose = (): void => {
+		// @lore I1 M1: tear down event-bus subscriptions first so none of the
+		// five createApp-registered handlers (session-review-creator,
+		// policy-engine, builtin-routines, git-export, notification-dispatcher,
+		// observability) outlive the server. If we called `server.stop()` or
+		// the WS disposer first, `disposeApp` would still run, but background
+		// handlers could observe events during shutdown against a torn-down
+		// runtime. Order: domain handlers -> WS route -> Bun server.
+		disposeApp(app);
 		if (wsDispose) {
 			wsDispose();
 			wsDispose = null;
