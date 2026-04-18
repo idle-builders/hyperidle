@@ -33,10 +33,12 @@ test.describe("Work Team Board", () => {
 	});
 
 	test("kanban renders four columns", async ({ page }) => {
-		await expect(page.getByText("Hold")).toBeVisible();
-		await expect(page.getByText("In Progress")).toBeVisible();
-		await expect(page.getByText("Review")).toBeVisible();
-		await expect(page.getByText("Done")).toBeVisible();
+		// I4 K1/K2: Kanban columns are Planned / Blocked / In Progress / Done
+		// (see Kanban.tsx COLUMNS). These match UI_DESIGN.md §Tier-3.
+		await expect(page.getByRole("heading", { name: "Planned" })).toBeVisible();
+		await expect(page.getByRole("heading", { name: "Blocked" })).toBeVisible();
+		await expect(page.getByRole("heading", { name: "In Progress" })).toBeVisible();
+		await expect(page.getByRole("heading", { name: "Done" })).toBeVisible();
 	});
 
 	test("WorkTeam contains both Canvas and Kanban sections (I4 P2/P5)", async ({ page }) => {
