@@ -71,6 +71,29 @@ export const COLUMN_TO_STATE: Record<KanbanColumnState, TaskState> = {
 	done: "done",
 };
 
+/**
+ * Pure helper that resolves a @dnd-kit `DragEndEvent` to a Kanban move.
+ * Returns the `(taskId, column)` tuple to forward to `onMoveTask`, or
+ * `null` when the drop did not land on a known column.
+ *
+ * @lore I4 DoD B2: extracted from `handleDragEnd` so the move-resolution
+ * logic can be exhaustively unit-tested with a synthesized `DragEndEvent`
+ * (jsdom can't fully drive @dnd-kit's KeyboardSensor through collision
+ * detection because it returns 0×0 rects for every element). The
+ * integration test mocks `getBoundingClientRect` and drives the live
+ * sensor; this helper is the shared logic both paths exercise.
+ */
+export function resolveKanbanDrop(
+	event: DragEndEvent,
+): { taskId: string; column: KanbanColumnState } | null {
+	const { active, over } = event;
+	if (!over) return null;
+	const overId = String(over.id);
+	const validColumns: KanbanColumnState[] = ["planned", "blocked", "in_progress", "done"];
+	if (!validColumns.includes(overId as KanbanColumnState)) return null;
+	return { taskId: String(active.id), column: overId as KanbanColumnState };
+}
+
 const COLUMNS: { key: KanbanColumnState; label: string }[] = [
 	{ key: "planned", label: "Planned" },
 	{ key: "blocked", label: "Blocked" },
@@ -86,9 +109,15 @@ function KanbanDropZone({
 	children: React.ReactNode;
 }): JSX.Element {
 	const { setNodeRef, isOver } = useDroppable({ id: columnKey });
+	// @lore I4 DoD B2: `data-droppable-column` mirrors Canvas's `data-droppable`
+	// pattern so Playwright/E2E tests can locate a column subtree without
+	// relying on text-filter ancestors (the spec for keyboard-drag E2E
+	// requires asserting the card lives in the target column's DOM after the
+	// move). Production code never reads this attribute.
 	return (
 		<div
 			ref={setNodeRef}
+			data-droppable-column={columnKey}
 			className={`flex flex-col gap-2 min-h-[48px] rounded p-1 transition-colors ${
 				isOver ? "bg-accent/10" : ""
 			}`}
@@ -152,13 +181,9 @@ export function Kanban({ tasks, onMoveTask }: KanbanProps): JSX.Element {
 
 	function handleDragEnd(event: DragEndEvent): void {
 		setActiveId(null);
-		const { active, over } = event;
-		if (!over) return;
-
-		const overId = String(over.id);
-		const validColumns: KanbanColumnState[] = ["planned", "blocked", "in_progress", "done"];
-		if (validColumns.includes(overId as KanbanColumnState)) {
-			onMoveTask(String(active.id), overId as KanbanColumnState);
+		const move = resolveKanbanDrop(event);
+		if (move) {
+			onMoveTask(move.taskId, move.column);
 		}
 	}
 
