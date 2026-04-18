@@ -10,8 +10,25 @@ import type {
 	SessionHandle,
 	SessionResult,
 } from "@hyperidle/shared";
-import { MissingCredentialError } from "@hyperidle/shared";
+import { MissingCredentialError, createLogger } from "@hyperidle/shared";
 import { resolveModel } from "./model-tier-map.js";
+
+/**
+ * Environment variables explicitly forwarded into the agent subprocess.
+ * Anything not in this list (DATABASE_URL, HYPERIDLE_API_KEY, SMTP_PASSWORD,
+ * Langfuse keys, etc) MUST NOT be visible to the agent.
+ *
+ * @lore I2 S1: the previous adapter spread `...process.env` into the SDK
+ * `env` option. That gave a hostile agent the master Meta-Layer key, the
+ * raw DB URL (bypassing Drizzle), and every notification/observability
+ * credential. The fix is an explicit allow-list — never inverted to a
+ * deny-list because new secrets land in env without code changes.
+ */
+const ALLOWED_ENV_KEYS = ["PATH", "HOME", "LANG"] as const;
+
+const sdkLogger = createLogger({ pkg: "harness.claude-sdk" });
+
+let unsafeModeWarningEmitted = false;
 
 interface ActiveSession {
 	query: Query;
@@ -47,21 +64,48 @@ export class ClaudeAgentSdkAdapter implements HarnessAdapter {
 		const abortController = new AbortController();
 		const model = resolveModel(config.modelTier);
 
+		// I2 S1: build env from the explicit allow-list. Only forward the
+		// agent's own ANTHROPIC_API_KEY plus the OS-level vars that the
+		// SDK / `cwd` resolution actually need.
+		const sandboxedEnv: Record<string, string> = {};
+		for (const key of ALLOWED_ENV_KEYS) {
+			const value = process.env[key];
+			if (value !== undefined) {
+				sandboxedEnv[key] = value;
+			}
+		}
+		sandboxedEnv[this.apiKeyEnvVar] = apiKey;
+
+		// I2 S2/S3: gate the SDK's permission-bypass behind an explicit env
+		// flag. Default behavior (flag unset) uses `permissionMode: "default"`
+		// and omits `allowDangerouslySkipPermissions` entirely. The flag is
+		// strictly compared to the literal "true" so typos like "1" or "yes"
+		// don't accidentally enable bypass.
+		const unsafeMode = process.env.HYPERIDLE_UNSAFE_AGENT_MODE === "true";
+
+		if (unsafeMode && !unsafeModeWarningEmitted) {
+			sdkLogger.warn(
+				"HYPERIDLE_UNSAFE_AGENT_MODE=true — Claude Agent SDK permission prompts are bypassed for this process. UNSAFE for production.",
+			);
+			unsafeModeWarningEmitted = true;
+		}
+
+		const queryOptions: Record<string, unknown> = {
+			model,
+			cwd: config.workspacePath,
+			tools: config.tools as string[],
+			abortController,
+			permissionMode: unsafeMode ? "bypassPermissions" : "default",
+			persistSession: false,
+			env: sandboxedEnv,
+		};
+		if (unsafeMode) {
+			queryOptions.allowDangerouslySkipPermissions = true;
+		}
+
 		const q = this.queryFn({
 			prompt: `Session workspace: ${config.workspacePath}`,
-			options: {
-				model,
-				cwd: config.workspacePath,
-				tools: config.tools as string[],
-				abortController,
-				permissionMode: "bypassPermissions" as const,
-				allowDangerouslySkipPermissions: true,
-				persistSession: false,
-				env: {
-					...process.env,
-					[this.apiKeyEnvVar]: apiKey,
-				},
-			},
+			options: queryOptions as Parameters<typeof sdkQuery>[0]["options"],
 		});
 
 		const sessionId = `claude-session-${this.nextId++}`;

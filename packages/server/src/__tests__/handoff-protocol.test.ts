@@ -537,9 +537,7 @@ describe("Handoff Protocol", () => {
 			}
 			// auditTrail is where the handoff entry must live.
 			const audit = JSON.parse(task?.auditTrail ?? "[]");
-			const hasHandoff = audit.some(
-				(e: Record<string, unknown>) => e.type === "handoff",
-			);
+			const hasHandoff = audit.some((e: Record<string, unknown>) => e.type === "handoff");
 			expect(hasHandoff).toBe(true);
 		});
 	});

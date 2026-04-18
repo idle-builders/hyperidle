@@ -46,7 +46,10 @@ describe("route_item tool", () => {
 	});
 
 	it("returns INVALID_INPUT for missing itemId via registry dispatch", async () => {
-		const registry = buildToolRegistry(makeContext(db));
+		// I2 B1-B4: registry now requires an explicit role. Use
+		// chief_of_staff so the full tool set remains visible (route_item
+		// is facilitator-only).
+		const registry = buildToolRegistry(makeContext(db), { role: "chief_of_staff" });
 		const result = await registry.invoke("route_item", {});
 		expect(result.success).toBe(false);
 		if (result.success) return;

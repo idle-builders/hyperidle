@@ -123,7 +123,9 @@ describe("score_attention tool", () => {
 
 	it("returns INVALID_INPUT for score < 0 or > 1 via registry dispatch", async () => {
 		seedKnowledgeItem(db, "ki-3");
-		const registry = buildToolRegistry(makeContext(db));
+		// I2 B1-B4: registry now requires explicit role. score_attention is
+		// facilitator-only — use chief_of_staff so it stays visible.
+		const registry = buildToolRegistry(makeContext(db), { role: "chief_of_staff" });
 
 		const neg = await registry.invoke("score_attention", {
 			target: "knowledge_item",
@@ -157,7 +159,9 @@ describe("score_attention tool", () => {
 
 	it("mode: 'recompute' with target=knowledge_item invokes the engine (score arg omitted)", async () => {
 		seedKnowledgeItemWithScore(db, "ki-recompute", 0.05);
-		const registry = buildToolRegistry(makeContext(db));
+		// I2 B1-B4: registry now requires explicit role. score_attention is
+		// facilitator-only — use chief_of_staff so it stays visible.
+		const registry = buildToolRegistry(makeContext(db), { role: "chief_of_staff" });
 		const result = await registry.invoke("score_attention", {
 			target: "knowledge_item",
 			id: "ki-recompute",
@@ -173,7 +177,9 @@ describe("score_attention tool", () => {
 
 	it("mode: 'recompute' rejects a provided `score` via registry-level validation", async () => {
 		seedKnowledgeItemWithScore(db, "ki-reject", 0.05);
-		const registry = buildToolRegistry(makeContext(db));
+		// I2 B1-B4: registry now requires explicit role. score_attention is
+		// facilitator-only — use chief_of_staff so it stays visible.
+		const registry = buildToolRegistry(makeContext(db), { role: "chief_of_staff" });
 		const result = await registry.invoke("score_attention", {
 			target: "knowledge_item",
 			id: "ki-reject",
@@ -187,7 +193,9 @@ describe("score_attention tool", () => {
 
 	it("mode: 'override' requires `score` — rejects missing score via registry validation", async () => {
 		seedKnowledgeItem(db, "ki-need-score");
-		const registry = buildToolRegistry(makeContext(db));
+		// I2 B1-B4: registry now requires explicit role. score_attention is
+		// facilitator-only — use chief_of_staff so it stays visible.
+		const registry = buildToolRegistry(makeContext(db), { role: "chief_of_staff" });
 		const result = await registry.invoke("score_attention", {
 			target: "knowledge_item",
 			id: "ki-need-score",

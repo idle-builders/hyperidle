@@ -2,10 +2,14 @@ import type { HyperIdleDb } from "@hyperidle/db";
 import { API_ERROR_CODES, EventBus, createLogger } from "@hyperidle/shared";
 import type { ApiErrorResponse } from "@hyperidle/shared";
 import { Hono } from "hono";
+import { type UpgradeTokenStore, createUpgradeTokenStore } from "./auth/upgrade-token-store.js";
 import { authMiddleware } from "./middleware/auth.js";
+import { createBodyLimit } from "./middleware/body-limit.js";
 import { corsMiddleware } from "./middleware/cors.js";
 import { errorHandler } from "./middleware/error-handler.js";
+import { createRateLimiter } from "./middleware/rate-limit.js";
 import { createAgentRoutes } from "./routes/agents.js";
+import { createAuthRoutes } from "./routes/auth.js";
 import { createBetRoutes } from "./routes/bets.js";
 import { createConversationRoutes } from "./routes/conversations.js";
 import { createGitExportRoutes } from "./routes/git-export-routes.js";
@@ -79,7 +83,13 @@ interface AppOptions {
 	 * same `createApp` instance powers both production and the integration
 	 * test harness — no divergent "minimal app" path.
 	 */
-	registerWebSocket?: (apiRouter: Hono) => void;
+	registerWebSocket?: (apiRouter: Hono, tokenStore: UpgradeTokenStore) => void;
+	/**
+	 * Override the upgrade-token store used by `/api/auth/ws-token` and the
+	 * WebSocket auth middleware. Tests inject a custom store with a tiny
+	 * TTL; production wiring uses `createUpgradeTokenStore()`.
+	 */
+	upgradeTokenStore?: UpgradeTokenStore;
 }
 
 function buildObservabilityAdapter(cfg: ObservabilityConfig): ObservabilityAdapter | null {
@@ -171,16 +181,75 @@ function createApp(options?: AppOptions): Hono {
 		return c.json(response);
 	});
 
-	// WebSocket route: must register BEFORE the auth middleware because
-	// upgrades authenticate via a query-token (`?token=<api-key>`) in a
-	// middleware defined inside `registerWsRoute`. Optional — omitted by
-	// non-Bun callers (e.g. integration tests).
+	// I2 R1-R5: rate limit BEFORE auth so unauthenticated floods are
+	// throttled without ever touching the database. Per-identity bucket
+	// (API-key first, then trusted XFF, then direct connection).
+	//
+	// I2 review W4: `/api/health` is a liveness probe target — k8s,
+	// systemd, and load balancers fire it many times per minute and a 429
+	// would mark the pod unhealthy. The limiter exempts it via skipPaths.
+	const rateLimitPerMin = Number.parseInt(process.env.HYPERIDLE_RATE_LIMIT_PER_MIN ?? "60", 10);
+	const baseRateLimit =
+		Number.isFinite(rateLimitPerMin) && rateLimitPerMin > 0 ? rateLimitPerMin : 60;
+	api.use(
+		"*",
+		createRateLimiter({
+			limit: baseRateLimit,
+			windowMs: 60_000,
+			// Health probes never count against the limiter (k8s liveness).
+			// `/api/auth/*` is exempted here and gets its own dedicated
+			// bucket below so a WS-reconnect storm cannot starve the API.
+			skipPaths: ["/api/health", "/api/status/health", "/api/auth"],
+		}),
+	);
+
+	// I2 review O6 / arch H-1: the WS-token mint endpoint gets its OWN
+	// rate-limit bucket so a WS reconnect storm cannot starve the API
+	// budget (or vice-versa). Larger budget than the API path because
+	// browsers may legitimately reconnect in bursts during a flaky
+	// network blip; auth still gates the mint, so the cost ceiling is the
+	// API key holder's chosen budget.
+	const authMintLimit = Math.max(baseRateLimit * 2, 120);
+	const authMintLimiter = createRateLimiter({
+		limit: authMintLimit,
+		windowMs: 60_000,
+	});
+
+	// I2 R4: cap request bodies so a single oversize POST cannot stall
+	// the process. Default 1 MiB; configurable via env. Rejects with 413
+	// + the canonical ApiErrorResponse JSON shape.
+	const maxBodyBytes = Number.parseInt(process.env.HYPERIDLE_MAX_BODY_BYTES ?? "1000000", 10);
+	api.use(
+		"*",
+		createBodyLimit({
+			maxSize: Number.isFinite(maxBodyBytes) && maxBodyBytes > 0 ? maxBodyBytes : 1_000_000,
+		}),
+	);
+
+	// I2 review arch H-2/H-3: the upgrade-token store and the
+	// `/api/auth/ws-token` route are constructed ONLY when WS support is
+	// being wired. Apps without a `registerWebSocket` hook (most non-Bun
+	// integration tests) never expose `/api/auth/ws-token`.
+	let tokenStore: UpgradeTokenStore | null = null;
 	if (options?.registerWebSocket) {
-		options.registerWebSocket(api);
+		tokenStore = options.upgradeTokenStore ?? createUpgradeTokenStore();
+		// Register the WS route BEFORE the auth middleware: WS upgrades
+		// authenticate via a one-shot upgrade token (`?token=...`) in a
+		// middleware defined inside `registerWsRoute`.
+		options.registerWebSocket(api, tokenStore);
 	}
 
 	// Auth middleware for all other /api routes (except /health above)
 	api.use("*", authMiddleware);
+
+	// I2 A3 + review O6: ws-token issuance lives behind the standard auth
+	// middleware so the master HYPERIDLE_API_KEY mints a one-shot upgrade
+	// token. The dedicated `authMintLimiter` overrides the base API
+	// limiter so a reconnect storm doesn't drain the API bucket.
+	if (tokenStore) {
+		api.use("/auth/*", authMintLimiter);
+		api.route("/auth", createAuthRoutes(tokenStore));
+	}
 
 	// Register test routes only in non-production environments
 	if (process.env.NODE_ENV !== "production") {

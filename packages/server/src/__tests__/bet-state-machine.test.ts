@@ -515,9 +515,7 @@ describe("bet-state-machine", () => {
 			expect(bet?.status).toBe("shipped");
 			// Revision log has exactly one shipped entry.
 			const log = getRevisionLog(db, "bet-1");
-			const shippedLogs = log.filter(
-				(e) => e.field === "status" && e.new_value === "shipped",
-			);
+			const shippedLogs = log.filter((e) => e.field === "status" && e.new_value === "shipped");
 			expect(shippedLogs).toHaveLength(1);
 		});
 	});

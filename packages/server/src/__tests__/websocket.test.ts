@@ -38,6 +38,9 @@ describe("AC6: WebSocket upgrade on /api/ws", () => {
 				HYPERIDLE_API_KEY: TEST_API_KEY,
 				PORT: String(port),
 				DATABASE_URL: dbPath,
+				// I2: avoid rate-limit interference between independent
+				// integration suites that may share an IP bucket.
+				HYPERIDLE_RATE_LIMIT_PER_MIN: "100000",
 			},
 			stdio: ["ignore", "pipe", "pipe"],
 		});
@@ -65,8 +68,23 @@ describe("AC6: WebSocket upgrade on /api/ws", () => {
 		}
 	});
 
-	it("upgrades WebSocket connection with valid token", async () => {
-		const ws = new WebSocket(`ws://localhost:${port}/api/ws?token=${TEST_API_KEY}`);
+	// I2 A3: the WS endpoint no longer accepts the raw HYPERIDLE_API_KEY as
+	// `?token=...`. Clients must POST /api/auth/ws-token (with the API key)
+	// to mint a one-shot upgrade token, then open the WS with that token.
+	async function issueUpgradeToken(): Promise<string> {
+		const res = await fetch(`http://localhost:${port}/api/auth/ws-token`, {
+			method: "POST",
+			headers: { "X-API-Key": TEST_API_KEY, "Content-Type": "application/json" },
+		});
+		expect(res.status).toBe(200);
+		const body = (await res.json()) as { token?: string };
+		expect(typeof body.token).toBe("string");
+		return body.token as string;
+	}
+
+	it("upgrades WebSocket connection with a freshly-minted upgrade token", async () => {
+		const token = await issueUpgradeToken();
+		const ws = new WebSocket(`ws://localhost:${port}/api/ws?token=${encodeURIComponent(token)}`);
 
 		const connected = await new Promise<boolean>((resolve) => {
 			ws.onopen = () => resolve(true);
@@ -88,6 +106,12 @@ describe("AC6: WebSocket upgrade on /api/ws", () => {
 	it("rejects WebSocket connection with invalid token", async () => {
 		const res = await fetch(`http://localhost:${port}/api/ws?token=invalid`);
 
+		expect(res.status).toBe(401);
+	});
+
+	it("rejects WebSocket connection using the raw HYPERIDLE_API_KEY as the token", async () => {
+		// The master key must NOT be accepted on the WS query channel.
+		const res = await fetch(`http://localhost:${port}/api/ws?token=${TEST_API_KEY}`);
 		expect(res.status).toBe(401);
 	});
 });
