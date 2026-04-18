@@ -5,7 +5,7 @@ import {
 	type EventBus,
 	InvalidTransitionError,
 } from "@hyperidle/shared";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 
 /**
  * Shape of a single entry in the revision log JSON array.
@@ -125,7 +125,16 @@ export async function transitionBet(
 	// transaction, so atomicity is preserved; routing through `db.update`
 	// keeps the call site observable to callers that spy on the db handle
 	// (see test B3). All reads also use `db` to match.
-	db.transaction(() => {
+	//
+	// @lore I1 adversary-M1: the `bets` UPDATE pins `WHERE status = fromState`
+	// so two callers racing to `transitionBet(…, "shipped")` cannot both
+	// observe the same starting state. The loser sees `changes === 0` and
+	// throws `InvalidTransitionError`; only the winner post-emits
+	// `bet_state_changed` + `bet_shipped`. Without the compare-and-set,
+	// concurrent commits double-emit `bet_shipped` and trip any downstream
+	// handler that treats the event as a signal to fire an action exactly
+	// once (e.g. release announcements).
+	const transitioned = db.transaction((): boolean => {
 		// Capacity check: re-read the team inside the tx so two concurrent
 		// commits cannot both observe `activeBets < capacity` against a stale
 		// snapshot.
@@ -138,6 +147,22 @@ export async function transitionBet(
 			if (freshTeam.activeBets >= freshTeam.capacity) {
 				throw new CapacityExceededError(freshTeam.id, freshTeam.capacity);
 			}
+		}
+
+		const updateResult = db
+			.update(bets)
+			.set(updates as Record<string, string>)
+			.where(and(eq(bets.id, betId), eq(bets.status, fromState)))
+			.run();
+
+		// Lost the race: another concurrent transitionBet already moved the
+		// bet out of `fromState`. Roll back (throwing exits the tx callback
+		// and rolls the transaction) and surface as an invalid transition.
+		if (updateResult.changes === 0) {
+			throw new InvalidTransitionError(fromState, toState);
+		}
+
+		if (toState === "committed") {
 			db.update(teams)
 				.set({ activeBets: freshTeam.activeBets + 1 })
 				.where(eq(teams.id, freshTeam.id))
@@ -163,15 +188,14 @@ export async function transitionBet(
 				.run();
 		}
 
-		db.update(bets)
-			.set(updates as Record<string, string>)
-			.where(eq(bets.id, betId))
-			.run();
+		return true;
 	});
 
 	// Events emit AFTER commit — at-least-once delivery after durability.
-	// `bet_state_changed` fires first, then conditionally `bet_shipped`
-	// (plan §8 W7).
+	// Only the winner reaches this point (losers threw InvalidTransitionError
+	// above), so `bet_state_changed` + `bet_shipped` fire exactly once.
+	if (!transitioned) return;
+
 	eventBus.emit({
 		type: "bet_state_changed",
 		streamId: bet.productId,
