@@ -3,6 +3,7 @@ import { type HyperIdleDb, agents, items, messages, sessions, tasks, threads } f
 import type { EventBus, TaskState } from "@hyperidle/shared";
 import { and, eq, ne } from "drizzle-orm";
 import type { SessionContext } from "./session-lifecycle.js";
+import type { HandoffAuditEntry, TaskAuditEntry } from "./task-audit.js";
 import { transitionTask } from "./task-state-machine.js";
 
 export interface HandoffMetadata {
@@ -52,9 +53,12 @@ export async function handoff(
 		throw new Error(`Task not found: ${sessionContext.taskId}`);
 	}
 
-	// 1. End current session
+	// 1. End current session. We set state + endedAt only — the cost column
+	// tracks accumulated spend across the session lifetime and MUST NOT be
+	// zeroed on handoff (downstream cost-cap, daily-digest and observability
+	// routines depend on it).
 	db.update(sessions)
-		.set({ state: "done", endedAt: now, cost: 0 })
+		.set({ state: "done", endedAt: now })
 		.where(eq(sessions.id, sessionContext.sessionId))
 		.run();
 
@@ -98,11 +102,15 @@ export async function handoff(
 			.run();
 	}
 
-	// 5. Log handoff in task audit trail
-	// Re-read task to get latest notes (transitionTask may have appended entries)
+	// 5. Log handoff in task audit trail. Re-read task so we see any audit
+	// entries appended by `transitionTask` (e.g. the toHuman path transitions
+	// to `blocked`). Handoff writes to `tasks.auditTrail`, NOT `tasks.notes` —
+	// notes is the agent-authored prose lane.
 	const freshTask = db.select().from(tasks).where(eq(tasks.id, sessionContext.taskId)).get();
-	const existingAudit: unknown[] = freshTask?.notes ? JSON.parse(freshTask.notes) : [];
-	const auditEntry = {
+	const existingAudit: TaskAuditEntry[] = freshTask?.auditTrail
+		? (JSON.parse(freshTask.auditTrail) as TaskAuditEntry[])
+		: [];
+	const auditEntry: HandoffAuditEntry = {
 		type: "handoff",
 		fromAgent: sessionContext.agentId,
 		toAgent: result.targetAgentId,
@@ -110,11 +118,10 @@ export async function handoff(
 		reason: metadata.reason,
 		timestamp: now,
 	};
-	existingAudit.push(auditEntry);
 
 	db.update(tasks)
 		.set({
-			notes: JSON.stringify(existingAudit),
+			auditTrail: JSON.stringify([...existingAudit, auditEntry]),
 			updatedAt: now,
 		})
 		.where(eq(tasks.id, sessionContext.taskId))
