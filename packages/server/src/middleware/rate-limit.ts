@@ -15,6 +15,18 @@
  * `hono-rate-limiter`. Hono's middleware contract is small and the project's
  * dep budget is tight; an external lib's API surface costs more to track than
  * the implementation.
+ *
+ * @lore I2 review HIGH-3 / HIGH-4:
+ *  - identity hash uses the FULL SHA-256 hex (not truncated to 64 bits) so
+ *    an attacker cannot brute-force a colliding header that lands a
+ *    victim's quota into the attacker's bucket.
+ *  - eviction is LEAST-RECENTLY-USED (smallest `lastSeenAt`), not "smallest
+ *    `resetAt`". The previous policy preserved the most-active attacker
+ *    state and evicted legitimate tenants who had recently reset.
+ *
+ * @lore I2 review W4: callers may pass `skipPaths` to exempt specific
+ * route prefixes from the limiter (used for `/api/health` so k8s liveness
+ * probes never trip the limiter).
  */
 
 import { createHash } from "node:crypto";
@@ -25,17 +37,25 @@ import type { Context, MiddlewareHandler } from "hono";
 export interface RateLimiterOptions {
 	readonly limit: number;
 	readonly windowMs: number;
+	/**
+	 * Optional path prefixes (matched against `c.req.path`) that bypass the
+	 * limiter entirely. Use for liveness/readiness probe endpoints that fire
+	 * at high rate from automated infra.
+	 */
+	readonly skipPaths?: readonly string[];
 }
 
 interface Bucket {
 	count: number;
 	resetAt: number;
+	lastSeenAt: number;
 }
 
 const MAX_BUCKETS = 10_000;
 
 function hashIdentity(prefix: string, raw: string): string {
-	return `${prefix}:${createHash("sha256").update(raw).digest("hex").slice(0, 16)}`;
+	// Full 64-hex SHA-256 — 256 bits — defeats offline collision search.
+	return `${prefix}:${createHash("sha256").update(raw).digest("hex")}`;
 }
 
 function readDirectAddr(c: Context): string | null {
@@ -62,12 +82,17 @@ function pickIdentity(c: Context): string {
 	return "global:fallback";
 }
 
-function evictOldest(buckets: Map<string, Bucket>): void {
+/**
+ * Evict the LEAST-RECENTLY-USED bucket so legitimate, recently-active
+ * tenants are preserved when the table is under pressure from an attacker
+ * filling it with one-shot fake identities.
+ */
+function evictLeastRecentlyUsed(buckets: Map<string, Bucket>): void {
 	let oldestKey: string | null = null;
-	let oldestResetAt = Number.POSITIVE_INFINITY;
+	let oldestSeen = Number.POSITIVE_INFINITY;
 	for (const [key, bucket] of buckets) {
-		if (bucket.resetAt < oldestResetAt) {
-			oldestResetAt = bucket.resetAt;
+		if (bucket.lastSeenAt < oldestSeen) {
+			oldestSeen = bucket.lastSeenAt;
 			oldestKey = key;
 		}
 	}
@@ -76,21 +101,34 @@ function evictOldest(buckets: Map<string, Bucket>): void {
 
 export function createRateLimiter(opts: RateLimiterOptions): MiddlewareHandler {
 	const buckets = new Map<string, Bucket>();
+	const skipPaths = opts.skipPaths ?? [];
 
 	return async (c, next) => {
+		// Probe-friendly bypass: k8s liveness/readiness fire at high rate
+		// and must not consume rate-limit budget.
+		if (skipPaths.length > 0) {
+			const path = c.req.path;
+			for (const prefix of skipPaths) {
+				if (path === prefix || path.startsWith(`${prefix}/`)) {
+					return next();
+				}
+			}
+		}
+
 		const identity = pickIdentity(c);
 		const now = Date.now();
 		let bucket = buckets.get(identity);
 
 		if (!bucket || bucket.resetAt <= now) {
 			if (buckets.size >= MAX_BUCKETS) {
-				evictOldest(buckets);
+				evictLeastRecentlyUsed(buckets);
 			}
-			bucket = { count: 0, resetAt: now + opts.windowMs };
+			bucket = { count: 0, resetAt: now + opts.windowMs, lastSeenAt: now };
 			buckets.set(identity, bucket);
 		}
 
 		bucket.count += 1;
+		bucket.lastSeenAt = now;
 
 		if (bucket.count > opts.limit) {
 			const retryAfterSec = Math.max(1, Math.ceil((bucket.resetAt - now) / 1000));
