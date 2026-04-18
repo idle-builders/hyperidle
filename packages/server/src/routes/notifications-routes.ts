@@ -190,6 +190,16 @@ export function createNotificationRoutes(
 	const auditLogger: Logger = opts.logger ?? createLogger({ pkg: "notifications.audit" });
 	const testBucket = createTestBucket(5, nowFn().getTime());
 
+	// GET / — Index (I1 S2: proves the route is mounted). Returns the
+	// redacted config + a pointer to the queue + config sub-routes.
+	router.get("/", (c) => {
+		const cfg = readNotificationConfig(db);
+		return c.json({
+			config: redactNotificationConfig(cfg),
+			endpoints: ["/config", "/queue", "/test", "/flush", "/digest"],
+		});
+	});
+
 	router.get("/config", (c) => {
 		const cfg = readNotificationConfig(db);
 		return c.json(redactNotificationConfig(cfg));
