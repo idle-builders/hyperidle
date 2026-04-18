@@ -474,4 +474,51 @@ describe("bet-state-machine", () => {
 			expect(log[1].new_value).toBe("in_progress");
 		});
 	});
+
+	// ---------------- I1 adversary-M1: concurrent bet_shipped double-emit ----------------
+	describe("I1 M1: concurrent transitions are compare-and-set", () => {
+		it("second transitionBet to shipped throws InvalidTransitionError and does NOT re-emit bet_shipped", async () => {
+			// Walk the bet forward to `review` so "shipped" is a valid
+			// transition from the read snapshot.
+			db.insert(bets)
+				.values(makeBet({ status: "shaped" }))
+				.run();
+			await transitionBet(db, eventBus, "bet-1", "committed");
+			await transitionBet(db, eventBus, "bet-1", "in_progress");
+			await transitionBet(db, eventBus, "bet-1", "review");
+
+			const events: Array<{ type: string; betId?: string }> = [];
+			eventBus.on("*", (e) => events.push(e as { type: string; betId?: string }));
+
+			// First transition wins — commits and emits both events.
+			await transitionBet(db, eventBus, "bet-1", "shipped");
+
+			// Second transition observes the same `fromState` ("review")
+			// because the pre-transaction read happens against the same row,
+			// but the compare-and-set UPDATE pins `WHERE status = review`
+			// and now the row is `shipped`. changes === 0, the tx rolls
+			// back, and InvalidTransitionError bubbles.
+			await expect(transitionBet(db, eventBus, "bet-1", "shipped")).rejects.toThrow(
+				InvalidTransitionError,
+			);
+
+			const shippedEvents = events.filter((e) => e.type === "bet_shipped");
+			const stateEvents = events.filter((e) => e.type === "bet_state_changed");
+			// Exactly one bet_shipped despite the second transition attempt.
+			expect(shippedEvents).toHaveLength(1);
+			// Exactly one bet_state_changed fires (from the winning
+			// review->shipped transition). The loser throws before emit.
+			expect(stateEvents).toHaveLength(1);
+
+			// The bet row is terminal — still exactly one `shipped` row.
+			const bet = db.select().from(bets).where(eq(bets.id, "bet-1")).get();
+			expect(bet?.status).toBe("shipped");
+			// Revision log has exactly one shipped entry.
+			const log = getRevisionLog(db, "bet-1");
+			const shippedLogs = log.filter(
+				(e) => e.field === "status" && e.new_value === "shipped",
+			);
+			expect(shippedLogs).toHaveLength(1);
+		});
+	});
 });
