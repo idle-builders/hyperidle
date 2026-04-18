@@ -5,6 +5,27 @@ import { scoreAttentionTool } from "../score-attention.js";
 import { buildToolRegistry } from "../tool-registry.js";
 import { NOW, makeContext, seedBase } from "./_helpers.js";
 
+function seedKnowledgeItemWithScore(db: HyperIdleDb, id: string, score: number | null): void {
+	db.insert(knowledgeItems)
+		.values({
+			id,
+			layer: "L3",
+			kind: "brief",
+			topic: "brand",
+			title: "Crossable KI",
+			body: "Body",
+			format: "markdown",
+			status: "active",
+			attentionScore: score,
+			confidence: 0.1,
+			version: 1,
+			updatedBy: "agent:seed",
+			createdAt: NOW,
+			updatedAt: NOW,
+		})
+		.run();
+}
+
 function seedKnowledgeItem(db: HyperIdleDb, id: string): void {
 	db.insert(knowledgeItems)
 		.values({
@@ -121,5 +142,70 @@ describe("score_attention tool", () => {
 		expect(over.success).toBe(false);
 		if (over.success) return;
 		expect(over.code).toBe("INVALID_INPUT");
+	});
+
+	it("mode: 'override' (default) keeps G1 behavior (uses provided score verbatim)", async () => {
+		seedKnowledgeItem(db, "ki-override");
+		const result = await scoreAttentionTool.handler(
+			{ target: "knowledge_item", id: "ki-override", score: 0.42, mode: "override" },
+			makeContext(db),
+		);
+		expect(result.success).toBe(true);
+		const row = db.select().from(knowledgeItems).where(eq(knowledgeItems.id, "ki-override")).get();
+		expect(row?.attentionScore).toBeCloseTo(0.42, 5);
+	});
+
+	it("mode: 'recompute' with target=knowledge_item invokes the engine (score arg omitted)", async () => {
+		seedKnowledgeItemWithScore(db, "ki-recompute", 0.05);
+		const registry = buildToolRegistry(makeContext(db));
+		const result = await registry.invoke("score_attention", {
+			target: "knowledge_item",
+			id: "ki-recompute",
+			mode: "recompute",
+		});
+		expect(result.success).toBe(true);
+		const row = db.select().from(knowledgeItems).where(eq(knowledgeItems.id, "ki-recompute")).get();
+		// The engine should have written SOMETHING other than the caller's 0.01;
+		// taste-sensitive brief with low confidence should produce a markedly higher score.
+		expect(row?.attentionScore).not.toBeNull();
+		expect(row?.attentionScore ?? 0).toBeGreaterThan(0.1);
+	});
+
+	it("mode: 'recompute' rejects a provided `score` via registry-level validation", async () => {
+		seedKnowledgeItemWithScore(db, "ki-reject", 0.05);
+		const registry = buildToolRegistry(makeContext(db));
+		const result = await registry.invoke("score_attention", {
+			target: "knowledge_item",
+			id: "ki-reject",
+			score: 0.42,
+			mode: "recompute",
+		});
+		expect(result.success).toBe(false);
+		if (result.success) return;
+		expect(result.code).toBe("INVALID_INPUT");
+	});
+
+	it("mode: 'override' requires `score` — rejects missing score via registry validation", async () => {
+		seedKnowledgeItem(db, "ki-need-score");
+		const registry = buildToolRegistry(makeContext(db));
+		const result = await registry.invoke("score_attention", {
+			target: "knowledge_item",
+			id: "ki-need-score",
+			mode: "override",
+		});
+		expect(result.success).toBe(false);
+		if (result.success) return;
+		expect(result.code).toBe("INVALID_INPUT");
+	});
+
+	it("mode: 'recompute' with target=item returns INVALID_INPUT", async () => {
+		seedItem(db, "it-recompute");
+		const result = await scoreAttentionTool.handler(
+			{ target: "item", id: "it-recompute", mode: "recompute" },
+			makeContext(db),
+		);
+		expect(result.success).toBe(false);
+		if (result.success) return;
+		expect(result.code).toBe("INVALID_INPUT");
 	});
 });

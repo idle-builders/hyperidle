@@ -1,0 +1,333 @@
+import {
+	type HyperIdleDb,
+	type KnowledgeItem,
+	knowledgeConflicts,
+	knowledgeEditLog,
+	knowledgeItems,
+} from "@hyperidle/db";
+import type { KnowledgeKind } from "@hyperidle/shared";
+import { and, eq, inArray, ne } from "drizzle-orm";
+import { isTasteSensitive } from "./attention-classifier.js";
+import type { AttentionWeights } from "./scoring-config.js";
+
+/**
+ * Cohort ceiling — 10+ identical items → novelty saturates at 0.
+ *
+ * @lore G2: cohort identity is (layer, scope_id, topic, kind). Higher ceilings
+ * leave novelty high for too long; lower ceilings over-penalize normal
+ * clusters of related knowledge.
+ */
+const COHORT_NOVELTY_CEILING = 10;
+
+/** Repetition saturation — 5+ other scopes with the same topic/kind → full. */
+const REPETITION_SATURATION = 5;
+
+/** Review recency window — human edit within 7 days → recency signal = 0. */
+const REVIEW_RECENCY_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
+
+/** Review recency saturation — 90+ days since human edit → recency signal = 1. */
+const REVIEW_RECENCY_SATURATION_MS = 90 * 24 * 60 * 60 * 1000;
+
+/**
+ * Per-kind impact priors.
+ *
+ * @lore G2 security: impact is derived solely from the item's layer/scope/kind
+ * heuristics. Agent-authored `meta.impact` is intentionally NOT honored —
+ * allowing it would let a low-trust agent trivially inflate a knowledge
+ * item's attention score and drive a review into the human queue. Any
+ * future override path must be human-write-only AND gated in the settings
+ * write endpoint. Do not reinstate a `meta.impact` read without that gate.
+ */
+const IMPACT_BY_KIND: Readonly<Record<KnowledgeKind, number>> = {
+	principle: 1.0,
+	pattern: 0.8,
+	anti_pattern: 0.8,
+	decision: 0.6,
+	failure: 0.7,
+	reflection: 0.4,
+	brief: 0.5,
+	focus: 0.5,
+};
+
+/** Public context for scoring. Built once per batch and reused across items. */
+export interface AttentionScoringContext {
+	/** Current time (ms epoch) — injected for deterministic tests. */
+	readonly now: number;
+	/** Items in the same (layer, scope_id, topic, kind) cohort → counts. */
+	readonly cohortSizeByKey: ReadonlyMap<string, number>;
+	/** Same (layer, topic, kind) across OTHER scopes → distinct-scope counts. */
+	readonly crossScopeCountByKey: ReadonlyMap<string, number>;
+	/** Ids with an OPEN knowledge_conflicts row. */
+	readonly conflictedIds: ReadonlySet<string>;
+	/** Ids edited by a human within REVIEW_RECENCY_WINDOW_MS. */
+	readonly recentlyHumanEditedIds: ReadonlySet<string>;
+	/** Per-id most recent human edit timestamp (ms epoch). Missing → never. */
+	readonly lastHumanEditAt: ReadonlyMap<string, number>;
+}
+
+/** Build a (layer, scope_id, topic, kind) cohort key. */
+export function cohortKey(
+	layer: string,
+	scopeId: string | null,
+	topic: string | null,
+	kind: string,
+): string {
+	return `${layer}|${scopeId ?? ""}|${topic ?? ""}|${kind}`;
+}
+
+/** Build a (layer, topic, kind) cross-scope key. */
+export function crossScopeKey(layer: string, topic: string | null, kind: string): string {
+	return `${layer}|${topic ?? ""}|${kind}`;
+}
+
+function clamp01(x: number): number {
+	if (x < 0) return 0;
+	if (x > 1) return 1;
+	return x;
+}
+
+/** Round to 6 decimals for cross-platform determinism (AC5). */
+function round6(x: number): number {
+	return Math.round(x * 1_000_000) / 1_000_000;
+}
+
+function computeImpact(item: KnowledgeItem): number {
+	const kind = item.kind as KnowledgeKind;
+	return IMPACT_BY_KIND[kind] ?? 0.5;
+}
+
+/**
+ * Usage signal. Intentionally returns 0 in G2 — see @lore on
+ * `IMPACT_BY_KIND` — until a trustworthy reference-count source exists
+ * (either a materialization join table or a human-audited column). Reading
+ * `meta.usageCount` was removed because meta is agent-writable and an
+ * agent could trivially inflate the signal to force its own notes into
+ * the human queue.
+ *
+ * TODO(G3): derive usage from `knowledge_materializations` or an equivalent
+ * reference tracker; until then the usage weight effectively contributes 0.
+ */
+function computeUsage(_item: KnowledgeItem): number {
+	return 0;
+}
+
+function computeNovelty(item: KnowledgeItem, ctx: AttentionScoringContext): number {
+	const key = cohortKey(item.layer, item.scopeId, item.topic, item.kind);
+	const size = ctx.cohortSizeByKey.get(key) ?? 1;
+	return clamp01(1 - size / COHORT_NOVELTY_CEILING);
+}
+
+function computeRepetitionSignal(item: KnowledgeItem, ctx: AttentionScoringContext): number {
+	const key = crossScopeKey(item.layer, item.topic, item.kind);
+	const nScopes = ctx.crossScopeCountByKey.get(key) ?? 1;
+	// (nScopes - 1): a single-scope item yields 0; 5+ scopes saturates.
+	return clamp01((nScopes - 1) / REPETITION_SATURATION);
+}
+
+function computeConfidenceValue(item: KnowledgeItem): number {
+	if (item.confidence == null) return 0.5;
+	return clamp01(item.confidence);
+}
+
+function computeRecency(item: KnowledgeItem, ctx: AttentionScoringContext): number {
+	// Recency = "how STALE is this in terms of human attention".
+	// If recently human-edited → 0 (low need to look again).
+	// Otherwise grow with time since last edit, saturating at 90 days.
+	if (ctx.recentlyHumanEditedIds.has(item.id)) {
+		return 0;
+	}
+	const last = ctx.lastHumanEditAt.get(item.id);
+	if (last == null) {
+		// Never edited by human → treat as maximally stale.
+		return 1;
+	}
+	const age = Math.max(0, ctx.now - last);
+	return clamp01(age / REVIEW_RECENCY_SATURATION_MS);
+}
+
+function computeTasteSensitivity(item: KnowledgeItem): number {
+	return isTasteSensitive(item) ? 1 : 0;
+}
+
+/**
+ * Score a single knowledge item. Pure. Returns a value in [0, 1] rounded to
+ * six decimals.
+ */
+export function scoreAttention(
+	item: KnowledgeItem,
+	context: AttentionScoringContext,
+	weights: AttentionWeights,
+): number {
+	const novelty = computeNovelty(item, context);
+	const impact = computeImpact(item);
+	const conflict = context.conflictedIds.has(item.id) ? 1 : 0;
+	const repetition = computeRepetitionSignal(item, context);
+	const confidence = computeConfidenceValue(item);
+	const taste = computeTasteSensitivity(item);
+	const recency = computeRecency(item, context);
+	const usage = computeUsage(item);
+
+	const weighted =
+		novelty * weights.novelty +
+		impact * weights.impact +
+		conflict * weights.conflict +
+		(1 - repetition) * weights.repetition +
+		(1 - confidence) * weights.confidence +
+		taste * weights.tasteSensitivity +
+		recency * weights.recency +
+		usage * weights.usage;
+
+	const totalWeight =
+		weights.novelty +
+		weights.impact +
+		weights.conflict +
+		weights.repetition +
+		weights.confidence +
+		weights.tasteSensitivity +
+		weights.recency +
+		weights.usage;
+
+	if (totalWeight === 0) return 0;
+	return round6(clamp01(weighted / totalWeight));
+}
+
+/** Score a batch of items sharing a context. Output order matches input order. */
+export function scoreAttentionBatch(
+	items: readonly KnowledgeItem[],
+	context: AttentionScoringContext,
+	weights: AttentionWeights,
+): ReadonlyArray<{ id: string; score: number; prior: number | null }> {
+	const out: Array<{ id: string; score: number; prior: number | null }> = [];
+	for (const item of items) {
+		out.push({
+			id: item.id,
+			score: scoreAttention(item, context, weights),
+			prior: item.attentionScore ?? null,
+		});
+	}
+	return out;
+}
+
+/**
+ * Build an AttentionScoringContext for a list of items. Executes a small
+ * fixed number of aggregate queries — the cost is O(distinct cohorts), not
+ * O(items) — which is what makes the 1000-item AC6 budget achievable.
+ *
+ * @lore Confidence correctness over raw SQL: Drizzle's composite-key IN
+ * support varies; we filter in-app rather than risk adapter quirks. The
+ * outer GROUP BY runs server-side; the subset-of-batch filter happens in JS.
+ */
+export function buildAttentionContext(
+	db: HyperIdleDb,
+	items: readonly KnowledgeItem[],
+	now?: number,
+): AttentionScoringContext {
+	const nowMs = now ?? Date.now();
+
+	if (items.length === 0) {
+		return {
+			now: nowMs,
+			cohortSizeByKey: new Map(),
+			crossScopeCountByKey: new Map(),
+			conflictedIds: new Set(),
+			recentlyHumanEditedIds: new Set(),
+			lastHumanEditAt: new Map(),
+		};
+	}
+
+	const ids = items.map((i) => i.id);
+
+	// Distinct cohort keys we need to count.
+	const neededCohortKeys = new Set<string>();
+	const neededCrossScopeKeys = new Set<string>();
+	for (const it of items) {
+		neededCohortKeys.add(cohortKey(it.layer, it.scopeId, it.topic, it.kind));
+		neededCrossScopeKeys.add(crossScopeKey(it.layer, it.topic, it.kind));
+	}
+
+	// 1) Open conflicts
+	const conflictRows = db
+		.select({ itemId: knowledgeConflicts.itemId })
+		.from(knowledgeConflicts)
+		.where(and(eq(knowledgeConflicts.status, "open"), inArray(knowledgeConflicts.itemId, ids)))
+		.all();
+	const conflictedIds = new Set<string>(conflictRows.map((r) => r.itemId));
+
+	// 2) Cohort sizes — fetch all non-archived knowledge_items and aggregate in JS.
+	//    For 1000 items the table itself is bounded and the GROUP BY would need
+	//    composite tuple-IN; we stream rows matching the layers we care about.
+	const distinctLayers = new Set<string>(items.map((i) => i.layer));
+	const cohortRows = db
+		.select({
+			layer: knowledgeItems.layer,
+			scopeId: knowledgeItems.scopeId,
+			topic: knowledgeItems.topic,
+			kind: knowledgeItems.kind,
+		})
+		.from(knowledgeItems)
+		.where(
+			and(
+				ne(knowledgeItems.status, "archived"),
+				inArray(knowledgeItems.layer, Array.from(distinctLayers)),
+			),
+		)
+		.all();
+
+	const cohortSizeByKey = new Map<string, number>();
+	const crossScopeSetsByKey = new Map<string, Set<string>>();
+	for (const r of cohortRows) {
+		const ck = cohortKey(r.layer, r.scopeId, r.topic, r.kind);
+		if (neededCohortKeys.has(ck)) {
+			cohortSizeByKey.set(ck, (cohortSizeByKey.get(ck) ?? 0) + 1);
+		}
+		const xk = crossScopeKey(r.layer, r.topic, r.kind);
+		if (neededCrossScopeKeys.has(xk) && r.scopeId != null) {
+			let s = crossScopeSetsByKey.get(xk);
+			if (!s) {
+				s = new Set();
+				crossScopeSetsByKey.set(xk, s);
+			}
+			s.add(r.scopeId);
+		}
+	}
+
+	const crossScopeCountByKey = new Map<string, number>();
+	for (const [k, s] of crossScopeSetsByKey.entries()) {
+		crossScopeCountByKey.set(k, s.size);
+	}
+
+	// 3) Human edit log — per item, most recent timestamp.
+	const editRows = db
+		.select({
+			itemId: knowledgeEditLog.itemId,
+			createdAt: knowledgeEditLog.createdAt,
+		})
+		.from(knowledgeEditLog)
+		.where(and(eq(knowledgeEditLog.editor, "human"), inArray(knowledgeEditLog.itemId, ids)))
+		.all();
+
+	const lastHumanEditAt = new Map<string, number>();
+	for (const r of editRows) {
+		const t = new Date(r.createdAt).getTime();
+		const existing = lastHumanEditAt.get(r.itemId);
+		if (existing == null || t > existing) {
+			lastHumanEditAt.set(r.itemId, t);
+		}
+	}
+
+	const recentlyHumanEditedIds = new Set<string>();
+	for (const [id, t] of lastHumanEditAt.entries()) {
+		if (nowMs - t <= REVIEW_RECENCY_WINDOW_MS) {
+			recentlyHumanEditedIds.add(id);
+		}
+	}
+
+	return {
+		now: nowMs,
+		cohortSizeByKey,
+		crossScopeCountByKey,
+		conflictedIds,
+		recentlyHumanEditedIds,
+		lastHumanEditAt,
+	};
+}

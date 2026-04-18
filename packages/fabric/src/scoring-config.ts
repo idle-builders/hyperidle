@@ -73,3 +73,101 @@ export function loadScoringWeights(db: HyperIdleDb): ScoringWeights {
 export function getDefaultWeights(): ScoringWeights {
 	return { ...DEFAULT_WEIGHTS };
 }
+
+// --- Attention scoring weights (G2) ---
+
+/**
+ * Weights for the attention scoring engine. All values are non-negative.
+ *
+ * @lore `repetition` and `confidence` are applied as INVERSE contributions in
+ * the scorer (high repetition / high confidence REDUCE attention). The weight
+ * itself remains a positive knob meaning "how strongly does this signal
+ * dampen attention". Defaults are ratios; the scorer normalizes by total.
+ */
+export interface AttentionWeights {
+	readonly novelty: number;
+	readonly impact: number;
+	readonly conflict: number;
+	/** Inverse: high repetition (same finding across many scopes) reduces attention. */
+	readonly repetition: number;
+	/** Inverse: high confidence reduces attention. */
+	readonly confidence: number;
+	readonly tasteSensitivity: number;
+	readonly recency: number;
+	readonly usage: number;
+}
+
+const DEFAULT_ATTENTION_WEIGHTS: AttentionWeights = {
+	novelty: 0.2,
+	impact: 0.25,
+	conflict: 0.2,
+	repetition: 0.1,
+	confidence: 0.1,
+	tasteSensitivity: 0.25,
+	recency: 0.1,
+	usage: 0.05,
+};
+
+const ATTENTION_WEIGHT_KEYS: ReadonlyArray<keyof AttentionWeights> = [
+	"novelty",
+	"impact",
+	"conflict",
+	"repetition",
+	"confidence",
+	"tasteSensitivity",
+	"recency",
+	"usage",
+];
+
+const ATTENTION_SETTING_PREFIX = "attention.weight.";
+
+/** Threshold at which a recompute crossing upward creates a review item. */
+export const ATTENTION_THRESHOLD = 0.7;
+
+/** Absolute bounds for a single attention weight (defense in depth). */
+const ATTENTION_WEIGHT_MIN = 0;
+const ATTENTION_WEIGHT_MAX = 1;
+
+/**
+ * Load attention weights from factory_settings, falling back to defaults.
+ *
+ * @lore G2 security: `attention.weight.*` factory_settings keys MUST be
+ * human-write-only. The settings write endpoint is expected to reject agent
+ * writes to any key under the `attention.weight.` prefix. This loader is
+ * defense-in-depth: values outside `[0, 1]` fall back to the default so a
+ * bad write (e.g. all zeros) can never silently neutralize the engine.
+ */
+export function loadAttentionWeights(db: HyperIdleDb): AttentionWeights {
+	const weights: Record<keyof AttentionWeights, number> = { ...DEFAULT_ATTENTION_WEIGHTS };
+
+	for (const key of ATTENTION_WEIGHT_KEYS) {
+		const settingKey = `${ATTENTION_SETTING_PREFIX}${key}`;
+		const row = db.select().from(factorySettings).where(eq(factorySettings.key, settingKey)).get();
+		if (row) {
+			const parsed = Number.parseFloat(row.value);
+			if (
+				Number.isFinite(parsed) &&
+				parsed >= ATTENTION_WEIGHT_MIN &&
+				parsed <= ATTENTION_WEIGHT_MAX
+			) {
+				weights[key] = parsed;
+			}
+		}
+	}
+
+	return {
+		novelty: weights.novelty,
+		impact: weights.impact,
+		conflict: weights.conflict,
+		repetition: weights.repetition,
+		confidence: weights.confidence,
+		tasteSensitivity: weights.tasteSensitivity,
+		recency: weights.recency,
+		usage: weights.usage,
+	};
+}
+
+/** Get the default attention weights (no DB access). */
+export function getDefaultAttentionWeights(): AttentionWeights {
+	return { ...DEFAULT_ATTENTION_WEIGHTS };
+}
