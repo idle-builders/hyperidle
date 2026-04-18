@@ -1,12 +1,37 @@
-export type TaskState =
-	| "proposed"
-	| "accepted"
-	| "hold"
-	| "in_progress"
-	| "blocked"
-	| "review"
-	| "done"
-	| "killed";
+/**
+ * The full set of legal task lifecycle states. The `TaskState` union is
+ * derived from this constant so the runtime list (used by Zod enums at
+ * route boundaries) and the type checker cannot drift.
+ *
+ * @lore I2 V1: previously the route schema accepted `z.string()`, which let
+ * invalid states fall through to the state-machine and surface as 409. Routes
+ * must use `z.enum(TASK_STATES)` so bad input is a 400 from validation.
+ */
+export const TASK_STATES = [
+	"proposed",
+	"accepted",
+	"hold",
+	"in_progress",
+	"blocked",
+	"review",
+	"done",
+	"killed",
+] as const;
+
+export type TaskState = (typeof TASK_STATES)[number];
+
+/**
+ * The mutable fields a bet caller can patch via PATCH /api/bets/:id while
+ * the bet is in `in_progress`. Mirrored by the server's
+ * `bet-state-machine.MUTABLE_FIELDS` set; both must stay in sync.
+ *
+ * @lore I2 V2: the route schema now uses `z.enum(MUTABLE_BET_FIELDS)` so a
+ * bad `field` value is rejected by Zod (400) instead of falling through to
+ * the service layer (which would throw a generic 500).
+ */
+export const MUTABLE_BET_FIELDS = ["done_condition", "hypothesis", "appetite"] as const;
+
+export type MutableBetField = (typeof MUTABLE_BET_FIELDS)[number];
 
 export type KnowledgeLayer = "L0" | "L1" | "L2" | "L3" | "L4";
 

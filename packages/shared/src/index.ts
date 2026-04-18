@@ -12,13 +12,14 @@ export type {
 	KnowledgeLayer,
 	KnowledgeStatus,
 	ModelTier,
+	MutableBetField,
 	RiskTier,
 	SessionState,
 	TaskState,
 	TriggerType,
 } from "./types.js";
 
-export { KNOWLEDGE_LAYERS } from "./types.js";
+export { KNOWLEDGE_LAYERS, MUTABLE_BET_FIELDS, TASK_STATES } from "./types.js";
 
 export { createLogger, type Logger } from "./logger.js";
 
