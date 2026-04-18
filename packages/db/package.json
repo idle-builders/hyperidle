@@ -9,14 +9,19 @@
 	"scripts": {
 		"check": "tsc --noEmit",
 		"generate": "drizzle-kit generate",
-		"migrate": "drizzle-kit migrate"
+		"generate:pg": "drizzle-kit generate --config=./drizzle.config.pg.ts",
+		"migrate": "drizzle-kit migrate",
+		"migrate:pg": "drizzle-kit migrate --config=./drizzle.config.pg.ts"
 	},
 	"dependencies": {
 		"better-sqlite3": "^11.7.0",
-		"drizzle-orm": "^0.39.0"
+		"drizzle-orm": "^0.39.0",
+		"postgres": "^3.4.9"
 	},
 	"devDependencies": {
+		"@electric-sql/pglite": "^0.4.4",
 		"@types/better-sqlite3": "^7.6.0",
-		"drizzle-kit": "^0.30.0"
+		"drizzle-kit": "^0.30.0",
+		"yaml": "^2.8.3"
 	}
 }
