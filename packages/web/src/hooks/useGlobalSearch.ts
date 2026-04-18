@@ -52,9 +52,12 @@ interface UseGlobalSearchReturn {
 	clear: () => void;
 }
 
-const CONVERSATION_KINDS = new Set<ConversationResult["kind"]>(["review", "chat"]);
-const KNOWLEDGE_LAYER_SET = new Set<KnowledgeLayer>(["L0", "L1", "L2", "L3", "L4"]);
-const KNOWLEDGE_KIND_SET = new Set<KnowledgeKind>([
+// @lore I4 adversary W1: these sets are typed as Set<string> so .has()
+// accepts any string without casts. The type narrowing happens inside the
+// parse* functions below once the string is confirmed present in the set.
+const CONVERSATION_KINDS: ReadonlySet<string> = new Set(["review", "chat"]);
+const KNOWLEDGE_LAYER_SET: ReadonlySet<string> = new Set(["L0", "L1", "L2", "L3", "L4"]);
+const KNOWLEDGE_KIND_SET: ReadonlySet<string> = new Set([
 	"pattern",
 	"anti_pattern",
 	"brief",
@@ -64,11 +67,31 @@ const KNOWLEDGE_KIND_SET = new Set<KnowledgeKind>([
 	"reflection",
 	"focus",
 ]);
-const BET_STATUS_SET = new Set<string>(BET_STATUSES);
-const KNOWLEDGE_STATUS_SET = new Set<string>(KNOWLEDGE_STATUSES);
+const BET_STATUS_SET: ReadonlySet<string> = new Set<string>(BET_STATUSES);
+const KNOWLEDGE_STATUS_SET: ReadonlySet<string> = new Set<string>(KNOWLEDGE_STATUSES);
 
 function isRecord(value: unknown): value is Record<string, unknown> {
 	return typeof value === "object" && value !== null;
+}
+
+/**
+ * Narrow checks that return boolean type guards — one per domain union —
+ * so the parse* functions below can drop `as` casts entirely.
+ */
+function isConversationKind(v: string): v is ConversationResult["kind"] {
+	return CONVERSATION_KINDS.has(v);
+}
+function isKnowledgeLayer(v: string): v is KnowledgeLayer {
+	return KNOWLEDGE_LAYER_SET.has(v);
+}
+function isKnowledgeKind(v: string): v is KnowledgeKind {
+	return KNOWLEDGE_KIND_SET.has(v);
+}
+function isBetStatus(v: string): v is BetStatus {
+	return BET_STATUS_SET.has(v);
+}
+function isKnowledgeStatus(v: string): v is KnowledgeStatus {
+	return KNOWLEDGE_STATUS_SET.has(v);
 }
 
 /**
@@ -80,29 +103,41 @@ function readStringFields<K extends string>(
 	source: Record<string, unknown>,
 	keys: readonly K[],
 ): Record<K, string> | null {
-	const out = {} as Record<K, string>;
+	const out: Partial<Record<K, string>> = {};
 	for (const key of keys) {
 		const v = source[key];
 		if (typeof v !== "string" || v.length === 0) return null;
 		out[key] = v;
 	}
-	return out;
+	return out as Record<K, string>;
 }
 
 function parseConversation(value: unknown): ConversationResult | null {
 	if (!isRecord(value)) return null;
 	const fields = readStringFields(value, ["id", "title", "snippet", "timestamp", "kind"] as const);
 	if (!fields) return null;
-	if (!CONVERSATION_KINDS.has(fields.kind as ConversationResult["kind"])) return null;
-	return { ...fields, kind: fields.kind as ConversationResult["kind"] };
+	if (!isConversationKind(fields.kind)) return null;
+	return {
+		id: fields.id,
+		title: fields.title,
+		snippet: fields.snippet,
+		timestamp: fields.timestamp,
+		kind: fields.kind,
+	};
 }
 
 function parseWork(value: unknown): WorkResult | null {
 	if (!isRecord(value)) return null;
 	const fields = readStringFields(value, ["id", "title", "product", "status", "appetite"] as const);
 	if (!fields) return null;
-	if (!BET_STATUS_SET.has(fields.status)) return null;
-	return { ...fields, status: fields.status as BetStatus };
+	if (!isBetStatus(fields.status)) return null;
+	return {
+		id: fields.id,
+		title: fields.title,
+		product: fields.product,
+		status: fields.status,
+		appetite: fields.appetite,
+	};
 }
 
 function parseKnowledge(value: unknown): KnowledgeResult | null {
@@ -116,35 +151,63 @@ function parseKnowledge(value: unknown): KnowledgeResult | null {
 		"timestamp",
 	] as const);
 	if (!fields) return null;
-	if (!KNOWLEDGE_LAYER_SET.has(fields.layer as KnowledgeLayer)) return null;
-	if (!KNOWLEDGE_KIND_SET.has(fields.kind as KnowledgeKind)) return null;
-	if (!KNOWLEDGE_STATUS_SET.has(fields.status)) return null;
+	if (!isKnowledgeLayer(fields.layer)) return null;
+	if (!isKnowledgeKind(fields.kind)) return null;
+	if (!isKnowledgeStatus(fields.status)) return null;
 	return {
-		...fields,
-		layer: fields.layer as KnowledgeLayer,
-		kind: fields.kind as KnowledgeKind,
-		status: fields.status as KnowledgeStatus,
+		id: fields.id,
+		title: fields.title,
+		layer: fields.layer,
+		kind: fields.kind,
+		status: fields.status,
+		timestamp: fields.timestamp,
 	};
 }
 
 /**
- * Parse and filter a raw `/api/search` response into the typed `SearchResults`
- * shape. Malformed entries are silently dropped — the API layer is trusted to
- * emit correct shapes, and one bad row should not break the whole panel.
- * Top-level shape mismatches default to empty arrays.
+ * Outcome of parsing a `/api/search` response. The hook uses this to surface
+ * a useful signal to the user when the server ships malformed data, instead
+ * of silently collapsing to "No matches" (I4 adversary C4).
  */
-function parseSearchResponse(raw: unknown): SearchResults {
-	if (!isRecord(raw)) return EMPTY_RESULTS;
-	const conversations = Array.isArray(raw.conversations)
-		? raw.conversations.map(parseConversation).filter((v): v is ConversationResult => v !== null)
-		: [];
-	const work = Array.isArray(raw.work)
-		? raw.work.map(parseWork).filter((v): v is WorkResult => v !== null)
-		: [];
-	const knowledge = Array.isArray(raw.knowledge)
-		? raw.knowledge.map(parseKnowledge).filter((v): v is KnowledgeResult => v !== null)
-		: [];
-	return { conversations, work, knowledge };
+interface ParsedResponse {
+	results: SearchResults;
+	/** True when the server returned at least one row in any bucket but every
+	 * row was malformed — a signal that the API contract has drifted. */
+	allMalformed: boolean;
+}
+
+function parseBucket<T>(
+	raw: unknown,
+	parseOne: (v: unknown) => T | null,
+): { parsed: T[]; rawCount: number } {
+	if (!Array.isArray(raw)) return { parsed: [], rawCount: 0 };
+	const parsed: T[] = [];
+	for (const v of raw) {
+		const p = parseOne(v);
+		if (p !== null) parsed.push(p);
+	}
+	return { parsed, rawCount: raw.length };
+}
+
+/**
+ * Parse and filter a raw `/api/search` response into the typed `SearchResults`
+ * shape. Malformed entries are dropped per-row, but if every row in every
+ * non-empty bucket is malformed we flag the response as "allMalformed" so
+ * the hook can surface an error to the user rather than rendering "No
+ * matches". Top-level shape mismatches default to empty arrays.
+ */
+function parseSearchResponse(raw: unknown): ParsedResponse {
+	if (!isRecord(raw)) return { results: EMPTY_RESULTS, allMalformed: false };
+	const c = parseBucket(raw.conversations, parseConversation);
+	const w = parseBucket(raw.work, parseWork);
+	const k = parseBucket(raw.knowledge, parseKnowledge);
+	const rawCount = c.rawCount + w.rawCount + k.rawCount;
+	const parsedCount = c.parsed.length + w.parsed.length + k.parsed.length;
+	const allMalformed = rawCount > 0 && parsedCount === 0;
+	return {
+		results: { conversations: c.parsed, work: w.parsed, knowledge: k.parsed },
+		allMalformed,
+	};
 }
 
 interface SearchCallbacks {
@@ -167,7 +230,21 @@ async function runSearch(
 		}
 		const raw: unknown = await res.json();
 		if (controller.signal.aborted) return;
-		cb.onResults(parseSearchResponse(raw));
+		const parsed = parseSearchResponse(raw);
+		if (parsed.allMalformed) {
+			// I4 adversary C4: non-empty buckets with zero parseable rows is a
+			// silent-data-loss hazard (API drift → empty UI). Log and surface
+			// an error instead of collapsing to "No matches".
+			// biome-ignore lint/suspicious/noConsole: observability surface — placeholder for a real logger
+			console.error("[useGlobalSearch] server returned all-malformed rows", {
+				query,
+				rawKeys: Object.keys((raw as Record<string, unknown>) ?? {}),
+			});
+			cb.onError("Search results could not be parsed");
+			cb.onDone();
+			return;
+		}
+		cb.onResults(parsed.results);
 		cb.onDone();
 	} catch (err: unknown) {
 		if (err instanceof DOMException && err.name === "AbortError") return;
@@ -240,9 +317,18 @@ export function useGlobalSearch(): UseGlobalSearchReturn {
 	const totalCount = results.conversations.length + results.work.length + results.knowledge.length;
 
 	const clear = useCallback((): void => {
+		// I4 adversary W7: abort any in-flight fetch before resetting state
+		// so a late-resolving response cannot repopulate results after
+		// clear(). Without this, there is a micro-race between clear() and
+		// the effect cleanup that aborts on query change.
+		if (abortControllerRef.current) {
+			abortControllerRef.current.abort();
+			abortControllerRef.current = null;
+		}
 		setQuery("");
 		setResults(EMPTY_RESULTS);
 		setError(null);
+		setLoading(false);
 	}, []);
 
 	return { query, setQuery, results, loading, error, hasResults, totalCount, clear };
