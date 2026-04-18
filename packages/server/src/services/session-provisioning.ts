@@ -24,6 +24,7 @@ import { type ToolContext, buildToolRegistry, toolsForRole } from "../skill-tool
 import { checkCostCap, recordCostAndCheck } from "./cost-cap.js";
 import { summarizeToolArgs } from "./observability/dispatcher.js";
 import { type SessionContext, crashSession, endSession } from "./session-lifecycle.js";
+import type { StateTransitionAuditEntry, TaskAuditEntry } from "./task-audit.js";
 import { transitionTask } from "./task-state-machine.js";
 
 /**
@@ -69,6 +70,11 @@ function validateSoulPromptPath(rawPath: string): string {
  * a repair path, not a normal workflow transition. We still append an audit
  * entry (carrying the failure reason) and emit a `task_state_changed` event so
  * the revert is observable downstream.
+ *
+ * @lore I1 H2: the revert entry lands in `tasks.auditTrail`, not `tasks.notes`.
+ * `notes` is the agent-authored prose lane; writing audit JSON there corrupts
+ * it. We re-use the `StateTransitionAuditEntry` shape so readers can discriminate
+ * against `HandoffAuditEntry` via the `type: "handoff"` tag.
  */
 function revertTaskToAccepted(
 	db: HyperIdleDb,
@@ -81,23 +87,20 @@ function revertTaskToAccepted(
 	const fromState = task.state as TaskState;
 	const toState: TaskState = "accepted";
 
-	const existingAudit: Array<{
-		from: string;
-		to: string;
-		timestamp: string;
-		reason?: string;
-	}> = task.notes ? JSON.parse(task.notes) : [];
-	existingAudit.push({
+	const existingAudit: TaskAuditEntry[] = task.auditTrail
+		? (JSON.parse(task.auditTrail) as TaskAuditEntry[])
+		: [];
+	const entry: StateTransitionAuditEntry = {
 		from: fromState,
 		to: toState,
 		timestamp: new Date().toISOString(),
 		reason,
-	});
+	};
 
 	db.update(tasks)
 		.set({
 			state: toState,
-			notes: JSON.stringify(existingAudit),
+			auditTrail: JSON.stringify([...existingAudit, entry]),
 			updatedAt: new Date().toISOString(),
 		})
 		.where(eq(tasks.id, taskId))
