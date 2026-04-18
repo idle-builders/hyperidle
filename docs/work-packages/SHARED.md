@@ -1,8 +1,8 @@
 # Work Packages — HyperIdle Implementation
 
-Agent-friendly user stories organized in eight parallel tracks with outcome-level acceptance criteria.
+Agent-friendly user stories organized in nine tracks with outcome-level acceptance criteria.
 
-**Track files:** [Track A](TRACK-A.md) | [Track B](TRACK-B.md) | [Track C](TRACK-C.md) | [Track D](TRACK-D.md) | [Track E](TRACK-E.md) | [Track F](TRACK-F.md) | [Track G](TRACK-G.md) | [Track H](TRACK-H.md)
+**Track files:** [Track A](TRACK-A.md) | [Track B](TRACK-B.md) | [Track C](TRACK-C.md) | [Track D](TRACK-D.md) | [Track E](TRACK-E.md) | [Track F](TRACK-F.md) | [Track G](TRACK-G.md) | [Track H](TRACK-H.md) | [Track I](TRACK-I.md)
 
 ---
 

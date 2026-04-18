@@ -201,3 +201,29 @@ stories:
     title: Deployment Profiles + PostgreSQL Adapter
     track: H
     depends: [A2, H1, H2, H3]
+
+  # Track I: Hardening & Quality
+  - id: I1
+    title: Production Server + Data Integrity Fixes
+    track: I
+    depends: []
+  - id: I2
+    title: Security Hardening
+    track: I
+    depends: [I1]
+  - id: I3
+    title: Data Layer & Schema Fixes
+    track: I
+    depends: [I1]
+  - id: I4
+    title: Frontend Correctness & Spec Conformance
+    track: I
+    depends: [I1]
+  - id: I5
+    title: Test Coverage & E2E API Tests
+    track: I
+    depends: [I1, I2, I3]
+  - id: I6
+    title: Medium-Priority Fixes & Polish
+    track: I
+    depends: [I1, I2, I3, I4]
