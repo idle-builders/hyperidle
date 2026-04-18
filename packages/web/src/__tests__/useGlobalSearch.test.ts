@@ -349,6 +349,43 @@ describe("useGlobalSearch", () => {
 		expect(result.current.results.knowledge).toEqual([]);
 	});
 
+	it("clears stale results when query becomes empty", async () => {
+		// I4 N2: spec validation scenario — "given search results showing,
+		// when query cleared character by character, then results clear".
+		(global.fetch as ReturnType<typeof vi.fn>).mockResolvedValue({
+			ok: true,
+			json: () => Promise.resolve(mockSearchResults),
+		});
+
+		const { result } = renderHook(() => useGlobalSearch());
+		act(() => {
+			result.current.setQuery("foo");
+		});
+		await act(async () => {
+			vi.advanceTimersByTime(150);
+		});
+		await waitFor(() => {
+			expect(result.current.hasResults).toBe(true);
+		});
+
+		act(() => {
+			result.current.setQuery("fo");
+		});
+		act(() => {
+			result.current.setQuery("f");
+		});
+		act(() => {
+			result.current.setQuery("");
+		});
+
+		// After the final setQuery(""), the hook must synchronously reset
+		// results (no pending fetch, no in-flight stale data).
+		expect(result.current.query).toBe("");
+		expect(result.current.results).toEqual(emptyResults);
+		expect(result.current.hasResults).toBe(false);
+		expect(result.current.totalCount).toBe(0);
+	});
+
 	it("aborts in-flight fetch on unmount", async () => {
 		const abortSpy = vi.spyOn(AbortController.prototype, "abort");
 		(global.fetch as ReturnType<typeof vi.fn>).mockResolvedValue({

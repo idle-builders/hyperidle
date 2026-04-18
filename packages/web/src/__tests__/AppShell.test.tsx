@@ -1,7 +1,7 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { RouterProvider, createMemoryRouter } from "react-router-dom";
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AppShell } from "../layouts/AppShell";
 
 function renderShell(
@@ -103,6 +103,130 @@ describe("AppShell", () => {
 			expect(screen.getByText("Active Bets")).toBeInTheDocument();
 			expect(screen.getByText("Blockers")).toBeInTheDocument();
 			expect(screen.getByText("Cost")).toBeInTheDocument();
+		});
+	});
+
+	describe("global search navigation by type", () => {
+		// I4 N1: `handleSearchNavigate` must route by result type.
+		// Fixture routes added so we can observe where navigation lands.
+		function renderShellWithProbes(initialPath = "/conversations/review"): {
+			user: ReturnType<typeof userEvent.setup>;
+			router: ReturnType<typeof createMemoryRouter>;
+		} {
+			const user = userEvent.setup();
+			const router = createMemoryRouter(
+				[
+					{
+						path: "/",
+						element: <AppShell />,
+						children: [
+							{ path: "conversations/review", element: <div>Review Queue Page</div> },
+							{ path: "conversations/chat", element: <div>Chat Page</div> },
+							{ path: "work/portfolio", element: <div>Portfolio Page</div> },
+							{ path: "work/team", element: <div>Team Page</div> },
+							{
+								path: "work/bet/:betId",
+								element: <div data-testid="work-bet-target">Work Bet Target</div>,
+							},
+							{ path: "knowledge", element: <div>Knowledge Page</div> },
+							{
+								path: "knowledge/:knowledgeId",
+								element: <div data-testid="knowledge-target">Knowledge Target</div>,
+							},
+						],
+					},
+				],
+				{ initialEntries: [initialPath] },
+			);
+			render(<RouterProvider router={router} />);
+			return { user, router };
+		}
+
+		beforeEach(() => {
+			global.fetch = vi.fn().mockResolvedValue({
+				ok: true,
+				json: () =>
+					Promise.resolve({
+						conversations: [],
+						work: [
+							{
+								id: "b42",
+								title: "Bet Fortytwo",
+								product: "HyperIdle",
+								status: "committed",
+								appetite: "2 weeks",
+							},
+						],
+						knowledge: [
+							{
+								id: "k7",
+								title: "Arch doc",
+								layer: "L2",
+								kind: "pattern",
+								status: "validated",
+								timestamp: "now",
+							},
+						],
+					}),
+			}) as typeof fetch;
+		});
+
+		afterEach(() => {
+			vi.restoreAllMocks();
+		});
+
+		it("navigates work result to /work/bet/{id}", async () => {
+			// I4 N1: work result id must produce /work/bet/<id>.
+			const { user, router } = renderShellWithProbes();
+			await user.keyboard("{Meta>}k{/Meta}");
+			const input = await screen.findByRole("textbox");
+			await user.type(input, "Bet");
+			await waitFor(() => expect(screen.getByText("Bet Fortytwo")).toBeInTheDocument());
+			await user.click(screen.getByText("Bet Fortytwo"));
+			await waitFor(() => {
+				expect(router.state.location.pathname).toBe("/work/bet/b42");
+			});
+		});
+
+		it("navigates knowledge result to /knowledge/{id}", async () => {
+			const { user, router } = renderShellWithProbes();
+			await user.keyboard("{Meta>}k{/Meta}");
+			const input = await screen.findByRole("textbox");
+			await user.type(input, "Arch");
+			await waitFor(() => expect(screen.getByText("Arch doc")).toBeInTheDocument());
+			await user.click(screen.getByText("Arch doc"));
+			await waitFor(() => {
+				expect(router.state.location.pathname).toBe("/knowledge/k7");
+			});
+		});
+
+		it("navigates conversation result to /conversations/review", async () => {
+			(global.fetch as ReturnType<typeof vi.fn>).mockResolvedValue({
+				ok: true,
+				json: () =>
+					Promise.resolve({
+						conversations: [
+							{
+								id: "c9",
+								title: "Review session",
+								snippet: "...",
+								timestamp: "1m ago",
+								kind: "review",
+							},
+						],
+						work: [],
+						knowledge: [],
+					}),
+			});
+			const { user, router } = renderShellWithProbes("/knowledge");
+			await user.keyboard("{Meta>}k{/Meta}");
+			const input = await screen.findByRole("textbox");
+			await user.type(input, "Review");
+			await waitFor(() => expect(screen.getByText("Review session")).toBeInTheDocument());
+			await user.click(screen.getByText("Review session"));
+			await waitFor(() => {
+				expect(router.state.location.pathname).toBe("/conversations/review");
+			});
 		});
 	});
 });

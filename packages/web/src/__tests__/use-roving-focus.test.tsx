@@ -143,4 +143,30 @@ describe("useRovingFocus", () => {
 		await user.keyboard("{ArrowDown}");
 		expect(screen.getByTestId("active-index").textContent).toBe("0");
 	});
+
+	it("Home key jumps focus to the first item", async () => {
+		// I4 KB3: Home/End keys are a WAI-ARIA requirement for roving tabindex.
+		const user = userEvent.setup();
+		render(<TestHarness itemCount={5} />);
+		const buttons = screen.getAllByRole("button");
+		// Navigate to the middle then press Home.
+		buttons[0].focus();
+		await user.keyboard("{ArrowDown}");
+		await user.keyboard("{ArrowDown}");
+		await user.keyboard("{ArrowDown}");
+		expect(screen.getByTestId("active-index").textContent).toBe("3");
+		await user.keyboard("{Home}");
+		expect(screen.getByTestId("active-index").textContent).toBe("0");
+		expect(document.activeElement).toBe(buttons[0]);
+	});
+
+	it("End key jumps focus to the last item", async () => {
+		const user = userEvent.setup();
+		render(<TestHarness itemCount={5} />);
+		const buttons = screen.getAllByRole("button");
+		buttons[0].focus();
+		await user.keyboard("{End}");
+		expect(screen.getByTestId("active-index").textContent).toBe("4");
+		expect(document.activeElement).toBe(buttons[4]);
+	});
 });

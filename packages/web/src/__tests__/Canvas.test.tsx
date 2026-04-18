@@ -1,3 +1,6 @@
+import { readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import type { CanvasBet } from "../shell/Canvas";
@@ -78,5 +81,19 @@ describe("Canvas", () => {
 		// BetCard renders appetite as KeyValue
 		expect(screen.getByText("6 weeks")).toBeInTheDocument();
 		expect(screen.getByText("4 weeks")).toBeInTheDocument();
+	});
+
+	it("imports KeyboardSensor from @dnd-kit/core (keyboard a11y)", () => {
+		// I4 KB1: KeyboardSensor must be configured alongside PointerSensor so
+		// drag can be driven via keyboard. Verified at source level; Playwright
+		// covers the end-to-end behaviour.
+		const __filename = fileURLToPath(import.meta.url);
+		const __dirname = dirname(__filename);
+		const src = readFileSync(
+			join(__dirname, "..", "shell", "Canvas.tsx"),
+			"utf8",
+		);
+		expect(src).toMatch(/KeyboardSensor/);
+		expect(src).toMatch(/useSensor\(\s*KeyboardSensor/);
 	});
 });

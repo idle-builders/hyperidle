@@ -237,4 +237,44 @@ describe("Rail", () => {
 			expect(within(betsSection!).getByText("0")).toBeInTheDocument();
 		});
 	});
+
+	describe("BetStatus chip rendering (I4 S4)", () => {
+		// After the mapping duplicate is removed and the shared status-mapping
+		// module is used, a bet with status "behind" must render the BEHIND
+		// chip (not the HEALTHY fallback the old duplicate used as default).
+		it("renders the BEHIND chip for a behind bet", () => {
+			const behindBets: BetItem[] = [
+				{ id: "b", title: "Behind Bet", product: "P", status: "behind" },
+			];
+			render(<Rail {...defaultProps} bets={behindBets} />);
+			// StatusChip uppercases the status text.
+			expect(screen.getByText("BEHIND")).toBeInTheDocument();
+			// Must NOT fall through to HEALTHY.
+			expect(screen.queryByText("HEALTHY")).not.toBeInTheDocument();
+		});
+
+		it("renders the BLOCKED chip for a blocked bet", () => {
+			const blockedBets: BetItem[] = [
+				{ id: "b", title: "Blocked Bet", product: "P", status: "blocked" },
+			];
+			render(<Rail {...defaultProps} bets={blockedBets} />);
+			expect(screen.getByText("BLOCKED")).toBeInTheDocument();
+		});
+
+		it("renders the PAUSED chip for a paused bet", () => {
+			const pausedBets: BetItem[] = [
+				{ id: "b", title: "Paused Bet", product: "P", status: "paused" },
+			];
+			render(<Rail {...defaultProps} bets={pausedBets} />);
+			expect(screen.getByText("PAUSED")).toBeInTheDocument();
+		});
+
+		it("renders a non-HEALTHY chip for a review bet", () => {
+			const reviewBets: BetItem[] = [
+				{ id: "b", title: "Review Bet", product: "P", status: "review" },
+			];
+			render(<Rail {...defaultProps} bets={reviewBets} />);
+			expect(screen.queryByText("HEALTHY")).not.toBeInTheDocument();
+		});
+	});
 });
