@@ -1,5 +1,11 @@
+import type { JSX } from "react";
 import { useState } from "react";
 import { GlobalSearchPanel } from "./GlobalSearchPanel";
+
+// I4 D1: default export with `title` so the design-system auto-discovery
+// (import.meta.glob + parseStoryModules) picks the module up. Without this
+// the file was silently dropped from /designsystem.
+export default { title: "GlobalSearchPanel" };
 
 const mockConversations = [
 	{

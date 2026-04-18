@@ -24,7 +24,7 @@ export function NotificationRow({
 				{message}
 			</span>
 			{source && <Tag label={source} />}
-			<span className="text-xs text-base-content/50 whitespace-nowrap">{timestamp}</span>
+			<span className="text-xs text-[var(--text-lo)] whitespace-nowrap">{timestamp}</span>
 			{actions}
 		</div>
 	);

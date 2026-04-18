@@ -37,9 +37,9 @@ export function KnowledgeRow({
 					<Tag label={kind} />
 					<StatusChip status={knowledgeStatusToStatus(status)} />
 				</div>
-				{caption && <p className="text-xs text-base-content/60 truncate">{caption}</p>}
+				{caption && <p className="text-xs text-[var(--text-mid)] truncate">{caption}</p>}
 			</div>
-			<span className="text-xs text-base-content/50 whitespace-nowrap">{timestamp}</span>
+			<span className="text-xs text-[var(--text-lo)] whitespace-nowrap">{timestamp}</span>
 			{actions}
 		</div>
 	);

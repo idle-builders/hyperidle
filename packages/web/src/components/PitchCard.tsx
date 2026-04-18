@@ -39,7 +39,7 @@ export function PitchCard({
 				{kind && <Tag label={kind} />}
 				<StatusChip status={betStatusToStatus(status)} />
 			</div>
-			<p className="text-xs text-base-content/60 line-clamp-2">{hypothesis}</p>
+			<p className="text-xs text-[var(--text-mid)] line-clamp-2">{hypothesis}</p>
 			<span className="text-xs">{proposer}</span>
 			<KeyValue label="Appetite" value={appetite} />
 			{actions}

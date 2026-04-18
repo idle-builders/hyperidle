@@ -145,7 +145,7 @@ export function Kanban({ tasks, onMoveTask }: KanbanProps): JSX.Element {
 							</div>
 							<KanbanDropZone columnKey={col.key}>
 								{columnTasks.length === 0 ? (
-									<div className="text-xs text-base-content/40 p-2">
+									<div className="text-xs text-[var(--text-lo)] p-2">
 										No tasks in {col.label.toLowerCase()}
 									</div>
 								) : (

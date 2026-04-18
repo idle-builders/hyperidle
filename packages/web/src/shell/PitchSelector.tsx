@@ -55,7 +55,7 @@ export function PitchSelector({
 			<SearchField placeholder="Search pitches…" value={search} onChange={setSearch} />
 			<div className="flex flex-col gap-2 overflow-y-auto">
 				{filtered.length === 0 ? (
-					<div className="text-xs text-base-content/40 p-2 text-center">No pitches available</div>
+					<div className="text-xs text-[var(--text-lo)] p-2 text-center">No pitches available</div>
 				) : (
 					filtered.map((pitch) => {
 						const isSelected = selectedIds.includes(pitch.id);
