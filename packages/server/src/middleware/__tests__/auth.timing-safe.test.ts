@@ -16,16 +16,22 @@
  * import — including `../auth.js` which pulls `node:crypto` transitively.
  */
 
-import * as nodeCrypto from "node:crypto";
+import type * as nodeCrypto from "node:crypto";
 import { Hono } from "hono";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { actualTimingSafeEqualCalls } from "./_crypto-spy.js";
 import { authMiddleware } from "../auth.js";
 
-// vi.mock must live in the test file (not just the imported helper) to
-// guarantee vitest's hoister places it BEFORE the auth.js import below
-// pulls `node:crypto` transitively. The wrapper records every call into
-// `actualTimingSafeEqualCalls` for later assertion.
+// Tracker for `node:crypto.timingSafeEqual` invocations, populated by the
+// `vi.mock` factory below. The mock + tracker live in this file (not in a
+// shared helper) because vitest's hoister must place the `vi.mock` ABOVE
+// the `../auth.js` import — and that hoist only happens for `vi.mock`
+// calls written directly in the test module.
+const actualTimingSafeEqualCalls: Array<{
+	a: Uint8Array;
+	b: Uint8Array;
+	result: boolean;
+}> = [];
+
 vi.mock("node:crypto", async () => {
 	const actual = await vi.importActual<typeof nodeCrypto>("node:crypto");
 	return {

@@ -2,10 +2,13 @@ import { type HyperIdleDb, knowledgeEditLog, knowledgeItems } from "@hyperidle/d
 import { API_ERROR_CODES, type EventBus, KNOWLEDGE_LAYERS } from "@hyperidle/shared";
 import type { ApiErrorResponse, KnowledgeLayer } from "@hyperidle/shared";
 import { and, eq, or, sql } from "drizzle-orm";
-import { Hono } from "hono";
+import { Hono, type MiddlewareHandler } from "hono";
 import { z } from "zod";
 import { validateBody } from "../middleware/validate.js";
 import { escapeLikePattern } from "../services/like-escape.js";
+
+// biome-ignore lint/style/useNamingConvention: `Variables` is the Hono Env property name; the framework requires this exact PascalCase key.
+type KnowledgeEnv = { Variables: { layer: KnowledgeLayer } };
 
 const createKnowledgeSchema = z.object({
 	kind: z.string(),
@@ -57,27 +60,26 @@ const flagSchema = z.object({
 });
 
 /**
- * I2 V3: Validate the `:layer` path param against KNOWLEDGE_LAYERS. Returns
- * the parsed layer when valid, or null when invalid (the caller writes a 400
- * response in that branch). Inline so each handler can short-circuit before
- * any DB access.
+ * I2 V3: Validate the `:layer` path param against KNOWLEDGE_LAYERS. The
+ * middleware runs before any handler bound under `/:layer/*`, parses the
+ * value, and stashes it on the context so handlers can read a typed value
+ * without re-parsing. Invalid layers short-circuit with 400 + VALIDATION_ERROR
+ * before any DB access.
  */
 const LayerSchema = z.enum(KNOWLEDGE_LAYERS as readonly [KnowledgeLayer, ...KnowledgeLayer[]]);
 
-function parseLayer(raw: string): KnowledgeLayer | null {
-	const result = LayerSchema.safeParse(raw);
-	return result.success ? result.data : null;
-}
-
-function invalidLayerResponse(): { response: ApiErrorResponse; status: 400 } {
-	return {
-		response: {
+const layerGuard: MiddlewareHandler<KnowledgeEnv> = async (c, next) => {
+	const result = LayerSchema.safeParse(c.req.param("layer"));
+	if (!result.success) {
+		const response: ApiErrorResponse = {
 			error: "Invalid knowledge layer",
 			code: API_ERROR_CODES.VALIDATION_ERROR,
-		},
-		status: 400,
-	};
-}
+		};
+		return c.json(response, 400);
+	}
+	c.set("layer", result.data);
+	await next();
+};
 
 /**
  * Emit a knowledge_updated event via the EventBus.
@@ -101,7 +103,7 @@ function emitKnowledgeEvent(
  * Create Hono routes for knowledge endpoints.
  */
 export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono {
-	const router = new Hono();
+	const router = new Hono<KnowledgeEnv>();
 
 	// GET / — Bounded resource descriptor. Proves the route is mounted
 	// (I1 S2). Listing happens via `/:layer`, `/:layer/:id`, and
@@ -162,13 +164,17 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 		return c.json({ results });
 	});
 
+	// I2 V3 / O1: validate `:layer` once for every handler that takes one.
+	// Registered AFTER `GET /` and `GET /search` so those literal paths are
+	// not captured by the `:layer` param. Handlers below read the parsed
+	// layer via `c.get("layer")` instead of repeating the parse-and-400
+	// dance per route.
+	router.use("/:layer", layerGuard);
+	router.use("/:layer/*", layerGuard);
+
 	// GET /:layer — list by layer, grouped by topic, kind
 	router.get("/:layer", (c) => {
-		const layer = parseLayer(c.req.param("layer"));
-		if (!layer) {
-			const { response, status } = invalidLayerResponse();
-			return c.json(response, status);
-		}
+		const layer = c.get("layer");
 		const items = db.select().from(knowledgeItems).where(eq(knowledgeItems.layer, layer)).all();
 
 		// Group by topic -> kind
@@ -189,11 +195,7 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 
 	// GET /:layer/:id — single item
 	router.get("/:layer/:id", (c) => {
-		const layer = parseLayer(c.req.param("layer"));
-		if (!layer) {
-			const { response, status } = invalidLayerResponse();
-			return c.json(response, status);
-		}
+		const layer = c.get("layer");
 		const id = c.req.param("id");
 
 		const item = db
@@ -215,11 +217,7 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 
 	// POST /:layer — create (version=1)
 	router.post("/:layer", validateBody(createKnowledgeSchema), (c) => {
-		const layer = parseLayer(c.req.param("layer"));
-		if (!layer) {
-			const { response, status } = invalidLayerResponse();
-			return c.json(response, status);
-		}
+		const layer = c.get("layer");
 		const body = c.req.valid("json" as never) as z.infer<typeof createKnowledgeSchema>;
 		const id = crypto.randomUUID();
 		const now = new Date().toISOString();
@@ -251,11 +249,7 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 
 	// PATCH /:layer/:id — update (optimistic locking)
 	router.patch("/:layer/:id", validateBody(updateKnowledgeSchema), (c) => {
-		const layer = parseLayer(c.req.param("layer"));
-		if (!layer) {
-			const { response, status } = invalidLayerResponse();
-			return c.json(response, status);
-		}
+		const layer = c.get("layer");
 		const id = c.req.param("id");
 		const body = c.req.valid("json" as never) as z.infer<typeof updateKnowledgeSchema>;
 
@@ -346,11 +340,7 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 
 	// POST /:layer/:id/merge — merge two items
 	router.post("/:layer/:id/merge", validateBody(mergeSchema), (c) => {
-		const layer = parseLayer(c.req.param("layer"));
-		if (!layer) {
-			const { response, status } = invalidLayerResponse();
-			return c.json(response, status);
-		}
+		const layer = c.get("layer");
 		const targetId = c.req.param("id");
 		const body = c.req.valid("json" as never) as z.infer<typeof mergeSchema>;
 
@@ -440,11 +430,7 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 
 	// POST /:layer/:id/split — split into two
 	router.post("/:layer/:id/split", validateBody(splitSchema), (c) => {
-		const layer = parseLayer(c.req.param("layer"));
-		if (!layer) {
-			const { response, status } = invalidLayerResponse();
-			return c.json(response, status);
-		}
+		const layer = c.get("layer");
 		const id = c.req.param("id");
 		const body = c.req.valid("json" as never) as z.infer<typeof splitSchema>;
 
@@ -519,11 +505,7 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 
 	// POST /:layer/:id/archive — archive
 	router.post("/:layer/:id/archive", (c) => {
-		const layer = parseLayer(c.req.param("layer"));
-		if (!layer) {
-			const { response, status } = invalidLayerResponse();
-			return c.json(response, status);
-		}
+		const layer = c.get("layer");
 		const id = c.req.param("id");
 
 		const item = db
@@ -570,11 +552,7 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 
 	// POST /:layer/:id/flag — flag for review
 	router.post("/:layer/:id/flag", validateBody(flagSchema), (c) => {
-		const layer = parseLayer(c.req.param("layer"));
-		if (!layer) {
-			const { response, status } = invalidLayerResponse();
-			return c.json(response, status);
-		}
+		const layer = c.get("layer");
 		const id = c.req.param("id");
 		const body = c.req.valid("json" as never) as z.infer<typeof flagSchema>;
 
