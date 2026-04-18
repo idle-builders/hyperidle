@@ -6,6 +6,7 @@ import {
 	type DragEndEvent,
 	DragOverlay,
 	type DragStartEvent,
+	KeyboardSensor,
 	PointerSensor,
 	useDraggable,
 	useDroppable,
@@ -32,15 +33,66 @@ export interface KanbanProps {
 
 export type KanbanColumnState = "planned" | "blocked" | "in_progress" | "done";
 
-/** Maps TaskState values to their Kanban column. States not listed (hold, killed) are excluded. */
-const STATE_TO_COLUMN: Partial<Record<TaskState, KanbanColumnState>> = {
+/**
+ * Maps every TaskState to a Kanban column, or `null` for states the board
+ * deliberately hides (hold, killed). Exhaustive `Record<TaskState, …>` so the
+ * type checker flags any new TaskState — a partial map would silently drop
+ * tasks on union growth, which is what @lore at the top of the file warns
+ * against.
+ *
+ * @lore I4 cross-cutting: the point of the exhaustiveness story is that any
+ * new TaskState forces a decision here. Do not loosen to `Partial<…>`.
+ */
+const STATE_TO_COLUMN: Record<TaskState, KanbanColumnState | null> = {
 	proposed: "planned",
 	accepted: "planned",
+	hold: null,
 	blocked: "blocked",
 	in_progress: "in_progress",
 	review: "in_progress",
 	done: "done",
+	killed: null,
 };
+
+/**
+ * Inverse of `STATE_TO_COLUMN`: when a card is dragged into a column, this
+ * is the canonical TaskState the API should receive. Co-located with the
+ * forward map so the lossy round-trip (proposed/accepted both collapse to
+ * `planned`; dragging into `planned` promotes to `accepted`) is visible in
+ * one file.
+ *
+ * @lore I4 K1/K2: `"planned"` is NOT a valid TaskState — dragging into the
+ * Planned column promotes `proposed` pitches to `accepted` tasks.
+ */
+export const COLUMN_TO_STATE: Record<KanbanColumnState, TaskState> = {
+	planned: "accepted",
+	in_progress: "in_progress",
+	blocked: "blocked",
+	done: "done",
+};
+
+/**
+ * Pure helper that resolves a @dnd-kit `DragEndEvent` to a Kanban move.
+ * Returns the `(taskId, column)` tuple to forward to `onMoveTask`, or
+ * `null` when the drop did not land on a known column.
+ *
+ * @lore I4 DoD B2: extracted from `handleDragEnd` so the move-resolution
+ * logic can be exhaustively unit-tested with a synthesized `DragEndEvent`
+ * (jsdom can't fully drive @dnd-kit's KeyboardSensor through collision
+ * detection because it returns 0×0 rects for every element). The
+ * integration test mocks `getBoundingClientRect` and drives the live
+ * sensor; this helper is the shared logic both paths exercise.
+ */
+export function resolveKanbanDrop(
+	event: DragEndEvent,
+): { taskId: string; column: KanbanColumnState } | null {
+	const { active, over } = event;
+	if (!over) return null;
+	const overId = String(over.id);
+	const validColumns: KanbanColumnState[] = ["planned", "blocked", "in_progress", "done"];
+	if (!validColumns.includes(overId as KanbanColumnState)) return null;
+	return { taskId: String(active.id), column: overId as KanbanColumnState };
+}
 
 const COLUMNS: { key: KanbanColumnState; label: string }[] = [
 	{ key: "planned", label: "Planned" },
@@ -57,9 +109,15 @@ function KanbanDropZone({
 	children: React.ReactNode;
 }): JSX.Element {
 	const { setNodeRef, isOver } = useDroppable({ id: columnKey });
+	// @lore I4 DoD B2: `data-droppable-column` mirrors Canvas's `data-droppable`
+	// pattern so Playwright/E2E tests can locate a column subtree without
+	// relying on text-filter ancestors (the spec for keyboard-drag E2E
+	// requires asserting the card lives in the target column's DOM after the
+	// move). Production code never reads this attribute.
 	return (
 		<div
 			ref={setNodeRef}
+			data-droppable-column={columnKey}
 			className={`flex flex-col gap-2 min-h-[48px] rounded p-1 transition-colors ${
 				isOver ? "bg-accent/10" : ""
 			}`}
@@ -72,7 +130,13 @@ function KanbanDropZone({
 function DraggableTaskCard({ task }: { task: KanbanTask }): JSX.Element {
 	const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id: task.id });
 	return (
-		<div ref={setNodeRef} {...listeners} {...attributes} style={{ opacity: isDragging ? 0.4 : 1 }}>
+		<div
+			ref={setNodeRef}
+			{...listeners}
+			{...attributes}
+			data-testid={`draggable-task-${task.id}`}
+			style={{ opacity: isDragging ? 0.4 : 1 }}
+		>
 			<TaskCard
 				title={task.title}
 				owner={task.owner}
@@ -87,7 +151,11 @@ function DraggableTaskCard({ task }: { task: KanbanTask }): JSX.Element {
 export function Kanban({ tasks, onMoveTask }: KanbanProps): JSX.Element {
 	const [activeId, setActiveId] = useState<string | null>(null);
 
-	const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
+	// I4 KB1: KeyboardSensor lets users drive the kanban via keyboard.
+	const sensors = useSensors(
+		useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+		useSensor(KeyboardSensor),
+	);
 
 	const tasksByColumn = useMemo(() => {
 		const grouped: Record<KanbanColumnState, KanbanTask[]> = {
@@ -98,7 +166,7 @@ export function Kanban({ tasks, onMoveTask }: KanbanProps): JSX.Element {
 		};
 		for (const task of tasks) {
 			const col = STATE_TO_COLUMN[task.state];
-			if (col) {
+			if (col !== null) {
 				grouped[col].push(task);
 			}
 		}
@@ -113,19 +181,17 @@ export function Kanban({ tasks, onMoveTask }: KanbanProps): JSX.Element {
 
 	function handleDragEnd(event: DragEndEvent): void {
 		setActiveId(null);
-		const { active, over } = event;
-		if (!over) return;
-
-		const overId = String(over.id);
-		const validColumns: KanbanColumnState[] = ["planned", "blocked", "in_progress", "done"];
-		if (validColumns.includes(overId as KanbanColumnState)) {
-			onMoveTask(String(active.id), overId as KanbanColumnState);
+		const move = resolveKanbanDrop(event);
+		if (move) {
+			onMoveTask(move.taskId, move.column);
 		}
 	}
 
 	return (
 		<DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
-			<div className="grid grid-cols-4 gap-4">
+			{/* I4 R3: responsive grid — single column on phones, 2 on small,
+				4 on large viewports. */}
+			<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
 				{COLUMNS.map((col) => {
 					const columnTasks = tasksByColumn[col.key];
 					return (
@@ -138,7 +204,7 @@ export function Kanban({ tasks, onMoveTask }: KanbanProps): JSX.Element {
 							</div>
 							<KanbanDropZone columnKey={col.key}>
 								{columnTasks.length === 0 ? (
-									<div className="text-xs text-base-content/40 p-2">
+									<div className="text-xs text-[var(--text-lo)] p-2">
 										No tasks in {col.label.toLowerCase()}
 									</div>
 								) : (

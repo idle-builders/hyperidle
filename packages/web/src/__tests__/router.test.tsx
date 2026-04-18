@@ -14,6 +14,7 @@ import { ConversationsChat } from "../pages/ConversationsChat";
 import { ConversationsReview } from "../pages/ConversationsReview";
 import { KnowledgeDetail } from "../pages/KnowledgeDetail";
 import { KnowledgeList } from "../pages/KnowledgeList";
+import { NotFound } from "../pages/NotFound";
 import { WorkBet } from "../pages/WorkBet";
 import { WorkPortfolio } from "../pages/WorkPortfolio";
 import { WorkTeam } from "../pages/WorkTeam";
@@ -32,6 +33,7 @@ function renderRoute(initialPath: string): ReturnType<typeof render> {
 					{ path: "work/bet/:betId", element: <WorkBet /> },
 					{ path: "knowledge", element: <KnowledgeList /> },
 					{ path: "knowledge/:knowledgeId", element: <KnowledgeDetail /> },
+					{ path: "*", element: <NotFound /> },
 				],
 			},
 		],
@@ -96,6 +98,24 @@ describe("Router", () => {
 		await waitFor(() => {
 			expect(screen.getByRole("navigation", { name: "Main navigation" })).toBeInTheDocument();
 			expect(screen.getByTestId("main-content")).toBeInTheDocument();
+		});
+	});
+
+	it("renders NotFound for unknown URL (/no-such-route)", async () => {
+		// I4 E2: catch-all `*` route must render NotFound — not a blank page.
+		renderRoute("/no-such-route");
+		await waitFor(() => {
+			expect(screen.getByText(/page not found/i)).toBeInTheDocument();
+		});
+	});
+
+	it("NotFound page provides a Go home affordance", async () => {
+		renderRoute("/another-bogus-path");
+		await waitFor(() => {
+			// Either a link or button labelled with some return-home variant.
+			const byLink = screen.queryByRole("link", { name: /home|back|dashboard/i });
+			const byButton = screen.queryByRole("button", { name: /home|back|dashboard/i });
+			expect(byLink ?? byButton).not.toBeNull();
 		});
 	});
 });

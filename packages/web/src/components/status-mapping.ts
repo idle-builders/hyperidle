@@ -1,7 +1,12 @@
 import type { BetStatus, KnowledgeStatus, TaskState } from "@hyperidle/shared";
 import type { Status } from "./StatusChip";
 
-const TASK_STATE_MAP: Record<TaskState, Status> = {
+/**
+ * Task lifecycle state → presentation Status. Exhaustive over all 8 TaskState
+ * values so a new state added to the shared union surfaces as a TS error
+ * rather than silently rendering an undefined chip.
+ */
+export const TASK_STATE_MAP: Record<TaskState, Status> = {
 	proposed: "paused",
 	accepted: "healthy",
 	hold: "paused",
@@ -12,19 +17,37 @@ const TASK_STATE_MAP: Record<TaskState, Status> = {
 	killed: "error",
 };
 
-const KNOWLEDGE_STATUS_MAP: Record<KnowledgeStatus, Status> = {
+/**
+ * Knowledge lifecycle status → presentation Status. Exhaustive over all 7
+ * KnowledgeStatus values.
+ *
+ * @lore I4 (CONFUSION resolved): `needs_human` maps to `behind` — the
+ * literal name signals action-required, not idle. Mapping to `paused` would
+ * read as awaiting silently, which underplays the founder-attention need.
+ */
+export const KNOWLEDGE_STATUS_MAP: Record<KnowledgeStatus, Status> = {
 	captured: "paused",
 	provisional: "behind",
 	validated: "healthy",
 	active: "healthy",
 	stale: "error",
 	archived: "done",
+	needs_human: "behind",
 };
 
-const BET_STATUS_MAP: Record<BetStatus, Status> = {
+/**
+ * Bet lifecycle status → presentation Status. Exhaustive over all 9
+ * BetStatus values. `behind`, `blocked`, `paused` map to their like-named
+ * presentation values; `review` maps to `behind` (action-required).
+ */
+export const BET_STATUS_MAP: Record<BetStatus, Status> = {
 	shaped: "paused",
 	committed: "healthy",
 	in_progress: "healthy",
+	behind: "behind",
+	blocked: "blocked",
+	paused: "paused",
+	review: "behind",
 	shipped: "done",
 	killed: "error",
 };

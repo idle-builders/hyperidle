@@ -45,6 +45,17 @@ export function useRovingFocus({
 					focusItem(prev);
 					break;
 				}
+				case "Home": {
+					// I4 KB3: WAI-ARIA roving tabindex requires Home/End.
+					e.preventDefault();
+					focusItem(0);
+					break;
+				}
+				case "End": {
+					e.preventDefault();
+					focusItem(itemCount - 1);
+					break;
+				}
 				case "Enter":
 				case " ": {
 					e.preventDefault();

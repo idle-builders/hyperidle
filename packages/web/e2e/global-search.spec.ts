@@ -35,4 +35,63 @@ test.describe("Global Search", () => {
 		const hasEmptyState = (await page.getByText("No matches").count()) > 0;
 		expect(hasResults || hasEmptyState).toBe(true);
 	});
+
+	test("clicking a work result navigates to /work/bet/{id} (I4 N3)", async ({ page }) => {
+		// Mock the search API to return a predictable work result.
+		await page.route("**/api/search*", async (route) => {
+			await route.fulfill({
+				status: 200,
+				contentType: "application/json",
+				body: JSON.stringify({
+					conversations: [],
+					work: [
+						{
+							id: "b99",
+							title: "E2E Work Result",
+							product: "HyperIdle",
+							status: "committed",
+							appetite: "2 weeks",
+						},
+					],
+					knowledge: [],
+				}),
+			});
+		});
+
+		await page.keyboard.press("Meta+k");
+		const input = page.getByRole("textbox");
+		await input.fill("e2e");
+		await expect(page.getByText("E2E Work Result")).toBeVisible();
+		await page.getByText("E2E Work Result").click();
+		await expect(page).toHaveURL(/\/work\/bet\/b99$/);
+	});
+
+	test("clearing the query clears the results (I4 N2)", async ({ page }) => {
+		await page.route("**/api/search*", async (route) => {
+			await route.fulfill({
+				status: 200,
+				contentType: "application/json",
+				body: JSON.stringify({
+					conversations: [],
+					work: [
+						{
+							id: "bx",
+							title: "Some Bet Result",
+							product: "HyperIdle",
+							status: "committed",
+							appetite: "1 week",
+						},
+					],
+					knowledge: [],
+				}),
+			});
+		});
+
+		await page.keyboard.press("Meta+k");
+		const input = page.getByRole("textbox");
+		await input.fill("bet");
+		await expect(page.getByText("Some Bet Result")).toBeVisible();
+		await input.fill("");
+		await expect(page.getByText("Some Bet Result")).not.toBeVisible();
+	});
 });

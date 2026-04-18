@@ -5,6 +5,7 @@
  */
 import { type JSX, useCallback, useEffect, useMemo, useState } from "react";
 import { Outlet, useLocation, useNavigate, useSearchParams } from "react-router-dom";
+import { ErrorBoundary } from "../components/ErrorBoundary";
 import { GlobalSearchPanel } from "../components/GlobalSearchPanel";
 import { NavItem } from "../components/NavItem";
 import type { SettingsData } from "../components/SettingsPanel";
@@ -16,6 +17,7 @@ import {
 	MOCK_RAIL_COST,
 } from "../fixtures/app-shell-data";
 import { useCommandK } from "../hooks/useCommandK";
+import { useViewportBreakpoint } from "../hooks/useViewportBreakpoint";
 import { IconRail } from "../shell/IconRail";
 import { Rail } from "../shell/Rail";
 import { Submenu } from "../shell/Submenu";
@@ -53,23 +55,79 @@ function deriveViewFromPath(pathname: string): ViewId {
 	return "conversations";
 }
 
+/**
+ * I4 security MED-1: validate a route-segment id coming from a search
+ * result before interpolating it into a navigate() call. Rejects ids that
+ * could escape the segment (contain `/`, `?`, `#`, `\`, `..`, whitespace,
+ * control characters) or look like absolute URIs (scheme prefix). Returns
+ * the URI-component-encoded safe id, or null if the input is unsafe. The
+ * encode step preserves safety against characters that survive the reject
+ * list (percent, etc.).
+ *
+ * @lore The search API emits ids from agent-produced or indexed content.
+ * Even if today's mock returns safe ids, the trust boundary is "whatever
+ * the /api/search endpoint emits" — which will be agent-authored strings
+ * the moment live indexing lands.
+ */
+export function sanitizeRouteId(id: string): string | null {
+	if (typeof id !== "string" || id.length === 0) return null;
+	if (id.length > 200) return null;
+	// Reject characters that escape the path segment or embed routing hints.
+	if (/[/?#\\\s]/.test(id)) return null;
+	// Reject control characters (C0 + DEL + C1).
+	// biome-ignore lint/suspicious/noControlCharactersInRegex: intentional — reject control chars
+	if (/[\u0000-\u001f\u007f-\u009f]/.test(id)) return null;
+	// Reject "..", ".", and leading dots (path traversal).
+	if (id === "." || id === ".." || id.includes("..")) return null;
+	// Reject scheme-like prefixes (http:, javascript:, data:, etc.).
+	if (/^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(id)) return null;
+	return encodeURIComponent(id);
+}
+
 export function AppShell(): JSX.Element {
 	const location = useLocation();
 	const navigate = useNavigate();
 
 	const activeView = useMemo(() => deriveViewFromPath(location.pathname), [location.pathname]);
 
-	const [submenuCollapsed, setSubmenuCollapsed] = useState(false);
-	const [railExpanded, setRailExpanded] = useState(true);
+	// I4 R1/R2 + Arch M4 / Adversary W3: the viewport breakpoint drives
+	// Submenu/Rail collapse live. We track a per-axis manual override
+	// (`null` = follow viewport, `true/false` = user has toggled) so that
+	// the hook's resize/change listeners actually matter: if the user
+	// hasn't overridden, resizing the window re-collapses/re-expands the
+	// regions. Once the user toggles manually, their choice persists for
+	// the session — including across subsequent resizes. The toggle
+	// negates the *effective* visible state (override falls back to the
+	// current viewport value), which is what the user expects.
+	const breakpoint = useViewportBreakpoint();
+	const [submenuOverride, setSubmenuOverride] = useState<boolean | null>(null);
+	const [railOverride, setRailOverride] = useState<boolean | null>(null);
+	const submenuCollapsed = submenuOverride ?? breakpoint.submenuCollapsed;
+	const railExpanded = railOverride ?? breakpoint.railExpanded;
+	const toggleSubmenuCollapsed = useCallback((): void => {
+		setSubmenuOverride((prev) => !(prev ?? breakpoint.submenuCollapsed));
+	}, [breakpoint.submenuCollapsed]);
+	const toggleRailExpanded = useCallback((): void => {
+		setRailOverride((prev) => !(prev ?? breakpoint.railExpanded));
+	}, [breakpoint.railExpanded]);
 	const [searchParams, setSearchParams] = useSearchParams();
 	const [settingsOpen, setSettingsOpen] = useState(false);
 	const commandK = useCommandK();
 
-	// Open settings panel when navigated to with ?settings=open query param
+	// Open settings panel when navigated to with ?settings=open query param.
+	// Clear only the `settings` key so co-existing query params (e.g. filters)
+	// are preserved.
 	useEffect(() => {
 		if (searchParams.get("settings") === "open") {
 			setSettingsOpen(true);
-			setSearchParams({}, { replace: true });
+			setSearchParams(
+				(prev) => {
+					const next = new URLSearchParams(prev);
+					next.delete("settings");
+					return next;
+				},
+				{ replace: true },
+			);
 		}
 	}, [searchParams, setSearchParams]);
 
@@ -93,10 +151,28 @@ export function AppShell(): JSX.Element {
 	}, []);
 
 	const handleSearchNavigate = useCallback(
-		(_type: string, _id: string): void => {
+		(type: string, id: string): void => {
 			commandK.close();
-			// Mock navigation — real routing deferred
-			navigate("/conversations/review");
+			// I4 N1: route by result type. The GlobalSearchPanel emits
+			// "conversation" | "work" | "knowledge".
+			switch (type) {
+				case "work": {
+					const safeId = sanitizeRouteId(id);
+					if (safeId === null) return;
+					navigate(`/work/bet/${safeId}`);
+					break;
+				}
+				case "knowledge": {
+					const safeId = sanitizeRouteId(id);
+					if (safeId === null) return;
+					navigate(`/knowledge/${safeId}`);
+					break;
+				}
+				case "conversation":
+				default:
+					navigate("/conversations/review");
+					break;
+			}
 		},
 		[commandK, navigate],
 	);
@@ -114,7 +190,7 @@ export function AppShell(): JSX.Element {
 			<Submenu
 				title={submenuConfig.title}
 				collapsed={submenuCollapsed}
-				onToggleCollapse={() => setSubmenuCollapsed((p) => !p)}
+				onToggleCollapse={toggleSubmenuCollapsed}
 			>
 				<ul className="menu menu-sm">
 					{submenuConfig.items.map((item) => (
@@ -130,12 +206,14 @@ export function AppShell(): JSX.Element {
 			</Submenu>
 
 			<main className="flex-1 overflow-y-auto p-3" data-testid="main-content">
-				<Outlet />
+				<ErrorBoundary>
+					<Outlet />
+				</ErrorBoundary>
 			</main>
 
 			<Rail
 				expanded={railExpanded}
-				onToggleExpand={() => setRailExpanded((p) => !p)}
+				onToggleExpand={toggleRailExpanded}
 				bets={MOCK_RAIL_BETS}
 				blockers={MOCK_RAIL_BLOCKERS}
 				cost={MOCK_RAIL_COST}

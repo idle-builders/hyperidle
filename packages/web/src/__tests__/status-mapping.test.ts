@@ -1,4 +1,11 @@
-import type { BetStatus, KnowledgeStatus, TaskState } from "@hyperidle/shared";
+import {
+	BET_STATUSES,
+	type BetStatus,
+	KNOWLEDGE_STATUSES,
+	type KnowledgeStatus,
+	TASK_STATES,
+	type TaskState,
+} from "@hyperidle/shared";
 import { describe, expect, it } from "vitest";
 import type { Status } from "../components/StatusChip";
 import {
@@ -6,6 +13,16 @@ import {
 	knowledgeStatusToStatus,
 	taskStateToStatus,
 } from "../components/status-mapping";
+
+/** All legal presentation Status values, used to assert exhaustive coverage. */
+const VALID_STATUSES: readonly Status[] = [
+	"healthy",
+	"behind",
+	"blocked",
+	"paused",
+	"done",
+	"error",
+];
 
 describe("taskStateToStatus", () => {
 	it("maps proposed to paused", () => {
@@ -56,6 +73,16 @@ describe("taskStateToStatus", () => {
 			expect(typeof result).toBe("string");
 		}
 	});
+
+	it("exhaustively maps every TASK_STATES value to a valid Status", () => {
+		// I4 S3/S6: runtime-iterable TASK_STATES ensures the type and runtime
+		// coverage cannot drift.
+		expect(TASK_STATES).toHaveLength(8);
+		for (const state of TASK_STATES) {
+			const result = taskStateToStatus(state);
+			expect(VALID_STATUSES).toContain(result);
+		}
+	});
 });
 
 describe("knowledgeStatusToStatus", () => {
@@ -91,10 +118,30 @@ describe("knowledgeStatusToStatus", () => {
 			"active",
 			"stale",
 			"archived",
+			"needs_human",
 		];
 		for (const ks of allStatuses) {
 			const result = knowledgeStatusToStatus(ks);
 			expect(typeof result).toBe("string");
+		}
+	});
+
+	it("maps needs_human to a non-healthy attention-required Status", () => {
+		// I4 S2: `needs_human` must map to a value that surfaces the
+		// action-required state — explicitly not `healthy` (would mislead the
+		// founder into thinking the item needs no input).
+		const result = knowledgeStatusToStatus("needs_human");
+		expect(result).not.toBe("healthy");
+		expect(VALID_STATUSES).toContain(result);
+	});
+
+	it("exhaustively maps every KNOWLEDGE_STATUSES value to a valid Status", () => {
+		// I4 S2/S6: runtime iteration over the shared KNOWLEDGE_STATUSES array
+		// — catches additions to the union.
+		expect(KNOWLEDGE_STATUSES).toHaveLength(7);
+		for (const ks of KNOWLEDGE_STATUSES) {
+			const result = knowledgeStatusToStatus(ks);
+			expect(VALID_STATUSES).toContain(result);
 		}
 	});
 });
@@ -120,11 +167,50 @@ describe("betStatusToStatus", () => {
 		expect(betStatusToStatus("killed")).toBe("error" satisfies Status);
 	});
 
-	it("covers all BetStatus values", () => {
-		const allStatuses: BetStatus[] = ["shaped", "committed", "in_progress", "shipped", "killed"];
+	it("covers all BetStatus values (9 total including behind/blocked/paused/review)", () => {
+		const allStatuses: BetStatus[] = [
+			"shaped",
+			"committed",
+			"in_progress",
+			"behind",
+			"blocked",
+			"paused",
+			"review",
+			"shipped",
+			"killed",
+		];
 		for (const bs of allStatuses) {
 			const result = betStatusToStatus(bs);
 			expect(typeof result).toBe("string");
+		}
+	});
+
+	it("maps behind to behind", () => {
+		// I4 S1: `behind` bets must not fall through to undefined badge class.
+		expect(betStatusToStatus("behind")).toBe("behind" satisfies Status);
+	});
+
+	it("maps blocked to blocked", () => {
+		expect(betStatusToStatus("blocked")).toBe("blocked" satisfies Status);
+	});
+
+	it("maps paused to paused", () => {
+		expect(betStatusToStatus("paused")).toBe("paused" satisfies Status);
+	});
+
+	it("maps review to a defined non-healthy Status", () => {
+		const result = betStatusToStatus("review");
+		expect(VALID_STATUSES).toContain(result);
+		expect(result).not.toBe("healthy");
+	});
+
+	it("exhaustively maps every BET_STATUSES value to a valid Status", () => {
+		// I4 S1/S6: runtime iteration over the shared BET_STATUSES array
+		// — every future addition must be mapped or this test fails.
+		expect(BET_STATUSES).toHaveLength(9);
+		for (const bs of BET_STATUSES) {
+			const result = betStatusToStatus(bs);
+			expect(VALID_STATUSES).toContain(result);
 		}
 	});
 });

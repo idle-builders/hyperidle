@@ -44,30 +44,34 @@ describe("ReviewHeader", () => {
 	});
 
 	describe("verdict buttons", () => {
-		it("renders all 10 verdict buttons", () => {
+		it("renders all 10 verdict controls (4 primary buttons + 6 secondary menuitems)", () => {
 			render(<ReviewHeader {...defaultProps} />);
-			const buttons = screen.getAllByRole("button");
-			// At least 10 verdict buttons (may include others)
-			expect(buttons.length).toBeGreaterThanOrEqual(10);
+			// I4 Design H3: primary verdicts are role=button; secondary
+			// verdicts live inside a role=menu as role=menuitem.
+			const primary = screen.getAllByRole("button");
+			const secondary = screen.getAllByRole("menuitem");
+			expect(primary.length).toBeGreaterThanOrEqual(4);
+			expect(secondary.length).toBe(6);
+			expect(primary.length + secondary.length).toBeGreaterThanOrEqual(10);
 		});
 
-		it("renders a button for each of the 10 verdicts", () => {
+		it("renders a control for each of the 10 verdicts", () => {
 			render(<ReviewHeader {...defaultProps} />);
-			// Use exact aria-label matches to avoid substring collisions
-			const labels = [
-				"Approve",
+			// Primary verdicts keep role=button, secondary verdicts are menuitems.
+			const primaryLabels = ["Approve", "Request changes", "Reject", "Snooze"];
+			const secondaryLabels = [
 				"Approve with comments",
 				"Comment",
 				"Inline comment",
-				"Request changes",
 				"Edit",
-				"Reject",
 				"Reply",
-				"Snooze",
 				"Escalate",
 			];
-			for (const label of labels) {
+			for (const label of primaryLabels) {
 				expect(screen.getByRole("button", { name: label })).toBeInTheDocument();
+			}
+			for (const label of secondaryLabels) {
+				expect(screen.getByRole("menuitem", { name: label })).toBeInTheDocument();
 			}
 		});
 
@@ -226,24 +230,116 @@ describe("ReviewHeader", () => {
 			expect(screen.getByRole("toolbar", { name: /verdict/i })).toBeInTheDocument();
 		});
 
-		it("all verdict buttons have aria-label matching their display label", () => {
+		it("all verdict controls have aria-label matching their display label", () => {
 			render(<ReviewHeader {...defaultProps} />);
-			const labels = [
-				"Approve",
+			const primaryLabels = ["Approve", "Request changes", "Reject", "Snooze"];
+			const secondaryLabels = [
 				"Approve with comments",
 				"Comment",
 				"Inline comment",
-				"Request changes",
 				"Edit",
-				"Reject",
 				"Reply",
-				"Snooze",
 				"Escalate",
 			];
-			for (const label of labels) {
+			for (const label of primaryLabels) {
 				const btn = screen.getByRole("button", { name: label });
 				expect(btn).toHaveAttribute("aria-label", label);
 			}
+			for (const label of secondaryLabels) {
+				const item = screen.getByRole("menuitem", { name: label });
+				expect(item).toHaveAttribute("aria-label", label);
+			}
+		});
+
+		it("the overflow trigger advertises the menu via aria-haspopup/aria-controls (Design H3)", () => {
+			render(<ReviewHeader {...defaultProps} />);
+			const trigger = screen.getByRole("button", { name: /more actions/i });
+			expect(trigger).toHaveAttribute("aria-haspopup", "menu");
+			expect(trigger).toHaveAttribute("aria-controls");
+			expect(trigger).toHaveAttribute("aria-expanded");
+		});
+
+		it("secondary menuitems are removed from tab order when the menu is closed (Design H3)", () => {
+			render(<ReviewHeader {...defaultProps} />);
+			const secondary = screen.getAllByRole("menuitem");
+			for (const item of secondary) {
+				expect(item).toHaveAttribute("tabindex", "-1");
+			}
+		});
+
+		it("secondary menuitems enter the tab order when the menu opens (Design H3)", async () => {
+			const user = userEvent.setup();
+			render(<ReviewHeader {...defaultProps} />);
+			await user.click(screen.getByRole("button", { name: /more actions/i }));
+			const secondary = screen.getAllByRole("menuitem");
+			for (const item of secondary) {
+				expect(item).toHaveAttribute("tabindex", "0");
+			}
+		});
+	});
+
+	describe("4 primary verdicts + overflow dropdown (I4 P3)", () => {
+		it("the primary toolbar contains exactly 4 verdict buttons", () => {
+			// I4 P3: spec — "4 primary verdict buttons (Approve, Request
+			// Changes, Reject, Snooze)". The primary toolbar must hold only
+			// these; the remaining 6 live in an overflow dropdown.
+			render(<ReviewHeader {...defaultProps} />);
+			const toolbar = screen.getByRole("toolbar", { name: /verdict/i });
+			const primaryButtons = toolbar.querySelectorAll(":scope > button");
+			expect(primaryButtons.length).toBe(4);
+		});
+
+		it("primary buttons are Approve / Request changes / Reject / Snooze", () => {
+			render(<ReviewHeader {...defaultProps} />);
+			const toolbar = screen.getByRole("toolbar", { name: /verdict/i });
+			const labels = Array.from(toolbar.querySelectorAll(":scope > button")).map((btn) =>
+				btn.getAttribute("aria-label"),
+			);
+			expect(labels).toEqual(
+				expect.arrayContaining(["Approve", "Request changes", "Reject", "Snooze"]),
+			);
+			expect(labels).toHaveLength(4);
+		});
+
+		it("secondary verdicts live inside a 'More' overflow control, not the primary toolbar", () => {
+			render(<ReviewHeader {...defaultProps} />);
+			const moreControl = screen.getByRole("button", { name: /more|overflow|more actions/i });
+			expect(moreControl).toBeInTheDocument();
+		});
+
+		it("opening the overflow reveals the 6 secondary verdicts", async () => {
+			const user = userEvent.setup();
+			render(<ReviewHeader {...defaultProps} />);
+			const moreControl = screen.getByRole("button", { name: /more|overflow|more actions/i });
+			await user.click(moreControl);
+			const secondaryLabels = [
+				"Approve with comments",
+				"Comment",
+				"Inline comment",
+				"Edit",
+				"Reply",
+				"Escalate",
+			];
+			for (const label of secondaryLabels) {
+				// The secondary control may be exposed via menuitem or button
+				// role depending on the dropdown implementation.
+				const byButton = screen.queryByRole("button", { name: label });
+				const byMenuItem = screen.queryByRole("menuitem", { name: label });
+				expect(byButton ?? byMenuItem).not.toBeNull();
+			}
+		});
+
+		it("pressing 'c' still fires comment verdict even when dropdown is closed", async () => {
+			// I4 P3: keyboard shortcuts are a global listener on the header
+			// and must work independently of the dropdown open state.
+			const user = userEvent.setup();
+			const handleVerdict = vi.fn();
+			render(<ReviewHeader {...defaultProps} onVerdict={handleVerdict} />);
+			// Focus inside the header via the primary Approve button
+			await user.click(screen.getByRole("button", { name: "Approve" }));
+			handleVerdict.mockClear();
+			await user.keyboard("c");
+			expect(handleVerdict).toHaveBeenCalledWith("comment");
 		});
 	});
 });

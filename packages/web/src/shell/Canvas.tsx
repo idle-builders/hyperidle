@@ -8,6 +8,7 @@ import {
 	type DragEndEvent,
 	DragOverlay,
 	type DragStartEvent,
+	KeyboardSensor,
 	PointerSensor,
 	useDraggable,
 	useDroppable,
@@ -83,7 +84,12 @@ function DraggableBetCard({ bet }: { bet: CanvasBet }): JSX.Element {
 export function Canvas({ bets, capacity, onMoveBet }: CanvasProps): JSX.Element {
 	const [activeId, setActiveId] = useState<string | null>(null);
 
-	const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
+	// I4 KB1: KeyboardSensor enables drag-drop via keyboard (Space to pick
+	// up, arrows to move, Space to drop) so the Canvas is a11y-complete.
+	const sensors = useSensors(
+		useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+		useSensor(KeyboardSensor),
+	);
 
 	const shaped = useMemo(() => bets.filter((b) => b.status === "shaped"), [bets]);
 	const committed = useMemo(() => bets.filter((b) => b.status === "committed"), [bets]);
@@ -110,7 +116,7 @@ export function Canvas({ bets, capacity, onMoveBet }: CanvasProps): JSX.Element 
 
 	if (bets.length === 0) {
 		return (
-			<div className="flex items-center justify-center p-8 text-base-content/50 text-sm">
+			<div className="flex items-center justify-center p-8 text-[var(--text-lo)] text-sm">
 				No bets yet
 			</div>
 		);

@@ -442,7 +442,7 @@ function NotificationsTab({
 			</div>
 
 			{/* Quiet hours */}
-			<div className="divider text-xs text-base-content/50">Quiet Hours</div>
+			<div className="divider text-xs text-[var(--text-lo)]">Quiet Hours</div>
 			<div className="flex gap-3">
 				<div className="form-control flex-1">
 					<label className="label" htmlFor="quiet-start">
@@ -475,7 +475,7 @@ function NotificationsTab({
 			{/* Product mutes */}
 			{products.length > 0 && (
 				<>
-					<div className="divider text-xs text-base-content/50">Mute by Product</div>
+					<div className="divider text-xs text-[var(--text-lo)]">Mute by Product</div>
 					{products.map((p) => (
 						<div key={p.id} className="flex items-center justify-between py-1">
 							<span className="text-sm">{p.name}</span>
@@ -525,7 +525,7 @@ function AppearanceTab({
 
 			<div className="form-control">
 				<p className="label-text text-sm">Theme</p>
-				<p className="text-sm text-base-content/50">Theme switching (light/dark) deferred to v2</p>
+				<p className="text-sm text-[var(--text-lo)]">Theme switching (light/dark) deferred to v2</p>
 			</div>
 		</div>
 	);
