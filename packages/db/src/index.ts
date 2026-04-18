@@ -2,6 +2,24 @@ export { createDb, type HyperIdleDb } from "./connection.js";
 export { createTestDb } from "./test-utils.js";
 export { seed } from "./seed.js";
 export {
+	DEFAULT_PG_POOL_SIZE,
+	createPgDb,
+	parsePgPoolSize,
+	type HyperIdlePgDb,
+	type PgDbHandle,
+	type PgDbOptions,
+} from "./pg-connection.js";
+export {
+	PROFILE_DEFAULTS,
+	resolveProfile,
+	type DbDriver,
+	type DeploymentProfile,
+	type ProfileDefaults,
+	type ResolveOptions,
+	type WorkspaceAdapterKind,
+} from "./profiles.js";
+export { runSetup, type RunSetupContext, type RunSetupIo } from "./setup-cli.js";
+export {
 	// Tables
 	products,
 	agents,

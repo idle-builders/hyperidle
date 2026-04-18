@@ -1,0 +1,77 @@
+/**
+ * H4: Deployment profile contract.
+ *
+ * Three profiles map to a concrete (dbDriver, workspaceAdapter,
+ * requiresDockerCompose, ports) tuple. Profile selection order:
+ *   1. Explicit `profile` argument (e.g. CLI flag).
+ *   2. `HYPERIDLE_PROFILE` env var.
+ *   3. Default: `laptop`.
+ */
+
+export type DeploymentProfile = "laptop" | "vps" | "cloud";
+
+export type DbDriver = "sqlite" | "postgres";
+export type WorkspaceAdapterKind = "local" | "docker" | "e2b";
+
+export interface ProfileDefaults {
+	readonly profile: DeploymentProfile;
+	readonly dbDriver: DbDriver;
+	readonly dbUrlDefault: string;
+	readonly workspaceAdapter: WorkspaceAdapterKind;
+	readonly requiresDockerCompose: boolean;
+	readonly ports: { readonly server: number; readonly web: number };
+}
+
+const DEFAULT_PORTS = { server: 3001, web: 5173 } as const;
+
+export const PROFILE_DEFAULTS: Record<DeploymentProfile, ProfileDefaults> = {
+	laptop: {
+		profile: "laptop",
+		dbDriver: "sqlite",
+		dbUrlDefault: "./hyperidle.db",
+		workspaceAdapter: "local",
+		requiresDockerCompose: false,
+		ports: DEFAULT_PORTS,
+	},
+	vps: {
+		profile: "vps",
+		dbDriver: "postgres",
+		dbUrlDefault: "postgres://hyperidle:hyperidle@postgres:5432/hyperidle",
+		workspaceAdapter: "docker",
+		requiresDockerCompose: true,
+		ports: DEFAULT_PORTS,
+	},
+	cloud: {
+		profile: "cloud",
+		dbDriver: "postgres",
+		dbUrlDefault: "",
+		workspaceAdapter: "e2b",
+		requiresDockerCompose: false,
+		ports: DEFAULT_PORTS,
+	},
+};
+
+const VALID: ReadonlySet<DeploymentProfile> = new Set(["laptop", "vps", "cloud"]);
+
+function isProfile(v: unknown): v is DeploymentProfile {
+	return typeof v === "string" && VALID.has(v as DeploymentProfile);
+}
+
+export interface ResolveOptions {
+	readonly profile?: string | undefined;
+	readonly env?: NodeJS.ProcessEnv | Record<string, string | undefined>;
+}
+
+/**
+ * Resolve the effective deployment profile.
+ * Order: explicit argument > HYPERIDLE_PROFILE env var > laptop default.
+ * Throws on invalid value.
+ */
+export function resolveProfile(options: ResolveOptions = {}): ProfileDefaults {
+	const env = options.env ?? {};
+	const raw = options.profile ?? env.HYPERIDLE_PROFILE ?? "laptop";
+	if (!isProfile(raw)) {
+		throw new Error(`Invalid profile: "${raw}". Must be one of: laptop, vps, cloud.`);
+	}
+	return PROFILE_DEFAULTS[raw];
+}
