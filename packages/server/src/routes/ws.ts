@@ -17,27 +17,45 @@ interface ClientState {
  *
  * When eventBus is provided, clients can subscribe to topics
  * (e.g., "conversations") and receive forwarded domain events.
+ *
+ * Returns a disposer that unregisters the EventBus subscribers. Callers
+ * (typically `server-factory.createBunServer` + in-process integration
+ * tests) call the disposer during teardown so sibling apps sharing a
+ * process do not leak subscriptions onto the bus.
+ *
+ * @lore I1 W2: in-process test isolation relies on this disposer. Without
+ * it, server-factory.integration.test.ts's `afterAll` would leave the
+ * event-bus handlers attached, and a follow-on test registering the same
+ * route would pile up a second set of handlers against a stale `clients`
+ * map — sending WS traffic to already-closed sockets.
  */
-function registerWsRoute(apiApp: Hono, eventBus?: EventBus): void {
+function registerWsRoute(apiApp: Hono, eventBus?: EventBus): () => void {
 	const clients = new Map<WSContext, ClientState>();
 
-	// Subscribe to domain events and forward to subscribed clients
+	// Subscribe to domain events and forward to subscribed clients.
+	// Capture the `.on(...)` disposers so we can unsubscribe in the
+	// returned teardown function below.
+	const busDisposers: Array<() => void> = [];
 	if (eventBus) {
-		eventBus.on("item_created", (event) => {
-			for (const [ws, state] of clients) {
-				if (state.topics.has("conversations")) {
-					ws.send(JSON.stringify(event));
+		busDisposers.push(
+			eventBus.on("item_created", (event) => {
+				for (const [ws, state] of clients) {
+					if (state.topics.has("conversations")) {
+						ws.send(JSON.stringify(event));
+					}
 				}
-			}
-		});
+			}),
+		);
 
-		eventBus.on("response_recorded", (event) => {
-			for (const [ws, state] of clients) {
-				if (state.topics.has("conversations")) {
-					ws.send(JSON.stringify(event));
+		busDisposers.push(
+			eventBus.on("response_recorded", (event) => {
+				for (const [ws, state] of clients) {
+					if (state.topics.has("conversations")) {
+						ws.send(JSON.stringify(event));
+					}
 				}
-			}
-		});
+			}),
+		);
 	}
 
 	// WebSocket auth via query token
@@ -97,6 +115,14 @@ function registerWsRoute(apiApp: Hono, eventBus?: EventBus): void {
 			},
 		})),
 	);
+
+	return (): void => {
+		for (const dispose of busDisposers) {
+			dispose();
+		}
+		busDisposers.length = 0;
+		clients.clear();
+	};
 }
 
 export { registerWsRoute, wsHandler };
