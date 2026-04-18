@@ -53,8 +53,7 @@ describe("clickableProps", () => {
 	describe("className (I4 KB2)", () => {
 		it("returned className includes cursor-pointer", () => {
 			const result = clickableProps(() => {});
-			const cls = (result as { className?: string }).className ?? "";
-			expect(cls).toContain("cursor-pointer");
+			expect(result.className ?? "").toContain("cursor-pointer");
 		});
 
 		it("returned className includes focus-visible:ring-1 focus-visible:ring-primary", () => {
@@ -62,20 +61,14 @@ describe("clickableProps", () => {
 			// element. These are composable Tailwind utilities and must come
 			// from clickableProps (single source of truth).
 			const result = clickableProps(() => {});
-			const cls = (result as { className?: string }).className ?? "";
+			const cls = result.className ?? "";
 			expect(cls).toContain("focus-visible:ring-1");
 			expect(cls).toContain("focus-visible:ring-primary");
 		});
 
 		it("merges caller-provided className with the default focus utilities", () => {
 			// I4 KB2: helper accepts an optional caller className and merges.
-			// Uses a widened signature cast because the current source accepts
-			// only one argument — the 2-arg call must be supported post-I4.
-			const widened = clickableProps as unknown as (
-				onClick?: () => void,
-				callerClassName?: string,
-			) => { className?: string };
-			const result = widened(() => {}, "bg-base-200 p-2");
+			const result = clickableProps(() => {}, "bg-base-200 p-2");
 			const cls = result.className ?? "";
 			expect(cls).toContain("bg-base-200");
 			expect(cls).toContain("p-2");
@@ -87,7 +80,7 @@ describe("clickableProps", () => {
 		it("empty-result branch (no onClick) does NOT emit the focus utilities", () => {
 			// When there is no handler, nothing is clickable — helper returns {}.
 			const result = clickableProps(undefined);
-			expect((result as { className?: string }).className).toBeUndefined();
+			expect(result.className).toBeUndefined();
 		});
 	});
 });
