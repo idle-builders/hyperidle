@@ -1,30 +1,72 @@
 /** Local workspace adapter — creates directories on the host file system (D3). */
 
-import { exec as execCb } from "node:child_process";
+import { spawn as spawnProcess } from "node:child_process";
 import { mkdir, readdir, rm } from "node:fs/promises";
 import { join } from "node:path";
-import { promisify } from "node:util";
 import type { ExecResult, WorkspaceAdapter, WorkspaceHandle } from "./workspace-adapter.js";
 
-const execAsync = promisify(execCb);
-
 let nextId = 1;
+
+/**
+ * Run a shell command line via `sh -c`, returning stdout/stderr/exitCode.
+ *
+ * @lore I2 review MEDIUM-3: the local adapter is intentionally dev-only
+ * (gated to non-production by the constructor) and runs commands through
+ * the host shell so developers can hand it the same shell snippets they'd
+ * type at the prompt. The Docker adapter is the production path and runs
+ * argv-form `docker exec` to keep agent payloads out of any host shell.
+ */
+function runShell(
+	command: string,
+	cwd: string,
+): Promise<{ stdout: string; stderr: string; exitCode: number }> {
+	return new Promise((resolve) => {
+		const child = spawnProcess("sh", ["-c", command], { cwd });
+		let stdout = "";
+		let stderr = "";
+		child.stdout?.on("data", (b: Buffer) => {
+			stdout += b.toString();
+		});
+		child.stderr?.on("data", (b: Buffer) => {
+			stderr += b.toString();
+		});
+		child.on("close", (code) => {
+			resolve({
+				stdout: stdout.trim(),
+				stderr: stderr.trim(),
+				exitCode: code ?? 1,
+			});
+		});
+		child.on("error", (err) => {
+			resolve({
+				stdout: stdout.trim(),
+				stderr: (stderr + (err instanceof Error ? err.message : String(err))).trim(),
+				exitCode: 1,
+			});
+		});
+	});
+}
 
 export class LocalWorkspaceAdapter implements WorkspaceAdapter {
 	private readonly workspaces = new Map<string, WorkspaceHandle>();
 
-	async spawn(baseDir: string): Promise<WorkspaceHandle> {
-		// @lore I2 S4: refuse to operate in production. The local adapter
-		// executes commands directly on the host filesystem with no
+	constructor() {
+		// @lore I2 review A3 / S4: refuse to operate in production. The local
+		// adapter executes commands directly on the host filesystem with no
 		// isolation; allowing it in production would let an agent escape
-		// the intended Docker boundary. The gate lives in spawn() (not
-		// the constructor) so type-only imports in tests still work.
+		// the intended Docker boundary. The gate lives in the CONSTRUCTOR
+		// (not in `spawn()`) so any code path that constructs the adapter —
+		// including `exec()` / `destroy()` against a previously-minted
+		// handle — fails immediately. Type-only `import type` declarations
+		// do not run constructor code, so test ergonomics are unaffected.
 		if (process.env.NODE_ENV === "production") {
 			throw new Error(
 				"LocalWorkspaceAdapter is not allowed in production environments. Use DockerWorkspaceAdapter for isolated workspace execution.",
 			);
 		}
+	}
 
+	async spawn(baseDir: string): Promise<WorkspaceHandle> {
 		const workspaceId = `local-ws-${nextId++}-${Date.now()}`;
 		const path = join(baseDir, workspaceId);
 		await mkdir(path, { recursive: true });
@@ -33,22 +75,18 @@ export class LocalWorkspaceAdapter implements WorkspaceAdapter {
 		return handle;
 	}
 
+	// @lore I2 review: kept async to honour the WorkspaceAdapter contract
+	// — callers always `await` exec() and the "unknown workspace" branch
+	// must surface as a rejected promise (not a synchronous throw) so test
+	// expectations like `await expect(adapter.exec(fake, "ls")).rejects.toThrow(...)`
+	// hold. The runShell call also returns a Promise, so the function body
+	// is genuinely asynchronous even without an explicit `await` keyword.
+	// biome-ignore lint/suspicious/useAwait: see @lore above
 	async exec(handle: WorkspaceHandle, command: string): Promise<ExecResult> {
 		if (!this.workspaces.has(handle.workspaceId)) {
 			throw new Error(`Unknown workspace: ${handle.workspaceId}`);
 		}
-
-		try {
-			const { stdout, stderr } = await execAsync(command, { cwd: handle.path });
-			return { stdout: stdout.trim(), stderr: stderr.trim(), exitCode: 0 };
-		} catch (err: unknown) {
-			const e = err as { stdout?: string; stderr?: string; code?: number };
-			return {
-				stdout: (e.stdout ?? "").trim(),
-				stderr: (e.stderr ?? "").trim(),
-				exitCode: e.code ?? 1,
-			};
-		}
+		return runShell(command, handle.path);
 	}
 
 	async destroy(handle: WorkspaceHandle): Promise<void> {
