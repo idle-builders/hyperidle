@@ -17,27 +17,12 @@ describe("WorkPortfolio", () => {
 		expect(screen.getByTestId("work-portfolio-page")).toBeInTheDocument();
 	});
 
-	it("renders Portfolio Canvas heading", () => {
+	// I4 P1 supersedes the previous "Portfolio Canvas" tests — Portfolio is
+	// now a product overview, not a bet canvas. The detailed assertions live
+	// in the spec-alignment block below.
+	it("renders a Portfolio heading", () => {
 		renderPage();
-		expect(screen.getByText("Portfolio Canvas")).toBeInTheDocument();
-	});
-
-	it("renders Shaped and Committed columns", () => {
-		renderPage();
-		expect(screen.getByText("Shaped")).toBeInTheDocument();
-		expect(screen.getByText("Committed")).toBeInTheDocument();
-	});
-
-	it("renders bet cards in the canvas", () => {
-		renderPage();
-		expect(screen.getByText("User auth flow")).toBeInTheDocument();
-		expect(screen.getByText("Dashboard redesign")).toBeInTheDocument();
-		expect(screen.getByText("API rate limiting")).toBeInTheDocument();
-	});
-
-	it("shows capacity badge on committed column", () => {
-		renderPage();
-		expect(screen.getByText("2 / 4")).toBeInTheDocument();
+		expect(screen.getByRole("heading", { name: /^portfolio$/i })).toBeInTheDocument();
 	});
 
 	describe("spec alignment (I4 P1)", () => {
