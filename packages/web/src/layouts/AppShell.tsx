@@ -5,6 +5,7 @@
  */
 import { type JSX, useCallback, useEffect, useMemo, useState } from "react";
 import { Outlet, useLocation, useNavigate, useSearchParams } from "react-router-dom";
+import { ErrorBoundary } from "../components/ErrorBoundary";
 import { GlobalSearchPanel } from "../components/GlobalSearchPanel";
 import { NavItem } from "../components/NavItem";
 import type { SettingsData } from "../components/SettingsPanel";
@@ -130,7 +131,9 @@ export function AppShell(): JSX.Element {
 			</Submenu>
 
 			<main className="flex-1 overflow-y-auto p-3" data-testid="main-content">
-				<Outlet />
+				<ErrorBoundary>
+					<Outlet />
+				</ErrorBoundary>
 			</main>
 
 			<Rail
