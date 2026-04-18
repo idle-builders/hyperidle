@@ -1,6 +1,6 @@
 import * as crypto from "node:crypto";
 import { type HyperIdleDb, agents, items, sessions, teams } from "@hyperidle/db";
-import type { EventBus } from "@hyperidle/shared";
+import type { EventBus, SessionEndedEvent } from "@hyperidle/shared";
 import { eq, inArray, sql } from "drizzle-orm";
 
 export interface CostCapResult {
@@ -32,16 +32,62 @@ export interface ResetCostsParams {
 	id?: string;
 }
 
-/** Tracks emitted events by sessionId + eventType + capLevel + entityId to prevent duplicates */
-const emittedEvents = new Set<string>();
+/**
+ * Per-session dedup state. Each session has a small Set of dedup keys
+ * (eventType:capLevel:entityId). The map entry is dropped when the session
+ * ends via `releaseSessionDedup`, preventing the unbounded memory growth
+ * the previous module-level Set produced.
+ *
+ * @lore I3 (TRACK-I.md L156-159): the previous implementation used a
+ * module-level `Set<string>` keyed on `sessionId:…`, so dedup keys for
+ * dead sessions stayed forever. The fix is per-session scoping with a
+ * lifecycle hook called from session-lifecycle.ts AND an EventBus
+ * subscription registered from `app.ts` (`registerCostCapDedupReleaser`)
+ * so EVERY session-end path (graceful end, crash, PATCH /sessions/:id
+ * to done/crashed) reclaims the entry.
+ *
+ * @lore I3 review C2 / arch H-2: this Map is module-level state. Any
+ * test that imports `recordCostAndCheck` MUST call
+ * `clearDeduplicationCache()` in `beforeEach` to avoid bleeding state
+ * across tests in the same Vitest worker. Long-term this belongs on a
+ * `CostCapService` instance constructed by `createApp` — see
+ * I3-architecture-review.md H-2.
+ */
+interface SessionDedupEntry {
+	readonly agentId?: string;
+	readonly teamId?: string;
+	readonly keys: Set<string>;
+}
 
-function dedupeKey(
+const dedupBySession = new Map<string, SessionDedupEntry>();
+
+function dedupKeyPart(eventType: string, capLevel: string, entityId: string): string {
+	return `${eventType}:${capLevel}:${entityId}`;
+}
+
+function tryRecordDedupKey(
 	sessionId: string,
 	eventType: string,
 	capLevel: string,
 	entityId: string,
-): string {
-	return `${sessionId}:${eventType}:${capLevel}:${entityId}`;
+	agentId?: string,
+	teamId?: string,
+): boolean {
+	// Lazy registration: only materialize the per-session entry when we
+	// actually have a key to record. Sessions that never breach a cap
+	// produce zero entries (I3 review C2). Cleanup-on-reset still works
+	// because a session with no keys has no entries to clear.
+	let entry = dedupBySession.get(sessionId);
+	const key = dedupKeyPart(eventType, capLevel, entityId);
+	if (entry?.keys.has(key)) {
+		return false;
+	}
+	if (!entry) {
+		entry = { agentId, teamId, keys: new Set() };
+		dedupBySession.set(sessionId, entry);
+	}
+	entry.keys.add(key);
+	return true;
 }
 
 function getAgentSpend(db: HyperIdleDb, agentId: string): number {
@@ -160,6 +206,8 @@ export async function recordCostAndCheck(
 			cap: agent.costCap,
 			timestamp: now,
 			reviewThreadId: params.reviewThreadId,
+			agentId: params.agentId,
+			teamId: params.teamId,
 		});
 	}
 
@@ -176,6 +224,8 @@ export async function recordCostAndCheck(
 				cap: team.costCap,
 				timestamp: now,
 				reviewThreadId: params.reviewThreadId,
+				agentId: params.agentId,
+				teamId: params.teamId,
 			});
 		}
 	}
@@ -191,6 +241,8 @@ export async function recordCostAndCheck(
 			cap: params.factoryCap,
 			timestamp: now,
 			reviewThreadId: params.reviewThreadId,
+			agentId: params.agentId,
+			teamId: params.teamId,
 		});
 	}
 }
@@ -203,6 +255,9 @@ interface CheckAndEmitParams {
 	cap: number;
 	timestamp: number;
 	reviewThreadId?: string;
+	/** Required so dedup-map entries can be cleared by `resetCosts({level:"agent"|"team"})`. */
+	agentId?: string;
+	teamId?: string;
 }
 
 function checkAndEmit(db: HyperIdleDb, eventBus: EventBus, params: CheckAndEmitParams): void {
@@ -210,9 +265,16 @@ function checkAndEmit(db: HyperIdleDb, eventBus: EventBus, params: CheckAndEmitP
 
 	// Breach at 100%
 	if (ratio >= 1) {
-		const key = dedupeKey(params.sessionId, "cost_cap_breached", params.capLevel, params.entityId);
-		if (!emittedEvents.has(key)) {
-			emittedEvents.add(key);
+		if (
+			tryRecordDedupKey(
+				params.sessionId,
+				"cost_cap_breached",
+				params.capLevel,
+				params.entityId,
+				params.agentId,
+				params.teamId,
+			)
+		) {
 			eventBus.emit({
 				type: "cost_cap_breached",
 				streamId: params.sessionId,
@@ -233,9 +295,16 @@ function checkAndEmit(db: HyperIdleDb, eventBus: EventBus, params: CheckAndEmitP
 
 	// Warning at 80%
 	if (ratio >= 0.8) {
-		const key = dedupeKey(params.sessionId, "cost_cap_warning", params.capLevel, params.entityId);
-		if (!emittedEvents.has(key)) {
-			emittedEvents.add(key);
+		if (
+			tryRecordDedupKey(
+				params.sessionId,
+				"cost_cap_warning",
+				params.capLevel,
+				params.entityId,
+				params.agentId,
+				params.teamId,
+			)
+		) {
 			eventBus.emit({
 				type: "cost_cap_warning",
 				streamId: params.sessionId,
@@ -277,8 +346,24 @@ function createReviewItem(db: HyperIdleDb, _eventBus: EventBus, params: CheckAnd
  * For factory: zeroes all session costs.
  */
 export async function resetCosts(db: HyperIdleDb, params: ResetCostsParams): Promise<void> {
-	// Clear the deduplication set on reset
-	emittedEvents.clear();
+	// Clear the deduplication state on reset (factory reset clears all,
+	// agent/team reset clears entries belonging to those scopes).
+	if (params.level === "factory") {
+		dedupBySession.clear();
+	} else if (params.level === "agent" && params.id) {
+		// I3 review W7: collect-then-delete to avoid mutating the Map mid-iteration.
+		const toDelete: string[] = [];
+		for (const [sid, entry] of dedupBySession) {
+			if (entry.agentId === params.id) toDelete.push(sid);
+		}
+		for (const sid of toDelete) dedupBySession.delete(sid);
+	} else if (params.level === "team" && params.id) {
+		const toDelete: string[] = [];
+		for (const [sid, entry] of dedupBySession) {
+			if (entry.teamId === params.id) toDelete.push(sid);
+		}
+		for (const sid of toDelete) dedupBySession.delete(sid);
+	}
 
 	switch (params.level) {
 		case "agent": {
@@ -315,9 +400,47 @@ export async function resetCosts(db: HyperIdleDb, params: ResetCostsParams): Pro
 }
 
 /**
- * Clear the in-memory deduplication set.
+ * Clear the in-memory deduplication map.
  * Exposed for testing purposes only.
  */
 export function clearDeduplicationCache(): void {
-	emittedEvents.clear();
+	dedupBySession.clear();
+}
+
+/**
+ * Drop all dedup state for a single session. Call this from session
+ * lifecycle code when a session ends (done / crashed / cancelled) so the
+ * map doesn't grow unboundedly across the factory's lifetime.
+ */
+export function releaseSessionDedup(sessionId: string): void {
+	dedupBySession.delete(sessionId);
+}
+
+/**
+ * Test-only inspection hook. Returns the total count of distinct sessions
+ * currently tracked in the dedup map (NOT the per-session key count).
+ */
+export function getDedupCacheSize(): number {
+	return dedupBySession.size;
+}
+
+/**
+ * Subscribe the cost-cap dedup releaser to the EventBus so EVERY
+ * `session_ended` (graceful end via `endSession`, crash via `crashSession`,
+ * client-driven PATCH /sessions/:id done|crashed) reclaims the per-session
+ * dedup entry. Returns an unsubscribe function.
+ *
+ * @lore I3 review C1 / arch H-1: handoff and PATCH /sessions/:id formerly
+ * bypassed `endSession`/`crashSession` and never released the dedup entry.
+ * Subscribing centrally here keeps cleanup at a single chokepoint — any
+ * future code path that emits `session_ended` is automatically covered.
+ * Handoff still calls `releaseSessionDedup` directly because handoff
+ * deliberately suppresses `session_ended` (see handoff-protocol.ts line
+ * 85-87).
+ */
+export function registerCostCapDedupReleaser(eventBus: EventBus): () => void {
+	const handler = (event: SessionEndedEvent): void => {
+		releaseSessionDedup(event.sessionId);
+	};
+	return eventBus.on("session_ended", handler);
 }

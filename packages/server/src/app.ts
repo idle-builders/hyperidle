@@ -24,6 +24,7 @@ import { createStatusRoutes } from "./routes/status.js";
 import { createTaskRoutes } from "./routes/tasks.js";
 import { registerTestRoutes } from "./routes/test-routes.js";
 import { registerBuiltinRoutineHandlers } from "./services/builtin-routines.js";
+import { registerCostCapDedupReleaser } from "./services/cost-cap.js";
 import { createGitRunner } from "./services/git-export-runner.js";
 import { registerGitExportHandler } from "./services/git-export.js";
 import type { NotificationConfig } from "./services/notifications/config.js";
@@ -338,6 +339,11 @@ function createApp(options?: AppOptions): Hono {
 		disposers.push(registerSessionReviewCreator(db, eventBus));
 		disposers.push(registerPolicyEngine(db, eventBus));
 		disposers.push(registerBuiltinRoutineHandlers(db, eventBus));
+		// I3 review C1 / arch H-1: drop cost-cap dedup-map entries on every
+		// session_ended event (graceful end, crash, client PATCH). Single
+		// chokepoint keeps the per-session map bounded across the factory's
+		// lifetime — see services/cost-cap.ts for context.
+		disposers.push(registerCostCapDedupReleaser(eventBus));
 		disposers.push(
 			registerGitExportHandler(db, eventBus, {
 				runnerFactory: options.gitRunnerFactory ?? ((repoPath) => createGitRunner(repoPath)),

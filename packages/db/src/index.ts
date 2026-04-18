@@ -1,6 +1,7 @@
 export { createDb, type HyperIdleDb } from "./connection.js";
 export { createTestDb } from "./test-utils.js";
 export { seed } from "./seed.js";
+export { seedPg, type SeedablePgDb } from "./seed-pg.js";
 export {
 	DEFAULT_PG_POOL_SIZE,
 	PG_POOL_SIZE_ENV,

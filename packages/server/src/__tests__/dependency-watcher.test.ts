@@ -154,6 +154,41 @@ describe("Dependency Watcher", () => {
 		});
 	});
 
+	// I3 review W3 / sec MEDIUM-2: LIKE wildcards (`%`, `_`) in the
+	// completedTaskId must be escaped so a malformed/exotic ID can't
+	// match unrelated dependents. UUIDs don't contain these chars but
+	// the escape is defence-in-depth for future ID formats.
+	describe("LIKE wildcard escape (W3)", () => {
+		it("treats `%` in completedTaskId as a literal, not a wildcard", () => {
+			// The literal completedTaskId is "any%id". A dependent task
+			// listing "anyREALLYid" as a dependency must NOT be unblocked
+			// by completion of "any%id" — the `%` must be treated literally.
+			insertTask(db, "anyREALLYid", "done");
+			insertTask(db, "dependent", "hold", ["anyREALLYid"]);
+
+			// Caller "completes" a task whose id contains `%`. Without the
+			// escape, the SQL LIKE pattern `%"any%id"%` would match the
+			// stored dependency `"anyREALLYid"`. With the escape it
+			// doesn't.
+			checkAndUnblockDependents(db, eventBus, "any%id");
+
+			const task = db.select().from(tasks).where(eq(tasks.id, "dependent")).get();
+			expect(task?.state).toBe("hold");
+		});
+
+		it("treats `_` in completedTaskId as a literal, not a single-char wildcard", () => {
+			insertTask(db, "depX1", "done");
+			insertTask(db, "dependent", "hold", ["depX1"]);
+
+			// SQL `_` is single-char wildcard; without escape `dep_1` would
+			// match `depX1`. Escape forces literal.
+			checkAndUnblockDependents(db, eventBus, "dep_1");
+
+			const task = db.select().from(tasks).where(eq(tasks.id, "dependent")).get();
+			expect(task?.state).toBe("hold");
+		});
+	});
+
 	describe("multiple dependents", () => {
 		it("unblocks multiple tasks that depend on the same completed task", () => {
 			insertTask(db, "dep-1", "done");

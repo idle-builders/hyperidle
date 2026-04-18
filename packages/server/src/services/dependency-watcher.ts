@@ -1,31 +1,76 @@
 import { type HyperIdleDb, tasks } from "@hyperidle/db";
-import type { EventBus } from "@hyperidle/shared";
-import { eq } from "drizzle-orm";
+import { type EventBus, createLogger } from "@hyperidle/shared";
+import { and, eq, sql } from "drizzle-orm";
+import { escapeLikePattern } from "./like-escape.js";
 import { transitionTask } from "./task-state-machine.js";
+
+const logger = createLogger({ pkg: "server.dependency-watcher" });
 
 /**
  * After a task completes, check all tasks that depend on it.
  * If all of a dependent task's dependencies are now done and it is in `hold`,
  * auto-transition it to `accepted` and emit a notification.
+ *
+ * @lore I3 (TRACK-I.md L137-139): the previous implementation loaded every
+ * row in `tasks` and ran JSON.parse on each. Replaced with a SQL pre-filter:
+ * only consider hold-state rows whose `dependencies` text column contains
+ * the JSON-quoted completedTaskId. The quoting is critical to prevent
+ * prefix collisions ('"dep-1"' must NOT match the substring of '"dep-12"').
+ *
+ * @lore I3 review W3 / sec MEDIUM-2: even though IDs are crypto.randomUUID
+ * today, escapeLikePattern() is applied unconditionally so a future caller
+ * passing an ID containing `%` or `_` literals doesn't accidentally widen
+ * the LIKE match (single `_` matches any char; `%` matches any sequence).
+ * The `ESCAPE '\'` clause makes our backslash escape effective.
  */
 export function checkAndUnblockDependents(
 	db: HyperIdleDb,
 	eventBus: EventBus,
 	completedTaskId: string,
 ): void {
-	// Find all tasks that have dependencies (non-null)
-	const allTasks = db.select().from(tasks).all();
+	// SQL pre-filter: hold-state tasks whose dependencies include the literal
+	// quoted completedTaskId. The LIKE pattern wraps the id in JSON quotes
+	// so substrings of unrelated IDs ("dep-1" vs "dep-12") don't match.
+	const escapedId = escapeLikePattern(completedTaskId);
+	const pattern = `%"${escapedId}"%`;
+	const candidates = db
+		.select()
+		.from(tasks)
+		.where(and(eq(tasks.state, "hold"), sql`${tasks.dependencies} LIKE ${pattern} ESCAPE '\\'`))
+		.all();
 
-	for (const task of allTasks) {
+	for (const task of candidates) {
 		if (!task.dependencies) continue;
 
-		const deps: string[] = JSON.parse(task.dependencies);
+		// Defence-in-depth: a row could conceivably store malformed JSON.
+		// Log via observability and skip rather than throw — a malformed
+		// dependencies blob is a data problem, not a runtime fault for the
+		// watcher (I3 review O8).
+		let deps: string[];
+		try {
+			const parsed = JSON.parse(task.dependencies);
+			if (!Array.isArray(parsed)) {
+				logger.warn("dependency-watcher: dependencies is not a JSON array", {
+					taskId: task.id,
+					value: task.dependencies,
+				});
+				continue;
+			}
+			deps = parsed.filter((v): v is string => typeof v === "string");
+		} catch (err) {
+			logger.warn("dependency-watcher: failed to parse dependencies JSON", {
+				taskId: task.id,
+				error: err instanceof Error ? err.message : String(err),
+			});
+			continue;
+		}
+
+		// Sanity: the LIKE proves the JSON-quoted ID appears as text. The
+		// runtime check still guards against false positives across array
+		// boundaries (shouldn't happen, but cheap).
 		if (!deps.includes(completedTaskId)) continue;
 
-		// Only auto-transition tasks in hold state
-		if (task.state !== "hold") continue;
-
-		// Check if ALL dependencies are done
+		// Check if ALL dependencies are done.
 		const allDone = deps.every((depId) => {
 			const dep = db.select().from(tasks).where(eq(tasks.id, depId)).get();
 			return dep?.state === "done";
