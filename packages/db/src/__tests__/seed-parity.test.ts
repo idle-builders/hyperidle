@@ -12,10 +12,11 @@ import { createTestDb } from "../test-utils.js";
 // instance and writes the same logical fixtures. We dynamic-import so the
 // test file can load (and report assertion failures) before the module
 // exists; once implemented, the import resolves and all assertions run.
-type SeedPgFn = (db: ReturnType<typeof createPgTestDb> extends Promise<infer T> ? T["db"] : never) => Promise<void>;
+type SeedPgFn = (
+	db: ReturnType<typeof createPgTestDb> extends Promise<infer T> ? T["db"] : never,
+) => Promise<void>;
 let seedPg: SeedPgFn;
 try {
-	// biome-ignore lint/suspicious/noExplicitAny: dynamic import shape unknown until module exists
 	const mod = (await import("../seed-pg.js")) as { seedPg: SeedPgFn };
 	seedPg = mod.seedPg;
 } catch {
@@ -38,7 +39,10 @@ interface RowCount {
 	count: number;
 }
 
-async function pgCount(client: ReturnType<typeof createPgTestDb> extends Promise<infer T> ? T : never, table: string): Promise<number> {
+async function pgCount(
+	client: ReturnType<typeof createPgTestDb> extends Promise<infer T> ? T : never,
+	table: string,
+): Promise<number> {
 	const rows = await client.client.query<RowCount>(`SELECT COUNT(*)::int as count FROM ${table}`);
 	return rows.rows[0]?.count ?? 0;
 }

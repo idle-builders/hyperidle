@@ -119,11 +119,7 @@ describe("I3: knowledge-repository optimistic locking", () => {
 		bumpToVersion(created.id, 5);
 
 		// Snapshot the stale row (version 5). This is what writer B "saw".
-		const stale = db
-			.select()
-			.from(knowledgeItems)
-			.where(eq(knowledgeItems.id, created.id))
-			.get();
+		const stale = db.select().from(knowledgeItems).where(eq(knowledgeItems.id, created.id)).get();
 		expect(stale?.version).toBe(5);
 
 		// Writer A bumps to version 6 (out-of-band: simulates a concurrent
@@ -164,11 +160,7 @@ describe("I3: knowledge-repository optimistic locking", () => {
 		}
 
 		// Writer A's value must survive — Writer B must NOT have overwritten.
-		const final = db
-			.select()
-			.from(knowledgeItems)
-			.where(eq(knowledgeItems.id, created.id))
-			.get();
+		const final = db.select().from(knowledgeItems).where(eq(knowledgeItems.id, created.id)).get();
 		expect(final?.title).toBe("Writer A");
 		expect(final?.version).toBe(6);
 	});

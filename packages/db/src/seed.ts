@@ -12,6 +12,13 @@ import {
 	tasks,
 	teams,
 } from "./schema.js";
+import {
+	BUILTIN_ROUTINE_SEEDS,
+	COMMUNITY_DISPLAY_NAMES,
+	FACILITATOR_TOOLS,
+	PRACTICE_COMMUNITIES,
+	asBit01,
+} from "./seed-fixtures.js";
 
 // @lore `seed` accepts any synchronous SQLite Drizzle instance over our
 // schema — better-sqlite3 and bun:sqlite both fit. Narrowing to
@@ -24,25 +31,8 @@ export type SeedableDb = BaseSQLiteDatabase<"sync", unknown, typeof schema>;
 // @lore: Facilitator agents encode their scope in the `skills` JSON blob
 // (shape: {"scope": "<community|product_id|null>", "tools": [...]}) because
 // `agents` has no first-class `scope_id` column. See docs/work-packages/plans/G1-plan.md §2.
-const FACILITATOR_TOOLS = [
-	"route_item",
-	"score_attention",
-	"promote_knowledge",
-	"create_conflict_review",
-] as const;
-
-const PRACTICE_COMMUNITIES = ["build", "product", "growth", "ops", "facilitation"] as const;
-type PracticeCommunity = (typeof PRACTICE_COMMUNITIES)[number];
-
-// Explicit display names keep seed output stable even if we later rename
-// the community slugs; no need for a `capitalize()` helper.
-const COMMUNITY_DISPLAY_NAMES: Record<PracticeCommunity, string> = {
-	build: "Build",
-	product: "Product",
-	growth: "Growth",
-	ops: "Ops",
-	facilitation: "Facilitation",
-};
+// FACILITATOR_TOOLS / PRACTICE_COMMUNITIES / COMMUNITY_DISPLAY_NAMES live in
+// `seed-fixtures.ts` so the PG seed can share them.
 
 /** Idempotent seed: ≥1 row per major table. */
 export function seed(db: SeedableDb | HyperIdleDb): void {
@@ -233,70 +223,6 @@ export function seed(db: SeedableDb | HyperIdleDb): void {
 	seedBuiltinRoutines(db, now);
 }
 
-interface BuiltinRoutineSeed {
-	id: string;
-	ownerAgentId: string;
-	triggerType: "heartbeat" | "calendar" | "event";
-	triggerConfig: Record<string, unknown>;
-	skillId: string;
-	doneCondition: string;
-	humanReview: 0 | 1;
-	silent: 0 | 1;
-}
-
-const BUILTIN_ROUTINE_SEEDS: readonly BuiltinRoutineSeed[] = [
-	{
-		id: "builtin:cost-sentinel",
-		ownerAgentId: "seed-agent-cos",
-		triggerType: "heartbeat",
-		triggerConfig: { intervalSeconds: 900 },
-		skillId: "cost_watchdog",
-		doneCondition: "Factory cost spend is below warning threshold",
-		humanReview: 0,
-		silent: 1,
-	},
-	{
-		id: "builtin:practice-meeting",
-		ownerAgentId: "seed-agent-pf-facilitation",
-		triggerType: "calendar",
-		triggerConfig: { cron: "0 10 * * MON" },
-		skillId: "practice_meeting",
-		doneCondition: "3-turn practice meeting anchor created",
-		humanReview: 0,
-		silent: 0,
-	},
-	{
-		id: "builtin:post-bet-retro",
-		ownerAgentId: "seed-agent-pm-nimmly",
-		triggerType: "event",
-		triggerConfig: { eventType: "bet_shipped" },
-		skillId: "bet_retro",
-		doneCondition: "Review item comparing hypothesis vs reality written",
-		humanReview: 1,
-		silent: 0,
-	},
-	{
-		id: "builtin:portfolio-retro",
-		ownerAgentId: "seed-agent-cos",
-		triggerType: "calendar",
-		triggerConfig: { cron: "0 10 1-7 * MON" },
-		skillId: "portfolio_retro",
-		doneCondition: "Cross-product portfolio review item written",
-		humanReview: 1,
-		silent: 0,
-	},
-	{
-		id: "builtin:knowledge-decay",
-		ownerAgentId: "seed-agent-cos",
-		triggerType: "calendar",
-		triggerConfig: { cron: "0 2 * * *" },
-		skillId: "knowledge_decay",
-		doneCondition: "Stale knowledge items transitioned",
-		humanReview: 0,
-		silent: 1,
-	},
-];
-
 function seedBuiltinRoutines(db: SeedableDb | HyperIdleDb, _now: string): void {
 	for (const spec of BUILTIN_ROUTINE_SEEDS) {
 		db.insert(routines)
@@ -308,8 +234,8 @@ function seedBuiltinRoutines(db: SeedableDb | HyperIdleDb, _now: string): void {
 				skillId: spec.skillId,
 				doneCondition: spec.doneCondition,
 				delegationAllowed: 0,
-				humanReview: spec.humanReview,
-				silent: spec.silent,
+				humanReview: asBit01(spec.humanReview),
+				silent: asBit01(spec.silent),
 				active: 1,
 			})
 			.onConflictDoNothing()

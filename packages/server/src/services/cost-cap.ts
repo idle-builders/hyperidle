@@ -266,12 +266,7 @@ function checkAndEmit(db: HyperIdleDb, eventBus: EventBus, params: CheckAndEmitP
 	// Breach at 100%
 	if (ratio >= 1) {
 		if (
-			tryRecordDedupKey(
-				params.sessionId,
-				"cost_cap_breached",
-				params.capLevel,
-				params.entityId,
-			)
+			tryRecordDedupKey(params.sessionId, "cost_cap_breached", params.capLevel, params.entityId)
 		) {
 			eventBus.emit({
 				type: "cost_cap_breached",
@@ -293,14 +288,7 @@ function checkAndEmit(db: HyperIdleDb, eventBus: EventBus, params: CheckAndEmitP
 
 	// Warning at 80%
 	if (ratio >= 0.8) {
-		if (
-			tryRecordDedupKey(
-				params.sessionId,
-				"cost_cap_warning",
-				params.capLevel,
-				params.entityId,
-			)
-		) {
+		if (tryRecordDedupKey(params.sessionId, "cost_cap_warning", params.capLevel, params.entityId)) {
 			eventBus.emit({
 				type: "cost_cap_warning",
 				streamId: params.sessionId,

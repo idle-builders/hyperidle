@@ -32,10 +32,9 @@ function explainPlan(db: HyperIdleDb, query: string): ExplainRow[] {
 
 function assertUsesIndex(rows: ExplainRow[], hint: string): void {
 	const detailJoined = rows.map((r) => r.detail).join("\n");
-	expect(
-		detailJoined,
-		`expected query plan to USE INDEX (${hint}), got:\n${detailJoined}`,
-	).toMatch(/USING INDEX/i);
+	expect(detailJoined, `expected query plan to USE INDEX (${hint}), got:\n${detailJoined}`).toMatch(
+		/USING INDEX/i,
+	);
 	expect(
 		detailJoined,
 		`expected query plan NOT to be a full SCAN TABLE (${hint}), got:\n${detailJoined}`,

@@ -157,9 +157,7 @@ describe("I3: FK actions — RESTRICT on reference data", () => {
 				createdAt: NOW,
 			})
 			.run();
-		expect(() => db.delete(threads).where(eq(threads.id, "thread-1")).run()).toThrow(
-			/constraint/i,
-		);
+		expect(() => db.delete(threads).where(eq(threads.id, "thread-1")).run()).toThrow(/constraint/i);
 	});
 
 	it("rejects deleting a thread while an item references it", () => {
@@ -176,9 +174,7 @@ describe("I3: FK actions — RESTRICT on reference data", () => {
 				createdAt: NOW,
 			})
 			.run();
-		expect(() => db.delete(threads).where(eq(threads.id, "thread-1")).run()).toThrow(
-			/constraint/i,
-		);
+		expect(() => db.delete(threads).where(eq(threads.id, "thread-1")).run()).toThrow(/constraint/i);
 	});
 
 	it("rejects deleting an agent while a routine references it", () => {
