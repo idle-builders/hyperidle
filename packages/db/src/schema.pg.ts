@@ -110,6 +110,7 @@ export const sessions = pgTable("sessions", {
 	cost: integer("cost").default(0),
 	outcome: text("outcome"),
 	notes: text("notes"),
+	traceId: text("trace_id"),
 });
 
 export const routines = pgTable("routines", {

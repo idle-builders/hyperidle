@@ -46,6 +46,7 @@ export type {
 	DependencyMetEvent,
 	BetCommittedEvent,
 	BetRevisedEvent,
+	ToolCallRecordedEvent,
 } from "./events.js";
 
 export { EventBus } from "./event-bus.js";
@@ -80,3 +81,36 @@ export type {
 } from "./harness/index.js";
 
 export { MockHarnessAdapter } from "./harness/index.js";
+
+export type { ObservabilityEvent } from "./observability/events.js";
+
+export {
+	REDACTED_TAG,
+	BEARER_TOKEN_RE,
+	SK_TOKEN_RE,
+	PK_TOKEN_RE,
+	GITHUB_TOKEN_RE,
+	TK_TOKEN_RE,
+	HEX_TOKEN_RE,
+	AWS_AKIA_RE,
+	SLACK_TOKEN_RE,
+	GOOGLE_API_KEY_RE,
+	JWT_RE,
+	STRIPE_TOKEN_RE,
+	PEM_BLOCK_RE,
+	ERROR_TOKEN_PATTERNS,
+	scrubInlineTokens,
+} from "./redact.js";
+
+export {
+	type ResolveResult,
+	type SanitizeResult,
+	type SanitizeUrlOptions,
+	sanitizeHttpUrl,
+	assertUrlNotSSRF,
+	resolveUrlForSSRF,
+	isPrivateIPv4,
+	isPrivateIPv6,
+	isPrivateHostLiteral,
+	isLoopbackHost,
+} from "./net/ssrf.js";
