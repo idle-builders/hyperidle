@@ -11,6 +11,7 @@ import { ConversationsChat } from "./pages/ConversationsChat";
 import { ConversationsReview } from "./pages/ConversationsReview";
 import { KnowledgeDetail } from "./pages/KnowledgeDetail";
 import { KnowledgeList } from "./pages/KnowledgeList";
+import { NotFound } from "./pages/NotFound";
 import { WorkBet } from "./pages/WorkBet";
 import { WorkPortfolio } from "./pages/WorkPortfolio";
 import { WorkTeam } from "./pages/WorkTeam";
@@ -32,6 +33,8 @@ export const router = createBrowserRouter([
 				path: "settings",
 				element: <Navigate to="/conversations/review?settings=open" replace />,
 			},
+			// I4 E2: catch-all so unknown URLs render NotFound (not a blank page).
+			{ path: "*", element: <NotFound /> },
 		],
 	},
 ]);
