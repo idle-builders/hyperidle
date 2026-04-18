@@ -128,15 +128,45 @@ export function toolsForRole(role: AgentRole): readonly ToolDefinition[] {
 	return ALL_TOOL_DEFINITIONS.filter((d) => d.roles === undefined || d.roles.includes(role));
 }
 
-/** Build a fresh registry bound to the given context. */
-export function buildToolRegistry(ctx: ToolContext): ToolRegistry {
-	const definitions = ALL_TOOL_DEFINITIONS;
+/**
+ * Options accepted by `buildToolRegistry`. `role` is REQUIRED so every call
+ * site has to make an explicit authorization decision — silent fallback to
+ * "all tools" was the I2 B1/B2 vulnerability.
+ *
+ * @lore I2 B1/B2: previously `buildToolRegistry(ctx)` returned every tool
+ * to every caller. Defence-in-depth: the registry now filters by role at
+ * the constructor boundary, mirroring the harness allowed-tool list.
+ */
+export interface BuildToolRegistryOptions {
+	readonly role: AgentRole;
+}
+
+/**
+ * Build a fresh registry bound to the given context, filtered to the agent's role.
+ *
+ * @lore I2 review W3: when the requested tool exists in the global tool
+ * catalogue but is filtered out for this role, `invoke()` returns
+ * `FORBIDDEN` (not `NOT_FOUND`). NOT_FOUND is reserved for genuinely
+ * unknown tool names so an operator debugging "missing tool" failures
+ * can distinguish a typo (NOT_FOUND) from a role-boundary breach
+ * (FORBIDDEN). The harness still applies its own per-session allowlist
+ * (`session-provisioning.ts:303`); this is the inner gate.
+ */
+export function buildToolRegistry(
+	ctx: ToolContext,
+	options: BuildToolRegistryOptions,
+): ToolRegistry {
+	const definitions = toolsForRole(options.role);
 
 	const byName = new Map(definitions.map((d) => [d.name, d]));
+	const allByName = new Map(ALL_TOOL_DEFINITIONS.map((d) => [d.name, d]));
 
 	async function invoke(name: string, rawArgs: unknown): Promise<ToolResult> {
 		const def = byName.get(name);
 		if (!def) {
+			if (allByName.has(name)) {
+				return err("FORBIDDEN", `Tool not available to this role: ${name}`);
+			}
 			return err("NOT_FOUND", `Unknown tool: ${name}`);
 		}
 		const parsed = def.inputSchema.safeParse(rawArgs ?? {});

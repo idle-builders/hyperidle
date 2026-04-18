@@ -41,13 +41,17 @@ describe("AC8: every tool has a valid Claude tool_use JSON schema", () => {
 	});
 
 	it("registry produces one spec per expected tool name", () => {
-		const specs = buildToolRegistry(makeContext(db)).toClaudeToolSpecs();
+		// I2 B1-B4: registry requires explicit role. chief_of_staff sees
+		// every tool, matching this test's "all tools present" expectation.
+		const specs = buildToolRegistry(makeContext(db), {
+			role: "chief_of_staff",
+		}).toClaudeToolSpecs();
 		const names = specs.map((s) => s.name).sort();
 		expect(names).toEqual([...EXPECTED_TOOL_NAMES].sort());
 	});
 
 	it.each(EXPECTED_TOOL_NAMES)("%s spec has Claude-compatible input_schema shape", (toolName) => {
-		const registry = buildToolRegistry(makeContext(db));
+		const registry = buildToolRegistry(makeContext(db), { role: "chief_of_staff" });
 		const def = registry.definitions.find((d) => d.name === toolName);
 		expect(def).toBeDefined();
 		if (!def) return;
@@ -67,7 +71,9 @@ describe("AC8: every tool has a valid Claude tool_use JSON schema", () => {
 	});
 
 	it("each spec is JSON-serializable (no circular references)", () => {
-		const specs = buildToolRegistry(makeContext(db)).toClaudeToolSpecs();
+		const specs = buildToolRegistry(makeContext(db), {
+			role: "chief_of_staff",
+		}).toClaudeToolSpecs();
 		for (const spec of specs) {
 			expect(() => JSON.stringify(spec)).not.toThrow();
 			const round = JSON.parse(JSON.stringify(spec)) as { name: string };

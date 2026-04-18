@@ -134,12 +134,7 @@ export function createObservabilityRoutes(
 		c.json({
 			ok: true,
 			resource: "observability",
-			endpoints: [
-				"GET /config",
-				"PATCH /config",
-				"GET /status",
-				"POST /flush",
-			],
+			endpoints: ["GET /config", "PATCH /config", "GET /status", "POST /flush"],
 		}),
 	);
 

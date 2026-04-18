@@ -1,5 +1,5 @@
-import { type Logger, createLogger } from "./logger.js";
 import type { EventByType, EventHandler, EventType, WildcardHandler } from "./events.js";
+import { type Logger, createLogger } from "./logger.js";
 
 /**
  * Module-scoped logger used to surface handler failures. Captured via

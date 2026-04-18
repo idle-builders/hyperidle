@@ -60,7 +60,9 @@ async function createAndSeedDb(dbPath: string): Promise<void> {
 	migrate(db, { migrationsFolder });
 
 	const now = new Date().toISOString();
-	db.insert(products).values({ id: "p-sf", name: "SF Product", phase: "build", createdAt: now }).run();
+	db.insert(products)
+		.values({ id: "p-sf", name: "SF Product", phase: "build", createdAt: now })
+		.run();
 	db.insert(teams)
 		.values({ id: "t-sf", productId: "p-sf", capacity: 5, activeBets: 0, formedAt: now })
 		.run();
@@ -148,6 +150,12 @@ describe("server-factory — I1 integration (S1–S5)", () => {
 				PORT: String(port),
 				DATABASE_URL: dbPath,
 				NODE_ENV: "test",
+				// I2 A4: a tiny TTL so the expired-token assertion runs in
+				// well under a second. The store reads this on construction.
+				HYPERIDLE_WS_TOKEN_TTL_MS: "200",
+				// Keep the I2 rate-limit middleware from tripping on the
+				// many integration probes this suite fires per second.
+				HYPERIDLE_RATE_LIMIT_PER_MIN: "100000",
 			},
 			stdio: ["ignore", "pipe", "pipe"],
 		});
@@ -248,8 +256,7 @@ describe("server-factory — I1 integration (S1–S5)", () => {
 			// The endpoint returns either an array or an object keyed by
 			// status. Either shape is acceptable — both prove the route
 			// is wired and the db query ran.
-			const isArrayOrObject =
-				Array.isArray(body) || (typeof body === "object" && body !== null);
+			const isArrayOrObject = Array.isArray(body) || (typeof body === "object" && body !== null);
 			expect(isArrayOrObject).toBe(true);
 		});
 	});
@@ -273,30 +280,67 @@ describe("server-factory — I1 integration (S1–S5)", () => {
 	});
 
 	// ------------------------------------------------------------ S5
-	describe("S5: WebSocket upgrade at /api/ws?token=<key> succeeds", () => {
-		it("opens a WebSocket when the token matches HYPERIDLE_API_KEY", async () => {
-			const url = `ws://localhost:${port}/api/ws?token=${encodeURIComponent(TEST_API_KEY)}`;
-			const ws = new WebSocket(url);
+	describe("S5: WebSocket upgrade via short-lived upgrade token (I2 A3/A4/A5)", () => {
+		// Helper: hit the I2 ws-token endpoint with a valid X-API-Key.
+		async function issueToken(): Promise<string> {
+			const res = await fetch(`http://localhost:${port}/api/auth/ws-token`, {
+				method: "POST",
+				headers: authHeaders(),
+			});
+			expect(res.status).toBe(200);
+			const body = (await res.json()) as { token?: string };
+			expect(typeof body.token).toBe("string");
+			expect(body.token?.length ?? 0).toBeGreaterThan(0);
+			return body.token as string;
+		}
 
-			const outcome = await new Promise<"open" | "error" | "timeout">((resolveOutcome) => {
-				const timer = setTimeout(() => resolveOutcome("timeout"), 3000);
-				ws.onopen = (): void => {
+		it("A3: connects with a freshly issued upgrade token, then rejects reuse", async () => {
+			const token = await issueToken();
+
+			// First open should succeed.
+			const url = `ws://localhost:${port}/api/ws?token=${encodeURIComponent(token)}`;
+			const ws1 = new WebSocket(url);
+			const opened = await new Promise<boolean>((resolveOpened) => {
+				const timer = setTimeout(() => resolveOpened(false), 3000);
+				ws1.onopen = (): void => {
 					clearTimeout(timer);
-					resolveOutcome("open");
+					resolveOpened(true);
 				};
-				ws.onerror = (): void => {
+				ws1.onerror = (): void => {
 					clearTimeout(timer);
-					resolveOutcome("error");
+					resolveOpened(false);
 				};
 			});
+			expect(opened).toBe(true);
+			ws1.close();
 
-			expect(outcome).toBe("open");
-			expect(ws.readyState).toBe(WebSocket.OPEN);
-			ws.close();
+			// Reusing the same token must fail with 401 (one-shot semantics).
+			const reuse = await fetch(
+				`http://localhost:${port}/api/ws?token=${encodeURIComponent(token)}`,
+			);
+			expect(reuse.status).toBe(401);
 		});
 
-		it("rejects a WebSocket upgrade when the token is wrong", async () => {
-			const res = await fetch(`http://localhost:${port}/api/ws?token=nope`);
+		it("A4: rejects an expired token (TTL controlled via HYPERIDLE_WS_TOKEN_TTL_MS)", async () => {
+			// We can't restart the subprocess from inside the test, so we
+			// rely on a small TTL set at server startup. The startup env
+			// below sets HYPERIDLE_WS_TOKEN_TTL_MS=200 — wait past that
+			// before consuming the token.
+			const token = await issueToken();
+			await new Promise((r) => setTimeout(r, 400));
+			const res = await fetch(`http://localhost:${port}/api/ws?token=${encodeURIComponent(token)}`);
+			expect(res.status).toBe(401);
+		});
+
+		it("A5: rejects an unknown token", async () => {
+			const res = await fetch(`http://localhost:${port}/api/ws?token=garbage-not-issued`);
+			expect(res.status).toBe(401);
+		});
+
+		it("rejects passing the raw HYPERIDLE_API_KEY as the WS token (master key cannot be used)", async () => {
+			const res = await fetch(
+				`http://localhost:${port}/api/ws?token=${encodeURIComponent(TEST_API_KEY)}`,
+			);
 			expect(res.status).toBe(401);
 		});
 	});

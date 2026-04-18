@@ -3,6 +3,7 @@ import type { ApiErrorResponse, EventBus } from "@hyperidle/shared";
 import type { Hono } from "hono";
 import { createBunWebSocket } from "hono/bun";
 import type { WSContext } from "hono/ws";
+import type { UpgradeTokenStore } from "../auth/upgrade-token-store.js";
 
 const { upgradeWebSocket, websocket: wsHandler } = createBunWebSocket();
 
@@ -29,7 +30,11 @@ interface ClientState {
  * route would pile up a second set of handlers against a stale `clients`
  * map — sending WS traffic to already-closed sockets.
  */
-function registerWsRoute(apiApp: Hono, eventBus?: EventBus): () => void {
+function registerWsRoute(
+	apiApp: Hono,
+	eventBus: EventBus | undefined,
+	tokenStore: UpgradeTokenStore,
+): () => void {
 	const clients = new Map<WSContext, ClientState>();
 
 	// Subscribe to domain events and forward to subscribed clients.
@@ -58,11 +63,22 @@ function registerWsRoute(apiApp: Hono, eventBus?: EventBus): () => void {
 		);
 	}
 
-	// WebSocket auth via query token
+	// WebSocket auth via one-shot upgrade token (I2 A3/A4/A5).
+	//
+	// The raw HYPERIDLE_API_KEY is NOT accepted on the query channel —
+	// clients must POST /api/auth/ws-token first to mint a single-use,
+	// short-lived token, then open the WS with `?token=<minted>`.
 	apiApp.use("/ws", async (c, next) => {
 		const token = c.req.query("token");
-		const expectedKey = process.env.HYPERIDLE_API_KEY;
-		if (!expectedKey || token !== expectedKey) {
+		if (!token) {
+			const response: ApiErrorResponse = {
+				error: "Missing or invalid token",
+				code: API_ERROR_CODES.UNAUTHORIZED,
+			};
+			return c.json(response, 401);
+		}
+		const result = tokenStore.consume(token);
+		if (!result.ok) {
 			const response: ApiErrorResponse = {
 				error: "Missing or invalid token",
 				code: API_ERROR_CODES.UNAUTHORIZED,
