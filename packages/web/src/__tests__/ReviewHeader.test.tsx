@@ -44,30 +44,34 @@ describe("ReviewHeader", () => {
 	});
 
 	describe("verdict buttons", () => {
-		it("renders all 10 verdict buttons", () => {
+		it("renders all 10 verdict controls (4 primary buttons + 6 secondary menuitems)", () => {
 			render(<ReviewHeader {...defaultProps} />);
-			const buttons = screen.getAllByRole("button");
-			// At least 10 verdict buttons (may include others)
-			expect(buttons.length).toBeGreaterThanOrEqual(10);
+			// I4 Design H3: primary verdicts are role=button; secondary
+			// verdicts live inside a role=menu as role=menuitem.
+			const primary = screen.getAllByRole("button");
+			const secondary = screen.getAllByRole("menuitem");
+			expect(primary.length).toBeGreaterThanOrEqual(4);
+			expect(secondary.length).toBe(6);
+			expect(primary.length + secondary.length).toBeGreaterThanOrEqual(10);
 		});
 
-		it("renders a button for each of the 10 verdicts", () => {
+		it("renders a control for each of the 10 verdicts", () => {
 			render(<ReviewHeader {...defaultProps} />);
-			// Use exact aria-label matches to avoid substring collisions
-			const labels = [
-				"Approve",
+			// Primary verdicts keep role=button, secondary verdicts are menuitems.
+			const primaryLabels = ["Approve", "Request changes", "Reject", "Snooze"];
+			const secondaryLabels = [
 				"Approve with comments",
 				"Comment",
 				"Inline comment",
-				"Request changes",
 				"Edit",
-				"Reject",
 				"Reply",
-				"Snooze",
 				"Escalate",
 			];
-			for (const label of labels) {
+			for (const label of primaryLabels) {
 				expect(screen.getByRole("button", { name: label })).toBeInTheDocument();
+			}
+			for (const label of secondaryLabels) {
+				expect(screen.getByRole("menuitem", { name: label })).toBeInTheDocument();
 			}
 		});
 
@@ -226,23 +230,50 @@ describe("ReviewHeader", () => {
 			expect(screen.getByRole("toolbar", { name: /verdict/i })).toBeInTheDocument();
 		});
 
-		it("all verdict buttons have aria-label matching their display label", () => {
+		it("all verdict controls have aria-label matching their display label", () => {
 			render(<ReviewHeader {...defaultProps} />);
-			const labels = [
-				"Approve",
+			const primaryLabels = ["Approve", "Request changes", "Reject", "Snooze"];
+			const secondaryLabels = [
 				"Approve with comments",
 				"Comment",
 				"Inline comment",
-				"Request changes",
 				"Edit",
-				"Reject",
 				"Reply",
-				"Snooze",
 				"Escalate",
 			];
-			for (const label of labels) {
+			for (const label of primaryLabels) {
 				const btn = screen.getByRole("button", { name: label });
 				expect(btn).toHaveAttribute("aria-label", label);
+			}
+			for (const label of secondaryLabels) {
+				const item = screen.getByRole("menuitem", { name: label });
+				expect(item).toHaveAttribute("aria-label", label);
+			}
+		});
+
+		it("the overflow trigger advertises the menu via aria-haspopup/aria-controls (Design H3)", () => {
+			render(<ReviewHeader {...defaultProps} />);
+			const trigger = screen.getByRole("button", { name: /more actions/i });
+			expect(trigger).toHaveAttribute("aria-haspopup", "menu");
+			expect(trigger).toHaveAttribute("aria-controls");
+			expect(trigger).toHaveAttribute("aria-expanded");
+		});
+
+		it("secondary menuitems are removed from tab order when the menu is closed (Design H3)", () => {
+			render(<ReviewHeader {...defaultProps} />);
+			const secondary = screen.getAllByRole("menuitem");
+			for (const item of secondary) {
+				expect(item).toHaveAttribute("tabindex", "-1");
+			}
+		});
+
+		it("secondary menuitems enter the tab order when the menu opens (Design H3)", async () => {
+			const user = userEvent.setup();
+			render(<ReviewHeader {...defaultProps} />);
+			await user.click(screen.getByRole("button", { name: /more actions/i }));
+			const secondary = screen.getAllByRole("menuitem");
+			for (const item of secondary) {
+				expect(item).toHaveAttribute("tabindex", "0");
 			}
 		});
 	});
