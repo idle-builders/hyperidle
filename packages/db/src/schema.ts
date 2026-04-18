@@ -288,6 +288,39 @@ export const knowledgeConflicts = sqliteTable("knowledge_conflicts", {
 	createdAt: text("created_at").notNull(),
 });
 
+// --- Notification queue (H2) ---
+
+export const notificationQueue = sqliteTable(
+	"notification_queue",
+	{
+		id: text("id").primaryKey(),
+		eventType: text("event_type").notNull(),
+		subjectId: text("subject_id"),
+		severity: text("severity").notNull(),
+		title: text("title").notNull(),
+		body: text("body"),
+		reason: text("reason").notNull(),
+		channel: text("channel"),
+		/**
+		 * Lifecycle: pending → sending → {sent|failed|dropped}.
+		 * `sending` is a lease: the row is claimed before the adapter call
+		 * so a crash after send-before-DB-update requeues instead of
+		 * silently marking sent.
+		 */
+		status: text("status").notNull(),
+		attempts: integer("attempts").notNull().default(0),
+		lastError: text("last_error"),
+		createdAt: text("created_at").notNull(),
+		sentAt: text("sent_at"),
+		/** ISO timestamp when the row entered the `sending` state. */
+		claimedAt: text("claimed_at"),
+	},
+	(table) => [
+		index("nq_status_created_idx").on(table.status, table.createdAt),
+		index("nq_severity_idx").on(table.severity),
+	],
+);
+
 // --- File leases ---
 
 export const fileLeases = sqliteTable("file_leases", {
@@ -352,3 +385,6 @@ export type NewFileLease = typeof fileLeases.$inferInsert;
 
 export type KnowledgeConflict = typeof knowledgeConflicts.$inferSelect;
 export type NewKnowledgeConflict = typeof knowledgeConflicts.$inferInsert;
+
+export type NotificationQueueRow = typeof notificationQueue.$inferSelect;
+export type NewNotificationQueueRow = typeof notificationQueue.$inferInsert;
