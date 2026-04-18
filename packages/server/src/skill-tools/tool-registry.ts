@@ -141,7 +141,17 @@ export interface BuildToolRegistryOptions {
 	readonly role: AgentRole;
 }
 
-/** Build a fresh registry bound to the given context, filtered to the agent's role. */
+/**
+ * Build a fresh registry bound to the given context, filtered to the agent's role.
+ *
+ * @lore I2 review W3: when the requested tool exists in the global tool
+ * catalogue but is filtered out for this role, `invoke()` returns
+ * `FORBIDDEN` (not `NOT_FOUND`). NOT_FOUND is reserved for genuinely
+ * unknown tool names so an operator debugging "missing tool" failures
+ * can distinguish a typo (NOT_FOUND) from a role-boundary breach
+ * (FORBIDDEN). The harness still applies its own per-session allowlist
+ * (`session-provisioning.ts:303`); this is the inner gate.
+ */
 export function buildToolRegistry(
 	ctx: ToolContext,
 	options: BuildToolRegistryOptions,
@@ -149,10 +159,14 @@ export function buildToolRegistry(
 	const definitions = toolsForRole(options.role);
 
 	const byName = new Map(definitions.map((d) => [d.name, d]));
+	const allByName = new Map(ALL_TOOL_DEFINITIONS.map((d) => [d.name, d]));
 
 	async function invoke(name: string, rawArgs: unknown): Promise<ToolResult> {
 		const def = byName.get(name);
 		if (!def) {
+			if (allByName.has(name)) {
+				return err("FORBIDDEN", `Tool not available to this role: ${name}`);
+			}
 			return err("NOT_FOUND", `Unknown tool: ${name}`);
 		}
 		const parsed = def.inputSchema.safeParse(rawArgs ?? {});

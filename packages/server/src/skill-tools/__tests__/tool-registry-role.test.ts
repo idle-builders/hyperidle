@@ -68,9 +68,19 @@ describe("I2 B1/B2/B3 — buildToolRegistry role filter", () => {
 		expect(names.has("write_session_notes")).toBe(true);
 	});
 
-	it("B2: builder registry returns NOT_FOUND when invoking a facilitator tool", async () => {
+	it("B2 + review W3: builder registry returns FORBIDDEN when invoking a facilitator tool that exists but is role-filtered", async () => {
 		const registry = buildToolRegistry(makeContext(db), { role: "builder" });
 		const result = await registry.invoke("promote_knowledge", {});
+		expect(result.success).toBe(false);
+		if (result.success) return;
+		// I2 review W3: distinguishes "exists but wrong role" from "unknown
+		// tool name" so debuggers chase the right cause.
+		expect(result.code).toBe("FORBIDDEN");
+	});
+
+	it("review W3: invoking a genuinely unknown tool name still returns NOT_FOUND", async () => {
+		const registry = buildToolRegistry(makeContext(db), { role: "builder" });
+		const result = await registry.invoke("there_is_no_such_tool", {});
 		expect(result.success).toBe(false);
 		if (result.success) return;
 		expect(result.code).toBe("NOT_FOUND");
