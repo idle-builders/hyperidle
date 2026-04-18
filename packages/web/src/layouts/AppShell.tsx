@@ -90,12 +90,26 @@ export function AppShell(): JSX.Element {
 
 	const activeView = useMemo(() => deriveViewFromPath(location.pathname), [location.pathname]);
 
-	// I4 R1/R2: seed Submenu/Rail collapse state from the viewport so a
-	// narrow window starts in the collapsed layout. Once the user toggles
-	// manually their choice persists for the session.
+	// I4 R1/R2 + Arch M4 / Adversary W3: the viewport breakpoint drives
+	// Submenu/Rail collapse live. We track a per-axis manual override
+	// (`null` = follow viewport, `true/false` = user has toggled) so that
+	// the hook's resize/change listeners actually matter: if the user
+	// hasn't overridden, resizing the window re-collapses/re-expands the
+	// regions. Once the user toggles manually, their choice persists for
+	// the session — including across subsequent resizes. The toggle
+	// negates the *effective* visible state (override falls back to the
+	// current viewport value), which is what the user expects.
 	const breakpoint = useViewportBreakpoint();
-	const [submenuCollapsed, setSubmenuCollapsed] = useState(breakpoint.submenuCollapsed);
-	const [railExpanded, setRailExpanded] = useState(breakpoint.railExpanded);
+	const [submenuOverride, setSubmenuOverride] = useState<boolean | null>(null);
+	const [railOverride, setRailOverride] = useState<boolean | null>(null);
+	const submenuCollapsed = submenuOverride ?? breakpoint.submenuCollapsed;
+	const railExpanded = railOverride ?? breakpoint.railExpanded;
+	const toggleSubmenuCollapsed = useCallback((): void => {
+		setSubmenuOverride((prev) => !(prev ?? breakpoint.submenuCollapsed));
+	}, [breakpoint.submenuCollapsed]);
+	const toggleRailExpanded = useCallback((): void => {
+		setRailOverride((prev) => !(prev ?? breakpoint.railExpanded));
+	}, [breakpoint.railExpanded]);
 	const [searchParams, setSearchParams] = useSearchParams();
 	const [settingsOpen, setSettingsOpen] = useState(false);
 	const commandK = useCommandK();
@@ -176,7 +190,7 @@ export function AppShell(): JSX.Element {
 			<Submenu
 				title={submenuConfig.title}
 				collapsed={submenuCollapsed}
-				onToggleCollapse={() => setSubmenuCollapsed((p) => !p)}
+				onToggleCollapse={toggleSubmenuCollapsed}
 			>
 				<ul className="menu menu-sm">
 					{submenuConfig.items.map((item) => (
@@ -199,7 +213,7 @@ export function AppShell(): JSX.Element {
 
 			<Rail
 				expanded={railExpanded}
-				onToggleExpand={() => setRailExpanded((p) => !p)}
+				onToggleExpand={toggleRailExpanded}
 				bets={MOCK_RAIL_BETS}
 				blockers={MOCK_RAIL_BLOCKERS}
 				cost={MOCK_RAIL_COST}
