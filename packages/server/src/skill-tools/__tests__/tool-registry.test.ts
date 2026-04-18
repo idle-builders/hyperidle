@@ -26,7 +26,7 @@ describe("buildToolRegistry", () => {
 		eventBus = new EventBus();
 	});
 
-	it("returns the canonical set of 8 skill tools", () => {
+	it("returns the canonical set of skill tools", () => {
 		const registry = buildToolRegistry(makeContext(db, eventBus));
 		const names = registry.definitions.map((d) => d.name).sort();
 		expect(names).toEqual(
@@ -39,9 +39,14 @@ describe("buildToolRegistry", () => {
 				"send_message",
 				"write_memory",
 				"write_session_notes",
+				// G1 facilitator tools
+				"route_item",
+				"score_attention",
+				"promote_knowledge",
+				"create_conflict_review",
 			].sort(),
 		);
-		expect(registry.definitions).toHaveLength(8);
+		expect(registry.definitions).toHaveLength(12);
 	});
 
 	it("each definition has a non-empty description and a Zod input schema", () => {
