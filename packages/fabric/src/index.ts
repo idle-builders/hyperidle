@@ -25,6 +25,7 @@ export type {
 export { buildSessionContext } from "./session-context.js";
 export type { SessionContextConfig, SessionContextData } from "./session-context.js";
 export { scoreItem, rankAndBudget } from "./relevance-scoring.js";
+export { ROLE_TO_COMMUNITY } from "./role-community-map.js";
 export { countTokens, countItemTokens, enforceBudget } from "./token-budget.js";
 export type { ScoredItem } from "./token-budget.js";
 export {

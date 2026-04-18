@@ -1,4 +1,4 @@
-import * as crypto from "node:crypto";
+import { randomUUID } from "node:crypto";
 import { items, threads } from "@hyperidle/db";
 import type { ItemCreatedEvent } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
@@ -43,7 +43,7 @@ async function handler(args: CreateItemInput, ctx: ToolContext): Promise<ToolRes
 			return err("NOT_FOUND", `Thread not found: ${threadId}`);
 		}
 	} else {
-		threadId = crypto.randomUUID();
+		threadId = randomUUID();
 		ctx.db
 			.insert(threads)
 			.values({
@@ -54,7 +54,7 @@ async function handler(args: CreateItemInput, ctx: ToolContext): Promise<ToolRes
 			.run();
 	}
 
-	const itemId = crypto.randomUUID();
+	const itemId = randomUUID();
 	ctx.db
 		.insert(items)
 		.values({
@@ -85,7 +85,7 @@ async function handler(args: CreateItemInput, ctx: ToolContext): Promise<ToolRes
 
 	const event: ItemCreatedEvent = {
 		type: "item_created",
-		streamId: crypto.randomUUID(),
+		streamId: randomUUID(),
 		itemId,
 		conversationId: threadId,
 		kind: input.kind ?? "unknown",
