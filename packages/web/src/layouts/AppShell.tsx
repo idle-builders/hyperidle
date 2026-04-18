@@ -55,6 +55,35 @@ function deriveViewFromPath(pathname: string): ViewId {
 	return "conversations";
 }
 
+/**
+ * I4 security MED-1: validate a route-segment id coming from a search
+ * result before interpolating it into a navigate() call. Rejects ids that
+ * could escape the segment (contain `/`, `?`, `#`, `\`, `..`, whitespace,
+ * control characters) or look like absolute URIs (scheme prefix). Returns
+ * the URI-component-encoded safe id, or null if the input is unsafe. The
+ * encode step preserves safety against characters that survive the reject
+ * list (percent, etc.).
+ *
+ * @lore The search API emits ids from agent-produced or indexed content.
+ * Even if today's mock returns safe ids, the trust boundary is "whatever
+ * the /api/search endpoint emits" — which will be agent-authored strings
+ * the moment live indexing lands.
+ */
+export function sanitizeRouteId(id: string): string | null {
+	if (typeof id !== "string" || id.length === 0) return null;
+	if (id.length > 200) return null;
+	// Reject characters that escape the path segment or embed routing hints.
+	if (/[/?#\\\s]/.test(id)) return null;
+	// Reject control characters (C0 + DEL + C1).
+	// biome-ignore lint/suspicious/noControlCharactersInRegex: intentional — reject control chars
+	if (/[\u0000-\u001f\u007f-\u009f]/.test(id)) return null;
+	// Reject "..", ".", and leading dots (path traversal).
+	if (id === "." || id === ".." || id.includes("..")) return null;
+	// Reject scheme-like prefixes (http:, javascript:, data:, etc.).
+	if (/^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(id)) return null;
+	return encodeURIComponent(id);
+}
+
 export function AppShell(): JSX.Element {
 	const location = useLocation();
 	const navigate = useNavigate();
@@ -113,12 +142,18 @@ export function AppShell(): JSX.Element {
 			// I4 N1: route by result type. The GlobalSearchPanel emits
 			// "conversation" | "work" | "knowledge".
 			switch (type) {
-				case "work":
-					navigate(`/work/bet/${id}`);
+				case "work": {
+					const safeId = sanitizeRouteId(id);
+					if (safeId === null) return;
+					navigate(`/work/bet/${safeId}`);
 					break;
-				case "knowledge":
-					navigate(`/knowledge/${id}`);
+				}
+				case "knowledge": {
+					const safeId = sanitizeRouteId(id);
+					if (safeId === null) return;
+					navigate(`/knowledge/${safeId}`);
 					break;
+				}
 				case "conversation":
 				default:
 					navigate("/conversations/review");
