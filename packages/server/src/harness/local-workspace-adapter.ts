@@ -14,6 +14,17 @@ export class LocalWorkspaceAdapter implements WorkspaceAdapter {
 	private readonly workspaces = new Map<string, WorkspaceHandle>();
 
 	async spawn(baseDir: string): Promise<WorkspaceHandle> {
+		// @lore I2 S4: refuse to operate in production. The local adapter
+		// executes commands directly on the host filesystem with no
+		// isolation; allowing it in production would let an agent escape
+		// the intended Docker boundary. The gate lives in spawn() (not
+		// the constructor) so type-only imports in tests still work.
+		if (process.env.NODE_ENV === "production") {
+			throw new Error(
+				"LocalWorkspaceAdapter is not allowed in production environments. Use DockerWorkspaceAdapter for isolated workspace execution.",
+			);
+		}
+
 		const workspaceId = `local-ws-${nextId++}-${Date.now()}`;
 		const path = join(baseDir, workspaceId);
 		await mkdir(path, { recursive: true });
