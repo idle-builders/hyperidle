@@ -54,7 +54,22 @@ globalThis.Request = PatchedRequest as typeof Request;
  * `window.innerWidth` so responsive tests "just work" when they set the
  * viewport size via `Object.defineProperty(window, 'innerWidth', ...)`.
  */
-if (!("matchMedia" in window)) {
+// jsdom defaults `window.innerWidth` to 1024, which lands the AppShell in
+// the Rail-collapsed layout (the breakpoint is >=1280). Force a desktop
+// viewport so legacy tests that assume the expanded layout keep passing;
+// individual tests can override via `Object.defineProperty(window, ...)`.
+Object.defineProperty(window, "innerWidth", {
+	writable: true,
+	configurable: true,
+	value: 1920,
+});
+Object.defineProperty(window, "innerHeight", {
+	writable: true,
+	configurable: true,
+	value: 1080,
+});
+
+if (typeof window.matchMedia !== "function") {
 	function evaluateQuery(query: string): boolean {
 		const maxMatch = query.match(/max-width:\s*(\d+)px/);
 		const minMatch = query.match(/min-width:\s*(\d+)px/);
