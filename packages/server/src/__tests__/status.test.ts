@@ -270,7 +270,12 @@ describe("Status & Settings Endpoints (E6)", () => {
 			}
 		});
 
-		it("PATCH echo also redacts secret values", async () => {
+		// I2 V5 supersedes the I1 H-1 redact-on-PATCH behavior for namespaced
+		// keys: PATCH on a `notifications.*` (or `git_export.*`,
+		// `observability.*`) key is now rejected with 400 so the dedicated
+		// domain routes remain the single source of truth. Redaction-on-echo
+		// for unconstrained keys remains covered by the GET-side test above.
+		it("PATCH on namespaced secret keys is blocked (I2 V5)", async () => {
 			const res = await app.request("/api/status/settings", {
 				method: "PATCH",
 				headers: authHeaders(),
@@ -279,10 +284,7 @@ describe("Status & Settings Endpoints (E6)", () => {
 					value: "another-secret",
 				}),
 			});
-			expect(res.status).toBe(200);
-			const body = (await res.json()) as { key: string; value: string | null };
-			expect(body.key).toBe("notifications.smtp_password");
-			expect(body.value).not.toBe("another-secret");
+			expect(res.status).toBe(400);
 		});
 	});
 });

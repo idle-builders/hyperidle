@@ -1,5 +1,6 @@
 import { type HyperIdleDb, tasks } from "@hyperidle/db";
-import type { EventBus, TaskState } from "@hyperidle/shared";
+import { TASK_STATES } from "@hyperidle/shared";
+import type { EventBus } from "@hyperidle/shared";
 import { and, eq } from "drizzle-orm";
 import { Hono } from "hono";
 import { z } from "zod";
@@ -16,8 +17,10 @@ const updateTaskSchema = z.object({
 	ownerAgentId: z.string().optional(),
 });
 
+// I2 V1: enum-validate at the boundary so an unknown state surfaces as
+// 400 from Zod, not 409 from the state machine.
 const transitionTaskSchema = z.object({
-	state: z.string(),
+	state: z.enum(TASK_STATES),
 });
 
 /**
@@ -79,7 +82,7 @@ export function createTaskRoutes(db: HyperIdleDb, eventBus: EventBus): Hono {
 		const taskId = c.req.param("id");
 		const body = c.req.valid("json" as never) as z.infer<typeof transitionTaskSchema>;
 
-		transitionTask(db, eventBus, taskId, body.state as TaskState);
+		transitionTask(db, eventBus, taskId, body.state);
 
 		const updated = db.select().from(tasks).where(eq(tasks.id, taskId)).get();
 		return c.json(updated);

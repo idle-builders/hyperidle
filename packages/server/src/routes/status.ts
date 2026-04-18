@@ -1,4 +1,6 @@
 import { type HyperIdleDb, agents, factorySettings, sessions } from "@hyperidle/db";
+import { API_ERROR_CODES } from "@hyperidle/shared";
+import type { ApiErrorResponse } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
 import { Hono } from "hono";
 import { z } from "zod";
@@ -33,6 +35,24 @@ const SECRET_SETTING_KEYS: ReadonlySet<string> = new Set([
 	"observability.langfuse_secret_key",
 	"observability.langfuse_public_key",
 ]);
+
+/**
+ * Setting key prefixes whose values must NOT be written through the
+ * generic PATCH /api/status/settings route. These domains have dedicated
+ * routes (`/api/notifications/config`, `/api/observability/config`,
+ * `/api/git-export/config`) that perform structured validation, redaction,
+ * and downstream side effects (dispatcher rebuilds, etc).
+ *
+ * @lore I2 V5: I1 closed the read-side leak (SECRET_SETTING_KEYS). I2
+ * closes the write-side: silently upserting `notifications.smtp_password`
+ * via this generic route would let an authenticated caller bypass every
+ * structured-config invariant.
+ */
+const BLOCKED_SETTING_PREFIXES = ["git_export.", "notifications.", "observability."] as const;
+
+function isBlockedSettingKey(key: string): boolean {
+	return BLOCKED_SETTING_PREFIXES.some((prefix) => key.startsWith(prefix));
+}
 
 function redactSettingRow(row: { key: string; value: string | null }): {
 	key: string;
@@ -98,8 +118,21 @@ export function createStatusRoutes(db: HyperIdleDb): Hono {
 	// PATCH /settings — Update a factory setting. The echoed row also
 	// passes through `redactSettingRow` so PATCHing a secret key doesn't
 	// bounce the raw value back in the response body.
+	//
+	// I2 V5: keys with reserved namespace prefixes are routed to their
+	// domain-specific config endpoints; this generic write rejects them
+	// with 400 so structured-config invariants stay intact.
 	router.patch("/settings", validateBody(updateSettingSchema), (c) => {
 		const body = c.req.valid("json" as never) as z.infer<typeof updateSettingSchema>;
+
+		if (isBlockedSettingKey(body.key)) {
+			const response: ApiErrorResponse = {
+				error: `Setting key '${body.key}' is reserved. Use the dedicated /api/{notifications,observability,git-export}/config routes instead.`,
+				code: API_ERROR_CODES.VALIDATION_ERROR,
+			};
+			return c.json(response, 400);
+		}
+
 		const now = new Date().toISOString();
 
 		db.insert(factorySettings)
