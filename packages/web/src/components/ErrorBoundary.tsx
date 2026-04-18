@@ -51,11 +51,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
 				>
 					<h2 className="text-sm font-semibold text-error">Something went wrong</h2>
 					<p className="text-xs text-[var(--text-mid)] font-mono break-all">{error.message}</p>
-					<button
-						type="button"
-						className="btn btn-xs btn-ghost"
-						onClick={this.handleReload}
-					>
+					<button type="button" className="btn btn-xs btn-ghost" onClick={this.handleReload}>
 						Reload
 					</button>
 				</div>

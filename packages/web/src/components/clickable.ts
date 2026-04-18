@@ -33,7 +33,9 @@ export function clickableProps(
 		// helper is the single point where className is built. The empty-
 		// object fallback (no className) preserves prior behaviour for
 		// call sites that pass neither argument.
-		return callerClassName ? ({ className: callerClassName } as Pick<ClickableResult, "className">) : {};
+		return callerClassName
+			? ({ className: callerClassName } as Pick<ClickableResult, "className">)
+			: {};
 	}
 	const className = callerClassName ? `${callerClassName} ${FOCUS_CLASSES}` : FOCUS_CLASSES;
 	return {

@@ -128,9 +128,12 @@ export function WorkTeam(): JSX.Element {
 		setTasks((prev) => prev.map((t) => (t.id === taskId ? { ...t, state: targetState } : t)));
 	}, []);
 
-	const handleMoveBet = useCallback((_betId: string, _targetStatus: "shaped" | "committed"): void => {
-		// Mock — the team-board canvas does not persist bet moves yet.
-	}, []);
+	const handleMoveBet = useCallback(
+		(_betId: string, _targetStatus: "shaped" | "committed"): void => {
+			// Mock — the team-board canvas does not persist bet moves yet.
+		},
+		[],
+	);
 
 	const handleSelectPitch = useCallback((pitchId: string): void => {
 		setSelectedPitchIds((prev) =>

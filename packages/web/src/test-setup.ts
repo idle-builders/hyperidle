@@ -81,16 +81,22 @@ if (typeof window.matchMedia !== "function") {
 	Object.defineProperty(window, "matchMedia", {
 		writable: true,
 		configurable: true,
-		value: (query: string): MediaQueryList => ({
-			matches: evaluateQuery(query),
-			media: query,
-			onchange: null,
-			addListener: () => {},
-			removeListener: () => {},
-			addEventListener: () => {},
-			removeEventListener: () => {},
-			dispatchEvent: () => false,
-		}),
+		value: (query: string): MediaQueryList => {
+			// Stub event-listener methods — we don't dispatch matchMedia
+			// changes from tests; reads are recomputed via window.innerWidth
+			// at each `matchMedia()` call instead.
+			const noop = (): void => undefined;
+			return {
+				matches: evaluateQuery(query),
+				media: query,
+				onchange: null,
+				addListener: noop,
+				removeListener: noop,
+				addEventListener: noop,
+				removeEventListener: noop,
+				dispatchEvent: () => false,
+			};
+		},
 	});
 }
 

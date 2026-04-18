@@ -15,9 +15,9 @@ import { describe, expect, it } from "vitest";
  */
 
 // @lore Use import.meta.url + fileURLToPath (not __dirname, undefined in ESM).
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-const SRC_ROOT = join(__dirname, "..");
+const Filename = fileURLToPath(import.meta.url);
+const Dirname = dirname(Filename);
+const SRC_ROOT = join(Dirname, "..");
 
 function walkTsx(dir: string, acc: string[] = []): string[] {
 	for (const entry of readdirSync(dir)) {

@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
 	BET_STATUSES,
-	KNOWLEDGE_STATUSES,
-	TASK_STATES,
 	type BetStatus,
+	KNOWLEDGE_STATUSES,
 	type KnowledgeStatus,
+	TASK_STATES,
 	type TaskState,
 } from "../types.js";
 
