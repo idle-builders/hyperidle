@@ -37,21 +37,21 @@ const MOCK_BETS: Record<string, MockBetDetail> = {
 				id: "t1",
 				title: "Implement login endpoint",
 				owner: "Dev Agent 1",
-				state: "done" as TaskState,
+				state: "done",
 				cost: "$4.20",
 			},
 			{
 				id: "t2",
 				title: "Design signup form",
 				owner: "Dev Agent 2",
-				state: "in_progress" as TaskState,
+				state: "in_progress",
 				cost: "$1.80",
 			},
 			{
 				id: "t3",
 				title: "JWT refresh logic",
 				owner: "Dev Agent 1",
-				state: "review" as TaskState,
+				state: "review",
 				cost: "$6.50",
 			},
 		],
@@ -68,14 +68,14 @@ const MOCK_BETS: Record<string, MockBetDetail> = {
 				id: "t4",
 				title: "Wireframe layouts",
 				owner: "Designer Agent",
-				state: "accepted" as TaskState,
+				state: "accepted",
 				cost: "$2.00",
 			},
 			{
 				id: "t5",
 				title: "Component inventory",
 				owner: "Dev Agent 1",
-				state: "accepted" as TaskState,
+				state: "accepted",
 				cost: "$1.50",
 			},
 		],
@@ -95,29 +95,6 @@ const FALLBACK_BET: MockBetDetail = {
 export function WorkBet(): JSX.Element {
 	const { betId } = useParams<{ betId: string }>();
 	const bet = (betId && MOCK_BETS[betId]) || FALLBACK_BET;
-	const loading = false;
-	const error: string | null = null;
-
-	if (loading) {
-		return (
-			<div className="flex flex-col gap-3 h-full" data-testid="work-bet-page">
-				<div className="skeleton h-20 w-full" />
-				<div className="skeleton h-6 w-32" />
-				<div className="skeleton h-16 w-full" />
-				<div className="skeleton h-16 w-full" />
-			</div>
-		);
-	}
-
-	if (error) {
-		return (
-			<div className="flex flex-col gap-3 h-full" data-testid="work-bet-page">
-				<div role="alert" className="alert alert-error text-sm">
-					{error}
-				</div>
-			</div>
-		);
-	}
 
 	return (
 		<div className="flex flex-col gap-3 h-full" data-testid="work-bet-page">
