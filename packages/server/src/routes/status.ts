@@ -4,6 +4,7 @@ import { Hono } from "hono";
 import { z } from "zod";
 import { validateBody } from "../middleware/validate.js";
 import { getDailyDigest } from "../services/daily-digest.js";
+import { REDACTED } from "../services/notifications/config.js";
 
 const updateSettingSchema = z.object({
 	key: z.string().min(1),
@@ -11,6 +12,37 @@ const updateSettingSchema = z.object({
 });
 
 const SERVER_START_TIME = new Date().toISOString();
+
+/**
+ * Factory-settings keys whose values are credentials and MUST be redacted
+ * on any outbound response. Matches the per-domain redactors in
+ * `services/notifications/config.ts` and `services/observability/config.ts`
+ * but expressed as raw key strings because `GET /settings` returns the
+ * untyped `factorySettings` rows rather than the structured configs.
+ *
+ * @lore I1 security-H1: before I1, `GET /api/status/settings` leaked every
+ * raw factorySetting to the authenticated caller — including SMTP passwords,
+ * ntfy auth tokens, and Langfuse secret keys. A single compromised API key
+ * would therefore leak every third-party credential. The domain-specific
+ * routes (`/api/notifications/config`, `/api/observability/config`) already
+ * redacted; this generic listing had to match.
+ */
+const SECRET_SETTING_KEYS: ReadonlySet<string> = new Set([
+	"notifications.smtp_password",
+	"notifications.ntfy_auth_token",
+	"observability.langfuse_secret_key",
+	"observability.langfuse_public_key",
+]);
+
+function redactSettingRow(row: { key: string; value: string | null }): {
+	key: string;
+	value: string | null;
+} {
+	if (!SECRET_SETTING_KEYS.has(row.key)) return row;
+	// Keep the row shape stable: redact only when a value is actually set
+	// so the UI can still distinguish "configured" from "not configured".
+	return { ...row, value: row.value === null || row.value === "" ? row.value : REDACTED };
+}
 
 /**
  * Create Hono routes for status and settings endpoints (E6).
@@ -55,13 +87,17 @@ export function createStatusRoutes(db: HyperIdleDb): Hono {
 		});
 	});
 
-	// GET /settings — List all factory settings
+	// GET /settings — List all factory settings. Credentials in
+	// SECRET_SETTING_KEYS are redacted before the response leaves the
+	// process (I1 security-H1).
 	router.get("/settings", (c) => {
 		const allSettings = db.select().from(factorySettings).all();
-		return c.json(allSettings);
+		return c.json(allSettings.map(redactSettingRow));
 	});
 
-	// PATCH /settings — Update a factory setting
+	// PATCH /settings — Update a factory setting. The echoed row also
+	// passes through `redactSettingRow` so PATCHing a secret key doesn't
+	// bounce the raw value back in the response body.
 	router.patch("/settings", validateBody(updateSettingSchema), (c) => {
 		const body = c.req.valid("json" as never) as z.infer<typeof updateSettingSchema>;
 		const now = new Date().toISOString();
@@ -84,7 +120,7 @@ export function createStatusRoutes(db: HyperIdleDb): Hono {
 			.where(eq(factorySettings.key, body.key))
 			.get();
 
-		return c.json(updated);
+		return c.json(updated ? redactSettingRow(updated) : updated);
 	});
 
 	// GET /digest — Daily digest of queued items from past 24h
