@@ -11,7 +11,7 @@ import type {
 	KnowledgeStatus,
 } from "@hyperidle/shared";
 import { and, eq } from "drizzle-orm";
-import { VersionConflictError } from "./errors.js";
+import { ItemDeletedError, VersionConflictError } from "./errors.js";
 import { KnowledgeEventType, knowledgeEvents } from "./events.js";
 import { type FtsSearchOptions, ftsSearch } from "./fts.js";
 
@@ -120,89 +120,136 @@ export function getById(db: HyperIdleDb, id: string): KnowledgeItem | null {
 	return item ?? null;
 }
 
+/**
+ * Allow-list of caller-mutable fields. @lore I3 review sec HIGH-3:
+ * explicit pick (no `...changes` spread). A JS caller passing a
+ * runtime-extra `version` field via UpdateKnowledgeItemInput would
+ * otherwise pin the version low, enabling replay attacks against the
+ * optimistic-lock check.
+ */
+const EDITABLE_FIELDS = [
+	"layer",
+	"scopeId",
+	"kind",
+	"topic",
+	"title",
+	"body",
+	"format",
+	"status",
+	"updatedBy",
+	"attentionScore",
+	"confidence",
+	"meta",
+] as const;
+
+interface DiffResult {
+	readonly safeChanges: Record<string, unknown>;
+	readonly editLogEntries: ReadonlyArray<typeof knowledgeEditLog.$inferInsert>;
+}
+
+/** Build the safe-changes payload + per-field edit-log rows. */
+function buildDiff(
+	itemId: string,
+	existing: KnowledgeItem,
+	changes: UpdateKnowledgeItemInput,
+	timestamp: string,
+): DiffResult {
+	const editLogEntries: Array<typeof knowledgeEditLog.$inferInsert> = [];
+	const safeChanges: Record<string, unknown> = {};
+	for (const field of EDITABLE_FIELDS) {
+		if (!(field in changes) || changes[field] === undefined) continue;
+		const oldVal = existing[field];
+		const newVal = changes[field];
+		safeChanges[field] = newVal;
+		if (oldVal === newVal) continue;
+		editLogEntries.push({
+			id: generateId(),
+			itemId,
+			editor: changes.updatedBy ?? existing.updatedBy,
+			field,
+			oldValue: oldVal == null ? null : String(oldVal),
+			newValue: newVal == null ? null : String(newVal),
+			editType: "update",
+			createdAt: timestamp,
+		});
+	}
+	return { safeChanges, editLogEntries };
+}
+
 export function update(
 	db: HyperIdleDb,
 	id: string,
 	changes: UpdateKnowledgeItemInput,
 	expectedVersion: number,
 ): KnowledgeItem {
-	const existing = db.select().from(knowledgeItems).where(eq(knowledgeItems.id, id)).get();
+	// @lore I3 review sec HIGH-3: the entire optimistic-lock dance —
+	// SELECT, UPDATE-with-version-predicate, edit-log INSERTs, read-back —
+	// runs inside a single transaction so a crash between UPDATE and
+	// edit-log INSERT can't persist the version bump without provenance.
+	// `db.transaction` on bun:sqlite / better-sqlite3 issues BEGIN
+	// IMMEDIATE which serialises writes — the version-check is atomic.
+	const result = db.transaction((tx) => {
+		const existing = tx.select().from(knowledgeItems).where(eq(knowledgeItems.id, id)).get();
 
-	if (!existing) {
-		throw new Error(`Knowledge item ${id} not found`);
-	}
-
-	if (existing.version !== expectedVersion) {
-		throw new VersionConflictError(id, existing.version);
-	}
-
-	const timestamp = now();
-	const newVersion = existing.version + 1;
-
-	// Build edit log entries for changed fields
-	const editableFields = [
-		"layer",
-		"scopeId",
-		"kind",
-		"topic",
-		"title",
-		"body",
-		"format",
-		"status",
-		"updatedBy",
-		"attentionScore",
-		"confidence",
-		"meta",
-	] as const;
-
-	const editLogEntries: Array<typeof knowledgeEditLog.$inferInsert> = [];
-
-	for (const field of editableFields) {
-		if (field in changes && changes[field] !== undefined) {
-			const oldVal = existing[field];
-			const newVal = changes[field];
-			if (oldVal !== newVal) {
-				editLogEntries.push({
-					id: generateId(),
-					itemId: id,
-					editor: changes.updatedBy ?? existing.updatedBy,
-					field,
-					oldValue: oldVal == null ? null : String(oldVal),
-					newValue: newVal == null ? null : String(newVal),
-					editType: "update",
-					createdAt: timestamp,
-				});
-			}
+		if (!existing) {
+			throw new Error(`Knowledge item ${id} not found`);
 		}
-	}
+		if (existing.version !== expectedVersion) {
+			throw new VersionConflictError(id, existing.version);
+		}
 
-	// Perform the update
-	db.update(knowledgeItems)
-		.set({
-			...changes,
-			version: newVersion,
-			updatedAt: timestamp,
-		})
-		.where(eq(knowledgeItems.id, id))
-		.run();
+		const timestamp = now();
+		const newVersion = existing.version + 1;
+		const { safeChanges, editLogEntries } = buildDiff(id, existing, changes, timestamp);
 
-	// Insert edit log entries
-	for (const entry of editLogEntries) {
-		db.insert(knowledgeEditLog).values(entry).run();
-	}
+		// @lore I3 optimistic locking (TRACK-I.md L141-144): predicate the
+		// UPDATE on the expected version. The JS-side check catches the
+		// *sequential* stale case; this SQL-side predicate catches the
+		// *racy* TOCTOU case. Inside a transaction the two are equivalent
+		// but we keep both for defence-in-depth.
+		const updateResult = tx
+			.update(knowledgeItems)
+			.set({
+				...safeChanges,
+				version: newVersion,
+				updatedAt: timestamp,
+			})
+			.where(and(eq(knowledgeItems.id, id), eq(knowledgeItems.version, expectedVersion)))
+			.run();
 
-	// Emit event
+		if (updateResult.changes === 0) {
+			// @lore I3 review W1: distinguish "row deleted concurrently"
+			// from "version conflict". Pre-fix this fell back to
+			// `current?.version ?? expectedVersion` which silently masked
+			// deletion as a conflict reporting the caller's own version.
+			const current = tx.select().from(knowledgeItems).where(eq(knowledgeItems.id, id)).get();
+			if (!current) throw new ItemDeletedError(id);
+			throw new VersionConflictError(id, current.version);
+		}
+
+		// Insert edit log entries (only after successful UPDATE).
+		for (const entry of editLogEntries) {
+			tx.insert(knowledgeEditLog).values(entry).run();
+		}
+
+		const updated = tx.select().from(knowledgeItems).where(eq(knowledgeItems.id, id)).get();
+		if (!updated) {
+			throw new Error(`Failed to read back updated knowledge item ${id}`);
+		}
+		return { updated, newVersion };
+	});
+
+	// Emit event AFTER the transaction commits — observers must not see
+	// the new version while the txn is still open (they could read the
+	// not-yet-committed version on a connection without snapshot
+	// isolation).
 	knowledgeEvents.emit(KnowledgeEventType.UPDATED, {
 		type: KnowledgeEventType.UPDATED,
 		itemId: id,
-		version: newVersion,
+		version: result.newVersion,
 	});
 
-	const updated = db.select().from(knowledgeItems).where(eq(knowledgeItems.id, id)).get();
-	if (!updated) {
-		throw new Error(`Failed to read back updated knowledge item ${id}`);
-	}
-	return updated;
+	return result.updated;
 }
 
 export function list(db: HyperIdleDb, filters: ListFilters = {}): KnowledgeItem[] {

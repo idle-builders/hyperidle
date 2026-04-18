@@ -107,12 +107,16 @@ function computeRecency(item: KnowledgeItem, now: number): number {
 	return 1 - age / RECENCY_WINDOW_MS;
 }
 
-/** Compute confidence factor (0-1). Normalizes from 0-100 scale. */
+/** Compute confidence factor (0-1). Confidence is stored as `real` in [0,1]. */
 function computeConfidence(item: KnowledgeItem): number {
 	if (item.confidence == null) {
 		return 0.5; // neutral default
 	}
-	return Math.max(0, Math.min(1, item.confidence / 100));
+	// @lore I3 (TRACK-I.md L147-149): the previous `/ 100` divisor scaled this
+	// 100× too small (a confidence of 0.8 became a factor of 0.008). The
+	// schema stores `confidence` as `real` already in [0,1] — no normalization
+	// needed. Clamp keeps us safe against out-of-range historic data.
+	return Math.max(0, Math.min(1, item.confidence));
 }
 
 /**
@@ -131,12 +135,13 @@ function computeLayerProximity(item: KnowledgeItem): number {
 	return layerScores[item.layer] ?? 0;
 }
 
-/** Compute attention score factor (0-1). */
+/** Compute attention score factor (0-1). attentionScore is `real` in [0,1]. */
 function computeAttentionScore(item: KnowledgeItem): number {
 	if (item.attentionScore == null) {
 		return 0.5; // neutral default
 	}
-	return Math.max(0, Math.min(1, item.attentionScore / 100));
+	// @lore I3: same fix as `computeConfidence` — drop the `/ 100` divisor.
+	return Math.max(0, Math.min(1, item.attentionScore));
 }
 
 /** Score a single knowledge item against the given context. Returns 0-100. */

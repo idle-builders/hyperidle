@@ -1,4 +1,4 @@
-import { index, integer, pgTable, primaryKey, real, text } from "drizzle-orm/pg-core";
+import { boolean, index, integer, pgTable, primaryKey, real, text } from "drizzle-orm/pg-core";
 
 // --- Core tables ---
 
@@ -18,7 +18,7 @@ export const agents = pgTable("agents", {
 	id: text("id").primaryKey(),
 	name: text("name").notNull(),
 	soulPromptPath: text("soul_prompt_path"),
-	teamId: text("team_id").references(() => teams.id),
+	teamId: text("team_id").references(() => teams.id, { onDelete: "restrict" }),
 	role: text("role").notNull(),
 	skills: text("skills"),
 	status: text("status").notNull(),
@@ -32,7 +32,7 @@ export const teams = pgTable("teams", {
 	id: text("id").primaryKey(),
 	productId: text("product_id")
 		.notNull()
-		.references(() => products.id),
+		.references(() => products.id, { onDelete: "restrict" }),
 	members: text("members"),
 	leadAgentId: text("lead_agent_id"),
 	capacity: integer("capacity").notNull(),
@@ -45,89 +45,114 @@ export const teams = pgTable("teams", {
 
 // --- Process primitives ---
 
-export const bets = pgTable("bets", {
-	id: text("id").primaryKey(),
-	productId: text("product_id")
-		.notNull()
-		.references(() => products.id),
-	teamId: text("team_id")
-		.notNull()
-		.references(() => teams.id),
-	pitch: text("pitch").notNull(),
-	appetite: text("appetite").notNull(),
-	doneCondition: text("done_condition"),
-	hypothesis: text("hypothesis"),
-	status: text("status").notNull(),
-	revisionLog: text("revision_log"),
-	createdAt: text("created_at").notNull(),
-	shippedAt: text("shipped_at"),
-});
+export const bets = pgTable(
+	"bets",
+	{
+		id: text("id").primaryKey(),
+		productId: text("product_id")
+			.notNull()
+			.references(() => products.id, { onDelete: "restrict" }),
+		teamId: text("team_id")
+			.notNull()
+			.references(() => teams.id, { onDelete: "restrict" }),
+		pitch: text("pitch").notNull(),
+		appetite: text("appetite").notNull(),
+		doneCondition: text("done_condition"),
+		hypothesis: text("hypothesis"),
+		status: text("status").notNull(),
+		revisionLog: text("revision_log"),
+		createdAt: text("created_at").notNull(),
+		shippedAt: text("shipped_at"),
+	},
+	(table) => [
+		index("bets_product_id_idx").on(table.productId),
+		index("bets_status_idx").on(table.status),
+	],
+);
 
-export const tasks = pgTable("tasks", {
-	id: text("id").primaryKey(),
-	betId: text("bet_id")
-		.notNull()
-		.references(() => bets.id),
-	productId: text("product_id")
-		.notNull()
-		.references(() => products.id),
-	teamId: text("team_id")
-		.notNull()
-		.references(() => teams.id),
-	ownerAgentId: text("owner_agent_id").references(() => agents.id),
-	title: text("title").notNull(),
-	description: text("description"),
-	doneCondition: text("done_condition"),
-	state: text("state").notNull(),
-	dependencies: text("dependencies"),
-	artifacts: text("artifacts"),
-	costCap: integer("cost_cap"),
-	costActual: integer("cost_actual").default(0),
-	durability: text("durability"),
-	riskTier: text("risk_tier"),
-	attentionScore: integer("attention_score"),
-	crossTeam: integer("cross_team").default(0),
-	threadId: text("thread_id").references(() => threads.id),
-	notes: text("notes"),
-	auditTrail: text("audit_trail"),
-	createdAt: text("created_at").notNull(),
-	updatedAt: text("updated_at").notNull(),
-});
+export const tasks = pgTable(
+	"tasks",
+	{
+		id: text("id").primaryKey(),
+		betId: text("bet_id")
+			.notNull()
+			.references(() => bets.id, { onDelete: "restrict" }),
+		productId: text("product_id")
+			.notNull()
+			.references(() => products.id, { onDelete: "restrict" }),
+		teamId: text("team_id")
+			.notNull()
+			.references(() => teams.id, { onDelete: "restrict" }),
+		ownerAgentId: text("owner_agent_id").references(() => agents.id, { onDelete: "restrict" }),
+		title: text("title").notNull(),
+		description: text("description"),
+		doneCondition: text("done_condition"),
+		state: text("state").notNull(),
+		dependencies: text("dependencies"),
+		artifacts: text("artifacts"),
+		costCap: integer("cost_cap"),
+		costActual: integer("cost_actual").default(0),
+		durability: text("durability"),
+		riskTier: text("risk_tier"),
+		attentionScore: integer("attention_score"),
+		crossTeam: boolean("cross_team").default(false),
+		threadId: text("thread_id").references(() => threads.id, { onDelete: "restrict" }),
+		notes: text("notes"),
+		auditTrail: text("audit_trail"),
+		createdAt: text("created_at").notNull(),
+		updatedAt: text("updated_at").notNull(),
+	},
+	(table) => [
+		index("tasks_bet_id_idx").on(table.betId),
+		index("tasks_team_id_idx").on(table.teamId),
+		index("tasks_product_id_idx").on(table.productId),
+		// @lore I3 review O1: `tasks_state_idx` was dropped — state has too
+		// few distinct values to be selective. Migration drizzle-pg/0005_drop_tasks_state_idx.
+	],
+);
 
-export const sessions = pgTable("sessions", {
-	id: text("id").primaryKey(),
-	taskId: text("task_id")
-		.notNull()
-		.references(() => tasks.id),
-	agentId: text("agent_id")
-		.notNull()
-		.references(() => agents.id),
-	modelTier: text("model_tier").notNull(),
-	startedAt: text("started_at").notNull(),
-	endedAt: text("ended_at"),
-	state: text("state").notNull(),
-	workspaceSnapshot: text("workspace_snapshot"),
-	cost: integer("cost").default(0),
-	outcome: text("outcome"),
-	notes: text("notes"),
-	traceId: text("trace_id"),
-});
+export const sessions = pgTable(
+	"sessions",
+	{
+		id: text("id").primaryKey(),
+		taskId: text("task_id")
+			.notNull()
+			.references(() => tasks.id, { onDelete: "restrict" }),
+		agentId: text("agent_id")
+			.notNull()
+			.references(() => agents.id, { onDelete: "restrict" }),
+		modelTier: text("model_tier").notNull(),
+		startedAt: text("started_at").notNull(),
+		endedAt: text("ended_at"),
+		state: text("state").notNull(),
+		workspaceSnapshot: text("workspace_snapshot"),
+		cost: integer("cost").default(0),
+		outcome: text("outcome"),
+		notes: text("notes"),
+		traceId: text("trace_id"),
+	},
+	(table) => [
+		index("sessions_task_id_idx").on(table.taskId),
+		index("sessions_agent_id_idx").on(table.agentId),
+		index("sessions_state_idx").on(table.state),
+	],
+);
 
 export const routines = pgTable("routines", {
 	id: text("id").primaryKey(),
 	ownerAgentId: text("owner_agent_id")
 		.notNull()
-		.references(() => agents.id),
+		.references(() => agents.id, { onDelete: "restrict" }),
 	triggerType: text("trigger_type").notNull(),
 	triggerConfig: text("trigger_config"),
 	skillId: text("skill_id"),
 	doneCondition: text("done_condition"),
 	stateKey: text("state_key"),
-	delegationAllowed: integer("delegation_allowed").default(0),
-	humanReview: integer("human_review").default(0),
+	delegationAllowed: boolean("delegation_allowed").default(false),
+	humanReview: boolean("human_review").default(false),
 	autonomyLevel: integer("autonomy_level"),
-	silent: integer("silent").default(0),
-	active: integer("active").notNull().default(1),
+	silent: boolean("silent").default(false),
+	active: boolean("active").notNull().default(true),
 	lastRunAt: text("last_run_at"),
 	nextRunAt: text("next_run_at"),
 });
@@ -137,58 +162,66 @@ export const routines = pgTable("routines", {
 export const threads = pgTable("threads", {
 	id: text("id").primaryKey(),
 	kind: text("kind").notNull(),
-	pinned: integer("pinned").default(0),
+	pinned: boolean("pinned").default(false),
 	participants: text("participants"),
 	createdAt: text("created_at").notNull(),
 });
 
-export const messages = pgTable("messages", {
-	id: text("id").primaryKey(),
-	senderId: text("sender_id")
-		.notNull()
-		.references(() => agents.id),
-	recipientId: text("recipient_id")
-		.notNull()
-		.references(() => agents.id),
-	threadId: text("thread_id")
-		.notNull()
-		.references(() => threads.id),
-	subject: text("subject"),
-	body: text("body").notNull(),
-	fileLeaseIds: text("file_leases"),
-	createdAt: text("created_at").notNull(),
-});
+export const messages = pgTable(
+	"messages",
+	{
+		id: text("id").primaryKey(),
+		senderId: text("sender_id")
+			.notNull()
+			.references(() => agents.id, { onDelete: "restrict" }),
+		recipientId: text("recipient_id")
+			.notNull()
+			.references(() => agents.id, { onDelete: "restrict" }),
+		threadId: text("thread_id")
+			.notNull()
+			.references(() => threads.id, { onDelete: "restrict" }),
+		subject: text("subject"),
+		body: text("body").notNull(),
+		fileLeaseIds: text("file_leases"),
+		createdAt: text("created_at").notNull(),
+	},
+	(table) => [index("messages_thread_id_idx").on(table.threadId)],
+);
 
 // --- Items & Responses ---
 
-export const items = pgTable("items", {
-	id: text("id").primaryKey(),
-	sourceAgentId: text("source_agent_id").references(() => agents.id),
-	layer: text("layer"),
-	verb: text("verb"),
-	kind: text("kind"),
-	title: text("title").notNull(),
-	body: text("body"),
-	attachments: text("attachments"),
-	proposedAction: text("proposed_action"),
-	options: text("options"),
-	riskTier: text("risk_tier"),
-	attentionScore: integer("attention_score"),
-	blocking: integer("blocking").default(0),
-	reasoning: text("reasoning"),
-	costEstimate: integer("cost_estimate"),
-	auditTrail: text("audit_trail"),
-	threadId: text("thread_id")
-		.notNull()
-		.references(() => threads.id),
-	createdAt: text("created_at").notNull(),
-});
+export const items = pgTable(
+	"items",
+	{
+		id: text("id").primaryKey(),
+		sourceAgentId: text("source_agent_id").references(() => agents.id, { onDelete: "restrict" }),
+		layer: text("layer"),
+		verb: text("verb"),
+		kind: text("kind"),
+		title: text("title").notNull(),
+		body: text("body"),
+		attachments: text("attachments"),
+		proposedAction: text("proposed_action"),
+		options: text("options"),
+		riskTier: text("risk_tier"),
+		attentionScore: integer("attention_score"),
+		blocking: boolean("blocking").default(false),
+		reasoning: text("reasoning"),
+		costEstimate: integer("cost_estimate"),
+		auditTrail: text("audit_trail"),
+		threadId: text("thread_id")
+			.notNull()
+			.references(() => threads.id, { onDelete: "restrict" }),
+		createdAt: text("created_at").notNull(),
+	},
+	(table) => [index("items_thread_id_idx").on(table.threadId)],
+);
 
 export const responses = pgTable("responses", {
 	id: text("id").primaryKey(),
 	itemId: text("item_id")
 		.notNull()
-		.references(() => items.id),
+		.references(() => items.id, { onDelete: "cascade" }),
 	decision: text("decision").notNull(),
 	inlineAnchor: text("inline_anchor"),
 	edits: text("edits"),
@@ -205,7 +238,7 @@ export const agentSkills = pgTable(
 	{
 		agentId: text("agent_id")
 			.notNull()
-			.references(() => agents.id),
+			.references(() => agents.id, { onDelete: "restrict" }),
 		skillId: text("skill_id").notNull(),
 		autonomyLevel: integer("autonomy_level").notNull(),
 		successCount: integer("success_count").notNull().default(0),
@@ -260,9 +293,13 @@ export const knowledgeItems = pgTable(
 
 export const knowledgeEditLog = pgTable("knowledge_edit_log", {
 	id: text("id").primaryKey(),
+	// @lore I3 review sec HIGH-2: edit log MUST outlive its subject. Cascade
+	// would let any agent with delete-on-knowledge_items wipe their own
+	// authored history. RESTRICT forces explicit handling — soft-delete the
+	// item or archive its log first. See I3-security-review.md HIGH.
 	itemId: text("item_id")
 		.notNull()
-		.references(() => knowledgeItems.id),
+		.references(() => knowledgeItems.id, { onDelete: "restrict" }),
 	editor: text("editor").notNull(),
 	field: text("field").notNull(),
 	oldValue: text("old_value"),
@@ -275,9 +312,11 @@ export const knowledgeEditLog = pgTable("knowledge_edit_log", {
 
 export const knowledgeConflicts = pgTable("knowledge_conflicts", {
 	id: text("id").primaryKey(),
+	// @lore I3 review sec HIGH-2: conflict resolution evidence MUST outlive
+	// its subject — same reasoning as knowledge_edit_log above.
 	itemId: text("item_id")
 		.notNull()
-		.references(() => knowledgeItems.id),
+		.references(() => knowledgeItems.id, { onDelete: "restrict" }),
 	versionBase: integer("version_base").notNull(),
 	versionCurrent: integer("version_current").notNull(),
 	proposedBody: text("proposed_body").notNull(),
@@ -328,7 +367,7 @@ export const fileLeases = pgTable("file_leases", {
 	id: text("id").primaryKey(),
 	agentId: text("agent_id")
 		.notNull()
-		.references(() => agents.id),
+		.references(() => agents.id, { onDelete: "restrict" }),
 	filePath: text("file_path").notNull(),
 	acquiredAt: text("acquired_at").notNull(),
 	releasedAt: text("released_at"),
