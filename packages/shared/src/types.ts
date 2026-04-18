@@ -42,14 +42,26 @@ export interface HealthResponse {
 	timestamp: string;
 }
 
-export type KnowledgeStatus =
-	| "captured"
-	| "provisional"
-	| "validated"
-	| "active"
-	| "stale"
-	| "archived"
-	| "needs_human";
+/**
+ * The full set of legal knowledge lifecycle statuses. The `KnowledgeStatus`
+ * union is derived from this constant so the runtime list (used for
+ * exhaustive iteration in tests and presentation maps) and the type checker
+ * cannot drift.
+ *
+ * @lore I4 cross-cutting: `needs_human` is included so the UI status mapper
+ * can iterate the union at runtime without falling back to a default chip.
+ */
+export const KNOWLEDGE_STATUSES = [
+	"captured",
+	"provisional",
+	"validated",
+	"active",
+	"stale",
+	"archived",
+	"needs_human",
+] as const;
+
+export type KnowledgeStatus = (typeof KNOWLEDGE_STATUSES)[number];
 
 export type KnowledgeFormat = "markdown" | "toon";
 
@@ -63,16 +75,26 @@ export type KnowledgeKind =
 	| "reflection"
 	| "focus";
 
-export type BetStatus =
-	| "shaped"
-	| "committed"
-	| "in_progress"
-	| "behind"
-	| "blocked"
-	| "paused"
-	| "review"
-	| "shipped"
-	| "killed";
+/**
+ * The full set of legal bet lifecycle statuses. The `BetStatus` union is
+ * derived from this constant. Mirrors the I3 pattern for `TASK_STATES`.
+ *
+ * @lore I4 cross-cutting: required so `BET_STATUS_MAP` can be exhaustively
+ * verified at runtime without drifting from the type-checked union.
+ */
+export const BET_STATUSES = [
+	"shaped",
+	"committed",
+	"in_progress",
+	"behind",
+	"blocked",
+	"paused",
+	"review",
+	"shipped",
+	"killed",
+] as const;
+
+export type BetStatus = (typeof BET_STATUSES)[number];
 
 export type SessionState = "active" | "paused" | "done" | "crashed";
 
