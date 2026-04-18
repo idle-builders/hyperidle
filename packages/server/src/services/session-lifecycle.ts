@@ -31,6 +31,8 @@ export interface SessionContext {
 	taskId: string;
 	workspacePath: string;
 	watcher: FileWatcher;
+	/** Correlates every observability event for this session (H3). */
+	traceId: string;
 }
 
 /**
@@ -83,6 +85,7 @@ export async function createSession(
 
 	// 2. Generate session ID and workspace path
 	const sessionId = crypto.randomUUID();
+	const traceId = crypto.randomUUID();
 	const workspacePath = path.join(params.workspaceBasePath, sessionId);
 	fs.mkdirSync(workspacePath, { recursive: true });
 
@@ -98,6 +101,7 @@ export async function createSession(
 			state: "active",
 			workspaceSnapshot: workspacePath,
 			cost: 0,
+			traceId,
 		})
 		.run();
 
@@ -138,6 +142,7 @@ export async function createSession(
 		taskId: params.taskId,
 		workspacePath,
 		watcher,
+		traceId,
 	};
 }
 

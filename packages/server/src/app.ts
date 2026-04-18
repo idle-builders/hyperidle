@@ -12,6 +12,7 @@ import { createGitExportRoutes } from "./routes/git-export-routes.js";
 import { health } from "./routes/health.js";
 import { createKnowledgeRoutes } from "./routes/knowledge.js";
 import { createNotificationRoutes } from "./routes/notifications-routes.js";
+import { createObservabilityRoutes } from "./routes/observability-routes.js";
 import { createRailRoutes } from "./routes/rail.js";
 import { createRoutineRoutes } from "./routes/routines-routes.js";
 import { createSessionRoutes } from "./routes/sessions-routes.js";
@@ -27,6 +28,21 @@ import { registerNotificationDispatcher } from "./services/notifications/dispatc
 import { createNtfyAdapter } from "./services/notifications/ntfy-adapter.js";
 import { createSmtpAdapter } from "./services/notifications/smtp-adapter.js";
 import type { NotificationAdapter } from "./services/notifications/types.js";
+import {
+	type ObservabilityConfig,
+	readObservabilityConfig,
+} from "./services/observability/config.js";
+import { createConsoleObservabilityAdapter } from "./services/observability/console-adapter.js";
+import {
+	createDbTraceIdResolver,
+	createObservabilityDispatcher,
+	registerObservabilityDispatcher,
+} from "./services/observability/dispatcher.js";
+import { createLangfuseObservabilityAdapter } from "./services/observability/langfuse-adapter.js";
+import type {
+	ObservabilityAdapter,
+	ObservabilityDispatcher,
+} from "./services/observability/types.js";
 import { registerPolicyEngine } from "./services/policy-engine.js";
 import { registerSessionReviewCreator } from "./services/session-review-creator.js";
 
@@ -45,6 +61,33 @@ interface AppOptions {
 	 * routes. Tests inject a FakeAdapter that records every send.
 	 */
 	notificationAdapterFactory?: (cfg: NotificationConfig) => NotificationAdapter;
+	/**
+	 * Optional override for the observability adapter (H3). Tests inject
+	 * a FakeAdapter whose `record` captures every event. When omitted
+	 * production wiring picks console or langfuse based on
+	 * `factory_settings.observability.adapter`.
+	 */
+	observabilityAdapter?: ObservabilityAdapter;
+}
+
+function buildObservabilityAdapter(cfg: ObservabilityConfig): ObservabilityAdapter | null {
+	switch (cfg.adapter) {
+		case "console":
+			return createConsoleObservabilityAdapter();
+		case "langfuse": {
+			if (!(cfg.langfuse.publicKey && cfg.langfuse.secretKey)) {
+				return createConsoleObservabilityAdapter();
+			}
+			return createLangfuseObservabilityAdapter({
+				url: cfg.langfuse.url,
+				publicKey: cfg.langfuse.publicKey,
+				secretKey: cfg.langfuse.secretKey,
+				swallowErrors: true,
+			});
+		}
+		case "noop":
+			return null;
+	}
 }
 
 function defaultNotificationAdapterFactory(cfg: NotificationConfig): NotificationAdapter {
@@ -139,16 +182,88 @@ function createApp(options?: AppOptions): Hono {
 		api.route("/git-export", createGitExportRoutes(options.db));
 		const adapterFactory = options.notificationAdapterFactory ?? defaultNotificationAdapterFactory;
 		api.route("/notifications", createNotificationRoutes(options.db, { adapterFactory }));
+
+		// Observability dispatcher (H3). Constructed lazily so tests can
+		// spin up apps without needing a configured adapter; the /status
+		// route reports "disabled" when no dispatcher is attached.
+		//
+		// PATCH /config rebuilds the dispatcher in place so credential
+		// rotation, adapter switches, and enable/disable transitions take
+		// effect without a process restart (security M-3, architect C1,
+		// adversary WARN).
+		let observabilityDispatcher: ObservabilityDispatcher | null = null;
+		let observabilityUnsubscribe: (() => void) | null = null;
+		const db = options.db;
+		const resolver = createDbTraceIdResolver(db);
+
+		function buildDispatcher(cfg: ObservabilityConfig): ObservabilityDispatcher | null {
+			const adapter = cfg.enabled
+				? (options?.observabilityAdapter ?? buildObservabilityAdapter(cfg))
+				: null;
+			if (!(cfg.enabled && adapter)) return null;
+			return createObservabilityDispatcher({
+				adapter,
+				config: {
+					batchSize: cfg.batchSize,
+					flushIntervalMs: cfg.flushIntervalMs,
+					bufferCap: cfg.bufferCap,
+				},
+			});
+		}
+
+		function wireObservability(cfg: ObservabilityConfig): void {
+			// Tear down the previous subscription + dispatcher first so we
+			// never run two subscribers against the same bus.
+			if (observabilityUnsubscribe) {
+				observabilityUnsubscribe();
+				observabilityUnsubscribe = null;
+			}
+			const previous = observabilityDispatcher;
+			observabilityDispatcher = buildDispatcher(cfg);
+			if (observabilityDispatcher) {
+				const dispatcher = observabilityDispatcher;
+				observabilityUnsubscribe = registerObservabilityDispatcher(eventBus, {
+					dispatcher,
+					resolver,
+				});
+			}
+			if (previous) {
+				// Drain + release the old adapter. Fire-and-forget: we must
+				// not block the PATCH route on an outbound Langfuse flush.
+				void previous.dispose();
+			}
+		}
+
+		const obsCfg = readObservabilityConfig(db);
+		wireObservability(obsCfg);
+
+		api.route(
+			"/observability",
+			createObservabilityRoutes(db, {
+				getDispatcher: (): ObservabilityDispatcher | null => observabilityDispatcher,
+				onConfigChange: wireObservability,
+			}),
+		);
+
 		const disposers: Array<() => void> = [];
-		disposers.push(registerSessionReviewCreator(options.db, eventBus));
-		disposers.push(registerPolicyEngine(options.db, eventBus));
-		disposers.push(registerBuiltinRoutineHandlers(options.db, eventBus));
+		disposers.push(registerSessionReviewCreator(db, eventBus));
+		disposers.push(registerPolicyEngine(db, eventBus));
+		disposers.push(registerBuiltinRoutineHandlers(db, eventBus));
 		disposers.push(
-			registerGitExportHandler(options.db, eventBus, {
+			registerGitExportHandler(db, eventBus, {
 				runnerFactory: options.gitRunnerFactory ?? ((repoPath) => createGitRunner(repoPath)),
 			}),
 		);
-		disposers.push(registerNotificationDispatcher(options.db, eventBus, { adapterFactory }));
+		disposers.push(registerNotificationDispatcher(db, eventBus, { adapterFactory }));
+		disposers.push(() => {
+			if (observabilityUnsubscribe) {
+				observabilityUnsubscribe();
+				observabilityUnsubscribe = null;
+			}
+			const d = observabilityDispatcher;
+			observabilityDispatcher = null;
+			if (d) void d.dispose();
+		});
 		APP_DISPOSERS.set(app, disposers);
 	}
 

@@ -22,6 +22,7 @@ import { and, eq, sql } from "drizzle-orm";
 import type { WorkspaceAdapter, WorkspaceHandle } from "../harness/workspace-adapter.js";
 import { type ToolContext, buildToolRegistry, toolsForRole } from "../skill-tools/tool-registry.js";
 import { checkCostCap, recordCostAndCheck } from "./cost-cap.js";
+import { summarizeToolArgs } from "./observability/dispatcher.js";
 import { type SessionContext, crashSession, endSession } from "./session-lifecycle.js";
 import { transitionTask } from "./task-state-machine.js";
 
@@ -330,6 +331,18 @@ export async function provisionSession(
 						reviewThreadId: params.reviewThreadId,
 					});
 				} else if (event.type === "tool_call") {
+					// Emit to the bus for observability before invoking the tool
+					// so a failure inside the registry doesn't drop the record.
+					// `summarizeToolArgs` scrubs secrets + truncates to 512 chars —
+					// the resulting string is safe to ship to Langfuse.
+					eventBus.emit({
+						type: "tool_call_recorded",
+						streamId: sessionId,
+						sessionId,
+						toolName: event.toolName,
+						argsSummary: summarizeToolArgs(event.args),
+						timestamp: Date.now(),
+					});
 					await registry.invoke(event.toolName, event.args);
 				} else if (event.type === "error") {
 					crashed = true;
