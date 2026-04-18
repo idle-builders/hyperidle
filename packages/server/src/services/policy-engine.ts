@@ -1,14 +1,7 @@
-import {
-	type HyperIdleDb,
-	agentSkills,
-	agents,
-	factorySettings,
-	items,
-	responses,
-	teams,
-} from "@hyperidle/db";
+import { type HyperIdleDb, agentSkills, items, responses } from "@hyperidle/db";
 import type { EventBus, ItemCreatedEvent, NotificationEvent } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
+import { isSilenced as sharedIsSilenced } from "./silence-policy.js";
 
 interface PolicyEngineOptions {
 	/** Inject current time for testability. Defaults to () => new Date(). */
@@ -88,7 +81,7 @@ function determineAction(
 
 	// c. Check silence modes (only for non-blocking items)
 	if (!isBlocking) {
-		if (isSilenced(db, item, nowFn)) return "queue";
+		if (sharedIsSilenced(db, { sourceAgentId: item.sourceAgentId }, nowFn())) return "queue";
 	}
 
 	// d. Autonomy-based rules
@@ -96,70 +89,6 @@ function determineAction(
 	if (autonomyLevel === 3 && item.riskTier === "low") return "queue";
 	// L2 or L1 -> push
 	return "push";
-}
-
-function isSilenced(
-	db: HyperIdleDb,
-	item: { sourceAgentId: string | null },
-	nowFn: () => Date,
-): boolean {
-	// Factory-wide silence mode
-	const silenceMode = db
-		.select()
-		.from(factorySettings)
-		.where(eq(factorySettings.key, "silence_mode"))
-		.get();
-	if (silenceMode?.value === "true") return true;
-
-	// Per-product silence
-	if (item.sourceAgentId) {
-		const agent = db.select().from(agents).where(eq(agents.id, item.sourceAgentId)).get();
-		if (agent?.teamId) {
-			const team = db.select().from(teams).where(eq(teams.id, agent.teamId)).get();
-			if (team) {
-				const productSilence = db
-					.select()
-					.from(factorySettings)
-					.where(eq(factorySettings.key, `silence_product_${team.productId}`))
-					.get();
-				if (productSilence?.value === "true") return true;
-			}
-		}
-	}
-
-	// Silence window
-	const windowStart = db
-		.select()
-		.from(factorySettings)
-		.where(eq(factorySettings.key, "silence_window_start"))
-		.get();
-	const windowEnd = db
-		.select()
-		.from(factorySettings)
-		.where(eq(factorySettings.key, "silence_window_end"))
-		.get();
-
-	if (windowStart && windowEnd) {
-		if (isInSilenceWindow(windowStart.value, windowEnd.value, nowFn())) return true;
-	}
-
-	return false;
-}
-
-function isInSilenceWindow(startStr: string, endStr: string, now: Date): boolean {
-	const [startH, startM] = startStr.split(":").map(Number);
-	const [endH, endM] = endStr.split(":").map(Number);
-
-	const startMinutes = startH * 60 + startM;
-	const endMinutes = endH * 60 + endM;
-	const nowMinutes = now.getUTCHours() * 60 + now.getUTCMinutes();
-
-	if (startMinutes <= endMinutes) {
-		// Same-day window (e.g. 09:00–17:00)
-		return nowMinutes >= startMinutes && nowMinutes <= endMinutes;
-	}
-	// Overnight window (e.g. 22:00–07:00)
-	return nowMinutes >= startMinutes || nowMinutes <= endMinutes;
 }
 
 function executeAction(
