@@ -190,6 +190,26 @@ export function createNotificationRoutes(
 	const auditLogger: Logger = opts.logger ?? createLogger({ pkg: "notifications.audit" });
 	const testBucket = createTestBucket(5, nowFn().getTime());
 
+	// GET / — Bounded resource descriptor. Proves the route is mounted
+	// (I1 S2) without reading or redacting the config on every hit.
+	// @lore I1 simplification-#2: previous handler read the full
+	// NotificationConfig + redacted it on every request. The descriptor
+	// shape is DB-free; callers that want config hit `/config`.
+	router.get("/", (c) =>
+		c.json({
+			ok: true,
+			resource: "notifications",
+			endpoints: [
+				"GET /config",
+				"PATCH /config",
+				"GET /queue",
+				"POST /test",
+				"POST /flush",
+				"GET /digest",
+			],
+		}),
+	);
+
 	router.get("/config", (c) => {
 		const cfg = readNotificationConfig(db);
 		return c.json(redactNotificationConfig(cfg));

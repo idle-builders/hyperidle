@@ -79,6 +79,30 @@ function emitKnowledgeEvent(
 export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono {
 	const router = new Hono();
 
+	// GET / — Bounded resource descriptor. Proves the route is mounted
+	// (I1 S2). Listing happens via `/:layer`, `/:layer/:id`, and
+	// `/search` — each of which scopes the result set.
+	// @lore I1 simplification-#2 / architecture-S1: the previous handler
+	// returned every knowledge item across every layer, which is
+	// unbounded by construction.
+	router.get("/", (c) =>
+		c.json({
+			ok: true,
+			resource: "knowledge",
+			endpoints: [
+				"GET /:layer",
+				"GET /:layer/:id",
+				"GET /search",
+				"POST /:layer",
+				"PATCH /:layer/:id",
+				"POST /:layer/:id/merge",
+				"POST /:layer/:id/split",
+				"POST /:layer/:id/archive",
+				"POST /:layer/:id/flag",
+			],
+		}),
+	);
+
 	// GET /search — FTS search across all knowledge items
 	// Must be registered before /:layer to avoid route conflict
 	router.get("/search", (c) => {

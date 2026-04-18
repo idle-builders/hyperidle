@@ -1,4 +1,20 @@
+import { type Logger, createLogger } from "./logger.js";
 import type { EventByType, EventHandler, EventType, WildcardHandler } from "./events.js";
+
+/**
+ * Module-scoped logger used to surface handler failures. Captured via
+ * `vi.mock("../logger.js", ...)` in tests so the mock assertions can verify
+ * that handler exceptions are observable. Instantiated lazily so that a
+ * `vi.mock` factory referencing hoisted test-scoped vars (e.g. `errorMock`)
+ * does not run before those vars are initialized.
+ */
+let logger: Logger | null = null;
+function getLogger(): Logger {
+	if (!logger) {
+		logger = createLogger({ pkg: "shared.event-bus" });
+	}
+	return logger;
+}
 
 /**
  * In-process pub/sub event bus with per-stream ordering and type-safe subscriptions.
@@ -6,6 +22,15 @@ import type { EventByType, EventHandler, EventType, WildcardHandler } from "./ev
  * Events are delivered synchronously — emit() returns only after all handlers
  * have been called. This guarantees at-least-once delivery when emit() is called
  * after database write durability.
+ *
+ * @lore I1 EventBus resilience: one throwing handler must not abort delivery
+ * to subsequent handlers. A single bad subscriber (e.g. a newly-added
+ * observability or git-export forwarder that hits a transient error) would
+ * otherwise silently break every durability-critical subscriber registered
+ * after it. We isolate per-handler failures with try/catch and log via
+ * `createLogger` so the error remains observable. Throwing handlers are still
+ * a programming error — this guard limits the blast radius, it does not
+ * condone them.
  */
 export class EventBus {
 	private readonly handlers = new Map<EventType, Set<EventHandler<EventType>>>();
@@ -77,12 +102,26 @@ export class EventBus {
 		const set = this.handlers.get(event.type);
 		if (set) {
 			for (const handler of set) {
-				(handler as EventHandler<T>)(event);
+				try {
+					(handler as EventHandler<T>)(event);
+				} catch (err) {
+					getLogger().error("event handler threw", {
+						type: event.type,
+						error: err instanceof Error ? err.message : String(err),
+					});
+				}
 			}
 		}
 
 		for (const handler of this.wildcardHandlers) {
-			handler(event);
+			try {
+				handler(event);
+			} catch (err) {
+				getLogger().error("wildcard event handler threw", {
+					type: event.type,
+					error: err instanceof Error ? err.message : String(err),
+				});
+			}
 		}
 	}
 }

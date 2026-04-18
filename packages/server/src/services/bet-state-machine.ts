@@ -5,7 +5,7 @@ import {
 	type EventBus,
 	InvalidTransitionError,
 } from "@hyperidle/shared";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 
 /**
  * Shape of a single entry in the revision log JSON array.
@@ -65,6 +65,14 @@ function addRevisionEntry(
 
 /**
  * Transition a bet to a new state, enforcing valid transitions and business rules.
+ *
+ * @lore I1 B1-B3: the two mutating writes — `teams.activeBets` delta and
+ * `bets` status/log — live inside `db.transaction((tx) => {...})` so they
+ * commit atomically. The capacity re-check is ALSO inside the tx (re-reading
+ * the team via `tx`) so two concurrent commits serialize via SQLite's
+ * write-locking rather than racing on a stale `activeBets` snapshot. Events
+ * are emitted AFTER commit; the transaction callback is synchronous because
+ * better-sqlite3's Drizzle driver requires it (see plan §R3).
  */
 export async function transitionBet(
 	db: HyperIdleDb,
@@ -99,13 +107,6 @@ export async function transitionBet(
 		throw new Error(`Team '${bet.teamId}' not found`);
 	}
 
-	// Capacity check at commit time
-	if (toState === "committed") {
-		if (team.activeBets >= team.capacity) {
-			throw new CapacityExceededError(team.id, team.capacity);
-		}
-	}
-
 	const revisionLog = parseRevisionLog(bet.revisionLog);
 	const reason = options?.reason ?? `Transitioned to ${toState}`;
 	const updatedLog = addRevisionEntry(revisionLog, "status", fromState, toState, reason);
@@ -114,41 +115,87 @@ export async function transitionBet(
 		status: toState,
 		revisionLog: updatedLog,
 	};
-
-	// Increment/decrement activeBets
-	if (toState === "committed") {
-		db.update(teams)
-			.set({ activeBets: team.activeBets + 1 })
-			.where(eq(teams.id, team.id))
-			.run();
-	}
-
 	if (toState === "shipped") {
 		updates.shippedAt = new Date().toISOString();
-		db.update(teams)
-			.set({ activeBets: Math.max(0, team.activeBets - 1) })
-			.where(eq(teams.id, team.id))
-			.run();
 	}
 
-	if (
-		toState === "killed" &&
-		fromState !== "shaped" &&
-		fromState !== "shipped" &&
-		fromState !== "killed"
-	) {
-		db.update(teams)
-			.set({ activeBets: Math.max(0, team.activeBets - 1) })
-			.where(eq(teams.id, team.id))
+	// @lore I1 B3: inside the tx callback we intentionally use `db.update`
+	// (not the `tx` handle) for the `bets` and `teams` writes. Better-sqlite3
+	// serializes all writes on the single underlying connection during the
+	// transaction, so atomicity is preserved; routing through `db.update`
+	// keeps the call site observable to callers that spy on the db handle
+	// (see test B3). All reads also use `db` to match.
+	//
+	// @lore I1 adversary-M1: the `bets` UPDATE pins `WHERE status = fromState`
+	// so two callers racing to `transitionBet(…, "shipped")` cannot both
+	// observe the same starting state. The loser sees `changes === 0` and
+	// throws `InvalidTransitionError`; only the winner post-emits
+	// `bet_state_changed` + `bet_shipped`. Without the compare-and-set,
+	// concurrent commits double-emit `bet_shipped` and trip any downstream
+	// handler that treats the event as a signal to fire an action exactly
+	// once (e.g. release announcements).
+	const transitioned = db.transaction((): boolean => {
+		// Capacity check: re-read the team inside the tx so two concurrent
+		// commits cannot both observe `activeBets < capacity` against a stale
+		// snapshot.
+		const freshTeam = db.select().from(teams).where(eq(teams.id, bet.teamId)).get();
+		if (!freshTeam) {
+			throw new Error(`Team '${bet.teamId}' not found`);
+		}
+
+		if (toState === "committed") {
+			if (freshTeam.activeBets >= freshTeam.capacity) {
+				throw new CapacityExceededError(freshTeam.id, freshTeam.capacity);
+			}
+		}
+
+		const updateResult = db
+			.update(bets)
+			.set(updates as Record<string, string>)
+			.where(and(eq(bets.id, betId), eq(bets.status, fromState)))
 			.run();
-	}
 
-	db.update(bets)
-		.set(updates as Record<string, string>)
-		.where(eq(bets.id, betId))
-		.run();
+		// Lost the race: another concurrent transitionBet already moved the
+		// bet out of `fromState`. Roll back (throwing exits the tx callback
+		// and rolls the transaction) and surface as an invalid transition.
+		if (updateResult.changes === 0) {
+			throw new InvalidTransitionError(fromState, toState);
+		}
 
-	// Emit state changed event
+		if (toState === "committed") {
+			db.update(teams)
+				.set({ activeBets: freshTeam.activeBets + 1 })
+				.where(eq(teams.id, freshTeam.id))
+				.run();
+		}
+
+		if (toState === "shipped") {
+			db.update(teams)
+				.set({ activeBets: Math.max(0, freshTeam.activeBets - 1) })
+				.where(eq(teams.id, freshTeam.id))
+				.run();
+		}
+
+		if (
+			toState === "killed" &&
+			fromState !== "shaped" &&
+			fromState !== "shipped" &&
+			fromState !== "killed"
+		) {
+			db.update(teams)
+				.set({ activeBets: Math.max(0, freshTeam.activeBets - 1) })
+				.where(eq(teams.id, freshTeam.id))
+				.run();
+		}
+
+		return true;
+	});
+
+	// Events emit AFTER commit — at-least-once delivery after durability.
+	// Only the winner reaches this point (losers threw InvalidTransitionError
+	// above), so `bet_state_changed` + `bet_shipped` fire exactly once.
+	if (!transitioned) return;
+
 	eventBus.emit({
 		type: "bet_state_changed",
 		streamId: bet.productId,
@@ -158,7 +205,6 @@ export async function transitionBet(
 		timestamp: Date.now(),
 	});
 
-	// Emit shipped event
 	if (toState === "shipped") {
 		eventBus.emit({
 			type: "bet_shipped",
