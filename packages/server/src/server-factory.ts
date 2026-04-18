@@ -61,8 +61,8 @@ export async function createBunServer(port: number): Promise<BunServerHandle> {
 	const app = createApp({
 		db,
 		eventBus,
-		registerWebSocket: (apiRouter) => {
-			wsDispose = registerWsRoute(apiRouter, eventBus);
+		registerWebSocket: (apiRouter, tokenStore) => {
+			wsDispose = registerWsRoute(apiRouter, eventBus, tokenStore);
 		},
 	});
 
