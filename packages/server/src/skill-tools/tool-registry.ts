@@ -128,9 +128,25 @@ export function toolsForRole(role: AgentRole): readonly ToolDefinition[] {
 	return ALL_TOOL_DEFINITIONS.filter((d) => d.roles === undefined || d.roles.includes(role));
 }
 
-/** Build a fresh registry bound to the given context. */
-export function buildToolRegistry(ctx: ToolContext): ToolRegistry {
-	const definitions = ALL_TOOL_DEFINITIONS;
+/**
+ * Options accepted by `buildToolRegistry`. `role` is REQUIRED so every call
+ * site has to make an explicit authorization decision — silent fallback to
+ * "all tools" was the I2 B1/B2 vulnerability.
+ *
+ * @lore I2 B1/B2: previously `buildToolRegistry(ctx)` returned every tool
+ * to every caller. Defence-in-depth: the registry now filters by role at
+ * the constructor boundary, mirroring the harness allowed-tool list.
+ */
+export interface BuildToolRegistryOptions {
+	readonly role: AgentRole;
+}
+
+/** Build a fresh registry bound to the given context, filtered to the agent's role. */
+export function buildToolRegistry(
+	ctx: ToolContext,
+	options: BuildToolRegistryOptions,
+): ToolRegistry {
+	const definitions = toolsForRole(options.role);
 
 	const byName = new Map(definitions.map((d) => [d.name, d]));
 

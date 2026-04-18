@@ -286,7 +286,7 @@ export async function provisionSession(
 		workspacePath,
 		watcher,
 	};
-	const registry = buildToolRegistry(toolContext);
+	const registry = buildToolRegistry(toolContext, { role: agentRole });
 
 	// ── Phase 9: start the harness session.
 	let harnessHandle: SessionHandle | null = null;
