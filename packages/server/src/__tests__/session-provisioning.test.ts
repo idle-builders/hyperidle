@@ -880,4 +880,128 @@ describe("Session Provisioning (D5)", () => {
 			);
 		});
 	});
+
+	// ------------------------------------------- G1 AC6: facilitator provisioning
+	describe("G1 AC6: facilitator provisioning + facilitator tools exposed", () => {
+		it("provisions a session for a practice_facilitator agent; registry exposes facilitator tools", async () => {
+			// Seed the full domain first (gives us t1, b1, task-1).
+			seedDomain(db);
+
+			// Replace the default builder agent on task-1 with a practice_facilitator.
+			db.delete(tasks).where(eq(tasks.id, "task-1")).run();
+			db.delete(agents).where(eq(agents.id, "agent-1")).run();
+
+			db.insert(agents)
+				.values({
+					id: "agent-fac",
+					name: "Ops Practice Facilitator",
+					role: "practice_facilitator",
+					status: "active",
+					teamId: null,
+					maxConcurrentSessions: 1,
+					costCap: null,
+					costActual: 0,
+					soulPromptPath: "docs/souls/practice-facilitator.md",
+					skills:
+						'{"scope":"ops","tools":["route_item","score_attention","promote_knowledge","create_conflict_review"]}',
+					createdAt: NOW,
+				})
+				.run();
+			db.insert(tasks)
+				.values({
+					id: "task-fac",
+					betId: "b1",
+					productId: "p1",
+					teamId: "t1",
+					title: "Facilitator task",
+					state: "accepted",
+					createdAt: NOW,
+					updatedAt: NOW,
+				})
+				.run();
+
+			const harness = new ScriptedHarnessAdapter({
+				events: [
+					{ type: "cost_update", totalCost: 0.0, deltaCost: 0.0 },
+					{ type: "completion", text: "ok" },
+				],
+				stopResult: { outcome: "completed", totalTokens: 0, totalCost: 0 },
+			});
+
+			const deps: ProvisionSessionDeps = { db, eventBus, harness, workspace };
+			await provisionSession(
+				deps,
+				baseParams(tmpDir, { taskId: "task-fac", agentId: "agent-fac" }),
+			);
+
+			// startSession must have been called exactly once.
+			expect(harness.startedConfigs.length).toBe(1);
+			const cfg = harness.startedConfigs[0];
+
+			// Tools passed to the harness must include all four facilitator tools.
+			const tools = cfg.tools;
+			expect(tools).toContain("route_item");
+			expect(tools).toContain("score_attention");
+			expect(tools).toContain("promote_knowledge");
+			expect(tools).toContain("create_conflict_review");
+		});
+
+		it("builder session does NOT expose facilitator tools (role-based authz)", async () => {
+			seedDomain(db);
+
+			const harness = new ScriptedHarnessAdapter({
+				events: [
+					{ type: "cost_update", totalCost: 0.0, deltaCost: 0.0 },
+					{ type: "completion", text: "ok" },
+				],
+				stopResult: { outcome: "completed", totalTokens: 0, totalCost: 0 },
+			});
+
+			const deps: ProvisionSessionDeps = { db, eventBus, harness, workspace };
+			await provisionSession(deps, baseParams(tmpDir));
+
+			expect(harness.startedConfigs.length).toBe(1);
+			const cfg = harness.startedConfigs[0];
+
+			// Facilitator-only tools must NOT be present in a builder session.
+			const tools = cfg.tools;
+			expect(tools).not.toContain("route_item");
+			expect(tools).not.toContain("score_attention");
+			expect(tools).not.toContain("promote_knowledge");
+			expect(tools).not.toContain("create_conflict_review");
+
+			// General-purpose tools must still be available.
+			expect(tools).toContain("log_task");
+			expect(tools).toContain("send_message");
+			expect(tools).toContain("write_session_notes");
+		});
+	});
+
+	// --------------- Path traversal guard: soul_prompt_path must stay under docs/souls
+	describe("path traversal guard on soul_prompt_path", () => {
+		it("rejects an agent whose soul_prompt_path escapes docs/souls", async () => {
+			seedDomain(db);
+			// Mutate the seeded agent to point at a path that resolves outside
+			// docs/souls. The validator must throw before any DB writes or
+			// workspace spawns.
+			db.update(agents)
+				.set({ soulPromptPath: "../../../etc/passwd" })
+				.where(eq(agents.id, "agent-1"))
+				.run();
+
+			const harness = new ScriptedHarnessAdapter({ events: [] });
+			const deps: ProvisionSessionDeps = { db, eventBus, harness, workspace };
+
+			await expect(provisionSession(deps, baseParams(tmpDir))).rejects.toThrow(
+				/soul_prompt_path escapes/,
+			);
+
+			// No session row created, harness never started, task not transitioned.
+			const rows = db.select().from(sessions).all();
+			expect(rows.length).toBe(0);
+			expect(harness.startedConfigs.length).toBe(0);
+			const t = db.select().from(tasks).where(eq(tasks.id, "task-1")).get();
+			expect(t?.state).toBe("accepted");
+		});
+	});
 });

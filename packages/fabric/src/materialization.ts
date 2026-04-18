@@ -3,17 +3,8 @@ import * as path from "node:path";
 import type { HyperIdleDb, KnowledgeItem } from "@hyperidle/db";
 import type { AgentRole } from "@hyperidle/shared";
 import { list } from "./knowledge-repository.js";
+import { ROLE_TO_COMMUNITY } from "./role-community-map.js";
 import { buildSessionContext } from "./session-context.js";
-
-/** Map agent roles to L3 practice community scope IDs. */
-const ROLE_TO_COMMUNITY: Record<AgentRole, string> = {
-	builder: "building",
-	growth: "growth",
-	product_manager: "product",
-	practice_facilitator: "ops",
-	chief_of_staff: "ops",
-	brand_voice: "growth",
-};
 
 export interface MaterializationConfig {
 	workspacePath: string;
