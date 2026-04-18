@@ -16,18 +16,17 @@ import { randomBytes } from "node:crypto";
 
 interface TokenRecord {
 	expiresAt: number;
-	consumed: boolean;
 }
-
-export type ConsumeResult =
-	| { ok: true }
-	| { ok: false; reason: "expired" | "consumed" | "unknown" };
 
 export interface UpgradeTokenStore {
 	issue(): { token: string; expiresAt: number };
-	consume(token: string): ConsumeResult;
-	/** Test-only: snapshot the current size so tests can assert cleanup. */
-	size(): number;
+	/**
+	 * Claim a token. Returns `{ ok: true }` on success and consumes (deletes)
+	 * the token. Returns `{ ok: false }` for any failure (unknown, expired,
+	 * or already-consumed token) — callers surface the same generic 401 to
+	 * the client either way.
+	 */
+	consume(token: string): { ok: boolean };
 }
 
 const DEFAULT_TTL_MS = 60_000;
@@ -46,7 +45,7 @@ export function createUpgradeTokenStore(): UpgradeTokenStore {
 
 	function purgeExpired(now: number): void {
 		for (const [token, record] of tokens) {
-			if (record.expiresAt <= now || record.consumed) {
+			if (record.expiresAt <= now) {
 				tokens.delete(token);
 			}
 		}
@@ -59,33 +58,21 @@ export function createUpgradeTokenStore(): UpgradeTokenStore {
 		purgeExpired(now);
 		const token = randomBytes(32).toString("base64url");
 		const expiresAt = now + ttlMs;
-		tokens.set(token, { expiresAt, consumed: false });
+		tokens.set(token, { expiresAt });
 		return { token, expiresAt };
 	}
 
-	function consume(token: string): ConsumeResult {
+	function consume(token: string): { ok: boolean } {
 		const now = Date.now();
 		purgeExpired(now);
 		const record = tokens.get(token);
-		if (!record) return { ok: false, reason: "unknown" };
-		if (record.consumed) {
-			tokens.delete(token);
-			return { ok: false, reason: "consumed" };
-		}
-		if (record.expiresAt <= now) {
-			tokens.delete(token);
-			return { ok: false, reason: "expired" };
-		}
-		record.consumed = true;
-		// One-shot: drop the record immediately so a race that re-checks
-		// the same token sees `unknown` (not `consumed`) on the second pass.
+		if (!record) return { ok: false };
+		// One-shot: drop the record before checking expiry so a race that
+		// re-checks the same token sees `ok: false` on the second pass.
 		tokens.delete(token);
+		if (record.expiresAt <= now) return { ok: false };
 		return { ok: true };
 	}
 
-	function size(): number {
-		return tokens.size;
-	}
-
-	return { issue, consume, size };
+	return { issue, consume };
 }

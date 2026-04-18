@@ -36,6 +36,19 @@ function tooLargeResponse(c: Parameters<MiddlewareHandler>[0]): Response {
 	return c.json(response, 413);
 }
 
+/**
+ * Cancel an in-flight reader and swallow only the WHATWG-Streams "already
+ * closed/locked" `TypeError`. Anything else propagates — it would be a real
+ * I/O failure, not a cleanup race.
+ */
+async function safeCancelReader(reader: ReadableStreamDefaultReader<Uint8Array>): Promise<void> {
+	try {
+		await reader.cancel();
+	} catch (err) {
+		if (!(err instanceof TypeError)) throw err;
+	}
+}
+
 export function createBodyLimit(options: BodyLimitOptions): MiddlewareHandler {
 	const { maxSize } = options;
 	return async (c, next) => {
@@ -60,11 +73,7 @@ export function createBodyLimit(options: BodyLimitOptions): MiddlewareHandler {
 			if (done) break;
 			total += value.byteLength;
 			if (total > maxSize) {
-				try {
-					await reader.cancel();
-				} catch {
-					// Ignore — already done.
-				}
+				await safeCancelReader(reader);
 				return tooLargeResponse(c);
 			}
 			chunks.push(value);

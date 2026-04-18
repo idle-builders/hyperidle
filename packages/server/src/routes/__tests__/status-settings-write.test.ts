@@ -47,7 +47,7 @@ describe("I2 V5 — PATCH /api/status/settings blocks reserved-prefix keys", () 
 	];
 
 	for (const key of BLOCKED_KEYS) {
-		it(`returns 400 with VALIDATION_ERROR (or PROTECTED_KEY_PREFIX) when key='${key}'`, async () => {
+		it(`returns 400 with VALIDATION_ERROR when key='${key}'`, async () => {
 			const res = await app.request("/api/status/settings", {
 				method: "PATCH",
 				headers: authHeaders(),
@@ -56,12 +56,7 @@ describe("I2 V5 — PATCH /api/status/settings blocks reserved-prefix keys", () 
 
 			expect(res.status).toBe(400);
 			const body = (await res.json()) as { code?: string; error?: string };
-			// Accept either the canonical VALIDATION_ERROR code or a more
-			// specific marker. The plan calls the marker out so the test
-			// permits either spelling.
-			expect(
-				body.code === API_ERROR_CODES.VALIDATION_ERROR || body.code === "PROTECTED_KEY_PREFIX",
-			).toBe(true);
+			expect(body.code).toBe(API_ERROR_CODES.VALIDATION_ERROR);
 			// Error message should mention the dedicated route guidance.
 			expect(typeof body.error).toBe("string");
 

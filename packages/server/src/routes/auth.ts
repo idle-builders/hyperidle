@@ -19,9 +19,10 @@ export function createAuthRoutes(store: UpgradeTokenStore): Hono {
 	const router = new Hono();
 
 	router.post("/ws-token", (c) => {
+		// Clients compute remaining seconds from `expiresAt` themselves; emitting
+		// a server-derived `expiresInSec` adds a clock-skew footgun for no value.
 		const { token, expiresAt } = store.issue();
-		const expiresInSec = Math.max(0, Math.ceil((expiresAt - Date.now()) / 1000));
-		return c.json({ token, expiresAt, expiresInSec });
+		return c.json({ token, expiresAt });
 	});
 
 	return router;
