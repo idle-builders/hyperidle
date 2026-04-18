@@ -141,4 +141,22 @@ describe("I2 V4 — GET /api/knowledge/search escapes LIKE wildcards", () => {
 		});
 		expect(res.status).toBe(200);
 	});
+
+	it("review HIGH-5 / M-4: rejects queries longer than 500 chars with 400", async () => {
+		const huge = "x".repeat(501);
+		const res = await app.request(`/api/knowledge/search?q=${encodeURIComponent(huge)}`, {
+			headers: authHeaders(),
+		});
+		expect(res.status).toBe(400);
+		const body = (await res.json()) as { code?: string };
+		expect(body.code).toBe(API_ERROR_CODES.VALIDATION_ERROR);
+	});
+
+	it("review HIGH-5 / M-4: a query at the 500-char boundary is accepted", async () => {
+		const right = "x".repeat(500);
+		const res = await app.request(`/api/knowledge/search?q=${encodeURIComponent(right)}`, {
+			headers: authHeaders(),
+		});
+		expect(res.status).toBe(200);
+	});
 });

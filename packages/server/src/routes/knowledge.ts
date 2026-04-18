@@ -129,17 +129,23 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 		}),
 	);
 
+	// I2 review M-4 / HIGH-5: cap query length so an attacker cannot
+	// drive a long full-table LIKE scan with a 1 MiB query string.
+	const SEARCH_QUERY_SCHEMA = z.string().min(1).max(500);
+
 	// GET /search — FTS search across all knowledge items
 	// Must be registered before /:layer to avoid route conflict
 	router.get("/search", (c) => {
-		const query = c.req.query("q");
-		if (!query || query.trim() === "") {
+		const rawQuery = c.req.query("q");
+		const parsed = SEARCH_QUERY_SCHEMA.safeParse(rawQuery?.trim());
+		if (!parsed.success) {
 			const response: ApiErrorResponse = {
-				error: "Query parameter 'q' is required",
+				error: "Query parameter 'q' is required (1–500 chars)",
 				code: API_ERROR_CODES.VALIDATION_ERROR,
 			};
 			return c.json(response, 400);
 		}
+		const query = parsed.data;
 
 		// I2 V4: escape LIKE wildcards (%, _, \) so the user's literal
 		// query characters do not turn into SQL pattern operators. The
