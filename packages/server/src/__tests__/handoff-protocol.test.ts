@@ -12,7 +12,7 @@ import {
 	threads,
 } from "@hyperidle/db";
 import { EventBus } from "@hyperidle/shared";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { beforeEach, describe, expect, it } from "vitest";
 import { type HandoffMetadata, handoff } from "../services/handoff-protocol.js";
 import type { SessionContext } from "../services/session-lifecycle.js";
@@ -576,6 +576,65 @@ describe("Handoff Protocol", () => {
 			expect(session?.endedAt).toBeTruthy();
 			// Key assertion: cost must survive the handoff.
 			expect(session?.cost).toBe(150);
+		});
+	});
+
+	// ---------------- I1 adversary-M2 / security-M3: handoff is atomic ----------------
+	describe("I1 M2: handoff wraps all DB mutations in one transaction", () => {
+		it("rolls back session, task, auditTrail when messages INSERT throws", async () => {
+			insertAgent(db, "agent-a", "builder", "t1");
+			insertAgent(db, "agent-b", "builder", "t1");
+			insertTask(db, "task-atomic", "in_progress", "agent-a");
+			insertSession(db, "session-atomic", "task-atomic", "agent-a");
+			// Bump the session cost so we can prove it survives the rollback.
+			db.update(sessions).set({ cost: 250 }).where(eq(sessions.id, "session-atomic")).run();
+
+			// Force the `messages` INSERT inside the handoff transaction to
+			// throw by dropping the referenced thread row. We temporarily
+			// disable the foreign_keys pragma so we can delete the thread
+			// while `tasks.threadId` still points at it (tasks.threadId is
+			// FK-restricted). The pragma is re-enabled before calling
+			// handoff so messages.threadId FK enforcement is live.
+			db.run(sql`PRAGMA foreign_keys = OFF`);
+			db.delete(threads).where(eq(threads.id, "thread-task-atomic")).run();
+			db.run(sql`PRAGMA foreign_keys = ON`);
+
+			// Capture any emitted events — none should fire because the
+			// transaction rolls back and emission is post-commit.
+			const emitted: Array<{ type: string }> = [];
+			eventBus.on("*", (e) => emitted.push(e));
+
+			const ctx = makeSessionContext("session-atomic", "agent-a", "task-atomic");
+			let thrown: unknown = null;
+			try {
+				await handoff(db, eventBus, {
+					sessionContext: ctx,
+					toAgent: "agent-b",
+					metadata: makeMetadata(),
+				});
+			} catch (err) {
+				thrown = err;
+			}
+
+			expect(thrown).toBeInstanceOf(Error);
+			expect((thrown as Error).message).toContain("FOREIGN KEY");
+
+			// Session unchanged: still active, same cost, no endedAt.
+			const session = db.select().from(sessions).where(eq(sessions.id, "session-atomic")).get();
+			expect(session?.state).toBe("active");
+			expect(session?.endedAt).toBeFalsy();
+			expect(session?.cost).toBe(250);
+
+			// Task unchanged: ownership still agent-a, auditTrail has no
+			// handoff entry (the tx rolled back all of its writes).
+			const task = db.select().from(tasks).where(eq(tasks.id, "task-atomic")).get();
+			expect(task?.ownerAgentId).toBe("agent-a");
+			const audit = JSON.parse(task?.auditTrail ?? "[]") as Array<Record<string, unknown>>;
+			const handoffEntry = audit.find((e) => e.type === "handoff");
+			expect(handoffEntry).toBeUndefined();
+
+			// No events emitted (neither task_state_changed nor item_created).
+			expect(emitted).toHaveLength(0);
 		});
 	});
 
