@@ -28,12 +28,9 @@ test.describe("Global Search", () => {
 		await page.keyboard.press("Meta+k");
 		const input = page.getByRole("textbox");
 		await input.fill("nonexistent-search-term-xyz");
-		// Wait for debounce + API response
-		await page.waitForTimeout(300);
-		// Should show either results or "No matches" empty state
-		const hasResults = (await page.getByText("Conversations").count()) > 0;
-		const hasEmptyState = (await page.getByText("No matches").count()) > 0;
-		expect(hasResults || hasEmptyState).toBe(true);
+		// Use Playwright auto-retry instead of waitForTimeout(300).
+		// After debounce + API response, either results or empty state appears.
+		await expect(page.getByText("Conversations").or(page.getByText("No matches"))).toBeVisible();
 	});
 
 	test("clicking a work result navigates to /work/bet/{id} (I4 N3)", async ({ page }) => {
