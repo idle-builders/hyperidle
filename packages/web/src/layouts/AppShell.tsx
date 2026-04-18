@@ -71,11 +71,20 @@ export function AppShell(): JSX.Element {
 	const [settingsOpen, setSettingsOpen] = useState(false);
 	const commandK = useCommandK();
 
-	// Open settings panel when navigated to with ?settings=open query param
+	// Open settings panel when navigated to with ?settings=open query param.
+	// Clear only the `settings` key so co-existing query params (e.g. filters)
+	// are preserved.
 	useEffect(() => {
 		if (searchParams.get("settings") === "open") {
 			setSettingsOpen(true);
-			setSearchParams({}, { replace: true });
+			setSearchParams(
+				(prev) => {
+					const next = new URLSearchParams(prev);
+					next.delete("settings");
+					return next;
+				},
+				{ replace: true },
+			);
 		}
 	}, [searchParams, setSearchParams]);
 

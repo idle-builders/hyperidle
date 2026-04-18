@@ -39,9 +39,18 @@ export function useViewportBreakpoint(): ViewportBreakpoint {
 		}
 		window.addEventListener("resize", update);
 		// Some browsers fire matchMedia change events but not resize for
-		// orientation changes; covering both keeps the hook robust.
+		// orientation changes; listen to both so the hook reacts in either
+		// path.
+		const submenuMql =
+			typeof window.matchMedia === "function" ? window.matchMedia(SUBMENU_COLLAPSE_MAX) : null;
+		const railMql =
+			typeof window.matchMedia === "function" ? window.matchMedia(RAIL_EXPAND_MIN) : null;
+		submenuMql?.addEventListener("change", update);
+		railMql?.addEventListener("change", update);
 		return () => {
 			window.removeEventListener("resize", update);
+			submenuMql?.removeEventListener("change", update);
+			railMql?.removeEventListener("change", update);
 		};
 	}, []);
 

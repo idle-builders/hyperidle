@@ -1,4 +1,4 @@
-import { Component, type ErrorInfo, type JSX, type ReactNode } from "react";
+import { Component, type ReactNode } from "react";
 
 /**
  * @lore I4 E1: ErrorBoundary is a utility class component that catches
@@ -31,11 +31,6 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
 		return { error };
 	}
 
-	componentDidCatch(_error: Error, _info: ErrorInfo): void {
-		// Hook for future telemetry. Intentionally a no-op for now so test
-		// output stays clean (suite stubs console.error).
-	}
-
 	private readonly handleReload = (): void => {
 		window.location.reload();
 	};
@@ -55,7 +50,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
 						Reload
 					</button>
 				</div>
-			) as JSX.Element;
+			);
 		}
 		return this.props.children;
 	}
