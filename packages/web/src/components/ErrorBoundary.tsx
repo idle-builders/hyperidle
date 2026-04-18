@@ -1,4 +1,4 @@
-import { Component, type ReactNode } from "react";
+import { Component, type ErrorInfo, type ReactNode } from "react";
 
 /**
  * @lore I4 E1: ErrorBoundary is a utility class component that catches
@@ -7,14 +7,30 @@ import { Component, type ReactNode } from "react";
  * infrastructure (same category as the AppShell layout). Without it, an
  * uncaught render error in any page produces a blank white screen.
  *
- * The fallback shows: "Something went wrong", the error message (for
- * debuggability), and a Reload button that triggers `window.location.reload()`.
- * Children rendered via `siblings` continue to render — boundaries are
- * sibling-isolated by React.
+ * The fallback shows a generic message ("Something went wrong") and a
+ * Reload button. In development (`import.meta.env.DEV`) the raw
+ * `error.message` is rendered behind a disclosure so agents can debug;
+ * production builds never leak the message (see security MED-2 —
+ * Error.message may contain stack frames, internal paths, or unredacted
+ * API response bodies).
+ *
+ * Error boundaries do NOT catch:
+ *   - event-handler errors,
+ *   - async errors (setTimeout, Promise rejection, fetch .then),
+ *   - SSR errors.
+ * Async/effect errors in hooks like `useGlobalSearch` must be handled by
+ * their own error state — the boundary cannot rescue them.
+ *
+ * `componentDidCatch` logs the error via `console.error` for observability.
+ * A proper observability adapter will replace this wiring in a later story;
+ * the log is the minimum surface so production errors are not silently
+ * swallowed.
  */
 
 interface ErrorBoundaryProps {
 	children: ReactNode;
+	/** Optional injected reload handler — primarily for tests. */
+	onReload?: () => void;
 }
 
 interface ErrorBoundaryState {
@@ -31,21 +47,44 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
 		return { error };
 	}
 
+	componentDidCatch(error: Error, info: ErrorInfo): void {
+		// biome-ignore lint/suspicious/noConsole: observability surface — see @lore above
+		console.error("[ErrorBoundary] caught render error", {
+			message: error.message,
+			componentStack: info.componentStack,
+		});
+	}
+
 	private readonly handleReload = (): void => {
+		if (this.props.onReload) {
+			this.props.onReload();
+			return;
+		}
 		window.location.reload();
 	};
 
 	render(): ReactNode {
 		const { error } = this.state;
 		if (error) {
+			const isDev = import.meta.env.DEV;
 			return (
 				<div
 					role="alert"
-					className="flex flex-col items-start gap-2 p-3 border border-error rounded bg-base-200"
+					className="flex flex-col items-start gap-2 p-3 rounded bg-base-200"
 					data-testid="error-boundary-fallback"
 				>
 					<h2 className="text-sm font-semibold text-error">Something went wrong</h2>
-					<p className="text-xs text-[var(--text-mid)] font-mono break-all">{error.message}</p>
+					<p className="text-xs text-[var(--text-mid)]">
+						An unexpected error occurred. Please reload the page.
+					</p>
+					{isDev && (
+						<p
+							className="text-xs text-[var(--text-lo)] font-mono break-all"
+							data-testid="error-boundary-dev-message"
+						>
+							{error.message}
+						</p>
+					)}
 					<button type="button" className="btn btn-xs btn-ghost" onClick={this.handleReload}>
 						Reload
 					</button>
