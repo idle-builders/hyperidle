@@ -1,0 +1,45 @@
+{
+  "permissions": {
+    "allow": [
+      "WebFetch(domain:docs.anthropic.com)",
+      "WebFetch(domain:www.anthropic.com)",
+      "Skill(planning)",
+      "Skill(implement)",
+      "Bash(bun run:*)",
+      "Bash(bun install:*)",
+      "Bash(bun test:*)",
+      "Bash(timeout 10 bun dev)",
+      "Bash(git stash:*)",
+      "Bash(git add:*)",
+      "Bash(git commit -m ':*)",
+      "Bash(ls /Users/tobiasgrundmann/Development/hyperidle/node_modules/.bun/@anthropic-ai+claude-agent-sdk*/node_modules/@anthropic-ai/claude-agent-sdk/)",
+      "Bash(cat:*)",
+      "Bash(grep -E \"^export declare \\(function|class|type|interface|const\\)\" /Users/tobiasgrundmann/Development/hyperidle/node_modules/.bun/@anthropic-ai+claude-agent-sdk*/node_modules/@anthropic-ai/claude-agent-sdk/sdk.d.ts)",
+      "Bash(grep:*)",
+      "Bash(bun:*)",
+      "Bash(git branch:*)",
+      "Bash(git worktree:*)",
+      "Bash(ln -sf /Users/tobiasgrundmann/Development/hyperidle/.claude /Users/tobiasgrundmann/Development/hyperidle/.worktrees/test-auth/.claude)",
+      "Bash(ls ~/.claude/auth* ~/.claude/credentials* ~/.claude/.credentials*)",
+      "Bash(ls ~/.claude/.oauth* ~/.claude/oauth*)",
+      "WebSearch",
+      "WebFetch(domain:support.claude.com)",
+      "WebFetch(domain:docs.claude.com)",
+      "Bash(npx tsc:*)",
+      "Bash(biome check:*)",
+      "Bash(find:*)",
+      "Bash(npx:*)",
+      "Read(//tmp/**)",
+      "Bash(sed 's/ *$//')",
+      "Bash(npm list:*)"
+    ]
+  },
+  "autoMode": {
+    "allow": [
+      "Anything that is not dangerous to the computer or secrets is allows",
+      "For fetching content from the web check to avoid spam & virus pages and allow the known page",
+      "All file edits and writes in this project are safe to execute without confirmation",
+      "All Read, Edit, and Write tool calls are pre-approved"
+    ]
+  }
+}

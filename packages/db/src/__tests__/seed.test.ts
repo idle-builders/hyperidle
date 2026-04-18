@@ -127,4 +127,138 @@ describe("A2: Seed script", () => {
 			).toBe(true);
 		}
 	});
+
+	// --- G4 AC6: seed creates all 5 builtin routines with correct config ---
+	it("seeds all 5 G4 builtin routines with correct triggers (G4 AC6)", () => {
+		seed(db);
+
+		const expectedIds = [
+			"builtin:cost-sentinel",
+			"builtin:practice-meeting",
+			"builtin:post-bet-retro",
+			"builtin:portfolio-retro",
+			"builtin:knowledge-decay",
+		] as const;
+
+		const rows = db.all<{
+			id: string;
+			triggerType: string;
+			triggerConfig: string | null;
+			ownerAgentId: string;
+			active: number;
+		}>(
+			sql.raw(
+				"SELECT id, trigger_type AS triggerType, trigger_config AS triggerConfig, owner_agent_id AS ownerAgentId, active FROM routines WHERE id LIKE 'builtin:%' ORDER BY id",
+			),
+		);
+
+		const byId = new Map(rows.map((r) => [r.id, r]));
+		for (const id of expectedIds) {
+			expect(byId.has(id), `routine ${id} must be seeded`).toBe(true);
+			expect(byId.get(id)?.active).toBe(1);
+			expect(byId.get(id)?.triggerConfig).toBeTruthy();
+		}
+
+		expect(byId.get("builtin:cost-sentinel")?.triggerType).toBe("heartbeat");
+		expect(byId.get("builtin:practice-meeting")?.triggerType).toBe("calendar");
+		expect(byId.get("builtin:post-bet-retro")?.triggerType).toBe("event");
+		expect(byId.get("builtin:portfolio-retro")?.triggerType).toBe("calendar");
+		expect(byId.get("builtin:knowledge-decay")?.triggerType).toBe("calendar");
+	});
+
+	// --- G4 review MAJOR-3: pin the full builtin-routine spec so any drift
+	//     between packages/db/src/seed.ts and
+	//     packages/server/src/services/builtin-routines.ts BUILTIN_SPECS is
+	//     caught by CI. If you change this test, mirror the change in both
+	//     files. ---
+	it("pins the full trigger_config, owner, skill, human_review, silent for every builtin (G4 drift guard)", () => {
+		seed(db);
+
+		interface BuiltinPin {
+			readonly id: string;
+			readonly triggerType: "heartbeat" | "calendar" | "event";
+			readonly triggerConfig: Record<string, unknown>;
+			readonly ownerAgentId: string;
+			readonly skillId: string;
+			readonly humanReview: 0 | 1;
+			readonly silent: 0 | 1;
+		}
+
+		const expected: readonly BuiltinPin[] = [
+			{
+				id: "builtin:cost-sentinel",
+				triggerType: "heartbeat",
+				triggerConfig: { intervalSeconds: 900 },
+				ownerAgentId: "seed-agent-cos",
+				skillId: "cost_watchdog",
+				humanReview: 0,
+				silent: 1,
+			},
+			{
+				id: "builtin:practice-meeting",
+				triggerType: "calendar",
+				triggerConfig: { cron: "0 10 * * MON" },
+				ownerAgentId: "seed-agent-pf-facilitation",
+				skillId: "practice_meeting",
+				humanReview: 0,
+				silent: 0,
+			},
+			{
+				id: "builtin:post-bet-retro",
+				triggerType: "event",
+				triggerConfig: { eventType: "bet_shipped" },
+				ownerAgentId: "seed-agent-pm-nimmly",
+				skillId: "bet_retro",
+				humanReview: 1,
+				silent: 0,
+			},
+			{
+				id: "builtin:portfolio-retro",
+				triggerType: "calendar",
+				triggerConfig: { cron: "0 10 1-7 * MON" },
+				ownerAgentId: "seed-agent-cos",
+				skillId: "portfolio_retro",
+				humanReview: 1,
+				silent: 0,
+			},
+			{
+				id: "builtin:knowledge-decay",
+				triggerType: "calendar",
+				triggerConfig: { cron: "0 2 * * *" },
+				ownerAgentId: "seed-agent-cos",
+				skillId: "knowledge_decay",
+				humanReview: 0,
+				silent: 1,
+			},
+		];
+
+		const rows = db.all<{
+			id: string;
+			triggerType: string;
+			triggerConfig: string | null;
+			ownerAgentId: string;
+			skillId: string | null;
+			humanReview: number;
+			silent: number;
+		}>(
+			sql.raw(
+				"SELECT id, trigger_type AS triggerType, trigger_config AS triggerConfig, owner_agent_id AS ownerAgentId, skill_id AS skillId, human_review AS humanReview, silent FROM routines WHERE id LIKE 'builtin:%' ORDER BY id",
+			),
+		);
+		const byId = new Map(rows.map((r) => [r.id, r]));
+
+		for (const spec of expected) {
+			const row = byId.get(spec.id);
+			expect(row, `routine ${spec.id} must be seeded`).toBeTruthy();
+			if (!row) continue;
+			expect(row.triggerType, `${spec.id} trigger_type`).toBe(spec.triggerType);
+			expect(JSON.parse(row.triggerConfig ?? "{}"), `${spec.id} trigger_config`).toEqual(
+				spec.triggerConfig,
+			);
+			expect(row.ownerAgentId, `${spec.id} owner_agent_id`).toBe(spec.ownerAgentId);
+			expect(row.skillId, `${spec.id} skill_id`).toBe(spec.skillId);
+			expect(row.humanReview, `${spec.id} human_review`).toBe(spec.humanReview);
+			expect(row.silent, `${spec.id} silent`).toBe(spec.silent);
+		}
+	});
 });

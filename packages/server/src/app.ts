@@ -18,6 +18,7 @@ import { createSessionRoutes } from "./routes/sessions-routes.js";
 import { createStatusRoutes } from "./routes/status.js";
 import { createTaskRoutes } from "./routes/tasks.js";
 import { registerTestRoutes } from "./routes/test-routes.js";
+import { registerBuiltinRoutineHandlers } from "./services/builtin-routines.js";
 import { createGitRunner } from "./services/git-export-runner.js";
 import { registerGitExportHandler } from "./services/git-export.js";
 import type { NotificationConfig } from "./services/notifications/config.js";
@@ -141,6 +142,7 @@ function createApp(options?: AppOptions): Hono {
 		const disposers: Array<() => void> = [];
 		disposers.push(registerSessionReviewCreator(options.db, eventBus));
 		disposers.push(registerPolicyEngine(options.db, eventBus));
+		disposers.push(registerBuiltinRoutineHandlers(options.db, eventBus));
 		disposers.push(
 			registerGitExportHandler(options.db, eventBus, {
 				runnerFactory: options.gitRunnerFactory ?? ((repoPath) => createGitRunner(repoPath)),
@@ -193,6 +195,15 @@ export function disposeApp(hono: Hono): void {
 		try {
 			d();
 		} catch (err) {
+			// @lore G4 dispose-swallow: dispose is best-effort. Each registered
+			// disposer is a synchronous `EventBus.off` call; the tolerated failure
+			// mode here is a second teardown (e.g. overlapping test lifecycles)
+			// calling `unsubscribe` on a handler that was already removed. We
+			// prefer to continue iterating the disposer list rather than abort
+			// midway and leak the remaining subscriptions — a partial dispose
+			// during test teardown causes unbounded handler accumulation and
+			// flaky downstream assertions. H2 adds observability for the failure
+			// so we don't lose the signal.
 			appLogger.error("disposeApp: disposer threw", {
 				error: err instanceof Error ? err.message : String(err),
 			});

@@ -1,0 +1,21 @@
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@400;500&display=swap");
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+	:root {
+		--surface-0: #000000;
+		--surface-1: #0e0e0e;
+		--surface-2: #131313;
+		--surface-3: #191a1a;
+		--surface-4: #1f2020;
+		--surface-5: #252626;
+		--surface-6: #2c2c2c;
+		--surface-ghost: rgba(255, 255, 255, 0.06);
+		--text-hi: #e7e5e4;
+		--text-mid: #acabaa;
+		--text-lo: #767575;
+	}
+}

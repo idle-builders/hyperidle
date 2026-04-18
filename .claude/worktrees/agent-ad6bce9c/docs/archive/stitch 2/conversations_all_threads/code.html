@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>HyperIdle - Active Threads</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&amp;family=Space+Grotesk:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "secondary-container": "#553400",
+                        "on-secondary-container": "#fcb044",
+                        "primary-fixed-dim": "#c2d4ff",
+                        "on-primary-fixed-variant": "#0058bb",
+                        "primary-container": "#004493",
+                        "secondary-dim": "#d58f24",
+                        "on-error-container": "#ff9993",
+                        "on-tertiary": "#00671a",
+                        "surface-container-high": "#1f2020",
+                        "on-secondary-fixed-variant": "#805100",
+                        "primary-fixed": "#d8e2ff",
+                        "primary": "#adc6ff",
+                        "tertiary-dim": "#83e881",
+                        "primary-dim": "#97b9ff",
+                        "error-container": "#7f2927",
+                        "error-dim": "#bb5551",
+                        "outline-variant": "#484848",
+                        "tertiary": "#bbffb3",
+                        "on-tertiary-container": "#005e17",
+                        "on-secondary-fixed": "#5a3800",
+                        "inverse-primary": "#005bc2",
+                        "on-primary": "#003d87",
+                        "surface-container-lowest": "#000000",
+                        "on-surface-variant": "#acabaa",
+                        "error": "#ee7d77",
+                        "tertiary-fixed-dim": "#83e881",
+                        "outline": "#767575",
+                        "on-background": "#e7e5e4",
+                        "surface-tint": "#adc6ff",
+                        "surface-dim": "#0e0e0e",
+                        "on-surface": "#e7e5e4",
+                        "on-primary-container": "#bcd0ff",
+                        "surface-container-low": "#131313",
+                        "surface-container-highest": "#252626",
+                        "on-tertiary-fixed-variant": "#00691a",
+                        "on-tertiary-fixed": "#00480f",
+                        "on-secondary": "#301c00",
+                        "on-primary-fixed": "#003d85",
+                        "secondary-fixed": "#ffddb6",
+                        "background": "#0e0e0e",
+                        "inverse-on-surface": "#565555",
+                        "tertiary-container": "#91f78e",
+                        "secondary": "#d58f24",
+                        "secondary-fixed-dim": "#ffcb8b",
+                        "surface-container": "#191a1a",
+                        "surface-bright": "#2c2c2c",
+                        "surface-variant": "#252626",
+                        "on-error": "#490106",
+                        "tertiary-fixed": "#91f78e",
+                        "inverse-surface": "#fcf9f8",
+                        "surface": "#0e0e0e"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "fontFamily": {
+                        "headline": ["Inter"],
+                        "body": ["Inter"],
+                        "label": ["Space Grotesk"]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 20;
+            vertical-align: middle;
+        }
+        body {
+            background-color: #0e0e0e;
+            color: #e7e5e4;
+            font-family: 'Inter', sans-serif;
+        }
+        ::-webkit-scrollbar {
+            width: 4px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #0e0e0e;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #252626;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #484848;
+        }
+    </style>
+</head>
+<body class="overflow-hidden">
+<div class="flex h-screen w-full overflow-hidden">
+<!-- ZONE 1: ICON MENU (SideNavBar - Reduced Width) -->
+<nav class="fixed left-0 top-0 h-full flex flex-col pt-16 pb-4 bg-[#131313] w-16 border-r border-transparent z-50">
+<div class="flex flex-col items-center gap-6 px-0 h-full">
+<!-- Intelligence (Active) -->
+<div class="group relative flex items-center justify-center w-full py-3 text-[#adc6ff] bg-[#191a1a] border-l-2 border-[#adc6ff] transition-all duration-150">
+<span class="material-symbols-outlined" data-icon="psychology">psychology</span>
+</div>
+<!-- Active Threads -->
+<div class="group relative flex items-center justify-center w-full py-3 text-gray-400 opacity-70 hover:text-white hover:bg-[#191a1a] transition-all duration-150">
+<span class="material-symbols-outlined" data-icon="chat_bubble">chat_bubble</span>
+</div>
+<!-- Archived -->
+<div class="group relative flex items-center justify-center w-full py-3 text-gray-400 opacity-70 hover:text-white hover:bg-[#191a1a] transition-all duration-150">
+<span class="material-symbols-outlined" data-icon="inventory_2">inventory_2</span>
+</div>
+<!-- System Logs -->
+<div class="group relative flex items-center justify-center w-full py-3 text-gray-400 opacity-70 hover:text-white hover:bg-[#191a1a] transition-all duration-150">
+<span class="material-symbols-outlined" data-icon="analytics">analytics</span>
+</div>
+<div class="mt-auto flex flex-col items-center gap-6 w-full">
+<div class="group relative flex items-center justify-center w-full py-3 text-gray-400 opacity-70 hover:text-white hover:bg-[#191a1a] transition-all duration-150">
+<span class="material-symbols-outlined" data-icon="help_outline">help_outline</span>
+</div>
+<div class="group relative flex items-center justify-center w-full py-3 text-gray-400 opacity-70 hover:text-white hover:bg-[#191a1a] transition-all duration-150">
+<span class="material-symbols-outlined" data-icon="tune">tune</span>
+</div>
+</div>
+</div>
+</nav>
+<!-- ZONE 2: SUBMENU (Thread List) -->
+<aside class="ml-16 w-80 lg:w-[380px] bg-[#131313] h-full flex flex-col border-r border-outline-variant/10">
+<!-- Header & Search -->
+<div class="p-4 flex flex-col gap-4">
+<div class="flex items-center justify-between">
+<h2 class="font-headline font-bold text-lg tracking-tight text-on-surface">Active Threads</h2>
+<span class="font-label text-[10px] text-primary bg-primary/10 px-2 py-0.5 rounded-sm uppercase tracking-widest">Live</span>
+</div>
+<div class="relative group">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline text-sm" data-icon="search">search</span>
+<input class="w-full bg-surface-container-lowest border border-outline-variant/20 rounded-sm py-2 pl-9 pr-4 text-xs font-body focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/20 transition-all" placeholder="Jump to..." type="text"/>
+</div>
+<!-- Filter Chips -->
+<div class="flex flex-wrap gap-1.5 pb-2 border-b border-outline-variant/10">
+<button class="px-2.5 py-1 text-[10px] font-label uppercase tracking-wider bg-primary-container text-on-primary-container rounded-sm border border-primary/20">All</button>
+<button class="px-2.5 py-1 text-[10px] font-label uppercase tracking-wider bg-surface-container-high text-on-surface-variant hover:text-on-surface rounded-sm transition-colors">Blocking</button>
+<button class="px-2.5 py-1 text-[10px] font-label uppercase tracking-wider bg-surface-container-high text-on-surface-variant hover:text-on-surface rounded-sm transition-colors">Reviews</button>
+<button class="px-2.5 py-1 text-[10px] font-label uppercase tracking-wider bg-surface-container-high text-on-surface-variant hover:text-on-surface rounded-sm transition-colors">Chats</button>
+<button class="px-2.5 py-1 text-[10px] font-label uppercase tracking-wider bg-surface-container-high text-on-surface-variant hover:text-on-surface rounded-sm transition-colors">Product v.</button>
+</div>
+</div>
+<!-- Thread List Content -->
+<div class="flex-1 overflow-y-auto px-2 space-y-4 pb-10">
+<!-- PINNED SECTION -->
+<div>
+<div class="px-2 py-1 flex items-center gap-2 mb-2">
+<span class="material-symbols-outlined text-[14px] text-outline" data-icon="push_pin" style="font-variation-settings: 'FILL' 1;">push_pin</span>
+<span class="font-label text-[10px] uppercase tracking-[0.15em] text-outline">Pinned</span>
+</div>
+<div class="group p-3 bg-surface-container rounded-sm border-l-2 border-primary/40 hover:bg-surface-container-highest transition-colors cursor-pointer relative">
+<div class="flex justify-between items-start mb-1">
+<span class="font-label text-[10px] text-primary-fixed-dim uppercase tracking-wider">Chief of Staff</span>
+<span class="font-label text-[10px] text-outline">2h ago</span>
+</div>
+<p class="text-xs font-semibold text-on-surface leading-tight mb-1">Ongoing strategic conversation</p>
+<div class="flex items-center gap-2">
+<span class="w-1.5 h-1.5 rounded-full bg-primary animate-pulse"></span>
+<span class="font-label text-[9px] text-on-surface-variant uppercase tracking-tighter">Connected</span>
+</div>
+</div>
+</div>
+<!-- ACTIVE SECTION -->
+<div class="space-y-1">
+<div class="px-2 py-1 flex items-center gap-2 mb-1">
+<span class="font-label text-[10px] uppercase tracking-[0.15em] text-outline">Active Instances</span>
+</div>
+<!-- Thread 1: Blocking -->
+<div class="group p-3 hover:bg-surface-container-low transition-all cursor-pointer relative border-b border-outline-variant/5">
+<div class="flex justify-between items-start mb-1">
+<span class="font-label text-[10px] text-on-surface-variant uppercase tracking-wider">Pulse Hardware Agent (Hardware Pulse)</span>
+<span class="font-label text-[10px] text-outline">3m ago</span>
+</div>
+<p class="text-xs font-medium text-on-surface leading-tight mb-2">Approve PCB layout rev C</p>
+<div class="flex items-center gap-2">
+<span class="px-1.5 py-0.5 bg-error-container/20 text-error-dim text-[9px] font-label rounded-sm border border-error-container/40">REVIEW</span>
+<div class="flex items-center gap-1.5 text-secondary text-[9px] font-label bg-secondary-container/20 px-1.5 py-0.5 rounded-sm border border-secondary-container/40">
+<span class="w-1.5 h-1.5 rounded-full bg-secondary"></span>
+                                BLOCKED
+                            </div>
+<span class="font-label text-[9px] text-outline ml-auto">~15 min</span>
+</div>
+</div>
+<!-- Thread 2: Blocking -->
+<div class="group p-3 hover:bg-surface-container-low transition-all cursor-pointer relative border-b border-outline-variant/5">
+<div class="flex justify-between items-start mb-1">
+<span class="font-label text-[10px] text-on-surface-variant uppercase tracking-wider">Nimmly Backend Builder (Backend Nimmly)</span>
+<span class="font-label text-[10px] text-outline">45m ago</span>
+</div>
+<p class="text-xs font-medium text-on-surface leading-tight mb-2">Deploy pricing-engine v1.4.2 to staging</p>
+<div class="flex items-center gap-2">
+<span class="px-1.5 py-0.5 bg-error-container/20 text-error-dim text-[9px] font-label rounded-sm border border-error-container/40">REVIEW</span>
+<div class="flex items-center gap-1.5 text-secondary text-[9px] font-label bg-secondary-container/20 px-1.5 py-0.5 rounded-sm border border-secondary-container/40">
+<span class="w-1.5 h-1.5 rounded-full bg-secondary"></span>
+                                BLOCKED
+                            </div>
+<span class="font-label text-[9px] text-outline ml-auto">~2 min</span>
+</div>
+</div>
+<!-- Thread 3 -->
+<div class="group p-3 hover:bg-surface-container-low transition-all cursor-pointer relative border-b border-outline-variant/5">
+<div class="flex justify-between items-start mb-1">
+<span class="font-label text-[10px] text-on-surface-variant uppercase tracking-wider">Ambrovia Growth Agent (Growth Ambrovia)</span>
+<span class="font-label text-[10px] text-outline">1h ago</span>
+</div>
+<p class="text-xs font-medium text-on-surface leading-tight mb-2">Enable Stripe live mode for Pro tier</p>
+<div class="flex items-center gap-2">
+<span class="px-1.5 py-0.5 bg-primary-container/20 text-primary text-[9px] font-label rounded-sm border border-primary-container/40 uppercase">Review</span>
+<span class="font-label text-[9px] text-outline ml-auto">~5 min</span>
+</div>
+</div>
+<!-- Thread 4 -->
+<div class="group p-3 hover:bg-surface-container-low transition-all cursor-pointer relative border-b border-outline-variant/5">
+<div class="flex justify-between items-start mb-1">
+<span class="font-label text-[10px] text-on-surface-variant uppercase tracking-wider">Pulse Enclosure Agent (Enclosure Pulse)</span>
+<span class="font-label text-[10px] text-outline">2h ago</span>
+</div>
+<p class="text-xs font-medium text-on-surface leading-tight mb-2">Baffle thickness - acoustic sim results</p>
+<div class="flex items-center gap-2">
+<span class="px-1.5 py-0.5 bg-primary-container/20 text-primary text-[9px] font-label rounded-sm border border-primary-container/40 uppercase">Review</span>
+<span class="font-label text-[9px] text-outline ml-auto">~10 min</span>
+</div>
+</div>
+<!-- Thread 5 -->
+<div class="group p-3 hover:bg-surface-container-low transition-all cursor-pointer relative border-b border-outline-variant/5">
+<div class="flex justify-between items-start mb-1">
+<span class="font-label text-[10px] text-on-surface-variant uppercase tracking-wider">Ambrovia CRM Agent (CRM Ambrovia)</span>
+<span class="font-label text-[10px] text-outline">3h ago</span>
+</div>
+<p class="text-xs font-medium text-on-surface leading-tight mb-2">Re-engagement sequence - 3 emails for churned Pro users</p>
+<div class="flex items-center gap-2">
+<span class="px-1.5 py-0.5 bg-primary-container/20 text-primary text-[9px] font-label rounded-sm border border-primary-container/40 uppercase">Review</span>
+<span class="font-label text-[9px] text-outline ml-auto">~8 min</span>
+</div>
+</div>
+<!-- Thread 6 -->
+<div class="group p-3 hover:bg-surface-container-low transition-all cursor-pointer relative border-b border-outline-variant/5">
+<div class="flex justify-between items-start mb-1">
+<span class="font-label text-[10px] text-on-surface-variant uppercase tracking-wider">HyperIdle Ops Agent (Ops HyperIdle)</span>
+<span class="font-label text-[10px] text-outline">4h ago</span>
+</div>
+<p class="text-xs font-medium text-on-surface leading-tight mb-2">SSL cert renewal - expires in 5 days</p>
+<div class="flex items-center gap-2">
+<span class="px-1.5 py-0.5 bg-primary-container/20 text-primary text-[9px] font-label rounded-sm border border-primary-container/40 uppercase">Review</span>
+<span class="font-label text-[9px] text-outline ml-auto">~1 min</span>
+</div>
+</div>
+<!-- Thread 7 -->
+<div class="group p-3 hover:bg-surface-container-low transition-all cursor-pointer relative border-b border-outline-variant/5">
+<div class="flex justify-between items-start mb-1">
+<span class="font-label text-[10px] text-on-surface-variant uppercase tracking-wider">Pulse Software Agent (Software Pulse)</span>
+<span class="font-label text-[10px] text-outline">5h ago</span>
+</div>
+<p class="text-xs font-medium text-on-surface leading-tight mb-2">OTA firmware update flow - draft UX spec</p>
+<div class="flex items-center gap-2">
+<span class="px-1.5 py-0.5 bg-primary-container/20 text-primary text-[9px] font-label rounded-sm border border-primary-container/40 uppercase">Review</span>
+<span class="font-label text-[9px] text-outline ml-auto">~12 min</span>
+</div>
+</div>
+<!-- Thread 8 -->
+<div class="group p-3 hover:bg-surface-container-low transition-all cursor-pointer relative border-b border-outline-variant/5">
+<div class="flex justify-between items-start mb-1">
+<span class="font-label text-[10px] text-on-surface-variant uppercase tracking-wider">Ambrovia Writer (Writer Ambrovia)</span>
+<span class="font-label text-[10px] text-outline">6h ago</span>
+</div>
+<p class="text-xs font-medium text-on-surface leading-tight mb-2">Launch blog post - final draft</p>
+<div class="flex items-center gap-2">
+<span class="px-1.5 py-0.5 bg-primary-container/20 text-primary text-[9px] font-label rounded-sm border border-primary-container/40 uppercase">Review</span>
+<span class="font-label text-[9px] text-outline ml-auto">~5 min</span>
+</div>
+</div>
+<!-- Thread 9 (Chat) -->
+<div class="group p-3 hover:bg-surface-container-low transition-all cursor-pointer relative border-b border-outline-variant/5 opacity-80">
+<div class="flex justify-between items-start mb-1">
+<span class="font-label text-[10px] text-on-surface-variant uppercase tracking-wider">Nimmly Writer (Writer Nimmly)</span>
+<span class="font-label text-[10px] text-outline">1d ago</span>
+</div>
+<p class="text-xs font-medium text-on-surface-variant leading-tight mb-2">Quick question about data retention</p>
+<div class="flex items-center gap-2">
+<span class="px-1.5 py-0.5 bg-surface-container-highest text-on-surface-variant text-[9px] font-label rounded-sm uppercase">Chat</span>
+</div>
+</div>
+<!-- Thread 10 (Chat) -->
+<div class="group p-3 hover:bg-surface-container-low transition-all cursor-pointer relative opacity-80">
+<div class="flex justify-between items-start mb-1">
+<span class="font-label text-[10px] text-on-surface-variant uppercase tracking-wider">Pulse Product Manager (PM Pulse)</span>
+<span class="font-label text-[10px] text-outline">1d ago</span>
+</div>
+<p class="text-xs font-medium text-on-surface-variant leading-tight mb-2">Crossover frequency debate</p>
+<div class="flex items-center gap-2">
+<span class="px-1.5 py-0.5 bg-surface-container-highest text-on-surface-variant text-[9px] font-label rounded-sm uppercase">Chat</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Footer CTA -->
+<div class="p-4 bg-surface-container-low mt-auto border-t border-outline-variant/10">
+<button class="w-full bg-primary-container text-on-primary-container py-3 font-label text-xs uppercase tracking-[0.2em] font-bold hover:bg-primary-container/80 transition-colors flex items-center justify-center gap-2">
+<span class="material-symbols-outlined text-sm" data-icon="add">add</span>
+                    New Instance
+                </button>
+</div>
+</aside>
+<!-- ZONE 3: MAIN PANE (Placeholder) -->
+<main class="flex-1 bg-surface h-full relative overflow-hidden flex flex-col">
+<!-- Top Bar -->
+<div class="w-full bg-[#0e0e0e] flex items-center justify-between px-6 py-3 border-b border-[#252626]/20">
+<div class="flex items-center gap-4">
+<h1 class="text-lg font-bold tracking-tighter text-[#adc6ff]">OS_CORE</h1>
+<div class="h-4 w-[1px] bg-outline-variant/30"></div>
+<div class="flex items-center gap-2">
+<span class="font-label text-[10px] text-outline uppercase tracking-widest">Active Thread</span>
+<span class="text-xs font-medium text-on-surface">Pulse Hardware Agent // PCB Rev C</span>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<div class="flex items-center bg-surface-container-low border border-outline-variant/20 rounded-full px-3 py-1">
+<span class="material-symbols-outlined text-sm text-outline mr-2" data-icon="terminal">terminal</span>
+<span class="font-label text-[10px] text-outline">SYSTEM_STATUS: OK</span>
+</div>
+<span class="material-symbols-outlined text-outline hover:text-primary cursor-pointer transition-colors" data-icon="settings">settings</span>
+<div class="w-8 h-8 rounded-full overflow-hidden bg-surface-container-high border border-outline-variant/30">
+<img alt="User profile" data-alt="Close up portrait of a professional system administrator in a dark tech-focused room with blue atmospheric lighting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCMOL7-T47NYZu9lAw61liH4vH20ZMt99wRwHvbKJbTuwYQpQWcEdIcxHXB_6WUKbCUvOJWxWbDbpsrozz3PFFFkSi6bi9paJglJyNQaEZdkPozxKpwgJP-yAjFtJpP9H_JACFUVA-tomG81nlM2VU1IporRmdNsm0TA2jlPIcRxX0lKKEvV6y9zB10pnAnr2lfIA7BR9Reo9a3dWRSFOVFxoPLW4outZndXn_yiTRUM-AbIRLnC_49JuHFW7G2S0i2HdkmwAp6ZEUp"/>
+</div>
+</div>
+</div>
+<!-- Thread Workspace (Asymmetric Layout) -->
+<div class="flex-1 grid grid-cols-12 gap-6 p-8 overflow-y-auto">
+<!-- Thread Focus -->
+<div class="col-span-8 space-y-6">
+<div class="bg-surface-container-low p-6 rounded-sm border border-outline-variant/10 relative overflow-hidden">
+<div class="absolute top-0 right-0 p-4">
+<span class="px-2 py-1 bg-secondary-container text-on-secondary-container font-label text-[10px] tracking-widest uppercase">Action Required</span>
+</div>
+<h2 class="font-headline font-bold text-2xl text-on-surface mb-2">PCB Layout Approval: Revision C</h2>
+<p class="text-on-surface-variant font-body leading-relaxed mb-6">
+                            The signal integrity simulations for the high-speed differential pairs (M-TX/RX) are showing a 15% improvement over Rev B. Power distribution networks are stable under max thermal load. Please review the impedance mismatch at J12.
+                        </p>
+<div class="grid grid-cols-2 gap-4 mb-8">
+<div class="bg-surface p-4 border border-outline-variant/10">
+<span class="font-label text-[10px] text-outline uppercase block mb-1">Current Status</span>
+<span class="text-sm text-secondary font-bold">BLOCKED - Awaiting Signature</span>
+</div>
+<div class="bg-surface p-4 border border-outline-variant/10">
+<span class="font-label text-[10px] text-outline uppercase block mb-1">Time Estimate</span>
+<span class="text-sm text-on-surface font-bold">15 Minute Deep Dive</span>
+</div>
+</div>
+<div class="aspect-video bg-surface rounded-sm border border-outline-variant/20 relative overflow-hidden mb-6 flex items-center justify-center">
+<img class="w-full h-full object-cover opacity-60 grayscale hover:grayscale-0 transition-all duration-700" data-alt="Technical schematic diagram of a complex multilayered printed circuit board with glowing blue signal traces and components" src="https://lh3.googleusercontent.com/aida-public/AB6AXuA3Gc6PKmo3KcpfQefvLhvtaCWUomRj_bSqB6VkKvwJHSEBdcBjMskddj66pBfdQ9bdvGRjkTx52ghXydKEt_k2Oy_Qp4QTvDq1t2brGmzkzRH3uENAC9cjKVM8YmTkGA2ZFubcUjIgBAJcFNBokJVxwdEfb-iBEXShKBYeZfchmq06TdV1LuD63auvbPwA64YNswl4yEvoGsgP31AtP0KORyevMSAVVxBIEHM61JYUWM_QxcI3iQlnAfd5YCMw9VY9yM5SLeGCaQ--"/>
+<div class="absolute inset-0 bg-gradient-to-t from-surface-container-lowest to-transparent pointer-events-none"></div>
+<div class="absolute bottom-4 left-4 font-label text-[10px] text-primary">SCHEMATIC_VIEW_R03.XDF</div>
+</div>
+<div class="flex gap-4">
+<button class="bg-primary-container text-on-primary-container px-6 py-2.5 font-label text-[11px] uppercase tracking-widest font-bold rounded-sm">Approve Revision</button>
+<button class="bg-surface-container-high text-on-surface px-6 py-2.5 font-label text-[11px] uppercase tracking-widest font-bold rounded-sm border border-outline-variant/30">Request Changes</button>
+</div>
+</div>
+<!-- Communication Log -->
+<div class="space-y-4">
+<div class="flex gap-4">
+<div class="w-8 h-8 rounded-sm bg-primary/20 flex items-center justify-center flex-shrink-0">
+<span class="material-symbols-outlined text-primary text-sm" data-icon="robot_2">robot_2</span>
+</div>
+<div class="bg-surface-container-low p-4 rounded-sm border border-outline-variant/10 flex-1">
+<div class="flex justify-between items-center mb-2">
+<span class="font-label text-[11px] text-primary">Pulse Hardware Agent</span>
+<span class="font-label text-[10px] text-outline">12:45 UTC</span>
+</div>
+<p class="text-xs leading-relaxed text-on-surface">I've verified the trace length matching for the DDR4 bus. Variance is within 0.1mm. Ready for final pass.</p>
+</div>
+</div>
+</div>
+</div>
+<!-- Sidebar Contextual Data -->
+<div class="col-span-4 space-y-6">
+<div class="bg-surface-container-low border border-outline-variant/10 p-4">
+<h3 class="font-label text-[10px] text-outline uppercase tracking-[0.2em] mb-4">Instance Specs</h3>
+<div class="space-y-3">
+<div class="flex justify-between border-b border-outline-variant/5 pb-2">
+<span class="text-[10px] text-on-surface-variant font-label">MODEL</span>
+<span class="text-[10px] text-on-surface font-label">H-PRIME_v4.2</span>
+</div>
+<div class="flex justify-between border-b border-outline-variant/5 pb-2">
+<span class="text-[10px] text-on-surface-variant font-label">LATENCY</span>
+<span class="text-[10px] text-on-surface font-label">12ms</span>
+</div>
+<div class="flex justify-between border-b border-outline-variant/5 pb-2">
+<span class="text-[10px] text-on-surface-variant font-label">TRUST SCORE</span>
+<span class="text-[10px] text-tertiary font-label">99.8%</span>
+</div>
+</div>
+</div>
+<div class="bg-surface-container-low border border-outline-variant/10 p-4">
+<h3 class="font-label text-[10px] text-outline uppercase tracking-[0.2em] mb-4">Related Docs</h3>
+<div class="space-y-2">
+<div class="flex items-center gap-2 p-2 hover:bg-surface-container cursor-pointer transition-colors border border-outline-variant/10">
+<span class="material-symbols-outlined text-sm text-on-surface-variant" data-icon="description">description</span>
+<span class="text-[11px] text-on-surface truncate">BOM_REV_C_PRELIM.XLS</span>
+</div>
+<div class="flex items-center gap-2 p-2 hover:bg-surface-container cursor-pointer transition-colors border border-outline-variant/10">
+<span class="material-symbols-outlined text-sm text-on-surface-variant" data-icon="picture_as_pdf">picture_as_pdf</span>
+<span class="text-[11px] text-on-surface truncate">THERMAL_REPORT_V2.PDF</span>
+</div>
+</div>
+</div>
+<div class="bg-secondary-container/10 border border-secondary/20 p-4 relative overflow-hidden">
+<div class="absolute -right-4 -top-4 opacity-10">
+<span class="material-symbols-outlined text-6xl text-secondary" data-icon="warning">warning</span>
+</div>
+<h3 class="font-label text-[10px] text-secondary uppercase tracking-[0.2em] mb-2">Resource Alert</h3>
+<p class="text-[11px] text-secondary-dim leading-snug">
+                            Simulation tokens are at 12% capacity. Priority processing enabled for this instance.
+                        </p>
+</div>
+</div>
+</div>
+</main>
+<!-- ZONE 4: RAIL (Minimized) -->
+<div class="w-12 bg-[#0e0e0e] border-l border-outline-variant/10 flex flex-col items-center pt-16 gap-6 h-full">
+<span class="material-symbols-outlined text-outline/50 text-lg hover:text-on-surface cursor-pointer" data-icon="notifications">notifications</span>
+<span class="material-symbols-outlined text-outline/50 text-lg hover:text-on-surface cursor-pointer" data-icon="history">history</span>
+<span class="material-symbols-outlined text-outline/50 text-lg hover:text-on-surface cursor-pointer" data-icon="extension">extension</span>
+<div class="mt-auto mb-4">
+<span class="material-symbols-outlined text-outline/50 text-lg hover:text-on-surface cursor-pointer" data-icon="more_vert">more_vert</span>
+</div>
+</div>
+</div>
+</body></html>

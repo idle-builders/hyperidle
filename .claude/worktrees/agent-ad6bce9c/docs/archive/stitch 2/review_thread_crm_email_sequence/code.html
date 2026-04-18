@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>HYPERIDLE OS - Sequence Review</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&amp;family=Space+Grotesk:wght@300..700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-secondary": "#301c00",
+                        "tertiary-fixed-dim": "#83e881",
+                        "on-surface": "#e7e5e4",
+                        "error-dim": "#bb5551",
+                        "surface-container-low": "#131313",
+                        "on-tertiary-fixed": "#00480f",
+                        "on-secondary-fixed-variant": "#805100",
+                        "surface-tint": "#adc6ff",
+                        "on-tertiary-fixed-variant": "#00691a",
+                        "error-container": "#7f2927",
+                        "on-tertiary-container": "#005e17",
+                        "surface": "#0e0e0e",
+                        "surface-container": "#191a1a",
+                        "outline-variant": "#484848",
+                        "inverse-on-surface": "#565555",
+                        "on-primary-container": "#bcd0ff",
+                        "on-primary-fixed-variant": "#0058bb",
+                        "on-error-container": "#ff9993",
+                        "secondary-dim": "#d58f24",
+                        "primary-container": "#004493",
+                        "on-primary-fixed": "#003d85",
+                        "secondary": "#d58f24",
+                        "primary": "#adc6ff",
+                        "on-secondary-fixed": "#5a3800",
+                        "on-tertiary": "#00671a",
+                        "background": "#0e0e0e",
+                        "surface-dim": "#0e0e0e",
+                        "surface-container-high": "#1f2020",
+                        "on-error": "#490106",
+                        "surface-container-highest": "#252626",
+                        "primary-fixed": "#d8e2ff",
+                        "on-surface-variant": "#acabaa",
+                        "secondary-container": "#553400",
+                        "on-background": "#e7e5e4",
+                        "tertiary-fixed": "#91f78e",
+                        "on-primary": "#003d87",
+                        "tertiary": "#bbffb3",
+                        "inverse-primary": "#005bc2",
+                        "secondary-fixed-dim": "#ffcb8b",
+                        "secondary-fixed": "#ffddb6",
+                        "primary-dim": "#97b9ff",
+                        "primary-fixed-dim": "#c2d4ff",
+                        "tertiary-container": "#91f78e",
+                        "outline": "#767575",
+                        "on-secondary-container": "#fcb044",
+                        "surface-variant": "#252626",
+                        "surface-bright": "#2c2c2c",
+                        "surface-container-lowest": "#000000",
+                        "error": "#ee7d77",
+                        "tertiary-dim": "#83e881",
+                        "inverse-surface": "#fcf9f8"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "fontFamily": {
+                        "headline": ["Inter"],
+                        "body": ["Inter"],
+                        "label": ["Space Grotesk"]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        body { font-family: 'Inter', sans-serif; }
+        .font-label { font-family: 'Space Grotesk', monospace; }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+    </style>
+</head>
+<body class="bg-surface text-on-surface selection:bg-primary/30">
+<!-- TopNavBar -->
+<header class="fixed top-0 w-full z-50 flex justify-between items-center px-6 h-14 bg-[#0e0e0e] backdrop-blur-md bg-opacity-90">
+<div class="flex items-center gap-8">
+<span class="text-lg font-black tracking-tighter text-[#adc6ff] uppercase">HYPERIDLE OS</span>
+<nav class="hidden md:flex gap-6 items-center h-full">
+<a class="text-zinc-500 hover:text-zinc-300 font-medium text-sm transition-colors duration-150" href="#">Dashboard</a>
+<a class="text-[#adc6ff] border-b-2 border-[#adc6ff] pb-1 font-medium text-sm transition-colors duration-150" href="#">Sequences</a>
+<a class="text-zinc-500 hover:text-zinc-300 font-medium text-sm transition-colors duration-150" href="#">Intelligence</a>
+<a class="text-zinc-500 hover:text-zinc-300 font-medium text-sm transition-colors duration-150" href="#">System</a>
+</nav>
+</div>
+<div class="flex items-center gap-4">
+<div class="relative flex items-center bg-surface-container-low px-3 py-1.5 rounded-sm group focus-within:ring-1 ring-primary/50">
+<span class="material-symbols-outlined text-zinc-500 text-sm">search</span>
+<input class="bg-transparent border-none focus:ring-0 text-xs w-48 text-on-surface-variant placeholder:text-zinc-600" placeholder="Search operations..." type="text"/>
+</div>
+<button class="material-symbols-outlined text-zinc-400 hover:text-primary transition-colors">notifications</button>
+<button class="material-symbols-outlined text-zinc-400 hover:text-primary transition-colors">settings</button>
+<div class="h-8 w-8 rounded-full bg-surface-container-highest overflow-hidden border border-outline-variant/20">
+<img class="w-full h-full object-cover" data-alt="professional male headshot in soft studio lighting with a neutral gray background" src="https://lh3.googleusercontent.com/aida-public/AB6AXuB4MQKQMsUB01A8JHuDQlqBJ3r0XLEiIn5LNuuHBggPBgbe4m5jXVh5yKpN7y7T1w8vIO1_4NLE0-YQ6YdTQYoUIyh9Nno44y84iJsXLn9AI6QywLNbfvlOe03OgF6GV6oeY8wsbxzRjMUuWZUE9fFez5oZXMP3r_8-i8zJY3spdDoBSRK-577LrIt2f7B1W_wkMjO1k8Sni6z1iRZcO7X7fst92oPgq4upx5J8DqJ4y7QUWNib2Nr_LXQ5ZM3t3DvU8BFmqoHY-p3d"/>
+</div>
+</div>
+</header>
+<!-- SideNavBar -->
+<aside class="fixed left-0 top-14 bottom-0 flex flex-col w-64 bg-[#131313] z-40">
+<div class="p-6 border-b border-outline-variant/10">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded-sm bg-primary/10 flex items-center justify-center">
+<span class="material-symbols-outlined text-primary text-sm">auto_mode</span>
+</div>
+<div>
+<div class="font-bold text-[#adc6ff] text-xs font-label">OPERATIONS</div>
+<div class="text-[10px] text-zinc-500 font-label tracking-widest uppercase">CRM_ALPHA_01</div>
+</div>
+</div>
+</div>
+<nav class="flex-1 py-4 flex flex-col gap-1">
+<a class="px-6 py-3 text-zinc-400 hover:bg-[#191a1a] hover:text-zinc-200 flex items-center gap-3 transition-all duration-150" href="#">
+<span class="material-symbols-outlined text-[20px]">list_alt</span>
+<span class="text-sm">Sequence List</span>
+</a>
+<a class="px-6 py-3 bg-[#191a1a] text-[#adc6ff] font-bold border-r-2 border-[#adc6ff] flex items-center gap-3 transition-all duration-150" href="#">
+<span class="material-symbols-outlined text-[20px]">edit_note</span>
+<span class="text-sm">Drafts</span>
+</a>
+<a class="px-6 py-3 text-zinc-400 hover:bg-[#191a1a] hover:text-zinc-200 flex items-center gap-3 transition-all duration-150" href="#">
+<span class="material-symbols-outlined text-[20px]">fact_check</span>
+<span class="text-sm">Pending Review</span>
+</a>
+<a class="px-6 py-3 text-zinc-400 hover:bg-[#191a1a] hover:text-zinc-200 flex items-center gap-3 transition-all duration-150" href="#">
+<span class="material-symbols-outlined text-[20px]">verified</span>
+<span class="text-sm">Approved</span>
+</a>
+<a class="px-6 py-3 text-zinc-400 hover:bg-[#191a1a] hover:text-zinc-200 flex items-center gap-3 transition-all duration-150" href="#">
+<span class="material-symbols-outlined text-[20px]">inventory_2</span>
+<span class="text-sm">Archive</span>
+</a>
+</nav>
+<div class="mt-auto p-4 flex flex-col gap-1 border-t border-outline-variant/10">
+<a class="px-2 py-2 text-zinc-500 hover:text-zinc-300 flex items-center gap-2 text-xs font-label" href="#">
+<span class="material-symbols-outlined text-[18px]">terminal</span>
+                System Logs
+            </a>
+<a class="px-2 py-2 text-zinc-500 hover:text-zinc-300 flex items-center gap-2 text-xs font-label" href="#">
+<span class="material-symbols-outlined text-[18px]">help_outline</span>
+                Support
+            </a>
+</div>
+</aside>
+<!-- Main Content Canvas -->
+<main class="ml-64 mt-14 mb-16 p-8 min-h-screen bg-surface">
+<div class="max-w-6xl mx-auto flex flex-col lg:flex-row gap-8">
+<!-- Main Review Thread Pane -->
+<div class="flex-1 space-y-8">
+<!-- Header -->
+<header class="flex items-start justify-between">
+<div>
+<div class="flex items-center gap-2 mb-2">
+<span class="bg-primary/10 text-primary text-[10px] font-label px-2 py-0.5 rounded-sm tracking-widest">REVIEW</span>
+<span class="text-tertiary-dim text-[10px] font-label flex items-center gap-1">
+<span class="w-1 h-1 rounded-full bg-tertiary-dim"></span>
+                                High confidence — based on 3 prior campaigns
+                            </span>
+</div>
+<h1 class="text-2xl font-bold tracking-tight text-on-surface">Re-engagement sequence for churned Pro users</h1>
+<div class="flex items-center gap-2 mt-1 text-on-surface-variant text-sm">
+<span class="material-symbols-outlined text-sm" style="font-variation-settings: 'FILL' 1;">smart_toy</span>
+                            Agent <span class="text-on-surface font-semibold">Ambrovia CRM Agent</span>
+</div>
+</div>
+</header>
+<!-- Agent Reasoning Block -->
+<section class="bg-surface-container-low p-6 rounded-sm border-l-4 border-primary/40 relative overflow-hidden">
+<div class="absolute top-0 right-0 p-4 opacity-5 pointer-events-none">
+<span class="material-symbols-outlined text-6xl">psychology</span>
+</div>
+<h3 class="text-xs font-label text-zinc-500 uppercase tracking-widest mb-3">Strategy Insight</h3>
+<p class="text-on-surface-variant leading-relaxed text-sm max-w-2xl">
+                        Designed a 3-email re-engagement sequence targeting 47 churned Pro users. Timing based on prior campaign data: <span class="text-primary font-medium">Day 1/4/10 outperformed Day 1/3/7 by 23%</span> in reactivation rate. Each email has a different angle: value reminder, social proof, limited-time offer.
+                    </p>
+</section>
+<!-- Artifact: Email Sequence -->
+<div class="space-y-6">
+<div class="flex items-center justify-between px-2">
+<h2 class="text-xs font-label uppercase tracking-[0.2em] text-zinc-500">Email Sequence Artifacts (3)</h2>
+<button class="text-xs text-primary hover:underline font-label uppercase tracking-widest">Edit Layout</button>
+</div>
+<!-- Email Card 1 -->
+<article class="bg-surface-container border border-outline-variant/10 rounded-sm overflow-hidden group hover:border-outline-variant/30 transition-all">
+<div class="bg-surface-container-high px-6 py-3 border-b border-outline-variant/10 flex justify-between items-center">
+<span class="font-label text-xs text-zinc-400">Email 1 of 3 · Sends Day 1</span>
+<span class="bg-zinc-800 text-zinc-500 text-[10px] px-2 py-0.5 font-label">VALUE_ANCHOR</span>
+</div>
+<div class="p-6 space-y-4">
+<div>
+<label class="block text-[10px] font-label text-zinc-500 uppercase mb-1">Subject</label>
+<div class="text-on-surface font-bold text-base">We miss you — here's what's new in Ambrovia Pro</div>
+</div>
+<div>
+<label class="block text-[10px] font-label text-zinc-500 uppercase mb-1">Body Preview</label>
+<div class="text-on-surface-variant text-sm leading-relaxed">
+                                    It's been a while since we saw you in the dashboard. Since your last session, we've deployed 14 new automation primitives and a completely overhauled intelligence engine. We’d love to show you how these updates can streamline your workflow...
+                                </div>
+</div>
+<div class="pt-4 border-t border-outline-variant/10 flex items-center justify-between">
+<div class="flex items-center gap-2 text-[11px] text-zinc-500 font-label">
+<span class="material-symbols-outlined text-sm">groups</span>
+                                    47 users · churned Pro · last active 30-90 days ago
+                                </div>
+<div class="bg-primary/5 border border-primary/20 p-3 rounded-sm max-w-xs">
+<div class="text-[10px] font-label text-primary uppercase mb-1">AI Annotation</div>
+<div class="text-[11px] text-primary/80 italic">"Why this works: Value-first approach focuses on product evolution rather than just a discount."</div>
+</div>
+</div>
+</div>
+</article>
+<!-- Email Card 2 -->
+<article class="bg-surface-container border border-outline-variant/10 rounded-sm overflow-hidden group hover:border-outline-variant/30 transition-all opacity-80 hover:opacity-100">
+<div class="bg-surface-container-high px-6 py-3 border-b border-outline-variant/10 flex justify-between items-center">
+<span class="font-label text-xs text-zinc-400">Email 2 of 3 · Sends Day 4</span>
+<span class="bg-zinc-800 text-zinc-500 text-[10px] px-2 py-0.5 font-label">SOCIAL_PROOF</span>
+</div>
+<div class="p-6 space-y-4">
+<div>
+<label class="block text-[10px] font-label text-zinc-500 uppercase mb-1">Subject</label>
+<div class="text-on-surface font-bold text-base">How teams like yours are scaling with HYPERIDLE</div>
+</div>
+<div>
+<label class="block text-[10px] font-label text-zinc-500 uppercase mb-1">Body Preview</label>
+<div class="text-on-surface-variant text-sm leading-relaxed">
+                                    Operations leaders are reporting a 40% reduction in manual triage time after switching to our latest CRM sequence models. Check out this case study from the team at AlphaStream who reactivated 12% of their user base in 30 days...
+                                </div>
+</div>
+</div>
+</article>
+<!-- Email Card 3 -->
+<article class="bg-surface-container border border-outline-variant/10 rounded-sm overflow-hidden group hover:border-outline-variant/30 transition-all opacity-80 hover:opacity-100">
+<div class="bg-surface-container-high px-6 py-3 border-b border-outline-variant/10 flex justify-between items-center">
+<span class="font-label text-xs text-zinc-400">Email 3 of 3 · Sends Day 10</span>
+<span class="bg-zinc-800 text-zinc-500 text-[10px] px-2 py-0.5 font-label">URGENCY_CTA</span>
+</div>
+<div class="p-6 space-y-4">
+<div>
+<label class="block text-[10px] font-label text-zinc-500 uppercase mb-1">Subject</label>
+<div class="text-on-surface font-bold text-base">A special return offer just for you</div>
+</div>
+<div>
+<label class="block text-[10px] font-label text-zinc-500 uppercase mb-1">Body Preview</label>
+<div class="text-on-surface-variant text-sm leading-relaxed">
+                                    We really want you back on the Pro plan. Use the code AMBROVIA25 within the next 48 hours to get 25% off your first three months back. This is our best offer of the quarter, and it’s valid exclusively for returning power users...
+                                </div>
+</div>
+</div>
+</article>
+</div>
+</div>
+<!-- Metadata Sidebar -->
+<aside class="w-full lg:w-72 space-y-6">
+<div class="bg-surface-container-low p-5 rounded-sm border border-outline-variant/10">
+<h3 class="text-xs font-label text-zinc-500 uppercase tracking-widest mb-4">Campaign Summary</h3>
+<div class="space-y-4">
+<div>
+<div class="text-[10px] font-label text-zinc-600 uppercase">Recipients</div>
+<div class="text-lg font-bold text-on-surface">47 Users</div>
+</div>
+<div class="grid grid-cols-2 gap-4">
+<div>
+<div class="text-[10px] font-label text-zinc-600 uppercase">Expected React.</div>
+<div class="text-base font-bold text-tertiary-dim">8-12 users</div>
+</div>
+<div>
+<div class="text-[10px] font-label text-zinc-600 uppercase">Est. Revenue</div>
+<div class="text-base font-bold text-on-surface">$1.4k</div>
+</div>
+</div>
+<div class="pt-4 border-t border-outline-variant/10">
+<div class="text-[10px] font-label text-zinc-600 uppercase mb-2">Efficiency Metrics</div>
+<div class="flex items-center justify-between mb-1">
+<span class="text-xs text-on-surface-variant italic">Cost per reactivation</span>
+<span class="text-xs font-label font-bold text-on-surface">$11.40</span>
+</div>
+<div class="flex items-center justify-between">
+<span class="text-xs text-on-surface-variant italic">Operational Load</span>
+<span class="text-xs font-label font-bold text-on-surface">Negligible</span>
+</div>
+</div>
+</div>
+</div>
+<div class="bg-surface-container-low p-5 rounded-sm border border-outline-variant/10">
+<h3 class="text-xs font-label text-zinc-500 uppercase tracking-widest mb-4">Scheduling</h3>
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 bg-surface-container-highest rounded-sm flex flex-col items-center justify-center border border-outline-variant/20">
+<span class="text-[10px] font-label text-zinc-400">MON</span>
+<span class="text-xs font-bold text-primary">09</span>
+</div>
+<div>
+<div class="text-sm font-bold text-on-surface">Monday 9:00 AM</div>
+<div class="text-[10px] font-label text-zinc-500 uppercase">Eastern Standard Time</div>
+</div>
+</div>
+</div>
+<div class="relative rounded-sm overflow-hidden aspect-video group">
+<img class="w-full h-full object-cover" data-alt="a dark data visualization dashboard showing upward trending blue lines on a black background representing user growth" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCw67ei-GnMgzoaKMNuryXwVm-o_0l8Y4h2dL3nfBibTq1eqoK7aNPx3PtodI-yxcja_g41gXd9LHva_Sfj43mR-0zQ-mGGiPIVvQZaevinGSsKLJ5r1MVajsPJ_b6VjgbEKlDFomM3gazesA70uJyFcQKRCdOq475_XN4sBD7dLtQ3MXLLOk6iVZ__WagpMJjbtIXcQsHBr-PYi70N_GGd3Slyaj_xct0LyNbNexx7SgwnKJid_51lSxIT8Jbldk4ybB0jh8PEDRoT"/>
+<div class="absolute inset-0 bg-gradient-to-t from-surface to-transparent opacity-60"></div>
+<div class="absolute bottom-2 left-2 px-2 py-1 bg-surface/80 backdrop-blur-sm rounded-[2px]">
+<span class="text-[9px] font-label text-primary uppercase tracking-tighter">Live Signal Forecast</span>
+</div>
+</div>
+</aside>
+</div>
+</main>
+<!-- Bottom Action Bar (Verdict) -->
+<div class="fixed bottom-0 left-64 right-0 z-50 bg-[#191a1a] h-16 border-t border-zinc-800/20 px-12 flex justify-between items-center gap-8">
+<div class="flex-1 max-w-xl relative flex items-center">
+<input class="w-full bg-surface-container-lowest border border-outline-variant/20 rounded-sm px-4 py-2 text-sm focus:ring-1 focus:ring-primary/50 text-on-surface placeholder:text-zinc-600 font-body" placeholder="Type a message to refine the sequence..." type="text"/>
+<button class="absolute right-2 material-symbols-outlined text-zinc-500 hover:text-primary">send</button>
+</div>
+<div class="flex items-center gap-3 h-full">
+<div class="flex items-center gap-1">
+<button class="flex flex-col items-center justify-center px-4 h-12 text-zinc-500 hover:text-[#adc6ff] transition-all active:scale-95 group">
+<span class="material-symbols-outlined text-[20px]">schedule</span>
+<span class="text-[9px] font-label uppercase tracking-widest mt-0.5">Defer</span>
+</button>
+<button class="flex flex-col items-center justify-center px-4 h-12 text-zinc-500 hover:text-[#adc6ff] transition-all active:scale-95 group">
+<span class="material-symbols-outlined text-[20px]">priority_high</span>
+<span class="text-[9px] font-label uppercase tracking-widest mt-0.5">Escalate</span>
+</button>
+</div>
+<div class="h-8 w-[1px] bg-outline-variant/20 mx-2"></div>
+<button class="flex items-center gap-2 px-4 py-2 border border-outline-variant/30 hover:border-outline-variant/60 text-on-surface-variant hover:text-on-surface rounded-sm text-sm font-medium transition-all">
+                Request Changes
+            </button>
+<button class="flex items-center gap-2 px-6 py-2 bg-primary text-on-primary font-bold rounded-sm text-sm hover:brightness-110 active:scale-95 transition-all shadow-[0_0_20px_rgba(173,198,255,0.15)]">
+<span class="material-symbols-outlined text-[18px]" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+                Approve &amp; Launch
+            </button>
+<button class="material-symbols-outlined text-zinc-500 hover:text-on-surface ml-2">more_vert</button>
+</div>
+</div>
+</body></html>

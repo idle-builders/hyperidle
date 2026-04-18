@@ -141,6 +141,37 @@ describe("Routine Scheduler", () => {
 			expect(next.getUTCMinutes()).toBe(0);
 			expect(next > from).toBe(true);
 		});
+
+		// Pins the "first Monday of the month" semantics for the built-in
+		// Portfolio Retro cron ("0 10 1-7 * MON"). Over 12 iterated matches we
+		// must land on dayOfMonth<=7 AND dayOfWeek===Monday every time — if
+		// the matcher ever flips to POSIX-OR semantics, this test fails.
+		it("first-Monday cron (0 10 1-7 * MON) hits dayOfMonth<=7 AND Monday over a 12-month window", () => {
+			const cron = parseCron("0 10 1-7 * MON");
+			let cursor = new Date("2026-01-01T00:00:00Z");
+			const end = new Date("2027-01-01T00:00:00Z");
+			const matches: Date[] = [];
+
+			while (cursor < end) {
+				const next = nextCronMatch(cron, cursor);
+				if (next >= end) break;
+				matches.push(next);
+				cursor = new Date(next.getTime() + 60_000);
+			}
+
+			// One match per month: 12 iterations over a one-year window.
+			expect(matches.length).toBe(12);
+
+			for (const m of matches) {
+				expect(m.getUTCDay(), `${m.toISOString()} should be Monday`).toBe(1);
+				expect(
+					m.getUTCDate(),
+					`${m.toISOString()} should be in first 7 days of month`,
+				).toBeLessThanOrEqual(7);
+				expect(m.getUTCHours()).toBe(10);
+				expect(m.getUTCMinutes()).toBe(0);
+			}
+		});
 	});
 
 	// AC1: Heartbeat routine fires within 60-90s of last run

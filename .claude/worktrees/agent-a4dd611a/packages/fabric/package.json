@@ -1,0 +1,17 @@
+{
+	"name": "@hyperidle/fabric",
+	"version": "0.0.1",
+	"private": true,
+	"type": "module",
+	"exports": {
+		".": "./src/index.ts"
+	},
+	"scripts": {
+		"check": "tsc --noEmit"
+	},
+	"dependencies": {
+		"@hyperidle/db": "workspace:*",
+		"@hyperidle/shared": "workspace:*",
+		"drizzle-orm": "^0.39.0"
+	}
+}

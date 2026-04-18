@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Command HQ | Strategic Intelligence Thread</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&amp;family=Space+Grotesk:wght@300;400;500;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "on-tertiary-fixed": "#00480f",
+                    "inverse-surface": "#fcf9f8",
+                    "on-secondary-fixed-variant": "#805100",
+                    "on-error-container": "#ff9993",
+                    "error": "#ee7d77",
+                    "on-tertiary": "#00671a",
+                    "inverse-primary": "#005bc2",
+                    "on-surface": "#e7e5e4",
+                    "surface-dim": "#0e0e0e",
+                    "on-error": "#490106",
+                    "surface-bright": "#2c2c2c",
+                    "on-primary": "#003d87",
+                    "background": "#0e0e0e",
+                    "tertiary": "#bbffb3",
+                    "on-secondary-container": "#fcb044",
+                    "error-container": "#7f2927",
+                    "surface-container-high": "#1f2020",
+                    "secondary": "#d58f24",
+                    "on-background": "#e7e5e4",
+                    "surface-container-low": "#131313",
+                    "tertiary-fixed": "#91f78e",
+                    "inverse-on-surface": "#565555",
+                    "tertiary-container": "#91f78e",
+                    "on-secondary": "#301c00",
+                    "on-primary-container": "#bcd0ff",
+                    "on-primary-fixed-variant": "#0058bb",
+                    "surface-variant": "#252626",
+                    "secondary-container": "#553400",
+                    "surface": "#0e0e0e",
+                    "primary-container": "#004493",
+                    "on-surface-variant": "#acabaa",
+                    "on-tertiary-fixed-variant": "#00691a",
+                    "primary-fixed": "#d8e2ff",
+                    "surface-container": "#191a1a",
+                    "error-dim": "#bb5551",
+                    "outline-variant": "#484848",
+                    "secondary-fixed-dim": "#ffcb8b",
+                    "primary": "#adc6ff",
+                    "primary-fixed-dim": "#c2d4ff",
+                    "secondary-dim": "#d58f24",
+                    "secondary-fixed": "#ffddb6",
+                    "tertiary-dim": "#83e881",
+                    "surface-tint": "#adc6ff",
+                    "outline": "#767575",
+                    "surface-container-highest": "#252626",
+                    "primary-dim": "#97b9ff",
+                    "surface-container-lowest": "#000000",
+                    "tertiary-fixed-dim": "#83e881",
+                    "on-secondary-fixed": "#5a3800",
+                    "on-primary-fixed": "#003d85",
+                    "on-tertiary-container": "#005e17"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.125rem",
+                    "lg": "0.25rem",
+                    "xl": "0.5rem",
+                    "full": "0.75rem"
+            },
+            "fontFamily": {
+                    "headline": ["Inter"],
+                    "body": ["Inter"],
+                    "label": ["Space Grotesk"]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 300, 'GRAD' 0, 'opsz' 24;
+            font-size: 20px;
+        }
+        ::-webkit-scrollbar { width: 4px; }
+        ::-webkit-scrollbar-track { background: #0e0e0e; }
+        ::-webkit-scrollbar-thumb { background: #252626; border-radius: 2px; }
+        ::-webkit-scrollbar-thumb:hover { background: #484848; }
+    </style>
+</head>
+<body class="bg-background text-on-surface font-body selection:bg-primary-container selection:text-on-primary-container">
+<!-- SideNavBar Shell -->
+<aside class="fixed left-0 top-0 h-full flex flex-col z-40 bg-[#131313] text-[#adc6ff] w-20 border-r border-transparent">
+<div class="flex flex-col items-center py-6 h-full">
+<div class="mb-8">
+<span class="text-lg font-bold tracking-tighter text-[#adc6ff]">HQ</span>
+</div>
+<nav class="flex flex-col gap-4 flex-1">
+<button class="flex flex-col items-center p-2 text-[#adc6ff] bg-[#191a1a] border-l-2 border-[#adc6ff] transition-colors duration-200">
+<span class="material-symbols-outlined" data-icon="dashboard">dashboard</span>
+<span class="font-label text-xs tracking-wider uppercase mt-1">Ops</span>
+</button>
+<button class="flex flex-col items-center p-2 text-gray-500 hover:text-gray-300 hover:bg-[#252626] transition-colors duration-200">
+<span class="material-symbols-outlined" data-icon="insights">insights</span>
+<span class="font-label text-xs tracking-wider uppercase mt-1">Strat</span>
+</button>
+<button class="flex flex-col items-center p-2 text-gray-500 hover:text-gray-300 hover:bg-[#252626] transition-colors duration-200">
+<span class="material-symbols-outlined" data-icon="biotech">biotech</span>
+<span class="font-label text-xs tracking-wider uppercase mt-1">Intel</span>
+</button>
+<button class="flex flex-col items-center p-2 text-gray-500 hover:text-gray-300 hover:bg-[#252626] transition-colors duration-200">
+<span class="material-symbols-outlined" data-icon="groups">groups</span>
+<span class="font-label text-xs tracking-wider uppercase mt-1">Pers</span>
+</button>
+<button class="flex flex-col items-center p-2 text-gray-500 hover:text-gray-300 hover:bg-[#252626] transition-colors duration-200">
+<span class="material-symbols-outlined" data-icon="inventory_2">inventory_2</span>
+<span class="font-label text-xs tracking-wider uppercase mt-1">Arch</span>
+</button>
+</nav>
+<div class="flex flex-col gap-4 items-center mb-4">
+<div class="flex flex-col items-center gap-2">
+<div class="flex flex-col items-center">
+<span class="font-label text-[10px] text-secondary">2</span>
+<span class="material-symbols-outlined text-secondary" data-icon="block">block</span>
+</div>
+<div class="flex flex-col items-center">
+<span class="font-label text-[10px] text-primary">5</span>
+<span class="material-symbols-outlined text-primary" data-icon="mail">mail</span>
+</div>
+<div class="flex flex-col items-center mt-2 px-1 py-0.5 bg-surface-container rounded-sm">
+<span class="font-label text-[10px] text-on-surface-variant">$42</span>
+<div class="w-8 h-1 bg-outline-variant rounded-full overflow-hidden">
+<div class="bg-primary h-full w-[28%]"></div>
+</div>
+</div>
+</div>
+</div>
+<div class="mt-auto flex flex-col gap-4 items-center">
+<button class="text-gray-500 hover:text-gray-300 transition-colors">
+<span class="material-symbols-outlined" data-icon="settings">settings</span>
+</button>
+<div class="w-8 h-8 rounded-sm overflow-hidden bg-surface-container-highest border border-outline-variant">
+<img alt="Chief of Staff Profile" class="w-full h-full object-cover grayscale opacity-80" data-alt="Professional portrait of a high-ranking executive in a dark suit with neutral expression and sharp lighting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBzwsU4a89UwamTq2zwvKVvTYcafzxWQ0s-GlKn11U4UuihGMatml59j8yGw7BG5zANdeb52oMbtQ1mYfUxl_0fhReLqM72VbK8HKi2__dSOAHhZ7yQYSL1hmjzzp-XXqv_FsP6XH6QyNefblWBrFlkyI-y5heklg7knlglgh0lG820PJBqiGyvXml3VqCcm6s74gI2dfK57OR8saTNqAi6DY3OXr1CkG3-6uoc2feisGxcMEp8ap_fybdMvNvj9hRADyK33_ra8KYB"/>
+</div>
+</div>
+</div>
+</aside>
+<!-- TopAppBar Shell -->
+<header class="fixed top-0 right-0 flex justify-between items-center h-16 px-8 z-30 w-[calc(100%-5rem)] ml-20 bg-[#0e0e0e] text-[#adc6ff] border-b border-transparent">
+<div class="flex items-center gap-6">
+<h1 class="text-xl font-black text-white tracking-tighter">Strategic Intelligence Thread</h1>
+<nav class="hidden md:flex gap-6">
+<a class="text-[#adc6ff] border-b border-[#adc6ff] py-1 text-sm" href="#">Overview</a>
+<a class="text-gray-400 hover:text-white transition-opacity text-sm" href="#">Briefings</a>
+<a class="text-gray-400 hover:text-white transition-opacity text-sm" href="#">Action Items</a>
+</nav>
+</div>
+<div class="flex items-center gap-4">
+<div class="relative group">
+<span class="absolute left-3 top-1/2 -translate-y-1/2 material-symbols-outlined text-outline text-sm" data-icon="search">search</span>
+<input class="bg-surface-container-lowest border-none outline-none focus:ring-1 focus:ring-primary text-sm pl-10 pr-4 py-1.5 w-64 rounded-sm transition-all" placeholder="Search intel..." type="text"/>
+</div>
+<button class="p-2 text-gray-400 hover:text-white opacity-80 active:opacity-100 transition-opacity">
+<span class="material-symbols-outlined" data-icon="filter_list">filter_list</span>
+</button>
+<button class="p-2 text-gray-400 hover:text-white opacity-80 active:opacity-100 transition-opacity">
+<span class="material-symbols-outlined" data-icon="more_vert">more_vert</span>
+</button>
+</div>
+</header>
+<!-- Main Content Canvas -->
+<main class="ml-20 pt-16 h-screen flex flex-col bg-surface overflow-hidden">
+<!-- Thread Header -->
+<div class="px-8 py-4 flex items-center justify-between border-b border-outline-variant/10 bg-surface-container-low/50 backdrop-blur-md">
+<div class="flex items-center gap-4">
+<div class="w-10 h-10 bg-primary-container/20 flex items-center justify-center rounded-sm border border-primary/20">
+<span class="material-symbols-outlined text-primary" data-icon="neurology" style="font-variation-settings: 'FILL' 1;">neurology</span>
+</div>
+<div>
+<div class="flex items-center gap-2">
+<h2 class="text-lg font-bold tracking-tight text-on-surface">Chief of Staff</h2>
+<span class="material-symbols-outlined text-primary text-xs" data-icon="push_pin" style="font-variation-settings: 'FILL' 1;">push_pin</span>
+</div>
+<p class="text-xs text-on-surface-variant font-label uppercase tracking-widest">Ongoing strategic conversation</p>
+</div>
+</div>
+<div class="flex items-center gap-2">
+<button class="px-3 py-1 bg-surface-container-high hover:bg-surface-variant text-on-surface text-xs rounded-sm transition-colors border border-outline-variant/20">Focus Mode</button>
+</div>
+</div>
+<!-- Chat History -->
+<div class="flex-1 overflow-y-auto px-8 py-6 space-y-8 max-w-5xl mx-auto w-full scroll-smooth">
+<!-- Message 1: Chief of Staff -->
+<div class="flex gap-4 group">
+<div class="flex-shrink-0 w-9 h-9 rounded-sm bg-surface-container-highest border border-outline-variant overflow-hidden">
+<img class="w-full h-full object-cover grayscale opacity-90" data-alt="Close up portrait of a digital avatar representating intelligence with dark tones" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCgWLlUInVnf3JQ2TkIi5cuUVqwYhUR0s0YAL3UvtjGePoL-6tJ2hg6pPgSJqZsGoExSHzFO5nhRlSSsgREK3lXG9dZ45gLu-AEcv9HCIUXTncyuCGkJ5OWLknAElxEbyDiIu43C6g-4TDcwGNxgerup7Jlir5JvtRIC7r5dYTT2FvB3WOcVCV668mulkZab67gMovlpRFemGe81_xqrnOzRuypuWmzwc4NHOkrEW4tpeXK7WBZTlguFbHTgHHhlmZ-MenR_eM58-Z5"/>
+</div>
+<div class="flex-1 min-w-0">
+<div class="flex items-baseline gap-2 mb-1">
+<span class="font-bold text-primary">Chief of Staff</span>
+<span class="font-label text-[10px] text-outline uppercase tracking-tighter">2 days ago</span>
+</div>
+<!-- Collapsible Reasoning -->
+<div class="mb-3">
+<details class="group/reasoning">
+<summary class="list-none cursor-pointer flex items-center gap-2 text-[10px] font-label text-on-surface-variant/60 hover:text-on-surface-variant transition-colors uppercase tracking-widest">
+<span class="material-symbols-outlined text-[14px] transition-transform group-open/reasoning:rotate-90" data-icon="chevron_right">chevron_right</span>
+                                Agent Reasoning
+                            </summary>
+<div class="mt-2 pl-4 py-2 border-l border-primary/20 bg-primary-container/5 text-sm text-on-surface-variant italic leading-relaxed">
+                                Analyzing cross-product patterns from the last 4 weeks of operations data.
+                            </div>
+</details>
+</div>
+<div class="text-on-surface leading-relaxed space-y-4 text-[0.9375rem]">
+<p>Three patterns worth discussing this month:</p>
+<div class="space-y-4">
+<div class="flex gap-3">
+<span class="font-label text-primary-dim mt-1">01</span>
+<p><strong class="text-white">Hardware bets are consistently running 30% over appetite.</strong> The Pulse enclosure optimization was scoped for 4 weeks and is trending toward 5.5. The amplifier board is similar. Root cause seems to be that physical prototyping adds unpredictable delays (CNC lead times, measurement iterations).</p>
+</div>
+<div class="flex gap-3">
+<span class="font-label text-primary-dim mt-1">02</span>
+<p><strong class="text-white">Knowledge curation is falling behind.</strong> 14 new items captured this month, but only 3 promoted from provisional to active. The Building practice has 5 stale items. The Hardware practice has none — the agents are diligent there.</p>
+</div>
+<div class="flex gap-3">
+<span class="font-label text-primary-dim mt-1">03</span>
+<p><strong class="text-white">Cross-team task rate is low (good).</strong> Only 2 cross-team tasks this cycle. Teams are mostly self-contained. The one exception: Pulse Software Agent needed auth patterns from Ambrovia's practice — resolved via knowledge layer, not a cross-team task.</p>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Message 2: Founder -->
+<div class="flex gap-4 group">
+<div class="flex-shrink-0 w-9 h-9 rounded-sm bg-surface-container border border-outline-variant/30 flex items-center justify-center">
+<span class="material-symbols-outlined text-on-surface-variant" data-icon="person">person</span>
+</div>
+<div class="flex-1 min-w-0">
+<div class="flex items-baseline gap-2 mb-1">
+<span class="font-bold text-on-surface">Founder</span>
+<span class="font-label text-[10px] text-outline uppercase tracking-tighter">2 days ago</span>
+</div>
+<div class="text-on-surface leading-relaxed text-[0.9375rem]">
+                        On #1 — I think we need to pad hardware bet appetites by 50% as a rule of thumb until we have more data. Can you draft a principle for that?
+                    </div>
+</div>
+</div>
+<!-- Message 3: Chief of Staff -->
+<div class="flex gap-4 group">
+<div class="flex-shrink-0 w-9 h-9 rounded-sm bg-surface-container-highest border border-outline-variant overflow-hidden">
+<img class="w-full h-full object-cover grayscale opacity-90" data-alt="Digital assistant avatar in dark monochromatic shades" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBlWYtbIFlBAdc48puVcYVqIJI6UxZ_w4s1-2lnuVW-KiM_eBqy0oCsYNE49NikPKZFuraxiy04TziYedkjFkejG0gFZL80eDx1g9COq7ERkf_un9Aj3G_ZjSFtfW0HmjNowps-hgM9opYOzHjsRsPDgfHYz3dBGCjaA7Od6Gyl8STPvRgBaQi4upms5QYy1MA4-rUuzOqo2GOSfKbiyghxR7sQa4CZa_6nZKLzzpR7aFRlYYU8wtLXkIGtIim3zfomjIgWCY-CJit8"/>
+</div>
+<div class="flex-1 min-w-0">
+<div class="flex items-baseline gap-2 mb-1">
+<span class="font-bold text-primary">Chief of Staff</span>
+<span class="font-label text-[10px] text-outline uppercase tracking-tighter">2 days ago</span>
+</div>
+<div class="text-on-surface leading-relaxed text-[0.9375rem]">
+                        Good call. I'll draft a principle: <span class="bg-primary-container/20 text-primary-dim px-1.5 py-0.5 rounded-sm font-label text-sm">'Hardware bets get 1.5× appetite multiplier until measurement data shows otherwise.'</span> I'll submit it as a review thread for your approval — you'll see it in <span class="underline decoration-primary/30 underline-offset-4 cursor-pointer hover:text-primary transition-colors">Conversations</span>.
+                    </div>
+</div>
+</div>
+<!-- Message 4: Chief of Staff (New Day) -->
+<div class="relative py-4">
+<div aria-hidden="true" class="absolute inset-0 flex items-center">
+<div class="w-full border-t border-outline-variant/10"></div>
+</div>
+<div class="relative flex justify-center">
+<span class="bg-surface px-3 text-[10px] font-label text-outline uppercase tracking-widest">Yesterday</span>
+</div>
+</div>
+<div class="flex gap-4 group">
+<div class="flex-shrink-0 w-9 h-9 rounded-sm bg-surface-container-highest border border-outline-variant overflow-hidden">
+<img class="w-full h-full object-cover grayscale opacity-90" data-alt="Portrait of an intelligent agent avatar in a dark noir style" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCWg4JxR7Rou9caGRXTXc9gZ_R22Wwkr6l4kP8I3lyafuRVJCwGHEmsWywaceku8wGS32yH61NRMrrjZs86OvF7lhKE4r-6Z_UXwBolShgY4FTCEcb-9VNntsLW90I1ugJ7-VM19Qf5P1EkvkNpvqdUYBGlCkSOeYVmt4fAhcgu4stvUGx58NALWzp166yKWyxZrA37ROJZEFkOyOQtjyYPT51o-cSity_0yKSgfOJ_UEH4wnDPGEorZrgU84F0nf8LJHjt44lYhcmk"/>
+</div>
+<div class="flex-1 min-w-0">
+<div class="flex items-baseline gap-2 mb-1">
+<span class="font-bold text-primary">Chief of Staff</span>
+<span class="font-label text-[10px] text-outline uppercase tracking-tighter">1 day ago</span>
+</div>
+<div class="text-on-surface leading-relaxed text-[0.9375rem]">
+                        On #2 — I've asked the Building Practice Facilitator to run an extra curation pass this week. I'll surface the 5 stale items in your <span class="underline decoration-primary/30 underline-offset-4 cursor-pointer hover:text-primary transition-colors">Knowledge triage view</span>.
+                    </div>
+</div>
+</div>
+<!-- Message 5: Founder -->
+<div class="flex gap-4 group">
+<div class="flex-shrink-0 w-9 h-9 rounded-sm bg-surface-container border border-outline-variant/30 flex items-center justify-center">
+<span class="material-symbols-outlined text-on-surface-variant" data-icon="person">person</span>
+</div>
+<div class="flex-1 min-w-0">
+<div class="flex items-baseline gap-2 mb-1">
+<span class="font-bold text-on-surface">Founder</span>
+<span class="font-label text-[10px] text-outline uppercase tracking-tighter">1 day ago</span>
+</div>
+<div class="text-on-surface leading-relaxed text-[0.9375rem]">
+                        Thanks. On #3 — that's exactly what we want. Keep monitoring it.
+                    </div>
+</div>
+</div>
+</div>
+<!-- Sticky Bottom Input Area -->
+<div class="mt-auto bg-surface border-t border-outline-variant/10 p-6">
+<div class="max-w-5xl mx-auto w-full space-y-4">
+<!-- Input Container -->
+<div class="relative bg-surface-container-lowest border border-outline-variant/20 rounded-sm focus-within:ring-1 focus-within:ring-primary/40 focus-within:border-primary/40 transition-all">
+<textarea class="w-full bg-transparent border-none focus:ring-0 text-on-surface placeholder:text-on-surface-variant/40 py-4 px-4 resize-none" placeholder="Reply to Chief of Staff..." rows="2"></textarea>
+<div class="flex items-center justify-between px-4 pb-3">
+<div class="flex items-center gap-1">
+<button class="p-1.5 text-on-surface-variant hover:text-on-surface hover:bg-surface-variant rounded-sm transition-colors">
+<span class="material-symbols-outlined text-lg" data-icon="attachment">attachment</span>
+</button>
+<button class="p-1.5 text-on-surface-variant hover:text-on-surface hover:bg-surface-variant rounded-sm transition-colors">
+<span class="material-symbols-outlined text-lg" data-icon="alternate_email">alternate_email</span>
+</button>
+<button class="p-1.5 text-on-surface-variant hover:text-on-surface hover:bg-surface-variant rounded-sm transition-colors">
+<span class="material-symbols-outlined text-lg" data-icon="mood">mood</span>
+</button>
+</div>
+<button class="flex items-center gap-2 px-4 py-1.5 bg-primary-container text-on-primary-container font-bold text-sm rounded-sm hover:brightness-110 active:scale-95 transition-all">
+<span>Send</span>
+<span class="material-symbols-outlined text-sm" data-icon="send" style="font-variation-settings: 'FILL' 1;">send</span>
+</button>
+</div>
+</div>
+<!-- Footer Action Buttons -->
+<div class="flex items-center gap-4">
+<button class="flex items-center gap-2 px-3 py-1.5 bg-surface-container-high text-on-surface font-label text-xs uppercase tracking-widest border border-outline-variant/20 hover:bg-surface-variant transition-colors rounded-sm">
+<span class="material-symbols-outlined text-sm" data-icon="add_task">add_task</span>
+                        Start a task
+                    </button>
+<button class="flex items-center gap-2 px-3 py-1.5 text-on-surface-variant font-label text-xs uppercase tracking-widest opacity-50 cursor-not-allowed rounded-sm" disabled="">
+<span class="material-symbols-outlined text-sm" data-icon="close">close</span>
+                        Close
+                    </button>
+</div>
+</div>
+</div>
+</main>
+</body></html>

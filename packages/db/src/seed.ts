@@ -211,4 +211,98 @@ export function seed(db: HyperIdleDb): void {
 		})
 		.onConflictDoNothing()
 		.run();
+
+	// G4: built-in routines. Inserted directly (rather than calling
+	// `seedBuiltinRoutines` from `@hyperidle/server`) because `@hyperidle/db`
+	// must not depend on `@hyperidle/server` — that dependency direction is
+	// reversed across the monorepo. The specs below are a replica of
+	// `BUILTIN_SPECS` in `packages/server/src/services/builtin-routines.ts`;
+	// keep them in sync. A schema test in
+	// `packages/db/src/__tests__/seed.test.ts` pins the trigger_type per id
+	// so drift is caught by CI.
+	seedBuiltinRoutines(db, now);
+}
+
+interface BuiltinRoutineSeed {
+	id: string;
+	ownerAgentId: string;
+	triggerType: "heartbeat" | "calendar" | "event";
+	triggerConfig: Record<string, unknown>;
+	skillId: string;
+	doneCondition: string;
+	humanReview: 0 | 1;
+	silent: 0 | 1;
+}
+
+const BUILTIN_ROUTINE_SEEDS: readonly BuiltinRoutineSeed[] = [
+	{
+		id: "builtin:cost-sentinel",
+		ownerAgentId: "seed-agent-cos",
+		triggerType: "heartbeat",
+		triggerConfig: { intervalSeconds: 900 },
+		skillId: "cost_watchdog",
+		doneCondition: "Factory cost spend is below warning threshold",
+		humanReview: 0,
+		silent: 1,
+	},
+	{
+		id: "builtin:practice-meeting",
+		ownerAgentId: "seed-agent-pf-facilitation",
+		triggerType: "calendar",
+		triggerConfig: { cron: "0 10 * * MON" },
+		skillId: "practice_meeting",
+		doneCondition: "3-turn practice meeting anchor created",
+		humanReview: 0,
+		silent: 0,
+	},
+	{
+		id: "builtin:post-bet-retro",
+		ownerAgentId: "seed-agent-pm-nimmly",
+		triggerType: "event",
+		triggerConfig: { eventType: "bet_shipped" },
+		skillId: "bet_retro",
+		doneCondition: "Review item comparing hypothesis vs reality written",
+		humanReview: 1,
+		silent: 0,
+	},
+	{
+		id: "builtin:portfolio-retro",
+		ownerAgentId: "seed-agent-cos",
+		triggerType: "calendar",
+		triggerConfig: { cron: "0 10 1-7 * MON" },
+		skillId: "portfolio_retro",
+		doneCondition: "Cross-product portfolio review item written",
+		humanReview: 1,
+		silent: 0,
+	},
+	{
+		id: "builtin:knowledge-decay",
+		ownerAgentId: "seed-agent-cos",
+		triggerType: "calendar",
+		triggerConfig: { cron: "0 2 * * *" },
+		skillId: "knowledge_decay",
+		doneCondition: "Stale knowledge items transitioned",
+		humanReview: 0,
+		silent: 1,
+	},
+];
+
+function seedBuiltinRoutines(db: HyperIdleDb, _now: string): void {
+	for (const spec of BUILTIN_ROUTINE_SEEDS) {
+		db.insert(routines)
+			.values({
+				id: spec.id,
+				ownerAgentId: spec.ownerAgentId,
+				triggerType: spec.triggerType,
+				triggerConfig: JSON.stringify(spec.triggerConfig),
+				skillId: spec.skillId,
+				doneCondition: spec.doneCondition,
+				delegationAllowed: 0,
+				humanReview: spec.humanReview,
+				silent: spec.silent,
+				active: 1,
+			})
+			.onConflictDoNothing()
+			.run();
+	}
 }

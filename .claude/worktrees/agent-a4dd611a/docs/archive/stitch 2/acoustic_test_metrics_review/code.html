@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&amp;family=Space+Grotesk:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "secondary-container": "#553400",
+                        "primary-dim": "#97b9ff",
+                        "tertiary-fixed-dim": "#83e881",
+                        "surface": "#0e0e0e",
+                        "secondary-dim": "#d58f24",
+                        "tertiary-fixed": "#91f78e",
+                        "on-tertiary": "#00671a",
+                        "primary": "#adc6ff",
+                        "error-container": "#7f2927",
+                        "primary-fixed": "#d8e2ff",
+                        "on-error-container": "#ff9993",
+                        "surface-variant": "#252626",
+                        "on-primary-fixed-variant": "#0058bb",
+                        "on-error": "#490106",
+                        "outline": "#767575",
+                        "on-background": "#e7e5e4",
+                        "on-primary": "#003d87",
+                        "on-secondary-container": "#fcb044",
+                        "surface-container-low": "#131313",
+                        "on-primary-container": "#bcd0ff",
+                        "error": "#ee7d77",
+                        "primary-container": "#004493",
+                        "tertiary": "#bbffb3",
+                        "primary-fixed-dim": "#c2d4ff",
+                        "outline-variant": "#484848",
+                        "on-surface-variant": "#acabaa",
+                        "on-secondary-fixed": "#5a3800",
+                        "surface-bright": "#2c2c2c",
+                        "surface-dim": "#0e0e0e",
+                        "secondary-fixed-dim": "#ffcb8b",
+                        "surface-container-highest": "#252626",
+                        "on-tertiary-fixed-variant": "#00691a",
+                        "tertiary-container": "#91f78e",
+                        "on-surface": "#e7e5e4",
+                        "on-tertiary-container": "#005e17",
+                        "on-secondary-fixed-variant": "#805100",
+                        "background": "#0e0e0e",
+                        "inverse-on-surface": "#565555",
+                        "inverse-surface": "#fcf9f8",
+                        "on-secondary": "#301c00",
+                        "error-dim": "#bb5551",
+                        "inverse-primary": "#005bc2",
+                        "surface-container-high": "#1f2020",
+                        "surface-container-lowest": "#000000",
+                        "surface-container": "#191a1a",
+                        "on-tertiary-fixed": "#00480f",
+                        "surface-tint": "#adc6ff",
+                        "secondary-fixed": "#ffddb6",
+                        "on-primary-fixed": "#003d85",
+                        "tertiary-dim": "#83e881",
+                        "secondary": "#d58f24"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "fontFamily": {
+                        "headline": ["Inter"],
+                        "body": ["Inter"],
+                        "label": ["Space Grotesk"]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            vertical-align: middle;
+            font-size: 1.25rem;
+        }
+        .chart-container {
+            background-image: 
+                linear-gradient(to right, rgba(72, 72, 72, 0.1) 1px, transparent 1px),
+                linear-gradient(to bottom, rgba(72, 72, 72, 0.1) 1px, transparent 1px);
+            background-size: 40px 40px;
+        }
+        ::-webkit-scrollbar { width: 4px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #484848; border-radius: 2px; }
+    </style>
+</head>
+<body class="bg-surface text-on-surface font-body overflow-hidden h-screen flex">
+<!-- SideNavBar (Primary) -->
+<nav class="fixed left-0 top-0 h-full z-40 bg-neutral-950 flex flex-col items-center py-6 w-20 border-r border-neutral-800/20">
+<div class="mb-10">
+<span class="text-lg font-bold tracking-tighter text-blue-200 uppercase">MC</span>
+</div>
+<div class="flex flex-col gap-8 flex-1">
+<button class="flex flex-col items-center gap-1 text-neutral-500 hover:text-neutral-300 transition-colors duration-150">
+<span class="material-symbols-outlined" data-icon="terminal">terminal</span>
+<span class="font-label text-[10px] uppercase tracking-tighter">Operations</span>
+</button>
+<button class="flex flex-col items-center gap-1 bg-blue-900/20 text-blue-200 border-l-2 border-blue-400 pl-2 pr-2 py-2">
+<span class="material-symbols-outlined" data-icon="insights">insights</span>
+<span class="font-label text-[10px] uppercase tracking-tighter">Intelligence</span>
+</button>
+<button class="flex flex-col items-center gap-1 text-neutral-500 hover:text-neutral-300 transition-colors duration-150">
+<span class="material-symbols-outlined" data-icon="database">database</span>
+<span class="font-label text-[10px] uppercase tracking-tighter">Archives</span>
+</button>
+<button class="flex flex-col items-center gap-1 text-neutral-500 hover:text-neutral-300 transition-colors duration-150">
+<span class="material-symbols-outlined" data-icon="security">security</span>
+<span class="font-label text-[10px] uppercase tracking-tighter">Protocol</span>
+</button>
+</div>
+<button class="text-neutral-500 hover:text-neutral-300 mt-auto">
+<span class="material-symbols-outlined" data-icon="settings">settings</span>
+</button>
+</nav>
+<!-- TopAppBar -->
+<header class="fixed top-0 right-0 left-20 z-50 h-14 bg-neutral-950/80 backdrop-blur-md flex items-center justify-between px-6">
+<div class="flex items-center gap-4">
+<span class="font-black tracking-tighter text-blue-100 text-sm">SILENT INTELLIGENCE</span>
+<div class="h-4 w-[1px] bg-outline-variant/30"></div>
+<nav class="flex gap-6">
+<a class="font-label uppercase tracking-widest text-[10px] text-blue-200 border-b-2 border-blue-400 pb-1" href="#">Review Thread</a>
+<a class="font-label uppercase tracking-widest text-[10px] text-neutral-500 hover:text-blue-100 transition-all" href="#">Analytics</a>
+<a class="font-label uppercase tracking-widest text-[10px] text-neutral-500 hover:text-blue-100 transition-all" href="#">Logs</a>
+</nav>
+</div>
+<div class="flex items-center gap-4">
+<span class="material-symbols-outlined text-neutral-500 hover:text-blue-100 cursor-pointer" data-icon="notifications">notifications</span>
+<span class="material-symbols-outlined text-neutral-500 hover:text-blue-100 cursor-pointer" data-icon="help_outline">help_outline</span>
+<div class="flex items-center gap-2 pl-2">
+<div class="w-6 h-6 bg-surface-container-highest flex items-center justify-center rounded-sm overflow-hidden">
+<img class="w-full h-full object-cover" data-alt="Close-up portrait of a technology professional in low light with a serious analytical expression" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDG3seSXbSSFUgAJ-B-_M0TecmEfuhdaGAOmktsv83vEEjSfPA0Wa1PDc3561fHPumZxeXO8YWB8jjJ9eF1LLpQp-o2B8NMHrtjF2Hnx2FV4lVsm38BN3YdqbD52PN9apcZAhLTswXeo4sFP6q3ACSACoOWA54_PdoBm6lw0USrMmYemUx3u1vYloYi8AkHRHKBok5JO59xacnYeBRv4QLjz2ypbMJTpcb-iQor-2bB5vyoC0QQ-APFvaM3CCYFsUi71GDkR6JvqoBg"/>
+</div>
+</div>
+</div>
+</header>
+<!-- SideNavBar (Contextual) -->
+<nav class="fixed left-20 top-14 h-[calc(100%-3.5rem)] z-30 w-16 bg-neutral-900 flex flex-col items-center py-4 gap-6">
+<button class="text-neutral-600 hover:bg-neutral-800/50 p-2 rounded-sm transition-all duration-200">
+<span class="material-symbols-outlined" data-icon="psychology">psychology</span>
+</button>
+<button class="text-blue-300 bg-neutral-800 p-2 rounded-sm transition-all duration-200">
+<span class="material-symbols-outlined" data-icon="forum">forum</span>
+</button>
+<button class="text-neutral-600 hover:bg-neutral-800/50 p-2 rounded-sm transition-all duration-200">
+<span class="material-symbols-outlined" data-icon="gavel">gavel</span>
+</button>
+<button class="text-neutral-600 hover:bg-neutral-800/50 p-2 rounded-sm transition-all duration-200">
+<span class="material-symbols-outlined" data-icon="info">info</span>
+</button>
+</nav>
+<!-- Main Content Canvas -->
+<main class="ml-36 mt-14 flex w-full h-[calc(100vh-3.5rem)]">
+<!-- Left Column: Conversation -->
+<section class="w-1/3 flex flex-col bg-surface border-r border-outline-variant/10">
+<div class="p-6 overflow-y-auto flex-1 pb-32">
+<div class="mb-8">
+<div class="flex items-center gap-2 mb-2">
+<span class="w-2 h-2 rounded-full bg-tertiary"></span>
+<span class="font-label text-[10px] tracking-widest text-on-surface-variant uppercase">Mission Critical Status: Active</span>
+</div>
+<h1 class="text-xl font-black tracking-tight leading-tight">Pulse Hardware Agent · Acoustic test results — baffle rev B · REVIEW · not blocking.</h1>
+</div>
+<!-- Confidence Score -->
+<div class="bg-surface-container-low p-4 mb-8 border-l-2 border-primary">
+<div class="flex justify-between items-center mb-1">
+<span class="font-label text-xs uppercase text-primary">Confidence Rating</span>
+<span class="font-label text-xs font-bold text-primary tracking-tighter">98.4%</span>
+</div>
+<p class="text-xs text-on-surface-variant">High — measured data from anechoic chamber v4, not a simulation result.</p>
+</div>
+<!-- Reasoning -->
+<div class="space-y-6">
+<div class="flex gap-4">
+<div class="w-8 h-8 flex-shrink-0 bg-primary-container rounded-sm flex items-center justify-center">
+<span class="material-symbols-outlined text-on-primary-container text-sm" data-icon="terminal">terminal</span>
+</div>
+<div class="space-y-4">
+<div class="bg-surface-container p-4">
+<p class="text-sm leading-relaxed text-on-surface/90">
+                                    The redesign of the Baffle Revision B has yielded exceptional results in the low-frequency spectrum. We have successfully achieved a <span class="text-tertiary">43Hz F3 point</span>, which surpasses the original design requirement by 2Hz without increasing the enclosure volume. This is primarily due to the increased structural rigidity and optimized port geometry.
+                                </p>
+</div>
+<div class="bg-surface-container p-4">
+<p class="text-sm leading-relaxed text-on-surface/90">
+                                    However, we are observing a significant <span class="text-secondary">4.2dB midrange dip centered at 2.4kHz</span>. Analysis suggests this is destructive interference at the crossover point between the mid-woofer and the tweeter. While this is within the "not blocking" threshold for this revision, it creates a noticeable coloration in vocal transparency that must be addressed before the next iteration.
+                                </p>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Verdict Action Bar -->
+<div class="absolute bottom-0 left-36 w-[calc(33.333%-4px)] bg-surface-container-high/90 backdrop-blur-md p-4 flex gap-2 border-t border-outline-variant/10">
+<button class="flex-1 bg-primary-container text-on-primary-container text-xs font-bold py-2 px-4 rounded-sm hover:brightness-110 transition-all flex items-center justify-center gap-2">
+<span class="material-symbols-outlined text-sm" data-icon="check_circle">check_circle</span>
+                    APPROVE
+                </button>
+<button class="flex-1 border border-outline-variant/30 text-on-surface text-xs font-bold py-2 px-4 rounded-sm hover:bg-surface-container-highest transition-all flex items-center justify-center gap-2">
+<span class="material-symbols-outlined text-sm" data-icon="edit_note">edit_note</span>
+                    REQUEST
+                </button>
+<button class="bg-error-container text-on-error-container p-2 rounded-sm hover:brightness-110 transition-all">
+<span class="material-symbols-outlined text-sm" data-icon="close">close</span>
+</button>
+<button class="bg-surface-container-highest text-on-surface-variant p-2 rounded-sm hover:text-on-surface transition-all">
+<span class="material-symbols-outlined text-sm" data-icon="snooze">snooze</span>
+</button>
+</div>
+</section>
+<!-- Right Column: Artifact (Data and Metrics) -->
+<section class="flex-1 bg-surface-container-low overflow-y-auto">
+<div class="p-8 max-w-5xl mx-auto space-y-8">
+<!-- Headline Metrics -->
+<div class="grid grid-cols-4 gap-4">
+<div class="bg-surface-container p-4 border-b border-tertiary/20">
+<div class="flex items-center gap-2 mb-1">
+<div class="w-1.5 h-1.5 rounded-full bg-tertiary"></div>
+<span class="font-label text-[10px] text-on-surface-variant uppercase tracking-widest">F3 Point</span>
+</div>
+<div class="flex items-end gap-2">
+<span class="font-label text-2xl font-bold tracking-tighter">43.2 Hz</span>
+<span class="text-tertiary text-[10px] mb-1">▼ 2.1Hz</span>
+</div>
+</div>
+<div class="bg-surface-container p-4 border-b border-secondary/20">
+<div class="flex items-center gap-2 mb-1">
+<div class="w-1.5 h-1.5 rounded-full bg-secondary"></div>
+<span class="font-label text-[10px] text-on-surface-variant uppercase tracking-widest">Midrange Dip</span>
+</div>
+<div class="flex items-end gap-2">
+<span class="font-label text-2xl font-bold tracking-tighter">-4.2 dB</span>
+<span class="text-secondary text-[10px] mb-1">▲ 1.4dB</span>
+</div>
+</div>
+<div class="bg-surface-container p-4 border-b border-tertiary/20">
+<div class="flex items-center gap-2 mb-1">
+<div class="w-1.5 h-1.5 rounded-full bg-tertiary"></div>
+<span class="font-label text-[10px] text-on-surface-variant uppercase tracking-widest">Total THD</span>
+</div>
+<div class="flex items-end gap-2">
+<span class="font-label text-2xl font-bold tracking-tighter">0.08%</span>
+<span class="text-tertiary text-[10px] mb-1">▼ 0.02</span>
+</div>
+</div>
+<div class="bg-surface-container p-4 border-b border-primary/20">
+<div class="flex items-center gap-2 mb-1">
+<div class="w-1.5 h-1.5 rounded-full bg-primary"></div>
+<span class="font-label text-[10px] text-on-surface-variant uppercase tracking-widest">Sensitivity</span>
+</div>
+<div class="flex items-end gap-2">
+<span class="font-label text-2xl font-bold tracking-tighter">89.1 dB</span>
+<span class="text-primary text-[10px] mb-1">STABLE</span>
+</div>
+</div>
+</div>
+<!-- Main Chart -->
+<div class="bg-surface-container p-6">
+<div class="flex justify-between items-center mb-6">
+<h3 class="font-label text-xs uppercase tracking-widest font-bold">Frequency Response (20Hz - 20kHz)</h3>
+<div class="flex gap-4">
+<div class="flex items-center gap-2">
+<div class="w-3 h-0.5 bg-primary border-t border-dashed border-primary"></div>
+<span class="font-label text-[10px] uppercase text-on-surface-variant">Target</span>
+</div>
+<div class="flex items-center gap-2">
+<div class="w-3 h-0.5 bg-white"></div>
+<span class="font-label text-[10px] uppercase text-on-surface-variant">Measured</span>
+</div>
+</div>
+</div>
+<div class="relative h-64 chart-container border-l border-b border-outline-variant/30">
+<!-- Y-Axis Labels -->
+<div class="absolute -left-8 top-0 h-full flex flex-col justify-between text-[9px] font-label text-on-surface-variant py-1">
+<span>+5dB</span>
+<span>0dB</span>
+<span>-5dB</span>
+<span>-10dB</span>
+</div>
+<!-- X-Axis Labels -->
+<div class="absolute -bottom-6 left-0 w-full flex justify-between text-[9px] font-label text-on-surface-variant">
+<span>20Hz</span>
+<span>100Hz</span>
+<span>1kHz</span>
+<span>5kHz</span>
+<span>10kHz</span>
+<span>20kHz</span>
+</div>
+<!-- High Signal Band (Amber Highlight) -->
+<div class="absolute left-[45%] w-[12%] h-full bg-secondary/5 border-x border-secondary/20"></div>
+<div class="absolute left-[45%] top-[10%] text-secondary text-[8px] font-label uppercase tracking-widest -rotate-90 origin-left">Interference Zone</div>
+<!-- Measured Curve (SVG) -->
+<svg class="absolute inset-0 w-full h-full" overflow="visible">
+<!-- Target Line -->
+<path class="text-primary/40" d="M 0 60 Q 100 60, 400 60 T 800 60" fill="none" stroke="currentColor" stroke-dasharray="4" stroke-width="1.5"></path>
+<!-- Measured Line -->
+<path d="M 0 180 C 150 160, 250 80, 400 60 S 500 130, 580 130 S 700 65, 800 55" fill="none" stroke="white" stroke-width="2"></path>
+<!-- Focal Points -->
+<circle class="fill-secondary shadow-lg" cx="580" cy="130" r="4"></circle>
+</svg>
+</div>
+</div>
+<!-- Narrative Insights & Recommendations -->
+<div class="grid grid-cols-5 gap-8">
+<div class="col-span-3 space-y-4">
+<h4 class="font-label text-[10px] uppercase tracking-widest font-bold text-on-surface-variant">Agent Narrative Analysis</h4>
+<div class="bg-surface-container p-6 text-sm text-on-surface/80 leading-relaxed border-l-2 border-primary-container">
+<p class="mb-4">
+                                The bass performance of Baffle Rev B is highly linear down to 50Hz, with a very controlled roll-off. This suggests that the internal damping volume is near optimal.
+                            </p>
+<p>
+                                The 2.4kHz dip is the primary concern. My analysis of the off-axis response confirms that the crossover point is too high for the current baffle spacing, causing lobing artifacts that manifest as the measured amplitude drop in the listening window.
+                            </p>
+</div>
+</div>
+<div class="col-span-2 space-y-4">
+<h4 class="font-label text-[10px] uppercase tracking-widest font-bold text-on-surface-variant">Technical Recommendations</h4>
+<div class="space-y-2">
+<button class="w-full text-left bg-surface-container hover:bg-surface-container-high p-3 group transition-all flex items-start gap-3">
+<span class="material-symbols-outlined text-sm mt-0.5 text-primary" data-icon="add_circle">add_circle</span>
+<div class="flex-1">
+<span class="block text-xs font-bold mb-0.5">Lower crossover to 2.2kHz</span>
+<span class="block text-[10px] text-on-surface-variant">Shift energetic load to minimize interference.</span>
+</div>
+<span class="material-symbols-outlined text-xs opacity-0 group-hover:opacity-100 transition-opacity" data-icon="anchor">anchor</span>
+</button>
+<button class="w-full text-left bg-surface-container hover:bg-surface-container-high p-3 group transition-all flex items-start gap-3">
+<span class="material-symbols-outlined text-sm mt-0.5 text-primary" data-icon="add_circle">add_circle</span>
+<div class="flex-1">
+<span class="block text-xs font-bold mb-0.5">Add active notch filter</span>
+<span class="block text-[10px] text-on-surface-variant">Address the secondary peak at 8.4kHz.</span>
+</div>
+<span class="material-symbols-outlined text-xs opacity-0 group-hover:opacity-100 transition-opacity" data-icon="anchor">anchor</span>
+</button>
+<button class="w-full text-left bg-surface-container hover:bg-surface-container-high p-3 group transition-all flex items-start gap-3">
+<span class="material-symbols-outlined text-sm mt-0.5 text-on-surface-variant" data-icon="refresh">refresh</span>
+<div class="flex-1">
+<span class="block text-xs font-bold mb-0.5">Re-measure off-axis</span>
+<span class="block text-[10px] text-on-surface-variant">Required after DSP adjustment.</span>
+</div>
+<span class="material-symbols-outlined text-xs opacity-0 group-hover:opacity-100 transition-opacity" data-icon="anchor">anchor</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Footer Log -->
+<div class="flex items-center justify-between pt-8 border-t border-outline-variant/10">
+<div class="flex items-center gap-4">
+<span class="font-label text-[10px] text-on-surface-variant uppercase tracking-widest">Artifact ID: PX-774-B</span>
+<span class="font-label text-[10px] text-on-surface-variant uppercase tracking-widest">Hash: 8FA1..D32</span>
+</div>
+<div class="flex items-center gap-2 text-[10px] font-label text-tertiary">
+<span class="material-symbols-outlined text-[12px]" data-icon="done_all" data-weight="fill" style="font-variation-settings: 'FILL' 1;">done_all</span>
+                        SYNCHRONIZED TO MAIN THREAD
+                    </div>
+</div>
+</div>
+</section>
+</main>
+<!-- Contextual FAB (Suppressed on details screens, but showing for demo) -->
+<!-- Suppressed based on protocol: "suppress the FAB on Settings, Profile, Details, and Transactional screens." -->
+</body></html>

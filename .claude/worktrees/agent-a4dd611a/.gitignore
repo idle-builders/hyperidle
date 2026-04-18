@@ -1,0 +1,10 @@
+node_modules/
+dist/
+*.db
+*.tsbuildinfo
+coverage/
+playwright-report/
+test-results/
+.pipeline/
+.env
+.worktrees/
