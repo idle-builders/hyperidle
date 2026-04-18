@@ -56,7 +56,7 @@ function getTableEntries(
 	schemaModule: Record<string, unknown>,
 ): Map<string, Record<string, unknown>> {
 	const tables = new Map<string, Record<string, unknown>>();
-	for (const [Key, val] of Object.entries(schemaModule)) {
+	for (const [, val] of Object.entries(schemaModule)) {
 		if (
 			val &&
 			typeof val === "object" &&
@@ -71,7 +71,7 @@ function getTableEntries(
 
 function getColumnNames(table: Record<string, unknown>): string[] {
 	const cols: string[] = [];
-	for (const [Key, val] of Object.entries(table)) {
+	for (const [, val] of Object.entries(table)) {
 		if (
 			val &&
 			typeof val === "object" &&
