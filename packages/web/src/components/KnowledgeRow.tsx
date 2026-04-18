@@ -27,7 +27,7 @@ export function KnowledgeRow({
 	caption,
 }: KnowledgeRowProps): JSX.Element {
 	return (
-		<div {...clickableProps(onClick)} className="flex items-center gap-2 px-2 py-2">
+		<div {...clickableProps(onClick, "flex items-center gap-2 px-2 py-2")}>
 			<div className="flex-1 min-w-0">
 				<div className="flex items-center gap-2">
 					<span className="text-sm truncate" aria-label={`Knowledge: ${title}`}>

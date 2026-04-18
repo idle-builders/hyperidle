@@ -32,8 +32,10 @@ export function ThreadRow({
 }: ThreadRowProps): JSX.Element {
 	return (
 		<div
-			{...clickableProps(onClick)}
-			className={`flex items-center gap-2 px-2 py-2 ${unread ? "font-bold" : ""} ${blocking ? "border-l-2 border-error" : ""}`}
+			{...clickableProps(
+				onClick,
+				`flex items-center gap-2 px-2 py-2 ${unread ? "font-bold" : ""} ${blocking ? "border-l-2 border-error" : ""}`,
+			)}
 		>
 			<img src={avatarUrl} alt="avatar" className="h-8 w-8 rounded-full" />
 			<div className="flex-1 min-w-0">

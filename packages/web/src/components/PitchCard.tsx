@@ -31,7 +31,7 @@ export function PitchCard({
 	onClick,
 }: PitchCardProps): JSX.Element {
 	return (
-		<div {...clickableProps(onClick)} className="bg-base-200 rounded p-2 flex flex-col gap-2">
+		<div {...clickableProps(onClick, "bg-base-200 rounded p-2 flex flex-col gap-2")}>
 			<div className="flex items-center gap-2">
 				<span className="text-sm font-medium truncate" aria-label={`Pitch: ${title}`}>
 					{title}
