@@ -1,0 +1,698 @@
+/**
+ * @lore The queue is persistent (`notification_queue`) so a process
+ * restart during a silence hold does not lose a blocking notification.
+ * A pure in-memory buffer would violate the UX-3 guarantee that blocking
+ * items surface to a human.
+ *
+ * @lore At-least-once delivery: rows are claimed (status=sending,
+ * claimedAt=now) in a single update BEFORE the adapter runs. After
+ * adapter success we flip to `sent`; on adapter failure we mark
+ * `failed`. If the process dies mid-send, a subsequent flush detects
+ * the stuck lease (status=sending older than `LEASE_TIMEOUT_MS`) and
+ * requeues back to `pending`. This still means an operator-visible
+ * second attempt if the adapter actually succeeded but we crashed
+ * before recording it — at-least-once, not exactly-once, and ntfy/SMTP
+ * servers do not dedupe, so the operator may see two rows. The
+ * alternative (exactly-once) requires adapter-side idempotency keys,
+ * which neither transport provides.
+ */
+
+import * as crypto from "node:crypto";
+import { type HyperIdleDb, type Item, items as itemsTable, notificationQueue } from "@hyperidle/db";
+import {
+	type CostCapBreachedEvent,
+	type CostCapWarningEvent,
+	type EventBus,
+	type ItemCreatedEvent,
+	type Logger,
+	type RoutineFiredEvent,
+	createLogger,
+} from "@hyperidle/shared";
+import { and, asc, eq, lt, sql } from "drizzle-orm";
+import { isSilenced } from "../silence-policy.js";
+import { type NotificationConfig, loadNotificationConfig, pickRecipient } from "./config.js";
+import { type DigestResult, runDailyDigest } from "./digest.js";
+import { scrubErrorMessage } from "./redact.js";
+import type {
+	Classification,
+	Notification,
+	NotificationAdapter,
+	NotificationChannel,
+	NotificationSeverity,
+	QueueReason,
+	QueueStatus,
+	Recipient,
+	SendResult,
+} from "./types.js";
+
+export type AdapterFactory = (cfg: NotificationConfig) => NotificationAdapter;
+
+export interface DispatcherDeps {
+	adapterFactory: AdapterFactory;
+	now?: () => Date;
+	logger?: Logger;
+}
+
+interface FloodState {
+	windowStart: number;
+	count: number;
+}
+
+const QUEUE_CAP = 10_000;
+const LEASE_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes — rollback stuck "sending" rows
+
+function classifyItem(item: Pick<Item, "blocking" | "riskTier">): Classification {
+	if ((item.blocking ?? 0) !== 0) return { kind: "push", severity: "blocking" };
+	if (item.riskTier === "high") return { kind: "push", severity: "blocking" };
+	if (item.riskTier === "medium") return { kind: "digest", severity: "digest" };
+	return { kind: "drop", reason: "low-risk non-blocking item" };
+}
+
+function classifyCostBreach(event: CostCapBreachedEvent): Classification {
+	if (event.level === "hard") return { kind: "push", severity: "cost_breach" };
+	return { kind: "digest", severity: "digest" };
+}
+
+function classifyCostWarning(event: CostCapWarningEvent): Classification {
+	if (event.level === "critical") return { kind: "push", severity: "cost_breach" };
+	return { kind: "digest", severity: "digest" };
+}
+
+function buildItemNotification(
+	item: Item,
+	severity: NotificationSeverity,
+	now: Date,
+): Notification {
+	const title = item.title.slice(0, 140);
+	const body = item.body ?? "No body provided.";
+	return {
+		title,
+		body: body.slice(0, 10_000),
+		severity,
+		deepLink: `/conversations/item/${item.id}`,
+		tags: severity === "blocking" ? ["blocking"] : undefined,
+		timestamp: now.getTime(),
+	};
+}
+
+function buildCostBreachNotification(
+	event: CostCapBreachedEvent,
+	severity: NotificationSeverity,
+	now: Date,
+): Notification {
+	const title = `Cost cap ${event.level}: ${event.capLevel} ${event.entityId}`;
+	const body = `Spend ${event.spend} exceeded cap ${event.cap} on ${event.capLevel} '${event.entityId}'.`;
+	return {
+		title: title.slice(0, 140),
+		body,
+		severity,
+		tags: ["cost_cap", event.level],
+		timestamp: now.getTime(),
+	};
+}
+
+function buildCostWarningNotification(
+	event: CostCapWarningEvent,
+	severity: NotificationSeverity,
+	now: Date,
+): Notification {
+	const title = `Cost cap ${event.level}: ${event.capLevel} ${event.entityId}`;
+	const body = `Spend ${event.spend} / ${event.cap} on ${event.capLevel} '${event.entityId}'.`;
+	return {
+		title: title.slice(0, 140),
+		body,
+		severity,
+		tags: ["cost_cap", event.level],
+		timestamp: now.getTime(),
+	};
+}
+
+function queueCount(db: HyperIdleDb, status: QueueStatus): number {
+	const row = db
+		.select({ count: sql<number>`count(*)` })
+		.from(notificationQueue)
+		.where(eq(notificationQueue.status, status))
+		.get();
+	return row?.count ?? 0;
+}
+
+export function enqueueNotification(
+	db: HyperIdleDb,
+	params: {
+		eventType: string;
+		subjectId: string | null;
+		severity: NotificationSeverity;
+		title: string;
+		body: string;
+		reason: QueueReason;
+		channel: NotificationChannel | null;
+		now: Date;
+	},
+	cap: number = QUEUE_CAP,
+): void {
+	// Defense-in-depth queue cap. Digest rows are silently dropped when
+	// the queue is full so blocking + cost_breach always have room. If
+	// we cannot evict a digest row, we still must not exceed the cap —
+	// drop the incoming non-digest row and surface a last-error entry
+	// through the adapter retry path instead.
+	while (queueCount(db, "pending") >= cap) {
+		if (params.severity === "digest") return;
+		const oldestDigest = db
+			.select()
+			.from(notificationQueue)
+			.where(and(eq(notificationQueue.status, "pending"), eq(notificationQueue.severity, "digest")))
+			.orderBy(asc(notificationQueue.createdAt))
+			.get();
+		if (!oldestDigest) {
+			// No digest row to evict. Drop the oldest pending row of any
+			// severity rather than exceed the cap.
+			const oldest = db
+				.select()
+				.from(notificationQueue)
+				.where(eq(notificationQueue.status, "pending"))
+				.orderBy(asc(notificationQueue.createdAt))
+				.get();
+			if (!oldest) break; // queue empty somehow — insert safely
+			db.update(notificationQueue)
+				.set({ status: "dropped" })
+				.where(eq(notificationQueue.id, oldest.id))
+				.run();
+			continue;
+		}
+		db.update(notificationQueue)
+			.set({ status: "dropped" })
+			.where(eq(notificationQueue.id, oldestDigest.id))
+			.run();
+	}
+	db.insert(notificationQueue)
+		.values({
+			id: crypto.randomUUID(),
+			eventType: params.eventType,
+			subjectId: params.subjectId,
+			severity: params.severity,
+			title: params.title,
+			body: params.body,
+			reason: params.reason,
+			channel: params.channel,
+			status: "pending",
+			attempts: 0,
+			createdAt: params.now.toISOString(),
+		})
+		.run();
+}
+
+async function sendWithAdapter(
+	adapter: NotificationAdapter,
+	recipient: Recipient,
+	notification: Notification,
+	cfg: NotificationConfig,
+): Promise<SendResult> {
+	try {
+		return await adapter.send(recipient, notification);
+	} catch (err) {
+		const raw = err instanceof Error ? err.message : String(err);
+		return {
+			ok: false,
+			channel: adapter.name,
+			error: scrubErrorMessage(raw, {
+				smtpUsername: cfg.smtp.username,
+				smtpPassword: cfg.smtp.password,
+				ntfyAuthToken: cfg.ntfy.authToken,
+			}),
+			retriable: true,
+		};
+	}
+}
+
+/**
+ * Requeue rows that were claimed (status=sending) more than
+ * LEASE_TIMEOUT_MS ago — typically a process crash mid-send. Runs at
+ * the top of every flush so a restart can recover stuck work.
+ */
+export function recoverStuckLeases(db: HyperIdleDb, now: Date): number {
+	const cutoff = new Date(now.getTime() - LEASE_TIMEOUT_MS).toISOString();
+	const stuck = db
+		.select()
+		.from(notificationQueue)
+		.where(and(eq(notificationQueue.status, "sending"), lt(notificationQueue.claimedAt, cutoff)))
+		.all();
+	for (const row of stuck) {
+		db.update(notificationQueue)
+			.set({ status: "pending", claimedAt: null })
+			.where(eq(notificationQueue.id, row.id))
+			.run();
+	}
+	return stuck.length;
+}
+
+/**
+ * Atomically claim a pending row for delivery. Transitions pending →
+ * sending and sets claimedAt. Returns true when the claim succeeded.
+ * The WHERE clause guards against a concurrent flush claiming the same
+ * row.
+ */
+function claimRow(db: HyperIdleDb, rowId: string, now: Date): boolean {
+	const res = db
+		.update(notificationQueue)
+		.set({ status: "sending", claimedAt: now.toISOString() })
+		.where(and(eq(notificationQueue.id, rowId), eq(notificationQueue.status, "pending")))
+		.run();
+	// `run()` returns `{ changes: number }` in better-sqlite3; drizzle-sqlite
+	// propagates that. A zero-change claim means a concurrent worker took it.
+	const changes = (res as { changes?: number }).changes;
+	return typeof changes === "number" ? changes > 0 : true;
+}
+
+/**
+ * Resolve the adapter to use for a queued row. Prefers the row's
+ * `channel` column (stable from enqueue time); falls back to the
+ * configured primary/digest channel when the column is null (older rows
+ * or dispatch paths that didn't record a channel).
+ */
+function adapterForRow(
+	factory: AdapterFactory,
+	cfg: NotificationConfig,
+	rowChannel: string | null,
+	severity: NotificationSeverity,
+): { adapter: NotificationAdapter; channel: NotificationChannel } {
+	const channel: NotificationChannel =
+		rowChannel === "console" || rowChannel === "ntfy" || rowChannel === "smtp"
+			? rowChannel
+			: severity === "digest"
+				? cfg.digestChannel
+				: cfg.primaryChannel;
+	const adapter = factory({ ...cfg, primaryChannel: channel });
+	return { adapter, channel };
+}
+
+/**
+ * Drain pending queue rows through their respective adapters. Called on
+ * silence lift and (optionally) by admin `/flush`. Rows marked `sent`
+ * on success or `failed` + `lastError` on permanent failure.
+ *
+ * @lore Silence-aware: rows whose severity would be blocked by the
+ * current silence state stay `pending` (rescheduled at next silence
+ * lift). `cost_breach` and `digest` severities always flush — cost
+ * breaches page unconditionally; digest is non-interruptive. This
+ * matches the per-event routing inside {@link registerNotificationDispatcher}.
+ */
+export async function flushQueue(
+	db: HyperIdleDb,
+	factory: AdapterFactory,
+	cfg: NotificationConfig,
+	now: Date,
+): Promise<{ flushed: number; failed: number; deferred: number }> {
+	recoverStuckLeases(db, now);
+	const rows = db
+		.select()
+		.from(notificationQueue)
+		.where(eq(notificationQueue.status, "pending"))
+		.orderBy(asc(notificationQueue.createdAt))
+		.all();
+	let flushed = 0;
+	let failed = 0;
+	let deferred = 0;
+	const silenced = isSilenced(db, { sourceAgentId: null }, now);
+	for (const row of rows) {
+		const severity = row.severity as NotificationSeverity;
+		// Silence-aware flush: blocking rows are held; cost_breach + digest
+		// flush through unconditionally. Digest rows are non-interruptive
+		// by definition; cost breaches must always page.
+		if (silenced && severity === "blocking") {
+			deferred += 1;
+			continue;
+		}
+		if (!claimRow(db, row.id, now)) {
+			// A concurrent flush took this row; skip.
+			continue;
+		}
+		const { adapter, channel } = adapterForRow(factory, cfg, row.channel, severity);
+		const recipient = pickRecipient(cfg, channel, severity === "digest" ? "digest" : "push");
+		if (!recipient) {
+			db.update(notificationQueue)
+				.set({
+					status: "failed",
+					lastError: `no recipient configured for channel '${channel}'`,
+					attempts: row.attempts + 1,
+					claimedAt: null,
+				})
+				.where(eq(notificationQueue.id, row.id))
+				.run();
+			failed += 1;
+			continue;
+		}
+		const notification: Notification = {
+			title: row.title,
+			body: row.body ?? "",
+			severity,
+			timestamp: now.getTime(),
+		};
+		const result = await sendWithAdapter(adapter, recipient, notification, cfg);
+		if (result.ok) {
+			db.update(notificationQueue)
+				.set({
+					status: "sent",
+					sentAt: now.toISOString(),
+					attempts: row.attempts + 1,
+					claimedAt: null,
+				})
+				.where(eq(notificationQueue.id, row.id))
+				.run();
+			flushed += 1;
+		} else {
+			db.update(notificationQueue)
+				.set({
+					status: "failed",
+					lastError: scrubErrorMessage(result.error, {
+						smtpUsername: cfg.smtp.username,
+						smtpPassword: cfg.smtp.password,
+						ntfyAuthToken: cfg.ntfy.authToken,
+					}),
+					attempts: row.attempts + 1,
+					claimedAt: null,
+				})
+				.where(eq(notificationQueue.id, row.id))
+				.run();
+			failed += 1;
+		}
+	}
+	return { flushed, failed, deferred };
+}
+
+interface DispatcherState {
+	disposed: boolean;
+	flood: FloodState;
+	adapterCache: { cfgKey: string; adapter: NotificationAdapter } | null;
+}
+
+export function tryFloodReserve(
+	state: FloodState,
+	max: number,
+	windowMs: number,
+	now: number,
+): boolean {
+	if (now - state.windowStart >= windowMs) {
+		state.windowStart = now;
+		state.count = 0;
+	}
+	if (state.count >= max) return false;
+	state.count += 1;
+	return true;
+}
+
+/**
+ * Identity key for the memoized adapter. Changes in the SMTP host/port/
+ * secure/username/password OR the ntfy base URL / auth token force a
+ * rebuild (and `.close()` on the previous transporter when present).
+ * Channel is included so switching primary channel also rebuilds.
+ */
+function cfgAdapterKey(cfg: NotificationConfig): string {
+	return JSON.stringify({
+		channel: cfg.primaryChannel,
+		ntfy: { base: cfg.ntfy.baseUrl, tokenSet: cfg.ntfy.authToken ?? null },
+		smtp: {
+			host: cfg.smtp.host,
+			port: cfg.smtp.port,
+			secure: cfg.smtp.secure,
+			username: cfg.smtp.username,
+			// Identity uses a short hash of the password so a secret
+			// compare does not leak timing; we only care about change
+			// detection.
+			passwordHash: cfg.smtp.password ? shortHash(cfg.smtp.password) : null,
+			from: cfg.smtp.from,
+			ignoreTls: cfg.smtpIgnoreTls,
+		},
+	});
+}
+
+function shortHash(value: string): string {
+	return crypto.createHash("sha256").update(value).digest("hex").slice(0, 16);
+}
+
+function getCachedAdapter(
+	state: DispatcherState,
+	factory: AdapterFactory,
+	cfg: NotificationConfig,
+): NotificationAdapter {
+	const key = cfgAdapterKey(cfg);
+	if (state.adapterCache && state.adapterCache.cfgKey === key) {
+		return state.adapterCache.adapter;
+	}
+	// Close the previous transporter if the adapter exposes a close hook.
+	if (state.adapterCache?.adapter?.close) {
+		try {
+			state.adapterCache.adapter.close();
+		} catch {
+			// Ignore — teardown is best effort.
+		}
+	}
+	const adapter = factory(cfg);
+	state.adapterCache = { cfgKey: key, adapter };
+	return adapter;
+}
+
+/**
+ * Register the dispatcher on the event bus. Returns a disposer that
+ * unsubscribes + marks the handler disposed so pending microtasks exit
+ * cleanly.
+ */
+export function registerNotificationDispatcher(
+	db: HyperIdleDb,
+	bus: EventBus,
+	deps: DispatcherDeps,
+): () => void {
+	const logger = deps.logger ?? createLogger({ pkg: "notifications.dispatcher" });
+	const nowFn = deps.now ?? ((): Date => new Date());
+	const state: DispatcherState = {
+		disposed: false,
+		flood: { windowStart: 0, count: 0 },
+		adapterCache: null,
+	};
+
+	async function dispatchPush(
+		cfg: NotificationConfig,
+		channel: NotificationChannel,
+		notification: Notification,
+		eventType: string,
+		subjectId: string | null,
+	): Promise<void> {
+		const adapter = getCachedAdapter(state, deps.adapterFactory, {
+			...cfg,
+			primaryChannel: channel,
+		});
+		const recipient = pickRecipient(cfg, channel);
+		if (!recipient) {
+			// @lore When the recipient is missing we enqueue a `failed` row
+			// instead of silently dropping (adversary #6). An operator
+			// reviewing `GET /queue?status=failed` can see what was lost
+			// and why.
+			logger.warn("dispatcher: recipient not configured; persisting as failed", {
+				channel,
+				eventType,
+			});
+			db.insert(notificationQueue)
+				.values({
+					id: crypto.randomUUID(),
+					eventType,
+					subjectId,
+					severity: notification.severity,
+					title: notification.title,
+					body: notification.body,
+					reason: "retry",
+					channel,
+					status: "failed",
+					attempts: 0,
+					lastError: `no recipient configured for channel '${channel}'`,
+					createdAt: nowFn().toISOString(),
+				})
+				.run();
+			return;
+		}
+		const result = await sendWithAdapter(adapter, recipient, notification, cfg);
+		if (!result.ok) {
+			logger.error("dispatcher: adapter send failed", {
+				error: scrubErrorMessage(result.error, {
+					smtpUsername: cfg.smtp.username,
+					smtpPassword: cfg.smtp.password,
+					ntfyAuthToken: cfg.ntfy.authToken,
+				}),
+				retriable: result.retriable,
+				channel,
+			});
+			enqueueNotification(db, {
+				eventType,
+				subjectId,
+				severity: notification.severity,
+				title: notification.title,
+				body: notification.body,
+				reason: "retry",
+				channel,
+				now: nowFn(),
+			});
+		}
+	}
+
+	function route(
+		classification: Classification,
+		notification: Notification | null,
+		eventType: string,
+		subjectId: string | null,
+		sourceAgentId: string | null,
+	): void {
+		if (state.disposed) return;
+		const cfg = loadNotificationConfig(db);
+		if (!cfg) return;
+		if (classification.kind === "drop") return;
+		if (notification === null) return;
+
+		const now = nowFn();
+
+		// Silence check (except for hard cost_breach which still pages).
+		if (classification.severity !== "cost_breach") {
+			if (isSilenced(db, { sourceAgentId }, now)) {
+				enqueueNotification(db, {
+					eventType,
+					subjectId,
+					severity: classification.severity,
+					title: notification.title,
+					body: notification.body,
+					reason: "silence",
+					channel: null,
+					now,
+				});
+				return;
+			}
+		}
+
+		if (classification.kind === "digest") {
+			enqueueNotification(db, {
+				eventType,
+				subjectId,
+				severity: "digest",
+				title: notification.title,
+				body: notification.body,
+				reason: "digest",
+				channel: cfg.digestChannel,
+				now,
+			});
+			return;
+		}
+
+		const allowed = tryFloodReserve(
+			state.flood,
+			cfg.flood.maxPerMinute,
+			cfg.flood.coalesceWindowMs,
+			now.getTime(),
+		);
+		if (!allowed) {
+			enqueueNotification(db, {
+				eventType,
+				subjectId,
+				severity: classification.severity,
+				title: notification.title,
+				body: notification.body,
+				reason: "flood_coalesce",
+				channel: cfg.primaryChannel,
+				now,
+			});
+			return;
+		}
+
+		void dispatchPush(cfg, cfg.primaryChannel, notification, eventType, subjectId);
+	}
+
+	const unsubItemCreated = bus.on("item_created", (event: ItemCreatedEvent): void => {
+		if (state.disposed) return;
+		const item = db.select().from(itemsTable).where(eq(itemsTable.id, event.itemId)).get();
+		if (!item) return;
+		const classification = classifyItem(item);
+		const notification =
+			classification.kind === "drop"
+				? null
+				: buildItemNotification(item, classification.severity, nowFn());
+		route(classification, notification, "item_created", event.itemId, item.sourceAgentId);
+	});
+
+	const unsubCostBreach = bus.on("cost_cap_breached", (event: CostCapBreachedEvent): void => {
+		if (state.disposed) return;
+		const classification = classifyCostBreach(event);
+		const notification =
+			classification.kind === "drop"
+				? null
+				: buildCostBreachNotification(event, classification.severity, nowFn());
+		route(classification, notification, "cost_cap_breached", event.entityId, null);
+	});
+
+	const unsubCostWarning = bus.on("cost_cap_warning", (event: CostCapWarningEvent): void => {
+		if (state.disposed) return;
+		const classification = classifyCostWarning(event);
+		const notification =
+			classification.kind === "drop"
+				? null
+				: buildCostWarningNotification(event, classification.severity, nowFn());
+		route(classification, notification, "cost_cap_warning", event.entityId, null);
+	});
+
+	const unsubRoutine = bus.on("routine_fired", (event: RoutineFiredEvent): void => {
+		if (state.disposed) return;
+		// @lore Daily digest is triggered by a `routine_fired` event whose
+		// routineId embeds `daily_digest`. The seed fixture yields ids like
+		// `seed-routine-daily_digest`; substring match keeps us decoupled
+		// from the concrete id format.
+		if (!event.routineId.includes("daily_digest")) return;
+		const cfg = loadNotificationConfig(db);
+		if (!cfg) return;
+		const adapter = getCachedAdapter(state, deps.adapterFactory, cfg);
+		queueMicrotask(() => {
+			if (state.disposed) return;
+			void runDailyDigest(db, adapter, cfg, nowFn()).catch((err) => {
+				logger.error("dispatcher: daily digest failed", {
+					error: err instanceof Error ? err.message : String(err),
+				});
+			});
+		});
+	});
+
+	return (): void => {
+		state.disposed = true;
+		unsubItemCreated();
+		unsubCostBreach();
+		unsubCostWarning();
+		unsubRoutine();
+		// Release any transporter the cache is holding.
+		if (state.adapterCache?.adapter?.close) {
+			try {
+				state.adapterCache.adapter.close();
+			} catch {
+				// ignore
+			}
+		}
+		state.adapterCache = null;
+	};
+}
+
+/**
+ * External trigger for the daily digest. Exposed for the route handler
+ * (`POST /notifications/digest`) and for the `routine_fired` subscriber.
+ */
+export async function dispatchDigest(
+	db: HyperIdleDb,
+	deps: DispatcherDeps,
+	nowOverride?: Date,
+): Promise<DigestResult> {
+	const logger = deps.logger ?? createLogger({ pkg: "notifications.dispatcher" });
+	const nowFn = deps.now ?? ((): Date => new Date());
+	const now = nowOverride ?? nowFn();
+	const cfg = loadNotificationConfig(db);
+	if (!cfg) {
+		return { status: "noop", notificationsIncluded: 0 };
+	}
+	const adapter = deps.adapterFactory(cfg);
+	try {
+		return await runDailyDigest(db, adapter, cfg, now);
+	} catch (err) {
+		const message = err instanceof Error ? err.message : String(err);
+		logger.error("dispatcher: runDailyDigest threw", { error: message });
+		return { status: "error", notificationsIncluded: 0, error: message };
+	}
+}

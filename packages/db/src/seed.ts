@@ -1,6 +1,15 @@
 import { eq } from "drizzle-orm";
 import type { HyperIdleDb } from "./connection.js";
-import { agents, factorySettings, knowledgeItems, products, teams } from "./schema.js";
+import {
+	agents,
+	bets,
+	factorySettings,
+	knowledgeItems,
+	products,
+	routines,
+	tasks,
+	teams,
+} from "./schema.js";
 
 // @lore: Facilitator agents encode their scope in the `skills` JSON blob
 // (shape: {"scope": "<community|product_id|null>", "tools": [...]}) because
@@ -149,6 +158,57 @@ export function seed(db: HyperIdleDb): void {
 
 	db.insert(factorySettings)
 		.values({ key: "cost_cycle", value: "daily", updatedAt: now })
+		.onConflictDoNothing()
+		.run();
+
+	// --- H2: daily digest routine (disabled by default — operator enables) ---
+	// @lore The routine lives at the seed level so the scheduler picks it up
+	// without extra provisioning. `active: 0` means the scheduler will NOT
+	// fire it until the operator flips the row; this prevents a fresh
+	// factory from sending a 08:00 UTC digest the first time it boots.
+	db.insert(bets)
+		.values({
+			id: "seed-bet-daily-digest",
+			productId: "seed-product-1",
+			teamId: "seed-team-1",
+			pitch: "Internal: daily digest scaffolding bet",
+			appetite: "small",
+			status: "shaped",
+			createdAt: now,
+		})
+		.onConflictDoNothing()
+		.run();
+
+	db.insert(tasks)
+		.values({
+			id: "seed-task-daily-digest",
+			betId: "seed-bet-daily-digest",
+			productId: "seed-product-1",
+			teamId: "seed-team-1",
+			ownerAgentId: "seed-agent-cos",
+			title: "Daily digest anchor task",
+			description: "Anchor task for the daily digest routine — emits routine_fired.",
+			state: "ready",
+			createdAt: now,
+			updatedAt: now,
+		})
+		.onConflictDoNothing()
+		.run();
+
+	db.insert(routines)
+		.values({
+			id: "seed-routine-daily_digest",
+			ownerAgentId: "seed-agent-cos",
+			triggerType: "calendar",
+			triggerConfig: JSON.stringify({
+				cron: "0 8 * * *",
+				taskId: "seed-task-daily-digest",
+			}),
+			active: 0,
+			delegationAllowed: 0,
+			humanReview: 0,
+			silent: 1,
+		})
 		.onConflictDoNothing()
 		.run();
 }
