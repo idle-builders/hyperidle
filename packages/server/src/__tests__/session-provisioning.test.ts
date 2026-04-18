@@ -740,6 +740,49 @@ describe("Session Provisioning (D5)", () => {
 			expect(received[0].costDelta).toBe(2);
 		});
 
+		it("emits a tool_call_recorded DomainEvent for each harness tool_call (H3 AC4)", async () => {
+			// This closes the H3 AC4 gap — tool_call events must reach the
+			// observability layer. Previously the harness yielded tool_call
+			// events that were consumed by the registry but never forwarded
+			// to the EventBus, so `registerObservabilityDispatcher` never
+			// saw them.
+			seedDomain(db);
+			const received: Array<{
+				sessionId: string;
+				toolName: string;
+				argsSummary: string;
+			}> = [];
+			eventBus.on("tool_call_recorded", (e) =>
+				received.push({
+					sessionId: e.sessionId,
+					toolName: e.toolName,
+					argsSummary: e.argsSummary,
+				}),
+			);
+			const harness = new ScriptedHarnessAdapter({
+				events: [
+					{
+						type: "tool_call",
+						toolName: "NonExistentTool",
+						args: { path: "/workspace/foo.ts" },
+					},
+					{ type: "cost_update", totalCost: 0, deltaCost: 0 },
+					{ type: "completion", text: "done" },
+				],
+				stopResult: { outcome: "completed", totalTokens: 0, totalCost: 0 },
+			});
+			const deps: ProvisionSessionDeps = { db, eventBus, harness, workspace };
+			// Invoking a non-existent tool throws inside registry.invoke →
+			// orchestrator marks crashed; the tool_call_recorded emit
+			// happens BEFORE the invoke, so the event is still fired.
+			await provisionSession(deps, baseParams(tmpDir));
+			expect(received).toHaveLength(1);
+			expect(received[0].toolName).toBe("NonExistentTool");
+			// argsSummary is scrubbed + truncated, and contains the arg.
+			expect(received[0].argsSummary).toContain("/workspace/foo.ts");
+			expect(received[0].sessionId).toMatch(/^[0-9a-f-]{36}$/);
+		});
+
 		it("registerSessionReviewCreator creates a review item for a medium-risk task", async () => {
 			seedDomain(db, { taskRiskTier: "medium" });
 

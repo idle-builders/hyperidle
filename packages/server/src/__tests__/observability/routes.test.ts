@@ -1,0 +1,270 @@
+/**
+ * H3 — HTTP surface tests.
+ *
+ * GET  /api/observability/config   -> redacted keys
+ * PATCH /api/observability/config  -> sanitizers + admin audit
+ * GET  /api/observability/status   -> dispatcher snapshot
+ * POST /api/observability/flush    -> triggers drain
+ */
+
+import { type HyperIdleDb, createTestDb, factorySettings } from "@hyperidle/db";
+import type { Logger } from "@hyperidle/shared";
+import { eq } from "drizzle-orm";
+import { describe, expect, it } from "vitest";
+import { createObservabilityRoutes } from "../../routes/observability-routes.js";
+import { createObservabilityDispatcher } from "../../services/observability/dispatcher.js";
+import type {
+	ObservabilityAdapter,
+	ObservabilityDispatcher,
+} from "../../services/observability/types.js";
+
+function quietAdapter(): ObservabilityAdapter {
+	return {
+		name: "console",
+		record: () => Promise.resolve(),
+		flush: () => Promise.resolve(),
+	};
+}
+
+function seedKeys(db: HyperIdleDb, keys: Record<string, string>): void {
+	const now = new Date().toISOString();
+	for (const [k, v] of Object.entries(keys)) {
+		db.insert(factorySettings)
+			.values({ key: k, value: v, updatedAt: now })
+			.onConflictDoUpdate({ target: factorySettings.key, set: { value: v, updatedAt: now } })
+			.run();
+	}
+}
+
+function captureLogger(): { logger: Logger; calls: Array<{ msg: string; extra: unknown }> } {
+	const calls: Array<{ msg: string; extra: unknown }> = [];
+	const logger: Logger = {
+		debug: (): void => undefined,
+		info: (msg, extra): void => {
+			calls.push({ msg, extra });
+		},
+		warn: (): void => undefined,
+		error: (): void => undefined,
+	};
+	return { logger, calls };
+}
+
+function appWithRoutes(
+	db: HyperIdleDb,
+	dispatcher: ObservabilityDispatcher | null,
+): {
+	request: (path: string, init?: RequestInit) => Promise<Response>;
+	auditCalls: Array<{ msg: string; extra: unknown }>;
+} {
+	const { logger, calls } = captureLogger();
+	const router = createObservabilityRoutes(db, {
+		getDispatcher: () => dispatcher,
+		logger,
+	});
+	const request = (path: string, init?: RequestInit): Promise<Response> => {
+		const url = new URL(path, "http://test.local");
+		return router.fetch(new Request(url, init));
+	};
+	return { request, auditCalls: calls };
+}
+
+describe("H3 observability routes — GET /config", () => {
+	it("redacts keys when set", async () => {
+		const db = createTestDb();
+		seedKeys(db, {
+			"observability.enabled": "true",
+			"observability.adapter": "langfuse",
+			"observability.langfuse_url": "https://cloud.langfuse.com",
+			"observability.langfuse_public_key": "pk-lf-abcdef",
+			"observability.langfuse_secret_key": "sk-lf-verysecret",
+		});
+		const { request } = appWithRoutes(db, null);
+		const res = await request("/config");
+		expect(res.status).toBe(200);
+		const body = (await res.json()) as Record<string, unknown>;
+		const langfuse = body.langfuse as Record<string, unknown>;
+		expect(langfuse.publicKey).toBe("***");
+		expect(langfuse.secretKey).toBe("***");
+		expect(JSON.stringify(body)).not.toContain("pk-lf-abcdef");
+		expect(JSON.stringify(body)).not.toContain("sk-lf-verysecret");
+	});
+
+	it("reports null when keys are unset", async () => {
+		const db = createTestDb();
+		seedKeys(db, { "observability.enabled": "true" });
+		const { request } = appWithRoutes(db, null);
+		const body = (await (await request("/config")).json()) as Record<string, unknown>;
+		const langfuse = body.langfuse as Record<string, unknown>;
+		expect(langfuse.publicKey).toBeNull();
+		expect(langfuse.secretKey).toBeNull();
+	});
+});
+
+describe("H3 observability routes — PATCH /config", () => {
+	it("persists valid patch + emits admin audit", async () => {
+		const db = createTestDb();
+		const { request, auditCalls } = appWithRoutes(db, null);
+		const res = await request("/config", {
+			method: "PATCH",
+			headers: { "content-type": "application/json" },
+			body: JSON.stringify({
+				enabled: true,
+				adapter: "langfuse",
+				langfuseUrl: "https://cloud.langfuse.com",
+				langfusePublicKey: "pk-lf-newkey",
+				langfuseSecretKey: "sk-lf-newsecret",
+			}),
+		});
+		expect(res.status).toBe(200);
+		const body = (await res.json()) as Record<string, unknown>;
+		expect(body.enabled).toBe(true);
+		expect((body.langfuse as Record<string, unknown>).publicKey).toBe("***");
+		expect(auditCalls).toHaveLength(1);
+		expect(auditCalls[0].msg).toBe("config_changed");
+		const extra = auditCalls[0].extra as Record<string, unknown>;
+		const diff = extra.diff as Record<string, unknown>;
+		expect(diff.langfusePublicKey).toBe("***");
+		expect(diff.langfuseSecretKey).toBe("***");
+		expect(JSON.stringify(auditCalls)).not.toContain("pk-lf-newkey");
+	});
+
+	it("rejects SSRF langfuse URL (private IP literal)", async () => {
+		const db = createTestDb();
+		const { request } = appWithRoutes(db, null);
+		const res = await request("/config", {
+			method: "PATCH",
+			headers: { "content-type": "application/json" },
+			body: JSON.stringify({ langfuseUrl: "https://10.0.0.1" }),
+		});
+		expect(res.status).toBe(400);
+	});
+
+	it("rejects http to public host", async () => {
+		const db = createTestDb();
+		const { request } = appWithRoutes(db, null);
+		const res = await request("/config", {
+			method: "PATCH",
+			headers: { "content-type": "application/json" },
+			body: JSON.stringify({ langfuseUrl: "http://evil.example.com" }),
+		});
+		expect(res.status).toBe(400);
+	});
+
+	it("rejects CR/LF in keys (header injection defense)", async () => {
+		const db = createTestDb();
+		const { request } = appWithRoutes(db, null);
+		const res = await request("/config", {
+			method: "PATCH",
+			headers: { "content-type": "application/json" },
+			body: JSON.stringify({ langfusePublicKey: "pk\r\nevil" }),
+		});
+		expect(res.status).toBe(400);
+	});
+
+	it("accepts enabled=false without other fields (disable path)", async () => {
+		const db = createTestDb();
+		seedKeys(db, { "observability.enabled": "true" });
+		const { request } = appWithRoutes(db, null);
+		const res = await request("/config", {
+			method: "PATCH",
+			headers: { "content-type": "application/json" },
+			body: JSON.stringify({ enabled: false }),
+		});
+		expect(res.status).toBe(200);
+		const row = db
+			.select()
+			.from(factorySettings)
+			.where(eq(factorySettings.key, "observability.enabled"))
+			.get();
+		expect(row?.value).toBe("false");
+	});
+});
+
+describe("H3 observability routes — /status + /flush", () => {
+	it("status reports enabled=false when no dispatcher and disabled in config", async () => {
+		const db = createTestDb();
+		const { request } = appWithRoutes(db, null);
+		const body = (await (await request("/status")).json()) as Record<string, unknown>;
+		expect(body.enabled).toBe(false);
+		expect(body.bufferDepth).toBe(0);
+	});
+
+	it("status reports enabled=true + adapter=noop when config is {adapter:noop, enabled:true}", async () => {
+		const db = createTestDb();
+		seedKeys(db, {
+			"observability.enabled": "true",
+			"observability.adapter": "noop",
+		});
+		// noop adapter => no dispatcher wired; /status must still reflect
+		// the persisted config instead of silently reporting "disabled".
+		const { request } = appWithRoutes(db, null);
+		const body = (await (await request("/status")).json()) as Record<string, unknown>;
+		expect(body.enabled).toBe(true);
+		expect(body.adapter).toBe("noop");
+		expect(body.bufferDepth).toBe(0);
+	});
+
+	it("status snapshot includes buffer depth + adapter", async () => {
+		const db = createTestDb();
+		const dispatcher = createObservabilityDispatcher({
+			adapter: quietAdapter(),
+			config: { batchSize: 10, flushIntervalMs: 60_000, bufferCap: 100 },
+		});
+		dispatcher.enqueue({
+			kind: "session_started",
+			traceId: "t",
+			sessionId: "s",
+			ts: new Date().toISOString(),
+			agentId: "a",
+			taskId: "k",
+		});
+		const { request } = appWithRoutes(db, dispatcher);
+		const body = (await (await request("/status")).json()) as Record<string, unknown>;
+		expect(body.enabled).toBe(true);
+		expect(body.bufferDepth).toBe(1);
+		expect(body.adapter).toBe("console");
+		await dispatcher.dispose();
+	});
+
+	it("flush drains buffer", async () => {
+		const db = createTestDb();
+		const dispatcher = createObservabilityDispatcher({
+			adapter: quietAdapter(),
+			config: { batchSize: 10, flushIntervalMs: 60_000, bufferCap: 100 },
+		});
+		for (let i = 0; i < 3; i += 1) {
+			dispatcher.enqueue({
+				kind: "tool_call",
+				traceId: "t",
+				sessionId: "s",
+				ts: new Date().toISOString(),
+				toolName: `T-${i}`,
+				argsSummary: "{}",
+			});
+		}
+		const { request } = appWithRoutes(db, dispatcher);
+		const res = await request("/flush", {
+			method: "POST",
+			headers: { "content-type": "application/json" },
+			body: "{}",
+		});
+		expect(res.status).toBe(200);
+		const body = (await res.json()) as Record<string, unknown>;
+		expect(body.delivered).toBe(3);
+		expect(body.bufferDepthAfter).toBe(0);
+		await dispatcher.dispose();
+	});
+
+	it("flush with no dispatcher returns disabled", async () => {
+		const db = createTestDb();
+		const { request } = appWithRoutes(db, null);
+		const res = await request("/flush", {
+			method: "POST",
+			headers: { "content-type": "application/json" },
+			body: "{}",
+		});
+		expect(res.status).toBe(200);
+		const body = (await res.json()) as Record<string, unknown>;
+		expect(body.reason).toBe("disabled");
+	});
+});

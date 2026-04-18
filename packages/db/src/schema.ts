@@ -110,6 +110,12 @@ export const sessions = sqliteTable("sessions", {
 	cost: integer("cost").default(0),
 	outcome: text("outcome"),
 	notes: text("notes"),
+	/**
+	 * Correlates every observability event emitted within this session.
+	 * Populated on insert by `createSession` (H3). Nullable for rows
+	 * inserted before the column was added.
+	 */
+	traceId: text("trace_id"),
 });
 
 export const routines = sqliteTable("routines", {
