@@ -8,8 +8,14 @@ import {
 	teams,
 } from "@hyperidle/db";
 import { type DomainEvent, EventBus } from "@hyperidle/shared";
+import { eq } from "drizzle-orm";
 import type { Hono } from "hono";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+	clearDeduplicationCache,
+	getDedupCacheSize,
+	recordCostAndCheck,
+} from "../services/cost-cap.js";
 import { createTestApp } from "../test-utils.js";
 
 const TEST_API_KEY = "test-key-sessions";
@@ -27,6 +33,9 @@ describe("Session Endpoints (E6)", () => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 		db = createTestDb();
 		eventBus = new EventBus();
+		// I3 review C1 / arch H-2: cost-cap dedup map is module-level state.
+		// Reset before each test to avoid bleed between Vitest runs.
+		clearDeduplicationCache();
 		app = createTestApp({ db, eventBus });
 
 		// Seed required data
@@ -199,6 +208,57 @@ describe("Session Endpoints (E6)", () => {
 				body: JSON.stringify({ state: "done" }),
 			});
 			expect(res.status).toBe(404);
+		});
+
+		// I3 review C1 / arch H-1: PATCH /sessions/:id { state: "done" }
+		// must trigger releaseSessionDedup so the cost-cap dedup-map entry
+		// is reclaimed. Wired centrally via `registerCostCapDedupReleaser`
+		// in `app.ts` — the EventBus subscription fires on every
+		// `session_ended` regardless of which path emitted it.
+		it("PATCH state=done releases the cost-cap dedup entry", async () => {
+			const sessionId = await createSession();
+
+			// Force a dedup-map entry to exist for this session by recording
+			// a cost above the agent cap. This pins the entry the PATCH
+			// must later reclaim.
+			db.update(agents).set({ costCap: 100 }).where(eq(agents.id, "agent-1")).run();
+			await recordCostAndCheck(db, eventBus, {
+				sessionId,
+				cost: 200,
+				agentId: "agent-1",
+				teamId: "team-1",
+			});
+			expect(getDedupCacheSize()).toBeGreaterThan(0);
+
+			const res = await app.request(`/api/sessions/${sessionId}`, {
+				method: "PATCH",
+				headers: authHeaders(),
+				body: JSON.stringify({ state: "done" }),
+			});
+			expect(res.status).toBe(200);
+
+			expect(getDedupCacheSize()).toBe(0);
+		});
+
+		it("PATCH state=crashed releases the cost-cap dedup entry", async () => {
+			const sessionId = await createSession();
+			db.update(agents).set({ costCap: 100 }).where(eq(agents.id, "agent-1")).run();
+			await recordCostAndCheck(db, eventBus, {
+				sessionId,
+				cost: 200,
+				agentId: "agent-1",
+				teamId: "team-1",
+			});
+			expect(getDedupCacheSize()).toBeGreaterThan(0);
+
+			const res = await app.request(`/api/sessions/${sessionId}`, {
+				method: "PATCH",
+				headers: authHeaders(),
+				body: JSON.stringify({ state: "crashed" }),
+			});
+			expect(res.status).toBe(200);
+
+			expect(getDedupCacheSize()).toBe(0);
 		});
 
 		it("returns 400 for invalid state", async () => {

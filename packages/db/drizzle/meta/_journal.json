@@ -43,6 +43,13 @@
 			"when": 1776518362313,
 			"tag": "0005_empty_sunspot",
 			"breakpoints": true
+		},
+		{
+			"idx": 6,
+			"version": "6",
+			"when": 1776600200000,
+			"tag": "0006_drop_tasks_state_idx",
+			"breakpoints": true
 		}
 	]
 }

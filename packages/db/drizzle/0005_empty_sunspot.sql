@@ -1,3 +1,13 @@
+-- @lore I3 review C3 / arch C-1: SQLite FK rebuilds need FK enforcement
+-- suppressed for the entire migration. `PRAGMA foreign_keys` is a NO-OP
+-- inside an active transaction (https://www.sqlite.org/pragma.html#pragma_foreign_keys),
+-- and Drizzle's bun-sqlite migrator wraps every migration file in a single
+-- BEGIN/COMMIT (drizzle-orm/sqlite-core/dialect.ts ~line 580). So
+-- `PRAGMA foreign_keys=OFF` at the top would be a no-op. Use
+-- `PRAGMA defer_foreign_keys=ON` instead — it CAN be set inside a
+-- transaction and defers FK enforcement until the implicit COMMIT, at
+-- which point all rebuilt tables are in their final shape and FKs resolve.
+PRAGMA defer_foreign_keys=ON;--> statement-breakpoint
 PRAGMA foreign_keys=OFF;--> statement-breakpoint
 CREATE TABLE `__new_agent_skills` (
 	`agent_id` text NOT NULL,
@@ -14,7 +24,6 @@ CREATE TABLE `__new_agent_skills` (
 INSERT INTO `__new_agent_skills`("agent_id", "skill_id", "autonomy_level", "success_count", "failure_count", "last_used_at", "promoted_at") SELECT "agent_id", "skill_id", "autonomy_level", "success_count", "failure_count", "last_used_at", "promoted_at" FROM `agent_skills`;--> statement-breakpoint
 DROP TABLE `agent_skills`;--> statement-breakpoint
 ALTER TABLE `__new_agent_skills` RENAME TO `agent_skills`;--> statement-breakpoint
-PRAGMA foreign_keys=ON;--> statement-breakpoint
 CREATE TABLE `__new_agents` (
 	`id` text PRIMARY KEY NOT NULL,
 	`name` text NOT NULL,
@@ -105,7 +114,7 @@ CREATE TABLE `__new_knowledge_conflicts` (
 	`resolved_by` text,
 	`resolved_at` text,
 	`created_at` text NOT NULL,
-	FOREIGN KEY (`item_id`) REFERENCES `knowledge_items`(`id`) ON UPDATE no action ON DELETE cascade
+	FOREIGN KEY (`item_id`) REFERENCES `knowledge_items`(`id`) ON UPDATE no action ON DELETE restrict
 );
 --> statement-breakpoint
 INSERT INTO `__new_knowledge_conflicts`("id", "item_id", "version_base", "version_current", "proposed_body", "proposed_meta", "proposed_by", "status", "resolved_by", "resolved_at", "created_at") SELECT "id", "item_id", "version_base", "version_current", "proposed_body", "proposed_meta", "proposed_by", "status", "resolved_by", "resolved_at", "created_at" FROM `knowledge_conflicts`;--> statement-breakpoint
@@ -120,7 +129,7 @@ CREATE TABLE `__new_knowledge_edit_log` (
 	`new_value` text,
 	`edit_type` text NOT NULL,
 	`created_at` text NOT NULL,
-	FOREIGN KEY (`item_id`) REFERENCES `knowledge_items`(`id`) ON UPDATE no action ON DELETE cascade
+	FOREIGN KEY (`item_id`) REFERENCES `knowledge_items`(`id`) ON UPDATE no action ON DELETE restrict
 );
 --> statement-breakpoint
 INSERT INTO `__new_knowledge_edit_log`("id", "item_id", "editor", "field", "old_value", "new_value", "edit_type", "created_at") SELECT "id", "item_id", "editor", "field", "old_value", "new_value", "edit_type", "created_at" FROM `knowledge_edit_log`;--> statement-breakpoint
@@ -257,4 +266,10 @@ CREATE TABLE `__new_teams` (
 --> statement-breakpoint
 INSERT INTO `__new_teams`("id", "product_id", "members", "lead_agent_id", "capacity", "active_bets", "cost_cap", "cost_actual", "formed_at", "dissolved_at") SELECT "id", "product_id", "members", "lead_agent_id", "capacity", "active_bets", "cost_cap", "cost_actual", "formed_at", "dissolved_at" FROM `teams`;--> statement-breakpoint
 DROP TABLE `teams`;--> statement-breakpoint
-ALTER TABLE `__new_teams` RENAME TO `teams`;
+ALTER TABLE `__new_teams` RENAME TO `teams`;--> statement-breakpoint
+-- I3 review C3 / arch C-1: re-enable foreign_keys at the end of the
+-- migration so subsequent connections enforce FKs again. Inside the
+-- wrapping BEGIN/COMMIT this is a no-op, but explicit re-enable here
+-- documents intent and serves as defence-in-depth if Drizzle's
+-- transactional wrapping ever changes.
+PRAGMA foreign_keys=ON;
