@@ -125,7 +125,9 @@ export function Kanban({ tasks, onMoveTask }: KanbanProps): JSX.Element {
 
 	return (
 		<DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
-			<div className="grid grid-cols-4 gap-4">
+			{/* I4 R3: responsive grid — single column on phones, 2 on small,
+				4 on large viewports. */}
+			<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
 				{COLUMNS.map((col) => {
 					const columnTasks = tasksByColumn[col.key];
 					return (

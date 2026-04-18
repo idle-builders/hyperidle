@@ -1,13 +1,49 @@
 /**
- * Work/Team page — composes Kanban (Tier 3) + PitchSelector (Tier 3 overlay).
- * Shows a kanban board of tasks with an optional pitch selector overlay.
+ * Work/Team page — composes Canvas (top) + Kanban (bottom) + PitchSelector
+ * (overlay). Spec: HUMAN_INTERFACE_LAYER.md §4 — Team view shows the team's
+ * current bets at the top and a per-task kanban board beneath.
  */
-import type { TaskState } from "@hyperidle/shared";
+import type { BetStatus, TaskState } from "@hyperidle/shared";
 import { type JSX, useCallback, useState } from "react";
+import { Canvas } from "../shell/Canvas";
+import type { CanvasBet } from "../shell/Canvas";
 import { Kanban } from "../shell/Kanban";
 import type { KanbanColumnState, KanbanTask } from "../shell/Kanban";
 import { PitchSelector } from "../shell/PitchSelector";
 import type { PitchSelectorPitch } from "../shell/PitchSelector";
+
+/**
+ * I4 K1/K2: single source of truth for translating a Kanban column key to
+ * the persisted TaskState. The Kanban itself emits the column key (e.g.
+ * "planned"), and the page maps it to the TaskState the API expects.
+ *
+ * @lore "planned" is NOT a valid TaskState. The previous implementation
+ * cast the column key to TaskState which silently broke the state machine.
+ */
+export const COLUMN_TO_STATE: Record<KanbanColumnState, TaskState> = {
+	planned: "accepted",
+	in_progress: "in_progress",
+	blocked: "blocked",
+	done: "done",
+};
+
+const CANVAS_BETS: CanvasBet[] = [
+	{
+		id: "tb1",
+		title: "Auth migration",
+		product: "HyperIdle",
+		status: "committed" as BetStatus,
+		appetite: "2 weeks",
+		progress: { done: 2, total: 5 },
+	},
+	{
+		id: "tb2",
+		title: "Onboarding revamp",
+		product: "HyperIdle",
+		status: "shaped" as BetStatus,
+		appetite: "3 weeks",
+	},
+];
 
 const INITIAL_TASKS: KanbanTask[] = [
 	{
@@ -86,10 +122,14 @@ export function WorkTeam(): JSX.Element {
 	const [loading] = useState(false);
 	const [error] = useState<string | null>(null);
 
-	const handleMoveTask = useCallback((taskId: string, targetState: KanbanColumnState): void => {
-		setTasks((prev) =>
-			prev.map((t) => (t.id === taskId ? { ...t, state: targetState as TaskState } : t)),
-		);
+	const handleMoveTask = useCallback((taskId: string, targetColumn: KanbanColumnState): void => {
+		// I4 K1: map the Kanban column key to the canonical TaskState.
+		const targetState = COLUMN_TO_STATE[targetColumn];
+		setTasks((prev) => prev.map((t) => (t.id === taskId ? { ...t, state: targetState } : t)));
+	}, []);
+
+	const handleMoveBet = useCallback((_betId: string, _targetStatus: "shaped" | "committed"): void => {
+		// Mock — the team-board canvas does not persist bet moves yet.
 	}, []);
 
 	const handleSelectPitch = useCallback((pitchId: string): void => {
@@ -146,7 +186,13 @@ export function WorkTeam(): JSX.Element {
 				/>
 			)}
 
-			<Kanban tasks={tasks} onMoveTask={handleMoveTask} />
+			{/* I4 P2: Canvas (committed bets overview) on top, Kanban below. */}
+			<div data-testid="work-team-canvas">
+				<Canvas bets={CANVAS_BETS} capacity={3} onMoveBet={handleMoveBet} />
+			</div>
+			<div data-testid="work-team-kanban">
+				<Kanban tasks={tasks} onMoveTask={handleMoveTask} />
+			</div>
 		</div>
 	);
 }
