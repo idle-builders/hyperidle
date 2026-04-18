@@ -8,6 +8,7 @@ import { errorHandler } from "./middleware/error-handler.js";
 import { createAgentRoutes } from "./routes/agents.js";
 import { createBetRoutes } from "./routes/bets.js";
 import { createConversationRoutes } from "./routes/conversations.js";
+import { createGitExportRoutes } from "./routes/git-export-routes.js";
 import { health } from "./routes/health.js";
 import { createKnowledgeRoutes } from "./routes/knowledge.js";
 import { createRailRoutes } from "./routes/rail.js";
@@ -16,12 +17,29 @@ import { createSessionRoutes } from "./routes/sessions-routes.js";
 import { createStatusRoutes } from "./routes/status.js";
 import { createTaskRoutes } from "./routes/tasks.js";
 import { registerTestRoutes } from "./routes/test-routes.js";
+import { createGitRunner } from "./services/git-export-runner.js";
+import { registerGitExportHandler } from "./services/git-export.js";
 import { registerPolicyEngine } from "./services/policy-engine.js";
 import { registerSessionReviewCreator } from "./services/session-review-creator.js";
 
 interface AppOptions {
 	db?: HyperIdleDb;
 	eventBus?: EventBus;
+	/**
+	 * Optional override for the git-runner factory used by the
+	 * `knowledge_updated` event handler. Tests can substitute a FakeGitRunner
+	 * to prove the event-triggered path without spawning `git`.
+	 */
+	gitRunnerFactory?: (repoPath: string) => ReturnType<typeof createGitRunner>;
+}
+
+/**
+ * Disposers returned from `createApp` so tests + graceful shutdown can
+ * tear down event-bus subscriptions. Each function is safe to call more
+ * than once.
+ */
+export interface AppDisposer {
+	dispose(): void;
 }
 
 /**
@@ -72,8 +90,19 @@ function createApp(options?: AppOptions): Hono {
 		api.route("/routines", createRoutineRoutes(options.db, eventBus));
 		api.route("/sessions", createSessionRoutes(options.db, eventBus));
 		api.route("/status", createStatusRoutes(options.db));
-		registerSessionReviewCreator(options.db, eventBus);
-		registerPolicyEngine(options.db, eventBus);
+		api.route("/git-export", createGitExportRoutes(options.db));
+		const disposers: Array<() => void> = [];
+		disposers.push(registerSessionReviewCreator(options.db, eventBus));
+		disposers.push(registerPolicyEngine(options.db, eventBus));
+		disposers.push(
+			registerGitExportHandler(options.db, eventBus, {
+				runnerFactory: options.gitRunnerFactory ?? ((repoPath) => createGitRunner(repoPath)),
+			}),
+		);
+		// @lore Store disposers on the app so tests (and future graceful
+		// shutdown) can tear down event-bus subscriptions without leaking
+		// handlers across `createApp()` invocations.
+		(app as unknown as { __disposers: Array<() => void> }).__disposers = disposers;
 	}
 
 	// 404 handler for unknown /api routes
@@ -104,6 +133,24 @@ function createApp(options?: AppOptions): Hono {
 }
 
 const app = createApp();
+
+/**
+ * Dispose all event-bus subscriptions attached to an app created via
+ * `createApp`. Safe no-op if `createApp` did not attach any (e.g. when
+ * called without a `db`).
+ */
+export function disposeApp(hono: Hono): void {
+	const bag = (hono as unknown as { __disposers?: Array<() => void> }).__disposers;
+	if (!bag) return;
+	for (const d of bag) {
+		try {
+			d();
+		} catch {
+			// disposers must be idempotent; swallow errors from over-zealous ones
+		}
+	}
+	bag.length = 0;
+}
 
 export { app, createApp };
 export type { AppOptions };
