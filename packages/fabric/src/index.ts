@@ -79,3 +79,21 @@ export type {
 	MergeResult,
 	ConflictResult,
 } from "./conflict-resolution.js";
+export {
+	AUTO_PROMOTION_REPETITION_THRESHOLD,
+	AUTO_PROMOTION_EDITOR,
+	DEFAULT_SWEEP_MAX_BATCH_SIZE,
+	STALE_THRESHOLD_MS,
+	checkAutoPromotion,
+	detectLayerContradiction,
+	findStaleItems,
+	markStale,
+	runAutoPromotionSweep,
+	runStaleSweep,
+} from "./promotion-pipeline.js";
+export type {
+	AutoPromotionResult,
+	ContradictionResult,
+	AutoPromotionSweepResult,
+	StaleSweepResult,
+} from "./promotion-pipeline.js";
