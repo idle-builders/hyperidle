@@ -1,4 +1,5 @@
 import { type HyperIdleDb, bets, tasks, teams } from "@hyperidle/db";
+import { MUTABLE_BET_FIELDS } from "@hyperidle/shared";
 import type { EventBus } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
 import { Hono } from "hono";
@@ -18,8 +19,11 @@ const createBetSchema = z.object({
 	hypothesis: z.string().optional(),
 });
 
+// I2 V2: enum-validate `field` so an unknown value is rejected with 400 by
+// Zod instead of falling through to the service layer (which would throw
+// a generic Error mapped to 500).
 const updateBetSchema = z.object({
-	field: z.string(),
+	field: z.enum(MUTABLE_BET_FIELDS),
 	value: z.string(),
 	reason: z.string(),
 });

@@ -1,0 +1,88 @@
+/**
+ * I2 — V5: PATCH /api/status/settings must reject keys that begin with
+ * blocked prefixes (`git_export.`, `notifications.`, `observability.`).
+ * Those domains have dedicated routes that handle redaction and
+ * structured config — letting the generic settings PATCH bypass them
+ * was the I1-H1 escape hatch on the read side, now closed on the write.
+ *
+ * Red phase: today's PATCH happily upserts any key, including
+ * `notifications.smtp_password`. Both the response status and the
+ * underlying row would become wrong.
+ */
+
+import { type HyperIdleDb, createTestDb, factorySettings } from "@hyperidle/db";
+import { API_ERROR_CODES, EventBus } from "@hyperidle/shared";
+import { eq } from "drizzle-orm";
+import type { Hono } from "hono";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { createTestApp } from "../../test-utils.js";
+
+const TEST_API_KEY = "test-key-status-write";
+
+function authHeaders(extra?: Record<string, string>): Record<string, string> {
+	return { "X-API-Key": TEST_API_KEY, "Content-Type": "application/json", ...extra };
+}
+
+describe("I2 V5 — PATCH /api/status/settings blocks reserved-prefix keys", () => {
+	let db: HyperIdleDb;
+	let app: Hono;
+
+	beforeEach(() => {
+		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
+		db = createTestDb();
+		app = createTestApp({ db, eventBus: new EventBus() });
+	});
+
+	afterEach(() => {
+		vi.unstubAllEnvs();
+	});
+
+	const BLOCKED_KEYS = [
+		"notifications.smtp_password",
+		"notifications.ntfy_auth_token",
+		"git_export.repo_path",
+		"git_export.token",
+		"observability.langfuse_secret_key",
+		"observability.langfuse_public_key",
+	];
+
+	for (const key of BLOCKED_KEYS) {
+		it(`returns 400 with VALIDATION_ERROR (or PROTECTED_KEY_PREFIX) when key='${key}'`, async () => {
+			const res = await app.request("/api/status/settings", {
+				method: "PATCH",
+				headers: authHeaders(),
+				body: JSON.stringify({ key, value: "leaked" }),
+			});
+
+			expect(res.status).toBe(400);
+			const body = (await res.json()) as { code?: string; error?: string };
+			// Accept either the canonical VALIDATION_ERROR code or a more
+			// specific marker. The plan calls the marker out so the test
+			// permits either spelling.
+			expect(
+				body.code === API_ERROR_CODES.VALIDATION_ERROR || body.code === "PROTECTED_KEY_PREFIX",
+			).toBe(true);
+			// Error message should mention the dedicated route guidance.
+			expect(typeof body.error).toBe("string");
+
+			// And the row must NOT be present in factorySettings.
+			const row = db.select().from(factorySettings).where(eq(factorySettings.key, key)).get();
+			expect(row).toBeUndefined();
+		});
+	}
+
+	it("still accepts non-reserved keys (e.g. factory_start_time)", async () => {
+		const res = await app.request("/api/status/settings", {
+			method: "PATCH",
+			headers: authHeaders(),
+			body: JSON.stringify({ key: "factory_start_time", value: "2026-04-18T00:00:00.000Z" }),
+		});
+		expect(res.status).toBe(200);
+		const row = db
+			.select()
+			.from(factorySettings)
+			.where(eq(factorySettings.key, "factory_start_time"))
+			.get();
+		expect(row?.value).toBe("2026-04-18T00:00:00.000Z");
+	});
+});

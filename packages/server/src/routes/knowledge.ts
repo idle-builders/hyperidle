@@ -1,10 +1,11 @@
 import { type HyperIdleDb, knowledgeEditLog, knowledgeItems } from "@hyperidle/db";
-import { API_ERROR_CODES, type EventBus } from "@hyperidle/shared";
-import type { ApiErrorResponse } from "@hyperidle/shared";
-import { and, eq, like, or } from "drizzle-orm";
+import { API_ERROR_CODES, type EventBus, KNOWLEDGE_LAYERS } from "@hyperidle/shared";
+import type { ApiErrorResponse, KnowledgeLayer } from "@hyperidle/shared";
+import { and, eq, or, sql } from "drizzle-orm";
 import { Hono } from "hono";
 import { z } from "zod";
 import { validateBody } from "../middleware/validate.js";
+import { escapeLikePattern } from "../services/like-escape.js";
 
 const createKnowledgeSchema = z.object({
 	kind: z.string(),
@@ -54,6 +55,29 @@ const splitSchema = z.object({
 const flagSchema = z.object({
 	reason: z.string(),
 });
+
+/**
+ * I2 V3: Validate the `:layer` path param against KNOWLEDGE_LAYERS. Returns
+ * the parsed layer when valid, or null when invalid (the caller writes a 400
+ * response in that branch). Inline so each handler can short-circuit before
+ * any DB access.
+ */
+const LayerSchema = z.enum(KNOWLEDGE_LAYERS as readonly [KnowledgeLayer, ...KnowledgeLayer[]]);
+
+function parseLayer(raw: string): KnowledgeLayer | null {
+	const result = LayerSchema.safeParse(raw);
+	return result.success ? result.data : null;
+}
+
+function invalidLayerResponse(): { response: ApiErrorResponse; status: 400 } {
+	return {
+		response: {
+			error: "Invalid knowledge layer",
+			code: API_ERROR_CODES.VALIDATION_ERROR,
+		},
+		status: 400,
+	};
+}
 
 /**
  * Emit a knowledge_updated event via the EventBus.
@@ -115,18 +139,21 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 			return c.json(response, 400);
 		}
 
-		// Use LIKE-based search as a fallback since FTS5 virtual tables
-		// require raw SQL and may not be available in test DBs.
-		const pattern = `%${query}%`;
+		// I2 V4: escape LIKE wildcards (%, _, \) so the user's literal
+		// query characters do not turn into SQL pattern operators. The
+		// `ESCAPE '\\'` clause must be passed through Drizzle's `sql`
+		// template tag because the `like()` helper does not expose the
+		// SQLite ESCAPE modifier.
+		const pattern = `%${escapeLikePattern(query)}%`;
 		const results = db
 			.select()
 			.from(knowledgeItems)
 			.where(
 				and(
 					or(
-						like(knowledgeItems.title, pattern),
-						like(knowledgeItems.body, pattern),
-						like(knowledgeItems.topic, pattern),
+						sql`${knowledgeItems.title} LIKE ${pattern} ESCAPE '\\'`,
+						sql`${knowledgeItems.body} LIKE ${pattern} ESCAPE '\\'`,
+						sql`${knowledgeItems.topic} LIKE ${pattern} ESCAPE '\\'`,
 					),
 				),
 			)
@@ -137,7 +164,11 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 
 	// GET /:layer — list by layer, grouped by topic, kind
 	router.get("/:layer", (c) => {
-		const layer = c.req.param("layer");
+		const layer = parseLayer(c.req.param("layer"));
+		if (!layer) {
+			const { response, status } = invalidLayerResponse();
+			return c.json(response, status);
+		}
 		const items = db.select().from(knowledgeItems).where(eq(knowledgeItems.layer, layer)).all();
 
 		// Group by topic -> kind
@@ -158,7 +189,11 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 
 	// GET /:layer/:id — single item
 	router.get("/:layer/:id", (c) => {
-		const layer = c.req.param("layer");
+		const layer = parseLayer(c.req.param("layer"));
+		if (!layer) {
+			const { response, status } = invalidLayerResponse();
+			return c.json(response, status);
+		}
 		const id = c.req.param("id");
 
 		const item = db
@@ -180,7 +215,11 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 
 	// POST /:layer — create (version=1)
 	router.post("/:layer", validateBody(createKnowledgeSchema), (c) => {
-		const layer = c.req.param("layer");
+		const layer = parseLayer(c.req.param("layer"));
+		if (!layer) {
+			const { response, status } = invalidLayerResponse();
+			return c.json(response, status);
+		}
 		const body = c.req.valid("json" as never) as z.infer<typeof createKnowledgeSchema>;
 		const id = crypto.randomUUID();
 		const now = new Date().toISOString();
@@ -212,7 +251,11 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 
 	// PATCH /:layer/:id — update (optimistic locking)
 	router.patch("/:layer/:id", validateBody(updateKnowledgeSchema), (c) => {
-		const layer = c.req.param("layer");
+		const layer = parseLayer(c.req.param("layer"));
+		if (!layer) {
+			const { response, status } = invalidLayerResponse();
+			return c.json(response, status);
+		}
 		const id = c.req.param("id");
 		const body = c.req.valid("json" as never) as z.infer<typeof updateKnowledgeSchema>;
 
@@ -303,7 +346,11 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 
 	// POST /:layer/:id/merge — merge two items
 	router.post("/:layer/:id/merge", validateBody(mergeSchema), (c) => {
-		const layer = c.req.param("layer");
+		const layer = parseLayer(c.req.param("layer"));
+		if (!layer) {
+			const { response, status } = invalidLayerResponse();
+			return c.json(response, status);
+		}
 		const targetId = c.req.param("id");
 		const body = c.req.valid("json" as never) as z.infer<typeof mergeSchema>;
 
@@ -393,7 +440,11 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 
 	// POST /:layer/:id/split — split into two
 	router.post("/:layer/:id/split", validateBody(splitSchema), (c) => {
-		const layer = c.req.param("layer");
+		const layer = parseLayer(c.req.param("layer"));
+		if (!layer) {
+			const { response, status } = invalidLayerResponse();
+			return c.json(response, status);
+		}
 		const id = c.req.param("id");
 		const body = c.req.valid("json" as never) as z.infer<typeof splitSchema>;
 
@@ -468,7 +519,11 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 
 	// POST /:layer/:id/archive — archive
 	router.post("/:layer/:id/archive", (c) => {
-		const layer = c.req.param("layer");
+		const layer = parseLayer(c.req.param("layer"));
+		if (!layer) {
+			const { response, status } = invalidLayerResponse();
+			return c.json(response, status);
+		}
 		const id = c.req.param("id");
 
 		const item = db
@@ -515,7 +570,11 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 
 	// POST /:layer/:id/flag — flag for review
 	router.post("/:layer/:id/flag", validateBody(flagSchema), (c) => {
-		const layer = c.req.param("layer");
+		const layer = parseLayer(c.req.param("layer"));
+		if (!layer) {
+			const { response, status } = invalidLayerResponse();
+			return c.json(response, status);
+		}
 		const id = c.req.param("id");
 		const body = c.req.valid("json" as never) as z.infer<typeof flagSchema>;
 
