@@ -18,28 +18,25 @@ const FOCUS_CLASSES = "cursor-pointer focus-visible:ring-1 focus-visible:ring-pr
  * Adds role="button", keyboard handling (Enter + Space with preventDefault), tabIndex,
  * and a merged className that includes cursor-pointer + focus-visible:ring utilities.
  *
+ * When `onClick` is omitted the helper returns only the caller-supplied className
+ * (or nothing) — a non-interactive div needs no role/tabIndex/handlers.
+ *
  * @lore Space key preventDefault is intentional — without it, the browser scrolls the page
  * when Space is pressed on a focused div[role=button], which is the wrong behavior.
  *
- * @lore I4 KB2: the helper now accepts an optional caller `className` and merges it
+ * @lore I4 KB2: the helper accepts an optional caller `className` and merges it
  * with the focus utilities, so future agents cannot forget to add the focus ring.
  */
 export function clickableProps(
 	onClick?: () => void,
 	callerClassName?: string,
-): ClickableResult | (Pick<ClickableResult, "className"> & Record<string, never>) {
+): Partial<ClickableResult> {
 	if (!onClick) {
-		// Even when not interactive, return the caller's className so the
-		// helper is the single point where className is built. The empty-
-		// object fallback (no className) preserves prior behaviour for
-		// call sites that pass neither argument.
-		return callerClassName
-			? ({ className: callerClassName } as Pick<ClickableResult, "className">)
-			: {};
+		return callerClassName ? { className: callerClassName } : {};
 	}
 	const className = callerClassName ? `${callerClassName} ${FOCUS_CLASSES}` : FOCUS_CLASSES;
 	return {
-		role: "button" as const,
+		role: "button",
 		onClick,
 		onKeyDown: (e: KeyboardEvent<HTMLDivElement>) => {
 			if (e.key === "Enter" || e.key === " ") {
