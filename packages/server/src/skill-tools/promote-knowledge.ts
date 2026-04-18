@@ -1,0 +1,161 @@
+import { randomUUID } from "node:crypto";
+import { knowledgeConflicts, knowledgeEditLog, knowledgeItems } from "@hyperidle/db";
+import { and, eq } from "drizzle-orm";
+import { z } from "zod";
+import type { ToolContext, ToolDefinition } from "./tool-registry.js";
+import { type ToolResult, err, ok } from "./tool-result.js";
+
+const KNOWLEDGE_STATUSES = [
+	"captured",
+	"provisional",
+	"validated",
+	"active",
+	"stale",
+	"archived",
+] as const;
+
+type KnowledgeStatus = (typeof KNOWLEDGE_STATUSES)[number];
+
+function isKnowledgeStatus(value: string): value is KnowledgeStatus {
+	return (KNOWLEDGE_STATUSES as readonly string[]).includes(value);
+}
+
+/**
+ * `promote_knowledge` — transition a knowledge item's lifecycle status along
+ * the promotion chain. G1 proves CAPTURED → PROVISIONAL end-to-end and
+ * installs the CONFLICT_OPEN gate on the validated-transition (per
+ * KNOWLEDGE_ARCHITECTURE §6.2). G3 will add auto-promotion routines and the
+ * "5+ repetitions → VALIDATED" rule on top of this contract.
+ */
+const ALLOWED_TRANSITIONS: Record<KnowledgeStatus, readonly KnowledgeStatus[]> = {
+	captured: ["provisional"],
+	provisional: ["validated", "archived"],
+	validated: ["active", "archived"],
+	active: ["stale", "archived"],
+	stale: ["active", "archived"],
+	archived: [],
+};
+
+const promoteKnowledgeInputSchema = z.object({
+	knowledgeItemId: z.string().min(1),
+	toStatus: z.enum(KNOWLEDGE_STATUSES),
+	// 64 KiB cap on free-text to prevent DoS via oversized prompts.
+	reason: z.string().max(65_536).optional(),
+});
+
+type PromoteKnowledgeInput = z.infer<typeof promoteKnowledgeInputSchema>;
+
+interface PromoteKnowledgeData {
+	readonly knowledgeItemId: string;
+	readonly fromStatus: string;
+	readonly toStatus: string;
+}
+
+async function handler(
+	input: PromoteKnowledgeInput,
+	ctx: ToolContext,
+): Promise<ToolResult<PromoteKnowledgeData>> {
+	const { knowledgeItemId, toStatus, reason } = input;
+
+	const row = ctx.db
+		.select()
+		.from(knowledgeItems)
+		.where(eq(knowledgeItems.id, knowledgeItemId))
+		.get();
+	if (!row) {
+		return err("NOT_FOUND", `Knowledge item not found: ${knowledgeItemId}`);
+	}
+
+	// Narrow rather than cast — a row with an unexpected status value points to
+	// an upstream bug or schema drift, not a user input problem.
+	if (!isKnowledgeStatus(row.status)) {
+		return err("INVALID_STATE", `unknown current status: ${row.status}`);
+	}
+	const fromStatus: KnowledgeStatus = row.status;
+
+	const allowed = ALLOWED_TRANSITIONS[fromStatus] ?? [];
+	if (!allowed.includes(toStatus)) {
+		return err("INVALID_TRANSITION", `cannot transition ${fromStatus} → ${toStatus}`);
+	}
+
+	const now = new Date().toISOString();
+	const editor = `agent:${ctx.agentId}`;
+
+	// Wrap the gate-check + conditional UPDATE + edit-log INSERT in a
+	// transaction. Under SQLite WAL this serializes concurrent promotes so
+	// two callers racing from `provisional -> validated` cannot both succeed;
+	// the loser sees 0 rows changed and returns CONCURRENT_MODIFICATION.
+	const txResult = ctx.db.transaction((tx): ToolResult<PromoteKnowledgeData> => {
+		// Conflict gate: block promotion to 'validated' while any open conflict
+		// exists on the item (KNOWLEDGE_ARCHITECTURE §6.2). Inside the tx so the
+		// gate read and the status update are atomic.
+		if (toStatus === "validated") {
+			const openConflict = tx
+				.select()
+				.from(knowledgeConflicts)
+				.where(
+					and(
+						eq(knowledgeConflicts.itemId, knowledgeItemId),
+						eq(knowledgeConflicts.status, "open"),
+					),
+				)
+				.get();
+			if (openConflict) {
+				return err("CONFLICT_OPEN", "open conflict blocks promotion to validated");
+			}
+		}
+
+		// @lore: status changes do NOT bump `version` — version is reserved for
+		// content edits, matching knowledge-repository.update conventions.
+		//
+		// Conditional UPDATE: WHERE clause pins `status = fromStatus` so a
+		// racing caller that has already transitioned the row sees 0 changes
+		// and we fail CONCURRENT_MODIFICATION instead of silently clobbering
+		// their write.
+		const updateResult = tx
+			.update(knowledgeItems)
+			.set({ status: toStatus, updatedAt: now, updatedBy: editor })
+			.where(and(eq(knowledgeItems.id, knowledgeItemId), eq(knowledgeItems.status, fromStatus)))
+			.run();
+
+		if (updateResult.changes === 0) {
+			return err(
+				"CONCURRENT_MODIFICATION",
+				`knowledge item ${knowledgeItemId} no longer in status ${fromStatus}`,
+			);
+		}
+
+		// Persist the promotion reason (if any) alongside the transition in
+		// the edit log so the audit trail is complete.
+		const newValue = reason ? `${toStatus} | reason: ${reason}` : toStatus;
+		tx.insert(knowledgeEditLog)
+			.values({
+				id: randomUUID(),
+				itemId: knowledgeItemId,
+				editor,
+				field: "status",
+				oldValue: fromStatus,
+				newValue,
+				editType: "refinement",
+				createdAt: now,
+			})
+			.run();
+
+		return ok<PromoteKnowledgeData>({
+			knowledgeItemId,
+			fromStatus,
+			toStatus,
+		});
+	});
+
+	return txResult;
+}
+
+export const promoteKnowledgeTool: ToolDefinition<PromoteKnowledgeInput> = {
+	name: "promote_knowledge",
+	description:
+		"Transition a knowledge item's lifecycle status (captured → provisional → validated → active → stale → archived). Blocks promotion to 'validated' if any open conflict exists on the item.",
+	inputSchema: promoteKnowledgeInputSchema,
+	handler,
+	roles: ["chief_of_staff", "practice_facilitator", "product_manager"],
+};
