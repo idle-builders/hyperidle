@@ -116,7 +116,7 @@ export function Canvas({ bets, capacity, onMoveBet }: CanvasProps): JSX.Element 
 
 	if (bets.length === 0) {
 		return (
-			<div className="flex items-center justify-center p-8 text-base-content/50 text-sm">
+			<div className="flex items-center justify-center p-8 text-[var(--text-lo)] text-sm">
 				No bets yet
 			</div>
 		);

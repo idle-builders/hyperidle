@@ -47,9 +47,9 @@ export function ThreadRow({
 					{tag && <Tag label={tag} />}
 					{kind && <Tag label={kind} />}
 				</div>
-				<p className="text-xs text-base-content/60 truncate">{snippet}</p>
+				<p className="text-xs text-[var(--text-mid)] truncate">{snippet}</p>
 			</div>
-			<span className="text-xs text-base-content/50 whitespace-nowrap">{timestamp}</span>
+			<span className="text-xs text-[var(--text-lo)] whitespace-nowrap">{timestamp}</span>
 			{actions}
 		</div>
 	);

@@ -134,7 +134,7 @@ export function WorkBet(): JSX.Element {
 			</h2>
 
 			{bet.tasks.length === 0 ? (
-				<p className="text-sm text-base-content/50">No tasks yet</p>
+				<p className="text-sm text-[var(--text-lo)]">No tasks yet</p>
 			) : (
 				<div className="flex flex-col gap-2">
 					{bet.tasks.map((task) => (

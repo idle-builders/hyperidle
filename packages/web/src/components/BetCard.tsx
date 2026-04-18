@@ -42,7 +42,7 @@ export function BetCard({
 						value={progress.done}
 						max={progress.total}
 					/>
-					<span className="text-xs text-base-content/60">
+					<span className="text-xs text-[var(--text-mid)]">
 						{progress.done}/{progress.total}
 					</span>
 				</div>
