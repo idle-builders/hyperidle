@@ -1,20 +1,10 @@
 import { randomUUID } from "node:crypto";
 import { knowledgeConflicts, knowledgeEditLog, knowledgeItems } from "@hyperidle/db";
+import { KNOWLEDGE_STATUSES, type KnowledgeStatus } from "@hyperidle/shared";
 import { and, eq } from "drizzle-orm";
 import { z } from "zod";
 import type { ToolContext, ToolDefinition } from "./tool-registry.js";
 import { type ToolResult, err, ok } from "./tool-result.js";
-
-const KNOWLEDGE_STATUSES = [
-	"captured",
-	"provisional",
-	"validated",
-	"active",
-	"stale",
-	"archived",
-] as const;
-
-type KnowledgeStatus = (typeof KNOWLEDGE_STATUSES)[number];
 
 function isKnowledgeStatus(value: string): value is KnowledgeStatus {
 	return (KNOWLEDGE_STATUSES as readonly string[]).includes(value);
@@ -26,14 +16,21 @@ function isKnowledgeStatus(value: string): value is KnowledgeStatus {
  * installs the CONFLICT_OPEN gate on the validated-transition (per
  * KNOWLEDGE_ARCHITECTURE §6.2). G3 will add auto-promotion routines and the
  * "5+ repetitions → VALIDATED" rule on top of this contract.
+ *
+ * @lore `needs_human` is a hold state — entered by the fabric when automated
+ * resolution fails and exited only by an explicit human review (separate
+ * API), not by this auto-promote tool. Keeping the outbound list empty
+ * means an agent-driven promote call against a `needs_human` item returns
+ * INVALID_TRANSITION rather than silently bypassing the human gate.
  */
 const ALLOWED_TRANSITIONS: Record<KnowledgeStatus, readonly KnowledgeStatus[]> = {
 	captured: ["provisional"],
-	provisional: ["validated", "archived"],
+	provisional: ["validated", "archived", "needs_human"],
 	validated: ["active", "archived"],
 	active: ["stale", "archived"],
 	stale: ["active", "archived"],
 	archived: [],
+	needs_human: [],
 };
 
 const promoteKnowledgeInputSchema = z.object({

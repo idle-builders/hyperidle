@@ -19,7 +19,13 @@ export type {
 	TriggerType,
 } from "./types.js";
 
-export { KNOWLEDGE_LAYERS, MUTABLE_BET_FIELDS, TASK_STATES } from "./types.js";
+export {
+	BET_STATUSES,
+	KNOWLEDGE_LAYERS,
+	KNOWLEDGE_STATUSES,
+	MUTABLE_BET_FIELDS,
+	TASK_STATES,
+} from "./types.js";
 
 export { createLogger, type Logger } from "./logger.js";
 

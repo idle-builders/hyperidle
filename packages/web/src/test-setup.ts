@@ -43,6 +43,63 @@ class PatchedRequest extends OriginalRequest {
 }
 globalThis.Request = PatchedRequest as typeof Request;
 
+/**
+ * @lore I4 R1/R2: jsdom does not implement `window.matchMedia`. The
+ * `useViewportBreakpoint` hook uses it to compute whether Submenu/Rail should
+ * collapse by default. Without this polyfill the hook throws on mount.
+ *
+ * We install a configurable mock so individual tests can override the return
+ * value by setting `window.innerWidth` and re-stubbing the function; by
+ * default we evaluate the query's `max-width` expression against the current
+ * `window.innerWidth` so responsive tests "just work" when they set the
+ * viewport size via `Object.defineProperty(window, 'innerWidth', ...)`.
+ */
+// jsdom defaults `window.innerWidth` to 1024, which lands the AppShell in
+// the Rail-collapsed layout (the breakpoint is >=1280). Force a desktop
+// viewport so legacy tests that assume the expanded layout keep passing;
+// individual tests can override via `Object.defineProperty(window, ...)`.
+Object.defineProperty(window, "innerWidth", {
+	writable: true,
+	configurable: true,
+	value: 1920,
+});
+Object.defineProperty(window, "innerHeight", {
+	writable: true,
+	configurable: true,
+	value: 1080,
+});
+
+if (typeof window.matchMedia !== "function") {
+	function evaluateQuery(query: string): boolean {
+		const maxMatch = query.match(/max-width:\s*(\d+)px/);
+		const minMatch = query.match(/min-width:\s*(\d+)px/);
+		const width = window.innerWidth;
+		if (maxMatch) return width <= Number(maxMatch[1]);
+		if (minMatch) return width >= Number(minMatch[1]);
+		return false;
+	}
+	Object.defineProperty(window, "matchMedia", {
+		writable: true,
+		configurable: true,
+		value: (query: string): MediaQueryList => {
+			// Stub event-listener methods — we don't dispatch matchMedia
+			// changes from tests; reads are recomputed via window.innerWidth
+			// at each `matchMedia()` call instead.
+			const noop = (): void => undefined;
+			return {
+				matches: evaluateQuery(query),
+				media: query,
+				onchange: null,
+				addListener: noop,
+				removeListener: noop,
+				addEventListener: noop,
+				removeEventListener: noop,
+				dispatchEvent: () => false,
+			};
+		},
+	});
+}
+
 afterEach(() => {
 	cleanup();
 });

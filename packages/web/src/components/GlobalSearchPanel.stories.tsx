@@ -1,5 +1,11 @@
-import { useState } from "react";
+import type { JSX } from "react";
+import { useEffect, useState } from "react";
 import { GlobalSearchPanel } from "./GlobalSearchPanel";
+
+// I4 D1: default export with `title` so the design-system auto-discovery
+// (import.meta.glob + parseStoryModules) picks the module up. Without this
+// the file was silently dropped from /designsystem.
+export default { title: "GlobalSearchPanel" };
 
 const mockConversations = [
 	{
@@ -39,8 +45,36 @@ const mockKnowledge = [
 	},
 ];
 
-function StoryWrapper({ initialOpen = true }: { initialOpen?: boolean }): JSX.Element {
+/**
+ * I4 security MED-3: swap window.fetch with a mock for the lifetime of the
+ * story, then restore on unmount. Previously the stories monkey-patched
+ * fetch and discarded the original reference, which corrupted every other
+ * story rendered in the same /designsystem tab until page reload.
+ */
+function useMockFetch(payload: Record<string, unknown>, enabled: boolean): void {
+	useEffect(() => {
+		if (!enabled) return;
+		const original = window.fetch;
+		window.fetch = (() =>
+			Promise.resolve({
+				ok: true,
+				json: () => Promise.resolve(payload),
+			})) as typeof window.fetch;
+		return () => {
+			window.fetch = original;
+		};
+	}, [enabled, payload]);
+}
+
+function StoryWrapper({
+	initialOpen = true,
+	mockPayload,
+}: {
+	initialOpen?: boolean;
+	mockPayload?: Record<string, unknown>;
+}): JSX.Element {
 	const [open, setOpen] = useState(initialOpen);
+	useMockFetch(mockPayload ?? {}, mockPayload !== undefined);
 	return (
 		<div>
 			<button type="button" className="btn btn-sm" onClick={() => setOpen(true)}>
@@ -50,7 +84,8 @@ function StoryWrapper({ initialOpen = true }: { initialOpen?: boolean }): JSX.El
 				open={open}
 				onClose={() => setOpen(false)}
 				onNavigate={(type, id) => {
-					window.alert(`Navigate: ${type} / ${id}`);
+					// biome-ignore lint/suspicious/noConsole: story-only demo navigation
+					console.log(`[story] Navigate: ${type} / ${id}`);
 					setOpen(false);
 				}}
 			/>
@@ -65,43 +100,28 @@ export const Default = {
 
 export const WithResults = {
 	name: "With Results",
-	render: (): JSX.Element => {
-		// Mock fetch to return results
-		const originalFetch = window.fetch;
-		window.fetch = (() =>
-			Promise.resolve({
-				ok: true,
-				json: () =>
-					Promise.resolve({
-						conversations: mockConversations,
-						work: mockWork,
-						knowledge: mockKnowledge,
-					}),
-			})) as typeof window.fetch;
-
-		// Restore on unmount would require useEffect, keeping simple for stories
-		void originalFetch;
-
-		return <StoryWrapper />;
-	},
+	render: (): JSX.Element => (
+		<StoryWrapper
+			mockPayload={{
+				conversations: mockConversations,
+				work: mockWork,
+				knowledge: mockKnowledge,
+			}}
+		/>
+	),
 };
 
 export const EmptyResults = {
 	name: "Empty Results",
-	render: (): JSX.Element => {
-		window.fetch = (() =>
-			Promise.resolve({
-				ok: true,
-				json: () =>
-					Promise.resolve({
-						conversations: [],
-						work: [],
-						knowledge: [],
-					}),
-			})) as typeof window.fetch;
-
-		return <StoryWrapper />;
-	},
+	render: (): JSX.Element => (
+		<StoryWrapper
+			mockPayload={{
+				conversations: [],
+				work: [],
+				knowledge: [],
+			}}
+		/>
+	),
 };
 
 export const Closed = {

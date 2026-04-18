@@ -5,7 +5,7 @@ import type { BetItem, BlockerItem, CostInfo } from "../shell/Rail";
 import { Rail } from "../shell/Rail";
 
 const sampleBets: BetItem[] = [
-	{ id: "bet-1", title: "Launch MVP", product: "HyperIdle", status: "healthy" },
+	{ id: "bet-1", title: "Launch MVP", product: "HyperIdle", status: "committed" },
 	{ id: "bet-2", title: "User Onboarding", product: "HyperIdle", status: "behind" },
 ];
 
@@ -14,7 +14,7 @@ const sampleBlockers: BlockerItem[] = [
 		id: "blocker-1",
 		agent: "Agent Alpha",
 		reason: "Waiting for API key",
-		severity: "blocked",
+		severity: "low",
 	},
 ];
 
@@ -235,6 +235,48 @@ describe("Rail", () => {
 			expect(betsSection).not.toBeNull();
 			// biome-ignore lint/style/noNonNullAssertion: guarded by expect above
 			expect(within(betsSection!).getByText("0")).toBeInTheDocument();
+		});
+	});
+
+	describe("BetStatus chip rendering (I4 S4)", () => {
+		// After the mapping duplicate is removed and the shared status-mapping
+		// module is used, a bet with status "behind" must render the BEHIND
+		// chip (not the HEALTHY fallback the old duplicate used as default).
+		it("renders the BEHIND chip for a behind bet", () => {
+			const behindBets: BetItem[] = [
+				{ id: "b", title: "Behind Bet", product: "P", status: "behind" },
+			];
+			// Empty blockers so the only chip is the bet's chip — severities
+			// also render StatusChip and would otherwise collide.
+			render(<Rail {...defaultProps} bets={behindBets} blockers={[]} />);
+			// StatusChip uppercases the status text.
+			expect(screen.getByText("BEHIND")).toBeInTheDocument();
+			// Must NOT fall through to HEALTHY.
+			expect(screen.queryByText("HEALTHY")).not.toBeInTheDocument();
+		});
+
+		it("renders the BLOCKED chip for a blocked bet", () => {
+			const blockedBets: BetItem[] = [
+				{ id: "b", title: "Blocked Bet", product: "P", status: "blocked" },
+			];
+			render(<Rail {...defaultProps} bets={blockedBets} blockers={[]} />);
+			expect(screen.getByText("BLOCKED")).toBeInTheDocument();
+		});
+
+		it("renders the PAUSED chip for a paused bet", () => {
+			const pausedBets: BetItem[] = [
+				{ id: "b", title: "Paused Bet", product: "P", status: "paused" },
+			];
+			render(<Rail {...defaultProps} bets={pausedBets} blockers={[]} />);
+			expect(screen.getByText("PAUSED")).toBeInTheDocument();
+		});
+
+		it("renders a non-HEALTHY chip for a review bet", () => {
+			const reviewBets: BetItem[] = [
+				{ id: "b", title: "Review Bet", product: "P", status: "review" },
+			];
+			render(<Rail {...defaultProps} bets={reviewBets} />);
+			expect(screen.queryByText("HEALTHY")).not.toBeInTheDocument();
 		});
 	});
 });

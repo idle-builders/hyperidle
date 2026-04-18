@@ -57,4 +57,34 @@ describe("WorkTeam", () => {
 		await user.click(screen.getByLabelText("Close pitch selector"));
 		expect(screen.queryByText("Select Pitch")).not.toBeInTheDocument();
 	});
+
+	it("composes Canvas (top) and Kanban (bottom) in DOM order", () => {
+		// I4 P2: WorkTeam must show Canvas above the Kanban board.
+		renderPage();
+		const canvas = screen.getByTestId("work-team-canvas");
+		const kanban = screen.getByTestId("work-team-kanban");
+		expect(canvas).toBeInTheDocument();
+		expect(kanban).toBeInTheDocument();
+		const order = canvas.compareDocumentPosition(kanban);
+		// Node.DOCUMENT_POSITION_FOLLOWING === 4 → kanban follows canvas
+		expect(order & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+	});
+
+	it("exports a COLUMN_TO_STATE map that translates Kanban columns to TaskState values", async () => {
+		// I4 K1/K2: dragging a task to the Planned column must produce
+		// TaskState `accepted`, not the literal column key `planned` (which
+		// is NOT a valid TaskState). The map is co-located with its inverse
+		// `STATE_TO_COLUMN` in Kanban.tsx (the two are inverse relationships
+		// and must not drift) and re-exported for consumers.
+		const mod = (await import("../shell/Kanban")) as {
+			COLUMN_TO_STATE?: Record<string, string>;
+		};
+		expect(mod.COLUMN_TO_STATE).toBeDefined();
+		expect(mod.COLUMN_TO_STATE).toMatchObject({
+			planned: "accepted",
+			in_progress: "in_progress",
+			blocked: "blocked",
+			done: "done",
+		});
+	});
 });

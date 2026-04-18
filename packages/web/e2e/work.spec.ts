@@ -10,22 +10,15 @@ test.describe("Work Portfolio", () => {
 		await page.waitForSelector("[data-testid='work-portfolio-page']");
 	});
 
-	test("Portfolio page loads with canvas heading", async ({ page }) => {
-		await expect(page.getByText("Portfolio Canvas")).toBeVisible();
+	test("Portfolio page renders a portfolio overview heading (I4 P1)", async ({ page }) => {
+		// No longer "Portfolio Canvas" — the portfolio is now a product
+		// overview.
+		await expect(page.getByRole("heading", { name: /^portfolio$/i })).toBeVisible();
 	});
 
-	test("canvas renders Shaped and Committed columns", async ({ page }) => {
-		await expect(page.getByText("Shaped")).toBeVisible();
-		await expect(page.getByText("Committed")).toBeVisible();
-	});
-
-	test("bet cards are visible in the canvas", async ({ page }) => {
-		await expect(page.getByText("User auth flow")).toBeVisible();
-		await expect(page.getByText("Dashboard redesign")).toBeVisible();
-	});
-
-	test("capacity badge shows committed count", async ({ page }) => {
-		await expect(page.getByText("2 / 4")).toBeVisible();
+	test("Portfolio shows at least one product status card (I4 P4)", async ({ page }) => {
+		const cards = page.getByTestId("product-card");
+		await expect(cards.first()).toBeVisible();
 	});
 });
 
@@ -40,10 +33,17 @@ test.describe("Work Team Board", () => {
 	});
 
 	test("kanban renders four columns", async ({ page }) => {
-		await expect(page.getByText("Hold")).toBeVisible();
-		await expect(page.getByText("In Progress")).toBeVisible();
-		await expect(page.getByText("Review")).toBeVisible();
-		await expect(page.getByText("Done")).toBeVisible();
+		// I4 K1/K2: Kanban columns are Planned / Blocked / In Progress / Done
+		// (see Kanban.tsx COLUMNS). These match UI_DESIGN.md §Tier-3.
+		await expect(page.getByRole("heading", { name: "Planned" })).toBeVisible();
+		await expect(page.getByRole("heading", { name: "Blocked" })).toBeVisible();
+		await expect(page.getByRole("heading", { name: "In Progress" })).toBeVisible();
+		await expect(page.getByRole("heading", { name: "Done" })).toBeVisible();
+	});
+
+	test("WorkTeam contains both Canvas and Kanban sections (I4 P2/P5)", async ({ page }) => {
+		await expect(page.getByTestId("work-team-canvas")).toBeVisible();
+		await expect(page.getByTestId("work-team-kanban")).toBeVisible();
 	});
 
 	test("task cards are visible in the kanban", async ({ page }) => {

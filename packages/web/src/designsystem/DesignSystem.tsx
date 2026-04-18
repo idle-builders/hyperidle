@@ -17,10 +17,24 @@ const layoutModules = import.meta.glob<Record<string, unknown>>("../layouts/*.st
 });
 const storyGlobs = { ...componentModules, ...shellModules, ...pageModules, ...layoutModules };
 
-function parseStoryModules(): StoryModule[] {
+/**
+ * I4 D2: parseStoryModules now detects CSF3 object stories (`{ name, render }`)
+ * in addition to the legacy function-style stories. The function is
+ * exported for testability — vitest passes synthetic glob shapes to verify
+ * detection without touching the real `import.meta.glob` output.
+ *
+ * @lore Behaviour is additive: function exports continue to be picked up
+ * exactly as before; object exports are inspected for a `.render` function
+ * and (optionally) a `.name` field.
+ */
+export function parseStoryModules(
+	fakeModules?: Record<string, Record<string, unknown>>,
+): StoryModule[] {
+	const source: Record<string, Record<string, unknown>> = fakeModules ??
+	(storyGlobs as Record<string, Record<string, unknown>>);
 	const modules: StoryModule[] = [];
 
-	for (const [, mod] of Object.entries(storyGlobs)) {
+	for (const [, mod] of Object.entries(source)) {
 		const defaultExport = mod.default as StoryMeta | undefined;
 		if (!defaultExport?.title) continue;
 
@@ -29,6 +43,16 @@ function parseStoryModules(): StoryModule[] {
 			if (key === "default") continue;
 			if (typeof value === "function") {
 				variants.push({ name: key, Component: value as ComponentType });
+				continue;
+			}
+			if (
+				value &&
+				typeof value === "object" &&
+				"render" in value &&
+				typeof (value as { render?: unknown }).render === "function"
+			) {
+				const obj = value as { name?: string; render: ComponentType };
+				variants.push({ name: obj.name ?? key, Component: obj.render });
 			}
 		}
 

@@ -1,0 +1,24 @@
+import type { JSX } from "react";
+import { ErrorBoundary } from "./ErrorBoundary";
+
+export default { title: "ErrorBoundary" };
+
+function Throws({ message }: { message: string }): JSX.Element {
+	throw new Error(message);
+}
+
+function Healthy(): JSX.Element {
+	return <div className="text-sm">Children rendered without error.</div>;
+}
+
+export const Healthy_: () => JSX.Element = (): JSX.Element => (
+	<ErrorBoundary>
+		<Healthy />
+	</ErrorBoundary>
+);
+
+export const Caught: () => JSX.Element = (): JSX.Element => (
+	<ErrorBoundary>
+		<Throws message="Demo render failure: knowledge feed unavailable." />
+	</ErrorBoundary>
+);

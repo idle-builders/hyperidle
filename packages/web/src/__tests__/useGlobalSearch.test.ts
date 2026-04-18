@@ -349,6 +349,43 @@ describe("useGlobalSearch", () => {
 		expect(result.current.results.knowledge).toEqual([]);
 	});
 
+	it("clears stale results when query becomes empty", async () => {
+		// I4 N2: spec validation scenario — "given search results showing,
+		// when query cleared character by character, then results clear".
+		(global.fetch as ReturnType<typeof vi.fn>).mockResolvedValue({
+			ok: true,
+			json: () => Promise.resolve(mockSearchResults),
+		});
+
+		const { result } = renderHook(() => useGlobalSearch());
+		act(() => {
+			result.current.setQuery("foo");
+		});
+		await act(async () => {
+			vi.advanceTimersByTime(150);
+		});
+		await waitFor(() => {
+			expect(result.current.hasResults).toBe(true);
+		});
+
+		act(() => {
+			result.current.setQuery("fo");
+		});
+		act(() => {
+			result.current.setQuery("f");
+		});
+		act(() => {
+			result.current.setQuery("");
+		});
+
+		// After the final setQuery(""), the hook must synchronously reset
+		// results (no pending fetch, no in-flight stale data).
+		expect(result.current.query).toBe("");
+		expect(result.current.results).toEqual(emptyResults);
+		expect(result.current.hasResults).toBe(false);
+		expect(result.current.totalCount).toBe(0);
+	});
+
 	it("aborts in-flight fetch on unmount", async () => {
 		const abortSpy = vi.spyOn(AbortController.prototype, "abort");
 		(global.fetch as ReturnType<typeof vi.fn>).mockResolvedValue({
@@ -366,6 +403,64 @@ describe("useGlobalSearch", () => {
 
 		unmount();
 		expect(abortSpy).toHaveBeenCalled();
+		abortSpy.mockRestore();
+	});
+
+	it("surfaces an error when every row in non-empty buckets is malformed (adversary C4)", async () => {
+		const errSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+		// Server returns non-empty buckets but every row is missing required fields.
+		(global.fetch as ReturnType<typeof vi.fn>).mockResolvedValue({
+			ok: true,
+			json: () =>
+				Promise.resolve({
+					conversations: [{ foo: "no-id-here" }, { bar: "also-bad" }],
+					work: [{ unrelated: true }],
+					knowledge: [],
+				}),
+		});
+
+		const { result } = renderHook(() => useGlobalSearch());
+		act(() => {
+			result.current.setQuery("schema-drift");
+		});
+		await act(async () => {
+			vi.advanceTimersByTime(150);
+		});
+
+		await waitFor(() => {
+			expect(result.current.loading).toBe(false);
+			expect(result.current.error).not.toBeNull();
+		});
+		// Results must remain empty; no stale data.
+		expect(result.current.results).toEqual(emptyResults);
+		// The hook logged the diagnostic with its prefix.
+		const hasLog = errSpy.mock.calls
+			.map((c) => c.join(" "))
+			.some((c) => c.includes("[useGlobalSearch]"));
+		expect(hasLog).toBe(true);
+		errSpy.mockRestore();
+	});
+
+	it("clear() aborts any in-flight fetch (adversary W7)", async () => {
+		const abortSpy = vi.spyOn(AbortController.prototype, "abort");
+		// Pending fetch so the controller is in-flight when clear() is called.
+		(global.fetch as ReturnType<typeof vi.fn>).mockReturnValue(new Promise(() => {}));
+
+		const { result } = renderHook(() => useGlobalSearch());
+		act(() => {
+			result.current.setQuery("inflight");
+		});
+		await act(async () => {
+			vi.advanceTimersByTime(150);
+		});
+
+		abortSpy.mockClear();
+		act(() => {
+			result.current.clear();
+		});
+
+		expect(abortSpy).toHaveBeenCalled();
+		expect(result.current.loading).toBe(false);
 		abortSpy.mockRestore();
 	});
 });

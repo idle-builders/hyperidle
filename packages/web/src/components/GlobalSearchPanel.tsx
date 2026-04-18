@@ -145,7 +145,7 @@ export function GlobalSearchPanel({
 					<div className="overflow-y-auto flex flex-col gap-1">
 						{search.results.conversations.length > 0 && (
 							<div>
-								<h3 className="text-xs font-semibold text-base-content/50 px-2 py-1">
+								<h3 className="text-xs font-semibold text-[var(--text-lo)] px-2 py-1">
 									Conversations
 								</h3>
 								{search.results.conversations.map((c) => {
@@ -171,7 +171,7 @@ export function GlobalSearchPanel({
 
 						{search.results.work.length > 0 && (
 							<div>
-								<h3 className="text-xs font-semibold text-base-content/50 px-2 py-1">Work</h3>
+								<h3 className="text-xs font-semibold text-[var(--text-lo)] px-2 py-1">Work</h3>
 								{search.results.work.map((w) => {
 									const idx = itemIndex++;
 									return (
@@ -194,7 +194,7 @@ export function GlobalSearchPanel({
 
 						{search.results.knowledge.length > 0 && (
 							<div>
-								<h3 className="text-xs font-semibold text-base-content/50 px-2 py-1">Knowledge</h3>
+								<h3 className="text-xs font-semibold text-[var(--text-lo)] px-2 py-1">Knowledge</h3>
 								{search.results.knowledge.map((k) => {
 									const idx = itemIndex++;
 									return (
@@ -217,7 +217,7 @@ export function GlobalSearchPanel({
 						)}
 
 						{showEmptyState && (
-							<p className="text-sm text-base-content/50 text-center py-8">
+							<p className="text-sm text-[var(--text-lo)] text-center py-8">
 								No matches. Try different query.
 							</p>
 						)}

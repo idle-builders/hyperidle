@@ -6,27 +6,15 @@ import type { KnowledgeStatus } from "@hyperidle/shared";
 import type { JSX } from "react";
 import { useParams } from "react-router-dom";
 import { KeyValue } from "../components/KeyValue";
-import type { Status } from "../components/StatusChip";
 import { StatusChip } from "../components/StatusChip";
 import { Tag } from "../components/Tag";
+import { knowledgeStatusToStatus } from "../components/status-mapping";
 
-/** Maps domain KnowledgeStatus to presentation Status for StatusChip rendering. */
-function knowledgeStatusToChipStatus(status: KnowledgeStatus): Status {
-	switch (status) {
-		case "active":
-		case "validated":
-			return "healthy";
-		case "stale":
-			return "behind";
-		case "archived":
-			return "done";
-		case "provisional":
-		case "needs_human":
-			return "paused";
-		default:
-			return "healthy";
-	}
-}
+/**
+ * @lore I4 S5: previously a local `knowledgeStatusToChipStatus` switch
+ * existed here; deleted in favour of the canonical
+ * `knowledgeStatusToStatus` from `components/status-mapping.ts`.
+ */
 
 interface MockKnowledgeDetail {
 	id: string;
@@ -78,28 +66,6 @@ const FALLBACK_DETAIL: MockKnowledgeDetail = {
 export function KnowledgeDetail(): JSX.Element {
 	const { knowledgeId } = useParams<{ knowledgeId: string }>();
 	const item = (knowledgeId && MOCK_DETAILS[knowledgeId]) || FALLBACK_DETAIL;
-	const loading = false;
-	const error: string | null = null;
-
-	if (loading) {
-		return (
-			<div className="flex flex-col gap-3 h-full max-w-2xl" data-testid="knowledge-detail-page">
-				<div className="skeleton h-6 w-3/4" />
-				<div className="skeleton h-4 w-1/2" />
-				<div className="skeleton h-32 w-full" />
-			</div>
-		);
-	}
-
-	if (error) {
-		return (
-			<div className="flex flex-col gap-3 h-full max-w-2xl" data-testid="knowledge-detail-page">
-				<div role="alert" className="alert alert-error text-sm">
-					{error}
-				</div>
-			</div>
-		);
-	}
 
 	return (
 		<div className="flex flex-col gap-3 h-full max-w-2xl" data-testid="knowledge-detail-page">
@@ -107,7 +73,7 @@ export function KnowledgeDetail(): JSX.Element {
 				<h1 className="text-sm font-semibold">{item.title}</h1>
 				<Tag label={item.layer} />
 				<Tag label={item.kind} />
-				<StatusChip status={knowledgeStatusToChipStatus(item.status)} />
+				<StatusChip status={knowledgeStatusToStatus(item.status)} />
 			</div>
 
 			<div className="flex flex-col gap-2">
