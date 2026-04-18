@@ -30,7 +30,8 @@ const storyGlobs = { ...componentModules, ...shellModules, ...pageModules, ...la
 export function parseStoryModules(
 	fakeModules?: Record<string, Record<string, unknown>>,
 ): StoryModule[] {
-	const source = fakeModules ?? storyGlobs;
+	const source: Record<string, Record<string, unknown>> = fakeModules ??
+	(storyGlobs as Record<string, Record<string, unknown>>);
 	const modules: StoryModule[] = [];
 
 	for (const [, mod] of Object.entries(source)) {

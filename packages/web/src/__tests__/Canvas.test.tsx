@@ -87,12 +87,9 @@ describe("Canvas", () => {
 		// I4 KB1: KeyboardSensor must be configured alongside PointerSensor so
 		// drag can be driven via keyboard. Verified at source level; Playwright
 		// covers the end-to-end behaviour.
-		const __filename = fileURLToPath(import.meta.url);
-		const __dirname = dirname(__filename);
-		const src = readFileSync(
-			join(__dirname, "..", "shell", "Canvas.tsx"),
-			"utf8",
-		);
+		const Filename = fileURLToPath(import.meta.url);
+		const Dirname = dirname(Filename);
+		const src = readFileSync(join(Dirname, "..", "shell", "Canvas.tsx"), "utf8");
 		expect(src).toMatch(/KeyboardSensor/);
 		expect(src).toMatch(/useSensor\(\s*KeyboardSensor/);
 	});

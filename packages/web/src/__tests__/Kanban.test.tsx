@@ -120,12 +120,9 @@ describe("Kanban", () => {
 		// so we verify the source-level contract instead — the Playwright
 		// test in keyboard-and-responsive.spec.ts covers the full keyboard
 		// drag behaviour in a real browser.
-		const __filename = fileURLToPath(import.meta.url);
-		const __dirname = dirname(__filename);
-		const src = readFileSync(
-			join(__dirname, "..", "shell", "Kanban.tsx"),
-			"utf8",
-		);
+		const Filename = fileURLToPath(import.meta.url);
+		const Dirname = dirname(Filename);
+		const src = readFileSync(join(Dirname, "..", "shell", "Kanban.tsx"), "utf8");
 		expect(src).toMatch(/KeyboardSensor/);
 		expect(src).toMatch(/useSensor\(\s*KeyboardSensor/);
 	});
