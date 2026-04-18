@@ -106,6 +106,36 @@ describe("AppShell", () => {
 		});
 	});
 
+	describe("responsive live updates (Arch M4)", () => {
+		// Helper to drive window.innerWidth + dispatch resize.
+		function setViewport(width: number): void {
+			Object.defineProperty(window, "innerWidth", {
+				configurable: true,
+				writable: true,
+				value: width,
+			});
+			window.dispatchEvent(new Event("resize"));
+		}
+
+		it("re-collapses Submenu live when the viewport shrinks below 1024px", async () => {
+			// Start at 1920 (wide — submenu expanded, Review Queue visible).
+			setViewport(1920);
+			renderShell();
+			await waitFor(() => {
+				expect(screen.getByText("Review Queue")).toBeInTheDocument();
+			});
+			// Shrink to 800px — Submenu must re-collapse, which means the
+			// Submenu component stops rendering its children (see Submenu.tsx
+			// — when `collapsed`, children are not rendered at all).
+			setViewport(800);
+			await waitFor(() => {
+				expect(screen.queryByText("Review Queue")).not.toBeInTheDocument();
+			});
+			// Restore default for other tests.
+			setViewport(1920);
+		});
+	});
+
 	describe("global search navigation by type", () => {
 		// I4 N1: `handleSearchNavigate` must route by result type.
 		// Fixture routes added so we can observe where navigation lands.
