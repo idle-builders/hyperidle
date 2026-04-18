@@ -66,28 +66,6 @@ const FALLBACK_DETAIL: MockKnowledgeDetail = {
 export function KnowledgeDetail(): JSX.Element {
 	const { knowledgeId } = useParams<{ knowledgeId: string }>();
 	const item = (knowledgeId && MOCK_DETAILS[knowledgeId]) || FALLBACK_DETAIL;
-	const loading = false;
-	const error: string | null = null;
-
-	if (loading) {
-		return (
-			<div className="flex flex-col gap-3 h-full max-w-2xl" data-testid="knowledge-detail-page">
-				<div className="skeleton h-6 w-3/4" />
-				<div className="skeleton h-4 w-1/2" />
-				<div className="skeleton h-32 w-full" />
-			</div>
-		);
-	}
-
-	if (error) {
-		return (
-			<div className="flex flex-col gap-3 h-full max-w-2xl" data-testid="knowledge-detail-page">
-				<div role="alert" className="alert alert-error text-sm">
-					{error}
-				</div>
-			</div>
-		);
-	}
 
 	return (
 		<div className="flex flex-col gap-3 h-full max-w-2xl" data-testid="knowledge-detail-page">
