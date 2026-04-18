@@ -23,6 +23,7 @@
       "name": "@hyperidle/db",
       "version": "0.0.1",
       "dependencies": {
+        "@hyperidle/shared": "workspace:*",
         "better-sqlite3": "^11.7.0",
         "drizzle-orm": "^0.39.0",
         "postgres": "^3.4.9",

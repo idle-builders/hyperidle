@@ -1,20 +1,11 @@
-/**
- * H4: Seed a Postgres DB specified by DATABASE_URL (vps/cloud profiles).
- *
- * The SQLite seed in `seed.ts` targets the SQLite schema. For the pg case
- * we call the equivalent inserts against the pg schema using Drizzle's
- * cross-driver query API. Keeping this as a thin standalone script
- * avoids pulling pg-specific code into `seed.ts` (which must stay
- * dialect-agnostic from the caller's point of view).
- *
- * Currently a minimal smoke seed — expands over time as needed. AC4
- * (config-only swap) is validated by the existing pg-schema parity test
- * and the pg-migration test; production seeds typically happen via a
- * migration-authored data file rather than a runtime seed.
- */
-
 import { createPgDb } from "./pg-connection.js";
 import { factorySettings, products } from "./schema.pg.js";
+
+// @lore Minimal smoke seed against the PG schema — expands over time. The
+// SQLite `seed()` still targets better-sqlite3 via sync `.run()`; reusing
+// it against the async postgres-js driver requires a follow-up story to
+// convert the 800+ server call sites to async. Documented in
+// docs/DEPLOYMENT.md § "Switching SQLite → Postgres".
 
 async function main(): Promise<number> {
 	const url = process.env.DATABASE_URL;

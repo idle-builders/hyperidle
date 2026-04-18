@@ -1,9 +1,10 @@
+import { spawnSync } from "node:child_process";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import Database from "better-sqlite3";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { runSetup } from "../setup-cli.js";
+import { runSetup, validateDbPath } from "../setup-cli.js";
 
 interface CapturedIo {
 	stdout: string[];
@@ -112,4 +113,121 @@ describe("H4: CLI argument errors", () => {
 		expect(all).toMatch(/usage/i);
 		expect(all).toMatch(/--profile/);
 	});
+});
+
+describe("H4 security: --db-path validation", () => {
+	it("rejects paths with .. traversal segments", () => {
+		expect(() => validateDbPath("../../../etc/passwd", tmpdir)).toThrow(/'\.\.'/);
+		expect(() => validateDbPath("a/b/../c.db", tmpdir)).toThrow(/'\.\.'/);
+	});
+
+	it("rejects paths whose parent directory cannot be written", () => {
+		// /proc/1 exists but is not writable by normal processes; use it as
+		// an un-writable parent probe. Skip if running as root (uid 0).
+		if (typeof process.getuid === "function" && process.getuid() === 0) {
+			return;
+		}
+		expect(() => validateDbPath("/proc/1/hyperidle.db", tmpdir)).toThrow(/not writable/);
+	});
+
+	it("resolves a relative path to an absolute path under cwd", () => {
+		const out = validateDbPath("data/hyperidle.db", tmpdir);
+		expect(path.isAbsolute(out)).toBe(true);
+		expect(out.startsWith(tmpdir)).toBe(true);
+	});
+
+	it("accepts an absolute path whose parent is writable", () => {
+		const target = path.join(tmpdir, "sub", "hyperidle.db");
+		const out = validateDbPath(target, tmpdir);
+		expect(out).toBe(target);
+		expect(fs.existsSync(path.dirname(target))).toBe(true);
+	});
+
+	it("runSetup surfaces the validation error and exits non-zero", async () => {
+		const { io, captured } = makeIo();
+		const exit = await runSetup(["--profile", "laptop", "--db-path", "../etc/passwd"], io, {
+			env: {},
+			cwd: tmpdir,
+		});
+		expect(exit).toBe(1);
+		expect(captured.stderr.join("\n")).toMatch(/'\.\.'/);
+	});
+});
+
+describe("H4 idempotency: laptop setup is safe to run twice", () => {
+	it("running setup --profile laptop twice does not corrupt the DB", async () => {
+		const dbPath = path.join(tmpdir, "hyperidle.db");
+		const { io } = makeIo();
+
+		const first = await runSetup(["--profile", "laptop", "--db-path", dbPath], io, {
+			env: {},
+		});
+		expect(first).toBe(0);
+
+		const second = await runSetup(["--profile", "laptop", "--db-path", dbPath], io, {
+			env: {},
+		});
+		expect(second).toBe(0);
+
+		// DB must still open, schema must still be present, seed rows must
+		// still be there exactly once (onConflictDoNothing).
+		const raw = new Database(dbPath);
+		try {
+			const agents = raw.prepare("SELECT id FROM agents").all() as Array<{ id: string }>;
+			expect(agents.length).toBeGreaterThan(0);
+			const products = raw
+				.prepare("SELECT COUNT(*) AS n FROM products WHERE id = 'seed-product-1'")
+				.get() as { n: number };
+			expect(products.n).toBe(1);
+		} finally {
+			raw.close();
+		}
+	});
+});
+
+describe("H4 AC1: Bun runtime path for applyLaptopMigrations", () => {
+	// @lore The Node test path exercises better-sqlite3 directly; the Bun
+	// path uses bun:sqlite. We shell out to `bun` so the sandbox exercises
+	// the dynamic-import branch we cannot reach from vitest-under-Node.
+	// When Bun is unavailable (e.g. CI without Bun) we flag UNVERIFIED and
+	// document the operator-side smoke path in docs/DEPLOYMENT.md.
+	const bunProbe = spawnSync("bun", ["--version"], { stdio: "pipe" });
+	const bunAvailable = bunProbe.status === 0;
+
+	it.runIf(bunAvailable)("runs under Bun: creates a usable SQLite DB", () => {
+		const dbPath = path.join(tmpdir, "bun-hyperidle.db");
+		const cliPath = path.resolve(__dirname, "..", "setup-cli.ts");
+		const result = spawnSync(
+			"bun",
+			["--bun", cliPath, "--profile", "laptop", "--db-path", dbPath],
+			{
+				stdio: "pipe",
+				env: { ...process.env, HYPERIDLE_PROFILE: "" },
+			},
+		);
+		// Bun prints to stderr on failure; include both streams for
+		// diagnostics when the assertion fails.
+		const err = result.stderr?.toString() ?? "";
+		const out = result.stdout?.toString() ?? "";
+		expect(result.status, `bun exit=${result.status}\nstdout:\n${out}\nstderr:\n${err}`).toBe(0);
+		expect(fs.existsSync(dbPath)).toBe(true);
+
+		// Open under better-sqlite3 (the file format is the same) to prove
+		// the DB is valid and seeded.
+		const raw = new Database(dbPath);
+		try {
+			const agents = raw.prepare("SELECT id FROM agents").all() as Array<{ id: string }>;
+			expect(agents.length).toBeGreaterThan(0);
+		} finally {
+			raw.close();
+		}
+	});
+
+	it.skipIf(bunAvailable)(
+		"UNVERIFIED: Bun path not exercised (bun not on PATH) — operator must run `bun run setup --profile laptop` manually",
+		() => {
+			// Documented UNVERIFIED marker. See docs/DEPLOYMENT.md § Laptop.
+			expect(bunAvailable).toBe(false);
+		},
+	);
 });

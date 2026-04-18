@@ -1,20 +1,11 @@
-/**
- * H4 AC3: `bun run test:pg` runner.
- *
- * Intent: run the full server test suite with the Postgres driver.
- * Implementation: dispatch to vitest against the whole monorepo, but
- * gate the run on a real `DATABASE_URL`. When unset, we exit 0 with a
- * message — the pg-migration + pg-connection tests in the default
- * `bun run test` already exercise pglite, so this script is reserved for
- * real-Postgres smoke verification (CI or operator-run).
- *
- * @lore We do NOT swap the driver at test time by env-mutating Drizzle
- * imports; that path would require every test to re-author createTestDb()
- * usage. Instead the default suite uses SQLite (createTestDb) + pglite
- * (createPgTestDb); real Postgres is opt-in for operator smoke.
- */
-
 import { spawnSync } from "node:child_process";
+import { redactDbUrl } from "@hyperidle/shared";
+
+// @lore Real-Postgres smoke runner. When `DATABASE_URL` is unset we exit 0
+// with a message — the pg-migration + pg-connection tests in the default
+// `bun run test` already exercise pglite. Set `DATABASE_URL` to spawn a
+// vitest run targeted at the db + server projects against a real cluster.
+// We do NOT env-mutate the SQLite test path; real-PG integration is opt-in.
 
 function main(): number {
 	const url = process.env.DATABASE_URL;
@@ -26,20 +17,16 @@ function main(): number {
 		);
 		return 0;
 	}
-	process.stdout.write(`[test:pg] Target: ${redact(url)}\n`);
+	process.stdout.write(`[test:pg] Target: ${redactDbUrl(url)}\n`);
 	const result = spawnSync(
 		"vitest",
 		["run", "--project=packages/db", "--project=packages/server"],
 		{
 			stdio: "inherit",
-			env: { ...process.env, HYPERIDLE_DB_DRIVER: "postgres" },
+			env: process.env,
 		},
 	);
 	return result.status ?? 1;
-}
-
-function redact(url: string): string {
-	return url.replace(/(:)([^:@/]+)(@)/, "$1***$3");
 }
 
 process.exit(main());

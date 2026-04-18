@@ -100,6 +100,7 @@ export {
 	PEM_BLOCK_RE,
 	ERROR_TOKEN_PATTERNS,
 	scrubInlineTokens,
+	redactDbUrl,
 } from "./redact.js";
 
 export {

@@ -1,13 +1,3 @@
-/**
- * H4: Deployment profile contract.
- *
- * Three profiles map to a concrete (dbDriver, workspaceAdapter,
- * requiresDockerCompose, ports) tuple. Profile selection order:
- *   1. Explicit `profile` argument (e.g. CLI flag).
- *   2. `HYPERIDLE_PROFILE` env var.
- *   3. Default: `laptop`.
- */
-
 export type DeploymentProfile = "laptop" | "vps" | "cloud";
 
 export type DbDriver = "sqlite" | "postgres";

@@ -1,5 +1,7 @@
 import { eq } from "drizzle-orm";
+import type { BaseSQLiteDatabase } from "drizzle-orm/sqlite-core";
 import type { HyperIdleDb } from "./connection.js";
+import type * as schema from "./schema.js";
 import {
 	agents,
 	bets,
@@ -10,6 +12,14 @@ import {
 	tasks,
 	teams,
 } from "./schema.js";
+
+// @lore `seed` accepts any synchronous SQLite Drizzle instance over our
+// schema — better-sqlite3 and bun:sqlite both fit. Narrowing to
+// `HyperIdleDb` (better-sqlite3 only) would force unsafe casts in the Bun
+// setup path. `TRunResult` is `unknown` because the better-sqlite3 driver
+// returns a `RunResult` and the bun:sqlite driver returns `void`; the seed
+// discards the value.
+export type SeedableDb = BaseSQLiteDatabase<"sync", unknown, typeof schema>;
 
 // @lore: Facilitator agents encode their scope in the `skills` JSON blob
 // (shape: {"scope": "<community|product_id|null>", "tools": [...]}) because
@@ -35,7 +45,7 @@ const COMMUNITY_DISPLAY_NAMES: Record<PracticeCommunity, string> = {
 };
 
 /** Idempotent seed: ≥1 row per major table. */
-export function seed(db: HyperIdleDb): void {
+export function seed(db: SeedableDb | HyperIdleDb): void {
 	const now = new Date().toISOString();
 
 	db.insert(products)
@@ -287,7 +297,7 @@ const BUILTIN_ROUTINE_SEEDS: readonly BuiltinRoutineSeed[] = [
 	},
 ];
 
-function seedBuiltinRoutines(db: HyperIdleDb, _now: string): void {
+function seedBuiltinRoutines(db: SeedableDb | HyperIdleDb, _now: string): void {
 	for (const spec of BUILTIN_ROUTINE_SEEDS) {
 		db.insert(routines)
 			.values({

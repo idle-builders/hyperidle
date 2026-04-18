@@ -1,15 +1,6 @@
-/**
- * H4 setup CLI. Entry: `bun run setup --profile <laptop|vps|cloud>`.
- *
- * @lore The CLI does NOT spawn the dev server itself. Cross-process
- * lifecycle can't be independently verified inside a single test run;
- * operators follow the printed "Ready" banner with `bun dev`. Setup is
- * responsible only for: resolve profile, prepare data store, run
- * migrations, seed. This is an intentional scope cut — see H4-plan.md §4.
- */
-
 import * as fs from "node:fs";
 import * as path from "node:path";
+import { redactDbUrl } from "@hyperidle/shared";
 import { type DeploymentProfile, resolveProfile } from "./profiles.js";
 import * as schema from "./schema.js";
 import { seed } from "./seed.js";
@@ -18,12 +9,9 @@ import { seed } from "./seed.js";
 // Node (test harness via vitest). Bun refuses to dlopen `better-sqlite3`
 // (https://github.com/oven-sh/bun/issues/4290); Node cannot import
 // `bun:sqlite`. So we pick the SQLite driver dynamically at runtime.
-// Drizzle exposes equivalent wrappers for both — they share the same
-// schema and the same query API we use in seed.ts.
+// Drizzle exposes equivalent wrappers for both; they share the same schema
+// and the same query API we use in seed.ts.
 declare global {
-	// Bun's runtime shim. Available when running under Bun; undefined under
-	// Node. We only inspect `.main`.
-	// biome-ignore lint/style/useNamingConvention: Bun global name is fixed.
 	var Bun: { main?: string } | undefined;
 }
 const RUNNING_UNDER_BUN = typeof globalThis.Bun !== "undefined";
@@ -104,6 +92,48 @@ function defaultRoot(cwd: string | undefined): string {
 	return path.resolve(__dirname, "..", "..", "..");
 }
 
+/**
+ * Validate and resolve a `--db-path` value:
+ * - Reject traversal sequences (`..` path segments).
+ * - Resolve to an absolute path relative to `cwd`.
+ * - Ensure the parent directory is writable (creating it if missing).
+ *
+ * Throws an Error with a user-facing message on any failure.
+ */
+export function validateDbPath(input: string, cwd: string): string {
+	if (!input) {
+		throw new Error("--db-path must be a non-empty path");
+	}
+	// Reject traversal BEFORE resolving so `a/../b` is rejected even when it
+	// normalises to something that looks safe. Operators who legitimately
+	// need a path-relative layout can pass an absolute path.
+	const parts = input.split(/[/\\]+/);
+	if (parts.some((p) => p === "..")) {
+		throw new Error(`--db-path must not contain '..' segments: ${input}`);
+	}
+	const resolved = path.isAbsolute(input) ? input : path.resolve(cwd, input);
+	const parent = path.dirname(resolved);
+	// Create parent if missing — fail loudly if we cannot.
+	if (!fs.existsSync(parent)) {
+		try {
+			fs.mkdirSync(parent, { recursive: true });
+		} catch (err) {
+			throw new Error(
+				`--db-path parent directory cannot be created: ${parent} (${(err as Error).message})`,
+			);
+		}
+	}
+	// Probe writability with fs.accessSync. On failure we surface an
+	// explicit message rather than letting better-sqlite3 throw a SQLite
+	// "unable to open database" error that's harder to diagnose.
+	try {
+		fs.accessSync(parent, fs.constants.W_OK);
+	} catch {
+		throw new Error(`--db-path parent directory is not writable: ${parent}`);
+	}
+	return resolved;
+}
+
 async function applyLaptopMigrations(dbPath: string, migrationsFolder: string): Promise<void> {
 	if (RUNNING_UNDER_BUN) {
 		// Bun runtime: use bun:sqlite. Drizzle exposes a dedicated driver.
@@ -116,7 +146,7 @@ async function applyLaptopMigrations(dbPath: string, migrationsFolder: string): 
 			sqlite.exec("PRAGMA foreign_keys = ON");
 			const db = bunDrizzle(sqlite, { schema });
 			bunMigrate(db, { migrationsFolder });
-			seed(db as unknown as Parameters<typeof seed>[0]);
+			seed(db);
 		} finally {
 			sqlite.close();
 		}
@@ -138,20 +168,27 @@ async function applyLaptopMigrations(dbPath: string, migrationsFolder: string): 
 	}
 }
 
-async function runLaptop(args: ParsedArgs, io: RunSetupIo, root: string): Promise<number> {
-	const dbPath = args.dbPath ?? path.join(root, "hyperidle.db");
+async function runLaptop(
+	args: ParsedArgs,
+	io: RunSetupIo,
+	root: string,
+	cwd: string,
+): Promise<number> {
+	const rawPath = args.dbPath ?? path.join(root, "hyperidle.db");
+
+	let dbPath: string;
+	try {
+		dbPath = validateDbPath(rawPath, cwd);
+	} catch (err) {
+		io.stderr(`[setup] ${(err as Error).message}`);
+		return 1;
+	}
 
 	if (args.dryRun) {
 		io.stdout(`[setup] (dry-run) Would create SQLite DB at ${dbPath}`);
 		io.stdout("[setup] (dry-run) Would run migrations from packages/db/drizzle");
 		io.stdout("[setup] (dry-run) Would seed database");
 		return 0;
-	}
-
-	// Ensure parent directory exists
-	const parent = path.dirname(dbPath);
-	if (!fs.existsSync(parent)) {
-		fs.mkdirSync(parent, { recursive: true });
 	}
 
 	const migrationsFolder = path.resolve(__dirname, "..", "drizzle");
@@ -162,7 +199,7 @@ async function runLaptop(args: ParsedArgs, io: RunSetupIo, root: string): Promis
 	return 0;
 }
 
-async function runVps(args: ParsedArgs, io: RunSetupIo, root: string): Promise<number> {
+function runVps(args: ParsedArgs, io: RunSetupIo, root: string): number {
 	const composePath = path.join(root, "docker-compose.yml");
 	if (!fs.existsSync(composePath)) {
 		io.stderr(`[setup] docker-compose.yml not found at ${composePath}. VPS profile requires it.`);
@@ -171,10 +208,10 @@ async function runVps(args: ParsedArgs, io: RunSetupIo, root: string): Promise<n
 
 	io.stdout("[setup] VPS profile: Docker Compose bring-up");
 	io.stdout(`[setup]   Compose file: ${composePath}`);
-	io.stdout("[setup]   1. Copy .env.example → .env and set POSTGRES_PASSWORD.");
-	io.stdout("[setup]   2. Run: docker compose up -d");
-	io.stdout("[setup]   3. Run migrations: bun run db:migrate:pg");
-	io.stdout("[setup]   4. Seed: bun run db:seed:pg");
+	io.stdout("[setup]   See docs/DEPLOYMENT.md § VPS for the full bring-up sequence.");
+	io.stdout(
+		"[setup]   Short form: docker compose up -d && bun run db:migrate:pg && bun run db:seed:pg",
+	);
 
 	if (args.dryRun) {
 		io.stdout("[setup] (dry-run) No containers started; skipping.");
@@ -182,25 +219,19 @@ async function runVps(args: ParsedArgs, io: RunSetupIo, root: string): Promise<n
 	return 0;
 }
 
-async function runCloud(args: ParsedArgs, io: RunSetupIo, ctx: RunSetupContext): Promise<number> {
+function runCloud(args: ParsedArgs, io: RunSetupIo, ctx: RunSetupContext): number {
 	const url = args.dbUrl ?? ctx.env?.DATABASE_URL;
 	if (!url) {
 		io.stderr("[setup] Cloud profile requires DATABASE_URL env var or --db-url.");
 		return 1;
 	}
 	io.stdout("[setup] Cloud profile: remote Postgres");
-	io.stdout(`[setup]   Target: ${redact(url)}`);
-	io.stdout("[setup]   Run: bun run db:migrate:pg");
-	io.stdout("[setup]   Run: bun run db:seed:pg");
+	io.stdout(`[setup]   Target: ${redactDbUrl(url)}`);
+	io.stdout("[setup]   See docs/DEPLOYMENT.md § Cloud for the full bring-up sequence.");
 	if (args.dryRun) {
 		io.stdout("[setup] (dry-run) Not connecting; skipping.");
 	}
 	return 0;
-}
-
-function redact(url: string): string {
-	// postgres://user:password@host/db → postgres://user:***@host/db
-	return url.replace(/(:)([^:@/]+)(@)/, "$1***$3");
 }
 
 /**
@@ -228,11 +259,12 @@ export async function runSetup(
 
 	io.stdout(`[setup] Profile: ${resolved.profile} (db=${resolved.dbDriver})`);
 
+	const cwd = ctx.cwd ?? process.cwd();
 	const root = parsed.root ?? defaultRoot(ctx.cwd);
 
 	switch (resolved.profile satisfies DeploymentProfile) {
 		case "laptop":
-			return runLaptop(parsed, io, root);
+			return await runLaptop(parsed, io, root, cwd);
 		case "vps":
 			return runVps(parsed, io, root);
 		case "cloud":
@@ -241,27 +273,25 @@ export async function runSetup(
 }
 
 /**
- * Module-level invocation. Running `bun packages/db/src/setup-cli.ts ...`
+ * Module-level invocation. Running `bun packages/db/src/setup-cli.ts …`
  * dispatches here.
  */
 /* c8 ignore start */
-// @lore `import.meta.main` + the `Bun.main` global is Bun-specific but
-// safe: this file is the setup CLI entry point and we want side effects
-// only when launched directly, not when imported by tests. `Bun` is
-// declared once at the top of the file.
-const bunRuntime =
-	typeof globalThis.Bun !== "undefined" ? (globalThis.Bun as { main?: string }) : undefined;
-const isEntrypoint = bunRuntime !== undefined && import.meta?.url === `file://${bunRuntime.main}`;
+// @lore `import.meta.main` on Bun is the canonical "am I the entry point"
+// check. We guard on both the Bun global and `import.meta.main` so the
+// file is inert when imported by the test harness under Node.
+const isEntrypoint =
+	typeof globalThis.Bun !== "undefined" &&
+	(import.meta as unknown as { main?: boolean }).main === true;
 if (isEntrypoint) {
 	const io: RunSetupIo = {
 		stdout: (line) => process.stdout.write(`${line}\n`),
 		stderr: (line) => process.stderr.write(`${line}\n`),
 	};
-	runSetup(process.argv.slice(2), io, { env: process.env, cwd: process.cwd() })
-		.then((code) => process.exit(code))
-		.catch((err) => {
-			process.stderr.write(`[setup] Uncaught error: ${(err as Error).message}\n`);
-			process.exit(2);
-		});
+	// Let uncaught errors propagate — the full stack trace is the most
+	// useful artifact when a migration or seed blows up.
+	runSetup(process.argv.slice(2), io, { env: process.env, cwd: process.cwd() }).then((code) =>
+		process.exit(code),
+	);
 }
 /* c8 ignore stop */
