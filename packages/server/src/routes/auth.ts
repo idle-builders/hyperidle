@@ -10,10 +10,21 @@
  * @lore I2 A3: this endpoint is the only legitimate source of WS upgrade
  * tokens. The WS handler MUST NOT accept the master HYPERIDLE_API_KEY
  * passed via `?token=` — only tokens minted here.
+ *
+ * @lore I2 review A1: the minted token must travel in the WS upgrade URL
+ * (`?token=...`) because browsers cannot set Authorization headers on the
+ * WebSocket handshake. We accept that residual risk because:
+ *   (1) tokens are 32-byte random (256 bits) — unguessable,
+ *   (2) TTL is 60s — replay window is bounded,
+ *   (3) consumption is single-shot — the first reader wins,
+ *   (4) the token authorizes session establishment ONLY — every
+ *       subsequent WS message is gated by the established connection.
+ * Future work: switch to `Sec-WebSocket-Protocol` subprotocol header
+ * (RFC 6455 §1.9) so the token never enters URL space.
  */
 
 import { Hono } from "hono";
-import type { UpgradeTokenStore } from "../services/upgrade-token-store.js";
+import type { UpgradeTokenStore } from "../auth/upgrade-token-store.js";
 
 export function createAuthRoutes(store: UpgradeTokenStore): Hono {
 	const router = new Hono();

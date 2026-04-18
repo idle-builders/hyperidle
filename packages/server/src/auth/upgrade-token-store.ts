@@ -10,6 +10,21 @@
  * — that leaked the master key into URL access logs, browser history, and
  * any reverse proxy in front. The upgrade-token model gives the WS its own
  * short-lived credential without storing keys in URL strings.
+ *
+ * @lore I2 review HIGH-1: the store caps live tokens at
+ * `HYPERIDLE_WS_TOKEN_MAX` (default 1000) so a misconfigured rate limit
+ * or compromised key cannot drive the Map to unbounded size. When the cap
+ * is reached the OLDEST token (smallest `expiresAt`) is evicted to make
+ * room for the new one — the operator sees no error but the legitimate
+ * client whose token was evicted falls back to a fresh mint on its next
+ * upgrade attempt.
+ *
+ * @lore I2 review A1: browsers cannot set Authorization headers on the
+ * WebSocket upgrade, so the token must travel in the URL query string.
+ * The mitigations are: 32-byte random tokens, 60s TTL, single-shot
+ * consumption, and the token only authorizes session establishment — never
+ * any subsequent message. Future work: switch to `Sec-WebSocket-Protocol`
+ * subprotocol so the token leaves URL space entirely.
  */
 
 import { randomBytes } from "node:crypto";
@@ -30,6 +45,7 @@ export interface UpgradeTokenStore {
 }
 
 const DEFAULT_TTL_MS = 60_000;
+const DEFAULT_MAX_TOKENS = 1000;
 
 function readTtlMs(): number {
 	const raw = process.env.HYPERIDLE_WS_TOKEN_TTL_MS;
@@ -39,9 +55,18 @@ function readTtlMs(): number {
 	return parsed;
 }
 
+function readMaxTokens(): number {
+	const raw = process.env.HYPERIDLE_WS_TOKEN_MAX;
+	if (!raw) return DEFAULT_MAX_TOKENS;
+	const parsed = Number.parseInt(raw, 10);
+	if (!Number.isFinite(parsed) || parsed <= 0) return DEFAULT_MAX_TOKENS;
+	return parsed;
+}
+
 export function createUpgradeTokenStore(): UpgradeTokenStore {
 	const tokens = new Map<string, TokenRecord>();
 	const ttlMs = readTtlMs();
+	const maxTokens = readMaxTokens();
 
 	function purgeExpired(now: number): void {
 		for (const [token, record] of tokens) {
@@ -51,11 +76,31 @@ export function createUpgradeTokenStore(): UpgradeTokenStore {
 		}
 	}
 
+	function evictOldestByExpiry(): void {
+		let oldestToken: string | null = null;
+		let oldestExpiry = Number.POSITIVE_INFINITY;
+		for (const [token, record] of tokens) {
+			if (record.expiresAt < oldestExpiry) {
+				oldestExpiry = record.expiresAt;
+				oldestToken = token;
+			}
+		}
+		if (oldestToken !== null) tokens.delete(oldestToken);
+	}
+
 	function issue(): { token: string; expiresAt: number } {
 		const now = Date.now();
 		// Lazy cleanup on every issue so memory does not grow unbounded
 		// under sustained issuance without consumption (no setInterval).
 		purgeExpired(now);
+		// I2 review HIGH-1: hard cap on live tokens. If we are still at the
+		// cap after the lazy purge (i.e. all tokens are unexpired), evict
+		// the soonest-to-expire token to make room. The legitimate caller
+		// whose token was evicted simply mints another one on its next
+		// upgrade.
+		while (tokens.size >= maxTokens) {
+			evictOldestByExpiry();
+		}
 		const token = randomBytes(32).toString("base64url");
 		const expiresAt = now + ttlMs;
 		tokens.set(token, { expiresAt });
