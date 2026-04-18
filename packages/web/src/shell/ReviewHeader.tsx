@@ -93,9 +93,13 @@ const INPUT_TAGS = new Set(["INPUT", "TEXTAREA", "SELECT"]);
 function VerdictButton({
 	def,
 	onVerdict,
+	role,
+	tabIndex,
 }: {
 	def: VerdictButtonDef;
 	onVerdict: (action: VerdictAction) => void;
+	role?: string;
+	tabIndex?: number;
 }): JSX.Element {
 	return (
 		<button
@@ -103,6 +107,8 @@ function VerdictButton({
 			className={`btn btn-xs ${def.variant}`}
 			title={`${def.label} (${def.shortcut})`}
 			aria-label={def.label}
+			role={role}
+			tabIndex={tabIndex}
 			onClick={() => onVerdict(def.action)}
 		>
 			{def.label}
@@ -110,6 +116,8 @@ function VerdictButton({
 		</button>
 	);
 }
+
+const MORE_MENU_ID = "review-header-more-menu";
 
 export function ReviewHeader({ proposer, onVerdict }: ReviewHeaderProps): JSX.Element {
 	const headerRef = useRef<HTMLElement>(null);
@@ -177,25 +185,39 @@ export function ReviewHeader({ proposer, onVerdict }: ReviewHeaderProps): JSX.El
 				))}
 			</div>
 
-			{/* I4 P3: overflow control. The 6 secondary verdicts always live in
-				the DOM (so getByRole queries find them and global keyboard
-				shortcuts continue to work) but are visually hidden until the
-				user opens the dropdown. */}
+			{/* I4 P3 + Design H3 / Arch M3: overflow control is a proper ARIA
+				menu. The 6 secondary verdicts always live in the DOM (so
+				`getByRole` queries find them and global keyboard shortcuts
+				continue to work) but when the menu is closed each menuitem
+				is removed from the tab order via tabIndex={-1}. The trigger
+				carries aria-haspopup/aria-controls/aria-expanded so
+				assistive tech associates the disclosure. */}
 			<div className="relative">
 				<button
 					type="button"
 					className="btn btn-xs btn-ghost"
 					aria-label="More actions"
+					aria-haspopup="menu"
+					aria-controls={MORE_MENU_ID}
 					aria-expanded={moreOpen}
 					onClick={() => setMoreOpen((p) => !p)}
 				>
 					More
 				</button>
 				<div
+					id={MORE_MENU_ID}
+					role="menu"
+					aria-label="Secondary verdict actions"
 					className={`absolute right-0 top-full z-10 mt-1 flex flex-col gap-1 rounded border border-[var(--surface-4)] bg-base-200 p-2 shadow ${moreOpen ? "" : "sr-only"}`}
 				>
 					{SECONDARY_BUTTONS.map((btn) => (
-						<VerdictButton key={btn.action} def={btn} onVerdict={onVerdict} />
+						<VerdictButton
+							key={btn.action}
+							def={btn}
+							onVerdict={onVerdict}
+							role="menuitem"
+							tabIndex={moreOpen ? 0 : -1}
+						/>
 					))}
 				</div>
 			</div>
