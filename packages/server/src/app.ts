@@ -68,6 +68,18 @@ interface AppOptions {
 	 * `factory_settings.observability.adapter`.
 	 */
 	observabilityAdapter?: ObservabilityAdapter;
+	/**
+	 * Optional Bun-only WebSocket registration hook. When provided,
+	 * `createApp` invokes it with the `/api` sub-router just after the
+	 * error handler and public `/api/health` route and BEFORE the
+	 * `authMiddleware` catch-all so the WS route can authenticate via
+	 * query token. Kept optional so non-Bun integration tests can omit it.
+	 *
+	 * @lore I1 S1-S5: production `createBunServer` passes this hook so the
+	 * same `createApp` instance powers both production and the integration
+	 * test harness — no divergent "minimal app" path.
+	 */
+	registerWebSocket?: (apiRouter: Hono) => void;
 }
 
 function buildObservabilityAdapter(cfg: ObservabilityConfig): ObservabilityAdapter | null {
@@ -158,6 +170,14 @@ function createApp(options?: AppOptions): Hono {
 		};
 		return c.json(response);
 	});
+
+	// WebSocket route: must register BEFORE the auth middleware because
+	// upgrades authenticate via a query-token (`?token=<api-key>`) in a
+	// middleware defined inside `registerWsRoute`. Optional — omitted by
+	// non-Bun callers (e.g. integration tests).
+	if (options?.registerWebSocket) {
+		options.registerWebSocket(api);
+	}
 
 	// Auth middleware for all other /api routes (except /health above)
 	api.use("*", authMiddleware);

@@ -1,0 +1,303 @@
+/**
+ * Server Factory — I1 integration tests (S1–S5).
+ *
+ * Today's `createBunServer` boots a minimal Hono app that only exposes
+ * `/health`, `/api/health`, `/api/ws` and test routes. Every domain route
+ * (`/api/bets`, `/api/tasks`, `/api/knowledge`, `/api/conversations`,
+ * `/api/agents`, `/api/sessions`, `/api/rail`, `/api/status`,
+ * `/api/notifications`, `/api/observability`, `/api/git-export`,
+ * `/api/routines`) returns 404. This is the bug I1 fixes: production boots
+ * a different app than the one used by integration tests.
+ *
+ * These tests are written BEFORE the fix (RED phase). They assert:
+ *   S1 — `GET /api/status/health` returns 200.
+ *   S2 — every domain route returns non-404 (200/400/401/403 all OK;
+ *        404 means the route is missing).
+ *   S3 — `GET /api/bets` returns 200 + JSON.
+ *   S4 — `POST /api/conversations/items` returns 201 + id when given a
+ *        valid body + seeded thread.
+ *   S5 — WebSocket upgrade at `/api/ws?token=<key>` succeeds.
+ *
+ * How: Vitest runs under Node, but `createBunServer` imports `bun`, so
+ * the test cannot `import` the factory directly. Matching the existing
+ * `websocket.test.ts` pattern, we spawn `bun run src/index.ts` as a
+ * subprocess, pointed at a throwaway SQLite file we seed up front. The
+ * green phase rewires `index.ts` / `createBunServer` to read
+ * `DATABASE_URL` and compose the full `createApp` — until then every
+ * route below 404s.
+ *
+ * @lore I1 S-tests via subprocess: Vitest runs under Node, Bun-only
+ * modules can't be loaded in-process. The subprocess pattern mirrors
+ * `websocket.test.ts` and the production boot path, so any regression
+ * in server-factory surfaces here.
+ */
+
+import { type ChildProcess, spawn } from "node:child_process";
+import * as fs from "node:fs";
+import * as os from "node:os";
+import * as path from "node:path";
+import { resolve } from "node:path";
+import { agents, bets, createDb, products, teams, threads } from "@hyperidle/db";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import WebSocket from "ws";
+
+const TEST_API_KEY = "test-server-factory-I1-key";
+
+function authHeaders(extra?: Record<string, string>): Record<string, string> {
+	return { "X-API-Key": TEST_API_KEY, "Content-Type": "application/json", ...extra };
+}
+
+// Seed a throwaway sqlite file + migrate it + insert minimal fixtures so
+// S3 and S4 have something to query/create against. We use `createDb`
+// from @hyperidle/db for the handle; migrations are run by a second
+// import path because `createDb` itself does not migrate.
+async function createAndSeedDb(dbPath: string): Promise<void> {
+	// Import the migrator dynamically so we use the version bundled with
+	// the @hyperidle/db package.
+	const { migrate } = await import("drizzle-orm/better-sqlite3/migrator");
+	const migrationsFolder = resolve(__dirname, "../../../db/drizzle");
+	const db = createDb(dbPath);
+	migrate(db, { migrationsFolder });
+
+	const now = new Date().toISOString();
+	db.insert(products).values({ id: "p-sf", name: "SF Product", phase: "build", createdAt: now }).run();
+	db.insert(teams)
+		.values({ id: "t-sf", productId: "p-sf", capacity: 5, activeBets: 0, formedAt: now })
+		.run();
+	db.insert(bets)
+		.values({
+			id: "bet-sf",
+			productId: "p-sf",
+			teamId: "t-sf",
+			pitch: "Ship the thing",
+			appetite: "small",
+			status: "shaped",
+			createdAt: now,
+		})
+		.run();
+	db.insert(agents)
+		.values({
+			id: "agent-sf",
+			name: "SF Agent",
+			role: "builder",
+			teamId: "t-sf",
+			status: "active",
+			maxConcurrentSessions: 2,
+			createdAt: now,
+		})
+		.run();
+	db.insert(threads).values({ id: "thread-sf", kind: "task", createdAt: now }).run();
+}
+
+async function waitForReady(proc: ChildProcess, port: number): Promise<void> {
+	await new Promise<void>((resolveReady, rejectReady) => {
+		const timer = setTimeout(() => rejectReady(new Error("Server start timeout")), 8000);
+		let ready = false;
+		const maybeReady = async (): Promise<void> => {
+			if (ready) return;
+			try {
+				const res = await fetch(`http://localhost:${port}/api/health`);
+				if (res.ok) {
+					ready = true;
+					clearTimeout(timer);
+					resolveReady();
+				}
+			} catch {
+				// not ready yet
+			}
+		};
+		proc.stdout?.on("data", () => {
+			void maybeReady();
+		});
+		proc.stderr?.on("data", () => {
+			void maybeReady();
+		});
+		proc.on("error", (err) => {
+			clearTimeout(timer);
+			rejectReady(err);
+		});
+		// Also poll, since stdout may buffer.
+		const pollTimer = setInterval(() => {
+			void maybeReady().then(() => {
+				if (ready) clearInterval(pollTimer);
+			});
+		}, 200);
+		proc.on("exit", () => clearInterval(pollTimer));
+	});
+}
+
+describe("server-factory — I1 integration (S1–S5)", () => {
+	let serverProcess: ChildProcess;
+	let port: number;
+	let tmpDir: string;
+	let dbPath: string;
+
+	beforeAll(async () => {
+		port = 10000 + Math.floor(Math.random() * 50000);
+		tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "i1-server-factory-"));
+		dbPath = path.join(tmpDir, "test.db");
+		await createAndSeedDb(dbPath);
+
+		const serverRoot = resolve(__dirname, "../..");
+
+		serverProcess = spawn("bun", ["run", "src/index.ts"], {
+			cwd: serverRoot,
+			env: {
+				...process.env,
+				HYPERIDLE_API_KEY: TEST_API_KEY,
+				PORT: String(port),
+				DATABASE_URL: dbPath,
+				NODE_ENV: "test",
+			},
+			stdio: ["ignore", "pipe", "pipe"],
+		});
+
+		await waitForReady(serverProcess, port);
+	}, 15000);
+
+	afterAll(() => {
+		serverProcess?.kill();
+		if (tmpDir && fs.existsSync(tmpDir)) {
+			fs.rmSync(tmpDir, { recursive: true, force: true });
+		}
+	});
+
+	// ------------------------------------------------------------ S1
+	describe("S1: GET /api/status/health returns 200", () => {
+		it("responds with 200 and JSON when authenticated", async () => {
+			const res = await fetch(`http://localhost:${port}/api/status/health`, {
+				headers: authHeaders(),
+			});
+			expect(res.status).toBe(200);
+			const body = (await res.json()) as { status?: string };
+			expect(body.status).toBe("ok");
+		});
+	});
+
+	// ------------------------------------------------------------ S2
+	describe("S2: all domain routes are mounted (non-404)", () => {
+		const DOMAIN_PATHS = [
+			"/api/bets",
+			"/api/tasks",
+			"/api/knowledge",
+			"/api/conversations",
+			"/api/agents",
+			"/api/sessions",
+			"/api/rail",
+			"/api/status",
+			"/api/notifications",
+			"/api/observability",
+			"/api/git-export",
+			"/api/routines",
+		];
+
+		it.each(DOMAIN_PATHS)("GET %s does not return 404", async (domainPath) => {
+			const res = await fetch(`http://localhost:${port}${domainPath}`, {
+				headers: authHeaders(),
+			});
+			// 200 (data), 400 (bad input), 401 (auth), 403 (forbidden) are
+			// all acceptable — they prove the route is mounted. 404 proves
+			// the route is missing (the bug I1 fixes).
+			expect(res.status).not.toBe(404);
+		});
+
+		it("also mounts /api/health (unauthenticated liveness)", async () => {
+			const res = await fetch(`http://localhost:${port}/api/health`);
+			expect(res.status).toBe(200);
+		});
+
+		// The five route files that gained `GET /` handlers in I1 must
+		// return a consistent, DB-free descriptor — not an unbounded SELECT
+		// or a redacted-config blob. This assertion pins the contract so any
+		// future regression that reintroduces an unbounded list fails here.
+		// @lore I1 simplification-#2 / architecture-S1.
+		const BOUNDED_INDEX_ROUTES: ReadonlyArray<{ path: string; resource: string }> = [
+			{ path: "/api/sessions", resource: "sessions" },
+			{ path: "/api/knowledge", resource: "knowledge" },
+			{ path: "/api/notifications", resource: "notifications" },
+			{ path: "/api/observability", resource: "observability" },
+			{ path: "/api/git-export", resource: "git-export" },
+		];
+		it.each(BOUNDED_INDEX_ROUTES)(
+			"GET %s returns 200 + { ok: true, resource, endpoints[] }",
+			async ({ path, resource }) => {
+				const res = await fetch(`http://localhost:${port}${path}`, {
+					headers: authHeaders(),
+				});
+				expect(res.status).toBe(200);
+				const body = (await res.json()) as {
+					ok?: unknown;
+					resource?: unknown;
+					endpoints?: unknown;
+				};
+				expect(body.ok).toBe(true);
+				expect(body.resource).toBe(resource);
+				expect(Array.isArray(body.endpoints)).toBe(true);
+			},
+		);
+	});
+
+	// ------------------------------------------------------------ S3
+	describe("S3: GET /api/bets returns 200 + valid JSON", () => {
+		it("returns grouped JSON with a valid API key and seeded data", async () => {
+			const res = await fetch(`http://localhost:${port}/api/bets`, {
+				headers: authHeaders(),
+			});
+			expect(res.status).toBe(200);
+			const body = (await res.json()) as unknown;
+			// The endpoint returns either an array or an object keyed by
+			// status. Either shape is acceptable — both prove the route
+			// is wired and the db query ran.
+			const isArrayOrObject =
+				Array.isArray(body) || (typeof body === "object" && body !== null);
+			expect(isArrayOrObject).toBe(true);
+		});
+	});
+
+	// ------------------------------------------------------------ S4
+	describe("S4: POST /api/conversations/items returns 201", () => {
+		it("creates an item bound to a seeded thread and returns its id", async () => {
+			const res = await fetch(`http://localhost:${port}/api/conversations/items`, {
+				method: "POST",
+				headers: authHeaders(),
+				body: JSON.stringify({
+					threadId: "thread-sf",
+					title: "S4 test item",
+				}),
+			});
+			expect(res.status).toBe(201);
+			const body = (await res.json()) as { id?: string };
+			expect(typeof body.id).toBe("string");
+			expect(body.id?.length ?? 0).toBeGreaterThan(0);
+		});
+	});
+
+	// ------------------------------------------------------------ S5
+	describe("S5: WebSocket upgrade at /api/ws?token=<key> succeeds", () => {
+		it("opens a WebSocket when the token matches HYPERIDLE_API_KEY", async () => {
+			const url = `ws://localhost:${port}/api/ws?token=${encodeURIComponent(TEST_API_KEY)}`;
+			const ws = new WebSocket(url);
+
+			const outcome = await new Promise<"open" | "error" | "timeout">((resolveOutcome) => {
+				const timer = setTimeout(() => resolveOutcome("timeout"), 3000);
+				ws.onopen = (): void => {
+					clearTimeout(timer);
+					resolveOutcome("open");
+				};
+				ws.onerror = (): void => {
+					clearTimeout(timer);
+					resolveOutcome("error");
+				};
+			});
+
+			expect(outcome).toBe("open");
+			expect(ws.readyState).toBe(WebSocket.OPEN);
+			ws.close();
+		});
+
+		it("rejects a WebSocket upgrade when the token is wrong", async () => {
+			const res = await fetch(`http://localhost:${port}/api/ws?token=nope`);
+			expect(res.status).toBe(401);
+		});
+	});
+});

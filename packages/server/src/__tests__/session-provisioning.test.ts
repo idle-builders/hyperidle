@@ -845,9 +845,12 @@ describe("Session Provisioning (D5)", () => {
 			const task = db.select().from(tasks).where(eq(tasks.id, "task-1")).get();
 			expect(task?.state).toBe("accepted");
 
-			// Audit note must record the failure reason.
-			const audit: Array<{ from: string; to: string; reason?: string }> = task?.notes
-				? JSON.parse(task.notes)
+			// I1 H2: the revert must be recorded in the auditTrail column
+			// (not notes — that is the agent-prose lane). notes must remain
+			// untouched by the revert path.
+			expect(task?.notes == null || task?.notes === "").toBe(true);
+			const audit: Array<{ from: string; to: string; reason?: string }> = task?.auditTrail
+				? JSON.parse(task.auditTrail)
 				: [];
 			const revertEntry = audit.find((e) => e.from === "in_progress" && e.to === "accepted");
 			expect(revertEntry).toBeDefined();
@@ -867,6 +870,51 @@ describe("Session Provisioning (D5)", () => {
 			// Agent cost unchanged.
 			const agent = db.select().from(agents).where(eq(agents.id, "agent-1")).get();
 			expect(agent?.costActual).toBe(0);
+		});
+	});
+
+	// ------------------------------------------------- I1 H2: revert data integrity
+	describe("I1 H2: revertTaskToAccepted writes to auditTrail, preserves notes", () => {
+		it("preserves agent-authored notes prose and appends the revert entry to auditTrail", async () => {
+			seedDomain(db);
+
+			// Seed agent-authored prose on the task before provisioning; the
+			// revert path must not corrupt this column.
+			const agentProse = "Thinking out loud: will pick this back up tomorrow.";
+			db.update(tasks).set({ notes: agentProse }).where(eq(tasks.id, "task-1")).run();
+
+			const failingWorkspace: WorkspaceAdapter = {
+				spawn: async () => {
+					throw new Error("ENOSPC: H2 path");
+				},
+				exec: async () => {
+					throw new Error("unreachable");
+				},
+				destroy: async () => {
+					/* no-op */
+				},
+			};
+
+			const harness = new ScriptedHarnessAdapter({ events: [] });
+			const deps: ProvisionSessionDeps = {
+				db,
+				eventBus,
+				harness,
+				workspace: failingWorkspace,
+			};
+
+			await expect(provisionSession(deps, baseParams(tmpDir))).rejects.toThrow(/ENOSPC: H2 path/);
+
+			const task = db.select().from(tasks).where(eq(tasks.id, "task-1")).get();
+			// notes prose preserved verbatim.
+			expect(task?.notes).toBe(agentProse);
+			// auditTrail carries the revert entry.
+			const audit: Array<{ from: string; to: string; reason?: string }> = task?.auditTrail
+				? JSON.parse(task.auditTrail)
+				: [];
+			const revertEntry = audit.find((e) => e.to === "accepted");
+			expect(revertEntry).toBeDefined();
+			expect(revertEntry?.reason).toMatch(/provisioning failed/);
 		});
 	});
 

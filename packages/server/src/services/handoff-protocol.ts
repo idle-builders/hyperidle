@@ -1,9 +1,15 @@
 import * as crypto from "node:crypto";
 import { type HyperIdleDb, agents, items, messages, sessions, tasks, threads } from "@hyperidle/db";
-import type { EventBus, TaskState } from "@hyperidle/shared";
+import type {
+	DomainEvent,
+	EventBus,
+	TaskState,
+	TaskStateChangedEvent,
+} from "@hyperidle/shared";
 import { and, eq, ne } from "drizzle-orm";
 import type { SessionContext } from "./session-lifecycle.js";
-import { transitionTask } from "./task-state-machine.js";
+import type { HandoffAuditEntry, TaskAuditEntry } from "./task-audit.js";
+import { InvalidTransitionError, VALID_TRANSITIONS } from "./task-state-machine.js";
 
 export interface HandoffMetadata {
 	context_id: string;
@@ -31,12 +37,22 @@ export interface HandoffResult {
 /**
  * Hand off a task from one agent to another (or to a human).
  *
- * Flow:
- * 1. End current session
- * 2. Resolve target agent (by ID, role, or human)
- * 3. Update task ownership
- * 4. Create thread message with structured handoff metadata
- * 5. Log handoff in task audit trail
+ * All DB mutations — session UPDATE, task UPDATE (ownership + auditTrail),
+ * optional thread messages INSERT, optional escalation/review items INSERT —
+ * commit inside a single `db.transaction((tx) => {...})`. Events emit AFTER
+ * the transaction commits, in the order:
+ *   1. task_state_changed (only when the handoff transitioned the task)
+ *   2. item_created (only when an escalation or review item was created)
+ *
+ * If any mutation throws inside the tx, the entire handoff rolls back:
+ * session stays active, ownership unchanged, auditTrail untouched, no
+ * partial messages or items persisted.
+ *
+ * @lore I1 adversary-M2 / security-M3: before I1, handoff's mutations were
+ * sequential bare writes. A mid-flight failure (e.g. a messages INSERT
+ * rejected by a FK) left the session ended but the task untouched, or the
+ * auditTrail re-written without a matching thread message. Transactional
+ * boundary + post-commit emit gives atomic "all or nothing" handoff.
  */
 export async function handoff(
 	db: HyperIdleDb,
@@ -46,191 +62,226 @@ export async function handoff(
 	const { sessionContext, metadata } = params;
 	const now = new Date().toISOString();
 
-	// Validate task exists
+	// Pre-transaction reads + validation (safe to do outside the tx: these
+	// reads do not mutate state, and the tx callback below re-reads any row
+	// it updates to avoid stale snapshots on concurrent handoffs).
 	const task = db.select().from(tasks).where(eq(tasks.id, sessionContext.taskId)).get();
 	if (!task) {
 		throw new Error(`Task not found: ${sessionContext.taskId}`);
 	}
 
-	// 1. End current session
-	db.update(sessions)
-		.set({ state: "done", endedAt: now, cost: 0 })
-		.where(eq(sessions.id, sessionContext.sessionId))
-		.run();
+	// Pre-validate toAgent exists so the tx never rolls back on a
+	// predictable "not found" (keeps error semantics identical to the
+	// pre-transactional implementation).
+	if (params.toAgent) {
+		const targetAgent = db.select().from(agents).where(eq(agents.id, params.toAgent)).get();
+		if (!targetAgent) {
+			throw new Error(`Agent not found: ${params.toAgent}`);
+		}
+	}
 
-	// 2. Resolve target and perform handoff-type-specific logic
-	let result: HandoffResult;
-
-	if (params.toHuman) {
-		result = handleToHuman(db, eventBus, task.id, sessionContext, metadata, now);
-	} else if (params.toAgent) {
-		result = handleToAgent(db, task.id, params.toAgent, now);
-	} else if (params.toRole) {
-		result = handleToRole(db, task.id, task.teamId, sessionContext, params.toRole, metadata, now);
-	} else {
+	if (!(params.toHuman || params.toAgent || params.toRole)) {
 		throw new Error("One of toAgent, toRole, or toHuman must be specified");
 	}
 
-	// 4. Create thread message with structured handoff metadata
-	if (task.threadId) {
-		const messageBody: Record<string, unknown> = {
-			type: "handoff",
-			context_id: metadata.context_id,
-			status: metadata.status,
-			reason: metadata.reason,
-			artifacts: metadata.artifacts,
-			remaining_work: metadata.remaining_work,
-		};
-		if (metadata.error !== undefined) {
-			messageBody.error = metadata.error;
+	// Events captured inside the tx and emitted AFTER commit. Order:
+	//   1. task_state_changed (toHuman only, via the inlined transition)
+	//   2. item_created       (escalation or review-item paths)
+	// `session_ended` is NOT emitted here — handoff does not record a
+	// session's cost-delta outcome, so subscribers like
+	// `session-review-creator` must not fire on handoff.
+	let taskStateChangedEvent: TaskStateChangedEvent | null = null;
+	let itemCreatedEvent: Extract<DomainEvent, { type: "item_created" }> | null = null;
+
+	const result: HandoffResult = db.transaction((tx): HandoffResult => {
+		// 1. End current session (state + endedAt). Cost is preserved —
+		// downstream cost-cap + digest routines depend on it.
+		tx.update(sessions)
+			.set({ state: "done", endedAt: now })
+			.where(eq(sessions.id, sessionContext.sessionId))
+			.run();
+
+		// 2. Perform the handoff-type-specific mutations + capture the
+		// post-commit event shapes.
+		let txResult: HandoffResult;
+		if (params.toHuman) {
+			// Inline the state-machine transition so the mutation is in-tx
+			// and the `task_state_changed` event defers to post-commit.
+			const fromState = task.state as TaskState;
+			const allowed = VALID_TRANSITIONS[fromState];
+			if (!allowed.includes("blocked")) {
+				throw new InvalidTransitionError(task.id, fromState, "blocked");
+			}
+			const existingStateAudit: TaskAuditEntry[] = task.auditTrail
+				? (JSON.parse(task.auditTrail) as TaskAuditEntry[])
+				: [];
+			existingStateAudit.push({ from: fromState, to: "blocked", timestamp: now });
+			tx.update(tasks)
+				.set({
+					state: "blocked",
+					auditTrail: JSON.stringify(existingStateAudit),
+					updatedAt: now,
+				})
+				.where(eq(tasks.id, task.id))
+				.run();
+			taskStateChangedEvent = {
+				type: "task_state_changed",
+				streamId: task.id,
+				taskId: task.id,
+				fromState,
+				toState: "blocked",
+				timestamp: Date.now(),
+			};
+
+			// Review thread + item
+			const reviewThreadId = crypto.randomUUID();
+			tx.insert(threads).values({ id: reviewThreadId, kind: "review", createdAt: now }).run();
+			const reviewItemId = crypto.randomUUID();
+			tx.insert(items)
+				.values({
+					id: reviewItemId,
+					sourceAgentId: sessionContext.agentId,
+					kind: "review",
+					title: `Human review requested for task ${task.id}`,
+					body: JSON.stringify({ taskId: task.id, reason: metadata.reason, metadata }),
+					threadId: reviewThreadId,
+					createdAt: now,
+				})
+				.run();
+			itemCreatedEvent = {
+				type: "item_created",
+				streamId: reviewItemId,
+				itemId: reviewItemId,
+				conversationId: reviewThreadId,
+				kind: "review",
+				timestamp: Date.now(),
+			};
+			txResult = { status: "success" };
+		} else if (params.toAgent) {
+			tx.update(tasks)
+				.set({ ownerAgentId: params.toAgent, updatedAt: now })
+				.where(eq(tasks.id, task.id))
+				.run();
+			txResult = { status: "success", targetAgentId: params.toAgent };
+		} else if (params.toRole) {
+			const availableAgent = tx
+				.select()
+				.from(agents)
+				.where(
+					and(
+						eq(agents.role, params.toRole),
+						eq(agents.teamId, task.teamId),
+						eq(agents.status, "active"),
+						ne(agents.id, sessionContext.agentId),
+					),
+				)
+				.get();
+
+			if (availableAgent) {
+				tx.update(tasks)
+					.set({ ownerAgentId: availableAgent.id, updatedAt: now })
+					.where(eq(tasks.id, task.id))
+					.run();
+				txResult = { status: "success", targetAgentId: availableAgent.id };
+			} else {
+				const escalationThreadId = crypto.randomUUID();
+				tx.insert(threads)
+					.values({ id: escalationThreadId, kind: "escalation", createdAt: now })
+					.run();
+
+				const escalationItemId = crypto.randomUUID();
+				tx.insert(items)
+					.values({
+						id: escalationItemId,
+						sourceAgentId: sessionContext.agentId,
+						kind: "escalation",
+						title: `No available ${params.toRole} agent for task ${task.id}`,
+						body: JSON.stringify({
+							taskId: task.id,
+							requestedRole: params.toRole,
+							reason: metadata.reason,
+							metadata,
+						}),
+						threadId: escalationThreadId,
+						createdAt: now,
+					})
+					.run();
+				itemCreatedEvent = {
+					type: "item_created",
+					streamId: escalationItemId,
+					itemId: escalationItemId,
+					conversationId: escalationThreadId,
+					kind: "escalation",
+					timestamp: Date.now(),
+				};
+				txResult = { status: "escalated", escalationItemId };
+			}
+		} else {
+			// Pre-validated above, but TypeScript's narrowing loses the
+			// guarantee across the transaction closure.
+			throw new Error("One of toAgent, toRole, or toHuman must be specified");
 		}
 
-		db.insert(messages)
-			.values({
-				id: crypto.randomUUID(),
-				senderId: sessionContext.agentId,
-				recipientId: result.targetAgentId ?? sessionContext.agentId,
-				threadId: task.threadId,
-				subject: "handoff",
-				body: JSON.stringify(messageBody),
-				createdAt: now,
+		// 3. Thread message with structured handoff metadata (if the task
+		// has a thread). Runs AFTER the ownership mutation so the recipient
+		// in the message matches the persisted owner.
+		if (task.threadId) {
+			const messageBody: Record<string, unknown> = {
+				type: "handoff",
+				context_id: metadata.context_id,
+				status: metadata.status,
+				reason: metadata.reason,
+				artifacts: metadata.artifacts,
+				remaining_work: metadata.remaining_work,
+			};
+			if (metadata.error !== undefined) {
+				messageBody.error = metadata.error;
+			}
+			tx.insert(messages)
+				.values({
+					id: crypto.randomUUID(),
+					senderId: sessionContext.agentId,
+					recipientId: txResult.targetAgentId ?? sessionContext.agentId,
+					threadId: task.threadId,
+					subject: "handoff",
+					body: JSON.stringify(messageBody),
+					createdAt: now,
+				})
+				.run();
+		}
+
+		// 4. Log the handoff in tasks.auditTrail. Re-read via `tx` so we
+		// observe the state-transition entry appended above (toHuman path).
+		const freshTask = tx.select().from(tasks).where(eq(tasks.id, task.id)).get();
+		const existingAudit: TaskAuditEntry[] = freshTask?.auditTrail
+			? (JSON.parse(freshTask.auditTrail) as TaskAuditEntry[])
+			: [];
+		const handoffEntry: HandoffAuditEntry = {
+			type: "handoff",
+			fromAgent: sessionContext.agentId,
+			toAgent: txResult.targetAgentId,
+			toHuman: params.toHuman,
+			reason: metadata.reason,
+			timestamp: now,
+		};
+		tx.update(tasks)
+			.set({
+				auditTrail: JSON.stringify([...existingAudit, handoffEntry]),
+				updatedAt: now,
 			})
+			.where(eq(tasks.id, task.id))
 			.run();
+
+		return txResult;
+	});
+
+	// Post-commit emission — task_state_changed first, then item_created.
+	if (taskStateChangedEvent) {
+		eventBus.emit(taskStateChangedEvent);
 	}
-
-	// 5. Log handoff in task audit trail
-	// Re-read task to get latest notes (transitionTask may have appended entries)
-	const freshTask = db.select().from(tasks).where(eq(tasks.id, sessionContext.taskId)).get();
-	const existingAudit: unknown[] = freshTask?.notes ? JSON.parse(freshTask.notes) : [];
-	const auditEntry = {
-		type: "handoff",
-		fromAgent: sessionContext.agentId,
-		toAgent: result.targetAgentId,
-		toHuman: params.toHuman,
-		reason: metadata.reason,
-		timestamp: now,
-	};
-	existingAudit.push(auditEntry);
-
-	db.update(tasks)
-		.set({
-			notes: JSON.stringify(existingAudit),
-			updatedAt: now,
-		})
-		.where(eq(tasks.id, sessionContext.taskId))
-		.run();
+	if (itemCreatedEvent) {
+		eventBus.emit(itemCreatedEvent);
+	}
 
 	return result;
-}
-
-function handleToAgent(
-	db: HyperIdleDb,
-	taskId: string,
-	targetAgentId: string,
-	now: string,
-): HandoffResult {
-	// Validate target agent exists
-	const targetAgent = db.select().from(agents).where(eq(agents.id, targetAgentId)).get();
-	if (!targetAgent) {
-		throw new Error(`Agent not found: ${targetAgentId}`);
-	}
-
-	// Set new owner
-	db.update(tasks)
-		.set({ ownerAgentId: targetAgentId, updatedAt: now })
-		.where(eq(tasks.id, taskId))
-		.run();
-
-	return { status: "success", targetAgentId };
-}
-
-function handleToRole(
-	db: HyperIdleDb,
-	taskId: string,
-	teamId: string,
-	sessionContext: SessionContext,
-	role: string,
-	metadata: HandoffMetadata,
-	now: string,
-): HandoffResult {
-	// Find available agent with matching role on same team, excluding the current agent
-	const availableAgent = db
-		.select()
-		.from(agents)
-		.where(
-			and(
-				eq(agents.role, role),
-				eq(agents.teamId, teamId),
-				eq(agents.status, "active"),
-				ne(agents.id, sessionContext.agentId),
-			),
-		)
-		.get();
-
-	if (availableAgent) {
-		db.update(tasks)
-			.set({ ownerAgentId: availableAgent.id, updatedAt: now })
-			.where(eq(tasks.id, taskId))
-			.run();
-
-		return { status: "success", targetAgentId: availableAgent.id };
-	}
-
-	// No agent available -- create escalation item
-	const threadId = crypto.randomUUID();
-	db.insert(threads).values({ id: threadId, kind: "escalation", createdAt: now }).run();
-
-	const escalationItemId = crypto.randomUUID();
-	db.insert(items)
-		.values({
-			id: escalationItemId,
-			sourceAgentId: sessionContext.agentId,
-			kind: "escalation",
-			title: `No available ${role} agent for task ${taskId}`,
-			body: JSON.stringify({
-				taskId,
-				requestedRole: role,
-				reason: metadata.reason,
-				metadata,
-			}),
-			threadId,
-			createdAt: now,
-		})
-		.run();
-
-	return { status: "escalated", escalationItemId };
-}
-
-function handleToHuman(
-	db: HyperIdleDb,
-	eventBus: EventBus,
-	taskId: string,
-	sessionContext: SessionContext,
-	metadata: HandoffMetadata,
-	now: string,
-): HandoffResult {
-	// Transition task to blocked via the state machine (validates the transition)
-	transitionTask(db, eventBus, taskId, "blocked" as TaskState);
-
-	// Create review item
-	const reviewThreadId = crypto.randomUUID();
-	db.insert(threads).values({ id: reviewThreadId, kind: "review", createdAt: now }).run();
-
-	db.insert(items)
-		.values({
-			id: crypto.randomUUID(),
-			sourceAgentId: sessionContext.agentId,
-			kind: "review",
-			title: `Human review requested for task ${taskId}`,
-			body: JSON.stringify({
-				taskId,
-				reason: metadata.reason,
-				metadata,
-			}),
-			threadId: reviewThreadId,
-			createdAt: now,
-		})
-		.run();
-
-	return { status: "success" };
 }

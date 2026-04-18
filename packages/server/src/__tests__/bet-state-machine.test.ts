@@ -257,6 +257,93 @@ describe("bet-state-machine", () => {
 				"Reshaping a bet requires a reason",
 			);
 		});
+
+		// ---------------- I1 / Bet state atomicity (B1-B3) ----------------
+		// The two writes that commit a bet — incrementing `teams.activeBets`
+		// and flipping `bets.status` to committed — must happen atomically.
+		// Without a transaction, a failure between them drifts
+		// `teams.activeBets` away from the real count, and two concurrent
+		// commits can lost-update the counter.
+
+		describe("I1 B1: transitionBet wraps mutating writes in db.transaction", () => {
+			it("calls db.transaction exactly once per transition", async () => {
+				db.insert(bets)
+					.values(makeBet({ status: "shaped" }))
+					.run();
+
+				const txSpy = vi.spyOn(db, "transaction");
+
+				await transitionBet(db, eventBus, "bet-1", "committed");
+
+				expect(txSpy).toHaveBeenCalledTimes(1);
+				txSpy.mockRestore();
+			});
+		});
+
+		describe("I1 B2: two sequential commits increment activeBets to 2", () => {
+			it("increments activeBets once per commit with no drift", async () => {
+				// Two shaped bets, capacity 3, team starts at 0.
+				db.insert(bets)
+					.values(makeBet({ id: "bet-a", status: "shaped" }))
+					.run();
+				db.insert(bets)
+					.values(makeBet({ id: "bet-b", status: "shaped" }))
+					.run();
+
+				await transitionBet(db, eventBus, "bet-a", "committed");
+				await transitionBet(db, eventBus, "bet-b", "committed");
+
+				const team = db.select().from(teams).where(eq(teams.id, "team-1")).get();
+				expect(team?.activeBets).toBe(2);
+
+				const a = db.select().from(bets).where(eq(bets.id, "bet-a")).get();
+				const b = db.select().from(bets).where(eq(bets.id, "bet-b")).get();
+				expect(a?.status).toBe("committed");
+				expect(b?.status).toBe("committed");
+			});
+		});
+
+		describe("I1 B3: failed bet UPDATE rolls back activeBets", () => {
+			it("does not leak an activeBets increment when the bet UPDATE fails inside the transaction", async () => {
+				db.insert(bets)
+					.values(makeBet({ status: "shaped" }))
+					.run();
+
+				// Snapshot pre-condition.
+				const teamBefore = db.select().from(teams).where(eq(teams.id, "team-1")).get();
+				expect(teamBefore?.activeBets).toBe(0);
+
+				// Force the bet UPDATE to throw so the transaction rolls back.
+				// We spy on `db.update` and intercept calls targeting the
+				// `bets` table; the `teams` update must still pass through so
+				// that a naive (non-transactional) implementation would leave
+				// activeBets at 1 — making the post-condition assertion
+				// meaningful.
+				const originalUpdate = db.update.bind(db);
+				const updateSpy = vi
+					.spyOn(db, "update")
+					.mockImplementation((table: Parameters<typeof originalUpdate>[0]) => {
+						if (table === bets) {
+							throw new Error("simulated bets UPDATE failure");
+						}
+						return originalUpdate(table);
+					});
+
+				await expect(transitionBet(db, eventBus, "bet-1", "committed")).rejects.toThrow(
+					/simulated bets UPDATE failure/,
+				);
+
+				updateSpy.mockRestore();
+
+				// Post-condition: team.activeBets is back to 0 (transaction
+				// rolled back the teams UPDATE) and bet.status is unchanged.
+				const teamAfter = db.select().from(teams).where(eq(teams.id, "team-1")).get();
+				expect(teamAfter?.activeBets).toBe(0);
+
+				const bet = db.select().from(bets).where(eq(bets.id, "bet-1")).get();
+				expect(bet?.status).toBe("shaped");
+			});
+		});
 	});
 
 	describe("updateBetField", () => {
@@ -385,6 +472,53 @@ describe("bet-state-machine", () => {
 			expect(log[0].new_value).toBe("committed");
 			expect(log[1].old_value).toBe("committed");
 			expect(log[1].new_value).toBe("in_progress");
+		});
+	});
+
+	// ---------------- I1 adversary-M1: concurrent bet_shipped double-emit ----------------
+	describe("I1 M1: concurrent transitions are compare-and-set", () => {
+		it("second transitionBet to shipped throws InvalidTransitionError and does NOT re-emit bet_shipped", async () => {
+			// Walk the bet forward to `review` so "shipped" is a valid
+			// transition from the read snapshot.
+			db.insert(bets)
+				.values(makeBet({ status: "shaped" }))
+				.run();
+			await transitionBet(db, eventBus, "bet-1", "committed");
+			await transitionBet(db, eventBus, "bet-1", "in_progress");
+			await transitionBet(db, eventBus, "bet-1", "review");
+
+			const events: Array<{ type: string; betId?: string }> = [];
+			eventBus.on("*", (e) => events.push(e as { type: string; betId?: string }));
+
+			// First transition wins — commits and emits both events.
+			await transitionBet(db, eventBus, "bet-1", "shipped");
+
+			// Second transition observes the same `fromState` ("review")
+			// because the pre-transaction read happens against the same row,
+			// but the compare-and-set UPDATE pins `WHERE status = review`
+			// and now the row is `shipped`. changes === 0, the tx rolls
+			// back, and InvalidTransitionError bubbles.
+			await expect(transitionBet(db, eventBus, "bet-1", "shipped")).rejects.toThrow(
+				InvalidTransitionError,
+			);
+
+			const shippedEvents = events.filter((e) => e.type === "bet_shipped");
+			const stateEvents = events.filter((e) => e.type === "bet_state_changed");
+			// Exactly one bet_shipped despite the second transition attempt.
+			expect(shippedEvents).toHaveLength(1);
+			// Exactly one bet_state_changed fires (from the winning
+			// review->shipped transition). The loser throws before emit.
+			expect(stateEvents).toHaveLength(1);
+
+			// The bet row is terminal — still exactly one `shipped` row.
+			const bet = db.select().from(bets).where(eq(bets.id, "bet-1")).get();
+			expect(bet?.status).toBe("shipped");
+			// Revision log has exactly one shipped entry.
+			const log = getRevisionLog(db, "bet-1");
+			const shippedLogs = log.filter(
+				(e) => e.field === "status" && e.new_value === "shipped",
+			);
+			expect(shippedLogs).toHaveLength(1);
 		});
 	});
 });

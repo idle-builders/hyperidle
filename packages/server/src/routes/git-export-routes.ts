@@ -103,6 +103,19 @@ export function createGitExportRoutes(
 		opts.createRunner ?? ((repoPath: string): GitRunner => createGitRunner(repoPath));
 	const fs = opts.fs ?? createNodeFsAdapter();
 
+	// GET / — Bounded resource descriptor. Proves the route is mounted
+	// (I1 S2) without a DB read on every hit. Callers that want the
+	// config hit `/config`.
+	// @lore I1 simplification-#2: previous handler read + redacted the
+	// git-export config on every request.
+	router.get("/", (c) =>
+		c.json({
+			ok: true,
+			resource: "git-export",
+			endpoints: ["GET /config", "PATCH /config", "POST /run", "GET /status"],
+		}),
+	);
+
 	router.get("/config", (c) => c.json(toSafeConfig(readGitExportConfig(db))));
 
 	router.patch("/config", validateBody(patchConfigSchema), (c) => {

@@ -29,6 +29,21 @@ const updateSessionSchema = z.object({
 export function createSessionRoutes(db: HyperIdleDb, eventBus: EventBus): Hono {
 	const router = new Hono();
 
+	// GET / — Bounded resource descriptor. Proves the route is mounted
+	// (I1 S2) without an unbounded SELECT * against `sessions`. Deeper
+	// reads live on dedicated sub-routes (none today; this descriptor
+	// reserves the shape for future additions).
+	// @lore I1 simplification-#2 / architecture-S1: the previous handler
+	// returned the entire sessions table to any authenticated caller — a
+	// memory + information-disclosure cliff on any populated database.
+	router.get("/", (c) =>
+		c.json({
+			ok: true,
+			resource: "sessions",
+			endpoints: ["POST /", "PATCH /:id"],
+		}),
+	);
+
 	// POST / — Create session
 	router.post("/", validateBody(createSessionSchema), (c) => {
 		const body = c.req.valid("json" as never) as z.infer<typeof createSessionSchema>;

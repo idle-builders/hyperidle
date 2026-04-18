@@ -10,6 +10,21 @@ const logTaskInputSchema = z.object({
 
 type LogTaskInput = z.infer<typeof logTaskInputSchema>;
 
+/**
+ * Separator between appended notes. Chosen to be unambiguous when rendered in
+ * the UI and easy to split on programmatically.
+ */
+const NOTE_SEPARATOR = "\n\n---\n\n";
+
+/**
+ * @lore I1 C2/C3: `log_task` writes agent-authored PROSE to `tasks.notes`,
+ * not JSON-serialised audit entries. State transitions and handoffs live in
+ * `tasks.auditTrail`. The tool's description previously said "audit trail"
+ * but that was a misnomer — the column contract is prose-only. Keeping this
+ * as plain-text append preserves reader UX (notes render directly) and
+ * eliminates the risk of the tool corrupting an audit JSON blob that lived
+ * in the same column under the old (wrong) implementation.
+ */
 async function handler(args: LogTaskInput, ctx: ToolContext): Promise<ToolResult> {
 	const parsed = logTaskInputSchema.safeParse(args);
 	if (!parsed.success) {
@@ -23,18 +38,14 @@ async function handler(args: LogTaskInput, ctx: ToolContext): Promise<ToolResult
 	}
 
 	const now = new Date().toISOString();
-	const existingAudit: unknown[] = task.notes ? JSON.parse(task.notes) : [];
-	existingAudit.push({
-		type: "note",
-		agentId: ctx.agentId,
-		sessionId: ctx.sessionId,
-		text: note,
-		timestamp: now,
-	});
+	const prefix = `[${now} ${ctx.agentId}] `;
+	const entry = `${prefix}${note}`;
+	const combined =
+		task.notes && task.notes.length > 0 ? `${task.notes}${NOTE_SEPARATOR}${entry}` : entry;
 
 	ctx.db
 		.update(tasks)
-		.set({ notes: JSON.stringify(existingAudit), updatedAt: now })
+		.set({ notes: combined, updatedAt: now })
 		.where(eq(tasks.id, ctx.taskId))
 		.run();
 
@@ -44,7 +55,7 @@ async function handler(args: LogTaskInput, ctx: ToolContext): Promise<ToolResult
 export const logTaskTool: ToolDefinition<LogTaskInput> = {
 	name: "log_task",
 	description:
-		"Append a note to the current task's audit trail. Useful for recording mid-session discoveries, decisions, or status updates.",
+		"Append a prose note to the current task's notes column. Useful for recording mid-session discoveries, decisions, or status updates. Does not touch the audit trail.",
 	inputSchema: logTaskInputSchema,
 	handler,
 };

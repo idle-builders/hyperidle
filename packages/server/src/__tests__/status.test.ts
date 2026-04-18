@@ -233,4 +233,56 @@ describe("Status & Settings Endpoints (E6)", () => {
 			expect(res.status).toBe(400);
 		});
 	});
+
+	// ---------------- I1 security-H1: GET /settings redacts credentials ----------------
+	describe("I1 security-H1: GET /api/status/settings redacts secret keys", () => {
+		const SECRET_ROWS = [
+			{ key: "notifications.smtp_password", value: "super-secret-pass" },
+			{ key: "notifications.ntfy_auth_token", value: "tk_abc_private" },
+			{ key: "observability.langfuse_secret_key", value: "sk-lf-secret" },
+			{ key: "observability.langfuse_public_key", value: "pk-lf-public" },
+		];
+		const SAFE_ROW = { key: "cost_cap", value: "10000" };
+
+		it("does not return raw secret values in the response body", async () => {
+			const now = new Date().toISOString();
+			db.insert(factorySettings)
+				.values([...SECRET_ROWS, SAFE_ROW].map((r) => ({ ...r, updatedAt: now })))
+				.run();
+
+			const res = await app.request("/api/status/settings", { headers: authHeaders() });
+			expect(res.status).toBe(200);
+			const bodyText = await res.text();
+
+			// No raw secret value substring may appear in the payload.
+			for (const row of SECRET_ROWS) {
+				expect(bodyText).not.toContain(row.value);
+			}
+			// Non-secret settings round-trip unchanged.
+			expect(bodyText).toContain("10000");
+
+			// Every secret row must still be present, just with a redacted value.
+			const body = JSON.parse(bodyText) as Array<{ key: string; value: string | null }>;
+			for (const row of SECRET_ROWS) {
+				const found = body.find((r) => r.key === row.key);
+				expect(found).toBeDefined();
+				expect(found?.value).not.toBe(row.value);
+			}
+		});
+
+		it("PATCH echo also redacts secret values", async () => {
+			const res = await app.request("/api/status/settings", {
+				method: "PATCH",
+				headers: authHeaders(),
+				body: JSON.stringify({
+					key: "notifications.smtp_password",
+					value: "another-secret",
+				}),
+			});
+			expect(res.status).toBe(200);
+			const body = (await res.json()) as { key: string; value: string | null };
+			expect(body.key).toBe("notifications.smtp_password");
+			expect(body.value).not.toBe("another-secret");
+		});
+	});
 });
