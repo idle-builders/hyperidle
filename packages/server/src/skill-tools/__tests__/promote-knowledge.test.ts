@@ -223,7 +223,9 @@ describe("promote_knowledge tool", () => {
 
 	it("INVALID_INPUT surfaces via registry dispatch on missing toStatus", async () => {
 		seedKnowledgeItem(db, "ki-bad", "captured");
-		const registry = buildToolRegistry(makeContext(db));
+		// I2 B1-B4: registry requires explicit role; promote_knowledge is
+		// facilitator-only.
+		const registry = buildToolRegistry(makeContext(db), { role: "chief_of_staff" });
 		const result = await registry.invoke("promote_knowledge", {
 			knowledgeItemId: "ki-bad",
 		});
