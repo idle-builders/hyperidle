@@ -2,6 +2,7 @@ import * as crypto from "node:crypto";
 import { type HyperIdleDb, agents, items, messages, sessions, tasks, threads } from "@hyperidle/db";
 import type { DomainEvent, EventBus, TaskState, TaskStateChangedEvent } from "@hyperidle/shared";
 import { and, eq, ne } from "drizzle-orm";
+import { releaseSessionDedup } from "./cost-cap.js";
 import type { SessionContext } from "./session-lifecycle.js";
 import type { HandoffAuditEntry, TaskAuditEntry } from "./task-audit.js";
 import { InvalidTransitionError, VALID_TRANSITIONS } from "./task-state-machine.js";
@@ -277,6 +278,15 @@ export async function handoff(
 	if (itemCreatedEvent) {
 		eventBus.emit(itemCreatedEvent);
 	}
+
+	// I3 review C1 / arch H-1: handoff sets `state: "done"` on the session
+	// directly inside the transaction above and intentionally does NOT emit
+	// `session_ended` (handoff is not a cost-attribution event — see lines
+	// 85-87). The cost-cap dedup map subscribes to session_ended through
+	// `registerCostCapDedupReleaser`, so handoff would otherwise leak the
+	// per-session entry. Release it explicitly here, post-commit, so the
+	// release happens exactly when the session row's state has flipped.
+	releaseSessionDedup(sessionContext.sessionId);
 
 	return result;
 }

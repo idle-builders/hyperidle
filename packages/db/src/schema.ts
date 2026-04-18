@@ -106,7 +106,8 @@ export const tasks = sqliteTable(
 		index("tasks_bet_id_idx").on(table.betId),
 		index("tasks_team_id_idx").on(table.teamId),
 		index("tasks_product_id_idx").on(table.productId),
-		index("tasks_state_idx").on(table.state),
+		// @lore I3 review O1: `tasks_state_idx` was dropped — state has too
+		// few distinct values to be selective. Migration 0006_drop_tasks_state_idx.
 	],
 );
 
@@ -297,9 +298,13 @@ export const knowledgeItems = sqliteTable(
 
 export const knowledgeEditLog = sqliteTable("knowledge_edit_log", {
 	id: text("id").primaryKey(),
+	// @lore I3 review sec HIGH-2: edit log MUST outlive its subject. Cascade
+	// would let any agent with delete-on-knowledge_items wipe their own
+	// authored history. RESTRICT forces explicit handling — soft-delete the
+	// item or archive its log first. See I3-security-review.md HIGH.
 	itemId: text("item_id")
 		.notNull()
-		.references(() => knowledgeItems.id, { onDelete: "cascade" }),
+		.references(() => knowledgeItems.id, { onDelete: "restrict" }),
 	editor: text("editor").notNull(),
 	field: text("field").notNull(),
 	oldValue: text("old_value"),
@@ -312,9 +317,11 @@ export const knowledgeEditLog = sqliteTable("knowledge_edit_log", {
 
 export const knowledgeConflicts = sqliteTable("knowledge_conflicts", {
 	id: text("id").primaryKey(),
+	// @lore I3 review sec HIGH-2: conflict resolution evidence MUST outlive
+	// its subject — same reasoning as knowledge_edit_log above.
 	itemId: text("item_id")
 		.notNull()
-		.references(() => knowledgeItems.id, { onDelete: "cascade" }),
+		.references(() => knowledgeItems.id, { onDelete: "restrict" }),
 	versionBase: integer("version_base").notNull(),
 	versionCurrent: integer("version_current").notNull(),
 	proposedBody: text("proposed_body").notNull(),

@@ -261,6 +261,37 @@ describe("I3: cost-cap dedup cache bounded", () => {
 		expect(events.length).toBe(0);
 	});
 
+	// I3 review C2: lazy dedup-entry registration. A session that runs
+	// 1000 cost checks UNDER the cap must produce ZERO dedup entries
+	// (no breach → no key → no entry). Prior implementation pre-
+	// registered an empty entry on every recordCostAndCheck, leaking
+	// for sessions that never breached.
+	it("1000 cost checks under cap on one session create zero dedup entries", async () => {
+		seedAgentWithCap(db, {
+			agentId: "agent-x",
+			teamId: "team-x",
+			productId: "prod-x",
+			costCap: 10_000,
+		});
+		seedSession(db, {
+			sessionId: "sess-x",
+			agentId: "agent-x",
+			teamId: "team-x",
+			productId: "prod-x",
+		});
+
+		for (let i = 0; i < 1000; i++) {
+			await recordCostAndCheck(db, eventBus, {
+				sessionId: "sess-x",
+				cost: 10, // far below 10_000 cap
+				agentId: "agent-x",
+				teamId: "team-x",
+			});
+		}
+
+		expect(getDedupCacheSize()).toBe(0);
+	});
+
 	it("aggregate dedup cache stays bounded after 1000 distinct sessions ended", async () => {
 		// Cycle 1000 short-lived sessions through the cost path. After each
 		// session ends, releaseSessionDedup must drop its entry, keeping the
