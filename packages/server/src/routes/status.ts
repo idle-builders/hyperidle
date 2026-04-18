@@ -18,6 +18,13 @@ const SERVER_START_TIME = new Date().toISOString();
 export function createStatusRoutes(db: HyperIdleDb): Hono {
 	const router = new Hono();
 
+	// GET /health — Authenticated status probe. Distinct from the public
+	// `/api/health` (liveness) — this route sits behind the auth middleware
+	// and is the canonical "status/health" endpoint referenced by I1 S1.
+	router.get("/health", (c) => {
+		return c.json({ status: "ok", timestamp: new Date().toISOString() });
+	});
+
 	// GET / — Factory-wide status
 	router.get("/", (c) => {
 		const activeSessions = db.select().from(sessions).where(eq(sessions.state, "active")).all();
