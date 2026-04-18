@@ -8,13 +8,8 @@ import {
 import { eq } from "drizzle-orm";
 import { beforeEach, describe, expect, it } from "vitest";
 import { checkAndUnblockDependents } from "../services/dependency-watcher.js";
+import type { StateTransitionAuditEntry, TaskAuditEntry } from "../services/task-audit.js";
 import { InvalidTransitionError, transitionTask } from "../services/task-state-machine.js";
-
-interface AuditEntry {
-	from: string;
-	to: string;
-	timestamp: string;
-}
 
 function seedPrerequisites(db: HyperIdleDb): void {
 	const now = new Date().toISOString();
@@ -234,17 +229,21 @@ describe("Task State Machine", () => {
 			transitionTask(db, eventBus, "task-1", "in_progress");
 
 			const task = db.select().from(tasks).where(eq(tasks.id, "task-1")).get();
-			const audit: AuditEntry[] = JSON.parse(task?.auditTrail ?? "[]");
+			const audit = JSON.parse(task?.auditTrail ?? "[]") as TaskAuditEntry[];
 			expect(audit).toHaveLength(2);
-			expect(audit[0].from).toBe("proposed");
-			expect(audit[0].to).toBe("accepted");
-			expect(audit[1].from).toBe("accepted");
-			expect(audit[1].to).toBe("in_progress");
+			const first = audit[0] as StateTransitionAuditEntry;
+			const second = audit[1] as StateTransitionAuditEntry;
+			expect(first.from).toBe("proposed");
+			expect(first.to).toBe("accepted");
+			expect(second.from).toBe("accepted");
+			expect(second.to).toBe("in_progress");
 		});
 
 		it("preserves existing audit entries when appending new ones", () => {
 			const now = new Date().toISOString();
-			const existingAudit: AuditEntry[] = [{ from: "initial", to: "proposed", timestamp: now }];
+			const existingAudit: StateTransitionAuditEntry[] = [
+				{ from: "proposed", to: "accepted", timestamp: now },
+			];
 			db.insert(tasks)
 				.values({
 					id: "task-existing",
@@ -262,11 +261,14 @@ describe("Task State Machine", () => {
 			transitionTask(db, eventBus, "task-existing", "accepted");
 
 			const task = db.select().from(tasks).where(eq(tasks.id, "task-existing")).get();
-			const audit: AuditEntry[] = JSON.parse(task?.auditTrail ?? "[]");
+			const audit = JSON.parse(task?.auditTrail ?? "[]") as TaskAuditEntry[];
 			expect(audit).toHaveLength(2);
-			expect(audit[0].from).toBe("initial");
-			expect(audit[1].from).toBe("proposed");
-			expect(audit[1].to).toBe("accepted");
+			const first = audit[0] as StateTransitionAuditEntry;
+			const second = audit[1] as StateTransitionAuditEntry;
+			expect(first.from).toBe("proposed");
+			expect(first.to).toBe("accepted");
+			expect(second.from).toBe("proposed");
+			expect(second.to).toBe("accepted");
 		});
 	});
 
