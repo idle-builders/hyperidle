@@ -132,4 +132,33 @@ describe("StatusChip", () => {
 		expect(errorBg).toBeDefined();
 		expect(blockedBg).not.toBe(errorBg);
 	});
+
+	describe("runtime defense (adversary W4)", () => {
+		it("renders an UNKNOWN chip when status is undefined at runtime", () => {
+			// Trust-boundary defence: server/web version skew may send a new
+			// BetStatus that hasn't been mapped yet, and upstream lookups can
+			// hand StatusChip an undefined. We must never render
+			// `badge undefined` into the DOM.
+			const undefinedStatus = undefined as unknown as Status;
+			render(<StatusChip status={undefinedStatus} />);
+			const chip = screen.getByText("UNKNOWN");
+			expect(chip).toHaveClass("badge", "badge-neutral");
+			expect(chip).not.toHaveClass("undefined");
+			expect(chip.className).not.toMatch(/badge undefined/);
+		});
+
+		it("renders an UNKNOWN chip when status is a non-canonical string", () => {
+			const bogus = "cancelled" as unknown as Status;
+			render(<StatusChip status={bogus} />);
+			const chip = screen.getByText("UNKNOWN");
+			expect(chip).toHaveClass("badge", "badge-neutral");
+		});
+
+		it("UNKNOWN chip still has a dot indicator (no detached markup)", () => {
+			const { container } = render(<StatusChip status={undefined as unknown as Status} />);
+			const dot = container.querySelector("span > span");
+			expect(dot).toBeInTheDocument();
+			expect(dot).toHaveClass("rounded-full");
+		});
+	});
 });
