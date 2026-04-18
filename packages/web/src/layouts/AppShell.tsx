@@ -94,10 +94,22 @@ export function AppShell(): JSX.Element {
 	}, []);
 
 	const handleSearchNavigate = useCallback(
-		(_type: string, _id: string): void => {
+		(type: string, id: string): void => {
 			commandK.close();
-			// Mock navigation — real routing deferred
-			navigate("/conversations/review");
+			// I4 N1: route by result type. The GlobalSearchPanel emits
+			// "conversation" | "work" | "knowledge".
+			switch (type) {
+				case "work":
+					navigate(`/work/bet/${id}`);
+					break;
+				case "knowledge":
+					navigate(`/knowledge/${id}`);
+					break;
+				case "conversation":
+				default:
+					navigate("/conversations/review");
+					break;
+			}
 		},
 		[commandK, navigate],
 	);

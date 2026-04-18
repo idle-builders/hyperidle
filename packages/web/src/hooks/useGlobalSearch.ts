@@ -73,6 +73,16 @@ export function useGlobalSearch(): UseGlobalSearchReturn {
 		}
 
 		if (!query) {
+			// I4 N2: when the user clears the query (character by character),
+			// reset stale results synchronously so the UI does not show
+			// orphaned hits. Aborts any in-flight fetch from a previous query.
+			if (abortControllerRef.current) {
+				abortControllerRef.current.abort();
+				abortControllerRef.current = null;
+			}
+			setResults(EMPTY_RESULTS);
+			setError(null);
+			setLoading(false);
 			return;
 		}
 
