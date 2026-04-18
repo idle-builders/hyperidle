@@ -1,5 +1,5 @@
 import type { HyperIdleDb } from "@hyperidle/db";
-import { API_ERROR_CODES, EventBus } from "@hyperidle/shared";
+import { API_ERROR_CODES, EventBus, createLogger } from "@hyperidle/shared";
 import type { ApiErrorResponse } from "@hyperidle/shared";
 import { Hono } from "hono";
 import { authMiddleware } from "./middleware/auth.js";
@@ -11,6 +11,7 @@ import { createConversationRoutes } from "./routes/conversations.js";
 import { createGitExportRoutes } from "./routes/git-export-routes.js";
 import { health } from "./routes/health.js";
 import { createKnowledgeRoutes } from "./routes/knowledge.js";
+import { createNotificationRoutes } from "./routes/notifications-routes.js";
 import { createRailRoutes } from "./routes/rail.js";
 import { createRoutineRoutes } from "./routes/routines-routes.js";
 import { createSessionRoutes } from "./routes/sessions-routes.js";
@@ -19,6 +20,12 @@ import { createTaskRoutes } from "./routes/tasks.js";
 import { registerTestRoutes } from "./routes/test-routes.js";
 import { createGitRunner } from "./services/git-export-runner.js";
 import { registerGitExportHandler } from "./services/git-export.js";
+import type { NotificationConfig } from "./services/notifications/config.js";
+import { createConsoleAdapter } from "./services/notifications/console-adapter.js";
+import { registerNotificationDispatcher } from "./services/notifications/dispatcher.js";
+import { createNtfyAdapter } from "./services/notifications/ntfy-adapter.js";
+import { createSmtpAdapter } from "./services/notifications/smtp-adapter.js";
+import type { NotificationAdapter } from "./services/notifications/types.js";
 import { registerPolicyEngine } from "./services/policy-engine.js";
 import { registerSessionReviewCreator } from "./services/session-review-creator.js";
 
@@ -31,6 +38,35 @@ interface AppOptions {
 	 * to prove the event-triggered path without spawning `git`.
 	 */
 	gitRunnerFactory?: (repoPath: string) => ReturnType<typeof createGitRunner>;
+	/**
+	 * Optional override for the notification adapter factory used by the
+	 * dispatcher + HTTP `/notifications/test` + `/notifications/flush`
+	 * routes. Tests inject a FakeAdapter that records every send.
+	 */
+	notificationAdapterFactory?: (cfg: NotificationConfig) => NotificationAdapter;
+}
+
+function defaultNotificationAdapterFactory(cfg: NotificationConfig): NotificationAdapter {
+	switch (cfg.primaryChannel) {
+		case "ntfy":
+			return createNtfyAdapter({
+				baseUrl: cfg.ntfy.baseUrl,
+				authToken: cfg.ntfy.authToken,
+			});
+		case "smtp":
+			if (!(cfg.smtp.host && cfg.smtp.from)) return createConsoleAdapter();
+			return createSmtpAdapter({
+				host: cfg.smtp.host,
+				port: cfg.smtp.port,
+				secure: cfg.smtp.secure,
+				username: cfg.smtp.username,
+				password: cfg.smtp.password,
+				from: cfg.smtp.from,
+				ignoreTls: cfg.smtpIgnoreTls,
+			});
+		default:
+			return createConsoleAdapter();
+	}
 }
 
 /**
@@ -41,6 +77,15 @@ interface AppOptions {
 export interface AppDisposer {
 	dispose(): void;
 }
+
+/**
+ * @lore Event-bus disposers live alongside the app instance but must not
+ * appear on the public Hono surface. A module-scoped WeakMap keyed by
+ * the Hono instance keeps the association without string-cast stash
+ * patterns — disposers are garbage-collected with the app.
+ */
+const APP_DISPOSERS = new WeakMap<Hono, Array<() => void>>();
+const appLogger = createLogger({ pkg: "server.app" });
 
 /**
  * Create the Hono application.
@@ -91,6 +136,8 @@ function createApp(options?: AppOptions): Hono {
 		api.route("/sessions", createSessionRoutes(options.db, eventBus));
 		api.route("/status", createStatusRoutes(options.db));
 		api.route("/git-export", createGitExportRoutes(options.db));
+		const adapterFactory = options.notificationAdapterFactory ?? defaultNotificationAdapterFactory;
+		api.route("/notifications", createNotificationRoutes(options.db, { adapterFactory }));
 		const disposers: Array<() => void> = [];
 		disposers.push(registerSessionReviewCreator(options.db, eventBus));
 		disposers.push(registerPolicyEngine(options.db, eventBus));
@@ -99,10 +146,8 @@ function createApp(options?: AppOptions): Hono {
 				runnerFactory: options.gitRunnerFactory ?? ((repoPath) => createGitRunner(repoPath)),
 			}),
 		);
-		// @lore Store disposers on the app so tests (and future graceful
-		// shutdown) can tear down event-bus subscriptions without leaking
-		// handlers across `createApp()` invocations.
-		(app as unknown as { __disposers: Array<() => void> }).__disposers = disposers;
+		disposers.push(registerNotificationDispatcher(options.db, eventBus, { adapterFactory }));
+		APP_DISPOSERS.set(app, disposers);
 	}
 
 	// 404 handler for unknown /api routes
@@ -137,19 +182,24 @@ const app = createApp();
 /**
  * Dispose all event-bus subscriptions attached to an app created via
  * `createApp`. Safe no-op if `createApp` did not attach any (e.g. when
- * called without a `db`).
+ * called without a `db`). A disposer that throws is logged and the
+ * remaining disposers still run — individual handler cleanup failures
+ * must not leak subscriptions.
  */
 export function disposeApp(hono: Hono): void {
-	const bag = (hono as unknown as { __disposers?: Array<() => void> }).__disposers;
+	const bag = APP_DISPOSERS.get(hono);
 	if (!bag) return;
 	for (const d of bag) {
 		try {
 			d();
-		} catch {
-			// disposers must be idempotent; swallow errors from over-zealous ones
+		} catch (err) {
+			appLogger.error("disposeApp: disposer threw", {
+				error: err instanceof Error ? err.message : String(err),
+			});
 		}
 	}
 	bag.length = 0;
+	APP_DISPOSERS.delete(hono);
 }
 
 export { app, createApp };

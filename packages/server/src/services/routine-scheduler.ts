@@ -367,6 +367,18 @@ export async function checkAndFireRoutine(
 		.where(eq(routines.id, routine.id))
 		.run();
 
+	// @lore H2 daily digest relies on `routine_fired` to trigger the
+	// notification dispatcher. Emit here — the event is a commitment the
+	// scheduler makes on every successful fire. Consumers filter by
+	// routineId (e.g. `includes("daily_digest")`).
+	eventBus.emit({
+		type: "routine_fired",
+		streamId: sessionId,
+		routineId: routine.id,
+		agentId: targetAgentId,
+		timestamp: Date.now(),
+	});
+
 	return { fired: true, sessionId, delegatedTo };
 }
 

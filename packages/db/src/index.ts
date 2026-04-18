@@ -20,6 +20,7 @@ export {
 	knowledgeEditLog,
 	knowledgeConflicts,
 	fileLeases,
+	notificationQueue,
 	// Types
 	type Product,
 	type NewProduct,
@@ -55,6 +56,8 @@ export {
 	type NewFileLease,
 	type KnowledgeConflict,
 	type NewKnowledgeConflict,
+	type NotificationQueueRow,
+	type NewNotificationQueueRow,
 } from "./schema.js";
 export * as schema from "./schema.js";
 export * as pgSchema from "./schema.pg.js";
