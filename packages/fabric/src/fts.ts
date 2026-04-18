@@ -48,34 +48,72 @@ export interface FtsSearchOptions {
 }
 
 /**
+ * Maximum input length for FTS sanitisation (chars). Beyond this we
+ * truncate (not throw) so a flooded query degrades to a partial match
+ * rather than blowing up. @lore I3 review sec MEDIUM-5: cost-amplification
+ * DoS guard. Agents are first-party today, so a hard limit is preferred
+ * over a rate-limit. 1024 chars accommodates long natural-language
+ * queries while bounding regex/split cost.
+ */
+export const FTS_MAX_QUERY_CHARS = 1024;
+
+/**
+ * Maximum number of tokens kept after splitting. @lore I3 review sec
+ * MEDIUM-5: FTS5 query parser cost grows non-linearly with phrase
+ * count; 64 tokens is more than any natural query and bounds the
+ * parser cost.
+ */
+export const FTS_MAX_TOKENS = 64;
+
+/**
  * Sanitise a user-supplied query string for FTS5 `MATCH`.
  *
  * Strategy: whitelist word-chars + internal `-`, `_`, `'`; lowercase operator
  * keywords (`AND/OR/NOT/NEAR`); wrap each surviving token in double quotes so
- * FTS5 treats it as a literal phrase. Returns `""` when all tokens are
- * stripped — callers MUST short-circuit to `[]` on empty output rather than
- * running `MATCH ''` (which throws "syntax error").
+ * FTS5 treats it as a literal phrase. A trailing `*` on a token is preserved
+ * as the FTS5 prefix-match operator (W5: prefix search support). Returns
+ * `""` when all tokens are stripped — callers MUST short-circuit to `[]` on
+ * empty output rather than running `MATCH ''` (which throws "syntax error").
+ *
+ * Bounds: input is truncated at FTS_MAX_QUERY_CHARS, token list at
+ * FTS_MAX_TOKENS — anti-DoS, see sec MEDIUM-5.
  *
  * @lore I3 (TRACK-I.md L151-154): prior implementation passed raw input to
  * MATCH, enabling operator injection (`*`, `"…"`, `AND/OR/NOT/NEAR`, `()`,
  * `{}`, `^`). Keeping hyphens/underscores/apostrophes internal preserves
  * meaningful identifier tokens like `react-router`, `my_var`, `don't`.
+ *
+ * @lore I3 review W5: prefix search via trailing `*`. Strategy: detect
+ * `token*` BEFORE the operator-strip pass, emit `"token" *` (FTS5
+ * concatenates a literal phrase + the prefix-match suffix). The `*` only
+ * survives when it directly suffixes a sanitised token; standalone `*`
+ * or leading `*` is stripped (matches no rows, the previous behaviour).
  */
 export function sanitizeFtsQuery(input: string): string {
 	if (typeof input !== "string") return "";
-	const trimmed = input.trim();
+	let trimmed = input.trim();
 	if (trimmed.length === 0) return "";
+	// Anti-DoS: truncate before the regex pass.
+	if (trimmed.length > FTS_MAX_QUERY_CHARS) {
+		trimmed = trimmed.slice(0, FTS_MAX_QUERY_CHARS);
+	}
 
 	// Split on whitespace. Each token gets its operator-relevant chars stripped.
-	const rawTokens = trimmed.split(/\s+/u);
+	const rawTokens = trimmed.split(/\s+/u).slice(0, FTS_MAX_TOKENS);
 	const OPERATOR_WORDS = new Set(["and", "or", "not", "near"]);
 	const sanitized: string[] = [];
 
 	for (const raw of rawTokens) {
+		// W5: detect & preserve a trailing `*` for prefix search. The `*`
+		// must be the FINAL char of the raw token — `*foo` and `f*o` are
+		// not prefix queries and have their `*` stripped by the whitelist.
+		const isPrefix = raw.endsWith("*") && raw.length > 1;
+		const stripped = isPrefix ? raw.slice(0, -1) : raw;
+
 		// Keep letters, digits, underscore, hyphen, apostrophe. Drop
 		// everything else (FTS5 operators: * " ( ) { } ^ : +, and any other
 		// punctuation).
-		let token = raw.replace(/[^\p{L}\p{N}_\-']/gu, "");
+		let token = stripped.replace(/[^\p{L}\p{N}_\-']/gu, "");
 		// Trim leading/trailing hyphens/apostrophes — only *internal* ones
 		// are meaningful. `react-router` → keep; `-foo` → `foo`.
 		token = token.replace(/^['-]+|['-]+$/gu, "");
@@ -87,8 +125,14 @@ export function sanitizeFtsQuery(input: string): string {
 			token = token.toLowerCase();
 		}
 
-		// Wrap in double quotes → literal phrase.
-		sanitized.push(`"${token}"`);
+		if (isPrefix) {
+			// FTS5 prefix syntax is `token*` (no quotes). Emit it bare —
+			// quoting would defeat the prefix operator.
+			sanitized.push(`${token}*`);
+		} else {
+			// Wrap in double quotes → literal phrase.
+			sanitized.push(`"${token}"`);
+		}
 	}
 
 	return sanitized.join(" ");

@@ -24,7 +24,10 @@ import { createTestDb } from "../test-utils.js";
  *
  * Per AC (TRACK-I.md L132-135):
  * - Reference-data FKs (products, agents, teams, threads) use ON DELETE RESTRICT.
- * - Dependent-data FKs (knowledge_edit_log on knowledge_items) use ON DELETE CASCADE.
+ * - Audit-trail FKs (knowledge_edit_log, knowledge_conflicts on
+ *   knowledge_items) use ON DELETE RESTRICT — the audit must outlive its
+ *   subject (I3 review sec HIGH-2).
+ * - Pure-dependent FKs (responses on items) still CASCADE.
  *
  * The tests insert a parent + dependent row and attempt the deletion that the
  * configured action should respectively reject (RESTRICT) or propagate
@@ -199,7 +202,11 @@ describe("I3: FK actions — CASCADE on dependent data", () => {
 		db = createTestDb();
 	});
 
-	it("cascades delete from knowledge_items to knowledge_edit_log rows", () => {
+	// I3 review sec HIGH-2: knowledge_edit_log MUST outlive its subject.
+	// RESTRICT prevents deleting a knowledge_items row while edit-log rows
+	// still reference it — operators must explicitly archive or soft-delete
+	// the log before removing the item, preserving the audit trail.
+	it("rejects deleting a knowledge_items row while knowledge_edit_log rows reference it", () => {
 		db.insert(knowledgeItems)
 			.values({
 				id: "ki-1",
@@ -229,24 +236,22 @@ describe("I3: FK actions — CASCADE on dependent data", () => {
 				})
 				.run();
 		}
-		const before = db
-			.select()
-			.from(knowledgeEditLog)
-			.where(eq(knowledgeEditLog.itemId, "ki-1"))
-			.all();
-		expect(before).toHaveLength(3);
+		expect(() => db.delete(knowledgeItems).where(eq(knowledgeItems.id, "ki-1")).run()).toThrow(
+			/constraint/i,
+		);
 
-		db.delete(knowledgeItems).where(eq(knowledgeItems.id, "ki-1")).run();
-
+		// And the log rows must still exist after the failed delete.
 		const after = db
 			.select()
 			.from(knowledgeEditLog)
 			.where(eq(knowledgeEditLog.itemId, "ki-1"))
 			.all();
-		expect(after).toHaveLength(0);
+		expect(after).toHaveLength(3);
 	});
 
-	it("cascades delete from knowledge_items to knowledge_conflicts rows", () => {
+	// I3 review sec HIGH-2: knowledge_conflicts is the resolution-evidence
+	// audit. Same RESTRICT semantics as the edit log.
+	it("rejects deleting a knowledge_items row while knowledge_conflicts rows reference it", () => {
 		db.insert(knowledgeItems)
 			.values({
 				id: "ki-1",
@@ -275,14 +280,16 @@ describe("I3: FK actions — CASCADE on dependent data", () => {
 			})
 			.run();
 
-		db.delete(knowledgeItems).where(eq(knowledgeItems.id, "ki-1")).run();
+		expect(() => db.delete(knowledgeItems).where(eq(knowledgeItems.id, "ki-1")).run()).toThrow(
+			/constraint/i,
+		);
 
 		const remaining = db
 			.select()
 			.from(knowledgeConflicts)
 			.where(eq(knowledgeConflicts.itemId, "ki-1"))
 			.all();
-		expect(remaining).toHaveLength(0);
+		expect(remaining).toHaveLength(1);
 	});
 
 	it("cascades delete from items to responses rows", () => {

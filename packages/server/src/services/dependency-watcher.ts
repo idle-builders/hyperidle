@@ -1,7 +1,10 @@
 import { type HyperIdleDb, tasks } from "@hyperidle/db";
-import type { EventBus } from "@hyperidle/shared";
-import { and, eq, like, sql } from "drizzle-orm";
+import { type EventBus, createLogger } from "@hyperidle/shared";
+import { and, eq, sql } from "drizzle-orm";
+import { escapeLikePattern } from "./like-escape.js";
 import { transitionTask } from "./task-state-machine.js";
+
+const logger = createLogger({ pkg: "server.dependency-watcher" });
 
 /**
  * After a task completes, check all tasks that depend on it.
@@ -13,9 +16,12 @@ import { transitionTask } from "./task-state-machine.js";
  * only consider hold-state rows whose `dependencies` text column contains
  * the JSON-quoted completedTaskId. The quoting is critical to prevent
  * prefix collisions ('"dep-1"' must NOT match the substring of '"dep-12"').
- * IDs are crypto.randomUUID strings (no `%` or `_` literals), so no LIKE
- * escape is needed; if that ever changes, escape via the existing
- * `like-escape.ts` helper.
+ *
+ * @lore I3 review W3 / sec MEDIUM-2: even though IDs are crypto.randomUUID
+ * today, escapeLikePattern() is applied unconditionally so a future caller
+ * passing an ID containing `%` or `_` literals doesn't accidentally widen
+ * the LIKE match (single `_` matches any char; `%` matches any sequence).
+ * The `ESCAPE '\'` clause makes our backslash escape effective.
  */
 export function checkAndUnblockDependents(
 	db: HyperIdleDb,
@@ -25,24 +31,37 @@ export function checkAndUnblockDependents(
 	// SQL pre-filter: hold-state tasks whose dependencies include the literal
 	// quoted completedTaskId. The LIKE pattern wraps the id in JSON quotes
 	// so substrings of unrelated IDs ("dep-1" vs "dep-12") don't match.
+	const escapedId = escapeLikePattern(completedTaskId);
+	const pattern = `%"${escapedId}"%`;
 	const candidates = db
 		.select()
 		.from(tasks)
-		.where(and(eq(tasks.state, "hold"), like(tasks.dependencies, sql`${`%"${completedTaskId}"%`}`)))
+		.where(and(eq(tasks.state, "hold"), sql`${tasks.dependencies} LIKE ${pattern} ESCAPE '\\'`))
 		.all();
 
 	for (const task of candidates) {
 		if (!task.dependencies) continue;
 
 		// Defence-in-depth: a row could conceivably store malformed JSON.
-		// Skip rather than throw — a malformed dependencies blob is a data
-		// problem, not a runtime fault for the watcher.
+		// Log via observability and skip rather than throw — a malformed
+		// dependencies blob is a data problem, not a runtime fault for the
+		// watcher (I3 review O8).
 		let deps: string[];
 		try {
 			const parsed = JSON.parse(task.dependencies);
-			if (!Array.isArray(parsed)) continue;
+			if (!Array.isArray(parsed)) {
+				logger.warn("dependency-watcher: dependencies is not a JSON array", {
+					taskId: task.id,
+					value: task.dependencies,
+				});
+				continue;
+			}
 			deps = parsed.filter((v): v is string => typeof v === "string");
-		} catch {
+		} catch (err) {
+			logger.warn("dependency-watcher: failed to parse dependencies JSON", {
+				taskId: task.id,
+				error: err instanceof Error ? err.message : String(err),
+			});
 			continue;
 		}
 
