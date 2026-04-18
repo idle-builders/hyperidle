@@ -27,8 +27,10 @@ export function TaskCard({
 }: TaskCardProps): JSX.Element {
 	return (
 		<div
-			{...clickableProps(onClick)}
-			className={`bg-base-200 rounded p-2 flex flex-col gap-2 ${state === "blocked" ? "border border-error" : ""}`}
+			{...clickableProps(
+				onClick,
+				`bg-base-200 rounded p-2 flex flex-col gap-2 ${state === "blocked" ? "border border-error" : ""}`,
+			)}
 		>
 			<div className="flex items-center gap-2">
 				<span className="text-sm font-medium truncate" aria-label={`Task: ${title}`}>

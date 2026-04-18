@@ -6,6 +6,7 @@ import {
 	type DragEndEvent,
 	DragOverlay,
 	type DragStartEvent,
+	KeyboardSensor,
 	PointerSensor,
 	useDraggable,
 	useDroppable,
@@ -87,7 +88,11 @@ function DraggableTaskCard({ task }: { task: KanbanTask }): JSX.Element {
 export function Kanban({ tasks, onMoveTask }: KanbanProps): JSX.Element {
 	const [activeId, setActiveId] = useState<string | null>(null);
 
-	const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
+	// I4 KB1: KeyboardSensor lets users drive the kanban via keyboard.
+	const sensors = useSensors(
+		useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+		useSensor(KeyboardSensor),
+	);
 
 	const tasksByColumn = useMemo(() => {
 		const grouped: Record<KanbanColumnState, KanbanTask[]> = {
