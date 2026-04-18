@@ -84,4 +84,49 @@ describe("StatusChip", () => {
 		const chip = screen.getByText("HEALTHY");
 		expect(chip).toHaveClass("font-mono", "text-xs");
 	});
+
+	it("renders visually distinct badges for blocked and error statuses", () => {
+		// I4 S7: spec demands blocked and error must be visually distinguishable.
+		// Current implementation assigns both `badge-error` → indistinguishable.
+		// Assert the badge class on the chip element differs between the two.
+		const { container: blockedContainer, unmount: blockedUnmount } = render(
+			<StatusChip status="blocked" />,
+		);
+		const blockedChip = blockedContainer.querySelector("span.badge");
+		const blockedClass = blockedChip?.className ?? "";
+		blockedUnmount();
+
+		const { container: errorContainer } = render(<StatusChip status="error" />);
+		const errorChip = errorContainer.querySelector("span.badge");
+		const errorClass = errorChip?.className ?? "";
+
+		// Extract the `badge-<variant>` token from each className
+		const badgeVariant = /badge-(accent|secondary|error|neutral|success|warning|info|primary)/;
+		const blockedVariant = blockedClass.match(badgeVariant)?.[0];
+		const errorVariant = errorClass.match(badgeVariant)?.[0];
+
+		expect(blockedVariant).toBeDefined();
+		expect(errorVariant).toBeDefined();
+		expect(blockedVariant).not.toBe(errorVariant);
+	});
+
+	it("renders visually distinct dot colors for blocked and error statuses", () => {
+		// Dot color must also differ so the indicator dot isn't collapsed to
+		// the same hue for both states.
+		const { container: blockedContainer, unmount } = render(<StatusChip status="blocked" />);
+		const blockedDot = blockedContainer.querySelector("span > span");
+		const blockedDotClass = blockedDot?.className ?? "";
+		unmount();
+
+		const { container: errorContainer } = render(<StatusChip status="error" />);
+		const errorDot = errorContainer.querySelector("span > span");
+		const errorDotClass = errorDot?.className ?? "";
+
+		const bgToken = /bg-\S+/;
+		const blockedBg = blockedDotClass.match(bgToken)?.[0];
+		const errorBg = errorDotClass.match(bgToken)?.[0];
+		expect(blockedBg).toBeDefined();
+		expect(errorBg).toBeDefined();
+		expect(blockedBg).not.toBe(errorBg);
+	});
 });

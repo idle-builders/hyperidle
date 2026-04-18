@@ -1,3 +1,6 @@
+import { readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import type { KanbanTask } from "../shell/Kanban";
@@ -99,5 +102,31 @@ describe("Kanban", () => {
 		expect(screen.getByText("2")).toBeInTheDocument();
 		// In Progress column should show count 1
 		expect(screen.getByText("1")).toBeInTheDocument();
+	});
+
+	it("uses responsive grid classes grid-cols-1 sm:grid-cols-2 lg:grid-cols-4", () => {
+		// I4 R3: per spec, Kanban must use breakpoint-responsive grid columns.
+		const { container } = render(<Kanban tasks={[]} onMoveTask={vi.fn()} />);
+		const grid = container.querySelector(".grid");
+		expect(grid).not.toBeNull();
+		expect(grid?.className).toContain("grid-cols-1");
+		expect(grid?.className).toContain("sm:grid-cols-2");
+		expect(grid?.className).toContain("lg:grid-cols-4");
+	});
+
+	it("imports KeyboardSensor from @dnd-kit/core (keyboard a11y)", () => {
+		// I4 KB1: KeyboardSensor must be part of the sensor configuration.
+		// Vitest+jsdom cannot introspect opaque dnd-kit sensor descriptors,
+		// so we verify the source-level contract instead — the Playwright
+		// test in keyboard-and-responsive.spec.ts covers the full keyboard
+		// drag behaviour in a real browser.
+		const __filename = fileURLToPath(import.meta.url);
+		const __dirname = dirname(__filename);
+		const src = readFileSync(
+			join(__dirname, "..", "shell", "Kanban.tsx"),
+			"utf8",
+		);
+		expect(src).toMatch(/KeyboardSensor/);
+		expect(src).toMatch(/useSensor\(\s*KeyboardSensor/);
 	});
 });

@@ -56,4 +56,50 @@ test.describe("Responsive Layout", () => {
 		// Core content should still be visible
 		await expect(page.getByTestId("main-content")).toBeVisible();
 	});
+
+	test("Submenu collapses by default at 768px viewport (I4 R1/R4)", async ({ page }) => {
+		await page.setViewportSize({ width: 768, height: 800 });
+		await page.goto("/");
+		await page.waitForSelector("[data-testid='main-content']");
+		// Submenu collapsed => its navigation items are not visible.
+		// The Review Queue link lives inside Submenu; when collapsed (`w-0
+		// overflow-hidden`), it is hidden from the viewport.
+		await expect(page.getByText("Review Queue")).not.toBeVisible();
+	});
+
+	test("Rail collapses by default below 1280px (I4 R2)", async ({ page }) => {
+		await page.setViewportSize({ width: 1200, height: 800 });
+		await page.goto("/");
+		await page.waitForSelector("[data-testid='main-content']");
+		// Collapsed Rail hides the Active Bets heading (replaces with
+		// icon-only strip).
+		await expect(page.getByText("Active Bets")).not.toBeVisible();
+	});
+});
+
+test.describe("Kanban keyboard drag (I4 KB4)", () => {
+	test("keyboard sensor moves a task between columns", async ({ page }) => {
+		await page.goto("/work/team");
+		await page.waitForSelector("[data-testid='work-team-page']");
+		// Tab until a TaskCard gets focus. We target the first kanban task
+		// card by text then press Space to pick up the draggable.
+		const firstTask = page.getByText("Implement login endpoint");
+		await expect(firstTask).toBeVisible();
+		await firstTask.focus();
+		await page.keyboard.press("Space");
+		// Arrow down (or right, depending on @dnd-kit keyboard behaviour) to
+		// move the draggable. The spec only requires that the task ends up
+		// in a different column — any direction key that @dnd-kit maps to a
+		// neighbouring droppable works.
+		await page.keyboard.press("ArrowRight");
+		await page.keyboard.press("Space");
+		// After drop, the task's parent column should NOT be the same as the
+		// original "In Progress" column (this task started in_progress). We
+		// assert by reading the Kanban DOM.
+		const inProgressColumn = page
+			.locator("div")
+			.filter({ hasText: /^In Progress/ })
+			.first();
+		await expect(inProgressColumn).not.toContainText("Implement login endpoint");
+	});
 });
