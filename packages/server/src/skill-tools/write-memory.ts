@@ -1,9 +1,8 @@
 import { create as createKnowledgeItem } from "@hyperidle/fabric";
+import { KNOWLEDGE_LAYERS, KNOWLEDGE_STATUSES } from "@hyperidle/shared";
 import { z } from "zod";
 import type { ToolContext, ToolDefinition } from "./tool-registry.js";
 import { type ToolResult, err, ok } from "./tool-result.js";
-
-const KNOWLEDGE_LAYERS = ["L0", "L1", "L2", "L3", "L4"] as const;
 
 const KNOWLEDGE_KINDS = [
 	"pattern",
@@ -17,15 +16,6 @@ const KNOWLEDGE_KINDS = [
 ] as const;
 
 const KNOWLEDGE_FORMATS = ["markdown", "toon"] as const;
-
-const KNOWLEDGE_STATUSES = [
-	"captured",
-	"provisional",
-	"validated",
-	"active",
-	"stale",
-	"archived",
-] as const;
 
 const writeMemoryInputSchema = z.object({
 	layer: z.enum(KNOWLEDGE_LAYERS),
