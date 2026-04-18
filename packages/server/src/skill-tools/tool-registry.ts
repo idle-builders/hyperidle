@@ -1,12 +1,16 @@
 import type { HyperIdleDb } from "@hyperidle/db";
 import type { FileWatcher } from "@hyperidle/fabric";
-import type { EventBus } from "@hyperidle/shared";
+import type { AgentRole, EventBus } from "@hyperidle/shared";
 import { z } from "zod";
+import { createConflictReviewTool } from "./create-conflict-review.js";
 import { createItemTool } from "./create-item.js";
 import { handoffToTool } from "./handoff-to.js";
 import { logTaskTool } from "./log-task.js";
+import { promoteKnowledgeTool } from "./promote-knowledge.js";
 import { queryPracticeTool } from "./query-practice.js";
 import { readInboxTool } from "./read-inbox.js";
+import { routeItemTool } from "./route-item.js";
+import { scoreAttentionTool } from "./score-attention.js";
 import { sendMessageTool } from "./send-message.js";
 import { type ToolResult, err } from "./tool-result.js";
 import { writeMemoryTool } from "./write-memory.js";
@@ -33,12 +37,16 @@ export interface ToolContext {
  * A single skill tool. Tools expose a Zod input schema (so we can derive a
  * Claude tool_use JSON Schema and validate at the boundary) plus a handler
  * that always returns a `ToolResult`.
+ *
+ * `roles` narrows which agent roles may see this tool in their provisioned
+ * session. `undefined` means "available to every role" (the common case).
  */
 export interface ToolDefinition<Input = unknown> {
 	readonly name: string;
 	readonly description: string;
 	readonly inputSchema: z.ZodType<Input>;
 	readonly handler: (args: Input, ctx: ToolContext) => Promise<ToolResult>;
+	readonly roles?: readonly AgentRole[];
 }
 
 /**
@@ -85,18 +93,44 @@ export interface ToolRegistry {
 	readonly toClaudeToolSpecs: () => readonly ClaudeToolSpec[];
 }
 
+/**
+ * The canonical list of every skill tool. Exported so callers can filter by
+ * role without needing a `ctx` (e.g. the session-provisioning phase that has
+ * to decide which tool names to hand the harness BEFORE the session is live).
+ *
+ * @lore Four facilitator-only tools (`route_item`, `score_attention`,
+ * `promote_knowledge`, `create_conflict_review`) narrow to the facilitator
+ * roles — passing them to builders would break G1 AC6's authorization intent
+ * and let a builder mutate knowledge lifecycle state.
+ */
+export const ALL_TOOL_DEFINITIONS: readonly ToolDefinition[] = [
+	readInboxTool,
+	sendMessageTool,
+	logTaskTool,
+	queryPracticeTool,
+	writeMemoryTool,
+	handoffToTool,
+	createItemTool,
+	writeSessionNotesTool,
+	// G1 facilitator tools — restricted to facilitator roles.
+	routeItemTool,
+	scoreAttentionTool,
+	promoteKnowledgeTool,
+	createConflictReviewTool,
+];
+
+/**
+ * Return the subset of tool definitions accessible to a given agent role.
+ * A tool with `roles === undefined` is available to all roles; otherwise the
+ * role must appear in the tool's `roles` array.
+ */
+export function toolsForRole(role: AgentRole): readonly ToolDefinition[] {
+	return ALL_TOOL_DEFINITIONS.filter((d) => d.roles === undefined || d.roles.includes(role));
+}
+
 /** Build a fresh registry bound to the given context. */
 export function buildToolRegistry(ctx: ToolContext): ToolRegistry {
-	const definitions: readonly ToolDefinition[] = [
-		readInboxTool,
-		sendMessageTool,
-		logTaskTool,
-		queryPracticeTool,
-		writeMemoryTool,
-		handoffToTool,
-		createItemTool,
-		writeSessionNotesTool,
-	];
+	const definitions = ALL_TOOL_DEFINITIONS;
 
 	const byName = new Map(definitions.map((d) => [d.name, d]));
 

@@ -1,4 +1,4 @@
-import * as crypto from "node:crypto";
+import { randomUUID } from "node:crypto";
 import * as path from "node:path";
 import { type HyperIdleDb, agents, sessions, tasks } from "@hyperidle/db";
 import {
@@ -20,10 +20,45 @@ import {
 } from "@hyperidle/shared";
 import { and, eq, sql } from "drizzle-orm";
 import type { WorkspaceAdapter, WorkspaceHandle } from "../harness/workspace-adapter.js";
-import { type ToolContext, buildToolRegistry } from "../skill-tools/tool-registry.js";
+import { type ToolContext, buildToolRegistry, toolsForRole } from "../skill-tools/tool-registry.js";
 import { checkCostCap, recordCostAndCheck } from "./cost-cap.js";
 import { type SessionContext, crashSession, endSession } from "./session-lifecycle.js";
 import { transitionTask } from "./task-state-machine.js";
+
+/**
+ * The directory under which all `soul_prompt_path` values must resolve. We
+ * anchor relative paths to `process.cwd()`; absolute paths must still lie
+ * within this prefix after resolution.
+ *
+ * @lore Path traversal guard on `soul_prompt_path`: the column is populated
+ * from seeds and DB writes, both of which are trusted today, but the value
+ * flows unfiltered to the harness. Without this guard, an attacker with any
+ * write on `agents.soul_prompt_path` could escape the docs/souls directory
+ * (`../../../etc/passwd`) and have the harness read arbitrary files. The
+ * validation runs before `harness.startSession` so a bad value fails
+ * provisioning rather than leaking system files into the agent's context.
+ */
+const SOUL_PROMPT_DIR_RELATIVE = "docs/souls";
+
+function validateSoulPromptPath(rawPath: string): string {
+	// Empty path = "no soul prompt"; the harness adapter decides what to do
+	// with it (current adapter treats empty as no-op). This matches legacy
+	// behavior for builder agents that don't yet carry a soul prompt.
+	if (rawPath.length === 0) {
+		return "";
+	}
+	const baseDir = path.resolve(process.cwd(), SOUL_PROMPT_DIR_RELATIVE);
+	const resolved = path.resolve(process.cwd(), rawPath);
+	// `path.relative` gives us a normalized form; if it starts with `..` or is
+	// absolute, the resolved path escapes `baseDir`.
+	const rel = path.relative(baseDir, resolved);
+	if (rel.startsWith("..") || path.isAbsolute(rel)) {
+		throw new Error(
+			`soul_prompt_path escapes ${SOUL_PROMPT_DIR_RELATIVE}: ${rawPath} (resolved to ${resolved})`,
+		);
+	}
+	return resolved;
+}
 
 /**
  * Revert a task that we transitioned to `in_progress` back to `accepted` when
@@ -127,7 +162,11 @@ export async function provisionSession(
 	const agentRole = agent.role as AgentRole;
 	const teamId = agent.teamId ?? undefined;
 	const modelTier: ModelTier = params.modelTier ?? "workhorse";
-	const soulPromptPath = agent.soulPromptPath ?? "";
+	// Validate/resolve the soul prompt path up front. Invalid values (empty,
+	// escaping docs/souls) fail provisioning BEFORE any DB writes or task
+	// state transitions — the agent never starts and no cleanup is needed.
+	const rawSoulPromptPath = agent.soulPromptPath ?? "";
+	const soulPromptPath = validateSoulPromptPath(rawSoulPromptPath);
 
 	// ── Phase 2: cost cap pre-flight. Throws before any DB writes.
 	const capResult = await checkCostCap(db, eventBus, {
@@ -175,7 +214,7 @@ export async function provisionSession(
 		workspacePath = workspaceHandle.path;
 
 		// ── Phase 5: insert session row.
-		sessionId = crypto.randomUUID();
+		sessionId = randomUUID();
 		const startedAt = new Date().toISOString();
 		db.insert(sessions)
 			.values({
@@ -251,11 +290,18 @@ export async function provisionSession(
 	let crashed = false;
 
 	try {
+		// Role-based tool authorization: facilitator-only tools are stripped
+		// from builder/growth/brand_voice sessions. See G1 AC6 and
+		// `ALL_TOOL_DEFINITIONS` in tool-registry.ts. Registry-internal
+		// invoke() still sees every definition so cross-role handoffs and
+		// ctx-scoped tests work — the authorization boundary is the harness
+		// tool list, not the registry.
+		const allowedToolNames = toolsForRole(agentRole).map((d) => d.name);
 		harnessHandle = await harness.startSession({
 			workspacePath,
 			soulPromptPath,
 			modelTier,
-			tools: registry.definitions.map((d) => d.name),
+			tools: allowedToolNames,
 		});
 	} catch {
 		// startSession failed — treat as crash; nothing to stop.

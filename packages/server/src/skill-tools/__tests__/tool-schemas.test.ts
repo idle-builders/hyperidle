@@ -14,6 +14,11 @@ const EXPECTED_TOOL_NAMES = [
 	"send_message",
 	"write_memory",
 	"write_session_notes",
+	// G1 facilitator tools
+	"route_item",
+	"score_attention",
+	"promote_knowledge",
+	"create_conflict_review",
 ];
 
 function makeContext(db: HyperIdleDb): ToolContext {
@@ -35,7 +40,7 @@ describe("AC8: every tool has a valid Claude tool_use JSON schema", () => {
 		db = createTestDb();
 	});
 
-	it("registry produces 8 specs, one per expected tool name", () => {
+	it("registry produces one spec per expected tool name", () => {
 		const specs = buildToolRegistry(makeContext(db)).toClaudeToolSpecs();
 		const names = specs.map((s) => s.name).sort();
 		expect(names).toEqual([...EXPECTED_TOOL_NAMES].sort());

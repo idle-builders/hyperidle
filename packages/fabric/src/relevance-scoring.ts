@@ -1,16 +1,8 @@
 import type { KnowledgeItem } from "@hyperidle/db";
+import type { AgentRole } from "@hyperidle/shared";
+import { ROLE_TO_COMMUNITY } from "./role-community-map.js";
 import type { ScoringContext, ScoringWeights } from "./scoring-config.js";
 import { type ScoredItem, enforceBudget } from "./token-budget.js";
-
-/** Map agent roles to L3 practice community scope IDs. */
-const ROLE_TO_COMMUNITY: Record<string, string> = {
-	builder: "building",
-	growth: "growth",
-	product_manager: "product",
-	practice_facilitator: "ops",
-	chief_of_staff: "ops",
-	brand_voice: "growth",
-};
 
 /** Recency decay window in milliseconds (30 days). */
 const RECENCY_WINDOW_MS = 30 * 24 * 60 * 60 * 1000;
@@ -68,12 +60,28 @@ function computeTagMatch(item: KnowledgeItem, taskTags: string[]): number {
 	return matches / normalizedTaskTags.length;
 }
 
+const KNOWN_AGENT_ROLES: readonly AgentRole[] = [
+	"builder",
+	"growth",
+	"product_manager",
+	"practice_facilitator",
+	"chief_of_staff",
+	"brand_voice",
+];
+
+function isAgentRole(value: string): value is AgentRole {
+	return (KNOWN_AGENT_ROLES as readonly string[]).includes(value);
+}
+
 /** Compute role match factor (0 or 1). */
 function computeRoleMatch(item: KnowledgeItem, agentRole: string): number {
-	const community = ROLE_TO_COMMUNITY[agentRole];
-	if (!community) {
+	// ScoringContext.agentRole is typed as `string` (public API); the role map
+	// is keyed by the canonical `AgentRole` union. Narrow via a type guard so
+	// an unknown role returns 0 rather than throwing.
+	if (!isAgentRole(agentRole)) {
 		return 0;
 	}
+	const community = ROLE_TO_COMMUNITY[agentRole];
 	if (item.scopeId === community) {
 		return 1;
 	}

@@ -15,3 +15,8 @@ export { readInboxTool } from "./read-inbox.js";
 export { sendMessageTool } from "./send-message.js";
 export { writeMemoryTool } from "./write-memory.js";
 export { writeSessionNotesTool } from "./write-session-notes.js";
+// G1 facilitator tools
+export { routeItemTool } from "./route-item.js";
+export { scoreAttentionTool } from "./score-attention.js";
+export { promoteKnowledgeTool } from "./promote-knowledge.js";
+export { createConflictReviewTool } from "./create-conflict-review.js";
