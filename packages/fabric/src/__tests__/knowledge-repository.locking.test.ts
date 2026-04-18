@@ -1,4 +1,4 @@
-import { type HyperIdleDb, createTestDb, knowledgeItems } from "@hyperidle/db";
+import { type HyperIdleDb, createTestDb, knowledgeEditLog, knowledgeItems } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 // @lore VersionConflictError already exists in the repo (errors.ts); this
@@ -6,7 +6,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 // tests for AC-OL-1..AC-OL-3 — they cover the *racy* path where two writers
 // both observe the same version, where the existing knowledge-repository
 // tests only cover the *sequential* stale-version case.
-import { VersionConflictError } from "../errors.js";
+import { ItemDeletedError, VersionConflictError } from "../errors.js";
 import { knowledgeEvents } from "../events.js";
 import { create, getById, update } from "../knowledge-repository.js";
 
@@ -129,27 +129,41 @@ describe("I3: knowledge-repository optimistic locking", () => {
 			.where(eq(knowledgeItems.id, created.id))
 			.run();
 
-		// Patch db.select so the next call returns the stale snapshot — the
-		// JS-side check will pass (5 === 5) and the existing implementation
-		// will issue an unconditional UPDATE that overwrites Writer A's data.
+		// Patch db.select + db.transaction so the in-tx select returns the
+		// stale snapshot — the JS-side check will pass (5 === 5) and the
+		// implementation will issue an UPDATE predicated on
+		// `version=expectedVersion`. With the row's version already at 6,
+		// that UPDATE matches zero rows and the implementation throws
+		// VersionConflictError.
+		//
+		// I3 review W4: typed Mock<typeof db.select> instead of `as any`.
+		// Drizzle's select chain is `select() -> from() -> where() -> get()`;
+		// we type the stub via the actual return-type narrowing rather than
+		// erasing it.
+		// I3 review HIGH-3: update() now wraps in db.transaction. Spy on
+		// transaction so the callback runs inline against `db` — that way
+		// the spy on db.select intercepts the in-tx reads.
+		// biome-ignore lint/suspicious/noExplicitAny: minimal inline-tx stub
+		const txSpy = vi.spyOn(db, "transaction").mockImplementation(((cb: any) => cb(db)) as any);
+		type SelectFn = typeof db.select;
+		type SelectChain = ReturnType<SelectFn>;
 		const realSelect = db.select.bind(db);
 		let firstCall = true;
-		const spy = vi.spyOn(db, "select").mockImplementation(((...args: unknown[]) => {
+		const stubSelect: SelectFn = ((...args: Parameters<SelectFn>) => {
 			if (firstCall) {
 				firstCall = false;
-				return {
+				const stubChain = {
 					from: () => ({
 						where: () => ({
 							get: () => stale,
 						}),
 					}),
-					// biome-ignore lint/suspicious/noExplicitAny: minimal stub for the spied path
-				} as any;
+				};
+				return stubChain as unknown as SelectChain;
 			}
-			// biome-ignore lint/suspicious/noExplicitAny: pass-through for other selects
-			return realSelect(...(args as [any]));
-			// biome-ignore lint/suspicious/noExplicitAny: matching the spy signature
-		}) as any);
+			return realSelect(...args) as SelectChain;
+		}) as SelectFn;
+		const spy = vi.spyOn(db, "select").mockImplementation(stubSelect);
 
 		try {
 			expect(() => update(db, created.id, { title: "Writer B (loser)" }, 5)).toThrow(
@@ -157,12 +171,92 @@ describe("I3: knowledge-repository optimistic locking", () => {
 			);
 		} finally {
 			spy.mockRestore();
+			txSpy.mockRestore();
 		}
 
 		// Writer A's value must survive — Writer B must NOT have overwritten.
 		const final = db.select().from(knowledgeItems).where(eq(knowledgeItems.id, created.id)).get();
 		expect(final?.title).toBe("Writer A");
 		expect(final?.version).toBe(6);
+	});
+
+	// I3 review W1: distinguish "row deleted" from "version conflict".
+	// Pre-fix the second SELECT returning nothing was masked as a
+	// VersionConflictError reporting the caller's own expectedVersion.
+	//
+	// Within a transaction the "row deleted concurrently" path is hard to
+	// trigger from a single in-process test (BEGIN IMMEDIATE serialises
+	// writes, and the transaction sees a consistent snapshot). We assert
+	// the contract by spying on the transaction so that the in-tx reads
+	// return a stale snapshot (passes JS version check), the in-tx
+	// UPDATE matches zero rows (predicate evaluated against current
+	// state), and the in-tx re-read returns undefined → ItemDeletedError.
+	it("throws ItemDeletedError when the in-tx re-read returns undefined", () => {
+		const created = create(db, baseItem);
+		bumpToVersion(created.id, 5);
+
+		const stale = db.select().from(knowledgeItems).where(eq(knowledgeItems.id, created.id)).get();
+		expect(stale?.version).toBe(5);
+
+		// Clear edit log first so we can delete the row (HIGH-2 RESTRICT
+		// would otherwise block).
+		db.delete(knowledgeEditLog).where(eq(knowledgeEditLog.itemId, created.id)).run();
+		db.delete(knowledgeItems).where(eq(knowledgeItems.id, created.id)).run();
+
+		// Spy on db.transaction so the callback runs inline against `db`
+		// (not a real tx). This makes the spy on db.select effective for
+		// reads inside the "transaction" body. The first read returns the
+		// stale snapshot (passing JS version check); the UPDATE returns
+		// `changes: 0` because the row is gone; the re-read returns
+		// undefined → ItemDeletedError.
+		// biome-ignore lint/suspicious/noExplicitAny: minimal inline-tx stub
+		const txSpy = vi.spyOn(db, "transaction").mockImplementation(((cb: any) => cb(db)) as any);
+		type SelectFn = typeof db.select;
+		type SelectChain = ReturnType<SelectFn>;
+		const realSelect = db.select.bind(db);
+		let firstCall = true;
+		const stubSelect: SelectFn = ((...args: Parameters<SelectFn>) => {
+			if (firstCall) {
+				firstCall = false;
+				const stubChain = {
+					from: () => ({
+						where: () => ({
+							get: () => stale,
+						}),
+					}),
+				};
+				return stubChain as unknown as SelectChain;
+			}
+			return realSelect(...args) as SelectChain;
+		}) as SelectFn;
+		const selSpy = vi.spyOn(db, "select").mockImplementation(stubSelect);
+
+		try {
+			expect(() => update(db, created.id, { title: "Posthumous edit" }, 5)).toThrow(
+				ItemDeletedError,
+			);
+		} finally {
+			selSpy.mockRestore();
+			txSpy.mockRestore();
+		}
+	});
+
+	// I3 review sec HIGH-3: explicit allow-list of editable fields. A JS
+	// caller passing a runtime-extra `version: 0` field via the typed
+	// UpdateKnowledgeItemInput must NOT be able to pin the version low —
+	// the safeChanges allow-list excludes `version` regardless of source.
+	it("ignores caller-supplied `version` field — version is computed server-side", () => {
+		const created = create(db, baseItem);
+		bumpToVersion(created.id, 5);
+
+		// Cast to a permissive shape to simulate a JS-side caller passing
+		// an extra field through TypeScript's structural typing.
+		const evil = { title: "intent", version: 0 } as unknown as Parameters<typeof update>[2];
+		const result = update(db, created.id, evil, 5);
+
+		// Version should be 6, not 1 (the evil pin).
+		expect(result.version).toBe(6);
+		expect(result.title).toBe("intent");
 	});
 
 	it("VersionConflictError carries the latest current version after the winning write", () => {

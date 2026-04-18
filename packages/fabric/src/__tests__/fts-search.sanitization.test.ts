@@ -1,7 +1,13 @@
 import { type HyperIdleDb, createTestDb } from "@hyperidle/db";
 import { beforeEach, describe, expect, it } from "vitest";
 import { knowledgeEvents } from "../events.js";
-import { ftsSearch, setupFts } from "../fts.js";
+import {
+	FTS_MAX_QUERY_CHARS,
+	FTS_MAX_TOKENS,
+	ftsSearch,
+	sanitizeFtsQuery,
+	setupFts,
+} from "../fts.js";
 import { create } from "../knowledge-repository.js";
 
 /**
@@ -65,17 +71,39 @@ describe("I3: FTS sanitisation — operators are escaped", () => {
 		knowledgeEvents.removeAllListeners();
 	});
 
-	it("query 'test*' does not match everything (asterisk treated as literal)", () => {
+	// I3 review W5: prefix search via trailing `*` is now supported. A
+	// `test*` query returns rows whose tokens start with "test" but does
+	// NOT match unrelated rows. Bare `*` (no preceding token chars) is
+	// still stripped.
+	it("query 'test*' returns rows starting with 'test' but not unrelated rows", () => {
 		const db = makeDb(SAMPLE_ITEMS);
 		const results = ftsSearch(db, "test*");
-		// 5 items in the DB, none containing the word "test" — must NOT
-		// match all rows. (A bare `*` in FTS5 is invalid syntax but `test*`
-		// is a prefix-match operator that, unsanitised, returns matches for
-		// any token starting with "test"; sanitised, it becomes the literal
-		// phrase "test" which matches no rows.)
-		expect(results.length).toBeLessThan(SAMPLE_ITEMS.length);
-		// Specifically: zero rows, since no row contains the literal "test".
+		// Sample items don't contain any token starting with "test" — must
+		// return zero rows, not all rows.
 		expect(results).toEqual([]);
+	});
+
+	it("prefix search 'auth*' matches 'authentication' but not unrelated rows", () => {
+		const db = makeDb([
+			{ title: "Auth Doc", body: "Configure authentication via OAuth providers." },
+			{ title: "Routing", body: "Use react-router for client-side navigation." },
+		]);
+		const results = ftsSearch(db, "auth*");
+		// Should match the auth doc (token 'authentication' starts with
+		// 'auth'); must not match routing.
+		expect(results.length).toBe(1);
+	});
+
+	it("prefix search 'auth*' does NOT match unrelated 'authorization-policy' style rows", () => {
+		const db = makeDb([
+			{ title: "Authorization", body: "authorization-policy is enforced via authMiddleware" },
+			{ title: "Other", body: "completely unrelated content" },
+		]);
+		// 'auth*' should match both 'authorization' (starts with auth)
+		// AND 'authMiddleware' (starts with auth) → returns the row.
+		// 'auth*' should NOT match 'unrelated' or 'completely'.
+		const results = ftsSearch(db, "auth*");
+		expect(results.length).toBe(1);
 	});
 
 	it("query 'unbalanced double quote does not throw", () => {
@@ -140,6 +168,38 @@ describe("I3: FTS sanitisation — meaningful punctuation preserved", () => {
 		]);
 		const results = ftsSearch(db, "my_var");
 		expect(results.length).toBeGreaterThan(0);
+	});
+});
+
+// I3 review sec MEDIUM-5: bounded input length + token count.
+describe("I3 review sec MEDIUM-5: FTS DoS bounds", () => {
+	beforeEach(() => {
+		knowledgeEvents.removeAllListeners();
+	});
+
+	it("input longer than FTS_MAX_QUERY_CHARS is truncated, not thrown", () => {
+		const huge = "x".repeat(FTS_MAX_QUERY_CHARS * 4);
+		expect(() => sanitizeFtsQuery(huge)).not.toThrow();
+		const out = sanitizeFtsQuery(huge);
+		// One token of x's, capped to the truncation length.
+		expect(out).toBe(`"${"x".repeat(FTS_MAX_QUERY_CHARS)}"`);
+	});
+
+	it("token count beyond FTS_MAX_TOKENS is truncated, not thrown", () => {
+		// Build a string with more than FTS_MAX_TOKENS distinct tokens.
+		const tokens = Array.from({ length: FTS_MAX_TOKENS + 32 }, (_, i) => `tok${i}`);
+		const input = tokens.join(" ");
+		expect(() => sanitizeFtsQuery(input)).not.toThrow();
+		const out = sanitizeFtsQuery(input);
+		// Output is space-separated quoted phrases — count them.
+		const phraseCount = out.split(" ").length;
+		expect(phraseCount).toBe(FTS_MAX_TOKENS);
+	});
+
+	it("ftsSearch with a huge input does not throw", () => {
+		const db = makeDb(SAMPLE_ITEMS);
+		const huge = "alpha ".repeat(2000);
+		expect(() => ftsSearch(db, huge)).not.toThrow();
 	});
 });
 
