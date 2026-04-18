@@ -233,6 +233,91 @@ describe("relevance-scoring", () => {
 		});
 	});
 
+	// I3 — AC-Rel-1/2/3: confidence and attentionScore factors must NOT be
+	// divided by 100. The schema stores both fields as `real` in [0,1].
+	// Per plan §3.5: removing the `/100` division means a confidence of 0.8
+	// contributes a 0.8 factor (not 0.008). We assert via `scoreItem` with a
+	// weights vector that isolates each factor — the resulting score equals
+	// `factor * 100` when the factor is the only weight.
+	describe("I3: confidence factor (no /100 division)", () => {
+		const isolatedConfidenceWeights: ScoringWeights = {
+			tagMatch: 0,
+			roleMatch: 0,
+			recency: 0,
+			confidence: 1,
+			layerProximity: 0,
+			attentionScore: 0,
+		};
+
+		it("item with confidence 0.8 contributes a factor of 0.8 (score ≈ 80)", () => {
+			const item = makeItem({
+				confidence: 0.8,
+				updatedAt: new Date(now).toISOString(),
+			});
+			const score = scoreItem(item, defaultContext, isolatedConfidenceWeights, now);
+			// Using toBeCloseTo to allow rounding (per Adversary H-1).
+			expect(score).toBeCloseTo(80, 0);
+			// And explicitly NOT the buggy 0.8 (i.e. score 1) result.
+			expect(score).toBeGreaterThan(50);
+		});
+
+		it("item with confidence 0.5 contributes a factor of 0.5 (score ≈ 50)", () => {
+			const item = makeItem({
+				confidence: 0.5,
+				updatedAt: new Date(now).toISOString(),
+			});
+			const score = scoreItem(item, defaultContext, isolatedConfidenceWeights, now);
+			expect(score).toBeCloseTo(50, 0);
+		});
+
+		it("item with confidence 1.0 contributes a factor of 1.0 (score ≈ 100)", () => {
+			const item = makeItem({
+				confidence: 1.0,
+				updatedAt: new Date(now).toISOString(),
+			});
+			const score = scoreItem(item, defaultContext, isolatedConfidenceWeights, now);
+			expect(score).toBeCloseTo(100, 0);
+		});
+	});
+
+	describe("I3: attentionScore factor (no /100 division)", () => {
+		const isolatedAttentionWeights: ScoringWeights = {
+			tagMatch: 0,
+			roleMatch: 0,
+			recency: 0,
+			confidence: 0,
+			layerProximity: 0,
+			attentionScore: 1,
+		};
+
+		it("item with attentionScore 0.5 contributes a factor of 0.5 (score ≈ 50)", () => {
+			const item = makeItem({
+				attentionScore: 0.5,
+				updatedAt: new Date(now).toISOString(),
+			});
+			const score = scoreItem(item, defaultContext, isolatedAttentionWeights, now);
+			expect(score).toBeCloseTo(50, 0);
+		});
+
+		it("item with attentionScore 0.8 contributes a factor of 0.8 (score ≈ 80)", () => {
+			const item = makeItem({
+				attentionScore: 0.8,
+				updatedAt: new Date(now).toISOString(),
+			});
+			const score = scoreItem(item, defaultContext, isolatedAttentionWeights, now);
+			expect(score).toBeCloseTo(80, 0);
+		});
+
+		it("item with attentionScore null defaults to 0.5 (neutral)", () => {
+			const item = makeItem({
+				attentionScore: null,
+				updatedAt: new Date(now).toISOString(),
+			});
+			const score = scoreItem(item, defaultContext, isolatedAttentionWeights, now);
+			expect(score).toBeCloseTo(50, 0);
+		});
+	});
+
 	// AC6: Scoring weights overridable via factory_settings
 	describe("AC6: overridable scoring weights", () => {
 		let db: HyperIdleDb;

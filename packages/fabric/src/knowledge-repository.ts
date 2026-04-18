@@ -176,17 +176,30 @@ export function update(
 		}
 	}
 
-	// Perform the update
-	db.update(knowledgeItems)
+	// @lore I3 optimistic locking (TRACK-I.md L141-144): predicate the UPDATE
+	// on the expected version. Two writers that both observe version N will
+	// each issue this UPDATE; only the first commits, the second's
+	// `result.changes` is 0 because the WHERE clause no longer matches.
+	// The JS-side check above catches the *sequential* stale case; this
+	// SQL-side predicate catches the *racy* case where another transaction
+	// bumped the row between our SELECT and UPDATE (TOCTOU).
+	const result = db
+		.update(knowledgeItems)
 		.set({
 			...changes,
 			version: newVersion,
 			updatedAt: timestamp,
 		})
-		.where(eq(knowledgeItems.id, id))
+		.where(and(eq(knowledgeItems.id, id), eq(knowledgeItems.version, expectedVersion)))
 		.run();
 
-	// Insert edit log entries
+	if (result.changes === 0) {
+		// Row exists (we read it above) but version moved → conflict.
+		const current = db.select().from(knowledgeItems).where(eq(knowledgeItems.id, id)).get();
+		throw new VersionConflictError(id, current?.version ?? expectedVersion);
+	}
+
+	// Insert edit log entries (only after successful UPDATE).
 	for (const entry of editLogEntries) {
 		db.insert(knowledgeEditLog).values(entry).run();
 	}
