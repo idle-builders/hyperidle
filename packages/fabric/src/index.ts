@@ -35,8 +35,24 @@ export {
 	CONTEXT_WINDOW_TOKENS,
 	KNOWLEDGE_ALLOCATION_RATIO,
 	BUDGET_ALLOCATION,
+	ATTENTION_THRESHOLD,
+	loadAttentionWeights,
+	getDefaultAttentionWeights,
 } from "./scoring-config.js";
-export type { ScoringWeights, ScoringContext } from "./scoring-config.js";
+export type {
+	ScoringWeights,
+	ScoringContext,
+	AttentionWeights,
+} from "./scoring-config.js";
+export { isTasteSensitive } from "./attention-classifier.js";
+export {
+	scoreAttention,
+	scoreAttentionBatch,
+	buildAttentionContext,
+	cohortKey,
+	crossScopeKey,
+} from "./attention-scoring.js";
+export type { AttentionScoringContext } from "./attention-scoring.js";
 export { startWatcher } from "./file-watcher.js";
 export type { FileWatcher, FileWatcherConfig } from "./file-watcher.js";
 export { startPollingWatcher } from "./polling-watcher.js";
