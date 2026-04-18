@@ -5,7 +5,7 @@ import type { BetItem, BlockerItem, CostInfo } from "../shell/Rail";
 import { Rail } from "../shell/Rail";
 
 const sampleBets: BetItem[] = [
-	{ id: "bet-1", title: "Launch MVP", product: "HyperIdle", status: "healthy" },
+	{ id: "bet-1", title: "Launch MVP", product: "HyperIdle", status: "committed" },
 	{ id: "bet-2", title: "User Onboarding", product: "HyperIdle", status: "behind" },
 ];
 
@@ -14,7 +14,7 @@ const sampleBlockers: BlockerItem[] = [
 		id: "blocker-1",
 		agent: "Agent Alpha",
 		reason: "Waiting for API key",
-		severity: "blocked",
+		severity: "low",
 	},
 ];
 
@@ -246,7 +246,9 @@ describe("Rail", () => {
 			const behindBets: BetItem[] = [
 				{ id: "b", title: "Behind Bet", product: "P", status: "behind" },
 			];
-			render(<Rail {...defaultProps} bets={behindBets} />);
+			// Empty blockers so the only chip is the bet's chip — severities
+			// also render StatusChip and would otherwise collide.
+			render(<Rail {...defaultProps} bets={behindBets} blockers={[]} />);
 			// StatusChip uppercases the status text.
 			expect(screen.getByText("BEHIND")).toBeInTheDocument();
 			// Must NOT fall through to HEALTHY.
@@ -257,7 +259,7 @@ describe("Rail", () => {
 			const blockedBets: BetItem[] = [
 				{ id: "b", title: "Blocked Bet", product: "P", status: "blocked" },
 			];
-			render(<Rail {...defaultProps} bets={blockedBets} />);
+			render(<Rail {...defaultProps} bets={blockedBets} blockers={[]} />);
 			expect(screen.getByText("BLOCKED")).toBeInTheDocument();
 		});
 
@@ -265,7 +267,7 @@ describe("Rail", () => {
 			const pausedBets: BetItem[] = [
 				{ id: "b", title: "Paused Bet", product: "P", status: "paused" },
 			];
-			render(<Rail {...defaultProps} bets={pausedBets} />);
+			render(<Rail {...defaultProps} bets={pausedBets} blockers={[]} />);
 			expect(screen.getByText("PAUSED")).toBeInTheDocument();
 		});
 
