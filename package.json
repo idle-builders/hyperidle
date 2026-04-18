@@ -12,7 +12,11 @@
 		"lint:eslint": "eslint .",
 		"lint:fix": "biome check --write .",
 		"db:generate": "bun run --filter @hyperidle/db generate",
-		"db:migrate": "bun run --filter @hyperidle/db migrate"
+		"db:migrate": "bun run --filter @hyperidle/db migrate",
+		"db:migrate:pg": "bun run --filter @hyperidle/db migrate:pg",
+		"db:seed:pg": "bun packages/db/src/seed-pg-cli.ts",
+		"setup": "bun packages/db/src/setup-cli.ts",
+		"test:pg": "bun packages/db/src/pg-test-runner.ts"
 	},
 	"devDependencies": {
 		"@biomejs/biome": "^1.9.0",

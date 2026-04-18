@@ -1,0 +1,72 @@
+# HyperIdle VPS deployment profile.
+# Brings up Postgres + server + web as a single Docker Compose stack.
+#
+# Usage:
+#   cp .env.example .env     # and set POSTGRES_PASSWORD (at minimum)
+#   docker compose up -d
+#   bun run db:migrate:pg
+#   bun run db:seed:pg
+#
+# See docs/DEPLOYMENT.md for details.
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-hyperidle}
+      POSTGRES_USER: ${POSTGRES_USER:-hyperidle}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set in .env}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    # @lore Bound to the loopback interface so a VPS operator who runs
+    # `docker compose up -d` does not accidentally publish Postgres to
+    # 0.0.0.0. If you need external access, front with a VPN or SSH tunnel.
+    ports:
+      - "127.0.0.1:5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-hyperidle} -d ${POSTGRES_DB:-hyperidle}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      HYPERIDLE_PROFILE: vps
+      # @lore Interpolated from POSTGRES_* so setting POSTGRES_PASSWORD in
+      # .env actually takes effect. Previously hard-coded to hyperidle:hyperidle
+      # which silently ignored operator changes (H4 review finding).
+      DATABASE_URL: ${DATABASE_URL:-postgres://${POSTGRES_USER:-hyperidle}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set in .env}@postgres:5432/${POSTGRES_DB:-hyperidle}}
+      PG_POOL_SIZE: ${PG_POOL_SIZE:-10}
+      PORT: 3001
+    # @lore Server bound to loopback on the host; operators front it with a
+    # reverse proxy (nginx/Caddy) for TLS + auth rather than exposing the
+    # Hono dev server directly.
+    ports:
+      - "127.0.0.1:3001:3001"
+    command: ["bun", "run", "--filter", "@hyperidle/server", "dev"]
+
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      - server
+    environment:
+      VITE_API_URL: http://server:3001
+    # @lore Vite dev server is bound to loopback on the host for the same
+    # reason as the server; production operators front with nginx + auth.
+    ports:
+      - "127.0.0.1:5173:5173"
+    command: ["bun", "run", "--filter", "@hyperidle/web", "dev", "--", "--host", "0.0.0.0"]
+
+volumes:
+  postgres_data:

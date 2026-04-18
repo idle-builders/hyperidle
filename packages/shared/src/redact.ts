@@ -92,3 +92,37 @@ export function scrubInlineTokens(input: string): string {
 		.replace(PK_TOKEN_RE, "pk-[REDACTED]")
 		.replace(GITHUB_TOKEN_RE, "[REDACTED]");
 }
+
+/**
+ * Redact credentials from a database/connection URL for logging.
+ *
+ * Replaces the password in `scheme://user:password@host/…` forms and,
+ * best-effort, scrubs `?password=` and `?pwd=` query params. Parses via
+ * `new URL()` when possible; falls back to a regex otherwise.
+ *
+ * @lore Single source of truth for DB URL scrubbing. Previously duplicated
+ * in `packages/db/src/setup-cli.ts` and `packages/db/src/pg-test-runner.ts`
+ * (H4 review finding).
+ */
+export function redactDbUrl(url: string): string {
+	let out = url;
+	try {
+		const parsed = new URL(url);
+		if (parsed.password) {
+			parsed.password = "***";
+		}
+		for (const key of ["password", "pwd", "pass"]) {
+			if (parsed.searchParams.has(key)) {
+				parsed.searchParams.set(key, "***");
+			}
+		}
+		out = parsed.toString();
+	} catch {
+		// Not a URL-parseable string — fall through to the regex.
+	}
+	// Belt-and-suspenders: strip the `:password@` form even if URL parsing
+	// missed it (some postgres URIs accept user:pw@ shapes the WHATWG URL
+	// parser rejects).
+	out = out.replace(/(:\/\/[^:@/]+:)([^:@/]+)(@)/, "$1***$3");
+	return out;
+}
