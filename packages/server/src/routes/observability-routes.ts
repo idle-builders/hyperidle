@@ -125,14 +125,23 @@ export function createObservabilityRoutes(
 		return cfg;
 	}
 
-	// GET / — Index (I1 S2: proves the route is mounted).
-	router.get("/", (c) => {
-		const cfg = readObservabilityConfig(db);
-		return c.json({
-			config: redactObservabilityConfig(cfg),
-			endpoints: ["/config", "/status", "/flush"],
-		});
-	});
+	// GET / — Bounded resource descriptor. Proves the route is mounted
+	// (I1 S2) without a DB read on every hit.
+	// @lore I1 simplification-#2: previous handler read + redacted the
+	// observability config on every request. Callers that want config
+	// hit `/config`.
+	router.get("/", (c) =>
+		c.json({
+			ok: true,
+			resource: "observability",
+			endpoints: [
+				"GET /config",
+				"PATCH /config",
+				"GET /status",
+				"POST /flush",
+			],
+		}),
+	);
 
 	router.get("/config", (c) => {
 		const cfg = readObservabilityConfig(db);
