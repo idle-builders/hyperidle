@@ -104,6 +104,7 @@ export async function runPipeline(options: PipelineOptions): Promise<void> {
  * The agent gets all story IDs and processes them sequentially,
  * creating worktrees internally via the pipeline skill.
  */
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: retry loop with progress tracking is inherently complex
 async function runStream(
 	stream: Stream,
 	prompt: string,

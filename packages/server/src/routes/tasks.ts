@@ -168,7 +168,11 @@ export function createTaskRoutes(db: HyperIdleDb, eventBus: EventBus): Hono {
 			agentId: session.agentId,
 			taskId,
 			workspacePath: resolvedWorkspacePath,
-			watcher: { stop: (): void => {} },
+			watcher: {
+				stop: (): void => {
+					/* no-op */
+				},
+			},
 			traceId: session.traceId ?? "",
 		};
 

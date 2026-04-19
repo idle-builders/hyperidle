@@ -14,12 +14,14 @@ let nextId = 1;
 export class MockHarnessAdapter implements HarnessAdapter {
 	private readonly sessions = new Map<string, { config: SessionConfig; running: boolean }>();
 
+	// biome-ignore lint/suspicious/useAwait: interface HarnessAdapter requires async signature
 	async startSession(config: SessionConfig): Promise<SessionHandle> {
 		const sessionId = `mock-session-${nextId++}`;
 		this.sessions.set(sessionId, { config, running: true });
 		return { sessionId };
 	}
 
+	// biome-ignore lint/suspicious/useAwait: interface HarnessAdapter requires async signature
 	async *streamEvents(handle: SessionHandle): AsyncGenerator<HarnessEvent> {
 		const session = this.sessions.get(handle.sessionId);
 		if (!session) {
@@ -31,6 +33,7 @@ export class MockHarnessAdapter implements HarnessAdapter {
 		yield { type: "completion", text: "Task completed successfully." };
 	}
 
+	// biome-ignore lint/suspicious/useAwait: interface HarnessAdapter requires async signature
 	async stopSession(handle: SessionHandle): Promise<SessionResult> {
 		const session = this.sessions.get(handle.sessionId);
 		if (!session) {

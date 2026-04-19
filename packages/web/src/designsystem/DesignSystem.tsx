@@ -42,6 +42,7 @@ export function parseStoryModules(
 		for (const [key, value] of Object.entries(mod)) {
 			if (key === "default") continue;
 			if (typeof value === "function") {
+				// biome-ignore lint/style/useNamingConvention: StoryEntry interface uses PascalCase Component
 				variants.push({ name: key, Component: value as ComponentType });
 				continue;
 			}
@@ -52,6 +53,7 @@ export function parseStoryModules(
 				typeof (value as { render?: unknown }).render === "function"
 			) {
 				const obj = value as { name?: string; render: ComponentType };
+				// biome-ignore lint/style/useNamingConvention: StoryEntry interface uses PascalCase Component
 				variants.push({ name: obj.name ?? key, Component: obj.render });
 			}
 		}
@@ -210,6 +212,7 @@ function VariantCard({
 	Component,
 }: {
 	name: string;
+	// biome-ignore lint/style/useNamingConvention: React component props use PascalCase for component references
 	Component: ComponentType;
 }): React.JSX.Element {
 	return (

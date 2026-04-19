@@ -51,6 +51,7 @@ function buildRoutes(): RouteObject[] {
 			path: "/designsystem",
 			lazy: async () => {
 				const { DesignSystem } = await import("./designsystem/DesignSystem.js");
+				// biome-ignore lint/style/useNamingConvention: React Router lazy() API requires PascalCase Component key
 				return { Component: DesignSystem };
 			},
 		});

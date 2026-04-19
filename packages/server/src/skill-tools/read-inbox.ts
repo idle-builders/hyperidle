@@ -10,6 +10,7 @@ const readInboxInputSchema = z.object({
 
 type ReadInboxInput = z.infer<typeof readInboxInputSchema>;
 
+// biome-ignore lint/suspicious/useAwait: ToolDefinition.handler requires async signature
 async function handler(args: ReadInboxInput, ctx: ToolContext): Promise<ToolResult> {
 	const parsed = readInboxInputSchema.safeParse(args);
 	if (!parsed.success) {

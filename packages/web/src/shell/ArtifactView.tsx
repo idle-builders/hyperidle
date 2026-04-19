@@ -137,6 +137,7 @@ function ContentPreviewView({ data }: { data: ContentPreviewData }): JSX.Element
 			<div
 				className="prose prose-sm prose-invert max-w-none"
 				// biome-ignore lint/security/noDangerouslySetInnerHtml: content sanitized via DOMPurify before rendering
+				// biome-ignore lint/style/useNamingConvention: React API uses __html key
 				dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(data.html) }}
 			/>
 		</section>

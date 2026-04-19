@@ -35,7 +35,8 @@
       "Bash(bunx biome:*)",
       "Bash(awk '{print $2}')",
       "Bash(git:*)",
-      "Bash(tsc --noEmit -p tsconfig.json)"
+      "Bash(tsc --noEmit -p tsconfig.json)",
+      "Bash(echo \"Exit: $?\")"
     ]
   },
   "autoMode": {

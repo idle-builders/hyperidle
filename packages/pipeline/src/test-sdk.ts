@@ -20,7 +20,9 @@ for await (const message of q) {
 	} else if (message.type === "result") {
 		const r = message as {
 			subtype: string;
+			// biome-ignore lint/style/useNamingConvention: Claude Agent SDK response
 			total_cost_usd: number;
+			// biome-ignore lint/style/useNamingConvention: Claude Agent SDK response
 			permission_denials?: unknown[];
 		};
 		// biome-ignore lint/suspicious/noConsole: CLI test script

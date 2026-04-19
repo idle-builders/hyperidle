@@ -58,6 +58,7 @@ export interface ToolDefinition<Input = unknown> {
 export interface ClaudeToolSpec {
 	readonly name: string;
 	readonly description: string;
+	// biome-ignore lint/style/useNamingConvention: Claude API wire format uses snake_case
 	readonly input_schema: {
 		readonly type: "object";
 		readonly properties: Record<string, unknown>;
@@ -161,6 +162,7 @@ export function buildToolRegistry(
 	const byName = new Map(definitions.map((d) => [d.name, d]));
 	const allByName = new Map(ALL_TOOL_DEFINITIONS.map((d) => [d.name, d]));
 
+	// biome-ignore lint/suspicious/useAwait: ToolRegistry.invoke returns Promise for interface consistency
 	async function invoke(name: string, rawArgs: unknown): Promise<ToolResult> {
 		const def = byName.get(name);
 		if (!def) {

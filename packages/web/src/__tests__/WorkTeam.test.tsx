@@ -77,6 +77,7 @@ describe("WorkTeam", () => {
 		// `STATE_TO_COLUMN` in Kanban.tsx (the two are inverse relationships
 		// and must not drift) and re-exported for consumers.
 		const mod = (await import("../shell/Kanban")) as {
+			// biome-ignore lint/style/useNamingConvention: exported constant uses SCREAMING_SNAKE_CASE
 			COLUMN_TO_STATE?: Record<string, string>;
 		};
 		expect(mod.COLUMN_TO_STATE).toBeDefined();

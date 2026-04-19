@@ -288,6 +288,13 @@ function defaultAllowRoots(): readonly string[] {
 	const roots: string[] = [];
 	if (home?.startsWith("/")) roots.push(home);
 	roots.push("/tmp", "/var/tmp", "/workspace");
+	// @lore On macOS, `os.tmpdir()` returns `/var/folders/…` which is NOT
+	// under `/tmp` or `/var/tmp`. Tests (and dev scripts) create repos there
+	// via `fs.mkdtempSync(os.tmpdir())`, so we must include it explicitly.
+	const sysTmp = os.tmpdir();
+	if (sysTmp.startsWith("/") && !roots.includes(sysTmp)) {
+		roots.push(sysTmp);
+	}
 	return roots;
 }
 

@@ -57,7 +57,7 @@ describe("I2 S4 / review A3 — LocalWorkspaceAdapter production guard", () => {
 	});
 
 	it("spawn() succeeds when NODE_ENV is unset (dev convenience)", async () => {
-		delete process.env.NODE_ENV;
+		process.env.NODE_ENV = undefined;
 		const adapter = new LocalWorkspaceAdapter();
 
 		const handle = await adapter.spawn(baseDir);

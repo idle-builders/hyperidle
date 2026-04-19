@@ -254,6 +254,7 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 	});
 
 	// PATCH /:layer/:id — update (optimistic locking)
+	// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: knowledge PATCH handler validates layer, version, and diff fields in one route
 	router.patch("/:layer/:id", validateBody(updateKnowledgeSchema), (c) => {
 		const layer = c.get("layer");
 		const id = c.req.param("id");

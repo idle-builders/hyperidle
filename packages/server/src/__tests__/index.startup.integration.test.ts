@@ -42,7 +42,7 @@ describe("I2 A6 — index.ts fails fast on missing HYPERIDLE_API_KEY", () => {
 
 		// Build a clean env that EXPLICITLY removes HYPERIDLE_API_KEY.
 		const cleanEnv = { ...process.env };
-		delete cleanEnv.HYPERIDLE_API_KEY;
+		cleanEnv.HYPERIDLE_API_KEY = undefined;
 		cleanEnv.PORT = String(port);
 		cleanEnv.DATABASE_URL = dbPath;
 		cleanEnv.NODE_ENV = "test";

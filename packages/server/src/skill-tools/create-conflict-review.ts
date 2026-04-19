@@ -32,6 +32,7 @@ interface CreateConflictReviewData {
 	readonly status: "open";
 }
 
+// biome-ignore lint/suspicious/useAwait: ToolDefinition.handler requires async signature
 async function handler(
 	input: CreateConflictReviewInput,
 	ctx: ToolContext,

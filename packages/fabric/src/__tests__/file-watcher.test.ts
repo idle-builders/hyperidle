@@ -422,8 +422,9 @@ describe("file-watcher (fs.watch)", () => {
 		const filePath = path.join(workspace, "knowledge/practices/before-stop.md");
 		fs.writeFileSync(filePath, "Before stop");
 
-		// Give watcher time to notice the file (but before debounce fires)
-		await sleep(50);
+		// Give watcher time to notice the file (but before debounce fires).
+		// macOS fs.watch can take >50ms to deliver events; 200ms is reliable.
+		await sleep(200);
 
 		// Stop — should flush pending
 		watcher.stop();

@@ -13,6 +13,7 @@ const sendMessageInputSchema = z.object({
 
 type SendMessageInput = z.infer<typeof sendMessageInputSchema>;
 
+// biome-ignore lint/suspicious/useAwait: ToolDefinition.handler requires async signature
 async function handler(args: SendMessageInput, ctx: ToolContext): Promise<ToolResult> {
 	const parsed = sendMessageInputSchema.safeParse(args);
 	if (!parsed.success) {

@@ -13,6 +13,7 @@ const writeSessionNotesInputSchema = z.object({
 
 type WriteSessionNotesInput = z.infer<typeof writeSessionNotesInputSchema>;
 
+// biome-ignore lint/suspicious/useAwait: ToolDefinition.handler requires async signature
 async function handler(args: WriteSessionNotesInput, ctx: ToolContext): Promise<ToolResult> {
 	const parsed = writeSessionNotesInputSchema.safeParse(args);
 	if (!parsed.success) {

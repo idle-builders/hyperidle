@@ -12,6 +12,7 @@ import { parseStoryModules } from "../designsystem/DesignSystem";
 
 interface ParsedStory {
 	meta: { title: string };
+	// biome-ignore lint/style/useNamingConvention: matches StoryEntry interface which uses PascalCase Component
 	variants: { name: string; Component: ComponentType }[];
 }
 
@@ -25,6 +26,7 @@ describe("parseStoryModules", () => {
 		const fakeModules: Record<string, Record<string, unknown>> = {
 			"./Fake.stories.tsx": {
 				default: { title: "Fake" },
+				// biome-ignore lint/style/useNamingConvention: CSF3 story exports use PascalCase by convention
 				WithRender: { name: "Fancy Name", render: TestComponent },
 			},
 		};
@@ -40,6 +42,7 @@ describe("parseStoryModules", () => {
 		const fakeModules: Record<string, Record<string, unknown>> = {
 			"./Legacy.stories.tsx": {
 				default: { title: "Legacy" },
+				// biome-ignore lint/style/useNamingConvention: CSF3 story exports use PascalCase by convention
 				Default: Legacy,
 			},
 		};
@@ -54,6 +57,7 @@ describe("parseStoryModules", () => {
 		const fakeModules: Record<string, Record<string, unknown>> = {
 			"./Named.stories.tsx": {
 				default: { title: "Named" },
+				// biome-ignore lint/style/useNamingConvention: CSF3 story exports use PascalCase by convention
 				Primary: { name: "Primary variant", render: Render },
 			},
 		};
@@ -66,6 +70,7 @@ describe("parseStoryModules", () => {
 		const fakeModules: Record<string, Record<string, unknown>> = {
 			"./Bogus.stories.tsx": {
 				default: { title: "Bogus" },
+				// biome-ignore lint/style/useNamingConvention: CSF3 story exports use PascalCase by convention
 				NotAStory: { name: "no render here" },
 			},
 		};

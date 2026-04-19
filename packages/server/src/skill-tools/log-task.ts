@@ -25,6 +25,7 @@ const NOTE_SEPARATOR = "\n\n---\n\n";
  * eliminates the risk of the tool corrupting an audit JSON blob that lived
  * in the same column under the old (wrong) implementation.
  */
+// biome-ignore lint/suspicious/useAwait: ToolDefinition.handler requires async signature
 async function handler(args: LogTaskInput, ctx: ToolContext): Promise<ToolResult> {
 	const parsed = logTaskInputSchema.safeParse(args);
 	if (!parsed.success) {

@@ -300,7 +300,6 @@ export function AppShell(): JSX.Element {
 					navigate(`/knowledge/${safeId}`);
 					break;
 				}
-				case "conversation":
 				default:
 					navigate("/conversations/review");
 					break;

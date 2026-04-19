@@ -55,6 +55,7 @@ export class ClaudeAgentSdkAdapter implements HarnessAdapter {
 		this.queryFn = options?.queryFn ?? sdkQuery;
 	}
 
+	// biome-ignore lint/suspicious/useAwait: interface HarnessAdapter requires async signature
 	async startSession(config: SessionConfig): Promise<SessionHandle> {
 		const apiKey = process.env[this.apiKeyEnvVar];
 		if (!apiKey) {
@@ -137,6 +138,7 @@ export class ClaudeAgentSdkAdapter implements HarnessAdapter {
 		}
 	}
 
+	// biome-ignore lint/suspicious/useAwait: interface HarnessAdapter requires async signature
 	async stopSession(handle: SessionHandle): Promise<SessionResult> {
 		const session = this.sessions.get(handle.sessionId);
 		if (!session) {
@@ -157,6 +159,7 @@ export class ClaudeAgentSdkAdapter implements HarnessAdapter {
 		return { preCompactionTrigger: true, subAgents: true };
 	}
 
+	// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: SDK message translation requires branching on message type/subtype
 	private *translateMessage(msg: SDKMessage, session: ActiveSession): Generator<HarnessEvent> {
 		switch (msg.type) {
 			case "assistant": {
@@ -207,6 +210,7 @@ export class ClaudeAgentSdkAdapter implements HarnessAdapter {
 
 			case "system": {
 				if ("subtype" in msg && msg.subtype === "compact_boundary") {
+					// biome-ignore lint/style/useNamingConvention: Claude SDK wire format uses snake_case
 					const meta = (msg as { compact_metadata: { pre_tokens: number } }).compact_metadata;
 					yield {
 						type: "pre_compaction",
