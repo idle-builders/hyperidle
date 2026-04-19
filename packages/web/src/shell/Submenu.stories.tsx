@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Submenu } from "./Submenu";
+import type { SubmenuFilter } from "./Submenu";
 
 export default { title: "Submenu" };
 
@@ -66,3 +67,79 @@ export const Interactive = (): React.JSX.Element => {
 		</Submenu>
 	);
 };
+
+// J2: Conversations-style filter row with count bubble.
+export const WithFiltersConversations = (): React.JSX.Element => {
+	const [filter, setFilter] = useState<SubmenuFilter>("all");
+	return (
+		<Submenu
+			title="Conversations"
+			collapsed={false}
+			onToggleCollapse={() => {}}
+			count={4}
+			filters={[
+				{ id: "all", label: "All" },
+				{ id: "needs-review", label: "Needs review" },
+				{ id: "chats", label: "Chats" },
+				{ id: "resolved", label: "Resolved" },
+			]}
+			activeFilter={filter}
+			onFilterChange={setFilter}
+		>
+			<ul className="menu menu-sm">
+				<li>
+					<button type="button">Review Queue</button>
+				</li>
+				<li>
+					<button type="button">Chat</button>
+				</li>
+			</ul>
+		</Submenu>
+	);
+};
+
+// J2: Knowledge-style filter row (shorter).
+export const WithFiltersKnowledge = (): React.JSX.Element => {
+	const [filter, setFilter] = useState<SubmenuFilter>("all");
+	return (
+		<Submenu
+			title="Knowledge"
+			collapsed={false}
+			onToggleCollapse={() => {}}
+			count={12}
+			filters={[
+				{ id: "all", label: "All" },
+				{ id: "needs-review", label: "Needs review" },
+			]}
+			activeFilter={filter}
+			onFilterChange={setFilter}
+		>
+			<ul className="menu menu-sm">
+				<li>
+					<button type="button">All Items</button>
+				</li>
+			</ul>
+		</Submenu>
+	);
+};
+
+// J2: Work view renders no filter row (empty filters array).
+export const NoFiltersWork = (): React.JSX.Element => (
+	<Submenu
+		title="Work"
+		collapsed={false}
+		onToggleCollapse={() => {}}
+		filters={[]}
+		activeFilter="all"
+		onFilterChange={() => {}}
+	>
+		<ul className="menu menu-sm">
+			<li>
+				<button type="button">Portfolio</button>
+			</li>
+			<li>
+				<button type="button">Team Board</button>
+			</li>
+		</ul>
+	</Submenu>
+);
