@@ -24,13 +24,20 @@ describe("WorkBet — detail page (J5)", () => {
 		const breadcrumb = screen.getByLabelText("Breadcrumb");
 		expect(breadcrumb).toBeInTheDocument();
 		const text = breadcrumb.textContent ?? "";
-		// The three levels must appear in order. product name / team / bet title.
+		// The three levels must appear in DOM order (product / team / bet).
 		const productIdx = text.indexOf("Alpha");
-		const teamIdx = text.toLowerCase().indexOf("team");
-		const betIdx = text.indexOf("User auth flow");
+		const teamIdx = text.indexOf("Alpha Core");
+		// The leaf uses the bet id (so BetCard remains the unique source of
+		// the title text) with an sr-only full-title expansion.
+		const betIdx = text.indexOf("b1");
 		expect(productIdx).toBeGreaterThanOrEqual(0);
-		expect(teamIdx).toBeGreaterThan(productIdx);
+		expect(teamIdx).toBeGreaterThanOrEqual(productIdx);
 		expect(betIdx).toBeGreaterThan(teamIdx);
+		// The current-page marker includes both the bet id and the full title
+		// in the accessible name.
+		const current = breadcrumb.querySelector('[aria-current="page"]');
+		expect(current?.textContent).toContain("b1");
+		expect(current?.textContent).toContain("User auth flow");
 	});
 
 	it("renders pitch body as markdown-like content", () => {

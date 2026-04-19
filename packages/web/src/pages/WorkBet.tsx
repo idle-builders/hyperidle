@@ -1,20 +1,36 @@
 /**
  * Work/Bet page — bet detail view composed from Tier 2 components (BetCard, TaskCard)
  * and DaisyUI primitives. Shows bet details + task list for that bet.
+ *
+ * @lore J5: the page now includes a breadcrumb (Product → Team → Bet),
+ * a markdown-rendered pitch body, a sortable task table (replacing the
+ * stacked TaskCards per spec: "denser than stacked TaskCards — use a
+ * <table>"), and a comment thread. react-markdown is NOT a dependency
+ * yet, so the body renders inside a <pre> with whitespace preserved —
+ * the table and breadcrumb are the load-bearing new elements.
  */
-import type { TaskState } from "@hyperidle/shared";
-import type { JSX } from "react";
-import { useParams } from "react-router-dom";
+import type { BetStatus, TaskState } from "@hyperidle/shared";
+import { type JSX, useMemo, useState } from "react";
+import { Link, useParams } from "react-router-dom";
 import { BetCard } from "../components/BetCard";
-import { TaskCard } from "../components/TaskCard";
+import { StatusChip } from "../components/StatusChip";
+import { taskStateToStatus } from "../components/status-mapping";
+
+interface MockBetComment {
+	id: string;
+	author: string;
+	body: string;
+}
 
 interface MockBetDetail {
 	id: string;
 	title: string;
 	product: string;
-	status: "shaped" | "committed";
+	team: string;
+	status: BetStatus;
 	appetite: string;
 	progress: { done: number; total: number };
+	body: string;
 	tasks: Array<{
 		id: string;
 		title: string;
@@ -22,6 +38,7 @@ interface MockBetDetail {
 		state: TaskState;
 		cost: string;
 	}>;
+	comments: MockBetComment[];
 }
 
 const MOCK_BETS: Record<string, MockBetDetail> = {
@@ -29,9 +46,21 @@ const MOCK_BETS: Record<string, MockBetDetail> = {
 		id: "b1",
 		title: "User auth flow",
 		product: "Alpha",
+		team: "Alpha Core",
 		status: "committed",
 		appetite: "2 weeks",
 		progress: { done: 3, total: 8 },
+		body: `# Problem
+Current auth is hand-rolled and leaks sessions on reload.
+
+## Appetite
+2 weeks.
+
+## Solution
+Migrate to JWT with refresh rotation.
+
+## Rabbit holes
+- Do not rebuild the signup flow in this bet.`,
 		tasks: [
 			{
 				id: "t1",
@@ -55,14 +84,38 @@ const MOCK_BETS: Record<string, MockBetDetail> = {
 				cost: "$6.50",
 			},
 		],
+		comments: [
+			{
+				id: "c1",
+				author: "CEO",
+				body: "Prioritise the login path; signup can follow.",
+			},
+			{
+				id: "c2",
+				author: "Dev Agent 1",
+				body: "Refresh rotation works end-to-end in staging.",
+			},
+		],
 	},
 	b2: {
 		id: "b2",
 		title: "Dashboard redesign",
 		product: "Beta",
+		team: "Beta Surface",
 		status: "shaped",
 		appetite: "3 weeks",
 		progress: { done: 0, total: 5 },
+		body: `# Problem
+The dashboard has grown to 14 widgets with no hierarchy.
+
+## Appetite
+3 weeks.
+
+## Solution
+Replace the grid with a three-column layout driven by user roles.
+
+## Rabbit holes
+- Do not ship new widgets in this bet.`,
 		tasks: [
 			{
 				id: "t4",
@@ -79,6 +132,7 @@ const MOCK_BETS: Record<string, MockBetDetail> = {
 				cost: "$1.50",
 			},
 		],
+		comments: [],
 	},
 };
 
@@ -86,18 +140,82 @@ const FALLBACK_BET: MockBetDetail = {
 	id: "unknown",
 	title: "Unknown Bet",
 	product: "Unknown",
+	team: "Unknown Team",
 	status: "shaped",
 	appetite: "—",
 	progress: { done: 0, total: 0 },
+	body: "",
 	tasks: [],
+	comments: [],
 };
+
+type SortColumn = "title" | "status" | "owner" | "cost";
+type SortDirection = "asc" | "desc";
+
+function sortTasks(
+	tasks: MockBetDetail["tasks"],
+	column: SortColumn | null,
+	direction: SortDirection,
+): MockBetDetail["tasks"] {
+	if (column === null) return tasks;
+	const copy = [...tasks];
+	copy.sort((a, b) => {
+		const av = a[column] ?? "";
+		const bv = b[column] ?? "";
+		if (av < bv) return direction === "asc" ? -1 : 1;
+		if (av > bv) return direction === "asc" ? 1 : -1;
+		return 0;
+	});
+	return copy;
+}
 
 export function WorkBet(): JSX.Element {
 	const { betId } = useParams<{ betId: string }>();
 	const bet = (betId && MOCK_BETS[betId]) || FALLBACK_BET;
 
+	const [sortColumn, setSortColumn] = useState<SortColumn | null>(null);
+	const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
+
+	const sortedTasks = useMemo(
+		() => sortTasks(bet.tasks, sortColumn, sortDirection),
+		[bet.tasks, sortColumn, sortDirection],
+	);
+
+	function handleSort(column: SortColumn): void {
+		if (sortColumn === column) {
+			setSortDirection((prev) => (prev === "asc" ? "desc" : "asc"));
+		} else {
+			setSortColumn(column);
+			setSortDirection("asc");
+		}
+	}
+
 	return (
 		<div className="flex flex-col gap-3 h-full" data-testid="work-bet-page">
+			{/* J5: breadcrumb Product → Team → Bet. The leaf node uses the
+			    bet id rather than the title so the enriched BetCard below
+			    remains the single rendered instance of `bet.title`. */}
+			<nav aria-label="Breadcrumb" className="text-xs text-[var(--text-lo)]">
+				<ol className="flex items-center gap-1">
+					<li>
+						<Link className="hover:text-[var(--text-hi)]" to="/work/portfolio">
+							{bet.product}
+						</Link>
+					</li>
+					<li aria-hidden>›</li>
+					<li>
+						<Link className="hover:text-[var(--text-hi)]" to="/work/team">
+							{bet.team}
+						</Link>
+					</li>
+					<li aria-hidden>›</li>
+					<li className="text-[var(--text-hi)] font-medium" aria-current="page">
+						<span className="uppercase font-mono">{bet.id}</span>
+						<span className="sr-only">: {bet.title}</span>
+					</li>
+				</ol>
+			</nav>
+
 			<BetCard
 				title={bet.title}
 				product={bet.product}
@@ -106,6 +224,20 @@ export function WorkBet(): JSX.Element {
 				progress={bet.progress}
 			/>
 
+			{bet.body && (
+				// @lore J5: react-markdown is not a dependency; per the J5
+				// constraint we fall back to a <pre> with whitespace preserved
+				// so the pitch body is still readable and heading/lists are
+				// visually separated. Swap in react-markdown if it's ever
+				// added to packages/web/package.json.
+				<pre
+					data-testid="bet-pitch-body"
+					className="bg-base-200 rounded p-3 text-sm text-[var(--text-hi)] whitespace-pre-wrap font-sans"
+				>
+					{bet.body}
+				</pre>
+			)}
+
 			<h2 className="text-sm font-heading font-semibold uppercase tracking-wider text-[var(--text-lo)]">
 				Tasks
 			</h2>
@@ -113,18 +245,112 @@ export function WorkBet(): JSX.Element {
 			{bet.tasks.length === 0 ? (
 				<p className="text-sm text-[var(--text-lo)]">No tasks yet</p>
 			) : (
-				<div className="flex flex-col gap-2">
-					{bet.tasks.map((task) => (
-						<TaskCard
-							key={task.id}
-							title={task.title}
-							owner={task.owner}
-							state={task.state}
-							cost={task.cost}
-						/>
-					))}
+				<div className="overflow-x-auto">
+					<table className="table table-xs">
+						<thead>
+							<tr>
+								<SortableHeader
+									column="title"
+									label="Title"
+									sortColumn={sortColumn}
+									sortDirection={sortDirection}
+									onSort={handleSort}
+								/>
+								<SortableHeader
+									column="status"
+									label="Status"
+									sortColumn={sortColumn}
+									sortDirection={sortDirection}
+									onSort={handleSort}
+								/>
+								<SortableHeader
+									column="owner"
+									label="Owner"
+									sortColumn={sortColumn}
+									sortDirection={sortDirection}
+									onSort={handleSort}
+								/>
+								<SortableHeader
+									column="cost"
+									label="Cost"
+									sortColumn={sortColumn}
+									sortDirection={sortDirection}
+									onSort={handleSort}
+								/>
+							</tr>
+						</thead>
+						<tbody>
+							{sortedTasks.map((task) => (
+								<tr key={task.id}>
+									<td>{task.title}</td>
+									<td>
+										<StatusChip status={taskStateToStatus(task.state)} />
+									</td>
+									<td>{task.owner}</td>
+									<td className="font-mono">{task.cost}</td>
+								</tr>
+							))}
+						</tbody>
+					</table>
 				</div>
 			)}
+
+			<section
+				aria-label="Comments"
+				data-testid="bet-comment-thread"
+				className="flex flex-col gap-2"
+			>
+				<h2 className="text-sm font-heading font-semibold uppercase tracking-wider text-[var(--text-lo)]">
+					Comments
+				</h2>
+				{bet.comments.length === 0 ? (
+					<p className="text-sm text-[var(--text-lo)]">No comments yet</p>
+				) : (
+					<ul className="flex flex-col gap-2">
+						{bet.comments.map((comment) => (
+							<li key={comment.id} className="bg-base-200 rounded p-2 flex flex-col gap-1">
+								<span className="text-xs font-heading uppercase tracking-wider text-[var(--text-lo)]">
+									{comment.author}
+								</span>
+								<span className="text-sm text-[var(--text-hi)]">{comment.body}</span>
+							</li>
+						))}
+					</ul>
+				)}
+			</section>
 		</div>
+	);
+}
+
+function SortableHeader({
+	column,
+	label,
+	sortColumn,
+	sortDirection,
+	onSort,
+}: {
+	column: SortColumn;
+	label: string;
+	sortColumn: SortColumn | null;
+	sortDirection: SortDirection;
+	onSort: (column: SortColumn) => void;
+}): JSX.Element {
+	const active = sortColumn === column;
+	const ariaSort: "none" | "ascending" | "descending" = active
+		? sortDirection === "asc"
+			? "ascending"
+			: "descending"
+		: "none";
+	return (
+		<th aria-sort={ariaSort} scope="col">
+			<button
+				type="button"
+				className="flex items-center gap-1 uppercase font-heading text-xs tracking-wider text-[var(--text-lo)] hover:text-[var(--text-hi)]"
+				onClick={() => onSort(column)}
+			>
+				<span>{label}</span>
+				<span aria-hidden>{active ? (sortDirection === "asc" ? "▲" : "▼") : "↕"}</span>
+			</button>
+		</th>
 	);
 }
