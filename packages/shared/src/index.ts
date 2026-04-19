@@ -10,7 +10,9 @@ export type {
 	KnowledgeFormat,
 	KnowledgeKind,
 	KnowledgeLayer,
+	KnowledgeScope,
 	KnowledgeStatus,
+	KnowledgeTopicHealth,
 	ModelTier,
 	MutableBetField,
 	RiskTier,
@@ -22,7 +24,9 @@ export type {
 export {
 	BET_STATUSES,
 	KNOWLEDGE_LAYERS,
+	KNOWLEDGE_SCOPES,
 	KNOWLEDGE_STATUSES,
+	KNOWLEDGE_TOPIC_HEALTHS,
 	MUTABLE_BET_FIELDS,
 	TASK_STATES,
 } from "./types.js";
