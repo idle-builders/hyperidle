@@ -15,10 +15,6 @@ export const Group = (): React.JSX.Element => (
 	</div>
 );
 
-export const Pattern = (): React.JSX.Element => <Tag label="recurring" kind="pattern" />;
-export const Decision = (): React.JSX.Element => <Tag label="approved" kind="decision" />;
-export const Failure = (): React.JSX.Element => <Tag label="rollback" kind="failure" />;
-
 export const KindGroup = (): React.JSX.Element => (
 	<div className="flex flex-wrap gap-1">
 		<Tag label="plain" />
