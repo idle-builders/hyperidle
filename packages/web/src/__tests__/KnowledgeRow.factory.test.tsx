@@ -19,9 +19,7 @@ describe("KnowledgeRow — J7 factory mode", () => {
 	});
 
 	it("uses taller padding (py-4) when factoryMode is true", () => {
-		const { container } = render(
-			<KnowledgeRow {...defaultProps} factoryMode version="v2.1" />,
-		);
+		const { container } = render(<KnowledgeRow {...defaultProps} factoryMode version="v2.1" />);
 		const row = container.firstElementChild as HTMLElement;
 		expect(row.className).toContain("py-4");
 	});

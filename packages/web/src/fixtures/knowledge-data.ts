@@ -19,6 +19,21 @@ import type {
 	KnowledgeTopicHealth,
 } from "@hyperidle/shared";
 
+/**
+ * One entry in an item's observation log. Facilitator/agent attribution is
+ * required — rendered in the detail-page gutter per J7 AC. Timestamps are
+ * free-form relative strings today ("2d ago"); server will emit ISO in prod.
+ *
+ * @lore J7: shape lives in the fixture because no API is wired yet. When the
+ * API lands, move this interface into `@hyperidle/shared` alongside the rest
+ * of the knowledge types and reuse in both web and server.
+ */
+export interface MockObservationEntry {
+	agent: string;
+	text: string;
+	timestamp: string;
+}
+
 export interface MockKnowledgeItem {
 	id: string;
 	title: string;
@@ -38,6 +53,33 @@ export interface MockKnowledgeItem {
 	 * with ellipsis in the UI when exceeded. Server emits this.
 	 */
 	whyNow: string;
+	/**
+	 * Markdown body shown on the detail page (J7). Falls back to a short
+	 * default when absent so the list keeps working.
+	 */
+	content?: string;
+	/**
+	 * The agent or session that originated the item (J7 metadata bar).
+	 */
+	originAgent?: string;
+	/**
+	 * 0..1 confidence score, rendered as a small indicator on the detail
+	 * metadata bar (J7). Server-computed in production.
+	 */
+	confidence?: number;
+	/**
+	 * Semver-ish version string shown on factory-scope rows (J7).
+	 */
+	version?: string;
+	/**
+	 * Facilitator/agent observations appended by the Practice Facilitator.
+	 * Rendered in the gutter of the detail page (J7).
+	 */
+	observationLog?: ReadonlyArray<MockObservationEntry>;
+	/**
+	 * IDs of items related via shared topic or explicit link (J7 sidebar).
+	 */
+	relatedItems?: ReadonlyArray<string>;
 }
 
 export interface MockCurationSuggestion {
@@ -69,6 +111,29 @@ export const MOCK_KNOWLEDGE_ITEMS: ReadonlyArray<MockKnowledgeItem> = [
 		topic: "Architecture",
 		attentionScore: 10,
 		whyNow: "Recently validated, no action needed",
+		content:
+			"JWT-based authentication with refresh tokens. Access tokens expire in 15 minutes. Refresh tokens in 7 days. All tokens stored in httpOnly cookies, never localStorage.",
+		originAgent: "Architect Agent",
+		confidence: 0.92,
+		version: "v1.3",
+		observationLog: [
+			{
+				agent: "Practice Facilitator",
+				text: "Ratified during Q1 architecture review.",
+				timestamp: "1d ago",
+			},
+			{
+				agent: "Security Agent",
+				text: "Verified httpOnly cookie policy against OWASP guidance.",
+				timestamp: "20h ago",
+			},
+			{
+				agent: "Builder Agent",
+				text: "Applied in the auth service rollout for product bets.",
+				timestamp: "6h ago",
+			},
+		],
+		relatedItems: ["k2", "k7"],
 	},
 	{
 		id: "k2",
@@ -81,6 +146,12 @@ export const MOCK_KNOWLEDGE_ITEMS: ReadonlyArray<MockKnowledgeItem> = [
 		topic: "Architecture",
 		attentionScore: 12,
 		whyNow: "Applied 4 times this cycle",
+		content:
+			"Rate limiting at 100 requests/minute per API key. Sliding window algorithm. Returns 429 with Retry-After header. Exemptions for internal service accounts.",
+		originAgent: "Developer Agent",
+		confidence: 0.78,
+		version: "v2.0",
+		relatedItems: ["k1"],
 	},
 	// Practice scope — Research
 	{
@@ -133,6 +204,10 @@ export const MOCK_KNOWLEDGE_ITEMS: ReadonlyArray<MockKnowledgeItem> = [
 		topic: "Process",
 		attentionScore: 92,
 		whyNow: "3 new observations since review",
+		content:
+			"Triage highest attention-score items first. Escalate items with conflicting observations to the Chief of Staff agent.",
+		originAgent: "Practice Facilitator",
+		confidence: 0.55,
 	},
 	// Practice scope — Architecture (stale item to drive topic health)
 	{
@@ -184,6 +259,10 @@ export const MOCK_KNOWLEDGE_ITEMS: ReadonlyArray<MockKnowledgeItem> = [
 		topic: "UI Kit",
 		attentionScore: 5,
 		whyNow: "Archived — see replacement",
+		content: "Use `btn-primary` instead of the deprecated ghost+accent combo.",
+		originAgent: "Designer Agent",
+		confidence: 0.4,
+		relatedItems: [],
 	},
 	// Factory scope — Governance
 	{
@@ -197,6 +276,11 @@ export const MOCK_KNOWLEDGE_ITEMS: ReadonlyArray<MockKnowledgeItem> = [
 		topic: "Governance",
 		attentionScore: 18,
 		whyNow: "Under amendment review",
+		content:
+			"Agents at autonomy level 3 may act without founder approval for reversible actions. Irreversible actions always require review.",
+		originAgent: "Chief of Staff",
+		confidence: 0.88,
+		version: "v2.1",
 	},
 	{
 		id: "k12",
@@ -209,6 +293,11 @@ export const MOCK_KNOWLEDGE_ITEMS: ReadonlyArray<MockKnowledgeItem> = [
 		topic: "Governance",
 		attentionScore: 78,
 		whyNow: "Breached 2 caps this cycle",
+		content:
+			"On cap breach: pause agent, notify founders, queue amendment proposal for the next review cycle.",
+		originAgent: "Chief of Staff",
+		confidence: 0.7,
+		version: "v1.4",
 	},
 	// Factory scope — Agents
 	{
@@ -222,6 +311,10 @@ export const MOCK_KNOWLEDGE_ITEMS: ReadonlyArray<MockKnowledgeItem> = [
 		topic: "Agents",
 		attentionScore: 22,
 		whyNow: "Cited by 8 tasks",
+		content: "Architect agent designs high-level system architecture and reviews tradeoffs.",
+		originAgent: "Founding Team",
+		confidence: 0.95,
+		version: "v3.0",
 	},
 ];
 
