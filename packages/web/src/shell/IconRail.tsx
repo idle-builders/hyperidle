@@ -8,6 +8,12 @@ export interface IconRailProps {
 	onViewChange: (view: ViewId) => void;
 	onAvatarClick?: () => void;
 	avatarUrl?: string;
+	/**
+	 * Per-view unread count. Missing key or 0 means no dot.
+	 * J2: the value originates from `SUBMENU_CONFIG` in AppShell — a single
+	 * source of truth shared with the Submenu consumers.
+	 */
+	unreadByView?: Partial<Record<ViewId, number>>;
 }
 
 export function IconRail({
@@ -15,6 +21,7 @@ export function IconRail({
 	onViewChange,
 	onAvatarClick,
 	avatarUrl,
+	unreadByView,
 }: IconRailProps): JSX.Element {
 	const { getItemProps } = useRovingFocus({
 		itemCount: VIEW_IDS.length,
@@ -29,13 +36,18 @@ export function IconRail({
 				const { label, icon } = VIEW_ICONS[viewId];
 				const isActive = viewId === activeView;
 				const itemProps = getItemProps(index);
+				const unread = unreadByView?.[viewId] ?? 0;
+				const showDot = !isActive && unread > 0;
+				// @lore J2 AC 63: append unread affordance to the existing label so
+				// screen-reader users get the same signal as sighted users.
+				const ariaLabel = showDot ? `${label} - ${unread} unread items` : label;
 
 				return (
 					<button
 						key={viewId}
 						type="button"
-						className={`btn btn-ghost btn-sm ${isActive ? "btn-active bg-[var(--surface-4)]" : ""}`}
-						aria-label={label}
+						className={`btn btn-ghost btn-sm relative ${isActive ? "btn-active bg-[var(--surface-4)]" : ""}`}
+						aria-label={ariaLabel}
 						title={label}
 						aria-current={isActive ? "page" : undefined}
 						onClick={() => onViewChange(viewId)}
@@ -43,7 +55,19 @@ export function IconRail({
 						onKeyDown={itemProps.onKeyDown}
 						ref={itemProps.ref}
 					>
+						{isActive && (
+							<span
+								aria-hidden="true"
+								className="absolute left-0 top-1 bottom-1 w-0.5 bg-[var(--primary)]"
+							/>
+						)}
 						<span aria-hidden="true">{icon}</span>
+						{showDot && (
+							<span
+								aria-hidden="true"
+								className="absolute -top-0.5 -right-0.5 h-1.5 w-1.5 rounded-full bg-error"
+							/>
+						)}
 					</button>
 				);
 			})}

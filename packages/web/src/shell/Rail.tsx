@@ -105,6 +105,56 @@ function SectionHeader({
 	);
 }
 
+/**
+ * Collapsed-Rail pill. Private to Rail: kind → { abbreviation, aria verb, tone }.
+ * - BLK: blockers, error tone
+ * - REV: review bets, primary tone
+ * - PSD: paused bets, neutral (base-content) tone
+ *
+ * Returns `null` when count <= 0 so the caller can unconditionally render all
+ * three and rely on the pill to self-gate (AC 51: "Pills only render when count > 0").
+ */
+type CollapsedPillKind = "blk" | "rev" | "psd";
+
+const PILL_META: Record<CollapsedPillKind, { label: string; ariaNoun: string; tone: string }> = {
+	blk: {
+		label: "BLK",
+		ariaNoun: "blockers",
+		tone: "bg-error/15 text-error",
+	},
+	rev: {
+		label: "REV",
+		ariaNoun: "reviews",
+		tone: "bg-primary/15 text-primary",
+	},
+	psd: {
+		label: "PSD",
+		ariaNoun: "paused bets",
+		tone: "bg-base-300 text-base-content",
+	},
+};
+
+function CollapsedPill({
+	kind,
+	count,
+}: {
+	kind: CollapsedPillKind;
+	count: number;
+}): JSX.Element | null {
+	if (count <= 0) return null;
+	const meta = PILL_META[kind];
+	return (
+		<span
+			aria-label={`${count} ${meta.ariaNoun}`}
+			className={`badge badge-sm font-mono uppercase ${meta.tone}`}
+		>
+			<span aria-hidden="true">{meta.label}</span>
+			<span aria-hidden="true"> </span>
+			<span>{count}</span>
+		</span>
+	);
+}
+
 export function Rail({ expanded, onToggleExpand, bets, blockers, cost }: RailProps): JSX.Element {
 	const navigate = useNavigate();
 
@@ -128,14 +178,28 @@ export function Rail({ expanded, onToggleExpand, bets, blockers, cost }: RailPro
 	});
 
 	if (!expanded) {
+		// @lore J2 AC 51: collapsed Rail surfaces three semantic pills
+		// (BLK/REV/PSD). Pills only render when count > 0 — silent when nothing.
+		// PSD derives from bets.filter(status==="paused") until paused agents
+		// land as a first-class entity (see J2 plan §3 CONFUSION).
+		const blkCount = blockers.length;
+		const revCount = bets.filter((b) => b.status === "review").length;
+		const psdCount = bets.filter((b) => b.status === "paused").length;
 		return (
 			<div className="flex w-14 flex-col items-center gap-2 p-2">
-				<span className="badge badge-sm" aria-label={`${bets.length} active bets`}>
+				{/*
+				 * Total-bets indicator preserved from the pre-J2 collapsed Rail contract.
+				 * @lore J2: the three semantic pills (BLK/REV/PSD) describe category-level
+				 * state, but the "how many bets are in flight at all" signal is still
+				 * useful at a glance. Rendered as a plain neutral count dot so it does
+				 * not compete visually with the semantic pills.
+				 */}
+				<span className="text-xs text-[var(--text-lo)]" aria-label={`${bets.length} active bets`}>
 					{bets.length}
 				</span>
-				<span className="badge badge-sm" aria-label={`${blockers.length} blockers`}>
-					{blockers.length}
-				</span>
+				<CollapsedPill kind="blk" count={blkCount} />
+				<CollapsedPill kind="rev" count={revCount} />
+				<CollapsedPill kind="psd" count={psdCount} />
 				<button
 					type="button"
 					className="btn btn-ghost btn-xs"

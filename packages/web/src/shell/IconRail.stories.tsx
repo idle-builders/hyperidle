@@ -32,3 +32,22 @@ export const WithAvatar = (): React.JSX.Element => {
 export const WithAvatarNoImage = (): React.JSX.Element => (
 	<IconRail activeView="conversations" onViewChange={() => {}} onAvatarClick={() => {}} />
 );
+
+// J2: unread dot on inactive views.
+export const WithUnread = (): React.JSX.Element => (
+	<IconRail
+		activeView="work"
+		onViewChange={() => {}}
+		unreadByView={{ conversations: 3, knowledge: 12 }}
+	/>
+);
+
+// J2: active view suppresses its own dot but shows the edge indicator; other
+// views with unread still display dots.
+export const ActiveWithOthersUnread = (): React.JSX.Element => (
+	<IconRail
+		activeView="conversations"
+		onViewChange={() => {}}
+		unreadByView={{ conversations: 3, knowledge: 12 }}
+	/>
+);
