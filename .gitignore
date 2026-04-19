@@ -10,3 +10,5 @@ test-results/
 .worktrees/
 .DS_Store
 .claude/worktrees/
+docs/plans
+logs/
