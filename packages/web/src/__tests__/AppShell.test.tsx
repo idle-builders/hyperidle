@@ -87,10 +87,10 @@ describe("AppShell", () => {
 		renderShell("/conversations/review");
 
 		await waitFor(() => {
-			expect(screen.getByRole("button", { name: /profile|user/i })).toBeInTheDocument();
+			expect(screen.getByRole("button", { name: /user profile/i })).toBeInTheDocument();
 		});
 
-		await user.click(screen.getByRole("button", { name: /profile|user/i }));
+		await user.click(screen.getByRole("button", { name: /user profile/i }));
 
 		await waitFor(() => {
 			expect(screen.getByRole("dialog", { name: /settings/i })).toBeInTheDocument();
@@ -133,6 +133,84 @@ describe("AppShell", () => {
 			});
 			// Restore default for other tests.
 			setViewport(1920);
+		});
+	});
+
+	describe("density wiring (J1)", () => {
+		// @lore AppShell applies data-density on its root so [data-density="..."] CSS vars cascade.
+		function getDensityRoot(container: HTMLElement): HTMLElement | null {
+			return container.querySelector<HTMLElement>("[data-density]");
+		}
+
+		it("renders a root element carrying data-density", async () => {
+			const { container } = renderShell();
+			await waitFor(() => {
+				expect(screen.getByTestId("main-content")).toBeInTheDocument();
+			});
+			const root = getDensityRoot(container);
+			expect(root).not.toBeNull();
+		});
+
+		it('default data-density is "default" (matches DEFAULT_SETTINGS baseline)', async () => {
+			const { container } = renderShell();
+			await waitFor(() => {
+				expect(screen.getByTestId("main-content")).toBeInTheDocument();
+			});
+			const root = getDensityRoot(container);
+			expect(root?.getAttribute("data-density")).toBe("default");
+		});
+
+		it('changing density to "compact" via SettingsPanel updates data-density on the shell root', async () => {
+			const user = userEvent.setup();
+			const { container } = renderShell("/conversations/review");
+
+			// Open settings via avatar button.
+			await waitFor(() => {
+				expect(screen.getByRole("button", { name: /user profile/i })).toBeInTheDocument();
+			});
+			await user.click(screen.getByRole("button", { name: /user profile/i }));
+
+			// Switch to Appearance tab and pick Compact, then save.
+			await waitFor(() => {
+				expect(screen.getByRole("dialog", { name: /settings/i })).toBeInTheDocument();
+			});
+			await user.click(screen.getByRole("tab", { name: "Appearance" }));
+			const densitySelect = screen.getByLabelText("Density");
+			await user.selectOptions(densitySelect, "compact");
+			await user.click(screen.getByRole("button", { name: /save/i }));
+
+			// After save, the shell root's data-density should reflect the new
+			// value. Save closes the panel; we wait for that side-effect.
+			await waitFor(() => {
+				expect(screen.queryByRole("dialog", { name: /settings/i })).not.toBeInTheDocument();
+			});
+			await waitFor(() => {
+				const root = getDensityRoot(container);
+				expect(root?.getAttribute("data-density")).toBe("compact");
+			});
+		});
+
+		it('changing density to "comfortable" via SettingsPanel updates data-density to comfortable', async () => {
+			const user = userEvent.setup();
+			const { container } = renderShell("/conversations/review");
+
+			await waitFor(() => {
+				expect(screen.getByRole("button", { name: /user profile/i })).toBeInTheDocument();
+			});
+			await user.click(screen.getByRole("button", { name: /user profile/i }));
+			await user.click(screen.getByRole("tab", { name: "Appearance" }));
+
+			const densitySelect = screen.getByLabelText("Density");
+			await user.selectOptions(densitySelect, "comfortable");
+			await user.click(screen.getByRole("button", { name: /save/i }));
+
+			await waitFor(() => {
+				expect(screen.queryByRole("dialog", { name: /settings/i })).not.toBeInTheDocument();
+			});
+			await waitFor(() => {
+				const root = getDensityRoot(container);
+				expect(root?.getAttribute("data-density")).toBe("comfortable");
+			});
 		});
 	});
 

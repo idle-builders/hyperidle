@@ -155,7 +155,7 @@ export function Rail({ expanded, onToggleExpand, bets, blockers, cost }: RailPro
 	const costProps = getItemProps(2);
 
 	return (
-		<div className="flex w-[360px] flex-col gap-0.5 p-2">
+		<div className="flex w-[360px] flex-col gap-[var(--density-gap)] p-2">
 			<div className="flex items-center justify-end">
 				<button
 					type="button"
