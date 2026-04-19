@@ -1,0 +1,47 @@
+/**
+ * J8 — axe-core accessibility audit.
+ *
+ * @lore Zero-tolerance for WCAG 2.1 A/AA violations on the primary routes.
+ * The audit is scoped to rules tagged `wcag2a`, `wcag2aa`, and `wcag21aa` to
+ * keep the assertion precise; best-practice-tagged rules are noisy on
+ * DaisyUI-based layouts and are not part of the acceptance criterion.
+ *
+ * When this suite fails, fix the violation at the primitive level so every
+ * consumer benefits — never annotate the DOM just to silence axe.
+ */
+import AxeBuilder from "@axe-core/playwright";
+import { expect, test } from "@playwright/test";
+
+const ROUTES = [
+	{ path: "/conversations/review", selector: "[data-testid='conversations-review-page']" },
+	{ path: "/conversations/chat", selector: "[data-testid='conversations-chat-page']" },
+	{ path: "/work/portfolio", selector: "[data-testid='work-portfolio-page']" },
+	{ path: "/work/team", selector: "[data-testid='work-team-page']" },
+	{ path: "/work/bet/b1", selector: "[data-testid='work-bet-page']" },
+	{ path: "/knowledge", selector: "[data-testid='knowledge-list-page']" },
+	{ path: "/knowledge/k1", selector: "[data-testid='knowledge-detail-page']" },
+] as const;
+
+test.describe("axe-core — zero WCAG 2.1 AA violations", () => {
+	for (const route of ROUTES) {
+		test(`no WCAG 2.1 AA violations on ${route.path}`, async ({ page }) => {
+			await page.goto(route.path);
+			await page.waitForSelector(route.selector);
+			const results = await new AxeBuilder({ page })
+				.withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])
+				.analyze();
+			expect(results.violations).toEqual([]);
+		});
+	}
+
+	test("Settings overlay passes the audit while open", async ({ page }) => {
+		await page.goto("/");
+		await page.waitForSelector("[data-testid='main-content']");
+		await page.getByRole("button", { name: /user profile/i }).click();
+		await expect(page.getByRole("dialog", { name: /settings/i })).toBeVisible();
+		const results = await new AxeBuilder({ page })
+			.withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])
+			.analyze();
+		expect(results.violations).toEqual([]);
+	});
+});
