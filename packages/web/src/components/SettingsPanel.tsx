@@ -33,7 +33,7 @@ export interface NotificationSettings {
 	mutedProducts: string[];
 }
 
-export type Density = "comfortable" | "compact";
+export type Density = "compact" | "default" | "comfortable";
 
 export interface AppearanceSettings {
 	density: Density;
@@ -521,8 +521,9 @@ function AppearanceTab({
 					value={appearance.density}
 					onChange={(e) => onDensityChange(e.target.value as Density)}
 				>
-					<option value="comfortable">Comfortable</option>
 					<option value="compact">Compact</option>
+					<option value="default">Default</option>
+					<option value="comfortable">Comfortable</option>
 				</select>
 			</div>
 

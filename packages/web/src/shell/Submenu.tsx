@@ -22,7 +22,7 @@ export function Submenu({
 
 	return (
 		<div
-			className={`flex flex-col gap-1 p-2 transition-[width] duration-200 ease-in-out ${collapsed ? "w-0 overflow-hidden" : "w-60"}`}
+			className={`flex flex-col gap-[var(--density-gap)] p-2 transition-[width] duration-200 ease-in-out ${collapsed ? "w-0 overflow-hidden" : "w-60"}`}
 			onKeyDown={(e) => {
 				if (e.key === "Escape" && !collapsed) {
 					e.preventDefault();

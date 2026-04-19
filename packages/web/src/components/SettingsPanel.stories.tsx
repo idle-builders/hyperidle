@@ -29,7 +29,7 @@ const mockSettings: SettingsData = {
 		mutedProducts: [],
 	},
 	appearance: {
-		density: "comfortable",
+		density: "default",
 	},
 };
 

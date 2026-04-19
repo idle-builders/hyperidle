@@ -19,3 +19,37 @@
 		--text-lo: #767575;
 	}
 }
+
+/* J1 — Density tokens. Five CSS custom properties cascaded via
+   [data-density="…"] on the AppShell root. Consumers read them through
+   Tailwind arbitrary-value classes (e.g. p-[var(--density-pad-x)]). Variables
+   only — no class/element selectors beyond the attribute wrapper. */
+@layer base {
+	[data-density="default"] {
+		--density-pad-x: 0.75rem;
+		--density-pad-y: 0.5rem;
+		--density-gap: 0.5rem;
+		--density-row-h: 2rem;
+		--density-text: 0.875rem;
+	}
+}
+
+@layer base {
+	[data-density="compact"] {
+		--density-pad-x: 0.5rem;
+		--density-pad-y: 0.25rem;
+		--density-gap: 0.25rem;
+		--density-row-h: 1.75rem;
+		--density-text: 0.8125rem;
+	}
+}
+
+@layer base {
+	[data-density="comfortable"] {
+		--density-pad-x: 1rem;
+		--density-pad-y: 0.75rem;
+		--density-gap: 0.75rem;
+		--density-row-h: 2.25rem;
+		--density-text: 0.9375rem;
+	}
+}
