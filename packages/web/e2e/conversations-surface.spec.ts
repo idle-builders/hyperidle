@@ -56,9 +56,7 @@ test.describe("J4 Conversations Surface — Chat page", () => {
 		await expect(page.getByRole("toolbar", { name: /verdict/i })).toHaveCount(0);
 	});
 
-	test("chat mode shows inline artifact preview for messages that carry one", async ({
-		page,
-	}) => {
+	test("chat mode shows inline artifact preview for messages that carry one", async ({ page }) => {
 		await expect(page.getByTestId("chat-artifact-preview").first()).toBeVisible();
 	});
 });

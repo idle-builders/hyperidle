@@ -201,13 +201,12 @@ export function ConversationsReview(): JSX.Element {
 				blocking={selected.blocking}
 			/>
 			{pendingVerdict && (
-				<div
+				<output
 					data-testid="pending-verdict"
-					role="status"
-					className="px-3 py-1 text-xs font-mono bg-warning/20 text-warning-content border-b border-warning/50"
+					className="block px-3 py-1 text-xs font-mono bg-warning/20 text-warning-content border-b border-warning/50"
 				>
 					Pending: {pendingVerdict} — press Enter to confirm
-				</div>
+				</output>
 			)}
 			<div className="flex-1 overflow-y-auto">
 				<ReasoningBlock steps={selected.reasoning} />
