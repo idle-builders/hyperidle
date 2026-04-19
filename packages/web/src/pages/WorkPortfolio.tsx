@@ -71,8 +71,9 @@ export function WorkPortfolio(): JSX.Element {
 					{MOCK_CYCLE.label}
 				</span>
 				<span className="text-xs text-[var(--text-mid)]">
-					{MOCK_CYCLE.daysRemaining}{" "}
-					{MOCK_CYCLE.daysRemaining === 1 ? "day remaining" : "days remaining"}
+					{`${MOCK_CYCLE.daysRemaining} ${
+						MOCK_CYCLE.daysRemaining === 1 ? "day remaining" : "days remaining"
+					}`}
 				</span>
 			</div>
 		</div>

@@ -169,13 +169,13 @@ export function groupTasksByBet(
 	const groups = new Map<string, KanbanTask[]>();
 	for (const task of tasks) {
 		const bet = task.betTag ?? "Unassigned";
-		if (!groups.has(bet)) {
+		let bucket = groups.get(bet);
+		if (!bucket) {
+			bucket = [];
+			groups.set(bet, bucket);
 			order.push(bet);
-			groups.set(bet, []);
 		}
-		// biome-ignore lint/style/noNonNullAssertion: groups.get is always
-		// defined on the line after `groups.set` establishes the key.
-		groups.get(bet)!.push(task);
+		bucket.push(task);
 	}
 	return order.map((bet) => ({ bet, tasks: groups.get(bet) ?? [] }));
 }
