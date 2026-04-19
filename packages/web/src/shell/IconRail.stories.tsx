@@ -38,7 +38,7 @@ export const WithUnread = (): React.JSX.Element => (
 	<IconRail
 		activeView="work"
 		onViewChange={() => {}}
-		unreadByView={{ conversations: 3, knowledge: 12 }}
+		badgeCountByView={{ conversations: 3, knowledge: 12 }}
 	/>
 );
 
@@ -48,6 +48,6 @@ export const ActiveWithOthersUnread = (): React.JSX.Element => (
 	<IconRail
 		activeView="conversations"
 		onViewChange={() => {}}
-		unreadByView={{ conversations: 3, knowledge: 12 }}
+		badgeCountByView={{ conversations: 3, knowledge: 12 }}
 	/>
 );
