@@ -1,3 +1,5 @@
+import * as fs from "node:fs";
+import * as path from "node:path";
 import type { HyperIdleDb } from "@hyperidle/db";
 import * as dbSchema from "@hyperidle/db";
 import { EventBus } from "@hyperidle/shared";
@@ -37,6 +39,54 @@ async function openProductionDb(dbPath: string): Promise<HyperIdleDb> {
 	return bunDrizzle(sqlite, { schema: dbSchema.schema }) as unknown as HyperIdleDb;
 }
 
+const MIME_TYPES: Record<string, string> = {
+	".html": "text/html",
+	".js": "application/javascript",
+	".css": "text/css",
+	".json": "application/json",
+	".png": "image/png",
+	".jpg": "image/jpeg",
+	".svg": "image/svg+xml",
+	".ico": "image/x-icon",
+	".woff2": "font/woff2",
+	".woff": "font/woff",
+};
+
+/**
+ * Create a fetch handler that serves static files from a directory,
+ * falling back to the Hono app for /api routes and to index.html for
+ * SPA client-side routing.
+ */
+function createStaticHandler(
+	dir: string,
+	appFetch: (req: Request) => Response | Promise<Response>,
+): (req: Request) => Response | Promise<Response> {
+	const indexPath = path.join(dir, "index.html");
+
+	return (req: Request): Response | Promise<Response> => {
+		const url = new URL(req.url);
+
+		// /api routes always go to the Hono app
+		if (url.pathname.startsWith("/api")) {
+			return appFetch(req);
+		}
+
+		// Try to serve exact file
+		const filePath = path.join(dir, url.pathname);
+		if (fs.existsSync(filePath) && fs.statSync(filePath).isFile()) {
+			const ext = path.extname(filePath);
+			return new Response(fs.readFileSync(filePath), {
+				headers: { "Content-Type": MIME_TYPES[ext] ?? "application/octet-stream" },
+			});
+		}
+
+		// SPA fallback: serve index.html
+		return new Response(fs.readFileSync(indexPath), {
+			headers: { "Content-Type": "text/html" },
+		});
+	};
+}
+
 /**
  * Create a Bun server with the full domain app + WebSocket support.
  *
@@ -66,8 +116,24 @@ export async function createBunServer(port: number): Promise<BunServerHandle> {
 		},
 	});
 
+	// Serve built frontend when HYPERIDLE_STATIC_DIR is set.
+	// The SPA falls back to index.html for client-side routing.
+	const staticDir = process.env.HYPERIDLE_STATIC_DIR;
+	let resolvedStaticDir: string | null = null;
+	if (staticDir) {
+		resolvedStaticDir = path.resolve(staticDir);
+		if (!fs.existsSync(path.join(resolvedStaticDir, "index.html"))) {
+			resolvedStaticDir = null;
+		}
+	}
+
+	const appFetch = app.fetch;
+	const staticFetch = resolvedStaticDir
+		? createStaticHandler(resolvedStaticDir, appFetch)
+		: appFetch;
+
 	const server = serve({
-		fetch: app.fetch,
+		fetch: staticFetch,
 		port,
 		websocket: wsHandler,
 	});

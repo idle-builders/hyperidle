@@ -4,6 +4,8 @@
 	"workspaces": ["packages/*"],
 	"scripts": {
 		"dev": "concurrently --names server,web --prefix-colors blue,green \"bun run --filter @hyperidle/server dev\" \"bun run --filter @hyperidle/web dev\"",
+		"build": "bun run --filter @hyperidle/web build",
+		"start": "HYPERIDLE_STATIC_DIR=packages/web/dist bun run --filter @hyperidle/server start",
 		"test": "vitest run",
 		"test:coverage": "vitest run --coverage",
 		"check": "tsc --noEmit -p tsconfig.json",

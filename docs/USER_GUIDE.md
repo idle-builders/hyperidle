@@ -371,8 +371,31 @@ Three profiles for different environments:
 ```bash
 bun install
 bun run setup --profile laptop
-bun dev
+export HYPERIDLE_API_KEY=your-secret-key
+bun dev                              # development mode (terminal stays open)
 ```
+
+#### Running as a Background Service (macOS)
+
+To keep HyperIdle running after you close the terminal — and across reboots:
+
+```bash
+export HYPERIDLE_API_KEY=your-secret-key
+bin/service install
+```
+
+This builds the frontend, installs a macOS LaunchAgent, and starts the server. HyperIdle will be available at [http://localhost:3001](http://localhost:3001) and will restart automatically on login.
+
+| Command | What it does |
+|---------|-------------|
+| `bin/service install` | Build, install, and start the service |
+| `bin/service stop` | Stop the server |
+| `bin/service start` | Start the server |
+| `bin/service restart` | Stop, rebuild if needed, and start |
+| `bin/service status` | Check if the server is running |
+| `bin/service logs` | Tail the server log |
+| `bin/service uninstall` | Stop and remove the service |
+| `bin/service rebuild` | Rebuild the frontend after code changes |
 
 ### VPS Setup
 
