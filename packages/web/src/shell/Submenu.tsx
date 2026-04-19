@@ -84,7 +84,16 @@ export function Submenu({
 			{!collapsed && (
 				<>
 					{hasFilters && (
-						<div role="tablist" aria-label={`Filter ${title}`} className="flex gap-1">
+						/*
+						 * @lore J2 review designer MED: at 240px Submenu width, four
+						 * btn-xs filter chips overflow horizontally. flex-wrap lets
+						 * them stack across two rows when needed.
+						 */
+						<div
+							role="tablist"
+							aria-label={`Filter ${title}`}
+							className="flex flex-wrap gap-1"
+						>
 							{filters.map((f) => {
 								const selected = f.id === activeFilter;
 								return (
@@ -93,7 +102,11 @@ export function Submenu({
 										type="button"
 										role="tab"
 										aria-selected={selected}
-										className={selected ? "btn btn-xs btn-primary" : "btn btn-xs btn-ghost"}
+										// @lore J2 review designer: btn-primary "shouted" over the
+										// active view's edge indicator. btn-neutral keeps the
+										// selected state legible without competing with primary
+										// signal placement (active view, primary CTAs).
+										className={selected ? "btn btn-xs btn-neutral" : "btn btn-xs btn-ghost"}
 										onClick={() => onFilterChange?.(f.id)}
 									>
 										{f.label}
