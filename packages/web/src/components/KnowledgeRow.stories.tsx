@@ -22,6 +22,18 @@ export const Stale = (): React.JSX.Element => (
 	/>
 );
 
+export const FactoryMode = (): React.JSX.Element => (
+	<KnowledgeRow
+		title="Agent Autonomy Policy"
+		layer="L0"
+		kind="decision"
+		status="active"
+		timestamp="1w ago"
+		factoryMode
+		version="v2.1"
+	/>
+);
+
 export const AllLayers = (): React.JSX.Element => (
 	<div className="flex flex-col gap-1">
 		<KnowledgeRow title="L0 item" layer="L0" kind="brief" status="captured" timestamp="now" />
