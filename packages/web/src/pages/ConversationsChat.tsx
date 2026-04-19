@@ -2,15 +2,32 @@
  * Conversations/Chat page — shows a chat area for the selected thread.
  * Thread selection is handled by the Submenu, not duplicated here.
  * Chat area uses DaisyUI primitives only.
+ *
+ * @lore J4 Chat mode (distinct from review):
+ *   - No verdict toolbar.
+ *   - Adjacent messages from the same sender are grouped under one sender label.
+ *   - Messages carrying an artifact render an inline preview.
  */
-import { type JSX, useCallback, useState } from "react";
+import { type JSX, useCallback, useMemo, useState } from "react";
+
+interface MockMessageArtifactPreview {
+	kind: "text_diff" | "content_preview" | "action_summary" | "data_metrics" | "visual_comparison";
+	label: string;
+}
+
+interface MockMessage {
+	from: string;
+	text: string;
+	time: string;
+	artifact?: MockMessageArtifactPreview;
+}
 
 interface MockThread {
 	id: string;
 	title: string;
 	snippet: string;
 	timestamp: string;
-	messages: Array<{ from: string; text: string; time: string }>;
+	messages: MockMessage[];
 }
 
 const MOCK_THREADS: MockThread[] = [
@@ -21,6 +38,12 @@ const MOCK_THREADS: MockThread[] = [
 		timestamp: "5m ago",
 		messages: [
 			{ from: "Architect", text: "I've shaped three bets for the next cycle.", time: "10:00" },
+			{
+				from: "Architect",
+				text: "Sharing the pitch deck preview below.",
+				time: "10:01",
+				artifact: { kind: "content_preview", label: "Cycle-7 pitch deck" },
+			},
 			{ from: "You", text: "Can you walk me through the auth bet?", time: "10:02" },
 			{
 				from: "Architect",
@@ -41,6 +64,24 @@ const MOCK_THREADS: MockThread[] = [
 	},
 ];
 
+interface MessageGroup {
+	from: string;
+	messages: MockMessage[];
+}
+
+function groupBySender(messages: MockMessage[]): MessageGroup[] {
+	const groups: MessageGroup[] = [];
+	for (const msg of messages) {
+		const last = groups[groups.length - 1];
+		if (last && last.from === msg.from) {
+			last.messages.push(msg);
+		} else {
+			groups.push({ from: msg.from, messages: [msg] });
+		}
+	}
+	return groups;
+}
+
 export function ConversationsChat(): JSX.Element {
 	const [selectedId] = useState<string>(MOCK_THREADS[0].id);
 	const [loading] = useState(false);
@@ -48,6 +89,7 @@ export function ConversationsChat(): JSX.Element {
 	const [inputValue, setInputValue] = useState("");
 
 	const selected = MOCK_THREADS.find((t) => t.id === selectedId) ?? MOCK_THREADS[0];
+	const groups = useMemo<MessageGroup[]>(() => groupBySender(selected.messages), [selected]);
 
 	const handleSubmit = useCallback((): void => {
 		if (inputValue.trim().length === 0) return;
@@ -83,22 +125,48 @@ export function ConversationsChat(): JSX.Element {
 			<div className="border-b border-base-300 px-3 py-2">
 				<h2 className="text-sm font-semibold">{selected.title}</h2>
 			</div>
-			<div className="flex-1 overflow-y-auto p-3 flex flex-col gap-2">
-				{selected.messages.map((msg) => (
-					<div
-						key={`${msg.from}-${msg.time}`}
-						className={`flex flex-col gap-0.5 max-w-[75%] ${msg.from === "You" ? "self-end items-end" : ""}`}
-					>
-						<span className="text-xs text-[var(--text-lo)]">
-							{msg.from} &middot; {msg.time}
-						</span>
+			<div className="flex-1 overflow-y-auto p-3 flex flex-col gap-3">
+				{groups.map((group, gi) => {
+					const isYou = group.from === "You";
+					return (
 						<div
-							className={`rounded px-2 py-1 text-sm ${msg.from === "You" ? "bg-primary/10" : "bg-base-200"}`}
+							key={`${group.from}-${gi}`}
+							data-testid="chat-message-group"
+							className={`flex flex-col gap-0.5 max-w-[75%] ${isYou ? "self-end items-end" : ""}`}
 						>
-							{msg.text}
+							<span className="text-xs text-[var(--text-lo)]">{group.from}</span>
+							<div className="flex flex-col gap-1">
+								{group.messages.map((msg, mi) => (
+									<div
+										key={`${msg.from}-${msg.time}-${mi}`}
+										data-testid="chat-message"
+										className="flex flex-col gap-0.5"
+									>
+										<div
+											className={`rounded px-2 py-1 text-sm ${isYou ? "bg-primary/10" : "bg-base-200"}`}
+										>
+											{msg.text}
+										</div>
+										{msg.artifact && (
+											<div
+												data-testid="chat-artifact-preview"
+												className="flex items-center gap-2 rounded border border-[var(--surface-4)] bg-base-100 px-2 py-1 text-xs"
+											>
+												<span className="badge badge-xs badge-outline font-mono uppercase">
+													{msg.artifact.kind}
+												</span>
+												<span className="text-[var(--text-mid)]">{msg.artifact.label}</span>
+											</div>
+										)}
+										<span className="text-[10px] text-[var(--text-lo)]/80 font-mono">
+											{msg.time}
+										</span>
+									</div>
+								))}
+							</div>
 						</div>
-					</div>
-				))}
+					);
+				})}
 			</div>
 			<form
 				className="border-t border-base-300 p-2 flex gap-2"
