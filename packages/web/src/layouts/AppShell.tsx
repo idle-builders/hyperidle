@@ -207,9 +207,12 @@ export function AppShell(): JSX.Element {
 
 	const submenuConfig = SUBMENU_CONFIG[activeView];
 
-	// @lore J2 AC 62: the unread signal is the sum of item.count per view,
-	// derived from SUBMENU_CONFIG at render time — no second subscription.
-	const unreadByView = useMemo<Partial<Record<ViewId, number>>>(() => {
+	// @lore J2 AC 62 + review W3: badge counts derive from SUBMENU_CONFIG at
+	// render time (no second subscription). The values are *total* item counts
+	// — the prop name is `badgeCountByView` (not "unread") because the unread
+	// signal will overlay these counts in J9+. Until then, the dot semantic
+	// "something here" matches well enough for the placeholder data.
+	const badgeCountByView = useMemo<Partial<Record<ViewId, number>>>(() => {
 		const out: Partial<Record<ViewId, number>> = {};
 		for (const view of Object.keys(SUBMENU_CONFIG) as ViewId[]) {
 			out[view] = SUBMENU_CONFIG[view].items.reduce((acc, item) => acc + (item.count ?? 0), 0);
@@ -240,7 +243,7 @@ export function AppShell(): JSX.Element {
 				activeView={activeView}
 				onViewChange={handleViewChange}
 				onAvatarClick={handleAvatarClick}
-				unreadByView={unreadByView}
+				badgeCountByView={badgeCountByView}
 			/>
 
 			<Submenu
