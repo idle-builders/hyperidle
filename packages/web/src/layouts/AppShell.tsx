@@ -3,6 +3,7 @@
  * It manages view state, submenu state, settings panel, and global search.
  * This is NOT a custom component — it is a page-level composition assembling Tier 3 regions.
  */
+import { KNOWLEDGE_SCOPES, type KnowledgeScope } from "@hyperidle/shared";
 import { type JSX, useCallback, useEffect, useMemo, useState } from "react";
 import { Outlet, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { ErrorBoundary } from "../components/ErrorBoundary";
@@ -16,6 +17,7 @@ import {
 	MOCK_RAIL_BLOCKERS,
 	MOCK_RAIL_COST,
 } from "../fixtures/app-shell-data";
+import { topicsForScope } from "../fixtures/knowledge-data";
 import { useCommandK } from "../hooks/useCommandK";
 import { useViewportBreakpoint } from "../hooks/useViewportBreakpoint";
 import { IconRail } from "../shell/IconRail";
@@ -104,6 +106,86 @@ export function sanitizeRouteId(id: string): string | null {
 	// Reject scheme-like prefixes (http:, javascript:, data:, etc.).
 	if (/^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(id)) return null;
 	return encodeURIComponent(id);
+}
+
+/**
+ * J6: scope browser + topic NavItems rendered inside the Knowledge Submenu.
+ * The three-scope segmented control sits on top; topic NavItems with health
+ * dots follow. This lives here (not in Submenu) because AC explicitly states
+ * the Submenu component stays unchanged — the scope browser is `children`.
+ */
+const SCOPE_LABELS: Record<KnowledgeScope, string> = {
+	practice: "Practice",
+	product: "Product",
+	factory: "Factory",
+};
+
+const HEALTH_DOT: Record<"fresh" | "some_stale" | "mostly_stale", string> = {
+	fresh: "bg-success",
+	some_stale: "bg-warning",
+	mostly_stale: "bg-error",
+};
+
+interface KnowledgeSubmenuProps {
+	scope: KnowledgeScope;
+	topics: ReadonlyArray<{
+		topic: string;
+		itemCount: number;
+		staleCount: number;
+		health: "fresh" | "some_stale" | "mostly_stale";
+	}>;
+	onScopeChange: (scope: KnowledgeScope) => void;
+}
+
+function KnowledgeSubmenu({ scope, topics, onScopeChange }: KnowledgeSubmenuProps): JSX.Element {
+	return (
+		<div className="flex flex-col gap-2" data-testid="knowledge-submenu">
+			<div
+				role="tablist"
+				aria-label="Knowledge scope"
+				className="flex gap-1"
+				data-testid="knowledge-scope-browser"
+			>
+				{KNOWLEDGE_SCOPES.map((s) => {
+					const selected = s === scope;
+					return (
+						<button
+							key={s}
+							type="button"
+							role="tab"
+							aria-selected={selected}
+							className={selected ? "btn btn-xs btn-neutral" : "btn btn-xs btn-ghost"}
+							onClick={() => onScopeChange(s)}
+						>
+							{SCOPE_LABELS[s]}
+						</button>
+					);
+				})}
+			</div>
+			<ul className="menu menu-sm" aria-label={`${SCOPE_LABELS[scope]} topics`}>
+				{topics.length === 0 ? (
+					<li className="px-2 py-1 text-xs text-[var(--text-lo)]">No topics yet</li>
+				) : (
+					topics.map((t) => (
+						<li key={t.topic}>
+							<div
+								className="flex items-center gap-2 px-2 py-1 min-h-[var(--density-row-h)]"
+								data-testid={`knowledge-topic-nav-${t.topic}`}
+							>
+								<span
+									className={`inline-block h-2 w-2 rounded-full shrink-0 ${HEALTH_DOT[t.health]}`}
+									aria-label={`Health: ${t.health.replace("_", " ")}`}
+									data-health={t.health}
+								/>
+								<span className="text-sm truncate flex-1">{t.topic}</span>
+								<span className="badge badge-sm badge-ghost font-mono">{t.itemCount}</span>
+							</div>
+						</li>
+					))
+				)}
+			</ul>
+		</div>
+	);
 }
 
 export function AppShell(): JSX.Element {
@@ -256,6 +338,30 @@ export function AppShell(): JSX.Element {
 		setSubmenuFilter("all");
 	}, [activeView]);
 
+	// J6: Knowledge submenu carries a scope browser (Practice/Product/Factory)
+	// and per-scope topic NavItems. Scope lives in the URL ?scope= param so
+	// KnowledgeList can read it without a shared provider. Switching scope
+	// navigates to /knowledge?scope=<next> which triggers KnowledgeList to
+	// reset its tab/selection state (AC: "Switching scope resets list
+	// selection and filters"). The default scope is "practice" when the
+	// param is missing or invalid.
+	const currentScope: KnowledgeScope = useMemo(() => {
+		const raw = searchParams.get("scope");
+		return raw === "practice" || raw === "product" || raw === "factory" ? raw : "practice";
+	}, [searchParams]);
+
+	const knowledgeTopics = useMemo(() => topicsForScope(currentScope), [currentScope]);
+
+	const handleScopeChange = useCallback(
+		(next: KnowledgeScope): void => {
+			// Navigate to /knowledge with the new scope. This also covers the case
+			// where the user was on /knowledge/:id — switching scope returns them
+			// to the list, which is the correct "reset selection" behavior.
+			navigate(`/knowledge?scope=${next}`);
+		},
+		[navigate],
+	);
+
 	// J3: when Settings overlay is open, hide all shell regions from the
 	// accessibility tree and dim them visually. We also disable pointer
 	// events so clicks cannot leak through the backdrop to focusable elements
@@ -292,17 +398,25 @@ export function AppShell(): JSX.Element {
 					activeFilter={submenuFilter}
 					onFilterChange={setSubmenuFilter}
 				>
-					<ul className="menu menu-sm">
-						{submenuConfig.items.map((item) => (
-							<NavItem
-								key={item.path}
-								label={item.label}
-								count={item.count}
-								selected={location.pathname === item.path}
-								onClick={() => navigate(item.path)}
-							/>
-						))}
-					</ul>
+					{activeView === "knowledge" ? (
+						<KnowledgeSubmenu
+							scope={currentScope}
+							topics={knowledgeTopics}
+							onScopeChange={handleScopeChange}
+						/>
+					) : (
+						<ul className="menu menu-sm">
+							{submenuConfig.items.map((item) => (
+								<NavItem
+									key={item.path}
+									label={item.label}
+									count={item.count}
+									selected={location.pathname === item.path}
+									onClick={() => navigate(item.path)}
+								/>
+							))}
+						</ul>
+					)}
 				</Submenu>
 
 				<main
