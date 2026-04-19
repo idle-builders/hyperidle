@@ -1,15 +1,9 @@
 import type { JSX } from "react";
 import { TAG_KIND_ICONS, type TagKind } from "./tag-kinds";
 
-export type { TagKind } from "./tag-kinds";
-
 export interface TagProps {
 	label: string;
-	/**
-	 * Optional Tier-2 kind. When omitted, Tag renders the legacy neutral chip
-	 * byte-identical to the pre-J1 output — this is the guarantee that keeps
-	 * every existing Tag consumer and test passing unchanged.
-	 */
+	/** Optional Tier-2 kind. When omitted, renders the legacy neutral chip. */
 	kind?: TagKind;
 }
 
