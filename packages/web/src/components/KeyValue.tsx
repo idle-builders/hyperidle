@@ -16,7 +16,7 @@ export function KeyValue({ label, value, layout = "inline" }: KeyValueProps): JS
 			<span className="uppercase font-heading text-xs tracking-wider text-[var(--text-lo)]">
 				{label}
 			</span>
-			<span className="text-sm text-[var(--text-hi)]">{value}</span>
+			<span className="text-[length:var(--density-text)] text-[var(--text-hi)]">{value}</span>
 		</div>
 	);
 }
