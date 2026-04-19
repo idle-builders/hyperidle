@@ -20,7 +20,7 @@ export const DEFAULT_SETTINGS: SettingsData = {
 		quietHoursEnd: "08:00",
 		mutedProducts: [],
 	},
-	appearance: { density: "comfortable" },
+	appearance: { density: "default" },
 };
 
 export const MOCK_RAIL_BETS: BetItem[] = [

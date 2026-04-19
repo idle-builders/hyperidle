@@ -34,7 +34,7 @@ export function ThreadRow({
 		<div
 			{...clickableProps(
 				onClick,
-				`flex items-center gap-2 px-2 py-2 ${unread ? "font-bold" : ""} ${blocking ? "border-l-2 border-error" : ""}`,
+				`flex items-center gap-2 px-2 py-[var(--density-pad-y)] text-[length:var(--density-text)] ${unread ? "font-bold" : ""} ${blocking ? "border-l-2 border-error" : ""}`,
 			)}
 		>
 			<img src={avatarUrl} alt="" className="h-8 w-8 rounded-full" />
