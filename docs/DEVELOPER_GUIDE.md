@@ -66,10 +66,10 @@ The Vite dev server proxies `/api/*` requests to `localhost:3001`.
 
 ### Environment Variables
 
-Set `HYPERIDLE_API_KEY` before starting the server — it will exit if this is missing.
+Set `HYPERIDLE_API_KEY` before starting the server — it will exit if this is missing. This is a shared secret you choose yourself (any string). Every API request must include it as an `X-API-Key` header. There is no default — pick something and set it.
 
 ```bash
-export HYPERIDLE_API_KEY=dev-key-change-me
+export HYPERIDLE_API_KEY=my-local-dev-key
 bun dev
 ```
 
@@ -77,7 +77,7 @@ Key variables:
 
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
-| `HYPERIDLE_API_KEY` | Yes | — | API authentication key |
+| `HYPERIDLE_API_KEY` | Yes | — | Shared secret for API auth (you choose the value) |
 | `HYPERIDLE_PROFILE` | No | `laptop` | Deployment profile (`laptop`, `vps`, `cloud`) |
 | `PORT` | No | `3001` | Server port |
 | `DATABASE_URL` | VPS/Cloud | — | PostgreSQL connection string |
@@ -213,7 +213,7 @@ export function WithError() {
 
 ### Design Rules
 
-- **19 custom components** — everything else uses DaisyUI primitives directly
+- **limited custom components** — everything else uses DaisyUI primitives directly
 - **Tailwind CSS + DaisyUI** with the `factory-dark` theme
 - **Avoid the "AI Aesthetic"**: no excessive gradients, no `rounded-2xl`, no `p-8`/`p-12` oversized padding. Think Bloomberg terminal, not marketing landing page
 - 8-12px padding default, dense information display
@@ -232,7 +232,7 @@ Meta Layer (server, fabric)
 Agent Runtime (harness adapters, workspaces)
 ```
 
-No layer reaches past its neighbor. Read `docs/ARCHITECTURE.md` for the full picture.
+No layer reaches past its neighbor. Read `docs/concept/ARCHITECTURE.md` for the full picture.
 
 ### Key Architectural Concepts
 
