@@ -8,7 +8,7 @@ import { Outlet, useLocation, useNavigate, useSearchParams } from "react-router-
 import { ErrorBoundary } from "../components/ErrorBoundary";
 import { GlobalSearchPanel } from "../components/GlobalSearchPanel";
 import { NavItem } from "../components/NavItem";
-import type { Density, SettingsData } from "../components/SettingsPanel";
+import type { SettingsData } from "../components/SettingsPanel";
 import { SettingsPanel } from "../components/SettingsPanel";
 import {
 	DEFAULT_SETTINGS,
@@ -113,9 +113,8 @@ export function AppShell(): JSX.Element {
 	const [searchParams, setSearchParams] = useSearchParams();
 	const [settingsOpen, setSettingsOpen] = useState(false);
 	// J1: density lives at the shell root so CSS vars cascade to every
-	// consumer. Seeded from DEFAULT_SETTINGS and updated when SettingsPanel
-	// saves a new value. No server persistence yet — deferred (J3/J8).
-	const [density, setDensity] = useState<Density>(DEFAULT_SETTINGS.appearance.density);
+	// consumer. Read from `settings.appearance.density` — the shell's single
+	// source of truth for settings. No server persistence yet — deferred (J3/J8).
 	const [settings, setSettings] = useState<SettingsData>(DEFAULT_SETTINGS);
 	const commandK = useCommandK();
 
@@ -156,7 +155,6 @@ export function AppShell(): JSX.Element {
 		// save. The data-density attribute on the shell root reads from this.
 		await new Promise((resolve) => setTimeout(resolve, 300));
 		setSettings(next);
-		setDensity(next.appearance.density);
 	}, []);
 
 	const handleSearchNavigate = useCallback(
@@ -189,7 +187,10 @@ export function AppShell(): JSX.Element {
 	const submenuConfig = SUBMENU_CONFIG[activeView];
 
 	return (
-		<div className="flex h-screen bg-base-100 overflow-hidden" data-density={density}>
+		<div
+			className="flex h-screen bg-base-100 overflow-hidden"
+			data-density={settings.appearance.density}
+		>
 			<IconRail
 				activeView={activeView}
 				onViewChange={handleViewChange}
