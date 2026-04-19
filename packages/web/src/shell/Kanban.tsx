@@ -29,6 +29,14 @@ export interface KanbanTask {
 export interface KanbanProps {
 	tasks: KanbanTask[];
 	onMoveTask: (taskId: string, targetState: KanbanColumnState) => void;
+	/**
+	 * J5: when true, tasks within each column are grouped under a
+	 * collapsible bet header (bet name + task count). Drag-drop behaviour
+	 * is unchanged because the draggable wrappers stay rendered inside the
+	 * same `KanbanDropZone` for the column. Tasks without a `betTag` group
+	 * under an "Unassigned" header.
+	 */
+	groupByBet?: boolean;
 }
 
 export type KanbanColumnState = "planned" | "blocked" | "in_progress" | "done";
@@ -148,8 +156,45 @@ function DraggableTaskCard({ task }: { task: KanbanTask }): JSX.Element {
 	);
 }
 
-export function Kanban({ tasks, onMoveTask }: KanbanProps): JSX.Element {
+/**
+ * Pure helper: groups a list of tasks by `betTag` preserving input order.
+ * Tasks without a `betTag` collapse under the sentinel key "Unassigned".
+ * Extracted so the group-headers story can be unit-tested without mounting
+ * the whole Kanban.
+ */
+export function groupTasksByBet(
+	tasks: readonly KanbanTask[],
+): Array<{ bet: string; tasks: KanbanTask[] }> {
+	const order: string[] = [];
+	const groups = new Map<string, KanbanTask[]>();
+	for (const task of tasks) {
+		const bet = task.betTag ?? "Unassigned";
+		if (!groups.has(bet)) {
+			order.push(bet);
+			groups.set(bet, []);
+		}
+		// biome-ignore lint/style/noNonNullAssertion: groups.get is always
+		// defined on the line after `groups.set` establishes the key.
+		groups.get(bet)!.push(task);
+	}
+	return order.map((bet) => ({ bet, tasks: groups.get(bet) ?? [] }));
+}
+
+export function Kanban({ tasks, onMoveTask, groupByBet = false }: KanbanProps): JSX.Element {
 	const [activeId, setActiveId] = useState<string | null>(null);
+	const [collapsedBets, setCollapsedBets] = useState<Set<string>>(() => new Set());
+
+	function toggleBet(bet: string): void {
+		setCollapsedBets((prev) => {
+			const next = new Set(prev);
+			if (next.has(bet)) {
+				next.delete(bet);
+			} else {
+				next.add(bet);
+			}
+			return next;
+		});
+	}
 
 	// I4 KB1: KeyboardSensor lets users drive the kanban via keyboard.
 	const sensors = useSensors(
@@ -207,6 +252,30 @@ export function Kanban({ tasks, onMoveTask }: KanbanProps): JSX.Element {
 									<div className="text-xs text-[var(--text-lo)] p-2">
 										No tasks in {col.label.toLowerCase()}
 									</div>
+								) : groupByBet ? (
+									groupTasksByBet(columnTasks).map((group) => {
+										const collapsed = collapsedBets.has(group.bet);
+										const count = group.tasks.length;
+										return (
+											<div key={group.bet} className="flex flex-col gap-1">
+												<button
+													type="button"
+													aria-label={`${group.bet} group (${count} ${count === 1 ? "task" : "tasks"})`}
+													aria-expanded={!collapsed}
+													className="flex items-center gap-2 text-xs font-heading uppercase tracking-wider text-[var(--text-lo)] hover:text-[var(--text-hi)] px-1"
+													onClick={() => toggleBet(group.bet)}
+												>
+													<span aria-hidden>{collapsed ? "▸" : "▾"}</span>
+													<span>{group.bet}</span>
+													<span className="badge badge-xs badge-neutral">{count}</span>
+												</button>
+												{!collapsed &&
+													group.tasks.map((task) => (
+														<DraggableTaskCard key={task.id} task={task} />
+													))}
+											</div>
+										);
+									})
 								) : (
 									columnTasks.map((task) => <DraggableTaskCard key={task.id} task={task} />)
 								)}

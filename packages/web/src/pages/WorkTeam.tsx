@@ -152,7 +152,7 @@ export function WorkTeam(): JSX.Element {
 				<Canvas bets={CANVAS_BETS} capacity={3} onMoveBet={handleMoveBet} />
 			</div>
 			<div data-testid="work-team-kanban">
-				<Kanban tasks={tasks} onMoveTask={handleMoveTask} />
+				<Kanban tasks={tasks} onMoveTask={handleMoveTask} groupByBet />
 			</div>
 		</div>
 	);
