@@ -42,14 +42,41 @@ export interface DataMetricsData {
 	charts: SparklineChart[];
 }
 
+// --- Metadata strip / related-history types (J4) ---
+
+/**
+ * @lore J4 AC: a thin metadata strip renders above every artifact view. Status
+ * / SLA / routing come from the caller; the kind badge is derived from the
+ * shape prop so it can never drift. The strip is opt-in (only renders when
+ * `metadata` is supplied) to preserve the backwards-compatible I-track tests.
+ */
+export interface ArtifactMetadata {
+	status: string;
+	sla: string;
+	routing: string;
+}
+
+export interface RelatedHistoryEntry {
+	id: string;
+	label: string;
+	timestamp: string;
+}
+
+interface ArtifactCommonProps {
+	loading?: boolean;
+	error?: string;
+	metadata?: ArtifactMetadata;
+	relatedHistory?: RelatedHistoryEntry[];
+}
+
 // --- Discriminated union props ---
 
 export type ArtifactViewProps =
-	| { shape: "text_diff"; data: TextDiffData; loading?: boolean; error?: string }
-	| { shape: "content_preview"; data: ContentPreviewData; loading?: boolean; error?: string }
-	| { shape: "visual_comparison"; data: VisualComparisonData; loading?: boolean; error?: string }
-	| { shape: "action_summary"; data: ActionSummaryData; loading?: boolean; error?: string }
-	| { shape: "data_metrics"; data: DataMetricsData; loading?: boolean; error?: string };
+	| ({ shape: "text_diff"; data: TextDiffData } & ArtifactCommonProps)
+	| ({ shape: "content_preview"; data: ContentPreviewData } & ArtifactCommonProps)
+	| ({ shape: "visual_comparison"; data: VisualComparisonData } & ArtifactCommonProps)
+	| ({ shape: "action_summary"; data: ActionSummaryData } & ArtifactCommonProps)
+	| ({ shape: "data_metrics"; data: DataMetricsData } & ArtifactCommonProps);
 
 const DIFF_LINE_CLASSES: Record<DiffLine["type"], string> = {
 	addition: "bg-success/10",
@@ -237,10 +264,84 @@ function DataMetricsView({ data }: { data: DataMetricsData }): JSX.Element {
 	);
 }
 
+// --- Metadata strip + related history (J4) ---
+
+function MetadataStrip({
+	shape,
+	metadata,
+}: {
+	shape: ArtifactViewProps["shape"];
+	metadata: ArtifactMetadata;
+}): JSX.Element {
+	return (
+		<div
+			data-testid="artifact-metadata-strip"
+			className="flex items-center gap-2 px-3 py-1.5 text-xs font-mono border-b border-[var(--surface-4)] text-[var(--text-mid)]"
+		>
+			<span
+				data-testid="artifact-kind-badge"
+				className="badge badge-sm badge-outline uppercase tracking-wider"
+			>
+				{shape}
+			</span>
+			<span className="text-[var(--text-lo)]">status</span>
+			<span className="text-[var(--text-hi)]">{metadata.status}</span>
+			{metadata.sla && (
+				<>
+					<span className="text-[var(--text-lo)]">sla</span>
+					<span className="text-[var(--text-hi)]">{metadata.sla}</span>
+				</>
+			)}
+			{metadata.routing && (
+				<>
+					<span className="text-[var(--text-lo)] ml-auto">routing</span>
+					<span className="text-[var(--text-hi)]">{metadata.routing}</span>
+				</>
+			)}
+		</div>
+	);
+}
+
+function RelatedHistorySection({ entries }: { entries: RelatedHistoryEntry[] }): JSX.Element {
+	return (
+		<section
+			aria-label="Related history"
+			className="border-t border-[var(--surface-4)] px-3 py-2 mt-3"
+		>
+			<h4 className="text-[10px] font-mono uppercase tracking-wider text-[var(--text-lo)] mb-1">
+				Related history
+			</h4>
+			<ul className="flex flex-col gap-0.5 text-xs">
+				{entries.map((e) => (
+					<li key={e.id} className="flex justify-between gap-2">
+						<span className="text-[var(--text-hi)]">{e.label}</span>
+						<span className="text-[var(--text-lo)] font-mono">{e.timestamp}</span>
+					</li>
+				))}
+			</ul>
+		</section>
+	);
+}
+
+function renderShape(props: ArtifactViewProps): JSX.Element {
+	switch (props.shape) {
+		case "text_diff":
+			return <TextDiffView data={props.data} />;
+		case "content_preview":
+			return <ContentPreviewView data={props.data} />;
+		case "visual_comparison":
+			return <VisualComparisonView data={props.data} />;
+		case "action_summary":
+			return <ActionSummaryView data={props.data} />;
+		case "data_metrics":
+			return <DataMetricsView data={props.data} />;
+	}
+}
+
 // --- Main component ---
 
 export function ArtifactView(props: ArtifactViewProps): JSX.Element {
-	const { loading, error } = props;
+	const { loading, error, metadata, relatedHistory } = props;
 
 	if (loading) {
 		return (
@@ -260,16 +361,19 @@ export function ArtifactView(props: ArtifactViewProps): JSX.Element {
 		);
 	}
 
-	switch (props.shape) {
-		case "text_diff":
-			return <TextDiffView data={props.data} />;
-		case "content_preview":
-			return <ContentPreviewView data={props.data} />;
-		case "visual_comparison":
-			return <VisualComparisonView data={props.data} />;
-		case "action_summary":
-			return <ActionSummaryView data={props.data} />;
-		case "data_metrics":
-			return <DataMetricsView data={props.data} />;
+	const body = renderShape(props);
+	const showMetadata = metadata !== undefined;
+	const showHistory = relatedHistory !== undefined && relatedHistory.length > 0;
+	// @lore I-track contract: when no metadata/history are provided, render
+	// the bare artifact body so every existing query selector still matches.
+	if (!(showMetadata || showHistory)) {
+		return body;
 	}
+	return (
+		<div>
+			{showMetadata && <MetadataStrip shape={props.shape} metadata={metadata} />}
+			<div className={showMetadata ? "p-3" : undefined}>{body}</div>
+			{showHistory && <RelatedHistorySection entries={relatedHistory} />}
+		</div>
+	);
 }
