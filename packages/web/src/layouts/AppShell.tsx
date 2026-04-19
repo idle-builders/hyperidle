@@ -21,6 +21,7 @@ import { useViewportBreakpoint } from "../hooks/useViewportBreakpoint";
 import { IconRail } from "../shell/IconRail";
 import { Rail } from "../shell/Rail";
 import { Submenu } from "../shell/Submenu";
+import type { SubmenuFilter, SubmenuFilterOption } from "../shell/Submenu";
 import type { ViewId } from "../shell/shell-types";
 
 interface SubmenuConfig {
@@ -47,6 +48,27 @@ const SUBMENU_CONFIG: Record<ViewId, SubmenuConfig> = {
 		title: "Knowledge",
 		items: [{ label: "All Items", path: "/knowledge", count: 12 }],
 	},
+};
+
+/**
+ * @lore J2 AC 52: per-view segmented filter row. Work has no filters.
+ * Conversations/Knowledge render a short list. Filter state is local and
+ * resets to "all" when the active view changes (AC 64). The rendered children
+ * currently ignore the filter value — J4/J5 wire the filter into the list
+ * rendering.
+ */
+const SUBMENU_FILTERS: Record<ViewId, ReadonlyArray<SubmenuFilterOption>> = {
+	conversations: [
+		{ id: "all", label: "All" },
+		{ id: "needs-review", label: "Needs review" },
+		{ id: "chats", label: "Chats" },
+		{ id: "resolved", label: "Resolved" },
+	],
+	knowledge: [
+		{ id: "all", label: "All" },
+		{ id: "needs-review", label: "Needs review" },
+	],
+	work: [],
 };
 
 function deriveViewFromPath(pathname: string): ViewId {
@@ -185,6 +207,33 @@ export function AppShell(): JSX.Element {
 
 	const submenuConfig = SUBMENU_CONFIG[activeView];
 
+	// @lore J2 AC 62 + review W3: badge counts derive from SUBMENU_CONFIG at
+	// render time (no second subscription). The values are *total* item counts
+	// — the prop name is `badgeCountByView` (not "unread") because the unread
+	// signal will overlay these counts in J9+. Until then, the dot semantic
+	// "something here" matches well enough for the placeholder data.
+	const badgeCountByView = useMemo<Partial<Record<ViewId, number>>>(() => {
+		const out: Partial<Record<ViewId, number>> = {};
+		for (const view of Object.keys(SUBMENU_CONFIG) as ViewId[]) {
+			out[view] = SUBMENU_CONFIG[view].items.reduce((acc, item) => acc + (item.count ?? 0), 0);
+		}
+		return out;
+	}, []);
+
+	const submenuTotalCount = useMemo(
+		() => submenuConfig.items.reduce((acc, item) => acc + (item.count ?? 0), 0),
+		[submenuConfig],
+	);
+	const submenuFilters = SUBMENU_FILTERS[activeView];
+	const [submenuFilter, setSubmenuFilter] = useState<SubmenuFilter>("all");
+	// AC 64: reset filter to "all" on view change. The view id is referenced in
+	// the body so Biome's useExhaustiveDependencies rule is satisfied while
+	// preserving the intended "run on view change" semantics.
+	useEffect(() => {
+		void activeView;
+		setSubmenuFilter("all");
+	}, [activeView]);
+
 	return (
 		<div
 			className="flex h-screen bg-base-100 overflow-hidden"
@@ -194,12 +243,17 @@ export function AppShell(): JSX.Element {
 				activeView={activeView}
 				onViewChange={handleViewChange}
 				onAvatarClick={handleAvatarClick}
+				badgeCountByView={badgeCountByView}
 			/>
 
 			<Submenu
 				title={submenuConfig.title}
 				collapsed={submenuCollapsed}
 				onToggleCollapse={toggleSubmenuCollapsed}
+				count={submenuTotalCount > 0 ? submenuTotalCount : undefined}
+				filters={submenuFilters}
+				activeFilter={submenuFilter}
+				onFilterChange={setSubmenuFilter}
 			>
 				<ul className="menu menu-sm">
 					{submenuConfig.items.map((item) => (
