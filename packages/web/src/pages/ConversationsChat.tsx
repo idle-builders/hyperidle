@@ -9,6 +9,7 @@
  *   - Messages carrying an artifact render an inline preview.
  */
 import { type JSX, useCallback, useMemo, useState } from "react";
+import { EmptyState } from "../components/EmptyState";
 
 interface MockMessageArtifactPreview {
 	kind: "text_diff" | "content_preview" | "action_summary" | "data_metrics" | "visual_comparison";
@@ -82,14 +83,27 @@ function groupBySender(messages: MockMessage[]): MessageGroup[] {
 	return groups;
 }
 
-export function ConversationsChat(): JSX.Element {
-	const [selectedId] = useState<string>(MOCK_THREADS[0].id);
+export interface ConversationsChatProps {
+	/**
+	 * J8: allow callers (and stories) to supply an alternate thread list.
+	 * When empty, the page renders an EmptyState instead of the chat shell.
+	 * Production render path is unchanged.
+	 */
+	threads?: typeof MOCK_THREADS;
+}
+
+export function ConversationsChat({ threads }: ConversationsChatProps = {}): JSX.Element {
+	const threadList = threads ?? MOCK_THREADS;
+	const [selectedId] = useState<string>(threadList[0]?.id ?? "");
 	const [loading] = useState(false);
 	const [error] = useState<string | null>(null);
 	const [inputValue, setInputValue] = useState("");
 
-	const selected = MOCK_THREADS.find((t) => t.id === selectedId) ?? MOCK_THREADS[0];
-	const groups = useMemo<MessageGroup[]>(() => groupBySender(selected.messages), [selected]);
+	const selected = threadList.find((t) => t.id === selectedId) ?? threadList[0];
+	const groups = useMemo<MessageGroup[]>(
+		() => (selected ? groupBySender(selected.messages) : []),
+		[selected],
+	);
 
 	const handleSubmit = useCallback((): void => {
 		if (inputValue.trim().length === 0) return;
@@ -116,6 +130,18 @@ export function ConversationsChat(): JSX.Element {
 				<div role="alert" className="alert alert-error text-sm m-3">
 					{error}
 				</div>
+			</div>
+		);
+	}
+
+	if (!selected) {
+		return (
+			<div className="flex h-full flex-col" data-testid="conversations-chat-page">
+				<EmptyState
+					title="No threads yet"
+					description="Start a conversation with an agent to see it here. New threads open from the sidebar."
+					dataTestId="conversations-empty"
+				/>
 			</div>
 		);
 	}
