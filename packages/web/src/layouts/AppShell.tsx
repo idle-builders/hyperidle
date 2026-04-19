@@ -170,6 +170,28 @@ export function AppShell(): JSX.Element {
 		setSettingsOpen(true);
 	}, []);
 
+	// J3: Command-K pressed while Settings is open must close Settings first,
+	// then open the search. useCommandK's own document listener toggles search;
+	// this effect intercepts the same key chord and routes it through the
+	// settings-close path first. We attach to capture phase so we can see the
+	// event before useCommandK does — then we stop propagation to prevent the
+	// toggle from racing with our deliberate open call.
+	useEffect(() => {
+		if (!settingsOpen) return;
+		const handler = (e: KeyboardEvent): void => {
+			if (e.key === "k" && (e.metaKey || e.ctrlKey)) {
+				e.preventDefault();
+				e.stopImmediatePropagation();
+				setSettingsOpen(false);
+				commandK.open();
+			}
+		};
+		document.addEventListener("keydown", handler, true);
+		return () => {
+			document.removeEventListener("keydown", handler, true);
+		};
+	}, [settingsOpen, commandK]);
+
 	const handleSettingsSave = useCallback(async (next: SettingsData): Promise<void> => {
 		// Mock save — real API wiring deferred. J1: mirror the new draft into
 		// local state so density (and other appearance values) take effect on
@@ -234,56 +256,73 @@ export function AppShell(): JSX.Element {
 		setSubmenuFilter("all");
 	}, [activeView]);
 
+	// J3: when Settings overlay is open, hide all shell regions from the
+	// accessibility tree and dim them visually. We also disable pointer
+	// events so clicks cannot leak through the backdrop to focusable elements
+	// like Rail/submenu nav items. The overlay itself lives outside this
+	// wrapper so focus-trap still finds tabbable nodes.
+	const shellDimmed = settingsOpen;
+	// @lore J3: aria-hidden and inert on the wrapper propagate to descendants
+	// in the accessibility tree; we keep the wrapper as flex so children lay
+	// out exactly as before, and flex-wide when dimmed so the overlay sits
+	// above it via z-40 without displacing the layout.
+	const shellWrapperClass = shellDimmed
+		? "flex flex-1 min-w-0 pointer-events-none opacity-60"
+		: "flex flex-1 min-w-0";
+
 	return (
 		<div
 			className="flex h-screen bg-base-100 overflow-hidden"
 			data-density={settings.appearance.density}
 		>
-			<IconRail
-				activeView={activeView}
-				onViewChange={handleViewChange}
-				onAvatarClick={handleAvatarClick}
-				badgeCountByView={badgeCountByView}
-			/>
+			<div className={shellWrapperClass} aria-hidden={shellDimmed || undefined}>
+				<IconRail
+					activeView={activeView}
+					onViewChange={handleViewChange}
+					onAvatarClick={handleAvatarClick}
+					badgeCountByView={badgeCountByView}
+				/>
 
-			<Submenu
-				title={submenuConfig.title}
-				collapsed={submenuCollapsed}
-				onToggleCollapse={toggleSubmenuCollapsed}
-				count={submenuTotalCount > 0 ? submenuTotalCount : undefined}
-				filters={submenuFilters}
-				activeFilter={submenuFilter}
-				onFilterChange={setSubmenuFilter}
-			>
-				<ul className="menu menu-sm">
-					{submenuConfig.items.map((item) => (
-						<NavItem
-							key={item.path}
-							label={item.label}
-							count={item.count}
-							selected={location.pathname === item.path}
-							onClick={() => navigate(item.path)}
-						/>
-					))}
-				</ul>
-			</Submenu>
+				<Submenu
+					title={submenuConfig.title}
+					collapsed={submenuCollapsed}
+					onToggleCollapse={toggleSubmenuCollapsed}
+					count={submenuTotalCount > 0 ? submenuTotalCount : undefined}
+					filters={submenuFilters}
+					activeFilter={submenuFilter}
+					onFilterChange={setSubmenuFilter}
+				>
+					<ul className="menu menu-sm">
+						{submenuConfig.items.map((item) => (
+							<NavItem
+								key={item.path}
+								label={item.label}
+								count={item.count}
+								selected={location.pathname === item.path}
+								onClick={() => navigate(item.path)}
+							/>
+						))}
+					</ul>
+				</Submenu>
 
-			<main
-				className="flex-1 overflow-y-auto px-[var(--density-pad-x)] py-[var(--density-pad-y)] text-[length:var(--density-text)]"
-				data-testid="main-content"
-			>
-				<ErrorBoundary>
-					<Outlet />
-				</ErrorBoundary>
-			</main>
+				<main
+					className="flex-1 overflow-y-auto px-[var(--density-pad-x)] py-[var(--density-pad-y)] text-[length:var(--density-text)]"
+					data-testid="main-content"
+					aria-hidden={shellDimmed || undefined}
+				>
+					<ErrorBoundary>
+						<Outlet />
+					</ErrorBoundary>
+				</main>
 
-			<Rail
-				expanded={railExpanded}
-				onToggleExpand={toggleRailExpanded}
-				bets={MOCK_RAIL_BETS}
-				blockers={MOCK_RAIL_BLOCKERS}
-				cost={MOCK_RAIL_COST}
-			/>
+				<Rail
+					expanded={railExpanded}
+					onToggleExpand={toggleRailExpanded}
+					bets={MOCK_RAIL_BETS}
+					blockers={MOCK_RAIL_BLOCKERS}
+					cost={MOCK_RAIL_COST}
+				/>
+			</div>
 
 			<SettingsPanel
 				open={settingsOpen}
