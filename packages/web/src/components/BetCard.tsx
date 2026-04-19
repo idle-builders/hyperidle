@@ -6,6 +6,18 @@ import { Tag } from "./Tag";
 import { clickableProps } from "./clickable";
 import { betStatusToStatus } from "./status-mapping";
 
+/**
+ * @lore J5: BetCard gained portfolio-mode props (leadAvatar / activeBets /
+ * shipped). Additive only — base composition and existing tests are
+ * unchanged. The portfolio fields render only when the corresponding prop
+ * is supplied so the card still collapses to its original shape when used
+ * as a pure bet summary on Canvas.
+ */
+export interface BetCardLeadAvatar {
+	name: string;
+	initials: string;
+}
+
 export interface BetCardProps {
 	title: string;
 	product: string;
@@ -14,6 +26,9 @@ export interface BetCardProps {
 	actions?: ReactNode;
 	onClick?: () => void;
 	progress?: { done: number; total: number };
+	leadAvatar?: BetCardLeadAvatar;
+	activeBets?: number;
+	shipped?: number;
 }
 
 export function BetCard({
@@ -24,10 +39,21 @@ export function BetCard({
 	actions,
 	onClick,
 	progress,
+	leadAvatar,
+	activeBets,
+	shipped,
 }: BetCardProps): JSX.Element {
 	return (
 		<div {...clickableProps(onClick, "bg-base-200 rounded p-2 flex flex-col gap-2")}>
 			<div className="flex items-center gap-2">
+				{leadAvatar && (
+					<span
+						className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-base-300 text-[var(--text-hi)] text-xs font-semibold"
+						aria-label={`Lead agent: ${leadAvatar.name}`}
+					>
+						{leadAvatar.initials}
+					</span>
+				)}
 				<span className="text-sm font-medium truncate" aria-label={`Bet: ${title}`}>
 					{title}
 				</span>
@@ -35,6 +61,13 @@ export function BetCard({
 				<StatusChip status={betStatusToStatus(status)} />
 			</div>
 			<KeyValue label="Appetite" value={appetite} />
+			{activeBets !== undefined && (
+				<KeyValue
+					label={activeBets === 1 ? "Active bet" : "Active bets"}
+					value={String(activeBets)}
+				/>
+			)}
+			{shipped !== undefined && <KeyValue label="Shipped" value={String(shipped)} />}
 			{progress && (
 				<div className="flex items-center gap-2">
 					<progress
