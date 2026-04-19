@@ -191,7 +191,7 @@ export function SettingsPanel({
 
 	return (
 		<div
-			className="modal modal-open"
+			className="modal modal-open z-40"
 			// biome-ignore lint/a11y/useSemanticElements: DaisyUI modal pattern requires div with role="dialog" for CSS class approach
 			role="dialog"
 			aria-modal="true"
@@ -208,9 +208,12 @@ export function SettingsPanel({
 				}}
 			>
 				<div className="modal-box max-w-2xl p-0 flex flex-col max-h-[80vh]">
-					{/* Tab bar */}
-					<div className="px-3 pt-3">
-						<div role="tablist" className="tabs tabs-bordered">
+					{/* Tab bar + explicit close button (J3). Close button is
+					 * distinct from the footer Cancel because the overlay is a
+					 * focused panel, not a transient dialog — users expect an X
+					 * in the header to dismiss. */}
+					<div className="px-3 pt-3 flex items-start justify-between gap-2">
+						<div role="tablist" className="tabs tabs-bordered flex-1">
 							{TABS.map((tab) => (
 								<button
 									key={tab.id}
@@ -224,6 +227,15 @@ export function SettingsPanel({
 								</button>
 							))}
 						</div>
+						<button
+							type="button"
+							className="btn btn-ghost btn-xs btn-square"
+							aria-label="Close settings"
+							onClick={onClose}
+						>
+							{/* Plain ASCII "X" avoids pulling an icon dependency. */}
+							<span aria-hidden="true">×</span>
+						</button>
 					</div>
 
 					{/* Tab content */}
