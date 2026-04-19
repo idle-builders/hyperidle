@@ -55,7 +55,7 @@ export function Submenu({
 							placeholder={`Search ${title.toLowerCase()}...`}
 						/>
 					)}
-					<div className="flex flex-col">{children}</div>
+					<div className="flex flex-col px-[var(--density-pad-x)]">{children}</div>
 				</>
 			)}
 		</div>

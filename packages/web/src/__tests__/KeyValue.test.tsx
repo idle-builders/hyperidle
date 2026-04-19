@@ -27,9 +27,12 @@ describe("KeyValue", () => {
 		expect(label).toHaveClass("uppercase", "font-heading", "text-xs", "tracking-wider");
 	});
 
-	it("value has text-sm styling", () => {
+	it("value text size cascades from --density-text", () => {
+		// J1 review: KeyValue value reads its font size from the density token
+		// so the appearance setting actually changes information density across
+		// surfaces (Rail Cost section, etc.).
 		render(<KeyValue label="Owner" value="Alice" />);
 		const value = screen.getByText("Alice");
-		expect(value).toHaveClass("text-sm");
+		expect(value).toHaveClass("text-[length:var(--density-text)]");
 	});
 });
