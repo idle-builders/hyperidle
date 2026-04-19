@@ -1,6 +1,12 @@
 import * as os from "node:os";
 import * as path from "node:path";
-import { type HyperIdleDb, createTestDb, knowledgeEditLog, knowledgeItems } from "@hyperidle/db";
+import {
+	type HyperIdleDb,
+	agents,
+	createTestDb,
+	knowledgeEditLog,
+	knowledgeItems,
+} from "@hyperidle/db";
 import { setupFts } from "@hyperidle/fabric";
 import { EventBus } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
@@ -8,17 +14,45 @@ import { beforeEach, describe, expect, it } from "vitest";
 import type { ToolContext } from "../tool-registry.js";
 import { writeMemoryTool } from "../write-memory.js";
 
+const NOW = new Date().toISOString();
+
 function makeDb(): HyperIdleDb {
 	const db = createTestDb();
 	setupFts(db);
 	return db;
 }
 
-function makeContext(db: HyperIdleDb): ToolContext {
+function seedFacilitator(db: HyperIdleDb): void {
+	db.insert(agents)
+		.values({
+			id: "agent-a",
+			name: "Agent A",
+			role: "practice_facilitator",
+			status: "active",
+			maxConcurrentSessions: 1,
+			createdAt: NOW,
+		})
+		.run();
+}
+
+function seedBuilder(db: HyperIdleDb): void {
+	db.insert(agents)
+		.values({
+			id: "agent-builder",
+			name: "Builder Agent",
+			role: "builder",
+			status: "active",
+			maxConcurrentSessions: 1,
+			createdAt: NOW,
+		})
+		.run();
+}
+
+function makeContext(db: HyperIdleDb, agentId = "agent-a"): ToolContext {
 	return {
 		db,
 		eventBus: new EventBus(),
-		agentId: "agent-a",
+		agentId,
 		sessionId: "session-1",
 		taskId: "task-1",
 		workspacePath: path.join(os.tmpdir(), `hi-d4-writemem-${Date.now()}`),
@@ -31,6 +65,7 @@ describe("write_memory tool", () => {
 
 	beforeEach(() => {
 		db = makeDb();
+		seedFacilitator(db);
 	});
 
 	describe("creates a knowledge item via fabric.create", () => {
@@ -127,6 +162,96 @@ describe("write_memory tool", () => {
 			expect(row?.topic).toBe("architecture");
 			expect(row?.format).toBeDefined();
 			expect(row?.status).toBeDefined();
+		});
+	});
+
+	describe("I6: non-facilitator agents restricted to L0-L2", () => {
+		it("builder agent writing L3 gets FORBIDDEN", async () => {
+			seedBuilder(db);
+			const result = await writeMemoryTool.handler(
+				{
+					layer: "L3",
+					kind: "pattern",
+					title: "Forbidden pattern",
+					body: "Should be rejected.",
+				},
+				makeContext(db, "agent-builder"),
+			);
+			expect(result.success).toBe(false);
+			if (result.success) return;
+			expect(result.code).toBe("FORBIDDEN");
+			expect(result.error).toContain("insufficient role for L3");
+		});
+
+		it("builder agent writing L4 gets FORBIDDEN", async () => {
+			seedBuilder(db);
+			const result = await writeMemoryTool.handler(
+				{
+					layer: "L4",
+					kind: "principle",
+					title: "Forbidden principle",
+					body: "Should be rejected.",
+				},
+				makeContext(db, "agent-builder"),
+			);
+			expect(result.success).toBe(false);
+			if (result.success) return;
+			expect(result.code).toBe("FORBIDDEN");
+			expect(result.error).toContain("insufficient role for L4");
+		});
+
+		it("builder agent can write to L0", async () => {
+			seedBuilder(db);
+			const result = await writeMemoryTool.handler(
+				{
+					layer: "L0",
+					kind: "reflection",
+					title: "Session note",
+					body: "A builder can write L0.",
+				},
+				makeContext(db, "agent-builder"),
+			);
+			expect(result.success).toBe(true);
+		});
+
+		it("builder agent can write to L2", async () => {
+			seedBuilder(db);
+			const result = await writeMemoryTool.handler(
+				{
+					layer: "L2",
+					kind: "decision",
+					title: "Product decision",
+					body: "A builder can write L2.",
+				},
+				makeContext(db, "agent-builder"),
+			);
+			expect(result.success).toBe(true);
+		});
+
+		it("facilitator agent can write to L3", async () => {
+			const result = await writeMemoryTool.handler(
+				{
+					layer: "L3",
+					kind: "pattern",
+					title: "Allowed pattern",
+					body: "A facilitator can write L3.",
+				},
+				makeContext(db),
+			);
+			expect(result.success).toBe(true);
+		});
+
+		it("facilitator agent can write to L4", async () => {
+			const result = await writeMemoryTool.handler(
+				{
+					layer: "L4",
+					kind: "principle",
+					title: "Allowed principle",
+					body: "A facilitator can write L4.",
+				},
+				makeContext(db),
+			);
+			expect(result.success).toBe(true);
 		});
 	});
 

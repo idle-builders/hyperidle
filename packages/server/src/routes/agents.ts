@@ -8,7 +8,7 @@ import {
 	threads,
 } from "@hyperidle/db";
 import { API_ERROR_CODES, type EventBus, type ItemCreatedEvent } from "@hyperidle/shared";
-import { and, eq } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 import { Hono } from "hono";
 import { z } from "zod";
 import { validateBody } from "../middleware/validate.js";
@@ -128,7 +128,7 @@ export function createAgentRoutes(db: HyperIdleDb, eventBus: EventBus): Hono {
 		return c.json(updated);
 	});
 
-	// GET /:id/inbox — Agent's inbox
+	// GET /:id/inbox — Agent's inbox with pagination
 	router.get("/:id/inbox", (c) => {
 		const agentId = c.req.param("id");
 
@@ -137,10 +137,19 @@ export function createAgentRoutes(db: HyperIdleDb, eventBus: EventBus): Hono {
 			return c.json({ error: "Agent not found", code: API_ERROR_CODES.NOT_FOUND }, 404);
 		}
 
-		const inbox = db.select().from(messages).where(eq(messages.recipientId, agentId)).all();
+		const limit = Math.min(Number.parseInt(c.req.query("limit") ?? "50", 10) || 50, 200);
+		const offset = Number.parseInt(c.req.query("offset") ?? "0", 10) || 0;
 
-		// Sort by createdAt DESC
-		inbox.sort((a, b) => (b.createdAt > a.createdAt ? 1 : -1));
+		// @lore I6: sort at DB level BEFORE limit/offset so pagination is
+		// consistent. Previously the sort happened in JS after slicing.
+		const inbox = db
+			.select()
+			.from(messages)
+			.where(eq(messages.recipientId, agentId))
+			.orderBy(desc(messages.createdAt))
+			.limit(limit)
+			.offset(offset)
+			.all();
 
 		return c.json(inbox);
 	});
@@ -157,12 +166,12 @@ export function createAgentRoutes(db: HyperIdleDb, eventBus: EventBus): Hono {
 
 		const now = new Date().toISOString();
 
-		// Find existing thread between sender and recipient
-		const allThreads = db.select().from(threads).all();
+		// @lore I6: queries WHERE kind = 'direct' instead of loading all threads.
+		const directThreads = db.select().from(threads).where(eq(threads.kind, "direct")).all();
 		let threadId: string | undefined;
 
-		for (const thread of allThreads) {
-			if (thread.kind === "direct" && thread.participants) {
+		for (const thread of directThreads) {
+			if (thread.participants) {
 				const participants = JSON.parse(thread.participants) as string[];
 				if (
 					participants.includes(body.senderId) &&

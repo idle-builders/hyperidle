@@ -54,7 +54,7 @@ describe("Bet Endpoints (E3)", () => {
 				productId: "prod-1",
 				teamId: "team-1",
 				pitch: "Build feature X",
-				appetite: "small",
+				appetite: "1 week",
 				...overrides,
 			}),
 		});
@@ -142,7 +142,7 @@ describe("Bet Endpoints (E3)", () => {
 					productId: "prod-1",
 					teamId: "team-1",
 					pitch: "New bet pitch",
-					appetite: "medium",
+					appetite: "2 weeks",
 					hypothesis: "Users will engage more",
 				}),
 			});
@@ -151,7 +151,7 @@ describe("Bet Endpoints (E3)", () => {
 			const body = (await res.json()) as Record<string, unknown>;
 			expect(body.status).toBe("shaped");
 			expect(body.pitch).toBe("New bet pitch");
-			expect(body.appetite).toBe("medium");
+			expect(body.appetite).toBe("2 weeks");
 			expect(body.hypothesis).toBe("Users will engage more");
 			expect(body.id).toBeTruthy();
 			expect(body.createdAt).toBeTruthy();

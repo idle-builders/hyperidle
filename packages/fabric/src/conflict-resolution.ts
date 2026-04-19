@@ -239,14 +239,21 @@ export function canPromote(db: HyperIdleDb, itemId: string): boolean {
 	return openConflicts.length === 0;
 }
 
-/** Mark a conflict record as resolved. */
+/** Mark a conflict record as resolved, writing the resolution text and timestamp. */
 export function resolveConflictRecord(
 	db: HyperIdleDb,
 	conflictId: string,
-	_resolution: string,
+	resolution: string,
 ): void {
+	// @lore I6: previously ignored the resolution parameter. Now writes it to
+	// resolvedBy (used for both human name and system resolution text) and
+	// sets resolvedAt to the current timestamp.
 	db.update(knowledgeConflicts)
-		.set({ status: "resolved" })
+		.set({
+			status: "resolved",
+			resolvedBy: resolution,
+			resolvedAt: new Date().toISOString(),
+		})
 		.where(eq(knowledgeConflicts.id, conflictId))
 		.run();
 }

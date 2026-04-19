@@ -12,7 +12,8 @@ describe("ThreadRow", () => {
 
 	it("renders avatar image with correct src", () => {
 		render(<ThreadRow {...defaultProps} />);
-		const img = screen.getByRole("img");
+		// @lore I6: avatar uses alt="" (decorative), so use presentation role
+		const img = screen.getByRole("presentation");
 		expect(img).toHaveAttribute("src", defaultProps.avatarUrl);
 	});
 

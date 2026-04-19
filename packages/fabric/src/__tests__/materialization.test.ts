@@ -144,8 +144,13 @@ describe("materialize", () => {
 		expect(fs.existsSync(path.join(workspacePath, "work/artifacts"))).toBe(true);
 
 		// context/ files are read-only (0o444)
-		const factoryFile = path.join(workspacePath, "context/factory/PRINCIPLES.md");
-		expect(fs.existsSync(factoryFile)).toBe(true);
+		// @lore I6: filenames now include truncated item ID suffix (e.g. PRINCIPLES_abcd1234.md)
+		const factoryDir = path.join(workspacePath, "context/factory");
+		const factoryFiles = fs.readdirSync(factoryDir);
+		const principlesFile = factoryFiles.find((f) => f.startsWith("PRINCIPLES"));
+		expect(principlesFile).toBeDefined();
+		if (!principlesFile) throw new Error("principlesFile not found");
+		const factoryFile = path.join(factoryDir, principlesFile);
 		const stat = fs.statSync(factoryFile);
 		// Check read-only: owner write bit should be off
 		expect(stat.mode & 0o222).toBe(0);
@@ -229,13 +234,15 @@ describe("materialize", () => {
 
 		await materialize(db, config);
 
-		// Builder's practice should exist
-		const buildingPractice = path.join(workspacePath, "context/practices/code-review.toon");
-		expect(fs.existsSync(buildingPractice)).toBe(true);
+		// Builder's practice should exist (filename now includes ID suffix)
+		const practicesDir = path.join(workspacePath, "context/practices");
+		const practiceFiles = fs.existsSync(practicesDir) ? fs.readdirSync(practicesDir) : [];
+		const buildingPractice = practiceFiles.find((f) => f.startsWith("code-review"));
+		expect(buildingPractice).toBeDefined();
 
 		// Growth practice should NOT exist
-		const growthPractice = path.join(workspacePath, "context/practices/seo-practices.toon");
-		expect(fs.existsSync(growthPractice)).toBe(false);
+		const growthPractice = practiceFiles.find((f) => f.startsWith("seo-practices"));
+		expect(growthPractice).toBeUndefined();
 	});
 
 	// AC4: Materialization of 200 items completes in <10 seconds
@@ -309,8 +316,10 @@ describe("materialize", () => {
 		// Stale file should be gone
 		expect(fs.existsSync(path.join(workspacePath, "context/factory/STALE.md"))).toBe(false);
 
-		// Original file should still exist
-		expect(fs.existsSync(path.join(workspacePath, "context/factory/PRINCIPLES.md"))).toBe(true);
+		// Original file should still exist (with ID suffix)
+		const factoryDir2 = path.join(workspacePath, "context/factory");
+		const factoryFiles2 = fs.readdirSync(factoryDir2);
+		expect(factoryFiles2.some((f) => f.startsWith("PRINCIPLES"))).toBe(true);
 	});
 
 	// AC6: session.toon context pack in context/ contains task state and bet context

@@ -1,9 +1,13 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
-import type { HyperIdleDb, KnowledgeItem } from "@hyperidle/db";
+import { type HyperIdleDb, type KnowledgeItem, tasks } from "@hyperidle/db";
 import type { AgentRole } from "@hyperidle/shared";
+import { eq } from "drizzle-orm";
 import { list } from "./knowledge-repository.js";
+import { rankAndBudget } from "./relevance-scoring.js";
 import { ROLE_TO_COMMUNITY } from "./role-community-map.js";
+import { DEFAULT_KNOWLEDGE_BUDGET, loadScoringWeights } from "./scoring-config.js";
+import type { ScoringContext } from "./scoring-config.js";
 import { buildSessionContext } from "./session-context.js";
 
 export interface MaterializationConfig {
@@ -33,14 +37,25 @@ export interface MaterializationResult {
 	durationMs: number;
 }
 
-/** Sanitize a title to a safe filename. */
-function toFilename(title: string): string {
-	// If title already looks like a filename, keep it
+/**
+ * Sanitize a title to a safe filename with an item ID suffix to prevent
+ * title collisions.
+ *
+ * @lore I6: previously two items with the same title would overwrite each
+ * other during materialization. The truncated ID suffix (first 8 chars of
+ * the UUID) makes filenames unique while keeping them readable.
+ */
+function toFilename(title: string, itemId?: string): string {
+	const suffix = itemId ? `_${itemId.slice(0, 8)}` : "";
+	// If title already looks like a filename, keep it (with suffix before extension)
 	if (/\.\w+$/.test(title)) {
-		return title.replace(/[/\\:*?"<>|]/g, "_");
+		const sanitized = title.replace(/[/\\:*?"<>|]/g, "_");
+		const dotIdx = sanitized.lastIndexOf(".");
+		return `${sanitized.slice(0, dotIdx)}${suffix}${sanitized.slice(dotIdx)}`;
 	}
 	// Otherwise slugify and add .md
-	return `${title.replace(/[^a-zA-Z0-9._-]/g, "_").replace(/_+/g, "_")}.md`;
+	const slug = title.replace(/[^a-zA-Z0-9._-]/g, "_").replace(/_+/g, "_");
+	return `${slug}${suffix}.md`;
 }
 
 /** Remove directory recursively, handling read-only files. */
@@ -81,7 +96,7 @@ function createDirectoryStructure(workspacePath: string): void {
 
 /** Write a knowledge item to the correct zone. Returns the relative path. */
 function writeItem(workspacePath: string, item: KnowledgeItem, zone: string): string {
-	const filename = toFilename(item.title);
+	const filename = toFilename(item.title, item.id);
 	const relativePath = `${zone}/${filename}`;
 	const fullPath = path.join(workspacePath, relativePath);
 
@@ -151,9 +166,37 @@ export async function materialize(
 
 	const manifestItems: Record<string, ManifestEntry> = {};
 
-	// L4 factory items -> context/factory/
+	// Fetch all items by layer
 	const l4Items = fetchAllForLayer(db, "L4");
+	const l2Items = fetchAllForLayer(db, "L2", config.productId);
+	const community = ROLE_TO_COMMUNITY[config.agentRole];
+	const l3Items = fetchAllForLayer(db, "L3", community);
+
+	// @lore I6: apply rankAndBudget() before writing items to workspace.
+	// This ensures that the agent's context window is not overwhelmed by
+	// low-relevance knowledge. Items are scored against the task context
+	// and trimmed to fit the configured token budget.
+	const weights = loadScoringWeights(db);
+
+	// Build a minimal scoring context from materialization config.
+	// Task description is fetched from the DB if available.
+	const task = db.select().from(tasks).where(eq(tasks.id, config.taskId)).get();
+	const scoringContext: ScoringContext = {
+		taskDescription: task?.description ?? task?.title ?? "",
+		taskTags: [],
+		agentRole: config.agentRole,
+		productId: config.productId,
+	};
+
+	const allItems = [...l4Items, ...l2Items, ...l3Items];
+	const budgetedItems = rankAndBudget(allItems, scoringContext, weights, DEFAULT_KNOWLEDGE_BUDGET);
+
+	// Build a Set of budgeted item IDs for fast lookup
+	const budgetedIds = new Set(budgetedItems.map((i) => i.id));
+
+	// Write only budgeted items to their respective zones
 	for (const item of l4Items) {
+		if (!budgetedIds.has(item.id)) continue;
 		const relativePath = writeItem(config.workspacePath, item, "context/factory");
 		manifestItems[item.id] = {
 			version: item.version,
@@ -162,9 +205,8 @@ export async function materialize(
 		};
 	}
 
-	// L2 product items -> context/product/
-	const l2Items = fetchAllForLayer(db, "L2", config.productId);
 	for (const item of l2Items) {
+		if (!budgetedIds.has(item.id)) continue;
 		const relativePath = writeItem(config.workspacePath, item, "context/product");
 		manifestItems[item.id] = {
 			version: item.version,
@@ -173,10 +215,8 @@ export async function materialize(
 		};
 	}
 
-	// L3 practices -> context/practices/ (role-filtered)
-	const community = ROLE_TO_COMMUNITY[config.agentRole];
-	const l3Items = fetchAllForLayer(db, "L3", community);
 	for (const item of l3Items) {
+		if (!budgetedIds.has(item.id)) continue;
 		const relativePath = writeItem(config.workspacePath, item, "context/practices");
 		manifestItems[item.id] = {
 			version: item.version,
