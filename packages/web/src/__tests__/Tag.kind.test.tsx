@@ -2,9 +2,7 @@ import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { Tag } from "../components/Tag";
 
-// J1 — Tag kind variant tests. Live in a separate file from Tag.test.tsx so
-// the original baseline assertions stay byte-for-byte unchanged (acceptance
-// criterion: existing Tag tests pass with no modification).
+// @lore Separate file from Tag.test.tsx so the pre-J1 baseline assertions stay byte-identical.
 
 describe("Tag with kind", () => {
 	it('renders a child SVG icon when kind="pattern"', () => {

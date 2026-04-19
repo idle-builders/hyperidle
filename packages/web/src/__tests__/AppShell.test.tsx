@@ -137,11 +137,7 @@ describe("AppShell", () => {
 	});
 
 	describe("density wiring (J1)", () => {
-		// J1 requirement: AppShell must apply data-density on its root element so
-		// that CSS variables under [data-density="..."] cascade to consumers.
-		// The default value comes from DEFAULT_SETTINGS.appearance.density which
-		// per J1 plan resolution A is "default" (the new neutral middle step).
-
+		// @lore AppShell applies data-density on its root so [data-density="..."] CSS vars cascade.
 		function getDensityRoot(container: HTMLElement): HTMLElement | null {
 			return container.querySelector<HTMLElement>("[data-density]");
 		}
