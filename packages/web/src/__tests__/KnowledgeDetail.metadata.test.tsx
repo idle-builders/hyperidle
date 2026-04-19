@@ -15,22 +15,32 @@ function renderPage(knowledgeId: string): ReturnType<typeof render> {
 
 describe("KnowledgeDetail — J7 metadata bar", () => {
 	it("renders kind Tag in the metadata bar", () => {
-		renderPage("k1");
+		// k6 is a practice-scope item with kind='principle' and the full J7 shape
+		renderPage("k6");
 		const bar = screen.getByTestId("knowledge-metadata-bar");
-		expect(within(bar).getByText("decision")).toHaveClass("badge-neutral");
+		expect(within(bar).getByText("principle")).toHaveClass("badge-neutral");
 	});
 
-	it("renders status StatusChip in the metadata bar", () => {
-		renderPage("k1");
+	it("renders status StatusChip in the metadata bar (active→HEALTHY)", () => {
+		// k11 is factory-scope, status=active → HEALTHY chip in the metadata bar
+		renderPage("k11");
 		const bar = screen.getByTestId("knowledge-metadata-bar");
-		// status 'active' maps to HEALTHY per knowledgeStatusToStatus
 		expect(within(bar).getByText("HEALTHY")).toBeInTheDocument();
 	});
 
 	it("renders layer Tag in the metadata bar", () => {
-		renderPage("k1");
+		renderPage("k6");
 		const bar = screen.getByTestId("knowledge-metadata-bar");
-		expect(within(bar).getByText("L0")).toHaveClass("badge-neutral");
+		expect(within(bar).getByText("L1")).toHaveClass("badge-neutral");
+	});
+
+	it("renders decision kind + active status from fixture data", () => {
+		// AC validation scenario 1: "decision" kind + "active" status shown on a
+		// detail page renders decision Tag + active StatusChip in the metadata bar.
+		renderPage("k11");
+		const bar = screen.getByTestId("knowledge-metadata-bar");
+		expect(within(bar).getByText("decision")).toHaveClass("badge-neutral");
+		expect(within(bar).getByText("HEALTHY")).toBeInTheDocument();
 	});
 
 	it("renders a confidence indicator", () => {
@@ -59,6 +69,7 @@ describe("KnowledgeDetail — J7 metadata bar", () => {
 	});
 
 	it("renders the observation log with 3 entries and agent attribution", () => {
+		// Legacy k1 fixture has 3 observation log entries wired in LEGACY_DETAILS.
 		renderPage("k1");
 		const log = screen.getByTestId("knowledge-observation-log");
 		const entries = within(log).getAllByTestId("observation-entry");
@@ -70,7 +81,8 @@ describe("KnowledgeDetail — J7 metadata bar", () => {
 	});
 
 	it("renders empty observation log with a friendly message when absent", () => {
-		renderPage("k2");
+		// k11 (factory Agent Autonomy Policy) has no observationLog → empty state.
+		renderPage("k11");
 		const log = screen.getByTestId("knowledge-observation-log");
 		expect(within(log).getByText(/No observations yet/)).toBeInTheDocument();
 	});
