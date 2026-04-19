@@ -24,7 +24,21 @@ export class WsBroadcaster {
 			this.broadcast("conversations", JSON.stringify(event));
 		});
 
-		this.unsubscribers.push(unsub1, unsub2);
+		// @lore I6: forward additional domain events so the UI can react
+		// to task/bet state changes and cost warnings in real time.
+		const unsub3 = this.eventBus.on("task_state_changed", (event) => {
+			this.broadcast("work", JSON.stringify(event));
+		});
+
+		const unsub4 = this.eventBus.on("bet_state_changed", (event) => {
+			this.broadcast("work", JSON.stringify(event));
+		});
+
+		const unsub5 = this.eventBus.on("cost_cap_warning", (event) => {
+			this.broadcast("rail", JSON.stringify(event));
+		});
+
+		this.unsubscribers.push(unsub1, unsub2, unsub3, unsub4, unsub5);
 	}
 
 	/** Stop forwarding events. */
@@ -65,7 +79,13 @@ export class WsBroadcaster {
 	broadcast(topic: string, data: string): void {
 		for (const [client, topics] of this.clients) {
 			if (topics.has(topic)) {
-				client.send(data);
+				try {
+					client.send(data);
+				} catch {
+					// @lore I6: isolate per-client errors so one broken socket
+					// doesn't abort the broadcast loop. Remove the dead client.
+					this.clients.delete(client);
+				}
 			}
 		}
 	}
