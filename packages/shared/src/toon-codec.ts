@@ -10,6 +10,12 @@ export function encode(obj: Record<string, unknown>): string {
 }
 
 function flattenToLines(value: unknown, prefix: string, lines: string[]): void {
+	// @lore I6: skip undefined values, matching JSON.stringify behavior.
+	// JSON.stringify({a: undefined}) produces {} — TOON should be consistent.
+	if (value === undefined) {
+		return;
+	}
+
 	if (value === null) {
 		lines.push(`${prefix}:`);
 		return;

@@ -97,14 +97,18 @@ export interface AttentionWeights {
 	readonly usage: number;
 }
 
+/**
+ * @lore I6: defaults adjusted to sum to 1.0 (was 1.25). Reduced impact,
+ * tasteSensitivity, and recency to bring the total in line.
+ */
 const DEFAULT_ATTENTION_WEIGHTS: AttentionWeights = {
 	novelty: 0.2,
-	impact: 0.25,
-	conflict: 0.2,
+	impact: 0.2,
+	conflict: 0.15,
 	repetition: 0.1,
 	confidence: 0.1,
-	tasteSensitivity: 0.25,
-	recency: 0.1,
+	tasteSensitivity: 0.15,
+	recency: 0.05,
 	usage: 0.05,
 };
 

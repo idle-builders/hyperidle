@@ -202,6 +202,40 @@ stories:
     track: H
     depends: [A2, H1, H2, H3]
 
+  # Track J: Design Synthesis Adoption
+  - id: J1
+    title: Token & Primitive Updates
+    track: J
+    depends: [UI-10]
+  - id: J2
+    title: Shell Navigation Redesign
+    track: J
+    depends: [J1]
+  - id: J3
+    title: Settings Overlay + Command-K Visual
+    track: J
+    depends: [J1]
+  - id: J4
+    title: Conversations Surface
+    track: J
+    depends: [J2]
+  - id: J5
+    title: Work Surface
+    track: J
+    depends: [J2]
+  - id: J6
+    title: Knowledge IA & List
+    track: J
+    depends: [J1, J2]
+  - id: J7
+    title: Knowledge Detail & Factory Scope
+    track: J
+    depends: [J6]
+  - id: J8
+    title: Synthesis Validation & Accessibility
+    track: J
+    depends: [J4, J5, J7]
+
   # Track I: Hardening & Quality
   - id: I1
     title: Production Server + Data Integrity Fixes

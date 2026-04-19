@@ -1,6 +1,6 @@
 import { type HyperIdleDb, bets, factorySettings, items, tasks } from "@hyperidle/db";
 import type { EventBus } from "@hyperidle/shared";
-import { eq } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 import { Hono } from "hono";
 
 interface RailBet {
@@ -48,11 +48,12 @@ export function createRailRoutes(db: HyperIdleDb, _eventBus: EventBus): Hono {
 	router.get("/", (c) => {
 		const now = Date.now();
 
-		// Active bets (committed or in_progress)
-		const allBets = db.select().from(bets).all();
-		const activeBets = allBets.filter(
-			(b) => b.status === "committed" || b.status === "in_progress",
-		);
+		// @lore I6: query active bets with WHERE status IN instead of loading all.
+		const activeBets = db
+			.select()
+			.from(bets)
+			.where(inArray(bets.status, ["committed", "in_progress"]))
+			.all();
 
 		const allTasks = db.select().from(tasks).all();
 

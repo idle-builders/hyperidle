@@ -10,11 +10,17 @@ import { transitionBet, updateBetField } from "../services/bet-state-machine.js"
 /**
  * Zod schemas for request validation.
  */
+/**
+ * @lore I6: appetite is now enum-validated to the three spec-defined cycle
+ * lengths. Arbitrary strings were never intended here.
+ */
+const BET_APPETITES = ["1 week", "2 weeks", "6 weeks"] as const;
+
 const createBetSchema = z.object({
 	productId: z.string(),
 	teamId: z.string(),
 	pitch: z.string(),
-	appetite: z.string(),
+	appetite: z.enum(BET_APPETITES),
 	doneCondition: z.string().optional(),
 	hypothesis: z.string().optional(),
 });
@@ -39,9 +45,12 @@ const killBetSchema = z.object({
 export function createBetRoutes(db: HyperIdleDb, eventBus: EventBus): Hono {
 	const router = new Hono();
 
-	// GET /bets — list all bets grouped by status
+	// GET /bets — list all bets grouped by status, with pagination
 	router.get("/", (c) => {
-		const allBets = db.select().from(bets).all();
+		const limit = Math.min(Number.parseInt(c.req.query("limit") ?? "50", 10) || 50, 200);
+		const offset = Number.parseInt(c.req.query("offset") ?? "0", 10) || 0;
+
+		const allBets = db.select().from(bets).limit(limit).offset(offset).all();
 
 		const grouped = {
 			shaped: allBets.filter((b) => b.status === "shaped"),
