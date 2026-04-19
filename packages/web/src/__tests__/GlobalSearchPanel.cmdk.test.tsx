@@ -1,3 +1,4 @@
+import { render, screen } from "@testing-library/react";
 /**
  * J3 — GlobalSearchPanel Command-K visual behavior.
  *
@@ -10,7 +11,6 @@
  * protected baseline.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
 import { GlobalSearchPanel } from "../components/GlobalSearchPanel";
 
 describe("GlobalSearchPanel Command-K visual (J3)", () => {
@@ -58,9 +58,7 @@ describe("GlobalSearchPanel Command-K visual (J3)", () => {
 		expect(recent?.className ?? "").toMatch(/font-mono/);
 		// The region should be labeled for assistive tech.
 		expect(
-			recent?.getAttribute("aria-label") ??
-				recent?.getAttribute("aria-labelledby") ??
-				"",
+			recent?.getAttribute("aria-label") ?? recent?.getAttribute("aria-labelledby") ?? "",
 		).not.toBe("");
 	});
 
