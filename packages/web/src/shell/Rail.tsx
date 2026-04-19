@@ -106,31 +106,56 @@ function SectionHeader({
 }
 
 /**
- * Collapsed-Rail pill. Private to Rail: kind → { abbreviation, aria verb, tone }.
+ * Cap a count at "99+" so collapsed-Rail pills (and their aria labels) stay
+ * within a one-or-two-glyph visual budget.
+ * @lore J2 review O5: blocker/review/paused-bet counts > 99 overflow the
+ * pill width and produce noisy aria labels. Cap at "99+".
+ */
+function formatCount(n: number): string {
+	return n > 99 ? "99+" : String(n);
+}
+
+/**
+ * Collapsed-Rail pill. Private to Rail: kind → { abbreviation, aria nouns, tone }.
  * - BLK: blockers, error tone
  * - REV: review bets, primary tone
- * - PSD: paused bets, neutral (base-content) tone
+ * - PSD: paused bets, surface-4 tone (visible on factory-dark base)
  *
  * Returns `null` when count <= 0 so the caller can unconditionally render all
  * three and rely on the pill to self-gate (AC 51: "Pills only render when count > 0").
  */
 type CollapsedPillKind = "blk" | "rev" | "psd";
 
-const PILL_META: Record<CollapsedPillKind, { label: string; ariaNoun: string; tone: string }> = {
+interface PillMeta {
+	label: string;
+	/** Singular noun used when count === 1 (review W1). */
+	ariaNounSingular: string;
+	/** Plural noun used otherwise. */
+	ariaNounPlural: string;
+	tone: string;
+}
+
+const PILL_META: Record<CollapsedPillKind, PillMeta> = {
 	blk: {
 		label: "BLK",
-		ariaNoun: "blockers",
+		ariaNounSingular: "blocker",
+		ariaNounPlural: "blockers",
 		tone: "bg-error/15 text-error",
 	},
 	rev: {
 		label: "REV",
-		ariaNoun: "reviews",
+		ariaNounSingular: "review",
+		ariaNounPlural: "reviews",
 		tone: "bg-primary/15 text-primary",
 	},
 	psd: {
 		label: "PSD",
-		ariaNoun: "paused bets",
-		tone: "bg-base-300 text-base-content",
+		ariaNounSingular: "paused bet",
+		ariaNounPlural: "paused bets",
+		// @lore J2 review designer: bg-base-300/text-base-content was invisible on
+		// the factory-dark Rail. Use surface-4 (panel) and text-mid (readable but
+		// neutral) to render a quiet but visible neutral tone.
+		tone: "bg-[var(--surface-4)] text-[var(--text-mid)]",
 	},
 };
 
@@ -143,14 +168,16 @@ function CollapsedPill({
 }): JSX.Element | null {
 	if (count <= 0) return null;
 	const meta = PILL_META[kind];
+	const noun = count === 1 ? meta.ariaNounSingular : meta.ariaNounPlural;
+	const display = formatCount(count);
 	return (
 		<span
-			aria-label={`${count} ${meta.ariaNoun}`}
+			aria-label={`${display} ${noun}`}
 			className={`badge badge-sm font-mono uppercase ${meta.tone}`}
 		>
 			<span aria-hidden="true">{meta.label}</span>
 			<span aria-hidden="true"> </span>
-			<span>{count}</span>
+			<span>{display}</span>
 		</span>
 	);
 }
@@ -185,18 +212,9 @@ export function Rail({ expanded, onToggleExpand, bets, blockers, cost }: RailPro
 		const blkCount = blockers.length;
 		const revCount = bets.filter((b) => b.status === "review").length;
 		const psdCount = bets.filter((b) => b.status === "paused").length;
+		const totalBets = bets.length;
 		return (
 			<div className="flex w-14 flex-col items-center gap-2 p-2">
-				{/*
-				 * Total-bets indicator preserved from the pre-J2 collapsed Rail contract.
-				 * @lore J2: the three semantic pills (BLK/REV/PSD) describe category-level
-				 * state, but the "how many bets are in flight at all" signal is still
-				 * useful at a glance. Rendered as a plain neutral count dot so it does
-				 * not compete visually with the semantic pills.
-				 */}
-				<span className="text-xs text-[var(--text-lo)]" aria-label={`${bets.length} active bets`}>
-					{bets.length}
-				</span>
 				<CollapsedPill kind="blk" count={blkCount} />
 				<CollapsedPill kind="rev" count={revCount} />
 				<CollapsedPill kind="psd" count={psdCount} />
@@ -210,6 +228,21 @@ export function Rail({ expanded, onToggleExpand, bets, blockers, cost }: RailPro
 						<path d="M8 2l-5 4 5 4V2z" />
 					</svg>
 				</button>
+				{/*
+				 * Total-bets affordance preserved from the pre-J2 collapsed Rail
+				 * contract.
+				 * @lore J2 review O6 (architect/designer): the three semantic pills
+				 * (BLK/REV/PSD) carry the category-level signal. The total-bets
+				 * count belongs *below* the chevron as a quieter "how many bets in
+				 * flight" affordance — opacity-60 + text-xs keeps it from competing
+				 * with the semantic pills above. Counts > 99 use the same 99+ cap.
+				 */}
+				<span
+					className="text-xs text-[var(--text-lo)] opacity-60 mt-1"
+					aria-label={`${totalBets} ${totalBets === 1 ? "active bet" : "active bets"}`}
+				>
+					{formatCount(totalBets)}
+				</span>
 			</div>
 		);
 	}
