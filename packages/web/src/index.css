@@ -17,6 +17,19 @@
 		--text-hi: #e7e5e4;
 		--text-mid: #acabaa;
 		--text-lo: #767575;
+		/*
+		 * J8 — Motion tokens. Three durations that cover every transition
+		 * in the shell: fast for instant feedback (hover/focus ring), medium
+		 * for disclosure changes (Rail expand, tab swaps), slow for overlay
+		 * open/close (Settings, Global Search). Consumers read them via
+		 * Tailwind arbitrary values (`duration-[var(--motion-medium)]`).
+		 * @lore Durations are tuned to feel crisp on a terminal-style UI —
+		 * anything longer reads as sluggish; anything shorter drops the
+		 * transition entirely.
+		 */
+		--motion-fast: 120ms;
+		--motion-medium: 200ms;
+		--motion-slow: 320ms;
 	}
 }
 
