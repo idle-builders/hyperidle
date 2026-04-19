@@ -1,6 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { Tag } from "../components/Tag";
+import type { TagKind } from "../components/tag-kinds";
 
 // @lore Separate file from Tag.test.tsx so the pre-J1 baseline assertions stay byte-identical.
 
@@ -43,6 +44,18 @@ describe("Tag with kind", () => {
 		expect(tag.tagName).toBe("SPAN");
 		expect(tag).toHaveClass("badge", "badge-neutral", "badge-sm");
 		// No icon must be injected when kind is absent.
+		expect(container.querySelector("svg")).toBeNull();
+	});
+
+	it("falls back to the neutral chip when kind is an unknown value (defensive guard)", () => {
+		// J1 review: a caller may bridge a wider domain enum into TagKind via
+		// `kind={item.kind as TagKind}`. If the runtime value is not in the
+		// Tier-2 set we render the neutral chip rather than crashing on a
+		// missing TAG_KIND_ICONS entry.
+		const unknownKind = "insight" as unknown as TagKind;
+		const { container } = render(<Tag label="weird" kind={unknownKind} />);
+		const tag = screen.getByText("weird");
+		expect(tag).toHaveClass("badge", "badge-neutral", "badge-sm");
 		expect(container.querySelector("svg")).toBeNull();
 	});
 });
