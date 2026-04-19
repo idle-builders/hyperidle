@@ -15,8 +15,11 @@ import type { KnowledgeScope } from "@hyperidle/shared";
 import { type JSX, useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { CurationSuggestionCard } from "../components/CurationSuggestionCard";
+import { EmptyState } from "../components/EmptyState";
+import { ErrorState } from "../components/ErrorState";
 import { KnowledgeRow } from "../components/KnowledgeRow";
 import { KnowledgeTopicGroup } from "../components/KnowledgeTopicGroup";
+import { SkeletonList } from "../components/Skeleton";
 import {
 	MOCK_CURATION_SUGGESTIONS,
 	MOCK_KNOWLEDGE_ITEMS,
@@ -42,7 +45,21 @@ function deriveScope(searchParams: URLSearchParams): KnowledgeScope {
 	return isKnowledgeScope(raw) ? raw : "practice";
 }
 
-export function KnowledgeList(): JSX.Element {
+export interface KnowledgeListProps {
+	/**
+	 * J8: opt-in loading state so callers (and stories) can render the
+	 * skeleton list variant. Defaults to false so production render path
+	 * is unchanged.
+	 */
+	loading?: boolean;
+	/** J8: opt-in error state. When present, ErrorState takes over. */
+	error?: { message: string; onRetry?: () => void } | null;
+}
+
+export function KnowledgeList({
+	loading = false,
+	error = null,
+}: KnowledgeListProps = {}): JSX.Element {
 	const navigate = useNavigate();
 	const [searchParams] = useSearchParams();
 	const scope = deriveScope(searchParams);
@@ -79,6 +96,26 @@ export function KnowledgeList(): JSX.Element {
 		() => [...scopedItems].sort((a, b) => b.attentionScore - a.attentionScore),
 		[scopedItems],
 	);
+
+	if (loading) {
+		return (
+			<div className="flex flex-col gap-3 h-full" data-testid="knowledge-list-page">
+				<SkeletonList rows={6} ariaLabel="Loading knowledge" />
+			</div>
+		);
+	}
+
+	if (error) {
+		return (
+			<div className="flex flex-col gap-3 h-full" data-testid="knowledge-list-page">
+				<ErrorState
+					title="Couldn't load knowledge"
+					description={error.message}
+					onRetry={error.onRetry}
+				/>
+			</div>
+		);
+	}
 
 	return (
 		<div className="flex flex-col gap-3 h-full" data-testid="knowledge-list-page">
@@ -135,9 +172,11 @@ export function KnowledgeList(): JSX.Element {
 					)}
 					<div className="flex flex-col">
 						{triageSorted.length === 0 ? (
-							<p className="text-xs text-[var(--text-lo)] px-2 py-4">
-								No items for this scope yet.
-							</p>
+							<EmptyState
+								title="Nothing needs attention"
+								description="Triage is clear for this scope — agents will surface new items here as they learn."
+								dataTestId="knowledge-triage-empty"
+							/>
 						) : (
 							triageSorted.map((item) => (
 								<KnowledgeRow
@@ -157,7 +196,11 @@ export function KnowledgeList(): JSX.Element {
 			) : (
 				<div className="flex flex-col gap-2" data-testid="knowledge-curated-view">
 					{grouped.length === 0 ? (
-						<p className="text-xs text-[var(--text-lo)] px-2 py-4">No items for this scope yet.</p>
+						<EmptyState
+							title="No knowledge items yet"
+							description="Agents will populate this scope as they learn. Check back after the next review cycle."
+							dataTestId="knowledge-curated-empty"
+						/>
 					) : (
 						grouped.map((g) => (
 							<KnowledgeTopicGroup
