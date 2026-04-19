@@ -92,6 +92,42 @@ describe("index.css has no custom CSS", () => {
 	});
 });
 
+// ---------- c. Density CSS variables (J1) ----------
+
+describe("index.css density tokens", () => {
+	const cssPath = resolve(__dirname, "../index.css");
+	const cssContent = readFileSync(cssPath, "utf-8");
+
+	const REQUIRED_VARS = [
+		"--density-pad-x",
+		"--density-pad-y",
+		"--density-gap",
+		"--density-row-h",
+		"--density-text",
+	];
+
+	it.each(["compact", "default", "comfortable"])('defines a [data-density="%s"] block', (name) => {
+		// Selector must literally appear so the cascade can apply when
+		// AppShell sets data-density on the root.
+		const selector = `[data-density="${name}"]`;
+		expect(cssContent).toContain(selector);
+	});
+
+	it.each(["compact", "default", "comfortable"])(
+		'the [data-density="%s"] block declares all five density variables',
+		(name) => {
+			// Pull out the body of the block for this density value.
+			const blockRe = new RegExp(`\\[data-density="${name}"\\]\\s*\\{([^}]*)\\}`, "s");
+			const match = cssContent.match(blockRe);
+			expect(match, `expected block for [data-density="${name}"]`).not.toBeNull();
+			const body = match?.[1] ?? "";
+			for (const v of REQUIRED_VARS) {
+				expect(body).toContain(v);
+			}
+		},
+	);
+});
+
 // ---------- d. Focus ring configuration ----------
 
 describe("focus ring configuration", () => {

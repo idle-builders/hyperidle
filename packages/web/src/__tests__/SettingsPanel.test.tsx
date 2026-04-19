@@ -333,6 +333,49 @@ describe("SettingsPanel", () => {
 		});
 	});
 
+	// J1: density change is wired through onSave with the new value.
+	it('Appearance: changing density to "default" calls onSave with the new value', async () => {
+		const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+		const onSave = vi.fn().mockResolvedValue(undefined);
+		render(<SettingsPanel {...defaultProps} onSave={onSave} />);
+		await user.click(screen.getByRole("tab", { name: "Appearance" }));
+
+		const densitySelect = screen.getByLabelText("Density");
+		// J1 plan resolution A introduces "default" as the new neutral middle
+		// step (renaming the current baseline). The select must offer it.
+		await user.selectOptions(densitySelect, "default");
+
+		await user.click(screen.getByRole("button", { name: /save/i }));
+
+		await waitFor(() => {
+			expect(onSave).toHaveBeenCalledWith(
+				expect.objectContaining({
+					appearance: expect.objectContaining({ density: "default" }),
+				}),
+			);
+		});
+	});
+
+	it('Appearance: changing density to "compact" calls onSave with compact', async () => {
+		const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+		const onSave = vi.fn().mockResolvedValue(undefined);
+		render(<SettingsPanel {...defaultProps} onSave={onSave} />);
+		await user.click(screen.getByRole("tab", { name: "Appearance" }));
+
+		const densitySelect = screen.getByLabelText("Density");
+		await user.selectOptions(densitySelect, "compact");
+
+		await user.click(screen.getByRole("button", { name: /save/i }));
+
+		await waitFor(() => {
+			expect(onSave).toHaveBeenCalledWith(
+				expect.objectContaining({
+					appearance: expect.objectContaining({ density: "compact" }),
+				}),
+			);
+		});
+	});
+
 	// Toggling product active state
 	it("toggling product updates state correctly", async () => {
 		const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });

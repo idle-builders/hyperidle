@@ -8,7 +8,7 @@ import { Outlet, useLocation, useNavigate, useSearchParams } from "react-router-
 import { ErrorBoundary } from "../components/ErrorBoundary";
 import { GlobalSearchPanel } from "../components/GlobalSearchPanel";
 import { NavItem } from "../components/NavItem";
-import type { SettingsData } from "../components/SettingsPanel";
+import type { Density, SettingsData } from "../components/SettingsPanel";
 import { SettingsPanel } from "../components/SettingsPanel";
 import {
 	DEFAULT_SETTINGS,
@@ -112,6 +112,11 @@ export function AppShell(): JSX.Element {
 	}, [breakpoint.railExpanded]);
 	const [searchParams, setSearchParams] = useSearchParams();
 	const [settingsOpen, setSettingsOpen] = useState(false);
+	// J1: density lives at the shell root so CSS vars cascade to every
+	// consumer. Seeded from DEFAULT_SETTINGS and updated when SettingsPanel
+	// saves a new value. No server persistence yet — deferred (J3/J8).
+	const [density, setDensity] = useState<Density>(DEFAULT_SETTINGS.appearance.density);
+	const [settings, setSettings] = useState<SettingsData>(DEFAULT_SETTINGS);
 	const commandK = useCommandK();
 
 	// Open settings panel when navigated to with ?settings=open query param.
@@ -145,9 +150,13 @@ export function AppShell(): JSX.Element {
 		setSettingsOpen(true);
 	}, []);
 
-	const handleSettingsSave = useCallback(async (_settings: SettingsData): Promise<void> => {
-		// Mock save — real API wiring deferred
+	const handleSettingsSave = useCallback(async (next: SettingsData): Promise<void> => {
+		// Mock save — real API wiring deferred. J1: mirror the new draft into
+		// local state so density (and other appearance values) take effect on
+		// save. The data-density attribute on the shell root reads from this.
 		await new Promise((resolve) => setTimeout(resolve, 300));
+		setSettings(next);
+		setDensity(next.appearance.density);
 	}, []);
 
 	const handleSearchNavigate = useCallback(
@@ -180,7 +189,7 @@ export function AppShell(): JSX.Element {
 	const submenuConfig = SUBMENU_CONFIG[activeView];
 
 	return (
-		<div className="flex h-screen bg-base-100 overflow-hidden">
+		<div className="flex h-screen bg-base-100 overflow-hidden" data-density={density}>
 			<IconRail
 				activeView={activeView}
 				onViewChange={handleViewChange}
@@ -205,7 +214,10 @@ export function AppShell(): JSX.Element {
 				</ul>
 			</Submenu>
 
-			<main className="flex-1 overflow-y-auto p-3" data-testid="main-content">
+			<main
+				className="flex-1 overflow-y-auto px-[var(--density-pad-x)] py-[var(--density-pad-y)]"
+				data-testid="main-content"
+			>
 				<ErrorBoundary>
 					<Outlet />
 				</ErrorBoundary>
@@ -223,7 +235,7 @@ export function AppShell(): JSX.Element {
 				open={settingsOpen}
 				onClose={() => setSettingsOpen(false)}
 				onSave={handleSettingsSave}
-				settings={DEFAULT_SETTINGS}
+				settings={settings}
 			/>
 
 			<GlobalSearchPanel
