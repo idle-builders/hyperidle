@@ -112,9 +112,8 @@ export function AppShell(): JSX.Element {
 	}, [breakpoint.railExpanded]);
 	const [searchParams, setSearchParams] = useSearchParams();
 	const [settingsOpen, setSettingsOpen] = useState(false);
-	// J1: density lives at the shell root so CSS vars cascade to every
-	// consumer. Read from `settings.appearance.density` — the shell's single
-	// source of truth for settings. No server persistence yet — deferred (J3/J8).
+	// @lore Settings lives at the shell root so [data-density] cascades --density-* CSS vars
+	// to every consumer. Server persistence deferred (J3/J8).
 	const [settings, setSettings] = useState<SettingsData>(DEFAULT_SETTINGS);
 	const commandK = useCommandK();
 
