@@ -76,6 +76,24 @@ export type KnowledgeKind =
 	| "focus";
 
 /**
+ * Knowledge scope taxonomy (J6). Three-scope segmented browser: Practice
+ * (how we work), Product (what we build), Factory (governance/meta).
+ *
+ * @lore J6: the scope is a first-class axis alongside layer/kind/status —
+ * UI filters, submenu, and list grouping all branch on it.
+ */
+export const KNOWLEDGE_SCOPES = ["practice", "product", "factory"] as const;
+export type KnowledgeScope = (typeof KNOWLEDGE_SCOPES)[number];
+
+/**
+ * Health signal for a topic group: fresh = all items healthy, some_stale =
+ * partial staleness, mostly_stale = majority stale. Rendered as a colored
+ * dot on topic NavItems and group headers (J6).
+ */
+export const KNOWLEDGE_TOPIC_HEALTHS = ["fresh", "some_stale", "mostly_stale"] as const;
+export type KnowledgeTopicHealth = (typeof KNOWLEDGE_TOPIC_HEALTHS)[number];
+
+/**
  * The full set of legal bet lifecycle statuses. The `BetStatus` union is
  * derived from this constant. Mirrors the I3 pattern for `TASK_STATES`.
  *
