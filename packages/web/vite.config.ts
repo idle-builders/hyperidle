@@ -13,4 +13,13 @@ export default defineConfig({
 			},
 		},
 	},
+	build: {
+		rollupOptions: {
+			// @hyperidle/shared re-exports a server-only SSRF module that
+			// uses node:dns, node:net, node:util. The web app never imports
+			// those exports — only types and constants. Externalize the Node
+			// built-ins so Rollup doesn't fail trying to bundle them.
+			external: ["node:dns", "node:net", "node:util"],
+		},
+	},
 });
