@@ -1,0 +1,185 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Work — Director's Synthesis</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="synthesis-styles.css?v=4" />
+<link rel="stylesheet" href="work-styles.css?v=3" />
+</head>
+<body>
+<div class="synth">
+
+<!-- Topbar -->
+<header class="synth-topbar">
+  <div class="brand">
+    <div class="brand-mark">F</div>
+    <span class="brand-name">Factory</span>
+    <span class="brand-sep">/</span>
+    <span class="brand-sub">Work · Director's Synthesis</span>
+  </div>
+  <div class="spacer"></div>
+  <div class="meta">
+    <span>REV <span class="v">01</span></span>
+    <span>INPUTS <span class="v">A + web/src</span></span>
+    <span>OWNER <span class="v">MA</span></span>
+  </div>
+</header>
+
+<nav class="synth-nav" id="work-nav">
+  <button class="synth-nav-tab active" data-tab="intro"><span class="num">00</span>Overview</button>
+  <button class="synth-nav-tab" data-tab="w1"><span class="num">01</span>Portfolio</button>
+  <button class="synth-nav-tab" data-tab="w2"><span class="num">02</span>Team · Canvas + Kanban</button>
+  <button class="synth-nav-tab" data-tab="w3"><span class="num">03</span>PitchSelector</button>
+  <button class="synth-nav-tab" data-tab="w4"><span class="num">04</span>Bet detail</button>
+  <button class="synth-nav-tab" data-tab="crit"><span class="num">05</span>Critique</button>
+  <button class="synth-nav-tab" data-tab="delta"><span class="num">06</span>Delta</button>
+</nav>
+
+<!-- 00 · Overview -->
+<section class="synth-panel active" data-panel="intro">
+<div class="synth-inner narrow">
+
+<div class="eyebrow">Director's cut · Rev 01</div>
+<h1>Work, reconciled.</h1>
+<p class="lede">
+  Version A is a <strong>visual proposal</strong> for the Work surface. Version B is the <strong>shipping React app in <code>web/src</code></strong> — <code>WorkPortfolio</code>, <code>WorkTeam</code>, <code>WorkBet</code>, plus <code>Canvas</code>, <code>Kanban</code>, <code>PitchSelector</code> and three card components. This document extracts the best from each, resolves the conflicts, and names the file each change lives in.
+</p>
+
+<h2>What we kept, what we changed</h2>
+<p>
+  <strong>From Version B (canonical):</strong> Shape Up's <em>two-lane canvas</em> (Shaped / Committed — explicitly not four, per HUMAN_INTERFACE_LAYER §4.3), the <strong>four-column Kanban</strong> (Planned / Blocked / In&nbsp;Progress / Done), the <code>STATE_TO_COLUMN</code> folding, <code>BET_STATUS_MAP</code>, <code>TASK_STATE_MAP</code>, <code>blocked = warning</code> (not error), keyboard drag (Alt+Arrow), <code>data-droppable-column</code> test hooks, the <code>Tag</code> + <code>StatusChip</code> + <code>KeyValue</code> primitives.
+  <strong>From Version A (visual & IA):</strong> the morning-check emphasis in Portfolio, cycle management as a first-class surface, progress visualization on BetCards, the PitchSelector as a committed "menu of bets" not a dropdown.
+  <strong>New (agreed today):</strong> capacity-aware Canvas layout, bet-grouped TaskCard rendering on the Kanban, a pitch detail expansion inside PitchSelector, and a bet detail page that combines pitch body + task table + comment thread.
+</p>
+
+<h2>Structured comparison</h2>
+<p>Seven axes, one winner per row. Each row maps 1:1 to the Implementation Delta at the end.</p>
+
+<div class="cmp-table">
+  <div class="cmp-cell head">Axis</div>
+  <div class="cmp-cell head">Version A <span class="v">(fresh)</span></div>
+  <div class="cmp-cell head">Version B <span class="v">(web/src)</span></div>
+  <div class="cmp-cell head">Synthesis</div>
+
+  <div class="cmp-cell">
+    <div class="topic">01 · Portfolio overview</div>
+    <div class="row-title">The 15-second morning check</div>
+  </div>
+  <div class="cmp-cell">Rich product cards: lead, status, active bets, shipped count, velocity sparkline. Plus a prominent cycle management card.</div>
+  <div class="cmp-cell"><code>WorkPortfolio.tsx</code> renders 3 product cards with <em>only</em> name + StatusChip + Active bets + Ship rate. No cycle card, no sparkline, no lead, no shipped count. Thin.</div>
+  <div class="cmp-cell">
+    Adopt <strong>A's richer card</strong> but respect B's card primitive (tonal layering, no borders, KeyValue rows). Cycle management lives on the Portfolio page as a <em>secondary</em> stripe — it's a control, not the hero. Four products (A asked for it) and a sparkline per card.
+    <span class="winner">Winner · A's structure</span>
+  </div>
+
+  <div class="cmp-cell">
+    <div class="topic">02 · Canvas lanes</div>
+    <div class="row-title">Two lanes or four?</div>
+  </div>
+  <div class="cmp-cell">A implicitly assumed a four-lane Kanban-style canvas.</div>
+  <div class="cmp-cell"><strong>Two lanes:</strong> Shaped (available pitches) + Committed (bets in progress). Capacity badge "N / C" with "Over capacity" warning in error red. Grounded in Shape Up methodology.</div>
+  <div class="cmp-cell">
+    <strong>B wins, decisively.</strong> Two lanes IS the Shape Up metaphor — the "bet" is the decision to commit capacity. Four lanes would turn it back into a project-management board. Keep capacity visual — make it <em>more</em> prominent.
+    <span class="winner">Winner · B</span>
+  </div>
+
+  <div class="cmp-cell">
+    <div class="topic">03 · Kanban columns</div>
+    <div class="row-title">Which states are columns?</div>
+  </div>
+  <div class="cmp-cell">A described 4 columns as "accepted → in_progress → review → done" — conflating review with its own column.</div>
+  <div class="cmp-cell"><strong>Planned / Blocked / In Progress / Done.</strong> <code>STATE_TO_COLUMN</code> folds <code>proposed+accepted → planned</code>, <code>in_progress+review → in_progress</code>, hides <code>hold+killed</code>. Review is a <em>sub-state</em> of in-progress.</div>
+  <div class="cmp-cell">
+    <strong>B wins.</strong> The board shows <em>what needs attention</em>, not <em>every internal state</em>. Review is a label ON an in-progress card, not a column. Blocked is a column because blocked tasks need human intervention.
+    <span class="winner">Winner · B</span>
+  </div>
+
+  <div class="cmp-cell">
+    <div class="topic">04 · PitchSelector</div>
+    <div class="row-title">Overlay or dropdown?</div>
+  </div>
+  <div class="cmp-cell">A imagined a small picker — pick a pitch, add to canvas.</div>
+  <div class="cmp-cell">Full-width overlay inside the page flow (<em>not</em> a modal), with SearchField, filterable list, multi-select via ✓ marker. Returns to Kanban when closed.</div>
+  <div class="cmp-cell">
+    Keep B's <strong>overlay list</strong>, but do NOT replace the Kanban — inline it <em>between</em> Canvas and Kanban while open. Add an <strong>expanded detail pane</strong> when one pitch is selected, showing the full pitch body (problem / appetite / solution / rabbit holes) before committing.
+    <span class="winner">Winner · B + add detail pane</span>
+  </div>
+
+  <div class="cmp-cell">
+    <div class="topic">05 · Bet detail page</div>
+    <div class="row-title">From "scan" to "understand"</div>
+  </div>
+  <div class="cmp-cell">A proposed a drill-down with pitch body + comments.</div>
+  <div class="cmp-cell"><code>WorkBet.tsx</code> shows BetCard header + list of TaskCards. No pitch body, no comments, no breadcrumb. Very thin.</div>
+  <div class="cmp-cell">
+    Adopt <strong>A's structure</strong>: breadcrumb → bet header (enriched) → pitch body (markdown) → task table → comment thread. Tasks shown as a <em>table</em> not stacked cards — denser and sortable on the detail page.
+    <span class="winner">Winner · A</span>
+  </div>
+
+  <div class="cmp-cell">
+    <div class="topic">06 · BetCard vs TaskCard</div>
+    <div class="row-title">Visual weight</div>
+  </div>
+  <div class="cmp-cell">Both treated as roughly equal cards.</div>
+  <div class="cmp-cell">BetCard is heavier: Tag + StatusChip + Appetite KV + progress bar. TaskCard is lighter: optional betTag + StatusChip + owner + cost. Blocked tasks get a red border.</div>
+  <div class="cmp-cell">
+    <strong>B wins on density.</strong> Bets are 1–6 week commitments; tasks are atomic units. The weight difference signals "these are different kinds of things." Preserve the blocked-border treatment — it's the only place error red appears on TaskCard.
+    <span class="winner">Winner · B</span>
+  </div>
+
+  <div class="cmp-cell">
+    <div class="topic">07 · State semantics</div>
+    <div class="row-title">What does "blocked" look like?</div>
+  </div>
+  <div class="cmp-cell">Not distinguished from error.</div>
+  <div class="cmp-cell"><code>blocked = badge-warning</code> (amber) per I4 S7. Error is red. Blocked = "stuck waiting, recoverable"; error = "broken, intervention required."</div>
+  <div class="cmp-cell">
+    <strong>B wins</strong> — the same call as the Conversations synthesis. Preserve amber for blocked everywhere. On TaskCard, the red border for <code>state === "blocked"</code> is additive to the amber chip and intentional: the border is a <em>layout</em> signal (scan-the-board), the chip is the <em>semantic</em> signal.
+    <span class="winner">Winner · B</span>
+  </div>
+</div>
+
+<h2>How to read the deliverables</h2>
+<p>
+  Each deliverable tab is a <strong>full-fidelity mockup</strong> followed by captions: what came from A, what came from B, what's new. Every change is tagged and maps 1:1 to a row in Section 06 · Delta. The mockups have a <code>min-width</code> and scroll horizontally — they are <em>designs</em>, not responsive layouts.
+</p>
+
+</div>
+</section>
+
+<section class="synth-panel" data-panel="w1"><div class="synth-inner"><div id="w1-slot"></div></div></section>
+<section class="synth-panel" data-panel="w2"><div class="synth-inner"><div id="w2-slot"></div></div></section>
+<section class="synth-panel" data-panel="w3"><div class="synth-inner"><div id="w3-slot"></div></div></section>
+<section class="synth-panel" data-panel="w4"><div class="synth-inner"><div id="w4-slot"></div></div></section>
+<section class="synth-panel" data-panel="crit"><div class="synth-inner narrow"><div id="w-crit-slot"></div></div></section>
+<section class="synth-panel" data-panel="delta"><div class="synth-inner"><div id="w-delta-slot"></div></div></section>
+
+</div>
+
+<script src="work-panels.js?v=3"></script>
+<script src="work-panels-2.js?v=3"></script>
+
+<script>
+(function(){
+  const tabs = document.querySelectorAll('.synth-nav-tab');
+  const panels = document.querySelectorAll('.synth-panel');
+  const KEY = 'work-synth-tab-v1';
+  function show(name){
+    tabs.forEach(t => t.classList.toggle('active', t.dataset.tab === name));
+    panels.forEach(p => p.classList.toggle('active', p.dataset.panel === name));
+    try { localStorage.setItem(KEY, name); } catch(e){}
+    window.scrollTo({ top: 0, behavior: 'instant' });
+  }
+  tabs.forEach(t => t.addEventListener('click', () => show(t.dataset.tab)));
+  let saved = null;
+  try { saved = localStorage.getItem(KEY); } catch(e){}
+  if (saved && document.querySelector('[data-panel="'+saved+'"]')) show(saved);
+})();
+</script>
+
+</body>
+</html>

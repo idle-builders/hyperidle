@@ -31,7 +31,11 @@
       "Bash(npx:*)",
       "Read(//tmp/**)",
       "Bash(sed 's/ *$//')",
-      "Bash(npm list:*)"
+      "Bash(npm list:*)",
+      "Bash(bunx biome:*)",
+      "Bash(awk '{print $2}')",
+      "Bash(git:*)",
+      "Bash(tsc --noEmit -p tsconfig.json)"
     ]
   },
   "autoMode": {

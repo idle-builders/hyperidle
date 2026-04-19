@@ -2,7 +2,7 @@
 
 Agent-friendly user stories organized in nine tracks with outcome-level acceptance criteria.
 
-**Track files:** [Track A](TRACK-A.md) | [Track B](TRACK-B.md) | [Track C](TRACK-C.md) | [Track D](TRACK-D.md) | [Track E](TRACK-E.md) | [Track F](TRACK-F.md) | [Track G](TRACK-G.md) | [Track H](TRACK-H.md) | [Track I](TRACK-I.md)
+**Track files:** [Track A](TRACK-A.md) | [Track B](TRACK-B.md) | [Track C](TRACK-C.md) | [Track D](TRACK-D.md) | [Track E](TRACK-E.md) | [Track F](TRACK-F.md) | [Track G](TRACK-G.md) | [Track H](TRACK-H.md) | [Track I](TRACK-I.md) | [Track J](TRACK-J.md)
 
 ---
 
@@ -59,16 +59,16 @@ Agent-friendly user stories organized in nine tracks with outcome-level acceptan
 
 **Behavior:** `focus-trap-react` (modals), `@floating-ui/react` (positioning).
 
-**Custom components:** 19 total across three tiers:
-- **Tier 1 (5):** StatusChip, Tag, KeyValue, NavItem, SearchField
-- **Tier 2 (6):** ThreadRow, BetCard, PitchCard, TaskCard, KnowledgeRow, NotificationRow
-- **Tier 3 (8):** IconRail, Submenu, Rail, ArtifactView, ReviewHeader, Canvas, Kanban, PitchSelector
+**Custom components:** No strict count enforced. Create new components only when necessary, as decided by the designer. Prefer composition inside existing components when possible. Current baseline:
+- **Tier 1:** StatusChip, Tag, KeyValue, NavItem, SearchField
+- **Tier 2:** ThreadRow, BetCard, PitchCard, TaskCard, KnowledgeRow, NotificationRow, ReasoningBlock
+- **Tier 3:** IconRail, Submenu, Rail, ArtifactView, ReviewHeader, Canvas, Kanban, PitchSelector
 
 ---
 
 ## Implementation Tracks & Dependency Graph
 
-Eight parallel tracks. Within each track, stories are sequential. Tracks run in parallel where dependencies allow.
+Nine implementation tracks plus one design-synthesis adoption track. Within each track, stories are sequential. Tracks run in parallel where dependencies allow.
 
 Critical path: **A1 → A2 → B1 → B2 → B4 → C3 → D5 → E6 → UI-00 → UI-10 → UI-20 → UI-30 → UI-31 → UI-32 → UI-40 → G1 → G2 → G3 → G4 → H4**
 
