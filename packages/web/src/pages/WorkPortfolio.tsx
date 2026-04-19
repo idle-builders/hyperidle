@@ -3,11 +3,16 @@
  * cards + portfolio metrics. Per spec (HUMAN_INTERFACE_LAYER.md §4.3) the
  * Portfolio canvas is a *summary* of products, not the bet board (which
  * lives in WorkTeam).
+ *
+ * @lore J5: each product card now surfaces lead agent avatar, active bet
+ * count, shipped count, ship-rate, and an active-cycle progress bar. A
+ * cycle-management stripe appears below the grid showing the current
+ * cycle and days remaining.
  */
 import type { JSX } from "react";
 import { KeyValue } from "../components/KeyValue";
 import { StatusChip } from "../components/StatusChip";
-import { MOCK_PRODUCTS } from "../fixtures/portfolio-data";
+import { MOCK_CYCLE, MOCK_PRODUCTS } from "../fixtures/portfolio-data";
 
 export function WorkPortfolio(): JSX.Element {
 	return (
@@ -26,14 +31,50 @@ export function WorkPortfolio(): JSX.Element {
 						data-testid="product-card"
 						className="bg-base-200 rounded p-3 flex flex-col gap-2 shadow-sm"
 					>
-						<div className="flex items-center justify-between gap-2">
-							<span className="text-sm font-medium text-[var(--text-hi)]">{product.name}</span>
+						<div className="flex items-center gap-2">
+							<span
+								className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-base-300 text-[var(--text-hi)] text-xs font-semibold"
+								aria-label={`Lead agent: ${product.lead.name}`}
+							>
+								{product.lead.initials}
+							</span>
+							<span className="text-sm font-medium text-[var(--text-hi)] flex-1 truncate">
+								{product.name}
+							</span>
 							<StatusChip status={product.status} />
 						</div>
-						<KeyValue label="Active bets" value={String(product.activeBets)} />
+						<KeyValue
+							label={product.activeBets === 1 ? "Active bet" : "Active bets"}
+							value={String(product.activeBets)}
+						/>
+						<KeyValue label="Shipped" value={String(product.shipped)} />
 						<KeyValue label="Ship rate" value={product.shipRate} />
+						<div className="flex items-center gap-2">
+							<progress
+								className="progress progress-accent w-full h-1.5"
+								value={product.progress.done}
+								max={product.progress.total}
+								aria-label={`Cycle progress for ${product.name}`}
+							/>
+							<span className="text-xs text-[var(--text-mid)] shrink-0">
+								{product.progress.done}/{product.progress.total}
+							</span>
+						</div>
 					</div>
 				))}
+			</div>
+			<div
+				data-testid="cycle-stripe"
+				className="bg-base-200 rounded p-2 flex items-center justify-between gap-2"
+			>
+				<span className="text-sm font-heading font-semibold uppercase tracking-wider text-[var(--text-hi)]">
+					{MOCK_CYCLE.label}
+				</span>
+				<span className="text-xs text-[var(--text-mid)]">
+					{`${MOCK_CYCLE.daysRemaining} ${
+						MOCK_CYCLE.daysRemaining === 1 ? "day remaining" : "days remaining"
+					}`}
+				</span>
 			</div>
 		</div>
 	);

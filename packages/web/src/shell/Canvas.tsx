@@ -45,21 +45,35 @@ function DroppableColumn({
 	columnKey,
 	label,
 	children,
-	badge,
+	capacityBadge,
 	warning,
 }: {
 	columnKey: string;
 	label: string;
 	children: React.ReactNode;
-	badge?: string;
+	capacityBadge?: { text: string; over: boolean };
 	warning?: string;
 }): JSX.Element {
 	return (
 		<div className="flex-1 min-w-0 flex flex-col gap-2" data-droppable={columnKey}>
 			<div className="flex items-center gap-2 mb-1">
 				<h3 className="text-sm font-semibold">{label}</h3>
-				{badge && <span className="badge badge-sm badge-ghost">{badge}</span>}
-				{warning && <span className="text-xs text-error font-medium">{warning}</span>}
+				{/* J5: capacity badge is the prominent commitment signal. We
+				    drop the `badge-ghost` faded style in favour of a solid
+				    neutral chip, switching to `badge-error` when over
+				    capacity so the "N / C" read-out carries the error
+				    semantics too. */}
+				{capacityBadge && (
+					<span
+						data-testid="canvas-capacity-badge"
+						className={`badge badge-sm font-mono ${
+							capacityBadge.over ? "badge-error" : "badge-neutral"
+						}`}
+					>
+						{capacityBadge.text}
+					</span>
+				)}
+				{warning && <span className="text-xs text-error font-semibold">{warning}</span>}
 			</div>
 			<div className="flex flex-col gap-2 min-h-[48px]">{children}</div>
 		</div>
@@ -127,7 +141,13 @@ export function Canvas({ bets, capacity, onMoveBet }: CanvasProps): JSX.Element 
 			<div className="flex gap-4">
 				{COLUMNS.map((col) => {
 					const columnBets = col.key === "shaped" ? shaped : committed;
-					const badge = col.key === "committed" ? `${committed.length} / ${capacity}` : undefined;
+					const capacityBadge =
+						col.key === "committed"
+							? {
+									text: `${committed.length} / ${capacity}`,
+									over: overCapacity,
+								}
+							: undefined;
 					const warning = col.key === "committed" && overCapacity ? "Over capacity" : undefined;
 
 					return (
@@ -135,7 +155,7 @@ export function Canvas({ bets, capacity, onMoveBet }: CanvasProps): JSX.Element 
 							key={col.key}
 							columnKey={col.key}
 							label={col.label}
-							badge={badge}
+							capacityBadge={capacityBadge}
 							warning={warning}
 						>
 							<CanvasDropZone columnKey={col.key}>
