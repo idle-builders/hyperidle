@@ -68,3 +68,35 @@ export const Interactive = (): React.JSX.Element => {
 export const EmptyState = (): React.JSX.Element => (
 	<Rail expanded onToggleExpand={() => {}} bets={[]} blockers={[]} cost={sampleCost} />
 );
+
+// J2: collapsed Rail with all three semantic pills (BLK/REV/PSD) present.
+export const CollapsedWithPills = (): React.JSX.Element => (
+	<Rail
+		expanded={false}
+		onToggleExpand={() => {}}
+		bets={[
+			{ id: "r1", title: "Review me", product: "Alpha", status: "review" as BetStatus },
+			{ id: "p1", title: "Paused bet", product: "Alpha", status: "paused" as BetStatus },
+			{ id: "c1", title: "Committed", product: "Alpha", status: "committed" as BetStatus },
+		]}
+		blockers={sampleBlockers}
+		cost={sampleCost}
+	/>
+);
+
+// J2: collapsed Rail with all counts zero — only the expand chevron + the
+// neutral total-bets indicator should be visible.
+export const CollapsedEmpty = (): React.JSX.Element => (
+	<Rail expanded={false} onToggleExpand={() => {}} bets={[]} blockers={[]} cost={sampleCost} />
+);
+
+// J2: collapsed Rail with only blockers — BLK pill visible, REV/PSD hidden.
+export const CollapsedOnlyBlk = (): React.JSX.Element => (
+	<Rail
+		expanded={false}
+		onToggleExpand={() => {}}
+		bets={[]}
+		blockers={sampleBlockers}
+		cost={sampleCost}
+	/>
+);
