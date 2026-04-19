@@ -35,7 +35,7 @@ const dashTask: KanbanTask = {
 };
 
 describe("Kanban — bet grouping (J5)", () => {
-	it("renders a bet group header per distinct bet", () => {
+	it("renders a bet group header per distinct bet (one per column the bet appears in)", () => {
 		render(
 			<Kanban
 				tasks={[authTask, authTask2, dashTask]}
@@ -43,11 +43,14 @@ describe("Kanban — bet grouping (J5)", () => {
 				groupByBet
 			/>,
 		);
-		expect(screen.getByRole("button", { name: /Auth group/i })).toBeInTheDocument();
-		expect(screen.getByRole("button", { name: /Dashboard group/i })).toBeInTheDocument();
+		// authTask (accepted → planned) and authTask2 (in_progress) live in
+		// different columns, so the Auth header appears twice (one per
+		// column). Dashboard has a single task so it appears once.
+		expect(screen.getAllByRole("button", { name: /Auth group/i }).length).toBe(2);
+		expect(screen.getAllByRole("button", { name: /Dashboard group/i }).length).toBe(1);
 	});
 
-	it("bet group header shows task count", () => {
+	it("bet group header shows task count for its column", () => {
 		render(
 			<Kanban
 				tasks={[authTask, authTask2, dashTask]}
@@ -55,10 +58,13 @@ describe("Kanban — bet grouping (J5)", () => {
 				groupByBet
 			/>,
 		);
-		// Auth has 2 tasks, Dashboard has 1.
-		const authHeader = screen.getByRole("button", { name: /Auth group/i });
+		// Each of the two Auth headers shows 1 (one task in its column).
+		// Dashboard shows 1.
+		const authHeaders = screen.getAllByRole("button", { name: /Auth group/i });
+		for (const header of authHeaders) {
+			expect(header.textContent).toMatch(/1/);
+		}
 		const dashHeader = screen.getByRole("button", { name: /Dashboard group/i });
-		expect(authHeader.textContent).toMatch(/2/);
 		expect(dashHeader.textContent).toMatch(/1/);
 	});
 
@@ -75,7 +81,9 @@ describe("Kanban — bet grouping (J5)", () => {
 		expect(screen.getByText("Login endpoint")).toBeInTheDocument();
 		expect(screen.getByText("Widget layout")).toBeInTheDocument();
 
-		await user.click(screen.getByRole("button", { name: /Auth group/i }));
+		// Collapsing any Auth header toggles all Auth groups together.
+		const [firstAuthHeader] = screen.getAllByRole("button", { name: /Auth group/i });
+		await user.click(firstAuthHeader);
 
 		// Auth collapsed → Auth tasks not visible, Dashboard still visible
 		expect(screen.queryByText("Login endpoint")).not.toBeInTheDocument();
