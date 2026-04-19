@@ -59,10 +59,7 @@ describe("AppShell — filter reset on view change (J2 AC 64)", () => {
 		// Navigate back to Conversations. The filter must be back at "All".
 		await user.click(screen.getByRole("button", { name: /conversations/i }));
 		await waitFor(() => {
-			expect(screen.getByRole("tab", { name: /^all$/i })).toHaveAttribute(
-				"aria-selected",
-				"true",
-			);
+			expect(screen.getByRole("tab", { name: /^all$/i })).toHaveAttribute("aria-selected", "true");
 		});
 		expect(screen.getByRole("tab", { name: /needs review/i })).toHaveAttribute(
 			"aria-selected",

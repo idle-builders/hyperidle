@@ -89,11 +89,7 @@ export function Submenu({
 						 * btn-xs filter chips overflow horizontally. flex-wrap lets
 						 * them stack across two rows when needed.
 						 */
-						<div
-							role="tablist"
-							aria-label={`Filter ${title}`}
-							className="flex flex-wrap gap-1"
-						>
+						<div role="tablist" aria-label={`Filter ${title}`} className="flex flex-wrap gap-1">
 							{filters.map((f) => {
 								const selected = f.id === activeFilter;
 								return (
