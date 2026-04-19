@@ -80,6 +80,9 @@ const MOCK_PITCHES: PitchSelectorPitch[] = [
 		proposer: "CPO",
 		status: "shaped",
 		appetite: "2 weeks",
+		problem: "Current layout breaks below 900px; mobile users bounce at 63%.",
+		solution: "Adopt a responsive grid with a mobile-first kanban collapse.",
+		rabbitHoles: "Do not rebuild the whole design system. Do not ship a native app.",
 	},
 	{
 		id: "p2",
@@ -88,6 +91,9 @@ const MOCK_PITCHES: PitchSelectorPitch[] = [
 		proposer: "Designer",
 		status: "shaped",
 		appetite: "1 week",
+		problem: "Users request a dark theme; the 'factory-dark' tokens already exist.",
+		solution: "Add a top-bar toggle that flips data-theme on <html>.",
+		rabbitHoles: "Do not add a per-component theme override.",
 	},
 	{
 		id: "p3",
@@ -96,6 +102,9 @@ const MOCK_PITCHES: PitchSelectorPitch[] = [
 		proposer: "Analyst",
 		status: "shaped",
 		appetite: "3 weeks",
+		problem: "No offline story for bet briefs; stakeholders ask for shareable PDFs.",
+		solution: "Server-side render each bet detail page to PDF on demand.",
+		rabbitHoles: "Do not let users customize the PDF layout per-bet.",
 	},
 ];
 
@@ -123,6 +132,10 @@ export function WorkTeam(): JSX.Element {
 		);
 	}, []);
 
+	const handleAddToCanvas = useCallback((_pitchId: string): void => {
+		// Mock — real implementation promotes the pitch to a canvas bet.
+	}, []);
+
 	return (
 		<div className="flex flex-col gap-3 h-full" data-testid="work-team-page">
 			<div className="flex items-center justify-between">
@@ -138,22 +151,25 @@ export function WorkTeam(): JSX.Element {
 				</button>
 			</div>
 
-			{pitchSelectorOpen && (
+			{/* I4 P2: Canvas (committed bets overview) on top, Kanban below.
+			    J5: PitchSelector is an overlay that REPLACES the Kanban when
+			    open (not inlined above it). */}
+			<div data-testid="work-team-canvas">
+				<Canvas bets={CANVAS_BETS} capacity={3} onMoveBet={handleMoveBet} />
+			</div>
+			{pitchSelectorOpen ? (
 				<PitchSelector
 					pitches={MOCK_PITCHES}
 					selectedIds={selectedPitchIds}
 					onSelect={handleSelectPitch}
+					onAddToCanvas={handleAddToCanvas}
 					onClose={() => setPitchSelectorOpen(false)}
 				/>
+			) : (
+				<div data-testid="work-team-kanban">
+					<Kanban tasks={tasks} onMoveTask={handleMoveTask} groupByBet />
+				</div>
 			)}
-
-			{/* I4 P2: Canvas (committed bets overview) on top, Kanban below. */}
-			<div data-testid="work-team-canvas">
-				<Canvas bets={CANVAS_BETS} capacity={3} onMoveBet={handleMoveBet} />
-			</div>
-			<div data-testid="work-team-kanban">
-				<Kanban tasks={tasks} onMoveTask={handleMoveTask} groupByBet />
-			</div>
 		</div>
 	);
 }
