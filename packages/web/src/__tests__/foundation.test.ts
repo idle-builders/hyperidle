@@ -76,17 +76,42 @@ describe("index.css has no custom CSS", () => {
 		expect(cssContent).toContain("@tailwind utilities");
 	});
 
-	it("has no class definitions (no custom CSS rules)", () => {
-		// Strip @tailwind directives, @import statements, CSS custom property blocks,
-		// @layer blocks that only set custom properties, and comments
-		const stripped = cssContent
+	it("has no class definitions outside of @layer components (no ad-hoc custom CSS)", () => {
+		// Strip @tailwind directives, @import statements, comments, and any
+		// @layer base/components blocks (the only places we permit declarations).
+		// J1 review: @layer components is permitted exclusively for the three
+		// `.tag-tint-*` rules that hold color-mix tints (Tailwind arbitrary-value
+		// parsing of `color-mix(...)` is brittle across plugin orderings, so we
+		// keep them as named component classes here). New ad-hoc class rules
+		// outside an @layer would still trip this check.
+		const stripBalancedAtLayer = (input: string, layerName: string): string => {
+			const opener = new RegExp(`@layer\\s+${layerName}\\s*\\{`);
+			let out = input;
+			while (true) {
+				const match = opener.exec(out);
+				if (!match) return out;
+				const start = match.index;
+				let depth = 0;
+				let i = match.index + match[0].length;
+				depth = 1;
+				while (i < out.length && depth > 0) {
+					const ch = out[i];
+					if (ch === "{") depth++;
+					else if (ch === "}") depth--;
+					i++;
+				}
+				out = out.slice(0, start) + out.slice(i);
+			}
+		};
+
+		let stripped = cssContent
 			.replace(/@tailwind\s+\w+;/g, "")
 			.replace(/@import\s+[^;]+;/g, "")
-			.replace(/@layer\s+base\s*\{[^}]*\{[^}]*--[^}]*\}[^}]*\}/gs, "")
-			.replace(/\/\*[\s\S]*?\*\//g, "")
-			.trim();
+			.replace(/\/\*[\s\S]*?\*\//g, "");
+		stripped = stripBalancedAtLayer(stripped, "base");
+		stripped = stripBalancedAtLayer(stripped, "components");
+		stripped = stripped.trim();
 
-		// After stripping allowed content, nothing should remain that defines a class
 		const classDefinitions = stripped.match(/\.[a-zA-Z][\w-]*\s*\{/g);
 		expect(classDefinitions).toBeNull();
 	});
@@ -126,6 +151,17 @@ describe("index.css density tokens", () => {
 			}
 		},
 	);
+
+	it("the default density block also targets :root so vars resolve before AppShell mounts", () => {
+		// J1 review: anything rendered before the AppShell sets [data-density]
+		// on the shell root (e.g. error fallbacks, the loading splash) still
+		// needs the density vars to resolve. Verify the default block selector
+		// list contains :root.
+		const defaultBlockRe = /(:root[^{]*|[^{};]*)\[data-density="default"\][^{]*\{/;
+		const match = cssContent.match(defaultBlockRe);
+		expect(match, "default density block should be reachable").not.toBeNull();
+		expect(match?.[0]).toContain(":root");
+	});
 });
 
 // ---------- d. Focus ring configuration ----------
