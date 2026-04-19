@@ -16,6 +16,7 @@ export interface StoryMeta {
 
 export interface StoryEntry {
 	name: string;
+	// biome-ignore lint/style/useNamingConvention: React component references use PascalCase by convention
 	Component: ComponentType;
 }
 

@@ -305,6 +305,7 @@ function computeNextRunAt(routine: Routine, now: Date): string {
 
 // --- Core: check and fire a routine ---
 
+// biome-ignore lint/suspicious/useAwait: callers expect Promise return for consistency with async service layer
 export async function checkAndFireRoutine(
 	db: HyperIdleDb,
 	eventBus: EventBus,

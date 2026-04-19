@@ -11,7 +11,7 @@ function Healthy(): JSX.Element {
 	return <div className="text-sm">Children rendered without error.</div>;
 }
 
-export const Healthy_: () => JSX.Element = (): JSX.Element => (
+export const HealthyChildren: () => JSX.Element = (): JSX.Element => (
 	<ErrorBoundary>
 		<Healthy />
 	</ErrorBoundary>

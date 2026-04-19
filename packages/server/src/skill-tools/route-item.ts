@@ -29,6 +29,7 @@ interface RouteItemData {
 	readonly verb: string | null;
 }
 
+// biome-ignore lint/suspicious/useAwait: ToolDefinition.handler requires async signature
 async function handler(
 	input: RouteItemInput,
 	ctx: ToolContext,

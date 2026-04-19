@@ -13,7 +13,9 @@ import { and, eq } from "drizzle-orm";
 export interface RevisionLogEntry {
 	timestamp: string;
 	field: string;
+	// biome-ignore lint/style/useNamingConvention: serialized JSON format uses snake_case
 	old_value: unknown;
+	// biome-ignore lint/style/useNamingConvention: serialized JSON format uses snake_case
 	new_value: unknown;
 	reason: string;
 }
@@ -218,6 +220,7 @@ export async function transitionBet(
 /**
  * Update a mutable field on an in_progress bet with revision logging.
  */
+// biome-ignore lint/suspicious/useAwait: callers expect Promise return for consistency with async service layer
 export async function updateBetField(
 	db: HyperIdleDb,
 	eventBus: EventBus,

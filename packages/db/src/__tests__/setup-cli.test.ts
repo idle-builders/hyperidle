@@ -122,12 +122,21 @@ describe("H4 security: --db-path validation", () => {
 	});
 
 	it("rejects paths whose parent directory cannot be written", () => {
-		// /proc/1 exists but is not writable by normal processes; use it as
-		// an un-writable parent probe. Skip if running as root (uid 0).
+		// Create a temp directory and remove write permission to simulate
+		// an un-writable parent. Works on both macOS and Linux.
 		if (typeof process.getuid === "function" && process.getuid() === 0) {
 			return;
 		}
-		expect(() => validateDbPath("/proc/1/hyperidle.db", tmpdir)).toThrow(/not writable/);
+		const readonlyDir = path.join(tmpdir, "readonly-parent");
+		fs.mkdirSync(readonlyDir, { recursive: true });
+		try {
+			fs.chmodSync(readonlyDir, 0o444);
+			expect(() => validateDbPath(path.join(readonlyDir, "hyperidle.db"), tmpdir)).toThrow(
+				/not writable|cannot be created/,
+			);
+		} finally {
+			fs.chmodSync(readonlyDir, 0o755);
+		}
 	});
 
 	it("resolves a relative path to an absolute path under cwd", () => {

@@ -115,6 +115,7 @@ export function buildAttentionService(deps: AttentionServiceDeps): AttentionServ
 	const loadWeights = deps.loadWeights ?? loadAttentionWeights;
 	const now = deps.now ?? ((): number => Date.now());
 
+	// biome-ignore lint/suspicious/useAwait: callers expect Promise return for consistency with async service layer
 	async function recomputeMany(
 		ids: readonly string[],
 	): Promise<ReadonlyArray<AttentionRecomputeResult>> {
@@ -138,7 +139,7 @@ export function buildAttentionService(deps: AttentionServiceDeps): AttentionServ
 		for (let i = 0; i < loadedItems.length; i++) {
 			const item = loadedItems[i];
 			const row = scored[i];
-			if (!item || !row) continue;
+			if (!(item && row)) continue;
 
 			const result = applyRecomputeForItem(item, row.score, nowMs);
 			results.push(result);

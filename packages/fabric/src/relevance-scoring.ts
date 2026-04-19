@@ -8,22 +8,13 @@ import { type ScoredItem, enforceBudget } from "./token-budget.js";
 const RECENCY_WINDOW_MS = 30 * 24 * 60 * 60 * 1000;
 
 /**
- * Compute tag match factor (0-1).
- * Compares taskTags against item topic and meta.tags.
+ * Extract tags from a knowledge item's topic and JSON meta.tags fields.
  */
-function computeTagMatch(item: KnowledgeItem, taskTags: string[]): number {
-	if (taskTags.length === 0) {
-		return 0;
-	}
-
-	const itemTags: string[] = [];
-
-	// Add topic as a tag
+function extractItemTags(item: KnowledgeItem): string[] {
+	const tags: string[] = [];
 	if (item.topic) {
-		itemTags.push(item.topic.toLowerCase());
+		tags.push(item.topic.toLowerCase());
 	}
-
-	// Parse meta.tags if present
 	if (item.meta) {
 		try {
 			const meta: unknown = JSON.parse(item.meta);
@@ -32,7 +23,7 @@ function computeTagMatch(item: KnowledgeItem, taskTags: string[]): number {
 				if (Array.isArray(metaTags)) {
 					for (const t of metaTags) {
 						if (typeof t === "string") {
-							itemTags.push(t.toLowerCase());
+							tags.push(t.toLowerCase());
 						}
 					}
 				}
@@ -41,7 +32,19 @@ function computeTagMatch(item: KnowledgeItem, taskTags: string[]): number {
 			// Invalid JSON in meta — skip
 		}
 	}
+	return tags;
+}
 
+/**
+ * Compute tag match factor (0-1).
+ * Compares taskTags against item topic and meta.tags.
+ */
+function computeTagMatch(item: KnowledgeItem, taskTags: string[]): number {
+	if (taskTags.length === 0) {
+		return 0;
+	}
+
+	const itemTags = extractItemTags(item);
 	if (itemTags.length === 0) {
 		return 0;
 	}

@@ -230,6 +230,7 @@ export function createLangfuseObservabilityAdapter(
 	// perform itself — cannot flip to a private IP between check and
 	// connect (security H-1).
 
+	// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: SSRF-safe send with dual DNS resolution and retry logic
 	async function send(batch: readonly ObservabilityEvent[]): Promise<void> {
 		if (batch.length === 0) return;
 		// First resolve: validate the hostname is public and capture the
@@ -259,7 +260,6 @@ export function createLangfuseObservabilityAdapter(
 			res = await fetchFn(`${base}/api/public/ingestion`, {
 				method: "POST",
 				headers: {
-					// biome-ignore lint/style/useNamingConvention: HTTP header
 					"Content-Type": "application/json",
 					// biome-ignore lint/style/useNamingConvention: HTTP header
 					Authorization: auth,

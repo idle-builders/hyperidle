@@ -138,7 +138,7 @@ describe("I2 S1/S2/S3 — ClaudeAgentSdkAdapter security", () => {
 	// --------------------------------------------------------------- S2
 	describe("S2 — allowDangerouslySkipPermissions removed by default", () => {
 		it("does NOT pass allowDangerouslySkipPermissions when HYPERIDLE_UNSAFE_AGENT_MODE is unset", async () => {
-			delete process.env.HYPERIDLE_UNSAFE_AGENT_MODE;
+			process.env.HYPERIDLE_UNSAFE_AGENT_MODE = undefined;
 			const queryFn = vi.fn(() => createNoopQuery());
 			const adapter = new ClaudeAgentSdkAdapter({ queryFn });
 
@@ -153,7 +153,7 @@ describe("I2 S1/S2/S3 — ClaudeAgentSdkAdapter security", () => {
 		});
 
 		it("uses permissionMode: 'default' when unsafe mode is unset", async () => {
-			delete process.env.HYPERIDLE_UNSAFE_AGENT_MODE;
+			process.env.HYPERIDLE_UNSAFE_AGENT_MODE = undefined;
 			const queryFn = vi.fn(() => createNoopQuery());
 			const adapter = new ClaudeAgentSdkAdapter({ queryFn });
 

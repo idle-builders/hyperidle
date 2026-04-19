@@ -152,6 +152,7 @@ export interface ProvisionSessionResult {
  *
  * See docs/work-packages/plans/D5-plan.md for the full phase breakdown.
  */
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: session provisioning coordinates multi-phase lifecycle with error handling
 export async function provisionSession(
 	deps: ProvisionSessionDeps,
 	params: ProvisionSessionParams,

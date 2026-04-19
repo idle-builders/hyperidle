@@ -21,12 +21,15 @@ export interface MaterializationConfig {
 
 export interface ManifestEntry {
 	version: number;
+	// biome-ignore lint/style/useNamingConvention: manifest JSON schema uses snake_case keys
 	source_path: string;
 	format: string;
 }
 
 export interface Manifest {
+	// biome-ignore lint/style/useNamingConvention: manifest JSON schema uses snake_case keys
 	session_id: string;
+	// biome-ignore lint/style/useNamingConvention: manifest JSON schema uses snake_case keys
 	materialized_at: string;
 	items: Record<string, ManifestEntry>;
 }

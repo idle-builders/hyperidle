@@ -26,6 +26,106 @@ export interface RunOptions {
 
 const IN_DOCKER = process.env.HYPERIDLE_DOCKER === "1";
 
+function handleSystemMessage(
+	streamName: string,
+	sys: { subtype: string; [key: string]: unknown },
+): void {
+	const TRACKED_SUBTYPES = new Set([
+		"task_started",
+		"task_progress",
+		"task_notification",
+		"init",
+		"status",
+	]);
+
+	if (!TRACKED_SUBTYPES.has(sys.subtype)) {
+		appendOutput(
+			streamName,
+			`[system:${sys.subtype}] ${sys.status ?? sys.compact_result ?? sys.message ?? ""}`,
+		);
+	}
+
+	if (sys.subtype === "task_started") {
+		const ts = sys as {
+			// biome-ignore lint/style/useNamingConvention: Claude Agent SDK response
+			task_id: string;
+			description: string;
+			// biome-ignore lint/style/useNamingConvention: Claude Agent SDK response
+			task_type?: string;
+		};
+		appendOutput(streamName, `>>> AGENT STARTED: ${ts.description}`);
+		updateSubAgent(streamName, {
+			taskId: ts.task_id,
+			description: ts.description,
+			status: "running",
+		});
+	} else if (sys.subtype === "task_progress") {
+		const tp = sys as {
+			// biome-ignore lint/style/useNamingConvention: Claude Agent SDK response
+			task_id: string;
+			description: string;
+			// biome-ignore lint/style/useNamingConvention: Claude Agent SDK response
+			last_tool_name?: string;
+			// biome-ignore lint/style/useNamingConvention: Claude Agent SDK response
+			usage?: { total_tokens: number; tool_uses: number };
+		};
+		updateSubAgent(streamName, {
+			taskId: tp.task_id,
+			description: tp.description,
+			status: "running",
+			lastTool: tp.last_tool_name,
+			tokenCount: tp.usage?.total_tokens,
+			toolUses: tp.usage?.tool_uses,
+		});
+	} else if (sys.subtype === "task_notification") {
+		const tn = sys as {
+			// biome-ignore lint/style/useNamingConvention: Claude Agent SDK response
+			task_id: string;
+			status: string;
+			summary: string;
+			// biome-ignore lint/style/useNamingConvention: Claude Agent SDK response
+			usage?: { tool_uses: number; duration_ms: number };
+		};
+		const icon = tn.status === "completed" ? "<<<" : "<!>";
+		const dur = tn.usage?.duration_ms ? ` (${Math.round(tn.usage.duration_ms / 1000)}s)` : "";
+		appendOutput(streamName, `${icon} AGENT ${tn.status.toUpperCase()}${dur}: ${tn.summary}`);
+		updateSubAgent(streamName, {
+			taskId: tn.task_id,
+			description: tn.summary,
+			status: tn.status === "completed" ? "completed" : "failed",
+		});
+	}
+}
+
+interface ResultMessage {
+	subtype: string;
+	result: string;
+	// biome-ignore lint/style/useNamingConvention: Claude Agent SDK response
+	num_turns: number;
+	// biome-ignore lint/style/useNamingConvention: Claude Agent SDK response
+	stop_reason: string | null;
+	// biome-ignore lint/style/useNamingConvention: Claude Agent SDK response
+	terminal_reason?: string;
+	// biome-ignore lint/style/useNamingConvention: Claude Agent SDK response
+	permission_denials?: unknown[];
+}
+
+function handleResultMessage(streamName: string, storyId: string, resultMsg: ResultMessage): void {
+	appendOutput(
+		streamName,
+		`[RESULT] ${resultMsg.subtype} | turns: ${resultMsg.num_turns} | stop: ${resultMsg.stop_reason ?? "none"} | terminal: ${resultMsg.terminal_reason ?? "none"}`,
+	);
+	if (resultMsg.permission_denials && resultMsg.permission_denials.length > 0) {
+		appendOutput(
+			streamName,
+			`[RESULT] Permission denials (${resultMsg.permission_denials.length}): ${JSON.stringify(resultMsg.permission_denials)}`,
+		);
+	}
+	if (resultMsg.subtype !== "success") {
+		appendOutput(storyId, `[RESULT] Error: ${resultMsg.result}`);
+	}
+}
+
 export async function runStory(options: RunOptions): Promise<RunResult> {
 	const { streamName, storyId, cwd, abortController } = options;
 	const startTime = Date.now();
@@ -120,95 +220,14 @@ export async function runStory(options: RunOptions): Promise<RunResult> {
 				}
 
 				case "system": {
-					const sys = message as { subtype: string; [key: string]: unknown };
-
-					if (
-						sys.subtype !== "task_started" &&
-						sys.subtype !== "task_progress" &&
-						sys.subtype !== "task_notification" &&
-						sys.subtype !== "init" &&
-						sys.subtype !== "status"
-					) {
-						appendOutput(
-							streamName,
-							`[system:${sys.subtype}] ${sys.status ?? sys.compact_result ?? sys.message ?? ""}`,
-						);
-					}
-
-					if (sys.subtype === "task_started") {
-						const ts = sys as {
-							task_id: string;
-							description: string;
-							task_type?: string;
-						};
-						appendOutput(streamName, `>>> AGENT STARTED: ${ts.description}`);
-						updateSubAgent(streamName, {
-							taskId: ts.task_id,
-							description: ts.description,
-							status: "running",
-						});
-					} else if (sys.subtype === "task_progress") {
-						const tp = sys as {
-							task_id: string;
-							description: string;
-							last_tool_name?: string;
-							usage?: { total_tokens: number; tool_uses: number };
-						};
-						updateSubAgent(streamName, {
-							taskId: tp.task_id,
-							description: tp.description,
-							status: "running",
-							lastTool: tp.last_tool_name,
-							tokenCount: tp.usage?.total_tokens,
-							toolUses: tp.usage?.tool_uses,
-						});
-					} else if (sys.subtype === "task_notification") {
-						const tn = sys as {
-							task_id: string;
-							status: string;
-							summary: string;
-							usage?: { tool_uses: number; duration_ms: number };
-						};
-						const icon = tn.status === "completed" ? "<<<" : "<!>";
-						const dur = tn.usage?.duration_ms
-							? ` (${Math.round(tn.usage.duration_ms / 1000)}s)`
-							: "";
-						appendOutput(
-							streamName,
-							`${icon} AGENT ${tn.status.toUpperCase()}${dur}: ${tn.summary}`,
-						);
-						updateSubAgent(streamName, {
-							taskId: tn.task_id,
-							description: tn.summary,
-							status: tn.status === "completed" ? "completed" : "failed",
-						});
-					}
+					handleSystemMessage(streamName, message as { subtype: string; [key: string]: unknown });
 					break;
 				}
 
 				case "result": {
 					sessionId = message.session_id;
-					const resultMsg = message as {
-						subtype: string;
-						result: string;
-						num_turns: number;
-						stop_reason: string | null;
-						terminal_reason?: string;
-						permission_denials?: unknown[];
-					};
-					appendOutput(
-						streamName,
-						`[RESULT] ${resultMsg.subtype} | turns: ${resultMsg.num_turns} | stop: ${resultMsg.stop_reason ?? "none"} | terminal: ${resultMsg.terminal_reason ?? "none"}`,
-					);
-					if (resultMsg.permission_denials && resultMsg.permission_denials.length > 0) {
-						appendOutput(
-							streamName,
-							`[RESULT] Permission denials (${resultMsg.permission_denials.length}): ${JSON.stringify(resultMsg.permission_denials)}`,
-						);
-					}
-					if (resultMsg.subtype !== "success") {
-						appendOutput(storyId, `[RESULT] Error: ${resultMsg.result}`);
-					}
+					const resultMsg = message as unknown as ResultMessage;
+					handleResultMessage(streamName, storyId, resultMsg);
 					return {
 						success: resultMsg.subtype === "success",
 						sessionId,

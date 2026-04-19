@@ -205,6 +205,7 @@ export async function endSession(
  * Crash a session: same as end but state=crashed, outcome=crashed,
  * with try-catch around watcher.stop().
  */
+// biome-ignore lint/suspicious/useAwait: callers expect Promise return for consistency with async service layer
 export async function crashSession(
 	db: HyperIdleDb,
 	eventBus: EventBus,

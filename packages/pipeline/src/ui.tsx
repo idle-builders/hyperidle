@@ -50,6 +50,7 @@ export function PipelineApp(): React.JSX.Element {
 		setAutoScroll(true);
 	}, [selectedStream]);
 
+	// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: input handler maps keys to actions, flat structure is clearest
 	useInput((input, key) => {
 		const streamList = state.streams.map((s) => s.name);
 		const currentIdx = streamList.indexOf(state.selectedStream ?? "");

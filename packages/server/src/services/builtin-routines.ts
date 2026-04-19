@@ -191,6 +191,7 @@ export interface PostBetRetroArgs {
  * short-circuits with `{ fired: false, reason: "disabled" }` when
  * `active=0` and delegates to the per-routine implementation otherwise.
  */
+// biome-ignore lint/suspicious/useAwait: callers expect Promise return for consistency with async service layer
 export async function runBuiltinRoutine(
 	db: HyperIdleDb,
 	eventBus: EventBus,

@@ -48,6 +48,7 @@ const createItemInputSchema = z.object({
 
 type CreateItemInput = z.infer<typeof createItemInputSchema>;
 
+// biome-ignore lint/suspicious/useAwait: ToolDefinition.handler requires async signature
 async function handler(args: CreateItemInput, ctx: ToolContext): Promise<ToolResult> {
 	const parsed = createItemInputSchema.safeParse(args);
 	if (!parsed.success) {

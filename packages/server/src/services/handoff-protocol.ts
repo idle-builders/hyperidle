@@ -8,10 +8,12 @@ import type { HandoffAuditEntry, TaskAuditEntry } from "./task-audit.js";
 import { InvalidTransitionError, VALID_TRANSITIONS } from "./task-state-machine.js";
 
 export interface HandoffMetadata {
+	// biome-ignore lint/style/useNamingConvention: agent handoff protocol wire format uses snake_case
 	context_id: string;
 	status: "completed" | "failed" | "blocked" | "in_progress";
 	reason: string;
 	artifacts: string[];
+	// biome-ignore lint/style/useNamingConvention: agent handoff protocol wire format uses snake_case
 	remaining_work: string[];
 	error?: string;
 }

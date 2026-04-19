@@ -122,6 +122,7 @@ function getTeamSpend(db: HyperIdleDb, teamId: string): number {
  * Check if a new session is allowed given cost caps.
  * Checks agent -> team -> factory hierarchy, returning the first breach.
  */
+// biome-ignore lint/suspicious/useAwait: callers expect Promise return for consistency with async service layer
 export async function checkCostCap(
 	db: HyperIdleDb,
 	_eventBus: EventBus,
@@ -180,6 +181,7 @@ export async function checkCostCap(
  * Record cost for a session and check for warnings/breaches.
  * Updates the session cost, then checks thresholds and emits events.
  */
+// biome-ignore lint/suspicious/useAwait: callers expect Promise return for consistency with async service layer
 export async function recordCostAndCheck(
 	db: HyperIdleDb,
 	eventBus: EventBus,
@@ -345,6 +347,7 @@ function createReviewItem(db: HyperIdleDb, _eventBus: EventBus, params: CheckAnd
  * For agent/team: zeroes session costs for that entity's sessions.
  * For factory: zeroes all session costs.
  */
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: cost reset branching across agent/team/factory scopes with dedup cleanup
 export async function resetCosts(db: HyperIdleDb, params: ResetCostsParams): Promise<void> {
 	// Clear the deduplication state on reset (factory reset clears all,
 	// agent/team reset clears entries belonging to those scopes).
