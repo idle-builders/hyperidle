@@ -35,8 +35,14 @@ test.describe("Navigation", () => {
 	});
 
 	test("clicking Knowledge button switches to Knowledge view", async ({ page }) => {
+		// J6: Knowledge submenu is a scope browser + topic NavItems, not a flat
+		// list. After clicking Knowledge we expect the Practice scope tab
+		// selected and at least one topic NavItem visible.
 		await page.getByRole("button", { name: /knowledge/i }).click();
-		await expect(page.getByText("All Items")).toBeVisible();
+		await expect(page.getByTestId("knowledge-submenu")).toBeVisible();
+		await expect(
+			page.getByTestId("knowledge-submenu").getByRole("tab", { name: "Practice" }),
+		).toHaveAttribute("aria-selected", "true");
 	});
 
 	test("Submenu shows correct items for Conversations view", async ({ page }) => {

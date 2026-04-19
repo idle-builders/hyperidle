@@ -20,13 +20,7 @@ function committed(id: string): CanvasBet {
 
 describe("Canvas — capacity badge prominence (J5)", () => {
 	it("capacity badge uses prominent styling (not ghost) and shows N / C", () => {
-		render(
-			<Canvas
-				bets={[committed("b1"), committed("b2")]}
-				capacity={3}
-				onMoveBet={vi.fn()}
-			/>,
-		);
+		render(<Canvas bets={[committed("b1"), committed("b2")]} capacity={3} onMoveBet={vi.fn()} />);
 		const badge = screen.getByTestId("canvas-capacity-badge");
 		expect(badge).toBeInTheDocument();
 		expect(badge.textContent).toMatch(/2\s*\/\s*3/);
@@ -52,13 +46,7 @@ describe("Canvas — capacity badge prominence (J5)", () => {
 	});
 
 	it("capacity badge uses neutral/accent styling when within capacity", () => {
-		render(
-			<Canvas
-				bets={[committed("b1")]}
-				capacity={3}
-				onMoveBet={vi.fn()}
-			/>,
-		);
+		render(<Canvas bets={[committed("b1")]} capacity={3} onMoveBet={vi.fn()} />);
 		const badge = screen.getByTestId("canvas-capacity-badge");
 		expect(badge.className).not.toContain("badge-error");
 	});
