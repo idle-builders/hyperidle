@@ -13,6 +13,7 @@ import type { BetStatus, TaskState } from "@hyperidle/shared";
 import { type JSX, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { BetCard } from "../components/BetCard";
+import { SkeletonCard, SkeletonList } from "../components/Skeleton";
 import { StatusChip } from "../components/StatusChip";
 import { taskStateToStatus } from "../components/status-mapping";
 
@@ -169,7 +170,16 @@ function sortTasks(
 	return copy;
 }
 
-export function WorkBet(): JSX.Element {
+export interface WorkBetProps {
+	/**
+	 * J8: opt-in loading state. When true the page renders a card + list
+	 * skeleton matching the eventual shape. Default false keeps production
+	 * behavior unchanged.
+	 */
+	loading?: boolean;
+}
+
+export function WorkBet({ loading = false }: WorkBetProps = {}): JSX.Element {
 	const { betId } = useParams<{ betId: string }>();
 	const bet = (betId && MOCK_BETS[betId]) || FALLBACK_BET;
 
@@ -180,6 +190,15 @@ export function WorkBet(): JSX.Element {
 		() => sortTasks(bet.tasks, sortColumn, sortDirection),
 		[bet.tasks, sortColumn, sortDirection],
 	);
+
+	if (loading) {
+		return (
+			<div className="flex flex-col gap-3 h-full" data-testid="work-bet-page">
+				<SkeletonCard ariaLabel="Loading bet" />
+				<SkeletonList rows={4} ariaLabel="Loading tasks" />
+			</div>
+		);
+	}
 
 	function handleSort(column: SortColumn): void {
 		if (sortColumn === column) {

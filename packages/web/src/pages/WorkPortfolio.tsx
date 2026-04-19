@@ -10,59 +10,101 @@
  * cycle and days remaining.
  */
 import type { JSX } from "react";
+import { EmptyState } from "../components/EmptyState";
 import { KeyValue } from "../components/KeyValue";
+import { SkeletonCard } from "../components/Skeleton";
 import { StatusChip } from "../components/StatusChip";
 import { MOCK_CYCLE, MOCK_PRODUCTS } from "../fixtures/portfolio-data";
 
-export function WorkPortfolio(): JSX.Element {
+export interface WorkPortfolioProps {
+	/**
+	 * J8: opt-in loading state so callers (and stories) can render a
+	 * card-grid skeleton. Defaults to false so the production render path
+	 * is unchanged.
+	 */
+	loading?: boolean;
+	/**
+	 * J8: opt-in override of the product list so the empty state can be
+	 * exercised via props (and in stories) without mutating the shared
+	 * fixture module.
+	 */
+	products?: typeof MOCK_PRODUCTS;
+}
+
+export function WorkPortfolio({ loading = false, products }: WorkPortfolioProps = {}): JSX.Element {
+	const items = products ?? MOCK_PRODUCTS;
+
+	if (loading) {
+		return (
+			<div className="flex flex-col gap-3 h-full" data-testid="work-portfolio-page">
+				<h1 className="text-sm font-heading font-semibold uppercase tracking-wider text-[var(--text-hi)]">
+					Portfolio
+				</h1>
+				<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+					<SkeletonCard ariaLabel="Loading product" />
+					<SkeletonCard ariaLabel="Loading product" />
+					<SkeletonCard ariaLabel="Loading product" />
+				</div>
+			</div>
+		);
+	}
+
 	return (
 		<div className="flex flex-col gap-3 h-full" data-testid="work-portfolio-page">
 			<h1 className="text-sm font-heading font-semibold uppercase tracking-wider text-[var(--text-hi)]">
 				Portfolio
 			</h1>
-			<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-				{MOCK_PRODUCTS.map((product) => (
-					// Design H4: the product status card uses tonal layering
-					// (bg-base-200 + shadow-sm) instead of a decorative border —
-					// UI_DESIGN.md §Rules: "surfaces use tonal layering only,
-					// no borders except ghost".
-					<div
-						key={product.id}
-						data-testid="product-card"
-						className="bg-base-200 rounded p-3 flex flex-col gap-2 shadow-sm"
-					>
-						<div className="flex items-center gap-2">
-							<span
-								className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-base-300 text-[var(--text-hi)] text-xs font-semibold"
-								aria-label={`Lead agent: ${product.lead.name}`}
-							>
-								{product.lead.initials}
-							</span>
-							<span className="text-sm font-medium text-[var(--text-hi)] flex-1 truncate">
-								{product.name}
-							</span>
-							<StatusChip status={product.status} />
-						</div>
-						<KeyValue
-							label={product.activeBets === 1 ? "Active bet" : "Active bets"}
-							value={String(product.activeBets)}
-						/>
-						<KeyValue label="Shipped" value={String(product.shipped)} />
-						<KeyValue label="Ship rate" value={product.shipRate} />
-						<div className="flex items-center gap-2">
-							<progress
-								className="progress progress-accent w-full h-1.5"
-								value={product.progress.done}
-								max={product.progress.total}
-								aria-label={`Cycle progress for ${product.name}`}
+			{items.length === 0 ? (
+				<EmptyState
+					title="No products in the portfolio"
+					description="Add a product from Settings to start shaping bets and tracking ship rate here."
+					dataTestId="portfolio-empty"
+				/>
+			) : (
+				<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+					{items.map((product) => (
+						// Design H4: the product status card uses tonal layering
+						// (bg-base-200 + shadow-sm) instead of a decorative border —
+						// UI_DESIGN.md §Rules: "surfaces use tonal layering only,
+						// no borders except ghost".
+						<div
+							key={product.id}
+							data-testid="product-card"
+							className="bg-base-200 rounded p-3 flex flex-col gap-2 shadow-sm"
+						>
+							<div className="flex items-center gap-2">
+								<span
+									className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-base-300 text-[var(--text-hi)] text-xs font-semibold"
+									aria-label={`Lead agent: ${product.lead.name}`}
+								>
+									{product.lead.initials}
+								</span>
+								<span className="text-sm font-medium text-[var(--text-hi)] flex-1 truncate">
+									{product.name}
+								</span>
+								<StatusChip status={product.status} />
+							</div>
+							<KeyValue
+								label={product.activeBets === 1 ? "Active bet" : "Active bets"}
+								value={String(product.activeBets)}
 							/>
-							<span className="text-xs text-[var(--text-mid)] shrink-0">
-								{product.progress.done}/{product.progress.total}
-							</span>
+							<KeyValue label="Shipped" value={String(product.shipped)} />
+							<KeyValue label="Ship rate" value={product.shipRate} />
+							<div className="flex items-center gap-2">
+								<progress
+									className="progress progress-accent w-full h-1.5"
+									value={product.progress.done}
+									max={product.progress.total}
+									aria-label={`Cycle progress for ${product.name}`}
+								/>
+								<span className="text-xs text-[var(--text-mid)] shrink-0">
+									{product.progress.done}/{product.progress.total}
+								</span>
+							</div>
 						</div>
-					</div>
-				))}
-			</div>
+					))}
+				</div>
+			)}
 			<div
 				data-testid="cycle-stripe"
 				className="bg-base-200 rounded p-2 flex items-center justify-between gap-2"
