@@ -192,8 +192,12 @@ export async function endSession(
 	releaseSessionDedup(context.sessionId);
 
 	// 6. Delete workspace directory
-	if (fs.existsSync(context.workspacePath)) {
-		fs.rmSync(context.workspacePath, { recursive: true, force: true });
+	// @lore I6: use async fs.promises.rm() instead of sync fs.rmSync() to avoid
+	// blocking the event loop during large workspace cleanup.
+	try {
+		await fs.promises.rm(context.workspacePath, { recursive: true, force: true });
+	} catch {
+		// Directory may already be gone — safe to ignore.
 	}
 }
 

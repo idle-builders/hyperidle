@@ -175,12 +175,15 @@ export function SettingsPanel({
 		try {
 			await onSave(draft);
 			onFeedback?.({ type: "success", message: "Settings saved" });
+			// @lore I6: close the panel after successful save so the user
+			// returns to the previous view with feedback toast visible.
+			onClose();
 		} catch {
 			onFeedback?.({ type: "error", message: "Failed to save settings" });
 		} finally {
 			setSaving(false);
 		}
-	}, [validate, onSave, draft, onFeedback]);
+	}, [validate, onSave, draft, onFeedback, onClose]);
 
 	if (!open) {
 		return null;

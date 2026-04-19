@@ -219,8 +219,8 @@ describe("server-factory — I1 integration (S1–S5)", () => {
 		// or a redacted-config blob. This assertion pins the contract so any
 		// future regression that reintroduces an unbounded list fails here.
 		// @lore I1 simplification-#2 / architecture-S1.
+		// @lore I6: /api/sessions removed — now returns a filterable list (not a descriptor).
 		const BOUNDED_INDEX_ROUTES: ReadonlyArray<{ path: string; resource: string }> = [
-			{ path: "/api/sessions", resource: "sessions" },
 			{ path: "/api/knowledge", resource: "knowledge" },
 			{ path: "/api/notifications", resource: "notifications" },
 			{ path: "/api/observability", resource: "observability" },

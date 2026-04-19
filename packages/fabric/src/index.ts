@@ -1,7 +1,12 @@
 export { isValidLayer, layerDepth } from "./layers.js";
 export { ItemDeletedError, VersionConflictError } from "./errors.js";
-export { knowledgeEvents, KnowledgeEventType } from "./events.js";
-export type { KnowledgeItemUpdatedEvent } from "./events.js";
+export {
+	knowledgeEvents,
+	getKnowledgeEvents,
+	setKnowledgeEventBus,
+	KnowledgeEventType,
+} from "./events.js";
+export type { KnowledgeItemUpdatedEvent, KnowledgeEventEmitterLike } from "./events.js";
 export { setupFts } from "./fts.js";
 export {
 	create,

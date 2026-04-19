@@ -496,12 +496,11 @@ describe("E2E API Integration (I5)", () => {
 				.run();
 		});
 
-		it("GET /api/sessions returns resource descriptor", async () => {
+		it("GET /api/sessions returns session list", async () => {
 			const res = await app.request("/api/sessions", { headers: auth() });
 			expect(res.status).toBe(200);
-			const body = (await res.json()) as { ok: boolean; resource: string };
-			expect(body.ok).toBe(true);
-			expect(body.resource).toBe("sessions");
+			const body = (await res.json()) as unknown[];
+			expect(Array.isArray(body)).toBe(true);
 		});
 
 		it("POST /api/sessions creates a session and emits event", async () => {

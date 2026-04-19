@@ -1,5 +1,6 @@
 import type { BetStatus } from "@hyperidle/shared";
 import { type JSX, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { KeyValue } from "../components/KeyValue";
 import type { Status } from "../components/StatusChip";
 import { StatusChip } from "../components/StatusChip";
@@ -105,6 +106,8 @@ function SectionHeader({
 }
 
 export function Rail({ expanded, onToggleExpand, bets, blockers, cost }: RailProps): JSX.Element {
+	const navigate = useNavigate();
+
 	const [openSections, setOpenSections] = useState({
 		bets: true,
 		blockers: true,
@@ -179,14 +182,22 @@ export function Rail({ expanded, onToggleExpand, bets, blockers, cost }: RailPro
 				/>
 				{openSections.bets && (
 					<div className="flex flex-col gap-1 px-2 py-1">
+						{bets.length === 0 && (
+							<p className="text-xs text-[var(--text-lo)] py-1">No active bets</p>
+						)}
 						{bets.map((bet) => (
-							<div key={bet.id} className="flex flex-col gap-0.5 py-1">
-								<div className="flex items-center justify-between">
+							<button
+								key={bet.id}
+								type="button"
+								className="flex flex-col gap-0.5 py-1 w-full text-left hover:bg-[var(--surface-4)] rounded px-1 cursor-pointer"
+								onClick={() => navigate(`/work/bet/${bet.id}`)}
+							>
+								<div className="flex items-center justify-between w-full">
 									<span className="text-sm text-[var(--text-hi)]">{bet.title}</span>
 									<StatusChip status={betStatusToStatus(bet.status)} />
 								</div>
 								<span className="text-xs text-[var(--text-lo)]">{bet.product}</span>
-							</div>
+							</button>
 						))}
 					</div>
 				)}
@@ -205,6 +216,9 @@ export function Rail({ expanded, onToggleExpand, bets, blockers, cost }: RailPro
 				/>
 				{openSections.blockers && (
 					<div className="flex flex-col gap-1 px-2 py-1">
+						{blockers.length === 0 && (
+							<p className="text-xs text-[var(--text-lo)] py-1">No blockers</p>
+						)}
 						{blockers.map((blocker) => (
 							<div key={blocker.id} className="flex flex-col gap-0.5 py-1">
 								<div className="flex items-center justify-between">

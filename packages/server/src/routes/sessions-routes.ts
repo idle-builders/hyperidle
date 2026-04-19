@@ -6,7 +6,7 @@ import {
 	type SessionOutcome,
 	type SessionStartedEvent,
 } from "@hyperidle/shared";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { Hono } from "hono";
 import { z } from "zod";
 import { validateBody } from "../middleware/validate.js";
@@ -29,20 +29,35 @@ const updateSessionSchema = z.object({
 export function createSessionRoutes(db: HyperIdleDb, eventBus: EventBus): Hono {
 	const router = new Hono();
 
-	// GET / — Bounded resource descriptor. Proves the route is mounted
-	// (I1 S2) without an unbounded SELECT * against `sessions`. Deeper
-	// reads live on dedicated sub-routes (none today; this descriptor
-	// reserves the shape for future additions).
-	// @lore I1 simplification-#2 / architecture-S1: the previous handler
-	// returned the entire sessions table to any authenticated caller — a
-	// memory + information-disclosure cliff on any populated database.
-	router.get("/", (c) =>
-		c.json({
-			ok: true,
-			resource: "sessions",
-			endpoints: ["POST /", "PATCH /:id"],
-		}),
-	);
+	// GET / — List sessions with optional filtering by task_id, agent_id, state.
+	// @lore I6: replaces the bounded resource descriptor with actual filtering.
+	// The previous handler was a placeholder from I1 to avoid unbounded SELECT *.
+	// Now supports query params: ?task_id=, ?agent_id=, ?state= with pagination
+	// via ?limit= and ?offset=.
+	router.get("/", (c) => {
+		const taskId = c.req.query("task_id");
+		const agentId = c.req.query("agent_id");
+		const state = c.req.query("state");
+		const limit = Math.min(Number.parseInt(c.req.query("limit") ?? "50", 10) || 50, 200);
+		const offset = Number.parseInt(c.req.query("offset") ?? "0", 10) || 0;
+
+		const conditions = [];
+		if (taskId) conditions.push(eq(sessions.taskId, taskId));
+		if (agentId) conditions.push(eq(sessions.agentId, agentId));
+		if (state) conditions.push(eq(sessions.state, state));
+
+		const query =
+			conditions.length > 0
+				? db
+						.select()
+						.from(sessions)
+						.where(and(...conditions))
+				: db.select().from(sessions);
+
+		const result = query.limit(limit).offset(offset).all();
+
+		return c.json(result);
+	});
 
 	// POST / — Create session
 	router.post("/", validateBody(createSessionSchema), (c) => {

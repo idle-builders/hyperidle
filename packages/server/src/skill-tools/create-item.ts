@@ -9,11 +9,32 @@ import { type ToolResult, err, ok } from "./tool-result.js";
 
 const RISK_TIERS = ["low", "medium", "high"] as const;
 
+/**
+ * @lore I6: validate kind and verb against known enums, not arbitrary strings.
+ * These lists are derived from actual usage across the codebase: item-router,
+ * builtin-routines, cost-cap, handoff-protocol, session-review-creator,
+ * review-item-factory, and agents route.
+ */
+const ITEM_KINDS = [
+	"review",
+	"skill_change",
+	"knowledge",
+	"work",
+	"chat",
+	"escalation",
+	"cost_cap_breach",
+	"autonomy_change",
+	"ordering",
+	"post-bet-retro",
+] as const;
+
+const ITEM_VERBS = ["propose", "review", "approve", "reject", "escalate", "bet"] as const;
+
 const createItemInputSchema = z.object({
 	title: z.string().min(1),
 	body: z.string().optional(),
-	kind: z.string().optional(),
-	verb: z.string().optional(),
+	kind: z.enum(ITEM_KINDS).optional(),
+	verb: z.enum(ITEM_VERBS).optional(),
 	layer: z.string().optional(),
 	riskTier: z.enum(RISK_TIERS).optional(),
 	attentionScore: z.number().int().optional(),

@@ -12,7 +12,7 @@ import type {
 } from "@hyperidle/shared";
 import { and, eq } from "drizzle-orm";
 import { ItemDeletedError, VersionConflictError } from "./errors.js";
-import { KnowledgeEventType, knowledgeEvents } from "./events.js";
+import { KnowledgeEventType, getKnowledgeEvents } from "./events.js";
 import { type FtsSearchOptions, ftsSearch } from "./fts.js";
 
 export interface CreateKnowledgeItemInput {
@@ -102,7 +102,7 @@ export function create(db: HyperIdleDb, input: CreateKnowledgeItemInput): Knowle
 		.run();
 
 	// Emit event
-	knowledgeEvents.emit(KnowledgeEventType.UPDATED, {
+	getKnowledgeEvents().emit(KnowledgeEventType.UPDATED, {
 		type: KnowledgeEventType.UPDATED,
 		itemId: id,
 		version: 1,
@@ -243,7 +243,7 @@ export function update(
 	// the new version while the txn is still open (they could read the
 	// not-yet-committed version on a connection without snapshot
 	// isolation).
-	knowledgeEvents.emit(KnowledgeEventType.UPDATED, {
+	getKnowledgeEvents().emit(KnowledgeEventType.UPDATED, {
 		type: KnowledgeEventType.UPDATED,
 		itemId: id,
 		version: result.newVersion,
