@@ -39,3 +39,16 @@ export const AllStatuses = (): React.JSX.Element => (
 		<BetCard title="Killed Bet" product="App" status="killed" appetite="1 week" />
 	</div>
 );
+
+export const PortfolioMode = (): React.JSX.Element => (
+	<BetCard
+		title="HyperIdle Core"
+		product="HyperIdle"
+		status="committed"
+		appetite="Cycle 12"
+		leadAvatar={{ name: "CEO Agent", initials: "CE" }}
+		activeBets={4}
+		shipped={12}
+		progress={{ done: 3, total: 5 }}
+	/>
+);
