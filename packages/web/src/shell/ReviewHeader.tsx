@@ -11,7 +11,8 @@ export type VerdictAction =
 	| "reject"
 	| "reply"
 	| "snooze"
-	| "escalate";
+	| "escalate"
+	| "pause";
 
 export interface Proposer {
 	name: string;
@@ -22,6 +23,12 @@ export interface Proposer {
 export interface ReviewHeaderProps {
 	proposer: Proposer;
 	onVerdict: (action: VerdictAction) => void;
+	/**
+	 * @lore J4 AC: when the underlying review is blocking agent progress,
+	 * expose a Pause button alongside the always-visible Approve / Request
+	 * changes / Reject. Omit to hide (backwards compatible with I4 toolbar).
+	 */
+	blocking?: boolean;
 }
 
 interface VerdictButtonDef {
@@ -119,7 +126,26 @@ function VerdictButton({
 
 const MORE_MENU_ID = "review-header-more-menu";
 
-export function ReviewHeader({ proposer, onVerdict }: ReviewHeaderProps): JSX.Element {
+/**
+ * @lore J4 AC: Pause is an extra primary verdict that appears only when the
+ * review is blocking agent progress. We keep it out of PRIMARY_BUTTONS so the
+ * I4 contract ("4 primary verdicts: Approve/Request changes/Reject/Snooze")
+ * holds for every non-blocking review; blocking reviews render 5 primary
+ * buttons with Pause appended.
+ */
+const PAUSE_BUTTON: VerdictButtonDef = {
+	action: "pause",
+	label: "Pause",
+	shortcut: "P",
+	shortcutKey: "p",
+	variant: "btn-warning",
+};
+
+export function ReviewHeader({
+	proposer,
+	onVerdict,
+	blocking = false,
+}: ReviewHeaderProps): JSX.Element {
 	const headerRef = useRef<HTMLElement>(null);
 	const [moreOpen, setMoreOpen] = useState(false);
 
@@ -174,7 +200,8 @@ export function ReviewHeader({ proposer, onVerdict }: ReviewHeaderProps): JSX.El
 				<span className="text-xs text-[var(--text-lo)]">{proposer.timestamp}</span>
 			</div>
 
-			{/* Verdict toolbar — I4 P3: 4 primary verdicts as direct children. */}
+			{/* Verdict toolbar — I4 P3: 4 primary verdicts as direct children.
+				J4: when `blocking`, append a Pause button. */}
 			<div
 				role="toolbar"
 				aria-label="Verdict actions"
@@ -183,6 +210,7 @@ export function ReviewHeader({ proposer, onVerdict }: ReviewHeaderProps): JSX.El
 				{PRIMARY_BUTTONS.map((btn) => (
 					<VerdictButton key={btn.action} def={btn} onVerdict={onVerdict} />
 				))}
+				{blocking && <VerdictButton def={PAUSE_BUTTON} onVerdict={onVerdict} />}
 			</div>
 
 			{/* I4 P3 + Design H3 / Arch M3: overflow control is a proper ARIA
