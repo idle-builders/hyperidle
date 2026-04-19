@@ -149,7 +149,7 @@ file_leases (id, agent_id, file_path, acquired_at, released_at)
 
 **What it is.** Takes an Item from any source (a facilitator, an agent completing a task, a routine firing) and sends it to the correct view in the Human Interface. The routing logic from HUMAN_INTERFACE_LAYER §7, made executable.
 
-**Technology.** A pure function layer — no server process of its own. Called whenever an Item is created or updated. Implemented as a Python module.
+**Technology.** A pure function layer — no server process of its own. Called whenever an Item is created or updated. Implemented as a TypeScript module (`packages/server/src/services/item-router.ts`).
 
 **Routing rules (deterministic, no ML):**
 
@@ -177,7 +177,7 @@ ELSE                                         → Rail (catch-all)
 2. **Dependency Watcher** — watches task state transitions and notifies owners when dependencies are met.
 3. **Model Tier Selector** — picks the model tier (Reasoning / Workhorse / Fast) for each new session based on: task risk_tier, routine type (sleep-time → Fast), factory cost posture, and explicit skill overrides.
 
-**Technology.** A background worker process. Minimum implementation: a Python process with APScheduler (or bare `schedule` library) + SQLite polling. For VPS/cloud profiles: optionally backed by a proper job queue (Redis-backed rq, or Temporal for deployers who want it).
+**Technology.** A background worker running in the same Bun process as the API server. Uses `setInterval`-based polling against SQLite + EventBus-triggered routines (`packages/server/src/services/routine-scheduler.ts`). For VPS/cloud profiles: optionally backed by BullMQ for distributed job scheduling.
 
 The scheduler does not call models. It reads the Primitive Store, evaluates trigger conditions, selects the model tier, and emits events (which the Harness Adapter picks up to actually start agent sessions).
 
@@ -230,7 +230,7 @@ One table. Every piece of knowledge — from L4 factory principles to L1 task fa
 
 **What it is.** A thin HTTP API that the Human Interface (the Factory app) talks to. It exposes reads and writes on the Primitive Store, filtered by human identity and routed by the Router.
 
-**Technology.** A lightweight Python web framework — FastAPI or Litestar. Runs as a single process alongside the Scheduler. For the laptop profile, this is the only server process (besides the background worker).
+**Technology.** Hono (TypeScript) running on Bun. Runs as a single process alongside the Scheduler (`packages/server/`). For the laptop profile, this is the only server process.
 
 **Key endpoints (REST or WebSocket):**
 
@@ -284,7 +284,7 @@ GET    /status                        → factory health, agent count, cost burn
 
 **What it is.** An in-process pub/sub system that connects components without tight coupling. Every state change in the Primitive Store emits an event; other components subscribe to the events they care about.
 
-**Technology.** For laptop/VPS profiles: an in-process Python event emitter (e.g., `blinker`, or a simple callback registry). No external message broker needed. For cloud profiles that need distributed event delivery: Redis pub/sub or NATS. The adapter pattern makes this a config choice.
+**Technology.** For laptop/VPS profiles: an in-process TypeScript `EventBus` class (`packages/shared/src/event-bus.ts`) with synchronous delivery and type-safe subscriptions. No external message broker needed. For cloud profiles that need distributed event delivery: Redis pub/sub or NATS. The adapter pattern makes this a config choice.
 
 **Key event types:**
 
@@ -305,29 +305,29 @@ bet_revised              → Audit log, Rail updater
 
 **What it is.** The boundary between HyperIdle and the agent runtime. A thin adapter per supported harness that translates HyperIdle's "start a session for this agent on this task" into the harness's native API.
 
-**Technology.** One Python module per harness. Each implements a common interface:
+**Technology.** One TypeScript module per harness (`packages/shared/src/harness/`). Each implements a common interface:
 
-```python
-class HarnessAdapter(Protocol):
-    async def start_session(
-        self,
-        agent: AgentConfig,       # soul, skills, identity
-        context: TOONPack,        # L0 session context
-        task: Task,               # what to work on
-        workspace: WorkspaceRef,  # where to work
-        model_tier: ModelTier,    # Reasoning / Workhorse / Fast
-    ) -> SessionHandle: ...
+```typescript
+interface HarnessAdapter {
+  startSession(params: {
+    agent: AgentConfig;       // soul, skills, identity
+    context: TOONPack;        // L0 session context
+    task: Task;               // what to work on
+    workspace: WorkspaceRef;  // where to work
+    modelTier: ModelTier;     // Reasoning / Workhorse / Fast
+  }): Promise<SessionHandle>;
 
-    async def stream_events(self, handle: SessionHandle) -> AsyncIterator[Event]: ...
+  streamEvents(handle: SessionHandle): AsyncIterable<HarnessEvent>;
 
-    async def stop_session(self, handle: SessionHandle) -> SessionResult: ...
+  stopSession(handle: SessionHandle): Promise<SessionResult>;
+}
 ```
 
 **Supported harnesses:**
-- **Claude Agent SDK** (launch adapter) — uses the SDK's subagent spawning, bash + file tools, skill loading.
+- **Claude Agent SDK** (launch adapter) — uses the Anthropic Claude Agent SDK for subagent spawning, bash + file tools, skill loading.
 - **Letta** (planned) — uses Letta's agent server with tiered memory.
 - **Goose** (planned) — uses Goose's local-first CLI.
-- **OpenHands** (planned) — uses OpenHands' Python SDK.
+- **OpenHands** (planned) — uses OpenHands' SDK.
 
 The adapter also handles:
 - Injecting credentials into the workspace environment.
@@ -342,14 +342,15 @@ The adapter also handles:
 
 **Technology.** One module per workspace type:
 
-```python
-class WorkspaceAdapter(Protocol):
-    async def spawn(self, config: WorkspaceConfig) -> WorkspaceRef: ...
-    async def exec(self, ref: WorkspaceRef, command: str) -> ExecResult: ...
-    async def read(self, ref: WorkspaceRef, path: str) -> bytes: ...
-    async def write(self, ref: WorkspaceRef, path: str, data: bytes) -> None: ...
-    async def snapshot(self, ref: WorkspaceRef) -> SnapshotRef: ...
-    async def destroy(self, ref: WorkspaceRef) -> None: ...
+```typescript
+interface WorkspaceAdapter {
+  spawn(config: WorkspaceConfig): Promise<WorkspaceRef>;
+  exec(ref: WorkspaceRef, command: string): Promise<ExecResult>;
+  read(ref: WorkspaceRef, path: string): Promise<Buffer>;
+  write(ref: WorkspaceRef, path: string, data: Buffer): Promise<void>;
+  snapshot(ref: WorkspaceRef): Promise<SnapshotRef>;
+  destroy(ref: WorkspaceRef): Promise<void>;
+}
 ```
 
 **Supported workspaces:**
@@ -504,9 +505,9 @@ Facilitators are agents, but their output is special: they produce Items that ne
 | Knowledge (all layers) | SQLite (`knowledge_items` table in `hyperidle.db`) | Postgres + pgvector |
 | Knowledge exports (human-readable) | Git repo (markdown exports from SQLite) | Same |
 | Session context | TOON format ([github.com/toon-format/toon](https://github.com/toon-format/toon)) | Same |
-| API Layer | FastAPI (Python) or Litestar | Same + load balancer |
-| Event Bus | In-process (blinker / callbacks) | Redis pub/sub or NATS |
-| Scheduler | APScheduler + SQLite polling | Temporal / Redis-backed rq |
+| API Layer | Hono (TypeScript/Bun) | Same + load balancer |
+| Event Bus | In-process EventBus (TypeScript) | Redis pub/sub or NATS |
+| Scheduler | setInterval + EventBus + SQLite polling | BullMQ / Temporal |
 | Harness (default) | Claude Agent SDK | Letta, Goose, OpenHands |
 | Workspace (default) | Docker + gVisor | E2B, Daytona |
 | Human Interface | React + TypeScript PWA | Same |
@@ -519,11 +520,11 @@ Facilitators are agents, but their output is special: they produce Items that ne
 
 ### Language choices
 
-**Python** for the meta layer (API, Scheduler, Adapters, Knowledge Fabric). Reasons: the agent ecosystem is Python-first (Claude SDK, Letta, OpenHands, LangGraph), SQLite integration is native, FastAPI is mature, and the meta layer is I/O-bound not CPU-bound.
+**TypeScript** for the entire stack (meta layer + frontend). The meta layer (API, Scheduler, Adapters, Knowledge Fabric) runs on **Bun** with **Hono** as the HTTP framework. Reasons: single language across the monorepo, Bun's native SQLite driver, Drizzle ORM for type-safe queries, and the agent ecosystem's TypeScript SDK support (Claude Agent SDK).
 
-**TypeScript** for the Factory app (React frontend). Reasons: Tailwind + DaisyUI compose cleanly with TS-authored React, the PWA ecosystem is TypeScript, and the meta layer's API client is auto-generated from OpenAPI specs.
+**TypeScript + React** for the Factory app (frontend). Reasons: Tailwind + DaisyUI compose cleanly with React, the PWA ecosystem is TypeScript-native, and sharing types with the server eliminates API contract drift.
 
-**No Rust, Go, or Java in the core.** Tauri is Rust under the hood but we treat it as a shell, not a development surface. The meta layer is thin enough that Python's performance is more than sufficient.
+**No Rust, Go, or Java in the core.** Tauri is Rust under the hood but we treat it as a shell, not a development surface. The meta layer runs efficiently on Bun's optimized JavaScript runtime.
 
 ---
 
@@ -535,8 +536,8 @@ Everything runs on one machine. Single process for the API + Scheduler. Docker c
 
 ```
 MacBook / Linux laptop
-├── hyperidle (Python process)
-│   ├── API server (localhost:8080)
+├── hyperidle (Bun process)
+│   ├── Hono API server (localhost:3001)
 │   ├── Scheduler (in-process)
 │   ├── Event Bus (in-process)
 │   └── SQLite database
@@ -547,10 +548,10 @@ MacBook / Linux laptop
 ├── Git repo (markdown artifacts)
 │   ├── factory/ (PRINCIPLES.md, FOCUS.md, ...)
 │   └── products/nimmly/ (BRIEF.md, ARCHITECTURE.md, ...)
-└── Browser → http://localhost:8080 (the Factory)
+└── Browser → http://localhost:5173 (the Factory)
 ```
 
-Install: `pip install hyperidle && hyperidle init && hyperidle start`
+Install: `bun install && bun run db:migrate && bun dev`
 
 ### 6.2 VPS Profile
 
@@ -717,9 +718,9 @@ Cloud (AWS/GCP/Hetzner)
 - **Desktop shell.** Web-first. No Tauri, no PWA wrapper. Plain web app served by the API process. Native apps or PWA can be added later if needed.
 - **Mobile strategy.** Start online-first with a responsive web app. No dedicated native app or offline-first PWA in v1.
 - **Canvas (bet placement) tech.** Simple symbolic UI — not an actual canvas or drag-and-drop zone. A two-column layout (shaped / committed) with a hard capacity cap, rendered as `BetCard`s. Standard React components, no canvas library needed.
-- **Scheduler architecture.** Async single-process (Python asyncio). API server and Scheduler share one process. Materialization and session-start calls run as async tasks so the event loop isn't blocked. **Scaling note:** if measured latency degrades under load, extract Scheduler to its own process communicating via Event Bus. Monitor for this.
-- **No external framework integrations in the meta layer.** No Letta, no Agent Mail, no Temporal, no Inngest. All agentic integrations happen through the Agent Runtime layer (Harness Adapters). The meta layer stays minimal: SQLite, Python, the Knowledge Fabric, and the API. Complex dependencies are avoided as long as possible.
-- **Laptop minimum install.** Python + SQLite + Docker + Claude API key. 10-minute install bar for anyone.
+- **Scheduler architecture.** Single-process (Bun event loop). API server and Scheduler share one process. Materialization and session-start calls run as async tasks so the event loop isn't blocked. **Scaling note:** if measured latency degrades under load, extract Scheduler to its own process communicating via Event Bus. Monitor for this.
+- **No external framework integrations in the meta layer.** No Letta, no Agent Mail, no Temporal, no Inngest. All agentic integrations happen through the Agent Runtime layer (Harness Adapters). The meta layer stays minimal: SQLite, TypeScript/Bun, the Knowledge Fabric, and the Hono API. Complex dependencies are avoided as long as possible.
+- **Laptop minimum install.** Bun + Docker + Claude API key. 10-minute install bar for anyone.
 - **Cross-product routine ownership.** Chief of Staff owns routines that observe patterns across products (e.g., portfolio-level Cost Sentinel).
 - **Knowledge Fabric sync.** Continuous writeback via file watcher is the v1 design — no session-boundary dependency. The file watcher on `knowledge/` and `work/` directories writes back changes incrementally (500ms debounce), with WebSocket push to open Knowledge view tabs. See KNOWLEDGE_ARCHITECTURE.md §5.
 - **Notifications.** TBD during development. Will need some notification adapter; specific technology (ntfy.sh, SMTP, push API) decided at implementation time.
