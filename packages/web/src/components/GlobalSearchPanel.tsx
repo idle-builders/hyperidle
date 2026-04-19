@@ -110,7 +110,7 @@ export function GlobalSearchPanel({
 
 	return (
 		<div
-			className="modal modal-open"
+			className="modal modal-open z-50"
 			// biome-ignore lint/a11y/useSemanticElements: DaisyUI modal pattern requires div with role="dialog" for CSS class approach
 			role="dialog"
 			aria-modal="true"
@@ -130,7 +130,7 @@ export function GlobalSearchPanel({
 					tabbableOptions: { displayCheck: "none" },
 				}}
 			>
-				<div className="modal-box max-w-xl p-3 flex flex-col gap-2 max-h-[80vh]">
+				<div className="modal-box max-w-[640px] p-3 flex flex-col gap-2 max-h-[80vh]">
 					<SearchField
 						placeholder="Search conversations, work, knowledge..."
 						value={search.query}
@@ -221,6 +221,22 @@ export function GlobalSearchPanel({
 								No matches. Try different query.
 							</p>
 						)}
+					</div>
+
+					{/*
+					 * @lore J3: mono recent-queries row at bottom of the
+					 * Command-K overlay. Persistence of actual recent queries
+					 * is deferred (J8+ knowledge-facing work); for now we
+					 * render the row structure so the keyboard flow + layout
+					 * match spec. The data-testid lets tests and e2e pin the
+					 * region without coupling to visual text.
+					 */}
+					<div
+						data-testid="search-recent-queries"
+						aria-label="Recent queries"
+						className="font-mono text-xs text-[var(--text-lo)] border-t border-base-300 pt-2 px-1"
+					>
+						<span>No recent queries</span>
 					</div>
 				</div>
 			</FocusTrap>
