@@ -2,9 +2,18 @@
  * Conversations/Review page — composes ArtifactView + ReviewHeader from Tier 3.
  * Shows the selected review item's artifact + verdict header.
  * Thread selection is handled by the Submenu, not duplicated here.
+ *
+ * @lore J4 AC: Reasoning block renders before the artifact for every review.
+ * Metadata strip + related history populate the ArtifactView. Single-key
+ * A/R/X/S/P shortcuts pre-fill a pending verdict; Enter confirms.
  */
-import { type JSX, useCallback, useState } from "react";
-import type { ArtifactViewProps } from "../shell/ArtifactView";
+import { type JSX, useCallback, useEffect, useRef, useState } from "react";
+import { ReasoningBlock } from "../components/ReasoningBlock";
+import type {
+	ArtifactMetadata,
+	ArtifactViewProps,
+	RelatedHistoryEntry,
+} from "../shell/ArtifactView";
 import { ArtifactView } from "../shell/ArtifactView";
 import { ReviewHeader } from "../shell/ReviewHeader";
 import type { VerdictAction } from "../shell/ReviewHeader";
@@ -16,6 +25,10 @@ interface MockReviewItem {
 	timestamp: string;
 	proposer: string;
 	artifact: ArtifactViewProps;
+	reasoning: string[];
+	metadata: ArtifactMetadata;
+	relatedHistory: RelatedHistoryEntry[];
+	blocking: boolean;
 }
 
 const MOCK_REVIEWS: MockReviewItem[] = [
@@ -25,6 +38,23 @@ const MOCK_REVIEWS: MockReviewItem[] = [
 		snippet: "Added login/signup endpoints with JWT tokens",
 		timestamp: "2m ago",
 		proposer: "Developer Agent",
+		blocking: true,
+		reasoning: [
+			"Scanned packages/server/src/routes for an existing auth router.",
+			"Confirmed Hono JWT middleware is already a workspace dependency.",
+			"Wired signup + login handlers into the existing user repository.",
+			"Added integration tests covering happy-path JWT issuance.",
+			"Verified tsc + biome + vitest all green before opening the review.",
+		],
+		metadata: {
+			status: "pending",
+			sla: "2h left",
+			routing: "Backend Agent",
+		},
+		relatedHistory: [
+			{ id: "h1", label: "Previous login spike", timestamp: "3d ago" },
+			{ id: "h2", label: "Auth design doc", timestamp: "1w ago" },
+		],
 		artifact: {
 			shape: "text_diff",
 			data: {
@@ -49,6 +79,18 @@ const MOCK_REVIEWS: MockReviewItem[] = [
 		snippet: "Updated cost tracking with weekly aggregation",
 		timestamp: "15m ago",
 		proposer: "Analyst Agent",
+		blocking: false,
+		reasoning: [
+			"Compared weekly cost roll-up against the raw daily ledger.",
+			"Spotted an off-by-one at ISO week boundaries.",
+			"Replaced the ad-hoc groupBy with `date_trunc('week', ...)`.",
+		],
+		metadata: {
+			status: "ok",
+			sla: "24h left",
+			routing: "Analyst Agent",
+		},
+		relatedHistory: [{ id: "h3", label: "Prior cost dashboard", timestamp: "2d ago" }],
 		artifact: {
 			shape: "data_metrics",
 			data: {
@@ -63,19 +105,66 @@ const MOCK_REVIEWS: MockReviewItem[] = [
 	},
 ];
 
+/** Keys that pre-fill a verdict. Mirrors the primary + pause shortcut set. */
+const PREFILL_KEYS: Record<string, VerdictAction> = {
+	a: "approve",
+	r: "request-changes",
+	x: "reject",
+	s: "snooze",
+	p: "pause",
+};
+
+const INPUT_TAGS = new Set(["INPUT", "TEXTAREA", "SELECT"]);
+
 export function ConversationsReview(): JSX.Element {
 	const [selectedId, setSelectedId] = useState<string>(MOCK_REVIEWS[0].id);
 	const [loading] = useState(false);
 	const [error] = useState<string | null>(null);
+	const [pendingVerdict, setPendingVerdict] = useState<VerdictAction | null>(null);
+	const rootRef = useRef<HTMLDivElement>(null);
 
 	const selected = MOCK_REVIEWS.find((r) => r.id === selectedId) ?? MOCK_REVIEWS[0];
 
 	// Expose setSelectedId for parent Submenu integration
 	void setSelectedId;
 
-	const handleVerdict = useCallback((_action: VerdictAction): void => {
+	const commitVerdict = useCallback((_action: VerdictAction): void => {
 		// Mock verdict — real API wiring deferred
 	}, []);
+
+	const handleVerdict = useCallback(
+		(action: VerdictAction): void => {
+			// Direct click commits immediately.
+			commitVerdict(action);
+			setPendingVerdict(null);
+		},
+		[commitVerdict],
+	);
+
+	// @lore J4 AC: single-key A/R/X/S/P pre-fill a pending verdict; Enter
+	// confirms. Guard against typing in inputs.
+	useEffect(() => {
+		const handler = (e: KeyboardEvent): void => {
+			const target = e.target as HTMLElement | null;
+			if (target && (INPUT_TAGS.has(target.tagName) || target.isContentEditable)) {
+				return;
+			}
+			const key = e.key.toLowerCase();
+			const prefill = PREFILL_KEYS[key];
+			if (prefill) {
+				// Pause only valid on blocking reviews
+				if (prefill === "pause" && !selected.blocking) return;
+				setPendingVerdict(prefill);
+				return;
+			}
+			if (e.key === "Enter" && pendingVerdict) {
+				commitVerdict(pendingVerdict);
+				setPendingVerdict(null);
+			}
+		};
+		document.addEventListener("keydown", handler);
+		return () => document.removeEventListener("keydown", handler);
+	}, [pendingVerdict, commitVerdict, selected.blocking]);
 
 	if (loading) {
 		return (
@@ -98,16 +187,37 @@ export function ConversationsReview(): JSX.Element {
 	}
 
 	return (
-		<div className="flex flex-col gap-0 h-full" data-testid="conversations-review-page">
+		<div
+			ref={rootRef}
+			className="flex flex-col gap-0 h-full"
+			data-testid="conversations-review-page"
+		>
 			<ReviewHeader
 				proposer={{
 					name: selected.proposer,
 					timestamp: selected.timestamp,
 				}}
 				onVerdict={handleVerdict}
+				blocking={selected.blocking}
 			/>
-			<div className="flex-1 overflow-y-auto p-3">
-				<ArtifactView {...selected.artifact} />
+			{pendingVerdict && (
+				<div
+					data-testid="pending-verdict"
+					role="status"
+					className="px-3 py-1 text-xs font-mono bg-warning/20 text-warning-content border-b border-warning/50"
+				>
+					Pending: {pendingVerdict} — press Enter to confirm
+				</div>
+			)}
+			<div className="flex-1 overflow-y-auto">
+				<ReasoningBlock steps={selected.reasoning} />
+				<div className="p-3">
+					<ArtifactView
+						{...selected.artifact}
+						metadata={selected.metadata}
+						relatedHistory={selected.relatedHistory}
+					/>
+				</div>
 			</div>
 		</div>
 	);
