@@ -215,7 +215,7 @@ export function AppShell(): JSX.Element {
 			</Submenu>
 
 			<main
-				className="flex-1 overflow-y-auto px-[var(--density-pad-x)] py-[var(--density-pad-y)]"
+				className="flex-1 overflow-y-auto px-[var(--density-pad-x)] py-[var(--density-pad-y)] text-[length:var(--density-text)]"
 				data-testid="main-content"
 			>
 				<ErrorBoundary>
