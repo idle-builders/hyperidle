@@ -1,8 +1,15 @@
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import type { ReactElement } from "react";
+import { MemoryRouter } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
 import type { BetItem, BlockerItem, CostInfo } from "../shell/Rail";
 import { Rail } from "../shell/Rail";
+
+/** Wrap component in MemoryRouter for useNavigate. */
+function renderInRouter(ui: ReactElement): ReturnType<typeof render> {
+	return render(<MemoryRouter>{ui}</MemoryRouter>);
+}
 
 const sampleBets: BetItem[] = [
 	{ id: "bet-1", title: "Launch MVP", product: "HyperIdle", status: "committed" },
@@ -36,22 +43,22 @@ const defaultProps = {
 describe("Rail", () => {
 	describe("expanded state", () => {
 		it("renders Active Bets section header", () => {
-			render(<Rail {...defaultProps} />);
+			renderInRouter(<Rail {...defaultProps} />);
 			expect(screen.getByText(/active bets/i)).toBeInTheDocument();
 		});
 
 		it("renders Blockers section header", () => {
-			render(<Rail {...defaultProps} />);
+			renderInRouter(<Rail {...defaultProps} />);
 			expect(screen.getByText(/blockers/i)).toBeInTheDocument();
 		});
 
 		it("renders Cost section header", () => {
-			render(<Rail {...defaultProps} />);
+			renderInRouter(<Rail {...defaultProps} />);
 			expect(screen.getByText(/cost/i)).toBeInTheDocument();
 		});
 
 		it("shows bet count badge on Active Bets header", () => {
-			render(<Rail {...defaultProps} />);
+			renderInRouter(<Rail {...defaultProps} />);
 			const betsSection = screen.getByText(/active bets/i).closest("div, section, button");
 			expect(betsSection).not.toBeNull();
 			// biome-ignore lint/style/noNonNullAssertion: guarded by expect above
@@ -59,7 +66,7 @@ describe("Rail", () => {
 		});
 
 		it("shows blocker count badge on Blockers header", () => {
-			render(<Rail {...defaultProps} />);
+			renderInRouter(<Rail {...defaultProps} />);
 			const blockersSection = screen.getByText(/blockers/i).closest("div, section, button");
 			expect(blockersSection).not.toBeNull();
 			// biome-ignore lint/style/noNonNullAssertion: guarded by expect above
@@ -67,25 +74,25 @@ describe("Rail", () => {
 		});
 
 		it("renders bet titles", () => {
-			render(<Rail {...defaultProps} />);
+			renderInRouter(<Rail {...defaultProps} />);
 			expect(screen.getByText("Launch MVP")).toBeInTheDocument();
 			expect(screen.getByText("User Onboarding")).toBeInTheDocument();
 		});
 
 		it("renders bet products", () => {
-			render(<Rail {...defaultProps} />);
+			renderInRouter(<Rail {...defaultProps} />);
 			const products = screen.getAllByText("HyperIdle");
 			expect(products.length).toBeGreaterThanOrEqual(1);
 		});
 
 		it("renders blocker details", () => {
-			render(<Rail {...defaultProps} />);
+			renderInRouter(<Rail {...defaultProps} />);
 			expect(screen.getByText("Agent Alpha")).toBeInTheDocument();
 			expect(screen.getByText("Waiting for API key")).toBeInTheDocument();
 		});
 
 		it("renders cost information", () => {
-			render(<Rail {...defaultProps} />);
+			renderInRouter(<Rail {...defaultProps} />);
 			expect(screen.getByText("$12.50")).toBeInTheDocument();
 			expect(screen.getByText("$50.00")).toBeInTheDocument();
 			expect(screen.getByText("$87.30")).toBeInTheDocument();
@@ -93,7 +100,7 @@ describe("Rail", () => {
 		});
 
 		it("renders a toggle button to minimize", () => {
-			render(<Rail {...defaultProps} />);
+			renderInRouter(<Rail {...defaultProps} />);
 			expect(
 				screen.getByRole("button", { name: /collapse|minimize|close|toggle/i }),
 			).toBeInTheDocument();
@@ -102,7 +109,7 @@ describe("Rail", () => {
 		it("calls onToggleExpand when collapse button is clicked", async () => {
 			const user = userEvent.setup();
 			const handleToggle = vi.fn();
-			render(<Rail {...defaultProps} onToggleExpand={handleToggle} />);
+			renderInRouter(<Rail {...defaultProps} onToggleExpand={handleToggle} />);
 			await user.click(screen.getByRole("button", { name: /collapse|minimize|close|toggle/i }));
 			expect(handleToggle).toHaveBeenCalledOnce();
 		});
@@ -110,26 +117,26 @@ describe("Rail", () => {
 
 	describe("minimized state", () => {
 		it("does not render full section content when minimized", () => {
-			render(<Rail {...defaultProps} expanded={false} />);
+			renderInRouter(<Rail {...defaultProps} expanded={false} />);
 			expect(screen.queryByText("Launch MVP")).not.toBeInTheDocument();
 		});
 
 		it("shows icon strip with counts when minimized", () => {
-			render(<Rail {...defaultProps} expanded={false} />);
+			renderInRouter(<Rail {...defaultProps} expanded={false} />);
 			// Should show counts for bets and blockers
 			expect(screen.getByText("2")).toBeInTheDocument();
 			expect(screen.getByText("1")).toBeInTheDocument();
 		});
 
 		it("renders an expand button when minimized", () => {
-			render(<Rail {...defaultProps} expanded={false} />);
+			renderInRouter(<Rail {...defaultProps} expanded={false} />);
 			expect(screen.getByRole("button", { name: /expand|open|toggle/i })).toBeInTheDocument();
 		});
 
 		it("calls onToggleExpand when expand button is clicked", async () => {
 			const user = userEvent.setup();
 			const handleToggle = vi.fn();
-			render(<Rail {...defaultProps} expanded={false} onToggleExpand={handleToggle} />);
+			renderInRouter(<Rail {...defaultProps} expanded={false} onToggleExpand={handleToggle} />);
 			await user.click(screen.getByRole("button", { name: /expand|open|toggle/i }));
 			expect(handleToggle).toHaveBeenCalledOnce();
 		});
@@ -138,7 +145,7 @@ describe("Rail", () => {
 	describe("collapsible sections", () => {
 		it("sections are individually collapsible", async () => {
 			const user = userEvent.setup();
-			render(<Rail {...defaultProps} />);
+			renderInRouter(<Rail {...defaultProps} />);
 			// Click on Active Bets section header to collapse it
 			const betsHeader = screen.getByText(/active bets/i);
 			await user.click(betsHeader);
@@ -148,7 +155,7 @@ describe("Rail", () => {
 
 		it("collapsed section can be re-expanded", async () => {
 			const user = userEvent.setup();
-			render(<Rail {...defaultProps} />);
+			renderInRouter(<Rail {...defaultProps} />);
 			const betsHeader = screen.getByText(/active bets/i);
 			// Collapse
 			await user.click(betsHeader);
@@ -162,7 +169,7 @@ describe("Rail", () => {
 	describe("keyboard navigation", () => {
 		it("ArrowDown moves focus between section headers", async () => {
 			const user = userEvent.setup();
-			render(<Rail {...defaultProps} />);
+			renderInRouter(<Rail {...defaultProps} />);
 			const betsHeader = screen.getByText(/active bets/i).closest("button, [tabindex]");
 			expect(betsHeader).not.toBeNull();
 			// biome-ignore lint/style/noNonNullAssertion: guarded by expect above
@@ -174,7 +181,7 @@ describe("Rail", () => {
 
 		it("ArrowUp moves focus to previous section header", async () => {
 			const user = userEvent.setup();
-			render(<Rail {...defaultProps} />);
+			renderInRouter(<Rail {...defaultProps} />);
 			const blockersHeader = screen.getByText(/blockers/i).closest("button, [tabindex]");
 			expect(blockersHeader).not.toBeNull();
 			// biome-ignore lint/style/noNonNullAssertion: guarded by expect above
@@ -186,7 +193,7 @@ describe("Rail", () => {
 
 		it("Enter toggles section expand/collapse", async () => {
 			const user = userEvent.setup();
-			render(<Rail {...defaultProps} />);
+			renderInRouter(<Rail {...defaultProps} />);
 			const betsHeader = screen.getByText(/active bets/i).closest("button, [tabindex]");
 			expect(betsHeader).not.toBeNull();
 			// biome-ignore lint/style/noNonNullAssertion: guarded by expect above
@@ -198,7 +205,7 @@ describe("Rail", () => {
 		it("Escape calls onToggleExpand to minimize rail", async () => {
 			const user = userEvent.setup();
 			const handleToggle = vi.fn();
-			render(<Rail {...defaultProps} onToggleExpand={handleToggle} />);
+			renderInRouter(<Rail {...defaultProps} onToggleExpand={handleToggle} />);
 			const betsHeader = screen.getByText(/active bets/i).closest("button, [tabindex]");
 			expect(betsHeader).not.toBeNull();
 			// biome-ignore lint/style/noNonNullAssertion: guarded by expect above
@@ -210,7 +217,7 @@ describe("Rail", () => {
 
 	describe("notification surface", () => {
 		it("is a notification surface only (no bell icon)", () => {
-			const { container } = render(<Rail {...defaultProps} />);
+			const { container } = renderInRouter(<Rail {...defaultProps} />);
 			// Should not contain a bell/notification icon button
 			expect(screen.queryByRole("button", { name: /bell|notification/i })).not.toBeInTheDocument();
 			// Should not have any global toast container
@@ -220,18 +227,23 @@ describe("Rail", () => {
 
 	describe("empty states", () => {
 		it("renders empty bets section gracefully", () => {
-			render(<Rail {...defaultProps} bets={[]} />);
-			expect(screen.getByText(/active bets/i)).toBeInTheDocument();
+			renderInRouter(<Rail {...defaultProps} bets={[]} />);
+			// Section header is present and the empty state message is visible
+			expect(screen.getByText("No active bets")).toBeInTheDocument();
 		});
 
 		it("renders empty blockers section gracefully", () => {
-			render(<Rail {...defaultProps} blockers={[]} />);
-			expect(screen.getByText(/blockers/i)).toBeInTheDocument();
+			renderInRouter(<Rail {...defaultProps} blockers={[]} />);
+			// Section header is present and the empty state message is visible
+			expect(screen.getByText("No blockers")).toBeInTheDocument();
 		});
 
 		it("shows zero count for empty sections", () => {
-			render(<Rail {...defaultProps} bets={[]} blockers={[]} />);
-			const betsSection = screen.getByText(/active bets/i).closest("div, section, button");
+			renderInRouter(<Rail {...defaultProps} bets={[]} blockers={[]} />);
+			// Use getAllByText since "Active Bets" matches both header and empty state text
+			const betsHeaders = screen.getAllByText(/active bets/i);
+			expect(betsHeaders.length).toBeGreaterThanOrEqual(1);
+			const betsSection = betsHeaders[0].closest("div, section, button");
 			expect(betsSection).not.toBeNull();
 			// biome-ignore lint/style/noNonNullAssertion: guarded by expect above
 			expect(within(betsSection!).getByText("0")).toBeInTheDocument();
@@ -248,7 +260,7 @@ describe("Rail", () => {
 			];
 			// Empty blockers so the only chip is the bet's chip — severities
 			// also render StatusChip and would otherwise collide.
-			render(<Rail {...defaultProps} bets={behindBets} blockers={[]} />);
+			renderInRouter(<Rail {...defaultProps} bets={behindBets} blockers={[]} />);
 			// StatusChip uppercases the status text.
 			expect(screen.getByText("BEHIND")).toBeInTheDocument();
 			// Must NOT fall through to HEALTHY.
@@ -259,7 +271,7 @@ describe("Rail", () => {
 			const blockedBets: BetItem[] = [
 				{ id: "b", title: "Blocked Bet", product: "P", status: "blocked" },
 			];
-			render(<Rail {...defaultProps} bets={blockedBets} blockers={[]} />);
+			renderInRouter(<Rail {...defaultProps} bets={blockedBets} blockers={[]} />);
 			expect(screen.getByText("BLOCKED")).toBeInTheDocument();
 		});
 
@@ -267,7 +279,7 @@ describe("Rail", () => {
 			const pausedBets: BetItem[] = [
 				{ id: "b", title: "Paused Bet", product: "P", status: "paused" },
 			];
-			render(<Rail {...defaultProps} bets={pausedBets} blockers={[]} />);
+			renderInRouter(<Rail {...defaultProps} bets={pausedBets} blockers={[]} />);
 			expect(screen.getByText("PAUSED")).toBeInTheDocument();
 		});
 
@@ -275,7 +287,7 @@ describe("Rail", () => {
 			const reviewBets: BetItem[] = [
 				{ id: "b", title: "Review Bet", product: "P", status: "review" },
 			];
-			render(<Rail {...defaultProps} bets={reviewBets} />);
+			renderInRouter(<Rail {...defaultProps} bets={reviewBets} />);
 			expect(screen.queryByText("HEALTHY")).not.toBeInTheDocument();
 		});
 	});
