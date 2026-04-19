@@ -365,6 +365,11 @@ export async function resetCosts(db: HyperIdleDb, params: ResetCostsParams): Pro
 		for (const sid of toDelete) dedupBySession.delete(sid);
 	}
 
+	// @lore I6: resetCosts zeroes session costs and running counters for the
+	// specified scope. This is a billing-cycle reset — getAgentSpend/getTeamSpend
+	// sum session.cost, so all sessions for the entity must be zeroed for the
+	// cost cap check to reflect the new cycle. Historical session metadata
+	// (state, outcome, notes, timestamps) is preserved.
 	switch (params.level) {
 		case "agent": {
 			if (!params.id) throw new Error("Agent ID required for agent reset");
@@ -374,7 +379,6 @@ export async function resetCosts(db: HyperIdleDb, params: ResetCostsParams): Pro
 		}
 		case "team": {
 			if (!params.id) throw new Error("Team ID required for team reset");
-			// Reset all sessions for agents in this team
 			const teamAgents = db
 				.select({ id: agents.id })
 				.from(agents)

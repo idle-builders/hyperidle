@@ -7,7 +7,7 @@ import type { ToolContext, ToolDefinition } from "./tool-registry.js";
 import { type ToolResult, err, ok } from "./tool-result.js";
 
 const writeSessionNotesInputSchema = z.object({
-	notes: z.string(),
+	notes: z.string().min(1),
 	append: z.boolean().optional(),
 });
 

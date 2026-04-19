@@ -3,7 +3,7 @@
  * Thread selection is handled by the Submenu, not duplicated here.
  * Chat area uses DaisyUI primitives only.
  */
-import { type JSX, useState } from "react";
+import { type JSX, useCallback, useState } from "react";
 
 interface MockThread {
 	id: string;
@@ -45,8 +45,15 @@ export function ConversationsChat(): JSX.Element {
 	const [selectedId] = useState<string>(MOCK_THREADS[0].id);
 	const [loading] = useState(false);
 	const [error] = useState<string | null>(null);
+	const [inputValue, setInputValue] = useState("");
 
 	const selected = MOCK_THREADS.find((t) => t.id === selectedId) ?? MOCK_THREADS[0];
+
+	const handleSubmit = useCallback((): void => {
+		if (inputValue.trim().length === 0) return;
+		// TODO: send message via API when wired
+		setInputValue("");
+	}, [inputValue]);
 
 	if (loading) {
 		return (
@@ -93,14 +100,35 @@ export function ConversationsChat(): JSX.Element {
 					</div>
 				))}
 			</div>
-			<div className="border-t border-base-300 p-2">
-				<input
-					type="text"
-					className="input input-sm input-bordered w-full"
+			<form
+				className="border-t border-base-300 p-2 flex gap-2"
+				onSubmit={(e) => {
+					e.preventDefault();
+					handleSubmit();
+				}}
+			>
+				<textarea
+					className="textarea textarea-sm textarea-bordered flex-1 resize-none"
 					placeholder="Type a message..."
 					aria-label="Chat message input"
+					rows={2}
+					value={inputValue}
+					onChange={(e) => setInputValue(e.target.value)}
+					onKeyDown={(e) => {
+						if (e.key === "Enter" && !e.shiftKey) {
+							e.preventDefault();
+							handleSubmit();
+						}
+					}}
 				/>
-			</div>
+				<button
+					type="submit"
+					className="btn btn-primary btn-sm self-end"
+					disabled={inputValue.trim().length === 0}
+				>
+					Send
+				</button>
+			</form>
 		</div>
 	);
 }

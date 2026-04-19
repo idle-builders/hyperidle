@@ -8,3 +8,4 @@ test-results/
 .pipeline/
 .env
 .worktrees/
+.DS_Store

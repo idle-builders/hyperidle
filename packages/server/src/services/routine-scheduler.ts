@@ -402,7 +402,11 @@ export function registerEventTriggers(db: HyperIdleDb, eventBus: EventBus): () =
 			// Re-read the routine to get current state
 			const current = db.select().from(routines).where(eq(routines.id, routine.id)).get();
 			if (current?.active) {
-				checkAndFireRoutine(db, eventBus, current);
+				// @lore I6: .catch() prevents unhandled promise rejection from crashing
+				// the event-bus handler chain. Errors are logged, not propagated.
+				checkAndFireRoutine(db, eventBus, current).catch(() => {
+					/* fire-and-forget: checkAndFireRoutine is resilient internally */
+				});
 			}
 		});
 		unsubscribers.push(unsub);
@@ -436,7 +440,9 @@ export function startRoutineScheduler(
 			});
 
 		for (const routine of dueRoutines) {
-			checkAndFireRoutine(db, eventBus, routine);
+			checkAndFireRoutine(db, eventBus, routine).catch(() => {
+				/* fire-and-forget: errors do not block subsequent routines */
+			});
 		}
 	}, config.pollIntervalMs);
 

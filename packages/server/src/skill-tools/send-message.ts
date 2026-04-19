@@ -27,12 +27,12 @@ async function handler(args: SendMessageInput, ctx: ToolContext): Promise<ToolRe
 
 	const now = new Date().toISOString();
 
-	// Find an existing direct thread between sender and recipient (mirrors
-	// the pattern in routes/agents.ts POST /:id/inbox).
-	const allThreads = ctx.db.select().from(threads).all();
+	// @lore I6: queries WHERE kind = 'direct' instead of loading all threads.
+	// With 1000+ threads, the previous full-table scan was O(n); this is O(direct threads only).
+	const directThreads = ctx.db.select().from(threads).where(eq(threads.kind, "direct")).all();
 	let threadId: string | undefined;
-	for (const thread of allThreads) {
-		if (thread.kind === "direct" && thread.participants) {
+	for (const thread of directThreads) {
+		if (thread.participants) {
 			const participants = JSON.parse(thread.participants) as string[];
 			if (
 				participants.length === 2 &&

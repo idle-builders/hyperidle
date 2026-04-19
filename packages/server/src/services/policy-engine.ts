@@ -113,8 +113,16 @@ function executeAction(
 			break;
 		}
 		case "queue": {
+			// @lore I6: append to auditTrail instead of overwriting to preserve
+			// prior entries (e.g. from re-evaluation after an unqueue).
+			const existing = db.select().from(items).where(eq(items.id, itemId)).get();
+			// @lore I6: old data may have a plain object instead of an array.
+			// Guard with Array.isArray to avoid crashing on legacy audit trails.
+			const parsed: unknown = existing?.auditTrail ? JSON.parse(existing.auditTrail) : [];
+			const trail: unknown[] = Array.isArray(parsed) ? parsed : [parsed];
+			trail.push({ action: "policy_queued", timestamp: new Date().toISOString() });
 			db.update(items)
-				.set({ auditTrail: JSON.stringify({ action: "policy_queued" }) })
+				.set({ auditTrail: JSON.stringify(trail) })
 				.where(eq(items.id, itemId))
 				.run();
 			break;

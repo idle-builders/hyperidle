@@ -1,5 +1,7 @@
+import { agents } from "@hyperidle/db";
 import { create as createKnowledgeItem } from "@hyperidle/fabric";
-import { KNOWLEDGE_LAYERS, KNOWLEDGE_STATUSES } from "@hyperidle/shared";
+import { KNOWLEDGE_LAYERS, KNOWLEDGE_STATUSES, type KnowledgeLayer } from "@hyperidle/shared";
+import { eq } from "drizzle-orm";
 import { z } from "zod";
 import type { ToolContext, ToolDefinition } from "./tool-registry.js";
 import { type ToolResult, err, ok } from "./tool-result.js";
@@ -29,12 +31,37 @@ const writeMemoryInputSchema = z.object({
 
 type WriteMemoryInput = z.infer<typeof writeMemoryInputSchema>;
 
+/**
+ * Facilitator roles that may write to layers L3 and L4.
+ * Non-facilitator agents are restricted to L0-L2.
+ *
+ * @lore I6: enforces the layer boundary described in KNOWLEDGE_ARCHITECTURE.md.
+ * L3 (Practice) and L4 (Factory) are organizational knowledge that only
+ * facilitator-class agents should mutate.
+ */
+const FACILITATOR_ROLES: ReadonlySet<string> = new Set([
+	"chief_of_staff",
+	"practice_facilitator",
+	"product_manager",
+]);
+
+const NON_FACILITATOR_MAX_LAYER: ReadonlySet<KnowledgeLayer> = new Set(["L0", "L1", "L2"]);
+
 async function handler(args: WriteMemoryInput, ctx: ToolContext): Promise<ToolResult> {
 	const parsed = writeMemoryInputSchema.safeParse(args);
 	if (!parsed.success) {
 		return err("INVALID_INPUT", parsed.error.message);
 	}
 	const { layer, kind, title, body, topic, format, status } = parsed.data;
+
+	// I6: restrict non-facilitator agents to L0-L2 only
+	if (!NON_FACILITATOR_MAX_LAYER.has(layer)) {
+		const agent = ctx.db.select().from(agents).where(eq(agents.id, ctx.agentId)).get();
+		const role = agent?.role ?? "";
+		if (!FACILITATOR_ROLES.has(role)) {
+			return err("FORBIDDEN", `insufficient role for ${layer}`);
+		}
+	}
 
 	const created = createKnowledgeItem(ctx.db, {
 		layer,

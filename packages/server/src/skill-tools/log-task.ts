@@ -5,7 +5,7 @@ import type { ToolContext, ToolDefinition } from "./tool-registry.js";
 import { type ToolResult, err, ok } from "./tool-result.js";
 
 const logTaskInputSchema = z.object({
-	note: z.string().min(1),
+	note: z.string().min(1).max(65_536),
 });
 
 type LogTaskInput = z.infer<typeof logTaskInputSchema>;

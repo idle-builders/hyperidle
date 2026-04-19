@@ -4,11 +4,19 @@ import type { Hono } from "hono";
 import { createBunWebSocket } from "hono/bun";
 import type { WSContext } from "hono/ws";
 import type { UpgradeTokenStore } from "../auth/upgrade-token-store.js";
+import { WsBroadcaster, type WsClient } from "../services/ws-broadcaster.js";
 
 const { upgradeWebSocket, websocket: wsHandler } = createBunWebSocket();
 
-interface ClientState {
-	topics: Set<string>;
+/**
+ * Adapter that wraps a raw Hono WSContext into the WsClient interface
+ * expected by WsBroadcaster.
+ */
+class WsContextAdapter implements WsClient {
+	constructor(private readonly ws: WSContext) {}
+	send(data: string): void {
+		this.ws.send(data);
+	}
 }
 
 /**
@@ -16,58 +24,30 @@ interface ClientState {
  * Auth is checked before upgrade via query param `token`.
  * This module requires the Bun runtime (uses hono/bun).
  *
- * When eventBus is provided, clients can subscribe to topics
- * (e.g., "conversations") and receive forwarded domain events.
+ * @lore I6: ws.ts now delegates all event forwarding to WsBroadcaster,
+ * eliminating the duplicate event subscription logic that previously
+ * existed in both files. WsBroadcaster owns the topic-based routing
+ * and event subscriptions; ws.ts handles only the Bun WebSocket
+ * lifecycle (auth, connect, disconnect, subscribe/unsubscribe messages).
  *
- * Returns a disposer that unregisters the EventBus subscribers. Callers
- * (typically `server-factory.createBunServer` + in-process integration
- * tests) call the disposer during teardown so sibling apps sharing a
- * process do not leak subscriptions onto the bus.
- *
- * @lore I1 W2: in-process test isolation relies on this disposer. Without
- * it, server-factory.integration.test.ts's `afterAll` would leave the
- * event-bus handlers attached, and a follow-on test registering the same
- * route would pile up a second set of handlers against a stale `clients`
- * map — sending WS traffic to already-closed sockets.
+ * @lore I1 W2: in-process test isolation relies on the returned disposer.
  */
 function registerWsRoute(
 	apiApp: Hono,
 	eventBus: EventBus | undefined,
 	tokenStore: UpgradeTokenStore,
 ): () => void {
-	const clients = new Map<WSContext, ClientState>();
-
-	// Subscribe to domain events and forward to subscribed clients.
-	// Capture the `.on(...)` disposers so we can unsubscribe in the
-	// returned teardown function below.
-	const busDisposers: Array<() => void> = [];
+	// Delegate event forwarding to WsBroadcaster when eventBus is available.
+	let broadcaster: WsBroadcaster | null = null;
 	if (eventBus) {
-		busDisposers.push(
-			eventBus.on("item_created", (event) => {
-				for (const [ws, state] of clients) {
-					if (state.topics.has("conversations")) {
-						ws.send(JSON.stringify(event));
-					}
-				}
-			}),
-		);
-
-		busDisposers.push(
-			eventBus.on("response_recorded", (event) => {
-				for (const [ws, state] of clients) {
-					if (state.topics.has("conversations")) {
-						ws.send(JSON.stringify(event));
-					}
-				}
-			}),
-		);
+		broadcaster = new WsBroadcaster(eventBus);
+		broadcaster.start();
 	}
 
+	// Map raw WSContext to its adapter for cleanup.
+	const adapters = new Map<WSContext, WsContextAdapter>();
+
 	// WebSocket auth via one-shot upgrade token (I2 A3/A4/A5).
-	//
-	// The raw HYPERIDLE_API_KEY is NOT accepted on the query channel —
-	// clients must POST /api/auth/ws-token first to mint a single-use,
-	// short-lived token, then open the WS with `?token=<minted>`.
 	apiApp.use("/ws", async (c, next) => {
 		const token = c.req.query("token");
 		if (!token) {
@@ -93,29 +73,26 @@ function registerWsRoute(
 		upgradeWebSocket(() => ({
 			onOpen(_evt, ws) {
 				const rawWs = ws.raw as WSContext;
-				clients.set(rawWs, { topics: new Set() });
+				const adapter = new WsContextAdapter(rawWs);
+				adapters.set(rawWs, adapter);
+				broadcaster?.addClient(adapter);
 				ws.send(JSON.stringify({ type: "connected" }));
 			},
 			onMessage(evt, ws) {
 				const rawWs = ws.raw as WSContext;
+				const adapter = adapters.get(rawWs);
 				if (typeof evt.data === "string") {
 					try {
 						const msg = JSON.parse(evt.data) as { type?: string; topic?: string };
-						if (msg.type === "subscribe" && msg.topic) {
-							const state = clients.get(rawWs);
-							if (state) {
-								state.topics.add(msg.topic);
-								ws.send(JSON.stringify({ type: "subscribed", topic: msg.topic }));
-								return;
-							}
+						if (msg.type === "subscribe" && msg.topic && adapter && broadcaster) {
+							broadcaster.subscribe(adapter, msg.topic);
+							ws.send(JSON.stringify({ type: "subscribed", topic: msg.topic }));
+							return;
 						}
-						if (msg.type === "unsubscribe" && msg.topic) {
-							const state = clients.get(rawWs);
-							if (state) {
-								state.topics.delete(msg.topic);
-								ws.send(JSON.stringify({ type: "unsubscribed", topic: msg.topic }));
-								return;
-							}
+						if (msg.type === "unsubscribe" && msg.topic && adapter && broadcaster) {
+							broadcaster.unsubscribe(adapter, msg.topic);
+							ws.send(JSON.stringify({ type: "unsubscribed", topic: msg.topic }));
+							return;
 						}
 					} catch {
 						// Not JSON, echo back
@@ -127,17 +104,18 @@ function registerWsRoute(
 			},
 			onClose(_evt, ws) {
 				const rawWs = ws.raw as WSContext;
-				clients.delete(rawWs);
+				const adapter = adapters.get(rawWs);
+				if (adapter) {
+					broadcaster?.removeClient(adapter);
+					adapters.delete(rawWs);
+				}
 			},
 		})),
 	);
 
 	return (): void => {
-		for (const dispose of busDisposers) {
-			dispose();
-		}
-		busDisposers.length = 0;
-		clients.clear();
+		broadcaster?.stop();
+		adapters.clear();
 	};
 }
 
