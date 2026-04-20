@@ -134,6 +134,7 @@
 			"*.db",
 			"coverage",
 			"playwright-report",
+			"visual-reports",
 			".claude",
 			".worktrees"
 		]
@@ -162,6 +163,17 @@
 					"suspicious": {
 						"noEmptyBlockStatements": "off",
 						"useAwait": "off"
+					}
+				}
+			}
+		},
+		{
+			"include": ["**/scripts/**"],
+			"linter": {
+				"rules": {
+					"suspicious": {
+						"noConsole": "off",
+						"noEmptyBlockStatements": "off"
 					}
 				}
 			}

@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=Space+Grotesk:wght@400;500;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "primary-fixed-dim": "#c2d4ff",
+                    "outline-variant": "#484848",
+                    "primary-container": "#004493",
+                    "error-dim": "#bb5551",
+                    "on-secondary-fixed": "#5a3800",
+                    "on-secondary-container": "#fcb044",
+                    "inverse-surface": "#fcf9f8",
+                    "secondary-fixed": "#ffddb6",
+                    "on-secondary-fixed-variant": "#805100",
+                    "surface": "#0e0e0e",
+                    "surface-container-highest": "#252626",
+                    "inverse-primary": "#005bc2",
+                    "primary": "#adc6ff",
+                    "secondary-fixed-dim": "#ffcb8b",
+                    "surface-bright": "#2c2c2c",
+                    "on-error": "#490106",
+                    "surface-dim": "#0e0e0e",
+                    "on-primary-fixed": "#003d85",
+                    "surface-container-low": "#131313",
+                    "tertiary-dim": "#83e881",
+                    "surface-container": "#191a1a",
+                    "primary-dim": "#97b9ff",
+                    "tertiary": "#bbffb3",
+                    "on-tertiary-fixed": "#00480f",
+                    "on-primary-fixed-variant": "#0058bb",
+                    "secondary-dim": "#d58f24",
+                    "tertiary-fixed": "#91f78e",
+                    "on-surface-variant": "#acabaa",
+                    "error-container": "#7f2927",
+                    "error": "#ee7d77",
+                    "tertiary-fixed-dim": "#83e881",
+                    "surface-variant": "#252626",
+                    "on-error-container": "#ff9993",
+                    "surface-container-high": "#1f2020",
+                    "surface-container-lowest": "#000000",
+                    "outline": "#767575",
+                    "on-surface": "#e7e5e4",
+                    "secondary": "#d58f24",
+                    "background": "#0e0e0e",
+                    "on-tertiary": "#00671a",
+                    "on-background": "#e7e5e4",
+                    "on-tertiary-container": "#005e17",
+                    "on-primary": "#003d87",
+                    "primary-fixed": "#d8e2ff",
+                    "on-primary-container": "#bcd0ff",
+                    "on-secondary": "#301c00",
+                    "tertiary-container": "#91f78e",
+                    "secondary-container": "#553400",
+                    "inverse-on-surface": "#565555",
+                    "surface-tint": "#adc6ff",
+                    "on-tertiary-fixed-variant": "#00691a"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.125rem",
+                    "lg": "0.25rem",
+                    "xl": "0.5rem",
+                    "full": "0.75rem"
+            },
+            "fontFamily": {
+                    "headline": ["Inter"],
+                    "body": ["Inter"],
+                    "label": ["Space Grotesk"]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        body {
+            background-color: #0e0e0e;
+            color: #e7e5e4;
+        }
+    </style>
+</head>
+<body class="font-body overflow-hidden">
+<div class="flex h-screen w-full">
+<!-- SIDEBAR: ICON MENU (Far Left) -->
+<aside class="w-16 flex flex-col items-center py-4 bg-[#0e0e0e] border-r border-[#191a1a] z-50">
+<div class="mb-8">
+<div class="w-8 h-8 flex items-center justify-center text-primary">
+<span class="material-symbols-outlined text-2xl" data-icon="terminal">terminal</span>
+</div>
+</div>
+<nav class="flex-1 flex flex-col space-y-4">
+<button class="w-10 h-10 flex items-center justify-center text-zinc-500 hover:text-primary transition-colors">
+<span class="material-symbols-outlined" data-icon="dashboard">dashboard</span>
+</button>
+<button class="w-10 h-10 flex items-center justify-center text-zinc-500 hover:text-primary transition-colors">
+<span class="material-symbols-outlined" data-icon="payments">payments</span>
+</button>
+<button class="w-10 h-10 flex items-center justify-center text-zinc-500 hover:text-primary transition-colors">
+<span class="material-symbols-outlined" data-icon="smart_toy">smart_toy</span>
+</button>
+<button class="w-10 h-10 flex items-center justify-center text-zinc-500 hover:text-primary transition-colors">
+<span class="material-symbols-outlined" data-icon="hub">hub</span>
+</button>
+</nav>
+<div class="mt-auto flex flex-col space-y-4 items-center">
+<button class="w-10 h-10 flex items-center justify-center text-primary bg-[#191a1a] rounded-sm">
+<span class="material-symbols-outlined" data-icon="account_circle">account_circle</span>
+</button>
+</div>
+</aside>
+<!-- SUBMENU ZONE: SETTINGS NAVIGATION (Left) -->
+<aside class="w-64 bg-[#131313] border-r border-[#191a1a] flex flex-col">
+<div class="p-6">
+<p class="font-label text-[11px] uppercase tracking-[0.1em] text-zinc-500 mb-6">Operations / Settings</p>
+<nav class="space-y-1">
+<a class="flex items-center px-3 py-2 text-zinc-500 hover:text-zinc-300 font-label text-[11px] uppercase tracking-wider transition-all" href="#">
+                        Budgets
+                    </a>
+<a class="flex items-center px-3 py-2 bg-[#191a1a] text-primary border-l-2 border-primary font-label text-[11px] uppercase tracking-wider transition-all" href="#">
+                        Notifications
+                    </a>
+<a class="flex items-center px-3 py-2 text-zinc-500 hover:text-zinc-300 font-label text-[11px] uppercase tracking-wider transition-all" href="#">
+                        Agents &amp; Permissions
+                    </a>
+<a class="flex items-center px-3 py-2 text-zinc-500 hover:text-zinc-300 font-label text-[11px] uppercase tracking-wider transition-all" href="#">
+                        Cycles
+                    </a>
+<a class="flex items-center px-3 py-2 text-zinc-500 hover:text-zinc-300 font-label text-[11px] uppercase tracking-wider transition-all" href="#">
+                        Knowledge
+                    </a>
+<a class="flex items-center px-3 py-2 text-zinc-500 hover:text-zinc-300 font-label text-[11px] uppercase tracking-wider transition-all" href="#">
+                        Data &amp; Export
+                    </a>
+</nav>
+</div>
+</aside>
+<!-- MAIN PANE: NOTIFICATIONS TAB (Center) -->
+<main class="flex-1 bg-[#0e0e0e] overflow-y-auto">
+<header class="h-16 px-8 flex items-center justify-between border-b border-[#191a1a]">
+<h1 class="text-xl font-headline font-semibold tracking-tight">Notifications</h1>
+<div class="flex items-center gap-4">
+<span class="font-label text-[10px] tracking-widest text-zinc-600 bg-surface-container px-2 py-1">V2.0.4-STABLE</span>
+<button class="bg-primary-container text-on-primary-container px-4 py-1.5 text-xs font-label uppercase tracking-widest rounded-sm hover:brightness-110 transition-all">
+                        Save Changes
+                    </button>
+</div>
+</header>
+<div class="max-w-4xl p-8 space-y-12">
+<!-- SECTION: PUSH NOTIFICATIONS -->
+<section>
+<div class="mb-6">
+<h2 class="font-label text-xs uppercase tracking-[0.2em] text-primary mb-1">Push notifications</h2>
+<p class="text-zinc-500 text-sm">Configure real-time alerts for system events and agent statuses.</p>
+</div>
+<div class="space-y-4">
+<!-- Toggle Item -->
+<div class="flex items-center justify-between p-4 bg-surface-container-low rounded-sm">
+<div class="flex flex-col">
+<span class="body-md text-on-surface">Blocking reviews</span>
+<span class="font-label text-[11px] text-zinc-500 uppercase">Immediate alerts when agent requires user input to proceed.</span>
+</div>
+<button class="w-10 h-5 bg-primary relative rounded-full flex items-center px-0.5 transition-colors">
+<div class="w-4 h-4 bg-on-primary rounded-full translate-x-5"></div>
+</button>
+</div>
+<!-- Toggle Item -->
+<div class="flex items-center justify-between p-4 bg-surface-container-low rounded-sm">
+<div class="flex flex-col">
+<span class="body-md text-on-surface">Cost threshold exceeded</span>
+<span class="font-label text-[11px] text-zinc-500 uppercase">Alert when operational burn exceeds 85% of allocated budget.</span>
+</div>
+<button class="w-10 h-5 bg-primary relative rounded-full flex items-center px-0.5 transition-colors">
+<div class="w-4 h-4 bg-on-primary rounded-full translate-x-5"></div>
+</button>
+</div>
+<!-- Toggle Item (OFF) -->
+<div class="flex items-center justify-between p-4 bg-surface-container-low rounded-sm">
+<div class="flex flex-col">
+<span class="body-md text-on-surface">Agent blocked &gt;2h</span>
+<span class="font-label text-[11px] text-zinc-500 uppercase">Warning when an agent has been idle for more than 120 minutes.</span>
+</div>
+<button class="w-10 h-5 bg-zinc-700 relative rounded-full flex items-center px-0.5 transition-colors">
+<div class="w-4 h-4 bg-zinc-400 rounded-full"></div>
+</button>
+</div>
+<!-- Toggle Item (OFF) -->
+<div class="flex items-center justify-between p-4 bg-surface-container-low rounded-sm">
+<div class="flex flex-col">
+<span class="body-md text-on-surface">Non-blocking reviews</span>
+<span class="font-label text-[11px] text-zinc-500 uppercase">Weekly summaries of autonomous agent completions and logs.</span>
+</div>
+<button class="w-10 h-5 bg-zinc-700 relative rounded-full flex items-center px-0.5 transition-colors">
+<div class="w-4 h-4 bg-zinc-400 rounded-full"></div>
+</button>
+</div>
+</div>
+</section>
+<!-- SECTION: QUIET HOURS -->
+<section>
+<div class="mb-6">
+<h2 class="font-label text-xs uppercase tracking-[0.2em] text-primary mb-1">Quiet hours</h2>
+<p class="text-zinc-500 text-sm">Suppress non-critical alerts during specified maintenance or rest windows.</p>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+<div class="p-4 bg-surface-container-low rounded-sm flex items-center justify-between col-span-2">
+<span class="body-md">Enable quiet hours</span>
+<button class="w-10 h-5 bg-primary relative rounded-full flex items-center px-0.5">
+<div class="w-4 h-4 bg-on-primary rounded-full translate-x-5"></div>
+</button>
+</div>
+<div class="p-4 bg-surface-container-low rounded-sm space-y-2">
+<span class="font-label text-[11px] text-zinc-500 uppercase">Time Range</span>
+<div class="flex items-center space-x-3">
+<input class="bg-transparent border border-outline-variant/20 rounded-sm text-sm p-1.5 w-full focus:border-primary outline-none text-center font-label" type="text" value="10:00 PM"/>
+<span class="text-zinc-600">—</span>
+<input class="bg-transparent border border-outline-variant/20 rounded-sm text-sm p-1.5 w-full focus:border-primary outline-none text-center font-label" type="text" value="07:00 AM"/>
+</div>
+</div>
+<div class="p-4 bg-surface-container-low rounded-sm flex items-center justify-between">
+<span class="body-md">Weekends quiet</span>
+<button class="w-10 h-5 bg-primary relative rounded-full flex items-center px-0.5">
+<div class="w-4 h-4 bg-on-primary rounded-full translate-x-5"></div>
+</button>
+</div>
+</div>
+</section>
+<!-- SECTION: PER-PRODUCT MUTE -->
+<section class="pb-12">
+<div class="mb-6">
+<h2 class="font-label text-xs uppercase tracking-[0.2em] text-primary mb-1">Per-product mute</h2>
+<p class="text-zinc-500 text-sm">Granular control over notifications for individual system modules.</p>
+</div>
+<div class="divide-y divide-outline-variant/10">
+<div class="flex items-center justify-between py-4">
+<div class="flex items-center space-x-3">
+<div class="w-8 h-8 bg-surface-container-highest rounded-sm flex items-center justify-center">
+<span class="material-symbols-outlined text-sm text-primary" data-icon="cloud">cloud</span>
+</div>
+<span class="body-md">Ambrovia</span>
+</div>
+<span class="font-label text-[10px] uppercase text-tertiary tracking-widest">Active</span>
+</div>
+<div class="flex items-center justify-between py-4">
+<div class="flex items-center space-x-3">
+<div class="w-8 h-8 bg-surface-container-highest rounded-sm flex items-center justify-center">
+<span class="material-symbols-outlined text-sm text-primary" data-icon="data_usage">data_usage</span>
+</div>
+<span class="body-md">Nimmly</span>
+</div>
+<span class="font-label text-[10px] uppercase text-tertiary tracking-widest">Active</span>
+</div>
+<div class="flex items-center justify-between py-4">
+<div class="flex items-center space-x-3">
+<div class="w-8 h-8 bg-surface-container-highest rounded-sm flex items-center justify-center">
+<span class="material-symbols-outlined text-sm text-primary" data-icon="bolt">bolt</span>
+</div>
+<span class="body-md">HyperIdle</span>
+</div>
+<span class="font-label text-[10px] uppercase text-tertiary tracking-widest">Active</span>
+</div>
+<div class="flex items-center justify-between py-4 opacity-50 grayscale">
+<div class="flex items-center space-x-3">
+<div class="w-8 h-8 bg-surface-container-highest rounded-sm flex items-center justify-center">
+<span class="material-symbols-outlined text-sm text-zinc-500" data-icon="pulse">pulse_alert</span>
+</div>
+<span class="body-md text-zinc-400">Pulse</span>
+</div>
+<div class="flex items-center space-x-1">
+<span class="material-symbols-outlined text-sm" data-icon="volume_off">volume_off</span>
+<span class="font-label text-[10px] uppercase text-zinc-500 tracking-widest">Muted</span>
+</div>
+</div>
+</div>
+</section>
+</div>
+</main>
+<!-- RAIL: SYSTEM STATE (Far Right) -->
+<aside class="w-20 bg-[#131313] border-l border-[#191a1a] flex flex-col py-6 items-center space-y-10">
+<!-- Blocked -->
+<div class="flex flex-col items-center group cursor-help">
+<span class="material-symbols-outlined text-secondary text-xl" data-icon="block">block</span>
+<span class="font-label text-[14px] font-bold mt-1">2</span>
+<span class="font-label text-[8px] uppercase text-zinc-500 tracking-tighter group-hover:text-zinc-300">Blocked</span>
+</div>
+<!-- Threads -->
+<div class="flex flex-col items-center group cursor-help">
+<span class="material-symbols-outlined text-primary text-xl" data-icon="chat_bubble_outline">chat_bubble_outline</span>
+<span class="font-label text-[14px] font-bold mt-1">5</span>
+<span class="font-label text-[8px] uppercase text-zinc-500 tracking-tighter group-hover:text-zinc-300">Unread</span>
+</div>
+<!-- Cost -->
+<div class="flex flex-col items-center group cursor-help pt-4 border-t border-[#191a1a] w-full">
+<span class="material-symbols-outlined text-tertiary text-xl" data-icon="monetization_on">monetization_on</span>
+<div class="flex flex-col items-center mt-1">
+<span class="font-label text-[11px] font-bold text-tertiary">$42</span>
+<div class="w-12 h-1 bg-surface-container-highest mt-1 rounded-full overflow-hidden">
+<div class="bg-tertiary h-full w-[28%]"></div>
+</div>
+<span class="font-label text-[8px] uppercase text-zinc-500 tracking-tighter mt-1">$150 MAX</span>
+</div>
+</div>
+<div class="mt-auto">
+<button class="w-8 h-8 rounded-sm hover:bg-[#191a1a] flex items-center justify-center text-zinc-500">
+<span class="material-symbols-outlined text-sm" data-icon="help">help</span>
+</button>
+</div>
+</aside>
+</div>
+</body></html>
