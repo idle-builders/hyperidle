@@ -2,20 +2,16 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ComponentType } from "react";
 import type { StoryMeta, StoryModule } from "./types.js";
 
-// Auto-discover all .stories.tsx files in components/, shell/, pages/, and layouts/
+// Auto-discover .stories.tsx for reusable components only (Tier 1-3).
+// Pages and layouts are full compositions, not reusable — they belong
+// in E2E tests, not the design system catalog.
 const componentModules = import.meta.glob<Record<string, unknown>>("../components/*.stories.tsx", {
 	eager: true,
 });
 const shellModules = import.meta.glob<Record<string, unknown>>("../shell/*.stories.tsx", {
 	eager: true,
 });
-const pageModules = import.meta.glob<Record<string, unknown>>("../pages/*.stories.tsx", {
-	eager: true,
-});
-const layoutModules = import.meta.glob<Record<string, unknown>>("../layouts/*.stories.tsx", {
-	eager: true,
-});
-const storyGlobs = { ...componentModules, ...shellModules, ...pageModules, ...layoutModules };
+const storyGlobs = { ...componentModules, ...shellModules };
 
 /**
  * I4 D2: parseStoryModules now detects CSF3 object stories (`{ name, render }`)
