@@ -1,7 +1,6 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
-import { Tag } from "../components/Tag";
-import type { TagKind } from "../components/tag-kinds";
+import { Tag, type TagKind } from "@hyperidle/design-system";
 
 // @lore Separate file from Tag.test.tsx so the pre-J1 baseline assertions stay byte-identical.
 

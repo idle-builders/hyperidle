@@ -18,7 +18,9 @@
 		"db:migrate:pg": "bun run --filter @hyperidle/db migrate:pg",
 		"db:seed:pg": "bun packages/db/src/seed-pg-cli.ts",
 		"setup": "bun packages/db/src/setup-cli.ts",
-		"test:pg": "bun packages/db/src/pg-test-runner.ts"
+		"test:pg": "bun packages/db/src/pg-test-runner.ts",
+		"ds:serve": "bun run --filter @hyperidle/design-system serve",
+		"ds:sync": "bun run --filter @hyperidle/design-system sync-check"
 	},
 	"devDependencies": {
 		"@biomejs/biome": "^1.9.0",

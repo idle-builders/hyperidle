@@ -7,12 +7,12 @@ import {
 	type TaskState,
 } from "@hyperidle/shared";
 import { describe, expect, it } from "vitest";
-import type { Status } from "../components/StatusChip";
 import {
+	type Status,
 	betStatusToStatus,
 	knowledgeStatusToStatus,
 	taskStateToStatus,
-} from "../components/status-mapping";
+} from "@hyperidle/design-system";
 
 /** All legal presentation Status values, used to assert exhaustive coverage. */
 const VALID_STATUSES: readonly Status[] = [

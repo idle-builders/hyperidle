@@ -21,14 +21,16 @@
 			"@hyperidle/db": ["./packages/db/src"],
 			"@hyperidle/server": ["./packages/server/src"],
 			"@hyperidle/web": ["./packages/web/src"],
-			"@hyperidle/fabric": ["./packages/fabric/src"]
+			"@hyperidle/fabric": ["./packages/fabric/src"],
+			"@hyperidle/design-system": ["./packages/design-system/src"]
 		}
 	},
 	"references": [
 		{ "path": "packages/shared" },
 		{ "path": "packages/db" },
 		{ "path": "packages/server" },
-		{ "path": "packages/fabric" }
+		{ "path": "packages/fabric" },
+		{ "path": "packages/design-system" }
 	],
 	"include": [],
 	"exclude": ["node_modules", "dist"]

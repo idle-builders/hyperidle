@@ -61,14 +61,14 @@ describe("no duplicate status mapping helpers", () => {
 		expect(offenders).toEqual([]);
 	});
 
-	it("canonical betStatusToStatus lives in components/status-mapping.ts", () => {
-		const canonical = join(SRC_ROOT, "components", "status-mapping.ts");
+	it("canonical betStatusToStatus lives in design-system/src/status-mapping.ts", () => {
+		const canonical = join(SRC_ROOT, "..", "..", "design-system", "src", "status-mapping.ts");
 		const src = readFileSync(canonical, "utf8");
 		expect(src).toMatch(/export function betStatusToStatus\b/);
 	});
 
-	it("canonical knowledgeStatusToStatus lives in components/status-mapping.ts", () => {
-		const canonical = join(SRC_ROOT, "components", "status-mapping.ts");
+	it("canonical knowledgeStatusToStatus lives in design-system/src/status-mapping.ts", () => {
+		const canonical = join(SRC_ROOT, "..", "..", "design-system", "src", "status-mapping.ts");
 		const src = readFileSync(canonical, "utf8");
 		expect(src).toMatch(/export function knowledgeStatusToStatus\b/);
 	});

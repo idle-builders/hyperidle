@@ -17,7 +17,7 @@ import {
 } from "@dnd-kit/core";
 import type { BetStatus } from "@hyperidle/shared";
 import { type JSX, useMemo, useState } from "react";
-import { BetCard } from "../components/BetCard";
+import { BetCard } from "@hyperidle/design-system";
 
 export interface CanvasBet {
 	id: string;

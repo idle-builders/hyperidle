@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Skeleton — HyperIdle Design System</title>
+  <link rel="stylesheet" href="_tokens.css" />
+  <style>
+    @keyframes skeleton-pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.4; }
+    }
+
+    .skeleton {
+      background: var(--surface-5);
+      border-radius: var(--r2);
+      animation: skeleton-pulse 1.8s ease-in-out infinite;
+    }
+
+    .skeleton-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .skeleton-row {
+      height: 32px;
+      width: 100%;
+    }
+
+    .skeleton-card {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      background: var(--surface-3);
+      border-radius: var(--r2);
+      padding: 12px;
+    }
+
+    .skeleton-card__line-short {
+      height: 20px;
+      width: 66%;
+    }
+
+    .skeleton-card__line-full {
+      height: 16px;
+      width: 100%;
+    }
+
+    .skeleton-card__line-most {
+      height: 16px;
+      width: 83%;
+    }
+
+    .skeleton-card__line-three-quarter {
+      height: 16px;
+      width: 75%;
+    }
+
+    .card-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      max-width: 32rem;
+    }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" crossorigin></script>
+  <script type="text/babel" data-presets="env,react">
+    function SkeletonList({ rows = 3, ariaLabel }) {
+      return (
+        <div
+          role="status"
+          aria-label={ariaLabel}
+          className="skeleton-list"
+          data-component="Skeleton"
+          data-tier="1"
+          data-uses=""
+          data-daisyui="skeleton"
+          data-used-by="WorkBet,WorkPortfolio,KnowledgeList"
+        >
+          {Array.from({ length: rows }).map((_, i) => (
+            <div key={i} className="skeleton skeleton-row" />
+          ))}
+        </div>
+      );
+    }
+
+    function SkeletonCard({ ariaLabel }) {
+      return (
+        <div
+          role="status"
+          aria-label={ariaLabel}
+          className="skeleton-card"
+          data-component="Skeleton"
+          data-tier="1"
+          data-uses=""
+          data-daisyui="skeleton"
+          data-used-by="WorkBet,WorkPortfolio,KnowledgeList"
+        >
+          <div className="skeleton skeleton-card__line-short" />
+          <div className="skeleton skeleton-card__line-full" />
+          <div className="skeleton skeleton-card__line-most" />
+          <div className="skeleton skeleton-card__line-three-quarter" />
+        </div>
+      );
+    }
+
+    function Demo() {
+      return (
+        <div className="demo-grid">
+          <div className="demo-section">
+            <div className="demo-section-title">List (3 rows)</div>
+            <div style={{ maxWidth: "320px" }}>
+              <SkeletonList rows={3} ariaLabel="Loading list" />
+            </div>
+          </div>
+
+          <div className="demo-section">
+            <div className="demo-section-title">List (6 rows)</div>
+            <div style={{ maxWidth: "320px" }}>
+              <SkeletonList rows={6} ariaLabel="Loading list" />
+            </div>
+          </div>
+
+          <div className="demo-section">
+            <div className="demo-section-title">Card</div>
+            <div style={{ maxWidth: "288px" }}>
+              <SkeletonCard ariaLabel="Loading bet" />
+            </div>
+          </div>
+
+          <div className="demo-section">
+            <div className="demo-section-title">Card Grid (2x2)</div>
+            <div className="card-grid">
+              <SkeletonCard ariaLabel="Loading product" />
+              <SkeletonCard ariaLabel="Loading product" />
+              <SkeletonCard ariaLabel="Loading product" />
+              <SkeletonCard ariaLabel="Loading product" />
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById('root')).render(<Demo />);
+  </script>
+</body>
+</html>

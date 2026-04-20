@@ -9,7 +9,7 @@
  *   - Messages carrying an artifact render an inline preview.
  */
 import { type JSX, useCallback, useMemo, useState } from "react";
-import { EmptyState } from "../components/EmptyState";
+import { EmptyState } from "@hyperidle/design-system";
 
 interface MockMessageArtifactPreview {
 	kind: "text_diff" | "content_preview" | "action_summary" | "data_metrics" | "visual_comparison";

@@ -1,0 +1,253 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>TaskCard — HyperIdle Design System</title>
+  <link rel="stylesheet" href="_tokens.css" />
+  <style>
+    .task-card {
+      background: var(--surface-4);
+      border-radius: var(--r2);
+      padding: 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      cursor: pointer;
+      transition: background var(--motion-fast);
+      max-width: 320px;
+    }
+    .task-card:hover {
+      background: var(--surface-5);
+    }
+    .task-card:focus-visible {
+      outline: 1px solid var(--primary);
+      outline-offset: -1px;
+    }
+    .task-card--blocked {
+      border: 1px solid var(--danger);
+    }
+
+    .task-card__title {
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--text-hi);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .task-card__meta {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .task-card__owner {
+      font-size: 12px;
+      color: var(--text-hi);
+    }
+
+    /* --- Tier 1: StatusChip --- */
+    .status-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 2px 8px;
+      border-radius: var(--r-pill);
+      font-family: var(--mono);
+      font-size: 11px;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      font-weight: 500;
+      line-height: 1.4;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+    .status-chip .dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .status-chip--healthy { background: color-mix(in oklab, var(--ok) 14%, transparent); color: var(--ok); }
+    .status-chip--healthy .dot { background: var(--ok); }
+    .status-chip--behind { background: color-mix(in oklab, var(--warn) 14%, transparent); color: var(--warn); }
+    .status-chip--behind .dot { background: var(--warn); }
+    .status-chip--blocked { background: color-mix(in oklab, var(--danger) 14%, transparent); color: var(--danger); }
+    .status-chip--blocked .dot { background: var(--danger); }
+    .status-chip--paused { background: color-mix(in oklab, var(--text-lo) 14%, transparent); color: var(--text-lo); }
+    .status-chip--paused .dot { background: var(--text-lo); }
+    .status-chip--done { background: color-mix(in oklab, var(--ok) 14%, transparent); color: var(--ok); }
+    .status-chip--done .dot { background: var(--ok); }
+    .status-chip--error { background: color-mix(in oklab, var(--danger) 14%, transparent); color: var(--danger); }
+    .status-chip--error .dot { background: var(--danger); }
+
+    /* --- Tier 1: Tag --- */
+    .tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 2px 8px;
+      border-radius: var(--r-pill);
+      font-size: 11px;
+      font-family: var(--mono);
+      letter-spacing: 0.03em;
+      white-space: nowrap;
+      background: var(--surface-ghost);
+      color: var(--text-mid);
+      flex-shrink: 0;
+    }
+
+    /* --- Tier 1: KeyValue --- */
+    .key-value {
+      display: flex;
+      flex-direction: row;
+      align-items: center;
+      justify-content: space-between;
+      gap: 4px;
+    }
+    .key-value__label {
+      font-family: var(--mono);
+      font-size: 11px;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      font-weight: 500;
+      color: var(--text-lo);
+    }
+    .key-value__value {
+      font-size: var(--density-text);
+      color: var(--text-hi);
+    }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" crossorigin></script>
+  <script type="text/babel" data-presets="env,react">
+    const TASK_STATE_MAP = {
+      proposed: "paused",
+      accepted: "healthy",
+      hold: "paused",
+      in_progress: "healthy",
+      blocked: "blocked",
+      review: "behind",
+      done: "done",
+      killed: "error",
+    };
+
+    function StatusChip({ status }) {
+      return (
+        <span
+          className={`status-chip status-chip--${status}`}
+          title={status}
+          data-component="StatusChip"
+          data-tier="1"
+        >
+          <span className="dot" />
+          {status.toUpperCase()}
+        </span>
+      );
+    }
+
+    function Tag({ label }) {
+      return (
+        <span className="tag" data-component="Tag" data-tier="1">
+          {label}
+        </span>
+      );
+    }
+
+    function KeyValue({ label, value }) {
+      return (
+        <div className="key-value" data-component="KeyValue" data-tier="1">
+          <span className="key-value__label">{label}</span>
+          <span className="key-value__value">{value}</span>
+        </div>
+      );
+    }
+
+    function TaskCard({ title, owner, state, cost, betTag }) {
+      const presentationStatus = TASK_STATE_MAP[state] || "paused";
+      const isBlocked = state === "blocked";
+
+      return (
+        <div
+          className={`task-card${isBlocked ? " task-card--blocked" : ""}`}
+          role="button"
+          tabIndex={0}
+          data-component="TaskCard"
+          data-tier="2"
+          data-uses="StatusChip,Tag,KeyValue"
+          data-daisyui=""
+          data-used-by="Kanban"
+        >
+          <span className="task-card__title" aria-label={`Task: ${title}`}>{title}</span>
+          <div className="task-card__meta">
+            {betTag && <Tag label={betTag} />}
+            <StatusChip status={presentationStatus} />
+          </div>
+          <span className="task-card__owner">{owner}</span>
+          {cost && <KeyValue label="Cost" value={cost} />}
+        </div>
+      );
+    }
+
+    function Demo() {
+      return (
+        <div className="demo-grid">
+          <div className="demo-section">
+            <div className="demo-section-title">In Progress</div>
+            <TaskCard
+              title="Implement login flow"
+              owner="Bob Smith"
+              state="in_progress"
+              cost="$1.50"
+              betTag="Mobile V2"
+            />
+          </div>
+
+          <div className="demo-section">
+            <div className="demo-section-title">Blocked</div>
+            <TaskCard
+              title="Fix CI pipeline"
+              owner="Alice Chen"
+              state="blocked"
+              cost="$0.80"
+            />
+          </div>
+
+          <div className="demo-section">
+            <div className="demo-section-title">Done</div>
+            <TaskCard
+              title="Write unit tests"
+              owner="Carol Davis"
+              state="done"
+              cost="$2.00"
+              betTag="Sprint 1"
+            />
+          </div>
+
+          <div className="demo-section">
+            <div className="demo-section-title">All States</div>
+            <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+              <TaskCard title="Proposed task" owner="Agent" state="proposed" />
+              <TaskCard title="Accepted task" owner="Agent" state="accepted" />
+              <TaskCard title="On hold" owner="Agent" state="hold" />
+              <TaskCard title="In progress" owner="Agent" state="in_progress" />
+              <TaskCard title="Blocked task" owner="Agent" state="blocked" />
+              <TaskCard title="In review" owner="Agent" state="review" />
+              <TaskCard title="Completed" owner="Agent" state="done" />
+              <TaskCard title="Killed" owner="Agent" state="killed" />
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById('root')).render(<Demo />);
+  </script>
+</body>
+</html>

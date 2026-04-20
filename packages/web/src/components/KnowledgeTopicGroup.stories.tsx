@@ -1,4 +1,4 @@
-import { KnowledgeRow } from "./KnowledgeRow";
+import { KnowledgeRow } from "@hyperidle/design-system";
 import { KnowledgeTopicGroup } from "./KnowledgeTopicGroup";
 
 export default { title: "KnowledgeTopicGroup" };

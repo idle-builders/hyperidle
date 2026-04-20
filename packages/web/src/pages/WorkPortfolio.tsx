@@ -10,10 +10,7 @@
  * cycle and days remaining.
  */
 import type { JSX } from "react";
-import { EmptyState } from "../components/EmptyState";
-import { KeyValue } from "../components/KeyValue";
-import { SkeletonCard } from "../components/Skeleton";
-import { StatusChip } from "../components/StatusChip";
+import { EmptyState, KeyValue, SkeletonCard, StatusChip } from "@hyperidle/design-system";
 import { MOCK_CYCLE, MOCK_PRODUCTS } from "../fixtures/portfolio-data";
 
 export interface WorkPortfolioProps {

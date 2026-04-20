@@ -8,7 +8,7 @@ import { type JSX, useCallback, useEffect, useMemo, useState } from "react";
 import { Outlet, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { ErrorBoundary } from "../components/ErrorBoundary";
 import { GlobalSearchPanel } from "../components/GlobalSearchPanel";
-import { NavItem } from "../components/NavItem";
+import { NavItem } from "@hyperidle/design-system";
 import type { SettingsData } from "../components/SettingsPanel";
 import { SettingsPanel } from "../components/SettingsPanel";
 import {

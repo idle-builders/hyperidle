@@ -1,6 +1,6 @@
 import type React from "react";
 import { describe, expect, it, vi } from "vitest";
-import { clickableProps } from "../components/clickable";
+import { clickableProps } from "@hyperidle/design-system";
 
 describe("clickableProps", () => {
 	it("returns empty object when onClick is undefined", () => {

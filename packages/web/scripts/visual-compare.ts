@@ -1,13 +1,18 @@
 /**
  * Visual Design Comparison Tool
  *
- * Screenshots a reference HTML mockup and the live app at the same viewport,
- * then runs pixelmatch to produce a diff image and fidelity score.
+ * Compares Claude Design reference prototypes against the live app.
+ * References are interactive React apps in docs/concept/design-synthesis/,
+ * served via a local HTTP server. The live app runs on localhost:5173.
  *
  * Usage:
  *   bun run scripts/visual-compare.ts [reference-name|all]
- *   bun run scripts/visual-compare.ts app_shell_systems_nominal
+ *   bun run scripts/visual-compare.ts shell_conversations
  *   bun run scripts/visual-compare.ts all
+ *
+ * Prerequisites:
+ *   - Dev server running (bun dev)
+ *   - Reference server started automatically (python3 -m http.server)
  *
  * Output (per reference):
  *   packages/web/visual-reports/<name>/reference.png
@@ -15,12 +20,13 @@
  *   packages/web/visual-reports/<name>/diff.png
  *   packages/web/visual-reports/<name>/report.json
  *
- * @lore Uses file:// to render reference HTML — avoids needing a second server.
- * Disables animations via injected CSS for deterministic captures.
- * Waits for networkidle + fonts before screenshotting.
+ * @lore References use React 18 via CDN + Babel in-browser transpilation.
+ * They MUST be served via HTTP (not file://) due to cross-origin script loading.
+ * The script auto-starts a python HTTP server on :8099 and kills it on exit.
  */
 
-import { existsSync, mkdirSync, writeFileSync } from "node:fs";
+import { exec } from "node:child_process";
+import { mkdirSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { chromium } from "@playwright/test";
 import pixelmatch from "pixelmatch";
@@ -28,11 +34,13 @@ import { PNG } from "pngjs";
 import { REFERENCE_MAP, type ReferenceEntry } from "./visual-compare-map.js";
 
 const ROOT = resolve(import.meta.dirname, "../../..");
-const REFERENCES_DIR = resolve(ROOT, "docs/design-references");
+const DESIGN_DIR = resolve(ROOT, "docs/concept/design-synthesis");
 const REPORTS_DIR = resolve(import.meta.dirname, "../visual-reports");
 
 const VIEWPORT = { width: 1280, height: 800 };
-const BASE_URL = process.env.BASE_URL ?? "http://localhost:5173";
+const APP_URL = process.env.BASE_URL ?? "http://localhost:5173";
+const REF_PORT = 8099;
+const REF_URL = `http://localhost:${REF_PORT}`;
 
 /** CSS injected before screenshot to disable animations and transitions */
 const FREEZE_CSS = `
@@ -47,7 +55,7 @@ const FREEZE_CSS = `
 
 interface CompareResult {
 	name: string;
-	referenceFile: string;
+	referenceUrl: string;
 	route: string;
 	viewport: { width: number; height: number };
 	totalPixels: number;
@@ -58,21 +66,42 @@ interface CompareResult {
 	timestamp: string;
 }
 
+/** Start a python HTTP server for the design references */
+function startRefServer(): { kill: () => void } {
+	const proc = exec(`python3 -m http.server ${REF_PORT}`, { cwd: DESIGN_DIR });
+	return {
+		kill: () => {
+			proc.kill();
+		},
+	};
+}
+
+/** Check if a server is responding */
+async function waitForServer(url: string, timeoutMs = 10_000): Promise<boolean> {
+	const start = Date.now();
+	while (Date.now() - start < timeoutMs) {
+		try {
+			const res = await fetch(url);
+			if (res.ok) return true;
+		} catch {
+			// not ready yet
+		}
+		await new Promise((r) => setTimeout(r, 200));
+	}
+	return false;
+}
+
 async function captureReference(
 	page: Awaited<ReturnType<Awaited<ReturnType<typeof chromium.launch>>["newPage"]>>,
 	entry: ReferenceEntry,
 ): Promise<Buffer> {
-	const htmlPath = resolve(REFERENCES_DIR, entry.name, "code.html");
-	if (!existsSync(htmlPath)) {
-		throw new Error(`Reference HTML not found: ${htmlPath}`);
+	const url = `${REF_URL}${entry.referenceUrl}`;
+	await page.goto(url, { waitUntil: "networkidle", timeout: 30_000 });
+
+	if (entry.referenceSetup) {
+		await entry.referenceSetup(page);
 	}
 
-	await page.goto(`file://${htmlPath}`, { waitUntil: "networkidle", timeout: 15_000 });
-	// Wait for fonts to load
-	await page.waitForFunction(() => document.fonts.ready.then(() => true), null, {
-		timeout: 10_000,
-	});
-	// Inject freeze CSS
 	await page.addStyleTag({ content: FREEZE_CSS });
 	await page.waitForTimeout(200);
 
@@ -83,19 +112,16 @@ async function captureImplementation(
 	page: Awaited<ReturnType<Awaited<ReturnType<typeof chromium.launch>>["newPage"]>>,
 	entry: ReferenceEntry,
 ): Promise<Buffer> {
-	const url = `${BASE_URL}${entry.route}`;
+	const url = `${APP_URL}${entry.route}`;
 	await page.goto(url, { waitUntil: "networkidle", timeout: 15_000 });
 
-	// Execute any setup actions (e.g., open a modal, click a tab)
-	if (entry.setup) {
-		await entry.setup(page);
+	if (entry.implSetup) {
+		await entry.implSetup(page);
 	}
 
-	// Wait for fonts to load
 	await page.waitForFunction(() => document.fonts.ready.then(() => true), null, {
 		timeout: 10_000,
 	});
-	// Inject freeze CSS
 	await page.addStyleTag({ content: FREEZE_CSS });
 	await page.waitForTimeout(200);
 
@@ -109,11 +135,9 @@ function runPixelmatch(
 	const refImg = PNG.sync.read(refBuffer);
 	const implImg = PNG.sync.read(implBuffer);
 
-	// Resize if dimensions don't match — use the smaller of the two
 	const width = Math.min(refImg.width, implImg.width);
 	const height = Math.min(refImg.height, implImg.height);
 
-	// Crop both to same dimensions if needed
 	const refData = cropImageData(refImg, width, height);
 	const implData = cropImageData(implImg, width, height);
 
@@ -121,7 +145,7 @@ function runPixelmatch(
 	const diffPixels = pixelmatch(refData, implData, diff.data, width, height, {
 		threshold: 0.1,
 		includeAA: false,
-		diffColor: [255, 0, 255], // magenta for differences
+		diffColor: [255, 0, 255],
 	});
 
 	return {
@@ -151,28 +175,23 @@ async function compareOne(
 	const reportDir = resolve(REPORTS_DIR, entry.name);
 	mkdirSync(reportDir, { recursive: true });
 
-	// Create two separate pages with same viewport
 	const refPage = await browser.newPage({ viewport: VIEWPORT });
 	const implPage = await browser.newPage({ viewport: VIEWPORT });
 
 	try {
-		const [refBuffer, implBuffer] = await Promise.all([
-			captureReference(refPage, entry),
-			captureImplementation(implPage, entry),
-		]);
+		const refBuffer = await captureReference(refPage, entry);
+		const implBuffer = await captureImplementation(implPage, entry);
 
-		// Save screenshots
 		writeFileSync(resolve(reportDir, "reference.png"), refBuffer);
 		writeFileSync(resolve(reportDir, "implementation.png"), implBuffer);
 
-		// Run pixel comparison
 		const { diffPng, diffPixels, totalPixels } = runPixelmatch(refBuffer, implBuffer);
 		writeFileSync(resolve(reportDir, "diff.png"), diffPng);
 
 		const matchPercent = ((totalPixels - diffPixels) / totalPixels) * 100;
 		const result: CompareResult = {
 			name: entry.name,
-			referenceFile: resolve(REFERENCES_DIR, entry.name, "code.html"),
+			referenceUrl: `${REF_URL}${entry.referenceUrl}`,
 			route: entry.route,
 			viewport: VIEWPORT,
 			totalPixels,
@@ -204,6 +223,24 @@ async function main(): Promise<void> {
 
 	mkdirSync(REPORTS_DIR, { recursive: true });
 
+	// Start reference server
+	const refServer = startRefServer();
+	const refReady = await waitForServer(`${REF_URL}/HyperIdle.html`);
+	if (!refReady) {
+		console.error("Failed to start reference server on port 8099");
+		refServer.kill();
+		process.exit(1);
+	}
+
+	// Verify app server
+	try {
+		await fetch(APP_URL);
+	} catch {
+		console.error(`App server not running at ${APP_URL}. Start with: bun dev`);
+		refServer.kill();
+		process.exit(1);
+	}
+
 	const browser = await chromium.launch();
 	const results: CompareResult[] = [];
 
@@ -215,13 +252,14 @@ async function main(): Promise<void> {
 			results.push(result);
 
 			const icon = result.matchPercent >= 95 ? "✓" : result.matchPercent >= 80 ? "△" : "✗";
-			console.log(`${icon} ${entry.name.padEnd(45)} ${result.matchPercent.toFixed(1)}% match`);
+			console.log(`${icon} ${entry.name.padEnd(40)} ${result.matchPercent.toFixed(1)}% match`);
 		} catch (err) {
-			console.log(`✗ ${entry.name.padEnd(45)} ERROR: ${(err as Error).message}`);
+			console.log(`✗ ${entry.name.padEnd(40)} ERROR: ${(err as Error).message.slice(0, 80)}`);
 		}
 	}
 
 	await browser.close();
+	refServer.kill();
 
 	// Summary
 	console.log(`\n${"─".repeat(60)}`);
@@ -231,7 +269,6 @@ async function main(): Promise<void> {
 		console.log(`Reports: ${REPORTS_DIR}/`);
 	}
 
-	// Write summary report
 	writeFileSync(
 		resolve(REPORTS_DIR, "summary.json"),
 		JSON.stringify({ timestamp: new Date().toISOString(), results }, null, 2),

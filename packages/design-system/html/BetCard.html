@@ -1,0 +1,316 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>BetCard — HyperIdle Design System</title>
+  <link rel="stylesheet" href="_tokens.css" />
+  <style>
+    .bet-card {
+      background: var(--surface-4);
+      border-radius: var(--r2);
+      padding: 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      cursor: pointer;
+      transition: background var(--motion-fast);
+      max-width: 320px;
+    }
+    .bet-card:hover {
+      background: var(--surface-5);
+    }
+    .bet-card:focus-visible {
+      outline: 1px solid var(--primary);
+      outline-offset: -1px;
+    }
+
+    .bet-card__header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .bet-card__avatar {
+      display: inline-flex;
+      width: 24px;
+      height: 24px;
+      flex-shrink: 0;
+      align-items: center;
+      justify-content: center;
+      border-radius: 50%;
+      background: var(--surface-6);
+      color: var(--text-hi);
+      font-size: 11px;
+      font-weight: 600;
+    }
+    .bet-card__title {
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--text-hi);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      flex: 1;
+      min-width: 0;
+    }
+
+    .bet-card__meta {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .bet-card__progress {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .bet-card__progress-bar {
+      width: 64px;
+      height: 6px;
+      background: var(--surface-6);
+      border-radius: var(--r-pill);
+      overflow: hidden;
+    }
+    .bet-card__progress-fill {
+      height: 100%;
+      background: var(--primary);
+      border-radius: var(--r-pill);
+      transition: width var(--motion-medium);
+    }
+    .bet-card__progress-label {
+      font-size: 12px;
+      color: var(--text-mid);
+    }
+
+    /* --- Tier 1: StatusChip --- */
+    .status-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 2px 8px;
+      border-radius: var(--r-pill);
+      font-family: var(--mono);
+      font-size: 11px;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      font-weight: 500;
+      line-height: 1.4;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+    .status-chip .dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .status-chip--healthy { background: color-mix(in oklab, var(--ok) 14%, transparent); color: var(--ok); }
+    .status-chip--healthy .dot { background: var(--ok); }
+    .status-chip--behind { background: color-mix(in oklab, var(--warn) 14%, transparent); color: var(--warn); }
+    .status-chip--behind .dot { background: var(--warn); }
+    .status-chip--blocked { background: color-mix(in oklab, var(--danger) 14%, transparent); color: var(--danger); }
+    .status-chip--blocked .dot { background: var(--danger); }
+    .status-chip--paused { background: color-mix(in oklab, var(--text-lo) 14%, transparent); color: var(--text-lo); }
+    .status-chip--paused .dot { background: var(--text-lo); }
+    .status-chip--done { background: color-mix(in oklab, var(--ok) 14%, transparent); color: var(--ok); }
+    .status-chip--done .dot { background: var(--ok); }
+    .status-chip--error { background: color-mix(in oklab, var(--danger) 14%, transparent); color: var(--danger); }
+    .status-chip--error .dot { background: var(--danger); }
+
+    /* --- Tier 1: Tag --- */
+    .tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 2px 8px;
+      border-radius: var(--r-pill);
+      font-size: 11px;
+      font-family: var(--mono);
+      letter-spacing: 0.03em;
+      white-space: nowrap;
+      background: var(--surface-ghost);
+      color: var(--text-mid);
+      flex-shrink: 0;
+    }
+
+    /* --- Tier 1: KeyValue --- */
+    .key-value {
+      display: flex;
+      flex-direction: row;
+      align-items: center;
+      justify-content: space-between;
+      gap: 4px;
+    }
+    .key-value__label {
+      font-family: var(--mono);
+      font-size: 11px;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      font-weight: 500;
+      color: var(--text-lo);
+    }
+    .key-value__value {
+      font-size: var(--density-text);
+      color: var(--text-hi);
+    }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" crossorigin></script>
+  <script type="text/babel" data-presets="env,react">
+    const BET_STATUS_MAP = {
+      shaped: "paused",
+      committed: "healthy",
+      in_progress: "healthy",
+      behind: "behind",
+      blocked: "blocked",
+      paused: "paused",
+      review: "behind",
+      shipped: "done",
+      killed: "error",
+    };
+
+    function StatusChip({ status }) {
+      return (
+        <span
+          className={`status-chip status-chip--${status}`}
+          title={status}
+          data-component="StatusChip"
+          data-tier="1"
+        >
+          <span className="dot" />
+          {status.toUpperCase()}
+        </span>
+      );
+    }
+
+    function Tag({ label }) {
+      return (
+        <span className="tag" data-component="Tag" data-tier="1">
+          {label}
+        </span>
+      );
+    }
+
+    function KeyValue({ label, value }) {
+      return (
+        <div className="key-value" data-component="KeyValue" data-tier="1">
+          <span className="key-value__label">{label}</span>
+          <span className="key-value__value">{value}</span>
+        </div>
+      );
+    }
+
+    function BetCard({ title, product, status, appetite, progress, leadAvatar, activeBets, shipped }) {
+      const presentationStatus = BET_STATUS_MAP[status] || "paused";
+
+      return (
+        <div
+          className="bet-card"
+          role="button"
+          tabIndex={0}
+          data-component="BetCard"
+          data-tier="2"
+          data-uses="StatusChip,Tag,KeyValue"
+          data-daisyui="badge"
+          data-used-by="Canvas"
+        >
+          <div className="bet-card__header">
+            {leadAvatar && (
+              <span className="bet-card__avatar" aria-label={`Lead agent: ${leadAvatar.name}`}>
+                {leadAvatar.initials}
+              </span>
+            )}
+            <span className="bet-card__title" aria-label={`Bet: ${title}`}>{title}</span>
+          </div>
+          <div className="bet-card__meta">
+            <Tag label={product} />
+            <StatusChip status={presentationStatus} />
+          </div>
+          <KeyValue label="Appetite" value={appetite} />
+          {activeBets !== undefined && (
+            <KeyValue label={activeBets === 1 ? "Active bet" : "Active bets"} value={String(activeBets)} />
+          )}
+          {shipped !== undefined && (
+            <KeyValue label="Shipped" value={String(shipped)} />
+          )}
+          {progress && (
+            <div className="bet-card__progress">
+              <div className="bet-card__progress-bar">
+                <div
+                  className="bet-card__progress-fill"
+                  style={{ width: `${(progress.done / progress.total) * 100}%` }}
+                />
+              </div>
+              <span className="bet-card__progress-label">{progress.done}/{progress.total}</span>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    function Demo() {
+      return (
+        <div className="demo-grid">
+          <div className="demo-section">
+            <div className="demo-section-title">Committed</div>
+            <BetCard title="Mobile App V2" product="HyperIdle" status="committed" appetite="6 weeks" />
+          </div>
+
+          <div className="demo-section">
+            <div className="demo-section-title">With Progress</div>
+            <BetCard
+              title="Knowledge Graph Rebuild"
+              product="Fabric"
+              status="in_progress"
+              appetite="4 weeks"
+              progress={{ done: 3, total: 8 }}
+            />
+          </div>
+
+          <div className="demo-section">
+            <div className="demo-section-title">Shipped</div>
+            <BetCard title="Agent Cost Controls" product="Runtime" status="shipped" appetite="2 weeks" />
+          </div>
+
+          <div className="demo-section">
+            <div className="demo-section-title">Killed</div>
+            <BetCard title="Deprecated Feature" product="Legacy" status="killed" appetite="1 week" />
+          </div>
+
+          <div className="demo-section">
+            <div className="demo-section-title">All Statuses</div>
+            <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+              <BetCard title="Shaped Bet" product="App" status="shaped" appetite="6 weeks" />
+              <BetCard title="Committed Bet" product="App" status="committed" appetite="4 weeks" />
+              <BetCard title="In Progress Bet" product="App" status="in_progress" appetite="3 weeks" progress={{ done: 2, total: 5 }} />
+              <BetCard title="Shipped Bet" product="App" status="shipped" appetite="2 weeks" />
+              <BetCard title="Killed Bet" product="App" status="killed" appetite="1 week" />
+            </div>
+          </div>
+
+          <div className="demo-section">
+            <div className="demo-section-title">Portfolio Mode</div>
+            <BetCard
+              title="HyperIdle Core"
+              product="HyperIdle"
+              status="committed"
+              appetite="Cycle 12"
+              leadAvatar={{ name: "CEO Agent", initials: "CE" }}
+              activeBets={4}
+              shipped={12}
+              progress={{ done: 3, total: 5 }}
+            />
+          </div>
+        </div>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById('root')).render(<Demo />);
+  </script>
+</body>
+</html>

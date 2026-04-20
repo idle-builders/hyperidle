@@ -1,6 +1,6 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
-import { Tag } from "../components/Tag";
+import { Tag } from "@hyperidle/design-system";
 
 describe("Tag", () => {
 	it("renders label text", () => {

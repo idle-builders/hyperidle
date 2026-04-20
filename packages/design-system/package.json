@@ -1,0 +1,27 @@
+{
+	"name": "@hyperidle/design-system",
+	"version": "0.0.1",
+	"private": true,
+	"type": "module",
+	"exports": {
+		".": "./src/index.ts",
+		"./tokens.css": "./src/tokens.css"
+	},
+	"scripts": {
+		"check": "tsc --noEmit",
+		"serve": "bun run scripts/serve.ts",
+		"sync-check": "bun run scripts/sync-check.ts"
+	},
+	"dependencies": {
+		"@hyperidle/shared": "workspace:*"
+	},
+	"peerDependencies": {
+		"react": "^19.0.0"
+	},
+	"devDependencies": {
+		"@playwright/test": "^1.59.1",
+		"@types/pngjs": "^6.0.5",
+		"pixelmatch": "^7.1.0",
+		"pngjs": "^7.0.0"
+	}
+}

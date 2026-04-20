@@ -8,8 +8,7 @@
  */
 import type { BetStatus } from "@hyperidle/shared";
 import { type JSX, useMemo, useState } from "react";
-import { PitchCard } from "../components/PitchCard";
-import { SearchField } from "../components/SearchField";
+import { PitchCard, SearchField } from "@hyperidle/design-system";
 
 export interface PitchSelectorPitch {
 	id: string;
