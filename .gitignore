@@ -12,3 +12,5 @@ test-results/
 .claude/worktrees/
 docs/plans
 logs/
+*.db-shm
+*.db-wal
