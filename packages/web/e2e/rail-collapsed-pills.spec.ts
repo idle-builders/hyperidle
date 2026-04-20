@@ -17,7 +17,7 @@ test.describe("Rail collapsed pills (J2)", () => {
 		await page.waitForSelector("[data-testid='main-content']");
 
 		// BLK pill: aria-label "1 blockers" (MOCK_RAIL_BLOCKERS length = 1).
-		await expect(page.getByLabelText(/1 blockers/i)).toBeVisible();
+		await expect(page.getByLabel(/1 blockers?/i)).toBeVisible();
 		// Expanded headers must NOT be visible while collapsed.
 		await expect(page.getByText("Active Bets")).not.toBeVisible();
 	});
@@ -28,12 +28,12 @@ test.describe("Rail collapsed pills (J2)", () => {
 		await page.waitForSelector("[data-testid='main-content']");
 
 		// Precondition: BLK pill visible in collapsed state.
-		await expect(page.getByLabelText(/1 blockers/i)).toBeVisible();
+		await expect(page.getByLabel(/1 blockers?/i)).toBeVisible();
 		// Click expand chevron (aria-label "Expand rail").
 		await page.getByRole("button", { name: /expand rail/i }).click();
 		// Expanded: Active Bets header reappears.
 		await expect(page.getByText("Active Bets")).toBeVisible();
 		// Collapsed pills are gone.
-		await expect(page.getByLabelText(/1 blockers/i)).not.toBeVisible();
+		await expect(page.getByLabel(/1 blockers?/i)).not.toBeVisible();
 	});
 });

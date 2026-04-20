@@ -173,6 +173,7 @@ function KnowledgeSubmenu({ scope, topics, onScopeChange }: KnowledgeSubmenuProp
 								data-testid={`knowledge-topic-nav-${t.topic}`}
 							>
 								<span
+									role="img"
 									className={`inline-block h-2 w-2 rounded-full shrink-0 ${HEALTH_DOT[t.health]}`}
 									aria-label={`Health: ${t.health.replace("_", " ")}`}
 									data-health={t.health}
