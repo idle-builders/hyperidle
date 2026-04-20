@@ -114,15 +114,6 @@ export {
 	redactDbUrl,
 } from "./redact.js";
 
-export {
-	type ResolveResult,
-	type SanitizeResult,
-	type SanitizeUrlOptions,
-	sanitizeHttpUrl,
-	assertUrlNotSSRF,
-	resolveUrlForSSRF,
-	isPrivateIPv4,
-	isPrivateIPv6,
-	isPrivateHostLiteral,
-	isLoopbackHost,
-} from "./net/ssrf.js";
+// SSRF utilities use node:dns/net/util and cannot be imported in the browser.
+// Server code imports them via "@hyperidle/shared/net" subpath export instead.
+export type { ResolveResult, SanitizeResult, SanitizeUrlOptions } from "./net/ssrf.js";
