@@ -177,10 +177,16 @@ export interface WorkBetProps {
 	 * behavior unchanged.
 	 */
 	loading?: boolean;
+	/**
+	 * Override the bet id resolved from route params. Used by design system
+	 * stories which render outside the /work/bet/:betId route.
+	 */
+	overrideBetId?: string;
 }
 
-export function WorkBet({ loading = false }: WorkBetProps = {}): JSX.Element {
-	const { betId } = useParams<{ betId: string }>();
+export function WorkBet({ loading = false, overrideBetId }: WorkBetProps = {}): JSX.Element {
+	const { betId: routeBetId } = useParams<{ betId: string }>();
+	const betId = overrideBetId ?? routeBetId;
 	const bet = (betId && MOCK_BETS[betId]) || FALLBACK_BET;
 
 	const [sortColumn, setSortColumn] = useState<SortColumn | null>(null);

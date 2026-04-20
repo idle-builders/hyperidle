@@ -67,10 +67,18 @@ export function parseStoryModules(
 	return modules.sort((a, b) => a.meta.title.localeCompare(b.meta.title));
 }
 
+/**
+ * @lore I6-fix: the hash uses `::` (not `/`) as component/variant separator
+ * because story titles such as "Page: Conversations/Chat" embed literal
+ * slashes. Splitting on `/` would shred the title.
+ */
 function parseHash(): { component: string | null; variant: string | null } {
-	const hash = window.location.hash.replace(/^#\/?/, "");
+	const hash = decodeURIComponent(window.location.hash.replace(/^#\/?/, ""));
 	if (!hash) return { component: null, variant: null };
-	const [component, variant] = hash.split("/");
+	const sepIdx = hash.indexOf("::");
+	if (sepIdx === -1) return { component: hash || null, variant: null };
+	const component = hash.slice(0, sepIdx);
+	const variant = hash.slice(sepIdx + 2);
 	return { component: component || null, variant: variant || null };
 }
 
@@ -96,7 +104,7 @@ export function DesignSystem(): React.JSX.Element {
 	const activeModule = modules.find((m) => m.meta.title === activeComponent);
 
 	const navigate = useCallback((component: string, variant?: string) => {
-		window.location.hash = variant ? `${component}/${variant}` : component;
+		window.location.hash = variant ? `${component}::${variant}` : component;
 	}, []);
 
 	return (
