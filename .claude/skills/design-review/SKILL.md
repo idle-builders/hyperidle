@@ -36,7 +36,7 @@ For accessibility: don't just check that aria attributes exist — check they're
 
 ## Visual verification
 
-Look at pixels, not code. Before writing findings, screenshot every changed page/component with Playwright. Read the PNGs. Compare against `docs/UI_DESIGN.md` and `stitch 2/` mockups. Check truncation, contrast, alignment, spacing, all states. Include screenshot paths in findings.
+Look at pixels, not code. Run `cd packages/web && bun run visual:compare <reference-name>` to generate pixel diffs against the reference mockups in `docs/design-references/`. Read the reference.png, implementation.png, and diff.png. Compare against `docs/UI_DESIGN.md`. Check truncation, contrast, alignment, spacing, all states. Include screenshot paths and match percentages in findings.
 
 If the dev server is not running or Playwright is not installed, that is a CRITICAL finding.
 
