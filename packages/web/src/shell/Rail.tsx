@@ -1,10 +1,7 @@
 import type { BetStatus } from "@hyperidle/shared";
 import { type JSX, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { KeyValue } from "../components/KeyValue";
-import type { Status } from "../components/StatusChip";
-import { StatusChip } from "../components/StatusChip";
-import { betStatusToStatus } from "../components/status-mapping";
+import { KeyValue, StatusChip, type Status, betStatusToStatus } from "@hyperidle/design-system";
 import { useRovingFocus } from "./use-roving-focus";
 
 /**

@@ -1,6 +1,6 @@
 import DOMPurify from "dompurify";
 import type { JSX } from "react";
-import { KeyValue } from "../components/KeyValue";
+import { KeyValue } from "@hyperidle/design-system";
 
 // --- Data shape types ---
 

@@ -1,4 +1,4 @@
-import type { Status } from "../components/StatusChip";
+import type { Status } from "@hyperidle/design-system";
 
 /**
  * I4 P1: mock product portfolio for the WorkPortfolio overview. Real wiring

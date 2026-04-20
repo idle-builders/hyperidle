@@ -120,7 +120,7 @@ describe("index.css has no custom CSS", () => {
 // ---------- c. Density CSS variables (J1) ----------
 
 describe("index.css density tokens", () => {
-	const cssPath = resolve(__dirname, "../index.css");
+	const cssPath = resolve(__dirname, "../../../design-system/src/tokens.css");
 	const cssContent = readFileSync(cssPath, "utf-8");
 
 	const REQUIRED_VARS = [

@@ -5,13 +5,19 @@ import type { StoryMeta, StoryModule } from "./types.js";
 // Auto-discover .stories.tsx for reusable components only (Tier 1-3).
 // Pages and layouts are full compositions, not reusable — they belong
 // in E2E tests, not the design system catalog.
+// @lore Design system components (Tier 1-2) live in @hyperidle/design-system,
+// shell components (Tier 3) stay in packages/web. Both are discovered here.
+const dsModules = import.meta.glob<Record<string, unknown>>(
+	"../../../../design-system/src/*.stories.tsx",
+	{ eager: true },
+);
 const componentModules = import.meta.glob<Record<string, unknown>>("../components/*.stories.tsx", {
 	eager: true,
 });
 const shellModules = import.meta.glob<Record<string, unknown>>("../shell/*.stories.tsx", {
 	eager: true,
 });
-const storyGlobs = { ...componentModules, ...shellModules };
+const storyGlobs = { ...dsModules, ...componentModules, ...shellModules };
 
 /**
  * I4 D2: parseStoryModules now detects CSF3 object stories (`{ name, render }`)

@@ -1,6 +1,6 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
-import { KeyValue } from "../components/KeyValue";
+import { KeyValue } from "@hyperidle/design-system";
 
 describe("KeyValue", () => {
 	it("renders label and value text", () => {

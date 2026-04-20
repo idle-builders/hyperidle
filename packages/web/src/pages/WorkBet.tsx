@@ -12,10 +12,7 @@
 import type { BetStatus, TaskState } from "@hyperidle/shared";
 import { type JSX, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { BetCard } from "../components/BetCard";
-import { SkeletonCard, SkeletonList } from "../components/Skeleton";
-import { StatusChip } from "../components/StatusChip";
-import { taskStateToStatus } from "../components/status-mapping";
+import { BetCard, SkeletonCard, SkeletonList, StatusChip, taskStateToStatus } from "@hyperidle/design-system";
 
 interface MockBetComment {
 	id: string;

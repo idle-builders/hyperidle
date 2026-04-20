@@ -1,7 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
-import { ErrorState } from "../components/ErrorState";
+import { ErrorState } from "@hyperidle/design-system";
 
 describe("ErrorState", () => {
 	it("renders error title and description", () => {

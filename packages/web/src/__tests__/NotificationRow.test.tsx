@@ -1,6 +1,6 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
-import { NotificationRow } from "../components/NotificationRow";
+import { NotificationRow } from "@hyperidle/design-system";
 
 describe("NotificationRow", () => {
 	const defaultProps = {

@@ -1,6 +1,6 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import { KnowledgeRow } from "../components/KnowledgeRow";
+import { KnowledgeRow } from "@hyperidle/design-system";
 
 describe("KnowledgeRow", () => {
 	const defaultProps = {

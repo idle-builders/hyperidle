@@ -1,5 +1,5 @@
 import type { JSX, ReactNode } from "react";
-import { SearchField } from "../components/SearchField";
+import { SearchField } from "@hyperidle/design-system";
 
 /**
  * Segmented-filter identifier for the Submenu header row.

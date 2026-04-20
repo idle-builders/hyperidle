@@ -135,6 +135,7 @@
 			"coverage",
 			"playwright-report",
 			"visual-reports",
+			"sync-reports",
 			".claude",
 			".worktrees"
 		]

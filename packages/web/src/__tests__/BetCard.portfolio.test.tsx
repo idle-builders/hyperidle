@@ -5,7 +5,7 @@
  */
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
-import { BetCard } from "../components/BetCard";
+import { BetCard } from "@hyperidle/design-system";
 
 describe("BetCard — portfolio mode (J5)", () => {
 	const baseProps = {

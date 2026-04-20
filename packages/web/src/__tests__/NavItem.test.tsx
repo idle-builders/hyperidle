@@ -1,7 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
-import { NavItem } from "../components/NavItem";
+import { NavItem } from "@hyperidle/design-system";
 
 describe("NavItem", () => {
 	it("renders label text", () => {

@@ -1,6 +1,6 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
-import { SkeletonCard, SkeletonList } from "../components/Skeleton";
+import { SkeletonCard, SkeletonList } from "@hyperidle/design-system";
 
 describe("SkeletonList", () => {
 	it("renders the requested number of rows using DaisyUI skeleton class", () => {

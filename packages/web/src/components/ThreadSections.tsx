@@ -1,6 +1,5 @@
 import type { JSX } from "react";
-import type { Status } from "./StatusChip";
-import { ThreadRow } from "./ThreadRow";
+import { type Status, ThreadRow } from "@hyperidle/design-system";
 
 /**
  * @lore J4 AC: thread-list section grouping is computed client-side from
