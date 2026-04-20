@@ -31,3 +31,5 @@ paths:
 | "The happy path is enough for now" | The happy path is what the user does 80% of the time. The error path is what creates incidents 100% of the time. |
 | "This is just a refactor, tests aren't needed" | Refactors that don't break tests aren't refactors — they're rewrites. If existing tests still pass, you've proven the refactor is safe. If no tests exist, write them first. |
 | "E2E tests are slow, I'll skip them" | E2E tests catch what unit tests miss — integration failures, UI state bugs, real user flows. The 30 seconds they add prevent the 3-hour debugging session. |
+| "I reviewed the JSX, the UI looks correct" | You looked at code, not pixels. Take a screenshot. The app was a white screen for months while code review said it was fine. |
+| "The Playwright tests exist, they'll catch it" | Tests that have never been executed are not tests. Run them. Verify they pass. |
