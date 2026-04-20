@@ -37,7 +37,7 @@ test.describe("Density toggle", () => {
 		expect(shellDensityBefore).toBe("default");
 
 		// Open Settings, switch to Appearance, set density to compact, save.
-		await page.getByRole("button", { name: /profile|user/i }).click();
+		await page.getByRole("button", { name: /^user profile$/i }).click();
 		await expect(page.getByRole("dialog", { name: /settings/i })).toBeVisible();
 		await page.getByRole("tab", { name: "Appearance" }).click();
 		await page.getByLabel("Density").selectOption("compact");

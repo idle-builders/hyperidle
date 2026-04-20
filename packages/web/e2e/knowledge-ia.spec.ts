@@ -57,7 +57,7 @@ test.describe("Knowledge IA (J6)", () => {
 		await page.getByRole("tab", { name: "Curated" }).click();
 		await expect(page.getByTestId("knowledge-curated-view")).toBeVisible();
 		const archGroup = page.getByTestId("topic-group-Architecture");
-		await expect(archGroup.getByText("Architecture")).toBeVisible();
+		await expect(archGroup.getByText("Architecture", { exact: true })).toBeVisible();
 		await expect(archGroup.getByLabel("3 items")).toBeVisible();
 		await expect(archGroup.getByLabel("1 stale")).toBeVisible();
 	});

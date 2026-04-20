@@ -16,7 +16,10 @@
 		--surface-ghost: rgba(255, 255, 255, 0.06);
 		--text-hi: #e7e5e4;
 		--text-mid: #acabaa;
-		--text-lo: #767575;
+		/* @lore Bumped from #767575 to #808080 to meet WCAG 2.1 AA 4.5:1 contrast
+		   ratio against the darkest backgrounds (#060606, #0e0e0e). Previous
+		   value produced 4.2–4.41 ratios — just below the AA threshold. */
+		--text-lo: #808080;
 		/*
 		 * J8 — Motion tokens. Three durations that cover every transition
 		 * in the shell: fast for instant feedback (hover/focus ring), medium

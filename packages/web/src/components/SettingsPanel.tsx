@@ -1,5 +1,5 @@
 import FocusTrap from "focus-trap-react";
-import { type JSX, useCallback, useEffect, useState } from "react";
+import { type JSX, useCallback, useEffect, useRef, useState } from "react";
 
 // --- Types ---
 
@@ -185,6 +185,40 @@ export function SettingsPanel({
 		}
 	}, [validate, onSave, draft, onFeedback, onClose]);
 
+	// @lore React StrictMode double-mounts components. FocusTrap's onDeactivate
+	// fires on the first unmount, which calls onClose and immediately closes the
+	// panel. To avoid this, we disable escapeDeactivates + onDeactivate entirely
+	// and handle Escape ourselves via a keydown listener. The FocusTrap is kept
+	// active=true only while `open` is true; deactivation happens naturally when
+	// the component unmounts (open→false). We also guard onDeactivate against the
+	// StrictMode double-unmount by tracking whether the panel has had time to
+	// settle past the remount window.
+	const settledRef = useRef(false);
+	useEffect(() => {
+		if (open) {
+			settledRef.current = false;
+			const id = setTimeout(() => {
+				settledRef.current = true;
+			}, 50);
+			return () => clearTimeout(id);
+		}
+		settledRef.current = false;
+	}, [open]);
+
+	// Handle Escape key manually so FocusTrap doesn't need onDeactivate.
+	useEffect(() => {
+		if (!open) return;
+		const handler = (e: KeyboardEvent): void => {
+			if (e.key === "Escape") {
+				e.preventDefault();
+				e.stopPropagation();
+				onClose();
+			}
+		};
+		document.addEventListener("keydown", handler, true);
+		return () => document.removeEventListener("keydown", handler, true);
+	}, [open, onClose]);
+
 	if (!open) {
 		return null;
 	}
@@ -203,8 +237,8 @@ export function SettingsPanel({
 				focusTrapOptions={{
 					initialFocus: false,
 					allowOutsideClick: true,
-					escapeDeactivates: true,
-					onDeactivate: onClose,
+					escapeDeactivates: false,
+					returnFocusOnDeactivate: false,
 					fallbackFocus: ".modal-box",
 					tabbableOptions: { displayCheck: "none" },
 				}}
@@ -280,12 +314,16 @@ export function SettingsPanel({
 
 					{/* Footer with Save */}
 					<div className="flex justify-end gap-2 p-3 border-t border-base-300">
-						<button type="button" className="btn btn-ghost btn-sm" onClick={onClose}>
+						<button
+							type="button"
+							className="btn btn-ghost btn-sm text-[var(--text-mid)]"
+							onClick={onClose}
+						>
 							Cancel
 						</button>
 						<button
 							type="button"
-							className="btn btn-primary btn-sm"
+							className="btn btn-primary btn-sm text-black"
 							disabled={saving}
 							onClick={handleSave}
 						>
@@ -314,36 +352,36 @@ function ProfileTab({
 		<div className="flex flex-col gap-3">
 			<div className="form-control">
 				<label className="label" htmlFor="settings-name">
-					<span className="label-text">Name</span>
+					<span className="label-text text-[var(--text-mid)]">Name</span>
 				</label>
 				<input
 					id="settings-name"
 					type="text"
-					className="input input-sm input-bordered w-full"
+					className="input input-sm input-bordered w-full text-[var(--text-hi)]"
 					value={profile.name}
 					onChange={(e) => onChange("name", e.target.value)}
 				/>
 			</div>
 			<div className="form-control">
 				<label className="label" htmlFor="settings-email">
-					<span className="label-text">Email</span>
+					<span className="label-text text-[var(--text-mid)]">Email</span>
 				</label>
 				<input
 					id="settings-email"
 					type="email"
-					className="input input-sm input-bordered w-full"
+					className="input input-sm input-bordered w-full text-[var(--text-hi)]"
 					value={profile.email}
 					onChange={(e) => onChange("email", e.target.value)}
 				/>
 			</div>
 			<div className="form-control">
 				<label className="label" htmlFor="settings-avatar">
-					<span className="label-text">Avatar URL</span>
+					<span className="label-text text-[var(--text-mid)]">Avatar URL</span>
 				</label>
 				<input
 					id="settings-avatar"
 					type="text"
-					className="input input-sm input-bordered w-full"
+					className="input input-sm input-bordered w-full text-[var(--text-hi)]"
 					value={profile.avatarUrl}
 					placeholder="https://..."
 					onChange={(e) => onChange("avatarUrl", e.target.value)}
@@ -463,7 +501,7 @@ function NotificationsTab({
 			<div className="flex gap-3">
 				<div className="form-control flex-1">
 					<label className="label" htmlFor="quiet-start">
-						<span className="label-text">Quiet hours start</span>
+						<span className="label-text text-[var(--text-mid)]">Quiet hours start</span>
 					</label>
 					<input
 						id="quiet-start"
@@ -476,7 +514,7 @@ function NotificationsTab({
 				</div>
 				<div className="form-control flex-1">
 					<label className="label" htmlFor="quiet-end">
-						<span className="label-text">Quiet hours end</span>
+						<span className="label-text text-[var(--text-mid)]">Quiet hours end</span>
 					</label>
 					<input
 						id="quiet-end"
@@ -527,7 +565,7 @@ function AppearanceTab({
 		<div className="flex flex-col gap-3">
 			<div className="form-control">
 				<label className="label" htmlFor="settings-density">
-					<span className="label-text">Density</span>
+					<span className="label-text text-[var(--text-mid)]">Density</span>
 				</label>
 				<select
 					id="settings-density"
