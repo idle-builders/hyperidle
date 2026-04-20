@@ -77,6 +77,16 @@ AI-generated UI has predictable visual anti-patterns. Actively avoid these:
 
 If a design "looks like every AI-generated dashboard", it's wrong. HyperIdle should look like a Bloomberg terminal, not a Dribbble shot.
 
+## Visual Verification
+
+Review by looking, not by reading code. Take Playwright screenshots of every affected page, read the PNGs, compare against specs and mockups. Code tells you what the DOM should be. Screenshots tell you what the user sees.
+
+```bash
+cd packages/web && npx playwright screenshot http://localhost:5173/<route> /tmp/<name>.png --wait-for-timeout=3000
+```
+
+Screenshot every state: empty, loading, error, populated. If you can't screenshot it, you can't review it.
+
 ## What You Do NOT Do
 
 - Write implementation code (React, CSS, TypeScript)
@@ -84,3 +94,4 @@ If a design "looks like every AI-generated dashboard", it's wrong. HyperIdle sho
 - Create new components outside the budget without explicit justification
 - Design for aesthetics over function — this is a productivity tool
 - Ignore existing mockups in `stitch 2/`
+- Review UI by reading code alone — you must look at rendered output

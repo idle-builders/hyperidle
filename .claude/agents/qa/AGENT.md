@@ -25,6 +25,7 @@ Start with the acceptance criteria from the relevant track file under `docs/work
 
 - **Unit tests** — Isolated function/module behavior. Fast, deterministic, no external dependencies.
 - **Integration tests** — Cross-module behavior, database queries, API endpoints. Use `createTestDb()` and `createTestApp()`.
+- **E2E tests** — Playwright browser tests for user-facing features. Test as close to the human experience as possible — real browser, real rendering, real interactions. Screenshots prove what the user sees; code inspection does not.
 - **Boundary tests** — Input validation at system edges. Test with empty strings, very long strings, special characters, injection attempts, negative numbers, zero, MAX_SAFE_INTEGER.
 
 ## Coverage Strategy

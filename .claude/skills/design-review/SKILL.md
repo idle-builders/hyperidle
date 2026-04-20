@@ -34,4 +34,12 @@ For accessibility: don't just check that aria attributes exist — check they're
 - **Information density** — 8-12px padding, tight spacing, Bloomberg not Dribbble
 - **Motion** — transitions match spec values (120/200/320ms), no instant snaps for state changes
 
-Output structured findings: CRITICAL / WARNINGS / OBSERVATIONS with file paths, line numbers, AND the spec reference (doc + section) for each finding.
+## Visual verification
+
+Look at pixels, not code. Before writing findings, screenshot every changed page/component with Playwright. Read the PNGs. Compare against `docs/UI_DESIGN.md` and `stitch 2/` mockups. Check truncation, contrast, alignment, spacing, all states. Include screenshot paths in findings.
+
+If the dev server is not running or Playwright is not installed, that is a CRITICAL finding.
+
+## Output
+
+Structured findings: CRITICAL / WARNINGS / OBSERVATIONS with file paths, line numbers, spec reference, and screenshot evidence for visual issues.
