@@ -1,0 +1,63 @@
+/**
+ * Theme: Monochrome Machine
+ * Aesthetic: Precise, engineered, uncompromising
+ * Reference: Vercel/Geist, Superhuman, Warp terminal, Figma chrome
+ *
+ * Key differences:
+ * - Extreme restraint: near-monochrome palette
+ * - Only one accent color — interactive elements only
+ * - Superhuman principle: closer layers = lighter (overhead light)
+ * - Mathematical spacing, maximum density with consistent rhythm
+ * - Single red for "act now" — everything else is shape/fill/position
+ */
+[data-theme="mono-machine"] {
+	/* ── Surfaces (Superhuman gradient: deeper = darker) ── */
+	--surface-0: #111113;
+	--surface-1: #19191c;
+	--surface-2: #1e1e22;
+	--surface-3: #27272b;
+	--surface-4: #323237;
+	--surface-5: #3e3e44;
+	--surface-6: #4a4a52;
+	--surface-ghost: rgba(255, 255, 255, 0.05);
+
+	/* ── Accents (one blue-white + one red only) ── */
+	--primary: #e0e7ff;
+	--primary-dim: rgba(224, 231, 255, 0.08);
+	--primary-hover: rgba(224, 231, 255, 0.14);
+	--warn: #a8a8b0;
+	--ok: #c8c8d0;
+	--danger: #f87171;
+
+	/* ── Text (no pure white) ── */
+	--text-hi: #ededef;
+	--text-mid: #a0a0a6;
+	--text-lo: #6e6e76;
+
+	/* ── Shadow ── */
+	--float: 0 2px 16px rgba(0, 0, 0, 0.5);
+
+	/* ── Radii (Geist-inspired: small and deliberate) ── */
+	--r0: 0;
+	--r1: 2px;
+	--r2: 4px;
+	--r3: 8px;
+	--r-pill: 999px;
+
+	/* ── Borders (crisp, precise) ── */
+	--border-subtle: rgba(255, 255, 255, 0.06);
+	--border-default: rgba(255, 255, 255, 0.1);
+	--border-emphasis: rgba(255, 255, 255, 0.14);
+
+	/* ── Motion (fast — instrument-like) ── */
+	--motion-fast: 80ms;
+	--motion-medium: 150ms;
+	--motion-slow: 250ms;
+
+	/* ── Typography (Geist or Inter only) ── */
+	--ui: "Geist", "Inter", system-ui, sans-serif;
+	--mono: "Geist Mono", "JetBrains Mono", ui-monospace, monospace;
+
+	/* ── Theme meta ── */
+	color-scheme: dark;
+}

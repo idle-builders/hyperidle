@@ -18,6 +18,14 @@ Components live in `packages/design-system` (Tier 1 primitives + Tier 2 blocks).
 
 **Token source of truth:** `packages/design-system/DESIGN.md` and `packages/design-system/src/tokens.css`.
 
+**Design principles:** `packages/design-system/PRINCIPLES.md` — seven universals + surprise principles from world-class design systems.
+
+**Theme variants:** Four style directions in `html/themes/` (Factory Dark, Calm Precision, Light Ops, Monochrome Machine). See `THEMES.md`. All HTML component pages have a theme switcher in the top-right corner.
+
+**Design critique skill:** `/design-critique` evaluates components on 8 dimensions (hierarchy, spacing, typography, color, coherence, states, a11y, anti-slop) with a 0-10 score.
+
+**Visual feedback:** Three options for giving Claude browser-based visual feedback — see `FEEDBACK.md`. Bookmarklet at `http://localhost:8098/feedback.js`, Vibe Annotations (Chrome extension + MCP), or MCP Pointer.
+
 **Sync check:** `bun run ds:sync` compares HTML vs TSX rendering via Playwright + pixelmatch.
 
 Every custom component must have a `.stories.tsx` file. Stories are a required deliverable, not optional documentation.

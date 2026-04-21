@@ -1,8 +1,10 @@
 # HyperIdle Design System — Token Reference
 
-Single source of truth for all design tokens. Both `.tsx` (Tailwind) and `.html` (Claude Design) representations derive from these values.
+Single source of truth for all design tokens. Both `.tsx` (Tailwind) and `.html` representations derive from these values.
 
-Aesthetic: Bloomberg terminal meets silent intelligence. Dark-only, tonal layering (no borders), compact density, monospace data labels.
+**Current theme:** Factory Dark. This is one of four style directions being explored — see `THEMES.md` for alternatives (Calm Precision, Light Ops, Monochrome Machine). All components use semantic tokens (`var(--surface-3)`, not `#191a1a`) so any theme can be applied by swapping the token sheet.
+
+**Design principles:** See `PRINCIPLES.md` for the universal design principles that guide all component decisions regardless of theme.
 
 ---
 
@@ -45,6 +47,14 @@ Aesthetic: Bloomberg terminal meets silent intelligence. Dark-only, tonal layeri
 | Token | Value | Usage |
 |-------|-------|-------|
 | `--float` | `0 0 32px rgba(173,198,255,0.08)` | Floating surfaces only (modals, popovers) |
+
+### Borders
+
+| Token | Value | Usage |
+|-------|-------|-------|
+| `--border-subtle` | `rgba(255,255,255,0.06)` | Decorative dividers, section separators |
+| `--border-default` | `rgba(255,255,255,0.08)` | Card borders, panel edges, input borders |
+| `--border-emphasis` | `rgba(255,255,255,0.12)` | Active panels, focused inputs, emphasized sections |
 
 ---
 
