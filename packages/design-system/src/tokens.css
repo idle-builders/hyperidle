@@ -43,6 +43,11 @@
 		/* ── Shadow ── */
 		--float: 0 0 32px rgba(173, 198, 255, 0.08);
 
+		/* ── Borders ── */
+		--border-subtle: rgba(255, 255, 255, 0.06);
+		--border-default: rgba(255, 255, 255, 0.08);
+		--border-emphasis: rgba(255, 255, 255, 0.12);
+
 		/* ── Radii ── */
 		--r0: 0;
 		--r1: 2px;

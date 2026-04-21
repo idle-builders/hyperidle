@@ -12,9 +12,11 @@
  * The HTML files use CDN React + Babel for in-browser transpilation.
  */
 
+import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
 const HTML_DIR = resolve(import.meta.dirname, "../html");
+const SCRIPTS_DIR = resolve(import.meta.dirname);
 const PORT = 8098;
 
 const MIME_TYPES: Record<string, string> = {
@@ -36,6 +38,18 @@ Bun.serve({
 	async fetch(req) {
 		const url = new URL(req.url);
 		let pathname = url.pathname;
+
+		// Feedback bookmarklet endpoint
+		if (pathname === "/feedback.js") {
+			const script = readFileSync(resolve(SCRIPTS_DIR, "feedback-overlay.js"), "utf-8");
+			return new Response(script, {
+				headers: {
+					"Content-Type": "application/javascript",
+					"Access-Control-Allow-Origin": "*",
+					"Cache-Control": "no-store",
+				},
+			});
+		}
 
 		// Root → catalog
 		if (pathname === "/" || pathname === "") {

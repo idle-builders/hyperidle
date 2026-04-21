@@ -19,6 +19,7 @@ User request arrives
     ├── Is it about security analysis? ──────→ /threat-model <scope>
     ├── Is it about documenting decisions? ──→ /lore <files|scan|index>
     ├── Is it about visual fidelity? ────────→ /visual-polish <reference>
+    ├── Is it about design quality? ─────────→ /design-critique <component>
     ├── Is it about process improvement? ────→ /retro <story|pipeline>
     └── None of the above? ──────────────────→ Proceed normally
 ```
