@@ -8,6 +8,7 @@ export default defineConfig({
 			"packages/fabric",
 			"packages/shared",
 			"packages/web",
+			"packages/design-system",
 		],
 	},
 });

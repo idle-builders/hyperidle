@@ -9,6 +9,7 @@
 	},
 	"scripts": {
 		"check": "tsc --noEmit",
+		"test": "vitest run",
 		"serve": "bun run scripts/serve.ts",
 		"sync-check": "bun run scripts/sync-check.ts"
 	},
