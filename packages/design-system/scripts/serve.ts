@@ -12,12 +12,13 @@
  * The HTML files use CDN React + Babel for in-browser transpilation.
  */
 
-import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 
-const HTML_DIR = resolve(import.meta.dirname, "../html");
-const SCRIPTS_DIR = resolve(import.meta.dirname);
-const PORT = 8098;
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const HTML_DIR = resolve(__dirname, "../html");
+const SCRIPTS_DIR = resolve(__dirname);
+const PORT = Number(process.env.PORT) || 8098;
 
 const MIME_TYPES: Record<string, string> = {
 	".html": "text/html",
@@ -41,14 +42,17 @@ Bun.serve({
 
 		// Feedback bookmarklet endpoint
 		if (pathname === "/feedback.js") {
-			const script = readFileSync(resolve(SCRIPTS_DIR, "feedback-overlay.js"), "utf-8");
-			return new Response(script, {
-				headers: {
-					"Content-Type": "application/javascript",
-					"Access-Control-Allow-Origin": "*",
-					"Cache-Control": "no-store",
-				},
-			});
+			const feedbackFile = Bun.file(resolve(SCRIPTS_DIR, "feedback-overlay.js"));
+			if (await feedbackFile.exists()) {
+				return new Response(feedbackFile, {
+					headers: {
+						"Content-Type": "application/javascript",
+						"Access-Control-Allow-Origin": "*",
+						"Cache-Control": "no-store",
+					},
+				});
+			}
+			return new Response("Not Found", { status: 404 });
 		}
 
 		// Root → catalog
