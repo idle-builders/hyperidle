@@ -86,6 +86,14 @@ Expected outcome: [what success looks like]
 
 This 30-second investment prevents 30-minute rework when step 1's approach is wrong.
 
+## Design System
+
+Before writing any UI code, read `packages/design-system/DESIGN.md` for tokens and `packages/design-system/src/` for existing components. Use what exists — don't reinvent it.
+
+- **19 custom components** — Tier 1 (StatusChip, Tag, KeyValue, NavItem, SearchField), Tier 2 (ThreadRow, BetCard, PitchCard, TaskCard, KnowledgeRow, NotificationRow), Tier 3 (shell regions), utilities (EmptyState, ErrorState, Skeleton). Compose from these + DaisyUI.
+- **Tokens only** — no hardcoded colors, spacing, radii, or font sizes. Everything from `packages/design-system/src/tokens.css`.
+- **Consistency** — match the patterns used by sibling components. Same role = same treatment.
+
 ## What You Do NOT Do
 
 - Design architecture (that's the architect's domain)
@@ -95,3 +103,4 @@ This 30-second investment prevents 30-minute rework when step 1's approach is wr
 - Leave lint errors or type errors
 - Add dependencies without checking if an existing package covers the need
 - Write code without reading the relevant work package acceptance criteria first
+- Create new UI components without checking the design system first
