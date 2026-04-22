@@ -1,273 +1,200 @@
-# Plan: Extract Design System to `packages/design-system`
+# Plan: Unify Themes into "Lucid" Light/Dark System
 
 ## Context
 
-The UI components loosely resemble the Claude Design mockups in `docs/concept/design-synthesis/` but have never been pixel-compared or aesthetically refined. To close this gap, we need Claude Design to redesign each component — but Claude Design works with HTML files, not TSX.
+The design system currently has 4 exploratory themes (Factory Dark, Calm Precision, Light Ops, Monochrome Machine). After visual evaluation, the user chose to merge Light Ops (light) and Mono Machine (dark) into a single cohesive theme called **Lucid**, with shared non-color tokens and light/dark color modes. The Bloomberg terminal aesthetic is being retired.
 
-The plan: extract the design system into its own package with dual representations (.tsx for production, .html for Claude Design), a canonical DESIGN.md for tokens, and sync tooling to detect drift between the two.
-
----
-
-## What Moves vs What Stays
-
-**Moves to `packages/design-system/src/`:**
-- 5 Tier 1 primitives: `StatusChip`, `Tag`, `KeyValue`, `NavItem`, `SearchField`
-- 6 Tier 2 blocks: `ThreadRow`, `BetCard`, `PitchCard`, `TaskCard`, `KnowledgeRow`, `NotificationRow`
-- 3 utility components: `EmptyState`, `ErrorState`, `Skeleton`
-- Support modules: `clickable.ts`, `status-mapping.ts`, `tag-kinds.tsx`
-- Co-located `.stories.tsx` files (move with their component)
-- Design tokens (extracted from `packages/web/src/index.css`)
-
-**Stays in `packages/web/`:**
-- 8 Tier 3 shell/region components (IconRail, Submenu, Rail, ArtifactView, ReviewHeader, Canvas, Kanban, PitchSelector) — app-specific compositions
-- DesignSystem page (`src/designsystem/`) — catalog viewer (rewired to import from new package)
-- ErrorBoundary, SettingsPanel, GlobalSearchPanel, ReasoningBlock, CurationSuggestionCard, KnowledgeTopicGroup, ThreadSections — app-specific, not design primitives
-- Pages, layouts, router, hooks
-
-**Dependency direction:** `packages/web` → `@hyperidle/design-system` → `@hyperidle/shared`
+The app is well-prepared: all components use semantic CSS variables (`var(--surface-3)`) and DaisyUI classes (`btn-primary`, `badge-error`). Zero hardcoded Tailwind color classes exist. The migration is primarily token/config changes — no component code rewrites needed.
 
 ---
 
-## Phase 1: Scaffold Package
+## Lucid Theme Specification
 
-### 1.1 Create package structure
+### Shared Tokens (same in both modes)
 
+| Token | Value | Source |
+|-------|-------|--------|
+| `--r0` | 0 | — |
+| `--r1` | 4px | Light Ops (rounder) |
+| `--r2` | 8px | Light Ops |
+| `--r3` | 12px | Light Ops |
+| `--r-pill` | 999px | — |
+| `--motion-fast` | 80ms | Mono Machine (snappier) |
+| `--motion-medium` | 150ms | Mono Machine |
+| `--motion-slow` | 250ms | Mono Machine |
+| `--ui` | `"Geist", "Inter", system-ui, sans-serif` | User chose Geist |
+| `--mono` | `"Geist Mono", ui-monospace, monospace` | User chose Geist |
+
+### Status Color Philosophy: Monochrome Signals
+
+Inspired by Mono Machine: warn and ok are neutral grays. Only danger carries color (red). This means the interface is calm by default — when red appears, it's impossible to miss because it has the entire color spectrum to itself. Status is communicated through shape (dot, icon), text labels, and position in addition to color.
+
+### Lucid Dark (Mono Machine surfaces + monochrome status)
+
+| Token | Value |
+|-------|-------|
+| `--surface-0` | `#111113` |
+| `--surface-1` | `#19191c` |
+| `--surface-2` | `#1e1e22` |
+| `--surface-3` | `#27272b` |
+| `--surface-4` | `#323237` |
+| `--surface-5` | `#3e3e44` |
+| `--surface-6` | `#4a4a52` |
+| `--surface-ghost` | `rgba(255,255,255,0.05)` |
+| `--primary` | `#e0e7ff` |
+| `--primary-dim` | `rgba(224,231,255,0.08)` |
+| `--primary-hover` | `rgba(224,231,255,0.14)` |
+| `--warn` | `#a8a8b0` |
+| `--ok` | `#c8c8d0` |
+| `--danger` | `#f87171` |
+| `--text-hi` | `#ededef` |
+| `--text-mid` | `#a0a0a6` |
+| `--text-lo` | `#6e6e76` |
+| `--float` | `0 2px 16px rgba(0,0,0,0.5)` |
+| `--border-subtle` | `rgba(255,255,255,0.06)` |
+| `--border-default` | `rgba(255,255,255,0.10)` |
+| `--border-emphasis` | `rgba(255,255,255,0.16)` |
+| `color-scheme` | `dark` |
+
+### Lucid Light (Light Ops surfaces + monochrome status)
+
+| Token | Value |
+|-------|-------|
+| `--surface-0` | `#fafaf9` |
+| `--surface-1` | `#ffffff` |
+| `--surface-2` | `#f4f4f2` |
+| `--surface-3` | `#eaeae8` |
+| `--surface-4` | `#ddddd9` |
+| `--surface-5` | `#d0d0cc` |
+| `--surface-6` | `#c4c4be` |
+| `--surface-ghost` | `rgba(0,0,0,0.04)` |
+| `--primary` | `#4f46e5` |
+| `--primary-dim` | `rgba(79,70,229,0.08)` |
+| `--primary-hover` | `rgba(79,70,229,0.12)` |
+| `--warn` | `#78787e` |
+| `--ok` | `#8e8e94` |
+| `--danger` | `#dc2626` |
+| `--text-hi` | `#1a1a1e` |
+| `--text-mid` | `#6b6b70` |
+| `--text-lo` | `#737378` |
+| `--float` | `0 4px 16px rgba(0,0,0,0.1)` |
+| `--border-subtle` | `rgba(0,0,0,0.06)` |
+| `--border-default` | `rgba(0,0,0,0.10)` |
+| `--border-emphasis` | `rgba(0,0,0,0.16)` |
+| `color-scheme` | `light` |
+
+**WCAG fix:** Original Light Ops `--text-lo` was `#9c9ca0` (2.6:1 ratio on `#fafaf9`). Changed to `#737378` (4.5:1, passes AA).
+
+**Light mode warn/ok:** Darker neutral grays (`#78787e`, `#8e8e94`) to maintain readable contrast against the light background. Dark mode uses lighter grays (`#a8a8b0`, `#c8c8d0`) per Mono Machine.
+
+---
+
+## Implementation Phases
+
+### Phase 1: Core Token Files
+
+Rewrite the foundation. Everything else depends on this.
+
+**1A. `packages/design-system/src/tokens.css`** — Rewrite with structure:
 ```
-packages/design-system/
-  package.json          (@hyperidle/design-system)
-  tsconfig.json         (extends root, references shared)
-  DESIGN.md             (token documentation)
-  src/
-    index.ts            (barrel export)
-    tokens.css          (CSS custom properties)
-  html/
-    _tokens.css         (self-contained CSS for HTML files)
-    _catalog.html       (index page)
-  scripts/
-    serve.ts            (Bun static file server on :8098)
-    sync-check.ts       (pixelmatch HTML vs TSX drift detection)
-    sync-map.ts         (component → URL mapping)
-```
-
-### 1.2 package.json
-
-```json
-{
-  "name": "@hyperidle/design-system",
-  "version": "0.0.1",
-  "private": true,
-  "type": "module",
-  "exports": {
-    ".": "./src/index.ts",
-    "./tokens.css": "./src/tokens.css"
-  },
-  "scripts": {
-    "check": "tsc --noEmit",
-    "serve": "bun run scripts/serve.ts",
-    "sync-check": "bun run scripts/sync-check.ts"
-  },
-  "dependencies": {
-    "@hyperidle/shared": "workspace:*"
-  },
-  "peerDependencies": {
-    "react": "^19.0.0"
+@layer base {
+  :root {
+    /* Shared: radii, motion, typography */
   }
+  :root, [data-theme="lucid-dark"] {
+    /* Dark color tokens (default) */
+    color-scheme: dark;
+  }
+  [data-theme="lucid-light"] {
+    /* Light color tokens */
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: light) {
+    :root:not([data-theme]) {
+      /* Light tokens for "system" preference */
+      color-scheme: light;
+    }
+  }
+  /* Density presets (unchanged) */
 }
 ```
 
-### 1.3 tsconfig.json
+**1B. `packages/design-system/html/_tokens.css`** — Same token structure without `@layer`. Update Google Fonts import: `Inter + Space Grotesk` → `Geist + Geist Mono`.
 
-Extends root. Adds `"jsx": "react-jsx"`. References `../shared`.
+**1C. New `html/themes/lucid-dark.css`** and **`html/themes/lucid-light.css`**
 
-### 1.4 Root config updates
+**1D. Delete** `factory-dark.css`, `calm-precision.css`, `light-ops.css`, `mono-machine.css`
 
-- `tsconfig.json`: Add path `"@hyperidle/design-system": ["./packages/design-system/src"]` and reference `{ "path": "packages/design-system" }`
-- Workspaces already cover `packages/*` — no change needed
+**1E. Rewrite `html/themes/_switcher.js`** — 2 themes: Dark + Light. Default: lucid-dark.
 
----
+### Phase 2: Tailwind/DaisyUI + Web CSS
 
-## Phase 2: DESIGN.md + Tokens
+**2A. `packages/web/tailwind.config.ts`** — Replace single `factory-dark` DaisyUI theme with:
+- `lucid-dark`: Mono Machine surfaces, monochrome status (secondary=`#a8a8b0`, accent=`#c8c8d0`, error=`#f87171`), `--rounded-box: 8px`, `--rounded-btn: 4px`, `--rounded-badge: 4px`
+- `lucid-light`: Light Ops surfaces, monochrome status (secondary=`#78787e`, accent=`#8e8e94`, error=`#dc2626`), same radii
+- Font: `sans: ["Geist", "Inter", ...]`, `heading: ["Geist Mono", ...]`
+- DaisyUI `warning` and `success` map to gray tones (monochrome status); `error` is the only semantic color
 
-### 2.1 Write DESIGN.md
+**2B. `packages/web/src/index.css`** — Update Google Fonts import to Geist + Geist Mono.
 
-Single authoritative document covering:
+### Phase 3: App Shell Theme Switching
 
-- **Color** — Surface palette (--surface-0..6, --surface-ghost), accent colors (primary #adc6ff, warn #d58f24, ok #bbffb3, danger #ee7d77), text levels (hi/mid/lo)
-- **Typography** — Inter (UI: 400/500/600), Space Grotesk (data/mono: 400/500). Size scale: 11/12/13/14/18/24px
-- **Spacing** — 4px baseline grid. Density presets (default/compact/comfortable) with pad-x, pad-y, gap, row-h, text values
-- **Radii** — 0/2px/4px/8px/999px (pill). Buttons: 2px. Cards: 4px
-- **Motion** — fast 120ms, medium 200ms, slow 320ms. Single ease curve
-- **Shadows** — Float only: `0 0 32px rgba(173,198,255,0.08)`
-- **Grid** — Shell: 48px (IconRail) | 240px (Submenu) | 1fr (Main) | auto (Rail 56px/360px)
+**3A. `packages/web/src/components/SettingsPanel.tsx`**
+- Add `Theme = "light" | "dark" | "system"` type
+- Add `theme` to `AppearanceSettings`
+- Replace "deferred to v2" placeholder with theme selector (System/Light/Dark)
+- Add `onThemeChange` callback, `updateTheme` handler
 
-### 2.2 Create `src/tokens.css`
+**3B. `packages/web/src/fixtures/app-shell-data.ts`**
+- `appearance: { density: "default", theme: "system" }`
 
-Extract the `:root` and `[data-density]` blocks from `packages/web/src/index.css`. Add the missing tokens from the reference (--primary-dim, --primary-hover, --float, radius vars). Also keep the tag-tint component classes.
+**3C. `packages/web/src/layouts/AppShell.tsx`**
+- Add `useEffect` that sets `document.documentElement.setAttribute("data-theme", ...)` based on theme setting
+- `"system"` → remove `data-theme` attribute (CSS `@media prefers-color-scheme` takes over)
+- `"dark"` → `data-theme="lucid-dark"`
+- `"light"` → `data-theme="lucid-light"`
 
-### 2.3 Create `html/_tokens.css`
+### Phase 4: HTML Components Verification
 
-Same variables as `src/tokens.css` plus:
-- Box-sizing reset
-- Body styles (background, color, font-family)
-- Font imports (Inter, Space Grotesk via Google Fonts)
+All 14 components use CSS variables, so they adapt automatically. Verify:
+- `color-mix()` opacity in StatusChip works in light mode
+- Skeleton shimmer visible in light mode
+- No hardcoded hex outside `var()` definitions in `<style>` blocks
+- Font references use `var(--ui)` / `var(--mono)`, not hardcoded names
 
-This makes each .html file self-contained when it `<link>`s `_tokens.css`.
+### Phase 5: Documentation
 
-### 2.4 Update `packages/web/src/index.css`
+| File | Change |
+|------|--------|
+| `packages/design-system/DESIGN.md` | Full rewrite: Lucid theme, Geist fonts, new radii/motion/borders |
+| `packages/design-system/THEMES.md` | Rewrite: Lucid Dark + Light, shared vs per-mode tokens |
+| `packages/design-system/PRINCIPLES.md` | Minor: update pure-black note, clarify indigo accent is intentional |
+| `.claude/rules/frontend.md` | Remove "Bloomberg terminal" ref, update to "Lucid" |
+| `.claude/rules/design-system.md` | Update theme file references |
+| `.claude/agents/designer/AGENT.md` | Remove Bloomberg refs, update aesthetic description |
+| `.claude/skills/design-critique/references/*.md` | Update radii, motion, border, font values |
 
-Replace token definitions with: `@import "@hyperidle/design-system/tokens.css";`
-Keep only the `@tailwind` directives and any web-app-specific styles.
+### Phase 6: Tests
 
----
+| File | Change |
+|------|--------|
+| `design-system/src/__tests__/themes.test.ts` | 2 themes instead of 4, new filenames |
+| `design-system/src/__tests__/tokens.test.ts` | Geist font check, data-theme blocks, prefers-color-scheme |
+| `design-system/src/__tests__/docs.test.ts` | Updated theme names, Geist references |
+| `web/src/__tests__/foundation.test.ts` | Lucid-dark + lucid-light DaisyUI assertions |
+| `web/src/__tests__/motion-tokens.test.ts` | 80/150/250ms values |
+| `web/src/__tests__/SettingsPanel*.test.*` | Theme picker rendering + callbacks |
+| `web/src/__tests__/AppShell*.test.*` | data-theme attribute on `<html>` |
 
-## Phase 3: Move Components
+### Phase 7: Validation
 
-### 3.1 Move files
-
-Move these from `packages/web/src/components/` to `packages/design-system/src/`:
-
-| File | Type |
-|------|------|
-| StatusChip.tsx + .stories.tsx | Tier 1 |
-| Tag.tsx + .stories.tsx | Tier 1 |
-| KeyValue.tsx + .stories.tsx | Tier 1 |
-| NavItem.tsx + .stories.tsx | Tier 1 |
-| SearchField.tsx + .stories.tsx | Tier 1 |
-| ThreadRow.tsx + .stories.tsx | Tier 2 |
-| BetCard.tsx + .stories.tsx | Tier 2 |
-| PitchCard.tsx + .stories.tsx | Tier 2 |
-| TaskCard.tsx + .stories.tsx | Tier 2 |
-| KnowledgeRow.tsx + .stories.tsx | Tier 2 |
-| NotificationRow.tsx + .stories.tsx | Tier 2 |
-| EmptyState.tsx + .stories.tsx | Utility |
-| ErrorState.tsx + .stories.tsx | Utility |
-| Skeleton.tsx + .stories.tsx | Utility |
-| clickable.ts | Support |
-| status-mapping.ts | Support |
-| tag-kinds.tsx | Support |
-
-### 3.2 Create barrel export `src/index.ts`
-
-Export all components, their Props types, the Status type, TagKind, clickableProps, and status mapping functions.
-
-### 3.3 Update `packages/web`
-
-- Add `"@hyperidle/design-system": "workspace:*"` to package.json dependencies
-- Add tsconfig reference to `../design-system`
-- Rewrite all imports in `packages/web/src/` that referenced moved files:
-  - `from "../components/StatusChip"` → `from "@hyperidle/design-system"`
-  - `from "../components/clickable"` → `from "@hyperidle/design-system"`
-  - etc.
-- Shell components (Rail, Submenu, Canvas, Kanban, etc.) all import from `../components/` — these all change to `@hyperidle/design-system`
-
-### 3.4 Rewire DesignSystem catalog
-
-Update `packages/web/src/designsystem/DesignSystem.tsx`:
-- Change `import.meta.glob("../components/*.stories.tsx")` → glob from `../../../design-system/src/*.stories.tsx` (or add a Vite resolve alias)
-- Keep the shell story glob as-is (shell stays in web)
-
-### 3.5 Update Tailwind content paths
-
-In `packages/web/tailwind.config.ts`, add `"../design-system/src/**/*.{ts,tsx}"` to the content array so Tailwind scans the new package for class names.
-
----
-
-## Phase 4: HTML Component Files
-
-### 4.1 Template
-
-Each .html file follows the Claude Design reference pattern:
-```html
-<!doctype html>
-<html lang="en">
-<head>
-  <meta charset="utf-8" />
-  <title>{ComponentName} — HyperIdle Design System</title>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@400;500&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="_tokens.css" />
-  <style>/* component-specific CSS */</style>
-</head>
-<body>
-  <div id="root"></div>
-  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js"></script>
-  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js"></script>
-  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js"></script>
-  <script type="text/babel">
-    // Component + all variants rendered in a grid
-    ReactDOM.createRoot(document.getElementById('root')).render(<Demo />);
-  </script>
-</body>
-</html>
-```
-
-### 4.2 Component composition metadata via data attributes
-
-Composition metadata lives directly on DOM elements using `data-*` attributes — visible in the inspector, no hidden JSON blocks. Every component's outermost element carries:
-
-```html
-<!-- The component wrapper -->
-<div data-component="BetCard" data-tier="2" data-uses="StatusChip,Tag,KeyValue" data-daisyui="badge" data-used-by="Canvas">
-  <!-- Inner sub-components also tagged at their root -->
-  <span data-component="StatusChip" data-tier="1" data-daisyui="badge">...</span>
-  <span data-component="Tag" data-tier="1">...</span>
-  <div data-component="KeyValue" data-tier="1">...</div>
-</div>
-```
-
-Attributes:
-- `data-component` — component name (PascalCase, matches .tsx export)
-- `data-tier` — 1 (primitive), 2 (block), or 3 (region)
-- `data-uses` — comma-separated design system components this one consumes
-- `data-daisyui` — comma-separated DaisyUI classes/components the TSX version uses
-- `data-used-by` — comma-separated higher-tier consumers
-
-This makes the composition tree directly inspectable in DevTools. Claude Design sees exactly which pieces are primitives vs blocks vs raw HTML when editing any component.
-
-### 4.3 Create 14 component .html files
-
-Each renders all variants/states matching what the .stories.tsx shows. Uses plain CSS classes (not Tailwind) — this is what Claude Design edits. Each includes the composition metadata block from 4.2.
-
-### 4.4 Create `_catalog.html`
-
-Index page with links to each component, organized by tier. Shows the composition graph (which components use which) derived from the metadata blocks. Simple grid layout.
-
----
-
-## Phase 5: Display Server + Sync Check
-
-### 5.1 `scripts/serve.ts`
-
-Minimal Bun HTTP server on :8098 serving `packages/design-system/html/`. Root serves `_catalog.html`.
-
-### 5.2 `scripts/sync-map.ts`
-
-Array mapping each component to:
-- `htmlUrl`: path on :8098 (e.g., `/StatusChip.html`)
-- `storyHash`: path on :5173 (e.g., `/designsystem#StatusChip`)
-
-### 5.3 `scripts/sync-check.ts`
-
-Reuses the Playwright + pixelmatch pattern from `packages/web/scripts/visual-compare.ts`:
-1. Start display server on :8098
-2. For each component: screenshot .html on :8098, screenshot story on :5173
-3. Pixelmatch diff → `sync-reports/<name>/html.png`, `tsx.png`, `diff.png`, `report.json`
-
-### 5.4 Root scripts
-
-Add to root package.json:
-- `"ds:serve": "bun --filter @hyperidle/design-system serve"`
-- `"ds:sync": "bun --filter @hyperidle/design-system sync-check"`
-
----
-
-## Phase 6: Validation
-
-1. `bun run check` — zero type errors across all packages
-2. `bun run lint` — zero lint errors
-3. `bun run test` — all existing tests pass
-4. `bun dev` — app loads, navigate to `/designsystem`, verify all components render
-5. `bun run visual:compare all` — existing visual comparison still works (not broken by the move)
-6. `bun run ds:serve` — HTML catalog loads on :8098, each component renders correctly
+1. `bun run check` — zero type errors
+2. `bun run lint` — zero lint errors  
+3. `bun run test` — all tests pass
+4. `bun run ds:serve` — toggle Dark/Light on all 14 components
+5. `bun dev` — Settings > Appearance > theme switching works
+6. Verify `prefers-color-scheme` "system" mode
+7. Check scrollbars, status chips, color-mix elements in both modes
 
 ---
 
@@ -275,23 +202,24 @@ Add to root package.json:
 
 | Purpose | Path |
 |---------|------|
-| Token source (current) | `packages/web/src/index.css` |
-| Tailwind config | `packages/web/tailwind.config.ts` |
-| Design catalog | `packages/web/src/designsystem/DesignSystem.tsx` |
-| Root tsconfig | `tsconfig.json` |
-| Reference CSS | `docs/concept/design-synthesis/styles.css` |
-| Reference components | `docs/concept/design-synthesis/components.jsx` |
-| Visual compare pattern | `packages/web/scripts/visual-compare.ts` |
-| Component with most deps | `packages/web/src/components/BetCard.tsx` |
-| Shell importing components | `packages/web/src/shell/Rail.tsx` |
+| Token source of truth | `packages/design-system/src/tokens.css` |
+| HTML token sheet | `packages/design-system/html/_tokens.css` |
+| DaisyUI themes | `packages/web/tailwind.config.ts` |
+| Theme switching runtime | `packages/web/src/layouts/AppShell.tsx` |
+| Theme picker UI | `packages/web/src/components/SettingsPanel.tsx` |
+| Settings defaults | `packages/web/src/fixtures/app-shell-data.ts` |
+| Design reference | `packages/design-system/DESIGN.md` |
+| Theme switcher (HTML) | `packages/design-system/html/themes/_switcher.js` |
+| Foundation test | `packages/web/src/__tests__/foundation.test.ts` |
+| Theme test | `packages/design-system/src/__tests__/themes.test.ts` |
 
----
+## Risks
 
-## Implementation Order
-
-1. **Phase 1** (scaffold) — purely additive, no breakage
-2. **Phase 2** (tokens) — extract tokens.css, update web's index.css import
-3. **Phase 3** (move components) — big bang: move all files + update all imports in one commit. Run `bun run check && bun run test` immediately after
-4. **Phase 4** (HTML files) — independent of phases 1-3 completion
-5. **Phase 5** (server + sync) — depends on phases 3+4
-6. **Phase 6** (validation) — final verification pass
+| Risk | Mitigation |
+|------|------------|
+| Geist font not on Google Fonts | Inter fallback in font stack ensures rendering; can use Fontsource/Vercel CDN |
+| color-mix opacity wrong in light mode | Visual verification in Phase 4; add `--status-tint-opacity` token if needed |
+| `--text-lo` WCAG failure in light mode | Already fixed: `#9c9ca0` → `#737378` (4.52:1 ratio) |
+| Light-mode indigo primary triggers "no purple" rule | Update AI Aesthetic Blacklist to clarify intentional indigo |
+| Monochrome warn/ok reduces color differentiation | Status always paired with shape (dot), text label, and position — never color alone. Aligns with a11y best practice. |
+| Visual regression baselines invalidated | Regenerate after rollout |

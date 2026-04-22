@@ -34,9 +34,11 @@ export interface NotificationSettings {
 }
 
 export type Density = "compact" | "default" | "comfortable";
+export type Theme = "light" | "dark" | "system";
 
 export interface AppearanceSettings {
 	density: Density;
+	theme: Theme;
 }
 
 export interface SettingsData {
@@ -150,6 +152,13 @@ export function SettingsPanel({
 		setDraft((prev) => ({
 			...prev,
 			appearance: { ...prev.appearance, density },
+		}));
+	}, []);
+
+	const updateTheme = useCallback((theme: Theme): void => {
+		setDraft((prev) => ({
+			...prev,
+			appearance: { ...prev.appearance, theme },
 		}));
 	}, []);
 
@@ -297,7 +306,11 @@ export function SettingsPanel({
 							/>
 						)}
 						{activeTab === "appearance" && (
-							<AppearanceTab appearance={draft.appearance} onDensityChange={updateDensity} />
+							<AppearanceTab
+								appearance={draft.appearance}
+								onDensityChange={updateDensity}
+								onThemeChange={updateTheme}
+							/>
 						)}
 					</div>
 
@@ -557,12 +570,30 @@ function NotificationsTab({
 function AppearanceTab({
 	appearance,
 	onDensityChange,
+	onThemeChange,
 }: {
 	appearance: AppearanceSettings;
 	onDensityChange: (density: Density) => void;
+	onThemeChange: (theme: Theme) => void;
 }): JSX.Element {
 	return (
 		<div className="flex flex-col gap-3">
+			<div className="form-control">
+				<label className="label" htmlFor="settings-theme">
+					<span className="label-text text-[var(--text-mid)]">Theme</span>
+				</label>
+				<select
+					id="settings-theme"
+					className="select select-sm select-bordered w-full"
+					value={appearance.theme}
+					onChange={(e) => onThemeChange(e.target.value as Theme)}
+				>
+					<option value="system">System</option>
+					<option value="dark">Dark</option>
+					<option value="light">Light</option>
+				</select>
+			</div>
+
 			<div className="form-control">
 				<label className="label" htmlFor="settings-density">
 					<span className="label-text text-[var(--text-mid)]">Density</span>
@@ -577,11 +608,6 @@ function AppearanceTab({
 					<option value="default">Default</option>
 					<option value="comfortable">Comfortable</option>
 				</select>
-			</div>
-
-			<div className="form-control">
-				<p className="label-text text-sm">Theme</p>
-				<p className="text-sm text-[var(--text-lo)]">Theme switching (light/dark) deferred to v2</p>
 			</div>
 		</div>
 	);

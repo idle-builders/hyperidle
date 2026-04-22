@@ -17,7 +17,7 @@ Closer to user = lighter. This simulates overhead lighting.
 
 | Level | Usage |
 |-------|-------|
-| `surface-0` | Deepest background, app chrome |
+| `surface-0` | Deepest background, app chrome (#111113 dark / #fafaf9 light) |
 | `surface-1` | Sidebar, submenu backgrounds |
 | `surface-2` | Main content area |
 | `surface-3` | Cards, panels |
@@ -55,8 +55,8 @@ No other text colors for content. Status text uses the status color directly.
 
 ## Dark Mode Specifics
 
-- **No pure black (#000000).** It causes halation (bright text bleeds). Use near-black.
-- **No pure white (#ffffff) text.** Use off-white (--text-hi is #e7e5e4).
+- **No pure black (#000000).** It causes halation (bright text bleeds). Lucid Dark uses #111113.
+- **No pure white (#ffffff) text.** Use off-white (--text-hi is #ececef in dark mode).
 - **Shadows don't work for elevation** in dark mode. Use surface lightness instead.
 - **Desaturate status colors by ~15-20%** compared to light mode equivalents. Garish colors against dark backgrounds distract from content.
 - **Warm gray undertones** prevent the "gloomy cave" feeling. Cool blue-grays cause fatigue during long sessions (Linear's finding).

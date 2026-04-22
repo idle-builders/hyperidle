@@ -58,7 +58,7 @@ describe("design system display server", () => {
 	});
 
 	it("serves theme CSS files", async () => {
-		for (const theme of ["factory-dark", "calm-precision", "light-ops", "mono-machine"]) {
+		for (const theme of ["lucid-dark", "lucid-light"]) {
 			const res = await fetch(`http://localhost:${PORT}/themes/${theme}.css`);
 			expect(res.status, `${theme}.css should return 200`).toBe(200);
 			expect(res.headers.get("content-type")).toBe("text/css");

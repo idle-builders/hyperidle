@@ -24,10 +24,10 @@ describe("KnowledgeRow — J7 factory mode", () => {
 		expect(row.className).toContain("py-4");
 	});
 
-	it("applies bold Space Grotesk font to the title in factory mode", () => {
+	it("applies bold Geist Mono font to the title in factory mode", () => {
 		render(<KnowledgeRow {...defaultProps} factoryMode version="v2.1" />);
 		const title = screen.getByLabelText(`Knowledge: ${defaultProps.title}`);
-		// font-heading == Space Grotesk, font-bold applied.
+		// font-heading == Geist Mono, font-bold applied.
 		expect(title.className).toContain("font-bold");
 		expect(title.className).toContain("font-heading");
 		// Must NOT be serif — AC: "NOT serif"

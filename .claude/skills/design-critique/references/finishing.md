@@ -4,18 +4,18 @@ The difference between "functional" and "polished" is in the micro-details.
 
 ## Borders
 
-- **Default:** `1px solid rgba(255, 255, 255, 0.08)` — subtle structural borders
-- **Emphasized:** `1px solid rgba(255, 255, 255, 0.12)` — input fields, active panels
+- **Default:** `1px solid rgba(255, 255, 255, 0.10)` — subtle structural borders
+- **Emphasized:** `1px solid rgba(255, 255, 255, 0.16)` — input fields, active panels
 - **Focus:** `1px solid var(--primary)` — keyboard focus indicator
 - **Never:** `2px` or thicker borders. Never colored borders for decoration.
 
-Borders create structure that tonal-only layering fails to achieve at the dark end of the spectrum. A single border at 8% white opacity on a card immediately creates visual organization.
+Borders create structure that tonal-only layering fails to achieve at the dark end of the spectrum. A single border at 10% white opacity on a card immediately creates visual organization.
 
 ## Shadows
 
 - **Use sparingly.** In dark mode, shadows have less effect than in light mode.
 - **Only on floating elements:** modals, popovers, dropdowns, tooltips.
-- **The token:** `var(--float)` = `0 0 32px rgba(173,198,255,0.08)`
+- **The token:** `var(--float)` = `0 0 32px rgba(0,0,0,0.4)` (dark) / `0 4px 24px rgba(0,0,0,0.08)` (light)
 - **Never:** `shadow-lg` on cards. Cards use surface elevation, not shadows.
 
 ## Corner Radii
@@ -25,9 +25,9 @@ Closed set — no arbitrary values:
 | Token | Value | Usage |
 |-------|-------|-------|
 | `--r0` | 0 | No rounding (table cells, full-width bars) |
-| `--r1` | 2px | Buttons, chips, badges, small controls |
-| `--r2` | 4px | Cards, panels, input fields |
-| `--r3` | 8px | Modals, overlays, large containers |
+| `--r1` | 4px | Buttons, chips, badges, small controls |
+| `--r2` | 8px | Cards, panels, input fields |
+| `--r3` | 12px | Modals, overlays, large containers |
 | `--r-pill` | 999px | Pills, scrollbar thumbs |
 
 **Rule:** Smaller elements get smaller radii. A chip (--r1) inside a card (--r2) inside a modal (--r3) creates a coherent nesting hierarchy.
@@ -38,7 +38,7 @@ Every interactive element needs a hover state:
 - **Surface elements (cards, rows):** Background shifts up one surface level
 - **Buttons:** Background lightens or accent color brightens
 - **Text links:** Underline appears or opacity increases
-- **Transition:** `var(--motion-fast)` (120ms)
+- **Transition:** `var(--motion-fast)` (80ms)
 
 ## Focus States
 
@@ -56,11 +56,11 @@ Every interactive element needs a hover state:
 
 | What | Duration | Property |
 |------|----------|----------|
-| Hover background | `--motion-fast` (120ms) | `background-color` |
+| Hover background | `--motion-fast` (80ms) | `background-color` |
 | Focus ring | instant | `outline` |
-| Panel expand/collapse | `--motion-medium` (200ms) | `height, opacity` |
-| Modal open/close | `--motion-slow` (320ms) | `opacity, transform` |
-| Color change | `--motion-fast` (120ms) | `color, background-color` |
+| Panel expand/collapse | `--motion-medium` (150ms) | `height, opacity` |
+| Modal open/close | `--motion-slow` (250ms) | `opacity, transform` |
+| Color change | `--motion-fast` (80ms) | `color, background-color` |
 
 **Only animate GPU-friendly properties:** `transform`, `opacity`, `background-color`, `color`, `outline`. Never animate `width`, `height`, `margin`, `padding`, `top/left`.
 
