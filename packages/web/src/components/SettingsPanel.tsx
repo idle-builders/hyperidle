@@ -326,7 +326,7 @@ export function SettingsPanel({
 					)}
 
 					{/* Footer with Save */}
-					<div className="flex justify-end gap-2 p-3 border-t border-base-300">
+					<div className="flex justify-end gap-2 p-3 border-t border-[var(--border-subtle)]">
 						<button
 							type="button"
 							className="btn btn-ghost btn-sm text-[var(--text-mid)]"

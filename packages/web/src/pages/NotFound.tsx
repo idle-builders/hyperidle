@@ -9,7 +9,7 @@ import { Link } from "react-router-dom";
 export function NotFound(): JSX.Element {
 	return (
 		<div className="flex flex-col items-start gap-3 p-3" data-testid="not-found-page">
-			<h1 className="text-sm font-heading font-semibold uppercase tracking-wider text-[var(--text-hi)]">
+			<h1 className="text-sm font-heading font-semibold uppercase tracking-wider text-[var(--text-lo)]">
 				Page not found
 			</h1>
 			<p className="text-xs text-[var(--text-mid)]">

@@ -1,4 +1,4 @@
-import { PitchCard, SearchField } from "@hyperidle/design-system";
+import { EmptyState, KeyValue, PitchCard, SearchField } from "@hyperidle/design-system";
 /**
  * @lore J5: PitchSelector now hosts an inline detail pane. Clicking a
  * pitch both toggles selection (preserved for existing tests) AND sets
@@ -70,7 +70,7 @@ export function PitchSelector({
 	});
 
 	return (
-		<div className="bg-base-200 rounded p-3 flex flex-col gap-3 max-h-[480px]">
+		<div className="bg-base-200 rounded-lg p-3 flex flex-col gap-3 max-h-[480px]">
 			<div className="flex items-center justify-between">
 				<h3 className="text-sm font-semibold">Select Pitch</h3>
 				<button
@@ -85,7 +85,11 @@ export function PitchSelector({
 			<SearchField placeholder="Search pitches…" value={search} onChange={setSearch} />
 			<div className="flex flex-col gap-2 overflow-y-auto">
 				{filtered.length === 0 ? (
-					<div className="text-xs text-[var(--text-lo)] p-2 text-center">No pitches available</div>
+					<EmptyState
+						title="No pitches available"
+						description="Create a pitch to start shaping bets for this cycle."
+						dataTestId="pitch-selector-empty"
+					/>
 				) : (
 					filtered.map((pitch, index) => {
 						const isSelected = selectedIds.includes(pitch.id);
@@ -99,7 +103,7 @@ export function PitchSelector({
 								ref={rovingProps.ref}
 							>
 								{isSelected && (
-									<span className="absolute top-2 right-2 text-accent text-sm font-bold z-10">
+									<span className="absolute top-2 right-2 text-accent text-sm font-semibold z-10">
 										✓
 									</span>
 								)}
@@ -120,15 +124,19 @@ export function PitchSelector({
 			{activePitch && (
 				<div
 					data-testid="pitch-detail-pane"
-					className="bg-base-300 rounded p-3 flex flex-col gap-2"
+					className="bg-base-300 rounded-lg p-3 flex flex-col gap-2"
 				>
 					<h4 className="text-sm font-heading font-semibold uppercase tracking-wider text-[var(--text-hi)]">
 						{activePitch.title}
 					</h4>
-					<PitchDetailRow label="Problem" value={activePitch.problem} />
-					<PitchDetailRow label="Appetite" value={activePitch.appetite} />
-					<PitchDetailRow label="Solution" value={activePitch.solution} />
-					<PitchDetailRow label="Rabbit holes" value={activePitch.rabbitHoles} />
+					<KeyValue label="Problem" value={activePitch.problem?.trim() || "—"} layout="stacked" />
+					<KeyValue label="Appetite" value={activePitch.appetite} layout="stacked" />
+					<KeyValue label="Solution" value={activePitch.solution?.trim() || "—"} layout="stacked" />
+					<KeyValue
+						label="Rabbit holes"
+						value={activePitch.rabbitHoles?.trim() || "—"}
+						layout="stacked"
+					/>
 					<div className="flex justify-end">
 						<button
 							type="button"
@@ -141,25 +149,6 @@ export function PitchSelector({
 					</div>
 				</div>
 			)}
-		</div>
-	);
-}
-
-function PitchDetailRow({
-	label,
-	value,
-}: {
-	label: string;
-	value: string | undefined;
-}): JSX.Element {
-	return (
-		<div className="flex flex-col gap-0.5">
-			<span className="uppercase font-heading text-xs tracking-wider text-[var(--text-lo)]">
-				{label}
-			</span>
-			<span className="text-sm text-[var(--text-hi)] whitespace-pre-wrap">
-				{value && value.trim() !== "" ? value : "—"}
-			</span>
 		</div>
 	);
 }

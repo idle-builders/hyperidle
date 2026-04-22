@@ -1,4 +1,11 @@
-import { BetCard, KnowledgeRow, SearchField, ThreadRow } from "@hyperidle/design-system";
+import {
+	BetCard,
+	EmptyState,
+	ErrorState,
+	KnowledgeRow,
+	SearchField,
+	ThreadRow,
+} from "@hyperidle/design-system";
 import FocusTrap from "focus-trap-react";
 import { type JSX, useCallback, useEffect, useMemo, useRef } from "react";
 import { useGlobalSearch } from "../hooks/useGlobalSearch";
@@ -137,7 +144,13 @@ export function GlobalSearchPanel({
 						ref={focusRef}
 					/>
 
-					{search.error && <p className="text-sm text-error text-center py-4">{search.error}</p>}
+					{search.error && (
+						<ErrorState
+							title="Search failed"
+							description={search.error}
+							dataTestId="search-error"
+						/>
+					)}
 
 					<div className="overflow-y-auto flex flex-col gap-1">
 						{search.results.conversations.length > 0 && (
@@ -214,9 +227,11 @@ export function GlobalSearchPanel({
 						)}
 
 						{showEmptyState && (
-							<p className="text-sm text-[var(--text-lo)] text-center py-8">
-								No matches. Try different query.
-							</p>
+							<EmptyState
+								title="No matches"
+								description="Try a different query to find conversations, work items, or knowledge."
+								dataTestId="search-empty"
+							/>
 						)}
 					</div>
 
@@ -231,7 +246,7 @@ export function GlobalSearchPanel({
 					<div
 						data-testid="search-recent-queries"
 						aria-label="Recent queries"
-						className="font-mono text-xs text-[var(--text-lo)] border-t border-base-300 pt-2 px-1"
+						className="font-mono text-xs text-[var(--text-lo)] border-t border-[var(--border-subtle)] pt-2 px-1"
 					>
 						<span>No recent queries</span>
 					</div>

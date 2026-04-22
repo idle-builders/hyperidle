@@ -299,7 +299,7 @@ function KnowledgeDetailView({ item, legacySource }: KnowledgeDetailViewProps): 
 						</div>
 					) : (
 						<pre
-							className="bg-base-200 rounded p-3 text-sm whitespace-pre-wrap leading-relaxed"
+							className="bg-base-200 rounded p-3 text-sm whitespace-pre-wrap leading-[1.45]"
 							data-testid="knowledge-body"
 						>
 							{sanitize(savedContent || "(no content yet)")}
@@ -321,7 +321,7 @@ function ObservationLog({ entries = [] }: ObservationLogProps): JSX.Element {
 	const labelCount = `${entries.length} ${entries.length === 1 ? "entry" : "entries"}`;
 	return (
 		<section
-			className="border-t border-base-300 pt-3"
+			className="border-t border-[var(--border-subtle)] pt-3"
 			data-testid="knowledge-observation-log"
 			aria-label={`Observation log, ${labelCount}`}
 		>
@@ -365,7 +365,7 @@ function RelatedSidebar({ items }: RelatedSidebarProps): JSX.Element {
 	const labelCount = `${items.length} ${items.length === 1 ? "item" : "items"}`;
 	return (
 		<aside
-			className="flex flex-col gap-2 border-l border-base-300 pl-3 min-w-0"
+			className="flex flex-col gap-2 border-l border-[var(--border-subtle)] pl-3 min-w-0"
 			data-testid="knowledge-related-sidebar"
 			aria-label={`Related items, ${labelCount}`}
 		>

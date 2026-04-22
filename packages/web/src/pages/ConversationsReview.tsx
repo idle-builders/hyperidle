@@ -7,6 +7,7 @@
  * Metadata strip + related history populate the ArtifactView. Single-key
  * A/R/X/S/P shortcuts pre-fill a pending verdict; Enter confirms.
  */
+import { ErrorState, SkeletonList } from "@hyperidle/design-system";
 import { type JSX, useCallback, useEffect, useRef, useState } from "react";
 import { ReasoningBlock } from "../components/ReasoningBlock";
 import type {
@@ -169,9 +170,7 @@ export function ConversationsReview(): JSX.Element {
 	if (loading) {
 		return (
 			<div className="flex flex-col gap-3 h-full" data-testid="conversations-review-page">
-				<div className="skeleton h-12 w-full" />
-				<div className="skeleton h-32 w-full" />
-				<div className="skeleton h-4 w-3/4" />
+				<SkeletonList rows={3} ariaLabel="Loading review" />
 			</div>
 		);
 	}
@@ -179,9 +178,7 @@ export function ConversationsReview(): JSX.Element {
 	if (error) {
 		return (
 			<div className="flex flex-col gap-3 h-full" data-testid="conversations-review-page">
-				<div role="alert" className="alert alert-error text-sm">
-					{error}
-				</div>
+				<ErrorState title="Failed to load review" description={error} />
 			</div>
 		);
 	}
@@ -203,7 +200,7 @@ export function ConversationsReview(): JSX.Element {
 			{pendingVerdict && (
 				<output
 					data-testid="pending-verdict"
-					className="block px-3 py-1 text-xs font-mono bg-warning/20 text-warning-content border-b border-warning/50"
+					className="block px-3 py-1 text-xs font-mono bg-[var(--surface-ghost)] text-[var(--text-mid)] border-b border-[var(--border-default)]"
 				>
 					Pending: {pendingVerdict} — press Enter to confirm
 				</output>

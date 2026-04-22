@@ -13,7 +13,7 @@ import {
 	useSensor,
 	useSensors,
 } from "@dnd-kit/core";
-import { TaskCard } from "@hyperidle/design-system";
+import { EmptyState, TaskCard } from "@hyperidle/design-system";
 import type { TaskState } from "@hyperidle/shared";
 import { type JSX, useMemo, useState } from "react";
 
@@ -249,9 +249,10 @@ export function Kanban({ tasks, onMoveTask, groupByBet = false }: KanbanProps): 
 							</div>
 							<KanbanDropZone columnKey={col.key}>
 								{columnTasks.length === 0 ? (
-									<div className="text-xs text-[var(--text-lo)] p-2">
-										No tasks in {col.label.toLowerCase()}
-									</div>
+									<EmptyState
+										title={`No tasks in ${col.label.toLowerCase()}`}
+										description="Drag tasks here or create new ones to populate this column."
+									/>
 								) : groupByBet ? (
 									groupTasksByBet(columnTasks).map((group) => {
 										const collapsed = collapsedBets.has(group.bet);

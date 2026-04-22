@@ -15,7 +15,7 @@ import {
 	useSensor,
 	useSensors,
 } from "@dnd-kit/core";
-import { BetCard } from "@hyperidle/design-system";
+import { BetCard, EmptyState } from "@hyperidle/design-system";
 import type { BetStatus } from "@hyperidle/shared";
 import { type JSX, useMemo, useState } from "react";
 
@@ -130,9 +130,11 @@ export function Canvas({ bets, capacity, onMoveBet }: CanvasProps): JSX.Element 
 
 	if (bets.length === 0) {
 		return (
-			<div className="flex items-center justify-center p-8 text-[var(--text-lo)] text-sm">
-				No bets yet
-			</div>
+			<EmptyState
+				title="No bets yet"
+				description="Shaped bets will appear here once they are created. Drag between columns to commit."
+				dataTestId="canvas-empty"
+			/>
 		);
 	}
 
