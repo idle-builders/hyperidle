@@ -1,5 +1,5 @@
-import type { JSX } from "react";
 import { type Status, ThreadRow } from "@hyperidle/design-system";
+import type { JSX } from "react";
 
 /**
  * @lore J4 AC: thread-list section grouping is computed client-side from
@@ -107,11 +107,9 @@ export function ThreadSections({
 		<div className="flex flex-col gap-2" data-testid="thread-sections">
 			{sections.map((section) => (
 				<section key={section.id} data-thread-section={section.id}>
-					<h3 className="px-3 py-1 text-[10px] font-mono uppercase tracking-wider text-[var(--text-lo)]">
+					<h3 className="px-3 py-1 text-[11px] font-mono uppercase tracking-wider text-[var(--text-lo)]">
 						{section.label}
-						<span className="ml-2 text-[var(--text-lo)]/70 normal-case">
-							{section.items.length}
-						</span>
+						<span className="ml-2 text-[var(--text-lo)] normal-case">{section.items.length}</span>
 					</h3>
 					<ul className="flex flex-col">
 						{section.items.map((t) => (

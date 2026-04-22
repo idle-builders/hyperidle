@@ -51,7 +51,7 @@ export const TAG_KIND_ICONS: Record<TagKind, TagKindMeta> = {
 				<path d="M3.75 6 L5.5 7.5 L8.25 4.75" />
 			</svg>
 		),
-		tintClass: "tag-tint-decision text-[var(--p)]",
+		tintClass: "tag-tint-decision text-[var(--primary)]",
 		ariaLabel: "Decision",
 	},
 	failure: {
@@ -73,7 +73,7 @@ export const TAG_KIND_ICONS: Record<TagKind, TagKindMeta> = {
 				<circle cx="6" cy="9" r="0.6" fill="currentColor" stroke="none" />
 			</svg>
 		),
-		tintClass: "tag-tint-failure text-[var(--er)]",
+		tintClass: "tag-tint-failure text-[var(--danger)]",
 		ariaLabel: "Failure",
 	},
 };
