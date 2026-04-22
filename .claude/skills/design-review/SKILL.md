@@ -20,7 +20,7 @@ Then read ALL changed UI files (via `$ARGUMENTS` or `git diff --name-only`).
 
 ## Be thorough
 
-Check every component against its spec in UI_DESIGN.md. If the spec says 4 columns, count the columns. If it specifies motion values (120/200/320ms), check the CSS transitions. If it says "factory-dark theme", verify the DaisyUI classes match. Don't assume correctness — verify it.
+Check every component against its spec in UI_DESIGN.md. If the spec says 4 columns, count the columns. If it specifies motion values (80/150/250ms), check the CSS transitions. If it says "Lucid theme", verify the DaisyUI classes match. Don't assume correctness — verify it.
 
 For accessibility: don't just check that aria attributes exist — check they're correct and meaningful. Tab through the focus order mentally. Check that keyboard shortcuts don't conflict with browser/screen reader shortcuts. Verify focus trapping in modals.
 
@@ -28,11 +28,11 @@ For accessibility: don't just check that aria attributes exist — check they're
 - **Component budget** — are only the 19 approved custom components used? Any additions need a written reason.
 - **States** — are ALL states handled (empty, loading, error, populated)? Check each page component.
 - **Accessibility** — focus management, aria labels, keyboard navigation, focus traps, roving tabindex
-- **Design system** — does a `.stories.tsx` file exist? Do classes match factory-dark theme tokens?
+- **Design system** — does a `.stories.tsx` file exist? Do classes match Lucid theme tokens?
 - **Layout** — does the page layout match the spec (IconRail | Submenu | Main | Rail)? No extra columns.
 - **AI aesthetic violations** — oversized padding, purple gradients, hero sections, decorative icons
-- **Information density** — 8-12px padding, tight spacing, Bloomberg not Dribbble
-- **Motion** — transitions match spec values (120/200/320ms), no instant snaps for state changes
+- **Information density** — 8-12px padding, tight spacing, precision instrument aesthetic
+- **Motion** — transitions match spec values (80/150/250ms), no instant snaps for state changes
 
 ## Visual verification
 

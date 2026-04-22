@@ -1,10 +1,10 @@
-import { existsSync, readFileSync, readdirSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
 const THEMES_DIR = resolve(__dirname, "../../html/themes");
 
-const THEME_FILES = ["factory-dark.css", "calm-precision.css", "light-ops.css", "mono-machine.css"];
+const THEME_FILES = ["lucid-dark.css", "lucid-light.css"];
 
 const REQUIRED_TOKENS = [
 	"--surface-0",
@@ -46,7 +46,7 @@ function extractCustomProperties(css: string): string[] {
 }
 
 describe("theme files", () => {
-	it("all 4 theme CSS files exist", () => {
+	it("both theme CSS files exist", () => {
 		for (const file of THEME_FILES) {
 			expect(existsSync(resolve(THEMES_DIR, file))).toBe(true);
 		}
@@ -91,7 +91,7 @@ describe("theme switcher (_switcher.js)", () => {
 	const switcherPath = resolve(THEMES_DIR, "_switcher.js");
 	const js = existsSync(switcherPath) ? readFileSync(switcherPath, "utf-8") : "";
 
-	it("references all 4 theme files", () => {
+	it("references both theme files", () => {
 		for (const file of THEME_FILES) {
 			expect(js).toContain(file);
 		}

@@ -10,7 +10,7 @@ Typography carries ~95% of web design information. It is THE primary interface.
 | 18px | 600 | 1.3 | Section headings |
 | 14px | 500 | 1.45 | Subheadings, emphasized body, nav labels |
 | 14px | 400 | 1.45 | Body text (default) |
-| 13px | 400/500 | 1.4 | Monospace data values (Space Grotesk) |
+| 13px | 400/500 | 1.4 | Monospace data values (Geist Mono) |
 | 12px | 500 | 1.4 | Small labels, metadata |
 | 11px | 500 | 1.3 | Uppercase tags, timestamps (+ letter-spacing 0.05em) |
 
@@ -20,8 +20,8 @@ No sizes outside this scale. If you need a size not listed, you're making a mist
 
 | Family | Token | When to Use |
 |--------|-------|-------------|
-| Inter (400/500/600) | `--ui` / `font-sans` | All UI text: labels, body, headings, buttons |
-| Space Grotesk (400/500) | `--mono` / `font-heading` | Data values, numeric displays, IDs, timestamps, uppercase tags |
+| Geist (400/500/600) | `--ui` / `font-sans` | All UI text: labels, body, headings, buttons |
+| Geist Mono (400/500) | `--mono` / `font-mono` | Data values, numeric displays, IDs, timestamps, uppercase tags |
 
 **Two families maximum.** Hierarchy through weight and size, not family switching.
 
@@ -51,7 +51,7 @@ If you're using weight 700 (Bold) anywhere, stop. It's too heavy for this design
 |---------|-----|
 | Using `text-xl` or `text-2xl` for most headings | Section headings are 18px. Only page titles get 24px. |
 | Bold (700) for emphasis | Use medium (500) or increase size instead. |
-| Monospace for non-data content | Space Grotesk is for data: numbers, IDs, timestamps. Not paragraphs. |
+| Monospace for non-data content | Geist Mono is for data: numbers, IDs, timestamps. Not paragraphs. |
 | More than 3 font sizes in one component | A component needs at most: title (14-18), body (14), meta (11-12). |
 | Missing letter-spacing on uppercase small text | 11px uppercase MUST have `letter-spacing: 0.05em`. |
 | Line height too tight on body text | Body at 14px needs `line-height: 1.45`. Not 1.2. |

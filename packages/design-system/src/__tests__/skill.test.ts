@@ -59,7 +59,13 @@ describe("design-critique skill", () => {
 	});
 
 	describe("reference files", () => {
-		const expectedRefs = ["hierarchy.md", "spacing.md", "typography.md", "color.md", "finishing.md"];
+		const expectedRefs = [
+			"hierarchy.md",
+			"spacing.md",
+			"typography.md",
+			"color.md",
+			"finishing.md",
+		];
 
 		for (const ref of expectedRefs) {
 			it(`references/${ref} exists and has content`, () => {

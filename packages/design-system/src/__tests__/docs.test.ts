@@ -11,8 +11,10 @@ describe("DESIGN.md", () => {
 		expect(content.length).toBeGreaterThan(500);
 	});
 
-	it("references THEMES.md for style alternatives", () => {
-		expect(content).toContain("THEMES.md");
+	it("documents Lucid theme system with light and dark modes", () => {
+		expect(content).toContain("Lucid");
+		expect(content).toContain("lucid-dark");
+		expect(content).toContain("lucid-light");
 	});
 
 	it("references PRINCIPLES.md", () => {
@@ -38,8 +40,8 @@ describe("DESIGN.md", () => {
 	});
 
 	it("documents typography", () => {
-		expect(content).toContain("Inter");
-		expect(content).toContain("Space Grotesk");
+		expect(content).toContain("Geist");
+		expect(content).toContain("Geist Mono");
 	});
 
 	it("documents density presets", () => {
@@ -93,23 +95,19 @@ describe("THEMES.md", () => {
 
 	const content = existsSync(path) ? readFileSync(path, "utf-8") : "";
 
-	it("documents all 4 themes", () => {
-		expect(content).toContain("Factory Dark");
-		expect(content).toContain("Calm Precision");
-		expect(content).toContain("Light Operations Center");
-		expect(content).toContain("Monochrome Machine");
+	it("documents Lucid Dark and Lucid Light themes", () => {
+		expect(content).toContain("Lucid Dark");
+		expect(content).toContain("Lucid Light");
 	});
 
-	it("includes strengths and weaknesses for each", () => {
-		expect(content).toContain("Strengths");
-		expect(content).toContain("Weaknesses");
+	it("documents shared properties and per-mode token tables", () => {
+		expect(content).toContain("Shared Properties");
+		expect(content).toContain("--surface-0");
 	});
 
 	it("references theme CSS files", () => {
-		expect(content).toContain("factory-dark.css");
-		expect(content).toContain("calm-precision.css");
-		expect(content).toContain("light-ops.css");
-		expect(content).toContain("mono-machine.css");
+		expect(content).toContain("lucid-dark.css");
+		expect(content).toContain("lucid-light.css");
 	});
 });
 

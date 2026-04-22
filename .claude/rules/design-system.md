@@ -20,7 +20,7 @@ Components live in `packages/design-system` (Tier 1 primitives + Tier 2 blocks).
 
 **Design principles:** `packages/design-system/PRINCIPLES.md` — seven universals + surprise principles from world-class design systems.
 
-**Theme variants:** Four style directions in `html/themes/` (Factory Dark, Calm Precision, Light Ops, Monochrome Machine). See `THEMES.md`. All HTML component pages have a theme switcher in the top-right corner.
+**Theme variants:** Two theme modes: Lucid Dark + Lucid Light, in `html/themes/` (`lucid-dark.css`, `lucid-light.css`). See `THEMES.md`. All HTML component pages have a theme switcher in the top-right corner.
 
 **Design critique skill:** `/design-critique` evaluates components on 8 dimensions (hierarchy, spacing, typography, color, coherence, states, a11y, anti-slop) with a 0-10 score.
 

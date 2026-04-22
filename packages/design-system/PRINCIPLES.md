@@ -159,14 +159,14 @@ Patterns that LLMs default to because they're statistically common in training d
 
 | Anti-Pattern | Why It Happens | What To Do Instead |
 |---|---|---|
-| Purple/indigo palettes | Most common AI-generated color | Use your token palette. No purple unless specified. |
+| Purple/indigo palettes | Most common AI-generated color | Use the Lucid theme tokens. Indigo primary in Lucid Light is intentional; do not add arbitrary purple elsewhere. |
 | Gradient backgrounds | High-frequency in training data | Flat colors from the token scale. Gradients are earned. |
 | `rounded-2xl` everywhere | LLMs over-index on rounded corners | Use the closed radius scale (r0/r1/r2/r3). |
 | `p-8` / `p-12` padding | LLMs default to generous spacing | Density tokens. 8-12px internal padding. |
 | 3-column card grids | Generic dashboard layout | Use the actual component from the design system. |
 | Hero sections | Landing page pattern bleeding into tools | Productivity tools have no heroes. |
 | Emoji as icons | Easy fallback for LLMs | Real icons or no icons. Emoji is never an icon. |
-| Inter + system-ui everywhere | Safe default | Use the typeface specified in the design system. |
+| Inter + system-ui everywhere | Safe default | Use the typefaces specified in the design system (Geist + Geist Mono). |
 | Centered everything | LLMs center by default | Left-align content. Center only where semantically justified. |
 | Too many colors | LLMs pick varied colors for "interest" | Monochrome default. Color for meaning only. |
 | Excessive shadows | `shadow-lg` on everything | Shadows from the token scale or none. |
@@ -191,7 +191,7 @@ Typography carries ~95% of web design information. It is the primary interface, 
 
 - Separate brand colors from functional colors. Brand expresses identity; functional handles usability signals.
 - Color should never be the only signal for meaning. Always pair with icon, text, or shape for accessibility.
-- In dark mode, avoid pure black (#000) backgrounds -- they cause "halation" where bright text appears to bleed. Use near-black (#0a0a0a or warmer).
+- In dark mode, avoid pure black (#000) backgrounds -- they cause "halation" where bright text appears to bleed. Lucid Dark uses #111113.
 - Status colors: desaturate by 10-20% in dark mode so they communicate meaning without being garish.
 
 ---

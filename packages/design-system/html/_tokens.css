@@ -1,69 +1,131 @@
 /**
- * HyperIdle Design System — HTML Token Sheet
+ * HyperIdle Design System — Lucid HTML Token Sheet
  *
- * Self-contained CSS for .html component files (Claude Design editable).
+ * Self-contained CSS for .html component files.
  * Includes tokens + reset + base styles. Each .html file only needs:
  *   <link rel="stylesheet" href="_tokens.css" />
  *
  * Token values match src/tokens.css exactly. See DESIGN.md for reference.
  */
 
-@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@400;500&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500&display=swap");
 
+/* ── Shared tokens ── */
 :root {
-	/* ── Surfaces ── */
-	--surface-0: #000000;
-	--surface-1: #0e0e0e;
-	--surface-2: #131313;
-	--surface-3: #191a1a;
-	--surface-4: #1f2020;
-	--surface-5: #252626;
-	--surface-6: #2c2c2c;
-	--surface-ghost: rgba(255, 255, 255, 0.06);
-
-	/* ── Accents ── */
-	--primary: #adc6ff;
-	--primary-dim: rgba(173, 198, 255, 0.12);
-	--primary-hover: rgba(173, 198, 255, 0.18);
-	--warn: #d58f24;
-	--ok: #bbffb3;
-	--danger: #ee7d77;
-
-	/* ── Text ── */
-	--text-hi: #e7e5e4;
-	--text-mid: #acabaa;
-	--text-lo: #808080;
-
-	/* ── Shadow ── */
-	--float: 0 0 32px rgba(173, 198, 255, 0.08);
-
-	/* ── Borders ── */
-	--border-subtle: rgba(255, 255, 255, 0.06);
-	--border-default: rgba(255, 255, 255, 0.08);
-	--border-emphasis: rgba(255, 255, 255, 0.12);
-
-	/* ── Radii ── */
 	--r0: 0;
-	--r1: 2px;
-	--r2: 4px;
-	--r3: 8px;
+	--r1: 4px;
+	--r2: 8px;
+	--r3: 12px;
 	--r-pill: 999px;
 
-	/* ── Motion ── */
-	--motion-fast: 120ms;
-	--motion-medium: 200ms;
-	--motion-slow: 320ms;
+	--motion-fast: 80ms;
+	--motion-medium: 150ms;
+	--motion-slow: 250ms;
 
-	/* ── Typography ── */
-	--ui: "Inter", system-ui, sans-serif;
-	--mono: "Space Grotesk", ui-monospace, monospace;
+	--ui: "Geist", "Inter", system-ui, sans-serif;
+	--mono: "Geist Mono", ui-monospace, monospace;
 
-	/* ── Density (default) ── */
 	--density-pad-x: 0.75rem;
 	--density-pad-y: 0.5rem;
 	--density-gap: 0.5rem;
 	--density-row-h: 2rem;
 	--density-text: 0.875rem;
+}
+
+/* ── Lucid Dark (default) ── */
+:root,
+[data-theme="lucid-dark"] {
+	--surface-0: #111113;
+	--surface-1: #19191c;
+	--surface-2: #1e1e22;
+	--surface-3: #27272b;
+	--surface-4: #323237;
+	--surface-5: #3e3e44;
+	--surface-6: #4a4a52;
+	--surface-ghost: rgba(255, 255, 255, 0.05);
+
+	--primary: #e0e7ff;
+	--primary-dim: rgba(224, 231, 255, 0.08);
+	--primary-hover: rgba(224, 231, 255, 0.14);
+	--warn: #a8a8b0;
+	--ok: #c8c8d0;
+	--danger: #f87171;
+
+	--text-hi: #ededef;
+	--text-mid: #a0a0a6;
+	--text-lo: #6e6e76;
+
+	--float: 0 2px 16px rgba(0, 0, 0, 0.5);
+
+	--border-subtle: rgba(255, 255, 255, 0.06);
+	--border-default: rgba(255, 255, 255, 0.1);
+	--border-emphasis: rgba(255, 255, 255, 0.16);
+
+	color-scheme: dark;
+}
+
+/* ── Lucid Light ── */
+[data-theme="lucid-light"] {
+	--surface-0: #fafaf9;
+	--surface-1: #ffffff;
+	--surface-2: #f4f4f2;
+	--surface-3: #eaeae8;
+	--surface-4: #ddddd9;
+	--surface-5: #d0d0cc;
+	--surface-6: #c4c4be;
+	--surface-ghost: rgba(0, 0, 0, 0.04);
+
+	--primary: #4f46e5;
+	--primary-dim: rgba(79, 70, 229, 0.08);
+	--primary-hover: rgba(79, 70, 229, 0.12);
+	--warn: #78787e;
+	--ok: #8e8e94;
+	--danger: #dc2626;
+
+	--text-hi: #1a1a1e;
+	--text-mid: #6b6b70;
+	--text-lo: #737378;
+
+	--float: 0 4px 16px rgba(0, 0, 0, 0.1);
+
+	--border-subtle: rgba(0, 0, 0, 0.06);
+	--border-default: rgba(0, 0, 0, 0.1);
+	--border-emphasis: rgba(0, 0, 0, 0.16);
+
+	color-scheme: light;
+}
+
+/* ── System preference: light ── */
+@media (prefers-color-scheme: light) {
+	:root:not([data-theme]) {
+		--surface-0: #fafaf9;
+		--surface-1: #ffffff;
+		--surface-2: #f4f4f2;
+		--surface-3: #eaeae8;
+		--surface-4: #ddddd9;
+		--surface-5: #d0d0cc;
+		--surface-6: #c4c4be;
+		--surface-ghost: rgba(0, 0, 0, 0.04);
+
+		--primary: #4f46e5;
+		--primary-dim: rgba(79, 70, 229, 0.08);
+		--primary-hover: rgba(79, 70, 229, 0.12);
+		--warn: #78787e;
+		--ok: #8e8e94;
+		--danger: #dc2626;
+
+		--text-hi: #1a1a1e;
+		--text-mid: #6b6b70;
+		--text-lo: #737378;
+
+		--float: 0 4px 16px rgba(0, 0, 0, 0.1);
+
+		--border-subtle: rgba(0, 0, 0, 0.06);
+		--border-default: rgba(0, 0, 0, 0.1);
+		--border-emphasis: rgba(0, 0, 0, 0.16);
+
+		color-scheme: light;
+	}
 }
 
 /* ── Reset ── */

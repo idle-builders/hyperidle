@@ -1,116 +1,139 @@
-# Style Directions
+# Lucid Theme System
 
-Four theme variants for design exploration. Each is a complete set of CSS custom properties that can be applied to any component. Switch between them using the theme picker in the top-right of any HTML component page (`bun run ds:serve` on :8098).
-
----
-
-## 1. Factory Dark (Current)
-
-**Mood:** Bloomberg terminal meets silent intelligence.
-**References:** Bloomberg, Grafana, Datadog.
-
-Pure black base (#000), seven tonal surface steps, no borders (tonal layering only), Space Grotesk for data, maximum density. This was the original direction.
-
-**Strengths:** Dramatic, data-dense, distinctive.
-**Weaknesses:** Pure black causes halation, tonal steps too close together to distinguish, lacks visual structure without borders, can feel oppressive in long sessions.
-
-**File:** `html/themes/factory-dark.css`
+The Lucid theme is a unified design language with two modes: **Lucid Dark** and **Lucid Light**. They share structure, typography, spacing, and interaction patterns — only surface colors, text colors, border opacities, and accent intensities change between modes.
 
 ---
 
-## 2. Calm Precision (Recommended for Exploration)
+## Design Philosophy
 
-**Mood:** Focused, professional, quietly confident. A well-organized workspace at 10pm.
-**References:** Linear (calmer interface refresh), Raycast, Things 3.
+**Monochrome status signals.** Warn and ok are neutral grays in both modes. Only danger is red. Color is reserved for "act now" situations. Status is communicated through position, shape, text, and fill — not hue — except when something is genuinely broken.
 
-Lifts the base off pure black to warm dark gray (#141416). Fewer surface levels with bigger perceptual gaps. 1px borders as the primary organizational mechanism. Warm gray undertones prevent the "gloomy cave" feeling. Desaturated accents.
+**Precision instrument aesthetic.** Dense, purposeful, distinctive. Every element earns its place. The UI is a tool, not a showcase.
 
-**Strengths:** Organized, warm, less fatiguing. Addresses the "too extreme, not organized enough" concern directly. Proven by Linear at similar data complexity.
-**Weaknesses:** Risks feeling "generic modern SaaS" — many tools converge on this look.
-
-**Key differences from Factory Dark:**
-- No pure black anywhere
-- Borders are the primary organizational mechanism (not tonal layering alone)
-- Warm gray undertones
-- Slightly larger radii (4/6/10 instead of 2/4/8)
-- Faster motion (100/180/280ms)
-- Geist Mono instead of Space Grotesk for data
-
-**File:** `html/themes/calm-precision.css`
+**No pure black, no pure white.** Lucid Dark uses `#111113` (lifted off pure black to prevent halation). Lucid Light uses `#fafaf9` (warm off-white to reduce glare).
 
 ---
 
-## 3. Light Operations Center
+## Shared Properties (Both Modes)
+
+| Property | Value |
+|----------|-------|
+| Font UI | Geist (400/500/600) |
+| Font Mono | Geist Mono (400/500) |
+| Radii | 0 / 4px / 8px / 12px / 999px |
+| Motion fast | 80ms |
+| Motion medium | 150ms |
+| Motion slow | 250ms |
+| Spacing grid | 4px baseline |
+| Border subtle opacity | 0.06 |
+| Border default opacity | 0.10 |
+| Border emphasis opacity | 0.16 |
+| DaisyUI --rounded-box | 8px |
+| DaisyUI --rounded-btn | 4px |
+| DaisyUI --rounded-badge | 4px |
+
+---
+
+## Lucid Dark
+
+**Mood:** Precise, engineered, quietly confident. A well-organized workspace at 10pm.
+**References:** Vercel/Geist, Linear, Superhuman, Warp terminal.
+
+Near-black base (`#111113`), seven tonal surface steps with clear perceptual gaps, 1px borders as the primary organizational mechanism, Geist Mono for data, maximum density with mathematical consistency.
+
+| Token | Value |
+|-------|-------|
+| `--surface-0` | `#111113` |
+| `--surface-1` | `#18181b` |
+| `--surface-2` | `#1e1e21` |
+| `--surface-3` | `#232326` |
+| `--surface-4` | `#28282c` |
+| `--surface-5` | `#2e2e33` |
+| `--surface-6` | `#35353b` |
+| `--text-hi` | `#ececef` |
+| `--text-mid` | `#a1a1aa` |
+| `--text-lo` | `#71717a` |
+| `--primary` | `#e0e7ff` |
+| `--warn` | `#a8a8b0` (gray) |
+| `--ok` | `#c8c8d0` (gray) |
+| `--danger` | `#f87171` (red) |
+| `--border-default` | `rgba(255,255,255,0.10)` |
+| `--float` | `0 0 32px rgba(0,0,0,0.4)` |
+
+**File:** `html/themes/lucid-dark.css`
+
+---
+
+## Lucid Light
 
 **Mood:** Clear, authoritative, daylight-bright. A modern command center with natural light.
-**References:** Stripe Dashboard, Notion, GitHub (light), Apple Health.
+**References:** Stripe Dashboard, GitHub (light), Apple HIG, Linear (light mode).
 
-Warm off-white base (#fafaf9), white content cards, card elevation via subtle shadows. Status colors pop dramatically against light backgrounds. Editorial typography feel.
+Warm off-white base (`#fafaf9`), white content cards, card elevation via subtle shadows. Status colors are muted grays against light backgrounds except danger which pops as saturated red.
 
-**Strengths:** Superior readability, card-based layout creates natural visual grouping, feels "executive dashboard" for the CEO/CPO audience. Stripe proves this works for complex financial data.
-**Weaknesses:** Breaks "developer tool" aesthetic. Eventually needs a dark mode too.
+| Token | Value |
+|-------|-------|
+| `--surface-0` | `#fafaf9` |
+| `--surface-1` | `#f4f4f3` |
+| `--surface-2` | `#ededec` |
+| `--surface-3` | `#ffffff` |
+| `--surface-4` | `#f7f7f6` |
+| `--surface-5` | `#ebebea` |
+| `--surface-6` | `#e0e0df` |
+| `--text-hi` | `#18181b` |
+| `--text-mid` | `#52525b` |
+| `--text-lo` | `#a1a1aa` |
+| `--primary` | `#4f46e5` (indigo) |
+| `--warn` | `#78787e` (gray) |
+| `--ok` | `#8e8e94` (gray) |
+| `--danger` | `#dc2626` (red) |
+| `--border-default` | `rgba(0,0,0,0.10)` |
+| `--float` | `0 4px 24px rgba(0,0,0,0.08)` |
 
-**Key differences:**
-- Light color scheme
-- Shadows for elevation (not surface tones)
-- Bolder accent colors with more contrast headroom
-- Near-black text on white
-- Larger radii (4/8/12)
-- Borders use black-based alpha instead of white-based
-
-**File:** `html/themes/light-ops.css`
-
----
-
-## 4. Monochrome Machine
-
-**Mood:** Precise, engineered, uncompromising. A Braun product or Leica interface.
-**References:** Vercel/Geist, Superhuman, Warp terminal, Figma chrome.
-
-Near-monochrome palette. One accent color only. Superhuman principle: closer layers = lighter. Maximum density with mathematical consistency. Status communicates through position/shape/fill, not color (except red for "act now").
-
-**Strengths:** Most visually distinctive. Extreme reduction forces every element to justify existence. Single accent makes interactive affordances unmistakable. Scales beautifully to very dense views.
-**Weaknesses:** Steep learning curve for status encoding. May feel cold. Harder to execute — tiny missteps in gray values are more visible without color distraction. Charts become harder without a color palette.
-
-**Key differences:**
-- Warn/ok status colors are neutral grays (monochrome communication)
-- Only danger (#f87171) has actual color — reserved for "act now"
-- Geist font family
-- Fastest motion (80/150/250ms)
-- Deepest surface contrast range
-
-**File:** `html/themes/mono-machine.css`
+**File:** `html/themes/lucid-light.css`
 
 ---
 
-## How to Use
+## How to Switch Themes
 
-### Browse themes visually
+### Via data-theme attribute
+
+```html
+<html data-theme="lucid-dark">
+<!-- or -->
+<html data-theme="lucid-light">
+```
+
+### Via settings panel
+
+Users toggle between Lucid Dark and Lucid Light in the app settings. The preference is persisted and overrides `prefers-color-scheme`.
+
+### Via system preference
+
+When no user preference is set, the app respects `prefers-color-scheme: dark` / `prefers-color-scheme: light`.
+
+### In the design system viewer
 
 ```bash
 bun run ds:serve
 # Open http://localhost:8098/BetCard.html
-# Use the theme picker in the top-right corner
+# Use the theme picker in the top-right corner to switch between Lucid Dark and Lucid Light
 ```
 
-### Apply a theme to the full app (future)
+### Apply a theme mode to the full app
 
-The TSX components use `var(--token-name)` throughout. To switch themes:
-1. Load the theme CSS file instead of the default tokens
-2. Set `data-theme="theme-name"` on the root element
+The TSX components use `var(--token-name)` throughout. To switch modes:
+1. Load the appropriate theme CSS file (`lucid-dark.css` or `lucid-light.css`)
+2. Set `data-theme="lucid-dark"` or `data-theme="lucid-light"` on the root element
 
-### Create a new theme variant
+---
 
-1. Copy an existing theme file in `html/themes/`
-2. Change the token values
-3. Add it to `html/themes/_switcher.js` THEMES array
-4. Test across all 14 components
+## Creating Components for Both Modes
 
-### Evaluate themes
+All components must work in both Lucid Dark and Lucid Light. Rules:
 
-For each theme, look at the components and ask:
-- Is the hierarchy clear? Can I tell primary from secondary from tertiary?
-- Is the density appropriate? Can I scan quickly?
-- Does it feel organized? Can I tell where sections begin and end?
-- Does it feel cohesive? Do the colors, spacing, and typography work together?
-- Would I want to use this for 8 hours?
+1. **Use semantic tokens only.** `var(--surface-3)`, never `#232326` or `#ffffff`.
+2. **Use alpha-based borders.** `var(--border-default)` adapts to both modes automatically when using white-alpha (dark) or black-alpha (light).
+3. **Test in both modes.** Every component must be visually verified in Lucid Dark and Lucid Light before shipping.
+4. **Shadows in light mode.** Light mode uses `var(--float)` shadows for elevation. Dark mode uses surface lightness.
+5. **Status colors are gray.** Do not rely on warm/cool hue to distinguish ok from warn. Use text labels and icons.

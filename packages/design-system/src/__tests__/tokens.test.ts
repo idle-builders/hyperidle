@@ -22,7 +22,14 @@ describe("tokens.css (TSX source)", () => {
 	});
 
 	it("defines accent tokens", () => {
-		for (const token of ["--primary", "--primary-dim", "--primary-hover", "--warn", "--ok", "--danger"]) {
+		for (const token of [
+			"--primary",
+			"--primary-dim",
+			"--primary-hover",
+			"--warn",
+			"--ok",
+			"--danger",
+		]) {
 			expect(props).toContain(token);
 		}
 	});
@@ -76,6 +83,18 @@ describe("tokens.css (TSX source)", () => {
 	it("uses @layer base for Tailwind integration", () => {
 		expect(SRC_TOKENS).toContain("@layer base");
 	});
+
+	it("defines lucid-dark theme block", () => {
+		expect(SRC_TOKENS).toContain('[data-theme="lucid-dark"]');
+	});
+
+	it("defines lucid-light theme block", () => {
+		expect(SRC_TOKENS).toContain('[data-theme="lucid-light"]');
+	});
+
+	it("includes prefers-color-scheme light media query", () => {
+		expect(SRC_TOKENS).toContain("@media (prefers-color-scheme: light)");
+	});
 });
 
 describe("_tokens.css (HTML components)", () => {
@@ -120,10 +139,22 @@ describe("_tokens.css (HTML components)", () => {
 		}
 	});
 
-	it("includes Google Fonts import for Inter and Space Grotesk", () => {
+	it("includes Google Fonts import for Geist and Geist Mono", () => {
 		expect(HTML_TOKENS).toContain("fonts.googleapis.com");
-		expect(HTML_TOKENS).toContain("Inter");
-		expect(HTML_TOKENS).toContain("Space+Grotesk");
+		expect(HTML_TOKENS).toContain("Geist");
+		expect(HTML_TOKENS).toContain("Geist+Mono");
+	});
+
+	it("defines lucid-dark theme block", () => {
+		expect(HTML_TOKENS).toContain('[data-theme="lucid-dark"]');
+	});
+
+	it("defines lucid-light theme block", () => {
+		expect(HTML_TOKENS).toContain('[data-theme="lucid-light"]');
+	});
+
+	it("includes prefers-color-scheme light media query", () => {
+		expect(HTML_TOKENS).toContain("@media (prefers-color-scheme: light)");
 	});
 
 	it("sets body background to surface-0", () => {
@@ -142,14 +173,9 @@ describe("_tokens.css (HTML components)", () => {
 });
 
 describe("token sync: src/tokens.css ↔ html/_tokens.css", () => {
-	const srcProps = extractCustomProperties(SRC_TOKENS);
 	const htmlProps = extractCustomProperties(HTML_TOKENS);
 
 	it("every core token in src/tokens.css exists in html/_tokens.css", () => {
-		// Core tokens are those defined in :root (not density overrides)
-		const coreFromSrc = srcProps.filter(
-			(p) => !p.startsWith("--density-") || SRC_TOKENS.indexOf(`:root`) < SRC_TOKENS.indexOf(p),
-		);
 		// The core set that must match
 		const required = [
 			"--surface-0",

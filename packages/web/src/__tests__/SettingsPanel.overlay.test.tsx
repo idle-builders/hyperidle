@@ -26,7 +26,7 @@ const defaultSettings: SettingsData = {
 		quietHoursEnd: "08:00",
 		mutedProducts: [],
 	},
-	appearance: { density: "default" },
+	appearance: { density: "default", theme: "system" },
 };
 
 const baseProps = {
