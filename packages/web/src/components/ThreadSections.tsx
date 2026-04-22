@@ -1,4 +1,4 @@
-import { type Status, ThreadRow } from "@hyperidle/design-system";
+import { EmptyState, type Status, ThreadRow } from "@hyperidle/design-system";
 import type { JSX } from "react";
 
 /**
@@ -98,9 +98,11 @@ export function ThreadSections({
 	const sections = groupThreadsIntoSections(threads, { now });
 	if (sections.length === 0) {
 		return (
-			<div className="px-3 py-4 text-xs text-[var(--text-lo)]" data-testid="thread-sections-empty">
-				No threads.
-			</div>
+			<EmptyState
+				title="No threads"
+				description="Conversations with agents will appear here once started."
+				dataTestId="thread-sections-empty"
+			/>
 		);
 	}
 	return (

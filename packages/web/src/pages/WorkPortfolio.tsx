@@ -34,7 +34,7 @@ export function WorkPortfolio({ loading = false, products }: WorkPortfolioProps 
 	if (loading) {
 		return (
 			<div className="flex flex-col gap-3 h-full" data-testid="work-portfolio-page">
-				<h1 className="text-sm font-heading font-semibold uppercase tracking-wider text-[var(--text-hi)]">
+				<h1 className="text-sm font-heading font-semibold uppercase tracking-wider text-[var(--text-lo)]">
 					Portfolio
 				</h1>
 				<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
@@ -48,7 +48,7 @@ export function WorkPortfolio({ loading = false, products }: WorkPortfolioProps 
 
 	return (
 		<div className="flex flex-col gap-3 h-full" data-testid="work-portfolio-page">
-			<h1 className="text-sm font-heading font-semibold uppercase tracking-wider text-[var(--text-hi)]">
+			<h1 className="text-sm font-heading font-semibold uppercase tracking-wider text-[var(--text-lo)]">
 				Portfolio
 			</h1>
 			{items.length === 0 ? (
@@ -100,9 +100,9 @@ export function WorkPortfolio({ loading = false, products }: WorkPortfolioProps 
 			)}
 			<div
 				data-testid="cycle-stripe"
-				className="bg-base-200 rounded p-2 flex items-center justify-between gap-2"
+				className="bg-base-200 rounded-lg p-2 flex items-center justify-between gap-2"
 			>
-				<span className="text-sm font-heading font-semibold uppercase tracking-wider text-[var(--text-hi)]">
+				<span className="text-sm font-heading font-semibold uppercase tracking-wider text-[var(--text-lo)]">
 					{MOCK_CYCLE.label}
 				</span>
 				<span className="text-xs text-[var(--text-mid)]">

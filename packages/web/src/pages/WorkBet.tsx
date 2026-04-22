@@ -1,5 +1,6 @@
 import {
 	BetCard,
+	EmptyState,
 	SkeletonCard,
 	SkeletonList,
 	StatusChip,
@@ -271,7 +272,11 @@ export function WorkBet({ loading = false, overrideBetId }: WorkBetProps = {}): 
 			</h2>
 
 			{bet.tasks.length === 0 ? (
-				<p className="text-sm text-[var(--text-lo)]">No tasks yet</p>
+				<EmptyState
+					title="No tasks yet"
+					description="Tasks will appear here once agents start work on this bet."
+					dataTestId="bet-tasks-empty"
+				/>
 			) : (
 				<div className="overflow-x-auto">
 					<table className="table table-xs">
@@ -332,11 +337,15 @@ export function WorkBet({ loading = false, overrideBetId }: WorkBetProps = {}): 
 					Comments
 				</h2>
 				{bet.comments.length === 0 ? (
-					<p className="text-sm text-[var(--text-lo)]">No comments yet</p>
+					<EmptyState
+						title="No comments yet"
+						description="Comments from agents and founders will appear here."
+						dataTestId="bet-comments-empty"
+					/>
 				) : (
 					<ul className="flex flex-col gap-2">
 						{bet.comments.map((comment) => (
-							<li key={comment.id} className="bg-base-200 rounded p-2 flex flex-col gap-1">
+							<li key={comment.id} className="bg-base-200 rounded-lg p-2 flex flex-col gap-1">
 								<span className="text-xs font-heading uppercase tracking-wider text-[var(--text-lo)]">
 									{comment.author}
 								</span>

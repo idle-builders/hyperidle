@@ -45,9 +45,14 @@ export function Submenu({
 	const hasSearch = searchValue !== undefined && onSearchChange !== undefined;
 	const hasFilters = filters !== undefined && filters.length > 0;
 
+	// @lore Design system mandates GPU-only animations (transform, opacity). Width
+	// transitions are not GPU-accelerated but are necessary here because the Submenu
+	// collapse/expand changes the document flow — transform: scaleX() would clip
+	// children and not reclaim layout space. transition-[width] is the pragmatic
+	// choice for this expand/collapse pattern.
 	return (
 		<div
-			className={`flex flex-col gap-[var(--density-gap)] p-2 transition-[width] duration-[var(--motion-medium)] ease-in-out ${collapsed ? "w-0 overflow-hidden" : "w-60"}`}
+			className={`flex flex-col gap-[var(--density-gap)] p-2 transition-[width] duration-[var(--motion-medium)] ${collapsed ? "w-0 overflow-hidden" : "w-60"}`}
 			onKeyDown={(e) => {
 				if (e.key === "Escape" && !collapsed) {
 					e.preventDefault();

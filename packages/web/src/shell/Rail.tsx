@@ -1,4 +1,10 @@
-import { KeyValue, type Status, StatusChip, betStatusToStatus } from "@hyperidle/design-system";
+import {
+	EmptyState,
+	KeyValue,
+	type Status,
+	StatusChip,
+	betStatusToStatus,
+} from "@hyperidle/design-system";
 import type { BetStatus } from "@hyperidle/shared";
 import { type JSX, useState } from "react";
 import { useNavigate } from "react-router-dom";
@@ -79,7 +85,7 @@ function SectionHeader({
 	return (
 		<button
 			type="button"
-			className="flex w-full items-center justify-between p-2 text-left hover:bg-[var(--surface-4)]"
+			className="flex w-full items-center justify-between p-2 text-left hover:bg-[var(--surface-ghost)]"
 			onClick={onToggle}
 			tabIndex={tabIndex}
 			onKeyDown={onKeyDown}
@@ -142,13 +148,13 @@ const PILL_META: Record<CollapsedPillKind, PillMeta> = {
 		label: "BLK",
 		ariaNounSingular: "blocker",
 		ariaNounPlural: "blockers",
-		tone: "bg-error/15 text-error",
+		tone: "bg-[color-mix(in_oklab,var(--danger)_15%,transparent)] text-error",
 	},
 	rev: {
 		label: "REV",
 		ariaNounSingular: "review",
 		ariaNounPlural: "reviews",
-		tone: "bg-primary/15 text-primary",
+		tone: "bg-[color-mix(in_oklab,var(--primary)_15%,transparent)] text-primary",
 	},
 	psd: {
 		label: "PSD",
@@ -215,6 +221,11 @@ export function Rail({ expanded, onToggleExpand, bets, blockers, cost }: RailPro
 		const revCount = bets.filter((b) => b.status === "review").length;
 		const psdCount = bets.filter((b) => b.status === "paused").length;
 		const totalBets = bets.length;
+		// @lore Design system mandates GPU-only animations (transform, opacity). Width
+		// transitions are not GPU-accelerated but are necessary here because the Rail
+		// collapse/expand changes the document flow — transform: scaleX() would clip
+		// children and not reclaim layout space. transition-[width] is the pragmatic
+		// choice for this expand/collapse pattern.
 		return (
 			<div className="flex w-14 flex-col items-center gap-2 p-2 transition-[width] duration-[var(--motion-medium)]">
 				<CollapsedPill kind="blk" count={blkCount} />
@@ -240,7 +251,7 @@ export function Rail({ expanded, onToggleExpand, bets, blockers, cost }: RailPro
 				 * with the semantic pills above. Counts > 99 use the same 99+ cap.
 				 */}
 				<span
-					className="text-xs text-[var(--text-lo)] opacity-60 mt-1"
+					className="text-xs text-[var(--text-lo)] mt-1"
 					aria-label={`${totalBets} ${totalBets === 1 ? "active bet" : "active bets"}`}
 				>
 					{formatCount(totalBets)}
@@ -283,13 +294,17 @@ export function Rail({ expanded, onToggleExpand, bets, blockers, cost }: RailPro
 				{openSections.bets && (
 					<div id="rail-panel-bets" className="flex flex-col gap-1 px-2 py-1">
 						{bets.length === 0 && (
-							<p className="text-xs text-[var(--text-lo)] py-1">No active bets</p>
+							<EmptyState
+								title="No active bets"
+								description="Bets will appear here when committed."
+								dataTestId="rail-bets-empty"
+							/>
 						)}
 						{bets.map((bet) => (
 							<button
 								key={bet.id}
 								type="button"
-								className="flex flex-col gap-0.5 py-1 w-full text-left hover:bg-[var(--surface-4)] rounded px-1 cursor-pointer"
+								className="flex flex-col gap-1 py-1 w-full text-left hover:bg-[var(--surface-ghost)] rounded px-1 cursor-pointer"
 								onClick={() => navigate(`/work/bet/${bet.id}`)}
 							>
 								<div className="flex items-center justify-between w-full">
@@ -318,10 +333,14 @@ export function Rail({ expanded, onToggleExpand, bets, blockers, cost }: RailPro
 				{openSections.blockers && (
 					<div id="rail-panel-blockers" className="flex flex-col gap-1 px-2 py-1">
 						{blockers.length === 0 && (
-							<p className="text-xs text-[var(--text-lo)] py-1">No blockers</p>
+							<EmptyState
+								title="No blockers"
+								description="All agents are unblocked."
+								dataTestId="rail-blockers-empty"
+							/>
 						)}
 						{blockers.map((blocker) => (
-							<div key={blocker.id} className="flex flex-col gap-0.5 py-1">
+							<div key={blocker.id} className="flex flex-col gap-1 py-1">
 								<div className="flex items-center justify-between">
 									<span className="text-sm text-[var(--text-hi)]">{blocker.agent}</span>
 									<StatusChip status={severityToChipStatus(blocker.severity)} />
