@@ -15,9 +15,9 @@
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
-const HTML_DIR = resolve(__dirname, "../html");
-const SCRIPTS_DIR = resolve(__dirname);
+const Dirname = dirname(fileURLToPath(import.meta.url));
+const HTML_DIR = resolve(Dirname, "../html");
+const SCRIPTS_DIR = resolve(Dirname);
 const PORT = Number(process.env.PORT) || 8098;
 
 const MIME_TYPES: Record<string, string> = {
