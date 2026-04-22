@@ -1,5 +1,5 @@
-import type { JSX, ReactNode } from "react";
 import { SearchField } from "@hyperidle/design-system";
+import type { JSX, ReactNode } from "react";
 
 /**
  * Segmented-filter identifier for the Submenu header row.
@@ -47,7 +47,7 @@ export function Submenu({
 
 	return (
 		<div
-			className={`flex flex-col gap-[var(--density-gap)] p-2 transition-[width] duration-200 ease-in-out ${collapsed ? "w-0 overflow-hidden" : "w-60"}`}
+			className={`flex flex-col gap-[var(--density-gap)] p-2 transition-[width] duration-[var(--motion-medium)] ease-in-out ${collapsed ? "w-0 overflow-hidden" : "w-60"}`}
 			onKeyDown={(e) => {
 				if (e.key === "Escape" && !collapsed) {
 					e.preventDefault();
