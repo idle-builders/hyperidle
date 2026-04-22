@@ -44,7 +44,7 @@ export function BetCard({
 	shipped,
 }: BetCardProps): JSX.Element {
 	return (
-		<div {...clickableProps(onClick, "bg-base-200 rounded p-2 flex flex-col gap-1")}>
+		<div {...clickableProps(onClick, "bg-base-200 rounded-lg p-2 flex flex-col gap-1")}>
 			<div className="flex items-center gap-2">
 				{leadAvatar && (
 					<span

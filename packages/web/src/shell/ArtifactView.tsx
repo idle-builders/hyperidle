@@ -1,6 +1,6 @@
+import { KeyValue } from "@hyperidle/design-system";
 import DOMPurify from "dompurify";
 import type { JSX } from "react";
-import { KeyValue } from "@hyperidle/design-system";
 
 // --- Data shape types ---
 
@@ -126,7 +126,7 @@ function ContentPreviewView({ data }: { data: ContentPreviewData }): JSX.Element
 	return (
 		<section aria-label="Content preview">
 			{data.metadata.length > 0 && (
-				<div className="flex flex-col gap-1 mb-3 pb-3 border-b border-[var(--surface-4)]">
+				<div className="flex flex-col gap-1 mb-3 pb-3 border-b border-[var(--border-subtle)]">
 					{data.metadata.map((kv) => (
 						<KeyValue key={kv.label} label={kv.label} value={kv.value} />
 					))}
@@ -277,7 +277,7 @@ function MetadataStrip({
 	return (
 		<div
 			data-testid="artifact-metadata-strip"
-			className="flex items-center gap-2 px-3 py-1.5 text-xs font-mono border-b border-[var(--surface-4)] text-[var(--text-mid)]"
+			className="flex items-center gap-2 px-3 py-1.5 text-xs font-mono border-b border-[var(--border-subtle)] text-[var(--text-mid)]"
 		>
 			<span
 				data-testid="artifact-kind-badge"
@@ -307,9 +307,9 @@ function RelatedHistorySection({ entries }: { entries: RelatedHistoryEntry[] }):
 	return (
 		<section
 			aria-label="Related history"
-			className="border-t border-[var(--surface-4)] px-3 py-2 mt-3"
+			className="border-t border-[var(--border-subtle)] px-3 py-2 mt-3"
 		>
-			<h4 className="text-[10px] font-mono uppercase tracking-wider text-[var(--text-lo)] mb-1">
+			<h4 className="text-[11px] font-mono uppercase tracking-wider text-[var(--text-lo)] mb-1">
 				Related history
 			</h4>
 			<ul className="flex flex-col gap-0.5 text-xs">

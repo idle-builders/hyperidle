@@ -1,7 +1,7 @@
+import { KeyValue, type Status, StatusChip, betStatusToStatus } from "@hyperidle/design-system";
 import type { BetStatus } from "@hyperidle/shared";
 import { type JSX, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { KeyValue, StatusChip, type Status, betStatusToStatus } from "@hyperidle/design-system";
 import { useRovingFocus } from "./use-roving-focus";
 
 /**
@@ -62,6 +62,8 @@ interface SectionHeaderProps {
 	tabIndex: number;
 	onKeyDown: (e: React.KeyboardEvent<HTMLElement>) => void;
 	itemRef: (el: HTMLElement | null) => void;
+	/** ID of the collapsible content region this header controls. */
+	panelId: string;
 }
 
 function SectionHeader({
@@ -72,6 +74,7 @@ function SectionHeader({
 	tabIndex,
 	onKeyDown,
 	itemRef,
+	panelId,
 }: SectionHeaderProps): JSX.Element {
 	return (
 		<button
@@ -81,6 +84,8 @@ function SectionHeader({
 			tabIndex={tabIndex}
 			onKeyDown={onKeyDown}
 			ref={itemRef}
+			aria-expanded={isOpen}
+			aria-controls={panelId}
 		>
 			<div className="flex items-center gap-2">
 				<span className="font-heading text-xs uppercase tracking-wider text-[var(--text-lo)]">
@@ -273,9 +278,10 @@ export function Rail({ expanded, onToggleExpand, bets, blockers, cost }: RailPro
 					tabIndex={betsProps.tabIndex}
 					onKeyDown={betsProps.onKeyDown}
 					itemRef={betsProps.ref}
+					panelId="rail-panel-bets"
 				/>
 				{openSections.bets && (
-					<div className="flex flex-col gap-1 px-2 py-1">
+					<div id="rail-panel-bets" className="flex flex-col gap-1 px-2 py-1">
 						{bets.length === 0 && (
 							<p className="text-xs text-[var(--text-lo)] py-1">No active bets</p>
 						)}
@@ -307,9 +313,10 @@ export function Rail({ expanded, onToggleExpand, bets, blockers, cost }: RailPro
 					tabIndex={blockersProps.tabIndex}
 					onKeyDown={blockersProps.onKeyDown}
 					itemRef={blockersProps.ref}
+					panelId="rail-panel-blockers"
 				/>
 				{openSections.blockers && (
-					<div className="flex flex-col gap-1 px-2 py-1">
+					<div id="rail-panel-blockers" className="flex flex-col gap-1 px-2 py-1">
 						{blockers.length === 0 && (
 							<p className="text-xs text-[var(--text-lo)] py-1">No blockers</p>
 						)}
@@ -335,9 +342,10 @@ export function Rail({ expanded, onToggleExpand, bets, blockers, cost }: RailPro
 					tabIndex={costProps.tabIndex}
 					onKeyDown={costProps.onKeyDown}
 					itemRef={costProps.ref}
+					panelId="rail-panel-cost"
 				/>
 				{openSections.cost && (
-					<div className="flex flex-col gap-1 px-2 py-1">
+					<div id="rail-panel-cost" className="flex flex-col gap-1 px-2 py-1">
 						<KeyValue label="Today" value={cost.todaySpend} />
 						<KeyValue label="Today Budget" value={cost.todayBudget} />
 						<KeyValue label="Week" value={cost.weekSpend} />
