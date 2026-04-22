@@ -1,5 +1,5 @@
-import { describe, expect, it } from "vitest";
 import { TAG_KIND_ICONS, type TagKind } from "@hyperidle/design-system";
+import { describe, expect, it } from "vitest";
 
 // J1 — Tag kind centralised map shape test.
 // The map must define entries for the three Tier-2 Tag kinds so that consumers
