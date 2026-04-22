@@ -1,3 +1,4 @@
+import { EmptyState } from "@hyperidle/design-system";
 /**
  * Conversations/Chat page — shows a chat area for the selected thread.
  * Thread selection is handled by the Submenu, not duplicated here.
@@ -9,7 +10,6 @@
  *   - Messages carrying an artifact render an inline preview.
  */
 import { type JSX, useCallback, useMemo, useState } from "react";
-import { EmptyState } from "@hyperidle/design-system";
 
 interface MockMessageArtifactPreview {
 	kind: "text_diff" | "content_preview" | "action_summary" | "data_metrics" | "visual_comparison";
@@ -176,7 +176,7 @@ export function ConversationsChat({ threads }: ConversationsChatProps = {}): JSX
 										{msg.artifact && (
 											<div
 												data-testid="chat-artifact-preview"
-												className="flex items-center gap-2 rounded border border-[var(--surface-4)] bg-base-100 px-2 py-1 text-xs"
+												className="flex items-center gap-2 rounded border border-[var(--border-default)] bg-base-100 px-2 py-1 text-xs"
 											>
 												<span className="badge badge-xs badge-outline font-mono uppercase">
 													{msg.artifact.kind}
@@ -184,9 +184,7 @@ export function ConversationsChat({ threads }: ConversationsChatProps = {}): JSX
 												<span className="text-[var(--text-mid)]">{msg.artifact.label}</span>
 											</div>
 										)}
-										<span className="text-[10px] text-[var(--text-lo)]/80 font-mono">
-											{msg.time}
-										</span>
+										<span className="text-[11px] text-[var(--text-lo)] font-mono">{msg.time}</span>
 									</div>
 								))}
 							</div>

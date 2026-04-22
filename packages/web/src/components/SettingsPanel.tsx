@@ -336,7 +336,7 @@ export function SettingsPanel({
 						</button>
 						<button
 							type="button"
-							className="btn btn-primary btn-sm text-black"
+							className="btn btn-primary btn-sm"
 							disabled={saving}
 							onClick={handleSave}
 						>
