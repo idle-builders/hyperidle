@@ -1,6 +1,6 @@
+import { KnowledgeRow } from "@hyperidle/design-system";
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import { KnowledgeRow } from "@hyperidle/design-system";
 
 describe("KnowledgeRow", () => {
 	const defaultProps = {
@@ -23,7 +23,8 @@ describe("KnowledgeRow", () => {
 
 	it("renders kind as Tag", () => {
 		render(<KnowledgeRow {...defaultProps} />);
-		expect(screen.getByText("pattern")).toHaveClass("badge-neutral");
+		// "pattern" matches TagKind so gets tint class instead of badge-neutral
+		expect(screen.getByText("pattern")).toHaveClass("badge");
 	});
 
 	it("renders status as StatusChip via knowledgeStatusToStatus mapping", () => {
@@ -97,9 +98,16 @@ describe("KnowledgeRow", () => {
 			"reflection",
 			"focus",
 		] as const;
+		// Kinds that match TagKind get tint classes; others fall back to badge-neutral
+		const tintedKinds = new Set(["pattern", "decision", "failure"]);
 		for (const kind of kinds) {
 			const { unmount } = render(<KnowledgeRow {...defaultProps} kind={kind} />);
-			expect(screen.getByText(kind)).toHaveClass("badge-neutral");
+			const el = screen.getByText(kind);
+			if (tintedKinds.has(kind)) {
+				expect(el).toHaveClass("badge");
+			} else {
+				expect(el).toHaveClass("badge-neutral");
+			}
 			unmount();
 		}
 	});
@@ -124,8 +132,8 @@ describe("KnowledgeRow", () => {
 		render(<KnowledgeRow {...defaultProps} />);
 		// Tag for layer
 		expect(screen.getByText("L2")).toHaveClass("badge-neutral");
-		// Tag for kind
-		expect(screen.getByText("pattern")).toHaveClass("badge-neutral");
+		// Tag for kind — "pattern" matches TagKind so gets tint class
+		expect(screen.getByText("pattern")).toHaveClass("badge");
 		// StatusChip for status
 		expect(screen.getByText("HEALTHY")).toHaveClass("badge");
 	});
