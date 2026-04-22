@@ -4,7 +4,7 @@
 		"enabled": true
 	},
 	"javascript": {
-		"globals": ["React", "JSX", "jest"]
+		"globals": ["React", "JSX", "jest", "Bun"]
 	},
 	"linter": {
 		"enabled": true,
@@ -134,8 +134,11 @@
 			"*.db",
 			"coverage",
 			"playwright-report",
+			"visual-reports",
+			"sync-reports",
 			".claude",
-			".worktrees"
+			".worktrees",
+			"docs/concept/design-synthesis"
 		]
 	},
 	"overrides": [
@@ -162,6 +165,17 @@
 					"suspicious": {
 						"noEmptyBlockStatements": "off",
 						"useAwait": "off"
+					}
+				}
+			}
+		},
+		{
+			"include": ["**/scripts/**"],
+			"linter": {
+				"rules": {
+					"suspicious": {
+						"noConsole": "off",
+						"noEmptyBlockStatements": "off"
 					}
 				}
 			}

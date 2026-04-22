@@ -26,7 +26,7 @@ Spawn review agents in parallel — each runs its scan skill, producing findings
 1. **architect** with `/architecture-review`
 2. **adversary** with `/adversary-review`
 3. **security-researcher** with `/security-review`
-4. **designer** with `/design-review` (skip if no UI files changed)
+4. **designer** with `/design-review` (skip if no UI files changed) — must screenshot and compare pixels, not just read code
 
 Merge findings into: CRITICAL (must fix), WARNINGS (should fix), OBSERVATIONS.
 

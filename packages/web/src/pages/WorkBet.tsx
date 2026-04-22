@@ -1,3 +1,10 @@
+import {
+	BetCard,
+	SkeletonCard,
+	SkeletonList,
+	StatusChip,
+	taskStateToStatus,
+} from "@hyperidle/design-system";
 /**
  * Work/Bet page — bet detail view composed from Tier 2 components (BetCard, TaskCard)
  * and DaisyUI primitives. Shows bet details + task list for that bet.
@@ -12,10 +19,6 @@
 import type { BetStatus, TaskState } from "@hyperidle/shared";
 import { type JSX, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { BetCard } from "../components/BetCard";
-import { SkeletonCard, SkeletonList } from "../components/Skeleton";
-import { StatusChip } from "../components/StatusChip";
-import { taskStateToStatus } from "../components/status-mapping";
 
 interface MockBetComment {
 	id: string;
@@ -177,10 +180,16 @@ export interface WorkBetProps {
 	 * behavior unchanged.
 	 */
 	loading?: boolean;
+	/**
+	 * Override the bet id resolved from route params. Used by design system
+	 * stories which render outside the /work/bet/:betId route.
+	 */
+	overrideBetId?: string;
 }
 
-export function WorkBet({ loading = false }: WorkBetProps = {}): JSX.Element {
-	const { betId } = useParams<{ betId: string }>();
+export function WorkBet({ loading = false, overrideBetId }: WorkBetProps = {}): JSX.Element {
+	const { betId: routeBetId } = useParams<{ betId: string }>();
+	const betId = overrideBetId ?? routeBetId;
 	const bet = (betId && MOCK_BETS[betId]) || FALLBACK_BET;
 
 	const [sortColumn, setSortColumn] = useState<SortColumn | null>(null);

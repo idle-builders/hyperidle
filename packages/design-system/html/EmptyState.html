@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>EmptyState — HyperIdle Design System</title>
+  <link rel="stylesheet" href="_tokens.css" />
+  <style>
+    .empty-state {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 4px;
+      padding: 24px 8px;
+      text-align: left;
+    }
+
+    .empty-state__title {
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--text-hi);
+      line-height: 1.4;
+    }
+
+    .empty-state__description {
+      font-size: 12px;
+      color: var(--text-lo);
+      line-height: 1.4;
+    }
+
+    .empty-state__action {
+      margin-top: 8px;
+    }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" crossorigin></script>
+  <script type="text/babel" data-presets="env,react">
+    function EmptyState({ title, description, action }) {
+      return (
+        <div
+          role="status"
+          className="empty-state"
+          data-component="EmptyState"
+          data-tier="1"
+          data-uses=""
+          data-daisyui=""
+          data-used-by="KnowledgeList,ConversationsChat,WorkPortfolio"
+        >
+          <p className="empty-state__title">{title}</p>
+          <p className="empty-state__description">{description}</p>
+          {action && <div className="empty-state__action">{action}</div>}
+        </div>
+      );
+    }
+
+    function Demo() {
+      return (
+        <div className="demo-grid">
+          <div className="demo-section">
+            <div className="demo-section-title">Knowledge Empty</div>
+            <div className="demo-card">
+              <EmptyState
+                title="No knowledge items yet"
+                description="Agents will populate this as they learn."
+              />
+            </div>
+          </div>
+
+          <div className="demo-section">
+            <div className="demo-section-title">Triage Clear</div>
+            <div className="demo-card">
+              <EmptyState
+                title="Nothing needs attention"
+                description="Triage is clear. Come back when agents surface something new."
+              />
+            </div>
+          </div>
+
+          <div className="demo-section">
+            <div className="demo-section-title">Conversations Empty</div>
+            <div className="demo-card">
+              <EmptyState
+                title="No threads yet"
+                description="Start a conversation with an agent to see it here."
+              />
+            </div>
+          </div>
+
+          <div className="demo-section">
+            <div className="demo-section-title">Portfolio Empty</div>
+            <div className="demo-card">
+              <EmptyState
+                title="No products in the portfolio"
+                description="Add a product from Settings to start shaping bets."
+              />
+            </div>
+          </div>
+
+          <div className="demo-section">
+            <div className="demo-section-title">With Action Slot</div>
+            <div className="demo-card">
+              <EmptyState
+                title="No knowledge items yet"
+                description="Agents will populate this as they learn."
+                action={
+                  <span style={{ fontSize: "12px", color: "var(--primary)", cursor: "pointer" }}>
+                    Import knowledge manually
+                  </span>
+                }
+              />
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById('root')).render(<Demo />);
+  </script>
+  <script src="themes/_switcher.js"></script>
+</body>
+</html>

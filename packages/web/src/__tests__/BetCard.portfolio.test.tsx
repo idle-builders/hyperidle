@@ -1,3 +1,4 @@
+import { BetCard } from "@hyperidle/design-system";
 /**
  * J5 — BetCard portfolio-mode props. Additive on top of the base BetCard:
  * a product-card variant that exposes lead agent avatar, active bet count,
@@ -5,7 +6,6 @@
  */
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
-import { BetCard } from "../components/BetCard";
 
 describe("BetCard — portfolio mode (J5)", () => {
 	const baseProps = {

@@ -28,9 +28,9 @@ describe("DaisyUI button component", () => {
 });
 
 describe("index.html configuration", () => {
-	it("has data-theme='factory-dark' on html element", () => {
+	it("has data-theme='lucid-dark' on html element", () => {
 		const htmlPath = resolve(__dirname, "../../index.html");
 		const htmlContent = readFileSync(htmlPath, "utf-8");
-		expect(htmlContent).toContain('data-theme="factory-dark"');
+		expect(htmlContent).toContain('data-theme="lucid-dark"');
 	});
 });

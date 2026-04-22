@@ -36,7 +36,8 @@
       "Bash(awk '{print $2}')",
       "Bash(git:*)",
       "Bash(tsc --noEmit -p tsconfig.json)",
-      "Bash(echo \"Exit: $?\")"
+      "Bash(echo \"Exit: $?\")",
+      "Bash(python3:*)"
     ]
   },
   "autoMode": {

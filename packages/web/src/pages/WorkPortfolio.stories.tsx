@@ -1,10 +1,9 @@
-import { MemoryRouter } from "react-router-dom";
 import { WorkPortfolio } from "./WorkPortfolio";
 
 export default { title: "Page: Work/Portfolio" };
 
-export const Default = (): React.JSX.Element => (
-	<MemoryRouter>
-		<WorkPortfolio />
-	</MemoryRouter>
-);
+export const Default = (): React.JSX.Element => <WorkPortfolio />;
+
+export const Loading = (): React.JSX.Element => <WorkPortfolio loading />;
+
+export const Empty = (): React.JSX.Element => <WorkPortfolio products={[]} />;

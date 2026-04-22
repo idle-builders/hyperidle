@@ -1,3 +1,4 @@
+import { EmptyState, ErrorState, KnowledgeRow, SkeletonList } from "@hyperidle/design-system";
 /**
  * Knowledge/List page — scope-aware list with topic grouping (Curated) and
  * attention-scored Triage view (J6).
@@ -15,11 +16,7 @@ import type { KnowledgeScope } from "@hyperidle/shared";
 import { type JSX, useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { CurationSuggestionCard } from "../components/CurationSuggestionCard";
-import { EmptyState } from "../components/EmptyState";
-import { ErrorState } from "../components/ErrorState";
-import { KnowledgeRow } from "../components/KnowledgeRow";
 import { KnowledgeTopicGroup } from "../components/KnowledgeTopicGroup";
-import { SkeletonList } from "../components/Skeleton";
 import {
 	MOCK_CURATION_SUGGESTIONS,
 	MOCK_KNOWLEDGE_ITEMS,

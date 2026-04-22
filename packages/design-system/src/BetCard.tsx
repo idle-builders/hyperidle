@@ -44,7 +44,7 @@ export function BetCard({
 	shipped,
 }: BetCardProps): JSX.Element {
 	return (
-		<div {...clickableProps(onClick, "bg-base-200 rounded p-2 flex flex-col gap-2")}>
+		<div {...clickableProps(onClick, "bg-base-200 rounded-lg p-2 flex flex-col gap-1")}>
 			<div className="flex items-center gap-2">
 				{leadAvatar && (
 					<span
@@ -54,9 +54,11 @@ export function BetCard({
 						{leadAvatar.initials}
 					</span>
 				)}
-				<span className="text-sm font-medium truncate" aria-label={`Bet: ${title}`}>
+				<span className="text-sm font-medium truncate flex-1 min-w-0" aria-label={`Bet: ${title}`}>
 					{title}
 				</span>
+			</div>
+			<div className="flex items-center gap-2">
 				<Tag label={product} />
 				<StatusChip status={betStatusToStatus(status)} />
 			</div>

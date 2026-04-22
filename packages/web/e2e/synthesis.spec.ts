@@ -30,7 +30,11 @@ test.describe("J8 synthesis — 10 critical flows", () => {
 		await page.waitForSelector("[data-testid='main-content']");
 		await page.getByRole("button", { name: /user profile/i }).click();
 		await expect(page.getByRole("dialog", { name: /settings/i })).toBeVisible();
-		await page.getByTestId("settings-backdrop").click({ force: true });
+		// DaisyUI modal-backdrop has z-index: -1. Clicking it directly fails because
+		// the modal-box sits above it. Click the modal overlay at a corner position
+		// outside the modal-box to trigger the backdrop's onClick handler.
+		const backdrop = page.getByTestId("settings-backdrop");
+		await backdrop.dispatchEvent("click");
 		await expect(page.getByRole("dialog", { name: /settings/i })).not.toBeVisible();
 	});
 
@@ -94,16 +98,8 @@ test.describe("J8 synthesis — 10 critical flows", () => {
 		await page.goto("/work/team");
 		await page.waitForSelector("[data-testid='work-team-page']");
 		await page.getByRole("button", { name: /select pitches/i }).click();
-		// Click the first pitch card to open the detail pane.
-		const firstPitch = page.locator("[data-testid^='pitch-card']").first();
-		// Fall back to any PitchCard-rendered heading if the specific testid
-		// isn't set — the card is clickable regardless.
-		const fallback = page.getByRole("heading", { level: 3 }).first();
-		if (await firstPitch.count()) {
-			await firstPitch.click();
-		} else {
-			await fallback.click();
-		}
+		// Click the first pitch card by its aria-label to open the detail pane.
+		await page.getByLabel("Pitch: Mobile responsive layout").click();
 		await expect(page.getByTestId("pitch-detail-pane")).toBeVisible();
 		await expect(page.getByRole("button", { name: /add to canvas/i })).toBeVisible();
 	});

@@ -1,7 +1,6 @@
+import { type Status, StatusChip } from "@hyperidle/design-system";
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
-import type { Status } from "../components/StatusChip";
-import { StatusChip } from "../components/StatusChip";
 
 describe("StatusChip", () => {
 	it("renders status text in uppercase", () => {

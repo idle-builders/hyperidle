@@ -1,6 +1,6 @@
+import { ThreadRow } from "@hyperidle/design-system";
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import { ThreadRow } from "../components/ThreadRow";
 
 describe("ThreadRow", () => {
 	const defaultProps = {

@@ -4,6 +4,7 @@ import { StatusChip } from "./StatusChip";
 import { Tag } from "./Tag";
 import { clickableProps } from "./clickable";
 import { knowledgeStatusToStatus } from "./status-mapping";
+import type { TagKind } from "./tag-kinds";
 
 export interface KnowledgeRowProps {
 	title: string;
@@ -53,7 +54,7 @@ export function KnowledgeRow({
 						{title}
 					</span>
 					<Tag label={layer} />
-					<Tag label={kind} />
+					<Tag label={kind} kind={kind as TagKind} />
 					<StatusChip status={knowledgeStatusToStatus(status)} />
 					{factoryMode && version && (
 						<span

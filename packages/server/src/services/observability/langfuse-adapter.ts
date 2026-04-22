@@ -27,7 +27,7 @@
 
 import { createHash } from "node:crypto";
 import type { ObservabilityEvent } from "@hyperidle/shared";
-import { resolveUrlForSSRF } from "@hyperidle/shared";
+import { resolveUrlForSSRF } from "@hyperidle/shared/net";
 import { type ScrubContext, scrubErrorMessage } from "../notifications/redact.js";
 import type { ObservabilityAdapter } from "./types.js";
 

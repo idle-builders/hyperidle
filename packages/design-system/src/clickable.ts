@@ -11,7 +11,8 @@ type ClickableResult = Pick<
  * cursor-pointer) so the helper is a single source of truth — call sites
  * pass their own classes via the second argument and the helper merges.
  */
-const FOCUS_CLASSES = "cursor-pointer focus-visible:ring-1 focus-visible:ring-primary";
+const FOCUS_CLASSES =
+	"cursor-pointer focus-visible:ring-1 focus-visible:ring-primary hover:bg-[var(--surface-ghost)] transition-colors duration-[var(--motion-fast)]";
 
 /**
  * Returns accessibility-correct props for making a div behave as a clickable button.

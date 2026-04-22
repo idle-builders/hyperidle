@@ -21,7 +21,7 @@ export function NavItem({
 		<li>
 			<button
 				type="button"
-				className={`flex w-full items-center gap-2 text-left min-h-[var(--density-row-h)] py-[var(--density-pad-y)] text-[length:var(--density-text)] ${selectedClasses}`}
+				className={`flex w-full items-center gap-2 text-left min-h-[var(--density-row-h)] py-[var(--density-pad-y)] text-[length:var(--density-text)] hover:bg-[var(--surface-ghost)] transition-colors duration-[var(--motion-fast)] focus-visible:ring-1 focus-visible:ring-primary ${selectedClasses}`}
 				onClick={onClick}
 			>
 				{icon}

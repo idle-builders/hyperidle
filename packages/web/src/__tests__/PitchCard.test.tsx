@@ -1,6 +1,6 @@
+import { PitchCard } from "@hyperidle/design-system";
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import { PitchCard } from "../components/PitchCard";
 
 describe("PitchCard", () => {
 	const defaultProps = {

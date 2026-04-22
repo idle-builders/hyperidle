@@ -2,6 +2,7 @@ import type { JSX, ReactNode } from "react";
 import { type Status, StatusChip } from "./StatusChip";
 import { Tag } from "./Tag";
 import { clickableProps } from "./clickable";
+import type { TagKind } from "./tag-kinds";
 
 export interface ThreadRowProps {
 	avatarUrl: string;
@@ -45,7 +46,7 @@ export function ThreadRow({
 					</span>
 					{status && <StatusChip status={status} />}
 					{tag && <Tag label={tag} />}
-					{kind && <Tag label={kind} />}
+					{kind && <Tag label={kind} kind={kind as TagKind} />}
 				</div>
 				<p className="text-xs text-[var(--text-mid)] truncate">{snippet}</p>
 			</div>

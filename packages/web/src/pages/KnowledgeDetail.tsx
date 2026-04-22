@@ -1,3 +1,4 @@
+import { StatusChip, Tag, knowledgeStatusToStatus } from "@hyperidle/design-system";
 /**
  * Knowledge/Detail page (J7) — metadata bar, markdown body, observation log,
  * related-items sidebar. Edit mode is a React state toggle, NOT a route.
@@ -21,9 +22,6 @@ import type { KnowledgeScope, KnowledgeStatus } from "@hyperidle/shared";
 import DOMPurify from "dompurify";
 import { type JSX, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { StatusChip } from "../components/StatusChip";
-import { Tag } from "../components/Tag";
-import { knowledgeStatusToStatus } from "../components/status-mapping";
 import {
 	MOCK_KNOWLEDGE_ITEMS,
 	type MockKnowledgeItem,
@@ -187,8 +185,17 @@ function findRelated(item: DetailItem): ReadonlyArray<MockKnowledgeItem> {
 	return Array.from(merged.values());
 }
 
-export function KnowledgeDetail(): JSX.Element {
-	const { knowledgeId } = useParams<{ knowledgeId: string }>();
+export interface KnowledgeDetailProps {
+	/**
+	 * Override the knowledge id resolved from route params. Used by design
+	 * system stories which render outside the /knowledge/:knowledgeId route.
+	 */
+	overrideKnowledgeId?: string;
+}
+
+export function KnowledgeDetail({ overrideKnowledgeId }: KnowledgeDetailProps = {}): JSX.Element {
+	const { knowledgeId: routeKnowledgeId } = useParams<{ knowledgeId: string }>();
+	const knowledgeId = overrideKnowledgeId ?? routeKnowledgeId;
 	const detail = findDetail(knowledgeId) ?? FALLBACK_DETAIL;
 	const legacySource = knowledgeId !== undefined ? LEGACY_SOURCES[knowledgeId] : undefined;
 	return <KnowledgeDetailView item={detail} legacySource={legacySource} />;

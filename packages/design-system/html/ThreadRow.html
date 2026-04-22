@@ -1,0 +1,286 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ThreadRow — HyperIdle Design System</title>
+  <link rel="stylesheet" href="_tokens.css" />
+  <style>
+    .thread-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 0 8px;
+      padding-top: var(--density-pad-y);
+      padding-bottom: var(--density-pad-y);
+      font-size: var(--density-text);
+      border-radius: var(--r1);
+      transition: background var(--motion-fast);
+      cursor: pointer;
+    }
+    .thread-row:hover {
+      background: var(--surface-4);
+    }
+    .thread-row:focus-visible {
+      outline: 1px solid var(--primary);
+      outline-offset: -1px;
+    }
+    .thread-row--unread .thread-row__title {
+      font-weight: 700;
+    }
+    .thread-row--blocking {
+      border-left: 2px solid var(--danger);
+    }
+
+    .thread-row__avatar {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-hi);
+    }
+
+    .thread-row__body {
+      flex: 1;
+      min-width: 0;
+    }
+    .thread-row__header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .thread-row__title {
+      font-size: 14px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      color: var(--text-hi);
+    }
+    .thread-row__snippet {
+      font-size: 12px;
+      color: var(--text-mid);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .thread-row__timestamp {
+      font-size: 12px;
+      color: var(--text-lo);
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+
+    .thread-row__actions {
+      flex-shrink: 0;
+    }
+    .thread-row__actions button {
+      font-size: 11px;
+      padding: 2px 8px;
+      border-radius: var(--r1);
+      color: var(--text-mid);
+      background: var(--surface-ghost);
+      transition: background var(--motion-fast);
+    }
+    .thread-row__actions button:hover {
+      background: var(--surface-5);
+      color: var(--text-hi);
+    }
+
+    /* --- Tier 1: StatusChip --- */
+    .status-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 2px 8px;
+      border-radius: var(--r-pill);
+      font-family: var(--mono);
+      font-size: 11px;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      font-weight: 500;
+      line-height: 1.4;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+    .status-chip .dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .status-chip--healthy { background: color-mix(in oklab, var(--ok) 14%, transparent); color: var(--ok); }
+    .status-chip--healthy .dot { background: var(--ok); }
+    .status-chip--behind { background: color-mix(in oklab, var(--warn) 14%, transparent); color: var(--warn); }
+    .status-chip--behind .dot { background: var(--warn); }
+    .status-chip--blocked { background: color-mix(in oklab, var(--danger) 14%, transparent); color: var(--danger); }
+    .status-chip--blocked .dot { background: var(--danger); }
+    .status-chip--paused { background: color-mix(in oklab, var(--text-lo) 14%, transparent); color: var(--text-lo); }
+    .status-chip--paused .dot { background: var(--text-lo); }
+    .status-chip--done { background: color-mix(in oklab, var(--ok) 14%, transparent); color: var(--ok); }
+    .status-chip--done .dot { background: var(--ok); }
+    .status-chip--error { background: color-mix(in oklab, var(--danger) 14%, transparent); color: var(--danger); }
+    .status-chip--error .dot { background: var(--danger); }
+
+    /* --- Tier 1: Tag --- */
+    .tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 2px 8px;
+      border-radius: var(--r-pill);
+      font-size: 11px;
+      font-family: var(--mono);
+      letter-spacing: 0.03em;
+      white-space: nowrap;
+      background: var(--surface-ghost);
+      color: var(--text-mid);
+      flex-shrink: 0;
+    }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" crossorigin></script>
+  <script type="text/babel" data-presets="env,react">
+    function StatusChip({ status }) {
+      return (
+        <span
+          className={`status-chip status-chip--${status}`}
+          title={status}
+          data-component="StatusChip"
+          data-tier="1"
+        >
+          <span className="dot" />
+          {status.toUpperCase()}
+        </span>
+      );
+    }
+
+    function Tag({ label }) {
+      return (
+        <span className="tag" data-component="Tag" data-tier="1">
+          {label}
+        </span>
+      );
+    }
+
+    function ThreadRow({ avatarUrl, avatarBg, initials, title, snippet, timestamp, status, tag, kind, actions, unread, blocking, onClick }) {
+      const cls = [
+        "thread-row",
+        unread ? "thread-row--unread" : "",
+        blocking ? "thread-row--blocking" : "",
+      ].filter(Boolean).join(" ");
+
+      return (
+        <div
+          className={cls}
+          role="button"
+          tabIndex={0}
+          onClick={onClick}
+          data-component="ThreadRow"
+          data-tier="2"
+          data-uses="StatusChip,Tag"
+          data-daisyui=""
+          data-used-by="Submenu,ThreadSections,GlobalSearchPanel"
+        >
+          <span className="thread-row__avatar" style={{ background: avatarBg || "#374151" }}>
+            {initials}
+          </span>
+          <div className="thread-row__body">
+            <div className="thread-row__header">
+              <span className="thread-row__title" aria-label={`Thread: ${title}`}>{title}</span>
+              {status && <StatusChip status={status} />}
+              {tag && <Tag label={tag} />}
+              {kind && <Tag label={kind} />}
+            </div>
+            <p className="thread-row__snippet">{snippet}</p>
+          </div>
+          <span className="thread-row__timestamp">{timestamp}</span>
+          {actions && <span className="thread-row__actions">{actions}</span>}
+        </div>
+      );
+    }
+
+    function Demo() {
+      return (
+        <div className="demo-grid">
+          <div className="demo-section">
+            <div className="demo-section-title">Default</div>
+            <ThreadRow
+              initials="1"
+              avatarBg="#374151"
+              title="Deploy pipeline stuck"
+              snippet="The CI build has been hanging for 20 minutes..."
+              timestamp="2 min ago"
+            />
+          </div>
+
+          <div className="demo-section">
+            <div className="demo-section-title">With Status and Tag</div>
+            <ThreadRow
+              initials="2"
+              avatarBg="#065f46"
+              title="Cost cap approaching"
+              snippet="Agent session-42 is at 85% of its cost cap..."
+              timestamp="5 min ago"
+              status="blocked"
+              tag="ops"
+            />
+          </div>
+
+          <div className="demo-section">
+            <div className="demo-section-title">Unread</div>
+            <ThreadRow
+              initials="3"
+              avatarBg="#713f12"
+              title="New pitch submitted"
+              snippet="AI-Powered Onboarding has been submitted for review"
+              timestamp="Just now"
+              unread={true}
+              status="healthy"
+            />
+          </div>
+
+          <div className="demo-section">
+            <div className="demo-section-title">Blocking</div>
+            <ThreadRow
+              initials="B"
+              avatarBg="#991b1b"
+              title="Agent blocked on API key"
+              snippet="Cannot proceed without credentials..."
+              timestamp="5 min ago"
+              status="blocked"
+              blocking={true}
+              kind="review"
+            />
+          </div>
+
+          <div className="demo-section">
+            <div className="demo-section-title">With Actions</div>
+            <ThreadRow
+              initials="4"
+              avatarBg="#581c87"
+              title="Session completed"
+              snippet="Builder agent finished implementing login flow"
+              timestamp="1 hour ago"
+              status="done"
+              actions={<button type="button">View</button>}
+            />
+          </div>
+        </div>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById('root')).render(<Demo />);
+  </script>
+  <script src="themes/_switcher.js"></script>
+</body>
+</html>

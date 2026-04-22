@@ -29,13 +29,13 @@ export function TaskCard({
 		<div
 			{...clickableProps(
 				onClick,
-				`bg-base-200 rounded p-2 flex flex-col gap-2 ${state === "blocked" ? "border border-error" : ""}`,
+				`bg-base-200 rounded-lg p-2 flex flex-col gap-1 ${state === "blocked" ? "border border-error" : ""}`,
 			)}
 		>
+			<span className="text-sm font-medium truncate" aria-label={`Task: ${title}`}>
+				{title}
+			</span>
 			<div className="flex items-center gap-2">
-				<span className="text-sm font-medium truncate" aria-label={`Task: ${title}`}>
-					{title}
-				</span>
 				{betTag && <Tag label={betTag} />}
 				<StatusChip status={taskStateToStatus(state)} />
 			</div>

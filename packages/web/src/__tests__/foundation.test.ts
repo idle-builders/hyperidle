@@ -5,62 +5,119 @@ import tailwindConfig from "../../tailwind.config";
 
 // ---------- a. Theme token verification ----------
 
-describe("tailwind.config factory-dark theme", () => {
+describe("tailwind.config lucid-dark theme", () => {
 	const themes = tailwindConfig.daisyui?.themes;
 	if (!themes) throw new Error("daisyui.themes not found in config");
 
-	// Find the factory-dark theme object
-	const factoryDarkEntry = themes.find(
+	const lucidDarkEntry = themes.find(
 		(t): t is Record<string, Record<string, string>> =>
-			typeof t === "object" && t !== null && "factory-dark" in t,
+			typeof t === "object" && t !== null && "lucid-dark" in t,
 	);
 
-	if (!factoryDarkEntry) throw new Error("factory-dark theme not found");
-	const theme = factoryDarkEntry["factory-dark"] as Record<string, string>;
+	if (!lucidDarkEntry) throw new Error("lucid-dark theme not found");
+	const theme = lucidDarkEntry["lucid-dark"] as Record<string, string>;
 
-	it("factory-dark theme exists", () => {
-		expect(factoryDarkEntry).toBeDefined();
+	it("lucid-dark theme exists", () => {
+		expect(lucidDarkEntry).toBeDefined();
 		expect(theme).toBeDefined();
 	});
 
-	it("primary maps to accent --primary #adc6ff", () => {
-		expect(theme.primary).toBe("#adc6ff");
+	it("primary is #e0e7ff", () => {
+		expect(theme.primary).toBe("#e0e7ff");
 	});
 
-	it("secondary maps to warn #d58f24", () => {
-		expect(theme.secondary).toBe("#d58f24");
+	it("secondary is #a8a8b0", () => {
+		expect(theme.secondary).toBe("#a8a8b0");
 	});
 
-	it("accent maps to ok #bbffb3", () => {
-		expect(theme.accent).toBe("#bbffb3");
+	it("accent is #c8c8d0", () => {
+		expect(theme.accent).toBe("#c8c8d0");
 	});
 
-	it("error maps to danger #ee7d77", () => {
-		expect(theme.error).toBe("#ee7d77");
+	it("error is #f87171", () => {
+		expect(theme.error).toBe("#f87171");
 	});
 
-	it("base-100 maps to surface-0 #000000", () => {
-		expect(theme["base-100"]).toBe("#000000");
+	it("base-100 is #111113", () => {
+		expect(theme["base-100"]).toBe("#111113");
 	});
 
-	it("base-200 maps to surface-1 #0e0e0e", () => {
-		expect(theme["base-200"]).toBe("#0e0e0e");
+	it("base-200 is #19191c", () => {
+		expect(theme["base-200"]).toBe("#19191c");
 	});
 
-	it("base-300 maps to surface-2 #131313", () => {
-		expect(theme["base-300"]).toBe("#131313");
+	it("base-300 is #1e1e22", () => {
+		expect(theme["base-300"]).toBe("#1e1e22");
 	});
 
-	it("--rounded-box is 4px", () => {
-		expect(theme["--rounded-box"]).toBe("4px");
+	it("--rounded-box is 8px", () => {
+		expect(theme["--rounded-box"]).toBe("8px");
 	});
 
-	it("--rounded-btn is 2px", () => {
-		expect(theme["--rounded-btn"]).toBe("2px");
+	it("--rounded-btn is 4px", () => {
+		expect(theme["--rounded-btn"]).toBe("4px");
 	});
 
-	it("--rounded-badge is 2px", () => {
-		expect(theme["--rounded-badge"]).toBe("2px");
+	it("--rounded-badge is 4px", () => {
+		expect(theme["--rounded-badge"]).toBe("4px");
+	});
+});
+
+describe("tailwind.config lucid-light theme", () => {
+	const themes = tailwindConfig.daisyui?.themes;
+	if (!themes) throw new Error("daisyui.themes not found in config");
+
+	const lucidLightEntry = themes.find(
+		(t): t is Record<string, Record<string, string>> =>
+			typeof t === "object" && t !== null && "lucid-light" in t,
+	);
+
+	if (!lucidLightEntry) throw new Error("lucid-light theme not found");
+	const theme = lucidLightEntry["lucid-light"] as Record<string, string>;
+
+	it("lucid-light theme exists", () => {
+		expect(lucidLightEntry).toBeDefined();
+		expect(theme).toBeDefined();
+	});
+
+	it("primary is #4f46e5", () => {
+		expect(theme.primary).toBe("#4f46e5");
+	});
+
+	it("secondary is #78787e", () => {
+		expect(theme.secondary).toBe("#78787e");
+	});
+
+	it("accent is #8e8e94", () => {
+		expect(theme.accent).toBe("#8e8e94");
+	});
+
+	it("error is #dc2626", () => {
+		expect(theme.error).toBe("#dc2626");
+	});
+
+	it("base-100 is #fafaf9", () => {
+		expect(theme["base-100"]).toBe("#fafaf9");
+	});
+
+	it("base-200 is #f4f4f2", () => {
+		expect(theme["base-200"]).toBe("#f4f4f2");
+	});
+
+	it("base-300 is #eaeae8", () => {
+		expect(theme["base-300"]).toBe("#eaeae8");
+	});
+
+	it("--rounded-box is 8px", () => {
+		expect(theme["--rounded-box"]).toBe("8px");
+	});
+
+	it("--rounded-btn is 4px", () => {
+		expect(theme["--rounded-btn"]).toBe("4px");
+	});
+
+	it("--rounded-badge is 4px", () => {
+		expect(theme["--rounded-badge"]).toBe("4px");
 	});
 });
 
@@ -120,7 +177,7 @@ describe("index.css has no custom CSS", () => {
 // ---------- c. Density CSS variables (J1) ----------
 
 describe("index.css density tokens", () => {
-	const cssPath = resolve(__dirname, "../index.css");
+	const cssPath = resolve(__dirname, "../../../design-system/src/tokens.css");
 	const cssContent = readFileSync(cssPath, "utf-8");
 
 	const REQUIRED_VARS = [
@@ -181,19 +238,19 @@ describe("font families", () => {
 		| Record<string, string[]>
 		| undefined;
 
-	it("Inter is configured as sans font", () => {
+	it("Geist is configured as sans font", () => {
 		expect(fontFamily).toBeDefined();
 		expect(fontFamily?.sans).toBeDefined();
-		expect(fontFamily?.sans?.some((f) => f.includes("Inter"))).toBe(true);
+		expect(fontFamily?.sans?.some((f) => f.includes("Geist"))).toBe(true);
 	});
 
-	it("Space Grotesk is configured as heading font", () => {
+	it("Geist Mono is configured as heading font", () => {
 		expect(fontFamily).toBeDefined();
-		const hasSpaceGrotesk =
-			fontFamily?.heading?.some((f) => f.includes("Space Grotesk")) ??
-			fontFamily?.display?.some((f) => f.includes("Space Grotesk")) ??
+		const hasGeistMono =
+			fontFamily?.heading?.some((f) => f.includes("Geist Mono")) ??
+			fontFamily?.display?.some((f) => f.includes("Geist Mono")) ??
 			false;
-		expect(hasSpaceGrotesk).toBe(true);
+		expect(hasGeistMono).toBe(true);
 	});
 });
 
