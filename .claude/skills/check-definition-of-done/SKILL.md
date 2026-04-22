@@ -43,10 +43,12 @@ Use every tool at your disposal. "I implemented it" is not proof. Only observabl
 | Config/setup | Show the file exists with correct content | `Read(file_path: "drizzle.config.ts")` |
 | Behavior | Run the specific test that exercises it | `bun run test -- schema.test.ts` and show the output |
 | Performance | Run a benchmark or timed test | `time bun run test` or a specific perf test |
-| UI/visual | Check `/designsystem` for component stories, run Playwright | Navigate to `/designsystem#ComponentName` to verify all states render correctly |
+| UI/visual | **Take a Playwright screenshot and look at it** | `cd packages/web && npx playwright screenshot http://localhost:5173/<route> /tmp/dod-<name>.png --wait-for-timeout=3000` then read the PNG |
 | Error handling | Trigger the error path in a test | Show a test that sends bad input and gets the expected error |
 | FK/constraints | Insert violating data, show it rejects | Test that inserts an orphan row and asserts the FK error |
 | Seed/fixtures | Run the seed, count rows | `bun run db:seed && sqlite3 data.db "SELECT count(*) FROM products"` |
+
+For UI criteria, look at pixels not code — screenshot the route, read the PNG, compare to the spec. Code-level inspection alone is not proof. E2E tests (`cd packages/web && npx playwright test`) must pass. Missing E2E coverage for UI criteria is NOT DONE.
 
 Spawn specialist agents as needed: **architect** for API/layer compliance, **qa** for test coverage gaps, **security-researcher** for auth/validation criteria.
 

@@ -5,6 +5,8 @@ dist/
 coverage/
 playwright-report/
 test-results/
+visual-reports/
+sync-reports/
 .pipeline/
 .env
 .worktrees/
@@ -12,3 +14,5 @@ test-results/
 .claude/worktrees/
 docs/plans
 logs/
+*.db-shm
+*.db-wal

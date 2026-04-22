@@ -119,7 +119,7 @@ function VerdictButton({
 			onClick={() => onVerdict(def.action)}
 		>
 			{def.label}
-			{def.shortcut && <kbd className="kbd kbd-xs ml-1 text-[10px]">{def.shortcut}</kbd>}
+			{def.shortcut && <kbd className="kbd kbd-xs ml-1 text-[11px]">{def.shortcut}</kbd>}
 		</button>
 	);
 }
@@ -179,7 +179,7 @@ export function ReviewHeader({
 	return (
 		<header
 			ref={headerRef}
-			className="flex items-center gap-3 py-2 px-3 border-b border-[var(--surface-4)]"
+			className="flex items-center gap-3 py-2 px-3 border-b border-[var(--border-subtle)]"
 		>
 			{/* Proposer info */}
 			<div className="flex items-center gap-2 mr-auto">
@@ -236,7 +236,7 @@ export function ReviewHeader({
 					id={MORE_MENU_ID}
 					role="menu"
 					aria-label="Secondary verdict actions"
-					className={`absolute right-0 top-full z-10 mt-1 flex flex-col gap-1 rounded border border-[var(--surface-4)] bg-base-200 p-2 shadow ${moreOpen ? "" : "sr-only"}`}
+					className={`absolute right-0 top-full z-10 mt-1 flex flex-col gap-1 rounded border border-[var(--border-default)] bg-base-200 p-2 shadow ${moreOpen ? "" : "sr-only"}`}
 				>
 					{SECONDARY_BUTTONS.map((btn) => (
 						<VerdictButton

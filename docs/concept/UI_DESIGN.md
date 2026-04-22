@@ -1,6 +1,6 @@
 # UI Design — The Factory
 
-Version 0.2 · Desktop app · Dark-only
+Version 0.3 · Desktop app · Dark / Light / System (Lucid theme)
 
 ## Credo
 
@@ -10,7 +10,7 @@ Keep it simple. Every component on this page has to justify its existence. If tw
 
 ## Foundation
 
-- **Tailwind CSS + DaisyUI** (community, not big-tech), configured with a single custom theme `factory-dark`.
+- **Tailwind CSS + DaisyUI** (community, not big-tech), configured with two custom themes `lucid-dark` and `lucid-light`. System preference is respected when no explicit theme is set.
 - **Behavior gaps** (focus trap in modals, collision-aware floating elements): `focus-trap-react` + `@floating-ui/react`.
 - **Data utilities** (virtual lists, tables when needed): `@tanstack/react-*`, pulled in only when a page demands it.
 
@@ -20,26 +20,34 @@ That is the entire dependency surface for the UI layer.
 
 ## Theme tokens (the only invariants)
 
-Surfaces — tonal layering only, no borders except `ghost`:
+Canonical source: `packages/design-system/src/tokens.css`. Values below are Lucid Dark (default). Lucid Light values are defined in tokens.css and follow the same token names with inverted luminance.
 
-`--surface-0 #000000` · `--surface-1 #0e0e0e` · `--surface-2 #131313` · `--surface-3 #191a1a` · `--surface-4 #1f2020` · `--surface-5 #252626` · `--surface-6 #2c2c2c` · `--surface-ghost rgba(255,255,255,0.06)`
+Surfaces — tonal layering, with explicit border tokens:
 
-Accents — one per meaning:
+`--surface-0 #111113` · `--surface-1 #19191c` · `--surface-2 #1e1e22` · `--surface-3 #27272b` · `--surface-4 #323237` · `--surface-5 #3e3e44` · `--surface-6 #4a4a52` · `--surface-ghost rgba(255,255,255,0.05)`
 
-`--primary #adc6ff` · `--warn #d58f24` · `--ok #bbffb3` · `--danger #ee7d77`
+Borders:
+
+`--border-subtle rgba(255,255,255,0.06)` · `--border-default rgba(255,255,255,0.1)` · `--border-emphasis rgba(255,255,255,0.16)`
+
+Accents — monochrome status signals with red-only danger:
+
+`--primary #e0e7ff` · `--primary-dim rgba(224,231,255,0.08)` · `--primary-hover rgba(224,231,255,0.14)` · `--warn #a8a8b0` · `--ok #c8c8d0` · `--danger #f87171`
 
 Text:
 
-`--text-hi #e7e5e4` · `--text-mid #acabaa` · `--text-lo #767575`
+`--text-hi #ededef` · `--text-mid #a0a0a6` · `--text-lo #6e6e76`
 
 Type:
 
-- **Inter** for UI — 24 / 18 / 14 / 12 px at weights 400, 500, 600.
-- **Space Grotesk** for data — 13 / 11 px at weights 400, 500. Caps + 0.05em tracking at 11.
+- **Geist** for UI — 24 / 18 / 14 / 12 px at weights 400, 500, 600.
+- **Geist Mono** for data — 13 / 11 px at weights 400, 500. Caps + 0.05em tracking at 11.
 
-Grid: **4 px baseline.** Radius: `0 / 2 / 4 / 8 / 999`. Motion: `120 / 200 / 320 ms` on one easing curve. No drop shadows except `0 0 32px rgba(173,198,255,0.08)` on floating surfaces.
+Grid: **4 px baseline.** Radius: `0 / 4 / 8 / 12 / 999` (`--r0` through `--r-pill`). Motion: `80 / 150 / 250 ms` (`--motion-fast / --motion-medium / --motion-slow`). Float shadow: `0 2px 16px rgba(0,0,0,0.5)` on floating surfaces only.
 
-DaisyUI theme wires our surfaces to `--b1/b2/b3`, primary to `--p`, warn to `--s`, ok to `--a`, danger to `--er`. Radius overrides: `--rounded-box: 4px`, `--rounded-btn: 2px`, `--rounded-badge: 2px`.
+DaisyUI theme wires our surfaces to `base-100/200/300`, primary to `--p`, warn to `--s`, ok to `--a`, danger to `--er`. Radius overrides: `--rounded-box: 8px`, `--rounded-btn: 4px`, `--rounded-badge: 4px`.
+
+Density presets (`data-density` attribute): default (12/8px pad, 2rem row), compact (6/4px pad, 1.625rem row), comfortable (16/12px pad, 2.5rem row).
 
 ---
 
@@ -157,14 +165,14 @@ Totals: 5 + 6 + 8 = **19 custom components** for the entire app. That's the simp
 3. **One shape per meaning.** One status chip, one card per domain object, one row per list context.
 4. **Density over whitespace.** 8/12 px internal padding is the default. Whitespace is earned.
 5. **Stitch outputs are mood boards.** A screen ships only after it decomposes into the tree above. If it can't, the screen is wrong — not the tree.
-6. **Theme in one place.** All colour, radius, spacing changes happen in the `factory-dark` theme. Never in a component.
+6. **Theme in one place.** All colour, radius, spacing changes happen in `tokens.css` and the DaisyUI theme config. Never in a component.
 7. **Rail owns notifications. Fully.** No bell icon, no top-bar toasts, no inline pings outside the Rail feed.
 
 ---
 
 ## Build order
 
-1. Install Tailwind + DaisyUI, author `factory-dark` theme, load fonts. _(2 days)_
+1. Install Tailwind + DaisyUI, author Lucid themes, load fonts. _(2 days)_
 2. Build Tier 1 (5 primitives) with all states in Storybook. _(3 days)_
 3. Build Tier 2 (6 blocks). _(4 days)_
 4. Build Tier 3 regions — shell first (IconRail/Submenu/Rail), then ArtifactView, then Canvas/Kanban/PitchSelector. _(1.5 weeks)_

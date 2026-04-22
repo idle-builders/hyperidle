@@ -27,6 +27,7 @@ const defaultSettings: SettingsData = {
 	},
 	appearance: {
 		density: "comfortable",
+		theme: "system",
 	},
 };
 
@@ -134,12 +135,12 @@ describe("SettingsPanel", () => {
 		expect(screen.getByLabelText("Density")).toBeInTheDocument();
 	});
 
-	it("Appearance tab shows theme deferred notice", async () => {
+	it("Appearance tab renders theme selector", async () => {
 		const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
 		render(<SettingsPanel {...defaultProps} />);
 		await user.click(screen.getByRole("tab", { name: "Appearance" }));
 
-		expect(screen.getByText(/theme.*v2/i)).toBeInTheDocument();
+		expect(screen.getByLabelText("Theme")).toBeInTheDocument();
 	});
 
 	// AC: Save button disables while request in flight

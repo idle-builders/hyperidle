@@ -2,20 +2,22 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ComponentType } from "react";
 import type { StoryMeta, StoryModule } from "./types.js";
 
-// Auto-discover all .stories.tsx files in components/, shell/, pages/, and layouts/
+// Auto-discover .stories.tsx for reusable components only (Tier 1-3).
+// Pages and layouts are full compositions, not reusable — they belong
+// in E2E tests, not the design system catalog.
+// @lore Design system components (Tier 1-2) live in @hyperidle/design-system,
+// shell components (Tier 3) stay in packages/web. Both are discovered here.
+const dsModules = import.meta.glob<Record<string, unknown>>(
+	"../../../../design-system/src/*.stories.tsx",
+	{ eager: true },
+);
 const componentModules = import.meta.glob<Record<string, unknown>>("../components/*.stories.tsx", {
 	eager: true,
 });
 const shellModules = import.meta.glob<Record<string, unknown>>("../shell/*.stories.tsx", {
 	eager: true,
 });
-const pageModules = import.meta.glob<Record<string, unknown>>("../pages/*.stories.tsx", {
-	eager: true,
-});
-const layoutModules = import.meta.glob<Record<string, unknown>>("../layouts/*.stories.tsx", {
-	eager: true,
-});
-const storyGlobs = { ...componentModules, ...shellModules, ...pageModules, ...layoutModules };
+const storyGlobs = { ...dsModules, ...componentModules, ...shellModules };
 
 /**
  * I4 D2: parseStoryModules now detects CSF3 object stories (`{ name, render }`)
@@ -67,10 +69,18 @@ export function parseStoryModules(
 	return modules.sort((a, b) => a.meta.title.localeCompare(b.meta.title));
 }
 
+/**
+ * @lore I6-fix: the hash uses `::` (not `/`) as component/variant separator
+ * because story titles such as "Page: Conversations/Chat" embed literal
+ * slashes. Splitting on `/` would shred the title.
+ */
 function parseHash(): { component: string | null; variant: string | null } {
-	const hash = window.location.hash.replace(/^#\/?/, "");
+	const hash = decodeURIComponent(window.location.hash.replace(/^#\/?/, ""));
 	if (!hash) return { component: null, variant: null };
-	const [component, variant] = hash.split("/");
+	const sepIdx = hash.indexOf("::");
+	if (sepIdx === -1) return { component: hash || null, variant: null };
+	const component = hash.slice(0, sepIdx);
+	const variant = hash.slice(sepIdx + 2);
 	return { component: component || null, variant: variant || null };
 }
 
@@ -96,7 +106,7 @@ export function DesignSystem(): React.JSX.Element {
 	const activeModule = modules.find((m) => m.meta.title === activeComponent);
 
 	const navigate = useCallback((component: string, variant?: string) => {
-		window.location.hash = variant ? `${component}/${variant}` : component;
+		window.location.hash = variant ? `${component}::${variant}` : component;
 	}, []);
 
 	return (

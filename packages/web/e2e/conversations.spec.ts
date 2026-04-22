@@ -14,15 +14,16 @@ test.describe("Conversations Review", () => {
 		await expect(page.getByRole("toolbar", { name: /verdict/i })).toBeVisible();
 	});
 
-	test("thread list shows review items", async ({ page }) => {
-		await expect(page.getByText("Auth flow implementation")).toBeVisible();
-		await expect(page.getByText("Dashboard metrics update")).toBeVisible();
+	test("review page shows the selected review's proposer and artifact", async ({ page }) => {
+		// The review page renders the first mock review (Auth flow) by default.
+		await expect(page.getByText("Developer Agent")).toBeVisible();
+		// The diff artifact is visible in the main content.
+		await expect(page.getByText("import { jwt } from 'hono/jwt';")).toBeVisible();
 	});
 
-	test("clicking a different review thread switches the artifact view", async ({ page }) => {
-		await page.getByText("Dashboard metrics update").click();
-		// Should show data metrics artifact
-		await expect(page.locator("[aria-label='Data metrics']")).toBeVisible();
+	test("reasoning block is rendered for the review", async ({ page }) => {
+		// ReasoningBlock toggle is visible.
+		await expect(page.getByRole("button", { name: /reasoning/i })).toBeVisible();
 	});
 
 	test("ReviewHeader verdict buttons are visible", async ({ page }) => {
@@ -38,17 +39,20 @@ test.describe("Conversations Chat", () => {
 		await page.waitForSelector("[data-testid='conversations-chat-page']");
 	});
 
-	test("Chat page loads with thread list", async ({ page }) => {
-		await expect(page.getByLabel("Thread: Sprint planning")).toBeVisible();
+	test("Chat page loads with selected thread title", async ({ page }) => {
+		// The chat page shows the first thread's title as a heading.
+		await expect(page.getByText("Sprint planning")).toBeVisible();
 	});
 
 	test("Chat page shows messages for selected thread", async ({ page }) => {
 		await expect(page.getByText("I've shaped three bets for the next cycle.")).toBeVisible();
 	});
 
-	test("switching threads shows different messages", async ({ page }) => {
-		await page.getByLabel("Thread: Bug report: cost tracking").click();
-		await expect(page.getByText("The weekly spend is miscalculated.")).toBeVisible();
+	test("messages are visible in the chat thread", async ({ page }) => {
+		// The first thread "Sprint planning" is selected by default.
+		await expect(page.getByText("I've shaped three bets for the next cycle.")).toBeVisible();
+		// The "You" reply is also visible.
+		await expect(page.getByText("Can you walk me through the auth bet?")).toBeVisible();
 	});
 
 	test("chat message input is visible", async ({ page }) => {

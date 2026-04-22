@@ -38,7 +38,8 @@ export const TextDiffLoading = (): React.JSX.Element => (
 	<ArtifactView shape="text_diff" data={{ hunks: [] }} loading={true} />
 );
 
-export const TextDiffError = (): React.JSX.Element => (
+/** Intentional error-state demo — renders the component's built-in error UI. */
+export const ErrorTextDiff = (): React.JSX.Element => (
 	<ArtifactView
 		shape="text_diff"
 		data={{ hunks: [] }}
@@ -70,7 +71,8 @@ export const ContentPreviewLoading = (): React.JSX.Element => (
 	<ArtifactView shape="content_preview" data={{ html: "", metadata: [] }} loading={true} />
 );
 
-export const ContentPreviewError = (): React.JSX.Element => (
+/** Intentional error-state demo — renders the component's built-in error UI. */
+export const ErrorContentPreview = (): React.JSX.Element => (
 	<ArtifactView
 		shape="content_preview"
 		data={{ html: "", metadata: [] }}
@@ -111,7 +113,8 @@ export const VisualComparisonLoading = (): React.JSX.Element => (
 	/>
 );
 
-export const VisualComparisonError = (): React.JSX.Element => (
+/** Intentional error-state demo — renders the component's built-in error UI. */
+export const ErrorVisualComparison = (): React.JSX.Element => (
 	<ArtifactView
 		shape="visual_comparison"
 		data={{ before: { label: "Before", src: "" }, after: { label: "After", src: "" } }}
@@ -156,7 +159,8 @@ export const ActionSummaryLoading = (): React.JSX.Element => (
 	<ArtifactView shape="action_summary" data={{ actions: [] }} loading={true} />
 );
 
-export const ActionSummaryError = (): React.JSX.Element => (
+/** Intentional error-state demo — renders the component's built-in error UI. */
+export const ErrorActionSummary = (): React.JSX.Element => (
 	<ArtifactView shape="action_summary" data={{ actions: [] }} error="Failed to summarize actions" />
 );
 
@@ -190,7 +194,8 @@ export const DataMetricsLoading = (): React.JSX.Element => (
 	<ArtifactView shape="data_metrics" data={{ headlines: [], charts: [] }} loading={true} />
 );
 
-export const DataMetricsError = (): React.JSX.Element => (
+/** Intentional error-state demo — renders the component's built-in error UI. */
+export const ErrorDataMetrics = (): React.JSX.Element => (
 	<ArtifactView
 		shape="data_metrics"
 		data={{ headlines: [], charts: [] }}

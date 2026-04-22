@@ -1,0 +1,172 @@
+/**
+ * HyperIdle Design System — Lucid Theme Tokens
+ *
+ * Unified light/dark theme system. Shared geometry (radii, motion, fonts)
+ * with per-mode color tokens. Default: dark. Supports three selection modes:
+ *
+ *   data-theme="lucid-dark"   → explicit dark
+ *   data-theme="lucid-light"  → explicit light
+ *   (no data-theme)           → follows prefers-color-scheme
+ *
+ * @lore Lucid merges Light Ops (light surfaces) and Mono Machine (dark
+ * surfaces) with shared radii from Light Ops (rounder), motion from
+ * Mono Machine (snappier), and Geist font family.
+ */
+
+@layer base {
+	/* ── Shared tokens (same in both modes) ── */
+	:root {
+		/* Radii — Light Ops values (rounder, softer feel) */
+		--r0: 0;
+		--r1: 4px;
+		--r2: 8px;
+		--r3: 12px;
+		--r-pill: 999px;
+
+		/* Motion — Mono Machine values (snappier, more premium) */
+		--motion-fast: 80ms;
+		--motion-medium: 150ms;
+		--motion-slow: 250ms;
+
+		/* Typography — Geist family */
+		--ui: "Geist", "Inter", system-ui, sans-serif;
+		--mono: "Geist Mono", ui-monospace, monospace;
+	}
+
+	/* ── Lucid Dark (default) ── */
+	:root,
+	[data-theme="lucid-dark"] {
+		--surface-0: #111113;
+		--surface-1: #19191c;
+		--surface-2: #1e1e22;
+		--surface-3: #27272b;
+		--surface-4: #323237;
+		--surface-5: #3e3e44;
+		--surface-6: #4a4a52;
+		--surface-ghost: rgba(255, 255, 255, 0.05);
+
+		--primary: #e0e7ff;
+		--primary-dim: rgba(224, 231, 255, 0.08);
+		--primary-hover: rgba(224, 231, 255, 0.14);
+		--warn: #a8a8b0;
+		--ok: #c8c8d0;
+		--danger: #f87171;
+
+		--text-hi: #ededef;
+		--text-mid: #a0a0a6;
+		--text-lo: #6e6e76;
+
+		--float: 0 2px 16px rgba(0, 0, 0, 0.5);
+
+		--border-subtle: rgba(255, 255, 255, 0.06);
+		--border-default: rgba(255, 255, 255, 0.1);
+		--border-emphasis: rgba(255, 255, 255, 0.16);
+
+		color-scheme: dark;
+	}
+
+	/* ── Lucid Light ── */
+	[data-theme="lucid-light"] {
+		--surface-0: #fafaf9;
+		--surface-1: #ffffff;
+		--surface-2: #f4f4f2;
+		--surface-3: #eaeae8;
+		--surface-4: #ddddd9;
+		--surface-5: #d0d0cc;
+		--surface-6: #c4c4be;
+		--surface-ghost: rgba(0, 0, 0, 0.04);
+
+		--primary: #4f46e5;
+		--primary-dim: rgba(79, 70, 229, 0.08);
+		--primary-hover: rgba(79, 70, 229, 0.12);
+		--warn: #78787e;
+		--ok: #8e8e94;
+		--danger: #dc2626;
+
+		--text-hi: #1a1a1e;
+		--text-mid: #6b6b70;
+		--text-lo: #737378;
+
+		--float: 0 4px 16px rgba(0, 0, 0, 0.1);
+
+		--border-subtle: rgba(0, 0, 0, 0.06);
+		--border-default: rgba(0, 0, 0, 0.1);
+		--border-emphasis: rgba(0, 0, 0, 0.16);
+
+		color-scheme: light;
+	}
+
+	/* ── System preference: light (when no explicit data-theme) ── */
+	@media (prefers-color-scheme: light) {
+		:root:not([data-theme]) {
+			--surface-0: #fafaf9;
+			--surface-1: #ffffff;
+			--surface-2: #f4f4f2;
+			--surface-3: #eaeae8;
+			--surface-4: #ddddd9;
+			--surface-5: #d0d0cc;
+			--surface-6: #c4c4be;
+			--surface-ghost: rgba(0, 0, 0, 0.04);
+
+			--primary: #4f46e5;
+			--primary-dim: rgba(79, 70, 229, 0.08);
+			--primary-hover: rgba(79, 70, 229, 0.12);
+			--warn: #78787e;
+			--ok: #8e8e94;
+			--danger: #dc2626;
+
+			--text-hi: #1a1a1e;
+			--text-mid: #6b6b70;
+			--text-lo: #737378;
+
+			--float: 0 4px 16px rgba(0, 0, 0, 0.1);
+
+			--border-subtle: rgba(0, 0, 0, 0.06);
+			--border-default: rgba(0, 0, 0, 0.1);
+			--border-emphasis: rgba(0, 0, 0, 0.16);
+
+			color-scheme: light;
+		}
+	}
+
+	/* ── Density presets ── */
+	:root,
+	[data-density="default"] {
+		--density-pad-x: 0.75rem;
+		--density-pad-y: 0.5rem;
+		--density-gap: 0.5rem;
+		--density-row-h: 2rem;
+		--density-text: 0.875rem;
+	}
+
+	[data-density="compact"] {
+		--density-pad-x: 0.375rem;
+		--density-pad-y: 0.25rem;
+		--density-gap: 0.25rem;
+		--density-row-h: 1.625rem;
+		--density-text: 0.75rem;
+	}
+
+	[data-density="comfortable"] {
+		--density-pad-x: 1rem;
+		--density-pad-y: 0.75rem;
+		--density-gap: 0.75rem;
+		--density-row-h: 2.5rem;
+		--density-text: 0.9375rem;
+	}
+}
+
+/* ── Tag kind tints ── */
+@layer components {
+	.tag-tint-pattern {
+		background-color: color-mix(in oklab, var(--text-mid) 12%, transparent);
+	}
+
+	.tag-tint-decision {
+		background-color: color-mix(in oklab, var(--primary) 14%, transparent);
+	}
+
+	.tag-tint-failure {
+		background-color: color-mix(in oklab, var(--danger) 16%, transparent);
+	}
+}

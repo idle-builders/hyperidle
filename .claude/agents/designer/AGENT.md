@@ -66,16 +66,26 @@ AI-generated UI has predictable visual anti-patterns. Actively avoid these:
 
 | Anti-Pattern | What It Looks Like | What To Do Instead |
 |---|---|---|
-| Purple/indigo palettes | Every AI defaults to purple gradients | Use the factory-dark theme tokens. No purple unless the design system specifies it. |
+| Purple/indigo palettes | Every AI defaults to purple gradients | Use the Lucid theme tokens. Indigo primary in Lucid Light is intentional; do not add arbitrary purple elsewhere. |
 | Excessive gradients | Gradient backgrounds, gradient text, gradient borders | Flat colors from the theme. Gradients are earned, not default. |
-| Over-rounded corners | `rounded-2xl` or `rounded-full` on everything | `rounded` or `rounded-lg` max. Match DaisyUI defaults. |
+| Over-rounded corners | `rounded-2xl` or `rounded-full` on everything | Use the closed radius scale (4/8/12px). Match DaisyUI overrides: --rounded-btn: 4px, --rounded-box: 8px. |
 | Oversized padding | `p-8` or `p-12` on cards and sections | 8-12px (p-2 to p-3). Density is a design principle. |
 | Stock card grids | 3-column card grids with icons and descriptions | Use the component budget. ThreadRow, BetCard, TaskCard — not generic cards. |
 | Hero sections | Large hero banners with CTAs | This is a productivity tool, not a landing page. No heroes. |
 | Decorative icons | Icons on every label, button, and heading | Icons only when they communicate faster than text. |
 | Excessive whitespace | `space-y-8`, `gap-6`, `my-12` | Tight spacing. `space-y-2`, `gap-2`. Power users want density. |
 
-If a design "looks like every AI-generated dashboard", it's wrong. HyperIdle should look like a Bloomberg terminal, not a Dribbble shot.
+If a design "looks like every AI-generated dashboard", it's wrong. HyperIdle uses the Lucid design system — precision instrument aesthetic with monochrome status signals and red-only danger indicators. Dense, purposeful, distinctive.
+
+## Visual Verification
+
+Review by looking, not by reading code. Take Playwright screenshots of every affected page, read the PNGs, compare against specs and mockups. Code tells you what the DOM should be. Screenshots tell you what the user sees.
+
+```bash
+cd packages/web && npx playwright screenshot http://localhost:5173/<route> /tmp/<name>.png --wait-for-timeout=3000
+```
+
+Screenshot every state: empty, loading, error, populated. If you can't screenshot it, you can't review it.
 
 ## What You Do NOT Do
 
@@ -84,3 +94,4 @@ If a design "looks like every AI-generated dashboard", it's wrong. HyperIdle sho
 - Create new components outside the budget without explicit justification
 - Design for aesthetics over function — this is a productivity tool
 - Ignore existing mockups in `stitch 2/`
+- Review UI by reading code alone — you must look at rendered output

@@ -1,0 +1,186 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Tag — HyperIdle Design System</title>
+  <link rel="stylesheet" href="_tokens.css" />
+  <style>
+    .tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 2px 8px;
+      border-radius: var(--r2);
+      font-family: var(--ui);
+      font-size: 12px;
+      line-height: 1.4;
+      white-space: nowrap;
+      border: none;
+    }
+
+    .tag--neutral {
+      background: var(--surface-ghost);
+      color: var(--text-mid);
+    }
+
+    .tag--pattern {
+      color: var(--text-mid);
+    }
+
+    .tag--decision {
+      color: var(--primary);
+    }
+
+    .tag--failure {
+      color: var(--danger);
+    }
+
+    .tag .tag-icon {
+      display: inline-flex;
+      align-items: center;
+      flex-shrink: 0;
+    }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" crossorigin></script>
+  <script type="text/babel" data-presets="env,react">
+    const PatternIcon = () => (
+      <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 12 12" fill="currentColor" aria-hidden="true">
+        <rect x="1" y="2" width="10" height="1.5" rx="0.5" />
+        <rect x="1" y="5.25" width="10" height="1.5" rx="0.5" />
+        <rect x="1" y="8.5" width="10" height="1.5" rx="0.5" />
+      </svg>
+    );
+
+    const DecisionIcon = () => (
+      <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <path d="M6 1 L11 6 L6 11 L1 6 Z" />
+        <path d="M3.75 6 L5.5 7.5 L8.25 4.75" />
+      </svg>
+    );
+
+    const FailureIcon = () => (
+      <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <path d="M6 1.5 L11 10.5 L1 10.5 Z" />
+        <path d="M6 5 L6 7.5" />
+        <circle cx="6" cy="9" r="0.6" fill="currentColor" stroke="none" />
+      </svg>
+    );
+
+    const TAG_KINDS = {
+      pattern: { icon: <PatternIcon />, tintClass: "tag-tint-pattern", ariaLabel: "Pattern" },
+      decision: { icon: <DecisionIcon />, tintClass: "tag-tint-decision", ariaLabel: "Decision" },
+      failure: { icon: <FailureIcon />, tintClass: "tag-tint-failure", ariaLabel: "Failure" },
+    };
+
+    function Tag({ label, kind }) {
+      const meta = kind ? TAG_KINDS[kind] : undefined;
+
+      if (!meta) {
+        return (
+          <span
+            className="tag tag--neutral"
+            data-component="Tag"
+            data-tier="1"
+            data-uses=""
+            data-daisyui=""
+            data-used-by="ThreadRow,BetCard,PitchCard,TaskCard,KnowledgeRow,NotificationRow"
+          >
+            {label}
+          </span>
+        );
+      }
+
+      const kindClass = `tag--${kind}`;
+
+      return (
+        <span
+          className={`tag ${kindClass} ${meta.tintClass}`}
+          aria-label={`${meta.ariaLabel}: ${label}`}
+          data-component="Tag"
+          data-tier="1"
+          data-uses=""
+          data-daisyui=""
+          data-used-by="ThreadRow,BetCard,PitchCard,TaskCard,KnowledgeRow,NotificationRow"
+        >
+          <span className="tag-icon">{meta.icon}</span>
+          {label}
+        </span>
+      );
+    }
+
+    function Demo() {
+      return (
+        <div className="demo-grid">
+          <div className="demo-section">
+            <div className="demo-section-title">Plain Tags (No Kind)</div>
+            <div className="demo-row">
+              <Tag label="v1" />
+              <Tag label="frontend" />
+              <Tag label="infrastructure-migration" />
+            </div>
+          </div>
+
+          <div className="demo-section">
+            <div className="demo-section-title">Kind Variants</div>
+            <div className="demo-row">
+              <Tag label="recurring-layout" kind="pattern" />
+              <Tag label="go with plan-A" kind="decision" />
+              <Tag label="deploy broke" kind="failure" />
+            </div>
+          </div>
+
+          <div className="demo-section">
+            <div className="demo-section-title">Mixed Group</div>
+            <div className="demo-row">
+              <Tag label="plain" />
+              <Tag label="recurring-layout" kind="pattern" />
+              <Tag label="go with plan-A" kind="decision" />
+              <Tag label="deploy broke" kind="failure" />
+            </div>
+          </div>
+
+          <div className="demo-section">
+            <div className="demo-section-title">Tag Cloud</div>
+            <div className="demo-row">
+              <Tag label="react" />
+              <Tag label="typescript" />
+              <Tag label="tailwind" />
+              <Tag label="daisyui" />
+              <Tag label="hono" />
+              <Tag label="drizzle" />
+            </div>
+          </div>
+
+          <div className="demo-section">
+            <div className="demo-section-title">In Context (Demo Card)</div>
+            <div className="demo-card">
+              <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "6px", flexWrap: "wrap" }}>
+                  <span className="mono-sm">Tags:</span>
+                  <Tag label="api-refactor" />
+                  <Tag label="schema-change" kind="pattern" />
+                  <Tag label="approved" kind="decision" />
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: "6px", flexWrap: "wrap" }}>
+                  <span className="mono-sm">Issues:</span>
+                  <Tag label="timeout on deploy" kind="failure" />
+                  <Tag label="flaky test" kind="failure" />
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById('root')).render(<Demo />);
+  </script>
+  <script src="themes/_switcher.js"></script>
+</body>
+</html>

@@ -30,8 +30,8 @@ test.describe("Navigation", () => {
 		page,
 	}) => {
 		await page.getByRole("button", { name: /work/i }).click();
-		await expect(page.getByText("Portfolio")).toBeVisible();
-		await expect(page.getByText("Team Board")).toBeVisible();
+		await expect(page.getByRole("button", { name: "Portfolio" })).toBeVisible();
+		await expect(page.getByRole("button", { name: "Team Board" })).toBeVisible();
 	});
 
 	test("clicking Knowledge button switches to Knowledge view", async ({ page }) => {
@@ -46,12 +46,12 @@ test.describe("Navigation", () => {
 	});
 
 	test("Submenu shows correct items for Conversations view", async ({ page }) => {
-		await expect(page.getByText("Review Queue")).toBeVisible();
-		await expect(page.getByText("Chat")).toBeVisible();
+		await expect(page.getByRole("button", { name: /^Review Queue/ })).toBeVisible();
+		await expect(page.getByRole("button", { name: /^Chat\b/ })).toBeVisible();
 	});
 
 	test("clicking Submenu item navigates to that page", async ({ page }) => {
-		await page.getByText("Chat").click();
+		await page.getByRole("button", { name: /^Chat\b/ }).click();
 		await expect(page.getByTestId("conversations-chat-page")).toBeVisible();
 	});
 

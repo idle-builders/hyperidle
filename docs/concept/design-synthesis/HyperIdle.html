@@ -1,0 +1,217 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>HyperIdle — The Factory</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+<div id="root"></div>
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+<script type="text/babel" src="components.jsx"></script>
+<script type="text/babel" src="data.jsx"></script>
+<script type="text/babel" src="views.jsx"></script>
+<script type="text/babel" src="sheets.jsx"></script>
+
+<script type="text/babel" data-presets="env,react">
+const { useState, useEffect } = React;
+
+const TWEAKS_DEFAULTS = /*EDITMODE-BEGIN*/{
+  "density": "default",
+  "accent": "ice",
+  "railDefault": "collapsed"
+}/*EDITMODE-END*/;
+
+const ACCENTS = {
+  ice:    { primary: '#adc6ff', dim: 'rgba(173,198,255,0.12)', hover: 'rgba(173,198,255,0.18)', shadow: 'rgba(173,198,255,0.08)' },
+  sage:   { primary: '#bbffb3', dim: 'rgba(187,255,179,0.10)', hover: 'rgba(187,255,179,0.16)', shadow: 'rgba(187,255,179,0.08)' },
+  ember:  { primary: '#ffb98a', dim: 'rgba(255,185,138,0.12)', hover: 'rgba(255,185,138,0.18)', shadow: 'rgba(255,185,138,0.08)' },
+};
+
+function App() {
+  const [view, setView] = useState(localStorage.getItem('hi.view') || 'conversations');
+  const [tab, setTab] = useState(localStorage.getItem('hi.tab') || 'shell');
+  const [railExpanded, setRailExpanded] = useState(false);
+  const [selectedThread, setSelectedThread] = useState('t1');
+  const [threadFilter, setThreadFilter] = useState('Needs review');
+  const [workSubview, setWorkSubview] = useState('bets');
+  const [knowledgeId, setKnowledgeId] = useState('kb1');
+  const [settingsSection, setSettingsSection] = useState('agents');
+  const [tweaksOpen, setTweaksOpen] = useState(false);
+  const [tweaks, setTweaks] = useState(TWEAKS_DEFAULTS);
+
+  useEffect(() => { localStorage.setItem('hi.view', view); }, [view]);
+  useEffect(() => { localStorage.setItem('hi.tab', tab); }, [tab]);
+
+  useEffect(() => {
+    const a = ACCENTS[tweaks.accent] || ACCENTS.ice;
+    document.documentElement.style.setProperty('--primary', a.primary);
+    document.documentElement.style.setProperty('--primary-dim', a.dim);
+    document.documentElement.style.setProperty('--primary-hover', a.hover);
+    document.documentElement.style.setProperty('--float', `0 0 32px ${a.shadow}`);
+  }, [tweaks.accent]);
+
+  useEffect(() => {
+    const base = tweaks.density === 'compact' ? 13 : tweaks.density === 'comfy' ? 15 : 14;
+    document.body.style.fontSize = base + 'px';
+  }, [tweaks.density]);
+
+  useEffect(() => {
+    setRailExpanded(tweaks.railDefault === 'expanded');
+  }, [tweaks.railDefault]);
+
+  // ── Tweaks bridge
+  useEffect(() => {
+    const onMsg = (e) => {
+      const d = e.data || {};
+      if (d.type === '__activate_edit_mode') setTweaksOpen(true);
+      if (d.type === '__deactivate_edit_mode') setTweaksOpen(false);
+    };
+    window.addEventListener('message', onMsg);
+    window.parent.postMessage({ type: '__edit_mode_available' }, '*');
+    return () => window.removeEventListener('message', onMsg);
+  }, []);
+
+  const setTweak = (k, v) => {
+    const next = { ...tweaks, [k]: v };
+    setTweaks(next);
+    window.parent.postMessage({ type: '__edit_mode_set_keys', edits: { [k]: v } }, '*');
+  };
+
+  const renderShell = () => {
+    let submenu, main, headerTitle, headerTag;
+    if (view === 'conversations') {
+      submenu = <ConversationsSubmenu selectedId={selectedThread} onSelect={setSelectedThread} filter={threadFilter} setFilter={setThreadFilter} />;
+      main = <ReviewThread thread={REVIEW_THREAD} />;
+      headerTitle = null; headerTag = null;
+    } else if (view === 'work') {
+      submenu = <WorkSubmenu subview={workSubview} setSubview={setWorkSubview} />;
+      main = <WorkMain subview={workSubview} />;
+    } else if (view === 'knowledge') {
+      submenu = <KnowledgeSubmenu selectedId={knowledgeId} onSelect={setKnowledgeId} />;
+      main = <KnowledgeMain selectedId={knowledgeId} onSelect={setKnowledgeId} />;
+    } else {
+      submenu = <SettingsSubmenu section={settingsSection} setSection={setSettingsSection} />;
+      main = <SettingsMain section={settingsSection} />;
+    }
+
+    return (
+      <div className="shell">
+        <nav className="iconrail">
+          <div className="rail-top">
+            <button className={`iconrail-item ${view === 'conversations' ? 'active' : ''}`} onClick={() => setView('conversations')} title="Conversations">
+              <Icon name="conversations" size={20} />
+              {view !== 'conversations' && <span className="dot-notif" />}
+            </button>
+            <button className={`iconrail-item ${view === 'work' ? 'active' : ''}`} onClick={() => setView('work')} title="Work">
+              <Icon name="work" size={20} />
+            </button>
+            <button className={`iconrail-item ${view === 'knowledge' ? 'active' : ''}`} onClick={() => setView('knowledge')} title="Knowledge">
+              <Icon name="knowledge" size={20} />
+            </button>
+            <button className={`iconrail-item ${view === 'settings' ? 'active' : ''}`} onClick={() => setView('settings')} title="Settings">
+              <Icon name="settings" size={20} />
+            </button>
+          </div>
+          <div className="rail-bottom">
+            <div className="iconrail-avatar" title="Max Addison">MA</div>
+          </div>
+        </nav>
+
+        <aside className="submenu">{submenu}</aside>
+
+        <main className="main">{main}</main>
+
+        <Rail expanded={railExpanded} setExpanded={setRailExpanded} />
+      </div>
+    );
+  };
+
+  const renderTab = () => {
+    if (tab === 'shell') return renderShell();
+    if (tab === 'components') return <ComponentsSheet />;
+    if (tab === 'rail') return <RailStatesSheet />;
+    if (tab === 'type') return <TypeSheet />;
+    if (tab === 'color') return <ColorSheet />;
+    return renderShell();
+  };
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
+      <div className="topbar">
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, paddingRight: 8 }}>
+          <div style={{ width: 20, height: 20, background: 'var(--primary)', borderRadius: 2, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--s0)', fontFamily: 'var(--mono)', fontSize: 11, fontWeight: 600 }}>HI</div>
+          <span style={{ fontSize: 12, fontWeight: 600 }}>HyperIdle</span>
+          <span className="mono-sm">/ THE FACTORY</span>
+        </div>
+        {[
+          ['shell', '01 · App shell'],
+          ['components', '02 · Components'],
+          ['rail', '03 · Rail states'],
+          ['type', '04 · Type'],
+          ['color', '05 · Color'],
+        ].map(([k, label]) => (
+          <button key={k} className={`tabitem ${tab === k ? 'active' : ''}`} onClick={() => setTab(k)}>{label}</button>
+        ))}
+        <div className="topbar-divider" />
+        <span className="mono-sm" style={{ paddingRight: 8 }}>v0.4 · SILENT INTELLIGENCE</span>
+      </div>
+
+      <div style={{ flex: 1, minHeight: 0, position: 'relative' }}>
+        {renderTab()}
+
+        {tab === 'shell' && (
+          <div className="rail-toggle">
+            <button className={!railExpanded ? 'active' : ''} onClick={() => setRailExpanded(false)}>Rail · collapsed</button>
+            <button className={railExpanded ? 'active' : ''} onClick={() => setRailExpanded(true)}>Rail · expanded</button>
+          </div>
+        )}
+
+        <div className={`tweaks-panel ${tweaksOpen ? 'open' : ''}`}>
+          <div className="tweaks-head">
+            <span className="tweaks-title">Tweaks</span>
+            <button className="btn-ghost" onClick={() => setTweaksOpen(false)}><Icon name="close" size={14} /></button>
+          </div>
+          <div className="tweak-row">
+            <label>Density</label>
+            <div className="tweak-opts">
+              {['compact', 'default', 'comfy'].map(d => (
+                <button key={d} className={tweaks.density === d ? 'active' : ''} onClick={() => setTweak('density', d)}>{d}</button>
+              ))}
+            </div>
+          </div>
+          <div className="tweak-row">
+            <label>Primary accent</label>
+            <div className="tweak-opts">
+              {['ice', 'sage', 'ember'].map(a => (
+                <button key={a} className={tweaks.accent === a ? 'active' : ''} onClick={() => setTweak('accent', a)}>{a}</button>
+              ))}
+            </div>
+          </div>
+          <div className="tweak-row">
+            <label>Rail default</label>
+            <div className="tweak-opts">
+              {['collapsed', 'expanded'].map(r => (
+                <button key={r} className={tweaks.railDefault === r ? 'active' : ''} onClick={() => setTweak('railDefault', r)}>{r}</button>
+              ))}
+            </div>
+          </div>
+          <div style={{ fontSize: 11, color: 'var(--t-low)', fontFamily: 'var(--mono)', letterSpacing: '0.05em', textTransform: 'uppercase' }}>Changes persist to disk</div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>

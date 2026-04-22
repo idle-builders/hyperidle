@@ -1,4 +1,10 @@
 import {
+	type Status,
+	betStatusToStatus,
+	knowledgeStatusToStatus,
+	taskStateToStatus,
+} from "@hyperidle/design-system";
+import {
 	BET_STATUSES,
 	type BetStatus,
 	KNOWLEDGE_STATUSES,
@@ -7,12 +13,6 @@ import {
 	type TaskState,
 } from "@hyperidle/shared";
 import { describe, expect, it } from "vitest";
-import type { Status } from "../components/StatusChip";
-import {
-	betStatusToStatus,
-	knowledgeStatusToStatus,
-	taskStateToStatus,
-} from "../components/status-mapping";
 
 /** All legal presentation Status values, used to assert exhaustive coverage. */
 const VALID_STATUSES: readonly Status[] = [

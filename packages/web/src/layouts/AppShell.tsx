@@ -1,3 +1,4 @@
+import { NavItem } from "@hyperidle/design-system";
 /**
  * @lore AppShell is the main layout composition: IconRail | Submenu | Main (Outlet) | Rail.
  * It manages view state, submenu state, settings panel, and global search.
@@ -8,7 +9,6 @@ import { type JSX, useCallback, useEffect, useMemo, useState } from "react";
 import { Outlet, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { ErrorBoundary } from "../components/ErrorBoundary";
 import { GlobalSearchPanel } from "../components/GlobalSearchPanel";
-import { NavItem } from "../components/NavItem";
 import type { SettingsData } from "../components/SettingsPanel";
 import { SettingsPanel } from "../components/SettingsPanel";
 import {
@@ -173,6 +173,7 @@ function KnowledgeSubmenu({ scope, topics, onScopeChange }: KnowledgeSubmenuProp
 								data-testid={`knowledge-topic-nav-${t.topic}`}
 							>
 								<span
+									role="img"
 									className={`inline-block h-2 w-2 rounded-full shrink-0 ${HEALTH_DOT[t.health]}`}
 									aria-label={`Health: ${t.health.replace("_", " ")}`}
 									data-health={t.health}
@@ -219,6 +220,20 @@ export function AppShell(): JSX.Element {
 	// @lore Settings lives at the shell root so [data-density] cascades --density-* CSS vars
 	// to every consumer. Server persistence deferred (J3/J8).
 	const [settings, setSettings] = useState<SettingsData>(DEFAULT_SETTINGS);
+
+	// @lore Theme is applied on <html> (not a child div) because DaisyUI themes use
+	// [data-theme] on the root element, and color-scheme on :root affects native
+	// scrollbars, form controls, etc. "system" removes the attribute so the CSS
+	// @media (prefers-color-scheme) fallback in tokens.css takes effect.
+	const currentTheme = settings.appearance.theme;
+	useEffect(() => {
+		const html = document.documentElement;
+		if (currentTheme === "system") {
+			html.removeAttribute("data-theme");
+		} else {
+			html.setAttribute("data-theme", currentTheme === "light" ? "lucid-light" : "lucid-dark");
+		}
+	}, [currentTheme]);
 	const commandK = useCommandK();
 
 	// Open settings panel when navigated to with ?settings=open query param.

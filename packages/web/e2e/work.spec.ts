@@ -29,7 +29,7 @@ test.describe("Work Team Board", () => {
 	});
 
 	test("Team Board page loads with heading", async ({ page }) => {
-		await expect(page.getByText("Team Board")).toBeVisible();
+		await expect(page.getByRole("heading", { name: "Team Board" })).toBeVisible();
 	});
 
 	test("kanban renders four columns", async ({ page }) => {
@@ -47,8 +47,10 @@ test.describe("Work Team Board", () => {
 	});
 
 	test("task cards are visible in the kanban", async ({ page }) => {
-		await expect(page.getByText("Implement login endpoint")).toBeVisible();
-		await expect(page.getByText("Design signup form")).toBeVisible();
+		// Scroll to the kanban section to ensure task cards are in the viewport.
+		await page.getByTestId("work-team-kanban").scrollIntoViewIfNeeded();
+		await expect(page.getByLabel("Task: Implement login endpoint")).toBeVisible();
+		await expect(page.getByLabel("Task: Design signup form")).toBeVisible();
 	});
 
 	test("pitch selector opens from button", async ({ page }) => {
