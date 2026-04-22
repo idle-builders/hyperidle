@@ -1,3 +1,10 @@
+import {
+	BetCard,
+	SkeletonCard,
+	SkeletonList,
+	StatusChip,
+	taskStateToStatus,
+} from "@hyperidle/design-system";
 /**
  * Work/Bet page — bet detail view composed from Tier 2 components (BetCard, TaskCard)
  * and DaisyUI primitives. Shows bet details + task list for that bet.
@@ -12,7 +19,6 @@
 import type { BetStatus, TaskState } from "@hyperidle/shared";
 import { type JSX, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { BetCard, SkeletonCard, SkeletonList, StatusChip, taskStateToStatus } from "@hyperidle/design-system";
 
 interface MockBetComment {
 	id: string;

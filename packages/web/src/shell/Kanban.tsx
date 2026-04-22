@@ -13,9 +13,9 @@ import {
 	useSensor,
 	useSensors,
 } from "@dnd-kit/core";
+import { TaskCard } from "@hyperidle/design-system";
 import type { TaskState } from "@hyperidle/shared";
 import { type JSX, useMemo, useState } from "react";
-import { TaskCard } from "@hyperidle/design-system";
 
 export interface KanbanTask {
 	id: string;

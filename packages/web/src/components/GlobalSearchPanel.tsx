@@ -1,8 +1,8 @@
+import { BetCard, KnowledgeRow, SearchField, ThreadRow } from "@hyperidle/design-system";
 import FocusTrap from "focus-trap-react";
 import { type JSX, useCallback, useEffect, useMemo, useRef } from "react";
 import { useGlobalSearch } from "../hooks/useGlobalSearch";
 import { useKeyboardNavigation } from "../hooks/useKeyboardNavigation";
-import { BetCard, KnowledgeRow, SearchField, ThreadRow } from "@hyperidle/design-system";
 
 type ResultType = "conversation" | "work" | "knowledge";
 
