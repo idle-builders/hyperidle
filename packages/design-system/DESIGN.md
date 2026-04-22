@@ -104,6 +104,7 @@ Warn and ok are intentionally neutral grays. Only danger carries chromatic color
 |-------|------|-------|
 | `--ui` / `font-sans` | Geist (400/500/600) | All UI text |
 | `--mono` / `font-mono` | Geist Mono (400/500) | Data labels, numeric values, uppercase tags |
+| `font-heading` | Geist Mono (500/600) | Section headers (uppercase, tracking-wider) |
 
 ### Scale
 
@@ -111,8 +112,10 @@ Warn and ok are intentionally neutral grays. Only danger carries chromatic color
 |------|--------|-------------|-------|
 | 24px | 600 | 1.2 | Page titles (rare) |
 | 18px | 600 | 1.3 | Section headings |
+| 14px | 600 | 1.45 | Mono — section headers (`font-heading` uppercase tracking-wider) |
 | 14px | 500 | 1.45 | Subheadings, nav labels |
 | 14px | 400 | 1.45 | Body text (default) |
+| 12px | 600 | 1.4 | Mono — small section headers (`font-heading` uppercase tracking-wider) |
 | 12px | 500 | 1.4 | Small labels, metadata |
 | 13px | 400 | 1.4 | Mono — data values (Geist Mono) |
 | 13px | 500 | 1.4 | Mono — emphasized data |

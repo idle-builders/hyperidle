@@ -1,3 +1,4 @@
+import { EmptyState, KeyValue, SkeletonCard, StatusChip } from "@hyperidle/design-system";
 /**
  * Work/Portfolio page — portfolio overview composed from product status
  * cards + portfolio metrics. Per spec (HUMAN_INTERFACE_LAYER.md §4.3) the
@@ -10,7 +11,6 @@
  * cycle and days remaining.
  */
 import type { JSX } from "react";
-import { EmptyState, KeyValue, SkeletonCard, StatusChip } from "@hyperidle/design-system";
 import { MOCK_CYCLE, MOCK_PRODUCTS } from "../fixtures/portfolio-data";
 
 export interface WorkPortfolioProps {
@@ -60,14 +60,10 @@ export function WorkPortfolio({ loading = false, products }: WorkPortfolioProps 
 			) : (
 				<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
 					{items.map((product) => (
-						// Design H4: the product status card uses tonal layering
-						// (bg-base-200 + shadow-sm) instead of a decorative border —
-						// UI_DESIGN.md §Rules: "surfaces use tonal layering only,
-						// no borders except ghost".
 						<div
 							key={product.id}
 							data-testid="product-card"
-							className="bg-base-200 rounded p-3 flex flex-col gap-2 shadow-sm"
+							className="bg-base-200 rounded-lg p-3 flex flex-col gap-2"
 						>
 							<div className="flex items-center gap-2">
 								<span

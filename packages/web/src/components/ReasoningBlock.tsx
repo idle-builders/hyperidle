@@ -23,7 +23,7 @@ export function ReasoningBlock({
 	const countLabel = `${count} ${count === 1 ? "step" : "steps"}`;
 	const panelId = "reasoning-block-panel";
 	return (
-		<section className="border-b border-[var(--surface-4)] bg-base-200/40">
+		<section className="border-b border-[var(--border-subtle)] bg-base-200/40">
 			<button
 				type="button"
 				aria-expanded={open}
