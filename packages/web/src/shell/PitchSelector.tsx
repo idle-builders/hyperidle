@@ -1,3 +1,4 @@
+import { PitchCard, SearchField } from "@hyperidle/design-system";
 /**
  * @lore J5: PitchSelector now hosts an inline detail pane. Clicking a
  * pitch both toggles selection (preserved for existing tests) AND sets
@@ -8,7 +9,7 @@
  */
 import type { BetStatus } from "@hyperidle/shared";
 import { type JSX, useMemo, useState } from "react";
-import { PitchCard, SearchField } from "@hyperidle/design-system";
+import { useRovingFocus } from "./use-roving-focus";
 
 export interface PitchSelectorPitch {
 	id: string;
@@ -59,6 +60,15 @@ export function PitchSelector({
 		onSelect(pitchId);
 	}
 
+	const { getItemProps } = useRovingFocus({
+		itemCount: filtered.length,
+		onSelect: (index) => {
+			const pitch = filtered[index];
+			if (pitch) handlePitchClick(pitch.id);
+		},
+		onEscape: onClose,
+	});
+
 	return (
 		<div className="bg-base-200 rounded p-3 flex flex-col gap-3 max-h-[480px]">
 			<div className="flex items-center justify-between">
@@ -77,10 +87,17 @@ export function PitchSelector({
 				{filtered.length === 0 ? (
 					<div className="text-xs text-[var(--text-lo)] p-2 text-center">No pitches available</div>
 				) : (
-					filtered.map((pitch) => {
+					filtered.map((pitch, index) => {
 						const isSelected = selectedIds.includes(pitch.id);
+						const rovingProps = getItemProps(index);
 						return (
-							<div key={pitch.id} className="relative">
+							<div
+								key={pitch.id}
+								className="relative"
+								tabIndex={rovingProps.tabIndex}
+								onKeyDown={rovingProps.onKeyDown}
+								ref={rovingProps.ref}
+							>
 								{isSelected && (
 									<span className="absolute top-2 right-2 text-accent text-sm font-bold z-10">
 										✓
