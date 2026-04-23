@@ -26,6 +26,9 @@
 		"ds:serve": "bun run --filter @hyperidle/design-system serve",
 		"ds:sync": "bun run --filter @hyperidle/design-system sync-check"
 	},
+	"overrides": {
+		"zod-validation-error": "^4.0.0"
+	},
 	"devDependencies": {
 		"@biomejs/biome": "^1.9.0",
 		"@eslint/js": "^10.0.1",
@@ -35,7 +38,7 @@
 		"eslint": "^10.2.1",
 		"eslint-plugin-drizzle": "^0.2.3",
 		"eslint-plugin-react-compiler": "^19.1.0-rc.2",
-		"eslint-plugin-react-hooks": "5.2.0",
+		"eslint-plugin-react-hooks": "^7.1.1",
 		"typescript": "^6.0.3",
 		"typescript-eslint": "^8.59.0",
 		"vitest": "^3.1.0"
