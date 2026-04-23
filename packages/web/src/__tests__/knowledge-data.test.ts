@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
-	MOCK_CURATION_SUGGESTIONS,
-	MOCK_KNOWLEDGE_ITEMS,
 	deriveTopicHealth,
 	groupItemsByTopic,
+	MOCK_CURATION_SUGGESTIONS,
+	MOCK_KNOWLEDGE_ITEMS,
 	topicsForScope,
 } from "../fixtures/knowledge-data";
 

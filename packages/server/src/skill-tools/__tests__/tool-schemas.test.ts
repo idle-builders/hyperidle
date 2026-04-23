@@ -1,9 +1,9 @@
 import * as os from "node:os";
 import * as path from "node:path";
-import { type HyperIdleDb, createTestDb } from "@hyperidle/db";
+import { createTestDb, type HyperIdleDb } from "@hyperidle/db";
 import { EventBus } from "@hyperidle/shared";
 import { beforeEach, describe, expect, it } from "vitest";
-import { type ToolContext, buildToolRegistry, toClaudeToolSpec } from "../tool-registry.js";
+import { buildToolRegistry, type ToolContext, toClaudeToolSpec } from "../tool-registry.js";
 
 const EXPECTED_TOOL_NAMES = [
 	"create_item",

@@ -30,6 +30,7 @@ import {
 	type BetStateChangedEvent,
 	type CostCapBreachedEvent,
 	type CostCapWarningEvent,
+	createLogger,
 	type DomainEvent,
 	type EventBus,
 	type KnowledgeUpdatedEvent,
@@ -37,10 +38,9 @@ import {
 	type ObservabilityEvent,
 	type SessionEndedEvent,
 	type SessionStartedEvent,
+	scrubInlineTokens,
 	type TaskStateChangedEvent,
 	type ToolCallRecordedEvent,
-	createLogger,
-	scrubInlineTokens,
 } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
 import type { ObservabilityConfig } from "./config.js";

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { VIEW_ICONS, VIEW_IDS } from "../shell/shell-types";
 import type { ViewId } from "../shell/shell-types";
+import { VIEW_ICONS, VIEW_IDS } from "../shell/shell-types";
 
 describe("shell-types", () => {
 	describe("VIEW_IDS", () => {

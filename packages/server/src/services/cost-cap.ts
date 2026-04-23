@@ -1,5 +1,5 @@
 import * as crypto from "node:crypto";
-import { type HyperIdleDb, agents, items, sessions, teams } from "@hyperidle/db";
+import { agents, type HyperIdleDb, items, sessions, teams } from "@hyperidle/db";
 import type { EventBus, SessionEndedEvent } from "@hyperidle/shared";
 import { eq, inArray, sql } from "drizzle-orm";
 

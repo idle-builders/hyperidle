@@ -1,4 +1,4 @@
-import { type HyperIdleDb, createTestDb, factorySettings } from "@hyperidle/db";
+import { createTestDb, factorySettings, type HyperIdleDb } from "@hyperidle/db";
 import { beforeEach, describe, expect, it } from "vitest";
 import {
 	ATTENTION_THRESHOLD,

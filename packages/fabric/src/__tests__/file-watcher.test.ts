@@ -2,10 +2,10 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import {
-	type HyperIdleDb,
 	agents,
 	bets,
 	createTestDb,
+	type HyperIdleDb,
 	knowledgeConflicts,
 	knowledgeItems,
 	products,
@@ -18,7 +18,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { startWatcher } from "../file-watcher.js";
 import type { Manifest } from "../materialization.js";
 import { startPollingWatcher } from "../polling-watcher.js";
-import { type WritebackChange, processWriteback, readManifest } from "../writeback.js";
+import { processWriteback, readManifest, type WritebackChange } from "../writeback.js";
 
 // Helpers for test setup
 function createWorkspace(tmpDir: string): string {

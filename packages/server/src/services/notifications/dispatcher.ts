@@ -22,15 +22,15 @@ import { type HyperIdleDb, type Item, items as itemsTable, notificationQueue } f
 import {
 	type CostCapBreachedEvent,
 	type CostCapWarningEvent,
+	createLogger,
 	type EventBus,
 	type ItemCreatedEvent,
 	type Logger,
 	type RoutineFiredEvent,
-	createLogger,
 } from "@hyperidle/shared";
 import { and, asc, eq, lt, sql } from "drizzle-orm";
 import { isSilenced } from "../silence-policy.js";
-import { type NotificationConfig, loadNotificationConfig, pickRecipient } from "./config.js";
+import { loadNotificationConfig, type NotificationConfig, pickRecipient } from "./config.js";
 import { type DigestResult, runDailyDigest } from "./digest.js";
 import { scrubErrorMessage } from "./redact.js";
 import type {

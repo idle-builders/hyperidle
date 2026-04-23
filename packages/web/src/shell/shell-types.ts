@@ -1,5 +1,5 @@
-import { createElement } from "react";
 import type { ReactNode } from "react";
+import { createElement } from "react";
 
 export const VIEW_IDS = Object.freeze(["conversations", "work", "knowledge"] as const);
 

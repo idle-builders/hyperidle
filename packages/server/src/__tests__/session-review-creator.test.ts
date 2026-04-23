@@ -1,8 +1,8 @@
 import {
-	type HyperIdleDb,
 	agents,
 	bets,
 	createTestDb,
+	type HyperIdleDb,
 	items,
 	products,
 	sessions,
@@ -10,8 +10,8 @@ import {
 	teams,
 	threads,
 } from "@hyperidle/db";
-import { EventBus } from "@hyperidle/shared";
 import type { ItemCreatedEvent, SessionEndedEvent } from "@hyperidle/shared";
+import { EventBus } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { registerSessionReviewCreator } from "../services/session-review-creator.js";

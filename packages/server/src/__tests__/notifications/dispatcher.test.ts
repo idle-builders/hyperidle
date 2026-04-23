@@ -1,7 +1,7 @@
 import {
-	type HyperIdleDb,
 	createTestDb,
 	factorySettings,
+	type HyperIdleDb,
 	items as itemsTable,
 	notificationQueue,
 	threads,

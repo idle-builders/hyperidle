@@ -1,4 +1,4 @@
-import { type HyperIdleDb, bets, createTestDb, products, tasks, teams } from "@hyperidle/db";
+import { bets, createTestDb, type HyperIdleDb, products, tasks, teams } from "@hyperidle/db";
 import {
 	EventBus,
 	type NotificationEvent,

@@ -1,7 +1,7 @@
 import { search as searchKnowledge } from "@hyperidle/fabric";
 import { z } from "zod";
 import type { ToolContext, ToolDefinition } from "./tool-registry.js";
-import { type ToolResult, err, ok } from "./tool-result.js";
+import { err, ok, type ToolResult } from "./tool-result.js";
 
 const KNOWLEDGE_LAYERS = ["L0", "L1", "L2", "L3", "L4"] as const;
 

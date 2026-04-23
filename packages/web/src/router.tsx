@@ -8,8 +8,7 @@ import type { RouteObject } from "react-router-dom";
  * @lore I6: /designsystem is integrated into the React Router tree (DEV only)
  * instead of being routed via window.location.pathname in App.tsx.
  */
-import { Navigate, createBrowserRouter } from "react-router-dom";
-import { RouterProvider } from "react-router-dom";
+import { createBrowserRouter, Navigate, RouterProvider } from "react-router-dom";
 import { AppShell } from "./layouts/AppShell";
 import { ConversationsChat } from "./pages/ConversationsChat";
 import { ConversationsReview } from "./pages/ConversationsReview";

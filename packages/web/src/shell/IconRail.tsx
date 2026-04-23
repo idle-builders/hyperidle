@@ -1,6 +1,6 @@
 import type { JSX } from "react";
-import { VIEW_ICONS, VIEW_IDS } from "./shell-types";
 import type { ViewId } from "./shell-types";
+import { VIEW_ICONS, VIEW_IDS } from "./shell-types";
 import { useRovingFocus } from "./use-roving-focus";
 
 /**

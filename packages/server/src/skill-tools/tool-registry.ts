@@ -12,7 +12,7 @@ import { readInboxTool } from "./read-inbox.js";
 import { routeItemTool } from "./route-item.js";
 import { scoreAttentionTool } from "./score-attention.js";
 import { sendMessageTool } from "./send-message.js";
-import { type ToolResult, err } from "./tool-result.js";
+import { err, type ToolResult } from "./tool-result.js";
 import { writeMemoryTool } from "./write-memory.js";
 import { writeSessionNotesTool } from "./write-session-notes.js";
 

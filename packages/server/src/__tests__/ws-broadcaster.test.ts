@@ -1,5 +1,5 @@
-import { EventBus } from "@hyperidle/shared";
 import type { ItemCreatedEvent, ResponseRecordedEvent } from "@hyperidle/shared";
+import { EventBus } from "@hyperidle/shared";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { WsBroadcaster, type WsClient } from "../services/ws-broadcaster.js";
 

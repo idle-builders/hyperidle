@@ -115,7 +115,6 @@ export function GlobalSearchPanel({
 	return (
 		<div
 			className="modal modal-open z-50"
-			// biome-ignore lint/a11y/useSemanticElements: DaisyUI modal pattern requires div with role="dialog" for CSS class approach
 			role="dialog"
 			aria-modal="true"
 			aria-label="Global search"

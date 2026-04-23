@@ -1,7 +1,7 @@
 import { render, screen, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import type { ThreadItem } from "../components/ThreadSections";
-import { ThreadSections, groupThreadsIntoSections } from "../components/ThreadSections";
+import { groupThreadsIntoSections, ThreadSections } from "../components/ThreadSections";
 
 const NOW = Date.parse("2026-04-19T12:00:00Z");
 const AVATAR =

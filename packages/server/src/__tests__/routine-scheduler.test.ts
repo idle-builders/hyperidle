@@ -1,10 +1,10 @@
 import {
-	type HyperIdleDb,
 	agentSkills,
 	agents,
 	bets,
 	createTestDb,
 	factorySettings,
+	type HyperIdleDb,
 	items,
 	products,
 	routines,
@@ -17,10 +17,10 @@ import { EventBus } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
-	type RoutineSchedulerConfig,
 	checkAndFireRoutine,
 	nextCronMatch,
 	parseCron,
+	type RoutineSchedulerConfig,
 	registerEventTriggers,
 	startRoutineScheduler,
 } from "../services/routine-scheduler.js";

@@ -1,7 +1,7 @@
 /** Claude Agent SDK adapter — concrete HarnessAdapter implementation (D2). */
 
-import { query as sdkQuery } from "@anthropic-ai/claude-agent-sdk";
 import type { Query, SDKMessage } from "@anthropic-ai/claude-agent-sdk";
+import { query as sdkQuery } from "@anthropic-ai/claude-agent-sdk";
 import type {
 	HarnessAdapter,
 	HarnessCapabilities,
@@ -10,7 +10,7 @@ import type {
 	SessionHandle,
 	SessionResult,
 } from "@hyperidle/shared";
-import { MissingCredentialError, createLogger } from "@hyperidle/shared";
+import { createLogger, MissingCredentialError } from "@hyperidle/shared";
 import { resolveModel } from "./model-tier-map.js";
 
 /**

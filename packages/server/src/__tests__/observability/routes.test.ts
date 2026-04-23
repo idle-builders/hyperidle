@@ -7,7 +7,7 @@
  * POST /api/observability/flush    -> triggers drain
  */
 
-import { type HyperIdleDb, createTestDb, factorySettings } from "@hyperidle/db";
+import { createTestDb, factorySettings, type HyperIdleDb } from "@hyperidle/db";
 import type { Logger } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
 import { describe, expect, it } from "vitest";

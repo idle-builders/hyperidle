@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useRef, useState } from "react";
 import type { JSX } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 export type VerdictAction =
 	| "approve"

@@ -6,7 +6,7 @@
 
 import * as os from "node:os";
 import * as path from "node:path";
-import { type HyperIdleDb, agents, products, teams, threads } from "@hyperidle/db";
+import { agents, type HyperIdleDb, products, teams, threads } from "@hyperidle/db";
 import { EventBus } from "@hyperidle/shared";
 import type { ToolContext } from "../tool-registry.js";
 

@@ -2,7 +2,7 @@ import type { KnowledgeItem } from "@hyperidle/db";
 import type { AgentRole } from "@hyperidle/shared";
 import { ROLE_TO_COMMUNITY } from "./role-community-map.js";
 import type { ScoringContext, ScoringWeights } from "./scoring-config.js";
-import { type ScoredItem, enforceBudget } from "./token-budget.js";
+import { enforceBudget, type ScoredItem } from "./token-budget.js";
 
 /** Recency decay window in milliseconds (30 days). */
 const RECENCY_WINDOW_MS = 30 * 24 * 60 * 60 * 1000;

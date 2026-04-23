@@ -1,7 +1,7 @@
 import * as dns from "node:dns";
 import * as net from "node:net";
 import { promisify } from "node:util";
-import { type HyperIdleDb, factorySettings } from "@hyperidle/db";
+import { factorySettings, type HyperIdleDb } from "@hyperidle/db";
 import type { SanitizeResult } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
 import type { NotificationChannel, Recipient } from "./types.js";

@@ -4,7 +4,7 @@ import { KNOWLEDGE_LAYERS, KNOWLEDGE_STATUSES, type KnowledgeLayer } from "@hype
 import { eq } from "drizzle-orm";
 import { z } from "zod";
 import type { ToolContext, ToolDefinition } from "./tool-registry.js";
-import { type ToolResult, err, ok } from "./tool-result.js";
+import { err, ok, type ToolResult } from "./tool-result.js";
 
 const KNOWLEDGE_KINDS = [
 	"pattern",

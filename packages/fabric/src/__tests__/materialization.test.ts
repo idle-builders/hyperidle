@@ -1,12 +1,21 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { type HyperIdleDb, createTestDb } from "@hyperidle/db";
-import { agents, bets, products, sessions, tasks, teams, threads } from "@hyperidle/db";
+import {
+	agents,
+	bets,
+	createTestDb,
+	type HyperIdleDb,
+	products,
+	sessions,
+	tasks,
+	teams,
+	threads,
+} from "@hyperidle/db";
 import { decode } from "@hyperidle/shared";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { create } from "../knowledge-repository.js";
-import { materialize } from "../materialization.js";
 import type { MaterializationConfig } from "../materialization.js";
+import { materialize } from "../materialization.js";
 
 function tmpDir(): string {
 	return fs.mkdtempSync(path.join("/tmp", "mat-test-"));

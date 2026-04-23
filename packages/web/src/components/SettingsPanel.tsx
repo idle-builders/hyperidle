@@ -237,7 +237,6 @@ export function SettingsPanel({
 			// J8: `transition-opacity duration-[var(--motion-slow)]` applies the
 			// 320ms overlay token so open/close fades match the design spec.
 			className="modal modal-open z-40 transition-opacity duration-[var(--motion-slow)]"
-			// biome-ignore lint/a11y/useSemanticElements: DaisyUI modal pattern requires div with role="dialog" for CSS class approach
 			role="dialog"
 			aria-modal="true"
 			aria-label="Settings"

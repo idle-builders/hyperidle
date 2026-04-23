@@ -1,4 +1,4 @@
-import { type JSX, forwardRef } from "react";
+import { forwardRef, type JSX } from "react";
 
 export interface SearchFieldProps {
 	placeholder?: string;

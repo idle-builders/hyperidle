@@ -1,4 +1,4 @@
-import { type HyperIdleDb, agents, bets, products, tasks } from "@hyperidle/db";
+import { agents, bets, type HyperIdleDb, products, tasks } from "@hyperidle/db";
 import type { AgentRole } from "@hyperidle/shared";
 import { encode } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";

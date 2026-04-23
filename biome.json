@@ -1,8 +1,6 @@
 {
-	"$schema": "https://biomejs.dev/schemas/1.9.0/schema.json",
-	"organizeImports": {
-		"enabled": true
-	},
+	"$schema": "https://biomejs.dev/schemas/2.4.13/schema.json",
+	"assist": { "actions": { "source": { "organizeImports": "on" } } },
 	"javascript": {
 		"globals": ["React", "JSX", "jest", "Bun"]
 	},
@@ -31,7 +29,12 @@
 				"noMisleadingCharacterClass": "error",
 				"useAwait": "warn",
 				"useIsArray": "error",
-				"noAssignInExpressions": "error"
+				"noAssignInExpressions": "error",
+				"noUnknownAtRules": "warn",
+				"useIterableCallbackReturn": "warn"
+			},
+			"performance": {
+				"noDynamicNamespaceImportAccess": "warn"
 			},
 			"complexity": {
 				"noUselessTypeConstraint": "error",
@@ -44,7 +47,8 @@
 				},
 				"noForEach": "warn",
 				"useFlatMap": "error",
-				"useSimplifiedLogicExpression": "warn"
+				"useSimplifiedLogicExpression": "warn",
+				"useNumericLiterals": "error"
 			},
 			"style": {
 				"noNonNullAssertion": "error",
@@ -96,15 +100,13 @@
 				"noUselessElse": "error",
 				"useExponentiationOperator": "error",
 				"useNumberNamespace": "error",
-				"useNumericLiterals": "error"
+				"useConsistentCurlyBraces": "error",
+				"noDescendingSpecificity": "warn"
 			},
 			"security": {
 				"noDangerouslySetInnerHtml": "error",
 				"noDangerouslySetInnerHtmlWithChildren": "error",
 				"noGlobalEval": "error"
-			},
-			"nursery": {
-				"useConsistentCurlyBraces": "error"
 			},
 			"a11y": {
 				"noAriaUnsupportedElements": "error",
@@ -118,7 +120,10 @@
 				"useHeadingContent": "error",
 				"useKeyWithClickEvents": "error",
 				"useValidAnchor": "error",
-				"useValidAriaRole": "error"
+				"useValidAriaRole": "error",
+				"useAriaPropsSupportedByRole": "warn",
+				"noStaticElementInteractions": "warn",
+				"useSemanticElements": "warn"
 			}
 		}
 	},
@@ -128,22 +133,23 @@
 		"lineWidth": 100
 	},
 	"files": {
-		"ignore": [
-			"node_modules",
-			"dist",
-			"*.db",
-			"coverage",
-			"playwright-report",
-			"visual-reports",
-			"sync-reports",
-			".claude",
-			".worktrees",
-			"docs/concept/design-synthesis"
+		"includes": [
+			"**",
+			"!**/node_modules",
+			"!**/dist",
+			"!**/*.db",
+			"!**/coverage",
+			"!**/playwright-report",
+			"!**/visual-reports",
+			"!**/sync-reports",
+			"!**/.claude",
+			"!**/.worktrees",
+			"!**/docs/concept/design-synthesis"
 		]
 	},
 	"overrides": [
 		{
-			"include": ["**/logger.ts"],
+			"includes": ["**/logger.ts", "**/logger.test.ts"],
 			"linter": {
 				"rules": {
 					"suspicious": {
@@ -153,7 +159,7 @@
 			}
 		},
 		{
-			"include": [
+			"includes": [
 				"**/*.test.ts",
 				"**/*.test.tsx",
 				"**/*.spec.ts",
@@ -170,7 +176,7 @@
 			}
 		},
 		{
-			"include": ["**/scripts/**"],
+			"includes": ["**/scripts/**"],
 			"linter": {
 				"rules": {
 					"suspicious": {

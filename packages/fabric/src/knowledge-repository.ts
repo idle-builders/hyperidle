@@ -12,7 +12,7 @@ import type {
 } from "@hyperidle/shared";
 import { and, eq } from "drizzle-orm";
 import { ItemDeletedError, VersionConflictError } from "./errors.js";
-import { KnowledgeEventType, getKnowledgeEvents } from "./events.js";
+import { getKnowledgeEvents, KnowledgeEventType } from "./events.js";
 import { type FtsSearchOptions, ftsSearch } from "./fts.js";
 
 export interface CreateKnowledgeItemInput {

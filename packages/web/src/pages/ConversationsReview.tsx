@@ -16,8 +16,8 @@ import type {
 	RelatedHistoryEntry,
 } from "../shell/ArtifactView";
 import { ArtifactView } from "../shell/ArtifactView";
-import { ReviewHeader } from "../shell/ReviewHeader";
 import type { VerdictAction } from "../shell/ReviewHeader";
+import { ReviewHeader } from "../shell/ReviewHeader";
 
 interface MockReviewItem {
 	id: string;

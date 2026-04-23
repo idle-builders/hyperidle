@@ -5,7 +5,9 @@
 	"engines": {
 		"node": ">=24.0.0"
 	},
-	"workspaces": ["packages/*"],
+	"workspaces": [
+		"packages/*"
+	],
 	"scripts": {
 		"dev": "concurrently --names server,web --prefix-colors blue,green \"bun run --filter @hyperidle/server dev\" \"bun run --filter @hyperidle/web dev\"",
 		"build": "bun run --filter @hyperidle/web build",
@@ -30,7 +32,7 @@
 		"zod-validation-error": "^4.0.0"
 	},
 	"devDependencies": {
-		"@biomejs/biome": "^1.9.0",
+		"@biomejs/biome": "^2.4.12",
 		"@eslint/js": "^10.0.1",
 		"@typescript-eslint/parser": "^8.59.0",
 		"@vitest/coverage-v8": "^4.1.5",

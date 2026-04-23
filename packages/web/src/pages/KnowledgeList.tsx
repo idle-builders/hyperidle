@@ -18,10 +18,10 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { CurationSuggestionCard } from "../components/CurationSuggestionCard";
 import { KnowledgeTopicGroup } from "../components/KnowledgeTopicGroup";
 import {
+	groupItemsByTopic,
 	MOCK_CURATION_SUGGESTIONS,
 	MOCK_KNOWLEDGE_ITEMS,
 	type MockKnowledgeItem,
-	groupItemsByTopic,
 } from "../fixtures/knowledge-data";
 
 type KnowledgeTab = "triage" | "curated";

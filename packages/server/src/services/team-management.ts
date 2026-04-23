@@ -1,4 +1,4 @@
-import { type HyperIdleDb, type Team, agents, routines, sessions, teams } from "@hyperidle/db";
+import { agents, type HyperIdleDb, routines, sessions, type Team, teams } from "@hyperidle/db";
 import { ActiveRoutinesError } from "@hyperidle/shared";
 import { and, eq, gte, inArray, sql } from "drizzle-orm";
 

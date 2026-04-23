@@ -7,7 +7,7 @@
  * documented ntfy.sh shape.
  */
 
-import { type Server, createServer } from "node:http";
+import { createServer, type Server } from "node:http";
 import type { AddressInfo } from "node:net";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createNtfyAdapter } from "../../services/notifications/ntfy-adapter.js";
