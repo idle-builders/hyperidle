@@ -195,19 +195,20 @@ describe("index.css density tokens", () => {
 		expect(cssContent).toContain(selector);
 	});
 
-	it.each(["compact", "default", "comfortable"])(
-		'the [data-density="%s"] block declares all five density variables',
-		(name) => {
-			// Pull out the body of the block for this density value.
-			const blockRe = new RegExp(`\\[data-density="${name}"\\]\\s*\\{([^}]*)\\}`, "s");
-			const match = cssContent.match(blockRe);
-			expect(match, `expected block for [data-density="${name}"]`).not.toBeNull();
-			const body = match?.[1] ?? "";
-			for (const v of REQUIRED_VARS) {
-				expect(body).toContain(v);
-			}
-		},
-	);
+	it.each([
+		"compact",
+		"default",
+		"comfortable",
+	])('the [data-density="%s"] block declares all five density variables', (name) => {
+		// Pull out the body of the block for this density value.
+		const blockRe = new RegExp(`\\[data-density="${name}"\\]\\s*\\{([^}]*)\\}`, "s");
+		const match = cssContent.match(blockRe);
+		expect(match, `expected block for [data-density="${name}"]`).not.toBeNull();
+		const body = match?.[1] ?? "";
+		for (const v of REQUIRED_VARS) {
+			expect(body).toContain(v);
+		}
+	});
 
 	it("the default density block also targets :root so vars resolve before AppShell mounts", () => {
 		// J1 review: anything rendered before the AppShell sets [data-density]

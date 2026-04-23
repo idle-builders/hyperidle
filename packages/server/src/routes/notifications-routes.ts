@@ -1,14 +1,14 @@
 import type { HyperIdleDb } from "@hyperidle/db";
 import { notificationQueue } from "@hyperidle/db";
-import { API_ERROR_CODES, createLogger } from "@hyperidle/shared";
 import type { ApiErrorResponse, Logger } from "@hyperidle/shared";
+import { API_ERROR_CODES, createLogger } from "@hyperidle/shared";
 import { desc, eq } from "drizzle-orm";
 import { Hono } from "hono";
 import { z } from "zod";
 import { validateBody } from "../middleware/validate.js";
 import {
-	type NotificationConfigPatch,
 	loadNotificationConfig,
+	type NotificationConfigPatch,
 	pickRecipient,
 	readNotificationConfig,
 	redactNotificationConfig,

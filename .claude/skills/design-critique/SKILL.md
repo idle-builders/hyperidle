@@ -68,11 +68,12 @@ For deeper reference on specific topics, read from `references/`:
 - Is the contrast ratio >= 4.5:1 for all text?
 - **Smell:** Colors not in the palette. Color as the sole differentiator. Decorative color.
 
-### 5. Component Coherence
+### 5. Component Coherence & Consistency
 - Does the component use design system tokens consistently?
 - Are hardcoded values (hex colors, px spacing, raw font sizes) present? They shouldn't be.
 - Does the component compose from existing primitives where possible?
-- **Smell:** Hardcoded #hex values. `p-8` instead of density tokens. Re-implementing what a Tier 1 primitive already does.
+- **Cross-component consistency:** Does this component apply borders, spacing, radii, and typography the same way as other components in the same context? (e.g., all list pages should use the same section header style, all cards should use the same border treatment)
+- **Smell:** Hardcoded #hex values. `p-8` instead of density tokens. Re-implementing what a Tier 1 primitive already does. Borders used differently than sibling components. Mixed radii in the same view.
 
 ### 6. States & Feedback
 - Does the component handle all states? (Default, hover, focus, active, disabled, loading, empty, error)
@@ -142,6 +143,18 @@ cd packages/web && npx playwright screenshot \
 ```
 
 Read the screenshot. Evaluate it visually. Do not evaluate design from code alone.
+
+## Tailwind Anti-Patterns
+
+Flag raw Tailwind color classes (`text-gray-400`, `bg-slate-800`), non-4px-grid spacing (`p-7`, `gap-5`), wrong radii (`rounded-2xl`), off-scale font sizes, inline `style={}` attributes, and arbitrary border colors (`border-white/10`). All must use design system tokens.
+
+## Consistency & Component Reuse
+
+When reviewing multiple components or `all`, evaluate cross-cutting consistency:
+
+- **Same role, same treatment.** Section headers, card borders, list items, dividers, hover states — if two components serve the same visual role, they must look identical. Divergence is a finding.
+- **Component reuse over inline reimplementation.** The design system has primitives (Tier 1), blocks (Tier 2), regions (Tier 3), and utilities (EmptyState, ErrorState, Skeleton). Read `packages/design-system/src/` to know what exists. Reimplementing any of these inline is **CRITICAL**.
+- **Token compliance.** Every color, spacing value, radius, and font size must trace back to a design token. Read `packages/design-system/DESIGN.md` for the canonical values.
 
 ## Style Variant Awareness
 

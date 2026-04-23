@@ -6,8 +6,8 @@ import { eq } from "drizzle-orm";
 import { list } from "./knowledge-repository.js";
 import { rankAndBudget } from "./relevance-scoring.js";
 import { ROLE_TO_COMMUNITY } from "./role-community-map.js";
-import { DEFAULT_KNOWLEDGE_BUDGET, loadScoringWeights } from "./scoring-config.js";
 import type { ScoringContext } from "./scoring-config.js";
+import { DEFAULT_KNOWLEDGE_BUDGET, loadScoringWeights } from "./scoring-config.js";
 import { buildSessionContext } from "./session-context.js";
 
 export interface MaterializationConfig {

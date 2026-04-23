@@ -1,6 +1,6 @@
 import {
-	type HyperIdleDb,
 	createTestDb,
+	type HyperIdleDb,
 	knowledgeConflicts,
 	knowledgeEditLog,
 	knowledgeItems,
@@ -9,7 +9,7 @@ import { and, eq } from "drizzle-orm";
 import { beforeEach, describe, expect, it } from "vitest";
 import { promoteKnowledgeTool } from "../promote-knowledge.js";
 import { buildToolRegistry } from "../tool-registry.js";
-import { NOW, makeContext, seedBase } from "./_helpers.js";
+import { makeContext, NOW, seedBase } from "./_helpers.js";
 
 function seedKnowledgeItem(db: HyperIdleDb, id: string, status: string, version = 1): void {
 	db.insert(knowledgeItems)

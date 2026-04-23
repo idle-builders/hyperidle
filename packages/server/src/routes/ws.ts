@@ -1,5 +1,5 @@
-import { API_ERROR_CODES } from "@hyperidle/shared";
 import type { ApiErrorResponse, EventBus } from "@hyperidle/shared";
+import { API_ERROR_CODES } from "@hyperidle/shared";
 import type { Hono } from "hono";
 import { createBunWebSocket } from "hono/bun";
 import type { WSContext } from "hono/ws";

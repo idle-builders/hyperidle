@@ -474,7 +474,6 @@ describe("ClaudeAgentSdkAdapter (D2)", () => {
 			const handle = await adapter.startSession(TEST_CONFIG);
 
 			// Consume events to accumulate totals
-			// biome-ignore lint/style/useNamingConvention: leading underscore marks the loop variable as intentionally unused; do NOT rename to `Event` (shadows DOM global).
 			for await (const _event of adapter.streamEvents(handle)) {
 				// consume
 			}

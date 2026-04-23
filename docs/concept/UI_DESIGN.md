@@ -18,36 +18,11 @@ That is the entire dependency surface for the UI layer.
 
 ---
 
-## Theme tokens (the only invariants)
+## Theme tokens
 
-Canonical source: `packages/design-system/src/tokens.css`. Values below are Lucid Dark (default). Lucid Light values are defined in tokens.css and follow the same token names with inverted luminance.
-
-Surfaces — tonal layering, with explicit border tokens:
-
-`--surface-0 #111113` · `--surface-1 #19191c` · `--surface-2 #1e1e22` · `--surface-3 #27272b` · `--surface-4 #323237` · `--surface-5 #3e3e44` · `--surface-6 #4a4a52` · `--surface-ghost rgba(255,255,255,0.05)`
-
-Borders:
-
-`--border-subtle rgba(255,255,255,0.06)` · `--border-default rgba(255,255,255,0.1)` · `--border-emphasis rgba(255,255,255,0.16)`
-
-Accents — monochrome status signals with red-only danger:
-
-`--primary #e0e7ff` · `--primary-dim rgba(224,231,255,0.08)` · `--primary-hover rgba(224,231,255,0.14)` · `--warn #a8a8b0` · `--ok #c8c8d0` · `--danger #f87171`
-
-Text:
-
-`--text-hi #ededef` · `--text-mid #a0a0a6` · `--text-lo #6e6e76`
-
-Type:
-
-- **Geist** for UI — 24 / 18 / 14 / 12 px at weights 400, 500, 600.
-- **Geist Mono** for data — 13 / 11 px at weights 400, 500. Caps + 0.05em tracking at 11.
-
-Grid: **4 px baseline.** Radius: `0 / 4 / 8 / 12 / 999` (`--r0` through `--r-pill`). Motion: `80 / 150 / 250 ms` (`--motion-fast / --motion-medium / --motion-slow`). Float shadow: `0 2px 16px rgba(0,0,0,0.5)` on floating surfaces only.
+**Canonical source:** `packages/design-system/DESIGN.md` (full reference) and `packages/design-system/src/tokens.css` (implementation). Do not duplicate token values here — read them there.
 
 DaisyUI theme wires our surfaces to `base-100/200/300`, primary to `--p`, warn to `--s`, ok to `--a`, danger to `--er`. Radius overrides: `--rounded-box: 8px`, `--rounded-btn: 4px`, `--rounded-badge: 4px`.
-
-Density presets (`data-density` attribute): default (12/8px pad, 2rem row), compact (6/4px pad, 1.625rem row), comfortable (16/12px pad, 2.5rem row).
 
 ---
 

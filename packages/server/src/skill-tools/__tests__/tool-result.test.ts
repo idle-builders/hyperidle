@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { type ToolResult, err, ok } from "../tool-result.js";
+import { err, ok, type ToolResult } from "../tool-result.js";
 
 describe("ToolResult helpers", () => {
 	describe("ok()", () => {

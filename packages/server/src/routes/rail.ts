@@ -1,4 +1,4 @@
-import { type HyperIdleDb, bets, factorySettings, items, tasks } from "@hyperidle/db";
+import { bets, factorySettings, type HyperIdleDb, items, tasks } from "@hyperidle/db";
 import type { EventBus } from "@hyperidle/shared";
 import { eq, inArray } from "drizzle-orm";
 import { Hono } from "hono";

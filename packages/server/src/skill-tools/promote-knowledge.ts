@@ -4,7 +4,7 @@ import { KNOWLEDGE_STATUSES, type KnowledgeStatus } from "@hyperidle/shared";
 import { and, eq } from "drizzle-orm";
 import { z } from "zod";
 import type { ToolContext, ToolDefinition } from "./tool-registry.js";
-import { type ToolResult, err, ok } from "./tool-result.js";
+import { err, ok, type ToolResult } from "./tool-result.js";
 
 function isKnowledgeStatus(value: string): value is KnowledgeStatus {
 	return (KNOWLEDGE_STATUSES as readonly string[]).includes(value);

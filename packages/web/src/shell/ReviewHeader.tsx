@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useRef, useState } from "react";
 import type { JSX } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 export type VerdictAction =
 	| "approve"
@@ -236,7 +236,7 @@ export function ReviewHeader({
 					id={MORE_MENU_ID}
 					role="menu"
 					aria-label="Secondary verdict actions"
-					className={`absolute right-0 top-full z-10 mt-1 flex flex-col gap-1 rounded border border-[var(--border-default)] bg-base-200 p-2 shadow ${moreOpen ? "" : "sr-only"}`}
+					className={`absolute right-0 top-full z-10 mt-1 flex flex-col gap-1 rounded-lg border border-[var(--border-default)] bg-base-200 p-2 shadow-[var(--float)] ${moreOpen ? "" : "sr-only"}`}
 				>
 					{SECONDARY_BUTTONS.map((btn) => (
 						<VerdictButton

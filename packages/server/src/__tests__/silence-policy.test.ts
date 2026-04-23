@@ -1,8 +1,8 @@
 import {
-	type HyperIdleDb,
 	agents,
 	createTestDb,
 	factorySettings,
+	type HyperIdleDb,
 	products,
 	teams,
 } from "@hyperidle/db";

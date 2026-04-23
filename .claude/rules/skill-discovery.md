@@ -21,6 +21,7 @@ User request arrives
     ├── Is it about visual fidelity? ────────→ /visual-polish <reference>
     ├── Is it about design quality? ─────────→ /design-critique <component>
     ├── Is it about process improvement? ────→ /retro <story|pipeline>
+    ├── Is it about updating dependencies? ──→ /upgrade [scope]
     └── None of the above? ──────────────────→ Proceed normally
 ```
 
@@ -36,11 +37,12 @@ User request arrives
 | "I can skip the design phase" | You can. You shouldn't. The adversary exists because your designs have blind spots. |
 | "I don't need to plan, I'll figure it out as I go" | That's how you end up rewriting half the implementation. 10 minutes of /planning saves hours of rework. |
 | "A retro is navel-gazing" | Without /retro, you repeat the same mistakes every story. Compounding improvement is the whole point. |
+| "I'll just bump versions manually" | Manual bumps skip changelog research, miss breaking changes, and skip verification. /upgrade catches what you won't. |
 
 ## Skill Priority
 
 1. **Planning first:** /planning (before any implementation)
 2. **Process skills:** /implement, /pipeline, /review, /check-definition-of-done
 3. **Quality skills:** /verify, /simplify, /slop-scan
-4. **Support skills:** /ship, /threat-model, /lore
+4. **Maintenance skills:** /upgrade, /ship, /threat-model, /lore
 5. **Compounding:** /retro (after shipping — feeds improvements back into skills)

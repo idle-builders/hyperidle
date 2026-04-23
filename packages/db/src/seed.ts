@@ -13,11 +13,11 @@ import {
 	teams,
 } from "./schema.js";
 import {
+	asBit01,
 	BUILTIN_ROUTINE_SEEDS,
 	COMMUNITY_DISPLAY_NAMES,
 	FACILITATOR_TOOLS,
 	PRACTICE_COMMUNITIES,
-	asBit01,
 } from "./seed-fixtures.js";
 
 // @lore `seed` accepts any synchronous SQLite Drizzle instance over our

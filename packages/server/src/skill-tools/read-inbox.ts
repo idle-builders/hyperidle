@@ -2,7 +2,7 @@ import { messages } from "@hyperidle/db";
 import { desc, eq } from "drizzle-orm";
 import { z } from "zod";
 import type { ToolContext, ToolDefinition } from "./tool-registry.js";
-import { type ToolResult, err, ok } from "./tool-result.js";
+import { err, ok, type ToolResult } from "./tool-result.js";
 
 const readInboxInputSchema = z.object({
 	limit: z.number().int().positive().max(100).optional(),

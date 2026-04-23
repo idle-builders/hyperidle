@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { ReviewHeader } from "./ReviewHeader";
 import type { VerdictAction } from "./ReviewHeader";
+import { ReviewHeader } from "./ReviewHeader";
 
 export default { title: "ReviewHeader" };
 

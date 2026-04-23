@@ -1,8 +1,8 @@
 import { Box, Text, useApp, useInput, useStdout } from "ink";
 import { useEffect, useState } from "react";
 import {
-	type PipelineStore,
 	getStore,
+	type PipelineStore,
 	removeApproval,
 	setSelectedStream,
 	subscribe,

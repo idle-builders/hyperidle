@@ -1,5 +1,5 @@
-import { API_ERROR_CODES, createLogger } from "@hyperidle/shared";
 import type { ApiErrorResponse } from "@hyperidle/shared";
+import { API_ERROR_CODES, createLogger } from "@hyperidle/shared";
 import type { Context, MiddlewareHandler } from "hono";
 import { constantTimeStringEqual } from "./timing-safe.js";
 

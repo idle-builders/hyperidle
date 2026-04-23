@@ -1,4 +1,4 @@
-import { type HyperIdleDb, createTestDb, knowledgeEditLog, knowledgeItems } from "@hyperidle/db";
+import { createTestDb, type HyperIdleDb, knowledgeEditLog, knowledgeItems } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 // @lore VersionConflictError already exists in the repo (errors.ts); this

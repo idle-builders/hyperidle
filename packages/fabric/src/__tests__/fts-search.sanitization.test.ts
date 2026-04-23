@@ -1,4 +1,4 @@
-import { type HyperIdleDb, createTestDb } from "@hyperidle/db";
+import { createTestDb, type HyperIdleDb } from "@hyperidle/db";
 import { beforeEach, describe, expect, it } from "vitest";
 import { knowledgeEvents } from "../events.js";
 import {

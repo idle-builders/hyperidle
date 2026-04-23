@@ -1,4 +1,4 @@
-import { type HyperIdleDb, createTestDb, knowledgeItems } from "@hyperidle/db";
+import { createTestDb, type HyperIdleDb, knowledgeItems } from "@hyperidle/db";
 import { EventBus, type KnowledgeUpdatedEvent } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
 import { beforeEach, describe, expect, it } from "vitest";

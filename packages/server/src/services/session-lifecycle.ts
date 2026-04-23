@@ -1,7 +1,7 @@
 import * as crypto from "node:crypto";
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { type HyperIdleDb, agents, sessions } from "@hyperidle/db";
+import { agents, type HyperIdleDb, sessions } from "@hyperidle/db";
 import {
 	type FileWatcher,
 	type FileWatcherConfig,

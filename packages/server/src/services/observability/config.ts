@@ -1,4 +1,4 @@
-import { type HyperIdleDb, factorySettings } from "@hyperidle/db";
+import { factorySettings, type HyperIdleDb } from "@hyperidle/db";
 import type { SanitizeResult } from "@hyperidle/shared";
 import { sanitizeHttpUrl as sharedSanitizeHttpUrl } from "@hyperidle/shared/net";
 import { eq } from "drizzle-orm";

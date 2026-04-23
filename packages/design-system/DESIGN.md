@@ -28,25 +28,25 @@ The app respects `prefers-color-scheme` by default. Users can override via the s
 | Token | Hex | Usage |
 |-------|-----|-------|
 | `--surface-0` | `#111113` | App chrome, body background |
-| `--surface-1` | `#18181b` | IconRail, Rail, sidebar backgrounds |
-| `--surface-2` | `#1e1e21` | Submenu, sheets |
-| `--surface-3` | `#232326` | Main content area |
-| `--surface-4` | `#28282c` | Cards, selected nav items |
-| `--surface-5` | `#2e2e33` | Card hover, button backgrounds |
-| `--surface-6` | `#35353b` | Elevated surfaces, button hover |
-| `--surface-ghost` | `rgba(255,255,255,0.06)` | Chip fills, kbd hints |
+| `--surface-1` | `#19191c` | IconRail, Rail, sidebar backgrounds |
+| `--surface-2` | `#1e1e22` | Submenu, sheets |
+| `--surface-3` | `#27272b` | Main content area |
+| `--surface-4` | `#323237` | Cards, selected nav items |
+| `--surface-5` | `#3e3e44` | Card hover, button backgrounds |
+| `--surface-6` | `#4a4a52` | Elevated surfaces, button hover |
+| `--surface-ghost` | `rgba(255,255,255,0.05)` | Chip fills, kbd hints |
 
 ### Surfaces — Lucid Light
 
 | Token | Hex | Usage |
 |-------|-----|-------|
 | `--surface-0` | `#fafaf9` | App chrome, body background |
-| `--surface-1` | `#f4f4f3` | IconRail, Rail, sidebar backgrounds |
-| `--surface-2` | `#ededec` | Submenu, sheets |
-| `--surface-3` | `#ffffff` | Main content area, cards |
-| `--surface-4` | `#f7f7f6` | Selected nav items, row hover |
-| `--surface-5` | `#ebebea` | Button backgrounds |
-| `--surface-6` | `#e0e0df` | Elevated surfaces, button hover |
+| `--surface-1` | `#ffffff` | IconRail, Rail, sidebar backgrounds |
+| `--surface-2` | `#f4f4f2` | Submenu, sheets |
+| `--surface-3` | `#eaeae8` | Main content area, cards |
+| `--surface-4` | `#ddddd9` | Selected nav items, row hover |
+| `--surface-5` | `#d0d0cc` | Button backgrounds |
+| `--surface-6` | `#c4c4be` | Elevated surfaces, button hover |
 | `--surface-ghost` | `rgba(0,0,0,0.04)` | Chip fills, kbd hints |
 
 ### Accents (state-driven — not decorative)
@@ -54,8 +54,8 @@ The app respects `prefers-color-scheme` by default. Users can override via the s
 | Token | Dark | Light | Usage |
 |-------|------|-------|-------|
 | `--primary` | `#e0e7ff` | `#4f46e5` | Links, selection, active indicators |
-| `--primary-dim` | `rgba(224,231,255,0.12)` | `rgba(79,70,229,0.08)` | Primary tint fills |
-| `--primary-hover` | `rgba(224,231,255,0.18)` | `rgba(79,70,229,0.12)` | Primary hover fills |
+| `--primary-dim` | `rgba(224,231,255,0.08)` | `rgba(79,70,229,0.08)` | Primary tint fills |
+| `--primary-hover` | `rgba(224,231,255,0.14)` | `rgba(79,70,229,0.12)` | Primary hover fills |
 | `--warn` | `#a8a8b0` | `#78787e` | Behind schedule, attention needed (gray — monochrome) |
 | `--ok` | `#c8c8d0` | `#8e8e94` | Healthy, approved, done (gray — monochrome) |
 | `--danger` | `#f87171` | `#dc2626` | Blocked, errors, rejected (red — the only color) |
@@ -68,23 +68,23 @@ Warn and ok are intentionally neutral grays. Only danger carries chromatic color
 
 | Token | Hex | Usage | Contrast |
 |-------|-----|-------|----------|
-| `--text-hi` | `#ececef` | Titles, values, active nav | 15:1 on surface-0 |
-| `--text-mid` | `#a1a1aa` | Body, captions, inactive nav | 8.5:1 on surface-0 |
-| `--text-lo` | `#71717a` | Mono labels, timestamps, hints | 4.5:1 on surface-0 (WCAG AA) |
+| `--text-hi` | `#ededef` | Titles, values, active nav | 15:1 on surface-0 |
+| `--text-mid` | `#a0a0a6` | Body, captions, inactive nav | 8.5:1 on surface-0 |
+| `--text-lo` | `#6e6e76` | Mono labels, timestamps, hints | 4.5:1 on surface-0 (WCAG AA) |
 
 ### Text — Lucid Light
 
 | Token | Hex | Usage | Contrast |
 |-------|-----|-------|----------|
-| `--text-hi` | `#18181b` | Titles, values, active nav | 16:1 on surface-0 |
-| `--text-mid` | `#52525b` | Body, captions, inactive nav | 7.5:1 on surface-0 |
-| `--text-lo` | `#a1a1aa` | Mono labels, timestamps, hints | 4.5:1 on surface-0 (WCAG AA) |
+| `--text-hi` | `#1a1a1e` | Titles, values, active nav | 16:1 on surface-0 |
+| `--text-mid` | `#6b6b70` | Body, captions, inactive nav | 7.5:1 on surface-0 |
+| `--text-lo` | `#737378` | Mono labels, timestamps, hints | 4.5:1 on surface-0 (WCAG AA) |
 
 ### Shadow
 
 | Token | Dark | Light | Usage |
 |-------|------|-------|-------|
-| `--float` | `0 0 32px rgba(0,0,0,0.4)` | `0 4px 24px rgba(0,0,0,0.08)` | Floating surfaces only (modals, popovers) |
+| `--float` | `0 2px 16px rgba(0,0,0,0.5)` | `0 4px 16px rgba(0,0,0,0.1)` | Floating surfaces only (modals, popovers) |
 
 ### Borders
 

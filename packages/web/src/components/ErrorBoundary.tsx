@@ -70,7 +70,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
 			return (
 				<div
 					role="alert"
-					className="flex flex-col items-start gap-2 p-3 rounded bg-base-200"
+					className="flex flex-col items-start gap-2 p-3 rounded-lg bg-base-200"
 					data-testid="error-boundary-fallback"
 				>
 					<h2 className="text-sm font-semibold text-error">Something went wrong</h2>

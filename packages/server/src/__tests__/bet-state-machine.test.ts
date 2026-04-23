@@ -1,4 +1,4 @@
-import { type HyperIdleDb, bets, createTestDb, products, teams } from "@hyperidle/db";
+import { bets, createTestDb, type HyperIdleDb, products, teams } from "@hyperidle/db";
 import { CapacityExceededError, EventBus, InvalidTransitionError } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
 import { beforeEach, describe, expect, it, vi } from "vitest";

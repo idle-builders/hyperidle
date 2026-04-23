@@ -2,7 +2,7 @@ import { tasks } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
 import type { ToolContext, ToolDefinition } from "./tool-registry.js";
-import { type ToolResult, err, ok } from "./tool-result.js";
+import { err, ok, type ToolResult } from "./tool-result.js";
 
 const logTaskInputSchema = z.object({
 	note: z.string().min(1).max(65_536),

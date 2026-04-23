@@ -1,8 +1,8 @@
 import type { HyperIdleDb } from "@hyperidle/db";
-import { API_ERROR_CODES, EventBus, createLogger } from "@hyperidle/shared";
 import type { ApiErrorResponse } from "@hyperidle/shared";
+import { API_ERROR_CODES, createLogger, EventBus } from "@hyperidle/shared";
 import { Hono } from "hono";
-import { type UpgradeTokenStore, createUpgradeTokenStore } from "./auth/upgrade-token-store.js";
+import { createUpgradeTokenStore, type UpgradeTokenStore } from "./auth/upgrade-token-store.js";
 import { authMiddleware } from "./middleware/auth.js";
 import { createBodyLimit } from "./middleware/body-limit.js";
 import { corsMiddleware } from "./middleware/cors.js";
@@ -25,8 +25,8 @@ import { createTaskRoutes } from "./routes/tasks.js";
 import { registerTestRoutes } from "./routes/test-routes.js";
 import { registerBuiltinRoutineHandlers } from "./services/builtin-routines.js";
 import { registerCostCapDedupReleaser } from "./services/cost-cap.js";
-import { createGitRunner } from "./services/git-export-runner.js";
 import { registerGitExportHandler } from "./services/git-export.js";
+import { createGitRunner } from "./services/git-export-runner.js";
 import type { NotificationConfig } from "./services/notifications/config.js";
 import { createConsoleAdapter } from "./services/notifications/console-adapter.js";
 import { registerNotificationDispatcher } from "./services/notifications/dispatcher.js";
@@ -423,5 +423,5 @@ export function disposeApp(hono: Hono): void {
 	APP_DISPOSERS.delete(hono);
 }
 
-export { app, createApp };
 export type { AppOptions };
+export { app, createApp };

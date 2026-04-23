@@ -1,6 +1,82 @@
-export type { ApiErrorResponse, ApiErrorCode } from "./api-types.js";
+export type { ApiErrorCode, ApiErrorResponse } from "./api-types.js";
 export { API_ERROR_CODES } from "./api-types.js";
-
+export {
+	ActiveRoutinesError,
+	CapacityExceededError,
+	ConcurrencyLimitError,
+	CostCapExceededError,
+	InvalidTransitionError,
+	MissingCredentialError,
+	VersionConflictError,
+} from "./errors.js";
+export { EventBus } from "./event-bus.js";
+export type {
+	BetCommittedEvent,
+	BetRevisedEvent,
+	BetShippedEvent,
+	BetStateChangedEvent,
+	CostCapBreachedEvent,
+	CostCapWarningEvent,
+	DependencyMetEvent,
+	DomainEvent,
+	EventBusAdapter,
+	EventByType,
+	EventHandler,
+	EventType,
+	ItemCreatedEvent,
+	KnowledgeUpdatedEvent,
+	NotificationEvent,
+	ResponseRecordedEvent,
+	RoutineFiredEvent,
+	SessionEndedEvent,
+	SessionOutcome,
+	SessionStartedEvent,
+	TaskStateChangedEvent,
+	ToolCallRecordedEvent,
+	WildcardHandler,
+	WildcardType,
+} from "./events.js";
+export type {
+	CompletionEvent,
+	CostUpdateEvent,
+	ErrorEvent,
+	HarnessAdapter,
+	HarnessCapabilities,
+	HarnessEvent,
+	HarnessEventType,
+	PreCompactionEvent,
+	SessionConfig,
+	SessionHandle,
+	SessionResult,
+	TokenUsageEvent,
+	ToolCallEvent,
+} from "./harness/index.js";
+export { MockHarnessAdapter } from "./harness/index.js";
+export { createLogger, type Logger } from "./logger.js";
+// SSRF utilities use node:dns/net/util and cannot be imported in the browser.
+// Server code imports them via "@hyperidle/shared/net" subpath export instead.
+export type { ResolveResult, SanitizeResult, SanitizeUrlOptions } from "./net/ssrf.js";
+export type { ObservabilityEvent } from "./observability/events.js";
+export {
+	AWS_AKIA_RE,
+	BEARER_TOKEN_RE,
+	ERROR_TOKEN_PATTERNS,
+	GITHUB_TOKEN_RE,
+	GOOGLE_API_KEY_RE,
+	HEX_TOKEN_RE,
+	JWT_RE,
+	PEM_BLOCK_RE,
+	PK_TOKEN_RE,
+	REDACTED_TAG,
+	redactDbUrl,
+	SK_TOKEN_RE,
+	SLACK_TOKEN_RE,
+	STRIPE_TOKEN_RE,
+	scrubInlineTokens,
+	TK_TOKEN_RE,
+} from "./redact.js";
+export { decode, encode } from "./toon-codec.js";
+export { ToonParseError } from "./toon-errors.js";
 export type {
 	AgentRole,
 	AgentStatus,
@@ -20,7 +96,6 @@ export type {
 	TaskState,
 	TriggerType,
 } from "./types.js";
-
 export {
 	BET_STATUSES,
 	KNOWLEDGE_LAYERS,
@@ -30,90 +105,3 @@ export {
 	MUTABLE_BET_FIELDS,
 	TASK_STATES,
 } from "./types.js";
-
-export { createLogger, type Logger } from "./logger.js";
-
-export type {
-	DomainEvent,
-	EventType,
-	WildcardType,
-	EventByType,
-	EventHandler,
-	WildcardHandler,
-	EventBusAdapter,
-	TaskStateChangedEvent,
-	BetStateChangedEvent,
-	BetShippedEvent,
-	ItemCreatedEvent,
-	SessionStartedEvent,
-	SessionEndedEvent,
-	SessionOutcome,
-	CostCapWarningEvent,
-	CostCapBreachedEvent,
-	NotificationEvent,
-	ResponseRecordedEvent,
-	KnowledgeUpdatedEvent,
-	RoutineFiredEvent,
-	DependencyMetEvent,
-	BetCommittedEvent,
-	BetRevisedEvent,
-	ToolCallRecordedEvent,
-} from "./events.js";
-
-export { EventBus } from "./event-bus.js";
-
-export { encode, decode } from "./toon-codec.js";
-export { ToonParseError } from "./toon-errors.js";
-
-export {
-	InvalidTransitionError,
-	CapacityExceededError,
-	CostCapExceededError,
-	ConcurrencyLimitError,
-	ActiveRoutinesError,
-	MissingCredentialError,
-	VersionConflictError,
-} from "./errors.js";
-
-export type {
-	HarnessAdapter,
-	HarnessCapabilities,
-	HarnessEvent,
-	HarnessEventType,
-	SessionConfig,
-	SessionHandle,
-	SessionResult,
-	TokenUsageEvent,
-	ToolCallEvent,
-	CompletionEvent,
-	ErrorEvent,
-	CostUpdateEvent,
-	PreCompactionEvent,
-} from "./harness/index.js";
-
-export { MockHarnessAdapter } from "./harness/index.js";
-
-export type { ObservabilityEvent } from "./observability/events.js";
-
-export {
-	REDACTED_TAG,
-	BEARER_TOKEN_RE,
-	SK_TOKEN_RE,
-	PK_TOKEN_RE,
-	GITHUB_TOKEN_RE,
-	TK_TOKEN_RE,
-	HEX_TOKEN_RE,
-	AWS_AKIA_RE,
-	SLACK_TOKEN_RE,
-	GOOGLE_API_KEY_RE,
-	JWT_RE,
-	STRIPE_TOKEN_RE,
-	PEM_BLOCK_RE,
-	ERROR_TOKEN_PATTERNS,
-	scrubInlineTokens,
-	redactDbUrl,
-} from "./redact.js";
-
-// SSRF utilities use node:dns/net/util and cannot be imported in the browser.
-// Server code imports them via "@hyperidle/shared/net" subpath export instead.
-export type { ResolveResult, SanitizeResult, SanitizeUrlOptions } from "./net/ssrf.js";

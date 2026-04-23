@@ -1,9 +1,9 @@
 import type { KnowledgeKind, KnowledgeLayer, KnowledgeStatus } from "@hyperidle/shared";
 import type { JSX, ReactNode } from "react";
-import { StatusChip } from "./StatusChip";
-import { Tag } from "./Tag";
 import { clickableProps } from "./clickable";
+import { StatusChip } from "./StatusChip";
 import { knowledgeStatusToStatus } from "./status-mapping";
+import { Tag } from "./Tag";
 import type { TagKind } from "./tag-kinds";
 
 export interface KnowledgeRowProps {
