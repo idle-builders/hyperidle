@@ -107,15 +107,16 @@ export function startPollingWatcher(config: FileWatcherConfig): FileWatcher {
 	return {
 		stop(): void {
 			if (stopped) return;
-			stopped = true;
 
 			if (pollTimer) {
 				clearInterval(pollTimer);
 				pollTimer = null;
 			}
 
-			// Final poll to catch any last changes
+			// Final poll to catch any last changes — must run before
+			// setting stopped=true since poll() guards on that flag.
 			poll();
+			stopped = true;
 		},
 	};
 }
