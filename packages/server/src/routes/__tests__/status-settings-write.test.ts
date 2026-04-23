@@ -10,7 +10,7 @@
  * underlying row would become wrong.
  */
 
-import { type HyperIdleDb, createTestDb, factorySettings } from "@hyperidle/db";
+import { createTestDb, factorySettings, type HyperIdleDb } from "@hyperidle/db";
 import { API_ERROR_CODES, EventBus } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
 import type { Hono } from "hono";

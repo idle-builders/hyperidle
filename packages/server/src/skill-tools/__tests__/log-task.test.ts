@@ -1,10 +1,10 @@
 import * as os from "node:os";
 import * as path from "node:path";
 import {
-	type HyperIdleDb,
 	agents,
 	bets,
 	createTestDb,
+	type HyperIdleDb,
 	products,
 	tasks,
 	teams,

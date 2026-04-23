@@ -2,10 +2,10 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import {
-	type HyperIdleDb,
 	agents,
 	bets,
 	createTestDb,
+	type HyperIdleDb,
 	knowledgeItems,
 	products,
 	sessions,
@@ -22,10 +22,10 @@ import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
 	type CreateSessionParams,
-	type SessionContext,
 	crashSession,
 	createSession,
 	endSession,
+	type SessionContext,
 } from "../services/session-lifecycle.js";
 
 function seedAll(db: HyperIdleDb): void {

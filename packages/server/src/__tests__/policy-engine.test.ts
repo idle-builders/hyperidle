@@ -1,9 +1,9 @@
 import {
-	type HyperIdleDb,
 	agentSkills,
 	agents,
 	createTestDb,
 	factorySettings,
+	type HyperIdleDb,
 	items,
 	products,
 	responses,

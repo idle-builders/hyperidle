@@ -1,8 +1,8 @@
 import { randomUUID } from "node:crypto";
 import {
 	type HyperIdleDb,
-	type KnowledgeItem,
 	items,
+	type KnowledgeItem,
 	knowledgeConflicts,
 	knowledgeItems,
 } from "@hyperidle/db";

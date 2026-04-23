@@ -14,10 +14,19 @@
  *   AC5 — Configurable: repo path, remote URL, branch
  */
 
-import { type HyperIdleDb, createTestDb, factorySettings, knowledgeItems } from "@hyperidle/db";
+import { createTestDb, factorySettings, type HyperIdleDb, knowledgeItems } from "@hyperidle/db";
 import { EventBus, type KnowledgeUpdatedEvent } from "@hyperidle/shared";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createApp, disposeApp } from "../app.js";
+import {
+	buildCommitMessage,
+	computeExportPlan,
+	type ExportPlanEntry,
+	type FsAdapter,
+	registerGitExportHandler,
+	resetExportMutexes,
+	runGitExport,
+} from "../services/git-export.js";
 import {
 	type GitExportConfig,
 	loadGitExportConfig,
@@ -30,15 +39,6 @@ import {
 	sanitizeRepoPath,
 } from "../services/git-export-config.js";
 import type { GitRunner } from "../services/git-export-runner.js";
-import {
-	type ExportPlanEntry,
-	type FsAdapter,
-	buildCommitMessage,
-	computeExportPlan,
-	registerGitExportHandler,
-	resetExportMutexes,
-	runGitExport,
-} from "../services/git-export.js";
 
 type GitCall =
 	| { cmd: "init"; branch: string }

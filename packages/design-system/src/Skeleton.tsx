@@ -25,7 +25,6 @@ export function SkeletonList({
 }: SkeletonListProps): JSX.Element {
 	return (
 		<div
-			// biome-ignore lint/a11y/useSemanticElements: we want role="status" + label on a container that can host rows.
 			role="status"
 			aria-label={ariaLabel}
 			data-testid={dataTestId ?? "skeleton-list"}
@@ -47,7 +46,6 @@ export interface SkeletonCardProps {
 export function SkeletonCard({ ariaLabel, dataTestId }: SkeletonCardProps): JSX.Element {
 	return (
 		<div
-			// biome-ignore lint/a11y/useSemanticElements: we want role="status" + label on the card container.
 			role="status"
 			aria-label={ariaLabel}
 			data-testid={dataTestId ?? "skeleton-card"}

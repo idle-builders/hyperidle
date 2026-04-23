@@ -1,4 +1,4 @@
-import { type Logger, type ObservabilityEvent, createLogger } from "@hyperidle/shared";
+import { createLogger, type Logger, type ObservabilityEvent } from "@hyperidle/shared";
 import type { ObservabilityAdapter } from "./types.js";
 
 /**

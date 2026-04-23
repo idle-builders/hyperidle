@@ -1,5 +1,5 @@
 import { spawn } from "node:child_process";
-import { type Logger, createLogger } from "@hyperidle/shared";
+import { createLogger, type Logger } from "@hyperidle/shared";
 
 /**
  * Narrow interface over the git subcommands H1 needs. Tests substitute a

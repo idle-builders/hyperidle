@@ -99,15 +99,15 @@ function TextDiffView({ data }: { data: TextDiffData }): JSX.Element {
 
 	return (
 		<section aria-label="Diff view">
-			<pre className="overflow-x-auto text-xs font-mono leading-5">
+			<pre className="overflow-x-auto text-xs font-mono leading-[1.4]">
 				{data.hunks.map((hunk) => (
 					<div key={hunk.header}>
-						<div className="text-[var(--text-lo)] select-none px-2 py-0.5">{hunk.header}</div>
+						<div className="text-[var(--text-lo)] select-none px-2 py-1">{hunk.header}</div>
 						{hunk.lines.map((line, li) => (
 							<div
 								key={`${hunk.header}-${li}-${line.type}`}
 								data-diff-type={line.type}
-								className={`px-2 py-0.5 ${DIFF_LINE_CLASSES[line.type]}`}
+								className={`px-2 py-1 ${DIFF_LINE_CLASSES[line.type]}`}
 							>
 								<span className="select-none text-[var(--text-lo)] mr-2">
 									{DIFF_LINE_PREFIX[line.type]}
@@ -148,7 +148,7 @@ function VisualComparisonView({ data }: { data: VisualComparisonData }): JSX.Ele
 	return (
 		<section aria-label="Visual comparison">
 			<div className="grid grid-cols-2 gap-3">
-				<div className="bg-[var(--surface-4)] rounded p-3">
+				<div className="bg-[var(--surface-4)] rounded-lg p-3">
 					<span className="block text-xs font-mono uppercase text-[var(--text-lo)] mb-2">
 						{data.before.label}
 					</span>
@@ -158,7 +158,7 @@ function VisualComparisonView({ data }: { data: VisualComparisonData }): JSX.Ele
 						className="w-full rounded"
 					/>
 				</div>
-				<div className="bg-[var(--surface-4)] rounded p-3">
+				<div className="bg-[var(--surface-4)] rounded-lg p-3">
 					<span className="block text-xs font-mono uppercase text-[var(--text-lo)] mb-2">
 						{data.after.label}
 					</span>
@@ -277,7 +277,7 @@ function MetadataStrip({
 	return (
 		<div
 			data-testid="artifact-metadata-strip"
-			className="flex items-center gap-2 px-3 py-1.5 text-xs font-mono border-b border-[var(--border-subtle)] text-[var(--text-mid)]"
+			className="flex items-center gap-2 px-3 py-1 text-xs font-mono border-b border-[var(--border-subtle)] text-[var(--text-mid)]"
 		>
 			<span
 				data-testid="artifact-kind-badge"
@@ -312,7 +312,7 @@ function RelatedHistorySection({ entries }: { entries: RelatedHistoryEntry[] }):
 			<h4 className="text-[11px] font-mono uppercase tracking-wider text-[var(--text-lo)] mb-1">
 				Related history
 			</h4>
-			<ul className="flex flex-col gap-0.5 text-xs">
+			<ul className="flex flex-col gap-1 text-xs">
 				{entries.map((e) => (
 					<li key={e.id} className="flex justify-between gap-2">
 						<span className="text-[var(--text-hi)]">{e.label}</span>

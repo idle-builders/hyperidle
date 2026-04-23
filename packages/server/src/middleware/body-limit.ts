@@ -45,8 +45,8 @@
  * for JSON POSTs and short-circuits at the cheap header check above.
  */
 
-import { API_ERROR_CODES } from "@hyperidle/shared";
 import type { ApiErrorResponse } from "@hyperidle/shared";
+import { API_ERROR_CODES } from "@hyperidle/shared";
 import type { MiddlewareHandler } from "hono";
 
 interface BodyLimitOptions {

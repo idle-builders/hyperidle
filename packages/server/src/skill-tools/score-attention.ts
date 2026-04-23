@@ -3,7 +3,7 @@ import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { buildAttentionService } from "../services/attention-service.js";
 import type { ToolContext, ToolDefinition } from "./tool-registry.js";
-import { type ToolResult, err, ok } from "./tool-result.js";
+import { err, ok, type ToolResult } from "./tool-result.js";
 
 /**
  * `score_attention` — two modes:

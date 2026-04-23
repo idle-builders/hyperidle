@@ -1,6 +1,6 @@
 import * as os from "node:os";
 import * as path from "node:path";
-import { type HyperIdleDb, factorySettings } from "@hyperidle/db";
+import { factorySettings, type HyperIdleDb } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
 
 /** Typed shape loaded from `factory_settings` rows with the `git_export.*` prefix. */
@@ -409,7 +409,7 @@ export function sanitizeBranch(input: string): { ok: true } | { ok: false; reaso
 	if (input.length > 200) return { ok: false, reason: "branch must be <= 200 chars" };
 	if (input.startsWith("-")) return { ok: false, reason: "branch must not start with '-'" };
 	if (input.includes("..")) return { ok: false, reason: "branch must not contain '..'" };
-	if (!/^[A-Za-z0-9._\/-]+$/.test(input)) {
+	if (!/^[A-Za-z0-9._/-]+$/.test(input)) {
 		return { ok: false, reason: "branch must match [A-Za-z0-9._/-]+" };
 	}
 	return { ok: true };

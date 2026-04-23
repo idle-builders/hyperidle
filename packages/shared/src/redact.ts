@@ -17,16 +17,16 @@ export const REDACTED_TAG = "[REDACTED]" as const;
 export const GITHUB_TOKEN_RE: RegExp = /gh[pousr]_[A-Za-z0-9]{20,}/g;
 
 /** `Bearer <token>` in HTTP Authorization headers. */
-export const BEARER_TOKEN_RE: RegExp = /Bearer\s+[A-Za-z0-9._\-]{8,}/g;
+export const BEARER_TOKEN_RE: RegExp = /Bearer\s+[A-Za-z0-9._-]{8,}/g;
 
 /** OpenAI / Langfuse / generic "sk-" secret key shape. */
-export const SK_TOKEN_RE: RegExp = /sk-[A-Za-z0-9._\-]{8,}/g;
+export const SK_TOKEN_RE: RegExp = /sk-[A-Za-z0-9._-]{8,}/g;
 
 /** Langfuse / generic "pk-" publishable key shape. */
-export const PK_TOKEN_RE: RegExp = /pk-[A-Za-z0-9._\-]{8,}/g;
+export const PK_TOKEN_RE: RegExp = /pk-[A-Za-z0-9._-]{8,}/g;
 
 /** `tk_`-prefixed generic tokens. */
-export const TK_TOKEN_RE: RegExp = /\btk_[A-Za-z0-9._\-]{8,}/g;
+export const TK_TOKEN_RE: RegExp = /\btk_[A-Za-z0-9._-]{8,}/g;
 
 /** 32+ hex chars (covers many API secret shapes). */
 export const HEX_TOKEN_RE: RegExp = /\b[A-Fa-f0-9]{32,}\b/g;

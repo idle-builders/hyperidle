@@ -299,13 +299,14 @@ describe("GlobalSearchPanel", () => {
 		});
 
 		await waitFor(() => {
-			expect(screen.getByText("No matches. Try different query.")).toBeInTheDocument();
+			expect(screen.getByTestId("search-empty")).toBeInTheDocument();
+			expect(screen.getByText("No matches")).toBeInTheDocument();
 		});
 	});
 
 	it("does not show empty state before user types", () => {
 		render(<GlobalSearchPanel {...defaultProps} />);
-		expect(screen.queryByText("No matches. Try different query.")).not.toBeInTheDocument();
+		expect(screen.queryByTestId("search-empty")).not.toBeInTheDocument();
 	});
 
 	// AC8: Only composes existing Tier 1/2 + DaisyUI (structural test)

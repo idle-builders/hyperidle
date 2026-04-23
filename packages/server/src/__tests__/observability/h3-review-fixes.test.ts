@@ -27,16 +27,16 @@
  *     Stripe, PEM (security M-2).
  */
 
-import { type Server, createServer } from "node:http";
+import { createServer, type Server } from "node:http";
 import type { AddressInfo } from "node:net";
-import { type HyperIdleDb, createTestDb, factorySettings } from "@hyperidle/db";
+import { createTestDb, factorySettings, type HyperIdleDb } from "@hyperidle/db";
 import {
 	EventBus,
 	type KnowledgeUpdatedEvent,
 	type ObservabilityEvent,
 	type SessionStartedEvent,
-	type ToolCallRecordedEvent,
 	scrubInlineTokens,
+	type ToolCallRecordedEvent,
 } from "@hyperidle/shared";
 import { afterEach, describe, expect, it } from "vitest";
 import { createObservabilityRoutes } from "../../routes/observability-routes.js";

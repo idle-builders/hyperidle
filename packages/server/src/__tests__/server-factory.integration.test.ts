@@ -226,23 +226,22 @@ describe("server-factory — I1 integration (S1–S5)", () => {
 			{ path: "/api/observability", resource: "observability" },
 			{ path: "/api/git-export", resource: "git-export" },
 		];
-		it.each(BOUNDED_INDEX_ROUTES)(
-			"GET %s returns 200 + { ok: true, resource, endpoints[] }",
-			async ({ path, resource }) => {
-				const res = await fetch(`http://localhost:${port}${path}`, {
-					headers: authHeaders(),
-				});
-				expect(res.status).toBe(200);
-				const body = (await res.json()) as {
-					ok?: unknown;
-					resource?: unknown;
-					endpoints?: unknown;
-				};
-				expect(body.ok).toBe(true);
-				expect(body.resource).toBe(resource);
-				expect(Array.isArray(body.endpoints)).toBe(true);
-			},
-		);
+		it.each(
+			BOUNDED_INDEX_ROUTES,
+		)("GET %s returns 200 + { ok: true, resource, endpoints[] }", async ({ path, resource }) => {
+			const res = await fetch(`http://localhost:${port}${path}`, {
+				headers: authHeaders(),
+			});
+			expect(res.status).toBe(200);
+			const body = (await res.json()) as {
+				ok?: unknown;
+				resource?: unknown;
+				endpoints?: unknown;
+			};
+			expect(body.ok).toBe(true);
+			expect(body.resource).toBe(resource);
+			expect(Array.isArray(body.endpoints)).toBe(true);
+		});
 	});
 
 	// ------------------------------------------------------------ S3

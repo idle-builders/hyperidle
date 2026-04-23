@@ -24,13 +24,18 @@ HyperIdle follows these design principles — internalize them:
 ## Source of Truth
 
 Before designing anything, read:
+- `packages/design-system/DESIGN.md` — **Canonical** token reference: surfaces, text, borders, radii, spacing, typography, motion
+- `packages/design-system/PRINCIPLES.md` — Design principles, anti-patterns, premium vs. cheap signals
+- `packages/design-system/src/tokens.css` — Actual CSS custom property values
+- `docs/UI_DESIGN.md` — Component budget, building order, DaisyUI primitives
 - `docs/HUMAN_INTERFACE_LAYER.md` — Desktop/mobile layouts, three views (Conversations, Work, Knowledge), Rail behavior
-- `docs/UI_DESIGN.md` — Component budget, theme tokens, building order, DaisyUI primitives
 - `docs/INFORMATION_ARCHITECTURE.md` — Component-to-data mapping, user journeys
 - `docs/REQUIREMENTS.md` — Usability requirements, accessibility standards
 - `docs/PROCESS_LAYER.md` — Work primitives that the UI surfaces (Bets, Tasks, Sessions)
 - Design mockups in `stitch 2/` — Visual reference for implemented designs
 - `/designsystem` route — Live catalog of all implemented components with `.stories.tsx` variants
+
+The design system package (`packages/design-system/`) is the authority for tokens, colors, spacing, and component implementations. `docs/` files describe behavior and architecture. When they conflict, the design system package wins.
 
 ## Component Budget
 

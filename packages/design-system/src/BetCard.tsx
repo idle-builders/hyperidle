@@ -1,10 +1,10 @@
 import type { BetStatus } from "@hyperidle/shared";
 import type { JSX, ReactNode } from "react";
+import { clickableProps } from "./clickable";
 import { KeyValue } from "./KeyValue";
 import { StatusChip } from "./StatusChip";
-import { Tag } from "./Tag";
-import { clickableProps } from "./clickable";
 import { betStatusToStatus } from "./status-mapping";
+import { Tag } from "./Tag";
 
 /**
  * @lore J5: BetCard gained portfolio-mode props (leadAvatar / activeBets /

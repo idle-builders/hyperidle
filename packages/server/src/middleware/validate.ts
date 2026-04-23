@@ -1,6 +1,6 @@
 import { zValidator } from "@hono/zod-validator";
-import { API_ERROR_CODES } from "@hyperidle/shared";
 import type { ApiErrorResponse } from "@hyperidle/shared";
+import { API_ERROR_CODES } from "@hyperidle/shared";
 import type { z } from "zod";
 
 /**

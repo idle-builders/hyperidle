@@ -23,14 +23,14 @@ export function ReasoningBlock({
 	const countLabel = `${count} ${count === 1 ? "step" : "steps"}`;
 	const panelId = "reasoning-block-panel";
 	return (
-		<section className="border-b border-[var(--border-subtle)] bg-base-200/40">
+		<section className="border-b border-[var(--border-subtle)] bg-[var(--surface-ghost)]">
 			<button
 				type="button"
 				aria-expanded={open}
 				aria-controls={panelId}
 				aria-label={`Reasoning (${countLabel})`}
 				onClick={() => setOpen((p) => !p)}
-				className="flex items-center gap-2 w-full text-left px-3 py-1.5 text-xs font-mono uppercase tracking-wider text-[var(--text-lo)] hover:text-[var(--text-hi)]"
+				className="flex items-center gap-2 w-full text-left px-3 py-1 text-xs font-mono uppercase tracking-wider text-[var(--text-lo)] hover:text-[var(--text-hi)]"
 			>
 				<span aria-hidden="true">{open ? "v" : ">"}</span>
 				<span>Reasoning</span>

@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import * as path from "node:path";
-import { type HyperIdleDb, agents, sessions, tasks } from "@hyperidle/db";
+import { agents, type HyperIdleDb, sessions, tasks } from "@hyperidle/db";
 import {
 	type FileWatcher,
 	type FileWatcherConfig,
@@ -20,10 +20,10 @@ import {
 } from "@hyperidle/shared";
 import { and, eq, sql } from "drizzle-orm";
 import type { WorkspaceAdapter, WorkspaceHandle } from "../harness/workspace-adapter.js";
-import { type ToolContext, buildToolRegistry, toolsForRole } from "../skill-tools/tool-registry.js";
+import { buildToolRegistry, type ToolContext, toolsForRole } from "../skill-tools/tool-registry.js";
 import { checkCostCap, recordCostAndCheck } from "./cost-cap.js";
 import { summarizeToolArgs } from "./observability/dispatcher.js";
-import { type SessionContext, crashSession, endSession } from "./session-lifecycle.js";
+import { crashSession, endSession, type SessionContext } from "./session-lifecycle.js";
 import type { StateTransitionAuditEntry, TaskAuditEntry } from "./task-audit.js";
 import { transitionTask } from "./task-state-machine.js";
 

@@ -1,4 +1,4 @@
-import { type HyperIdleDb, agentSkills, items, responses } from "@hyperidle/db";
+import { agentSkills, type HyperIdleDb, items, responses } from "@hyperidle/db";
 import type { EventBus, ItemCreatedEvent, NotificationEvent } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
 import { isSilenced as sharedIsSilenced } from "./silence-policy.js";

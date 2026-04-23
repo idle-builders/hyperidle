@@ -25,9 +25,8 @@ export function CurationSuggestionCard({
 }: CurationSuggestionCardProps): JSX.Element {
 	return (
 		<div
-			className="flex items-start gap-3 px-3 py-2 border border-primary/40 bg-primary/5 rounded"
+			className="flex items-start gap-3 px-3 py-2 border border-[var(--border-emphasis)] bg-[var(--primary-dim)] rounded-lg"
 			data-testid="curation-suggestion-card"
-			// biome-ignore lint/a11y/useSemanticElements: not a form fieldset; div with role=group is intentional for non-form grouping
 			role="group"
 			aria-label="Curation suggestion"
 		>

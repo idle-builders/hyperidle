@@ -1,8 +1,8 @@
-import { type HyperIdleDb, createTestDb, knowledgeConflicts, knowledgeItems } from "@hyperidle/db";
+import { createTestDb, type HyperIdleDb, knowledgeConflicts, knowledgeItems } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
 import { beforeEach, describe, expect, it } from "vitest";
 import { createConflictReviewTool } from "../create-conflict-review.js";
-import { NOW, makeContext, seedBase } from "./_helpers.js";
+import { makeContext, NOW, seedBase } from "./_helpers.js";
 
 function seedKnowledgeItem(db: HyperIdleDb, id: string, version: number): void {
 	db.insert(knowledgeItems)

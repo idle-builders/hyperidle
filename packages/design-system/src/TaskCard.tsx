@@ -1,10 +1,10 @@
 import type { TaskState } from "@hyperidle/shared";
 import type { JSX, ReactNode } from "react";
+import { clickableProps } from "./clickable";
 import { KeyValue } from "./KeyValue";
 import { StatusChip } from "./StatusChip";
-import { Tag } from "./Tag";
-import { clickableProps } from "./clickable";
 import { taskStateToStatus } from "./status-mapping";
+import { Tag } from "./Tag";
 
 export interface TaskCardProps {
 	title: string;

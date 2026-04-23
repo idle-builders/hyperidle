@@ -1,7 +1,7 @@
 import type { JSX, ReactNode } from "react";
+import { clickableProps } from "./clickable";
 import { type Status, StatusChip } from "./StatusChip";
 import { Tag } from "./Tag";
-import { clickableProps } from "./clickable";
 import type { TagKind } from "./tag-kinds";
 
 export interface ThreadRowProps {

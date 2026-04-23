@@ -1,4 +1,4 @@
-import { type HyperIdleDb, factorySettings } from "@hyperidle/db";
+import { factorySettings, type HyperIdleDb } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
 
 export interface ScoringWeights {

@@ -13,11 +13,11 @@
 
 import * as crypto from "node:crypto";
 import {
-	type HyperIdleDb,
 	agents,
 	bets,
 	createTestDb,
 	factorySettings,
+	type HyperIdleDb,
 	notificationQueue,
 	products,
 	routines,

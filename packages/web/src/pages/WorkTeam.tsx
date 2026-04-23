@@ -4,12 +4,12 @@
  * current bets at the top and a per-task kanban board beneath.
  */
 import { type JSX, useCallback, useState } from "react";
-import { Canvas } from "../shell/Canvas";
 import type { CanvasBet } from "../shell/Canvas";
-import { COLUMN_TO_STATE, Kanban } from "../shell/Kanban";
+import { Canvas } from "../shell/Canvas";
 import type { KanbanColumnState, KanbanTask } from "../shell/Kanban";
-import { PitchSelector } from "../shell/PitchSelector";
+import { COLUMN_TO_STATE, Kanban } from "../shell/Kanban";
 import type { PitchSelectorPitch } from "../shell/PitchSelector";
+import { PitchSelector } from "../shell/PitchSelector";
 
 const CANVAS_BETS: CanvasBet[] = [
 	{

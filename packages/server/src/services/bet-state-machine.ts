@@ -1,4 +1,4 @@
-import { type HyperIdleDb, bets, teams } from "@hyperidle/db";
+import { bets, type HyperIdleDb, teams } from "@hyperidle/db";
 import {
 	type BetStatus,
 	CapacityExceededError,

@@ -1,22 +1,22 @@
 import {
-	type HyperIdleDb,
 	agents,
 	bets,
 	createTestDb,
 	factorySettings,
+	type HyperIdleDb,
 	items,
 	products,
 	tasks,
 	teams,
 	threads,
 } from "@hyperidle/db";
-import { EventBus } from "@hyperidle/shared";
 import type {
 	CostCapBreachedEvent,
 	CostCapWarningEvent,
 	ItemCreatedEvent,
 	TaskStateChangedEvent,
 } from "@hyperidle/shared";
+import { EventBus } from "@hyperidle/shared";
 import type { Hono } from "hono";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createTestApp } from "../test-utils.js";

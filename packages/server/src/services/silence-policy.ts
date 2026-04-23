@@ -10,7 +10,7 @@
  * dependency direction look like a reach-across-subfolder.
  */
 
-import { type HyperIdleDb, agents, factorySettings, teams } from "@hyperidle/db";
+import { agents, factorySettings, type HyperIdleDb, teams } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
 
 interface SilenceItem {

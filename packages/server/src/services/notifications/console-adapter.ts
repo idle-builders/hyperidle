@@ -1,4 +1,4 @@
-import { type Logger, createLogger } from "@hyperidle/shared";
+import { createLogger, type Logger } from "@hyperidle/shared";
 import type { Notification, NotificationAdapter, Recipient, SendResult } from "./types.js";
 
 export interface ConsoleAdapterOptions {
