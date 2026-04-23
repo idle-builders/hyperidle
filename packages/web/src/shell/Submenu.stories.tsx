@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { Submenu } from "./Submenu";
 import type { SubmenuFilter } from "./Submenu";
+import { Submenu } from "./Submenu";
 
 export default { title: "Submenu" };
 

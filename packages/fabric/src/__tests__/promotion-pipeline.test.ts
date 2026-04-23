@@ -1,7 +1,7 @@
 import {
+	createTestDb,
 	type HyperIdleDb,
 	type KnowledgeItem,
-	createTestDb,
 	knowledgeConflicts,
 	knowledgeEditLog,
 	knowledgeItems,
@@ -12,13 +12,13 @@ import { beforeEach, describe, expect, it } from "vitest";
 import {
 	AUTO_PROMOTION_EDITOR,
 	AUTO_PROMOTION_REPETITION_THRESHOLD,
-	STALE_THRESHOLD_MS,
 	checkAutoPromotion,
 	detectLayerContradiction,
 	findStaleItems,
 	markStale,
 	runAutoPromotionSweep,
 	runStaleSweep,
+	STALE_THRESHOLD_MS,
 } from "../promotion-pipeline.js";
 
 const NOW = "2026-04-18T00:00:00.000Z";

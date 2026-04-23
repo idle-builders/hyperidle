@@ -2,10 +2,10 @@ import * as nodeFs from "node:fs";
 import * as path from "node:path";
 import { type HyperIdleDb, knowledgeItems } from "@hyperidle/db";
 import {
+	createLogger,
 	type EventBus,
 	type KnowledgeUpdatedEvent,
 	type Logger,
-	createLogger,
 } from "@hyperidle/shared";
 import { and, eq, inArray, notInArray } from "drizzle-orm";
 import {

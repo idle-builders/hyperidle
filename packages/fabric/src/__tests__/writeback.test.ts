@@ -1,10 +1,10 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import {
-	type HyperIdleDb,
 	agents,
 	bets,
 	createTestDb,
+	type HyperIdleDb,
 	knowledgeConflicts,
 	knowledgeItems,
 	products,
@@ -17,14 +17,14 @@ import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { Manifest } from "../materialization.js";
 import {
-	type WritebackChange,
-	type WritebackConfig,
 	getRelativePath,
 	isKnowledgePath,
 	isSessionNotesPath,
 	isWatchedPath,
 	processWriteback,
 	readManifest,
+	type WritebackChange,
+	type WritebackConfig,
 	writeManifest,
 } from "../writeback.js";
 

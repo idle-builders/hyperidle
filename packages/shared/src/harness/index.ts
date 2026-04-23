@@ -7,14 +7,14 @@ export type {
 } from "./harness-adapter.js";
 
 export type {
+	CompletionEvent,
+	CostUpdateEvent,
+	ErrorEvent,
 	HarnessEvent,
 	HarnessEventType,
+	PreCompactionEvent,
 	TokenUsageEvent,
 	ToolCallEvent,
-	CompletionEvent,
-	ErrorEvent,
-	CostUpdateEvent,
-	PreCompactionEvent,
 } from "./harness-events.js";
 
 export { MockHarnessAdapter } from "./mock-harness-adapter.js";

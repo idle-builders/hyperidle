@@ -11,7 +11,7 @@
  *  - POST /digest: runs digest through adapter
  */
 
-import { type HyperIdleDb, createTestDb, factorySettings, notificationQueue } from "@hyperidle/db";
+import { createTestDb, factorySettings, type HyperIdleDb, notificationQueue } from "@hyperidle/db";
 import type { ApiErrorResponse } from "@hyperidle/shared";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createApp, disposeApp } from "../../app.js";

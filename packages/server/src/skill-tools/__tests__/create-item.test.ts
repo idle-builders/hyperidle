@@ -1,16 +1,16 @@
 import * as os from "node:os";
 import * as path from "node:path";
 import {
-	type HyperIdleDb,
 	agents,
 	createTestDb,
+	type HyperIdleDb,
 	items,
 	products,
 	teams,
 	threads,
 } from "@hyperidle/db";
-import { EventBus } from "@hyperidle/shared";
 import type { ItemCreatedEvent } from "@hyperidle/shared";
+import { EventBus } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
 import { beforeEach, describe, expect, it } from "vitest";
 import { createItemTool } from "../create-item.js";

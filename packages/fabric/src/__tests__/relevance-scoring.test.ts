@@ -1,16 +1,16 @@
-import { type HyperIdleDb, type KnowledgeItem, createTestDb, factorySettings } from "@hyperidle/db";
+import { createTestDb, factorySettings, type HyperIdleDb, type KnowledgeItem } from "@hyperidle/db";
 import { beforeEach, describe, expect, it } from "vitest";
 import { rankAndBudget, scoreItem } from "../relevance-scoring.js";
 import {
 	CONTEXT_WINDOW_TOKENS,
 	DEFAULT_KNOWLEDGE_BUDGET,
+	getDefaultWeights,
 	KNOWLEDGE_ALLOCATION_RATIO,
+	loadScoringWeights,
 	type ScoringContext,
 	type ScoringWeights,
-	getDefaultWeights,
-	loadScoringWeights,
 } from "../scoring-config.js";
-import { type ScoredItem, countItemTokens, countTokens, enforceBudget } from "../token-budget.js";
+import { countItemTokens, countTokens, enforceBudget, type ScoredItem } from "../token-budget.js";
 
 /** Create a minimal KnowledgeItem for testing. */
 function makeItem(overrides: Partial<KnowledgeItem> = {}): KnowledgeItem {

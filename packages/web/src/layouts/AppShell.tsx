@@ -22,8 +22,8 @@ import { useCommandK } from "../hooks/useCommandK";
 import { useViewportBreakpoint } from "../hooks/useViewportBreakpoint";
 import { IconRail } from "../shell/IconRail";
 import { Rail } from "../shell/Rail";
-import { Submenu } from "../shell/Submenu";
 import type { SubmenuFilter, SubmenuFilterOption } from "../shell/Submenu";
+import { Submenu } from "../shell/Submenu";
 import type { ViewId } from "../shell/shell-types";
 
 interface SubmenuConfig {

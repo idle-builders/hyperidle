@@ -1,8 +1,8 @@
 import {
-	type HyperIdleDb,
 	agentSkills,
 	agents,
 	createTestDb,
+	type HyperIdleDb,
 	items,
 	messages,
 	products,

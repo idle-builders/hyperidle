@@ -27,7 +27,6 @@ export function EmptyState({
 }: EmptyStateProps): JSX.Element {
 	return (
 		<div
-			// biome-ignore lint/a11y/useSemanticElements: status role is the intent; a div keeps the default block layout while we add the ARIA semantics.
 			role="status"
 			data-testid={dataTestId ?? "empty-state"}
 			className="flex flex-col items-start gap-1 px-2 py-6 text-left"

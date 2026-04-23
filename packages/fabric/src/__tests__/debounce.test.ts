@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { type DebouncedBatch, createDebouncedWatcher } from "../debounce.js";
+import { createDebouncedWatcher, type DebouncedBatch } from "../debounce.js";
 
 describe("createDebouncedWatcher", () => {
 	beforeEach(() => {

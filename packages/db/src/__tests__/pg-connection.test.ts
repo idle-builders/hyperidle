@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
+	createPgDb,
 	DEFAULT_PG_POOL_SIZE,
 	PG_POOL_SIZE_ENV,
-	createPgDb,
 	parsePgPoolSize,
 	resolvePgPoolSize,
 } from "../pg-connection.js";

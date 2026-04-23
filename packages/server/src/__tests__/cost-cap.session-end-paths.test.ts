@@ -1,8 +1,8 @@
 import {
-	type HyperIdleDb,
 	agents,
 	bets,
 	createTestDb,
+	type HyperIdleDb,
 	products,
 	sessions,
 	tasks,

@@ -8,10 +8,10 @@
  */
 
 import {
-	type HyperIdleDb,
 	agents,
 	bets,
 	createTestDb,
+	type HyperIdleDb,
 	products,
 	tasks,
 	teams,

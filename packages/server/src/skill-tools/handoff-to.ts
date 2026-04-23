@@ -4,7 +4,7 @@ import { z } from "zod";
 import { type HandoffMetadata, type HandoffParams, handoff } from "../services/handoff-protocol.js";
 import type { SessionContext } from "../services/session-lifecycle.js";
 import type { ToolContext, ToolDefinition } from "./tool-registry.js";
-import { type ToolResult, err, ok } from "./tool-result.js";
+import { err, ok, type ToolResult } from "./tool-result.js";
 
 const HANDOFF_STATUSES = ["completed", "failed", "blocked", "in_progress"] as const;
 

@@ -1,4 +1,4 @@
-import { type HyperIdleDb, createTestDb, knowledgeEditLog } from "@hyperidle/db";
+import { createTestDb, type HyperIdleDb, knowledgeEditLog } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { VersionConflictError } from "../errors.js";

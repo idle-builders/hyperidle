@@ -1,7 +1,7 @@
 import {
-	type Status,
 	betStatusToStatus,
 	knowledgeStatusToStatus,
+	type Status,
 	taskStateToStatus,
 } from "@hyperidle/design-system";
 import {

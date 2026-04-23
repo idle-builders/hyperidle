@@ -1,5 +1,5 @@
 import * as crypto from "node:crypto";
-import { type HyperIdleDb, agents, items, messages, sessions, tasks, threads } from "@hyperidle/db";
+import { agents, type HyperIdleDb, items, messages, sessions, tasks, threads } from "@hyperidle/db";
 import type { DomainEvent, EventBus, TaskState, TaskStateChangedEvent } from "@hyperidle/shared";
 import { and, eq, ne } from "drizzle-orm";
 import { releaseSessionDedup } from "./cost-cap.js";

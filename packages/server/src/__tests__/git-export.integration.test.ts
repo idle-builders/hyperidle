@@ -17,15 +17,15 @@ import { execSync } from "node:child_process";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import { type HyperIdleDb, createTestDb, factorySettings, knowledgeItems } from "@hyperidle/db";
+import { createTestDb, factorySettings, type HyperIdleDb, knowledgeItems } from "@hyperidle/db";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
-import { createGitRunner } from "../services/git-export-runner.js";
 import {
-	type GitExportConfig,
 	createNodeFsAdapter,
+	type GitExportConfig,
 	resetExportMutexes,
 	runGitExport,
 } from "../services/git-export.js";
+import { createGitRunner } from "../services/git-export-runner.js";
 
 const NOW_ISO = "2026-04-18T12:00:00.000Z";
 

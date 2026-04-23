@@ -8,7 +8,7 @@
  * handler maps to 500.
  */
 
-import { type HyperIdleDb, bets, createTestDb, products, teams } from "@hyperidle/db";
+import { bets, createTestDb, type HyperIdleDb, products, teams } from "@hyperidle/db";
 import { API_ERROR_CODES, EventBus } from "@hyperidle/shared";
 import type { Hono } from "hono";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";

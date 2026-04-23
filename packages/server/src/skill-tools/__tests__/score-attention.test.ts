@@ -1,9 +1,9 @@
-import { type HyperIdleDb, createTestDb, items, knowledgeItems } from "@hyperidle/db";
+import { createTestDb, type HyperIdleDb, items, knowledgeItems } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
 import { beforeEach, describe, expect, it } from "vitest";
 import { scoreAttentionTool } from "../score-attention.js";
 import { buildToolRegistry } from "../tool-registry.js";
-import { NOW, makeContext, seedBase } from "./_helpers.js";
+import { makeContext, NOW, seedBase } from "./_helpers.js";
 
 function seedKnowledgeItemWithScore(db: HyperIdleDb, id: string, score: number | null): void {
 	db.insert(knowledgeItems)

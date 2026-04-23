@@ -1,7 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
-import { ArtifactView } from "../shell/ArtifactView";
 import type { ArtifactViewProps } from "../shell/ArtifactView";
+import { ArtifactView } from "../shell/ArtifactView";
 
 describe("ArtifactView", () => {
 	describe("text_diff shape", () => {

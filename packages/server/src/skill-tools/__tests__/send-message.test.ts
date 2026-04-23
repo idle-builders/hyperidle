@@ -1,9 +1,9 @@
 import * as os from "node:os";
 import * as path from "node:path";
 import {
-	type HyperIdleDb,
 	agents,
 	createTestDb,
+	type HyperIdleDb,
 	messages,
 	products,
 	teams,

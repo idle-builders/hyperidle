@@ -30,8 +30,8 @@
  */
 
 import { createHash } from "node:crypto";
-import { API_ERROR_CODES } from "@hyperidle/shared";
 import type { ApiErrorResponse } from "@hyperidle/shared";
+import { API_ERROR_CODES } from "@hyperidle/shared";
 import type { Context, MiddlewareHandler } from "hono";
 
 export interface RateLimiterOptions {

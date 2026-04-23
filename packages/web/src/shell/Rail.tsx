@@ -1,9 +1,9 @@
 import {
+	betStatusToStatus,
 	EmptyState,
 	KeyValue,
 	type Status,
 	StatusChip,
-	betStatusToStatus,
 } from "@hyperidle/design-system";
 import type { BetStatus } from "@hyperidle/shared";
 import { type JSX, useState } from "react";

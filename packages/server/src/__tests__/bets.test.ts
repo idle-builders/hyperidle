@@ -1,4 +1,4 @@
-import { type HyperIdleDb, bets, createTestDb, products, teams } from "@hyperidle/db";
+import { bets, createTestDb, type HyperIdleDb, products, teams } from "@hyperidle/db";
 import { EventBus } from "@hyperidle/shared";
 import type { Hono } from "hono";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";

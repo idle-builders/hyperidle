@@ -11,8 +11,8 @@
  * identity, so calling `close()` on config change prevents socket leaks.
  */
 
-import nodemailer from "nodemailer";
 import type { Transporter } from "nodemailer";
+import nodemailer from "nodemailer";
 import { scrubErrorMessage } from "./redact.js";
 import type { Notification, NotificationAdapter, Recipient, SendResult } from "./types.js";
 

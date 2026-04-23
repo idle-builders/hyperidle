@@ -1,7 +1,7 @@
 import {
+	createTestDb,
 	type HyperIdleDb,
 	type KnowledgeItem,
-	createTestDb,
 	knowledgeConflicts,
 	knowledgeEditLog,
 	knowledgeItems,
