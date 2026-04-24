@@ -50,8 +50,9 @@ describe("ThreadRow", () => {
 
 	it("does not render Tag when tag is omitted", () => {
 		const { container } = render(<ThreadRow {...defaultProps} />);
-		const badges = container.querySelectorAll(".badge-neutral");
-		expect(badges.length).toBe(0);
+		// Tags use bg-[var(--surface-ghost)]; none should be present when no tag is given
+		const tags = container.querySelectorAll("[class*='bg-\\[var\\(--surface-ghost\\)\\]']");
+		expect(tags.length).toBe(0);
 	});
 
 	it("renders actions slot content", () => {
@@ -73,10 +74,10 @@ describe("ThreadRow", () => {
 
 	it("composes at least 2 Tier 1 primitives (StatusChip + Tag)", () => {
 		render(<ThreadRow {...defaultProps} status="healthy" tag="ops" />);
-		// StatusChip renders uppercase status text with badge class
-		expect(screen.getByText("HEALTHY")).toHaveClass("badge");
-		// Tag renders label with badge-neutral class
-		expect(screen.getByText("ops")).toHaveClass("badge-neutral");
+		// StatusChip renders uppercase status text with rounded-full
+		expect(screen.getByText("HEALTHY")).toHaveClass("inline-flex", "rounded-full");
+		// Tag renders label with rounded-[var(--r2)] and neutral bg
+		expect(screen.getByText("ops")).toHaveClass("inline-flex", "rounded-[var(--r2)]");
 	});
 
 	it("calls onClick when row is clicked", () => {
@@ -89,26 +90,26 @@ describe("ThreadRow", () => {
 		expect(handleClick).toHaveBeenCalledOnce();
 	});
 
-	it("applies border-error when blocking is true", () => {
+	it("applies border-[var(--danger)] when blocking is true", () => {
 		const { container } = render(<ThreadRow {...defaultProps} blocking={true} />);
 		const root = container.firstElementChild;
-		expect(root).toHaveClass("border-error");
+		expect(root?.className).toContain("border-[var(--danger)]");
 	});
 
-	it("does not apply border-error when blocking is false", () => {
+	it("does not apply border-[var(--danger)] when blocking is false", () => {
 		const { container } = render(<ThreadRow {...defaultProps} blocking={false} />);
 		const root = container.firstElementChild;
-		expect(root).not.toHaveClass("border-error");
+		expect(root?.className).not.toContain("border-[var(--danger)]");
 	});
 
 	it("renders kind as Tag when provided", () => {
 		render(<ThreadRow {...defaultProps} kind="review" />);
-		expect(screen.getByText("review")).toHaveClass("badge-neutral");
+		expect(screen.getByText("review")).toHaveClass("inline-flex", "rounded-[var(--r2)]");
 	});
 
 	it("renders chat kind as Tag", () => {
 		render(<ThreadRow {...defaultProps} kind="chat" />);
-		expect(screen.getByText("chat")).toHaveClass("badge-neutral");
+		expect(screen.getByText("chat")).toHaveClass("inline-flex", "rounded-[var(--r2)]");
 	});
 
 	it("has aria-label on title", () => {

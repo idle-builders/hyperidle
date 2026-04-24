@@ -8,17 +8,18 @@ describe("Tag", () => {
 		expect(screen.getByText("product")).toBeInTheDocument();
 	});
 
-	it("applies badge-neutral and badge-sm classes", () => {
+	it("applies neutral chip classes", () => {
 		render(<Tag label="bet" />);
 		const tag = screen.getByText("bet");
-		expect(tag).toHaveClass("badge", "badge-neutral", "badge-sm");
+		expect(tag).toHaveClass("inline-flex", "rounded-[var(--r2)]", "text-[12px]");
+		expect(tag.className).toContain("bg-[var(--surface-ghost)]");
+		expect(tag.className).toContain("text-[var(--text-mid)]");
 	});
 
 	it("does not have border classes", () => {
 		render(<Tag label="task" />);
 		const tag = screen.getByText("task");
-		expect(tag).not.toHaveClass("badge-outline");
-		expect(tag).not.toHaveClass("border");
+		expect(tag).toHaveClass("border-none");
 	});
 
 	it("renders as a span element", () => {

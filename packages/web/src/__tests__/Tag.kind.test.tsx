@@ -31,17 +31,18 @@ describe("Tag with kind", () => {
 		expect(svg).not.toBeNull();
 		const wrapper = screen.getByLabelText(/Failure: oops/i);
 		// Failure tag must NOT use the neutral chip background — kind variants
-		// have their own tint. We assert the absence of badge-neutral and the
-		// presence of the badge primitive itself.
-		expect(wrapper).toHaveClass("badge");
-		expect(wrapper).not.toHaveClass("badge-neutral");
+		// have their own tint. We assert the absence of the neutral bg and the
+		// presence of the tag primitive itself.
+		expect(wrapper).toHaveClass("inline-flex", "rounded-[var(--r2)]");
+		expect(wrapper.className).not.toContain("bg-[var(--surface-ghost)]");
 	});
 
 	it("renders identically to baseline when kind is omitted (no SVG, neutral chip)", () => {
 		const { container } = render(<Tag label="plain" />);
 		const tag = screen.getByText("plain");
 		expect(tag.tagName).toBe("SPAN");
-		expect(tag).toHaveClass("badge", "badge-neutral", "badge-sm");
+		expect(tag).toHaveClass("inline-flex", "rounded-[var(--r2)]", "text-[12px]");
+		expect(tag.className).toContain("bg-[var(--surface-ghost)]");
 		// No icon must be injected when kind is absent.
 		expect(container.querySelector("svg")).toBeNull();
 	});
@@ -54,7 +55,8 @@ describe("Tag with kind", () => {
 		const unknownKind = "insight" as unknown as TagKind;
 		const { container } = render(<Tag label="weird" kind={unknownKind} />);
 		const tag = screen.getByText("weird");
-		expect(tag).toHaveClass("badge", "badge-neutral", "badge-sm");
+		expect(tag).toHaveClass("inline-flex", "rounded-[var(--r2)]", "text-[12px]");
+		expect(tag.className).toContain("bg-[var(--surface-ghost)]");
 		expect(container.querySelector("svg")).toBeNull();
 	});
 });

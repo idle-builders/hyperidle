@@ -32,7 +32,9 @@ describe("TaskCard", () => {
 
 	it("renders betTag as Tag when provided", () => {
 		render(<TaskCard {...defaultProps} betTag="Mobile V2" />);
-		expect(screen.getByText("Mobile V2")).toHaveClass("badge-neutral");
+		const tag = screen.getByText("Mobile V2");
+		expect(tag).toHaveClass("inline-flex", "rounded-[var(--r2)]");
+		expect(tag.className).toContain("bg-[var(--surface-ghost)]");
 	});
 
 	it("renders actions slot content", () => {
@@ -50,17 +52,17 @@ describe("TaskCard", () => {
 		expect(handleClick).toHaveBeenCalledOnce();
 	});
 
-	// Acceptance criterion: TaskCard in blocked state has red border (border-error class)
-	it("applies border-error class when state is blocked", () => {
+	// Acceptance criterion: TaskCard in blocked state has red border (border-[var(--danger)])
+	it("applies border-[var(--danger)] class when state is blocked", () => {
 		const { container } = render(<TaskCard {...defaultProps} state="blocked" />);
 		const root = container.firstElementChild;
-		expect(root).toHaveClass("border-error");
+		expect(root?.className).toContain("border-[var(--danger)]");
 	});
 
-	it("does not apply border-error class when state is not blocked", () => {
+	it("does not apply border-[var(--danger)] class when state is not blocked", () => {
 		const { container } = render(<TaskCard {...defaultProps} state="in_progress" />);
 		const root = container.firstElementChild;
-		expect(root).not.toHaveClass("border-error");
+		expect(root?.className).not.toContain("border-[var(--danger)]");
 	});
 
 	it("renders blocked state as BLOCKED chip", () => {
@@ -101,9 +103,9 @@ describe("TaskCard", () => {
 	it("composes at least 2 Tier 1 primitives (StatusChip + Tag + KeyValue)", () => {
 		render(<TaskCard {...defaultProps} betTag="Sprint 1" cost="$2.00" />);
 		// StatusChip
-		expect(screen.getByText("HEALTHY")).toHaveClass("badge");
+		expect(screen.getByText("HEALTHY")).toHaveClass("inline-flex", "rounded-full");
 		// Tag for betTag
-		expect(screen.getByText("Sprint 1")).toHaveClass("badge-neutral");
+		expect(screen.getByText("Sprint 1")).toHaveClass("inline-flex", "rounded-[var(--r2)]");
 		// KeyValue for cost
 		expect(screen.getByText("$2.00")).toBeInTheDocument();
 	});

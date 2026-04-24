@@ -21,10 +21,11 @@ describe("NavItem", () => {
 		expect(screen.getByText("5")).toBeInTheDocument();
 	});
 
-	it("does not show count badge when count is not provided", () => {
+	it("does not show count pill when count is not provided", () => {
 		const { container } = render(<NavItem label="Tasks" />);
-		const badges = container.querySelectorAll(".badge");
-		expect(badges.length).toBe(0);
+		// The count pill uses min-w-[18px]; its absence means no pill rendered.
+		const pills = container.querySelectorAll("[class*='min-w-']");
+		expect(pills.length).toBe(0);
 	});
 
 	it("shows count badge with zero when count is 0", () => {
@@ -35,9 +36,9 @@ describe("NavItem", () => {
 	it("applies selected styles when selected", () => {
 		render(<NavItem label="Active" selected />);
 		const btn = screen.getByRole("button", { name: /Active/ });
-		expect(btn).toHaveClass("bg-[var(--surface-4)]");
+		expect(btn.className).toContain("bg-[var(--surface-4)]");
 		expect(btn).toHaveClass("border-l-2");
-		expect(btn).toHaveClass("border-primary");
+		expect(btn.className).toContain("border-l-[var(--primary)]");
 	});
 
 	it("does not apply selected styles when not selected", () => {
