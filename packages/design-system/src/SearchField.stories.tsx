@@ -1,7 +1,17 @@
 import { useState } from "react";
 import { SearchField } from "./SearchField.js";
 
-export default { title: "SearchField" };
+export default {
+	title: "SearchField",
+	order: [
+		"Empty",
+		"WithValue",
+		"Loading",
+		"WithKeyboardShortcut",
+		"InteractiveTypeToTest",
+		"InContextDemoCard",
+	],
+};
 
 export const Empty = (): React.JSX.Element => (
 	<div className="w-72">
@@ -21,13 +31,13 @@ export const Loading = (): React.JSX.Element => (
 	</div>
 );
 
-export const WithShortcut = (): React.JSX.Element => (
+export const WithKeyboardShortcut = (): React.JSX.Element => (
 	<div className="w-72">
 		<SearchField placeholder="Search..." shortcutKey="/" />
 	</div>
 );
 
-export const Interactive = (): React.JSX.Element => {
+export const InteractiveTypeToTest = (): React.JSX.Element => {
 	const [value, setValue] = useState("");
 	return (
 		<div className="w-72">
@@ -40,3 +50,9 @@ export const Interactive = (): React.JSX.Element => {
 		</div>
 	);
 };
+
+export const InContextDemoCard = (): React.JSX.Element => (
+	<div className="max-w-[360px] rounded-lg bg-[var(--surface-3)] p-4">
+		<SearchField placeholder="Search knowledge base..." shortcutKey="/" />
+	</div>
+);

@@ -1,25 +1,64 @@
 import { Tag } from "./Tag.js";
 
-export default { title: "Tag" };
+export default {
+	title: "Tag",
+	order: ["PlainTagsNoKind", "KindVariants", "MixedGroup", "TagCloud", "InContextDemoCard"],
+};
 
-export const Short = (): React.JSX.Element => <Tag label="v1" />;
-export const Medium = (): React.JSX.Element => <Tag label="frontend" />;
-export const Long = (): React.JSX.Element => <Tag label="infrastructure-migration" />;
-
-export const Group = (): React.JSX.Element => (
-	<div className="flex flex-wrap gap-1">
-		<Tag label="react" />
-		<Tag label="typescript" />
-		<Tag label="tailwind" />
-		<Tag label="daisyui" />
+export const PlainTagsNoKind = (): React.JSX.Element => (
+	<div className="flex flex-wrap gap-3">
+		<Tag label="v1" />
+		<Tag label="frontend" />
+		<Tag label="infrastructure-migration" />
 	</div>
 );
 
-export const KindGroup = (): React.JSX.Element => (
-	<div className="flex flex-wrap gap-1">
+export const KindVariants = (): React.JSX.Element => (
+	<div className="flex flex-wrap gap-3">
+		<Tag label="recurring-layout" kind="pattern" />
+		<Tag label="go with plan-A" kind="decision" />
+		<Tag label="deploy broke" kind="failure" />
+	</div>
+);
+
+export const MixedGroup = (): React.JSX.Element => (
+	<div className="flex flex-wrap gap-3">
 		<Tag label="plain" />
 		<Tag label="recurring-layout" kind="pattern" />
 		<Tag label="go with plan-A" kind="decision" />
 		<Tag label="deploy broke" kind="failure" />
+	</div>
+);
+
+export const TagCloud = (): React.JSX.Element => (
+	<div className="flex flex-wrap gap-3">
+		<Tag label="react" />
+		<Tag label="typescript" />
+		<Tag label="tailwind" />
+		<Tag label="daisyui" />
+		<Tag label="hono" />
+		<Tag label="drizzle" />
+	</div>
+);
+
+export const InContextDemoCard = (): React.JSX.Element => (
+	<div className="rounded-lg bg-[var(--surface-3)] p-4">
+		<div className="flex flex-col gap-2">
+			<div className="flex flex-wrap items-center gap-1.5">
+				<span className="font-heading text-[11px] uppercase tracking-wider text-[var(--text-lo)]">
+					Tags:
+				</span>
+				<Tag label="api-refactor" />
+				<Tag label="schema-change" kind="pattern" />
+				<Tag label="approved" kind="decision" />
+			</div>
+			<div className="flex flex-wrap items-center gap-1.5">
+				<span className="font-heading text-[11px] uppercase tracking-wider text-[var(--text-lo)]">
+					Issues:
+				</span>
+				<Tag label="timeout on deploy" kind="failure" />
+				<Tag label="flaky test" kind="failure" />
+			</div>
+		</div>
 	</div>
 );

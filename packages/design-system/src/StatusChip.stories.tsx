@@ -1,15 +1,11 @@
 import { StatusChip } from "./StatusChip.js";
 
-export default { title: "StatusChip" };
+export default {
+	title: "StatusChip",
+	order: ["AllStatusVariants", "UnknownFallback", "InContextDemoCard"],
+};
 
-export const Healthy = (): React.JSX.Element => <StatusChip status="healthy" />;
-export const Behind = (): React.JSX.Element => <StatusChip status="behind" />;
-export const Blocked = (): React.JSX.Element => <StatusChip status="blocked" />;
-export const Paused = (): React.JSX.Element => <StatusChip status="paused" />;
-export const Done = (): React.JSX.Element => <StatusChip status="done" />;
-export const ErrorStatus = (): React.JSX.Element => <StatusChip status="error" />;
-
-export const AllStatuses = (): React.JSX.Element => (
+export const AllStatusVariants = (): React.JSX.Element => (
 	<div className="flex flex-wrap gap-2">
 		<StatusChip status="healthy" />
 		<StatusChip status="behind" />
@@ -17,5 +13,33 @@ export const AllStatuses = (): React.JSX.Element => (
 		<StatusChip status="paused" />
 		<StatusChip status="done" />
 		<StatusChip status="error" />
+	</div>
+);
+
+export const UnknownFallback = (): React.JSX.Element => (
+	<div className="flex flex-wrap gap-2">
+		{/* Runtime tolerance: unknown strings and undefined fall back to a neutral chip */}
+		<StatusChip status={"unknown" as "healthy"} />
+		<StatusChip status={undefined as unknown as "healthy"} />
+		<StatusChip status={"some-new-status" as "healthy"} />
+	</div>
+);
+
+export const InContextDemoCard = (): React.JSX.Element => (
+	<div className="rounded-lg bg-[var(--surface-3)] p-4">
+		<div className="flex flex-col gap-2">
+			<div className="flex items-center gap-2">
+				<StatusChip status="healthy" />
+				<span className="text-[13px] text-[var(--text-mid)]">Agent is running normally</span>
+			</div>
+			<div className="flex items-center gap-2">
+				<StatusChip status="blocked" />
+				<span className="text-[13px] text-[var(--text-mid)]">Waiting on external dependency</span>
+			</div>
+			<div className="flex items-center gap-2">
+				<StatusChip status="error" />
+				<span className="text-[13px] text-[var(--text-mid)]">Build failed, needs intervention</span>
+			</div>
+		</div>
 	</div>
 );

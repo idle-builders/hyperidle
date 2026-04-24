@@ -1,6 +1,9 @@
 import { NotificationRow } from "./NotificationRow";
 
-export default { title: "NotificationRow" };
+export default {
+	title: "NotificationRow",
+	order: ["Healthy", "ErrorSeverity", "WithInlineAction", "AllSeverities"],
+};
 
 export const Healthy = (): React.JSX.Element => (
 	<NotificationRow
