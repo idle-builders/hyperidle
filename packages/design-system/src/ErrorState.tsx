@@ -27,14 +27,14 @@ export function ErrorState({
 		<div
 			role="alert"
 			data-testid={dataTestId ?? "error-state"}
-			className="flex flex-col items-start gap-2 px-2 py-4 text-left"
+			className="flex flex-col items-start gap-[8px] px-[8px] py-[16px] text-left"
 		>
-			<p className="text-sm font-medium text-error">{title}</p>
-			<p className="text-xs text-[var(--text-lo)]">{description}</p>
+			<p className="text-[14px] font-medium text-[var(--danger)] leading-[1.4]">{title}</p>
+			<p className="text-[12px] text-[var(--text-lo)] leading-[1.4]">{description}</p>
 			{onRetry && (
 				<button
 					type="button"
-					className="btn btn-xs btn-primary"
+					className="inline-flex items-center justify-center px-[10px] py-[4px] text-[12px] font-medium text-[var(--surface-0)] bg-[var(--primary)] rounded-[var(--r2)] cursor-pointer leading-[1.4] transition-opacity duration-[var(--motion-fast)] ease-[ease] hover:opacity-85 active:opacity-70"
 					onClick={onRetry}
 					data-testid="error-state-retry"
 				>
