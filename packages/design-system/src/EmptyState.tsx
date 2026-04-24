@@ -29,11 +29,11 @@ export function EmptyState({
 		<div
 			role="status"
 			data-testid={dataTestId ?? "empty-state"}
-			className="flex flex-col items-start gap-1 px-2 py-6 text-left"
+			className="flex flex-col items-start gap-[4px] px-[8px] py-[24px] text-left"
 		>
-			<p className="text-sm font-medium text-[var(--text-hi)]">{title}</p>
-			<p className="text-xs text-[var(--text-lo)]">{description}</p>
-			{action && <div className="mt-2">{action}</div>}
+			<p className="text-[14px] font-medium text-[var(--text-hi)] leading-[1.4]">{title}</p>
+			<p className="text-[12px] text-[var(--text-lo)] leading-[1.4]">{description}</p>
+			{action && <div className="mt-[8px]">{action}</div>}
 		</div>
 	);
 }
