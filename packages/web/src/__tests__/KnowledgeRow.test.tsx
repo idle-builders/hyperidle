@@ -18,13 +18,15 @@ describe("KnowledgeRow", () => {
 
 	it("renders layer as Tag", () => {
 		render(<KnowledgeRow {...defaultProps} />);
-		expect(screen.getByText("L2")).toHaveClass("badge-neutral");
+		const tag = screen.getByText("L2");
+		expect(tag).toHaveClass("inline-flex", "rounded-[var(--r2)]");
+		expect(tag.className).toContain("bg-[var(--surface-ghost)]");
 	});
 
 	it("renders kind as Tag", () => {
 		render(<KnowledgeRow {...defaultProps} />);
-		// "pattern" matches TagKind so gets tint class instead of badge-neutral
-		expect(screen.getByText("pattern")).toHaveClass("badge");
+		// "pattern" matches TagKind so gets tint class instead of neutral bg
+		expect(screen.getByText("pattern")).toHaveClass("inline-flex", "rounded-[var(--r2)]");
 	});
 
 	it("renders status as StatusChip via knowledgeStatusToStatus mapping", () => {
@@ -82,7 +84,9 @@ describe("KnowledgeRow", () => {
 		const layers = ["L0", "L1", "L2", "L3", "L4"] as const;
 		for (const layer of layers) {
 			const { unmount } = render(<KnowledgeRow {...defaultProps} layer={layer} />);
-			expect(screen.getByText(layer)).toHaveClass("badge-neutral");
+			const tag = screen.getByText(layer);
+			expect(tag).toHaveClass("inline-flex", "rounded-[var(--r2)]");
+			expect(tag.className).toContain("bg-[var(--surface-ghost)]");
 			unmount();
 		}
 	});
@@ -98,15 +102,14 @@ describe("KnowledgeRow", () => {
 			"reflection",
 			"focus",
 		] as const;
-		// Kinds that match TagKind get tint classes; others fall back to badge-neutral
+		// Kinds that match TagKind get tint classes; others fall back to neutral bg
 		const tintedKinds = new Set(["pattern", "decision", "failure"]);
 		for (const kind of kinds) {
 			const { unmount } = render(<KnowledgeRow {...defaultProps} kind={kind} />);
 			const el = screen.getByText(kind);
-			if (tintedKinds.has(kind)) {
-				expect(el).toHaveClass("badge");
-			} else {
-				expect(el).toHaveClass("badge-neutral");
+			expect(el).toHaveClass("inline-flex", "rounded-[var(--r2)]");
+			if (!tintedKinds.has(kind)) {
+				expect(el.className).toContain("bg-[var(--surface-ghost)]");
 			}
 			unmount();
 		}
@@ -131,10 +134,10 @@ describe("KnowledgeRow", () => {
 	it("composes at least 2 Tier 1 primitives (Tag + StatusChip)", () => {
 		render(<KnowledgeRow {...defaultProps} />);
 		// Tag for layer
-		expect(screen.getByText("L2")).toHaveClass("badge-neutral");
+		expect(screen.getByText("L2")).toHaveClass("inline-flex", "rounded-[var(--r2)]");
 		// Tag for kind — "pattern" matches TagKind so gets tint class
-		expect(screen.getByText("pattern")).toHaveClass("badge");
+		expect(screen.getByText("pattern")).toHaveClass("inline-flex", "rounded-[var(--r2)]");
 		// StatusChip for status
-		expect(screen.getByText("HEALTHY")).toHaveClass("badge");
+		expect(screen.getByText("HEALTHY")).toHaveClass("inline-flex", "rounded-full");
 	});
 });

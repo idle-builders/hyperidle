@@ -59,8 +59,8 @@ describe("WorkPortfolio", () => {
 			renderPage();
 			const cards = screen.getAllByTestId("product-card");
 			for (const card of cards) {
-				// Each card must contain a badge (StatusChip renders .badge)
-				expect(card.querySelector(".badge")).not.toBeNull();
+				// Each card must contain a StatusChip (renders .rounded-full)
+				expect(card.querySelector(".rounded-full")).not.toBeNull();
 			}
 		});
 	});

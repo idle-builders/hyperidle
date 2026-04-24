@@ -26,13 +26,19 @@ describe("NotificationRow", () => {
 
 	it("renders source as Tag when provided", () => {
 		render(<NotificationRow {...defaultProps} source="CI/CD" />);
-		expect(screen.getByText("CI/CD")).toHaveClass("badge-neutral");
+		const tag = screen.getByText("CI/CD");
+		expect(tag).toHaveClass("inline-flex", "rounded-[var(--r2)]");
+		expect(tag.className).toContain("bg-[var(--surface-ghost)]");
 	});
 
 	it("does not render source Tag when omitted", () => {
 		const { container } = render(<NotificationRow {...defaultProps} />);
-		const neutralBadges = container.querySelectorAll(".badge-neutral");
-		expect(neutralBadges.length).toBe(0);
+		// No Tag elements should be rendered when source is omitted.
+		// Tags carry bg-[var(--surface-ghost)] class.
+		const tags = Array.from(container.querySelectorAll("span")).filter((el) =>
+			el.className.includes("rounded-[var(--r2)]"),
+		);
+		expect(tags.length).toBe(0);
 	});
 
 	it("renders actions slot content", () => {
@@ -75,9 +81,9 @@ describe("NotificationRow", () => {
 	it("composes at least 2 Tier 1 primitives (StatusChip + Tag)", () => {
 		render(<NotificationRow {...defaultProps} source="system" />);
 		// StatusChip for severity
-		expect(screen.getByText("HEALTHY")).toHaveClass("badge");
+		expect(screen.getByText("HEALTHY")).toHaveClass("inline-flex", "rounded-full");
 		// Tag for source
-		expect(screen.getByText("system")).toHaveClass("badge-neutral");
+		expect(screen.getByText("system")).toHaveClass("inline-flex", "rounded-[var(--r2)]");
 	});
 
 	it("all severity levels produce visually distinct chips", () => {
