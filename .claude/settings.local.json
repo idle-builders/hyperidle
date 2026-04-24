@@ -37,7 +37,9 @@
       "Bash(git:*)",
       "Bash(tsc --noEmit -p tsconfig.json)",
       "Bash(echo \"Exit: $?\")",
-      "Bash(python3:*)"
+      "Bash(python3:*)",
+      "Bash(xargs -r kill)",
+      "Bash(curl -s http://localhost:8098:*)"
     ]
   },
   "autoMode": {
