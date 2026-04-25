@@ -185,52 +185,81 @@
 
 	/*
 	 * ── Density presets ──
-	 * @lore K7 / AESTHETICS.md § Spacing & Density:
-	 * - Default tier: rows "Density-pad-y/x", "Density-gap", "Density-row-h"
-	 *   are all "no change" — the productivity-tool consensus sits here.
-	 * - Compact tier: row "Density tier ratio (compact)" — values are
-	 *   default × 0.75 rounded down to the nearest 4px multiple. K7 fixes
-	 *   pad-x (was 6px → 8px) and row-h (was 26px → 24px).
-	 * - Comfortable tier: row "Density tier ratio (comfortable)" — values
-	 *   are default × 1.25 rounded up to the nearest 4px multiple. The
-	 *   row-h cell is the one exception: it is bumped to 2.75rem (44px) to
-	 *   meet AQ-015's 44 CSS px touch-target floor, which K8 enforces at
-	 *   the mobile breakpoint. Hard-a11y floor wins over the 1.25× ratio.
-	 * - The body line-height bumps under comfortable per AESTHETICS.md
-	 *   row "Body line-height (comfortable)": 1.55.
+	 * @lore K9 / AESTHETICS.md § Spacing & Density:
+	 * The K7 ladder used `compact = default × 0.75` / `comfortable = default × 1.25`,
+	 * which after rounding to the 4 px grid produced single-grid-step deltas
+	 * (pad-x 8/12/16, pad-y 4/8/12) that read as cosmetic noise rather than as
+	 * three distinct comfort tiers. K9 re-tiers the ladder so each step is felt:
+	 *
+	 *   - new ratio: `compact = default × 0.75; comfortable = default × 1.5`
+	 *   - rationale: the comfortable tier now matches the iOS Settings / Notion /
+	 *     Apple Mail comfort band (Apple HIG, Notion product UI, Apple Mail)
+	 *     instead of the prior +25 % nudge that read as the same layout slightly
+	 *     bigger. Today's `default` becomes the new `compact` (power-user / small
+	 *     screens); the new `default` is a real productivity-app default; the
+	 *     new `comfortable` genuinely feels comfortable, including a body and
+	 *     heading font-size bump.
+	 *   - `--density-row-h` is exempt from the upper-bound rule: comfortable's
+	 *     56 px is a designer call (>= AQ-015's 44 px floor, < 1.5× cap of 66
+	 *     → 64). The new `default` (44 px) already meets the AQ-015 touch-target
+	 *     floor, so the K8 mobile auto-density flip is now an aesthetic choice
+	 *     (more breathing room on phones) rather than a hard a11y requirement.
+	 *   - heading-scale tokens (`--density-text-h1`, `--density-text-h2`) are
+	 *     scoped per density tier so H1/H2 grow under comfortable: 24/26/28 and
+	 *     18/20/22 across compact/default/comfortable. Components that render a
+	 *     scale-with-density heading consume these via `var(--density-text-h*)`.
+	 *   - `--tracking-caps` tightens slightly under comfortable (0.015em) because
+	 *     uppercase labels at the larger body size do not need the same 0.02em
+	 *     wedge to feel airy.
+	 *   - AQ-003 lint rule (`design/no-density-tier-drift` if added) and the
+	 *     density-tier vitest assert this ladder programmatically.
+	 *
+	 * Note for K5 / aesthetic-quality.md follow-up: the AQ-003 rule text in
+	 * `.claude/rules/aesthetic-quality.md` still cites the K7 1.25× ratio. That
+	 * line should be updated to read `compact = default × 0.75; comfortable =
+	 * default × 1.5` per this K9 re-tier.
 	 */
 	:root,
 	[data-density="default"] {
+		--density-pad-x: 1rem;
+		--density-pad-y: 0.75rem;
+		--density-gap: 0.75rem;
+		--density-row-h: 2.75rem;
+		--density-text: 0.9375rem;
+		--density-text-h1: 1.625rem;
+		--density-text-h2: 1.25rem;
+		--leading-body: 1.55;
+	}
+
+	[data-density="compact"] {
 		--density-pad-x: 0.75rem;
 		--density-pad-y: 0.5rem;
 		--density-gap: 0.5rem;
 		--density-row-h: 2rem;
 		--density-text: 0.875rem;
-	}
-
-	[data-density="compact"] {
-		--density-pad-x: 0.5rem;
-		--density-pad-y: 0.25rem;
-		--density-gap: 0.25rem;
-		--density-row-h: 1.5rem;
-		--density-text: 0.75rem;
+		--density-text-h1: 1.5rem;
+		--density-text-h2: 1.125rem;
+		--leading-body: 1.5;
 	}
 
 	[data-density="comfortable"] {
-		--density-pad-x: 1rem;
-		--density-pad-y: 0.75rem;
-		--density-gap: 0.75rem;
+		--density-pad-x: 1.5rem;
+		--density-pad-y: 1rem;
+		--density-gap: 1rem;
 		/*
-		 * @lore K8 — `--density-row-h` set to 2.75rem (44px) instead of the
-		 * tier-ratio result of 2.5rem (40px = default × 1.25). AQ-015 floors
-		 * touch targets at 44 CSS px on viewport ≤ 1024px, and the K7
-		 * auto-density flow promotes mobile shells to comfortable. The 44px
-		 * accessibility floor WINS over the designer-call 1.25× ratio
-		 * because AQ-015 is a hard a11y rule, not an aesthetic preference.
+		 * @lore K9 — `--density-row-h` set to 3.5rem (56 px) instead of the
+		 * strict 1.5× ratio result of 4.125rem (66 px → 64 px). 56 px sits
+		 * above the AQ-015 44 CSS px touch-target floor and below the 1.5×
+		 * cap; it is a designer call sized to the iOS Mail / Notion comfort
+		 * band. The density-tier vitest exempts row-h from the upper-bound
+		 * 1.5× assertion for this reason.
 		 */
-		--density-row-h: 2.75rem;
-		--density-text: 0.9375rem;
-		--leading-body: 1.55;
+		--density-row-h: 3.5rem;
+		--density-text: 1rem;
+		--density-text-h1: 1.75rem;
+		--density-text-h2: 1.375rem;
+		--leading-body: 1.6;
+		--tracking-caps: 0.015em;
 	}
 }
 

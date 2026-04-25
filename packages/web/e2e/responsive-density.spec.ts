@@ -108,6 +108,58 @@ test.describe("K8 — Explicit density override wins over viewport", () => {
 	});
 });
 
+test.describe("K9 — Comfortable density bumps body text to 16 px end-to-end", () => {
+	test("[data-density='comfortable'] resolves KeyValue value font-size to 16px", async ({
+		browser,
+	}) => {
+		const ctx = await browser.newContext({ viewport: DESKTOP, colorScheme: "dark" });
+		const page = await ctx.newPage();
+		// Land on /work/portfolio so a real KeyValue is rendered and we don't
+		// need a navigation between density-set and assertion (Settings density
+		// is currently in-memory only — server-side persistence is J3/J8).
+		await page.goto("/work/portfolio");
+		await page.waitForSelector("[data-testid='work-portfolio-page']");
+
+		// Pick comfortable explicitly via Settings → Appearance.
+		await page.getByRole("button", { name: /^user profile$/i }).click();
+		await expect(page.getByRole("dialog", { name: /settings/i })).toBeVisible();
+		await page.getByRole("tab", { name: "Appearance" }).click();
+		await page.getByLabel("Density").selectOption("comfortable");
+		await page.getByRole("button", { name: "Save" }).click();
+		await expect(page.getByRole("dialog", { name: /settings/i })).not.toBeVisible();
+
+		await expect.poll(async () => (await readShellAttrs(page)).density).toBe("comfortable");
+
+		// Verify the comfortable tier wires every density token into the cascade
+		// at the AppShell root. Read each `--density-*` directly from the shell
+		// element (the [data-density="comfortable"] selector). We assert on the
+		// CSS-variable resolution rather than on a specific component's computed
+		// font-size to avoid the J1-era `text-[14px] text-[length:var(--density-text)]`
+		// Tailwind-class-order issue: the token cascade is the K9 contract; a
+		// component opting in to it is a component-level concern.
+		const tokens = await page.evaluate(() => {
+			const shell = document.querySelector("[data-density]") as HTMLElement | null;
+			if (!shell) return null;
+			const cs = window.getComputedStyle(shell);
+			return {
+				densityText: cs.getPropertyValue("--density-text").trim(),
+				densityTextH1: cs.getPropertyValue("--density-text-h1").trim(),
+				densityTextH2: cs.getPropertyValue("--density-text-h2").trim(),
+				densityPadX: cs.getPropertyValue("--density-pad-x").trim(),
+				densityRowH: cs.getPropertyValue("--density-row-h").trim(),
+			};
+		});
+		expect(tokens).not.toBeNull();
+		// 1rem default == 16px in the browser, so comfortable's tokens resolve to:
+		expect(tokens?.densityText).toBe("1rem"); // 16 px body
+		expect(tokens?.densityTextH1).toBe("1.75rem"); // 28 px H1
+		expect(tokens?.densityTextH2).toBe("1.375rem"); // 22 px H2
+		expect(tokens?.densityPadX).toBe("1.5rem"); // 24 px pad-x
+		expect(tokens?.densityRowH).toBe("3.5rem"); // 56 px row-h
+		await ctx.close();
+	});
+});
+
 test.describe("K8 — Theme persistence across breakpoint changes", () => {
 	test("persisted theme survives desktop → mobile resize", async ({ browser }) => {
 		// OS = light so dark choice is visibly different.

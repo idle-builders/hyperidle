@@ -9,6 +9,16 @@ import type { Density, ResolvedDensity } from "../components/SettingsPanel";
  * over the viewport switch — the user override is the contract per
  * AESTHETICS.md § Mobile & Touch row "Density preference state".
  *
+ * @lore K9 — the mobile flip is now an *aesthetic* choice, not a hard
+ * a11y requirement. Under the K9 density re-tier, the new `default` tier
+ * already meets AQ-015's 44 CSS px touch-target floor at every interactive
+ * element (row-h is 2.75rem = 44 px on default), so the K8-era story
+ * "mobile auto-density flips to comfortable so touch targets clear 44 px"
+ * is no longer the gating rationale. The flip is preserved because UX
+ * consistency on a phone wants the most spacious tier by default — bigger
+ * fonts and more breathing room — but a user who explicitly picks default
+ * on mobile is no longer crossing an accessibility floor.
+ *
  * This hook resolves the tri-state preference into the `data-density`
  * value to apply. It returns the resolved string suitable for the DOM
  * attribute. Server-side persistence is out of scope (J3/J8).

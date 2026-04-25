@@ -115,11 +115,11 @@ Source of truth: `AESTHETICS.md § Typography` recommendations table. Allowlist 
 | 24px | 600 (`--fw-emphasis`) | 1.2 (`--leading-heading-lg`) | Page titles (rare) |
 | 20px | 600 | 1.25 (`--leading-heading`) | Section headings (intermediate; designer-call per AESTHETICS.md) |
 | 18px | 600 | 1.25 (`--leading-heading`) | Section headings |
-| 16px | 400 / 500 | 1.5 (`--leading-body`) | Mobile inputs (iOS Safari zoom mitigation, ≤ 768px viewport) |
-| 15px | 400 | 1.55 (`--leading-body` under `[data-density="comfortable"]`) | Body text (comfortable density) |
+| 16px | 400 / 500 | 1.6 (`--leading-body` under `[data-density="comfortable"]`) | Body text (comfortable density) AND mobile inputs (iOS Safari zoom mitigation, ≤ 768px viewport) |
+| 15px | 400 | 1.55 (`--leading-body` under `[data-density="default"]`) | Body text (default density, K9 re-tier) |
 | 14px | 600 (`--fw-emphasis`) | 1.5 (`--leading-body`) | Mono — section headers (`font-heading` uppercase tracking-wider) |
 | 14px | 500 (`--fw-medium`) | 1.5 | Subheadings, nav labels |
-| 14px | 400 (`--fw-regular`) | 1.5 | Body text (default density) |
+| 14px | 400 (`--fw-regular`) | 1.5 (`--leading-body` under `[data-density="compact"]`) | Body text (compact density, K9 re-tier — was the K7 default) |
 | 13px | 400 / 500 | 1.4 | Mono — data values (Geist Mono) |
 | 12px | 600 | 1.4 | Mono — small section headers |
 | 12px | 500 | 1.4 | Small labels, metadata |
@@ -129,13 +129,24 @@ Source of truth: `AESTHETICS.md § Typography` recommendations table. Allowlist 
 
 | Token | Value | Usage |
 |---|---|---|
-| `--tracking-caps` | 0.02em | Letter-spacing for uppercase labels (Tag, KeyValue label) per AESTHETICS.md row "Letter-spacing for caps" |
-| `--leading-body` | 1.5 (default) / 1.55 (comfortable) | Body line-height per AESTHETICS.md rows "Body line-height (default)" / "(comfortable)" |
+| `--tracking-caps` | 0.02em (compact / default) / 0.015em (comfortable) | Letter-spacing for uppercase labels (Tag, KeyValue label) per AESTHETICS.md row "Letter-spacing for caps". K9 — slightly tighter under comfortable because uppercase labels at 16 px don't need the same wedge to feel airy. |
+| `--leading-body` | 1.5 (compact) / 1.55 (default) / 1.6 (comfortable) | Body line-height per AESTHETICS.md rows "Body line-height" — K9 re-tiered. |
 | `--leading-heading` | 1.25 | Heading line-height for ≤ 20px headings |
 | `--leading-heading-lg` | 1.2 | Heading line-height for 24px+ headings |
 | `--fw-regular` | 400 | Body weight |
 | `--fw-medium` | 500 | Label / heading weight |
 | `--fw-emphasis` | 600 | Bold heading / emphasis weight |
+
+### Heading-scale density tokens (K9)
+
+`--density-text-h1` and `--density-text-h2` scope the H1/H2 type scale per density tier so the toggle reads at the page-heading level, not just at the body level. Components that render a scale-with-density heading consume these via `var(--density-text-h*)`. Components that use a one-off display heading (e.g. a marketing banner or a fixed-size login title) stay literal — flag the exception inline.
+
+| Token | Compact | Default | Comfortable |
+|---|---|---|---|
+| `--density-text-h1` | 1.5rem (24px) | 1.625rem (26px) | 1.75rem (28px) |
+| `--density-text-h2` | 1.125rem (18px) | 1.25rem (20px) | 1.375rem (22px) |
+
+Note: HyperIdle's productivity-page chrome currently uses uppercase mono labels (`text-sm font-heading uppercase tracking-wider`) as page H1s rather than display-scale headings. Those labels are intentional — they are chrome, not type-scale display text — and stay literal. The new tokens are wired for any future display heading and for the design-system viewer.
 
 ---
 
@@ -149,16 +160,19 @@ Source of truth: `AESTHETICS.md § Typography` recommendations table. Allowlist 
 
 Three presets cascaded via `[data-density]` attribute on the app shell root.
 
-The compact / comfortable tiers are derived from the default tier per AESTHETICS.md § Spacing & Density rows "Density tier ratio" — `compact = default × 0.75` rounded down to the nearest 4px multiple; `comfortable = default × 1.25` rounded up. K7 fixed two pre-existing deviations (compact pad-x 6→8px, compact row-h 26→24px).
+The compact / comfortable tiers are derived from the default tier per AESTHETICS.md § Spacing & Density rows "Density tier ratio" — `compact = default × 0.75; comfortable = default × 1.5` (K9 re-tier; was 1.25× under K7), each rounded to the nearest 4 px multiple. `--density-row-h` is exempt from the upper-bound rule: comfortable's 56 px is a designer call (>= AQ-015's 44 px floor, < strict 1.5× cap of 66 → 64). The new `default` (44 px) already meets the AQ-015 touch-target floor, so K8's mobile auto-density flip is now an aesthetic choice rather than an a11y requirement.
 
-| Token | Default | Compact (default × 0.75) | Comfortable (default × 1.25) |
+| Token | Default | Compact (default × 0.75) | Comfortable (default × 1.5) |
 |-------|---------|---------|-------------|
-| `--density-pad-x` | 0.75rem (12px) | 0.5rem (8px) | 1rem (16px) |
-| `--density-pad-y` | 0.5rem (8px) | 0.25rem (4px) | 0.75rem (12px) |
-| `--density-gap` | 0.5rem (8px) | 0.25rem (4px) | 0.75rem (12px) |
-| `--density-row-h` | 2rem (32px) | 1.5rem (24px) | 2.5rem (40px) |
-| `--density-text` | 0.875rem (14px) | 0.75rem (12px) | 0.9375rem (15px) |
-| `--leading-body` | 1.5 | 1.5 (inherits default) | 1.55 |
+| `--density-pad-x` | 1rem (16px) | 0.75rem (12px) | 1.5rem (24px) |
+| `--density-pad-y` | 0.75rem (12px) | 0.5rem (8px) | 1rem (16px) |
+| `--density-gap` | 0.75rem (12px) | 0.5rem (8px) | 1rem (16px) |
+| `--density-row-h` | 2.75rem (44px) | 2rem (32px) | 3.5rem (56px, designer-call) |
+| `--density-text` | 0.9375rem (15px) | 0.875rem (14px) | 1rem (16px) |
+| `--density-text-h1` | 1.625rem (26px) | 1.5rem (24px) | 1.75rem (28px) |
+| `--density-text-h2` | 1.25rem (20px) | 1.125rem (18px) | 1.375rem (22px) |
+| `--leading-body` | 1.55 | 1.5 | 1.6 |
+| `--tracking-caps` | 0.02em | 0.02em | 0.015em |
 
 ### Density preference state
 
