@@ -15,12 +15,22 @@
 	padding: 0;
 }
 
+/*
+ * @lore K13 — Workbench root font-size is 16 px to match the production app.
+ * Production (`packages/web/`) sets no explicit `html` font-size, so it inherits
+ * the browser default of 16 px. The K12 workbench originally shipped at 14 px,
+ * which made every density token compute 12.5 % smaller in the workbench than
+ * in the real app and skewed K13's tier-by-tier critique screenshots. K13
+ * Phase 0 bumped the root to 16 px so screenshots are interpretable against
+ * production. The catalog body copy is still rendered via Tailwind's default
+ * scale (which is rem-based), so a one-time bump is the cheapest fix.
+ */
 html,
 body {
 	background: var(--surface-0);
 	color: var(--text-hi);
 	font-family: var(--ui);
-	font-size: 14px;
+	font-size: 16px;
 	line-height: 1.45;
 	-webkit-font-smoothing: antialiased;
 	height: 100%;
