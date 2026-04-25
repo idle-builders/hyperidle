@@ -417,38 +417,83 @@ See `docs/work-packages/SHARED.md` for tech stack, shared contracts, and depende
 
 ---
 
-### K12 — Density Ladder Re-validation & Tuning
+### K12 — Unified Design System Workbench
 
-**Story.** As the designer-of-record, after the K11 sweep means every surface actually shifts with density, I want a fresh design-critique pass on the running app at all 3 tiers across every page and primitive — focused on aesthetics and usability, not just rule compliance — so that the K9 ladder values can be tuned (or new density variables added) based on how the app *actually feels* now that the toggle reaches everywhere. The K9 values were chosen against research bands (iOS Settings / Notion / Apple Mail); K12 confirms or adjusts them against lived experience.
+**Story.** As a designer or agent reviewing the design system at port 8098, I want every component HyperIdle ships — Tier 1 primitives, Tier 2 blocks, Tier 3 shells, and the web-app composite components in `packages/web/src/components/` — to appear as a discoverable tile on the catalog home AND to be previewable at all three density tiers (`compact` / `default` / `comfortable`) AND in both themes (Lucid Dark / Lucid Light) from one workbench, so that the K11 sweep and the K13 re-validation can eyeball every surface at every tier from a single screen rather than spinning up the full app and navigating to a real page.
 
-**Depends on.** K11.
+**Depends on.** K10 (audit names which components exist + which are density-aware). Independent of K11 — can run in parallel.
+
+**Background.** Today there are two design-system viewers and they disagree:
+- The port-8098 viewer at `packages/design-system/viewer/main.tsx` ships a hardcoded catalog with **14 Tier 1+2 components** (5 + 6 + 3 utility) and an `import.meta.glob` that only reaches into `../src/*.stories.tsx`. It's the only viewer with HTML/TSX render-mode toggle.
+- The in-app `/designsystem` route at `packages/web/src/designsystem/DesignSystem.tsx` discovers from three globs (`design-system/src/`, `web/src/shell/`, `web/src/components/`) and shows all 29 components. No HTML/TSX toggle.
+
+The user found this gap when looking for IconRail and ReviewHeader and seeing a 14-tile catalog. Half the components are invisible from what is *supposed* to be the canonical visual workbench. K11's design-critique pass at all three tiers needs every surface visible on one screen.
 
 **Acceptance criteria.**
 
-- **Tier-by-tier critique.** Run `/design-critique` on every main page (8 pages total) AND every Tier 1+2 primitive at all 3 tiers (84 critique runs total: 28 surfaces × 3 tiers). Capture findings + scores in `packages/design-system/research/density-critique-K12.md`. Score ≥ 8 / 10 on every dimension at every tier.
-- **Cross-tier coherence assessment.** A new section in the critique doc grades the *transition* between tiers: does compact → default feel like a meaningful step? does default → comfortable? Are any surfaces visually identical across two tiers (= broken)? Are any surfaces unrecognizably different across one tier (= over-stepped)?
-- **AI-aesthetic check at comfortable.** Comfortable mode is the failure mode for "this app started feeling like a marketing landing page." Run `/design-lint` on every page at comfortable; the AI-aesthetic catalog (AQ-101..AQ-113) must produce zero new findings vs. default.
-- **Ladder tuning recommendations.** Based on findings, the doc proposes (a) which token values to adjust, (b) which new density variables (if any) to add, (c) which existing tokens to retire if they're carrying no signal. Each recommendation is `(designer-call)` with explicit rationale and at least one before/after screenshot.
-- **AESTHETICS.md updates.** Apply the recommended adjustments to the recommendations table. K9's K9 changelog gains a K12 sub-bullet for any value that was tuned. New tokens (if any) get full rows with citations.
-- **`tokens.css` updated** per the ladder adjustments. `density-tier.test.ts` adjusted if the ratio rule shifts.
-- **Visual-regression rebaseline** if any token values changed. Separate `chore(K12):` commit.
-- **Before/after screenshots** of every page at each tier committed under `packages/design-system/research/before-after-K12/`. Each page has a 3 × 2 grid: rows = `before-K11 / after-K11 / after-K12`, columns = `compact / default / comfortable`.
-- **`bun run check && bun run lint && bun run test`** all green.
-- **Skill + rule audit.** Re-read `.claude/rules/aesthetic-quality.md`, `.claude/skills/design-critique/SKILL.md`, `.claude/skills/design-lint/SKILL.md`, and the K6 ESLint rules. Are they making proper use of density-awareness? Where do they need new rules / new dimensions / new checks? Capture as a follow-up TODO list in `packages/design-system/research/density-skill-audit-K12.md` (a deliverable, not requiring action — feeds a future K13 if needed).
+- **Catalog auto-generates from discovered stories.** Replace the hardcoded `TIER1` / `TIER2` / `UTILITY` arrays in `packages/design-system/viewer/main.tsx` with a derivation from `discoverStories()`. Add a `tier` field to each story's default export: `"1" | "2" | "3" | "utility"` (matches the existing `data-ds-tier` shape from K2). The catalog tiles are sorted by tier then alphabetically.
+- **Discovery globs extended.** `discoverStories()` in `viewer/main.tsx` adds two new globs reaching into the web package: `import.meta.glob("../../web/src/shell/*.stories.tsx", { eager: true })` and `import.meta.glob("../../web/src/components/*.stories.tsx", { eager: true })`. Vite's workspace symlinks make this work at build time. Document the cross-package read with a `// @lore` comment explaining why design-system needs build-time-only access to web's stories (one workbench, not two).
+- **Every story's default export carries `tier`.** All 29 `.stories.tsx` files (14 in `design-system/src/`, 8 in `web/src/shell/`, 7 in `web/src/components/`) gain `tier: "1" | "2" | "3" | "utility"` on their default export. This is additive metadata — existing `title` and `order` are preserved. The mapping comes from K10's audit (Tier 1 / 2 / 3 columns) and `.claude/rules/design-system.md`.
+- **Density-tier toolbar selector.** The toolbar (alongside the existing HTML/TSX mode toggle and Dark/Light theme toggle) gains a third pill with three buttons: `Compact` / `Default` / `Comfortable`. Clicking sets `data-density` on the viewer's `<html>` element AND syncs into the iframe (`<html>`) for HTML mode using the same theme-iframe-sync pattern the existing theme switcher uses. State persists in `localStorage["ds-density"]`.
+- **Tier 3 / utility component rendering.** Tier 3 shells (IconRail, Submenu, Rail, ArtifactView, ReviewHeader, Canvas, Kanban, PitchSelector) and web-app composite components (CurationSuggestionCard, ErrorBoundary, GlobalSearchPanel, KnowledgeTopicGroup, ReasoningBlock, SettingsPanel, ThreadSections) render in TSX mode using their existing `.stories.tsx` exports. **HTML mode is suppressed for components that don't have a `.html` reference file under `packages/design-system/html/`** — the toolbar's HTML/TSX toggle hides itself when no HTML file exists for the active component. This is the cheapest correct behavior; an empty HTML iframe or a 404 isn't useful.
+- **Catalog header copy.** The `<div className="catalog-version">` text auto-counts: `{n} components · 4 tiers · factory-dark` rather than the literal `"14 components · 3 tiers · factory-dark"` it ships today.
+- **Composition graph still renders, but is now data-driven.** The hardcoded `<pre>` block at the bottom of `Catalog()` is replaced by deriving the graph from each component's `meta.uses` array (a new optional field on the story default export). Components opt-in by listing their dependencies. The graph renders alphabetically by tier, then by component name.
+- **Vitest** in `packages/design-system/__tests__/viewer-discovery.test.ts` (new): synthetic glob shape passed to `discoverStories()` returns the expected `(title, tier, variants)` shape; tier-bucketing is correct; missing-tier defaults to `"utility"` with a console warning; non-existent HTML reference correctly suppresses the HTML-mode toggle.
+- **Playwright smoke** in `packages/design-system/tests/workbench.spec.ts` (new): hit `:8098`, assert the catalog renders ≥29 tiles total grouped by tier; click any Tier 3 shell tile, assert it loads in TSX mode and shows the component; toggle density to `comfortable`, assert `getComputedStyle` on a primitive that consumes density tokens reflects the comfortable values.
+- `bun run check && bun run lint && bun run test` all green.
 
 **Validation scenarios.**
 
-- Given `density-critique-K12.md`, when read, then every page at every tier has a recorded score ≥ 8/10 on every dimension.
+- Given a designer opens `:8098`, when the catalog loads, then they see ≥29 tiles grouped under Tier 1 / Tier 2 / Tier 3 / Utility headings.
+- Given the designer clicks `IconRail`, when the page loads, then it renders in TSX mode (no HTML file exists for IconRail), the HTML/TSX toggle is hidden, and the component renders.
+- Given the designer toggles density to `comfortable`, when a primitive that consumes density tokens (NavItem, ThreadRow, KeyValue) is rendered, then `getComputedStyle` reflects the comfortable values from `tokens.css` (44+ px row-h, 16 px body, etc.).
+- Given a developer adds a new component + story without a `tier` field, when the viewer loads, then the component appears in the `Utility` bucket with a console warning naming the file (so the omission is visible without breaking the build).
+- Given a developer adds a new component with `meta.uses: ["StatusChip", "Tag"]`, when the catalog renders, then the composition graph shows `<NewComponent> → StatusChip, Tag`.
+
+**Contracts / constraints.**
+
+- **Cross-package import is build-time only.** The viewer's two new globs cross from `packages/design-system` into `packages/web` via Vite's workspace symlinks. This is acceptable for the viewer (a developer-only build target) but must NOT leak into design-system's runtime exports. The `package.json` of `packages/design-system` does not gain a runtime dependency on `@hyperidle/web`.
+- **Stories MUST be self-rendering.** Tier 3 shells and web composites that depend on context (router, store, query client) provide a story-local mock or wrapper inside the `.stories.tsx`, not in the viewer. The viewer renders stories naively.
+- **Density toggle does not persist into the rendered component's localStorage** (which the in-app `useTheme` / density preference uses). The viewer's `data-density` is set directly on the document, mirroring the existing theme-switcher pattern.
+- **HTML mode availability is feature-detected**, not configured. The viewer asks "does `/<title>.html` exist?" via a HEAD request before showing the HTML toggle, falling back gracefully if the request fails.
+- **Catalog tile copy.** The `meta` and `uses` strings on tiles use the Lucid uppercase mono chrome convention for headings; component names stay sentence-cased.
+
+**Effort.** S (~1-1.5 days)
+
+---
+
+### K13 — Density Ladder Re-validation & Tuning
+
+**Story.** As the designer-of-record, after K11 means every surface actually shifts with density AND K12 means every surface is visible on one workbench, I want a fresh design-critique pass on the running app at all 3 tiers across every page and primitive — focused on aesthetics and usability, not just rule compliance — so that the K9 ladder values can be tuned (or new density variables added) based on how the app *actually feels* now that the toggle reaches everywhere. The K9 values were chosen against research bands (iOS Settings / Notion / Apple Mail); K13 confirms or adjusts them against lived experience.
+
+**Depends on.** K11, K12.
+
+**Acceptance criteria.**
+
+- **Tier-by-tier critique.** Run `/design-critique` on every main page (8 pages total) AND every Tier 1+2 primitive at all 3 tiers (84 critique runs total: 28 surfaces × 3 tiers). Capture findings + scores in `packages/design-system/research/density-critique-K13.md`. Score ≥ 8 / 10 on every dimension at every tier.
+- **Cross-tier coherence assessment.** A new section in the critique doc grades the *transition* between tiers: does compact → default feel like a meaningful step? does default → comfortable? Are any surfaces visually identical across two tiers (= broken)? Are any surfaces unrecognizably different across one tier (= over-stepped)?
+- **AI-aesthetic check at comfortable.** Comfortable mode is the failure mode for "this app started feeling like a marketing landing page." Run `/design-lint` on every page at comfortable; the AI-aesthetic catalog (AQ-101..AQ-113) must produce zero new findings vs. default.
+- **Ladder tuning recommendations.** Based on findings, the doc proposes (a) which token values to adjust, (b) which new density variables (if any) to add, (c) which existing tokens to retire if they're carrying no signal. Each recommendation is `(designer-call)` with explicit rationale and at least one before/after screenshot (captured via the K12 workbench at all 3 tiers).
+- **AESTHETICS.md updates.** Apply the recommended adjustments to the recommendations table. K9's K9 changelog gains a K13 sub-bullet for any value that was tuned. New tokens (if any) get full rows with citations.
+- **`tokens.css` updated** per the ladder adjustments. `density-tier.test.ts` adjusted if the ratio rule shifts.
+- **Visual-regression rebaseline** if any token values changed. Separate `chore(K13):` commit.
+- **Before/after screenshots** of every page at each tier committed under `packages/design-system/research/before-after-K13/`. Each page has a 3 × 2 grid: rows = `before-K11 / after-K11 / after-K13`, columns = `compact / default / comfortable`. Captured via the K12 workbench.
+- **`bun run check && bun run lint && bun run test`** all green.
+- **Skill + rule audit.** Re-read `.claude/rules/aesthetic-quality.md`, `.claude/skills/design-critique/SKILL.md`, `.claude/skills/design-lint/SKILL.md`, and the K6 ESLint rules. Are they making proper use of density-awareness? Where do they need new rules / new dimensions / new checks? Capture as a follow-up TODO list in `packages/design-system/research/density-skill-audit-K13.md` (a deliverable, not requiring action — feeds a future K14 if needed).
+
+**Validation scenarios.**
+
+- Given `density-critique-K13.md`, when read, then every page at every tier has a recorded score ≥ 8/10 on every dimension.
 - Given the cross-tier coherence section, when read, then the doc explicitly states for each surface whether compact / default / comfortable feel like distinct, intentional choices.
 - Given the comfortable-mode AI-aesthetic check, when run, then zero new findings vs. default.
-- Given the before/after screenshots, when compared by a human reviewer, then the K12 tuning is visible (or the doc explicitly says "no tuning needed; K11 ladder confirmed").
-- Given the skill+rule audit, when read by a future K13 author, then they have a concrete TODO list of skill/rule updates.
+- Given the before/after screenshots, when compared by a human reviewer, then the K13 tuning is visible (or the doc explicitly says "no tuning needed; K11 ladder confirmed").
+- Given the skill+rule audit, when read by a future K14 author, then they have a concrete TODO list of skill/rule updates.
 
 **Contracts / constraints.**
 
 - **Designer-call discipline.** Tuning recommendations are explicitly `(designer-call)` — they're judgment, not 3-source convergence. The K1 resolution category applies.
 - **Don't tune for the sake of tuning.** "No change; K11 ladder confirmed" is a valid outcome and should be the default unless a critique finding clearly warrants adjustment.
-- **Skill/rule audit produces a TODO list, not implementation.** That's the next story (K13 if you green-light it). K12 stays focused on the ladder + the critique.
+- **Skill/rule audit produces a TODO list, not implementation.** That's the next story (K14 if you green-light it). K13 stays focused on the ladder + the critique.
 
 **Effort.** M (~2-3 days)
 
@@ -459,13 +504,15 @@ See `docs/work-packages/SHARED.md` for tech stack, shared contracts, and depende
 ```
 K1 ─────┬─► K5 ─► K6 ─┐
         │              │
-K2 ─────┼─────────► K4 │
-        │              ├─► K7 ─► K8 ─► K9 ─► K10 ─► K11 ─► K12
-K3 ─────┘              │
+K2 ─────┼─────────► K4 │                          ┌─► K11 ─┐
+        │              ├─► K7 ─► K8 ─► K9 ─► K10 ─┤        ├─► K13
+K3 ─────┘              │                          └─► K12 ─┘
                        │
         K1 ────────────┘
 ```
 
-Critical path: **K1 → K5 → K6 → K7 → K8 → K9 → K10 → K11 → K12**. K2, K3, K4 land in parallel where dependencies allow.
+Critical path: **K1 → K5 → K6 → K7 → K8 → K9 → K10 → K11 → K13**. K2, K3, K4 land in parallel where dependencies allow.
 
-K10 → K11 → K12 is the "make density real" arc: research first (no code), then sweep + enforce (the bulk of the work), then re-validate the ladder against lived experience (tune + audit). K10's audit matrix is the explicit gate before K11 touches any component code.
+**K11 (Density Sweep + Lint) and K12 (Unified Workbench) run in parallel after K10.** They touch disjoint surface areas: K11 modifies component `.tsx` files (production code) and adds new ESLint rules; K12 extends the design-system viewer (`packages/design-system/viewer/main.tsx`) and adds a `tier` field to story default exports. The only shared touch point is `.stories.tsx` files, where K12 adds metadata that K11 does not depend on.
+
+K10 → K11/K12 → K13 is the "make density real" arc: research first (no code), then sweep + enforce + workbench in parallel (the bulk of the work), then re-validate the ladder against lived experience using the new workbench (tune + audit). K10's audit matrix is the explicit gate before K11 touches any component code; K12's workbench is the canonical visual surface K13 needs.
