@@ -1,3 +1,4 @@
+import { dsShellProps } from "@hyperidle/design-system";
 import type { JSX } from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
@@ -178,6 +179,7 @@ export function ReviewHeader({
 
 	return (
 		<header
+			{...dsShellProps("ReviewHeader")}
 			ref={headerRef}
 			className="flex items-center gap-3 py-2 px-3 border-b border-[var(--border-subtle)]"
 		>

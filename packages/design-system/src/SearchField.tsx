@@ -1,4 +1,5 @@
 import { forwardRef, type JSX } from "react";
+import { dsProps } from "./ds-attrs";
 
 export interface SearchFieldProps {
 	placeholder?: string;
@@ -13,7 +14,7 @@ export const SearchField = forwardRef<HTMLInputElement, SearchFieldProps>(functi
 	ref,
 ): JSX.Element {
 	return (
-		<div className="relative flex w-full items-center">
+		<div {...dsProps("SearchField", "1")} className="relative flex w-full items-center">
 			<span className="pointer-events-none absolute left-[8px] flex items-center text-[var(--text-lo)]">
 				{loading ? (
 					<span className="inline-block h-[14px] w-[14px] rounded-full border-2 border-[var(--surface-5)] border-t-[var(--primary)] animate-spin" />

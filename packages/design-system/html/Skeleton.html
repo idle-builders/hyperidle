@@ -78,10 +78,13 @@
           aria-label={ariaLabel}
           className="skeleton-list"
           data-component="Skeleton"
-          data-tier="1"
+          data-tier="2"
           data-uses=""
           data-daisyui="skeleton"
           data-used-by="WorkBet,WorkPortfolio,KnowledgeList"
+          data-ds-component="SkeletonList"
+          data-ds-tier="2"
+          data-ds-source="design-system"
         >
           {Array.from({ length: rows }).map((_, i) => (
             <div key={i} className="skeleton skeleton-row" />
@@ -97,10 +100,13 @@
           aria-label={ariaLabel}
           className="skeleton-card"
           data-component="Skeleton"
-          data-tier="1"
+          data-tier="2"
           data-uses=""
           data-daisyui="skeleton"
           data-used-by="WorkBet,WorkPortfolio,KnowledgeList"
+          data-ds-component="SkeletonCard"
+          data-ds-tier="2"
+          data-ds-source="design-system"
         >
           <div className="skeleton skeleton-card__line-short" />
           <div className="skeleton skeleton-card__line-full" />

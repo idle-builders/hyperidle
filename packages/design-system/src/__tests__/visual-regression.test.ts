@@ -63,6 +63,28 @@ const COMPONENTS = [
 ];
 
 /**
+ * Canonical `data-ds-component` names for each component file. A file may render
+ * multiple components (e.g. Skeleton.html → SkeletonList + SkeletonCard), so the
+ * value is a list. Each name MUST resolve to ≥ 1 marker on the page.
+ */
+const EXPECTED_MARKERS: Record<string, string[]> = {
+	StatusChip: ["StatusChip"],
+	Tag: ["Tag"],
+	KeyValue: ["KeyValue"],
+	NavItem: ["NavItem"],
+	SearchField: ["SearchField"],
+	ThreadRow: ["ThreadRow"],
+	BetCard: ["BetCard"],
+	PitchCard: ["PitchCard"],
+	TaskCard: ["TaskCard"],
+	KnowledgeRow: ["KnowledgeRow"],
+	NotificationRow: ["NotificationRow"],
+	EmptyState: ["EmptyState"],
+	ErrorState: ["ErrorState"],
+	Skeleton: ["SkeletonList", "SkeletonCard"],
+};
+
+/**
  * Components with interactive states (hover, focus-visible) that need
  * pixel-diff testing. The selector targets the interactive element in the
  * demo section. For card components, the HTML always has tabIndex={0} but
@@ -412,5 +434,54 @@ test.describe("Design System Visual Regression", () => {
 				).toBeLessThan(DIFF_THRESHOLD_PERCENT);
 			});
 		}
+	}
+
+	/* ── K2 — DOM marker presence ──
+	 * Every expected `data-ds-component` name from EXPECTED_MARKERS must resolve
+	 * to ≥ 1 element on both the HTML page and the TSX viewer. The failure
+	 * message names the specific marker that is missing.
+	 */
+	for (const component of COMPONENTS) {
+		const expectedNames = EXPECTED_MARKERS[component];
+		if (!expectedNames) {
+			throw new Error(`EXPECTED_MARKERS missing entry for component "${component}"`);
+		}
+
+		test(`${component} — exposes data-ds-component on HTML and TSX`, async () => {
+			// HTML page
+			const htmlPage = await browser.newPage({ viewport: VIEWPORT });
+			await htmlPage.goto(`${BASE}/${component}.html`, { waitUntil: "networkidle" });
+			await htmlPage.waitForFunction(
+				() => {
+					const root = document.getElementById("root");
+					return root && root.children.length > 0;
+				},
+				null,
+				{ timeout: 15_000 },
+			);
+			for (const name of expectedNames) {
+				const count = await htmlPage.locator(`[data-ds-component="${name}"]`).count();
+				expect(
+					count,
+					`${component}.html: expected marker [data-ds-component="${name}"] not found on rendered demo`,
+				).toBeGreaterThan(0);
+			}
+			await htmlPage.close();
+
+			// TSX viewer
+			const tsxPage = await browser.newPage({ viewport: VIEWPORT });
+			await tsxPage.goto(`${BASE}/#${component}`, { waitUntil: "networkidle" });
+			await tsxPage.waitForTimeout(500);
+			await tsxPage.click('button:has-text("TSX")');
+			await tsxPage.waitForTimeout(500);
+			for (const name of expectedNames) {
+				const count = await tsxPage.locator(`[data-ds-component="${name}"]`).count();
+				expect(
+					count,
+					`${component} TSX: expected marker [data-ds-component="${name}"] not found on rendered demo`,
+				).toBeGreaterThan(0);
+			}
+			await tsxPage.close();
+		});
 	}
 });

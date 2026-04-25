@@ -1,4 +1,5 @@
 import type { JSX } from "react";
+import { dsProps } from "./ds-attrs";
 
 export interface KeyValueProps {
 	label: string;
@@ -11,6 +12,7 @@ export function KeyValue({ label, value, layout = "inline" }: KeyValueProps): JS
 
 	return (
 		<div
+			{...dsProps("KeyValue", "1")}
 			className={`flex ${direction} gap-[4px] ${layout === "inline" ? "items-center justify-between" : ""}`}
 		>
 			<span className="uppercase font-heading text-[11px] tracking-[0.05em] font-medium text-[var(--text-lo)]">

@@ -1,4 +1,5 @@
 import type { JSX } from "react";
+import { dsProps } from "./ds-attrs";
 
 export type Status = "healthy" | "behind" | "blocked" | "paused" | "done" | "error";
 
@@ -81,7 +82,12 @@ export function StatusChip({ status }: StatusChipProps): JSX.Element {
 	const style = STATUS_STYLES[safeStatus];
 
 	return (
-		<span className={`${CHIP_BASE} ${style.chip}`} title={safeStatus} data-status={safeStatus}>
+		<span
+			{...dsProps("StatusChip", "1")}
+			className={`${CHIP_BASE} ${style.chip}`}
+			title={safeStatus}
+			data-status={safeStatus}
+		>
 			<span className={`h-[6px] w-[6px] rounded-full shrink-0 ${style.dot}`} />
 			{safeStatus.toUpperCase()}
 		</span>

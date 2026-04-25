@@ -15,7 +15,7 @@ import {
 	useSensor,
 	useSensors,
 } from "@dnd-kit/core";
-import { BetCard, EmptyState } from "@hyperidle/design-system";
+import { BetCard, dsShellProps, EmptyState } from "@hyperidle/design-system";
 import type { BetStatus } from "@hyperidle/shared";
 import { type JSX, useMemo, useState } from "react";
 
@@ -128,19 +128,24 @@ export function Canvas({ bets, capacity, onMoveBet }: CanvasProps): JSX.Element 
 		}
 	}
 
+	const shellAttrs = dsShellProps("Canvas");
+
 	if (bets.length === 0) {
+		// @lore K2: wrapper div carries the Canvas shell marker even when empty.
 		return (
-			<EmptyState
-				title="No bets yet"
-				description="Shaped bets will appear here once they are created. Drag between columns to commit."
-				dataTestId="canvas-empty"
-			/>
+			<div {...shellAttrs}>
+				<EmptyState
+					title="No bets yet"
+					description="Shaped bets will appear here once they are created. Drag between columns to commit."
+					dataTestId="canvas-empty"
+				/>
+			</div>
 		);
 	}
 
 	return (
 		<DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
-			<div className="flex gap-4">
+			<div {...shellAttrs} className="flex gap-4">
 				{COLUMNS.map((col) => {
 					const columnBets = col.key === "shaped" ? shaped : committed;
 					const capacityBadge =

@@ -9,6 +9,7 @@
  * (no oversized padding, no decorative icons).
  */
 import type { JSX, ReactNode } from "react";
+import { dsProps } from "./ds-attrs";
 
 export interface EmptyStateProps {
 	title: string;
@@ -27,6 +28,7 @@ export function EmptyState({
 }: EmptyStateProps): JSX.Element {
 	return (
 		<div
+			{...dsProps("EmptyState", "2")}
 			role="status"
 			data-testid={dataTestId ?? "empty-state"}
 			className="flex flex-col items-start gap-[4px] px-[8px] py-[24px] text-left"
