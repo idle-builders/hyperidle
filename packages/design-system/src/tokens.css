@@ -27,10 +27,33 @@
 		--motion-fast: 80ms;
 		--motion-medium: 150ms;
 		--motion-slow: 250ms;
+		/*
+		 * @lore K7 / AESTHETICS.md § Motion row "Easing curve" (designer-call):
+		 * Material standard easing curve as the cluster anchor across
+		 * Material / Carbon / Atlassian. Bare CSS `ease` is a tell of an
+		 * unrefined motion system; this token replaces it everywhere.
+		 */
+		--motion-ease: cubic-bezier(0.2, 0, 0, 1);
 
 		/* Typography — Geist family */
 		--ui: "Geist", "Inter", system-ui, sans-serif;
 		--mono: "Geist Mono", ui-monospace, monospace;
+
+		/*
+		 * @lore K7 / AESTHETICS.md § Typography:
+		 * - Body line-height row "Body line-height (default)": 1.5 (designer-call).
+		 * - Heading line-height row "Heading line-height": 1.2-1.25 band; 1.25
+		 *   for ≤20px headings, 1.2 for 24px+.
+		 * - Letter-spacing for caps row: +0.02em on uppercase labels (designer-call).
+		 * - Font-weight scale row: 400 / 500 / 600 codified.
+		 */
+		--leading-body: 1.5;
+		--leading-heading: 1.25;
+		--leading-heading-lg: 1.2;
+		--tracking-caps: 0.02em;
+		--fw-regular: 400;
+		--fw-medium: 500;
+		--fw-emphasis: 600;
 	}
 
 	/* ── Lucid Dark (default) ── */
@@ -129,7 +152,20 @@
 		}
 	}
 
-	/* ── Density presets ── */
+	/*
+	 * ── Density presets ──
+	 * @lore K7 / AESTHETICS.md § Spacing & Density:
+	 * - Default tier: rows "Density-pad-y/x", "Density-gap", "Density-row-h"
+	 *   are all "no change" — the productivity-tool consensus sits here.
+	 * - Compact tier: row "Density tier ratio (compact)" — values are
+	 *   default × 0.75 rounded down to the nearest 4px multiple. K7 fixes
+	 *   pad-x (was 6px → 8px) and row-h (was 26px → 24px).
+	 * - Comfortable tier: row "Density tier ratio (comfortable)" — values
+	 *   are default × 1.25 rounded up to the nearest 4px multiple. Current
+	 *   values already match the rule; no edits.
+	 * - The body line-height bumps under comfortable per AESTHETICS.md
+	 *   row "Body line-height (comfortable)": 1.55.
+	 */
 	:root,
 	[data-density="default"] {
 		--density-pad-x: 0.75rem;
@@ -140,10 +176,10 @@
 	}
 
 	[data-density="compact"] {
-		--density-pad-x: 0.375rem;
+		--density-pad-x: 0.5rem;
 		--density-pad-y: 0.25rem;
 		--density-gap: 0.25rem;
-		--density-row-h: 1.625rem;
+		--density-row-h: 1.5rem;
 		--density-text: 0.75rem;
 	}
 
@@ -153,6 +189,7 @@
 		--density-gap: 0.75rem;
 		--density-row-h: 2.5rem;
 		--density-text: 0.9375rem;
+		--leading-body: 1.55;
 	}
 }
 
@@ -164,6 +201,27 @@
 	}
 	50% {
 		opacity: 0.4;
+	}
+}
+
+/*
+ * ── Reduced-motion ──
+ * @lore K7 / AESTHETICS.md § Motion row "Reduced-motion media block":
+ * MDN, WCAG SC 2.3.3 and Material 3 mandate respect for prefers-reduced-motion.
+ * Every motion duration collapses to 1ms (effectively instant) and the
+ * skeleton pulse animation pauses on the first opaque frame. Components
+ * that consume `--motion-fast/medium/slow` inherit this automatically.
+ */
+@media (prefers-reduced-motion: reduce) {
+	:root,
+	[data-theme] {
+		--motion-fast: 1ms;
+		--motion-medium: 1ms;
+		--motion-slow: 1ms;
+	}
+	[class*="animate-[skeleton-pulse"],
+	.skeleton {
+		animation: none !important;
 	}
 }
 
