@@ -41,7 +41,10 @@ export function NavItem({
 				)}
 				<span className="flex-1">{label}</span>
 				{count != null && (
-					<span className="inline-flex items-center justify-center min-w-[18px] h-[18px] px-[5px] rounded-[var(--r-pill)] bg-[var(--surface-ghost)] font-[var(--mono)] text-[10px] font-medium text-[var(--text-mid)]">
+					/* @lore K7 / AESTHETICS.md § Spacing & Density "Grid base unit" + § Typography
+					   "Body size (default)": px-[5px] → px-[4px] (off-grid), text-[10px] → text-[11px]
+					   (off-scale). 18px width retained — chip-internal sub-grid per same row. */
+					<span className="inline-flex items-center justify-center min-w-[18px] h-[18px] px-[4px] rounded-[var(--r-pill)] bg-[var(--surface-ghost)] font-[var(--mono)] text-[11px] font-medium text-[var(--text-mid)]">
 						{count}
 					</span>
 				)}
