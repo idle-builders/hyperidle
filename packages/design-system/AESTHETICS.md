@@ -87,6 +87,16 @@ Components K11 explicitly leaves literal (the lint rule allowlist enforces these
 
 The full per-component matrix appears in **Appendix D — Density-Aware Component Matrix** at the end of this file (the K10 audit at `packages/design-system/research/density-audit.md` is the canonical source of truth; Appendix D is the AESTHETICS.md entry point so downstream agents do not need to leave this document).
 
+#### K13 sub-changelog (Density Ladder Re-validation & Tuning)
+
+K13 re-runs the design-critique pass over every primitive and main page at all 3 density tiers (66 captures: 22 surfaces × 3 tiers — 14 Tier 1+2 primitives + 8 main pages) using the K12 unified workbench as the visual surface, after K13 Phase 0 bumped the workbench root font 14 → 16 px to match production. Capture script: `packages/design-system/scripts/k13-capture.ts`. Critique results: `packages/design-system/research/density-critique-K13.md`.
+
+**Outcome: no change; K9/K11 ladder confirmed.** All 66 cells score ≥ 8/10 on every dimension. Cross-tier coherence: 38/44 transitions grade Yes (felt + intentional), 4/44 are intentional density-static (StatusChip, Tag — both transitions × both surfaces), 4/44 are Partial-by-static-mate (EmptyState / ErrorState comfortable; PitchCard comfortable; conversations chat composer at both transitions), 0/44 are over-stepped or broken. Comfortable mode introduces zero new AI-aesthetic findings vs. default — the K11 sweep + K10 density-static buckets together prevent the comfortable tier from drifting into landing-page territory.
+
+K13 added no new tokens, retired no existing tokens, and adjusted no per-tier values. `tokens.css`, `html/_tokens.css`, `density-tier.test.ts`, and the K6/K11 ESLint rules are unchanged. Visual-regression baselines do not need rebaseline.
+
+Adjacent recommendations (out of K13 token-tune scope; logged for K14): a `Composer` Tier 2 primitive that would replace the literal-min-height composer in `packages/web/src/pages/ConversationsChat.tsx`; a Submenu width fix so NavItem labels do not wrap at comfortable; a future tier-coherence rule (proposed AQ-018) that catches density-aware components placed adjacent to density-static neighbors. The skill+rule audit at `packages/design-system/research/density-skill-audit-K13.md` lists the full TODO set.
+
 ### Findings
 
 The 4px grid is universal across reference systems. Material 3, IBM Carbon, Atlassian, Shopify Polaris and Tailwind all build their spacing scales as multiples of 4px (Carbon and Atlassian permit a single 2px sub-step for fine adjustments inside small interactive elements). Productivity-tool defaults cluster at 8-12px vertical padding, 12-16px horizontal padding, and 32-40px row heights for dense list views. HyperIdle's current default density (8 / 12 / 8 / 32 / 14) sits at the lower end of the productivity cluster. See `research/spacing-density.md` for the per-source numbers.
