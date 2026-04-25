@@ -78,13 +78,21 @@
 	--primary: #4f46e5;
 	--primary-dim: rgba(79, 70, 229, 0.08);
 	--primary-hover: rgba(79, 70, 229, 0.12);
-	--warn: #78787e;
-	--ok: #8e8e94;
-	--danger: #dc2626;
+	/* @lore K8 — `--warn` and `--ok` darkened to clear WCAG 2.1 AA on the
+	 * worst observed tint-over-surface (~#cbcbc9). Keep in lockstep with
+	 * src/tokens.css. Original K7 values (#78787e / #8e8e94) failed on
+	 * darker card surfaces. */
+	--warn: #444448;
+	--ok: #4d4d52;
+	/* @lore K8 — `--danger` darkened so StatusChip "blocked" / "error"
+	 * clear 4.5:1 on the 14% danger tint. */
+	--danger: #a91515;
 
 	--text-hi: #1a1a1e;
-	--text-mid: #6b6b70;
-	--text-lo: #737378;
+	/* @lore K8 — `--text-mid`/`--text-lo` darkened so labels and chips on
+	 * deeper surfaces clear 4.5:1 across the entire light surface ladder. */
+	--text-mid: #3a3a3e;
+	--text-lo: #555559;
 
 	--float: 0 4px 16px rgba(0, 0, 0, 0.1);
 
@@ -110,13 +118,14 @@
 		--primary: #4f46e5;
 		--primary-dim: rgba(79, 70, 229, 0.08);
 		--primary-hover: rgba(79, 70, 229, 0.12);
-		--warn: #78787e;
-		--ok: #8e8e94;
-		--danger: #dc2626;
+		/* @lore K8 — see lucid-light token block above for rationale. */
+		--warn: #444448;
+		--ok: #4d4d52;
+		--danger: #a91515;
 
 		--text-hi: #1a1a1e;
-		--text-mid: #6b6b70;
-		--text-lo: #737378;
+		--text-mid: #3a3a3e;
+		--text-lo: #555559;
 
 		--float: 0 4px 16px rgba(0, 0, 0, 0.1);
 

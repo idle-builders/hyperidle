@@ -17,13 +17,23 @@
 	--primary: #4f46e5;
 	--primary-dim: rgba(79, 70, 229, 0.08);
 	--primary-hover: rgba(79, 70, 229, 0.12);
-	--warn: #78787e;
-	--ok: #8e8e94;
-	--danger: #dc2626;
+	/* @lore K8 — `--warn` and `--ok` darkened to clear WCAG 2.1 AA on the
+	 * worst observed tint-over-surface (~#cbcbc9). Mirrors src/tokens.css;
+	 * keep in lockstep. Original K7 values (#78787e / #8e8e94) failed the
+	 * 4.5:1 floor when chips landed on darker card surfaces. */
+	--warn: #444448;
+	--ok: #4d4d52;
+	/* @lore K8 — `--danger` darkened to #a91515 (between Tailwind red-700
+	 * and red-800) so the StatusChip "blocked"/"error" variants clear the
+	 * 4.5:1 floor on the 14% danger tint. */
+	--danger: #a91515;
 
 	--text-hi: #1a1a1e;
-	--text-mid: #6b6b70;
-	--text-lo: #737378;
+	/* @lore K8 — `--text-mid`/`--text-lo` darkened so labels and chips on
+	 * deeper surfaces (`--surface-2` … `--surface-5`) clear WCAG 2.1 AA.
+	 * Mirrors src/tokens.css; keep in lockstep. */
+	--text-mid: #3a3a3e;
+	--text-lo: #555559;
 
 	--float: 0 4px 16px rgba(0, 0, 0, 0.1);
 
