@@ -61,9 +61,7 @@ export const noOffScaleRadius: Rule.RuleModule = createRule({
 		};
 		function checkClassString(text: string, node: unknown): void {
 			const reportNode = node as Rule.Node;
-			let match: RegExpExecArray | null;
-			ARBITRARY_RADIUS.lastIndex = 0;
-			while ((match = ARBITRARY_RADIUS.exec(text)) !== null) {
+			for (const match of text.matchAll(ARBITRARY_RADIUS)) {
 				const n = Number(match[1]);
 				if (n >= 999) continue;
 				if (!RADIUS_ALLOWLIST.has(n)) {
@@ -74,8 +72,7 @@ export const noOffScaleRadius: Rule.RuleModule = createRule({
 					});
 				}
 			}
-			NAMED_RADIUS.lastIndex = 0;
-			while ((match = NAMED_RADIUS.exec(text)) !== null) {
+			for (const match of text.matchAll(NAMED_RADIUS)) {
 				const suffix = match[1] ?? "";
 				// strip leading '-' for allowlist lookup
 				const key = suffix.startsWith("-") ? suffix.slice(1) : suffix;

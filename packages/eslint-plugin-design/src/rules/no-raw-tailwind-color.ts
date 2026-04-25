@@ -39,9 +39,7 @@ export const noRawTailwindColor: Rule.RuleModule = createRule({
 					node as unknown as { value?: { type?: string; value?: unknown } | null },
 				);
 				if (literal === null) return;
-				let match: RegExpExecArray | null;
-				RAW_PALETTE_REGEX.lastIndex = 0;
-				while ((match = RAW_PALETTE_REGEX.exec(literal)) !== null) {
+				for (const match of literal.matchAll(RAW_PALETTE_REGEX)) {
 					context.report({
 						node,
 						messageId: "rawColor",
