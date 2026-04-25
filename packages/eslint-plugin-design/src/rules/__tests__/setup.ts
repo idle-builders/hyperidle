@@ -2,8 +2,9 @@
  * Shared RuleTester wiring. Uses @typescript-eslint/parser which is already
  * a workspace dev-dep (see root package.json).
  */
-import { RuleTester } from "eslint";
+
 import tsParser from "@typescript-eslint/parser";
+import { RuleTester } from "eslint";
 
 export const ruleTester = new RuleTester({
 	languageOptions: {

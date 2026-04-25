@@ -29,8 +29,7 @@ export const requireFocusOnInteractive: Rule.RuleModule = createRule({
 	create(context) {
 		return {
 			JSXOpeningElement(node) {
-				const tagName =
-					node.name.type === "JSXIdentifier" ? node.name.name : null;
+				const tagName = node.name.type === "JSXIdentifier" ? node.name.name : null;
 				if (tagName !== "div" && tagName !== "span") return;
 				let hasOnClick = false;
 				let hasTabIndex = false;
@@ -38,8 +37,7 @@ export const requireFocusOnInteractive: Rule.RuleModule = createRule({
 				let hasFocusVisible = false;
 				for (const attr of node.attributes) {
 					if (attr.type !== "JSXAttribute") continue;
-					const aname =
-						attr.name.type === "JSXIdentifier" ? attr.name.name : null;
+					const aname = attr.name.type === "JSXIdentifier" ? attr.name.name : null;
 					if (aname === "onClick") hasOnClick = true;
 					if (aname === "tabIndex") hasTabIndex = true;
 					if (aname === "role") hasRole = true;

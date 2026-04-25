@@ -8,7 +8,7 @@
  */
 
 import type { Rule } from "eslint";
-import { RAW_TAILWIND_PALETTE, createRule, getClassNameLiteral } from "../util.js";
+import { createRule, getClassNameLiteral, RAW_TAILWIND_PALETTE } from "../util.js";
 
 const PALETTE_GROUP = RAW_TAILWIND_PALETTE.join("|");
 const RAW_PALETTE_REGEX = new RegExp(

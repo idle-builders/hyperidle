@@ -20,10 +20,7 @@ import type {
 } from "estree-jsx";
 import { createRule } from "../util.js";
 
-type Component =
-	| FunctionDeclaration
-	| FunctionExpression
-	| ArrowFunctionExpression;
+type Component = FunctionDeclaration | FunctionExpression | ArrowFunctionExpression;
 
 function findOutermostJSX(node: Component): JSXElement | JSXFragment | null {
 	if (node.type === "ArrowFunctionExpression" && node.body.type !== "BlockStatement") {
@@ -92,8 +89,10 @@ export const requireDsAttribute: Rule.RuleModule = createRule({
 		// Only fire inside packages/design-system/src/*.tsx — the rule is a
 		// marker contract for design-system primitives.
 		if (
-			!/packages\/design-system\/src\/[^/]+\.tsx$/.test(filename) &&
-			!filename.endsWith("__ds_component_test__.tsx")
+			!(
+				/packages\/design-system\/src\/[^/]+\.tsx$/.test(filename) ||
+				filename.endsWith("__ds_component_test__.tsx")
+			)
 		) {
 			return {};
 		}
@@ -111,16 +110,15 @@ export const requireDsAttribute: Rule.RuleModule = createRule({
 					// `export default Foo` — try to find the binding declaration.
 					const sourceCode = context.sourceCode ?? context.getSourceCode();
 					const scope = sourceCode.getScope(node);
-					const variable = scope.references
-						.find((r) => r.identifier.name === (decl as { name: string }).name)
-						?.resolved;
+					const variable = scope.references.find(
+						(r) => r.identifier.name === (decl as { name: string }).name,
+					)?.resolved;
 					const def = variable?.defs[0];
 					if (def && def.node.type === "VariableDeclarator") {
 						const init = def.node.init as Node | null | undefined;
 						if (
 							init &&
-							(init.type === "ArrowFunctionExpression" ||
-								init.type === "FunctionExpression")
+							(init.type === "ArrowFunctionExpression" || init.type === "FunctionExpression")
 						) {
 							component = init as Component;
 						}

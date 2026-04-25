@@ -1,5 +1,5 @@
-import { describe, it } from "vitest";
 import { RuleTester } from "eslint";
+import { describe, it } from "vitest";
 import { noRawTailwindColor } from "../no-raw-tailwind-color.js";
 import { ruleTester } from "./setup.js";
 
