@@ -11,17 +11,25 @@ describe("KnowledgeRow — J7 factory mode", () => {
 		timestamp: "1w ago",
 	};
 
-	it("uses the compact padding (py-[8px]) when factoryMode is false/omitted", () => {
-		const { container } = render(<KnowledgeRow {...defaultProps} />);
-		const row = container.firstElementChild as HTMLElement;
-		expect(row.className).toContain("py-[8px]");
-		expect(row.className).not.toContain("py-[16px]");
-	});
+	/*
+	 * @lore K11: padding moved from a factoryMode-conditional literal
+	 * (py-[8px] / py-[16px]) to var(--density-pad-y) per density-audit.md
+	 * § 3.2.2. The K9 ladder now drives row padding; factoryMode no longer
+	 * controls it (otherwise factoryMode + comfortable would compound).
+	 */
+	it("consumes --density-pad-y for vertical padding regardless of factoryMode", () => {
+		const { container: plain } = render(<KnowledgeRow {...defaultProps} />);
+		const plainRow = plain.firstElementChild as HTMLElement;
+		expect(plainRow.className).toContain("py-[var(--density-pad-y)]");
+		expect(plainRow.className).not.toContain("py-[16px]");
+		expect(plainRow.className).not.toContain("py-[8px]");
 
-	it("uses taller padding (py-[16px]) when factoryMode is true", () => {
-		const { container } = render(<KnowledgeRow {...defaultProps} factoryMode version="v2.1" />);
-		const row = container.firstElementChild as HTMLElement;
-		expect(row.className).toContain("py-[16px]");
+		const { container: factory } = render(
+			<KnowledgeRow {...defaultProps} factoryMode version="v2.1" />,
+		);
+		const factoryRow = factory.firstElementChild as HTMLElement;
+		expect(factoryRow.className).toContain("py-[var(--density-pad-y)]");
+		expect(factoryRow.className).not.toContain("py-[16px]");
 	});
 
 	it("applies bold Geist Mono font to the title in factory mode", () => {
@@ -47,14 +55,15 @@ describe("KnowledgeRow — J7 factory mode", () => {
 		expect(screen.queryByTestId("knowledge-version-pill")).not.toBeInTheDocument();
 	});
 
-	it("renders identically to the original when factoryMode is false (regression)", () => {
-		// Round-trip: omitting factoryMode must not alter existing class lists
-		// relied on by the protected KnowledgeRow.test.tsx.
+	it("renders the canonical row composition (flex + density-aware spacing)", () => {
+		// @lore K11: gap and px moved from literal 8 px to density tokens per
+		// density-audit.md § 3.2.2. The compositional structure (flex,
+		// items-center) is unchanged.
 		const { container } = render(<KnowledgeRow {...defaultProps} />);
 		const row = container.firstElementChild as HTMLElement;
 		expect(row.className).toContain("flex");
 		expect(row.className).toContain("items-center");
-		expect(row.className).toContain("gap-[8px]");
-		expect(row.className).toContain("px-[8px]");
+		expect(row.className).toContain("gap-[var(--density-gap)]");
+		expect(row.className).toContain("px-[var(--density-pad-x)]");
 	});
 });

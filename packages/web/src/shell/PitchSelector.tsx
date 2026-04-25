@@ -78,7 +78,14 @@ export function PitchSelector({
 	return (
 		<div
 			{...dsShellProps("PitchSelector")}
-			className="bg-base-200 rounded-lg p-3 flex flex-col gap-3 max-h-[480px]"
+			/*
+			 * @lore K11: outer pad → --density-card-pad, section gap →
+			 * --density-gap per density-audit.md § 3.3.K8. max-h stays
+			 * literal (480 px overlay budget — must fit on a 720 px
+			 * viewport). Header chrome and Add-to-canvas button stay on
+			 * DaisyUI primitives (chip rule).
+			 */
+			className="bg-base-200 rounded-lg p-[var(--density-card-pad)] flex flex-col gap-[var(--density-gap)] max-h-[480px]"
 		>
 			<div className="flex items-center justify-between">
 				<h3 className="text-sm font-semibold">Select Pitch</h3>
@@ -133,7 +140,8 @@ export function PitchSelector({
 			{activePitch && (
 				<div
 					data-testid="pitch-detail-pane"
-					className="bg-base-300 rounded-lg p-3 flex flex-col gap-2"
+					/* @lore K11: detail-pane pad → --density-card-pad per § 3.3.K8. */
+					className="bg-base-300 rounded-lg p-[var(--density-card-pad)] flex flex-col gap-[var(--density-card-gap)]"
 				>
 					<h4 className="text-sm font-heading font-semibold uppercase tracking-wider text-[var(--text-hi)]">
 						{activePitch.title}

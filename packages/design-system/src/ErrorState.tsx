@@ -29,9 +29,18 @@ export function ErrorState({
 			{...dsProps("ErrorState", "2")}
 			role="alert"
 			data-testid={dataTestId ?? "error-state"}
-			className="flex flex-col items-start gap-[8px] px-[8px] py-[16px] text-left"
+			/*
+			 * @lore K11: pad-y → --density-card-pad, pad-x → --density-pad-x,
+			 * gap → --density-card-gap, title → --density-text per
+			 * density-audit.md § 3.2.8. Same shape as EmptyState. Retry
+			 * button stays DaisyUI primitive (chip rule, see § 5.2);
+			 * text-left is INTENTIONAL — see § 5.1.
+			 */
+			className="flex flex-col items-start gap-[var(--density-card-gap)] px-[var(--density-pad-x)] py-[var(--density-card-pad)] text-left"
 		>
-			<p className="text-[14px] font-medium text-[var(--danger)] leading-[1.4]">{title}</p>
+			<p className="text-[length:var(--density-text)] font-medium text-[var(--danger)] leading-[1.4]">
+				{title}
+			</p>
 			<p className="text-[12px] text-[var(--text-lo)] leading-[1.4]">{description}</p>
 			{onRetry && (
 				<button

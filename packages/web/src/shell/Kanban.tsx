@@ -236,9 +236,19 @@ export function Kanban({ tasks, onMoveTask, groupByBet = false }: KanbanProps): 
 		<DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
 			{/* I4 R3: responsive grid — single column on phones, 2 on small,
 				4 on large viewports. */}
+			{/*
+			 * @lore K11: column gap → --density-gap per density-audit.md
+			 * § 3.3.K7. Per Principle 9, comfortable does NOT drop columns
+			 * — wider columns, same count. Column count is fixed at four on
+			 * `lg`; comfortable widens the gap (--density-gap) and the
+			 * per-card pad (--density-card-pad on TaskCard inherits) so
+			 * each column breathes more without losing visibility. K7's
+			 * intentional designer-call (Linear keeps; Trello drops; we
+			 * keep — operational view).
+			 */}
 			<div
 				{...dsShellProps("Kanban")}
-				className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4"
+				className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-[var(--density-gap)]"
 			>
 				{COLUMNS.map((col) => {
 					const columnTasks = tasksByColumn[col.key];

@@ -9,10 +9,13 @@
     .bet-card {
       background: var(--surface-4);
       border-radius: var(--r2);
-      padding: 8px;
+      /* K11: outer pad → --density-card-pad, section gap →
+         --density-card-gap per density-audit.md § 3.2.4. The card a user
+         sees most often, currently density-static. */
+      padding: var(--density-card-pad);
       display: flex;
       flex-direction: column;
-      gap: 4px;
+      gap: var(--density-card-gap);
       cursor: pointer;
       transition: background var(--motion-fast);
       max-width: 320px;
@@ -28,7 +31,8 @@
     .bet-card__header {
       display: flex;
       align-items: center;
-      gap: 8px;
+      /* K11: inner-row gap → --density-gap. */
+      gap: var(--density-gap);
     }
     .bet-card__avatar {
       display: inline-flex;
@@ -44,7 +48,8 @@
       font-weight: 600;
     }
     .bet-card__title {
-      font-size: 14px;
+      /* K11: title font scales with density per § 3.2.4 (title font ✓). */
+      font-size: var(--density-text);
       font-weight: 500;
       color: var(--text-hi);
       white-space: nowrap;
@@ -57,13 +62,13 @@
     .bet-card__meta {
       display: flex;
       align-items: center;
-      gap: 8px;
+      gap: var(--density-gap);
     }
 
     .bet-card__progress {
       display: flex;
       align-items: center;
-      gap: 8px;
+      gap: var(--density-gap);
     }
     .bet-card__progress-bar {
       width: 64px;

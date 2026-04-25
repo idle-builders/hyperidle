@@ -199,8 +199,8 @@ function ActionSummaryView({ data }: { data: ActionSummaryData }): JSX.Element {
  * @lore Sparklines are simple inline SVGs, not a charting library.
  * Keeps the bundle small and avoids external dependencies per UI_DESIGN.md.
  */
-function Sparkline({ values, label }: { values: number[]; label: string }): JSX.Element {
-	if (values.length === 0) return <></>;
+function Sparkline({ values, label }: { values: number[]; label: string }): JSX.Element | null {
+	if (values.length === 0) return null;
 
 	const max = Math.max(...values);
 	const min = Math.min(...values);
@@ -377,7 +377,13 @@ export function ArtifactView(props: ArtifactViewProps): JSX.Element {
 	return (
 		<div {...shellAttrs}>
 			{showMetadata && <MetadataStrip shape={props.shape} metadata={metadata} />}
-			<div className={showMetadata ? "p-3" : undefined}>{body}</div>
+			{/*
+			 * @lore K11: content pad → --density-card-pad per
+			 * density-audit.md § 3.3.K4. Diff line metrics, metadata strip,
+			 * sparkline dimensions and visual-comparison pane padding all
+			 * stay literal — code/instrument geometry, not body text.
+			 */}
+			<div className={showMetadata ? "p-[var(--density-card-pad)]" : undefined}>{body}</div>
 			{showHistory && <RelatedHistorySection entries={relatedHistory} />}
 		</div>
 	);

@@ -13,7 +13,7 @@ export function KeyValue({ label, value, layout = "inline" }: KeyValueProps): JS
 	return (
 		<div
 			{...dsProps("KeyValue", "1")}
-			className={`flex ${direction} gap-[4px] ${layout === "inline" ? "items-center justify-between" : ""}`}
+			className={`flex ${direction} gap-[var(--density-card-gap)] ${layout === "inline" ? "items-center justify-between" : ""}`}
 		>
 			{/* @lore K7 / AESTHETICS.md § Typography row "Letter-spacing for caps":
 			    +0.02em (designer-call) on uppercase labels. tracking-[0.05em] → tracking-[var(--tracking-caps)]. */}
