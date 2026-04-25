@@ -25,11 +25,21 @@
 	--ui: "Geist", "Inter", system-ui, sans-serif;
 	--mono: "Geist Mono", ui-monospace, monospace;
 
-	--density-pad-x: 0.75rem;
-	--density-pad-y: 0.5rem;
-	--density-gap: 0.5rem;
-	--density-row-h: 2rem;
-	--density-text: 0.875rem;
+	/*
+	 * Density tokens — K9 re-tiered ladder. Default tier shown here mirrors
+	 * `:root, [data-density="default"]` in src/tokens.css. The HTML reference
+	 * pages do not toggle density, so only the default tier is wired; the
+	 * full per-tier overrides live in src/tokens.css.
+	 */
+	--density-pad-x: 1rem;
+	--density-pad-y: 0.75rem;
+	--density-gap: 0.75rem;
+	--density-row-h: 2.75rem;
+	--density-text: 0.9375rem;
+	--density-text-h1: 1.625rem;
+	--density-text-h2: 1.25rem;
+	--leading-body: 1.55;
+	--tracking-caps: 0.02em;
 }
 
 /* ── Lucid Dark (default) ── */
