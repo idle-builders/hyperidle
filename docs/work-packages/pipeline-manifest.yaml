@@ -295,3 +295,7 @@ stories:
     title: Validation, Visual-Regression Re-baseline & Accessibility
     track: K
     depends: [K7]
+  - id: K9
+    title: Density Ladder Re-tier (Real Comfortable Mode)
+    track: K
+    depends: [K7, K8]
