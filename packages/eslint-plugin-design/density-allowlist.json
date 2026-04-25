@@ -52,7 +52,10 @@
 				"file": "packages/design-system/src/KeyValue.tsx",
 				"axes": ["value-font", "gap"],
 				"literalAxes": [
-					{ "axis": "label-font", "reason": "Uppercase 11 px mono chrome — field marker, not data." },
+					{
+						"axis": "label-font",
+						"reason": "Uppercase 11 px mono chrome — field marker, not data."
+					},
 					{ "axis": "label-tracking", "reason": "Tier-scoped via --tracking-caps." }
 				],
 				"matrix": "§ 3.1.3"
@@ -62,7 +65,10 @@
 				"file": "packages/design-system/src/ThreadRow.tsx",
 				"axes": ["pad-x", "pad-y", "gap", "body-text", "snippet", "avatar"],
 				"literalAxes": [
-					{ "axis": "timestamp", "reason": "Mono chrome shared with KnowledgeRow / NotificationRow." }
+					{
+						"axis": "timestamp",
+						"reason": "Mono chrome shared with KnowledgeRow / NotificationRow."
+					}
 				],
 				"matrix": "§ 3.2.1"
 			},
@@ -89,9 +95,15 @@
 				"file": "packages/design-system/src/BetCard.tsx",
 				"axes": ["card-pad", "card-gap", "row-gap", "title-font"],
 				"literalAxes": [
-					{ "axis": "progress-bar-h", "reason": "Instrument metric — Linear/Datadog/Vercel hold sparkline strokes at 4-6 px regardless of zoom." },
+					{
+						"axis": "progress-bar-h",
+						"reason": "Instrument metric — Linear/Datadog/Vercel hold sparkline strokes at 4-6 px regardless of zoom."
+					},
 					{ "axis": "progress-text", "reason": "Chrome." },
-					{ "axis": "lead-avatar", "reason": "Card-internal — different scale than ThreadRow's row-anchor avatar." }
+					{
+						"axis": "lead-avatar",
+						"reason": "Card-internal — different scale than ThreadRow's row-anchor avatar."
+					}
 				],
 				"matrix": "§ 3.2.4"
 			},
@@ -117,8 +129,14 @@
 				"file": "packages/design-system/src/EmptyState.tsx",
 				"axes": ["pad-x", "pad-y", "gap", "title-font"],
 				"literalAxes": [
-					{ "axis": "description-font", "reason": "12 px de-emphasis (title↔description hierarchy)." },
-					{ "axis": "alignment", "reason": "MUST stay text-left — centering under comfortable is the #1 AI-aesthetic tell. § 5.1." }
+					{
+						"axis": "description-font",
+						"reason": "12 px de-emphasis (title↔description hierarchy)."
+					},
+					{
+						"axis": "alignment",
+						"reason": "MUST stay text-left — centering under comfortable is the #1 AI-aesthetic tell. § 5.1."
+					}
 				],
 				"matrix": "§ 3.2.7"
 			},
@@ -137,7 +155,10 @@
 				"file": "packages/design-system/src/Skeleton.tsx",
 				"axes": ["row-h (List)", "gap", "card-pad (Card)", "card-gap (Card)"],
 				"literalAxes": [
-					{ "axis": "bar-heights (Card)", "reason": "Abstract content placeholders not subject to type scale." }
+					{
+						"axis": "bar-heights (Card)",
+						"reason": "Abstract content placeholders not subject to type scale."
+					}
 				],
 				"matrix": "§ 3.2.9 / § 3.2.10"
 			},
@@ -146,7 +167,10 @@
 				"file": "packages/web/src/shell/Submenu.tsx",
 				"axes": ["page-gutter", "gap", "pad-x"],
 				"literalAxes": [
-					{ "axis": "width", "reason": "Linear/Atlassian/Notion all fix secondary-nav width — 240 px." },
+					{
+						"axis": "width",
+						"reason": "Linear/Atlassian/Notion all fix secondary-nav width — 240 px."
+					},
 					{ "axis": "header-chrome", "reason": "Uppercase mono 12 px." },
 					{ "axis": "filter-chips", "reason": "DaisyUI btn-xs (chip rule)." }
 				],
@@ -168,7 +192,10 @@
 				"file": "packages/web/src/shell/ArtifactView.tsx",
 				"axes": ["content-pad"],
 				"literalAxes": [
-					{ "axis": "diff-line-h", "reason": "Code, not body — fixed leading per Carbon DataTable code mode + GitHub diff." },
+					{
+						"axis": "diff-line-h",
+						"reason": "Code, not body — fixed leading per Carbon DataTable code mode + GitHub diff."
+					},
 					{ "axis": "diff-line-pad", "reason": "Alignment-critical." },
 					{ "axis": "metadata-strip", "reason": "Mono uppercase chrome." },
 					{ "axis": "visual-cmp-pad", "reason": "Pane geometry." },
@@ -183,7 +210,10 @@
 				"literalAxes": [
 					{ "axis": "timestamp", "reason": "Chrome 12 px." },
 					{ "axis": "avatar", "reason": "Chrome 24 px to match verdict-button visual weight." },
-					{ "axis": "verdict-buttons", "reason": "btn-xs ALWAYS — § 5.2 anti-pattern. Buttons growing under comfortable would push secondary verdicts off the right edge and break keyboard-first muscle memory." },
+					{
+						"axis": "verdict-buttons",
+						"reason": "btn-xs ALWAYS — § 5.2 anti-pattern. Buttons growing under comfortable would push secondary verdicts off the right edge and break keyboard-first muscle memory."
+					},
 					{ "axis": "more-menu-chrome", "reason": "DaisyUI btn-xs." }
 				],
 				"matrix": "§ 3.3.K5"
@@ -250,7 +280,10 @@
 				"axes": ["page-gutter (via main)", "body-markdown", "observation-pad"],
 				"literalAxes": [
 					{ "axis": "metadata-bar", "reason": "Uppercase mono chrome." },
-					{ "axis": "section-H2", "reason": "Uppercase mono — designer-call to NOT consume --density-text-h2." },
+					{
+						"axis": "section-H2",
+						"reason": "Uppercase mono — designer-call to NOT consume --density-text-h2."
+					},
 					{ "axis": "edit-textarea", "reason": "DaisyUI textarea (input-floor rule)." },
 					{ "axis": "Save/Cancel", "reason": "DaisyUI btn-xs." }
 				],
