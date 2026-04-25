@@ -28,9 +28,14 @@ describe("DaisyUI button component", () => {
 });
 
 describe("index.html configuration", () => {
-	it("has data-theme='lucid-dark' on html element", () => {
+	// K3: data-theme is no longer hardcoded on <html> — the boot script sets
+	// it synchronously based on localStorage["hyperidle-theme"] (default
+	// "system") and matchMedia(prefers-color-scheme) before React mounts.
+	it("contains the K3 theme-persistence boot script", () => {
 		const htmlPath = resolve(__dirname, "../../index.html");
 		const htmlContent = readFileSync(htmlPath, "utf-8");
-		expect(htmlContent).toContain('data-theme="lucid-dark"');
+		expect(htmlContent).toContain("hyperidle-theme");
+		expect(htmlContent).toContain("prefers-color-scheme: dark");
+		expect(htmlContent).toMatch(/setAttribute\(\s*"data-theme"/);
 	});
 });
