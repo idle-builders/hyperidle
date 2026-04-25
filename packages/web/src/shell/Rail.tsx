@@ -1,5 +1,6 @@
 import {
 	betStatusToStatus,
+	dsShellProps,
 	EmptyState,
 	KeyValue,
 	type Status,
@@ -227,7 +228,10 @@ export function Rail({ expanded, onToggleExpand, bets, blockers, cost }: RailPro
 		// children and not reclaim layout space. transition-[width] is the pragmatic
 		// choice for this expand/collapse pattern.
 		return (
-			<div className="flex w-14 flex-col items-center gap-2 p-2 transition-[width] duration-[var(--motion-medium)]">
+			<div
+				{...dsShellProps("Rail")}
+				className="flex w-14 flex-col items-center gap-2 p-2 transition-[width] duration-[var(--motion-medium)]"
+			>
 				<CollapsedPill kind="blk" count={blkCount} />
 				<CollapsedPill kind="rev" count={revCount} />
 				<CollapsedPill kind="psd" count={psdCount} />
@@ -265,7 +269,10 @@ export function Rail({ expanded, onToggleExpand, bets, blockers, cost }: RailPro
 	const costProps = getItemProps(2);
 
 	return (
-		<div className="flex w-[360px] flex-col gap-[var(--density-gap)] p-2 transition-[width] duration-[var(--motion-medium)]">
+		<div
+			{...dsShellProps("Rail")}
+			className="flex w-[360px] flex-col gap-[var(--density-gap)] p-2 transition-[width] duration-[var(--motion-medium)]"
+		>
 			<div className="flex items-center justify-end">
 				<button
 					type="button"

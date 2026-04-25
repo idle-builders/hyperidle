@@ -13,7 +13,7 @@ import {
 	useSensor,
 	useSensors,
 } from "@dnd-kit/core";
-import { EmptyState, TaskCard } from "@hyperidle/design-system";
+import { dsShellProps, EmptyState, TaskCard } from "@hyperidle/design-system";
 import type { TaskState } from "@hyperidle/shared";
 import { type JSX, useMemo, useState } from "react";
 
@@ -236,7 +236,10 @@ export function Kanban({ tasks, onMoveTask, groupByBet = false }: KanbanProps): 
 		<DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
 			{/* I4 R3: responsive grid — single column on phones, 2 on small,
 				4 on large viewports. */}
-			<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+			<div
+				{...dsShellProps("Kanban")}
+				className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4"
+			>
 				{COLUMNS.map((col) => {
 					const columnTasks = tasksByColumn[col.key];
 					return (
