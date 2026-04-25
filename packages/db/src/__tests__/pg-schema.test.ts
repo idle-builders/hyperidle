@@ -9,26 +9,19 @@ import * as pgSchema from "../schema.pg.js";
  */
 describe("A2: PostgreSQL schema parity", () => {
 	it("pg schema exports the same table names as sqlite schema", () => {
-		const sqliteTableNames = Object.keys(sqliteSchema)
-			.filter((key) => {
-				const val = sqliteSchema[key as keyof typeof sqliteSchema];
-				return (
-					val &&
-					typeof val === "object" &&
-					Symbol.for("drizzle:Name") in (val as Record<symbol, unknown>)
-				);
-			})
+		const isDrizzleTable = (val: unknown): boolean =>
+			!!val &&
+			typeof val === "object" &&
+			Symbol.for("drizzle:Name") in (val as Record<symbol, unknown>);
+
+		const sqliteTableNames = Object.entries(sqliteSchema)
+			.filter(([, val]) => isDrizzleTable(val))
+			.map(([key]) => key)
 			.sort();
 
-		const pgTableNames = Object.keys(pgSchema)
-			.filter((key) => {
-				const val = pgSchema[key as keyof typeof pgSchema];
-				return (
-					val &&
-					typeof val === "object" &&
-					Symbol.for("drizzle:Name") in (val as Record<symbol, unknown>)
-				);
-			})
+		const pgTableNames = Object.entries(pgSchema)
+			.filter(([, val]) => isDrizzleTable(val))
+			.map(([key]) => key)
 			.sort();
 
 		expect(pgTableNames).toEqual(sqliteTableNames);

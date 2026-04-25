@@ -269,7 +269,7 @@
 		selectedEl = e.target;
 		selectedEl.classList.add("__ds-highlight");
 		originalStyles = {};
-		Object.keys(tweaks).forEach((k) => delete tweaks[k]);
+		for (const k of Object.keys(tweaks)) delete tweaks[k];
 
 		const sel = getSelector(selectedEl);
 		const comp = getComponentContext(selectedEl);
@@ -314,7 +314,7 @@
 			}
 		}
 		originalStyles = {};
-		Object.keys(tweaks).forEach((k) => delete tweaks[k]);
+		for (const k of Object.keys(tweaks)) delete tweaks[k];
 		buildTweakInputs();
 	});
 
@@ -342,49 +342,56 @@
 	}
 
 	// --- Copy for Claude ---
+	function formatComponentLine(component) {
+		if (!component) return "";
+		let line = `**Component:** ${component.name} (Tier ${component.tier})`;
+		if (component.uses) line += ` — uses: ${component.uses}`;
+		return `${line}\n`;
+	}
+
+	function formatStylesBlock(label, styles) {
+		let block = `**${label}:**\n\`\`\`css\n`;
+		for (const [prop, val] of Object.entries(styles)) {
+			block += `${prop}: ${val};\n`;
+		}
+		block += "```\n";
+		return block;
+	}
+
+	function formatAnnotation(a, index) {
+		const heading = a.component ? a.component.name : a.selector;
+		let block = `### ${index + 1}. ${heading}\n`;
+		block += `**Selector:** \`${a.selector}\`\n`;
+		block += formatComponentLine(a.component);
+		block += `**Element:** \`<${a.tagName}>\` — "${a.textContent}"\n`;
+		if (a.comment) block += `**Feedback:** ${a.comment}\n`;
+		if (Object.keys(a.tweaks).length > 0) {
+			block += formatStylesBlock("CSS Tweaks (applied live, worked well)", a.tweaks);
+		}
+		block += `${formatStylesBlock("Current computed styles", a.computedStyles)}\n`;
+		return block;
+	}
+
+	function showCopiedToast(count) {
+		const toast = document.createElement("div");
+		toast.className = "__ds-copied";
+		toast.textContent = `Copied ${count} annotation(s) to clipboard`;
+		document.body.appendChild(toast);
+		setTimeout(() => toast.remove(), 2000);
+	}
+
 	document.getElementById("__ds-copy").addEventListener("click", () => {
 		if (annotations.length === 0) return;
 
 		const pageUrl = window.location.href;
 		let output = `## Design Feedback — ${new Date().toISOString().slice(0, 16)}\n`;
 		output += `**Page:** ${pageUrl}\n\n`;
-
 		for (let i = 0; i < annotations.length; i++) {
-			const a = annotations[i];
-			output += `### ${i + 1}. ${a.component ? `${a.component.name}` : a.selector}\n`;
-			output += `**Selector:** \`${a.selector}\`\n`;
-			if (a.component) {
-				output += `**Component:** ${a.component.name} (Tier ${a.component.tier})`;
-				if (a.component.uses) output += ` — uses: ${a.component.uses}`;
-				output += "\n";
-			}
-			output += `**Element:** \`<${a.tagName}>\` — "${a.textContent}"\n`;
-			if (a.comment) {
-				output += `**Feedback:** ${a.comment}\n`;
-			}
-			if (Object.keys(a.tweaks).length > 0) {
-				output += "**CSS Tweaks (applied live, worked well):**\n```css\n";
-				for (const [prop, val] of Object.entries(a.tweaks)) {
-					output += `${prop}: ${val};\n`;
-				}
-				output += "```\n";
-			}
-			output += "**Current computed styles:**\n```css\n";
-			for (const [prop, val] of Object.entries(a.computedStyles)) {
-				output += `${prop}: ${val};\n`;
-			}
-			output += "```\n\n";
+			output += formatAnnotation(annotations[i], i);
 		}
-
 		output += `---\n*${annotations.length} annotation(s). Paste this into Claude Code for action.*\n`;
 
-		navigator.clipboard.writeText(output).then(() => {
-			const toast = document.createElement("div");
-			toast.className = "__ds-copied";
-			toast.textContent = `Copied ${annotations.length} annotation(s) to clipboard`;
-			document.body.appendChild(toast);
-			setTimeout(() => toast.remove(), 2000);
-		});
+		navigator.clipboard.writeText(output).then(() => showCopiedToast(annotations.length));
 	});
 
 	// --- Clear all ---
