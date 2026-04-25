@@ -2,6 +2,8 @@ import { BetCard } from "./BetCard";
 
 export default {
 	title: "BetCard",
+	tier: "2" as const,
+	uses: ["StatusChip", "Tag", "KeyValue"],
 	order: ["Committed", "WithProgress", "Shipped", "Killed", "AllStatuses", "PortfolioMode"],
 };
 
