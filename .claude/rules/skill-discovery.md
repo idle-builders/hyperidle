@@ -20,6 +20,7 @@ User request arrives
     ├── Is it about documenting decisions? ──→ /lore <files|scan|index>
     ├── Is it about visual fidelity? ────────→ /visual-polish <reference>
     ├── Is it about design quality? ─────────→ /design-critique <component>
+    ├── Is it about token/grid/aesthetic lint? → /design-lint <files>   (K6 — placeholder until shipped)
     ├── Is it about process improvement? ────→ /retro <story|pipeline>
     ├── Is it about updating dependencies? ──→ /upgrade [scope]
     └── None of the above? ──────────────────→ Proceed normally

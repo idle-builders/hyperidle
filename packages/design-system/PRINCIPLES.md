@@ -155,22 +155,7 @@ Base, primary elevated, secondary elevated, and overlay. Use surface lightness t
 
 ## The AI Aesthetic Blacklist
 
-Patterns that LLMs default to because they're statistically common in training data. Actively avoid:
-
-| Anti-Pattern | Why It Happens | What To Do Instead |
-|---|---|---|
-| Purple/indigo palettes | Most common AI-generated color | Use the Lucid theme tokens. Indigo primary in Lucid Light is intentional; do not add arbitrary purple elsewhere. |
-| Gradient backgrounds | High-frequency in training data | Flat colors from the token scale. Gradients are earned. |
-| `rounded-2xl` everywhere | LLMs over-index on rounded corners | Use the closed radius scale (r0/r1/r2/r3). |
-| `p-8` / `p-12` padding | LLMs default to generous spacing | Density tokens. 8-12px internal padding. |
-| 3-column card grids | Generic dashboard layout | Use the actual component from the design system. |
-| Hero sections | Landing page pattern bleeding into tools | Productivity tools have no heroes. |
-| Emoji as icons | Easy fallback for LLMs | Real icons or no icons. Emoji is never an icon. |
-| Inter + system-ui everywhere | Safe default | Use the typefaces specified in the design system (Geist + Geist Mono). |
-| Centered everything | LLMs center by default | Left-align content. Center only where semantically justified. |
-| Too many colors | LLMs pick varied colors for "interest" | Monochrome default. Color for meaning only. |
-| Excessive shadows | `shadow-lg` on everything | Shadows from the token scale or none. |
-| Generic placeholder content | "Lorem ipsum" or "Click here" | Realistic content that matches the actual use case. |
+The canonical 15-item catalog lives in **`AESTHETICS.md` § AI-Aesthetic Anti-Patterns**, with screenshot-vs-code detectability split, citations, and lint hints. The hard rules are mirrored in `.claude/rules/aesthetic-quality.md` (AQ-101..AQ-113) and enforced by the `design/no-ai-aesthetic` lint slug shipping in K6. Three or more screenshot-detectable tells in a single frame fails the screenshot rubric. Read the catalog there; do not re-summarize it here.
 
 ---
 
