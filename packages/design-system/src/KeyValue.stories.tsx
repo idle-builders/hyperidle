@@ -2,6 +2,7 @@ import { KeyValue } from "./KeyValue.js";
 
 export default {
 	title: "KeyValue",
+	tier: "1" as const,
 	order: [
 		"InlineLayoutDefault",
 		"StackedLayout",

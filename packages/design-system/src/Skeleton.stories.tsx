@@ -1,6 +1,10 @@
 import { SkeletonCard, SkeletonList } from "./Skeleton.js";
 
-export default { title: "Skeleton", order: ["List3Rows", "List6Rows", "Card", "CardGrid2x2"] };
+export default {
+	title: "Skeleton",
+	tier: "utility" as const,
+	order: ["List3Rows", "List6Rows", "Card", "CardGrid2x2"],
+};
 
 export const List3Rows = (): React.JSX.Element => (
 	<div style={{ maxWidth: "320px" }}>

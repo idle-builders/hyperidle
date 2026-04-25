@@ -1,6 +1,6 @@
 import { CurationSuggestionCard } from "./CurationSuggestionCard";
 
-export default { title: "CurationSuggestionCard" };
+export default { title: "CurationSuggestionCard", tier: "utility" as const };
 
 export const Merge = (): React.JSX.Element => (
 	<CurationSuggestionCard

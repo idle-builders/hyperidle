@@ -2,6 +2,8 @@ import { ThreadRow } from "./ThreadRow";
 
 export default {
 	title: "ThreadRow",
+	tier: "2" as const,
+	uses: ["StatusChip", "Tag"],
 	order: ["Default", "WithStatusAndTag", "Unread", "Blocking", "WithActions"],
 };
 

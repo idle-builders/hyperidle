@@ -2,6 +2,7 @@ import { NavItem } from "./NavItem.js";
 
 export default {
 	title: "NavItem",
+	tier: "1" as const,
 	order: [
 		"DefaultTextOnly",
 		"SelectedState",

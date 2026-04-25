@@ -2,6 +2,7 @@ import { ErrorState } from "./ErrorState.js";
 
 export default {
 	title: "ErrorState",
+	tier: "utility" as const,
 	order: ["WithRetry", "WithoutRetry", "InContextStackedErrors"],
 };
 

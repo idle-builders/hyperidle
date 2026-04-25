@@ -1,6 +1,6 @@
 import { ReasoningBlock } from "./ReasoningBlock";
 
-export default { title: "ReasoningBlock" };
+export default { title: "ReasoningBlock", tier: "utility" as const };
 
 const sampleSteps = [
 	"Surveyed the existing diff rendering pipeline.",

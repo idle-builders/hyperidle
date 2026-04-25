@@ -2,7 +2,11 @@ import { useState } from "react";
 import type { PitchSelectorPitch } from "./PitchSelector";
 import { PitchSelector } from "./PitchSelector";
 
-export default { title: "PitchSelector" };
+export default {
+	title: "PitchSelector",
+	tier: "3" as const,
+	uses: ["PitchCard", "SearchField"],
+};
 
 const samplePitches: PitchSelectorPitch[] = [
 	{
