@@ -21,6 +21,16 @@ ruleTester.run("no-off-grid-spacing", noOffGridSpacing, {
 			filename: "Foo.tsx",
 			code: 'const J = <div className="bg-surface-1" />;',
 		},
+		// SEV-1 #4: 0 is in the spacing allowlist.
+		{
+			filename: "Foo.tsx",
+			code: 'const J = <div className="p-[0px] m-[0px] gap-[0px]" />;',
+		},
+		// SEV-2: cn() arguments are walked.
+		{
+			filename: "Foo.tsx",
+			code: 'const J = <div className={cn("p-[8px]", "gap-[12px]")} />;',
+		},
 	],
 	invalid: [
 		{
@@ -37,6 +47,12 @@ ruleTester.run("no-off-grid-spacing", noOffGridSpacing, {
 			filename: "Foo.tsx",
 			code: 'const J = <div className="px-[7px] py-[9px]" />;',
 			errors: [{ messageId: "offGrid" }, { messageId: "offGrid" }],
+		},
+		// SEV-2: cn() args containing off-grid values fire.
+		{
+			filename: "Foo.tsx",
+			code: 'const J = <div className={cn("p-[5px]", "bg-surface-1")} />;',
+			errors: [{ messageId: "offGrid" }],
 		},
 	],
 });

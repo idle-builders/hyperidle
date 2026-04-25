@@ -10,7 +10,12 @@
  */
 
 import type { Rule } from "eslint";
-import { SPACING_ALLOWLIST, SUB_GRID_VALUE, createRule, getClassNameLiteral } from "../util.js";
+import {
+	SPACING_ALLOWLIST,
+	SUB_GRID_VALUE,
+	collectClassStringsFromJSXAttribute,
+	createRule,
+} from "../util.js";
 
 // (p|m|gap)(x|y|t|r|b|l)?-[Npx]
 const ARBITRARY_SPACING = /\b(p|m|gap)([xytrbl])?-\[(\d+)px\]/g;
@@ -32,31 +37,33 @@ export const noOffGridSpacing: Rule.RuleModule = createRule({
 		},
 	},
 	create(context) {
+		function checkClassString(text: string, node: unknown): void {
+			const reportNode = node as Rule.Node;
+			let match: RegExpExecArray | null;
+			ARBITRARY_SPACING.lastIndex = 0;
+			while ((match = ARBITRARY_SPACING.exec(text)) !== null) {
+				const [cls, , , nStr] = match;
+				const n = Number(nStr);
+				if (n === SUB_GRID_VALUE) {
+					context.report({ node: reportNode, messageId: "subGrid", data: { cls } });
+					continue;
+				}
+				if (!SPACING_ALLOWLIST.has(n)) {
+					context.report({
+						node: reportNode,
+						messageId: "offGrid",
+						data: { cls, n: String(n) },
+					});
+				}
+			}
+		}
 		return {
 			JSXAttribute(node) {
-				// Only check className literal values.
 				const name = node.name && node.name.type === "JSXIdentifier" ? node.name.name : null;
 				if (name !== "className") return;
-				const literal = getClassNameLiteral(
-					node as unknown as { value?: { type?: string; value?: unknown } | null },
-				);
-				if (literal === null) return;
-				let match: RegExpExecArray | null;
-				ARBITRARY_SPACING.lastIndex = 0;
-				while ((match = ARBITRARY_SPACING.exec(literal)) !== null) {
-					const [cls, , , nStr] = match;
-					const n = Number(nStr);
-					if (n === SUB_GRID_VALUE) {
-						context.report({ node, messageId: "subGrid", data: { cls } });
-						continue;
-					}
-					if (!SPACING_ALLOWLIST.has(n)) {
-						context.report({
-							node,
-							messageId: "offGrid",
-							data: { cls, n: String(n) },
-						});
-					}
+				const strings = collectClassStringsFromJSXAttribute(node);
+				for (const { text } of strings) {
+					checkClassString(text, node);
 				}
 			},
 		};

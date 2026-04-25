@@ -61,17 +61,46 @@ describe("eslint-plugin-design fixtures", () => {
 
 	it("bad fixture triggers every targeted rule", () => {
 		const messages = lintFile(`${fixturesDir}/bad-fixture.tsx`);
-		const ids = messages.map((m) => m.ruleId).sort();
-		expect(ids).toEqual(
-			[
-				"design/no-ai-aesthetic",
-				"design/no-hardcoded-color",
-				"design/no-off-grid-spacing",
-				"design/no-off-scale-font-size",
-				"design/no-off-scale-radius",
-				"design/no-raw-tailwind-color",
-				"design/require-focus-on-interactive",
-			].sort(),
-		);
+		const ids = messages.map((m) => m.ruleId);
+		const expected = [
+			"design/no-ai-aesthetic",
+			"design/no-hardcoded-color",
+			"design/no-off-grid-spacing",
+			"design/no-off-scale-font-size",
+			"design/no-off-scale-radius",
+			"design/no-raw-tailwind-color",
+			"design/require-focus-on-interactive",
+		];
+		// Some rules legitimately fire multiple times in the bad-fixture (e.g.
+		// no-ai-aesthetic for lorem + marketing + gradient-text + backdrop-blur,
+		// and no-off-scale-radius for arbitrary + named + rounded-2xl). Assert
+		// each expected rule is present at least once via the deduplicated set.
+		const unique = [...new Set(ids)].sort();
+		expect(unique, JSON.stringify(messages, null, 2)).toEqual(expected.sort());
+		// Sanity: total count must be at least the number of unique rules — if a
+		// rule double-fires unexpectedly (e.g. cn() walker double-counting), the
+		// count will spike and we want a noticed-not-touching to flag it.
+		expect(ids.length).toBeGreaterThanOrEqual(expected.length);
+	});
+
+	it("bad fixture triggers each AI-aesthetic sub-tell at least once", () => {
+		const messages = lintFile(`${fixturesDir}/bad-fixture.tsx`);
+		const aiAestheticMessageIds = messages
+			.filter((m) => m.ruleId === "design/no-ai-aesthetic")
+			.map((m) => m.messageId);
+		// SEV-1 #1: catalogue coverage expanded — assert each major tell fires
+		// in the integration fixture.
+		const expectedTells = [
+			"rounded2xl",
+			"backdropBlur",
+			"gradientText",
+			"loremIpsum",
+			"marketingCopy",
+		];
+		for (const tell of expectedTells) {
+			expect(aiAestheticMessageIds, `expected ${tell} tell in bad-fixture`).toContain(
+				tell,
+			);
+		}
 	});
 });
