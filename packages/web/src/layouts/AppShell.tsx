@@ -18,6 +18,7 @@ import {
 	MOCK_RAIL_COST,
 } from "../fixtures/app-shell-data";
 import { topicsForScope } from "../fixtures/knowledge-data";
+import { useAutoDensity } from "../hooks/useAutoDensity";
 import { useCommandK } from "../hooks/useCommandK";
 import { useTheme } from "../hooks/useTheme";
 import { useViewportBreakpoint } from "../hooks/useViewportBreakpoint";
@@ -227,6 +228,14 @@ export function AppShell(): JSX.Element {
 		...DEFAULT_SETTINGS,
 		appearance: { ...DEFAULT_SETTINGS.appearance, theme },
 	}));
+	// @lore K7 / AESTHETICS.md § Mobile & Touch row "Auto-density behavior":
+	// the user's Settings preference is the source of truth. When the
+	// preference is `auto` (factory default) the viewport drives the chosen
+	// preset (≤ 1024px → comfortable). The user override always wins —
+	// once the user picks a non-auto value, that explicit choice persists
+	// across breakpoint changes. Declared AFTER `settings` so the closure
+	// reads the live preference, not a stale hoisted reference.
+	const resolvedDensity = useAutoDensity(settings.appearance.density);
 
 	// Reflect persisted theme changes (e.g. another tab) back into settings draft.
 	useEffect(() => {
@@ -405,7 +414,8 @@ export function AppShell(): JSX.Element {
 	return (
 		<div
 			className="flex h-screen bg-base-100 overflow-hidden"
-			data-density={settings.appearance.density}
+			data-density={resolvedDensity}
+			data-density-preference={settings.appearance.density}
 		>
 			<div className={shellWrapperClass} aria-hidden={shellDimmed || undefined}>
 				<IconRail

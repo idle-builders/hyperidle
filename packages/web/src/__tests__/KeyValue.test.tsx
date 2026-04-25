@@ -24,11 +24,13 @@ describe("KeyValue", () => {
 	it("label has uppercase styling and font-heading", () => {
 		render(<KeyValue label="Owner" value="Alice" />);
 		const label = screen.getByText("Owner");
+		// K7: tracking-[0.05em] → tracking-[var(--tracking-caps)] per AESTHETICS.md
+		// § Typography row "Letter-spacing for caps" (designer-call: +0.02em).
 		expect(label).toHaveClass(
 			"uppercase",
 			"font-heading",
 			"text-[11px]",
-			"tracking-[0.05em]",
+			"tracking-[var(--tracking-caps)]",
 			"font-medium",
 		);
 	});
