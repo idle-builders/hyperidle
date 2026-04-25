@@ -333,16 +333,139 @@ See `docs/work-packages/SHARED.md` for tech stack, shared contracts, and depende
 
 ---
 
+### K10 — Density-Aware Component Audit & Critique (research-only)
+
+**Story.** As the designer-of-record for HyperIdle, I want a thorough design-critique pass on every Tier 1+2 primitive AND every Tier 3 shell that asks the question "should this scale with density, and if so on which axes?" — captured as a per-component matrix in `packages/design-system/research/density-audit.md` — so that the K11 sweep refactors components against an explicit, design-justified spec rather than mechanically swapping every literal pixel for a token. Some surfaces should scale on every axis (list rows, body text); some should only scale on a subset (chips on internal padding only, never font-size); some should not scale at all (icons, status dots, brand marks). The research output identifies any new density variables the system needs, before any code is written.
+
+**Depends on.** K9.
+
+**Background.** K9 widened the density ladder so each step is felt, but only ~20 % of design-system components actually consume density tokens (NavItem, ThreadRow, KeyValue partially, plus 3 shells). The other ~80 % use literal pixel values, so toggling density barely changes the rendered surface a user looks at on `/work/portfolio`, `/work/team`, `/knowledge`, etc. The naive fix — swap every literal for a token — is wrong: a `StatusChip` should be 20 px tall regardless of tier (it's a badge, not a row); a brand `IconRail` button should stay 40 px (motor-memory affordance); the danger-red `Tag` shouldn't grow font-size with comfortable (it's a callout, not body copy). Only an explicit per-component design judgment yields the right matrix. This story is that judgment, captured.
+
+**Acceptance criteria.**
+
+- New file `packages/design-system/research/density-audit.md`. Per-component matrix with one row per primitive + one row per shell (28 rows total: 14 design-system primitives + 8 web shells + the 6 page surfaces — `/work/portfolio`, `/work/team`, `/work/bet/:id`, `/conversations/{review,chat}`, `/knowledge`, `/knowledge/:id`).
+- Each row's columns:
+  1. **Component** name + tier (1/2/3 or page).
+  2. **Density-aware?** `yes` / `no` / `partial`. If `partial`, which axes (e.g. "padding only, font-size literal").
+  3. **Tokens it should consume** — list of `--density-*` tokens that apply. May reference a new token from column 5 below.
+  4. **Tokens that explicitly stay literal** — and why (e.g. "StatusChip height: 20 px; this is a badge, not a row, and badges shouldn't grow with comfortable").
+  5. **New tokens needed (if any)** — proposed name + per-tier values + rationale + cite the design system that supports the value (e.g. "`--density-icon-size`: 16 / 20 / 24 px; matches Material 3's icon-size cascade; chips/buttons/nav use this so density toggle scales icons too without each component owning the size").
+  6. **Sources** — at least one citation per row, ≥ 3 distinct organization domains for any *new* density variable proposed.
+- A summary section at the top: counts (how many `yes` / `no` / `partial`), proposed-new-token list with one-line rationale each.
+- An "AI-aesthetic safeguards" section listing density anti-patterns the audit revealed: "comfortable mode must not turn the app into a marketing landing page" — concrete don'ts (no oversized hero spacing, no inflated buttons, no center-aligned content).
+- A "Density-discriminated screenshot rubric" section: for each refreshed surface, what should a reviewer compare across compact / default / comfortable to validate the design intent? E.g., "BetCard at compact: 4 rows visible per scroll; at default: 3; at comfortable: 2.5. If you see the same row count, the density isn't doing its job."
+- Research is performed via parallel `designer` subagents (one per shell + one per page; primitives can be batched), each returning a draft row + rationale. Final synthesis is the audit doc.
+- The 10-gate vitest for AESTHETICS.md still passes (no AESTHETICS.md changes here — K10 is purely research; K11 will incorporate findings into AESTHETICS.md).
+- `bun run check` + `bun run lint` + `bun run test` all green (no code changes).
+
+**Validation scenarios.**
+
+- Given `density-audit.md`, when an agent reads it before opening K11, then it can answer "should `BetCard` body text scale with density?" purely from the matrix.
+- Given a proposed new token (e.g. `--density-icon-size`), when its row is read, then the per-tier values + rationale + ≥ 3 citations are visible.
+- Given the AI-aesthetic safeguards section, when comfortable mode is screenshotted, then a reviewer can apply the rubric and predict whether the surface drifted toward marketing-landing-page anti-patterns.
+- Given the screenshot rubric, when a tier is toggled in the dev server, then the documented "what should change" matches what the eye sees.
+
+**Contracts / constraints.**
+
+- **No code or token changes in this story.** Pure research. K11 implements.
+- **Author must not invent density values** for new tokens without ≥ 3 reputable citations (per K1's discipline). New tokens that can't earn 3 citations are flagged as `(designer-call)` with explicit rationale.
+- **No emojis. No marketing language. Crisp prose, citations, tables.**
+- **The matrix is the spec for K11.** If a row is unclear or contradictory, fix it here, not in K11.
+
+**Effort.** M (~2-3 days)
+
+---
+
+### K11 — Density Sweep + Lint Enforcement
+
+**Story.** As a user toggling density in Settings, I want every surface I look at — BetCards on `/work/portfolio`, the Kanban board, ThreadRows in conversations, knowledge rows, the review header — to actually shift in the way K10's audit prescribes, AND I want the design lint plugin to enforce that newly-density-aware components don't drift back to literal pixels in future PRs. Together these turn the K9 ladder from "values exist in tokens.css" into "the app feels different at every tier across every surface."
+
+**Depends on.** K10 (the audit matrix is the implementation spec), K6 (ESLint plugin to extend), K9 (current ladder values).
+
+**Acceptance criteria.**
+
+- **Component refactor per K10's matrix.** Every component with `Density-aware? = yes` or `partial` consumes its prescribed `--density-*` tokens. HTML reference and TSX move in lockstep per `.claude/rules/visual-parity.md`. Components with `Density-aware? = no` (e.g. `StatusChip`, `IconRail` icons) are left literal — the lint rule below explicitly allows them.
+- **New density variables added** (if K10 identified any). Defined in `tokens.css` + `html/_tokens.css` per tier per K10's recommendations. AESTHETICS.md updated with the new rows.
+- **`AESTHETICS.md` updated** with the K10 matrix as a new appendix table, plus per-section recommendations for the new tokens. The K9 changelog at the top of § Spacing & Density gains a K11 sub-bullet listing the swept components.
+- **`design/use-density-tokens` (new ESLint rule).** Flags literal pixel padding/gap/font-size values inside components that K10's audit marked as density-aware. The rule reads an opt-out manifest `packages/eslint-plugin-design/density-allowlist.json` (generated from K10's matrix — components marked `no` or specific axes marked literal are listed). Rule level: `error` for `packages/design-system/src/**`, `warn` for `packages/web/src/**`. New AQ rule (e.g. **AQ-017**) added to `.claude/rules/aesthetic-quality.md` with the cross-reference.
+- **`design/no-density-tokens` (new ESLint rule).** Inverse: flags `var(--density-*)` consumption inside components K10's audit explicitly marked as density-static (e.g. `StatusChip`, `IconRail`). Density-aware shouldn't leak to surfaces that should look the same at every tier.
+- **Updated `/design-lint` skill.** Reads K10's matrix at run-time as the source of truth for which components should be density-aware; cross-references with the AST findings; flags any drift. The higher-level checks gain a "density-tier consistency" check (same-role components should have the same density-awareness shape).
+- **Visual-regression rebaseline.** Every snapshot of a swept component diffs against current. Regenerate, diff intentional, commit as a separate `chore(K11):` commit citing the K11 token/sweep commit hash. The 5 % threshold passes against the new HTML/TSX pair.
+- **Playwright responsive matrix extended.** `responsive-density.spec.ts` gains assertions per swept primitive: at each of compact / default / comfortable, the rendered `getBoundingClientRect` of the primitive matches the expected px range. One assertion block per primitive that should scale on a measurable axis. (Skip primitives that scale only on text-color or letter-spacing — those need a different assertion shape.)
+- **`/design-critique` re-pass.** Run the skill on every refreshed surface at all 3 tiers. Score ≥ 8 / 10 on every dimension at every tier. Iterate until clean (max 3 attempts per surface).
+- **`bun run check && bun run lint && bun run test`** all green. `bun run lint:design` produces no NEW warnings beyond K7's documented baseline; the new `design/use-density-tokens` rule passes against the swept components.
+- **`docs/lore.md` entry** (or per-component `@lore` comments) capturing the rationale for any "stays literal" decision that future agents would otherwise revert. E.g. "StatusChip height stays at 20 px because density toggling badges destroys their as-callout function — see K10 § StatusChip."
+
+**Validation scenarios.**
+
+- Given the rendered web app at `/work/portfolio` toggled to comfortable, when measured, then BetCard outer padding, gap between cards, and KeyValue font-sizes all match the K10-prescribed comfortable values.
+- Given the same page at compact, when measured, then BetCards are visibly tighter than default — the density toggle is felt, not 4 px of nudging.
+- Given a developer adds a new component to `packages/design-system/src/` that uses `p-[8px]` instead of `var(--density-pad-y)`, when `bun run lint` runs, then `design/use-density-tokens` flags it and points to the K10 matrix row that says "this component class is density-aware."
+- Given a developer adds `var(--density-pad-x)` to `StatusChip` (which K10 marked density-static), when lint runs, then `design/no-density-tokens` flags it.
+- Given the `/design-lint` skill is invoked on `packages/web/src/pages/`, when run, then findings include a "density-tier consistency" callout if same-role components diverge in density-awareness.
+- Given the screenshot rubric from K10, when a reviewer compares the three tiers of `/work/portfolio`, then the documented row counts hold (e.g. 4 / 3 / 2.5 BetCards visible).
+
+**Contracts / constraints.**
+
+- **K10's matrix is the spec.** Don't change a component's density-awareness without updating the matrix first.
+- **HTML and TSX in lockstep** per visual-parity rule (intentional refresh, like K7).
+- **No invented density variables.** Any new tokens come from K10. If implementation reveals a missing token, stop and amend K10, then resume.
+- **Don't sweep blindly.** Components K10 marked `no` stay literal — that's intentional design judgment.
+- **The two new lint rules must not contradict each other.** A component is in exactly one bucket: density-aware (some axes prescribed) OR density-static (no `--density-*` tokens). The opt-out manifest is the arbiter.
+
+**Effort.** L (~5-6 days)
+
+---
+
+### K12 — Density Ladder Re-validation & Tuning
+
+**Story.** As the designer-of-record, after the K11 sweep means every surface actually shifts with density, I want a fresh design-critique pass on the running app at all 3 tiers across every page and primitive — focused on aesthetics and usability, not just rule compliance — so that the K9 ladder values can be tuned (or new density variables added) based on how the app *actually feels* now that the toggle reaches everywhere. The K9 values were chosen against research bands (iOS Settings / Notion / Apple Mail); K12 confirms or adjusts them against lived experience.
+
+**Depends on.** K11.
+
+**Acceptance criteria.**
+
+- **Tier-by-tier critique.** Run `/design-critique` on every main page (8 pages total) AND every Tier 1+2 primitive at all 3 tiers (84 critique runs total: 28 surfaces × 3 tiers). Capture findings + scores in `packages/design-system/research/density-critique-K12.md`. Score ≥ 8 / 10 on every dimension at every tier.
+- **Cross-tier coherence assessment.** A new section in the critique doc grades the *transition* between tiers: does compact → default feel like a meaningful step? does default → comfortable? Are any surfaces visually identical across two tiers (= broken)? Are any surfaces unrecognizably different across one tier (= over-stepped)?
+- **AI-aesthetic check at comfortable.** Comfortable mode is the failure mode for "this app started feeling like a marketing landing page." Run `/design-lint` on every page at comfortable; the AI-aesthetic catalog (AQ-101..AQ-113) must produce zero new findings vs. default.
+- **Ladder tuning recommendations.** Based on findings, the doc proposes (a) which token values to adjust, (b) which new density variables (if any) to add, (c) which existing tokens to retire if they're carrying no signal. Each recommendation is `(designer-call)` with explicit rationale and at least one before/after screenshot.
+- **AESTHETICS.md updates.** Apply the recommended adjustments to the recommendations table. K9's K9 changelog gains a K12 sub-bullet for any value that was tuned. New tokens (if any) get full rows with citations.
+- **`tokens.css` updated** per the ladder adjustments. `density-tier.test.ts` adjusted if the ratio rule shifts.
+- **Visual-regression rebaseline** if any token values changed. Separate `chore(K12):` commit.
+- **Before/after screenshots** of every page at each tier committed under `packages/design-system/research/before-after-K12/`. Each page has a 3 × 2 grid: rows = `before-K11 / after-K11 / after-K12`, columns = `compact / default / comfortable`.
+- **`bun run check && bun run lint && bun run test`** all green.
+- **Skill + rule audit.** Re-read `.claude/rules/aesthetic-quality.md`, `.claude/skills/design-critique/SKILL.md`, `.claude/skills/design-lint/SKILL.md`, and the K6 ESLint rules. Are they making proper use of density-awareness? Where do they need new rules / new dimensions / new checks? Capture as a follow-up TODO list in `packages/design-system/research/density-skill-audit-K12.md` (a deliverable, not requiring action — feeds a future K13 if needed).
+
+**Validation scenarios.**
+
+- Given `density-critique-K12.md`, when read, then every page at every tier has a recorded score ≥ 8/10 on every dimension.
+- Given the cross-tier coherence section, when read, then the doc explicitly states for each surface whether compact / default / comfortable feel like distinct, intentional choices.
+- Given the comfortable-mode AI-aesthetic check, when run, then zero new findings vs. default.
+- Given the before/after screenshots, when compared by a human reviewer, then the K12 tuning is visible (or the doc explicitly says "no tuning needed; K11 ladder confirmed").
+- Given the skill+rule audit, when read by a future K13 author, then they have a concrete TODO list of skill/rule updates.
+
+**Contracts / constraints.**
+
+- **Designer-call discipline.** Tuning recommendations are explicitly `(designer-call)` — they're judgment, not 3-source convergence. The K1 resolution category applies.
+- **Don't tune for the sake of tuning.** "No change; K11 ladder confirmed" is a valid outcome and should be the default unless a critique finding clearly warrants adjustment.
+- **Skill/rule audit produces a TODO list, not implementation.** That's the next story (K13 if you green-light it). K12 stays focused on the ladder + the critique.
+
+**Effort.** M (~2-3 days)
+
+---
+
 ## Track K dependency graph
 
 ```
 K1 ─────┬─► K5 ─► K6 ─┐
         │              │
 K2 ─────┼─────────► K4 │
-        │              ├─► K7 ─► K8 ─► K9
+        │              ├─► K7 ─► K8 ─► K9 ─► K10 ─► K11 ─► K12
 K3 ─────┘              │
                        │
         K1 ────────────┘
 ```
 
-Critical path: **K1 → K5 → K6 → K7 → K8 → K9**. K2, K3, K4 land in parallel where dependencies allow.
+Critical path: **K1 → K5 → K6 → K7 → K8 → K9 → K10 → K11 → K12**. K2, K3, K4 land in parallel where dependencies allow.
+
+K10 → K11 → K12 is the "make density real" arc: research first (no code), then sweep + enforce (the bulk of the work), then re-validate the ladder against lived experience (tune + audit). K10's audit matrix is the explicit gate before K11 touches any component code.
