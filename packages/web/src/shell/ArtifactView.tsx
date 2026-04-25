@@ -199,8 +199,8 @@ function ActionSummaryView({ data }: { data: ActionSummaryData }): JSX.Element {
  * @lore Sparklines are simple inline SVGs, not a charting library.
  * Keeps the bundle small and avoids external dependencies per UI_DESIGN.md.
  */
-function Sparkline({ values, label }: { values: number[]; label: string }): JSX.Element {
-	if (values.length === 0) return <></>;
+function Sparkline({ values, label }: { values: number[]; label: string }): JSX.Element | null {
+	if (values.length === 0) return null;
 
 	const max = Math.max(...values);
 	const min = Math.min(...values);
