@@ -17,7 +17,7 @@
  */
 import { existsSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
-import { chromium, type Browser, type Page } from "@playwright/test";
+import { type Browser, chromium, type Page } from "@playwright/test";
 
 const WORKBENCH_PORT = process.env.WORKBENCH_PORT ?? "8198";
 const WEB_PORT = process.env.WEB_PORT ?? "5174";
@@ -81,11 +81,7 @@ async function setDensity(page: Page, tier: Tier): Promise<void> {
 	await page.waitForTimeout(250);
 }
 
-async function capturePrimitive(
-	browser: Browser,
-	name: string,
-	tier: Tier,
-): Promise<void> {
+async function capturePrimitive(browser: Browser, name: string, tier: Tier): Promise<void> {
 	const dir = join(OUT_DIR, tier);
 	ensureDir(dir);
 	const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
