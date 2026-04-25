@@ -1,6 +1,7 @@
 import type { KnowledgeKind, KnowledgeLayer, KnowledgeStatus } from "@hyperidle/shared";
 import type { JSX, ReactNode } from "react";
 import { clickableProps } from "./clickable";
+import { dsProps } from "./ds-attrs";
 import { StatusChip } from "./StatusChip";
 import { knowledgeStatusToStatus } from "./status-mapping";
 import { Tag } from "./Tag";
@@ -54,6 +55,7 @@ export function KnowledgeRow({
 	const { className: _clickableCls, ...interactiveProps } = clickableProps(onClick, baseClassName);
 	return (
 		<div
+			{...dsProps("KnowledgeRow", "2")}
 			className={onClick ? `${baseClassName} cursor-pointer` : baseClassName}
 			{...interactiveProps}
 		>

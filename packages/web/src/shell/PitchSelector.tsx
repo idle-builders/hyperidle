@@ -1,4 +1,10 @@
-import { EmptyState, KeyValue, PitchCard, SearchField } from "@hyperidle/design-system";
+import {
+	dsShellProps,
+	EmptyState,
+	KeyValue,
+	PitchCard,
+	SearchField,
+} from "@hyperidle/design-system";
 /**
  * @lore J5: PitchSelector now hosts an inline detail pane. Clicking a
  * pitch both toggles selection (preserved for existing tests) AND sets
@@ -70,7 +76,10 @@ export function PitchSelector({
 	});
 
 	return (
-		<div className="bg-base-200 rounded-lg p-3 flex flex-col gap-3 max-h-[480px]">
+		<div
+			{...dsShellProps("PitchSelector")}
+			className="bg-base-200 rounded-lg p-3 flex flex-col gap-3 max-h-[480px]"
+		>
 			<div className="flex items-center justify-between">
 				<h3 className="text-sm font-semibold">Select Pitch</h3>
 				<button

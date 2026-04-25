@@ -1,3 +1,4 @@
+import { dsShellProps } from "@hyperidle/design-system";
 import type { JSX } from "react";
 import type { ViewId } from "./shell-types";
 import { VIEW_ICONS, VIEW_IDS } from "./shell-types";
@@ -45,7 +46,11 @@ export function IconRail({
 	});
 
 	return (
-		<nav aria-label="Main navigation" className="flex w-12 flex-col items-center gap-2 p-2">
+		<nav
+			{...dsShellProps("IconRail")}
+			aria-label="Main navigation"
+			className="flex w-12 flex-col items-center gap-2 p-2"
+		>
 			{VIEW_IDS.map((viewId, index) => {
 				const { label, icon } = VIEW_ICONS[viewId];
 				const isActive = viewId === activeView;

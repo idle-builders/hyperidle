@@ -7,6 +7,7 @@
  * announce the error on mount.
  */
 import type { JSX } from "react";
+import { dsProps } from "./ds-attrs";
 
 export interface ErrorStateProps {
 	title: string;
@@ -25,6 +26,7 @@ export function ErrorState({
 }: ErrorStateProps): JSX.Element {
 	return (
 		<div
+			{...dsProps("ErrorState", "2")}
 			role="alert"
 			data-testid={dataTestId ?? "error-state"}
 			className="flex flex-col items-start gap-[8px] px-[8px] py-[16px] text-left"

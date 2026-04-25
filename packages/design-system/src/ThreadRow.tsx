@@ -1,5 +1,6 @@
 import type { JSX, ReactNode } from "react";
 import { clickableProps } from "./clickable";
+import { dsProps } from "./ds-attrs";
 import { type Status, StatusChip } from "./StatusChip";
 import { Tag } from "./Tag";
 import type { TagKind } from "./tag-kinds";
@@ -43,7 +44,7 @@ export function ThreadRow({
 		.join(" ");
 
 	return (
-		<div {...clickableProps(onClick)} className={baseClassName}>
+		<div {...dsProps("ThreadRow", "2")} {...clickableProps(onClick)} className={baseClassName}>
 			<img src={avatarUrl} alt="" className="h-[32px] w-[32px] rounded-full" />
 			<div className="flex-1 min-w-0">
 				<div className="flex items-center gap-[8px]">
