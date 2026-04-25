@@ -57,15 +57,11 @@ export default [
 		},
 	},
 
-	// K6 — Design lint rules. All warn-level for now; K8 promotes to error
-	// once the codebase is clean. Source of truth for every value: AESTHETICS.md
-	// + tokens.css.
+	// K6 — Design lint rules for the web package. All warn-level: the wider
+	// codebase still has documented backlog (see eslint-plugin-design/waivers.md).
 	{
-		files: ["packages/web/src/**/*.tsx", "packages/design-system/src/**/*.tsx"],
-		ignores: [
-			"packages/design-system/src/**/*.stories.tsx",
-			"packages/web/src/**/*.stories.tsx",
-		],
+		files: ["packages/web/src/**/*.tsx"],
+		ignores: ["packages/web/src/**/*.stories.tsx"],
 		languageOptions: {
 			parser: tsParser,
 			parserOptions: {
@@ -83,6 +79,36 @@ export default [
 			"design/require-ds-attribute": "warn",
 			"design/require-stories-sibling": "warn",
 			"design/require-focus-on-interactive": "warn",
+		},
+	},
+
+	// K8 — Design lint rules for the design-system package. Rules with zero
+	// surviving warnings post-K7 are promoted to `error` here; the two rules
+	// with documented designer-call exceptions remain `warn`. See
+	// `packages/eslint-plugin-design/waivers.md` for the per-warning waiver
+	// list.
+	{
+		files: ["packages/design-system/src/**/*.tsx"],
+		ignores: ["packages/design-system/src/**/*.stories.tsx"],
+		languageOptions: {
+			parser: tsParser,
+			parserOptions: {
+				ecmaFeatures: { jsx: true },
+			},
+		},
+		plugins: { design },
+		rules: {
+			// Promoted to error — clean post-K7 in design-system.
+			"design/no-hardcoded-color": "error",
+			"design/no-off-scale-radius": "error",
+			"design/no-off-scale-font-size": "error",
+			"design/no-raw-tailwind-color": "error",
+			"design/require-ds-attribute": "error",
+			"design/require-stories-sibling": "error",
+			"design/require-focus-on-interactive": "error",
+			// Stay at warn — see waivers.md for the surviving documented exceptions.
+			"design/no-off-grid-spacing": "warn",
+			"design/no-ai-aesthetic": "warn",
 		},
 	},
 ];
