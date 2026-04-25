@@ -140,6 +140,7 @@
 			"!**/*.db",
 			"!**/coverage",
 			"!**/playwright-report",
+			"!**/test-results",
 			"!**/visual-reports",
 			"!**/sync-reports",
 			"!**/.claude",

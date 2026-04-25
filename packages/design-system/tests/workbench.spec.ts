@@ -59,10 +59,10 @@ test.describe("design-system workbench", () => {
 		await expect(page.locator("html")).toHaveAttribute("data-density", "comfortable");
 
 		// NavItem button consumes --density-row-h. Comfortable = 3.5rem; the
-		// viewer's html font-size is 14px (see viewer.css), so 3.5rem = 49px.
-		// Default would be 2.75rem = ~38.5px and compact 2rem = 28px, so a
-		// minHeight at or above the comfortable threshold proves the density
-		// token took effect.
+		// viewer's html font-size is 16 px (see viewer.css; bumped 14→16 in K13
+		// Phase 0 to match production rooting), so 3.5rem = 56 px. Default would
+		// be 2.75rem = 44 px and compact 2rem = 32 px, so a minHeight at or above
+		// 48 still uniquely proves the comfortable token took effect.
 		const navButton = page.locator("[data-ds-component='NavItem'] button").first();
 		await expect(navButton).toBeVisible();
 		const minH = await navButton.evaluate((el) =>
