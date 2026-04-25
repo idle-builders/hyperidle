@@ -1,6 +1,15 @@
 import { EmptyState } from "./EmptyState.js";
 
-export default { title: "EmptyState" };
+export default {
+	title: "EmptyState",
+	order: [
+		"KnowledgeEmpty",
+		"TriageClear",
+		"ConversationsEmpty",
+		"PortfolioEmpty",
+		"WithActionSlot",
+	],
+};
 
 export const KnowledgeEmpty = (): React.JSX.Element => (
 	<EmptyState
@@ -27,5 +36,17 @@ export const PortfolioEmpty = (): React.JSX.Element => (
 	<EmptyState
 		title="No products in the portfolio"
 		description="Add a product from Settings to start shaping bets."
+	/>
+);
+
+export const WithActionSlot = (): React.JSX.Element => (
+	<EmptyState
+		title="Custom action"
+		description="This empty state has an action button."
+		action={
+			<button type="button" className="btn btn-sm btn-primary">
+				Add item
+			</button>
+		}
 	/>
 );

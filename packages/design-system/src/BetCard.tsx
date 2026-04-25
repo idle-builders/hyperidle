@@ -12,6 +12,12 @@ import { Tag } from "./Tag";
  * unchanged. The portfolio fields render only when the corresponding prop
  * is supplied so the card still collapses to its original shape when used
  * as a pure bet summary on Canvas.
+ *
+ * @lore All spacing values use explicit pixel units (not rem-based
+ * Tailwind utilities like p-2, gap-1, h-6, w-16) because the
+ * design-system viewer sets html { font-size: 14px }, which makes 1rem=14px.
+ * Tailwind rem classes would compute to wrong values (e.g. p-2=7px
+ * instead of 8px, gap-1=3.5px instead of 4px, w-16=56px instead of 64px).
  */
 export interface BetCardLeadAvatar {
 	name: string;
@@ -44,21 +50,29 @@ export function BetCard({
 	shipped,
 }: BetCardProps): JSX.Element {
 	return (
-		<div {...clickableProps(onClick, "bg-base-200 rounded-lg p-2 flex flex-col gap-1")}>
-			<div className="flex items-center gap-2">
+		<div
+			{...clickableProps(
+				onClick,
+				"bg-[var(--surface-4)] rounded-[var(--r2)] p-[8px] flex flex-col gap-[4px]",
+			)}
+		>
+			<div className="flex items-center gap-[8px]">
 				{leadAvatar && (
 					<span
-						className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-base-300 text-[var(--text-hi)] text-xs font-semibold"
+						className="inline-flex h-[24px] w-[24px] shrink-0 items-center justify-center rounded-full bg-[var(--surface-6)] text-[var(--text-hi)] text-[11px] font-semibold"
 						aria-label={`Lead agent: ${leadAvatar.name}`}
 					>
 						{leadAvatar.initials}
 					</span>
 				)}
-				<span className="text-sm font-medium truncate flex-1 min-w-0" aria-label={`Bet: ${title}`}>
+				<span
+					className="text-[14px] font-medium truncate flex-1 min-w-0"
+					aria-label={`Bet: ${title}`}
+				>
 					{title}
 				</span>
 			</div>
-			<div className="flex items-center gap-2">
+			<div className="flex items-center gap-[8px]">
 				<Tag label={product} />
 				<StatusChip status={betStatusToStatus(status)} />
 			</div>
@@ -71,13 +85,14 @@ export function BetCard({
 			)}
 			{shipped !== undefined && <KeyValue label="Shipped" value={String(shipped)} />}
 			{progress && (
-				<div className="flex items-center gap-2">
-					<progress
-						className="progress progress-accent w-16 h-1.5"
-						value={progress.done}
-						max={progress.total}
-					/>
-					<span className="text-xs text-[var(--text-mid)]">
+				<div className="flex items-center gap-[8px]">
+					<div className="w-[64px] h-[6px] bg-[var(--surface-6)] rounded-[var(--r-pill)] overflow-hidden">
+						<div
+							className="h-full bg-[var(--primary)] rounded-[var(--r-pill)] transition-[width] duration-[var(--motion-medium)]"
+							style={{ width: `${(progress.done / progress.total) * 100}%` }}
+						/>
+					</div>
+					<span className="text-[12px] text-[var(--text-mid)]">
 						{progress.done}/{progress.total}
 					</span>
 				</div>

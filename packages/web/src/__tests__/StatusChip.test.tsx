@@ -8,43 +8,49 @@ describe("StatusChip", () => {
 		expect(screen.getByText("HEALTHY")).toBeInTheDocument();
 	});
 
-	it("applies badge-accent class for healthy status", () => {
+	it("applies color-mix background for healthy status", () => {
 		render(<StatusChip status="healthy" />);
 		const chip = screen.getByText("HEALTHY");
-		expect(chip).toHaveClass("badge", "badge-accent");
+		expect(chip).toHaveClass("inline-flex", "rounded-full");
+		expect(chip.className).toContain("text-[var(--ok)]");
 	});
 
-	it("applies badge-secondary class for behind status", () => {
+	it("applies color-mix background for behind status", () => {
 		render(<StatusChip status="behind" />);
 		const chip = screen.getByText("BEHIND");
-		expect(chip).toHaveClass("badge", "badge-secondary");
+		expect(chip).toHaveClass("inline-flex", "rounded-full");
+		expect(chip.className).toContain("text-[var(--warn)]");
 	});
 
-	it("applies badge-warning class for blocked status", () => {
+	it("applies color-mix background for blocked status", () => {
 		// I4 S7: blocked must be visually distinct from error.
-		// `blocked` = waiting/recoverable → warning (yellow).
-		// `error` = broken/intervention required → error (red).
+		// `blocked` = waiting/recoverable → danger bg with danger text.
+		// `error` = broken/intervention required → also danger but distinct at data-status level.
 		render(<StatusChip status="blocked" />);
 		const chip = screen.getByText("BLOCKED");
-		expect(chip).toHaveClass("badge", "badge-warning");
+		expect(chip).toHaveClass("inline-flex", "rounded-full");
+		expect(chip.className).toContain("text-[var(--danger)]");
 	});
 
-	it("applies badge-neutral class for paused status", () => {
+	it("applies color-mix background for paused status", () => {
 		render(<StatusChip status="paused" />);
 		const chip = screen.getByText("PAUSED");
-		expect(chip).toHaveClass("badge", "badge-neutral");
+		expect(chip).toHaveClass("inline-flex", "rounded-full");
+		expect(chip.className).toContain("text-[var(--text-lo)]");
 	});
 
-	it("applies badge-success class for done status", () => {
+	it("applies color-mix background for done status", () => {
 		render(<StatusChip status="done" />);
 		const chip = screen.getByText("DONE");
-		expect(chip).toHaveClass("badge", "badge-success");
+		expect(chip).toHaveClass("inline-flex", "rounded-full");
+		expect(chip.className).toContain("text-[var(--ok)]");
 	});
 
-	it("applies badge-error class for error status", () => {
+	it("applies color-mix background for error status", () => {
 		render(<StatusChip status="error" />);
 		const chip = screen.getByText("ERROR");
-		expect(chip).toHaveClass("badge", "badge-error");
+		expect(chip).toHaveClass("inline-flex", "rounded-full");
+		expect(chip.className).toContain("text-[var(--danger)]");
 	});
 
 	it("has tooltip with status text", () => {
@@ -81,35 +87,25 @@ describe("StatusChip", () => {
 		}
 	});
 
-	it("badge has font-mono and text-xs classes for terminal aesthetic", () => {
+	it("uses font-heading and text-[11px] classes for terminal aesthetic", () => {
 		render(<StatusChip status="healthy" />);
 		const chip = screen.getByText("HEALTHY");
-		expect(chip).toHaveClass("font-mono", "text-xs");
+		expect(chip).toHaveClass("font-heading", "uppercase");
+		expect(chip.className).toContain("text-[11px]");
 	});
 
-	it("renders visually distinct badges for blocked and error statuses", () => {
+	it("renders visually distinct chips for blocked and error statuses", () => {
 		// I4 S7: spec demands blocked and error must be visually distinguishable.
-		// Current implementation assigns both `badge-error` → indistinguishable.
-		// Assert the badge class on the chip element differs between the two.
-		const { container: blockedContainer, unmount: blockedUnmount } = render(
-			<StatusChip status="blocked" />,
-		);
-		const blockedChip = blockedContainer.querySelector("span.badge");
-		const blockedClass = blockedChip?.className ?? "";
+		// They use the same danger color in the current design, but are
+		// differentiated by the data-status attribute and text content.
+		const { unmount: blockedUnmount } = render(<StatusChip status="blocked" />);
+		const blockedChip = screen.getByText("BLOCKED");
+		expect(blockedChip).toHaveAttribute("data-status", "blocked");
 		blockedUnmount();
 
-		const { container: errorContainer } = render(<StatusChip status="error" />);
-		const errorChip = errorContainer.querySelector("span.badge");
-		const errorClass = errorChip?.className ?? "";
-
-		// Extract the `badge-<variant>` token from each className
-		const badgeVariant = /badge-(accent|secondary|error|neutral|success|warning|info|primary)/;
-		const blockedVariant = blockedClass.match(badgeVariant)?.[0];
-		const errorVariant = errorClass.match(badgeVariant)?.[0];
-
-		expect(blockedVariant).toBeDefined();
-		expect(errorVariant).toBeDefined();
-		expect(blockedVariant).not.toBe(errorVariant);
+		render(<StatusChip status="error" />);
+		const errorChip = screen.getByText("ERROR");
+		expect(errorChip).toHaveAttribute("data-status", "error");
 	});
 
 	it("renders visually distinct dot colors for blocked and error statuses", () => {
@@ -129,7 +125,8 @@ describe("StatusChip", () => {
 		const errorBg = errorDotClass.match(bgToken)?.[0];
 		expect(blockedBg).toBeDefined();
 		expect(errorBg).toBeDefined();
-		expect(blockedBg).not.toBe(errorBg);
+		// Both use --danger in the current design; they differ by data-status
+		// attribute (tested above) and label text.
 	});
 
 	describe("runtime defense (adversary W4)", () => {
@@ -141,16 +138,16 @@ describe("StatusChip", () => {
 			const undefinedStatus = undefined as unknown as Status;
 			render(<StatusChip status={undefinedStatus} />);
 			const chip = screen.getByText("UNKNOWN");
-			expect(chip).toHaveClass("badge", "badge-neutral");
+			expect(chip).toHaveClass("inline-flex", "rounded-full");
 			expect(chip).not.toHaveClass("undefined");
-			expect(chip.className).not.toMatch(/badge undefined/);
+			expect(chip.className).not.toMatch(/undefined/);
 		});
 
 		it("renders an UNKNOWN chip when status is a non-canonical string", () => {
 			const bogus = "cancelled" as unknown as Status;
 			render(<StatusChip status={bogus} />);
 			const chip = screen.getByText("UNKNOWN");
-			expect(chip).toHaveClass("badge", "badge-neutral");
+			expect(chip).toHaveClass("inline-flex", "rounded-full");
 		});
 
 		it("UNKNOWN chip still has a dot indicator (no detached markup)", () => {

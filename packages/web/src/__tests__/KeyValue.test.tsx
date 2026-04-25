@@ -24,12 +24,18 @@ describe("KeyValue", () => {
 	it("label has uppercase styling and font-heading", () => {
 		render(<KeyValue label="Owner" value="Alice" />);
 		const label = screen.getByText("Owner");
-		expect(label).toHaveClass("uppercase", "font-heading", "text-xs", "tracking-wider");
+		expect(label).toHaveClass(
+			"uppercase",
+			"font-heading",
+			"text-[11px]",
+			"tracking-[0.05em]",
+			"font-medium",
+		);
 	});
 
-	it("value has text-sm styling", () => {
+	it("value has text-[14px] styling", () => {
 		render(<KeyValue label="Owner" value="Alice" />);
 		const value = screen.getByText("Alice");
-		expect(value).toHaveClass("text-sm");
+		expect(value).toHaveClass("text-[14px]");
 	});
 });

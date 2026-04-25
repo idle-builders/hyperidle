@@ -1,28 +1,56 @@
 import { KeyValue } from "./KeyValue.js";
 
-export default { title: "KeyValue" };
+export default {
+	title: "KeyValue",
+	order: [
+		"InlineLayoutDefault",
+		"StackedLayout",
+		"LongValues",
+		"ShortLabels",
+		"SideBySideComparison",
+	],
+};
 
-export const Inline = (): React.JSX.Element => <KeyValue label="Status" value="Running" />;
-export const Stacked = (): React.JSX.Element => (
-	<KeyValue label="Status" value="Running" layout="stacked" />
-);
-export const LongValue = (): React.JSX.Element => (
-	<KeyValue label="Endpoint" value="https://api.hyperidle.io/v1/agents/health" />
-);
-export const ShortLabel = (): React.JSX.Element => <KeyValue label="ID" value="a7f3" />;
-
-export const InlineGroup = (): React.JSX.Element => (
-	<div className="flex flex-col gap-2 w-64">
-		<KeyValue label="Owner" value="Agent-12" />
-		<KeyValue label="Sprint" value="2026-W16" />
+export const InlineLayoutDefault = (): React.JSX.Element => (
+	<div className="flex w-80 flex-col gap-2">
+		<KeyValue label="Status" value="Running" />
 		<KeyValue label="Priority" value="High" />
+		<KeyValue label="Sprint" value="Cycle 7" />
+		<KeyValue label="Owner" value="Architect Agent" />
 	</div>
 );
 
-export const StackedGroup = (): React.JSX.Element => (
-	<div className="flex flex-col gap-3 w-64">
-		<KeyValue label="Owner" value="Agent-12" layout="stacked" />
-		<KeyValue label="Sprint" value="2026-W16" layout="stacked" />
-		<KeyValue label="Priority" value="High" layout="stacked" />
+export const StackedLayout = (): React.JSX.Element => (
+	<div className="flex w-80 flex-col gap-3">
+		<KeyValue label="Endpoint" value="https://api.hyperidle.io/v1" layout="stacked" />
+		<KeyValue label="Commit" value="a7f3e2d" layout="stacked" />
+		<KeyValue label="Branch" value="main" layout="stacked" />
+	</div>
+);
+
+export const LongValues = (): React.JSX.Element => (
+	<div className="flex max-w-[420px] flex-col gap-2">
+		<KeyValue label="Endpoint" value="https://api.hyperidle.io/v1/agents/health" />
+		<KeyValue label="Commit hash" value="a7f3e2d91bc4f..." />
+	</div>
+);
+
+export const ShortLabels = (): React.JSX.Element => (
+	<div className="flex max-w-[200px] flex-col gap-2">
+		<KeyValue label="ID" value="a7f3" />
+		<KeyValue label="Rev" value="42" />
+	</div>
+);
+
+export const SideBySideComparison = (): React.JSX.Element => (
+	<div className="flex gap-4">
+		<div className="flex w-60 flex-col gap-2 rounded-lg bg-[var(--surface-3)] p-4">
+			<KeyValue label="Owner" value="Architect Agent" />
+			<KeyValue label="Sprint" value="Cycle 7" />
+		</div>
+		<div className="flex w-60 flex-col gap-3 rounded-lg bg-[var(--surface-3)] p-4">
+			<KeyValue label="Owner" value="Architect Agent" layout="stacked" />
+			<KeyValue label="Sprint" value="Cycle 7" layout="stacked" />
+		</div>
 	</div>
 );

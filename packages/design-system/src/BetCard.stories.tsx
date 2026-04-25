@@ -1,31 +1,42 @@
 import { BetCard } from "./BetCard";
 
-export default { title: "BetCard" };
+export default {
+	title: "BetCard",
+	order: ["Committed", "WithProgress", "Shipped", "Killed", "AllStatuses", "PortfolioMode"],
+};
 
 export const Committed = (): React.JSX.Element => (
-	<BetCard title="Mobile App V2" product="HyperIdle" status="committed" appetite="6 weeks" />
+	<div className="max-w-[320px]">
+		<BetCard title="Mobile App V2" product="HyperIdle" status="committed" appetite="6 weeks" />
+	</div>
 );
 
 export const WithProgress = (): React.JSX.Element => (
-	<BetCard
-		title="Knowledge Graph Rebuild"
-		product="Fabric"
-		status="in_progress"
-		appetite="4 weeks"
-		progress={{ done: 3, total: 8 }}
-	/>
+	<div className="max-w-[320px]">
+		<BetCard
+			title="Knowledge Graph Rebuild"
+			product="Fabric"
+			status="in_progress"
+			appetite="4 weeks"
+			progress={{ done: 3, total: 8 }}
+		/>
+	</div>
 );
 
 export const Shipped = (): React.JSX.Element => (
-	<BetCard title="Agent Cost Controls" product="Runtime" status="shipped" appetite="2 weeks" />
+	<div className="max-w-[320px]">
+		<BetCard title="Agent Cost Controls" product="Runtime" status="shipped" appetite="2 weeks" />
+	</div>
 );
 
 export const Killed = (): React.JSX.Element => (
-	<BetCard title="Deprecated Feature" product="Legacy" status="killed" appetite="1 week" />
+	<div className="max-w-[320px]">
+		<BetCard title="Deprecated Feature" product="Legacy" status="killed" appetite="1 week" />
+	</div>
 );
 
 export const AllStatuses = (): React.JSX.Element => (
-	<div className="flex flex-col gap-2">
+	<div className="flex flex-col gap-2 max-w-[320px]">
 		<BetCard title="Shaped Bet" product="App" status="shaped" appetite="6 weeks" />
 		<BetCard title="Committed Bet" product="App" status="committed" appetite="4 weeks" />
 		<BetCard
@@ -41,14 +52,16 @@ export const AllStatuses = (): React.JSX.Element => (
 );
 
 export const PortfolioMode = (): React.JSX.Element => (
-	<BetCard
-		title="HyperIdle Core"
-		product="HyperIdle"
-		status="committed"
-		appetite="Cycle 12"
-		leadAvatar={{ name: "CEO Agent", initials: "CE" }}
-		activeBets={4}
-		shipped={12}
-		progress={{ done: 3, total: 5 }}
-	/>
+	<div className="max-w-[320px]">
+		<BetCard
+			title="HyperIdle Core"
+			product="HyperIdle"
+			status="committed"
+			appetite="Cycle 12"
+			leadAvatar={{ name: "CEO Agent", initials: "CE" }}
+			activeBets={4}
+			shipped={12}
+			progress={{ done: 3, total: 5 }}
+		/>
+	</div>
 );

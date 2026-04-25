@@ -16,12 +16,12 @@ describe("KeyValue — density wiring (J1)", () => {
 		expect(value).toHaveClass("text-[length:var(--density-text)]");
 	});
 
-	it("value keeps text-sm alongside the density arbitrary-value class", () => {
-		// Guards against accidental removal of the back-compat class used by the
-		// original KeyValue.test.tsx assertion.
+	it("value keeps text-[14px] alongside the density arbitrary-value class", () => {
+		// Guards against accidental removal of the px-based fallback class used by
+		// the original KeyValue.test.tsx assertion.
 		render(<KeyValue label="Owner" value="Alice" />);
 		const value = screen.getByText("Alice");
-		expect(value).toHaveClass("text-sm");
+		expect(value).toHaveClass("text-[14px]");
 		expect(value).toHaveClass("text-[length:var(--density-text)]");
 	});
 });

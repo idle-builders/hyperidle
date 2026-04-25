@@ -31,16 +31,21 @@ export function PitchCard({
 	onClick,
 }: PitchCardProps): JSX.Element {
 	return (
-		<div {...clickableProps(onClick, "bg-base-200 rounded-lg p-2 flex flex-col gap-1")}>
-			<span className="text-sm font-medium truncate" aria-label={`Pitch: ${title}`}>
+		<div
+			{...clickableProps(
+				onClick,
+				"bg-[var(--surface-4)] rounded-[var(--r2)] p-[8px] flex flex-col gap-[4px] max-w-[320px]",
+			)}
+		>
+			<span className="text-[14px] font-medium truncate" aria-label={`Pitch: ${title}`}>
 				{title}
 			</span>
-			<div className="flex items-center gap-2">
+			<div className="flex items-center gap-[8px]">
 				{kind && <Tag label={kind} />}
 				<StatusChip status={betStatusToStatus(status)} />
 			</div>
-			<p className="text-xs text-[var(--text-mid)] line-clamp-2">{hypothesis}</p>
-			<span className="text-xs">{proposer}</span>
+			<p className="text-[12px] text-[var(--text-mid)] line-clamp-2">{hypothesis}</p>
+			<span className="text-[12px]">{proposer}</span>
 			<KeyValue label="Appetite" value={appetite} />
 			{actions}
 		</div>

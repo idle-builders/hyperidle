@@ -15,27 +15,51 @@ export interface StatusChipProps {
 }
 
 /**
- * @lore I4 S7: `blocked` and `error` were both `badge-error` (red),
- * indistinguishable to the user. `blocked` is now `badge-warning` (yellow):
- * blocked = "stuck waiting" (recoverable), error = "broken" (intervention
- * required). Both still grab attention but encode different urgency.
+ * @lore StatusChip styling matches the HTML reference in packages/design-system/html/StatusChip.html.
+ * Uses color-mix() backgrounds with CSS token colors instead of DaisyUI badge classes
+ * so the TSX and HTML renderings are pixel-identical.
+ *
+ * @lore All spacing values use explicit pixel units (not rem-based
+ * Tailwind utilities like gap-1.5, px-2, py-0.5) because the
+ * design-system viewer sets html { font-size: 14px }, which makes 1rem=14px.
+ * Tailwind rem classes would compute to wrong values (e.g. gap-1.5=5.25px
+ * instead of 6px, px-2=7px instead of 8px).
  */
-const STATUS_BADGE_CLASS: Record<Status, string> = {
-	healthy: "badge-accent",
-	behind: "badge-secondary",
-	blocked: "badge-warning",
-	paused: "badge-neutral",
-	done: "badge-success",
-	error: "badge-error",
-};
 
-const STATUS_DOT_CLASS: Record<Status, string> = {
-	healthy: "bg-accent",
-	behind: "bg-secondary",
-	blocked: "bg-warning",
-	paused: "bg-neutral-content",
-	done: "bg-success",
-	error: "bg-error",
+interface StatusStyle {
+	chip: string;
+	dot: string;
+}
+
+const STATUS_STYLES: Record<Status | "unknown", StatusStyle> = {
+	healthy: {
+		chip: "bg-[color-mix(in_oklab,var(--ok)_14%,transparent)] text-[var(--ok)]",
+		dot: "bg-[var(--ok)]",
+	},
+	behind: {
+		chip: "bg-[color-mix(in_oklab,var(--warn)_14%,transparent)] text-[var(--warn)]",
+		dot: "bg-[var(--warn)]",
+	},
+	blocked: {
+		chip: "bg-[color-mix(in_oklab,var(--danger)_14%,transparent)] text-[var(--danger)]",
+		dot: "bg-[var(--danger)]",
+	},
+	paused: {
+		chip: "bg-[color-mix(in_oklab,var(--text-lo)_14%,transparent)] text-[var(--text-lo)]",
+		dot: "bg-[var(--text-lo)]",
+	},
+	done: {
+		chip: "bg-[color-mix(in_oklab,var(--ok)_14%,transparent)] text-[var(--ok)]",
+		dot: "bg-[var(--ok)]",
+	},
+	error: {
+		chip: "bg-[color-mix(in_oklab,var(--danger)_14%,transparent)] text-[var(--danger)]",
+		dot: "bg-[var(--danger)]",
+	},
+	unknown: {
+		chip: "bg-[color-mix(in_oklab,var(--text-lo)_14%,transparent)] text-[var(--text-lo)]",
+		dot: "bg-[var(--text-lo)]",
+	},
 };
 
 const KNOWN_STATUSES: ReadonlySet<string> = new Set<Status>([
@@ -47,36 +71,18 @@ const KNOWN_STATUSES: ReadonlySet<string> = new Set<Status>([
 	"error",
 ]);
 
+const CHIP_BASE =
+	"inline-flex items-center gap-[6px] px-[8px] py-[2px] rounded-full font-heading text-[11px] tracking-[0.05em] uppercase font-medium leading-[1.4] whitespace-nowrap shrink-0";
+
 export function StatusChip({ status }: StatusChipProps): JSX.Element {
-	// I4 adversary W4: defensive — the caller may pass an undefined or
-	// unknown string at runtime (server/web version skew, all-malformed
-	// search rows slipping through a caller's filter). Never emit
-	// `badge undefined`; render a neutral "unknown" chip instead.
 	const safeStatus: Status | "unknown" =
 		typeof status === "string" && KNOWN_STATUSES.has(status) ? (status as Status) : "unknown";
 
-	if (safeStatus === "unknown") {
-		return (
-			<span
-				className="badge badge-neutral badge-sm gap-1.5 font-mono text-xs uppercase"
-				title="unknown"
-				data-status="unknown"
-			>
-				<span className="inline-block h-1.5 w-1.5 rounded-full bg-neutral-content" />
-				UNKNOWN
-			</span>
-		);
-	}
-
-	const badgeClass = STATUS_BADGE_CLASS[safeStatus];
-	const dotClass = STATUS_DOT_CLASS[safeStatus];
+	const style = STATUS_STYLES[safeStatus];
 
 	return (
-		<span
-			className={`badge ${badgeClass} badge-sm gap-1.5 font-mono text-xs uppercase`}
-			title={safeStatus}
-		>
-			<span className={`inline-block h-1.5 w-1.5 rounded-full ${dotClass}`} />
+		<span className={`${CHIP_BASE} ${style.chip}`} title={safeStatus} data-status={safeStatus}>
+			<span className={`h-[6px] w-[6px] rounded-full shrink-0 ${style.dot}`} />
 			{safeStatus.toUpperCase()}
 		</span>
 	);

@@ -1,6 +1,9 @@
 import { ThreadRow } from "./ThreadRow";
 
-export default { title: "ThreadRow" };
+export default {
+	title: "ThreadRow",
+	order: ["Default", "WithStatusAndTag", "Unread", "Blocking", "WithActions"],
+};
 
 export const Default = (): React.JSX.Element => (
 	<ThreadRow

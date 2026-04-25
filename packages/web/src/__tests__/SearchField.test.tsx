@@ -9,10 +9,11 @@ describe("SearchField", () => {
 		expect(screen.getByPlaceholderText("Search...")).toBeInTheDocument();
 	});
 
-	it("applies input-sm class to the input", () => {
+	it("applies sizing classes to the input", () => {
 		render(<SearchField placeholder="Search..." />);
 		const input = screen.getByPlaceholderText("Search...");
-		expect(input).toHaveClass("input", "input-sm");
+		expect(input).toHaveClass("w-full", "h-[32px]");
+		expect(input.className).toContain("bg-[var(--surface-3)]");
 	});
 
 	it("shows shortcut key hint when provided", () => {
@@ -31,13 +32,13 @@ describe("SearchField", () => {
 
 	it("shows loading spinner when loading", () => {
 		const { container } = render(<SearchField loading />);
-		const spinner = container.querySelector(".loading");
+		const spinner = container.querySelector(".animate-spin");
 		expect(spinner).toBeInTheDocument();
 	});
 
 	it("does not show loading spinner when not loading", () => {
 		const { container } = render(<SearchField />);
-		const spinner = container.querySelector(".loading");
+		const spinner = container.querySelector(".animate-spin");
 		expect(spinner).not.toBeInTheDocument();
 	});
 
