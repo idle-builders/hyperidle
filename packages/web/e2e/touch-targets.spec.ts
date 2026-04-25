@@ -59,7 +59,27 @@ async function findUndersizedTargets(page: Page): Promise<Undersized[]> {
 			"[role='checkbox']",
 			"[role='radio']",
 		];
-		const nodes = Array.from(document.querySelectorAll<HTMLElement>(SELECTORS.join(",")));
+		// @lore K8 — scope the audit to Tier 1+2 design-system primitives
+		// (NavItem, KeyValue, KnowledgeRow, ThreadRow, BetCard, TaskCard,
+		// PitchCard, NotificationRow, EmptyState, etc.). Tier 3 shells
+		// (`[data-ds-shell]`) and page chrome use DaisyUI `btn-xs` /
+		// `btn-sm` / `tab-xs` widgets that pin sub-44px sizes irrespective
+		// of the density cascade — that is the F3 chrome refactor backlog
+		// in `packages/design-system/research/critique-results.md`. K7
+		// owns the density cascade for the primitives below, and the K8
+		// fix (`--density-row-h: 2.75rem` for comfortable) makes them pass
+		// AQ-015 at the mobile breakpoint. The assertion turns red the
+		// moment a density-aware primitive regresses.
+		const dsSubtrees = Array.from(
+			document.querySelectorAll<HTMLElement>("[data-ds-component]"),
+		);
+		const nodeSet = new Set<HTMLElement>();
+		for (const subtree of dsSubtrees) {
+			for (const el of subtree.querySelectorAll<HTMLElement>(SELECTORS.join(","))) {
+				nodeSet.add(el);
+			}
+		}
+		const nodes = Array.from(nodeSet);
 		const offenders: Array<{
 			tag: string;
 			role: string | null;
@@ -123,43 +143,22 @@ test.describe("K8 — Touch-target audit at mobile viewport (≤ 1024px)", () =>
 
 	for (const route of ROUTES) {
 		/**
-		 * @lore K8 audit findings (recorded but not enforced as hard failure).
+		 * @lore K8 — assertion runs against `[data-density]`-controlled
+		 * design-system primitives (NavItem, KeyValue, KnowledgeRow,
+		 * ThreadRow, etc.) rather than the full interactive surface.
 		 *
-		 * Running this test against the post-K7 codebase reveals a systemic
-		 * touch-target gap that K8's scope cannot remediate without
-		 * re-opening K7 and a downstream chrome refactor:
-		 *
-		 *  1. AESTHETICS.md § Mobile & Touch and AQ-015 require ≥ 44 CSS px on
-		 *     every interactive element at viewport ≤ 1024 px.
-		 *  2. K7's `--density-row-h` for `comfortable` is 2.5rem = 40 px,
-		 *     which falls 4 px short of the 44 px floor even on the densest
-		 *     mobile preset. Bumping the token would change visual-regression
-		 *     baselines AND require a coordinated HTML+TSX update per the
-		 *     visual-parity rule (`/.claude/rules/visual-parity.md`).
-		 *  3. Page-level chrome uses DaisyUI `btn-sm` (32 px), `btn-xs`
-		 *     (24 px), and tab-bar `tab-xs` widgets that pin sizes
-		 *     irrespective of the density cascade — these need to be
-		 *     replaced with density-aware sizing across every page.
-		 *
-		 * The test is left here as a permanent audit harness. To enforce as
-		 * a hard gate, remove `test.fixme` once a follow-on K-track:
-		 *  (a) bumps `--density-row-h` for comfortable to 2.75 rem (44 px)
-		 *      with the matching HTML+TSX lockstep update, and
-		 *  (b) replaces `btn-xs`/`btn-sm`/`tab-xs` usage in the web chrome
-		 *      with density-aware components that read --density-row-h.
-		 *
-		 * Concrete violations counted at K8 close:
-		 *  - /conversations/review: 23 undersized (sort buttons, tab bar,
-		 *    review-action buttons all use `btn-xs`).
-		 *  - /conversations/chat, /work/portfolio, /work/team, /work/bet/:id,
-		 *    /knowledge, /knowledge/:id: similar populations of `btn-xs`
-		 *    sort/filter/action buttons + 32-px ghost icon buttons.
-		 *
-		 * Run `bunx playwright test touch-targets --reporter=list` to get
-		 * the live count and selector hints. Output is intentionally chatty
-		 * to drive the follow-on remediation.
+		 *  - K8 fixed `--density-row-h` for `comfortable` to 2.75rem (44px)
+		 *    so every density-aware primitive now meets AQ-015 at the
+		 *    mobile breakpoint (auto-density resolves to comfortable at
+		 *    viewport ≤ 1024px).
+		 *  - Page-level chrome (`btn-xs`, `btn-sm`, `tab-xs` in
+		 *    `pages/**`) is still a follow-on chrome refactor (F3 in
+		 *    `packages/design-system/research/critique-results.md`); when
+		 *    that lands, broaden the SELECTORS scope back to the full DOM
+		 *    by removing the `[data-ds-*]` filter in
+		 *    `findUndersizedTargets`.
 		 */
-		test.fixme(`every interactive element ≥ ${MIN_TOUCH_PX}px on ${route.path}`, async ({
+		test(`every density-controlled primitive ≥ ${MIN_TOUCH_PX}px on ${route.path}`, async ({
 			page,
 		}) => {
 			await page.goto(route.path);
@@ -210,10 +209,9 @@ test.describe("K8 — Touch-target audit at mobile viewport (≤ 1024px)", () =>
 		const navItemHeight = await navButton.evaluate((el) =>
 			Math.round(el.getBoundingClientRect().height),
 		);
-		// Document the K7 reality: comfortable row-h is 40px (2.5rem) per
-		// tokens.css. This test pins the value so a future bump to 44px is
-		// visible in the diff. When the follow-on track raises the token to
-		// 2.75rem, swap this assertion for `>= MIN_TOUCH_PX`.
-		expect(navItemHeight).toBeGreaterThanOrEqual(40);
+		// K8: comfortable row-h was raised to 2.75rem (44px) to clear the
+		// AQ-015 floor. NavItem reads `--density-row-h` via `min-height`,
+		// so its painted height must reach the touch-target minimum.
+		expect(navItemHeight).toBeGreaterThanOrEqual(MIN_TOUCH_PX);
 	});
 });
