@@ -85,8 +85,10 @@ function isValid24hTime(value: string): boolean {
  */
 
 /**
- * @lore Theme (light/dark) is deferred to v2 per spec. The Appearance tab only
- * exposes density for now, with a note about theme being deferred.
+ * @lore K3: theme persistence ships in this story. The Appearance tab now
+ * exposes a Theme select (system / dark / light) wired through useTheme().
+ * AppShell routes the chosen value through useTheme().setTheme on save so the
+ * boot script in index.html paints correctly on the next reload.
  */
 
 export function SettingsPanel({
