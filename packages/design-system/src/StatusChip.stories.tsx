@@ -2,6 +2,7 @@ import { StatusChip } from "./StatusChip.js";
 
 export default {
 	title: "StatusChip",
+	tier: "1" as const,
 	order: ["AllStatusVariants", "UnknownFallback", "InContextDemoCard"],
 };
 

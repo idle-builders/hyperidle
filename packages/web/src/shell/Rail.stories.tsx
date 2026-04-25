@@ -2,7 +2,11 @@ import type { BetStatus } from "@hyperidle/shared";
 import { useState } from "react";
 import { Rail } from "./Rail";
 
-export default { title: "Rail" };
+export default {
+	title: "Rail",
+	tier: "3" as const,
+	uses: ["NotificationRow", "KeyValue", "StatusChip"],
+};
 
 const sampleBets = [
 	{ id: "bet-1", title: "Launch MVP", product: "HyperIdle", status: "in_progress" as BetStatus },

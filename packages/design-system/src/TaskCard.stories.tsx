@@ -1,6 +1,11 @@
 import { TaskCard } from "./TaskCard";
 
-export default { title: "TaskCard", order: ["InProgress", "Blocked", "Done", "AllStates"] };
+export default {
+	title: "TaskCard",
+	tier: "2" as const,
+	uses: ["StatusChip", "Tag", "KeyValue"],
+	order: ["InProgress", "Blocked", "Done", "AllStates"],
+};
 
 export const InProgress = (): React.JSX.Element => (
 	<div className="max-w-[320px]">
