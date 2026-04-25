@@ -63,9 +63,16 @@ export default {
 				"lucid-light": {
 					primary: "#4f46e5",
 					"primary-content": "#ffffff",
-					secondary: "#78787e",
+					// @lore K8 — `secondary`/`warning` darkened to mirror the
+					// `--warn` token bump (`packages/design-system/src/tokens.css`).
+					// K7's #78787e failed WCAG 2.1 AA on white at 12px;
+					// #444448 clears 4.5:1 on the entire light-surface ladder.
+					secondary: "#444448",
 					"secondary-content": "#ffffff",
-					accent: "#8e8e94",
+					// @lore K8 — `accent`/`success` darkened to mirror the
+					// `--ok` token bump. K7's #8e8e94 failed WCAG 2.1 AA;
+					// #4d4d52 clears 4.5:1 on the entire light-surface ladder.
+					accent: "#4d4d52",
 					"accent-content": "#ffffff",
 					neutral: "#eaeae8",
 					"neutral-content": "#1a1a1e",
@@ -75,11 +82,15 @@ export default {
 					"base-content": "#1a1a1e",
 					info: "#4f46e5",
 					"info-content": "#ffffff",
-					success: "#8e8e94",
+					success: "#4d4d52",
 					"success-content": "#ffffff",
-					warning: "#78787e",
+					warning: "#444448",
 					"warning-content": "#ffffff",
-					error: "#dc2626",
+					// @lore K8 — `error` darkened to mirror `--danger` so the
+					// `text-error` class used in shell badges (Rail
+					// CollapsedPill, Toast, etc.) clears the 4.5:1 floor on
+					// the danger tint background.
+					error: "#a91515",
 					"error-content": "#ffffff",
 					"--rounded-box": "8px",
 					"--rounded-btn": "4px",

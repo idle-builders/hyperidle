@@ -102,13 +102,43 @@
 		--primary: #4f46e5;
 		--primary-dim: rgba(79, 70, 229, 0.08);
 		--primary-hover: rgba(79, 70, 229, 0.12);
-		--warn: #78787e;
-		--ok: #8e8e94;
-		--danger: #dc2626;
+		/*
+		 * @lore K8 — `--warn` and `--ok` darkened from K7's #78787e/#8e8e94
+		 * (4.38:1 / 3.25:1 on #ffffff — both fail WCAG 2.1 AA) into the
+		 * dark-grey zone where every text use clears ≥ 4.5:1 on the entire
+		 * light surface ladder, including the `surface-4`/`surface-5` card
+		 * tier (worst observed `#ddddd9`/`#cbcbc9`) and every ghost-tint
+		 * composited over it. The tokens stay in the greyscale ladder so
+		 * the Lucid principle "only danger carries color" still holds.
+		 * Relative ordering preserved: text-hi < text-mid < text-lo < warn
+		 * < ok (lightest), now all packed into a single dark-grey band so
+		 * the K7 K-rule contrast minimum holds.
+		 */
+		--warn: #444448;
+		--ok: #4d4d52;
+		/*
+		 * @lore K8 — `--danger` darkened from K7's #dc2626 (3.66:1 on the
+		 * 14% danger tint over white, fails WCAG 2.1 AA at 12px) to #a91515
+		 * (5.50:1 on the same tint, 7.50:1 on bare white). Stays inside the
+		 * Tailwind red ladder (between red-700 and red-800) so it still
+		 * reads as a brand-red signal.
+		 */
+		--danger: #a91515;
 
 		--text-hi: #1a1a1e;
-		--text-mid: #6b6b70;
-		--text-lo: #737378;
+		/*
+		 * @lore K8 — `--text-mid` and `--text-lo` darkened from K7's
+		 * #6b6b70 / #737378 to #3a3a3e / #555559. The original values
+		 * cleared 4.5:1 only on the lightest surfaces (#ffffff, #fafaf9);
+		 * they fell to ~3.5:1 once a chip / KeyValue / Tag landed on a
+		 * card with `bg-[var(--surface-4)]` (#ddddd9) or one of its
+		 * ghost-tint derivatives (~#d4d4d0). The new values clear ≥ 4.5:1
+		 * across the entire light surface ladder. Hierarchy preserved:
+		 * text-hi (#1a1a1e, darkest) → text-mid (#3a3a3e) → text-lo
+		 * (#555559, lightest of the trio).
+		 */
+		--text-mid: #3a3a3e;
+		--text-lo: #555559;
 
 		--float: 0 4px 16px rgba(0, 0, 0, 0.1);
 
@@ -134,13 +164,14 @@
 			--primary: #4f46e5;
 			--primary-dim: rgba(79, 70, 229, 0.08);
 			--primary-hover: rgba(79, 70, 229, 0.12);
-			--warn: #78787e;
-			--ok: #8e8e94;
-			--danger: #dc2626;
+			/* @lore K8 — see lucid-light token block above for rationale. */
+			--warn: #444448;
+			--ok: #4d4d52;
+			--danger: #a91515;
 
 			--text-hi: #1a1a1e;
-			--text-mid: #6b6b70;
-			--text-lo: #737378;
+			--text-mid: #3a3a3e;
+			--text-lo: #555559;
 
 			--float: 0 4px 16px rgba(0, 0, 0, 0.1);
 
@@ -161,8 +192,10 @@
 	 *   default × 0.75 rounded down to the nearest 4px multiple. K7 fixes
 	 *   pad-x (was 6px → 8px) and row-h (was 26px → 24px).
 	 * - Comfortable tier: row "Density tier ratio (comfortable)" — values
-	 *   are default × 1.25 rounded up to the nearest 4px multiple. Current
-	 *   values already match the rule; no edits.
+	 *   are default × 1.25 rounded up to the nearest 4px multiple. The
+	 *   row-h cell is the one exception: it is bumped to 2.75rem (44px) to
+	 *   meet AQ-015's 44 CSS px touch-target floor, which K8 enforces at
+	 *   the mobile breakpoint. Hard-a11y floor wins over the 1.25× ratio.
 	 * - The body line-height bumps under comfortable per AESTHETICS.md
 	 *   row "Body line-height (comfortable)": 1.55.
 	 */
@@ -187,7 +220,15 @@
 		--density-pad-x: 1rem;
 		--density-pad-y: 0.75rem;
 		--density-gap: 0.75rem;
-		--density-row-h: 2.5rem;
+		/*
+		 * @lore K8 — `--density-row-h` set to 2.75rem (44px) instead of the
+		 * tier-ratio result of 2.5rem (40px = default × 1.25). AQ-015 floors
+		 * touch targets at 44 CSS px on viewport ≤ 1024px, and the K7
+		 * auto-density flow promotes mobile shells to comfortable. The 44px
+		 * accessibility floor WINS over the designer-call 1.25× ratio
+		 * because AQ-015 is a hard a11y rule, not an aesthetic preference.
+		 */
+		--density-row-h: 2.75rem;
 		--density-text: 0.9375rem;
 		--leading-body: 1.55;
 	}
