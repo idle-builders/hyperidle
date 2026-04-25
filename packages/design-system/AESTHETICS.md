@@ -59,6 +59,34 @@ Rows overridden by K9:
 
 Note for K5 follow-up: `.claude/rules/aesthetic-quality.md` AQ-003 still cites the K7 1.25× ratio. Update to `compact = default × 0.75; comfortable = default × 1.5` per this K9 re-tier.
 
+#### K11 sub-changelog (Density Sweep + Lint Enforcement)
+
+K11 makes the K9 ladder real on every surface a user looks at. The K10 audit at `packages/design-system/research/density-audit.md` is the implementation spec; every component refactor traces to one row in that matrix. K11 also adds the `design/use-density-tokens` and `design/no-density-tokens` lint rules + the opt-out manifest at `packages/eslint-plugin-design/density-allowlist.json` so future PRs cannot drift the swept components back to literal pixels (or leak density tokens onto the canonical density-static surfaces — StatusChip, Tag, IconRail, NotFound).
+
+Five new density tokens were added (full per-tier rows below in this section's recommendations table; full citations + rationale in `density-audit.md` § 4):
+
+- `--density-card-pad` (8 / 12 / 16 px): card outer padding budget — BetCard, TaskCard, PitchCard, SkeletonCard, EmptyState/ErrorState pad-y, ArtifactView content pad, PitchSelector pad, WorkPortfolio inline product card. Atlassian / Linear / Material 3.
+- `--density-page-gutter` (8 / 16 / 24 px): the `<main>` page gutter — split from `--density-pad-x` so the page margin and component interior pad can move on independent cadences. Also consumed by Submenu, Rail (expanded), ReviewHeader. Atlassian / Bootstrap / Tailwind.
+- `--density-icon-size` (14 / 16 / 20 px): list-row icon size cascade — defined for K12 / future use; SearchField, the WorkBet sort headers, Submenu / Rail expand chevrons should consume. Material 3 / Carbon / Fluent.
+- `--density-avatar-size` (24 / 32 / 40 px): row-anchor avatars — ThreadRow, ReviewHeader. Card-internal avatars (BetCard lead, WorkPortfolio product avatar) explicitly stay literal at 24 px. Slack / Linear / Material 3.
+- `--density-card-gap` (4 / 8 / 12 px): intra-card gap (label↔value, row↔row inside a card) — KeyValue, BetCard, TaskCard, PitchCard, SkeletonCard, EmptyState/ErrorState, ConversationsChat message group, PitchSelector detail pane. Independent of `--density-gap` (inter-row) so rhythms can diverge. Linear / Notion / Material 3.
+
+Components swept by K11 (every surface in K10's matrix marked `yes` or `partial`, in lockstep TSX + HTML per `.claude/rules/visual-parity.md`):
+
+- Tier 1: KeyValue (gap → `--density-card-gap`), NavItem (already wired in K9), ThreadRow (gap, body text, avatar → `--density-avatar-size`), KnowledgeRow (gap + factoryMode override retired per § 3.2.2), NotificationRow (pad + gap + body text).
+- Tier 2: BetCard (card-pad, card-gap, row gap, title), TaskCard (card-pad, card-gap, row gap, title), PitchCard (card-pad, card-gap, row gap, title, hypothesis-escalates), EmptyState (pad-x, pad-y → card-pad, gap → card-gap, title), ErrorState (same as EmptyState), Skeleton (List row-h + gap; Card pad + gap).
+- Tier 3 shells: Submenu (page-gutter), Rail expanded (page-gutter), ReviewHeader (page-gutter, gap, proposer-name), Canvas (column gap), Kanban (column gap), ArtifactView (content pad), PitchSelector (card-pad, section gap, detail-pane pad). AppShell `<main>` (page-gutter).
+- Pages: WorkPortfolio (section gap + inline product-card adopts BetCard density shape per § 3.4.P1).
+
+Components K11 explicitly leaves literal (the lint rule allowlist enforces these stay literal in future PRs):
+
+- `StatusChip`, `Tag` — badge-as-callout (§ 3.1.1, § 3.1.2). Density-toggling badges destroys their as-callout function.
+- `IconRail` — brand chrome (§ 3.3.K1). The canonical density-static shell. § 5.6.
+- `NotFound` — error page chrome (§ 3.4.P8).
+- Specific axes inside otherwise density-aware components: NavItem icon + count chip (§ 3.1.4), ReviewHeader verdict buttons + avatar (§ 3.3.K5 + § 5.2), BetCard progress bar h + lead avatar (§ 3.2.4), TaskCard max-w (§ 3.2.5), PitchCard max-w (§ 3.2.6), EmptyState/ErrorState description font + alignment (§ 3.2.7 + § 5.1), Submenu width (§ 3.3.K2), Rail width + collapsed pills (§ 3.3.K3), ArtifactView diff lines + sparkline + visual-cmp pad (§ 3.3.K4), Canvas drop-zone min-h + DnD geometry (§ 3.3.K6), Kanban grid template (§ 3.3.K7).
+
+The full per-component matrix appears in **Appendix D — Density-Aware Component Matrix** at the end of this file (the K10 audit at `packages/design-system/research/density-audit.md` is the canonical source of truth; Appendix D is the AESTHETICS.md entry point so downstream agents do not need to leave this document).
+
 ### Findings
 
 The 4px grid is universal across reference systems. Material 3, IBM Carbon, Atlassian, Shopify Polaris and Tailwind all build their spacing scales as multiples of 4px (Carbon and Atlassian permit a single 2px sub-step for fine adjustments inside small interactive elements). Productivity-tool defaults cluster at 8-12px vertical padding, 12-16px horizontal padding, and 32-40px row heights for dense list views. HyperIdle's current default density (8 / 12 / 8 / 32 / 14) sits at the lower end of the productivity cluster. See `research/spacing-density.md` for the per-source numbers.
@@ -81,6 +109,11 @@ The three density presets must shift together. Material 3 documents window-size-
 | Sub-grid 2px allowance | implicit | 2px allowed only inside StatusChip and Tag (no other contexts) | Carbon spacing-01, Atlassian space.025 and Polaris space-050 reserve 2px only for fine chip/icon adjustment | S16 S21 S27 | partial | ast: `JSXAttribute[name.name='className'][value.value=/\b(p\|m\|gap)[xytrbl]?-\[2px\]/]` flagged outside `StatusChip\|Tag` parent |
 | Density tier ratio (compact) | 6/4/4/26 (irregular) | default × 0.75, rounded to 4px (designer-call) | No reference system publishes a numeric ratio; Material/Apple/Carbon all describe proportional density modes without quoting a multiplier (designer-call: 0.75 picked as the cross-system midpoint of "tighter than default but legible") | S1 S10 S16 | partial | ast: tokens.css `[data-density="compact"]` block — each value equals default × 0.75 ±4px |
 | Density tier ratio (comfortable) | 16/12/12/40 (irregular) | default × 1.5, rounded to 4px (designer-call) | K9 — re-tiered from K7's 1.25× to 1.5×. The comfortable tier matches the iOS Settings / Notion / Apple Mail comfort band (Apple HIG, Notion product UI, Apple Mail) instead of the K7 +25 % nudge that read as the same layout slightly bigger. row-h is exempt from the upper-bound rule and lands at a designer-call 56 px (>= AQ-015 44 px floor, < strict 1.5× cap of 66 → 64). | S1 S10 S16 | partial | ast: tokens.css `[data-density="comfortable"]` block — each value equals default × 1.5 ±4px (row-h exempt) |
+| `--density-card-pad` | not codified | 8 / 12 / 16 px across compact / default / comfortable (designer-call) | K11 — card outer padding budget. Cards have a different scale than list rows; today every card hardcodes `p-[8px]` so density toggling is invisible on the surfaces that occupy the most pixels. Atlassian / Linear / Material 3 all publish the 8/12/16 ladder. See `density-audit.md` § 4.2. | S5 S4 S3 | partial | ast: tokens.css `[data-density="*"]` block defines `--density-card-pad` as 8/12/16; lint: `design/use-density-tokens` flags BetCard / TaskCard / PitchCard / SkeletonCard / EmptyState / ErrorState / ArtifactView / PitchSelector if they use literal padding |
+| `--density-page-gutter` | not codified | 8 / 16 / 24 px across compact / default / comfortable (designer-call) | K11 — `<main>` page gutter, split from `--density-pad-x` per `density-audit.md` § 3.5. The page gutter and component interior pad must move on independent cadences (a 4 % page-gutter change is not a 50 % NavItem-pad change). Stops at 24 px to prevent hero spacing (§ 5.3). | S5 S17 S18 | partial | ast: AppShell.tsx `<main>` className contains `var(--density-page-gutter)`; Submenu / Rail expanded / ReviewHeader outer pad consume the same |
+| `--density-icon-size` | not codified | 14 / 16 / 20 px across compact / default / comfortable (designer-call) | K11 — list-row icon size cascade. Material 3 / Carbon / Fluent all expose an icon-size cascade alongside the spacing cascade. NOT consumed by NavItem (brand chrome stays literal per § 3.1.4). Reserved for K12 / K13 wiring of SearchField + sort headers. | S2 S1 S16 | partial | ast: tokens.css `[data-density="*"]` block defines `--density-icon-size` as 14/16/20 |
+| `--density-avatar-size` | not codified | 24 / 32 / 40 px across compact / default / comfortable (designer-call) | K11 — row-anchor avatar size cascade. Slack / Linear / Material 3 all publish 24/32/40. ONLY for row-anchor avatars (ThreadRow, ReviewHeader); card-internal avatars (BetCard lead, WorkPortfolio product) explicitly stay literal at 24 px per § 4.4. The IconRail user avatar also stays literal — it is brand chrome (§ 5.8). | S9 S4 S2 | partial | ast: ThreadRow / ReviewHeader avatar img className contains `var(--density-avatar-size)` |
+| `--density-card-gap` | not codified | 4 / 8 / 12 px across compact / default / comfortable (designer-call) | K11 — intra-card gap (label↔value, row↔row inside a card). Independent of `--density-gap` (inter-row by Submenu / Rail) so rhythms can diverge. At comfortable, an inter-row gap of 16 px and an intra-card gap of 12 px gives the card an internal hierarchy. Linear / Notion / Material 3 all sit at 4/8/12. | S4 S6 S2 | partial | ast: KeyValue / BetCard / TaskCard / PitchCard / SkeletonCard / EmptyState / ErrorState gap consume `var(--density-card-gap)` |
 
 Disagreements: see Appendix B.1.
 
@@ -399,3 +432,50 @@ Each entry: id, title, organization, URL, date accessed (verified live via `curl
 - `research/mobile-touch.md` — Section 6 backing research.
 - `research/ai-aesthetic.md` — Section 7 backing research.
 - `research/ai-design-agents.md` — Cross-cutting survey of AI design agents (shadcn/ui, v0, Geist).
+- `research/density-audit.md` — K10 per-component density-aware audit; spec for K11. Appendix D below mirrors its matrix in tabular form.
+
+## Appendix D — Density-Aware Component Matrix (K10 / K11)
+
+The full per-component reasoning (axis-by-axis verdicts, citations, "stays literal — and why" rationales) lives in `packages/design-system/research/density-audit.md`. That file is the **canonical source of truth** for what scales and what stays literal; this appendix is the AESTHETICS.md entry point so a downstream agent can answer "should `BetCard` body text scale?" without leaving this document.
+
+The opt-out manifest at `packages/eslint-plugin-design/density-allowlist.json` is generated from this matrix. The `design/use-density-tokens` and `design/no-density-tokens` lint rules read it at run-time and refuse to lint when the manifest contradicts itself (a component is in exactly one bucket).
+
+### D.1 Density-aware components (consume `var(--density-*)`)
+
+The `design/use-density-tokens` rule errors (in `packages/design-system/src/**`) or warns (in `packages/web/src/**`) when these components have literal pixel padding/gap/font-size on a non-chrome `className`.
+
+| Component | Tier | Axes that scale | Tokens consumed | Literal axes (chrome — see audit § for rationale) |
+|---|---|---|---|---|
+| NavItem | 1 | min-h, pad-x, pad-y, body text | `--density-row-h`, `--density-pad-*`, `--density-text` | icon, count chip |
+| KeyValue | 1 | value font, gap | `--density-text`, `--density-card-gap` | label font, label tracking |
+| ThreadRow | 2 | pad-x, pad-y, gap, body text, snippet, avatar | `--density-pad-*`, `--density-gap`, `--density-text`, `--density-avatar-size` | timestamp |
+| KnowledgeRow | 2 | pad-x, pad-y, gap, body text | `--density-pad-*`, `--density-gap`, `--density-text` | caption, timestamp, version pill |
+| NotificationRow | 2 | pad, gap, body text | `--density-pad-*`, `--density-gap`, `--density-text` | timestamp |
+| BetCard | 2 | card-pad, card-gap, row gap, title font | `--density-card-pad`, `--density-card-gap`, `--density-gap`, `--density-text` | progress bar h, progress text, lead avatar (24 px) |
+| TaskCard | 2 | card-pad, card-gap, row gap, title font | `--density-card-pad`, `--density-card-gap`, `--density-gap`, `--density-text` | owner font, max-w (320 px Kanban geometry) |
+| PitchCard | 2 | card-pad, card-gap, row gap, title font, hypothesis font | `--density-card-pad`, `--density-card-gap`, `--density-gap`, `--density-text` | max-w (320 px PitchSelector budget) |
+| EmptyState | 2 | pad-x, pad-y, gap, title font | `--density-pad-x`, `--density-card-pad`, `--density-card-gap`, `--density-text` | description font, alignment (text-left ALWAYS) |
+| ErrorState | 2 | pad-x, pad-y, gap, title font | `--density-pad-x`, `--density-card-pad`, `--density-card-gap`, `--density-text` | Retry button (DaisyUI), alignment |
+| SkeletonList | 2 | row-h, gap | `--density-row-h`, `--density-gap` | none |
+| SkeletonCard | 2 | card-pad, card-gap | `--density-card-pad`, `--density-card-gap` | bar heights (abstract content) |
+| Submenu | 3 | page-gutter, gap, inner pad-x | `--density-page-gutter`, `--density-gap`, `--density-pad-x` | width (240 px), header chrome, filter chips |
+| Rail (expanded) | 3 | page-gutter, section gap | `--density-page-gutter`, `--density-gap` | width (360 px), section header, pill chrome |
+| ArtifactView | 3 | content pad | `--density-card-pad` | diff line h + pad, metadata strip, visual cmp pad, sparkline |
+| ReviewHeader | 3 | page-gutter, gap, proposer name | `--density-page-gutter`, `--density-gap`, `--density-text` | timestamp, avatar (24 px chrome), verdict buttons (`btn-xs` ALWAYS — § 5.2), more menu chrome |
+| Canvas | 3 | column gap | `--density-gap` | column header, capacity badge, drop-zone min-h, drop-zone pad |
+| Kanban | 3 | column gap | `--density-gap` | grid template (1/2/4 cols fixed), column header, group header |
+| PitchSelector | 3 | card-pad, section gap, detail-pane pad | `--density-card-pad`, `--density-gap`, `--density-card-gap` | max-h (480 px overlay), header chrome, close + Add-to-canvas buttons |
+| WorkPortfolio | page | section gap, card-pad, card-gap | `--density-gap`, `--density-card-pad`, `--density-card-gap` | H1 (uppercase mono), product avatar (24 px), progress bar h |
+| WorkBet | page | page-gutter (via main), section gap, comment item pad | `--density-page-gutter` (inherited), `--density-gap`, `--density-card-pad` | breadcrumb, task table (DaisyUI table-xs) |
+| KnowledgeDetail | page | page-gutter (via main), body markdown, observation pad | `--density-page-gutter` (inherited), `--density-text`, `--density-card-pad` | metadata bar, section H2, edit textarea, Save/Cancel buttons |
+
+### D.2 Density-static components (forbid `var(--density-*)`)
+
+The `design/no-density-tokens` rule errors when these components consume any `var(--density-*)` token. These surfaces must look the same at every density tier.
+
+| Component | Tier | Why static | Audit § |
+|---|---|---|---|
+| StatusChip | 1 | Badge-as-callout — Carbon `tag-sm`, Polaris `Badge`, Material 3 `chip-small`. Density toggling badges destroys their as-callout function. | § 3.1.1 |
+| Tag | 1 | Same as StatusChip — badge, not text. Free-form labels would visually swell at comfortable. | § 3.1.2 |
+| IconRail | 3 | Brand chrome — Material 3 NavRail / Carbon UI Shell / Slack / Linear all fix the nav-rail width. The canonical density-static shell. | § 3.3.K1 + § 5.6 |
+| NotFound | page | Error page chrome — user is recovering from a navigation mistake, not reading. | § 3.4.P8 |

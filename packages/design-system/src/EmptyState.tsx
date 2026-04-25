@@ -31,11 +31,24 @@ export function EmptyState({
 			{...dsProps("EmptyState", "2")}
 			role="status"
 			data-testid={dataTestId ?? "empty-state"}
-			className="flex flex-col items-start gap-[4px] px-[8px] py-[24px] text-left"
+			/*
+			 * @lore K11: pad-x → --density-pad-x, pad-y → --density-card-pad
+			 * (uses card budget so title↔description vertical breathing room
+			 * scales with comfortable mode), gap → --density-card-gap, title
+			 * → --density-text per density-audit.md § 3.2.7. Description font
+			 * stays literal 12 px (deliberate de-emphasis). text-left is
+			 * INTENTIONAL — must NOT switch to items-center under comfortable
+			 * (#1 AI-aesthetic tell, see § 5.1).
+			 */
+			className="flex flex-col items-start gap-[var(--density-card-gap)] px-[var(--density-pad-x)] py-[var(--density-card-pad)] text-left"
 		>
-			<p className="text-[14px] font-medium text-[var(--text-hi)] leading-[1.4]">{title}</p>
+			<p className="text-[length:var(--density-text)] font-medium text-[var(--text-hi)] leading-[1.4]">
+				{title}
+			</p>
 			<p className="text-[12px] text-[var(--text-lo)] leading-[1.4]">{description}</p>
-			{action && <div className="mt-[8px]">{action}</div>}
+			{/* @lore K11: action offset → --density-card-gap so the slot
+			    breathes consistently with the title↔description rhythm. */}
+			{action && <div className="mt-[var(--density-card-gap)]">{action}</div>}
 		</div>
 	);
 }

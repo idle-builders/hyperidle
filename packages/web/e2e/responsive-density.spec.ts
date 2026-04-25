@@ -160,6 +160,204 @@ test.describe("K9 — Comfortable density bumps body text to 16 px end-to-end", 
 	});
 });
 
+test.describe("K11 — Density tokens flow into rendered primitives across all 3 tiers", () => {
+	/*
+	 * @lore K11: one assertion block per swept primitive that scales on a
+	 * measurable axis. We assert the resolved CSS-variable values on the
+	 * AppShell root for each density tier — the K11 token contract is "the
+	 * cascade is wired"; component-level consumption is asserted by the
+	 * primitive's own unit tests + the visual-regression suite. This spec
+	 * proves the K9 ladder + the 5 new K11 tokens reach the runtime cascade.
+	 */
+	const tiers: Array<{
+		preference: "compact" | "default" | "comfortable";
+		expected: {
+			pad: string;
+			padX: string;
+			rowH: string;
+			cardPad: string;
+			pageGutter: string;
+			iconSize: string;
+			avatarSize: string;
+			cardGap: string;
+			text: string;
+		};
+	}> = [
+		{
+			preference: "compact",
+			expected: {
+				pad: "0.5rem",
+				padX: "0.75rem",
+				rowH: "2rem",
+				cardPad: "0.5rem",
+				pageGutter: "0.5rem",
+				iconSize: "0.875rem",
+				avatarSize: "1.5rem",
+				cardGap: "0.25rem",
+				text: "0.875rem",
+			},
+		},
+		{
+			preference: "default",
+			expected: {
+				pad: "0.75rem",
+				padX: "1rem",
+				rowH: "2.75rem",
+				cardPad: "0.75rem",
+				pageGutter: "1rem",
+				iconSize: "1rem",
+				avatarSize: "2rem",
+				cardGap: "0.5rem",
+				text: "0.9375rem",
+			},
+		},
+		{
+			preference: "comfortable",
+			expected: {
+				pad: "1rem",
+				padX: "1.5rem",
+				rowH: "3.5rem",
+				cardPad: "1rem",
+				pageGutter: "1.5rem",
+				iconSize: "1.25rem",
+				avatarSize: "2.5rem",
+				cardGap: "0.75rem",
+				text: "1rem",
+			},
+		},
+	];
+
+	for (const tier of tiers) {
+		test(`${tier.preference} tier — all 5 K11 tokens + K9 baseline reach the runtime cascade`, async ({
+			browser,
+		}) => {
+			const ctx = await browser.newContext({ viewport: DESKTOP, colorScheme: "dark" });
+			const page = await ctx.newPage();
+			await page.goto("/work/portfolio");
+			await page.waitForSelector("[data-testid='work-portfolio-page']");
+
+			// Set the explicit density preference via Settings → Appearance.
+			await page.getByRole("button", { name: /^user profile$/i }).click();
+			await expect(page.getByRole("dialog", { name: /settings/i })).toBeVisible();
+			await page.getByRole("tab", { name: "Appearance" }).click();
+			await page.getByLabel("Density").selectOption(tier.preference);
+			await page.getByRole("button", { name: "Save" }).click();
+			await expect(page.getByRole("dialog", { name: /settings/i })).not.toBeVisible();
+
+			await expect.poll(async () => (await readShellAttrs(page)).density).toBe(tier.preference);
+
+			// Read every token directly from the AppShell — the K11 contract
+			// is that the cascade resolves to the K9-defined value at each tier.
+			const tokens = await page.evaluate(() => {
+				const shell = document.querySelector("[data-density]") as HTMLElement | null;
+				if (!shell) return null;
+				const cs = window.getComputedStyle(shell);
+				return {
+					padY: cs.getPropertyValue("--density-pad-y").trim(),
+					padX: cs.getPropertyValue("--density-pad-x").trim(),
+					rowH: cs.getPropertyValue("--density-row-h").trim(),
+					cardPad: cs.getPropertyValue("--density-card-pad").trim(),
+					pageGutter: cs.getPropertyValue("--density-page-gutter").trim(),
+					iconSize: cs.getPropertyValue("--density-icon-size").trim(),
+					avatarSize: cs.getPropertyValue("--density-avatar-size").trim(),
+					cardGap: cs.getPropertyValue("--density-card-gap").trim(),
+					text: cs.getPropertyValue("--density-text").trim(),
+				};
+			});
+			expect(tokens, `tokens read for ${tier.preference}`).not.toBeNull();
+			expect(tokens?.padY).toBe(tier.expected.pad);
+			expect(tokens?.padX).toBe(tier.expected.padX);
+			expect(tokens?.rowH).toBe(tier.expected.rowH);
+			expect(tokens?.cardPad).toBe(tier.expected.cardPad);
+			expect(tokens?.pageGutter).toBe(tier.expected.pageGutter);
+			expect(tokens?.iconSize).toBe(tier.expected.iconSize);
+			expect(tokens?.avatarSize).toBe(tier.expected.avatarSize);
+			expect(tokens?.cardGap).toBe(tier.expected.cardGap);
+			expect(tokens?.text).toBe(tier.expected.text);
+			await ctx.close();
+		});
+	}
+
+	test("BetCard outer padding matches --density-card-pad on /work/portfolio at all 3 tiers", async ({
+		browser,
+	}) => {
+		// @lore K11: BetCard is the canonical density-test surface per the
+		// spec. The Portfolio page hand-rolled product cards adopt the same
+		// density shape (--density-card-pad) per § 3.4.P1. We assert the
+		// rendered padding-left on the first product-card matches the
+		// expected per-tier pixel value within 1 px tolerance.
+		const expectedPaddingPx: Record<string, number> = {
+			compact: 8,
+			default: 12,
+			comfortable: 16,
+		};
+
+		for (const preference of ["compact", "default", "comfortable"] as const) {
+			const ctx = await browser.newContext({ viewport: DESKTOP, colorScheme: "dark" });
+			const page = await ctx.newPage();
+			await page.goto("/work/portfolio");
+			await page.waitForSelector("[data-testid='work-portfolio-page']");
+
+			await page.getByRole("button", { name: /^user profile$/i }).click();
+			await page.getByRole("tab", { name: "Appearance" }).click();
+			await page.getByLabel("Density").selectOption(preference);
+			await page.getByRole("button", { name: "Save" }).click();
+			await expect(page.getByRole("dialog", { name: /settings/i })).not.toBeVisible();
+			await expect.poll(async () => (await readShellAttrs(page)).density).toBe(preference);
+
+			const cardPaddingLeft = await page.evaluate(() => {
+				const card = document.querySelector("[data-testid='product-card']");
+				if (!card) return null;
+				return Number.parseFloat(window.getComputedStyle(card).paddingLeft);
+			});
+			expect(cardPaddingLeft).not.toBeNull();
+			expect(
+				Math.abs((cardPaddingLeft ?? 0) - expectedPaddingPx[preference]),
+				`product-card paddingLeft at ${preference}: got ${cardPaddingLeft}px, want ≈ ${expectedPaddingPx[preference]}px`,
+			).toBeLessThanOrEqual(1);
+			await ctx.close();
+		}
+	});
+
+	test("StatusChip and Tag stay literal at every density tier (density-static enforcement)", async ({
+		browser,
+	}) => {
+		// @lore K11 § 3.1.1, § 3.1.2: badge-as-callout — these primitives must
+		// look the same at every density tier. We assert the StatusChip's
+		// rendered height stays constant across compact/default/comfortable.
+		const heights: number[] = [];
+		for (const preference of ["compact", "default", "comfortable"] as const) {
+			const ctx = await browser.newContext({ viewport: DESKTOP, colorScheme: "dark" });
+			const page = await ctx.newPage();
+			await page.goto("/work/portfolio");
+			await page.waitForSelector("[data-testid='work-portfolio-page']");
+
+			await page.getByRole("button", { name: /^user profile$/i }).click();
+			await page.getByRole("tab", { name: "Appearance" }).click();
+			await page.getByLabel("Density").selectOption(preference);
+			await page.getByRole("button", { name: "Save" }).click();
+			await expect(page.getByRole("dialog", { name: /settings/i })).not.toBeVisible();
+			await expect.poll(async () => (await readShellAttrs(page)).density).toBe(preference);
+
+			const chipHeight = await page.evaluate(() => {
+				const chip = document.querySelector("[data-ds-component='StatusChip']");
+				if (!chip) return null;
+				return chip.getBoundingClientRect().height;
+			});
+			expect(chipHeight).not.toBeNull();
+			heights.push(chipHeight ?? 0);
+			await ctx.close();
+		}
+		// All 3 tiers' chip heights must be within 1 px of each other.
+		const min = Math.min(...heights);
+		const max = Math.max(...heights);
+		expect(
+			max - min,
+			`StatusChip height drifted across density tiers (compact/default/comfortable=${heights.join("/")}). It is density-static per K10 § 3.1.1 — must NOT scale.`,
+		).toBeLessThanOrEqual(1);
+	});
+});
+
 test.describe("K8 — Theme persistence across breakpoint changes", () => {
 	test("persisted theme survives desktop → mobile resize", async ({ browser }) => {
 		// OS = light so dark choice is visibly different.

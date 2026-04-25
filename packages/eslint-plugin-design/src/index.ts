@@ -10,6 +10,7 @@
 import type { ESLint, Linter, Rule } from "eslint";
 
 import { noAiAesthetic } from "./rules/no-ai-aesthetic.js";
+import { noDensityTokens } from "./rules/no-density-tokens.js";
 import { noHardcodedColor } from "./rules/no-hardcoded-color.js";
 import { noOffGridSpacing } from "./rules/no-off-grid-spacing.js";
 import { noOffScaleFontSize } from "./rules/no-off-scale-font-size.js";
@@ -18,6 +19,7 @@ import { noRawTailwindColor } from "./rules/no-raw-tailwind-color.js";
 import { requireDsAttribute } from "./rules/require-ds-attribute.js";
 import { requireFocusOnInteractive } from "./rules/require-focus-on-interactive.js";
 import { requireStoriesSibling } from "./rules/require-stories-sibling.js";
+import { useDensityTokens } from "./rules/use-density-tokens.js";
 
 export const rules: Record<string, Rule.RuleModule> = {
 	"no-hardcoded-color": noHardcodedColor,
@@ -29,6 +31,10 @@ export const rules: Record<string, Rule.RuleModule> = {
 	"require-ds-attribute": requireDsAttribute,
 	"require-stories-sibling": requireStoriesSibling,
 	"require-focus-on-interactive": requireFocusOnInteractive,
+	// K11 — density-aware-vs-static enforcement (paired rules; partition every
+	// component into exactly one bucket; reads density-allowlist.json).
+	"use-density-tokens": useDensityTokens,
+	"no-density-tokens": noDensityTokens,
 };
 
 const recommendedRules: Linter.RulesRecord = {
@@ -41,6 +47,8 @@ const recommendedRules: Linter.RulesRecord = {
 	"design/require-ds-attribute": "warn",
 	"design/require-stories-sibling": "warn",
 	"design/require-focus-on-interactive": "warn",
+	"design/use-density-tokens": "warn",
+	"design/no-density-tokens": "warn",
 };
 
 const plugin: ESLint.Plugin = {
