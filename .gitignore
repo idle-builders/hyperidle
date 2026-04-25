@@ -16,3 +16,5 @@ docs/plans
 logs/
 *.db-shm
 *.db-wal
+.claude/.fuse_*
+plans/*

@@ -17,11 +17,13 @@ Continuous design quality gate. Runs whenever UI code is created or modified. Pr
 
 ## Required Reading (Before Any UI Work)
 
-1. `packages/design-system/PRINCIPLES.md` — The seven universals + surprise principles
-2. `packages/design-system/DESIGN.md` — Token reference (surfaces, accents, text, spacing, radii, motion)
-3. `packages/design-system/src/tokens.css` — Actual token values
+1. `packages/design-system/AESTHETICS.md` — Long-form research, recommendations tables, AI-aesthetic catalog. **The source of truth for every value referenced in critique.**
+2. `packages/design-system/PRINCIPLES.md` — The seven universals + surprise principles
+3. `packages/design-system/DESIGN.md` — Token reference (surfaces, accents, text, spacing, radii, motion)
+4. `packages/design-system/src/tokens.css` — Actual token values
+5. `.claude/rules/aesthetic-quality.md` — Hard rules with rule IDs (AQ-001..AQ-113) that map to K6 ESLint slugs
 
-For deeper reference on specific topics, read from `references/`:
+For deeper reference on specific topics, read from `references/` (each file cross-links the AESTHETICS.md section):
 - `references/hierarchy.md` — Visual hierarchy tactics
 - `references/spacing.md` — Spacing systems and density
 - `references/typography.md` — Type scale and font usage
@@ -33,7 +35,7 @@ For deeper reference on specific topics, read from `references/`:
 ```
 1. Read the component code
 2. Screenshot it (Playwright or dev server)
-3. Score it (0-10) against the 8 dimensions below
+3. Score it (0-10) against the 9 dimensions below
 4. List specific findings (CRITICAL / WARNING / SUGGESTION)
 5. Fix the highest-priority issue
 6. Re-screenshot and re-score
@@ -90,9 +92,24 @@ For deeper reference on specific topics, read from `references/`:
 
 ### 8. Anti-Slop Check
 - Does this look like every other AI-generated dashboard? If yes, it fails.
-- Are any blacklisted patterns present? (See PRINCIPLES.md AI Aesthetic Blacklist)
+- Are any blacklisted patterns present? (See AESTHETICS.md § AI-Aesthetic Anti-Patterns — the canonical 15-item catalog; AQ-101..AQ-113 in `aesthetic-quality.md`)
 - Does the component have a distinctive, intentional design — or is it the "safe default"?
-- **Smell:** Purple gradients. Centered hero layout. Emoji icons. Generic card grid. Oversized padding.
+- **Screenshot rubric:** three or more screenshot-detectable tells (#1, #2, #4, #5, #7, #10, #13, #14, #15) in a single frame fails the screenshot.
+- **Smell:** Purple gradients. Centered hero layout. Emoji icons. Generic card grid. Oversized padding. `rounded-2xl`. Glass morphism. Gradient-on-text. Full-bleed accent nav.
+
+### 9. Premium Polish
+Tied to the AESTHETICS.md "Premium" checklist and the recommendations tables. Premium UI ships the small details that AI defaults skip.
+
+- **Tabular numerals** on numeric KeyValue / table cells (`font-variant-numeric: tabular-nums`) — AESTHETICS.md § Typography (AQ-006).
+- **Letter-spacing** `+0.02em` on uppercase StatusChip/Tag labels (AQ-007).
+- **Density-tier coherence:** compact = default × 0.75, comfortable = default × 1.25, both rounded to 4px (AQ-003).
+- **Motion timing** uses `--motion-fast/medium/slow` with the cubic-bezier(0.2, 0, 0, 1) easing (AQ-013); `prefers-reduced-motion` respected (AQ-014).
+- **Hover/focus/pressed** states defined for every interactive primitive: hover = +1 surface step, focus = 2px outset ring on `--primary` at 60%, pressed = -1 step.
+- **Touch target ≥ 44 CSS px** at viewport ≤ 1024 px on every interactive element (AQ-015).
+- **Mobile inputs ≥ 16px** font-size at viewport ≤ 768 px (AQ-005).
+- **Auto-density** at viewport ≤ 1024 px when Settings preference is `auto` (AQ-016).
+- **Halation guard:** no pure `#000` background; `--text-hi` is off-white not `#fff` (AQ-009).
+- **Smell:** numeric columns visibly jitter, status chips at default tracking, hover with no transition, focus rings invisible, mobile input zooms iOS, motion ignores reduced-motion preference.
 
 ## Scoring Guide
 
@@ -109,7 +126,7 @@ For deeper reference on specific topics, read from `references/`:
 ```
 ## Design Critique: [ComponentName]
 
-**Score: X/10** (H:_ S:_ T:_ C:_ Co:_ St:_ A:_ AS:_)
+**Score: X/10** (H:_ S:_ T:_ C:_ Co:_ St:_ A:_ AS:_ PP:_)
 
 ### CRITICAL
 - [file:line] Description of issue → specific fix
@@ -146,7 +163,38 @@ Read the screenshot. Evaluate it visually. Do not evaluate design from code alon
 
 ## Tailwind Anti-Patterns
 
-Flag raw Tailwind color classes (`text-gray-400`, `bg-slate-800`), non-4px-grid spacing (`p-7`, `gap-5`), wrong radii (`rounded-2xl`), off-scale font sizes, inline `style={}` attributes, and arbitrary border colors (`border-white/10`). All must use design system tokens.
+Flag — each maps to an AQ rule in `.claude/rules/aesthetic-quality.md` and an upcoming K6 ESLint slug.
+
+**Tokens / scale violations:**
+- Raw Tailwind color classes (`text-gray-400`, `bg-slate-800`, `text-indigo-500`, `border-white/10`) → AQ-008, `design/no-raw-tailwind-color`.
+- Hardcoded hex / `rgb()` / `hsl()` values in `*.tsx` outside `tokens.css` → AQ-008, `design/no-hardcoded-color`.
+- Non-4px-grid spacing (`p-7`, `gap-5`, `m-[7px]`) → AQ-001, `design/no-off-grid-spacing`.
+- Off-scale radius (`rounded-2xl`, `rounded-3xl`, `rounded-[10px]`) — allow `rounded-full` for pills only → AQ-011 / AQ-101, `design/no-off-scale-radius` + `design/no-ai-aesthetic`.
+- Off-scale font-size (`text-[15px]` outside the closed allowlist) → AQ-004, `design/no-off-scale-font-size`.
+- Off-scale motion (`duration-[120ms]`, bare `ease`) → AQ-013, `design/no-off-scale-motion`.
+- Inline `style={}` attributes for color / spacing / radius / font.
+
+**AI-aesthetic tells** (see AESTHETICS.md § AI-Aesthetic Anti-Patterns; canonical 15-item catalog):
+- `bg-gradient-(to|from|via)-(indigo|purple|violet|fuchsia|pink)-\d{3}` → AQ-102.
+- `p-8` / `p-10` / `p-12` / `p-14` / `p-16` outside hero/expressive contexts → AQ-103.
+- Hero section pattern in `packages/web/src/pages/work/**` → AQ-104.
+- Leading emoji in `Button` / `NavItem` / `StatusChip` text → AQ-105.
+- Page-level `text-center` or `mx-auto` on body content (allow inside `EmptyState` / `Modal` / `Dialog` / `Toast`) → AQ-106.
+- `backdrop-blur` / `backdrop-filter` and `bg-(white|black)/\d+` translucent card chrome → AQ-107.
+- `grid-cols-3` with `.map(` over identical card children outside dashboard contexts → AQ-108.
+- `shadow-lg` / `shadow-xl` / `shadow-2xl` outside files matching `Modal|Dialog|Popover|Tooltip` → AQ-012 / AQ-110-overlay.
+- `Lorem ipsum` / `consectetur adipiscing` / `Click here` placeholder copy → AQ-109.
+- Marketing superlatives in product chrome (`Effortless`, `Seamless`, `Powerful`, `Beautiful`, `Stunning`, `Game-changing`) → AQ-110.
+- `bg-clip-text text-transparent` over a gradient on product headings → AQ-111.
+- NavRail / Sidebar root using `bg-(indigo|purple|teal|emerald|sky|violet)-\d{3}` → AQ-112.
+- Every list row carries a leading icon when content does not require one → AQ-113.
+
+**Premium-polish absences** (Dimension 9):
+- Numeric tables / KeyValue lacking `tabular-nums` → AQ-006.
+- Uppercase labels (StatusChip / Tag) lacking `tracking-wide` or `tracking-[0.02em]` → AQ-007.
+- `<input>` / `<textarea>` / `<select>` lacking `text-base` / `text-[16px]` at the mobile breakpoint → AQ-005.
+- Interactive elements with `min-h` / `h` < 44px at viewport ≤ 1024 px → AQ-015.
+- `transition:` / `animation:` not derived from `var(--motion-*)` → AQ-013 / AQ-014.
 
 ## Consistency & Component Reuse
 

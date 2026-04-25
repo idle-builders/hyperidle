@@ -144,7 +144,8 @@
 			"!**/sync-reports",
 			"!**/.claude",
 			"!**/.worktrees",
-			"!**/docs/concept/design-synthesis"
+			"!**/docs/concept/design-synthesis",
+			"!packages/eslint-plugin-design/test-fixtures/**"
 		]
 	},
 	"overrides": [

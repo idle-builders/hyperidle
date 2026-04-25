@@ -1,6 +1,6 @@
-import { KeyValue } from "@hyperidle/design-system";
+import { dsShellProps, KeyValue } from "@hyperidle/design-system";
 import DOMPurify from "dompurify";
-import type { JSX } from "react";
+import { cloneElement, type JSX } from "react";
 
 // --- Data shape types ---
 
@@ -343,10 +343,11 @@ function renderShape(props: ArtifactViewProps): JSX.Element {
 
 export function ArtifactView(props: ArtifactViewProps): JSX.Element {
 	const { loading, error, metadata, relatedHistory } = props;
+	const shellAttrs = dsShellProps("ArtifactView");
 
 	if (loading) {
 		return (
-			<output aria-label="Loading artifact" className="block">
+			<output {...shellAttrs} aria-label="Loading artifact" className="block">
 				<div className="skeleton h-32 w-full" />
 				<div className="skeleton h-4 w-3/4 mt-2" />
 				<div className="skeleton h-4 w-1/2 mt-2" />
@@ -356,7 +357,7 @@ export function ArtifactView(props: ArtifactViewProps): JSX.Element {
 
 	if (error) {
 		return (
-			<div role="alert" className="alert alert-error text-sm">
+			<div {...shellAttrs} role="alert" className="alert alert-error text-sm">
 				{error}
 			</div>
 		);
@@ -365,13 +366,16 @@ export function ArtifactView(props: ArtifactViewProps): JSX.Element {
 	const body = renderShape(props);
 	const showMetadata = metadata !== undefined;
 	const showHistory = relatedHistory !== undefined && relatedHistory.length > 0;
-	// @lore I-track contract: when no metadata/history are provided, render
-	// the bare artifact body so every existing query selector still matches.
+	// @lore I-track: bare body preserves existing query selectors when no metadata/history.
+	// @lore K2: cloneElement merges shellAttrs onto body's outer element. WARNING — body
+	// returned by renderShape MUST NOT carry `data-ds-*` attrs; cloneElement shallow-merges
+	// and silently overwrites. If a future renderShape branch wraps in a DS primitive at the
+	// root, switch to a wrapper div instead.
 	if (!(showMetadata || showHistory)) {
-		return body;
+		return cloneElement(body, shellAttrs);
 	}
 	return (
-		<div>
+		<div {...shellAttrs}>
 			{showMetadata && <MetadataStrip shape={props.shape} metadata={metadata} />}
 			<div className={showMetadata ? "p-3" : undefined}>{body}</div>
 			{showHistory && <RelatedHistorySection entries={relatedHistory} />}
