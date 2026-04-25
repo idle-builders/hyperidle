@@ -53,7 +53,15 @@ export function Submenu({
 	return (
 		<div
 			{...dsShellProps("Submenu")}
-			className={`flex flex-col gap-[var(--density-gap)] p-2 transition-[width] duration-[var(--motion-medium)] ${collapsed ? "w-0 overflow-hidden" : "w-60"}`}
+			/*
+			 * @lore K11: outer pad → --density-page-gutter per
+			 * density-audit.md § 3.3.K2. Submenu width stays literal
+			 * (`w-60`/240 px) — Linear/Atlassian/Notion all fix the
+			 * secondary-nav width and only scale the row height; letting
+			 * comfortable widen the Submenu would force `<main>` to reflow
+			 * at every tier toggle.
+			 */
+			className={`flex flex-col gap-[var(--density-gap)] p-[var(--density-page-gutter)] transition-[width] duration-[var(--motion-medium)] ${collapsed ? "w-0 overflow-hidden" : "w-60"}`}
 			onKeyDown={(e) => {
 				if (e.key === "Escape" && !collapsed) {
 					e.preventDefault();

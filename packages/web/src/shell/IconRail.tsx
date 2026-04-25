@@ -49,6 +49,17 @@ export function IconRail({
 		<nav
 			{...dsShellProps("IconRail")}
 			aria-label="Main navigation"
+			/*
+			 * @lore K10/K11: IconRail is fully density-static — brand chrome.
+			 * Width (w-12 / 48 px), button h/w, icon size, dot count, and
+			 * pad ALL stay literal across compact/default/comfortable.
+			 * Material 3 NavRail and Carbon UI Shell both fix the nav-rail
+			 * width across all density modes; muscle memory and visual
+			 * identity outweigh comfort. The `design/no-density-tokens`
+			 * lint rule treats IconRail as the canonical density-static
+			 * shell. See packages/design-system/research/density-audit.md
+			 * § 3.3.K1 + § 5.6.
+			 */
 			className="flex w-12 flex-col items-center gap-2 p-2"
 		>
 			{VIEW_IDS.map((viewId, index) => {

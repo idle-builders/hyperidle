@@ -10,13 +10,17 @@
       display: flex;
       flex-direction: column;
       align-items: flex-start;
-      gap: 8px;
-      padding: 16px 8px;
+      /* K11: gap → --density-card-gap, pad-y → --density-card-pad,
+         pad-x → --density-pad-x per density-audit.md § 3.2.8. text-align
+         stays left — see § 5.1. */
+      gap: var(--density-card-gap);
+      padding: var(--density-card-pad) var(--density-pad-x);
       text-align: left;
     }
 
     .error-state__title {
-      font-size: 14px;
+      /* K11: title font scales with density per § 3.2.8. */
+      font-size: var(--density-text);
       font-weight: 500;
       color: var(--danger);
       line-height: 1.4;

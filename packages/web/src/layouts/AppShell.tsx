@@ -456,7 +456,17 @@ export function AppShell(): JSX.Element {
 				</Submenu>
 
 				<main
-					className="flex-1 overflow-y-auto px-[var(--density-pad-x)] py-[var(--density-pad-y)] text-[length:var(--density-text)]"
+					/*
+					 * @lore K11: page gutter → --density-page-gutter
+					 * (8/16/24) per density-audit.md § 3.5. Previously the
+					 * `<main>` shared --density-pad-x with component
+					 * interiors, so widening padding on a card and
+					 * widening the page margin became the same dial. They
+					 * are not the same dial. The K11 ladder explicitly
+					 * stops at 24 px (§ 5.3) so K12 cannot quietly push it
+					 * higher.
+					 */
+					className="flex-1 overflow-y-auto px-[var(--density-page-gutter)] py-[var(--density-page-gutter)] text-[length:var(--density-text)]"
 					data-testid="main-content"
 					aria-hidden={shellDimmed || undefined}
 				>

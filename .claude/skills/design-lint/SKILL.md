@@ -37,6 +37,31 @@ Read-only scan. Produce findings — do NOT make code changes.
      density, and accent treatment? Inconsistent role → inconsistent
      treatment is a finding even when both files individually pass the AST
      rules.
+   - **Density-tier consistency (K11 / AQ-017).** Read
+     `packages/design-system/research/density-audit.md` (K10 matrix) and
+     `packages/eslint-plugin-design/density-allowlist.json` at run time.
+     Cross-reference with the AST findings:
+     - For every component listed in `densityAware.components`, confirm it
+       consumes the prescribed `--density-*` tokens for the axes K10 lists
+       under `axes`. The AST rule `design/use-density-tokens` catches the
+       obvious literal-padding case; this skill catches the contextual
+       case the AST can't reach (e.g. "the literal `h-[24px]` on BetCard's
+       lead avatar is allowed per § 4.4 — it's card-internal, not row-
+       anchor; the literal `h-[6px]` on the progress bar is allowed per
+       § 3.2.4 — instrument metric"). For each `literalAxes` entry,
+       sanity-check the component still has the literal in place and the
+       axis hasn't drifted.
+     - For every component listed in `densityStatic.components` (StatusChip,
+       Tag, IconRail, NotFound), confirm it has zero `var(--density-*)`
+       consumption. The AST rule `design/no-density-tokens` is the gate;
+       this skill confirms.
+     - **Same-role density-awareness.** All Tier 2 cards (BetCard, TaskCard,
+       PitchCard, SkeletonCard) should have the same density-awareness
+       shape (all consume `--density-card-pad` + `--density-card-gap`). All
+       list-row primitives (ThreadRow, KnowledgeRow, NotificationRow)
+       should have the same shape (all consume `--density-pad-*` +
+       `--density-gap` + `--density-text`). Drift between siblings is a
+       finding even if both individually pass the AST rules.
    - **Hierarchy clarity.** Does the page expose a single primary element
      (one heading, one CTA, one accent), or does every row claim equal
      weight? Visual flatness is a finding.

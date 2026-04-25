@@ -271,7 +271,13 @@ export function Rail({ expanded, onToggleExpand, bets, blockers, cost }: RailPro
 	return (
 		<div
 			{...dsShellProps("Rail")}
-			className="flex w-[360px] flex-col gap-[var(--density-gap)] p-2 transition-[width] duration-[var(--motion-medium)]"
+			/*
+			 * @lore K11: outer pad → --density-page-gutter per
+			 * density-audit.md § 3.3.K3. Rail expanded width stays literal
+			 * (`w-[360px]`); collapsed-pill width budget (BLK / REV / PSD +
+			 * N+) is geometrically tuned and stays literal.
+			 */
+			className="flex w-[360px] flex-col gap-[var(--density-gap)] p-[var(--density-page-gutter)] transition-[width] duration-[var(--motion-medium)]"
 		>
 			<div className="flex items-center justify-end">
 				<button

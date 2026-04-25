@@ -29,18 +29,25 @@ export function TaskCard({
 	return (
 		<div
 			{...dsProps("TaskCard", "2")}
+			/*
+			 * @lore K11: outer pad → --density-card-pad, inner gap →
+			 * --density-card-gap, row gap → --density-gap, title →
+			 * --density-text per density-audit.md § 3.2.5. The max-w-[320px]
+			 * stays literal — Kanban-column geometry (per § 3.2.5 + § 3.3.K7).
+			 * Owner font stays literal 12 px (chrome).
+			 */
 			{...clickableProps(
 				onClick,
-				`bg-[var(--surface-4)] rounded-[var(--r2)] p-[8px] flex flex-col gap-[4px] max-w-[320px] ${state === "blocked" ? "border border-[var(--danger)]" : ""}`,
+				`bg-[var(--surface-4)] rounded-[var(--r2)] p-[var(--density-card-pad)] flex flex-col gap-[var(--density-card-gap)] max-w-[320px] ${state === "blocked" ? "border border-[var(--danger)]" : ""}`,
 			)}
 		>
 			<span
-				className="text-[14px] font-medium truncate text-[var(--text-hi)]"
+				className="text-[length:var(--density-text)] font-medium truncate text-[var(--text-hi)]"
 				aria-label={`Task: ${title}`}
 			>
 				{title}
 			</span>
-			<div className="flex items-center gap-[8px]">
+			<div className="flex items-center gap-[var(--density-gap)]">
 				{betTag && <Tag label={betTag} />}
 				<StatusChip status={taskStateToStatus(state)} />
 			</div>
