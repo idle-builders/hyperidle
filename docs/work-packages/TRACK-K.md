@@ -285,16 +285,64 @@ See `docs/work-packages/SHARED.md` for tech stack, shared contracts, and depende
 
 ---
 
+### K9 — Density Ladder Re-tier (Real Comfortable Mode)
+
+**Story.** As a user of the web app on a normal laptop or external monitor, I want the default density to feel like a modern productivity app rather than a Linear-tight power-user tool, AND I want a "comfortable" mode that genuinely feels comfortable (iOS Settings / Notion / Apple Mail comfort band) — including a body and heading font-size bump under comfortable — so that the density toggle is a real choice rather than a 4-pixel cosmetic difference. Power users keep a tight tier (renamed `compact`) for small screens; nobody loses what they had.
+
+**Depends on.** K7 (touches the same density tokens), K8 (rebaselined visual-regression and contrast).
+
+**Background.** K7's `compact = default × 0.75` / `comfortable = default × 1.25` ratio is internally consistent but, after rounding to the 4-px grid, produces deltas of one grid unit per step (`pad-x` 8/12/16, `pad-y` 4/8/12). Visually the three tiers read as the same layout slightly nudged. This story re-tiers the ladder so each step is felt, drops the never-useful ultra-compact tier, and shifts the ladder toward generous — the broader productivity-app market has moved off Linear-tight defaults and tiny-fonts/tiny-spacings are dying. The new ratios are **`compact = default × 0.75` / `comfortable = default × 1.5`** and the per-step deltas are visible (≥ 4 px on `pad-x`, 8 px on `pad-y`/`gap`, 12 px on `row-h`, 1 px per step on body text).
+
+**Acceptance criteria.**
+
+- **AESTHETICS.md re-spec.** The Spacing & Density and Typography recommendations tables in `packages/design-system/AESTHETICS.md` are updated to reflect the new ladder. AQ-003 reads `compact = default × 0.75; comfortable = default × 1.5` (designer-call, with the rationale "comfortable tier matches iOS Settings / Notion / Apple Mail comfort band"). Each row that changes is tagged `(designer-call)` per the K1 resolution category. The previous "no change" rows that this story overrides are explicitly listed in a brief K9 changelog at the top of the section.
+- **`tokens.css` density tier values.** The three density blocks read:
+  - `[data-density="compact"]`: `--density-pad-x: 0.75rem` (12 px), `--density-pad-y: 0.5rem` (8 px), `--density-gap: 0.5rem` (8 px), `--density-row-h: 2rem` (32 px), `--density-text: 0.875rem` (14 px) — i.e. today's `default` becomes the new `compact`.
+  - `[data-density="default"]` (`:root` fallback): `--density-pad-x: 1rem` (16 px), `--density-pad-y: 0.75rem` (12 px), `--density-gap: 0.75rem` (12 px), `--density-row-h: 2.75rem` (44 px), `--density-text: 0.9375rem` (15 px), `--leading-body: 1.55`. Already meets the AQ-015 44-px touch-target floor at default — auto-density on mobile no longer needs to flip the tier just to clear it.
+  - `[data-density="comfortable"]`: `--density-pad-x: 1.5rem` (24 px), `--density-pad-y: 1rem` (16 px), `--density-gap: 1rem` (16 px), `--density-row-h: 3.5rem` (56 px), `--density-text: 1rem` (16 px), `--leading-body: 1.6`, `--tracking-caps: 0.015em` (slightly tighter at the larger size).
+- **Heading-scale density tokens (new).** `--density-text-h1` and `--density-text-h2` are introduced and overridden per density tier so the H1/H2 type scale grows with comfortable: 24 / 26 / 28 px for H1, 18 / 20 / 22 px for H2 (compact / default / comfortable).
+- **Type-scale variables under density selectors.** The existing literal heading sizes in `tokens.css` and any heading utilities used by H1/H2 in `packages/design-system/src/*.tsx` and `packages/web/src/{shell,pages}/**` are converted to `var(--density-text-h1)` / `var(--density-text-h2)` so headings actually grow under `[data-density="comfortable"]`. Components that use a one-off heading size (e.g. a banner) can stay literal — flag the exception inline.
+- **AQ-003 ratio enforcement (designer-call).** A small assertion in `packages/design-system/src/__tests__/density-tier.test.ts` parses `tokens.css` and asserts that for `pad-x`, `pad-y`, `gap` the new ratio holds within 4 px of `default × 0.75` (compact) and `default × 1.5` (comfortable). `row-h` is exempt from the upper-bound assertion because the AQ-015 44-px floor and the new 56-px comfortable were both designer calls.
+- **Mobile auto-density unchanged in mechanism, simpler in effect.** `useAutoDensity` still flips to `comfortable` at viewport ≤ 1024 px when the user preference is `auto`. The new `default` already clears the 44-px touch-target floor, so the mobile bump is now an aesthetic choice (more breathing room on a phone) rather than a hard a11y requirement. The `@lore` comment on `useAutoDensity.ts` is updated to reflect this.
+- **AQ-005 still satisfied.** Mobile inputs ≥ 16 px font-size at viewport ≤ 768 px. Under the new ladder, every tier on mobile already clears it: comfortable's body is 16 px, default is 15 px (still below floor — keep the dedicated lint), compact is 14 px. The `design/require-mobile-input-size` rule stays at warn.
+- **Design-critique re-pass.** Run `/design-critique` on every refreshed component AND on each main page at all 3 tiers (compact, default, comfortable). Score ≥ 8/10 on every dimension at every tier. Save findings as `packages/design-system/research/critique-results-K9.md`.
+- **Visual-regression rebaseline.** Every snapshot diffs (token values shifted). Regenerate `sync-reports/` HTML and TSX screenshots; the 5 % threshold passes against the new pair. Commit the rebaseline as a separate `chore(K9):` commit citing the K9 token commit hash.
+- **Playwright responsive test extended.** `packages/web/e2e/responsive-density.spec.ts` (added in K8) gains a 6th case asserting that under `[data-density="comfortable"]` the `KeyValue` value font-size resolves to 16 px (proving the new heading-scale density-token wiring works end-to-end at runtime).
+- **axe-core re-pass.** Re-run the K8 axe-core suite at all 3 tiers — zero WCAG 2.1 AA violations. The bigger fonts make text contrast easier; the new tracking on uppercase labels needs spot-checking.
+- **DESIGN.md updated.** Token reference matches the new tier values + the new `--density-text-h1` / `--density-text-h2` tokens.
+- **lint:design and lint pass clean.** `bun run check && bun run lint && bun run test` all green; `bun run lint:design` produces no NEW warnings beyond K7's documented baseline (waivers.md unchanged).
+
+**Validation scenarios.**
+
+- Given the rendered web app at `/work/portfolio` with `[data-density="comfortable"]`, when measured, then `BetCard` outer padding is 16 px, gap between cards is 16 px, row height in any list region is 56 px, and the page H1 is 28 px.
+- Given the same page at `[data-density="compact"]`, when measured, then padding is 12 px, gap 8 px, row 32 px, H1 24 px — identical to today's "default".
+- Given the user toggles density in Settings from default → comfortable, when the next paint completes, then the visual change is *obvious* (cards visibly larger, headings visibly larger, more whitespace) — not a subtle 4 px nudge.
+- Given a 13" laptop at 1280 × 800 with default density, when the page renders, then it does not look uncomfortably sparse — it should match the iOS Mail / Notion default density that today's sites converge on.
+- Given the `density-tier.test.ts` ratio assertion, when run, then `pad-x` / `pad-y` / `gap` all satisfy `compact ≈ default × 0.75` and `comfortable ≈ default × 1.5` within 4 px.
+
+**Contracts / constraints.**
+
+- **No invented color values.** This story does not touch color tokens.
+- **Designer-call discipline.** The new ratios and the per-tier numerics are explicit designer calls per the K1 resolution category. Each row that diverges from K1's "no change" verdict carries a `(designer-call)` tag and a one-line rationale citing the iOS Settings / Notion / Apple Mail comfort band.
+- **Lockstep TSX + HTML edits per visual-parity rule.** Any component whose pixel hardcodes need re-tier (BetCard, KnowledgeRow, NavItem, NotificationRow, PitchCard, TaskCard, ThreadRow, KeyValue, etc.) updates BOTH the HTML reference AND the TSX in the same commit. Same dance K7 did.
+- **The mobile auto-density flip is preserved** (UX consistency: on a phone you still get the most spacious tier by default), even though the floor it was guaranteeing is now met at default. Document this in the `@lore` on `useAutoDensity`.
+- **The compact tier is still callable** (Settings still offers it). It's intended for power users on small screens or who genuinely prefer Linear-tight density.
+- **Server-side persistence (J3/J8 deferred)** remains out of scope.
+
+**Effort.** L (~3-4 days)
+
+---
+
 ## Track K dependency graph
 
 ```
 K1 ─────┬─► K5 ─► K6 ─┐
         │              │
 K2 ─────┼─────────► K4 │
-        │              ├─► K7 ─► K8
+        │              ├─► K7 ─► K8 ─► K9
 K3 ─────┘              │
                        │
         K1 ────────────┘
 ```
 
-Critical path: **K1 → K5 → K6 → K7 → K8**. K2, K3, K4 land in parallel where dependencies allow.
+Critical path: **K1 → K5 → K6 → K7 → K8 → K9**. K2, K3, K4 land in parallel where dependencies allow.
