@@ -1,6 +1,11 @@
 import { KnowledgeRow } from "./KnowledgeRow";
 
-export default { title: "KnowledgeRow", order: ["Validated", "Stale", "FactoryMode", "AllLayers"] };
+export default {
+	title: "KnowledgeRow",
+	tier: "2" as const,
+	uses: ["StatusChip", "Tag"],
+	order: ["Validated", "Stale", "FactoryMode", "AllLayers"],
+};
 
 export const Validated = (): React.JSX.Element => (
 	<KnowledgeRow

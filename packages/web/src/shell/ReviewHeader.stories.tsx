@@ -2,7 +2,7 @@ import { useState } from "react";
 import type { VerdictAction } from "./ReviewHeader";
 import { ReviewHeader } from "./ReviewHeader";
 
-export default { title: "ReviewHeader" };
+export default { title: "ReviewHeader", tier: "3" as const };
 
 export const Default = (): React.JSX.Element => {
 	const [lastVerdict, setLastVerdict] = useState<VerdictAction | null>(null);

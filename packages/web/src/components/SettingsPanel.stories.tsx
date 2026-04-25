@@ -2,7 +2,7 @@ import type { JSX } from "react";
 import { useState } from "react";
 import { type SettingsData, SettingsPanel } from "./SettingsPanel";
 
-export default { title: "SettingsPanel" };
+export default { title: "SettingsPanel", tier: "utility" as const };
 
 const mockSettings: SettingsData = {
 	profile: {

@@ -2,7 +2,7 @@ import { useState } from "react";
 import { IconRail } from "./IconRail";
 import type { ViewId } from "./shell-types";
 
-export default { title: "IconRail" };
+export default { title: "IconRail", tier: "3" as const, uses: ["NavItem"] };
 
 export const Default = (): React.JSX.Element => {
 	const [active, setActive] = useState<ViewId>("conversations");
