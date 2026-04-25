@@ -27,6 +27,7 @@ Required reading before any UI change: `packages/design-system/AESTHETICS.md` (c
 - **AQ-014** Honor `prefers-reduced-motion`. Animate only `transform`, `opacity`, `filter`, `backdrop-filter`. No layout-property transitions. → see AESTHETICS.md § Motion.
 - **AQ-015** Touch targets ≥ 44 CSS px on every interactive element at viewport ≤ 1024 px. → see AESTHETICS.md § Mobile & Touch (lints: `design/require-touch-target-min`).
 - **AQ-016** Auto-density: at viewport ≤ 1024 px and Settings preference `auto`, AppShell sets `[data-density="comfortable"]`. Density preference is a tri-state (`auto`/`default`/`compact`/`comfortable`). → see AESTHETICS.md § Mobile & Touch.
+- **AQ-017** Density-aware components must consume `var(--density-*)` tokens for the axes K10's audit prescribes; density-static components must not consume any density token. A component is in exactly one bucket (density-aware OR density-static); the opt-out manifest at `packages/eslint-plugin-design/density-allowlist.json` is the arbiter. → see `packages/design-system/research/density-audit.md` and AESTHETICS.md Appendix D (lints: `design/use-density-tokens`, `design/no-density-tokens`).
 
 ## AI-aesthetic blacklist (canonical 15-item catalog in AESTHETICS.md § AI-Aesthetic Anti-Patterns)
 
