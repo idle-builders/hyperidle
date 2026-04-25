@@ -1,5 +1,5 @@
-import { describe, it } from "vitest";
 import { RuleTester } from "eslint";
+import { describe, it } from "vitest";
 import { noOffScaleRadius } from "../no-off-scale-radius.js";
 import { ruleTester } from "./setup.js";
 

@@ -17,9 +17,9 @@
 import type { Rule } from "eslint";
 import {
 	ALLOWED_NAMED_RADIUS,
-	RADIUS_ALLOWLIST,
 	collectClassStringsFromJSXAttribute,
 	createRule,
+	RADIUS_ALLOWLIST,
 } from "../util.js";
 
 const ARBITRARY_RADIUS = /\brounded(?:-[a-z]+)?-\[(\d+)px\]/g;

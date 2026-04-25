@@ -76,10 +76,7 @@ function isInStylingContext(node: AnyNode): boolean {
 		// `className="bg-[#fff]"` — direct value or expression-container value.
 		if (cur.type === "JSXAttribute") {
 			const name = cur.name as { type?: string; name?: string } | undefined;
-			return (
-				name?.type === "JSXIdentifier" &&
-				(name.name === "className" || name.name === "style")
-			);
+			return name?.type === "JSXIdentifier" && (name.name === "className" || name.name === "style");
 		}
 		// `cn("...#fff...")` / `clsx("...")` argument — treat as className.
 		if (cur.type === "CallExpression") {
@@ -99,11 +96,7 @@ function isInStylingContext(node: AnyNode): boolean {
 		// Tagged template `` css`color: #fff;` `` — treat as styling.
 		if (cur.type === "TaggedTemplateExpression") {
 			const tag = cur.tag as { type?: string; name?: string } | undefined;
-			if (
-				tag?.type === "Identifier" &&
-				tag.name &&
-				(tag.name === "css" || tag.name === "styled")
-			) {
+			if (tag?.type === "Identifier" && tag.name && (tag.name === "css" || tag.name === "styled")) {
 				return true;
 			}
 		}

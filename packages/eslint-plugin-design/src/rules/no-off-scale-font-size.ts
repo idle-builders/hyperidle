@@ -7,7 +7,7 @@
  */
 
 import type { Rule } from "eslint";
-import { FONT_SIZE_ALLOWLIST, createRule, getClassNameLiteral } from "../util.js";
+import { createRule, FONT_SIZE_ALLOWLIST, getClassNameLiteral } from "../util.js";
 
 const ARBITRARY_FONT_SIZE = /\btext-\[(\d+)px\]/g;
 

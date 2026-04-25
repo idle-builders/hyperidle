@@ -19,7 +19,7 @@
  * narrow strip if the touch zone extends via padding to 44px on the
  * primary tap axis — we use Math.min as the conservative measure).
  */
-import { expect, test, type Page } from "@playwright/test";
+import { expect, type Page, test } from "@playwright/test";
 
 const MOBILE = { width: 1024, height: 900 };
 const MIN_TOUCH_PX = 44;
@@ -70,9 +70,7 @@ async function findUndersizedTargets(page: Page): Promise<Undersized[]> {
 		// fix (`--density-row-h: 2.75rem` for comfortable) makes them pass
 		// AQ-015 at the mobile breakpoint. The assertion turns red the
 		// moment a density-aware primitive regresses.
-		const dsSubtrees = Array.from(
-			document.querySelectorAll<HTMLElement>("[data-ds-component]"),
-		);
+		const dsSubtrees = Array.from(document.querySelectorAll<HTMLElement>("[data-ds-component]"));
 		const nodeSet = new Set<HTMLElement>();
 		for (const subtree of dsSubtrees) {
 			for (const el of subtree.querySelectorAll<HTMLElement>(SELECTORS.join(","))) {
@@ -199,8 +197,8 @@ test.describe("K8 — Touch-target audit at mobile viewport (≤ 1024px)", () =>
 		await page.goto("/conversations/review");
 		await page.waitForSelector("[data-testid='conversations-review-page']");
 		// Verify the shell did resolve to comfortable at the mobile viewport.
-		const density = await page.evaluate(
-			() => document.querySelector("[data-density]")?.getAttribute("data-density"),
+		const density = await page.evaluate(() =>
+			document.querySelector("[data-density]")?.getAttribute("data-density"),
 		);
 		expect(density).toBe("comfortable");
 

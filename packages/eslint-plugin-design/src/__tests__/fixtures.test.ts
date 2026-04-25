@@ -9,12 +9,13 @@
  * filename-scoped and verified in their own unit tests + the dedicated
  * sibling-fixtures directory committed alongside.
  */
-import { describe, expect, it } from "vitest";
-import { Linter } from "eslint";
-import { dirname, resolve } from "node:path";
+
 import { readFileSync } from "node:fs";
+import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import tsParser from "@typescript-eslint/parser";
+import { Linter } from "eslint";
+import { describe, expect, it } from "vitest";
 
 import plugin from "../index.js";
 
@@ -98,9 +99,7 @@ describe("eslint-plugin-design fixtures", () => {
 			"marketingCopy",
 		];
 		for (const tell of expectedTells) {
-			expect(aiAestheticMessageIds, `expected ${tell} tell in bad-fixture`).toContain(
-				tell,
-			);
+			expect(aiAestheticMessageIds, `expected ${tell} tell in bad-fixture`).toContain(tell);
 		}
 	});
 });

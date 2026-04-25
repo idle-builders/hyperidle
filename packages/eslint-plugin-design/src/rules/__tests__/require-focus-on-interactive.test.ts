@@ -1,5 +1,5 @@
-import { describe, it } from "vitest";
 import { RuleTester } from "eslint";
+import { describe, it } from "vitest";
 import { requireFocusOnInteractive } from "../require-focus-on-interactive.js";
 import { ruleTester } from "./setup.js";
 

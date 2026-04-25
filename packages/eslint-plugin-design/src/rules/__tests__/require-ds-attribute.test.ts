@@ -1,5 +1,5 @@
-import { describe, it } from "vitest";
 import { RuleTester } from "eslint";
+import { describe, it } from "vitest";
 import { requireDsAttribute } from "../require-ds-attribute.js";
 import { ruleTester } from "./setup.js";
 

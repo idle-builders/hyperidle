@@ -6,10 +6,11 @@
  * the rule's target-dir gate passes; the actual on-disk path is local to the
  * eslint-plugin-design package.
  */
-import { describe, it } from "vitest";
+
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { RuleTester } from "eslint";
+import { describe, it } from "vitest";
 import { requireStoriesSibling } from "../require-stories-sibling.js";
 import { ruleTester } from "./setup.js";
 

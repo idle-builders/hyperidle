@@ -68,8 +68,7 @@ const LOREM_IPSUM = /\b(Lorem ipsum|consectetur adipiscing|Click here)\b/i;
 // We match the catalogued words in JSX text nodes (case-sensitive — these are
 // always written capitalised in the wild; lowercase usage is more often valid
 // product copy).
-const MARKETING_COPY =
-	/\b(Effortless|Seamless|Powerful|Beautiful|Stunning|Game-changing)\b/;
+const MARKETING_COPY = /\b(Effortless|Seamless|Powerful|Beautiful|Stunning|Game-changing)\b/;
 
 // AESTHETICS.md tell #5 lint hint: leading emoji on Button/NavItem/StatusChip
 // labels. We can't easily detect parent component from a JSX text node in a
@@ -147,10 +146,7 @@ export const noAiAesthetic: Rule.RuleModule = createRule({
 					data: { cls: mShadow[0] },
 				});
 			}
-			if (
-				GRADIENT_TEXT_PARTS[0].test(text) &&
-				GRADIENT_TEXT_PARTS[1].test(text)
-			) {
+			if (GRADIENT_TEXT_PARTS[0].test(text) && GRADIENT_TEXT_PARTS[1].test(text)) {
 				context.report({ node: reportNode, messageId: "gradientText" });
 			}
 		}

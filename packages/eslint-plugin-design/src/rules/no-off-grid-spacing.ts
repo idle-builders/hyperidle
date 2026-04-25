@@ -11,10 +11,10 @@
 
 import type { Rule } from "eslint";
 import {
-	SPACING_ALLOWLIST,
-	SUB_GRID_VALUE,
 	collectClassStringsFromJSXAttribute,
 	createRule,
+	SPACING_ALLOWLIST,
+	SUB_GRID_VALUE,
 } from "../util.js";
 
 // (p|m|gap)(x|y|t|r|b|l)?-[Npx]

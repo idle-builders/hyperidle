@@ -76,13 +76,7 @@ export const RAW_TAILWIND_PALETTE = [
 /**
  * AI-aesthetic gradient palette per AESTHETICS.md § AI-Aesthetic — tell #2.
  */
-export const GRADIENT_AI_PALETTE = [
-	"indigo",
-	"purple",
-	"violet",
-	"fuchsia",
-	"pink",
-] as const;
+export const GRADIENT_AI_PALETTE = ["indigo", "purple", "violet", "fuchsia", "pink"] as const;
 
 /**
  * Files that are exempt from the "no heavy shadow on cards" rule.
@@ -94,8 +88,7 @@ export const GRADIENT_AI_PALETTE = [
  * silently exempts every card. We anchor strictly to the basename and require
  * an exact `(Modal|Dialog|Popover|Tooltip|Sheet|Drawer).tsx` filename.
  */
-export const SHADOW_OVERLAY_BASENAME_REGEX =
-	/^(Modal|Dialog|Popover|Tooltip|Sheet|Drawer)\.tsx$/;
+export const SHADOW_OVERLAY_BASENAME_REGEX = /^(Modal|Dialog|Popover|Tooltip|Sheet|Drawer)\.tsx$/;
 
 /**
  * Returns true when the file is one of the overlay primitive component files
@@ -122,13 +115,7 @@ export function isShadowOverlayFile(filename: string): boolean {
  *   rounded-3xl  = 24  ✗ (covered by no-ai-aesthetic too)
  *   rounded-full = 9999 ✓ (pill)
  */
-export const ALLOWED_NAMED_RADIUS: ReadonlySet<string> = new Set([
-	"none",
-	"",
-	"lg",
-	"xl",
-	"full",
-]);
+export const ALLOWED_NAMED_RADIUS: ReadonlySet<string> = new Set(["none", "", "lg", "xl", "full"]);
 
 /**
  * Class-name string extractor: returns the literal text of `className="..."`.
@@ -140,7 +127,7 @@ export const ALLOWED_NAMED_RADIUS: ReadonlySet<string> = new Set([
 export function getClassNameLiteral(
 	attr: { value?: { type?: string; value?: unknown } | null } | null,
 ): string | null {
-	if (!attr || !attr.value) return null;
+	if (!(attr && attr.value)) return null;
 	const v = attr.value;
 	if (v.type === "Literal" && typeof v.value === "string") {
 		return v.value;
@@ -219,7 +206,11 @@ export function collectClassStringsFromExpression(
 			}
 			case "CallExpression": {
 				const callee = node.callee as { type: string; name?: string };
-				if (callee.type === "Identifier" && callee.name && CLASSNAME_HELPER_NAMES.has(callee.name)) {
+				if (
+					callee.type === "Identifier" &&
+					callee.name &&
+					CLASSNAME_HELPER_NAMES.has(callee.name)
+				) {
 					const args = node.arguments as unknown[];
 					for (const a of args) walk(a);
 				}
@@ -252,10 +243,7 @@ export function isInsideClassNameAttribute(node: { parent?: unknown }): boolean 
 	while (cur) {
 		if (cur.type === "JSXAttribute") {
 			const name = (cur as { name?: { type?: string; name?: string } }).name;
-			return (
-				name?.type === "JSXIdentifier" &&
-				(name.name === "className" || name.name === "style")
-			);
+			return name?.type === "JSXIdentifier" && (name.name === "className" || name.name === "style");
 		}
 		cur = (cur as { parent?: AnyNode }).parent;
 	}

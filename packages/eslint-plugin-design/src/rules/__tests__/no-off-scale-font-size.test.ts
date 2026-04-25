@@ -1,5 +1,5 @@
-import { describe, it } from "vitest";
 import { RuleTester } from "eslint";
+import { describe, it } from "vitest";
 import { noOffScaleFontSize } from "../no-off-scale-font-size.js";
 import { ruleTester } from "./setup.js";
 
