@@ -7,6 +7,7 @@
  * announce the error on mount.
  */
 import type { JSX } from "react";
+import { dsProps } from "./ds-attrs";
 
 export interface ErrorStateProps {
 	title: string;
@@ -25,6 +26,7 @@ export function ErrorState({
 }: ErrorStateProps): JSX.Element {
 	return (
 		<div
+			{...dsProps("ErrorState", "2")}
 			role="alert"
 			data-testid={dataTestId ?? "error-state"}
 			className="flex flex-col items-start gap-[8px] px-[8px] py-[16px] text-left"
@@ -34,7 +36,9 @@ export function ErrorState({
 			{onRetry && (
 				<button
 					type="button"
-					className="inline-flex items-center justify-center px-[10px] py-[4px] text-[12px] font-medium text-[var(--surface-0)] bg-[var(--primary)] rounded-[var(--r2)] cursor-pointer leading-[1.4] transition-opacity duration-[var(--motion-fast)] ease-[ease] hover:opacity-85 active:opacity-70"
+					/* @lore K7 / AESTHETICS.md § Spacing & Density row "Grid base unit": 4px hard rule.
+					   px-[10px] → px-[8px] (10 was off-grid). Easing: --motion-ease (Material standard). */
+					className="inline-flex items-center justify-center px-[8px] py-[4px] text-[12px] font-medium text-[var(--surface-0)] bg-[var(--primary)] rounded-[var(--r2)] cursor-pointer leading-[1.4] transition-opacity duration-[var(--motion-fast)] ease-[var(--motion-ease)] hover:opacity-85 active:opacity-70"
 					onClick={onRetry}
 					data-testid="error-state-retry"
 				>

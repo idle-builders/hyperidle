@@ -1,11 +1,40 @@
 <!doctype html>
-<html lang="en" data-theme="lucid-dark">
+<html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>HyperIdle</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <script>
+      // K3 theme persistence — runs synchronously before React mounts.
+      // @lore FOIT prevention: we MUST set data-theme before the first paint
+      // or the user sees a white flash on every reload (the body briefly renders
+      // with default styles before the React tree applies the chosen theme).
+      // Mirrors packages/design-system/html/themes/_switcher.js but writes a
+      // single data-theme attribute (no stylesheet swap — Lucid tokens are in
+      // a single sheet keyed by [data-theme]).
+      (() => {
+        let resolved = "dark";
+        try {
+          const raw = window.localStorage.getItem("hyperidle-theme");
+          const theme =
+            raw === "light" || raw === "dark" || raw === "system" ? raw : "system";
+          resolved =
+            theme === "system"
+              ? window.matchMedia?.("(prefers-color-scheme: dark)").matches
+                ? "dark"
+                : "light"
+              : theme;
+        } catch (_e) {
+          /* localStorage blocked — fall back to dark default */
+        }
+        document.documentElement.setAttribute(
+          "data-theme",
+          resolved === "dark" ? "lucid-dark" : "lucid-light",
+        );
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

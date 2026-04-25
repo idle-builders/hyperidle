@@ -28,18 +28,20 @@
       line-height: 1.4;
     }
 
+    /* @lore K7 / AESTHETICS.md § Spacing & Density row "Grid base unit": 4px hard rule.
+       Padding 4px 10px → 4px 8px (10 was off-grid). Easing → --motion-ease. */
     .error-state__retry {
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      padding: 4px 10px;
+      padding: 4px 8px;
       font-size: 12px;
       font-weight: 500;
       color: var(--surface-0);
       background: var(--primary);
       border-radius: var(--r2);
       cursor: pointer;
-      transition: opacity var(--motion-fast) ease;
+      transition: opacity var(--motion-fast) var(--motion-ease);
       line-height: 1.4;
     }
 
@@ -64,10 +66,13 @@
           role="alert"
           className="error-state"
           data-component="ErrorState"
-          data-tier="1"
+          data-tier="2"
           data-uses=""
           data-daisyui="btn"
           data-used-by="KnowledgeList"
+          data-ds-component="ErrorState"
+          data-ds-tier="2"
+          data-ds-source="design-system"
         >
           <p className="error-state__title">{title}</p>
           <p className="error-state__description">{description}</p>

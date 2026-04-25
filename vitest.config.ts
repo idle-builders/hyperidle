@@ -10,6 +10,7 @@ export default defineConfig({
 			"packages/shared",
 			"packages/web",
 			"packages/design-system",
+			"packages/eslint-plugin-design",
 		],
 	},
 });

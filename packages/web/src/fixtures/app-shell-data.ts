@@ -1,7 +1,11 @@
 import type { BetStatus } from "@hyperidle/shared";
 import type { SettingsData } from "../components/SettingsPanel";
+import { getInitialTheme } from "../hooks/useTheme";
 import type { BetItem, BlockerItem, CostInfo } from "../shell/Rail";
 
+// @lore K3: appearance.theme is sourced from useTheme()'s initial value (which
+// reads localStorage with a 'system' fallback) rather than hardcoded, so the
+// settings draft and the persisted theme always agree at first render.
 export const DEFAULT_SETTINGS: SettingsData = {
 	profile: { name: "Founder", email: "founder@hyperidle.com", avatarUrl: "" },
 	products: [
@@ -20,7 +24,10 @@ export const DEFAULT_SETTINGS: SettingsData = {
 		quietHoursEnd: "08:00",
 		mutedProducts: [],
 	},
-	appearance: { density: "default", theme: "system" },
+	// @lore K7 / AESTHETICS.md § Mobile & Touch "Density preference state":
+	// `auto` is the factory default and fires the viewport-driven density
+	// auto-switch (≤ 1024px → comfortable).
+	appearance: { density: "auto", theme: getInitialTheme() },
 };
 
 export const MOCK_RAIL_BETS: BetItem[] = [

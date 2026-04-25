@@ -1,6 +1,7 @@
 import type { KnowledgeKind, KnowledgeLayer, KnowledgeStatus } from "@hyperidle/shared";
 import type { JSX, ReactNode } from "react";
 import { clickableProps } from "./clickable";
+import { dsProps } from "./ds-attrs";
 import { StatusChip } from "./StatusChip";
 import { knowledgeStatusToStatus } from "./status-mapping";
 import { Tag } from "./Tag";
@@ -54,6 +55,7 @@ export function KnowledgeRow({
 	const { className: _clickableCls, ...interactiveProps } = clickableProps(onClick, baseClassName);
 	return (
 		<div
+			{...dsProps("KnowledgeRow", "2")}
 			className={onClick ? `${baseClassName} cursor-pointer` : baseClassName}
 			{...interactiveProps}
 		>
@@ -67,7 +69,11 @@ export function KnowledgeRow({
 					<StatusChip status={knowledgeStatusToStatus(status)} />
 					{factoryMode && version && (
 						<span
-							className="inline-flex items-center px-[6px] py-[2px] rounded-[var(--r-pill)] font-[var(--mono)] text-[10px] tracking-[0.03em] bg-[var(--surface-ghost)] text-[var(--text-lo)] shrink-0"
+							/* @lore K7 / AESTHETICS.md § Spacing & Density row "Grid base unit" + § Typography
+							   row "Body size (default)": px-[6px] → px-[8px] (off-grid), text-[10px] → text-[11px]
+							   (off-scale). Tracking aligned to --tracking-caps via the recommendation row
+							   "Letter-spacing for caps". */
+							className="inline-flex items-center px-[8px] py-[2px] rounded-[var(--r-pill)] font-[var(--mono)] text-[11px] tracking-[var(--tracking-caps)] bg-[var(--surface-ghost)] text-[var(--text-lo)] shrink-0"
 							data-testid="knowledge-version-pill"
 						>
 							{version}

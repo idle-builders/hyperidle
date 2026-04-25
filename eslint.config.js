@@ -6,6 +6,7 @@
 // Biome remains primary for everything else (formatting, style, correctness, a11y, security).
 
 import tsParser from "@typescript-eslint/parser";
+import design from "eslint-plugin-design";
 import drizzle from "eslint-plugin-drizzle";
 import reactCompiler from "eslint-plugin-react-compiler";
 import reactHooks from "eslint-plugin-react-hooks";
@@ -53,6 +54,61 @@ export default [
 		rules: {
 			"drizzle/enforce-delete-with-where": ["error", { drizzleObjectName: "db" }],
 			"drizzle/enforce-update-with-where": ["error", { drizzleObjectName: "db" }],
+		},
+	},
+
+	// K6 — Design lint rules for the web package. All warn-level: the wider
+	// codebase still has documented backlog (see eslint-plugin-design/waivers.md).
+	{
+		files: ["packages/web/src/**/*.tsx"],
+		ignores: ["packages/web/src/**/*.stories.tsx"],
+		languageOptions: {
+			parser: tsParser,
+			parserOptions: {
+				ecmaFeatures: { jsx: true },
+			},
+		},
+		plugins: { design },
+		rules: {
+			"design/no-hardcoded-color": "warn",
+			"design/no-off-grid-spacing": "warn",
+			"design/no-off-scale-radius": "warn",
+			"design/no-off-scale-font-size": "warn",
+			"design/no-ai-aesthetic": "warn",
+			"design/no-raw-tailwind-color": "warn",
+			"design/require-ds-attribute": "warn",
+			"design/require-stories-sibling": "warn",
+			"design/require-focus-on-interactive": "warn",
+		},
+	},
+
+	// K8 — Design lint rules for the design-system package. Rules with zero
+	// surviving warnings post-K7 are promoted to `error` here; the two rules
+	// with documented designer-call exceptions remain `warn`. See
+	// `packages/eslint-plugin-design/waivers.md` for the per-warning waiver
+	// list.
+	{
+		files: ["packages/design-system/src/**/*.tsx"],
+		ignores: ["packages/design-system/src/**/*.stories.tsx"],
+		languageOptions: {
+			parser: tsParser,
+			parserOptions: {
+				ecmaFeatures: { jsx: true },
+			},
+		},
+		plugins: { design },
+		rules: {
+			// Promoted to error — clean post-K7 in design-system.
+			"design/no-hardcoded-color": "error",
+			"design/no-off-scale-radius": "error",
+			"design/no-off-scale-font-size": "error",
+			"design/no-raw-tailwind-color": "error",
+			"design/require-ds-attribute": "error",
+			"design/require-stories-sibling": "error",
+			"design/require-focus-on-interactive": "error",
+			// Stay at warn — see waivers.md for the surviving documented exceptions.
+			"design/no-off-grid-spacing": "warn",
+			"design/no-ai-aesthetic": "warn",
 		},
 	},
 ];

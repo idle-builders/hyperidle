@@ -1,4 +1,4 @@
-import { SearchField } from "@hyperidle/design-system";
+import { dsShellProps, SearchField } from "@hyperidle/design-system";
 import type { JSX, ReactNode } from "react";
 
 /**
@@ -52,6 +52,7 @@ export function Submenu({
 	// choice for this expand/collapse pattern.
 	return (
 		<div
+			{...dsShellProps("Submenu")}
 			className={`flex flex-col gap-[var(--density-gap)] p-2 transition-[width] duration-[var(--motion-medium)] ${collapsed ? "w-0 overflow-hidden" : "w-60"}`}
 			onKeyDown={(e) => {
 				if (e.key === "Escape" && !collapsed) {

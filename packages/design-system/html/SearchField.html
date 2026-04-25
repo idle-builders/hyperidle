@@ -74,6 +74,7 @@
       color: var(--text-mid);
     }
 
+    /* @lore K7 / AESTHETICS.md § Typography "Body size (default)": font-size 10 → 11. */
     .search-field__kbd {
       display: inline-flex;
       align-items: center;
@@ -85,7 +86,7 @@
       background: var(--surface-5);
       color: var(--text-lo);
       font-family: var(--mono);
-      font-size: 10px;
+      font-size: 11px;
       font-weight: 500;
     }
 
@@ -128,6 +129,9 @@
           data-uses=""
           data-daisyui=""
           data-used-by="Submenu,GlobalSearchPanel,PitchSelector"
+          data-ds-component="SearchField"
+          data-ds-tier="1"
+          data-ds-source="design-system"
         >
           <span className="search-field__icon">
             {loading ? (

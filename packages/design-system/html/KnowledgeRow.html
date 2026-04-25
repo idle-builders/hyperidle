@@ -62,14 +62,17 @@
       flex-shrink: 0;
     }
 
+    /* @lore K7 / AESTHETICS.md § Spacing & Density "Grid base unit" + § Typography
+       "Body size (default)": padding 2px 6px → 2px 8px (off-grid), font-size 10px → 11px
+       (off-scale). Letter-spacing → --tracking-caps (0.02em) per "Letter-spacing for caps". */
     .knowledge-row__version {
       display: inline-flex;
       align-items: center;
-      padding: 2px 6px;
+      padding: 2px 8px;
       border-radius: var(--r-pill);
       font-family: var(--mono);
-      font-size: 10px;
-      letter-spacing: 0.03em;
+      font-size: 11px;
+      letter-spacing: var(--tracking-caps);
       background: var(--surface-ghost);
       color: var(--text-lo);
       flex-shrink: 0;
@@ -180,6 +183,9 @@
           data-uses="StatusChip,Tag"
           data-daisyui=""
           data-used-by="KnowledgeList,KnowledgeTopicGroup"
+          data-ds-component="KnowledgeRow"
+          data-ds-tier="2"
+          data-ds-source="design-system"
         >
           <div className="knowledge-row__body">
             <div className="knowledge-row__header">

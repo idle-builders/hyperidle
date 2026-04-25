@@ -21,10 +21,12 @@
       flex-direction: column;
     }
 
+    /* @lore K7 / AESTHETICS.md § Typography "Letter-spacing for caps":
+       0.05em → --tracking-caps (0.02em, designer-call). */
     .kv__label {
       font-family: var(--mono);
       font-size: 11px;
-      letter-spacing: 0.05em;
+      letter-spacing: var(--tracking-caps);
       text-transform: uppercase;
       font-weight: 500;
       color: var(--text-lo);
@@ -55,6 +57,9 @@
           data-uses=""
           data-daisyui=""
           data-used-by="BetCard,PitchCard,TaskCard,Rail"
+          data-ds-component="KeyValue"
+          data-ds-tier="1"
+          data-ds-source="design-system"
         >
           <span className="kv__label">{label}</span>
           <span className="kv__value">{value}</span>

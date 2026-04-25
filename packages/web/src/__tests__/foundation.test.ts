@@ -84,16 +84,25 @@ describe("tailwind.config lucid-light theme", () => {
 		expect(theme.primary).toBe("#4f46e5");
 	});
 
-	it("secondary is #78787e", () => {
-		expect(theme.secondary).toBe("#78787e");
+	it("secondary is #444448", () => {
+		// @lore K8 — darkened from #78787e (4.38:1 vs #ffffff, fails WCAG
+		// 2.1 AA). #444448 clears the 4.5:1 floor on the entire light-
+		// surface ladder, including the worst-case tint-over-surface.
+		expect(theme.secondary).toBe("#444448");
 	});
 
-	it("accent is #8e8e94", () => {
-		expect(theme.accent).toBe("#8e8e94");
+	it("accent is #4d4d52", () => {
+		// @lore K8 — darkened from #8e8e94 (3.25:1 vs #ffffff, fails WCAG
+		// 2.1 AA). #4d4d52 clears the 4.5:1 floor on the entire light-
+		// surface ladder, including the worst-case tint-over-surface.
+		expect(theme.accent).toBe("#4d4d52");
 	});
 
-	it("error is #dc2626", () => {
-		expect(theme.error).toBe("#dc2626");
+	it("error is #a91515", () => {
+		// @lore K8 — darkened from #dc2626 (3.66:1 on the 14% danger tint
+		// over white, fails WCAG 2.1 AA at 12px). #a91515 measures 5.50:1
+		// on the same tint and 7.50:1 on bare white.
+		expect(theme.error).toBe("#a91515");
 	});
 
 	it("base-100 is #fafaf9", () => {

@@ -4,6 +4,7 @@
 import type { BetStatus } from "@hyperidle/shared";
 import type { JSX, ReactNode } from "react";
 import { clickableProps } from "./clickable";
+import { dsProps } from "./ds-attrs";
 import { KeyValue } from "./KeyValue";
 import { StatusChip } from "./StatusChip";
 import { betStatusToStatus } from "./status-mapping";
@@ -32,6 +33,7 @@ export function PitchCard({
 }: PitchCardProps): JSX.Element {
 	return (
 		<div
+			{...dsProps("PitchCard", "2")}
 			{...clickableProps(
 				onClick,
 				"bg-[var(--surface-4)] rounded-[var(--r2)] p-[8px] flex flex-col gap-[4px] max-w-[320px]",

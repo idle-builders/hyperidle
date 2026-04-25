@@ -4,6 +4,9 @@ export type { BetCardLeadAvatar, BetCardProps } from "./BetCard.js";
 export { BetCard } from "./BetCard.js";
 // ── Support ──
 export { clickableProps } from "./clickable.js";
+// ── DOM markers (K2) ──
+export type { DsAttrs, DsShellAttrs, DsSource, DsTier } from "./ds-attrs.js";
+export { dsProps, dsShellProps } from "./ds-attrs.js";
 export type { EmptyStateProps } from "./EmptyState.js";
 // ── Utility Components ──
 export { EmptyState } from "./EmptyState.js";
