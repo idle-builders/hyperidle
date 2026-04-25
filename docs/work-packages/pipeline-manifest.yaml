@@ -261,3 +261,37 @@ stories:
     title: Medium-Priority Fixes & Polish
     track: I
     depends: [I1, I2, I3, I4]
+
+  # Track K: Aesthetics Uplift
+  - id: K1
+    title: Aesthetic Research & Principles Write-up
+    track: K
+    depends: []
+  - id: K2
+    title: Design-System DOM Markers (data-ds-* attributes)
+    track: K
+    depends: []
+  - id: K3
+    title: Theme Persistence
+    track: K
+    depends: []
+  - id: K4
+    title: DS-vs-Custom CLI Inspector
+    track: K
+    depends: [K2]
+  - id: K5
+    title: Concise Claude Rules + design-critique Update
+    track: K
+    depends: [K1]
+  - id: K6
+    title: Design Linter (ESLint Plugin + design-lint Skill)
+    track: K
+    depends: [K1, K2, K5]
+  - id: K7
+    title: Density, Typography & Mobile Refresh
+    track: K
+    depends: [K1, K2, K6]
+  - id: K8
+    title: Validation, Visual-Regression Re-baseline & Accessibility
+    track: K
+    depends: [K7]
