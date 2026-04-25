@@ -101,7 +101,11 @@
       const classes = `nav-item${selected ? " nav-item--selected" : ""}`;
 
       return (
-        <li>
+        <li
+          data-ds-component="NavItem"
+          data-ds-tier="1"
+          data-ds-source="design-system"
+        >
           <button
             type="button"
             className={classes}

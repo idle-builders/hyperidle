@@ -1,4 +1,5 @@
 import type { JSX, ReactNode } from "react";
+import { dsProps } from "./ds-attrs";
 import { type Status, StatusChip } from "./StatusChip";
 import { Tag } from "./Tag";
 
@@ -18,7 +19,10 @@ export function NotificationRow({
 	actions,
 }: NotificationRowProps): JSX.Element {
 	return (
-		<div className="flex items-center gap-[8px] p-[8px] rounded-[var(--r1)] transition-colors duration-[var(--motion-fast)] hover:bg-[var(--surface-4)]">
+		<div
+			{...dsProps("NotificationRow", "2")}
+			className="flex items-center gap-[8px] p-[8px] rounded-[var(--r1)] transition-colors duration-[var(--motion-fast)] hover:bg-[var(--surface-4)]"
+		>
 			<StatusChip status={severity} />
 			<span className="flex-1 text-[14px] truncate" aria-label={`Notification: ${message}`}>
 				{message}

@@ -1,4 +1,5 @@
 import type { JSX } from "react";
+import { dsProps } from "./ds-attrs";
 import { TAG_KIND_ICONS, type TagKind } from "./tag-kinds";
 
 export interface TagProps {
@@ -30,13 +31,20 @@ export function Tag({ label, kind }: TagProps): JSX.Element {
 	const meta = kind ? TAG_KIND_ICONS[kind] : undefined;
 	if (!meta) {
 		return (
-			<span className={`${TAG_BASE} bg-[var(--surface-ghost)] text-[var(--text-mid)]`}>
+			<span
+				{...dsProps("Tag", "1")}
+				className={`${TAG_BASE} bg-[var(--surface-ghost)] text-[var(--text-mid)]`}
+			>
 				{label}
 			</span>
 		);
 	}
 	return (
-		<span className={`${TAG_BASE} ${meta.tintClass}`} aria-label={`${meta.ariaLabel}: ${label}`}>
+		<span
+			{...dsProps("Tag", "1")}
+			className={`${TAG_BASE} ${meta.tintClass}`}
+			aria-label={`${meta.ariaLabel}: ${label}`}
+		>
 			<span className="inline-flex items-center shrink-0">{meta.icon}</span>
 			{label}
 		</span>

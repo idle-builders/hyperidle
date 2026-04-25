@@ -8,6 +8,7 @@
  * announce the loading context rather than a pile of anonymous boxes.
  */
 import type { JSX } from "react";
+import { dsProps } from "./ds-attrs";
 
 export interface SkeletonListProps {
 	rows?: number;
@@ -35,6 +36,7 @@ export function SkeletonList({
 }: SkeletonListProps): JSX.Element {
 	return (
 		<div
+			{...dsProps("SkeletonList", "2")}
 			role="status"
 			aria-label={ariaLabel}
 			data-testid={dataTestId ?? "skeleton-list"}
@@ -56,6 +58,7 @@ export interface SkeletonCardProps {
 export function SkeletonCard({ ariaLabel, dataTestId }: SkeletonCardProps): JSX.Element {
 	return (
 		<div
+			{...dsProps("SkeletonCard", "2")}
 			role="status"
 			aria-label={ariaLabel}
 			data-testid={dataTestId ?? "skeleton-card"}

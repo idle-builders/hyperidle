@@ -1,4 +1,5 @@
 import type { JSX, ReactNode } from "react";
+import { dsProps } from "./ds-attrs";
 
 export interface NavItemProps {
 	label: string;
@@ -29,7 +30,7 @@ export function NavItem({
 		: "bg-transparent hover:bg-[var(--surface-2)]";
 
 	return (
-		<li>
+		<li {...dsProps("NavItem", "1")}>
 			<button type="button" className={`${baseClasses} ${stateClasses}`} onClick={onClick}>
 				{icon && (
 					<span
