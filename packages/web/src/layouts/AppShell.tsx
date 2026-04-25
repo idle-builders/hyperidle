@@ -19,6 +19,7 @@ import {
 } from "../fixtures/app-shell-data";
 import { topicsForScope } from "../fixtures/knowledge-data";
 import { useCommandK } from "../hooks/useCommandK";
+import { useTheme } from "../hooks/useTheme";
 import { useViewportBreakpoint } from "../hooks/useViewportBreakpoint";
 import { IconRail } from "../shell/IconRail";
 import { Rail } from "../shell/Rail";
@@ -219,21 +220,23 @@ export function AppShell(): JSX.Element {
 	const [settingsOpen, setSettingsOpen] = useState(false);
 	// @lore Settings lives at the shell root so [data-density] cascades --density-* CSS vars
 	// to every consumer. Server persistence deferred (J3/J8).
-	const [settings, setSettings] = useState<SettingsData>(DEFAULT_SETTINGS);
+	// @lore K3: theme lives in useTheme() (localStorage-backed) — settings.appearance.theme
+	// is initialised from useTheme()'s value and kept in sync via the hook below.
+	const { theme, setTheme } = useTheme();
+	const [settings, setSettings] = useState<SettingsData>(() => ({
+		...DEFAULT_SETTINGS,
+		appearance: { ...DEFAULT_SETTINGS.appearance, theme },
+	}));
 
-	// @lore Theme is applied on <html> (not a child div) because DaisyUI themes use
-	// [data-theme] on the root element, and color-scheme on :root affects native
-	// scrollbars, form controls, etc. "system" removes the attribute so the CSS
-	// @media (prefers-color-scheme) fallback in tokens.css takes effect.
-	const currentTheme = settings.appearance.theme;
+	// Reflect persisted theme changes (e.g. another tab) back into settings draft.
 	useEffect(() => {
-		const html = document.documentElement;
-		if (currentTheme === "system") {
-			html.removeAttribute("data-theme");
-		} else {
-			html.setAttribute("data-theme", currentTheme === "light" ? "lucid-light" : "lucid-dark");
-		}
-	}, [currentTheme]);
+		setSettings((prev) =>
+			prev.appearance.theme === theme
+				? prev
+				: { ...prev, appearance: { ...prev.appearance, theme } },
+		);
+	}, [theme]);
+
 	const commandK = useCommandK();
 
 	// Open settings panel when navigated to with ?settings=open query param.
@@ -289,13 +292,22 @@ export function AppShell(): JSX.Element {
 		};
 	}, [settingsOpen, commandK]);
 
-	const handleSettingsSave = useCallback(async (next: SettingsData): Promise<void> => {
-		// Mock save — real API wiring deferred. J1: mirror the new draft into
-		// local state so density (and other appearance values) take effect on
-		// save. The data-density attribute on the shell root reads from this.
-		await new Promise((resolve) => setTimeout(resolve, 300));
-		setSettings(next);
-	}, []);
+	const handleSettingsSave = useCallback(
+		async (next: SettingsData): Promise<void> => {
+			// Mock save — real API wiring deferred. J1: mirror the new draft into
+			// local state so density (and other appearance values) take effect on
+			// save. The data-density attribute on the shell root reads from this.
+			await new Promise((resolve) => setTimeout(resolve, 300));
+			// K3: theme is persisted via useTheme() (localStorage). Route the
+			// chosen value through setTheme so the boot script picks it up on
+			// the next reload and matchMedia subscription stays correct.
+			if (next.appearance.theme !== theme) {
+				setTheme(next.appearance.theme);
+			}
+			setSettings(next);
+		},
+		[setTheme, theme],
+	);
 
 	const handleSearchNavigate = useCallback(
 		(type: string, id: string): void => {
