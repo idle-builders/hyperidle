@@ -1,5 +1,7 @@
 # Spacing & Density
 
+> Canonical research and recommendations table: `packages/design-system/AESTHETICS.md` § Spacing & Density. Token values: `packages/design-system/src/tokens.css`. Hard rules: `.claude/rules/aesthetic-quality.md` AQ-001 / AQ-002 / AQ-003. K6 lint slugs: `design/no-off-grid-spacing`, `design/no-off-scale-spacing`. K1 verdict on density tier ratios is **designer-call** — compact = default × 0.75, comfortable = default × 1.25 (AQ-003).
+
 ## The 4px Grid
 
 All spacing values must be multiples of 4px. The closed scale:
