@@ -108,18 +108,34 @@ Warn and ok are intentionally neutral grays. Only danger carries chromatic color
 
 ### Scale
 
+Source of truth: `AESTHETICS.md § Typography` recommendations table. Allowlist `{11, 12, 13, 14, 15, 16, 18, 20, 24}` — anything outside this set is off-scale and lints under `design/no-off-scale-font-size`.
+
 | Size | Weight | Line Height | Usage |
 |------|--------|-------------|-------|
-| 24px | 600 | 1.2 | Page titles (rare) |
-| 18px | 600 | 1.3 | Section headings |
-| 14px | 600 | 1.45 | Mono — section headers (`font-heading` uppercase tracking-wider) |
-| 14px | 500 | 1.45 | Subheadings, nav labels |
-| 14px | 400 | 1.45 | Body text (default) |
-| 12px | 600 | 1.4 | Mono — small section headers (`font-heading` uppercase tracking-wider) |
+| 24px | 600 (`--fw-emphasis`) | 1.2 (`--leading-heading-lg`) | Page titles (rare) |
+| 20px | 600 | 1.25 (`--leading-heading`) | Section headings (intermediate; designer-call per AESTHETICS.md) |
+| 18px | 600 | 1.25 (`--leading-heading`) | Section headings |
+| 16px | 400 / 500 | 1.5 (`--leading-body`) | Mobile inputs (iOS Safari zoom mitigation, ≤ 768px viewport) |
+| 15px | 400 | 1.55 (`--leading-body` under `[data-density="comfortable"]`) | Body text (comfortable density) |
+| 14px | 600 (`--fw-emphasis`) | 1.5 (`--leading-body`) | Mono — section headers (`font-heading` uppercase tracking-wider) |
+| 14px | 500 (`--fw-medium`) | 1.5 | Subheadings, nav labels |
+| 14px | 400 (`--fw-regular`) | 1.5 | Body text (default density) |
+| 13px | 400 / 500 | 1.4 | Mono — data values (Geist Mono) |
+| 12px | 600 | 1.4 | Mono — small section headers |
 | 12px | 500 | 1.4 | Small labels, metadata |
-| 13px | 400 | 1.4 | Mono — data values (Geist Mono) |
-| 13px | 500 | 1.4 | Mono — emphasized data |
-| 11px | 500 | 1.3 | Mono — uppercase tags, timestamps (+ letter-spacing 0.05em) |
+| 11px | 500 | 1.3 | Mono — uppercase tags, timestamps (+ `--tracking-caps` 0.02em on uppercase Tag/KeyValue labels; StatusChip retains 0.05em — designer-call) |
+
+### Tracking and weight tokens
+
+| Token | Value | Usage |
+|---|---|---|
+| `--tracking-caps` | 0.02em | Letter-spacing for uppercase labels (Tag, KeyValue label) per AESTHETICS.md row "Letter-spacing for caps" |
+| `--leading-body` | 1.5 (default) / 1.55 (comfortable) | Body line-height per AESTHETICS.md rows "Body line-height (default)" / "(comfortable)" |
+| `--leading-heading` | 1.25 | Heading line-height for ≤ 20px headings |
+| `--leading-heading-lg` | 1.2 | Heading line-height for 24px+ headings |
+| `--fw-regular` | 400 | Body weight |
+| `--fw-medium` | 500 | Label / heading weight |
+| `--fw-emphasis` | 600 | Bold heading / emphasis weight |
 
 ---
 
@@ -133,13 +149,20 @@ Warn and ok are intentionally neutral grays. Only danger carries chromatic color
 
 Three presets cascaded via `[data-density]` attribute on the app shell root.
 
-| Token | Default | Compact | Comfortable |
+The compact / comfortable tiers are derived from the default tier per AESTHETICS.md § Spacing & Density rows "Density tier ratio" — `compact = default × 0.75` rounded down to the nearest 4px multiple; `comfortable = default × 1.25` rounded up. K7 fixed two pre-existing deviations (compact pad-x 6→8px, compact row-h 26→24px).
+
+| Token | Default | Compact (default × 0.75) | Comfortable (default × 1.25) |
 |-------|---------|---------|-------------|
-| `--density-pad-x` | 0.75rem (12px) | 0.375rem (6px) | 1rem (16px) |
+| `--density-pad-x` | 0.75rem (12px) | 0.5rem (8px) | 1rem (16px) |
 | `--density-pad-y` | 0.5rem (8px) | 0.25rem (4px) | 0.75rem (12px) |
 | `--density-gap` | 0.5rem (8px) | 0.25rem (4px) | 0.75rem (12px) |
-| `--density-row-h` | 2rem (32px) | 1.625rem (26px) | 2.5rem (40px) |
+| `--density-row-h` | 2rem (32px) | 1.5rem (24px) | 2.5rem (40px) |
 | `--density-text` | 0.875rem (14px) | 0.75rem (12px) | 0.9375rem (15px) |
+| `--leading-body` | 1.5 | 1.5 (inherits default) | 1.55 |
+
+### Density preference state
+
+Settings exposes a tri-state `appearance.density` value: `"auto" | "default" | "compact" | "comfortable"`. `"auto"` is the factory default and the only state that fires viewport-driven density auto-switching: at viewport ≤ 1024px the AppShell sets `[data-density="comfortable"]` (per AESTHETICS.md § Mobile & Touch row "Auto-density behavior"). When the user explicitly picks `default`/`compact`/`comfortable`, that choice persists across breakpoint changes. Server-side persistence is deferred (J3/J8).
 
 ### Common Spacing Values
 
@@ -171,13 +194,14 @@ Tailwind/DaisyUI overrides: `--rounded-btn: 4px`, `--rounded-box: 8px`, `--round
 
 ## Motion
 
-Single easing curve: `ease` (CSS default). Three duration tiers.
+Three duration tiers and a single easing curve. All motion durations honor `prefers-reduced-motion: reduce` (`tokens.css` collapses durations to 1ms and pauses the skeleton-pulse animation under the media query).
 
 | Token | Value | Usage |
 |-------|-------|-------|
 | `--motion-fast` | 80ms | Instant feedback — hover, focus ring, chip state |
 | `--motion-medium` | 150ms | Disclosure changes — Rail expand, tab swaps |
 | `--motion-slow` | 250ms | Overlay open/close — Settings, Global Search |
+| `--motion-ease` | `cubic-bezier(0.2, 0, 0, 1)` | Standard easing curve (Material standard / cluster anchor across Material / Carbon / Atlassian per AESTHETICS.md § Motion row "Easing curve") |
 
 Tuned for crisp responsiveness. Longer feels sluggish; shorter drops the transition entirely.
 

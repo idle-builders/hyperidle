@@ -55,7 +55,11 @@ export const SearchField = forwardRef<HTMLInputElement, SearchFieldProps>(functi
 					</button>
 				)}
 				{shortcutKey && (
-					<kbd className="inline-flex items-center justify-center min-w-[20px] h-[18px] px-[4px] rounded-[var(--r1)] bg-[var(--surface-5)] text-[var(--text-lo)] font-[var(--mono)] text-[10px] font-medium">
+					/* @lore K7 / AESTHETICS.md § Typography row "Body size (default)":
+					   text-[10px] → text-[11px] (off-scale). The 56px right-inset on the
+					   input above is a designer-call exception (audit B.1.5) — it is the
+					   geometric minimum required to clear the clear-button + gap + kbd. */
+					<kbd className="inline-flex items-center justify-center min-w-[20px] h-[18px] px-[4px] rounded-[var(--r1)] bg-[var(--surface-5)] text-[var(--text-lo)] font-[var(--mono)] text-[11px] font-medium">
 						{shortcutKey}
 					</kbd>
 				)}

@@ -56,17 +56,20 @@
       flex: 1;
     }
 
+    /* @lore K7 / AESTHETICS.md § Spacing & Density "Grid base unit" + § Typography
+       "Body size (default)": padding 0 5px → 0 4px (off-grid), font-size 10px → 11px
+       (off-scale). 18px width retained — chip-internal sub-grid per same row. */
     .nav-item__count {
       display: inline-flex;
       align-items: center;
       justify-content: center;
       min-width: 18px;
       height: 18px;
-      padding: 0 5px;
+      padding: 0 4px;
       border-radius: var(--r-pill);
       background: var(--surface-ghost);
       font-family: var(--mono);
-      font-size: 10px;
+      font-size: 11px;
       font-weight: 500;
       color: var(--text-mid);
     }

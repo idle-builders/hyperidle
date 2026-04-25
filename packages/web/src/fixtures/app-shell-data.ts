@@ -24,7 +24,10 @@ export const DEFAULT_SETTINGS: SettingsData = {
 		quietHoursEnd: "08:00",
 		mutedProducts: [],
 	},
-	appearance: { density: "default", theme: getInitialTheme() },
+	// @lore K7 / AESTHETICS.md § Mobile & Touch "Density preference state":
+	// `auto` is the factory default and fires the viewport-driven density
+	// auto-switch (≤ 1024px → comfortable).
+	appearance: { density: "auto", theme: getInitialTheme() },
 };
 
 export const MOCK_RAIL_BETS: BetItem[] = [
