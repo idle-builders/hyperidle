@@ -218,6 +218,31 @@
 	 * `.claude/rules/aesthetic-quality.md` still cites the K7 1.25× ratio. That
 	 * line should be updated to read `compact = default × 0.75; comfortable =
 	 * default × 1.5` per this K9 re-tier.
+	 *
+	 * @lore K11 — Density Sweep + Lint Enforcement adds 5 new density tokens
+	 * derived from the K10 audit (`packages/design-system/research/density-audit.md`):
+	 *   - `--density-card-pad` (8/12/16): card outer padding budget. Cards
+	 *     have a different scale than list-row pad-y (BetCard, TaskCard,
+	 *     PitchCard, SkeletonCard, EmptyState/ErrorState pad-y, ArtifactView
+	 *     content pad, PitchSelector pad). K10 § 4.2.
+	 *   - `--density-page-gutter` (8/16/24): the `<main>` page gutter — split
+	 *     from `--density-pad-x` so page margin and component interior pad
+	 *     can move on independent cadences. K10 § 4.3.
+	 *   - `--density-icon-size` (14/16/20): list-row icon size (search,
+	 *     chevrons, sort arrows). NOT consumed by NavItem (brand chrome).
+	 *     K10 § 4.1.
+	 *   - `--density-avatar-size` (24/32/40): row-anchor avatars on
+	 *     ThreadRow + ReviewHeader. Card-internal avatars (BetCard lead,
+	 *     WorkPortfolio product avatar) stay literal at 24 px. K10 § 4.4.
+	 *   - `--density-card-gap` (4/8/12): intra-card gap (label↔value, row↔
+	 *     row inside a card). Independent of `--density-gap` so inter-row
+	 *     and intra-card rhythms can differ. K10 § 4.5.
+	 *
+	 * Lint rules `design/use-density-tokens` (require token consumption on
+	 * components K10 marked density-aware) and `design/no-density-tokens`
+	 * (forbid token consumption on components K10 marked density-static)
+	 * enforce drift prevention. The opt-out manifest lives at
+	 * `packages/eslint-plugin-design/density-allowlist.json`.
 	 */
 	:root,
 	[data-density="default"] {
@@ -229,6 +254,12 @@
 		--density-text-h1: 1.625rem;
 		--density-text-h2: 1.25rem;
 		--leading-body: 1.55;
+		/* K11 density tokens (default tier) */
+		--density-card-pad: 0.75rem;
+		--density-page-gutter: 1rem;
+		--density-icon-size: 1rem;
+		--density-avatar-size: 2rem;
+		--density-card-gap: 0.5rem;
 	}
 
 	[data-density="compact"] {
@@ -240,6 +271,12 @@
 		--density-text-h1: 1.5rem;
 		--density-text-h2: 1.125rem;
 		--leading-body: 1.5;
+		/* K11 density tokens (compact tier) */
+		--density-card-pad: 0.5rem;
+		--density-page-gutter: 0.5rem;
+		--density-icon-size: 0.875rem;
+		--density-avatar-size: 1.5rem;
+		--density-card-gap: 0.25rem;
 	}
 
 	[data-density="comfortable"] {
@@ -260,6 +297,12 @@
 		--density-text-h2: 1.375rem;
 		--leading-body: 1.6;
 		--tracking-caps: 0.015em;
+		/* K11 density tokens (comfortable tier) */
+		--density-card-pad: 1rem;
+		--density-page-gutter: 1.5rem;
+		--density-icon-size: 1.25rem;
+		--density-avatar-size: 2.5rem;
+		--density-card-gap: 0.75rem;
 	}
 }
 

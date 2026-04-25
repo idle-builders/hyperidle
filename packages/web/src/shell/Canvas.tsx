@@ -145,7 +145,14 @@ export function Canvas({ bets, capacity, onMoveBet }: CanvasProps): JSX.Element 
 
 	return (
 		<DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
-			<div {...shellAttrs} className="flex gap-4">
+			{/*
+			 * @lore K11: column gap → --density-gap per density-audit.md
+			 * § 3.3.K6. Drop-zone min-h (48 px) and inner pad (p-1) stay
+			 * literal — DnD primitives. Column header `text-sm` stays
+			 * literal (chrome shared with Kanban). BetCard children inherit
+			 * density via the BetCard primitive itself.
+			 */}
+			<div {...shellAttrs} className="flex gap-[var(--density-gap)]">
 				{COLUMNS.map((col) => {
 					const columnBets = col.key === "shaped" ? shaped : committed;
 					const capacityBadge =

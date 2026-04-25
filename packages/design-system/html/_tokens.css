@@ -40,6 +40,22 @@
 	--density-text-h2: 1.25rem;
 	--leading-body: 1.55;
 	--tracking-caps: 0.02em;
+	/*
+	 * K11 density tokens (default tier values mirrored from src/tokens.css).
+	 * The HTML reference pages do not toggle density, so only the default tier
+	 * is wired; the full per-tier overrides live in src/tokens.css.
+	 *   --density-card-pad: card outer padding (8/12/16 across compact/default/comfortable)
+	 *   --density-page-gutter: <main> page gutter (8/16/24)
+	 *   --density-icon-size: list-row icon size (14/16/20)
+	 *   --density-avatar-size: row-anchor avatar size (24/32/40)
+	 *   --density-card-gap: intra-card gap (4/8/12)
+	 * See packages/design-system/research/density-audit.md § 4.
+	 */
+	--density-card-pad: 0.75rem;
+	--density-page-gutter: 1rem;
+	--density-icon-size: 1rem;
+	--density-avatar-size: 2rem;
+	--density-card-gap: 0.5rem;
 }
 
 /* ── Lucid Dark (default) ── */

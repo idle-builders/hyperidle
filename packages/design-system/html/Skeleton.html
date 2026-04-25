@@ -20,21 +20,25 @@
     .skeleton-list {
       display: flex;
       flex-direction: column;
-      gap: 8px;
+      /* K11: gap → --density-gap; row-h matches the eventual list row.
+         Skeleton-must-mirror-target rule (Principle 6) per § 3.2.9. */
+      gap: var(--density-gap);
     }
 
     .skeleton-row {
-      height: 32px;
+      height: var(--density-row-h);
       width: 100%;
     }
 
     .skeleton-card {
       display: flex;
       flex-direction: column;
-      gap: 8px;
+      /* K11: outer pad → --density-card-pad, gap → --density-card-gap
+         per § 3.2.10. Mirrors BetCard / TaskCard / PitchCard. */
+      gap: var(--density-card-gap);
       background: var(--surface-3);
       border-radius: var(--r2);
-      padding: 12px;
+      padding: var(--density-card-pad);
     }
 
     .skeleton-card__line-short {

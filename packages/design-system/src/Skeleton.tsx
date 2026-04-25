@@ -40,11 +40,21 @@ export function SkeletonList({
 			role="status"
 			aria-label={ariaLabel}
 			data-testid={dataTestId ?? "skeleton-list"}
-			className="flex flex-col gap-[8px]"
+			/*
+			 * @lore K11: row height + gap consume density tokens per
+			 * density-audit.md § 3.2.9 (Skeleton-must-mirror-target rule —
+			 * Principle 6). Row-h matches the eventual list-row height so
+			 * the loading state does not visually pop when content arrives.
+			 */
+			className="flex flex-col gap-[var(--density-gap)]"
 		>
 			{Array.from({ length: rows }).map((_, i) => (
-				// biome-ignore lint/suspicious/noArrayIndexKey: fixed-count placeholder rows.
-				<div key={i} data-testid="skeleton-row" className={`${SKELETON_BAR} h-[32px] w-full`} />
+				<div
+					// biome-ignore lint/suspicious/noArrayIndexKey: fixed-count placeholder rows.
+					key={i}
+					data-testid="skeleton-row"
+					className={`${SKELETON_BAR} h-[var(--density-row-h)] w-full`}
+				/>
 			))}
 		</div>
 	);
@@ -62,7 +72,14 @@ export function SkeletonCard({ ariaLabel, dataTestId }: SkeletonCardProps): JSX.
 			role="status"
 			aria-label={ariaLabel}
 			data-testid={dataTestId ?? "skeleton-card"}
-			className="flex flex-col gap-[8px] bg-[var(--surface-3)] rounded-[var(--r2)] p-[12px]"
+			/*
+			 * @lore K11: outer pad → --density-card-pad, inner gap →
+			 * --density-card-gap per density-audit.md § 3.2.10 (mirrors
+			 * BetCard / TaskCard / PitchCard). Inner bar heights stay
+			 * literal — abstract content placeholders not subject to the
+			 * type scale.
+			 */
+			className="flex flex-col gap-[var(--density-card-gap)] bg-[var(--surface-3)] rounded-[var(--r2)] p-[var(--density-card-pad)]"
 		>
 			<div className={`${SKELETON_BAR} h-[20px] w-[66%]`} />
 			<div className={`${SKELETON_BAR} h-[16px] w-full`} />

@@ -9,8 +9,12 @@
     .knowledge-row {
       display: flex;
       align-items: center;
-      gap: 8px;
-      padding: 8px;
+      /* K11: gap + padding consume density tokens. Per density-audit.md
+         § 3.2.2 the J7 factoryMode `padding: 16px` override is retired —
+         padding follows --density-pad-y so factoryMode + comfortable does
+         not compound. */
+      gap: var(--density-gap);
+      padding: var(--density-pad-y) var(--density-pad-x);
       border-radius: var(--r1);
       transition: background var(--motion-fast);
       cursor: pointer;
@@ -22,10 +26,8 @@
       outline: 1px solid var(--primary);
       outline-offset: -1px;
     }
-    .knowledge-row--factory {
-      padding-top: 16px;
-      padding-bottom: 16px;
-    }
+    /* K11: factory variant no longer overrides padding (now driven by
+       --density-pad-y). Title weight + font-mono remain factory-only. */
 
     .knowledge-row__body {
       flex: 1;
@@ -37,7 +39,9 @@
       gap: 8px;
     }
     .knowledge-row__title {
-      font-size: 14px;
+      /* K11: title font scales with density per density-audit.md § 3.2.2
+         (body text ✓ for KnowledgeRow). */
+      font-size: var(--density-text);
       color: var(--text-hi);
       white-space: nowrap;
       overflow: hidden;
