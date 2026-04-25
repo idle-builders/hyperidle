@@ -1,5 +1,7 @@
 # Visual Hierarchy
 
+> Canonical principles: `packages/design-system/PRINCIPLES.md` § Hierarchy Through Weight + § S1 Not Every Element Deserves Equal Polish. Reinforced by `packages/design-system/AESTHETICS.md` § Typography (heading scale, weight ladder). No K6 lint applies — hierarchy is a design judgment, not a token check.
+
 ## The Three Levers
 
 Every piece of UI text sits at one of three levels:

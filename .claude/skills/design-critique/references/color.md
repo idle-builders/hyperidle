@@ -1,5 +1,7 @@
 # Color Usage
 
+> Canonical research and recommendations table: `packages/design-system/AESTHETICS.md` § Color & Dark Mode. Token values: `packages/design-system/src/tokens.css`. Hard rules: `.claude/rules/aesthetic-quality.md` AQ-008 / AQ-009 / AQ-010. K6 lint slugs: `design/no-hardcoded-color`, `design/no-raw-tailwind-color`. K1 verdict: surface ladder, base #111113, text-lo at 4.5:1 are all `no change`. Status monochrome philosophy is project-specific (sources disagree).
+
 ## Core Rule: Color Is for Meaning, Not Decoration
 
 The interface is monochrome by default. Color appears only when it carries meaning:
