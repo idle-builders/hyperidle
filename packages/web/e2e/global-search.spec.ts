@@ -25,12 +25,20 @@ test.describe("Global Search", () => {
 	});
 
 	test("typing in search shows results or empty state", async ({ page }) => {
+		// Mock empty results so the assertion is deterministic regardless
+		// of the dev-server seed data.
+		await page.route("**/api/search*", async (route) => {
+			await route.fulfill({
+				status: 200,
+				contentType: "application/json",
+				body: JSON.stringify({ conversations: [], work: [], knowledge: [] }),
+			});
+		});
 		await page.keyboard.press("Meta+k");
 		const input = page.getByRole("textbox");
 		await input.fill("nonexistent-search-term-xyz");
-		// Use Playwright auto-retry instead of waitForTimeout(300).
-		// After debounce + API response, the empty state text appears.
-		await expect(page.getByText("No matches. Try different query.")).toBeVisible();
+		// EmptyState's data-testid is decoupled from copy; matches GlobalSearchPanel.tsx.
+		await expect(page.getByTestId("search-empty")).toBeVisible();
 	});
 
 	test("clicking a work result navigates to /work/bet/{id} (I4 N3)", async ({ page }) => {
