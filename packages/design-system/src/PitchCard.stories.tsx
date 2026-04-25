@@ -1,6 +1,11 @@
 import { PitchCard } from "./PitchCard";
 
-export default { title: "PitchCard", order: ["Shaped", "WithKind", "Killed"] };
+export default {
+	title: "PitchCard",
+	tier: "2" as const,
+	uses: ["StatusChip", "Tag", "KeyValue"],
+	order: ["Shaped", "WithKind", "Killed"],
+};
 
 export const Shaped = (): React.JSX.Element => (
 	<div className="max-w-[320px]">

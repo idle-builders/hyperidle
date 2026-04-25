@@ -1,7 +1,7 @@
 import type { JSX } from "react";
 import { ErrorBoundary } from "./ErrorBoundary";
 
-export default { title: "ErrorBoundary" };
+export default { title: "ErrorBoundary", tier: "utility" as const };
 
 function Throws({ message }: { message: string }): JSX.Element {
 	throw new Error(message);

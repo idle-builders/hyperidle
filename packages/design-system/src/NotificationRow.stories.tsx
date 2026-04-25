@@ -2,6 +2,8 @@ import { NotificationRow } from "./NotificationRow";
 
 export default {
 	title: "NotificationRow",
+	tier: "2" as const,
+	uses: ["StatusChip", "Tag"],
 	order: ["Healthy", "ErrorSeverity", "WithInlineAction", "AllSeverities"],
 };
 
