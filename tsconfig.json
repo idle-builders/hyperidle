@@ -30,7 +30,8 @@
 		{ "path": "packages/db" },
 		{ "path": "packages/server" },
 		{ "path": "packages/fabric" },
-		{ "path": "packages/design-system" }
+		{ "path": "packages/design-system" },
+		{ "path": "packages/eslint-plugin-design" }
 	],
 	"include": [],
 	"exclude": ["node_modules", "dist"]
