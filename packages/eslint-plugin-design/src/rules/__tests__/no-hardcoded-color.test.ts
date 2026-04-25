@@ -21,21 +21,61 @@ ruleTester.run("no-hardcoded-color", noHardcodedColor, {
 			filename: "Foo.tsx",
 			code: 'const a = "no color here";',
 		},
-	],
-	invalid: [
+		// SEV-1 #5: bare top-level constants are NOT in styling context — pass.
 		{
 			filename: "Foo.tsx",
 			code: 'const a = "#fafafa";',
+		},
+		// JSX text content documenting a hex value — pass.
+		{
+			filename: "Foo.tsx",
+			code: 'const J = <code>{"#ff0000"}</code>;',
+		},
+		// aria-label describing a color picker — pass.
+		{
+			filename: "Foo.tsx",
+			code: 'const J = <button aria-label="Picker for #ff0000" />;',
+		},
+		// id / data-* attributes — pass.
+		{
+			filename: "Foo.tsx",
+			code: 'const J = <div id="user-#abc123" data-color="#fff" />;',
+		},
+		// Plain template literal not inside a styling context — pass.
+		{
+			filename: "Foo.tsx",
+			code: "const a = `bg #ff0000`;",
+		},
+	],
+	invalid: [
+		// style={{ color: "#fafafa" }} — styling context.
+		{
+			filename: "Foo.tsx",
+			code: 'const J = <div style={{ color: "#fafafa" }} />;',
 			errors: [{ messageId: "hardcoded" }],
 		},
+		// style={{ background: "rgb(0,0,0)" }}
 		{
 			filename: "Bar.tsx",
-			code: 'const a = "rgb(0,0,0)";',
+			code: 'const J = <div style={{ background: "rgb(0,0,0)" }} />;',
 			errors: [{ messageId: "hardcoded" }],
 		},
+		// className="bg-[#ff0000]" — arbitrary class with hex.
 		{
 			filename: "Baz.tsx",
-			code: "const a = `bg #ff0000`;",
+			code: 'const J = <div className="bg-[#ff0000]" />;',
+			errors: [{ messageId: "hardcoded" }],
+		},
+		// cn() argument with a hex color literal.
+		{
+			filename: "Cn.tsx",
+			code: 'const J = <div className={cn("text-[#abc]", "p-2")} />;',
+			errors: [{ messageId: "hardcoded" }],
+		},
+		// Tagged template `css` with hex.
+		{
+			filename: "Css.tsx",
+			code: "const a = css`color: #ff0000;`;",
 			errors: [{ messageId: "hardcoded" }],
 		},
 	],
