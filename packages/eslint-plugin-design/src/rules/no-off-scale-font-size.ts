@@ -34,9 +34,7 @@ export const noOffScaleFontSize: Rule.RuleModule = createRule({
 					node as unknown as { value?: { type?: string; value?: unknown } | null },
 				);
 				if (literal === null) return;
-				let match: RegExpExecArray | null;
-				ARBITRARY_FONT_SIZE.lastIndex = 0;
-				while ((match = ARBITRARY_FONT_SIZE.exec(literal)) !== null) {
+				for (const match of literal.matchAll(ARBITRARY_FONT_SIZE)) {
 					const n = Number(match[1]);
 					if (!FONT_SIZE_ALLOWLIST.has(n)) {
 						context.report({

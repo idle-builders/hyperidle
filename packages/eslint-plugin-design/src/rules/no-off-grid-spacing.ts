@@ -39,9 +39,7 @@ export const noOffGridSpacing: Rule.RuleModule = createRule({
 	create(context) {
 		function checkClassString(text: string, node: unknown): void {
 			const reportNode = node as Rule.Node;
-			let match: RegExpExecArray | null;
-			ARBITRARY_SPACING.lastIndex = 0;
-			while ((match = ARBITRARY_SPACING.exec(text)) !== null) {
+			for (const match of text.matchAll(ARBITRARY_SPACING)) {
 				const [cls, , , nStr] = match;
 				const n = Number(nStr);
 				if (n === SUB_GRID_VALUE) {
