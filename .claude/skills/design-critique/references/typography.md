@@ -1,5 +1,7 @@
 # Typography
 
+> Canonical research and recommendations table: `packages/design-system/AESTHETICS.md` § Typography. Token values: `packages/design-system/src/tokens.css`. Hard rules: `.claude/rules/aesthetic-quality.md` AQ-004 / AQ-005 / AQ-006 / AQ-007. K6 lint slug: `design/no-off-scale-font-size`. K1 designer-call additions consumed downstream: body line-height 1.5 (default) / 1.55 (comfortable); 20px heading intermediate added; uppercase labels carry +0.02em tracking; mobile inputs ≥ 16px.
+
 Typography carries ~95% of web design information. It is THE primary interface.
 
 ## Type Scale (Closed Set)

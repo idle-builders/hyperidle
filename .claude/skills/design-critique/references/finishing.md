@@ -1,5 +1,7 @@
 # Finishing Touches
 
+> Canonical research: `packages/design-system/AESTHETICS.md` § Borders/Radii/Shadows + § Motion + § Mobile & Touch. Hard rules: `.claude/rules/aesthetic-quality.md` AQ-011 / AQ-012 / AQ-013 / AQ-014 / AQ-015 / AQ-016. K6 lint slugs: `design/no-off-scale-radius`, `design/no-off-scale-motion`, `design/no-ai-aesthetic`, `design/require-touch-target-min`. K1 verdicts: closed radius scale 0/4/8/12 + pill, easing `cubic-bezier(0.2, 0, 0, 1)` (designer-call), `prefers-reduced-motion` block must exist in tokens.css, animated property allowlist is `transform`/`opacity`/`filter`/`backdrop-filter`.
+
 The difference between "functional" and "polished" is in the micro-details.
 
 ## Borders

@@ -74,10 +74,13 @@ describe("PRINCIPLES.md", () => {
 		expect(content).toContain("Surprise Principles");
 	});
 
-	it("covers the AI aesthetic blacklist", () => {
+	it("points to the canonical AI aesthetic catalog in AESTHETICS.md", () => {
+		// K5 reduced the inline blacklist to a one-paragraph pointer; the canonical
+		// 15-item catalog now lives in AESTHETICS.md § AI-Aesthetic Anti-Patterns.
 		expect(content).toContain("AI Aesthetic Blacklist");
-		expect(content).toContain("Purple");
-		expect(content).toContain("Gradient");
+		expect(content).toContain("AESTHETICS.md");
+		expect(content).toContain("AQ-101");
+		expect(content).toContain("design/no-ai-aesthetic");
 	});
 
 	it("covers data-dense application principles", () => {
