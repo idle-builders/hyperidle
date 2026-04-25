@@ -181,11 +181,26 @@ export function ReviewHeader({
 		<header
 			{...dsShellProps("ReviewHeader")}
 			ref={headerRef}
-			className="flex items-center gap-3 py-2 px-3 border-b border-[var(--border-subtle)]"
+			/*
+			 * @lore K11: outer pad → --density-page-gutter, gap →
+			 * --density-gap, proposer name → --density-text per
+			 * density-audit.md § 3.3.K5. Avatar stays literal 24 px (chrome
+			 * — see § 3.3.K5 last paragraph). Verdict buttons stay
+			 * `btn-xs` (DaisyUI primitive) — § 5.2 anti-pattern: buttons
+			 * growing under comfortable would push secondary verdicts off
+			 * the right edge and break keyboard-first muscle memory. The
+			 * `design/no-density-tokens` rule's primary-density-locked
+			 * canonical example.
+			 */
+			className="flex items-center gap-[var(--density-gap)] p-[var(--density-page-gutter)] border-b border-[var(--border-subtle)]"
 		>
 			{/* Proposer info */}
 			<div className="flex items-center gap-2 mr-auto">
 				{proposer.avatarUrl ? (
+					/* @lore K10: ReviewHeader avatar stays literal 24 px (h-6 w-6).
+					   Per density-audit.md § 3.3.K5 the avatar is chrome at 24 px to
+					   match the verdict buttons' visual weight; growing it would
+					   inflate the toolbar and read as a marketing CTA bar. */
 					<img
 						src={proposer.avatarUrl}
 						alt={`${proposer.name} avatar`}
@@ -198,7 +213,9 @@ export function ReviewHeader({
 						</div>
 					</div>
 				)}
-				<span className="text-sm font-medium text-[var(--text-hi)]">{proposer.name}</span>
+				<span className="text-[length:var(--density-text)] font-medium text-[var(--text-hi)]">
+					{proposer.name}
+				</span>
 				<span className="text-xs text-[var(--text-lo)]">{proposer.timestamp}</span>
 			</div>
 

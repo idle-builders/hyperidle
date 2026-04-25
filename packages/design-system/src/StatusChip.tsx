@@ -25,6 +25,15 @@ export interface StatusChipProps {
  * design-system viewer sets html { font-size: 14px }, which makes 1rem=14px.
  * Tailwind rem classes would compute to wrong values (e.g. gap-1.5=5.25px
  * instead of 6px, px-2=7px instead of 8px).
+ *
+ * @lore K10 / K11: badge-as-callout — every axis stays literal. Density
+ * toggling badges destroys their as-callout function (they would compete
+ * with the body text they sit next to and read as buttons under
+ * comfortable). Carbon `tag-sm`, Polaris `Badge`, Material 3 `chip-small`
+ * all hold chip dimensions constant across density modes; only the parent
+ * row widens. The `design/no-density-tokens` lint rule treats StatusChip
+ * as the canonical density-static example. See
+ * packages/design-system/research/density-audit.md § 3.1.1.
  */
 
 interface StatusStyle {

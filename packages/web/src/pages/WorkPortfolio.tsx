@@ -33,11 +33,14 @@ export function WorkPortfolio({ loading = false, products }: WorkPortfolioProps 
 
 	if (loading) {
 		return (
-			<div className="flex flex-col gap-3 h-full" data-testid="work-portfolio-page">
+			<div
+				className="flex flex-col gap-[var(--density-gap)] h-full"
+				data-testid="work-portfolio-page"
+			>
 				<h1 className="text-sm font-heading font-semibold uppercase tracking-wider text-[var(--text-lo)]">
 					Portfolio
 				</h1>
-				<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+				<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-[var(--density-gap)]">
 					<SkeletonCard ariaLabel="Loading product" />
 					<SkeletonCard ariaLabel="Loading product" />
 					<SkeletonCard ariaLabel="Loading product" />
@@ -47,7 +50,16 @@ export function WorkPortfolio({ loading = false, products }: WorkPortfolioProps 
 	}
 
 	return (
-		<div className="flex flex-col gap-3 h-full" data-testid="work-portfolio-page">
+		<div
+			/*
+			 * @lore K11: page section gap → --density-gap per
+			 * density-audit.md § 3.4.P1. Page outer pad inherits from
+			 * `<main>`'s --density-page-gutter. The H1 stays uppercase mono
+			 * (chrome) and does NOT consume --density-text-h1.
+			 */
+			className="flex flex-col gap-[var(--density-gap)] h-full"
+			data-testid="work-portfolio-page"
+		>
 			<h1 className="text-sm font-heading font-semibold uppercase tracking-wider text-[var(--text-lo)]">
 				Portfolio
 			</h1>
@@ -58,21 +70,31 @@ export function WorkPortfolio({ loading = false, products }: WorkPortfolioProps 
 					dataTestId="portfolio-empty"
 				/>
 			) : (
-				<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+				<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-[var(--density-gap)]">
 					{items.map((product) => (
+						/*
+						 * @lore K11 § 3.4.P1: the inline product card adopts
+						 * BetCard's density shape (--density-card-pad,
+						 * --density-card-gap, --density-text title) so it
+						 * scales in the same direction. Future story should
+						 * unify with BetCard outright (BetCard already has
+						 * leadAvatar / activeBets / shipped portfolio props
+						 * from J5). The product avatar stays literal 24 px
+						 * — card-internal, not row-anchor (§ 4.4).
+						 */
 						<div
 							key={product.id}
 							data-testid="product-card"
-							className="bg-base-200 rounded-lg p-3 flex flex-col gap-2"
+							className="bg-base-200 rounded-lg p-[var(--density-card-pad)] flex flex-col gap-[var(--density-card-gap)]"
 						>
-							<div className="flex items-center gap-2">
+							<div className="flex items-center gap-[var(--density-gap)]">
 								<span
 									className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-base-300 text-[var(--text-hi)] text-xs font-semibold"
 									aria-label={`Lead agent: ${product.lead.name}`}
 								>
 									{product.lead.initials}
 								</span>
-								<span className="text-sm font-medium text-[var(--text-hi)] flex-1 truncate">
+								<span className="text-[length:var(--density-text)] font-medium text-[var(--text-hi)] flex-1 truncate">
 									{product.name}
 								</span>
 								<StatusChip status={product.status} />
@@ -83,7 +105,9 @@ export function WorkPortfolio({ loading = false, products }: WorkPortfolioProps 
 							/>
 							<KeyValue label="Shipped" value={String(product.shipped)} />
 							<KeyValue label="Ship rate" value={product.shipRate} />
-							<div className="flex items-center gap-2">
+							<div className="flex items-center gap-[var(--density-gap)]">
+								{/* @lore K10: progress-bar height stays literal (h-1.5 / 6 px) —
+								    instrument metric per density-audit.md § 3.4.P1. */}
 								<progress
 									className="progress progress-accent w-full h-1.5"
 									value={product.progress.done}
@@ -100,7 +124,8 @@ export function WorkPortfolio({ loading = false, products }: WorkPortfolioProps 
 			)}
 			<div
 				data-testid="cycle-stripe"
-				className="bg-base-200 rounded-lg p-2 flex items-center justify-between gap-2"
+				/* @lore K11: cycle stripe outer pad → --density-card-pad per § 3.4.P1. */
+				className="bg-base-200 rounded-lg p-[var(--density-card-pad)] flex items-center justify-between gap-[var(--density-gap)]"
 			>
 				<span className="text-sm font-heading font-semibold uppercase tracking-wider text-[var(--text-lo)]">
 					{MOCK_CYCLE.label}

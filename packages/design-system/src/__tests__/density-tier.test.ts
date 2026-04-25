@@ -155,4 +155,68 @@ describe("K9 density tier ladder", () => {
 	it("default tier already meets AQ-015 44 px touch-target floor on row-h", () => {
 		expect(def["--density-row-h"]).toBeGreaterThanOrEqual(44);
 	});
+
+	/* ── K11 — five new density tokens added per density-audit.md § 4 ── */
+
+	it("--density-card-pad progresses 8 → 12 → 16 px across compact / default / comfortable", () => {
+		// K11 § 4.2: card outer padding budget. Cards have a different scale
+		// than list-row pad-y; today every card hardcodes p-[8px] so density
+		// toggling is invisible on the surfaces that occupy the most pixels.
+		expect(compact["--density-card-pad"]).toBe(8);
+		expect(def["--density-card-pad"]).toBe(12);
+		expect(comfy["--density-card-pad"]).toBe(16);
+	});
+
+	it("--density-page-gutter progresses 8 → 16 → 24 px across compact / default / comfortable", () => {
+		// K11 § 4.3: <main> page gutter — split from --density-pad-x so the
+		// page margin and component interior pad can move independently.
+		expect(compact["--density-page-gutter"]).toBe(8);
+		expect(def["--density-page-gutter"]).toBe(16);
+		expect(comfy["--density-page-gutter"]).toBe(24);
+	});
+
+	it("--density-icon-size progresses 14 → 16 → 20 px across compact / default / comfortable", () => {
+		// K11 § 4.1: list-row icon size cascade (NOT consumed by NavItem,
+		// which is brand chrome and stays literal).
+		expect(compact["--density-icon-size"]).toBe(14);
+		expect(def["--density-icon-size"]).toBe(16);
+		expect(comfy["--density-icon-size"]).toBe(20);
+	});
+
+	it("--density-avatar-size progresses 24 → 32 → 40 px across compact / default / comfortable", () => {
+		// K11 § 4.4: row-anchor avatars (ThreadRow, ReviewHeader). Card-
+		// internal avatars stay literal at 24 px.
+		expect(compact["--density-avatar-size"]).toBe(24);
+		expect(def["--density-avatar-size"]).toBe(32);
+		expect(comfy["--density-avatar-size"]).toBe(40);
+	});
+
+	it("--density-card-gap progresses 4 → 8 → 12 px across compact / default / comfortable", () => {
+		// K11 § 4.5: intra-card gap (label↔value, row↔row inside a card).
+		// Independent of --density-gap (inter-row) so rhythms can diverge.
+		expect(compact["--density-card-gap"]).toBe(4);
+		expect(def["--density-card-gap"]).toBe(8);
+		expect(comfy["--density-card-gap"]).toBe(12);
+	});
+
+	it("K11 spacing tokens follow the K9 compact ≈ default × 0.75 / comfortable ≈ default × 1.5 ladder", () => {
+		// Spacing tokens from K11 § 4 follow the K9 ratio within 4 px.
+		// `--density-icon-size` (14/16/20) and `--density-avatar-size` (24/32/40)
+		// are exempt — both ladder on industry-published named stops (Material 3,
+		// Carbon, Fluent for icons; Slack/Linear/Material for avatars). See
+		// density-audit.md § 4.1 + § 4.4.
+		const tokens = ["--density-card-pad", "--density-page-gutter", "--density-card-gap"];
+		for (const token of tokens) {
+			const compactExpected = def[token] * 0.75;
+			expect(
+				Math.abs(compact[token] - compactExpected),
+				`${token} compact=${compact[token]}, default=${def[token]}, want ≈ ${compactExpected}`,
+			).toBeLessThanOrEqual(TOLERANCE_PX);
+			const comfyExpected = def[token] * 1.5;
+			expect(
+				Math.abs(comfy[token] - comfyExpected),
+				`${token} comfortable=${comfy[token]}, default=${def[token]}, want ≈ ${comfyExpected}`,
+			).toBeLessThanOrEqual(TOLERANCE_PX);
+		}
+	});
 });

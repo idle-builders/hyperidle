@@ -79,6 +79,31 @@ export default [
 			"design/require-ds-attribute": "warn",
 			"design/require-stories-sibling": "warn",
 			"design/require-focus-on-interactive": "warn",
+			// K11 — density-aware drift prevention. `use-density-tokens` warns
+			// in web because the density-aware web composites are still being
+			// brought up; `no-density-tokens` warns at composite level but
+			// errors at shell level (see separate block below for shells).
+			"design/use-density-tokens": "warn",
+			"design/no-density-tokens": "warn",
+		},
+	},
+
+	// K11 — `design/no-density-tokens` errors for `packages/web/src/shell/**`
+	// because IconRail (the canonical density-static shell, § 3.3.K1 + § 5.6)
+	// must NEVER consume density tokens. This block layers on top of the
+	// general web block above to upgrade the rule level for shell files.
+	{
+		files: ["packages/web/src/shell/**/*.tsx"],
+		ignores: ["packages/web/src/shell/**/*.stories.tsx"],
+		languageOptions: {
+			parser: tsParser,
+			parserOptions: {
+				ecmaFeatures: { jsx: true },
+			},
+		},
+		plugins: { design },
+		rules: {
+			"design/no-density-tokens": "error",
 		},
 	},
 
@@ -109,6 +134,12 @@ export default [
 			// Stay at warn — see waivers.md for the surviving documented exceptions.
 			"design/no-off-grid-spacing": "warn",
 			"design/no-ai-aesthetic": "warn",
+			// K11 — both density rules error in design-system per the spec
+			// ("error for packages/design-system/src/**"). Density-static
+			// primitives (StatusChip, Tag) MUST NOT consume density tokens;
+			// density-aware primitives MUST consume them.
+			"design/use-density-tokens": "error",
+			"design/no-density-tokens": "error",
 		},
 	},
 ];
