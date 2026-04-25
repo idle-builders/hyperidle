@@ -1,69 +1,44 @@
-import {
-	type ComponentType,
-	StrictMode,
-	useCallback,
-	useEffect,
-	useMemo,
-	useRef,
-	useState,
-} from "react";
+import { StrictMode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
+import {
+	discoverStories,
+	type GlobSource,
+	type StoryModule,
+	TIER_LABELS,
+	TIER_ORDER,
+	type Tier,
+} from "./discovery.js";
 import "./viewer.css";
 
-/* ── Story discovery ─────────────────────────────────────────────── */
+/* ── Story discovery ─────────────────────────────────────────────────
+ *
+ * @lore K12: cross-package glob is build-time only via Vite workspace
+ *   symlinks; design-system has no runtime dep on @hyperidle/web. The
+ *   workbench is a developer-only build target — it must NOT leak the web
+ *   package into design-system's published exports.
+ */
 
-interface StoryMeta {
-	title: string;
-	/** Explicit variant order matching the HTML demo section order. */
-	order?: string[];
-}
-interface StoryEntry {
-	name: string;
-	render: ComponentType;
-}
-interface StoryModule {
-	title: string;
-	variants: StoryEntry[];
-}
-
-const storyGlobs = import.meta.glob<Record<string, unknown>>("../src/*.stories.tsx", {
+const dsStoryGlobs = import.meta.glob<Record<string, unknown>>("../src/*.stories.tsx", {
 	eager: true,
-});
-
-function discoverStories(): StoryModule[] {
-	const modules: StoryModule[] = [];
-	for (const mod of Object.values(storyGlobs)) {
-		const meta = mod.default as StoryMeta | undefined;
-		if (!meta?.title) continue;
-		const variants: StoryEntry[] = [];
-		for (const [key, value] of Object.entries(mod)) {
-			if (key === "default") continue;
-			if (typeof value === "function") {
-				variants.push({ name: key, render: value as ComponentType });
-			}
-		}
-		if (variants.length > 0) {
-			// Sort variants to match the explicit order from story meta (mirrors HTML demo section order)
-			const order = (meta as StoryMeta).order;
-			if (order) {
-				const orderMap = new Map(order.map((name, i) => [name, i]));
-				variants.sort((a, b) => (orderMap.get(a.name) ?? 999) - (orderMap.get(b.name) ?? 999));
-			}
-			modules.push({ title: meta.title, variants });
-		}
-	}
-	return modules.sort((a, b) => a.title.localeCompare(b.title));
-}
+}) as GlobSource;
+const webShellStoryGlobs = import.meta.glob<Record<string, unknown>>(
+	"../../web/src/shell/*.stories.tsx",
+	{ eager: true },
+) as GlobSource;
+const webComponentStoryGlobs = import.meta.glob<Record<string, unknown>>(
+	"../../web/src/components/*.stories.tsx",
+	{ eager: true },
+) as GlobSource;
 
 /* ── Routing (hash-based, no deps) ───────────────────────────────── */
 
 function useHashRoute(): [string, (path: string) => void] {
 	const [hash, setHash] = useState(() => decodeURIComponent(window.location.hash.slice(1)) || "");
-	useState(() => {
+	useEffect(() => {
 		const handler = (): void => setHash(decodeURIComponent(window.location.hash.slice(1)) || "");
 		window.addEventListener("hashchange", handler);
 		return () => window.removeEventListener("hashchange", handler);
-	});
+	}, []);
 	const navigate = (path: string): void => {
 		window.location.hash = path;
 		setHash(path);
@@ -95,7 +70,55 @@ function useTheme(): [Theme, (t: Theme) => void] {
 	return [theme, setTheme];
 }
 
-/* ── Content wrappers ─────────────────────────────────────────────
+/* ── Density ──────────────────────────────────────────────────────── */
+
+type Density = "compact" | "default" | "comfortable";
+
+function useDensity(): [Density, (d: Density) => void] {
+	const [density, setDensityState] = useState<Density>(() => {
+		const saved = localStorage.getItem("ds-density");
+		return saved === "compact" || saved === "comfortable" ? saved : "default";
+	});
+
+	const setDensity = useCallback((d: Density) => {
+		document.documentElement.setAttribute("data-density", d);
+		localStorage.setItem("ds-density", d);
+		setDensityState(d);
+	}, []);
+
+	useEffect(() => {
+		document.documentElement.setAttribute("data-density", density);
+	}, [density]);
+
+	return [density, setDensity];
+}
+
+/* ── HTML availability feature-detect ───────────────────────────────
+ *
+ * @lore K12: HTML mode is feature-detected via HEAD because Tier 3 shells
+ *   and web composites have no .html reference; an empty iframe or 404
+ *   isn't useful. The spec calls for a HEAD request, but Vite's dev server
+ *   returns 200 with the SPA shell for any unmatched path (SPA fallback),
+ *   so HEAD reports false-positive availability for every title. We instead
+ *   build a set of available titles at build time via import.meta.glob
+ *   over `../html/*.html` — the same source of truth Vite serves from
+ *   `publicDir: "../html"`. This is the cheapest correct behavior.
+ */
+
+const htmlGlobs = import.meta.glob("../html/*.html", { query: "?url" }) as Record<string, unknown>;
+const HTML_AVAILABLE_TITLES = new Set(
+	Object.keys(htmlGlobs).map((path) => {
+		const file = path.split("/").pop() ?? "";
+		return file.replace(/\.html$/, "");
+	}),
+);
+
+function isHtmlAvailable(title: string | null): boolean {
+	if (!title) return false;
+	return HTML_AVAILABLE_TITLES.has(title);
+}
+
+/* ── Content wrappers ──────────────────────────────────────────────
  * CatalogWrapper: max-width 960px (matches _catalog.html inline #root style)
  * ComponentWrapper: padding only, no max-width (matches _tokens.css #root)
  */
@@ -108,80 +131,63 @@ function ComponentWrapper({ children }: { children: React.ReactNode }): React.JS
 	return <div style={{ maxWidth: 1024, margin: "0 auto", padding: 24 }}>{children}</div>;
 }
 
-/* ── Catalog (same layout as _catalog.html) ──────────────────────── */
+/* ── Catalog (data-driven) ──────────────────────────────────────── */
 
-interface CatalogEntry {
-	name: string;
-	meta: string;
-	uses: string;
-}
+function Catalog({
+	modules,
+	onNavigate,
+}: {
+	modules: StoryModule[];
+	onNavigate: (name: string) => void;
+}): React.JSX.Element {
+	const buckets = useMemo(() => {
+		const out = new Map<Tier, StoryModule[]>();
+		for (const t of TIER_ORDER) out.set(t, []);
+		for (const m of modules) out.get(m.tier)?.push(m);
+		for (const list of out.values()) list.sort((a, b) => a.title.localeCompare(b.title));
+		return out;
+	}, [modules]);
 
-const TIER1: CatalogEntry[] = [
-	{
-		name: "StatusChip",
-		meta: "6 states",
-		uses: "Used by: ThreadRow, BetCard, PitchCard, TaskCard, KnowledgeRow, NotificationRow, Rail",
-	},
-	{
-		name: "Tag",
-		meta: "plain + 3 kinds",
-		uses: "Used by: ThreadRow, BetCard, PitchCard, TaskCard, KnowledgeRow, NotificationRow",
-	},
-	{
-		name: "KeyValue",
-		meta: "inline / stacked",
-		uses: "Used by: BetCard, PitchCard, TaskCard, Rail",
-	},
-	{
-		name: "NavItem",
-		meta: "icon + label + count",
-		uses: "Used by: IconRail, Submenu",
-	},
-	{
-		name: "SearchField",
-		meta: "input + kbd hint",
-		uses: "Used by: Submenu, GlobalSearchPanel, PitchSelector",
-	},
-];
+	const distinctTierCount = TIER_ORDER.filter((t) => (buckets.get(t)?.length ?? 0) > 0).length;
 
-const TIER2: CatalogEntry[] = [
-	{ name: "ThreadRow", meta: "avatar + title + status", uses: "Uses: StatusChip, Tag" },
-	{ name: "BetCard", meta: "product + progress", uses: "Uses: StatusChip, Tag, KeyValue" },
-	{ name: "PitchCard", meta: "kind + appetite", uses: "Uses: StatusChip, Tag, KeyValue" },
-	{ name: "TaskCard", meta: "status + owner", uses: "Uses: StatusChip, Tag, KeyValue" },
-	{ name: "KnowledgeRow", meta: "layer + category", uses: "Uses: StatusChip, Tag" },
-	{ name: "NotificationRow", meta: "severity + action", uses: "Uses: StatusChip, Tag" },
-];
+	const compositionEntries = useMemo(
+		() =>
+			modules
+				.filter((m) => m.uses.length > 0)
+				.sort((a, b) => {
+					const tierCmp = TIER_ORDER.indexOf(a.tier) - TIER_ORDER.indexOf(b.tier);
+					if (tierCmp !== 0) return tierCmp;
+					return a.title.localeCompare(b.title);
+				}),
+		[modules],
+	);
 
-const UTILITY: CatalogEntry[] = [
-	{ name: "EmptyState", meta: "title + description", uses: "" },
-	{ name: "ErrorState", meta: "alert + retry", uses: "" },
-	{ name: "Skeleton", meta: "list + card shapes", uses: "" },
-];
-
-function Catalog({ onNavigate }: { onNavigate: (name: string) => void }): React.JSX.Element {
 	return (
 		<CatalogWrapper>
 			<h1 className="catalog-title">HyperIdle Design System</h1>
-			<div className="catalog-version">14 components &middot; 3 tiers &middot; factory-dark</div>
+			<div className="catalog-version">
+				{modules.length} components &middot; {distinctTierCount} tiers &middot; factory-dark
+			</div>
 
-			<CatalogTier label="Tier 1 — Primitives" items={TIER1} onNavigate={onNavigate} />
-			<CatalogTier label="Tier 2 — Blocks" items={TIER2} onNavigate={onNavigate} />
-			<CatalogTier label="Utility" items={UTILITY} onNavigate={onNavigate} />
+			{TIER_ORDER.map((tier) => {
+				const items = buckets.get(tier) ?? [];
+				if (items.length === 0) return null;
+				return (
+					<CatalogTier key={tier} label={TIER_LABELS[tier]} items={items} onNavigate={onNavigate} />
+				);
+			})}
 
 			<div className="composition-section">
 				<div className="tier-heading">Composition Graph</div>
-				<pre className="dep-graph">
-					{`TIER 3 (shell)    → TIER 2 (blocks) → TIER 1 (primitives)
-
-Canvas         → BetCard         → StatusChip, Tag, KeyValue
-Kanban         → TaskCard        → StatusChip, Tag, KeyValue
-PitchSelector  → PitchCard       → StatusChip, Tag, KeyValue
-Submenu        → ThreadRow       → StatusChip, Tag
-Rail           → NotificationRow → StatusChip, Tag
-Submenu        → SearchField
-Rail           → KeyValue, StatusChip`}
-				</pre>
+				{compositionEntries.length === 0 ? (
+					<div className="component-uses">No composition data declared.</div>
+				) : (
+					<pre className="dep-graph">
+						{compositionEntries
+							.map((m) => `${m.title.padEnd(20)} → ${m.uses.join(", ")}`)
+							.join("\n")}
+					</pre>
+				)}
 			</div>
 		</CatalogWrapper>
 	);
@@ -193,7 +199,7 @@ function CatalogTier({
 	onNavigate,
 }: {
 	label: string;
-	items: CatalogEntry[];
+	items: StoryModule[];
 	onNavigate: (name: string) => void;
 }): React.JSX.Element {
 	return (
@@ -202,15 +208,19 @@ function CatalogTier({
 			<div className="component-grid">
 				{items.map((item) => (
 					<button
-						key={item.name}
+						key={item.title}
 						type="button"
 						className="component-link"
-						onClick={() => onNavigate(item.name)}
+						onClick={() => onNavigate(item.title)}
 					>
 						<div>
-							<div className="component-name">{item.name}</div>
-							<div className="component-meta">{item.meta}</div>
-							{item.uses && <div className="component-uses">{item.uses}</div>}
+							<div className="component-name">{item.title}</div>
+							<div className="component-meta">
+								{item.variants.length} variant{item.variants.length === 1 ? "" : "s"}
+							</div>
+							{item.uses.length > 0 && (
+								<div className="component-uses">Uses: {item.uses.join(", ")}</div>
+							)}
 						</div>
 					</button>
 				))}
@@ -243,12 +253,20 @@ function TsxComponentView({ module }: { module: StoryModule }): React.JSX.Elemen
 
 /* ── Component page (HTML mode — iframe) ─────────────────────────── */
 
-function HtmlComponentView({ name, theme }: { name: string; theme: Theme }): React.JSX.Element {
+function HtmlComponentView({
+	name,
+	theme,
+	density,
+}: {
+	name: string;
+	theme: Theme;
+	density: Density;
+}): React.JSX.Element {
 	const iframeRef = useRef<HTMLIFrameElement>(null);
 
-	// Sync theme into iframe by setting data-theme on its <html> and toggling
-	// the theme switcher CSS files. We also hide the iframe's own theme
-	// switcher since the parent toolbar controls it.
+	// Sync theme + density into iframe by setting data-theme/data-density on
+	// its <html> and toggling the theme switcher CSS files. We also hide the
+	// iframe's own theme switcher since the parent toolbar controls it.
 	useEffect(() => {
 		const iframe = iframeRef.current;
 		if (!iframe) return;
@@ -257,6 +275,7 @@ function HtmlComponentView({ name, theme }: { name: string; theme: Theme }): Rea
 				const doc = iframe.contentDocument;
 				if (!doc) return;
 				doc.documentElement.setAttribute("data-theme", theme);
+				doc.documentElement.setAttribute("data-density", density);
 				// Toggle the theme CSS files the _switcher.js created
 				for (const link of doc.querySelectorAll<HTMLLinkElement>("link[data-theme]")) {
 					link.disabled = link.dataset.theme !== theme;
@@ -271,7 +290,7 @@ function HtmlComponentView({ name, theme }: { name: string; theme: Theme }): Rea
 		iframe.addEventListener("load", trySync);
 		trySync();
 		return () => iframe.removeEventListener("load", trySync);
-	}, [theme]);
+	}, [theme, density]);
 
 	return (
 		<iframe
@@ -300,12 +319,16 @@ function Toolbar({
 	showModeToggle,
 	theme,
 	onThemeChange,
+	density,
+	onDensityChange,
 }: {
 	mode: RenderMode;
 	onModeChange: (m: RenderMode) => void;
 	showModeToggle: boolean;
 	theme: Theme;
 	onThemeChange: (t: Theme) => void;
+	density: Density;
+	onDensityChange: (d: Density) => void;
 }): React.JSX.Element {
 	return (
 		<div className="toolbar">
@@ -330,6 +353,29 @@ function Toolbar({
 			<div className="toolbar-pill">
 				<button
 					type="button"
+					className={`toolbar-btn ${density === "compact" ? "toolbar-btn--active" : ""}`}
+					onClick={() => onDensityChange("compact")}
+				>
+					Compact
+				</button>
+				<button
+					type="button"
+					className={`toolbar-btn ${density === "default" ? "toolbar-btn--active" : ""}`}
+					onClick={() => onDensityChange("default")}
+				>
+					Default
+				</button>
+				<button
+					type="button"
+					className={`toolbar-btn ${density === "comfortable" ? "toolbar-btn--active" : ""}`}
+					onClick={() => onDensityChange("comfortable")}
+				>
+					Comfortable
+				</button>
+			</div>
+			<div className="toolbar-pill">
+				<button
+					type="button"
 					className={`toolbar-btn ${theme === "lucid-dark" ? "toolbar-btn--active" : ""}`}
 					onClick={() => onThemeChange("lucid-dark")}
 				>
@@ -350,31 +396,48 @@ function Toolbar({
 /* ── App ──────────────────────────────────────────────────────────── */
 
 function App(): React.JSX.Element {
-	const modules = useMemo(discoverStories, []);
+	const modules = useMemo(
+		() => discoverStories(dsStoryGlobs, webShellStoryGlobs, webComponentStoryGlobs),
+		[],
+	);
 	const [route, navigate] = useHashRoute();
 	const [mode, setMode] = useState<RenderMode>("html");
 	const [theme, setTheme] = useTheme();
+	const [density, setDensity] = useDensity();
 
 	const activeModule = modules.find((m) => m.title === route);
 	const isComponentPage = route !== "" && activeModule;
+	const htmlAvailable = isHtmlAvailable(activeModule ? activeModule.title : null);
+
+	// Force TSX mode when HTML isn't available for the active component.
+	useEffect(() => {
+		if (isComponentPage && !htmlAvailable && mode === "html") {
+			setMode("tsx");
+		}
+	}, [htmlAvailable, mode, isComponentPage]);
+
+	const showModeToggle = !!isComponentPage && htmlAvailable;
+	const effectiveMode: RenderMode = !htmlAvailable ? "tsx" : mode;
 
 	return (
 		<>
 			<Toolbar
-				mode={mode}
+				mode={effectiveMode}
 				onModeChange={setMode}
-				showModeToggle={!!isComponentPage}
+				showModeToggle={showModeToggle}
 				theme={theme}
 				onThemeChange={setTheme}
+				density={density}
+				onDensityChange={setDensity}
 			/>
 			{isComponentPage ? (
-				mode === "tsx" ? (
+				effectiveMode === "tsx" ? (
 					<TsxComponentView module={activeModule} />
 				) : (
-					<HtmlComponentView name={activeModule.title} theme={theme} />
+					<HtmlComponentView name={activeModule.title} theme={theme} density={density} />
 				)
 			) : (
-				<Catalog onNavigate={navigate} />
+				<Catalog modules={modules} onNavigate={navigate} />
 			)}
 		</>
 	);
