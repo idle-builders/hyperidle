@@ -9,8 +9,11 @@
     .thread-row {
       display: flex;
       align-items: center;
-      gap: 8px;
-      padding: 0 8px;
+      /* K11: gap and pad-x consume density tokens. Per density-audit.md
+         § 3.2.1 the row is the flagship list-row primitive that scales
+         on every axis except the trailing timestamp (chrome). */
+      gap: var(--density-gap);
+      padding: 0 var(--density-pad-x);
       padding-top: var(--density-pad-y);
       padding-bottom: var(--density-pad-y);
       font-size: var(--density-text);
@@ -33,8 +36,11 @@
     }
 
     .thread-row__avatar {
-      width: 32px;
-      height: 32px;
+      /* K11: row-anchor avatar consumes --density-avatar-size (24/32/40).
+         Per density-audit.md § 4.4 — without scaling, ThreadRow looks
+         identical at compact vs comfortable. */
+      width: var(--density-avatar-size);
+      height: var(--density-avatar-size);
       border-radius: 50%;
       flex-shrink: 0;
       display: flex;
@@ -52,10 +58,12 @@
     .thread-row__header {
       display: flex;
       align-items: center;
-      gap: 8px;
+      /* K11: inner-header gap → --density-gap per § 3.2.1. */
+      gap: var(--density-gap);
     }
     .thread-row__title {
-      font-size: 14px;
+      /* K11: title body text scales with density per § 3.2.1. */
+      font-size: var(--density-text);
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;

@@ -9,8 +9,9 @@
     .notification-row {
       display: flex;
       align-items: center;
-      gap: 8px;
-      padding: 8px;
+      /* K11: gap + pad consume density tokens per density-audit.md § 3.2.3. */
+      gap: var(--density-gap);
+      padding: var(--density-pad-y) var(--density-pad-x);
       border-radius: var(--r1);
       transition: background var(--motion-fast);
     }
@@ -20,7 +21,8 @@
 
     .notification-row__message {
       flex: 1;
-      font-size: 14px;
+      /* K11: body text scales with density per density-audit.md § 3.2.3. */
+      font-size: var(--density-text);
       color: var(--text-hi);
       white-space: nowrap;
       overflow: hidden;

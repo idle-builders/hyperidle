@@ -18,6 +18,13 @@ export interface TagProps {
  * design-system viewer sets html { font-size: 14px }, which makes 1rem=14px.
  * Tailwind rem classes would compute to wrong values (e.g. gap-1=3.5px
  * instead of 4px, px-2=7px instead of 8px, rounded-lg=7px instead of 8px).
+ *
+ * @lore K10 / K11: badge-as-callout — every axis stays literal, same
+ * rationale as StatusChip. Free-form labels make the case stronger: long
+ * labels would visually swell at comfortable and break the ThreadRow
+ * inline flow. The `design/no-density-tokens` lint rule treats Tag as
+ * density-static. See packages/design-system/research/density-audit.md
+ * § 3.1.2.
  */
 const TAG_BASE =
 	"inline-flex items-center gap-[4px] px-[8px] py-[2px] rounded-[var(--r2)] font-[family-name:var(--ui)] text-[12px] leading-[1.4] whitespace-nowrap border-none";

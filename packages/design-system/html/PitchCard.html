@@ -9,10 +9,12 @@
     .pitch-card {
       background: var(--surface-4);
       border-radius: var(--r2);
-      padding: 8px;
+      /* K11: pad/gap consume density tokens per density-audit.md § 3.2.6.
+         max-w stays literal (PitchSelector overlay budget). */
+      padding: var(--density-card-pad);
       display: flex;
       flex-direction: column;
-      gap: 4px;
+      gap: var(--density-card-gap);
       cursor: pointer;
       transition: background var(--motion-fast);
       max-width: 320px;
@@ -26,7 +28,8 @@
     }
 
     .pitch-card__title {
-      font-size: 14px;
+      /* K11: title font scales with density per § 3.2.6. */
+      font-size: var(--density-text);
       font-weight: 500;
       color: var(--text-hi);
       white-space: nowrap;
@@ -37,11 +40,13 @@
     .pitch-card__meta {
       display: flex;
       align-items: center;
-      gap: 8px;
+      gap: var(--density-gap);
     }
 
     .pitch-card__hypothesis {
-      font-size: 12px;
+      /* K11: hypothesis escalates from literal 12 px to --density-text so
+         it never reads smaller than the title at comfortable. § 3.2.6. */
+      font-size: var(--density-text);
       color: var(--text-mid);
       display: -webkit-box;
       -webkit-line-clamp: 2;

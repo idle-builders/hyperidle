@@ -21,10 +21,18 @@ export function NotificationRow({
 	return (
 		<div
 			{...dsProps("NotificationRow", "2")}
-			className="flex items-center gap-[8px] p-[8px] rounded-[var(--r1)] transition-colors duration-[var(--motion-fast)] hover:bg-[var(--surface-4)]"
+			/*
+			 * @lore K11: pad/gap/body text consume density tokens per
+			 * density-audit.md § 3.2.3. Same shape as ThreadRow but no
+			 * avatar. Trailing timestamp stays literal 12 px (chrome).
+			 */
+			className="flex items-center gap-[var(--density-gap)] py-[var(--density-pad-y)] px-[var(--density-pad-x)] rounded-[var(--r1)] transition-colors duration-[var(--motion-fast)] hover:bg-[var(--surface-4)]"
 		>
 			<StatusChip status={severity} />
-			<span className="flex-1 text-[14px] truncate" aria-label={`Notification: ${message}`}>
+			<span
+				className="flex-1 text-[length:var(--density-text)] truncate"
+				aria-label={`Notification: ${message}`}
+			>
 				{message}
 			</span>
 			{source && <Tag label={source} />}
