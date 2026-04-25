@@ -2,6 +2,7 @@ import { EmptyState } from "./EmptyState.js";
 
 export default {
 	title: "EmptyState",
+	tier: "utility" as const,
 	order: [
 		"KnowledgeEmpty",
 		"TriageClear",

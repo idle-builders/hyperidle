@@ -3,6 +3,7 @@ import { SearchField } from "./SearchField.js";
 
 export default {
 	title: "SearchField",
+	tier: "1" as const,
 	order: [
 		"Empty",
 		"WithValue",

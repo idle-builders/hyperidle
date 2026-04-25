@@ -1,7 +1,7 @@
 import { KnowledgeRow } from "@hyperidle/design-system";
 import { KnowledgeTopicGroup } from "./KnowledgeTopicGroup";
 
-export default { title: "KnowledgeTopicGroup" };
+export default { title: "KnowledgeTopicGroup", tier: "utility" as const };
 
 export const Fresh = (): React.JSX.Element => (
 	<KnowledgeTopicGroup topic="Architecture" itemCount={3} staleCount={0} health="fresh">

@@ -2,7 +2,7 @@ import { useState } from "react";
 import type { CanvasBet } from "./Canvas";
 import { Canvas } from "./Canvas";
 
-export default { title: "Canvas" };
+export default { title: "Canvas", tier: "3" as const, uses: ["BetCard"] };
 
 const sampleBets: CanvasBet[] = [
 	{ id: "b1", title: "Mobile App V2", product: "HyperIdle", status: "shaped", appetite: "6 weeks" },

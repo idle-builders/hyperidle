@@ -2,7 +2,11 @@ import { useState } from "react";
 import type { SubmenuFilter } from "./Submenu";
 import { Submenu } from "./Submenu";
 
-export default { title: "Submenu" };
+export default {
+	title: "Submenu",
+	tier: "3" as const,
+	uses: ["NavItem", "SearchField", "ThreadRow"],
+};
 
 export const Expanded = (): React.JSX.Element => (
 	<Submenu title="Conversations" collapsed={false} onToggleCollapse={() => {}}>

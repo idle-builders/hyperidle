@@ -2,6 +2,7 @@ import { Tag } from "./Tag.js";
 
 export default {
 	title: "Tag",
+	tier: "1" as const,
 	order: ["PlainTagsNoKind", "KindVariants", "MixedGroup", "TagCloud", "InContextDemoCard"],
 };
 

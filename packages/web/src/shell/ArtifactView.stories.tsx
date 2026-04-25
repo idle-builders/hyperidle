@@ -1,6 +1,6 @@
 import { ArtifactView } from "./ArtifactView";
 
-export default { title: "ArtifactView" };
+export default { title: "ArtifactView", tier: "3" as const };
 
 // --- text_diff ---
 

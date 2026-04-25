@@ -2,7 +2,7 @@ import { useState } from "react";
 import type { KanbanColumnState, KanbanTask } from "./Kanban";
 import { Kanban } from "./Kanban";
 
-export default { title: "Kanban" };
+export default { title: "Kanban", tier: "3" as const, uses: ["TaskCard"] };
 
 const sampleTasks: KanbanTask[] = [
 	{ id: "t1", title: "Setup CI Pipeline", owner: "Agent Alpha", state: "accepted" },
