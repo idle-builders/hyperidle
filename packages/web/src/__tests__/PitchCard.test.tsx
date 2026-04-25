@@ -39,15 +39,19 @@ describe("PitchCard", () => {
 
 	it("renders kind as Tag when provided", () => {
 		render(<PitchCard {...defaultProps} kind="feature" />);
-		expect(screen.getByText("feature")).toHaveClass("badge-neutral");
+		const tag = screen.getByText("feature");
+		expect(tag).toHaveClass("inline-flex", "rounded-[var(--r2)]");
+		expect(tag.className).toContain("bg-[var(--surface-ghost)]");
 	});
 
 	it("does not render kind Tag when omitted", () => {
 		const { container } = render(<PitchCard {...defaultProps} />);
-		// Only the StatusChip's badge-neutral (from paused status) should exist, no Tag for kind
-		// @lore StatusChip for "paused" uses badge-neutral, so count is 1 (StatusChip) not 0
-		const neutralBadges = container.querySelectorAll(".badge-neutral");
-		expect(neutralBadges.length).toBe(1);
+		// When kind is omitted, no neutral Tag is rendered (only the StatusChip).
+		// Tags use rounded-[var(--r2)]; StatusChip uses rounded-full.
+		const tags = Array.from(container.querySelectorAll("span")).filter((el) =>
+			el.className.includes("rounded-[var(--r2)]"),
+		);
+		expect(tags.length).toBe(0);
 	});
 
 	it("renders actions slot content", () => {
@@ -78,9 +82,9 @@ describe("PitchCard", () => {
 	it("composes at least 2 Tier 1 primitives (Tag + StatusChip + KeyValue)", () => {
 		render(<PitchCard {...defaultProps} kind="exploration" />);
 		// Tag for kind
-		expect(screen.getByText("exploration")).toHaveClass("badge-neutral");
+		expect(screen.getByText("exploration")).toHaveClass("inline-flex", "rounded-[var(--r2)]");
 		// StatusChip
-		expect(screen.getByText("PAUSED")).toHaveClass("badge");
+		expect(screen.getByText("PAUSED")).toHaveClass("inline-flex", "rounded-full");
 		// KeyValue for appetite
 		expect(screen.getByText("2 weeks")).toBeInTheDocument();
 	});

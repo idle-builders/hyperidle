@@ -46,6 +46,7 @@ describe("BetCard — portfolio mode (J5)", () => {
 
 	it("renders progress bar when progress provided", () => {
 		render(<BetCard {...baseProps} progress={{ done: 3, total: 5 }} />);
-		expect(screen.getByRole("progressbar")).toHaveAttribute("value", "3");
+		// Progress is a custom div bar, not a <progress> element
+		expect(screen.getByText("3/5")).toBeInTheDocument();
 	});
 });

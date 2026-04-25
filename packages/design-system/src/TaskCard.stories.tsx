@@ -1,33 +1,39 @@
 import { TaskCard } from "./TaskCard";
 
-export default { title: "TaskCard" };
+export default { title: "TaskCard", order: ["InProgress", "Blocked", "Done", "AllStates"] };
 
 export const InProgress = (): React.JSX.Element => (
-	<TaskCard
-		title="Implement login flow"
-		owner="Bob Smith"
-		state="in_progress"
-		cost="$1.50"
-		betTag="Mobile V2"
-	/>
+	<div className="max-w-[320px]">
+		<TaskCard
+			title="Implement login flow"
+			owner="Bob Smith"
+			state="in_progress"
+			cost="$1.50"
+			betTag="Mobile V2"
+		/>
+	</div>
 );
 
 export const Blocked = (): React.JSX.Element => (
-	<TaskCard title="Fix CI pipeline" owner="Alice Chen" state="blocked" cost="$0.80" />
+	<div className="max-w-[320px]">
+		<TaskCard title="Fix CI pipeline" owner="Alice Chen" state="blocked" cost="$0.80" />
+	</div>
 );
 
 export const Done = (): React.JSX.Element => (
-	<TaskCard
-		title="Write unit tests"
-		owner="Carol Davis"
-		state="done"
-		cost="$2.00"
-		betTag="Sprint 1"
-	/>
+	<div className="max-w-[320px]">
+		<TaskCard
+			title="Write unit tests"
+			owner="Carol Davis"
+			state="done"
+			cost="$2.00"
+			betTag="Sprint 1"
+		/>
+	</div>
 );
 
 export const AllStates = (): React.JSX.Element => (
-	<div className="flex flex-col gap-2">
+	<div className="flex flex-col gap-2 max-w-[320px]">
 		<TaskCard title="Proposed task" owner="Agent" state="proposed" />
 		<TaskCard title="Accepted task" owner="Agent" state="accepted" />
 		<TaskCard title="On hold" owner="Agent" state="hold" />

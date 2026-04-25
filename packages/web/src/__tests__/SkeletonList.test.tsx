@@ -3,12 +3,12 @@ import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 describe("SkeletonList", () => {
-	it("renders the requested number of rows using DaisyUI skeleton class", () => {
+	it("renders the requested number of rows with skeleton animation", () => {
 		render(<SkeletonList rows={4} ariaLabel="Loading knowledge" />);
 		const rows = screen.getAllByTestId("skeleton-row");
 		expect(rows).toHaveLength(4);
-		// DaisyUI skeleton utility is part of every row.
-		expect(rows[0].className).toMatch(/skeleton/);
+		// Custom skeleton-pulse animation is part of every row.
+		expect(rows[0].className).toMatch(/skeleton-pulse/);
 	});
 
 	it("exposes an aria-live status so loading is announced", () => {
@@ -27,8 +27,9 @@ describe("SkeletonCard", () => {
 	it("matches the card shape with a title bar + body lines", () => {
 		render(<SkeletonCard ariaLabel="Loading bet" />);
 		const card = screen.getByTestId("skeleton-card");
-		// A title bar + at least two body lines.
-		expect(card.querySelectorAll(".skeleton")).not.toHaveLength(0);
-		expect(card.querySelectorAll(".skeleton").length).toBeGreaterThanOrEqual(3);
+		// A title bar + at least two body lines with skeleton-pulse animation.
+		const bars = card.querySelectorAll("[class*='skeleton-pulse']");
+		expect(bars).not.toHaveLength(0);
+		expect(bars.length).toBeGreaterThanOrEqual(3);
 	});
 });

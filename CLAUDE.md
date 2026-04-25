@@ -30,6 +30,10 @@ If you cannot define how to verify a criterion, clarify the requirement before w
 
 Before any work is complete: `bun run check` (zero type errors) + `bun run lint` (zero lint errors) + `bun run test` (all green). Target 100% test coverage of new code including Playwright E2E tests for all user-facing features. Every change must be independently verifiable by agents — if it can't be proven with a test, it's not done.
 
+## Proof & Definition of Done
+
+You can only say that something is done if you looked at the actual output of your change. That means looking at the rendered and painted output from the browser and visual verifiying, through images or Visual testing. Or looking at the produced data from an API or interface via a test or env that checks input > output.
+
 ---
 
 ## Capture Lore

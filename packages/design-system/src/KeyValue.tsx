@@ -11,16 +11,15 @@ export function KeyValue({ label, value, layout = "inline" }: KeyValueProps): JS
 
 	return (
 		<div
-			className={`flex ${direction} gap-1 ${layout === "inline" ? "items-center justify-between" : ""}`}
+			className={`flex ${direction} gap-[4px] ${layout === "inline" ? "items-center justify-between" : ""}`}
 		>
-			<span className="uppercase font-heading text-xs tracking-wider text-[var(--text-lo)]">
+			<span className="uppercase font-heading text-[11px] tracking-[0.05em] font-medium text-[var(--text-lo)]">
 				{label}
 			</span>
-			{/* @lore J1: text-sm is retained alongside text-[length:var(--density-text)] so the
-			    existing `toHaveClass("text-sm")` assertion still passes. Tailwind compiles both
-			    classes; the arbitrary-value font-size wins at runtime (class order), driving the
-			    density-aware sizing while preserving the historical fallback. */}
-			<span className="text-sm text-[length:var(--density-text)] text-[var(--text-hi)]">
+			{/* @lore J1→px-fix: text-[14px] replaces text-sm so the fallback font-size is correct
+			    under 14px-base viewers. text-[length:var(--density-text)] still wins at runtime
+			    for density-aware sizing. Tests updated to assert text-[14px]. */}
+			<span className="text-[14px] text-[length:var(--density-text)] text-[var(--text-hi)]">
 				{value}
 			</span>
 		</div>

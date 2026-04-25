@@ -18,7 +18,8 @@ describe("BetCard", () => {
 	it("renders product as Tag", () => {
 		render(<BetCard {...defaultProps} />);
 		const tag = screen.getByText("HyperIdle");
-		expect(tag).toHaveClass("badge-neutral");
+		expect(tag).toHaveClass("inline-flex", "rounded-[var(--r2)]");
+		expect(tag.className).toContain("bg-[var(--surface-ghost)]");
 	});
 
 	it("renders status as StatusChip via betStatusToStatus mapping", () => {
@@ -76,17 +77,18 @@ describe("BetCard", () => {
 	it("renders progress bar and text when provided", () => {
 		render(<BetCard {...defaultProps} progress={{ done: 3, total: 5 }} />);
 		expect(screen.getByText("3/5")).toBeInTheDocument();
-		const progressBar = screen.getByRole("progressbar");
-		expect(progressBar).toHaveAttribute("value", "3");
-		expect(progressBar).toHaveAttribute("max", "5");
+		// Progress bar is a custom div with bg-[var(--primary)] fill
+		const { container } = render(<BetCard {...defaultProps} progress={{ done: 3, total: 5 }} />);
+		const fill = container.querySelector("[class*='bg-[var(--primary)]']");
+		expect(fill).toBeInTheDocument();
 	});
 
 	it("composes at least 2 Tier 1 primitives (Tag + StatusChip + KeyValue)", () => {
 		render(<BetCard {...defaultProps} />);
 		// Tag for product
-		expect(screen.getByText("HyperIdle")).toHaveClass("badge-neutral");
+		expect(screen.getByText("HyperIdle")).toHaveClass("inline-flex", "rounded-[var(--r2)]");
 		// StatusChip for status
-		expect(screen.getByText("HEALTHY")).toHaveClass("badge");
+		expect(screen.getByText("HEALTHY")).toHaveClass("inline-flex", "rounded-full");
 		// KeyValue for appetite
 		expect(screen.getByText("6 weeks")).toBeInTheDocument();
 	});

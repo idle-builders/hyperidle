@@ -18,13 +18,13 @@ export function NotificationRow({
 	actions,
 }: NotificationRowProps): JSX.Element {
 	return (
-		<div className="flex items-center gap-2 px-2 py-2">
+		<div className="flex items-center gap-[8px] p-[8px] rounded-[var(--r1)] transition-colors duration-[var(--motion-fast)] hover:bg-[var(--surface-4)]">
 			<StatusChip status={severity} />
-			<span className="flex-1 text-sm truncate" aria-label={`Notification: ${message}`}>
+			<span className="flex-1 text-[14px] truncate" aria-label={`Notification: ${message}`}>
 				{message}
 			</span>
 			{source && <Tag label={source} />}
-			<span className="text-xs text-[var(--text-lo)] whitespace-nowrap">{timestamp}</span>
+			<span className="text-[12px] text-[var(--text-lo)] whitespace-nowrap">{timestamp}</span>
 			{actions}
 		</div>
 	);

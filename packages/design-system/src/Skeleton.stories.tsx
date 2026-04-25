@@ -1,27 +1,27 @@
 import { SkeletonCard, SkeletonList } from "./Skeleton.js";
 
-export default { title: "Skeleton" };
+export default { title: "Skeleton", order: ["List3Rows", "List6Rows", "Card", "CardGrid2x2"] };
 
-export const List3 = (): React.JSX.Element => (
-	<div className="w-80">
+export const List3Rows = (): React.JSX.Element => (
+	<div style={{ maxWidth: "320px" }}>
 		<SkeletonList rows={3} ariaLabel="Loading list" />
 	</div>
 );
 
-export const List6 = (): React.JSX.Element => (
-	<div className="w-80">
+export const List6Rows = (): React.JSX.Element => (
+	<div style={{ maxWidth: "320px" }}>
 		<SkeletonList rows={6} ariaLabel="Loading list" />
 	</div>
 );
 
 export const Card = (): React.JSX.Element => (
-	<div className="w-72">
+	<div style={{ maxWidth: "288px" }}>
 		<SkeletonCard ariaLabel="Loading bet" />
 	</div>
 );
 
-export const CardGrid = (): React.JSX.Element => (
-	<div className="grid grid-cols-2 gap-3 w-[32rem]">
+export const CardGrid2x2 = (): React.JSX.Element => (
+	<div className="grid grid-cols-2 gap-3" style={{ maxWidth: "32rem" }}>
 		<SkeletonCard ariaLabel="Loading product" />
 		<SkeletonCard ariaLabel="Loading product" />
 		<SkeletonCard ariaLabel="Loading product" />

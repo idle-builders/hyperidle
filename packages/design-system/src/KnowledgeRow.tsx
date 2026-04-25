@@ -44,12 +44,21 @@ export function KnowledgeRow({
 	factoryMode = false,
 	version,
 }: KnowledgeRowProps): JSX.Element {
-	const padding = factoryMode ? "py-4" : "py-2";
-	const titleClass = factoryMode ? "text-sm font-heading font-bold truncate" : "text-sm truncate";
+	const padding = factoryMode ? "py-[16px]" : "py-[8px]";
+	const titleClass = factoryMode
+		? "text-[14px] font-heading font-bold truncate"
+		: "text-[14px] truncate";
+	const baseClassName = `flex items-center gap-[8px] px-[8px] ${padding} rounded-[var(--r1)] hover:bg-[var(--surface-4)] focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--primary)] focus-visible:-outline-offset-1 transition-colors duration-[var(--motion-fast)]`;
+	/* clickableProps is spread without className — visual styles (hover, focus-
+	   visible) live in baseClassName unconditionally, matching the HTML reference. */
+	const { className: _clickableCls, ...interactiveProps } = clickableProps(onClick, baseClassName);
 	return (
-		<div {...clickableProps(onClick, `flex items-center gap-2 px-2 ${padding}`)}>
+		<div
+			className={onClick ? `${baseClassName} cursor-pointer` : baseClassName}
+			{...interactiveProps}
+		>
 			<div className="flex-1 min-w-0">
-				<div className="flex items-center gap-2">
+				<div className="flex items-center gap-[8px]">
 					<span className={titleClass} aria-label={`Knowledge: ${title}`}>
 						{title}
 					</span>
@@ -58,16 +67,16 @@ export function KnowledgeRow({
 					<StatusChip status={knowledgeStatusToStatus(status)} />
 					{factoryMode && version && (
 						<span
-							className="badge badge-neutral badge-sm border-0"
+							className="inline-flex items-center px-[6px] py-[2px] rounded-[var(--r-pill)] font-[var(--mono)] text-[10px] tracking-[0.03em] bg-[var(--surface-ghost)] text-[var(--text-lo)] shrink-0"
 							data-testid="knowledge-version-pill"
 						>
 							{version}
 						</span>
 					)}
 				</div>
-				{caption && <p className="text-xs text-[var(--text-mid)] truncate">{caption}</p>}
+				{caption && <p className="text-[12px] text-[var(--text-mid)] truncate">{caption}</p>}
 			</div>
-			<span className="text-xs text-[var(--text-lo)] whitespace-nowrap">{timestamp}</span>
+			<span className="text-[12px] text-[var(--text-lo)] whitespace-nowrap">{timestamp}</span>
 			{actions}
 		</div>
 	);
