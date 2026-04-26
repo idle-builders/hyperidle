@@ -1,5 +1,10 @@
 import { agentSkills, type HyperIdleDb, items, responses } from "@hyperidle/db";
-import type { EventBus, ItemCreatedEvent, NotificationEvent } from "@hyperidle/shared";
+import type {
+	AutonomyLevel,
+	EventBus,
+	ItemCreatedEvent,
+	NotificationEvent,
+} from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
 import { isSilenced as sharedIsSilenced } from "./silence-policy.js";
 
@@ -49,7 +54,7 @@ function evaluateItem(
 	executeAction(db, eventBus, itemId, action);
 }
 
-function getAutonomyLevel(db: HyperIdleDb, sourceAgentId: string | null): number {
+function getAutonomyLevel(db: HyperIdleDb, sourceAgentId: string | null): AutonomyLevel {
 	if (!sourceAgentId) return 1;
 
 	const skills = db.select().from(agentSkills).where(eq(agentSkills.agentId, sourceAgentId)).all();
@@ -57,7 +62,7 @@ function getAutonomyLevel(db: HyperIdleDb, sourceAgentId: string | null): number
 	if (skills.length === 0) return 1;
 
 	// Return max autonomy level across all skills
-	return Math.max(...skills.map((s) => s.autonomyLevel));
+	return Math.max(...skills.map((s) => s.autonomyLevel)) as AutonomyLevel;
 }
 
 function determineAction(
@@ -68,7 +73,7 @@ function determineAction(
 		blocking: number | null;
 		sourceAgentId: string | null;
 	},
-	autonomyLevel: number,
+	autonomyLevel: AutonomyLevel,
 	nowFn: () => Date,
 ): PolicyAction {
 	// a. High-risk: ALWAYS push

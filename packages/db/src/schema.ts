@@ -156,7 +156,9 @@ export const routines = sqliteTable("routines", {
 	stateKey: text("state_key"),
 	delegationAllowed: integer("delegation_allowed").default(0),
 	humanReview: integer("human_review").default(0),
-	autonomyLevel: integer("autonomy_level"),
+	// L1 review N4: brand the autonomy column with `AutonomyLevel` so
+	// downstream type checks reject plain `number` confusion.
+	autonomyLevel: integer("autonomy_level").$type<AutonomyLevel>(),
 	silent: integer("silent").default(0),
 	active: integer("active").notNull().default(1),
 	lastRunAt: text("last_run_at"),
@@ -263,6 +265,17 @@ export const agentSkills = sqliteTable(
 
 // --- Agent skill autonomy audit (L1) ---
 
+// @lore L1 review N3: `agent_skill_autonomy_audit` is logically
+// append-only. Never UPDATE or DELETE rows from this table — its forensic
+// value depends on every change being durable. A static-codebase
+// regression test in `autonomy-service.test.ts` greps the server source
+// for `update(agentSkillAutonomyAudit)` / `delete(agentSkillAutonomyAudit)`
+// to pin the invariant.
+//
+// @lore L1 review B3: `skill_id` deliberately has no FK in this story —
+// no `skills` table exists yet (future story). Boundary validation lives
+// in `routes/agents.ts` (regex + length cap) and is regression-tested
+// there. When the skills catalog lands, add a FK in a dedicated migration.
 export const agentSkillAutonomyAudit = sqliteTable(
 	"agent_skill_autonomy_audit",
 	{

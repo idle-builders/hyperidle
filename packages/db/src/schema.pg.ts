@@ -151,7 +151,9 @@ export const routines = pgTable("routines", {
 	stateKey: text("state_key"),
 	delegationAllowed: boolean("delegation_allowed").default(false),
 	humanReview: boolean("human_review").default(false),
-	autonomyLevel: integer("autonomy_level"),
+	// L1 review N4: brand the autonomy column with `AutonomyLevel` so
+	// downstream type checks reject plain `number` confusion.
+	autonomyLevel: integer("autonomy_level").$type<AutonomyLevel>(),
 	silent: boolean("silent").default(false),
 	active: boolean("active").notNull().default(true),
 	lastRunAt: text("last_run_at"),
@@ -257,6 +259,14 @@ export const agentSkills = pgTable(
 
 // --- Agent skill autonomy audit (L1) ---
 
+// @lore L1 review N3: `agent_skill_autonomy_audit` is logically
+// append-only. Never UPDATE or DELETE rows from this table — its forensic
+// value depends on every change being durable. The static-codebase
+// regression test in `autonomy-service.test.ts` pins the invariant.
+//
+// @lore L1 review B3: `skill_id` deliberately has no FK in this story —
+// no `skills` table exists yet (future story). Boundary validation lives
+// in `routes/agents.ts`.
 export const agentSkillAutonomyAudit = pgTable(
 	"agent_skill_autonomy_audit",
 	{
