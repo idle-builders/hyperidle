@@ -386,6 +386,9 @@ describe("file-watcher (fs.watch)", () => {
 	// AC4: debounce collapses multiple writes
 	// Uses polling watcher for determinism — fs.watch event delivery is
 	// unreliable under parallel test load on macOS (flaked in A2, D4, D5).
+	// @lore CC-002 (.claude/process/compound-candidates.md): the polling-watcher
+	// migration is the canonical fix for this flake class. AC10 below still
+	// uses fs.watch and remains the open quarantine candidate.
 	it("AC4: debounce collapses rapid writes into batch", async () => {
 		const watcher = startPollingWatcher({
 			db,
@@ -446,6 +449,8 @@ describe("file-watcher (fs.watch)", () => {
 	}, 5000);
 
 	// AC10: Last-writer-wins with conflict flagging
+	// @lore CC-002 (.claude/process/compound-candidates.md): pre-existing fs.watch flake — flapped across A2, D4, D5, L1.
+	//   Quarantine or port to startPollingWatcher is tracked; do not silently re-baseline this test.
 	it("AC10: last-writer-wins — human patches after agent write, conflict flagged", async () => {
 		const watcher = startWatcher({
 			db,

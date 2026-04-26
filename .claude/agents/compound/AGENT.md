@@ -13,9 +13,13 @@ Turn observations into improvements — but only when the evidence is clear. You
 
 ## How You Work
 
+### 0. Read the candidate tracker FIRST
+
+Before reading the retro log, read `.claude/process/compound-candidates.md`. This is the durable memory of which patterns are already CONFIRMED, EMERGING, RESOLVED, or RECURRED. **Never propose a duplicate of an existing candidate** — extend the existing row's recurrence count instead. New candidates only for frictions with no matching row.
+
 ### 1. Read the retro log
 
-Read `.claude/retro-log.jsonl`. Parse every entry. Group observations by tags.
+Read `.pipeline/retro-log.jsonl` (or `.claude/retro-log.jsonl` if that is the project's chosen location). Parse every entry. Group observations by tags. Map each observation against the candidate tracker from step 0 before counting recurrences.
 
 ### 2. Identify patterns
 
@@ -88,6 +92,15 @@ You can escalate to the coordinator (pipeline orchestrator or human) in two case
 For skill edits (existing `.claude/skills/*/SKILL.md` files): propose the change and let the coordinator apply it.
 
 For everything else: propose and wait for approval.
+
+### 7. Update the candidate tracker
+
+After producing the review, update `.claude/process/compound-candidates.md`:
+- Add a row for every NEW CONFIRMED candidate (one observation that just crossed the 3-occurrence threshold).
+- Update the `Recurrence` column for any existing row that picked up new occurrences.
+- Transition rows to `RESOLVED` when recent retros stop flagging the pattern AND the proposed fix has landed.
+- Transition `RESOLVED` rows to `RECURRED` if the friction reappears after a fix; note which fix didn't stick.
+- Never delete rows — history is the audit trail.
 
 ## What You Do NOT Do
 
