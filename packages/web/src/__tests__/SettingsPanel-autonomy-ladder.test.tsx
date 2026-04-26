@@ -15,10 +15,11 @@
  * the string union "manual" | "supervised" | "autonomous" — passing a number
  * is a compile error AND the rendered options are the 3-state legacy text.
  */
+
+import type { AutonomyLevel } from "@hyperidle/shared";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, expectTypeOf, it, vi } from "vitest";
-import type { AutonomyLevel } from "@hyperidle/shared";
 import { type SettingsData, SettingsPanel } from "../components/SettingsPanel";
 
 const ladderSettings: SettingsData = {
