@@ -250,8 +250,39 @@ export const agentSkills = sqliteTable(
 		failureCount: integer("failure_count").notNull().default(0),
 		lastUsedAt: text("last_used_at"),
 		promotedAt: text("promoted_at"),
+		// L1: per-pair audit columns. Default sentinel exists only so the
+		// SQLite ALTER TABLE migration can add a NOT NULL column without
+		// failing on existing rows; the same migration immediately UPDATEs
+		// every row off the sentinel before app code runs.
+		updatedAt: text("updated_at").notNull().default("1970-01-01T00:00:00.000Z"),
+		updatedBy: text("updated_by"),
 	},
 	(table) => [primaryKey({ columns: [table.agentId, table.skillId] })],
+);
+
+// --- Agent skill autonomy audit (L1) ---
+
+export const agentSkillAutonomyAudit = sqliteTable(
+	"agent_skill_autonomy_audit",
+	{
+		id: text("id").primaryKey(),
+		agentId: text("agent_id")
+			.notNull()
+			.references(() => agents.id, { onDelete: "restrict" }),
+		skillId: text("skill_id").notNull(),
+		// `from_level` nullable so the first-set audit row (no prior row)
+		// can record `null → toLevel`.
+		fromLevel: integer("from_level"),
+		toLevel: integer("to_level").notNull(),
+		rationale: text("rationale"),
+		changedBy: text("changed_by").notNull(),
+		changedAt: text("changed_at").notNull(),
+	},
+	(table) => [
+		index("asaa_agent_idx").on(table.agentId),
+		index("asaa_pair_idx").on(table.agentId, table.skillId),
+		index("asaa_changed_at_desc_idx").on(table.changedAt),
+	],
 );
 
 // --- Factory settings ---
@@ -415,6 +446,9 @@ export type NewResponse = typeof responses.$inferInsert;
 
 export type AgentSkill = typeof agentSkills.$inferSelect;
 export type NewAgentSkill = typeof agentSkills.$inferInsert;
+
+export type AgentSkillAutonomyAuditEntry = typeof agentSkillAutonomyAudit.$inferSelect;
+export type NewAgentSkillAutonomyAuditEntry = typeof agentSkillAutonomyAudit.$inferInsert;
 
 export type FactorySetting = typeof factorySettings.$inferSelect;
 export type NewFactorySetting = typeof factorySettings.$inferInsert;

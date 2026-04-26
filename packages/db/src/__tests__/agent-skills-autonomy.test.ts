@@ -14,22 +14,14 @@
 import { eq, sql } from "drizzle-orm";
 import { beforeEach, describe, expect, it } from "vitest";
 import type { HyperIdleDb } from "../connection.js";
-import {
-	agentSkillAutonomyAudit,
-	agentSkills,
-	agents,
-	products,
-	teams,
-} from "../schema.js";
+import { agentSkillAutonomyAudit, agentSkills, agents, products, teams } from "../schema.js";
 import { createTestDb } from "../test-utils.js";
 
 const NOW = "2026-04-26T12:00:00.000Z";
 const SENTINEL = "1970-01-01T00:00:00.000Z";
 
 function seedAgent(db: HyperIdleDb, agentId = "agent-1"): void {
-	db.insert(products)
-		.values({ id: "prod-1", name: "P", phase: "build", createdAt: NOW })
-		.run();
+	db.insert(products).values({ id: "prod-1", name: "P", phase: "build", createdAt: NOW }).run();
 	db.insert(teams)
 		.values({
 			id: "team-1",
@@ -60,9 +52,7 @@ describe("L1: agent_skills audit columns", () => {
 
 	it("agent_skills has the updated_at column (NOT NULL TEXT)", () => {
 		const cols = db
-			.all<{ name: string; type: string; notnull: number }>(
-				sql`PRAGMA table_info("agent_skills")`,
-			)
+			.all<{ name: string; type: string; notnull: number }>(sql`PRAGMA table_info("agent_skills")`)
 			.map((c) => ({ name: c.name, type: c.type, notnull: c.notnull }));
 
 		const updatedAt = cols.find((c) => c.name === "updated_at");
@@ -73,9 +63,7 @@ describe("L1: agent_skills audit columns", () => {
 
 	it("agent_skills has the updated_by column (nullable TEXT)", () => {
 		const cols = db
-			.all<{ name: string; type: string; notnull: number }>(
-				sql`PRAGMA table_info("agent_skills")`,
-			)
+			.all<{ name: string; type: string; notnull: number }>(sql`PRAGMA table_info("agent_skills")`)
 			.map((c) => ({ name: c.name, type: c.type, notnull: c.notnull }));
 
 		const updatedBy = cols.find((c) => c.name === "updated_by");
@@ -96,11 +84,7 @@ describe("L1: agent_skills audit columns", () => {
 			})
 			.run();
 
-		const row = db
-			.select()
-			.from(agentSkills)
-			.where(eq(agentSkills.agentId, "agent-1"))
-			.get();
+		const row = db.select().from(agentSkills).where(eq(agentSkills.agentId, "agent-1")).get();
 
 		expect(row).toBeDefined();
 		expect(row?.updatedAt).toBe(NOW);
@@ -119,11 +103,7 @@ describe("L1: agent_skills audit columns", () => {
 			})
 			.run();
 
-		const row = db
-			.select()
-			.from(agentSkills)
-			.where(eq(agentSkills.agentId, "agent-1"))
-			.get();
+		const row = db.select().from(agentSkills).where(eq(agentSkills.agentId, "agent-1")).get();
 
 		expect(row?.updatedBy).toBeNull();
 	});
@@ -179,11 +159,7 @@ describe("L1: agent_skill_autonomy_audit table", () => {
 			.map((r) => r.name);
 
 		expect(indexes).toEqual(
-			expect.arrayContaining([
-				"asaa_agent_idx",
-				"asaa_pair_idx",
-				"asaa_changed_at_desc_idx",
-			]),
+			expect.arrayContaining(["asaa_agent_idx", "asaa_pair_idx", "asaa_changed_at_desc_idx"]),
 		);
 	});
 
@@ -260,9 +236,7 @@ describe("L1: agent_skill_autonomy_audit table", () => {
 
 	it("requires changed_by, to_level, changed_at (NOT NULL contract)", () => {
 		const cols = db
-			.all<{ name: string; notnull: number }>(
-				sql`PRAGMA table_info("agent_skill_autonomy_audit")`,
-			)
+			.all<{ name: string; notnull: number }>(sql`PRAGMA table_info("agent_skill_autonomy_audit")`)
 			.reduce<Record<string, number>>((acc, c) => {
 				acc[c.name] = c.notnull;
 				return acc;
