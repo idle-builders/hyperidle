@@ -16,9 +16,9 @@ const mockSettings: SettingsData = {
 		{ id: "p3", name: "Internal Tools", active: true },
 	],
 	agents: [
-		{ id: "a1", name: "Builder Agent", autonomyLevel: "supervised", paused: false },
-		{ id: "a2", name: "Review Agent", autonomyLevel: "autonomous", paused: true },
-		{ id: "a3", name: "Deploy Agent", autonomyLevel: "manual", paused: false },
+		{ id: "a1", name: "Builder Agent", autonomyLevel: 2, paused: false },
+		{ id: "a2", name: "Review Agent", autonomyLevel: 4, paused: true },
+		{ id: "a3", name: "Deploy Agent", autonomyLevel: 1, paused: false },
 	],
 	notifications: {
 		reviewAlerts: true,

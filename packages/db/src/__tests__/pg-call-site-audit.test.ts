@@ -70,7 +70,10 @@ describe("H4 honest-state: synchronous Drizzle call-site audit", () => {
 		// pattern of `.run()/.get()/.all()` against in-memory SQLite. The
 		// snapshot is bumped to absorb that legitimate growth; production
 		// call-sites in services/, routes/, etc. are not affected.
-		const SNAPSHOT_COUNT = 933;
+		// L1 (red phase) added agents-autonomy-routes.test.ts +
+		// autonomy-service.test.ts with the same in-memory-SQLite test
+		// pattern — bump the snapshot to absorb that legitimate growth.
+		const SNAPSHOT_COUNT = 993;
 		const TOLERANCE = 50; // absorb routine renames without a fail-open
 
 		const humanReport = hits

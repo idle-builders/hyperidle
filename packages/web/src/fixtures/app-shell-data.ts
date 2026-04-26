@@ -13,8 +13,8 @@ export const DEFAULT_SETTINGS: SettingsData = {
 		{ id: "p2", name: "Product Beta", active: false },
 	],
 	agents: [
-		{ id: "a1", name: "Architect", autonomyLevel: "supervised", paused: false },
-		{ id: "a2", name: "Developer", autonomyLevel: "autonomous", paused: false },
+		{ id: "a1", name: "Architect", autonomyLevel: 2, paused: false },
+		{ id: "a2", name: "Developer", autonomyLevel: 4, paused: false },
 	],
 	notifications: {
 		reviewAlerts: true,

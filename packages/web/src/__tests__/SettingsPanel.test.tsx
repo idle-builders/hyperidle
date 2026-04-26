@@ -14,8 +14,8 @@ const defaultSettings: SettingsData = {
 		{ id: "p2", name: "SideProject", active: false },
 	],
 	agents: [
-		{ id: "a1", name: "Builder Agent", autonomyLevel: "supervised", paused: false },
-		{ id: "a2", name: "Review Agent", autonomyLevel: "autonomous", paused: true },
+		{ id: "a1", name: "Builder Agent", autonomyLevel: 2, paused: false },
+		{ id: "a2", name: "Review Agent", autonomyLevel: 4, paused: true },
 	],
 	notifications: {
 		reviewAlerts: true,
@@ -289,7 +289,7 @@ describe("SettingsPanel", () => {
 		await user.click(screen.getByRole("tab", { name: "Agents" }));
 
 		const selects = screen.getAllByRole("combobox");
-		await user.selectOptions(selects[0], "autonomous");
+		await user.selectOptions(selects[0], "4");
 
 		const saveBtn = screen.getByRole("button", { name: /save/i });
 		expect(saveBtn).not.toBeDisabled();

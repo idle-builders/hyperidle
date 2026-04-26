@@ -43,6 +43,13 @@
 			"when": 1776600100000,
 			"tag": "0005_drop_tasks_state_idx",
 			"breakpoints": true
+		},
+		{
+			"idx": 6,
+			"version": "7",
+			"when": 1777000000000,
+			"tag": "0006_l1_autonomy_audit",
+			"breakpoints": true
 		}
 	]
 }

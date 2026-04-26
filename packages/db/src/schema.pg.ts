@@ -1,3 +1,4 @@
+import type { AutonomyLevel } from "@hyperidle/shared";
 import { boolean, index, integer, pgTable, primaryKey, real, text } from "drizzle-orm/pg-core";
 
 // --- Core tables ---
@@ -150,7 +151,9 @@ export const routines = pgTable("routines", {
 	stateKey: text("state_key"),
 	delegationAllowed: boolean("delegation_allowed").default(false),
 	humanReview: boolean("human_review").default(false),
-	autonomyLevel: integer("autonomy_level"),
+	// L1 review N4: brand the autonomy column with `AutonomyLevel` so
+	// downstream type checks reject plain `number` confusion.
+	autonomyLevel: integer("autonomy_level").$type<AutonomyLevel>(),
 	silent: boolean("silent").default(false),
 	active: boolean("active").notNull().default(true),
 	lastRunAt: text("last_run_at"),
@@ -240,13 +243,49 @@ export const agentSkills = pgTable(
 			.notNull()
 			.references(() => agents.id, { onDelete: "restrict" }),
 		skillId: text("skill_id").notNull(),
-		autonomyLevel: integer("autonomy_level").notNull(),
+		autonomyLevel: integer("autonomy_level").notNull().$type<AutonomyLevel>(),
 		successCount: integer("success_count").notNull().default(0),
 		failureCount: integer("failure_count").notNull().default(0),
 		lastUsedAt: text("last_used_at"),
 		promotedAt: text("promoted_at"),
+		// L1: per-pair audit columns. Postgres can take a real ISO default
+		// in the migration, so the literal sentinel pattern used by SQLite
+		// is unnecessary here.
+		updatedAt: text("updated_at").notNull().default("1970-01-01T00:00:00.000Z"),
+		updatedBy: text("updated_by"),
 	},
 	(table) => [primaryKey({ columns: [table.agentId, table.skillId] })],
+);
+
+// --- Agent skill autonomy audit (L1) ---
+
+// @lore L1 review N3: `agent_skill_autonomy_audit` is logically
+// append-only. Never UPDATE or DELETE rows from this table — its forensic
+// value depends on every change being durable. The static-codebase
+// regression test in `autonomy-service.test.ts` pins the invariant.
+//
+// @lore L1 review B3: `skill_id` deliberately has no FK in this story —
+// no `skills` table exists yet (future story). Boundary validation lives
+// in `routes/agents.ts`.
+export const agentSkillAutonomyAudit = pgTable(
+	"agent_skill_autonomy_audit",
+	{
+		id: text("id").primaryKey(),
+		agentId: text("agent_id")
+			.notNull()
+			.references(() => agents.id, { onDelete: "restrict" }),
+		skillId: text("skill_id").notNull(),
+		fromLevel: integer("from_level").$type<AutonomyLevel>(),
+		toLevel: integer("to_level").notNull().$type<AutonomyLevel>(),
+		rationale: text("rationale"),
+		changedBy: text("changed_by").notNull(),
+		changedAt: text("changed_at").notNull(),
+	},
+	(table) => [
+		index("asaa_agent_idx").on(table.agentId),
+		index("asaa_pair_idx").on(table.agentId, table.skillId),
+		index("asaa_changed_at_desc_idx").on(table.changedAt),
+	],
 );
 
 // --- Factory settings ---
@@ -410,6 +449,9 @@ export type NewResponse = typeof responses.$inferInsert;
 
 export type AgentSkill = typeof agentSkills.$inferSelect;
 export type NewAgentSkill = typeof agentSkills.$inferInsert;
+
+export type AgentSkillAutonomyAuditEntry = typeof agentSkillAutonomyAudit.$inferSelect;
+export type NewAgentSkillAutonomyAuditEntry = typeof agentSkillAutonomyAudit.$inferInsert;
 
 export type FactorySetting = typeof factorySettings.$inferSelect;
 export type NewFactorySetting = typeof factorySettings.$inferInsert;

@@ -22,6 +22,8 @@ export * as schema from "./schema.js";
 export {
 	type Agent,
 	type AgentSkill,
+	type AgentSkillAutonomyAuditEntry,
+	agentSkillAutonomyAudit,
 	agentSkills,
 	agents,
 	type Bet,
@@ -42,6 +44,7 @@ export {
 	messages,
 	type NewAgent,
 	type NewAgentSkill,
+	type NewAgentSkillAutonomyAuditEntry,
 	type NewBet,
 	type NewFactorySetting,
 	type NewFileLease,

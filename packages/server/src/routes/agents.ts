@@ -1,21 +1,67 @@
-import {
-	agentSkills,
-	agents,
-	type HyperIdleDb,
-	items,
-	messages,
-	sessions,
-	threads,
-} from "@hyperidle/db";
-import { API_ERROR_CODES, type EventBus, type ItemCreatedEvent } from "@hyperidle/shared";
+import { agentSkills, agents, type HyperIdleDb, messages, sessions, threads } from "@hyperidle/db";
+import { API_ERROR_CODES, type EventBus } from "@hyperidle/shared";
 import { and, desc, eq } from "drizzle-orm";
 import { Hono } from "hono";
 import { z } from "zod";
 import { validateBody } from "../middleware/validate.js";
+import { applyAutonomyChange } from "../services/autonomy.js";
+
+// L1: numeric ladder validator. Routes never see a non-conforming value
+// because the schema rejects everything outside `1 | 2 | 3 | 4` first.
+const autonomyLevelSchema = z.union([z.literal(1), z.literal(2), z.literal(3), z.literal(4)]);
+
+// @lore L1 review B3: skill_id has no `skills` table FK in this story
+// (no `skills` table exists yet — that's a future story). The route layer
+// is the only validation guard. Constrain the alphabet here so audit rows
+// never carry path traversal markers or whitespace-laden junk; the
+// regression tests in `agents-autonomy-routes.test.ts` pin this guard.
+const skillIdSchema = z
+	.string()
+	.min(1)
+	.max(128)
+	.regex(/^[a-zA-Z0-9_-]+$/);
 
 const updateSkillSchema = z.object({
-	autonomyLevel: z.number().int().min(1).max(4),
+	autonomyLevel: autonomyLevelSchema,
 });
+
+// @lore L1 review N1: rationale must reject control chars (0x00-0x08,
+// 0x0E-0x1F, 0x7F). Tab (0x09), LF (0x0A), CR (0x0D) are kept legal so
+// users can paste multi-line context. Empty string is normalized to
+// `undefined` so the audit row stores `null` instead of `""`.
+//
+// We iterate code points instead of using a control-char regex literal —
+// Biome's `noControlCharactersInRegex` rule would flag the regex form, and
+// the explicit loop is clearer about intent anyway.
+function containsForbiddenControlChar(s: string): boolean {
+	for (let i = 0; i < s.length; i++) {
+		const c = s.charCodeAt(i);
+		if ((c >= 0x00 && c <= 0x08) || (c >= 0x0e && c <= 0x1f) || c === 0x7f) {
+			return true;
+		}
+	}
+	return false;
+}
+
+const rationaleSchema = z
+	.string()
+	.max(2000)
+	.refine((v) => !containsForbiddenControlChar(v), "rationale contains control chars")
+	.transform((v) => (v === "" ? undefined : v))
+	.optional();
+
+const patchAutonomySchema = z.object({
+	skillId: skillIdSchema,
+	level: autonomyLevelSchema,
+	rationale: rationaleSchema,
+});
+
+// @lore L1: `changedBy` is hard-coded to "system" until the actor concept
+// lands (planned for L2 with auth middleware). The shared helper accepts
+// whatever string the caller passes; routes inject the constant here.
+// L1 review N2: the `updatedBy` returned by GET/PATCH /:id/autonomy will
+// therefore always be "system" until L2 adds the actor model.
+const SYSTEM_ACTOR = "system";
 
 const sendMessageSchema = z.object({
 	senderId: z.string(),
@@ -56,10 +102,19 @@ export function createAgentRoutes(db: HyperIdleDb, eventBus: EventBus): Hono {
 		return c.json({ ...agent, skills });
 	});
 
-	// PATCH /:id/skills/:skillId — Update autonomy level
+	// PATCH /:id/skills/:skillId — Update autonomy level (legacy).
+	//
+	// @lore L1: superseded by `PATCH /:id/autonomy`; kept for the editor
+	// migration window. Internally delegates to `applyAutonomyChange` so
+	// the audit row + review-thread emission live in one place. Remove
+	// once the UI fully migrates off this route.
 	router.patch("/:id/skills/:skillId", validateBody(updateSkillSchema), (c) => {
 		const agentId = c.req.param("id");
 		const skillId = c.req.param("skillId");
+		// TODO(L1 review M4): typed-router cleanup — the `"json" as never`
+		// double-cast is project-wide tech debt. Threading the validated
+		// schema type through every route handler requires a generic
+		// `Hono<{ in: { json: T } }>` rewrite that's out of scope for L1.
 		const body = c.req.valid("json" as never) as z.infer<typeof updateSkillSchema>;
 
 		const existing = db
@@ -72,13 +127,13 @@ export function createAgentRoutes(db: HyperIdleDb, eventBus: EventBus): Hono {
 			return c.json({ error: "Agent skill not found", code: API_ERROR_CODES.NOT_FOUND }, 404);
 		}
 
-		const oldLevel = existing.autonomyLevel;
-		const newLevel = body.autonomyLevel;
-
-		db.update(agentSkills)
-			.set({ autonomyLevel: newLevel })
-			.where(and(eq(agentSkills.agentId, agentId), eq(agentSkills.skillId, skillId)))
-			.run();
+		applyAutonomyChange(db, eventBus, {
+			agentId,
+			skillId,
+			level: body.autonomyLevel,
+			rationale: null,
+			changedBy: SYSTEM_ACTOR,
+		});
 
 		const updated = db
 			.select()
@@ -86,46 +141,55 @@ export function createAgentRoutes(db: HyperIdleDb, eventBus: EventBus): Hono {
 			.where(and(eq(agentSkills.agentId, agentId), eq(agentSkills.skillId, skillId)))
 			.get();
 
-		// If level changed, create a review thread + item
-		if (oldLevel !== newLevel) {
-			const threadId = crypto.randomUUID();
-			const now = new Date().toISOString();
+		return c.json(updated);
+	});
 
-			db.insert(threads)
-				.values({
-					id: threadId,
-					kind: "review",
-					participants: JSON.stringify([agentId]),
-					createdAt: now,
-				})
-				.run();
+	// GET /:id/autonomy — list per-skill ladder rows (L1).
+	router.get("/:id/autonomy", (c) => {
+		const agentId = c.req.param("id");
 
-			const itemId = crypto.randomUUID();
-			db.insert(items)
-				.values({
-					id: itemId,
-					sourceAgentId: agentId,
-					layer: "meta",
-					verb: "review",
-					kind: "autonomy_change",
-					title: `Autonomy level changed for skill ${skillId}`,
-					body: `Autonomy level changed from ${oldLevel} to ${newLevel} for agent ${agentId}, skill ${skillId}`,
-					threadId,
-					createdAt: now,
-				})
-				.run();
-
-			eventBus.emit<"item_created">({
-				type: "item_created",
-				streamId: threadId,
-				itemId,
-				conversationId: threadId,
-				kind: "autonomy_change",
-				timestamp: Date.now(),
-			} satisfies ItemCreatedEvent);
+		const agent = db.select().from(agents).where(eq(agents.id, agentId)).get();
+		if (!agent) {
+			return c.json({ error: "Agent not found", code: API_ERROR_CODES.NOT_FOUND }, 404);
 		}
 
-		return c.json(updated);
+		const rows = db.select().from(agentSkills).where(eq(agentSkills.agentId, agentId)).all();
+
+		const projected = rows.map((r) => ({
+			skillId: r.skillId,
+			level: r.autonomyLevel,
+			updatedAt: r.updatedAt,
+			updatedBy: r.updatedBy,
+		}));
+
+		return c.json(projected);
+	});
+
+	// PATCH /:id/autonomy — upsert per-skill ladder + audit (L1).
+	router.patch("/:id/autonomy", validateBody(patchAutonomySchema), (c) => {
+		const agentId = c.req.param("id");
+		// TODO(L1 review M4): typed-router cleanup, see PATCH /:id/skills/:skillId.
+		const body = c.req.valid("json" as never) as z.infer<typeof patchAutonomySchema>;
+
+		const agent = db.select().from(agents).where(eq(agents.id, agentId)).get();
+		if (!agent) {
+			return c.json({ error: "Agent not found", code: API_ERROR_CODES.NOT_FOUND }, 404);
+		}
+
+		const result = applyAutonomyChange(db, eventBus, {
+			agentId,
+			skillId: body.skillId,
+			level: body.level,
+			rationale: body.rationale ?? null,
+			changedBy: SYSTEM_ACTOR,
+		});
+
+		return c.json({
+			skillId: result.skillId,
+			level: result.level,
+			updatedAt: result.updatedAt,
+			updatedBy: result.updatedBy,
+		});
 	});
 
 	// GET /:id/inbox — Agent's inbox with pagination
