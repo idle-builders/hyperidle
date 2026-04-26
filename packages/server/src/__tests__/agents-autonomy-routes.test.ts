@@ -52,9 +52,7 @@ describe("L1: GET/PATCH /api/agents/:id/autonomy", () => {
 		eventBus = new EventBus();
 		app = createTestApp({ db, eventBus });
 
-		db.insert(products)
-			.values({ id: "prod-1", name: "P", phase: "build", createdAt: NOW })
-			.run();
+		db.insert(products).values({ id: "prod-1", name: "P", phase: "build", createdAt: NOW }).run();
 		db.insert(teams)
 			.values({
 				id: "team-1",
@@ -245,11 +243,7 @@ describe("L1: GET/PATCH /api/agents/:id/autonomy", () => {
 			});
 			expect(res.status).toBe(200);
 
-			const skillRow = db
-				.select()
-				.from(agentSkills)
-				.where(eq(agentSkills.agentId, "growth"))
-				.get();
+			const skillRow = db.select().from(agentSkills).where(eq(agentSkills.agentId, "growth")).get();
 			expect(skillRow?.skillId).toBe("research");
 			expect(skillRow?.autonomyLevel).toBe(2);
 

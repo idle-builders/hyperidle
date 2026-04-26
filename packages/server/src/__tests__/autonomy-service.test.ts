@@ -27,9 +27,7 @@ import { applyAutonomyChange } from "../services/autonomy.js";
 const NOW = "2026-04-26T12:00:00.000Z";
 
 function seed(db: HyperIdleDb): void {
-	db.insert(products)
-		.values({ id: "prod-1", name: "P", phase: "build", createdAt: NOW })
-		.run();
+	db.insert(products).values({ id: "prod-1", name: "P", phase: "build", createdAt: NOW }).run();
 	db.insert(teams)
 		.values({
 			id: "team-1",
@@ -79,11 +77,7 @@ describe("L1: applyAutonomyChange (shared helper)", () => {
 			changedBy: "system",
 		});
 
-		const skillRow = db
-			.select()
-			.from(agentSkills)
-			.where(eq(agentSkills.skillId, "research"))
-			.get();
+		const skillRow = db.select().from(agentSkills).where(eq(agentSkills.skillId, "research")).get();
 		expect(skillRow?.autonomyLevel).toBe(2);
 
 		const audit = db
@@ -153,11 +147,7 @@ describe("L1: applyAutonomyChange (shared helper)", () => {
 			changedBy: "founder-1",
 		});
 
-		const skillRow = db
-			.select()
-			.from(agentSkills)
-			.where(eq(agentSkills.skillId, "deploy"))
-			.get();
+		const skillRow = db.select().from(agentSkills).where(eq(agentSkills.skillId, "deploy")).get();
 		expect(skillRow?.autonomyLevel).toBe(4);
 		expect(skillRow?.updatedBy).toBe("founder-1");
 		// updatedAt advances off the seeded value

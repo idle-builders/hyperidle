@@ -1,21 +1,34 @@
+import { agentSkills, agents, type HyperIdleDb, messages, sessions, threads } from "@hyperidle/db";
 import {
-	agentSkills,
-	agents,
-	type HyperIdleDb,
-	items,
-	messages,
-	sessions,
-	threads,
-} from "@hyperidle/db";
-import { API_ERROR_CODES, type EventBus, type ItemCreatedEvent } from "@hyperidle/shared";
+	API_ERROR_CODES,
+	type AutonomyLevel,
+	type EventBus,
+	isAutonomyLevel,
+} from "@hyperidle/shared";
 import { and, desc, eq } from "drizzle-orm";
 import { Hono } from "hono";
 import { z } from "zod";
 import { validateBody } from "../middleware/validate.js";
+import { applyAutonomyChange } from "../services/autonomy.js";
 
 const updateSkillSchema = z.object({
 	autonomyLevel: z.number().int().min(1).max(4),
 });
+
+// L1: numeric ladder validator. Routes never see a non-conforming value
+// because the schema rejects everything outside `1 | 2 | 3 | 4` first.
+const autonomyLevelSchema = z.union([z.literal(1), z.literal(2), z.literal(3), z.literal(4)]);
+
+const patchAutonomySchema = z.object({
+	skillId: z.string().min(1),
+	level: autonomyLevelSchema,
+	rationale: z.string().max(2000).optional(),
+});
+
+// @lore L1: `changedBy` is hard-coded to "system" until the actor concept
+// lands (planned for L2 with auth middleware). The shared helper accepts
+// whatever string the caller passes; routes inject the constant here.
+const SYSTEM_ACTOR = "system";
 
 const sendMessageSchema = z.object({
 	senderId: z.string(),
@@ -56,7 +69,12 @@ export function createAgentRoutes(db: HyperIdleDb, eventBus: EventBus): Hono {
 		return c.json({ ...agent, skills });
 	});
 
-	// PATCH /:id/skills/:skillId — Update autonomy level
+	// PATCH /:id/skills/:skillId — Update autonomy level (legacy).
+	//
+	// @lore L1: superseded by `PATCH /:id/autonomy`; kept for the editor
+	// migration window. Internally delegates to `applyAutonomyChange` so
+	// the audit row + review-thread emission live in one place. Remove
+	// once the UI fully migrates off this route.
 	router.patch("/:id/skills/:skillId", validateBody(updateSkillSchema), (c) => {
 		const agentId = c.req.param("id");
 		const skillId = c.req.param("skillId");
@@ -72,13 +90,23 @@ export function createAgentRoutes(db: HyperIdleDb, eventBus: EventBus): Hono {
 			return c.json({ error: "Agent skill not found", code: API_ERROR_CODES.NOT_FOUND }, 404);
 		}
 
-		const oldLevel = existing.autonomyLevel;
 		const newLevel = body.autonomyLevel;
+		if (!isAutonomyLevel(newLevel)) {
+			// Schema already constrains 1..4; this branch is unreachable but
+			// satisfies the type narrowing at the helper boundary.
+			return c.json(
+				{ error: "Invalid autonomy level", code: API_ERROR_CODES.VALIDATION_ERROR },
+				400,
+			);
+		}
 
-		db.update(agentSkills)
-			.set({ autonomyLevel: newLevel })
-			.where(and(eq(agentSkills.agentId, agentId), eq(agentSkills.skillId, skillId)))
-			.run();
+		applyAutonomyChange(db, eventBus, {
+			agentId,
+			skillId,
+			level: newLevel,
+			rationale: null,
+			changedBy: SYSTEM_ACTOR,
+		});
 
 		const updated = db
 			.select()
@@ -86,46 +114,54 @@ export function createAgentRoutes(db: HyperIdleDb, eventBus: EventBus): Hono {
 			.where(and(eq(agentSkills.agentId, agentId), eq(agentSkills.skillId, skillId)))
 			.get();
 
-		// If level changed, create a review thread + item
-		if (oldLevel !== newLevel) {
-			const threadId = crypto.randomUUID();
-			const now = new Date().toISOString();
+		return c.json(updated);
+	});
 
-			db.insert(threads)
-				.values({
-					id: threadId,
-					kind: "review",
-					participants: JSON.stringify([agentId]),
-					createdAt: now,
-				})
-				.run();
+	// GET /:id/autonomy — list per-skill ladder rows (L1).
+	router.get("/:id/autonomy", (c) => {
+		const agentId = c.req.param("id");
 
-			const itemId = crypto.randomUUID();
-			db.insert(items)
-				.values({
-					id: itemId,
-					sourceAgentId: agentId,
-					layer: "meta",
-					verb: "review",
-					kind: "autonomy_change",
-					title: `Autonomy level changed for skill ${skillId}`,
-					body: `Autonomy level changed from ${oldLevel} to ${newLevel} for agent ${agentId}, skill ${skillId}`,
-					threadId,
-					createdAt: now,
-				})
-				.run();
-
-			eventBus.emit<"item_created">({
-				type: "item_created",
-				streamId: threadId,
-				itemId,
-				conversationId: threadId,
-				kind: "autonomy_change",
-				timestamp: Date.now(),
-			} satisfies ItemCreatedEvent);
+		const agent = db.select().from(agents).where(eq(agents.id, agentId)).get();
+		if (!agent) {
+			return c.json({ error: "Agent not found", code: API_ERROR_CODES.NOT_FOUND }, 404);
 		}
 
-		return c.json(updated);
+		const rows = db.select().from(agentSkills).where(eq(agentSkills.agentId, agentId)).all();
+
+		const projected = rows.map((r) => ({
+			skillId: r.skillId,
+			level: r.autonomyLevel as AutonomyLevel,
+			updatedAt: r.updatedAt,
+			updatedBy: r.updatedBy,
+		}));
+
+		return c.json(projected);
+	});
+
+	// PATCH /:id/autonomy — upsert per-skill ladder + audit (L1).
+	router.patch("/:id/autonomy", validateBody(patchAutonomySchema), (c) => {
+		const agentId = c.req.param("id");
+		const body = c.req.valid("json" as never) as z.infer<typeof patchAutonomySchema>;
+
+		const agent = db.select().from(agents).where(eq(agents.id, agentId)).get();
+		if (!agent) {
+			return c.json({ error: "Agent not found", code: API_ERROR_CODES.NOT_FOUND }, 404);
+		}
+
+		const result = applyAutonomyChange(db, eventBus, {
+			agentId,
+			skillId: body.skillId,
+			level: body.level,
+			rationale: body.rationale ?? null,
+			changedBy: SYSTEM_ACTOR,
+		});
+
+		return c.json({
+			skillId: result.skillId,
+			level: result.level,
+			updatedAt: result.updatedAt,
+			updatedBy: result.updatedBy,
+		});
 	});
 
 	// GET /:id/inbox — Agent's inbox with pagination
