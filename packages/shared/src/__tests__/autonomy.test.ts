@@ -6,7 +6,7 @@
  * until the new `packages/shared/src/types/autonomy.ts` module is created
  * and re-exported from the package barrel.
  */
-import { describe, expect, expectTypeOf, it } from "vitest";
+
 import {
 	AUTONOMY_LEVEL_META,
 	AUTONOMY_LEVELS,
@@ -17,6 +17,7 @@ import {
 	isAutonomyLevel,
 	LEGACY_AUTONOMY_MAPPING,
 } from "@hyperidle/shared";
+import { describe, expect, expectTypeOf, it } from "vitest";
 
 describe("L1: AutonomyLevel type", () => {
 	it("is the numeric ladder 1 | 2 | 3 | 4 (no widening to number)", () => {

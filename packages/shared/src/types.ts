@@ -131,5 +131,3 @@ export type AgentRole =
 export type AgentStatus = "active" | "paused" | "retired";
 
 export type RiskTier = "low" | "medium" | "high";
-
-export type AutonomyLevel = 1 | 2 | 3 | 4;

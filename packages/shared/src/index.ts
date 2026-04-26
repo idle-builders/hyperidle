@@ -77,10 +77,18 @@ export {
 } from "./redact.js";
 export { decode, encode } from "./toon-codec.js";
 export { ToonParseError } from "./toon-errors.js";
+export type { AutonomyLevel, AutonomyLevelMeta } from "./types/autonomy.js";
+export {
+	AUTONOMY_LEVEL_META,
+	AUTONOMY_LEVELS,
+	autonomyLevelFromCode,
+	DEFAULT_AUTONOMY_LEVEL,
+	isAutonomyLevel,
+	LEGACY_AUTONOMY_MAPPING,
+} from "./types/autonomy.js";
 export type {
 	AgentRole,
 	AgentStatus,
-	AutonomyLevel,
 	BetStatus,
 	HealthResponse,
 	KnowledgeFormat,
