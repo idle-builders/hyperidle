@@ -7,7 +7,8 @@ user-invocable: true
 
 # Ship
 
-**Why:** Clean git history makes it possible to understand what changed and why. Atomic commits with clear messages let future agents (and humans) trace decisions. PRs create a review record. CI gates prevent broken code from reaching main.
+**Why:** Clean main branch ensure the next change will start from a reliable basis. Clean git history makes it possible to understand what changed and why. Atomic commits with clear messages let future agents (and humans) trace decisions. PRs create a review record. CI gates prevent broken code from reaching main.
+
 
 ## Pre-flight validation (MANDATORY — do not skip)
 
@@ -20,17 +21,19 @@ bun run test     # All tests pass
 
 This is non-negotiable. Do not merge with failures. Do not use `--no-verify`. Do not rationalize "pre-existing failures" — if it's red, fix it or document why it's blocked and stop.
 
-## Commit
-
-Stage files (never `git add -A`). Commit with `<type>(<scope>): <imperative description>` referencing the story ID. If changes span multiple logical units, make multiple atomic commits.
-
-Types: feat, fix, refactor, test, docs, chore. Scopes: db, server, web, fabric, shared, or omit.
-
 ## Branch and PR
 
 If not on a feature branch, create one: `feat/<story-id>-<description>`.
 
 Push with `-u`. Create PR via `gh pr create` with summary and story reference.
+
+Main is a protected branch and can only be commited to via a pull request.
+
+## Commit
+
+Stage files (never `git add -A`). Commit with `<type>(<scope>): <imperative description>` referencing the story ID. If changes span multiple logical units, make multiple atomic commits.
+
+Types: feat, fix, refactor, test, docs, chore. Scopes: db, server, web, fabric, shared, or omit.
 
 ## CI gate (MUST PASS before merge)
 
