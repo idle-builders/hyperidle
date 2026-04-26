@@ -1,5 +1,10 @@
 import { createLogger } from "@hyperidle/shared";
-import { filterStories, loadManifest, validateDependencies } from "./manifest.js";
+import {
+	filterStories,
+	loadManifest,
+	MANIFEST_RELATIVE_PATH,
+	validateDependencies,
+} from "./manifest.js";
 import { initProgress, loadProgress, updateStory } from "./progress.js";
 import { runStory } from "./runner.js";
 import { appendOutput, initStream, setStories, updateFeedStatus } from "./store.js";
@@ -31,7 +36,7 @@ function buildStreams(stories: Story[]): Stream[] {
 
 export async function runPipeline(options: PipelineOptions): Promise<void> {
 	const { target, concurrency, cwd } = options;
-	const manifestPath = `${cwd}/docs/pipeline-manifest.yaml`;
+	const manifestPath = `${cwd}/${MANIFEST_RELATIVE_PATH}`;
 
 	const allStories = loadManifest(manifestPath);
 	const stories = filterStories(allStories, target);
