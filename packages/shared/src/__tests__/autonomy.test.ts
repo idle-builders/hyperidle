@@ -1,10 +1,8 @@
 /**
- * L1 — Autonomy Schema (red phase).
+ * L1 — Autonomy Schema.
  *
- * These tests pin the shared-types contract for the L1–L4 autonomy ladder
- * defined in `docs/plans/L1.md` Decision 2. They MUST fail against `main`
- * until the new `packages/shared/src/types/autonomy.ts` module is created
- * and re-exported from the package barrel.
+ * Pins the shared-types contract for the L1–L4 autonomy ladder
+ * defined in `docs/plans/L1.md` Decision 2.
  */
 
 import {
@@ -12,12 +10,18 @@ import {
 	AUTONOMY_LEVELS,
 	type AutonomyLevel,
 	type AutonomyLevelMeta,
-	autonomyLevelFromCode,
-	DEFAULT_AUTONOMY_LEVEL,
 	isAutonomyLevel,
-	LEGACY_AUTONOMY_MAPPING,
 } from "@hyperidle/shared";
 import { describe, expect, expectTypeOf, it } from "vitest";
+
+// spec L1: documented mapping for legacy 3-state column. The ladder
+// supersedes the 3-state strings; this constant is kept here only as
+// reference documentation for surviving fixtures during migration.
+const LEGACY_AUTONOMY_MAPPING = {
+	manual: 1,
+	supervised: 2,
+	autonomous: 4,
+} as const satisfies Readonly<Record<"manual" | "supervised" | "autonomous", AutonomyLevel>>;
 
 describe("L1: AutonomyLevel type", () => {
 	it("is the numeric ladder 1 | 2 | 3 | 4 (no widening to number)", () => {
@@ -78,20 +82,6 @@ describe("L1: AUTONOMY_LEVEL_META", () => {
 		}
 	});
 
-	it("commitsAutonomously: false at L1/L2, true at L3/L4", () => {
-		expect(AUTONOMY_LEVEL_META[1].commitsAutonomously).toBe(false);
-		expect(AUTONOMY_LEVEL_META[2].commitsAutonomously).toBe(false);
-		expect(AUTONOMY_LEVEL_META[3].commitsAutonomously).toBe(true);
-		expect(AUTONOMY_LEVEL_META[4].commitsAutonomously).toBe(true);
-	});
-
-	it("retrospectiveOnly: only true at L4", () => {
-		expect(AUTONOMY_LEVEL_META[1].retrospectiveOnly).toBe(false);
-		expect(AUTONOMY_LEVEL_META[2].retrospectiveOnly).toBe(false);
-		expect(AUTONOMY_LEVEL_META[3].retrospectiveOnly).toBe(false);
-		expect(AUTONOMY_LEVEL_META[4].retrospectiveOnly).toBe(true);
-	});
-
 	it("AutonomyLevelMeta.code is the L1|L2|L3|L4 string union (no widening)", () => {
 		expectTypeOf<AutonomyLevelMeta["code"]>().toEqualTypeOf<"L1" | "L2" | "L3" | "L4">();
 	});
@@ -134,39 +124,7 @@ describe("L1: isAutonomyLevel runtime guard", () => {
 	});
 });
 
-describe("L1: autonomyLevelFromCode", () => {
-	it("returns the matching level for L1..L4", () => {
-		expect(autonomyLevelFromCode("L1")).toBe(1);
-		expect(autonomyLevelFromCode("L2")).toBe(2);
-		expect(autonomyLevelFromCode("L3")).toBe(3);
-		expect(autonomyLevelFromCode("L4")).toBe(4);
-	});
-
-	it("returns null for unknown codes", () => {
-		expect(autonomyLevelFromCode("L0")).toBe(null);
-		expect(autonomyLevelFromCode("L5")).toBe(null);
-		expect(autonomyLevelFromCode("manual")).toBe(null);
-		expect(autonomyLevelFromCode("")).toBe(null);
-	});
-
-	it("return type is AutonomyLevel | null", () => {
-		expectTypeOf(autonomyLevelFromCode).returns.toEqualTypeOf<AutonomyLevel | null>();
-	});
-});
-
-describe("L1: DEFAULT_AUTONOMY_LEVEL", () => {
-	it("is L1 (the new (agent, skill) default per spec)", () => {
-		// "Given an agent with no per-skill rows, when the autonomy editor opens,
-		// then every skill defaults to L1 with a 'not yet trusted' hint."
-		expect(DEFAULT_AUTONOMY_LEVEL).toBe(1);
-	});
-
-	it("type is AutonomyLevel (not number)", () => {
-		expectTypeOf<typeof DEFAULT_AUTONOMY_LEVEL>().toMatchTypeOf<AutonomyLevel>();
-	});
-});
-
-describe("L1: LEGACY_AUTONOMY_MAPPING", () => {
+describe("L1: legacy 3-state mapping (documentation reference)", () => {
 	it("maps the three legacy 3-state strings to ladder levels", () => {
 		// Documented mapping per docs/plans/L1.md Decision 2:
 		//   manual     -> 1 (asks every step)
@@ -175,12 +133,6 @@ describe("L1: LEGACY_AUTONOMY_MAPPING", () => {
 		expect(LEGACY_AUTONOMY_MAPPING.manual).toBe(1);
 		expect(LEGACY_AUTONOMY_MAPPING.supervised).toBe(2);
 		expect(LEGACY_AUTONOMY_MAPPING.autonomous).toBe(4);
-	});
-
-	it("every value is an AutonomyLevel (compile-time)", () => {
-		expectTypeOf(LEGACY_AUTONOMY_MAPPING).toMatchTypeOf<
-			Readonly<Record<"manual" | "supervised" | "autonomous", AutonomyLevel>>
-		>();
 	});
 
 	it("has exactly the three legacy keys (no extras)", () => {

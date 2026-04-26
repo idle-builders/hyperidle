@@ -1,23 +1,18 @@
 import { agentSkills, agents, type HyperIdleDb, messages, sessions, threads } from "@hyperidle/db";
-import {
-	API_ERROR_CODES,
-	type AutonomyLevel,
-	type EventBus,
-	isAutonomyLevel,
-} from "@hyperidle/shared";
+import { API_ERROR_CODES, type AutonomyLevel, type EventBus } from "@hyperidle/shared";
 import { and, desc, eq } from "drizzle-orm";
 import { Hono } from "hono";
 import { z } from "zod";
 import { validateBody } from "../middleware/validate.js";
 import { applyAutonomyChange } from "../services/autonomy.js";
 
-const updateSkillSchema = z.object({
-	autonomyLevel: z.number().int().min(1).max(4),
-});
-
 // L1: numeric ladder validator. Routes never see a non-conforming value
 // because the schema rejects everything outside `1 | 2 | 3 | 4` first.
 const autonomyLevelSchema = z.union([z.literal(1), z.literal(2), z.literal(3), z.literal(4)]);
+
+const updateSkillSchema = z.object({
+	autonomyLevel: autonomyLevelSchema,
+});
 
 const patchAutonomySchema = z.object({
 	skillId: z.string().min(1),
@@ -90,20 +85,10 @@ export function createAgentRoutes(db: HyperIdleDb, eventBus: EventBus): Hono {
 			return c.json({ error: "Agent skill not found", code: API_ERROR_CODES.NOT_FOUND }, 404);
 		}
 
-		const newLevel = body.autonomyLevel;
-		if (!isAutonomyLevel(newLevel)) {
-			// Schema already constrains 1..4; this branch is unreachable but
-			// satisfies the type narrowing at the helper boundary.
-			return c.json(
-				{ error: "Invalid autonomy level", code: API_ERROR_CODES.VALIDATION_ERROR },
-				400,
-			);
-		}
-
 		applyAutonomyChange(db, eventBus, {
 			agentId,
 			skillId,
-			level: newLevel,
+			level: body.autonomyLevel,
 			rationale: null,
 			changedBy: SYSTEM_ACTOR,
 		});
