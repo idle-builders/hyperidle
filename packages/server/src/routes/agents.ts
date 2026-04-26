@@ -10,19 +10,57 @@ import { applyAutonomyChange } from "../services/autonomy.js";
 // because the schema rejects everything outside `1 | 2 | 3 | 4` first.
 const autonomyLevelSchema = z.union([z.literal(1), z.literal(2), z.literal(3), z.literal(4)]);
 
+// @lore L1 review B3: skill_id has no `skills` table FK in this story
+// (no `skills` table exists yet — that's a future story). The route layer
+// is the only validation guard. Constrain the alphabet here so audit rows
+// never carry path traversal markers or whitespace-laden junk; the
+// regression tests in `agents-autonomy-routes.test.ts` pin this guard.
+const skillIdSchema = z
+	.string()
+	.min(1)
+	.max(128)
+	.regex(/^[a-zA-Z0-9_-]+$/);
+
 const updateSkillSchema = z.object({
 	autonomyLevel: autonomyLevelSchema,
 });
 
+// @lore L1 review N1: rationale must reject control chars (0x00-0x08,
+// 0x0E-0x1F, 0x7F). Tab (0x09), LF (0x0A), CR (0x0D) are kept legal so
+// users can paste multi-line context. Empty string is normalized to
+// `undefined` so the audit row stores `null` instead of `""`.
+//
+// We iterate code points instead of using a control-char regex literal —
+// Biome's `noControlCharactersInRegex` rule would flag the regex form, and
+// the explicit loop is clearer about intent anyway.
+function containsForbiddenControlChar(s: string): boolean {
+	for (let i = 0; i < s.length; i++) {
+		const c = s.charCodeAt(i);
+		if ((c >= 0x00 && c <= 0x08) || (c >= 0x0e && c <= 0x1f) || c === 0x7f) {
+			return true;
+		}
+	}
+	return false;
+}
+
+const rationaleSchema = z
+	.string()
+	.max(2000)
+	.refine((v) => !containsForbiddenControlChar(v), "rationale contains control chars")
+	.transform((v) => (v === "" ? undefined : v))
+	.optional();
+
 const patchAutonomySchema = z.object({
-	skillId: z.string().min(1),
+	skillId: skillIdSchema,
 	level: autonomyLevelSchema,
-	rationale: z.string().max(2000).optional(),
+	rationale: rationaleSchema,
 });
 
 // @lore L1: `changedBy` is hard-coded to "system" until the actor concept
 // lands (planned for L2 with auth middleware). The shared helper accepts
 // whatever string the caller passes; routes inject the constant here.
+// L1 review N2: the `updatedBy` returned by GET/PATCH /:id/autonomy will
+// therefore always be "system" until L2 adds the actor model.
 const SYSTEM_ACTOR = "system";
 
 const sendMessageSchema = z.object({
@@ -73,6 +111,10 @@ export function createAgentRoutes(db: HyperIdleDb, eventBus: EventBus): Hono {
 	router.patch("/:id/skills/:skillId", validateBody(updateSkillSchema), (c) => {
 		const agentId = c.req.param("id");
 		const skillId = c.req.param("skillId");
+		// TODO(L1 review M4): typed-router cleanup — the `"json" as never`
+		// double-cast is project-wide tech debt. Threading the validated
+		// schema type through every route handler requires a generic
+		// `Hono<{ in: { json: T } }>` rewrite that's out of scope for L1.
 		const body = c.req.valid("json" as never) as z.infer<typeof updateSkillSchema>;
 
 		const existing = db
@@ -126,6 +168,7 @@ export function createAgentRoutes(db: HyperIdleDb, eventBus: EventBus): Hono {
 	// PATCH /:id/autonomy — upsert per-skill ladder + audit (L1).
 	router.patch("/:id/autonomy", validateBody(patchAutonomySchema), (c) => {
 		const agentId = c.req.param("id");
+		// TODO(L1 review M4): typed-router cleanup, see PATCH /:id/skills/:skillId.
 		const body = c.req.valid("json" as never) as z.infer<typeof patchAutonomySchema>;
 
 		const agent = db.select().from(agents).where(eq(agents.id, agentId)).get();
