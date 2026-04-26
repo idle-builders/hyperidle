@@ -1,3 +1,9 @@
+import {
+	AUTONOMY_LEVEL_META,
+	AUTONOMY_LEVELS,
+	type AutonomyLevel,
+	isAutonomyLevel,
+} from "@hyperidle/shared";
 import FocusTrap from "focus-trap-react";
 import { type JSX, useCallback, useEffect, useRef, useState } from "react";
 
@@ -15,7 +21,9 @@ export interface ProductSetting {
 	active: boolean;
 }
 
-export type AutonomyLevel = "manual" | "supervised" | "autonomous";
+// L1: re-export the shared ladder so SettingsPanel callers can keep
+// importing `AutonomyLevel` from this module.
+export type { AutonomyLevel };
 
 export interface AgentSetting {
 	id: string;
@@ -454,13 +462,20 @@ function AgentsTab({
 					<span className="text-sm flex-1">{agent.name}</span>
 					<select
 						className="select select-sm select-bordered"
-						value={agent.autonomyLevel}
-						onChange={(e) => onAutonomyChange(agent.id, e.target.value as AutonomyLevel)}
+						value={String(agent.autonomyLevel)}
+						onChange={(e) => {
+							const parsed = Number(e.target.value);
+							if (isAutonomyLevel(parsed)) {
+								onAutonomyChange(agent.id, parsed);
+							}
+						}}
 						aria-label={`Autonomy level for ${agent.name}`}
 					>
-						<option value="manual">Manual</option>
-						<option value="supervised">Supervised</option>
-						<option value="autonomous">Autonomous</option>
+						{AUTONOMY_LEVELS.map((level) => (
+							<option key={level} value={String(level)}>
+								{AUTONOMY_LEVEL_META[level].code} — {AUTONOMY_LEVEL_META[level].label}
+							</option>
+						))}
 					</select>
 					<button
 						type="button"

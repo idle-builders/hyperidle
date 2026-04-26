@@ -18,11 +18,11 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, expectTypeOf, it, vi } from "vitest";
-import { type SettingsData, SettingsPanel } from "../components/SettingsPanel";
 // AutonomyLevel comes from shared — `SettingsPanel.tsx` re-exports it under
 // the same name per Decision 5. We import from the SettingsPanel module to
 // also pin that re-export.
 import type { AutonomyLevel } from "../components/SettingsPanel";
+import { type SettingsData, SettingsPanel } from "../components/SettingsPanel";
 
 const ladderSettings: SettingsData = {
 	profile: { name: "F", email: "f@x", avatarUrl: "" },
