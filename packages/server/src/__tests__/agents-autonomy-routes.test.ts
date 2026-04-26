@@ -20,10 +20,12 @@ import {
 	agents,
 	createTestDb,
 	type HyperIdleDb,
+	items,
 	products,
 	teams,
+	threads,
 } from "@hyperidle/db";
-import { EventBus } from "@hyperidle/shared";
+import { type DomainEvent, EventBus } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
 import type { Hono } from "hono";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -228,10 +230,17 @@ describe("L1: GET/PATCH /api/agents/:id/autonomy", () => {
 			expect(audit[0].changedBy).not.toBeNull();
 		});
 
-		it("creates the (agent, skill) row when missing — fromLevel=null in audit", async () => {
+		it("creates the (agent, skill) row when missing — fromLevel=null in audit, no thread/item/event (silent)", async () => {
 			// `growth` has no agent_skills rows. Lifting a skill above L1 must
 			// upsert the row (otherwise the editor can't move pairs off the
 			// L1 default — see Open Q in plan).
+			//
+			// L1 review M3: first-set is silent. The audit row exists (with
+			// fromLevel=null), but no review thread/item is created and no
+			// `item_created` event fires. Bulk seeding must not generate noise.
+			const seen: DomainEvent[] = [];
+			eventBus.on("item_created", (e) => seen.push(e));
+
 			const res = await app.request("/api/agents/growth/autonomy", {
 				method: "PATCH",
 				headers: authHeaders(),
@@ -254,9 +263,20 @@ describe("L1: GET/PATCH /api/agents/:id/autonomy", () => {
 				.get();
 			expect(audit?.fromLevel).toBeNull();
 			expect(audit?.toLevel).toBe(2);
+
+			// First-set silence: no review thread, no item, no event.
+			const reviewThreads = db.select().from(threads).where(eq(threads.kind, "review")).all();
+			expect(reviewThreads).toHaveLength(0);
+			const allItems = db.select().from(items).all();
+			expect(allItems).toHaveLength(0);
+			expect(seen).toHaveLength(0);
 		});
 
-		it("PATCH with the same level is a no-op for audit (no row written)", async () => {
+		it("PATCH with the same level is a no-op for audit (no row written) and emits no thread/item/event", async () => {
+			// L1 review M2: also assert no thread/item/event for the no-op.
+			const seen: DomainEvent[] = [];
+			eventBus.on("item_created", (e) => seen.push(e));
+
 			await app.request("/api/agents/architect/autonomy", {
 				method: "PATCH",
 				headers: authHeaders(),
@@ -272,6 +292,12 @@ describe("L1: GET/PATCH /api/agents/:id/autonomy", () => {
 			// No level change ⇒ no audit row, per the existing
 			// "level unchanged → no review" semantics in agents.ts.
 			expect(audit).toHaveLength(0);
+
+			const reviewThreads = db.select().from(threads).where(eq(threads.kind, "review")).all();
+			expect(reviewThreads).toHaveLength(0);
+			const allItems = db.select().from(items).all();
+			expect(allItems).toHaveLength(0);
+			expect(seen).toHaveLength(0);
 		});
 
 		it("rejects level: 5 with 400", async () => {
@@ -317,6 +343,92 @@ describe("L1: GET/PATCH /api/agents/:id/autonomy", () => {
 				body: JSON.stringify({ skillId: "", level: 3 }),
 			});
 			expect(res.status).toBe(400);
+		});
+
+		// L1 review B3: skillId regex rejects path traversal, slashes,
+		// spaces, control chars. The audit table has no FK on skill_id;
+		// the route is the only validation guard until a `skills` table
+		// lands in a future story.
+		it.each([
+			["path traversal", "..", 400],
+			["forward slash", "deploy/edit", 400],
+			["backslash", "deploy\\edit", 400],
+			["space", "deploy edit", 400],
+			["NUL byte", "deploy\x00edit", 400],
+			["over 128 chars", "a".repeat(129), 400],
+			["dot", "deploy.edit", 400],
+			["colon", "deploy:edit", 400],
+		])("rejects skillId=%s with 400", async (_label, skillId, expected) => {
+			const res = await app.request("/api/agents/architect/autonomy", {
+				method: "PATCH",
+				headers: authHeaders(),
+				body: JSON.stringify({ skillId, level: 3 }),
+			});
+			expect(res.status).toBe(expected);
+		});
+
+		it("accepts skillId with hyphen + underscore + alphanumeric", async () => {
+			const res = await app.request("/api/agents/architect/autonomy", {
+				method: "PATCH",
+				headers: authHeaders(),
+				body: JSON.stringify({ skillId: "deploy_edit-v2", level: 3 }),
+			});
+			expect(res.status).toBe(200);
+		});
+
+		// L1 review N1: rationale rejects control chars; empty string
+		// normalizes to null in the audit row.
+		it("rejects rationale containing control chars with 400", async () => {
+			const res = await app.request("/api/agents/architect/autonomy", {
+				method: "PATCH",
+				headers: authHeaders(),
+				body: JSON.stringify({
+					skillId: "deploy",
+					level: 3,
+					rationale: "bad\x01chars",
+				}),
+			});
+			expect(res.status).toBe(400);
+		});
+
+		it("rejects rationale over 2000 chars with 400", async () => {
+			const res = await app.request("/api/agents/architect/autonomy", {
+				method: "PATCH",
+				headers: authHeaders(),
+				body: JSON.stringify({
+					skillId: "deploy",
+					level: 3,
+					rationale: "x".repeat(2001),
+				}),
+			});
+			expect(res.status).toBe(400);
+		});
+
+		it("normalizes empty rationale to null in audit row", async () => {
+			await app.request("/api/agents/architect/autonomy", {
+				method: "PATCH",
+				headers: authHeaders(),
+				body: JSON.stringify({ skillId: "deploy", level: 3, rationale: "" }),
+			});
+			const audit = db
+				.select()
+				.from(agentSkillAutonomyAudit)
+				.where(eq(agentSkillAutonomyAudit.agentId, "architect"))
+				.get();
+			expect(audit?.rationale).toBeNull();
+		});
+
+		it("permits multi-line rationale with tabs/newlines", async () => {
+			const res = await app.request("/api/agents/architect/autonomy", {
+				method: "PATCH",
+				headers: authHeaders(),
+				body: JSON.stringify({
+					skillId: "deploy",
+					level: 3,
+					rationale: "line one\n\tline two\r\nline three",
+				}),
+			});
+			expect(res.status).toBe(200);
 		});
 
 		it("accepts omitted rationale (optional per plan §4)", async () => {
