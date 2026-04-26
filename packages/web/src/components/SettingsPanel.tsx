@@ -21,10 +21,6 @@ export interface ProductSetting {
 	active: boolean;
 }
 
-// L1: re-export the shared ladder so SettingsPanel callers can keep
-// importing `AutonomyLevel` from this module.
-export type { AutonomyLevel };
-
 export interface AgentSetting {
 	id: string;
 	name: string;

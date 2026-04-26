@@ -1,17 +1,9 @@
 /**
- * L1 — Autonomy ladder type. Single source of truth for the L1–L4 ladder
- * applied to every (agent, skill) pair. The DB column is a plain integer
- * 1..4; the ladder constants below give every level a stable code, a UI
- * label, and a semantic description.
- *
- * @see docs/plans/L1.md Decision 2 (numeric union + const metadata map).
+ * L1–L4 autonomy ladder. Single source of truth for every (agent, skill)
+ * pair's autonomy level (docs/plans/L1.md Decision 2).
  */
 
-/**
- * Numeric ladder level. The DB column is `INTEGER`, JSON wire format is a
- * number, the React `<select>` parses to a number — there is no benefit to
- * a tagged union. The metadata map below provides the UI label/description.
- */
+/** Numeric ladder level. */
 export type AutonomyLevel = 1 | 2 | 3 | 4;
 
 /**

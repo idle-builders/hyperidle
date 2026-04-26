@@ -18,10 +18,7 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, expectTypeOf, it, vi } from "vitest";
-// AutonomyLevel comes from shared — `SettingsPanel.tsx` re-exports it under
-// the same name per Decision 5. We import from the SettingsPanel module to
-// also pin that re-export.
-import type { AutonomyLevel } from "../components/SettingsPanel";
+import type { AutonomyLevel } from "@hyperidle/shared";
 import { type SettingsData, SettingsPanel } from "../components/SettingsPanel";
 
 const ladderSettings: SettingsData = {
@@ -64,7 +61,7 @@ describe("L1: SettingsPanel autonomy ladder", () => {
 		vi.restoreAllMocks();
 	});
 
-	it("AutonomyLevel exported from SettingsPanel is the numeric ladder 1|2|3|4", () => {
+	it("AutonomyLevel from @hyperidle/shared is the numeric ladder 1|2|3|4", () => {
 		expectTypeOf<AutonomyLevel>().toEqualTypeOf<1 | 2 | 3 | 4>();
 	});
 

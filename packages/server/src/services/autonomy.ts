@@ -56,7 +56,7 @@ export function applyAutonomyChange(
 
 	if (existing) {
 		if (existing.autonomyLevel === level) {
-			// No-op: same level. Don't write audit, don't emit event.
+			// Same level: caller pinned no-op semantics in agents.test.ts.
 			return {
 				skillId,
 				level,
@@ -110,7 +110,7 @@ export function applyAutonomyChange(
 		.run();
 
 	const itemId = crypto.randomUUID();
-	const fromLabel = fromLevel === null ? "null" : String(fromLevel);
+	const fromLabel = fromLevel === null ? "unset" : String(fromLevel);
 	db.insert(items)
 		.values({
 			id: itemId,
