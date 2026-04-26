@@ -21,7 +21,32 @@ Open <http://localhost:5173>.
 
 ## Pipeline (autonomous batch story execution)
 
-The `/pipeline` skill drives Claude Code through `plan → tests → code → reviews → DoD → verify → ship → retro` for each story in `docs/work-packages/pipeline-manifest.yaml`.
+Two entry points drive the same loop — `plan → tests → code → reviews → DoD → verify → ship → retro` — over the manifest at `docs/work-packages/pipeline-manifest.yaml`. Both checkpoint to `.pipeline/progress.json`, so they can hand off to each other.
+
+| Entry point | Runs as | When to use |
+|---|---|---|
+| `bin/pipeline <target>` | Standalone Ink TUI that spawns Claude Agent SDK sessions per track | Headless / CI / multi-track parallel runs |
+| `/pipeline <target>` (inside `claude`) | Slash command in an interactive Claude Code session | Single-session work where you want to read transcripts and intervene |
+
+### `bin/pipeline` — standalone TUI runner
+
+```bash
+bin/pipeline L                      # every story in Track L
+bin/pipeline "L1 L2 L3"             # a specific subset
+bin/pipeline all                    # the whole manifest
+bin/pipeline -h                     # usage
+```
+
+Flags:
+
+- `-c, --concurrency <n>` — max parallel streams, default `3`. Tracks run in parallel; stories within a track run sequentially.
+- `-i, --interactive` — surface the agent's permission requests for approval inside the TUI instead of auto-allowing.
+
+The TUI shows per-stream output, blocked count, and live progress. Re-running with the same target resumes from the last checkpoint.
+
+### `/pipeline` — interactive Claude Code skill
+
+Inside `claude`, type `/pipeline <target>` (e.g. `/pipeline L`) to run the same loop in your current session — useful when you want to read every transcript and step in.
 
 ### Run the pipeline in Docker (recommended)
 
@@ -104,6 +129,7 @@ See `docs/DEPLOYMENT.md` for the full operator guide.
 | `bun run db:migrate` | Apply migrations |
 | `bun run ds:serve` | Design-system component viewer (`:8098`) |
 | `bun run ds:sync` | HTML ↔ TSX visual regression check |
+| `bin/pipeline <target>` | Standalone batch story runner (see Pipeline above) |
 | `bin/service` | Manage a macOS LaunchAgent for the prod server |
 
 ---
