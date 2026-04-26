@@ -17,6 +17,8 @@ Collect insights about `$ARGUMENTS` from every available source:
 4. **Test results** — any tests that were hard to write, kept failing, or had to be rewritten?
 5. **Agent sessions** — spawn an **Explore agent** to scan recent conversation artifacts, task outputs, and any `.pipeline/logs/` for errors, retries, permission denials, timeouts, and context compaction events
 
+**Before adding a `compoundCandidates` field**, check `.claude/process/compound-candidates.md` for existing candidate IDs. If a friction matches an existing CONFIRMED candidate, reference its ID (e.g. `"CC-002"`) instead of restating the issue. If the candidate is `RESOLVED` but the friction is back, change its status in the tracker to `RECURRED` and note which fix didn't stick. Only invent new free-text candidates for frictions with no matching tracker row.
+
 Append observations to `.pipeline/retro-log.jsonl` as one JSON line each:
 
 ```json
