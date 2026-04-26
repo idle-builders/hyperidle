@@ -16,6 +16,7 @@ This file has been split into per-track files for easier navigation and reduced 
 | [TRACK-G.md](work-packages/TRACK-G.md) | G: Facilitator Pipeline | G1, G2, G3, G4 |
 | [TRACK-H.md](work-packages/TRACK-H.md) | H: Operations | H1, H2, H3, H4 |
 | [TRACK-K.md](work-packages/TRACK-K.md) | K: Aesthetics Uplift | K1, K2, K3, K4, K5, K6, K7, K8 |
+| [TRACK-L.md](work-packages/TRACK-L.md) | L: Journey Gap Closure | L1, L2, L3, L4, L5, L6, L7, L8, L9, L10 |
 
 ## Critical Path
 

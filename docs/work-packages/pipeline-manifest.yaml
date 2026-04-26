@@ -315,3 +315,45 @@ stories:
     title: Density Ladder Re-validation & Tuning
     track: K
     depends: [K11, K12]
+
+  # Track L: Journey Gap Closure (from wave-1–4 user-journey audit, see docs/reviews/journey-gaps/registry.md)
+  - id: L1
+    title: Autonomy Schema — L1–L4 per Agent per Skill
+    track: L
+    depends: [A2, UI-50]
+  - id: L2
+    title: Founder/Actor Routing Schema (Identity, Domain, Reassign)
+    track: L
+    depends: [A2, E2]
+  - id: L3
+    title: Thread List / Queue Rendering
+    track: L
+    depends: [L2, J4]
+  - id: L4
+    title: Verdict Undo + Click/Keyboard Parity
+    track: L
+    depends: [J4]
+  - id: L5
+    title: Mobile Breakpoint + Phone-First Verdict Surface
+    track: L
+    depends: [L3, J2]
+  - id: L6
+    title: Request-Changes Composer + Inline Anchor
+    track: L
+    depends: [J4]
+  - id: L7
+    title: Recovery Verbs (Kill Switch / Rollback / Mid-Session Pause)
+    track: L
+    depends: [L2, UI-50]
+  - id: L8
+    title: Rail Interactivity (Bridge to Conversations + System-Stability Strip)
+    track: L
+    depends: [L3, J2]
+  - id: L9
+    title: Artifact-Kind Renderers (action_summary / skill_change / file_lease / permission_request)
+    track: L
+    depends: [A2, L1]
+  - id: L10
+    title: First-Run Flow (Factory Bootstrap + API Key + North Star + Verdict Coach)
+    track: L
+    depends: [L1, L2, A2, E1]
