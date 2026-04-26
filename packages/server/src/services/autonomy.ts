@@ -52,9 +52,7 @@ export function applyAutonomyChange(
 		.where(and(eq(agentSkills.agentId, agentId), eq(agentSkills.skillId, skillId)))
 		.get();
 
-	const fromLevel: AutonomyLevel | null = existing
-		? (existing.autonomyLevel as AutonomyLevel)
-		: null;
+	const fromLevel: AutonomyLevel | null = existing ? existing.autonomyLevel : null;
 
 	if (existing) {
 		if (existing.autonomyLevel === level) {

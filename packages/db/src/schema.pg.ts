@@ -1,3 +1,4 @@
+import type { AutonomyLevel } from "@hyperidle/shared";
 import { boolean, index, integer, pgTable, primaryKey, real, text } from "drizzle-orm/pg-core";
 
 // --- Core tables ---
@@ -240,7 +241,7 @@ export const agentSkills = pgTable(
 			.notNull()
 			.references(() => agents.id, { onDelete: "restrict" }),
 		skillId: text("skill_id").notNull(),
-		autonomyLevel: integer("autonomy_level").notNull(),
+		autonomyLevel: integer("autonomy_level").notNull().$type<AutonomyLevel>(),
 		successCount: integer("success_count").notNull().default(0),
 		failureCount: integer("failure_count").notNull().default(0),
 		lastUsedAt: text("last_used_at"),
@@ -264,8 +265,8 @@ export const agentSkillAutonomyAudit = pgTable(
 			.notNull()
 			.references(() => agents.id, { onDelete: "restrict" }),
 		skillId: text("skill_id").notNull(),
-		fromLevel: integer("from_level"),
-		toLevel: integer("to_level").notNull(),
+		fromLevel: integer("from_level").$type<AutonomyLevel>(),
+		toLevel: integer("to_level").notNull().$type<AutonomyLevel>(),
 		rationale: text("rationale"),
 		changedBy: text("changed_by").notNull(),
 		changedAt: text("changed_at").notNull(),

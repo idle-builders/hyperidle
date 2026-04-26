@@ -1,5 +1,5 @@
 import { agentSkills, agents, type HyperIdleDb, messages, sessions, threads } from "@hyperidle/db";
-import { API_ERROR_CODES, type AutonomyLevel, type EventBus } from "@hyperidle/shared";
+import { API_ERROR_CODES, type EventBus } from "@hyperidle/shared";
 import { and, desc, eq } from "drizzle-orm";
 import { Hono } from "hono";
 import { z } from "zod";
@@ -115,7 +115,7 @@ export function createAgentRoutes(db: HyperIdleDb, eventBus: EventBus): Hono {
 
 		const projected = rows.map((r) => ({
 			skillId: r.skillId,
-			level: r.autonomyLevel as AutonomyLevel,
+			level: r.autonomyLevel,
 			updatedAt: r.updatedAt,
 			updatedBy: r.updatedBy,
 		}));

@@ -1,3 +1,4 @@
+import type { AutonomyLevel } from "@hyperidle/shared";
 import { index, integer, primaryKey, real, sqliteTable, text } from "drizzle-orm/sqlite-core";
 
 // --- Core tables ---
@@ -245,7 +246,7 @@ export const agentSkills = sqliteTable(
 			.notNull()
 			.references(() => agents.id, { onDelete: "restrict" }),
 		skillId: text("skill_id").notNull(),
-		autonomyLevel: integer("autonomy_level").notNull(),
+		autonomyLevel: integer("autonomy_level").notNull().$type<AutonomyLevel>(),
 		successCount: integer("success_count").notNull().default(0),
 		failureCount: integer("failure_count").notNull().default(0),
 		lastUsedAt: text("last_used_at"),
@@ -272,8 +273,8 @@ export const agentSkillAutonomyAudit = sqliteTable(
 		skillId: text("skill_id").notNull(),
 		// `from_level` nullable so the first-set audit row (no prior row)
 		// can record `null → toLevel`.
-		fromLevel: integer("from_level"),
-		toLevel: integer("to_level").notNull(),
+		fromLevel: integer("from_level").$type<AutonomyLevel>(),
+		toLevel: integer("to_level").notNull().$type<AutonomyLevel>(),
 		rationale: text("rationale"),
 		changedBy: text("changed_by").notNull(),
 		changedAt: text("changed_at").notNull(),
