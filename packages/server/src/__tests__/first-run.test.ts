@@ -156,6 +156,44 @@ describe("L10 — First-Run Flow API", () => {
 			}
 		});
 
+		it("S4: rejects dataDir containing ..", async () => {
+			const res = await app.request("/api/first-run/factory", {
+				method: "POST",
+				headers: authHeaders(),
+				body: JSON.stringify({ name: "F", role: "CEO", dataDir: "/var/../etc" }),
+			});
+			expect(res.status).toBe(400);
+		});
+
+		it("S4: rejects dataDir with NUL byte", async () => {
+			const res = await app.request("/api/first-run/factory", {
+				method: "POST",
+				headers: authHeaders(),
+				body: JSON.stringify({ name: "F", role: "CEO", dataDir: "/var/data\u0000" }),
+			});
+			expect(res.status).toBe(400);
+		});
+
+		it("S4: rejects relative dataDir", async () => {
+			const res = await app.request("/api/first-run/factory", {
+				method: "POST",
+				headers: authHeaders(),
+				body: JSON.stringify({ name: "F", role: "CEO", dataDir: "relative/path" }),
+			});
+			expect(res.status).toBe(400);
+		});
+
+		it("S4: accepts ~/.hyperidle and POSIX absolute paths", async () => {
+			for (const dir of ["~/.hyperidle", "/var/data", "/tmp/abc-def_g"]) {
+				const res = await app.request("/api/first-run/factory", {
+					method: "POST",
+					headers: authHeaders(),
+					body: JSON.stringify({ name: "F", role: "CEO", dataDir: dir }),
+				});
+				expect(res.status).toBe(200);
+			}
+		});
+
 		// C1 regression: actor-context middleware MUST skip /api/first-run
 		// even when HYPERIDLE_DEFAULT_ACTOR_ID is set against a wiped DB.
 		// Without the bypass the middleware 404s before the handler runs.

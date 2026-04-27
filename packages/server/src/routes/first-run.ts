@@ -50,10 +50,30 @@ import {
 } from "../services/first-run-config.js";
 import { type FetchLike, pingAnthropic } from "../services/provider-ping.js";
 
+// S4: dataDir must look like a sane filesystem path. Accept POSIX
+// (`/var/data`), Windows (`C:/path`), and a leading `~/` for home
+// expansion. Reject `..`, NUL bytes, control chars, or anything weird.
+const DATA_DIR_RE = /^(?:~\/|(?:[A-Z]:)?\/)(?:[A-Za-z0-9._-]+\/?)+$/;
+
+function isSafeDataDir(s: string): boolean {
+	if (!DATA_DIR_RE.test(s)) return false;
+	if (s.includes("..")) return false;
+	for (let i = 0; i < s.length; i++) {
+		const c = s.charCodeAt(i);
+		if (c < 0x20 || c === 0x7f) return false;
+	}
+	return true;
+}
+
 const factorySchema = z.object({
 	name: z.string().trim().min(1).max(120),
 	role: z.union([z.literal("CEO"), z.literal("CPO")]),
-	dataDir: z.string().trim().min(1).max(512),
+	dataDir: z
+		.string()
+		.trim()
+		.min(1)
+		.max(512)
+		.refine(isSafeDataDir, { message: "dataDir must be a plain absolute path" }),
 });
 
 const apiKeySchema = z.object({
