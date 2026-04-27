@@ -24,6 +24,7 @@ import { createRailRoutes } from "./routes/rail.js";
 import { createRoutineRoutes } from "./routes/routines-routes.js";
 import { createSessionRoutes } from "./routes/sessions-routes.js";
 import { createStatusRoutes } from "./routes/status.js";
+import { createSystemStabilityRoutes } from "./routes/system-stability.js";
 import { createTaskRoutes } from "./routes/tasks.js";
 import { registerTestRoutes } from "./routes/test-routes.js";
 import { createThreadRoutingRoutes } from "./routes/threads.js";
@@ -306,6 +307,9 @@ function createApp(options?: AppOptions): Hono {
 		api.route("/routines", createRoutineRoutes(options.db, eventBus));
 		api.route("/sessions", createSessionRoutes(options.db, eventBus));
 		api.route("/status", createStatusRoutes(options.db));
+		// L8: dedicated system-stability aggregate (crashed_sessions, cap_reached,
+		// api_degraded). Polled by the Rail at ≤ 30s cadence (client-throttled).
+		api.route("/system", createSystemStabilityRoutes(options.db));
 		api.route("/git-export", createGitExportRoutes(options.db));
 		const adapterFactory = options.notificationAdapterFactory ?? defaultNotificationAdapterFactory;
 		api.route("/notifications", createNotificationRoutes(options.db, { adapterFactory }));
