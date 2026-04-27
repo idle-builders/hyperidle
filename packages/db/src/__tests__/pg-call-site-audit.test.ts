@@ -75,7 +75,10 @@ describe("H4 honest-state: synchronous Drizzle call-site audit", () => {
 		// pattern — bump the snapshot to absorb that legitimate growth.
 		// L3+L4 added conversations-list, verdict-undo and related tests
 		// using the same in-memory-SQLite pattern; bump again.
-		const SNAPSHOT_COUNT = 1050;
+		// L7 added recovery-service + factory routes + recovery test
+		// suite (mass-pause cascade, audit-meta, factory-paused-guard
+		// coverage); bump to absorb the new in-memory-SQLite call sites.
+		const SNAPSHOT_COUNT = 1110;
 		const TOLERANCE = 50; // absorb routine renames without a fail-open
 
 		const humanReport = hits

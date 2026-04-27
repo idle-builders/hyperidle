@@ -4,11 +4,14 @@ import { NavItem } from "@hyperidle/design-system";
  * It manages view state, submenu state, settings panel, and global search.
  * This is NOT a custom component — it is a page-level composition assembling Tier 3 regions.
  */
-import { KNOWLEDGE_SCOPES, type KnowledgeScope } from "@hyperidle/shared";
+import { KILL_SWITCH_BLAST_RADIUS, KNOWLEDGE_SCOPES, type KnowledgeScope } from "@hyperidle/shared";
 import { type JSX, useCallback, useEffect, useMemo, useState } from "react";
 import { Outlet, useLocation, useNavigate, useSearchParams } from "react-router-dom";
+import { AvatarMenu } from "../components/AvatarMenu";
 import { ErrorBoundary } from "../components/ErrorBoundary";
+import { FactoryPausedBanner } from "../components/FactoryPausedBanner";
 import { GlobalSearchPanel } from "../components/GlobalSearchPanel";
+import { KillSwitchDialog } from "../components/KillSwitchDialog";
 import { OfflineBanner } from "../components/OfflineBanner";
 import type { SettingsData } from "../components/SettingsPanel";
 import { SettingsPanel } from "../components/SettingsPanel";
@@ -19,11 +22,15 @@ import {
 	MOCK_RAIL_COST,
 } from "../fixtures/app-shell-data";
 import { topicsForScope } from "../fixtures/knowledge-data";
+import { FactoryStateProvider } from "../hooks/factoryStateContext";
 import { useAutoDensity } from "../hooks/useAutoDensity";
 import { useCommandK } from "../hooks/useCommandK";
 import { useConversations } from "../hooks/useConversations";
+import { useFactoryState } from "../hooks/useFactoryState";
+import { useKillSwitchShortcut } from "../hooks/useKillSwitchShortcut";
 import { useMe } from "../hooks/useMe";
 import { useOfflineQueue } from "../hooks/useOfflineQueue";
+import { useRecoveryFetch } from "../hooks/useRecoveryFetch";
 import { useSystemStability } from "../hooks/useSystemStability";
 import { useTheme } from "../hooks/useTheme";
 import { useViewportBreakpoint } from "../hooks/useViewportBreakpoint";
@@ -290,9 +297,92 @@ export function AppShell(): JSX.Element {
 		[navigate],
 	);
 
+	// L7 AC1: avatar click opens the AvatarMenu dropdown — NOT Settings
+	// directly. The menu exposes the kill switch ("Pause Factory") as
+	// one of three required entry points. Settings is reachable via the
+	// "Settings" menu item.
+	const [avatarMenuOpen, setAvatarMenuOpen] = useState(false);
 	const handleAvatarClick = useCallback((): void => {
-		setSettingsOpen(true);
+		setAvatarMenuOpen((v) => !v);
 	}, []);
+	const handleSignOut = useCallback((): void => {
+		// @lore L7 AC1: Sign out is wired as a stub here — the wider
+		// auth/session handler ships outside the L7 scope. Closing the
+		// menu is the visible behavior; the contract that the menu
+		// item exists and is reachable is the AC.
+		setAvatarMenuOpen(false);
+	}, []);
+
+	// L7: factory-state subscription (singleton row) + kill-switch dialog +
+	// `Cmd+Shift+.` global shortcut. The dialog opens via the shortcut and
+	// from the Settings → Safety entry; the banner consumes `state` so every
+	// route renders the paused indicator above the shell.
+	const { state: factoryState, refresh: refreshFactoryState } = useFactoryState();
+	const factoryStateContextValue = useMemo(
+		() => ({ state: factoryState, refresh: refreshFactoryState }),
+		[factoryState, refreshFactoryState],
+	);
+	const [killSwitchOpen, setKillSwitchOpen] = useState(false);
+	// L7 (AC1 resume-confirm): the FactoryPausedBanner's Resume button
+	// no longer POSTs directly. It opens a confirmation dialog that
+	// reuses the same press-hold / type-name gating as the kill switch
+	// (configurable per Settings → Safety). Reason is OPTIONAL on
+	// resume — AC5 lists rollback/kill-switch/mid-session-stop as the
+	// mandatory-rationale verbs; resume is intentionally not in that
+	// list. The explicit confirm gate alone satisfies AC1.
+	const [resumeConfirmOpen, setResumeConfirmOpen] = useState(false);
+	useKillSwitchShortcut(useCallback(() => setKillSwitchOpen(true), []));
+
+	// @lore L7 SECURITY (SEC1): factory pause/resume MUST route through
+	// useRecoveryFetch so the X-Actor-Id header is sent on every audit-
+	// writing call. Raw fetch() omits identity and either (a) silently
+	// attributes the action to the env-default actor or (b) 401s the
+	// founder. The two factory-level recovery verbs are the highest-
+	// blast-radius surface in L7 — identity correctness is critical.
+	const recoveryFetch = useRecoveryFetch();
+
+	const handleConfirmFactoryPause = useCallback(
+		async (input: { reason: string }): Promise<void> => {
+			try {
+				const res = await recoveryFetch.post("/api/factory/pause", {
+					reason: input.reason,
+				});
+				if (!res.ok) {
+					// Stale state — refresh and surface the error inline.
+					return;
+				}
+			} finally {
+				setKillSwitchOpen(false);
+				refreshFactoryState();
+			}
+		},
+		[recoveryFetch, refreshFactoryState],
+	);
+
+	// L7 (AC1): clicking Resume on the FactoryPausedBanner opens the
+	// confirmation dialog. The POST is deferred to handleConfirmFactoryResume
+	// so the explicit confirm gate is honored.
+	const handleRequestResumeFactory = useCallback((): void => {
+		setResumeConfirmOpen(true);
+	}, []);
+
+	const handleConfirmFactoryResume = useCallback(
+		async (input: { reason: string }): Promise<void> => {
+			try {
+				// Reason is optional for resume (AC5 list excludes resume).
+				// Only send the field when the user typed something so the
+				// server-side audit row records the user-provided rationale
+				// verbatim and skips the field when blank.
+				const trimmed = input.reason.trim();
+				const payload: { reason?: string } = trimmed.length > 0 ? { reason: trimmed } : {};
+				await recoveryFetch.post("/api/factory/resume", payload);
+			} finally {
+				setResumeConfirmOpen(false);
+				refreshFactoryState();
+			}
+		},
+		[recoveryFetch, refreshFactoryState],
+	);
 
 	// J3: Command-K pressed while Settings is open must close Settings first,
 	// then open the search. useCommandK's own document listener toggles search;
@@ -521,6 +611,31 @@ export function AppShell(): JSX.Element {
 				data-shell-mode="mobile"
 				data-testid="mobile-shell"
 			>
+				<FactoryPausedBanner state={factoryState} onResume={handleRequestResumeFactory} />
+				{killSwitchOpen ? (
+					<KillSwitchDialog
+						open
+						verb="factory_pause"
+						target={{ id: "factory", name: "HyperIdle" }}
+						blastRadius={KILL_SWITCH_BLAST_RADIUS}
+						mode={settings.safety.killSwitchConfirmMode}
+						onConfirm={handleConfirmFactoryPause}
+						onCancel={() => setKillSwitchOpen(false)}
+					/>
+				) : null}
+				{resumeConfirmOpen ? (
+					<KillSwitchDialog
+						open
+						verb="factory_resume"
+						target={{ id: "factory", name: "HyperIdle" }}
+						blastRadius="Resuming will unpause every running session and re-enable queued task execution."
+						mode={settings.safety.killSwitchConfirmMode}
+						reasonRequired={false}
+						reasonPlaceholder="Why are you resuming? (optional)"
+						onConfirm={handleConfirmFactoryResume}
+						onCancel={() => setResumeConfirmOpen(false)}
+					/>
+				) : null}
 				{/* Top bar: avatar (Coach access per L5 spec) + glance strip */}
 				<header
 					className="flex h-12 items-center justify-between border-b border-[var(--border-default)] px-3"
@@ -529,18 +644,47 @@ export function AppShell(): JSX.Element {
 					<span className="font-mono text-xs uppercase tracking-wider text-[var(--text-mid)]">
 						{SUBMENU_CONFIG[activeView].title}
 					</span>
-					<button
-						type="button"
-						className="btn btn-ghost btn-sm btn-circle"
-						aria-label="Coach (User profile)"
-						data-testid="mobile-avatar"
-						onClick={handleAvatarClick}
-					>
-						<svg aria-hidden="true" width={20} height={20} viewBox="0 0 16 16" fill="currentColor">
-							<circle cx="8" cy="5" r="3" />
-							<path d="M2 14a6 6 0 0112 0H2z" />
-						</svg>
-					</button>
+					<div className="relative">
+						<button
+							type="button"
+							className="btn btn-ghost btn-sm btn-circle"
+							aria-label="Coach (User profile)"
+							aria-haspopup="menu"
+							aria-expanded={avatarMenuOpen}
+							data-testid="mobile-avatar"
+							onClick={handleAvatarClick}
+						>
+							<svg
+								aria-hidden="true"
+								width={20}
+								height={20}
+								viewBox="0 0 16 16"
+								fill="currentColor"
+							>
+								<circle cx="8" cy="5" r="3" />
+								<path d="M2 14a6 6 0 0112 0H2z" />
+							</svg>
+						</button>
+						<AvatarMenu
+							actor={{
+								id: meData.me?.id ?? "actor:ceo",
+								name: meData.me?.role ?? "Founder",
+								role: meData.me?.role ?? "CEO",
+							}}
+							controlled
+							open={avatarMenuOpen}
+							onOpenChange={setAvatarMenuOpen}
+							onPauseFactory={() => {
+								setAvatarMenuOpen(false);
+								setKillSwitchOpen(true);
+							}}
+							onOpenSettings={() => {
+								setAvatarMenuOpen(false);
+								setSettingsOpen(true);
+							}}
+							onSignOut={handleSignOut}
+						/>
+					</div>
 				</header>
 				<RailGlanceStrip
 					blockingCount={mobileRailGlance.blockingCount}
@@ -555,7 +699,9 @@ export function AppShell(): JSX.Element {
 					aria-hidden={shellDimmed || undefined}
 				>
 					<ErrorBoundary>
-						<Outlet />
+						<FactoryStateProvider value={factoryStateContextValue}>
+							<Outlet />
+						</FactoryStateProvider>
 					</ErrorBoundary>
 				</main>
 				{/* L5: synced toast — rendered by OfflineBanner when syncedCount>0 */}
@@ -613,6 +759,10 @@ export function AppShell(): JSX.Element {
 					onClose={() => setSettingsOpen(false)}
 					onSave={handleSettingsSave}
 					settings={settings}
+					onTriggerKillSwitch={() => {
+						setSettingsOpen(false);
+						setKillSwitchOpen(true);
+					}}
 				/>
 				<GlobalSearchPanel
 					open={commandK.isOpen}
@@ -625,18 +775,78 @@ export function AppShell(): JSX.Element {
 
 	return (
 		<div
-			className="flex h-screen bg-base-100 overflow-hidden"
+			// @lore L7 (DES3/DES4): outer container is column-flex so
+			// the FactoryPausedBanner pushes the IconRail|Submenu|Main|Rail
+			// row DOWN instead of overlaying it. The prior `absolute
+			// inset-x-0 top-0` mount clipped the topmost NavItem icons
+			// on the IconRail. Banner mounts identically on desktop +
+			// mobile (single banner mount strategy).
+			className="flex h-screen flex-col bg-base-100 overflow-hidden"
 			data-density={resolvedDensity}
 			data-density-preference={settings.appearance.density}
 			data-shell-mode="desktop"
 		>
-			<div className={shellWrapperClass} aria-hidden={shellDimmed || undefined}>
-				<IconRail
-					activeView={activeView}
-					onViewChange={handleViewChange}
-					onAvatarClick={handleAvatarClick}
-					badgeCountByView={badgeCountByView}
+			<FactoryPausedBanner state={factoryState} onResume={handleRequestResumeFactory} />
+			{killSwitchOpen ? (
+				<KillSwitchDialog
+					open
+					verb="factory_pause"
+					target={{ id: "factory", name: "HyperIdle" }}
+					blastRadius={KILL_SWITCH_BLAST_RADIUS}
+					mode={settings.safety.killSwitchConfirmMode}
+					onConfirm={handleConfirmFactoryPause}
+					onCancel={() => setKillSwitchOpen(false)}
 				/>
+			) : null}
+			{resumeConfirmOpen ? (
+				<KillSwitchDialog
+					open
+					verb="factory_resume"
+					target={{ id: "factory", name: "HyperIdle" }}
+					blastRadius="Resuming will unpause every running session and re-enable queued task execution."
+					mode={settings.safety.killSwitchConfirmMode}
+					reasonRequired={false}
+					reasonPlaceholder="Why are you resuming? (optional)"
+					onConfirm={handleConfirmFactoryResume}
+					onCancel={() => setResumeConfirmOpen(false)}
+				/>
+			) : null}
+			<div className={shellWrapperClass} aria-hidden={shellDimmed || undefined}>
+				{/* L7 AC1: AvatarMenu anchored to the bottom-left of the
+				    IconRail (the rail is 48 px wide and the avatar
+				    button sits at its bottom). Controlled so the same
+				    avatar-click toggle drives both rail and menu. */}
+				<div className="relative">
+					<IconRail
+						activeView={activeView}
+						onViewChange={handleViewChange}
+						onAvatarClick={handleAvatarClick}
+						badgeCountByView={badgeCountByView}
+					/>
+					{avatarMenuOpen ? (
+						<div className="absolute bottom-2 left-12 z-50">
+							<AvatarMenu
+								actor={{
+									id: meData.me?.id ?? "actor:ceo",
+									name: meData.me?.name ?? "Founder",
+									role: (meData.me?.role as "CEO" | "CPO") ?? "CEO",
+								}}
+								controlled
+								open={avatarMenuOpen}
+								onOpenChange={setAvatarMenuOpen}
+								onPauseFactory={() => {
+									setAvatarMenuOpen(false);
+									setKillSwitchOpen(true);
+								}}
+								onOpenSettings={() => {
+									setAvatarMenuOpen(false);
+									setSettingsOpen(true);
+								}}
+								onSignOut={handleSignOut}
+							/>
+						</div>
+					) : null}
+				</div>
 
 				<Submenu
 					title={submenuConfig.title}
@@ -699,7 +909,9 @@ export function AppShell(): JSX.Element {
 					aria-hidden={shellDimmed || undefined}
 				>
 					<ErrorBoundary>
-						<Outlet />
+						<FactoryStateProvider value={factoryStateContextValue}>
+							<Outlet />
+						</FactoryStateProvider>
 					</ErrorBoundary>
 				</main>
 
@@ -718,6 +930,15 @@ export function AppShell(): JSX.Element {
 				onClose={() => setSettingsOpen(false)}
 				onSave={handleSettingsSave}
 				settings={settings}
+				onTriggerKillSwitch={() => {
+					// L7 (DES1): AC1 requires three kill-switch entry
+					// points on every form factor. The desktop branch
+					// previously omitted onTriggerKillSwitch, hiding the
+					// Settings → Safety button on the primary form
+					// factor. Mirror the mobile wiring.
+					setSettingsOpen(false);
+					setKillSwitchOpen(true);
+				}}
 			/>
 
 			<GlobalSearchPanel

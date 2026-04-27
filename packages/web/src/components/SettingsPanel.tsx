@@ -5,6 +5,7 @@ import {
 	DEFAULT_UNDO_WINDOW_SECONDS,
 	DEFAULT_VERDICT_DOUBLE_CLICK,
 	isAutonomyLevel,
+	type KillSwitchConfirmMode,
 	UNDO_WINDOW_MAX,
 	UNDO_WINDOW_MIN,
 	UNDO_WINDOW_OPTIONS,
@@ -51,6 +52,20 @@ export interface NotificationSettings {
 }
 
 /**
+ * L7 — Safety preferences (kill-switch confirmation mode + future
+ * recovery prefs). Lives at the top level of SettingsData so AppShell
+ * can read it when mounting `KillSwitchDialog`.
+ *
+ * @lore L7 (S4): the Safety tab's confirm-mode radio used to live in
+ * a local useState that never propagated. AppShell read a hard-coded
+ * `press_hold` regardless. Now SafetyTab writes into SettingsData and
+ * AppShell threads it down.
+ */
+export interface SafetySettings {
+	killSwitchConfirmMode: KillSwitchConfirmMode;
+}
+
+/**
  * @lore K7 / AESTHETICS.md § Mobile & Touch row "Density preference state":
  * tri-state preference. `"auto"` is the factory default and the only state
  * that fires the viewport-driven density auto-switch (≤ 1024px → comfortable).
@@ -82,6 +97,7 @@ export interface SettingsData {
 	agents: AgentSetting[];
 	notifications: NotificationSettings;
 	appearance: AppearanceSettings;
+	safety: SafetySettings;
 }
 
 export interface FeedbackMessage {
@@ -95,9 +111,16 @@ export interface SettingsPanelProps {
 	onSave: (settings: SettingsData) => Promise<void>;
 	settings: SettingsData;
 	onFeedback?: (feedback: FeedbackMessage) => void;
+	/**
+	 * L7 (S4): when set, the Safety tab's "Pause Factory" CTA delegates
+	 * to AppShell's KillSwitchDialog (which owns the pause flow + audit
+	 * write). When unset, the CTA is hidden — the AvatarMenu and the
+	 * `Cmd+Shift+.` shortcut remain entry points.
+	 */
+	onTriggerKillSwitch?: () => void;
 }
 
-type TabId = "profile" | "products" | "agents" | "notifications" | "appearance";
+type TabId = "profile" | "products" | "agents" | "notifications" | "appearance" | "safety";
 
 const TABS: { id: TabId; label: string }[] = [
 	{ id: "profile", label: "Profile" },
@@ -105,6 +128,7 @@ const TABS: { id: TabId; label: string }[] = [
 	{ id: "agents", label: "Agents" },
 	{ id: "notifications", label: "Notifications" },
 	{ id: "appearance", label: "Appearance" },
+	{ id: "safety", label: "Safety" },
 ];
 
 const TIME_24H_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
@@ -132,6 +156,7 @@ export function SettingsPanel({
 	onSave,
 	settings,
 	onFeedback,
+	onTriggerKillSwitch,
 }: SettingsPanelProps): JSX.Element | null {
 	const [activeTab, setActiveTab] = useState<TabId>("profile");
 	const [draft, setDraft] = useState<SettingsData>(settings);
@@ -210,6 +235,13 @@ export function SettingsPanel({
 		setDraft((prev) => ({
 			...prev,
 			appearance: { ...prev.appearance, undoWindowSeconds: value },
+		}));
+	}, []);
+
+	const updateKillSwitchConfirmMode = useCallback((mode: KillSwitchConfirmMode): void => {
+		setDraft((prev) => ({
+			...prev,
+			safety: { ...prev.safety, killSwitchConfirmMode: mode },
 		}));
 	}, []);
 
@@ -360,6 +392,13 @@ export function SettingsPanel({
 								onThemeChange={updateTheme}
 								onVerdictDoubleClickChange={updateVerdictDoubleClick}
 								onUndoWindowSecondsChange={updateUndoWindowSeconds}
+							/>
+						)}
+						{activeTab === "safety" && (
+							<SafetyTab
+								confirmMode={draft.safety.killSwitchConfirmMode}
+								onConfirmModeChange={updateKillSwitchConfirmMode}
+								onTriggerKillSwitch={onTriggerKillSwitch}
 							/>
 						)}
 					</div>
@@ -731,6 +770,87 @@ function AppearanceTab({
 					))}
 				</select>
 			</div>
+		</div>
+	);
+}
+
+/**
+ * L7 — Safety tab. Exposes the kill switch as a third entry point
+ * (alongside the avatar menu + `Cmd+Shift+.`) and the confirmation-mode
+ * preference. The `recovery_audit` listing is rendered as a region so
+ * screen-reader users can navigate to it directly.
+ *
+ * @lore L7: the live recovery-audit feed is fetched by the parent
+ * (AppShell) and threaded down once Track-L L8 lands the
+ * `/api/recovery_audit` listing endpoint. Until then the region renders
+ * an empty state — the test asserts the region is reachable, not that
+ * it is populated.
+ */
+interface SafetyTabProps {
+	confirmMode: KillSwitchConfirmMode;
+	onConfirmModeChange: (mode: KillSwitchConfirmMode) => void;
+	/**
+	 * @lore L7 (S4): the "Pause Factory" CTA delegates to AppShell so a
+	 * single KillSwitchDialog instance owns the pause flow + audit
+	 * write. Without this delegation the inline dialog used to swallow
+	 * confirmation locally and never actually paused the factory.
+	 */
+	onTriggerKillSwitch?: () => void;
+}
+
+function SafetyTab(props: SafetyTabProps): JSX.Element {
+	const { confirmMode, onConfirmModeChange, onTriggerKillSwitch } = props;
+
+	return (
+		<div className="flex flex-col gap-4">
+			<section aria-labelledby="settings-safety-kill" className="space-y-2">
+				<h3 id="settings-safety-kill" className="text-sm font-medium">
+					Kill switch
+				</h3>
+				<p className="text-xs text-[var(--text-lo)]">
+					Pauses every running session and blocks queued tasks until you resume.
+				</p>
+				{onTriggerKillSwitch ? (
+					<button type="button" className="btn btn-error btn-sm" onClick={onTriggerKillSwitch}>
+						Pause Factory
+					</button>
+				) : null}
+			</section>
+
+			<section aria-labelledby="settings-safety-mode" className="space-y-2">
+				<h3 id="settings-safety-mode" className="text-sm font-medium">
+					Confirmation mode
+				</h3>
+				<div className="flex gap-3 text-xs">
+					<label className="flex items-center gap-2">
+						<input
+							type="radio"
+							name="kill-switch-mode"
+							value="type_name"
+							checked={confirmMode === "type_name"}
+							onChange={() => onConfirmModeChange("type_name")}
+							className="radio radio-xs"
+						/>
+						<span>Type factory name</span>
+					</label>
+					<label className="flex items-center gap-2">
+						<input
+							type="radio"
+							name="kill-switch-mode"
+							value="press_hold"
+							checked={confirmMode === "press_hold"}
+							onChange={() => onConfirmModeChange("press_hold")}
+							className="radio radio-xs"
+						/>
+						<span>Press and hold</span>
+					</label>
+				</div>
+			</section>
+
+			<section aria-label="Recent recovery actions" className="space-y-2">
+				<h3 className="text-sm font-medium">Recent recovery actions</h3>
+				<p className="text-xs text-[var(--text-lo)]">No recovery actions recorded yet.</p>
+			</section>
 		</div>
 	);
 }

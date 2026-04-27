@@ -1,5 +1,6 @@
 import {
 	type BetStatus,
+	DEFAULT_KILL_SWITCH_CONFIRM_MODE,
 	DEFAULT_UNDO_WINDOW_SECONDS,
 	DEFAULT_VERDICT_DOUBLE_CLICK,
 } from "@hyperidle/shared";
@@ -36,6 +37,13 @@ export const DEFAULT_SETTINGS: SettingsData = {
 		theme: getInitialTheme(),
 		verdictDoubleClick: DEFAULT_VERDICT_DOUBLE_CLICK,
 		undoWindowSeconds: DEFAULT_UNDO_WINDOW_SECONDS,
+	},
+	// @lore L7 (S4): kill-switch confirmation mode persists in
+	// SettingsData so the SafetyTab radio actually propagates to the
+	// AppShell-level KillSwitchDialog. Default mirrors the shared
+	// DEFAULT_KILL_SWITCH_CONFIRM_MODE (`press_hold`).
+	safety: {
+		killSwitchConfirmMode: DEFAULT_KILL_SWITCH_CONFIRM_MODE,
 	},
 };
 

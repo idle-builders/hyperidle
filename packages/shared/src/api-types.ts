@@ -22,6 +22,10 @@ export const API_ERROR_CODES = {
 	FOUNDER_CONFLICT: "FOUNDER_CONFLICT",
 	// L4 — verdict undo window expired (RFC 9110 §15.5.10 — 410 Gone).
 	GONE: "GONE",
+	// L7 — factory paused; mutating routes return 423 Locked while a
+	// kill switch is active. Recovery verbs themselves bypass the guard
+	// (see factory-paused-guard middleware).
+	LOCKED: "LOCKED",
 } as const;
 
 /** L4 — Verdict undo API. */

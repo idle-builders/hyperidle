@@ -9,6 +9,7 @@ import { authMiddleware } from "./middleware/auth.js";
 import { createBodyLimit } from "./middleware/body-limit.js";
 import { corsMiddleware } from "./middleware/cors.js";
 import { errorHandler } from "./middleware/error-handler.js";
+import { createFactoryPausedGuard } from "./middleware/factory-paused-guard.js";
 import { createRateLimiter } from "./middleware/rate-limit.js";
 import { createAgentRoutes } from "./routes/agents.js";
 import { createAuthRoutes } from "./routes/auth.js";
@@ -21,6 +22,7 @@ import { meRoutes } from "./routes/me.js";
 import { createNotificationRoutes } from "./routes/notifications-routes.js";
 import { createObservabilityRoutes } from "./routes/observability-routes.js";
 import { createRailRoutes } from "./routes/rail.js";
+import { createFactoryRoutes, createSessionRecoveryRoutes } from "./routes/recovery.js";
 import { createRoutineRoutes } from "./routes/routines-routes.js";
 import { createSessionRoutes } from "./routes/sessions-routes.js";
 import { createStatusRoutes } from "./routes/status.js";
@@ -297,6 +299,76 @@ function createApp(options?: AppOptions): Hono {
 		}
 
 		api.route("/me", meRoutes);
+
+		// L7: factory-paused guard — applied SELECTIVELY to mutation routes
+		// that trigger NEW agent work (verdict commit, session create,
+		// task create, task transitions, bet activations). Recovery verbs
+		// themselves (`/factory/pause|resume|state`,
+		// `/sessions/:id/pause|resume`, `/threads/:id/verdict/rollback|undo`)
+		// MUST NOT be guarded — they're the founder's cleanup tools and
+		// must remain reachable while paused. See `.pipeline-plan.md` §8.
+		//
+		// @lore L7 (ARCH2/ADV1/SEC6): the guard MUST cover every route
+		// that starts new agent work — not just verdict commit. The
+		// initial implementation only guarded `/conversations/responses`,
+		// which silently let session/task/bet creates run while paused.
+		// Guards run before the per-route handler, so any 423 returned
+		// here short-circuits the mutation — including the audit-side
+		// effects of a successful create.
+		const factoryPausedGuard = createFactoryPausedGuard(options.db);
+		// Verdict commit (POST) — blocked while paused.
+		api.use("/conversations/responses", async (c, next) => {
+			if (c.req.method === "POST") return factoryPausedGuard(c, next);
+			return next();
+		});
+		// Session create (POST /sessions) and lifecycle PATCH — blocked
+		// while paused so a routine cannot spin up new agent work mid-
+		// kill. Per-session pause/resume are mounted by
+		// `createSessionRecoveryRoutes` BEFORE this guard so recovery
+		// verbs fall through unguarded.
+		api.use("/sessions", async (c, next) => {
+			// @lore L7: the recovery sub-router (`:id/pause` /
+			// `:id/resume`) is registered BEFORE this guard mount so
+			// those paths match earlier in the routing table. Only
+			// non-recovery mutations on `/sessions` reach this guard.
+			if (c.req.method === "POST" || c.req.method === "PATCH") {
+				const path = c.req.path;
+				// Allow recovery sub-paths (defense-in-depth: even if
+				// router order changes, the guard explicitly excludes
+				// `/pause` and `/resume`).
+				if (path.endsWith("/pause") || path.endsWith("/resume")) {
+					return next();
+				}
+				return factoryPausedGuard(c, next);
+			}
+			return next();
+		});
+		// Task create + state transitions — blocked while paused. The
+		// dependency-watcher's hold→accepted auto-transition consults
+		// `factory_state.paused` directly (see dependency-watcher.ts).
+		api.use("/tasks", async (c, next) => {
+			if (c.req.method === "POST" || c.req.method === "PATCH") {
+				return factoryPausedGuard(c, next);
+			}
+			return next();
+		});
+		// Bet creation + activation/commit/ship — blocked while paused.
+		// `kill` (`POST /:id/kill`) is the bet-level cleanup verb and
+		// stays reachable while paused.
+		api.use("/bets", async (c, next) => {
+			if (c.req.method === "POST" || c.req.method === "PATCH") {
+				const path = c.req.path;
+				if (path.endsWith("/kill")) return next();
+				return factoryPausedGuard(c, next);
+			}
+			return next();
+		});
+
+		// L7: recovery verbs FIRST so they're matched before any guards
+		// or other mutation routes. Identity is server-resolved; reasons
+		// are required (Zod-enforced) for kill / pause / rollback verbs.
+		api.route("/factory", createFactoryRoutes(options.db));
+
 		api.route("/threads", createThreadRoutingRoutes(options.db));
 		api.route("/bets", createBetRoutes(options.db, eventBus));
 		api.route("/tasks", createTaskRoutes(options.db, eventBus));
@@ -305,6 +377,10 @@ function createApp(options?: AppOptions): Hono {
 		api.route("/conversations", createConversationRoutes(options.db, eventBus));
 		api.route("/agents", createAgentRoutes(options.db, eventBus));
 		api.route("/routines", createRoutineRoutes(options.db, eventBus));
+		// L7: session pause/resume — mounted alongside the existing
+		// session routes. The two routers share the `/sessions` mount
+		// path; recovery routes match `/:id/pause` and `/:id/resume`.
+		api.route("/sessions", createSessionRecoveryRoutes(options.db));
 		api.route("/sessions", createSessionRoutes(options.db, eventBus));
 		api.route("/status", createStatusRoutes(options.db));
 		// L8: dedicated system-stability aggregate (crashed_sessions, cap_reached,

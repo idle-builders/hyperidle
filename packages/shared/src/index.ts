@@ -8,6 +8,21 @@ export { API_ERROR_CODES } from "./api-types.js";
 export { COACH_AGENT_ID } from "./constants/agents.js";
 export type { DomainTag } from "./constants/domains.js";
 export { DOMAIN_TAGS, domainTagNullableSchema, domainTagSchema } from "./constants/domains.js";
+export type {
+	KillSwitchConfirmMode,
+	RecoveryOutcome,
+	RecoveryTargetKind,
+	RecoveryVerb,
+} from "./constants/recovery.js";
+export {
+	DEFAULT_KILL_SWITCH_CONFIRM_MODE,
+	KILL_SWITCH_BLAST_RADIUS,
+	PRESS_HOLD_MS,
+	RATIONALE_MAX_CHARS,
+	RECOVERY_OUTCOMES,
+	reasonOptionalSchema,
+	reasonRequiredSchema,
+} from "./constants/recovery.js";
 export {
 	REQUEST_CHANGES_INLINE_COMMENTS_MAX,
 	REQUEST_CHANGES_SUMMARY_MAX,
@@ -95,6 +110,15 @@ export {
 	scrubInlineTokens,
 	TK_TOKEN_RE,
 } from "./redact.js";
+export type { FactoryStateResponse } from "./schemas/recovery.js";
+export {
+	factoryPauseRequestSchema,
+	factoryResumeRequestSchema,
+	factoryStateResponseSchema,
+	rollbackRequestSchema,
+	sessionPauseRequestSchema,
+	sessionResumeRequestSchema,
+} from "./schemas/recovery.js";
 export { decode, encode } from "./toon-codec.js";
 export { ToonParseError } from "./toon-errors.js";
 export type { Actor, ActorRole } from "./types/actor.js";

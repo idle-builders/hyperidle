@@ -42,6 +42,15 @@ export interface ReviewHeaderProps {
 	 * then the chip stays hidden.
 	 */
 	reversibility?: boolean | null;
+	/**
+	 * @lore L7 AC3: extra items to render at the TOP of the More-actions
+	 * overflow menu. The page-level `ConversationsReview` injects the L7
+	 * `RollbackOverflowItem` here when the artifact is reversible — kept
+	 * out of `SECONDARY_BUTTONS` because rollback is a recovery verb, not
+	 * a verdict, and uses a different (rationale-driven) confirmation
+	 * pattern.
+	 */
+	extraOverflowItems?: JSX.Element | null;
 }
 
 interface VerdictButtonDef {
@@ -176,6 +185,7 @@ export function ReviewHeader({
 	verdictDoubleClick,
 	blocking = false,
 	reversibility,
+	extraOverflowItems,
 }: ReviewHeaderProps): JSX.Element {
 	const [moreOpen, setMoreOpen] = useState(false);
 
@@ -257,9 +267,15 @@ export function ReviewHeader({
 					// background. Removed `aria-label` (biome flagged: span has no
 					// implicit role that supports it; the visible text "undoable"
 					// already conveys the meaning).
+					// @lore L7 review fix: the chip sits on top of `btn-accent`
+					// (a colored background). Using `--text-lo` against the
+					// accent surface drops contrast to ~1.1:1 (axe WCAG-AA
+					// fail). Inherit `currentColor` from the button so the
+					// chip is readable on the accent fill while still
+					// "receding" via opacity.
 					const extra =
 						btn.action === "approve" && reversibility === true ? (
-							<span key="reversibility-chip" className="ml-1 text-[11px] text-[var(--text-lo)]">
+							<span key="reversibility-chip" className="ml-1 text-[11px] opacity-80">
 								↶ undoable
 							</span>
 						) : null;
@@ -317,6 +333,11 @@ export function ReviewHeader({
 					aria-label="Secondary verdict actions"
 					className={`absolute right-0 top-full z-10 mt-1 flex flex-col gap-[var(--density-gap)] min-w-[14rem] whitespace-nowrap rounded-[var(--r2)] border border-[var(--border-default)] bg-base-200 p-2 shadow-[var(--float)] ${moreOpen ? "" : "hidden"}`}
 				>
+					{/* @lore L7 AC3: recovery verbs render at the top of the
+					    overflow menu, above secondary verdicts. Rollback is the
+					    only one wired today; the slot is generic so future
+					    recovery affordances can join without reshuffling. */}
+					{extraOverflowItems}
 					{SECONDARY_BUTTONS.map((btn) => (
 						<VerdictButton
 							key={btn.action}

@@ -203,4 +203,31 @@ describe("Dependency Watcher", () => {
 			expect(taskB?.state).toBe("accepted");
 		});
 	});
+
+	describe("L7 (ADV2): factory-paused gate", () => {
+		it("does NOT auto-transition hold→accepted when factory_state.paused=true", async () => {
+			const { factoryState } = await import("@hyperidle/db");
+			const now = new Date().toISOString();
+			// Pause the factory.
+			db.insert(factoryState)
+				.values({
+					id: "factory",
+					paused: true,
+					pausedBy: "actor:ceo",
+					pausedAt: now,
+					pausedReason: "kill",
+				})
+				.run();
+
+			insertTask(db, "dep-1", "done");
+			insertTask(db, "dependent", "hold", ["dep-1"]);
+
+			checkAndUnblockDependents(db, eventBus, "dep-1");
+
+			const task = db.select().from(tasks).where(eq(tasks.id, "dependent")).get();
+			// Without the guard the watcher would have flipped this to
+			// accepted, defeating the kill-switch cascade.
+			expect(task?.state).toBe("hold");
+		});
+	});
 });

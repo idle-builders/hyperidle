@@ -14,7 +14,9 @@ test.describe("Settings overlay (J3)", () => {
 	});
 
 	test("Esc closes the Settings overlay", async ({ page }) => {
+		// L7: avatar opens AvatarMenu; Settings is reached via the menuitem.
 		await page.getByRole("button", { name: /user profile/i }).click();
+		await page.getByRole("menuitem", { name: /^settings$/i }).click();
 		await expect(page.getByRole("dialog", { name: /settings/i })).toBeVisible();
 		await page.keyboard.press("Escape");
 		await expect(page.getByRole("dialog", { name: /settings/i })).not.toBeVisible();
@@ -23,7 +25,9 @@ test.describe("Settings overlay (J3)", () => {
 	test("Command-K pressed while Settings is open closes Settings and opens search", async ({
 		page,
 	}) => {
+		// L7: avatar opens AvatarMenu; Settings is reached via the menuitem.
 		await page.getByRole("button", { name: /user profile/i }).click();
+		await page.getByRole("menuitem", { name: /^settings$/i }).click();
 		await expect(page.getByRole("dialog", { name: /settings/i })).toBeVisible();
 		await page.keyboard.press("Meta+k");
 		await expect(page.getByRole("dialog", { name: /settings/i })).not.toBeVisible();
@@ -31,7 +35,9 @@ test.describe("Settings overlay (J3)", () => {
 	});
 
 	test("Settings main content is inert (aria-hidden) while overlay open", async ({ page }) => {
+		// L7: avatar opens AvatarMenu; Settings is reached via the menuitem.
 		await page.getByRole("button", { name: /user profile/i }).click();
+		await page.getByRole("menuitem", { name: /^settings$/i }).click();
 		await expect(page.getByRole("dialog", { name: /settings/i })).toBeVisible();
 		const main = page.getByTestId("main-content");
 		await expect(main).toHaveAttribute("aria-hidden", "true");

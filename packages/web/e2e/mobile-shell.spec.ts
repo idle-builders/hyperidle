@@ -109,16 +109,18 @@ test.describe("L5 — Mobile shell at 390×844", () => {
 		await ctx.close();
 	});
 
-	test("Coach (avatar) button in the top bar opens the Settings overlay", async ({ browser }) => {
-		// Spec lists Coach/CoS thread accessed from a top-bar avatar; until the
-		// real CoS thread route lands, the avatar opens the same Settings overlay
-		// (parity with the desktop avatar).
+	test("Coach (avatar) button opens AvatarMenu with Settings entry", async ({ browser }) => {
+		// L7: avatar click now opens an AvatarMenu (Settings + Pause Factory +
+		// Sign out) instead of jumping straight to Settings. The mobile path
+		// stays in parity with the desktop avatar — Settings is one click away
+		// via the "Settings" menuitem.
 		const ctx = await browser.newContext({ viewport: PHONE, colorScheme: "dark" });
 		const page = await ctx.newPage();
 		await page.goto("/");
 		await page.waitForSelector("[data-testid='main-content']");
 
 		await page.getByTestId("mobile-avatar").click();
+		await page.getByRole("menuitem", { name: /^settings$/i }).click();
 		await expect(page.getByRole("dialog", { name: /settings/i })).toBeVisible();
 		await ctx.close();
 	});
@@ -149,8 +151,8 @@ test.describe("L5 — Mobile shell at 390×844", () => {
 		]) {
 			const box = await page.getByTestId(id).boundingBox();
 			expect(box, `${id} bounding`).not.toBeNull();
-			expect(box && box.height).toBeGreaterThanOrEqual(44);
-			expect(box && box.width).toBeGreaterThanOrEqual(44);
+			expect(box?.height).toBeGreaterThanOrEqual(44);
+			expect(box?.width).toBeGreaterThanOrEqual(44);
 		}
 		await ctx.close();
 	});

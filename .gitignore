@@ -18,3 +18,11 @@ logs/
 *.db-wal
 .claude/.fuse_*
 plans/*
+# Pipeline review/finding artifacts (ephemeral, never committed)
+.adversary-findings.md
+.architecture-findings.md
+.design-findings.md
+.security-findings.md
+.simplification-findings.md
+.slop-findings.md
+.pipeline-plan.md

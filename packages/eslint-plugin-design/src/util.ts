@@ -127,7 +127,7 @@ export const ALLOWED_NAMED_RADIUS: ReadonlySet<string> = new Set(["none", "", "l
 export function getClassNameLiteral(
 	attr: { value?: { type?: string; value?: unknown } | null } | null,
 ): string | null {
-	if (!(attr && attr.value)) return null;
+	if (!attr?.value) return null;
 	const v = attr.value;
 	if (v.type === "Literal" && typeof v.value === "string") {
 		return v.value;

@@ -111,10 +111,10 @@ describe("L2: founder conflict on POST /api/conversations/responses", () => {
 		// Existing verdict payload — match either flat or nested-in-details shape.
 		const existing =
 			body.existing_verdict ??
-			(body.details?.["existing_verdict"] as
+			(body.details?.existing_verdict as
 				| { actor_id?: string; at?: string; action?: string }
 				| undefined);
-		expect(existing?.actor_id ?? existing?.["actor_id"]).toBe("actor:ceo");
+		expect(existing?.actor_id ?? existing?.actor_id).toBe("actor:ceo");
 	});
 
 	it("second verdict on the same thread by the same actor (CEO) does NOT trigger 409", async () => {
@@ -193,7 +193,7 @@ describe("L2: founder conflict on POST /api/conversations/responses", () => {
 		};
 		const existing =
 			body.existing_verdict ??
-			(body.details?.["existing_verdict"] as
+			(body.details?.existing_verdict as
 				| { actor_id?: string; at?: string; action?: string }
 				| undefined);
 		// `action` is the canonical key in the spec's body shape; allow `decision` too

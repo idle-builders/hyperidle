@@ -35,7 +35,9 @@ test.describe("J8 — keyboard-only navigation", () => {
 	test("Settings overlay traps focus within the dialog", async ({ page }) => {
 		await page.goto("/");
 		await page.waitForSelector("[data-testid='main-content']");
+		// L7: avatar click opens AvatarMenu; Settings is one of its items.
 		await page.getByRole("button", { name: /user profile/i }).click();
+		await page.getByRole("menuitem", { name: /^settings$/i }).click();
 		const dialog = page.getByRole("dialog", { name: /settings/i });
 		await expect(dialog).toBeVisible();
 
@@ -55,7 +57,9 @@ test.describe("J8 — keyboard-only navigation", () => {
 	test("Escape closes the Settings overlay and returns focus to the shell", async ({ page }) => {
 		await page.goto("/");
 		await page.waitForSelector("[data-testid='main-content']");
+		// L7: avatar click opens AvatarMenu; Settings is one of its items.
 		await page.getByRole("button", { name: /user profile/i }).click();
+		await page.getByRole("menuitem", { name: /^settings$/i }).click();
 		await expect(page.getByRole("dialog", { name: /settings/i })).toBeVisible();
 		await page.keyboard.press("Escape");
 		await expect(page.getByRole("dialog", { name: /settings/i })).not.toBeVisible();

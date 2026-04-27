@@ -18,7 +18,9 @@ test.describe("J8 synthesis — 10 critical flows", () => {
 	}) => {
 		await page.goto("/");
 		await page.waitForSelector("[data-testid='main-content']");
+		// L7: avatar opens AvatarMenu; Settings is reached via the menuitem.
 		await page.getByRole("button", { name: /user profile/i }).click();
+		await page.getByRole("menuitem", { name: /^settings$/i }).click();
 		const dialog = page.getByRole("dialog", { name: /settings/i });
 		await expect(dialog).toBeVisible();
 		await page.getByRole("button", { name: /close settings/i }).click();
@@ -28,7 +30,9 @@ test.describe("J8 synthesis — 10 critical flows", () => {
 	test("2. Settings overlay closes when the backdrop is clicked", async ({ page }) => {
 		await page.goto("/");
 		await page.waitForSelector("[data-testid='main-content']");
+		// L7: avatar opens AvatarMenu; Settings is reached via the menuitem.
 		await page.getByRole("button", { name: /user profile/i }).click();
+		await page.getByRole("menuitem", { name: /^settings$/i }).click();
 		await expect(page.getByRole("dialog", { name: /settings/i })).toBeVisible();
 		// DaisyUI modal-backdrop has z-index: -1. Clicking it directly fails because
 		// the modal-box sits above it. Click the modal overlay at a corner position

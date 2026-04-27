@@ -37,7 +37,9 @@ test.describe("axe-core — zero WCAG 2.1 AA violations", () => {
 	test("Settings overlay passes the audit while open", async ({ page }) => {
 		await page.goto("/");
 		await page.waitForSelector("[data-testid='main-content']");
+		// L7: avatar click opens AvatarMenu; Settings is reached via menuitem.
 		await page.getByRole("button", { name: /^user profile$/i }).click();
+		await page.getByRole("menuitem", { name: /^settings$/i }).click();
 		await expect(page.getByRole("dialog", { name: /settings/i })).toBeVisible();
 		// Scope the audit to the dialog itself. The dimmed shell behind the
 		// overlay is aria-hidden="true", but axe-core still visits those nodes

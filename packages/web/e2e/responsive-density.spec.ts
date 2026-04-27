@@ -83,7 +83,9 @@ test.describe("K8 — Explicit density override wins over viewport", () => {
 		await page.waitForSelector("[data-testid='main-content']");
 
 		// Open Settings → Appearance → choose compact → save.
+		// L7: avatar opens AvatarMenu; Settings is reached via the menuitem.
 		await page.getByRole("button", { name: /^user profile$/i }).click();
+		await page.getByRole("menuitem", { name: /^settings$/i }).click();
 		await expect(page.getByRole("dialog", { name: /settings/i })).toBeVisible();
 		await page.getByRole("tab", { name: "Appearance" }).click();
 		await page.getByLabel("Density").selectOption("compact");
@@ -121,7 +123,9 @@ test.describe("K9 — Comfortable density bumps body text to 16 px end-to-end", 
 		await page.waitForSelector("[data-testid='work-portfolio-page']");
 
 		// Pick comfortable explicitly via Settings → Appearance.
+		// L7: avatar opens AvatarMenu; Settings is reached via the menuitem.
 		await page.getByRole("button", { name: /^user profile$/i }).click();
+		await page.getByRole("menuitem", { name: /^settings$/i }).click();
 		await expect(page.getByRole("dialog", { name: /settings/i })).toBeVisible();
 		await page.getByRole("tab", { name: "Appearance" }).click();
 		await page.getByLabel("Density").selectOption("comfortable");
@@ -237,7 +241,9 @@ test.describe("K11 — Density tokens flow into rendered primitives across all 3
 			await page.waitForSelector("[data-testid='work-portfolio-page']");
 
 			// Set the explicit density preference via Settings → Appearance.
+			// L7: avatar opens AvatarMenu; Settings reached via menuitem.
 			await page.getByRole("button", { name: /^user profile$/i }).click();
+			await page.getByRole("menuitem", { name: /^settings$/i }).click();
 			await expect(page.getByRole("dialog", { name: /settings/i })).toBeVisible();
 			await page.getByRole("tab", { name: "Appearance" }).click();
 			await page.getByLabel("Density").selectOption(tier.preference);
@@ -298,7 +304,9 @@ test.describe("K11 — Density tokens flow into rendered primitives across all 3
 			await page.goto("/work/portfolio");
 			await page.waitForSelector("[data-testid='work-portfolio-page']");
 
+			// L7: avatar opens AvatarMenu; Settings reached via menuitem.
 			await page.getByRole("button", { name: /^user profile$/i }).click();
+			await page.getByRole("menuitem", { name: /^settings$/i }).click();
 			await page.getByRole("tab", { name: "Appearance" }).click();
 			await page.getByLabel("Density").selectOption(preference);
 			await page.getByRole("button", { name: "Save" }).click();
@@ -332,7 +340,9 @@ test.describe("K11 — Density tokens flow into rendered primitives across all 3
 			await page.goto("/work/portfolio");
 			await page.waitForSelector("[data-testid='work-portfolio-page']");
 
+			// L7: avatar opens AvatarMenu; Settings reached via menuitem.
 			await page.getByRole("button", { name: /^user profile$/i }).click();
+			await page.getByRole("menuitem", { name: /^settings$/i }).click();
 			await page.getByRole("tab", { name: "Appearance" }).click();
 			await page.getByLabel("Density").selectOption(preference);
 			await page.getByRole("button", { name: "Save" }).click();
@@ -366,8 +376,9 @@ test.describe("K8 — Theme persistence across breakpoint changes", () => {
 		await page.goto("/");
 		await page.waitForSelector("[data-testid='main-content']");
 
-		// Set theme = dark via Settings.
+		// Set theme = dark via Settings. L7: avatar opens AvatarMenu first.
 		await page.getByRole("button", { name: /^user profile$/i }).click();
+		await page.getByRole("menuitem", { name: /^settings$/i }).click();
 		await page.getByRole("tab", { name: "Appearance" }).click();
 		await page.getByLabel("Theme").selectOption("dark");
 		await page.getByRole("button", { name: "Save" }).click();

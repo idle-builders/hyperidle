@@ -131,6 +131,11 @@ export const sessions = pgTable(
 		outcome: text("outcome"),
 		notes: text("notes"),
 		traceId: text("trace_id"),
+		/**
+		 * @lore L7: see `schema.ts` sessions.pauseCheckpoint — opaque JSON
+		 * snapshot for session-level pause/resume. PG mirror.
+		 */
+		pauseCheckpoint: text("pause_checkpoint"),
 	},
 	(table) => [
 		index("sessions_task_id_idx").on(table.taskId),
@@ -342,6 +347,40 @@ export const factorySettings = pgTable("factory_settings", {
 	updatedAt: text("updated_at").notNull(),
 });
 
+// --- Recovery audit (L7, append-only, parity with sqlite) ---
+
+export const recoveryAudit = pgTable(
+	"recovery_audit",
+	{
+		id: text("id").primaryKey(),
+		actorId: text("actor_id")
+			.notNull()
+			.references(() => actors.id, { onDelete: "restrict" }),
+		verb: text("verb").notNull(),
+		reason: text("reason").notNull(),
+		targetKind: text("target_kind").notNull(),
+		targetId: text("target_id").notNull(),
+		at: text("at").notNull(),
+		outcome: text("outcome").notNull(),
+		meta: text("meta"),
+	},
+	(table) => [
+		index("recovery_audit_actor_idx").on(table.actorId),
+		index("recovery_audit_target_idx").on(table.targetKind, table.targetId),
+		index("recovery_audit_at_desc_idx").on(table.at),
+	],
+);
+
+// --- Factory state (L7 singleton) ---
+
+export const factoryState = pgTable("factory_state", {
+	id: text("id").primaryKey(),
+	paused: boolean("paused").notNull().default(false),
+	pausedBy: text("paused_by"),
+	pausedAt: text("paused_at"),
+	pausedReason: text("paused_reason"),
+});
+
 // --- Knowledge ---
 
 export const knowledgeItems = pgTable(
@@ -522,3 +561,9 @@ export type NewActorRow = typeof actors.$inferInsert;
 
 export type ThreadRoutingAuditEntry = typeof threadRoutingAudit.$inferSelect;
 export type NewThreadRoutingAuditEntry = typeof threadRoutingAudit.$inferInsert;
+
+export type RecoveryAuditEntry = typeof recoveryAudit.$inferSelect;
+export type NewRecoveryAuditEntry = typeof recoveryAudit.$inferInsert;
+
+export type FactoryStateRow = typeof factoryState.$inferSelect;
+export type NewFactoryStateRow = typeof factoryState.$inferInsert;

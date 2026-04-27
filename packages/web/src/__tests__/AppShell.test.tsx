@@ -91,7 +91,7 @@ describe("AppShell", () => {
 		});
 	});
 
-	it("opens settings panel when avatar is clicked", async () => {
+	it("opens settings panel via avatar menu (L7: avatar click → menu → Settings)", async () => {
 		const user = userEvent.setup();
 		renderShell("/conversations/review");
 
@@ -99,7 +99,9 @@ describe("AppShell", () => {
 			expect(screen.getByRole("button", { name: /user profile/i })).toBeInTheDocument();
 		});
 
+		// L7 AC1: avatar click opens the AvatarMenu — Settings is one item.
 		await user.click(screen.getByRole("button", { name: /user profile/i }));
+		await user.click(await screen.findByRole("menuitem", { name: /settings/i }));
 
 		await waitFor(() => {
 			expect(screen.getByRole("dialog", { name: /settings/i })).toBeInTheDocument();
@@ -170,11 +172,12 @@ describe("AppShell", () => {
 			const user = userEvent.setup();
 			const { container } = renderShell("/conversations/review");
 
-			// Open settings via avatar button.
+			// L7: Open settings via avatar button → menu → Settings item.
 			await waitFor(() => {
 				expect(screen.getByRole("button", { name: /user profile/i })).toBeInTheDocument();
 			});
 			await user.click(screen.getByRole("button", { name: /user profile/i }));
+			await user.click(await screen.findByRole("menuitem", { name: /settings/i }));
 
 			// Switch to Appearance tab and pick Compact, then save.
 			await waitFor(() => {
@@ -204,6 +207,7 @@ describe("AppShell", () => {
 				expect(screen.getByRole("button", { name: /user profile/i })).toBeInTheDocument();
 			});
 			await user.click(screen.getByRole("button", { name: /user profile/i }));
+			await user.click(await screen.findByRole("menuitem", { name: /settings/i }));
 			await user.click(screen.getByRole("tab", { name: "Appearance" }));
 
 			const densitySelect = screen.getByLabelText("Density");

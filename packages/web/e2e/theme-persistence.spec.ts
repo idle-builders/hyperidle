@@ -58,8 +58,10 @@ test.describe("Theme persistence", () => {
 		await page.goto("/");
 		await page.waitForSelector("[data-testid='main-content']");
 
-		// Open Settings → Appearance → choose dark → save.
+		// Open Settings → Appearance → choose dark → save. L7: avatar opens
+		// AvatarMenu first; click the "Settings" menuitem to reach the panel.
 		await page.getByRole("button", { name: /^user profile$/i }).click();
+		await page.getByRole("menuitem", { name: /^settings$/i }).click();
 		await expect(page.getByRole("dialog", { name: /settings/i })).toBeVisible();
 		await page.getByRole("tab", { name: "Appearance" }).click();
 		await page.getByLabel("Theme").selectOption("dark");
@@ -126,7 +128,9 @@ test.describe("Theme persistence", () => {
 		await page.goto("/");
 		await page.waitForSelector("[data-testid='main-content']");
 
+		// L7: avatar opens AvatarMenu first; click Settings to reach the panel.
 		await page.getByRole("button", { name: /^user profile$/i }).click();
+		await page.getByRole("menuitem", { name: /^settings$/i }).click();
 		await page.getByRole("tab", { name: "Appearance" }).click();
 		const themeSelect = page.getByLabel("Theme");
 		await expect(themeSelect).toHaveValue("light");

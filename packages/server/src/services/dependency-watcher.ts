@@ -2,6 +2,7 @@ import { type HyperIdleDb, tasks } from "@hyperidle/db";
 import { createLogger, type EventBus } from "@hyperidle/shared";
 import { and, eq, sql } from "drizzle-orm";
 import { escapeLikePattern } from "./like-escape.js";
+import { readFactoryState } from "./recovery-service.js";
 import { transitionTask } from "./task-state-machine.js";
 
 const logger = createLogger({ pkg: "server.dependency-watcher" });
@@ -28,6 +29,23 @@ export function checkAndUnblockDependents(
 	eventBus: EventBus,
 	completedTaskId: string,
 ): void {
+	// @lore L7 (ADV2): when the factory is paused (kill switch active),
+	// the watcher MUST NOT auto-transition any hold task to accepted.
+	// The kill cascade flips queued (`accepted`) tasks to `hold` to block
+	// them. Without this guard, a dependency completing during a pause
+	// promotes those tasks back to `accepted` — defeating the kill
+	// switch. On factory resume, `resumeFactory` restores the kill-
+	// flipped tasks; subsequent dependency completions will then run
+	// the watcher normally.
+	const factory = readFactoryState(db);
+	if (factory.paused) {
+		logger.info("dependency-watcher: skipping hold→accepted transitions (factory paused)", {
+			completedTaskId,
+			pausedBy: factory.pausedBy,
+		});
+		return;
+	}
+
 	// SQL pre-filter: hold-state tasks whose dependencies include the literal
 	// quoted completedTaskId. The LIKE pattern wraps the id in JSON quotes
 	// so substrings of unrelated IDs ("dep-1" vs "dep-12") don't match.

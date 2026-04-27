@@ -1,0 +1,11 @@
+-- L7: pause_checkpoint column on sessions.
+--
+-- Stashes a JSON snapshot when a session is paused so resume can
+-- restore prior state. Set by both mid-session pause and factory-wide
+-- kill (which cascades to every running session); `pausedByKill: true`
+-- in the JSON marks rows that the factory-resume path should auto-
+-- restore. Mid-session pauses (`pausedByKill` absent / false) require
+-- an explicit per-session resume — they do NOT lift on factory resume.
+--
+-- Mirrors planning §3 in `.pipeline-plan.md`.
+ALTER TABLE `sessions` ADD `pause_checkpoint` text;
