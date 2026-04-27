@@ -12,8 +12,10 @@ import { errorHandler } from "./middleware/error-handler.js";
 import { createRateLimiter } from "./middleware/rate-limit.js";
 import { createAgentRoutes } from "./routes/agents.js";
 import { createAuthRoutes } from "./routes/auth.js";
+import { createFactoryPausedGuard } from "./middleware/factory-paused-guard.js";
 import { createBetRoutes } from "./routes/bets.js";
 import { createConversationRoutes } from "./routes/conversations.js";
+import { createFactoryRoutes, createSessionRecoveryRoutes } from "./routes/recovery.js";
 import { createGitExportRoutes } from "./routes/git-export-routes.js";
 import { health } from "./routes/health.js";
 import { createKnowledgeRoutes } from "./routes/knowledge.js";
@@ -297,6 +299,25 @@ function createApp(options?: AppOptions): Hono {
 		}
 
 		api.route("/me", meRoutes);
+
+		// L7: factory-paused guard — applied SELECTIVELY to mutation routes
+		// that trigger NEW agent work (verdict commit, session create, …).
+		// Recovery verbs themselves (`/factory/pause|resume|state`,
+		// `/sessions/:id/pause|resume`, `/threads/:id/verdict/rollback|undo`)
+		// MUST NOT be guarded — they're the founder's cleanup tools and
+		// must remain reachable while paused. See `.pipeline-plan.md` §8.
+		const factoryPausedGuard = createFactoryPausedGuard(options.db);
+		// Verdict commit (POST) — blocked while paused.
+		api.use("/conversations/responses", async (c, next) => {
+			if (c.req.method === "POST") return factoryPausedGuard(c, next);
+			return next();
+		});
+
+		// L7: recovery verbs FIRST so they're matched before any guards
+		// or other mutation routes. Identity is server-resolved; reasons
+		// are required (Zod-enforced) for kill / pause / rollback verbs.
+		api.route("/factory", createFactoryRoutes(options.db, eventBus));
+
 		api.route("/threads", createThreadRoutingRoutes(options.db));
 		api.route("/bets", createBetRoutes(options.db, eventBus));
 		api.route("/tasks", createTaskRoutes(options.db, eventBus));
@@ -305,6 +326,10 @@ function createApp(options?: AppOptions): Hono {
 		api.route("/conversations", createConversationRoutes(options.db, eventBus));
 		api.route("/agents", createAgentRoutes(options.db, eventBus));
 		api.route("/routines", createRoutineRoutes(options.db, eventBus));
+		// L7: session pause/resume — mounted alongside the existing
+		// session routes. The two routers share the `/sessions` mount
+		// path; recovery routes match `/:id/pause` and `/:id/resume`.
+		api.route("/sessions", createSessionRecoveryRoutes(options.db, eventBus));
 		api.route("/sessions", createSessionRoutes(options.db, eventBus));
 		api.route("/status", createStatusRoutes(options.db));
 		// L8: dedicated system-stability aggregate (crashed_sessions, cap_reached,

@@ -93,8 +93,9 @@ function seedRunningSessions(db: HyperIdleDb, count = 3): string[] {
 			id: "bet-1",
 			productId: "prod-1",
 			teamId: "team-1",
-			title: "Bet",
-			state: "running",
+			pitch: "Bet pitch",
+			appetite: "1w",
+			status: "active",
 			createdAt: NOW_ISO,
 		})
 		.run();

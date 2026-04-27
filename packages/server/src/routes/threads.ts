@@ -14,10 +14,14 @@
  * Writes a new append-only `responses` row with `transition='undo'`.
  * See `.plan-L4.md` §3.2.
  */
-import { actors, type HyperIdleDb, items, responses, threads } from "@hyperidle/db";
+import { actors, type HyperIdleDb, items, recoveryAudit, responses, threads } from "@hyperidle/db";
 import type { ApiErrorResponse } from "@hyperidle/shared";
-import { API_ERROR_CODES, DEFAULT_UNDO_WINDOW_SECONDS } from "@hyperidle/shared";
-import { desc, eq } from "drizzle-orm";
+import {
+	API_ERROR_CODES,
+	DEFAULT_UNDO_WINDOW_SECONDS,
+	rollbackRequestSchema,
+} from "@hyperidle/shared";
+import { and, desc, eq } from "drizzle-orm";
 import { Hono } from "hono";
 import { z } from "zod";
 import type { ActorEnv } from "../middleware/actor-context.js";
@@ -247,6 +251,132 @@ export function createThreadRoutingRoutes(db: HyperIdleDb): Hono<ActorEnv> {
 				reverted_response_id: outcome.revertedResponseId,
 				prior_decision: outcome.priorDecision,
 				at: outcome.at,
+			},
+			200,
+		);
+	});
+
+	// L7 — POST /:threadId/verdict/rollback
+	//
+	// Rolls back a previously committed verdict on a thread. Records an
+	// append-only `recovery_audit` row with `verb='rollback'`. Cleanup
+	// verb — bypasses the factory-paused guard.
+	//
+	// @lore L7 SECURITY: identity is server-derived from `c.get("actorId")`.
+	// Body is `.strict()` so a smuggled `actorId` is rejected at the validator
+	// layer (mirrors L4 verdict-undo hardening).
+	router.post("/:threadId/verdict/rollback", validateBody(rollbackRequestSchema), (c) => {
+		const threadId = c.req.param("threadId");
+		const body = c.req.valid("json");
+
+		const actorId = c.get("actorId");
+		if (!actorId) {
+			const response: ApiErrorResponse = {
+				error: "No actor identified",
+				code: API_ERROR_CODES.UNAUTHORIZED,
+			};
+			return c.json(response, 401);
+		}
+
+		type RollbackOutcome =
+			| { kind: "ok"; auditId: string }
+			| { kind: "not_found" }
+			| { kind: "actor_mismatch" }
+			| { kind: "already_rolled_back" };
+
+		const outcome = db.transaction(
+			(tx): RollbackOutcome => {
+				const thread = tx.select().from(threads).where(eq(threads.id, threadId)).get();
+				if (!thread) return { kind: "not_found" };
+
+				// Find the latest committed verdict on any item in this thread.
+				const latest = tx
+					.select({
+						id: responses.id,
+						approverId: responses.approverId,
+						respondedAt: responses.respondedAt,
+					})
+					.from(responses)
+					.innerJoin(items, eq(items.id, responses.itemId))
+					.where(and(eq(items.threadId, threadId), eq(responses.transition, "commit")))
+					.orderBy(desc(responses.respondedAt))
+					.limit(1)
+					.get();
+
+				if (!latest) return { kind: "not_found" };
+				if (latest.approverId !== actorId) return { kind: "actor_mismatch" };
+
+				// Already-rolled-back guard: if the most recent recovery_audit
+				// row for this thread is a rollback, reject (410 gone).
+				const lastAudit = tx
+					.select({ verb: recoveryAudit.verb })
+					.from(recoveryAudit)
+					.where(
+						and(
+							eq(recoveryAudit.targetKind, "thread"),
+							eq(recoveryAudit.targetId, threadId),
+						),
+					)
+					.orderBy(desc(recoveryAudit.at))
+					.limit(1)
+					.get();
+				if (lastAudit?.verb === "rollback") {
+					return { kind: "already_rolled_back" };
+				}
+
+				const auditId = crypto.randomUUID();
+				const now = new Date().toISOString();
+
+				// @lore L7: rollback is best-effort. Until L9's
+				// `artifact.reversibility` metadata ships, every rollback is
+				// recorded as `succeeded`. The agent runtime may re-write
+				// the row to `failed`/`partially` once the runtime signal
+				// lands (see `.pipeline-plan.md` §7).
+				tx.insert(recoveryAudit)
+					.values({
+						id: auditId,
+						actorId,
+						verb: "rollback",
+						reason: body.reason,
+						targetKind: "thread",
+						targetId: threadId,
+						at: now,
+						outcome: "succeeded",
+						meta: JSON.stringify({ revertedResponseId: latest.id }),
+					})
+					.run();
+
+				return { kind: "ok", auditId };
+			},
+			{ behavior: "immediate" },
+		);
+
+		if (outcome.kind === "not_found") {
+			const response: ApiErrorResponse = {
+				error: "thread_or_verdict_not_found",
+				code: API_ERROR_CODES.NOT_FOUND,
+			};
+			return c.json(response, 404);
+		}
+		if (outcome.kind === "actor_mismatch") {
+			const response: ApiErrorResponse = {
+				error: "actor_mismatch",
+				code: API_ERROR_CODES.FORBIDDEN,
+			};
+			return c.json(response, 403);
+		}
+		if (outcome.kind === "already_rolled_back") {
+			const response: ApiErrorResponse = {
+				error: "already_rolled_back",
+				code: API_ERROR_CODES.GONE,
+			};
+			return c.json(response, 410);
+		}
+
+		return c.json(
+			{
+				auditId: outcome.auditId,
+				outcome: "succeeded" as const,
 			},
 			200,
 		);
