@@ -99,7 +99,7 @@ export function createBetRoutes(db: HyperIdleDb, eventBus: EventBus): Hono {
 
 	// POST /bets — create shaped bet
 	router.post("/", validateBody(createBetSchema), (c) => {
-		const body = c.req.valid("json" as never) as z.infer<typeof createBetSchema>;
+		const body = c.req.valid("json");
 		const id = crypto.randomUUID();
 		const now = new Date().toISOString();
 
@@ -124,7 +124,7 @@ export function createBetRoutes(db: HyperIdleDb, eventBus: EventBus): Hono {
 	// PATCH /bets/:id — update mutable fields (in_progress only)
 	router.patch("/:id", validateBody(updateBetSchema), async (c) => {
 		const betId = c.req.param("id");
-		const body = c.req.valid("json" as never) as z.infer<typeof updateBetSchema>;
+		const body = c.req.valid("json");
 
 		await updateBetField(db, eventBus, betId, body.field, body.value, body.reason);
 
@@ -151,7 +151,7 @@ export function createBetRoutes(db: HyperIdleDb, eventBus: EventBus): Hono {
 	// POST /bets/:id/kill — kill with reason (required)
 	router.post("/:id/kill", validateBody(killBetSchema), async (c) => {
 		const betId = c.req.param("id");
-		const body = c.req.valid("json" as never) as z.infer<typeof killBetSchema>;
+		const body = c.req.valid("json");
 		await transitionBet(db, eventBus, betId, "killed", { reason: body.reason });
 		const updated = db.select().from(bets).where(eq(bets.id, betId)).get();
 		return c.json(updated);

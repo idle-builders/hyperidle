@@ -118,6 +118,9 @@
     "packages/shared": {
       "name": "@hyperidle/shared",
       "version": "0.0.1",
+      "dependencies": {
+        "zod": "^4.3.6",
+      },
     },
     "packages/web": {
       "name": "@hyperidle/web",

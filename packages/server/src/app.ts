@@ -1,8 +1,10 @@
-import type { HyperIdleDb } from "@hyperidle/db";
+import { actors, type HyperIdleDb } from "@hyperidle/db";
 import type { ApiErrorResponse } from "@hyperidle/shared";
 import { API_ERROR_CODES, createLogger, EventBus } from "@hyperidle/shared";
+import { eq } from "drizzle-orm";
 import { Hono } from "hono";
 import { createUpgradeTokenStore, type UpgradeTokenStore } from "./auth/upgrade-token-store.js";
+import { type ActorEnv, createActorContextMiddleware } from "./middleware/actor-context.js";
 import { authMiddleware } from "./middleware/auth.js";
 import { createBodyLimit } from "./middleware/body-limit.js";
 import { corsMiddleware } from "./middleware/cors.js";
@@ -15,6 +17,7 @@ import { createConversationRoutes } from "./routes/conversations.js";
 import { createGitExportRoutes } from "./routes/git-export-routes.js";
 import { health } from "./routes/health.js";
 import { createKnowledgeRoutes } from "./routes/knowledge.js";
+import { meRoutes } from "./routes/me.js";
 import { createNotificationRoutes } from "./routes/notifications-routes.js";
 import { createObservabilityRoutes } from "./routes/observability-routes.js";
 import { createRailRoutes } from "./routes/rail.js";
@@ -23,6 +26,7 @@ import { createSessionRoutes } from "./routes/sessions-routes.js";
 import { createStatusRoutes } from "./routes/status.js";
 import { createTaskRoutes } from "./routes/tasks.js";
 import { registerTestRoutes } from "./routes/test-routes.js";
+import { createThreadRoutingRoutes } from "./routes/threads.js";
 import { registerBuiltinRoutineHandlers } from "./services/builtin-routines.js";
 import { registerCostCapDedupReleaser } from "./services/cost-cap.js";
 import { registerGitExportHandler } from "./services/git-export.js";
@@ -165,7 +169,11 @@ function createApp(options?: AppOptions): Hono {
 	app.route("/", health);
 
 	// ----- /api sub-router -----
-	const api = new Hono();
+	// L2: typed with `ActorEnv` so any route can read `c.get("actorId")` /
+	// `c.get("actorRow")` without retrofitting per-router generics. The
+	// actor-context middleware (mounted below when `db` is present) is the
+	// sole writer; routes that don't need actor context simply don't read.
+	const api = new Hono<ActorEnv>();
 
 	// CORS on all /api routes
 	api.use("*", corsMiddleware);
@@ -260,6 +268,35 @@ function createApp(options?: AppOptions): Hono {
 	// Register work endpoints if db is provided
 	if (options?.db) {
 		const eventBus = options.eventBus ?? new EventBus();
+
+		// L2: actor-context middleware resolves `X-Actor-Id` (or env
+		// fallback) into a row in `actors` and stashes it on the request
+		// context. Mounted after auth so unauthenticated callers never
+		// trigger a DB lookup. Mounted before route handlers so
+		// `c.get("actorId")` is always defined within route logic.
+		api.use("*", createActorContextMiddleware(options.db));
+
+		// L2 review (security WARN-1): validate the env fallback resolves
+		// to a real actor at boot. Don't fail-fast — env may be set
+		// before the DB is migrated in some flows — but log a clear
+		// startup warning so the operator notices a typo or stale value
+		// before every request 404s.
+		const envDefault = process.env.HYPERIDLE_DEFAULT_ACTOR_ID;
+		if (envDefault && envDefault.length > 0) {
+			try {
+				const row = options.db.select().from(actors).where(eq(actors.id, envDefault)).get();
+				if (!row) {
+					appLogger.warn("HYPERIDLE_DEFAULT_ACTOR_ID does not match any actor row", {
+						envDefault,
+					});
+				}
+			} catch {
+				// DB not yet migrated — defer the check to first request.
+			}
+		}
+
+		api.route("/me", meRoutes);
+		api.route("/threads", createThreadRoutingRoutes(options.db));
 		api.route("/bets", createBetRoutes(options.db, eventBus));
 		api.route("/tasks", createTaskRoutes(options.db, eventBus));
 		api.route("/knowledge", createKnowledgeRoutes(options.db, eventBus));

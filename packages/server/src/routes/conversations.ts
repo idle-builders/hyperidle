@@ -1,4 +1,4 @@
-import { agents, type HyperIdleDb, items, responses, threads } from "@hyperidle/db";
+import { actors, agents, type HyperIdleDb, items, responses, threads } from "@hyperidle/db";
 import type {
 	ApiErrorResponse,
 	EventBus,
@@ -6,10 +6,12 @@ import type {
 	ResponseRecordedEvent,
 } from "@hyperidle/shared";
 import { API_ERROR_CODES } from "@hyperidle/shared";
-import { desc, eq, sql } from "drizzle-orm";
+import { and, desc, eq, isNotNull, ne, sql } from "drizzle-orm";
 import { Hono } from "hono";
 import { z } from "zod";
+import type { ActorEnv } from "../middleware/actor-context.js";
 import { validateBody } from "../middleware/validate.js";
+import { isFounderActor } from "../services/founder-conflict.js";
 import { routeToFounder } from "../services/founder-router.js";
 import { routeItem } from "../services/item-router.js";
 
@@ -57,8 +59,8 @@ const createResponseSchema = z.object({
 /**
  * Create Hono routes for conversation endpoints.
  */
-export function createConversationRoutes(db: HyperIdleDb, eventBus: EventBus): Hono {
-	const router = new Hono();
+export function createConversationRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<ActorEnv> {
+	const router = new Hono<ActorEnv>();
 
 	// GET / — list threads, paginated, sorted by recency or attention_score
 	router.get("/", (c) => {
@@ -144,7 +146,7 @@ export function createConversationRoutes(db: HyperIdleDb, eventBus: EventBus): H
 
 	// POST /items — create item
 	router.post("/items", validateBody(createItemSchema), (c) => {
-		const body = c.req.valid("json" as never) as z.infer<typeof createItemSchema>;
+		const body = c.req.valid("json");
 		const id = crypto.randomUUID();
 		const now = new Date().toISOString();
 
@@ -212,7 +214,7 @@ export function createConversationRoutes(db: HyperIdleDb, eventBus: EventBus): H
 
 	// POST /responses — record verdict
 	router.post("/responses", validateBody(createResponseSchema), (c) => {
-		const body = c.req.valid("json" as never) as z.infer<typeof createResponseSchema>;
+		const body = c.req.valid("json");
 		const id = crypto.randomUUID();
 		const now = new Date().toISOString();
 
@@ -226,21 +228,105 @@ export function createConversationRoutes(db: HyperIdleDb, eventBus: EventBus): H
 			return c.json(response, 404);
 		}
 
-		db.insert(responses)
-			.values({
-				id,
-				itemId: body.itemId,
-				decision: body.decision,
-				inlineAnchor: body.inlineAnchor ?? null,
-				edits: body.edits ?? null,
-				feedback: body.feedback ?? null,
-				approverId: body.approverId ?? null,
-				view: body.view ?? null,
-				respondedAt: now,
-			})
-			.run();
+		// L2: when an actor is identified, server-derive `approverId` from
+		// `c.get("actorId")` — body value is ignored. Programmatic verdicts
+		// (e.g. `policy_engine`) bypass this path entirely (no `X-Actor-Id`)
+		// and may set `body.approverId` directly — but never as a founder.
+		//
+		// @lore L2 review (security CRIT-2 / adversary C1): when actorId
+		// is null and `body.approverId` is set, we MUST refuse any value
+		// matching a registered actor row. Otherwise an API key holder
+		// could omit `X-Actor-Id`, set `body.approverId = "actor:ceo"`,
+		// and forge a founder verdict bypassing the conflict gate.
+		const actorId = c.get("actorId") ?? null;
+		if (actorId === null && body.approverId && isFounderActor(body.approverId, db)) {
+			const response: ApiErrorResponse = {
+				error: "Cannot claim founder identity without authentication",
+				code: API_ERROR_CODES.UNAUTHORIZED,
+				details: { field: "approverId" },
+			};
+			return c.json(response, 401);
+		}
+		const approverId = actorId ?? body.approverId ?? null;
 
-		const created = db.select().from(responses).where(eq(responses.id, id)).get();
+		// L2 founder-conflict pre-check + insert wrapped in a single
+		// transaction. better-sqlite3 transactions default to DEFERRED
+		// (read-only until first write) which leaves a TOCTOU window: two
+		// concurrent SELECTs see no conflict, both INSERT, both commit.
+		// `behavior: 'immediate'` upgrades to BEGIN IMMEDIATE so the
+		// transaction acquires a write lock at the start and concurrent
+		// founder verdicts serialise.
+		//
+		// @lore L2 review (W1/C2): drizzle better-sqlite3 supports
+		// `.transaction(fn, { behavior: 'immediate' })` since 0.30; PG
+		// default isolation is sufficient given the FK + check. A
+		// belt-and-braces partial unique index would need to enforce
+		// "one founder verdict per thread", but `responses` does not
+		// denormalise `thread_id`. The IMMEDIATE transaction is the
+		// authoritative serialisation point; adding a `thread_id` column
+		// to `responses` is deferred (TRACK-L L8 audit-driven UI surface).
+		const result = db.transaction(
+			(tx) => {
+				if (actorId !== null) {
+					const prior = tx
+						.select({
+							approverId: responses.approverId,
+							decision: responses.decision,
+							respondedAt: responses.respondedAt,
+						})
+						.from(responses)
+						.innerJoin(items, eq(items.id, responses.itemId))
+						.innerJoin(actors, eq(actors.id, responses.approverId))
+						.where(
+							and(
+								eq(items.threadId, item.threadId),
+								isNotNull(responses.approverId),
+								ne(responses.approverId, actorId),
+							),
+						)
+						.limit(1)
+						.get();
+
+					if (prior?.approverId) {
+						return {
+							ok: false as const,
+							conflict: {
+								actor_id: prior.approverId,
+								at: prior.respondedAt,
+								action: prior.decision,
+							},
+						};
+					}
+				}
+
+				tx.insert(responses)
+					.values({
+						id,
+						itemId: body.itemId,
+						decision: body.decision,
+						inlineAnchor: body.inlineAnchor ?? null,
+						edits: body.edits ?? null,
+						feedback: body.feedback ?? null,
+						approverId,
+						view: body.view ?? null,
+						respondedAt: now,
+					})
+					.run();
+
+				const created = tx.select().from(responses).where(eq(responses.id, id)).get();
+				return { ok: true as const, created };
+			},
+			{ behavior: "immediate" },
+		);
+
+		if (!result.ok) {
+			const response: ApiErrorResponse = {
+				error: "founder_conflict",
+				code: API_ERROR_CODES.FOUNDER_CONFLICT,
+				details: { existing_verdict: result.conflict },
+			};
+			return c.json(response, 409);
+		}
 
 		// Emit response_recorded event
 		const event: ResponseRecordedEvent = {
@@ -253,7 +339,7 @@ export function createConversationRoutes(db: HyperIdleDb, eventBus: EventBus): H
 		};
 		eventBus.emit(event);
 
-		return c.json(created, 201);
+		return c.json(result.created, 201);
 	});
 
 	return router;

@@ -1,4 +1,4 @@
-import type { AutonomyLevel } from "@hyperidle/shared";
+import type { ActorRole, AutonomyLevel } from "@hyperidle/shared";
 import { index, integer, primaryKey, real, sqliteTable, text } from "drizzle-orm/sqlite-core";
 
 // --- Core tables ---
@@ -167,13 +167,59 @@ export const routines = sqliteTable("routines", {
 
 // --- Messaging ---
 
+// @lore L2: `routed_to_actor_id` is nullable. NULL means "either founder
+// can act" (per AC13). Both founders retain visibility on every thread —
+// reassignment is routing, not ownership transfer. `domain_tag` is
+// free-form text; canonical values live in
+// `packages/shared/src/constants/domains.ts`.
 export const threads = sqliteTable("threads", {
 	id: text("id").primaryKey(),
 	kind: text("kind").notNull(),
 	pinned: integer("pinned").default(0),
 	participants: text("participants"),
+	routedToActorId: text("routed_to_actor_id").references(() => actors.id, {
+		onDelete: "restrict",
+	}),
+	domainTag: text("domain_tag"),
 	createdAt: text("created_at").notNull(),
 });
+
+// --- Actors (L2) ---
+
+// @lore L2: `domain_tags` is JSON-encoded text (matches `agents.skills`,
+// `threads.participants`). A join table is rejected because there are
+// at most 2 actors and ≤7 canonical tags; full-table scan is constant
+// time and consistent with the rest of the schema.
+export const actors = sqliteTable("actors", {
+	id: text("id").primaryKey(),
+	role: text("role").notNull().$type<ActorRole>(),
+	domainTags: text("domain_tags").notNull().default("[]"),
+	createdAt: text("created_at").notNull(),
+});
+
+// --- Thread routing audit (L2) ---
+
+// @lore L2: `thread_routing_audit` is logically append-only. Never
+// UPDATE or DELETE rows from this table — its forensic value depends on
+// every change being durable. Same convention as
+// `agent_skill_autonomy_audit` (L1 review N3).
+export const threadRoutingAudit = sqliteTable(
+	"thread_routing_audit",
+	{
+		id: text("id").primaryKey(),
+		threadId: text("thread_id")
+			.notNull()
+			.references(() => threads.id, { onDelete: "restrict" }),
+		// Nullable: a thread that was previously "either founder" (NULL)
+		// will record `from_actor_id = NULL` on its first reassignment.
+		fromActorId: text("from_actor_id").references(() => actors.id, { onDelete: "restrict" }),
+		toActorId: text("to_actor_id").references(() => actors.id, { onDelete: "restrict" }),
+		reason: text("reason").notNull(),
+		changedBy: text("changed_by").notNull(),
+		at: text("at").notNull(),
+	},
+	(table) => [index("tra_thread_idx").on(table.threadId), index("tra_at_idx").on(table.at)],
+);
 
 export const messages = sqliteTable(
 	"messages",
@@ -481,3 +527,9 @@ export type NewKnowledgeConflict = typeof knowledgeConflicts.$inferInsert;
 
 export type NotificationQueueRow = typeof notificationQueue.$inferSelect;
 export type NewNotificationQueueRow = typeof notificationQueue.$inferInsert;
+
+export type ActorRow = typeof actors.$inferSelect;
+export type NewActorRow = typeof actors.$inferInsert;
+
+export type ThreadRoutingAuditEntry = typeof threadRoutingAudit.$inferSelect;
+export type NewThreadRoutingAuditEntry = typeof threadRoutingAudit.$inferInsert;

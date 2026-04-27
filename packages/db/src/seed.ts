@@ -3,6 +3,7 @@ import type { BaseSQLiteDatabase } from "drizzle-orm/sqlite-core";
 import type { HyperIdleDb } from "./connection.js";
 import type * as schema from "./schema.js";
 import {
+	actors,
 	agents,
 	bets,
 	factorySettings,
@@ -37,6 +38,29 @@ export type SeedableDb = BaseSQLiteDatabase<"sync", unknown, typeof schema>;
 /** Idempotent seed: ≥1 row per major table. */
 export function seed(db: SeedableDb | HyperIdleDb): void {
 	const now = new Date().toISOString();
+
+	// L2: founder actors. Idempotent — `onConflictDoNothing` matches the
+	// pattern used by every other seed insert. The seed is the sole
+	// writer of these rows; the L2 migration only creates the table.
+	db.insert(actors)
+		.values({
+			id: "actor:ceo",
+			role: "CEO",
+			domainTags: JSON.stringify(["market", "growth", "portfolio"]),
+			createdAt: now,
+		})
+		.onConflictDoNothing()
+		.run();
+
+	db.insert(actors)
+		.values({
+			id: "actor:cpo",
+			role: "CPO",
+			domainTags: JSON.stringify(["product", "design", "tech", "content"]),
+			createdAt: now,
+		})
+		.onConflictDoNothing()
+		.run();
 
 	db.insert(products)
 		.values({ id: "seed-product-1", name: "Nimmly", phase: "build", createdAt: now })

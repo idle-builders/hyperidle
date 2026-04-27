@@ -20,9 +20,11 @@ export {
 } from "./profiles.js";
 export * as schema from "./schema.js";
 export {
+	type ActorRow,
 	type Agent,
 	type AgentSkill,
 	type AgentSkillAutonomyAuditEntry,
+	actors,
 	agentSkillAutonomyAudit,
 	agentSkills,
 	agents,
@@ -42,6 +44,7 @@ export {
 	knowledgeItems,
 	type Message,
 	messages,
+	type NewActorRow,
 	type NewAgent,
 	type NewAgentSkill,
 	type NewAgentSkillAutonomyAuditEntry,
@@ -61,6 +64,7 @@ export {
 	type NewTask,
 	type NewTeam,
 	type NewThread,
+	type NewThreadRoutingAuditEntry,
 	type NotificationQueueRow,
 	notificationQueue,
 	// Types
@@ -76,8 +80,10 @@ export {
 	type Task,
 	type Team,
 	type Thread,
+	type ThreadRoutingAuditEntry,
 	tasks,
 	teams,
+	threadRoutingAudit,
 	threads,
 } from "./schema.js";
 export * as pgSchema from "./schema.pg.js";

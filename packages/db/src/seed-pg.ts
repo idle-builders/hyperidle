@@ -1,6 +1,7 @@
 import { eq } from "drizzle-orm";
 import type { PgDatabase, PgQueryResultHKT } from "drizzle-orm/pg-core";
 import {
+	actors,
 	agents,
 	bets,
 	factorySettings,
@@ -31,6 +32,26 @@ export type SeedablePgDb = PgDatabase<PgQueryResultHKT, Record<string, never>>;
 
 export async function seedPg(db: SeedablePgDb): Promise<void> {
 	const now = new Date().toISOString();
+
+	// L2: founder actors. Idempotent.
+	await db
+		.insert(actors)
+		.values({
+			id: "actor:ceo",
+			role: "CEO",
+			domainTags: JSON.stringify(["market", "growth", "portfolio"]),
+			createdAt: now,
+		})
+		.onConflictDoNothing();
+	await db
+		.insert(actors)
+		.values({
+			id: "actor:cpo",
+			role: "CPO",
+			domainTags: JSON.stringify(["product", "design", "tech", "content"]),
+			createdAt: now,
+		})
+		.onConflictDoNothing();
 
 	await db
 		.insert(products)

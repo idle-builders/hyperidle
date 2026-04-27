@@ -111,11 +111,11 @@ export function createAgentRoutes(db: HyperIdleDb, eventBus: EventBus): Hono {
 	router.patch("/:id/skills/:skillId", validateBody(updateSkillSchema), (c) => {
 		const agentId = c.req.param("id");
 		const skillId = c.req.param("skillId");
-		// TODO(L1 review M4): typed-router cleanup — the `"json" as never`
-		// double-cast is project-wide tech debt. Threading the validated
-		// schema type through every route handler requires a generic
-		// `Hono<{ in: { json: T } }>` rewrite that's out of scope for L1.
-		const body = c.req.valid("json" as never) as z.infer<typeof updateSkillSchema>;
+		// L2 review (W3): typed-router cleanup landed via the
+		// `validateBody<T extends z.ZodTypeAny>` generic preserving the
+		// schema's inferred type through `ReturnType<typeof zValidator<T,
+		// "json">>`. `c.req.valid("json")` is now natively typed.
+		const body = c.req.valid("json");
 
 		const existing = db
 			.select()
@@ -169,7 +169,7 @@ export function createAgentRoutes(db: HyperIdleDb, eventBus: EventBus): Hono {
 	router.patch("/:id/autonomy", validateBody(patchAutonomySchema), (c) => {
 		const agentId = c.req.param("id");
 		// TODO(L1 review M4): typed-router cleanup, see PATCH /:id/skills/:skillId.
-		const body = c.req.valid("json" as never) as z.infer<typeof patchAutonomySchema>;
+		const body = c.req.valid("json");
 
 		const agent = db.select().from(agents).where(eq(agents.id, agentId)).get();
 		if (!agent) {
@@ -221,7 +221,7 @@ export function createAgentRoutes(db: HyperIdleDb, eventBus: EventBus): Hono {
 	// POST /:id/inbox — Send message to agent
 	router.post("/:id/inbox", validateBody(sendMessageSchema), (c) => {
 		const recipientId = c.req.param("id");
-		const body = c.req.valid("json" as never) as z.infer<typeof sendMessageSchema>;
+		const body = c.req.valid("json");
 
 		const agent = db.select().from(agents).where(eq(agents.id, recipientId)).get();
 		if (!agent) {

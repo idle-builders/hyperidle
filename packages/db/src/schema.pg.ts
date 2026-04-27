@@ -1,4 +1,4 @@
-import type { AutonomyLevel } from "@hyperidle/shared";
+import type { ActorRole, AutonomyLevel } from "@hyperidle/shared";
 import { boolean, index, integer, pgTable, primaryKey, real, text } from "drizzle-orm/pg-core";
 
 // --- Core tables ---
@@ -162,13 +162,49 @@ export const routines = pgTable("routines", {
 
 // --- Messaging ---
 
+// @lore L2: see schema.ts for routing-column rationale (nullable means
+// "either founder"). Postgres mirror of the SQLite shape.
 export const threads = pgTable("threads", {
 	id: text("id").primaryKey(),
 	kind: text("kind").notNull(),
 	pinned: boolean("pinned").default(false),
 	participants: text("participants"),
+	routedToActorId: text("routed_to_actor_id").references(() => actors.id, {
+		onDelete: "restrict",
+	}),
+	domainTag: text("domain_tag"),
 	createdAt: text("created_at").notNull(),
 });
+
+// --- Actors (L2) ---
+
+// @lore L2: `domain_tags` is JSON-encoded text (mirrors the SQLite shape;
+// see schema.ts for the rationale: at most 2 actors and ≤7 canonical
+// tags makes a join table unnecessary).
+export const actors = pgTable("actors", {
+	id: text("id").primaryKey(),
+	role: text("role").notNull().$type<ActorRole>(),
+	domainTags: text("domain_tags").notNull().default("[]"),
+	createdAt: text("created_at").notNull(),
+});
+
+// --- Thread routing audit (L2, append-only) ---
+
+export const threadRoutingAudit = pgTable(
+	"thread_routing_audit",
+	{
+		id: text("id").primaryKey(),
+		threadId: text("thread_id")
+			.notNull()
+			.references(() => threads.id, { onDelete: "restrict" }),
+		fromActorId: text("from_actor_id").references(() => actors.id, { onDelete: "restrict" }),
+		toActorId: text("to_actor_id").references(() => actors.id, { onDelete: "restrict" }),
+		reason: text("reason").notNull(),
+		changedBy: text("changed_by").notNull(),
+		at: text("at").notNull(),
+	},
+	(table) => [index("tra_thread_idx").on(table.threadId), index("tra_at_idx").on(table.at)],
+);
 
 export const messages = pgTable(
 	"messages",
@@ -470,3 +506,9 @@ export type NewKnowledgeConflict = typeof knowledgeConflicts.$inferInsert;
 
 export type NotificationQueueRow = typeof notificationQueue.$inferSelect;
 export type NewNotificationQueueRow = typeof notificationQueue.$inferInsert;
+
+export type ActorRow = typeof actors.$inferSelect;
+export type NewActorRow = typeof actors.$inferInsert;
+
+export type ThreadRoutingAuditEntry = typeof threadRoutingAudit.$inferSelect;
+export type NewThreadRoutingAuditEntry = typeof threadRoutingAudit.$inferInsert;
