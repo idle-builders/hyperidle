@@ -50,7 +50,12 @@ describe("ConversationsReview — Request Changes composer (L6)", () => {
 		expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
 		await user.click(screen.getByRole("button", { name: "Request changes" }));
 		expect(screen.getByRole("dialog")).toBeInTheDocument();
-		expect(fetchMock).not.toHaveBeenCalled();
+		// L7 (AI8): useRecoveryFetch calls /api/me; only assert no
+		// /api/conversations/responses POST.
+		const responsesCalls = fetchMock.mock.calls.filter((c) =>
+			String(c[0]).includes("/api/conversations/responses"),
+		);
+		expect(responsesCalls).toHaveLength(0);
 	});
 
 	it("pressing R on a text_diff thread opens the composer with summary focused", () => {
@@ -70,7 +75,12 @@ describe("ConversationsReview — Request Changes composer (L6)", () => {
 		await user.type(screen.getByRole("textbox", { name: /summary/i }), "draft text");
 		await user.click(screen.getByRole("button", { name: /cancel/i }));
 		expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
-		expect(fetchMock).not.toHaveBeenCalled();
+		// L7 (AI8): useRecoveryFetch calls /api/me; only assert no
+		// /api/conversations/responses POST.
+		const responsesCalls = fetchMock.mock.calls.filter((c) =>
+			String(c[0]).includes("/api/conversations/responses"),
+		);
+		expect(responsesCalls).toHaveLength(0);
 	});
 
 	it("Esc inside composer cancels with NO API call", async () => {
@@ -80,7 +90,12 @@ describe("ConversationsReview — Request Changes composer (L6)", () => {
 		const dialog = screen.getByRole("dialog");
 		fireEvent.keyDown(dialog, { key: "Escape" });
 		expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
-		expect(fetchMock).not.toHaveBeenCalled();
+		// L7 (AI8): useRecoveryFetch calls /api/me; only assert no
+		// /api/conversations/responses POST.
+		const responsesCalls = fetchMock.mock.calls.filter((c) =>
+			String(c[0]).includes("/api/conversations/responses"),
+		);
+		expect(responsesCalls).toHaveLength(0);
 	});
 
 	it("submit POSTs to /api/conversations/responses with request_changes payload shape", async () => {
@@ -89,8 +104,11 @@ describe("ConversationsReview — Request Changes composer (L6)", () => {
 		await user.click(screen.getByRole("button", { name: "Request changes" }));
 		await user.type(screen.getByRole("textbox", { name: /summary/i }), "tighten the wording");
 		await user.click(screen.getByRole("button", { name: /submit/i }));
-		expect(fetchMock).toHaveBeenCalledTimes(1);
-		const [url, init] = fetchMock.mock.calls[0];
+		const responsesCalls = fetchMock.mock.calls.filter((c) =>
+			String(c[0]).includes("/api/conversations/responses"),
+		);
+		expect(responsesCalls).toHaveLength(1);
+		const [url, init] = responsesCalls[0];
 		expect(String(url)).toContain("/api/conversations/responses");
 		expect((init as RequestInit).method).toBe("POST");
 		const body = JSON.parse(String((init as RequestInit).body)) as {
@@ -190,8 +208,11 @@ describe("ConversationsReview — Request Changes composer (L6)", () => {
 		await user.type(textareas[1], "null check");
 		await user.type(screen.getByRole("textbox", { name: /summary/i }), "fix");
 		await user.click(screen.getByRole("button", { name: /submit/i }));
-		expect(fetchMock).toHaveBeenCalledTimes(1);
-		const [, init] = fetchMock.mock.calls[0];
+		const responsesCalls = fetchMock.mock.calls.filter((c) =>
+			String(c[0]).includes("/api/conversations/responses"),
+		);
+		expect(responsesCalls).toHaveLength(1);
+		const [, init] = responsesCalls[0];
 		const body = JSON.parse(String((init as RequestInit).body)) as {
 			inline_comments: Array<{ line_index: number; body: string }>;
 		};

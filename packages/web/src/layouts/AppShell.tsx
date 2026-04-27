@@ -587,7 +587,7 @@ export function AppShell(): JSX.Element {
 						verb="factory_pause"
 						target={{ id: "factory", name: "HyperIdle" }}
 						blastRadius="This will pause every running session and block queued tasks until you resume."
-						mode="press_hold"
+						mode={settings.safety.killSwitchConfirmMode}
 						onConfirm={handleConfirmFactoryPause}
 						onCancel={() => setKillSwitchOpen(false)}
 					/>
@@ -709,6 +709,10 @@ export function AppShell(): JSX.Element {
 					onClose={() => setSettingsOpen(false)}
 					onSave={handleSettingsSave}
 					settings={settings}
+					onTriggerKillSwitch={() => {
+						setSettingsOpen(false);
+						setKillSwitchOpen(true);
+					}}
 				/>
 				<GlobalSearchPanel
 					open={commandK.isOpen}

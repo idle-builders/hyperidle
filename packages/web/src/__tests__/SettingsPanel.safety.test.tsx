@@ -36,6 +36,9 @@ function defaultSettings(): SettingsData {
 			verdictDoubleClick: true,
 			undoWindowSeconds: 8,
 		},
+		safety: {
+			killSwitchConfirmMode: "press_hold",
+		},
 	};
 }
 
@@ -48,11 +51,16 @@ describe("L7 — SettingsPanel Safety tab", () => {
 		vi.useRealTimers();
 	});
 
-	const baseProps = {
-		open: true,
-		onClose: vi.fn(),
-		onSave: vi.fn().mockResolvedValue(undefined),
-	};
+	function makeProps(extra?: { onTriggerKillSwitch?: () => void }) {
+		return {
+			open: true,
+			onClose: vi.fn(),
+			onSave: vi.fn().mockResolvedValue(undefined),
+			onTriggerKillSwitch: extra?.onTriggerKillSwitch ?? vi.fn(),
+		};
+	}
+
+	const baseProps = makeProps();
 
 	it("renders the Safety tab in the tab list", () => {
 		render(<SettingsPanel {...baseProps} settings={defaultSettings()} />);
@@ -75,22 +83,17 @@ describe("L7 — SettingsPanel Safety tab", () => {
 		).toBeInTheDocument();
 	});
 
-	it("Pause Factory button opens the KillSwitchDialog", async () => {
+	it("Pause Factory button delegates to AppShell's kill-switch trigger", async () => {
+		// L7 (S4): the AppShell-level KillSwitchDialog owns the pause flow + audit
+		// write, so the Settings → Safety entry point delegates via
+		// `onTriggerKillSwitch` instead of mounting its own dialog.
 		const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
-		render(<SettingsPanel {...baseProps} settings={defaultSettings()} />);
+		const onTriggerKillSwitch = vi.fn();
+		const props = makeProps({ onTriggerKillSwitch });
+		render(<SettingsPanel {...props} settings={defaultSettings()} />);
 		await user.click(screen.getByRole("tab", { name: /safety/i }));
 		await user.click(screen.getByRole("button", { name: /pause factory/i }));
-		expect(screen.getByRole("dialog", { name: /pause factory|kill switch/i })).toBeInTheDocument();
-	});
-
-	it("empty reason field blocks submit (button disabled or error state)", async () => {
-		const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
-		render(<SettingsPanel {...baseProps} settings={defaultSettings()} />);
-		await user.click(screen.getByRole("tab", { name: /safety/i }));
-		await user.click(screen.getByRole("button", { name: /pause factory/i }));
-		const submit = screen.getByRole("button", { name: /confirm|pause|submit/i });
-		// Reason starts empty — submit must be disabled.
-		expect(submit).toBeDisabled();
+		expect(onTriggerKillSwitch).toHaveBeenCalledTimes(1);
 	});
 
 	it("offers a confirmation-mode preference (type_name | press_hold)", async () => {
@@ -100,5 +103,18 @@ describe("L7 — SettingsPanel Safety tab", () => {
 		// Either as a select or a pair of radios — assert both labels are reachable.
 		expect(screen.getByText(/type.*name/i)).toBeInTheDocument();
 		expect(screen.getByText(/press.*hold/i)).toBeInTheDocument();
+	});
+
+	it("L7 (S4): confirmMode change propagates into SettingsData on save", async () => {
+		const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+		const onSave = vi.fn().mockResolvedValue(undefined);
+		render(<SettingsPanel {...makeProps()} onSave={onSave} settings={defaultSettings()} />);
+		await user.click(screen.getByRole("tab", { name: /safety/i }));
+		// Switch from press_hold (default) to type_name.
+		await user.click(screen.getByRole("radio", { name: /type.*name/i }));
+		await user.click(screen.getByRole("button", { name: /^save$/i }));
+		expect(onSave).toHaveBeenCalledTimes(1);
+		const saved = onSave.mock.calls[0][0] as SettingsData;
+		expect(saved.safety.killSwitchConfirmMode).toBe("type_name");
 	});
 });
