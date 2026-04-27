@@ -187,6 +187,20 @@ export function seed(db: SeedableDb | HyperIdleDb): void {
 		.onConflictDoNothing()
 		.run();
 
+	// @lore L10: dev-seed marks the first-run flow complete so the
+	// FirstRunGate does not redirect every populated route to /first-run when
+	// developers and CI run against the seeded fixture. The first-run flow
+	// itself is exercised against a wiped DB by `packages/web/e2e/first-run.spec.ts`,
+	// which mocks `/api/first-run/status` to return `complete: false`.
+	db.insert(factorySettings)
+		.values({ key: "firstRun.complete", value: "true", updatedAt: now })
+		.onConflictDoNothing()
+		.run();
+	db.insert(factorySettings)
+		.values({ key: "factory.name", value: "Seed Factory", updatedAt: now })
+		.onConflictDoNothing()
+		.run();
+
 	// --- H2: daily digest routine (disabled by default — operator enables) ---
 	// @lore The routine lives at the seed level so the scheduler picks it up
 	// without extra provisioning. `active: 0` means the scheduler will NOT

@@ -176,6 +176,20 @@ export async function seedPg(db: SeedablePgDb): Promise<void> {
 		.values({ key: "cost_cycle", value: "daily", updatedAt: now })
 		.onConflictDoNothing();
 
+	// @lore L10: dev-seed marks the first-run flow complete so the
+	// FirstRunGate does not redirect every populated route to /first-run when
+	// developers and CI run against the seeded fixture. The first-run flow
+	// itself is exercised against a wiped DB by `packages/web/e2e/first-run.spec.ts`,
+	// which mocks `/api/first-run/status` to return `complete: false`.
+	await db
+		.insert(factorySettings)
+		.values({ key: "firstRun.complete", value: "true", updatedAt: now })
+		.onConflictDoNothing();
+	await db
+		.insert(factorySettings)
+		.values({ key: "factory.name", value: "Seed Factory", updatedAt: now })
+		.onConflictDoNothing();
+
 	// --- H2: daily-digest scaffolding bet/task/routine ---
 	await db
 		.insert(bets)
