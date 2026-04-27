@@ -107,33 +107,130 @@ export function createConversationRoutes(db: HyperIdleDb, eventBus: EventBus): H
 	const router = new Hono<ActorEnv>();
 
 	// GET / — list threads, paginated, sorted by recency or attention_score
+	//
+	// L3: Both sort branches return the same enriched response shape
+	// (lastActivityAt, blocking, participants parsed, routedToActorRole, +
+	// `resolvedAt: null` placeholder until the lifecycle story wires it).
+	// `enrichThread` is the single mapper; the only difference between the
+	// two branches is the SQL ordering + max_attention_score column.
+	//
+	// @lore L3 review (security WARN-2 / adversary W2): `participants` in
+	// the DB is JSON-encoded text. We parse + validate at the server
+	// boundary with `participantsSchema` (the same z-validate pattern used
+	// in me.ts). A corrupt row returns an empty array per-row instead of
+	// 500-ing the whole list endpoint — single-row corruption must not
+	// brick the queue.
+	//
+	// @lore L3 (resolvedAt placeholder): the field is hard-coded `null`
+	// until the lifecycle story (TRACK-L L8) aggregates terminal verdicts
+	// into a thread-level resolution timestamp. Shipping the field now
+	// keeps the client wire shape stable across the seam — clients can
+	// rely on `Object.hasOwn(t, 'resolvedAt')` already.
+	const participantsSchema = z.array(z.string());
+	type EnrichedRow = {
+		id: string;
+		kind: string;
+		pinned: number | null;
+		participants: string | null;
+		routedToActorId: string | null;
+		domainTag: string | null;
+		createdAt: string;
+		lastItemAt: string | null;
+		hasBlocking: number;
+		routedToActorRole: string | null;
+		maxAttentionScore?: number;
+	};
+	function enrichThread(row: EnrichedRow): {
+		id: string;
+		kind: string;
+		pinned: number;
+		participants: string[];
+		routedToActorId: string | null;
+		routedToActorRole: string | null;
+		domainTag: string | null;
+		createdAt: string;
+		lastActivityAt: string;
+		blocking: boolean;
+		resolvedAt: string | null;
+		maxAttentionScore?: number;
+	} {
+		// @lore L3 review (security WARN-2 / adversary W2): defensive parse
+		// — corrupt JSON or non-string-array shape is coerced to [] with a
+		// safeParse so a single bad row cannot 500 the entire list response.
+		let participants: string[] = [];
+		if (row.participants) {
+			try {
+				const decoded: unknown = JSON.parse(row.participants);
+				const validated = participantsSchema.safeParse(decoded);
+				if (validated.success) participants = validated.data;
+			} catch {
+				participants = [];
+			}
+		}
+		const enriched: ReturnType<typeof enrichThread> = {
+			id: row.id,
+			kind: row.kind,
+			pinned: row.pinned ?? 0,
+			participants,
+			routedToActorId: row.routedToActorId,
+			routedToActorRole: row.routedToActorRole ?? null,
+			domainTag: row.domainTag,
+			createdAt: row.createdAt,
+			lastActivityAt: row.lastItemAt ?? row.createdAt,
+			blocking: Boolean(row.hasBlocking),
+			resolvedAt: null,
+		};
+		if (typeof row.maxAttentionScore === "number") {
+			enriched.maxAttentionScore = row.maxAttentionScore;
+		}
+		return enriched;
+	}
+
 	router.get("/", (c) => {
 		const sort = c.req.query("sort") ?? "recency";
 		const page = Math.max(1, Number(c.req.query("page") ?? "1"));
-		const limit = Math.max(1, Math.min(100, Number(c.req.query("limit") ?? "20")));
+		// @lore L3 review (adversary W8): default raised to 200 so the
+		// client-side section/sort/filter pipeline operates over a
+		// realistic working set, not the prior 20-row slice that turned
+		// "X of N blocking" into a lie. Hard cap remains 500 to bound the
+		// response payload.
+		const limit = Math.max(1, Math.min(500, Number(c.req.query("limit") ?? "200")));
 		const offset = (page - 1) * limit;
 
 		if (sort === "attention_score") {
-			// Join threads with items to get max attention_score
-			const allThreads = db
+			const total = db.select({ count: sql<number>`COUNT(*)` }).from(threads).get()?.count ?? 0;
+
+			// @lore L3 review (security WARN-3): LIMIT/OFFSET pushed into
+			// SQL so we don't materialise every thread + items aggregate in
+			// memory just to slice off a page. With LEFT JOIN(items) the
+			// row count grows linearly with item volume; the slice-then-
+			// paginate path was an O(N×M) DoS lever.
+			const enrichedRows = db
 				.select({
 					id: threads.id,
 					kind: threads.kind,
 					pinned: threads.pinned,
 					participants: threads.participants,
+					routedToActorId: threads.routedToActorId,
+					domainTag: threads.domainTag,
 					createdAt: threads.createdAt,
 					maxAttentionScore: sql<number>`COALESCE(MAX(${items.attentionScore}), 0)`.as(
 						"max_attention_score",
 					),
+					lastItemAt: sql<string | null>`MAX(${items.createdAt})`.as("last_item_at"),
+					hasBlocking: sql<number>`COALESCE(MAX(${items.blocking}), 0)`.as("has_blocking"),
+					routedToActorRole: actors.role,
 				})
 				.from(threads)
 				.leftJoin(items, eq(items.threadId, threads.id))
+				.leftJoin(actors, eq(actors.id, threads.routedToActorId))
 				.groupBy(threads.id)
 				.orderBy(sql`max_attention_score DESC`)
+				.limit(limit)
+				.offset(offset)
 				.all();
 
-			const total = allThreads.length;
-			const paged = allThreads.slice(offset, offset + limit);
+			const paged = enrichedRows.map(enrichThread);
 
 			return c.json({
 				threads: paged,
@@ -144,16 +241,32 @@ export function createConversationRoutes(db: HyperIdleDb, eventBus: EventBus): H
 		// Default: sort by recency (createdAt DESC)
 		const total = db.select({ count: sql<number>`COUNT(*)` }).from(threads).get()?.count ?? 0;
 
-		const allThreads = db
-			.select()
+		const enrichedRows = db
+			.select({
+				id: threads.id,
+				kind: threads.kind,
+				pinned: threads.pinned,
+				participants: threads.participants,
+				routedToActorId: threads.routedToActorId,
+				domainTag: threads.domainTag,
+				createdAt: threads.createdAt,
+				lastItemAt: sql<string | null>`MAX(${items.createdAt})`.as("last_item_at"),
+				hasBlocking: sql<number>`COALESCE(MAX(${items.blocking}), 0)`.as("has_blocking"),
+				routedToActorRole: actors.role,
+			})
 			.from(threads)
+			.leftJoin(items, eq(items.threadId, threads.id))
+			.leftJoin(actors, eq(actors.id, threads.routedToActorId))
+			.groupBy(threads.id)
 			.orderBy(desc(threads.createdAt))
 			.limit(limit)
 			.offset(offset)
 			.all();
 
+		const enriched = enrichedRows.map(enrichThread);
+
 		return c.json({
-			threads: allThreads,
+			threads: enriched,
 			pagination: { page, limit, total },
 		});
 	});
