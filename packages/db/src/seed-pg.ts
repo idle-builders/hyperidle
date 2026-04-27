@@ -5,11 +5,13 @@ import {
 	agents,
 	bets,
 	factorySettings,
+	items,
 	knowledgeItems,
 	products,
 	routines,
 	tasks,
 	teams,
+	threads,
 } from "./schema.pg.js";
 import {
 	BUILTIN_ROUTINE_SEEDS,
@@ -220,6 +222,89 @@ export async function seedPg(db: SeedablePgDb): Promise<void> {
 			silent: true,
 		})
 		.onConflictDoNothing();
+
+	// L3: Conversations fixture (seed-parity with seed.ts seedL3ConversationsFixture).
+	{
+		const nowMs = Date.parse(now);
+		const ts = (offsetMs: number): string => new Date(nowMs - offsetMs).toISOString();
+		const threadFixtures = [
+			{
+				id: "seed-thread-review-1",
+				kind: "review",
+				pinned: false,
+				participants: JSON.stringify(["seed-agent-builder"]),
+				routedToActorId: "actor:ceo" as string | null,
+				domainTag: "growth" as string | null,
+				createdAt: ts(60_000),
+				itemTitle: "Review: API rate-limit policy",
+				itemBlocking: true,
+				itemCreatedAt: ts(10_000),
+			},
+			{
+				id: "seed-thread-review-2",
+				kind: "review",
+				pinned: false,
+				participants: JSON.stringify(["seed-agent-pm-nimmly"]),
+				routedToActorId: "actor:cpo" as string | null,
+				domainTag: "product" as string | null,
+				createdAt: ts(120_000),
+				itemTitle: "Review: Onboarding copy revision",
+				itemBlocking: false,
+				itemCreatedAt: ts(20_000),
+			},
+			{
+				id: "seed-thread-review-3",
+				kind: "review",
+				pinned: false,
+				participants: JSON.stringify(["seed-agent-builder"]),
+				routedToActorId: null as string | null,
+				domainTag: null as string | null,
+				createdAt: ts(180_000),
+				itemTitle: "Review: Cost cap update",
+				itemBlocking: false,
+				itemCreatedAt: ts(30_000),
+			},
+			{
+				id: "seed-thread-chat-coach",
+				kind: "chat",
+				pinned: true,
+				participants: JSON.stringify(["seed-agent-cos"]),
+				routedToActorId: null as string | null,
+				domainTag: null as string | null,
+				createdAt: ts(240_000),
+				itemTitle: "Chat: Daily check-in",
+				itemBlocking: false,
+				itemCreatedAt: ts(5_000),
+			},
+		];
+
+		for (const t of threadFixtures) {
+			await db
+				.insert(threads)
+				.values({
+					id: t.id,
+					kind: t.kind,
+					pinned: t.pinned,
+					participants: t.participants,
+					routedToActorId: t.routedToActorId,
+					domainTag: t.domainTag,
+					createdAt: t.createdAt,
+				})
+				.onConflictDoNothing();
+
+			await db
+				.insert(items)
+				.values({
+					id: `${t.id}-item-1`,
+					title: t.itemTitle,
+					body: null,
+					blocking: t.itemBlocking,
+					threadId: t.id,
+					createdAt: t.itemCreatedAt,
+				})
+				.onConflictDoNothing();
+		}
+	}
 
 	// G4: built-in routines.
 	for (const spec of BUILTIN_ROUTINE_SEEDS) {
