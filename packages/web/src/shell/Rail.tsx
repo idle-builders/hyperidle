@@ -2,7 +2,6 @@ import {
 	betStatusToStatus,
 	dsShellProps,
 	EmptyState,
-	KeyValue,
 	type Status,
 	StatusChip,
 } from "@hyperidle/design-system";
@@ -44,6 +43,18 @@ export interface BlockerItem {
 	agent: string;
 	reason: string;
 	severity: "low" | "medium" | "high";
+	/**
+	 * L8: source thread to deep-link into when the row is clicked. Optional
+	 * because legacy fixtures may not carry it; rows without a source thread
+	 * still render but degrade to a no-op (still focusable, still announced).
+	 */
+	sourceThreadId?: string;
+	/**
+	 * L8: how long the agent has been blocked. Surfaced in the row's title
+	 * attribute as e.g. "for 47m" alongside the source agent name. Optional
+	 * for the same reason as sourceThreadId.
+	 */
+	durationMs?: number;
 }
 
 export interface CostInfo {
@@ -53,13 +64,46 @@ export interface CostInfo {
 	weekBudget: string;
 }
 
+/**
+ * L8: aggregate counts for the system-stability strip. Sourced from
+ * `GET /api/system/stability` via {@link useSystemStability}. The Rail
+ * does not poll itself — the parent injects the value so tests and stories
+ * can drive the strip deterministically.
+ *
+ * @lore L8: keys are snake_case to match the wire format mandated by the
+ * spec ("returning `{ crashed_sessions, cap_reached, api_degraded }`").
+ * Renaming them in TS would introduce a serializer at the trust boundary
+ * for no functional gain — the wire format and the TS shape are the same
+ * contract. The Biome `useNamingConvention` warning is acknowledged.
+ */
+export interface SystemStability {
+	// biome-ignore-start lint/style/useNamingConvention: spec-mandated wire format
+	crashed_sessions: number;
+	cap_reached: number;
+	api_degraded: number;
+	// biome-ignore-end lint/style/useNamingConvention: spec-mandated wire format
+}
+
 export interface RailProps {
 	expanded: boolean;
 	onToggleExpand: () => void;
 	bets: BetItem[];
 	blockers: BlockerItem[];
 	cost: CostInfo;
+	/**
+	 * L8: optional. Omitting (or passing all-zeros) hides the system-stability
+	 * strip entirely — the spec says "Strip is hidden when all three are 0",
+	 * so the natural default is the all-zero shape. Existing call-sites that
+	 * predate L8 keep working unmodified.
+	 */
+	stability?: SystemStability;
 }
+
+const ZERO_STABILITY: SystemStability = {
+	crashed_sessions: 0,
+	cap_reached: 0,
+	api_degraded: 0,
+};
 
 interface SectionHeaderProps {
 	title: string;
@@ -125,6 +169,21 @@ function formatCount(n: number): string {
 }
 
 /**
+ * L8: format a blocked-duration ms value as a short hover string ("47m",
+ * "2h", "3d"). Spec example: "for 47m". Returns null when ms is non-finite
+ * or non-positive so callers can omit the duration cleanly.
+ */
+function formatDuration(ms: number | undefined): string | null {
+	if (ms === undefined || !Number.isFinite(ms) || ms <= 0) return null;
+	const minutes = Math.round(ms / 60_000);
+	if (minutes < 60) return `${minutes}m`;
+	const hours = Math.round(minutes / 60);
+	if (hours < 24) return `${hours}h`;
+	const days = Math.round(hours / 24);
+	return `${days}d`;
+}
+
+/**
  * Collapsed-Rail pill. Private to Rail: kind → { abbreviation, aria nouns, tone }.
  * - BLK: blockers, error tone
  * - REV: review bets, primary tone
@@ -133,7 +192,7 @@ function formatCount(n: number): string {
  * Returns `null` when count <= 0 so the caller can unconditionally render all
  * three and rely on the pill to self-gate (AC 51: "Pills only render when count > 0").
  */
-type CollapsedPillKind = "blk" | "rev" | "psd";
+type CollapsedPillKind = "blk" | "rev" | "psd" | "crash" | "cap" | "api";
 
 interface PillMeta {
 	label: string;
@@ -166,6 +225,27 @@ const PILL_META: Record<CollapsedPillKind, PillMeta> = {
 		// neutral) to render a quiet but visible neutral tone.
 		tone: "bg-[var(--surface-4)] text-[var(--text-mid)]",
 	},
+	// L8: system-stability pills mirror BLK's danger tone — these are
+	// failure-state indicators (crashed runtime, cap exhausted, model API
+	// degraded) and the design system reserves red for danger.
+	crash: {
+		label: "CRASH",
+		ariaNounSingular: "crashed session",
+		ariaNounPlural: "crashed sessions",
+		tone: "bg-[color-mix(in_oklab,var(--danger)_15%,transparent)] text-error",
+	},
+	cap: {
+		label: "CAP",
+		ariaNounSingular: "cap-reached product",
+		ariaNounPlural: "cap-reached products",
+		tone: "bg-[color-mix(in_oklab,var(--danger)_15%,transparent)] text-error",
+	},
+	api: {
+		label: "API",
+		ariaNounSingular: "API degraded",
+		ariaNounPlural: "API degraded",
+		tone: "bg-[color-mix(in_oklab,var(--danger)_15%,transparent)] text-error",
+	},
 };
 
 function CollapsedPill({
@@ -191,8 +271,19 @@ function CollapsedPill({
 	);
 }
 
-export function Rail({ expanded, onToggleExpand, bets, blockers, cost }: RailProps): JSX.Element {
+export function Rail({
+	expanded,
+	onToggleExpand,
+	bets,
+	blockers,
+	cost,
+	stability = ZERO_STABILITY,
+}: RailProps): JSX.Element {
 	const navigate = useNavigate();
+	// L8: derived flag for the strip + collapsed pills. "Hide when all zero"
+	// is single-source-of-truth here so the two surfaces never drift.
+	const stabilityActive =
+		stability.crashed_sessions > 0 || stability.cap_reached > 0 || stability.api_degraded > 0;
 
 	const [openSections, setOpenSections] = useState({
 		bets: true,
@@ -204,11 +295,18 @@ export function Rail({ expanded, onToggleExpand, bets, blockers, cost }: RailPro
 		setOpenSections((prev) => ({ ...prev, [section]: !prev[section] }));
 	};
 
+	// L8: roving-focus item count grows by 1 when the system-stability strip
+	// is rendered. Section order (bets, blockers, cost, stability) is the
+	// vertical render order and the keyboard order MUST match.
+	const sectionOrder: (keyof typeof openSections | "stability")[] = stabilityActive
+		? ["bets", "blockers", "cost", "stability"]
+		: ["bets", "blockers", "cost"];
 	const { getItemProps } = useRovingFocus({
-		itemCount: 3,
+		itemCount: sectionOrder.length,
 		onSelect: (index) => {
-			const sections: (keyof typeof openSections)[] = ["bets", "blockers", "cost"];
-			toggleSection(sections[index]);
+			const target = sectionOrder[index];
+			if (target === "stability") return; // stability strip is always-open
+			toggleSection(target);
 		},
 		onEscape: onToggleExpand,
 	});
@@ -235,6 +333,15 @@ export function Rail({ expanded, onToggleExpand, bets, blockers, cost }: RailPro
 				<CollapsedPill kind="blk" count={blkCount} />
 				<CollapsedPill kind="rev" count={revCount} />
 				<CollapsedPill kind="psd" count={psdCount} />
+				{/*
+				 * L8 AC: when the Rail is collapsed, the system-stability strip
+				 * surfaces its non-zero counts as red BLK-style pills next to
+				 * the existing pill cluster. Each pill self-gates on count > 0
+				 * via CollapsedPill's `count <= 0 → null` guard.
+				 */}
+				<CollapsedPill kind="crash" count={stability.crashed_sessions} />
+				<CollapsedPill kind="cap" count={stability.cap_reached} />
+				<CollapsedPill kind="api" count={stability.api_degraded} />
 				<button
 					type="button"
 					className="btn btn-ghost btn-xs"
@@ -267,6 +374,7 @@ export function Rail({ expanded, onToggleExpand, bets, blockers, cost }: RailPro
 	const betsProps = getItemProps(0);
 	const blockersProps = getItemProps(1);
 	const costProps = getItemProps(2);
+	const stabilityProps = stabilityActive ? getItemProps(3) : null;
 
 	return (
 		<div
@@ -319,6 +427,10 @@ export function Rail({ expanded, onToggleExpand, bets, blockers, cost }: RailPro
 								type="button"
 								className="flex flex-col gap-1 py-1 w-full text-left hover:bg-[var(--surface-ghost)] rounded px-1 cursor-pointer"
 								onClick={() => navigate(`/work/bet/${bet.id}`)}
+								// L8 ARIA: every now-interactive Rail row has an accessible
+								// label describing its destination. Bets deep-link to the
+								// per-bet work surface.
+								aria-label={`Open bet ${bet.title}`}
 							>
 								<div className="flex items-center justify-between w-full">
 									<span className="text-sm text-[var(--text-hi)]">{bet.title}</span>
@@ -352,15 +464,43 @@ export function Rail({ expanded, onToggleExpand, bets, blockers, cost }: RailPro
 								dataTestId="rail-blockers-empty"
 							/>
 						)}
-						{blockers.map((blocker) => (
-							<div key={blocker.id} className="flex flex-col gap-1 py-1">
-								<div className="flex items-center justify-between">
-									<span className="text-sm text-[var(--text-hi)]">{blocker.agent}</span>
-									<StatusChip status={severityToChipStatus(blocker.severity)} />
-								</div>
-								<span className="text-xs text-[var(--text-lo)]">{blocker.reason}</span>
-							</div>
-						))}
+						{blockers.map((blocker) => {
+							// L8: deep-link target. Reuses the established
+							// `/conversations/review?thread=<id>` query-param contract
+							// (see UndoToast + AppShell.handleSearchNavigate). When a
+							// blocker has no source thread (legacy fixture), the row
+							// degrades to a no-op: still focusable + announced, but
+							// click does nothing instead of navigating to a nonexistent
+							// thread.
+							const thread = blocker.sourceThreadId;
+							const duration = formatDuration(blocker.durationMs);
+							const titleParts = [`from ${blocker.agent}`];
+							if (duration) titleParts.unshift(`for ${duration}`);
+							const hoverTitle = titleParts.join(" • ");
+							return (
+								<button
+									key={blocker.id}
+									type="button"
+									className="flex flex-col gap-1 py-1 w-full text-left hover:bg-[var(--surface-ghost)] rounded px-1 cursor-pointer"
+									onClick={() => {
+										if (!thread) return;
+										navigate(`/conversations/review?thread=${encodeURIComponent(thread)}`);
+									}}
+									aria-label={
+										thread
+											? `Open conversation thread for ${blocker.agent}: ${blocker.reason}`
+											: `Blocker from ${blocker.agent}: ${blocker.reason}`
+									}
+									title={hoverTitle}
+								>
+									<div className="flex items-center justify-between w-full">
+										<span className="text-sm text-[var(--text-hi)]">{blocker.agent}</span>
+										<StatusChip status={severityToChipStatus(blocker.severity)} />
+									</div>
+									<span className="text-xs text-[var(--text-lo)]">{blocker.reason}</span>
+								</button>
+							);
+						})}
 					</div>
 				)}
 			</div>
@@ -378,13 +518,128 @@ export function Rail({ expanded, onToggleExpand, bets, blockers, cost }: RailPro
 				/>
 				{openSections.cost && (
 					<div id="rail-panel-cost" className="flex flex-col gap-1 px-2 py-1">
-						<KeyValue label="Today" value={cost.todaySpend} />
-						<KeyValue label="Today Budget" value={cost.todayBudget} />
-						<KeyValue label="Week" value={cost.weekSpend} />
-						<KeyValue label="Week Budget" value={cost.weekBudget} />
+						<CostRow label="Today" value={cost.todaySpend} navigate={navigate} />
+						<CostRow label="Today Budget" value={cost.todayBudget} navigate={navigate} />
+						<CostRow label="Week" value={cost.weekSpend} navigate={navigate} />
+						<CostRow label="Week Budget" value={cost.weekBudget} navigate={navigate} />
 					</div>
 				)}
 			</div>
+
+			{/*
+			 * L8: System-Stability strip. Hidden when all three counts are 0
+			 * (`stabilityActive` gate). Each row is a button deep-linking to
+			 * the relevant detail surface, with an aria-label describing the
+			 * destination.
+			 */}
+			{stabilityActive && stabilityProps && (
+				<div>
+					<SectionHeader
+						title="System Stability"
+						isOpen={true}
+						onToggle={() => {
+							/* always-open: strip self-hides when all zero */
+						}}
+						tabIndex={stabilityProps.tabIndex}
+						onKeyDown={stabilityProps.onKeyDown}
+						itemRef={stabilityProps.ref}
+						panelId="rail-panel-stability"
+					/>
+					<div
+						id="rail-panel-stability"
+						className="flex flex-col gap-1 px-2 py-1"
+						data-testid="rail-stability-strip"
+					>
+						{stability.crashed_sessions > 0 && (
+							<StabilityRow
+								label={`${stability.crashed_sessions} crashed session${stability.crashed_sessions === 1 ? "" : "s"}`}
+								ariaLabel={`Open crashed sessions detail (${stability.crashed_sessions})`}
+								// @lore L8: until a dedicated crashed-sessions surface
+								// lands, deep-link to the conversations review queue
+								// where review threads for crashed sessions surface.
+								onClick={() => navigate("/conversations/review")}
+							/>
+						)}
+						{stability.cap_reached > 0 && (
+							<StabilityRow
+								label={`${stability.cap_reached} cap-reached product${stability.cap_reached === 1 ? "" : "s"}`}
+								ariaLabel={`Open cap-reached products in Settings Caps (${stability.cap_reached})`}
+								onClick={() => navigate("/conversations/review?settings=open")}
+							/>
+						)}
+						{stability.api_degraded > 0 && (
+							<StabilityRow
+								label="API degraded"
+								ariaLabel="Open API degraded status detail"
+								// @lore L8: API degraded → /api/status surface lives in
+								// Settings; the only route currently exposing it is the
+								// settings overlay, opened via ?settings=open.
+								onClick={() => navigate("/conversations/review?settings=open")}
+							/>
+						)}
+					</div>
+				</div>
+			)}
 		</div>
+	);
+}
+
+/**
+ * L8: clickable cost row. Renders a button with the same visual contract as
+ * KeyValue but deep-links to Settings → Caps. Until L13/cost-drill ships,
+ * this is the cost-row destination per spec; the title attribute documents
+ * the temporary nature.
+ */
+function CostRow({
+	label,
+	value,
+	navigate,
+}: {
+	label: string;
+	value: string;
+	navigate: ReturnType<typeof useNavigate>;
+}): JSX.Element {
+	return (
+		<button
+			type="button"
+			className="flex w-full items-center justify-between py-1 px-1 text-left hover:bg-[var(--surface-ghost)] rounded"
+			onClick={() => navigate("/conversations/review?settings=open")}
+			aria-label={`Open Settings Caps for ${label}`}
+			// @lore L8: until L13/cost-drill ships, the cost-row deep-link
+			// goes to Settings → Caps rather than a per-line drill view.
+			// Documenting this in the title attribute keeps the destination
+			// honest with the user — they expect a drill, they get caps.
+			title={`Opens Settings → Caps (until cost-drill ships)`}
+		>
+			<span className="text-xs text-[var(--text-lo)] uppercase tracking-wider">{label}</span>
+			<span className="text-sm text-[var(--text-hi)] font-mono [font-variant-numeric:tabular-nums]">
+				{value}
+			</span>
+		</button>
+	);
+}
+
+/**
+ * L8: clickable system-stability row. Mirrors the danger tone of
+ * BLK pills (red) — these are failure-state indicators.
+ */
+function StabilityRow({
+	label,
+	ariaLabel,
+	onClick,
+}: {
+	label: string;
+	ariaLabel: string;
+	onClick: () => void;
+}): JSX.Element {
+	return (
+		<button
+			type="button"
+			className="flex w-full items-center justify-between py-1 px-1 text-left rounded text-error bg-[color-mix(in_oklab,var(--danger)_10%,transparent)] hover:bg-[color-mix(in_oklab,var(--danger)_20%,transparent)]"
+			onClick={onClick}
+			aria-label={ariaLabel}
+		>
+			<span className="text-sm">{label}</span>
+		</button>
 	);
 }

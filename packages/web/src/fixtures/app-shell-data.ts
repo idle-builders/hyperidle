@@ -45,7 +45,17 @@ export const MOCK_RAIL_BETS: BetItem[] = [
 ];
 
 export const MOCK_RAIL_BLOCKERS: BlockerItem[] = [
-	{ id: "bl1", agent: "Developer", reason: "Waiting for API spec", severity: "high" as const },
+	{
+		id: "bl1",
+		agent: "Developer",
+		reason: "Waiting for API spec",
+		severity: "high" as const,
+		// L8: source thread for the deep-link. Mirrors the L3 fixture's
+		// `thread-blocking-review` so a click in the dev shell lands on a
+		// real seeded review thread.
+		sourceThreadId: "thread-blocking-review",
+		durationMs: 47 * 60_000,
+	},
 ];
 
 export const MOCK_RAIL_COST: CostInfo = {
