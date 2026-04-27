@@ -15,6 +15,7 @@ import { createAgentRoutes } from "./routes/agents.js";
 import { createAuthRoutes } from "./routes/auth.js";
 import { createBetRoutes } from "./routes/bets.js";
 import { createConversationRoutes } from "./routes/conversations.js";
+import { createFirstRunRoutes } from "./routes/first-run.js";
 import { createGitExportRoutes } from "./routes/git-export-routes.js";
 import { health } from "./routes/health.js";
 import { createKnowledgeRoutes } from "./routes/knowledge.js";
@@ -369,6 +370,7 @@ function createApp(options?: AppOptions): Hono {
 		// are required (Zod-enforced) for kill / pause / rollback verbs.
 		api.route("/factory", createFactoryRoutes(options.db));
 
+		api.route("/first-run", createFirstRunRoutes(options.db));
 		api.route("/threads", createThreadRoutingRoutes(options.db));
 		api.route("/bets", createBetRoutes(options.db, eventBus));
 		api.route("/tasks", createTaskRoutes(options.db, eventBus));

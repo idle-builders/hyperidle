@@ -61,13 +61,14 @@ describe("SettingsPanel", () => {
 		expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
 	});
 
-	// AC: Five tabs
-	it("renders five tabs: Profile, Products, Agents, Notifications, Appearance", () => {
+	// AC: Six tabs (L10 added Models & Keys)
+	it("renders six tabs: Profile, Products, Agents, Notifications, Models & Keys, Appearance", () => {
 		render(<SettingsPanel {...defaultProps} />);
 		expect(screen.getByRole("tab", { name: "Profile" })).toBeInTheDocument();
 		expect(screen.getByRole("tab", { name: "Products" })).toBeInTheDocument();
 		expect(screen.getByRole("tab", { name: "Agents" })).toBeInTheDocument();
 		expect(screen.getByRole("tab", { name: "Notifications" })).toBeInTheDocument();
+		expect(screen.getByRole("tab", { name: "Models & Keys" })).toBeInTheDocument();
 		expect(screen.getByRole("tab", { name: "Appearance" })).toBeInTheDocument();
 	});
 

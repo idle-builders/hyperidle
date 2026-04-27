@@ -120,13 +120,21 @@ export interface SettingsPanelProps {
 	onTriggerKillSwitch?: () => void;
 }
 
-type TabId = "profile" | "products" | "agents" | "notifications" | "appearance" | "safety";
+type TabId =
+	| "profile"
+	| "products"
+	| "agents"
+	| "notifications"
+	| "appearance"
+	| "models"
+	| "safety";
 
 const TABS: { id: TabId; label: string }[] = [
 	{ id: "profile", label: "Profile" },
 	{ id: "products", label: "Products" },
 	{ id: "agents", label: "Agents" },
 	{ id: "notifications", label: "Notifications" },
+	{ id: "models", label: "Models & Keys" },
 	{ id: "appearance", label: "Appearance" },
 	{ id: "safety", label: "Safety" },
 ];
@@ -394,6 +402,7 @@ export function SettingsPanel({
 								onUndoWindowSecondsChange={updateUndoWindowSeconds}
 							/>
 						)}
+						{activeTab === "models" && <ModelsAndKeysTab />}
 						{activeTab === "safety" && (
 							<SafetyTab
 								confirmMode={draft.safety.killSwitchConfirmMode}
@@ -851,6 +860,128 @@ function SafetyTab(props: SafetyTabProps): JSX.Element {
 				<h3 className="text-sm font-medium">Recent recovery actions</h3>
 				<p className="text-xs text-[var(--text-lo)]">No recovery actions recorded yet.</p>
 			</section>
+		</div>
+	);
+}
+
+/**
+ * @lore L10: Models & Keys tab — read-only surface for the
+ * already-stored Anthropic key (masked) plus a "Rotate key" button that
+ * opens the same `/api/first-run/api-key` ping endpoint. The settings
+ * panel save flow is NOT used here — key persistence happens server-side
+ * the moment a green ping returns. This sidesteps the J3 "draft-and-save"
+ * pattern for a surface that must validate before persisting.
+ */
+function ModelsAndKeysTab(): JSX.Element {
+	const [last4, setLast4] = useState<string | null>(null);
+	const [loading, setLoading] = useState(true);
+	const [draft, setDraft] = useState("");
+	const [testing, setTesting] = useState(false);
+	const [result, setResult] = useState<
+		{ ok: true; last4: string } | { ok: false; status: number; message: string } | null
+	>(null);
+
+	useEffect(() => {
+		void fetch("/api/first-run/status")
+			.then((r) => r.json())
+			.then((body: unknown) => {
+				if (body && typeof body === "object" && "apiKeyLast4" in body) {
+					const v = (body as { apiKeyLast4: unknown }).apiKeyLast4;
+					setLast4(typeof v === "string" ? v : null);
+				}
+			})
+			.catch(() => undefined)
+			.finally(() => setLoading(false));
+	}, []);
+
+	const test = useCallback(async (): Promise<void> => {
+		setTesting(true);
+		setResult(null);
+		try {
+			const res = await fetch("/api/first-run/api-key", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ key: draft }),
+			});
+			const body = (await res.json()) as
+				| { ok: true; status: number; last4: string }
+				| { ok: false; status: number; message: string };
+			if (body.ok) {
+				setResult({ ok: true, last4: body.last4 });
+				setLast4(body.last4);
+				setDraft("");
+			} else {
+				setResult({ ok: false, status: body.status, message: body.message });
+			}
+		} catch (err) {
+			setResult({
+				ok: false,
+				status: 0,
+				message: err instanceof Error ? err.message : String(err),
+			});
+		} finally {
+			setTesting(false);
+		}
+	}, [draft]);
+
+	return (
+		<div className="flex flex-col gap-4" data-testid="settings-models-tab">
+			<div>
+				<h3 className="text-xs uppercase tracking-wider mb-2">Anthropic key</h3>
+				{loading ? (
+					<p className="text-sm text-[var(--text-mid)]">Loading…</p>
+				) : last4 ? (
+					<p className="text-sm" data-testid="settings-models-current-key">
+						Stored: <code className="font-mono">sk-ant-•••••{last4}</code>
+					</p>
+				) : (
+					<p className="text-sm text-[var(--text-mid)]">No key configured.</p>
+				)}
+			</div>
+			<div>
+				<h3 className="text-xs uppercase tracking-wider mb-2">Rotate key</h3>
+				<input
+					type="password"
+					className="input input-bordered input-sm font-mono w-full"
+					value={draft}
+					onChange={(e) => setDraft(e.target.value)}
+					placeholder="sk-ant-…"
+					autoComplete="off"
+					data-testid="settings-models-input"
+				/>
+				<div className="flex gap-2 mt-2">
+					<button
+						type="button"
+						className="btn btn-sm btn-primary"
+						disabled={testing || draft.length === 0}
+						onClick={() => void test()}
+						data-testid="settings-models-test"
+					>
+						{testing ? "Testing…" : "Test & save"}
+					</button>
+				</div>
+				{result?.ok && (
+					<p className="text-success text-sm mt-2" data-testid="settings-models-success">
+						Key updated.
+					</p>
+				)}
+				{result && !result.ok && (
+					<p role="alert" className="text-error text-sm mt-2" data-testid="settings-models-error">
+						Test failed ({result.status}): {result.message}
+					</p>
+				)}
+			</div>
+			<div>
+				<h3 className="text-xs uppercase tracking-wider mb-2">Model tier mapping</h3>
+				<dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-sm">
+					<dt className="font-mono">opus</dt>
+					<dd>claude-opus-4-x — high-stakes shaping, reviews</dd>
+					<dt className="font-mono">sonnet</dt>
+					<dd>claude-sonnet-4-x — default builder</dd>
+					<dt className="font-mono">haiku</dt>
+					<dd>claude-haiku-4-x — routine ops, low-cost batches</dd>
+				</dl>
+			</div>
 		</div>
 	);
 }

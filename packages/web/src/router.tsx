@@ -10,8 +10,10 @@ import type { RouteObject } from "react-router-dom";
  */
 import { createBrowserRouter, Navigate, RouterProvider } from "react-router-dom";
 import { AppShell } from "./layouts/AppShell";
+import { FirstRunGate } from "./layouts/FirstRunGate";
 import { ConversationsChat } from "./pages/ConversationsChat";
 import { ConversationsReview } from "./pages/ConversationsReview";
+import { FirstRunFlow } from "./pages/FirstRunFlow";
 import { KnowledgeDetail } from "./pages/KnowledgeDetail";
 import { KnowledgeList } from "./pages/KnowledgeList";
 import { NotFound } from "./pages/NotFound";
@@ -21,9 +23,17 @@ import { WorkTeam } from "./pages/WorkTeam";
 
 function buildRoutes(): RouteObject[] {
 	const routes: RouteObject[] = [
+		// L10: /first-run sits as a sibling of <AppShell /> so first-run is
+		// a dedicated full-screen flow (no rail/submenu chrome). The gate
+		// at "/" redirects here when first-run isn't complete.
+		{ path: "/first-run", element: <FirstRunFlow /> },
 		{
 			path: "/",
-			element: <AppShell />,
+			element: (
+				<FirstRunGate>
+					<AppShell />
+				</FirstRunGate>
+			),
 			children: [
 				{ index: true, element: <Navigate to="/conversations/review" replace /> },
 				{ path: "conversations/review", element: <ConversationsReview /> },

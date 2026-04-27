@@ -15,6 +15,7 @@ import { KillSwitchDialog } from "../components/KillSwitchDialog";
 import { OfflineBanner } from "../components/OfflineBanner";
 import type { SettingsData } from "../components/SettingsPanel";
 import { SettingsPanel } from "../components/SettingsPanel";
+import { VerdictGrammarCoach } from "../components/VerdictGrammarCoach";
 import {
 	DEFAULT_SETTINGS,
 	MOCK_RAIL_BETS,
@@ -946,6 +947,11 @@ export function AppShell(): JSX.Element {
 				onClose={commandK.close}
 				onNavigate={handleSearchNavigate}
 			/>
+
+			{/* @lore L10: VerdictGrammarCoach auto-opens on first thread open
+			    (signaled by `?thread=` in the URL). It also listens globally
+			    for the `?` shortcut so the user can re-open it any time. */}
+			<VerdictGrammarCoach autoOpen={searchParams.has("thread")} />
 		</div>
 	);
 }
