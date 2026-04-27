@@ -71,9 +71,15 @@ Object.defineProperty(window, "innerHeight", {
 
 if (typeof window.matchMedia !== "function") {
 	function evaluateQuery(query: string): boolean {
+		// L5: support compound queries like
+		// "(min-width: 768px) and (max-width: 1023px)" so the new tablet
+		// state in `useViewportBreakpoint` can be driven by jsdom tests.
 		const maxMatch = query.match(/max-width:\s*(\d+)px/);
 		const minMatch = query.match(/min-width:\s*(\d+)px/);
 		const width = window.innerWidth;
+		if (maxMatch && minMatch) {
+			return width >= Number(minMatch[1]) && width <= Number(maxMatch[1]);
+		}
 		if (maxMatch) return width <= Number(maxMatch[1]);
 		if (minMatch) return width >= Number(minMatch[1]);
 		return false;
