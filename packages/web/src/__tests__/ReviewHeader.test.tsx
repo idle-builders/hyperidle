@@ -3,6 +3,15 @@ import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { ReviewHeader } from "../shell/ReviewHeader";
 
+// L4 refactor: ReviewHeader now exposes onPrefill + onCommit instead of a
+// single onVerdict. Pre-L4 behavior ("click commits immediately") is
+// preserved when `verdictDoubleClick=false`. Pre-fill semantics
+// (`verdictDoubleClick=true` requires a confirm click) live in
+// `ReviewHeader.click-parity.test.tsx`.
+//
+// L4 review: the header no longer binds its own keydown listener — the
+// canonical keymap lives in `ConversationsReview` (PREFILL_KEYS). Keyboard
+// pre-fill behavior is verified in `ConversationsReview.reasoning.test.tsx`.
 describe("ReviewHeader", () => {
 	const defaultProps = {
 		proposer: {
@@ -10,7 +19,10 @@ describe("ReviewHeader", () => {
 			avatarUrl: "https://example.com/avatar.png",
 			timestamp: "2 hours ago",
 		},
-		onVerdict: vi.fn(),
+		onPrefill: vi.fn(),
+		onCommit: vi.fn(),
+		pendingVerdict: null,
+		verdictDoubleClick: false,
 	};
 
 	describe("proposer info", () => {
@@ -75,80 +87,26 @@ describe("ReviewHeader", () => {
 			}
 		});
 
-		it("calls onVerdict with the correct action when a button is clicked", async () => {
+		it("calls onCommit with the correct action when a button is clicked (single-click mode)", async () => {
 			const user = userEvent.setup();
-			const handleVerdict = vi.fn();
-			render(<ReviewHeader {...defaultProps} onVerdict={handleVerdict} />);
+			const handleCommit = vi.fn();
+			render(<ReviewHeader {...defaultProps} onCommit={handleCommit} />);
 			await user.click(screen.getByRole("button", { name: "Approve" }));
-			expect(handleVerdict).toHaveBeenCalledWith("approve");
+			expect(handleCommit).toHaveBeenCalledWith("approve");
 		});
 
-		it("calls onVerdict with 'reject' when reject button clicked", async () => {
+		it("calls onCommit with 'reject' when reject button clicked (single-click mode)", async () => {
 			const user = userEvent.setup();
-			const handleVerdict = vi.fn();
-			render(<ReviewHeader {...defaultProps} onVerdict={handleVerdict} />);
+			const handleCommit = vi.fn();
+			render(<ReviewHeader {...defaultProps} onCommit={handleCommit} />);
 			await user.click(screen.getByRole("button", { name: "Reject" }));
-			expect(handleVerdict).toHaveBeenCalledWith("reject");
+			expect(handleCommit).toHaveBeenCalledWith("reject");
 		});
 	});
 
-	describe("keyboard shortcuts", () => {
-		it("A key triggers approve verdict when header is focused", async () => {
-			const user = userEvent.setup();
-			const handleVerdict = vi.fn();
-			render(<ReviewHeader {...defaultProps} onVerdict={handleVerdict} />);
-			// Shortcuts are scoped to the header — need to focus a child element first
-			await user.click(screen.getByRole("button", { name: "Approve" }));
-			handleVerdict.mockClear();
-			await user.keyboard("a");
-			expect(handleVerdict).toHaveBeenCalledWith("approve");
-		});
-
-		it("r key triggers request-changes verdict when header is focused", async () => {
-			const user = userEvent.setup();
-			const handleVerdict = vi.fn();
-			render(<ReviewHeader {...defaultProps} onVerdict={handleVerdict} />);
-			await user.click(screen.getByRole("button", { name: "Request changes" }));
-			handleVerdict.mockClear();
-			await user.keyboard("r");
-			expect(handleVerdict).toHaveBeenCalledWith("request-changes");
-		});
-
-		it("x key triggers reject verdict when header is focused", async () => {
-			const user = userEvent.setup();
-			const handleVerdict = vi.fn();
-			render(<ReviewHeader {...defaultProps} onVerdict={handleVerdict} />);
-			await user.click(screen.getByRole("button", { name: "Reject" }));
-			handleVerdict.mockClear();
-			await user.keyboard("x");
-			expect(handleVerdict).toHaveBeenCalledWith("reject");
-		});
-
-		it("s key triggers snooze verdict when header is focused", async () => {
-			const user = userEvent.setup();
-			const handleVerdict = vi.fn();
-			render(<ReviewHeader {...defaultProps} onVerdict={handleVerdict} />);
-			await user.click(screen.getByRole("button", { name: "Snooze" }));
-			handleVerdict.mockClear();
-			await user.keyboard("s");
-			expect(handleVerdict).toHaveBeenCalledWith("snooze");
-		});
-
-		it("does not fire shortcuts when input is focused", async () => {
-			const user = userEvent.setup();
-			const handleVerdict = vi.fn();
-			render(
-				<div>
-					<input type="text" data-testid="input" />
-					<ReviewHeader {...defaultProps} onVerdict={handleVerdict} />
-				</div>,
-			);
-			const input = screen.getByTestId("input");
-			await user.click(input);
-			await user.keyboard("a");
-			expect(handleVerdict).not.toHaveBeenCalled();
-		});
-	});
+	// Keyboard shortcuts are owned by the page-level listener in
+	// `ConversationsReview` — see `ConversationsReview.reasoning.test.tsx`
+	// for pre-fill behavior tests.
 
 	describe("keyboard shortcut hints", () => {
 		it("shows keyboard shortcut hint on approve button", () => {
@@ -173,56 +131,8 @@ describe("ReviewHeader", () => {
 		});
 	});
 
-	describe("keyboard shortcut scoping", () => {
-		it("does not fire shortcuts when textarea is focused", async () => {
-			const user = userEvent.setup();
-			const handleVerdict = vi.fn();
-			render(
-				<div>
-					<textarea data-testid="textarea" />
-					<ReviewHeader {...defaultProps} onVerdict={handleVerdict} />
-				</div>,
-			);
-			const textarea = screen.getByTestId("textarea");
-			await user.click(textarea);
-			await user.keyboard("a");
-			expect(handleVerdict).not.toHaveBeenCalled();
-		});
-
-		it("does not fire shortcuts when select is focused", async () => {
-			const user = userEvent.setup();
-			const handleVerdict = vi.fn();
-			render(
-				<div>
-					<select data-testid="select">
-						<option>a</option>
-					</select>
-					<ReviewHeader {...defaultProps} onVerdict={handleVerdict} />
-				</div>,
-			);
-			const select = screen.getByTestId("select");
-			await user.click(select);
-			await user.keyboard("a");
-			expect(handleVerdict).not.toHaveBeenCalled();
-		});
-
-		it("does not fire for unbound keys", async () => {
-			const user = userEvent.setup();
-			const handleVerdict = vi.fn();
-			render(<ReviewHeader {...defaultProps} onVerdict={handleVerdict} />);
-			await user.keyboard("z");
-			expect(handleVerdict).not.toHaveBeenCalled();
-		});
-
-		it("cleans up keydown listener on unmount", async () => {
-			const user = userEvent.setup();
-			const handleVerdict = vi.fn();
-			const { unmount } = render(<ReviewHeader {...defaultProps} onVerdict={handleVerdict} />);
-			unmount();
-			await user.keyboard("a");
-			expect(handleVerdict).not.toHaveBeenCalled();
-		});
-	});
+	// Keyboard shortcut scoping is enforced by the page-level listener — see
+	// `ConversationsReview.reasoning.test.tsx`.
 
 	describe("accessibility", () => {
 		it("has a toolbar role with accessible label", () => {
@@ -230,7 +140,7 @@ describe("ReviewHeader", () => {
 			expect(screen.getByRole("toolbar", { name: /verdict/i })).toBeInTheDocument();
 		});
 
-		it("all verdict controls have aria-label matching their display label", () => {
+		it("all primary verdict controls have aria-label matching their display label", () => {
 			render(<ReviewHeader {...defaultProps} />);
 			const primaryLabels = ["Approve", "Request changes", "Reject", "Snooze"];
 			const secondaryLabels = [
@@ -329,17 +239,6 @@ describe("ReviewHeader", () => {
 			}
 		});
 
-		it("pressing 'c' still fires comment verdict even when dropdown is closed", async () => {
-			// I4 P3: keyboard shortcuts are a global listener on the header
-			// and must work independently of the dropdown open state.
-			const user = userEvent.setup();
-			const handleVerdict = vi.fn();
-			render(<ReviewHeader {...defaultProps} onVerdict={handleVerdict} />);
-			// Focus inside the header via the primary Approve button
-			await user.click(screen.getByRole("button", { name: "Approve" }));
-			handleVerdict.mockClear();
-			await user.keyboard("c");
-			expect(handleVerdict).toHaveBeenCalledWith("comment");
-		});
+		// Pre-fill via 'c' shortcut covered by `ConversationsReview.reasoning.test.tsx`.
 	});
 });

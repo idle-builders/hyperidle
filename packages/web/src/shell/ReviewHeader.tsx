@@ -1,19 +1,9 @@
 import { dsShellProps } from "@hyperidle/design-system";
+import type { VerdictAction } from "@hyperidle/shared";
 import type { JSX } from "react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useState } from "react";
 
-export type VerdictAction =
-	| "approve"
-	| "approve-with-comments"
-	| "comment"
-	| "inline-comment"
-	| "request-changes"
-	| "edit"
-	| "reject"
-	| "reply"
-	| "snooze"
-	| "escalate"
-	| "pause";
+export type { VerdictAction };
 
 export interface Proposer {
 	name: string;
@@ -23,13 +13,35 @@ export interface Proposer {
 
 export interface ReviewHeaderProps {
 	proposer: Proposer;
-	onVerdict: (action: VerdictAction) => void;
+	/**
+	 * L4: split from `onVerdict`. First click on a primary verdict in the
+	 * default `verdictDoubleClick=true` state pre-fills (calls onPrefill);
+	 * a second click (with `pendingVerdict` already set to the same action)
+	 * commits.
+	 */
+	onPrefill: (action: VerdictAction) => void;
+	onCommit: (action: VerdictAction) => void;
+	/** L4: the currently pre-filled verdict (lifted state from
+	 * `ConversationsReview`). When this matches a primary button, that
+	 * button's label swaps to "Confirm Approve" / "Confirm Reject" /…
+	 * and aria-pressed flips to true. */
+	pendingVerdict: VerdictAction | null;
+	/** L4: when false, single click commits directly. Sourced from
+	 * Settings → Appearance → verdictDoubleClick. */
+	verdictDoubleClick: boolean;
 	/**
 	 * @lore J4 AC: when the underlying review is blocking agent progress,
 	 * expose a Pause button alongside the always-visible Approve / Request
 	 * changes / Reject. Omit to hide (backwards compatible with I4 toolbar).
 	 */
 	blocking?: boolean;
+	/**
+	 * L4: gates the `↶ undoable` chip on the Approve button. Strict identity
+	 * check (`reversibility === true`) — null/undefined/false all hide it.
+	 * The L9 work package adds the underlying field to artifacts; until
+	 * then the chip stays hidden.
+	 */
+	reversibility?: boolean | null;
 }
 
 interface VerdictButtonDef {
@@ -86,40 +98,46 @@ const SECONDARY_BUTTONS: VerdictButtonDef[] = [
 	{ action: "escalate", label: "Escalate", shortcut: "Up", shortcutKey: "", variant: "btn-ghost" },
 ];
 
-const VERDICT_BUTTONS: VerdictButtonDef[] = [...PRIMARY_BUTTONS, ...SECONDARY_BUTTONS];
-
-const KEY_TO_VERDICT: Record<string, VerdictAction> = {};
-for (const btn of VERDICT_BUTTONS) {
-	if (btn.shortcutKey) {
-		KEY_TO_VERDICT[btn.shortcutKey] = btn.action;
-	}
-}
-
-/** Elements where keyboard shortcuts should not fire */
-const INPUT_TAGS = new Set(["INPUT", "TEXTAREA", "SELECT"]);
-
+/**
+ * @lore L4 review (design C3): pre-filled / "armed" verdict buttons need a
+ * visible affordance for sighted-mouse users — `aria-pressed` alone gives
+ * SR users the state but mouse users see no change. We add a focus ring
+ * (`ring-2`) and an outline using the accent token so the button visually
+ * inverts/highlights when armed. Tokens only — no raw colors.
+ */
 function VerdictButton({
 	def,
-	onVerdict,
+	pending,
+	onClick,
 	role,
 	tabIndex,
+	extraSlot,
 }: {
 	def: VerdictButtonDef;
-	onVerdict: (action: VerdictAction) => void;
+	pending: boolean;
+	onClick: () => void;
 	role?: string;
 	tabIndex?: number;
+	extraSlot?: JSX.Element | null;
 }): JSX.Element {
+	const label = pending ? `Confirm ${def.label}` : def.label;
+	const armedClasses = pending
+		? " ring-2 ring-offset-1 ring-[var(--accent)] outline outline-1 outline-[var(--accent)]"
+		: "";
 	return (
 		<button
 			type="button"
-			className={`btn btn-xs ${def.variant}`}
+			className={`btn btn-xs ${def.variant}${armedClasses}`}
 			title={`${def.label} (${def.shortcut})`}
-			aria-label={def.label}
+			aria-label={label}
+			aria-pressed={pending ? true : undefined}
+			data-pending={pending ? "true" : undefined}
 			role={role}
 			tabIndex={tabIndex}
-			onClick={() => onVerdict(def.action)}
+			onClick={onClick}
 		>
-			{def.label}
+			{label}
+			{extraSlot}
 			{def.shortcut && <kbd className="kbd kbd-xs ml-1 text-[11px]">{def.shortcut}</kbd>}
 		</button>
 	);
@@ -144,43 +162,38 @@ const PAUSE_BUTTON: VerdictButtonDef = {
 
 export function ReviewHeader({
 	proposer,
-	onVerdict,
+	onPrefill,
+	onCommit,
+	pendingVerdict,
+	verdictDoubleClick,
 	blocking = false,
+	reversibility,
 }: ReviewHeaderProps): JSX.Element {
-	const headerRef = useRef<HTMLElement>(null);
 	const [moreOpen, setMoreOpen] = useState(false);
 
-	const handleKeyDown = useCallback(
-		(e: KeyboardEvent) => {
-			// Only activate when the ReviewHeader or its children have focus
-			if (!headerRef.current?.contains(e.target as Node)) {
+	const handleVerdictClick = useCallback(
+		(action: VerdictAction): void => {
+			if (!verdictDoubleClick) {
+				onCommit(action);
 				return;
 			}
-
-			// Do not intercept when user is typing in an input field
-			const target = e.target as HTMLElement;
-			if (INPUT_TAGS.has(target.tagName) || target.isContentEditable) {
-				return;
-			}
-
-			const verdict = KEY_TO_VERDICT[e.key.toLowerCase()];
-			if (verdict) {
-				e.preventDefault();
-				onVerdict(verdict);
+			if (pendingVerdict === action) {
+				onCommit(action);
+			} else {
+				onPrefill(action);
 			}
 		},
-		[onVerdict],
+		[verdictDoubleClick, pendingVerdict, onCommit, onPrefill],
 	);
 
-	useEffect(() => {
-		document.addEventListener("keydown", handleKeyDown);
-		return () => document.removeEventListener("keydown", handleKeyDown);
-	}, [handleKeyDown]);
+	// @lore L4 review: keyboard shortcuts are owned by the page-level
+	// listener in `ConversationsReview` (single source of truth). Header
+	// no longer registers its own keydown listener — see PREFILL_KEYS in
+	// ConversationsReview.tsx.
 
 	return (
 		<header
 			{...dsShellProps("ReviewHeader")}
-			ref={headerRef}
 			/*
 			 * @lore K11: outer pad → --density-page-gutter, gap →
 			 * --density-gap, proposer name → --density-text per
@@ -220,16 +233,45 @@ export function ReviewHeader({
 			</div>
 
 			{/* Verdict toolbar — I4 P3: 4 primary verdicts as direct children.
-				J4: when `blocking`, append a Pause button. */}
+				J4: when `blocking`, append a Pause button.
+				L4: Approve gets the optional ↶ undoable chip iff
+				reversibility === true (strict identity per .plan-L4.md §3.3.1). */}
 			<div
 				role="toolbar"
 				aria-label="Verdict actions"
 				className="flex items-center gap-1 flex-wrap"
 			>
-				{PRIMARY_BUTTONS.map((btn) => (
-					<VerdictButton key={btn.action} def={btn} onVerdict={onVerdict} />
-				))}
-				{blocking && <VerdictButton def={PAUSE_BUTTON} onVerdict={onVerdict} />}
+				{PRIMARY_BUTTONS.map((btn) => {
+					const pending = pendingVerdict === btn.action;
+					// @lore L4 review (design W4 + W5/biome a11y): the chip should
+					// recede — power users learn the symbol; it must not compete
+					// with the verdict label. Use `text-[var(--text-lo)]` with no
+					// background. Removed `aria-label` (biome flagged: span has no
+					// implicit role that supports it; the visible text "undoable"
+					// already conveys the meaning).
+					const extra =
+						btn.action === "approve" && reversibility === true ? (
+							<span key="reversibility-chip" className="ml-1 text-[11px] text-[var(--text-lo)]">
+								↶ undoable
+							</span>
+						) : null;
+					return (
+						<VerdictButton
+							key={btn.action}
+							def={btn}
+							pending={pending}
+							onClick={() => handleVerdictClick(btn.action)}
+							extraSlot={extra}
+						/>
+					);
+				})}
+				{blocking && (
+					<VerdictButton
+						def={PAUSE_BUTTON}
+						pending={pendingVerdict === PAUSE_BUTTON.action}
+						onClick={() => handleVerdictClick(PAUSE_BUTTON.action)}
+					/>
+				)}
 			</div>
 
 			{/* I4 P3 + Design H3 / Arch M3: overflow control is a proper ARIA
@@ -261,7 +303,8 @@ export function ReviewHeader({
 						<VerdictButton
 							key={btn.action}
 							def={btn}
-							onVerdict={onVerdict}
+							pending={pendingVerdict === btn.action}
+							onClick={() => handleVerdictClick(btn.action)}
 							role="menuitem"
 							tabIndex={moreOpen ? 0 : -1}
 						/>
