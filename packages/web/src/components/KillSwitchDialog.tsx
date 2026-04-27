@@ -1,15 +1,19 @@
 /**
  * L7 — KillSwitchDialog.
  *
- * Confirmation surface for the three recovery verbs that need a
+ * Confirmation surface for the recovery verbs that need a
  * blast-radius preview + rationale + explicit confirm gate:
  *   - factory_pause (kill switch)
  *   - rollback (revert a committed verdict)
  *   - session_pause (mid-session pause)
  *
- * Two confirm modes (per AC6 and `.pipeline-plan.md` §6):
+ * Three confirm modes:
  *   - `type_name`     — caller must type the target name verbatim.
  *   - `press_hold`    — pointerdown for 1.5s before onConfirm fires.
+ *   - `reason_only`   — reason rationale alone is sufficient. Used by
+ *                       the thread-level rollback verb (scope-limited,
+ *                       reversible). Maps to no extra friction beyond
+ *                       the rationale field.
  *
  * Reason is required (≤500 chars, Zod-mirrored).
  *
@@ -19,18 +23,36 @@
  * @lore L7 (AQ-014, AQ-015): the touch target is ≥44 CSS px and we
  * animate only `opacity` on the ring overlay so the press-hold honors
  * `prefers-reduced-motion` without a special-case branch.
+ * @lore L7 (S3): `reason_only` exists so RollbackOverflowItem can reuse
+ * this dialog instead of duplicating its chrome. The user-facing
+ * Settings → Safety preference is still `type_name`/`press_hold` (the
+ * shared `KillSwitchConfirmMode` enum) — `reason_only` is a dialog-
+ * level mode for callers that already know rollback gates differently.
  */
 import { PRESS_HOLD_MS, RATIONALE_MAX_CHARS, type KillSwitchConfirmMode } from "@hyperidle/shared";
 import { useEffect, useId, useRef, useState } from "react";
+
+export type KillSwitchDialogMode = KillSwitchConfirmMode | "reason_only";
 
 export interface KillSwitchDialogProps {
 	open: boolean;
 	verb: "factory_pause" | "rollback" | "session_pause";
 	target: { id: string; name: string };
 	blastRadius: string;
-	mode: KillSwitchConfirmMode;
+	mode: KillSwitchDialogMode;
 	onConfirm: (input: { reason: string }) => Promise<void> | void;
 	onCancel: () => void;
+	/**
+	 * Optional override for the placeholder shown in the reason
+	 * textarea. Defaults to "Why are you pausing?".
+	 */
+	reasonPlaceholder?: string;
+	/**
+	 * Disable the confirm button while a parent-owned in-flight
+	 * action is pending (e.g. an awaited POST). Independent from the
+	 * dialog's internal validity gating.
+	 */
+	confirmDisabled?: boolean;
 }
 
 function verbCta(verb: KillSwitchDialogProps["verb"]): string {
@@ -67,7 +89,7 @@ export function KillSwitchDialog(props: KillSwitchDialogProps): JSX.Element | nu
 		return () => {
 			window.removeEventListener("keydown", onKey);
 		};
-	}, [props.open, props.onCancel, props]);
+	}, [props.open, props.onCancel]);
 
 	useEffect(() => {
 		return () => {
@@ -127,7 +149,7 @@ export function KillSwitchDialog(props: KillSwitchDialogProps): JSX.Element | nu
 						maxLength={RATIONALE_MAX_CHARS}
 						value={reason}
 						onChange={(e) => setReason(e.target.value)}
-						placeholder="Why are you pausing?"
+						placeholder={props.reasonPlaceholder ?? "Why are you pausing?"}
 						required
 					/>
 					<p className="text-xs text-[var(--text-lo)]">
@@ -156,30 +178,42 @@ export function KillSwitchDialog(props: KillSwitchDialogProps): JSX.Element | nu
 						type="button"
 						className="btn btn-ghost btn-sm"
 						onClick={props.onCancel}
+						disabled={props.confirmDisabled}
 					>
 						Cancel
 					</button>
-					{props.mode === "type_name" ? (
+					{props.mode === "type_name" && (
 						<button
 							type="button"
 							className="btn btn-error btn-sm min-h-11"
-							disabled={!canSubmit}
+							disabled={!canSubmit || props.confirmDisabled}
 							onClick={submitType}
 						>
 							{verbCta(props.verb)}
 						</button>
-					) : (
+					)}
+					{props.mode === "press_hold" && (
 						<button
 							type="button"
 							aria-label="Hold to confirm"
 							className="btn btn-error btn-sm min-h-11"
-							disabled={!reasonValid}
+							disabled={!reasonValid || props.confirmDisabled}
 							onPointerDown={startHold}
 							onPointerUp={endHold}
 							onPointerLeave={endHold}
 							onPointerCancel={endHold}
 						>
 							Hold to confirm
+						</button>
+					)}
+					{props.mode === "reason_only" && (
+						<button
+							type="button"
+							className="btn btn-error btn-sm min-h-11"
+							disabled={!reasonValid || props.confirmDisabled}
+							onClick={submitType}
+						>
+							{verbCta(props.verb)}
 						</button>
 					)}
 				</footer>
