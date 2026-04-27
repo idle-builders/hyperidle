@@ -6,11 +6,16 @@
  * @lore L3 DoD: WEB_PORT env var supports running a dedicated server on a
  * non-default port (e.g. 5176) to avoid colliding with shared dev servers
  * across worktrees. The dev script honors WEB_PORT via vite.config.ts.
+ *
+ * @lore L9 DoD: parallel worktrees may already have a vite running. Set
+ * `PLAYWRIGHT_EXTERNAL_SERVER=1` (combined with `WEB_PORT=<port>`) to skip
+ * the `webServer` boot and reuse an out-of-band dev server.
  */
 import { defineConfig, devices } from "@playwright/test";
 
 const WEB_PORT = Number(process.env.WEB_PORT ?? 5173);
 const BASE_URL = `http://localhost:${WEB_PORT}`;
+const useExternalServer = process.env.PLAYWRIGHT_EXTERNAL_SERVER === "1";
 
 export default defineConfig({
 	testDir: "./e2e",
@@ -29,11 +34,15 @@ export default defineConfig({
 			use: { ...devices["Desktop Chrome"] },
 		},
 	],
-	webServer: {
-		command: `WEB_PORT=${WEB_PORT} bun run --filter @hyperidle/web dev`,
-		url: BASE_URL,
-		reuseExistingServer: !process.env.CI,
-		timeout: 30_000,
-		cwd: "../..",
-	},
+	...(useExternalServer
+		? {}
+		: {
+				webServer: {
+					command: `WEB_PORT=${WEB_PORT} bun run --filter @hyperidle/web dev`,
+					url: BASE_URL,
+					reuseExistingServer: !process.env.CI,
+					timeout: 30_000,
+					cwd: "../..",
+				},
+			}),
 });
