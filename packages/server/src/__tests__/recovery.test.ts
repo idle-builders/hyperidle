@@ -672,6 +672,126 @@ describe("L7: factory-paused-guard middleware (selective)", () => {
 		expect(r2.status).toBe(409);
 		expect(r2.status).not.toBe(423);
 	});
+
+	// L7 (ARCH2/ADV1/SEC6): the guard MUST cover every mutation that
+	// starts new agent work — not just verdict commit. Plan §8 enumerates
+	// /sessions, /tasks, /bets activation as mounts. Regression: prior
+	// implementation only mounted on /conversations/responses.
+	it("POST /api/sessions returns 423 while factory paused", async () => {
+		await app.request("/api/factory/pause", {
+			method: "POST",
+			headers: authHeaders({ "X-Actor-Id": "actor:ceo" }),
+			body: JSON.stringify({ reason: "x" }),
+		});
+		// Seed agent + task so the route's downstream FK checks are not
+		// the failure path. Agent already seeded by seedActorsAndProduct;
+		// task minimal insert.
+		db.insert(bets)
+			.values({
+				id: "bet-guard",
+				productId: "prod-1",
+				teamId: "team-1",
+				pitch: "p",
+				appetite: "1w",
+				status: "active",
+				createdAt: NOW_ISO,
+			})
+			.run();
+		db.insert(tasks)
+			.values({
+				id: "task-guard",
+				betId: "bet-guard",
+				productId: "prod-1",
+				teamId: "team-1",
+				title: "T",
+				state: "in_progress",
+				createdAt: NOW_ISO,
+				updatedAt: NOW_ISO,
+			})
+			.run();
+		const res = await app.request("/api/sessions", {
+			method: "POST",
+			headers: authHeaders({ "X-Actor-Id": "actor:ceo" }),
+			body: JSON.stringify({
+				agentId: "agent-1",
+				taskId: "task-guard",
+				modelTier: "workhorse",
+			}),
+		});
+		expect(res.status).toBe(423);
+	});
+
+	it("POST /api/tasks returns 423 while factory paused", async () => {
+		await app.request("/api/factory/pause", {
+			method: "POST",
+			headers: authHeaders({ "X-Actor-Id": "actor:ceo" }),
+			body: JSON.stringify({ reason: "x" }),
+		});
+		const res = await app.request("/api/tasks", {
+			method: "POST",
+			headers: authHeaders({ "X-Actor-Id": "actor:ceo" }),
+			body: JSON.stringify({
+				betId: "bet-x",
+				productId: "prod-1",
+				teamId: "team-1",
+				title: "T",
+				state: "proposed",
+			}),
+		});
+		expect(res.status).toBe(423);
+	});
+
+	it("POST /api/sessions/:id/pause is NOT 423 while paused (recovery verb bypasses guard)", async () => {
+		// Seed a session row so the route reaches the guard order check
+		// without 404ing first.
+		db.insert(bets)
+			.values({
+				id: "bet-bypass",
+				productId: "prod-1",
+				teamId: "team-1",
+				pitch: "p",
+				appetite: "1w",
+				status: "active",
+				createdAt: NOW_ISO,
+			})
+			.run();
+		db.insert(tasks)
+			.values({
+				id: "task-bypass",
+				betId: "bet-bypass",
+				productId: "prod-1",
+				teamId: "team-1",
+				title: "T",
+				state: "in_progress",
+				createdAt: NOW_ISO,
+				updatedAt: NOW_ISO,
+			})
+			.run();
+		db.insert(sessions)
+			.values({
+				id: "session-bypass",
+				taskId: "task-bypass",
+				agentId: "agent-1",
+				modelTier: "workhorse",
+				startedAt: NOW_ISO,
+				state: "active",
+			})
+			.run();
+		await app.request("/api/factory/pause", {
+			method: "POST",
+			headers: authHeaders({ "X-Actor-Id": "actor:ceo" }),
+			body: JSON.stringify({ reason: "x" }),
+		});
+		// Cascade has flipped session-bypass to paused; pause again is 409
+		// (already_paused). Either 200 (if cascade missed) or 409 is
+		// acceptable — the only forbidden status is 423.
+		const res = await app.request("/api/sessions/session-bypass/pause", {
+			method: "POST",
+			headers: authHeaders({ "X-Actor-Id": "actor:ceo" }),
+			body: JSON.stringify({ reason: "y" }),
+		});
+		expect(res.status).not.toBe(423);
+	});
 });
 
 describe("L7: GET /api/factory/state", () => {

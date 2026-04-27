@@ -301,15 +301,66 @@ function createApp(options?: AppOptions): Hono {
 		api.route("/me", meRoutes);
 
 		// L7: factory-paused guard — applied SELECTIVELY to mutation routes
-		// that trigger NEW agent work (verdict commit, session create, …).
-		// Recovery verbs themselves (`/factory/pause|resume|state`,
+		// that trigger NEW agent work (verdict commit, session create,
+		// task create, task transitions, bet activations). Recovery verbs
+		// themselves (`/factory/pause|resume|state`,
 		// `/sessions/:id/pause|resume`, `/threads/:id/verdict/rollback|undo`)
 		// MUST NOT be guarded — they're the founder's cleanup tools and
 		// must remain reachable while paused. See `.pipeline-plan.md` §8.
+		//
+		// @lore L7 (ARCH2/ADV1/SEC6): the guard MUST cover every route
+		// that starts new agent work — not just verdict commit. The
+		// initial implementation only guarded `/conversations/responses`,
+		// which silently let session/task/bet creates run while paused.
+		// Guards run before the per-route handler, so any 423 returned
+		// here short-circuits the mutation — including the audit-side
+		// effects of a successful create.
 		const factoryPausedGuard = createFactoryPausedGuard(options.db);
 		// Verdict commit (POST) — blocked while paused.
 		api.use("/conversations/responses", async (c, next) => {
 			if (c.req.method === "POST") return factoryPausedGuard(c, next);
+			return next();
+		});
+		// Session create (POST /sessions) and lifecycle PATCH — blocked
+		// while paused so a routine cannot spin up new agent work mid-
+		// kill. Per-session pause/resume are mounted by
+		// `createSessionRecoveryRoutes` BEFORE this guard so recovery
+		// verbs fall through unguarded.
+		api.use("/sessions", async (c, next) => {
+			// @lore L7: the recovery sub-router (`:id/pause` /
+			// `:id/resume`) is registered BEFORE this guard mount so
+			// those paths match earlier in the routing table. Only
+			// non-recovery mutations on `/sessions` reach this guard.
+			if (c.req.method === "POST" || c.req.method === "PATCH") {
+				const path = c.req.path;
+				// Allow recovery sub-paths (defense-in-depth: even if
+				// router order changes, the guard explicitly excludes
+				// `/pause` and `/resume`).
+				if (path.endsWith("/pause") || path.endsWith("/resume")) {
+					return next();
+				}
+				return factoryPausedGuard(c, next);
+			}
+			return next();
+		});
+		// Task create + state transitions — blocked while paused. The
+		// dependency-watcher's hold→accepted auto-transition consults
+		// `factory_state.paused` directly (see dependency-watcher.ts).
+		api.use("/tasks", async (c, next) => {
+			if (c.req.method === "POST" || c.req.method === "PATCH") {
+				return factoryPausedGuard(c, next);
+			}
+			return next();
+		});
+		// Bet creation + activation/commit/ship — blocked while paused.
+		// `kill` (`POST /:id/kill`) is the bet-level cleanup verb and
+		// stays reachable while paused.
+		api.use("/bets", async (c, next) => {
+			if (c.req.method === "POST" || c.req.method === "PATCH") {
+				const path = c.req.path;
+				if (path.endsWith("/kill")) return next();
+				return factoryPausedGuard(c, next);
+			}
 			return next();
 		});
 

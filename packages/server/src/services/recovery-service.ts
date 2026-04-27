@@ -72,6 +72,19 @@ function viewOf(row: FactoryStateRow | undefined): FactoryStateView {
 	};
 }
 
+/**
+ * Public reader for the singleton `factory_state` row. Used by the
+ * factory-paused-guard middleware on every mutation route AND by any
+ * background worker (BullMQ scheduler at job pickup, etc.) that must
+ * consult the kill state before running new agent work.
+ *
+ * @lore L7 (ADV3): BullMQ workers MUST call `readFactoryState(db)` at
+ * job-pickup time so a server restart after a kill cannot silently
+ * un-pause queued work. The pause persists in the DB row across
+ * restarts; the only un-pause path is `resumeFactory()`. Workers that
+ * skip this check defeat the kill switch the moment the process
+ * restarts.
+ */
 export function readFactoryState(db: HyperIdleDb): FactoryStateView {
 	const row = db.select().from(factoryState).where(eq(factoryState.id, FACTORY_SINGLETON_ID)).get();
 	return viewOf(row);
