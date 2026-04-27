@@ -24,6 +24,7 @@ import { useCommandK } from "../hooks/useCommandK";
 import { useConversations } from "../hooks/useConversations";
 import { useMe } from "../hooks/useMe";
 import { useOfflineQueue } from "../hooks/useOfflineQueue";
+import { useSystemStability } from "../hooks/useSystemStability";
 import { useTheme } from "../hooks/useTheme";
 import { useViewportBreakpoint } from "../hooks/useViewportBreakpoint";
 import { ConversationsSubmenu } from "../shell/ConversationsSubmenu";
@@ -227,6 +228,10 @@ export function AppShell(): JSX.Element {
 	const toggleRailExpanded = useCallback((): void => {
 		setRailOverride((prev) => !(prev ?? breakpoint.railExpanded));
 	}, [breakpoint.railExpanded]);
+	// L8: poll /api/system/stability so the Rail's system-stability strip
+	// (and the collapsed-Rail stability pills) can render. The hook caps
+	// polling at every 30s per spec.
+	const { stability } = useSystemStability();
 	const [searchParams, setSearchParams] = useSearchParams();
 	const [settingsOpen, setSettingsOpen] = useState(false);
 	// @lore Settings lives at the shell root so [data-density] cascades --density-* CSS vars
@@ -704,6 +709,7 @@ export function AppShell(): JSX.Element {
 					bets={MOCK_RAIL_BETS}
 					blockers={MOCK_RAIL_BLOCKERS}
 					cost={MOCK_RAIL_COST}
+					stability={stability}
 				/>
 			</div>
 
