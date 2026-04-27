@@ -53,7 +53,7 @@ export function createTaskRoutes(db: HyperIdleDb, eventBus: EventBus): Hono {
 
 	// POST /tasks — create a new task (agent-driven decomposition)
 	router.post("/", validateBody(createTaskSchema), (c) => {
-		const body = c.req.valid("json" as never) as z.infer<typeof createTaskSchema>;
+		const body = c.req.valid("json");
 		const now = new Date().toISOString();
 
 		// Validate bet exists
@@ -110,7 +110,7 @@ export function createTaskRoutes(db: HyperIdleDb, eventBus: EventBus): Hono {
 	// PATCH /tasks/:id — update mutable fields
 	router.patch("/:id", validateBody(updateTaskSchema), (c) => {
 		const taskId = c.req.param("id");
-		const body = c.req.valid("json" as never) as z.infer<typeof updateTaskSchema>;
+		const body = c.req.valid("json");
 
 		const task = db.select().from(tasks).where(eq(tasks.id, taskId)).get();
 		if (!task) {
@@ -134,7 +134,7 @@ export function createTaskRoutes(db: HyperIdleDb, eventBus: EventBus): Hono {
 	// POST /tasks/:id/transition — state transition
 	router.post("/:id/transition", validateBody(transitionTaskSchema), (c) => {
 		const taskId = c.req.param("id");
-		const body = c.req.valid("json" as never) as z.infer<typeof transitionTaskSchema>;
+		const body = c.req.valid("json");
 
 		transitionTask(db, eventBus, taskId, body.state);
 
@@ -145,7 +145,7 @@ export function createTaskRoutes(db: HyperIdleDb, eventBus: EventBus): Hono {
 	// POST /tasks/:id/handoff — hand off task to another agent/role/human
 	router.post("/:id/handoff", validateBody(handoffSchema), async (c) => {
 		const taskId = c.req.param("id");
-		const body = c.req.valid("json" as never) as z.infer<typeof handoffSchema>;
+		const body = c.req.valid("json");
 
 		const task = db.select().from(tasks).where(eq(tasks.id, taskId)).get();
 		if (!task) {

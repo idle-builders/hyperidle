@@ -123,7 +123,7 @@ export function createStatusRoutes(db: HyperIdleDb): Hono {
 	// domain-specific config endpoints; this generic write rejects them
 	// with 400 so structured-config invariants stay intact.
 	router.patch("/settings", validateBody(updateSettingSchema), (c) => {
-		const body = c.req.valid("json" as never) as z.infer<typeof updateSettingSchema>;
+		const body = c.req.valid("json");
 
 		if (isBlockedSettingKey(body.key)) {
 			const response: ApiErrorResponse = {

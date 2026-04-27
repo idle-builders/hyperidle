@@ -61,7 +61,7 @@ export function createSessionRoutes(db: HyperIdleDb, eventBus: EventBus): Hono {
 
 	// POST / — Create session
 	router.post("/", validateBody(createSessionSchema), (c) => {
-		const body = c.req.valid("json" as never) as z.infer<typeof createSessionSchema>;
+		const body = c.req.valid("json");
 		const sessionId = crypto.randomUUID();
 		const now = new Date().toISOString();
 
@@ -92,7 +92,7 @@ export function createSessionRoutes(db: HyperIdleDb, eventBus: EventBus): Hono {
 	// PATCH /:id — Update session state
 	router.patch("/:id", validateBody(updateSessionSchema), (c) => {
 		const sessionId = c.req.param("id");
-		const body = c.req.valid("json" as never) as z.infer<typeof updateSessionSchema>;
+		const body = c.req.valid("json");
 
 		const existing = db.select().from(sessions).where(eq(sessions.id, sessionId)).get();
 		if (!existing) {

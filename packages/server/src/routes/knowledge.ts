@@ -224,7 +224,7 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 	// POST /:layer — create (version=1)
 	router.post("/:layer", validateBody(createKnowledgeSchema), (c) => {
 		const layer = c.get("layer");
-		const body = c.req.valid("json" as never) as z.infer<typeof createKnowledgeSchema>;
+		const body = c.req.valid("json");
 		const id = crypto.randomUUID();
 		const now = new Date().toISOString();
 
@@ -258,7 +258,7 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 	router.patch("/:layer/:id", validateBody(updateKnowledgeSchema), (c) => {
 		const layer = c.get("layer");
 		const id = c.req.param("id");
-		const body = c.req.valid("json" as never) as z.infer<typeof updateKnowledgeSchema>;
+		const body = c.req.valid("json");
 
 		const existing = db
 			.select()
@@ -349,7 +349,7 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 	router.post("/:layer/:id/merge", validateBody(mergeSchema), (c) => {
 		const layer = c.get("layer");
 		const targetId = c.req.param("id");
-		const body = c.req.valid("json" as never) as z.infer<typeof mergeSchema>;
+		const body = c.req.valid("json");
 
 		const target = db
 			.select()
@@ -439,7 +439,7 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 	router.post("/:layer/:id/split", validateBody(splitSchema), (c) => {
 		const layer = c.get("layer");
 		const id = c.req.param("id");
-		const body = c.req.valid("json" as never) as z.infer<typeof splitSchema>;
+		const body = c.req.valid("json");
 
 		const original = db
 			.select()
@@ -561,7 +561,7 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 	router.post("/:layer/:id/flag", validateBody(flagSchema), (c) => {
 		const layer = c.get("layer");
 		const id = c.req.param("id");
-		const body = c.req.valid("json" as never) as z.infer<typeof flagSchema>;
+		const body = c.req.valid("json");
 
 		const item = db
 			.select()

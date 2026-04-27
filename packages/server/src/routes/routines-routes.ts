@@ -32,20 +32,11 @@ export function createRoutineRoutes(db: HyperIdleDb, eventBus: EventBus): Hono {
 	// PATCH /:id — Update routine
 	router.patch("/:id", validateBody(updateRoutineSchema), (c) => {
 		const routineId = c.req.param("id");
-		// @lore G4 Hono zValidator typing: `c.req.valid("json")` returns
-		// `never` when the route builder cannot infer the validator target
-		// chain — specifically when the `validateBody` helper wraps
-		// `zValidator` and the resulting middleware is passed through
-		// Hono's handler positional overloads. The `"json" as never` +
-		// `as z.infer<…>` double cast is load-bearing: dropping either
-		// half resurrects the TS error. This matches the pattern used
-		// across `bets.ts`, `tasks.ts`, `knowledge.ts`, `sessions-routes.ts`,
-		// and `agents.ts`; `git-export-routes.ts` gets away without the
-		// cast because it does not re-export the route factory. Fixing
-		// this properly requires either rewriting `validateBody` to
-		// preserve the generic parameter chain or inlining `zValidator`
-		// at every call site — out of scope for the G4 fix-pack.
-		const body = c.req.valid("json" as never) as z.infer<typeof updateRoutineSchema>;
+		// @lore L2 review (W3): the `"json" as never` + `as z.infer<…>`
+		// double cast was needed before validateBody preserved the schema
+		// generic. With the L2 typing fix the inference chain now works
+		// natively; `c.req.valid("json")` returns the inferred type.
+		const body = c.req.valid("json");
 
 		const existing = db.select().from(routines).where(eq(routines.id, routineId)).get();
 		if (!existing) {
