@@ -26,7 +26,12 @@ const defaultSettings: SettingsData = {
 		quietHoursEnd: "08:00",
 		mutedProducts: [],
 	},
-	appearance: { density: "default", theme: "system" },
+	appearance: {
+		density: "default",
+		theme: "system",
+		verdictDoubleClick: true,
+		undoWindowSeconds: 8,
+	},
 };
 
 const baseProps = {

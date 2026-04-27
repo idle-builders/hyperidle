@@ -2,10 +2,23 @@ import {
 	AUTONOMY_LEVEL_META,
 	AUTONOMY_LEVELS,
 	type AutonomyLevel,
+	DEFAULT_UNDO_WINDOW_SECONDS,
+	DEFAULT_VERDICT_DOUBLE_CLICK,
 	isAutonomyLevel,
+	UNDO_WINDOW_MAX,
+	UNDO_WINDOW_MIN,
+	UNDO_WINDOW_OPTIONS,
 } from "@hyperidle/shared";
 import FocusTrap from "focus-trap-react";
-import { type JSX, useCallback, useEffect, useRef, useState } from "react";
+import { type JSX, useCallback, useEffect, useState } from "react";
+
+export {
+	DEFAULT_UNDO_WINDOW_SECONDS,
+	DEFAULT_VERDICT_DOUBLE_CLICK,
+	UNDO_WINDOW_MAX,
+	UNDO_WINDOW_MIN,
+	UNDO_WINDOW_OPTIONS,
+};
 
 // --- Types ---
 
@@ -51,6 +64,16 @@ export type Theme = "light" | "dark" | "system";
 export interface AppearanceSettings {
 	density: Density;
 	theme: Theme;
+	/**
+	 * L4: when true, a click on a primary verdict in `ReviewHeader` only
+	 * pre-fills; a second click commits. When false, single click commits
+	 * directly. Default true (matches keyboard pre-fill semantics).
+	 */
+	verdictDoubleClick: boolean;
+	/**
+	 * L4: configurable undo window in seconds; clamped to [3, 15]. Default 8.
+	 */
+	undoWindowSeconds: number;
 }
 
 export interface SettingsData {
@@ -176,6 +199,20 @@ export function SettingsPanel({
 		}));
 	}, []);
 
+	const updateVerdictDoubleClick = useCallback((value: boolean): void => {
+		setDraft((prev) => ({
+			...prev,
+			appearance: { ...prev.appearance, verdictDoubleClick: value },
+		}));
+	}, []);
+
+	const updateUndoWindowSeconds = useCallback((value: number): void => {
+		setDraft((prev) => ({
+			...prev,
+			appearance: { ...prev.appearance, undoWindowSeconds: value },
+		}));
+	}, []);
+
 	const validate = useCallback((): string[] => {
 		const errors: string[] = [];
 		if (!isValid24hTime(draft.notifications.quietHoursStart)) {
@@ -184,8 +221,16 @@ export function SettingsPanel({
 		if (!isValid24hTime(draft.notifications.quietHoursEnd)) {
 			errors.push("Invalid time format for quiet hours end (use HH:MM)");
 		}
+		const window = draft.appearance.undoWindowSeconds;
+		if (!Number.isFinite(window) || window < UNDO_WINDOW_MIN || window > UNDO_WINDOW_MAX) {
+			errors.push(`Undo window must be between ${UNDO_WINDOW_MIN} and ${UNDO_WINDOW_MAX} seconds`);
+		}
 		return errors;
-	}, [draft.notifications.quietHoursStart, draft.notifications.quietHoursEnd]);
+	}, [
+		draft.notifications.quietHoursStart,
+		draft.notifications.quietHoursEnd,
+		draft.appearance.undoWindowSeconds,
+	]);
 
 	const handleSave = useCallback(async (): Promise<void> => {
 		const errors = validate();
@@ -201,7 +246,11 @@ export function SettingsPanel({
 			// @lore I6: close the panel after successful save so the user
 			// returns to the previous view with feedback toast visible.
 			onClose();
-		} catch {
+		} catch (err) {
+			// biome-ignore lint/suspicious/noConsole: observability surface — surface save failures
+			console.error("[SettingsPanel] onSave failed", {
+				message: err instanceof Error ? err.message : String(err),
+			});
 			onFeedback?.({ type: "error", message: "Failed to save settings" });
 		} finally {
 			setSaving(false);
@@ -209,25 +258,11 @@ export function SettingsPanel({
 	}, [validate, onSave, draft, onFeedback, onClose]);
 
 	// @lore React StrictMode double-mounts components. FocusTrap's onDeactivate
-	// fires on the first unmount, which calls onClose and immediately closes the
-	// panel. To avoid this, we disable escapeDeactivates + onDeactivate entirely
-	// and handle Escape ourselves via a keydown listener. The FocusTrap is kept
-	// active=true only while `open` is true; deactivation happens naturally when
-	// the component unmounts (open→false). We also guard onDeactivate against the
-	// StrictMode double-unmount by tracking whether the panel has had time to
-	// settle past the remount window.
-	const settledRef = useRef(false);
-	useEffect(() => {
-		if (open) {
-			settledRef.current = false;
-			const id = setTimeout(() => {
-				settledRef.current = true;
-			}, 50);
-			return () => clearTimeout(id);
-		}
-		settledRef.current = false;
-	}, [open]);
-
+	// fires on the first unmount, which would call onClose and immediately close
+	// the panel. To avoid this we disable escapeDeactivates + onDeactivate
+	// entirely and handle Escape ourselves via the keydown listener below. The
+	// FocusTrap stays active=true while `open` is true; deactivation happens
+	// naturally when the component unmounts (open→false).
 	// Handle Escape key manually so FocusTrap doesn't need onDeactivate.
 	useEffect(() => {
 		if (!open) return;
@@ -323,6 +358,8 @@ export function SettingsPanel({
 								appearance={draft.appearance}
 								onDensityChange={updateDensity}
 								onThemeChange={updateTheme}
+								onVerdictDoubleClickChange={updateVerdictDoubleClick}
+								onUndoWindowSecondsChange={updateUndoWindowSeconds}
 							/>
 						)}
 					</div>
@@ -591,10 +628,14 @@ function AppearanceTab({
 	appearance,
 	onDensityChange,
 	onThemeChange,
+	onVerdictDoubleClickChange,
+	onUndoWindowSecondsChange,
 }: {
 	appearance: AppearanceSettings;
 	onDensityChange: (density: Density) => void;
 	onThemeChange: (theme: Theme) => void;
+	onVerdictDoubleClickChange: (value: boolean) => void;
+	onUndoWindowSecondsChange: (value: number) => void;
 }): JSX.Element {
 	return (
 		<div className="flex flex-col gap-3">
@@ -628,6 +669,66 @@ function AppearanceTab({
 					<option value="compact">Compact</option>
 					<option value="default">Default</option>
 					<option value="comfortable">Comfortable</option>
+				</select>
+			</div>
+
+			{/* L4: Verdict double-click — pre-fill confirm pattern. */}
+			<div className="form-control">
+				<label
+					className="cursor-pointer label flex items-center justify-between"
+					htmlFor="settings-verdict-double-click"
+				>
+					<span className="label-text text-[var(--text-mid)]">Verdict double-click</span>
+					<input
+						id="settings-verdict-double-click"
+						type="checkbox"
+						className="toggle toggle-sm toggle-primary"
+						checked={appearance.verdictDoubleClick}
+						onChange={(e) => onVerdictDoubleClickChange(e.target.checked)}
+						aria-label="Verdict double-click"
+					/>
+				</label>
+				{/* @lore L4 review (design C5): when the user opts into
+				    single-click, the spec mandates a *written warning*. The
+				    descriptive subtitle alone fails the AC; this surface
+				    raises the warning role and uses the warning token so the
+				    user sees the risk language before they save. */}
+				{appearance.verdictDoubleClick ? (
+					<p className="text-xs text-[var(--text-lo)] mt-1">
+						Click twice to commit a verdict (recommended).
+					</p>
+				) : (
+					<div
+						role="alert"
+						className="mt-1 flex items-start gap-2 rounded border border-warning bg-[var(--surface-2)] p-2"
+					>
+						<span aria-hidden="true" className="text-warning font-semibold">
+							!
+						</span>
+						<p className="text-xs text-warning">
+							<strong>Warning:</strong> Single-click is irreversible — only the undo toast can
+							revert it. Destructive verdicts ship in one click.
+						</p>
+					</div>
+				)}
+			</div>
+
+			{/* L4: Undo window in seconds. Closed allowlist 3..15. */}
+			<div className="form-control">
+				<label className="label" htmlFor="settings-undo-window">
+					<span className="label-text text-[var(--text-mid)]">Undo window (seconds)</span>
+				</label>
+				<select
+					id="settings-undo-window"
+					className="select select-sm select-bordered w-full"
+					value={String(appearance.undoWindowSeconds)}
+					onChange={(e) => onUndoWindowSecondsChange(Number.parseInt(e.target.value, 10))}
+				>
+					{UNDO_WINDOW_OPTIONS.map((seconds) => (
+						<option key={seconds} value={String(seconds)}>
+							{seconds}s
+						</option>
+					))}
 				</select>
 			</div>
 		</div>

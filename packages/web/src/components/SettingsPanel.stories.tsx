@@ -30,6 +30,9 @@ const mockSettings: SettingsData = {
 	},
 	appearance: {
 		density: "default",
+		theme: "system",
+		verdictDoubleClick: true,
+		undoWindowSeconds: 8,
 	},
 };
 
