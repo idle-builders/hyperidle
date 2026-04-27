@@ -100,6 +100,22 @@ if (typeof window.matchMedia !== "function") {
 	});
 }
 
+/**
+ * @lore L3: jsdom does not implement `Element.prototype.scrollIntoView`. The
+ * Conversations submenu calls it on selection change; tests also `vi.spyOn`
+ * the prototype method to assert the call. Define a no-op so both the
+ * production code path and the spy can attach.
+ */
+if (typeof Element.prototype.scrollIntoView !== "function") {
+	Object.defineProperty(Element.prototype, "scrollIntoView", {
+		writable: true,
+		configurable: true,
+		value: function scrollIntoView(): void {
+			/* noop in jsdom */
+		},
+	});
+}
+
 afterEach(() => {
 	cleanup();
 });
