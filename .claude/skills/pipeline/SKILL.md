@@ -37,7 +37,7 @@ Then execute these steps. **Each step spawns an agent with a skill. Update `curr
 
 | Step | Agent | Skill | Why |
 |------|-------|-------|-----|
-| 1 | architect | `/plan <id>` | Plan before building — prevents wasted implementation time and catches design flaws early |
+| 1 | architect | `/plan <id>` | Plan before building — prevents wasted implementation time and catches design flaws early. **If the spec enumerates a route list (e.g., "guard mounts on /sessions, /tasks, /bets"), the plan output MUST include a `route-checklist:` block listing every route + every file the guard/middleware must cover. Step 7 architecture-review then greps the implementation against that checklist before signing off.** Recurrence: L7 retro PROPOSED-L7-B (factory-paused-guard plan §8 enumerated all routes; impl applied to one route only — caught only post-hoc by ARCH2/ADV1/ADV3/SEC6). |
 | 2 | developer | `/write-tests <id>` | Tests first define the requirement, not the implementation — catches when the wrong thing gets built |
 | 3 | developer | `/write-code <id>` | With tests as targets, implementation stays lean and every line exists because a test demands it |
 | 4 | adversary | `/simplification-scan` | Scan for over-abstraction — findings only, no code changes |
@@ -51,7 +51,7 @@ Then execute these steps. **Each step spawns an agent with a skill. Update `curr
 | 11b | qa | `/apply-review` (steps 7-10) | Apply test-related review findings if any |
 | 12 | qa | `/check-definition-of-done <id>` | Independent auditor catches gaps the implementer rationalized away |
 -- repeat 2 to 12 until done --
-| 12b | developer | `/verify` | Run `bun run check && bun run lint && bun run test` — all three must pass. Lint includes Biome + ESLint (React Compiler, hooks, Drizzle safety). |
+| 12b | developer | `/verify` | Run `bun run check && bun run lint && bun run test` — all three must pass. Lint includes Biome + ESLint (React Compiler, hooks, Drizzle safety). **Also run all Playwright e2e specs locally before push, not just unit tests** — UI-shape changes that pass unit tests can break the e2e selectors of unrelated specs. Recurrence: L7 retro (AvatarMenu reshaping click-target broke 6 e2e specs that all passed in unit-test isolation; CI was the first signal); L10 retro ("DoD audit should include a 'run full e2e suite, not just the new spec' gate"). |
 | 13 | developer | `/ship <id>` | Clean git history with atomic commits lets future agents trace decisions. CI must be green before merge. |
 | 14 | — | `/retro <id>` | Recording what went well/badly feeds the compound agent to improve the process over time |
 

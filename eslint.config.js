@@ -57,6 +57,35 @@ export default [
 		},
 	},
 
+	// Track-L recurrence — `design/no-raw-actor-fetch` enforces that any
+	// fetch('/api/...') in the web package goes through useRecoveryFetch (or a
+	// sibling actor-aware helper in `packages/web/src/hooks/`). Detected on
+	// L2/L4/L7 (X-Actor-Id silently dropped). Wired at warn-level for now;
+	// promotes to error in the next track once the existing-offender baseline
+	// is cleared. The rule itself allowlists `hooks/`, `__tests__/`, and `*.spec.*`.
+	{
+		files: ["packages/web/src/**/*.{ts,tsx}"],
+		ignores: [
+			"packages/web/src/**/*.stories.tsx",
+			"packages/web/src/**/__tests__/**",
+			"packages/web/src/**/*.spec.{ts,tsx}",
+			"packages/web/src/**/*.test.{ts,tsx}",
+			// Hooks ARE the actor-aware wrappers — they legitimately call fetch
+			// and define the helper boundary the rule defends.
+			"packages/web/src/hooks/**",
+		],
+		languageOptions: {
+			parser: tsParser,
+			parserOptions: {
+				ecmaFeatures: { jsx: true },
+			},
+		},
+		plugins: { design },
+		rules: {
+			"design/no-raw-actor-fetch": "warn",
+		},
+	},
+
 	// K6 — Design lint rules for the web package. All warn-level: the wider
 	// codebase still has documented backlog (see eslint-plugin-design/waivers.md).
 	{
