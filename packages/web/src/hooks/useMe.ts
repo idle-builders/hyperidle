@@ -22,7 +22,7 @@ function parseActor(json: unknown): Actor {
 	const r = json as Record<string, unknown>;
 	if (typeof r.id !== "string") throw new Error("Invalid actor response: id");
 	if (r.role !== "CEO" && r.role !== "CPO") throw new Error("Invalid actor response: role");
-	if (!Array.isArray(r.domain_tags) || !r.domain_tags.every((d) => typeof d === "string")) {
+	if (!(Array.isArray(r.domain_tags) && r.domain_tags.every((d) => typeof d === "string"))) {
 		throw new Error("Invalid actor response: domain_tags");
 	}
 	return { id: r.id, role: r.role, domain_tags: r.domain_tags };

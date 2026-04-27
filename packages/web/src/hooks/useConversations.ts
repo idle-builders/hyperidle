@@ -38,10 +38,14 @@ function isRawThread(v: unknown): v is RawThread {
 	if (typeof r.id !== "string") return false;
 	if (typeof r.kind !== "string") return false;
 	if (typeof r.pinned !== "number" && typeof r.pinned !== "boolean") return false;
-	if (!Array.isArray(r.participants) || !r.participants.every((p) => typeof p === "string"))
+	if (!(Array.isArray(r.participants) && r.participants.every((p) => typeof p === "string")))
 		return false;
 	if (r.routedToActorId !== null && typeof r.routedToActorId !== "string") return false;
-	if (r.routedToActorRole !== null && r.routedToActorRole !== "CEO" && r.routedToActorRole !== "CPO")
+	if (
+		r.routedToActorRole !== null &&
+		r.routedToActorRole !== "CEO" &&
+		r.routedToActorRole !== "CPO"
+	)
 		return false;
 	if (r.domainTag !== null && typeof r.domainTag !== "string") return false;
 	if (typeof r.createdAt !== "string") return false;
