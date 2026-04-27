@@ -323,6 +323,14 @@ export function AppShell(): JSX.Element {
 		[factoryState, refreshFactoryState],
 	);
 	const [killSwitchOpen, setKillSwitchOpen] = useState(false);
+	// L7 (AC1 resume-confirm): the FactoryPausedBanner's Resume button
+	// no longer POSTs directly. It opens a confirmation dialog that
+	// reuses the same press-hold / type-name gating as the kill switch
+	// (configurable per Settings → Safety). Reason is OPTIONAL on
+	// resume — AC5 lists rollback/kill-switch/mid-session-stop as the
+	// mandatory-rationale verbs; resume is intentionally not in that
+	// list. The explicit confirm gate alone satisfies AC1.
+	const [resumeConfirmOpen, setResumeConfirmOpen] = useState(false);
 	useKillSwitchShortcut(useCallback(() => setKillSwitchOpen(true), []));
 
 	// @lore L7 SECURITY (SEC1): factory pause/resume MUST route through
@@ -351,10 +359,30 @@ export function AppShell(): JSX.Element {
 		[recoveryFetch, refreshFactoryState],
 	);
 
-	const handleResumeFactory = useCallback(async (): Promise<void> => {
-		await recoveryFetch.post("/api/factory/resume", {});
-		refreshFactoryState();
-	}, [recoveryFetch, refreshFactoryState]);
+	// L7 (AC1): clicking Resume on the FactoryPausedBanner opens the
+	// confirmation dialog. The POST is deferred to handleConfirmFactoryResume
+	// so the explicit confirm gate is honored.
+	const handleRequestResumeFactory = useCallback((): void => {
+		setResumeConfirmOpen(true);
+	}, []);
+
+	const handleConfirmFactoryResume = useCallback(
+		async (input: { reason: string }): Promise<void> => {
+			try {
+				// Reason is optional for resume (AC5 list excludes resume).
+				// Only send the field when the user typed something so the
+				// server-side audit row records the user-provided rationale
+				// verbatim and skips the field when blank.
+				const trimmed = input.reason.trim();
+				const payload: { reason?: string } = trimmed.length > 0 ? { reason: trimmed } : {};
+				await recoveryFetch.post("/api/factory/resume", payload);
+			} finally {
+				setResumeConfirmOpen(false);
+				refreshFactoryState();
+			}
+		},
+		[recoveryFetch, refreshFactoryState],
+	);
 
 	// J3: Command-K pressed while Settings is open must close Settings first,
 	// then open the search. useCommandK's own document listener toggles search;
@@ -583,7 +611,7 @@ export function AppShell(): JSX.Element {
 				data-shell-mode="mobile"
 				data-testid="mobile-shell"
 			>
-				<FactoryPausedBanner state={factoryState} onResume={() => void handleResumeFactory()} />
+				<FactoryPausedBanner state={factoryState} onResume={handleRequestResumeFactory} />
 				{killSwitchOpen ? (
 					<KillSwitchDialog
 						open
@@ -593,6 +621,19 @@ export function AppShell(): JSX.Element {
 						mode={settings.safety.killSwitchConfirmMode}
 						onConfirm={handleConfirmFactoryPause}
 						onCancel={() => setKillSwitchOpen(false)}
+					/>
+				) : null}
+				{resumeConfirmOpen ? (
+					<KillSwitchDialog
+						open
+						verb="factory_resume"
+						target={{ id: "factory", name: "HyperIdle" }}
+						blastRadius="Resuming will unpause every running session and re-enable queued task execution."
+						mode={settings.safety.killSwitchConfirmMode}
+						reasonRequired={false}
+						reasonPlaceholder="Why are you resuming? (optional)"
+						onConfirm={handleConfirmFactoryResume}
+						onCancel={() => setResumeConfirmOpen(false)}
 					/>
 				) : null}
 				{/* Top bar: avatar (Coach access per L5 spec) + glance strip */}
@@ -745,7 +786,7 @@ export function AppShell(): JSX.Element {
 			data-density-preference={settings.appearance.density}
 			data-shell-mode="desktop"
 		>
-			<FactoryPausedBanner state={factoryState} onResume={() => void handleResumeFactory()} />
+			<FactoryPausedBanner state={factoryState} onResume={handleRequestResumeFactory} />
 			{killSwitchOpen ? (
 				<KillSwitchDialog
 					open
@@ -755,6 +796,19 @@ export function AppShell(): JSX.Element {
 					mode={settings.safety.killSwitchConfirmMode}
 					onConfirm={handleConfirmFactoryPause}
 					onCancel={() => setKillSwitchOpen(false)}
+				/>
+			) : null}
+			{resumeConfirmOpen ? (
+				<KillSwitchDialog
+					open
+					verb="factory_resume"
+					target={{ id: "factory", name: "HyperIdle" }}
+					blastRadius="Resuming will unpause every running session and re-enable queued task execution."
+					mode={settings.safety.killSwitchConfirmMode}
+					reasonRequired={false}
+					reasonPlaceholder="Why are you resuming? (optional)"
+					onConfirm={handleConfirmFactoryResume}
+					onCancel={() => setResumeConfirmOpen(false)}
 				/>
 			) : null}
 			<div className={shellWrapperClass} aria-hidden={shellDimmed || undefined}>

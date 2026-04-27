@@ -36,7 +36,7 @@ export type KillSwitchDialogMode = KillSwitchConfirmMode | "reason_only";
 
 export interface KillSwitchDialogProps {
 	open: boolean;
-	verb: "factory_pause" | "rollback" | "session_pause";
+	verb: "factory_pause" | "factory_resume" | "rollback" | "session_pause";
 	target: { id: string; name: string };
 	blastRadius: string;
 	mode: KillSwitchDialogMode;
@@ -53,12 +53,26 @@ export interface KillSwitchDialogProps {
 	 * dialog's internal validity gating.
 	 */
 	confirmDisabled?: boolean;
+	/**
+	 * Whether the rationale field is mandatory. Defaults to `true` —
+	 * AC5 mandates a non-empty reason for rollback, kill-switch, and
+	 * mid-session-stop. AC1's resume-confirm gate is the single
+	 * exception (resume is not in the AC5 list); callers requesting
+	 * a resume confirmation pass `reasonRequired={false}` so the
+	 * confirm button enables once the type-name / press-hold gate is
+	 * satisfied even if the reason is left blank. When `false` and
+	 * the user does leave the reason blank, the parent receives an
+	 * empty string in `onConfirm`.
+	 */
+	reasonRequired?: boolean;
 }
 
 function verbCta(verb: KillSwitchDialogProps["verb"]): string {
 	switch (verb) {
 		case "factory_pause":
 			return "Pause Factory";
+		case "factory_resume":
+			return "Resume Factory";
 		case "rollback":
 			return "Confirm rollback";
 		case "session_pause":
@@ -73,9 +87,21 @@ export function KillSwitchDialog(props: KillSwitchDialogProps): JSX.Element | nu
 	const [typed, setTyped] = useState("");
 	const holdTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-	const reasonValid = reason.trim().length > 0 && reason.length <= RATIONALE_MAX_CHARS;
+	const reasonRequired = props.reasonRequired ?? true;
+	// AC1 resume-confirm: factory_resume is non-destructive — use the
+	// primary accent rather than the danger-red treatment shared by
+	// pause/rollback/session-pause. The button still gates on the same
+	// confirm pattern (press-hold OR type-name) per Settings → Safety.
+	const confirmButtonAccent = props.verb === "factory_resume" ? "btn-primary" : "btn-error";
+	// `reasonValid` is the strict gate (non-empty + within max). When the
+	// caller marks the rationale optional (AC1 resume-confirm) we relax to
+	// "within max" only — the field stays length-bounded but emptiness no
+	// longer blocks submission.
+	const reasonWithinBounds = reason.length <= RATIONALE_MAX_CHARS;
+	const reasonValid = reason.trim().length > 0 && reasonWithinBounds;
+	const reasonGate = reasonRequired ? reasonValid : reasonWithinBounds;
 	const nameMatches = typed.trim().toLowerCase() === props.target.name.trim().toLowerCase();
-	const canSubmit = props.mode === "type_name" ? reasonValid && nameMatches : reasonValid;
+	const canSubmit = props.mode === "type_name" ? reasonGate && nameMatches : reasonGate;
 
 	// @lore L7 (DES10): destructure here so the useEffect deps array
 	// references stable identifiers that the exhaustive-deps lint can
@@ -112,7 +138,7 @@ export function KillSwitchDialog(props: KillSwitchDialogProps): JSX.Element | nu
 	}
 
 	function startHold(): void {
-		if (!reasonValid) return;
+		if (!reasonGate) return;
 		clearHold();
 		holdTimerRef.current = setTimeout(() => {
 			holdTimerRef.current = null;
@@ -147,6 +173,7 @@ export function KillSwitchDialog(props: KillSwitchDialogProps): JSX.Element | nu
 				<div className="space-y-2">
 					<label htmlFor={reasonId} className="block text-sm font-medium">
 						Reason
+						{reasonRequired ? null : <span className="text-[var(--text-lo)]"> (optional)</span>}
 					</label>
 					<textarea
 						id={reasonId}
@@ -155,7 +182,7 @@ export function KillSwitchDialog(props: KillSwitchDialogProps): JSX.Element | nu
 						value={reason}
 						onChange={(e) => setReason(e.target.value)}
 						placeholder={props.reasonPlaceholder ?? "Why are you pausing?"}
-						required
+						required={reasonRequired}
 					/>
 					<p className="text-xs text-[var(--text-lo)]">
 						{reason.length}/{RATIONALE_MAX_CHARS}
@@ -190,7 +217,7 @@ export function KillSwitchDialog(props: KillSwitchDialogProps): JSX.Element | nu
 					{props.mode === "type_name" && (
 						<button
 							type="button"
-							className="btn btn-error btn-sm min-h-11"
+							className={`btn ${confirmButtonAccent} btn-sm min-h-11`}
 							disabled={!canSubmit || props.confirmDisabled}
 							onClick={submitType}
 						>
@@ -201,8 +228,8 @@ export function KillSwitchDialog(props: KillSwitchDialogProps): JSX.Element | nu
 						<button
 							type="button"
 							aria-label="Hold to confirm"
-							className="btn btn-error btn-sm min-h-11"
-							disabled={!reasonValid || props.confirmDisabled}
+							className={`btn ${confirmButtonAccent} btn-sm min-h-11`}
+							disabled={!reasonGate || props.confirmDisabled}
 							onPointerDown={startHold}
 							onPointerUp={endHold}
 							onPointerLeave={endHold}
@@ -214,7 +241,7 @@ export function KillSwitchDialog(props: KillSwitchDialogProps): JSX.Element | nu
 					{props.mode === "reason_only" && (
 						<button
 							type="button"
-							className="btn btn-error btn-sm min-h-11"
+							className={`btn ${confirmButtonAccent} btn-sm min-h-11`}
 							disabled={!reasonValid || props.confirmDisabled}
 							onClick={submitType}
 						>

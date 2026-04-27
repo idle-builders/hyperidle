@@ -43,3 +43,31 @@ export const SessionPause = (): React.JSX.Element => (
 		onCancel={noop}
 	/>
 );
+
+export const FactoryResumePressHold = (): React.JSX.Element => (
+	<KillSwitchDialog
+		open
+		verb="factory_resume"
+		target={{ id: "factory", name: "HyperIdle" }}
+		blastRadius="Resuming will unpause every running session and re-enable queued task execution."
+		mode="press_hold"
+		reasonRequired={false}
+		reasonPlaceholder="Why are you resuming? (optional)"
+		onConfirm={asyncNoop}
+		onCancel={noop}
+	/>
+);
+
+export const FactoryResumeTypeName = (): React.JSX.Element => (
+	<KillSwitchDialog
+		open
+		verb="factory_resume"
+		target={{ id: "factory", name: "HyperIdle" }}
+		blastRadius="Resuming will unpause every running session and re-enable queued task execution."
+		mode="type_name"
+		reasonRequired={false}
+		reasonPlaceholder="Why are you resuming? (optional)"
+		onConfirm={asyncNoop}
+		onCancel={noop}
+	/>
+);

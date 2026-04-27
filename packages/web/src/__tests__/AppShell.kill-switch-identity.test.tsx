@@ -86,6 +86,15 @@ describe("L7 (SEC1): AppShell kill-switch identity injection", () => {
 		const resumeBtn = screen.getByRole("button", { name: /resume/i });
 		await user.click(resumeBtn);
 
+		// L7 (AC1): resume now opens an explicit confirm dialog. Default
+		// Settings → Safety mode is `press_hold`, so the dialog renders a
+		// "Hold to confirm" affordance. Drive it to fire the POST.
+		const holdBtn = await screen.findByRole("button", { name: /hold to confirm/i });
+		await user.pointer({ keys: "[MouseLeft>]", target: holdBtn });
+		// Press-hold timer is ~1500ms — wait long enough for it to fire.
+		await new Promise((resolve) => setTimeout(resolve, 1700));
+		await user.pointer({ keys: "[/MouseLeft]", target: holdBtn });
+
 		await waitFor(() => {
 			const resumeCall = recordedCalls.find((c) => c.url.includes("/api/factory/resume"));
 			expect(resumeCall).toBeTruthy();
