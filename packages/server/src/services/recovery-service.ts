@@ -17,9 +17,10 @@ import {
 	type HyperIdleDb,
 	recoveryAudit,
 	sessions,
+	tasks,
 } from "@hyperidle/db";
 import type { RecoveryOutcome, RecoveryTargetKind, RecoveryVerb } from "@hyperidle/shared";
-import { eq } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 
 const FACTORY_SINGLETON_ID = "factory";
 
@@ -134,12 +135,53 @@ export function pauseFactory(
 					.run();
 			}
 
-			// Affected summary — best-effort count of currently-running
-			// sessions and queued tasks. Read-only; the agent runtime
-			// observes the factory_state row at job-pickup time.
-			const runningSessions =
-				tx.select({ id: sessions.id }).from(sessions).where(eq(sessions.state, "running")).all()
-					.length ?? 0;
+			// L7 AC2: kill pauses every running session AND blocks queued
+			// tasks. The whole sweep runs inside the BEGIN IMMEDIATE
+			// transaction so a concurrent task/session creator cannot slip
+			// past the kill — the running-set is frozen for the duration.
+			//
+			// Each affected session gets a `pause_checkpoint` JSON snapshot
+			// stamped with `pausedByKill: true` so factory-resume can
+			// distinguish "paused by the kill switch" (auto-restore) from
+			// "paused mid-session by a founder" (stays paused — must be
+			// resumed individually). Mirrors the §3 plan and the spec
+			// validation scenario in TRACK-L.md L7.
+			const runningSessionRows = tx
+				.select({ id: sessions.id })
+				.from(sessions)
+				.where(eq(sessions.state, "running"))
+				.all();
+			const sessionIds = runningSessionRows.map((r) => r.id);
+
+			if (sessionIds.length > 0) {
+				const checkpointJson = JSON.stringify({
+					priorState: "running",
+					pausedByKill: true,
+					at: now,
+				});
+				tx.update(sessions)
+					.set({ state: "paused", pauseCheckpoint: checkpointJson })
+					.where(inArray(sessions.id, sessionIds))
+					.run();
+			}
+
+			// L7 AC2: queued tasks (state='accepted') flip to 'hold' so
+			// the scheduler sees them as paused-out-of-band. Their prior
+			// state is recorded on the audit row's `meta.affected.tasks`
+			// list (id + priorState) so resume can flip exactly the rows
+			// the kill flipped — no others.
+			const queuedTaskRows = tx
+				.select({ id: tasks.id })
+				.from(tasks)
+				.where(eq(tasks.state, "accepted"))
+				.all();
+			const taskIds = queuedTaskRows.map((r) => r.id);
+			if (taskIds.length > 0) {
+				tx.update(tasks)
+					.set({ state: "hold", updatedAt: now })
+					.where(inArray(tasks.id, taskIds))
+					.run();
+			}
 
 			tx.insert(recoveryAudit)
 				.values({
@@ -151,7 +193,12 @@ export function pauseFactory(
 					targetId: FACTORY_SINGLETON_ID,
 					at: now,
 					outcome: "succeeded",
-					meta: JSON.stringify({ affected: { sessions: runningSessions } }),
+					meta: JSON.stringify({
+						affected: {
+							sessions: sessionIds,
+							tasks: taskIds.map((id) => ({ id, priorState: "accepted" })),
+						},
+					}),
 				})
 				.run();
 
@@ -159,7 +206,7 @@ export function pauseFactory(
 				ok: true as const,
 				auditId,
 				pausedAt: now,
-				affected: { sessions: runningSessions, tasks: 0 },
+				affected: { sessions: sessionIds.length, tasks: taskIds.length },
 			};
 		},
 		{ behavior: "immediate" },
@@ -190,6 +237,87 @@ export function resumeFactory(
 				.where(eq(factoryState.id, FACTORY_SINGLETON_ID))
 				.run();
 
+			// L7 AC2: restore every session whose pause_checkpoint marks
+			// it as paused-by-kill, and every task that the kill flipped
+			// from `accepted` to `hold`. Mid-session pauses (no
+			// `pausedByKill` marker) stay paused — they require an
+			// explicit per-session resume.
+			//
+			// We identify the kill-paused rows by reading the JSON
+			// checkpoint directly on `sessions` (durable across
+			// re-pause/resume cycles). For tasks we read the most-recent
+			// `factory_pause` audit row's meta — tasks have no per-row
+			// checkpoint column.
+			const restoredSessions: string[] = [];
+			const candidateRows = tx
+				.select({ id: sessions.id, checkpoint: sessions.pauseCheckpoint })
+				.from(sessions)
+				.where(eq(sessions.state, "paused"))
+				.all();
+			for (const row of candidateRows) {
+				if (!row.checkpoint) continue;
+				try {
+					const parsed = JSON.parse(row.checkpoint) as {
+						pausedByKill?: boolean;
+						priorState?: string;
+					};
+					if (parsed.pausedByKill === true) {
+						restoredSessions.push(row.id);
+					}
+				} catch {
+					// Malformed JSON — skip; session remains paused and the
+					// founder can resume it individually.
+				}
+			}
+			if (restoredSessions.length > 0) {
+				tx.update(sessions)
+					.set({ state: "running", pauseCheckpoint: null })
+					.where(inArray(sessions.id, restoredSessions))
+					.run();
+			}
+
+			// Restore tasks the kill flipped to `hold`. Pull the freshest
+			// `factory_pause` audit row's meta.affected.tasks list and
+			// flip each back to its priorState (only if the row is still
+			// in `hold` — a founder may have manually moved it since).
+			const lastPauseAudit = tx
+				.select({ meta: recoveryAudit.meta })
+				.from(recoveryAudit)
+				.where(eq(recoveryAudit.verb, "factory_pause"))
+				.orderBy(recoveryAudit.at)
+				.all();
+			const restoredTaskIds: string[] = [];
+			if (lastPauseAudit.length > 0) {
+				const latest = lastPauseAudit[lastPauseAudit.length - 1];
+				if (latest?.meta) {
+					try {
+						const parsed = JSON.parse(latest.meta) as {
+							affected?: {
+								tasks?: Array<{ id: string; priorState: string }>;
+							};
+						};
+						const taskList = parsed.affected?.tasks ?? [];
+						for (const t of taskList) {
+							const taskRow = tx
+								.select({ state: tasks.state })
+								.from(tasks)
+								.where(eq(tasks.id, t.id))
+								.get();
+							if (taskRow?.state === "hold") {
+								tx.update(tasks)
+									.set({ state: t.priorState, updatedAt: now })
+									.where(eq(tasks.id, t.id))
+									.run();
+								restoredTaskIds.push(t.id);
+							}
+						}
+					} catch {
+						// Malformed audit meta — skip; tasks stay on hold and
+						// the founder must move them manually.
+					}
+				}
+			}
+
 			tx.insert(recoveryAudit)
 				.values({
 					id: auditId,
@@ -200,7 +328,9 @@ export function resumeFactory(
 					targetId: FACTORY_SINGLETON_ID,
 					at: now,
 					outcome: "succeeded",
-					meta: null,
+					meta: JSON.stringify({
+						restored: { sessions: restoredSessions, tasks: restoredTaskIds },
+					}),
 				})
 				.run();
 
@@ -225,8 +355,19 @@ export function pauseSession(
 			const now = new Date().toISOString();
 			const auditId = crypto.randomUUID();
 
+			// L7: per-session pause does NOT mark `pausedByKill`. The
+			// checkpoint records `priorState` only so factory-resume
+			// leaves these rows paused (only kill-paused rows auto-
+			// restore).
 			tx.update(sessions)
-				.set({ state: "paused" })
+				.set({
+					state: "paused",
+					pauseCheckpoint: JSON.stringify({
+						priorState: session.state,
+						pausedByKill: false,
+						at: now,
+					}),
+				})
 				.where(eq(sessions.id, input.sessionId))
 				.run();
 
@@ -265,7 +406,10 @@ export function resumeSession(
 			const now = new Date().toISOString();
 			const auditId = crypto.randomUUID();
 
-			tx.update(sessions).set({ state: "running" }).where(eq(sessions.id, input.sessionId)).run();
+			tx.update(sessions)
+				.set({ state: "running", pauseCheckpoint: null })
+				.where(eq(sessions.id, input.sessionId))
+				.run();
 
 			tx.insert(recoveryAudit)
 				.values({

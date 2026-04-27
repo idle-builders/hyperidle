@@ -85,6 +85,13 @@
 			"when": 1777400000000,
 			"tag": "0011_l7_recovery",
 			"breakpoints": true
+		},
+		{
+			"idx": 12,
+			"version": "6",
+			"when": 1777400100000,
+			"tag": "0012_l7_session_pause_checkpoint",
+			"breakpoints": true
 		}
 	]
 }

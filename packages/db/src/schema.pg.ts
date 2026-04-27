@@ -131,6 +131,11 @@ export const sessions = pgTable(
 		outcome: text("outcome"),
 		notes: text("notes"),
 		traceId: text("trace_id"),
+		/**
+		 * @lore L7: see `schema.ts` sessions.pauseCheckpoint — opaque JSON
+		 * snapshot for session-level pause/resume. PG mirror.
+		 */
+		pauseCheckpoint: text("pause_checkpoint"),
 	},
 	(table) => [
 		index("sessions_task_id_idx").on(table.taskId),

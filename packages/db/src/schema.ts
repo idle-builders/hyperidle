@@ -136,6 +136,18 @@ export const sessions = sqliteTable(
 		 * inserted before the column was added.
 		 */
 		traceId: text("trace_id"),
+		/**
+		 * @lore L7: opaque JSON snapshot stashed when a session is paused so
+		 * resume can restore the prior state. Populated by both mid-session
+		 * pause (`session_pause` verb) and factory-wide kill (`factory_pause`
+		 * verb cascades to every running session). The factory-resume path
+		 * uses `pausedByKill: true` here to disambiguate "paused because the
+		 * factory was killed" from "paused mid-session by a founder" — only
+		 * the former auto-resumes when the factory resumes.
+		 *
+		 * Shape: `{"priorState":"running","pausedByKill":true,"at":"<iso>"}`.
+		 */
+		pauseCheckpoint: text("pause_checkpoint"),
 	},
 	(table) => [
 		index("sessions_task_id_idx").on(table.taskId),

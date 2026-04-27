@@ -709,3 +709,175 @@ describe("L7: GET /api/factory/state", () => {
 		expect(body.pausedReason).toBe("spotted bad output");
 	});
 });
+
+// L7 AC2: Kill pauses every running session and blocks queued tasks;
+// factory-resume restores them. Mid-session pauses (no `pausedByKill`
+// marker) stay paused — only kill-paused rows auto-restore.
+describe("L7 AC2: factory pause cascades to running sessions and queued tasks", () => {
+	let db: HyperIdleDb;
+	let eventBus: EventBus;
+	let app: Hono;
+
+	beforeEach(() => {
+		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
+		vi.stubEnv("HYPERIDLE_DEFAULT_ACTOR_ID", "");
+		db = createTestDb();
+		eventBus = new EventBus();
+		app = createTestApp({ db, eventBus });
+		seedActorsAndProduct(db);
+	});
+
+	afterEach(() => {
+		vi.unstubAllEnvs();
+	});
+
+	function seedQueuedTasks(count: number): string[] {
+		// Re-use bet-1 from `seedRunningSessions` if it exists; otherwise
+		// create our own.
+		const betId = "bet-cascade";
+		db.insert(bets)
+			.values({
+				id: betId,
+				productId: "prod-1",
+				teamId: "team-1",
+				pitch: "queued",
+				appetite: "1w",
+				status: "active",
+				createdAt: NOW_ISO,
+			})
+			.run();
+		const ids: string[] = [];
+		for (let i = 0; i < count; i += 1) {
+			const id = `queued-task-${i}`;
+			db.insert(tasks)
+				.values({
+					id,
+					betId,
+					productId: "prod-1",
+					teamId: "team-1",
+					title: `Queued ${i}`,
+					state: "accepted",
+					createdAt: NOW_ISO,
+					updatedAt: NOW_ISO,
+				})
+				.run();
+			ids.push(id);
+		}
+		return ids;
+	}
+
+	it("flips every running session to paused with pausedByKill checkpoint, every accepted task to hold", async () => {
+		const sessionIds = seedRunningSessions(db, 3);
+		const taskIds = seedQueuedTasks(2);
+
+		const res = await app.request("/api/factory/pause", {
+			method: "POST",
+			headers: authHeaders({ "X-Actor-Id": "actor:ceo" }),
+			body: JSON.stringify({ reason: "kill cascade" }),
+		});
+		expect(res.status).toBe(200);
+		const body = (await res.json()) as {
+			affected: { sessions: number; tasks: number };
+		};
+		expect(body.affected.sessions).toBe(3);
+		expect(body.affected.tasks).toBe(2);
+
+		// Every running session is now paused with a kill-marked checkpoint.
+		for (const id of sessionIds) {
+			const row = db.get<{ state: string; pause_checkpoint: string }>(
+				sql.raw(
+					`SELECT state, pause_checkpoint FROM "sessions" WHERE id = '${id}'`,
+				),
+			);
+			expect(row?.state).toBe("paused");
+			expect(row?.pause_checkpoint).toBeTruthy();
+			const parsed = JSON.parse(row?.pause_checkpoint ?? "{}") as {
+				pausedByKill?: boolean;
+				priorState?: string;
+			};
+			expect(parsed.pausedByKill).toBe(true);
+			expect(parsed.priorState).toBe("running");
+		}
+
+		// Every accepted task is now hold.
+		for (const id of taskIds) {
+			const row = db.get<{ state: string }>(
+				sql.raw(`SELECT state FROM "tasks" WHERE id = '${id}'`),
+			);
+			expect(row?.state).toBe("hold");
+		}
+	});
+
+	it("factory resume restores kill-paused sessions to running and hold tasks to accepted; mid-session pauses stay paused", async () => {
+		const sessionIds = seedRunningSessions(db, 2);
+		const taskIds = seedQueuedTasks(2);
+		// Mid-session-pause one session BEFORE the kill so we can verify
+		// it does NOT auto-resume.
+		await app.request(`/api/sessions/${sessionIds[0]}/pause`, {
+			method: "POST",
+			headers: authHeaders({ "X-Actor-Id": "actor:ceo" }),
+			body: JSON.stringify({ reason: "manual pause" }),
+		});
+
+		// Now kill the factory — only sessionIds[1] is still running.
+		await app.request("/api/factory/pause", {
+			method: "POST",
+			headers: authHeaders({ "X-Actor-Id": "actor:ceo" }),
+			body: JSON.stringify({ reason: "kill" }),
+		});
+
+		// Resume the factory.
+		const res = await app.request("/api/factory/resume", {
+			method: "POST",
+			headers: authHeaders({ "X-Actor-Id": "actor:ceo" }),
+			body: JSON.stringify({}),
+		});
+		expect(res.status).toBe(200);
+
+		// Manually-paused session must STAY paused (no pausedByKill marker).
+		const manual = db.get<{ state: string }>(
+			sql.raw(`SELECT state FROM "sessions" WHERE id = '${sessionIds[0]}'`),
+		);
+		expect(manual?.state).toBe("paused");
+
+		// Kill-paused session must be running again.
+		const restored = db.get<{ state: string; pause_checkpoint: string | null }>(
+			sql.raw(
+				`SELECT state, pause_checkpoint FROM "sessions" WHERE id = '${sessionIds[1]}'`,
+			),
+		);
+		expect(restored?.state).toBe("running");
+		expect(restored?.pause_checkpoint).toBeNull();
+
+		// Both tasks must be back to accepted.
+		for (const id of taskIds) {
+			const row = db.get<{ state: string }>(
+				sql.raw(`SELECT state FROM "tasks" WHERE id = '${id}'`),
+			);
+			expect(row?.state).toBe("accepted");
+		}
+	});
+
+	it("audit meta records affected.sessions and affected.tasks lists for forensic restore", async () => {
+		seedRunningSessions(db, 1);
+		seedQueuedTasks(1);
+		const pauseRes = await app.request("/api/factory/pause", {
+			method: "POST",
+			headers: authHeaders({ "X-Actor-Id": "actor:ceo" }),
+			body: JSON.stringify({ reason: "x" }),
+		});
+		const body = (await pauseRes.json()) as { auditId: string };
+		const row = db.get<{ meta: string }>(
+			sql.raw(`SELECT meta FROM "recovery_audit" WHERE id = '${body.auditId}'`),
+		);
+		expect(row?.meta).toBeTruthy();
+		const parsed = JSON.parse(row?.meta ?? "{}") as {
+			affected?: {
+				sessions?: string[];
+				tasks?: Array<{ id: string; priorState: string }>;
+			};
+		};
+		expect(parsed.affected?.sessions).toEqual(["session-0"]);
+		expect(parsed.affected?.tasks).toEqual([{ id: "queued-task-0", priorState: "accepted" }]);
+	});
+});
