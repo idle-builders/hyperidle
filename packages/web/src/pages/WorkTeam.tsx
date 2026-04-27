@@ -4,12 +4,29 @@
  * current bets at the top and a per-task kanban board beneath.
  */
 import { type JSX, useCallback, useState } from "react";
+import { PauseSessionButton } from "../components/PauseSessionButton";
+import { useFactoryState } from "../hooks/useFactoryState";
 import type { CanvasBet } from "../shell/Canvas";
 import { Canvas } from "../shell/Canvas";
 import type { KanbanColumnState, KanbanTask } from "../shell/Kanban";
 import { COLUMN_TO_STATE, Kanban } from "../shell/Kanban";
 import type { PitchSelectorPitch } from "../shell/PitchSelector";
 import { PitchSelector } from "../shell/PitchSelector";
+
+interface MockTeamSession {
+	id: string;
+	agentName: string;
+	taskTitle: string;
+}
+
+// @lore L7 AC4: bet/team detail surfaces must show a Pause button per
+// running session. This page used to be entirely mock; we add a small
+// running-sessions strip so AC4's "team detail" requirement is met. The
+// real session feed lands in a later story.
+const MOCK_TEAM_SESSIONS: MockTeamSession[] = [
+	{ id: "session-team-1", agentName: "Dev Agent 1", taskTitle: "Implement login endpoint" },
+	{ id: "session-team-3", agentName: "Dev Agent 1", taskTitle: "JWT refresh logic" },
+];
 
 const CANVAS_BETS: CanvasBet[] = [
 	{
@@ -112,6 +129,10 @@ export function WorkTeam(): JSX.Element {
 	const [tasks, setTasks] = useState<KanbanTask[]>(INITIAL_TASKS);
 	const [pitchSelectorOpen, setPitchSelectorOpen] = useState(false);
 	const [selectedPitchIds, setSelectedPitchIds] = useState<string[]>([]);
+	const [teamSessionStates, setTeamSessionStates] = useState<
+		Record<string, "running" | "paused">
+	>(() => Object.fromEntries(MOCK_TEAM_SESSIONS.map((s) => [s.id, "running" as const])));
+	const factoryState = useFactoryState();
 
 	const handleMoveTask = useCallback((taskId: string, targetColumn: KanbanColumnState): void => {
 		// I4 K1: map the Kanban column key to the canonical TaskState.
@@ -169,6 +190,75 @@ export function WorkTeam(): JSX.Element {
 				<div data-testid="work-team-kanban">
 					<Kanban tasks={tasks} onMoveTask={handleMoveTask} groupByBet />
 				</div>
+			)}
+
+			{MOCK_TEAM_SESSIONS.length > 0 && (
+				<section
+					aria-label="Running sessions"
+					data-testid="team-running-sessions"
+					className="flex flex-col gap-2"
+				>
+					<h2 className="text-sm font-heading font-semibold uppercase tracking-wider text-[var(--text-lo)]">
+						Running sessions
+					</h2>
+					<ul className="flex flex-col gap-2">
+						{MOCK_TEAM_SESSIONS.map((s) => {
+							const state = teamSessionStates[s.id] ?? "running";
+							return (
+								<li
+									key={s.id}
+									data-testid={`team-session-row-${s.id}`}
+									className="flex items-center justify-between bg-base-200 rounded p-2"
+								>
+									<div className="flex flex-col">
+										<span className="text-xs font-mono uppercase tracking-wider text-[var(--text-lo)]">
+											{s.id}
+										</span>
+										<span className="text-sm text-[var(--text-hi)]">
+											{s.agentName} — {s.taskTitle}
+										</span>
+									</div>
+									<PauseSessionButton
+										session={{ id: s.id, state, agentName: s.agentName }}
+										factoryPaused={factoryState.state.paused}
+										onPause={async (input) => {
+											const res = await fetch(
+												`/api/sessions/${encodeURIComponent(s.id)}/pause`,
+												{
+													method: "POST",
+													headers: {
+														"Content-Type": "application/json",
+														"X-Actor-Id": "actor:ceo",
+													},
+													body: JSON.stringify({ reason: input.reason }),
+												},
+											);
+											if (res.ok) {
+												setTeamSessionStates((prev) => ({ ...prev, [s.id]: "paused" }));
+											}
+										}}
+										onResume={async () => {
+											const res = await fetch(
+												`/api/sessions/${encodeURIComponent(s.id)}/resume`,
+												{
+													method: "POST",
+													headers: {
+														"Content-Type": "application/json",
+														"X-Actor-Id": "actor:ceo",
+													},
+													body: JSON.stringify({}),
+												},
+											);
+											if (res.ok) {
+												setTeamSessionStates((prev) => ({ ...prev, [s.id]: "running" }));
+											}
+										}}
+									/>
+								</li>
+							);
+						})}
+					</ul>
+				</section>
 			)}
 		</div>
 	);

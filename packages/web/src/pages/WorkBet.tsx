@@ -6,6 +6,8 @@ import {
 	StatusChip,
 	taskStateToStatus,
 } from "@hyperidle/design-system";
+import { PauseSessionButton } from "../components/PauseSessionButton";
+import { useFactoryState } from "../hooks/useFactoryState";
 /**
  * Work/Bet page — bet detail view composed from Tier 2 components (BetCard, TaskCard)
  * and DaisyUI primitives. Shows bet details + task list for that bet.
@@ -27,6 +29,12 @@ interface MockBetComment {
 	body: string;
 }
 
+interface MockRunningSession {
+	id: string;
+	agentName: string;
+	taskTitle: string;
+}
+
 interface MockBetDetail {
 	id: string;
 	title: string;
@@ -44,6 +52,14 @@ interface MockBetDetail {
 		cost: string;
 	}>;
 	comments: MockBetComment[];
+	/**
+	 * @lore L7 AC4: bet detail must surface a Pause button per running
+	 * session. The real session feed lands in a later story; for now the
+	 * page renders a static fixture consistent with the bet-1 seed used
+	 * by the L7 server tests so the E2E + Storybook surfaces stay
+	 * truthful.
+	 */
+	runningSessions: MockRunningSession[];
 }
 
 const MOCK_BETS: Record<string, MockBetDetail> = {
@@ -101,6 +117,9 @@ Migrate to JWT with refresh rotation.
 				body: "Refresh rotation works end-to-end in staging.",
 			},
 		],
+		runningSessions: [
+			{ id: "session-b1-1", agentName: "Dev Agent 2", taskTitle: "Design signup form" },
+		],
 	},
 	b2: {
 		id: "b2",
@@ -138,6 +157,31 @@ Replace the grid with a three-column layout driven by user roles.
 			},
 		],
 		comments: [],
+		runningSessions: [],
+	},
+	// @lore L7 AC4: matches the seed used by `seedRunningSessions` in
+	// `packages/server/src/__tests__/recovery.test.ts` so the E2E test
+	// `/work/bet/bet-1` finds a populated page.
+	"bet-1": {
+		id: "bet-1",
+		title: "Bet pitch",
+		product: "Demo",
+		team: "Demo Team",
+		status: "active",
+		appetite: "1 week",
+		progress: { done: 0, total: 3 },
+		body: "Seed bet used by recovery-verbs E2E and integration tests.",
+		tasks: [
+			{ id: "task-0", title: "Task 0", owner: "Builder", state: "in_progress", cost: "—" },
+			{ id: "task-1", title: "Task 1", owner: "Builder", state: "in_progress", cost: "—" },
+			{ id: "task-2", title: "Task 2", owner: "Builder", state: "in_progress", cost: "—" },
+		],
+		comments: [],
+		runningSessions: [
+			{ id: "session-0", agentName: "Builder", taskTitle: "Task 0" },
+			{ id: "session-1", agentName: "Builder", taskTitle: "Task 1" },
+			{ id: "session-2", agentName: "Builder", taskTitle: "Task 2" },
+		],
 	},
 };
 
@@ -152,6 +196,7 @@ const FALLBACK_BET: MockBetDetail = {
 	body: "",
 	tasks: [],
 	comments: [],
+	runningSessions: [],
 };
 
 type SortColumn = "title" | "status" | "owner" | "cost";
@@ -195,6 +240,15 @@ export function WorkBet({ loading = false, overrideBetId }: WorkBetProps = {}): 
 
 	const [sortColumn, setSortColumn] = useState<SortColumn | null>(null);
 	const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
+
+	// L7 AC4: track per-session paused/running state locally so the
+	// Pause/Resume affordance toggles immediately. The server is the
+	// source of truth — every action POSTs the corresponding endpoint;
+	// a failed call falls back to the prior state to avoid lying.
+	const [sessionStates, setSessionStates] = useState<Record<string, "running" | "paused">>(
+		() => Object.fromEntries(bet.runningSessions.map((s) => [s.id, "running" as const])),
+	);
+	const factoryState = useFactoryState();
 
 	const sortedTasks = useMemo(
 		() => sortTasks(bet.tasks, sortColumn, sortDirection),
@@ -326,6 +380,75 @@ export function WorkBet({ loading = false, overrideBetId }: WorkBetProps = {}): 
 						</tbody>
 					</table>
 				</div>
+			)}
+
+			{bet.runningSessions.length > 0 && (
+				<section
+					aria-label="Running sessions"
+					data-testid="bet-running-sessions"
+					className="flex flex-col gap-2"
+				>
+					<h2 className="text-sm font-heading font-semibold uppercase tracking-wider text-[var(--text-lo)]">
+						Running sessions
+					</h2>
+					<ul className="flex flex-col gap-2">
+						{bet.runningSessions.map((s) => {
+							const state = sessionStates[s.id] ?? "running";
+							return (
+								<li
+									key={s.id}
+									data-testid={`bet-session-row-${s.id}`}
+									className="flex items-center justify-between bg-base-200 rounded p-2"
+								>
+									<div className="flex flex-col">
+										<span className="text-xs font-mono uppercase tracking-wider text-[var(--text-lo)]">
+											{s.id}
+										</span>
+										<span className="text-sm text-[var(--text-hi)]">
+											{s.agentName} — {s.taskTitle}
+										</span>
+									</div>
+									<PauseSessionButton
+										session={{ id: s.id, state, agentName: s.agentName }}
+										factoryPaused={factoryState.state.paused}
+										onPause={async (input) => {
+											const res = await fetch(
+												`/api/sessions/${encodeURIComponent(s.id)}/pause`,
+												{
+													method: "POST",
+													headers: {
+														"Content-Type": "application/json",
+														"X-Actor-Id": "actor:ceo",
+													},
+													body: JSON.stringify({ reason: input.reason }),
+												},
+											);
+											if (res.ok) {
+												setSessionStates((prev) => ({ ...prev, [s.id]: "paused" }));
+											}
+										}}
+										onResume={async () => {
+											const res = await fetch(
+												`/api/sessions/${encodeURIComponent(s.id)}/resume`,
+												{
+													method: "POST",
+													headers: {
+														"Content-Type": "application/json",
+														"X-Actor-Id": "actor:ceo",
+													},
+													body: JSON.stringify({}),
+												},
+											);
+											if (res.ok) {
+												setSessionStates((prev) => ({ ...prev, [s.id]: "running" }));
+											}
+										}}
+									/>
+								</li>
+							);
+						})}
+					</ul>
+				</section>
 			)}
 
 			<section
