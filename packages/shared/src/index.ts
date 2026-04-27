@@ -5,6 +5,7 @@ export type {
 	VerdictUndoSuccess,
 } from "./api-types.js";
 export { API_ERROR_CODES } from "./api-types.js";
+export { COACH_AGENT_ID } from "./constants/agents.js";
 export type { DomainTag } from "./constants/domains.js";
 export { DOMAIN_TAGS, domainTagNullableSchema, domainTagSchema } from "./constants/domains.js";
 export {
@@ -100,6 +101,8 @@ export type { Actor, ActorRole } from "./types/actor.js";
 export { REASSIGN_VERB } from "./types/actor.js";
 export type { AutonomyLevel, AutonomyLevelMeta } from "./types/autonomy.js";
 export { AUTONOMY_LEVEL_META, AUTONOMY_LEVELS, isAutonomyLevel } from "./types/autonomy.js";
+export type { RoutingFilter, Section, ThreadKind, ThreadListEntry } from "./types/thread.js";
+export { parseRoutingFilter, ROUTING_FILTERS, SECTIONS } from "./types/thread.js";
 export type {
 	AgentRole,
 	AgentStatus,
