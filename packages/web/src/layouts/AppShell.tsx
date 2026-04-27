@@ -752,7 +752,7 @@ export function AppShell(): JSX.Element {
 					verb="factory_pause"
 					target={{ id: "factory", name: "HyperIdle" }}
 					blastRadius={KILL_SWITCH_BLAST_RADIUS}
-					mode="press_hold"
+					mode={settings.safety.killSwitchConfirmMode}
 					onConfirm={handleConfirmFactoryPause}
 					onCancel={() => setKillSwitchOpen(false)}
 				/>
