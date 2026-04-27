@@ -20,8 +20,11 @@ import {
 import { topicsForScope } from "../fixtures/knowledge-data";
 import { useAutoDensity } from "../hooks/useAutoDensity";
 import { useCommandK } from "../hooks/useCommandK";
+import { useConversations } from "../hooks/useConversations";
+import { useMe } from "../hooks/useMe";
 import { useTheme } from "../hooks/useTheme";
 import { useViewportBreakpoint } from "../hooks/useViewportBreakpoint";
+import { ConversationsSubmenu } from "../shell/ConversationsSubmenu";
 import { IconRail } from "../shell/IconRail";
 import { Rail } from "../shell/Rail";
 import type { SubmenuFilter, SubmenuFilterOption } from "../shell/Submenu";
@@ -60,14 +63,16 @@ const SUBMENU_CONFIG: Record<ViewId, SubmenuConfig> = {
  * resets to "all" when the active view changes (AC 64). The rendered children
  * currently ignore the filter value — J4/J5 wire the filter into the list
  * rendering.
+ *
+ * @lore L3 (CONFUSION-2): Conversations is intentionally an EMPTY filter
+ * row. The L3 routing chips (Mine / CEO / CPO / All) live INSIDE the
+ * Conversations submenu's children area instead. We suppress the J2 chip
+ * row here to avoid two filter rows in the 240px Submenu width and to
+ * remove redundancy with the L3 section headers (which already encode
+ * kind/status).
  */
 const SUBMENU_FILTERS: Record<ViewId, ReadonlyArray<SubmenuFilterOption>> = {
-	conversations: [
-		{ id: "all", label: "All" },
-		{ id: "needs-review", label: "Needs review" },
-		{ id: "chats", label: "Chats" },
-		{ id: "resolved", label: "Resolved" },
-	],
+	conversations: [],
 	knowledge: [
 		{ id: "all", label: "All" },
 		{ id: "needs-review", label: "Needs review" },
@@ -373,6 +378,7 @@ export function AppShell(): JSX.Element {
 		() => submenuConfig.items.reduce((acc, item) => acc + (item.count ?? 0), 0),
 		[submenuConfig],
 	);
+
 	const submenuFilters = SUBMENU_FILTERS[activeView];
 	const [submenuFilter, setSubmenuFilter] = useState<SubmenuFilter>("all");
 	// AC 64: reset filter to "all" on view change. The view id is referenced in
@@ -407,6 +413,38 @@ export function AppShell(): JSX.Element {
 		[navigate],
 	);
 
+	// L3: Conversations data (threads + me actor identity).
+	const conversationsData = useConversations();
+	const meData = useMe();
+
+	// @lore L3 review (design W1): Conversations submenu chrome count must
+	// derive from the real `useConversations()` data, not from the
+	// SUBMENU_CONFIG mock items (3+1=4) which were stale once L3 wired the
+	// live queue. The mock counts remain for Knowledge until that view's
+	// real data source lands.
+	const conversationsCount = conversationsData.threads.length;
+	const handleOpenThread = useCallback(
+		(threadId: string, kind: "review" | "chat" | "coach"): void => {
+			const path = kind === "chat" ? "/conversations/chat" : "/conversations/review";
+			navigate(`${path}?thread=${encodeURIComponent(threadId)}`);
+		},
+		[navigate],
+	);
+
+	// @lore L3 review (adversary C2): `now` drives ThreadRow timestamps and
+	// the `resolved` 24h window. Passing `Date.now()` inline on every parent
+	// render busted memoisation in ConversationsSubmenu — every keystroke or
+	// unrelated state change re-classified all threads. We refresh on a 60s
+	// interval (relative time only changes minute-to-minute) so memos remain
+	// stable across renders that don't actually need a time tick.
+	const [conversationsNow, setConversationsNow] = useState<number>(() => Date.now());
+	useEffect(() => {
+		const id = window.setInterval(() => {
+			setConversationsNow(Date.now());
+		}, 60_000);
+		return () => window.clearInterval(id);
+	}, []);
+
 	// J3: when Settings overlay is open, hide all shell regions from the
 	// accessibility tree and dim them visually. We also disable pointer
 	// events so clicks cannot leak through the backdrop to focusable elements
@@ -439,7 +477,15 @@ export function AppShell(): JSX.Element {
 					title={submenuConfig.title}
 					collapsed={submenuCollapsed}
 					onToggleCollapse={toggleSubmenuCollapsed}
-					count={submenuTotalCount > 0 ? submenuTotalCount : undefined}
+					count={
+						activeView === "conversations"
+							? conversationsCount > 0
+								? conversationsCount
+								: undefined
+							: submenuTotalCount > 0
+								? submenuTotalCount
+								: undefined
+					}
 					filters={submenuFilters}
 					activeFilter={submenuFilter}
 					onFilterChange={setSubmenuFilter}
@@ -449,6 +495,13 @@ export function AppShell(): JSX.Element {
 							scope={currentScope}
 							topics={knowledgeTopics}
 							onScopeChange={handleScopeChange}
+						/>
+					) : activeView === "conversations" ? (
+						<ConversationsSubmenu
+							threads={conversationsData.threads}
+							me={meData.me}
+							now={conversationsNow}
+							onOpenThread={handleOpenThread}
 						/>
 					) : (
 						<ul className="menu menu-sm">
