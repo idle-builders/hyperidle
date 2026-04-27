@@ -30,6 +30,7 @@ import { useFactoryState } from "../hooks/useFactoryState";
 import { useKillSwitchShortcut } from "../hooks/useKillSwitchShortcut";
 import { useMe } from "../hooks/useMe";
 import { useOfflineQueue } from "../hooks/useOfflineQueue";
+import { useRecoveryFetch } from "../hooks/useRecoveryFetch";
 import { useSystemStability } from "../hooks/useSystemStability";
 import { useTheme } from "../hooks/useTheme";
 import { useViewportBreakpoint } from "../hooks/useViewportBreakpoint";
@@ -324,13 +325,19 @@ export function AppShell(): JSX.Element {
 	const [killSwitchOpen, setKillSwitchOpen] = useState(false);
 	useKillSwitchShortcut(useCallback(() => setKillSwitchOpen(true), []));
 
+	// @lore L7 SECURITY (SEC1): factory pause/resume MUST route through
+	// useRecoveryFetch so the X-Actor-Id header is sent on every audit-
+	// writing call. Raw fetch() omits identity and either (a) silently
+	// attributes the action to the env-default actor or (b) 401s the
+	// founder. The two factory-level recovery verbs are the highest-
+	// blast-radius surface in L7 — identity correctness is critical.
+	const recoveryFetch = useRecoveryFetch();
+
 	const handleConfirmFactoryPause = useCallback(
 		async (input: { reason: string }): Promise<void> => {
 			try {
-				const res = await fetch("/api/factory/pause", {
-					method: "POST",
-					headers: { "Content-Type": "application/json" },
-					body: JSON.stringify({ reason: input.reason }),
+				const res = await recoveryFetch.post("/api/factory/pause", {
+					reason: input.reason,
 				});
 				if (!res.ok) {
 					// Stale state — refresh and surface the error inline.
@@ -341,17 +348,13 @@ export function AppShell(): JSX.Element {
 				refreshFactoryState();
 			}
 		},
-		[refreshFactoryState],
+		[recoveryFetch, refreshFactoryState],
 	);
 
 	const handleResumeFactory = useCallback(async (): Promise<void> => {
-		await fetch("/api/factory/resume", {
-			method: "POST",
-			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify({}),
-		});
+		await recoveryFetch.post("/api/factory/resume", {});
 		refreshFactoryState();
-	}, [refreshFactoryState]);
+	}, [recoveryFetch, refreshFactoryState]);
 
 	// J3: Command-K pressed while Settings is open must close Settings first,
 	// then open the search. useCommandK's own document listener toggles search;
