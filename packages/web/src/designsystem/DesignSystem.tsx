@@ -11,9 +11,13 @@ const dsModules = import.meta.glob<Record<string, unknown>>(
 	"../../../../design-system/src/*.stories.tsx",
 	{ eager: true },
 );
-const componentModules = import.meta.glob<Record<string, unknown>>("../components/*.stories.tsx", {
-	eager: true,
-});
+// @lore L9 review (design C3): glob is `**/*` so subfolder stories
+// (e.g. `components/artifacts/*.stories.tsx`) are discoverable in the
+// catalog. A single-level `*` glob silently dropped six L9 stories.
+const componentModules = import.meta.glob<Record<string, unknown>>(
+	"../components/**/*.stories.tsx",
+	{ eager: true },
+);
 const shellModules = import.meta.glob<Record<string, unknown>>("../shell/*.stories.tsx", {
 	eager: true,
 });

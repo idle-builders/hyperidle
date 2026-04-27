@@ -6,6 +6,7 @@ export type {
 } from "./api-types.js";
 export { API_ERROR_CODES } from "./api-types.js";
 export { COACH_AGENT_ID } from "./constants/agents.js";
+export { DEFAULT_RISK_TIER_BY_KIND, resolveRiskTier } from "./constants/artifact-risk.js";
 export type { DomainTag } from "./constants/domains.js";
 export { DOMAIN_TAGS, domainTagNullableSchema, domainTagSchema } from "./constants/domains.js";
 export type {
@@ -123,6 +124,18 @@ export { decode, encode } from "./toon-codec.js";
 export { ToonParseError } from "./toon-errors.js";
 export type { Actor, ActorRole } from "./types/actor.js";
 export { REASSIGN_VERB } from "./types/actor.js";
+export type {
+	ActionSummaryPayload,
+	ArtifactKind,
+	ArtifactMetadataExtended,
+	BlastRadius,
+	FileLeasePayload,
+	PermissionRequestPayload,
+	SandboxResult,
+	SkillChangePayload,
+	VerdictVariants,
+} from "./types/artifact.js";
+export { ARTIFACT_KINDS, SANDBOX_RESULTS } from "./types/artifact.js";
 export type { AutonomyLevel, AutonomyLevelMeta } from "./types/autonomy.js";
 export { AUTONOMY_LEVEL_META, AUTONOMY_LEVELS, isAutonomyLevel } from "./types/autonomy.js";
 export type { RoutingFilter, Section, ThreadKind, ThreadListEntry } from "./types/thread.js";
@@ -152,5 +165,6 @@ export {
 	KNOWLEDGE_STATUSES,
 	KNOWLEDGE_TOPIC_HEALTHS,
 	MUTABLE_BET_FIELDS,
+	RISK_TIERS,
 	TASK_STATES,
 } from "./types.js";

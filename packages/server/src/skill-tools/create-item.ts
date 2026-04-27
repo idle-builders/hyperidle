@@ -1,13 +1,17 @@
 import { randomUUID } from "node:crypto";
 import { items, threads } from "@hyperidle/db";
 import type { ItemCreatedEvent } from "@hyperidle/shared";
+import { RISK_TIERS } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { routeItem } from "../services/item-router.js";
 import type { ToolContext, ToolDefinition } from "./tool-registry.js";
 import { err, ok, type ToolResult } from "./tool-result.js";
 
-const RISK_TIERS = ["low", "medium", "high"] as const;
+// @lore L9 review (arch C2): `RISK_TIERS` is the canonical iteration
+// order in `@hyperidle/shared` and includes `'critical'`. The local
+// triplet that previously lived here rejected critical at the
+// agent→server boundary even though the type widened.
 
 /**
  * @lore I6: validate kind and verb against known enums, not arbitrary strings.

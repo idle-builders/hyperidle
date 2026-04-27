@@ -18,6 +18,8 @@ import {
 	DEFAULT_UNDO_WINDOW_SECONDS,
 	REQUEST_CHANGES_INLINE_COMMENTS_MAX,
 	REQUEST_CHANGES_SUMMARY_MAX,
+	RISK_TIERS,
+	SANDBOX_RESULTS,
 	UNDO_WINDOW_MAX,
 	UNDO_WINDOW_MIN,
 } from "@hyperidle/shared";
@@ -43,6 +45,13 @@ const VERDICT_ACTIONS = [
 	"escalate",
 ] as const;
 
+// @lore L9 review (sec CRIT-3 + arch C1): server schema must accept the
+// widened RiskTier (`'critical'`) and the new L9 fields. `attachments` is
+// shape-validated as JSON when present (with a 64KB cap) so agent-supplied
+// blast_radius and per-kind payloads can't be megabytes of opaque text.
+// `reversibility` and `sandboxResult` ride alongside the metadata strip.
+const ATTACHMENTS_MAX_BYTES = 64 * 1024;
+
 const createItemSchema = z.object({
 	sourceAgentId: z.string().optional(),
 	layer: z.string().optional(),
@@ -50,14 +59,23 @@ const createItemSchema = z.object({
 	kind: z.string().optional(),
 	title: z.string().min(1),
 	body: z.string().optional(),
-	attachments: z.string().optional(),
+	attachments: z.string().max(ATTACHMENTS_MAX_BYTES, "attachments exceeds 64KB cap").optional(),
 	proposedAction: z.string().optional(),
 	options: z.string().optional(),
-	riskTier: z.enum(["low", "medium", "high"]).optional(),
+	riskTier: z.enum(RISK_TIERS).optional(),
+	reversibility: z.boolean().nullable().optional(),
+	sandboxResult: z.enum(SANDBOX_RESULTS).nullable().optional(),
+	blastRadius: z
+		.object({
+			agents: z.array(z.string().max(128)).max(64).default([]),
+			teams: z.array(z.string().max(128)).max(64).default([]),
+			products: z.array(z.string().max(128)).max(64).default([]),
+		})
+		.optional(),
 	attentionScore: z.number().int().optional(),
 	blocking: z.boolean().optional(),
 	reasoning: z.string().optional(),
-	costEstimate: z.number().int().optional(),
+	costEstimate: z.number().int().min(0).max(1_000_000).optional(),
 	threadId: z.string(),
 });
 
@@ -77,6 +95,20 @@ const inlineCommentSchema = z.object({
  * `summary` writes to `responses.feedback` and `inline_comments[]` is
  * JSON-stringified into `responses.inlineAnchor`. Summary is required for
  * request-changes (refine below).
+ *
+ * @lore L9 review (sec CRIT-1 + adv C4): the response wire payload now
+ * carries L9 verdict-variant discriminators so the server can audit the
+ * distinction between a generic Approve and an "Approve once" / "Grant
+ * lease to A|B" click. Today these fields are recorded in `responses.view`
+ * (JSON string) — the actual one-shot grant enforcement and lease
+ * scoping live behind a TODO. See the @lore on the L9 enforcement
+ * boundary in TRACK-L follow-up.
+ *
+ * TODO(L9-followup): when the autonomy-mutation logic and lease-enforcement
+ * services land, branch on `decision === 'approve'` AND `kind ===
+ * 'permission_request'` to require `oneShot: true`; equivalently for
+ * file_lease + leaseGrantedTo. Today the fields are passed through to
+ * `responses.view` so the audit row preserves them.
  */
 const createResponseSchema = z
 	.object({
@@ -87,6 +119,8 @@ const createResponseSchema = z
 		feedback: z.string().optional(),
 		approverId: z.string().optional(),
 		view: z.string().optional(),
+		oneShot: z.boolean().nullable().optional(),
+		leaseGrantedTo: z.enum(["a", "b"]).nullable().optional(),
 		summary: z.string().max(REQUEST_CHANGES_SUMMARY_MAX).optional(),
 		inline_comments: z
 			.array(inlineCommentSchema)
@@ -328,6 +362,16 @@ export function createConversationRoutes(db: HyperIdleDb, eventBus: EventBus): H
 			founderRoute = routeToFounder(agent?.role ?? null);
 		}
 
+		// @lore L9 review (sec CRIT-3): when the producer supplied a
+		// blast_radius object (separate field from `attachments` text),
+		// merge it into the persisted attachments JSON so the renderer
+		// pipeline can read it. Existing producers that already serialize
+		// blast_radius into `attachments` are untouched.
+		let attachmentsToWrite = body.attachments ?? null;
+		if (body.blastRadius && !body.attachments) {
+			attachmentsToWrite = JSON.stringify({ blast_radius: body.blastRadius });
+		}
+
 		db.insert(items)
 			.values({
 				id,
@@ -337,10 +381,17 @@ export function createConversationRoutes(db: HyperIdleDb, eventBus: EventBus): H
 				kind: body.kind ?? null,
 				title: body.title,
 				body: body.body ?? null,
-				attachments: body.attachments ?? null,
+				attachments: attachmentsToWrite,
 				proposedAction: body.proposedAction ?? null,
 				options: body.options ?? null,
 				riskTier: body.riskTier ?? null,
+				reversibility:
+					body.reversibility === undefined || body.reversibility === null
+						? null
+						: body.reversibility
+							? 1
+							: 0,
+				sandboxResult: body.sandboxResult ?? null,
 				attentionScore: body.attentionScore ?? null,
 				blocking: body.blocking ? 1 : 0,
 				reasoning: body.reasoning ?? null,
@@ -497,6 +548,20 @@ export function createConversationRoutes(db: HyperIdleDb, eventBus: EventBus): H
 					? JSON.stringify(body.inline_comments ?? [])
 					: (body.inlineAnchor ?? null);
 
+				// @lore L9 review (sec CRIT-1 + adv C4): when the L9 extras
+				// (`oneShot`, `leaseGrantedTo`) are set, encode them into a
+				// structured JSON in `view` so the audit row preserves the
+				// founder's exact intent. The field can otherwise stay a
+				// raw view-name string (back-compat) or null.
+				let viewToWrite: string | null = body.view ?? null;
+				if (body.oneShot !== undefined || body.leaseGrantedTo !== undefined) {
+					viewToWrite = JSON.stringify({
+						view: body.view ?? null,
+						oneShot: body.oneShot ?? null,
+						leaseGrantedTo: body.leaseGrantedTo ?? null,
+					});
+				}
+
 				tx.insert(responses)
 					.values({
 						id,
@@ -506,7 +571,7 @@ export function createConversationRoutes(db: HyperIdleDb, eventBus: EventBus): H
 						edits: body.edits ?? null,
 						feedback: feedbackValue,
 						approverId,
-						view: body.view ?? null,
+						view: viewToWrite,
 						respondedAt: now,
 						transition: "commit",
 						priorDecision,

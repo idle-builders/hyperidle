@@ -1,5 +1,5 @@
 import { dsShellProps } from "@hyperidle/design-system";
-import type { VerdictAction } from "@hyperidle/shared";
+import type { VerdictAction, VerdictVariants } from "@hyperidle/shared";
 import type { JSX } from "react";
 import { useCallback, useState } from "react";
 
@@ -38,8 +38,6 @@ export interface ReviewHeaderProps {
 	/**
 	 * L4: gates the `↶ undoable` chip on the Approve button. Strict identity
 	 * check (`reversibility === true`) — null/undefined/false all hide it.
-	 * The L9 work package adds the underlying field to artifacts; until
-	 * then the chip stays hidden.
 	 */
 	reversibility?: boolean | null;
 	/**
@@ -51,6 +49,26 @@ export interface ReviewHeaderProps {
 	 * pattern.
 	 */
 	extraOverflowItems?: JSX.Element | null;
+	/**
+	 * L9: artifact-kind renderers (FileLease, PermissionRequest) supply
+	 * alternate labels for the three primary verdicts. The VerdictAction
+	 * emitted on click is unchanged — only the label and `aria-label` differ.
+	 */
+	verdictVariants?: VerdictVariants;
+	/**
+	 * L9 review (sec CRIT-2 + adv C1/C2): when true, the Approve button is
+	 * visually + functionally disabled (also `aria-disabled`). Used by
+	 * ActionSummaryView's type-to-confirm gate (critical risk_tier) and
+	 * SkillChangeView's rollout-policy gate. Click handler short-circuits
+	 * — no onPrefill/onCommit fire.
+	 */
+	approveDisabled?: boolean;
+	/**
+	 * L9: human-readable reason surfaced as `title=` on the disabled
+	 * Approve button so sighted users see why the gate is closed (the
+	 * input pattern below already conveys it for SR users via aria-disabled).
+	 */
+	approveDisabledReason?: string;
 }
 
 interface VerdictButtonDef {
@@ -122,6 +140,8 @@ function VerdictButton({
 	tabIndex,
 	extraSlot,
 	menuStyle = false,
+	disabled,
+	disabledReason,
 }: {
 	def: VerdictButtonDef;
 	pending: boolean;
@@ -136,22 +156,35 @@ function VerdictButton({
 	 * intrinsic width.
 	 */
 	menuStyle?: boolean;
+	/**
+	 * L9: when true, the click handler is suppressed and the button is
+	 * marked aria-disabled + given a `disabled` attribute so it cannot be
+	 * activated by mouse, keyboard (Enter/Space on focused button), or AT.
+	 */
+	disabled?: boolean;
+	disabledReason?: string;
 }): JSX.Element {
 	const label = pending ? `Confirm ${def.label}` : def.label;
 	const armedClasses = pending
 		? " ring-2 ring-offset-1 ring-[var(--accent)] outline outline-1 outline-[var(--accent)]"
 		: "";
+	const disabledClasses = disabled ? " opacity-50 cursor-not-allowed" : "";
+	const titleParts: string[] = [`${def.label} (${def.shortcut})`];
+	if (disabled && disabledReason) titleParts.push(disabledReason);
 	return (
 		<button
 			type="button"
-			className={`btn btn-xs ${def.variant}${armedClasses}${menuStyle ? " w-full justify-between" : ""}`}
-			title={`${def.label} (${def.shortcut})`}
+			className={`btn btn-xs ${def.variant}${armedClasses}${disabledClasses}${menuStyle ? " w-full justify-between" : ""}`}
+			title={titleParts.join(" — ")}
 			aria-label={label}
 			aria-pressed={pending ? true : undefined}
+			aria-disabled={disabled ? true : undefined}
+			disabled={disabled}
 			data-pending={pending ? "true" : undefined}
+			data-disabled={disabled ? "true" : undefined}
 			role={role}
 			tabIndex={tabIndex}
-			onClick={onClick}
+			onClick={disabled ? undefined : onClick}
 		>
 			{label}
 			{extraSlot}
@@ -186,11 +219,19 @@ export function ReviewHeader({
 	blocking = false,
 	reversibility,
 	extraOverflowItems,
+	verdictVariants,
+	approveDisabled,
+	approveDisabledReason,
 }: ReviewHeaderProps): JSX.Element {
 	const [moreOpen, setMoreOpen] = useState(false);
 
 	const handleVerdictClick = useCallback(
 		(action: VerdictAction): void => {
+			// @lore L9 review (sec CRIT-2 + adv C1/C2): the approve gate is
+			// authoritative — a disabled approve emits NEITHER prefill NOR
+			// commit, regardless of the double-click setting. Other verdicts
+			// remain unaffected.
+			if (action === "approve" && approveDisabled) return;
 			if (!verdictDoubleClick) {
 				onCommit(action);
 				return;
@@ -201,7 +242,7 @@ export function ReviewHeader({
 				onPrefill(action);
 			}
 		},
-		[verdictDoubleClick, pendingVerdict, onCommit, onPrefill],
+		[verdictDoubleClick, pendingVerdict, onCommit, onPrefill, approveDisabled],
 	);
 
 	// @lore L4 review: keyboard shortcuts are owned by the page-level
@@ -253,7 +294,9 @@ export function ReviewHeader({
 			{/* Verdict toolbar — I4 P3: 4 primary verdicts as direct children.
 				J4: when `blocking`, append a Pause button.
 				L4: Approve gets the optional ↶ undoable chip iff
-				reversibility === true (strict identity per .plan-L4.md §3.3.1). */}
+				reversibility === true (strict identity per .plan-L4.md §3.3.1).
+				L9: when `verdictVariants` is supplied, override the visible label
+				on Approve/Request changes/Reject (action emitted is unchanged). */}
 			<div
 				role="toolbar"
 				aria-label="Verdict actions"
@@ -261,6 +304,15 @@ export function ReviewHeader({
 			>
 				{PRIMARY_BUTTONS.map((btn) => {
 					const pending = pendingVerdict === btn.action;
+					const overrideLabel =
+						verdictVariants && btn.action === "approve"
+							? verdictVariants.approve
+							: verdictVariants && btn.action === "request-changes"
+								? verdictVariants.requestChanges
+								: verdictVariants && btn.action === "reject"
+									? verdictVariants.reject
+									: null;
+					const def = overrideLabel ? { ...btn, label: overrideLabel } : btn;
 					// @lore L4 review (design W4 + W5/biome a11y): the chip should
 					// recede — power users learn the symbol; it must not compete
 					// with the verdict label. Use `text-[var(--text-lo)]` with no
@@ -279,13 +331,18 @@ export function ReviewHeader({
 								↶ undoable
 							</span>
 						) : null;
+					const isApprove = btn.action === "approve";
 					return (
 						<VerdictButton
 							key={btn.action}
-							def={btn}
+							def={def}
 							pending={pending}
 							onClick={() => handleVerdictClick(btn.action)}
 							extraSlot={extra}
+							disabled={isApprove && approveDisabled === true}
+							disabledReason={
+								isApprove && approveDisabled === true ? approveDisabledReason : undefined
+							}
 						/>
 					);
 				})}

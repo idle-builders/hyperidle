@@ -76,8 +76,10 @@ function determineAction(
 	autonomyLevel: AutonomyLevel,
 	nowFn: () => Date,
 ): PolicyAction {
-	// a. High-risk: ALWAYS push
-	if (item.riskTier === "high") return "push";
+	// a. High- or Critical-risk: ALWAYS push.
+	// @lore L9 review (arch C1): `critical` is strictly above `high` and
+	// must take the same always-push branch.
+	if (item.riskTier === "high" || item.riskTier === "critical") return "push";
 
 	// b. Skill-change: ALWAYS push
 	if (item.kind === "skill_change") return "push";

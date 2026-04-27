@@ -1,11 +1,13 @@
 import { items } from "@hyperidle/db";
+import { RISK_TIERS } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { routeItem } from "../services/item-router.js";
 import type { ToolContext, ToolDefinition } from "./tool-registry.js";
 import { err, ok, type ToolResult } from "./tool-result.js";
 
-const RISK_TIERS = ["low", "medium", "high"] as const;
+// @lore L9 review (arch C2): use the shared `RISK_TIERS` constant so
+// `'critical'` is accepted at the agent→server boundary.
 
 /**
  * `route_item` — Route an EXISTING item to its correct view by computing the
