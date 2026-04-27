@@ -34,12 +34,18 @@ import {
 	DEFAULT_UNDO_WINDOW_SECONDS,
 	DEFAULT_VERDICT_DOUBLE_CLICK,
 	type RecoveryOutcome,
+	type SkillChangePayload,
 	type VerdictAction,
 } from "@hyperidle/shared";
-import { type JSX, useCallback, useEffect, useRef, useState } from "react";
+import { type JSX, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+	ArtifactKindRenderer,
+	getVerdictVariantsFor,
+} from "../components/artifacts/ArtifactKindRenderer";
 import { ReasoningBlock } from "../components/ReasoningBlock";
 import { RollbackOverflowItem } from "../components/RollbackOverflowItem";
 import { UndoToast } from "../components/UndoToast";
+import { getL9ReviewThread, type L9ReviewThread } from "../fixtures/l9-review-threads";
 import { useRecoveryFetch } from "../hooks/useRecoveryFetch";
 import { useUndoTimer } from "../hooks/useUndoTimer";
 import type {
@@ -186,10 +192,12 @@ interface ToastState {
 /**
  * @lore L4 default-settings: until the wider settings reader lands, the
  * page reads shared defaults (`DEFAULT_*` from `@hyperidle/shared`).
- * SettingsPanel persists user-picked values into `factory_settings` and
- * the server snapshots `undo_window_seconds` per `responses` row; the
- * page's runtime countdown will read the persisted value once the wider
- * settings hook lands.
+ *
+ * @lore L9: when `?thread=l9-*` resolves to an L9 fixture, the page
+ * dispatches the artifact body through `ArtifactKindRenderer` and supplies
+ * `verdictVariants` to ReviewHeader (override labels for FileLease /
+ * PermissionRequest). Otherwise the J4 `MOCK_REVIEWS` + ArtifactView path
+ * runs unchanged.
  */
 export function ConversationsReview(): JSX.Element {
 	const recoveryFetch = useRecoveryFetch();
@@ -205,6 +213,26 @@ export function ConversationsReview(): JSX.Element {
 	// @lore L6 design C5: stash the trigger element on open so we can
 	// restore focus to it on close (Esc / Cancel / Submit).
 	const composerTriggerRef = useRef<HTMLElement | null>(null);
+
+	// L9 review (sec CRIT-2 + adv C1/C2): page owns the gate state for
+	// the two kinds whose Approve depends on a renderer-internal input.
+	const [confirmReady, setConfirmReady] = useState(false);
+	const [rolloutPolicy, setRolloutPolicy] = useState<SkillChangePayload["rolloutPolicy"]>(null);
+
+	// Read `?thread=` once per render. Browser-only API guarded for SSR safety.
+	const l9Thread: L9ReviewThread | null = useMemo(() => {
+		if (typeof window === "undefined") return null;
+		const id = new URLSearchParams(window.location.search).get("thread");
+		return getL9ReviewThread(id);
+	}, []);
+
+	// Reset gate state when the underlying L9 thread changes (defensive
+	// — useMemo above only fires once per mount today, but a future
+	// route-level re-keying must not leave stale gates open).
+	useEffect(() => {
+		setConfirmReady(false);
+		setRolloutPolicy(l9Thread?.kind === "skill_change" ? l9Thread.payload.rolloutPolicy : null);
+	}, [l9Thread]);
 
 	const selected = MOCK_REVIEWS.find((r) => r.id === selectedId) ?? MOCK_REVIEWS[0];
 
@@ -302,7 +330,8 @@ export function ConversationsReview(): JSX.Element {
 
 	const handleCommit = useCallback(
 		(action: VerdictAction): void => {
-			if (action === "pause" && !selected.blocking) return;
+			const activeBlocking = l9Thread?.blocking ?? selected.blocking;
+			if (action === "pause" && !activeBlocking) return;
 			// @lore L6: request-changes never commits directly — it routes
 			// through the composer first (which then calls handleSubmit →
 			// commitRequestChanges → mountToast).
@@ -311,6 +340,10 @@ export function ConversationsReview(): JSX.Element {
 				return;
 			}
 			// L4: replace any in-flight toast — see file-level @lore.
+			cancelUndoTimer();
+			const fallbackAuditRowId = `mock-${l9Thread?.id ?? selected.id}-${Date.now()}`;
+			const itemId = l9Thread?.id ?? selected.id;
+			const threadId = l9Thread?.id ?? selected.id;
 			// @lore L4 AC-5 deferred orchestration: `agentActed` is hard-coded
 			// to `false` here on purpose. Flipping it to `true` mid-toast
 			// requires an event/poll on `items.agent_acted_at` that the page
@@ -322,9 +355,89 @@ export function ConversationsReview(): JSX.Element {
 			// page-level orchestration is deferred. Server-side, the 409
 			// from `/verdict/undo` already returns `audit_row_id` so the
 			// link target is ready when the page reads it.
+			//
+			// @lore L9 review (sec CRIT-1 + adv C4 + DoD): for L9 threads we
+			// POST `/api/conversations/responses` with the discriminating
+			// fields (`oneShot` for permission_request "Approve once",
+			// `leaseGrantedTo` for file_lease "Grant lease to A/B") so the
+			// server's audit row preserves the founder's exact intent. The
+			// `auditRowId` then flows from the server response — the local
+			// `mock-…` fallback is only used if the POST fails (so the
+			// undo-toast UX never silently drops). For non-L9 threads (J4
+			// path) the mockToast helper stays — that path's wire format
+			// ships in a later track.
+			if (l9Thread) {
+				let oneShot: boolean | null = null;
+				let leaseGrantedTo: "a" | "b" | null = null;
+				if (l9Thread.kind === "permission_request" && action === "approve") {
+					oneShot = true;
+				} else if (l9Thread.kind === "file_lease") {
+					if (action === "approve") leaseGrantedTo = "a";
+					else if (action === "reject") leaseGrantedTo = "b";
+				}
+				const decisionPayload = {
+					itemId,
+					decision: action,
+					oneShot,
+					leaseGrantedTo,
+				};
+				// Mint the toast immediately for snappy feedback; rewrite the
+				// auditRowId once the server confirms.
+				setToast({
+					decision: action,
+					itemId,
+					threadId,
+					auditRowId: fallbackAuditRowId,
+					agentActed: false,
+				});
+				setPendingVerdict(null);
+				startUndoTimer();
+				void (async (): Promise<void> => {
+					try {
+						const res = await fetch("/api/conversations/responses", {
+							method: "POST",
+							headers: {
+								"Content-Type": "application/json",
+								"X-Actor-Id": "actor:ceo",
+							},
+							body: JSON.stringify(decisionPayload),
+						});
+						if (!res.ok) {
+							// biome-ignore lint/suspicious/noConsole: observability surface — surface commit failures
+							console.warn("[ConversationsReview] L9 commit non-2xx", {
+								status: res.status,
+								itemId,
+							});
+							return;
+						}
+						const created = (await res.json()) as { id?: string };
+						if (created?.id) {
+							setToast((prev) =>
+								prev && prev.itemId === itemId
+									? { ...prev, auditRowId: created.id ?? prev.auditRowId }
+									: prev,
+							);
+						}
+					} catch (err) {
+						// biome-ignore lint/suspicious/noConsole: observability surface — surface commit failures
+						console.error("[ConversationsReview] L9 commit fetch failed", {
+							message: err instanceof Error ? err.message : String(err),
+						});
+					}
+				})();
+				return;
+			}
 			mountToast(action);
 		},
-		[selected.blocking, mountToast, openComposer],
+		[
+			l9Thread,
+			selected.id,
+			selected.blocking,
+			mountToast,
+			openComposer,
+			cancelUndoTimer,
+			startUndoTimer,
+		],
 	);
 
 	const handleAddComment = useCallback(
@@ -541,10 +654,15 @@ export function ConversationsReview(): JSX.Element {
 				}
 				// Pause only valid on blocking reviews.
 				if (prefill === "pause" && !selected.blocking) return;
+				// @lore L9 review (sec CRIT-2 + adv C1): the keyboard `A`
+				// path also respects the Approve gate so muscle-memory cannot
+				// bypass type-to-confirm or rollout-policy gates.
+				if (prefill === "approve" && approveDisabledRef.current) return;
 				setPendingVerdict(prefill);
 				return;
 			}
 			if (e.key === "Enter" && pendingVerdict) {
+				if (pendingVerdict === "approve" && approveDisabledRef.current) return;
 				handleCommit(pendingVerdict);
 			}
 		};
@@ -562,43 +680,121 @@ export function ConversationsReview(): JSX.Element {
 		openComposer,
 	]);
 
+	// L9: choose which "active review" drives the header / reasoning / body.
+	const activeProposer = l9Thread?.proposer ?? selected.proposer;
+	const activeTimestamp = l9Thread?.timestamp ?? selected.timestamp;
+	const activeBlocking = l9Thread?.blocking ?? selected.blocking;
+	const activeReasoning = l9Thread?.reasoning ?? selected.reasoning;
+	// L9: derive verdict-variant override labels from the L9 thread's kind.
+	const verdictVariants = l9Thread
+		? (getVerdictVariantsFor(
+				l9Thread.kind === "file_lease"
+					? { kind: "file_lease", payload: l9Thread.payload }
+					: l9Thread.kind === "permission_request"
+						? { kind: "permission_request", payload: l9Thread.payload }
+						: { kind: l9Thread.kind },
+			) ?? undefined)
+		: undefined;
+
+	// @lore L9 review (sec CRIT-2 + adv C1/C2): compute the Approve gate.
+	// - action_summary with risk_tier='critical' requires the type-to-confirm
+	//   token to match (lifted from ActionSummaryView via setConfirmReady).
+	// - skill_change requires a rollout policy to be selected (lifted from
+	//   SkillChangeView via setRolloutPolicy).
+	let approveDisabled = false;
+	let approveDisabledReason: string | undefined;
+	if (l9Thread) {
+		if (l9Thread.kind === "action_summary" && l9Thread.metadata.riskTier === "critical") {
+			approveDisabled = !confirmReady;
+			approveDisabledReason = `Type '${l9Thread.payload.confirmToken}' to confirm`;
+		} else if (l9Thread.kind === "skill_change") {
+			approveDisabled = rolloutPolicy === null;
+			approveDisabledReason = "Select rollout policy first";
+		}
+	}
+
+	// Mirror approveDisabled into a ref so the keydown listener (registered
+	// once in useEffect) reads the latest gate without becoming dep-coupled.
+	const approveDisabledRef = useRef(approveDisabled);
+	useEffect(() => {
+		approveDisabledRef.current = approveDisabled;
+	}, [approveDisabled]);
+
+	const reviewHeader = (
+		<ReviewHeader
+			proposer={{ name: activeProposer, timestamp: activeTimestamp }}
+			onPrefill={handlePrefill}
+			onCommit={handleCommit}
+			pendingVerdict={pendingVerdict}
+			verdictDoubleClick={verdictDoubleClick}
+			blocking={activeBlocking}
+			reversibility={l9Thread?.metadata.reversibility ?? selected.reversible}
+			verdictVariants={verdictVariants}
+			approveDisabled={approveDisabled}
+			approveDisabledReason={approveDisabledReason}
+			extraOverflowItems={
+				<RollbackOverflowItem
+					verdict={{
+						id: `verdict-${selected.id}`,
+						state: verdictCommitted ? "committed" : "draft",
+						reversible: selected.reversible,
+						threadId: selected.id,
+					}}
+					onRollback={handleRollback}
+				/>
+			}
+		/>
+	);
+
+	const pendingChip = pendingVerdict ? (
+		<output
+			data-testid="pending-verdict"
+			className="block px-3 py-1 text-xs font-mono bg-[var(--surface-ghost)] text-[var(--text-mid)] border-b border-[var(--border-default)]"
+		>
+			Pending: {pendingVerdict} — press Enter to confirm
+		</output>
+	) : null;
+
 	return (
 		<div className="flex flex-col gap-0 h-full" data-testid="conversations-review-page">
-			<ReviewHeader
-				proposer={{
-					name: selected.proposer,
-					timestamp: selected.timestamp,
-				}}
-				onPrefill={handlePrefill}
-				onCommit={handleCommit}
-				pendingVerdict={pendingVerdict}
-				verdictDoubleClick={verdictDoubleClick}
-				blocking={selected.blocking}
-				reversibility={selected.reversible}
-				extraOverflowItems={
-					<RollbackOverflowItem
-						verdict={{
-							id: `verdict-${selected.id}`,
-							state: verdictCommitted ? "committed" : "draft",
-							reversible: selected.reversible,
-							threadId: selected.id,
-						}}
-						onRollback={handleRollback}
-					/>
-				}
-			/>
-			{pendingVerdict && (
-				<output
-					data-testid="pending-verdict"
-					className="block px-3 py-1 text-xs font-mono bg-[var(--surface-ghost)] text-[var(--text-mid)] border-b border-[var(--border-default)]"
-				>
-					Pending: {pendingVerdict} — press Enter to confirm
-				</output>
-			)}
+			{/* @lore L9 review (design W12): verdict toolbar is anchored at
+			    the BOTTOM for both J4 and L9 paths so the founder reads
+			    top-to-bottom (proposer → reasoning → artifact → decision)
+			    without the toolbar reflowing as they paginate between
+			    threads. SkillChangeView's per-agent impact list naturally
+			    sits above the bottom-anchored toolbar in DOM order. */}
 			<div className="flex-1 overflow-y-auto">
-				<ReasoningBlock steps={selected.reasoning} />
+				<ReasoningBlock steps={activeReasoning} />
 				<div className="p-3">
-					{selected.artifact.shape === "text_diff" ? (
+					{l9Thread ? (
+						l9Thread.kind === "action_summary" ? (
+							<ArtifactKindRenderer
+								kind="action_summary"
+								metadata={l9Thread.metadata}
+								payload={l9Thread.payload}
+								onReadyChange={setConfirmReady}
+							/>
+						) : l9Thread.kind === "skill_change" ? (
+							<ArtifactKindRenderer
+								kind="skill_change"
+								metadata={l9Thread.metadata}
+								payload={l9Thread.payload}
+								onRolloutChange={setRolloutPolicy}
+							/>
+						) : l9Thread.kind === "file_lease" ? (
+							<ArtifactKindRenderer
+								kind="file_lease"
+								metadata={l9Thread.metadata}
+								payload={l9Thread.payload}
+							/>
+						) : (
+							<ArtifactKindRenderer
+								kind="permission_request"
+								metadata={l9Thread.metadata}
+								payload={l9Thread.payload}
+							/>
+						)
+					) : selected.artifact.shape === "text_diff" ? (
 						<ArtifactView
 							shape="text_diff"
 							data={selected.artifact.data}
@@ -615,6 +811,8 @@ export function ConversationsReview(): JSX.Element {
 					)}
 				</div>
 			</div>
+			{pendingChip}
+			{reviewHeader}
 			{toast && (
 				<UndoToast
 					visible={true}
