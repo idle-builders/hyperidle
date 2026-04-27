@@ -1,7 +1,20 @@
-export type { ApiErrorCode, ApiErrorResponse } from "./api-types.js";
+export type {
+	ApiErrorCode,
+	ApiErrorResponse,
+	VerdictUndoRequest,
+	VerdictUndoSuccess,
+} from "./api-types.js";
 export { API_ERROR_CODES } from "./api-types.js";
 export type { DomainTag } from "./constants/domains.js";
 export { DOMAIN_TAGS, domainTagNullableSchema, domainTagSchema } from "./constants/domains.js";
+export type { VerdictAction } from "./constants/verdict-undo.js";
+export {
+	DEFAULT_UNDO_WINDOW_SECONDS,
+	DEFAULT_VERDICT_DOUBLE_CLICK,
+	UNDO_WINDOW_MAX,
+	UNDO_WINDOW_MIN,
+	UNDO_WINDOW_OPTIONS,
+} from "./constants/verdict-undo.js";
 export {
 	ActiveRoutinesError,
 	CapacityExceededError,
