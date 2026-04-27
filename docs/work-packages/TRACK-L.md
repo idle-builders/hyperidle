@@ -127,7 +127,16 @@ See `docs/work-packages/SHARED.md` for tech stack, shared contracts, and depende
 
 **Contracts / constraints.**
 - Undo window is 8s by default; configurable in Settings → Appearance (`undo_window_seconds`, range 3–15).
-- Undo MUST fail closed if the agent has already acted — never silently ignore. The 409 response shape: `{ error: "agent_already_acted", audit_row_id }`.
+- Undo MUST fail closed if the agent has already acted — never silently ignore.
+- `POST /api/threads/:threadId/verdict/undo` response codes:
+  - `200 OK` — undo recorded; body: `{ undo_response_id, reverted_response_id, prior_decision, at }`.
+  - `400 Bad Request` — invalid body. The schema is `.strict()`; sending an `actorId` body field is rejected (identity is server-derived from the `X-Actor-Id` header).
+  - `401 Unauthorized` — no actor identified (no `X-Actor-Id` header and no env fallback).
+  - `403 Forbidden` — `{ error: "actor_mismatch" }`. The requesting actor does not match the original `approver_id`. (Cross-founder undo blocked.)
+  - `404 Not Found` — `{ error: "no_recent_verdict" }`. Either thread/item missing OR the latest row is not a `transition='commit'` row (idempotent: a second undo on the same item returns 404).
+  - `409 Conflict` — `{ error: "agent_already_acted", audit_row_id }`. The predicate is `items.agent_acted_at > responses.responded_at` (the commit being undone).
+  - `410 Gone` — `{ error: "undo_window_expired", expired_at }`. Now is past `responded_at + undo_window_seconds` (snapshotted per row).
+- Identity sourcing: the request is authenticated by the global API-key middleware; the actor identity is taken from the `X-Actor-Id` header (or `HYPERIDLE_DEFAULT_ACTOR_ID` env fallback). The body MUST NOT contain an `actorId` field — see the L4 review (security CRIT) for the spoofing class this prevents.
 - This story does NOT add the artifact-reversibility metadata field; that ships in L9 (artifact-kind renderers). Until L9, the `↶ undoable` chip stays hidden.
 
 **Effort.** S (~2d)
