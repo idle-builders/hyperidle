@@ -18,6 +18,8 @@ export const API_ERROR_CODES = {
 	// canonical code without lifting magic strings into the test file.
 	RATE_LIMITED: "RATE_LIMITED",
 	PAYLOAD_TOO_LARGE: "PAYLOAD_TOO_LARGE",
+	// L2 — founder verdict conflict on the same thread.
+	FOUNDER_CONFLICT: "FOUNDER_CONFLICT",
 } as const;
 
 export type ApiErrorCode = (typeof API_ERROR_CODES)[keyof typeof API_ERROR_CODES];

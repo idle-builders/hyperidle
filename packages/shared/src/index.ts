@@ -1,5 +1,7 @@
 export type { ApiErrorCode, ApiErrorResponse } from "./api-types.js";
 export { API_ERROR_CODES } from "./api-types.js";
+export type { DomainTag } from "./constants/domains.js";
+export { DOMAIN_TAGS, domainTagNullableSchema, domainTagSchema } from "./constants/domains.js";
 export {
 	ActiveRoutinesError,
 	CapacityExceededError,
@@ -77,6 +79,8 @@ export {
 } from "./redact.js";
 export { decode, encode } from "./toon-codec.js";
 export { ToonParseError } from "./toon-errors.js";
+export type { Actor, ActorRole } from "./types/actor.js";
+export { REASSIGN_VERB } from "./types/actor.js";
 export type { AutonomyLevel, AutonomyLevelMeta } from "./types/autonomy.js";
 export { AUTONOMY_LEVEL_META, AUTONOMY_LEVELS, isAutonomyLevel } from "./types/autonomy.js";
 export type {
