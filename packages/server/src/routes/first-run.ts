@@ -31,6 +31,7 @@ import {
 	knowledgeItems,
 	products,
 	teams,
+	threads,
 } from "@hyperidle/db";
 import type { ActorRole, ApiErrorResponse } from "@hyperidle/shared";
 import { API_ERROR_CODES } from "@hyperidle/shared";
@@ -58,10 +59,18 @@ const apiKeySchema = z.object({
 	key: z.string().trim().min(8).max(512),
 });
 
+// C2: each doc accepts a string body OR an explicit { skipped: true }
+// signal. Empty strings are rejected at the route level — the client
+// must affirmatively choose between writing content and skipping.
+const northStarFieldSchema = z.union([
+	z.object({ skipped: z.literal(true) }),
+	z.object({ skipped: z.literal(false), body: z.string().trim().min(1).max(20_000) }),
+]);
+
 const northStarSchema = z.object({
-	principles: z.string().trim().min(1).max(20_000),
-	focus: z.string().trim().min(1).max(20_000),
-	portfolio: z.string().trim().min(1).max(20_000),
+	principles: northStarFieldSchema,
+	focus: northStarFieldSchema,
+	portfolio: northStarFieldSchema,
 });
 
 const teamScaffoldSchema = z.union([
@@ -161,21 +170,29 @@ export function createFirstRunRoutes(db: HyperIdleDb, deps: FirstRunDeps = {}): 
 		const focusId = `ki:north-star:focus`;
 		const portfolioId = `ki:north-star:portfolio`;
 
-		// Upsert: re-running the step replaces the body in place.
-		const rows: Array<{ id: string; topic: string; title: string; body: string }> = [
-			{ id: principlesId, topic: "principles", title: "Principles", body: principles },
-			{ id: focusId, topic: "focus", title: "Focus", body: focus },
-			{ id: portfolioId, topic: "portfolio", title: "Portfolio", body: portfolio },
+		const fields = [
+			{ kind: "principles" as const, id: principlesId, title: "Principles", value: principles },
+			{ kind: "focus" as const, id: focusId, title: "Focus", value: focus },
+			{ kind: "portfolio" as const, id: portfolioId, title: "Portfolio", value: portfolio },
 		];
-		for (const row of rows) {
+
+		// C2: only persist a knowledge_items row when the user actually
+		// supplied a body. Skipped docs leave the slot empty so the Coach
+		// can come back to it later.
+		const skippedKinds: Array<"principles" | "focus" | "portfolio"> = [];
+		for (const field of fields) {
+			if (field.value.skipped) {
+				skippedKinds.push(field.kind);
+				continue;
+			}
 			db.insert(knowledgeItems)
 				.values({
-					id: row.id,
+					id: field.id,
 					layer: "L4",
 					kind: "principle",
-					topic: row.topic,
-					title: row.title,
-					body: row.body,
+					topic: field.kind,
+					title: field.title,
+					body: field.value.body,
 					format: "markdown",
 					status: "active",
 					version: 1,
@@ -185,13 +202,38 @@ export function createFirstRunRoutes(db: HyperIdleDb, deps: FirstRunDeps = {}): 
 				})
 				.onConflictDoUpdate({
 					target: knowledgeItems.id,
-					set: { body: row.body, updatedAt: now, updatedBy },
+					set: { body: field.value.body, updatedAt: now, updatedBy },
 				})
 				.run();
 		}
 
+		// C2 follow-up: drop a thread row per skipped kind so the Coach
+		// scheduler (out of scope for L10 — see L9) has something to find
+		// and surface back to the founder. The thread is unrouted; L9
+		// will route it onto the right actor when it picks it up.
+		for (const kind of skippedKinds) {
+			db.insert(threads)
+				.values({
+					id: `thread:north-star-followup:${kind}`,
+					kind: "system:north-star-followup",
+					pinned: 0,
+					participants: null,
+					routedToActorId: null,
+					domainTag: kind,
+					createdAt: now,
+				})
+				.onConflictDoNothing()
+				.run();
+		}
+
 		writeNorthStarIds(db, { principlesId, focusId, portfolioId });
-		return c.json({ ok: true, principlesId, focusId, portfolioId });
+		return c.json({
+			ok: true,
+			principlesId,
+			focusId,
+			portfolioId,
+			skipped: skippedKinds,
+		});
 	});
 
 	app.post("/team-scaffold", async (c) => {

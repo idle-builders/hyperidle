@@ -238,9 +238,9 @@ describe("L10 — First-Run Flow API", () => {
 				method: "POST",
 				headers: authHeaders(),
 				body: JSON.stringify({
-					principles: "Boil the lake.",
-					focus: "Ship 1 product to PMF.",
-					portfolio: "Two bets max in flight.",
+					principles: { skipped: false, body: "Boil the lake." },
+					focus: { skipped: false, body: "Ship 1 product to PMF." },
+					portfolio: { skipped: false, body: "Two bets max in flight." },
 				}),
 			});
 			expect(res.status).toBe(200);
@@ -255,13 +255,45 @@ describe("L10 — First-Run Flow API", () => {
 			expect(status.northStarReady).toBe(true);
 		});
 
-		it("rejects empty bodies", async () => {
+		it("rejects empty bodies on a non-skipped field", async () => {
 			const res = await app.request("/api/first-run/north-star", {
 				method: "POST",
 				headers: authHeaders(),
-				body: JSON.stringify({ principles: "", focus: "x", portfolio: "y" }),
+				body: JSON.stringify({
+					principles: { skipped: false, body: "" },
+					focus: { skipped: false, body: "x" },
+					portfolio: { skipped: false, body: "y" },
+				}),
 			});
 			expect(res.status).toBe(400);
+		});
+
+		it("C2: skipped fields create a follow-up thread and skip the knowledge item", async () => {
+			const res = await app.request("/api/first-run/north-star", {
+				method: "POST",
+				headers: authHeaders(),
+				body: JSON.stringify({
+					principles: { skipped: true },
+					focus: { skipped: false, body: "f" },
+					portfolio: { skipped: true },
+				}),
+			});
+			expect(res.status).toBe(200);
+			const body = (await res.json()) as { skipped: string[] };
+			expect(body.skipped.sort()).toEqual(["portfolio", "principles"]);
+
+			const rows = db.select().from(knowledgeItems).all();
+			expect(rows.map((r) => r.title)).toEqual(["Focus"]);
+
+			// follow-up thread rows
+			const { threads } = await import("@hyperidle/db");
+			const tRows = db.select().from(threads).all();
+			const ids = tRows.map((t) => t.id).sort();
+			expect(ids).toEqual([
+				"thread:north-star-followup:portfolio",
+				"thread:north-star-followup:principles",
+			]);
+			expect(tRows.every((t) => t.kind === "system:north-star-followup")).toBe(true);
 		});
 
 		it("upserts on second submit", async () => {
@@ -269,7 +301,11 @@ describe("L10 — First-Run Flow API", () => {
 				app.request("/api/first-run/north-star", {
 					method: "POST",
 					headers: authHeaders(),
-					body: JSON.stringify({ principles: body, focus: body, portfolio: body }),
+					body: JSON.stringify({
+						principles: { skipped: false, body },
+						focus: { skipped: false, body },
+						portfolio: { skipped: false, body },
+					}),
 				});
 			expect((await submit("first")).status).toBe(200);
 			expect((await submit("second")).status).toBe(200);
@@ -342,7 +378,11 @@ describe("L10 — First-Run Flow API", () => {
 			await app.request("/api/first-run/north-star", {
 				method: "POST",
 				headers: authHeaders(),
-				body: JSON.stringify({ principles: "p", focus: "f", portfolio: "po" }),
+				body: JSON.stringify({
+					principles: { skipped: false, body: "p" },
+					focus: { skipped: false, body: "f" },
+					portfolio: { skipped: false, body: "po" },
+				}),
 			});
 
 			const res = await app.request("/api/first-run/complete", {

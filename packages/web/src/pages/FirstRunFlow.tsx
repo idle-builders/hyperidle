@@ -331,22 +331,57 @@ function ApiKeyStep({
 	);
 }
 
+type NorthStarKind = "principles" | "focus" | "portfolio";
+
+interface NorthStarFieldState {
+	body: string;
+	skipped: boolean;
+}
+
 function NorthStarStep({ onDone }: StepProps): JSX.Element {
-	const [principles, setPrinciples] = useState("");
-	const [focus, setFocus] = useState("");
-	const [portfolio, setPortfolio] = useState("");
+	const [fields, setFields] = useState<Record<NorthStarKind, NorthStarFieldState>>({
+		principles: { body: "", skipped: false },
+		focus: { body: "", skipped: false },
+		portfolio: { body: "", skipped: false },
+	});
 	const [submitting, setSubmitting] = useState(false);
 	const [err, setErr] = useState<string | null>(null);
 
-	const trySubmit = useCallback(
-		async (values: { principles: string; focus: string; portfolio: string }): Promise<void> => {
+	const updateField = useCallback(
+		(kind: NorthStarKind, patch: Partial<NorthStarFieldState>) => {
+			setFields((prev) => ({ ...prev, [kind]: { ...prev[kind], ...patch } }));
+		},
+		[],
+	);
+
+	const onSubmit = useCallback(
+		async (e: React.FormEvent): Promise<void> => {
+			e.preventDefault();
+			// C2: each field must be EITHER skipped OR have a non-empty body.
+			// Reject submission with both empty body AND not-skipped.
+			const validation: Record<NorthStarKind, { skipped: true } | { skipped: false; body: string }> = {
+				principles: { skipped: true },
+				focus: { skipped: true },
+				portfolio: { skipped: true },
+			};
+			for (const kind of ["principles", "focus", "portfolio"] as const) {
+				const f = fields[kind];
+				if (f.skipped) {
+					validation[kind] = { skipped: true };
+				} else if (f.body.trim().length === 0) {
+					setErr(`${kind} must be filled in or skipped`);
+					return;
+				} else {
+					validation[kind] = { skipped: false, body: f.body.trim() };
+				}
+			}
 			setSubmitting(true);
 			setErr(null);
 			try {
 				const res = await fetch("/api/first-run/north-star", {
 					method: "POST",
-					headers: { "Content-Type": "application/json" },
-					body: JSON.stringify(values),
+					headers: { "Content-Type": "application/json", "X-Requested-With": "hyperidle-web" },
+					body: JSON.stringify(validation),
 				});
 				if (!res.ok) {
 					const body = (await res.json().catch(() => ({}))) as { error?: string };
@@ -359,55 +394,49 @@ function NorthStarStep({ onDone }: StepProps): JSX.Element {
 				setSubmitting(false);
 			}
 		},
-		[onDone],
+		[fields, onDone],
 	);
 
-	const onSubmit = useCallback(
-		(e: React.FormEvent): void => {
-			e.preventDefault();
-			void trySubmit({
-				principles: principles.trim() || "I'll do this later.",
-				focus: focus.trim() || "I'll do this later.",
-				portfolio: portfolio.trim() || "I'll do this later.",
-			});
-		},
-		[principles, focus, portfolio, trySubmit],
-	);
+	const fieldDefs: ReadonlyArray<{ kind: NorthStarKind; label: string; testid: string }> = [
+		{ kind: "principles", label: "Principles", testid: "first-run-principles" },
+		{ kind: "focus", label: "Focus", testid: "first-run-focus" },
+		{ kind: "portfolio", label: "Portfolio", testid: "first-run-portfolio" },
+	];
 
 	return (
 		<form onSubmit={onSubmit} className="flex flex-col gap-3" aria-label="North Star">
 			<p className="text-sm text-[var(--text-mid)]">
-				Three docs anchor the factory's intent. You can leave any of them with "I'll do this later"
-				— the Coach will follow up.
+				Three docs anchor the factory's intent. Skip any you'd rather defer — the Coach will follow
+				up.
 			</p>
-			{(
-				[
-					{
-						label: "Principles",
-						value: principles,
-						set: setPrinciples,
-						testid: "first-run-principles",
-					},
-					{ label: "Focus", value: focus, set: setFocus, testid: "first-run-focus" },
-					{
-						label: "Portfolio",
-						value: portfolio,
-						set: setPortfolio,
-						testid: "first-run-portfolio",
-					},
-				] as const
-			).map((field) => (
-				<label key={field.label} className="flex flex-col gap-1">
-					<span className="text-xs uppercase tracking-wider">{field.label}</span>
-					<textarea
-						className="textarea textarea-bordered min-h-[6rem]"
-						value={field.value}
-						onChange={(e) => field.set(e.target.value)}
-						placeholder="I'll do this later"
-						data-testid={field.testid}
-					/>
-				</label>
-			))}
+			{fieldDefs.map((def) => {
+				const field = fields[def.kind];
+				return (
+					<div key={def.kind} className="flex flex-col gap-1">
+						<div className="flex items-center justify-between">
+							<span className="text-xs uppercase tracking-wider">{def.label}</span>
+							<label className="flex items-center gap-2 text-xs text-[var(--text-mid)]">
+								<input
+									type="checkbox"
+									className="checkbox checkbox-sm"
+									checked={field.skipped}
+									onChange={(e) => updateField(def.kind, { skipped: e.target.checked })}
+									data-testid={`${def.testid}-skip`}
+								/>
+								<span>I'll do this later</span>
+							</label>
+						</div>
+						<textarea
+							className="textarea textarea-bordered min-h-[6rem]"
+							value={field.body}
+							onChange={(e) => updateField(def.kind, { body: e.target.value })}
+							placeholder={field.skipped ? "Skipped — Coach will follow up" : `Outline your ${def.label.toLowerCase()}`}
+							disabled={field.skipped}
+							data-testid={def.testid}
+						/>
+					</div>
+				);
+			})}
 			{err && (
 				<div role="alert" className="text-error text-sm" data-testid="first-run-north-star-error">
 					{err}

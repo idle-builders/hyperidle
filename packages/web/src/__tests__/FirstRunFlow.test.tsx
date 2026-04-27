@@ -149,6 +149,17 @@ describe("L10 FirstRunFlow", () => {
 		await user.type(screen.getByTestId("first-run-focus"), "f");
 		await user.type(screen.getByTestId("first-run-portfolio"), "po");
 		await user.click(screen.getByTestId("first-run-north-star-submit"));
+		// C2 spec: north-star body uses { skipped, body } per field.
+		const northStarCall = mock.calls.find((c) =>
+			c.url.endsWith("/api/first-run/north-star"),
+		);
+		expect(northStarCall).toBeDefined();
+		if (northStarCall?.init?.body) {
+			const sent = JSON.parse(String(northStarCall.init.body));
+			expect(sent.principles).toEqual({ skipped: false, body: "p" });
+			expect(sent.focus).toEqual({ skipped: false, body: "f" });
+			expect(sent.portfolio).toEqual({ skipped: false, body: "po" });
+		}
 
 		// Team scaffold — skip path
 		await screen.findByTestId("first-run-step-team");
@@ -166,6 +177,46 @@ describe("L10 FirstRunFlow", () => {
 		// Sanity check: api-key endpoint was hit twice (bad + good)
 		const apiKeyCalls = mock.calls.filter((c) => c.url.endsWith("/api/first-run/api-key"));
 		expect(apiKeyCalls).toHaveLength(2);
+	});
+
+	it("C2: north-star step requires explicit skip OR a non-empty body per doc", async () => {
+		const user = userEvent.setup();
+		const { mock } = renderFlow();
+		mock.statusBody = {
+			factoryReady: true,
+			apiKeyReady: true,
+			apiKeyLast4: "1234",
+			northStarReady: false,
+			teamScaffoldHandled: false,
+			complete: false,
+		};
+		const router = createMemoryRouter([{ path: "/first-run", element: <FirstRunFlow /> }], {
+			initialEntries: ["/first-run"],
+		});
+		render(<RouterProvider router={router} />);
+		await screen.findByTestId("first-run-step-north-star");
+
+		// Submitting with all-empty + none-skipped MUST surface an error,
+		// not silently fake "I'll do this later".
+		await user.click(screen.getByTestId("first-run-north-star-submit"));
+		expect(await screen.findByTestId("first-run-north-star-error")).toBeInTheDocument();
+		expect(
+			mock.calls.filter((c) => c.url.endsWith("/api/first-run/north-star")),
+		).toHaveLength(0);
+
+		// Skip principles + portfolio explicitly, fill focus.
+		await user.click(screen.getByTestId("first-run-principles-skip"));
+		await user.click(screen.getByTestId("first-run-portfolio-skip"));
+		await user.type(screen.getByTestId("first-run-focus"), "ship one");
+		await user.click(screen.getByTestId("first-run-north-star-submit"));
+
+		await screen.findByTestId("first-run-step-team");
+		const sent = mock.calls.find((c) => c.url.endsWith("/api/first-run/north-star"));
+		expect(sent).toBeDefined();
+		const sentBody = JSON.parse(String(sent?.init?.body));
+		expect(sentBody.principles).toEqual({ skipped: true });
+		expect(sentBody.portfolio).toEqual({ skipped: true });
+		expect(sentBody.focus).toEqual({ skipped: false, body: "ship one" });
 	});
 
 	it("offers a skip path on team-scaffold but creates team when filled", async () => {
