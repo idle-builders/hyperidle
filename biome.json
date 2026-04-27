@@ -144,7 +144,8 @@
 			"!**/visual-reports",
 			"!**/sync-reports",
 			"!**/.claude",
-			"!**/.worktrees",
+			"!.worktrees",
+			"!.pipeline",
 			"!**/docs/concept/design-synthesis",
 			"!packages/eslint-plugin-design/test-fixtures"
 		]
