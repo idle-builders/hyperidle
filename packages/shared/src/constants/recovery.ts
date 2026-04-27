@@ -46,16 +46,32 @@ export const KILL_SWITCH_CONFIRM_MODES = ["type_name", "press_hold"] as const;
 export type KillSwitchConfirmMode = (typeof KILL_SWITCH_CONFIRM_MODES)[number];
 export const DEFAULT_KILL_SWITCH_CONFIRM_MODE: KillSwitchConfirmMode = "press_hold";
 
+/**
+ * @lore L7 (SEC12): reject ASCII control characters and DEL in the
+ * rationale text. The reason flows into recovery_audit.reason then into
+ * structured logs and the eventual Settings → Safety audit feed (L8). A
+ * crafted reason containing newlines + ANSI escapes could spoof
+ * console-rendered audit entries (split a single row into what looks
+ * like multiple lines). Drizzle parameterises queries so this is a
+ * presentation-layer attack, not a SQL injection — but the audit feed
+ * is a privileged founder surface and log hygiene is part of the audit
+ * integrity story.
+ */
+// biome-ignore lint/suspicious/noControlCharactersInRegex: deliberate
+const NO_CONTROL_CHARS = /^[^\x00-\x1F\x7F]*$/;
+
 /** Required-reason flavour: rollback / kill / mid-session-stop. */
 export const reasonRequiredSchema = z
 	.string()
 	.trim()
 	.min(1, "reason is required")
-	.max(RATIONALE_MAX_CHARS, `reason must be ≤${RATIONALE_MAX_CHARS} chars`);
+	.max(RATIONALE_MAX_CHARS, `reason must be ≤${RATIONALE_MAX_CHARS} chars`)
+	.regex(NO_CONTROL_CHARS, "reason must not contain control characters");
 
 /** Optional-reason flavour: resume verbs. */
 export const reasonOptionalSchema = z
 	.string()
 	.trim()
 	.max(RATIONALE_MAX_CHARS, `reason must be ≤${RATIONALE_MAX_CHARS} chars`)
+	.regex(NO_CONTROL_CHARS, "reason must not contain control characters")
 	.optional();

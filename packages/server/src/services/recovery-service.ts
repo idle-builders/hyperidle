@@ -19,7 +19,25 @@ import {
 	sessions,
 	tasks,
 } from "@hyperidle/db";
+import { createLogger, TASK_STATES, type TaskState } from "@hyperidle/shared";
 import { desc, eq, inArray } from "drizzle-orm";
+
+const logger = createLogger({ pkg: "server.recovery-service" });
+
+/**
+ * @lore L7 (SEC3): the audit-meta `priorState` value is the input to a
+ * `tasks.state` UPDATE on resume. The audit row is logically append-
+ * only and only written by this service today, but the JSON column
+ * has no DB-level schema constraint — a future migration / admin tool
+ * / SQL injection vector could write arbitrary strings into the meta
+ * column. Validate against the closed `TASK_STATES` allowlist before
+ * passing to `.set()` so a forged audit row cannot teleport a task to
+ * an arbitrary lifecycle state. Defense-in-depth — mirrors the type-
+ * brand pattern on `recoveryAudit.outcome` / `verb` / `targetKind`.
+ */
+function isTaskState(value: unknown): value is TaskState {
+	return typeof value === "string" && (TASK_STATES as readonly string[]).includes(value);
+}
 
 const FACTORY_SINGLETON_ID = "factory";
 
@@ -309,6 +327,18 @@ export function resumeFactory(
 					};
 					const taskList = parsed.affected?.tasks ?? [];
 					for (const t of taskList) {
+						// SEC3 defense-in-depth: validate priorState against
+						// the closed TaskState allowlist before passing to
+						// .set(). A forged or migration-corrupted audit row
+						// must not be able to teleport tasks to arbitrary
+						// states.
+						if (!isTaskState(t.priorState)) {
+							logger.warn(
+								"recovery-service: skipping task restore — invalid priorState in audit meta",
+								{ taskId: t.id, priorState: t.priorState },
+							);
+							continue;
+						}
 						const taskRow = tx
 							.select({ state: tasks.state })
 							.from(tasks)
@@ -328,12 +358,20 @@ export function resumeFactory(
 				}
 			}
 
+			// @lore L7 (SEC2): the reason column is notNull (schema), but
+			// resume verbs accept an OPTIONAL rationale. Persist the empty
+			// string as the machine-detectable "no rationale" sentinel
+			// instead of synthesizing the literal "(no reason)" — that
+			// localised phrase was indistinguishable from a founder who
+			// happened to type exactly that text. Zod validation rejects
+			// empty strings on required-reason verbs, so this sentinel
+			// CANNOT be confused with user input on those paths.
 			tx.insert(recoveryAudit)
 				.values({
 					id: auditId,
 					actorId: input.actorId,
 					verb: "factory_resume",
-					reason: input.reason ?? "(no reason)",
+					reason: input.reason ?? "",
 					targetKind: "factory",
 					targetId: FACTORY_SINGLETON_ID,
 					at: now,
@@ -421,12 +459,13 @@ export function resumeSession(
 				.where(eq(sessions.id, input.sessionId))
 				.run();
 
+			// @lore L7 (SEC2): empty-string sentinel — see factory_resume.
 			tx.insert(recoveryAudit)
 				.values({
 					id: auditId,
 					actorId: input.actorId,
 					verb: "session_resume",
-					reason: input.reason ?? "(no reason)",
+					reason: input.reason ?? "",
 					targetKind: "session",
 					targetId: input.sessionId,
 					at: now,
