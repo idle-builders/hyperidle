@@ -1,11 +1,24 @@
-import { actors, agents, type HyperIdleDb, items, responses, threads } from "@hyperidle/db";
+import {
+	actors,
+	agents,
+	factorySettings,
+	type HyperIdleDb,
+	items,
+	responses,
+	threads,
+} from "@hyperidle/db";
 import type {
 	ApiErrorResponse,
 	EventBus,
 	ItemCreatedEvent,
 	ResponseRecordedEvent,
 } from "@hyperidle/shared";
-import { API_ERROR_CODES } from "@hyperidle/shared";
+import {
+	API_ERROR_CODES,
+	DEFAULT_UNDO_WINDOW_SECONDS,
+	UNDO_WINDOW_MAX,
+	UNDO_WINDOW_MIN,
+} from "@hyperidle/shared";
 import { and, desc, eq, isNotNull, ne, sql } from "drizzle-orm";
 import { Hono } from "hono";
 import { z } from "zod";
@@ -265,6 +278,26 @@ export function createConversationRoutes(db: HyperIdleDb, eventBus: EventBus): H
 		// denormalise `thread_id`. The IMMEDIATE transaction is the
 		// authoritative serialisation point; adding a `thread_id` column
 		// to `responses` is deferred (TRACK-L L8 audit-driven UI surface).
+		// L4: snapshot the configured undo window per row so undo windows are
+		// deterministic across mid-flight setting changes. Default 8s; clamp
+		// to [3, 15]. The settings read is cheap and safe outside the
+		// transaction (no chain semantics depend on it). The prior-decision
+		// read MUST execute inside the IMMEDIATE transaction — see @lore
+		// below.
+		const settingRow = db
+			.select()
+			.from(factorySettings)
+			.where(eq(factorySettings.key, "appearance.undo_window_seconds"))
+			.get();
+		const parsedWindow = settingRow ? Number.parseInt(settingRow.value, 10) : Number.NaN;
+		const undoWindowSeconds = Number.isFinite(parsedWindow)
+			? Math.min(UNDO_WINDOW_MAX, Math.max(UNDO_WINDOW_MIN, parsedWindow))
+			: DEFAULT_UNDO_WINDOW_SECONDS;
+
+		// @lore L4 review: the prior-decision audit-chain read runs inside
+		// the IMMEDIATE transaction so two concurrent commits cannot both
+		// see the same prior row and both write the same `prior_decision`
+		// — the second commit must observe the first commit as its prior.
 		const result = db.transaction(
 			(tx) => {
 				if (actorId !== null) {
@@ -299,6 +332,20 @@ export function createConversationRoutes(db: HyperIdleDb, eventBus: EventBus): H
 					}
 				}
 
+				// @lore L4 review (adversary C1 / arch W1): filter on
+				// `transition='commit'` so commit→undo→commit chains record
+				// the *actual* prior verdict, not the undo row's NULL
+				// decision (which would otherwise become the next commit's
+				// `prior_decision` and lie about the audit chain).
+				const priorRow = tx
+					.select()
+					.from(responses)
+					.where(and(eq(responses.itemId, body.itemId), eq(responses.transition, "commit")))
+					.orderBy(desc(responses.respondedAt))
+					.limit(1)
+					.get();
+				const priorDecision = priorRow?.decision ?? null;
+
 				tx.insert(responses)
 					.values({
 						id,
@@ -310,6 +357,10 @@ export function createConversationRoutes(db: HyperIdleDb, eventBus: EventBus): H
 						approverId,
 						view: body.view ?? null,
 						respondedAt: now,
+						transition: "commit",
+						priorDecision,
+						undoesResponseId: null,
+						undoWindowSeconds,
 					})
 					.run();
 
