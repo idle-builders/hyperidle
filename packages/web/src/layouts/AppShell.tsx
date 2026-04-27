@@ -28,6 +28,7 @@ import { useAutoDensity } from "../hooks/useAutoDensity";
 import { useCommandK } from "../hooks/useCommandK";
 import { useConversations } from "../hooks/useConversations";
 import { useFactoryState } from "../hooks/useFactoryState";
+import { useFirstRun } from "../hooks/useFirstRun";
 import { useKillSwitchShortcut } from "../hooks/useKillSwitchShortcut";
 import { useMe } from "../hooks/useMe";
 import { useOfflineQueue } from "../hooks/useOfflineQueue";
@@ -240,6 +241,10 @@ export function AppShell(): JSX.Element {
 	// (and the collapsed-Rail stability pills) can render. The hook caps
 	// polling at every 30s per spec.
 	const { stability } = useSystemStability();
+	// L10 C3: server-side flag tells us whether the verdict-grammar coach
+	// has been dismissed before. Local state in the component is the
+	// belt-and-suspenders for offline / multi-tab.
+	const { status: firstRunStatus } = useFirstRun();
 	const [searchParams, setSearchParams] = useSearchParams();
 	const [settingsOpen, setSettingsOpen] = useState(false);
 	// @lore Settings lives at the shell root so [data-density] cascades --density-* CSS vars
@@ -949,9 +954,14 @@ export function AppShell(): JSX.Element {
 			/>
 
 			{/* @lore L10: VerdictGrammarCoach auto-opens on first thread open
-			    (signaled by `?thread=` in the URL). It also listens globally
-			    for the `?` shortcut so the user can re-open it any time. */}
-			<VerdictGrammarCoach autoOpen={searchParams.has("thread")} />
+			    (signaled by `?thread=` in the URL). The server-side
+			    `verdictCoachSeen` flag (C3) prevents re-firing across tabs
+			    and devices. It also listens globally for the `?` shortcut
+			    so the user can re-open it any time. */}
+			<VerdictGrammarCoach
+				autoOpen={searchParams.has("thread")}
+				serverSeen={firstRunStatus?.verdictCoachSeen ?? false}
+			/>
 		</div>
 	);
 }

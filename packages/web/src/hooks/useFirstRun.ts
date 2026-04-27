@@ -18,6 +18,7 @@ export interface FirstRunStatus {
 	readonly northStarReady: boolean;
 	readonly teamScaffoldHandled: boolean;
 	readonly complete: boolean;
+	readonly verdictCoachSeen: boolean;
 }
 
 interface UseFirstRunResult {
@@ -39,6 +40,7 @@ function parseStatus(json: unknown): FirstRunStatus {
 		northStarReady: bool("northStarReady"),
 		teamScaffoldHandled: bool("teamScaffoldHandled"),
 		complete: bool("complete"),
+		verdictCoachSeen: bool("verdictCoachSeen"),
 	};
 }
 

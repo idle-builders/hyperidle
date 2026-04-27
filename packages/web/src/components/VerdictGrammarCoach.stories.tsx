@@ -14,7 +14,7 @@ export function VerdictGrammarCoachAutoOpen(): JSX.Element {
 	} catch {
 		// localStorage unavailable in this preview; coach stays closed.
 	}
-	return <VerdictGrammarCoach autoOpen={true} />;
+	return <VerdictGrammarCoach autoOpen={true} serverSeen={false} />;
 }
 
 export function VerdictGrammarCoachInert(): JSX.Element {
@@ -22,7 +22,18 @@ export function VerdictGrammarCoachInert(): JSX.Element {
 	return (
 		<div className="p-4 text-sm text-[var(--text-mid)]">
 			Coach is closed. Press <kbd>?</kbd> to open.
-			<VerdictGrammarCoach autoOpen={false} />
+			<VerdictGrammarCoach autoOpen={false} serverSeen={false} />
+		</div>
+	);
+}
+
+export function VerdictGrammarCoachServerSeen(): JSX.Element {
+	// C3: when the server flag is true, the coach must NOT auto-open
+	// even with autoOpen=true.
+	return (
+		<div className="p-4 text-sm text-[var(--text-mid)]">
+			Coach already dismissed (server flag). Press <kbd>?</kbd> to re-open.
+			<VerdictGrammarCoach autoOpen={true} serverSeen={true} />
 		</div>
 	);
 }

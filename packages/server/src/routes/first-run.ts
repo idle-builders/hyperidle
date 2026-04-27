@@ -46,6 +46,7 @@ import {
 	writeNorthStarIds,
 	writeTeamScaffoldProductId,
 	writeTeamScaffoldSkipped,
+	writeVerdictCoachSeen,
 } from "../services/first-run-config.js";
 import { type FetchLike, pingAnthropic } from "../services/provider-ping.js";
 
@@ -305,6 +306,11 @@ export function createFirstRunRoutes(db: HyperIdleDb, deps: FirstRunDeps = {}): 
 
 		writeTeamScaffoldProductId(db, productId);
 		return c.json({ ok: true, productId, teamId });
+	});
+
+	app.post("/verdict-coach-seen", (c) => {
+		writeVerdictCoachSeen(db);
+		return c.json({ ok: true });
 	});
 
 	app.post("/complete", (c) => {

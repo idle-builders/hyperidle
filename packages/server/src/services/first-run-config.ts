@@ -33,6 +33,10 @@ const KEYS = {
 	northStarPortfolioId: "firstRun.northStar.portfolioId",
 	teamScaffoldProductId: "firstRun.teamScaffold.productId",
 	teamScaffoldSkippedAt: "firstRun.teamScaffold.skippedAt",
+	// C3: server-side flag. Local storage is per-device; server-side
+	// guarantees the coach mark fires AT MOST ONCE per founder regardless
+	// of how many tabs/devices they use.
+	verdictCoachSeen: "firstRun.verdictCoachSeen",
 } as const;
 
 function readKv(db: HyperIdleDb, key: string): string | null {
@@ -55,6 +59,7 @@ export interface FirstRunStatus {
 	readonly northStarReady: boolean;
 	readonly teamScaffoldHandled: boolean;
 	readonly complete: boolean;
+	readonly verdictCoachSeen: boolean;
 }
 
 export function readFirstRunStatus(db: HyperIdleDb): FirstRunStatus {
@@ -69,6 +74,7 @@ export function readFirstRunStatus(db: HyperIdleDb): FirstRunStatus {
 		readKv(db, KEYS.teamScaffoldProductId) !== null ||
 		readKv(db, KEYS.teamScaffoldSkippedAt) !== null;
 	const complete = readKv(db, KEYS.firstRunComplete) === "true";
+	const verdictCoachSeen = readKv(db, KEYS.verdictCoachSeen) === "true";
 	return {
 		factoryReady,
 		apiKeyReady,
@@ -76,7 +82,12 @@ export function readFirstRunStatus(db: HyperIdleDb): FirstRunStatus {
 		northStarReady,
 		teamScaffoldHandled,
 		complete,
+		verdictCoachSeen,
 	};
+}
+
+export function writeVerdictCoachSeen(db: HyperIdleDb): void {
+	writeKv(db, KEYS.verdictCoachSeen, "true");
 }
 
 export function writeFactorySettings(

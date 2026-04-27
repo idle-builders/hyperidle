@@ -63,6 +63,7 @@ describe("L10 — First-Run Flow API", () => {
 				northStarReady: false,
 				teamScaffoldHandled: false,
 				complete: false,
+				verdictCoachSeen: false,
 			});
 		});
 	});
@@ -346,6 +347,25 @@ describe("L10 — First-Run Flow API", () => {
 			const productsList = db.select().from(products).all();
 			expect(productsList).toHaveLength(1);
 			expect(productsList[0]?.name).toBe("Newsletter Tool");
+		});
+	});
+
+	describe("POST /api/first-run/verdict-coach-seen", () => {
+		it("flips the server-side flag exposed by /status", async () => {
+			let s = (await (
+				await app.request("/api/first-run/status", { headers: authHeaders() })
+			).json()) as { verdictCoachSeen: boolean };
+			expect(s.verdictCoachSeen).toBe(false);
+
+			const res = await app.request("/api/first-run/verdict-coach-seen", {
+				method: "POST",
+				headers: authHeaders(),
+			});
+			expect(res.status).toBe(200);
+			s = (await (
+				await app.request("/api/first-run/status", { headers: authHeaders() })
+			).json()) as { verdictCoachSeen: boolean };
+			expect(s.verdictCoachSeen).toBe(true);
 		});
 	});
 
