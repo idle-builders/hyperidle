@@ -8,6 +8,7 @@ import {
 } from "@hyperidle/design-system";
 import { PauseSessionButton } from "../components/PauseSessionButton";
 import { useFactoryState } from "../hooks/useFactoryState";
+import { useRecoveryFetch } from "../hooks/useRecoveryFetch";
 /**
  * Work/Bet page — bet detail view composed from Tier 2 components (BetCard, TaskCard)
  * and DaisyUI primitives. Shows bet details + task list for that bet.
@@ -249,6 +250,7 @@ export function WorkBet({ loading = false, overrideBetId }: WorkBetProps = {}): 
 		() => Object.fromEntries(bet.runningSessions.map((s) => [s.id, "running" as const])),
 	);
 	const factoryState = useFactoryState();
+	const recoveryFetch = useRecoveryFetch();
 
 	const sortedTasks = useMemo(
 		() => sortTasks(bet.tasks, sortColumn, sortDirection),
@@ -412,32 +414,18 @@ export function WorkBet({ loading = false, overrideBetId }: WorkBetProps = {}): 
 										session={{ id: s.id, state, agentName: s.agentName }}
 										factoryPaused={factoryState.state.paused}
 										onPause={async (input) => {
-											const res = await fetch(
+											const res = await recoveryFetch.post(
 												`/api/sessions/${encodeURIComponent(s.id)}/pause`,
-												{
-													method: "POST",
-													headers: {
-														"Content-Type": "application/json",
-														"X-Actor-Id": "actor:ceo",
-													},
-													body: JSON.stringify({ reason: input.reason }),
-												},
+												{ reason: input.reason },
 											);
 											if (res.ok) {
 												setSessionStates((prev) => ({ ...prev, [s.id]: "paused" }));
 											}
 										}}
 										onResume={async () => {
-											const res = await fetch(
+											const res = await recoveryFetch.post(
 												`/api/sessions/${encodeURIComponent(s.id)}/resume`,
-												{
-													method: "POST",
-													headers: {
-														"Content-Type": "application/json",
-														"X-Actor-Id": "actor:ceo",
-													},
-													body: JSON.stringify({}),
-												},
+												{},
 											);
 											if (res.ok) {
 												setSessionStates((prev) => ({ ...prev, [s.id]: "running" }));

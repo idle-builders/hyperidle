@@ -40,6 +40,7 @@ import { type JSX, useCallback, useEffect, useRef, useState } from "react";
 import { ReasoningBlock } from "../components/ReasoningBlock";
 import { RollbackOverflowItem } from "../components/RollbackOverflowItem";
 import { UndoToast } from "../components/UndoToast";
+import { useRecoveryFetch } from "../hooks/useRecoveryFetch";
 import { useUndoTimer } from "../hooks/useUndoTimer";
 import type {
 	ArtifactMetadata,
@@ -191,6 +192,7 @@ interface ToastState {
  * settings hook lands.
  */
 export function ConversationsReview(): JSX.Element {
+	const recoveryFetch = useRecoveryFetch();
 	const [selectedId] = useState<string>(MOCK_REVIEWS[0].id);
 	const [pendingVerdict, setPendingVerdict] = useState<VerdictAction | null>(null);
 	const [toast, setToast] = useState<ToastState | null>(null);
@@ -217,16 +219,9 @@ export function ConversationsReview(): JSX.Element {
 	const handleRollback = useCallback(
 		async (input: { reason: string }): Promise<{ outcome: RecoveryOutcome }> => {
 			try {
-				const res = await fetch(
+				const res = await recoveryFetch.post(
 					`/api/threads/${encodeURIComponent(selected.id)}/verdict/rollback`,
-					{
-						method: "POST",
-						headers: {
-							"Content-Type": "application/json",
-							"X-Actor-Id": "actor:ceo",
-						},
-						body: JSON.stringify({ reason: input.reason }),
-					},
+					{ reason: input.reason },
 				);
 				if (!res.ok) {
 					setRollbackToast({ outcome: "failed" });
@@ -240,7 +235,7 @@ export function ConversationsReview(): JSX.Element {
 				return { outcome: "failed" };
 			}
 		},
-		[selected.id],
+		[selected.id, recoveryFetch],
 	);
 
 	const verdictDoubleClick = DEFAULT_VERDICT_DOUBLE_CLICK;
@@ -456,18 +451,15 @@ export function ConversationsReview(): JSX.Element {
 			// server's `verdictUndoSchema` is `.strict()` and rejects any
 			// body `actorId` to prevent forging another actor's undo.
 			//
-			// Note: until the SPA-wide actor identification lands, we hard-
-			// code `actor:ceo` here. The risk is bounded because the server
-			// also enforces `latest.approverId === c.get("actorId")`; a
-			// CPO-committed verdict will 403 from this caller.
-			const res = await fetch(`/api/threads/${encodeURIComponent(threadId)}/verdict/undo`, {
-				method: "POST",
-				headers: {
-					"Content-Type": "application/json",
-					"X-Actor-Id": "actor:ceo",
-				},
-				body: JSON.stringify({ itemId }),
-			});
+			// @lore L7 (AI8): identity now flows from `useMe()` via
+			// `useRecoveryFetch`, so a CPO-committed verdict resolves to
+			// the CPO's id. The server still enforces
+			// `latest.approverId === c.get("actorId")` so cross-founder
+			// undos still 403.
+			const res = await recoveryFetch.post(
+				`/api/threads/${encodeURIComponent(threadId)}/verdict/undo`,
+				{ itemId },
+			);
 			if (!res.ok) {
 				// biome-ignore lint/suspicious/noConsole: observability surface — surface undo failures
 				console.warn("[ConversationsReview] undo non-2xx", {
@@ -482,7 +474,7 @@ export function ConversationsReview(): JSX.Element {
 				message: err instanceof Error ? err.message : String(err),
 			});
 		}
-	}, [toast, cancelUndoTimer]);
+	}, [toast, cancelUndoTimer, recoveryFetch]);
 
 	const handleDismiss = useCallback((): void => {
 		cancelUndoTimer();

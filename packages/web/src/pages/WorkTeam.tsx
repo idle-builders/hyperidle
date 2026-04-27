@@ -6,6 +6,7 @@
 import { type JSX, useCallback, useState } from "react";
 import { PauseSessionButton } from "../components/PauseSessionButton";
 import { useFactoryState } from "../hooks/useFactoryState";
+import { useRecoveryFetch } from "../hooks/useRecoveryFetch";
 import type { CanvasBet } from "../shell/Canvas";
 import { Canvas } from "../shell/Canvas";
 import type { KanbanColumnState, KanbanTask } from "../shell/Kanban";
@@ -133,6 +134,7 @@ export function WorkTeam(): JSX.Element {
 		Record<string, "running" | "paused">
 	>(() => Object.fromEntries(MOCK_TEAM_SESSIONS.map((s) => [s.id, "running" as const])));
 	const factoryState = useFactoryState();
+	const recoveryFetch = useRecoveryFetch();
 
 	const handleMoveTask = useCallback((taskId: string, targetColumn: KanbanColumnState): void => {
 		// I4 K1: map the Kanban column key to the canonical TaskState.
@@ -222,32 +224,18 @@ export function WorkTeam(): JSX.Element {
 										session={{ id: s.id, state, agentName: s.agentName }}
 										factoryPaused={factoryState.state.paused}
 										onPause={async (input) => {
-											const res = await fetch(
+											const res = await recoveryFetch.post(
 												`/api/sessions/${encodeURIComponent(s.id)}/pause`,
-												{
-													method: "POST",
-													headers: {
-														"Content-Type": "application/json",
-														"X-Actor-Id": "actor:ceo",
-													},
-													body: JSON.stringify({ reason: input.reason }),
-												},
+												{ reason: input.reason },
 											);
 											if (res.ok) {
 												setTeamSessionStates((prev) => ({ ...prev, [s.id]: "paused" }));
 											}
 										}}
 										onResume={async () => {
-											const res = await fetch(
+											const res = await recoveryFetch.post(
 												`/api/sessions/${encodeURIComponent(s.id)}/resume`,
-												{
-													method: "POST",
-													headers: {
-														"Content-Type": "application/json",
-														"X-Actor-Id": "actor:ceo",
-													},
-													body: JSON.stringify({}),
-												},
+												{},
 											);
 											if (res.ok) {
 												setTeamSessionStates((prev) => ({ ...prev, [s.id]: "running" }));
