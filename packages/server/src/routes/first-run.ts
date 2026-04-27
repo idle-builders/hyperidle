@@ -34,11 +34,10 @@ import {
 } from "@hyperidle/db";
 import type { ActorRole, ApiErrorResponse } from "@hyperidle/shared";
 import { API_ERROR_CODES } from "@hyperidle/shared";
-import { Hono } from "hono";
+import { type Context, Hono } from "hono";
 import { z } from "zod";
 import type { ActorEnv } from "../middleware/actor-context.js";
 import {
-	readApiKey,
 	readFirstRunStatus,
 	writeApiKey,
 	writeFactorySettings,
@@ -74,7 +73,7 @@ const teamScaffoldSchema = z.union([
 	}),
 ]);
 
-function badRequest(c: Parameters<Parameters<typeof Hono.prototype.post>[1]>[0], message: string) {
+function badRequest(c: Context<ActorEnv>, message: string) {
 	const body: ApiErrorResponse = { error: message, code: API_ERROR_CODES.VALIDATION };
 	return c.json(body, 400);
 }
@@ -289,6 +288,3 @@ function slugify(s: string): string {
 function suffix(): string {
 	return Math.random().toString(36).slice(2, 8);
 }
-
-// Re-export for the SettingsPanel "models & keys" tab.
-export { readApiKey };

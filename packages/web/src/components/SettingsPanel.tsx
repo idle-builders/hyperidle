@@ -366,7 +366,6 @@ export function SettingsPanel({
 							aria-label="Close settings"
 							onClick={onClose}
 						>
-							{/* Plain ASCII "X" avoids pulling an icon dependency. */}
 							<span aria-hidden="true">×</span>
 						</button>
 					</div>

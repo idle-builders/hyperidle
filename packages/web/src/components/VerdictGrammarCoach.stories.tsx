@@ -6,10 +6,14 @@
  * leave that key clear so the dialog renders.
  */
 import type { JSX } from "react";
-import { _resetCoachSeenForTest, VerdictGrammarCoach } from "./VerdictGrammarCoach";
+import { VerdictGrammarCoach } from "./VerdictGrammarCoach";
 
 export function VerdictGrammarCoachAutoOpen(): JSX.Element {
-	_resetCoachSeenForTest();
+	try {
+		window.localStorage.removeItem("hyperidle.coach.seen");
+	} catch {
+		// localStorage unavailable in this preview; coach stays closed.
+	}
 	return <VerdictGrammarCoach autoOpen={true} />;
 }
 

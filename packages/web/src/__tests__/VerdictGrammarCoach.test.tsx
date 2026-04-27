@@ -1,15 +1,15 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { _resetCoachSeenForTest, VerdictGrammarCoach } from "../components/VerdictGrammarCoach";
+import { VerdictGrammarCoach } from "../components/VerdictGrammarCoach";
 
 describe("L10 VerdictGrammarCoach", () => {
 	beforeEach(() => {
-		_resetCoachSeenForTest();
+		localStorage.removeItem("hyperidle.coach.seen");
 	});
 
 	afterEach(() => {
-		_resetCoachSeenForTest();
+		localStorage.removeItem("hyperidle.coach.seen");
 	});
 
 	it("auto-opens when autoOpen is true and not yet seen", () => {

@@ -438,7 +438,7 @@ function TeamScaffoldStep({ onDone }: StepProps): JSX.Element {
 			setSubmitting(true);
 			setErr(null);
 			try {
-				const body: unknown = skipped
+				const body = skipped
 					? { skipped: true }
 					: { skipped: false, productName: productName.trim(), brief: brief.trim() };
 				const res = await fetch("/api/first-run/team-scaffold", {

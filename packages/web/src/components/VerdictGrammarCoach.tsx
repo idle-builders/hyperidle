@@ -118,19 +118,3 @@ export function VerdictGrammarCoach({ autoOpen }: VerdictGrammarCoachProps): JSX
 		</div>
 	);
 }
-
-/**
- * Test-only — clear the persistence so a fresh test sees the coach.
- *
- * @lore L10: leading underscore signals "internal — do not call from app
- * code". The naming convention rule is suppressed here because the
- * underscore is the intent.
- */
-// biome-ignore lint/style/useNamingConvention: leading-underscore signals test-only API
-export function _resetCoachSeenForTest(): void {
-	try {
-		window.localStorage.removeItem(SEEN_KEY);
-	} catch {
-		// noop
-	}
-}

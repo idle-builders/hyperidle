@@ -11,7 +11,9 @@
  * H1 KV values (Langfuse keys at `observability.langfuse_secret_key`).
  * The trust boundary is the at-rest encryption of the SQLite file
  * itself — the same boundary that H1 inherits. Callers MUST use
- * `readApiKeySafe` (boolean+last4 only) for any user-facing surface.
+ * `readApiKey` only on server-side trusted paths and never return its
+ * value to user-facing surfaces; expose the boolean+last4 derivable
+ * from `readFirstRunStatus` instead.
  *
  * @lore L10: Storing under namespaced keys (`firstRun.*`, `factory.*`,
  * `provider.<id>.*`) means a single migration to an encrypted secrets
@@ -32,8 +34,6 @@ const KEYS = {
 	teamScaffoldProductId: "firstRun.teamScaffold.productId",
 	teamScaffoldSkippedAt: "firstRun.teamScaffold.skippedAt",
 } as const;
-
-export const FIRST_RUN_KEYS = KEYS;
 
 function readKv(db: HyperIdleDb, key: string): string | null {
 	const row = db.select().from(factorySettings).where(eq(factorySettings.key, key)).get();
