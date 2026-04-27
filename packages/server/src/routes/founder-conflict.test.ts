@@ -174,7 +174,11 @@ describe("L2: founder conflict on POST /api/conversations/responses", () => {
 		await app.request("/api/conversations/responses", {
 			method: "POST",
 			headers: authHeaders({ "X-Actor-Id": "actor:ceo" }),
-			body: JSON.stringify({ itemId: "item-1", decision: "request-changes" }),
+			body: JSON.stringify({
+				itemId: "item-1",
+				decision: "request-changes",
+				summary: "needs revision",
+			}),
 		});
 
 		const res = await app.request("/api/conversations/responses", {

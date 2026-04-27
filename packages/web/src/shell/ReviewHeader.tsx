@@ -112,6 +112,7 @@ function VerdictButton({
 	role,
 	tabIndex,
 	extraSlot,
+	menuStyle = false,
 }: {
 	def: VerdictButtonDef;
 	pending: boolean;
@@ -119,6 +120,13 @@ function VerdictButton({
 	role?: string;
 	tabIndex?: number;
 	extraSlot?: JSX.Element | null;
+	/**
+	 * @lore L6 .plan-L6.md § 3.5: menuitem rows align label-left/kbd-right
+	 * via `w-full justify-between` to prevent the kbd badge overlapping the
+	 * next row's label inside the popover. Toolbar buttons keep their
+	 * intrinsic width.
+	 */
+	menuStyle?: boolean;
 }): JSX.Element {
 	const label = pending ? `Confirm ${def.label}` : def.label;
 	const armedClasses = pending
@@ -127,7 +135,7 @@ function VerdictButton({
 	return (
 		<button
 			type="button"
-			className={`btn btn-xs ${def.variant}${armedClasses}`}
+			className={`btn btn-xs ${def.variant}${armedClasses}${menuStyle ? " w-full justify-between" : ""}`}
 			title={`${def.label} (${def.shortcut})`}
 			aria-label={label}
 			aria-pressed={pending ? true : undefined}
@@ -293,11 +301,21 @@ export function ReviewHeader({
 				>
 					More
 				</button>
+				{/*
+				 * @lore L6 .plan-L6.md § 3.5: closed state uses `hidden`
+				 * (not `sr-only`) so the popover is fully removed from
+				 * layout/accessibility tree when shut — `sr-only` left
+				 * children measured-but-clipped which manifested as the
+				 * A-ADV-01-more-menu.png overlap regression. `min-w-[14rem]`
+				 * + `whitespace-nowrap` reserves room so menuitems never
+				 * collapse against each other; `justify-between w-full` on
+				 * each row aligns label/kbd cleanly.
+				 */}
 				<div
 					id={MORE_MENU_ID}
 					role="menu"
 					aria-label="Secondary verdict actions"
-					className={`absolute right-0 top-full z-10 mt-1 flex flex-col gap-1 rounded-lg border border-[var(--border-default)] bg-base-200 p-2 shadow-[var(--float)] ${moreOpen ? "" : "sr-only"}`}
+					className={`absolute right-0 top-full z-10 mt-1 flex flex-col gap-[var(--density-gap)] min-w-[14rem] whitespace-nowrap rounded-[var(--r2)] border border-[var(--border-default)] bg-base-200 p-2 shadow-[var(--float)] ${moreOpen ? "" : "hidden"}`}
 				>
 					{SECONDARY_BUTTONS.map((btn) => (
 						<VerdictButton
@@ -307,6 +325,7 @@ export function ReviewHeader({
 							onClick={() => handleVerdictClick(btn.action)}
 							role="menuitem"
 							tabIndex={moreOpen ? 0 : -1}
+							menuStyle
 						/>
 					))}
 				</div>

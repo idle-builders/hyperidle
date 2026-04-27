@@ -395,10 +395,16 @@ describe("Conversations Endpoints (E2)", () => {
 					})
 					.run();
 
+				// L6: request-changes verdicts MUST carry a non-empty summary.
+				// Other verdicts pass through with just the decision field.
+				const body: Record<string, unknown> = { itemId, decision: action };
+				if (action === "request-changes") {
+					body.summary = "needs revision";
+				}
 				const res = await app.request("/api/conversations/responses", {
 					method: "POST",
 					headers: authHeaders(),
-					body: JSON.stringify({ itemId, decision: action }),
+					body: JSON.stringify(body),
 				});
 				expect(res.status).toBe(201);
 			}

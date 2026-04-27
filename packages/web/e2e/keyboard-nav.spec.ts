@@ -61,18 +61,31 @@ test.describe("J8 — keyboard-only navigation", () => {
 		await expect(page.getByRole("dialog", { name: /settings/i })).not.toBeVisible();
 	});
 
-	test("Review verdict shortcuts A/R/X pre-fill a pending verdict", async ({ page }) => {
+	test("Review verdict shortcuts A/X pre-fill a pending verdict; R opens composer", async ({
+		page,
+	}) => {
+		// @lore L6: R on a text_diff thread opens the RequestChangesComposer
+		// modal instead of pre-filling — see ConversationsReview.tsx
+		// "R on a text_diff thread opens the composer". The pre-fill contract
+		// for A/X is unchanged from L4. We test A/X in their own iterations
+		// and then drive R separately so we can assert dialog visibility.
 		await page.goto("/conversations/review");
 		await page.waitForSelector("[data-testid='conversations-review-page']");
 		await page.getByTestId("main-content").click();
 		for (const { key, expected } of [
 			{ key: "a", expected: "approve" },
-			{ key: "r", expected: "request-changes" },
 			{ key: "x", expected: "reject" },
 		] as const) {
 			await page.keyboard.press(key);
 			await expect(page.getByTestId("pending-verdict")).toContainText(expected);
 		}
+		// R: opens the request-changes composer (modal dialog) instead of
+		// pre-filling. The composer is keyboard-traps focus and renders an
+		// aria-labelledby heading whose accessible name is "Request changes".
+		await page.keyboard.press("r");
+		const composer = page.getByRole("dialog", { name: /request changes/i });
+		await expect(composer).toBeVisible();
+		await expect(page.getByTestId("pending-verdict")).toHaveCount(0);
 	});
 
 	test("ReasoningBlock toggle is keyboard operable", async ({ page }) => {

@@ -71,8 +71,17 @@ interface ArtifactCommonProps {
 
 // --- Discriminated union props ---
 
+/**
+ * @lore L6: text_diff variant gains an optional `onAddComment` callback.
+ * When provided, each diff line renders a gutter "+ Comment" affordance
+ * that the RequestChangesComposer wires into its draft list.
+ */
 export type ArtifactViewProps =
-	| ({ shape: "text_diff"; data: TextDiffData } & ArtifactCommonProps)
+	| ({
+			shape: "text_diff";
+			data: TextDiffData;
+			onAddComment?: (lineKey: string, lineIndex: number, preview: string) => void;
+	  } & ArtifactCommonProps)
 	| ({ shape: "content_preview"; data: ContentPreviewData } & ArtifactCommonProps)
 	| ({ shape: "visual_comparison"; data: VisualComparisonData } & ArtifactCommonProps)
 	| ({ shape: "action_summary"; data: ActionSummaryData } & ArtifactCommonProps)
@@ -92,7 +101,13 @@ const DIFF_LINE_PREFIX: Record<DiffLine["type"], string> = {
 
 // --- Sub-components ---
 
-function TextDiffView({ data }: { data: TextDiffData }): JSX.Element {
+function TextDiffView({
+	data,
+	onAddComment,
+}: {
+	data: TextDiffData;
+	onAddComment?: (lineKey: string, lineIndex: number, preview: string) => void;
+}): JSX.Element {
 	if (data.hunks.length === 0) {
 		return <p className="text-sm text-[var(--text-lo)]">No diff available</p>;
 	}
@@ -103,18 +118,59 @@ function TextDiffView({ data }: { data: TextDiffData }): JSX.Element {
 				{data.hunks.map((hunk) => (
 					<div key={hunk.header}>
 						<div className="text-[var(--text-lo)] select-none px-2 py-1">{hunk.header}</div>
-						{hunk.lines.map((line, li) => (
-							<div
-								key={`${hunk.header}-${li}-${line.type}`}
-								data-diff-type={line.type}
-								className={`px-2 py-1 ${DIFF_LINE_CLASSES[line.type]}`}
-							>
-								<span className="select-none text-[var(--text-lo)] mr-2">
-									{DIFF_LINE_PREFIX[line.type]}
-								</span>
-								<code>{line.content}</code>
-							</div>
-						))}
+						{hunk.lines.map((line, li) => {
+							const lineKey = `${hunk.header}:${li}`;
+							const renderAffordance = onAddComment !== undefined;
+							return (
+								/*
+								 * @lore L6 review (design C1): the gutter button used to be
+								 * `absolute left-0 top-0` which overlayed the diff line content
+								 * and made the line unreadable on hover. The fix introduces a
+								 * dedicated 2-column grid: a fixed 44px gutter on the LEFT for
+								 * the affordance, then a 1fr column for the line content. The
+								 * affordance reveals into reserved space and never occludes
+								 * the line text.
+								 *
+								 * @lore L6 review (design C2 / adv O5): the button is visible
+								 * by default so touch users can see and reach it without a
+								 * hover state, and brightens to `--text-hi` on hover/focus
+								 * for desktop affordance.
+								 *
+								 * @lore L6 a11y-fix: previously used `opacity-30` to dim the
+								 * resting state, which composited the daisyUI btn-ghost
+								 * foreground over the page background and produced a 1.92:1
+								 * contrast ratio (axe-core color-contrast violation on
+								 * /conversations/review). We hold full opacity and dim via
+								 * the `--text-lo` token, which carries 4.5:1+ contrast
+								 * against `--surface-1` in both themes. Hover/focus
+								 * escalates to `--text-hi` for the same affordance.
+								 */
+								<div
+									key={`${hunk.header}-${li}-${line.type}`}
+									data-diff-type={line.type}
+									className={`group grid grid-cols-[44px_1fr] items-center px-2 py-1 ${DIFF_LINE_CLASSES[line.type]}`}
+								>
+									{renderAffordance ? (
+										<button
+											type="button"
+											aria-label={`Add comment to line ${li}`}
+											className="btn btn-xs btn-ghost min-h-[44px] min-w-[44px] text-[var(--text-lo)] hover:text-[var(--text-hi)] focus:text-[var(--text-hi)] group-hover:text-[var(--text-hi)] group-focus-within:text-[var(--text-hi)]"
+											onClick={() => onAddComment(lineKey, li, line.content)}
+										>
+											+ Comment
+										</button>
+									) : (
+										<span aria-hidden="true" />
+									)}
+									<div>
+										<span className="select-none text-[var(--text-lo)] mr-2">
+											{DIFF_LINE_PREFIX[line.type]}
+										</span>
+										<code>{line.content}</code>
+									</div>
+								</div>
+							);
+						})}
 					</div>
 				))}
 			</pre>
@@ -148,7 +204,7 @@ function VisualComparisonView({ data }: { data: VisualComparisonData }): JSX.Ele
 	return (
 		<section aria-label="Visual comparison">
 			<div className="grid grid-cols-2 gap-3">
-				<div className="bg-[var(--surface-4)] rounded-lg p-3">
+				<div className="bg-[var(--surface-4)] rounded-[var(--r2)] p-3">
 					<span className="block text-xs font-mono uppercase text-[var(--text-lo)] mb-2">
 						{data.before.label}
 					</span>
@@ -158,7 +214,7 @@ function VisualComparisonView({ data }: { data: VisualComparisonData }): JSX.Ele
 						className="w-full rounded"
 					/>
 				</div>
-				<div className="bg-[var(--surface-4)] rounded-lg p-3">
+				<div className="bg-[var(--surface-4)] rounded-[var(--r2)] p-3">
 					<span className="block text-xs font-mono uppercase text-[var(--text-lo)] mb-2">
 						{data.after.label}
 					</span>
@@ -327,7 +383,7 @@ function RelatedHistorySection({ entries }: { entries: RelatedHistoryEntry[] }):
 function renderShape(props: ArtifactViewProps): JSX.Element {
 	switch (props.shape) {
 		case "text_diff":
-			return <TextDiffView data={props.data} />;
+			return <TextDiffView data={props.data} onAddComment={props.onAddComment} />;
 		case "content_preview":
 			return <ContentPreviewView data={props.data} />;
 		case "visual_comparison":
