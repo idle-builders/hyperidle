@@ -22,6 +22,7 @@
  * sorted into Chats and lost its top-row affordance.
  */
 
+import { dsProps } from "@hyperidle/design-system";
 import {
 	type Actor,
 	COACH_AGENT_ID,
@@ -189,6 +190,7 @@ function SubmenuRow({
 	};
 	return (
 		<li
+			{...dsProps("ThreadRow", "2")}
 			data-testid={`thread-row-${section}`}
 			data-thread-id={thread.id}
 			aria-current={isActive ? "true" : undefined}
@@ -200,8 +202,6 @@ function SubmenuRow({
 		>
 			<button
 				type="button"
-				data-component="ThreadRow"
-				data-tier="2"
 				className="flex flex-1 min-w-0 flex-col gap-0.5 px-[var(--density-pad-x)] py-[var(--density-pad-y)] text-left rounded-[var(--r1)] hover:bg-[var(--surface-4)] transition-colors duration-[var(--motion-fast)] focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--primary)] focus-visible:-outline-offset-1"
 				onClick={handleButtonClick}
 			>

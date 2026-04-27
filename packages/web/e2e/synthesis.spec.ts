@@ -124,12 +124,18 @@ test.describe("J8 synthesis — 10 critical flows", () => {
 	});
 
 	test("11. Submenu collapses below 1024px and expands above", async ({ page }) => {
+		// L3: the Conversations submenu replaced the static "Review Queue" /
+		// "Chat" NavItems with a section-grouped thread queue. Probe the
+		// collapse/expand behavior via the submenu's data-testid instead of
+		// removed copy. Below 1024 px the Submenu shell is width-0 and its
+		// children are hidden; above 1024 px the ConversationsSubmenu (with
+		// its `[data-testid='conversations-submenu']`) is visible.
 		await page.setViewportSize({ width: 1000, height: 800 });
 		await page.goto("/");
 		await page.waitForSelector("[data-testid='main-content']");
-		await expect(page.getByText("Review Queue")).not.toBeVisible();
+		await expect(page.getByTestId("conversations-submenu")).not.toBeVisible();
 		await page.setViewportSize({ width: 1440, height: 900 });
-		await expect(page.getByText("Review Queue")).toBeVisible();
+		await expect(page.getByTestId("conversations-submenu")).toBeVisible();
 	});
 
 	test("12. Global search opens with Command-K and closes on Escape", async ({ page }) => {
