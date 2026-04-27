@@ -92,6 +92,13 @@
 			"when": 1777400100000,
 			"tag": "0012_l7_session_pause_checkpoint",
 			"breakpoints": true
+		},
+		{
+			"idx": 13,
+			"version": "6",
+			"when": 1777500000000,
+			"tag": "0013_l9_artifact_metadata",
+			"breakpoints": true
 		}
 	]
 }

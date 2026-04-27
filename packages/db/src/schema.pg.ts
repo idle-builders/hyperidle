@@ -253,6 +253,11 @@ export const items = pgTable(
 		reasoning: text("reasoning"),
 		costEstimate: integer("cost_estimate"),
 		auditTrail: text("audit_trail"),
+		// L9: nullable boolean. Mirrors the SQLite integer/PG boolean
+		// asymmetry already used for `blocking`.
+		reversibility: boolean("reversibility"),
+		// L9: nullable text. 'passed' | 'failed' | 'n/a'.
+		sandboxResult: text("sandbox_result"),
 		threadId: text("thread_id")
 			.notNull()
 			.references(() => threads.id, { onDelete: "restrict" }),
