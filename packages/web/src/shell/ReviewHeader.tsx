@@ -267,9 +267,15 @@ export function ReviewHeader({
 					// background. Removed `aria-label` (biome flagged: span has no
 					// implicit role that supports it; the visible text "undoable"
 					// already conveys the meaning).
+					// @lore L7 review fix: the chip sits on top of `btn-accent`
+					// (a colored background). Using `--text-lo` against the
+					// accent surface drops contrast to ~1.1:1 (axe WCAG-AA
+					// fail). Inherit `currentColor` from the button so the
+					// chip is readable on the accent fill while still
+					// "receding" via opacity.
 					const extra =
 						btn.action === "approve" && reversibility === true ? (
-							<span key="reversibility-chip" className="ml-1 text-[11px] text-[var(--text-lo)]">
+							<span key="reversibility-chip" className="ml-1 text-[11px] opacity-80">
 								↶ undoable
 							</span>
 						) : null;
