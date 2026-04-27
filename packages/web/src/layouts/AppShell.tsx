@@ -25,6 +25,7 @@ import { topicsForScope } from "../fixtures/knowledge-data";
 import { useAutoDensity } from "../hooks/useAutoDensity";
 import { useCommandK } from "../hooks/useCommandK";
 import { useConversations } from "../hooks/useConversations";
+import { FactoryStateProvider } from "../hooks/factoryStateContext";
 import { useFactoryState } from "../hooks/useFactoryState";
 import { useKillSwitchShortcut } from "../hooks/useKillSwitchShortcut";
 import { useMe } from "../hooks/useMe";
@@ -316,6 +317,10 @@ export function AppShell(): JSX.Element {
 	// from the Settings → Safety entry; the banner consumes `state` so every
 	// route renders the paused indicator above the shell.
 	const { state: factoryState, refresh: refreshFactoryState } = useFactoryState();
+	const factoryStateContextValue = useMemo(
+		() => ({ state: factoryState, refresh: refreshFactoryState }),
+		[factoryState, refreshFactoryState],
+	);
 	const [killSwitchOpen, setKillSwitchOpen] = useState(false);
 	useKillSwitchShortcut(useCallback(() => setKillSwitchOpen(true), []));
 
@@ -644,7 +649,9 @@ export function AppShell(): JSX.Element {
 					aria-hidden={shellDimmed || undefined}
 				>
 					<ErrorBoundary>
-						<Outlet />
+						<FactoryStateProvider value={factoryStateContextValue}>
+							<Outlet />
+						</FactoryStateProvider>
 					</ErrorBoundary>
 				</main>
 				{/* L5: synced toast — rendered by OfflineBanner when syncedCount>0 */}
@@ -836,7 +843,9 @@ export function AppShell(): JSX.Element {
 					aria-hidden={shellDimmed || undefined}
 				>
 					<ErrorBoundary>
-						<Outlet />
+						<FactoryStateProvider value={factoryStateContextValue}>
+							<Outlet />
+						</FactoryStateProvider>
 					</ErrorBoundary>
 				</main>
 

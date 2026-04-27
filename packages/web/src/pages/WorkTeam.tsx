@@ -5,7 +5,7 @@
  */
 import { type JSX, useCallback, useState } from "react";
 import { PauseSessionButton } from "../components/PauseSessionButton";
-import { useFactoryState } from "../hooks/useFactoryState";
+import { useFactoryStateContext } from "../hooks/factoryStateContext";
 import { useRecoveryFetch } from "../hooks/useRecoveryFetch";
 import type { CanvasBet } from "../shell/Canvas";
 import { Canvas } from "../shell/Canvas";
@@ -133,7 +133,7 @@ export function WorkTeam(): JSX.Element {
 	const [teamSessionStates, setTeamSessionStates] = useState<
 		Record<string, "running" | "paused">
 	>(() => Object.fromEntries(MOCK_TEAM_SESSIONS.map((s) => [s.id, "running" as const])));
-	const factoryState = useFactoryState();
+	const factoryState = useFactoryStateContext();
 	const recoveryFetch = useRecoveryFetch();
 
 	const handleMoveTask = useCallback((taskId: string, targetColumn: KanbanColumnState): void => {

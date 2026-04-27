@@ -7,7 +7,7 @@ import {
 	taskStateToStatus,
 } from "@hyperidle/design-system";
 import { PauseSessionButton } from "../components/PauseSessionButton";
-import { useFactoryState } from "../hooks/useFactoryState";
+import { useFactoryStateContext } from "../hooks/factoryStateContext";
 import { useRecoveryFetch } from "../hooks/useRecoveryFetch";
 /**
  * Work/Bet page — bet detail view composed from Tier 2 components (BetCard, TaskCard)
@@ -249,7 +249,7 @@ export function WorkBet({ loading = false, overrideBetId }: WorkBetProps = {}): 
 	const [sessionStates, setSessionStates] = useState<Record<string, "running" | "paused">>(
 		() => Object.fromEntries(bet.runningSessions.map((s) => [s.id, "running" as const])),
 	);
-	const factoryState = useFactoryState();
+	const factoryState = useFactoryStateContext();
 	const recoveryFetch = useRecoveryFetch();
 
 	const sortedTasks = useMemo(
