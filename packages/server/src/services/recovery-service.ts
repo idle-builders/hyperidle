@@ -20,7 +20,7 @@ import {
 	tasks,
 } from "@hyperidle/db";
 import type { RecoveryOutcome, RecoveryTargetKind, RecoveryVerb } from "@hyperidle/shared";
-import { eq, inArray } from "drizzle-orm";
+import { desc, eq, inArray } from "drizzle-orm";
 
 const FACTORY_SINGLETON_ID = "factory";
 
@@ -280,41 +280,44 @@ export function resumeFactory(
 			// `factory_pause` audit row's meta.affected.tasks list and
 			// flip each back to its priorState (only if the row is still
 			// in `hold` — a founder may have manually moved it since).
-			const lastPauseAudit = tx
+			//
+			// @lore L7 (AI4): use desc().limit(1) — `factory_pause` rows
+			// accumulate without bound, so a full-table scan would grow
+			// linearly with kill-switch usage. Mirrors the pattern in
+			// threads.ts:301-304 (rollback guard).
+			const latest = tx
 				.select({ meta: recoveryAudit.meta })
 				.from(recoveryAudit)
 				.where(eq(recoveryAudit.verb, "factory_pause"))
-				.orderBy(recoveryAudit.at)
-				.all();
+				.orderBy(desc(recoveryAudit.at))
+				.limit(1)
+				.get();
 			const restoredTaskIds: string[] = [];
-			if (lastPauseAudit.length > 0) {
-				const latest = lastPauseAudit[lastPauseAudit.length - 1];
-				if (latest?.meta) {
-					try {
-						const parsed = JSON.parse(latest.meta) as {
-							affected?: {
-								tasks?: Array<{ id: string; priorState: string }>;
-							};
+			if (latest?.meta) {
+				try {
+					const parsed = JSON.parse(latest.meta) as {
+						affected?: {
+							tasks?: Array<{ id: string; priorState: string }>;
 						};
-						const taskList = parsed.affected?.tasks ?? [];
-						for (const t of taskList) {
-							const taskRow = tx
-								.select({ state: tasks.state })
-								.from(tasks)
+					};
+					const taskList = parsed.affected?.tasks ?? [];
+					for (const t of taskList) {
+						const taskRow = tx
+							.select({ state: tasks.state })
+							.from(tasks)
+							.where(eq(tasks.id, t.id))
+							.get();
+						if (taskRow?.state === "hold") {
+							tx.update(tasks)
+								.set({ state: t.priorState, updatedAt: now })
 								.where(eq(tasks.id, t.id))
-								.get();
-							if (taskRow?.state === "hold") {
-								tx.update(tasks)
-									.set({ state: t.priorState, updatedAt: now })
-									.where(eq(tasks.id, t.id))
-									.run();
-								restoredTaskIds.push(t.id);
-							}
+								.run();
+							restoredTaskIds.push(t.id);
 						}
-					} catch {
-						// Malformed audit meta — skip; tasks stay on hold and
-						// the founder must move them manually.
 					}
+				} catch {
+					// Malformed audit meta — skip; tasks stay on hold and
+					// the founder must move them manually.
 				}
 			}
 
