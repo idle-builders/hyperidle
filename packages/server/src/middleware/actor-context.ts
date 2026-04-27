@@ -32,6 +32,19 @@ export type ActorEnv = { Variables: { actorId: string | null; actorRow: ActorRow
 
 export function createActorContextMiddleware(db: HyperIdleDb): MiddlewareHandler<ActorEnv> {
 	return async (c, next) => {
+		// @lore L10 C1: first-run routes MUST execute against a wiped DB —
+		// the whole point of the flow is to seed the actor rows. Skip
+		// resolution entirely so a stale/preset `HYPERIDLE_DEFAULT_ACTOR_ID`
+		// pointing at a not-yet-seeded actor doesn't 404 the bootstrap.
+		// Routes that need an actor downstream of first-run will set the
+		// `X-Actor-Id` header explicitly.
+		if (c.req.path.startsWith("/api/first-run/")) {
+			c.set("actorId", null);
+			c.set("actorRow", null);
+			await next();
+			return;
+		}
+
 		const headerActorId = c.req.header("X-Actor-Id");
 		const envActorId = process.env.HYPERIDLE_DEFAULT_ACTOR_ID;
 		const candidate = headerActorId ?? (envActorId && envActorId.length > 0 ? envActorId : null);

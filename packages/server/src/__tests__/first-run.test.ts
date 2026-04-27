@@ -122,6 +122,21 @@ describe("L10 — First-Run Flow API", () => {
 				expect(res.status).toBe(200);
 			}
 		});
+
+		// C1 regression: actor-context middleware MUST skip /api/first-run
+		// even when HYPERIDLE_DEFAULT_ACTOR_ID is set against a wiped DB.
+		// Without the bypass the middleware 404s before the handler runs.
+		it("succeeds against a wiped DB when HYPERIDLE_DEFAULT_ACTOR_ID is set", async () => {
+			vi.stubEnv("HYPERIDLE_DEFAULT_ACTOR_ID", "actor:ceo");
+			const res = await app.request("/api/first-run/factory", {
+				method: "POST",
+				headers: { ...authHeaders(), "X-Requested-With": "hyperidle-web" },
+				body: JSON.stringify({ name: "Wiped", role: "CEO", dataDir: "/wiped" }),
+			});
+			expect(res.status).toBe(200);
+			const meRows = db.select().from(actors).all();
+			expect(meRows.map((r) => r.role).sort()).toEqual(["CEO", "CPO"]);
+		});
 	});
 
 	describe("POST /api/first-run/api-key", () => {
