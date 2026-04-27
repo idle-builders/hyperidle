@@ -16,6 +16,8 @@ import type {
 import {
 	API_ERROR_CODES,
 	DEFAULT_UNDO_WINDOW_SECONDS,
+	REQUEST_CHANGES_INLINE_COMMENTS_MAX,
+	REQUEST_CHANGES_SUMMARY_MAX,
 	UNDO_WINDOW_MAX,
 	UNDO_WINDOW_MIN,
 } from "@hyperidle/shared";
@@ -59,15 +61,44 @@ const createItemSchema = z.object({
 	threadId: z.string(),
 });
 
-const createResponseSchema = z.object({
-	itemId: z.string(),
-	decision: z.enum(VERDICT_ACTIONS),
-	inlineAnchor: z.string().optional(),
-	edits: z.string().optional(),
-	feedback: z.string().optional(),
-	approverId: z.string().optional(),
-	view: z.string().optional(),
+/**
+ * @lore L6: inline comments for a request-changes verdict are anchored to
+ * lines inside the underlying `text_diff` artifact. `line_index` is the
+ * absolute position within the flattened hunk's `lines` array — the same
+ * value the gutter affordance reports back from the web client.
+ */
+const inlineCommentSchema = z.object({
+	line_index: z.number().int().nonnegative(),
+	body: z.string().min(1).max(2000),
 });
+
+/**
+ * @lore L6 (.plan-L6.md § 3.6 option B): for request-changes verdicts,
+ * `summary` writes to `responses.feedback` and `inline_comments[]` is
+ * JSON-stringified into `responses.inlineAnchor`. Summary is required for
+ * request-changes (refine below).
+ */
+const createResponseSchema = z
+	.object({
+		itemId: z.string(),
+		decision: z.enum(VERDICT_ACTIONS),
+		inlineAnchor: z.string().optional(),
+		edits: z.string().optional(),
+		feedback: z.string().optional(),
+		approverId: z.string().optional(),
+		view: z.string().optional(),
+		summary: z.string().max(REQUEST_CHANGES_SUMMARY_MAX).optional(),
+		inline_comments: z
+			.array(inlineCommentSchema)
+			.max(REQUEST_CHANGES_INLINE_COMMENTS_MAX)
+			.optional(),
+	})
+	.refine(
+		(v) =>
+			v.decision !== "request-changes" ||
+			(typeof v.summary === "string" && v.summary.trim().length > 0),
+		{ message: "summary is required for request-changes verdicts", path: ["summary"] },
+	);
 
 /**
  * Create Hono routes for conversation endpoints.
@@ -346,14 +377,24 @@ export function createConversationRoutes(db: HyperIdleDb, eventBus: EventBus): H
 					.get();
 				const priorDecision = priorRow?.decision ?? null;
 
+				// @lore L6: request-changes maps summary→feedback and
+				// inline_comments[]→inlineAnchor JSON; other decisions unchanged.
+				const isRequestChanges = body.decision === "request-changes";
+				const feedbackValue = isRequestChanges
+					? (body.summary ?? body.feedback ?? null)
+					: (body.feedback ?? null);
+				const inlineAnchorValue = isRequestChanges
+					? JSON.stringify(body.inline_comments ?? [])
+					: (body.inlineAnchor ?? null);
+
 				tx.insert(responses)
 					.values({
 						id,
 						itemId: body.itemId,
 						decision: body.decision,
-						inlineAnchor: body.inlineAnchor ?? null,
+						inlineAnchor: inlineAnchorValue,
 						edits: body.edits ?? null,
-						feedback: body.feedback ?? null,
+						feedback: feedbackValue,
 						approverId,
 						view: body.view ?? null,
 						respondedAt: now,
@@ -379,7 +420,9 @@ export function createConversationRoutes(db: HyperIdleDb, eventBus: EventBus): H
 			return c.json(response, 409);
 		}
 
-		// Emit response_recorded event
+		// Emit response_recorded event. L6: for request-changes, propagate
+		// the summary + inline-comment payload onto the event so the agent
+		// runtime can react to structured feedback.
 		const event: ResponseRecordedEvent = {
 			type: "response_recorded",
 			streamId: crypto.randomUUID(),
@@ -388,6 +431,17 @@ export function createConversationRoutes(db: HyperIdleDb, eventBus: EventBus): H
 			decision: body.decision,
 			timestamp: Date.now(),
 		};
+		if (body.decision === "request-changes") {
+			if (body.summary !== undefined) {
+				event.summary = body.summary;
+			}
+			if (body.inline_comments !== undefined) {
+				event.inlineComments = body.inline_comments.map((c) => ({
+					lineIndex: c.line_index,
+					body: c.body,
+				}));
+			}
+		}
 		eventBus.emit(event);
 
 		return c.json(result.created, 201);
