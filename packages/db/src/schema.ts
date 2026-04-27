@@ -267,22 +267,56 @@ export const items = sqliteTable(
 			.notNull()
 			.references(() => threads.id, { onDelete: "restrict" }),
 		createdAt: text("created_at").notNull(),
+		// @lore L4: Set when the agent runtime consumes a committed verdict.
+		// Read by the verdict-undo endpoint to gate the 409 agent_already_acted
+		// path. The writer ships in the D-track agent runtime; until then the
+		// column stays NULL and the undo path treats NULL as "agent has not
+		// acted." See .plan-L4.md §3.1 CONFUSION block.
+		agentActedAt: text("agent_acted_at"),
 	},
 	(table) => [index("items_thread_id_idx").on(table.threadId)],
 );
 
+// @lore L4: `responses` is logically append-only — every commit AND every
+// undo writes a new row. `transition` is enum 'commit' | 'undo'; an undo
+// row's `undoes_response_id` points back to the commit it reverses.
+//
+// Reading "current verdict state" of an item:
+//   SELECT * FROM responses
+//    WHERE item_id = ? AND transition = 'commit'
+//    ORDER BY responded_at DESC LIMIT 1
+// The `transition='commit'` filter is REQUIRED — undo rows have
+// `decision IS NULL` (post-L4 review fix) and would otherwise be returned
+// as the current state. Likewise the commit-side `prior_decision` lookup
+// MUST filter `transition='commit'` so a commit→undo→commit sequence
+// records the correct prior verdict (not the undo row's NULL).
+//
+// Static-codebase regression in `append-only-responses.test.ts` enforces no
+// UPDATE/DELETE outside migrations. See .plan-L4.md §3.1.
 export const responses = sqliteTable("responses", {
 	id: text("id").primaryKey(),
 	itemId: text("item_id")
 		.notNull()
 		.references(() => items.id, { onDelete: "cascade" }),
-	decision: text("decision").notNull(),
+	// @lore L4 review (arch W2): nullable. Undo rows write `decision=NULL`
+	// — they do not represent a verdict; the verdict they reverse lives in
+	// `prior_decision` and the original commit row at `undoes_response_id`.
+	decision: text("decision"),
 	inlineAnchor: text("inline_anchor"),
 	edits: text("edits"),
 	feedback: text("feedback"),
 	approverId: text("approver_id"),
 	view: text("view"),
 	respondedAt: text("responded_at").notNull(),
+	// L4: state-transition stamp on every row. Backfilled 'commit' for
+	// pre-L4 rows in the migration.
+	transition: text("transition").notNull().default("commit"),
+	// The verdict before this transition. NULL on first-ever commit.
+	priorDecision: text("prior_decision"),
+	// FK to responses.id; set only when transition='undo'.
+	undoesResponseId: text("undoes_response_id"),
+	// Snapshot of the configured window at commit time; NULL for undo rows.
+	undoWindowSeconds: integer("undo_window_seconds"),
 });
 
 // --- Agent skills ---
