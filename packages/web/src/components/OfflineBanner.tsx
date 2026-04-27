@@ -52,13 +52,7 @@ export function OfflineBanner({
 					className="flex items-center gap-2"
 					aria-label={`Dismiss synced confirmation: ${syncedCount} ${noun} synced`}
 				>
-					<svg
-						aria-hidden="true"
-						width={12}
-						height={12}
-						viewBox="0 0 12 12"
-						fill="currentColor"
-					>
+					<svg aria-hidden="true" width={12} height={12} viewBox="0 0 12 12" fill="currentColor">
 						<path d="M10.5 3L4.5 9L1.5 6l1-1l2 2l5-5z" />
 					</svg>
 					<span>

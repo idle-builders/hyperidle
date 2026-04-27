@@ -88,10 +88,7 @@ test.describe("L5 — Mobile shell at 390×844", () => {
 		await expect(page.getByTestId("mobile-tab-work")).toHaveAttribute("aria-current", "page");
 
 		await page.getByTestId("mobile-tab-knowledge").click();
-		await expect(page.getByTestId("mobile-tab-knowledge")).toHaveAttribute(
-			"aria-current",
-			"page",
-		);
+		await expect(page.getByTestId("mobile-tab-knowledge")).toHaveAttribute("aria-current", "page");
 
 		await page.getByTestId("mobile-tab-conversations").click();
 		await expect(page.getByTestId("mobile-tab-conversations")).toHaveAttribute(
@@ -112,9 +109,7 @@ test.describe("L5 — Mobile shell at 390×844", () => {
 		await ctx.close();
 	});
 
-	test("Coach (avatar) button in the top bar opens the Settings overlay", async ({
-		browser,
-	}) => {
+	test("Coach (avatar) button in the top bar opens the Settings overlay", async ({ browser }) => {
 		// Spec lists Coach/CoS thread accessed from a top-bar avatar; until the
 		// real CoS thread route lands, the avatar opens the same Settings overlay
 		// (parity with the desktop avatar).
@@ -139,9 +134,7 @@ test.describe("L5 — Mobile shell at 390×844", () => {
 		await ctx.close();
 	});
 
-	test("every mobile-tab and verdict-bar button is ≥44×44 CSS px (AQ-015)", async ({
-		browser,
-	}) => {
+	test("every mobile-tab and verdict-bar button is ≥44×44 CSS px (AQ-015)", async ({ browser }) => {
 		const ctx = await browser.newContext({ viewport: PHONE, colorScheme: "dark" });
 		const page = await ctx.newPage();
 		await page.goto("/");
