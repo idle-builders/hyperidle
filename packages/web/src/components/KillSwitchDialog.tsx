@@ -77,19 +77,24 @@ export function KillSwitchDialog(props: KillSwitchDialogProps): JSX.Element | nu
 	const nameMatches = typed.trim().toLowerCase() === props.target.name.trim().toLowerCase();
 	const canSubmit = props.mode === "type_name" ? reasonValid && nameMatches : reasonValid;
 
+	// @lore L7 (DES10): destructure here so the useEffect deps array
+	// references stable identifiers that the exhaustive-deps lint can
+	// validate. Reading `props.x` inside the effect body and listing
+	// `props.x` in the deps trips react-hooks/exhaustive-deps.
+	const { open: dialogOpen, onCancel: handleCancel } = props;
 	useEffect(() => {
-		if (!props.open) return;
+		if (!dialogOpen) return;
 		function onKey(e: KeyboardEvent): void {
 			if (e.key === "Escape") {
 				e.preventDefault();
-				props.onCancel();
+				handleCancel();
 			}
 		}
 		window.addEventListener("keydown", onKey);
 		return () => {
 			window.removeEventListener("keydown", onKey);
 		};
-	}, [props.open, props.onCancel]);
+	}, [dialogOpen, handleCancel]);
 
 	useEffect(() => {
 		return () => {

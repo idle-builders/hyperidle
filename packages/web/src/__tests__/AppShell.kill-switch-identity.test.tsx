@@ -61,10 +61,10 @@ describe("L7 (SEC1): AppShell kill-switch identity injection", () => {
 				);
 			}
 			if (url.includes("/api/factory/pause") || url.includes("/api/factory/resume")) {
-				return new Response(
-					JSON.stringify({ state: "paused", auditId: "a-1" }),
-					{ status: 200, headers: { "Content-Type": "application/json" } },
-				);
+				return new Response(JSON.stringify({ state: "paused", auditId: "a-1" }), {
+					status: 200,
+					headers: { "Content-Type": "application/json" },
+				});
 			}
 			return new Response("{}", { status: 200, headers: { "Content-Type": "application/json" } });
 		}) as unknown as typeof globalThis.fetch;
