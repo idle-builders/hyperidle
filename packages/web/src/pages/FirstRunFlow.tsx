@@ -280,7 +280,8 @@ function ApiKeyStep({
 			if (body.ok) {
 				setResult({ ok: true, last4: body.last4 });
 				setKey("");
-				await onDone();
+				// D4: do NOT auto-advance. The user must click Continue to
+				// acknowledge the key was accepted before the flow moves on.
 			} else {
 				setResult({ ok: false, message: body.message, status: body.status });
 			}
@@ -294,9 +295,27 @@ function ApiKeyStep({
 			setTesting(false);
 			mutexRef.current = false;
 		}
-	}, [key, onDone]);
+	}, [key]);
 
 	const masked = result?.ok ? `sk-ant-•••••${result.last4}` : null;
+	// D4: once the key tests green, replace "Test key" with an explicit
+	// "Continue" button. The user must affirmatively acknowledge before
+	// the flow advances; the gate is visible, not auto-flipping.
+	const [advancing, setAdvancing] = useState(false);
+	const advanceMutexRef = useRef<boolean>(false);
+	const advance = useCallback(async (): Promise<void> => {
+		if (advanceMutexRef.current) return;
+		advanceMutexRef.current = true;
+		setAdvancing(true);
+		try {
+			// Status already reflects apiKeyReady=true (testKey persisted on green).
+			// onDone() refreshes it and the parent flips to the next step.
+			await onDone();
+		} finally {
+			setAdvancing(false);
+			advanceMutexRef.current = false;
+		}
+	}, [onDone]);
 
 	return (
 		<fieldset className="flex flex-col gap-3" aria-label="API key">
@@ -330,16 +349,28 @@ function ApiKeyStep({
 					Key validated.
 				</div>
 			)}
-			<div>
-				<button
-					type="button"
-					onClick={testKey}
-					className="btn btn-sm btn-primary"
-					disabled={testing || key.length === 0}
-					data-testid="first-run-api-key-test"
-				>
-					{testing ? "Testing…" : "Test key"}
-				</button>
+			<div className="flex gap-2">
+				{result?.ok ? (
+					<button
+						type="button"
+						onClick={() => void advance()}
+						className="btn btn-sm btn-primary"
+						disabled={advancing}
+						data-testid="first-run-api-key-continue"
+					>
+						{advancing ? "Continuing…" : "Continue"}
+					</button>
+				) : (
+					<button
+						type="button"
+						onClick={testKey}
+						className="btn btn-sm btn-primary"
+						disabled={testing || key.length === 0}
+						data-testid="first-run-api-key-test"
+					>
+						{testing ? "Testing…" : "Test key"}
+					</button>
+				)}
 			</div>
 		</fieldset>
 	);

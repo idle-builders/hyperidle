@@ -142,6 +142,11 @@ describe("L10 FirstRunFlow", () => {
 		await user.clear(screen.getByTestId("first-run-api-key-input"));
 		await user.type(screen.getByTestId("first-run-api-key-input"), "sk-ant-validkey1234");
 		await user.click(screen.getByTestId("first-run-api-key-test"));
+		// D4: green ping does NOT auto-advance — user must click Continue.
+		const cont = await screen.findByTestId("first-run-api-key-continue");
+		// Still on api-key step (gate is visible, acknowledgeable).
+		expect(screen.getByTestId("first-run-step-api-key")).toBeInTheDocument();
+		await user.click(cont);
 
 		// North star
 		await screen.findByTestId("first-run-step-north-star");
