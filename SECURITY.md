@@ -64,3 +64,54 @@ invariant. A future migration, careless cleanup script, or
 `db.run(sql.raw(...))` could wipe rows. When the deployment topology
 includes a hostile-insider model, revisit and add a Postgres
 `BEFORE UPDATE OR DELETE` trigger.
+
+## L10 — Provider API Key At-Rest Plaintext (Deferred)
+
+**Status:** Known limitation. Tracked for a follow-up encryption-at-rest
+story.
+
+The Anthropic API key the operator pastes during the first-run flow is
+stored as PLAINTEXT in `factory_settings.provider.anthropic.api_key`
+alongside other H1 KV values (e.g. Langfuse secret keys). The current
+spec references an "H1 secret-handling pattern" that does not exist —
+H1 (Git Export Routine) defines no such pattern — so L10 inherits H1's
+trust boundary unchanged: at-rest encryption of the SQLite file itself.
+
+### Implications
+
+- An attacker with read access to the SQLite file can recover the
+  provider API key and any other observability secrets.
+- A backup taken without filesystem-level encryption leaks the key.
+- A misconfigured Git Export (H1) that includes `factory_settings`
+  rows will commit secrets to the repo. Today the H1 export rules
+  exclude this table; do not weaken the exclusion list without
+  re-evaluating this story.
+
+### Operator guidance (REQUIRED)
+
+- `chmod 600` on the SQLite file (`hyperidle.sqlite` and any sibling
+  WAL/SHM files). Treat the data directory as a secrets store.
+- Use full-disk encryption on the host (LUKS, FileVault, BitLocker).
+- Do **not** check the data directory into source control under any
+  circumstance.
+- Never echo `provider.anthropic.api_key` to logs. The route handler
+  responds with `{ ok, status, last4 }` only.
+
+### Pending (post-L10 follow-up)
+
+- Wrap `readApiKey` / `writeApiKey` with a per-key encryption envelope
+  (e.g. libsodium secretbox keyed by an OS-keychain-backed master).
+- Migrate existing rows in a one-shot helper. The existing namespaced
+  prefix (`provider.*`) was chosen so the migration scan is bounded.
+- Once encrypted, drop the operator-mandated `chmod 600` from the
+  install docs and revisit this section.
+
+## L10 — Prompt-Injection Hardening (Deferred to L4)
+
+**Status:** Out of scope for L10. The L10 spec touches only the
+provider-ping smoke test and the seed-doc capture; it does not invoke
+any model with user-supplied content. Prompt-injection attacks against
+the broader agent loop are L4's responsibility (Verdict Undo +
+Click/Keyboard Parity is shipped, but the injection-hardening pass
+across L4–L9 routes remains open). When that work lands, this section
+is replaced with the concrete countermeasures.

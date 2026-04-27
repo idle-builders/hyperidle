@@ -7,13 +7,19 @@
  * never returned to the wire — callers ask for the boolean "is set"
  * shape via `readFirstRunStatus`.
  *
- * @lore L10: The API key is stored as a plaintext setting like other
- * H1 KV values (Langfuse keys at `observability.langfuse_secret_key`).
- * The trust boundary is the at-rest encryption of the SQLite file
- * itself — the same boundary that H1 inherits. Callers MUST use
- * `readApiKey` only on server-side trusted paths and never return its
- * value to user-facing surfaces; expose the boolean+last4 derivable
- * from `readFirstRunStatus` instead.
+ * @lore L10 S5 (DEFERRED encryption-at-rest): The provider API key is
+ * stored as PLAINTEXT in the `factory_settings` table alongside other
+ * H1 KV values (e.g. `observability.langfuse_secret_key`). The current
+ * trust boundary is the at-rest encryption of the SQLite file itself —
+ * H1 has the same boundary today. The original L10 spec referenced an
+ * "H1 secret-handling pattern" but H1 (Git Export Routine) does not
+ * define one, so we explicitly defer encryption-at-rest to a future
+ * follow-up. Operators MUST chmod 600 the SQLite file. See
+ * `/SECURITY.md` § L10 for the full policy and tracking.
+ *
+ * Callers MUST use `readApiKey` only on server-side trusted paths and
+ * never return its value to user-facing surfaces; expose the
+ * boolean+last4 derivable from `readFirstRunStatus` instead.
  *
  * @lore L10: Storing under namespaced keys (`firstRun.*`, `factory.*`,
  * `provider.<id>.*`) means a single migration to an encrypted secrets
