@@ -1,4 +1,8 @@
-import type { BetStatus } from "@hyperidle/shared";
+import {
+	type BetStatus,
+	DEFAULT_UNDO_WINDOW_SECONDS,
+	DEFAULT_VERDICT_DOUBLE_CLICK,
+} from "@hyperidle/shared";
 import type { SettingsData } from "../components/SettingsPanel";
 import { getInitialTheme } from "../hooks/useTheme";
 import type { BetItem, BlockerItem, CostInfo } from "../shell/Rail";
@@ -27,7 +31,12 @@ export const DEFAULT_SETTINGS: SettingsData = {
 	// @lore K7 / AESTHETICS.md § Mobile & Touch "Density preference state":
 	// `auto` is the factory default and fires the viewport-driven density
 	// auto-switch (≤ 1024px → comfortable).
-	appearance: { density: "auto", theme: getInitialTheme() },
+	appearance: {
+		density: "auto",
+		theme: getInitialTheme(),
+		verdictDoubleClick: DEFAULT_VERDICT_DOUBLE_CLICK,
+		undoWindowSeconds: DEFAULT_UNDO_WINDOW_SECONDS,
+	},
 };
 
 export const MOCK_RAIL_BETS: BetItem[] = [

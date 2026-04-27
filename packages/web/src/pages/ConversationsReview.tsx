@@ -6,17 +6,34 @@
  * @lore J4 AC: Reasoning block renders before the artifact for every review.
  * Metadata strip + related history populate the ArtifactView. Single-key
  * A/R/X/S/P shortcuts pre-fill a pending verdict; Enter confirms.
+ *
+ * @lore L4: orchestrates the click-parity + undo-toast flow. ReviewHeader's
+ * `onPrefill`/`onCommit` are split so a mouse click follows the same
+ * pre-fill confirm as the keyboard path. After commit, `UndoToast` is
+ * mounted with a `useUndoTimer`-driven countdown. The page-level capture-
+ * phase keydown handler binds `U` to undo and `Esc` to dismiss while the
+ * toast is visible — only then. The handler defers to the existing
+ * `PREFILL_KEYS` map otherwise.
+ *
+ * @lore L4 toast stacking: a fresh commit cancels the previous toast
+ * (replace, not stack). The previous verdict's window simply ends; we do
+ * NOT auto-undo the previous commit.
  */
-import { ErrorState, SkeletonList } from "@hyperidle/design-system";
+import {
+	DEFAULT_UNDO_WINDOW_SECONDS,
+	DEFAULT_VERDICT_DOUBLE_CLICK,
+	type VerdictAction,
+} from "@hyperidle/shared";
 import { type JSX, useCallback, useEffect, useRef, useState } from "react";
 import { ReasoningBlock } from "../components/ReasoningBlock";
+import { UndoToast } from "../components/UndoToast";
+import { useUndoTimer } from "../hooks/useUndoTimer";
 import type {
 	ArtifactMetadata,
 	ArtifactViewProps,
 	RelatedHistoryEntry,
 } from "../shell/ArtifactView";
 import { ArtifactView } from "../shell/ArtifactView";
-import type { VerdictAction } from "../shell/ReviewHeader";
 import { ReviewHeader } from "../shell/ReviewHeader";
 
 interface MockReviewItem {
@@ -106,95 +123,213 @@ const MOCK_REVIEWS: MockReviewItem[] = [
 	},
 ];
 
-/** Keys that pre-fill a verdict. Mirrors the primary + pause shortcut set. */
+/**
+ * Keys that pre-fill a verdict. Single source of truth for the verdict
+ * keymap — covers the 4 primaries (A/R/X/S), Pause (P, blocking-only), and
+ * the keyboard-mappable secondaries (C/I/E). The header no longer registers
+ * its own keydown listener, so all global verdict shortcuts live here.
+ */
 const PREFILL_KEYS: Record<string, VerdictAction> = {
 	a: "approve",
 	r: "request-changes",
 	x: "reject",
 	s: "snooze",
 	p: "pause",
+	c: "comment",
+	i: "inline-comment",
+	e: "edit",
 };
 
 const INPUT_TAGS = new Set(["INPUT", "TEXTAREA", "SELECT"]);
 
+interface ToastState {
+	decision: VerdictAction;
+	itemId: string;
+	threadId: string;
+	auditRowId: string;
+	agentActed: boolean;
+}
+
+/**
+ * @lore L4 default-settings: until the wider settings reader lands, the
+ * page reads shared defaults (`DEFAULT_*` from `@hyperidle/shared`).
+ * SettingsPanel persists user-picked values into `factory_settings` and
+ * the server snapshots `undo_window_seconds` per `responses` row; the
+ * page's runtime countdown will read the persisted value once the wider
+ * settings hook lands.
+ */
 export function ConversationsReview(): JSX.Element {
-	const [selectedId, setSelectedId] = useState<string>(MOCK_REVIEWS[0].id);
-	const [loading] = useState(false);
-	const [error] = useState<string | null>(null);
+	const [selectedId] = useState<string>(MOCK_REVIEWS[0].id);
 	const [pendingVerdict, setPendingVerdict] = useState<VerdictAction | null>(null);
-	const rootRef = useRef<HTMLDivElement>(null);
+	const [toast, setToast] = useState<ToastState | null>(null);
 
 	const selected = MOCK_REVIEWS.find((r) => r.id === selectedId) ?? MOCK_REVIEWS[0];
 
-	// Expose setSelectedId for parent Submenu integration
-	void setSelectedId;
+	const verdictDoubleClick = DEFAULT_VERDICT_DOUBLE_CLICK;
+	const undoWindowSeconds = DEFAULT_UNDO_WINDOW_SECONDS;
 
-	const commitVerdict = useCallback((_action: VerdictAction): void => {
-		// Mock verdict — real API wiring deferred
+	const handleExpire = useCallback((): void => {
+		setToast(null);
 	}, []);
 
-	const handleVerdict = useCallback(
+	const undoTimer = useUndoTimer({
+		windowSeconds: undoWindowSeconds,
+		onExpire: handleExpire,
+	});
+	const { start: startUndoTimer, cancel: cancelUndoTimer } = undoTimer;
+
+	const handlePrefill = useCallback(
 		(action: VerdictAction): void => {
-			// Direct click commits immediately.
-			commitVerdict(action);
-			setPendingVerdict(null);
+			if (action === "pause" && !selected.blocking) return;
+			setPendingVerdict(action);
 		},
-		[commitVerdict],
+		[selected.blocking],
 	);
 
-	// @lore J4 AC: single-key A/R/X/S/P pre-fill a pending verdict; Enter
-	// confirms. Guard against typing in inputs.
+	const handleCommit = useCallback(
+		(action: VerdictAction): void => {
+			if (action === "pause" && !selected.blocking) return;
+			// L4: replace any in-flight toast — see file-level @lore.
+			cancelUndoTimer();
+			const auditRowId = `mock-${selected.id}-${Date.now()}`;
+			// @lore L4 AC-5 deferred orchestration: `agentActed` is hard-coded
+			// to `false` here on purpose. Flipping it to `true` mid-toast
+			// requires an event/poll on `items.agent_acted_at` that the page
+			// does not own today — the agent-runtime ack writer ships in
+			// D-track, which will also wire this signal. The component
+			// contract for the swap is proven independently in
+			// `packages/web/src/__tests__/UndoToast.test.tsx` ("agentActed=true
+			// swaps Undo for a 'View what shipped' link…"); only the
+			// page-level orchestration is deferred. Server-side, the 409
+			// from `/verdict/undo` already returns `audit_row_id` so the
+			// link target is ready when the page reads it.
+			setToast({
+				decision: action,
+				itemId: selected.id,
+				threadId: selected.id,
+				auditRowId,
+				agentActed: false,
+			});
+			setPendingVerdict(null);
+			startUndoTimer();
+		},
+		[selected.id, selected.blocking, cancelUndoTimer, startUndoTimer],
+	);
+
+	// @lore L4 review (adversary C3): the page-level keydown listener
+	// closes over `toast` (a useEffect dep) and the timer's `secondsLeft`
+	// (not a dep). To avoid firing undo after the timer expired but before
+	// React re-binds the listener, we read the *current* secondsLeft via
+	// a ref and bail if it has reached 0. This eliminates the U-vs-expiry
+	// race that would otherwise produce a silent 410 on the server.
+	const secondsLeftRef = useRef<number>(undoWindowSeconds);
+	useEffect(() => {
+		secondsLeftRef.current = undoTimer.secondsLeft;
+	}, [undoTimer.secondsLeft]);
+
+	const handleUndo = useCallback(async (): Promise<void> => {
+		if (!toast) return;
+		// Race guard: do not POST after the toast's window has elapsed —
+		// the server would reject with 410 and the user would see a
+		// silent "nothing happened".
+		if (secondsLeftRef.current <= 0) {
+			cancelUndoTimer();
+			setToast(null);
+			return;
+		}
+		const { threadId, itemId } = toast;
+		cancelUndoTimer();
+		setToast(null);
+		try {
+			// @lore L4 review (security CRIT + LOW): identity is delivered
+			// via the `X-Actor-Id` header — never as a body field. The
+			// server's `verdictUndoSchema` is `.strict()` and rejects any
+			// body `actorId` to prevent forging another actor's undo.
+			//
+			// Note: until the SPA-wide actor identification lands, we hard-
+			// code `actor:ceo` here. The risk is bounded because the server
+			// also enforces `latest.approverId === c.get("actorId")`; a
+			// CPO-committed verdict will 403 from this caller.
+			const res = await fetch(`/api/threads/${encodeURIComponent(threadId)}/verdict/undo`, {
+				method: "POST",
+				headers: {
+					"Content-Type": "application/json",
+					"X-Actor-Id": "actor:ceo",
+				},
+				body: JSON.stringify({ itemId }),
+			});
+			if (!res.ok) {
+				// biome-ignore lint/suspicious/noConsole: observability surface — surface undo failures
+				console.warn("[ConversationsReview] undo non-2xx", {
+					status: res.status,
+					threadId,
+					itemId,
+				});
+			}
+		} catch (err) {
+			// biome-ignore lint/suspicious/noConsole: observability surface — surface undo failures
+			console.error("[ConversationsReview] undo fetch failed", {
+				message: err instanceof Error ? err.message : String(err),
+			});
+		}
+	}, [toast, cancelUndoTimer]);
+
+	const handleDismiss = useCallback((): void => {
+		cancelUndoTimer();
+		setToast(null);
+	}, [cancelUndoTimer]);
+
+	// @lore J4/L4: single keydown listener with branching on toast state.
+	// While the toast is visible, U undoes and Esc dismisses (capture phase
+	// to win against any bubble-phase listeners). Otherwise, single-key
+	// A/R/X/S/P pre-fill a pending verdict and Enter confirms. Inputs are
+	// guarded throughout.
 	useEffect(() => {
 		const handler = (e: KeyboardEvent): void => {
-			const target = e.target as HTMLElement | null;
-			if (target && (INPUT_TAGS.has(target.tagName) || target.isContentEditable)) {
+			const target = e.target;
+			if (target instanceof HTMLElement) {
+				if (INPUT_TAGS.has(target.tagName) || target.isContentEditable) return;
+			}
+			if (toast) {
+				if (e.key === "u" || e.key === "U") {
+					e.preventDefault();
+					e.stopPropagation();
+					void handleUndo();
+					return;
+				}
+				if (e.key === "Escape") {
+					e.preventDefault();
+					e.stopPropagation();
+					handleDismiss();
+				}
 				return;
 			}
 			const key = e.key.toLowerCase();
 			const prefill = PREFILL_KEYS[key];
 			if (prefill) {
-				// Pause only valid on blocking reviews
 				if (prefill === "pause" && !selected.blocking) return;
 				setPendingVerdict(prefill);
 				return;
 			}
 			if (e.key === "Enter" && pendingVerdict) {
-				commitVerdict(pendingVerdict);
-				setPendingVerdict(null);
+				handleCommit(pendingVerdict);
 			}
 		};
-		document.addEventListener("keydown", handler);
-		return () => document.removeEventListener("keydown", handler);
-	}, [pendingVerdict, commitVerdict, selected.blocking]);
-
-	if (loading) {
-		return (
-			<div className="flex flex-col gap-3 h-full" data-testid="conversations-review-page">
-				<SkeletonList rows={3} ariaLabel="Loading review" />
-			</div>
-		);
-	}
-
-	if (error) {
-		return (
-			<div className="flex flex-col gap-3 h-full" data-testid="conversations-review-page">
-				<ErrorState title="Failed to load review" description={error} />
-			</div>
-		);
-	}
+		document.addEventListener("keydown", handler, true);
+		return () => document.removeEventListener("keydown", handler, true);
+	}, [toast, handleUndo, handleDismiss, pendingVerdict, handleCommit, selected.blocking]);
 
 	return (
-		<div
-			ref={rootRef}
-			className="flex flex-col gap-0 h-full"
-			data-testid="conversations-review-page"
-		>
+		<div className="flex flex-col gap-0 h-full" data-testid="conversations-review-page">
 			<ReviewHeader
 				proposer={{
 					name: selected.proposer,
 					timestamp: selected.timestamp,
 				}}
-				onVerdict={handleVerdict}
+				onPrefill={handlePrefill}
+				onCommit={handleCommit}
+				pendingVerdict={pendingVerdict}
+				verdictDoubleClick={verdictDoubleClick}
 				blocking={selected.blocking}
 			/>
 			{pendingVerdict && (
@@ -215,6 +350,18 @@ export function ConversationsReview(): JSX.Element {
 					/>
 				</div>
 			</div>
+			{toast && (
+				<UndoToast
+					visible={true}
+					threadId={toast.threadId}
+					windowSeconds={undoTimer.secondsLeft}
+					totalSeconds={undoWindowSeconds}
+					agentActed={toast.agentActed}
+					auditRowId={toast.auditRowId}
+					onUndo={handleUndo}
+					onDismiss={handleDismiss}
+				/>
+			)}
 		</div>
 	);
 }

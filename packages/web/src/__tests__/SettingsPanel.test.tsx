@@ -28,6 +28,8 @@ const defaultSettings: SettingsData = {
 	appearance: {
 		density: "comfortable",
 		theme: "system",
+		verdictDoubleClick: true,
+		undoWindowSeconds: 8,
 	},
 };
 

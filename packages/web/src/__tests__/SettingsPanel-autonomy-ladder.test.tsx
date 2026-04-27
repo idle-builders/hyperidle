@@ -40,7 +40,12 @@ const ladderSettings: SettingsData = {
 		quietHoursEnd: "08:00",
 		mutedProducts: [],
 	},
-	appearance: { density: "comfortable", theme: "system" },
+	appearance: {
+		density: "comfortable",
+		theme: "system",
+		verdictDoubleClick: true,
+		undoWindowSeconds: 8,
+	},
 };
 
 describe("L1: SettingsPanel autonomy ladder", () => {

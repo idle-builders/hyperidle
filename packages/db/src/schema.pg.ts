@@ -252,22 +252,32 @@ export const items = pgTable(
 			.notNull()
 			.references(() => threads.id, { onDelete: "restrict" }),
 		createdAt: text("created_at").notNull(),
+		// @lore L4: see schema.ts — `agent_acted_at` is gated by the verdict-undo
+		// endpoint's 409 path. Postgres mirror of the SQLite shape.
+		agentActedAt: text("agent_acted_at"),
 	},
 	(table) => [index("items_thread_id_idx").on(table.threadId)],
 );
 
+// @lore L4: see schema.ts for the responses append-only invariant. Postgres
+// mirror of the SQLite shape — same columns, same defaults.
+// @lore L4 review (arch W2): `decision` is nullable; undo rows write NULL.
 export const responses = pgTable("responses", {
 	id: text("id").primaryKey(),
 	itemId: text("item_id")
 		.notNull()
 		.references(() => items.id, { onDelete: "cascade" }),
-	decision: text("decision").notNull(),
+	decision: text("decision"),
 	inlineAnchor: text("inline_anchor"),
 	edits: text("edits"),
 	feedback: text("feedback"),
 	approverId: text("approver_id"),
 	view: text("view"),
 	respondedAt: text("responded_at").notNull(),
+	transition: text("transition").notNull().default("commit"),
+	priorDecision: text("prior_decision"),
+	undoesResponseId: text("undoes_response_id"),
+	undoWindowSeconds: integer("undo_window_seconds"),
 });
 
 // --- Agent skills ---

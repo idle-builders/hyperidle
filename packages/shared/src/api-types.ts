@@ -20,6 +20,22 @@ export const API_ERROR_CODES = {
 	PAYLOAD_TOO_LARGE: "PAYLOAD_TOO_LARGE",
 	// L2 — founder verdict conflict on the same thread.
 	FOUNDER_CONFLICT: "FOUNDER_CONFLICT",
+	// L4 — verdict undo window expired (RFC 9110 §15.5.10 — 410 Gone).
+	GONE: "GONE",
 } as const;
+
+/** L4 — Verdict undo API. */
+export interface VerdictUndoRequest {
+	itemId: string;
+	actorId: string;
+	reason?: string;
+}
+
+export interface VerdictUndoSuccess {
+	undo_response_id: string;
+	reverted_response_id: string;
+	prior_decision: string | null;
+	at: string;
+}
 
 export type ApiErrorCode = (typeof API_ERROR_CODES)[keyof typeof API_ERROR_CODES];

@@ -306,6 +306,16 @@ export function AppShell(): JSX.Element {
 			// Mock save — real API wiring deferred. J1: mirror the new draft into
 			// local state so density (and other appearance values) take effect on
 			// save. The data-density attribute on the shell root reads from this.
+			//
+			// @lore L4 review (adversary O8): the L4 server snapshots
+			// `appearance.undo_window_seconds` from `factory_settings` per
+			// commit. The writer for that key is `PATCH /api/settings`
+			// (status.ts), but this onSave handler does not call it yet —
+			// it only mutates local React state. Until this is wired, the
+			// server's undo-window snapshot falls back to the default
+			// (8s). Tracked for the wider settings-persistence story; the
+			// L4 contract still holds because the server clamps to the
+			// allowlist [3..15] regardless of input.
 			await new Promise((resolve) => setTimeout(resolve, 300));
 			// K3: theme is persisted via useTheme() (localStorage). Route the
 			// chosen value through setTheme so the boot script picks it up on

@@ -6,7 +6,10 @@ import { ReviewHeader } from "../shell/ReviewHeader";
 describe("ReviewHeader blocking → Pause button (J4)", () => {
 	const baseProps = {
 		proposer: { name: "Agent-Alpha", timestamp: "2m ago" },
-		onVerdict: vi.fn(),
+		onPrefill: vi.fn(),
+		onCommit: vi.fn(),
+		pendingVerdict: null,
+		verdictDoubleClick: false,
 	};
 
 	describe("blocking=false (default)", () => {
@@ -31,12 +34,12 @@ describe("ReviewHeader blocking → Pause button (J4)", () => {
 			expect(screen.getByRole("button", { name: "Reject" })).toBeInTheDocument();
 		});
 
-		it("calls onVerdict with 'pause' when Pause is clicked", async () => {
+		it("calls onCommit with 'pause' when Pause is clicked (single-click mode)", async () => {
 			const user = userEvent.setup();
-			const handleVerdict = vi.fn();
-			render(<ReviewHeader {...baseProps} onVerdict={handleVerdict} blocking={true} />);
+			const handleCommit = vi.fn();
+			render(<ReviewHeader {...baseProps} onCommit={handleCommit} blocking={true} />);
 			await user.click(screen.getByRole("button", { name: /^pause$/i }));
-			expect(handleVerdict).toHaveBeenCalledWith("pause");
+			expect(handleCommit).toHaveBeenCalledWith("pause");
 		});
 	});
 });
