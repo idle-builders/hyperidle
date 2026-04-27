@@ -9,6 +9,7 @@ import { type JSX, useCallback, useEffect, useMemo, useState } from "react";
 import { Outlet, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { ErrorBoundary } from "../components/ErrorBoundary";
 import { GlobalSearchPanel } from "../components/GlobalSearchPanel";
+import { OfflineBanner } from "../components/OfflineBanner";
 import type { SettingsData } from "../components/SettingsPanel";
 import { SettingsPanel } from "../components/SettingsPanel";
 import {
@@ -22,11 +23,15 @@ import { useAutoDensity } from "../hooks/useAutoDensity";
 import { useCommandK } from "../hooks/useCommandK";
 import { useConversations } from "../hooks/useConversations";
 import { useMe } from "../hooks/useMe";
+import { useOfflineQueue } from "../hooks/useOfflineQueue";
 import { useTheme } from "../hooks/useTheme";
 import { useViewportBreakpoint } from "../hooks/useViewportBreakpoint";
 import { ConversationsSubmenu } from "../shell/ConversationsSubmenu";
 import { IconRail } from "../shell/IconRail";
+import type { MobileTab } from "../shell/MobileTabBar";
+import { MobileTabBar } from "../shell/MobileTabBar";
 import { Rail } from "../shell/Rail";
+import { RailGlanceStrip } from "../shell/RailGlanceStrip";
 import type { SubmenuFilter, SubmenuFilterOption } from "../shell/Submenu";
 import { Submenu } from "../shell/Submenu";
 import type { ViewId } from "../shell/shell-types";
@@ -459,11 +464,166 @@ export function AppShell(): JSX.Element {
 		? "flex flex-1 min-w-0 pointer-events-none opacity-60"
 		: "flex flex-1 min-w-0";
 
+	// L5: derive the active mobile tab from the current view + Settings open state.
+	// Settings is its own tab on mobile; otherwise mirror the desktop view tab.
+	const mobileActiveTab: MobileTab = settingsOpen ? "settings" : activeView;
+	const handleMobileTabChange = useCallback(
+		(tab: MobileTab): void => {
+			if (tab === "settings") {
+				setSettingsOpen(true);
+				return;
+			}
+			setSettingsOpen(false);
+			handleViewChange(tab);
+		},
+		[handleViewChange],
+	);
+
+	// L5: Rail-glance numbers on mobile derive from the same fixtures as the
+	// desktop Rail. Burn label is the today-spend formatted string upstream.
+	const mobileRailGlance = useMemo(
+		() => ({
+			blockingCount: MOCK_RAIL_BLOCKERS.length,
+			burnLabel: MOCK_RAIL_COST.todaySpend,
+			anomaliesCount: 0,
+		}),
+		[],
+	);
+	const [mobileRailSheetOpen, setMobileRailSheetOpen] = useState(false);
+
+	// L5 ADV-03: offline queue. The verdict surface enqueues commits while
+	// offline; on reconnect the queue drains via the (currently mock) commit
+	// shim. The real commit wires into POST /api/threads/:id/verdict — left
+	// as a stub here because the page-level orchestration (ConversationsReview)
+	// currently uses MOCK_REVIEWS. The hook is wired into the shell so the
+	// banner is visible across views, not only on the review page.
+	const offlineQueue = useOfflineQueue({
+		// @lore L5 mock: real commit lands when the verdict service is
+		// shell-aware. For now the hook only needs `commit` to resolve so
+		// the drain advances — the real D-track wire-up will replace this.
+		// biome-ignore lint/suspicious/useAwait: stub commit; real wiring lands in D-track verdict service.
+		commit: useCallback(async () => Promise.resolve(), []),
+	});
+
+	// L5: phone-first shell. Renders top-bar (avatar) + Rail-glance strip +
+	// scrollable main + bottom tab bar. Submenu/IconRail/Rail are hidden.
+	if (breakpoint.mobile) {
+		return (
+			<div
+				className="flex h-screen flex-col bg-base-100 overflow-hidden"
+				data-density={resolvedDensity}
+				data-density-preference={settings.appearance.density}
+				data-shell-mode="mobile"
+				data-testid="mobile-shell"
+			>
+				{/* Top bar: avatar (Coach access per L5 spec) + glance strip */}
+				<header
+					className="flex h-12 items-center justify-between border-b border-[var(--border-default)] px-3"
+					data-testid="mobile-top-bar"
+				>
+					<span className="font-mono text-xs uppercase tracking-wider text-[var(--text-mid)]">
+						{SUBMENU_CONFIG[activeView].title}
+					</span>
+					<button
+						type="button"
+						className="btn btn-ghost btn-sm btn-circle"
+						aria-label="Coach (User profile)"
+						data-testid="mobile-avatar"
+						onClick={handleAvatarClick}
+					>
+						<svg aria-hidden="true" width={20} height={20} viewBox="0 0 16 16" fill="currentColor">
+							<circle cx="8" cy="5" r="3" />
+							<path d="M2 14a6 6 0 0112 0H2z" />
+						</svg>
+					</button>
+				</header>
+				<RailGlanceStrip
+					blockingCount={mobileRailGlance.blockingCount}
+					burnLabel={mobileRailGlance.burnLabel}
+					anomaliesCount={mobileRailGlance.anomaliesCount}
+					onExpand={() => setMobileRailSheetOpen(true)}
+				/>
+				{offlineQueue.offline && <OfflineBanner offline={true} syncedCount={null} />}
+				<main
+					className="flex-1 overflow-y-auto px-[var(--density-page-gutter)] py-[var(--density-page-gutter)] text-[length:var(--density-text)] pb-[6.5rem]"
+					data-testid="main-content"
+					aria-hidden={shellDimmed || undefined}
+				>
+					<ErrorBoundary>
+						<Outlet />
+					</ErrorBoundary>
+				</main>
+				{/* L5: synced toast — rendered by OfflineBanner when syncedCount>0 */}
+				{!offlineQueue.offline && offlineQueue.syncedCount !== null && (
+					<OfflineBanner
+						offline={false}
+						syncedCount={offlineQueue.syncedCount}
+						onDismissSyncedToast={offlineQueue.dismissSyncedToast}
+					/>
+				)}
+				<MobileTabBar
+					activeTab={mobileActiveTab}
+					onTabChange={handleMobileTabChange}
+					badgeCountByTab={{
+						conversations: conversationsCount,
+						knowledge: badgeCountByView.knowledge,
+						work: badgeCountByView.work,
+					}}
+				/>
+				{mobileRailSheetOpen && (
+					<div
+						role="dialog"
+						aria-modal="true"
+						aria-label="Rail details"
+						data-testid="mobile-rail-sheet"
+						className="fixed inset-0 z-50 flex flex-col bg-base-100"
+					>
+						<div className="flex items-center justify-between border-b border-[var(--border-default)] px-3 py-2">
+							<span className="font-mono text-xs uppercase tracking-wider text-[var(--text-mid)]">
+								Rail
+							</span>
+							<button
+								type="button"
+								className="btn btn-ghost btn-sm"
+								aria-label="Close rail"
+								data-testid="mobile-rail-sheet-close"
+								onClick={() => setMobileRailSheetOpen(false)}
+							>
+								Close
+							</button>
+						</div>
+						<div className="flex-1 overflow-y-auto">
+							<Rail
+								expanded={true}
+								onToggleExpand={() => setMobileRailSheetOpen(false)}
+								bets={MOCK_RAIL_BETS}
+								blockers={MOCK_RAIL_BLOCKERS}
+								cost={MOCK_RAIL_COST}
+							/>
+						</div>
+					</div>
+				)}
+				<SettingsPanel
+					open={settingsOpen}
+					onClose={() => setSettingsOpen(false)}
+					onSave={handleSettingsSave}
+					settings={settings}
+				/>
+				<GlobalSearchPanel
+					open={commandK.isOpen}
+					onClose={commandK.close}
+					onNavigate={handleSearchNavigate}
+				/>
+			</div>
+		);
+	}
+
 	return (
 		<div
 			className="flex h-screen bg-base-100 overflow-hidden"
 			data-density={resolvedDensity}
 			data-density-preference={settings.appearance.density}
+			data-shell-mode="desktop"
 		>
 			<div className={shellWrapperClass} aria-hidden={shellDimmed || undefined}>
 				<IconRail

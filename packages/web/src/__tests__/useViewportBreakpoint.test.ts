@@ -63,4 +63,42 @@ describe("useViewportBreakpoint", () => {
 		const { result } = renderHook(() => useViewportBreakpoint());
 		expect(result.current.railExpanded).toBe(false);
 	});
+
+	// L5: three-state breakpoints — mobile (<768) / tablet (768-1023) / desktop (>=1024).
+	it("L5: at 390px (phone) returns mobile=true and tablet=false", () => {
+		setViewportWidth(390);
+		const { result } = renderHook(() => useViewportBreakpoint());
+		expect(result.current.mobile).toBe(true);
+		expect(result.current.tablet).toBe(false);
+		expect(result.current.submenuCollapsed).toBe(true);
+		expect(result.current.railExpanded).toBe(false);
+	});
+
+	it("L5: at 768px (tablet boundary) returns tablet=true and mobile=false", () => {
+		setViewportWidth(768);
+		const { result } = renderHook(() => useViewportBreakpoint());
+		expect(result.current.tablet).toBe(true);
+		expect(result.current.mobile).toBe(false);
+	});
+
+	it("L5: at 1023px (still tablet) returns tablet=true and mobile=false", () => {
+		setViewportWidth(1023);
+		const { result } = renderHook(() => useViewportBreakpoint());
+		expect(result.current.tablet).toBe(true);
+		expect(result.current.mobile).toBe(false);
+	});
+
+	it("L5: at 1024px (desktop) returns mobile=false and tablet=false", () => {
+		setViewportWidth(1024);
+		const { result } = renderHook(() => useViewportBreakpoint());
+		expect(result.current.mobile).toBe(false);
+		expect(result.current.tablet).toBe(false);
+	});
+
+	it("L5: at 767px (just below tablet) is mobile=true tablet=false", () => {
+		setViewportWidth(767);
+		const { result } = renderHook(() => useViewportBreakpoint());
+		expect(result.current.mobile).toBe(true);
+		expect(result.current.tablet).toBe(false);
+	});
 });
