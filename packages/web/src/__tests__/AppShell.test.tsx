@@ -40,15 +40,22 @@ describe("AppShell", () => {
 		});
 	});
 
-	it("shows Conversations submenu items when on conversations route", async () => {
+	it("shows the L3 Conversations submenu when on conversations route", async () => {
 		renderShell("/conversations/review");
 		await waitFor(() => {
-			expect(screen.getByText("Review Queue")).toBeInTheDocument();
-			expect(screen.getByText("Chat")).toBeInTheDocument();
+			// L3 replaced the J2 NavItems ("Review Queue" / "Chat") with the
+			// section-grouped queue. The submenu now renders a single
+			// `conversations-submenu` testid wrapping section headers.
+			expect(screen.getByTestId("conversations-submenu")).toBeInTheDocument();
+			// Canonical section headers are present even when empty.
+			const headers = screen.getAllByTestId("section-header").map((h) => h.textContent ?? "");
+			expect(headers[0]).toMatch(/^Pinned/i);
+			expect(headers[1]).toMatch(/^Blocking/i);
+			expect(headers[2]).toMatch(/^Reviews/i);
 		});
 	});
 
-	it("navigates between submenu items", async () => {
+	it("navigates via the IconRail when switching between top-level views", async () => {
 		const user = userEvent.setup();
 		renderShell("/conversations/review");
 
@@ -56,12 +63,14 @@ describe("AppShell", () => {
 			expect(screen.getByText("Test Page Content")).toBeInTheDocument();
 		});
 
-		// Click Chat nav item
-		const chatLink = screen.getByText("Chat");
-		await user.click(chatLink);
+		// L3: thread navigation now happens via the section-grouped list
+		// (clicking a row or pressing Enter). The IconRail still routes
+		// between top-level views; this asserts that path stays intact.
+		const workButton = screen.getByRole("button", { name: /work/i });
+		await user.click(workButton);
 
 		await waitFor(() => {
-			expect(screen.getByText("Chat Page")).toBeInTheDocument();
+			expect(screen.getByText("Portfolio Page")).toBeInTheDocument();
 		});
 	});
 
@@ -118,20 +127,17 @@ describe("AppShell", () => {
 		}
 
 		it("re-collapses Submenu live when the viewport shrinks below 1024px", async () => {
-			// Start at 1920 (wide — submenu expanded, Review Queue visible).
+			// Start at 1920 (wide — submenu expanded; section headers visible).
 			setViewport(1920);
 			renderShell();
 			await waitFor(() => {
-				expect(screen.getByText("Review Queue")).toBeInTheDocument();
+				expect(screen.getByTestId("conversations-submenu")).toBeInTheDocument();
 			});
-			// Shrink to 800px — Submenu must re-collapse, which means the
-			// Submenu component stops rendering its children (see Submenu.tsx
-			// — when `collapsed`, children are not rendered at all).
+			// Shrink to 800px — Submenu collapses, its children stop rendering.
 			setViewport(800);
 			await waitFor(() => {
-				expect(screen.queryByText("Review Queue")).not.toBeInTheDocument();
+				expect(screen.queryByTestId("conversations-submenu")).not.toBeInTheDocument();
 			});
-			// Restore default for other tests.
 			setViewport(1920);
 		});
 	});

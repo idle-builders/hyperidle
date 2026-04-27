@@ -73,7 +73,9 @@ describe("H4 honest-state: synchronous Drizzle call-site audit", () => {
 		// L1 (red phase) added agents-autonomy-routes.test.ts +
 		// autonomy-service.test.ts with the same in-memory-SQLite test
 		// pattern — bump the snapshot to absorb that legitimate growth.
-		const SNAPSHOT_COUNT = 993;
+		// L3+L4 added conversations-list, verdict-undo and related tests
+		// using the same in-memory-SQLite pattern; bump again.
+		const SNAPSHOT_COUNT = 1050;
 		const TOLERANCE = 50; // absorb routine renames without a fail-open
 
 		const humanReport = hits

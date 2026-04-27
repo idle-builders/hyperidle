@@ -3,19 +3,13 @@
  * CI fast. The dev server must be running on the configured port before tests
  * execute. Use `webServer` config to auto-start it, or run `bun dev` manually.
  *
- * @lore L6 DoD: per-worktree port discovery. When multiple git worktrees run
- * dev servers in parallel, the default 5173 collides. Set `WEB_PORT` (and
- * optionally `API_PORT`) to a unique port per worktree, e.g.:
- *
- *   WEB_PORT=5175 npx playwright test e2e/request-changes.spec.ts
- *
- * The vite dev server reads `WEB_PORT` via `--port` from the workspace `dev`
- * script when present; otherwise it falls back to 5173. The webServer block
- * here just points playwright at the same port.
+ * @lore L3 DoD: WEB_PORT env var supports running a dedicated server on a
+ * non-default port (e.g. 5176) to avoid colliding with shared dev servers
+ * across worktrees. The dev script honors WEB_PORT via vite.config.ts.
  */
 import { defineConfig, devices } from "@playwright/test";
 
-const WEB_PORT = Number.parseInt(process.env.WEB_PORT ?? "5173", 10);
+const WEB_PORT = Number(process.env.WEB_PORT ?? 5173);
 const BASE_URL = `http://localhost:${WEB_PORT}`;
 
 export default defineConfig({
@@ -36,13 +30,10 @@ export default defineConfig({
 		},
 	],
 	webServer: {
-		command: "bun run dev",
+		command: `WEB_PORT=${WEB_PORT} bun run --filter @hyperidle/web dev`,
 		url: BASE_URL,
 		reuseExistingServer: !process.env.CI,
 		timeout: 30_000,
 		cwd: "../..",
-		env: {
-			WEB_PORT: String(WEB_PORT),
-		},
 	},
 });

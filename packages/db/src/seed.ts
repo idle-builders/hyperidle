@@ -7,11 +7,13 @@ import {
 	agents,
 	bets,
 	factorySettings,
+	items,
 	knowledgeItems,
 	products,
 	routines,
 	tasks,
 	teams,
+	threads,
 } from "./schema.js";
 import {
 	asBit01,
@@ -245,6 +247,101 @@ export function seed(db: SeedableDb | HyperIdleDb): void {
 	// `packages/db/src/__tests__/seed.test.ts` pins the trigger_type per id
 	// so drift is caught by CI.
 	seedBuiltinRoutines(db, now);
+
+	// L3: seed 3 review threads + 1 chat thread so the Conversations
+	// submenu has rows to render in the e2e fixture. Idempotent via
+	// onConflictDoNothing — re-running the seed is a no-op.
+	//
+	// @lore L3: Item timestamps are spread (NOW - 30s, NOW - 20s, NOW - 10s,
+	// NOW - 5s) so `lastActivityAt` ordering is deterministic in tests. The
+	// chat thread participates with the Coach/CoS agent so the sticky-pin
+	// affordance has data to consume once L9 ships visual gating.
+	seedL3ConversationsFixture(db, now);
+}
+
+function seedL3ConversationsFixture(db: SeedableDb | HyperIdleDb, now: string): void {
+	const nowMs = Date.parse(now);
+	const ts = (offsetMs: number): string => new Date(nowMs - offsetMs).toISOString();
+
+	// Three review threads — one routed to CEO (blocking), one to CPO,
+	// one unrouted.
+	const threadFixtures = [
+		{
+			id: "seed-thread-review-1",
+			kind: "review",
+			pinned: 0,
+			participants: JSON.stringify(["seed-agent-builder"]),
+			routedToActorId: "actor:ceo",
+			domainTag: "growth",
+			createdAt: ts(60_000),
+			itemTitle: "Review: API rate-limit policy",
+			itemBlocking: 1,
+			itemCreatedAt: ts(10_000),
+		},
+		{
+			id: "seed-thread-review-2",
+			kind: "review",
+			pinned: 0,
+			participants: JSON.stringify(["seed-agent-pm-nimmly"]),
+			routedToActorId: "actor:cpo",
+			domainTag: "product",
+			createdAt: ts(120_000),
+			itemTitle: "Review: Onboarding copy revision",
+			itemBlocking: 0,
+			itemCreatedAt: ts(20_000),
+		},
+		{
+			id: "seed-thread-review-3",
+			kind: "review",
+			pinned: 0,
+			participants: JSON.stringify(["seed-agent-builder"]),
+			routedToActorId: null as string | null,
+			domainTag: null as string | null,
+			createdAt: ts(180_000),
+			itemTitle: "Review: Cost cap update",
+			itemBlocking: 0,
+			itemCreatedAt: ts(30_000),
+		},
+		{
+			id: "seed-thread-chat-coach",
+			kind: "chat",
+			pinned: 1,
+			participants: JSON.stringify(["seed-agent-cos"]),
+			routedToActorId: null as string | null,
+			domainTag: null as string | null,
+			createdAt: ts(240_000),
+			itemTitle: "Chat: Daily check-in",
+			itemBlocking: 0,
+			itemCreatedAt: ts(5_000),
+		},
+	];
+
+	for (const t of threadFixtures) {
+		db.insert(threads)
+			.values({
+				id: t.id,
+				kind: t.kind,
+				pinned: t.pinned,
+				participants: t.participants,
+				routedToActorId: t.routedToActorId,
+				domainTag: t.domainTag,
+				createdAt: t.createdAt,
+			})
+			.onConflictDoNothing()
+			.run();
+
+		db.insert(items)
+			.values({
+				id: `${t.id}-item-1`,
+				title: t.itemTitle,
+				body: null,
+				blocking: t.itemBlocking,
+				threadId: t.id,
+				createdAt: t.itemCreatedAt,
+			})
+			.onConflictDoNothing()
+			.run();
+	}
 }
 
 function seedBuiltinRoutines(db: SeedableDb | HyperIdleDb, _now: string): void {

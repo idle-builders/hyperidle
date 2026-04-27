@@ -194,8 +194,15 @@ test.describe("K8 — Touch-target audit at mobile viewport (≤ 1024px)", () =>
 		// Use the live app shell at the mobile breakpoint so `useAutoDensity`
 		// picks `comfortable` automatically. Then measure the NavItem button
 		// height in the nav rail (the canonical density consumer).
-		await page.goto("/conversations/review");
-		await page.waitForSelector("[data-testid='conversations-review-page']");
+		//
+		// @lore L3: the Conversations submenu was rewritten as a section-
+		// grouped ThreadRow queue and no longer renders NavItem. Probe the
+		// /work/portfolio route instead, which keeps the static NavItem-based
+		// Submenu rendering ("Portfolio" / "Team Board"). NavItem reads the
+		// same density tokens regardless of route — the contract being
+		// proven is the K7 token cascade, not a route-specific binding.
+		await page.goto("/work/portfolio");
+		await page.waitForSelector("[data-testid='work-portfolio-page']");
 		// Verify the shell did resolve to comfortable at the mobile viewport.
 		const density = await page.evaluate(() =>
 			document.querySelector("[data-density]")?.getAttribute("data-density"),
