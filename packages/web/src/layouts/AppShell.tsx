@@ -4,11 +4,7 @@ import { NavItem } from "@hyperidle/design-system";
  * It manages view state, submenu state, settings panel, and global search.
  * This is NOT a custom component — it is a page-level composition assembling Tier 3 regions.
  */
-import {
-	KILL_SWITCH_BLAST_RADIUS,
-	KNOWLEDGE_SCOPES,
-	type KnowledgeScope,
-} from "@hyperidle/shared";
+import { KILL_SWITCH_BLAST_RADIUS, KNOWLEDGE_SCOPES, type KnowledgeScope } from "@hyperidle/shared";
 import { type JSX, useCallback, useEffect, useMemo, useState } from "react";
 import { Outlet, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { AvatarMenu } from "../components/AvatarMenu";
@@ -26,10 +22,10 @@ import {
 	MOCK_RAIL_COST,
 } from "../fixtures/app-shell-data";
 import { topicsForScope } from "../fixtures/knowledge-data";
+import { FactoryStateProvider } from "../hooks/factoryStateContext";
 import { useAutoDensity } from "../hooks/useAutoDensity";
 import { useCommandK } from "../hooks/useCommandK";
 import { useConversations } from "../hooks/useConversations";
-import { FactoryStateProvider } from "../hooks/factoryStateContext";
 import { useFactoryState } from "../hooks/useFactoryState";
 import { useKillSwitchShortcut } from "../hooks/useKillSwitchShortcut";
 import { useMe } from "../hooks/useMe";
@@ -614,7 +610,13 @@ export function AppShell(): JSX.Element {
 							data-testid="mobile-avatar"
 							onClick={handleAvatarClick}
 						>
-							<svg aria-hidden="true" width={20} height={20} viewBox="0 0 16 16" fill="currentColor">
+							<svg
+								aria-hidden="true"
+								width={20}
+								height={20}
+								viewBox="0 0 16 16"
+								fill="currentColor"
+							>
 								<circle cx="8" cy="5" r="3" />
 								<path d="M2 14a6 6 0 0112 0H2z" />
 							</svg>
@@ -736,10 +738,7 @@ export function AppShell(): JSX.Element {
 		>
 			{factoryState.paused ? (
 				<div className="absolute inset-x-0 top-0 z-40">
-					<FactoryPausedBanner
-						state={factoryState}
-						onResume={() => void handleResumeFactory()}
-					/>
+					<FactoryPausedBanner state={factoryState} onResume={() => void handleResumeFactory()} />
 				</div>
 			) : null}
 			{killSwitchOpen ? (

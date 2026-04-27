@@ -793,9 +793,7 @@ describe("L7 AC2: factory pause cascades to running sessions and queued tasks", 
 		// Every running session is now paused with a kill-marked checkpoint.
 		for (const id of sessionIds) {
 			const row = db.get<{ state: string; pause_checkpoint: string }>(
-				sql.raw(
-					`SELECT state, pause_checkpoint FROM "sessions" WHERE id = '${id}'`,
-				),
+				sql.raw(`SELECT state, pause_checkpoint FROM "sessions" WHERE id = '${id}'`),
 			);
 			expect(row?.state).toBe("paused");
 			expect(row?.pause_checkpoint).toBeTruthy();
@@ -850,9 +848,7 @@ describe("L7 AC2: factory pause cascades to running sessions and queued tasks", 
 
 		// Kill-paused session must be running again.
 		const restored = db.get<{ state: string; pause_checkpoint: string | null }>(
-			sql.raw(
-				`SELECT state, pause_checkpoint FROM "sessions" WHERE id = '${sessionIds[1]}'`,
-			),
+			sql.raw(`SELECT state, pause_checkpoint FROM "sessions" WHERE id = '${sessionIds[1]}'`),
 		);
 		expect(restored?.state).toBe("running");
 		expect(restored?.pause_checkpoint).toBeNull();

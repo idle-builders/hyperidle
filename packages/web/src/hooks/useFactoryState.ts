@@ -13,7 +13,7 @@
  * at the trust boundary — a mid-flight schema drift surfaces as a
  * dropped poll instead of corrupted state.
  */
-import { factoryStateResponseSchema, type FactoryStateResponse } from "@hyperidle/shared";
+import { type FactoryStateResponse, factoryStateResponseSchema } from "@hyperidle/shared";
 import { useCallback, useEffect, useState } from "react";
 
 const POLL_INTERVAL_MS = 30_000;

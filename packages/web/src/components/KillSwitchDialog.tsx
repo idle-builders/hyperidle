@@ -29,7 +29,7 @@
  * shared `KillSwitchConfirmMode` enum) — `reason_only` is a dialog-
  * level mode for callers that already know rollback gates differently.
  */
-import { PRESS_HOLD_MS, RATIONALE_MAX_CHARS, type KillSwitchConfirmMode } from "@hyperidle/shared";
+import { type KillSwitchConfirmMode, PRESS_HOLD_MS, RATIONALE_MAX_CHARS } from "@hyperidle/shared";
 import { useEffect, useId, useRef, useState } from "react";
 
 export type KillSwitchDialogMode = KillSwitchConfirmMode | "reason_only";

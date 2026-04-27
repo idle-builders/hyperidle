@@ -14,7 +14,7 @@
  * `reversible: true` for every committed verdict — the server-side
  * guard returns 410 for the `not_reversible_yet` cases.
  */
-import { type RecoveryOutcome } from "@hyperidle/shared";
+import type { RecoveryOutcome } from "@hyperidle/shared";
 import { useState } from "react";
 import { KillSwitchDialog } from "./KillSwitchDialog";
 
@@ -28,9 +28,7 @@ export interface RollbackOverflowItemProps {
 	onRollback: (input: { reason: string }) => Promise<{ outcome: RecoveryOutcome }>;
 }
 
-export function RollbackOverflowItem(
-	props: RollbackOverflowItemProps,
-): JSX.Element | null {
+export function RollbackOverflowItem(props: RollbackOverflowItemProps): JSX.Element | null {
 	const [dialogOpen, setDialogOpen] = useState(false);
 	const [submitting, setSubmitting] = useState(false);
 

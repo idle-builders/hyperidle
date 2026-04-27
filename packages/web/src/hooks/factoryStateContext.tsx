@@ -9,7 +9,7 @@
  * context provider; the AppShell mounts the only poller.
  */
 import type { FactoryStateResponse } from "@hyperidle/shared";
-import { createContext, useContext, type ReactNode } from "react";
+import { createContext, type ReactNode, useContext } from "react";
 
 interface FactoryStateContextValue {
 	state: FactoryStateResponse;

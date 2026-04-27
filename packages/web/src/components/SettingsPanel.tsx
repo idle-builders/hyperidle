@@ -120,13 +120,7 @@ export interface SettingsPanelProps {
 	onTriggerKillSwitch?: () => void;
 }
 
-type TabId =
-	| "profile"
-	| "products"
-	| "agents"
-	| "notifications"
-	| "appearance"
-	| "safety";
+type TabId = "profile" | "products" | "agents" | "notifications" | "appearance" | "safety";
 
 const TABS: { id: TabId; label: string }[] = [
 	{ id: "profile", label: "Profile" },
@@ -817,11 +811,7 @@ function SafetyTab(props: SafetyTabProps): JSX.Element {
 					Pauses every running session and blocks queued tasks until you resume.
 				</p>
 				{onTriggerKillSwitch ? (
-					<button
-						type="button"
-						className="btn btn-error btn-sm"
-						onClick={onTriggerKillSwitch}
-					>
+					<button type="button" className="btn btn-error btn-sm" onClick={onTriggerKillSwitch}>
 						Pause Factory
 					</button>
 				) : null}
@@ -857,17 +847,10 @@ function SafetyTab(props: SafetyTabProps): JSX.Element {
 				</div>
 			</section>
 
-			<section
-				role="region"
-				aria-label="Recent recovery actions"
-				className="space-y-2"
-			>
+			<section aria-label="Recent recovery actions" className="space-y-2">
 				<h3 className="text-sm font-medium">Recent recovery actions</h3>
-				<p className="text-xs text-[var(--text-lo)]">
-					No recovery actions recorded yet.
-				</p>
+				<p className="text-xs text-[var(--text-lo)]">No recovery actions recorded yet.</p>
 			</section>
-
 		</div>
 	);
 }

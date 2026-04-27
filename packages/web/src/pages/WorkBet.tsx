@@ -6,9 +6,6 @@ import {
 	StatusChip,
 	taskStateToStatus,
 } from "@hyperidle/design-system";
-import { PauseSessionButton } from "../components/PauseSessionButton";
-import { useFactoryStateContext } from "../hooks/factoryStateContext";
-import { useRecoveryFetch } from "../hooks/useRecoveryFetch";
 /**
  * Work/Bet page — bet detail view composed from Tier 2 components (BetCard, TaskCard)
  * and DaisyUI primitives. Shows bet details + task list for that bet.
@@ -23,6 +20,9 @@ import { useRecoveryFetch } from "../hooks/useRecoveryFetch";
 import type { BetStatus, TaskState } from "@hyperidle/shared";
 import { type JSX, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
+import { PauseSessionButton } from "../components/PauseSessionButton";
+import { useFactoryStateContext } from "../hooks/factoryStateContext";
+import { useRecoveryFetch } from "../hooks/useRecoveryFetch";
 
 interface MockBetComment {
 	id: string;
@@ -252,8 +252,8 @@ export function WorkBet({ loading = false, overrideBetId }: WorkBetProps = {}): 
 	// Pause/Resume affordance toggles immediately. The server is the
 	// source of truth — every action POSTs the corresponding endpoint;
 	// a failed call falls back to the prior state to avoid lying.
-	const [sessionStates, setSessionStates] = useState<Record<string, "running" | "paused">>(
-		() => Object.fromEntries(bet.runningSessions.map((s) => [s.id, "running" as const])),
+	const [sessionStates, setSessionStates] = useState<Record<string, "running" | "paused">>(() =>
+		Object.fromEntries(bet.runningSessions.map((s) => [s.id, "running" as const])),
 	);
 	const factoryState = useFactoryStateContext();
 	const recoveryFetch = useRecoveryFetch();

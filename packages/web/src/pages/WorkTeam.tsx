@@ -135,9 +135,9 @@ export function WorkTeam(): JSX.Element {
 	const [tasks, setTasks] = useState<KanbanTask[]>(INITIAL_TASKS);
 	const [pitchSelectorOpen, setPitchSelectorOpen] = useState(false);
 	const [selectedPitchIds, setSelectedPitchIds] = useState<string[]>([]);
-	const [teamSessionStates, setTeamSessionStates] = useState<
-		Record<string, "running" | "paused">
-	>(() => Object.fromEntries(MOCK_TEAM_SESSIONS.map((s) => [s.id, "running" as const])));
+	const [teamSessionStates, setTeamSessionStates] = useState<Record<string, "running" | "paused">>(
+		() => Object.fromEntries(MOCK_TEAM_SESSIONS.map((s) => [s.id, "running" as const])),
+	);
 	const factoryState = useFactoryStateContext();
 	const recoveryFetch = useRecoveryFetch();
 

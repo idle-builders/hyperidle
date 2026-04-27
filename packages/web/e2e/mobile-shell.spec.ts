@@ -149,8 +149,8 @@ test.describe("L5 — Mobile shell at 390×844", () => {
 		]) {
 			const box = await page.getByTestId(id).boundingBox();
 			expect(box, `${id} bounding`).not.toBeNull();
-			expect(box && box.height).toBeGreaterThanOrEqual(44);
-			expect(box && box.width).toBeGreaterThanOrEqual(44);
+			expect(box?.height).toBeGreaterThanOrEqual(44);
+			expect(box?.width).toBeGreaterThanOrEqual(44);
 		}
 		await ctx.close();
 	});

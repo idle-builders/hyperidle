@@ -334,7 +334,7 @@
 	}
 	[class*="animate-[skeleton-pulse"],
 	.skeleton {
-		animation: none !important;
+		animation: none;
 	}
 }
 

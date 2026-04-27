@@ -311,12 +311,7 @@ export function createThreadRoutingRoutes(db: HyperIdleDb): Hono<ActorEnv> {
 				const lastAudit = tx
 					.select({ verb: recoveryAudit.verb })
 					.from(recoveryAudit)
-					.where(
-						and(
-							eq(recoveryAudit.targetKind, "thread"),
-							eq(recoveryAudit.targetId, threadId),
-						),
-					)
+					.where(and(eq(recoveryAudit.targetKind, "thread"), eq(recoveryAudit.targetId, threadId)))
 					.orderBy(desc(recoveryAudit.at))
 					.limit(1)
 					.get();

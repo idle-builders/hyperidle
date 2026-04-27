@@ -12,8 +12,8 @@
  * pause row.
  */
 import {
-	factoryState,
 	type FactoryStateRow,
+	factoryState,
 	type HyperIdleDb,
 	recoveryAudit,
 	sessions,
@@ -73,11 +73,7 @@ function viewOf(row: FactoryStateRow | undefined): FactoryStateView {
 }
 
 export function readFactoryState(db: HyperIdleDb): FactoryStateView {
-	const row = db
-		.select()
-		.from(factoryState)
-		.where(eq(factoryState.id, FACTORY_SINGLETON_ID))
-		.get();
+	const row = db.select().from(factoryState).where(eq(factoryState.id, FACTORY_SINGLETON_ID)).get();
 	return viewOf(row);
 }
 
@@ -425,4 +421,3 @@ export function resumeSession(
 		{ behavior: "immediate" },
 	);
 }
-

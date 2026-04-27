@@ -90,10 +90,7 @@ export function createFactoryRoutes(db: HyperIdleDb): Hono<ActorEnv> {
 
 		const result = resumeFactory(db, { actorId, reason: body.reason });
 		if (!result.ok) {
-			return c.json(
-				{ error: "not_paused", code: API_ERROR_CODES.CONFLICT },
-				409,
-			);
+			return c.json({ error: "not_paused", code: API_ERROR_CODES.CONFLICT }, 409);
 		}
 		return c.json(
 			{ state: "running" as const, resumedAt: result.resumedAt, auditId: result.auditId },
@@ -118,10 +115,7 @@ export function createSessionRecoveryRoutes(db: HyperIdleDb): Hono<ActorEnv> {
 			if (result.reason === "not_found") {
 				return c.json({ error: "not_found", code: API_ERROR_CODES.NOT_FOUND }, 404);
 			}
-			return c.json(
-				{ error: "already_paused", code: API_ERROR_CODES.CONFLICT },
-				409,
-			);
+			return c.json({ error: "already_paused", code: API_ERROR_CODES.CONFLICT }, 409);
 		}
 		return c.json(
 			{
@@ -144,10 +138,7 @@ export function createSessionRecoveryRoutes(db: HyperIdleDb): Hono<ActorEnv> {
 			if (result.reason === "not_found") {
 				return c.json({ error: "not_found", code: API_ERROR_CODES.NOT_FOUND }, 404);
 			}
-			return c.json(
-				{ error: "not_paused", code: API_ERROR_CODES.CONFLICT },
-				409,
-			);
+			return c.json({ error: "not_paused", code: API_ERROR_CODES.CONFLICT }, 409);
 		}
 		return c.json(
 			{ state: "running" as const, resumedAt: result.resumedAt, auditId: result.auditId },

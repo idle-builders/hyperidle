@@ -639,7 +639,6 @@ export function ConversationsReview(): JSX.Element {
 			/>
 			{rollbackToast ? (
 				<output
-					role="status"
 					data-testid="rollback-outcome-toast"
 					className="fixed bottom-4 right-4 z-50 rounded-[var(--r2)] border border-[var(--border-default)] bg-base-200 px-4 py-2 text-sm shadow-[var(--float)]"
 				>

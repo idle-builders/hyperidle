@@ -66,7 +66,6 @@ export function AvatarMenu(props: AvatarMenuProps): JSX.Element {
 			)}
 			{open ? (
 				<ul
-					role="menu"
 					aria-label="Avatar menu"
 					className="absolute right-0 mt-2 min-w-48 rounded-lg border border-base-300 bg-base-100 p-1 text-sm shadow-md z-50"
 				>
