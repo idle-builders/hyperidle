@@ -7,6 +7,7 @@ import { NavItem } from "@hyperidle/design-system";
 import { KNOWLEDGE_SCOPES, type KnowledgeScope } from "@hyperidle/shared";
 import { type JSX, useCallback, useEffect, useMemo, useState } from "react";
 import { Outlet, useLocation, useNavigate, useSearchParams } from "react-router-dom";
+import { AvatarMenu } from "../components/AvatarMenu";
 import { ErrorBoundary } from "../components/ErrorBoundary";
 import { FactoryPausedBanner } from "../components/FactoryPausedBanner";
 import { GlobalSearchPanel } from "../components/GlobalSearchPanel";
@@ -294,8 +295,20 @@ export function AppShell(): JSX.Element {
 		[navigate],
 	);
 
+	// L7 AC1: avatar click opens the AvatarMenu dropdown — NOT Settings
+	// directly. The menu exposes the kill switch ("Pause Factory") as
+	// one of three required entry points. Settings is reachable via the
+	// "Settings" menu item.
+	const [avatarMenuOpen, setAvatarMenuOpen] = useState(false);
 	const handleAvatarClick = useCallback((): void => {
-		setSettingsOpen(true);
+		setAvatarMenuOpen((v) => !v);
+	}, []);
+	const handleSignOut = useCallback((): void => {
+		// @lore L7 AC1: Sign out is wired as a stub here — the wider
+		// auth/session handler ships outside the L7 scope. Closing the
+		// menu is the visible behavior; the contract that the menu
+		// item exists and is reachable is the AC.
+		setAvatarMenuOpen(false);
 	}, []);
 
 	// L7: factory-state subscription (singleton row) + kill-switch dialog +
@@ -582,18 +595,41 @@ export function AppShell(): JSX.Element {
 					<span className="font-mono text-xs uppercase tracking-wider text-[var(--text-mid)]">
 						{SUBMENU_CONFIG[activeView].title}
 					</span>
-					<button
-						type="button"
-						className="btn btn-ghost btn-sm btn-circle"
-						aria-label="Coach (User profile)"
-						data-testid="mobile-avatar"
-						onClick={handleAvatarClick}
-					>
-						<svg aria-hidden="true" width={20} height={20} viewBox="0 0 16 16" fill="currentColor">
-							<circle cx="8" cy="5" r="3" />
-							<path d="M2 14a6 6 0 0112 0H2z" />
-						</svg>
-					</button>
+					<div className="relative">
+						<button
+							type="button"
+							className="btn btn-ghost btn-sm btn-circle"
+							aria-label="Coach (User profile)"
+							aria-haspopup="menu"
+							aria-expanded={avatarMenuOpen}
+							data-testid="mobile-avatar"
+							onClick={handleAvatarClick}
+						>
+							<svg aria-hidden="true" width={20} height={20} viewBox="0 0 16 16" fill="currentColor">
+								<circle cx="8" cy="5" r="3" />
+								<path d="M2 14a6 6 0 0112 0H2z" />
+							</svg>
+						</button>
+						<AvatarMenu
+							actor={{
+								id: meData.me?.id ?? "actor:ceo",
+								name: meData.me?.role ?? "Founder",
+								role: meData.me?.role ?? "CEO",
+							}}
+							controlled
+							open={avatarMenuOpen}
+							onOpenChange={setAvatarMenuOpen}
+							onPauseFactory={() => {
+								setAvatarMenuOpen(false);
+								setKillSwitchOpen(true);
+							}}
+							onOpenSettings={() => {
+								setAvatarMenuOpen(false);
+								setSettingsOpen(true);
+							}}
+							onSignOut={handleSignOut}
+						/>
+					</div>
 				</header>
 				<RailGlanceStrip
 					blockingCount={mobileRailGlance.blockingCount}
@@ -703,12 +739,41 @@ export function AppShell(): JSX.Element {
 				/>
 			) : null}
 			<div className={shellWrapperClass} aria-hidden={shellDimmed || undefined}>
-				<IconRail
-					activeView={activeView}
-					onViewChange={handleViewChange}
-					onAvatarClick={handleAvatarClick}
-					badgeCountByView={badgeCountByView}
-				/>
+				{/* L7 AC1: AvatarMenu anchored to the bottom-left of the
+				    IconRail (the rail is 48 px wide and the avatar
+				    button sits at its bottom). Controlled so the same
+				    avatar-click toggle drives both rail and menu. */}
+				<div className="relative">
+					<IconRail
+						activeView={activeView}
+						onViewChange={handleViewChange}
+						onAvatarClick={handleAvatarClick}
+						badgeCountByView={badgeCountByView}
+					/>
+					{avatarMenuOpen ? (
+						<div className="absolute bottom-2 left-12 z-50">
+							<AvatarMenu
+								actor={{
+									id: meData.me?.id ?? "actor:ceo",
+									name: meData.me?.name ?? "Founder",
+									role: (meData.me?.role as "CEO" | "CPO") ?? "CEO",
+								}}
+								controlled
+								open={avatarMenuOpen}
+								onOpenChange={setAvatarMenuOpen}
+								onPauseFactory={() => {
+									setAvatarMenuOpen(false);
+									setKillSwitchOpen(true);
+								}}
+								onOpenSettings={() => {
+									setAvatarMenuOpen(false);
+									setSettingsOpen(true);
+								}}
+								onSignOut={handleSignOut}
+							/>
+						</div>
+					) : null}
+				</div>
 
 				<Submenu
 					title={submenuConfig.title}
