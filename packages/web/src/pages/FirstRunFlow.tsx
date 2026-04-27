@@ -392,19 +392,19 @@ function NorthStarStep({ onDone }: StepProps): JSX.Element {
 	const [submitting, setSubmitting] = useState(false);
 	const [err, setErr] = useState<string | null>(null);
 
-	const updateField = useCallback(
-		(kind: NorthStarKind, patch: Partial<NorthStarFieldState>) => {
-			setFields((prev) => ({ ...prev, [kind]: { ...prev[kind], ...patch } }));
-		},
-		[],
-	);
+	const updateField = useCallback((kind: NorthStarKind, patch: Partial<NorthStarFieldState>) => {
+		setFields((prev) => ({ ...prev, [kind]: { ...prev[kind], ...patch } }));
+	}, []);
 
 	const onSubmit = useCallback(
 		async (e: React.FormEvent): Promise<void> => {
 			e.preventDefault();
 			// C2: each field must be EITHER skipped OR have a non-empty body.
 			// Reject submission with both empty body AND not-skipped.
-			const validation: Record<NorthStarKind, { skipped: true } | { skipped: false; body: string }> = {
+			const validation: Record<
+				NorthStarKind,
+				{ skipped: true } | { skipped: false; body: string }
+			> = {
 				principles: { skipped: true },
 				focus: { skipped: true },
 				portfolio: { skipped: true },
@@ -475,7 +475,11 @@ function NorthStarStep({ onDone }: StepProps): JSX.Element {
 							className="textarea textarea-bordered min-h-[6rem]"
 							value={field.body}
 							onChange={(e) => updateField(def.kind, { body: e.target.value })}
-							placeholder={field.skipped ? "Skipped — Coach will follow up" : `Outline your ${def.label.toLowerCase()}`}
+							placeholder={
+								field.skipped
+									? "Skipped — Coach will follow up"
+									: `Outline your ${def.label.toLowerCase()}`
+							}
 							disabled={field.skipped}
 							data-testid={def.testid}
 						/>

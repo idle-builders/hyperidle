@@ -155,9 +155,7 @@ describe("L10 FirstRunFlow", () => {
 		await user.type(screen.getByTestId("first-run-portfolio"), "po");
 		await user.click(screen.getByTestId("first-run-north-star-submit"));
 		// C2 spec: north-star body uses { skipped, body } per field.
-		const northStarCall = mock.calls.find((c) =>
-			c.url.endsWith("/api/first-run/north-star"),
-		);
+		const northStarCall = mock.calls.find((c) => c.url.endsWith("/api/first-run/north-star"));
 		expect(northStarCall).toBeDefined();
 		if (northStarCall?.init?.body) {
 			const sent = JSON.parse(String(northStarCall.init.body));
@@ -205,9 +203,7 @@ describe("L10 FirstRunFlow", () => {
 		// not silently fake "I'll do this later".
 		await user.click(screen.getByTestId("first-run-north-star-submit"));
 		expect(await screen.findByTestId("first-run-north-star-error")).toBeInTheDocument();
-		expect(
-			mock.calls.filter((c) => c.url.endsWith("/api/first-run/north-star")),
-		).toHaveLength(0);
+		expect(mock.calls.filter((c) => c.url.endsWith("/api/first-run/north-star"))).toHaveLength(0);
 
 		// Skip principles + portfolio explicitly, fill focus.
 		await user.click(screen.getByTestId("first-run-principles-skip"));

@@ -86,8 +86,7 @@ describe("pingAnthropic", () => {
 
 	describe("T1 — error-body branches", () => {
 		it("handles a 5xx with a non-JSON body", async () => {
-			const fetcher: FetchLike = async () =>
-				new Response("upstream toast", { status: 502 });
+			const fetcher: FetchLike = async () => new Response("upstream toast", { status: 502 });
 			const result = await pingAnthropic({ key: "sk-ant-x", fetcher });
 			expect(result.ok).toBe(false);
 			expect(result.status).toBe(502);
