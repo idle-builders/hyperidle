@@ -11,6 +11,16 @@
  * `<Navigate />` to avoid a render-time navigation that would mask the
  * AppShell mount during loading. The skeleton is plain prose, not the
  * shell, so no provider data fetches kick off.
+ *
+ * @lore L10: when the status fetch errors (server unreachable / network
+ * fail), the gate falls through to children rather than blocking on a
+ * permanent loading screen. Two reasons: (1) populated surfaces own their
+ * own error/empty states and produce a more useful UX than a single
+ * "server unreachable" line; (2) the alternative — a permanent block —
+ * caused every Playwright e2e spec without an explicit /api/first-run/status
+ * mock to hang indefinitely (CI has no backend on :3001). Specs that
+ * exercise the gate's redirect-to-/first-run behaviour mock the endpoint
+ * with `complete: false`, which still goes through the success branch.
  */
 import type { JSX } from "react";
 import { useEffect } from "react";
@@ -34,17 +44,21 @@ export function FirstRunGate({ children }: Props): JSX.Element {
 		}
 	}, [status, loading, error, navigate, location.pathname]);
 
-	if (loading || error) {
+	if (loading) {
 		return (
 			<div
 				className="min-h-screen flex items-center justify-center"
 				data-testid="first-run-gate-loading"
 			>
-				<span className="text-sm text-[var(--text-mid)]">
-					{error ? `Server unreachable: ${error.message}` : "Loading…"}
-				</span>
+				<span className="text-sm text-[var(--text-mid)]">Loading…</span>
 			</div>
 		);
+	}
+
+	if (error) {
+		// Server unreachable: fall through to children so the populated
+		// surfaces can render their own error/empty states. See @lore above.
+		return <>{children}</>;
 	}
 
 	if (status && !status.complete) {
