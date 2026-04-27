@@ -9,5 +9,8 @@ export default defineProject({
 		// get picked up by the runner. Vitest project-level `exclude`
 		// replaces the root's value rather than extending it.
 		exclude: ["**/node_modules/**", "**/visual-regression*", "tests/**"],
+		// @lore L6: see web/vitest.config.ts — inline shared so its transitive
+		// `zod` import resolves under the project's node resolver.
+		server: { deps: { inline: ["@hyperidle/shared"] } },
 	},
 });
