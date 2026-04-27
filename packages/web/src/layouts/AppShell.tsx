@@ -734,16 +734,18 @@ export function AppShell(): JSX.Element {
 
 	return (
 		<div
-			className="flex h-screen bg-base-100 overflow-hidden"
+			// @lore L7 (DES3/DES4): outer container is column-flex so
+			// the FactoryPausedBanner pushes the IconRail|Submenu|Main|Rail
+			// row DOWN instead of overlaying it. The prior `absolute
+			// inset-x-0 top-0` mount clipped the topmost NavItem icons
+			// on the IconRail. Banner mounts identically on desktop +
+			// mobile (single banner mount strategy).
+			className="flex h-screen flex-col bg-base-100 overflow-hidden"
 			data-density={resolvedDensity}
 			data-density-preference={settings.appearance.density}
 			data-shell-mode="desktop"
 		>
-			{factoryState.paused ? (
-				<div className="absolute inset-x-0 top-0 z-40">
-					<FactoryPausedBanner state={factoryState} onResume={() => void handleResumeFactory()} />
-				</div>
-			) : null}
+			<FactoryPausedBanner state={factoryState} onResume={() => void handleResumeFactory()} />
 			{killSwitchOpen ? (
 				<KillSwitchDialog
 					open
@@ -874,6 +876,15 @@ export function AppShell(): JSX.Element {
 				onClose={() => setSettingsOpen(false)}
 				onSave={handleSettingsSave}
 				settings={settings}
+				onTriggerKillSwitch={() => {
+					// L7 (DES1): AC1 requires three kill-switch entry
+					// points on every form factor. The desktop branch
+					// previously omitted onTriggerKillSwitch, hiding the
+					// Settings → Safety button on the primary form
+					// factor. Mirror the mobile wiring.
+					setSettingsOpen(false);
+					setKillSwitchOpen(true);
+				}}
 			/>
 
 			<GlobalSearchPanel
