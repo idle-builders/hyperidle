@@ -16,6 +16,7 @@ export type {
 } from "./constants/recovery.js";
 export {
 	DEFAULT_KILL_SWITCH_CONFIRM_MODE,
+	KILL_SWITCH_BLAST_RADIUS,
 	PRESS_HOLD_MS,
 	RATIONALE_MAX_CHARS,
 	RECOVERY_OUTCOMES,

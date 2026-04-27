@@ -4,7 +4,11 @@ import { NavItem } from "@hyperidle/design-system";
  * It manages view state, submenu state, settings panel, and global search.
  * This is NOT a custom component — it is a page-level composition assembling Tier 3 regions.
  */
-import { KNOWLEDGE_SCOPES, type KnowledgeScope } from "@hyperidle/shared";
+import {
+	KILL_SWITCH_BLAST_RADIUS,
+	KNOWLEDGE_SCOPES,
+	type KnowledgeScope,
+} from "@hyperidle/shared";
 import { type JSX, useCallback, useEffect, useMemo, useState } from "react";
 import { Outlet, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { AvatarMenu } from "../components/AvatarMenu";
@@ -586,7 +590,7 @@ export function AppShell(): JSX.Element {
 						open
 						verb="factory_pause"
 						target={{ id: "factory", name: "HyperIdle" }}
-						blastRadius="This will pause every running session and block queued tasks until you resume."
+						blastRadius={KILL_SWITCH_BLAST_RADIUS}
 						mode={settings.safety.killSwitchConfirmMode}
 						onConfirm={handleConfirmFactoryPause}
 						onCancel={() => setKillSwitchOpen(false)}
@@ -743,7 +747,7 @@ export function AppShell(): JSX.Element {
 					open
 					verb="factory_pause"
 					target={{ id: "factory", name: "HyperIdle" }}
-					blastRadius="This will pause every running session and block queued tasks until you resume."
+					blastRadius={KILL_SWITCH_BLAST_RADIUS}
 					mode="press_hold"
 					onConfirm={handleConfirmFactoryPause}
 					onCancel={() => setKillSwitchOpen(false)}

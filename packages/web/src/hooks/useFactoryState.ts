@@ -8,10 +8,12 @@
  *
  * @lore L7 plan §5: a future story can wire the existing `/api/ws/*`
  * channel to push state changes; until then the 30s poll is the
- * cheapest correct option. The hook is a no-op on `!enabled` so a
- * suspended-tab re-render does not amplify load.
+ * cheapest correct option.
+ * @lore L7 (AI6): response is validated with `factoryStateResponseSchema`
+ * at the trust boundary — a mid-flight schema drift surfaces as a
+ * dropped poll instead of corrupted state.
  */
-import type { FactoryStateResponse } from "@hyperidle/shared";
+import { factoryStateResponseSchema, type FactoryStateResponse } from "@hyperidle/shared";
 import { useCallback, useEffect, useState } from "react";
 
 const POLL_INTERVAL_MS = 30_000;
@@ -28,12 +30,6 @@ interface UseFactoryStateResult {
 	refresh: () => void;
 }
 
-function isFactoryStateResponse(v: unknown): v is FactoryStateResponse {
-	if (!v || typeof v !== "object") return false;
-	const r = v as Record<string, unknown>;
-	return typeof r.paused === "boolean";
-}
-
 export function useFactoryState(): UseFactoryStateResult {
 	const [state, setState] = useState<FactoryStateResponse>(RUNNING);
 
@@ -42,11 +38,15 @@ export function useFactoryState(): UseFactoryStateResult {
 			const res = await fetch("/api/factory/state", { signal });
 			if (!res.ok) return;
 			const json: unknown = await res.json();
-			if (isFactoryStateResponse(json)) {
-				setState(json);
+			const parsed = factoryStateResponseSchema.safeParse(json);
+			if (parsed.success) {
+				setState(parsed.data);
 			}
 		} catch {
-			// Network errors are silent — stale state is preferred to a flicker.
+			// Aborts + transient network errors — stale state is
+			// preferred to a flicker. JSON parse failures fall through
+			// here too; a mid-flight schema drift would show as a
+			// silently-skipped poll, not a thrown render.
 		}
 	}, []);
 

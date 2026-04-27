@@ -59,8 +59,13 @@ function emptyState(): FactoryStateView {
 
 function viewOf(row: FactoryStateRow | undefined): FactoryStateView {
 	if (!row) return emptyState();
+	// @lore L7 (AI14/AI28): `paused` is `mode: "boolean"` notNull
+	// default(false) so Drizzle returns a real boolean — no coercion
+	// needed. The factory-paused-guard middleware reads `state.paused`
+	// directly; if this ever changes back to a coerced int, the guard
+	// must be revisited.
 	return {
-		paused: Boolean(row.paused),
+		paused: row.paused,
 		pausedBy: row.pausedBy,
 		pausedAt: row.pausedAt,
 		pausedReason: row.pausedReason,

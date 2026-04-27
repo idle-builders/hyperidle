@@ -22,8 +22,13 @@ interface MockTeamSession {
 
 // @lore L7 AC4: bet/team detail surfaces must show a Pause button per
 // running session. This page used to be entirely mock; we add a small
-// running-sessions strip so AC4's "team detail" requirement is met. The
-// real session feed lands in a later story.
+// running-sessions strip so AC4's "team detail" requirement is met.
+// TODO(post-L7): replace MOCK_TEAM_SESSIONS with the real session feed
+// once the team-scoped session listing endpoint ships. Until then the
+// IDs here are deliberately stub: clicking Pause hits the real POST
+// endpoint and 404s on a fresh DB. The optimistic local-state flip is
+// kept so the UI surface (button label, dialog flow) is exercisable
+// in dev without a populated DB.
 const MOCK_TEAM_SESSIONS: MockTeamSession[] = [
 	{ id: "session-team-1", agentName: "Dev Agent 1", taskTitle: "Implement login endpoint" },
 	{ id: "session-team-3", agentName: "Dev Agent 1", taskTitle: "JWT refresh logic" },

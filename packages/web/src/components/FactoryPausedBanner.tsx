@@ -20,10 +20,10 @@ export interface FactoryPausedBannerProps {
 
 function actorLabel(actorId: string | null): string {
 	if (!actorId) return "an operator";
-	// `actor:ceo` → `CEO`. Treat unknown ids as the raw value.
-	const role = actorId.split(":")[1];
-	if (!role) return actorId;
-	return role.toUpperCase();
+	// `actor:ceo` → `CEO`. For ids with no `:` separator, fall through
+	// to the raw id (uppercased). Tail of the split — `at(-1)` — handles
+	// `actor:ceo:extra` symmetrically without a special case.
+	return actorId.split(":").at(-1)?.toUpperCase() ?? actorId;
 }
 
 export function FactoryPausedBanner(props: FactoryPausedBannerProps): JSX.Element | null {

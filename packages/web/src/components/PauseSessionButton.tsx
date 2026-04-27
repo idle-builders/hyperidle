@@ -6,9 +6,12 @@
  * the parent's `onPause` hook posts to `/api/sessions/:id/pause`.
  *
  * @lore L7 (AC4 + plan §8): when the factory is paused (`factoryPaused`
- * prop), the Pause button is disabled — the founder must resume the
- * factory first. Resume is always allowed because the test scenarios
- * pin "factory_resume must run first" semantics.
+ * prop), the per-session Pause button is disabled — the founder must
+ * resume the factory first. Per-session Resume IS also disabled while
+ * the factory is paused: factory-resume must run first (it auto-
+ * restores kill-paused sessions), and a mid-session pause stays paused
+ * until the factory is running again. The L7 server tests pin this
+ * "factory_resume must run first" ordering.
  */
 import { useState } from "react";
 import { KillSwitchDialog } from "./KillSwitchDialog";
@@ -30,6 +33,7 @@ export function PauseSessionButton(props: PauseSessionButtonProps): JSX.Element 
 				className="btn btn-xs btn-outline"
 				onClick={() => void props.onResume()}
 				disabled={props.factoryPaused}
+				title={props.factoryPaused ? "Resume the factory first" : undefined}
 			>
 				Resume
 			</button>

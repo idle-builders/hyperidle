@@ -30,6 +30,18 @@ export type RecoveryOutcome = (typeof RECOVERY_OUTCOMES)[number];
 export const RATIONALE_MAX_CHARS = 500;
 export const PRESS_HOLD_MS = 1500;
 
+/**
+ * User-facing copy describing the kill-switch blast radius. Surfaced
+ * by the AppShell KillSwitchDialog mounts (mobile + desktop) and the
+ * Settings → Safety description. Single source of truth.
+ *
+ * @lore L7 (AI20): the same string used to be inlined in three call
+ * sites, with one drifting to a slightly different ending. Hoisted
+ * here so a future copy edit is one change, not three.
+ */
+export const KILL_SWITCH_BLAST_RADIUS =
+	"This will pause every running session and block queued tasks until you resume.";
+
 export const KILL_SWITCH_CONFIRM_MODES = ["type_name", "press_hold"] as const;
 export type KillSwitchConfirmMode = (typeof KILL_SWITCH_CONFIRM_MODES)[number];
 export const DEFAULT_KILL_SWITCH_CONFIRM_MODE: KillSwitchConfirmMode = "press_hold";

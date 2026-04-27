@@ -1,4 +1,10 @@
-import type { ActorRole, AutonomyLevel } from "@hyperidle/shared";
+import type {
+	ActorRole,
+	AutonomyLevel,
+	RecoveryOutcome,
+	RecoveryTargetKind,
+	RecoveryVerb,
+} from "@hyperidle/shared";
 import { index, integer, primaryKey, real, sqliteTable, text } from "drizzle-orm/sqlite-core";
 
 // --- Core tables ---
@@ -413,12 +419,12 @@ export const recoveryAudit = sqliteTable(
 		actorId: text("actor_id")
 			.notNull()
 			.references(() => actors.id, { onDelete: "restrict" }),
-		verb: text("verb").notNull(),
+		verb: text("verb").$type<RecoveryVerb>().notNull(),
 		reason: text("reason").notNull(),
-		targetKind: text("target_kind").notNull(),
+		targetKind: text("target_kind").$type<RecoveryTargetKind>().notNull(),
 		targetId: text("target_id").notNull(),
 		at: text("at").notNull(),
-		outcome: text("outcome").notNull(),
+		outcome: text("outcome").$type<RecoveryOutcome>().notNull(),
 		meta: text("meta"),
 	},
 	(table) => [

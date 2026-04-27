@@ -59,6 +59,12 @@ interface MockBetDetail {
 	 * page renders a static fixture consistent with the bet-1 seed used
 	 * by the L7 server tests so the E2E + Storybook surfaces stay
 	 * truthful.
+	 *
+	 * TODO(post-L7): replace `runningSessions` with the real session
+	 * feed once the bet-scoped session listing endpoint ships. The
+	 * MOCK_BETS["bet-1"] fixture below is used by the recovery-verbs
+	 * E2E test and should move to a dev-only fixture module at the
+	 * same time.
 	 */
 	runningSessions: MockRunningSession[];
 }
