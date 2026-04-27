@@ -145,6 +145,10 @@ function FactoryStep({ onDone }: StepProps): JSX.Element {
 	const [submitting, setSubmitting] = useState(false);
 	const [err, setErr] = useState<string | null>(null);
 	const nameInputRef = useRef<HTMLInputElement>(null);
+	// C4: a useRef mutex blocks double-fire from a fast double-click —
+	// React state-based `disabled` is not synchronous, so two clicks can
+	// fire two parallel POSTs before re-render flips the flag.
+	const mutexRef = useRef<boolean>(false);
 
 	// @lore L10 spec: "the factory-name field is focused on first render"
 	// — useEffect-based focus instead of autoFocus to satisfy a11y/no-autoFocus.
@@ -155,16 +159,18 @@ function FactoryStep({ onDone }: StepProps): JSX.Element {
 	const submit = useCallback(
 		async (e: React.FormEvent): Promise<void> => {
 			e.preventDefault();
+			if (mutexRef.current) return;
 			if (!name.trim()) {
 				setErr("Factory name is required");
 				return;
 			}
+			mutexRef.current = true;
 			setSubmitting(true);
 			setErr(null);
 			try {
 				const res = await fetch("/api/first-run/factory", {
 					method: "POST",
-					headers: { "Content-Type": "application/json" },
+					headers: { "Content-Type": "application/json", "X-Requested-With": "hyperidle-web" },
 					body: JSON.stringify({ name: name.trim(), role, dataDir: dataDir.trim() }),
 				});
 				if (!res.ok) {
@@ -176,6 +182,7 @@ function FactoryStep({ onDone }: StepProps): JSX.Element {
 				setErr(caught instanceof Error ? caught.message : String(caught));
 			} finally {
 				setSubmitting(false);
+				mutexRef.current = false;
 			}
 		},
 		[name, role, dataDir, onDone],
@@ -251,14 +258,20 @@ function ApiKeyStep({
 	const [result, setResult] = useState<
 		{ ok: true; last4: string } | { ok: false; message: string; status: number } | null
 	>(apiKeyLast4 ? { ok: true, last4: apiKeyLast4 } : null);
+	// C4: ref mutex catches the gap between click handler firing and
+	// React re-rendering with `disabled=true`. Two synchronous clicks
+	// would otherwise both pass the state-based gate.
+	const mutexRef = useRef<boolean>(false);
 
 	const testKey = useCallback(async (): Promise<void> => {
+		if (mutexRef.current) return;
+		mutexRef.current = true;
 		setTesting(true);
 		setResult(null);
 		try {
 			const res = await fetch("/api/first-run/api-key", {
 				method: "POST",
-				headers: { "Content-Type": "application/json" },
+				headers: { "Content-Type": "application/json", "X-Requested-With": "hyperidle-web" },
 				body: JSON.stringify({ key }),
 			});
 			const body = (await res.json()) as
@@ -279,6 +292,7 @@ function ApiKeyStep({
 			});
 		} finally {
 			setTesting(false);
+			mutexRef.current = false;
 		}
 	}, [key, onDone]);
 
@@ -461,9 +475,13 @@ function TeamScaffoldStep({ onDone }: StepProps): JSX.Element {
 	const [brief, setBrief] = useState("");
 	const [submitting, setSubmitting] = useState(false);
 	const [err, setErr] = useState<string | null>(null);
+	// C4: prevent double-fire from synchronous double-click.
+	const mutexRef = useRef<boolean>(false);
 
 	const submit = useCallback(
 		async (skipped: boolean): Promise<void> => {
+			if (mutexRef.current) return;
+			mutexRef.current = true;
 			setSubmitting(true);
 			setErr(null);
 			try {
@@ -472,7 +490,7 @@ function TeamScaffoldStep({ onDone }: StepProps): JSX.Element {
 					: { skipped: false, productName: productName.trim(), brief: brief.trim() };
 				const res = await fetch("/api/first-run/team-scaffold", {
 					method: "POST",
-					headers: { "Content-Type": "application/json" },
+					headers: { "Content-Type": "application/json", "X-Requested-With": "hyperidle-web" },
 					body: JSON.stringify(body),
 				});
 				if (!res.ok) {
@@ -484,6 +502,7 @@ function TeamScaffoldStep({ onDone }: StepProps): JSX.Element {
 				setErr(caught instanceof Error ? caught.message : String(caught));
 			} finally {
 				setSubmitting(false);
+				mutexRef.current = false;
 			}
 		},
 		[productName, brief, onDone],
@@ -547,12 +566,19 @@ function DoneStep({ onComplete }: { onComplete: () => Promise<void> }): JSX.Elem
 	const navigate = useNavigate();
 	const [submitting, setSubmitting] = useState(false);
 	const [err, setErr] = useState<string | null>(null);
+	// C4: prevent double-fire on a fast double-click of "Enter HyperIdle".
+	const mutexRef = useRef<boolean>(false);
 
 	const finish = useCallback(async (): Promise<void> => {
+		if (mutexRef.current) return;
+		mutexRef.current = true;
 		setSubmitting(true);
 		setErr(null);
 		try {
-			const res = await fetch("/api/first-run/complete", { method: "POST" });
+			const res = await fetch("/api/first-run/complete", {
+				method: "POST",
+				headers: { "X-Requested-With": "hyperidle-web" },
+			});
 			if (!res.ok) {
 				const body = (await res.json().catch(() => ({}))) as { error?: string };
 				throw new Error(body.error ?? `HTTP ${res.status}`);
@@ -563,6 +589,7 @@ function DoneStep({ onComplete }: { onComplete: () => Promise<void> }): JSX.Elem
 			setErr(caught instanceof Error ? caught.message : String(caught));
 		} finally {
 			setSubmitting(false);
+			mutexRef.current = false;
 		}
 	}, [onComplete, navigate]);
 

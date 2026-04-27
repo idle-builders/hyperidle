@@ -11,7 +11,7 @@ import {
 	UNDO_WINDOW_OPTIONS,
 } from "@hyperidle/shared";
 import FocusTrap from "focus-trap-react";
-import { type JSX, useCallback, useEffect, useState } from "react";
+import { type JSX, useCallback, useEffect, useRef, useState } from "react";
 
 export {
 	DEFAULT_UNDO_WINDOW_SECONDS,
@@ -879,6 +879,8 @@ function ModelsAndKeysTab(): JSX.Element {
 	const [result, setResult] = useState<
 		{ ok: true; last4: string } | { ok: false; status: number; message: string } | null
 	>(null);
+	// C4: ref mutex blocks fast double-click double-fire.
+	const mutexRef = useRef<boolean>(false);
 
 	useEffect(() => {
 		void fetch("/api/first-run/status")
@@ -894,12 +896,14 @@ function ModelsAndKeysTab(): JSX.Element {
 	}, []);
 
 	const test = useCallback(async (): Promise<void> => {
+		if (mutexRef.current) return;
+		mutexRef.current = true;
 		setTesting(true);
 		setResult(null);
 		try {
 			const res = await fetch("/api/first-run/api-key", {
 				method: "POST",
-				headers: { "Content-Type": "application/json" },
+				headers: { "Content-Type": "application/json", "X-Requested-With": "hyperidle-web" },
 				body: JSON.stringify({ key: draft }),
 			});
 			const body = (await res.json()) as
@@ -920,6 +924,7 @@ function ModelsAndKeysTab(): JSX.Element {
 			});
 		} finally {
 			setTesting(false);
+			mutexRef.current = false;
 		}
 	}, [draft]);
 

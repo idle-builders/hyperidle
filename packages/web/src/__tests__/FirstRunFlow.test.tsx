@@ -219,6 +219,34 @@ describe("L10 FirstRunFlow", () => {
 		expect(sentBody.focus).toEqual({ skipped: false, body: "ship one" });
 	});
 
+	it("C4: synchronous double-click of test-key fires only one POST", async () => {
+		const { mock } = renderFlow();
+		mock.statusBody = {
+			factoryReady: true,
+			apiKeyReady: false,
+			apiKeyLast4: null,
+			northStarReady: false,
+			teamScaffoldHandled: false,
+			complete: false,
+		};
+		const router = createMemoryRouter([{ path: "/first-run", element: <FirstRunFlow /> }], {
+			initialEntries: ["/first-run"],
+		});
+		render(<RouterProvider router={router} />);
+		const input = await screen.findByTestId("first-run-api-key-input");
+		const user = userEvent.setup();
+		await user.type(input, "sk-ant-validkey1234");
+		const btn = screen.getByTestId("first-run-api-key-test");
+		// Fire two clicks BEFORE React can re-render with disabled=true.
+		// The mutex ref must guarantee only one fetch is sent.
+		btn.click();
+		btn.click();
+		await waitFor(() => {
+			const apiKeyCalls = mock.calls.filter((c) => c.url.endsWith("/api/first-run/api-key"));
+			expect(apiKeyCalls).toHaveLength(1);
+		});
+	});
+
 	it("offers a skip path on team-scaffold but creates team when filled", async () => {
 		const user = userEvent.setup();
 		const { mock } = renderFlow();
