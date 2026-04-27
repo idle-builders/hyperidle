@@ -7,6 +7,10 @@ export type {
 export { API_ERROR_CODES } from "./api-types.js";
 export type { DomainTag } from "./constants/domains.js";
 export { DOMAIN_TAGS, domainTagNullableSchema, domainTagSchema } from "./constants/domains.js";
+export {
+	REQUEST_CHANGES_INLINE_COMMENTS_MAX,
+	REQUEST_CHANGES_SUMMARY_MAX,
+} from "./constants/request-changes.js";
 export type { VerdictAction } from "./constants/verdict-undo.js";
 export {
 	DEFAULT_UNDO_WINDOW_SECONDS,
