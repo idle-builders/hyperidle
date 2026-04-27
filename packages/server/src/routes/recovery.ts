@@ -57,15 +57,20 @@ export function createFactoryRoutes(db: HyperIdleDb): Hono<ActorEnv> {
 
 		const result = pauseFactory(db, { actorId, reason: body.reason });
 		if (!result.ok) {
-			return c.json(
-				{
-					error: "already_paused",
-					code: API_ERROR_CODES.CONFLICT,
+			// @lore L7 (ARCH5): mirror the canonical ApiErrorResponse
+			// shape — pausedBy/pausedAt go inside `details`, not at top
+			// level. The factory-paused-guard 423 envelope already does
+			// this; the 409 envelope must match so a typed client can
+			// read both consistently.
+			const response: ApiErrorResponse = {
+				error: "already_paused",
+				code: API_ERROR_CODES.CONFLICT,
+				details: {
 					pausedBy: result.pausedBy,
 					pausedAt: result.pausedAt,
 				},
-				409,
-			);
+			};
+			return c.json(response, 409);
 		}
 		return c.json(
 			{

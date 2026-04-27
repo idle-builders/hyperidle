@@ -306,17 +306,37 @@ export function createThreadRoutingRoutes(db: HyperIdleDb): Hono<ActorEnv> {
 				if (!latest) return { kind: "not_found" };
 				if (latest.approverId !== actorId) return { kind: "actor_mismatch" };
 
-				// Already-rolled-back guard: if the most recent recovery_audit
-				// row for this thread is a rollback, reject (410 gone).
-				const lastAudit = tx
-					.select({ verb: recoveryAudit.verb })
+				// @lore L7 (ADV4 / ARCH4): the idempotency guard is keyed
+				// per-(thread_id, response_id), NOT thread-level. The prior
+				// implementation looked at the latest recovery_audit row
+				// for the thread and rejected ALL subsequent rollbacks if it
+				// was a rollback. That falsely 410'd the *next* commit's
+				// rollback (a different response on the same thread). We
+				// scan all rollback audits for this thread and reject only
+				// when THIS specific response_id was already reverted.
+				const priorRollbacks = tx
+					.select({ meta: recoveryAudit.meta })
 					.from(recoveryAudit)
-					.where(and(eq(recoveryAudit.targetKind, "thread"), eq(recoveryAudit.targetId, threadId)))
-					.orderBy(desc(recoveryAudit.at))
-					.limit(1)
-					.get();
-				if (lastAudit?.verb === "rollback") {
-					return { kind: "already_rolled_back" };
+					.where(
+						and(
+							eq(recoveryAudit.targetKind, "thread"),
+							eq(recoveryAudit.targetId, threadId),
+							eq(recoveryAudit.verb, "rollback"),
+						),
+					)
+					.all();
+				for (const row of priorRollbacks) {
+					if (!row.meta) continue;
+					try {
+						const parsed = JSON.parse(row.meta) as { revertedResponseId?: string };
+						if (parsed.revertedResponseId === latest.id) {
+							return { kind: "already_rolled_back" };
+						}
+					} catch {
+						// Malformed audit meta — ignore; the row cannot
+						// claim to have reverted any response without a
+						// machine-parseable id.
+					}
 				}
 
 				const auditId = crypto.randomUUID();
@@ -361,11 +381,16 @@ export function createThreadRoutingRoutes(db: HyperIdleDb): Hono<ActorEnv> {
 			return c.json(response, 403);
 		}
 		if (outcome.kind === "already_rolled_back") {
+			// @lore L7 (ARCH4): mirrors L4's verdict-undo conflict
+			// taxonomy. 410 GONE is reserved for L9's
+			// `not_reversible_yet` outcome. "Already rolled back" is a
+			// state-conflict (409 CONFLICT, like "another founder beat
+			// you to it"), NOT a permanent gone state.
 			const response: ApiErrorResponse = {
 				error: "already_rolled_back",
-				code: API_ERROR_CODES.GONE,
+				code: API_ERROR_CODES.CONFLICT,
 			};
-			return c.json(response, 410);
+			return c.json(response, 409);
 		}
 
 		return c.json(

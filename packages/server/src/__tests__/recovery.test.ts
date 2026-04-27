@@ -237,9 +237,14 @@ describe("L7: POST /api/factory/pause", () => {
 			body: JSON.stringify({ reason: "second" }),
 		});
 		expect(res.status).toBe(409);
-		const body = (await res.json()) as { error: string; pausedBy?: string };
+		const body = (await res.json()) as {
+			error: string;
+			details?: { pausedBy?: string };
+		};
 		expect(body.error).toMatch(/already_paused/);
-		expect(body.pausedBy).toBe("actor:ceo");
+		// L7 (ARCH5): pausedBy/pausedAt nested under `details` per
+		// canonical ApiErrorResponse shape.
+		expect(body.details?.pausedBy).toBe("actor:ceo");
 	});
 });
 
@@ -406,7 +411,7 @@ describe("L7: POST /api/threads/:id/verdict/rollback", () => {
 		expect(row?.target_id).toBe("thread-1");
 	});
 
-	it("410 if verdict already rolled back (latest audit row is rollback)", async () => {
+	it("409 if THIS response was already rolled back (per-response idempotency)", async () => {
 		await commitVerdict("actor:ceo");
 		await app.request("/api/threads/thread-1/verdict/rollback", {
 			method: "POST",
@@ -418,7 +423,50 @@ describe("L7: POST /api/threads/:id/verdict/rollback", () => {
 			headers: authHeaders({ "X-Actor-Id": "actor:ceo" }),
 			body: JSON.stringify({ reason: "second rollback" }),
 		});
-		expect(res.status).toBe(410);
+		// L7 (ARCH4): "already rolled back" is a state-conflict (409 CONFLICT),
+		// NOT a permanent 410 GONE. 410 is reserved for L9's
+		// `not_reversible_yet` outcome.
+		expect(res.status).toBe(409);
+	});
+
+	it("L7 (ADV4): a NEW commit on the same thread is rollback-able even after a prior rollback", async () => {
+		// Commit + rollback the first verdict.
+		await commitVerdict("actor:ceo");
+		const r1 = await app.request("/api/threads/thread-1/verdict/rollback", {
+			method: "POST",
+			headers: authHeaders({ "X-Actor-Id": "actor:ceo" }),
+			body: JSON.stringify({ reason: "first" }),
+		});
+		expect(r1.status).toBe(200);
+
+		// Add a second item to the thread and commit a new verdict on it.
+		db.insert(items)
+			.values({
+				id: "item-2",
+				title: "Second",
+				threadId: "thread-1",
+				createdAt: NOW_ISO,
+			})
+			.run();
+		const res2 = await app.request("/api/conversations/responses", {
+			method: "POST",
+			headers: authHeaders({ "X-Actor-Id": "actor:ceo" }),
+			body: JSON.stringify({ itemId: "item-2", decision: "approve" }),
+		});
+		// `/conversations/responses` returns 201 on create.
+		const newResponse = (await res2.json()) as { id?: string };
+		expect([200, 201]).toContain(res2.status);
+		expect(newResponse.id).toBeTruthy();
+
+		// Roll back the new verdict — must NOT be falsely blocked by the
+		// prior thread-level rollback. Per-response idempotency is the
+		// correct semantic.
+		const r2 = await app.request("/api/threads/thread-1/verdict/rollback", {
+			method: "POST",
+			headers: authHeaders({ "X-Actor-Id": "actor:ceo" }),
+			body: JSON.stringify({ reason: "second" }),
+		});
+		expect(r2.status).toBe(200);
 	});
 
 	it("ALLOWED while factory paused (cleanup verb bypasses guard)", async () => {
