@@ -36,6 +36,14 @@ export interface UndoToastProps {
 	auditRowId?: string;
 	onUndo: () => Promise<void> | void;
 	onDismiss: () => void;
+	/**
+	 * @lore L6: optional verdict-specific headline that replaces the
+	 * default "Verdict committed" copy. Used to surface
+	 * "Changes requested with N inline comments." after request-changes
+	 * commits. Kept generic (a string) so D-track can reuse the slot for
+	 * other per-verdict confirmations without expanding the prop surface.
+	 */
+	message?: string;
 }
 
 export type { VerdictAction };
@@ -50,6 +58,7 @@ export function UndoToast(props: UndoToastProps): JSX.Element | null {
 		auditRowId,
 		onUndo,
 		onDismiss,
+		message,
 	} = props;
 
 	const handleEscape = useCallback(
@@ -101,7 +110,7 @@ export function UndoToast(props: UndoToastProps): JSX.Element | null {
 					className="text-[length:var(--density-text)]"
 					style={{ fontVariantNumeric: "tabular-nums" }}
 				>
-					Verdict committed — {windowSeconds}s
+					{message ?? "Verdict committed"} — {windowSeconds}s
 				</span>
 				{agentActed && auditHref ? (
 					<a
