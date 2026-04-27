@@ -103,6 +103,24 @@ const ACTOR_ID_BY_ROLE: Record<ActorRole, string> = {
 export function createFirstRunRoutes(db: HyperIdleDb, deps: FirstRunDeps = {}): Hono<ActorEnv> {
 	const app = new Hono<ActorEnv>();
 
+	// S3: CSRF defence. Every mutating route (POST) MUST carry the
+	// `X-Requested-With: hyperidle-web` header. A drive-by `<form>`
+	// submission from a malicious site cannot set this header.
+	// Read-only `GET /status` is exempt.
+	app.use("*", async (c, next) => {
+		if (c.req.method !== "GET" && c.req.method !== "HEAD") {
+			const xrw = c.req.header("X-Requested-With");
+			if (xrw !== "hyperidle-web") {
+				const body: ApiErrorResponse = {
+					error: "CSRF check failed: missing or invalid X-Requested-With header",
+					code: API_ERROR_CODES.UNAUTHORIZED,
+				};
+				return c.json(body, 403);
+			}
+		}
+		await next();
+	});
+
 	app.get("/status", (c) => {
 		return c.json(readFirstRunStatus(db));
 	});

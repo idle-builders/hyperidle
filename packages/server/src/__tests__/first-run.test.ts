@@ -16,7 +16,11 @@ import { createTestApp } from "../test-utils.js";
 const TEST_API_KEY = "test-key-first-run";
 
 function authHeaders(): Record<string, string> {
-	return { "X-API-Key": TEST_API_KEY, "Content-Type": "application/json" };
+	return {
+		"X-API-Key": TEST_API_KEY,
+		"Content-Type": "application/json",
+		"X-Requested-With": "hyperidle-web",
+	};
 }
 
 function fakeFetcher(opts: { status: number; body?: unknown; throwOnSecondCall?: boolean }): {
@@ -49,6 +53,34 @@ describe("L10 — First-Run Flow API", () => {
 
 	afterEach(() => {
 		vi.unstubAllEnvs();
+	});
+
+	describe("S3 — CSRF header on mutations", () => {
+		it("rejects a POST without X-Requested-With with 403", async () => {
+			const res = await app.request("/api/first-run/factory", {
+				method: "POST",
+				headers: { "X-API-Key": TEST_API_KEY, "Content-Type": "application/json" },
+				body: JSON.stringify({ name: "F", role: "CEO", dataDir: "/d" }),
+			});
+			expect(res.status).toBe(403);
+		});
+
+		it("allows a GET without the header (read-only routes are exempt)", async () => {
+			const res = await app.request("/api/first-run/status", {
+				method: "GET",
+				headers: { "X-API-Key": TEST_API_KEY },
+			});
+			expect(res.status).toBe(200);
+		});
+
+		it("accepts a POST when the header is present", async () => {
+			const res = await app.request("/api/first-run/factory", {
+				method: "POST",
+				headers: authHeaders(),
+				body: JSON.stringify({ name: "F", role: "CEO", dataDir: "/d" }),
+			});
+			expect(res.status).toBe(200);
+		});
 	});
 
 	describe("GET /api/first-run/status", () => {
