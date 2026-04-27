@@ -333,6 +333,28 @@ describe("L10 — First-Run Flow API", () => {
 			expect(status.teamScaffoldHandled).toBe(true);
 		});
 
+		it("S2: a second submit returns idempotent without spawning duplicates", async () => {
+			const submit = () =>
+				app.request("/api/first-run/team-scaffold", {
+					method: "POST",
+					headers: authHeaders(),
+					body: JSON.stringify({
+						skipped: false,
+						productName: "Same",
+						brief: "same",
+					}),
+				});
+			const first = await submit();
+			expect(first.status).toBe(200);
+			const second = await submit();
+			expect(second.status).toBe(200);
+			const body = (await second.json()) as { idempotent?: boolean };
+			expect(body.idempotent).toBe(true);
+
+			const productsList = db.select().from(products).all();
+			expect(productsList).toHaveLength(1);
+		});
+
 		it("creates product, team, agents, and brief stub when not skipped", async () => {
 			const res = await app.request("/api/first-run/team-scaffold", {
 				method: "POST",

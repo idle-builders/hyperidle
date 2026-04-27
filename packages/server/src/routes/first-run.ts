@@ -242,6 +242,14 @@ export function createFirstRunRoutes(db: HyperIdleDb, deps: FirstRunDeps = {}): 
 		const parsed = teamScaffoldSchema.safeParse(raw);
 		if (!parsed.success) return badRequest(c, parsed.error.message);
 
+		// S2: idempotency — once the step has been satisfied (skip OR a
+		// product was created), refuse to create more rows. A retry after
+		// network blip MUST NOT spawn duplicate products + agents.
+		const existingStatus = readFirstRunStatus(db);
+		if (existingStatus.teamScaffoldHandled) {
+			return c.json({ ok: true, idempotent: true });
+		}
+
 		if (parsed.data.skipped) {
 			writeTeamScaffoldSkipped(db);
 			return c.json({ ok: true, skipped: true });
@@ -334,5 +342,7 @@ function slugify(s: string): string {
 }
 
 function suffix(): string {
-	return Math.random().toString(36).slice(2, 8);
+	// S2: crypto-grade randomness so two operators bootstrapping with
+	// identical product names cannot collide on the productId.
+	return crypto.randomUUID().slice(0, 6);
 }
