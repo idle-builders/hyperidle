@@ -142,6 +142,10 @@ test.describe("L10 — First-Run Flow", () => {
 		await page.getByTestId("first-run-api-key-input").fill("sk-ant-validkey1234");
 		await page.getByTestId("first-run-api-key-test").click();
 
+		// D4: explicit Continue gate — user must affirmatively advance after key validates.
+		await expect(page.getByTestId("first-run-api-key-success")).toBeVisible();
+		await page.getByTestId("first-run-api-key-continue").click();
+
 		// Step 3: north-star.
 		await expect(page.getByTestId("first-run-step-north-star")).toBeVisible();
 		await page.getByTestId("first-run-principles").fill("Boil the lake.");
