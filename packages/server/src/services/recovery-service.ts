@@ -19,7 +19,6 @@ import {
 	sessions,
 	tasks,
 } from "@hyperidle/db";
-import type { RecoveryOutcome, RecoveryTargetKind, RecoveryVerb } from "@hyperidle/shared";
 import { desc, eq, inArray } from "drizzle-orm";
 
 const FACTORY_SINGLETON_ID = "factory";
@@ -75,18 +74,6 @@ export function readFactoryState(db: HyperIdleDb): FactoryStateView {
 		.where(eq(factoryState.id, FACTORY_SINGLETON_ID))
 		.get();
 	return viewOf(row);
-}
-
-interface InsertAuditOpts {
-	id: string;
-	actorId: string;
-	verb: RecoveryVerb;
-	reason: string;
-	targetKind: RecoveryTargetKind;
-	targetId: string;
-	at: string;
-	outcome: RecoveryOutcome;
-	meta?: string | null;
 }
 
 export function pauseFactory(
@@ -434,24 +421,3 @@ export function resumeSession(
 	);
 }
 
-/**
- * Append-only writer used by routes that need direct audit-row control
- * (e.g. rollback, where the outcome enum isn't known until the agent
- * runtime responds). The single source of truth — never write to
- * `recovery_audit` outside this service.
- */
-export function appendRecoveryAudit(db: HyperIdleDb, opts: InsertAuditOpts): void {
-	db.insert(recoveryAudit)
-		.values({
-			id: opts.id,
-			actorId: opts.actorId,
-			verb: opts.verb,
-			reason: opts.reason,
-			targetKind: opts.targetKind,
-			targetId: opts.targetId,
-			at: opts.at,
-			outcome: opts.outcome,
-			meta: opts.meta ?? null,
-		})
-		.run();
-}
