@@ -284,9 +284,7 @@ export function ConversationsSubmenu({
 	useEffect(() => {
 		if (!activeKey) return;
 		const el = rowRefs.current.get(activeKey);
-		if (el && typeof el.scrollIntoView === "function") {
-			el.scrollIntoView({ block: "nearest" });
-		}
+		if (el) el.scrollIntoView({ block: "nearest" });
 	}, [activeKey]);
 
 	const blockingPosition = (() => {

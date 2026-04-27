@@ -100,9 +100,6 @@ const createResponseSchema = z
 		{ message: "summary is required for request-changes verdicts", path: ["summary"] },
 	);
 
-/**
- * Create Hono routes for conversation endpoints.
- */
 export function createConversationRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<ActorEnv> {
 	const router = new Hono<ActorEnv>();
 
