@@ -15,6 +15,7 @@ import { noHardcodedColor } from "./rules/no-hardcoded-color.js";
 import { noOffGridSpacing } from "./rules/no-off-grid-spacing.js";
 import { noOffScaleFontSize } from "./rules/no-off-scale-font-size.js";
 import { noOffScaleRadius } from "./rules/no-off-scale-radius.js";
+import { noRawActorFetch } from "./rules/no-raw-actor-fetch.js";
 import { noRawTailwindColor } from "./rules/no-raw-tailwind-color.js";
 import { requireDsAttribute } from "./rules/require-ds-attribute.js";
 import { requireFocusOnInteractive } from "./rules/require-focus-on-interactive.js";
@@ -27,6 +28,7 @@ export const rules: Record<string, Rule.RuleModule> = {
 	"no-off-scale-radius": noOffScaleRadius,
 	"no-off-scale-font-size": noOffScaleFontSize,
 	"no-ai-aesthetic": noAiAesthetic,
+	"no-raw-actor-fetch": noRawActorFetch,
 	"no-raw-tailwind-color": noRawTailwindColor,
 	"require-ds-attribute": requireDsAttribute,
 	"require-stories-sibling": requireStoriesSibling,
@@ -43,6 +45,7 @@ const recommendedRules: Linter.RulesRecord = {
 	"design/no-off-scale-radius": "warn",
 	"design/no-off-scale-font-size": "warn",
 	"design/no-ai-aesthetic": "warn",
+	"design/no-raw-actor-fetch": "warn",
 	"design/no-raw-tailwind-color": "warn",
 	"design/require-ds-attribute": "warn",
 	"design/require-stories-sibling": "warn",

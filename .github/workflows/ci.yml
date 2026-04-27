@@ -6,6 +6,16 @@ on:
   push:
     branches: [main]
 
+# Cancel stale runs when a fresh push lands. Recurrence (L7 + L10): without
+# this, concurrent CI runs piled up at long Playwright timeouts and masked
+# real failures behind queue backpressure. See `.pipeline/retro-log.jsonl`
+# entries for L7 ("CI should auto-cancel previous in-progress runs on push")
+# and L10 ("Concurrent CI runs piled up at 30s × 2 retries × 1 worker
+# instead of cancelling stale in-progress runs").
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   validate:
     name: Check / Lint / Test
