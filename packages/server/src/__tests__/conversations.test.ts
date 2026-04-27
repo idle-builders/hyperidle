@@ -292,6 +292,84 @@ describe("Conversations Endpoints (E2)", () => {
 			});
 			expect(res.status).toBe(404);
 		});
+
+		// L9 review (sec CRIT-3 + arch C1): the schema must accept the
+		// widened RiskTier ('critical') and the new metadata fields.
+		it("accepts riskTier='critical' and persists it", async () => {
+			const res = await app.request("/api/conversations/items", {
+				method: "POST",
+				headers: authHeaders(),
+				body: JSON.stringify({
+					title: "Critical deploy",
+					threadId: "thread-1",
+					kind: "review",
+					riskTier: "critical",
+				}),
+			});
+			expect(res.status).toBe(201);
+			const body = (await res.json()) as { id: string; riskTier: string; view: string };
+			expect(body.riskTier).toBe("critical");
+			// Critical is strictly above high → routes to conversations.
+			expect(body.view).toBe("conversations");
+		});
+
+		it("accepts reversibility, sandboxResult, and blastRadius L9 fields", async () => {
+			const res = await app.request("/api/conversations/items", {
+				method: "POST",
+				headers: authHeaders(),
+				body: JSON.stringify({
+					title: "L9 metadata",
+					threadId: "thread-1",
+					kind: "review",
+					riskTier: "high",
+					reversibility: false,
+					sandboxResult: "passed",
+					blastRadius: {
+						agents: ["a1"],
+						teams: ["t1"],
+						products: ["p1"],
+					},
+				}),
+			});
+			expect(res.status).toBe(201);
+			const body = (await res.json()) as {
+				id: string;
+				reversibility: number | null;
+				sandboxResult: string | null;
+				attachments: string | null;
+			};
+			// SQLite stores boolean as integer 0/1.
+			expect(body.reversibility).toBe(0);
+			expect(body.sandboxResult).toBe("passed");
+			expect(body.attachments).toContain("blast_radius");
+		});
+
+		it("rejects an invalid sandboxResult enum value", async () => {
+			const res = await app.request("/api/conversations/items", {
+				method: "POST",
+				headers: authHeaders(),
+				body: JSON.stringify({
+					title: "Bad sandbox",
+					threadId: "thread-1",
+					sandboxResult: "pased",
+				}),
+			});
+			expect(res.status).toBe(400);
+		});
+
+		it("rejects attachments larger than the 64KB cap", async () => {
+			const oversized = "x".repeat(65 * 1024);
+			const res = await app.request("/api/conversations/items", {
+				method: "POST",
+				headers: authHeaders(),
+				body: JSON.stringify({
+					title: "DoS",
+					threadId: "thread-1",
+					attachments: oversized,
+				}),
+			});
+			expect(res.status).toBe(400);
+		});
 	});
 
 	// --- POST /api/conversations/responses ---
@@ -368,6 +446,56 @@ describe("Conversations Endpoints (E2)", () => {
 			expect(emitted).toHaveLength(1);
 			expect(emitted[0].decision).toBe("reject");
 			expect(emitted[0].itemId).toBe("item-1");
+		});
+
+		// L9 review (sec CRIT-1 + adv C4): the wire format must distinguish
+		// "Approve once" from a generic Approve so future enforcement (one-
+		// shot autonomy grants) can land without breaking the contract.
+		it("persists oneShot=true into the response audit row", async () => {
+			const res = await app.request("/api/conversations/responses", {
+				method: "POST",
+				headers: authHeaders(),
+				body: JSON.stringify({
+					itemId: "item-1",
+					decision: "approve",
+					oneShot: true,
+				}),
+			});
+			expect(res.status).toBe(201);
+			const body = (await res.json()) as { id: string; view: string | null };
+			expect(body.view).not.toBeNull();
+			const parsed = JSON.parse(body.view as string) as { oneShot: boolean | null };
+			expect(parsed.oneShot).toBe(true);
+		});
+
+		it("persists leaseGrantedTo='a' into the response audit row", async () => {
+			const res = await app.request("/api/conversations/responses", {
+				method: "POST",
+				headers: authHeaders(),
+				body: JSON.stringify({
+					itemId: "item-1",
+					decision: "approve",
+					leaseGrantedTo: "a",
+				}),
+			});
+			expect(res.status).toBe(201);
+			const body = (await res.json()) as { id: string; view: string | null };
+			expect(body.view).not.toBeNull();
+			const parsed = JSON.parse(body.view as string) as { leaseGrantedTo: string | null };
+			expect(parsed.leaseGrantedTo).toBe("a");
+		});
+
+		it("rejects an invalid leaseGrantedTo value", async () => {
+			const res = await app.request("/api/conversations/responses", {
+				method: "POST",
+				headers: authHeaders(),
+				body: JSON.stringify({
+					itemId: "item-1",
+					decision: "approve",
+					leaseGrantedTo: "c",
+				}),
+			});
+			expect(res.status).toBe(400);
 		});
 
 		it("accepts all 10 verdict actions", async () => {

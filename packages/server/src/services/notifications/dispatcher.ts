@@ -61,8 +61,12 @@ interface FloodState {
 const QUEUE_CAP = 10_000;
 const LEASE_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes — rollback stuck "sending" rows
 
+// @lore L9 review (arch C1): `critical` items must always push — the
+// classification ladder treats them strictly above high. Without this
+// branch a non-blocking critical item silently landed in `drop`.
 function classifyItem(item: Pick<Item, "blocking" | "riskTier">): Classification {
 	if ((item.blocking ?? 0) !== 0) return { kind: "push", severity: "blocking" };
+	if (item.riskTier === "critical") return { kind: "push", severity: "blocking" };
 	if (item.riskTier === "high") return { kind: "push", severity: "blocking" };
 	if (item.riskTier === "medium") return { kind: "digest", severity: "digest" };
 	return { kind: "drop", reason: "low-risk non-blocking item" };

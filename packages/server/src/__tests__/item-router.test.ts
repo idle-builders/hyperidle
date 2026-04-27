@@ -49,4 +49,14 @@ describe("routeItem", () => {
 	it("routes low risk with no kind to rail", () => {
 		expect(routeItem({ riskTier: "low" })).toBe("rail");
 	});
+
+	// L9 review (arch C1): `critical` is strictly above `high` and must
+	// route to conversations, not silently fall through to `rail`.
+	it("routes critical risk to conversations", () => {
+		expect(routeItem({ riskTier: "critical" })).toBe("conversations");
+	});
+
+	it("routes critical risk regardless of kind", () => {
+		expect(routeItem({ riskTier: "critical", kind: "knowledge" })).toBe("conversations");
+	});
 });
