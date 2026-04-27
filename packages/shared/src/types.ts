@@ -130,4 +130,12 @@ export type AgentRole =
 
 export type AgentStatus = "active" | "paused" | "retired";
 
-export type RiskTier = "low" | "medium" | "high";
+/**
+ * @lore L9: RiskTier widened from `low|medium|high` to include `critical`.
+ * The DB column is `text` (no enum constraint) — widening is type-only,
+ * existing rows remain valid. `RISK_TIERS` is the canonical iteration order
+ * used by metadata-strip render code and by the DEFAULT_RISK_TIER_BY_KIND
+ * mapping in `constants/artifact-risk.ts`.
+ */
+export const RISK_TIERS = ["low", "medium", "high", "critical"] as const;
+export type RiskTier = (typeof RISK_TIERS)[number];
