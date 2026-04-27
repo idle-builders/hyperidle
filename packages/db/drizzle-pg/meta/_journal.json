@@ -71,6 +71,13 @@
 			"when": 1777300000000,
 			"tag": "0009_l4_review_undo_decision_nullable",
 			"breakpoints": true
+		},
+		{
+			"idx": 10,
+			"version": "7",
+			"when": 1777400000000,
+			"tag": "0010_l7_recovery",
+			"breakpoints": true
 		}
 	]
 }

@@ -387,6 +387,49 @@ export const factorySettings = sqliteTable("factory_settings", {
 	updatedAt: text("updated_at").notNull(),
 });
 
+// --- Recovery audit (L7) ---
+
+// @lore L7: `recovery_audit` is logically append-only. Never UPDATE or
+// DELETE rows from this table — its forensic value depends on every
+// kill / resume / rollback / session-pause being durable. Mirrors the
+// L1 (`agent_skill_autonomy_audit`) and L2 (`thread_routing_audit`)
+// append-only conventions.
+export const recoveryAudit = sqliteTable(
+	"recovery_audit",
+	{
+		id: text("id").primaryKey(),
+		actorId: text("actor_id")
+			.notNull()
+			.references(() => actors.id, { onDelete: "restrict" }),
+		verb: text("verb").notNull(),
+		reason: text("reason").notNull(),
+		targetKind: text("target_kind").notNull(),
+		targetId: text("target_id").notNull(),
+		at: text("at").notNull(),
+		outcome: text("outcome").notNull(),
+		meta: text("meta"),
+	},
+	(table) => [
+		index("recovery_audit_actor_idx").on(table.actorId),
+		index("recovery_audit_target_idx").on(table.targetKind, table.targetId),
+		index("recovery_audit_at_desc_idx").on(table.at),
+	],
+);
+
+// --- Factory state (L7 singleton) ---
+
+// @lore L7: singleton row keyed by `id='factory'`. The PRIMARY KEY
+// enforces the singleton invariant — a duplicate insert raises a
+// PRIMARY KEY constraint violation. Read by `factory-paused-guard`
+// middleware on every mutation, and by `GET /api/factory/state`.
+export const factoryState = sqliteTable("factory_state", {
+	id: text("id").primaryKey(),
+	paused: integer("paused", { mode: "boolean" }).notNull().default(false),
+	pausedBy: text("paused_by"),
+	pausedAt: text("paused_at"),
+	pausedReason: text("paused_reason"),
+});
+
 // --- Knowledge ---
 
 export const knowledgeItems = sqliteTable(
@@ -567,3 +610,9 @@ export type NewActorRow = typeof actors.$inferInsert;
 
 export type ThreadRoutingAuditEntry = typeof threadRoutingAudit.$inferSelect;
 export type NewThreadRoutingAuditEntry = typeof threadRoutingAudit.$inferInsert;
+
+export type RecoveryAuditEntry = typeof recoveryAudit.$inferSelect;
+export type NewRecoveryAuditEntry = typeof recoveryAudit.$inferInsert;
+
+export type FactoryStateRow = typeof factoryState.$inferSelect;
+export type NewFactoryStateRow = typeof factoryState.$inferInsert;

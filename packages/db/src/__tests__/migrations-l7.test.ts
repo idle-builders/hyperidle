@@ -87,7 +87,6 @@ describe("L7 (sqlite): recovery_audit table", () => {
 		db.insert(schema.actors)
 			.values({ id: "actor:ceo", role: "CEO", domainTags: "[]", createdAt: now })
 			.run();
-		// @ts-expect-error -- recoveryAudit is asserted to exist once L7 ships.
 		db.insert(schema.recoveryAudit)
 			.values({
 				id: "ra-1",
@@ -136,7 +135,6 @@ describe("L7 (sqlite): factory_state singleton", () => {
 	});
 
 	it("can write + read the singleton row", () => {
-		// @ts-expect-error -- factoryState is asserted to exist once L7 ships.
 		db.insert(schema.factoryState)
 			.values({
 				id: "factory",
