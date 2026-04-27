@@ -316,7 +316,7 @@ function createApp(options?: AppOptions): Hono {
 		// L7: recovery verbs FIRST so they're matched before any guards
 		// or other mutation routes. Identity is server-resolved; reasons
 		// are required (Zod-enforced) for kill / pause / rollback verbs.
-		api.route("/factory", createFactoryRoutes(options.db, eventBus));
+		api.route("/factory", createFactoryRoutes(options.db));
 
 		api.route("/threads", createThreadRoutingRoutes(options.db));
 		api.route("/bets", createBetRoutes(options.db, eventBus));
@@ -329,7 +329,7 @@ function createApp(options?: AppOptions): Hono {
 		// L7: session pause/resume — mounted alongside the existing
 		// session routes. The two routers share the `/sessions` mount
 		// path; recovery routes match `/:id/pause` and `/:id/resume`.
-		api.route("/sessions", createSessionRecoveryRoutes(options.db, eventBus));
+		api.route("/sessions", createSessionRecoveryRoutes(options.db));
 		api.route("/sessions", createSessionRoutes(options.db, eventBus));
 		api.route("/status", createStatusRoutes(options.db));
 		// L8: dedicated system-stability aggregate (crashed_sessions, cap_reached,

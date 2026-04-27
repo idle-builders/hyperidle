@@ -19,7 +19,7 @@
  * bypasses `factoryPausedGuard`.
  */
 import type { HyperIdleDb } from "@hyperidle/db";
-import type { ApiErrorResponse, EventBus } from "@hyperidle/shared";
+import type { ApiErrorResponse } from "@hyperidle/shared";
 import {
 	API_ERROR_CODES,
 	factoryPauseRequestSchema,
@@ -42,16 +42,14 @@ function unauthorized(): ApiErrorResponse {
 	return { error: "No actor identified", code: API_ERROR_CODES.UNAUTHORIZED };
 }
 
-export function createFactoryRoutes(db: HyperIdleDb, _eventBus: EventBus): Hono<ActorEnv> {
+export function createFactoryRoutes(db: HyperIdleDb): Hono<ActorEnv> {
 	const router = new Hono<ActorEnv>();
 
-	// GET /state — singleton snapshot (used by web `useFactoryState`).
 	router.get("/state", (c) => {
 		const state = readFactoryState(db);
 		return c.json(state);
 	});
 
-	// POST /pause — kill switch.
 	router.post("/pause", validateBody(factoryPauseRequestSchema), (c) => {
 		const actorId = c.get("actorId");
 		if (!actorId) return c.json(unauthorized(), 401);
@@ -80,7 +78,11 @@ export function createFactoryRoutes(db: HyperIdleDb, _eventBus: EventBus): Hono<
 		);
 	});
 
-	// POST /resume — bypasses the factory-paused guard by mount order.
+	// @lore L7: this resume endpoint bypasses the factory-paused
+	// guard by mount order — it is registered before the guard
+	// middleware is applied (see `app.ts`). Without this, a paused
+	// factory could not be resumed (423 from the guard would shadow
+	// the 200).
 	router.post("/resume", validateBody(factoryResumeRequestSchema), (c) => {
 		const actorId = c.get("actorId");
 		if (!actorId) return c.json(unauthorized(), 401);
@@ -102,10 +104,7 @@ export function createFactoryRoutes(db: HyperIdleDb, _eventBus: EventBus): Hono<
 	return router;
 }
 
-export function createSessionRecoveryRoutes(
-	db: HyperIdleDb,
-	_eventBus: EventBus,
-): Hono<ActorEnv> {
+export function createSessionRecoveryRoutes(db: HyperIdleDb): Hono<ActorEnv> {
 	const router = new Hono<ActorEnv>();
 
 	router.post("/:id/pause", validateBody(sessionPauseRequestSchema), (c) => {
