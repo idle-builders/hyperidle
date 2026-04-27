@@ -8,7 +8,9 @@ import { KNOWLEDGE_SCOPES, type KnowledgeScope } from "@hyperidle/shared";
 import { type JSX, useCallback, useEffect, useMemo, useState } from "react";
 import { Outlet, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { ErrorBoundary } from "../components/ErrorBoundary";
+import { FactoryPausedBanner } from "../components/FactoryPausedBanner";
 import { GlobalSearchPanel } from "../components/GlobalSearchPanel";
+import { KillSwitchDialog } from "../components/KillSwitchDialog";
 import { OfflineBanner } from "../components/OfflineBanner";
 import type { SettingsData } from "../components/SettingsPanel";
 import { SettingsPanel } from "../components/SettingsPanel";
@@ -22,6 +24,8 @@ import { topicsForScope } from "../fixtures/knowledge-data";
 import { useAutoDensity } from "../hooks/useAutoDensity";
 import { useCommandK } from "../hooks/useCommandK";
 import { useConversations } from "../hooks/useConversations";
+import { useFactoryState } from "../hooks/useFactoryState";
+import { useKillSwitchShortcut } from "../hooks/useKillSwitchShortcut";
 import { useMe } from "../hooks/useMe";
 import { useOfflineQueue } from "../hooks/useOfflineQueue";
 import { useSystemStability } from "../hooks/useSystemStability";
@@ -294,6 +298,43 @@ export function AppShell(): JSX.Element {
 		setSettingsOpen(true);
 	}, []);
 
+	// L7: factory-state subscription (singleton row) + kill-switch dialog +
+	// `Cmd+Shift+.` global shortcut. The dialog opens via the shortcut and
+	// from the Settings → Safety entry; the banner consumes `state` so every
+	// route renders the paused indicator above the shell.
+	const { state: factoryState, refresh: refreshFactoryState } = useFactoryState();
+	const [killSwitchOpen, setKillSwitchOpen] = useState(false);
+	useKillSwitchShortcut(useCallback(() => setKillSwitchOpen(true), []));
+
+	const handleConfirmFactoryPause = useCallback(
+		async (input: { reason: string }): Promise<void> => {
+			try {
+				const res = await fetch("/api/factory/pause", {
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify({ reason: input.reason }),
+				});
+				if (!res.ok) {
+					// Stale state — refresh and surface the error inline.
+					return;
+				}
+			} finally {
+				setKillSwitchOpen(false);
+				refreshFactoryState();
+			}
+		},
+		[refreshFactoryState],
+	);
+
+	const handleResumeFactory = useCallback(async (): Promise<void> => {
+		await fetch("/api/factory/resume", {
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({}),
+		});
+		refreshFactoryState();
+	}, [refreshFactoryState]);
+
 	// J3: Command-K pressed while Settings is open must close Settings first,
 	// then open the search. useCommandK's own document listener toggles search;
 	// this effect intercepts the same key chord and routes it through the
@@ -521,6 +562,18 @@ export function AppShell(): JSX.Element {
 				data-shell-mode="mobile"
 				data-testid="mobile-shell"
 			>
+				<FactoryPausedBanner state={factoryState} onResume={() => void handleResumeFactory()} />
+				{killSwitchOpen ? (
+					<KillSwitchDialog
+						open
+						verb="factory_pause"
+						target={{ id: "factory", name: "HyperIdle" }}
+						blastRadius="This will pause every running session and block queued tasks until you resume."
+						mode="press_hold"
+						onConfirm={handleConfirmFactoryPause}
+						onCancel={() => setKillSwitchOpen(false)}
+					/>
+				) : null}
 				{/* Top bar: avatar (Coach access per L5 spec) + glance strip */}
 				<header
 					className="flex h-12 items-center justify-between border-b border-[var(--border-default)] px-3"
@@ -630,6 +683,25 @@ export function AppShell(): JSX.Element {
 			data-density-preference={settings.appearance.density}
 			data-shell-mode="desktop"
 		>
+			{factoryState.paused ? (
+				<div className="absolute inset-x-0 top-0 z-40">
+					<FactoryPausedBanner
+						state={factoryState}
+						onResume={() => void handleResumeFactory()}
+					/>
+				</div>
+			) : null}
+			{killSwitchOpen ? (
+				<KillSwitchDialog
+					open
+					verb="factory_pause"
+					target={{ id: "factory", name: "HyperIdle" }}
+					blastRadius="This will pause every running session and block queued tasks until you resume."
+					mode="press_hold"
+					onConfirm={handleConfirmFactoryPause}
+					onCancel={() => setKillSwitchOpen(false)}
+				/>
+			) : null}
 			<div className={shellWrapperClass} aria-hidden={shellDimmed || undefined}>
 				<IconRail
 					activeView={activeView}

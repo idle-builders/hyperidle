@@ -2,15 +2,18 @@ import {
 	AUTONOMY_LEVEL_META,
 	AUTONOMY_LEVELS,
 	type AutonomyLevel,
+	DEFAULT_KILL_SWITCH_CONFIRM_MODE,
 	DEFAULT_UNDO_WINDOW_SECONDS,
 	DEFAULT_VERDICT_DOUBLE_CLICK,
 	isAutonomyLevel,
+	type KillSwitchConfirmMode,
 	UNDO_WINDOW_MAX,
 	UNDO_WINDOW_MIN,
 	UNDO_WINDOW_OPTIONS,
 } from "@hyperidle/shared";
 import FocusTrap from "focus-trap-react";
 import { type JSX, useCallback, useEffect, useState } from "react";
+import { KillSwitchDialog } from "./KillSwitchDialog";
 
 export {
 	DEFAULT_UNDO_WINDOW_SECONDS,
@@ -97,7 +100,13 @@ export interface SettingsPanelProps {
 	onFeedback?: (feedback: FeedbackMessage) => void;
 }
 
-type TabId = "profile" | "products" | "agents" | "notifications" | "appearance";
+type TabId =
+	| "profile"
+	| "products"
+	| "agents"
+	| "notifications"
+	| "appearance"
+	| "safety";
 
 const TABS: { id: TabId; label: string }[] = [
 	{ id: "profile", label: "Profile" },
@@ -105,6 +114,7 @@ const TABS: { id: TabId; label: string }[] = [
 	{ id: "agents", label: "Agents" },
 	{ id: "notifications", label: "Notifications" },
 	{ id: "appearance", label: "Appearance" },
+	{ id: "safety", label: "Safety" },
 ];
 
 const TIME_24H_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
@@ -362,6 +372,7 @@ export function SettingsPanel({
 								onUndoWindowSecondsChange={updateUndoWindowSeconds}
 							/>
 						)}
+						{activeTab === "safety" && <SafetyTab />}
 					</div>
 
 					{/* Validation errors */}
@@ -731,6 +742,102 @@ function AppearanceTab({
 					))}
 				</select>
 			</div>
+		</div>
+	);
+}
+
+/**
+ * L7 — Safety tab. Exposes the kill switch as a third entry point
+ * (alongside the avatar menu + `Cmd+Shift+.`) and the confirmation-mode
+ * preference. The `recovery_audit` listing is rendered as a region so
+ * screen-reader users can navigate to it directly.
+ *
+ * @lore L7: the live recovery-audit feed is fetched by the parent
+ * (AppShell) and threaded down once Track-L L8 lands the
+ * `/api/recovery_audit` listing endpoint. Until then the region renders
+ * an empty state — the test asserts the region is reachable, not that
+ * it is populated.
+ */
+function SafetyTab(): JSX.Element {
+	const [dialogOpen, setDialogOpen] = useState(false);
+	const [confirmMode, setConfirmMode] = useState<KillSwitchConfirmMode>(
+		DEFAULT_KILL_SWITCH_CONFIRM_MODE,
+	);
+
+	return (
+		<div className="flex flex-col gap-4">
+			<section aria-labelledby="settings-safety-kill" className="space-y-2">
+				<h3 id="settings-safety-kill" className="text-sm font-medium">
+					Kill switch
+				</h3>
+				<p className="text-xs text-[var(--text-lo)]">
+					Pauses every running session and blocks queued tasks until you resume.
+				</p>
+				{dialogOpen ? null : (
+					<button
+						type="button"
+						className="btn btn-error btn-sm"
+						onClick={() => setDialogOpen(true)}
+					>
+						Pause Factory
+					</button>
+				)}
+			</section>
+
+			<section aria-labelledby="settings-safety-mode" className="space-y-2">
+				<h3 id="settings-safety-mode" className="text-sm font-medium">
+					Confirmation mode
+				</h3>
+				<div className="flex gap-3 text-xs">
+					<label className="flex items-center gap-2">
+						<input
+							type="radio"
+							name="kill-switch-mode"
+							value="type_name"
+							checked={confirmMode === "type_name"}
+							onChange={() => setConfirmMode("type_name")}
+							className="radio radio-xs"
+						/>
+						<span>Type factory name</span>
+					</label>
+					<label className="flex items-center gap-2">
+						<input
+							type="radio"
+							name="kill-switch-mode"
+							value="press_hold"
+							checked={confirmMode === "press_hold"}
+							onChange={() => setConfirmMode("press_hold")}
+							className="radio radio-xs"
+						/>
+						<span>Press and hold</span>
+					</label>
+				</div>
+			</section>
+
+			<section
+				role="region"
+				aria-label="Recent recovery actions"
+				className="space-y-2"
+			>
+				<h3 className="text-sm font-medium">Recent recovery actions</h3>
+				<p className="text-xs text-[var(--text-lo)]">
+					No recovery actions recorded yet.
+				</p>
+			</section>
+
+			{dialogOpen ? (
+				<KillSwitchDialog
+					open
+					verb="factory_pause"
+					target={{ id: "factory", name: "HyperIdle" }}
+					blastRadius="This will pause every running session and block queued tasks."
+					mode={confirmMode}
+					onConfirm={() => {
+						setDialogOpen(false);
+					}}
+					onCancel={() => setDialogOpen(false)}
+				/>
+			) : null}
 		</div>
 	);
 }
