@@ -253,6 +253,17 @@ export function ConversationsSubmenu({
 	const filtered = useMemo(() => applyRoutingFilter(threads, filter, me), [threads, filter, me]);
 	const buckets = useMemo(() => groupAndSort(filtered, now), [filtered, now]);
 	const flat = useMemo(() => flatten(buckets), [buckets]);
+	// @lore L3 review (adversary W4): pre-compute a `${sec}:${id}`→flatIndex
+	// map once per `flat` change. Without it, the inner row `flat.findIndex`
+	// runs O(rows²) per render. At 200 rows that's ~40k iterations per
+	// keystroke; the Map lookup is O(1).
+	const flatIndexByKey = useMemo(() => {
+		const m = new Map<string, number>();
+		for (let i = 0; i < flat.length; i += 1) {
+			m.set(`${flat[i].section}:${flat[i].threadId}`, i);
+		}
+		return m;
+	}, [flat]);
 
 	// @lore L3 review (adversary C6): the BlockingCounter "N" must reflect
 	// the global blocker count across the unfiltered list — narrowing
@@ -333,7 +344,7 @@ export function ConversationsSubmenu({
 							) : (
 								<ul className="flex flex-col">
 									{rows.map((t) => {
-										const flatIdx = flat.findIndex((r) => r.section === sec && r.threadId === t.id);
+										const flatIdx = flatIndexByKey.get(`${sec}:${t.id}`) ?? -1;
 										const isActive = activeRow?.threadId === t.id && activeRow.section === sec;
 										const isCoach = sec === "pinned" && isCoachThread(t);
 										return (
