@@ -16,12 +16,9 @@ export type {
 } from "./constants/recovery.js";
 export {
 	DEFAULT_KILL_SWITCH_CONFIRM_MODE,
-	KILL_SWITCH_CONFIRM_MODES,
 	PRESS_HOLD_MS,
 	RATIONALE_MAX_CHARS,
 	RECOVERY_OUTCOMES,
-	RECOVERY_TARGET_KINDS,
-	RECOVERY_VERBS,
 	reasonOptionalSchema,
 	reasonRequiredSchema,
 } from "./constants/recovery.js";
@@ -112,31 +109,14 @@ export {
 	scrubInlineTokens,
 	TK_TOKEN_RE,
 } from "./redact.js";
-export type {
-	FactoryPauseRequest,
-	FactoryPauseResponse,
-	FactoryResumeRequest,
-	FactoryResumeResponse,
-	FactoryStateResponse,
-	RollbackRequest,
-	RollbackResponse,
-	SessionPauseRequest,
-	SessionPauseResponse,
-	SessionResumeRequest,
-	SessionResumeResponse,
-} from "./schemas/recovery.js";
+export type { FactoryStateResponse } from "./schemas/recovery.js";
 export {
 	factoryPauseRequestSchema,
-	factoryPauseResponseSchema,
 	factoryResumeRequestSchema,
-	factoryResumeResponseSchema,
 	factoryStateResponseSchema,
 	rollbackRequestSchema,
-	rollbackResponseSchema,
 	sessionPauseRequestSchema,
-	sessionPauseResponseSchema,
 	sessionResumeRequestSchema,
-	sessionResumeResponseSchema,
 } from "./schemas/recovery.js";
 export { decode, encode } from "./toon-codec.js";
 export { ToonParseError } from "./toon-errors.js";
