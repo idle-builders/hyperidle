@@ -72,14 +72,14 @@ export function FirstRunFlow(): JSX.Element {
 
 	if (loading) {
 		return (
-			<div className="p-6" data-testid="first-run-loading">
+			<div className="p-3" data-testid="first-run-loading">
 				Loading…
 			</div>
 		);
 	}
 	if (error) {
 		return (
-			<div className="p-6 text-error" data-testid="first-run-error">
+			<div className="p-3 text-error" data-testid="first-run-error">
 				Failed to load first-run status: {error.message}
 			</div>
 		);
@@ -87,13 +87,13 @@ export function FirstRunFlow(): JSX.Element {
 
 	return (
 		<div className="min-h-screen bg-[var(--surface-0)] flex flex-col" data-testid="first-run-flow">
-			<header className="flex items-center justify-between px-6 py-4 border-b border-[var(--border-1)]">
+			<header className="flex items-center justify-between px-3 py-3 border-b border-[var(--border-subtle)]">
 				<h1 className="text-base font-heading font-semibold uppercase tracking-wider">
 					Create your factory
 				</h1>
 				<StepIndicator current={current} />
 			</header>
-			<main className="flex-1 px-6 py-6 max-w-xl">
+			<main className="flex-1 px-3 py-3 max-w-xl">
 				<StepSection step="factory" current={current}>
 					<FactoryStep onDone={refresh} />
 				</StepSection>
@@ -124,7 +124,7 @@ function StepIndicator({ current }: { current: StepId }): JSX.Element {
 					<li
 						key={s}
 						data-state={state}
-						className="text-xs uppercase tracking-wider px-2 py-1 border border-[var(--border-1)]"
+						className="text-xs uppercase tracking-wider px-2 py-1 border border-[var(--border-default)]"
 					>
 						{STEP_LABELS[s]}
 					</li>
