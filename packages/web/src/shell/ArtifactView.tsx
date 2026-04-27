@@ -132,9 +132,18 @@ function TextDiffView({
 								 * the line text.
 								 *
 								 * @lore L6 review (design C2 / adv O5): the button is visible
-								 * by default at low opacity (`opacity-30`) so touch users can
-								 * see and reach it without a hover state, and it inflates to
-								 * `opacity-100` on hover/focus for desktop affordance.
+								 * by default so touch users can see and reach it without a
+								 * hover state, and brightens to `--text-hi` on hover/focus
+								 * for desktop affordance.
+								 *
+								 * @lore L6 a11y-fix: previously used `opacity-30` to dim the
+								 * resting state, which composited the daisyUI btn-ghost
+								 * foreground over the page background and produced a 1.92:1
+								 * contrast ratio (axe-core color-contrast violation on
+								 * /conversations/review). We hold full opacity and dim via
+								 * the `--text-lo` token, which carries 4.5:1+ contrast
+								 * against `--surface-1` in both themes. Hover/focus
+								 * escalates to `--text-hi` for the same affordance.
 								 */
 								<div
 									key={`${hunk.header}-${li}-${line.type}`}
@@ -145,7 +154,7 @@ function TextDiffView({
 										<button
 											type="button"
 											aria-label={`Add comment to line ${li}`}
-											className="btn btn-xs btn-ghost min-h-[44px] min-w-[44px] opacity-30 hover:opacity-100 focus:opacity-100 group-hover:opacity-100 group-focus-within:opacity-100"
+											className="btn btn-xs btn-ghost min-h-[44px] min-w-[44px] text-[var(--text-lo)] hover:text-[var(--text-hi)] focus:text-[var(--text-hi)] group-hover:text-[var(--text-hi)] group-focus-within:text-[var(--text-hi)]"
 											onClick={() => onAddComment(lineKey, li, line.content)}
 										>
 											+ Comment
