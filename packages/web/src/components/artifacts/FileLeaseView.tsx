@@ -19,7 +19,7 @@ export interface FileLeaseViewProps {
 	payload: FileLeasePayload;
 }
 
-export function getVerdictVariants(payload: FileLeasePayload): VerdictVariants {
+export function getFileLeaseVariants(payload: FileLeasePayload): VerdictVariants {
 	return {
 		approve: `Grant lease to A (${payload.agentA.name})`,
 		requestChanges: "Ask both to coordinate",

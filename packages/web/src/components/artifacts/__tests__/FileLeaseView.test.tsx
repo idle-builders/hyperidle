@@ -6,7 +6,7 @@
 import type { ArtifactMetadataExtended, FileLeasePayload } from "@hyperidle/shared";
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
-import { FileLeaseView, getVerdictVariants } from "../FileLeaseView";
+import { FileLeaseView, getFileLeaseVariants } from "../FileLeaseView";
 
 const meta: ArtifactMetadataExtended = {
 	kind: "file_lease",
@@ -47,8 +47,8 @@ describe("L9: FileLeaseView", () => {
 		expect(colB).toHaveTextContent("export function Auth");
 	});
 
-	it("exposes verdictVariants {approve, requestChanges, reject} via getVerdictVariants", () => {
-		const variants = getVerdictVariants(payload);
+	it("exposes verdictVariants {approve, requestChanges, reject} via getFileLeaseVariants", () => {
+		const variants = getFileLeaseVariants(payload);
 		expect(variants.approve).toMatch(/grant lease to (a|developer)/i);
 		expect(variants.reject).toMatch(/grant lease to (b|builder)/i);
 		expect(variants.requestChanges).toMatch(/coordinate/i);

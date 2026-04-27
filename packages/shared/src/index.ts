@@ -130,7 +130,6 @@ export type {
 	ArtifactMetadataExtended,
 	BlastRadius,
 	FileLeasePayload,
-	L9VerdictExtras,
 	PermissionRequestPayload,
 	SandboxResult,
 	SkillChangePayload,

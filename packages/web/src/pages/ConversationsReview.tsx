@@ -189,6 +189,56 @@ interface ToastState {
 	message?: string;
 }
 
+interface L9ArtifactRenderHandlers {
+	rolloutPolicy: SkillChangePayload["rolloutPolicy"];
+	setRolloutPolicy: (policy: SkillChangePayload["rolloutPolicy"]) => void;
+	setConfirmReady: (ready: boolean) => void;
+}
+
+/**
+ * @lore L9 review (adv D1): extracted from the ConversationsReview JSX so
+ * the kind dispatch is one switch instead of a four-deep nested ternary.
+ * Pure dispatch — all gate state stays in the parent.
+ */
+function renderL9Artifact(thread: L9ReviewThread, handlers: L9ArtifactRenderHandlers): JSX.Element {
+	switch (thread.kind) {
+		case "action_summary":
+			return (
+				<ArtifactKindRenderer
+					kind="action_summary"
+					metadata={thread.metadata}
+					payload={thread.payload}
+					onReadyChange={handlers.setConfirmReady}
+				/>
+			);
+		case "skill_change":
+			return (
+				<ArtifactKindRenderer
+					kind="skill_change"
+					metadata={thread.metadata}
+					payload={{ ...thread.payload, rolloutPolicy: handlers.rolloutPolicy }}
+					onRolloutChange={handlers.setRolloutPolicy}
+				/>
+			);
+		case "file_lease":
+			return (
+				<ArtifactKindRenderer
+					kind="file_lease"
+					metadata={thread.metadata}
+					payload={thread.payload}
+				/>
+			);
+		case "permission_request":
+			return (
+				<ArtifactKindRenderer
+					kind="permission_request"
+					metadata={thread.metadata}
+					payload={thread.payload}
+				/>
+			);
+	}
+}
+
 /**
  * @lore L4 default-settings: until the wider settings reader lands, the
  * page reads shared defaults (`DEFAULT_*` from `@hyperidle/shared`).
@@ -214,17 +264,22 @@ export function ConversationsReview(): JSX.Element {
 	// restore focus to it on close (Esc / Cancel / Submit).
 	const composerTriggerRef = useRef<HTMLElement | null>(null);
 
-	// L9 review (sec CRIT-2 + adv C1/C2): page owns the gate state for
-	// the two kinds whose Approve depends on a renderer-internal input.
-	const [confirmReady, setConfirmReady] = useState(false);
-	const [rolloutPolicy, setRolloutPolicy] = useState<SkillChangePayload["rolloutPolicy"]>(null);
-
 	// Read `?thread=` once per render. Browser-only API guarded for SSR safety.
 	const l9Thread: L9ReviewThread | null = useMemo(() => {
 		if (typeof window === "undefined") return null;
 		const id = new URLSearchParams(window.location.search).get("thread");
 		return getL9ReviewThread(id);
 	}, []);
+
+	// L9 review (sec CRIT-2 + adv C1/C2): page owns the gate state for
+	// the two kinds whose Approve depends on a renderer-internal input.
+	// Lazy initialization seeds rolloutPolicy from the active L9 thread on
+	// first render so the gate reflects the fixture's pre-selected policy
+	// (if any) without a flash of disabled-Approve.
+	const [confirmReady, setConfirmReady] = useState(false);
+	const [rolloutPolicy, setRolloutPolicy] = useState<SkillChangePayload["rolloutPolicy"]>(() =>
+		l9Thread?.kind === "skill_change" ? l9Thread.payload.rolloutPolicy : null,
+	);
 
 	// Reset gate state when the underlying L9 thread changes (defensive
 	// — useMemo above only fires once per mount today, but a future
@@ -686,15 +741,17 @@ export function ConversationsReview(): JSX.Element {
 	const activeBlocking = l9Thread?.blocking ?? selected.blocking;
 	const activeReasoning = l9Thread?.reasoning ?? selected.reasoning;
 	// L9: derive verdict-variant override labels from the L9 thread's kind.
-	const verdictVariants = l9Thread
-		? (getVerdictVariantsFor(
-				l9Thread.kind === "file_lease"
-					? { kind: "file_lease", payload: l9Thread.payload }
-					: l9Thread.kind === "permission_request"
-						? { kind: "permission_request", payload: l9Thread.payload }
-						: { kind: l9Thread.kind },
-			) ?? undefined)
-		: undefined;
+	const verdictVariants = useMemo(() => {
+		if (!l9Thread) return undefined;
+		const variants = getVerdictVariantsFor(
+			l9Thread.kind === "file_lease"
+				? { kind: "file_lease", payload: l9Thread.payload }
+				: l9Thread.kind === "permission_request"
+					? { kind: "permission_request", payload: l9Thread.payload }
+					: { kind: l9Thread.kind },
+		);
+		return variants ?? undefined;
+	}, [l9Thread]);
 
 	// @lore L9 review (sec CRIT-2 + adv C1/C2): compute the Approve gate.
 	// - action_summary with risk_tier='critical' requires the type-to-confirm
@@ -767,33 +824,11 @@ export function ConversationsReview(): JSX.Element {
 				<ReasoningBlock steps={activeReasoning} />
 				<div className="p-3">
 					{l9Thread ? (
-						l9Thread.kind === "action_summary" ? (
-							<ArtifactKindRenderer
-								kind="action_summary"
-								metadata={l9Thread.metadata}
-								payload={l9Thread.payload}
-								onReadyChange={setConfirmReady}
-							/>
-						) : l9Thread.kind === "skill_change" ? (
-							<ArtifactKindRenderer
-								kind="skill_change"
-								metadata={l9Thread.metadata}
-								payload={l9Thread.payload}
-								onRolloutChange={setRolloutPolicy}
-							/>
-						) : l9Thread.kind === "file_lease" ? (
-							<ArtifactKindRenderer
-								kind="file_lease"
-								metadata={l9Thread.metadata}
-								payload={l9Thread.payload}
-							/>
-						) : (
-							<ArtifactKindRenderer
-								kind="permission_request"
-								metadata={l9Thread.metadata}
-								payload={l9Thread.payload}
-							/>
-						)
+						renderL9Artifact(l9Thread, {
+							rolloutPolicy,
+							setRolloutPolicy,
+							setConfirmReady,
+						})
 					) : selected.artifact.shape === "text_diff" ? (
 						<ArtifactView
 							shape="text_diff"

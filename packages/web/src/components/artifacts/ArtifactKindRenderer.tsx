@@ -17,11 +17,8 @@ import type {
 } from "@hyperidle/shared";
 import type { JSX } from "react";
 import { ActionSummaryView } from "./ActionSummaryView.js";
-import { FileLeaseView, getVerdictVariants as getFileLeaseVariants } from "./FileLeaseView.js";
-import {
-	getVerdictVariants as getPermissionRequestVariants,
-	PermissionRequestView,
-} from "./PermissionRequestView.js";
+import { FileLeaseView, getFileLeaseVariants } from "./FileLeaseView.js";
+import { getPermissionRequestVariants, PermissionRequestView } from "./PermissionRequestView.js";
 import { SkillChangeView } from "./SkillChangeView.js";
 
 export type ArtifactKindRendererProps =

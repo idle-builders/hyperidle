@@ -11,22 +11,19 @@
 import { dsShellProps } from "@hyperidle/design-system";
 import type {
 	ArtifactMetadataExtended,
-	AutonomyLevel,
 	PermissionRequestPayload,
 	VerdictVariants,
 } from "@hyperidle/shared";
-import { AUTONOMY_LEVEL_META } from "@hyperidle/shared";
+import { AUTONOMY_LEVEL_META, AUTONOMY_LEVELS } from "@hyperidle/shared";
 import type { JSX } from "react";
 import { ArtifactShell } from "./ArtifactShell.js";
-
-const AUTONOMY_LEVELS: AutonomyLevel[] = [1, 2, 3, 4];
 
 export interface PermissionRequestViewProps {
 	metadata: ArtifactMetadataExtended;
 	payload: PermissionRequestPayload;
 }
 
-export function getVerdictVariants(): VerdictVariants {
+export function getPermissionRequestVariants(): VerdictVariants {
 	return {
 		approve: "Approve once",
 		requestChanges: "Raise level",

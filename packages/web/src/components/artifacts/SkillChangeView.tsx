@@ -3,11 +3,16 @@
  * DOM order MUST be diff → impact list → rollout gate so the AC for
  * "per-agent impact list above verdict bar" can be verified via
  * `compareDocumentPosition`.
+ *
+ * @lore L9 review (simplification F9): the rollout policy is fully
+ * controlled by the parent (ConversationsReview owns the state via
+ * `rolloutPolicy`). The view reads `payload.rolloutPolicy` and emits
+ * changes via `onRolloutChange` — no local mirror state.
  */
 
 import { dsShellProps } from "@hyperidle/design-system";
 import type { ArtifactMetadataExtended, SkillChangePayload } from "@hyperidle/shared";
-import { type JSX, useEffect, useState } from "react";
+import type { JSX } from "react";
 import { ArtifactShell } from "./ArtifactShell.js";
 
 export interface SkillChangeViewProps {
@@ -21,26 +26,15 @@ export function SkillChangeView({
 	payload,
 	onRolloutChange,
 }: SkillChangeViewProps): JSX.Element {
-	const [policy, setPolicy] = useState<SkillChangePayload["rolloutPolicy"]>(payload.rolloutPolicy);
+	const policy = payload.rolloutPolicy;
 	const isReady = policy !== null;
 
-	// @lore L9 review (adv W2): if the payload swaps mid-mount (thread
-	// switch), reset the local policy state to match the new prop so the
-	// gate is correct on first render after the swap.
-	useEffect(() => {
-		setPolicy(payload.rolloutPolicy);
-	}, [payload.rolloutPolicy]);
-
 	function selectPin(): void {
-		const next = { mode: "pin_version" as const, value: "current" };
-		setPolicy(next);
-		onRolloutChange?.(next);
+		onRolloutChange?.({ mode: "pin_version", value: "current" });
 	}
 
 	function selectRollback(): void {
-		const next = { mode: "rollback_window" as const, value: "24h" };
-		setPolicy(next);
-		onRolloutChange?.(next);
+		onRolloutChange?.({ mode: "rollback_window", value: "24h" });
 	}
 
 	return (

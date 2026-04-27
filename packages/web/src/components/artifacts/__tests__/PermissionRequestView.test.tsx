@@ -8,7 +8,7 @@
 import type { ArtifactMetadataExtended } from "@hyperidle/shared";
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
-import { getVerdictVariants, PermissionRequestView } from "../PermissionRequestView";
+import { getPermissionRequestVariants, PermissionRequestView } from "../PermissionRequestView";
 
 const meta: ArtifactMetadataExtended = {
 	kind: "permission_request",
@@ -67,8 +67,8 @@ describe("L9: PermissionRequestView", () => {
 		).toBeInTheDocument();
 	});
 
-	it("exposes verdictVariants {approve: 'Approve once', requestChanges: 'Raise level', reject: 'Deny + reason'} via getVerdictVariants", () => {
-		const variants = getVerdictVariants();
+	it("exposes verdictVariants {approve: 'Approve once', requestChanges: 'Raise level', reject: 'Deny + reason'} via getPermissionRequestVariants", () => {
+		const variants = getPermissionRequestVariants();
 		expect(variants.approve).toMatch(/approve once/i);
 		expect(variants.requestChanges).toMatch(/raise level/i);
 		expect(variants.reject).toMatch(/deny.*reason/i);

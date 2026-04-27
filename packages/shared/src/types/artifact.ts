@@ -103,27 +103,3 @@ export interface VerdictVariants {
 	requestChanges: string;
 	reject: string;
 }
-
-/**
- * L9 review (sec CRIT-1 + adv C4): when an L9 kind drives a verdict, the
- * wire payload distinguishes the variant from a generic approve so future
- * server-side enforcement (one-shot grant, lease-grant scope) can land
- * without breaking the contract. Today the server records the fields for
- * audit; enforcement is deferred — see TODO/lore in
- * `packages/server/src/routes/conversations.ts`.
- */
-export interface L9VerdictExtras {
-	/**
-	 * permission_request: when the founder clicked the "Approve once"
-	 * variant, this is `true`. A regular Approve (without an L9 variant)
-	 * leaves it `null`.
-	 */
-	oneShot?: boolean | null;
-	/**
-	 * file_lease: which competing agent received the lease. `'a'` when
-	 * approve was clicked (Grant lease to A), `'b'` when reject was
-	 * clicked (Grant lease to B), `null` for the request-changes variant
-	 * ("Ask both to coordinate").
-	 */
-	leaseGrantedTo?: "a" | "b" | null;
-}

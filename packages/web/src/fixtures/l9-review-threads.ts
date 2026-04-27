@@ -14,14 +14,13 @@
 
 import type {
 	ActionSummaryPayload,
-	ArtifactKind,
 	ArtifactMetadataExtended,
 	FileLeasePayload,
 	PermissionRequestPayload,
 	SkillChangePayload,
 } from "@hyperidle/shared";
 
-export interface L9ReviewThreadBase {
+interface L9ReviewThreadBase {
 	id: string;
 	proposer: string;
 	timestamp: string;
@@ -205,6 +204,3 @@ export function getL9ReviewThread(id: string | null): L9ReviewThread | null {
 	if (!id) return null;
 	return L9_REVIEW_THREADS[id] ?? null;
 }
-
-/** Exposed for tests & for type narrowing on the dispatcher prop. */
-export type L9ReviewThreadKind = ArtifactKind;

@@ -4,11 +4,6 @@ import type { JSX } from "react";
 import { useCallback, useState } from "react";
 
 export type { VerdictAction };
-/**
- * L9: alias kept for source-stable imports. Canonical type is
- * `VerdictVariants` in `@hyperidle/shared`.
- */
-export type ReviewHeaderVerdictVariants = VerdictVariants;
 
 export interface Proposer {
 	name: string;
