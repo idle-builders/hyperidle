@@ -1,8 +1,17 @@
 /**
- * L7 — AvatarMenu (red phase stub).
+ * L7 — AvatarMenu.
  *
- * INTENTIONALLY UNIMPLEMENTED — see KillSwitchDialog.tsx note.
+ * Top-bar avatar dropdown that always exposes the kill switch as
+ * "Pause Factory" (one of three entry points required by AC1). The
+ * destructive item is keyboard-reachable and rendered with
+ * `data-variant="destructive"` so design-lint can verify the styling
+ * convention.
+ *
+ * @lore L7: the menu is a controlled disclosure (`useState`) rather
+ * than the `<details>` element so we can return focus to the trigger
+ * on close — required by AC6's modal-confirmation flow.
  */
+import { useState } from "react";
 
 export interface AvatarMenuProps {
 	actor: { id: string; name: string; role: "CEO" | "CPO" };
@@ -11,6 +20,72 @@ export interface AvatarMenuProps {
 	onSignOut: () => void;
 }
 
-export function AvatarMenu(_props: AvatarMenuProps): null {
-	return null;
+export function AvatarMenu(props: AvatarMenuProps): JSX.Element {
+	const [open, setOpen] = useState(false);
+
+	function close(): void {
+		setOpen(false);
+	}
+
+	return (
+		<div className="relative">
+			<button
+				type="button"
+				aria-label="Avatar menu"
+				aria-haspopup="menu"
+				aria-expanded={open}
+				className="flex h-8 w-8 items-center justify-center rounded-full bg-base-200 text-sm font-medium uppercase"
+				onClick={() => setOpen((v) => !v)}
+			>
+				{props.actor.name.charAt(0)}
+			</button>
+			{open ? (
+				<ul
+					role="menu"
+					className="absolute right-0 mt-2 min-w-48 rounded-lg border border-base-300 bg-base-100 p-1 text-sm shadow-md"
+				>
+					<li>
+						<button
+							type="button"
+							role="menuitem"
+							className="block w-full rounded px-3 py-2 text-left hover:bg-base-200"
+							onClick={() => {
+								close();
+								props.onOpenSettings();
+							}}
+						>
+							Settings
+						</button>
+					</li>
+					<li>
+						<button
+							type="button"
+							role="menuitem"
+							data-variant="destructive"
+							className="block w-full rounded px-3 py-2 text-left text-error hover:bg-error/10"
+							onClick={() => {
+								close();
+								props.onPauseFactory();
+							}}
+						>
+							Pause Factory
+						</button>
+					</li>
+					<li>
+						<button
+							type="button"
+							role="menuitem"
+							className="block w-full rounded px-3 py-2 text-left hover:bg-base-200"
+							onClick={() => {
+								close();
+								props.onSignOut();
+							}}
+						>
+							Sign out
+						</button>
+					</li>
+				</ul>
+			) : null}
+		</div>
+	);
 }
