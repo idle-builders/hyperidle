@@ -42,6 +42,15 @@ export interface ReviewHeaderProps {
 	 * then the chip stays hidden.
 	 */
 	reversibility?: boolean | null;
+	/**
+	 * @lore L7 AC3: extra items to render at the TOP of the More-actions
+	 * overflow menu. The page-level `ConversationsReview` injects the L7
+	 * `RollbackOverflowItem` here when the artifact is reversible — kept
+	 * out of `SECONDARY_BUTTONS` because rollback is a recovery verb, not
+	 * a verdict, and uses a different (rationale-driven) confirmation
+	 * pattern.
+	 */
+	extraOverflowItems?: JSX.Element | null;
 }
 
 interface VerdictButtonDef {
@@ -176,6 +185,7 @@ export function ReviewHeader({
 	verdictDoubleClick,
 	blocking = false,
 	reversibility,
+	extraOverflowItems,
 }: ReviewHeaderProps): JSX.Element {
 	const [moreOpen, setMoreOpen] = useState(false);
 
@@ -317,6 +327,11 @@ export function ReviewHeader({
 					aria-label="Secondary verdict actions"
 					className={`absolute right-0 top-full z-10 mt-1 flex flex-col gap-[var(--density-gap)] min-w-[14rem] whitespace-nowrap rounded-[var(--r2)] border border-[var(--border-default)] bg-base-200 p-2 shadow-[var(--float)] ${moreOpen ? "" : "hidden"}`}
 				>
+					{/* @lore L7 AC3: recovery verbs render at the top of the
+					    overflow menu, above secondary verdicts. Rollback is the
+					    only one wired today; the slot is generic so future
+					    recovery affordances can join without reshuffling. */}
+					{extraOverflowItems}
 					{SECONDARY_BUTTONS.map((btn) => (
 						<VerdictButton
 							key={btn.action}

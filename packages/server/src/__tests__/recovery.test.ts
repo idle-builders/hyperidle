@@ -518,7 +518,14 @@ describe("L7: POST /api/sessions/:id/pause", () => {
 		expect(res.status).toBe(409);
 	});
 
-	it("ALLOWED while factory paused", async () => {
+	it("ALLOWED while factory paused (not 423; behavior is idempotent against factory pause)", async () => {
+		// L7 AC2 cascade: factory pause auto-pauses every running
+		// session, so the per-session pause endpoint sees an
+		// already-paused row. The route must NOT be guarded by 423
+		// (recovery verbs bypass `factoryPausedGuard`); instead the
+		// service returns 409 `already_paused`. Either 200 (was-running)
+		// or 409 (was-cascaded) is acceptable — the only forbidden
+		// status here is 423.
 		await app.request("/api/factory/pause", {
 			method: "POST",
 			headers: authHeaders({ "X-Actor-Id": "actor:ceo" }),
@@ -529,7 +536,8 @@ describe("L7: POST /api/sessions/:id/pause", () => {
 			headers: authHeaders({ "X-Actor-Id": "actor:ceo" }),
 			body: JSON.stringify({ reason: "x" }),
 		});
-		expect(res.status).toBe(200);
+		expect(res.status).not.toBe(423);
+		expect([200, 409]).toContain(res.status);
 	});
 });
 

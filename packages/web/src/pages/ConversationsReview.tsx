@@ -33,10 +33,12 @@
 import {
 	DEFAULT_UNDO_WINDOW_SECONDS,
 	DEFAULT_VERDICT_DOUBLE_CLICK,
+	type RecoveryOutcome,
 	type VerdictAction,
 } from "@hyperidle/shared";
 import { type JSX, useCallback, useEffect, useRef, useState } from "react";
 import { ReasoningBlock } from "../components/ReasoningBlock";
+import { RollbackOverflowItem } from "../components/RollbackOverflowItem";
 import { UndoToast } from "../components/UndoToast";
 import { useUndoTimer } from "../hooks/useUndoTimer";
 import type {
@@ -60,6 +62,13 @@ interface MockReviewItem {
 	metadata: ArtifactMetadata;
 	relatedHistory: RelatedHistoryEntry[];
 	blocking: boolean;
+	/**
+	 * @lore L7 AC3: gates the Rollback overflow item. Reflects the
+	 * artifact's `reversibility` metadata that ships in L9; until then
+	 * the page seeds `true` for every committed verdict so the overflow
+	 * item is reachable in the integration surface.
+	 */
+	reversible: boolean;
 }
 
 const MOCK_REVIEWS: MockReviewItem[] = [
@@ -103,6 +112,7 @@ const MOCK_REVIEWS: MockReviewItem[] = [
 				],
 			},
 		},
+		reversible: true,
 	},
 	{
 		id: "r2",
@@ -133,6 +143,7 @@ const MOCK_REVIEWS: MockReviewItem[] = [
 				charts: [{ label: "Daily Spend", values: [12, 15, 8, 22, 18, 14, 20] }],
 			},
 		},
+		reversible: false,
 	},
 ];
 
@@ -195,6 +206,43 @@ export function ConversationsReview(): JSX.Element {
 
 	const selected = MOCK_REVIEWS.find((r) => r.id === selectedId) ?? MOCK_REVIEWS[0];
 
+	// L7 AC3: rollback is reachable from the more-actions overflow once a
+	// verdict has been committed on a reversible artifact. We track the
+	// committed state at the page level so the overflow item gates on it.
+	const [verdictCommitted, setVerdictCommitted] = useState(false);
+	const [rollbackToast, setRollbackToast] = useState<{
+		outcome: RecoveryOutcome;
+	} | null>(null);
+
+	const handleRollback = useCallback(
+		async (input: { reason: string }): Promise<{ outcome: RecoveryOutcome }> => {
+			try {
+				const res = await fetch(
+					`/api/threads/${encodeURIComponent(selected.id)}/verdict/rollback`,
+					{
+						method: "POST",
+						headers: {
+							"Content-Type": "application/json",
+							"X-Actor-Id": "actor:ceo",
+						},
+						body: JSON.stringify({ reason: input.reason }),
+					},
+				);
+				if (!res.ok) {
+					setRollbackToast({ outcome: "failed" });
+					return { outcome: "failed" };
+				}
+				const body = (await res.json()) as { outcome: RecoveryOutcome };
+				setRollbackToast({ outcome: body.outcome });
+				return { outcome: body.outcome };
+			} catch {
+				setRollbackToast({ outcome: "failed" });
+				return { outcome: "failed" };
+			}
+		},
+		[selected.id],
+	);
+
 	const verdictDoubleClick = DEFAULT_VERDICT_DOUBLE_CLICK;
 	const undoWindowSeconds = DEFAULT_UNDO_WINDOW_SECONDS;
 
@@ -221,6 +269,9 @@ export function ConversationsReview(): JSX.Element {
 				message,
 			});
 			setPendingVerdict(null);
+			// L7 AC3: a committed verdict unlocks the Rollback overflow
+			// item (still gated on `selected.reversible`).
+			setVerdictCommitted(true);
 			startUndoTimer();
 		},
 		[selected.id, cancelUndoTimer, startUndoTimer],
@@ -531,6 +582,18 @@ export function ConversationsReview(): JSX.Element {
 				pendingVerdict={pendingVerdict}
 				verdictDoubleClick={verdictDoubleClick}
 				blocking={selected.blocking}
+				reversibility={selected.reversible}
+				extraOverflowItems={
+					<RollbackOverflowItem
+						verdict={{
+							id: `verdict-${selected.id}`,
+							state: verdictCommitted ? "committed" : "draft",
+							reversible: selected.reversible,
+							threadId: selected.id,
+						}}
+						onRollback={handleRollback}
+					/>
+				}
 			/>
 			{pendingVerdict && (
 				<output
@@ -582,6 +645,22 @@ export function ConversationsReview(): JSX.Element {
 				onCancel={handleCancel}
 				errorMessage={submitError ?? undefined}
 			/>
+			{rollbackToast ? (
+				<output
+					role="status"
+					data-testid="rollback-outcome-toast"
+					className="fixed bottom-4 right-4 z-50 rounded-[var(--r2)] border border-[var(--border-default)] bg-base-200 px-4 py-2 text-sm shadow-[var(--float)]"
+				>
+					{`Rollback ${rollbackToast.outcome}.`}
+					<button
+						type="button"
+						className="ml-3 text-xs underline"
+						onClick={() => setRollbackToast(null)}
+					>
+						Dismiss
+					</button>
+				</output>
+			) : null}
 		</div>
 	);
 }

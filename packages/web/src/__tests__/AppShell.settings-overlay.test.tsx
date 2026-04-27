@@ -51,6 +51,8 @@ describe("AppShell — Settings overlay + Command-K priority (J3)", () => {
 			expect(screen.getByText("Active Bets")).toBeInTheDocument();
 		});
 		await user.click(screen.getByRole("button", { name: /user profile/i }));
+		// L7: avatar click opens AvatarMenu — pick the Settings item.
+		await user.click(await screen.findByRole("menuitem", { name: /settings/i }));
 		await waitFor(() => {
 			expect(screen.getByRole("dialog", { name: /settings/i })).toBeInTheDocument();
 		});
@@ -73,6 +75,8 @@ describe("AppShell — Settings overlay + Command-K priority (J3)", () => {
 			expect(screen.getByTestId("main-content")).toBeInTheDocument();
 		});
 		await user.click(screen.getByRole("button", { name: /user profile/i }));
+		// L7: avatar click opens AvatarMenu — pick the Settings item.
+		await user.click(await screen.findByRole("menuitem", { name: /settings/i }));
 		await waitFor(() => {
 			expect(screen.getByRole("dialog", { name: /settings/i })).toBeInTheDocument();
 		});
@@ -87,6 +91,8 @@ describe("AppShell — Settings overlay + Command-K priority (J3)", () => {
 			expect(screen.getByRole("button", { name: /user profile/i })).toBeInTheDocument();
 		});
 		await user.click(screen.getByRole("button", { name: /user profile/i }));
+		// L7: avatar click opens AvatarMenu — pick the Settings item.
+		await user.click(await screen.findByRole("menuitem", { name: /settings/i }));
 		await waitFor(() => {
 			expect(screen.getByRole("dialog", { name: /settings/i })).toBeInTheDocument();
 		});
