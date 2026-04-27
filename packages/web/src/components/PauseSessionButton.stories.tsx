@@ -9,7 +9,7 @@ const asyncNoop = async (): Promise<void> => undefined;
 
 export const Running = (): React.JSX.Element => (
 	<PauseSessionButton
-		session={{ id: "session-1", state: "running", agentName: "Builder" }}
+		session={{ id: "session-1", state: "active", agentName: "Builder" }}
 		onPause={asyncNoop}
 		onResume={asyncNoop}
 	/>
@@ -25,7 +25,7 @@ export const Paused = (): React.JSX.Element => (
 
 export const FactoryPaused = (): React.JSX.Element => (
 	<PauseSessionButton
-		session={{ id: "session-1", state: "running", agentName: "Builder" }}
+		session={{ id: "session-1", state: "active", agentName: "Builder" }}
 		onPause={asyncNoop}
 		onResume={asyncNoop}
 		factoryPaused

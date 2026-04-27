@@ -135,8 +135,8 @@ export function WorkTeam(): JSX.Element {
 	const [tasks, setTasks] = useState<KanbanTask[]>(INITIAL_TASKS);
 	const [pitchSelectorOpen, setPitchSelectorOpen] = useState(false);
 	const [selectedPitchIds, setSelectedPitchIds] = useState<string[]>([]);
-	const [teamSessionStates, setTeamSessionStates] = useState<Record<string, "running" | "paused">>(
-		() => Object.fromEntries(MOCK_TEAM_SESSIONS.map((s) => [s.id, "running" as const])),
+	const [teamSessionStates, setTeamSessionStates] = useState<Record<string, "active" | "paused">>(
+		() => Object.fromEntries(MOCK_TEAM_SESSIONS.map((s) => [s.id, "active" as const])),
 	);
 	const factoryState = useFactoryStateContext();
 	const recoveryFetch = useRecoveryFetch();
@@ -210,7 +210,7 @@ export function WorkTeam(): JSX.Element {
 					</h2>
 					<ul className="flex flex-col gap-2">
 						{MOCK_TEAM_SESSIONS.map((s) => {
-							const state = teamSessionStates[s.id] ?? "running";
+							const state = teamSessionStates[s.id] ?? "active";
 							return (
 								<li
 									key={s.id}
@@ -243,7 +243,7 @@ export function WorkTeam(): JSX.Element {
 												{},
 											);
 											if (res.ok) {
-												setTeamSessionStates((prev) => ({ ...prev, [s.id]: "running" }));
+												setTeamSessionStates((prev) => ({ ...prev, [s.id]: "active" }));
 											}
 										}}
 									/>

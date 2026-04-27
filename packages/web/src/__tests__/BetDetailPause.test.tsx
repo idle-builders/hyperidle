@@ -22,7 +22,7 @@ describe("L7 — PauseSessionButton (bet/team detail)", () => {
 	it("renders 'Pause' when session state is running", () => {
 		render(
 			<PauseSessionButton
-				session={{ id: "session-1", state: "running", agentName: "Builder" }}
+				session={{ id: "session-1", state: "active", agentName: "Builder" }}
 				onPause={vi.fn()}
 				onResume={vi.fn()}
 			/>,
@@ -47,7 +47,7 @@ describe("L7 — PauseSessionButton (bet/team detail)", () => {
 		const user = userEvent.setup();
 		render(
 			<PauseSessionButton
-				session={{ id: "session-1", state: "running", agentName: "Builder" }}
+				session={{ id: "session-1", state: "active", agentName: "Builder" }}
 				onPause={vi.fn()}
 				onResume={vi.fn()}
 			/>,
@@ -60,7 +60,7 @@ describe("L7 — PauseSessionButton (bet/team detail)", () => {
 	it("disabled while factory is paused (factory-resume must run first)", () => {
 		render(
 			<PauseSessionButton
-				session={{ id: "session-1", state: "running", agentName: "Builder" }}
+				session={{ id: "session-1", state: "active", agentName: "Builder" }}
 				onPause={vi.fn()}
 				onResume={vi.fn()}
 				factoryPaused={true}

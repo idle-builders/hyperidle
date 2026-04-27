@@ -93,7 +93,7 @@ export function createFactoryRoutes(db: HyperIdleDb): Hono<ActorEnv> {
 			return c.json({ error: "not_paused", code: API_ERROR_CODES.CONFLICT }, 409);
 		}
 		return c.json(
-			{ state: "running" as const, resumedAt: result.resumedAt, auditId: result.auditId },
+			{ state: "active" as const, resumedAt: result.resumedAt, auditId: result.auditId },
 			200,
 		);
 	});
@@ -141,7 +141,7 @@ export function createSessionRecoveryRoutes(db: HyperIdleDb): Hono<ActorEnv> {
 			return c.json({ error: "not_paused", code: API_ERROR_CODES.CONFLICT }, 409);
 		}
 		return c.json(
-			{ state: "running" as const, resumedAt: result.resumedAt, auditId: result.auditId },
+			{ state: "active" as const, resumedAt: result.resumedAt, auditId: result.auditId },
 			200,
 		);
 	});

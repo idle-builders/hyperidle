@@ -134,16 +134,22 @@ export function pauseFactory(
 			// "paused mid-session by a founder" (stays paused — must be
 			// resumed individually). Mirrors the §3 plan and the spec
 			// validation scenario in TRACK-L.md L7.
+			// @lore L7 (ARCH1): the canonical session-state literal is
+			// `'active'` per PROCESS_LAYER.md and every other production
+			// reader (sessions-routes.ts, session-lifecycle.ts, etc.). The
+			// kill cascade and resume restore use `'active'` so they
+			// integrate with the rest of the codebase. Sessions seeded
+			// with any other literal are not picked up by the cascade.
 			const runningSessionRows = tx
 				.select({ id: sessions.id })
 				.from(sessions)
-				.where(eq(sessions.state, "running"))
+				.where(eq(sessions.state, "active"))
 				.all();
 			const sessionIds = runningSessionRows.map((r) => r.id);
 
 			if (sessionIds.length > 0) {
 				const checkpointJson = JSON.stringify({
-					priorState: "running",
+					priorState: "active",
 					pausedByKill: true,
 					at: now,
 				});
@@ -259,7 +265,7 @@ export function resumeFactory(
 			}
 			if (restoredSessions.length > 0) {
 				tx.update(sessions)
-					.set({ state: "running", pauseCheckpoint: null })
+					.set({ state: "active", pauseCheckpoint: null })
 					.where(inArray(sessions.id, restoredSessions))
 					.run();
 			}
@@ -398,7 +404,7 @@ export function resumeSession(
 			const auditId = crypto.randomUUID();
 
 			tx.update(sessions)
-				.set({ state: "running", pauseCheckpoint: null })
+				.set({ state: "active", pauseCheckpoint: null })
 				.where(eq(sessions.id, input.sessionId))
 				.run();
 

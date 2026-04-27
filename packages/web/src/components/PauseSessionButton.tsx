@@ -17,7 +17,7 @@ import { useState } from "react";
 import { KillSwitchDialog } from "./KillSwitchDialog";
 
 export interface PauseSessionButtonProps {
-	session: { id: string; state: "running" | "paused"; agentName: string };
+	session: { id: string; state: "active" | "paused"; agentName: string };
 	onPause: (input: { reason: string }) => Promise<void> | void;
 	onResume: () => Promise<void> | void;
 	factoryPaused?: boolean;

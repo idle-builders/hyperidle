@@ -122,7 +122,7 @@ function seedRunningSessions(db: HyperIdleDb, count = 3): string[] {
 				agentId: "agent-1",
 				modelTier: "sonnet",
 				startedAt: NOW_ISO,
-				state: "running",
+				state: "active",
 			})
 			.run();
 		ids.push(sessionId);
@@ -292,7 +292,7 @@ describe("L7: POST /api/factory/resume", () => {
 		});
 		expect(res.status).toBe(200);
 		const body = (await res.json()) as { state: string; auditId: string };
-		expect(body.state).toBe("running");
+		expect(body.state).toBe("active");
 		const auditRow = db.get<{ verb: string }>(
 			sql.raw(`SELECT verb FROM "recovery_audit" WHERE id = '${body.auditId}'`),
 		);
@@ -601,7 +601,7 @@ describe("L7: POST /api/sessions/:id/resume", () => {
 		});
 		expect(res.status).toBe(200);
 		const body = (await res.json()) as { state: string };
-		expect(body.state).toBe("running");
+		expect(body.state).toBe("active");
 	});
 });
 
@@ -802,7 +802,7 @@ describe("L7 AC2: factory pause cascades to running sessions and queued tasks", 
 				priorState?: string;
 			};
 			expect(parsed.pausedByKill).toBe(true);
-			expect(parsed.priorState).toBe("running");
+			expect(parsed.priorState).toBe("active");
 		}
 
 		// Every accepted task is now hold.
@@ -850,7 +850,7 @@ describe("L7 AC2: factory pause cascades to running sessions and queued tasks", 
 		const restored = db.get<{ state: string; pause_checkpoint: string | null }>(
 			sql.raw(`SELECT state, pause_checkpoint FROM "sessions" WHERE id = '${sessionIds[1]}'`),
 		);
-		expect(restored?.state).toBe("running");
+		expect(restored?.state).toBe("active");
 		expect(restored?.pause_checkpoint).toBeNull();
 
 		// Both tasks must be back to accepted.

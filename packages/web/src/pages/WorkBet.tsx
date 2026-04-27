@@ -252,8 +252,8 @@ export function WorkBet({ loading = false, overrideBetId }: WorkBetProps = {}): 
 	// Pause/Resume affordance toggles immediately. The server is the
 	// source of truth — every action POSTs the corresponding endpoint;
 	// a failed call falls back to the prior state to avoid lying.
-	const [sessionStates, setSessionStates] = useState<Record<string, "running" | "paused">>(() =>
-		Object.fromEntries(bet.runningSessions.map((s) => [s.id, "running" as const])),
+	const [sessionStates, setSessionStates] = useState<Record<string, "active" | "paused">>(() =>
+		Object.fromEntries(bet.runningSessions.map((s) => [s.id, "active" as const])),
 	);
 	const factoryState = useFactoryStateContext();
 	const recoveryFetch = useRecoveryFetch();
@@ -401,7 +401,7 @@ export function WorkBet({ loading = false, overrideBetId }: WorkBetProps = {}): 
 					</h2>
 					<ul className="flex flex-col gap-2">
 						{bet.runningSessions.map((s) => {
-							const state = sessionStates[s.id] ?? "running";
+							const state = sessionStates[s.id] ?? "active";
 							return (
 								<li
 									key={s.id}
@@ -434,7 +434,7 @@ export function WorkBet({ loading = false, overrideBetId }: WorkBetProps = {}): 
 												{},
 											);
 											if (res.ok) {
-												setSessionStates((prev) => ({ ...prev, [s.id]: "running" }));
+												setSessionStates((prev) => ({ ...prev, [s.id]: "active" }));
 											}
 										}}
 									/>
