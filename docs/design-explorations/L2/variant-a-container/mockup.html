@@ -1,0 +1,890 @@
+<!doctype html>
+<html lang="en" data-theme="lucid-dark" data-density="default">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>L2 Block — Variant A: Container with payload</title>
+  <link rel="stylesheet" href="../../../../packages/design-system/src/tokens.css" />
+  <style>
+    /* ─────────────────────────────────────────────────────────────────────
+     * Variant A — Container with payload
+     *
+     * Thesis: A Block is a thin tagged container; the payload does the work.
+     * No per-kind chrome (no copy buttons, no scroll affordances, no expand).
+     * The anchor is a 4px gutter dot at --text-lo, lit on hover/focus.
+     *
+     * ALL spacing, color, radius, motion comes from tokens.css. No hex.
+     * No new design-system primitives invented; the renderer composes
+     * native HTML (<h1..h6>, <p>, <ul>, <ol>, <blockquote>, <pre><code>,
+     * <table>, <hr>, <img>, sanitised <details>) and one .blockview class.
+     * ─────────────────────────────────────────────────────────────────── */
+
+    *, *::before, *::after { box-sizing: border-box; }
+    html, body {
+      margin: 0;
+      padding: 0;
+      background: var(--surface-0);
+      color: var(--text-hi);
+      font-family: var(--ui);
+      font-size: var(--density-text);
+      line-height: var(--leading-body);
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+
+    /* ── Page chrome (frame for two side-by-side surfaces) ──────────────── */
+    .page {
+      max-width: 1280px;
+      margin: 0 auto;
+      padding: 24px var(--density-page-gutter);
+    }
+    .page__hed {
+      font-family: var(--mono);
+      font-size: 11px;
+      font-weight: 500;
+      letter-spacing: var(--tracking-caps);
+      text-transform: uppercase;
+      color: var(--text-lo);
+      margin: 0 0 16px;
+    }
+    .page__cols {
+      display: grid;
+      grid-template-columns: 1.4fr 1fr;
+      gap: 16px;
+    }
+    .surface {
+      background: var(--surface-1);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--r2);
+      padding: 16px;
+      min-width: 0; /* allow overflow strategies inside */
+    }
+    .surface__label {
+      font-family: var(--mono);
+      font-size: 11px;
+      font-weight: 500;
+      letter-spacing: var(--tracking-caps);
+      text-transform: uppercase;
+      color: var(--text-lo);
+      margin-bottom: 4px;
+    }
+    .surface__bread {
+      font-size: 12px;
+      color: var(--text-mid);
+      margin-bottom: 12px;
+    }
+    .surface__bread .crumb {
+      font-family: var(--mono);
+      color: var(--text-mid);
+    }
+    .surface__bread .crumb--current { color: var(--text-hi); }
+
+    /* Knowledge metadata strip — composed from existing primitive shapes
+       (Tag + StatusChip pill geometry already in the DS). Shown as
+       inline pills above the body to mirror the KnowledgeDetail surface. */
+    .meta-strip {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 6px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid var(--border-subtle);
+      margin-bottom: 12px;
+    }
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 2px 8px;
+      border-radius: var(--r-pill);
+      font-family: var(--mono);
+      font-size: 11px;
+      font-weight: 500;
+      letter-spacing: var(--tracking-caps);
+      background: var(--surface-ghost);
+      color: var(--text-mid);
+      white-space: nowrap;
+    }
+    .pill--status {
+      text-transform: uppercase;
+      color: var(--ok);
+      background: color-mix(in oklab, var(--ok) 14%, transparent);
+    }
+    .pill--status .dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--ok);
+      flex-shrink: 0;
+    }
+    .pill--ts { color: var(--text-lo); background: transparent; }
+
+    /* ─────────────────────────────────────────────────────────────────────
+     * .blockview — THE ENTIRE VARIANT.
+     *
+     * Two-column grid: [gutter | content]. The gutter is 16px, holds the
+     * anchor dot + optional thread-count chip, and collapses to 0 on mobile.
+     * Content is unconstrained — it's just the native HTML element for the
+     * payload kind.
+     * ─────────────────────────────────────────────────────────────────── */
+    .blockview {
+      display: grid;
+      grid-template-columns: 16px minmax(0, 1fr);
+      column-gap: 8px;
+      align-items: start;
+      position: relative;
+    }
+    .blockview + .blockview { margin-top: 8px; }
+
+    /* gutter ─ houses anchor dot + optional thread chip */
+    .blockview__gutter {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      padding-top: 0.5em; /* aligns dot to first text baseline */
+      user-select: none;
+    }
+    .blockview__anchor {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 16px;
+      height: 16px;
+      border: 0;
+      background: transparent;
+      cursor: pointer;
+      padding: 0;
+      border-radius: var(--r1);
+      transition: background var(--motion-fast) var(--motion-ease);
+    }
+    .blockview__anchor::before {
+      content: "";
+      width: 4px;
+      height: 4px;
+      border-radius: 50%;
+      background: var(--text-lo);
+      opacity: 0;
+      transition:
+        opacity var(--motion-fast) var(--motion-ease),
+        background var(--motion-fast) var(--motion-ease);
+    }
+    .blockview:hover .blockview__anchor::before,
+    .blockview:focus-within .blockview__anchor::before {
+      opacity: 1;
+    }
+    .blockview__anchor:hover::before { background: var(--text-mid); }
+    .blockview__anchor:focus-visible {
+      outline: 1px solid var(--primary);
+      outline-offset: 1px;
+    }
+    .blockview__anchor:focus-visible::before {
+      opacity: 1;
+      background: var(--text-hi);
+    }
+
+    /* thread-count chip (L26 affordance, derived from L1 query) */
+    .blockview__threadcount {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 16px;
+      height: 16px;
+      padding: 0 4px;
+      border-radius: var(--r-pill);
+      background: var(--surface-ghost);
+      color: var(--text-mid);
+      font-family: var(--mono);
+      font-size: 11px;
+      font-weight: 500;
+      line-height: 1;
+    }
+
+    /* content slot ─ minimum styling, lets native HTML breathe */
+    .blockview__content { min-width: 0; }
+
+    /* Reset margins on first/last children inside the slot so the parent
+       gap controls inter-block rhythm, not collapsing margins. */
+    .blockview__content > :first-child { margin-top: 0; }
+    .blockview__content > :last-child { margin-bottom: 0; }
+
+    /* ── Payload styling — native elements, DS tokens only ─────────────── */
+
+    /* heading */
+    .blockview__content h1 {
+      font-family: var(--ui);
+      font-size: var(--density-text-h1);
+      font-weight: var(--fw-emphasis);
+      line-height: var(--leading-heading-lg);
+      letter-spacing: -0.005em;
+      color: var(--text-hi);
+      margin: 0 0 8px;
+    }
+    .blockview__content h2 {
+      font-family: var(--ui);
+      font-size: var(--density-text-h2);
+      font-weight: var(--fw-emphasis);
+      line-height: var(--leading-heading);
+      color: var(--text-hi);
+      margin: 0 0 8px;
+    }
+    .blockview__content h3 {
+      font-family: var(--ui);
+      font-size: 16px;
+      font-weight: var(--fw-emphasis);
+      line-height: var(--leading-heading);
+      color: var(--text-hi);
+      margin: 0 0 4px;
+    }
+    .blockview__content h4,
+    .blockview__content h5,
+    .blockview__content h6 {
+      font-family: var(--ui);
+      font-size: var(--density-text);
+      font-weight: var(--fw-emphasis);
+      line-height: var(--leading-heading);
+      color: var(--text-hi);
+      margin: 0 0 4px;
+    }
+
+    /* paragraph + inline */
+    .blockview__content p {
+      margin: 0;
+      color: var(--text-hi);
+    }
+    .blockview__content a {
+      color: var(--primary);
+      text-decoration: underline;
+      text-underline-offset: 2px;
+      text-decoration-color: color-mix(in oklab, var(--primary) 40%, transparent);
+    }
+    .blockview__content a:hover { text-decoration-color: var(--primary); }
+    .blockview__content a:focus-visible {
+      outline: 1px solid var(--primary);
+      outline-offset: 2px;
+      border-radius: var(--r1);
+    }
+    .blockview__content strong {
+      font-weight: var(--fw-emphasis);
+      color: var(--text-hi);
+    }
+    .blockview__content em {
+      font-style: italic;
+      color: var(--text-hi);
+    }
+    .blockview__content code:not(pre code) {
+      font-family: var(--mono);
+      font-size: 0.92em;
+      background: var(--surface-ghost);
+      color: var(--text-hi);
+      padding: 1px 6px;
+      border-radius: var(--r1);
+      border: 1px solid var(--border-subtle);
+    }
+
+    /* lists */
+    .blockview__content ul,
+    .blockview__content ol {
+      margin: 0;
+      padding-left: 20px;
+      color: var(--text-hi);
+    }
+    .blockview__content ul { list-style: disc; }
+    .blockview__content ol { list-style: decimal; }
+    .blockview__content li { margin: 0; }
+    .blockview__content li + li { margin-top: 2px; }
+    .blockview__content li > ul,
+    .blockview__content li > ol { margin-top: 2px; }
+    .blockview__content ul ul { list-style: circle; }
+    .blockview__content ul ul ul { list-style: square; }
+
+    /* blockquote */
+    .blockview__content blockquote {
+      margin: 0;
+      padding: 4px 12px;
+      border-left: 2px solid var(--border-emphasis);
+      color: var(--text-mid);
+      background: transparent;
+    }
+    .blockview__content blockquote p { color: var(--text-mid); }
+
+    /* code (fenced) — no copy button, no language label, no scroll chrome.
+       The kind speaks for itself; users select-all. */
+    .blockview__content pre {
+      margin: 0;
+      padding: 8px 12px;
+      background: var(--surface-2);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--r2);
+      overflow: auto;
+      font-family: var(--mono);
+      font-size: 13px;
+      line-height: 1.5;
+      color: var(--text-hi);
+    }
+    .blockview__content pre code {
+      font-family: inherit;
+      font-size: inherit;
+      color: inherit;
+      background: transparent;
+      border: 0;
+      padding: 0;
+    }
+
+    /* table */
+    .blockview__content table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: var(--density-text);
+      font-variant-numeric: tabular-nums;
+    }
+    .blockview__content th,
+    .blockview__content td {
+      text-align: left;
+      padding: 6px 8px;
+      border-bottom: 1px solid var(--border-subtle);
+      vertical-align: top;
+    }
+    .blockview__content th {
+      font-weight: var(--fw-medium);
+      color: var(--text-mid);
+      border-bottom-color: var(--border-default);
+    }
+    .blockview__content td { color: var(--text-hi); }
+
+    /* divider */
+    .blockview__content hr {
+      border: 0;
+      border-top: 1px solid var(--border-subtle);
+      margin: 0;
+    }
+
+    /* image */
+    .blockview__content img {
+      display: block;
+      max-width: 100%;
+      height: auto;
+      border-radius: var(--r2);
+      border: 1px solid var(--border-subtle);
+    }
+
+    /* sanitised raw HTML (e.g. <details>) — reuse the same surface ladder */
+    .blockview__content details {
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--r2);
+      padding: 8px 12px;
+      background: var(--surface-2);
+    }
+    .blockview__content details > summary {
+      cursor: pointer;
+      color: var(--text-hi);
+      font-weight: var(--fw-medium);
+      list-style: none;
+    }
+    .blockview__content details > summary::-webkit-details-marker { display: none; }
+    .blockview__content details > summary::before {
+      content: "›";
+      display: inline-block;
+      width: 12px;
+      color: var(--text-lo);
+      transition: transform var(--motion-fast) var(--motion-ease);
+    }
+    .blockview__content details[open] > summary::before {
+      transform: rotate(90deg);
+    }
+    .blockview__content details > *:not(summary) { margin-top: 4px; }
+
+    /* unknown sentinel — paragraph + dotted underline cue.
+       The cue is functional (signals "render fallback"), not decorative. */
+    .blockview--unknown .blockview__content {
+      color: var(--text-mid);
+    }
+    .blockview--unknown .blockview__content > * {
+      border-bottom: 1px dotted var(--border-emphasis);
+      padding-bottom: 4px;
+    }
+    .blockview--unknown[title] { /* native tooltip via title attr */ }
+
+    /* ── Block-deleted indicator (L26 contract).
+       Inline strip rendered beside the next-best location, preserving the
+       original anchor text. No separate component — same .blockview shell
+       with a modifier class. */
+    .blockview--deleted .blockview__content {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 4px 10px;
+      border-left: 2px solid var(--danger);
+      background: color-mix(in oklab, var(--danger) 8%, transparent);
+      border-radius: 0 var(--r1) var(--r1) 0;
+      font-size: 12px;
+      color: var(--text-mid);
+    }
+    .blockview--deleted .blockview__content .label {
+      font-family: var(--mono);
+      font-size: 11px;
+      font-weight: 500;
+      letter-spacing: var(--tracking-caps);
+      text-transform: uppercase;
+      color: var(--danger);
+      flex-shrink: 0;
+    }
+    .blockview--deleted .blockview__content .quote {
+      color: var(--text-mid);
+      font-style: italic;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .blockview--deleted .blockview__gutter .blockview__threadcount {
+      background: color-mix(in oklab, var(--danger) 14%, transparent);
+      color: var(--danger);
+    }
+
+    /* Demo-only: show a fully visible anchor for a "default" demo state */
+    .blockview--demo-visible .blockview__anchor::before { opacity: 1; }
+    .blockview--demo-hover .blockview__anchor::before {
+      opacity: 1;
+      background: var(--text-mid);
+    }
+    .blockview--demo-hover .blockview__anchor {
+      background: var(--surface-ghost);
+    }
+    .blockview--demo-focus .blockview__anchor {
+      outline: 1px solid var(--primary);
+      outline-offset: 1px;
+    }
+    .blockview--demo-focus .blockview__anchor::before {
+      opacity: 1;
+      background: var(--text-hi);
+    }
+
+    /* ── Mobile (≤640px) — gutter collapses, anchor reveals via :focus-within ── */
+    @media (max-width: 640px) {
+      .page__cols {
+        grid-template-columns: 1fr;
+      }
+      .blockview {
+        grid-template-columns: 0 minmax(0, 1fr);
+        column-gap: 0;
+      }
+      .blockview__gutter {
+        position: absolute;
+        left: -2px;
+        top: 0;
+        padding-top: 0.4em;
+      }
+      .blockview__anchor::before { opacity: 0; }
+      /* On mobile, anchor only reveals when the block is tap-focused
+         (focus-within stands in for "long-press" on touch devices). */
+      .blockview:focus-within .blockview__anchor::before { opacity: 1; }
+      .blockview__threadcount {
+        position: absolute;
+        right: 4px;
+        top: 0;
+      }
+      .blockview__content {
+        padding-right: 24px; /* room for thread chip */
+      }
+    }
+
+    /* Small label for state-demo callouts */
+    .demo-tag {
+      display: inline-block;
+      font-family: var(--mono);
+      font-size: 10px;
+      letter-spacing: var(--tracking-caps);
+      text-transform: uppercase;
+      color: var(--text-lo);
+      margin-left: 8px;
+      vertical-align: middle;
+    }
+  </style>
+</head>
+<body>
+  <div class="page" data-component="BlockView" data-tier="2" data-uses="" data-daisyui="">
+    <h1 class="page__hed">L2 — Block primitive · Variant A · Container with payload</h1>
+
+    <div class="page__cols">
+
+      <!-- ─────────────────────────────────────────────────────────────
+           SURFACE 1 — WorkBet pitch context (wider, prose-heavy)
+           Replaces the <pre> at WorkBet.tsx:262-267
+           ───────────────────────────────────────────────────────── -->
+      <section class="surface" aria-label="WorkBet pitch — Variant A renderer">
+        <div class="surface__label">WorkBet · pitch</div>
+        <div class="surface__bread">
+          <span class="crumb">Bets</span>
+          <span> · </span>
+          <span class="crumb crumb--current">B-217 · Reduce intake review latency</span>
+        </div>
+
+        <!-- heading h1 (default anchor, hidden until hover/focus) -->
+        <article class="blockview" data-block-id="blk:v1:1a2b" data-kind="heading">
+          <div class="blockview__gutter">
+            <button type="button" class="blockview__anchor" aria-label="Copy link to block heading"></button>
+          </div>
+          <div class="blockview__content">
+            <h1>Reduce intake review latency</h1>
+          </div>
+        </article>
+
+        <!-- paragraph w/ inline marks; DEMO state: anchor visible -->
+        <article class="blockview blockview--demo-visible" data-block-id="blk:v1:2b3c" data-kind="paragraph">
+          <div class="blockview__gutter">
+            <button type="button" class="blockview__anchor" aria-label="Copy link to paragraph"></button>
+          </div>
+          <div class="blockview__content">
+            <p>
+              Today our intake queue waits a median of <strong>11.3 hours</strong> between
+              submission and first review. We see this happening when the rotating reviewer
+              switches contexts mid-day — an effect well documented in
+              <a href="#fn-1">Beck &amp; Andres (2019)</a> and reproducible in our own
+              telemetry. The remedy is mechanical: route by load, not by name. The hot path
+              should run <code>scheduler.assignNext()</code> instead of the manual handoff
+              channel, _and_ we should stop hard-coding reviewer slots.
+            </p>
+          </div>
+        </article>
+
+        <!-- heading h2 — has 2 attached threads (gutter chip) -->
+        <article class="blockview" data-block-id="blk:v1:3c4d" data-kind="heading">
+          <div class="blockview__gutter">
+            <button type="button" class="blockview__anchor" aria-label="Copy link to section"></button>
+            <span class="blockview__threadcount" aria-label="2 attached threads">2</span>
+          </div>
+          <div class="blockview__content">
+            <h2>How we know it&rsquo;s the bottleneck</h2>
+          </div>
+        </article>
+
+        <!-- paragraph -->
+        <article class="blockview" data-block-id="blk:v1:4d5e" data-kind="paragraph">
+          <div class="blockview__gutter">
+            <button type="button" class="blockview__anchor" aria-label="Copy link to paragraph"></button>
+          </div>
+          <div class="blockview__content">
+            <p>
+              We instrumented every intake touchpoint for two weeks. The data is unambiguous —
+              two thirds of total wall-clock time sits between “submitted” and “first eyeballs”,
+              and the other third is split across review work proper.
+            </p>
+          </div>
+        </article>
+
+        <!-- table (GFM, 3 columns × 4 rows) -->
+        <article class="blockview" data-block-id="blk:v1:5e6f" data-kind="table">
+          <div class="blockview__gutter">
+            <button type="button" class="blockview__anchor" aria-label="Copy link to table"></button>
+          </div>
+          <div class="blockview__content">
+            <table>
+              <thead>
+                <tr>
+                  <th>Stage</th>
+                  <th>p50 (h)</th>
+                  <th>p95 (h)</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr><td>Submission &rarr; assigned</td><td>6.4</td><td>23.1</td></tr>
+                <tr><td>Assigned &rarr; first comment</td><td>4.9</td><td>18.7</td></tr>
+                <tr><td>First comment &rarr; verdict</td><td>2.1</td><td>9.6</td></tr>
+                <tr><td>Verdict &rarr; resolution</td><td>0.7</td><td>3.2</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </article>
+
+        <!-- divider -->
+        <article class="blockview" data-block-id="blk:v1:6f7a" data-kind="divider">
+          <div class="blockview__gutter">
+            <button type="button" class="blockview__anchor" aria-label="Copy link to divider"></button>
+          </div>
+          <div class="blockview__content"><hr /></div>
+        </article>
+
+        <!-- heading h3 -->
+        <article class="blockview" data-block-id="blk:v1:7a8b" data-kind="heading">
+          <div class="blockview__gutter">
+            <button type="button" class="blockview__anchor" aria-label="Copy link to subsection"></button>
+          </div>
+          <div class="blockview__content">
+            <h3>Approach</h3>
+          </div>
+        </article>
+
+        <!-- bullet list, nested 2 levels -->
+        <article class="blockview" data-block-id="blk:v1:8b9c" data-kind="list">
+          <div class="blockview__gutter">
+            <button type="button" class="blockview__anchor" aria-label="Copy link to list"></button>
+          </div>
+          <div class="blockview__content">
+            <ul>
+              <li>Replace the manual handoff with <code>scheduler.assignNext()</code>.
+                <ul>
+                  <li>Skip reviewers above their concurrent-load cap.
+                    <ul>
+                      <li>Cap defaults to <code>3</code>, configurable per product.</li>
+                    </ul>
+                  </li>
+                  <li>Prefer reviewers who have context on the bet&rsquo;s product.</li>
+                </ul>
+              </li>
+              <li>Drop the rotating-reviewer channel entirely.</li>
+              <li>Add a <em>p95 latency</em> alert at 12h.</li>
+            </ul>
+          </div>
+        </article>
+
+        <!-- ordered list -->
+        <article class="blockview" data-block-id="blk:v1:9c0d" data-kind="list">
+          <div class="blockview__gutter">
+            <button type="button" class="blockview__anchor" aria-label="Copy link to ordered list"></button>
+          </div>
+          <div class="blockview__content">
+            <ol>
+              <li>Land the scheduler hook behind a flag.</li>
+              <li>Dual-write to old + new for one week.</li>
+              <li>Cut the old path; remove the channel.</li>
+            </ol>
+          </div>
+        </article>
+
+        <!-- blockquote, demo HOVER state on its anchor -->
+        <article class="blockview blockview--demo-hover" data-block-id="blk:v1:0d1e" data-kind="quote">
+          <div class="blockview__gutter">
+            <button type="button" class="blockview__anchor" aria-label="Copy link to quote"></button>
+          </div>
+          <div class="blockview__content">
+            <blockquote>
+              <p>“We should stop talking about who reviews what and let the system pick.” —
+              founder note, intake retro, 2026-04-12.</p>
+            </blockquote>
+          </div>
+        </article>
+
+        <!-- code block (TypeScript, ~12 lines) -->
+        <article class="blockview" data-block-id="blk:v1:1e2f" data-kind="code">
+          <div class="blockview__gutter">
+            <button type="button" class="blockview__anchor" aria-label="Copy link to code block"></button>
+          </div>
+          <div class="blockview__content">
+            <pre><code>// scheduler.ts
+export async function assignNext(bet: Bet): Promise&lt;Reviewer&gt; {
+  const eligible = await reviewers.where({
+    productId: bet.productId,
+    activeLoad: { lt: REVIEWER_LOAD_CAP },
+  });
+  if (eligible.length === 0) {
+    return reviewers.fallback(bet.productId);
+  }
+  return eligible.sort(byContextScore(bet))[0];
+}
+
+const REVIEWER_LOAD_CAP = 3;
+</code></pre>
+          </div>
+        </article>
+
+        <!-- block-level image -->
+        <article class="blockview" data-block-id="blk:v1:2f3a" data-kind="image">
+          <div class="blockview__gutter">
+            <button type="button" class="blockview__anchor" aria-label="Copy link to image"></button>
+          </div>
+          <div class="blockview__content">
+            <img src="https://picsum.photos/seed/intakelat/640/240"
+                 alt="Intake latency p50/p95 over 14 days, weekday spikes around midday." />
+          </div>
+        </article>
+
+        <!-- sanitised raw HTML (<details>), demo FOCUS state -->
+        <article class="blockview blockview--demo-focus" data-block-id="blk:v1:3a4b" data-kind="html">
+          <div class="blockview__gutter">
+            <button type="button" class="blockview__anchor" aria-label="Copy link to disclosure"></button>
+          </div>
+          <div class="blockview__content">
+            <details>
+              <summary>Telemetry method (raw HTML, sanitised)</summary>
+              <p>Each touchpoint emits a <code>stage_transition</code> event with
+              <code>betId</code>, <code>fromStage</code>, <code>toStage</code>, and a
+              monotonic timestamp. Aggregated nightly into the
+              <code>intake_latency_daily</code> table.</p>
+            </details>
+          </div>
+        </article>
+
+        <!-- unknown sentinel -->
+        <article class="blockview blockview--unknown"
+                 data-block-id="blk:v1:4b5c"
+                 data-kind="unknown"
+                 title="Unsupported markdown syntax — rendered as plain text fallback.">
+          <div class="blockview__gutter">
+            <button type="button" class="blockview__anchor" aria-label="Copy link to unknown block"></button>
+          </div>
+          <div class="blockview__content">
+            <p>::: callout warn ::: Unrecognised directive — preserved verbatim. :::</p>
+          </div>
+        </article>
+      </section>
+
+      <!-- ─────────────────────────────────────────────────────────────
+           SURFACE 2 — KnowledgeDetail body context (narrower column,
+           denser metadata strip above body). Replaces <pre> at
+           KnowledgeDetail.tsx:301-307.
+           ───────────────────────────────────────────────────────── -->
+      <section class="surface" aria-label="Knowledge body — Variant A renderer">
+        <div class="surface__label">KnowledgeDetail · body</div>
+        <div class="surface__bread">
+          <span class="crumb">Knowledge</span>
+          <span> · </span>
+          <span class="crumb">L2 · pattern</span>
+          <span> · </span>
+          <span class="crumb crumb--current">load-balanced-review-routing</span>
+        </div>
+
+        <!-- meta strip composed of pill primitives matching the StatusChip /
+             Tag geometry already in the DS — no new component, just
+             reused chip shapes. -->
+        <div class="meta-strip">
+          <span class="pill">L2</span>
+          <span class="pill">pattern</span>
+          <span class="pill pill--status"><span class="dot"></span>VALIDATED</span>
+          <span class="pill">v2.1</span>
+          <span class="pill pill--ts">3h ago</span>
+        </div>
+
+        <!-- h1 -->
+        <article class="blockview" data-block-id="blk:v1:k1a2" data-kind="heading">
+          <div class="blockview__gutter">
+            <button type="button" class="blockview__anchor" aria-label="Copy link to heading"></button>
+          </div>
+          <div class="blockview__content">
+            <h1>Load-balanced review routing</h1>
+          </div>
+        </article>
+
+        <!-- paragraph -->
+        <article class="blockview" data-block-id="blk:v1:k2b3" data-kind="paragraph">
+          <div class="blockview__gutter">
+            <button type="button" class="blockview__anchor" aria-label="Copy link to paragraph"></button>
+          </div>
+          <div class="blockview__content">
+            <p>
+              When a queue has multiple eligible workers and round-robin produces uneven wait
+              times, route by current <strong>active load</strong> rather than by rotation.
+              The routing function should be deterministic given the same input set so that
+              re-runs of the planner produce the same assignment.
+            </p>
+          </div>
+        </article>
+
+        <!-- block-deleted indicator (L26 contract).
+             A thread anchor pointed at a removed block.
+             Rendered as an inline strip beside the next-best location,
+             preserving the original anchor text. -->
+        <article class="blockview blockview--deleted" data-deleted-block="blk:v1:OLD-9z" data-kind="paragraph">
+          <div class="blockview__gutter">
+            <span class="blockview__threadcount" aria-label="1 orphaned thread">1</span>
+          </div>
+          <div class="blockview__content">
+            <span class="label">Block deleted</span>
+            <span class="quote">&ldquo;route by current active load rather than by rotation&rdquo;</span>
+          </div>
+        </article>
+
+        <!-- h2 with 1 attached thread -->
+        <article class="blockview" data-block-id="blk:v1:k3c4" data-kind="heading">
+          <div class="blockview__gutter">
+            <button type="button" class="blockview__anchor" aria-label="Copy link to section"></button>
+            <span class="blockview__threadcount" aria-label="1 attached thread">1</span>
+          </div>
+          <div class="blockview__content">
+            <h2>When to apply</h2>
+          </div>
+        </article>
+
+        <!-- bullet list -->
+        <article class="blockview" data-block-id="blk:v1:k4d5" data-kind="list">
+          <div class="blockview__gutter">
+            <button type="button" class="blockview__anchor" aria-label="Copy link to list"></button>
+          </div>
+          <div class="blockview__content">
+            <ul>
+              <li>The queue produces variance &gt;2x between fastest and slowest worker.</li>
+              <li>Workers have a measurable concurrent-load signal.
+                <ul>
+                  <li>Open tasks, pending reviews, in-flight calls, etc.</li>
+                </ul>
+              </li>
+              <li>Round-robin is the current default.</li>
+            </ul>
+          </div>
+        </article>
+
+        <!-- table -->
+        <article class="blockview" data-block-id="blk:v1:k5e6" data-kind="table">
+          <div class="blockview__gutter">
+            <button type="button" class="blockview__anchor" aria-label="Copy link to table"></button>
+          </div>
+          <div class="blockview__content">
+            <table>
+              <thead>
+                <tr>
+                  <th>Strategy</th>
+                  <th>p50</th>
+                  <th>p95</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr><td>Round-robin</td><td>6.4h</td><td>23.1h</td></tr>
+                <tr><td>By active-load</td><td>2.7h</td><td>8.9h</td></tr>
+                <tr><td>By context-score</td><td>2.1h</td><td>7.4h</td></tr>
+                <tr><td>Hybrid (load + context)</td><td>1.9h</td><td>6.8h</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </article>
+
+        <!-- code -->
+        <article class="blockview" data-block-id="blk:v1:k6f7" data-kind="code">
+          <div class="blockview__gutter">
+            <button type="button" class="blockview__anchor" aria-label="Copy link to code"></button>
+          </div>
+          <div class="blockview__content">
+            <pre><code>type Worker = { id: string; activeLoad: number };
+
+function pick(workers: Worker[]): Worker {
+  return workers
+    .filter(w =&gt; w.activeLoad &lt; CAP)
+    .sort((a, b) =&gt; a.activeLoad - b.activeLoad)[0];
+}
+</code></pre>
+          </div>
+        </article>
+
+        <!-- divider -->
+        <article class="blockview" data-block-id="blk:v1:k7a8" data-kind="divider">
+          <div class="blockview__gutter">
+            <button type="button" class="blockview__anchor" aria-label="Copy link to divider"></button>
+          </div>
+          <div class="blockview__content"><hr /></div>
+        </article>
+
+        <!-- blockquote -->
+        <article class="blockview" data-block-id="blk:v1:k8b9" data-kind="quote">
+          <div class="blockview__gutter">
+            <button type="button" class="blockview__anchor" aria-label="Copy link to quote"></button>
+          </div>
+          <div class="blockview__content">
+            <blockquote>
+              <p>The cheapest fairness check is the one the worker never has to ask for.</p>
+            </blockquote>
+          </div>
+        </article>
+
+      </section>
+    </div>
+  </div>
+</body>
+</html>
