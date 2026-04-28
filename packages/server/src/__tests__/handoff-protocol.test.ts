@@ -64,7 +64,17 @@ function insertAgent(
 function insertTask(db: HyperIdleDb, id: string, state: string, ownerAgentId?: string): void {
 	const now = new Date().toISOString();
 	const threadId = `thread-${id}`;
-	db.insert(threads).values({ id: threadId, kind: "task", createdAt: now }).run();
+	db.insert(threads)
+		.values({
+			id: threadId,
+			hostKind: "task",
+			hostId: "task-1",
+			initiatorId: "agent-1",
+			participants: JSON.stringify(["agent-1"]),
+			lastActiveAt: now,
+			createdAt: now,
+		})
+		.run();
 	db.insert(tasks)
 		.values({
 			id,
@@ -378,7 +388,17 @@ describe("Handoff Protocol", () => {
 			const existingAudit = [{ from: "proposed", to: "accepted", timestamp: now }];
 			const agentProse = "Pre-handoff agent note prose.";
 			const threadId = "thread-task-2";
-			db.insert(threads).values({ id: threadId, kind: "task", createdAt: now }).run();
+			db.insert(threads)
+				.values({
+					id: threadId,
+					hostKind: "task",
+					hostId: "task-1",
+					initiatorId: "agent-1",
+					participants: JSON.stringify(["agent-1"]),
+					lastActiveAt: now,
+					createdAt: now,
+				})
+				.run();
 			db.insert(tasks)
 				.values({
 					id: "task-2",
@@ -462,7 +482,17 @@ describe("Handoff Protocol", () => {
 			const now = new Date().toISOString();
 			const agentProse = "Scribbled thought: feature is almost done.";
 			const threadId = "thread-h1";
-			db.insert(threads).values({ id: threadId, kind: "task", createdAt: now }).run();
+			db.insert(threads)
+				.values({
+					id: threadId,
+					hostKind: "task",
+					hostId: "task-1",
+					initiatorId: "agent-1",
+					participants: JSON.stringify(["agent-1"]),
+					lastActiveAt: now,
+					createdAt: now,
+				})
+				.run();
 			db.insert(tasks)
 				.values({
 					id: "task-h1",

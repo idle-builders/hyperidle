@@ -1,0 +1,844 @@
+<!doctype html>
+<html lang="en" data-theme="lucid-dark">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>L1 Thread — linear-shaped (variant B)</title>
+  <link rel="stylesheet" href="../../../../packages/design-system/html/_tokens.css" />
+  <style>
+    /* ── Page frame ─────────────────────────────────────────────────────── */
+    body {
+      background: var(--surface-0);
+      padding: 24px;
+      font-size: 14px;
+    }
+    .page {
+      max-width: 1200px;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      gap: 32px;
+    }
+    .page__caption {
+      font-family: var(--mono);
+      font-size: 11px;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      font-weight: 500;
+      color: var(--text-lo);
+      padding-bottom: 8px;
+      border-bottom: 1px solid var(--surface-3);
+    }
+
+    /* ── ThreadShell ────────────────────────────────────────────────────── */
+    .thread-shell {
+      background: var(--surface-1);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--r2);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ── ThreadHostBanner ───────────────────────────────────────────────── */
+    .host-banner {
+      background: var(--surface-2);
+      border-bottom: 1px solid var(--border-subtle);
+      padding: var(--density-pad-y) var(--density-page-gutter);
+      display: flex;
+      align-items: center;
+      gap: var(--density-gap);
+      flex-wrap: wrap;
+    }
+    .host-banner--blocking {
+      box-shadow: inset 2px 0 0 var(--danger);
+    }
+    .host-banner__label {
+      font-family: var(--mono);
+      font-size: 11px;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      font-weight: 500;
+      color: var(--text-mid);
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .host-banner__label-host {
+      color: var(--text-lo);
+    }
+    .host-banner__title {
+      color: var(--text-hi);
+    }
+    .host-banner__divider {
+      width: 1px;
+      align-self: stretch;
+      background: var(--surface-4);
+      margin: 0 4px;
+    }
+    .host-banner__participants {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      color: var(--text-mid);
+      font-size: 12px;
+    }
+    .host-banner__avatars {
+      display: inline-flex;
+    }
+    .host-banner__avatar {
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: var(--surface-5);
+      color: var(--text-hi);
+      font-size: 9px;
+      font-weight: 600;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border: 1.5px solid var(--surface-2);
+      margin-left: -4px;
+    }
+    .host-banner__avatar:first-child {
+      margin-left: 0;
+    }
+    .host-banner__spacer {
+      flex: 1;
+    }
+
+    /* StatusChip — primitive, mirrored from html/StatusChip.html */
+    .status-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 2px 8px;
+      border-radius: var(--r-pill);
+      font-family: var(--mono);
+      font-size: 11px;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      font-weight: 500;
+      line-height: 1.4;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+    .status-chip .dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .status-chip--blocked { background: color-mix(in oklab, var(--danger) 14%, transparent); color: var(--danger); }
+    .status-chip--blocked .dot { background: var(--danger); }
+    .status-chip--pinned { background: color-mix(in oklab, var(--text-mid) 14%, transparent); color: var(--text-mid); }
+    .status-chip--pinned .dot { background: var(--text-mid); }
+    .status-chip--healthy { background: color-mix(in oklab, var(--ok) 14%, transparent); color: var(--ok); }
+    .status-chip--healthy .dot { background: var(--ok); }
+    .status-chip--paused { background: color-mix(in oklab, var(--text-lo) 14%, transparent); color: var(--text-lo); }
+    .status-chip--paused .dot { background: var(--text-lo); }
+
+    /* Tag — mirrored from html/Tag.html */
+    .tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 2px 8px;
+      border-radius: var(--r-pill);
+      font-size: 11px;
+      font-family: var(--mono);
+      letter-spacing: 0.03em;
+      white-space: nowrap;
+      background: var(--surface-ghost);
+      color: var(--text-mid);
+      flex-shrink: 0;
+    }
+    .tag--role {
+      background: color-mix(in oklab, var(--primary) 12%, transparent);
+      color: var(--primary);
+    }
+
+    /* ── ThreadHead ─────────────────────────────────────────────────────── */
+    .thread-head {
+      padding: var(--density-page-gutter);
+      display: flex;
+      flex-direction: column;
+      gap: var(--density-gap);
+      background: var(--surface-1);
+    }
+    .thread-head__sender {
+      display: flex;
+      align-items: center;
+      gap: var(--density-gap);
+    }
+    .thread-head__avatar {
+      width: var(--density-avatar-size);
+      height: var(--density-avatar-size);
+      border-radius: 50%;
+      background: var(--surface-5);
+      color: var(--text-hi);
+      font-size: 13px;
+      font-weight: 600;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+    .thread-head__sender-meta {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      min-width: 0;
+      flex: 1;
+    }
+    .thread-head__sender-name-row {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .thread-head__sender-name {
+      color: var(--text-hi);
+      font-size: 14px;
+      font-weight: 600;
+    }
+    .thread-head__sender-time {
+      color: var(--text-lo);
+      font-size: 12px;
+    }
+    .thread-head__title {
+      font-size: var(--density-text-h2);
+      font-weight: 600;
+      color: var(--text-hi);
+      letter-spacing: -0.005em;
+      line-height: 1.3;
+    }
+
+    .thread-head__section-label {
+      font-family: var(--mono);
+      font-size: 10px;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      font-weight: 500;
+      color: var(--text-lo);
+    }
+
+    .thread-head__reasoning {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .thread-head__reasoning ol {
+      list-style: none;
+      counter-reset: reasoning;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      padding: 0;
+    }
+    .thread-head__reasoning li {
+      counter-increment: reasoning;
+      position: relative;
+      padding-left: 28px;
+      color: var(--text-mid);
+      line-height: 1.55;
+      font-size: var(--density-text);
+    }
+    .thread-head__reasoning li::before {
+      content: counter(reasoning);
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: 20px;
+      height: 20px;
+      border-radius: var(--r1);
+      background: var(--surface-3);
+      color: var(--text-mid);
+      font-family: var(--mono);
+      font-size: 10px;
+      font-weight: 500;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .thread-head__reasoning li strong {
+      color: var(--text-hi);
+      font-weight: 500;
+    }
+
+    /* Embedded artifact preview (the slot L11 fills — placeholder render) */
+    .artifact-preview {
+      background: var(--surface-0);
+      border: 1px solid var(--border-default);
+      border-radius: var(--r2);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+    .artifact-preview__chrome {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 12px;
+      background: var(--surface-2);
+      border-bottom: 1px solid var(--border-subtle);
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--text-mid);
+    }
+    .artifact-preview__chrome-path {
+      color: var(--text-mid);
+    }
+    .artifact-preview__chrome-stat {
+      color: var(--text-lo);
+    }
+    .artifact-preview__chrome-stat .add { color: var(--ok); }
+    .artifact-preview__chrome-stat .del { color: var(--danger); }
+    .artifact-preview__chrome-spacer { flex: 1; }
+    .artifact-preview__chrome-link {
+      color: var(--text-mid);
+      text-decoration: none;
+      font-family: var(--mono);
+      font-size: 11px;
+    }
+    .artifact-preview__chrome-link:hover { color: var(--text-hi); }
+
+    .artifact-preview__diff {
+      font-family: var(--mono);
+      font-size: 12px;
+      line-height: 1.5;
+      padding: 8px 0;
+      margin: 0;
+    }
+    .artifact-preview__diff .line {
+      display: flex;
+      gap: 12px;
+      padding: 0 12px;
+    }
+    .artifact-preview__diff .gutter {
+      color: var(--text-lo);
+      width: 28px;
+      flex-shrink: 0;
+      text-align: right;
+      user-select: none;
+    }
+    .artifact-preview__diff .code {
+      color: var(--text-mid);
+      white-space: pre;
+    }
+    .artifact-preview__diff .line--add {
+      background: color-mix(in oklab, var(--ok) 8%, transparent);
+    }
+    .artifact-preview__diff .line--add .code {
+      color: var(--ok);
+    }
+    .artifact-preview__diff .line--add .gutter::before { content: "+"; color: var(--ok); padding-right: 4px; }
+    .artifact-preview__diff .line--del {
+      background: color-mix(in oklab, var(--danger) 8%, transparent);
+    }
+    .artifact-preview__diff .line--del .code {
+      color: var(--danger);
+    }
+    .artifact-preview__diff .line--del .gutter::before { content: "-"; color: var(--danger); padding-right: 4px; }
+
+    /* ── ReviewVerdictBar (sticky) ──────────────────────────────────────── */
+    .verdict-bar {
+      position: sticky;
+      top: 0;
+      z-index: 5;
+      background: var(--surface-2);
+      border-top: 1px solid var(--border-subtle);
+      border-bottom: 1px solid var(--border-subtle);
+      padding: var(--density-pad-y) var(--density-page-gutter);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .verdict-bar__group {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .verdict-bar__group-label {
+      font-family: var(--mono);
+      font-size: 10px;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      font-weight: 500;
+      color: var(--text-lo);
+      margin-right: 4px;
+    }
+    .verdict-bar__divider {
+      width: 1px;
+      align-self: stretch;
+      background: var(--surface-4);
+      margin: 0 8px;
+    }
+    .verdict-bar__spacer { flex: 1; }
+
+    /* Buttons — three weights */
+    .btn-verdict {
+      font-size: 12px;
+      font-weight: 500;
+      padding: 6px 12px;
+      border-radius: var(--r1);
+      font-family: var(--ui);
+      transition: background var(--motion-fast), border-color var(--motion-fast);
+      border: 1px solid transparent;
+      white-space: nowrap;
+    }
+    /* Binding (5 verdicts) — full visual weight */
+    .btn-verdict--binding {
+      background: var(--surface-4);
+      color: var(--text-hi);
+      border-color: var(--border-emphasis);
+    }
+    .btn-verdict--binding:hover {
+      background: var(--surface-5);
+    }
+    .btn-verdict--primary {
+      background: var(--primary);
+      color: var(--surface-0);
+      border-color: var(--primary);
+    }
+    .btn-verdict--primary:hover {
+      background: var(--primary);
+      filter: brightness(1.05);
+    }
+    .btn-verdict--danger {
+      color: var(--danger);
+      border-color: color-mix(in oklab, var(--danger) 40%, transparent);
+      background: color-mix(in oklab, var(--danger) 10%, transparent);
+    }
+    .btn-verdict--danger:hover {
+      background: color-mix(in oklab, var(--danger) 18%, transparent);
+    }
+    /* Message-emitting (3) — ghost */
+    .btn-verdict--ghost {
+      background: transparent;
+      color: var(--text-mid);
+      border-color: var(--border-default);
+    }
+    .btn-verdict--ghost:hover {
+      background: var(--surface-3);
+      color: var(--text-hi);
+    }
+    /* Sidecar (2) — text only */
+    .btn-verdict--sidecar {
+      background: transparent;
+      color: var(--text-lo);
+      border-color: transparent;
+      padding: 6px 8px;
+    }
+    .btn-verdict--sidecar:hover {
+      color: var(--text-hi);
+    }
+
+    /* ── CommentStream ──────────────────────────────────────────────────── */
+    .comment-stream {
+      display: flex;
+      flex-direction: column;
+      background: var(--surface-1);
+    }
+    .comment-stream__separator {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px var(--density-page-gutter) 4px;
+      font-family: var(--mono);
+      font-size: 10px;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      font-weight: 500;
+      color: var(--text-lo);
+    }
+    .comment-stream__separator::after {
+      content: "";
+      flex: 1;
+      height: 1px;
+      background: var(--surface-3);
+    }
+    .comment-stream__overflow {
+      padding: 8px var(--density-page-gutter);
+      font-size: 12px;
+      color: var(--text-mid);
+      background: transparent;
+      text-align: left;
+      width: 100%;
+      border-top: 1px solid var(--border-subtle);
+      border-bottom: 1px solid var(--border-subtle);
+      cursor: pointer;
+    }
+    .comment-stream__overflow:hover {
+      color: var(--text-hi);
+      background: var(--surface-2);
+    }
+
+    /* CommentRow primitive */
+    .comment-row {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      padding: 8px var(--density-page-gutter);
+      transition: background var(--motion-fast);
+    }
+    .comment-row:hover {
+      background: var(--surface-2);
+    }
+    .comment-row__avatar {
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      flex-shrink: 0;
+      background: var(--surface-5);
+      color: var(--text-hi);
+      font-size: 10px;
+      font-weight: 600;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      margin-top: 1px;
+    }
+    .comment-row__body {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .comment-row__meta {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .comment-row__sender {
+      color: var(--text-hi);
+      font-size: 13px;
+      font-weight: 500;
+    }
+    .comment-row__time {
+      color: var(--text-lo);
+      font-size: 11px;
+    }
+    .comment-row__text {
+      color: var(--text-mid);
+      font-size: 13px;
+      line-height: 1.5;
+      overflow: hidden;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+    }
+    .comment-row--verdict .comment-row__text {
+      display: none;
+    }
+    .comment-row__verdict-line {
+      color: var(--text-mid);
+      font-size: 12px;
+    }
+
+    /* ── Composer ───────────────────────────────────────────────────────── */
+    .composer {
+      border-top: 1px solid var(--border-subtle);
+      background: var(--surface-1);
+      padding: var(--density-pad-y) var(--density-page-gutter);
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .composer__hint {
+      font-family: var(--mono);
+      font-size: 10px;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      font-weight: 500;
+      color: var(--text-lo);
+    }
+    .composer__row {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+    }
+    .composer__textarea {
+      flex: 1;
+      background: var(--surface-2);
+      border: 1px solid var(--border-default);
+      border-radius: var(--r1);
+      padding: 8px 10px;
+      color: var(--text-hi);
+      font-size: 13px;
+      line-height: 1.5;
+      resize: none;
+      min-height: 56px;
+      font-family: var(--ui);
+    }
+    .composer__textarea::placeholder { color: var(--text-lo); }
+    .composer__textarea:focus { outline: 1px solid var(--primary); outline-offset: -1px; }
+    .composer__send {
+      align-self: flex-end;
+      background: var(--surface-4);
+      color: var(--text-hi);
+      border: 1px solid var(--border-emphasis);
+      padding: 8px 14px;
+      border-radius: var(--r1);
+      font-size: 12px;
+      font-weight: 500;
+    }
+    .composer__send:hover { background: var(--surface-5); }
+
+    /* ── Secondary state: chat-shape thread (no rich head) ──────────────── */
+    .thread-shell--chat .thread-head {
+      gap: 8px;
+    }
+    .thread-shell--chat .thread-head__title {
+      font-size: var(--density-text);
+      font-weight: 500;
+      color: var(--text-hi);
+      line-height: 1.5;
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+
+    <!-- ─────────────────────────────────────────────────────────────────
+         PRIMARY STATE — review thread (Pricing overhaul)
+         ──────────────────────────────────────────────────────────────── -->
+    <div class="page__caption">Primary state — review thread (host = bet)</div>
+
+    <div
+      class="thread-shell"
+      data-component="ThreadShell"
+      data-tier="3"
+      data-uses="ThreadHostBanner,ThreadHead,ReviewVerdictBar,CommentStream,Composer"
+    >
+      <!-- Host banner -->
+      <div
+        class="host-banner host-banner--blocking"
+        data-component="ThreadHostBanner"
+        data-tier="2"
+        data-uses="StatusChip,Tag"
+      >
+        <span class="host-banner__label">
+          <span class="host-banner__label-host">On bet</span>
+          <span class="host-banner__title">Pricing overhaul (Nimmly)</span>
+        </span>
+        <div class="host-banner__divider"></div>
+        <div class="host-banner__participants">
+          <span class="host-banner__avatars">
+            <span class="host-banner__avatar" style="background: color-mix(in oklab, var(--primary) 60%, var(--surface-5));">NB</span>
+            <span class="host-banner__avatar">CP</span>
+          </span>
+          <span>Nimmly Backend Builder, CPO</span>
+        </div>
+        <div class="host-banner__spacer"></div>
+        <span class="status-chip status-chip--blocked"><span class="dot"></span>BLOCKING</span>
+        <span class="tag">unresolved</span>
+      </div>
+
+      <!-- HEAD region -->
+      <div class="thread-head" data-component="ThreadHead" data-tier="2">
+        <div class="thread-head__sender">
+          <span class="thread-head__avatar" style="background: color-mix(in oklab, var(--primary) 60%, var(--surface-5));">NB</span>
+          <div class="thread-head__sender-meta">
+            <div class="thread-head__sender-name-row">
+              <span class="thread-head__sender-name">Nimmly Backend Builder</span>
+              <span class="tag tag--role">backend</span>
+              <span class="tag">v1.4.2</span>
+              <span class="thread-head__sender-time">posted 18 min ago · message #1 in thread</span>
+            </div>
+          </div>
+        </div>
+
+        <h2 class="thread-head__title">Deploy Nimmly pricing-engine v1.4.2 to staging</h2>
+
+        <div class="thread-head__reasoning">
+          <div class="thread-head__section-label">Reasoning</div>
+          <ol>
+            <li><strong>Verified margin calc against contracts.</strong> Replayed the last 320 invoices through the new <code>calculateMargin()</code>; output matches the stored ledger to the cent.</li>
+            <li><strong>Ran integration tests.</strong> Full suite green (212 / 212). Stripe webhook signature replay added under <code>webhooks/stripe.spec.ts</code>.</li>
+            <li><strong>Staging only — production gated on next review.</strong> Feature flag <code>PRICING_V14_STAGING</code> wired; flipping to prod requires a second sign-off after the canary day.</li>
+            <li><strong>Rollback path verified.</strong> Previous handler kept in <code>calculate.legacy.ts</code>; flag flip restores in &lt; 30 s.</li>
+          </ol>
+        </div>
+
+        <div class="thread-head__reasoning" style="gap: 4px;">
+          <div class="thread-head__section-label">Artifact</div>
+          <div
+            class="artifact-preview"
+            data-component="ArtifactView"
+            data-tier="3"
+            data-shape="text_diff"
+          >
+            <div class="artifact-preview__chrome">
+              <span class="artifact-preview__chrome-path">pricing-engine/src/calculate.ts</span>
+              <span class="artifact-preview__chrome-stat"><span class="add">+18</span> <span class="del">−7</span></span>
+              <span class="artifact-preview__chrome-spacer"></span>
+              <a href="#" class="artifact-preview__chrome-link">Open full diff →</a>
+            </div>
+            <pre class="artifact-preview__diff">
+<span class="line"><span class="gutter">42</span><span class="code">  const tier = resolveTier(invoice.contract);</span></span><span class="line line--del"><span class="gutter">43</span><span class="code">  const margin = invoice.subtotal * tier.rate;</span></span><span class="line line--add"><span class="gutter">43</span><span class="code">  const margin = computeMargin(invoice.subtotal, tier);</span></span><span class="line line--add"><span class="gutter">44</span><span class="code">  const guard = clampMarginFloor(margin, tier);</span></span><span class="line"><span class="gutter">45</span><span class="code">  return { margin: guard, tier, version: "1.4.2" };</span></span>
+            </pre>
+          </div>
+        </div>
+      </div>
+
+      <!-- VerdictBar (sticky) -->
+      <div
+        class="verdict-bar"
+        data-component="ReviewVerdictBar"
+        data-tier="2"
+      >
+        <span class="verdict-bar__group-label">Verdict</span>
+        <div class="verdict-bar__group">
+          <button type="button" class="btn-verdict btn-verdict--binding btn-verdict--primary">Approve</button>
+          <button type="button" class="btn-verdict btn-verdict--binding">Approve with comments</button>
+          <button type="button" class="btn-verdict btn-verdict--binding">Request changes</button>
+          <button type="button" class="btn-verdict btn-verdict--binding">Edit</button>
+          <button type="button" class="btn-verdict btn-verdict--binding btn-verdict--danger">Reject</button>
+        </div>
+        <div class="verdict-bar__divider"></div>
+        <span class="verdict-bar__group-label">Reply</span>
+        <div class="verdict-bar__group">
+          <button type="button" class="btn-verdict btn-verdict--ghost">Comment</button>
+          <button type="button" class="btn-verdict btn-verdict--ghost">Inline-comment</button>
+          <button type="button" class="btn-verdict btn-verdict--ghost">Reply</button>
+        </div>
+        <div class="verdict-bar__spacer"></div>
+        <button type="button" class="btn-verdict btn-verdict--sidecar">Snooze</button>
+        <button type="button" class="btn-verdict btn-verdict--sidecar">Escalate</button>
+      </div>
+
+      <!-- Comment stream -->
+      <div class="comment-stream" data-component="CommentStream" data-tier="2">
+        <div class="comment-stream__separator">Today</div>
+
+        <button type="button" class="comment-stream__overflow">Show 4 earlier comments</button>
+
+        <div class="comment-row" data-component="CommentRow" data-tier="1">
+          <span class="comment-row__avatar" style="background: color-mix(in oklab, var(--ok) 50%, var(--surface-5));">QA</span>
+          <div class="comment-row__body">
+            <div class="comment-row__meta">
+              <span class="comment-row__sender">QA Agent</span>
+              <span class="comment-row__time">14 min ago</span>
+              <span class="tag tag--role">qa</span>
+            </div>
+            <p class="comment-row__text">Replayed the last 7 days of staging traffic against v1.4.2 — 0 margin drift incidents. Suggest you also gate on the cron that revalidates contract tiers nightly before flipping prod.</p>
+          </div>
+        </div>
+
+        <div class="comment-row comment-row--verdict" data-component="CommentRow" data-tier="1">
+          <span class="comment-row__avatar" style="background: color-mix(in oklab, var(--text-lo) 30%, var(--surface-5));">CS</span>
+          <div class="comment-row__body">
+            <div class="comment-row__meta">
+              <span class="comment-row__sender">Chief of Staff</span>
+              <span class="comment-row__time">9 min ago</span>
+              <span class="status-chip status-chip--paused"><span class="dot"></span>NON-BINDING</span>
+            </div>
+            <p class="comment-row__verdict-line">Flagged: this is the third pricing change this cycle. Worth queuing a coach reflection on cycle scope after sign-off.</p>
+          </div>
+        </div>
+
+        <div class="comment-row" data-component="CommentRow" data-tier="1">
+          <span class="comment-row__avatar" style="background: color-mix(in oklab, var(--primary) 50%, var(--surface-5));">PM</span>
+          <div class="comment-row__body">
+            <div class="comment-row__meta">
+              <span class="comment-row__sender">Nimmly PM</span>
+              <span class="comment-row__time">3 min ago</span>
+            </div>
+            <p class="comment-row__text">Customer-comms draft is ready in the bet — once you ship staging I'll line up the email. No prod blockers from me.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Composer -->
+      <div class="composer" data-component="Composer" data-tier="2">
+        <div class="composer__hint">Reply (non-binding) — verdict bar above for binding actions</div>
+        <div class="composer__row">
+          <textarea
+            class="composer__textarea"
+            placeholder="Write a comment on this review… (verdicts go through the bar, not here)"
+          ></textarea>
+          <button type="button" class="composer__send">Comment</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ─────────────────────────────────────────────────────────────────
+         SECONDARY STATE — chat-shape thread, plain HEAD, no verdict bar
+         ──────────────────────────────────────────────────────────────── -->
+    <div class="page__caption">Secondary state — chat-shape thread (plain head, no verdict)</div>
+
+    <div
+      class="thread-shell thread-shell--chat"
+      data-component="ThreadShell"
+      data-tier="3"
+      data-state="plain-head"
+    >
+      <div class="host-banner host-banner--blocking">
+        <span class="host-banner__label">
+          <span class="host-banner__label-host">On task</span>
+          <span class="host-banner__title">Implement Stripe webhook handler</span>
+        </span>
+        <div class="host-banner__divider"></div>
+        <div class="host-banner__participants">
+          <span class="host-banner__avatars">
+            <span class="host-banner__avatar" style="background: color-mix(in oklab, var(--primary) 55%, var(--surface-5));">BB</span>
+            <span class="host-banner__avatar">FN</span>
+          </span>
+          <span>Backend Builder, Founder</span>
+        </div>
+        <div class="host-banner__spacer"></div>
+        <span class="status-chip status-chip--blocked"><span class="dot"></span>BLOCKING</span>
+      </div>
+
+      <!-- Plain HEAD: first message promoted; no Reasoning/Artifact/VerdictBar -->
+      <div class="thread-head">
+        <div class="thread-head__sender">
+          <span class="thread-head__avatar" style="background: color-mix(in oklab, var(--primary) 55%, var(--surface-5));">BB</span>
+          <div class="thread-head__sender-meta">
+            <div class="thread-head__sender-name-row">
+              <span class="thread-head__sender-name">Backend Builder</span>
+              <span class="tag tag--role">backend</span>
+              <span class="thread-head__sender-time">opened thread · 2 hours ago</span>
+            </div>
+          </div>
+        </div>
+
+        <p class="thread-head__title">
+          I'm stuck — Coolify deploy keeps timing out. The webhook signing keys
+          might be wrong. Can you check the values under
+          <code>STRIPE_WEBHOOK_SECRET</code> in <code>.env.production</code>?
+        </p>
+      </div>
+
+      <!-- Comment stream: subsequent plain messages -->
+      <div class="comment-stream">
+        <div class="comment-row">
+          <span class="comment-row__avatar" style="background: color-mix(in oklab, var(--ok) 40%, var(--surface-5));">FN</span>
+          <div class="comment-row__body">
+            <div class="comment-row__meta">
+              <span class="comment-row__sender">Founder</span>
+              <span class="comment-row__time">1 hour ago</span>
+            </div>
+            <p class="comment-row__text">Yes — they're in <code>.env.production</code> under <code>STRIPE_WEBHOOK_SECRET</code>. Should I rotate them, or is reading the existing value enough to unblock?</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="composer">
+        <div class="composer__row">
+          <textarea
+            class="composer__textarea"
+            placeholder="Reply to Backend Builder…"
+          ></textarea>
+          <button type="button" class="composer__send">Send</button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</body>
+</html>

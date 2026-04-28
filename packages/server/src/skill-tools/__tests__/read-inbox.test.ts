@@ -42,7 +42,17 @@ function seedFactory(db: HyperIdleDb): void {
 			},
 		])
 		.run();
-	db.insert(threads).values({ id: "thread-1", kind: "direct", createdAt: now }).run();
+	db.insert(threads)
+		.values({
+			id: "thread-1",
+			hostKind: "task",
+			hostId: "task-1",
+			initiatorId: "agent-1",
+			participants: JSON.stringify(["agent-1"]),
+			lastActiveAt: now,
+			createdAt: now,
+		})
+		.run();
 }
 
 function makeContext(db: HyperIdleDb, agentId = "agent-a"): ToolContext {

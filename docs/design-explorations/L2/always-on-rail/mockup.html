@@ -1,0 +1,848 @@
+<!doctype html>
+<html lang="en" data-theme="lucid-dark">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>L2 Block — always-on-rail (Variant C)</title>
+  <link rel="stylesheet" href="../../../../packages/design-system/html/_tokens.css" />
+  <style>
+    /* ── Page frame ─────────────────────────────────────────────────────── */
+    :root {
+      --rail-w-rest: 56px;
+      --rail-w-expanded: 360px;
+      --rail-gap: 16px;
+    }
+    body {
+      background: var(--surface-0);
+      padding: 24px;
+      font-size: 14px;
+    }
+    .page {
+      max-width: 1200px;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      gap: 32px;
+    }
+    .page__caption {
+      font-family: var(--mono);
+      font-size: 11px;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      font-weight: 500;
+      color: var(--text-lo);
+      padding-bottom: 8px;
+      border-bottom: 1px solid var(--surface-3);
+    }
+
+    /* ── MarkdownBlockView shell — body + persistent rail ───────────────── */
+    /* The shell is a 2-column structure. Column 1 = body (prose). Column 2 = rail.
+       The rail is visually a thin column (border + sparse badges + lost-anchors footer).
+       Each block emits a row of [prose | rail-slot] so badges align naturally with
+       their block's first line — no absolute positioning, no JS measurement. */
+    .mb-view {
+      background: var(--surface-1);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--r2);
+      overflow: hidden;
+      display: grid;
+      grid-template-columns: 1fr var(--rail-w-rest);
+      transition: grid-template-columns var(--motion-medium) cubic-bezier(0.2, 0, 0, 1);
+      position: relative;
+    }
+    .mb-view--expanded {
+      grid-template-columns: 1fr var(--rail-w-expanded);
+    }
+    .mb-body {
+      grid-column: 1;
+      padding: var(--density-page-gutter) calc(var(--density-page-gutter) * 1.5);
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+    }
+    .mb-rail {
+      grid-column: 2;
+      position: relative;
+      border-left: 1px solid var(--border-subtle);
+      background: var(--surface-1);
+      display: flex;
+      flex-direction: column;
+      padding-top: var(--density-page-gutter);
+    }
+    /* The rail "column" — host for absolute badges (rest state) or panel (expanded). */
+    .mb-rail__column {
+      position: relative;
+      flex: 1;
+    }
+    /* Badge floats absolute, top-aligned to its block's first line.
+       For the static mockup we set `top` per badge inline. */
+    .mb-rail__badge-slot {
+      position: absolute;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+    }
+
+    /* RailBadge — bare numeric chip; no chat-bubble, no emoji. */
+    .rail-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 24px;
+      height: 22px;
+      padding: 0 7px;
+      border-radius: var(--r1);
+      font-family: var(--mono);
+      font-variant-numeric: tabular-nums;
+      font-size: 11px;
+      font-weight: 500;
+      line-height: 1;
+      letter-spacing: 0.02em;
+      background: var(--surface-3);
+      color: var(--text-mid);
+      border: 1px solid var(--border-subtle);
+      cursor: pointer;
+      transition: background var(--motion-fast) cubic-bezier(0.2, 0, 0, 1),
+                  color var(--motion-fast) cubic-bezier(0.2, 0, 0, 1);
+    }
+    .rail-badge:hover {
+      background: var(--surface-4);
+      color: var(--text-hi);
+    }
+    .rail-badge--unread {
+      background: var(--primary-dim);
+      color: var(--primary);
+      border-color: color-mix(in oklab, var(--primary) 30%, transparent);
+    }
+    .rail-badge--unread:hover {
+      background: var(--primary-hover);
+    }
+    .rail-badge--active {
+      background: var(--primary);
+      color: var(--surface-0);
+      border-color: var(--primary);
+    }
+
+    /* Hover ghost "+" affordance (clean blocks) — fades in on row-hover. */
+    .rail-ghost {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 22px;
+      height: 22px;
+      border-radius: var(--r1);
+      background: var(--surface-ghost);
+      color: var(--text-lo);
+      font-family: var(--mono);
+      font-size: 13px;
+      font-weight: 500;
+      line-height: 1;
+      cursor: pointer;
+      opacity: 0;
+      transition: opacity var(--motion-fast) cubic-bezier(0.2, 0, 0, 1),
+                  color var(--motion-fast) cubic-bezier(0.2, 0, 0, 1);
+    }
+    /* Demo: force-show one of the ghosts to illustrate the hover state. */
+    .rail-ghost--demo,
+    .mb-block:hover .rail-ghost {
+      opacity: 1;
+    }
+    .rail-ghost:hover {
+      color: var(--text-hi);
+      background: var(--primary-dim);
+    }
+
+    /* ── Block — block is the natural prose flow; no rail-slot inside. ──── */
+    .mb-block {
+      position: relative;
+    }
+    /* The hover ghost "+" affordance lives in the rail's column, not in the body.
+       For demo purposes we render hover-ghost slots in the rail column with absolute
+       `top` matching each block's natural vertical position. */
+
+    /* ── Per-kind block renderers ───────────────────────────────────────── */
+    /* heading H1 */
+    .mb-h1 {
+      font-size: var(--density-text-h1);
+      font-weight: 600;
+      letter-spacing: -0.01em;
+      color: var(--text-hi);
+      padding-bottom: var(--density-pad-y);
+      margin-bottom: calc(var(--density-pad-y) * 1.5);
+      border-bottom: 1px solid var(--surface-3);
+    }
+    /* heading H2 */
+    .mb-h2 {
+      font-size: var(--density-text-h2);
+      font-weight: 600;
+      color: var(--text-hi);
+      letter-spacing: -0.005em;
+      margin-top: calc(var(--density-pad-y) * 2);
+      margin-bottom: var(--density-gap);
+    }
+    /* paragraph */
+    .mb-p {
+      font-size: var(--density-text);
+      line-height: var(--leading-body);
+      color: var(--text-mid);
+      margin: 0 0 var(--density-gap) 0;
+    }
+    .mb-p strong { color: var(--text-hi); font-weight: 600; }
+    .mb-p em { color: var(--text-mid); font-style: italic; }
+    .mb-p code,
+    .mb-li code {
+      font-family: var(--mono);
+      font-size: 0.875em;
+      background: var(--surface-ghost);
+      color: var(--text-hi);
+      border-radius: var(--r1);
+      padding: 1px 5px;
+    }
+
+    /* ordered + unordered lists */
+    .mb-list {
+      margin: 0 0 var(--density-gap) 0;
+      padding-left: 24px;
+      color: var(--text-mid);
+      font-size: var(--density-text);
+      line-height: var(--leading-body);
+    }
+    .mb-list--ol { list-style: none; counter-reset: mb-li; padding-left: 28px; }
+    .mb-list--ul { list-style: none; padding-left: 22px; }
+    .mb-li {
+      position: relative;
+      margin-bottom: 4px;
+    }
+    .mb-list--ol .mb-li {
+      counter-increment: mb-li;
+    }
+    .mb-list--ol .mb-li::before {
+      content: counter(mb-li) ".";
+      position: absolute;
+      left: -28px;
+      top: 0;
+      width: 22px;
+      text-align: right;
+      font-family: var(--mono);
+      color: var(--text-lo);
+      font-size: 12px;
+    }
+    .mb-list--ul .mb-li::before {
+      content: "•";
+      position: absolute;
+      left: -16px;
+      color: var(--text-lo);
+    }
+    .mb-li strong { color: var(--text-hi); font-weight: 600; }
+
+    /* fenced code */
+    .mb-code {
+      position: relative;
+      background: var(--surface-2);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--r2);
+      overflow-x: auto;
+      margin: 0 0 var(--density-gap) 0;
+    }
+    .mb-code__lang {
+      position: sticky;
+      top: 0;
+      float: right;
+      margin: 8px 8px 0 0;
+      display: inline-flex;
+      align-items: center;
+      padding: 2px 7px;
+      border-radius: var(--r-pill);
+      font-family: var(--mono);
+      font-size: 10px;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      font-weight: 500;
+      color: var(--text-mid);
+      background: var(--surface-ghost);
+    }
+    .mb-code pre {
+      font-family: var(--mono);
+      font-size: 12.5px;
+      line-height: 1.55;
+      color: var(--text-hi);
+      padding: var(--density-pad-y) var(--density-pad-x);
+      margin: 0;
+      white-space: pre;
+    }
+    .mb-code .tok-kw { color: color-mix(in oklab, var(--primary) 80%, var(--text-hi)); }
+    .mb-code .tok-fn { color: var(--text-hi); font-weight: 500; }
+    .mb-code .tok-str { color: var(--ok); }
+    .mb-code .tok-com { color: var(--text-lo); font-style: italic; }
+
+    /* quote */
+    .mb-quote {
+      border-left: 2px solid var(--surface-5);
+      padding: 4px 0 4px var(--density-pad-x);
+      margin: 0 0 var(--density-gap) 0;
+      color: var(--text-mid);
+      font-size: var(--density-text);
+      line-height: var(--leading-body);
+    }
+    .mb-quote strong { color: var(--text-hi); }
+
+    /* hr */
+    .mb-hr {
+      border: 0;
+      height: 1px;
+      background: var(--surface-3);
+      margin: var(--density-gap) 0;
+    }
+
+    /* table */
+    .mb-table {
+      width: 100%;
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--r2);
+      border-collapse: separate;
+      border-spacing: 0;
+      overflow: hidden;
+      font-size: 13px;
+      color: var(--text-mid);
+      margin: 0 0 var(--density-gap) 0;
+    }
+    .mb-table th {
+      text-align: left;
+      font-weight: 600;
+      color: var(--text-hi);
+      background: var(--surface-2);
+      padding: 6px 10px;
+      border-bottom: 1px solid var(--border-subtle);
+      font-size: 12px;
+    }
+    .mb-table td {
+      padding: 6px 10px;
+      border-top: 1px solid var(--border-subtle);
+    }
+    .mb-table tr:first-child td { border-top: none; }
+
+    /* image */
+    .mb-image {
+      max-width: 100%;
+      border-radius: var(--r2);
+      background: var(--surface-2);
+      display: block;
+      margin: 0 0 4px 0;
+    }
+    .mb-image__caption {
+      font-family: var(--mono);
+      font-size: 10px;
+      color: var(--text-lo);
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      margin-bottom: var(--density-gap);
+    }
+
+    /* ── Expanded rail panel (when a badge is clicked) ──────────────────── */
+    .rail-panel {
+      padding: var(--density-page-gutter);
+      display: flex;
+      flex-direction: column;
+      gap: var(--density-gap);
+      background: var(--surface-1);
+      animation: rail-fade-in var(--motion-medium) cubic-bezier(0.2, 0, 0, 1);
+    }
+    @keyframes rail-fade-in {
+      from { opacity: 0; transform: translateX(4px); }
+      to { opacity: 1; transform: translateX(0); }
+    }
+    .rail-panel__header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+    .rail-panel__caption {
+      font-family: var(--mono);
+      font-size: 10px;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      font-weight: 500;
+      color: var(--text-lo);
+    }
+    .rail-panel__close {
+      width: 22px;
+      height: 22px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: var(--r1);
+      color: var(--text-lo);
+      cursor: pointer;
+      font-size: 14px;
+      line-height: 1;
+      transition: background var(--motion-fast), color var(--motion-fast);
+    }
+    .rail-panel__close:hover {
+      background: var(--surface-3);
+      color: var(--text-hi);
+    }
+
+    /* MessageRow — a slot that L1's CommentRow family fills.
+       Mirrored locally for the mockup. */
+    .msg-row {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      padding: 6px 0;
+      border-top: 1px solid var(--border-subtle);
+    }
+    .msg-row:first-child {
+      border-top: 0;
+      padding-top: 0;
+    }
+    .msg-row__avatar {
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      flex-shrink: 0;
+      background: var(--surface-5);
+      color: var(--text-hi);
+      font-size: 10px;
+      font-weight: 600;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .msg-row__body { min-width: 0; flex: 1; display: flex; flex-direction: column; gap: 2px; }
+    .msg-row__meta {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+    .msg-row__sender { color: var(--text-hi); font-size: 12px; font-weight: 500; }
+    .msg-row__time { color: var(--text-lo); font-size: 10px; font-family: var(--mono); }
+    .msg-row__text {
+      color: var(--text-mid);
+      font-size: 12px;
+      line-height: 1.5;
+      overflow: hidden;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+    }
+    .rail-panel__reply {
+      align-self: flex-start;
+      background: transparent;
+      color: var(--text-mid);
+      border: 1px solid var(--border-default);
+      border-radius: var(--r1);
+      padding: 4px 10px;
+      font-size: 11px;
+      font-family: var(--ui);
+      cursor: pointer;
+      transition: background var(--motion-fast), color var(--motion-fast);
+    }
+    .rail-panel__reply:hover {
+      background: var(--surface-3);
+      color: var(--text-hi);
+    }
+
+    /* Tag chip — for "anchor lost" + role indicators */
+    .tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 2px 7px;
+      border-radius: var(--r-pill);
+      font-size: 10px;
+      font-family: var(--mono);
+      letter-spacing: 0.03em;
+      text-transform: uppercase;
+      white-space: nowrap;
+      background: var(--surface-ghost);
+      color: var(--text-mid);
+      flex-shrink: 0;
+    }
+    .tag--role {
+      background: color-mix(in oklab, var(--primary) 12%, transparent);
+      color: var(--primary);
+    }
+    .tag--lost {
+      background: color-mix(in oklab, var(--warn) 16%, transparent);
+      color: var(--warn);
+    }
+
+    /* ── Lost-anchors footer accordion ──────────────────────────────────── */
+    .mb-lost {
+      margin-top: calc(var(--density-pad-y) * 2);
+      padding-top: var(--density-pad-y);
+      border-top: 1px solid var(--surface-3);
+    }
+    .mb-lost__summary {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      cursor: pointer;
+      list-style: none;
+      padding: 4px 0;
+      color: var(--text-mid);
+      font-family: var(--mono);
+      font-size: 11px;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      font-weight: 500;
+    }
+    .mb-lost__summary::-webkit-details-marker { display: none; }
+    .mb-lost__chev {
+      color: var(--text-lo);
+      font-family: var(--mono);
+      font-size: 12px;
+    }
+    .mb-lost[open] .mb-lost__chev { transform: rotate(180deg); }
+    .mb-lost__body {
+      padding-top: var(--density-gap);
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    /* ── Empty state ─────────────────────────────────────────────────────── */
+    .mb-empty {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: calc(var(--density-pad-y) * 4) 0;
+      font-family: var(--mono);
+      font-size: 11px;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      color: var(--text-lo);
+    }
+
+    /* ── Force-show certain demo states ─────────────────────────────────── */
+    .demo-hover .rail-ghost { opacity: 1; }
+
+    /* Connector line in expanded panel */
+    .rail-connector {
+      position: absolute;
+      left: -12px;
+      top: 18px;
+      width: 12px;
+      height: 1px;
+      background: var(--surface-5);
+    }
+
+    /* Body shrinks when expanded — visual cue for re-layout */
+    .mb-view--expanded .mb-body {
+      /* visual change is the grid-template-columns transition */
+    }
+
+    /* Scrollbar styling for code blocks */
+    .mb-code::-webkit-scrollbar { height: 6px; }
+    .mb-code::-webkit-scrollbar-thumb { background: var(--surface-5); border-radius: var(--r-pill); }
+
+  </style>
+</head>
+<body>
+  <div class="page">
+
+    <!-- ─────────────────────────────────────────────────────────────────
+         PRIMARY STATE — populated body, sparse rail with 3 badges
+         (one anchored on paragraph #1, one on ordered-list-item #2, one on the quote)
+         ──────────────────────────────────────────────────────────────── -->
+    <div class="page__caption">Primary state — populated knowledge body, sparse rail (3 anchored blocks)</div>
+
+    <div
+      class="mb-view"
+      data-component="MarkdownBlockView"
+      data-tier="3"
+      data-uses="BlockRail,RailBadge"
+      data-host="knowledge_item"
+    >
+      <!-- BODY -->
+      <div class="mb-body">
+
+        <!-- H1 -->
+        <div class="mb-block" data-kind="heading" data-block-id="h1-001">
+          <h1 class="mb-h1">Webhook signing: how we verify Stripe events</h1>
+        </div>
+
+        <!-- Paragraph #1 — ANCHORED (1 unread message) -->
+        <div class="mb-block" data-kind="paragraph" data-block-id="p-001">
+          <p class="mb-p">
+            When Stripe POSTs to <code>/api/webhooks/stripe</code>, the request includes a
+            <code>Stripe-Signature</code> header. Verifying this header is <strong>not optional</strong> —
+            without it, anyone can forge events and mark invoices paid.
+          </p>
+        </div>
+
+        <!-- H2 -->
+        <div class="mb-block" data-kind="heading" data-block-id="h2-001">
+          <h2 class="mb-h2">The verification protocol</h2>
+        </div>
+
+        <!-- Paragraph -->
+        <div class="mb-block" data-kind="paragraph" data-block-id="p-002">
+          <p class="mb-p">
+            We use Stripe's official <code>constructEvent</code> from the SDK. Three rules:
+          </p>
+        </div>
+
+        <!-- Ordered list -->
+        <ol class="mb-list mb-list--ol" data-kind="list">
+          <li class="mb-block mb-li" data-kind="list_item" data-block-id="li-001">
+            The signing secret comes from <code>.env.production</code> under
+            <code>STRIPE_WEBHOOK_SECRET</code>. Never inline it.
+          </li>
+          <!-- list item #2 — ANCHORED (3-msg discussion, resolved) -->
+          <li class="mb-block mb-li" data-kind="list_item" data-block-id="li-002">
+            The raw request body is required — <strong>do not parse JSON</strong> before
+            verification.
+          </li>
+          <li class="mb-block mb-li" data-kind="list_item" data-block-id="li-003">
+            Reject any event older than five minutes (replay protection).
+          </li>
+        </ol>
+
+        <!-- Code block (TS) -->
+        <div class="mb-block" data-kind="code" data-block-id="code-001">
+          <div class="mb-code">
+            <span class="mb-code__lang">ts</span>
+<pre><span class="tok-kw">const</span> event <span class="tok-kw">=</span> stripe.webhooks.<span class="tok-fn">constructEvent</span>(
+  rawBody,
+  request.headers.<span class="tok-fn">get</span>(<span class="tok-str">'stripe-signature'</span>),
+  process.env.STRIPE_WEBHOOK_SECRET,
+);</pre>
+          </div>
+        </div>
+
+        <!-- H2 -->
+        <div class="mb-block" data-kind="heading" data-block-id="h2-002">
+          <h2 class="mb-h2">Anti-patterns we caught in review</h2>
+        </div>
+
+        <!-- Unordered list -->
+        <ul class="mb-list mb-list--ul" data-kind="list">
+          <li class="mb-block mb-li" data-kind="list_item" data-block-id="li-004">
+            <strong>Trusting the parsed body.</strong> A Builder once parsed JSON in middleware
+            before signature verification — the verification then fails because
+            the raw bytes have been mutated.
+          </li>
+          <li class="mb-block mb-li" data-kind="list_item" data-block-id="li-005">
+            <strong>Skipping the timestamp check.</strong> A replay window of "any age" lets
+            an attacker resend old events.
+          </li>
+        </ul>
+
+        <!-- Quote — ANCHORED (1 unread message) -->
+        <div class="mb-block" data-kind="quote" data-block-id="q-001">
+          <blockquote class="mb-quote">
+            <strong>Last incident (Q3):</strong> a missed timestamp check let a redelivered
+            <code>payment_intent.succeeded</code> mark an invoice paid twice. Now part of
+            our default checklist.
+          </blockquote>
+        </div>
+
+        <!-- Lost-anchors accordion (body-aligned at foot) -->
+        <details class="mb-lost" open>
+          <summary class="mb-lost__summary">
+            <span>Lost anchors (1)</span>
+            <span class="mb-lost__chev">▾</span>
+          </summary>
+          <div class="mb-lost__body">
+            <div class="msg-row">
+              <span class="msg-row__avatar" style="background: color-mix(in oklab, var(--primary) 50%, var(--surface-5));">BB</span>
+              <div class="msg-row__body">
+                <div class="msg-row__meta">
+                  <span class="msg-row__sender">Backend Builder</span>
+                  <span class="tag tag--role">backend</span>
+                  <span class="tag tag--lost">anchor lost</span>
+                  <span class="msg-row__time">2 days ago</span>
+                </div>
+                <p class="msg-row__text">Added the timestamp check; tests pass. Marking this one resolved.</p>
+              </div>
+            </div>
+          </div>
+        </details>
+
+      </div>
+      <!-- END BODY -->
+
+      <!-- RAIL — sparse: 3 badges (at the 3 anchored blocks) + 1 hover-demo ghost.
+           Top values match each anchored block's natural y-position in the body.
+           In production these are computed by IntersectionObserver / measurement. -->
+      <aside class="mb-rail" aria-label="Block discussion rail">
+        <div class="mb-rail__column">
+          <!-- paragraph #1 — 1 unread (top-aligned with first line of paragraph) -->
+          <span class="mb-rail__badge-slot" style="top: 78px;">
+            <button type="button" class="rail-badge rail-badge--unread" title="1 unread message">1</button>
+          </span>
+          <!-- list item #2 — 3 resolved (top-aligned with "The raw request body is required") -->
+          <span class="mb-rail__badge-slot" style="top: 219px;">
+            <button type="button" class="rail-badge" title="3 messages · resolved">3</button>
+          </span>
+          <!-- HOVER-STATE demo: ghost "+" affordance on the H2 "Anti-patterns" block -->
+          <span class="mb-rail__badge-slot" style="top: 425px;">
+            <span class="rail-ghost rail-ghost--demo" title="Discuss this block (hover state)">+</span>
+          </span>
+          <!-- quote — 1 unread -->
+          <span class="mb-rail__badge-slot" style="top: 525px;">
+            <button type="button" class="rail-badge rail-badge--unread" title="1 unread message">1</button>
+          </span>
+        </div>
+      </aside>
+    </div>
+
+
+    <!-- ─────────────────────────────────────────────────────────────────
+         EXPANDED STATE — same body, paragraph #1 badge clicked,
+         rail widened, messages flush-right of that block
+         ──────────────────────────────────────────────────────────────── -->
+    <div class="page__caption">Expanded state — paragraph badge clicked, rail widens, messages flush-right of the block</div>
+
+    <div
+      class="mb-view mb-view--expanded"
+      data-component="MarkdownBlockView"
+      data-tier="3"
+      data-state="expanded"
+    >
+      <div class="mb-body">
+
+        <div class="mb-block" data-kind="heading">
+          <h1 class="mb-h1">Webhook signing: how we verify Stripe events</h1>
+        </div>
+
+        <!-- The active block — paragraph #1, badge active, panel beside it -->
+        <div class="mb-block mb-block--active" data-kind="paragraph" style="position: relative;">
+          <p class="mb-p">
+            When Stripe POSTs to <code>/api/webhooks/stripe</code>, the request includes a
+            <code>Stripe-Signature</code> header. Verifying this header is <strong>not optional</strong> —
+            without it, anyone can forge events and mark invoices paid.
+          </p>
+        </div>
+
+        <div class="mb-block" data-kind="heading">
+          <h2 class="mb-h2">The verification protocol</h2>
+        </div>
+
+        <div class="mb-block" data-kind="paragraph">
+          <p class="mb-p">
+            We use Stripe's official <code>constructEvent</code> from the SDK. Three rules:
+          </p>
+        </div>
+
+        <ol class="mb-list mb-list--ol">
+          <li class="mb-li">
+            The signing secret comes from <code>.env.production</code> under
+            <code>STRIPE_WEBHOOK_SECRET</code>. Never inline it.
+          </li>
+          <li class="mb-li">
+            The raw request body is required — <strong>do not parse JSON</strong> before
+            verification.
+          </li>
+          <li class="mb-li">
+            Reject any event older than five minutes (replay protection).
+          </li>
+        </ol>
+
+      </div>
+
+      <!-- Expanded rail panel — messages render flush-right of paragraph #1 -->
+      <aside class="mb-rail mb-rail--expanded" aria-label="Block discussion rail (expanded)">
+        <div class="rail-panel">
+          <div class="rail-panel__header">
+            <span class="rail-panel__caption">discussion · paragraph · 1 message · unread</span>
+            <button type="button" class="rail-panel__close" aria-label="Collapse rail">×</button>
+          </div>
+          <div class="msg-row">
+            <span class="msg-row__avatar" style="background: color-mix(in oklab, var(--ok) 45%, var(--surface-5));">FA</span>
+            <div class="msg-row__body">
+              <div class="msg-row__meta">
+                <span class="msg-row__sender">Facilitator</span>
+                <span class="tag tag--role">coach</span>
+                <span class="msg-row__time">12m</span>
+              </div>
+              <p class="msg-row__text">Should we cite the spec section number for <code>Stripe-Signature</code> here? Newcomers usually ask.</p>
+            </div>
+          </div>
+          <button type="button" class="rail-panel__reply">Reply</button>
+        </div>
+      </aside>
+    </div>
+
+
+    <!-- ─────────────────────────────────────────────────────────────────
+         EMPTY BODY STATE — rail still renders, body shows EmptyState
+         ──────────────────────────────────────────────────────────────── -->
+    <div class="page__caption">Empty body — rail persists, body is empty</div>
+
+    <div class="mb-view" data-component="MarkdownBlockView" data-tier="3" data-state="empty">
+      <div class="mb-body">
+        <div class="mb-empty">No content yet.</div>
+      </div>
+      <aside class="mb-rail">
+        <div class="mb-rail__column"></div>
+      </aside>
+    </div>
+
+
+    <!-- ─────────────────────────────────────────────────────────────────
+         LONG CODE OVERFLOW + secondary kinds (hr, table, image)
+         ──────────────────────────────────────────────────────────────── -->
+    <div class="page__caption">Secondary kinds — long code overflow, hr, table, image (rail still persistent, no badges)</div>
+
+    <div class="mb-view" data-component="MarkdownBlockView" data-tier="3" data-state="secondary">
+      <div class="mb-body">
+
+        <div class="mb-block" data-kind="heading">
+          <h2 class="mb-h2">Other block kinds</h2>
+        </div>
+
+        <div class="mb-block" data-kind="paragraph">
+          <p class="mb-p">A long code block scrolls horizontally; no wrap. <code>hr</code> blocks separate sections and are not anchorable. Tables get a header row and overflow horizontally on narrow viewports.</p>
+        </div>
+
+        <!-- Long code with overflow -->
+        <div class="mb-block" data-kind="code">
+          <div class="mb-code">
+            <span class="mb-code__lang">ts</span>
+<pre><span class="tok-com">// long line — exceeds the column width and scrolls horizontally:</span>
+<span class="tok-kw">const</span> <span class="tok-fn">verifyAndDispatchWebhook</span> <span class="tok-kw">=</span> <span class="tok-kw">async</span> (rawBody: Buffer, headers: Record&lt;string, string&gt;, secret: string, dispatcher: WebhookDispatcher): Promise&lt;DispatchResult&gt; <span class="tok-kw">=&gt;</span> {
+  <span class="tok-kw">const</span> event <span class="tok-kw">=</span> stripe.webhooks.<span class="tok-fn">constructEvent</span>(rawBody, headers[<span class="tok-str">'stripe-signature'</span>], secret);
+  <span class="tok-kw">return</span> dispatcher.<span class="tok-fn">handle</span>(event);
+};</pre>
+          </div>
+        </div>
+
+        <!-- hr — not anchorable, rail leaves an empty position -->
+        <hr class="mb-hr" data-kind="hr" />
+
+        <!-- Table -->
+        <div class="mb-block" data-kind="table">
+          <table class="mb-table">
+            <thead>
+              <tr><th>Event</th><th>Action</th><th>Owner</th></tr>
+            </thead>
+            <tbody>
+              <tr><td><code>payment_intent.succeeded</code></td><td>mark invoice paid</td><td>billing</td></tr>
+              <tr><td><code>charge.refunded</code></td><td>credit account</td><td>billing</td></tr>
+              <tr><td><code>customer.subscription.deleted</code></td><td>downgrade tier</td><td>core</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Image (placeholder rectangle) -->
+        <div class="mb-block" data-kind="image">
+          <div class="mb-image" style="height: 96px; display: flex; align-items: center; justify-content: center; color: var(--text-lo); font-family: var(--mono); font-size: 11px; letter-spacing: 0.05em; text-transform: uppercase;">stripe-webhook-flow.png</div>
+          <div class="mb-image__caption">Stripe webhook flow — verify before parse</div>
+        </div>
+
+      </div>
+      <aside class="mb-rail">
+        <div class="mb-rail__column"></div>
+      </aside>
+    </div>
+
+  </div>
+</body>
+</html>

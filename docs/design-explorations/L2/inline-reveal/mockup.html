@@ -1,0 +1,848 @@
+<!doctype html>
+<html lang="en" data-theme="lucid-dark">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>L2 Block — inline-reveal (variant B)</title>
+  <link rel="stylesheet" href="../../../../packages/design-system/html/_tokens.css" />
+  <style>
+    :root {
+      --motion-ease: cubic-bezier(0.2, 0, 0, 1);
+    }
+
+    body {
+      background: var(--surface-0);
+      padding: 24px;
+      font-size: 14px;
+    }
+
+    .page {
+      max-width: 1100px;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      gap: 32px;
+    }
+
+    .page__caption {
+      font-family: var(--mono);
+      font-size: 11px;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      font-weight: 500;
+      color: var(--text-lo);
+      padding-bottom: 8px;
+      border-bottom: 1px solid var(--surface-3);
+    }
+
+    /* ── MarkdownBlockView (the only mount point) ─────────────────────── */
+    .body-frame {
+      background: var(--surface-1);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--r2);
+      padding: var(--density-page-gutter);
+      display: flex;
+      flex-direction: column;
+    }
+
+    .markdown-block-view {
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ── Block (per-kind) typographic shape ──────────────────────────── */
+
+    /* Heading 1 */
+    .mb-heading-1 {
+      font-size: var(--density-text-h1);
+      font-weight: 600;
+      color: var(--text-hi);
+      letter-spacing: -0.01em;
+      line-height: 1.2;
+      margin-top: 4px;
+      margin-bottom: var(--density-gap);
+      position: relative;
+      display: flex;
+      align-items: flex-end;
+      gap: 8px;
+    }
+
+    /* Heading 2 */
+    .mb-heading-2 {
+      font-size: var(--density-text-h2);
+      font-weight: 600;
+      color: var(--text-hi);
+      line-height: 1.25;
+      margin-top: calc(var(--density-gap) * 1.4);
+      margin-bottom: var(--density-card-gap);
+      position: relative;
+      display: flex;
+      align-items: flex-end;
+      gap: 8px;
+    }
+
+    /* Paragraph */
+    .mb-paragraph {
+      font-size: var(--density-text);
+      color: var(--text-mid);
+      line-height: var(--leading-body);
+      margin: 0 0 var(--density-gap) 0;
+      position: relative;
+    }
+    .mb-paragraph strong { color: var(--text-hi); font-weight: 600; }
+    .mb-paragraph em { color: var(--text-hi); font-style: italic; }
+
+    /* Inline code chip */
+    .inline-code {
+      font-family: var(--mono);
+      font-size: 0.875em;
+      background: var(--surface-3);
+      color: var(--text-hi);
+      padding: 1px 6px;
+      border-radius: var(--r1);
+    }
+
+    /* Inline link */
+    a.inline-link {
+      color: var(--primary);
+      text-decoration: none;
+      border-bottom: 1px solid transparent;
+      transition: border-color var(--motion-fast) var(--motion-ease);
+    }
+    a.inline-link:hover { border-bottom-color: var(--primary); }
+
+    /* Ordered list */
+    .mb-list--ordered {
+      list-style: none;
+      counter-reset: mb-li;
+      padding: 0 0 0 1.75rem;
+      margin: 0 0 var(--density-gap) 0;
+      display: flex;
+      flex-direction: column;
+      gap: var(--density-card-gap);
+    }
+    .mb-list--ordered > li {
+      counter-increment: mb-li;
+      position: relative;
+      color: var(--text-mid);
+      font-size: var(--density-text);
+      line-height: var(--leading-body);
+      padding-left: 4px;
+    }
+    .mb-list--ordered > li::before {
+      content: counter(mb-li) ".";
+      position: absolute;
+      left: -1.75rem;
+      top: 0;
+      width: 1.5rem;
+      color: var(--text-lo);
+      font-family: var(--mono);
+      font-variant-numeric: tabular-nums;
+      font-size: 0.875em;
+      text-align: right;
+    }
+
+    /* Unordered list */
+    .mb-list--unordered {
+      list-style: none;
+      padding: 0 0 0 1.5rem;
+      margin: 0 0 var(--density-gap) 0;
+      display: flex;
+      flex-direction: column;
+      gap: var(--density-card-gap);
+    }
+    .mb-list--unordered > li {
+      position: relative;
+      color: var(--text-mid);
+      font-size: var(--density-text);
+      line-height: var(--leading-body);
+    }
+    .mb-list--unordered > li::before {
+      content: "";
+      position: absolute;
+      left: -0.875rem;
+      top: 0.6em;
+      width: 4px;
+      height: 4px;
+      border-radius: 50%;
+      background: var(--text-lo);
+    }
+    .mb-list--unordered > li strong { color: var(--text-hi); font-weight: 600; }
+
+    /* Quote */
+    .mb-quote {
+      border-left: 2px solid var(--surface-5);
+      padding: 4px var(--density-card-pad);
+      margin: var(--density-gap) 0;
+      color: var(--text-mid);
+      font-style: italic;
+      font-size: var(--density-text);
+      line-height: var(--leading-body);
+      position: relative;
+    }
+
+    /* Code block */
+    .mb-code {
+      background: var(--surface-2);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--r2);
+      margin: var(--density-gap) 0;
+      overflow: hidden;
+    }
+    .mb-code__chrome {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px var(--density-card-pad);
+      background: var(--surface-2);
+      border-bottom: 1px solid var(--border-subtle);
+    }
+    .mb-code__lang {
+      font-family: var(--mono);
+      font-size: 10px;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      font-weight: 500;
+      color: var(--text-lo);
+    }
+    .mb-code__chrome-spacer { flex: 1; }
+    .mb-code__body {
+      overflow-x: auto;
+      padding: var(--density-card-pad);
+      font-family: var(--mono);
+      font-size: 0.8125rem;
+      line-height: 1.55;
+      color: var(--text-hi);
+      white-space: pre;
+      tab-size: 2;
+    }
+    .mb-code__body .tok-kw { color: var(--primary); }
+    .mb-code__body .tok-fn { color: var(--text-hi); }
+    .mb-code__body .tok-str { color: var(--ok); }
+    .mb-code__body .tok-co { color: var(--text-lo); font-style: italic; }
+
+    /* HR */
+    .mb-hr {
+      border: none;
+      border-top: 1px solid var(--border-subtle);
+      margin: calc(var(--density-gap) * 2) 0;
+    }
+
+    /* Image */
+    .mb-image {
+      margin: var(--density-gap) 0;
+      position: relative;
+      max-width: 100%;
+    }
+    .mb-image img {
+      display: block;
+      max-width: 100%;
+      object-fit: contain;
+      border-radius: var(--r2);
+    }
+    .mb-image__caption {
+      margin-top: 6px;
+      font-family: var(--mono);
+      font-size: 11px;
+      letter-spacing: 0.04em;
+      color: var(--text-lo);
+    }
+
+    /* Table */
+    .mb-table-wrap {
+      margin: var(--density-gap) 0;
+      border-radius: var(--r2);
+      border: 1px solid var(--border-subtle);
+      overflow: hidden;
+      position: relative;
+    }
+    .mb-table-chrome {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 4px var(--density-card-pad);
+      background: var(--surface-2);
+      border-bottom: 1px solid var(--border-subtle);
+    }
+    .mb-table-chrome__label {
+      font-family: var(--mono);
+      font-size: 10px;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      font-weight: 500;
+      color: var(--text-lo);
+    }
+    .mb-table-chrome__spacer { flex: 1; }
+    .mb-table-scroll { overflow-x: auto; }
+    .mb-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: var(--density-text);
+      font-variant-numeric: tabular-nums;
+    }
+    .mb-table th {
+      text-align: left;
+      font-family: var(--mono);
+      font-size: 10px;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      color: var(--text-lo);
+      font-weight: 500;
+      padding: 8px var(--density-card-pad);
+      background: var(--surface-2);
+      border-bottom: 1px solid var(--border-subtle);
+    }
+    .mb-table td {
+      padding: 8px var(--density-card-pad);
+      color: var(--text-mid);
+      border-bottom: 1px solid var(--border-subtle);
+    }
+    .mb-table tr:last-child td { border-bottom: none; }
+
+    /* ── BlockDiscussAffordance — trailing-edge inline ────────────────── */
+    .mb-discuss {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      margin-left: 8px;
+      padding: 2px 8px 2px 6px;
+      background: var(--surface-3);
+      border: 1px solid var(--border-default);
+      border-radius: var(--r-pill);
+      color: var(--text-mid);
+      font-family: var(--mono);
+      font-size: 10px;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      font-weight: 500;
+      vertical-align: baseline;
+      cursor: pointer;
+      opacity: 0;
+      transform: translateX(4px);
+      transition:
+        opacity var(--motion-fast) var(--motion-ease),
+        transform var(--motion-fast) var(--motion-ease),
+        background var(--motion-fast) var(--motion-ease),
+        color var(--motion-fast) var(--motion-ease);
+      flex-shrink: 0;
+    }
+    .mb-discuss svg {
+      display: inline-block;
+      width: 12px;
+      height: 12px;
+      stroke: currentColor;
+      stroke-width: 1.5;
+      fill: none;
+    }
+    .mb-discuss:hover {
+      background: var(--surface-4);
+      color: var(--text-hi);
+    }
+
+    /* Variant: chrome-positioned affordance for code/table — same atom, no inline alignment */
+    .mb-discuss--chrome {
+      margin-left: 0;
+    }
+
+    /* Variant: image overlay */
+    .mb-discuss--image {
+      position: absolute;
+      bottom: 8px;
+      right: 8px;
+      background: color-mix(in oklab, var(--surface-2) 88%, transparent);
+      backdrop-filter: blur(2px);
+    }
+
+    /* Reveal on hover/focus-within of parent block */
+    .mb-paragraph:hover .mb-discuss,
+    .mb-paragraph:focus-within .mb-discuss,
+    .mb-heading-1:hover .mb-discuss,
+    .mb-heading-1:focus-within .mb-discuss,
+    .mb-heading-2:hover .mb-discuss,
+    .mb-heading-2:focus-within .mb-discuss,
+    .mb-list--ordered > li:hover .mb-discuss,
+    .mb-list--ordered > li:focus-within .mb-discuss,
+    .mb-list--unordered > li:hover .mb-discuss,
+    .mb-list--unordered > li:focus-within .mb-discuss,
+    .mb-quote:hover .mb-discuss,
+    .mb-quote:focus-within .mb-discuss,
+    .mb-code:hover .mb-discuss,
+    .mb-code:focus-within .mb-discuss,
+    .mb-table-wrap:hover .mb-discuss,
+    .mb-table-wrap:focus-within .mb-discuss,
+    .mb-image:hover .mb-discuss,
+    .mb-image:focus-within .mb-discuss {
+      opacity: 1;
+      transform: translateX(0);
+    }
+
+    /* Demo state: simulate hover on a block (for screenshot reproducibility) */
+    [data-state="hover-demo"] .mb-discuss {
+      opacity: 1;
+      transform: translateX(0);
+    }
+
+    /* ── BlockDiscussionStrip ───────────────────────────────────────── */
+    .mb-strip {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px var(--density-card-pad);
+      margin: -2px 0 var(--density-gap) 12px;
+      background: var(--surface-2);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--r1);
+      cursor: pointer;
+      transition: background var(--motion-fast) var(--motion-ease);
+      position: relative;
+    }
+    .mb-strip:hover {
+      background: var(--surface-3);
+    }
+    .mb-strip::before {
+      /* The "attached" elbow — a 2px tick that visually bonds the strip to the block above */
+      content: "";
+      position: absolute;
+      top: -8px;
+      left: 12px;
+      width: 1px;
+      height: 8px;
+      background: var(--border-default);
+    }
+    .mb-strip__avatar {
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: var(--surface-5);
+      color: var(--text-hi);
+      font-size: 9px;
+      font-weight: 600;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+    .mb-strip__sender {
+      font-size: 12px;
+      color: var(--text-hi);
+      font-weight: 500;
+      flex-shrink: 0;
+    }
+    .mb-strip__excerpt {
+      font-size: 12px;
+      color: var(--text-mid);
+      flex: 1;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .mb-strip__time {
+      font-family: var(--mono);
+      font-size: 10px;
+      letter-spacing: 0.04em;
+      color: var(--text-lo);
+      flex-shrink: 0;
+    }
+    .mb-strip__summary {
+      font-size: 12px;
+      color: var(--text-mid);
+      flex: 1;
+      min-width: 0;
+    }
+    .mb-strip__summary b {
+      color: var(--text-hi);
+      font-weight: 500;
+    }
+
+    /* StatusChip mirrored from html/StatusChip.html */
+    .status-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 1px 6px;
+      border-radius: var(--r-pill);
+      font-family: var(--mono);
+      font-size: 10px;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      font-weight: 500;
+      line-height: 1.4;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+    .status-chip .dot { width: 5px; height: 5px; border-radius: 50%; flex-shrink: 0; }
+    .status-chip--unread { background: color-mix(in oklab, var(--primary) 18%, transparent); color: var(--primary); }
+    .status-chip--unread .dot { background: var(--primary); }
+    .status-chip--resolved { background: color-mix(in oklab, var(--ok) 14%, transparent); color: var(--ok); }
+    .status-chip--resolved .dot { background: var(--ok); }
+    .status-chip--lost { background: var(--surface-ghost); color: var(--text-lo); border: 1px dashed var(--border-default); }
+    .status-chip--lost .dot { background: var(--text-lo); }
+
+    /* Lost anchors foot */
+    .mb-lost-foot {
+      margin-top: calc(var(--density-gap) * 2);
+      padding-top: var(--density-gap);
+      border-top: 1px dashed var(--border-subtle);
+      display: flex;
+      flex-direction: column;
+      gap: var(--density-card-gap);
+    }
+    .mb-lost-foot__header {
+      font-family: var(--mono);
+      font-size: 10px;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      font-weight: 500;
+      color: var(--text-lo);
+      margin-bottom: 2px;
+    }
+    .mb-lost-foot .mb-strip {
+      margin-left: 0;
+      background: var(--surface-ghost);
+    }
+    .mb-lost-foot .mb-strip::before { display: none; }
+
+    /* Empty state */
+    .empty-state {
+      padding: calc(var(--density-card-pad) * 2);
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      gap: var(--density-card-gap);
+      align-items: center;
+    }
+    .empty-state__title {
+      font-size: var(--density-text);
+      font-weight: 600;
+      color: var(--text-hi);
+    }
+    .empty-state__copy {
+      font-size: 12px;
+      color: var(--text-mid);
+      max-width: 360px;
+      line-height: var(--leading-body);
+    }
+
+    /* Long-code overflow demo container */
+    .body-frame--narrow { max-width: 520px; }
+
+    /* Two-column for the empty-state demo + secondary mockup */
+    .grid-2col {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 24px;
+    }
+
+  </style>
+</head>
+<body>
+  <div class="page">
+
+    <!-- ─────────────────────────────────────────────────────────────────
+         PRIMARY STATE — populated knowledge body, with anchored strips,
+         a hover-revealed affordance, and a lost-anchors foot.
+         Host = knowledge_item (the L23 case).
+         ──────────────────────────────────────────────────────────────── -->
+    <div class="page__caption">Primary state — knowledge body with anchored discussions (host = knowledge_item)</div>
+
+    <div class="body-frame">
+      <div
+        class="markdown-block-view"
+        data-component="MarkdownBlockView"
+        data-tier="3"
+        data-uses="HeadingBlock,ParagraphBlock,ListBlock,CodeBlock,QuoteBlock,BlockDiscussAffordance,BlockDiscussionStrip,LostAnchorsFoot"
+      >
+
+        <!-- H1 -->
+        <h1
+          class="mb-heading-1"
+          data-component="HeadingBlock"
+          data-tier="1"
+          data-block-id="b-h1-1"
+        >
+          <span>Webhook signing: how we verify Stripe events</span>
+          <button type="button" class="mb-discuss" aria-label="Discuss this heading">
+            <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2.5 3.5h11a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1H7l-3 2.5v-2.5H2.5a1 1 0 0 1-1-1v-6a1 1 0 0 1 1-1Z"/></svg>
+            <span>discuss</span>
+          </button>
+        </h1>
+
+        <!-- Paragraph 1 — anchored with 1 unread message -->
+        <p
+          class="mb-paragraph"
+          data-component="ParagraphBlock"
+          data-tier="1"
+          data-block-id="b-p-1"
+          data-has-anchors="true"
+        >When Stripe POSTs to <code class="inline-code">/api/webhooks/stripe</code>, the request includes a <code class="inline-code">Stripe-Signature</code> header. Verifying this header is <strong>not optional</strong> — without it, anyone can forge events and mark invoices paid.<button type="button" class="mb-discuss" aria-label="Discuss this paragraph"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2.5 3.5h11a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1H7l-3 2.5v-2.5H2.5a1 1 0 0 1-1-1v-6a1 1 0 0 1 1-1Z"/></svg><span>discuss</span></button></p>
+
+        <!-- Strip: 1 unread message anchored to paragraph 1 -->
+        <div
+          class="mb-strip"
+          data-component="BlockDiscussionStrip"
+          data-tier="2"
+          data-state="single"
+          data-anchored-to="b-p-1"
+        >
+          <span class="mb-strip__avatar" style="background: color-mix(in oklab, var(--ok) 50%, var(--surface-5));">FA</span>
+          <span class="mb-strip__sender">Facilitator</span>
+          <span class="mb-strip__excerpt">Should we cite the spec section number for <code>Stripe-Signature</code> here?</span>
+          <span class="status-chip status-chip--unread"><span class="dot"></span>1 unread</span>
+          <span class="mb-strip__time">12 min</span>
+        </div>
+
+        <!-- H2 — Hover-demo state for screenshot (affordance visible without :hover) -->
+        <h2
+          class="mb-heading-2"
+          data-component="HeadingBlock"
+          data-tier="1"
+          data-block-id="b-h2-1"
+          data-state="hover-demo"
+        >
+          <span>The verification protocol</span>
+          <button type="button" class="mb-discuss" aria-label="Discuss this heading">
+            <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2.5 3.5h11a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1H7l-3 2.5v-2.5H2.5a1 1 0 0 1-1-1v-6a1 1 0 0 1 1-1Z"/></svg>
+            <span>discuss</span>
+          </button>
+        </h2>
+
+        <!-- Paragraph 2 — clean (no strip) -->
+        <p
+          class="mb-paragraph"
+          data-component="ParagraphBlock"
+          data-tier="1"
+          data-block-id="b-p-2"
+        >We use Stripe's official <code class="inline-code">constructEvent</code> from the SDK. Three rules:<button type="button" class="mb-discuss" aria-label="Discuss this paragraph"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2.5 3.5h11a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1H7l-3 2.5v-2.5H2.5a1 1 0 0 1-1-1v-6a1 1 0 0 1 1-1Z"/></svg><span>discuss</span></button></p>
+
+        <!-- Ordered list — item 2 is anchored with a 3-message thread -->
+        <ol
+          class="mb-list--ordered"
+          data-component="ListBlock"
+          data-tier="1"
+          data-block-id="b-list-1"
+        >
+          <li data-component="ListItemBlock" data-block-id="b-li-1">
+            The signing secret comes from <code class="inline-code">.env.production</code> under <code class="inline-code">STRIPE_WEBHOOK_SECRET</code>. Never inline it.<button type="button" class="mb-discuss" aria-label="Discuss this item"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2.5 3.5h11a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1H7l-3 2.5v-2.5H2.5a1 1 0 0 1-1-1v-6a1 1 0 0 1 1-1Z"/></svg><span>discuss</span></button>
+          </li>
+          <li data-component="ListItemBlock" data-block-id="b-li-2" data-has-anchors="true">
+            The raw request body is required — do not parse JSON before verification.<button type="button" class="mb-discuss" aria-label="Discuss this item"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2.5 3.5h11a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1H7l-3 2.5v-2.5H2.5a1 1 0 0 1-1-1v-6a1 1 0 0 1 1-1Z"/></svg><span>discuss</span></button>
+          </li>
+        </ol>
+
+        <!-- Strip: 3-message thread, collapsed summary, resolved -->
+        <div
+          class="mb-strip"
+          data-component="BlockDiscussionStrip"
+          data-tier="2"
+          data-state="thread"
+          data-anchored-to="b-li-2"
+          style="margin-left: calc(1.75rem + 12px);"
+        >
+          <span class="mb-strip__avatar" style="background: color-mix(in oklab, var(--primary) 55%, var(--surface-5));">BB</span>
+          <span class="mb-strip__summary"><b>Builder + 2 others</b> · 3 replies — body-parser exception under <code class="inline-code">/api/webhooks/*</code></span>
+          <span class="status-chip status-chip--resolved"><span class="dot"></span>resolved</span>
+          <span class="mb-strip__time">2 h</span>
+        </div>
+
+        <!-- Continue ordered list visually (third item — note: in real markup this would be one list, but for the demo we render it after the strip to show interleaving) -->
+        <ol
+          class="mb-list--ordered"
+          data-component="ListBlock"
+          data-tier="1"
+          data-block-id="b-list-1-continued"
+          start="3"
+        >
+          <li data-component="ListItemBlock" data-block-id="b-li-3">
+            Reject any event older than five minutes (replay protection).<button type="button" class="mb-discuss" aria-label="Discuss this item"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2.5 3.5h11a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1H7l-3 2.5v-2.5H2.5a1 1 0 0 1-1-1v-6a1 1 0 0 1 1-1Z"/></svg><span>discuss</span></button>
+          </li>
+        </ol>
+
+        <!-- Code block — chrome-row affordance top-right -->
+        <div
+          class="mb-code"
+          data-component="CodeBlock"
+          data-tier="1"
+          data-block-id="b-code-1"
+        >
+          <div class="mb-code__chrome">
+            <span class="mb-code__lang">ts</span>
+            <span class="mb-code__chrome-spacer"></span>
+            <button type="button" class="mb-discuss mb-discuss--chrome" aria-label="Discuss this code block">
+              <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2.5 3.5h11a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1H7l-3 2.5v-2.5H2.5a1 1 0 0 1-1-1v-6a1 1 0 0 1 1-1Z"/></svg>
+              <span>discuss</span>
+            </button>
+          </div>
+          <pre class="mb-code__body"><span class="tok-kw">const</span> event = stripe.webhooks.<span class="tok-fn">constructEvent</span>(
+  rawBody,
+  request.headers.<span class="tok-fn">get</span>(<span class="tok-str">'stripe-signature'</span>),
+  process.env.STRIPE_WEBHOOK_SECRET,
+);</pre>
+        </div>
+
+        <!-- H2 -->
+        <h2 class="mb-heading-2" data-component="HeadingBlock" data-block-id="b-h2-2">
+          <span>Anti-patterns we caught in review</span>
+          <button type="button" class="mb-discuss" aria-label="Discuss this heading"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2.5 3.5h11a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1H7l-3 2.5v-2.5H2.5a1 1 0 0 1-1-1v-6a1 1 0 0 1 1-1Z"/></svg><span>discuss</span></button>
+        </h2>
+
+        <!-- Unordered list -->
+        <ul class="mb-list--unordered" data-component="ListBlock" data-block-id="b-list-2">
+          <li data-component="ListItemBlock" data-block-id="b-li-4">
+            <strong>Trusting the parsed body.</strong> A Builder once parsed JSON in middleware before signature verification — the verification then fails because the raw bytes have been mutated.<button type="button" class="mb-discuss" aria-label="Discuss this item"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2.5 3.5h11a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1H7l-3 2.5v-2.5H2.5a1 1 0 0 1-1-1v-6a1 1 0 0 1 1-1Z"/></svg><span>discuss</span></button>
+          </li>
+          <li data-component="ListItemBlock" data-block-id="b-li-5">
+            <strong>Skipping the timestamp check.</strong> A replay window of "any age" lets an attacker resend old events.<button type="button" class="mb-discuss" aria-label="Discuss this item"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2.5 3.5h11a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1H7l-3 2.5v-2.5H2.5a1 1 0 0 1-1-1v-6a1 1 0 0 1 1-1Z"/></svg><span>discuss</span></button>
+          </li>
+        </ul>
+
+        <!-- Quote — anchored with 1 unread message -->
+        <blockquote
+          class="mb-quote"
+          data-component="QuoteBlock"
+          data-tier="1"
+          data-block-id="b-quote-1"
+          data-has-anchors="true"
+        >Last incident (Q3): a missed timestamp check let a redelivered <code class="inline-code">payment_intent.succeeded</code> mark an invoice paid twice. Now part of our default checklist.<button type="button" class="mb-discuss" aria-label="Discuss this quote"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2.5 3.5h11a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1H7l-3 2.5v-2.5H2.5a1 1 0 0 1-1-1v-6a1 1 0 0 1 1-1Z"/></svg><span>discuss</span></button></blockquote>
+
+        <!-- Strip: 1 unread on the quote -->
+        <div
+          class="mb-strip"
+          data-component="BlockDiscussionStrip"
+          data-state="single"
+          data-anchored-to="b-quote-1"
+        >
+          <span class="mb-strip__avatar" style="background: color-mix(in oklab, var(--primary) 50%, var(--surface-5));">CP</span>
+          <span class="mb-strip__sender">CPO</span>
+          <span class="mb-strip__excerpt">Link the Q3 incident postmortem here?</span>
+          <span class="status-chip status-chip--unread"><span class="dot"></span>1 unread</span>
+          <span class="mb-strip__time">just now</span>
+        </div>
+
+        <!-- HR — not anchorable -->
+        <hr class="mb-hr" data-component="HrBlock" />
+
+        <!-- Table demonstration — table anchorable as a whole -->
+        <div class="mb-table-wrap" data-component="TableBlock" data-block-id="b-tab-1">
+          <div class="mb-table-chrome">
+            <span class="mb-table-chrome__label">tier rollout</span>
+            <span class="mb-table-chrome__spacer"></span>
+            <button type="button" class="mb-discuss mb-discuss--chrome" aria-label="Discuss this table">
+              <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2.5 3.5h11a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1H7l-3 2.5v-2.5H2.5a1 1 0 0 1-1-1v-6a1 1 0 0 1 1-1Z"/></svg>
+              <span>discuss</span>
+            </button>
+          </div>
+          <div class="mb-table-scroll">
+            <table class="mb-table">
+              <thead>
+                <tr>
+                  <th>Tier</th>
+                  <th>Bets / cycle</th>
+                  <th>Price</th>
+                  <th>Margin floor</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr><td>Starter</td><td>3</td><td>$29 / mo</td><td>n/a</td></tr>
+                <tr><td>Scale</td><td>unlimited</td><td>cost + 20%</td><td>$400 / mo</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Lost-anchors foot -->
+        <div class="mb-lost-foot" data-component="LostAnchorsFoot" data-tier="2">
+          <div class="mb-lost-foot__header">lost anchors (1)</div>
+          <div class="mb-strip" data-state="lost">
+            <span class="mb-strip__avatar" style="background: color-mix(in oklab, var(--primary) 55%, var(--surface-5));">BB</span>
+            <span class="mb-strip__sender">Builder</span>
+            <span class="mb-strip__excerpt">Added the timestamp check; tests pass.</span>
+            <span class="status-chip status-chip--lost"><span class="dot"></span>anchor lost</span>
+            <span class="mb-strip__time">3 d</span>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+
+    <!-- ─────────────────────────────────────────────────────────────────
+         SECONDARY GRID — empty body + long-code overflow
+         ──────────────────────────────────────────────────────────────── -->
+    <div class="page__caption">Secondary states — empty body · long-code overflow (horizontal scroll)</div>
+
+    <div class="grid-2col">
+      <!-- Empty body -->
+      <div class="body-frame">
+        <div class="markdown-block-view" data-state="empty">
+          <div class="empty-state">
+            <div class="empty-state__title">Empty body</div>
+            <div class="empty-state__copy">This knowledge item has no content yet. Edit to add prose.</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Long-code overflow -->
+      <div class="body-frame body-frame--narrow">
+        <div class="markdown-block-view">
+          <div class="mb-code" data-component="CodeBlock" data-block-id="b-code-overflow">
+            <div class="mb-code__chrome">
+              <span class="mb-code__lang">ts</span>
+              <span class="mb-code__chrome-spacer"></span>
+              <button type="button" class="mb-discuss mb-discuss--chrome" data-state="hover-demo">
+                <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2.5 3.5h11a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1H7l-3 2.5v-2.5H2.5a1 1 0 0 1-1-1v-6a1 1 0 0 1 1-1Z"/></svg>
+                <span>discuss</span>
+              </button>
+            </div>
+            <pre class="mb-code__body"><span class="tok-co">// chrome-row affordance stays reachable regardless of horizontal scroll position</span>
+<span class="tok-kw">async function</span> <span class="tok-fn">verifyStripeSignatureAgainstEnvironmentSecret</span>(rawBody: <span class="tok-kw">Buffer</span>, signatureHeader: <span class="tok-kw">string</span>): <span class="tok-kw">Promise</span>&lt;<span class="tok-kw">VerifiedStripeWebhookEvent</span>&gt; {
+  <span class="tok-kw">const</span> event = <span class="tok-kw">await</span> stripe.webhooks.<span class="tok-fn">constructEventAsync</span>(rawBody, signatureHeader, process.env.STRIPE_WEBHOOK_SECRET, <span class="tok-fn">FIVE_MINUTES_IN_SECONDS</span>);
+  <span class="tok-kw">return</span> { event, verifiedAt: <span class="tok-kw">new</span> <span class="tok-fn">Date</span>(), source: <span class="tok-str">'stripe-webhook'</span> };
+}</pre>
+          </div>
+        </div>
+      </div>
+    </div>
+
+
+    <!-- ─────────────────────────────────────────────────────────────────
+         TERTIARY — bet pitch body (the L16 case), shorter,
+         demonstrates the same family in a Work surface.
+         ──────────────────────────────────────────────────────────────── -->
+    <div class="page__caption">Tertiary state — bet pitch body (host = bet)</div>
+
+    <div class="body-frame">
+      <div class="markdown-block-view" data-uses="MarkdownBlockView">
+        <h1 class="mb-heading-1" data-block-id="bp-h1">
+          <span>Pricing overhaul</span>
+          <button type="button" class="mb-discuss" aria-label="Discuss"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2.5 3.5h11a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1H7l-3 2.5v-2.5H2.5a1 1 0 0 1-1-1v-6a1 1 0 0 1 1-1Z"/></svg><span>discuss</span></button>
+        </h1>
+
+        <h2 class="mb-heading-2" data-block-id="bp-h2-1">
+          <span>Problem</span>
+          <button type="button" class="mb-discuss" aria-label="Discuss"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2.5 3.5h11a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1H7l-3 2.5v-2.5H2.5a1 1 0 0 1-1-1v-6a1 1 0 0 1 1-1Z"/></svg><span>discuss</span></button>
+        </h2>
+
+        <p class="mb-paragraph" data-block-id="bp-p-1">Founders pay $29/mo across the board. Heavy users (10+ bets/cycle) generate 3× the harness cost; light users (&lt;2 bets) generate fraction. Margin is shrinking.<button type="button" class="mb-discuss" aria-label="Discuss"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2.5 3.5h11a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1H7l-3 2.5v-2.5H2.5a1 1 0 0 1-1-1v-6a1 1 0 0 1 1-1Z"/></svg><span>discuss</span></button></p>
+
+        <h2 class="mb-heading-2" data-block-id="bp-h2-2">
+          <span>Solution sketch</span>
+          <button type="button" class="mb-discuss" aria-label="Discuss"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2.5 3.5h11a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1H7l-3 2.5v-2.5H2.5a1 1 0 0 1-1-1v-6a1 1 0 0 1 1-1Z"/></svg><span>discuss</span></button>
+        </h2>
+
+        <p class="mb-paragraph" data-block-id="bp-p-2">Move to usage-priced. Two tiers:<button type="button" class="mb-discuss" aria-label="Discuss"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2.5 3.5h11a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1H7l-3 2.5v-2.5H2.5a1 1 0 0 1-1-1v-6a1 1 0 0 1 1-1Z"/></svg><span>discuss</span></button></p>
+
+        <ul class="mb-list--unordered" data-block-id="bp-list-1">
+          <li data-block-id="bp-li-1">
+            <strong>Starter</strong> — 3 bets/cycle, $29/mo flat.<button type="button" class="mb-discuss" aria-label="Discuss"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2.5 3.5h11a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1H7l-3 2.5v-2.5H2.5a1 1 0 0 1-1-1v-6a1 1 0 0 1 1-1Z"/></svg><span>discuss</span></button>
+          </li>
+          <li data-block-id="bp-li-2">
+            <strong>Scale</strong> — unlimited bets, billed at cost + 20%, capped at $400/mo.<button type="button" class="mb-discuss" aria-label="Discuss"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2.5 3.5h11a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1H7l-3 2.5v-2.5H2.5a1 1 0 0 1-1-1v-6a1 1 0 0 1 1-1Z"/></svg><span>discuss</span></button>
+          </li>
+        </ul>
+      </div>
+    </div>
+
+  </div>
+</body>
+</html>

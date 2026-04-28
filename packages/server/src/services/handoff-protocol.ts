@@ -133,7 +133,17 @@ export async function handoff(
 
 			// Review thread + item
 			const reviewThreadId = crypto.randomUUID();
-			tx.insert(threads).values({ id: reviewThreadId, kind: "review", createdAt: now }).run();
+			tx.insert(threads)
+				.values({
+					id: reviewThreadId,
+					hostKind: "task",
+					hostId: task.id,
+					initiatorId: sessionContext.agentId,
+					participants: JSON.stringify([sessionContext.agentId]),
+					lastActiveAt: now,
+					createdAt: now,
+				})
+				.run();
 			const reviewItemId = crypto.randomUUID();
 			tx.insert(items)
 				.values({
@@ -184,7 +194,15 @@ export async function handoff(
 			} else {
 				const escalationThreadId = crypto.randomUUID();
 				tx.insert(threads)
-					.values({ id: escalationThreadId, kind: "escalation", createdAt: now })
+					.values({
+						id: escalationThreadId,
+						hostKind: "task",
+						hostId: task.id,
+						initiatorId: sessionContext.agentId,
+						participants: JSON.stringify([sessionContext.agentId]),
+						lastActiveAt: now,
+						createdAt: now,
+					})
 					.run();
 
 				const escalationItemId = crypto.randomUUID();

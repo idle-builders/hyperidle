@@ -73,7 +73,15 @@ describe("registerSessionReviewCreator", () => {
 
 		// Create high-risk task with a thread
 		db.insert(threads)
-			.values({ id: "thread-1", kind: "review", createdAt: new Date().toISOString() })
+			.values({
+				id: "thread-1",
+				hostKind: "task",
+				hostId: "task-1",
+				initiatorId: "agent-1",
+				participants: JSON.stringify(["agent-1"]),
+				lastActiveAt: new Date().toISOString(),
+				createdAt: new Date().toISOString(),
+			})
 			.run();
 		db.insert(tasks)
 			.values({

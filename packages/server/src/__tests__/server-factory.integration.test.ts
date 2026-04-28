@@ -88,7 +88,17 @@ async function createAndSeedDb(dbPath: string): Promise<void> {
 			createdAt: now,
 		})
 		.run();
-	db.insert(threads).values({ id: "thread-sf", kind: "task", createdAt: now }).run();
+	db.insert(threads)
+		.values({
+			id: "thread-sf",
+			hostKind: "task",
+			hostId: "task-1",
+			initiatorId: "agent-1",
+			participants: JSON.stringify(["agent-1"]),
+			lastActiveAt: now,
+			createdAt: now,
+		})
+		.run();
 }
 
 async function waitForReady(proc: ChildProcess, port: number): Promise<void> {

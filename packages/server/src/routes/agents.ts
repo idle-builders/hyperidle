@@ -140,18 +140,28 @@ export function createAgentRoutes(db: HyperIdleDb, eventBus: EventBus): Hono {
 		const limit = Math.min(Number.parseInt(c.req.query("limit") ?? "50", 10) || 50, 200);
 		const offset = Number.parseInt(c.req.query("offset") ?? "0", 10) || 0;
 
-		// @lore I6: sort at DB level BEFORE limit/offset so pagination is
-		// consistent. Previously the sort happened in JS after slicing.
-		const inbox = db
+		// L1a: messages no longer carry recipient_id; agent inbox derives
+		// from threads where the agent is a participant. Walk the participant
+		// JSON column with a `LIKE %"<agentId>"%` probe.
+		const inboxRows = db
 			.select()
 			.from(messages)
-			.where(eq(messages.recipientId, agentId))
+			.innerJoin(threads, eq(messages.threadId, threads.id))
 			.orderBy(desc(messages.createdAt))
 			.limit(limit)
 			.offset(offset)
 			.all();
 
-		return c.json(inbox);
+		const matched = inboxRows.filter((row) => {
+			try {
+				const parts = JSON.parse(row.threads.participants) as string[];
+				return parts.includes(agentId);
+			} catch {
+				return false;
+			}
+		});
+
+		return c.json(matched.map((row) => row.messages));
 	});
 
 	// POST /:id/inbox — Send message to agent
@@ -166,21 +176,24 @@ export function createAgentRoutes(db: HyperIdleDb, eventBus: EventBus): Hono {
 
 		const now = new Date().toISOString();
 
-		// @lore I6: queries WHERE kind = 'direct' instead of loading all threads.
-		const directThreads = db.select().from(threads).where(eq(threads.kind, "direct")).all();
+		// L1a: legacy `kind='direct'` threads now project as host_kind='agent'
+		// + host_id=recipientId. Look up by host_kind/host_id pair.
+		const directThreads = db
+			.select()
+			.from(threads)
+			.where(and(eq(threads.hostKind, "agent"), eq(threads.hostId, recipientId)))
+			.all();
 		let threadId: string | undefined;
 
 		for (const thread of directThreads) {
-			if (thread.participants) {
-				const participants = JSON.parse(thread.participants) as string[];
-				if (
-					participants.includes(body.senderId) &&
-					participants.includes(recipientId) &&
-					participants.length === 2
-				) {
-					threadId = thread.id;
-					break;
-				}
+			const participants = JSON.parse(thread.participants) as string[];
+			if (
+				participants.includes(body.senderId) &&
+				participants.includes(recipientId) &&
+				participants.length === 2
+			) {
+				threadId = thread.id;
+				break;
 			}
 		}
 
@@ -190,22 +203,26 @@ export function createAgentRoutes(db: HyperIdleDb, eventBus: EventBus): Hono {
 			db.insert(threads)
 				.values({
 					id: threadId,
-					kind: "direct",
+					hostKind: "agent",
+					hostId: recipientId,
+					initiatorId: body.senderId,
 					participants: JSON.stringify([body.senderId, recipientId]),
+					lastActiveAt: now,
 					createdAt: now,
 				})
 				.run();
 		}
 
 		const messageId = crypto.randomUUID();
+		const text = body.subject ? `${body.subject}\n\n${body.body}` : body.body;
 		db.insert(messages)
 			.values({
 				id: messageId,
 				senderId: body.senderId,
-				recipientId,
 				threadId,
-				subject: body.subject ?? null,
-				body: body.body,
+				type: "plain",
+				payload: JSON.stringify({ text }),
+				clientKey: messageId,
 				createdAt: now,
 			})
 			.run();

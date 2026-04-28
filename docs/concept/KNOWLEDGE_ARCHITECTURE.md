@@ -195,7 +195,9 @@ Browser → API → SELECT * FROM knowledge_items WHERE layer='L3' AND status='a
                                                 → render as Knowledge view cards
 ```
 
-The UI renders items as rich, editable cards — inline markdown editing (Notion-style blocks), status badges, confidence indicators, approve/retire/merge actions. The Knowledge view's scope selector (Practice | Product | Factory) maps directly to the `layer` column (L3, L2, L4).
+The UI renders items as rich, editable cards — inline markdown editing, status badges, confidence indicators, approve/retire/merge actions. The Knowledge view's scope selector (Practice | Product | Factory) maps directly to the `layer` column (L3, L2, L4).
+
+**Body-as-blocks projection.** The `knowledge_items.body` column stores GitHub-flavoured markdown text. When the API serves the body to the Web UI, the **Block primitive** (TRACK-L L2; full spec at `docs/concept/BLOCKS.md`; cross-cutting section at `HUMAN_INTERFACE_LAYER.md` §4.6) derives a structured view: an ordered list of blocks (heading, paragraph, list, code, quote, table, hr, image), each with a stable id, scoped by `host_id = knowledge_item:<id>`. The body stays markdown text; the block list is recomputed on read. Per-block discussion (L26) attaches a thread message to a `(host_id, block_id)` anchor without introducing any markdown-dialect markers — block ids are reproducible from content + position, never written into the source. Concept rules to honour from the architecture side: (1) no `blocks` table that mirrors `knowledge_items.body`; (2) clients never compute block ids; (3) optimistic-locking remains at body granularity, not per-block.
 
 **Write path:**
 ```

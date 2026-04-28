@@ -7,6 +7,8 @@ For what agents *know* (five knowledge layers, memory, practices), see `KNOWLEDG
 For how agents *meet humans* (the Factory app — Conversations, Work, Knowledge, and the Rail), see `HUMAN_INTERFACE_LAYER.md`.
 For where agents *run* (harnesses, workspaces, skills, durability), see `RESEARCH_EXECUTION_LAYER.md`.
 
+> **Vocabulary note (Thread primitive — see HUMAN_INTERFACE_LAYER.md §4.5).** Where this doc uses phrases like "review thread", "chat thread", or "Coach thread", the structural reality is a single Thread primitive — a container attached to exactly one host (bet, task, knowledge item, artifact, agent, user) carrying typed messages (plain / review / questionnaire). Agents and humans participate in the same matrix of threads — an agent initiating a thread to a founder uses the same primitive a founder uses to initiate a thread to an agent. The Coach thread is a *configuration* (host = user, pinned) of that primitive, not a separate concept. Skill-change reviews land as a *review message* on a thread attached to the proposed change; cross-team tasks (`PROCESS_LAYER.md` §8.5) carry a thread attached to the cross-team task itself.
+
 ---
 
 ## 1. Principles

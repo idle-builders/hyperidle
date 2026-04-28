@@ -339,7 +339,17 @@ describe("A2: Database Schema", () => {
 
 		it("inserts and reads threads and messages", () => {
 			const now = new Date().toISOString();
-			db.insert(threads).values({ id: "thread-1", kind: "review", createdAt: now }).run();
+			db.insert(threads)
+				.values({
+					id: "thread-1",
+					hostKind: "task",
+					hostId: "task-1",
+					initiatorId: "agent-1",
+					participants: JSON.stringify(["agent-1"]),
+					lastActiveAt: now,
+					createdAt: now,
+				})
+				.run();
 			db.insert(agents)
 				.values({
 					id: "agent-1",
@@ -381,7 +391,17 @@ describe("A2: Database Schema", () => {
 
 		it("inserts and reads items and responses", () => {
 			const now = new Date().toISOString();
-			db.insert(threads).values({ id: "thread-1", kind: "review", createdAt: now }).run();
+			db.insert(threads)
+				.values({
+					id: "thread-1",
+					hostKind: "task",
+					hostId: "task-1",
+					initiatorId: "agent-1",
+					participants: JSON.stringify(["agent-1"]),
+					lastActiveAt: now,
+					createdAt: now,
+				})
+				.run();
 			db.insert(agents)
 				.values({
 					id: "agent-1",

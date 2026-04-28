@@ -78,10 +78,15 @@ function seedBase(db: HyperIdleDb): void {
 		})
 		.run();
 
+	// L1a: threads now require host_kind/host_id/initiator_id/participants/last_active_at.
 	db.insert(threads)
 		.values({
 			id: "thread-1",
-			kind: "review",
+			hostKind: "task",
+			hostId: "task-1",
+			initiatorId: "agent-1",
+			participants: JSON.stringify(["agent-1"]),
+			lastActiveAt: NOW,
 			createdAt: NOW,
 		})
 		.run();

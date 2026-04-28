@@ -139,7 +139,17 @@ describe("I3: FK actions — RESTRICT on reference data", () => {
 
 	it("rejects deleting a thread while a message references it", () => {
 		seedProductTeamBetTaskAgent(db);
-		db.insert(threads).values({ id: "thread-1", kind: "review", createdAt: NOW }).run();
+		db.insert(threads)
+			.values({
+				id: "thread-1",
+				hostKind: "task",
+				hostId: "task-1",
+				initiatorId: "agent-1",
+				participants: JSON.stringify(["agent-1"]),
+				lastActiveAt: NOW,
+				createdAt: NOW,
+			})
+			.run();
 		db.insert(agents)
 			.values({
 				id: "a2",
@@ -165,7 +175,17 @@ describe("I3: FK actions — RESTRICT on reference data", () => {
 
 	it("rejects deleting a thread while an item references it", () => {
 		seedProductTeamBetTaskAgent(db);
-		db.insert(threads).values({ id: "thread-1", kind: "review", createdAt: NOW }).run();
+		db.insert(threads)
+			.values({
+				id: "thread-1",
+				hostKind: "task",
+				hostId: "task-1",
+				initiatorId: "agent-1",
+				participants: JSON.stringify(["agent-1"]),
+				lastActiveAt: NOW,
+				createdAt: NOW,
+			})
+			.run();
 		db.insert(items)
 			.values({
 				id: "item-1",
@@ -293,7 +313,17 @@ describe("I3: FK actions — CASCADE on dependent data", () => {
 	});
 
 	it("cascades delete from items to responses rows", () => {
-		db.insert(threads).values({ id: "thread-1", kind: "review", createdAt: NOW }).run();
+		db.insert(threads)
+			.values({
+				id: "thread-1",
+				hostKind: "task",
+				hostId: "task-1",
+				initiatorId: "agent-1",
+				participants: JSON.stringify(["agent-1"]),
+				lastActiveAt: NOW,
+				createdAt: NOW,
+			})
+			.run();
 		db.insert(agents)
 			.values({
 				id: "a1",

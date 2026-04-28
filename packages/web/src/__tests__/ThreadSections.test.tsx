@@ -13,7 +13,8 @@ const mkThread = (overrides: Partial<ThreadItem>): ThreadItem => ({
 	snippet: overrides.snippet ?? "Snippet",
 	timestamp: overrides.timestamp ?? "just now",
 	avatarUrl: overrides.avatarUrl ?? AVATAR,
-	kind: overrides.kind ?? "chat",
+	hostKind: overrides.hostKind ?? "task",
+	hasUnresolvedReview: overrides.hasUnresolvedReview ?? false,
 	blocking: overrides.blocking ?? false,
 	pinned: overrides.pinned ?? false,
 	resolvedAt: overrides.resolvedAt,
@@ -22,9 +23,9 @@ const mkThread = (overrides: Partial<ThreadItem>): ThreadItem => ({
 describe("groupThreadsIntoSections", () => {
 	it("places pinned threads in the Pinned section regardless of kind", () => {
 		const threads: ThreadItem[] = [
-			mkThread({ id: "p1", pinned: true, kind: "review" }),
-			mkThread({ id: "p2", pinned: true, kind: "chat" }),
-			mkThread({ id: "c1", kind: "chat" }),
+			mkThread({ id: "p1", pinned: true, hostKind: "task", hasUnresolvedReview: true }),
+			mkThread({ id: "p2", pinned: true, hostKind: "task", hasUnresolvedReview: false }),
+			mkThread({ id: "c1", hostKind: "task", hasUnresolvedReview: false }),
 		];
 		const sections = groupThreadsIntoSections(threads, { now: NOW });
 		const pinned = sections.find((s) => s.id === "pinned");
@@ -33,12 +34,12 @@ describe("groupThreadsIntoSections", () => {
 
 	it("places blocking (non-pinned) threads in the Blocking section ahead of kind groups", () => {
 		const threads: ThreadItem[] = [
-			mkThread({ id: "c1", kind: "chat" }),
-			mkThread({ id: "c2", kind: "chat" }),
-			mkThread({ id: "c3", kind: "chat" }),
-			mkThread({ id: "r1", kind: "review", blocking: false }),
-			mkThread({ id: "b1", kind: "review", blocking: true }),
-			mkThread({ id: "b2", kind: "review", blocking: true }),
+			mkThread({ id: "c1", hostKind: "task", hasUnresolvedReview: false }),
+			mkThread({ id: "c2", hostKind: "task", hasUnresolvedReview: false }),
+			mkThread({ id: "c3", hostKind: "task", hasUnresolvedReview: false }),
+			mkThread({ id: "r1", hostKind: "task", hasUnresolvedReview: true, blocking: false }),
+			mkThread({ id: "b1", hostKind: "task", hasUnresolvedReview: true, blocking: true }),
+			mkThread({ id: "b2", hostKind: "task", hasUnresolvedReview: true, blocking: true }),
 		];
 		const sections = groupThreadsIntoSections(threads, { now: NOW });
 		const order = sections.map((s) => s.id);
@@ -51,8 +52,8 @@ describe("groupThreadsIntoSections", () => {
 	it("a blocking chat outranks a non-blocking review", () => {
 		// The critical rule: blocking outranks kind.
 		const threads: ThreadItem[] = [
-			mkThread({ id: "r1", kind: "review", blocking: false }),
-			mkThread({ id: "bc1", kind: "chat", blocking: true }),
+			mkThread({ id: "r1", hostKind: "task", hasUnresolvedReview: true, blocking: false }),
+			mkThread({ id: "bc1", hostKind: "task", hasUnresolvedReview: false, blocking: true }),
 		];
 		const sections = groupThreadsIntoSections(threads, { now: NOW });
 		const blocking = sections.find((s) => s.id === "blocking");
@@ -66,9 +67,9 @@ describe("groupThreadsIntoSections", () => {
 
 	it("groups non-blocking reviews and chats into their own sections", () => {
 		const threads: ThreadItem[] = [
-			mkThread({ id: "r1", kind: "review" }),
-			mkThread({ id: "c1", kind: "chat" }),
-			mkThread({ id: "r2", kind: "review" }),
+			mkThread({ id: "r1", hostKind: "task", hasUnresolvedReview: true }),
+			mkThread({ id: "c1", hostKind: "task", hasUnresolvedReview: false }),
+			mkThread({ id: "r2", hostKind: "task", hasUnresolvedReview: true }),
 		];
 		const sections = groupThreadsIntoSections(threads, { now: NOW });
 		expect(sections.find((s) => s.id === "reviews")?.items.map((i) => i.id)).toEqual(["r1", "r2"]);
@@ -79,9 +80,9 @@ describe("groupThreadsIntoSections", () => {
 		const within24h = new Date(NOW - 2 * 60 * 60 * 1000).toISOString();
 		const older = new Date(NOW - 30 * 60 * 60 * 1000).toISOString();
 		const threads: ThreadItem[] = [
-			mkThread({ id: "r1", kind: "review", resolvedAt: within24h }),
-			mkThread({ id: "r2", kind: "review", resolvedAt: older }),
-			mkThread({ id: "r3", kind: "review" }),
+			mkThread({ id: "r1", hostKind: "task", hasUnresolvedReview: true, resolvedAt: within24h }),
+			mkThread({ id: "r2", hostKind: "task", hasUnresolvedReview: true, resolvedAt: older }),
+			mkThread({ id: "r3", hostKind: "task", hasUnresolvedReview: true }),
 		];
 		const sections = groupThreadsIntoSections(threads, { now: NOW });
 		const resolved = sections.find((s) => s.id === "resolved");
@@ -95,11 +96,12 @@ describe("groupThreadsIntoSections", () => {
 		const threads: ThreadItem[] = [
 			mkThread({ id: "p1", pinned: true }),
 			mkThread({ id: "b1", blocking: true }),
-			mkThread({ id: "r1", kind: "review" }),
-			mkThread({ id: "c1", kind: "chat" }),
+			mkThread({ id: "r1", hostKind: "task", hasUnresolvedReview: true }),
+			mkThread({ id: "c1", hostKind: "task", hasUnresolvedReview: false }),
 			mkThread({
 				id: "res1",
-				kind: "review",
+				hostKind: "task",
+				hasUnresolvedReview: true,
 				resolvedAt: new Date(NOW - 60_000).toISOString(),
 			}),
 		];
@@ -114,7 +116,9 @@ describe("groupThreadsIntoSections", () => {
 	});
 
 	it("omits empty sections", () => {
-		const threads: ThreadItem[] = [mkThread({ id: "c1", kind: "chat" })];
+		const threads: ThreadItem[] = [
+			mkThread({ id: "c1", hostKind: "task", hasUnresolvedReview: false }),
+		];
 		const sections = groupThreadsIntoSections(threads, { now: NOW });
 		expect(sections.map((s) => s.id)).toEqual(["chats"]);
 	});
@@ -129,7 +133,8 @@ describe("ThreadSections component", () => {
 			snippet: "Waiting on review",
 			timestamp: "2m",
 			avatarUrl: AVATAR,
-			kind: "review",
+			hostKind: "task",
+			hasUnresolvedReview: true,
 			blocking: true,
 			pinned: false,
 		},
@@ -139,7 +144,8 @@ describe("ThreadSections component", () => {
 			snippet: "...",
 			timestamp: "3m",
 			avatarUrl: AVATAR,
-			kind: "review",
+			hostKind: "task",
+			hasUnresolvedReview: true,
 			blocking: true,
 			pinned: false,
 		},
@@ -149,7 +155,8 @@ describe("ThreadSections component", () => {
 			snippet: "...",
 			timestamp: "5m",
 			avatarUrl: AVATAR,
-			kind: "chat",
+			hostKind: "task",
+			hasUnresolvedReview: false,
 			blocking: false,
 			pinned: false,
 		},
@@ -159,7 +166,8 @@ describe("ThreadSections component", () => {
 			snippet: "...",
 			timestamp: "15m",
 			avatarUrl: AVATAR,
-			kind: "chat",
+			hostKind: "task",
+			hasUnresolvedReview: false,
 			blocking: false,
 			pinned: false,
 		},
@@ -169,7 +177,8 @@ describe("ThreadSections component", () => {
 			snippet: "...",
 			timestamp: "20m",
 			avatarUrl: AVATAR,
-			kind: "chat",
+			hostKind: "task",
+			hasUnresolvedReview: false,
 			blocking: false,
 			pinned: false,
 		},

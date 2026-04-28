@@ -1,4 +1,4 @@
-import { agents, type HyperIdleDb, items, responses, threads } from "@hyperidle/db";
+import { agents, type HyperIdleDb, items, messages, threads } from "@hyperidle/db";
 import type {
 	ApiErrorResponse,
 	EventBus,
@@ -6,7 +6,7 @@ import type {
 	ResponseRecordedEvent,
 } from "@hyperidle/shared";
 import { API_ERROR_CODES } from "@hyperidle/shared";
-import { desc, eq, sql } from "drizzle-orm";
+import { and, desc, eq, sql } from "drizzle-orm";
 import { Hono } from "hono";
 import { z } from "zod";
 import { validateBody } from "../middleware/validate.js";
@@ -72,7 +72,8 @@ export function createConversationRoutes(db: HyperIdleDb, eventBus: EventBus): H
 			const allThreads = db
 				.select({
 					id: threads.id,
-					kind: threads.kind,
+					hostKind: threads.hostKind,
+					hostId: threads.hostId,
 					pinned: threads.pinned,
 					participants: threads.participants,
 					createdAt: threads.createdAt,
@@ -133,9 +134,29 @@ export function createConversationRoutes(db: HyperIdleDb, eventBus: EventBus): H
 			.orderBy(items.createdAt)
 			.all();
 
-		// For each item, get its responses
+		// L1a: legacy `responses` projected as verdict-typed messages whose
+		// `legacy_item_id` carries the source item id. Project them back to
+		// the legacy response shape for one-release back-compat.
 		const itemsWithResponses = threadItems.map((item) => {
-			const itemResponses = db.select().from(responses).where(eq(responses.itemId, item.id)).all();
+			const verdictRows = db
+				.select()
+				.from(messages)
+				.where(and(eq(messages.legacyItemId, item.id), eq(messages.type, "verdict")))
+				.all();
+			const itemResponses = verdictRows.map((m) => {
+				const payload = JSON.parse(m.payload) as { decision: string; note?: string };
+				return {
+					id: m.id,
+					itemId: item.id,
+					decision: payload.decision,
+					inlineAnchor: null,
+					edits: null,
+					feedback: payload.note ?? null,
+					approverId: m.senderId,
+					view: null,
+					respondedAt: m.createdAt,
+				};
+			});
 			return { ...item, responses: itemResponses };
 		});
 
@@ -210,7 +231,9 @@ export function createConversationRoutes(db: HyperIdleDb, eventBus: EventBus): H
 		return c.json({ ...created, view, founderRoute }, 201);
 	});
 
-	// POST /responses — record verdict
+	// POST /responses — record verdict (L1a: writes a verdict-typed message
+	// instead of a row in the dropped `responses` table; emits the legacy
+	// response_recorded event for one-release back-compat).
 	router.post("/responses", validateBody(createResponseSchema), (c) => {
 		const body = c.req.valid("json" as never) as z.infer<typeof createResponseSchema>;
 		const id = crypto.randomUUID();
@@ -226,23 +249,54 @@ export function createConversationRoutes(db: HyperIdleDb, eventBus: EventBus): H
 			return c.json(response, 404);
 		}
 
-		db.insert(responses)
+		// Find the review-typed message for this item (if backfilled) or fall
+		// back to the most recent review-typed message in the thread.
+		const reviewMessage = db
+			.select()
+			.from(messages)
+			.where(and(eq(messages.legacyItemId, body.itemId), eq(messages.type, "review")))
+			.get();
+		const fallbackReview = reviewMessage
+			? null
+			: db
+					.select()
+					.from(messages)
+					.where(eq(messages.threadId, item.threadId))
+					.all()
+					.find((m) => m.type === "review");
+		const target = reviewMessage ?? fallbackReview;
+
+		const verdictPayload = {
+			decision: body.decision,
+			resolvesMessageId: target?.id ?? body.itemId,
+			note: body.feedback ?? "",
+		};
+		db.insert(messages)
 			.values({
 				id,
-				itemId: body.itemId,
-				decision: body.decision,
-				inlineAnchor: body.inlineAnchor ?? null,
-				edits: body.edits ?? null,
-				feedback: body.feedback ?? null,
-				approverId: body.approverId ?? null,
-				view: body.view ?? null,
-				respondedAt: now,
+				senderId: body.approverId ?? "policy_engine",
+				threadId: item.threadId,
+				type: "verdict",
+				payload: JSON.stringify(verdictPayload),
+				clientKey: `__l1_route_${id}`,
+				legacyItemId: body.itemId,
+				createdAt: now,
 			})
 			.run();
 
-		const created = db.select().from(responses).where(eq(responses.id, id)).get();
+		const created = {
+			id,
+			itemId: body.itemId,
+			decision: body.decision,
+			inlineAnchor: body.inlineAnchor ?? null,
+			edits: body.edits ?? null,
+			feedback: body.feedback ?? null,
+			approverId: body.approverId ?? null,
+			view: body.view ?? null,
+			respondedAt: now,
+		};
 
-		// Emit response_recorded event
+		// Emit response_recorded event for legacy subscribers.
 		const event: ResponseRecordedEvent = {
 			type: "response_recorded",
 			streamId: crypto.randomUUID(),

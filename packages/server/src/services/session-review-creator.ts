@@ -26,10 +26,16 @@ export function registerSessionReviewCreator(db: HyperIdleDb, eventBus: EventBus
 		if (!threadId) {
 			threadId = crypto.randomUUID();
 			const now = new Date().toISOString();
+			// L1a: thread now carries host_kind/host_id; for session-review the
+			// host is the task that ended.
 			db.insert(threads)
 				.values({
 					id: threadId,
-					kind: "review",
+					hostKind: "task",
+					hostId: task.id,
+					initiatorId: session.agentId,
+					participants: JSON.stringify([session.agentId]),
+					lastActiveAt: now,
 					createdAt: now,
 				})
 				.run();

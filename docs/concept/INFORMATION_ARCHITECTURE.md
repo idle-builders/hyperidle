@@ -86,9 +86,11 @@ Always present. Two states: minimized (icon strip) and expanded (full panel).
 
 ## 2. Conversations View
 
+> **Reframe note (added with TRACK-L L1, the Thread primitive).** This section uses "Review Thread Detail" / "Chat Thread Detail" as a UI shorthand. Per `HUMAN_INTERFACE_LAYER.md §4.5`, there is one Thread primitive and the differences live on the *messages* (review / questionnaire / plain) and on the thread's *configuration*. "Review Thread Detail" reads as "the detail surface when the thread contains a review message"; "Chat Thread Detail" reads as "the detail surface when the thread does not (yet) contain a review or questionnaire message". The two converge to a single detail surface in TRACK-L L9.
+
 **Purpose:** Messaging and reviews. The founder spends ~90% of their time here.
 
-**Shell structure:** IconRail | Submenu (Thread List) | Main (Review or Chat Thread Detail) | Rail.
+**Shell structure:** IconRail | Submenu (Thread List) | Main (Thread Detail) | Rail. The detail pane adapts to the messages in the selected thread; it is one surface, not two routes.
 
 ### 2.1 Submenu (Thread List)
 
@@ -268,7 +270,7 @@ Accessed by clicking a BetCard in the Team View. Breadcrumb returns to Team View
 | **Bet header** | Title, ID, product, appetite, status badge, extended status (on-track / behind / blocked / paused / shipped / killed), cycle, progress indicator | — |
 | **Progress card** | Percentage complete, visual bar, estimated completion | Read-only |
 | **Cost card** | Total cost, burn rate | Read-only |
-| **Pitch body** | Full markdown: problem statement, solution sketch, rabbit holes, done condition | Read-only rendered prose |
+| **Pitch body** | Full markdown rendered as a list of blocks per the **Block primitive** (TRACK-L L2; spec at `docs/concept/BLOCKS.md`): problem statement, solution sketch, rabbit holes, done condition. Each block carries a stable, server-computed id, scoped by `host_id = bet:<id>`. | Read-only rendered prose; per-block discussion via L18+L26 attaches via `(host_id, block_id)` anchor. |
 | **TaskCard rows** (× N) | Per task: title, owner (agent name), state (planned/in progress/done/blocked), dependency, sessions, cost | Click task → open thread in Conversations; Flag for PM |
 | **Task state indicator** | Colored dot + label (pulsing for in-progress, solid for done, red for blocked) | — |
 | **Comment thread** | Chronological: sender, avatar, timestamp, message | Reply |
@@ -316,7 +318,7 @@ Accessed by clicking a BetCard in the Team View. Breadcrumb returns to Team View
 | **Editable title** | Item title, large text | Click to edit inline |
 | **Metadata bar** | Kind, status, topic (dropdown to change), confidence (0-1 bar), last-edited date + editor, access count, origin agent, creation context, evidence links | Read-only except topic |
 | **Action bar** | Flag, Archive, Move, Merge, Split | Click each |
-| **Rich content body** | Full markdown rendered: headings, paragraphs, lists, code blocks, images | Click anywhere to edit inline; auto-save |
+| **Rich content body** | Full markdown rendered as a list of blocks per the **Block primitive** (TRACK-L L2; spec at `docs/concept/BLOCKS.md`): headings, paragraphs, lists, code, quotes, tables, hr, images. Each block carries a stable, server-computed id; blocks are a *derived* view over `knowledge_items.body` (markdown stays on disk / in the DB column — never a stored dialect). | Click anywhere to edit inline; auto-save (body-level optimistic lock). Per-block discussion (L26) attaches a thread message to a `(host_id, block_id)` anchor. |
 | **Edit toolbar** | Bold, italic, link, image, save | Formatting controls (appears when editing) |
 | **Observation logs** | Read-only comments from facilitator agents | — |
 | **Edit history** | Version timeline: what changed, when, by whom | Collapse/expand; click version to preview |

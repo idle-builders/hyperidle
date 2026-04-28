@@ -38,7 +38,38 @@ export class WsBroadcaster {
 			this.broadcast("rail", JSON.stringify(event));
 		});
 
-		this.unsubscribers.push(unsub1, unsub2, unsub3, unsub4, unsub5);
+		// L1a — Thread primitive events (plan §6.2 / §6.3). Per-thread topic
+		// `thread:<id>` carries everything that mutates an open thread; the
+		// thread-list channel `'conversations'` carries `thread_created` so
+		// the Submenu refreshes.
+		const unsub6 = this.eventBus.on("thread_created", (event) => {
+			this.broadcast("conversations", JSON.stringify(event));
+		});
+		const unsub7 = this.eventBus.on("thread_message_appended", (event) => {
+			this.broadcast(`thread:${event.threadId}`, JSON.stringify(event));
+		});
+		const unsub8 = this.eventBus.on("thread_resolved", (event) => {
+			this.broadcast(`thread:${event.threadId}`, JSON.stringify(event));
+		});
+		const unsub9 = this.eventBus.on("thread_reopened", (event) => {
+			this.broadcast(`thread:${event.threadId}`, JSON.stringify(event));
+		});
+		const unsub10 = this.eventBus.on("thread_archived", (event) => {
+			this.broadcast(`thread:${event.threadId}`, JSON.stringify(event));
+		});
+
+		this.unsubscribers.push(
+			unsub1,
+			unsub2,
+			unsub3,
+			unsub4,
+			unsub5,
+			unsub6,
+			unsub7,
+			unsub8,
+			unsub9,
+			unsub10,
+		);
 	}
 
 	/** Stop forwarding events. */

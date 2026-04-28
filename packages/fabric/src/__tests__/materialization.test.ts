@@ -70,7 +70,17 @@ function seedTestData(db: HyperIdleDb): {
 			createdAt: now,
 		})
 		.run();
-	db.insert(threads).values({ id: threadId, kind: "task", createdAt: now }).run();
+	db.insert(threads)
+		.values({
+			id: threadId,
+			hostKind: "task",
+			hostId: "task-1",
+			initiatorId: "agent-1",
+			participants: JSON.stringify(["agent-1"]),
+			lastActiveAt: now,
+			createdAt: now,
+		})
+		.run();
 	db.insert(tasks)
 		.values({
 			id: taskId,

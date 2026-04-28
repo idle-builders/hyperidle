@@ -23,6 +23,7 @@ import { createSessionRoutes } from "./routes/sessions-routes.js";
 import { createStatusRoutes } from "./routes/status.js";
 import { createTaskRoutes } from "./routes/tasks.js";
 import { registerTestRoutes } from "./routes/test-routes.js";
+import { createThreadRoutes } from "./routes/threads.js";
 import { registerBuiltinRoutineHandlers } from "./services/builtin-routines.js";
 import { registerCostCapDedupReleaser } from "./services/cost-cap.js";
 import { registerGitExportHandler } from "./services/git-export.js";
@@ -265,6 +266,7 @@ function createApp(options?: AppOptions): Hono {
 		api.route("/knowledge", createKnowledgeRoutes(options.db, eventBus));
 		api.route("/rail", createRailRoutes(options.db, eventBus));
 		api.route("/conversations", createConversationRoutes(options.db, eventBus));
+		api.route("/threads", createThreadRoutes(options.db, eventBus));
 		api.route("/agents", createAgentRoutes(options.db, eventBus));
 		api.route("/routines", createRoutineRoutes(options.db, eventBus));
 		api.route("/sessions", createSessionRoutes(options.db, eventBus));

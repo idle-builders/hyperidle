@@ -37,7 +37,17 @@ describe("Policy Engine (E7)", () => {
 				createdAt: now,
 			})
 			.run();
-		db.insert(threads).values({ id: "thread-1", kind: "review", createdAt: now }).run();
+		db.insert(threads)
+			.values({
+				id: "thread-1",
+				hostKind: "task",
+				hostId: "task-1",
+				initiatorId: "agent-1",
+				participants: JSON.stringify(["agent-1"]),
+				lastActiveAt: now,
+				createdAt: now,
+			})
+			.run();
 	}
 
 	function seedAgentSkill(autonomyLevel: number): void {
