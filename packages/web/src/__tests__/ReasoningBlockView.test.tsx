@@ -1,9 +1,9 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
-import { ReasoningBlock } from "../components/ReasoningBlock";
+import { ReasoningBlockView } from "../components/ReasoningBlockView";
 
-describe("ReasoningBlock", () => {
+describe("ReasoningBlockView", () => {
 	const steps = [
 		"Identified the user story constraint",
 		"Scanned existing diff utilities for reuse",
@@ -14,7 +14,7 @@ describe("ReasoningBlock", () => {
 
 	describe("default collapsed state", () => {
 		it("does not render the steps list until expanded", () => {
-			render(<ReasoningBlock steps={steps} />);
+			render(<ReasoningBlockView steps={steps} />);
 			// Trigger button present
 			expect(screen.getByRole("button", { name: /reasoning/i })).toBeInTheDocument();
 			// Steps hidden (panel hidden)
@@ -23,7 +23,7 @@ describe("ReasoningBlock", () => {
 		});
 
 		it("reports aria-expanded=false on the trigger", () => {
-			render(<ReasoningBlock steps={steps} />);
+			render(<ReasoningBlockView steps={steps} />);
 			const btn = screen.getByRole("button", { name: /reasoning/i });
 			expect(btn).toHaveAttribute("aria-expanded", "false");
 		});
@@ -32,7 +32,7 @@ describe("ReasoningBlock", () => {
 	describe("expansion", () => {
 		it("renders all steps as an ordered list after click", async () => {
 			const user = userEvent.setup();
-			render(<ReasoningBlock steps={steps} />);
+			render(<ReasoningBlockView steps={steps} />);
 			await user.click(screen.getByRole("button", { name: /reasoning/i }));
 			const list = screen.getByRole("list", { name: /reasoning steps/i });
 			expect(list.tagName).toBe("OL");
@@ -45,7 +45,7 @@ describe("ReasoningBlock", () => {
 
 		it("collapses again on second click", async () => {
 			const user = userEvent.setup();
-			render(<ReasoningBlock steps={steps} />);
+			render(<ReasoningBlockView steps={steps} />);
 			const btn = screen.getByRole("button", { name: /reasoning/i });
 			await user.click(btn);
 			await user.click(btn);
@@ -56,7 +56,7 @@ describe("ReasoningBlock", () => {
 
 	describe("defaultOpen prop", () => {
 		it("renders steps immediately when defaultOpen=true", () => {
-			render(<ReasoningBlock steps={steps} defaultOpen={true} />);
+			render(<ReasoningBlockView steps={steps} defaultOpen={true} />);
 			expect(screen.getByRole("list", { name: /reasoning steps/i })).toBeInTheDocument();
 			expect(screen.getByRole("button", { name: /reasoning/i })).toHaveAttribute(
 				"aria-expanded",
@@ -67,20 +67,20 @@ describe("ReasoningBlock", () => {
 
 	describe("step count display", () => {
 		it("shows the step count on the trigger", () => {
-			render(<ReasoningBlock steps={steps} />);
+			render(<ReasoningBlockView steps={steps} />);
 			const btn = screen.getByRole("button", { name: /reasoning/i });
 			// Should include the number 5 somewhere in accessible name
 			expect(btn.textContent ?? "").toMatch(/5/);
 		});
 
 		it("uses singular label for 1 step", () => {
-			render(<ReasoningBlock steps={["only step"]} />);
+			render(<ReasoningBlockView steps={["only step"]} />);
 			const btn = screen.getByRole("button", { name: /reasoning/i });
 			expect(btn.textContent ?? "").toMatch(/1 step\b/i);
 		});
 
 		it("uses plural label for multiple steps", () => {
-			render(<ReasoningBlock steps={steps} />);
+			render(<ReasoningBlockView steps={steps} />);
 			const btn = screen.getByRole("button", { name: /reasoning/i });
 			expect(btn.textContent ?? "").toMatch(/5 steps/i);
 		});
@@ -88,7 +88,7 @@ describe("ReasoningBlock", () => {
 
 	describe("empty state", () => {
 		it("renders nothing when steps is empty", () => {
-			const { container } = render(<ReasoningBlock steps={[]} />);
+			const { container } = render(<ReasoningBlockView steps={[]} />);
 			expect(container.firstChild).toBeNull();
 		});
 	});
@@ -96,7 +96,7 @@ describe("ReasoningBlock", () => {
 	describe("numbered list", () => {
 		it("renders an ordered list so numbering is native HTML", async () => {
 			const user = userEvent.setup();
-			render(<ReasoningBlock steps={steps} />);
+			render(<ReasoningBlockView steps={steps} />);
 			await user.click(screen.getByRole("button", { name: /reasoning/i }));
 			const list = screen.getByRole("list", { name: /reasoning steps/i });
 			expect(list.tagName).toBe("OL");
