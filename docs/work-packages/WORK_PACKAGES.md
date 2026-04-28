@@ -15,7 +15,9 @@ This file has been split into per-track files for easier navigation and reduced 
 | [TRACK-F.md](work-packages/TRACK-F.md) | F: Human Interface (UI) | UI-00, UI-10, UI-20, UI-30, UI-31, UI-32, UI-40, UI-42, UI-45, UI-50 |
 | [TRACK-G.md](work-packages/TRACK-G.md) | G: Facilitator Pipeline | G1, G2, G3, G4 |
 | [TRACK-H.md](work-packages/TRACK-H.md) | H: Operations | H1, H2, H3, H4 |
-| [TRACK-K.md](work-packages/TRACK-K.md) | K: Aesthetics Uplift | K1, K2, K3, K4, K5, K6, K7, K8 |
+| [TRACK-J.md](work-packages/TRACK-J.md) | J: UI Polish & Synthesis | J1, J2, J3, J4, J5, J6, J7, J8 |
+| [TRACK-K.md](work-packages/TRACK-K.md) | K: Aesthetics Uplift | K1, K2, K3, K4, K5, K6, K7, K8, K9, K10, K11, K12, K13 |
+| [TRACK-L.md](work-packages/TRACK-L.md) | L: Journey-Aligned Improvements | L1–L29 |
 
 ## Critical Path
 
