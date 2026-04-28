@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ReviewVerdictBar — HyperIdle Design System</title>
+  <link rel="stylesheet" href="_tokens.css" />
+  <style>
+    /* Layout mirrors ReviewVerdictBar.tsx — sticky surface above the
+       composer. 5 binding + 3 non-binding + 2 sidecar buttons. Density
+       tokens for vertical padding per AQ-002. */
+    .verdict-bar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 8px;
+      padding: var(--density-pad-y) var(--density-pad-x);
+      border-top: 1px solid var(--border-subtle);
+      background: var(--surface-1);
+    }
+    .verdict-bar__divider {
+      width: 1px;
+      height: 20px;
+      background: var(--border-subtle);
+      margin: 0 4px;
+    }
+    .verdict-bar__sidecar {
+      margin-left: auto;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .btn {
+      padding: 6px 10px;
+      border-radius: var(--r1);
+      font-size: 13px;
+      font-weight: 500;
+      border: none;
+      cursor: pointer;
+      transition: background var(--motion-fast), opacity var(--motion-fast);
+      white-space: nowrap;
+    }
+    .btn--primary {
+      background: var(--accent);
+      color: var(--accent-on);
+    }
+    .btn--primary:hover { opacity: 0.9; }
+    .btn--neutral {
+      background: var(--surface-2);
+      color: var(--text-mid);
+    }
+    .btn--neutral:hover { background: var(--surface-ghost); }
+    .btn--danger {
+      background: color-mix(in oklab, var(--danger) 14%, transparent);
+      color: var(--danger);
+    }
+    .btn--danger:hover {
+      background: color-mix(in oklab, var(--danger) 22%, transparent);
+    }
+    .btn--link {
+      background: transparent;
+      color: var(--text-lo);
+      font-weight: 400;
+    }
+    .btn--link:hover { color: var(--text-hi); }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" crossorigin></script>
+  <script type="text/babel" data-presets="env,react">
+    const BINDING = [
+      { action: "approve", label: "Approve", tone: "primary" },
+      { action: "approve-with-comments", label: "Approve with comments", tone: "primary" },
+      { action: "request-changes", label: "Request changes", tone: "neutral" },
+      { action: "edit", label: "Edit", tone: "neutral" },
+      { action: "reject", label: "Reject", tone: "danger" },
+    ];
+    const NON_BINDING = [
+      { action: "comment", label: "Comment", tone: "neutral" },
+      { action: "inline-comment", label: "Inline comment", tone: "neutral" },
+      { action: "reply", label: "Reply", tone: "neutral" },
+    ];
+    const SIDECAR = [
+      { action: "snooze", label: "Snooze", tone: "link" },
+      { action: "escalate", label: "Escalate", tone: "link" },
+    ];
+
+    function ReviewVerdictBar() {
+      return (
+        <div
+          className="verdict-bar"
+          data-component="ReviewVerdictBar"
+          data-tier="2"
+        >
+          {BINDING.map((b) => (
+            <button key={b.action} type="button" className={`btn btn--${b.tone}`}>
+              {b.label}
+            </button>
+          ))}
+          <span className="verdict-bar__divider" aria-hidden="true" />
+          {NON_BINDING.map((b) => (
+            <button key={b.action} type="button" className={`btn btn--${b.tone}`}>
+              {b.label}
+            </button>
+          ))}
+          <span className="verdict-bar__sidecar">
+            {SIDECAR.map((b) => (
+              <button key={b.action} type="button" className={`btn btn--${b.tone}`}>
+                {b.label}
+              </button>
+            ))}
+          </span>
+        </div>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById('root')).render(<ReviewVerdictBar />);
+  </script>
+  <script src="themes/_switcher.js"></script>
+</body>
+</html>

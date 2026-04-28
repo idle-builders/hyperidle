@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Composer — HyperIdle Design System</title>
+  <link rel="stylesheet" href="_tokens.css" />
+  <style>
+    /* Layout mirrors Composer.tsx — always-rendered plain-message input.
+       Density tokens for vertical padding per AQ-002. */
+    .composer {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      padding: var(--density-pad-y) var(--density-pad-x);
+      border-top: 1px solid var(--border-subtle);
+      background: var(--surface-1);
+    }
+    .composer__hint {
+      text-align: left;
+      font-size: 12px;
+      color: var(--accent);
+      background: transparent;
+      border: none;
+      padding: 0;
+      cursor: pointer;
+    }
+    .composer__hint:hover { text-decoration: underline; }
+
+    .composer__textarea {
+      width: 100%;
+      min-height: 44px;
+      resize: vertical;
+      background: var(--surface-2);
+      color: var(--text-mid);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--r1);
+      padding: 8px 10px;
+      font-size: 13px;
+      font-family: var(--ui);
+    }
+    .composer__textarea::placeholder {
+      color: var(--text-lo);
+    }
+    .composer__textarea:focus {
+      outline: none;
+      border-color: var(--accent);
+    }
+
+    .composer__footer {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 8px;
+    }
+    .composer__shortcut {
+      font-size: 11px;
+      color: var(--text-lo);
+    }
+    .composer__send {
+      padding: 6px 12px;
+      border-radius: var(--r1);
+      font-size: 13px;
+      font-weight: 500;
+      background: var(--accent);
+      color: var(--accent-on);
+      border: none;
+      cursor: pointer;
+    }
+    .composer__send:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" crossorigin></script>
+  <script type="text/babel" data-presets="env,react">
+    function Composer({ unresolvedReviewLink }) {
+      return (
+        <div
+          className="composer"
+          data-component="Composer"
+          data-tier="2"
+        >
+          {unresolvedReviewLink ? (
+            <button type="button" className="composer__hint">
+              Unresolved review · acting required ↑
+            </button>
+          ) : null}
+          <textarea
+            className="composer__textarea"
+            placeholder="Reply to thread…"
+            defaultValue="Looks good — happy to ship after the verdict lands."
+          />
+          <div className="composer__footer">
+            <span className="composer__shortcut">⌘+Enter to send</span>
+            <button type="button" className="composer__send">Send</button>
+          </div>
+        </div>
+      );
+    }
+
+    function Demo() {
+      return <Composer unresolvedReviewLink={{}} />;
+    }
+
+    ReactDOM.createRoot(document.getElementById('root')).render(<Demo />);
+  </script>
+  <script src="themes/_switcher.js"></script>
+</body>
+</html>

@@ -49,6 +49,20 @@ describe("Conversations Endpoints (E2)", () => {
 				formedAt: new Date().toISOString(),
 			})
 			.run();
+		// L1a: verdict messages set sender_id='policy_engine' as the synthetic
+		// sender for system-recorded verdicts. The new `messages.sender_id` FK
+		// requires the agent to exist (legacy `responses.approver_id` had no
+		// FK). Seeding the synthetic agent satisfies the constraint without
+		// changing test intent.
+		db.insert(agents)
+			.values({
+				id: "policy_engine",
+				name: "Policy Engine",
+				role: "system",
+				status: "active",
+				createdAt: new Date().toISOString(),
+			})
+			.run();
 	});
 
 	afterEach(() => {

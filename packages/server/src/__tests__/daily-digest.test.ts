@@ -3,8 +3,8 @@ import {
 	createTestDb,
 	type HyperIdleDb,
 	items,
+	messages,
 	products,
-	responses,
 	teams,
 	threads,
 } from "@hyperidle/db";
@@ -97,14 +97,29 @@ describe("Daily Digest (E7)", () => {
 		createQueuedItem("item-responded", sixHoursAgo);
 		createQueuedItem("item-pending", sixHoursAgo);
 
-		// Add response to one item
-		db.insert(responses)
+		// L1a: legacy `responses` rows project as verdict-typed messages whose
+		// `legacy_item_id` matches the source item. The digest now joins via
+		// messages.legacy_item_id (plan §10 / T8). Seed a `human` agent so
+		// the message FK on sender_id is satisfied.
+		db.insert(agents)
+			.values({
+				id: "human",
+				name: "Human",
+				role: "founder",
+				status: "active",
+				createdAt: now.toISOString(),
+			})
+			.run();
+		db.insert(messages)
 			.values({
 				id: "resp-1",
-				itemId: "item-responded",
-				decision: "approve",
-				approverId: "human",
-				respondedAt: now.toISOString(),
+				senderId: "human",
+				threadId: "thread-1",
+				type: "verdict",
+				payload: JSON.stringify({ decision: "approve" }),
+				clientKey: "__l1_legacy_resp-1",
+				legacyItemId: "item-responded",
+				createdAt: now.toISOString(),
 			})
 			.run();
 

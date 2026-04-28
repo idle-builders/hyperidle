@@ -242,7 +242,9 @@ export async function handoff(
 		// has a thread). Runs AFTER the ownership mutation so the recipient
 		// in the message matches the persisted owner.
 		if (task.threadId) {
-			const messageBody: Record<string, unknown> = {
+			// L1a: messages now carry `type` + `payload` instead of subject/body.
+			// Handoff metadata is a structured payload with type='handoff'.
+			const handoffPayload: Record<string, unknown> = {
 				type: "handoff",
 				context_id: metadata.context_id,
 				status: metadata.status,
@@ -251,16 +253,17 @@ export async function handoff(
 				remaining_work: metadata.remaining_work,
 			};
 			if (metadata.error !== undefined) {
-				messageBody.error = metadata.error;
+				handoffPayload.error = metadata.error;
 			}
+			const messageId = crypto.randomUUID();
 			tx.insert(messages)
 				.values({
-					id: crypto.randomUUID(),
+					id: messageId,
 					senderId: sessionContext.agentId,
-					recipientId: txResult.targetAgentId ?? sessionContext.agentId,
 					threadId: task.threadId,
-					subject: "handoff",
-					body: JSON.stringify(messageBody),
+					type: "handoff",
+					payload: JSON.stringify(handoffPayload),
+					clientKey: messageId,
 					createdAt: now,
 				})
 				.run();

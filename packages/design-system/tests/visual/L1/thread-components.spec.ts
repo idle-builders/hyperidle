@@ -36,7 +36,14 @@ test.describe("L1a — six DS components have HTML references and render", () =>
 		test(`${name} — TSX viewer renders the component`, async ({ page }) => {
 			await page.goto(`http://localhost:8098/#${name}`);
 			await page.waitForLoadState("networkidle");
-			const marker = page.locator(`[data-component="${name}"]`).first();
+			// L1a: viewer defaults to HTML mode (iframe). Click the TSX
+			// toggle to render the production TSX component, then assert
+			// dsProps()-emitted attributes (data-ds-component for tier 1+2,
+			// data-ds-shell for tier 3 shell regions).
+			await page.getByRole("button", { name: "TSX", exact: true }).click();
+			const marker = page
+				.locator(`[data-ds-component="${name}"], [data-ds-shell="${name}"]`)
+				.first();
 			await expect(marker).toBeVisible();
 		});
 	}

@@ -75,10 +75,15 @@ describe("send_message tool", () => {
 			if (!result.success) return;
 			const data = result.data as { messageId: string; threadId: string };
 
+			// L1a: messages now carry sender + payload (JSON). Recipient is
+			// derived from the host_id/participants on the thread (legacy
+			// `recipient_id` column dropped — see plan §5.3).
 			const inserted = db.select().from(messages).where(eq(messages.id, data.messageId)).get();
 			expect(inserted?.senderId).toBe("agent-a");
-			expect(inserted?.recipientId).toBe("agent-b");
-			expect(inserted?.body).toBe("Hello from A");
+			const payload = JSON.parse(inserted?.payload ?? "{}") as { text?: string };
+			expect(payload.text).toBe("Hello from A");
+			const thread = db.select().from(threads).where(eq(threads.id, data.threadId)).get();
+			expect(thread?.hostId).toBe("agent-b");
 		});
 
 		it("creates a new direct thread when none exists", async () => {
@@ -90,8 +95,11 @@ describe("send_message tool", () => {
 			if (!result.success) return;
 			const data = result.data as { threadId: string };
 
+			// L1a: legacy `kind='direct'` projects as host_kind='agent' with the
+			// recipient as host_id (plan §5.3 SHARED.md projection).
 			const thread = db.select().from(threads).where(eq(threads.id, data.threadId)).get();
-			expect(thread?.kind).toBe("direct");
+			expect(thread?.hostKind).toBe("agent");
+			expect(thread?.hostId).toBe("agent-b");
 			const participants = JSON.parse(thread?.participants ?? "[]") as string[];
 			expect(participants.sort()).toEqual(["agent-a", "agent-b"]);
 		});
@@ -124,8 +132,11 @@ describe("send_message tool", () => {
 			expect(result.success).toBe(true);
 			if (!result.success) return;
 			const data = result.data as { messageId: string };
+			// L1a: legacy subject + body collapse into payload.text per the
+			// SHARED.md projection rules (plan §5.3). Subject prefixes the body.
 			const inserted = db.select().from(messages).where(eq(messages.id, data.messageId)).get();
-			expect(inserted?.subject).toBe("Urgent");
+			const payload = JSON.parse(inserted?.payload ?? "{}") as { text?: string };
+			expect(payload.text).toBe("Urgent\n\nHi");
 		});
 	});
 

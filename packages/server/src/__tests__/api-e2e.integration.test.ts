@@ -51,14 +51,27 @@ describe("E2E API Integration (I5)", () => {
 			})
 			.run();
 		db.insert(agents)
-			.values({
-				id: "agent-1",
-				name: "Test Agent",
-				role: "builder",
-				status: "active",
-				teamId: "team-1",
-				createdAt: new Date().toISOString(),
-			})
+			.values([
+				{
+					id: "agent-1",
+					name: "Test Agent",
+					role: "builder",
+					status: "active",
+					teamId: "team-1",
+					createdAt: new Date().toISOString(),
+				},
+				// L1a: synthetic sender for verdict-typed messages emitted by
+				// the legacy `POST /responses` route (plan §6.4 wraps the new
+				// repo path). The new `messages.sender_id` FK requires the
+				// row to exist.
+				{
+					id: "policy_engine",
+					name: "Policy Engine",
+					role: "system",
+					status: "active",
+					createdAt: new Date().toISOString(),
+				},
+			])
 			.run();
 	});
 
@@ -468,9 +481,12 @@ describe("E2E API Integration (I5)", () => {
 				}),
 			});
 			expect(res.status).toBe(201);
-			const body = (await res.json()) as { recipientId: string; body: string };
-			expect(body.recipientId).toBe("agent-1");
-			expect(body.body).toBe("Hello agent!");
+			// L1a: messages now carry payload (JSON), not body/recipientId.
+			// Recipient is derived from the thread.host_id (plan §5.3).
+			const body = (await res.json()) as { senderId: string; payload: string };
+			expect(body.senderId).toBe("agent-1");
+			const payload = JSON.parse(body.payload) as { text?: string };
+			expect(payload.text).toBe("Hello agent!");
 		});
 	});
 

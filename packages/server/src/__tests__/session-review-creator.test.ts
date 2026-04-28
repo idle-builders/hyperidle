@@ -225,10 +225,12 @@ describe("registerSessionReviewCreator", () => {
 		};
 		eventBus.emit(event);
 
-		// Verify thread was created
+		// L1a: thread shape is host_kind/host_id; legacy review threads
+		// project to host_kind='task' with host_id=task.id (plan §5.3).
 		const allThreads = db.select().from(threads).all();
 		expect(allThreads).toHaveLength(1);
-		expect(allThreads[0].kind).toBe("review");
+		expect(allThreads[0].hostKind).toBe("task");
+		expect(allThreads[0].hostId).toBe("task-no-thread");
 
 		// Verify item was created in the new thread
 		const allItems = db.select().from(items).all();

@@ -1,0 +1,217 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>CommentRow — HyperIdle Design System</title>
+  <link rel="stylesheet" href="_tokens.css" />
+  <style>
+    /* Layout mirrors CommentRow.tsx — list item with avatar, sender header,
+       inline-anchor label, and body. Density tokens for horizontal pad
+       per AQ-002. */
+    .comment-row {
+      display: flex;
+      gap: 8px;
+      padding: 6px var(--density-pad-x);
+      list-style: none;
+    }
+    .comment-row__avatar {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      background: var(--surface-2);
+      color: var(--text-lo);
+      font-size: 11px;
+      font-weight: 500;
+      border: 1px solid var(--border-subtle);
+      flex-shrink: 0;
+    }
+    .comment-row__avatar-spacer {
+      width: 28px;
+      flex-shrink: 0;
+    }
+    .comment-row__body {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      min-width: 0;
+      flex: 1;
+    }
+    .comment-row__header {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+    }
+    .comment-row__sender-name {
+      color: var(--text-hi);
+      font-weight: 500;
+    }
+    .comment-row__sender-role {
+      color: var(--text-lo);
+    }
+    .comment-row__inline-anchor {
+      font-size: 11px;
+      color: var(--text-lo);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .comment-row__inline-anchor strong {
+      color: var(--text-mid);
+      font-weight: 500;
+    }
+    .comment-row__text {
+      font-size: 13px;
+      color: var(--text-mid);
+      white-space: pre-wrap;
+      word-wrap: break-word;
+      margin: 0;
+    }
+    .comment-row__verdict {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+    }
+    .comment-row__verdict-note {
+      color: var(--text-lo);
+    }
+    .comment-row__redacted {
+      font-style: italic;
+      color: var(--text-lo);
+      font-size: 13px;
+    }
+
+    /* StatusChip — mirrored from html/StatusChip.html */
+    .status-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 2px 8px;
+      border-radius: var(--r-pill);
+      font-family: var(--mono);
+      font-size: 11px;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      font-weight: 500;
+      line-height: 1.4;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+    .status-chip .dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .status-chip--done {
+      background: color-mix(in oklab, var(--ok) 14%, transparent);
+      color: var(--ok);
+    }
+    .status-chip--done .dot { background: var(--ok); }
+    .status-chip--blocked {
+      background: color-mix(in oklab, var(--danger) 14%, transparent);
+      color: var(--danger);
+    }
+    .status-chip--blocked .dot { background: var(--danger); }
+    .status-chip--behind {
+      background: color-mix(in oklab, var(--warn) 14%, transparent);
+      color: var(--warn);
+    }
+    .status-chip--behind .dot { background: var(--warn); }
+
+    .stream { padding: 8px 0; }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" crossorigin></script>
+  <script type="text/babel" data-presets="env,react">
+    function StatusChip({ status }) {
+      return (
+        <span className={`status-chip status-chip--${status}`}>
+          <span className="dot" />
+          {status.toUpperCase()}
+        </span>
+      );
+    }
+
+    function CommentRow({ message, sender, showSenderHeader, inlineAnchor }) {
+      const isVerdict = message.type === "verdict";
+      return (
+        <li
+          className="comment-row"
+          data-component="CommentRow"
+          data-tier="2"
+          data-uses="StatusChip"
+        >
+          {showSenderHeader ? (
+            <span className="comment-row__avatar">
+              {sender.name.charAt(0).toUpperCase()}
+            </span>
+          ) : (
+            <span className="comment-row__avatar-spacer" aria-hidden="true" />
+          )}
+          <div className="comment-row__body">
+            {showSenderHeader ? (
+              <div className="comment-row__header">
+                <span className="comment-row__sender-name">{sender.name}</span>
+                {sender.role ? (
+                  <span className="comment-row__sender-role">· {sender.role}</span>
+                ) : null}
+              </div>
+            ) : null}
+            {inlineAnchor ? (
+              <div className="comment-row__inline-anchor">
+                INLINE COMMENT ON <strong>{inlineAnchor}</strong>
+              </div>
+            ) : null}
+            {isVerdict ? (
+              <div className="comment-row__verdict">
+                <StatusChip status="done" />
+                <span style={{ color: "var(--text-mid)" }}>APPROVED</span>
+                {message.payload.note ? (
+                  <span className="comment-row__verdict-note">— {message.payload.note}</span>
+                ) : null}
+              </div>
+            ) : message.type === "plain" ? (
+              <p className="comment-row__text">{message.payload.text}</p>
+            ) : null}
+          </div>
+        </li>
+      );
+    }
+
+    function Demo() {
+      return (
+        <ul className="stream" style={{ margin: 0, padding: "8px 0" }}>
+          <CommentRow
+            message={{ id: "m1", type: "plain", payload: { text: "Looks good — running deploy now." } }}
+            sender={{ id: "u1", name: "Alice", role: "Founder" }}
+            showSenderHeader={true}
+          />
+          <CommentRow
+            message={{ id: "m2", type: "plain", payload: { text: "Holding for cost-cap approval." } }}
+            sender={{ id: "u2", name: "Bob", role: "Builder" }}
+            showSenderHeader={true}
+            inlineAnchor="line 42"
+          />
+          <CommentRow
+            message={{ id: "m3", type: "verdict", payload: { decision: "approve", note: "Good to ship." } }}
+            sender={{ id: "u1", name: "Alice", role: "Founder" }}
+            showSenderHeader={true}
+          />
+        </ul>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById('root')).render(<Demo />);
+  </script>
+  <script src="themes/_switcher.js"></script>
+</body>
+</html>
