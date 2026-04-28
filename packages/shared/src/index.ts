@@ -152,11 +152,10 @@ export type {
 	ArtifactPage,
 	ArtifactPreview,
 	ArtifactQuery,
-	ArtifactViewProps,
 	CreateArtifactInput,
 	DiffHunk,
 } from "./types/artifact.js";
-export { ARTIFACT_KINDS, getArtifactViewProps } from "./types/artifact.js";
+export { ARTIFACT_KINDS, artifactDisplayTitle, summarizePreview } from "./types/artifact.js";
 export type {
 	AgentRole,
 	AgentStatus,

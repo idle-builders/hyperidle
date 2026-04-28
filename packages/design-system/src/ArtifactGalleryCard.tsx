@@ -7,8 +7,7 @@ import { ArtifactTimestamp } from "./ArtifactTimestamp.js";
 import { dsProps } from "./ds-attrs.js";
 
 export interface ArtifactGalleryCardProps {
-	data: Omit<Artifact, "threadCount"> & { threadCount?: number };
-	threadCount?: number;
+	data: Artifact;
 	onOpen: () => void;
 	state?: "populated" | "loading" | "error";
 }
@@ -21,17 +20,12 @@ const FOOTER = "flex items-center justify-between font-mono text-[11px] text-[va
 const PILL =
 	"bg-[var(--surface-ghost)] text-[var(--text-mid)] rounded-[var(--r-pill)] px-[8px] py-[2px]";
 
-function pluralizeThreads(n: number): string {
-	return n === 1 ? "1 thread" : `${n} threads`;
-}
-
 export function ArtifactGalleryCard({
 	data,
-	threadCount,
 	onOpen,
 	state = "populated",
 }: ArtifactGalleryCardProps): JSX.Element {
-	const count = threadCount ?? data.threadCount ?? 0;
+	const count = data.threadCount;
 	return (
 		<button
 			{...dsProps("ArtifactGalleryCard", "2")}
@@ -52,7 +46,9 @@ export function ArtifactGalleryCard({
 					<span className="text-[var(--text-lo)]">·</span>
 					<ArtifactTimestamp value={data.createdAt} />
 				</span>
-				{count > 0 ? <span className={PILL}>{pluralizeThreads(count)}</span> : null}
+				{count > 0 ? (
+					<span className={PILL}>{count === 1 ? "1 thread" : `${count} threads`}</span>
+				) : null}
 			</div>
 		</button>
 	);

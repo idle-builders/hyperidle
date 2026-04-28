@@ -20,6 +20,7 @@ const FIXTURE = {
 		bodyExcerpt: "Hi there",
 	},
 	cost: { money: "$0.42", tokens: "12.4k" },
+	threadCount: 0,
 	createdAt: "2026-04-28T00:00:00.000Z",
 };
 
@@ -69,8 +70,7 @@ describe("ArtifactGalleryCard", () => {
 		act(() => {
 			root.render(
 				createElement(ArtifactGalleryCard, {
-					data: FIXTURE,
-					threadCount: 0,
+					data: { ...FIXTURE, threadCount: 0 },
 					onOpen: () => undefined,
 				}),
 			);
@@ -82,8 +82,7 @@ describe("ArtifactGalleryCard", () => {
 		act(() => {
 			root.render(
 				createElement(ArtifactGalleryCard, {
-					data: FIXTURE,
-					threadCount: 1,
+					data: { ...FIXTURE, threadCount: 1 },
 					onOpen: () => undefined,
 				}),
 			);
@@ -96,8 +95,7 @@ describe("ArtifactGalleryCard", () => {
 		act(() => {
 			root.render(
 				createElement(ArtifactGalleryCard, {
-					data: FIXTURE,
-					threadCount: 5,
+					data: { ...FIXTURE, threadCount: 5 },
 					onOpen: () => undefined,
 				}),
 			);

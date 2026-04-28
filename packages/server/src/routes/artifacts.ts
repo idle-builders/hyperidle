@@ -1,14 +1,13 @@
 // L3 — Hono router for /api/artifacts.
 // Source: docs/architecture-plans/L3.md §5.
 
-import { artifacts, bets, type HyperIdleDb, tasks } from "@hyperidle/db";
+import { artifacts, type HyperIdleDb, tasks } from "@hyperidle/db";
 import {
 	ARTIFACT_KINDS,
 	type Artifact,
 	type ArtifactKind,
 	type ArtifactPage,
 	type ArtifactPreview,
-	type EventBus,
 	formatArtifactCost,
 } from "@hyperidle/shared";
 import { and, desc, eq, inArray, isNull } from "drizzle-orm";
@@ -17,7 +16,7 @@ import { z } from "zod";
 import { createBodyLimit } from "../middleware/body-limit.js";
 import { validateBody } from "../middleware/validate.js";
 
-const RECOGNISED_KINDS = new Set<string>(ARTIFACT_KINDS);
+const RECOGNISED_KIND_VALUES = ARTIFACT_KINDS as readonly string[];
 const PREVIEW_BODY_LIMIT = 64 * 1024;
 const DEFAULT_LIMIT = 50;
 const HARD_LIMIT_CAP = 200;
@@ -133,16 +132,14 @@ interface ArtifactRow {
 }
 
 function rowToArtifact(row: ArtifactRow, producingTaskTitle: string): Artifact {
-	const recognised = RECOGNISED_KINDS.has(row.kind) && row.kind !== "unknown_kind";
+	const recognised = RECOGNISED_KIND_VALUES.includes(row.kind) && row.kind !== "unknown_kind";
 	const kind = (recognised ? row.kind : "unknown_kind") as ArtifactKind;
 	let preview: ArtifactPreview | null = null;
 	if (recognised && row.previewJson) {
-		try {
-			const parsed = JSON.parse(row.previewJson) as ArtifactPreview;
-			if (parsed.kind === kind) preview = parsed;
-		} catch {
-			preview = null;
-		}
+		// We control writes (always JSON.stringify of ArtifactPreview); a parse
+		// failure here is a real corruption bug — let it propagate.
+		const parsed = JSON.parse(row.previewJson) as ArtifactPreview;
+		if (parsed.kind === kind) preview = parsed;
 	}
 	return {
 		id: row.id,
@@ -160,10 +157,9 @@ function rowToArtifact(row: ArtifactRow, producingTaskTitle: string): Artifact {
 	};
 }
 
-export function createArtifactRoutes(db: HyperIdleDb, _eventBus: EventBus): Hono {
+export function createArtifactRoutes(db: HyperIdleDb): Hono {
 	const router = new Hono();
 
-	// GET /api/artifacts (axis discriminator on query)
 	router.get("/", (c) => {
 		const axis = c.req.query("axis");
 		if (axis !== "task" && axis !== "bet" && axis !== "product" && axis !== "portfolio") {
@@ -203,7 +199,6 @@ export function createArtifactRoutes(db: HyperIdleDb, _eventBus: EventBus): Hono
 			taskIds = rows.map((r) => r.id);
 		}
 
-		// Build query
 		const baseQuery = db
 			.select({
 				artifact: artifacts,
@@ -234,7 +229,6 @@ export function createArtifactRoutes(db: HyperIdleDb, _eventBus: EventBus): Hono
 		return c.json(page);
 	});
 
-	// GET /api/artifacts/:id (permalink)
 	router.get("/:id", (c) => {
 		const id = c.req.param("id");
 		const row = db
@@ -247,7 +241,6 @@ export function createArtifactRoutes(db: HyperIdleDb, _eventBus: EventBus): Hono
 		return c.json(rowToArtifact(row.artifact, row.taskTitle));
 	});
 
-	// POST /api/artifacts
 	router.post(
 		"/",
 		createBodyLimit({ maxSize: PREVIEW_BODY_LIMIT }),
@@ -260,7 +253,7 @@ export function createArtifactRoutes(db: HyperIdleDb, _eventBus: EventBus): Hono
 			}
 
 			const taskRow = db
-				.select({ id: tasks.id })
+				.select({ title: tasks.title })
 				.from(tasks)
 				.where(eq(tasks.id, body.producingTaskId))
 				.get();
@@ -270,6 +263,10 @@ export function createArtifactRoutes(db: HyperIdleDb, _eventBus: EventBus): Hono
 
 			const id = crypto.randomUUID();
 			const now = new Date().toISOString();
+			const costMoneyMicros = body.cost?.money_micros ?? null;
+			const costTokensInput = body.cost?.tokens_input ?? null;
+			const costTokensOutput = body.cost?.tokens_output ?? null;
+			const costSettledAt = body.cost ? now : null;
 
 			db.insert(artifacts)
 				.values({
@@ -277,28 +274,32 @@ export function createArtifactRoutes(db: HyperIdleDb, _eventBus: EventBus): Hono
 					producingTaskId: body.producingTaskId,
 					kind: body.kind,
 					previewJson: body.preview ? JSON.stringify(body.preview) : null,
-					costMoneyMicros: body.cost?.money_micros ?? null,
-					costTokensInput: body.cost?.tokens_input ?? null,
-					costTokensOutput: body.cost?.tokens_output ?? null,
-					costSettledAt: body.cost ? now : null,
+					costMoneyMicros,
+					costTokensInput,
+					costTokensOutput,
+					costSettledAt,
 					createdAt: now,
 				})
 				.run();
 
-			const row = db
-				.select({ artifact: artifacts, taskTitle: tasks.title })
-				.from(artifacts)
-				.innerJoin(tasks, eq(tasks.id, artifacts.producingTaskId))
-				.where(eq(artifacts.id, id))
-				.get();
-			if (!row) {
-				return c.json({ error: "insert failed", code: "INTERNAL" }, 500);
-			}
-			return c.json(rowToArtifact(row.artifact, row.taskTitle), 201);
+			const result: Artifact = {
+				id,
+				producingTaskId: body.producingTaskId,
+				producingTaskTitle: taskRow.title,
+				kind: body.kind,
+				preview: body.preview,
+				cost: formatArtifactCost({
+					money_micros: costMoneyMicros,
+					tokens_input: costTokensInput,
+					tokens_output: costTokensOutput,
+				}),
+				threadCount: 0,
+				createdAt: now,
+			};
+			return c.json(result, 201);
 		},
 	);
 
-	// PATCH /api/artifacts/:id/preview
 	router.patch(
 		"/:id/preview",
 		createBodyLimit({ maxSize: PREVIEW_BODY_LIMIT }),
@@ -325,7 +326,6 @@ export function createArtifactRoutes(db: HyperIdleDb, _eventBus: EventBus): Hono
 		},
 	);
 
-	// PATCH /api/artifacts/:id/cost
 	router.patch("/:id/cost", validateBody(patchCostSchema), (c) => {
 		const id = c.req.param("id");
 		const body = c.req.valid("json" as never) as z.infer<typeof patchCostSchema>;

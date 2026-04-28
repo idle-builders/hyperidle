@@ -2,7 +2,7 @@
 // background/border/radius. Only the arrow is interactive.
 
 import type { Artifact } from "@hyperidle/shared";
-import { getArtifactViewProps } from "@hyperidle/shared";
+import { summarizePreview } from "@hyperidle/shared";
 import type { JSX } from "react";
 import { ArtifactCostChip } from "./ArtifactCostChip.js";
 import { ArtifactKindBadge } from "./ArtifactKindBadge.js";
@@ -10,7 +10,7 @@ import { ArtifactTimestamp } from "./ArtifactTimestamp.js";
 import { dsProps } from "./ds-attrs.js";
 
 export interface ArtifactEmbedProps {
-	data: Omit<Artifact, "threadCount"> & { threadCount?: number };
+	data: Artifact;
 	onOpen: () => void;
 }
 
@@ -21,24 +21,8 @@ const VIEW = "text-[var(--text-mid)] font-sans text-[13px] normal-case [letter-s
 const ARROW =
 	"ml-auto cursor-pointer px-[6px] py-[4px] hover:text-[var(--text-hi)] focus:outline focus:outline-2 focus:outline-[var(--accent)]";
 
-function viewSummary(data: ArtifactEmbedProps["data"]): string {
-	const v = getArtifactViewProps(data as Artifact);
-	if (v === "no_view") return "[ no preview ]";
-	switch (v.shape) {
-		case "text_diff":
-			return v.file;
-		case "deck":
-			return `${v.slideCount} slides — ${v.firstSlideTitle}`;
-		case "image":
-			return `${v.width}×${v.height}`;
-		case "key_value":
-			return v.rows.map((r) => `${r.label}: ${r.value}`).join(" · ");
-		case "prose":
-			return v.title;
-	}
-}
-
 export function ArtifactEmbed({ data, onOpen }: ArtifactEmbedProps): JSX.Element {
+	const summary = summarizePreview(data.preview) ?? "[ no preview ]";
 	return (
 		<div {...dsProps("ArtifactEmbed", "2")} className={WRAP}>
 			<div className={IDENTITY}>
@@ -53,7 +37,7 @@ export function ArtifactEmbed({ data, onOpen }: ArtifactEmbedProps): JSX.Element
 					→
 				</button>
 			</div>
-			<div className={VIEW}>{viewSummary(data)}</div>
+			<div className={VIEW}>{summary}</div>
 		</div>
 	);
 }

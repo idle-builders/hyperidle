@@ -4,8 +4,6 @@
 
 import type { ArtifactCostFromSession } from "../types/artifact.js";
 
-export type { ArtifactCostFromSession } from "../types/artifact.js";
-
 export interface ArtifactCostInput {
 	readonly money_micros: number | null;
 	readonly tokens_input: number | null;

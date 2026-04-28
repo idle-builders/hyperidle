@@ -1,4 +1,5 @@
 import type { Artifact } from "@hyperidle/shared";
+import { artifactDisplayTitle } from "@hyperidle/shared";
 import type { JSX, ReactNode } from "react";
 import { ArtifactCostChip } from "./ArtifactCostChip.js";
 import { ArtifactKindBadge } from "./ArtifactKindBadge.js";
@@ -21,27 +22,6 @@ const TITLE = "text-[20px] font-semibold text-[var(--text-hi)] leading-[1.2] nor
 const DISCUSSION =
 	"bg-[var(--surface-2)] rounded-[var(--r1)] p-[16px] text-[var(--text-lo)] text-[12px]";
 
-function previewTitle(data: Artifact): string {
-	const p = data.preview;
-	if (!p) return data.producingTaskTitle;
-	switch (p.kind) {
-		case "decision":
-			return p.claim;
-		case "drafted_email":
-			return p.subject;
-		case "code_diff":
-			return p.file;
-		case "deck":
-			return p.firstSlideTitle;
-		case "contract":
-			return p.title;
-		case "comm_draft":
-			return p.firstMessage;
-		default:
-			return data.producingTaskTitle;
-	}
-}
-
 export function ArtifactPreview({
 	data,
 	discussion,
@@ -60,7 +40,7 @@ export function ArtifactPreview({
 					<ArtifactTimestamp value={data.createdAt} />
 					<span className="ml-auto text-[var(--text-lo)] normal-case">{data.id}</span>
 				</div>
-				<div className={TITLE}>{previewTitle(data)}</div>
+				<div className={TITLE}>{artifactDisplayTitle(data)}</div>
 			</div>
 			<ArtifactPreviewSurface kind={data.kind} preview={data.preview} size="full" />
 			{discussion ? <div className={DISCUSSION}>{discussion}</div> : null}

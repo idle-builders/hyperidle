@@ -1,17 +1,9 @@
 // L3 RED — formatter contract for ArtifactCostFromSession.
 // Source of truth: docs/architecture-plans/L3.md §3.3.
-//
-// CONFUSION resolved (write-tests step): plan put formatArtifactCost in
-// packages/server/src/services/format-artifact-cost.ts; we lift it to
-// shared so the wire-shape test does not invert layer deps. The function
-// is pure (integers in, display strings out) — no server-only deps.
 
 import { describe, expect, it } from "vitest";
-import {
-	type ArtifactCostFromSession,
-	type ArtifactCostInput,
-	formatArtifactCost,
-} from "../format/artifact-cost.js";
+import { type ArtifactCostInput, formatArtifactCost } from "../format/artifact-cost.js";
+import type { ArtifactCostFromSession } from "../types/artifact.js";
 
 describe("formatArtifactCost — null inputs", () => {
 	it("returns money:null when cost_money_micros is null", () => {

@@ -13,7 +13,8 @@ import {
 	type ArtifactKind,
 	type ArtifactPage,
 	type ArtifactPreview,
-	getArtifactViewProps,
+	artifactDisplayTitle,
+	summarizePreview,
 } from "../types/artifact.js";
 
 describe("ARTIFACT_KINDS closure", () => {
@@ -114,39 +115,37 @@ describe("ArtifactCostFromSession forward-compat shape", () => {
 	});
 });
 
-describe("getArtifactViewProps mapping (exhaustive over 12 kinds)", () => {
-	it("returns either an ArtifactView shape or no_view for every kind", () => {
+describe("summarizePreview (exhaustive over 12 kinds)", () => {
+	it("returns a non-empty string for every recognised kind", () => {
 		const recognised = ARTIFACT_KINDS.filter((k) => k !== "unknown_kind");
 		for (const kind of recognised) {
-			const fixture: Artifact = {
-				id: "x",
-				producingTaskId: "t",
-				producingTaskTitle: "t",
-				kind,
-				preview: makeFixturePreview(kind as Exclude<ArtifactKind, "unknown_kind">),
-				cost: { money: null, tokens: null },
-				threadCount: 0,
-				createdAt: "2026-04-28T00:00:00.000Z",
-			};
-			const out = getArtifactViewProps(fixture);
-			expect(out).toBeDefined();
-			// Either a shape descriptor or the literal "no_view"
-			expect(typeof out === "object" || out === "no_view").toBe(true);
+			const preview = makeFixturePreview(kind as Exclude<ArtifactKind, "unknown_kind">);
+			const out = summarizePreview(preview);
+			expect(out).toBeTypeOf("string");
+			expect((out ?? "").length).toBeGreaterThan(0);
 		}
 	});
 
-	it("unknown_kind always returns no_view", () => {
-		const fixture: Artifact = {
-			id: "x",
-			producingTaskId: "t",
-			producingTaskTitle: "t",
-			kind: "unknown_kind",
+	it("returns null when preview is null", () => {
+		expect(summarizePreview(null)).toBeNull();
+	});
+});
+
+describe("artifactDisplayTitle", () => {
+	it("falls back to producing task title when preview is null", () => {
+		const a: Pick<Artifact, "preview" | "producingTaskTitle"> = {
 			preview: null,
-			cost: { money: null, tokens: null },
-			threadCount: 0,
-			createdAt: "2026-04-28T00:00:00.000Z",
+			producingTaskTitle: "ship invoice",
 		};
-		expect(getArtifactViewProps(fixture)).toBe("no_view");
+		expect(artifactDisplayTitle(a)).toBe("ship invoice");
+	});
+
+	it("uses preview-derived title for kinds that carry one", () => {
+		const a: Pick<Artifact, "preview" | "producingTaskTitle"> = {
+			preview: { kind: "decision", claim: "go with option A", rationale: "cheaper" },
+			producingTaskTitle: "decide",
+		};
+		expect(artifactDisplayTitle(a)).toBe("go with option A");
 	});
 });
 

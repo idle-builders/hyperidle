@@ -10,10 +10,8 @@ export interface ArtifactCostChipProps {
 const CHIP_BASE =
 	"inline-flex items-center gap-[6px] font-mono text-[11px] text-[var(--text-mid)] [font-variant-numeric:tabular-nums]";
 
-const EM_DASH = "—";
-
 export function ArtifactCostChip({ cost, variant = "full" }: ArtifactCostChipProps): JSX.Element {
-	const moneyText = cost.money ?? EM_DASH;
+	const moneyText = cost.money ?? "—";
 	const showTokens = variant === "full" && cost.tokens !== null;
 	return (
 		<span {...dsProps("ArtifactCostChip", "1")} className={CHIP_BASE}>

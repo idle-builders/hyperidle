@@ -92,87 +92,59 @@ export interface CreateArtifactInput {
 	} | null;
 }
 
-// ArtifactView shape descriptor: the 5 view shapes a renderer can request
-// (per approved-design §6). Returned by getArtifactViewProps so callers
-// (ArtifactPreviewSurface, ArtifactEmbed) dispatch identically.
-export type ArtifactViewProps =
-	| { shape: "text_diff"; file: string; hunks: ReadonlyArray<DiffHunk> }
-	| { shape: "deck"; slideCount: number; firstSlideTitle: string }
-	| {
-			shape: "image";
-			imageUrl: string;
-			width: number;
-			height: number;
-	  }
-	| { shape: "key_value"; rows: ReadonlyArray<{ label: string; value: string }> }
-	| { shape: "prose"; title: string; body: string };
-
-export function getArtifactViewProps(artifact: Artifact): ArtifactViewProps | "no_view" {
-	const p = artifact.preview;
-	if (!p) return "no_view";
-	switch (p.kind) {
+// Single-line summary of a preview, used as the body of an embedded artifact
+// reference (no chrome). Returns null when the artifact has no preview yet.
+export function summarizePreview(preview: ArtifactPreview | null): string | null {
+	if (!preview) return null;
+	switch (preview.kind) {
 		case "code_diff":
-			return { shape: "text_diff", file: p.file, hunks: p.hunks };
+			return preview.file;
 		case "deck":
-			return {
-				shape: "deck",
-				slideCount: p.slideCount,
-				firstSlideTitle: p.firstSlideTitle,
-			};
+			return `${preview.slideCount} slides — ${preview.firstSlideTitle}`;
 		case "screenshot":
 		case "design":
-			return {
-				shape: "image",
-				imageUrl: p.imageUrl,
-				width: p.width,
-				height: p.height,
-			};
+			return `${preview.width}×${preview.height}`;
 		case "dashboard":
-			return { shape: "key_value", rows: p.metrics };
+			return preview.metrics.map((m) => `${m.label}: ${m.value}`).join(" · ");
 		case "verification":
-			return {
-				shape: "key_value",
-				rows: [
-					{ label: "Suite", value: p.suite },
-					{ label: "Passed", value: String(p.passed) },
-					{ label: "Failed", value: String(p.failed) },
-				],
-			};
+			return `Suite: ${preview.suite} · Passed: ${preview.passed} · Failed: ${preview.failed}`;
 		case "contract":
-			return {
-				shape: "key_value",
-				rows: [
-					{ label: "Title", value: p.title },
-					{ label: "Parties", value: p.parties.join(", ") },
-				],
-			};
+			return `Title: ${preview.title} · Parties: ${preview.parties.join(", ")}`;
 		case "drafted_email":
-			return {
-				shape: "prose",
-				title: p.subject,
-				body: `To: ${p.to.join(", ")}\n\n${p.bodyExcerpt}`,
-			};
+			return preview.subject;
 		case "decision":
-			return { shape: "prose", title: p.claim, body: p.rationale };
+			return preview.claim;
 		case "data_analysis":
-			return {
-				shape: "prose",
-				title: "Findings",
-				body: p.findings.join("\n"),
-			};
+			return "Findings";
 		case "comm_draft":
-			return {
-				shape: "prose",
-				title: p.channel,
-				body: p.firstMessage,
-			};
+			return preview.channel;
 		case "running_service":
-			return {
-				shape: "key_value",
-				rows: [
-					{ label: "URL", value: p.url },
-					{ label: "Status", value: p.statusLabel },
-				],
-			};
+			return `URL: ${preview.url} · Status: ${preview.statusLabel}`;
+	}
+}
+
+// Display title for an artifact: pulled from the kind-specific preview field
+// when available, otherwise the producing task title. Used by gallery card,
+// stack item, and full preview header so they cannot drift.
+export function artifactDisplayTitle(
+	artifact: Pick<Artifact, "preview" | "producingTaskTitle">,
+): string {
+	const p = artifact.preview;
+	if (!p) return artifact.producingTaskTitle;
+	switch (p.kind) {
+		case "code_diff":
+			return p.file;
+		case "deck":
+			return p.firstSlideTitle;
+		case "contract":
+			return p.title;
+		case "decision":
+			return p.claim;
+		case "drafted_email":
+			return p.subject;
+		case "comm_draft":
+			return p.firstMessage;
+		default:
+			return artifact.producingTaskTitle;
 	}
 }

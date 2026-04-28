@@ -264,7 +264,7 @@ function createApp(options?: AppOptions): Hono {
 		const eventBus = options.eventBus ?? new EventBus();
 		api.route("/bets", createBetRoutes(options.db, eventBus));
 		api.route("/tasks", createTaskRoutes(options.db, eventBus));
-		api.route("/artifacts", createArtifactRoutes(options.db, eventBus));
+		api.route("/artifacts", createArtifactRoutes(options.db));
 		api.route("/knowledge", createKnowledgeRoutes(options.db, eventBus));
 		api.route("/rail", createRailRoutes(options.db, eventBus));
 		api.route("/conversations", createConversationRoutes(options.db, eventBus));

@@ -14,6 +14,7 @@ const FIXTURE = {
 	kind: "code_diff" as const,
 	preview: { kind: "code_diff" as const, file: "src/auth.ts", hunks: [] },
 	cost: { money: "$0.42", tokens: "12.4k" },
+	threadCount: 0,
 	createdAt: "2026-04-28T00:00:00.000Z",
 };
 
@@ -73,8 +74,7 @@ describe("ArtifactStackItem", () => {
 		act(() => {
 			root.render(
 				createElement(ArtifactStackItem, {
-					data: FIXTURE,
-					threadCount: 1,
+					data: { ...FIXTURE, threadCount: 1 },
 					onOpen: () => undefined,
 				}),
 			);
@@ -87,8 +87,7 @@ describe("ArtifactStackItem", () => {
 		act(() => {
 			root.render(
 				createElement(ArtifactStackItem, {
-					data: FIXTURE,
-					threadCount: 0,
+					data: { ...FIXTURE, threadCount: 0 },
 					onOpen: () => undefined,
 				}),
 			);
