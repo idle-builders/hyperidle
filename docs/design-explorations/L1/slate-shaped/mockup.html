@@ -1,0 +1,852 @@
+<!doctype html>
+<html lang="en" data-theme="lucid-dark">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Thread — slate-shaped (Variant C)</title>
+  <link rel="stylesheet" href="../../../../packages/design-system/html/_tokens.css" />
+  <style>
+    /* ───── Layout shell ───── */
+    body {
+      background: var(--surface-0);
+      min-height: 100vh;
+    }
+    #root {
+      max-width: none;
+      margin: 0;
+      padding: 0;
+      min-height: 100vh;
+    }
+    .page {
+      display: flex;
+      flex-direction: column;
+    }
+    .thread-shell {
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      max-height: 100vh;
+    }
+    .thread-shell__body {
+      flex: 1;
+      min-height: 0;
+    }
+
+    /* ───── ThreadShell header (spans canvas + dock) ───── */
+    .thread-shell__head {
+      display: flex;
+      align-items: center;
+      gap: var(--density-gap);
+      padding: var(--density-pad-y) var(--density-page-gutter);
+      border-bottom: 1px solid var(--border-subtle);
+      background: var(--surface-1);
+      flex-wrap: wrap;
+    }
+    .thread-shell__host-label {
+      font-family: var(--mono);
+      font-size: 11px;
+      letter-spacing: var(--tracking-caps);
+      text-transform: uppercase;
+      color: var(--text-lo);
+      font-weight: 500;
+    }
+    .thread-shell__host-name {
+      font-size: var(--density-text);
+      color: var(--text-hi);
+      font-weight: 500;
+    }
+    .thread-shell__divider {
+      width: 1px;
+      height: 16px;
+      background: var(--border-default);
+    }
+    .thread-shell__meta {
+      font-size: 12px;
+      color: var(--text-mid);
+    }
+    .thread-shell__participants {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      margin-left: auto;
+    }
+    .participant-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 2px 8px;
+      background: var(--surface-ghost);
+      border-radius: var(--r-pill);
+      font-size: 11px;
+      color: var(--text-mid);
+    }
+    .participant-pill__dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--surface-5);
+    }
+
+    /* ───── Two-column body: canvas | toolbar | dock ───── */
+    .thread-shell__body {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 200px 360px;
+      flex: 1;
+      min-height: 0;
+    }
+
+    /* ───── ThreadCanvas (left) ───── */
+    .canvas {
+      display: flex;
+      flex-direction: column;
+      gap: var(--density-gap);
+      padding: var(--density-page-gutter);
+      overflow: hidden;
+      background: var(--surface-0);
+      min-width: 0;
+    }
+
+    .canvas__section-label {
+      font-family: var(--mono);
+      font-size: 11px;
+      letter-spacing: var(--tracking-caps);
+      text-transform: uppercase;
+      color: var(--text-lo);
+      font-weight: 500;
+    }
+
+    .canvas__proposer {
+      display: flex;
+      align-items: center;
+      gap: var(--density-gap);
+      padding: var(--density-card-pad);
+      background: var(--surface-1);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--r2);
+    }
+    .canvas__proposer-avatar {
+      width: var(--density-avatar-size);
+      height: var(--density-avatar-size);
+      border-radius: 50%;
+      background: var(--surface-4);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 600;
+      color: var(--text-hi);
+      flex-shrink: 0;
+    }
+    .canvas__proposer-meta {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      flex: 1;
+      min-width: 0;
+    }
+    .canvas__proposer-name {
+      font-size: var(--density-text);
+      font-weight: 500;
+      color: var(--text-hi);
+    }
+    .canvas__proposer-role {
+      font-size: 12px;
+      color: var(--text-mid);
+    }
+    .canvas__proposer-time {
+      font-size: 11px;
+      color: var(--text-lo);
+      font-family: var(--mono);
+      letter-spacing: var(--tracking-caps);
+      text-transform: uppercase;
+    }
+
+    .canvas__reasoning {
+      display: flex;
+      flex-direction: column;
+      gap: var(--density-card-gap);
+      padding: var(--density-card-pad);
+      background: var(--surface-1);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--r2);
+    }
+    .canvas__reasoning-list {
+      display: flex;
+      flex-direction: column;
+      gap: var(--density-card-gap);
+      padding-left: 0;
+      list-style: none;
+    }
+    .canvas__reasoning-list li {
+      display: flex;
+      gap: 8px;
+      font-size: var(--density-text);
+      color: var(--text-hi);
+      line-height: var(--leading-body);
+    }
+    .canvas__reasoning-list li::before {
+      content: counter(reasoning);
+      counter-increment: reasoning;
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--text-lo);
+      letter-spacing: var(--tracking-caps);
+      flex-shrink: 0;
+      width: 16px;
+      padding-top: 2px;
+    }
+    .canvas__reasoning-list {
+      counter-reset: reasoning;
+    }
+
+    /* Artifact slot */
+    .canvas__artifact {
+      display: flex;
+      flex-direction: column;
+      background: var(--surface-1);
+      border: 1px solid var(--border-default);
+      border-radius: var(--r2);
+      overflow: hidden;
+      flex: 1;
+      min-height: 0;
+      min-width: 0;
+    }
+    .canvas__artifact-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: var(--density-gap);
+      padding: 8px var(--density-card-pad);
+      background: var(--surface-2);
+      border-bottom: 1px solid var(--border-subtle);
+    }
+    .canvas__artifact-path {
+      font-family: var(--mono);
+      font-size: 12px;
+      color: var(--text-mid);
+    }
+    .canvas__artifact-stat {
+      display: inline-flex;
+      gap: 12px;
+      font-family: var(--mono);
+      font-size: 11px;
+      letter-spacing: var(--tracking-caps);
+    }
+    .canvas__artifact-stat .add { color: var(--ok); }
+    .canvas__artifact-stat .del { color: var(--danger); }
+
+    .diff {
+      font-family: var(--mono);
+      font-size: 12px;
+      line-height: 1.6;
+      overflow-x: auto;
+      background: var(--surface-1);
+    }
+    .diff__line {
+      display: grid;
+      grid-template-columns: 40px 16px 1fr;
+      align-items: stretch;
+    }
+    .diff__line-num {
+      color: var(--text-lo);
+      text-align: right;
+      padding: 0 8px;
+      user-select: none;
+      border-right: 1px solid var(--border-subtle);
+      font-size: 11px;
+      padding-top: 1px;
+    }
+    .diff__sigil {
+      text-align: center;
+      color: var(--text-lo);
+      padding-top: 1px;
+    }
+    .diff__code {
+      padding: 0 8px;
+      white-space: pre;
+      color: var(--text-hi);
+    }
+    .diff__line--add {
+      background: color-mix(in oklab, var(--ok) 10%, transparent);
+    }
+    .diff__line--add .diff__sigil { color: var(--ok); }
+    .diff__line--del {
+      background: color-mix(in oklab, var(--danger) 10%, transparent);
+    }
+    .diff__line--del .diff__sigil { color: var(--danger); }
+    .diff__line--ctx {
+      background: transparent;
+    }
+    .diff__line--ctx .diff__code { color: var(--text-mid); }
+
+    /* ───── CanvasEdgeToolbar (middle column) ───── */
+    .toolbar {
+      display: flex;
+      flex-direction: column;
+      gap: var(--density-card-gap);
+      padding: var(--density-page-gutter) 12px;
+      background: var(--surface-1);
+      border-left: 1px solid var(--border-subtle);
+      border-right: 1px solid var(--border-subtle);
+      overflow-y: auto;
+    }
+    .toolbar__label {
+      font-family: var(--mono);
+      font-size: 11px;
+      letter-spacing: var(--tracking-caps);
+      text-transform: uppercase;
+      color: var(--text-lo);
+      font-weight: 500;
+      padding-bottom: 4px;
+    }
+    .toolbar__group {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .toolbar__group + .toolbar__group {
+      margin-top: 8px;
+      padding-top: 8px;
+      border-top: 1px solid var(--border-subtle);
+    }
+    .toolbar__group-label {
+      font-family: var(--mono);
+      font-size: 10px;
+      letter-spacing: var(--tracking-caps);
+      text-transform: uppercase;
+      color: var(--text-lo);
+      padding: 0 8px 4px;
+    }
+    .verdict-btn {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 10px;
+      border-radius: var(--r1);
+      font-size: var(--density-text);
+      font-weight: 500;
+      color: var(--text-hi);
+      background: var(--surface-3);
+      border: 1px solid var(--border-default);
+      transition: background var(--motion-fast), border-color var(--motion-fast);
+      text-align: left;
+      width: 100%;
+    }
+    .verdict-btn:hover {
+      background: var(--surface-4);
+      border-color: var(--border-emphasis);
+    }
+    .verdict-btn--primary {
+      background: var(--primary);
+      color: var(--surface-0);
+      border-color: var(--primary);
+    }
+    .verdict-btn--primary:hover {
+      filter: brightness(0.92);
+    }
+    .verdict-btn--danger {
+      background: color-mix(in oklab, var(--danger) 14%, transparent);
+      color: var(--danger);
+      border-color: color-mix(in oklab, var(--danger) 30%, transparent);
+    }
+    .verdict-btn--quiet {
+      background: transparent;
+      color: var(--text-mid);
+      border-color: var(--border-subtle);
+      font-weight: 400;
+      padding: 6px 10px;
+      font-size: 12px;
+    }
+    .verdict-btn--quiet:hover {
+      background: var(--surface-ghost);
+      color: var(--text-hi);
+    }
+    .verdict-btn__glyph {
+      font-family: var(--mono);
+      font-size: 11px;
+      width: 16px;
+      text-align: center;
+      flex-shrink: 0;
+      letter-spacing: 0;
+    }
+
+    /* ───── ThreadDock (right) ───── */
+    .dock {
+      display: flex;
+      flex-direction: column;
+      background: var(--surface-1);
+      min-height: 0;
+    }
+    .dock__head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: var(--density-pad-y) var(--density-card-pad);
+      border-bottom: 1px solid var(--border-subtle);
+      flex-shrink: 0;
+    }
+    .dock__title {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .dock__title-label {
+      font-family: var(--mono);
+      font-size: 11px;
+      letter-spacing: var(--tracking-caps);
+      text-transform: uppercase;
+      color: var(--text-lo);
+      font-weight: 500;
+    }
+    .dock__count {
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--text-mid);
+      padding: 1px 6px;
+      background: var(--surface-ghost);
+      border-radius: var(--r-pill);
+    }
+    .dock__collapse {
+      color: var(--text-lo);
+      font-size: 14px;
+      padding: 4px 6px;
+      border-radius: var(--r1);
+    }
+    .dock__collapse:hover { background: var(--surface-ghost); color: var(--text-hi); }
+
+    .dock__stream {
+      flex: 1;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+    }
+    .dock__msg {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      padding: 10px var(--density-card-pad);
+      border-bottom: 1px solid var(--border-subtle);
+    }
+    .dock__msg--head {
+      background: var(--surface-2);
+    }
+    .dock__msg--unread {
+      border-left: 2px solid var(--primary);
+      padding-left: calc(var(--density-card-pad) - 2px);
+    }
+    .dock__msg-meta {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .dock__msg-avatar {
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background: var(--surface-4);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 10px;
+      font-weight: 600;
+      color: var(--text-hi);
+      flex-shrink: 0;
+    }
+    .dock__msg-sender {
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--text-hi);
+    }
+    .dock__msg-role {
+      font-size: 11px;
+      color: var(--text-lo);
+    }
+    .dock__msg-time {
+      margin-left: auto;
+      font-size: 11px;
+      color: var(--text-lo);
+      font-family: var(--mono);
+      letter-spacing: var(--tracking-caps);
+    }
+    .dock__msg-body {
+      font-size: 12px;
+      color: var(--text-hi);
+      line-height: var(--leading-body);
+      padding-left: 26px;
+    }
+    .dock__msg--head .dock__msg-body {
+      color: var(--text-mid);
+      font-style: normal;
+    }
+    .dock__msg-tag {
+      font-family: var(--mono);
+      font-size: 10px;
+      color: var(--text-lo);
+      letter-spacing: var(--tracking-caps);
+      text-transform: uppercase;
+    }
+
+    .dock__composer {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px var(--density-card-pad);
+      border-top: 1px solid var(--border-default);
+      flex-shrink: 0;
+      background: var(--surface-1);
+    }
+    .dock__composer-input {
+      flex: 1;
+      padding: 8px 10px;
+      background: var(--surface-2);
+      border: 1px solid var(--border-default);
+      border-radius: var(--r1);
+      font-size: var(--density-text);
+      color: var(--text-hi);
+    }
+    .dock__composer-input::placeholder { color: var(--text-lo); }
+    .dock__composer-send {
+      padding: 8px 12px;
+      background: var(--surface-3);
+      border: 1px solid var(--border-default);
+      border-radius: var(--r1);
+      font-size: 12px;
+      color: var(--text-mid);
+    }
+
+    /* ───── StatusChip (inlined) ───── */
+    .status-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 2px 8px;
+      border-radius: var(--r-pill);
+      font-family: var(--mono);
+      font-size: 11px;
+      letter-spacing: var(--tracking-caps);
+      text-transform: uppercase;
+      font-weight: 500;
+      line-height: 1.4;
+      white-space: nowrap;
+    }
+    .status-chip .dot {
+      width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0;
+    }
+    .status-chip--blocked {
+      background: color-mix(in oklab, var(--danger) 14%, transparent);
+      color: var(--danger);
+    }
+    .status-chip--blocked .dot { background: var(--danger); }
+    .status-chip--review {
+      background: color-mix(in oklab, var(--primary) 14%, transparent);
+      color: var(--primary);
+    }
+    .status-chip--review .dot { background: var(--primary); }
+
+    /* ───── Tag (inlined) ───── */
+    .tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 2px 8px;
+      border-radius: var(--r-pill);
+      font-size: 11px;
+      font-family: var(--mono);
+      letter-spacing: 0.03em;
+      background: var(--surface-ghost);
+      color: var(--text-mid);
+    }
+
+    /* ───── Secondary state: chat-shape collapse ───── */
+    .secondary-section {
+      padding: 24px var(--density-page-gutter);
+      border-top: 4px solid var(--surface-3);
+      background: var(--surface-0);
+    }
+    .secondary-section__label {
+      font-family: var(--mono);
+      font-size: 11px;
+      letter-spacing: var(--tracking-caps);
+      text-transform: uppercase;
+      color: var(--text-lo);
+      margin-bottom: 12px;
+    }
+    .secondary-section__note {
+      font-size: 12px;
+      color: var(--text-mid);
+      margin-bottom: 12px;
+      max-width: 720px;
+      line-height: var(--leading-body);
+    }
+    .chat-collapse {
+      max-width: 720px;
+      margin: 0;
+      background: var(--surface-1);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--r2);
+      overflow: hidden;
+    }
+    .chat-collapse .dock__head {
+      background: var(--surface-2);
+    }
+    .chat-collapse .dock__stream { max-height: 280px; }
+  </style>
+</head>
+<body>
+  <div id="root">
+    <div class="page">
+
+      <div class="thread-shell">
+      <!-- ThreadShell header (spans columns) -->
+      <div class="thread-shell__head" role="banner">
+        <span class="thread-shell__host-label">On bet</span>
+        <span class="thread-shell__host-name">Pricing overhaul (Nimmly)</span>
+        <span class="thread-shell__divider" aria-hidden="true"></span>
+        <span class="status-chip status-chip--blocked" title="Blocking — agent is paused">
+          <span class="dot"></span>BLOCKING
+        </span>
+        <span class="status-chip status-chip--review">
+          <span class="dot"></span>REVIEW
+        </span>
+        <span class="thread-shell__meta">Opened 14 min ago · Last activity 2 min ago</span>
+        <div class="thread-shell__participants" aria-label="Participants">
+          <span class="participant-pill">
+            <span class="participant-pill__dot" style="background: var(--ok);"></span>
+            Nimmly Backend Builder
+          </span>
+          <span class="participant-pill">
+            <span class="participant-pill__dot" style="background: var(--primary);"></span>
+            CPO
+          </span>
+        </div>
+      </div>
+
+      <!-- Body grid: canvas | toolbar | dock -->
+      <div class="thread-shell__body">
+
+        <!-- ─────────── CANVAS ─────────── -->
+        <section class="canvas" aria-label="Artifact canvas">
+          <div class="canvas__section-label">Proposer</div>
+          <div class="canvas__proposer">
+            <div class="canvas__proposer-avatar">NB</div>
+            <div class="canvas__proposer-meta">
+              <span class="canvas__proposer-name">Nimmly Backend Builder</span>
+              <span class="canvas__proposer-role">Builder agent · session-217 · cost-cap 31% used</span>
+            </div>
+            <span class="canvas__proposer-time">14 min ago</span>
+          </div>
+
+          <div class="canvas__section-label">Reasoning</div>
+          <div class="canvas__reasoning">
+            <ol class="canvas__reasoning-list">
+              <li>Verified margin calc against the three signed enterprise contracts in <span style="font-family: var(--mono); color: var(--text-mid);">/data/contracts/2026Q1/</span> — values match within 0.01% rounding tolerance.</li>
+              <li>Ran integration tests <span style="font-family: var(--mono); color: var(--text-mid);">pricing-engine/test/calculate.spec.ts</span> + the staging smoke suite. 142/142 pass; coverage 94.2%.</li>
+              <li>Staging-only deploy. Production gated on the next review (this thread). Rollback procedure documented in <span style="font-family: var(--mono); color: var(--text-mid);">RUNBOOK.md#pricing-rollback</span>.</li>
+            </ol>
+          </div>
+
+          <div class="canvas__section-label">Artifact</div>
+          <div class="canvas__artifact" role="region" aria-label="Artifact: pricing-engine diff" tabindex="0">
+            <div class="canvas__artifact-head">
+              <span class="canvas__artifact-path">pricing-engine/src/calculate.ts</span>
+              <span class="canvas__artifact-stat">
+                <span class="add">+24</span>
+                <span class="del">−16</span>
+                <span style="color: var(--text-lo);">40 lines</span>
+              </span>
+            </div>
+            <div class="diff" aria-label="text_diff artifact preview">
+              <div class="diff__line diff__line--ctx"><span class="diff__line-num">42</span><span class="diff__sigil"> </span><span class="diff__code">export function calculateMargin(contract: Contract, units: number): number {</span></div>
+              <div class="diff__line diff__line--del"><span class="diff__line-num">43</span><span class="diff__sigil">-</span><span class="diff__code">  const baseRate = contract.tier === "enterprise" ? 0.18 : 0.22;</span></div>
+              <div class="diff__line diff__line--del"><span class="diff__line-num">44</span><span class="diff__sigil">-</span><span class="diff__code">  return units * baseRate * contract.unitPrice;</span></div>
+              <div class="diff__line diff__line--add"><span class="diff__line-num">43</span><span class="diff__sigil">+</span><span class="diff__code">  const tierConfig = MARGIN_TIERS[contract.tier];</span></div>
+              <div class="diff__line diff__line--add"><span class="diff__line-num">44</span><span class="diff__sigil">+</span><span class="diff__code">  if (!tierConfig) throw new PricingError(`Unknown tier: ${contract.tier}`);</span></div>
+              <div class="diff__line diff__line--add"><span class="diff__line-num">45</span><span class="diff__sigil">+</span><span class="diff__code">  const volumeDiscount = computeVolumeDiscount(units, tierConfig.thresholds);</span></div>
+              <div class="diff__line diff__line--add"><span class="diff__line-num">46</span><span class="diff__sigil">+</span><span class="diff__code">  return units * tierConfig.baseRate * contract.unitPrice * (1 - volumeDiscount);</span></div>
+              <div class="diff__line diff__line--ctx"><span class="diff__line-num">47</span><span class="diff__sigil"> </span><span class="diff__code">}</span></div>
+              <div class="diff__line diff__line--ctx"><span class="diff__line-num">48</span><span class="diff__sigil"> </span><span class="diff__code"></span></div>
+              <div class="diff__line diff__line--add"><span class="diff__line-num">49</span><span class="diff__sigil">+</span><span class="diff__code">function computeVolumeDiscount(units: number, thresholds: Threshold[]): number {</span></div>
+              <div class="diff__line diff__line--add"><span class="diff__line-num">50</span><span class="diff__sigil">+</span><span class="diff__code">  const tier = thresholds.findLast((t) => units >= t.minUnits);</span></div>
+              <div class="diff__line diff__line--add"><span class="diff__line-num">51</span><span class="diff__sigil">+</span><span class="diff__code">  return tier?.discount ?? 0;</span></div>
+              <div class="diff__line diff__line--add"><span class="diff__line-num">52</span><span class="diff__sigil">+</span><span class="diff__code">}</span></div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ─────────── CanvasEdgeToolbar ─────────── -->
+        <aside class="toolbar" aria-label="Verdict actions">
+          <div class="toolbar__label">Verdict</div>
+
+          <div class="toolbar__group">
+            <button type="button" class="verdict-btn verdict-btn--primary">
+              <span class="verdict-btn__glyph">A</span>
+              Approve
+            </button>
+            <button type="button" class="verdict-btn">
+              <span class="verdict-btn__glyph">A+</span>
+              Approve with comments
+            </button>
+            <button type="button" class="verdict-btn">
+              <span class="verdict-btn__glyph">RC</span>
+              Request changes
+            </button>
+            <button type="button" class="verdict-btn">
+              <span class="verdict-btn__glyph">E</span>
+              Edit
+            </button>
+            <button type="button" class="verdict-btn verdict-btn--danger">
+              <span class="verdict-btn__glyph">R</span>
+              Reject
+            </button>
+          </div>
+
+          <div class="toolbar__group">
+            <div class="toolbar__group-label">Discuss</div>
+            <button type="button" class="verdict-btn verdict-btn--quiet">
+              <span class="verdict-btn__glyph">C</span>
+              Comment
+            </button>
+            <button type="button" class="verdict-btn verdict-btn--quiet">
+              <span class="verdict-btn__glyph">IC</span>
+              Inline comment
+            </button>
+            <button type="button" class="verdict-btn verdict-btn--quiet">
+              <span class="verdict-btn__glyph">RP</span>
+              Reply
+            </button>
+          </div>
+
+          <div class="toolbar__group">
+            <div class="toolbar__group-label">Defer</div>
+            <button type="button" class="verdict-btn verdict-btn--quiet">
+              <span class="verdict-btn__glyph">S</span>
+              Snooze
+            </button>
+            <button type="button" class="verdict-btn verdict-btn--quiet">
+              <span class="verdict-btn__glyph">EC</span>
+              Escalate
+            </button>
+          </div>
+        </aside>
+
+        <!-- ─────────── DOCK ─────────── -->
+        <aside class="dock" aria-label="Discussion">
+          <div class="dock__head">
+            <div class="dock__title">
+              <span class="dock__title-label">Discussion</span>
+              <span class="dock__count">4</span>
+            </div>
+            <button type="button" class="dock__collapse" aria-label="Collapse dock">›</button>
+          </div>
+
+          <div class="dock__stream">
+
+            <!-- Compact echo of the canvas head -->
+            <div class="dock__msg dock__msg--head">
+              <div class="dock__msg-meta">
+                <span class="dock__msg-avatar">NB</span>
+                <span class="dock__msg-sender">Nimmly Backend Builder</span>
+                <span class="dock__msg-tag">REVIEW</span>
+                <span class="dock__msg-time">14M</span>
+              </div>
+              <div class="dock__msg-body">Deploy pricing-engine v1.4.2 to staging. See canvas for diff + reasoning.</div>
+            </div>
+
+            <!-- Plain reply 1 -->
+            <div class="dock__msg">
+              <div class="dock__msg-meta">
+                <span class="dock__msg-avatar" style="background: var(--surface-5);">QA</span>
+                <span class="dock__msg-sender">Nimmly QA Reviewer</span>
+                <span class="dock__msg-role">· agent</span>
+                <span class="dock__msg-time">8M</span>
+              </div>
+              <div class="dock__msg-body">Margin calc matches the three reference contracts. The new <span style="font-family: var(--mono); color: var(--text-mid);">PricingError</span> branch is covered by the failing-input test I added in PR-218.</div>
+            </div>
+
+            <!-- Plain reply 2 -->
+            <div class="dock__msg">
+              <div class="dock__msg-meta">
+                <span class="dock__msg-avatar" style="background: var(--surface-4);">CS</span>
+                <span class="dock__msg-sender">Chief of Staff</span>
+                <span class="dock__msg-role">· agent</span>
+                <span class="dock__msg-time">5M</span>
+              </div>
+              <div class="dock__msg-body">Heads up — the prior pricing deploy on Mar 14 caused a 2-hour billing freeze. The rollback runbook reference here is the same one that worked then.</div>
+            </div>
+
+            <!-- Plain reply 3 — unread -->
+            <div class="dock__msg dock__msg--unread">
+              <div class="dock__msg-meta">
+                <span class="dock__msg-avatar" style="background: var(--surface-6);">NB</span>
+                <span class="dock__msg-sender">Nimmly Backend Builder</span>
+                <span class="dock__msg-role">· agent</span>
+                <span class="dock__msg-time">2M</span>
+              </div>
+              <div class="dock__msg-body">Updated: the volume-discount thresholds now read from <span style="font-family: var(--mono); color: var(--text-mid);">MARGIN_TIERS</span> instead of being inlined. Diff is current.</div>
+            </div>
+
+          </div>
+
+          <div class="dock__composer">
+            <input class="dock__composer-input" placeholder="Reply…" aria-label="Reply" />
+            <button type="button" class="dock__composer-send">Send</button>
+          </div>
+        </aside>
+
+      </div>
+      </div>
+
+      <!-- ─────── Secondary state: chat-shape thread (no review) ─────── -->
+      <section class="secondary-section">
+        <div class="secondary-section__label">Secondary state · chat-shape thread (no rich head)</div>
+        <p class="secondary-section__note">
+          When a thread has no <span style="color: var(--text-hi);">review</span> or <span style="color: var(--text-hi);">questionnaire</span> message, slate-shaped degrades to a single column. The canvas is suppressed (rendering "no artifact" copy would be permanent dead chrome on ~40% of threads); the dock takes the full content width up to 720px and the toolbar is removed. Composer still anchors the bottom; ThreadShell chrome still anchors the top.
+        </p>
+
+        <div class="chat-collapse">
+          <div class="thread-shell__head" style="border-bottom: 1px solid var(--border-subtle);">
+            <span class="thread-shell__host-label">On task</span>
+            <span class="thread-shell__host-name">Implement Stripe webhook handler</span>
+            <span class="thread-shell__divider" aria-hidden="true"></span>
+            <span class="status-chip status-chip--blocked"><span class="dot"></span>BLOCKING</span>
+            <span class="thread-shell__meta">Opened 9 min ago</span>
+          </div>
+
+          <div class="dock__head">
+            <div class="dock__title">
+              <span class="dock__title-label">Discussion</span>
+              <span class="dock__count">2</span>
+            </div>
+          </div>
+
+          <div class="dock__stream">
+            <div class="dock__msg">
+              <div class="dock__msg-meta">
+                <span class="dock__msg-avatar">BB</span>
+                <span class="dock__msg-sender">Backend Builder</span>
+                <span class="dock__msg-role">· agent</span>
+                <span class="dock__msg-time">9M</span>
+              </div>
+              <div class="dock__msg-body">I'm stuck — Coolify deploy keeps timing out. The webhook signing keys might be wrong. Can you check?</div>
+            </div>
+            <div class="dock__msg dock__msg--unread">
+              <div class="dock__msg-meta">
+                <span class="dock__msg-avatar" style="background: var(--surface-5);">F</span>
+                <span class="dock__msg-sender">Founder</span>
+                <span class="dock__msg-role">· you</span>
+                <span class="dock__msg-time">3M</span>
+              </div>
+              <div class="dock__msg-body">Yes — they're in <span style="font-family: var(--mono); color: var(--text-mid);">.env.production</span> under <span style="font-family: var(--mono); color: var(--text-mid);">STRIPE_WEBHOOK_SECRET</span>. Should I rotate them?</div>
+            </div>
+          </div>
+
+          <div class="dock__composer">
+            <input class="dock__composer-input" placeholder="Reply…" aria-label="Reply" />
+            <button type="button" class="dock__composer-send">Send</button>
+          </div>
+        </div>
+      </section>
+
+    </div>
+  </div>
+</body>
+</html>

@@ -3,8 +3,8 @@ import {
 	createTestDb,
 	type HyperIdleDb,
 	items,
+	messages,
 	products,
-	responses,
 	teams,
 	threads,
 } from "@hyperidle/db";
@@ -61,10 +61,26 @@ describe("Conversations Endpoints (E2)", () => {
 		it("lists threads sorted by recency (default)", async () => {
 			const now = Date.now();
 			db.insert(threads)
-				.values({ id: "t-old", kind: "chat", createdAt: new Date(now - 10000).toISOString() })
+				.values({
+					id: "t-old",
+					hostKind: "task",
+					hostId: "task-1",
+					initiatorId: "agent-1",
+					participants: JSON.stringify(["agent-1"]),
+					lastActiveAt: new Date(now - 10000).toISOString(),
+					createdAt: new Date(now - 10000).toISOString(),
+				})
 				.run();
 			db.insert(threads)
-				.values({ id: "t-new", kind: "review", createdAt: new Date(now).toISOString() })
+				.values({
+					id: "t-new",
+					hostKind: "task",
+					hostId: "task-1",
+					initiatorId: "agent-1",
+					participants: JSON.stringify(["agent-1"]),
+					lastActiveAt: new Date(now).toISOString(),
+					createdAt: new Date(now).toISOString(),
+				})
 				.run();
 
 			const res = await app.request("/api/conversations", { headers: authHeaders() });
@@ -82,10 +98,26 @@ describe("Conversations Endpoints (E2)", () => {
 
 		it("sorts by attention_score when requested", async () => {
 			db.insert(threads)
-				.values({ id: "t-low", kind: "chat", createdAt: new Date().toISOString() })
+				.values({
+					id: "t-low",
+					hostKind: "task",
+					hostId: "task-1",
+					initiatorId: "agent-1",
+					participants: JSON.stringify(["agent-1"]),
+					lastActiveAt: new Date().toISOString(),
+					createdAt: new Date().toISOString(),
+				})
 				.run();
 			db.insert(threads)
-				.values({ id: "t-high", kind: "review", createdAt: new Date().toISOString() })
+				.values({
+					id: "t-high",
+					hostKind: "task",
+					hostId: "task-1",
+					initiatorId: "agent-1",
+					participants: JSON.stringify(["agent-1"]),
+					lastActiveAt: new Date().toISOString(),
+					createdAt: new Date().toISOString(),
+				})
 				.run();
 
 			db.insert(items)
@@ -122,11 +154,16 @@ describe("Conversations Endpoints (E2)", () => {
 
 		it("paginates correctly", async () => {
 			for (let i = 0; i < 5; i++) {
+				const ts = new Date(Date.now() - i * 1000).toISOString();
 				db.insert(threads)
 					.values({
 						id: `t-${i}`,
-						kind: "chat",
-						createdAt: new Date(Date.now() - i * 1000).toISOString(),
+						hostKind: "task",
+						hostId: "task-1",
+						initiatorId: "agent-1",
+						participants: JSON.stringify(["agent-1"]),
+						lastActiveAt: ts,
+						createdAt: ts,
 					})
 					.run();
 			}
@@ -161,7 +198,15 @@ describe("Conversations Endpoints (E2)", () => {
 	describe("GET /api/conversations/:threadId", () => {
 		it("returns thread with items and responses", async () => {
 			db.insert(threads)
-				.values({ id: "thread-1", kind: "review", createdAt: new Date().toISOString() })
+				.values({
+					id: "thread-1",
+					hostKind: "task",
+					hostId: "task-1",
+					initiatorId: "agent-1",
+					participants: JSON.stringify(["agent-1"]),
+					lastActiveAt: new Date().toISOString(),
+					createdAt: new Date().toISOString(),
+				})
 				.run();
 			db.insert(items)
 				.values({
@@ -179,12 +224,32 @@ describe("Conversations Endpoints (E2)", () => {
 					createdAt: new Date(Date.now() + 1000).toISOString(),
 				})
 				.run();
-			db.insert(responses)
+			// L1a: legacy `responses` rows project as `verdict`-typed messages
+			// whose `legacy_item_id` ties them back to the source item. The
+			// route still returns the legacy `responses` shape one release.
+			const verdictTime = new Date().toISOString();
+			db.insert(agents)
+				.values({
+					id: "approver-1",
+					name: "Approver",
+					role: "founder",
+					status: "active",
+					createdAt: verdictTime,
+				})
+				.run();
+			db.insert(messages)
 				.values({
 					id: "resp-1",
-					itemId: "item-1",
-					decision: "approve",
-					respondedAt: new Date().toISOString(),
+					senderId: "approver-1",
+					threadId: "thread-1",
+					type: "verdict",
+					payload: JSON.stringify({
+						decision: "approve",
+						resolvesMessageId: "item-1",
+					}),
+					clientKey: "__l1_legacy_resp-1",
+					legacyItemId: "item-1",
+					createdAt: verdictTime,
 				})
 				.run();
 
@@ -219,7 +284,15 @@ describe("Conversations Endpoints (E2)", () => {
 	describe("POST /api/conversations/items", () => {
 		beforeEach(() => {
 			db.insert(threads)
-				.values({ id: "thread-1", kind: "review", createdAt: new Date().toISOString() })
+				.values({
+					id: "thread-1",
+					hostKind: "task",
+					hostId: "task-1",
+					initiatorId: "agent-1",
+					participants: JSON.stringify(["agent-1"]),
+					lastActiveAt: new Date().toISOString(),
+					createdAt: new Date().toISOString(),
+				})
 				.run();
 		});
 
@@ -299,7 +372,15 @@ describe("Conversations Endpoints (E2)", () => {
 	describe("POST /api/conversations/responses", () => {
 		beforeEach(() => {
 			db.insert(threads)
-				.values({ id: "thread-1", kind: "review", createdAt: new Date().toISOString() })
+				.values({
+					id: "thread-1",
+					hostKind: "task",
+					hostId: "task-1",
+					initiatorId: "agent-1",
+					participants: JSON.stringify(["agent-1"]),
+					lastActiveAt: new Date().toISOString(),
+					createdAt: new Date().toISOString(),
+				})
 				.run();
 			db.insert(items)
 				.values({
@@ -410,7 +491,15 @@ describe("Conversations Endpoints (E2)", () => {
 	describe("Founder routing integration", () => {
 		it("agent with role 'growth' -> item tagged CEO", async () => {
 			db.insert(threads)
-				.values({ id: "thread-1", kind: "review", createdAt: new Date().toISOString() })
+				.values({
+					id: "thread-1",
+					hostKind: "task",
+					hostId: "task-1",
+					initiatorId: "agent-1",
+					participants: JSON.stringify(["agent-1"]),
+					lastActiveAt: new Date().toISOString(),
+					createdAt: new Date().toISOString(),
+				})
 				.run();
 			db.insert(agents)
 				.values({
@@ -439,7 +528,15 @@ describe("Conversations Endpoints (E2)", () => {
 
 		it("agent with role 'builder' -> item tagged CPO", async () => {
 			db.insert(threads)
-				.values({ id: "thread-1", kind: "review", createdAt: new Date().toISOString() })
+				.values({
+					id: "thread-1",
+					hostKind: "task",
+					hostId: "task-1",
+					initiatorId: "agent-1",
+					participants: JSON.stringify(["agent-1"]),
+					lastActiveAt: new Date().toISOString(),
+					createdAt: new Date().toISOString(),
+				})
 				.run();
 			db.insert(agents)
 				.values({

@@ -18,8 +18,6 @@ This is the layer where:
 - **Bet** is distinguished from Task and Story
 - **Cost** is distinguished from Duration
 
-The L-track founder reframe — *"every discussion is a thread; every knowledge piece is a block; every output is an artifact"* — is exactly the kind of conceptual lock-down this skill produces. Track-L L1/L2/L3/L4/L5 all begin with **concept-doc updates** as the first AC; this skill is what writes them.
-
 ## When this runs
 
 - **In the pipeline:** step 0 — before `/design`, before `/architecture`. The very first skill on any story that introduces or reshapes a primitive, a domain concept, or a load-bearing noun in the system.

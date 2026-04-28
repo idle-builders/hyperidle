@@ -33,7 +33,17 @@ describe("Daily Digest (E7)", () => {
 				createdAt: ts,
 			})
 			.run();
-		db.insert(threads).values({ id: "thread-1", kind: "review", createdAt: ts }).run();
+		db.insert(threads)
+			.values({
+				id: "thread-1",
+				hostKind: "task",
+				hostId: "task-1",
+				initiatorId: "agent-1",
+				participants: JSON.stringify(["agent-1"]),
+				lastActiveAt: ts,
+				createdAt: ts,
+			})
+			.run();
 	}
 
 	function createQueuedItem(id: string, createdAt: Date): void {

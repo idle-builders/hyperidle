@@ -71,7 +71,7 @@ The layering is strict. Arrows point down (dependency direction). The Human Inte
 
 ### 2.1 Primitive Store
 
-**What it is.** The single source of truth for all process state. Every object in the system — Bets, Tasks, Sessions, Teams, Routines, Inbox messages, Items, Responses — lives here.
+**What it is.** The single source of truth for all process state. Every object in the system — Bets, Tasks, Sessions, Teams, Routines, Threads, Messages, Items — lives here. (The legacy "inbox messages" abstraction is folded into the Thread + Message model defined in HUMAN_INTERFACE_LAYER.md §4.5; the legacy `responses` table is dropped, with verdict-payload messages replacing it.)
 
 **Technology.** SQLite by default. One database file per factory instance (`hyperidle.db`). For deployments exceeding ~50 agents or needing concurrent write throughput beyond SQLite's comfort zone, a Postgres adapter is available (same schema, swapped connection).
 
@@ -97,11 +97,37 @@ routines (id, owner_agent_id, trigger_type, trigger_config, skill_id,
           done_condition, state_key, delegation_allowed, human_review,
           autonomy_level, silent, active, last_run_at, next_run_at)
 
--- Inbox / messaging
-messages (id, sender_id, recipient_id, thread_id, subject, body,
-          file_leases, created_at)
+-- Threads & messages — see HUMAN_INTERFACE_LAYER.md §4.5 (Thread primitive)
+-- Schema below is illustrative; the concept doc is the source of truth.
+-- Per §4.5 contracts: a thread attaches to exactly one host (kind + id),
+-- messages carry a typed payload (plain | review | questionnaire — closed
+-- vocabulary), payloads are immutable after persistence, and "review/chat/
+-- coach" are NOT thread types — they are message shapes (review,
+-- questionnaire, plain) and thread configurations (DM/coach/feed).
+messages (id, sender_id, thread_id, type, payload, client_key,
+          deleted_at, redacted_at, created_at)
+       -- type ∈ {plain, review, questionnaire, verdict} — closed enum,
+       -- exhaustively dispatched at the renderer; new types require
+       -- concept-doc update first
+       -- payload is JSON typed by `type`; immutable after insert
+       -- a `verdict` message carries decision + resolvesMessageId
+       -- (redaction is a structured replacement, not an in-place edit;
+       --  redacted_at marks the redaction event)
+       -- (thread_id, sender_id, client_key) UNIQUE — dedupes at-least-once retries
 
-threads (id, kind, pinned, participants, created_at)
+threads (id, host_kind, host_id, initiator_id, participants, pinned,
+         resolved_at, last_active_at, created_at)
+       -- host_kind ∈ {bet, task, knowledge_item, artifact, agent, user,
+       --              team, factory}
+       -- closed enum; new hosts require concept-doc update first
+       -- `kind` (review/chat/coach) is intentionally absent — the founder
+       -- reframe at the post-journey-v3 review removed thread-level kinds.
+       -- `blocking` and `sync_mode` are intentionally absent — both are
+       -- derived from "can the participating agent continue to work
+       -- without an answer in this thread?" (HIL §4.5.5).
+       -- Hosts cannot be hard-deleted while threads reference them
+       -- (soft-archive only); host immutable except user → factory re-home
+       -- on user offboarding (HIL §4.5.6).
 
 -- The universal item/response pair (human interface contract)
 items (id, source_agent_id, layer, verb, kind, title, body,

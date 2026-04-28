@@ -86,7 +86,17 @@ function seed(db: HyperIdleDb): void {
 		})
 		.run();
 	const taskThreadId = "thread-task-1";
-	db.insert(threads).values({ id: taskThreadId, kind: "task", createdAt: NOW }).run();
+	db.insert(threads)
+		.values({
+			id: taskThreadId,
+			hostKind: "task",
+			hostId: "task-1",
+			initiatorId: "agent-1",
+			participants: JSON.stringify(["agent-1"]),
+			lastActiveAt: NOW,
+			createdAt: NOW,
+		})
+		.run();
 	db.insert(tasks)
 		.values({
 			id: "task-1",

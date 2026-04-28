@@ -210,8 +210,11 @@ describe("Agent Endpoints (E6)", () => {
 			db.insert(threads)
 				.values({
 					id: "thread-1",
-					kind: "direct",
+					hostKind: "agent",
+					hostId: "agent-1",
+					initiatorId: "agent-2",
 					participants: JSON.stringify(["agent-2", "agent-1"]),
+					lastActiveAt: new Date().toISOString(),
 					createdAt: new Date().toISOString(),
 				})
 				.run();
@@ -219,9 +222,10 @@ describe("Agent Endpoints (E6)", () => {
 				.values({
 					id: "msg-1",
 					senderId: "agent-2",
-					recipientId: "agent-1",
 					threadId: "thread-1",
-					body: "Hello!",
+					type: "plain",
+					payload: JSON.stringify({ text: "Hello!" }),
+					clientKey: "msg-1",
 					createdAt: new Date().toISOString(),
 				})
 				.run();
@@ -251,14 +255,15 @@ describe("Agent Endpoints (E6)", () => {
 			expect(res.status).toBe(201);
 
 			const body = (await res.json()) as Record<string, unknown>;
-			expect(body.body).toBe("Hey there!");
-			expect(body.recipientId).toBe("agent-1");
+			// L1a: messages now carry payload (JSON), not body/recipientId.
+			expect(typeof body.payload).toBe("string");
 			expect(body.senderId).toBe("agent-2");
 
-			// Verify thread was created
+			// Verify thread was created with the new shape.
 			const allThreads = db.select().from(threads).all();
 			expect(allThreads).toHaveLength(1);
-			expect(allThreads[0].kind).toBe("direct");
+			expect(allThreads[0].hostKind).toBe("agent");
+			expect(allThreads[0].hostId).toBe("agent-1");
 		});
 
 		it("reuses existing thread for same sender/recipient pair", async () => {

@@ -57,6 +57,11 @@ export type {
 	SessionOutcome,
 	SessionStartedEvent,
 	TaskStateChangedEvent,
+	ThreadArchivedEvent,
+	ThreadCreatedEvent,
+	ThreadMessageAppendedEvent,
+	ThreadReopenedEvent,
+	ThreadResolvedEvent,
 	ToolCallRecordedEvent,
 	WildcardHandler,
 	WildcardType,
@@ -100,6 +105,40 @@ export {
 	scrubInlineTokens,
 	TK_TOKEN_RE,
 } from "./redact.js";
+export type {
+	AgentSessionStateSnapshot,
+	ArtifactKind,
+	ArtifactRef,
+	HeadCollapseResult,
+	HostKind,
+	IdentityId,
+	InlineRef,
+	Message,
+	MessageId,
+	MessageType,
+	PlainPayload,
+	QuestionnairePayload,
+	RedactedPayload,
+	ReviewPayload,
+	Thread,
+	ThreadConfiguration,
+	ThreadId,
+	VerdictDecision,
+	VerdictPayload,
+} from "./thread.js";
+// L1a — Thread primitive (concept §4.5, plan §4). Stub during write-tests
+// phase; functions throw "Not implemented" until the green phase fills
+// them in.
+export {
+	ARTIFACT_KINDS,
+	classifyThreadConfiguration,
+	exhaustiveAssert,
+	HOST_KINDS,
+	headCollapsePredicate,
+	isBlocking,
+	MESSAGE_TYPES,
+	VERDICT_DECISIONS,
+} from "./thread.js";
 export { decode, encode } from "./toon-codec.js";
 export { ToonParseError } from "./toon-errors.js";
 export type {

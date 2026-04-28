@@ -787,7 +787,17 @@ describe("Session Provisioning (D5)", () => {
 			seedDomain(db, { taskRiskTier: "medium" });
 
 			// Pre-attach a review thread to the task so the creator has somewhere to file.
-			db.insert(threads).values({ id: "thread-1", kind: "review", createdAt: NOW }).run();
+			db.insert(threads)
+				.values({
+					id: "thread-1",
+					hostKind: "task",
+					hostId: "task-1",
+					initiatorId: "agent-1",
+					participants: JSON.stringify(["agent-1"]),
+					lastActiveAt: NOW,
+					createdAt: NOW,
+				})
+				.run();
 			db.update(tasks).set({ threadId: "thread-1" }).where(eq(tasks.id, "task-1")).run();
 
 			const unsubscribe = registerSessionReviewCreator(db, eventBus);

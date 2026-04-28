@@ -1,6 +1,6 @@
 import * as crypto from "node:crypto";
 import { agents, messages, threads } from "@hyperidle/db";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { z } from "zod";
 import type { ToolContext, ToolDefinition } from "./tool-registry.js";
 import { err, ok, type ToolResult } from "./tool-result.js";
@@ -28,21 +28,23 @@ async function handler(args: SendMessageInput, ctx: ToolContext): Promise<ToolRe
 
 	const now = new Date().toISOString();
 
-	// @lore I6: queries WHERE kind = 'direct' instead of loading all threads.
-	// With 1000+ threads, the previous full-table scan was O(n); this is O(direct threads only).
-	const directThreads = ctx.db.select().from(threads).where(eq(threads.kind, "direct")).all();
+	// L1a: legacy `kind='direct'` threads now project as host_kind='agent' +
+	// host_id=recipient. The (host_kind,host_id) index covers this lookup.
+	const directThreads = ctx.db
+		.select()
+		.from(threads)
+		.where(and(eq(threads.hostKind, "agent"), eq(threads.hostId, to)))
+		.all();
 	let threadId: string | undefined;
 	for (const thread of directThreads) {
-		if (thread.participants) {
-			const participants = JSON.parse(thread.participants) as string[];
-			if (
-				participants.length === 2 &&
-				participants.includes(ctx.agentId) &&
-				participants.includes(to)
-			) {
-				threadId = thread.id;
-				break;
-			}
+		const participants = JSON.parse(thread.participants) as string[];
+		if (
+			participants.length === 2 &&
+			participants.includes(ctx.agentId) &&
+			participants.includes(to)
+		) {
+			threadId = thread.id;
+			break;
 		}
 	}
 
@@ -52,23 +54,27 @@ async function handler(args: SendMessageInput, ctx: ToolContext): Promise<ToolRe
 			.insert(threads)
 			.values({
 				id: threadId,
-				kind: "direct",
+				hostKind: "agent",
+				hostId: to,
+				initiatorId: ctx.agentId,
 				participants: JSON.stringify([ctx.agentId, to]),
+				lastActiveAt: now,
 				createdAt: now,
 			})
 			.run();
 	}
 
 	const messageId = crypto.randomUUID();
+	const text = subject ? `${subject}\n\n${body}` : body;
 	ctx.db
 		.insert(messages)
 		.values({
 			id: messageId,
 			senderId: ctx.agentId,
-			recipientId: to,
 			threadId,
-			subject: subject ?? null,
-			body,
+			type: "plain",
+			payload: JSON.stringify({ text }),
+			clientKey: messageId,
 			createdAt: now,
 		})
 		.run();

@@ -115,7 +115,17 @@ describe("create_item tool", () => {
 
 		it("reuses an existing thread when threadId is provided", async () => {
 			const now = new Date().toISOString();
-			db.insert(threads).values({ id: "existing-thread", kind: "review", createdAt: now }).run();
+			db.insert(threads)
+				.values({
+					id: "existing-thread",
+					hostKind: "task",
+					hostId: "task-1",
+					initiatorId: "agent-1",
+					participants: JSON.stringify(["agent-1"]),
+					lastActiveAt: now,
+					createdAt: now,
+				})
+				.run();
 
 			const result = await createItemTool.handler(
 				{
