@@ -1,56 +1,74 @@
 # Track L: Journey-Aligned Improvements
 
-This track implements the founder-accepted improvements from the post-journey-v3 alignment review (`docs/reviews/improvements-conversations.md`, `improvements-work.md`, `improvements-knowledge.md`). Three cross-cutting concept-doc updates land first (Thread + messages, Block primitive, Cost & Tokens model, Knowledge relevance signals) so that downstream implementation stories build against one shared spec. A hardcoded-data inventory runs in parallel and feeds a final sweep that closes data-layer + test-coverage gaps.
+This track implements the founder-accepted improvements from the post-journey-v3 alignment review (`docs/reviews/improvements-conversations.md`, `improvements-work.md`, `improvements-knowledge.md`). The track now leads with the three reusable primitives — **Thread (L1), Block (L2), Artifact (L3)** — that span our three domains (Work, Knowledge, Conversation). Every other story consumes them. Three additional cross-cutting concept-doc updates land next (Cost & Tokens, Knowledge relevance, hardcoded-data inventory, verdict commit). A final sweep closes data-layer + test-coverage gaps.
+
+**Founder reframe (the structural correction):**
+
+> "Every discussion should be a thread. Also on the artifacts. Every knowledge/concept/document piece should be a block. Every output an artifact. So these three should be the first 3 stories. L12 (artifact) is even missing from the dependency graph. Work, Knowledge, Conversation are our 3 domains. And artifacts, blocks, thread is how their objects are shared into other domains where necessary."
 
 **Scope rules (apply to every story in this track):**
-- **Spec stories first, code second.** L1–L4 are concept-doc updates. They ship no code; they ship the contract. Implementation stories (L7+) reference the contract and stay narrow.
+- **Primitives first.** L1 (Thread), L2 (Block), L3 (Artifact) are the three reusable primitives. Each combines concept + shared implementation + DS-quality investment in a single story. Multiple versions, comparison, design critique inside the planning step. Build once, reuse everywhere.
 - **Architect plans the how.** Acceptance criteria describe the journey outcome the user gets and the contracts that must hold. The architect's `/plan <id>` step decides file paths, component names, type shapes, endpoint paths, schema column names, library choices, and the exact action / chip / section / placement choices unless the founder has already pinned them. Where this track names a specific file, line, or constant, it is evidence of the *current bug* (the gap to close) — not a recipe for the fix.
-- **Reusable primitives get more design effort, not less.** Thread + messages (L7), Block (L2), and Artifact view (L12) are foundational reusable components. The architect and designer explore multiple versions, compare them, and run a design critique inside the planning step before settling. DS-quality. Build once, reuse everywhere.
 - **Real data, not fixtures.** Every implementation story replaces hardcoded runtime data with real persistence and APIs. Hardcoded data is allowed only in test files, story files, and dedicated fixtures directories that are imported solely by tests or stories. Pages and runtime components must not import `MOCK_*` / `FALLBACK_*` constants.
 - **Acceptance criteria include test coverage.** Every story includes at least one Vitest test for new logic and at least one Playwright e2e for any user-visible change. The full e2e suite re-runs locally before push (per L7 retro lesson — UI-shape changes can break unrelated specs); a regression that escaped existing coverage gets a coverage gate added in the same story.
-- **Concept docs stay in sync.** Stories that change a fundamental shape (Thread + messages, Block, Cost+Tokens, relevance signals, level hierarchy, lifecycle propagation) update `docs/concept/` in the same commit so the documentation stays accurate.
+- **Concept docs stay in sync.** Stories that change a fundamental shape (Thread, Block, Artifact, Cost+Tokens, relevance signals, level hierarchy, lifecycle propagation) update `docs/concept/` in the same commit so the documentation stays accurate.
 - **No founder-filter regressions.** Cargo-cult patterns explicitly demoted by the founder (keyboard verb shortcuts, optimistic-UI bragging, sidebar drag-reorder, emoji reactions, cycles UI, search-modifier mini-language, customizable dashboards / view kits) are not introduced in any story.
 
-**Reference docs:** `docs/reviews/journeys-conversations.md` (v3), `docs/reviews/journeys-work.md` (v3), `docs/reviews/journeys-knowledge.md` (v3), `docs/reviews/improvements-*.md` (the three Phase 2 alignment outputs), `docs/reviews/reference-{notion,linear,slack}.md` (with the founder priority filter at the top of each), `docs/concept/HUMAN_INTERFACE_LAYER.md`, `docs/concept/KNOWLEDGE_ARCHITECTURE.md`, `docs/concept/PROCESS_LAYER.md`, `docs/concept/AGENT_LAYER.md`.
+**Reference docs:** `docs/reviews/journeys-conversations.md` (v3), `docs/reviews/journeys-work.md` (v3), `docs/reviews/journeys-knowledge.md` (v3), `docs/reviews/improvements-*.md` (the three Phase 2 alignment outputs), `docs/reviews/track-L-simplification-challenge.md` (v3 simplification — the intent behind every story below), `docs/reviews/reference-{notion,linear,slack}.md` (with the founder priority filter at the top of each), `docs/concept/HUMAN_INTERFACE_LAYER.md`, `docs/concept/KNOWLEDGE_ARCHITECTURE.md`, `docs/concept/PROCESS_LAYER.md`, `docs/concept/AGENT_LAYER.md`.
 
 See `docs/work-packages/SHARED.md` for tech stack and the cross-track dependency graph.
 
 ---
 
-### L1 — Concept: Thread + messages across all areas
+### L1 — Thread primitive (concept + shared implementation, DS quality)
 
-**Story.** As an architect, I want one shared spec for what a thread is, what messages it can carry, and where it can attach, so that every consumer in the track (Conversations, Work, Knowledge, the CoC overlay) builds against one model instead of inventing variants.
+**Story.** As an architect and developer wiring threads across Work, Knowledge, and Conversation, I want one shared spec AND one shared implementation of the Thread primitive — container with metadata, plain-text messages, and rich messages that carry their own inline UI — built directly into the design system at DS quality, so that every consumer in the track (Conversations, Work, Knowledge, the CoC overlay, artifacts) attaches threads to the right host entity, renders rich messages inline, and reads from one shape.
+
+>> we probably also need thread design system components.
 
 **Depends on.** None.
 
 **Acceptance criteria.**
-- The spec frames a thread as a *container* with metadata (initiator, attached entity, blocking-or-not, sync-or-async, last-active, participants, pinned, resolved). Messages are the things with shapes — most are plain text; some are *rich* and carry their own inline UI (a review message embeds an output artifact and a decision affordance; a questionnaire message embeds a constrained answer set). This is the generative-UI pattern every modern AI chat interface uses; the spec leans into it rather than reinventing it.
-- DM, coach-thread, and feed are documented as thread *configurations* (visibility, membership, pinning) — NOT as message shapes. The spec rejects the v2 "thread shape vocabulary" framing.
-- The cross-area attachment contract is captured: a thread attaches to any host entity (bet, task, knowledge item, agent, user). Conversations is a *view* over all threads, never their owner. Un-attached coach threads attach to the current user. Threads do NOT attach to artifacts — artifact discussion lives on the producing task (per L18 / L12 reframing).
-- The message-type vocabulary is defined for the journeys this track ships — at minimum plain text, review, and questionnaire. Adding a new rich message type later requires a concept-doc update first.
+- **Concept-doc updates.** A new section in `docs/concept/HUMAN_INTERFACE_LAYER.md` and updates in `docs/concept/ARCHITECTURE.md` and `docs/concept/AGENT_LAYER.md` frame a thread as a *container* with metadata (initiator, attached entity, blocking-or-not, sync-or-async, last-active, participants, pinned, resolved). Messages are the things with shapes — most are plain text; some are *rich* and carry their own inline UI (a review message embeds an output artifact and a decision affordance; a questionnaire message embeds a constrained answer set). This is the generative-UI pattern every modern AI chat interface uses; the spec leans into it rather than reinventing it.
+- DM, coach-thread, and feed are documented as thread *configurations* (visibility, membership, pinning) — NOT as message shapes. The spec rejects the "thread shape vocabulary" framing.
+- The cross-area attachment contract is captured: a thread attaches to any host entity (bet, task, knowledge item, artifact, agent, user). Conversations is a *view* over all threads, never their owner. Un-attached coach threads attach to the current user.
+- The message-type vocabulary is defined for the journeys this track ships — at minimum plain text, review, and questionnaire. The chatbox messages, review messages, and questionnaire messages are *message shapes*, not thread shapes; DM / coach / feed are *configurations*. Adding a new rich message type later requires a concept-doc update first.
 - The same contracts are added to `docs/work-packages/SHARED.md` "Shared Contracts" section so implementation stories can reference them without re-inventing.
-- `docs/concept/ARCHITECTURE.md` and `docs/concept/AGENT_LAYER.md` are updated where threads are mentioned.
-- No code or schema changes. `bun run check` + `bun run lint` + `bun run test` all green (docs only).
+- **Shared implementation.** The Thread primitive — thread container, plain-text messages, rich message types — is implemented in shared types, the database, and the design system at DS quality. The implementation matches the concept contract exactly.
+- Threads attach to any host entity per the contract (bet, task, knowledge item, artifact, agent, user).
+- Existing review/chat-only data continues to load (back-compat preserved). Message types beyond plain text are now representable.
+- Page-local fixture types — e.g. `MockReviewItem` (`ConversationsReview.tsx:22-33`), `MockThread` (`ConversationsChat.tsx:14-32`), `MockBetComment` array (`WorkBet.tsx:24-28`) — are removed; their consumers move to the shared shape.
+- The system can list threads attached to any host entity, fetch one with messages, and create a thread or post a message. The architect picks the endpoint shapes during planning.
+- Vitest tests cover discriminant exhaustiveness on message types; server tests cover every shipping type round-tripping through create + read.
+- Playwright e2e: at least one thread renders correctly with each shipping rich message type inline.
+- The migration is forward-only and ships with a written rollback plan.
+- `bun run check` + `bun run lint` + `bun run test` all green; the full e2e suite re-runs and stays green.
 
-**Plan calls.** This is a foundational reusable spec. The architect and designer explore multiple versions of the thread + messages model, compare them, and run a design critique before settling on the message vocabulary.
+**Plan calls.** This is a foundational reusable primitive that combines a concept-doc update with the design-system-quality implementation. The architect and designer explore multiple versions of the thread + messages model and the rendered shell (message stream, rich-message inline rendering), compare them, and run a design critique before settling on the message vocabulary and the visual contract. DS-quality.
 
 **Validation scenarios.**
-- Given an architect reads the new section, when they later open L7, they can answer "what does a thread carry, and what messages can live in it?" without re-reading the journey docs.
+- Given an architect reads the new section, when they later open L18, they can answer "what does a thread carry, what messages can live in it, and what does it attach to?" without re-reading the journey docs.
 - Given the spec, when scanned, every shipping message type has at least one worked example of an initiator and an expected response.
-- Given the contract is in SHARED.md, every implementation story (L7, L18, L21, L26) references it by section anchor.
+- Given the contract is in SHARED.md, every implementation story (L8, L9, L11, L15, L18, L21, L26) references it by section anchor.
+- Given a developer creates a questionnaire thread, when the response is read back, the message payload is preserved and the questionnaire renders inline with its constrained answers.
+- Given a thread attached to a bet, when Bet detail mounts (after L18 lands), the thread shows up in the bet's thread surface.
+- Given a fresh database with the migration applied, then existing review-shaped data continues to load with no manual fixup.
+- Given an exhaustive switch on the message-type vocabulary, the TypeScript compiler enforces every case.
 
 **Contracts / constraints.**
-- Spec-only. No code or schema changes outside docs.
-- Threads attach to bets, tasks, knowledge, agents, users — never artifacts.
+- The message-type vocabulary is closed — adding a new rich type requires a concept-doc update first.
+- Every thread carries an attachment; un-attached coach threads attach to the user themselves.
+- Threads attach to bets, tasks, knowledge items, **artifacts**, agents, and users.
+- The migration is forward-only and ships with a written rollback plan.
 - No emojis.
 
-**Effort.** S (~1d)
+**Effort.** L (~5d)
 
 ---
 
-### L2 — Concept: Block primitive in markdown
+### L2 — Block primitive (concept + shared implementation, DS quality)
 
-**Story.** As an architect, I want one reusable block model that turns any markdown body into a styled, navigable, comment-able view — derived during ingestion, never a new on-disk dialect — so that bet pitches (L16), knowledge bodies (L23), and any future structured-prose surface inherit the same rendering, anchoring, and discussion affordances.
+**Story.** As an architect and developer rendering structured prose across Work and Knowledge, I want one reusable Block primitive — concept + shared implementation built into the design system at DS quality — that turns any markdown body into a styled, navigable, comment-able view derived during ingestion (never a new on-disk dialect), so that bet pitches (L16), knowledge bodies (L23), and any future structured-prose surface inherit the same rendering, anchoring, and discussion affordances.
 
 **Depends on.** None.
 
@@ -59,30 +77,75 @@ See `docs/work-packages/SHARED.md` for tech stack and the cross-track dependency
 >> we do not introduce a new markdown dialect. the markdown dialect stay github dialect compatible
 
 **Acceptance criteria.**
-- A new "Block primitive" section in `docs/concept/HUMAN_INTERFACE_LAYER.md` and a long-form `docs/concept/BLOCKS.md` together define the block model: what counts as a block, how blocks are derived from a markdown file during file-watcher ingestion, how block ids stay stable across edits, and how per-block affordances (drag, comment-anchor, link-target) attach.
-- The on-disk format remains GitHub-flavoured markdown. Blocks are a derived view, never a stored dialect. The architect documents this as a hard rule.
+- **Concept-doc updates.** A new "Block primitive" section in `docs/concept/HUMAN_INTERFACE_LAYER.md` and a long-form `docs/concept/BLOCKS.md` together define the block model: what counts as a block, how blocks are derived from a markdown file during file-watcher ingestion, how block ids stay stable across edits, and how per-block affordances (drag, comment-anchor, link-target) attach.
+- The on-disk format remains GitHub-flavoured markdown. Blocks are a *derived* view, never a stored dialect. The architect documents this as a hard rule.
 - Cross-area attachment: per-block discussion uses the L1 thread primitive; the block-anchor is the block primitive's own affordance (so consumers like L26 do not need a separate linking dependency).
+- The contract is added to `docs/work-packages/SHARED.md` "Shared Contracts" so implementation stories can reference it without re-inventing.
+- **Shared implementation.** The Block primitive — derivation pipeline, stable block ids, the renderer, the base-block model, the per-block anchor affordance — is implemented in shared code and the design system at DS quality. The implementation matches the concept contract exactly.
+- L16 (bet pitch) and L23 (knowledge body) consume this primitive without re-implementing it.
+- Round-trip from on-disk markdown → derived blocks → rendered view is lossless for the supported block types; block ids are stable across re-parse with identical content.
+- Vitest tests cover: derivation, block-id stability, lossless round-trip on supported types.
+- Playwright e2e: a markdown body with multiple block types renders correctly with no literal markdown syntax visible (no `#`, no `<pre>` rectangles).
 - Cross-link: `improvements-work.md` #5 and `improvements-knowledge.md` #2 cite this spec.
-- `bun run check` + `bun run lint` + `bun run test` all green.
+- `bun run check` + `bun run lint` + `bun run test` all green; the full e2e suite stays green.
 
-**Plan calls.** This is a foundational reusable spec. The architect and designer explore multiple block-model designs (how blocks are derived, how ids are stabilised, how the gutter works), compare them, and run a design critique before settling.
+**Plan calls.** This is a foundational reusable primitive that combines a concept-doc update with the design-system-quality implementation. The architect and designer explore multiple block-model designs (how blocks are derived, how ids are stabilised, how the gutter works, how the per-block anchor reads), compare them, and run a design critique before settling. DS-quality.
 
 **Validation scenarios.**
 - Given a developer planning L16 or L23 reads BLOCKS.md, they know how a markdown file becomes a block view at ingestion time and how block ids stay stable.
 - Given the spec, the on-disk-markdown invariant is stated as a hard rule.
 - Given a contributor proposes a new on-disk dialect, the spec is the authority that rejects it.
+- Given the same markdown is parsed twice, the block ids are identical.
+- Given a body is edited and one block changes, OTHER block ids are unchanged.
 
 **Contracts / constraints.**
-- Spec-only.
 - On-disk format stays GitHub-flavoured markdown.
 - Blocks are shared between Work and Knowledge; Conversations does not use them — chat messages are not blocks.
+- The block-anchor is the primitive's own affordance — independent of any linking primitive.
 - No emojis.
 
-**Effort.** S (~1d)
+**Effort.** L (~4-5d)
 
 ---
 
-### L3 — Concept: Cost & Tokens (no Duration) appetite model
+### L3 — Artifact primitive (concept + shared implementation, DS quality)
+
+**Story.** As an architect and developer rendering "what the team has produced" across Work surfaces and inline in review messages, I want one reusable Artifact primitive — concept + shared implementation built into the design system at DS quality — that defines what an artifact is (every output produced by an agent task: code diff, deck, contract, dashboard, screenshot, drafted email, design, data analysis, decision with rationale, running service, communication draft, test/verification result, etc.) and the function-agnostic view family (gallery card, stack item, single full preview, embedded-as-output-in-review-message), so that L12 (Work surfaces) and L11 (rich review messages) consume one shape and so the missing-from-the-graph dependency the founder flagged is fixed.
+
+**Depends on.** None.
+
+**Acceptance criteria.**
+- **Concept-doc updates.** A new "Artifact primitive" section in `docs/concept/HUMAN_INTERFACE_LAYER.md` and updates in `docs/concept/PROCESS_LAYER.md` define the Artifact concept: every output produced by an agent task — code diff, deck, contract, dashboard, screenshot, drafted email, design, data analysis, decision with rationale, running service, communication draft, test/verification result, and any future function-agnostic output kind. The list is illustrative; the primitive is *function-agnostic*.
+- **Artifacts root on tasks.** Every artifact is produced by a task; no other level produces them. Higher-level surfaces (Bet detail, Product page, Portfolio gallery) aggregate artifacts from their tasks rather than owning them. The architect captures this as a hard rule.
+- The Artifact view family — at minimum gallery card, stack item, single full preview, and the embedded "output" inside a review message — is defined as the shared visual contract. Each layout serves a different consumer surface.
+- Threads attach to artifacts (per L1). Discussion of an artifact lives on the artifact itself; what gets *surfaced* at higher levels (e.g. a count on the bet view, or the full thread on the artifact's detail) is a designer call about volume, not a rule against the data model.
+- The contract is added to `docs/work-packages/SHARED.md` "Shared Contracts" so L11 and L12 reference it directly.
+- **Shared implementation.** The Artifact primitive — the canonical artifact shape (id, producing-task, kind, preview, cost from the producing session, created-at), the four base layouts as design-system components, and the fetching contract (filter by task, bet, product, or portfolio) — is implemented in shared code, the database, and the design system at DS quality.
+- The system can fetch artifacts filtered by task, bet, product, or portfolio in a canonical shape that includes the cost from the producing session.
+- For function-agnostic outputs, the artifact card shows what's needed to recognise it; clicking opens the artifact's preview.
+- Vitest tests cover: each layout renders correctly; empty states render correctly; the fetching contract round-trips for each filter axis.
+- Playwright e2e: at least one of each layout renders against real data.
+- `bun run check` + `bun run lint` + `bun run test` all green; the full e2e suite stays green.
+
+**Plan calls.** This is a foundational reusable primitive that combines a concept-doc update with the design-system-quality implementation. The architect and designer explore multiple versions of each layout (gallery card, stack item, single full preview, review-message embed), compare them, and run a design critique before settling. DS-quality.
+
+**Validation scenarios.**
+- Given a developer planning L11 or L12 reads the spec, they know an artifact is task-rooted, function-agnostic, and rendered through a fixed view family.
+- Given an artifact has no preview yet, a clear placeholder shows; never a fake thumbnail.
+- Given a function-agnostic output (e.g. a drafted email), the gallery card surfaces enough to recognise it; clicking opens the preview.
+- Given an artifact, fetching by its task returns it; fetching by the parent bet aggregates it with sibling artifacts.
+
+**Contracts / constraints.**
+- Artifacts root on tasks. Higher views aggregate; they don't own.
+- Threads can attach to artifacts. Surfacing rules at higher levels are a designer call, not a data-model rule.
+- The view family is closed once this lands — adding a new layout requires a concept-doc update first.
+- No emojis.
+
+**Effort.** L (~5d)
+
+---
+
+### L4 — Concept: Cost & Tokens (no Duration) appetite model
 
 **Story.** As an architect, I want the appetite/budget/spend model rewritten as **Cost (money) + Tokens** — explicitly NOT Duration — captured in `docs/concept/PROCESS_LAYER.md`, so that bet appetites, story caps, and session costs share one money+token grammar and "duration" never leaks into a world where wall-clock time is a poor proxy for complexity.
 
@@ -111,7 +174,7 @@ See `docs/work-packages/SHARED.md` for tech stack and the cross-track dependency
 
 ---
 
-### L4 — Concept: Knowledge relevance signals
+### L5 — Concept: Knowledge relevance signals
 
 **Story.** As an architect, I want one model for how knowledge relevance is computed from real measurements captured in `docs/concept/KNOWLEDGE_ARCHITECTURE.md`, so that L22 implements a measurable signal — not aspiration — and so the data layer earns the v3 Knowledge journey's load-bearing rank.
 
@@ -143,7 +206,7 @@ See `docs/work-packages/SHARED.md` for tech stack and the cross-track dependency
 
 ---
 
-### L5 — Hardcoded-data inventory (research)
+### L6 — Hardcoded-data inventory (research)
 
 **Story.** As an engineer about to remove every hardcoded fixture from the running app, I want a complete inventory — every `MOCK_*` / `FALLBACK_*` constant, every fixture imported into a runtime page or component, every hardcoded count / chip / number / list / status — saved as a structured doc, so that downstream implementation stories know what they own and the final sweep (L29) has a shopping list.
 
@@ -172,7 +235,7 @@ See `docs/work-packages/SHARED.md` for tech stack and the cross-track dependency
 
 ---
 
-### L6 — Thread response unblocks the agent
+### L7 — Thread response unblocks the agent
 
 **Story.** As a reviewer responding to a thread, I want my response — verdict, questionnaire answer, open-question reply — to persist AND to be picked up by the agent waiting on it, so that the v3 Conversations journey "play your part in the shape the initiator chose" actually closes the loop with the agent's tool call.
 
@@ -184,7 +247,7 @@ See `docs/work-packages/SHARED.md` for tech stack and the cross-track dependency
 - Network failures surface a clear error; the response is not recorded locally as committed when the server didn't accept it.
 - New Vitest tests cover response persistence (success and failure) and the agent-unblocking event being emitted with the right payload.
 - A new Playwright spec covers the loop: load a thread → respond → response persists → agent-event is emitted.
-- All hardcoded review-fixture access on this page is replaced with a real data fetch. The corresponding inventory row from L5 is closed.
+- All hardcoded review-fixture access on this page is replaced with a real data fetch. The corresponding inventory row from L6 is closed.
 - `bun run check` + `bun run lint` + `bun run test` all green; the full Playwright e2e suite re-runs and stays green.
 
 **Plan calls.** This is NOT a UI auto-advance / undo story. The architect specifies the harness-side contract for how a response surfaces to the waiting agent (sync = unblocks now; async = recorded for next pickup); the designer picks any optional UI affordances around responding.
@@ -203,57 +266,19 @@ See `docs/work-packages/SHARED.md` for tech stack and the cross-track dependency
 
 ---
 
-### L7 — Promote Thread + messages primitive into shared
-
-**Story.** As a developer wiring Conversations, Work, and Knowledge threads, I want the Thread + messages primitive from L1 implemented in shared code, the database, and the design system, so that every consumer attaches threads to the right host entity, renders rich messages inline, and reads from one shape.
-
->> we probably also need thread design system components.
-
-**Depends on.** L1 (concept doc).
-
-**Acceptance criteria.**
-- The Thread + messages primitive — thread container with metadata, plain-text messages, and the rich message types defined in L1 (at minimum review and questionnaire) — is implemented in shared types, the database, and the design system. The implementation matches the L1 contract exactly.
-- Threads attach to any host entity per L1 (bet, task, knowledge item, agent, user). Conversations becomes a *view* over threads, not their owner.
-- Existing review/chat-only data continues to load (back-compat preserved). Message types beyond plain text are now representable.
-- Page-local fixture types like the current `MockReviewItem` (`ConversationsReview.tsx:22-33`), `MockThread` (`ConversationsChat.tsx:14-32`), and `MockBetComment` array (`WorkBet.tsx:24-28`) are removed; their consumers move to the shared shape.
-- The system can list threads attached to any host entity, fetch one with messages, and create a thread or post a message. The architect picks the endpoint shapes during planning.
-- Vitest tests cover discriminant exhaustiveness on message types; server tests cover every shipping type round-tripping through create + read.
-- Playwright e2e: at least one thread renders correctly with each shipping rich message type inline.
-- All page-local mock thread types are removed; the matching inventory rows from L5 are closed.
-- `bun run check` + `bun run lint` + `bun run test` all green; the full e2e suite re-runs and stays green.
-
-**Plan calls.** This is a foundational reusable component built directly into the design system, not as a per-area component. The architect and designer take multiple passes over the thread shell, the message stream, and the rich-message inline rendering, compare designs, and run a design critique before settling. DS-quality.
-
-**Validation scenarios.**
-- Given a developer creates a questionnaire thread, when the response is read back, the message payload is preserved and the questionnaire renders inline with its constrained answers.
-- Given a thread attached to a bet, when the Bet detail page mounts (after L18 lands), then the thread shows up in the bet's thread surface.
-- Given a fresh database with the migration applied, then existing review-shaped data continues to load with no manual fixup.
-- Given an exhaustive switch on the message-type vocabulary, the TypeScript compiler enforces every case.
-
-**Contracts / constraints.**
-- The message-type vocabulary is closed — adding a new rich type requires an L1 update first.
-- Every thread carries an attachment; un-attached coach threads attach to the user themselves.
-- Threads do not attach to artifacts.
-- The migration is forward-only and ships with a written rollback plan.
-- No emojis.
-
-**Effort.** L (~5d)
-
----
-
 ### L8 — Render thread sections in Conversations Submenu
 
 **Story.** As a reviewer landing on Conversations, I want the Submenu to show the actual list of threads, grouped sensibly, instead of static entries with hardcoded counts, so that I can pick any thread (currently only thread #1 is reachable).
 
-**Depends on.** L7.
+**Depends on.** L1.
 
 **Acceptance criteria.**
-- The Conversations Submenu renders the full thread list from the L7 store, grouped into sections that read naturally for the user. The static entries currently in `AppShell.tsx:39-44` and the hardcoded counts at `:40-41` are removed. The exact section names, grouping rules, and sort order are designer + architect calls during planning.
-- The list is fed by a real query against the L7 thread store. Selection drives a lifted selected-thread id, NOT a route navigation.
+- The Conversations Submenu renders the full thread list from the L1 store, grouped into sections that read naturally for the user. The static entries currently in `AppShell.tsx:39-44` and the hardcoded counts at `:40-41` are removed. The exact section names, grouping rules, and sort order are designer + architect calls during planning.
+- The list is fed by a real query against the L1 thread store. Selection drives a lifted selected-thread id, NOT a route navigation.
 - Section counts are derived from the fetched list, not literals.
 - Vitest tests cover empty list rendering, mixed list rendering, and selection driving the lifted id.
 - Playwright e2e: the list of threads loads, clicking a thread updates the main pane, and count badges match list contents.
-- The matching inventory rows from L5 (page-local thread mocks, hardcoded submenu counts) are closed.
+- The matching inventory rows from L6 (page-local thread mocks, hardcoded submenu counts) are closed.
 - `bun run check` + `bun run lint` + `bun run test` all green; the full e2e suite stays green.
 
 **Validation scenarios.**
@@ -274,17 +299,17 @@ See `docs/work-packages/SHARED.md` for tech stack and the cross-track dependency
 
 **Story.** As a user, I want one Conversations entry point — a queue plus a single detail surface per thread — instead of two sibling routes that split the same queue by URL, so that the page adapts to whichever thread the user picked and I never pick the wrong tab before I can see what the agent wants.
 
-**Depends on.** L7.
+**Depends on.** L1.
 
 **Acceptance criteria.**
 - Conversations is reachable via one queue plus one detail surface per thread. Legacy review/chat sibling routes redirect (preserving history), never 404.
-- The detail surface renders whichever thread the user picked, with rich messages from L7 rendered inline. The architect picks the dispatch / routing shape during planning.
+- The detail surface renders whichever thread the user picked, with rich messages from L1 rendered inline. The architect picks the dispatch / routing shape during planning.
 - Naming collisions (Conversations / Chat / Chats / chat) are resolved per the L1 spec — one canonical noun per concept.
 - Vitest tests cover the dispatch and the unknown-thread fallback.
 - Playwright e2e: navigate from Work → click a bet's thread → the detail surface renders that thread.
 - `bun run check` + `bun run lint` + `bun run test` all green; the full e2e suite stays green.
 
-**Uses.** L7 Thread + messages primitive.
+**Uses.** L1 Thread primitive.
 
 **Validation scenarios.**
 - Given a user opens a legacy route, then they redirect to the queue and the queue loads.
@@ -331,22 +356,22 @@ See `docs/work-packages/SHARED.md` for tech stack and the cross-track dependency
 
 **Story.** As a user reading a thread, I want rich messages (review with its artifact and decision affordance, questionnaire with its constrained answers) to render INLINE as part of the message stream — not as a floating top toolbar — so the actions feel like part of the conversation and the chrome doesn't lie about what's possible.
 
-**Depends on.** L7.
+**Depends on.** L1, L3.
 
 **Acceptance criteria.**
 - Rich messages render their affordances inline as part of the message stream. The current top header that renders verb buttons and 7 hardcoded keyboard shortcuts at `ReviewHeader.tsx:153-178` is reduced to a thin presentation header (title + sender + back-to-queue) or eliminated entirely. The keyboard shortcuts are removed. **Founder direction: "ThreadActionBar inline with the messages, not on top — it's part of the thread."**
-- Review messages embed the output artifact and the decision affordance inline; questionnaire messages embed the constrained answer set inline. **There is no separate action-bar component.**
-- Action invocation in a review message dispatches to L6's response-as-event path; the agent waiting on the response is unblocked.
-- Vitest tests cover: each rich message type renders its inline affordance; invoking a review-message decision dispatches via L6.
+- Review messages embed the L3 Artifact primitive (using the embedded "output" layout) and the decision affordance inline; questionnaire messages embed the constrained answer set inline. **There is no separate action-bar component.**
+- Action invocation in a review message dispatches to L7's response-as-event path; the agent waiting on the response is unblocked.
+- Vitest tests cover: each rich message type renders its inline affordance; invoking a review-message decision dispatches via L7.
 - Playwright e2e: open a review thread → the artifact and decision affordance render inline → invoke the decision → response persists and unblocks the waiting agent.
 - `bun run check` + `bun run lint` + `bun run test` all green; the full e2e suite stays green.
 
-**Uses.** L7 Thread + messages primitive. Rich-message rendering ships as part of the L7 design system primitive — this story consumes and validates it on the Conversations surface.
+**Uses.** L1 Thread primitive (rich-message rendering ships as part of the L1 design system primitive); L3 Artifact primitive (the embedded "output" layout in a review message).
 
 **Validation scenarios.**
 - Given a review message, when scrolled into view, then the artifact and decision affordance render inline with the message.
 - Given a questionnaire message, when rendered, then the constrained answers are buttons inline with the message.
-- Given the user invokes a review decision, then L6's response-as-event path commits and the waiting agent is unblocked.
+- Given the user invokes a review decision, then L7's response-as-event path commits and the waiting agent is unblocked.
 
 **Contracts / constraints.**
 - Inline placement is non-negotiable per founder. No separate action-bar component.
@@ -364,19 +389,20 @@ See `docs/work-packages/SHARED.md` for tech stack and the cross-track dependency
 
 >> this probably also means that the artifact compoentns need to become design system components.
 
-**Depends on.** L13.
+**Depends on.** L3, L13.
 
 **Acceptance criteria.**
-- **Artifacts live on tasks.** Every artifact is produced by a task; no other level produces them. Higher-level surfaces (Bet detail, Product page, Portfolio gallery) aggregate artifacts from their tasks rather than owning them. The architect captures this in a concept update.
-- The Artifact view family renders one artifact in different layouts: at minimum a gallery card, a stack item, a single full preview, and the embedded "output" inside a review message.
-- The system can fetch artifacts filtered by task, bet, product, or portfolio in a canonical shape that includes the cost from the producing session. The architect picks the endpoint shape.
-- Real artifact data is backed by persistence joined to the producing session for cost. The matching inventory rows from L5 are closed (zero hardcoded artifacts on any Work surface).
+- This story consumes the L3 Artifact primitive and mounts the artifact view family on Work surfaces. The primitive itself (concept, fetching contract, the four base layouts as DS components) was defined and built in L3; this story is the *consumer*.
+- **Artifacts root on tasks** (per L3). Higher-level surfaces (Bet detail, Product page, Portfolio gallery) aggregate artifacts from their tasks rather than owning them.
+- Each Work surface that benefits mounts the right L3 layout: Portfolio gallery uses the gallery card; Product page uses the gallery or stack; Bet detail uses the stack item; Task detail uses the single full preview. The exact mounting per-surface is a designer + architect call during planning.
+- The fetch endpoint (defined in L3) is wired in: artifacts can be fetched filtered by task, bet, product, or portfolio in a canonical shape that includes the cost from the producing session.
+- Real artifact data is backed by persistence joined to the producing session for cost. The matching inventory rows from L6 are closed (zero hardcoded artifacts on any Work surface).
 - For function-agnostic outputs (deck, contract, dashboard, code-diff, drafted email, design, etc.), the artifact card shows what's needed to recognise it; clicking opens the artifact's preview.
-- Vitest tests cover: each layout renders correctly; empty states render correctly.
+- Vitest tests cover: each Work-surface mount renders correctly; empty states render correctly.
 - Playwright e2e: open Portfolio → see the artifact aggregation → click an artifact → preview opens; open Bet detail → see the artifact aggregation; open a task → see its artifact.
 - `bun run check` + `bun run lint` + `bun run test` all green; the full e2e suite stays green.
 
-**Plan calls.** This is a foundational reusable component family. The architect and designer explore multiple versions of each layout (gallery card, stack item, single full preview, review-message embed), compare them, and run a design critique before settling. DS-quality.
+**Uses.** L3 Artifact primitive (concept, view family, fetching contract); L13 Product=Team level (so the Portfolio gallery has product teams to aggregate from).
 
 **Validation scenarios.**
 - Given a team has tasks that produced shipped artifacts this week, the Portfolio aggregation shows them.
@@ -384,7 +410,8 @@ See `docs/work-packages/SHARED.md` for tech stack and the cross-track dependency
 - Given an artifact has no preview yet, a clear placeholder shows; never a fake thumbnail.
 
 **Contracts / constraints.**
-- Artifacts live on tasks. Higher views aggregate; they don't own.
+- Artifacts root on tasks. Higher views aggregate; they don't own.
+- Reuse L3's view family — do not invent a new artifact layout here.
 - No hardcoded artifact lists on any Work surface.
 - No emojis.
 
@@ -403,7 +430,7 @@ See `docs/work-packages/SHARED.md` for tech stack and the cross-track dependency
 - A Product page exists and is reachable by clicking a product card on Portfolio. The page shows what a team page should show — the team roster, active bets, team burn vs cap, and (after L12 lands) the team's artifact aggregation. The exact layout is a designer call during planning.
 - Navigation is a drill-DOWN from Portfolio. It is NOT a side navigation tree.
 - The previous denormalized team route is removed; legacy links redirect to a sensible fallback.
-- The system serves real product, roster, and bets data; the matching inventory rows from L5 are closed.
+- The system serves real product, roster, and bets data; the matching inventory rows from L6 are closed.
 - Vitest unit tests cover the dispatch.
 - Playwright e2e: from Portfolio, click a product card → the product page renders → roster and bets are visible.
 - `bun run check` + `bun run lint` + `bun run test` all green; the full e2e suite stays green.
@@ -425,15 +452,15 @@ See `docs/work-packages/SHARED.md` for tech stack and the cross-track dependency
 
 **Story.** As a user on a Bet detail surface, I want first-class affordances to act on a bet — pause it, stop it, adjust its appetite, comment on it to unblock — with a consequence preview before any destructive action commits, so I can act at the bet level (per v3 task-ownership rule: "humans act at the bet level, not the task level") without surprise.
 
-**Depends on.** L3.
+**Depends on.** L4.
 
 **Acceptance criteria.**
 - The user can act on a bet. Exactly which acts ship and how they're surfaced is a designer + architect call during planning, with simplicity as the bias. The v2 enumeration ("downvote" never made sense) is dropped; the architect picks the minimum set that lets a user pause, stop, change appetite, and unblock.
 - Any destructive action is preceded by a **consequence preview** that tells the user what stops, what continues, and what's saved before they confirm. The preview is non-skippable.
-- Adjust-appetite uses the L3 Cost+Tokens model. There is no duration field.
+- Adjust-appetite uses the L4 Cost+Tokens model. There is no duration field.
 - Every bet-level action is recorded in a revision log capturing the action, who did it, when, and why.
 - Bet status vocabulary supports the states the chosen acts produce.
-- All hardcoded BetCard fixtures are replaced with real data; the matching inventory rows from L5 are closed.
+- All hardcoded BetCard fixtures are replaced with real data; the matching inventory rows from L6 are closed.
 - Vitest tests cover each shipping action's local handler and server response shape.
 - Playwright e2e: open Bet detail → invoke a destructive action → consequence preview appears → confirm → bet transitions → revision log shows the entry.
 - `bun run check` + `bun run lint` + `bun run test` all green; the full e2e suite stays green.
@@ -445,7 +472,7 @@ See `docs/work-packages/SHARED.md` for tech stack and the cross-track dependency
 
 **Contracts / constraints.**
 - The consequence preview is non-skippable for destructive acts.
-- Adjust-appetite uses L3 types — never duration.
+- Adjust-appetite uses L4 types — never duration.
 - No keyboard shortcuts (founder demoted).
 - No emojis.
 
@@ -457,7 +484,7 @@ See `docs/work-packages/SHARED.md` for tech stack and the cross-track dependency
 
 **Story.** As a user on the Team Board, I want drag/drop on tasks REMOVED (per v3: tasks are agent-team-owned, humans don't move them) but I still want a way to request that a task change state, OR to start a thread with the agent working on the task to unblock / stop / clarify, so I can interact at the task level without violating ownership. **Founder direction: "There should still be a way for a user to request the item to change state or start a thread with the agent working on the item to unblock or stop or whatever is necessary."**
 
-**Depends on.** L7.
+**Depends on.** L1.
 
 **Acceptance criteria.**
 - Drag-to-move is removed from the Team Board's Kanban: dragging a task is a no-op. The current sensors and column-to-state mapping in `Kanban.tsx` and the move-task handler at `WorkTeam.tsx:116-120` are gone.
@@ -467,7 +494,7 @@ See `docs/work-packages/SHARED.md` for tech stack and the cross-track dependency
 - Playwright e2e: try to drag a task → no-op → request a state change → message appears in the task's thread.
 - `bun run check` + `bun run lint` + `bun run test` all green; the full e2e suite stays green.
 
-**Uses.** L7 Thread + messages primitive.
+**Uses.** L1 Thread primitive.
 
 **Validation scenarios.**
 - Given a user attempts to drag a task, the action does nothing.
@@ -492,7 +519,7 @@ See `docs/work-packages/SHARED.md` for tech stack and the cross-track dependency
 **Acceptance criteria.**
 - The bet pitch renders as styled, structured markdown blocks. The current `<pre>` fallback at `WorkBet.tsx:262-267` is replaced with the L2 block primitive view.
 - Block ids are stable per L2.
-- Hardcoded pitch fixture strings remain ONLY in stories and tests — runtime data comes from persisted pitch content. The matching inventory row from L5 is closed.
+- Hardcoded pitch fixture strings remain ONLY in stories and tests — runtime data comes from persisted pitch content. The matching inventory row from L6 is closed.
 - Vitest tests cover: round-trip is lossless for supported block types; block ids are stable across re-parse with identical content; editing one block leaves others unchanged.
 - Playwright e2e: open a bet → pitch renders as styled markdown (no `#` symbols visible).
 - `bun run check` + `bun run lint` + `bun run test` all green; the full e2e suite stays green.
@@ -517,17 +544,17 @@ See `docs/work-packages/SHARED.md` for tech stack and the cross-track dependency
 
 **Story.** As a user, I want every Work surface that shows cost to show it in money AND tokens — never strings, never duration as a budget — so v3 Basic 3 ("see what it's costing") is implementable at every level.
 
-**Depends on.** L3.
+**Depends on.** L4.
 
 **Acceptance criteria.**
-- Bets, tasks, and sessions carry cost (in money) and token usage (broken down by tier), per L3. Money values do not lose precision through rounding.
+- Bets, tasks, and sessions carry cost (in money) and token usage (broken down by tier), per L4. Money values do not lose precision through rounding.
 - Existing string-typed cost (e.g., the rail's `MOCK_RAIL_COST.todaySpend = "$12.40"`, a bet's `appetite = "2 weeks"`) is replaced everywhere with the structured types — in shared, in the server, and in the database. Any duration field that pretended to be a budget is removed.
 - Money rendering is consistent across the app via a single shared formatter.
 - **Harness-integration is the load-bearing technical work.** Tokens come basically free from the model; reliable money reporting requires the architect to resolve the contract by which each agent harness reports the cost of its sessions. The plan must produce the harness-side contract and an end-to-end path from harness session completion → recorded money cost on the session row. This is the hard part of the story, not the UI.
 - Server endpoints are updated; existing rows are backfilled with sensible defaults.
 - Vitest tests cover the formatter and conversion helpers.
 - Playwright e2e: open Bet detail → see cost in money + tokens, no string-money anywhere.
-- All hardcoded cost strings are replaced; matching inventory rows from L5 are closed.
+- All hardcoded cost strings are replaced; matching inventory rows from L6 are closed.
 - A type-level guard prevents new string-typed money from being introduced going forward.
 - `bun run check` + `bun run lint` + `bun run test` all green; the full e2e suite stays green.
 
@@ -548,32 +575,34 @@ See `docs/work-packages/SHARED.md` for tech stack and the cross-track dependency
 
 ---
 
-### L18 — Thread primitive attached to bets, tasks, knowledge
+### L18 — Thread primitive attached to bets, tasks, knowledge, and artifacts
 
-**Story.** As a user on Bet detail, Task detail, or a Knowledge entry, I want an attached thread surface where localized discussion lives with the work, per the founder's "threads are a theme across the entire app".
+**Story.** As a user on Bet detail, Task detail, a Knowledge entry, or an artifact, I want an attached thread surface where localized discussion lives with the work, per the founder's "threads are a theme across the entire app" — and per the founder reframe, **every discussion is a thread, including discussions on artifacts**.
 
-**Depends on.** L7, L16.
+**Depends on.** L1, L3, L16.
 
 **Acceptance criteria.**
-- An attached-thread surface is mounted on Bet detail, Task detail (when shipped), and Knowledge entries. It uses L7's Thread + messages primitive — there is no parallel comment table.
-- **Threads do NOT attach to artifacts.** Artifact discussion lives on the producing task (founder pushed back: artifacts live on tasks; the discussion belongs on the task). The architect ensures the surface for an artifact is the task that produced it.
-- The Bet detail's previous comment fixture (already removed in L7) is now backed by a real thread fetched by attachment. The Task detail "open thread" affordance from L15 opens the same primitive.
+- An attached-thread surface is mounted on Bet detail, Task detail (when shipped), Knowledge entries, AND artifacts. It uses L1's Thread primitive — there is no parallel comment table.
+- **Every bet, task, knowledge item, and artifact carries its own thread.** Discussion of an artifact lives on the artifact itself. The previous "no artifact-attached threads" rule is removed.
+- The Bet detail's previous comment fixture (already removed in L1) is now backed by a real thread fetched by attachment. The Task detail "open thread" affordance from L15 opens the same primitive.
+- **Volume is a designer call, not a data-model rule.** Designer + architect decide during planning how artifact-attached threads are surfaced at higher levels (e.g. counts on the bet view, full thread on the artifact's detail surface) so a bet view doesn't drown in hundreds of artifact threads. The data model attaches threads everywhere; the UI summarizes intelligently.
 - Block-anchored discussion uses the L2 block primitive's own anchor affordance — no separate linking dependency.
-- Vitest tests cover: thread surface lifecycle, posting a message on a bet, posting a message anchored to a block.
-- Playwright e2e: open Bet detail → thread surface shows the bet's thread → post a comment → reload → message persists.
-- No hardcoded comments anywhere; matching inventory rows from L5 are closed.
+- Vitest tests cover: thread surface lifecycle on bet, task, knowledge, and artifact; posting a message on each; posting a message anchored to a block.
+- Playwright e2e: open Bet detail → thread surface shows the bet's thread → post a comment → reload → message persists; open an artifact's detail surface → its own thread renders → post a message → reload → message persists.
+- No hardcoded comments anywhere; matching inventory rows from L6 are closed.
 - `bun run check` + `bun run lint` + `bun run test` all green; the full e2e suite stays green.
 
-**Uses.** L7 Thread + messages primitive; L2 Block primitive (for block anchors).
+**Uses.** L1 Thread primitive; L3 Artifact primitive (so threads can attach to artifacts); L2 Block primitive (for block anchors, via L16 — bet pitch as the proving ground for block-anchored threads).
 
 **Validation scenarios.**
 - Given a bet with attached thread messages, the surface shows them in the right order.
-- Given a task is unblocked via a thread message, the agent's next session reads it via the thread (L6 contract).
-- Given an artifact, discussion of that artifact happens on the producing task — not on the artifact.
+- Given a task is unblocked via a thread message, the agent's next session reads it via the thread (L7 contract).
+- Given an artifact, discussion of that artifact happens on the artifact itself; what the bet view shows of that thread is a designer call (e.g. a count, a summarized preview).
+- Given a knowledge entry with a long body, block-anchored discussion uses the L2 block-anchor — no L24 dependency.
 
 **Contracts / constraints.**
-- Use L7's Thread + messages primitive — no parallel comment entity.
-- Threads attach to bets, tasks, knowledge — never artifacts.
+- Use L1's Thread primitive — no parallel comment entity.
+- Threads attach to bets, tasks, knowledge items, AND artifacts. Volume is a UI surfacing call, not a model restriction.
 - No emojis.
 
 **Effort.** M (~3d)
@@ -591,7 +620,7 @@ See `docs/work-packages/SHARED.md` for tech stack and the cross-track dependency
 - A jump-out affordance is rendered when a latest session exists. Clicking it opens the harness URL. The URL is treated as opaque to HyperIdle — stored and displayed, never parsed. The exact affordance shape and where it opens is a designer call.
 - An outcome chip on the task reflects the latest session outcome.
 - The system can return the latest session for a task. The architect picks the endpoint shape.
-- All hardcoded session data is replaced; matching inventory rows from L5 are closed.
+- All hardcoded session data is replaced; matching inventory rows from L6 are closed.
 - Vitest tests cover: jump-out visibility (only when a latest session exists), outcome-chip mapping.
 - Playwright e2e: open Bet detail → tasks show outcome chips → invoke jump-out → harness URL opens.
 - `bun run check` + `bun run lint` + `bun run test` all green; the full e2e suite stays green.
@@ -645,12 +674,12 @@ See `docs/work-packages/SHARED.md` for tech stack and the cross-track dependency
 
 **Story.** As a user anywhere in HyperIdle, I want a Chief of Staff button at the bottom-right of the rail; clicking opens an overlay thread where I can ask anything; I can add visible items as context to that thread; the CoC responds without pulling product agents off their work. **Founder direction: "The button to start a thread with the COC could just be bottom right in the rail and it overlays a thread and somehow we can add anything as context to that thread. That would really be your assistant in the company."**
 
-**Depends on.** L7.
+**Depends on.** L1.
 
 **Acceptance criteria.**
 - A Chief-of-Staff trigger is rendered at the bottom-right of the Rail and is visible on every Work / Conversations / Knowledge view.
 - Clicking the trigger opens an overlay thread (chatbox-style) that keeps the underlying view visible — that visibility is the "add as context" affordance.
-- The overlay uses L7's Thread + messages primitive in a coach configuration, attached to the user themselves. Never attached to a bet or task — that's the "doesn't pull agents off work" part.
+- The overlay uses L1's Thread primitive in a coach configuration, attached to the user themselves. Never attached to a bet or task — that's the "doesn't pull agents off work" part.
 - An "add as context" affordance lets the user attach visible items (bet card, task row, artifact, knowledge entry, message) to the next CoC message. The exact mechanic and the small-viewport experience are designer + architect calls during planning.
 - The CoC response persists for-the-record as a coach thread in Conversations; the user can promote any answer to Knowledge later (cross-area follow-up — out of scope here).
 - The system can initiate a CoC session and persist its messages, including the attached context references. The architect picks the endpoint shape.
@@ -658,7 +687,7 @@ See `docs/work-packages/SHARED.md` for tech stack and the cross-track dependency
 - Playwright e2e: from any surface, invoke CoC → overlay opens → add a bet as context → ask a question → response renders → close → the thread persists in Conversations.
 - `bun run check` + `bun run lint` + `bun run test` all green; the full e2e suite stays green.
 
-**Uses.** L7 Thread + messages primitive (coach configuration).
+**Uses.** L1 Thread primitive (coach configuration).
 
 **Validation scenarios.**
 - Given the user is on any page, the CoC trigger is visible at the bottom-right of the Rail.
@@ -679,17 +708,17 @@ See `docs/work-packages/SHARED.md` for tech stack and the cross-track dependency
 
 **Story.** As a user on Knowledge, I want recency, frequency, and (where feasible) impact as real signals on every row — not one opaque attention score and a hand-templated whyNow — so v3 Knowledge Basic 1 ("surface the most relevant items") rests on data, not aspiration.
 
-**Depends on.** L4.
+**Depends on.** L5.
 
 **Acceptance criteria.**
 - Every knowledge item knows when it was last validated, last edited, and last accessed; how often it has been accessed in a recent window from server-side tracking. The fabric's attention scoring (`packages/fabric/src/attention-scoring.ts`) is rewritten so frequency comes from real access tracking. The current per-kind impact constant is deleted.
-- **Citation: ship if the L4 evaluation says it's feasible; otherwise stage with absent values per L4's anti-pattern rule.** When citation ships, the agent harness contract emits cited knowledge ids on session completion and the server records them. When staged, the impact column renders `—` until data exists.
-- The composite relevance score uses L4's formula with weights tunable from configuration.
+- **Citation: ship if the L5 evaluation says it's feasible; otherwise stage with absent values per L5's anti-pattern rule.** When citation ships, the agent harness contract emits cited knowledge ids on session completion and the server records them. When staged, the impact column renders `—` until data exists.
+- The composite relevance score uses L5's formula with weights tunable from configuration.
 - Each row renders the available signals; absent signals render `—`, never a fake number.
 - Sort selection is reflected in URL state.
 - Vitest tests cover the composite math and the fake-zero guard.
 - Playwright e2e: open Knowledge → row signals visible → sort changes → list re-orders.
-- All hardcoded attention-score / whyNow strings are removed; matching inventory rows from L5 are closed.
+- All hardcoded attention-score / whyNow strings are removed; matching inventory rows from L6 are closed.
 - `bun run check` + `bun run lint` + `bun run test` all green; the full e2e suite stays green.
 
 **Validation scenarios.**
@@ -720,7 +749,7 @@ See `docs/work-packages/SHARED.md` for tech stack and the cross-track dependency
 - The on-disk format remains valid markdown — bodies in persistence stay text, never JSON.
 - Vitest tests cover: round-trip is lossless on supported types; block-id stability holds.
 - Playwright e2e: open a Knowledge entry with a multi-section body → see styled rendering.
-- Hardcoded legacy detail text is removed; bodies come from the data layer; matching inventory rows from L5 are closed.
+- Hardcoded legacy detail text is removed; bodies come from the data layer; matching inventory rows from L6 are closed.
 - `bun run check` + `bun run lint` + `bun run test` all green; the full e2e suite stays green.
 
 **Uses.** L2 Block primitive.
@@ -752,8 +781,8 @@ See `docs/work-packages/SHARED.md` for tech stack and the cross-track dependency
 **Validation scenarios.** N/A.
 
 **Contracts / constraints.**
-- L26 is independent of L24. Per-block discussion uses the L7 thread primitive; the block-anchor is L2's own affordance.
-- When this story is unparked, it MUST not pre-empt the L2 block-anchor or the L7 thread surface.
+- L26 is independent of L24. Per-block discussion uses the L1 thread primitive; the block-anchor is L2's own affordance.
+- When this story is unparked, it MUST not pre-empt the L2 block-anchor or the L1 thread surface.
 
 **Effort.** N/A in this track.
 
@@ -770,7 +799,7 @@ See `docs/work-packages/SHARED.md` for tech stack and the cross-track dependency
 - **Edit journey.** Save in edit mode actually persists. The current "Save doesn't persist" lore is closed; reloading shows the saved version. Optimistic locking prevents silent overwrites under concurrent edit.
 - Vitest tests cover: each shipping action → persistence → log entry; save round-trip; concurrent edit detection.
 - Playwright e2e: open a knowledge item → invoke a manage verb → confirmation → status changes → log shows the entry; edit body → save → reload → version persists.
-- The matching inventory rows from L5 are closed.
+- The matching inventory rows from L6 are closed.
 - `bun run check` + `bun run lint` + `bun run test` all green; the full e2e suite stays green.
 
 **Validation scenarios.**
@@ -792,19 +821,19 @@ See `docs/work-packages/SHARED.md` for tech stack and the cross-track dependency
 
 **Story.** As a user wanting to leave a note for the practice lead on a specific paragraph of a knowledge entry, I want to attach a discussion to a knowledge entry — and, where the entry is long enough to want it, attached to a specific block — using the same thread primitive as the rest of the app.
 
-**Depends on.** L7, L23.
+**Depends on.** L1, L23.
 
 **Acceptance criteria.**
-- A discussion surface attaches to each knowledge entry, using L7's Thread + messages primitive. No parallel comment table.
+- A discussion surface attaches to each knowledge entry, using L1's Thread primitive. No parallel comment table.
 - For long entries, the user can scope a thread message to a specific block. **The block-anchor is the L2 Block primitive's own affordance** — this story does NOT depend on a linking primitive (L24) and must not re-introduce that dependency.
 - When a block is edited away, anchored messages are preserved with a "block deleted" indicator.
-- The previous read-only Observation Log is replaced with the L7 thread surface.
+- The previous read-only Observation Log is replaced with the L1 thread surface.
 - Vitest tests cover: hover anchor renders, click opens correct thread, block anchor preserved, block-deleted indicator surfaces.
 - Playwright e2e: hover a paragraph → invoke discussion anchor → thread opens scoped to that block → post a message → reload → message persists.
-- The previous mock observations are removed; matching inventory rows from L5 are closed.
+- The previous mock observations are removed; matching inventory rows from L6 are closed.
 - `bun run check` + `bun run lint` + `bun run test` all green; the full e2e suite stays green.
 
-**Uses.** L7 Thread + messages primitive; L2 Block primitive (block-anchor is L2's own affordance — independent of L24).
+**Uses.** L1 Thread primitive; L2 Block primitive (block-anchor is L2's own affordance — independent of L24).
 
 **Validation scenarios.**
 - Given a block has anchored discussion, the count and surface render.
@@ -812,7 +841,7 @@ See `docs/work-packages/SHARED.md` for tech stack and the cross-track dependency
 - Given an item-level thread (no block anchor), it appears as general discussion.
 
 **Contracts / constraints.**
-- Use L7's Thread + messages primitive — no parallel knowledge-comment entity.
+- Use L1's Thread primitive — no parallel knowledge-comment entity.
 - The block-anchor comes from L2 — not from L24.
 - No emojis.
 
@@ -832,7 +861,7 @@ See `docs/work-packages/SHARED.md` for tech stack and the cross-track dependency
 - Vitest tests cover: each lifecycle state renders its correct chip; old Work-status colors never appear on knowledge.
 - Playwright e2e: open Knowledge → no Work-status chips on knowledge items.
 - The visual-regression baseline is updated for the affected rows in a separate, labeled commit.
-- The matching inventory row from L5 is closed.
+- The matching inventory row from L6 is closed.
 - `bun run check` + `bun run lint` + `bun run test` all green; the full e2e suite stays green.
 
 **Validation scenarios.**
@@ -884,12 +913,12 @@ See `docs/work-packages/SHARED.md` for tech stack and the cross-track dependency
 
 ### L29 — Final sweep: hardcoded data + test coverage gap
 
-**Story.** As a maintainer, I want a final pass that closes any remaining hardcoded-data inventory rows from L5, AND I want a deep look at why our test/e2e suite passed even with hardcoded UI data — closing the structural test-coverage gap with new tests that would have caught it — so that we leave Track L with real data flowing through real APIs and a test suite that proves it.
+**Story.** As a maintainer, I want a final pass that closes any remaining hardcoded-data inventory rows from L6, AND I want a deep look at why our test/e2e suite passed even with hardcoded UI data — closing the structural test-coverage gap with new tests that would have caught it — so that we leave Track L with real data flowing through real APIs and a test suite that proves it.
 
-**Depends on.** L5, L6, L7, L8, L9, L10, L11, L12, L13, L14, L15, L16, L17, L18, L19, L20, L21, L22, L23, L24, L25, L26, L27, L28.
+**Depends on.** L6, L7, L8, L9, L10, L11, L12, L13, L14, L15, L16, L17, L18, L19, L20, L21, L22, L23, L24, L25, L26, L27, L28.
 
 **Acceptance criteria.**
-- Every row in `docs/reviews/hardcoded-data-inventory.md` (L5) is re-walked. For each row, mark `closed-by: <story>` or `unassigned`. Every `unassigned` row gets either a fix in this story or a recorded follow-up entry in `docs/reviews/post-L29-followups.md`.
+- Every row in `docs/reviews/hardcoded-data-inventory.md` (L6) is re-walked. For each row, mark `closed-by: <story>` or `unassigned`. Every `unassigned` row gets either a fix in this story or a recorded follow-up entry in `docs/reviews/post-L29-followups.md`.
 - A guard forbids importing fixtures into runtime code. The exact mechanism (lint rule, meta-test, or both) is the architect's call during planning, with the constraint that violations fail CI with a clear message.
 - A **test-coverage gap analysis deliverable** lives at `docs/reviews/test-coverage-gap-L29.md`. It explains, with concrete examples, why existing tests passed despite the hardcoded data (e.g., tests imported the same fixtures as runtime; tests stubbed the API but never asserted it was called) and lists the structural test-pattern weaknesses with remediation.
 - New end-to-end tests that would have caught the most painful previously-hidden bugs are added. Designer + architect decide which gaps the new tests close, with the constraint that the test set must demonstrably fail when run against the pre-L1 codebase (proving they would have caught the regressions).
@@ -915,41 +944,46 @@ See `docs/work-packages/SHARED.md` for tech stack and the cross-track dependency
 ## Track L dependency graph
 
 ```
-L1 (Thread spec) ──┬─► L7 ─┬─► L8 ─► L10
-                   │       ├─► L9
-                   │       ├─► L11
-                   │       ├─► L15
-                   │       ├─► L18
-                   │       ├─► L21
-                   │       └─► L26
-                   │
-L2 (Block spec) ───┼─► L16 ─► L18
-                   └─► L23 ─► L24
-                            └─► L26
-                            └─► L28 (uses blocks inside shape bodies)
+L1 (Thread primitive) ──┬─► L8 ─► L10
+                        ├─► L9
+                        ├─► L11
+                        ├─► L15
+                        ├─► L18
+                        ├─► L21
+                        └─► L26
 
-L3 (Cost spec) ────┬─► L14 ─► L20
-                   ├─► L17 ─► L20
+L2 (Block primitive) ───┬─► L16 ─► L18
+                        └─► L23 ─► L24
+                                 └─► L26
+                                 └─► L28 (uses blocks inside shape bodies)
 
-L4 (Relevance) ────► L22
+L3 (Artifact primitive) ┬─► L11
+                        ├─► L12
+                        └─► L18
 
-L5 (Inventory) ───────────────────────────► L29
-L6, L13, L19, L25, L27, L28 (independent) ─► L29
-L8, L9, L10, L11, L14, L15, L17, L18, L20, L21, L22, L23, L24, L26 ──► L29
+L4 (Cost spec) ─────────┬─► L14 ─► L20
+                        └─► L17 ─► L20
+
+L5 (Relevance) ─────────► L22
+
+L6 (Inventory) ──────────────────────────► L29
+L7, L13, L19, L25, L27, L28 (independent) ─► L29
+L8, L9, L10, L11, L12, L14, L15, L17, L18, L20, L21, L22, L23, L24, L26 ──► L29
 ```
 
-**Critical path:** **L1 → L7 → L18 → L20 → L29** (longest dependency chain). **L2 → L23 → L24 → L29** runs in parallel. **L3 → L17 → L20 → L29** parallel. **L4 → L22 → L29** parallel. **L13 → L12** parallel.
+**Critical path:** **L1 → L18 → L20 → L29** (longest dependency chain through the Thread primitive). **L2 → L23 → L24 → L29** runs in parallel. **L3 → L12 → L29** parallel. **L3 → L18 → L20 → L29** parallel through Artifact. **L4 → L17 → L20 → L29** parallel. **L5 → L22 → L29** parallel. **L13 → L12** parallel.
 
-**Spec-stories (L1–L4) are all independent and run first in parallel.** L5 (inventory) is also independent and runs in parallel with the specs. After spec stories land:
+**Primitive stories (L1, L2, L3) are all independent and run first in parallel.** They are the three reusable primitives (Thread, Block, Artifact) that the founder reframe placed at the head of the track. **Spec stories (L4, L5) and the inventory (L6) are also independent and run in parallel with the primitives.** After primitive + spec stories land:
 
-- L6 (response unblocks the agent) is independent — earliest impl story.
-- L7 (Thread + messages primitive) gates Conversations + cross-area thread work (L8, L9, L11, L15, L18, L21, L26).
+- L7 (response unblocks the agent) is independent — earliest impl story.
+- L1 (Thread primitive) gates Conversations + cross-area thread work (L8, L9, L11, L15, L18, L21, L26).
+- L3 (Artifact primitive) gates L11 (rich-message embedded artifact) and L12 (artifact view family on Work surfaces) and L18 (artifact-attached threads).
 - L13 (Product level) gates L12 (artifact view family) because the gallery aggregates from product teams.
 - L14 + L17 gate L20 (lifecycle propagation needs cost model + bet actions).
 - L23 (Knowledge blocks) gates L26 (per-block discussion via L2's anchor). L24 is deferred and ships nothing in this track.
-- L29 (final sweep) is the closer — depends on L5 + every impl story.
+- L29 (final sweep) is the closer — depends on L6 + every impl story.
 
-Stories that have **no Track-L dependencies** and can be picked up early once specs land:
-L6, L13, L19, L25, L27, L28.
+Stories that have **no Track-L dependencies** and can be picked up early once primitive + spec stories land:
+L7, L13, L19, L25, L27, L28.
 
 ---
