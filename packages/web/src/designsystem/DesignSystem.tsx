@@ -7,8 +7,12 @@ import type { StoryMeta, StoryModule } from "./types.js";
 // in E2E tests, not the design system catalog.
 // @lore Design system components (Tier 1-2) live in @hyperidle/design-system,
 // shell components (Tier 3) stay in packages/web. Both are discovered here.
+//
+// @lore L1 step9 (Design pre-existing): the path was `../../../../` (4 levels)
+// which resolved to `<repo>/design-system/...` instead of `packages/design-system/`.
+// The L1 stories file existed but could never be discovered. Fixed to 3 levels.
 const dsModules = import.meta.glob<Record<string, unknown>>(
-	"../../../../design-system/src/*.stories.tsx",
+	"../../../design-system/src/*.stories.tsx",
 	{ eager: true },
 );
 const componentModules = import.meta.glob<Record<string, unknown>>("../components/*.stories.tsx", {

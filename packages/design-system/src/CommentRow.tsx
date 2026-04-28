@@ -8,7 +8,7 @@
  */
 
 import type { Message, VerdictDecision } from "@hyperidle/shared";
-import { isRedactedPayload } from "@hyperidle/shared";
+import { exhaustiveAssert, isRedactedPayload } from "@hyperidle/shared";
 import type { JSX, ReactNode } from "react";
 import { dsProps } from "./ds-attrs.js";
 import { StatusChip } from "./StatusChip.js";
@@ -58,9 +58,15 @@ function verdictDecisionLabel(decision: VerdictDecision): string {
 }
 
 /**
- * Render the per-message body. Type narrowing flows through `message.type`
- * + `isRedactedPayload(payload)` so each branch sees the typed payload
- * without unsafe `as` casts (L1 step5 SL-C1).
+ * Render the per-message body. Type narrowing flows through a `switch` on
+ * `message.type` so that adding a 5th `MessageType` to the discriminated
+ * union triggers a TS narrowing failure at the `default` arm via
+ * `exhaustiveAssert(message)` (plan §4 + AC-11).
+ *
+ * @lore L1 step9 (Arch-#2): the previous if/else chain fell through to
+ * `null` for unhandled types, so a 5th union variant would compile clean
+ * and silently render nothing. The switch + `exhaustiveAssert` pattern
+ * surfaces the omission at the type system level.
  */
 function renderBody(message: Message): ReactNode {
 	const { payload } = message;
@@ -71,24 +77,28 @@ function renderBody(message: Message): ReactNode {
 			</div>
 		);
 	}
-	if (message.type === "verdict") {
-		return (
-			<div className="flex items-center gap-[8px] text-[13px]">
-				<StatusChip status={verdictDecisionToStatus(payload.decision)} />
-				<span className="text-[var(--text-mid)]">{verdictDecisionLabel(payload.decision)}</span>
-				{payload.note ? <span className="text-[var(--text-lo)]">— {payload.note}</span> : null}
-			</div>
-		);
+	switch (message.type) {
+		case "verdict":
+			return (
+				<div className="flex items-center gap-[8px] text-[13px]">
+					<StatusChip status={verdictDecisionToStatus(payload.decision)} />
+					<span className="text-[var(--text-mid)]">{verdictDecisionLabel(payload.decision)}</span>
+					{payload.note ? <span className="text-[var(--text-lo)]">— {payload.note}</span> : null}
+				</div>
+			);
+		case "plain":
+			return (
+				<p className="text-[13px] text-[var(--text-mid)] whitespace-pre-wrap break-words">
+					{payload.text}
+				</p>
+			);
+		case "review":
+		case "questionnaire":
+			// review/questionnaire substance lives in ThreadHead, not here.
+			return null;
+		default:
+			return exhaustiveAssert(message);
 	}
-	if (message.type === "plain") {
-		return (
-			<p className="text-[13px] text-[var(--text-mid)] whitespace-pre-wrap break-words">
-				{payload.text}
-			</p>
-		);
-	}
-	// review/questionnaire substance lives in ThreadHead, not here.
-	return null;
 }
 
 export function CommentRow({

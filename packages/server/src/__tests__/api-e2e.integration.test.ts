@@ -512,13 +512,11 @@ describe("E2E API Integration (I5)", () => {
 		});
 
 		it("POST /api/agents/:id/inbox sends message and returns 201", async () => {
+			// L1 step9 (Adv-C2): sender is derived from X-Identity, not the body.
 			const res = await app.request("/api/agents/agent-1/inbox", {
 				method: "POST",
-				headers: auth(),
-				body: JSON.stringify({
-					senderId: "agent-1",
-					body: "Hello agent!",
-				}),
+				headers: auth({ "X-Identity": "agent-1" }),
+				body: JSON.stringify({ body: "Hello agent!" }),
 			});
 			expect(res.status).toBe(201);
 			// L1a: messages now carry payload (JSON), not body/recipientId.

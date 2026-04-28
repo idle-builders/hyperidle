@@ -54,19 +54,18 @@ Surface = `--surface-2`. Padding = `var(--density-card-pad)` (8/12/16 across com
 
 The action surface for a head with an unresolved review or questionnaire. Sticks to the bottom of the head's scroll viewport so it stays one click away no matter how long the discussion grows.
 
-`ReviewVerdictBar` slots (left-to-right):
+> **L1 Step 5 amendment.** L1a ships only the **5 binding verdict buttons** below. The 3 message-emitting non-binding actions (Comment / Inline-comment / Reply) and the 2 sidecar actions (Snooze / Escalate) were originally listed here but **dropped in step 5** because they were never wired to a backing handler — every click was silently dropped in `ThreadShell`. They land in **L1b** alongside the inline-comment authoring surface and the snooze/escalate sidecar workflow. The smaller surface ships first to avoid trapping a founder behind buttons that look interactive but do nothing. See §11 rejection list (the 5 dropped buttons are added there).
+
+`ReviewVerdictBar` slots (left-to-right) — **L1a contract**:
 
 | Group | Actions | Visual weight |
 |---|---|---|
 | **Verdict** label | `VERDICT` mono caps label | `--text-lo` |
 | **Binding** | `Approve` (filled `--primary`) · `Approve with comments` (outline) · `Request changes` (outline) · `Edit` (outline) · `Reject` (outline + `--danger` text) | primary buttons; tabular order, 4px gap |
-| **Reply** label | `REPLY` mono caps label | `--text-lo` |
-| **Message-emitting non-binding** | `Comment` (ghost) · `Inline-comment` (ghost) · `Reply` (ghost) | ghost buttons; visually quieter |
-| **Right-aligned sidecar** | `Snooze` (text-only link) · `Escalate` (text-only link) | tertiary text-only |
 
-Sticky behavior: bar pins to the bottom edge of the scroll container while the head's `ARTIFACT` block is in view; releases (scrolls with content) once the user scrolls past the head into the comment stream. This is design's call; the architect picks the IntersectionObserver / scroll-position implementation.
+Sticky behavior: bar pins to the bottom edge of the scroll container while the head's `ARTIFACT` block is in view; releases (scrolls with content) once the user scrolls past the head into the comment stream. The L1a implementation uses an `IntersectionObserver` watching a sentinel placed at the head's lower edge: while the sentinel is intersecting → `position: sticky`; once it scrolls out → `position: static`. Wired in `ThreadShell` (L1 step9 close-out).
 
-`QuestionnaireAnswerBar` mirrors the structure but with the constrained answer set as primary buttons (one button per option, equal weight) and no Reject. Snooze/Escalate available.
+`QuestionnaireAnswerBar` mirrors the structure but with the constrained answer set as primary buttons (one button per option, equal weight) and no Reject. Snooze/Escalate are L1b.
 
 A binding verdict click commits a `verdict`-payload message append (per concept §4.5.8) AND sets `resolvedAt` on the underlying review/questionnaire message. The bar collapses on resolve; the resolved verdict re-renders as a `CommentRow` in the stream with a `StatusChip` (`approved` / `rejected` / `requested-changes`).
 
@@ -238,5 +237,6 @@ These come from `synthesis.md` §"Three open questions for the architect" — li
 - Emoji reactions / iconography.
 - Drag-reorder of messages or threads.
 - Customizable view kits / saved layouts.
+- **(L1a, step 5)** The 3 message-emitting non-binding bar actions (Comment / Inline-comment / Reply) and the 2 sidecar bar actions (Snooze / Escalate) — moved to L1b. The L1a verdict bar carries only the 5 binding buttons.
 
 The L11/L12/L18/L26 stories that consume L1 inherit this rejection list; do not introduce any of these in downstream stories without a concept-doc update first.
