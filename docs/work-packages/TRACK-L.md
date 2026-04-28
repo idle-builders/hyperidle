@@ -1,13 +1,15 @@
 # Track L: Journey-Aligned Improvements
 
-This track implements the founder-accepted improvements from the post-journey-v3 alignment review (`docs/reviews/improvements-conversations.md`, `improvements-work.md`, `improvements-knowledge.md`). Three cross-cutting concept-doc updates land first (Thread primitive, Block primitive, Cost & Tokens model, Knowledge relevance signals) so that downstream implementation stories build against one shared spec. A hardcoded-data inventory runs in parallel and feeds a final sweep that closes data-layer + test-coverage gaps.
+This track implements the founder-accepted improvements from the post-journey-v3 alignment review (`docs/reviews/improvements-conversations.md`, `improvements-work.md`, `improvements-knowledge.md`). Three cross-cutting concept-doc updates land first (Thread + messages, Block primitive, Cost & Tokens model, Knowledge relevance signals) so that downstream implementation stories build against one shared spec. A hardcoded-data inventory runs in parallel and feeds a final sweep that closes data-layer + test-coverage gaps.
 
 **Scope rules (apply to every story in this track):**
 - **Spec stories first, code second.** L1–L4 are concept-doc updates. They ship no code; they ship the contract. Implementation stories (L7+) reference the contract and stay narrow.
-- **Real data, not fixtures.** Every implementation story replaces hardcoded data with real DB tables + APIs. The only acceptable hardcoded data lives in `*.test.ts*`, `*.stories.tsx`, and explicit `fixtures/` files imported only by tests or stories. Page and component runtime imports of `MOCK_*` / `FALLBACK_*` are not acceptable.
-- **Acceptance criteria include test coverage.** Every story includes at least one Vitest test for new logic and at least one Playwright e2e for any user-visible change. Existing e2e specs that cover the touched surface are re-run; if a regression escaped the suite, the story adds a coverage gate.
-- **Concept docs stay in sync.** Stories that change a fundamental shape (Thread, Block, Cost+Tokens, relevance signals, level hierarchy) update `docs/concept/` in the same commit so the documentation stays accurate.
-- **No founder-filter regressions.** Cargo-cult patterns explicitly demoted by the founder (keyboard idioms, optimistic-UI bragging, sidebar drag-reorder, emoji reactions, cycles, search-modifier mini-language, customizable dashboards) are not introduced in any story.
+- **Architect plans the how.** Acceptance criteria describe the journey outcome the user gets and the contracts that must hold. The architect's `/plan <id>` step decides file paths, component names, type shapes, endpoint paths, schema column names, library choices, and the exact action / chip / section / placement choices unless the founder has already pinned them. Where this track names a specific file, line, or constant, it is evidence of the *current bug* (the gap to close) — not a recipe for the fix.
+- **Reusable primitives get more design effort, not less.** Thread + messages (L7), Block (L2), and Artifact view (L12) are foundational reusable components. The architect and designer explore multiple versions, compare them, and run a design critique inside the planning step before settling. DS-quality. Build once, reuse everywhere.
+- **Real data, not fixtures.** Every implementation story replaces hardcoded runtime data with real persistence and APIs. Hardcoded data is allowed only in test files, story files, and dedicated fixtures directories that are imported solely by tests or stories. Pages and runtime components must not import `MOCK_*` / `FALLBACK_*` constants.
+- **Acceptance criteria include test coverage.** Every story includes at least one Vitest test for new logic and at least one Playwright e2e for any user-visible change. The full e2e suite re-runs locally before push (per L7 retro lesson — UI-shape changes can break unrelated specs); a regression that escaped existing coverage gets a coverage gate added in the same story.
+- **Concept docs stay in sync.** Stories that change a fundamental shape (Thread + messages, Block, Cost+Tokens, relevance signals, level hierarchy, lifecycle propagation) update `docs/concept/` in the same commit so the documentation stays accurate.
+- **No founder-filter regressions.** Cargo-cult patterns explicitly demoted by the founder (keyboard verb shortcuts, optimistic-UI bragging, sidebar drag-reorder, emoji reactions, cycles UI, search-modifier mini-language, customizable dashboards / view kits) are not introduced in any story.
 
 **Reference docs:** `docs/reviews/journeys-conversations.md` (v3), `docs/reviews/journeys-work.md` (v3), `docs/reviews/journeys-knowledge.md` (v3), `docs/reviews/improvements-*.md` (the three Phase 2 alignment outputs), `docs/reviews/reference-{notion,linear,slack}.md` (with the founder priority filter at the top of each), `docs/concept/HUMAN_INTERFACE_LAYER.md`, `docs/concept/KNOWLEDGE_ARCHITECTURE.md`, `docs/concept/PROCESS_LAYER.md`, `docs/concept/AGENT_LAYER.md`.
 
@@ -15,37 +17,32 @@ See `docs/work-packages/SHARED.md` for tech stack and the cross-track dependency
 
 ---
 
-### L1 — Concept: Thread primitive across all areas
+### L1 — Concept: Thread + messages across all areas
 
-**Story.** As an architect, I want the Thread primitive — its 6 shapes (`review` / `survey` / `chat` / `feed` / `dm` / `coach`), its discriminated payload, and its `attachedTo` cross-area attachment surface — captured in `docs/concept/HUMAN_INTERFACE_LAYER.md` and `docs/work-packages/SHARED.md`, so that downstream Conversations / Work / Knowledge stories that consume the primitive build against one shared spec instead of inventing variants.
+**Story.** As an architect, I want one shared spec for what a thread is, what messages it can carry, and where it can attach, so that every consumer in the track (Conversations, Work, Knowledge, the CoC overlay) builds against one model instead of inventing variants.
 
 **Depends on.** None.
 
 **Acceptance criteria.**
-- New section "Thread primitive" added to `docs/concept/HUMAN_INTERFACE_LAYER.md` (after the existing Conversations surface description). Section defines, with worked examples for each:
-  - The 6 shapes discriminated by `kind`. For each shape: who initiates, what response is expected, default chrome (header / quick-replies / input).
-  - Common Thread fields: `id`, `kind`, `subject`, `senders[]`, `lastMessageAt`, `blocking`, `pinned`, `resolvedAt`, `messages[]`, `quickReplies?[]`, `attachedTo`.
-  - The `attachedTo` cross-area attachment shape: `{ kind: "bet" | "task" | "artifact" | "knowledge" | "agent" | "user"; id: string }`. Threads attach to anything; the Conversations area is a *view* over all threads, not their owner.
-  - The "initiator decides the shape" rule (per founder's v3 reframing of Conversations Basic 2). Examples of each initiator pattern.
-  - Where threads live in the IA: per-attached-entity inline panel + a Conversations queue view.
-- New `Thread`, `Message`, `QuickReply` type contracts in `docs/work-packages/SHARED.md` "Shared Contracts" section (TypeScript-style, formal, copy-pastable).
-- `docs/concept/ARCHITECTURE.md` updated where the Human Interface Layer is described to reference the Thread primitive as a cross-area surface.
-- `docs/concept/AGENT_LAYER.md` updated where threads are mentioned: agents are initiators; the agent harness emits messages with a `kind` matching one of the 6 shapes.
-- Existing `threads` / `messages` schema in `packages/db/src/schema.ts` is reviewed against this spec; gaps documented inline (fix lives in L7).
-- Cross-link: `improvements-conversations.md` #2, `improvements-work.md` #7, `improvements-knowledge.md` #5 each reference this spec by section anchor.
-- No code changes; no schema changes. `bun run check` + `bun run lint` + `bun run test` all green (docs only).
+- The spec frames a thread as a *container* with metadata (initiator, attached entity, blocking-or-not, sync-or-async, last-active, participants, pinned, resolved). Messages are the things with shapes — most are plain text; some are *rich* and carry their own inline UI (a review message embeds an output artifact and a decision affordance; a questionnaire message embeds a constrained answer set). This is the generative-UI pattern every modern AI chat interface uses; the spec leans into it rather than reinventing it.
+- DM, coach-thread, and feed are documented as thread *configurations* (visibility, membership, pinning) — NOT as message shapes. The spec rejects the v2 "thread shape vocabulary" framing.
+- The cross-area attachment contract is captured: a thread attaches to any host entity (bet, task, knowledge item, agent, user). Conversations is a *view* over all threads, never their owner. Un-attached coach threads attach to the current user. Threads do NOT attach to artifacts — artifact discussion lives on the producing task (per L18 / L12 reframing).
+- The message-type vocabulary is defined for the journeys this track ships — at minimum plain text, review, and questionnaire. Adding a new rich message type later requires a concept-doc update first.
+- The same contracts are added to `docs/work-packages/SHARED.md` "Shared Contracts" section so implementation stories can reference them without re-inventing.
+- `docs/concept/ARCHITECTURE.md` and `docs/concept/AGENT_LAYER.md` are updated where threads are mentioned.
+- No code or schema changes. `bun run check` + `bun run lint` + `bun run test` all green (docs only).
+
+**Plan calls.** This is a foundational reusable spec. The architect and designer explore multiple versions of the thread + messages model, compare them, and run a design critique before settling on the message vocabulary.
 
 **Validation scenarios.**
-- Given an architect reads the new HUMAN_INTERFACE_LAYER section, when they later open L7, they can answer "what fields does Thread carry?" without asking and without re-reading the journey docs.
-- Given the spec, when scanned, every shape has at least one example of an initiator and an expected response.
-- Given the contract is in SHARED.md, every implementation story (L7, L18, L26) references it by section anchor.
-- Given the schema gap inventory at the bottom of the spec, L7 has a clear scope.
+- Given an architect reads the new section, when they later open L7, they can answer "what does a thread carry, and what messages can live in it?" without re-reading the journey docs.
+- Given the spec, when scanned, every shipping message type has at least one worked example of an initiator and an expected response.
+- Given the contract is in SHARED.md, every implementation story (L7, L18, L21, L26) references it by section anchor.
 
 **Contracts / constraints.**
-- Spec-only. No TypeScript additions outside docs.
-- The 6 shapes come from `journeys-conversations.md` v3 — do not invent a 7th.
-- `attachedTo` is mandatory on every Thread, even if the value is `{ kind: "user", id: <self> }` for un-attached coach threads.
-- No emojis in the spec.
+- Spec-only. No code or schema changes outside docs.
+- Threads attach to bets, tasks, knowledge, agents, users — never artifacts.
+- No emojis.
 
 **Effort.** S (~1d)
 
@@ -53,32 +50,32 @@ See `docs/work-packages/SHARED.md` for tech stack and the cross-track dependency
 
 ### L2 — Concept: Block primitive in markdown
 
-**Story.** As an architect, I want the Block primitive — markdown-AST-rooted blocks with stable addressable ids, drag-handles, comment anchors, and link targets — captured in `docs/concept/HUMAN_INTERFACE_LAYER.md` and a new `docs/concept/BLOCKS.md`, so that Work pitch (L16) and Knowledge body (L23) build against one spec and inherit the same comment / link / drag affordances. Critically: blocks live INSIDE markdown — the on-disk format remains valid markdown, never a proprietary database.
+**Story.** As an architect, I want one reusable block model that turns any markdown body into a styled, navigable, comment-able view — derived during ingestion, never a new on-disk dialect — so that bet pitches (L16), knowledge bodies (L23), and any future structured-prose surface inherit the same rendering, anchoring, and discussion affordances.
 
 **Depends on.** None.
 
+>> these blocks need to work without agents having to follow formatting or us introducing a new markdown dialect, that will fail. this block element needs to be something that we translate in when ingesting the markdown from the files watched back to the application. this concept needs further refinement by the architect
+
+>> we do not introduce a new markdown dialect. the markdown dialect stay github dialect compatible
+
 **Acceptance criteria.**
-- New section "Block primitive" in `docs/concept/HUMAN_INTERFACE_LAYER.md` defining:
-  - Block types: `paragraph`, `heading`, `list`, `quote`, `code`, `callout`, `embed`. Discriminated union shape: `{ id: string; type: BlockType; text?: string; children?: Block[]; meta?: Record<string, unknown> }`.
-  - **The on-disk-markdown invariant** as a hard rule: text → AST → blocks → AST → text round-trips losslessly for supported types.
-  - Block ids are stable across edits — computed from `path + content_hash + position`, NOT random UUIDs that change on every save.
-  - Block-level affordances: drag-handle (re-order, persists by re-emitting markdown), comment-thread anchor (uses Thread primitive from L1), per-block link target (`#block-id` URL fragment).
-  - Anti-patterns called out: blocks-as-database (Notion's escape into proprietary land — explicitly forbidden), customizable view kits (founder cut over-flexibility).
-- New file `docs/concept/BLOCKS.md`: long-form treatment — block lifecycle, parsing/serialization (`remark` / `unified` recommended), comment-anchor model, link-resolution rules.
+- A new "Block primitive" section in `docs/concept/HUMAN_INTERFACE_LAYER.md` and a long-form `docs/concept/BLOCKS.md` together define the block model: what counts as a block, how blocks are derived from a markdown file during file-watcher ingestion, how block ids stay stable across edits, and how per-block affordances (drag, comment-anchor, link-target) attach.
+- The on-disk format remains GitHub-flavoured markdown. Blocks are a derived view, never a stored dialect. The architect documents this as a hard rule.
+- Cross-area attachment: per-block discussion uses the L1 thread primitive; the block-anchor is the block primitive's own affordance (so consumers like L26 do not need a separate linking dependency).
 - Cross-link: `improvements-work.md` #5 and `improvements-knowledge.md` #2 cite this spec.
-- Decision recorded: `react-markdown` + `remark-gfm` is the recommended renderer; the spec says why and lists the alternatives that were rejected.
 - `bun run check` + `bun run lint` + `bun run test` all green.
 
+**Plan calls.** This is a foundational reusable spec. The architect and designer explore multiple block-model designs (how blocks are derived, how ids are stabilised, how the gutter works), compare them, and run a design critique before settling.
+
 **Validation scenarios.**
-- Given a developer planning L16 (Work pitch blocks), when they read BLOCKS.md, they know to use `react-markdown` + `remark-gfm` and to attach stable ids at the AST level.
-- Given the spec, when scanned, the on-disk-markdown invariant is stated as a hard rule with an example.
-- Given the comment-anchor section, it explicitly references the Thread primitive from L1 by section anchor.
-- Given a contributor proposes "let's store blocks in JSON in the DB", the spec's anti-pattern section is the authority that rejects it.
+- Given a developer planning L16 or L23 reads BLOCKS.md, they know how a markdown file becomes a block view at ingestion time and how block ids stay stable.
+- Given the spec, the on-disk-markdown invariant is stated as a hard rule.
+- Given a contributor proposes a new on-disk dialect, the spec is the authority that rejects it.
 
 **Contracts / constraints.**
 - Spec-only.
-- Block ids must round-trip: `parseToBlocks(serializeFromBlocks(blocks)) === blocks` for the supported types.
-- Blocks are shared between Work (pitches, briefs) and Knowledge (entries). Conversations does not use them — chat messages are not blocks.
+- On-disk format stays GitHub-flavoured markdown.
+- Blocks are shared between Work and Knowledge; Conversations does not use them — chat messages are not blocks.
 - No emojis.
 
 **Effort.** S (~1d)
@@ -87,69 +84,59 @@ See `docs/work-packages/SHARED.md` for tech stack and the cross-track dependency
 
 ### L3 — Concept: Cost & Tokens (no Duration) appetite model
 
-**Story.** As an architect, I want the appetite/budget/spend model rewritten as **Cost (money) + Tokens** — explicitly NOT Duration — captured in `docs/concept/PROCESS_LAYER.md`, so that Work bet appetites, story caps, and session costs share one money+token grammar and so "duration" never leaks into the agent-driven world where wall-clock time is a poor proxy for complexity.
+**Story.** As an architect, I want the appetite/budget/spend model rewritten as **Cost (money) + Tokens** — explicitly NOT Duration — captured in `docs/concept/PROCESS_LAYER.md`, so that bet appetites, story caps, and session costs share one money+token grammar and "duration" never leaks into a world where wall-clock time is a poor proxy for complexity.
 
 **Depends on.** None.
 
 **Acceptance criteria.**
-- Rewrite the "Appetite / Budget / Cost" section of `docs/concept/PROCESS_LAYER.md` to define:
-  - `Money { amountMinor: number; currency: "USD" | "EUR" | "GBP" }` — currency-aware money type. Default currency is `"USD"` for v1.
-  - `TokenUsage { promptTokens: number; completionTokens: number; modelTier: "frontier" | "mid" | "small" }` — model-tier-aware. Tier is a coarse complexity signal: frontier-tier tokens cost more and signal harder problems.
-  - **Bet appetite**: `{ moneyCap: Money; tokenCap?: TokenUsage }`. No `Duration` field. Bets are bounded by spend and complexity, not wall-clock.
-  - **Story (task) cap**: same shape as appetite, scoped to one task.
-  - **Session cost**: `{ moneySpent: Money; tokensUsed: TokenUsage; durationMs: number }` — wall-clock duration is recorded INFORMATIONALLY only, never as a budget axis.
-- New "Rationale" subsection explains why duration is not the budget: agents work in bursts; complexity is the signal; a frontier-tier token-heavy session signals harder work than a long, small-tier one. Cites founder's reasoning: "Does duration really matter in an AI world?".
-- New "Money / TokenUsage" subsection added to `docs/work-packages/SHARED.md` "Shared Contracts".
-- `docs/concept/AGENT_LAYER.md` updated where session cost is mentioned to reference the new shape.
-- Existing `bets` / `tasks` / `sessions` tables in `packages/db/src/schema.ts` reviewed against this model; gaps documented inline (fix lives in L17).
-- Cross-link: `improvements-work.md` #6 cites this spec.
+- The "Appetite / Budget / Cost" section of `docs/concept/PROCESS_LAYER.md` is rewritten so that bet appetite, task caps, and session costs are expressed in money plus tokens. There is no duration budget axis. Wall-clock duration is recorded informationally only.
+- The spec defines a money type that is currency-aware and precision-safe and a token-usage type that distinguishes prompt vs completion tokens and carries a coarse model-tier signal. The exact tier names, default currency, and any numerical defaults are decided by the architect during planning — the spec records the choice and the rationale.
+- A "Rationale" subsection captures the founder framing: "Does duration really matter in an AI world?" Agents work in bursts; complexity is the signal.
+- The money / token-usage shapes are also added to `docs/work-packages/SHARED.md` "Shared Contracts" so L17 picks them up directly.
+- `docs/concept/AGENT_LAYER.md` is updated where session cost is mentioned.
 - `bun run check` + `bun run lint` + `bun run test` all green.
 
 **Validation scenarios.**
-- Given an architect plans L14 (bet actions), when they read PROCESS_LAYER, they know consequence preview shows cost-spent vs cost-cap and tokens-used vs token-cap, NOT duration.
-- Given the rationale section, when an agent later suggests "let's add a duration cap on bets", the spec rejects it with a citation.
-- Given the schema gap inventory, L17 has a clear scope.
-- Given a downstream story uses `Money`, it imports from `packages/shared`, never re-defines it.
+- Given an architect plans L14 (bet actions), when they read PROCESS_LAYER, they know the consequence preview shows cost-spent vs cost-cap and tokens-used vs token-cap, NOT duration.
+- Given the rationale section, when an agent later proposes a duration cap on bets, the spec rejects it with a citation.
+- Given a downstream story uses money values, it imports a single shared definition rather than redefining one.
 
 **Contracts / constraints.**
 - Spec-only. Type definitions land in L17.
-- Currency: pick ONE default (USD) for v1; spec leaves the door open for multi-currency.
-- Tier values: `frontier` / `mid` / `small`. Three tiers, no more, no less.
-- Cost is `amountMinor` (cents), never floats.
+- Money values must not lose precision through rounding.
+- Wall-clock duration is informational only, never a budget axis.
 - No emojis.
 
 **Effort.** S (~1d)
 
 ---
 
-### L4 — Concept: Knowledge relevance signals (citation-driven impact)
+### L4 — Concept: Knowledge relevance signals
 
-**Story.** As an architect, I want the recency × frequency × impact relevance model captured in `docs/concept/KNOWLEDGE_ARCHITECTURE.md`, with **impact computed as citation score** (agents are required to cite the knowledge they used in producing artifacts), so that L22 implements a measurable signal — not aspiration — and so the data layer earns the v3 Knowledge journey's load-bearing rank.
+**Story.** As an architect, I want one model for how knowledge relevance is computed from real measurements captured in `docs/concept/KNOWLEDGE_ARCHITECTURE.md`, so that L22 implements a measurable signal — not aspiration — and so the data layer earns the v3 Knowledge journey's load-bearing rank.
 
 **Depends on.** None.
 
+>> getting this citation to work reliable is a core aspect, as well as tracking when access, citations and so on happen needs some deep thinking.
+
 **Acceptance criteria.**
-- Rewrite the "Relevance / Attention" section of `docs/concept/KNOWLEDGE_ARCHITECTURE.md` to define three first-class signals:
-  - **Recency**: `lastValidatedAt`, `lastEditedAt`, `lastAccessedAt`. Decay function specified — exponential half-life of 30 days for "active" status, 90 days for "stale".
-  - **Frequency**: `accessCount` over last 30 days, sourced from a server-side access log (not client analytics).
-  - **Impact = citation score**: agents are REQUIRED to cite knowledge items they used in producing an artifact (skill, decision, pattern, etc.). The cited knowledge gets impact +1; a recursive cite-of-cite gets fractional contribution. The founder noted: "we have to figure out how this is measurable but this is powerful" — the spec resolves this by requiring agents to emit `cited_knowledge_ids` on session completion.
-- New `knowledge_citations` table contract documented (schema lands in L22): `{ from_artifact_id, from_artifact_kind, to_knowledge_id, weight, created_at }`. Default weight 1; can be downweighted later.
-- New section "Citation discipline for agent harnesses": every artifact-producing session emits `cited_knowledge_ids: string[]`; HyperIdle records citations on session completion. This is a harness-side obligation, not a UI nag.
-- Define the relevance composite: `relevance = w1 * recencyScore + w2 * log(1 + frequency) + w3 * log(1 + impact)`. Weights tunable; defaults specified (`w1=0.4, w2=0.3, w3=0.3`).
-- Anti-pattern explicitly forbidden: do NOT fall back to per-kind constants for impact. Today's `IMPACT_BY_KIND` table at `packages/fabric/src/attention-scoring.ts` is a placeholder that lies. Spec rule: "until citation data exists, render impact as `—`, not as a fake number".
+- The "Relevance / Attention" section of `docs/concept/KNOWLEDGE_ARCHITECTURE.md` is rewritten so that recency and frequency ship as data contracts: every knowledge item knows when it was last validated / edited / accessed, and how often it has been accessed in a recent window from server-side tracking.
+- **Citation is evaluated by the architect and designer during planning.** They assess feasibility (harness contracts, reliability of agent self-reporting, access tracking) and decide whether citation ships now or stages with absent values. Don't pre-defer; evaluate. The decision and its rationale are recorded in the spec.
+- The relevance composite, its inputs, and how it tunes are defined. Any numerical defaults (decay constants, weights) are chosen by the architect during planning and recorded in the spec.
+- Configuration that tunes the composite lives in DB or env, never in source.
+- An anti-pattern is explicitly forbidden: until citation data exists, render impact as `—`, never as a fake number. (The current per-kind impact constant in `packages/fabric/src/attention-scoring.ts` is the bug; the fix lives in L22.)
 - Cross-link: `improvements-knowledge.md` #1 cites this spec.
 - `bun run check` + `bun run lint` + `bun run test` all green.
 
 **Validation scenarios.**
-- Given a developer reads the spec before L22, they know `accessCount` reads from a server-side log table, not client-side analytics events.
-- Given the impact-as-citation section, when an agent harness author reads it, they know they MUST emit `cited_knowledge_ids` on every session.
+- Given a developer reads the spec before L22, they know access counts come from server-side tracking, not client analytics.
+- Given the citation section, when an agent harness author reads it, they know either what they MUST emit (if citation ships) or that the signal is staged (with rationale).
 - Given a row that has zero citations and zero accesses, the spec says the row renders impact as `—`, not `0` or a fake constant.
-- Given the composite formula, the weights are explicit and tunable via a config table or env, not hardcoded.
 
 **Contracts / constraints.**
-- Spec-only. Schema lands in L22.
-- The citation discipline applies to ALL agents (not just facilitators) — harness contract.
-- Tunable weights live in a config table or env, not hardcoded constants.
+- Spec-only. The data contracts land in L22.
+- Tunable weights live in configuration, never in source.
+- No fake numbers — `—` when data is absent.
 - No emojis.
 
 **Effort.** S (~1d)
@@ -158,34 +145,26 @@ See `docs/work-packages/SHARED.md` for tech stack and the cross-track dependency
 
 ### L5 — Hardcoded-data inventory (research)
 
-**Story.** As an engineer about to remove every hardcoded fixture from the running app, I want a complete inventory — every `MOCK_*` / `FALLBACK_*` constant, every fixture file imported into a runtime page or component (not into a test or story), every hardcoded count / chip / number / list / status — saved as a structured doc, so that downstream implementation stories know what they own and the final sweep (L29) has a shopping list.
+**Story.** As an engineer about to remove every hardcoded fixture from the running app, I want a complete inventory — every `MOCK_*` / `FALLBACK_*` constant, every fixture imported into a runtime page or component, every hardcoded count / chip / number / list / status — saved as a structured doc, so that downstream implementation stories know what they own and the final sweep (L29) has a shopping list.
 
 **Depends on.** None.
 
 **Acceptance criteria.**
-- New file `docs/reviews/hardcoded-data-inventory.md` lists every hardcoded data source in `packages/web/src/` (and supporting packages) consumed at runtime — explicitly NOT in test or story files. For each finding, columns:
-  - `Source path:line | Shape | Consumer | Real source (API / table) | Owner story | Notes`.
-- Inventory is grouped by area: Conversations, Work, Knowledge, Shell, Cross-cutting.
-- Inventory must cover at minimum:
-  - `packages/web/src/fixtures/*.ts` — every named export, classified as runtime-consumed vs story-only.
-  - Every `MOCK_*` and `FALLBACK_*` constant in `packages/web/src/pages/*.tsx`, `shell/*.tsx`, `components/*.tsx`.
-  - Hardcoded counts / chips / status mappings in shell (`AppShell.tsx`, `IconRail.tsx`, `Submenu.tsx`, `Rail.tsx`).
-  - Page-local types like `MockReviewItem`, `MockThread`, `MockBetComment` arrays.
-  - Status mappings that borrow Work statuses for non-Work data (e.g., `KnowledgeRow` mapping knowledge lifecycle to `HEALTHY/BEHIND/BLOCKED`).
-- Each row's "Owner story" matches the right L-story (L7, L11, L13, …); rows with no obvious owner get tagged `unassigned` and surfaced for L29.
-- Inventory does NOT propose fixes — that is the impl stories' job. It is a survey.
-- "Hardcoded fallback acceptable in" column distinguishes `tests/`, `*.stories.tsx`, `fixtures/` (story-only), from forbidden runtime use.
+- A new file `docs/reviews/hardcoded-data-inventory.md` lists every hardcoded data source consumed at runtime in the web package and supporting packages — explicitly NOT in test or story files. Each row records: source path:line, shape, runtime consumer, real source (API or table), proposed owner story, and notes.
+- The inventory is grouped by area: Conversations, Work, Knowledge, Shell, Cross-cutting.
+- Each row's "owner story" matches the right L-story; rows with no obvious owner are tagged `unassigned` for L29 to pick up.
+- The inventory does NOT propose fixes — that is the impl stories' job. It is a survey.
+- A column distinguishes "hardcoded fallback acceptable in" — tests, stories, and dedicated fixtures directories — from forbidden runtime use.
 - `bun run check` + `bun run lint` + `bun run test` all green (docs only).
 
 **Validation scenarios.**
-- Given the inventory, when L14 starts, the developer knows exactly which BetCard fixtures to replace and where the real API lives (or whether the API needs to be added).
+- Given the inventory, when L14 starts, the developer knows exactly which fixtures to replace and where the real data lives.
 - Given a row tagged `unassigned`, L29 picks it up and either schedules a follow-up or fixes it inline.
-- Given a fixture in `packages/web/src/fixtures/` that is consumed by both a page AND a storybook, the inventory clarifies which use is OK to keep and which must be replaced.
-- Given the inventory is structured (markdown tables), a script or agent can grep `Owner story = L14` and produce a shopping list.
+- Given the inventory is structured as markdown tables, a script or agent can grep the owner-story column.
 
 **Contracts / constraints.**
 - Research-only. No code or schema changes.
-- Use absolute paths (`packages/web/src/...`) so other agents can grep.
+- Use absolute paths so other agents can grep.
 - Be exhaustive — false negatives are worse than false positives.
 - No emojis.
 
@@ -193,98 +172,98 @@ See `docs/work-packages/SHARED.md` for tech stack and the cross-track dependency
 
 ---
 
-### L6 — Wire verdict commit + auto-advance
+### L6 — Thread response unblocks the agent
 
-**Story.** As a reviewer in `/conversations/review`, I want my Approve / Request Changes / Reject / Snooze verdict to actually commit to the server and the queue to advance to the next non-resolved item, so that v3 Basic 2 ("play your part in the shape the initiator chose") and Basic 3 ("move on with prior context") are not silently broken.
+**Story.** As a reviewer responding to a thread, I want my response — verdict, questionnaire answer, open-question reply — to persist AND to be picked up by the agent waiting on it, so that the v3 Conversations journey "play your part in the shape the initiator chose" actually closes the loop with the agent's tool call.
 
 **Depends on.** None.
 
 **Acceptance criteria.**
-- `commitVerdict` in `packages/web/src/pages/ConversationsReview.tsx` (currently empty at `:132`) calls `POST /api/conversations/responses` with the verdict + optional comment + thread id. On success, the server endpoint marks the thread resolved and emits an event.
-- `setSelectedId` (currently voided at `:130`) is replaced with a real selection state lifted into the page and AppShell. After a successful commit, selection advances to the next non-resolved thread in the active section. Section ordering is server-supplied, not client-fabricated.
-- 5-second undo toast appears after every commit; clicking undo reverses the verdict (server endpoint: `DELETE /api/conversations/responses/:id`). After 5 seconds the verdict is final.
-- Auto-advance is a setting (default: ON for power-user behavior, OFF for grandma-friendly confirm — per v3 delighter); honors the user's `autoAdvance` preference in `SettingsPanel`.
-- New Vitest tests cover: verdict commit success, commit failure (network error), undo within window, undo after expiry, auto-advance respecting setting.
-- New Playwright spec covers the full loop: load review → commit verdict → next thread loads → undo → original thread restored.
-- All hardcoded `MOCK_REVIEWS[0]` access in this page is replaced with a `useQuery` against the real conversations endpoint. Inventory row from L5 closed.
-- `bun run check` + `bun run lint` + `bun run test` all green; full Playwright e2e suite green.
+- When the user responds to a thread, the response persists to the server, the thread state updates accordingly, and the rest of the system is notified so other clients update. Today the verdict commit is a no-op (the client-side function at `packages/web/src/pages/ConversationsReview.tsx:132` is empty); this story closes that gap.
+- The response becomes an event that **unblocks the agent waiting on it (sync)** or is **recorded for the agent to consume on its next pickup (async)**. The whole point of a response is to unblock a tool call. The architect specifies the response-as-event contract that connects the thread response to the agent harness.
+- Network failures surface a clear error; the response is not recorded locally as committed when the server didn't accept it.
+- New Vitest tests cover response persistence (success and failure) and the agent-unblocking event being emitted with the right payload.
+- A new Playwright spec covers the loop: load a thread → respond → response persists → agent-event is emitted.
+- All hardcoded review-fixture access on this page is replaced with a real data fetch. The corresponding inventory row from L5 is closed.
+- `bun run check` + `bun run lint` + `bun run test` all green; the full Playwright e2e suite re-runs and stays green.
+
+**Plan calls.** This is NOT a UI auto-advance / undo story. The architect specifies the harness-side contract for how a response surfaces to the waiting agent (sync = unblocks now; async = recorded for next pickup); the designer picks any optional UI affordances around responding.
 
 **Validation scenarios.**
-- Given the user clicks Approve, when the request succeeds, then the thread resolves on the server, the local list updates, and the next thread loads automatically (if auto-advance is on).
-- Given the user clicks Approve and immediately undo, when the undo arrives within 5 seconds, then the server reverses the verdict and the original thread is restored as selected.
-- Given auto-advance is OFF, when the user commits, then the same thread stays selected with a "Resolved — pick next" affordance.
-- Given the network is down, when the user commits, then a clear error is shown and the verdict is not recorded locally as committed.
+- Given the user responds to a sync thread, when the request succeeds, the agent waiting on that response receives the unblock event and continues its tool call.
+- Given the user responds to an async thread, when the request succeeds, the response is recorded and the agent picks it up on its next session.
+- Given the network is down, when the user responds, then a clear error is shown and the response is not recorded as committed.
 
 **Contracts / constraints.**
-- The verdict endpoint already exists in `packages/server/src/routes/conversations.ts` — wire to it; do not re-spec.
-- Undo within 5s is non-negotiable for the grandma-tier persona (v3).
-- No optimistic UI bragging — the founder filter [DEMOTE]s "perceived speed" as a primary feature; correctness first.
+- Correctness first — no optimistic-UI bragging.
+- Reuse the existing thread-response server endpoint where one already exists; do not re-spec.
 - No emojis.
 
 **Effort.** M (~2-3d)
 
 ---
 
-### L7 — Promote Thread primitive into shared
+### L7 — Promote Thread + messages primitive into shared
 
-**Story.** As a developer wiring Conversations / Work / Knowledge threads, I want a single `Thread` type with the 6-shape discriminant + `attachedTo` cross-area attachment, exported from `@hyperidle/shared`, so that the three areas attach threads to anything and Conversations becomes a *view* over all threads, not the owner.
+**Story.** As a developer wiring Conversations, Work, and Knowledge threads, I want the Thread + messages primitive from L1 implemented in shared code, the database, and the design system, so that every consumer attaches threads to the right host entity, renders rich messages inline, and reads from one shape.
+
+>> we probably also need thread design system components.
 
 **Depends on.** L1 (concept doc).
 
 **Acceptance criteria.**
-- New types in `packages/shared/src/types.ts`: `Thread`, `Message`, `QuickReply`, `ThreadKind`, `ThreadAttachment` — exactly matching the contract in `docs/work-packages/SHARED.md` updated by L1.
-- Existing page-local `MockReviewItem` (`ConversationsReview.tsx:22-33`), `MockThread` (`ConversationsChat.tsx:14-32`), `MockBetComment[]` (`WorkBet.tsx:24-28`) deleted; consumers refactored to use `Thread`.
-- Database schema migration: `threads` table gains a `kind` column (enum: 6 shapes), an `attached_to_kind` + `attached_to_id` pair, an `initiator_id`, an optional `quick_replies` JSON column. Existing rows backfilled to `kind = "review"` (the historic default).
-- Server endpoints: `GET /api/threads?attachedToKind=...&attachedToId=...` returns threads attached to a given entity; `GET /api/threads/:id` returns one with messages; `POST /api/threads` creates with explicit `kind` + `attachedTo`.
-- `packages/server/src/routes/conversations.ts` is rewritten to read/write through the new Thread shape.
-- Vitest unit tests cover the new types' discriminant exhaustiveness (TypeScript exhaustive switch test). Server tests cover all 6 kinds round-tripping through create + read.
-- Playwright e2e: review thread, chat thread, and (a stub of) survey thread each render with the right chrome based on `kind` alone.
-- All page-local Mock types removed; inventory rows from L5 closed.
-- `bun run check` + `bun run lint` + `bun run test` all green; e2e suite green.
+- The Thread + messages primitive — thread container with metadata, plain-text messages, and the rich message types defined in L1 (at minimum review and questionnaire) — is implemented in shared types, the database, and the design system. The implementation matches the L1 contract exactly.
+- Threads attach to any host entity per L1 (bet, task, knowledge item, agent, user). Conversations becomes a *view* over threads, not their owner.
+- Existing review/chat-only data continues to load (back-compat preserved). Message types beyond plain text are now representable.
+- Page-local fixture types like the current `MockReviewItem` (`ConversationsReview.tsx:22-33`), `MockThread` (`ConversationsChat.tsx:14-32`), and `MockBetComment` array (`WorkBet.tsx:24-28`) are removed; their consumers move to the shared shape.
+- The system can list threads attached to any host entity, fetch one with messages, and create a thread or post a message. The architect picks the endpoint shapes during planning.
+- Vitest tests cover discriminant exhaustiveness on message types; server tests cover every shipping type round-tripping through create + read.
+- Playwright e2e: at least one thread renders correctly with each shipping rich message type inline.
+- All page-local mock thread types are removed; the matching inventory rows from L5 are closed.
+- `bun run check` + `bun run lint` + `bun run test` all green; the full e2e suite re-runs and stays green.
+
+**Plan calls.** This is a foundational reusable component built directly into the design system, not as a per-area component. The architect and designer take multiple passes over the thread shell, the message stream, and the rich-message inline rendering, compare designs, and run a design critique before settling. DS-quality.
 
 **Validation scenarios.**
-- Given a developer creates a survey thread via `POST /api/threads` with `kind: "survey"`, when the response is read back, the discriminant payload is preserved and the UI renders survey chrome.
-- Given a thread has `attachedTo: { kind: "bet", id: "b1" }`, when the Bet detail page mounts, then the thread shows up in the bet's thread panel (when L18 lands).
-- Given the migration runs against a fresh DB, then `kind = "review"` is the default for back-compat.
-- Given an exhaustive switch on `ThreadKind`, the TS compiler enforces all 6 cases.
+- Given a developer creates a questionnaire thread, when the response is read back, the message payload is preserved and the questionnaire renders inline with its constrained answers.
+- Given a thread attached to a bet, when the Bet detail page mounts (after L18 lands), then the thread shows up in the bet's thread surface.
+- Given a fresh database with the migration applied, then existing review-shaped data continues to load with no manual fixup.
+- Given an exhaustive switch on the message-type vocabulary, the TypeScript compiler enforces every case.
 
 **Contracts / constraints.**
-- The 6 kinds are FIXED. No 7th. Founder filter blocks new shapes without a concept-doc update.
-- `attachedTo` is mandatory; un-attached coach threads use `{ kind: "user", id: <self> }`.
-- Migration is forward-only and has a written rollback plan.
+- The message-type vocabulary is closed — adding a new rich type requires an L1 update first.
+- Every thread carries an attachment; un-attached coach threads attach to the user themselves.
+- Threads do not attach to artifacts.
+- The migration is forward-only and ships with a written rollback plan.
 - No emojis.
 
 **Effort.** L (~5d)
 
 ---
 
-### L8 — Render `ThreadSections` in Conversations Submenu
+### L8 — Render thread sections in Conversations Submenu
 
-**Story.** As a reviewer landing on `/conversations`, I want the Submenu to show the actual thread list — pinned, blocking, reviews, chats, resolved — instead of two static "Review Queue 3 / Chat 1" NavItems with hardcoded counts, so that I can pick thread #2 (currently impossible).
+**Story.** As a reviewer landing on Conversations, I want the Submenu to show the actual list of threads, grouped sensibly, instead of static entries with hardcoded counts, so that I can pick any thread (currently only thread #1 is reachable).
 
 **Depends on.** L7.
 
 **Acceptance criteria.**
-- `ThreadSections` (already built at `packages/web/src/components/ThreadSections.tsx`) is imported and rendered inside the Submenu when `view === "conversations"`. The two NavItems "Review Queue" / "Chat" are removed from `AppShell.tsx:39-44`.
-- Thread list is fed by `useQuery(['threads', filter])` against the L7 endpoint. Selection drives a lifted `selectedThreadId` in AppShell, NOT navigation.
-- Section counts ("Pinned 1 / Blocking 3 / Reviews 5 / Chats 7 / Resolved 12") are derived from the fetched list, not literals. The hardcoded `count: 12` etc. in `SUBMENU_CONFIG` (`AppShell.tsx:40-41`) is removed.
-- `kind` chip on each row reflects the discriminant from L7 (review / survey / chat / feed / DM / coach).
-- The "blocking outranks kind" rule (per ThreadSections lore) is preserved.
-- Vitest tests cover: rendering with empty list, rendering with mixed-kind list, selection drives selectedThreadId.
-- Playwright e2e: list of threads loads, click a thread → main pane updates to that thread, count badges match list contents.
-- Inventory rows from L5 (page-local thread mocks, hardcoded submenu counts) closed.
-- `bun run check` + `bun run lint` + `bun run test` all green; e2e suite green.
+- The Conversations Submenu renders the full thread list from the L7 store, grouped into sections that read naturally for the user. The static entries currently in `AppShell.tsx:39-44` and the hardcoded counts at `:40-41` are removed. The exact section names, grouping rules, and sort order are designer + architect calls during planning.
+- The list is fed by a real query against the L7 thread store. Selection drives a lifted selected-thread id, NOT a route navigation.
+- Section counts are derived from the fetched list, not literals.
+- Vitest tests cover empty list rendering, mixed list rendering, and selection driving the lifted id.
+- Playwright e2e: the list of threads loads, clicking a thread updates the main pane, and count badges match list contents.
+- The matching inventory rows from L5 (page-local thread mocks, hardcoded submenu counts) are closed.
+- `bun run check` + `bun run lint` + `bun run test` all green; the full e2e suite stays green.
 
 **Validation scenarios.**
-- Given there are 7 threads on the server, when the page loads, the Submenu shows 7 rows grouped into the 5 sections by status.
-- Given a thread's kind is `survey`, the row shows a SURVEY chip; clicking opens the survey detail.
-- Given the user clicks a thread, the main pane (`ConversationsReview` or its successor in L9) renders that thread.
-- Given the network fails, the Submenu shows a clear error state (not silent collapse).
+- Given there are 7 threads on the server, when the page loads, the Submenu shows 7 rows grouped sensibly.
+- Given the user clicks a thread, the main pane renders that thread.
+- Given the network fails, the Submenu shows a clear error state, never silent collapse.
 
 **Contracts / constraints.**
-- ThreadSections is reused as-is — do not re-build the component.
-- Counts must match list length; counts that lie are forbidden (founder filter: trust-leakage is the primary failure mode).
-- No keyboard navigation on the list in this story; that's a follow-up if ever (founder-demoted).
+- Counts must match list length. Counts that lie are forbidden.
+- No keyboard verb shortcuts on the list (founder demoted).
 - No emojis.
 
 **Effort.** M (~2-3d)
@@ -293,30 +272,27 @@ See `docs/work-packages/SHARED.md` for tech stack and the cross-track dependency
 
 ### L9 — Collapse review/chat to one detail route
 
-**Story.** As a user, I want one Conversations route — `/conversations` (queue) + `/conversations/:threadId` (detail) — instead of two sibling routes that split the same queue by URL, so that the page adapts to whichever shape the initiator chose (per v3 Basic 2 reframing) and I never pick the wrong tab before I can see what the agent wants.
+**Story.** As a user, I want one Conversations entry point — a queue plus a single detail surface per thread — instead of two sibling routes that split the same queue by URL, so that the page adapts to whichever thread the user picked and I never pick the wrong tab before I can see what the agent wants.
 
 **Depends on.** L7.
 
 **Acceptance criteria.**
-- New routes in `packages/web/src/router.tsx`: `/conversations` (the queue) and `/conversations/:threadId` (a single detail page that renders by `thread.kind`). The old `/conversations/review` and `/conversations/chat` routes redirect to `/conversations` (preserve history with `Navigate replace`).
-- New page `packages/web/src/pages/Conversations.tsx` (singular) and `ConversationDetail.tsx` replace `ConversationsReview.tsx` + `ConversationsChat.tsx`.
-- The detail page dispatches by `thread.kind` to per-kind body components (`ReviewBody`, `SurveyBody`, `ChatBody`, `FeedBody`, `DmBody`, `CoachBody`). Body components live in `packages/web/src/components/threads/`.
-- Submenu's "Chat" NavItem is removed (collapses with L8); the Conversations IconRail item is the sole entry point.
-- Naming collisions (`Conversations` / `Chat` / `Chats` / `chat`) are resolved per the spec from L1 — one canonical noun per concept.
-- Vitest tests cover: each kind dispatches to the right body; unknown kind shows a "Unknown thread shape" fallback (logged, not crashing).
-- Playwright e2e: navigate from `/work/portfolio` → click a bet's thread → URL becomes `/conversations/:id` → the right body renders.
-- Stale links to `/conversations/review` and `/conversations/chat` redirect, not 404.
-- `bun run check` + `bun run lint` + `bun run test` all green; e2e suite green.
+- Conversations is reachable via one queue plus one detail surface per thread. Legacy review/chat sibling routes redirect (preserving history), never 404.
+- The detail surface renders whichever thread the user picked, with rich messages from L7 rendered inline. The architect picks the dispatch / routing shape during planning.
+- Naming collisions (Conversations / Chat / Chats / chat) are resolved per the L1 spec — one canonical noun per concept.
+- Vitest tests cover the dispatch and the unknown-thread fallback.
+- Playwright e2e: navigate from Work → click a bet's thread → the detail surface renders that thread.
+- `bun run check` + `bun run lint` + `bun run test` all green; the full e2e suite stays green.
+
+**Uses.** L7 Thread + messages primitive.
 
 **Validation scenarios.**
-- Given a user opens `/conversations/review`, then they redirect to `/conversations` and the queue loads.
-- Given a thread of kind `survey`, when its detail page loads, then `SurveyBody` is rendered, not `ReviewBody`.
-- Given a deep-link `/conversations/abc123` where `abc123` is unknown, then a clear "thread not found" empty state is shown (not the editable-fallback anti-pattern).
-- Given a kind not yet implemented (e.g., `coach` if its body is stubbed), the fallback body says so explicitly and links to a tracking issue.
+- Given a user opens a legacy route, then they redirect to the queue and the queue loads.
+- Given a deep-link to an unknown thread id, then a clear "thread not found" empty state is shown — not the editable-fallback anti-pattern.
 
 **Contracts / constraints.**
-- One detail page; per-kind bodies. Do NOT split into per-kind detail pages.
-- Old routes redirect, never 404 — preserve any external links and Rail badges that already point at the old paths.
+- One detail surface; no per-shape detail routes.
+- Old routes redirect, never 404.
 - No emojis.
 
 **Effort.** M (~2-3d)
@@ -325,93 +301,91 @@ See `docs/work-packages/SHARED.md` for tech stack and the cross-track dependency
 
 ### L10 — Submenu filter chips actually filter
 
-**Story.** As a user, when I click "Needs review" in the Conversations Submenu filter, I want the thread list to actually filter — not just paint the chip selected — so I stop losing trust in controls that look like they work.
+**Story.** As a user, when I click a filter in the Conversations Submenu, I want the thread list to actually filter — not just paint the chip selected — so I stop losing trust in controls that look like they work.
 
 **Depends on.** L8.
 
 **Acceptance criteria.**
-- `submenuFilter` state in `AppShell.tsx:367-374` is now read by ThreadSections, which filters the list by status (`needs-review` ⇒ `status === "needs_human"` and similar). The "filter is set but never read" comment at `:60-63` is deleted along with the bug.
-- Filter set is reduced to what L7's discriminant supports: `all` / `needs-review` / `pinned` / `resolved`. The redundant `chats` filter is removed (kind is a row-level chip, not a global filter).
-- After L7's 6-kind discriminant, filter chips become real filters: clicking `survey` filters to survey-kind threads. Empty filtered states show a clear "0 surveys today" state.
-- Vitest tests cover: each filter narrows the list correctly; clearing filter restores full list.
-- Playwright e2e: click Needs review → list narrows → click All → list restored.
-- Counts on chips reflect the filtered count (unfiltered count is shown beside as `12 of 47`).
-- `bun run check` + `bun run lint` + `bun run test` all green; e2e suite green.
+- The submenu filter state (currently set but never read — see the comment at `AppShell.tsx:60-63` and the unused state at `:367-374`) is consumed by the thread list, which filters accordingly. The "filter is set but never read" bug is closed.
+- The real filter axis is **blocking vs non-blocking** (= sync vs async — same axis, two names). The exact chip vocabulary is a designer + architect call during planning, resolved against that axis.
+- Empty filtered states show a clear empty state with a clear-filter affordance.
+- Vitest tests cover: each filter narrows correctly; clearing restores the full list.
+- Playwright e2e: click a filter → list narrows → clear → list restored.
+- `bun run check` + `bun run lint` + `bun run test` all green; the full e2e suite stays green.
 
 **Validation scenarios.**
-- Given 12 threads with mixed statuses, when the user clicks Needs review and 5 are `needs_human`, then 5 rows show.
-- Given a filter with 0 matches, the list shows a clear empty state with a "clear filter" affordance.
-- Given the user clears the filter, the original 12 rows return.
+- Given threads with mixed blocking / non-blocking states, when the user picks the blocking filter, the list narrows to blocking threads.
+- Given a filter with 0 matches, the list shows a clear empty state.
+- Given the user clears the filter, the original list returns.
 
 **Contracts / constraints.**
-- No customizable filter sets (founder cut over-flexibility / kit-of-parts).
-- No saved filter presets — filters are session-local state.
+- One axis: sync = blocking, async = non-blocking. Not two axes.
+- No customizable filter sets, no saved presets (founder cut).
 - No emojis.
 
 **Effort.** S (~1d)
 
 ---
 
-### L11 — Replace ReviewHeader with shape-driven `ThreadActionBar` (inline with messages)
+### L11 — Render rich messages inline; remove the ThreadActionBar abstraction
 
-**Story.** As a user, I want the action bar (verdict / answer / reply / quick-replies) to live INLINE with the thread messages — at the bottom of the message stream, as part of the thread — not as a floating top toolbar, so that the actions feel like part of the conversation and so each shape (review / survey / chat / feed / DM / coach) can have its own action set without the chrome lying about what's possible.
+**Story.** As a user reading a thread, I want rich messages (review with its artifact and decision affordance, questionnaire with its constrained answers) to render INLINE as part of the message stream — not as a floating top toolbar — so the actions feel like part of the conversation and the chrome doesn't lie about what's possible.
 
 **Depends on.** L7.
 
 **Acceptance criteria.**
-- New component `packages/web/src/components/ThreadActionBar.tsx` rendered INLINE at the bottom of the thread message stream (under the last message), NOT as a top floating toolbar. **Founder direction: "ThreadActionBar inline with the messages, not on top — it's part of the thread."**
-- ThreadActionBar dispatches by `thread.kind`: review shows verdict buttons + quick-replies; survey shows the constrained answer set; chat / DM show input + quick-replies; feed shows mark-as-read + react-buttons (no emoji — preformatted action buttons per founder); coach shows reply input only.
-- Per-kind action sets defined in `THREAD_ACTIONS_BY_KIND` constant, derived from the L1 spec.
-- `ReviewHeader.tsx` is reduced to a thin presentation header (title + sender + SLA + "← back to queue"). All verb buttons move to ThreadActionBar.
-- The 7 hardcoded keyboard shortcuts at `ReviewHeader.tsx:153-178` are removed (founder demotes keyboard verbs).
-- Vitest tests cover: each kind renders the right action set; verdict click dispatches to L6's `commitVerdict`.
-- Playwright e2e: review thread → ThreadActionBar shows below messages with verdict buttons → click Approve → verdict commits via L6.
-- `bun run check` + `bun run lint` + `bun run test` all green; e2e suite green.
+- Rich messages render their affordances inline as part of the message stream. The current top header that renders verb buttons and 7 hardcoded keyboard shortcuts at `ReviewHeader.tsx:153-178` is reduced to a thin presentation header (title + sender + back-to-queue) or eliminated entirely. The keyboard shortcuts are removed. **Founder direction: "ThreadActionBar inline with the messages, not on top — it's part of the thread."**
+- Review messages embed the output artifact and the decision affordance inline; questionnaire messages embed the constrained answer set inline. **There is no separate action-bar component.**
+- Action invocation in a review message dispatches to L6's response-as-event path; the agent waiting on the response is unblocked.
+- Vitest tests cover: each rich message type renders its inline affordance; invoking a review-message decision dispatches via L6.
+- Playwright e2e: open a review thread → the artifact and decision affordance render inline → invoke the decision → response persists and unblocks the waiting agent.
+- `bun run check` + `bun run lint` + `bun run test` all green; the full e2e suite stays green.
+
+**Uses.** L7 Thread + messages primitive. Rich-message rendering ships as part of the L7 design system primitive — this story consumes and validates it on the Conversations surface.
 
 **Validation scenarios.**
-- Given a review thread, when scrolled to the bottom, then ThreadActionBar appears INLINE with the last message and shows Approve / Request Changes / Reject / Snooze.
-- Given a survey thread with options `["Yes", "No", "Need more info"]`, when ThreadActionBar renders, then those exact options are buttons.
-- Given a feed thread, when ThreadActionBar renders, then it shows preformatted actions ("Looks good", "Pause this"), NOT emoji.
-- Given a coach thread, when ThreadActionBar renders, then it shows a reply input only — no verdict.
+- Given a review message, when scrolled into view, then the artifact and decision affordance render inline with the message.
+- Given a questionnaire message, when rendered, then the constrained answers are buttons inline with the message.
+- Given the user invokes a review decision, then L6's response-as-event path commits and the waiting agent is unblocked.
 
 **Contracts / constraints.**
-- Inline placement is non-negotiable — top toolbar is the wrong model per founder.
-- No emoji reactions; preformatted actions only.
-- No keyboard verbs.
+- Inline placement is non-negotiable per founder. No separate action-bar component.
+- No emoji reactions; pre-formatted actions only.
+- No keyboard verb shortcuts.
 - No emojis in code or comments.
 
 **Effort.** M (~2-3d)
 
 ---
 
-### L12 — Mount artifact stack on every Work level
+### L12 — Artifact view family across Work surfaces
 
-**Story.** As any persona on Work, I want to SEE what the agents have made — thumbnails, preview links, latest diffs — at every level (portfolio gallery / product+team feed / bet artifact stack / story converging artifact), not just status badges, so v3 Basic 1 ("see what the agent has made") is implementable instead of structurally absent.
+**Story.** As any persona on Work, I want to SEE what the team's tasks have actually produced — thumbnails, preview links, latest outputs — on every Work surface that benefits, so v3 Basic 1 ("see what the agent has made") is implementable instead of structurally absent.
+
+>> this probably also means that the artifact compoentns need to become design system components.
 
 **Depends on.** L13.
 
 **Acceptance criteria.**
-- `ArtifactView` (already at `packages/web/src/shell/ArtifactView.tsx`) is imported and rendered on every Work page:
-  - Portfolio: a "What shipped this week" gallery row at top, function-agnostic (deck, contract, dashboard, code-diff, drafted-email, design, etc.) — shows up to 12 most recent shipped artifacts across all products.
-  - Product/Team page (from L13): a team artifact stack — most recent N per active bet.
-  - Bet detail: an Artifacts band with cost-per-artifact inline; shows latest output per task.
-  - Story (task) row: the current converging artifact preview.
-- New API: `GET /api/artifacts?productId=...&betId=...&taskId=...&limit=...` — returns artifacts in the canonical shape used by ArtifactView, joined with cost from session.
-- Real artifact data backed by an `artifacts` table; the table is joined to the producing session for cost. Inventory row from L5 closed (zero hardcoded artifacts in any Work page).
-- For function-agnostic outputs without a code-diff: thumbnail + title + cost; click opens the artifact's preview URL (Vercel-style — show, don't tell).
-- Vitest tests cover: the artifact band loads on each level; empty states render correctly.
-- Playwright e2e: open Portfolio → see gallery → click an artifact → preview opens; open Bet detail → see band; open Story row → see converging artifact.
-- `bun run check` + `bun run lint` + `bun run test` all green; e2e suite green.
+- **Artifacts live on tasks.** Every artifact is produced by a task; no other level produces them. Higher-level surfaces (Bet detail, Product page, Portfolio gallery) aggregate artifacts from their tasks rather than owning them. The architect captures this in a concept update.
+- The Artifact view family renders one artifact in different layouts: at minimum a gallery card, a stack item, a single full preview, and the embedded "output" inside a review message.
+- The system can fetch artifacts filtered by task, bet, product, or portfolio in a canonical shape that includes the cost from the producing session. The architect picks the endpoint shape.
+- Real artifact data is backed by persistence joined to the producing session for cost. The matching inventory rows from L5 are closed (zero hardcoded artifacts on any Work surface).
+- For function-agnostic outputs (deck, contract, dashboard, code-diff, drafted email, design, etc.), the artifact card shows what's needed to recognise it; clicking opens the artifact's preview.
+- Vitest tests cover: each layout renders correctly; empty states render correctly.
+- Playwright e2e: open Portfolio → see the artifact aggregation → click an artifact → preview opens; open Bet detail → see the artifact aggregation; open a task → see its artifact.
+- `bun run check` + `bun run lint` + `bun run test` all green; the full e2e suite stays green.
+
+**Plan calls.** This is a foundational reusable component family. The architect and designer explore multiple versions of each layout (gallery card, stack item, single full preview, review-message embed), compare them, and run a design critique before settling. DS-quality.
 
 **Validation scenarios.**
-- Given a marketing team has 3 shipped landing pages this week, the Portfolio gallery shows 3 thumbnails.
-- Given a bet has 5 tasks each producing 1 artifact, the Bet detail's Artifact band shows 5 entries with cost-per-artifact.
-- Given a finance team produces a runway model, it appears in the gallery as a `data` shape (chart preview).
-- Given an artifact has no preview URL yet, a clear "rendering…" placeholder shows; never a fake thumbnail.
+- Given a team has tasks that produced shipped artifacts this week, the Portfolio aggregation shows them.
+- Given a bet has tasks each producing an artifact, Bet detail aggregates them with cost from each producing session.
+- Given an artifact has no preview yet, a clear placeholder shows; never a fake thumbnail.
 
 **Contracts / constraints.**
-- Reuse `ArtifactView`. Do not invent new render shapes in this story (the function-agnostic shape map is GAP-1; if expansion is needed, that lands in a follow-up — for now, the existing 5 shapes plus a generic `link` shape suffice).
-- No hardcoded artifact lists on any Work page — every entry comes from the API.
+- Artifacts live on tasks. Higher views aggregate; they don't own.
+- No hardcoded artifact lists on any Work surface.
 - No emojis.
 
 **Effort.** M (~3d)
@@ -420,63 +394,58 @@ See `docs/work-packages/SHARED.md` for tech stack and the cross-track dependency
 
 ### L13 — Add Product=Team level (drill-down hierarchy)
 
-**Story.** As a user, I want a Product page (Portfolio → Product → Bet → Story → Session-jump-out) that is a drill-down from a clicked product card on Portfolio, so the v3 5-level hierarchy is implemented and so I can see one team's work without the Team Board collapsing Product+Bet into one smear. **Founder direction: "Team and Product are 1:1 — that's the same. It's a product team. The rest applies but it should be a drill-down not a side navigation."**
+**Story.** As a user, I want a Product page (Portfolio → Product → Bet → Task → Session-jump-out) that is a drill-down from a clicked product card on Portfolio, so the v3 hierarchy is implemented and so I can see one team's work without the Team Board collapsing Product+Bet into one smear. **Founder direction: "Team and Product are 1:1 — that's the same. It's a product team. The rest applies but it should be a drill-down not a side navigation."**
 
 **Depends on.** None.
 
 **Acceptance criteria.**
-- New route `/work/product/:productId` in `packages/web/src/router.tsx` — the Product/Team page (Product = Team, 1:1).
-- New page `packages/web/src/pages/WorkProduct.tsx`. Shows: team roster (agents on this product team), active bets (Canvas: Shaped + Committed), team burn vs cap, the team artifact stack (from L12 once it lands).
-- Navigation: clicking a product card on `/work/portfolio` drills DOWN to `/work/product/:productId`. Submenu reflects the drill-down (breadcrumb-style: "Portfolio › Alpha"). NOT a side navigation tree.
-- The existing `/work/team` route is removed (was always a denormalized Product+Bet smear). Existing links redirect to the user's primary product, or to Portfolio if they have multiple.
-- Server APIs: `GET /api/products/:id` (product detail), `GET /api/products/:id/team` (roster), `GET /api/products/:id/bets`. Backed by real DB; inventory rows from L5 closed (zero hardcoded product/team data on this page).
-- Vitest unit tests cover the dispatch + breadcrumb logic.
-- Playwright e2e: from Portfolio, click a product card → URL changes to `/work/product/:id` → roster + bets render → breadcrumb shows correctly.
-- `bun run check` + `bun run lint` + `bun run test` all green; e2e suite green.
+- The 5-level hierarchy is captured in the concept docs: **portfolio > product > bet > task > session.** Product = Team (1:1).
+- A Product page exists and is reachable by clicking a product card on Portfolio. The page shows what a team page should show — the team roster, active bets, team burn vs cap, and (after L12 lands) the team's artifact aggregation. The exact layout is a designer call during planning.
+- Navigation is a drill-DOWN from Portfolio. It is NOT a side navigation tree.
+- The previous denormalized team route is removed; legacy links redirect to a sensible fallback.
+- The system serves real product, roster, and bets data; the matching inventory rows from L5 are closed.
+- Vitest unit tests cover the dispatch.
+- Playwright e2e: from Portfolio, click a product card → the product page renders → roster and bets are visible.
+- `bun run check` + `bun run lint` + `bun run test` all green; the full e2e suite stays green.
 
 **Validation scenarios.**
-- Given a user clicks the "Alpha" product card on Portfolio, the URL becomes `/work/product/alpha` and the Alpha team's roster, active bets, and burn show.
-- Given a user navigates `/work/team` (legacy URL), they redirect to their primary product.
-- Given the breadcrumb, clicking "Portfolio" returns to `/work/portfolio`.
-- Given a product has no active bets, the page shows a clear "0 active bets — pick a pitch" empty state, not a fallback fake bet.
+- Given a user clicks a product card on Portfolio, the URL becomes that product's page and that team's roster, active bets, and burn show.
+- Given a product has no active bets, the page shows a clear empty state, not a fallback fake bet.
 
 **Contracts / constraints.**
-- Product = Team. Do not introduce a separate "team" entity in the data model — they're the same.
+- Product = Team. Do not introduce a separate "team" entity.
 - Drill-down only — no parallel side navigation.
-- The Submenu reflects the drill-down with a breadcrumb; it does NOT carry a separate Product list.
 - No emojis.
 
 **Effort.** L (~5d)
 
 ---
 
-### L14 — Bet-level human actions with consequence preview
+### L14 — The user can act on a bet
 
-**Story.** As a user on a Bet detail page, I want first-class buttons to Pause / Force-stop / Adjust-appetite / Comment-to-unblock / Downvote, with a consequence preview that shows what stops, what continues, and what's saved BEFORE I confirm, so I can act at the bet level (per v3 task-ownership rule: "humans act at the bet level, not the task level") without surprise.
+**Story.** As a user on a Bet detail surface, I want first-class affordances to act on a bet — pause it, stop it, adjust its appetite, comment on it to unblock — with a consequence preview before any destructive action commits, so I can act at the bet level (per v3 task-ownership rule: "humans act at the bet level, not the task level") without surprise.
 
 **Depends on.** L3.
 
 **Acceptance criteria.**
-- New props on `BetCard.tsx`: `onPause`, `onForceStop`, `onCommentToUnblock`, `onDownvote`, `onAdjustAppetite` — all wired through Bet detail page.
-- New `StopConsequencePreview` modal: server endpoint `POST /api/bets/:id/stop-preview` returns `{ sessionsTerminating, sessionsDraining, artifactsFrozen, artifactsDiscarded, agentsReturning }`. Modal shows this BEFORE the pause/force-stop commits.
-- Adjust-appetite uses the L3 Cost+Tokens model (`moneyCap` + optional `tokenCap`) — no Duration field.
-- Pause = soft stop (running tasks finish, no new tasks pick up). Force-stop = hard kill (running sessions terminate, freeze artifacts).
-- Server endpoints: `POST /api/bets/:id/pause`, `POST /api/bets/:id/force-stop`, `POST /api/bets/:id/comment-to-unblock`, `POST /api/bets/:id/downvote`, `PATCH /api/bets/:id/appetite`. Each writes a `bet_revision_log` entry.
-- `BetStatus` enum gains `paused` if not present; `killed` is wired to force-stop.
-- Vitest unit tests cover each action's local handler + server response shape.
-- Playwright e2e: open Bet detail → click Force-stop → consequence preview appears → confirm → bet transitions → revision log shows the entry.
-- All hardcoded BetCard fixtures replaced with real data from API. Inventory rows from L5 closed.
-- `bun run check` + `bun run lint` + `bun run test` all green; e2e suite green.
+- The user can act on a bet. Exactly which acts ship and how they're surfaced is a designer + architect call during planning, with simplicity as the bias. The v2 enumeration ("downvote" never made sense) is dropped; the architect picks the minimum set that lets a user pause, stop, change appetite, and unblock.
+- Any destructive action is preceded by a **consequence preview** that tells the user what stops, what continues, and what's saved before they confirm. The preview is non-skippable.
+- Adjust-appetite uses the L3 Cost+Tokens model. There is no duration field.
+- Every bet-level action is recorded in a revision log capturing the action, who did it, when, and why.
+- Bet status vocabulary supports the states the chosen acts produce.
+- All hardcoded BetCard fixtures are replaced with real data; the matching inventory rows from L5 are closed.
+- Vitest tests cover each shipping action's local handler and server response shape.
+- Playwright e2e: open Bet detail → invoke a destructive action → consequence preview appears → confirm → bet transitions → revision log shows the entry.
+- `bun run check` + `bun run lint` + `bun run test` all green; the full e2e suite stays green.
 
 **Validation scenarios.**
-- Given a running bet with 3 active sessions, when the user clicks Force-stop, the preview shows "3 sessions terminating, 5 artifacts frozen, 2 agents returning to other work" and requires confirm.
-- Given the user clicks Pause (not Force-stop), running sessions DRAIN to completion; preview shows "3 sessions draining, no artifacts frozen".
-- Given the user adjusts appetite from `$50` to `$100`, the bet's `moneyCap` updates and the revision log records the change with reason.
-- Given comment-to-unblock, the comment surfaces in the bet's thread (from L18) for the assigned agent to read on next pickup.
+- Given a running bet, when the user invokes a destructive act, the consequence preview shows what will happen and requires confirm.
+- Given the user adjusts appetite, the bet's money cap updates and the revision log records the change.
+- Given the user comments to unblock, the comment surfaces in the bet's thread (from L18) for the assigned agent to read.
 
 **Contracts / constraints.**
-- Consequence preview is non-skippable — the modal MUST render before any destructive action commits.
-- Adjust-appetite uses the L3 Cost+Tokens types — never Duration.
+- The consequence preview is non-skippable for destructive acts.
+- Adjust-appetite uses L3 types — never duration.
 - No keyboard shortcuts (founder demoted).
 - No emojis.
 
@@ -484,27 +453,26 @@ See `docs/work-packages/SHARED.md` for tech stack and the cross-track dependency
 
 ---
 
-### L15 — Strip drag/drop from Kanban; add request-state-change + start-thread affordances
+### L15 — Strip drag/drop from Kanban; let humans request task changes
 
-**Story.** As a user on the Team Board, I want drag/drop on tasks REMOVED (per v3: tasks are agent-team-owned, humans don't move them) but I still want a way to request the item to change state, OR to start a thread with the agent working on the item to unblock / stop / clarify, so I can interact at the task level without violating ownership. **Founder direction: "There should still be a way for a user to request the item to change state or start a thread with the agent working on the item to unblock or stop or whatever is necessary."**
+**Story.** As a user on the Team Board, I want drag/drop on tasks REMOVED (per v3: tasks are agent-team-owned, humans don't move them) but I still want a way to request that a task change state, OR to start a thread with the agent working on the task to unblock / stop / clarify, so I can interact at the task level without violating ownership. **Founder direction: "There should still be a way for a user to request the item to change state or start a thread with the agent working on the item to unblock or stop or whatever is necessary."**
 
 **Depends on.** L7.
 
 **Acceptance criteria.**
-- `Kanban.tsx`: `PointerSensor`, `KeyboardSensor`, `COLUMN_TO_STATE` inverse map, and `handleMoveTask` are removed. `WorkTeam.tsx:116-120` no longer mutates state on drop.
-- TaskCard gains a hover-revealed action set: `Comment`, `Downvote`, `Open thread`, `Request state change` (drop-down: pause / cancel / re-prioritize-up / clarify). Selecting an action posts a thread message to the task's thread (from L18) — the AGENT decides whether to honor it; humans request, never command.
-- The "Open thread" action opens the task's attached Thread (from L7+L18) in the right pane.
-- Server endpoints: `POST /api/tasks/:id/threads/messages` (post a request as a thread message). Server maps the request to a structured `task_request` entry the agent picks up on next session.
-- Drag survives ONLY between Shaped → Committed columns in `Canvas.tsx` (that IS a human-owned move per Shape Up shaping); everywhere else drag is removed.
-- Vitest tests cover: drag is no-op on TaskCard; request actions post messages to the right thread; "Open thread" lifts thread to right pane.
-- Playwright e2e: try to drag a task → no-op → click Request state change → action posts → message appears in the task's thread → agent (mocked) acknowledges.
-- `bun run check` + `bun run lint` + `bun run test` all green; e2e suite green.
+- Drag-to-move is removed from the Team Board's Kanban: dragging a task is a no-op. The current sensors and column-to-state mapping in `Kanban.tsx` and the move-task handler at `WorkTeam.tsx:116-120` are gone.
+- Each task gains an affordance to request a state change OR open the task's attached thread (from L18). Selecting a request posts a message to the task's thread — the AGENT decides whether to honor it; humans request, never command. The exact affordance shape is a designer call during planning.
+- Drag survives ONLY between Shaped → Committed columns on the Canvas (that IS a human-owned move, per Shape Up shaping). Everywhere else, drag is removed.
+- Vitest tests cover: drag is a no-op on task cards; request actions post messages to the right thread; opening a thread lifts it correctly.
+- Playwright e2e: try to drag a task → no-op → request a state change → message appears in the task's thread.
+- `bun run check` + `bun run lint` + `bun run test` all green; the full e2e suite stays green.
+
+**Uses.** L7 Thread + messages primitive.
 
 **Validation scenarios.**
-- Given a user attempts to drag a TaskCard, the action does nothing (no visual cue, no state change).
-- Given the user clicks Request state change → "Cancel", a thread message appears on the task's thread saying "Human requests cancel; reason: <text>".
-- Given the user clicks Open thread, the task's thread renders in the right pane (collapsible).
-- Given the user clicks Downvote, the task's `downvote_count` increments and the agent's prioritization model picks it up next session.
+- Given a user attempts to drag a task, the action does nothing.
+- Given the user requests a state change, a thread message appears on the task's thread capturing the request.
+- Given the user opens a task's thread, the thread renders.
 
 **Contracts / constraints.**
 - Tasks are agent-team-owned. Humans request; agents decide.
@@ -515,30 +483,29 @@ See `docs/work-packages/SHARED.md` for tech stack and the cross-track dependency
 
 ---
 
-### L16 — Render bet pitch as blocks-in-markdown (with addressable block ids)
+### L16 — Render bet pitch as blocks-in-markdown
 
-**Story.** As a user reading a bet pitch, I want it rendered as proper markdown with block-level structure (headings, lists, callouts) and addressable block ids — not as raw `<pre>` text — so I can read it like prose and so future stories (per-block comments, `@bet/<id>#<block>` deep-links) have the structural anchor they need.
+**Story.** As a user reading a bet pitch, I want it rendered as proper structured prose — not as raw `<pre>` text — so I can read it like prose and so per-block discussion has the structural anchor it needs.
 
 **Depends on.** L2.
 
 **Acceptance criteria.**
-- `react-markdown` + `remark-gfm` added as runtime dependencies (founder approved via L2's recommendation).
-- `WorkBet.tsx:262-267` (the `<pre>` fallback) replaced with a `<MarkdownBlocks>` component that parses the pitch markdown into the L2 block primitive and renders each block.
-- Each top-level block gets a stable id (path + content_hash + position per L2). The block ids are exposed as URL fragments — `/work/bet/b1#problem` scrolls and highlights that block.
-- The `@lore` "react-markdown is NOT a dependency yet" comment is removed; new `@lore` documents the block-id stability rule.
-- Vitest tests cover: round-trip (markdown → blocks → markdown) is lossless; block ids are stable across re-parse with identical content.
-- Playwright e2e: open a bet → pitch renders as styled markdown (no `#` symbols visible); navigating to `/work/bet/b1#solution` scrolls to and highlights the Solution block.
-- All hardcoded `MOCK_PITCH` strings remain ONLY in `*.stories.tsx` and tests — runtime data comes from the bet's `pitch` field in the DB. Inventory row from L5 closed.
-- `bun run check` + `bun run lint` + `bun run test` all green; e2e suite green.
+- The bet pitch renders as styled, structured markdown blocks. The current `<pre>` fallback at `WorkBet.tsx:262-267` is replaced with the L2 block primitive view.
+- Block ids are stable per L2.
+- Hardcoded pitch fixture strings remain ONLY in stories and tests — runtime data comes from persisted pitch content. The matching inventory row from L5 is closed.
+- Vitest tests cover: round-trip is lossless for supported block types; block ids are stable across re-parse with identical content; editing one block leaves others unchanged.
+- Playwright e2e: open a bet → pitch renders as styled markdown (no `#` symbols visible).
+- `bun run check` + `bun run lint` + `bun run test` all green; the full e2e suite stays green.
+
+**Uses.** L2 Block primitive.
 
 **Validation scenarios.**
-- Given a pitch with `# Problem`, then the rendered page shows a styled H1, never literal `#`.
-- Given two parses of the same pitch, the block ids are identical (stable id rule).
-- Given a deep-link to a block id, the page scrolls and highlights.
-- Given a pitch is edited and one block changes, OTHER block ids are unchanged (id-stability test).
+- Given a pitch with `# Problem`, then the rendered page shows a styled heading, never literal `#`.
+- Given two parses of the same pitch, the block ids are identical.
+- Given a pitch is edited and one block changes, OTHER block ids are unchanged.
 
 **Contracts / constraints.**
-- The on-disk format remains valid markdown (per L2) — never escape into a proprietary block DB.
+- The on-disk format remains valid markdown (per L2).
 - No customizable block kits (founder filter).
 - No emojis.
 
@@ -546,65 +513,67 @@ See `docs/work-packages/SHARED.md` for tech stack and the cross-track dependency
 
 ---
 
-### L17 — Cost + Tokens model wired into Work
+### L17 — Cost + Tokens wired into Work (and the harness contract)
 
-**Story.** As a user, I want cost numbers (today's spend, weekly burn, per-bet appetite vs spend, per-artifact cost) all expressed in the L3 Cost + Tokens model — Money types, not strings — so v3 Basic 3 ("see what it's costing") is implementable at every level and so cost-per-artifact ($4 landing page, $97 rewrite, $0.30 session) reads honestly.
+**Story.** As a user, I want every Work surface that shows cost to show it in money AND tokens — never strings, never duration as a budget — so v3 Basic 3 ("see what it's costing") is implementable at every level.
 
 **Depends on.** L3.
 
 **Acceptance criteria.**
-- `Money` and `TokenUsage` types defined in `packages/shared/src/types.ts` per L3 spec. Existing string-typed cost (e.g., `MOCK_RAIL_COST.todaySpend = "$12.40"`, `Bet.appetite = "2 weeks"`) replaced with structured types throughout `packages/web/src/`, `packages/server/src/`, and `packages/db/src/schema.ts`.
-- DB migration: `bets.appetite_money_cap` (jsonb-or-equivalent storing Money), `bets.token_cap` (TokenUsage), `bets.spend_money` (Money), `bets.spend_tokens` (TokenUsage). `tasks.cost_cap_money`, `tasks.cost_actual_money`, `tasks.tokens_used`. `sessions.cost_money`, `sessions.tokens_used`.
-- Removed: any `Duration` field from bet/task/session that pretended to be a budget. Wall-clock duration on sessions is preserved as `duration_ms` (informational only).
-- A shared `MoneyDisplay` formatter component renders `$12.40` style with tabular numerals (per AQ-006 if enforced). Bet header shows the two-axis appetite line: spend/cap (money) and tokens-used/cap (TokenUsage).
-- Server endpoints updated to read/write the new shape; backfill on existing rows uses sensible defaults.
-- Vitest tests cover: Money formatter, conversion helpers, type-narrow on currency.
-- Playwright e2e: open Bet detail → see appetite line with structured money display, no string-money anywhere; ship the bet → spend updates correctly.
-- All hardcoded cost strings replaced with real DB-backed values. Inventory rows from L5 closed.
-- `bun run check` + `bun run lint` + `bun run test` all green; e2e suite green.
+- Bets, tasks, and sessions carry cost (in money) and token usage (broken down by tier), per L3. Money values do not lose precision through rounding.
+- Existing string-typed cost (e.g., the rail's `MOCK_RAIL_COST.todaySpend = "$12.40"`, a bet's `appetite = "2 weeks"`) is replaced everywhere with the structured types — in shared, in the server, and in the database. Any duration field that pretended to be a budget is removed.
+- Money rendering is consistent across the app via a single shared formatter.
+- **Harness-integration is the load-bearing technical work.** Tokens come basically free from the model; reliable money reporting requires the architect to resolve the contract by which each agent harness reports the cost of its sessions. The plan must produce the harness-side contract and an end-to-end path from harness session completion → recorded money cost on the session row. This is the hard part of the story, not the UI.
+- Server endpoints are updated; existing rows are backfilled with sensible defaults.
+- Vitest tests cover the formatter and conversion helpers.
+- Playwright e2e: open Bet detail → see cost in money + tokens, no string-money anywhere.
+- All hardcoded cost strings are replaced; matching inventory rows from L5 are closed.
+- A type-level guard prevents new string-typed money from being introduced going forward.
+- `bun run check` + `bun run lint` + `bun run test` all green; the full e2e suite stays green.
+
+**Plan calls.** **Founder direction: ship money + tokens.** Tokens come ~free; money is hard because of harness integration. The architect specifies the harness-side cost-reporting contract during planning.
 
 **Validation scenarios.**
-- Given a bet has `appetite: { moneyCap: $50.00 USD, tokenCap: { ... frontier } }`, the header shows "$22.40 / $50.00 spent · 1.2k / 5k frontier tokens".
-- Given a session costs $0.30, the cost-per-artifact column on the artifact band reads `$0.30`, not `0.30` or `30 cents`.
-- Given a refactor removes the last `string`-typed money in the codebase, a TS-level lint enforces "no string money" going forward.
-- Given a session ran for 30 minutes with high token use, the UI shows token usage prominently and duration as a small footnote — never as a budget axis.
+- Given a bet's appetite is set as a money cap with an optional token cap, the bet header reflects spend vs cap in both axes.
+- Given a session completes in a harness, the harness reports its cost via the contract and the session row records money + tokens.
+- Given a session ran for 30 minutes with high token use, the UI emphasises tokens; duration is informational only.
 
 **Contracts / constraints.**
-- Money is always `amountMinor` (cents-int), never floats. Currency-aware.
-- Duration is informational ONLY; never a budget axis (founder's call per L3).
-- Tokens carry `modelTier` (founder's call: tokens + tier indicates complexity).
+- Money values must not lose precision through rounding. Currency is carried with the value.
+- Duration is informational ONLY.
+- Tokens carry a model-tier signal.
 - No emojis.
 
 **Effort.** M (~3-4d)
 
 ---
 
-### L18 — Thread primitive attached to bets, tasks, artifacts
+### L18 — Thread primitive attached to bets, tasks, knowledge
 
-**Story.** As a user on Bet detail / Task detail / Artifact view, I want an attached thread side pane (using L7's Thread primitive with `attachedTo: { kind: "bet"|"task"|"artifact" }`) so localized discussions live with the work, per founder's "threads are a theme across the entire app".
+**Story.** As a user on Bet detail, Task detail, or a Knowledge entry, I want an attached thread surface where localized discussion lives with the work, per the founder's "threads are a theme across the entire app".
 
 **Depends on.** L7, L16.
 
 **Acceptance criteria.**
-- New component `<ThreadAttached subjectKind="bet"|"task"|"artifact" subjectId={...}>` renders a side pane (Slack two-pane model) on Bet detail, Task detail (when shipped), and ArtifactView.
-- Bet detail's existing `MockBetComment[]` (already removed in L7) is replaced by a real thread fetched via `GET /api/threads?attachedToKind=bet&attachedToId=<id>`. Comments are messages on that thread.
-- Task detail (L15's "Open thread" action) opens the same component for a task-attached thread.
-- ArtifactView gains a thread side panel when an artifact has an attached thread.
-- Comments-on-blocks (Notion-CORE) anchor to the block ids from L16: clicking a comment on a block scrolls and highlights the block; the comment is stored as a message with `block_anchor: <block-id>`.
-- Vitest tests cover: ThreadAttached lifecycle, posting a message to a bet thread, anchoring to a block.
-- Playwright e2e: open Bet detail → side pane shows thread → post a comment → another tab sees it (WebSocket sync).
-- No hardcoded comments anywhere — all flow through the API. Inventory rows from L5 closed.
-- `bun run check` + `bun run lint` + `bun run test` all green; e2e suite green.
+- An attached-thread surface is mounted on Bet detail, Task detail (when shipped), and Knowledge entries. It uses L7's Thread + messages primitive — there is no parallel comment table.
+- **Threads do NOT attach to artifacts.** Artifact discussion lives on the producing task (founder pushed back: artifacts live on tasks; the discussion belongs on the task). The architect ensures the surface for an artifact is the task that produced it.
+- The Bet detail's previous comment fixture (already removed in L7) is now backed by a real thread fetched by attachment. The Task detail "open thread" affordance from L15 opens the same primitive.
+- Block-anchored discussion uses the L2 block primitive's own anchor affordance — no separate linking dependency.
+- Vitest tests cover: thread surface lifecycle, posting a message on a bet, posting a message anchored to a block.
+- Playwright e2e: open Bet detail → thread surface shows the bet's thread → post a comment → reload → message persists.
+- No hardcoded comments anywhere; matching inventory rows from L5 are closed.
+- `bun run check` + `bun run lint` + `bun run test` all green; the full e2e suite stays green.
+
+**Uses.** L7 Thread + messages primitive; L2 Block primitive (for block anchors).
 
 **Validation scenarios.**
-- Given a bet with 5 attached thread messages, the side pane on Bet detail shows the 5 messages in the right order.
-- Given the user posts a comment anchored to block `#problem`, the comment shows the block anchor; clicking it scrolls to the Problem block.
-- Given a task is unblocked via a thread message, the agent's next session reads the message (via the existing thread schema).
-- Given an artifact has no thread, the panel is collapsed and shows "0 comments — start a thread".
+- Given a bet with attached thread messages, the surface shows them in the right order.
+- Given a task is unblocked via a thread message, the agent's next session reads it via the thread (L6 contract).
+- Given an artifact, discussion of that artifact happens on the producing task — not on the artifact.
 
 **Contracts / constraints.**
-- ThreadAttached uses the L7 `Thread` shape — no parallel `Comment` table.
-- Two-pane layout (main + side) — do not nest threads inline within the main pane (Slack lesson: long agent reasoning belongs in a right pane).
+- Use L7's Thread + messages primitive — no parallel comment entity.
+- Threads attach to bets, tasks, knowledge — never artifacts.
 - No emojis.
 
 **Effort.** M (~3d)
@@ -613,28 +582,27 @@ See `docs/work-packages/SHARED.md` for tech stack and the cross-track dependency
 
 ### L19 — Harness jump-out from session metadata
 
-**Story.** As a CTO-tier user wanting to inspect what an agent actually did, I want a "Open in <harness>" jump-out button on each task / session row, so I can pop into the agent harness (opencode / hermes / pi-agent / openclaw / claude-code) for the deep view, while HyperIdle continues to NOT render the session interior (per v3: session is delegated to the harness).
+**Story.** As a CTO-tier user wanting to inspect what an agent actually did, I want an "open in harness" affordance from a task or session, so I can pop into the agent harness for the deep view, while HyperIdle continues to NOT render the session interior (per v3: session is delegated to the harness).
 
 **Depends on.** None.
 
 **Acceptance criteria.**
-- `TaskCard.tsx` and the bet detail tasks table extended with `latestSession?: { id, agent, costMoney: Money, tokensUsed: TokenUsage, durationMs, outcome, harnessKind, harnessUrl }`. Type updated in `packages/shared/src/types.ts`.
-- Server endpoint: `GET /api/tasks/:id/sessions?latest=1` returns the latest session for a task with the harness URL.
-- New small component `<HarnessJumpButton harnessKind={...} harnessUrl={...}>` rendered on TaskCard and the tasks table on Bet detail. Opens the harness URL in a new tab; the URL is treated as opaque to HyperIdle.
-- Outcome chip on TaskCard reflects the latest session outcome (completed / errored / interrupted).
-- Vitest tests cover: button visibility (only when latestSession exists), outcome chip mapping.
-- Playwright e2e: open Bet detail → tasks table shows outcome chips → click "Open in opencode" → new tab opens.
-- All hardcoded session data replaced with real DB-backed sessions. Inventory rows from L5 closed.
-- `bun run check` + `bun run lint` + `bun run test` all green; e2e suite green.
+- Tasks and the bet-detail task list know about the latest session for each task: which harness produced it, the harness URL, the cost in money, the tokens used, and the outcome.
+- A jump-out affordance is rendered when a latest session exists. Clicking it opens the harness URL. The URL is treated as opaque to HyperIdle — stored and displayed, never parsed. The exact affordance shape and where it opens is a designer call.
+- An outcome chip on the task reflects the latest session outcome.
+- The system can return the latest session for a task. The architect picks the endpoint shape.
+- All hardcoded session data is replaced; matching inventory rows from L5 are closed.
+- Vitest tests cover: jump-out visibility (only when a latest session exists), outcome-chip mapping.
+- Playwright e2e: open Bet detail → tasks show outcome chips → invoke jump-out → harness URL opens.
+- `bun run check` + `bun run lint` + `bun run test` all green; the full e2e suite stays green.
 
 **Validation scenarios.**
-- Given a task with a completed session in opencode, the row shows "Open in opencode" linking to the harness URL; clicking opens a new tab.
-- Given a task with no session yet, the harness button is hidden (no placeholder).
-- Given a session errored, the outcome chip is red and clicking jumps to the harness's error view.
-- Given the harness URL is malformed, the button is hidden (defensive — never broken-link).
+- Given a task with a completed session, the jump-out is reachable and links to the harness URL.
+- Given a task with no session yet, the jump-out is hidden.
+- Given the harness URL is malformed, the affordance is hidden — defensive, never broken-link.
 
 **Contracts / constraints.**
-- HyperIdle does NOT render the session interior. The button jumps OUT.
+- HyperIdle does NOT render the session interior.
 - Harness URL is opaque — HyperIdle stores and displays, never parses.
 - No emojis.
 
@@ -642,63 +610,64 @@ See `docs/work-packages/SHARED.md` for tech stack and the cross-track dependency
 
 ---
 
-### L20 — Auto-rollover / auto-carry primitive at cycle boundary
+### L20 — Lifecycle propagation across the 5 levels
 
-**Story.** As an operator, I want unfinished bets and tasks to auto-carry into the next review cycle without me filing them by hand — the "stuff that gets forgotten" — surfaced as an `auto-carried` rail on Portfolio, per Linear-CORE automatism. This is auto-carry only — NOT sprint planning, NOT cycles UI (founder cut Linear cycles).
+**Story.** As an operator, I want lifecycle events to propagate up the 5-level hierarchy (portfolio > product > bet > task > session) without me filing them by hand — a session can start or end a task, a finished task can close a bet, a bet closing affects the product, a product closing affects the portfolio — so the system reflects what's actually happening below.
+
+>> we don't have cycles in our concept. Our system is more like a kanban system, its done when its done and we limit the amount that is in progress to create sparsity.
 
 **Depends on.** L14, L17.
 
 **Acceptance criteria.**
-- New `Cycle` table: `{ id, label, starts_at, ends_at, status }`. New `BetCycle` join: `{ bet_id, cycle_id, carry_from_cycle_id? }`.
-- Server cron job at cycle close: bets with status in (`active`, `paused`) AND open tasks AND `appetite.moneyCap` not exceeded → automatically copied into the next cycle with `carry_from_cycle_id` set. Status preserved.
-- New API: `GET /api/cycles/current/auto-carried` returns the auto-carried bets with provenance.
-- Portfolio page gains an "Auto-carried" rail row showing carried bets with a small `carried from <cycle>` provenance chip. No human gesture required to carry.
-- The bet's appetite line shows: "If still open at appetite end: carry / stop and review" — clear pre-cycle communication.
-- Vitest tests cover: cycle close cron, carry rule, provenance preserved.
-- Playwright e2e: simulate cycle close → auto-carried rail appears with the right bets and chips.
-- `bun run check` + `bun run lint` + `bun run test` all green; e2e suite green.
+- The architect specifies the **lifecycle propagation rules** in a concept-doc update (extending PROCESS_LAYER.md or adding a dedicated propagation concept doc): which transitions at level N affect level N+1, which are automatic, and which require human confirmation. Designer + architect decide the automatic-vs-confirm split during planning, with simplicity as the bias.
+- The data layer implements the rules: when a session ends, its task reflects the change; when a task finishes, its bet reflects the change; when a bet closes, its product reflects the change; when a product closes, the portfolio reflects the change.
+- Failed propagations are logged and retried; nothing is silently dropped.
+- The user observes propagation through whichever surface the designer + architect choose during planning. Cycles UI is NOT introduced (founder cut).
+- Vitest tests cover each level's propagation rule.
+- Playwright e2e: simulate a task finish that closes a bet → the product surface reflects it without manual filing.
+- `bun run check` + `bun run lint` + `bun run test` all green; the full e2e suite stays green.
 
 **Validation scenarios.**
-- Given a bet is still in_progress at cycle close, the bet appears in the next cycle with `carry_from_cycle_id` set; no human action required.
-- Given a bet exceeded its `moneyCap`, the bet does NOT auto-carry; it surfaces in a "needs review" rail (per L14's force-stop / adjust path).
-- Given a carried bet, the Bet detail shows "carried from cycle <X>".
-- Given the cron fails, the failure is logged and a fallback retry runs; bets are never silently dropped.
+- Given a session ends and its task is the last open task on a bet, the bet's lifecycle reflects the closure (automatically or after a confirmation, per the spec).
+- Given a bet closes, the product surface reflects the change.
+- Given a propagation fails, the failure is logged and retried; the level above is never silently out of sync.
 
 **Contracts / constraints.**
-- Auto-carry is the ONLY cycle UI. No sprint planning, no capacity dial, no cycle picker (founder cut cycles UI).
-- The cycle entity exists for grouping and bookkeeping — it is not surfaced as a planning UI.
+- Five levels: portfolio > product > bet > task > session. No cycles UI, no sprint planning.
+- The propagation rules live in the concept docs; the data layer implements them.
 - No emojis.
 
 **Effort.** M (~3d)
 
 ---
 
-### L21 — CoC create-on-the-fly (bottom-right rail overlay thread)
+### L21 — CoC create-on-the-fly (bottom-right rail overlay)
 
-**Story.** As a user anywhere in HyperIdle, I want a Chief of Staff button at the bottom-right of the rail; clicking opens an OVERLAY thread (modal-style) where I can ask anything; I can ADD ANYTHING from the surrounding view as context to that thread; the CoC responds without pulling product agents off their work. **Founder direction: "The button to start a thread with the COC could just be bottom right in the rail and it overlays a thread and somehow we can add anything as context to that thread. That would really be your assistant in the company."**
+**Story.** As a user anywhere in HyperIdle, I want a Chief of Staff button at the bottom-right of the rail; clicking opens an overlay thread where I can ask anything; I can add visible items as context to that thread; the CoC responds without pulling product agents off their work. **Founder direction: "The button to start a thread with the COC could just be bottom right in the rail and it overlays a thread and somehow we can add anything as context to that thread. That would really be your assistant in the company."**
 
 **Depends on.** L7.
 
 **Acceptance criteria.**
-- New component `<CoCTrigger>` rendered as a fixed-position button at the bottom-right of the Rail. Visible on every Work / Conversations / Knowledge view (the founder's "anywhere" rule).
-- Click opens an overlay thread (modal-overlay, dimming the page, but the underlying view stays visible — that's the "add as context" affordance).
-- The overlay thread uses L7's Thread primitive with `kind: "coach"` and `attachedTo: { kind: "user", id: <self> }`. It's never attached to a bet or task — that's the "doesn't pull agents off work" part.
-- "Add as context" affordance: the user can drag (or click "Add this") on any visible item (bet card, task row, artifact, knowledge entry, message) and it's attached as a context reference to the next CoC message. Context items render as chips above the input.
-- Server: `POST /api/coc/sessions` initiates a CoC session; messages include the context reference IDs.
-- The CoC responds (new tab in Conversations as a `coach` thread) — for-the-record persistence; the user can promote any answer to Knowledge later (cross-area follow-up, not in this story).
+- A Chief-of-Staff trigger is rendered at the bottom-right of the Rail and is visible on every Work / Conversations / Knowledge view.
+- Clicking the trigger opens an overlay thread (chatbox-style) that keeps the underlying view visible — that visibility is the "add as context" affordance.
+- The overlay uses L7's Thread + messages primitive in a coach configuration, attached to the user themselves. Never attached to a bet or task — that's the "doesn't pull agents off work" part.
+- An "add as context" affordance lets the user attach visible items (bet card, task row, artifact, knowledge entry, message) to the next CoC message. The exact mechanic and the small-viewport experience are designer + architect calls during planning.
+- The CoC response persists for-the-record as a coach thread in Conversations; the user can promote any answer to Knowledge later (cross-area follow-up — out of scope here).
+- The system can initiate a CoC session and persist its messages, including the attached context references. The architect picks the endpoint shape.
 - Vitest tests cover: trigger renders, overlay opens, context attaches.
-- Playwright e2e: from Work portfolio, click CoC button → overlay opens → drag a bet card as context → ask a question → response renders.
-- `bun run check` + `bun run lint` + `bun run test` all green; e2e suite green.
+- Playwright e2e: from any surface, invoke CoC → overlay opens → add a bet as context → ask a question → response renders → close → the thread persists in Conversations.
+- `bun run check` + `bun run lint` + `bun run test` all green; the full e2e suite stays green.
+
+**Uses.** L7 Thread + messages primitive (coach configuration).
 
 **Validation scenarios.**
-- Given the user is on any page, the CoC button is visible at bottom-right of the rail.
-- Given the user clicks CoC, the overlay opens; the underlying page stays visible behind.
-- Given the user adds a bet as context, the chip "context: Bet B12 (Auth flow)" appears above the input; the next message includes the reference.
-- Given the user closes the overlay, the thread persists in Conversations (kind=coach) and can be reopened.
+- Given the user is on any page, the CoC trigger is visible at the bottom-right of the Rail.
+- Given the user adds a bet as context, the next message includes the reference.
+- Given the user closes the overlay, the thread persists in Conversations and can be reopened.
 
 **Contracts / constraints.**
-- Bottom-right placement is NON-NEGOTIABLE per founder.
-- No keyboard shortcut to invoke CoC — button only (founder demoted keyboard idioms).
+- Bottom-right placement is non-negotiable per founder.
+- No keyboard shortcut to invoke CoC (founder demoted keyboard idioms).
 - CoC threads are user-attached, never bet/task-attached.
 - No emojis.
 
@@ -708,31 +677,28 @@ See `docs/work-packages/SHARED.md` for tech stack and the cross-track dependency
 
 ### L22 — Three relevance signals as first-class data
 
-**Story.** As a user on `/knowledge`, I want recency / frequency / impact rendered as three real signals on every row — not one opaque `attentionScore` and a hand-templated `whyNow` — and I want the citation-driven impact computed from real agent citations, so v3 Knowledge Basic 1 ("surface the most relevant items") rests on data, not aspiration.
+**Story.** As a user on Knowledge, I want recency, frequency, and (where feasible) impact as real signals on every row — not one opaque attention score and a hand-templated whyNow — so v3 Knowledge Basic 1 ("surface the most relevant items") rests on data, not aspiration.
 
 **Depends on.** L4.
 
 **Acceptance criteria.**
-- DB schema migration adds `lastValidatedAt`, `lastEditedAt`, `lastAccessedAt`, `accessCount`, `impactScore` columns to the `knowledge_items` table. New `knowledge_citations` table per L4.
-- `packages/fabric/src/attention-scoring.ts` rewritten: `computeUsage` returns real `accessCount` from the new column; `computeImpact` queries `knowledge_citations` (NOT the old `IMPACT_BY_KIND` constant). Old constant is deleted.
-- Agent harness contract updated: every artifact-producing session emits `cited_knowledge_ids: string[]` to a new endpoint `POST /api/sessions/:id/citations`. Server records the citations on session completion.
-- New `relevance` view computed per L4 formula with tunable weights from a config table.
-- KnowledgeRow renders a 3-cell signal block: Recency dot (color by half-life) / Freq number (last 30d) / Impact number (citation count). When a signal has no data, render `—` (per L4 anti-pattern rule — never a fake number).
-- Sort/filter UI: 3-way segmented sort control (recent / cited / impact), default `cited`. NO customizable saved-views builder (founder cut).
-- Vitest tests cover: relevance composite math, sort dispatch, fake-zero guard.
-- Playwright e2e: open `/knowledge` → row signals visible → click "cited" → list re-sorts → click an item with high impact → detail page shows the citation count.
-- All hardcoded `attentionScore` / `whyNow` strings removed from page-side fixtures. Inventory rows from L5 closed.
-- `bun run check` + `bun run lint` + `bun run test` all green; e2e suite green.
+- Every knowledge item knows when it was last validated, last edited, and last accessed; how often it has been accessed in a recent window from server-side tracking. The fabric's attention scoring (`packages/fabric/src/attention-scoring.ts`) is rewritten so frequency comes from real access tracking. The current per-kind impact constant is deleted.
+- **Citation: ship if the L4 evaluation says it's feasible; otherwise stage with absent values per L4's anti-pattern rule.** When citation ships, the agent harness contract emits cited knowledge ids on session completion and the server records them. When staged, the impact column renders `—` until data exists.
+- The composite relevance score uses L4's formula with weights tunable from configuration.
+- Each row renders the available signals; absent signals render `—`, never a fake number.
+- Sort selection is reflected in URL state.
+- Vitest tests cover the composite math and the fake-zero guard.
+- Playwright e2e: open Knowledge → row signals visible → sort changes → list re-orders.
+- All hardcoded attention-score / whyNow strings are removed; matching inventory rows from L5 are closed.
+- `bun run check` + `bun run lint` + `bun run test` all green; the full e2e suite stays green.
 
 **Validation scenarios.**
-- Given a knowledge item cited by 5 agent sessions, its impact reads `5`; if cited by 0, it reads `—`.
-- Given two items, one fresh-validated yesterday and one stale 6 months ago, sorting by recency surfaces the fresh one.
-- Given an agent harness emits citations, the next view of the cited item reflects the new count.
-- Given the user changes sort, the URL `?sort=impact` is bookmarkable.
+- Given an item with zero data on a signal, that signal reads `—`.
+- Given fresh-validated and stale items, sorting by recency surfaces the fresh one.
+- Given the user changes sort, the URL reflects it.
 
 **Contracts / constraints.**
 - No fake numbers — always `—` until data exists.
-- No keyboard shortcuts.
 - No customizable saved views (founder cut).
 - No emojis.
 
@@ -742,28 +708,30 @@ See `docs/work-packages/SHARED.md` for tech stack and the cross-track dependency
 
 ### L23 — Blocks-in-markdown body renderer (Knowledge)
 
-**Story.** As a user reading a knowledge item, I want the body rendered as proper markdown blocks (headings, lists, callouts, code) — not a single `<pre>` rectangle — so a 3-sentence belief and a multi-section playbook don't share the same grey box, and so per-block comments / linking can attach to addressable block ids.
+**Story.** As a user reading a knowledge item, I want the body rendered as proper structured prose — not a single `<pre>` rectangle — so a 3-sentence belief and a multi-section playbook don't share the same grey box.
+
+>> see again that pre thing does not sound like a sound concept. but yeah we need to render what ever the structure is in a nice looking UI.
 
 **Depends on.** L2.
 
 **Acceptance criteria.**
-- `KnowledgeDetail.tsx:301-307` `<pre>` replaced with a `<MarkdownBlocks>` (same component as L16 — pulled into `packages/web/src/components/blocks/`).
-- Block ids are stable per L2; `/knowledge/k12#section-3` deep-links work.
-- The on-disk format remains valid markdown — the bodies in the DB stay text, never JSON.
-- Code blocks render with monospace + syntax highlighting; quotes get callout styling; lists get proper bullet/number rendering.
-- Vitest tests cover: round-trip lossless on supported types; block-id stability.
-- Playwright e2e: open a Knowledge entry with multi-section body → see styled rendering → deep-link to `#some-block` scrolls.
-- Hardcoded `LEGACY_DETAILS` text removed; bodies come from API. Inventory rows from L5 closed.
-- `bun run check` + `bun run lint` + `bun run test` all green; e2e suite green.
+- The knowledge detail body renders as styled, structured markdown blocks. The current `<pre>` block at `KnowledgeDetail.tsx:301-307` is gone.
+- Block ids are stable per L2.
+- The on-disk format remains valid markdown — bodies in persistence stay text, never JSON.
+- Vitest tests cover: round-trip is lossless on supported types; block-id stability holds.
+- Playwright e2e: open a Knowledge entry with a multi-section body → see styled rendering.
+- Hardcoded legacy detail text is removed; bodies come from the data layer; matching inventory rows from L5 are closed.
+- `bun run check` + `bun run lint` + `bun run test` all green; the full e2e suite stays green.
+
+**Uses.** L2 Block primitive.
 
 **Validation scenarios.**
-- Given a 3-sentence belief, the page renders 3 paragraphs with no chrome — light, readable.
-- Given a 5-section playbook, the page renders with H2 / H3 hierarchy; the section block ids are addressable.
-- Given a deep-link `/knowledge/k12#anti-patterns`, the page scrolls and highlights.
+- Given a 3-sentence belief, the page renders 3 paragraphs with no chrome.
+- Given a 5-section playbook, the page renders with proper heading hierarchy.
 - Given an edit changes only one section, the OTHER section block ids are unchanged.
 
 **Contracts / constraints.**
-- Reuse the `<MarkdownBlocks>` component from L16 — single block primitive across Work and Knowledge.
+- Reuse the L2 block primitive — single primitive across Work and Knowledge.
 - No customizable view kits.
 - No emojis.
 
@@ -771,94 +739,81 @@ See `docs/work-packages/SHARED.md` for tech stack and the cross-track dependency
 
 ---
 
-### L24 — Linking primitive (`[[wiki-link]]` + backlinks)
+### L24 — Linking primitive (deferred out of this track)
 
-**Story.** As a user reading a knowledge item, I want `[[id]]` syntax in the body to render as inline KnowledgeChip with hover preview, and a backlinks panel under the body showing "cited by N items", so the graph emerges from prose rather than from a fixture array.
+**Story.** As a user reading a knowledge item, I would like `[[id]]`-style references to render as inline chips with hover preview and a backlinks panel under the body — but at today's corpus scale this isn't journey-critical, so we defer.
 
 **Depends on.** L23.
 
-**Acceptance criteria.**
-- New `knowledge_links` table: `{ from_id, to_id, kind: "cites" | "contradicts" | "supersedes" | "evidence" }`.
-- `[[id]]` syntax (or `[[title]]` with autocomplete) parsed in block content; resolves to inline `<KnowledgeChip>` with hover preview (title + short body excerpt + source attribution).
-- Backlinks computed by reverse query (`SELECT from_id FROM knowledge_links WHERE to_id = :id`) and rendered under the body as `Cited by N items`. Replaces the hand-authored "Related" sidebar.
-- New API: `GET /api/knowledge/:id/backlinks`.
-- `@bet/<id>` and `@decision/<id>` mention syntax also resolve (cross-area links — anchor for Conversations #9 and Work #5).
-- Vitest tests cover: `[[id]]` parse + resolve, backlinks query, autocomplete.
-- Playwright e2e: open a knowledge item with a `[[k1]]` mention → chip renders → hover shows preview → click navigates to k1; backlinks panel shows the entries that link in.
-- Old `relatedItems[]` fixture string array removed; replaced with computed backlinks. Inventory rows from L5 closed.
-- `bun run check` + `bun run lint` + `bun run test` all green; e2e suite green.
+**Status: deferred.** This story does not ship in Track L. The decision is documented here so the manifest stays stable and the dependency graph is preserved. Re-spec when the corpus grows enough that linking + backlinks become journey-critical (likely once Knowledge crosses ~50 entries with cross-references emerging organically). At that point, the story should be re-evaluated with the v3 framings (block primitive ownership, thread primitive for discussion, no per-block linking dependencies that L26 needs).
 
-**Validation scenarios.**
-- Given a body contains `[[k7]]`, the rendering shows a chip; hovering shows k7's title + lead sentence.
-- Given k7 is cited by 4 items, k7's detail page backlinks panel shows those 4 entries.
-- Given `@bet/b1` in a knowledge body, the chip resolves to bet b1 (cross-area link).
-- Given an unresolved link `[[zzzzz]]`, the chip renders as broken-link with a clear visual state — never silently text.
+**Acceptance criteria.** None for this track. The story exists in the manifest as a deliberate deferral marker.
+
+**Validation scenarios.** N/A.
 
 **Contracts / constraints.**
-- Linking is a `packages/shared` primitive — exported and consumed by Conversations and Work as well (per cross-area finding).
-- Backlinks are computed, never stored as a fixture.
-- No emojis.
+- L26 is independent of L24. Per-block discussion uses the L7 thread primitive; the block-anchor is L2's own affordance.
+- When this story is unparked, it MUST not pre-empt the L2 block-anchor or the L7 thread surface.
 
-**Effort.** L (~5d)
+**Effort.** N/A in this track.
 
 ---
 
-### L25 — Continuity-loop verbs as typed actions
+### L25 — Knowledge-item actions: manage vs edit
 
-**Story.** As a user on a knowledge detail page, I want typed actions — `validate` / `refine` / `merge` / `split` / `promote` / `deprecate` — instead of just an Edit button whose Save doesn't even hit the API, so the v3 continuity loop ("capture → review → refine → promote / merge / split / deprecate") actually exists in the UI.
+**Story.** As a user on a knowledge detail page, I want two distinct journeys — manage the item (review-like: approve, refine, deprecate) AND edit the body (must actually persist; today's Save lies) — so the v3 continuity loop ("capture → review → refine → deprecate") actually exists in the UI.
 
 **Depends on.** None.
 
 **Acceptance criteria.**
-- New `KnowledgeAction` enum: `"validate" | "refine" | "merge" | "split" | "promote" | "deprecate"`.
-- Right-aligned verdict bar on `/knowledge/:id` detail page: each action is a button (with confirmation for destructive ones).
-- Server endpoints for each action wired to existing endpoints in `packages/server/src/routes/knowledge.ts` (which already has merge/split/promote/deprecate). Save in edit mode calls `PATCH /:layer/:id` with optimistic locking. The current "state-only Save" is fixed.
-- `CurationSuggestionCard.tsx`: Review button wires to inline merge confirmation (no longer `undefined`).
-- Each action writes a `knowledge_edit_log` entry with the action kind + reason.
-- Vitest tests cover: each action → server call → log entry.
-- Playwright e2e: open knowledge item → click Promote → confirmation → status changes → log shows the entry.
-- All "Save doesn't persist" lore removed; Save genuinely persists. Inventory rows from L5 closed.
-- `bun run check` + `bun run lint` + `bun run test` all green; e2e suite green.
+- **Manage journey.** The user can act on a knowledge item — what acting means (approve / refine / deprecate, etc.) is for the designer + architect to choose with simplicity as the bias. One or two manage-verbs ship now; more follow when there's a journey for them. "Promote" is dropped (founder: meaningless here). Merge / split are dropped (founder: no value yet). Each shipping verb persists to the server and writes an edit-log entry capturing the action, who, when, and why. Destructive actions require explicit confirmation.
+- **Edit journey.** Save in edit mode actually persists. The current "Save doesn't persist" lore is closed; reloading shows the saved version. Optimistic locking prevents silent overwrites under concurrent edit.
+- Vitest tests cover: each shipping action → persistence → log entry; save round-trip; concurrent edit detection.
+- Playwright e2e: open a knowledge item → invoke a manage verb → confirmation → status changes → log shows the entry; edit body → save → reload → version persists.
+- The matching inventory rows from L5 are closed.
+- `bun run check` + `bun run lint` + `bun run test` all green; the full e2e suite stays green.
 
 **Validation scenarios.**
-- Given the user clicks Save in edit mode, the body persists to the DB; reloading the page shows the saved version.
-- Given the user clicks Promote, the item's status flips to `active` and the log records who and when.
-- Given the user clicks Merge, an inline picker appears for the merge target; on confirm, the source item gets `superseded_by` and a log entry.
-- Given the user clicks Deprecate, the item's status becomes `archived` and it's filtered out of default views.
+- Given the user clicks Save in edit mode, the body persists; reloading shows the saved version.
+- Given the user invokes a destructive manage verb, confirmation is required and the log records the action.
+- Given two users edit concurrently, the second save is rejected by the optimistic lock with a clear message.
 
 **Contracts / constraints.**
-- Optimistic locking on Save — no "last writer wins" silent overwrite.
-- Destructive actions (merge / deprecate) require explicit confirm.
+- Optimistic locking on Save — no last-writer-wins silent overwrite.
+- Destructive actions require explicit confirm.
+- Drop "promote" / "merge" / "split" until there's a journey for them.
 - No emojis.
 
 **Effort.** M (~3d)
 
 ---
 
-### L26 — Per-block thread + comment affordance (Knowledge)
+### L26 — Per-block discussion on Knowledge
 
-**Story.** As a user wanting to leave a note for the practice lead on a specific paragraph of a knowledge entry, I want a hover-revealed left gutter per block with a comment-thread anchor, so the founder's wiki-style "leave a note" affordance lands and so the per-block thread uses the same Thread primitive as the rest of the app.
+**Story.** As a user wanting to leave a note for the practice lead on a specific paragraph of a knowledge entry, I want to attach a discussion to a knowledge entry — and, where the entry is long enough to want it, attached to a specific block — using the same thread primitive as the rest of the app.
 
 **Depends on.** L7, L23.
 
 **Acceptance criteria.**
-- Block-level hover gutter on the left of each block: drag-handle on top, comment count + open-thread on the bottom. Click opens a `<ThreadAttached subjectKind="knowledge" subjectId={...} blockAnchor={blockId}>` (uses L7 + L18's primitives).
-- Block-anchored threads use Thread `kind: "chat"` with `attachedTo: { kind: "knowledge", id }` and `block_anchor: <block-id>` on the parent message.
-- Existing read-only Observation Log is replaced with the same ThreadAttached panel at item-level (no `block_anchor` for item-level discussion).
-- Vitest tests cover: hover gutter renders, click opens correct thread, block_anchor preserved.
-- Playwright e2e: hover a paragraph → gutter shows comment count → click → thread opens scoped to that block → post a message → reload → message persists.
-- All hardcoded `MOCK_OBSERVATIONS` removed; observations are real thread messages. Inventory rows from L5 closed.
-- `bun run check` + `bun run lint` + `bun run test` all green; e2e suite green.
+- A discussion surface attaches to each knowledge entry, using L7's Thread + messages primitive. No parallel comment table.
+- For long entries, the user can scope a thread message to a specific block. **The block-anchor is the L2 Block primitive's own affordance** — this story does NOT depend on a linking primitive (L24) and must not re-introduce that dependency.
+- When a block is edited away, anchored messages are preserved with a "block deleted" indicator.
+- The previous read-only Observation Log is replaced with the L7 thread surface.
+- Vitest tests cover: hover anchor renders, click opens correct thread, block anchor preserved, block-deleted indicator surfaces.
+- Playwright e2e: hover a paragraph → invoke discussion anchor → thread opens scoped to that block → post a message → reload → message persists.
+- The previous mock observations are removed; matching inventory rows from L5 are closed.
+- `bun run check` + `bun run lint` + `bun run test` all green; the full e2e suite stays green.
+
+**Uses.** L7 Thread + messages primitive; L2 Block primitive (block-anchor is L2's own affordance — independent of L24).
 
 **Validation scenarios.**
-- Given a block has 3 anchored comments, the gutter shows "3" and clicking opens those 3 messages.
-- Given the user posts a message anchored to block `#anti-patterns`, reloading shows the message attached to that block.
-- Given the user removes a block (edits the body), the anchored thread is preserved with a "block deleted" indicator on each anchored message.
-- Given an item-level thread (no `block_anchor`), it appears at the top of the discussion panel as "general discussion".
+- Given a block has anchored discussion, the count and surface render.
+- Given the user removes a block, anchored messages are preserved with a clear indicator.
+- Given an item-level thread (no block anchor), it appears as general discussion.
 
 **Contracts / constraints.**
-- Use L7's Thread primitive — no parallel `KnowledgeComment` table.
-- Hover-revealed gutter — never always-visible (clutter).
+- Use L7's Thread + messages primitive — no parallel knowledge-comment entity.
+- The block-anchor comes from L2 — not from L24.
 - No emojis.
 
 **Effort.** L (~4d)
@@ -867,60 +822,60 @@ See `docs/work-packages/SHARED.md` for tech stack and the cross-track dependency
 
 ### L27 — Knowledge-lifecycle status (not Work-status chips)
 
-**Story.** As a user on `/knowledge`, I want chips that reflect the knowledge lifecycle (`captured` / `provisional` / `validated` / `active` / `stale` / `archived`) — NOT the Work-borrowed `HEALTHY / BEHIND / BLOCKED / ERROR` framing — so a `pattern` doesn't display as "ERROR" and an `archived` doesn't display as "DONE".
+**Story.** As a user on Knowledge, I want chips that reflect the knowledge lifecycle (captured / provisional / validated / active / stale / archived) — NOT the Work-borrowed HEALTHY / BEHIND / BLOCKED / ERROR framing — so a knowledge item never displays as ERROR or DONE.
 
 **Depends on.** None.
 
 **Acceptance criteria.**
-- `KnowledgeRow` no longer maps knowledge lifecycle through `knowledgeStatusToStatus`. The `StatusChip` import is replaced by a new `KnowledgeStatusChip` (or KnowledgeRow inlines the rendering).
-- Lifecycle states render as monochrome dots + label text. Only `stale` gets a colored (warning) dot — everything else is monochrome (Knowledge isn't broken; it's simply at different lifecycle stages).
-- The misleading mapping table is deleted from `KnowledgeRow.tsx` and any other consumer.
-- Vitest tests cover: each lifecycle state renders the correct chip; old Work-status colors never appear on knowledge.
-- Playwright e2e: open `/knowledge` → no `ERROR` / `BEHIND` chips on knowledge items; `stale` items show the warning dot.
-- Visual-regression baseline updated for the affected rows (separate `chore(L27):` commit).
-- Inventory row from L5 (Work-status borrowing on Knowledge) closed.
-- `bun run check` + `bun run lint` + `bun run test` all green; e2e suite green.
+- Knowledge items render their lifecycle states using a Knowledge-specific chip vocabulary, not the Work status vocabulary. The mapping that borrows Work statuses for knowledge (currently in `KnowledgeRow.tsx`) is deleted. The visual treatment is a designer call during planning.
+- Any other consumer of the misleading mapping is updated; the mapping itself is removed.
+- Vitest tests cover: each lifecycle state renders its correct chip; old Work-status colors never appear on knowledge.
+- Playwright e2e: open Knowledge → no Work-status chips on knowledge items.
+- The visual-regression baseline is updated for the affected rows in a separate, labeled commit.
+- The matching inventory row from L5 is closed.
+- `bun run check` + `bun run lint` + `bun run test` all green; the full e2e suite stays green.
 
 **Validation scenarios.**
-- Given a `pattern` knowledge item, the chip reads `pattern · captured` or similar — never `ERROR`.
-- Given an `archived` item, the chip reads `archived` — never `DONE`.
-- Given a `stale` item, only that chip is colored (warning).
+- Given a `pattern` knowledge item, the chip reads a knowledge-lifecycle state — never ERROR.
+- Given an archived item, the chip reads "archived" — never DONE.
 - Given the visual-regression run, the Knowledge list is re-baselined cleanly.
 
 **Contracts / constraints.**
-- No reuse of `StatusChip` (a Work primitive) on Knowledge — Knowledge has its own lifecycle vocabulary.
-- Color discipline: monochrome by default; `stale` is the only colored state.
+- No reuse of the Work status chip on Knowledge.
 - No emojis.
 
 **Effort.** S (~1-2d)
 
 ---
 
-### L28 — Six knowledge shapes differentiated in row + detail
+### L28 — Knowledge shape differentiation (layered, not orthogonal)
 
-**Story.** As a user scanning `/knowledge`, I want the 6 shapes (`belief` / `decision` / `skill` / `doc-tree` / `graph` / `table`) to look different — not pixel-identical — so a CTO scanning decisions can find decisions and a grandma reading a belief sees only what fits a belief.
+**Story.** As a user scanning Knowledge, I want different kinds of knowledge to look different — not pixel-identical — so a CTO scanning decisions can find decisions and a grandma reading a belief sees only what fits a belief.
+
+>> again these are not orthogonal categories, a table and a decision live on different levels. what specifically is necessary has to be decided as part of the story by the architect and designer. it needs to make sense for the user and the content not a random colllection
 
 **Depends on.** None.
 
 **Acceptance criteria.**
-- `MockKnowledgeItem` collapses six shapes into one — replaced with a discriminated union: `{ kind: "belief"; ... } | { kind: "decision"; statement, rationale, alternatives, ratifiedAt } | { kind: "skill"; steps[], antiPatterns[] } | { kind: "doc-tree"; sections[] } | { kind: "graph"; nodes[], edges[] } | { kind: "table"; rows[], schema }`.
-- Detail page becomes a `<ShapeRenderer kind={...}>` dispatching to per-shape body components (`BeliefBody`, `DecisionBody`, `SkillBody`, `DocTreeBody`, `GraphBody`, `TableBody`). Each body lives in `packages/web/src/components/knowledge-shapes/`.
-- KnowledgeRow's secondary line is type-driven: decision shows date+author+ratification; pattern shows `applies-when`; brief shows lede; skill shows step-count; etc. Same row primitive, different content.
-- Server: `GET /api/knowledge/:id` returns the typed shape.
-- Vitest tests cover: each kind → correct body renders; row differentiation visible per kind.
-- Playwright e2e: navigate through one of each kind on `/knowledge` → each renders distinctly.
-- `bun run check` + `bun run lint` + `bun run test` all green; e2e suite green.
+- **The architect and designer have produced a layered shape model that reads naturally for the user and the content; the result is recorded as a concept update in `docs/concept/KNOWLEDGE_ARCHITECTURE.md`.** The kinds (decision / belief / pattern / brief) and the representations (table / graph / doc-tree) live on different levels — they are NOT six orthogonal shapes. The concept update resolves the right axis.
+- The detail surface dispatches per the resolved shape model. Each shape's body composes the L23 block primitive internally — blocks compose all shapes.
+- Knowledge rows differentiate per the shape model on whatever line carries differentiating content.
+- The system returns the typed shape for a knowledge item. The architect picks the endpoint shape.
+- Vitest tests cover: each shape → correct body renders.
+- Playwright e2e: navigate through one of each shape → each renders distinctly.
+- A shape that's not yet implemented shows a clear "shape under construction" body — never an empty page.
+- `bun run check` + `bun run lint` + `bun run test` all green; the full e2e suite stays green.
+
+**Plan calls.** Designer + architect concept this as part of the story; explore multiple variants of the shape model; resolve the right axis. Don't pre-decide.
 
 **Validation scenarios.**
-- Given a `decision`, the row shows the date + author + ratification chip; the detail shows statement / rationale / alternatives.
-- Given a `skill`, the row shows step count; the detail shows numbered steps + anti-patterns.
-- Given a `graph`, the detail shows the focused node + edges (limited rendering — no full graph view, founder cut).
-- Given a kind not yet implemented (early phase), a clear "shape under construction" body shows; never an empty page.
+- Given the resolved shape model, the concept doc carries the rationale.
+- Given a knowledge item of each shape, its row and detail render distinctly.
+- Given a shape not yet implemented, a clear "under construction" body shows; never an empty page.
 
 **Contracts / constraints.**
-- Six shapes are FIXED. No 7th. Founder filter blocks new shapes without a concept-doc update (L1/L2/L4 patterns).
-- Per-shape rendering uses the L23 block primitive inside each body — blocks compose all shapes.
-- No graph visualization in this story (founder rejected — "visualizing zero edges is theatre"); future work after L24 has data.
+- The shape model is closed once the concept update lands. Adding a new shape requires another concept update.
+- Per-shape rendering uses the L23 block primitive inside each body.
 - No emojis.
 
 **Effort.** M (~3d)
@@ -934,31 +889,22 @@ See `docs/work-packages/SHARED.md` for tech stack and the cross-track dependency
 **Depends on.** L5, L6, L7, L8, L9, L10, L11, L12, L13, L14, L15, L16, L17, L18, L19, L20, L21, L22, L23, L24, L25, L26, L27, L28.
 
 **Acceptance criteria.**
-- Re-walk every row in `docs/reviews/hardcoded-data-inventory.md` (L5). For each row, mark `closed-by: <story>` or `unassigned`. Every `unassigned` row gets either a fix in this story or a recorded follow-up ticket-equivalent in `docs/reviews/post-L29-followups.md`.
-- Add an ESLint rule that forbids importing from `packages/web/src/fixtures/` outside of `*.test.ts*` and `*.stories.tsx` files. Rule lands in `packages/eslint-config/` (or wherever the project's lint config lives) and fails CI on violation.
-- Add a Vitest meta-test that scans the `packages/web/src/pages/` directory at compile time and asserts: no `MOCK_*` / `FALLBACK_*` constants are imported into runtime modules. (Static check via TS compiler API; mirrors the K4 inspector pattern.)
-- **Test-coverage gap analysis (deliverable doc):** new file `docs/reviews/test-coverage-gap-L29.md` answers, with concrete examples:
-  - Why did existing tests pass with hardcoded data? (e.g., tests imported the same fixtures the runtime imported, so both lied together; or tests stubbed the API but never asserted the API was called.)
-  - Which test patterns are structurally weak — list at minimum 3, with examples and remediation.
-  - What integration / e2e tests are missing — list with priorities and an "added in this story" / "tracked for follow-up" tag per item.
-- Add at least 5 new e2e tests that would have caught the most painful previously-hidden bugs (per `area-*-journey.md` and `improvements-*.md`):
-  - A test that asserts `/conversations` shows real threads from the API, not fixture counts.
-  - A test that asserts BetCards on Portfolio link to real bet detail (not no-op divs).
-  - A test that asserts knowledge items' relevance signals come from the API (not fake numbers).
-  - A test that asserts the Submenu count badges match the list length (no count lies).
-  - A test that asserts cost values render as the `Money` shape, not strings.
-- All `bun run test` and Playwright e2e suites green. CI lint job rejects any new fixture import into runtime code.
-- `bun run check` + `bun run lint` + `bun run test` all green; full Playwright e2e suite green.
+- Every row in `docs/reviews/hardcoded-data-inventory.md` (L5) is re-walked. For each row, mark `closed-by: <story>` or `unassigned`. Every `unassigned` row gets either a fix in this story or a recorded follow-up entry in `docs/reviews/post-L29-followups.md`.
+- A guard forbids importing fixtures into runtime code. The exact mechanism (lint rule, meta-test, or both) is the architect's call during planning, with the constraint that violations fail CI with a clear message.
+- A **test-coverage gap analysis deliverable** lives at `docs/reviews/test-coverage-gap-L29.md`. It explains, with concrete examples, why existing tests passed despite the hardcoded data (e.g., tests imported the same fixtures as runtime; tests stubbed the API but never asserted it was called) and lists the structural test-pattern weaknesses with remediation.
+- New end-to-end tests that would have caught the most painful previously-hidden bugs are added. Designer + architect decide which gaps the new tests close, with the constraint that the test set must demonstrably fail when run against the pre-L1 codebase (proving they would have caught the regressions).
+- All `bun run test` and Playwright e2e suites green. CI rejects any new fixture import into runtime code.
+- `bun run check` + `bun run lint` + `bun run test` all green; the full Playwright e2e suite stays green.
 
 **Validation scenarios.**
-- Given an engineer adds a `MOCK_WIDGETS` constant to `packages/web/src/pages/Foo.tsx`, the lint rule fails the build with a clear message.
-- Given the inventory, every row is either `closed-by: L<n>` or has a tracked follow-up entry.
-- Given the gap analysis doc, when read, it explicitly enumerates ≥3 structural test weaknesses with concrete examples.
-- Given the new e2e tests run on the pre-L1 codebase (rolling back), they fail — proving they would have caught the issues.
+- Given an engineer adds a `MOCK_*` constant to a runtime page, the guard fails the build with a clear message.
+- Given the inventory, every row is either `closed-by: L<n>` or has a tracked follow-up.
+- Given the gap-analysis doc, when read, it explicitly enumerates the structural weaknesses with concrete examples.
+- Given the new tests run against the pre-L1 codebase, they fail.
 
 **Contracts / constraints.**
-- The lint rule is non-bypassable; `// eslint-disable-next-line` requires a tracking issue in the message.
-- Hardcoded data is OK in `tests/`, `*.test.ts*`, `*.stories.tsx`. NOT OK in any runtime page or component.
+- The guard is non-bypassable; an explicit override requires a tracking issue in the message.
+- Hardcoded data is OK in tests and stories; it is NOT OK in any runtime page or component.
 - The gap-analysis doc is a deliverable, not a stub.
 - No emojis.
 
@@ -996,11 +942,11 @@ L8, L9, L10, L11, L14, L15, L17, L18, L20, L21, L22, L23, L24, L26 ──► L29
 
 **Spec-stories (L1–L4) are all independent and run first in parallel.** L5 (inventory) is also independent and runs in parallel with the specs. After spec stories land:
 
-- L6 (verdict commit) is independent — earliest impl story.
-- L7 (Thread primitive) gates Conversations + cross-area thread work (L8, L9, L11, L15, L18, L21, L26).
-- L13 (Product level) gates L12 (artifact stack) because the gallery needs the Product page to host the team feed.
-- L14 + L17 gate L20 (auto-rollover needs cost model + bet actions + consequence preview).
-- L23 (Knowledge blocks) gates L24 (linking) and L26 (per-block threads).
+- L6 (response unblocks the agent) is independent — earliest impl story.
+- L7 (Thread + messages primitive) gates Conversations + cross-area thread work (L8, L9, L11, L15, L18, L21, L26).
+- L13 (Product level) gates L12 (artifact view family) because the gallery aggregates from product teams.
+- L14 + L17 gate L20 (lifecycle propagation needs cost model + bet actions).
+- L23 (Knowledge blocks) gates L26 (per-block discussion via L2's anchor). L24 is deferred and ships nothing in this track.
 - L29 (final sweep) is the closer — depends on L5 + every impl story.
 
 Stories that have **no Track-L dependencies** and can be picked up early once specs land:
