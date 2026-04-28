@@ -33,9 +33,7 @@ function seed(db: HyperIdleDb, suffix = ""): SeedScope {
 	const teamId = `team${suffix}`;
 	const betId = `bet${suffix}`;
 	const taskId = `task${suffix}`;
-	db.insert(products)
-		.values({ id: productId, name: "P", phase: "build", createdAt: NOW })
-		.run();
+	db.insert(products).values({ id: productId, name: "P", phase: "build", createdAt: NOW }).run();
 	db.insert(teams)
 		.values({ id: teamId, productId, capacity: 1, activeBets: 0, formedAt: NOW })
 		.run();
@@ -216,7 +214,11 @@ describe("L3 GET /api/artifacts (axis discriminated union)", () => {
 
 	it("response items carry cost-from-session shape (display strings)", async () => {
 		const s = seed(db);
-		insertArtifact(db, "art_c", s.taskId, { costMoneyMicros: 420_000, costTokensInput: 100, costTokensOutput: 148 });
+		insertArtifact(db, "art_c", s.taskId, {
+			costMoneyMicros: 420_000,
+			costTokensInput: 100,
+			costTokensOutput: 148,
+		});
 		const res = await app.request(`/api/artifacts?axis=task&taskId=${s.taskId}`, {
 			headers: authHeaders(),
 		});

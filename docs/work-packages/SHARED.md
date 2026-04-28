@@ -178,6 +178,8 @@ Hard rules:
 
 Aliases NOT to use for the primitive: Output, File, Deliverable, Result, Asset, Document.
 
+**Cost shape (L3 publishes / L4 adopts).** L3 publishes `ArtifactCostFromSession = { money: string | null; tokens: string | null }` — a pre-formatted display proxy. The DB stores precision-safe integers (`cost_money_micros`, `cost_tokens_input`, `cost_tokens_output`) and the server collapses these to display strings via `formatArtifactCost`. When L4 ships `Money` and `TokenUsage`, the `money` and `tokens` fields adopt those richer types directly without a re-migration: the formatter is the single chokepoint that absorbs the swap, and the DS components consume the wire shape unchanged.
+
 ---
 
 ## UI Stack & Component Budget

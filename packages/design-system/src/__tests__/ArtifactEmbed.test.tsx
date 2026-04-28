@@ -35,9 +35,7 @@ describe("ArtifactEmbed", () => {
 
 	it("renders the identity strip (kind + task title + cost + timestamp)", () => {
 		act(() => {
-			root.render(
-				createElement(ArtifactEmbed, { data: FIXTURE, onOpen: () => undefined }),
-			);
+			root.render(createElement(ArtifactEmbed, { data: FIXTURE, onOpen: () => undefined }));
 		});
 		expect(container.textContent).toContain("DECISION");
 		expect(container.textContent).toContain("Implement auth flow");
@@ -47,9 +45,7 @@ describe("ArtifactEmbed", () => {
 	// Protected: NO chrome on the embed root
 	it("root element has no bg-/border-/rounded-/shadow- Tailwind class fragments", () => {
 		act(() => {
-			root.render(
-				createElement(ArtifactEmbed, { data: FIXTURE, onOpen: () => undefined }),
-			);
+			root.render(createElement(ArtifactEmbed, { data: FIXTURE, onOpen: () => undefined }));
 		});
 		const rootEl = container.firstElementChild as HTMLElement | null;
 		expect(rootEl).toBeTruthy();

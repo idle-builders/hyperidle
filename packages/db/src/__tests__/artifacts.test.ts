@@ -10,9 +10,7 @@ import { createTestDb } from "../test-utils.js";
 const NOW = "2026-04-28T00:00:00.000Z";
 
 function seedTask(db: HyperIdleDb): { taskId: string; betId: string; productId: string } {
-	db.insert(products)
-		.values({ id: "p1", name: "P", phase: "build", createdAt: NOW })
-		.run();
+	db.insert(products).values({ id: "p1", name: "P", phase: "build", createdAt: NOW }).run();
 	db.insert(teams)
 		.values({ id: "tm1", productId: "p1", capacity: 1, activeBets: 0, formedAt: NOW })
 		.run();
@@ -171,9 +169,7 @@ describe("L3 artifacts schema", () => {
 	});
 
 	it("there is no bet_id, product_id, or portfolio_id column on artifacts (hard rule #1)", () => {
-		const cols = db
-			.all<{ name: string }>(sql`PRAGMA table_info(artifacts)`)
-			.map((r) => r.name);
+		const cols = db.all<{ name: string }>(sql`PRAGMA table_info(artifacts)`).map((r) => r.name);
 		expect(cols).not.toContain("bet_id");
 		expect(cols).not.toContain("product_id");
 		expect(cols).not.toContain("portfolio_id");

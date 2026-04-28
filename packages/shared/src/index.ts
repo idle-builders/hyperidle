@@ -66,6 +66,8 @@ export type {
 	WildcardHandler,
 	WildcardType,
 } from "./events.js";
+export type { ArtifactCostInput } from "./format/artifact-cost.js";
+export { formatArtifactCost } from "./format/artifact-cost.js";
 export type {
 	CompletionEvent,
 	CostUpdateEvent,
@@ -142,6 +144,19 @@ export {
 } from "./thread.js";
 export { decode, encode } from "./toon-codec.js";
 export { ToonParseError } from "./toon-errors.js";
+export type {
+	Artifact,
+	ArtifactCostFromSession,
+	ArtifactFilterAxis,
+	ArtifactKind,
+	ArtifactPage,
+	ArtifactPreview,
+	ArtifactQuery,
+	ArtifactViewProps,
+	CreateArtifactInput,
+	DiffHunk,
+} from "./types/artifact.js";
+export { ARTIFACT_KINDS, getArtifactViewProps } from "./types/artifact.js";
 export type {
 	AgentRole,
 	AgentStatus,

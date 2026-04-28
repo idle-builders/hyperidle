@@ -57,10 +57,10 @@ describe("ArtifactGalleryCard", () => {
 		act(() => {
 			root.render(createElement(ArtifactGalleryCard, { data: FIXTURE, onOpen }));
 		});
-		const root_el = container.firstElementChild as HTMLElement;
-		expect(root_el).toBeTruthy();
+		const rootEl = container.firstElementChild as HTMLElement;
+		expect(rootEl).toBeTruthy();
 		act(() => {
-			root_el.click();
+			rootEl.click();
 		});
 		expect(onOpen).toHaveBeenCalledTimes(1);
 	});

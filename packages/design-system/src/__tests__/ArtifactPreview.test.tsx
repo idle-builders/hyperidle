@@ -1,11 +1,12 @@
 // @vitest-environment jsdom
 // L3 RED — Tier 2 layout: ArtifactPreview (single_full_preview).
 // Protected: AC-9 — placeholder "PREVIEW NOT YET RENDERED" + no fake thumbnail.
+
+import type { Artifact, ArtifactKind } from "@hyperidle/shared";
+import { ARTIFACT_KINDS } from "@hyperidle/shared";
 import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import type { Artifact, ArtifactKind } from "@hyperidle/shared";
-import { ARTIFACT_KINDS } from "@hyperidle/shared";
 import { ArtifactPreview } from "../ArtifactPreview.js";
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -72,9 +73,7 @@ describe("ArtifactPreview (single_full_preview)", () => {
 	for (const kind of ARTIFACT_KINDS.filter((k) => k !== "unknown_kind")) {
 		it(`renders without throwing for kind '${kind}' (no preview)`, () => {
 			act(() => {
-				root.render(
-					createElement(ArtifactPreview, { data: fixture(kind as ArtifactKind, null) }),
-				);
+				root.render(createElement(ArtifactPreview, { data: fixture(kind as ArtifactKind, null) }));
 			});
 			expect(container.firstElementChild).toBeTruthy();
 		});

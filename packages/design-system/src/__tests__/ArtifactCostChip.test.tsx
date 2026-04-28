@@ -25,9 +25,7 @@ describe("ArtifactCostChip", () => {
 
 	it("renders em-dash when both money and tokens are null (protected)", () => {
 		act(() => {
-			root.render(
-				createElement(ArtifactCostChip, { cost: { money: null, tokens: null } }),
-			);
+			root.render(createElement(ArtifactCostChip, { cost: { money: null, tokens: null } }));
 		});
 		expect(container.textContent).toContain("—");
 		expect(container.textContent).not.toContain("$0.00");

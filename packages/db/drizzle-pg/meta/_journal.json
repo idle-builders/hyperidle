@@ -57,6 +57,13 @@
 			"when": 1782950500000,
 			"tag": "0007_thread_host_immutability",
 			"breakpoints": true
+		},
+		{
+			"idx": 8,
+			"version": "7",
+			"when": 1782960000000,
+			"tag": "0008_soft_epoch",
+			"breakpoints": true
 		}
 	]
 }

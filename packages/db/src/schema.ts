@@ -395,6 +395,36 @@ export const fileLeases = sqliteTable("file_leases", {
 	releasedAt: text("released_at"),
 });
 
+// --- Artifacts (L3) ---
+
+// @lore L3 — `kind` is stored as text but normalised to ARTIFACT_KINDS at the
+// API boundary (forward-compat for new ingest tokens).
+// @lore L3 — cost columns are null-until-settled per concept §4.5 mutability
+// rule; immutability is enforced in the createArtifact / settleCost services,
+// NOT by a DB trigger.
+// @lore L3 name-collision: tasks.artifacts (line 92) carries handoff
+// filename array; rename deferred to L3-FU-1.
+export const artifacts = sqliteTable(
+	"artifacts",
+	{
+		id: text("id").primaryKey(),
+		producingTaskId: text("producing_task_id")
+			.notNull()
+			.references(() => tasks.id, { onDelete: "restrict" }),
+		kind: text("kind").notNull(),
+		previewJson: text("preview_json"),
+		costMoneyMicros: integer("cost_money_micros"),
+		costTokensInput: integer("cost_tokens_input"),
+		costTokensOutput: integer("cost_tokens_output"),
+		costSettledAt: text("cost_settled_at"),
+		createdAt: text("created_at").notNull(),
+	},
+	(table) => [
+		index("artifacts_producing_task_id_idx").on(table.producingTaskId),
+		index("artifacts_created_at_idx").on(table.createdAt),
+	],
+);
+
 // --- Inferred types ---
 
 export type Product = typeof products.$inferSelect;
@@ -447,3 +477,6 @@ export type NewKnowledgeConflict = typeof knowledgeConflicts.$inferInsert;
 
 export type NotificationQueueRow = typeof notificationQueue.$inferSelect;
 export type NewNotificationQueueRow = typeof notificationQueue.$inferInsert;
+
+export type ArtifactRow = typeof artifacts.$inferSelect;
+export type NewArtifactRow = typeof artifacts.$inferInsert;

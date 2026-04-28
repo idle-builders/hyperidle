@@ -9,7 +9,7 @@
 import { readdirSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
-import * as DS from "../index.js";
+import * as Ds from "../index.js";
 
 const ALLOWED = [
 	"ArtifactKindBadge",
@@ -24,16 +24,16 @@ const ALLOWED = [
 
 describe("Artifact closed view family — export boundary (protected)", () => {
 	it("exports exactly the 8 allowed Artifact* names — no more, no less", () => {
-		const exported = Object.keys(DS).filter((k) => /^Artifact/.test(k));
+		const exported = Object.keys(Ds).filter((k) => /^Artifact/.test(k));
 		expect(exported.sort()).toEqual([...ALLOWED].sort());
 	});
 
 	it("does NOT export an ambiguous bare 'Artifact' symbol", () => {
-		expect(Object.keys(DS)).not.toContain("Artifact");
+		expect(Object.keys(Ds)).not.toContain("Artifact");
 	});
 
 	it("does NOT export 'ArtifactCard' (would suggest layouts are interchangeable)", () => {
-		expect(Object.keys(DS)).not.toContain("ArtifactCard");
+		expect(Object.keys(Ds)).not.toContain("ArtifactCard");
 	});
 
 	it("there is no 5th Artifact* layout file in design-system/src/ outside the allow-list", () => {

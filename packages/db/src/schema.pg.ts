@@ -386,6 +386,29 @@ export const fileLeases = pgTable("file_leases", {
 	releasedAt: text("released_at"),
 });
 
+// --- Artifacts (L3) ---
+
+export const artifacts = pgTable(
+	"artifacts",
+	{
+		id: text("id").primaryKey(),
+		producingTaskId: text("producing_task_id")
+			.notNull()
+			.references(() => tasks.id, { onDelete: "restrict" }),
+		kind: text("kind").notNull(),
+		previewJson: text("preview_json"),
+		costMoneyMicros: integer("cost_money_micros"),
+		costTokensInput: integer("cost_tokens_input"),
+		costTokensOutput: integer("cost_tokens_output"),
+		costSettledAt: text("cost_settled_at"),
+		createdAt: text("created_at").notNull(),
+	},
+	(table) => [
+		index("artifacts_producing_task_id_idx").on(table.producingTaskId),
+		index("artifacts_created_at_idx").on(table.createdAt),
+	],
+);
+
 // --- Inferred types ---
 
 export type Product = typeof products.$inferSelect;
@@ -438,3 +461,6 @@ export type NewKnowledgeConflict = typeof knowledgeConflicts.$inferInsert;
 
 export type NotificationQueueRow = typeof notificationQueue.$inferSelect;
 export type NewNotificationQueueRow = typeof notificationQueue.$inferInsert;
+
+export type ArtifactRow = typeof artifacts.$inferSelect;
+export type NewArtifactRow = typeof artifacts.$inferInsert;
