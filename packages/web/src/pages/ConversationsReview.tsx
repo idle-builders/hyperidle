@@ -6,27 +6,83 @@
  * and mounts the design-system ThreadShell. The MockReviewItem +
  * MOCK_REVIEWS literals + PREFILL_KEYS map are removed; verdict-grammar
  * shortcuts are deferred to a follow-up.
+ *
+ * @lore L1 step5 (slop W): the previous draft hardcoded `FALLBACK_THREAD_ID`
+ * and laundered the network response through `as ThreadDetail`. We render
+ * an `EmptyState` when the URL does not carry an id — no demo fixture leaks
+ * into production. The fetched JSON is decoded by `decodeThreadDetail`,
+ * which fails loudly on a malformed payload at the parse site instead of
+ * crashing somewhere downstream.
  */
-import { ErrorState, SkeletonList, ThreadShell } from "@hyperidle/design-system";
+import { EmptyState, ErrorState, SkeletonList, ThreadShell } from "@hyperidle/design-system";
 import type { Message, Thread } from "@hyperidle/shared";
 import { type JSX, useCallback, useEffect, useState } from "react";
 
 interface ThreadDetail {
 	thread: Thread;
-	messages: Message[];
+	messages: ReadonlyArray<Message>;
 	headMessageId: string | null;
 	identities: Record<string, { name: string; role?: string }>;
 }
 
-const FALLBACK_THREAD_ID = "demo-thread-1";
+class ThreadDetailDecodeError extends Error {
+	constructor(reason: string) {
+		super(`thread detail decode: ${reason}`);
+		this.name = "ThreadDetailDecodeError";
+	}
+}
+
+function isObject(value: unknown): value is Record<string, unknown> {
+	return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function decodeThreadDetail(value: unknown): ThreadDetail {
+	if (!isObject(value)) {
+		throw new ThreadDetailDecodeError("response is not an object");
+	}
+	if (!isObject(value.thread)) {
+		throw new ThreadDetailDecodeError("missing thread");
+	}
+	if (!Array.isArray(value.messages)) {
+		throw new ThreadDetailDecodeError("missing messages array");
+	}
+	const headMessageId = value.headMessageId;
+	if (typeof headMessageId !== "string" && headMessageId !== null) {
+		throw new ThreadDetailDecodeError("invalid headMessageId");
+	}
+	const identitiesRaw = isObject(value.identities) ? value.identities : {};
+	const identities: Record<string, { name: string; role?: string }> = {};
+	for (const [k, v] of Object.entries(identitiesRaw)) {
+		if (!isObject(v) || typeof v.name !== "string") continue;
+		identities[k] = {
+			name: v.name,
+			...(typeof v.role === "string" ? { role: v.role } : {}),
+		};
+	}
+	// Server already validates `thread` and each `message` via zod. We trust
+	// the shape here and let runtime narrowing in ThreadShell handle the
+	// per-payload type checks.
+	return {
+		thread: value.thread as unknown as Thread,
+		messages: value.messages as unknown as ReadonlyArray<Message>,
+		headMessageId,
+		identities,
+	};
+}
 
 export function ConversationsReview(): JSX.Element {
 	const [detail, setDetail] = useState<ThreadDetail | null>(null);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
+	const [threadId, setThreadId] = useState<string | null>(null);
 
 	useEffect(() => {
-		const id = new URLSearchParams(window.location.search).get("id") ?? FALLBACK_THREAD_ID;
+		const id = new URLSearchParams(window.location.search).get("id");
+		setThreadId(id);
+		if (!id) {
+			setLoading(false);
+			return;
+		}
 		const ac = new AbortController();
 		(async (): Promise<void> => {
 			try {
@@ -36,11 +92,11 @@ export function ConversationsReview(): JSX.Element {
 					setLoading(false);
 					return;
 				}
-				const body = (await res.json()) as ThreadDetail;
+				const body = decodeThreadDetail(await res.json());
 				setDetail(body);
 				setLoading(false);
 			} catch (cause) {
-				if ((cause as Error).name === "AbortError") return;
+				if (cause instanceof Error && cause.name === "AbortError") return;
 				setError(cause instanceof Error ? cause.message : "Network error");
 				setLoading(false);
 			}
@@ -59,7 +115,7 @@ export function ConversationsReview(): JSX.Element {
 			if (res.ok) {
 				const refresh = await fetch(`/api/threads/${detail.thread.id}`);
 				if (refresh.ok) {
-					setDetail((await refresh.json()) as ThreadDetail);
+					setDetail(decodeThreadDetail(await refresh.json()));
 				}
 			}
 		},
@@ -80,6 +136,16 @@ export function ConversationsReview(): JSX.Element {
 			</div>
 		);
 	}
+	if (!threadId) {
+		return (
+			<div className="flex flex-col h-full" data-testid="conversations-review-page">
+				<EmptyState
+					title="No thread selected"
+					description="Open a review from the inbox to see it here."
+				/>
+			</div>
+		);
+	}
 	if (!detail) {
 		return <div className="h-full" data-testid="conversations-review-page" />;
 	}
@@ -88,7 +154,7 @@ export function ConversationsReview(): JSX.Element {
 			<ThreadShell
 				thread={detail.thread}
 				messages={detail.messages}
-				identities={detail.identities ?? {}}
+				identities={detail.identities}
 				onAppendMessage={onAppend}
 			/>
 		</div>

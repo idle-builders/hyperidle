@@ -1,9 +1,9 @@
 /**
  * L1a — `ReviewVerdictBar` rendering + interaction tests.
  *
- * Approved-design: §2.3. The bar exposes 5 binding verdicts +
- * 3 non-binding (comment / inline-comment / reply) +
- * 2 sidecar (snooze / escalate). NO keyboard verb shortcuts.
+ * Approved-design: §2.3. The bar exposes the 5 binding verdicts.
+ * NO keyboard verb shortcuts. Non-binding replies and sidecar actions
+ * land in L1b (L1 step5 S-C1).
  */
 
 import { ReviewVerdictBar } from "@hyperidle/design-system";
@@ -22,19 +22,15 @@ describe("ReviewVerdictBar (approved.md §2.3)", () => {
 		expect(screen.getByRole("button", { name: /reject/i })).toBeInTheDocument();
 	});
 
-	it("renders the 3 non-binding reply buttons", () => {
+	it("renders exactly the 5 binding buttons (no dead non-binding/sidecar)", () => {
 		const onAction = vi.fn();
 		render(<ReviewVerdictBar onAction={onAction} />);
-		expect(screen.getByRole("button", { name: /^comment$/i })).toBeInTheDocument();
-		expect(screen.getByRole("button", { name: /inline.?comment/i })).toBeInTheDocument();
-		expect(screen.getByRole("button", { name: /^reply$/i })).toBeInTheDocument();
-	});
-
-	it("renders the 2 sidecar action links (snooze / escalate)", () => {
-		const onAction = vi.fn();
-		render(<ReviewVerdictBar onAction={onAction} />);
-		expect(screen.getByRole("button", { name: /snooze/i })).toBeInTheDocument();
-		expect(screen.getByRole("button", { name: /escalate/i })).toBeInTheDocument();
+		expect(screen.getAllByRole("button")).toHaveLength(5);
+		expect(screen.queryByRole("button", { name: /^comment$/i })).not.toBeInTheDocument();
+		expect(screen.queryByRole("button", { name: /inline.?comment/i })).not.toBeInTheDocument();
+		expect(screen.queryByRole("button", { name: /^reply$/i })).not.toBeInTheDocument();
+		expect(screen.queryByRole("button", { name: /snooze/i })).not.toBeInTheDocument();
+		expect(screen.queryByRole("button", { name: /escalate/i })).not.toBeInTheDocument();
 	});
 
 	it("calls onAction('approve') when Approve is clicked", async () => {

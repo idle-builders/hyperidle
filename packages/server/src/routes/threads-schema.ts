@@ -4,12 +4,7 @@
  * type-only and free of the runtime `zod` dependency.
  */
 
-import {
-	ARTIFACT_KINDS,
-	HOST_KINDS,
-	type MESSAGE_TYPES,
-	VERDICT_DECISIONS,
-} from "@hyperidle/shared";
+import { ARTIFACT_KINDS, HOST_KINDS, MESSAGE_TYPES, VERDICT_DECISIONS } from "@hyperidle/shared";
 import { z } from "zod";
 
 // `clientKey` URL-safe regex: [A-Za-z0-9_\-:.], max 128 chars (plan §6.1
@@ -53,6 +48,13 @@ const verdictPayloadSchema = z.object({
 	note: z.string().max(2048).optional(),
 });
 
+const redactedPayloadSchema = z.object({
+	redacted: z.literal(true),
+	redactedBy: z.string().min(1),
+	redactedAt: z.string().min(1),
+	reason: z.string(),
+});
+
 /** Validates `{ type, payload, clientKey }` for both create-thread and append-message. */
 export const messageInputSchema = z.discriminatedUnion("type", [
 	z.object({
@@ -77,6 +79,33 @@ export const messageInputSchema = z.discriminatedUnion("type", [
 	}),
 ]);
 
+/**
+ * Validates a message row read back from the DB. Each branch accepts the
+ * type-specific payload OR the redacted-payload variant — the type guard
+ * `isRedactedPayload` then narrows in the consumer (plan §4 / SL-C2).
+ */
+export const messageRowSchema = z.discriminatedUnion("type", [
+	z.object({
+		type: z.literal("plain"),
+		payload: z.union([plainPayloadSchema, redactedPayloadSchema]),
+	}),
+	z.object({
+		type: z.literal("review"),
+		payload: z.union([reviewPayloadSchema, redactedPayloadSchema]),
+	}),
+	z.object({
+		type: z.literal("questionnaire"),
+		payload: z.union([questionnairePayloadSchema, redactedPayloadSchema]),
+	}),
+	z.object({
+		type: z.literal("verdict"),
+		payload: z.union([verdictPayloadSchema, redactedPayloadSchema]),
+	}),
+]);
+
+/** Validates the JSON-encoded `participants` column on the threads row. */
+export const threadParticipantsSchema = z.array(z.string().min(1));
+
 export const createThreadBodySchema = z.object({
 	hostKind: z.enum(HOST_KINDS),
 	hostId: z.string().min(1),
@@ -99,12 +128,17 @@ export const listThreadsQuerySchema = z.object({
 
 export type MessageInput = z.infer<typeof messageInputSchema>;
 export type CreateThreadBody = z.infer<typeof createThreadBodySchema>;
+export type MessageRowParsed = z.infer<typeof messageRowSchema>;
 
-/** Validate `MESSAGE_TYPES` is exhaustively covered by the discriminated union. */
-const TypesCheck: ReadonlyArray<(typeof MESSAGE_TYPES)[number]> = [
-	"plain",
-	"review",
-	"questionnaire",
-	"verdict",
-];
-void TypesCheck;
+/**
+ * Build-time assertion that `MESSAGE_TYPES` matches the message-input
+ * discriminator exactly. If a new type is added to one and not the other,
+ * the `satisfies` check fails to compile.
+ */
+const _MESSAGE_TYPES_COVERED: { [K in (typeof MESSAGE_TYPES)[number]]: true } = {
+	plain: true,
+	review: true,
+	questionnaire: true,
+	verdict: true,
+};
+void _MESSAGE_TYPES_COVERED;

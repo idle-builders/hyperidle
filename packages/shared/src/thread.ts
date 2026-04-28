@@ -147,6 +147,22 @@ export function exhaustiveAssert(value: never): never {
 	throw new Error(`Unhandled message type: ${String(value)}`);
 }
 
+// ── Payload narrowing helper ─────────────────────────────────────
+
+/**
+ * Type guard separating the redacted-payload variant from the type-specific
+ * payload variants (PlainPayload | ReviewPayload | QuestionnairePayload |
+ * VerdictPayload). Use after narrowing on `message.type` to access the
+ * type-specific payload without unsafe `as` casts.
+ */
+export function isRedactedPayload(payload: unknown): payload is RedactedPayload {
+	return (
+		typeof payload === "object" &&
+		payload !== null &&
+		(payload as { redacted?: unknown }).redacted === true
+	);
+}
+
 // ── Configuration classifier ────────────────────────────────────
 
 export type ThreadConfiguration = "dm" | "coach" | "feed" | "attached";

@@ -10,7 +10,7 @@
 
 import { ThreadHostBanner } from "@hyperidle/design-system";
 import { render, screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 
 const baseProps = {
 	hostKind: "bet" as const,
@@ -59,9 +59,4 @@ describe("ThreadHostBanner (approved.md §2.1)", () => {
 		expect(screen.getByText(/\+2/)).toBeInTheDocument();
 	});
 
-	it("calls onMoreActions when an action is invoked", () => {
-		const onMoreActions = vi.fn();
-		render(<ThreadHostBanner {...baseProps} onMoreActions={onMoreActions} />);
-		expect(onMoreActions).toBeDefined();
-	});
 });

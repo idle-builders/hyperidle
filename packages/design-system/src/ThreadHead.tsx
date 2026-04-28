@@ -6,17 +6,36 @@
  * an artifact slot (filled by the page).
  */
 
-import type { Message, VerdictDecision } from "@hyperidle/shared";
+import type { Message, RedactedPayload, VerdictDecision } from "@hyperidle/shared";
+import { isRedactedPayload } from "@hyperidle/shared";
 import type { JSX, ReactNode } from "react";
 import { dsProps } from "./ds-attrs.js";
-import type { VerdictGrammarAction } from "./ReviewVerdictBar.js";
 
 export interface ThreadHeadProps {
 	message: Message;
 	resolvedVerdict?: VerdictDecision;
 	artifactSlot?: ReactNode;
-	onPromoteArtifact?: () => void;
-	onVerdict?: (action: VerdictGrammarAction) => void;
+}
+
+function RedactedHead({
+	message,
+	payload,
+}: {
+	message: Message;
+	payload: RedactedPayload;
+}): JSX.Element {
+	return (
+		<section
+			{...dsProps("ThreadHead", "2")}
+			data-testid="thread-head"
+			className="flex flex-col gap-[var(--density-gap,8px)] py-[var(--density-card-pad,12px)] px-[var(--density-pad-x,12px)] border-b border-[var(--border-subtle)] bg-[var(--surface-1)]"
+		>
+			<div className="italic text-[var(--text-lo)] text-[13px]">
+				{message.type === "review" ? "Review" : "Questionnaire"} redacted by {payload.redactedBy}
+				 — {payload.reason}
+			</div>
+		</section>
+	);
 }
 
 export function ThreadHead({
@@ -25,10 +44,10 @@ export function ThreadHead({
 	artifactSlot,
 }: ThreadHeadProps): JSX.Element {
 	if (message.type === "review") {
-		const payload = message.payload as {
-			title: string;
-			reasoning: ReadonlyArray<string>;
-		};
+		const { payload } = message;
+		if (isRedactedPayload(payload)) {
+			return <RedactedHead message={message} payload={payload} />;
+		}
 		return (
 			<section
 				{...dsProps("ThreadHead", "2")}
@@ -66,7 +85,10 @@ export function ThreadHead({
 		);
 	}
 	if (message.type === "questionnaire") {
-		const payload = message.payload as { title: string; question: string };
+		const { payload } = message;
+		if (isRedactedPayload(payload)) {
+			return <RedactedHead message={message} payload={payload} />;
+		}
 		return (
 			<section
 				{...dsProps("ThreadHead", "2")}
@@ -75,7 +97,18 @@ export function ThreadHead({
 			>
 				<h2 className="text-[15px] font-semibold text-[var(--text-hi)]">{payload.title}</h2>
 				<p className="text-[13px] text-[var(--text-mid)]">{payload.question}</p>
-				<div className="text-[12px] text-[var(--text-lo)] italic">Answer UI coming in L1b</div>
+				{payload.options.length > 0 ? (
+					<ul className="flex flex-col gap-[4px] text-[13px] text-[var(--text-mid)]">
+						{payload.options.map((opt) => (
+							<li
+								key={`${message.id}-opt-${opt}`}
+								className="px-[8px] py-[4px] rounded-[var(--r1)] border border-[var(--border-subtle)] bg-[var(--surface-2)]"
+							>
+								{opt}
+							</li>
+						))}
+					</ul>
+				) : null}
 			</section>
 		);
 	}

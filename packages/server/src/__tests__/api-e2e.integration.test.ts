@@ -346,19 +346,59 @@ describe("E2E API Integration (I5)", () => {
 			expect(res.status).toBe(201);
 		});
 
-		it("POST /api/conversations/responses records a verdict on an item", async () => {
-			const res = await app.request("/api/conversations/responses", {
+		it("POST /api/threads/:id/messages records a verdict (canonical L1 surface)", async () => {
+			// L1 step5 (S-C2): legacy `POST /api/conversations/responses` was
+			// removed; verdicts go through the canonical `/api/threads` surface.
+			// `agent-1` is already seeded by the outer `beforeEach`; we just
+			// add a founder so the verdict authz check (founder + not-self)
+			// has a sender to claim.
+			db.insert(agents)
+				.values({
+					id: "founder-1",
+					name: "Founder",
+					role: "founder",
+					status: "active",
+					createdAt: new Date().toISOString(),
+				})
+				.run();
+
+			const create = await app.request("/api/threads", {
 				method: "POST",
-				headers: auth(),
+				headers: auth({ "X-Identity": "agent-1" }),
 				body: JSON.stringify({
-					itemId: "item-1",
-					decision: "approve",
+					hostKind: "task",
+					hostId: "task-1",
+					participants: ["agent-1", "founder-1"],
+					initialMessage: {
+						type: "review",
+						clientKey: "init-r-e2e",
+						payload: {
+							title: "E2E review",
+							reasoning: ["needs verdict"],
+							artifactRef: { id: "a-e2e", kind: "text_diff" },
+						},
+					},
+				}),
+			});
+			expect(create.status).toBe(201);
+			const created = (await create.json()) as {
+				thread: { id: string };
+				messages: Array<{ id: string }>;
+			};
+
+			const res = await app.request(`/api/threads/${created.thread.id}/messages`, {
+				method: "POST",
+				headers: auth({ "X-Identity": "founder-1" }),
+				body: JSON.stringify({
+					type: "verdict",
+					clientKey: "verdict-e2e",
+					payload: {
+						decision: "approve",
+						resolvesMessageId: created.messages[0].id,
+					},
 				}),
 			});
 			expect(res.status).toBe(201);
-			const body = (await res.json()) as { id: string; itemId: string; decision: string };
-			expect(body.itemId).toBe("item-1");
-			expect(body.decision).toBe("approve");
 		});
 	});
 

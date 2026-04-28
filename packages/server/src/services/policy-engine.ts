@@ -1,6 +1,6 @@
 import { agentSkills, type HyperIdleDb, items, messages, threads } from "@hyperidle/db";
 import type { EventBus, ItemCreatedEvent, NotificationEvent } from "@hyperidle/shared";
-import { eq } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 import { isSilenced as sharedIsSilenced } from "./silence-policy.js";
 
 interface PolicyEngineOptions {
@@ -105,12 +105,16 @@ function executeAction(
 			// thread (or the legacy item id when no review message exists).
 			const item = db.select().from(items).where(eq(items.id, itemId)).get();
 			if (!item) break;
+			// L1 step5 (W5): push the type filter into SQL and limit to the
+			// most recent review-typed message — the previous query loaded
+			// every message in the thread to JS just to find one.
 			const reviewMessage = db
 				.select()
 				.from(messages)
-				.where(eq(messages.threadId, item.threadId))
-				.all()
-				.find((m) => m.type === "review");
+				.where(and(eq(messages.threadId, item.threadId), eq(messages.type, "review")))
+				.orderBy(desc(messages.createdAt))
+				.limit(1)
+				.get();
 
 			const messageId = crypto.randomUUID();
 			const respondedAt = new Date().toISOString();

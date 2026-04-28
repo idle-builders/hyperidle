@@ -7,8 +7,9 @@
   <link rel="stylesheet" href="_tokens.css" />
   <style>
     /* Layout mirrors ReviewVerdictBar.tsx — sticky surface above the
-       composer. 5 binding + 3 non-binding + 2 sidecar buttons. Density
-       tokens for vertical padding per AQ-002. */
+       composer. 5 binding verdict buttons. Density tokens for vertical
+       padding per AQ-002. Non-binding replies and sidecar actions land
+       in L1b — see ReviewVerdictBar.tsx @lore. */
     .verdict-bar {
       display: flex;
       flex-wrap: wrap;
@@ -17,18 +18,6 @@
       padding: var(--density-pad-y) var(--density-pad-x);
       border-top: 1px solid var(--border-subtle);
       background: var(--surface-1);
-    }
-    .verdict-bar__divider {
-      width: 1px;
-      height: 20px;
-      background: var(--border-subtle);
-      margin: 0 4px;
-    }
-    .verdict-bar__sidecar {
-      margin-left: auto;
-      display: flex;
-      align-items: center;
-      gap: 4px;
     }
 
     .btn {
@@ -58,12 +47,6 @@
     .btn--danger:hover {
       background: color-mix(in oklab, var(--danger) 22%, transparent);
     }
-    .btn--link {
-      background: transparent;
-      color: var(--text-lo);
-      font-weight: 400;
-    }
-    .btn--link:hover { color: var(--text-hi); }
   </style>
 </head>
 <body>
@@ -79,15 +62,6 @@
       { action: "edit", label: "Edit", tone: "neutral" },
       { action: "reject", label: "Reject", tone: "danger" },
     ];
-    const NON_BINDING = [
-      { action: "comment", label: "Comment", tone: "neutral" },
-      { action: "inline-comment", label: "Inline comment", tone: "neutral" },
-      { action: "reply", label: "Reply", tone: "neutral" },
-    ];
-    const SIDECAR = [
-      { action: "snooze", label: "Snooze", tone: "link" },
-      { action: "escalate", label: "Escalate", tone: "link" },
-    ];
 
     function ReviewVerdictBar() {
       return (
@@ -101,19 +75,6 @@
               {b.label}
             </button>
           ))}
-          <span className="verdict-bar__divider" aria-hidden="true" />
-          {NON_BINDING.map((b) => (
-            <button key={b.action} type="button" className={`btn btn--${b.tone}`}>
-              {b.label}
-            </button>
-          ))}
-          <span className="verdict-bar__sidecar">
-            {SIDECAR.map((b) => (
-              <button key={b.action} type="button" className={`btn btn--${b.tone}`}>
-                {b.label}
-              </button>
-            ))}
-          </span>
         </div>
       );
     }
