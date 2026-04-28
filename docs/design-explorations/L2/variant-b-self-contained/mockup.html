@@ -1,0 +1,1007 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>L2 Block primitive — Variant B (Self-contained)</title>
+  <link rel="stylesheet" href="../../../../packages/design-system/src/tokens.css" />
+  <style>
+    /* --------------------------------------------------------------
+       Variant B — Self-contained block
+       Each kind owns its own micro-layout. Persistent corner-button
+       group (block-action-strip) is the variant's chrome. Density
+       and tokens only — no off-grid spacing, no off-scale radii.
+       -------------------------------------------------------------- */
+    *, *::before, *::after { box-sizing: border-box; }
+    html { font-family: var(--ui); }
+    body {
+      margin: 0;
+      background: var(--surface-0);
+      color: var(--text-hi);
+      font-size: var(--density-text);
+      line-height: var(--leading-body);
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* --------- page chrome ---------- */
+    .page {
+      max-width: 1360px;
+      margin: 0 auto;
+      padding: 16px var(--density-page-gutter) 64px;
+    }
+    .page__title {
+      font-size: 13px;
+      letter-spacing: var(--tracking-caps);
+      text-transform: uppercase;
+      color: var(--text-lo);
+      font-weight: var(--fw-medium);
+      margin: 0 0 12px;
+    }
+    .page__title em {
+      font-style: normal;
+      color: var(--text-hi);
+    }
+
+    /* --------- two-up layout ---------- */
+    .two-up {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      align-items: start;
+    }
+    .surface {
+      background: var(--surface-1);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--r2);
+      overflow: hidden;
+    }
+    .surface__header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      padding: 8px 12px;
+      border-bottom: 1px solid var(--border-subtle);
+      background: var(--surface-2);
+    }
+    .surface__crumb {
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--text-lo);
+      letter-spacing: var(--tracking-caps);
+    }
+    .surface__density {
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--text-mid);
+    }
+    .surface--knowledge .body { max-width: 540px; }
+    .surface--bet .body { max-width: 720px; }
+    .body {
+      padding: 12px 16px 24px;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* --------------------------------------------------------------
+       Block — base shape
+       Every block is a relative-positioned flex region so the
+       corner action strip can be absolutely placed top-right.
+       -------------------------------------------------------------- */
+    .block {
+      position: relative;
+      padding: 4px 0 4px;
+      margin: 0;
+      scroll-margin-top: 12px;
+    }
+    /* Tighter spacing between same-kind paragraphs / list items */
+    .block + .block { margin-top: 8px; }
+    .block.h1 + .block,
+    .block.h2 + .block,
+    .block.h3 + .block { margin-top: 4px; }
+    .block.heading { margin-top: 16px; }
+    .block.heading:first-child { margin-top: 0; }
+
+    /* Hover / focus reveals the corner strip */
+    .block:hover .block-action-strip,
+    .block:focus-within .block-action-strip,
+    .block.is-pinned .block-action-strip,
+    .block-action-strip[data-state="pinned"],
+    .block-action-strip:has([data-state="hovered"]),
+    .block-action-strip:has(.block-action-strip__chip[data-active]) { opacity: 1; }
+    .block:focus-visible {
+      outline: 2px solid var(--primary);
+      outline-offset: 2px;
+      border-radius: var(--r1);
+    }
+
+    /* --------------------------------------------------------------
+       block-action-strip — the variant's chrome.
+       Persistent (always in DOM), opacity 0 until hover/focus.
+       Right-anchored, sits above the block.
+       -------------------------------------------------------------- */
+    .block-action-strip {
+      position: absolute;
+      top: 2px;
+      right: 0;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 2px;
+      background: var(--surface-2);
+      border: 1px solid var(--border-default);
+      border-radius: var(--r1);
+      box-shadow: var(--float);
+      opacity: 0;
+      transition: opacity var(--motion-fast) var(--motion-ease);
+      z-index: 2;
+    }
+    .block-action-strip__btn {
+      all: unset;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      height: 24px;
+      min-width: 24px;
+      padding: 0 6px;
+      border-radius: var(--r1);
+      color: var(--text-mid);
+      font-size: 11px;
+      font-family: var(--mono);
+      cursor: pointer;
+      transition: background var(--motion-fast) var(--motion-ease),
+                  color var(--motion-fast) var(--motion-ease);
+    }
+    .block-action-strip__btn:hover,
+    .block-action-strip__btn[data-state="hovered"] {
+      background: var(--primary-dim);
+      color: var(--text-hi);
+    }
+    .block-action-strip__btn:focus-visible {
+      outline: 1px solid var(--primary);
+      outline-offset: -1px;
+    }
+    .block-action-strip__chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      height: 20px;
+      padding: 0 6px;
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--text-mid);
+      background: var(--surface-ghost);
+      border-radius: var(--r1);
+    }
+    .block-action-strip__chip[data-count="0"] { display: none; }
+    .block-action-strip__chip[data-active] { color: var(--text-hi); }
+    .block-action-strip svg { width: 12px; height: 12px; }
+
+    /* --------------------------------------------------------------
+       Heading kinds — h1/h2/h3 with kind-specific scale.
+       Anchor permalink corner button is hover-only.
+       -------------------------------------------------------------- */
+    h1.block, h2.block, h3.block, h4.block, h5.block, h6.block {
+      font-family: var(--ui);
+      color: var(--text-hi);
+      letter-spacing: -0.01em;
+      line-height: var(--leading-heading);
+      margin: 0;
+    }
+    h1.block { font-size: var(--density-text-h1); font-weight: var(--fw-emphasis); }
+    h2.block { font-size: var(--density-text-h2); font-weight: var(--fw-emphasis); }
+    h3.block { font-size: 1rem; font-weight: var(--fw-emphasis); color: var(--text-hi); }
+    h1.block { padding-top: 8px; padding-bottom: 4px; }
+    h2.block { padding-top: 4px; }
+    h3.block { padding-top: 2px; color: var(--text-mid); text-transform: none; }
+
+    /* --------------------------------------------------------------
+       Paragraph
+       -------------------------------------------------------------- */
+    p.block {
+      color: var(--text-hi);
+      line-height: var(--leading-body);
+    }
+    p.block code,
+    li code,
+    blockquote code {
+      font-family: var(--mono);
+      font-size: 0.9em;
+      padding: 1px 4px;
+      background: var(--surface-3);
+      color: var(--text-hi);
+      border-radius: var(--r1);
+    }
+    p.block strong { font-weight: var(--fw-emphasis); color: var(--text-hi); }
+    p.block em { font-style: italic; color: var(--text-hi); }
+    a.inline-link {
+      color: var(--text-hi);
+      text-decoration: underline;
+      text-decoration-color: var(--border-emphasis);
+      text-underline-offset: 2px;
+    }
+    a.inline-link:hover { text-decoration-color: var(--text-hi); }
+
+    /* --------------------------------------------------------------
+       List
+       -------------------------------------------------------------- */
+    ul.block, ol.block {
+      padding-left: 24px;
+      color: var(--text-hi);
+      margin: 0;
+    }
+    ul.block li::marker { color: var(--text-lo); }
+    ol.block li::marker { color: var(--text-lo); font-variant-numeric: tabular-nums; }
+    ul.block li, ol.block li { padding: 1px 0; }
+    ul.block ul, ol.block ol, ul.block ol, ol.block ul {
+      padding-left: 20px;
+      margin-top: 2px;
+    }
+
+    /* --------------------------------------------------------------
+       Quote — slight callout tint
+       -------------------------------------------------------------- */
+    blockquote.block {
+      margin: 0;
+      padding: 8px 12px 8px 12px;
+      border-left: 2px solid var(--border-emphasis);
+      background: var(--surface-2);
+      border-radius: 0 var(--r1) var(--r1) 0;
+      color: var(--text-mid);
+    }
+    blockquote.block p { margin: 0; color: var(--text-mid); }
+    blockquote.block p + p { margin-top: 4px; }
+
+    /* --------------------------------------------------------------
+       Code — language label + copy + collapse
+       -------------------------------------------------------------- */
+    pre.block {
+      margin: 0;
+      padding: 0;
+      background: var(--surface-2);
+      border: 1px solid var(--border-default);
+      border-radius: var(--r2);
+      overflow: hidden;
+    }
+    .code__bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 4px 8px;
+      background: var(--surface-3);
+      border-bottom: 1px solid var(--border-default);
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--text-mid);
+      letter-spacing: var(--tracking-caps);
+    }
+    .code__lang { text-transform: lowercase; }
+    .code__lang::before {
+      content: "";
+      display: inline-block;
+      width: 6px; height: 6px;
+      margin-right: 6px;
+      border-radius: var(--r-pill);
+      background: var(--ok);
+      vertical-align: middle;
+    }
+    .code__copy {
+      all: unset;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 2px 6px;
+      cursor: pointer;
+      border-radius: var(--r1);
+      color: var(--text-mid);
+      font-size: 11px;
+      font-family: var(--mono);
+      transition: color var(--motion-fast) var(--motion-ease),
+                  background var(--motion-fast) var(--motion-ease);
+    }
+    .code__copy:hover { color: var(--text-hi); background: var(--primary-dim); }
+    .code__copy[data-state="success"] { color: var(--ok); }
+    .code__copy svg { width: 12px; height: 12px; }
+    .code__body {
+      margin: 0;
+      padding: 8px 12px;
+      font-family: var(--mono);
+      font-size: 12px;
+      line-height: 1.5;
+      color: var(--text-hi);
+      overflow-x: auto;
+      white-space: pre;
+      tab-size: 2;
+    }
+    .code__body--collapsed {
+      max-height: calc(20 * 1.5em);
+      overflow: hidden;
+      position: relative;
+    }
+    .code__expand {
+      all: unset;
+      display: block;
+      width: 100%;
+      padding: 6px 12px;
+      border-top: 1px solid var(--border-subtle);
+      background: var(--surface-2);
+      color: var(--text-mid);
+      font-family: var(--mono);
+      font-size: 11px;
+      text-align: center;
+      cursor: pointer;
+      transition: background var(--motion-fast) var(--motion-ease),
+                  color var(--motion-fast) var(--motion-ease);
+    }
+    .code__expand:hover { color: var(--text-hi); background: var(--surface-3); }
+    .code__expand::before {
+      content: "+ ";
+      color: var(--text-lo);
+    }
+
+    /* keyword highlight — gentle, no rainbow */
+    .tok-kw { color: var(--text-mid); }
+    .tok-str { color: var(--ok); }
+    .tok-com { color: var(--text-lo); font-style: italic; }
+    .tok-fn  { color: var(--text-hi); }
+    .tok-num { color: var(--text-mid); font-variant-numeric: tabular-nums; }
+
+    /* --------------------------------------------------------------
+       Table — sticky header + horizontal-scroll affordance
+       -------------------------------------------------------------- */
+    .table-wrap {
+      position: relative;
+      border: 1px solid var(--border-default);
+      border-radius: var(--r2);
+      overflow: hidden;
+    }
+    .table-scroll {
+      overflow-x: auto;
+      max-height: 260px;
+      overflow-y: auto;
+    }
+    .table-wrap::after {
+      /* horizontal-scroll affordance — fade from right */
+      content: "";
+      position: absolute;
+      top: 0; right: 0;
+      width: 32px;
+      height: 100%;
+      pointer-events: none;
+      background: linear-gradient(
+        90deg,
+        color-mix(in oklab, var(--surface-1) 0%, transparent),
+        var(--surface-1)
+      );
+      opacity: 0.85;
+    }
+    table.block {
+      margin: 0;
+      width: 100%;
+      border-collapse: separate;
+      border-spacing: 0;
+      font-size: 12px;
+      font-variant-numeric: tabular-nums;
+    }
+    table.block thead th {
+      position: sticky;
+      top: 0;
+      background: var(--surface-3);
+      color: var(--text-mid);
+      font-weight: var(--fw-medium);
+      text-align: left;
+      padding: 6px 10px;
+      border-bottom: 1px solid var(--border-default);
+      font-family: var(--mono);
+      font-size: 11px;
+      letter-spacing: var(--tracking-caps);
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+    table.block tbody td {
+      padding: 6px 10px;
+      border-bottom: 1px solid var(--border-subtle);
+      color: var(--text-hi);
+      white-space: nowrap;
+    }
+    table.block tbody tr:last-child td { border-bottom: none; }
+    table.block tbody tr:hover td { background: var(--surface-2); }
+
+    /* --------------------------------------------------------------
+       Divider
+       -------------------------------------------------------------- */
+    hr.block {
+      margin: 12px 0;
+      border: none;
+      border-top: 1px solid var(--border-subtle);
+    }
+
+    /* --------------------------------------------------------------
+       Image — click-to-zoom indicator
+       -------------------------------------------------------------- */
+    figure.block {
+      margin: 0;
+      position: relative;
+      border-radius: var(--r2);
+      overflow: hidden;
+      background: var(--surface-2);
+      border: 1px solid var(--border-subtle);
+    }
+    figure.block img {
+      display: block;
+      width: 100%;
+      height: auto;
+    }
+    .image__zoom {
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 28px; height: 28px;
+      background: color-mix(in oklab, var(--surface-0) 75%, transparent);
+      border: 1px solid var(--border-default);
+      color: var(--text-hi);
+      border-radius: var(--r1);
+      backdrop-filter: blur(2px);
+    }
+    .image__zoom svg { width: 14px; height: 14px; }
+
+    /* --------------------------------------------------------------
+       HTML — sanitised raw HTML region; render <details> styled
+       -------------------------------------------------------------- */
+    details.block {
+      background: var(--surface-2);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--r1);
+      padding: 6px 10px;
+      color: var(--text-hi);
+      font-size: var(--density-text);
+    }
+    details.block > summary {
+      cursor: pointer;
+      list-style: none;
+      color: var(--text-hi);
+      font-weight: var(--fw-medium);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    details.block > summary::-webkit-details-marker { display: none; }
+    details.block > summary::before {
+      content: "›";
+      font-family: var(--mono);
+      color: var(--text-lo);
+      transition: transform var(--motion-fast) var(--motion-ease);
+    }
+    details.block[open] > summary::before { transform: rotate(90deg); }
+    details.block > p { margin: 6px 0 0 14px; color: var(--text-mid); }
+
+    /* --------------------------------------------------------------
+       Unknown — explicit unsupported pill + raw source preview
+       -------------------------------------------------------------- */
+    .unknown.block {
+      border: 1px dashed var(--border-emphasis);
+      border-radius: var(--r1);
+      padding: 8px 10px;
+      background: var(--surface-2);
+    }
+    .unknown__head {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 6px;
+    }
+    .unknown__pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 2px 8px;
+      border-radius: var(--r-pill);
+      font-family: var(--mono);
+      font-size: 11px;
+      letter-spacing: var(--tracking-caps);
+      text-transform: uppercase;
+      color: var(--warn);
+      background: color-mix(in oklab, var(--warn) 14%, transparent);
+    }
+    .unknown__pill::before {
+      content: "";
+      display: inline-block;
+      width: 6px; height: 6px;
+      border-radius: var(--r-pill);
+      background: var(--warn);
+    }
+    .unknown__hint {
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--text-lo);
+    }
+    .unknown__src {
+      margin: 0;
+      padding: 6px 8px;
+      background: var(--surface-3);
+      border-radius: var(--r1);
+      color: var(--text-mid);
+      font-family: var(--mono);
+      font-size: 11px;
+      line-height: 1.5;
+      white-space: pre-wrap;
+      overflow-x: auto;
+    }
+
+    /* --------------------------------------------------------------
+       Block-deleted indicator — replaces a missing block referenced
+       by an existing thread anchor.
+       -------------------------------------------------------------- */
+    .block.deleted {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 10px;
+      background: color-mix(in oklab, var(--danger) 10%, transparent);
+      border: 1px dashed color-mix(in oklab, var(--danger) 50%, var(--border-emphasis));
+      border-radius: var(--r1);
+      color: var(--text-mid);
+      font-family: var(--mono);
+      font-size: 12px;
+    }
+    .block.deleted__label {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 1px 6px;
+      border-radius: var(--r-pill);
+      color: var(--danger);
+      background: color-mix(in oklab, var(--danger) 14%, transparent);
+      font-size: 11px;
+      letter-spacing: var(--tracking-caps);
+      text-transform: uppercase;
+    }
+    .block.deleted s { color: var(--text-lo); text-decoration-color: var(--text-lo); }
+
+    /* --------------------------------------------------------------
+       Mobile breakpoint
+       -------------------------------------------------------------- */
+    @media (max-width: 640px) {
+      .two-up { grid-template-columns: 1fr; }
+      .surface { border-radius: var(--r1); }
+      .body { padding: 8px 12px 16px; }
+      .surface--bet .body, .surface--knowledge .body { max-width: none; }
+      .block-action-strip {
+        opacity: 1;
+        padding: 0;
+        border: none;
+        background: transparent;
+        box-shadow: none;
+      }
+      .block-action-strip__btn { color: var(--text-lo); }
+      .block-action-strip__btn--secondary,
+      .block-action-strip__chip { display: none; }
+      .block-action-strip__overflow { display: inline-flex !important; }
+
+      /* horizontal-overflow affordance more visible on mobile */
+      .table-wrap::after { width: 24px; opacity: 1; }
+      .code__body { font-size: 11px; }
+    }
+    .block-action-strip__overflow { display: none; }
+
+    /* --------------------------------------------------------------
+       Mock theme switcher button — top-right, for quick visual check
+       -------------------------------------------------------------- */
+    .theme-toggle {
+      position: fixed;
+      top: 12px;
+      right: 12px;
+      z-index: 9;
+      padding: 6px 10px;
+      border: 1px solid var(--border-default);
+      background: var(--surface-2);
+      color: var(--text-mid);
+      font-family: var(--mono);
+      font-size: 11px;
+      letter-spacing: var(--tracking-caps);
+      border-radius: var(--r1);
+      cursor: pointer;
+    }
+    .theme-toggle:hover { color: var(--text-hi); background: var(--surface-3); }
+
+    /* Visual section divider between contexts */
+    .ctx-label {
+      font-family: var(--mono);
+      font-size: 11px;
+      letter-spacing: var(--tracking-caps);
+      text-transform: uppercase;
+      color: var(--text-lo);
+    }
+    .legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px 16px;
+      margin: 0 0 16px;
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--text-lo);
+    }
+    .legend kbd {
+      padding: 1px 5px;
+      background: var(--surface-3);
+      border: 1px solid var(--border-default);
+      border-radius: var(--r1);
+      color: var(--text-mid);
+      font-family: var(--mono);
+      font-size: 11px;
+    }
+  </style>
+</head>
+<body data-theme="lucid-dark" data-density="default">
+  <button class="theme-toggle" type="button" onclick="
+    var d=document.body; var t=d.getAttribute('data-theme');
+    d.setAttribute('data-theme', t==='lucid-dark' ? 'lucid-light' : 'lucid-dark');
+  ">theme</button>
+
+  <main class="page">
+    <h1 class="page__title">L2 Block primitive — variant <em>B / Self-contained</em></h1>
+
+    <div class="legend">
+      <span><strong style="color:var(--text-mid)">scope:</strong> renders all 9 BlockKinds + unknown + deleted indicator</span>
+      <span><kbd>J</kbd>/<kbd>K</kbd> step blocks</span>
+      <span><kbd>Enter</kbd> focus block</span>
+      <span><kbd>⌘L</kbd> copy permalink</span>
+      <span><kbd>⌘C</kbd> copy code</span>
+    </div>
+
+    <div class="two-up">
+
+      <!-- ============================================================
+           CONTEXT 1 — WorkBet pitch (wider, prose density)
+           ============================================================ -->
+      <section class="surface surface--bet" aria-label="Bet pitch">
+        <header class="surface__header">
+          <span class="surface__crumb">work / bet / b1 — User auth flow / pitch</span>
+          <span class="surface__density">WorkBet · 720px</span>
+        </header>
+        <div class="body">
+
+          <!-- HEADING H1 — corner strip with hovered-state permalink -->
+          <h1 class="block heading h1" id="blk-3a7f9b2c" tabindex="0">
+            User auth flow
+            <span class="block-action-strip" data-ds-component="block-action-strip" aria-label="Block actions">
+              <button class="block-action-strip__btn" type="button" data-state="hovered" title="Copy block permalink">
+                <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+                  <path d="M6.5 9.5a3 3 0 0 0 4.24 0l2.12-2.12a3 3 0 0 0-4.24-4.24l-1.06 1.06"/>
+                  <path d="M9.5 6.5a3 3 0 0 0-4.24 0l-2.12 2.12a3 3 0 0 0 4.24 4.24l1.06-1.06"/>
+                </svg>
+                permalink
+              </button>
+              <button class="block-action-strip__overflow block-action-strip__btn" type="button" aria-label="More">
+                <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+                  <circle cx="3" cy="8" r="1.4"/><circle cx="8" cy="8" r="1.4"/><circle cx="13" cy="8" r="1.4"/>
+                </svg>
+              </button>
+            </span>
+          </h1>
+
+          <!-- PARAGRAPH with inline marks -->
+          <p class="block" tabindex="0">
+            Current auth is hand-rolled and leaks <code>session</code> on reload. Migrating to
+            <strong>JWT with refresh rotation</strong> closes the gap and aligns with the
+            <em>auth-v2</em> rabbit-hole policy. See
+            <a class="inline-link" href="#">RFC-217</a> for the precedent.
+            <span class="block-action-strip" data-ds-component="block-action-strip" aria-label="Block actions">
+              <button class="block-action-strip__btn" type="button" title="Copy permalink">
+                <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+                  <path d="M6.5 9.5a3 3 0 0 0 4.24 0l2.12-2.12a3 3 0 0 0-4.24-4.24l-1.06 1.06"/>
+                  <path d="M9.5 6.5a3 3 0 0 0-4.24 0l-2.12 2.12a3 3 0 0 0 4.24 4.24l1.06-1.06"/>
+                </svg>
+              </button>
+              <span class="block-action-strip__chip" data-count="2" data-active title="2 threads attached">
+                <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+                  <path d="M3 4.5h10v6.5H8.5L5.5 13.5V11H3z"/>
+                </svg>
+                2
+              </span>
+            </span>
+          </p>
+
+          <!-- HEADING H2 -->
+          <h2 class="block heading h2" id="blk-7d12e4f9" tabindex="0">
+            Problem
+            <span class="block-action-strip" data-ds-component="block-action-strip" aria-label="Block actions">
+              <button class="block-action-strip__btn" type="button" title="Copy permalink">
+                <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+                  <path d="M6.5 9.5a3 3 0 0 0 4.24 0l2.12-2.12a3 3 0 0 0-4.24-4.24l-1.06 1.06"/>
+                  <path d="M9.5 6.5a3 3 0 0 0-4.24 0l-2.12 2.12a3 3 0 0 0 4.24 4.24l1.06-1.06"/>
+                </svg>
+              </button>
+            </span>
+          </h2>
+
+          <p class="block" tabindex="0">
+            Sessions persist server-side but the browser holds a pointer that is never invalidated on
+            re-mount, so a refresh duplicates the session. Detection runs blind because the
+            <code>session.id</code> never rotates. We have <strong>two reproductions</strong> in the
+            staging logs from this week.
+          </p>
+
+          <!-- BLOCK-DELETED INDICATOR -->
+          <div class="block deleted" tabindex="0" role="note" aria-label="Block deleted">
+            <span class="block deleted__label">deleted</span>
+            <span><s>“…and the team agreed in the standup of 2026-04-14.”</s></span>
+            <span style="margin-left:auto; color:var(--text-lo)">2 thread(s) attached · anchor preserved</span>
+          </div>
+
+          <!-- LIST (bullet) -->
+          <h3 class="block heading h3" id="blk-8c4eaa10" tabindex="0">
+            Constraints
+            <span class="block-action-strip" data-ds-component="block-action-strip" aria-label="Block actions">
+              <button class="block-action-strip__btn" type="button" title="Copy permalink">
+                <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+                  <path d="M6.5 9.5a3 3 0 0 0 4.24 0l2.12-2.12a3 3 0 0 0-4.24-4.24l-1.06 1.06"/>
+                  <path d="M9.5 6.5a3 3 0 0 0-4.24 0l-2.12 2.12a3 3 0 0 0 4.24 4.24l1.06-1.06"/>
+                </svg>
+              </button>
+            </span>
+          </h3>
+          <ul class="block" tabindex="0">
+            <li>Token lifetime stays at 15min; refresh rotation handles renewal.</li>
+            <li>No sticky sessions on the load-balancer.
+              <ul>
+                <li>nested: edge-cache stays per-region.</li>
+                <li>nested: session migration is out-of-scope.</li>
+              </ul>
+            </li>
+            <li>Telemetry must continue to emit <code>auth.token.rotated</code>.</li>
+          </ul>
+
+          <!-- ORDERED LIST -->
+          <ol class="block" tabindex="0">
+            <li>Land migrations on canary.</li>
+            <li>Promote on green for 2 hours.</li>
+            <li>Bake a rollback marker.</li>
+          </ol>
+
+          <!-- QUOTE -->
+          <blockquote class="block" tabindex="0">
+            <p>The previous incident was caused by an idle session being garbage-collected by the LB
+              before the refresh path was wired up. We do not want a repeat.</p>
+            <p>— retro-2026-03-29</p>
+            <span class="block-action-strip" data-ds-component="block-action-strip" aria-label="Block actions">
+              <button class="block-action-strip__btn" type="button" title="Copy permalink">
+                <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+                  <path d="M6.5 9.5a3 3 0 0 0 4.24 0l2.12-2.12a3 3 0 0 0-4.24-4.24l-1.06 1.06"/>
+                  <path d="M9.5 6.5a3 3 0 0 0-4.24 0l-2.12 2.12a3 3 0 0 0 4.24 4.24l1.06-1.06"/>
+                </svg>
+              </button>
+              <span class="block-action-strip__chip" data-count="0"></span>
+            </span>
+          </blockquote>
+
+          <!-- CODE — long, expanded -->
+          <pre class="block" id="blk-9f0c3a21" tabindex="0">
+            <span class="block-action-strip" data-ds-component="block-action-strip" aria-label="Block actions">
+              <button class="block-action-strip__btn" type="button" title="Copy permalink">
+                <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+                  <path d="M6.5 9.5a3 3 0 0 0 4.24 0l2.12-2.12a3 3 0 0 0-4.24-4.24l-1.06 1.06"/>
+                  <path d="M9.5 6.5a3 3 0 0 0-4.24 0l-2.12 2.12a3 3 0 0 0 4.24 4.24l1.06-1.06"/>
+                </svg>
+              </button>
+            </span>
+            <div class="code__bar">
+              <span class="code__lang">typescript</span>
+              <button class="code__copy" type="button" data-state="success" aria-live="polite">
+                <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+                  <path d="M3.5 8 L6.5 11 L12.5 5"/>
+                </svg>
+                copied
+              </button>
+            </div>
+<code class="code__body"><span class="tok-com">// rotateRefreshToken — pure function, no I/O</span>
+<span class="tok-kw">export function</span> <span class="tok-fn">rotateRefreshToken</span>(
+  current: <span class="tok-fn">RefreshToken</span>,
+  now: <span class="tok-fn">Date</span>,
+): <span class="tok-fn">Result</span>&lt;<span class="tok-fn">RefreshToken</span>, <span class="tok-fn">RotationError</span>&gt; {
+  <span class="tok-kw">if</span> (current.expiresAt &lt; now) {
+    <span class="tok-kw">return</span> err({ kind: <span class="tok-str">"expired"</span> });
+  }
+  <span class="tok-kw">if</span> (current.revokedAt !== <span class="tok-kw">null</span>) {
+    <span class="tok-kw">return</span> err({ kind: <span class="tok-str">"revoked"</span> });
+  }
+  <span class="tok-kw">const</span> next = {
+    id: <span class="tok-fn">randomToken</span>(<span class="tok-num">32</span>),
+    parentId: current.id,
+    issuedAt: now,
+    expiresAt: <span class="tok-fn">addMinutes</span>(now, <span class="tok-num">15</span>),
+    revokedAt: <span class="tok-kw">null</span>,
+  };
+  <span class="tok-kw">return</span> ok(next);
+}
+</code>
+          </pre>
+
+          <hr class="block" />
+
+          <!-- IMAGE -->
+          <figure class="block" id="blk-a3b1ddc7" tabindex="0">
+            <img src="https://picsum.photos/640/360?image=1015" alt="Auth flow whiteboard sketch" />
+            <span class="image__zoom" aria-label="Zoom image">
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+                <circle cx="7" cy="7" r="4.5"/>
+                <path d="M10 10 L13.5 13.5"/>
+                <path d="M5 7h4"/>
+                <path d="M7 5v4"/>
+              </svg>
+            </span>
+            <span class="block-action-strip" data-ds-component="block-action-strip" aria-label="Block actions">
+              <button class="block-action-strip__btn" type="button" title="Copy permalink">
+                <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+                  <path d="M6.5 9.5a3 3 0 0 0 4.24 0l2.12-2.12a3 3 0 0 0-4.24-4.24l-1.06 1.06"/>
+                  <path d="M9.5 6.5a3 3 0 0 0-4.24 0l-2.12 2.12a3 3 0 0 0 4.24 4.24l1.06-1.06"/>
+                </svg>
+              </button>
+              <span class="block-action-strip__chip" data-count="1" data-active>
+                <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+                  <path d="M3 4.5h10v6.5H8.5L5.5 13.5V11H3z"/>
+                </svg>
+                1
+              </span>
+            </span>
+          </figure>
+
+          <!-- HTML (sanitised <details>) -->
+          <details class="block" tabindex="0" open>
+            <summary>Risk register (sanitised raw HTML)</summary>
+            <p>Token rotation interferes with idle-session reaping. Mitigation: a 60-second grace
+              window on the parent token before revocation.</p>
+          </details>
+
+          <!-- UNKNOWN -->
+          <div class="unknown block" tabindex="0">
+            <div class="unknown__head">
+              <span class="unknown__pill">unsupported block</span>
+              <span class="unknown__hint">parser produced node kind <code>footnoteDefinition</code></span>
+            </div>
+<pre class="unknown__src">[^auth-v2]: see RFC-217 for the rotation contract; the
+implementation here normalises to LF before hashing.</pre>
+          </div>
+
+        </div>
+      </section>
+
+      <!-- ============================================================
+           CONTEXT 2 — KnowledgeDetail body (narrower, denser)
+           ============================================================ -->
+      <section class="surface surface--knowledge" aria-label="Knowledge body">
+        <header class="surface__header">
+          <span class="surface__crumb">knowledge / patterns / refresh-rotation.md</span>
+          <span class="surface__density">KnowledgeDetail · 540px</span>
+        </header>
+        <div class="body">
+
+          <h1 class="block heading h1" id="blk-1c0a40b3" tabindex="0">
+            Refresh rotation
+            <span class="block-action-strip" data-ds-component="block-action-strip" aria-label="Block actions">
+              <button class="block-action-strip__btn" type="button" title="Copy permalink">
+                <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+                  <path d="M6.5 9.5a3 3 0 0 0 4.24 0l2.12-2.12a3 3 0 0 0-4.24-4.24l-1.06 1.06"/>
+                  <path d="M9.5 6.5a3 3 0 0 0-4.24 0l-2.12 2.12a3 3 0 0 0 4.24 4.24l1.06-1.06"/>
+                </svg>
+              </button>
+              <span class="block-action-strip__chip" data-count="0"></span>
+            </span>
+          </h1>
+
+          <p class="block" tabindex="0">
+            A <strong>refresh-rotation</strong> pattern issues a new refresh token on every
+            access-token renewal, with the parent token revoked after a <code>60s</code> grace
+            window.  See <a class="inline-link" href="#">primary source</a>.
+          </p>
+
+          <h2 class="block heading h2" id="blk-2e88aa05" tabindex="0">
+            When to use
+            <span class="block-action-strip" data-ds-component="block-action-strip" aria-label="Block actions">
+              <button class="block-action-strip__btn" type="button" title="Copy permalink">
+                <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+                  <path d="M6.5 9.5a3 3 0 0 0 4.24 0l2.12-2.12a3 3 0 0 0-4.24-4.24l-1.06 1.06"/>
+                  <path d="M9.5 6.5a3 3 0 0 0-4.24 0l-2.12 2.12a3 3 0 0 0 4.24 4.24l1.06-1.06"/>
+                </svg>
+              </button>
+            </span>
+          </h2>
+
+          <ul class="block" tabindex="0">
+            <li>Public clients with a non-secret-keeping context (SPAs, mobile).</li>
+            <li>Token lifetimes ≤ 1 hour.</li>
+            <li>Theft-detection requires re-use detection of revoked tokens.</li>
+          </ul>
+
+          <!-- TABLE -->
+          <h3 class="block heading h3" id="blk-4ff7b82e" tabindex="0">
+            Comparison matrix
+            <span class="block-action-strip" data-ds-component="block-action-strip" aria-label="Block actions">
+              <button class="block-action-strip__btn" type="button" title="Copy permalink">
+                <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+                  <path d="M6.5 9.5a3 3 0 0 0 4.24 0l2.12-2.12a3 3 0 0 0-4.24-4.24l-1.06 1.06"/>
+                  <path d="M9.5 6.5a3 3 0 0 0-4.24 0l-2.12 2.12a3 3 0 0 0 4.24 4.24l1.06-1.06"/>
+                </svg>
+              </button>
+            </span>
+          </h3>
+
+          <div class="table-wrap" tabindex="0">
+            <div class="table-scroll">
+              <table class="block">
+                <thead>
+                  <tr>
+                    <th>Strategy</th>
+                    <th>Lifetime</th>
+                    <th>Theft detection</th>
+                    <th>Rotation cost</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr><td>Static refresh</td><td>30d</td><td>none</td><td>0 ops</td></tr>
+                  <tr><td>Sliding refresh</td><td>30d sliding</td><td>weak</td><td>1 op / renewal</td></tr>
+                  <tr><td>Rotation (this)</td><td>15min access · 7d refresh</td><td>strong</td><td>2 ops / renewal</td></tr>
+                  <tr><td>Rotation + DPoP</td><td>15min · 7d</td><td>strong + bound</td><td>3 ops / renewal</td></tr>
+                  <tr><td>Mutual TLS</td><td>session-bound</td><td>strong</td><td>handshake / renewal</td></tr>
+                  <tr><td>Opaque token + introspection</td><td>15min</td><td>strong</td><td>RTT / call</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- CODE — long, COLLAPSED state -->
+          <pre class="block" id="blk-5b911c84" tabindex="0">
+            <span class="block-action-strip" data-ds-component="block-action-strip" aria-label="Block actions">
+              <button class="block-action-strip__btn" type="button" title="Copy permalink">
+                <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+                  <path d="M6.5 9.5a3 3 0 0 0 4.24 0l2.12-2.12a3 3 0 0 0-4.24-4.24l-1.06 1.06"/>
+                  <path d="M9.5 6.5a3 3 0 0 0-4.24 0l-2.12 2.12a3 3 0 0 0 4.24 4.24l1.06-1.06"/>
+                </svg>
+              </button>
+              <span class="block-action-strip__chip" data-count="3" data-active>
+                <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+                  <path d="M3 4.5h10v6.5H8.5L5.5 13.5V11H3z"/>
+                </svg>
+                3
+              </span>
+            </span>
+            <div class="code__bar">
+              <span class="code__lang">typescript</span>
+              <button class="code__copy" type="button">
+                <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+                  <rect x="4.5" y="2.5" width="8" height="10" rx="1"/>
+                  <rect x="2.5" y="4.5" width="8" height="10" rx="1"/>
+                </svg>
+                copy
+              </button>
+            </div>
+<code class="code__body code__body--collapsed"><span class="tok-com">// detectTokenReuse — emits an alert and revokes the family</span>
+<span class="tok-kw">export function</span> <span class="tok-fn">detectTokenReuse</span>(
+  presented: <span class="tok-fn">RefreshToken</span>,
+  family: <span class="tok-fn">TokenFamily</span>,
+): <span class="tok-fn">Result</span>&lt;<span class="tok-fn">void</span>, <span class="tok-fn">ReuseError</span>&gt; {
+  <span class="tok-kw">if</span> (family.revokedAt !== <span class="tok-kw">null</span>) {
+    <span class="tok-kw">return</span> err({ kind: <span class="tok-str">"family-revoked"</span> });
+  }
+  <span class="tok-kw">if</span> (presented.id !== family.headId) {
+    <span class="tok-fn">revokeFamily</span>(family.id);
+    <span class="tok-fn">emitSecurityAlert</span>({
+</code>
+            <button class="code__expand" type="button">Show 12 more lines</button>
+          </pre>
+
+          <p class="block" tabindex="0">
+            For implementation details see <a class="inline-link" href="#">refresh-rotation.ts</a>.
+          </p>
+
+        </div>
+      </section>
+
+    </div>
+  </main>
+</body>
+</html>

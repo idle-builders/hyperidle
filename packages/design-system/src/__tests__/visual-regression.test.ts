@@ -60,6 +60,9 @@ const COMPONENTS = [
 	"EmptyState",
 	"ErrorState",
 	"Skeleton",
+	"Block",
+	"BlockHandle",
+	"BlockActionsPopover",
 ];
 
 /**
@@ -82,6 +85,9 @@ const EXPECTED_MARKERS: Record<string, string[]> = {
 	EmptyState: ["EmptyState"],
 	ErrorState: ["ErrorState"],
 	Skeleton: ["SkeletonList", "SkeletonCard"],
+	Block: ["block"],
+	BlockHandle: ["block-handle"],
+	BlockActionsPopover: ["block-actions-popover"],
 };
 
 /**

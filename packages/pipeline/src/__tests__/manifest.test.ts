@@ -45,7 +45,7 @@ describe("filterStories", () => {
 		const stories = loadManifest(manifestPath);
 		const allKIds = stories.filter((s) => s.track === "K").map((s) => s.id);
 		const [first, second] = allKIds;
-		if (!first || !second) throw new Error("expected at least 2 K stories");
+		if (!(first && second)) throw new Error("expected at least 2 K stories");
 		const subset = filterStories(stories, `${first} ${second}`);
 		expect(subset.map((s) => s.id).sort()).toEqual([first, second].sort());
 	});

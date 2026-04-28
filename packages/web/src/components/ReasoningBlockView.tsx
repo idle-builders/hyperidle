@@ -13,7 +13,7 @@ export interface ReasoningBlockProps {
  * per spec. Returns null for empty steps — caller may always pass the array
  * without checking.
  */
-export function ReasoningBlock({
+export function ReasoningBlockView({
 	steps,
 	defaultOpen = false,
 }: ReasoningBlockProps): JSX.Element | null {

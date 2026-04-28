@@ -1,5 +1,30 @@
 export type { ApiErrorCode, ApiErrorResponse } from "./api-types.js";
 export { API_ERROR_CODES } from "./api-types.js";
+// ── Block primitive (L2) ──
+export type {
+	Block,
+	BlockAnchor,
+	BlockDerivationResult,
+	BlockHostKind,
+	BlockId,
+	BlockKind,
+	BlockPayload,
+	InlineNode,
+	ListItem,
+} from "./blocks/index.js";
+export {
+	assertNoCollisions,
+	BLOCK_HOST_KINDS,
+	BLOCK_ID_VERSION,
+	BLOCK_KINDS,
+	blockId,
+	deriveBlocks,
+	IMAGE_URL_SAFE_SCHEMES,
+	LINK_URL_SAFE_SCHEMES,
+	MAX_BODY_BYTES,
+	normalisedPayload,
+	slug,
+} from "./blocks/index.js";
 export {
 	ActiveRoutinesError,
 	CapacityExceededError,
