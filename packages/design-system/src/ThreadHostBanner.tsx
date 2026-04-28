@@ -100,13 +100,13 @@ export function ThreadHostBanner({
 					<span
 						key={p.id}
 						title={p.name}
-						className="inline-flex items-center justify-center w-[24px] h-[24px] rounded-full bg-[var(--surface-2)] text-[var(--text-lo)] text-[10px] font-medium border border-[var(--border-subtle)]"
+						className="inline-flex items-center justify-center w-[24px] h-[24px] rounded-full bg-[var(--surface-2)] text-[var(--text-lo)] text-[11px] font-medium border border-[var(--border-subtle)]"
 					>
 						{p.name.charAt(0).toUpperCase()}
 					</span>
 				))}
 				{overflow > 0 ? (
-					<span className="inline-flex items-center justify-center w-[24px] h-[24px] rounded-full bg-[var(--surface-2)] text-[var(--text-lo)] text-[10px] font-medium border border-[var(--border-subtle)]">
+					<span className="inline-flex items-center justify-center w-[24px] h-[24px] rounded-full bg-[var(--surface-2)] text-[var(--text-lo)] text-[11px] font-medium border border-[var(--border-subtle)]">
 						+{overflow}
 					</span>
 				) : null}
