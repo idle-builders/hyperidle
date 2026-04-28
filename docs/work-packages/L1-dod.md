@@ -1,4 +1,4 @@
-## L1 Definition-of-Done Audit
+## L1 Definition-of-Done Audit — Loop 1
 
 **Branch:** feat/L1-thread-primitive at bcafa35
 **Verdict:** NOT DONE — AC-13 (Playwright e2e) is unrunnable as authored; AC-15 (`bun run lint` + full e2e) is failing.
@@ -116,3 +116,129 @@ Surface area: `git diff --name-only main...feat/L1-thread-primitive | wc -l` →
 ### Shipping recommendation
 
 Hold L1a until the three gaps above close. The whole foundation — types, schema, migration with rollback, server endpoints, ThreadShell + 5 DS components with HTML parity and visual regression, and the discriminant-exhaustiveness story — is solid; 2752/2752 vitest cases green and 12/12 design-system playwright cases green. But the L1 contract (TRACK-L:43, AC-13) explicitly requires Playwright e2e proving each shipping rich type renders inline, and the four cases that ship in L1a are all failing because the test file was authored against a fixture-seeding harness that nobody wired up. This is the same gap `L1-architecture-review.md` flagged before the score-7.6 PASS verdict; step 9 did not pick it up. Fix the e2e wiring + the two `text-[10px]` errors and L1a is ready to merge.
+
+---
+
+## L1 Definition-of-Done Audit — Loop 2
+
+**Branch:** feat/L1-thread-primitive at 5ebbd6d (gap-closure commit on top of bcafa35)
+**Date:** 2026-04-28
+**Verdict:** NOT DONE — three Loop-1 gaps are closed, but a **new defect** surfaced under re-verification: a flaky failure in `threads.routes.test.ts > AC-12 type='review' round-trips`, observed in 2 of 4 full `bun run test` runs. AC-12 is in scope; the flake is caused by an unsound assumption in test code authored by L1 (`.find(m => m.type === type)` against a thread that is pre-seeded with a `review` initial message), which means CI determinism is not yet proven.
+
+### Loop-1 gap re-assessment
+
+#### Gap 1 — AC-13 e2e: CLOSED
+
+- `cd packages/web && bunx playwright test e2e/threads.spec.ts` → **5 passed** (1.9s, 5 workers, 0 fail / 0 skip).
+- Cases shipping:
+  - `review-shape thread renders ThreadHead + ReviewVerdictBar inline` (the AC-13 review case).
+  - `plain-shape thread (chat-only)` (the AC-13 plain case).
+  - `back-compat (legacy review/chat collapse projection)` (closes AC-8 e2e).
+  - `composer round-trips a plain message` (covers POST + render).
+  - `verdict click resolves the review and renders APPROVED` (covers verdict authorization end-to-end).
+- Hermetic: `grep -c "page.route" packages/web/e2e/threads.spec.ts` → **8** stub registrations across the 5 tests; no live API or webServer-seeding dependency. Each case mounts the same SPA bundle, intercepts `GET /api/threads/:id` (and `POST /api/threads/:id/messages` where applicable), and returns realistic Thread/Message JSON.
+- The "post follow-up review" fictitious affordance flagged in Loop 1 is gone. The file's header doc-block at lines 12-16 explicitly captures the lore: "the previous draft … referenced a 'post follow-up review' affordance that L1a never shipped. Both have been replaced with hermetic route mocks below." Lines 462-463 re-defer the re-open follow-up case to L1b. This matches plan §15 and step9-applied.md.
+- AC-13 verdict: **DONE** for all L1a-shipping types (`plain` + `review`). Questionnaire and verdict-as-distinct-type cases are L1b deferrals.
+
+#### Gap 2 — AC-15 lint (text-[10px] off-scale): CLOSED
+
+- `bun run lint` from worktree root → **0 errors, 22 warnings** (exit 0). The two prior `text-[10px]` errors at `ThreadHostBanner.tsx:103,109` are gone.
+- `grep -rn "text-\[10px\]" packages/design-system/src/ packages/web/src/` returns **3 hits — all of them inside doc-comments / lore comments**, not in JSX/className strings:
+  - `SearchField.tsx:59` ("text-[10px] → text-[11px] (off-scale). The 56px right-inset on the …") — inline comment narrating prior fix.
+  - `KnowledgeRow.tsx:82` ("Body size (default)": px-[6px] → px-[8px] (off-grid), text-[10px] → text-[11px]) — comment.
+  - `NavItem.tsx:45` ("Body size (default)": px-[5px] → px-[4px] (off-grid), text-[10px] → text-[11px]) — comment.
+- Production source code has 0 hits. Lint passes.
+- DS visual regression still green: `cd packages/design-system && bunx playwright test --config=playwright.l1.config.ts` → **12/12 passed** (7.8s). HTML reference change did not break visual diff.
+- AC-15 lint half: **DONE**.
+
+#### Gap 3 — biome.json `.claude` worktree exclude: CLOSED
+
+- `biome.json:146-152` (the previously-blanket `!**/.claude` exclude) is now scoped to seven specific subpaths: `!.claude/agents`, `!.claude/process`, `!.claude/references`, `!.claude/rules`, `!.claude/skills`, `!.claude/settings.json`, `!.claude/settings.local.json`.
+- This means `.claude/worktrees/**/packages/**` is no longer excluded — biome scans the worktree-checked source.
+- Confirmed: `bunx --bun biome check .` → "Checked 660 files in 132ms. No fixes applied. Found 102 warnings." (real scan, not "0 files matched").
+- AC-15 biome half: **DONE**.
+
+### Re-verification of the full DoD command set
+
+- `bun run check` → **PASS** (0 type errors, exit 0).
+- `bun run lint` → **PASS** (0 errors, 22 warnings, exit 0).
+- `bun run test` → **FLAKY**: across four sequential full runs from the worktree root:
+  - Run 1: **2 failed / 2750 passed / 3 skipped** (`fabric/file-watcher.test.ts` AC10 + `server/threads.routes.test.ts` AC-12 review).
+  - Run 2: **1 failed / 2751 passed / 3 skipped** (`server/threads.routes.test.ts` AC-12 review).
+  - Run 3: **0 failed / 2752 passed / 3 skipped**.
+  - Run 4: **0 failed / 2752 passed / 3 skipped**.
+  - When run in isolation, `cd packages/server && bunx vitest run src/routes/__tests__/threads.routes.test.ts` is **31/31 green**, and `cd packages/fabric && bunx vitest run src/__tests__/file-watcher.test.ts` is **14/14 green**. The failures only surface during the full concurrent run.
+- `cd packages/design-system && bunx playwright test --config=playwright.l1.config.ts` → **12/12 PASS**.
+- `cd packages/web && bunx playwright test e2e/threads.spec.ts` → **5/5 PASS**.
+
+### Root-cause of the AC-12 flake (new finding)
+
+`threads.routes.test.ts:183-271` (AC-12) seeds a thread in `beforeEach` with a `review`-type initial message (`payload = validReviewPayload` → `title: "Pricing overhaul review"`). The parametric loop then posts a NEW message of each `MessageType` to the same thread and asserts the round-trip with:
+
+```ts
+const found = detail.messages.find((m) => m.type === type);
+expect(found?.payload).toEqual(payload);
+```
+
+The endpoint orders messages by `desc(messages.createdAt), desc(messages.id)` (`packages/server/src/routes/threads.ts:231`). When the seeded `review` and the round-trip `review` land in the same millisecond — which happens when the test runs alongside a busy concurrent suite — the tiebreaker is `desc(messages.id)`, where `id` is a random UUID. So `.find(m => m.type === 'review')` non-deterministically returns either the seeded `Pricing overhaul review` or the new `follow-up` review. The product is correct; the test is unsound. Fix is two lines: either `find` by `clientKey === 'roundtrip-review'` (deterministic), or `findLast` after sorting `messages` by `createdAt` ASC, or `await new Promise(r => setTimeout(r, 1))` before posting to guarantee a later `createdAt`. None of these are in the diff.
+
+The fabric `file-watcher.test.ts:472` failure observed in Run 1 (`expected items.length === 1, got 0`) is also a concurrency artifact — the fs.watch debounce window collides with the next `await` in a parallel suite. It did not repeat in Runs 2-4, but the AC-12 review case repeated in two of four runs, which is enough to call it a real flake gating CI determinism.
+
+### AC-by-AC re-confirmation
+
+| AC | Loop 1 status | Loop 2 status | Notes |
+|---|---|---|---|
+| AC-1 (concept-doc updates) | DONE | **DONE** (no regression) | HIL §4.5 + 12 anchor occurrences intact; SHARED.md:54 still correct. |
+| AC-2 (DM/coach/feed are configurations) | DONE | **DONE** | 0 grep hits for `'coach'/'feed'/'dm'`; `MESSAGE_TYPES` is `["plain","review","questionnaire","verdict"]`. |
+| AC-3 (cross-area attachment contract) | DONE | **DONE** | `HOST_KINDS` × 8; round-tripped per host kind. |
+| AC-4 (message vocabulary) | DONE | **DONE** | Closed enum; `_MESSAGE_TYPES_COVERED` structural drift guard. |
+| AC-5 (SHARED.md sync) | DONE | **DONE**. |
+| AC-6 (shared impl matches contract) | DONE | **DONE** — `bun run check` 0 errors. |
+| AC-7 (threads attach to any host) | DONE | **DONE** — 8/8 host kinds round-trip in routes test. |
+| AC-8 (back-compat) | PARTIAL | **DONE** — Playwright `back-compat` case at `threads.spec.ts:290` now passes; `migration-l1.test.ts:172-206` already covered the schema half. The previously-flagged "no e2e for back-compat read-back" gap is closed. |
+| AC-9 (page-local fixture types removed for L1a) | DONE | **DONE** — only doc-comment mentions remain. |
+| AC-10 (system lists/fetches/creates threads) | DONE | **DONE** — 31/31 routes test cases green in isolation. |
+| AC-11 (discriminant exhaustiveness) | DONE | **DONE** — `exhaustiveAssert` switches in `CommentRow.tsx:80-100` and `ThreadHead.tsx:50-125` intact. |
+| AC-12 (server tests round-trip every type) | DONE | **AT-RISK** — passes 31/31 in isolation but flakes in 2 of 4 full runs (`type='review'` case). The flake is a real test-code defect (see root-cause above); the product itself is correct. AC-12 says "Server tests round-trip every message type" — the assertion does run and the product accepts/returns the payload, but it does so non-deterministically under load. |
+| AC-13 (Playwright e2e per shipping rich type) | NOT DONE | **DONE** — 5/5 cases green, hermetic, both shipping rich types covered. |
+| AC-14 (forward-only migration + rollback) | DONE | **DONE** — SQLite `0007/0008` + PG `0006/0007` parity; `L1-rollback.md` runbook intact. |
+| AC-15 (full lint/check/test green) | NOT DONE | **AT-RISK** — `check` and `lint` are clean, but `test` is flaky on the AC-12 review case (1-2 failures observed in 2 of 4 runs). |
+
+### Contracts / constraints (TRACK-L 58-64)
+
+- Closed message-type vocabulary: **DONE**.
+- Every thread carries an attachment; un-attached coach threads attach to user: **DONE** — schema NOT NULL enforced; migration projection unchanged.
+- Threads attach to bets/tasks/knowledge_items/artifacts/agents/users/team/factory: **DONE** — 8/8 round-trips.
+- Migration forward-only with rollback plan: **DONE**.
+- No emojis: spot-checked DS components and pages; clean.
+
+### L1b deferrals (unchanged from Loop 1, all explicit per plan §15)
+
+- `QuestionnaireAnswerBar` DS component (L1b-T1).
+- `ThreadHead` `onPromoteArtifact` canvas wiring (L1b-T2).
+- `ConversationsChat` full integration + `MockThread` removal + tests (L1b-T3).
+- `WorkBet` `MockBetComment` removal + bet threads-section + dialog (L1b-T4).
+- e2e: questionnaire thread + WorkBet thread + re-open follow-up review (L1b-T5).
+- Mobile two-tab segmented control + redact endpoint (Design-S / Adv-W).
+- Pagination, payload-size cap, dual-read on legacy conversations (Adv-S1-S6).
+
+### New gap (Loop 2) — must close before "DONE"
+
+1. **`packages/server/src/routes/__tests__/threads.routes.test.ts:266` — AC-12 review-type round-trip is flaky.** The test seeds `validReviewPayload` as the initial review in `beforeEach` (line 201), then in the loop posts a second `review` (line 226-231) with `art-2` / `title: "follow-up"` / `reasoning: ["b"]`, then does `messages.find(m => m.type === type)` — ordered `desc(createdAt), desc(id)` — which non-deterministically returns either the seeded or the round-trip review when both share a millisecond. Observed failure twice in four full `bun run test` runs. Fixes (any one):
+   - Change `find` to `find(m => m.payload?.title === payload.title)` or to a dedicated `clientKey` lookup.
+   - Reverse to `findLast` after sorting ASC.
+   - Inject a guaranteed-later timestamp into the new message (delay 1ms, or stub `Date.now`).
+   The endpoint code is correct; only the assertion is unsound.
+
+### Updated waivers
+
+- biome.json `.claude` exclude: **NO LONGER A WAIVER** — fixed in 5ebbd6d.
+- `text-[10px]` off-scale: **NO LONGER A WAIVER** — fixed in 5ebbd6d.
+
+### Verdict
+
+**NOT DONE.** Three Loop-1 gaps are genuinely closed (verified by independent re-runs of the exact verification commands), but a real flaky-test defect was discovered during Loop 2 re-verification and it lives in the L1-authored AC-12 round-trip suite. Until the flake is fixed, `bun run test` is not deterministically green from the worktree root, and CI cannot certify AC-15. The fix is two lines in a single test file.
+
+### Shipping recommendation
+
+One more loop. The implementation, schema, migration, e2e, lint, and types are all production-ready; the only blocker is a 2-line test-quality fix in `threads.routes.test.ts:266` (replace `messages.find(m => m.type === type)` with a `clientKey`-keyed or `findLast`-style lookup) so AC-12 stops racing with itself when concurrent test runners collide on a millisecond boundary. After that fix lands and three sequential `bun run test` runs are clean, this branch is shippable.

@@ -261,10 +261,11 @@ describe("AC-12 — POST /api/threads/:id/messages round-trips every MessageType
 			});
 			expect(get.status).toBe(200);
 			const detail = (await get.json()) as {
-				messages: Array<{ type: string; payload: unknown }>;
+				messages: Array<{ type: string; payload: unknown; clientKey: string }>;
 			};
-			const found = detail.messages.find((m) => m.type === type);
+			const found = detail.messages.find((m) => m.clientKey === `roundtrip-${type}`);
 			expect(found).toBeDefined();
+			expect(found?.type).toBe(type);
 			expect(found?.payload).toEqual(payload);
 		});
 	}
