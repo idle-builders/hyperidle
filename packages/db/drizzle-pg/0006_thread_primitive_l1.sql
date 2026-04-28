@@ -31,11 +31,21 @@ ALTER TABLE "threads" ADD COLUMN "last_active_at" text;--> statement-breakpoint
 -- per the SHARED.md projection rules. kind='coach' → host_kind='user'+pinned;
 -- kind='direct' → host_kind='agent'; kind='post-bet-retro' → host_kind='bet';
 -- review/chat → host_kind='task'; everything else → 'task' as fallback.
+--
+-- L1 step9 (Adv-C5): the CASE arms now MIRROR `drizzle/0007_thread_primitive_l1.sql`
+-- exactly, including the `items.kind` review/questionnaire branch. Functionally
+-- both still default to 'task'; the parity prevents silent drift if either
+-- branch is later edited to project elsewhere.
 UPDATE "threads" t SET
 	"host_kind" = CASE
 		WHEN t."kind" = 'coach' THEN 'user'
 		WHEN t."kind" = 'direct' THEN 'agent'
 		WHEN t."kind" = 'post-bet-retro' THEN 'bet'
+		WHEN EXISTS (
+			SELECT 1 FROM "items" i
+			WHERE i."thread_id" = t."id"
+			AND (i."kind" = 'review' OR i."kind" = 'questionnaire')
+		) OR t."kind" = 'review' OR t."kind" = 'chat' THEN 'task'
 		ELSE 'task'
 	END,
 	"host_id" = COALESCE(

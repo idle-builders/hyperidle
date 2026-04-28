@@ -254,8 +254,8 @@ describe("Agent Endpoints (E6)", () => {
 		it("sends a message and creates thread if needed", async () => {
 			const res = await app.request("/api/agents/agent-1/inbox", {
 				method: "POST",
-				headers: authHeaders(),
-				body: JSON.stringify({ senderId: "agent-2", body: "Hey there!" }),
+				headers: authHeaders({ "X-Identity": "agent-2" }),
+				body: JSON.stringify({ body: "Hey there!" }),
 			});
 			expect(res.status).toBe(201);
 
@@ -275,15 +275,15 @@ describe("Agent Endpoints (E6)", () => {
 			// Send first message
 			await app.request("/api/agents/agent-1/inbox", {
 				method: "POST",
-				headers: authHeaders(),
-				body: JSON.stringify({ senderId: "agent-2", body: "First" }),
+				headers: authHeaders({ "X-Identity": "agent-2" }),
+				body: JSON.stringify({ body: "First" }),
 			});
 
 			// Send second message
 			await app.request("/api/agents/agent-1/inbox", {
 				method: "POST",
-				headers: authHeaders(),
-				body: JSON.stringify({ senderId: "agent-2", body: "Second" }),
+				headers: authHeaders({ "X-Identity": "agent-2" }),
+				body: JSON.stringify({ body: "Second" }),
 			});
 
 			const allThreads = db.select().from(threads).all();
@@ -296,8 +296,8 @@ describe("Agent Endpoints (E6)", () => {
 		it("returns 404 for unknown recipient agent", async () => {
 			const res = await app.request("/api/agents/nonexistent/inbox", {
 				method: "POST",
-				headers: authHeaders(),
-				body: JSON.stringify({ senderId: "agent-2", body: "Hello" }),
+				headers: authHeaders({ "X-Identity": "agent-2" }),
+				body: JSON.stringify({ body: "Hello" }),
 			});
 			expect(res.status).toBe(404);
 		});
@@ -305,8 +305,30 @@ describe("Agent Endpoints (E6)", () => {
 		it("returns 400 for missing body text", async () => {
 			const res = await app.request("/api/agents/agent-1/inbox", {
 				method: "POST",
+				headers: authHeaders({ "X-Identity": "agent-2" }),
+				body: JSON.stringify({}),
+			});
+			expect(res.status).toBe(400);
+		});
+
+		// L1 step9 (Adv-C2): senderId must NOT be derivable from the request
+		// body. A body-supplied `senderId` either (a) is rejected outright by
+		// the strict schema (no extra keys), or (b) is silently ignored. The
+		// derived sender must come from `X-Identity`.
+		it("rejects body-supplied senderId — no spoofing", async () => {
+			const res = await app.request("/api/agents/agent-1/inbox", {
+				method: "POST",
+				headers: authHeaders({ "X-Identity": "agent-2" }),
+				body: JSON.stringify({ senderId: "u-founder", body: "spoof" }),
+			});
+			expect(res.status).toBe(400);
+		});
+
+		it("returns 400 when X-Identity header is missing", async () => {
+			const res = await app.request("/api/agents/agent-1/inbox", {
+				method: "POST",
 				headers: authHeaders(),
-				body: JSON.stringify({ senderId: "agent-2" }),
+				body: JSON.stringify({ body: "no identity" }),
 			});
 			expect(res.status).toBe(400);
 		});

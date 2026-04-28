@@ -31,21 +31,38 @@ class WsContextAdapter implements WsClient {
  * lifecycle (auth, connect, disconnect, subscribe/unsubscribe messages).
  *
  * @lore I1 W2: in-process test isolation relies on the returned disposer.
+ *
+ * @lore L1 step9 (Adv-C1): the upgrade token now binds an identityId.
+ * `consumePending` pulls the identity off the consume result so the next
+ * `onOpen` can register the client with the broadcaster's authz table.
+ * Bun's WS upgrade flow does not surface request headers in `onOpen` —
+ * the middleware-side consume is the only place we can capture identity.
  */
 function registerWsRoute(
 	apiApp: Hono,
 	eventBus: EventBus | undefined,
 	tokenStore: UpgradeTokenStore,
+	injectedBroadcaster: WsBroadcaster | null = null,
 ): () => void {
 	// Delegate event forwarding to WsBroadcaster when eventBus is available.
-	let broadcaster: WsBroadcaster | null = null;
-	if (eventBus) {
+	// L1 step9: server-factory may pass an authz-bound broadcaster; tests +
+	// non-Bun harnesses fall back to building one inline from the eventBus.
+	let owned = false;
+	let broadcaster: WsBroadcaster | null = injectedBroadcaster;
+	if (!broadcaster && eventBus) {
 		broadcaster = new WsBroadcaster(eventBus);
 		broadcaster.start();
+		owned = true;
 	}
 
 	// Map raw WSContext to its adapter for cleanup.
 	const adapters = new Map<WSContext, WsContextAdapter>();
+	// Pending identity from the token-consume step. The consume happens in
+	// the middleware (URL-time); the addClient happens on `onOpen`. Bun's
+	// upgrade flow does not let us thread the identity through directly,
+	// so we stash it in a single-slot queue keyed by request order. This
+	// is safe because the middleware → onOpen handoff is synchronous.
+	let pendingIdentity: string | undefined;
 
 	// WebSocket auth via one-shot upgrade token (I2 A3/A4/A5).
 	apiApp.use("/ws", async (c, next) => {
@@ -65,6 +82,7 @@ function registerWsRoute(
 			};
 			return c.json(response, 401);
 		}
+		pendingIdentity = result.identityId;
 		await next();
 	});
 
@@ -75,7 +93,8 @@ function registerWsRoute(
 				const rawWs = ws.raw as WSContext;
 				const adapter = new WsContextAdapter(rawWs);
 				adapters.set(rawWs, adapter);
-				broadcaster?.addClient(adapter);
+				broadcaster?.addClient(adapter, pendingIdentity);
+				pendingIdentity = undefined;
 				ws.send(JSON.stringify({ type: "connected" }));
 			},
 			onMessage(evt, ws) {
@@ -85,8 +104,17 @@ function registerWsRoute(
 					try {
 						const msg = JSON.parse(evt.data) as { type?: string; topic?: string };
 						if (msg.type === "subscribe" && msg.topic && adapter && broadcaster) {
-							broadcaster.subscribe(adapter, msg.topic);
-							ws.send(JSON.stringify({ type: "subscribed", topic: msg.topic }));
+							const result = broadcaster.subscribe(adapter, msg.topic);
+							if (result === "ok") {
+								ws.send(JSON.stringify({ type: "subscribed", topic: msg.topic }));
+							} else {
+								// L1 step9 (Adv-C1): a non-participant tried to subscribe to a
+								// thread topic. Plan §6.2 specifies the forbidden ack shape so
+								// e2e tests can distinguish "rejected" from "silently dropped".
+								ws.send(
+									JSON.stringify({ type: "forbidden", error: "forbidden", topic: msg.topic }),
+								);
+							}
 							return;
 						}
 						if (msg.type === "unsubscribe" && msg.topic && adapter && broadcaster) {
@@ -114,7 +142,9 @@ function registerWsRoute(
 	);
 
 	return (): void => {
-		broadcaster?.stop();
+		if (owned) {
+			broadcaster?.stop();
+		}
 		adapters.clear();
 	};
 }

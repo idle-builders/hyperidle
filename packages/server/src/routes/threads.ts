@@ -370,7 +370,17 @@ export function createThreadRoutes(db: HyperIdleDb, eventBus: EventBus): Hono {
 				const e = err(API_ERROR_CODES.NOT_FOUND, "Thread not found", 404);
 				return c.json(e.body, e.status);
 			}
-			const participants = JSON.parse(threadRow.participants) as string[];
+			// L1 step9 (Adv-W2): the previous `as string[]` cast bypassed the
+			// shape guarantee on the participants column. Zod-parse the JSON
+			// so a malformed row fails loudly here instead of silently
+			// accepting an authz bypass.
+			let participants: ReadonlyArray<string>;
+			try {
+				participants = threadParticipantsSchema.parse(JSON.parse(threadRow.participants));
+			} catch {
+				const e = err("internal_error", "Thread participants column is malformed", 500);
+				return c.json(e.body, e.status);
+			}
 
 			// Authz: sender must be a participant.
 			if (!participants.includes(senderId)) {
@@ -391,6 +401,22 @@ export function createThreadRoutes(db: HyperIdleDb, eventBus: EventBus): Hono {
 				)
 				.get();
 			if (existing) {
+				// L1 step9 (Adv-C3): if the replay carries a payload that differs
+				// from the stored row, return 409 Conflict instead of silently
+				// claiming success against the stale record. Plan §6.1's "return
+				// existing canonical id on duplicate" assumes retry semantics
+				// (same payload). A divergent payload is a client bug — the
+				// stored row stays unchanged and the audit trail is honest.
+				const sameType = existing.type === input.type;
+				const samePayload = existing.payload === JSON.stringify(input.payload);
+				if (!(sameType && samePayload)) {
+					const e = err(
+						"idempotency_conflict",
+						"clientKey already used with a different payload",
+						409,
+					);
+					return c.json(e.body, e.status);
+				}
 				return c.json(
 					{
 						message: rowToMessage(existing),
@@ -427,6 +453,14 @@ export function createThreadRoutes(db: HyperIdleDb, eventBus: EventBus): Hono {
 			const wasResolved = threadRow.resolvedAt !== null;
 			const willReopen = wasResolved && (input.type === "review" || input.type === "questionnaire");
 
+			// L1 step9 (Adv-W4): guard against two concurrent verdicts on the
+			// same review by adding `WHERE resolvedAt IS NULL` to the
+			// resolve-update. The second verdict's UPDATE matches zero rows;
+			// the transaction body throws a sentinel which the catch maps to
+			// 409. Plan §6.1's first-verdict-wins contract holds without a
+			// global lock.
+			class VerdictRaceConflict extends Error {}
+
 			try {
 				db.transaction((tx) => {
 					tx.insert(messages)
@@ -442,10 +476,20 @@ export function createThreadRoutes(db: HyperIdleDb, eventBus: EventBus): Hono {
 						.run();
 
 					if (input.type === "verdict" && resolvesMessageRow) {
-						tx.update(messages)
+						const result = tx
+							.update(messages)
 							.set({ resolvedAt: now })
-							.where(eq(messages.id, resolvesMessageRow.id))
+							.where(
+								and(eq(messages.id, resolvesMessageRow.id), sql`${messages.resolvedAt} IS NULL`),
+							)
 							.run();
+						// better-sqlite3 returns `{changes: number}` on `.run()`;
+						// drizzle-orm's typed shim mirrors the same shape. If the
+						// match returns 0, a concurrent verdict already resolved
+						// the review — abort and surface 409 to this caller.
+						if ((result as { changes: number }).changes === 0) {
+							throw new VerdictRaceConflict();
+						}
 						tx.update(threads)
 							.set({ resolvedAt: now, lastActiveAt: now })
 							.where(eq(threads.id, threadId))
@@ -460,6 +504,10 @@ export function createThreadRoutes(db: HyperIdleDb, eventBus: EventBus): Hono {
 					}
 				});
 			} catch (cause) {
+				if (cause instanceof VerdictRaceConflict) {
+					const e = err("verdict_race", "Review was resolved by a concurrent verdict", 409);
+					return c.json(e.body, e.status);
+				}
 				return c.json(
 					{ error: "Failed to append message", code: "internal_error", detail: String(cause) },
 					500,

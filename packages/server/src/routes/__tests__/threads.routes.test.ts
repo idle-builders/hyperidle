@@ -199,7 +199,7 @@ describe("AC-12 — POST /api/threads/:id/messages round-trips every MessageType
 				initialMessage: {
 					type: "review",
 					payload: validReviewPayload,
-					clientKey: "init-r",
+					clientKey: "init-rev1",
 				},
 			}),
 		});
@@ -288,7 +288,7 @@ describe("Idempotency on (thread_id, sender_id, client_key)", () => {
 				initialMessage: {
 					type: "plain",
 					payload: { text: "first" },
-					clientKey: "init-key",
+					clientKey: "init-key-1",
 				},
 			}),
 		});
@@ -307,7 +307,7 @@ describe("Idempotency on (thread_id, sender_id, client_key)", () => {
 			body: JSON.stringify({
 				type: "plain",
 				payload: { text: "ping" },
-				clientKey: "dup-key",
+				clientKey: "dup-key1",
 			}),
 		});
 		expect(first.status).toBe(201);
@@ -319,7 +319,7 @@ describe("Idempotency on (thread_id, sender_id, client_key)", () => {
 			body: JSON.stringify({
 				type: "plain",
 				payload: { text: "ping" },
-				clientKey: "dup-key",
+				clientKey: "dup-key1",
 			}),
 		});
 		// Plan §6.1: 200 (not 201) on idempotency replay.
@@ -335,8 +335,38 @@ describe("Idempotency on (thread_id, sender_id, client_key)", () => {
 		const detail = (await get.json()) as {
 			messages: Array<{ clientKey: string }>;
 		};
-		const matches = detail.messages.filter((m) => m.clientKey === "dup-key");
+		const matches = detail.messages.filter((m) => m.clientKey === "dup-key1");
 		expect(matches.length).toBe(1);
+	});
+
+	it("re-POST with same clientKey but a DIFFERENT payload returns 409 idempotency_conflict (Adv-C3)", async () => {
+		// L1 step9 (Adv-C3): if the replay payload diverges from the stored
+		// row, return 409 instead of silently claiming success against the
+		// stale record. The stored row is unchanged; the audit trail stays
+		// honest.
+		const first = await ctx.app.request(`/api/threads/${threadId}/messages`, {
+			method: "POST",
+			headers: authHeaders(),
+			body: JSON.stringify({
+				type: "plain",
+				payload: { text: "ping-1" },
+				clientKey: "diverge1",
+			}),
+		});
+		expect(first.status).toBe(201);
+
+		const second = await ctx.app.request(`/api/threads/${threadId}/messages`, {
+			method: "POST",
+			headers: authHeaders(),
+			body: JSON.stringify({
+				type: "plain",
+				payload: { text: "ping-2" }, // different payload, same clientKey
+				clientKey: "diverge1",
+			}),
+		});
+		expect(second.status).toBe(409);
+		const body = (await second.json()) as { code?: string };
+		expect(body.code).toBe("idempotency_conflict");
 	});
 
 	it("two senders with the same clientKey both succeed (per-sender dedupe namespace)", async () => {
@@ -369,6 +399,26 @@ describe("clientKey validation (plan §6.1 + §11)", () => {
 
 	afterEach(() => {
 		vi.unstubAllEnvs();
+	});
+
+	it("returns 400 when clientKey is too short (<8 chars, plan §6.1)", async () => {
+		// L1 step9 (Arch): the plan requires min(8). The schema previously
+		// accepted any non-empty value; this test pins the min(8) contract.
+		const res = await ctx.app.request("/api/threads", {
+			method: "POST",
+			headers: authHeaders(),
+			body: JSON.stringify({
+				hostKind: "user",
+				hostId: "u-founder",
+				participants: ["u-founder"],
+				initialMessage: {
+					type: "plain",
+					payload: { text: "x" },
+					clientKey: "abc-1",
+				},
+			}),
+		});
+		expect(res.status).toBe(400);
 	});
 
 	it("returns 400 when initial-message clientKey is empty", async () => {
@@ -563,7 +613,7 @@ describe("Re-open semantics (plan §6.1 REVISED for adversary C5)", () => {
 				initialMessage: {
 					type: "review",
 					payload: validReviewPayload,
-					clientKey: "ro-init",
+					clientKey: "ro-init1",
 				},
 			}),
 		});
@@ -686,7 +736,7 @@ describe("List threads + GET /api/threads validation", () => {
 				initialMessage: {
 					type: "plain",
 					payload: { text: "first" },
-					clientKey: "list-1",
+					clientKey: "list-1key",
 				},
 			}),
 		});
@@ -700,7 +750,7 @@ describe("List threads + GET /api/threads validation", () => {
 				initialMessage: {
 					type: "plain",
 					payload: { text: "second" },
-					clientKey: "list-2",
+					clientKey: "list-2key",
 				},
 			}),
 		});
@@ -752,7 +802,7 @@ describe("Event emission (plan §6.3)", () => {
 				initialMessage: {
 					type: "plain",
 					payload: { text: "x" },
-					clientKey: "ev-1",
+					clientKey: "ev-1-key",
 				},
 			}),
 		});

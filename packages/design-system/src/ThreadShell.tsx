@@ -11,9 +11,15 @@
  * / populated-chat / populated-resolved / populated-overflow.
  */
 
-import type { ArtifactRef, Message, MessageType, Thread } from "@hyperidle/shared";
-import { headCollapsePredicate, isRedactedPayload } from "@hyperidle/shared";
-import type { JSX, ReactNode } from "react";
+import type {
+	AgentSessionStateSnapshot,
+	ArtifactRef,
+	Message,
+	MessageType,
+	Thread,
+} from "@hyperidle/shared";
+import { headCollapsePredicate, isBlocking, isRedactedPayload } from "@hyperidle/shared";
+import { type JSX, type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { CommentRow } from "./CommentRow.js";
 import { Composer } from "./Composer.js";
 import { dsProps } from "./ds-attrs.js";
@@ -23,6 +29,8 @@ import { ReviewVerdictBar } from "./ReviewVerdictBar.js";
 import { SkeletonList } from "./Skeleton.js";
 import { ThreadHead } from "./ThreadHead.js";
 import { ThreadHostBanner } from "./ThreadHostBanner.js";
+
+const SENDER_GROUP_WINDOW_MS = 5 * 60 * 1000; // approved.md §2.4 — 5 minutes
 
 export interface ThreadShellIdentity {
 	name: string;
@@ -44,6 +52,69 @@ export interface ThreadShellProps {
 	onAppendMessage: (input: ThreadShellAppendInput) => Promise<void>;
 	loading?: boolean;
 	error?: string;
+	/**
+	 * Optional snapshot of the agent's session state. Drives the
+	 * `ThreadHostBanner` blocking indicator via `isBlocking(thread, messages,
+	 * snapshot)` (concept §4.5.5). When omitted, the banner shows
+	 * `blocking={false}`.
+	 */
+	agentSessionState?: AgentSessionStateSnapshot;
+	/**
+	 * Optional override for the resolved host title. The Conversations page
+	 * resolves the host entity (bet, task, …) and passes its display title;
+	 * `ThreadShell` falls back to `${hostKind}/${hostId}` for tests / pages
+	 * that have not wired host resolution yet.
+	 */
+	hostTitle?: string;
+	/** Optional href for the host-attachment label (approved.md §8 hard-rule 5). */
+	hostHref?: string;
+}
+
+interface SenderGroupedMessage {
+	readonly message: Message;
+	readonly showSenderHeader: boolean;
+}
+
+/**
+ * Group consecutive messages from the same sender within a 5-minute window.
+ * Each group's first message renders the sender header; subsequent messages
+ * stack indented (no header) per approved.md §2.4 + §8 hard-rule 3.
+ *
+ * @lore L1 step9 (Design-C2): the previous renderer hardcoded
+ * `showSenderHeader={true}` for every row, ignoring the locked design contract.
+ */
+export function computeSenderGrouping(
+	messages: ReadonlyArray<Message>,
+): ReadonlyArray<SenderGroupedMessage> {
+	const result: SenderGroupedMessage[] = [];
+	let lastSenderId: string | null = null;
+	let lastTimestampMs: number | null = null;
+	for (const message of messages) {
+		const tsMs = Date.parse(message.createdAt);
+		const sameSender = lastSenderId === message.senderId;
+		const withinWindow =
+			lastTimestampMs !== null &&
+			Number.isFinite(tsMs) &&
+			tsMs - lastTimestampMs < SENDER_GROUP_WINDOW_MS;
+		const showSenderHeader = !(sameSender && withinWindow);
+		result.push({ message, showSenderHeader });
+		lastSenderId = message.senderId;
+		lastTimestampMs = Number.isFinite(tsMs) ? tsMs : lastTimestampMs;
+	}
+	return result;
+}
+
+/**
+ * Determine whether the most recent message in the thread is an unresolved
+ * review/questionnaire. When true, the Composer shows the
+ * "Unresolved review · acting required ↑" fallback link (approved.md §2.5).
+ *
+ * @lore L1 step9 (Design-C3): this rule was specified but never wired.
+ */
+export function hasMostRecentUnresolvedReview(messages: ReadonlyArray<Message>): boolean {
+	if (messages.length === 0) return false;
+	const last = messages[messages.length - 1];
+	return (last.type === "review" || last.type === "questionnaire") && last.resolvedAt === null;
 }
 
 const FALLBACK_IDENTITY: ThreadShellIdentity = { name: "Unknown" };
@@ -80,12 +151,19 @@ export function ThreadShell({
 	onAppendMessage,
 	loading,
 	error,
+	agentSessionState,
+	hostTitle,
+	hostHref,
 }: ThreadShellProps): JSX.Element {
 	// Sort ASC for the predicate; rendering is also ASC for natural reading.
-	const ordered = [...messages].sort((a, b) => {
-		const ts = a.createdAt.localeCompare(b.createdAt);
-		return ts !== 0 ? ts : a.id.localeCompare(b.id);
-	});
+	const ordered = useMemo(
+		() =>
+			[...messages].sort((a, b) => {
+				const ts = a.createdAt.localeCompare(b.createdAt);
+				return ts !== 0 ? ts : a.id.localeCompare(b.id);
+			}),
+		[messages],
+	);
 	const head = headCollapsePredicate(ordered);
 	const headMessage = head.headMessageId
 		? ordered.find((m) => m.id === head.headMessageId)
@@ -95,6 +173,50 @@ export function ThreadShell({
 		id,
 		name: identityFor(identities, id).name,
 	}));
+
+	// L1 step9 (Arch): drive the banner's blocking indicator from the shared
+	// `isBlocking` predicate when an `agentSessionState` snapshot is supplied.
+	const blocking =
+		agentSessionState !== undefined ? isBlocking(thread, ordered, agentSessionState) : false;
+
+	// L1 step9 (Design-C2): compute sender-grouping for the comment stream
+	// (excluding the head message, which renders separately).
+	const streamMessages = useMemo(
+		() => ordered.filter((m) => m.id !== head.headMessageId),
+		[ordered, head.headMessageId],
+	);
+	const groupedStream = useMemo(() => computeSenderGrouping(streamMessages), [streamMessages]);
+
+	// L1 step9 (Design-C3): the composer's "Unresolved review · acting required"
+	// fallback link appears when the most recent message in the thread is an
+	// unresolved review/questionnaire. This serves as a fallback for tall mobile
+	// viewports where the sticky verdict bar may scroll out of view.
+	const unresolvedReview = hasMostRecentUnresolvedReview(ordered);
+
+	// L1 step9 (Design-W from review): IntersectionObserver wires the sticky
+	// verdict bar's "head-edge → released" behavior. When the head's artifact
+	// region is in view → bar is pinned; otherwise → bar releases (scrolls
+	// with content).
+	const artifactRegionRef = useRef<HTMLDivElement | null>(null);
+	const verdictBarRef = useRef<HTMLDivElement | null>(null);
+	const [verdictBarSticky, setVerdictBarSticky] = useState(true);
+	useEffect(() => {
+		const target = artifactRegionRef.current;
+		if (!target) return;
+		// Skip when IntersectionObserver is unavailable (e.g. some test environments).
+		if (typeof window === "undefined" || typeof window.IntersectionObserver === "undefined") {
+			return;
+		}
+		const observer = new window.IntersectionObserver(
+			(entries) => {
+				const [entry] = entries;
+				setVerdictBarSticky(Boolean(entry?.isIntersecting));
+			},
+			{ threshold: 0 },
+		);
+		observer.observe(target);
+		return (): void => observer.disconnect();
+	}, []);
 
 	const handleComposerSubmit = async (input: {
 		text: string;
@@ -107,25 +229,38 @@ export function ThreadShell({
 		});
 	};
 
+	const handleScrollToVerdict = (): void => {
+		verdictBarRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+	};
+
 	// L1 step5 W10: error and populated branches share the host banner; we
 	// render the banner once and switch the body, instead of duplicating the
 	// outer JSX.
+	const resolvedHostTitle = hostTitle ?? `${thread.hostKind}/${thread.hostId}`;
 	const banner = (
 		<ThreadHostBanner
 			hostKind={thread.hostKind}
-			hostTitle={`${thread.hostKind}/${thread.hostId}`}
-			blocking={false}
+			hostTitle={resolvedHostTitle}
+			{...(hostHref !== undefined ? { hostHref } : {})}
+			blocking={blocking}
 			resolved={thread.resolvedAt !== null}
 			pinned={thread.pinned}
 			participants={participants}
 		/>
 	);
 
+	const verdictBarVisible =
+		headMessage && headMessage.type === "review" && headMessage.resolvedAt === null;
+
 	return (
 		<div
 			{...dsProps("ThreadShell", "3")}
 			data-testid="thread-shell"
-			className="flex flex-col h-full bg-[var(--surface-1)]"
+			// L1 step9 (Design-C4): announce shape transitions (head mount /
+			// unmount, canvas promote / demote) via aria-live. Non-blocking
+			// (`polite`) so screen readers complete current speech first.
+			aria-live="polite"
+			className="flex flex-col h-full bg-[var(--surface-1)] focus-within:outline-none"
 		>
 			{banner}
 			{error ? (
@@ -136,6 +271,18 @@ export function ThreadShell({
 						<ThreadHead
 							message={headMessage}
 							artifactSlot={resolveArtifactSlot(headMessage, artifactSlot)}
+						/>
+					) : null}
+					{/*
+					 * Sentinel for the IntersectionObserver. Sits at the head's
+					 * lower edge when issue-shape; absent for chat-shape.
+					 */}
+					{headMessage ? (
+						<div
+							ref={artifactRegionRef}
+							data-testid="verdict-sentinel"
+							aria-hidden="true"
+							className="h-[1px]"
 						/>
 					) : null}
 					<div className="flex-1 overflow-y-auto">
@@ -150,41 +297,52 @@ export function ThreadShell({
 							/>
 						) : (
 							<ul className="flex flex-col py-[var(--density-pad-y,8px)]">
-								{ordered
-									.filter((m) => m.id !== head.headMessageId)
-									.map((m) => (
-										<CommentRow
-											key={m.id}
-											message={m}
-											sender={{
-												id: m.senderId,
-												name: identityFor(identities, m.senderId).name,
-												role: identityFor(identities, m.senderId).role,
-											}}
-											showSenderHeader={true}
-										/>
-									))}
+								{groupedStream.map(({ message, showSenderHeader }) => (
+									<CommentRow
+										key={message.id}
+										message={message}
+										sender={{
+											id: message.senderId,
+											name: identityFor(identities, message.senderId).name,
+											role: identityFor(identities, message.senderId).role,
+										}}
+										showSenderHeader={showSenderHeader}
+									/>
+								))}
 							</ul>
 						)}
 					</div>
-					{headMessage && headMessage.type === "review" && headMessage.resolvedAt === null ? (
-						<ReviewVerdictBar
-							onAction={(action): void => {
-								// `action` is now `VerdictDecision` — every value resolves to
-								// a verdict message. The dead non-binding/sidecar branch was
-								// removed in L1 step5 (S-C1).
-								void onAppendMessage({
-									type: "verdict",
-									payload: {
-										decision: action,
-										resolvesMessageId: headMessage.id,
-									},
-									clientKey: `verdict-${headMessage.id}-${Date.now().toString(36)}`,
-								});
-							}}
-						/>
+					{verdictBarVisible ? (
+						<div
+							ref={verdictBarRef}
+							data-testid="verdict-bar-wrapper"
+							data-sticky={verdictBarSticky ? "true" : "false"}
+							className={verdictBarSticky ? "sticky bottom-0" : "static"}
+						>
+							<ReviewVerdictBar
+								onAction={(action): void => {
+									// `action` is now `VerdictDecision` — every value resolves to
+									// a verdict message. The dead non-binding/sidecar branch was
+									// removed in L1 step5 (S-C1).
+									void onAppendMessage({
+										type: "verdict",
+										payload: {
+											decision: action,
+											resolvesMessageId: headMessage.id,
+										},
+										clientKey: `verdict-${headMessage.id}-${Date.now().toString(36)}`,
+									});
+								}}
+							/>
+						</div>
 					) : null}
-					<Composer threadId={thread.id} onSubmit={handleComposerSubmit} />
+					<Composer
+						threadId={thread.id}
+						onSubmit={handleComposerSubmit}
+						{...(unresolvedReview && verdictBarVisible
+							? { unresolvedReviewLink: { onClick: handleScrollToVerdict } }
+							: {})}
+					/>
 				</>
 			)}
 		</div>

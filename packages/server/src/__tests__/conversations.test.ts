@@ -391,7 +391,7 @@ describe("Conversations Endpoints (E2)", () => {
 					participants: ["agent-1", "founder-1"],
 					initialMessage: {
 						type: "review",
-						clientKey: "init-r",
+						clientKey: "init-r-a",
 						payload: {
 							title: "Verdict smoke",
 							reasoning: ["Looks fine"],
@@ -412,7 +412,7 @@ describe("Conversations Endpoints (E2)", () => {
 				headers: { ...authHeaders(), "X-Identity": "founder-1" },
 				body: JSON.stringify({
 					type: "verdict",
-					clientKey: "verdict-1",
+					clientKey: "verdict-a",
 					payload: {
 						decision: "approve",
 						resolvesMessageId: reviewMessageId,
@@ -433,7 +433,7 @@ describe("Conversations Endpoints (E2)", () => {
 					participants: ["agent-1", "founder-1"],
 					initialMessage: {
 						type: "review",
-						clientKey: "init-r2",
+						clientKey: "init-r-b",
 						payload: {
 							title: "No",
 							reasoning: ["Nope"],
@@ -453,7 +453,7 @@ describe("Conversations Endpoints (E2)", () => {
 				headers: { ...authHeaders(), "X-Identity": "agent-1" },
 				body: JSON.stringify({
 					type: "verdict",
-					clientKey: "verdict-2",
+					clientKey: "verdict-b",
 					payload: {
 						decision: "approve",
 						resolvesMessageId: created.messages[0].id,
@@ -473,7 +473,7 @@ describe("Conversations Endpoints (E2)", () => {
 					participants: ["agent-1", "founder-1"],
 					initialMessage: {
 						type: "review",
-						clientKey: "init-r3",
+						clientKey: "init-r-c",
 						payload: {
 							title: "Validate",
 							reasoning: ["x"],
@@ -492,7 +492,7 @@ describe("Conversations Endpoints (E2)", () => {
 				headers: { ...authHeaders(), "X-Identity": "founder-1" },
 				body: JSON.stringify({
 					type: "verdict",
-					clientKey: "verdict-3",
+					clientKey: "verdict-c",
 					payload: {
 						decision: "invalid-decision",
 						resolvesMessageId: created.messages[0].id,

@@ -31,17 +31,24 @@ import { randomBytes } from "node:crypto";
 
 interface TokenRecord {
 	expiresAt: number;
+	identityId?: string;
 }
 
 export interface UpgradeTokenStore {
-	issue(): { token: string; expiresAt: number };
 	/**
-	 * Claim a token. Returns `{ ok: true }` on success and consumes (deletes)
-	 * the token. Returns `{ ok: false }` for any failure (unknown, expired,
-	 * or already-consumed token) — callers surface the same generic 401 to
-	 * the client either way.
+	 * Issue a token. The optional `identityId` is bound to the token and
+	 * returned by `consume` so the WS handler knows which authenticated
+	 * identity is opening the upgrade. L1 step9 (Adv-C1): per-thread
+	 * subscribe authz needs to verify `senderId ∈ thread.participants`.
 	 */
-	consume(token: string): { ok: boolean };
+	issue(identityId?: string): { token: string; expiresAt: number };
+	/**
+	 * Claim a token. Returns `{ ok: true, identityId }` on success and
+	 * consumes (deletes) the token. Returns `{ ok: false }` for any failure
+	 * (unknown, expired, or already-consumed token) — callers surface the
+	 * same generic 401 to the client either way.
+	 */
+	consume(token: string): { ok: true; identityId?: string } | { ok: false };
 }
 
 const DEFAULT_TTL_MS = 60_000;
@@ -88,7 +95,7 @@ export function createUpgradeTokenStore(): UpgradeTokenStore {
 		if (oldestToken !== null) tokens.delete(oldestToken);
 	}
 
-	function issue(): { token: string; expiresAt: number } {
+	function issue(identityId?: string): { token: string; expiresAt: number } {
 		const now = Date.now();
 		// Lazy cleanup on every issue so memory does not grow unbounded
 		// under sustained issuance without consumption (no setInterval).
@@ -103,11 +110,15 @@ export function createUpgradeTokenStore(): UpgradeTokenStore {
 		}
 		const token = randomBytes(32).toString("base64url");
 		const expiresAt = now + ttlMs;
-		tokens.set(token, { expiresAt });
+		const record: TokenRecord = { expiresAt };
+		if (identityId !== undefined) {
+			record.identityId = identityId;
+		}
+		tokens.set(token, record);
 		return { token, expiresAt };
 	}
 
-	function consume(token: string): { ok: boolean } {
+	function consume(token: string): { ok: true; identityId?: string } | { ok: false } {
 		const now = Date.now();
 		purgeExpired(now);
 		const record = tokens.get(token);
@@ -116,6 +127,9 @@ export function createUpgradeTokenStore(): UpgradeTokenStore {
 		// re-checks the same token sees `ok: false` on the second pass.
 		tokens.delete(token);
 		if (record.expiresAt <= now) return { ok: false };
+		if (record.identityId !== undefined) {
+			return { ok: true, identityId: record.identityId };
+		}
 		return { ok: true };
 	}
 

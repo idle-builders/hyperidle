@@ -19,11 +19,19 @@ const updateSkillSchema = z.object({
 	autonomyLevel: z.number().int().min(1).max(4),
 });
 
-const sendMessageSchema = z.object({
-	senderId: z.string(),
-	subject: z.string().optional(),
-	body: z.string().min(1),
-});
+// L1 step9 (Adv-C2): senderId is NOT accepted from the request body; it is
+// derived from the authenticated identity via `X-Identity` header. The
+// previous body-supplied senderId allowed any caller to forge messages
+// "from" any agent and burn idempotency clientKeys in another sender's
+// namespace. Defense-in-depth even though identity is non-binding for L1a
+// (single shared X-API-Key) — closes the contract surface so a future
+// per-identity key model is not retroactively broken.
+const sendMessageSchema = z
+	.object({
+		subject: z.string().optional(),
+		body: z.string().min(1),
+	})
+	.strict();
 
 /**
  * Create Hono routes for agent endpoints (E6).
@@ -182,23 +190,42 @@ export function createAgentRoutes(db: HyperIdleDb, eventBus: EventBus): Hono {
 		const recipientId = c.req.param("id");
 		const body = c.req.valid("json" as never) as z.infer<typeof sendMessageSchema>;
 
+		// L1 step9 (Adv-C2): derive senderId from the authenticated identity,
+		// never from the request body. `X-Identity` is the L1a convention for
+		// sender attribution under a shared X-API-Key (see threads.ts:50-56).
+		const senderId = c.req.header("X-Identity");
+		if (!senderId) {
+			return c.json(
+				{
+					error: "Missing X-Identity header",
+					code: API_ERROR_CODES.UNAUTHORIZED,
+				},
+				400,
+			);
+		}
+
 		const agent = db.select().from(agents).where(eq(agents.id, recipientId)).get();
 		if (!agent) {
 			return c.json({ error: "Agent not found", code: API_ERROR_CODES.NOT_FOUND }, 404);
+		}
+
+		const senderAgent = db.select().from(agents).where(eq(agents.id, senderId)).get();
+		if (!senderAgent) {
+			return c.json({ error: "Sender identity not found", code: API_ERROR_CODES.NOT_FOUND }, 404);
 		}
 
 		const now = new Date().toISOString();
 
 		// L1 step5 (W14): direct-thread reuse + create lives in
 		// `services/direct-thread.ts` to avoid drift with `skill-tools/send-message.ts`.
-		const threadId = findOrCreateDirectThread(db, body.senderId, recipientId, now);
+		const threadId = findOrCreateDirectThread(db, senderId, recipientId, now);
 
 		const messageId = crypto.randomUUID();
 		const text = body.subject ? `${body.subject}\n\n${body.body}` : body.body;
 		db.insert(messages)
 			.values({
 				id: messageId,
-				senderId: body.senderId,
+				senderId,
 				threadId,
 				type: "plain",
 				payload: JSON.stringify({ text }),

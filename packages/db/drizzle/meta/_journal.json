@@ -57,6 +57,13 @@
 			"when": 1782950400000,
 			"tag": "0007_thread_primitive_l1",
 			"breakpoints": true
+		},
+		{
+			"idx": 8,
+			"version": "6",
+			"when": 1782950500000,
+			"tag": "0008_thread_host_immutability",
+			"breakpoints": true
 		}
 	]
 }

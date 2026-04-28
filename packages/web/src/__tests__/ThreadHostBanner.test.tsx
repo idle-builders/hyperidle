@@ -58,5 +58,4 @@ describe("ThreadHostBanner (approved.md §2.1)", () => {
 		render(<ThreadHostBanner {...baseProps} participants={many} />);
 		expect(screen.getByText(/\+2/)).toBeInTheDocument();
 	});
-
 });

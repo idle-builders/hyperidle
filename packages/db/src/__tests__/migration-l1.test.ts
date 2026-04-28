@@ -282,6 +282,66 @@ describe("L1a migration — legacy data projection (§5.3)", () => {
 	});
 });
 
+describe("L1a — host immutability triggers (Adv-C4)", () => {
+	let db: HyperIdleDb;
+
+	beforeEach(() => {
+		db = migrateFreshDb();
+		const now = new Date().toISOString();
+		db.run(
+			sql.raw(
+				`INSERT INTO agents (id, name, role, status, created_at) VALUES ('u1', 'U', 'founder', 'active', '${now}')`,
+			),
+		);
+		db.run(
+			sql.raw(
+				`INSERT INTO threads (id, host_kind, host_id, initiator_id, participants, pinned, last_active_at, created_at) VALUES ('thr-im', 'task', 'task-1', 'u1', '["u1"]', 0, '${now}', '${now}')`,
+			),
+		);
+	});
+
+	it("UPDATE that changes host_kind raises (immutability trigger)", () => {
+		// Drizzle's better-sqlite3 driver wraps the trigger's RAISE in a
+		// "Failed to run the query" exception. We assert the original
+		// abort message is on `err.cause.message`.
+		try {
+			db.run(sql.raw(`UPDATE threads SET host_kind='bet' WHERE id='thr-im'`));
+			throw new Error("expected trigger to abort the update");
+		} catch (cause) {
+			expect(cause).toBeInstanceOf(Error);
+			const err = cause as Error & { cause?: Error };
+			const message = err.cause?.message ?? err.message;
+			expect(message).toMatch(/host_kind is immutable/);
+		}
+	});
+
+	it("UPDATE that changes host_id raises (immutability trigger)", () => {
+		try {
+			db.run(sql.raw(`UPDATE threads SET host_id='task-99' WHERE id='thr-im'`));
+			throw new Error("expected trigger to abort the update");
+		} catch (cause) {
+			expect(cause).toBeInstanceOf(Error);
+			const err = cause as Error & { cause?: Error };
+			const message = err.cause?.message ?? err.message;
+			expect(message).toMatch(/host_id is immutable/);
+		}
+	});
+
+	it("UPDATE of unrelated columns (resolved_at, last_active_at) succeeds", () => {
+		const later = new Date(Date.now() + 1000).toISOString();
+		// Should NOT raise — only host_kind and host_id are immutable.
+		db.run(
+			sql.raw(
+				`UPDATE threads SET resolved_at='${later}', last_active_at='${later}' WHERE id='thr-im'`,
+			),
+		);
+		const r = db.all<{ resolved_at: string }>(
+			sql.raw(`SELECT resolved_at FROM threads WHERE id='thr-im'`),
+		);
+		expect(r[0].resolved_at).toBe(later);
+	});
+});
+
 describe("L1a migration — Postgres parity (skipped when no PG env)", () => {
 	const HAS_PG = Boolean(process.env.HYPERIDLE_PG_TEST_URL);
 

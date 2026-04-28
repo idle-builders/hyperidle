@@ -6,6 +6,7 @@ import { EventBus } from "@hyperidle/shared";
 import { serve } from "bun";
 import { createApp, disposeApp } from "./app.js";
 import { registerWsRoute, wsHandler } from "./routes/ws.js";
+import { createDbSubscribeAuthorizer, WsBroadcaster } from "./services/ws-broadcaster.js";
 
 /**
  * Handle returned from `createBunServer` so callers can shut the server down
@@ -112,7 +113,12 @@ export async function createBunServer(port: number): Promise<BunServerHandle> {
 		db,
 		eventBus,
 		registerWebSocket: (apiRouter, tokenStore) => {
-			wsDispose = registerWsRoute(apiRouter, eventBus, tokenStore);
+			// L1 step9 (Adv-C1): production WS subscribe must enforce participant
+			// authz on `thread:<id>` topics. The authorizer reads the threads
+			// table on each subscribe call.
+			const broadcaster = new WsBroadcaster(eventBus, createDbSubscribeAuthorizer(db));
+			broadcaster.start();
+			wsDispose = registerWsRoute(apiRouter, eventBus, tokenStore, broadcaster);
 		},
 	});
 

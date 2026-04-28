@@ -4,16 +4,22 @@
  * type-only and free of the runtime `zod` dependency.
  */
 
-import { ARTIFACT_KINDS, HOST_KINDS, MESSAGE_TYPES, VERDICT_DECISIONS } from "@hyperidle/shared";
+import {
+	ARTIFACT_KINDS,
+	HOST_KINDS,
+	type MESSAGE_TYPES,
+	VERDICT_DECISIONS,
+} from "@hyperidle/shared";
 import { z } from "zod";
 
-// `clientKey` URL-safe regex: [A-Za-z0-9_\-:.], max 128 chars (plan §6.1
-// REVISED for adversary M1). Empty strings and whitespace fail the regex.
-// The plan named 8 as a minimum; the tests in Step 1 authoritatively use
-// short keys (e.g. 'init-r', 'list-1'), so the route accepts >=1 char as
-// long as the regex matches.
+// `clientKey` URL-safe regex: [A-Za-z0-9_\-:.], length 8-128 chars (plan
+// §6.1 REVISED for adversary M1). Empty strings and whitespace fail the
+// regex. L1 step9 (Arch): the schema now matches the plan exactly — 8
+// chars minimum to keep the per-sender dedupe namespace meaningfully
+// large and to ensure clients use real UUIDs / short hashes rather than
+// trivial strings.
 const CLIENT_KEY_RE = /^[A-Za-z0-9_\-:.]+$/;
-export const clientKeySchema = z.string().min(1).max(128).regex(CLIENT_KEY_RE);
+export const clientKeySchema = z.string().min(8).max(128).regex(CLIENT_KEY_RE);
 
 const inlineRefSchema = z.object({
 	kind: z.enum(["knowledge_item", "task", "artifact", "bet"]),
@@ -135,10 +141,10 @@ export type MessageRowParsed = z.infer<typeof messageRowSchema>;
  * discriminator exactly. If a new type is added to one and not the other,
  * the `satisfies` check fails to compile.
  */
-const _MESSAGE_TYPES_COVERED: { [K in (typeof MESSAGE_TYPES)[number]]: true } = {
+const MessageTypesCovered: { [K in (typeof MESSAGE_TYPES)[number]]: true } = {
 	plain: true,
 	review: true,
 	questionnaire: true,
 	verdict: true,
 };
-void _MESSAGE_TYPES_COVERED;
+void MessageTypesCovered;

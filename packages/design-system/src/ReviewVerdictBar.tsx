@@ -40,10 +40,10 @@ const BINDING: ReadonlyArray<ButtonSpec> = [
 
 // Defensive guard: BINDING must cover every VerdictDecision exactly once.
 // This is a build-time assertion, executed once on import.
-const _BINDING_COMPLETENESS_CHECK: ReadonlySet<VerdictDecision> = new Set(
+const BindingCompletenessCheck: ReadonlySet<VerdictDecision> = new Set(
 	BINDING.map((b) => b.action),
 );
-if (_BINDING_COMPLETENESS_CHECK.size !== VERDICT_DECISIONS.length) {
+if (BindingCompletenessCheck.size !== VERDICT_DECISIONS.length) {
 	throw new Error("ReviewVerdictBar BINDING does not match VERDICT_DECISIONS");
 }
 
@@ -70,7 +70,11 @@ export function ReviewVerdictBar({ onAction, disabled }: ReviewVerdictBarProps):
 					type="button"
 					disabled={disabled}
 					onClick={(): void => onAction(b.action)}
-					className={`px-[10px] py-[6px] rounded-[var(--r1)] text-[13px] font-medium ${toneClass(b.tone)} disabled:opacity-50 disabled:cursor-not-allowed`}
+					// L1 step9 (Design-C4): 44px minimum touch target at viewport
+					// ≤1024px (AQ-015) — verdict buttons were 28px tall before.
+					// The `min-h-[44px]` floor + the existing padding keeps the
+					// visual weight unchanged on desktop while satisfying the rule.
+					className={`px-[10px] py-[6px] min-h-[44px] rounded-[var(--r1)] text-[13px] font-medium ${toneClass(b.tone)} disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent)]`}
 				>
 					{b.label}
 				</button>

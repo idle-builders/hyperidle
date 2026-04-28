@@ -68,7 +68,10 @@ export function Composer({ threadId, onSubmit, unresolvedReviewLink }: ComposerP
 				<button
 					type="button"
 					onClick={unresolvedReviewLink.onClick}
-					className="text-left text-[12px] text-[var(--accent)] hover:underline"
+					// L1 step9 (Design-C4): minimum 44px touch target at viewport
+					// ≤1024px (AQ-015). The `min-h-[44px]` floor honors the rule
+					// without inflating the visual padding.
+					className="text-left text-[12px] text-[var(--accent)] hover:underline min-h-[44px] flex items-center focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent)]"
 				>
 					Unresolved review · acting required ↑
 				</button>
@@ -79,7 +82,7 @@ export function Composer({ threadId, onSubmit, unresolvedReviewLink }: ComposerP
 				</div>
 			) : null}
 			<textarea
-				className="w-full min-h-[44px] resize-y bg-[var(--surface-2)] text-[var(--text-mid)] placeholder:text-[var(--text-lo)] border border-[var(--border-subtle)] rounded-[var(--r1)] px-[10px] py-[8px] text-[13px] focus:outline-none focus:border-[var(--accent)]"
+				className="w-full min-h-[44px] resize-y bg-[var(--surface-2)] text-[var(--text-mid)] placeholder:text-[var(--text-lo)] border border-[var(--border-subtle)] rounded-[var(--r1)] px-[10px] py-[8px] text-[13px] focus:outline-none focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent)] focus:border-[var(--accent)]"
 				placeholder="Reply to thread…"
 				value={text}
 				onChange={(e): void => setText(e.target.value)}
@@ -94,7 +97,8 @@ export function Composer({ threadId, onSubmit, unresolvedReviewLink }: ComposerP
 						void handleSubmit();
 					}}
 					disabled={submitting || !text.trim()}
-					className="px-[12px] py-[6px] rounded-[var(--r1)] text-[13px] font-medium bg-[var(--accent)] text-[var(--accent-on)] disabled:opacity-50 disabled:cursor-not-allowed"
+					// L1 step9 (Design-C4): 44px minimum touch target.
+					className="px-[12px] py-[6px] min-h-[44px] rounded-[var(--r1)] text-[13px] font-medium bg-[var(--accent)] text-[var(--accent-on)] disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent)]"
 				>
 					{submitting ? "Sending…" : "Send"}
 				</button>

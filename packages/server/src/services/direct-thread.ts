@@ -30,11 +30,7 @@ export function findOrCreateDirectThread(
 		const parsed = JSON.parse(thread.participants);
 		if (!Array.isArray(parsed)) continue;
 		const parts = parsed.filter((p): p is string => typeof p === "string");
-		if (
-			parts.length === 2 &&
-			parts.includes(senderId) &&
-			parts.includes(recipientId)
-		) {
+		if (parts.length === 2 && parts.includes(senderId) && parts.includes(recipientId)) {
 			return thread.id;
 		}
 	}
