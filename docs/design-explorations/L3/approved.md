@@ -136,12 +136,16 @@ The view family is closed at four top-level components. There is no `ArtifactWha
 
 **Cost-pending spec:** Em-dash `—` displayed in the cost slot. Never `$0.00`. Aligns with L4's "render — not a fake number" discipline.
 
+**Thread-pill pluralization spec:** Pill text follows count-based grammar: `0` → not rendered (earned, not given); `1` → `"1 thread"`; `≥2` → `"N threads"`. Stack-row width-constrained variant collapses to numeric-only (`"N"`) when the row's right cluster cannot fit the labelled form; the labelled form is preferred when space permits. The compact form is reserved for the stack layout — gallery and single_full_preview always render the labelled form because they have the width budget.
+
 ---
 
 ## 4. Behavior, motion, keyboard, focus
 
 - **Click-to-open.** GalleryCard / StackItem: clickable everywhere. Embed: only the `→` arrow.
 - **Hover.** Card and row use `--surface-4 → --surface-5` (card) or transparent → `--surface-4` (row) via `--motion-fast` (80ms). Embed has no hover state on the identity strip; ArtifactView owns preview hover.
+- **Pressed.** Card `:active` ramps `--surface-5 → --surface-4` (one surface step down per the AESTHETICS pressed-state convention). Stack row `:active` ramps `--surface-4 → --surface-3`. Embed `→` arrow `:active` ramps `--surface-3 → --surface-2`. All via `--motion-fast`.
+- **Disabled.** Layouts have no disabled state at the L3 level (an Artifact is either rendered or absent). The embed `→` arrow disables only when the artifact's permalink is unreachable (e.g. archived ahead of L3's lifecycle); rendered with `aria-disabled="true"`, `cursor: not-allowed`, color `--text-lo`, and no hover.
 - **Focus ring.** `outline: 1px solid var(--primary); outline-offset: -1px` per `BetCard.html` precedent.
 - **Keyboard.**
   - `Enter` / `Space` opens the focused gallery card or stack item.
@@ -237,9 +241,9 @@ Surfaced from Phase-0 §11 and synthesis. Each must be answered by `/architectur
 
 ## 9. Final critique pass
 
-**Score: 8.0 / 10**
+**Score: 8.2 / 10** (Step 2 /design-critique re-score after adopting the pressed/disabled state matrix and thread-pill pluralization fixes; see `critique.md`).
 
-(H:8 S:8 T:8 C:8 Co:9 St:7 A:8 AS:9 PP:7)
+(H:8 S:8 T:8 C:8 Co:9 St:8 A:8 AS:9 PP:8)
 
 | Dimension | Score | Notes |
 |---|---|---|
@@ -248,10 +252,10 @@ Surfaced from Phase-0 §11 and synthesis. Each must be answered by `/architectur
 | Typography | 8 | Geist + Geist Mono; 11/13/14/15/20 px scale; three weights only. |
 | Color Usage | 8 | Monochrome + danger for diff `−`; ok for diff `+` and verification pass count; danger for verification fail count. Color = information. |
 | Coherence | 9 | Shared sub-primitives across all four layouts. Embed enforced as a separate component, lintable. |
-| States | 7 | Spec-complete (5 states × 4 layouts). One round of mockup state-rendering recommended in implementation, but the spec is unambiguous. |
-| Accessibility | 8 | Tabindex, focus-visible, aria-labels on the embed arrow specified. Keyboard model documented. Touch targets satisfy AQ-015. |
+| States | 8 | Spec-complete (5 states × 4 layouts) plus thread-pill pluralization rule and pressed/disabled state. Mockup state-rendering deferred to implementation stories — spec is unambiguous and verifiable via the state matrix. |
+| Accessibility | 8 | Tabindex, focus-visible, aria-labels on the embed arrow specified. `aria-disabled` on the unreachable embed arrow specified. Keyboard model documented. Touch targets satisfy AQ-015. |
 | Anti-Slop | 9 | Zero AI-aesthetic tells. All AQ-101..AQ-113 cleared. |
-| Premium Polish | 7 | Tabular-nums, letter-spacing, motion tokens, reduced-motion, halation guard, mobile-input-size, auto-density — all required, all specified. Could be 8 if the hover-pressed-disabled state matrix were drawn for every interactive element; deferred to implementation stories. |
+| Premium Polish | 8 | Tabular-nums, letter-spacing, motion tokens, reduced-motion, halation guard, mobile-input-size, auto-density, hover/pressed/disabled matrix — all required, all specified. Sub-primitive variant API (`ArtifactCostChip variant="full|compact"`) avoids inline overrides. |
 
 **Above the threshold (≥7).** No further iteration required at the design phase.
 
