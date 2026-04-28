@@ -315,3 +315,121 @@ stories:
     title: Density Ladder Re-validation & Tuning
     track: K
     depends: [K11, K12]
+
+  # Track L: Journey-Aligned Improvements
+  - id: L1
+    title: Concept — Thread primitive across all areas
+    track: L
+    depends: []
+  - id: L2
+    title: Concept — Block primitive in markdown
+    track: L
+    depends: []
+  - id: L3
+    title: Concept — Cost & Tokens (no Duration) appetite model
+    track: L
+    depends: []
+  - id: L4
+    title: Concept — Knowledge relevance signals (citation-driven impact)
+    track: L
+    depends: []
+  - id: L5
+    title: Hardcoded-data inventory (research)
+    track: L
+    depends: []
+  - id: L6
+    title: Wire verdict commit + auto-advance
+    track: L
+    depends: []
+  - id: L7
+    title: Promote Thread primitive into shared
+    track: L
+    depends: [L1]
+  - id: L8
+    title: Render ThreadSections in Conversations Submenu
+    track: L
+    depends: [L7]
+  - id: L9
+    title: Collapse review/chat to one detail route
+    track: L
+    depends: [L7]
+  - id: L10
+    title: Submenu filter chips actually filter
+    track: L
+    depends: [L8]
+  - id: L11
+    title: Replace ReviewHeader with shape-driven ThreadActionBar (inline)
+    track: L
+    depends: [L7]
+  - id: L12
+    title: Mount artifact stack on every Work level
+    track: L
+    depends: [L13]
+  - id: L13
+    title: Add Product=Team level (drill-down hierarchy)
+    track: L
+    depends: []
+  - id: L14
+    title: Bet-level human actions with consequence preview
+    track: L
+    depends: [L3]
+  - id: L15
+    title: Strip Kanban drag; add request-state-change + start-thread
+    track: L
+    depends: [L7]
+  - id: L16
+    title: Render bet pitch as blocks-in-markdown
+    track: L
+    depends: [L2]
+  - id: L17
+    title: Cost + Tokens model wired into Work
+    track: L
+    depends: [L3]
+  - id: L18
+    title: Thread primitive attached to bets, tasks, artifacts
+    track: L
+    depends: [L7, L16]
+  - id: L19
+    title: Harness jump-out from session metadata
+    track: L
+    depends: []
+  - id: L20
+    title: Auto-rollover / auto-carry primitive at cycle boundary
+    track: L
+    depends: [L14, L17]
+  - id: L21
+    title: CoC create-on-the-fly (bottom-right rail overlay thread)
+    track: L
+    depends: [L7]
+  - id: L22
+    title: Three relevance signals as first-class data
+    track: L
+    depends: [L4]
+  - id: L23
+    title: Blocks-in-markdown body renderer (Knowledge)
+    track: L
+    depends: [L2]
+  - id: L24
+    title: Linking primitive (wiki-link + backlinks)
+    track: L
+    depends: [L23]
+  - id: L25
+    title: Continuity-loop verbs as typed actions
+    track: L
+    depends: []
+  - id: L26
+    title: Per-block thread + comment affordance (Knowledge)
+    track: L
+    depends: [L7, L23]
+  - id: L27
+    title: Knowledge-lifecycle status (not Work-status chips)
+    track: L
+    depends: []
+  - id: L28
+    title: Six knowledge shapes differentiated in row + detail
+    track: L
+    depends: []
+  - id: L29
+    title: Final sweep — hardcoded data + test coverage gap
+    track: L
+    depends: [L5, L6, L7, L8, L9, L10, L11, L12, L13, L14, L15, L16, L17, L18, L19, L20, L21, L22, L23, L24, L25, L26, L27, L28]
