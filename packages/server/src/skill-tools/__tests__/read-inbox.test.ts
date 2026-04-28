@@ -42,16 +42,30 @@ function seedFactory(db: HyperIdleDb): void {
 			},
 		])
 		.run();
+	// L1a: thread participants now drive inbox routing (no more
+	// messages.recipient_id). Thread A↔B serves the agent-a and agent-b
+	// inboxes; thread A↔(orphan) is for the "addressed to other agents" test.
 	db.insert(threads)
-		.values({
-			id: "thread-1",
-			hostKind: "task",
-			hostId: "task-1",
-			initiatorId: "agent-1",
-			participants: JSON.stringify(["agent-1"]),
-			lastActiveAt: now,
-			createdAt: now,
-		})
+		.values([
+			{
+				id: "thread-ab",
+				hostKind: "agent",
+				hostId: "agent-b",
+				initiatorId: "agent-a",
+				participants: JSON.stringify(["agent-a", "agent-b"]),
+				lastActiveAt: now,
+				createdAt: now,
+			},
+			{
+				id: "thread-ba",
+				hostKind: "agent",
+				hostId: "agent-a",
+				initiatorId: "agent-b",
+				participants: JSON.stringify(["agent-a", "agent-b"]),
+				lastActiveAt: now,
+				createdAt: now,
+			},
+		])
 		.run();
 }
 
@@ -67,6 +81,9 @@ function makeContext(db: HyperIdleDb, agentId = "agent-a"): ToolContext {
 	};
 }
 
+// L1a: insertMessage now picks the thread by recipient — recipient is the
+// non-sender participant of the (sender,recipient) direct pair. The agent
+// inbox tool filters by participation, not by a recipient column.
 function insertMessage(
 	db: HyperIdleDb,
 	id: string,
@@ -75,14 +92,15 @@ function insertMessage(
 	body: string,
 	createdAt: string,
 ): void {
+	const threadId = recipientId === "agent-a" ? "thread-ba" : "thread-ab";
 	db.insert(messages)
 		.values({
 			id,
 			senderId,
-			recipientId,
-			threadId: "thread-1",
-			subject: null,
-			body,
+			threadId,
+			type: "plain",
+			payload: JSON.stringify({ text: body }),
+			clientKey: id,
 			createdAt,
 		})
 		.run();

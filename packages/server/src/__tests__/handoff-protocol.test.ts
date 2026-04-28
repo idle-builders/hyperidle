@@ -176,7 +176,9 @@ describe("Handoff Protocol", () => {
 				.where(eq(messages.threadId, "thread-task-1"))
 				.all();
 			expect(threadMsgs).toHaveLength(1);
-			const body = JSON.parse(threadMsgs[0].body);
+			// L1a: handoff message body lives in the JSON `payload` column
+			// (subject/body dropped — see plan §5.3).
+			const body = JSON.parse(threadMsgs[0].payload);
 			expect(body.type).toBe("handoff");
 			expect(body.context_id).toBe("ctx-1");
 			expect(body.reason).toBe("Need a builder to continue");
@@ -308,7 +310,9 @@ describe("Handoff Protocol", () => {
 				.where(eq(messages.threadId, "thread-task-1"))
 				.all();
 			expect(threadMsgs).toHaveLength(1);
-			const body = JSON.parse(threadMsgs[0].body);
+			// L1a: handoff message body lives in the JSON `payload` column
+			// (subject/body dropped — see plan §5.3).
+			const body = JSON.parse(threadMsgs[0].payload);
 			expect(body).toEqual({
 				type: "handoff",
 				context_id: "ctx-42",
@@ -345,7 +349,9 @@ describe("Handoff Protocol", () => {
 				.from(messages)
 				.where(eq(messages.threadId, "thread-task-1"))
 				.all();
-			const body = JSON.parse(threadMsgs[0].body);
+			// L1a: handoff message body lives in the JSON `payload` column
+			// (subject/body dropped — see plan §5.3).
+			const body = JSON.parse(threadMsgs[0].payload);
 			expect(body.status).toBe("failed");
 			expect(body.error).toBe("TypeError: Cannot read properties of undefined");
 		});

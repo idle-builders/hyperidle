@@ -141,12 +141,19 @@ describe("Rail Endpoint (E5)", () => {
 				})
 				.run();
 
-			// Create a thread + item awaiting ordering
+			// L1a: thread shape now uses host_kind/host_id/initiator/participants/
+			// last_active_at instead of `kind`. Legacy `kind='review'` projects
+			// to host_kind='task' for an item-scoped review thread (plan §5.3).
+			const ts = new Date().toISOString();
 			db.insert(threads)
 				.values({
 					id: "thread-1",
-					kind: "review",
-					createdAt: new Date().toISOString(),
+					hostKind: "task",
+					hostId: "task-ok-1",
+					initiatorId: "team-1",
+					participants: JSON.stringify([]),
+					lastActiveAt: ts,
+					createdAt: ts,
 				})
 				.run();
 

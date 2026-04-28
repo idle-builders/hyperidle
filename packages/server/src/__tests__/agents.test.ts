@@ -154,9 +154,11 @@ describe("Agent Endpoints (E6)", () => {
 				body: JSON.stringify({ autonomyLevel: 4 }),
 			});
 
-			// Verify review thread was created
+			// L1a: legacy `kind='review'` projects to host_kind='agent' for an
+			// agent-scoped autonomy review (plan §5.3). Find the thread by
+			// the agent host and the linked autonomy_change item.
 			const allThreads = db.select().from(threads).all();
-			const reviewThread = allThreads.find((t) => t.kind === "review");
+			const reviewThread = allThreads.find((t) => t.hostKind === "agent" && t.hostId === "agent-1");
 			expect(reviewThread).toBeDefined();
 
 			// Verify item was created
@@ -233,9 +235,12 @@ describe("Agent Endpoints (E6)", () => {
 			const res = await app.request("/api/agents/agent-1/inbox", { headers: authHeaders() });
 			expect(res.status).toBe(200);
 
-			const body = (await res.json()) as Array<Record<string, unknown>>;
+			// L1a: messages now carry payload (JSON), not body. The route
+			// returns the row as-is.
+			const body = (await res.json()) as Array<{ payload: string; senderId: string }>;
 			expect(body).toHaveLength(1);
-			expect(body[0].body).toBe("Hello!");
+			const payload = JSON.parse(body[0].payload) as { text?: string };
+			expect(payload.text).toBe("Hello!");
 		});
 
 		it("returns 404 for unknown agent", async () => {

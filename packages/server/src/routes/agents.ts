@@ -91,11 +91,19 @@ export function createAgentRoutes(db: HyperIdleDb, eventBus: EventBus): Hono {
 			const threadId = crypto.randomUUID();
 			const now = new Date().toISOString();
 
+			// L1a: legacy `kind='review'` threads project to host_kind='agent'
+			// for an agent-scoped autonomy review (plan §5.3 SHARED.md rules:
+			// review/chat threads infer host from the referencing item's
+			// scope; here the item is layer='meta', kind='autonomy_change'
+			// targeting the agent whose skill autonomy changed).
 			db.insert(threads)
 				.values({
 					id: threadId,
-					kind: "review",
+					hostKind: "agent",
+					hostId: agentId,
+					initiatorId: agentId,
 					participants: JSON.stringify([agentId]),
+					lastActiveAt: now,
 					createdAt: now,
 				})
 				.run();
