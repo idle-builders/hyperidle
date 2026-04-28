@@ -69,4 +69,19 @@ describe("ArtifactEmbed", () => {
 		arrow?.click();
 		expect(onOpen).toHaveBeenCalledTimes(1);
 	});
+
+	// L3 review D-B5 — viewSlot delegates the rich preview render
+	it("renders the injected viewSlot in place of the summary fallback", () => {
+		act(() => {
+			root.render(
+				createElement(ArtifactEmbed, {
+					data: FIXTURE,
+					onOpen: () => undefined,
+					viewSlot: createElement("div", { "data-testid": "delegated-view" }, "DELEGATED CONTENT"),
+				}),
+			);
+		});
+		expect(container.querySelector("[data-testid='delegated-view']")).toBeTruthy();
+		expect(container.textContent).toContain("DELEGATED CONTENT");
+	});
 });

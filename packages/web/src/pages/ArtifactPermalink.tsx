@@ -17,19 +17,13 @@ export function ArtifactPermalink(): JSX.Element {
 		if (error?.includes("404")) {
 			return (
 				<div className="p-6">
-					<EmptyState
-						title="Artifact not found"
-						description="No artifact exists at this id."
-					/>
+					<EmptyState title="Artifact not found" description="No artifact exists at this id." />
 				</div>
 			);
 		}
 		return (
 			<div className="p-6">
-				<ErrorState
-					title="Failed to load artifact"
-					description={error ?? "Unknown error"}
-				/>
+				<ErrorState title="Failed to load artifact" description={error ?? "Unknown error"} />
 			</div>
 		);
 	}

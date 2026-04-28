@@ -12,8 +12,9 @@ export interface ArtifactStackItemProps {
 	state?: "populated" | "loading" | "error";
 }
 
+// @lore L3 review fix D-B1: focus ring uses --primary; --accent is not a token.
 const ROW =
-	"flex items-center gap-[12px] h-[44px] px-[12px] cursor-pointer hover:bg-[var(--surface-4)] focus:outline focus:outline-2 focus:outline-[var(--accent)] w-full text-left";
+	"flex items-center gap-[12px] h-[44px] px-[12px] cursor-pointer hover:bg-[var(--surface-4)] focus:outline focus:outline-2 focus:outline-[var(--primary)] w-full text-left";
 const LEFT = "flex items-center gap-[8px] flex-1 min-w-0";
 const TASK = "font-mono text-[11px] text-[var(--text-mid)] truncate";
 const TITLE = "text-[14px] font-medium text-[var(--text-hi)] truncate";

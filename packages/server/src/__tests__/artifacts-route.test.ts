@@ -407,20 +407,127 @@ describe("L3 PATCH immutability (preview, cost) — protected", () => {
 
 	it("second PATCH /cost returns 409 IMMUTABLE", async () => {
 		const s = seed(db);
-		insertArtifact(db, "art_costimm", s.taskId, {
-			costMoneyMicros: 1000,
-			costTokensInput: 10,
-			costTokensOutput: 10,
+		// Settled rows have cost_settled_at; we settle via the route to model
+		// the real lifecycle.
+		insertArtifact(db, "art_costimm", s.taskId);
+		const settle = await app.request("/api/artifacts/art_costimm/cost", {
+			method: "PATCH",
+			headers: authHeaders(),
+			body: JSON.stringify({ money_micros: 1000, tokens_input: 10, tokens_output: 10 }),
 		});
+		expect(settle.status).toBe(200);
 		const res = await app.request("/api/artifacts/art_costimm/cost", {
 			method: "PATCH",
 			headers: authHeaders(),
-			body: JSON.stringify({
-				money_micros: 2000,
-				tokens_input: 20,
-				tokens_output: 20,
-			}),
+			body: JSON.stringify({ money_micros: 2000, tokens_input: 20, tokens_output: 20 }),
 		});
 		expect(res.status).toBe(409);
+	});
+
+	// L3 review fix Adv-B6: a partial-cost row (any non-null cost column with
+	// cost_settled_at NULL) must NOT be locked out of completion.
+	it("partial cost row (cost_settled_at IS NULL) is still PATCHable to completion", async () => {
+		const s = seed(db);
+		// Insert with a partially-populated cost row but no settled marker.
+		insertArtifact(db, "art_partial", s.taskId, {
+			costMoneyMicros: 500,
+			costTokensInput: null,
+			costTokensOutput: null,
+		});
+		const res = await app.request("/api/artifacts/art_partial/cost", {
+			method: "PATCH",
+			headers: authHeaders(),
+			body: JSON.stringify({ money_micros: 1000, tokens_input: 10, tokens_output: 10 }),
+		});
+		expect(res.status).toBe(200);
+	});
+
+	// L3 review fix Sec-MED-3: cost numeric Zod must reject -1, NaN, fractions.
+	it("rejects negative cost values with 400", async () => {
+		const s = seed(db);
+		insertArtifact(db, "art_neg", s.taskId);
+		const res = await app.request("/api/artifacts/art_neg/cost", {
+			method: "PATCH",
+			headers: authHeaders(),
+			body: JSON.stringify({ money_micros: -1, tokens_input: 0, tokens_output: 0 }),
+		});
+		expect(res.status).toBe(400);
+	});
+
+	it("rejects fractional cost values with 400", async () => {
+		const s = seed(db);
+		insertArtifact(db, "art_frac", s.taskId);
+		const res = await app.request("/api/artifacts/art_frac/cost", {
+			method: "PATCH",
+			headers: authHeaders(),
+			body: JSON.stringify({ money_micros: 1.5, tokens_input: 0, tokens_output: 0 }),
+		});
+		expect(res.status).toBe(400);
+	});
+});
+
+// L3 review fix Adv-B5 — cursor roundtrip yields a non-overlapping next page.
+describe("L3 GET /api/artifacts pagination cursor", () => {
+	let db: HyperIdleDb;
+	let app: Hono;
+
+	beforeEach(() => {
+		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
+		db = createTestDb();
+		app = createTestApp({ db, eventBus: new EventBus() });
+	});
+
+	afterEach(() => vi.unstubAllEnvs());
+
+	it("cursor roundtrip: page 2 yields non-overlapping older artifacts", async () => {
+		const s = seed(db);
+		// Insert 5 artifacts with monotonically increasing createdAt.
+		for (let i = 0; i < 5; i++) {
+			db.insert(artifacts)
+				.values({
+					id: `art_${i}`,
+					producingTaskId: s.taskId,
+					kind: "decision",
+					previewJson: null,
+					costMoneyMicros: null,
+					costTokensInput: null,
+					costTokensOutput: null,
+					costSettledAt: null,
+					createdAt: `2026-04-28T00:00:0${i}.000Z`,
+				})
+				.run();
+		}
+		const page1 = await app.request(`/api/artifacts?axis=task&taskId=${s.taskId}&limit=2`, {
+			headers: authHeaders(),
+		});
+		const body1 = (await page1.json()) as {
+			items: Array<{ id: string }>;
+			nextCursor: string | null;
+		};
+		expect(body1.items.length).toBe(2);
+		expect(body1.nextCursor).not.toBeNull();
+		const ids1 = body1.items.map((i) => i.id);
+
+		const page2 = await app.request(
+			`/api/artifacts?axis=task&taskId=${s.taskId}&limit=2&cursor=${encodeURIComponent(body1.nextCursor ?? "")}`,
+			{ headers: authHeaders() },
+		);
+		const body2 = (await page2.json()) as {
+			items: Array<{ id: string }>;
+			nextCursor: string | null;
+		};
+		expect(body2.items.length).toBe(2);
+		const ids2 = body2.items.map((i) => i.id);
+		// No overlap between page 1 and page 2.
+		for (const id of ids2) expect(ids1).not.toContain(id);
+	});
+
+	it("rejects malformed cursor with 400", async () => {
+		const s = seed(db);
+		insertArtifact(db, "art_x", s.taskId);
+		const res = await app.request(`/api/artifacts?axis=task&taskId=${s.taskId}&cursor=no-pipe`, {
+			headers: authHeaders(),
+		});
+		expect(res.status).toBe(400);
 	});
 });

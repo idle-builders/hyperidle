@@ -10,6 +10,7 @@ import type { RouteObject } from "react-router-dom";
  */
 import { createBrowserRouter, Navigate, RouterProvider } from "react-router-dom";
 import { AppShell } from "./layouts/AppShell";
+import { ArtifactPermalink } from "./pages/ArtifactPermalink";
 import { ConversationsChat } from "./pages/ConversationsChat";
 import { ConversationsReview } from "./pages/ConversationsReview";
 import { KnowledgeDetail } from "./pages/KnowledgeDetail";
@@ -33,6 +34,8 @@ function buildRoutes(): RouteObject[] {
 				{ path: "work/bet/:betId", element: <WorkBet /> },
 				{ path: "knowledge", element: <KnowledgeList /> },
 				{ path: "knowledge/:knowledgeId", element: <KnowledgeDetail /> },
+				// L3 review fix Arch-M1 / D-M4: wire the ArtifactPermalink page.
+				{ path: "artifacts/:id", element: <ArtifactPermalink /> },
 				{
 					path: "settings",
 					element: <Navigate to="/conversations/review?settings=open" replace />,

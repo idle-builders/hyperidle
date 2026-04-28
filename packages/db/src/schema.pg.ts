@@ -1,4 +1,5 @@
 import {
+	bigint,
 	boolean,
 	index,
 	integer,
@@ -397,9 +398,13 @@ export const artifacts = pgTable(
 			.references(() => tasks.id, { onDelete: "restrict" }),
 		kind: text("kind").notNull(),
 		previewJson: text("preview_json"),
-		costMoneyMicros: integer("cost_money_micros"),
-		costTokensInput: integer("cost_tokens_input"),
-		costTokensOutput: integer("cost_tokens_output"),
+		// L3 review fix Sec-INFO-1: cost columns must be bigint. PG `integer`
+		// overflows at ~$2.1k of micros (2^31-1 / 1e6 ≈ $2147). SQLite remains
+		// `integer` (SQLite ints are 64-bit by default). Drizzle bigint with
+		// `mode: 'number'` keeps the JS-side type identical to SQLite's.
+		costMoneyMicros: bigint("cost_money_micros", { mode: "number" }),
+		costTokensInput: bigint("cost_tokens_input", { mode: "number" }),
+		costTokensOutput: bigint("cost_tokens_output", { mode: "number" }),
 		costSettledAt: text("cost_settled_at"),
 		createdAt: text("created_at").notNull(),
 	},

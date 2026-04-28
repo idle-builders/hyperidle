@@ -10,7 +10,7 @@ import {
 	type ArtifactPreview,
 	formatArtifactCost,
 } from "@hyperidle/shared";
-import { and, desc, eq, inArray, isNull } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull, lt, or } from "drizzle-orm";
 import { Hono } from "hono";
 import { z } from "zod";
 import { createBodyLimit } from "../middleware/body-limit.js";
@@ -18,8 +18,19 @@ import { validateBody } from "../middleware/validate.js";
 
 const RECOGNISED_KIND_VALUES = ARTIFACT_KINDS as readonly string[];
 const PREVIEW_BODY_LIMIT = 64 * 1024;
+// L3 review fix Sec-MED-1: cost payloads are tiny; cap at 4 KiB.
+const COST_BODY_LIMIT = 4 * 1024;
 const DEFAULT_LIMIT = 50;
 const HARD_LIMIT_CAP = 200;
+// L3 review fix Sec-MED-4: cap intermediate task-id materialisation. Beyond
+// this we'd need a sub-select rewrite; reject with 400 to surface the limit
+// rather than silently truncate.
+const MAX_TASK_ID_FANOUT = 1000;
+
+// L3 review fix Sec-MED-3: numeric cost fields must be non-negative finite
+// integers. `z.number().nullable()` previously accepted -1, NaN, Infinity,
+// and fractions — see security-review.md MEDIUM-3.
+const costNumberSchema = z.number().int().nonnegative().finite().nullable();
 
 // @lore L3 / L1 forward-compat: when L1 ships threads.attached_host_*, the
 // thread_count subquery (currently constant 0) reads:
@@ -105,18 +116,18 @@ const createArtifactSchema = z.object({
 	preview: artifactPreviewSchema.nullable(),
 	cost: z
 		.object({
-			money_micros: z.number().nullable(),
-			tokens_input: z.number().nullable(),
-			tokens_output: z.number().nullable(),
+			money_micros: costNumberSchema,
+			tokens_input: costNumberSchema,
+			tokens_output: costNumberSchema,
 		})
 		.nullable(),
 });
 
 const patchPreviewSchema = z.object({ preview: artifactPreviewSchema });
 const patchCostSchema = z.object({
-	money_micros: z.number().nullable(),
-	tokens_input: z.number().nullable(),
-	tokens_output: z.number().nullable(),
+	money_micros: costNumberSchema,
+	tokens_input: costNumberSchema,
+	tokens_output: costNumberSchema,
 });
 
 interface ArtifactRow {
@@ -136,10 +147,16 @@ function rowToArtifact(row: ArtifactRow, producingTaskTitle: string): Artifact {
 	const kind = (recognised ? row.kind : "unknown_kind") as ArtifactKind;
 	let preview: ArtifactPreview | null = null;
 	if (recognised && row.previewJson) {
-		// We control writes (always JSON.stringify of ArtifactPreview); a parse
-		// failure here is a real corruption bug — let it propagate.
-		const parsed = JSON.parse(row.previewJson) as ArtifactPreview;
-		if (parsed.kind === kind) preview = parsed;
+		// L3 review fix Sec-LOW-1: defence-in-depth. Even though we control
+		// writes, validate data-at-rest with the same schema we apply to
+		// inbound POST/PATCH. A schema mismatch (corruption, manual SQL,
+		// future-version drift) yields preview=null instead of crashing or
+		// trusting bad data. JSON.parse exceptions still propagate as 500.
+		const raw: unknown = JSON.parse(row.previewJson);
+		const parsed = artifactPreviewSchema.safeParse(raw);
+		if (parsed.success && parsed.data.kind === kind) {
+			preview = parsed.data;
+		}
 	}
 	return {
 		id: row.id,
@@ -184,7 +201,16 @@ export function createArtifactRoutes(db: HyperIdleDb): Hono {
 			if (!betId) {
 				return c.json({ error: "betId required", code: "INVALID_QUERY" }, 400);
 			}
-			const rows = db.select({ id: tasks.id }).from(tasks).where(eq(tasks.betId, betId)).all();
+			// L3 review fix Sec-MED-4: cap intermediate id materialisation.
+			const rows = db
+				.select({ id: tasks.id })
+				.from(tasks)
+				.where(eq(tasks.betId, betId))
+				.limit(MAX_TASK_ID_FANOUT + 1)
+				.all();
+			if (rows.length > MAX_TASK_ID_FANOUT) {
+				return c.json({ error: "Task fan-out too large", code: "FANOUT_TOO_LARGE" }, 400);
+			}
 			taskIds = rows.map((r) => r.id);
 		} else if (axis === "product") {
 			const productId = c.req.query("productId");
@@ -195,8 +221,29 @@ export function createArtifactRoutes(db: HyperIdleDb): Hono {
 				.select({ id: tasks.id })
 				.from(tasks)
 				.where(eq(tasks.productId, productId))
+				.limit(MAX_TASK_ID_FANOUT + 1)
 				.all();
+			if (rows.length > MAX_TASK_ID_FANOUT) {
+				return c.json({ error: "Task fan-out too large", code: "FANOUT_TOO_LARGE" }, 400);
+			}
 			taskIds = rows.map((r) => r.id);
+		}
+
+		// L3 review fix Adv-B5: composite cursor on (createdAt, id) — ISO-only
+		// timestamps cannot disambiguate ties. Encoded as `createdAt|id`.
+		const cursorParam = c.req.query("cursor");
+		let cursorClause: ReturnType<typeof or> | undefined;
+		if (cursorParam) {
+			const sep = cursorParam.lastIndexOf("|");
+			if (sep <= 0) {
+				return c.json({ error: "Invalid cursor", code: "INVALID_CURSOR" }, 400);
+			}
+			const cursorCreatedAt = cursorParam.slice(0, sep);
+			const cursorId = cursorParam.slice(sep + 1);
+			cursorClause = or(
+				lt(artifacts.createdAt, cursorCreatedAt),
+				and(eq(artifacts.createdAt, cursorCreatedAt), lt(artifacts.id, cursorId)),
+			);
 		}
 
 		const baseQuery = db
@@ -207,23 +254,27 @@ export function createArtifactRoutes(db: HyperIdleDb): Hono {
 			.from(artifacts)
 			.innerJoin(tasks, eq(tasks.id, artifacts.producingTaskId));
 
+		const filterClauses = [
+			taskIds === null ? undefined : inArray(artifacts.producingTaskId, taskIds),
+			cursorClause,
+		].filter((c) => c !== undefined);
+		const whereClause = filterClauses.length > 0 ? and(...filterClauses) : undefined;
+
 		const rows =
-			taskIds === null
-				? baseQuery
-						.orderBy(desc(artifacts.createdAt))
+			taskIds !== null && taskIds.length === 0
+				? []
+				: (whereClause === undefined ? baseQuery : baseQuery.where(whereClause))
+						.orderBy(desc(artifacts.createdAt), desc(artifacts.id))
 						.limit(limit + 1)
-						.all()
-				: taskIds.length === 0
-					? []
-					: baseQuery
-							.where(inArray(artifacts.producingTaskId, taskIds))
-							.orderBy(desc(artifacts.createdAt))
-							.limit(limit + 1)
-							.all();
+						.all();
 
 		const sliced = rows.slice(0, limit);
 		const items = sliced.map((r) => rowToArtifact(r.artifact, r.taskTitle));
-		const nextCursor = rows.length > limit ? (items[items.length - 1]?.createdAt ?? null) : null;
+		// Cursor encodes the last returned row's (createdAt, id) so the next
+		// page query is monotonically older.
+		const last = sliced[sliced.length - 1];
+		const nextCursor =
+			rows.length > limit && last ? `${last.artifact.createdAt}|${last.artifact.id}` : null;
 
 		const page: ArtifactPage = { items, nextCursor };
 		return c.json(page);
@@ -326,59 +377,49 @@ export function createArtifactRoutes(db: HyperIdleDb): Hono {
 		},
 	);
 
-	router.patch("/:id/cost", validateBody(patchCostSchema), (c) => {
-		const id = c.req.param("id");
-		const body = c.req.valid("json" as never) as z.infer<typeof patchCostSchema>;
-		const now = new Date().toISOString();
-		// @lore L3: cost is "settled" when ANY of the cost columns is non-null
-		// OR cost_settled_at is non-null. Race-safe SELECT-then-UPDATE-with-WHERE-NULL.
-		const existing = db
-			.select({
-				money: artifacts.costMoneyMicros,
-				ti: artifacts.costTokensInput,
-				to: artifacts.costTokensOutput,
-				settled: artifacts.costSettledAt,
-			})
-			.from(artifacts)
-			.where(eq(artifacts.id, id))
-			.get();
-		if (!existing) return c.json({ error: "Not found", code: "NOT_FOUND" }, 404);
-		if (
-			existing.money !== null ||
-			existing.ti !== null ||
-			existing.to !== null ||
-			existing.settled !== null
-		) {
-			return c.json({ error: "Cost already settled", code: "IMMUTABLE" }, 409);
-		}
-		const updated = db
-			.update(artifacts)
-			.set({
-				costMoneyMicros: body.money_micros,
-				costTokensInput: body.tokens_input,
-				costTokensOutput: body.tokens_output,
-				costSettledAt: now,
-			})
-			.where(
-				and(
-					eq(artifacts.id, id),
-					isNull(artifacts.costMoneyMicros),
-					isNull(artifacts.costTokensInput),
-					isNull(artifacts.costTokensOutput),
-				),
-			)
-			.run();
-		if (updated.changes === 0) {
-			const exists = db
-				.select({ id: artifacts.id })
+	router.patch(
+		"/:id/cost",
+		// L3 review fix Sec-MED-1: explicit small body limit on cost payloads.
+		createBodyLimit({ maxSize: COST_BODY_LIMIT }),
+		validateBody(patchCostSchema),
+		(c) => {
+			const id = c.req.param("id");
+			const body = c.req.valid("json" as never) as z.infer<typeof patchCostSchema>;
+			const now = new Date().toISOString();
+			// L3 review fix Adv-B6: settled is defined ONLY by `cost_settled_at IS
+			// NOT NULL`. Conflating any non-null cost column with "settled"
+			// previously locked partially-populated rows out of completion.
+			const existing = db
+				.select({ settled: artifacts.costSettledAt })
 				.from(artifacts)
 				.where(eq(artifacts.id, id))
 				.get();
-			if (!exists) return c.json({ error: "Not found", code: "NOT_FOUND" }, 404);
-			return c.json({ error: "Cost already settled", code: "IMMUTABLE" }, 409);
-		}
-		return c.json({ ok: true });
-	});
+			if (!existing) return c.json({ error: "Not found", code: "NOT_FOUND" }, 404);
+			if (existing.settled !== null) {
+				return c.json({ error: "Cost already settled", code: "IMMUTABLE" }, 409);
+			}
+			const updated = db
+				.update(artifacts)
+				.set({
+					costMoneyMicros: body.money_micros,
+					costTokensInput: body.tokens_input,
+					costTokensOutput: body.tokens_output,
+					costSettledAt: now,
+				})
+				.where(and(eq(artifacts.id, id), isNull(artifacts.costSettledAt)))
+				.run();
+			if (updated.changes === 0) {
+				const exists = db
+					.select({ id: artifacts.id })
+					.from(artifacts)
+					.where(eq(artifacts.id, id))
+					.get();
+				if (!exists) return c.json({ error: "Not found", code: "NOT_FOUND" }, 404);
+				return c.json({ error: "Cost already settled", code: "IMMUTABLE" }, 409);
+			}
+			return c.json({ ok: true });
+		},
+	);
 
 	return router;
 }
