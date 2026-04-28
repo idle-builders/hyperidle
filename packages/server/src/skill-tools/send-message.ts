@@ -1,7 +1,8 @@
 import * as crypto from "node:crypto";
-import { agents, messages, threads } from "@hyperidle/db";
-import { and, eq } from "drizzle-orm";
+import { agents, messages } from "@hyperidle/db";
+import { eq } from "drizzle-orm";
 import { z } from "zod";
+import { findOrCreateDirectThread } from "../services/direct-thread.js";
 import type { ToolContext, ToolDefinition } from "./tool-registry.js";
 import { err, ok, type ToolResult } from "./tool-result.js";
 
@@ -28,41 +29,9 @@ async function handler(args: SendMessageInput, ctx: ToolContext): Promise<ToolRe
 
 	const now = new Date().toISOString();
 
-	// L1a: legacy `kind='direct'` threads now project as host_kind='agent' +
-	// host_id=recipient. The (host_kind,host_id) index covers this lookup.
-	const directThreads = ctx.db
-		.select()
-		.from(threads)
-		.where(and(eq(threads.hostKind, "agent"), eq(threads.hostId, to)))
-		.all();
-	let threadId: string | undefined;
-	for (const thread of directThreads) {
-		const participants = JSON.parse(thread.participants) as string[];
-		if (
-			participants.length === 2 &&
-			participants.includes(ctx.agentId) &&
-			participants.includes(to)
-		) {
-			threadId = thread.id;
-			break;
-		}
-	}
-
-	if (!threadId) {
-		threadId = crypto.randomUUID();
-		ctx.db
-			.insert(threads)
-			.values({
-				id: threadId,
-				hostKind: "agent",
-				hostId: to,
-				initiatorId: ctx.agentId,
-				participants: JSON.stringify([ctx.agentId, to]),
-				lastActiveAt: now,
-				createdAt: now,
-			})
-			.run();
-	}
+	// L1 step5 (W14): direct-thread reuse lives in `services/direct-thread.ts`
+	// to avoid drift with the agent-inbox route.
+	const threadId = findOrCreateDirectThread(ctx.db, ctx.agentId, to, now);
 
 	const messageId = crypto.randomUUID();
 	const text = subject ? `${subject}\n\n${body}` : body;

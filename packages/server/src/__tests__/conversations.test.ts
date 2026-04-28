@@ -3,12 +3,11 @@ import {
 	createTestDb,
 	type HyperIdleDb,
 	items,
-	messages,
 	products,
 	teams,
 	threads,
 } from "@hyperidle/db";
-import type { ItemCreatedEvent, ResponseRecordedEvent } from "@hyperidle/shared";
+import type { ItemCreatedEvent } from "@hyperidle/shared";
 import { EventBus } from "@hyperidle/shared";
 import type { Hono } from "hono";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -210,7 +209,7 @@ describe("Conversations Endpoints (E2)", () => {
 	// --- GET /api/conversations/:threadId ---
 
 	describe("GET /api/conversations/:threadId", () => {
-		it("returns thread with items and responses", async () => {
+		it("returns thread with items and an empty responses[] (verdicts now live on /api/threads)", async () => {
 			db.insert(threads)
 				.values({
 					id: "thread-1",
@@ -238,34 +237,6 @@ describe("Conversations Endpoints (E2)", () => {
 					createdAt: new Date(Date.now() + 1000).toISOString(),
 				})
 				.run();
-			// L1a: legacy `responses` rows project as `verdict`-typed messages
-			// whose `legacy_item_id` ties them back to the source item. The
-			// route still returns the legacy `responses` shape one release.
-			const verdictTime = new Date().toISOString();
-			db.insert(agents)
-				.values({
-					id: "approver-1",
-					name: "Approver",
-					role: "founder",
-					status: "active",
-					createdAt: verdictTime,
-				})
-				.run();
-			db.insert(messages)
-				.values({
-					id: "resp-1",
-					senderId: "approver-1",
-					threadId: "thread-1",
-					type: "verdict",
-					payload: JSON.stringify({
-						decision: "approve",
-						resolvesMessageId: "item-1",
-					}),
-					clientKey: "__l1_legacy_resp-1",
-					legacyItemId: "item-1",
-					createdAt: verdictTime,
-				})
-				.run();
 
 			const res = await app.request("/api/conversations/thread-1", { headers: authHeaders() });
 			expect(res.status).toBe(200);
@@ -273,15 +244,14 @@ describe("Conversations Endpoints (E2)", () => {
 			const body = (await res.json()) as {
 				id: string;
 				kind: string;
-				items: Array<{ id: string; responses: Array<{ id: string; decision: string }> }>;
+				items: Array<{ id: string; responses: ReadonlyArray<unknown> }>;
 			};
 			expect(body.id).toBe("thread-1");
 			expect(body.items).toHaveLength(2);
 			expect(body.items[0].id).toBe("item-1");
-			expect(body.items[0].responses).toHaveLength(1);
-			expect(body.items[0].responses[0].decision).toBe("approve");
+			expect(body.items[0].responses).toEqual([]);
 			expect(body.items[1].id).toBe("item-2");
-			expect(body.items[1].responses).toHaveLength(0);
+			expect(body.items[1].responses).toEqual([]);
 		});
 
 		it("returns 404 for nonexistent thread", async () => {
@@ -381,122 +351,155 @@ describe("Conversations Endpoints (E2)", () => {
 		});
 	});
 
-	// --- POST /api/conversations/responses ---
-
-	describe("POST /api/conversations/responses", () => {
+	// L1 step5 (S-C2): the legacy `POST /api/conversations/responses` was
+	// removed — its replacement is `POST /api/threads/:id/messages` with
+	// `type: "verdict"`. The smoke checks below confirm a verdict written
+	// through the canonical surface lands on the same thread/item the legacy
+	// route used to target. The full verdict-authz / idempotency / re-open
+	// matrix lives in `routes/__tests__/threads.routes.test.ts`.
+	describe("verdict via canonical /api/threads surface", () => {
 		beforeEach(() => {
-			db.insert(threads)
+			// Seed a founder approver and a non-founder review author so the
+			// canonical route's authz check (founder + not-self) passes.
+			db.insert(agents)
 				.values({
-					id: "thread-1",
-					hostKind: "task",
-					hostId: "task-1",
-					initiatorId: "agent-1",
-					participants: JSON.stringify(["agent-1"]),
-					lastActiveAt: new Date().toISOString(),
+					id: "founder-1",
+					name: "Founder",
+					role: "founder",
+					status: "active",
 					createdAt: new Date().toISOString(),
 				})
 				.run();
-			db.insert(items)
+			db.insert(agents)
 				.values({
-					id: "item-1",
-					title: "Review item",
-					threadId: "thread-1",
+					id: "agent-1",
+					name: "Agent",
+					role: "growth",
+					status: "active",
 					createdAt: new Date().toISOString(),
 				})
 				.run();
 		});
 
-		it("records verdict and returns 201", async () => {
-			const res = await app.request("/api/conversations/responses", {
+		it("records a verdict on a review and returns 201", async () => {
+			const create = await app.request("/api/threads", {
 				method: "POST",
-				headers: authHeaders(),
+				headers: { ...authHeaders(), "X-Identity": "agent-1" },
 				body: JSON.stringify({
-					itemId: "item-1",
-					decision: "approve",
-					feedback: "Looks good",
+					hostKind: "task",
+					hostId: "task-1",
+					participants: ["agent-1", "founder-1"],
+					initialMessage: {
+						type: "review",
+						clientKey: "init-r",
+						payload: {
+							title: "Verdict smoke",
+							reasoning: ["Looks fine"],
+							artifactRef: { id: "a-1", kind: "text_diff" },
+						},
+					},
+				}),
+			});
+			expect(create.status).toBe(201);
+			const created = (await create.json()) as {
+				thread: { id: string };
+				messages: Array<{ id: string }>;
+			};
+			const reviewMessageId = created.messages[0].id;
+
+			const res = await app.request(`/api/threads/${created.thread.id}/messages`, {
+				method: "POST",
+				headers: { ...authHeaders(), "X-Identity": "founder-1" },
+				body: JSON.stringify({
+					type: "verdict",
+					clientKey: "verdict-1",
+					payload: {
+						decision: "approve",
+						resolvesMessageId: reviewMessageId,
+						note: "Looks good",
+					},
 				}),
 			});
 			expect(res.status).toBe(201);
-
-			const body = (await res.json()) as { id: string; decision: string; feedback: string };
-			expect(body.decision).toBe("approve");
-			expect(body.feedback).toBe("Looks good");
 		});
 
-		it("validates decision enum (invalid -> 400)", async () => {
-			const res = await app.request("/api/conversations/responses", {
+		it("rejects non-founder verdicts (403)", async () => {
+			const create = await app.request("/api/threads", {
 				method: "POST",
-				headers: authHeaders(),
+				headers: { ...authHeaders(), "X-Identity": "agent-1" },
 				body: JSON.stringify({
-					itemId: "item-1",
-					decision: "invalid-decision",
+					hostKind: "task",
+					hostId: "task-1",
+					participants: ["agent-1", "founder-1"],
+					initialMessage: {
+						type: "review",
+						clientKey: "init-r2",
+						payload: {
+							title: "No",
+							reasoning: ["Nope"],
+							artifactRef: { id: "a-2", kind: "text_diff" },
+						},
+					},
+				}),
+			});
+			const created = (await create.json()) as {
+				thread: { id: string };
+				messages: Array<{ id: string }>;
+			};
+
+			// Send the verdict as the (non-founder) review author. Should 403.
+			const res = await app.request(`/api/threads/${created.thread.id}/messages`, {
+				method: "POST",
+				headers: { ...authHeaders(), "X-Identity": "agent-1" },
+				body: JSON.stringify({
+					type: "verdict",
+					clientKey: "verdict-2",
+					payload: {
+						decision: "approve",
+						resolvesMessageId: created.messages[0].id,
+					},
+				}),
+			});
+			expect(res.status).toBe(403);
+		});
+
+		it("validates verdict decision enum (invalid -> 400)", async () => {
+			const create = await app.request("/api/threads", {
+				method: "POST",
+				headers: { ...authHeaders(), "X-Identity": "agent-1" },
+				body: JSON.stringify({
+					hostKind: "task",
+					hostId: "task-1",
+					participants: ["agent-1", "founder-1"],
+					initialMessage: {
+						type: "review",
+						clientKey: "init-r3",
+						payload: {
+							title: "Validate",
+							reasoning: ["x"],
+							artifactRef: { id: "a-3", kind: "text_diff" },
+						},
+					},
+				}),
+			});
+			const created = (await create.json()) as {
+				thread: { id: string };
+				messages: Array<{ id: string }>;
+			};
+
+			const res = await app.request(`/api/threads/${created.thread.id}/messages`, {
+				method: "POST",
+				headers: { ...authHeaders(), "X-Identity": "founder-1" },
+				body: JSON.stringify({
+					type: "verdict",
+					clientKey: "verdict-3",
+					payload: {
+						decision: "invalid-decision",
+						resolvesMessageId: created.messages[0].id,
+					},
 				}),
 			});
 			expect(res.status).toBe(400);
-		});
-
-		it("returns 404 for nonexistent itemId", async () => {
-			const res = await app.request("/api/conversations/responses", {
-				method: "POST",
-				headers: authHeaders(),
-				body: JSON.stringify({
-					itemId: "nonexistent",
-					decision: "approve",
-				}),
-			});
-			expect(res.status).toBe(404);
-		});
-
-		it("emits response_recorded event", async () => {
-			const emitted: ResponseRecordedEvent[] = [];
-			eventBus.on("response_recorded", (e) => emitted.push(e));
-
-			await app.request("/api/conversations/responses", {
-				method: "POST",
-				headers: authHeaders(),
-				body: JSON.stringify({
-					itemId: "item-1",
-					decision: "reject",
-				}),
-			});
-
-			expect(emitted).toHaveLength(1);
-			expect(emitted[0].decision).toBe("reject");
-			expect(emitted[0].itemId).toBe("item-1");
-		});
-
-		it("accepts all 10 verdict actions", async () => {
-			const actions = [
-				"approve",
-				"approve-with-comments",
-				"comment",
-				"inline-comment",
-				"request-changes",
-				"edit",
-				"reject",
-				"reply",
-				"snooze",
-				"escalate",
-			];
-
-			for (const action of actions) {
-				const itemId = `item-${action}`;
-				db.insert(items)
-					.values({
-						id: itemId,
-						title: `Item for ${action}`,
-						threadId: "thread-1",
-						createdAt: new Date().toISOString(),
-					})
-					.run();
-
-				const res = await app.request("/api/conversations/responses", {
-					method: "POST",
-					headers: authHeaders(),
-					body: JSON.stringify({ itemId, decision: action }),
-				});
-				expect(res.status).toBe(201);
-			}
 		});
 	});
 

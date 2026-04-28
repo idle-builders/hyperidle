@@ -136,6 +136,7 @@ export {
 	HOST_KINDS,
 	headCollapsePredicate,
 	isBlocking,
+	isRedactedPayload,
 	MESSAGE_TYPES,
 	VERDICT_DECISIONS,
 } from "./thread.js";

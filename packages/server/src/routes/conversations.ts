@@ -1,30 +1,20 @@
-import { agents, type HyperIdleDb, items, messages, threads } from "@hyperidle/db";
-import type {
-	ApiErrorResponse,
-	EventBus,
-	ItemCreatedEvent,
-	ResponseRecordedEvent,
-} from "@hyperidle/shared";
+import { agents, type HyperIdleDb, items, threads } from "@hyperidle/db";
+import type { ApiErrorResponse, EventBus, ItemCreatedEvent } from "@hyperidle/shared";
 import { API_ERROR_CODES } from "@hyperidle/shared";
-import { and, desc, eq, sql } from "drizzle-orm";
+import { desc, eq, sql } from "drizzle-orm";
 import { Hono } from "hono";
 import { z } from "zod";
 import { validateBody } from "../middleware/validate.js";
 import { routeToFounder } from "../services/founder-router.js";
 import { routeItem } from "../services/item-router.js";
 
-const VERDICT_ACTIONS = [
-	"approve",
-	"approve-with-comments",
-	"comment",
-	"inline-comment",
-	"request-changes",
-	"edit",
-	"reject",
-	"reply",
-	"snooze",
-	"escalate",
-] as const;
+// @lore L1 step5 (S-C2): the legacy `POST /api/conversations/responses` path
+// dual-wrote `verdict`-typed messages without founder authz, idempotency, or
+// the resolves-which-message check that `routes/threads.ts` enforces. The
+// dual-write was deleted; verdicts go through `POST /api/threads/:id/messages`
+// (the canonical L1 surface). The `GET /:threadId` projection that re-shaped
+// verdict messages into the legacy `responses` row format went with it —
+// items now expose an empty `responses: []` for one-release wire compat.
 
 const createItemSchema = z.object({
 	sourceAgentId: z.string().optional(),
@@ -42,16 +32,6 @@ const createItemSchema = z.object({
 	reasoning: z.string().optional(),
 	costEstimate: z.number().int().optional(),
 	threadId: z.string(),
-});
-
-const createResponseSchema = z.object({
-	itemId: z.string(),
-	decision: z.enum(VERDICT_ACTIONS),
-	inlineAnchor: z.string().optional(),
-	edits: z.string().optional(),
-	feedback: z.string().optional(),
-	approverId: z.string().optional(),
-	view: z.string().optional(),
 });
 
 /**
@@ -134,31 +114,15 @@ export function createConversationRoutes(db: HyperIdleDb, eventBus: EventBus): H
 			.orderBy(items.createdAt)
 			.all();
 
-		// L1a: legacy `responses` projected as verdict-typed messages whose
-		// `legacy_item_id` carries the source item id. Project them back to
-		// the legacy response shape for one-release back-compat.
-		const itemsWithResponses = threadItems.map((item) => {
-			const verdictRows = db
-				.select()
-				.from(messages)
-				.where(and(eq(messages.legacyItemId, item.id), eq(messages.type, "verdict")))
-				.all();
-			const itemResponses = verdictRows.map((m) => {
-				const payload = JSON.parse(m.payload) as { decision: string; note?: string };
-				return {
-					id: m.id,
-					itemId: item.id,
-					decision: payload.decision,
-					inlineAnchor: null,
-					edits: null,
-					feedback: payload.note ?? null,
-					approverId: m.senderId,
-					view: null,
-					respondedAt: m.createdAt,
-				};
-			});
-			return { ...item, responses: itemResponses };
-		});
+		// L1 step5 (S-C2): the verdict-projection that re-shaped `verdict`
+		// messages into the legacy `responses` row format was removed alongside
+		// the dual-write `POST /responses` path. Verdicts now live on
+		// `GET /api/threads/:id` (messages, type='verdict'). The empty
+		// `responses: []` keeps the wire shape for one release.
+		const itemsWithResponses = threadItems.map((item) => ({
+			...item,
+			responses: [] as ReadonlyArray<never>,
+		}));
 
 		return c.json({ ...thread, items: itemsWithResponses });
 	});
@@ -231,84 +195,8 @@ export function createConversationRoutes(db: HyperIdleDb, eventBus: EventBus): H
 		return c.json({ ...created, view, founderRoute }, 201);
 	});
 
-	// POST /responses — record verdict (L1a: writes a verdict-typed message
-	// instead of a row in the dropped `responses` table; emits the legacy
-	// response_recorded event for one-release back-compat).
-	router.post("/responses", validateBody(createResponseSchema), (c) => {
-		const body = c.req.valid("json" as never) as z.infer<typeof createResponseSchema>;
-		const id = crypto.randomUUID();
-		const now = new Date().toISOString();
-
-		// Verify item exists
-		const item = db.select().from(items).where(eq(items.id, body.itemId)).get();
-		if (!item) {
-			const response: ApiErrorResponse = {
-				error: "Item not found",
-				code: API_ERROR_CODES.NOT_FOUND,
-			};
-			return c.json(response, 404);
-		}
-
-		// Find the review-typed message for this item (if backfilled) or fall
-		// back to the most recent review-typed message in the thread.
-		const reviewMessage = db
-			.select()
-			.from(messages)
-			.where(and(eq(messages.legacyItemId, body.itemId), eq(messages.type, "review")))
-			.get();
-		const fallbackReview = reviewMessage
-			? null
-			: db
-					.select()
-					.from(messages)
-					.where(eq(messages.threadId, item.threadId))
-					.all()
-					.find((m) => m.type === "review");
-		const target = reviewMessage ?? fallbackReview;
-
-		const verdictPayload = {
-			decision: body.decision,
-			resolvesMessageId: target?.id ?? body.itemId,
-			note: body.feedback ?? "",
-		};
-		db.insert(messages)
-			.values({
-				id,
-				senderId: body.approverId ?? "policy_engine",
-				threadId: item.threadId,
-				type: "verdict",
-				payload: JSON.stringify(verdictPayload),
-				clientKey: `__l1_route_${id}`,
-				legacyItemId: body.itemId,
-				createdAt: now,
-			})
-			.run();
-
-		const created = {
-			id,
-			itemId: body.itemId,
-			decision: body.decision,
-			inlineAnchor: body.inlineAnchor ?? null,
-			edits: body.edits ?? null,
-			feedback: body.feedback ?? null,
-			approverId: body.approverId ?? null,
-			view: body.view ?? null,
-			respondedAt: now,
-		};
-
-		// Emit response_recorded event for legacy subscribers.
-		const event: ResponseRecordedEvent = {
-			type: "response_recorded",
-			streamId: crypto.randomUUID(),
-			responseId: id,
-			itemId: body.itemId,
-			decision: body.decision,
-			timestamp: Date.now(),
-		};
-		eventBus.emit(event);
-
-		return c.json(created, 201);
-	});
+	// `POST /responses` removed in L1 step5 (S-C2). Verdicts go through the
+	// canonical `POST /api/threads/:id/messages` surface.
 
 	return router;
 }

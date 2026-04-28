@@ -41,6 +41,10 @@ const FAKE_REVIEW_MESSAGE = {
 
 describe("ConversationsReview (L1a)", () => {
 	beforeEach(() => {
+		// L1 step5: the page reads ?id= from window.location and renders an
+		// EmptyState when none is set. Tests must set the search string up
+		// front (jsdom honours history.replaceState).
+		window.history.replaceState({}, "", "/?id=demo-thread-1");
 		// biome-ignore lint/suspicious/noExplicitAny: testing only — global stub
 		(globalThis as any).fetch = vi.fn(async (input: string) => {
 			if (input.endsWith("/demo-thread-1")) {
@@ -63,6 +67,7 @@ describe("ConversationsReview (L1a)", () => {
 
 	afterEach(() => {
 		vi.restoreAllMocks();
+		window.history.replaceState({}, "", "/");
 	});
 
 	it("renders the page testid", () => {
@@ -84,5 +89,15 @@ describe("ConversationsReview (L1a)", () => {
 			expect(screen.getByTestId("thread-shell")).toBeInTheDocument();
 		});
 		expect(screen.getByText("Pricing overhaul")).toBeInTheDocument();
+	});
+
+	it("renders an EmptyState when no ?id= is supplied", () => {
+		window.history.replaceState({}, "", "/");
+		render(
+			<MemoryRouter>
+				<ConversationsReview />
+			</MemoryRouter>,
+		);
+		expect(screen.getByText(/no thread selected/i)).toBeInTheDocument();
 	});
 });

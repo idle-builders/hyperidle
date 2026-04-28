@@ -43,6 +43,9 @@ const FAKE_REVIEW_MESSAGE = {
 
 describe("ConversationsReview — Reasoning (L1a, lives inside ThreadHead)", () => {
 	beforeEach(() => {
+		// L1 step5: ConversationsReview now requires ?id= in the URL — set it
+		// before render.
+		window.history.replaceState({}, "", "/?id=demo-thread-1");
 		// biome-ignore lint/suspicious/noExplicitAny: testing-only fetch stub
 		(globalThis as any).fetch = vi.fn(
 			async () =>
@@ -63,6 +66,7 @@ describe("ConversationsReview — Reasoning (L1a, lives inside ThreadHead)", () 
 
 	afterEach(() => {
 		vi.restoreAllMocks();
+		window.history.replaceState({}, "", "/");
 	});
 
 	it("renders the Reasoning label and the numbered steps in ThreadHead", async () => {

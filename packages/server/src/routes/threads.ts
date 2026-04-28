@@ -32,13 +32,16 @@ import type {
 	ThreadResolvedEvent,
 } from "@hyperidle/shared";
 import { API_ERROR_CODES, headCollapsePredicate } from "@hyperidle/shared";
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, sql } from "drizzle-orm";
 import { Hono } from "hono";
 import type { ZodError } from "zod";
+import { escapeLikePattern } from "../services/like-escape.js";
 import {
 	createThreadBodySchema,
 	listThreadsQuerySchema,
 	messageInputSchema,
+	messageRowSchema,
+	threadParticipantsSchema,
 } from "./threads-schema.js";
 
 const SENDER_HEADER = "X-Identity";
@@ -75,13 +78,21 @@ function readInitialSenderId(
 	return DEFAULT_FOUNDER_ID;
 }
 
+/**
+ * @lore L1 step5 (SL-C2): the DB→Message boundary parses the row's JSON
+ * `payload` and `participants` columns through Zod. A malformed row (e.g.
+ * legacy data, manual edit) fails loudly here instead of crashing somewhere
+ * downstream. The brand-style `as Thread["id"]` aliases are no-ops because
+ * `ThreadId` is `string` in `@hyperidle/shared`; we drop them.
+ */
 function rowToThread(row: DbThread): Thread {
+	const participants = threadParticipantsSchema.parse(JSON.parse(row.participants));
 	return {
-		id: row.id as Thread["id"],
+		id: row.id,
 		hostKind: row.hostKind as HostKind,
 		hostId: row.hostId,
-		initiatorId: row.initiatorId as Thread["initiatorId"],
-		participants: JSON.parse(row.participants) as ReadonlyArray<Thread["initiatorId"]>,
+		initiatorId: row.initiatorId,
+		participants,
 		pinned: row.pinned === 1,
 		resolvedAt: row.resolvedAt,
 		lastActiveAt: row.lastActiveAt,
@@ -90,18 +101,32 @@ function rowToThread(row: DbThread): Thread {
 }
 
 function rowToMessage(row: DbMessage): Message {
-	return {
-		id: row.id as Message["id"],
-		threadId: row.threadId as Message["threadId"],
-		senderId: row.senderId as Message["senderId"],
+	const parsed = messageRowSchema.parse({
+		type: row.type as MessageType,
+		payload: JSON.parse(row.payload),
+	});
+	const base = {
+		id: row.id,
+		threadId: row.threadId,
+		senderId: row.senderId,
 		clientKey: row.clientKey,
 		deletedAt: row.deletedAt,
 		redactedAt: row.redactedAt,
 		resolvedAt: row.resolvedAt,
 		createdAt: row.createdAt,
-		type: row.type as MessageType,
-		payload: JSON.parse(row.payload) as Message["payload"],
-	} as Message;
+	} as const;
+	// Switch on the parsed discriminator so each Message variant lines up its
+	// `type` with its `payload` — no cast needed.
+	switch (parsed.type) {
+		case "plain":
+			return { ...base, type: "plain", payload: parsed.payload };
+		case "review":
+			return { ...base, type: "review", payload: parsed.payload };
+		case "questionnaire":
+			return { ...base, type: "questionnaire", payload: parsed.payload };
+		case "verdict":
+			return { ...base, type: "verdict", payload: parsed.payload };
+	}
 }
 
 function err(
@@ -155,21 +180,32 @@ export function createThreadRoutes(db: HyperIdleDb, eventBus: EventBus): Hono {
 				.limit(q.limit)
 				.all();
 		} else {
-			// participant_id scope: linear scan over participants JSON.
+			// L1 step5 (W6): participant_id scope used to whole-table-scan into
+			// JS, JSON-parse every row, and `.includes(participant_id)`. We now
+			// pre-filter in SQL with a `LIKE %"<id>"%` probe (the participants
+			// column stores JSON-encoded strings, so quoting the id avoids
+			// prefix-match false positives). We still re-parse the matched
+			// rows in JS to verify membership; a future story projecting
+			// participants into a join table replaces this entirely. The
+			// `ESCAPE '\\'` clause must travel through `sql` because Drizzle's
+			// `like()` helper does not expose the modifier.
+			const participantId = q.participant_id ?? "";
+			const probe = `%${escapeLikePattern(JSON.stringify(participantId))}%`;
 			rows = db
 				.select()
 				.from(threads)
+				.where(sql`${threads.participants} LIKE ${probe} ESCAPE '\\'`)
 				.orderBy(desc(threads.lastActiveAt), desc(threads.id))
+				.limit(q.limit)
 				.all()
 				.filter((row) => {
 					try {
-						const parts = JSON.parse(row.participants) as string[];
-						return q.participant_id ? parts.includes(q.participant_id) : false;
+						const parts = threadParticipantsSchema.parse(JSON.parse(row.participants));
+						return parts.includes(participantId);
 					} catch {
 						return false;
 					}
-				})
-				.slice(0, q.limit);
+				});
 		}
 
 		return c.json({

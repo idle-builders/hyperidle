@@ -36,7 +36,9 @@ function PinIcon(): JSX.Element {
 	);
 }
 
-export type ThreadHostBannerAction = "snooze" | "escalate" | "archive" | "pin" | "unpin";
+// @lore L1 step5 (S-C1): the `onMoreActions` prop and `ThreadHostBannerAction`
+// enum were declared in step 2 but never wired anywhere. They land with the
+// L1b banner overflow menu; ship the smaller surface for now.
 
 export interface ThreadHostBannerParticipant {
 	id: string;
@@ -52,8 +54,9 @@ export interface ThreadHostBannerProps {
 	resolved: boolean;
 	pinned: boolean;
 	participants: ReadonlyArray<ThreadHostBannerParticipant>;
-	onMoreActions?: (action: ThreadHostBannerAction) => void;
 }
+
+const MAX_AVATARS = 3;
 
 export function ThreadHostBanner({
 	hostKind,
@@ -64,7 +67,7 @@ export function ThreadHostBanner({
 	pinned,
 	participants,
 }: ThreadHostBannerProps): JSX.Element {
-	const visible = participants.slice(0, 3);
+	const visible = participants.slice(0, MAX_AVATARS);
 	const overflow = participants.length - visible.length;
 
 	return (

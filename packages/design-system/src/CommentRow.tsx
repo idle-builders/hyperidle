@@ -7,8 +7,9 @@
  * (greyed body, "Redacted by X — reason"), grouped vs ungrouped variant.
  */
 
-import type { Message } from "@hyperidle/shared";
-import type { JSX } from "react";
+import type { Message, VerdictDecision } from "@hyperidle/shared";
+import { isRedactedPayload } from "@hyperidle/shared";
+import type { JSX, ReactNode } from "react";
 import { dsProps } from "./ds-attrs.js";
 import { StatusChip } from "./StatusChip.js";
 
@@ -26,15 +27,9 @@ export interface CommentRowProps {
 	inlineAnchor?: string;
 }
 
-function isRedactedPayload(
-	p: unknown,
-): p is { redacted: true; reason: string; redactedBy: string } {
-	return typeof p === "object" && p !== null && (p as { redacted?: unknown }).redacted === true;
-}
-
 function verdictDecisionToStatus(
-	decision: string,
-): "done" | "blocked" | "behind" | "paused" | "error" {
+	decision: VerdictDecision,
+): "done" | "blocked" | "behind" | "paused" {
 	switch (decision) {
 		case "approve":
 		case "approve-with-comments":
@@ -45,12 +40,10 @@ function verdictDecisionToStatus(
 			return "behind";
 		case "edit":
 			return "paused";
-		default:
-			return "error";
 	}
 }
 
-function verdictDecisionLabel(decision: string): string {
+function verdictDecisionLabel(decision: VerdictDecision): string {
 	switch (decision) {
 		case "approve":
 		case "approve-with-comments":
@@ -61,9 +54,41 @@ function verdictDecisionLabel(decision: string): string {
 			return "CHANGES REQUESTED";
 		case "edit":
 			return "EDITED";
-		default:
-			return decision.toUpperCase();
 	}
+}
+
+/**
+ * Render the per-message body. Type narrowing flows through `message.type`
+ * + `isRedactedPayload(payload)` so each branch sees the typed payload
+ * without unsafe `as` casts (L1 step5 SL-C1).
+ */
+function renderBody(message: Message): ReactNode {
+	const { payload } = message;
+	if (isRedactedPayload(payload)) {
+		return (
+			<div className="italic text-[var(--text-lo)] text-[13px]">
+				Redacted by {payload.redactedBy} — {payload.reason}
+			</div>
+		);
+	}
+	if (message.type === "verdict") {
+		return (
+			<div className="flex items-center gap-[8px] text-[13px]">
+				<StatusChip status={verdictDecisionToStatus(payload.decision)} />
+				<span className="text-[var(--text-mid)]">{verdictDecisionLabel(payload.decision)}</span>
+				{payload.note ? <span className="text-[var(--text-lo)]">— {payload.note}</span> : null}
+			</div>
+		);
+	}
+	if (message.type === "plain") {
+		return (
+			<p className="text-[13px] text-[var(--text-mid)] whitespace-pre-wrap break-words">
+				{payload.text}
+			</p>
+		);
+	}
+	// review/questionnaire substance lives in ThreadHead, not here.
+	return null;
 }
 
 export function CommentRow({
@@ -72,8 +97,6 @@ export function CommentRow({
 	showSenderHeader,
 	inlineAnchor,
 }: CommentRowProps): JSX.Element {
-	const redacted = isRedactedPayload(message.payload);
-
 	return (
 		<li
 			{...dsProps("CommentRow", "2")}
@@ -99,32 +122,7 @@ export function CommentRow({
 						INLINE COMMENT ON <span className="text-[var(--text-mid)]">{inlineAnchor}</span>
 					</div>
 				) : null}
-				{
-					redacted ? (
-						<div className="italic text-[var(--text-lo)] text-[13px]">
-							Redacted by {(message.payload as { redactedBy: string }).redactedBy} —{" "}
-							{(message.payload as { reason: string }).reason}
-						</div>
-					) : message.type === "verdict" ? (
-						<div className="flex items-center gap-[8px] text-[13px]">
-							<StatusChip
-								status={verdictDecisionToStatus((message.payload as { decision: string }).decision)}
-							/>
-							<span className="text-[var(--text-mid)]">
-								{verdictDecisionLabel((message.payload as { decision: string }).decision)}
-							</span>
-							{(message.payload as { note?: string }).note ? (
-								<span className="text-[var(--text-lo)]">
-									— {(message.payload as { note?: string }).note}
-								</span>
-							) : null}
-						</div>
-					) : message.type === "plain" ? (
-						<p className="text-[13px] text-[var(--text-mid)] whitespace-pre-wrap break-words">
-							{(message.payload as { text: string }).text}
-						</p>
-					) : null /* review/questionnaire substance lives in ThreadHead, not here */
-				}
+				{renderBody(message)}
 			</div>
 		</li>
 	);

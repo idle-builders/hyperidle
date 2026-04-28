@@ -61,7 +61,6 @@ export type { ThreadHeadProps } from "./ThreadHead.js";
 export { ThreadHead } from "./ThreadHead.js";
 // ── L1a Thread primitive components (stubs during write-tests phase) ──
 export type {
-	ThreadHostBannerAction,
 	ThreadHostBannerParticipant,
 	ThreadHostBannerProps,
 } from "./ThreadHostBanner.js";

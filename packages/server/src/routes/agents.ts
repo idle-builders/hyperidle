@@ -8,10 +8,12 @@ import {
 	threads,
 } from "@hyperidle/db";
 import { API_ERROR_CODES, type EventBus, type ItemCreatedEvent } from "@hyperidle/shared";
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, sql } from "drizzle-orm";
 import { Hono } from "hono";
 import { z } from "zod";
 import { validateBody } from "../middleware/validate.js";
+import { findOrCreateDirectThread } from "../services/direct-thread.js";
+import { escapeLikePattern } from "../services/like-escape.js";
 
 const updateSkillSchema = z.object({
 	autonomyLevel: z.number().int().min(1).max(4),
@@ -149,12 +151,15 @@ export function createAgentRoutes(db: HyperIdleDb, eventBus: EventBus): Hono {
 		const offset = Number.parseInt(c.req.query("offset") ?? "0", 10) || 0;
 
 		// L1a: messages no longer carry recipient_id; agent inbox derives
-		// from threads where the agent is a participant. Walk the participant
-		// JSON column with a `LIKE %"<agentId>"%` probe.
+		// from threads where the agent is a participant. L1 step5 (W6): the
+		// participants JSON column is pre-filtered in SQL with a
+		// `LIKE %"<agentId>"%` probe; we re-parse in JS to verify the match.
+		const probe = `%${escapeLikePattern(JSON.stringify(agentId))}%`;
 		const inboxRows = db
 			.select()
 			.from(messages)
 			.innerJoin(threads, eq(messages.threadId, threads.id))
+			.where(sql`${threads.participants} LIKE ${probe} ESCAPE '\\'`)
 			.orderBy(desc(messages.createdAt))
 			.limit(limit)
 			.offset(offset)
@@ -162,8 +167,8 @@ export function createAgentRoutes(db: HyperIdleDb, eventBus: EventBus): Hono {
 
 		const matched = inboxRows.filter((row) => {
 			try {
-				const parts = JSON.parse(row.threads.participants) as string[];
-				return parts.includes(agentId);
+				const parts = JSON.parse(row.threads.participants);
+				return Array.isArray(parts) && parts.includes(agentId);
 			} catch {
 				return false;
 			}
@@ -184,42 +189,9 @@ export function createAgentRoutes(db: HyperIdleDb, eventBus: EventBus): Hono {
 
 		const now = new Date().toISOString();
 
-		// L1a: legacy `kind='direct'` threads now project as host_kind='agent'
-		// + host_id=recipientId. Look up by host_kind/host_id pair.
-		const directThreads = db
-			.select()
-			.from(threads)
-			.where(and(eq(threads.hostKind, "agent"), eq(threads.hostId, recipientId)))
-			.all();
-		let threadId: string | undefined;
-
-		for (const thread of directThreads) {
-			const participants = JSON.parse(thread.participants) as string[];
-			if (
-				participants.includes(body.senderId) &&
-				participants.includes(recipientId) &&
-				participants.length === 2
-			) {
-				threadId = thread.id;
-				break;
-			}
-		}
-
-		// Create thread if none exists
-		if (!threadId) {
-			threadId = crypto.randomUUID();
-			db.insert(threads)
-				.values({
-					id: threadId,
-					hostKind: "agent",
-					hostId: recipientId,
-					initiatorId: body.senderId,
-					participants: JSON.stringify([body.senderId, recipientId]),
-					lastActiveAt: now,
-					createdAt: now,
-				})
-				.run();
-		}
+		// L1 step5 (W14): direct-thread reuse + create lives in
+		// `services/direct-thread.ts` to avoid drift with `skill-tools/send-message.ts`.
+		const threadId = findOrCreateDirectThread(db, body.senderId, recipientId, now);
 
 		const messageId = crypto.randomUUID();
 		const text = body.subject ? `${body.subject}\n\n${body.body}` : body.body;
