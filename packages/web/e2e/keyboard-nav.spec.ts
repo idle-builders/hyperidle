@@ -75,7 +75,7 @@ test.describe("J8 — keyboard-only navigation", () => {
 		}
 	});
 
-	test("ReasoningBlock toggle is keyboard operable", async ({ page }) => {
+	test("ReasoningBlockView toggle is keyboard operable", async ({ page }) => {
 		await page.goto("/conversations/review");
 		await page.waitForSelector("[data-testid='conversations-review-page']");
 		const toggle = page.getByRole("button", { name: /reasoning/i });

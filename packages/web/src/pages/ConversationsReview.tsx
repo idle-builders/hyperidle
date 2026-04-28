@@ -9,7 +9,7 @@
  */
 import { ErrorState, SkeletonList } from "@hyperidle/design-system";
 import { type JSX, useCallback, useEffect, useRef, useState } from "react";
-import { ReasoningBlock } from "../components/ReasoningBlock";
+import { ReasoningBlockView } from "../components/ReasoningBlockView";
 import type {
 	ArtifactMetadata,
 	ArtifactViewProps,
@@ -206,7 +206,7 @@ export function ConversationsReview(): JSX.Element {
 				</output>
 			)}
 			<div className="flex-1 overflow-y-auto">
-				<ReasoningBlock steps={selected.reasoning} />
+				<ReasoningBlockView steps={selected.reasoning} />
 				<div className="p-3">
 					<ArtifactView
 						{...selected.artifact}
