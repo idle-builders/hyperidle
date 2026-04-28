@@ -334,6 +334,7 @@
 	}
 	[class*="animate-[skeleton-pulse"],
 	.skeleton {
+		/* biome-ignore lint/complexity/noImportantStyles: WCAG SC 2.3.3 — reduced-motion override must beat Tailwind's arbitrary-value `animate-[skeleton-pulse]` utility, which carries equal specificity. !important is the canonical mechanism (MDN, Material 3 motion). */
 		animation: none !important;
 	}
 }

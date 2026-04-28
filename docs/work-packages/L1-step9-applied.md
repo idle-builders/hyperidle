@@ -79,3 +79,52 @@ Scope: the three review documents committed at step 6-8 — `L1-architecture-rev
   5. **`ThreadShell::PopulatedChat` story** — verifies the composer fallback rule is conditional (does NOT show on chat-shape).
 
 The populated-state-via-real-API check was blocked by a pre-existing dev-proxy bug (see "Production bug surfaced incidentally"). All L1 behavior was browser-verified via the Storybook story instead, which renders the same `<ThreadShell>` against real props.
+
+---
+
+## Gap-closure pass (attempt 2)
+
+The DoD audit at `docs/work-packages/L1-dod.md` returned NOT DONE with three concrete gaps. This pass closes all three. HEAD before pass: `bcafa35`.
+
+### Gap 1 — AC-13: `web/e2e/threads.spec.ts` runnable + passing
+
+**Approach:** option 2 (hermetic `page.route()` mocks). The dev server only serves the SPA bundle; every `GET /api/threads/:id` and `POST /api/threads/:id/messages` is intercepted in-browser. No DB seeding, no API server dependency. A future contract drift fails the e2e the same way it fails production — the page can't render the expected shape.
+
+**Spec rewrite:**
+- `packages/web/e2e/threads.spec.ts` rewritten end-to-end. 5 cases ship + 0 skipped:
+  1. **review-shape** — ThreadHead + 5 verdict buttons + plain follow-up CommentRow render inline.
+  2. **plain-shape** — no head; CommentRow renders the plain text; Composer present.
+  3. **back-compat** — legacy `subject + body` collapsed into `payload.text` reads through the new endpoint.
+  4. **composer round-trip** — typing + Send POSTs and the new message appears after re-fetch.
+  5. **verdict click** — Approve POSTs a verdict; APPROVED CommentRow + RESOLVED tag appear; head unmounts.
+- The fictitious "post follow-up review" affordance from the previous draft is gone. L1b deferral noted at the file footer.
+- StrictMode-safe: the route mocks key off a `postObserved` flag rather than a GET-count, so React's dev-mode double-effect doesn't flip the response prematurely.
+- Realistic Thread/Message payloads — shape-mirrored from `@hyperidle/shared`'s discriminated union (so a future schema rename breaks the tests).
+
+**Test infra fix:** `packages/web/playwright.config.ts` now uses port **5179** (not 5173) and `cwd: "."` (web package only, not the root concurrently script). This isolates the e2e dev server from any parallel `bun dev` running in another checkout/worktree, which was the root cause of the spec hitting the **legacy** ConversationsReview code (the user's main-branch dev server was reused via `reuseExistingServer: true`). `--strictPort` + `cwd: "."` keep boot deterministic; no API server is needed because everything is mocked.
+
+**Result:** `cd packages/web && bunx playwright test e2e/threads.spec.ts` → **5 passed** (parallel and serial). AC-13 is satisfied (review-shape AND plain-shape both render correctly inline; back-compat + composer + verdict cases add depth beyond the minimum).
+
+### Gap 2 — AC-15: fix `text-[10px]` lint errors
+
+- `packages/design-system/src/ThreadHostBanner.tsx:103,109` — `text-[10px]` → `text-[11px]` (smallest allowed value on AQ-004's closed scale `{11,12,13,14,15,16,18,20,24}`).
+- `packages/design-system/html/ThreadHostBanner.html:50` — matching update from `font-size: 10px` to `font-size: 11px` so HTML and TSX stay in pixel parity.
+- 1px change at the avatar's monogram only; visual diff stays well under the 5% threshold; the design-system playwright suite (`bunx playwright test --config=playwright.l1.config.ts`) reports **12/12 pass**.
+
+### Gap 3 — biome.json worktree parity
+
+- The `!**/.claude` exclude in `biome.json:146` was matching the worktree's full path (`.claude/worktrees/...`), so `biome check .` from the worktree skipped every file with "No files were processed". Replaced with explicit subfolder excludes (`.claude/agents`, `.claude/process`, `.claude/references`, `.claude/rules`, `.claude/skills`, plus the two settings JSON files). Worktree paths under `.claude/worktrees/` now lint normally; the agent-config subfolders that have no source files stay excluded for clarity.
+- Biome's `useBiomeIgnoreFolder` rule required dropping the trailing `/**`; the new entries are bare directory names per the v2.2.0+ contract.
+- Pre-existing `noImportantStyles` violation in `packages/design-system/src/tokens.css:337` (now in scope due to the unblocked path) was suppressed with a `biome-ignore` comment citing WCAG SC 2.3.3 — the `!important` is the canonical mechanism for the reduced-motion override against Tailwind's arbitrary-value `animate-[skeleton-pulse]` utility (equal specificity otherwise). Behavior preserved; lint clean.
+- One unsafe-fix from `bunx biome check . --write --unsafe` left in: `packages/eslint-plugin-design/src/util.ts` — `!(attr && attr.value)` → `!attr?.value`. Behaviorally identical, idiomatic.
+
+### Verification gates (gap-closure pass)
+
+- `bun run check` — **0 errors**.
+- `bun run lint` — **0 errors, 22 warnings** (all pre-existing; same set as the step-9 baseline).
+- `bun run test` — **2752 passing / 3 skipped / 0 failing** (matches step-9 baseline).
+- `cd packages/design-system && bunx playwright test --config=playwright.l1.config.ts` — **12/12 passing**.
+- `cd packages/web && bunx playwright test e2e/threads.spec.ts` — **5/5 passing**.
+- Visual regression baseline unchanged (1px avatar font-size adjustment matched in HTML + TSX).
+
+L1-dod.md gaps 1, 2, 3 are closed. The DoD audit can be re-run to flip the verdict to DONE.
