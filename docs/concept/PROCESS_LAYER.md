@@ -66,6 +66,8 @@ This is the same pattern as a healthy flat company: the vision is set by the fou
 
 The process layer rests on five primitives. Everything else in this doc is mechanics on top of these.
 
+**Producer rule for Artifacts.** Tasks are the unique producers of Artifacts (the cross-domain primitive defined in `HUMAN_INTERFACE_LAYER.md` §4.5 — *every output an artifact*). Bets, Products, Portfolios, Teams, and Routines do **not** produce Artifacts; Bet/Product/Portfolio surfaces aggregate Artifacts from their Tasks for display. A Routine that runs work produces its Artifacts via the Task it spawns. Sessions contribute the `cost_from_session` field on the Artifact but do not own it (the producing Task does).
+
 ### 3.1 Bet
 
 A shaped, committed, time-boxed unit of work owned by a team. Has an explicit done condition. Lives on the Work view before commitment, becomes an active record after.
@@ -83,7 +85,10 @@ Bet {
   tasks              # list of Task IDs (decentralized, decomposition is dynamic)
   routines_active?   # any recurring routines spawned by this bet
   status             # shaped | committed | in_progress | shipped | killed
-  artifacts          # references to what was produced
+  artifacts          # AGGREGATED Artifact references (read-only; the Bet does not own
+                     # Artifacts — they root on Tasks per the Artifact primitive,
+                     # `HUMAN_INTERFACE_LAYER.md` §4.5. The Bet view aggregates
+                     # Artifacts from its Tasks for display.)
   thread             # the bet-level conversation thread (optional)
   revision_log       # every change to done_condition or hypothesis, with reasoning
   created_at
@@ -95,7 +100,7 @@ A bet is *not* a workflow. It does not encode a sequence of steps. It encodes a 
 
 ### 3.2 Task
 
-A unit of work picked up by an agent. First-class object with state, owner, dependencies, done condition, cost cap, artifact references, and one or more agent sessions attached.
+A unit of work picked up by an agent. First-class object with state, owner, dependencies, done condition, cost cap, **Artifact references** (Tasks are the unique producers of Artifacts — see Artifact primitive in `HUMAN_INTERFACE_LAYER.md` §4.5), and one or more agent sessions attached.
 
 ```
 Task {
@@ -111,7 +116,10 @@ Task {
   dependencies       # list of Task IDs that must reach `done` first
   sessions           # list of Session IDs — see §3.3
   thread?            # optional discussion thread (only if there's something to talk about)
-  artifacts          # files produced or modified (with file leases)
+  artifacts          # list of Artifact IDs the Task has produced. Tasks are the
+                     # unique producers of Artifacts (Artifact primitive,
+                     # `HUMAN_INTERFACE_LAYER.md` §4.5). Underlying file/diff
+                     # storage is a detail of the Artifact, not of the Task.
   cost_cap           # max budget for this task
   cost_actual        # running total
   durability?        # null | "checkpoint" | "temporal" | ... — opt-in per task
