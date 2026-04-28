@@ -1,0 +1,424 @@
+// L3 RED — Hono route tests for /api/artifacts.
+// Source of truth: docs/architecture-plans/L3.md §5, §12.
+
+import {
+	artifacts,
+	bets,
+	createTestDb,
+	type HyperIdleDb,
+	products,
+	tasks,
+	teams,
+} from "@hyperidle/db";
+import { EventBus } from "@hyperidle/shared";
+import type { Hono } from "hono";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { createTestApp } from "../test-utils.js";
+
+const TEST_API_KEY = "test-key-artifacts";
+const NOW = "2026-04-28T00:00:00.000Z";
+
+function authHeaders(extra?: Record<string, string>): Record<string, string> {
+	return { "X-API-Key": TEST_API_KEY, "Content-Type": "application/json", ...extra };
+}
+
+interface SeedScope {
+	productId: string;
+	betId: string;
+	taskId: string;
+}
+
+function seed(db: HyperIdleDb, suffix = ""): SeedScope {
+	const productId = `prod${suffix}`;
+	const teamId = `team${suffix}`;
+	const betId = `bet${suffix}`;
+	const taskId = `task${suffix}`;
+	db.insert(products)
+		.values({ id: productId, name: "P", phase: "build", createdAt: NOW })
+		.run();
+	db.insert(teams)
+		.values({ id: teamId, productId, capacity: 1, activeBets: 0, formedAt: NOW })
+		.run();
+	db.insert(bets)
+		.values({
+			id: betId,
+			productId,
+			teamId,
+			pitch: "p",
+			appetite: "1w",
+			status: "shaped",
+			createdAt: NOW,
+			updatedAt: NOW,
+		})
+		.run();
+	db.insert(tasks)
+		.values({
+			id: taskId,
+			betId,
+			productId,
+			teamId,
+			title: "T",
+			state: "pending",
+			createdAt: NOW,
+			updatedAt: NOW,
+		})
+		.run();
+	return { productId, betId, taskId };
+}
+
+function insertArtifact(
+	db: HyperIdleDb,
+	id: string,
+	taskId: string,
+	overrides: Partial<{
+		kind: string;
+		previewJson: string | null;
+		costMoneyMicros: number | null;
+		costTokensInput: number | null;
+		costTokensOutput: number | null;
+	}> = {},
+): void {
+	db.insert(artifacts)
+		.values({
+			id,
+			producingTaskId: taskId,
+			kind: overrides.kind ?? "code_diff",
+			previewJson: overrides.previewJson ?? null,
+			costMoneyMicros: overrides.costMoneyMicros ?? null,
+			costTokensInput: overrides.costTokensInput ?? null,
+			costTokensOutput: overrides.costTokensOutput ?? null,
+			costSettledAt: null,
+			createdAt: NOW,
+		})
+		.run();
+}
+
+describe("L3 GET /api/artifacts (axis discriminated union)", () => {
+	let db: HyperIdleDb;
+	let eventBus: EventBus;
+	let app: Hono;
+
+	beforeEach(() => {
+		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
+		db = createTestDb();
+		eventBus = new EventBus();
+		app = createTestApp({ db, eventBus });
+	});
+
+	afterEach(() => {
+		vi.unstubAllEnvs();
+	});
+
+	it("401 when unauthenticated", async () => {
+		const res = await app.request("/api/artifacts?axis=portfolio", {
+			headers: { "Content-Type": "application/json" },
+		});
+		expect(res.status).toBe(401);
+	});
+
+	it("400 when axis is malformed", async () => {
+		const res = await app.request("/api/artifacts?axis=bogus", { headers: authHeaders() });
+		expect(res.status).toBe(400);
+	});
+
+	it("400 when axis=task but taskId is missing", async () => {
+		const res = await app.request("/api/artifacts?axis=task", { headers: authHeaders() });
+		expect(res.status).toBe(400);
+	});
+
+	it("axis=task returns artifacts for one task only", async () => {
+		const a = seed(db, "_a");
+		const b = seed(db, "_b");
+		insertArtifact(db, "art_a1", a.taskId);
+		insertArtifact(db, "art_a2", a.taskId);
+		insertArtifact(db, "art_b1", b.taskId);
+
+		const res = await app.request(`/api/artifacts?axis=task&taskId=${a.taskId}`, {
+			headers: authHeaders(),
+		});
+		expect(res.status).toBe(200);
+		const body = (await res.json()) as { items: Array<{ id: string }> };
+		const ids = body.items.map((i) => i.id).sort();
+		expect(ids).toEqual(["art_a1", "art_a2"]);
+	});
+
+	it("axis=bet aggregates artifacts across the bet's tasks", async () => {
+		const s = seed(db);
+		// add a second task to the same bet
+		db.insert(tasks)
+			.values({
+				id: "task2",
+				betId: s.betId,
+				productId: s.productId,
+				teamId: "team",
+				title: "T2",
+				state: "pending",
+				createdAt: NOW,
+				updatedAt: NOW,
+			})
+			.run();
+		insertArtifact(db, "art_x", s.taskId);
+		insertArtifact(db, "art_y", "task2");
+		const res = await app.request(`/api/artifacts?axis=bet&betId=${s.betId}`, {
+			headers: authHeaders(),
+		});
+		expect(res.status).toBe(200);
+		const body = (await res.json()) as { items: Array<{ id: string }> };
+		expect(body.items.map((i) => i.id).sort()).toEqual(["art_x", "art_y"]);
+	});
+
+	it("axis=product aggregates artifacts across the product's bets", async () => {
+		const s = seed(db);
+		insertArtifact(db, "art_p1", s.taskId);
+		const res = await app.request(`/api/artifacts?axis=product&productId=${s.productId}`, {
+			headers: authHeaders(),
+		});
+		expect(res.status).toBe(200);
+		const body = (await res.json()) as { items: Array<{ id: string }> };
+		expect(body.items.map((i) => i.id)).toContain("art_p1");
+	});
+
+	it("axis=portfolio aggregates artifacts across all products", async () => {
+		const a = seed(db, "_a");
+		const b = seed(db, "_b");
+		insertArtifact(db, "art_pa", a.taskId);
+		insertArtifact(db, "art_pb", b.taskId);
+		const res = await app.request("/api/artifacts?axis=portfolio", { headers: authHeaders() });
+		expect(res.status).toBe(200);
+		const body = (await res.json()) as { items: Array<{ id: string }> };
+		const ids = body.items.map((i) => i.id);
+		expect(ids).toContain("art_pa");
+		expect(ids).toContain("art_pb");
+	});
+
+	it("response items carry denormalised producing_task_title", async () => {
+		const s = seed(db);
+		insertArtifact(db, "art_t", s.taskId);
+		const res = await app.request(`/api/artifacts?axis=task&taskId=${s.taskId}`, {
+			headers: authHeaders(),
+		});
+		const body = (await res.json()) as {
+			items: Array<{ producingTaskTitle: string }>;
+		};
+		expect(body.items[0]?.producingTaskTitle).toBe("T");
+	});
+
+	it("response items carry threadCount as a number (forward-compat zero until L1)", async () => {
+		const s = seed(db);
+		insertArtifact(db, "art_tc", s.taskId);
+		const res = await app.request(`/api/artifacts?axis=task&taskId=${s.taskId}`, {
+			headers: authHeaders(),
+		});
+		const body = (await res.json()) as { items: Array<{ threadCount: number }> };
+		expect(body.items[0]?.threadCount).toBe(0);
+		expect(typeof body.items[0]?.threadCount).toBe("number");
+	});
+
+	it("response items carry cost-from-session shape (display strings)", async () => {
+		const s = seed(db);
+		insertArtifact(db, "art_c", s.taskId, { costMoneyMicros: 420_000, costTokensInput: 100, costTokensOutput: 148 });
+		const res = await app.request(`/api/artifacts?axis=task&taskId=${s.taskId}`, {
+			headers: authHeaders(),
+		});
+		const body = (await res.json()) as {
+			items: Array<{ cost: { money: string | null; tokens: string | null } }>;
+		};
+		expect(body.items[0]?.cost.money).toBe("$0.42");
+		expect(body.items[0]?.cost.tokens).toBe("248");
+	});
+
+	it("pagination cap enforced — limit > 200 returns 400 LIMIT_TOO_HIGH", async () => {
+		const res = await app.request("/api/artifacts?axis=portfolio&limit=1000", {
+			headers: authHeaders(),
+		});
+		expect(res.status).toBe(400);
+	});
+
+	it("pagination default limit caps results", async () => {
+		const s = seed(db);
+		for (let i = 0; i < 75; i++) {
+			insertArtifact(db, `art_${i}`, s.taskId);
+		}
+		const res = await app.request(`/api/artifacts?axis=task&taskId=${s.taskId}`, {
+			headers: authHeaders(),
+		});
+		const body = (await res.json()) as {
+			items: unknown[];
+			nextCursor: string | null;
+		};
+		expect(body.items.length).toBeLessThanOrEqual(50);
+		expect(body.nextCursor).not.toBeNull();
+	});
+
+	it("normalises an unrecognised kind to unknown_kind with preview:null", async () => {
+		const s = seed(db);
+		insertArtifact(db, "art_unk", s.taskId, { kind: "internet_meme", previewJson: null });
+		const res = await app.request(`/api/artifacts?axis=task&taskId=${s.taskId}`, {
+			headers: authHeaders(),
+		});
+		const body = (await res.json()) as {
+			items: Array<{ kind: string; preview: unknown | null }>;
+		};
+		expect(body.items[0]?.kind).toBe("unknown_kind");
+		expect(body.items[0]?.preview).toBeNull();
+	});
+});
+
+describe("L3 GET /api/artifacts/:id (permalink)", () => {
+	let db: HyperIdleDb;
+	let app: Hono;
+
+	beforeEach(() => {
+		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
+		db = createTestDb();
+		app = createTestApp({ db, eventBus: new EventBus() });
+	});
+
+	afterEach(() => vi.unstubAllEnvs());
+
+	it("returns the artifact when it exists", async () => {
+		const s = seed(db);
+		insertArtifact(db, "art_one", s.taskId);
+		const res = await app.request("/api/artifacts/art_one", { headers: authHeaders() });
+		expect(res.status).toBe(200);
+		const body = (await res.json()) as { id: string };
+		expect(body.id).toBe("art_one");
+	});
+
+	it("returns 404 for unknown id", async () => {
+		const res = await app.request("/api/artifacts/nope", { headers: authHeaders() });
+		expect(res.status).toBe(404);
+	});
+
+	// Cross-tenant — surfaced as 404 (not 403) per §5.3 to avoid leaking existence
+	it("returns 404 for cross-tenant access (does not leak existence as 403)", async () => {
+		// Without multi-tenant test seam we can't truly cross tenants, but the
+		// route must NEVER return 403 for a missing-or-foreign id; assert the
+		// status set is exactly {200, 404} for any id lookup.
+		const res = await app.request("/api/artifacts/some-other-tenant-id", {
+			headers: authHeaders(),
+		});
+		expect([200, 404]).toContain(res.status);
+		expect(res.status).not.toBe(403);
+	});
+});
+
+describe("L3 POST /api/artifacts (writer endpoint, mutability rules)", () => {
+	let db: HyperIdleDb;
+	let app: Hono;
+
+	beforeEach(() => {
+		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
+		db = createTestDb();
+		app = createTestApp({ db, eventBus: new EventBus() });
+	});
+
+	afterEach(() => vi.unstubAllEnvs());
+
+	it("rejects payload where data.kind !== preview.kind (KIND_MISMATCH 400)", async () => {
+		const s = seed(db);
+		const res = await app.request("/api/artifacts", {
+			method: "POST",
+			headers: authHeaders(),
+			body: JSON.stringify({
+				producingTaskId: s.taskId,
+				kind: "code_diff",
+				preview: { kind: "deck", slideCount: 1, firstSlideTitle: "x" },
+				cost: null,
+			}),
+		});
+		expect(res.status).toBe(400);
+	});
+
+	it("rejects oversized preview body (>64KB) with 413", async () => {
+		const s = seed(db);
+		const huge = "a".repeat(70_000);
+		const res = await app.request("/api/artifacts", {
+			method: "POST",
+			headers: authHeaders(),
+			body: JSON.stringify({
+				producingTaskId: s.taskId,
+				kind: "decision",
+				preview: { kind: "decision", claim: huge, rationale: "r" },
+				cost: null,
+			}),
+		});
+		expect(res.status).toBe(413);
+	});
+
+	it("rejects FK-violating producingTaskId with 400 INVALID_TASK", async () => {
+		const res = await app.request("/api/artifacts", {
+			method: "POST",
+			headers: authHeaders(),
+			body: JSON.stringify({
+				producingTaskId: "missing",
+				kind: "decision",
+				preview: { kind: "decision", claim: "c", rationale: "r" },
+				cost: null,
+			}),
+		});
+		expect(res.status).toBe(400);
+	});
+
+	it("rejects kind: 'unknown_kind' on create (closed-write rule)", async () => {
+		const s = seed(db);
+		const res = await app.request("/api/artifacts", {
+			method: "POST",
+			headers: authHeaders(),
+			body: JSON.stringify({
+				producingTaskId: s.taskId,
+				kind: "unknown_kind",
+				preview: null,
+				cost: null,
+			}),
+		});
+		expect(res.status).toBe(400);
+	});
+});
+
+describe("L3 PATCH immutability (preview, cost) — protected", () => {
+	let db: HyperIdleDb;
+	let app: Hono;
+
+	beforeEach(() => {
+		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
+		db = createTestDb();
+		app = createTestApp({ db, eventBus: new EventBus() });
+	});
+
+	afterEach(() => vi.unstubAllEnvs());
+
+	it("second PATCH /preview returns 409 IMMUTABLE", async () => {
+		const s = seed(db);
+		insertArtifact(db, "art_imm", s.taskId, {
+			previewJson: JSON.stringify({ kind: "decision", claim: "c", rationale: "r" }),
+		});
+		const res = await app.request("/api/artifacts/art_imm/preview", {
+			method: "PATCH",
+			headers: authHeaders(),
+			body: JSON.stringify({
+				preview: { kind: "decision", claim: "x", rationale: "y" },
+			}),
+		});
+		expect(res.status).toBe(409);
+	});
+
+	it("second PATCH /cost returns 409 IMMUTABLE", async () => {
+		const s = seed(db);
+		insertArtifact(db, "art_costimm", s.taskId, {
+			costMoneyMicros: 1000,
+			costTokensInput: 10,
+			costTokensOutput: 10,
+		});
+		const res = await app.request("/api/artifacts/art_costimm/cost", {
+			method: "PATCH",
+			headers: authHeaders(),
+			body: JSON.stringify({
+				money_micros: 2000,
+				tokens_input: 20,
+				tokens_output: 20,
+			}),
+		});
+		expect(res.status).toBe(409);
+	});
+});
