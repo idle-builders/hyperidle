@@ -35,31 +35,41 @@ cd .worktrees/<id> && bun install
 
 Then execute these steps. **Each step spawns an agent with a skill. Update `currentStep` in progress file before each step.**
 
+**Pre-condition.** The pipeline does NOT run `/concept`. Concept-locking is upstream founder work — what a Thread / Block / Artifact / Bet / Cost IS, what it ISN'T, what contracts it commits us to. Those decisions need founder input and don't fit an autonomous pipeline. Before launching the pipeline, the founder must have run `/concept <id>` for any story that introduces or reshapes a primitive — the relevant `docs/concept/*.md` section + `SHARED.md` "Shared Contracts" entry must exist. The pipeline reads them as fixed input.
+
+If a story is dispatched to the pipeline and `/concept` work is missing for a New / Reshaped noun, **fail fast**: mark the story `blocked` with reason `concept-missing` and move on. Do not autonomously redefine concepts.
+
+Then execute these steps. **Each step spawns an agent with a skill. Update `currentStep` in progress file before each step.**
+
 | Step | Agent | Skill | Why |
 |------|-------|-------|-----|
-| 1 | architect | `/plan <id>` | Plan before building — prevents wasted implementation time and catches design flaws early. **If the spec enumerates a route list (e.g., "guard mounts on /sessions, /tasks, /bets"), the plan output MUST include a `route-checklist:` block listing every route + every file the guard/middleware must cover. Step 7 architecture-review then greps the implementation against that checklist before signing off.** Recurrence: L7 retro PROPOSED-L7-B (factory-paused-guard plan §8 enumerated all routes; impl applied to one route only — caught only post-hoc by ARCH2/ADV1/ADV3/SEC6). |
-| 2 | developer | `/write-tests <id>` | Tests first define the requirement, not the implementation — catches when the wrong thing gets built |
-| 3 | developer | `/write-code <id>` | With tests as targets, implementation stays lean and every line exists because a test demands it |
-| 4 | adversary | `/simplification-scan` | Scan for over-abstraction — findings only, no code changes |
-| 5 | adversary | `/slop-scan` | Scan for AI anti-patterns — findings only, no code changes |
-| 6 | developer | `/apply-review` (steps 4+5) | Apply simplification and slop-scan findings, validate each fix |
-| 7 | architect | `/architecture-review` | Layer violations, API contracts, data model alignment |
-| 8 | adversary | `/adversary-review` | Over-engineering, error paths, type safety, coupling, test quality |
-| 9 | security-researcher | `/security-review` | STRIDE, input validation, auth, OWASP top 10 |
-| 10 | designer | `/design-review` | Component specs, states, accessibility, `/designsystem` (skip if no UI) |
-| 11 | developer | `/apply-review` (steps 7-10) | Apply review findings, validate each fix |
-| 11b | qa | `/apply-review` (steps 7-10) | Apply test-related review findings if any |
-| 12 | qa | `/check-definition-of-done <id>` | Independent auditor catches gaps the implementer rationalized away |
--- repeat 2 to 12 until done --
-| 12b | developer | `/verify` | Run `bun run check && bun run lint && bun run test` — all three must pass. Lint includes Biome + ESLint (React Compiler, hooks, Drizzle safety). **Also run all Playwright e2e specs locally before push, not just unit tests** — UI-shape changes that pass unit tests can break the e2e selectors of unrelated specs. Recurrence: L7 retro (AvatarMenu reshaping click-target broke 6 e2e specs that all passed in unit-test isolation; CI was the first signal); L10 retro ("DoD audit should include a 'run full e2e suite, not just the new spec' gate"). |
-| 13 | developer | `/ship <id>` | Clean git history with atomic commits lets future agents trace decisions. CI must be green before merge. |
-| 14 | — | `/retro <id>` | Recording what went well/badly feeds the compound agent to improve the process over time |
+| 1 | designer | `/design <id>` | Multi-variant UX/UI exploration. Three parallel sub-agents under different constraints, embodied HTML mockups + screenshots, `/design-critique` per variant, synthesis → `docs/design-explorations/<id>/approved.md`. **Skip when the story has no UI surface.** Operates *inside* the concept already locked upstream; does not redefine it. |
+| 2 | designer | `/design-critique` | Score the approved design against the nine-dimension rubric. Iterate until score ≥7 or 4 iterations reached. Skip when step 1 was skipped. |
+| 3 | architect | `/architecture <id>` | Produce the technical plan — types, schemas, routes, file paths, ordered tasks, security & abuse cases, route checklist, protected tests, plan reconciliation. Architect interrogates one-question-at-a-time. Consumes the concept doc + approved design as fixed inputs. **If the spec enumerates a route list, the plan output MUST include a `route-checklist:` block listing every route + every file the guard/middleware must cover.** Recurrence: L7 retro PROPOSED-L7-B. |
+| 4 | architect | `/architecture-critique` | Score the plan against the nine-dimension architectural rubric (spec alignment, layer integrity, contracts, data model, naming, depth, failure-mode coverage, simplicity, verifiability). Catches CC-003 happy-path ACs, CC-007 spec drift, CC-008 missing protected-tests, L7 missing route-checklist BEFORE write-tests encodes the wrong intent. Iterate until score ≥7 or 3 iterations reached. |
+| 5 | developer | `/write-tests <id>` | Tests first define the requirement, not the implementation — catches when the wrong thing gets built |
+| 6 | developer | `/write-code <id>` | With tests as targets, implementation stays lean and every line exists because a test demands it |
+| 7 | adversary | `/simplification-scan` | Scan for over-abstraction — findings only, no code changes |
+| 8 | adversary | `/slop-scan` | Scan for AI anti-patterns — findings only, no code changes |
+| 9 | developer | `/apply-review` (steps 7+8) | Apply simplification and slop-scan findings, validate each fix |
+| 10 | architect | `/architecture-review` | Layer violations, API contracts, data model alignment — checks the IMPLEMENTATION against the plan and spec. Different from `/architecture-critique` (step 4), which scored the plan itself before code. |
+| 11 | adversary | `/adversary-review` | Over-engineering, error paths, type safety, coupling, test quality |
+| 12 | security-researcher | `/security-review` | STRIDE, input validation, auth, OWASP top 10 |
+| 13 | designer | `/design-review` | Component specs, states, accessibility, `/designsystem` (skip if no UI) |
+| 14 | developer | `/apply-review` (steps 10-13) | Apply review findings, validate each fix |
+| 14b | qa | `/apply-review` (steps 10-13) | Apply test-related review findings if any |
+| 15 | qa | `/check-definition-of-done <id>` | Independent auditor catches gaps the implementer rationalized away |
+-- repeat 5 to 15 until done --
+| 15b | developer | `/verify` | Run `bun run check && bun run lint && bun run test` — all three must pass. Lint includes Biome + ESLint (React Compiler, hooks, Drizzle safety). **Also run all Playwright e2e specs locally before push, not just unit tests** — UI-shape changes that pass unit tests can break the e2e selectors of unrelated specs. Recurrence: L7 retro; L10 retro. |
+| 16 | developer | `/ship <id>` | Clean git history with atomic commits lets future agents trace decisions. CI must be green before merge. |
+| 17 | — | `/retro <id>` | Recording what went well/badly feeds the compound agent to improve the process over time |
 
-If step 12 (DoD) fails: back to step 2. Max 3 attempts, then `blocked`.
-If step 12b (verify) fails: fix issues and re-run. Max 3 attempts.
-If review (steps 7-10) blocks: back to step 3. Max 3 attempts.
+If step 15 (DoD) fails: back to step 5. Max 3 attempts, then `blocked`.
+If step 15b (verify) fails: fix issues and re-run. Max 3 attempts.
+If review (steps 10-13) blocks: back to step 6. Max 3 attempts.
+If `/architecture-critique` (step 4) fails to reach ≥7 after 3 rounds: pause, mark `blocked` with reason `concept-or-spec-misalignment`, and surface — the concept itself may be the problem and needs upstream `/concept` work, not pipeline retry.
 
-After step 14: set status to `done`. Move to next story.
+After step 17: set status to `done`. Move to next story.
 
 ---
 
@@ -72,7 +82,12 @@ After step 14: set status to `done`. Move to next story.
 - Progress file is the checkpoint. Write it after every status/step change.
 
 **Don't rationalize skipping steps:**
-- "Planning is done, I can stop" → planning is step 1 of 13. You haven't built anything yet.
+- "Concept work isn't done but I'll figure it out" → no. The pipeline does not perform `/concept`. If concept work is missing for a New / Reshaped noun, fail fast with `blocked: concept-missing`; the founder runs `/concept` upstream.
+- "Design is just spec writing, skip to architecture" → step 1 explores variants the founder hasn't seen yet. Skipping = locking onto the first idea, which is rarely the best.
+- "Architecture-critique repeats /architecture" → no — `/architecture` produces the plan; `/architecture-critique` scores it against a 9-dimension rubric and surfaces the failure modes the compound log keeps catching too late (CC-003 happy-path ACs, CC-007 spec drift, CC-008 protected-tests, L7 route-checklist).
+- "The plan is done, I can stop" → planning is step 3 of 17. You haven't built anything yet.
 - "This story is simple, skip to code" → simple stories have the highest skip rate and highest regression rate
 - "The DoD check is redundant, tests passed" → tests prove behavior, DoD proves the RIGHT thing was built against the spec
 - "Simplify/slop-scan aren't needed" → AI code accumulates cruft that compounds across stories. 2 minutes now saves hours later.
+
+**When to skip /design + /design-critique (steps 1-2):** the story has no UI surface (pure backend, schema, infra, concept-doc-only). Verify by reading the AC list — if no AC mentions a page, component, layout, route on the web side, or visible state, skip. When in doubt, run `/design`; the cost is bounded and the variants serve as documentation even when the founder picks the obvious one.
