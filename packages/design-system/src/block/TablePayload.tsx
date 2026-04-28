@@ -1,0 +1,49 @@
+// design-lint-disable require-stories-sibling
+import type { InlineNode } from "@hyperidle/shared";
+import type { JSX } from "react";
+
+import { renderInline } from "./inline.js";
+
+export interface TablePayloadProps {
+	align: ("left" | "right" | "center" | null)[];
+	header: InlineNode[][];
+	rows: InlineNode[][][];
+}
+
+export function TablePayload({ align, header, rows }: TablePayloadProps): JSX.Element {
+	return (
+		<div className="overflow-x-auto rounded-[var(--r2)] border border-[var(--border-subtle)]">
+			<table className="w-full border-collapse text-[13px]">
+				<thead className="sticky top-0 bg-[var(--surface-3)]">
+					<tr>
+						{header.map((cell, i) => (
+							<th
+								key={i}
+								scope="col"
+								style={{ textAlign: align[i] ?? "left" }}
+								className="font-mono text-[11px] uppercase tracking-[0.05em] text-[var(--text-mid)] px-[12px] py-[8px] border-b border-[var(--border-subtle)]"
+							>
+								{renderInline(cell)}
+							</th>
+						))}
+					</tr>
+				</thead>
+				<tbody>
+					{rows.map((row, ri) => (
+						<tr key={ri}>
+							{row.map((cell, ci) => (
+								<td
+									key={ci}
+									style={{ textAlign: align[ci] ?? "left" }}
+									className="px-[12px] py-[8px] border-b border-[var(--border-subtle)] tabular-nums"
+								>
+									{renderInline(cell)}
+								</td>
+							))}
+						</tr>
+					))}
+				</tbody>
+			</table>
+		</div>
+	);
+}

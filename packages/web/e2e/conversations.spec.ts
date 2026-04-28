@@ -22,7 +22,7 @@ test.describe("Conversations Review", () => {
 	});
 
 	test("reasoning block is rendered for the review", async ({ page }) => {
-		// ReasoningBlock toggle is visible.
+		// ReasoningBlockView toggle is visible.
 		await expect(page.getByRole("button", { name: /reasoning/i })).toBeVisible();
 	});
 

@@ -2,6 +2,16 @@
 
 export type { BetCardLeadAvatar, BetCardProps } from "./BetCard.js";
 export { BetCard } from "./BetCard.js";
+// ── Tier 2: Block primitive (L2) ──
+export type { BlockProps, BlockSlots } from "./Block.js";
+export { Block } from "./Block.js";
+export type {
+	BlockAction,
+	BlockActionsPopoverProps,
+} from "./BlockActionsPopover.js";
+export { BlockActionsPopover } from "./BlockActionsPopover.js";
+export type { BlockHandleProps } from "./BlockHandle.js";
+export { BlockHandle } from "./BlockHandle.js";
 // ── Support ──
 export { clickableProps } from "./clickable.js";
 // ── DOM markers (K2) ──
@@ -42,7 +52,7 @@ export { Tag } from "./Tag.js";
 export type { TaskCardProps } from "./TaskCard.js";
 export { TaskCard } from "./TaskCard.js";
 export type { ThreadRowProps } from "./ThreadRow.js";
-// ── Tier 2: Blocks ──
+// ── Tier 2: Row primitives ──
 export { ThreadRow } from "./ThreadRow.js";
 export type { TagKind, TagKindMeta } from "./tag-kinds.js";
 export { TAG_KIND_ICONS } from "./tag-kinds.js";

@@ -52,6 +52,8 @@ Five only. Anything more is scope creep.
 
 ### Tier 2 — Blocks (compose Tier 1 into reusable units)
 
+> **Disambiguation.** "Tier 2 — Blocks" is a tier of design-system *components* (React widgets). These are NOT the `Block` content primitive — see [`docs/concept/BLOCKS.md`](BLOCKS.md). The primitive's renderer components (e.g. `HeadingBlockView`, `ParagraphBlockView`) are Tier-2 components that happen to render the primitive; the primitive itself is data, not a component.
+
 Six. Each maps to a concrete recurring need.
 
 1. **ThreadRow** — Avatar + title + caption + StatusChip + relative timestamp. Used in conversation lists and activity feeds.
