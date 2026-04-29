@@ -12,7 +12,6 @@ import {
 	knowledgeItems,
 	messages,
 	products,
-	responses,
 	routines,
 	sessions,
 	tasks,
@@ -30,10 +29,13 @@ describe("A2: Database Schema", () => {
 
 	// --- AC1: Migrations apply to fresh SQLite without errors ---
 	describe("AC1: migrations apply correctly", () => {
-		it("creates all 15 tables", () => {
+		it("creates all current tables", () => {
+			// L1a: `responses` table dropped (plan §5.2). Verdicts now project
+			// as `verdict`-typed messages. Knowledge_conflicts and
+			// notification_queue were added in earlier migrations.
 			const tableNames = db
 				.all<{ name: string }>(
-					sql`SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' AND name NOT LIKE '__drizzle%' AND name NOT LIKE 'd1%' ORDER BY name`,
+					sql`SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' AND name NOT LIKE '__drizzle%' AND name NOT LIKE 'd1%' AND name NOT LIKE '_l1_snapshot_%' ORDER BY name`,
 				)
 				.map((r) => r.name);
 
@@ -49,7 +51,6 @@ describe("A2: Database Schema", () => {
 					"knowledge_items",
 					"messages",
 					"products",
-					"responses",
 					"routines",
 					"sessions",
 					"tasks",
@@ -57,6 +58,7 @@ describe("A2: Database Schema", () => {
 					"threads",
 				]),
 			);
+			expect(tableNames).not.toContain("responses");
 			expect(tableNames.length).toBeGreaterThanOrEqual(15);
 		});
 	});
@@ -339,7 +341,17 @@ describe("A2: Database Schema", () => {
 
 		it("inserts and reads threads and messages", () => {
 			const now = new Date().toISOString();
-			db.insert(threads).values({ id: "thread-1", kind: "review", createdAt: now }).run();
+			db.insert(threads)
+				.values({
+					id: "thread-1",
+					hostKind: "task",
+					hostId: "task-1",
+					initiatorId: "agent-1",
+					participants: JSON.stringify(["agent-1"]),
+					lastActiveAt: now,
+					createdAt: now,
+				})
+				.run();
 			db.insert(agents)
 				.values({
 					id: "agent-1",
@@ -360,13 +372,16 @@ describe("A2: Database Schema", () => {
 					createdAt: now,
 				})
 				.run();
+			// L1a: messages now carry type/payload/clientKey instead of
+			// recipientId/subject/body (plan §5.3).
 			db.insert(messages)
 				.values({
 					id: "msg-1",
 					senderId: "agent-1",
-					recipientId: "agent-2",
 					threadId: "thread-1",
-					body: "Hello",
+					type: "plain",
+					payload: JSON.stringify({ text: "Hello" }),
+					clientKey: "msg-1",
 					createdAt: now,
 				})
 				.run();
@@ -375,22 +390,46 @@ describe("A2: Database Schema", () => {
 			expect(result).toMatchObject({
 				id: "msg-1",
 				senderId: "agent-1",
-				body: "Hello",
+				type: "plain",
 			});
+			const payload = JSON.parse(result?.payload ?? "{}") as { text?: string };
+			expect(payload.text).toBe("Hello");
 		});
 
-		it("inserts and reads items and responses", () => {
+		it("inserts and reads items and verdict messages", () => {
+			// L1a: legacy `responses` table was dropped; verdict messages
+			// (type='verdict', legacy_item_id) replace it (plan §5.2).
 			const now = new Date().toISOString();
-			db.insert(threads).values({ id: "thread-1", kind: "review", createdAt: now }).run();
-			db.insert(agents)
+			db.insert(threads)
 				.values({
-					id: "agent-1",
-					name: "A",
-					role: "builder",
-					status: "active",
-					maxConcurrentSessions: 1,
+					id: "thread-1",
+					hostKind: "task",
+					hostId: "task-1",
+					initiatorId: "agent-1",
+					participants: JSON.stringify(["agent-1"]),
+					lastActiveAt: now,
 					createdAt: now,
 				})
+				.run();
+			db.insert(agents)
+				.values([
+					{
+						id: "agent-1",
+						name: "A",
+						role: "builder",
+						status: "active",
+						maxConcurrentSessions: 1,
+						createdAt: now,
+					},
+					{
+						id: "human-1",
+						name: "Human",
+						role: "founder",
+						status: "active",
+						maxConcurrentSessions: 1,
+						createdAt: now,
+					},
+				])
 				.run();
 			db.insert(items)
 				.values({
@@ -407,18 +446,23 @@ describe("A2: Database Schema", () => {
 			const item = db.select().from(items).where(eq(items.id, "item-1")).get();
 			expect(item).toMatchObject({ id: "item-1", kind: "review", title: "Review upload" });
 
-			db.insert(responses)
+			db.insert(messages)
 				.values({
 					id: "resp-1",
-					itemId: "item-1",
-					decision: "approve",
-					approverId: "human-1",
-					respondedAt: now,
+					senderId: "human-1",
+					threadId: "thread-1",
+					type: "verdict",
+					payload: JSON.stringify({ decision: "approve" }),
+					clientKey: "resp-1",
+					legacyItemId: "item-1",
+					createdAt: now,
 				})
 				.run();
 
-			const resp = db.select().from(responses).where(eq(responses.id, "resp-1")).get();
-			expect(resp).toMatchObject({ id: "resp-1", decision: "approve" });
+			const resp = db.select().from(messages).where(eq(messages.id, "resp-1")).get();
+			expect(resp).toMatchObject({ id: "resp-1", type: "verdict", legacyItemId: "item-1" });
+			const verdict = JSON.parse(resp?.payload ?? "{}") as { decision: string };
+			expect(verdict.decision).toBe("approve");
 		});
 
 		it("inserts and reads agent_skills", () => {
@@ -692,17 +736,34 @@ describe("A2: Database Schema", () => {
 			).toThrow();
 		});
 
-		it("rejects response with invalid item_id", () => {
+		it("rejects verdict message with invalid sender_id (replaces legacy responses FK contract)", () => {
+			// L1a: legacy `responses.item_id` FK no longer exists — `responses`
+			// table dropped (plan §5.2). Replacement contract: verdict-typed
+			// messages set sender_id=approver; messages.sender_id FK to
+			// agents.id rejects unknown senders.
 			const now = new Date().toISOString();
+			db.insert(threads)
+				.values({
+					id: "thread-fk",
+					hostKind: "task",
+					hostId: "task-1",
+					initiatorId: "agent-1",
+					participants: JSON.stringify([]),
+					lastActiveAt: now,
+					createdAt: now,
+				})
+				.run();
 			expect(() =>
 				db
-					.insert(responses)
+					.insert(messages)
 					.values({
-						id: "resp-1",
-						itemId: "nonexistent-item",
-						decision: "approve",
-						approverId: "human-1",
-						respondedAt: now,
+						id: "verdict-fk",
+						senderId: "nonexistent-agent",
+						threadId: "thread-fk",
+						type: "verdict",
+						payload: JSON.stringify({ decision: "approve" }),
+						clientKey: "verdict-fk",
+						createdAt: now,
 					})
 					.run(),
 			).toThrow();

@@ -1,7 +1,8 @@
 import * as crypto from "node:crypto";
-import { agents, messages, threads } from "@hyperidle/db";
+import { agents, messages } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
+import { findOrCreateDirectThread } from "../services/direct-thread.js";
 import type { ToolContext, ToolDefinition } from "./tool-registry.js";
 import { err, ok, type ToolResult } from "./tool-result.js";
 
@@ -28,47 +29,21 @@ async function handler(args: SendMessageInput, ctx: ToolContext): Promise<ToolRe
 
 	const now = new Date().toISOString();
 
-	// @lore I6: queries WHERE kind = 'direct' instead of loading all threads.
-	// With 1000+ threads, the previous full-table scan was O(n); this is O(direct threads only).
-	const directThreads = ctx.db.select().from(threads).where(eq(threads.kind, "direct")).all();
-	let threadId: string | undefined;
-	for (const thread of directThreads) {
-		if (thread.participants) {
-			const participants = JSON.parse(thread.participants) as string[];
-			if (
-				participants.length === 2 &&
-				participants.includes(ctx.agentId) &&
-				participants.includes(to)
-			) {
-				threadId = thread.id;
-				break;
-			}
-		}
-	}
-
-	if (!threadId) {
-		threadId = crypto.randomUUID();
-		ctx.db
-			.insert(threads)
-			.values({
-				id: threadId,
-				kind: "direct",
-				participants: JSON.stringify([ctx.agentId, to]),
-				createdAt: now,
-			})
-			.run();
-	}
+	// L1 step5 (W14): direct-thread reuse lives in `services/direct-thread.ts`
+	// to avoid drift with the agent-inbox route.
+	const threadId = findOrCreateDirectThread(ctx.db, ctx.agentId, to, now);
 
 	const messageId = crypto.randomUUID();
+	const text = subject ? `${subject}\n\n${body}` : body;
 	ctx.db
 		.insert(messages)
 		.values({
 			id: messageId,
 			senderId: ctx.agentId,
-			recipientId: to,
 			threadId,
-			subject: subject ?? null,
-			body,
+			type: "plain",
+			payload: JSON.stringify({ text }),
+			clientKey: messageId,
 			createdAt: now,
 		})
 		.run();

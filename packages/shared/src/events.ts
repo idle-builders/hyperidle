@@ -1,3 +1,4 @@
+import type { HostKind, MessageType } from "./thread.js";
 import type { BetStatus, TaskState } from "./types.js";
 
 // --- Event type discriminants ---
@@ -158,6 +159,51 @@ export interface ToolCallRecordedEvent {
 	timestamp: number;
 }
 
+// L1a — Thread primitive events (plan §6.3). `streamId` = `threadId` so
+// per-thread events arrive in order.
+export interface ThreadCreatedEvent {
+	type: "thread_created";
+	streamId: string;
+	threadId: string;
+	hostKind: HostKind;
+	hostId: string;
+	initiatorId: string;
+	timestamp: number;
+}
+
+export interface ThreadMessageAppendedEvent {
+	type: "thread_message_appended";
+	streamId: string;
+	threadId: string;
+	messageId: string;
+	messageType: MessageType;
+	senderId: string;
+	timestamp: number;
+}
+
+export interface ThreadResolvedEvent {
+	type: "thread_resolved";
+	streamId: string;
+	threadId: string;
+	resolvedByMessageId: string;
+	timestamp: number;
+}
+
+export interface ThreadReopenedEvent {
+	type: "thread_reopened";
+	streamId: string;
+	threadId: string;
+	reopenedByMessageId: string;
+	timestamp: number;
+}
+
+export interface ThreadArchivedEvent {
+	type: "thread_archived";
+	streamId: string;
+	threadId: string;
+	timestamp: number;
+}
+
 /** Discriminated union of all domain events. */
 export type DomainEvent =
 	| TaskStateChangedEvent
@@ -175,7 +221,12 @@ export type DomainEvent =
 	| DependencyMetEvent
 	| BetCommittedEvent
 	| BetRevisedEvent
-	| ToolCallRecordedEvent;
+	| ToolCallRecordedEvent
+	| ThreadCreatedEvent
+	| ThreadMessageAppendedEvent
+	| ThreadResolvedEvent
+	| ThreadReopenedEvent
+	| ThreadArchivedEvent;
 
 /** All valid event type strings. */
 export type EventType = DomainEvent["type"];

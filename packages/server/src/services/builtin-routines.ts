@@ -464,14 +464,21 @@ function runPostBetRetro(
 		return { fired: false, reason: `bet ${args.betId} not found` };
 	}
 
-	// Dedupe: look for an existing review item in a post-bet-retro thread
-	// whose body carries the same betId marker. If found, skip creation.
+	// L1a: legacy `kind='post-bet-retro'` threads now project as
+	// host_kind='bet' + host_id=betId. Dedupe via the host pair + the body
+	// marker; the marker probe alone is selective enough at HyperIdle's scale.
 	const marker = postBetRetroBetIdMarker(args.betId);
 	const existing = db
 		.select({ id: items.id })
 		.from(items)
 		.innerJoin(threads, eq(items.threadId, threads.id))
-		.where(and(eq(threads.kind, "post-bet-retro"), like(items.body, `%${marker}%`)))
+		.where(
+			and(
+				eq(threads.hostKind, "bet"),
+				eq(threads.hostId, args.betId),
+				like(items.body, `%${marker}%`),
+			),
+		)
 		.get();
 	if (existing) {
 		return { fired: false, reason: "already-retroed" };
@@ -501,7 +508,11 @@ function runPostBetRetro(
 		tx.insert(threads)
 			.values({
 				id: threadId,
-				kind: "post-bet-retro",
+				hostKind: "bet",
+				hostId: args.betId,
+				initiatorId: routine.ownerAgentId,
+				participants: JSON.stringify([routine.ownerAgentId]),
+				lastActiveAt: isoNow,
 				createdAt: isoNow,
 			})
 			.run();
@@ -575,7 +586,11 @@ function runPortfolioRetro(
 		tx.insert(threads)
 			.values({
 				id: threadId,
-				kind: "portfolio-retro",
+				hostKind: "factory",
+				hostId: "portfolio",
+				initiatorId: routine.ownerAgentId,
+				participants: JSON.stringify([routine.ownerAgentId]),
+				lastActiveAt: isoNow,
 				createdAt: isoNow,
 			})
 			.run();

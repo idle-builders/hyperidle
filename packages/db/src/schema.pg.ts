@@ -1,4 +1,13 @@
-import { boolean, index, integer, pgTable, primaryKey, real, text } from "drizzle-orm/pg-core";
+import {
+	boolean,
+	index,
+	integer,
+	pgTable,
+	primaryKey,
+	real,
+	text,
+	uniqueIndex,
+} from "drizzle-orm/pg-core";
 
 // --- Core tables ---
 
@@ -157,15 +166,26 @@ export const routines = pgTable("routines", {
 	nextRunAt: text("next_run_at"),
 });
 
-// --- Messaging ---
+// --- Messaging (L1a Thread primitive) ---
 
-export const threads = pgTable("threads", {
-	id: text("id").primaryKey(),
-	kind: text("kind").notNull(),
-	pinned: boolean("pinned").default(false),
-	participants: text("participants"),
-	createdAt: text("created_at").notNull(),
-});
+export const threads = pgTable(
+	"threads",
+	{
+		id: text("id").primaryKey(),
+		hostKind: text("host_kind").notNull(),
+		hostId: text("host_id").notNull(),
+		initiatorId: text("initiator_id").notNull(),
+		participants: text("participants").notNull(),
+		pinned: boolean("pinned").notNull().default(false),
+		resolvedAt: text("resolved_at"),
+		lastActiveAt: text("last_active_at").notNull(),
+		createdAt: text("created_at").notNull(),
+	},
+	(table) => [
+		index("threads_host_idx").on(table.hostKind, table.hostId, table.lastActiveAt),
+		index("threads_initiator_idx").on(table.initiatorId, table.lastActiveAt),
+	],
+);
 
 export const messages = pgTable(
 	"messages",
@@ -174,18 +194,23 @@ export const messages = pgTable(
 		senderId: text("sender_id")
 			.notNull()
 			.references(() => agents.id, { onDelete: "restrict" }),
-		recipientId: text("recipient_id")
-			.notNull()
-			.references(() => agents.id, { onDelete: "restrict" }),
 		threadId: text("thread_id")
 			.notNull()
 			.references(() => threads.id, { onDelete: "restrict" }),
-		subject: text("subject"),
-		body: text("body").notNull(),
-		fileLeaseIds: text("file_leases"),
+		type: text("type").notNull(),
+		payload: text("payload").notNull(),
+		clientKey: text("client_key").notNull(),
+		deletedAt: text("deleted_at"),
+		redactedAt: text("redacted_at"),
+		resolvedAt: text("resolved_at"),
 		createdAt: text("created_at").notNull(),
+		legacyItemId: text("legacy_item_id"),
 	},
-	(table) => [index("messages_thread_id_idx").on(table.threadId)],
+	(table) => [
+		index("messages_thread_id_idx").on(table.threadId, table.createdAt),
+		uniqueIndex("messages_idempotency_uq").on(table.threadId, table.senderId, table.clientKey),
+		index("messages_unresolved_idx").on(table.threadId, table.resolvedAt),
+	],
 );
 
 // --- Items & Responses ---
@@ -217,19 +242,7 @@ export const items = pgTable(
 	(table) => [index("items_thread_id_idx").on(table.threadId)],
 );
 
-export const responses = pgTable("responses", {
-	id: text("id").primaryKey(),
-	itemId: text("item_id")
-		.notNull()
-		.references(() => items.id, { onDelete: "cascade" }),
-	decision: text("decision").notNull(),
-	inlineAnchor: text("inline_anchor"),
-	edits: text("edits"),
-	feedback: text("feedback"),
-	approverId: text("approver_id"),
-	view: text("view"),
-	respondedAt: text("responded_at").notNull(),
-});
+// L1a: `responses` table dropped — see schema.ts.
 
 // --- Agent skills ---
 
@@ -404,9 +417,6 @@ export type NewMessage = typeof messages.$inferInsert;
 
 export type Item = typeof items.$inferSelect;
 export type NewItem = typeof items.$inferInsert;
-
-export type Response = typeof responses.$inferSelect;
-export type NewResponse = typeof responses.$inferInsert;
 
 export type AgentSkill = typeof agentSkills.$inferSelect;
 export type NewAgentSkill = typeof agentSkills.$inferInsert;

@@ -5,14 +5,46 @@ import {
 	factorySettings,
 	type HyperIdleDb,
 	items,
+	messages,
 	products,
-	responses,
 	teams,
 	threads,
 } from "@hyperidle/db";
 import { EventBus, type NotificationEvent } from "@hyperidle/shared";
+import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { registerPolicyEngine } from "../services/policy-engine.js";
+
+// L1a: legacy `responses` table dropped (plan §5.2). Verdicts now project as
+// `verdict`-typed messages whose `legacy_item_id` ties them back to the source
+// item. The test contract maps 1:1: instead of "row in responses for itemId
+// with approver=policy_engine and decision=approve", we assert "verdict-typed
+// message with legacy_item_id=itemId, sender_id=policy_engine, payload.decision".
+function selectVerdictsForItem(
+	db: HyperIdleDb,
+	itemId: string,
+): Array<{
+	id: string;
+	itemId: string;
+	decision: string;
+	approverId: string;
+}> {
+	const rows = db
+		.select()
+		.from(messages)
+		.where(eq(messages.legacyItemId, itemId))
+		.all()
+		.filter((m) => m.type === "verdict");
+	return rows.map((m) => {
+		const payload = JSON.parse(m.payload) as { decision: string };
+		return {
+			id: m.id,
+			itemId: m.legacyItemId ?? "",
+			decision: payload.decision,
+			approverId: m.senderId,
+		};
+	});
+}
 
 describe("Policy Engine (E7)", () => {
 	let db: HyperIdleDb;
@@ -28,16 +60,39 @@ describe("Policy Engine (E7)", () => {
 			.values({ id: "team-1", productId: "prod-1", capacity: 3, activeBets: 0, formedAt: now })
 			.run();
 		db.insert(agents)
+			.values([
+				{
+					id: "agent-1",
+					name: "Builder",
+					role: "builder",
+					status: "idle",
+					teamId: "team-1",
+					createdAt: now,
+				},
+				// L1a: synthetic sender for verdict-typed messages emitted by
+				// the policy engine. The new `messages.sender_id` FK requires
+				// the agent row to exist (legacy `responses.approver_id` had
+				// no FK).
+				{
+					id: "policy_engine",
+					name: "Policy Engine",
+					role: "system",
+					status: "active",
+					createdAt: now,
+				},
+			])
+			.run();
+		db.insert(threads)
 			.values({
-				id: "agent-1",
-				name: "Builder",
-				role: "builder",
-				status: "idle",
-				teamId: "team-1",
+				id: "thread-1",
+				hostKind: "task",
+				hostId: "task-1",
+				initiatorId: "agent-1",
+				participants: JSON.stringify(["agent-1"]),
+				lastActiveAt: now,
 				createdAt: now,
 			})
 			.run();
-		db.insert(threads).values({ id: "thread-1", kind: "review", createdAt: now }).run();
 	}
 
 	function seedAgentSkill(autonomyLevel: number): void {
@@ -105,7 +160,7 @@ describe("Policy Engine (E7)", () => {
 
 		emitItemCreated(itemId);
 
-		const resp = db.select().from(responses).all();
+		const resp = selectVerdictsForItem(db, itemId);
 		expect(resp).toHaveLength(1);
 		expect(resp[0].itemId).toBe(itemId);
 		expect(resp[0].decision).toBe("approve");
@@ -128,8 +183,8 @@ describe("Policy Engine (E7)", () => {
 			.find((i) => i.id === itemId);
 		expect(item?.auditTrail).toContain("policy_queued");
 		expect(notifications).toHaveLength(0);
-		// No response created
-		const resp = db.select().from(responses).all();
+		// No verdict-typed message created (legacy: no row in `responses`).
+		const resp = selectVerdictsForItem(db, itemId);
 		expect(resp).toHaveLength(0);
 	});
 
@@ -181,7 +236,7 @@ describe("Policy Engine (E7)", () => {
 		emitItemCreated(itemId);
 
 		// No auto-resolve
-		const resp = db.select().from(responses).all();
+		const resp = selectVerdictsForItem(db, itemId);
 		expect(resp).toHaveLength(0);
 		// Push notification
 		expect(notifications).toHaveLength(1);
@@ -196,7 +251,7 @@ describe("Policy Engine (E7)", () => {
 
 		emitItemCreated(itemId);
 
-		const resp = db.select().from(responses).all();
+		const resp = selectVerdictsForItem(db, itemId);
 		expect(resp).toHaveLength(0);
 		expect(notifications).toHaveLength(1);
 	});
@@ -240,11 +295,15 @@ describe("Policy Engine (E7)", () => {
 
 		emitItemCreated(itemId);
 
-		const resp = db.select().from(responses).all();
-		expect(resp).toHaveLength(1);
-		expect(resp[0].approverId).toBe("policy_engine");
-		expect(resp[0].decision).toBe("approve");
-		expect(resp[0].respondedAt).toBeTruthy();
+		// L1a: Response now projects as a verdict-typed message; approver maps
+		// to senderId, decision lives in payload.decision, respondedAt is the
+		// message createdAt.
+		const verdicts = selectVerdictsForItem(db, itemId);
+		expect(verdicts).toHaveLength(1);
+		expect(verdicts[0].approverId).toBe("policy_engine");
+		expect(verdicts[0].decision).toBe("approve");
+		const message = db.select().from(messages).where(eq(messages.id, verdicts[0].id)).get();
+		expect(message?.createdAt).toBeTruthy();
 	});
 
 	it("AC10: per-product silence -> items from that product queued", () => {
@@ -357,7 +416,7 @@ describe("Policy Engine (E7)", () => {
 
 		// High risk always pushes
 		expect(notifications).toHaveLength(1);
-		const resp = db.select().from(responses).all();
+		const resp = selectVerdictsForItem(db, itemId);
 		expect(resp).toHaveLength(0);
 	});
 });

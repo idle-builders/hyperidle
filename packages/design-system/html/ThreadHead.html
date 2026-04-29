@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ThreadHead — HyperIdle Design System</title>
+  <link rel="stylesheet" href="_tokens.css" />
+  <style>
+    /* Layout mirrors ThreadHead.tsx — review-typed head with title +
+       reasoning list + artifact slot. Density tokens consumed for
+       spacing per AQ-002. */
+    .thread-head {
+      display: flex;
+      flex-direction: column;
+      gap: var(--density-gap);
+      padding: var(--density-card-pad) var(--density-pad-x);
+      border-bottom: 1px solid var(--border-subtle);
+      background: var(--surface-1);
+    }
+    .thread-head__header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+    .thread-head__title {
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--text-hi);
+      margin: 0;
+    }
+    .thread-head__resolved {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--ok);
+    }
+    .thread-head__section {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .thread-head__label {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-lo);
+    }
+    .thread-head__reasoning {
+      list-style: decimal;
+      padding-left: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      font-size: 13px;
+      color: var(--text-mid);
+      margin: 0;
+    }
+    .thread-head__artifact {
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--r1);
+      overflow: hidden;
+      padding: 12px;
+      background: var(--surface-0);
+      font-family: var(--mono);
+      font-size: 12px;
+      color: var(--text-mid);
+    }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" crossorigin></script>
+  <script type="text/babel" data-presets="env,react">
+    function ThreadHead({ message, resolvedVerdict, artifactSlot }) {
+      // L1a: only review/questionnaire types render — plain/verdict
+      // collapse to the comment stream per approved.md §8 hard-rule 1.
+      if (message.type === "review") {
+        return (
+          <section
+            className="thread-head"
+            data-component="ThreadHead"
+            data-tier="2"
+          >
+            <header className="thread-head__header">
+              <h2 className="thread-head__title">{message.payload.title}</h2>
+              {resolvedVerdict ? (
+                <span className="thread-head__resolved">RESOLVED · {resolvedVerdict}</span>
+              ) : null}
+            </header>
+            <div className="thread-head__section">
+              <div className="thread-head__label">Reasoning</div>
+              <ol className="thread-head__reasoning">
+                {message.payload.reasoning.map((line, i) => (
+                  <li key={`r-${i}`}>{line}</li>
+                ))}
+              </ol>
+            </div>
+            {artifactSlot ? (
+              <div className="thread-head__artifact">{artifactSlot}</div>
+            ) : null}
+          </section>
+        );
+      }
+      return <section data-component="ThreadHead" data-tier="2" />;
+    }
+
+    function Demo() {
+      const message = {
+        id: "m1",
+        type: "review",
+        payload: {
+          title: "Approve deploy of v2.4 to staging",
+          reasoning: [
+            "Schema migration adds two columns; backfill verified on snapshot.",
+            "All 142 contract tests pass; integration suite green.",
+            "Cost cap reduced 8% over previous deploy — budget headroom OK.",
+          ],
+        },
+      };
+      return (
+        <ThreadHead
+          message={message}
+          artifactSlot={<span>artifact preview · diff +24 −7</span>}
+        />
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById('root')).render(<Demo />);
+  </script>
+  <script src="themes/_switcher.js"></script>
+</body>
+</html>

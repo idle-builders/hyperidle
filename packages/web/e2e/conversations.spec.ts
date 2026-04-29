@@ -10,23 +10,27 @@ test.describe("Conversations Review", () => {
 		await page.waitForSelector("[data-testid='conversations-review-page']");
 	});
 
-	test("Review page loads with review header and verdict toolbar", async ({ page }) => {
+	// L1: ConversationsReview was rewritten to mount <ThreadShell>; the legacy ReviewHeader/ReasoningBlockView/PREFILL_KEYS flow this case asserts no longer exists. New contract covered by packages/web/e2e/threads.spec.ts. J-track / L1b can rewrite or delete.
+	test.skip("Review page loads with review header and verdict toolbar", async ({ page }) => {
 		await expect(page.getByRole("toolbar", { name: /verdict/i })).toBeVisible();
 	});
 
-	test("review page shows the selected review's proposer and artifact", async ({ page }) => {
+	// L1: ConversationsReview was rewritten to mount <ThreadShell>; the legacy ReviewHeader/ReasoningBlockView/PREFILL_KEYS flow this case asserts no longer exists. New contract covered by packages/web/e2e/threads.spec.ts. J-track / L1b can rewrite or delete.
+	test.skip("review page shows the selected review's proposer and artifact", async ({ page }) => {
 		// The review page renders the first mock review (Auth flow) by default.
 		await expect(page.getByText("Developer Agent")).toBeVisible();
 		// The diff artifact is visible in the main content.
 		await expect(page.getByText("import { jwt } from 'hono/jwt';")).toBeVisible();
 	});
 
-	test("reasoning block is rendered for the review", async ({ page }) => {
+	// L1: ConversationsReview was rewritten to mount <ThreadShell>; the legacy ReviewHeader/ReasoningBlockView/PREFILL_KEYS flow this case asserts no longer exists. New contract covered by packages/web/e2e/threads.spec.ts. J-track / L1b can rewrite or delete.
+	test.skip("reasoning block is rendered for the review", async ({ page }) => {
 		// ReasoningBlockView toggle is visible.
 		await expect(page.getByRole("button", { name: /reasoning/i })).toBeVisible();
 	});
 
-	test("ReviewHeader verdict buttons are visible", async ({ page }) => {
+	// L1: ConversationsReview was rewritten to mount <ThreadShell>; the legacy ReviewHeader/ReasoningBlockView/PREFILL_KEYS flow this case asserts no longer exists. New contract covered by packages/web/e2e/threads.spec.ts. J-track / L1b can rewrite or delete.
+	test.skip("ReviewHeader verdict buttons are visible", async ({ page }) => {
 		await expect(page.getByRole("button", { name: "Approve" })).toBeVisible();
 		await expect(page.getByRole("button", { name: "Reject" })).toBeVisible();
 		await expect(page.getByRole("button", { name: "Request changes" })).toBeVisible();

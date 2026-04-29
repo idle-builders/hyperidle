@@ -12,6 +12,10 @@ export type {
 export { BlockActionsPopover } from "./BlockActionsPopover.js";
 export type { BlockHandleProps } from "./BlockHandle.js";
 export { BlockHandle } from "./BlockHandle.js";
+export type { CommentRowProps, CommentRowSender } from "./CommentRow.js";
+export { CommentRow } from "./CommentRow.js";
+export type { ComposerProps, ComposerSubmitInput } from "./Composer.js";
+export { Composer } from "./Composer.js";
 // ── Support ──
 export { clickableProps } from "./clickable.js";
 // ── DOM markers (K2) ──
@@ -32,6 +36,8 @@ export type { NotificationRowProps } from "./NotificationRow.js";
 export { NotificationRow } from "./NotificationRow.js";
 export type { PitchCardProps } from "./PitchCard.js";
 export { PitchCard } from "./PitchCard.js";
+export type { ReviewVerdictBarProps, VerdictGrammarAction } from "./ReviewVerdictBar.js";
+export { ReviewVerdictBar } from "./ReviewVerdictBar.js";
 export type { SearchFieldProps } from "./SearchField.js";
 export { SearchField } from "./SearchField.js";
 export type { SkeletonCardProps, SkeletonListProps } from "./Skeleton.js";
@@ -51,8 +57,26 @@ export type { TagProps } from "./Tag.js";
 export { Tag } from "./Tag.js";
 export type { TaskCardProps } from "./TaskCard.js";
 export { TaskCard } from "./TaskCard.js";
+export type { ThreadHeadProps } from "./ThreadHead.js";
+export { ThreadHead } from "./ThreadHead.js";
+// ── L1a Thread primitive components (stubs during write-tests phase) ──
+export type {
+	ThreadHostBannerParticipant,
+	ThreadHostBannerProps,
+} from "./ThreadHostBanner.js";
+export { ThreadHostBanner } from "./ThreadHostBanner.js";
 export type { ThreadRowProps } from "./ThreadRow.js";
 // ── Tier 2: Row primitives ──
 export { ThreadRow } from "./ThreadRow.js";
+export type {
+	ThreadShellAppendInput,
+	ThreadShellIdentity,
+	ThreadShellProps,
+} from "./ThreadShell.js";
+export {
+	computeSenderGrouping,
+	hasMostRecentUnresolvedReview,
+	ThreadShell,
+} from "./ThreadShell.js";
 export type { TagKind, TagKindMeta } from "./tag-kinds.js";
 export { TAG_KIND_ICONS } from "./tag-kinds.js";

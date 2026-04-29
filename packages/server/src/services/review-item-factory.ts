@@ -53,10 +53,16 @@ export function createReviewItemForKnowledge(
 	const threadId = randomUUID();
 	const isoNow = new Date(input.nowMs).toISOString();
 
+	// L1a: thread now carries host_kind/host_id; for knowledge-review the
+	// host is the knowledge item being reviewed.
 	db.insert(threads)
 		.values({
 			id: threadId,
-			kind: "review",
+			hostKind: "knowledge_item",
+			hostId: input.knowledgeItemId,
+			initiatorId: ATTENTION_REVIEW_SOURCE,
+			participants: JSON.stringify([ATTENTION_REVIEW_SOURCE]),
+			lastActiveAt: isoNow,
 			createdAt: isoNow,
 		})
 		.run();

@@ -85,7 +85,15 @@ describe("H2 Dispatcher integration via createApp", () => {
 		enable(db);
 		const threadId = "thread-app-1";
 		db.insert(threads)
-			.values({ id: threadId, kind: "review", createdAt: "2026-04-18T00:00:00.000Z" })
+			.values({
+				id: threadId,
+				hostKind: "task",
+				hostId: "task-1",
+				initiatorId: "agent-1",
+				participants: JSON.stringify(["agent-1"]),
+				lastActiveAt: "2026-04-18T00:00:00.000Z",
+				createdAt: "2026-04-18T00:00:00.000Z",
+			})
 			.run();
 		db.insert(itemsTable)
 			.values({

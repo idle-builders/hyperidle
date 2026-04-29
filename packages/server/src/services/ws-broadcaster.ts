@@ -1,4 +1,6 @@
+import { type HyperIdleDb, threads } from "@hyperidle/db";
 import type { EventBus } from "@hyperidle/shared";
+import { eq } from "drizzle-orm";
 
 /**
  * Manages WebSocket topic subscriptions and event broadcasting.
@@ -8,11 +10,31 @@ export interface WsClient {
 	send(data: string): void;
 }
 
+/**
+ * Result of a subscribe attempt. `forbidden` means the caller is not
+ * authorized to receive the topic (e.g., not a thread participant).
+ *
+ * @lore L1 step9 (Adv-C1): a subscribe call previously returned `boolean`
+ * (success vs unknown-client). L1a §6.2 requires participant-only access
+ * to per-thread topics; the subscribe path now needs a third "forbidden"
+ * outcome distinguishable by the caller so the WS handler can reply with
+ * a structured `{error: "forbidden"}` frame.
+ */
+export type SubscribeResult = "ok" | "forbidden" | "unknown_client";
+
+interface SubscribeAuthorizer {
+	canSubscribe(senderId: string, topic: string): boolean;
+}
+
 export class WsBroadcaster {
 	private clients = new Map<WsClient, Set<string>>();
+	private clientIdentities = new Map<WsClient, string>();
 	private unsubscribers: Array<() => void> = [];
 
-	constructor(private readonly eventBus: EventBus) {}
+	constructor(
+		private readonly eventBus: EventBus,
+		private readonly authorizer?: SubscribeAuthorizer,
+	) {}
 
 	/** Wire up event bus subscriptions for forwarding. */
 	start(): void {
@@ -38,7 +60,38 @@ export class WsBroadcaster {
 			this.broadcast("rail", JSON.stringify(event));
 		});
 
-		this.unsubscribers.push(unsub1, unsub2, unsub3, unsub4, unsub5);
+		// L1a — Thread primitive events (plan §6.2 / §6.3). Per-thread topic
+		// `thread:<id>` carries everything that mutates an open thread; the
+		// thread-list channel `'conversations'` carries `thread_created` so
+		// the Submenu refreshes.
+		const unsub6 = this.eventBus.on("thread_created", (event) => {
+			this.broadcast("conversations", JSON.stringify(event));
+		});
+		const unsub7 = this.eventBus.on("thread_message_appended", (event) => {
+			this.broadcast(`thread:${event.threadId}`, JSON.stringify(event));
+		});
+		const unsub8 = this.eventBus.on("thread_resolved", (event) => {
+			this.broadcast(`thread:${event.threadId}`, JSON.stringify(event));
+		});
+		const unsub9 = this.eventBus.on("thread_reopened", (event) => {
+			this.broadcast(`thread:${event.threadId}`, JSON.stringify(event));
+		});
+		const unsub10 = this.eventBus.on("thread_archived", (event) => {
+			this.broadcast(`thread:${event.threadId}`, JSON.stringify(event));
+		});
+
+		this.unsubscribers.push(
+			unsub1,
+			unsub2,
+			unsub3,
+			unsub4,
+			unsub5,
+			unsub6,
+			unsub7,
+			unsub8,
+			unsub9,
+			unsub10,
+		);
 	}
 
 	/** Stop forwarding events. */
@@ -49,30 +102,52 @@ export class WsBroadcaster {
 		this.unsubscribers = [];
 	}
 
-	/** Register a new client. */
-	addClient(client: WsClient): void {
+	/** Register a new client. The `senderId` is the authenticated identity. */
+	addClient(client: WsClient, senderId?: string): void {
 		this.clients.set(client, new Set());
+		if (senderId) {
+			this.clientIdentities.set(client, senderId);
+		}
 	}
 
 	/** Remove a client. */
 	removeClient(client: WsClient): void {
 		this.clients.delete(client);
+		this.clientIdentities.delete(client);
 	}
 
-	/** Subscribe a client to a topic. */
-	subscribe(client: WsClient, topic: string): boolean {
+	/**
+	 * Subscribe a client to a topic. For per-thread topics (`thread:<id>`),
+	 * verifies that the client's authenticated identity is in
+	 * `threads.participants`. Returns `forbidden` if not authorized,
+	 * `unknown_client` if the client was never `addClient`-ed, `ok` on success.
+	 *
+	 * @lore L1 step9 (Adv-C1): the L1a contract requires participant-only
+	 * access to `thread:<id>` topics. Without this check, any authenticated
+	 * WS client could subscribe to any thread and receive every append /
+	 * resolve / reopen event — a confidentiality bypass that survived the
+	 * REST-side participant guard in `routes/threads.ts`.
+	 */
+	subscribe(client: WsClient, topic: string): SubscribeResult {
 		const topics = this.clients.get(client);
-		if (!topics) return false;
+		if (!topics) return "unknown_client";
+		if (this.authorizer) {
+			const senderId = this.clientIdentities.get(client);
+			if (!senderId) return "forbidden";
+			if (!this.authorizer.canSubscribe(senderId, topic)) {
+				return "forbidden";
+			}
+		}
 		topics.add(topic);
-		return true;
+		return "ok";
 	}
 
 	/** Unsubscribe a client from a topic. */
-	unsubscribe(client: WsClient, topic: string): boolean {
+	unsubscribe(client: WsClient, topic: string): SubscribeResult {
 		const topics = this.clients.get(client);
-		if (!topics) return false;
+		if (!topics) return "unknown_client";
 		topics.delete(topic);
-		return true;
+		return "ok";
 	}
 
 	/** Broadcast a message to all clients subscribed to a topic. */
@@ -94,4 +169,34 @@ export class WsBroadcaster {
 	get clientCount(): number {
 		return this.clients.size;
 	}
+}
+
+/**
+ * Build an authorizer that allows:
+ *  - any authenticated identity to subscribe to global topics
+ *    (`conversations`, `work`, `rail`)
+ *  - only thread participants to subscribe to `thread:<id>` topics
+ *
+ * @lore L1 step9 (Adv-C1): subscribe authorization for per-thread topics is
+ * the L1a §6.2 contract. The DB lookup is one-shot per subscribe call;
+ * topic membership is cached in `WsBroadcaster`'s set.
+ */
+export function createDbSubscribeAuthorizer(db: HyperIdleDb): SubscribeAuthorizer {
+	const GLOBAL_TOPICS = new Set(["conversations", "work", "rail"]);
+	return {
+		canSubscribe(senderId: string, topic: string): boolean {
+			if (GLOBAL_TOPICS.has(topic)) return true;
+			if (!topic.startsWith("thread:")) return false;
+			const threadId = topic.slice("thread:".length);
+			if (!threadId) return false;
+			const row = db.select().from(threads).where(eq(threads.id, threadId)).get();
+			if (!row) return false;
+			try {
+				const parts = JSON.parse(row.participants);
+				return Array.isArray(parts) && parts.includes(senderId);
+			} catch {
+				return false;
+			}
+		},
+	};
 }

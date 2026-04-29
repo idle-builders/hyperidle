@@ -255,7 +255,11 @@ function createReviewItem(
 	db.insert(threads)
 		.values({
 			id: threadId,
-			kind: "routine-review",
+			hostKind: "task",
+			hostId: routine.id,
+			initiatorId: routine.ownerAgentId,
+			participants: JSON.stringify([routine.ownerAgentId]),
+			lastActiveAt: now,
 			createdAt: now,
 		})
 		.run();

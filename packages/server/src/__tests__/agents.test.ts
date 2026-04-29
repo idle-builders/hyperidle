@@ -154,9 +154,11 @@ describe("Agent Endpoints (E6)", () => {
 				body: JSON.stringify({ autonomyLevel: 4 }),
 			});
 
-			// Verify review thread was created
+			// L1a: legacy `kind='review'` projects to host_kind='agent' for an
+			// agent-scoped autonomy review (plan §5.3). Find the thread by
+			// the agent host and the linked autonomy_change item.
 			const allThreads = db.select().from(threads).all();
-			const reviewThread = allThreads.find((t) => t.kind === "review");
+			const reviewThread = allThreads.find((t) => t.hostKind === "agent" && t.hostId === "agent-1");
 			expect(reviewThread).toBeDefined();
 
 			// Verify item was created
@@ -210,8 +212,11 @@ describe("Agent Endpoints (E6)", () => {
 			db.insert(threads)
 				.values({
 					id: "thread-1",
-					kind: "direct",
+					hostKind: "agent",
+					hostId: "agent-1",
+					initiatorId: "agent-2",
 					participants: JSON.stringify(["agent-2", "agent-1"]),
+					lastActiveAt: new Date().toISOString(),
 					createdAt: new Date().toISOString(),
 				})
 				.run();
@@ -219,9 +224,10 @@ describe("Agent Endpoints (E6)", () => {
 				.values({
 					id: "msg-1",
 					senderId: "agent-2",
-					recipientId: "agent-1",
 					threadId: "thread-1",
-					body: "Hello!",
+					type: "plain",
+					payload: JSON.stringify({ text: "Hello!" }),
+					clientKey: "msg-1",
 					createdAt: new Date().toISOString(),
 				})
 				.run();
@@ -229,9 +235,12 @@ describe("Agent Endpoints (E6)", () => {
 			const res = await app.request("/api/agents/agent-1/inbox", { headers: authHeaders() });
 			expect(res.status).toBe(200);
 
-			const body = (await res.json()) as Array<Record<string, unknown>>;
+			// L1a: messages now carry payload (JSON), not body. The route
+			// returns the row as-is.
+			const body = (await res.json()) as Array<{ payload: string; senderId: string }>;
 			expect(body).toHaveLength(1);
-			expect(body[0].body).toBe("Hello!");
+			const payload = JSON.parse(body[0].payload) as { text?: string };
+			expect(payload.text).toBe("Hello!");
 		});
 
 		it("returns 404 for unknown agent", async () => {
@@ -245,35 +254,36 @@ describe("Agent Endpoints (E6)", () => {
 		it("sends a message and creates thread if needed", async () => {
 			const res = await app.request("/api/agents/agent-1/inbox", {
 				method: "POST",
-				headers: authHeaders(),
-				body: JSON.stringify({ senderId: "agent-2", body: "Hey there!" }),
+				headers: authHeaders({ "X-Identity": "agent-2" }),
+				body: JSON.stringify({ body: "Hey there!" }),
 			});
 			expect(res.status).toBe(201);
 
 			const body = (await res.json()) as Record<string, unknown>;
-			expect(body.body).toBe("Hey there!");
-			expect(body.recipientId).toBe("agent-1");
+			// L1a: messages now carry payload (JSON), not body/recipientId.
+			expect(typeof body.payload).toBe("string");
 			expect(body.senderId).toBe("agent-2");
 
-			// Verify thread was created
+			// Verify thread was created with the new shape.
 			const allThreads = db.select().from(threads).all();
 			expect(allThreads).toHaveLength(1);
-			expect(allThreads[0].kind).toBe("direct");
+			expect(allThreads[0].hostKind).toBe("agent");
+			expect(allThreads[0].hostId).toBe("agent-1");
 		});
 
 		it("reuses existing thread for same sender/recipient pair", async () => {
 			// Send first message
 			await app.request("/api/agents/agent-1/inbox", {
 				method: "POST",
-				headers: authHeaders(),
-				body: JSON.stringify({ senderId: "agent-2", body: "First" }),
+				headers: authHeaders({ "X-Identity": "agent-2" }),
+				body: JSON.stringify({ body: "First" }),
 			});
 
 			// Send second message
 			await app.request("/api/agents/agent-1/inbox", {
 				method: "POST",
-				headers: authHeaders(),
-				body: JSON.stringify({ senderId: "agent-2", body: "Second" }),
+				headers: authHeaders({ "X-Identity": "agent-2" }),
+				body: JSON.stringify({ body: "Second" }),
 			});
 
 			const allThreads = db.select().from(threads).all();
@@ -286,8 +296,8 @@ describe("Agent Endpoints (E6)", () => {
 		it("returns 404 for unknown recipient agent", async () => {
 			const res = await app.request("/api/agents/nonexistent/inbox", {
 				method: "POST",
-				headers: authHeaders(),
-				body: JSON.stringify({ senderId: "agent-2", body: "Hello" }),
+				headers: authHeaders({ "X-Identity": "agent-2" }),
+				body: JSON.stringify({ body: "Hello" }),
 			});
 			expect(res.status).toBe(404);
 		});
@@ -295,8 +305,30 @@ describe("Agent Endpoints (E6)", () => {
 		it("returns 400 for missing body text", async () => {
 			const res = await app.request("/api/agents/agent-1/inbox", {
 				method: "POST",
+				headers: authHeaders({ "X-Identity": "agent-2" }),
+				body: JSON.stringify({}),
+			});
+			expect(res.status).toBe(400);
+		});
+
+		// L1 step9 (Adv-C2): senderId must NOT be derivable from the request
+		// body. A body-supplied `senderId` either (a) is rejected outright by
+		// the strict schema (no extra keys), or (b) is silently ignored. The
+		// derived sender must come from `X-Identity`.
+		it("rejects body-supplied senderId — no spoofing", async () => {
+			const res = await app.request("/api/agents/agent-1/inbox", {
+				method: "POST",
+				headers: authHeaders({ "X-Identity": "agent-2" }),
+				body: JSON.stringify({ senderId: "u-founder", body: "spoof" }),
+			});
+			expect(res.status).toBe(400);
+		});
+
+		it("returns 400 when X-Identity header is missing", async () => {
+			const res = await app.request("/api/agents/agent-1/inbox", {
+				method: "POST",
 				headers: authHeaders(),
-				body: JSON.stringify({ senderId: "agent-2" }),
+				body: JSON.stringify({ body: "no identity" }),
 			});
 			expect(res.status).toBe(400);
 		});

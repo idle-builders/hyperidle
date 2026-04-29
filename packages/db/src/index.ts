@@ -52,7 +52,6 @@ export {
 	type NewMessage,
 	type NewNotificationQueueRow,
 	type NewProduct,
-	type NewResponse,
 	type NewRoutine,
 	type NewSession,
 	type NewTask,
@@ -64,9 +63,7 @@ export {
 	type Product,
 	// Tables
 	products,
-	type Response,
 	type Routine,
-	responses,
 	routines,
 	type Session,
 	sessions,

@@ -1,6 +1,6 @@
-import { agentSkills, type HyperIdleDb, items, responses } from "@hyperidle/db";
+import { agentSkills, type HyperIdleDb, items, messages, threads } from "@hyperidle/db";
 import type { EventBus, ItemCreatedEvent, NotificationEvent } from "@hyperidle/shared";
-import { eq } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 import { isSilenced as sharedIsSilenced } from "./silence-policy.js";
 
 interface PolicyEngineOptions {
@@ -99,16 +99,50 @@ function executeAction(
 ): void {
 	switch (action) {
 		case "auto_resolve": {
-			const responseId = crypto.randomUUID();
+			// L1a M4: write a `verdict`-typed message instead of a row in the
+			// dropped `responses` table. The item carries a `threadId`; the
+			// verdict targets the most recent review-typed message in that
+			// thread (or the legacy item id when no review message exists).
+			const item = db.select().from(items).where(eq(items.id, itemId)).get();
+			if (!item) break;
+			// L1 step5 (W5): push the type filter into SQL and limit to the
+			// most recent review-typed message — the previous query loaded
+			// every message in the thread to JS just to find one.
+			const reviewMessage = db
+				.select()
+				.from(messages)
+				.where(and(eq(messages.threadId, item.threadId), eq(messages.type, "review")))
+				.orderBy(desc(messages.createdAt))
+				.limit(1)
+				.get();
+
+			const messageId = crypto.randomUUID();
 			const respondedAt = new Date().toISOString();
-			db.insert(responses)
+			const verdictPayload = {
+				decision: "approve",
+				resolvesMessageId: reviewMessage?.id ?? itemId,
+			};
+			db.insert(messages)
 				.values({
-					id: responseId,
-					itemId,
-					decision: "approve",
-					approverId: "policy_engine",
-					respondedAt,
+					id: messageId,
+					senderId: "policy_engine",
+					threadId: item.threadId,
+					type: "verdict",
+					payload: JSON.stringify(verdictPayload),
+					clientKey: `__l1_policy_${itemId}`,
+					legacyItemId: itemId,
+					createdAt: respondedAt,
 				})
+				.run();
+			if (reviewMessage) {
+				db.update(messages)
+					.set({ resolvedAt: respondedAt })
+					.where(eq(messages.id, reviewMessage.id))
+					.run();
+			}
+			db.update(threads)
+				.set({ resolvedAt: respondedAt })
+				.where(eq(threads.id, item.threadId))
 				.run();
 			break;
 		}

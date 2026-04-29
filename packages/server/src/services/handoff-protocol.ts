@@ -133,7 +133,17 @@ export async function handoff(
 
 			// Review thread + item
 			const reviewThreadId = crypto.randomUUID();
-			tx.insert(threads).values({ id: reviewThreadId, kind: "review", createdAt: now }).run();
+			tx.insert(threads)
+				.values({
+					id: reviewThreadId,
+					hostKind: "task",
+					hostId: task.id,
+					initiatorId: sessionContext.agentId,
+					participants: JSON.stringify([sessionContext.agentId]),
+					lastActiveAt: now,
+					createdAt: now,
+				})
+				.run();
 			const reviewItemId = crypto.randomUUID();
 			tx.insert(items)
 				.values({
@@ -184,7 +194,15 @@ export async function handoff(
 			} else {
 				const escalationThreadId = crypto.randomUUID();
 				tx.insert(threads)
-					.values({ id: escalationThreadId, kind: "escalation", createdAt: now })
+					.values({
+						id: escalationThreadId,
+						hostKind: "task",
+						hostId: task.id,
+						initiatorId: sessionContext.agentId,
+						participants: JSON.stringify([sessionContext.agentId]),
+						lastActiveAt: now,
+						createdAt: now,
+					})
 					.run();
 
 				const escalationItemId = crypto.randomUUID();
@@ -224,7 +242,9 @@ export async function handoff(
 		// has a thread). Runs AFTER the ownership mutation so the recipient
 		// in the message matches the persisted owner.
 		if (task.threadId) {
-			const messageBody: Record<string, unknown> = {
+			// L1a: messages now carry `type` + `payload` instead of subject/body.
+			// Handoff metadata is a structured payload with type='handoff'.
+			const handoffPayload: Record<string, unknown> = {
 				type: "handoff",
 				context_id: metadata.context_id,
 				status: metadata.status,
@@ -233,16 +253,17 @@ export async function handoff(
 				remaining_work: metadata.remaining_work,
 			};
 			if (metadata.error !== undefined) {
-				messageBody.error = metadata.error;
+				handoffPayload.error = metadata.error;
 			}
+			const messageId = crypto.randomUUID();
 			tx.insert(messages)
 				.values({
-					id: crypto.randomUUID(),
+					id: messageId,
 					senderId: sessionContext.agentId,
-					recipientId: txResult.targetAgentId ?? sessionContext.agentId,
 					threadId: task.threadId,
-					subject: "handoff",
-					body: JSON.stringify(messageBody),
+					type: "handoff",
+					payload: JSON.stringify(handoffPayload),
+					clientKey: messageId,
 					createdAt: now,
 				})
 				.run();

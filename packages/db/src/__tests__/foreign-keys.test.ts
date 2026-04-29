@@ -10,7 +10,6 @@ import {
 	knowledgeItems,
 	messages,
 	products,
-	responses,
 	routines,
 	sessions,
 	tasks,
@@ -27,7 +26,9 @@ import { createTestDb } from "../test-utils.js";
  * - Audit-trail FKs (knowledge_edit_log, knowledge_conflicts on
  *   knowledge_items) use ON DELETE RESTRICT — the audit must outlive its
  *   subject (I3 review sec HIGH-2).
- * - Pure-dependent FKs (responses on items) still CASCADE.
+ * - L1a: legacy `responses` table dropped; verdicts now project as
+ *   `verdict`-typed messages bound to the thread (RESTRICT via
+ *   messages.thread_id), decoupled from the item lifecycle.
  *
  * The tests insert a parent + dependent row and attempt the deletion that the
  * configured action should respectively reject (RESTRICT) or propagate
@@ -139,7 +140,17 @@ describe("I3: FK actions — RESTRICT on reference data", () => {
 
 	it("rejects deleting a thread while a message references it", () => {
 		seedProductTeamBetTaskAgent(db);
-		db.insert(threads).values({ id: "thread-1", kind: "review", createdAt: NOW }).run();
+		db.insert(threads)
+			.values({
+				id: "thread-1",
+				hostKind: "task",
+				hostId: "task-1",
+				initiatorId: "agent-1",
+				participants: JSON.stringify(["agent-1"]),
+				lastActiveAt: NOW,
+				createdAt: NOW,
+			})
+			.run();
 		db.insert(agents)
 			.values({
 				id: "a2",
@@ -150,13 +161,16 @@ describe("I3: FK actions — RESTRICT on reference data", () => {
 				createdAt: NOW,
 			})
 			.run();
+		// L1a: messages now carry type/payload/clientKey; recipientId/subject/
+		// body dropped (plan §5.3). Recipient is folded into participants.
 		db.insert(messages)
 			.values({
 				id: "msg-1",
 				senderId: "a1",
-				recipientId: "a2",
 				threadId: "thread-1",
-				body: "hi",
+				type: "plain",
+				payload: JSON.stringify({ text: "hi" }),
+				clientKey: "msg-1",
 				createdAt: NOW,
 			})
 			.run();
@@ -165,7 +179,17 @@ describe("I3: FK actions — RESTRICT on reference data", () => {
 
 	it("rejects deleting a thread while an item references it", () => {
 		seedProductTeamBetTaskAgent(db);
-		db.insert(threads).values({ id: "thread-1", kind: "review", createdAt: NOW }).run();
+		db.insert(threads)
+			.values({
+				id: "thread-1",
+				hostKind: "task",
+				hostId: "task-1",
+				initiatorId: "agent-1",
+				participants: JSON.stringify(["agent-1"]),
+				lastActiveAt: NOW,
+				createdAt: NOW,
+			})
+			.run();
 		db.insert(items)
 			.values({
 				id: "item-1",
@@ -292,17 +316,42 @@ describe("I3: FK actions — CASCADE on dependent data", () => {
 		expect(remaining).toHaveLength(1);
 	});
 
-	it("cascades delete from items to responses rows", () => {
-		db.insert(threads).values({ id: "thread-1", kind: "review", createdAt: NOW }).run();
-		db.insert(agents)
+	// L1a: legacy `responses` table dropped (plan §5.2). Verdicts now project
+	// as `verdict`-typed messages attached to a thread, not an item — so the
+	// "items → responses CASCADE" contract no longer applies. The replacement
+	// contract: verdict messages survive item deletion (decoupled audit
+	// trail), and follow the messages.thread_id FK behaviour (RESTRICT).
+	it("verdict messages survive item deletion (L1a: messages no longer FK items)", () => {
+		db.insert(threads)
 			.values({
-				id: "a1",
-				name: "A",
-				role: "builder",
-				status: "active",
-				maxConcurrentSessions: 1,
+				id: "thread-1",
+				hostKind: "task",
+				hostId: "task-1",
+				initiatorId: "agent-1",
+				participants: JSON.stringify(["agent-1"]),
+				lastActiveAt: NOW,
 				createdAt: NOW,
 			})
+			.run();
+		db.insert(agents)
+			.values([
+				{
+					id: "a1",
+					name: "A",
+					role: "builder",
+					status: "active",
+					maxConcurrentSessions: 1,
+					createdAt: NOW,
+				},
+				{
+					id: "human-1",
+					name: "Human",
+					role: "founder",
+					status: "active",
+					maxConcurrentSessions: 1,
+					createdAt: NOW,
+				},
+			])
 			.run();
 		db.insert(items)
 			.values({
@@ -315,19 +364,24 @@ describe("I3: FK actions — CASCADE on dependent data", () => {
 				createdAt: NOW,
 			})
 			.run();
-		db.insert(responses)
+		db.insert(messages)
 			.values({
-				id: "resp-1",
-				itemId: "item-1",
-				decision: "approve",
-				approverId: "human-1",
-				respondedAt: NOW,
+				id: "verdict-1",
+				senderId: "human-1",
+				threadId: "thread-1",
+				type: "verdict",
+				payload: JSON.stringify({ decision: "approve" }),
+				clientKey: "verdict-1",
+				legacyItemId: "item-1",
+				createdAt: NOW,
 			})
 			.run();
 
 		db.delete(items).where(eq(items.id, "item-1")).run();
 
-		const remaining = db.select().from(responses).where(eq(responses.itemId, "item-1")).all();
-		expect(remaining).toHaveLength(0);
+		// Verdict message survives — it's bound to the thread, not the item.
+		const remaining = db.select().from(messages).where(eq(messages.legacyItemId, "item-1")).all();
+		expect(remaining).toHaveLength(1);
+		expect(remaining[0].type).toBe("verdict");
 	});
 });

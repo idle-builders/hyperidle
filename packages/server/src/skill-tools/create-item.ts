@@ -66,11 +66,17 @@ async function handler(args: CreateItemInput, ctx: ToolContext): Promise<ToolRes
 		}
 	} else {
 		threadId = randomUUID();
+		// L1a: synthesize a host_kind for thread auto-creation. Use 'task' as
+		// a generic carrier (the item will route to a task in most flows).
 		ctx.db
 			.insert(threads)
 			.values({
 				id: threadId,
-				kind: input.kind === "review" ? "review" : "item",
+				hostKind: "task",
+				hostId: ctx.taskId,
+				initiatorId: ctx.agentId,
+				participants: JSON.stringify([ctx.agentId]),
+				lastActiveAt: now,
 				createdAt: now,
 			})
 			.run();
