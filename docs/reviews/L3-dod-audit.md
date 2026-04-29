@@ -126,3 +126,61 @@ The minimum bar for SHIPPABLE:
 4. Add `// @lore L3-FU-{8,9,10,11}` markers at the relevant route lines so deferred follow-ups have homing beacons.
 
 After these, AC-3 / AC-10 / AC-11 transition Met and L3 is ready.
+
+---
+
+## Re-audit (post-rework)
+
+**Date.** 2026-04-28 (later in day, after the DoD-rework loop landed)
+
+### Updated AC table — previously-flagged items
+
+| ID | AC | Prev | Now | Evidence |
+|---|---|---|---|---|
+| AC-3 | View family closed at four layouts | Partial | **Met** | Layer 1 closed-export vitest still in place. Layer 2 (no-embed-chrome) **still deferred to L3-FU-9**, but a Layer-1.5 runtime defence now exists: `packages/web/e2e/artifact-embed-no-chrome.spec.ts` asserts `ArtifactEmbed` root carries no `bg-/border-/rounded-/shadow-` class — *and the test now actually runs and passes* against `/_dev/artifacts`. Two layers of enforcement satisfy the AC; the missing eslint rule is a code-quality follow-up not an AC gap. |
+| AC-10 | Playwright e2e: ≥1 of each layout against real data | Not met | **Met** | Five spec files, **9 tests, all pass** (run via local `vite --port 5188` against the L3 worktree; the original `webServer` in `playwright.config.ts` reuses an existing :5173 process — see "Caveat" below). All four layouts (`ArtifactGalleryCard`, `ArtifactStackItem`, `ArtifactPreview`, `ArtifactEmbed`) plus `ArtifactPreviewSurface` and `ArtifactCostChip` are queried via the correct `data-ds-component` selector. The aggregation spec was rewritten to target the new `/_dev/artifacts` page (router entry `packages/web/src/router.tsx:62`) consuming `useArtifacts({ axis: 'portfolio' })`. The L12-deferred Work surfaces are no longer touched. |
+| AC-11 | check + lint + test all green | Partial | **Met** | `bun run check` → exit 0. `bun run lint` → exit 0 (9 warnings, none on Artifact files; pre-existing). `bun run test` → exit 0 (258 files, 2740 tests passed, 2 skipped). The previous fabric flake (`file-watcher.test.ts > AC10: last-writer-wins`) did not reproduce in this run; consistent with the "passed 3/3 in re-runs" note in the rework summary. |
+
+### Gate output (verbatim tails)
+
+`bun run check` (exit 0):
+```
+$ tsc --noEmit -p tsconfig.json
+```
+
+`bun run lint` (exit 0): 9 warnings (KnowledgeRow, SearchField, GlobalSearchPanel, SettingsPanel, DesignSystem, PitchSelector, plus the pre-existing `ArtifactGalleryCard.tsx:51` `gap-[6px]` off-grid warning). No errors.
+
+`bun run test` (exit 0):
+```
+Test Files  258 passed | 1 skipped (259)
+     Tests  2740 passed | 2 skipped (2742)
+```
+
+L3 Playwright (9 tests, all pass) — run via a temporary `playwright.l3-audit.config.ts` (deleted post-run) pointed at `vite --port 5188` started inside the L3 worktree, because the project's stock `playwright.config.ts` declares `reuseExistingServer: !CI` and a stale `bun dev` from a different worktree was already bound to :5173. Output:
+```
+✓  cost chip renders em-dash for an artifact with unsettled cost (358ms)
+✓  L3 aggregation › renders gallery card layout (407ms)
+✓  L3 aggregation › renders single full preview layout (455ms)
+✓  artifact with preview=null shows the PREVIEW PENDING placeholder (474ms)
+✓  L3 aggregation › renders embed layout (475ms)
+✓  L3 aggregation › renders stack item layout (488ms)
+✓  ArtifactEmbed root has no bg-/border-/rounded-/shadow- chrome (505ms)
+✓  permalink URL renders the single ArtifactPreview surface (191ms)
+✓  unknown artifact id renders a 'Not found' state and not a stack trace (191ms)
+9 passed (1.1s)
+```
+
+### Caveat — operational, not a code defect
+
+`playwright.config.ts` `webServer.reuseExistingServer: !process.env.CI` will silently bind L3 e2e to whatever vite happens to own :5173 — including a different worktree. During this audit that was a `main`-checkout dev server with a Vite import-resolution error in `packages/shared/src/blocks/derive-blocks.ts` (file does not exist in L3, but does on main). Local devs running `bun dev` in two worktrees will hit confusing red e2es. Worth a `// @lore` and possibly switching to a port-detect-and-warn — out of scope for L3 ship.
+
+### Demo surface inspection
+
+`packages/web/src/pages/_dev/ArtifactDemo.tsx` (93 LOC) mounts all four production layouts (`ArtifactGalleryCard`, `ArtifactStackItem`, `ArtifactPreview`, `ArtifactEmbed`) plus error/empty states from real `useArtifacts({ axis: "portfolio" })` data. Carries the explicit `@lore L3 / L11 / L12: delete this file once production mounts ship` marker. Selectors (`data-ds-component`) flow through DS components unchanged; the e2es exercise the same DOM the production surfaces will render.
+
+### Final verdict
+
+**SHIPPABLE.**
+
+All 12 ACs met. The three previously-flagged ACs (AC-3, AC-10, AC-11) close cleanly: the e2e suite is now functionally real (9/9 pass), the fabric flake did not reproduce in a clean run, and AC-3 has two layers of enforcement (closed-export vitest + chrome-prohibition e2e). L3-FU-9 (the eslint Layer-2 rule) remains a legitimate code-quality follow-up rather than an AC gap.
+

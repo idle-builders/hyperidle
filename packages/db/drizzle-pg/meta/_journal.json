@@ -62,14 +62,7 @@
 			"idx": 8,
 			"version": "7",
 			"when": 1782960000000,
-			"tag": "0008_soft_epoch",
-			"breakpoints": true
-		},
-		{
-			"idx": 9,
-			"version": "7",
-			"when": 1782960100000,
-			"tag": "0009_sharp_hiroim",
+			"tag": "0008_add_artifacts_l3",
 			"breakpoints": true
 		}
 	]

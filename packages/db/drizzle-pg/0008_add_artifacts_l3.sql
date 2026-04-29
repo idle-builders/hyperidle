@@ -3,9 +3,9 @@ CREATE TABLE "artifacts" (
 	"producing_task_id" text NOT NULL,
 	"kind" text NOT NULL,
 	"preview_json" text,
-	"cost_money_micros" integer,
-	"cost_tokens_input" integer,
-	"cost_tokens_output" integer,
+	"cost_money_micros" bigint,
+	"cost_tokens_input" bigint,
+	"cost_tokens_output" bigint,
 	"cost_settled_at" text,
 	"created_at" text NOT NULL
 );
