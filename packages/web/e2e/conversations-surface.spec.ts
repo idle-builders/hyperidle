@@ -12,7 +12,8 @@ test.describe("J4 Conversations Surface — Review page", () => {
 		await page.waitForSelector("[data-testid='conversations-review-page']");
 	});
 
-	test("reasoning block is present, collapsed by default, and expands on click", async ({
+	// L1: ConversationsReview was rewritten to mount <ThreadShell>; the legacy ReviewHeader/ReasoningBlockView/PREFILL_KEYS flow this case asserts no longer exists. New contract covered by packages/web/e2e/threads.spec.ts. J-track / L1b can rewrite or delete.
+	test.skip("reasoning block is present, collapsed by default, and expands on click", async ({
 		page,
 	}) => {
 		const trigger = page.getByRole("button", { name: /reasoning/i }).first();
@@ -29,14 +30,16 @@ test.describe("J4 Conversations Surface — Review page", () => {
 		await expect(items).toHaveCount(5);
 	});
 
-	test("artifact metadata strip renders the kind badge and status", async ({ page }) => {
+	// L1: ConversationsReview was rewritten to mount <ThreadShell>; the legacy ReviewHeader/ReasoningBlockView/PREFILL_KEYS flow this case asserts no longer exists. New contract covered by packages/web/e2e/threads.spec.ts. J-track / L1b can rewrite or delete.
+	test.skip("artifact metadata strip renders the kind badge and status", async ({ page }) => {
 		const strip = page.getByTestId("artifact-metadata-strip");
 		await expect(strip).toBeVisible();
 		await expect(strip).toContainText("text_diff");
 		await expect(strip).toContainText("pending");
 	});
 
-	test("Pause button is visible because the default review is blocking", async ({ page }) => {
+	// L1: ConversationsReview was rewritten to mount <ThreadShell>; the legacy ReviewHeader/ReasoningBlockView/PREFILL_KEYS flow this case asserts no longer exists. New contract covered by packages/web/e2e/threads.spec.ts. J-track / L1b can rewrite or delete.
+	test.skip("Pause button is visible because the default review is blocking", async ({ page }) => {
 		const toolbar = page.getByRole("toolbar", { name: /verdict/i });
 		await expect(toolbar.getByRole("button", { name: /^pause$/i })).toBeVisible();
 		// Required verdicts always visible
