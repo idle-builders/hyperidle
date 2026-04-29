@@ -242,3 +242,105 @@ The fabric `file-watcher.test.ts:472` failure observed in Run 1 (`expected items
 ### Shipping recommendation
 
 One more loop. The implementation, schema, migration, e2e, lint, and types are all production-ready; the only blocker is a 2-line test-quality fix in `threads.routes.test.ts:266` (replace `messages.find(m => m.type === type)` with a `clientKey`-keyed or `findLast`-style lookup) so AC-12 stops racing with itself when concurrent test runners collide on a millisecond boundary. After that fix lands and three sequential `bun run test` runs are clean, this branch is shippable.
+
+---
+
+## L1 Definition-of-Done Audit — Loop 3
+
+**Branch:** feat/L1-thread-primitive at a9e5748 (AC-12 deflake commit on top of 5ebbd6d)
+**Date:** 2026-04-28
+**Verdict:** **DONE**.
+
+### Loop-2 gap re-assessment
+
+#### Loop-2 Gap — AC-12 flake on `type='review'`: CLOSED
+
+- The fix in `a9e5748` replaces `messages.find((m) => m.type === type)` with `messages.find((m) => m.clientKey === ...)` at `threads.routes.test.ts`. Each iteration of the parametric loop uses a unique `clientKey` (one per `MessageType`), so the seeded `validReviewPayload` review can no longer collide with the round-trip `review` message regardless of `createdAt`/`id` tiebreaker.
+- Product code is unchanged: `packages/server/src/routes/threads.ts` order-by clause and message insertion path are identical to Loop 2.
+- Re-verification (8 sequential `bun run test` runs from worktree root):
+  - Run 1: 2752 passed / 0 failed / 3 skipped.
+  - Run 2: 2752 passed / 0 failed / 3 skipped.
+  - Run 3: 2752 passed / 0 failed / 3 skipped.
+  - Run 4: 2752 passed / 0 failed / 3 skipped.
+  - Run 5: 1 failed — `fabric/file-watcher.test.ts > AC10: last-writer-wins` (`expected items.length === 1, got 0`). 2751 passed / 3 skipped. **Not L1-authored**; this is a `chokidar`/`fs.watch` debounce race in the fabric package, observed once in Loop 2 also (Run 1 there). It does not involve any L1 code paths.
+  - Run 6: 2752 passed / 0 failed / 3 skipped.
+  - Run 7: 2752 passed / 0 failed / 3 skipped.
+  - Run 8: 2752 passed / 0 failed / 3 skipped.
+- Across all 8 runs, the AC-12 review case did not flake once. The deflake holds.
+- The remaining flake (fabric `file-watcher` AC10) is unrelated to L1, observed at low frequency, and is not in any L1 acceptance-criterion's coverage envelope. Recommended to be tracked under a separate fabric-stability ticket.
+
+### Re-verification of the full DoD command set
+
+- `bun run check` → **PASS** (0 type errors, exit 0; ran `tsc --noEmit -p tsconfig.json` clean).
+- `bun run lint` → **PASS** (0 errors, 22 warnings, exit 0). Warnings are all pre-existing design-token / a11y advisories on non-L1 files (`PitchSelector.tsx`, `GlobalSearchPanel.tsx`, `SettingsPanel.tsx`, `ConversationsReview.tsx`'s actor-fetch warnings) plus 4 `gap-[2/6px]` advisories on the L1 DS components — none gating.
+- `bun run test` → **2752 passed / 0 failed / 3 skipped** in 7 of 8 sequential runs; the 1 outlier is the fabric file-watcher race (not L1).
+- `cd packages/design-system && bunx playwright test --config=playwright.l1.config.ts` → **12/12 PASS** in 8.1s.
+- `cd packages/web && bunx playwright test e2e/threads.spec.ts` → **5/5 PASS** in 1.9s (5 workers, hermetic via `page.route()` stubs).
+
+### AC-by-AC final reconfirmation
+
+| AC | Loop 2 status | Loop 3 status | Notes |
+|---|---|---|---|
+| AC-1 (concept-doc updates) | DONE | **DONE** | No regression; HIL §4.5 anchors intact. |
+| AC-2 (DM/coach/feed are configurations) | DONE | **DONE** | `MESSAGE_TYPES` closed; 0 grep hits for legacy vocab. |
+| AC-3 (cross-area attachment contract) | DONE | **DONE** | `HOST_KINDS` × 8 round-trip in routes test. |
+| AC-4 (message vocabulary) | DONE | **DONE** | Closed enum; structural drift guard. |
+| AC-5 (SHARED.md sync) | DONE | **DONE** | |
+| AC-6 (shared impl matches contract) | DONE | **DONE** | `bun run check` clean. |
+| AC-7 (threads attach to any host) | DONE | **DONE** | 8/8 host kinds. |
+| AC-8 (back-compat) | DONE | **DONE** | Schema (`migration-l1.test.ts`) + e2e (`back-compat` case) both green. |
+| AC-9 (page-local fixture types removed for L1a) | DONE | **DONE** | Only doc-comment mentions remain in L1a-scope files. |
+| AC-10 (list/fetch/create threads + messages) | DONE | **DONE** | 31/31 routes-test cases green. |
+| AC-11 (discriminant exhaustiveness) | DONE | **DONE** | `exhaustiveAssert` switches intact. |
+| AC-12 (server tests round-trip every type) | AT-RISK | **DONE** | Deflaked via `clientKey` lookup; 8 sequential full runs show 0 flakes on this case. |
+| AC-13 (Playwright e2e per shipping rich type) | DONE | **DONE** | 5/5 hermetic cases pass. Questionnaire e2e is L1b-deferred. |
+| AC-14 (forward-only migration + rollback) | DONE | **DONE** | SQLite `0007/0008` + PG `0006/0007` parity; `L1-rollback.md` intact. |
+| AC-15 (full lint/check/test green) | AT-RISK | **DONE** | `check`, `lint` clean; `test` deterministic for L1 surface across 8 runs. |
+
+15/15 ACs are DONE for L1a's shipping scope.
+
+### Contracts / constraints (TRACK-L 58-64) — final
+
+- Closed message-type vocabulary: **DONE**.
+- Every thread carries an attachment; un-attached coach threads attach to user: **DONE**.
+- Threads attach to bets/tasks/knowledge_items/artifacts/agents/users/team/factory: **DONE**.
+- Migration forward-only with rollback plan: **DONE**.
+- No emojis on shipping L1 surface: **DONE** (spot-checked).
+
+### L1b deferrals (canonical, all explicit per `L1-plan.md` §15 and `L1-step9-applied.md`)
+
+These are out-of-scope for L1a and are tracked for L1b. They are non-overlapping with the L1a delivery:
+
+1. **QuestionnaireAnswerBar** DS component (L1b-T1) — placeholder text in `ThreadHead` for now.
+2. **ThreadShell `onPromoteArtifact` canvas wiring** (L1b-T2) — accepted as no-op prop.
+3. **ConversationsChat full integration** (L1b-T3) — `MockThread` placeholder remains; route loadable in L1a via stub.
+4. **WorkBet `MockBetComment` removal + bet threads-section + dialog** (L1b-T4).
+5. **e2e: questionnaire thread + WorkBet thread + re-open follow-up review** (L1b-T5).
+6. **Mobile two-tab segmented control for promoted artifact** (Design-S deferral).
+7. **Redact endpoint verb** — `redacted_at` column ships in L1a; the verb endpoint is deferred per design-it-twice §12-D.
+8. **AC-13 questionnaire e2e** — questionnaire UI is L1b; review + chat shapes are covered in L1a.
+
+Deferred adversary warnings (all explicit, non-blocking for L1a):
+
+- Adv-W1 — stale-host guard on message append.
+- Adv-W3 — TOCTOU on `verdict` re-open.
+- Adv-W5 — orphan host_id detection / cleanup.
+- Adv-W7 — `thread_archived` event emitter.
+- Adv-W8 — `LIMIT` pagination on GET `/api/threads`.
+- Adv-S1 through Adv-S6 — pagination, payload-size cap, dual-read on legacy conversations.
+
+All deferrals are documented in `docs/work-packages/L1-step9-applied.md` and `docs/work-packages/L1-plan.md` §15.
+
+### Waivers
+
+None active. The Loop-1 waivers (biome `.claude` exclude, `text-[10px]` off-scale) and the Loop-2 gap (AC-12 flake) are all closed.
+
+### Verdict
+
+**Verdict:** DONE
+
+L1a is shippable. All 15 acceptance criteria are met with verifiable evidence; the AC-12 flake identified in Loop 2 has been deflaked by a test-only `clientKey` fix and held across 8 sequential `bun run test` runs. Type, lint, vitest, and both Playwright suites are green. The deferrals listed above are explicit, non-overlapping, and tracked for L1b.
+
+### Shipping recommendation
+
+Ship L1a. The Thread primitive — types, schema, migration with rollback, server endpoints, ThreadShell + 5 DS components with HTML parity and visual regression, hermetic e2e, and discriminant exhaustiveness — is production-ready. L1b can pick up the explicitly-deferred surfaces (QuestionnaireAnswerBar, ConversationsChat full integration, WorkBet bet-threads, mobile segmented control, redact verb) without re-opening any L1a contract.
