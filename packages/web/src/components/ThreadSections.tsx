@@ -1,11 +1,16 @@
 import { EmptyState, type Status, ThreadRow } from "@hyperidle/design-system";
+import type { HostKind } from "@hyperidle/shared";
 import type { JSX } from "react";
 
 /**
- * @lore J4 AC: thread-list section grouping is computed client-side from
- * thread status/kind. The rule "blocking outranks kind" means a blocking chat
- * ends up in the Blocking section, not the Chats section. Pinned is strictly
- * above Blocking. Resolved is a rolling 24h window and filters older items.
+ * @lore L1a (T17): the legacy `kind: 'review' | 'chat'` literal is gone;
+ * the new shape carries `hostKind` + `hasUnresolvedReview` (a derived flag
+ * the page computes from `headCollapsePredicate`). Section routing:
+ *  - blocking → Blocking section regardless of host_kind
+ *  - pinned   → Pinned section regardless of host_kind
+ *  - hasUnresolvedReview → Reviews section
+ *  - resolvedAt within 24h → Resolved section
+ *  - otherwise → Chats section
  */
 export interface ThreadItem {
 	id: string;
@@ -13,7 +18,8 @@ export interface ThreadItem {
 	snippet: string;
 	timestamp: string;
 	avatarUrl: string;
-	kind: "review" | "chat";
+	hostKind: HostKind;
+	hasUnresolvedReview: boolean;
 	blocking: boolean;
 	pinned: boolean;
 	/** ISO timestamp; if present and within the 24h window this thread surfaces in "Resolved". */
@@ -58,7 +64,7 @@ function classifyThread(thread: ThreadItem, now: number): ThreadSectionId | null
 	}
 	if (thread.pinned) return "pinned";
 	if (thread.blocking) return "blocking";
-	return thread.kind === "review" ? "reviews" : "chats";
+	return thread.hasUnresolvedReview ? "reviews" : "chats";
 }
 
 export function groupThreadsIntoSections(
@@ -125,7 +131,7 @@ export function ThreadSections({
 									tag={t.tag}
 									unread={t.unread}
 									blocking={t.blocking}
-									kind={t.kind}
+									kind={t.hasUnresolvedReview ? "review" : "chat"}
 									onClick={onSelect ? () => onSelect(t.id) : undefined}
 								/>
 							</li>

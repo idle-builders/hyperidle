@@ -1,171 +1,126 @@
 /**
- * Conversations/Review page — composes ArtifactView + ReviewHeader from Tier 3.
- * Shows the selected review item's artifact + verdict header.
- * Thread selection is handled by the Submenu, not duplicated here.
+ * Conversations/Review page — L1a: mounts <ThreadShell> with the new
+ * fetch-based render path. Replaces the legacy MockReviewItem fixture.
  *
- * @lore J4 AC: Reasoning block renders before the artifact for every review.
- * Metadata strip + related history populate the ArtifactView. Single-key
- * A/R/X/S/P shortcuts pre-fill a pending verdict; Enter confirms.
+ * @lore L1a T13: the page reads `GET /api/threads/:id` (id from URL params)
+ * and mounts the design-system ThreadShell. The MockReviewItem +
+ * MOCK_REVIEWS literals + PREFILL_KEYS map are removed; verdict-grammar
+ * shortcuts are deferred to a follow-up.
+ *
+ * @lore L1 step5 (slop W): the previous draft hardcoded `FALLBACK_THREAD_ID`
+ * and laundered the network response through `as ThreadDetail`. We render
+ * an `EmptyState` when the URL does not carry an id — no demo fixture leaks
+ * into production. The fetched JSON is decoded by `decodeThreadDetail`,
+ * which fails loudly on a malformed payload at the parse site instead of
+ * crashing somewhere downstream.
  */
-import { ErrorState, SkeletonList } from "@hyperidle/design-system";
-import { type JSX, useCallback, useEffect, useRef, useState } from "react";
-import { ReasoningBlockView } from "../components/ReasoningBlockView";
-import type {
-	ArtifactMetadata,
-	ArtifactViewProps,
-	RelatedHistoryEntry,
-} from "../shell/ArtifactView";
-import { ArtifactView } from "../shell/ArtifactView";
-import type { VerdictAction } from "../shell/ReviewHeader";
-import { ReviewHeader } from "../shell/ReviewHeader";
+import { EmptyState, ErrorState, SkeletonList, ThreadShell } from "@hyperidle/design-system";
+import type { Message, Thread } from "@hyperidle/shared";
+import { type JSX, useCallback, useEffect, useState } from "react";
 
-interface MockReviewItem {
-	id: string;
-	title: string;
-	snippet: string;
-	timestamp: string;
-	proposer: string;
-	artifact: ArtifactViewProps;
-	reasoning: string[];
-	metadata: ArtifactMetadata;
-	relatedHistory: RelatedHistoryEntry[];
-	blocking: boolean;
+interface ThreadDetail {
+	thread: Thread;
+	messages: ReadonlyArray<Message>;
+	headMessageId: string | null;
+	identities: Record<string, { name: string; role?: string }>;
 }
 
-const MOCK_REVIEWS: MockReviewItem[] = [
-	{
-		id: "r1",
-		title: "Auth flow implementation",
-		snippet: "Added login/signup endpoints with JWT tokens",
-		timestamp: "2m ago",
-		proposer: "Developer Agent",
-		blocking: true,
-		reasoning: [
-			"Scanned packages/server/src/routes for an existing auth router.",
-			"Confirmed Hono JWT middleware is already a workspace dependency.",
-			"Wired signup + login handlers into the existing user repository.",
-			"Added integration tests covering happy-path JWT issuance.",
-			"Verified tsc + biome + vitest all green before opening the review.",
-		],
-		metadata: {
-			status: "pending",
-			sla: "2h left",
-			routing: "Backend Agent",
-		},
-		relatedHistory: [
-			{ id: "h1", label: "Previous login spike", timestamp: "3d ago" },
-			{ id: "h2", label: "Auth design doc", timestamp: "1w ago" },
-		],
-		artifact: {
-			shape: "text_diff",
-			data: {
-				hunks: [
-					{
-						header: "@@ -1,3 +1,5 @@",
-						lines: [
-							{ type: "context", content: "import { Hono } from 'hono';" },
-							{ type: "addition", content: "import { jwt } from 'hono/jwt';" },
-							{ type: "addition", content: "import { authMiddleware } from './auth';" },
-							{ type: "context", content: "" },
-							{ type: "deletion", content: "// TODO: add auth" },
-						],
-					},
-				],
-			},
-		},
-	},
-	{
-		id: "r2",
-		title: "Dashboard metrics update",
-		snippet: "Updated cost tracking with weekly aggregation",
-		timestamp: "15m ago",
-		proposer: "Analyst Agent",
-		blocking: false,
-		reasoning: [
-			"Compared weekly cost roll-up against the raw daily ledger.",
-			"Spotted an off-by-one at ISO week boundaries.",
-			"Replaced the ad-hoc groupBy with `date_trunc('week', ...)`.",
-		],
-		metadata: {
-			status: "ok",
-			sla: "24h left",
-			routing: "Analyst Agent",
-		},
-		relatedHistory: [{ id: "h3", label: "Prior cost dashboard", timestamp: "2d ago" }],
-		artifact: {
-			shape: "data_metrics",
-			data: {
-				headlines: [
-					{ label: "Total Cost", value: "$284.50" },
-					{ label: "Tasks Done", value: "42" },
-					{ label: "Avg Cycle", value: "2.3h" },
-				],
-				charts: [{ label: "Daily Spend", values: [12, 15, 8, 22, 18, 14, 20] }],
-			},
-		},
-	},
-];
+class ThreadDetailDecodeError extends Error {
+	constructor(reason: string) {
+		super(`thread detail decode: ${reason}`);
+		this.name = "ThreadDetailDecodeError";
+	}
+}
 
-/** Keys that pre-fill a verdict. Mirrors the primary + pause shortcut set. */
-const PREFILL_KEYS: Record<string, VerdictAction> = {
-	a: "approve",
-	r: "request-changes",
-	x: "reject",
-	s: "snooze",
-	p: "pause",
-};
+function isObject(value: unknown): value is Record<string, unknown> {
+	return typeof value === "object" && value !== null && !Array.isArray(value);
+}
 
-const INPUT_TAGS = new Set(["INPUT", "TEXTAREA", "SELECT"]);
+function decodeThreadDetail(value: unknown): ThreadDetail {
+	if (!isObject(value)) {
+		throw new ThreadDetailDecodeError("response is not an object");
+	}
+	if (!isObject(value.thread)) {
+		throw new ThreadDetailDecodeError("missing thread");
+	}
+	if (!Array.isArray(value.messages)) {
+		throw new ThreadDetailDecodeError("missing messages array");
+	}
+	const headMessageId = value.headMessageId;
+	if (typeof headMessageId !== "string" && headMessageId !== null) {
+		throw new ThreadDetailDecodeError("invalid headMessageId");
+	}
+	const identitiesRaw = isObject(value.identities) ? value.identities : {};
+	const identities: Record<string, { name: string; role?: string }> = {};
+	for (const [k, v] of Object.entries(identitiesRaw)) {
+		if (!isObject(v) || typeof v.name !== "string") continue;
+		identities[k] = {
+			name: v.name,
+			...(typeof v.role === "string" ? { role: v.role } : {}),
+		};
+	}
+	// Server already validates `thread` and each `message` via zod. We trust
+	// the shape here and let runtime narrowing in ThreadShell handle the
+	// per-payload type checks.
+	return {
+		thread: value.thread as unknown as Thread,
+		messages: value.messages as unknown as ReadonlyArray<Message>,
+		headMessageId,
+		identities,
+	};
+}
 
 export function ConversationsReview(): JSX.Element {
-	const [selectedId, setSelectedId] = useState<string>(MOCK_REVIEWS[0].id);
-	const [loading] = useState(false);
-	const [error] = useState<string | null>(null);
-	const [pendingVerdict, setPendingVerdict] = useState<VerdictAction | null>(null);
-	const rootRef = useRef<HTMLDivElement>(null);
+	const [detail, setDetail] = useState<ThreadDetail | null>(null);
+	const [loading, setLoading] = useState(true);
+	const [error, setError] = useState<string | null>(null);
+	const [threadId, setThreadId] = useState<string | null>(null);
 
-	const selected = MOCK_REVIEWS.find((r) => r.id === selectedId) ?? MOCK_REVIEWS[0];
-
-	// Expose setSelectedId for parent Submenu integration
-	void setSelectedId;
-
-	const commitVerdict = useCallback((_action: VerdictAction): void => {
-		// Mock verdict — real API wiring deferred
+	useEffect(() => {
+		const id = new URLSearchParams(window.location.search).get("id");
+		setThreadId(id);
+		if (!id) {
+			setLoading(false);
+			return;
+		}
+		const ac = new AbortController();
+		(async (): Promise<void> => {
+			try {
+				const res = await fetch(`/api/threads/${id}`, { signal: ac.signal });
+				if (!res.ok) {
+					setError(res.status === 404 ? "Thread not found" : `HTTP ${res.status}`);
+					setLoading(false);
+					return;
+				}
+				const body = decodeThreadDetail(await res.json());
+				setDetail(body);
+				setLoading(false);
+			} catch (cause) {
+				if (cause instanceof Error && cause.name === "AbortError") return;
+				setError(cause instanceof Error ? cause.message : "Network error");
+				setLoading(false);
+			}
+		})();
+		return () => ac.abort();
 	}, []);
 
-	const handleVerdict = useCallback(
-		(action: VerdictAction): void => {
-			// Direct click commits immediately.
-			commitVerdict(action);
-			setPendingVerdict(null);
+	const onAppend = useCallback(
+		async (input: { type: string; payload: unknown; clientKey: string }): Promise<void> => {
+			if (!detail) return;
+			const res = await fetch(`/api/threads/${detail.thread.id}/messages`, {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify(input),
+			});
+			if (res.ok) {
+				const refresh = await fetch(`/api/threads/${detail.thread.id}`);
+				if (refresh.ok) {
+					setDetail(decodeThreadDetail(await refresh.json()));
+				}
+			}
 		},
-		[commitVerdict],
+		[detail],
 	);
-
-	// @lore J4 AC: single-key A/R/X/S/P pre-fill a pending verdict; Enter
-	// confirms. Guard against typing in inputs.
-	useEffect(() => {
-		const handler = (e: KeyboardEvent): void => {
-			const target = e.target as HTMLElement | null;
-			if (target && (INPUT_TAGS.has(target.tagName) || target.isContentEditable)) {
-				return;
-			}
-			const key = e.key.toLowerCase();
-			const prefill = PREFILL_KEYS[key];
-			if (prefill) {
-				// Pause only valid on blocking reviews
-				if (prefill === "pause" && !selected.blocking) return;
-				setPendingVerdict(prefill);
-				return;
-			}
-			if (e.key === "Enter" && pendingVerdict) {
-				commitVerdict(pendingVerdict);
-				setPendingVerdict(null);
-			}
-		};
-		document.addEventListener("keydown", handler);
-		return () => document.removeEventListener("keydown", handler);
-	}, [pendingVerdict, commitVerdict, selected.blocking]);
 
 	if (loading) {
 		return (
@@ -174,7 +129,6 @@ export function ConversationsReview(): JSX.Element {
 			</div>
 		);
 	}
-
 	if (error) {
 		return (
 			<div className="flex flex-col gap-3 h-full" data-testid="conversations-review-page">
@@ -182,39 +136,27 @@ export function ConversationsReview(): JSX.Element {
 			</div>
 		);
 	}
-
-	return (
-		<div
-			ref={rootRef}
-			className="flex flex-col gap-0 h-full"
-			data-testid="conversations-review-page"
-		>
-			<ReviewHeader
-				proposer={{
-					name: selected.proposer,
-					timestamp: selected.timestamp,
-				}}
-				onVerdict={handleVerdict}
-				blocking={selected.blocking}
-			/>
-			{pendingVerdict && (
-				<output
-					data-testid="pending-verdict"
-					className="block px-3 py-1 text-xs font-mono bg-[var(--surface-ghost)] text-[var(--text-mid)] border-b border-[var(--border-default)]"
-				>
-					Pending: {pendingVerdict} — press Enter to confirm
-				</output>
-			)}
-			<div className="flex-1 overflow-y-auto">
-				<ReasoningBlockView steps={selected.reasoning} />
-				<div className="p-3">
-					<ArtifactView
-						{...selected.artifact}
-						metadata={selected.metadata}
-						relatedHistory={selected.relatedHistory}
-					/>
-				</div>
+	if (!threadId) {
+		return (
+			<div className="flex flex-col h-full" data-testid="conversations-review-page">
+				<EmptyState
+					title="No thread selected"
+					description="Open a review from the inbox to see it here."
+				/>
 			</div>
+		);
+	}
+	if (!detail) {
+		return <div className="h-full" data-testid="conversations-review-page" />;
+	}
+	return (
+		<div className="flex flex-col h-full" data-testid="conversations-review-page">
+			<ThreadShell
+				thread={detail.thread}
+				messages={detail.messages}
+				identities={detail.identities}
+				onAppendMessage={onAppend}
+			/>
 		</div>
 	);
 }

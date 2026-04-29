@@ -32,7 +32,14 @@ export function createAuthRoutes(store: UpgradeTokenStore): Hono {
 	router.post("/ws-token", (c) => {
 		// Clients compute remaining seconds from `expiresAt` themselves; emitting
 		// a server-derived `expiresInSec` adds a clock-skew footgun for no value.
-		const { token, expiresAt } = store.issue();
+		// L1 step9 (Adv-C1): bind the authenticated identity to the upgrade
+		// token so the WS subscribe-authz path can check participant
+		// membership. The header may be absent in legacy clients — in that
+		// case the token still authenticates but per-thread subscriptions
+		// fall back to "forbidden" (the broadcaster has no identity to
+		// match against `thread.participants`).
+		const identityId = c.req.header("X-Identity") ?? undefined;
+		const { token, expiresAt } = store.issue(identityId);
 		return c.json({ token, expiresAt });
 	});
 

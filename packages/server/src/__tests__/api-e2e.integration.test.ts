@@ -51,14 +51,27 @@ describe("E2E API Integration (I5)", () => {
 			})
 			.run();
 		db.insert(agents)
-			.values({
-				id: "agent-1",
-				name: "Test Agent",
-				role: "builder",
-				status: "active",
-				teamId: "team-1",
-				createdAt: new Date().toISOString(),
-			})
+			.values([
+				{
+					id: "agent-1",
+					name: "Test Agent",
+					role: "builder",
+					status: "active",
+					teamId: "team-1",
+					createdAt: new Date().toISOString(),
+				},
+				// L1a: synthetic sender for verdict-typed messages emitted by
+				// the legacy `POST /responses` route (plan §6.4 wraps the new
+				// repo path). The new `messages.sender_id` FK requires the
+				// row to exist.
+				{
+					id: "policy_engine",
+					name: "Policy Engine",
+					role: "system",
+					status: "active",
+					createdAt: new Date().toISOString(),
+				},
+			])
 			.run();
 	});
 
@@ -289,7 +302,15 @@ describe("E2E API Integration (I5)", () => {
 	describe("Conversations", () => {
 		beforeEach(() => {
 			db.insert(threads)
-				.values({ id: "thread-1", kind: "review", createdAt: new Date().toISOString() })
+				.values({
+					id: "thread-1",
+					hostKind: "task",
+					hostId: "task-1",
+					initiatorId: "agent-1",
+					participants: JSON.stringify(["agent-1"]),
+					lastActiveAt: new Date().toISOString(),
+					createdAt: new Date().toISOString(),
+				})
 				.run();
 			db.insert(items)
 				.values({
@@ -325,19 +346,59 @@ describe("E2E API Integration (I5)", () => {
 			expect(res.status).toBe(201);
 		});
 
-		it("POST /api/conversations/responses records a verdict on an item", async () => {
-			const res = await app.request("/api/conversations/responses", {
+		it("POST /api/threads/:id/messages records a verdict (canonical L1 surface)", async () => {
+			// L1 step5 (S-C2): legacy `POST /api/conversations/responses` was
+			// removed; verdicts go through the canonical `/api/threads` surface.
+			// `agent-1` is already seeded by the outer `beforeEach`; we just
+			// add a founder so the verdict authz check (founder + not-self)
+			// has a sender to claim.
+			db.insert(agents)
+				.values({
+					id: "founder-1",
+					name: "Founder",
+					role: "founder",
+					status: "active",
+					createdAt: new Date().toISOString(),
+				})
+				.run();
+
+			const create = await app.request("/api/threads", {
 				method: "POST",
-				headers: auth(),
+				headers: auth({ "X-Identity": "agent-1" }),
 				body: JSON.stringify({
-					itemId: "item-1",
-					decision: "approve",
+					hostKind: "task",
+					hostId: "task-1",
+					participants: ["agent-1", "founder-1"],
+					initialMessage: {
+						type: "review",
+						clientKey: "init-r-e2e",
+						payload: {
+							title: "E2E review",
+							reasoning: ["needs verdict"],
+							artifactRef: { id: "a-e2e", kind: "text_diff" },
+						},
+					},
+				}),
+			});
+			expect(create.status).toBe(201);
+			const created = (await create.json()) as {
+				thread: { id: string };
+				messages: Array<{ id: string }>;
+			};
+
+			const res = await app.request(`/api/threads/${created.thread.id}/messages`, {
+				method: "POST",
+				headers: auth({ "X-Identity": "founder-1" }),
+				body: JSON.stringify({
+					type: "verdict",
+					clientKey: "verdict-e2e",
+					payload: {
+						decision: "approve",
+						resolvesMessageId: created.messages[0].id,
+					},
 				}),
 			});
 			expect(res.status).toBe(201);
-			const body = (await res.json()) as { id: string; itemId: string; decision: string };
-			expect(body.itemId).toBe("item-1");
-			expect(body.decision).toBe("approve");
 		});
 	});
 
@@ -451,18 +512,19 @@ describe("E2E API Integration (I5)", () => {
 		});
 
 		it("POST /api/agents/:id/inbox sends message and returns 201", async () => {
+			// L1 step9 (Adv-C2): sender is derived from X-Identity, not the body.
 			const res = await app.request("/api/agents/agent-1/inbox", {
 				method: "POST",
-				headers: auth(),
-				body: JSON.stringify({
-					senderId: "agent-1",
-					body: "Hello agent!",
-				}),
+				headers: auth({ "X-Identity": "agent-1" }),
+				body: JSON.stringify({ body: "Hello agent!" }),
 			});
 			expect(res.status).toBe(201);
-			const body = (await res.json()) as { recipientId: string; body: string };
-			expect(body.recipientId).toBe("agent-1");
-			expect(body.body).toBe("Hello agent!");
+			// L1a: messages now carry payload (JSON), not body/recipientId.
+			// Recipient is derived from the thread.host_id (plan §5.3).
+			const body = (await res.json()) as { senderId: string; payload: string };
+			expect(body.senderId).toBe("agent-1");
+			const payload = JSON.parse(body.payload) as { text?: string };
+			expect(payload.text).toBe("Hello agent!");
 		});
 	});
 

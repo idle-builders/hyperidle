@@ -58,5 +58,15 @@ export function seedBase(db: HyperIdleDb): void {
 			createdAt: NOW,
 		})
 		.run();
-	db.insert(threads).values({ id: "th1", kind: "item", createdAt: NOW }).run();
+	db.insert(threads)
+		.values({
+			id: "th1",
+			hostKind: "task",
+			hostId: "task-1",
+			initiatorId: "agent-fac",
+			participants: JSON.stringify(["agent-fac"]),
+			lastActiveAt: NOW,
+			createdAt: NOW,
+		})
+		.run();
 }

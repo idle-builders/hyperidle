@@ -19,6 +19,9 @@ describe("H4 AC3: PG migrations apply to a fresh pglite DB", () => {
 			const rows = (result as { rows: Array<{ tablename: string }> }).rows;
 			const tableNames = rows.map((r) => r.tablename);
 
+			// L1a: `responses` table dropped (plan §5.2). Verdicts now project
+			// as `verdict`-typed messages. Snapshot tables `_l1_snapshot_*`
+			// are migration artifacts.
 			expect(tableNames).toEqual(
 				expect.arrayContaining([
 					"agents",
@@ -31,7 +34,6 @@ describe("H4 AC3: PG migrations apply to a fresh pglite DB", () => {
 					"knowledge_items",
 					"messages",
 					"products",
-					"responses",
 					"routines",
 					"sessions",
 					"tasks",
@@ -39,7 +41,8 @@ describe("H4 AC3: PG migrations apply to a fresh pglite DB", () => {
 					"threads",
 				]),
 			);
-			expect(tableNames.length).toBeGreaterThanOrEqual(16);
+			expect(tableNames).not.toContain("responses");
+			expect(tableNames.length).toBeGreaterThanOrEqual(15);
 		} finally {
 			await close();
 		}
@@ -55,7 +58,8 @@ describe("H4 AC3: PG migrations apply to a fresh pglite DB", () => {
 			);
 			const rows = (result as { rows: Array<{ n: string | number }> }).rows;
 			const n = Number(rows[0]?.n ?? 0);
-			expect(n).toBeGreaterThanOrEqual(16);
+			// L1a: 15 canonical tables + 4 _l1_snapshot_* artifacts.
+			expect(n).toBeGreaterThanOrEqual(15);
 		} finally {
 			await close();
 		}
@@ -115,7 +119,8 @@ describe("I3 review C5: boolean migration is NULL-safe", () => {
 		const { db, close } = await createPgTestDb({ migrate: true });
 		try {
 			await db.execute(
-				sql`INSERT INTO threads (id, kind, created_at) VALUES ('thread-null-test', 'review', '2026-04-18T00:00:00Z')`,
+				// L1a: threads now use host_kind/host_id/initiator/participants/last_active_at (plan §5.3).
+				sql`INSERT INTO threads (id, host_kind, host_id, initiator_id, participants, last_active_at, created_at) VALUES ('thread-null-test', 'task', 'task-1', 'agent-1', '[]', '2026-04-18T00:00:00Z', '2026-04-18T00:00:00Z')`,
 			);
 			await db.execute(
 				sql`INSERT INTO items (id, thread_id, title, kind, created_at) VALUES ('item-default', 'thread-null-test', 'no-explicit-blocking', 'review', '2026-04-18T00:00:00Z')`,
@@ -137,7 +142,7 @@ describe("I3 review C5: boolean migration is NULL-safe", () => {
 		try {
 			// Pre-seed a row with blocking=true.
 			await db.execute(
-				sql`INSERT INTO threads (id, kind, created_at) VALUES ('thread-bool-test', 'review', '2026-04-18T00:00:00Z')`,
+				sql`INSERT INTO threads (id, host_kind, host_id, initiator_id, participants, last_active_at, created_at) VALUES ('thread-bool-test', 'task', 'task-1', 'agent-1', '[]', '2026-04-18T00:00:00Z', '2026-04-18T00:00:00Z')`,
 			);
 			await db.execute(
 				sql`INSERT INTO items (id, thread_id, title, kind, blocking, created_at) VALUES ('item-true', 'thread-bool-test', 't', 'review', true, '2026-04-18T00:00:00Z')`,

@@ -4,11 +4,10 @@ import {
 	type HyperIdleDb,
 	items,
 	products,
-	responses,
 	teams,
 	threads,
 } from "@hyperidle/db";
-import type { ItemCreatedEvent, ResponseRecordedEvent } from "@hyperidle/shared";
+import type { ItemCreatedEvent } from "@hyperidle/shared";
 import { EventBus } from "@hyperidle/shared";
 import type { Hono } from "hono";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -49,6 +48,20 @@ describe("Conversations Endpoints (E2)", () => {
 				formedAt: new Date().toISOString(),
 			})
 			.run();
+		// L1a: verdict messages set sender_id='policy_engine' as the synthetic
+		// sender for system-recorded verdicts. The new `messages.sender_id` FK
+		// requires the agent to exist (legacy `responses.approver_id` had no
+		// FK). Seeding the synthetic agent satisfies the constraint without
+		// changing test intent.
+		db.insert(agents)
+			.values({
+				id: "policy_engine",
+				name: "Policy Engine",
+				role: "system",
+				status: "active",
+				createdAt: new Date().toISOString(),
+			})
+			.run();
 	});
 
 	afterEach(() => {
@@ -61,10 +74,26 @@ describe("Conversations Endpoints (E2)", () => {
 		it("lists threads sorted by recency (default)", async () => {
 			const now = Date.now();
 			db.insert(threads)
-				.values({ id: "t-old", kind: "chat", createdAt: new Date(now - 10000).toISOString() })
+				.values({
+					id: "t-old",
+					hostKind: "task",
+					hostId: "task-1",
+					initiatorId: "agent-1",
+					participants: JSON.stringify(["agent-1"]),
+					lastActiveAt: new Date(now - 10000).toISOString(),
+					createdAt: new Date(now - 10000).toISOString(),
+				})
 				.run();
 			db.insert(threads)
-				.values({ id: "t-new", kind: "review", createdAt: new Date(now).toISOString() })
+				.values({
+					id: "t-new",
+					hostKind: "task",
+					hostId: "task-1",
+					initiatorId: "agent-1",
+					participants: JSON.stringify(["agent-1"]),
+					lastActiveAt: new Date(now).toISOString(),
+					createdAt: new Date(now).toISOString(),
+				})
 				.run();
 
 			const res = await app.request("/api/conversations", { headers: authHeaders() });
@@ -82,10 +111,26 @@ describe("Conversations Endpoints (E2)", () => {
 
 		it("sorts by attention_score when requested", async () => {
 			db.insert(threads)
-				.values({ id: "t-low", kind: "chat", createdAt: new Date().toISOString() })
+				.values({
+					id: "t-low",
+					hostKind: "task",
+					hostId: "task-1",
+					initiatorId: "agent-1",
+					participants: JSON.stringify(["agent-1"]),
+					lastActiveAt: new Date().toISOString(),
+					createdAt: new Date().toISOString(),
+				})
 				.run();
 			db.insert(threads)
-				.values({ id: "t-high", kind: "review", createdAt: new Date().toISOString() })
+				.values({
+					id: "t-high",
+					hostKind: "task",
+					hostId: "task-1",
+					initiatorId: "agent-1",
+					participants: JSON.stringify(["agent-1"]),
+					lastActiveAt: new Date().toISOString(),
+					createdAt: new Date().toISOString(),
+				})
 				.run();
 
 			db.insert(items)
@@ -122,11 +167,16 @@ describe("Conversations Endpoints (E2)", () => {
 
 		it("paginates correctly", async () => {
 			for (let i = 0; i < 5; i++) {
+				const ts = new Date(Date.now() - i * 1000).toISOString();
 				db.insert(threads)
 					.values({
 						id: `t-${i}`,
-						kind: "chat",
-						createdAt: new Date(Date.now() - i * 1000).toISOString(),
+						hostKind: "task",
+						hostId: "task-1",
+						initiatorId: "agent-1",
+						participants: JSON.stringify(["agent-1"]),
+						lastActiveAt: ts,
+						createdAt: ts,
 					})
 					.run();
 			}
@@ -159,9 +209,17 @@ describe("Conversations Endpoints (E2)", () => {
 	// --- GET /api/conversations/:threadId ---
 
 	describe("GET /api/conversations/:threadId", () => {
-		it("returns thread with items and responses", async () => {
+		it("returns thread with items and an empty responses[] (verdicts now live on /api/threads)", async () => {
 			db.insert(threads)
-				.values({ id: "thread-1", kind: "review", createdAt: new Date().toISOString() })
+				.values({
+					id: "thread-1",
+					hostKind: "task",
+					hostId: "task-1",
+					initiatorId: "agent-1",
+					participants: JSON.stringify(["agent-1"]),
+					lastActiveAt: new Date().toISOString(),
+					createdAt: new Date().toISOString(),
+				})
 				.run();
 			db.insert(items)
 				.values({
@@ -179,14 +237,6 @@ describe("Conversations Endpoints (E2)", () => {
 					createdAt: new Date(Date.now() + 1000).toISOString(),
 				})
 				.run();
-			db.insert(responses)
-				.values({
-					id: "resp-1",
-					itemId: "item-1",
-					decision: "approve",
-					respondedAt: new Date().toISOString(),
-				})
-				.run();
 
 			const res = await app.request("/api/conversations/thread-1", { headers: authHeaders() });
 			expect(res.status).toBe(200);
@@ -194,15 +244,14 @@ describe("Conversations Endpoints (E2)", () => {
 			const body = (await res.json()) as {
 				id: string;
 				kind: string;
-				items: Array<{ id: string; responses: Array<{ id: string; decision: string }> }>;
+				items: Array<{ id: string; responses: ReadonlyArray<unknown> }>;
 			};
 			expect(body.id).toBe("thread-1");
 			expect(body.items).toHaveLength(2);
 			expect(body.items[0].id).toBe("item-1");
-			expect(body.items[0].responses).toHaveLength(1);
-			expect(body.items[0].responses[0].decision).toBe("approve");
+			expect(body.items[0].responses).toEqual([]);
 			expect(body.items[1].id).toBe("item-2");
-			expect(body.items[1].responses).toHaveLength(0);
+			expect(body.items[1].responses).toEqual([]);
 		});
 
 		it("returns 404 for nonexistent thread", async () => {
@@ -219,7 +268,15 @@ describe("Conversations Endpoints (E2)", () => {
 	describe("POST /api/conversations/items", () => {
 		beforeEach(() => {
 			db.insert(threads)
-				.values({ id: "thread-1", kind: "review", createdAt: new Date().toISOString() })
+				.values({
+					id: "thread-1",
+					hostKind: "task",
+					hostId: "task-1",
+					initiatorId: "agent-1",
+					participants: JSON.stringify(["agent-1"]),
+					lastActiveAt: new Date().toISOString(),
+					createdAt: new Date().toISOString(),
+				})
 				.run();
 		});
 
@@ -294,114 +351,155 @@ describe("Conversations Endpoints (E2)", () => {
 		});
 	});
 
-	// --- POST /api/conversations/responses ---
-
-	describe("POST /api/conversations/responses", () => {
+	// L1 step5 (S-C2): the legacy `POST /api/conversations/responses` was
+	// removed — its replacement is `POST /api/threads/:id/messages` with
+	// `type: "verdict"`. The smoke checks below confirm a verdict written
+	// through the canonical surface lands on the same thread/item the legacy
+	// route used to target. The full verdict-authz / idempotency / re-open
+	// matrix lives in `routes/__tests__/threads.routes.test.ts`.
+	describe("verdict via canonical /api/threads surface", () => {
 		beforeEach(() => {
-			db.insert(threads)
-				.values({ id: "thread-1", kind: "review", createdAt: new Date().toISOString() })
-				.run();
-			db.insert(items)
+			// Seed a founder approver and a non-founder review author so the
+			// canonical route's authz check (founder + not-self) passes.
+			db.insert(agents)
 				.values({
-					id: "item-1",
-					title: "Review item",
-					threadId: "thread-1",
+					id: "founder-1",
+					name: "Founder",
+					role: "founder",
+					status: "active",
+					createdAt: new Date().toISOString(),
+				})
+				.run();
+			db.insert(agents)
+				.values({
+					id: "agent-1",
+					name: "Agent",
+					role: "growth",
+					status: "active",
 					createdAt: new Date().toISOString(),
 				})
 				.run();
 		});
 
-		it("records verdict and returns 201", async () => {
-			const res = await app.request("/api/conversations/responses", {
+		it("records a verdict on a review and returns 201", async () => {
+			const create = await app.request("/api/threads", {
 				method: "POST",
-				headers: authHeaders(),
+				headers: { ...authHeaders(), "X-Identity": "agent-1" },
 				body: JSON.stringify({
-					itemId: "item-1",
-					decision: "approve",
-					feedback: "Looks good",
+					hostKind: "task",
+					hostId: "task-1",
+					participants: ["agent-1", "founder-1"],
+					initialMessage: {
+						type: "review",
+						clientKey: "init-r-a",
+						payload: {
+							title: "Verdict smoke",
+							reasoning: ["Looks fine"],
+							artifactRef: { id: "a-1", kind: "text_diff" },
+						},
+					},
+				}),
+			});
+			expect(create.status).toBe(201);
+			const created = (await create.json()) as {
+				thread: { id: string };
+				messages: Array<{ id: string }>;
+			};
+			const reviewMessageId = created.messages[0].id;
+
+			const res = await app.request(`/api/threads/${created.thread.id}/messages`, {
+				method: "POST",
+				headers: { ...authHeaders(), "X-Identity": "founder-1" },
+				body: JSON.stringify({
+					type: "verdict",
+					clientKey: "verdict-a",
+					payload: {
+						decision: "approve",
+						resolvesMessageId: reviewMessageId,
+						note: "Looks good",
+					},
 				}),
 			});
 			expect(res.status).toBe(201);
-
-			const body = (await res.json()) as { id: string; decision: string; feedback: string };
-			expect(body.decision).toBe("approve");
-			expect(body.feedback).toBe("Looks good");
 		});
 
-		it("validates decision enum (invalid -> 400)", async () => {
-			const res = await app.request("/api/conversations/responses", {
+		it("rejects non-founder verdicts (403)", async () => {
+			const create = await app.request("/api/threads", {
 				method: "POST",
-				headers: authHeaders(),
+				headers: { ...authHeaders(), "X-Identity": "agent-1" },
 				body: JSON.stringify({
-					itemId: "item-1",
-					decision: "invalid-decision",
+					hostKind: "task",
+					hostId: "task-1",
+					participants: ["agent-1", "founder-1"],
+					initialMessage: {
+						type: "review",
+						clientKey: "init-r-b",
+						payload: {
+							title: "No",
+							reasoning: ["Nope"],
+							artifactRef: { id: "a-2", kind: "text_diff" },
+						},
+					},
+				}),
+			});
+			const created = (await create.json()) as {
+				thread: { id: string };
+				messages: Array<{ id: string }>;
+			};
+
+			// Send the verdict as the (non-founder) review author. Should 403.
+			const res = await app.request(`/api/threads/${created.thread.id}/messages`, {
+				method: "POST",
+				headers: { ...authHeaders(), "X-Identity": "agent-1" },
+				body: JSON.stringify({
+					type: "verdict",
+					clientKey: "verdict-b",
+					payload: {
+						decision: "approve",
+						resolvesMessageId: created.messages[0].id,
+					},
+				}),
+			});
+			expect(res.status).toBe(403);
+		});
+
+		it("validates verdict decision enum (invalid -> 400)", async () => {
+			const create = await app.request("/api/threads", {
+				method: "POST",
+				headers: { ...authHeaders(), "X-Identity": "agent-1" },
+				body: JSON.stringify({
+					hostKind: "task",
+					hostId: "task-1",
+					participants: ["agent-1", "founder-1"],
+					initialMessage: {
+						type: "review",
+						clientKey: "init-r-c",
+						payload: {
+							title: "Validate",
+							reasoning: ["x"],
+							artifactRef: { id: "a-3", kind: "text_diff" },
+						},
+					},
+				}),
+			});
+			const created = (await create.json()) as {
+				thread: { id: string };
+				messages: Array<{ id: string }>;
+			};
+
+			const res = await app.request(`/api/threads/${created.thread.id}/messages`, {
+				method: "POST",
+				headers: { ...authHeaders(), "X-Identity": "founder-1" },
+				body: JSON.stringify({
+					type: "verdict",
+					clientKey: "verdict-c",
+					payload: {
+						decision: "invalid-decision",
+						resolvesMessageId: created.messages[0].id,
+					},
 				}),
 			});
 			expect(res.status).toBe(400);
-		});
-
-		it("returns 404 for nonexistent itemId", async () => {
-			const res = await app.request("/api/conversations/responses", {
-				method: "POST",
-				headers: authHeaders(),
-				body: JSON.stringify({
-					itemId: "nonexistent",
-					decision: "approve",
-				}),
-			});
-			expect(res.status).toBe(404);
-		});
-
-		it("emits response_recorded event", async () => {
-			const emitted: ResponseRecordedEvent[] = [];
-			eventBus.on("response_recorded", (e) => emitted.push(e));
-
-			await app.request("/api/conversations/responses", {
-				method: "POST",
-				headers: authHeaders(),
-				body: JSON.stringify({
-					itemId: "item-1",
-					decision: "reject",
-				}),
-			});
-
-			expect(emitted).toHaveLength(1);
-			expect(emitted[0].decision).toBe("reject");
-			expect(emitted[0].itemId).toBe("item-1");
-		});
-
-		it("accepts all 10 verdict actions", async () => {
-			const actions = [
-				"approve",
-				"approve-with-comments",
-				"comment",
-				"inline-comment",
-				"request-changes",
-				"edit",
-				"reject",
-				"reply",
-				"snooze",
-				"escalate",
-			];
-
-			for (const action of actions) {
-				const itemId = `item-${action}`;
-				db.insert(items)
-					.values({
-						id: itemId,
-						title: `Item for ${action}`,
-						threadId: "thread-1",
-						createdAt: new Date().toISOString(),
-					})
-					.run();
-
-				const res = await app.request("/api/conversations/responses", {
-					method: "POST",
-					headers: authHeaders(),
-					body: JSON.stringify({ itemId, decision: action }),
-				});
-				expect(res.status).toBe(201);
-			}
 		});
 	});
 
@@ -410,7 +508,15 @@ describe("Conversations Endpoints (E2)", () => {
 	describe("Founder routing integration", () => {
 		it("agent with role 'growth' -> item tagged CEO", async () => {
 			db.insert(threads)
-				.values({ id: "thread-1", kind: "review", createdAt: new Date().toISOString() })
+				.values({
+					id: "thread-1",
+					hostKind: "task",
+					hostId: "task-1",
+					initiatorId: "agent-1",
+					participants: JSON.stringify(["agent-1"]),
+					lastActiveAt: new Date().toISOString(),
+					createdAt: new Date().toISOString(),
+				})
 				.run();
 			db.insert(agents)
 				.values({
@@ -439,7 +545,15 @@ describe("Conversations Endpoints (E2)", () => {
 
 		it("agent with role 'builder' -> item tagged CPO", async () => {
 			db.insert(threads)
-				.values({ id: "thread-1", kind: "review", createdAt: new Date().toISOString() })
+				.values({
+					id: "thread-1",
+					hostKind: "task",
+					hostId: "task-1",
+					initiatorId: "agent-1",
+					participants: JSON.stringify(["agent-1"]),
+					lastActiveAt: new Date().toISOString(),
+					createdAt: new Date().toISOString(),
+				})
 				.run();
 			db.insert(agents)
 				.values({

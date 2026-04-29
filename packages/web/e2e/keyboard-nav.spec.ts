@@ -61,7 +61,8 @@ test.describe("J8 — keyboard-only navigation", () => {
 		await expect(page.getByRole("dialog", { name: /settings/i })).not.toBeVisible();
 	});
 
-	test("Review verdict shortcuts A/R/X pre-fill a pending verdict", async ({ page }) => {
+	// L1: ConversationsReview was rewritten to mount <ThreadShell>; the legacy ReviewHeader/ReasoningBlockView/PREFILL_KEYS flow this case asserts no longer exists. New contract covered by packages/web/e2e/threads.spec.ts. J-track / L1b can rewrite or delete.
+	test.skip("Review verdict shortcuts A/R/X pre-fill a pending verdict", async ({ page }) => {
 		await page.goto("/conversations/review");
 		await page.waitForSelector("[data-testid='conversations-review-page']");
 		await page.getByTestId("main-content").click();
@@ -75,7 +76,8 @@ test.describe("J8 — keyboard-only navigation", () => {
 		}
 	});
 
-	test("ReasoningBlockView toggle is keyboard operable", async ({ page }) => {
+	// L1: ConversationsReview was rewritten to mount <ThreadShell>; the legacy ReviewHeader/ReasoningBlockView/PREFILL_KEYS flow this case asserts no longer exists. New contract covered by packages/web/e2e/threads.spec.ts. J-track / L1b can rewrite or delete.
+	test.skip("ReasoningBlockView toggle is keyboard operable", async ({ page }) => {
 		await page.goto("/conversations/review");
 		await page.waitForSelector("[data-testid='conversations-review-page']");
 		const toggle = page.getByRole("button", { name: /reasoning/i });

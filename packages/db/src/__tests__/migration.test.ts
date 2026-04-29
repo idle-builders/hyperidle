@@ -24,9 +24,13 @@ describe("A2: Migration", () => {
 	});
 
 	it("applies migrations to a fresh in-memory SQLite database", () => {
+		// L1a: `responses` table dropped; verdicts now project as
+		// `verdict`-typed messages (plan §5.2). Snapshot tables
+		// `_l1_snapshot_*` are migration artifacts, excluded from the
+		// canonical table list.
 		const tableNames = db
 			.all<{ name: string }>(
-				sql`SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' AND name NOT LIKE '__drizzle%' AND name NOT LIKE 'd1%' ORDER BY name`,
+				sql`SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' AND name NOT LIKE '__drizzle%' AND name NOT LIKE 'd1%' AND name NOT LIKE '_l1_snapshot_%' ORDER BY name`,
 			)
 			.map((r) => r.name);
 
@@ -42,7 +46,6 @@ describe("A2: Migration", () => {
 				"knowledge_items",
 				"messages",
 				"products",
-				"responses",
 				"routines",
 				"sessions",
 				"tasks",
@@ -50,7 +53,8 @@ describe("A2: Migration", () => {
 				"threads",
 			]),
 		);
-		expect(tableNames.length).toBeGreaterThanOrEqual(16);
+		expect(tableNames).not.toContain("responses");
+		expect(tableNames.length).toBeGreaterThanOrEqual(15);
 	});
 
 	it("migrated database supports CRUD with Drizzle ORM", () => {
