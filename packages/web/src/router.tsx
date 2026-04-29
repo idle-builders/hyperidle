@@ -57,6 +57,15 @@ function buildRoutes(): RouteObject[] {
 				return { Component: DesignSystem };
 			},
 		});
+		// L3 throwaway: AC-10 evidence surface; permanent mounts ship in L11/L12.
+		routes.push({
+			path: "/_dev/artifacts",
+			lazy: async () => {
+				const { ArtifactDemo } = await import("./pages/_dev/ArtifactDemo.js");
+				// biome-ignore lint/style/useNamingConvention: React Router lazy() API requires PascalCase Component key
+				return { Component: ArtifactDemo };
+			},
+		});
 	}
 
 	return routes;

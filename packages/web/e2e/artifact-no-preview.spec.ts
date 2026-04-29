@@ -1,17 +1,33 @@
-// L3 RED — Playwright: protected — preview=null renders the placeholder, never a fake thumbnail.
+// L3 — Playwright: protected — preview=null renders the placeholder, never a fake thumbnail.
 // AC-9 + concept §4.5 hard rule #4.
-import { expect, test } from "@playwright/test";
+import { expect, type Route, test } from "@playwright/test";
+
+const NO_PREVIEW_FIXTURE = {
+	id: "art-no-preview-fixture",
+	producingTaskId: "task-no-preview",
+	producingTaskTitle: "Pending render",
+	kind: "screenshot",
+	preview: null,
+	cost: { money: "$0.00", tokens: "0" },
+	threadCount: 0,
+	createdAt: "2026-04-28T13:00:00.000Z",
+};
 
 test("artifact with preview=null shows the PREVIEW PENDING placeholder, not a fake thumbnail", async ({
 	page,
 }) => {
-	// The seeded fixture artifact `art-no-preview-fixture` is created at
-	// permalink mount time with preview:null.
+	await page.route("**/api/artifacts/art-no-preview-fixture", async (route: Route) => {
+		await route.fulfill({
+			status: 200,
+			contentType: "application/json",
+			body: JSON.stringify(NO_PREVIEW_FIXTURE),
+		});
+	});
 	await page.goto("/artifacts/art-no-preview-fixture");
 	const placeholder = page.getByText(/PREVIEW (PENDING|NOT YET RENDERED)/);
 	await expect(placeholder).toBeVisible();
 
 	// Hard rule: no <img> may render in the placeholder area.
-	const previewSurface = page.locator("[data-component='ArtifactPreviewSurface']").first();
+	const previewSurface = page.locator("[data-ds-component='ArtifactPreviewSurface']").first();
 	await expect(previewSurface.locator("img")).toHaveCount(0);
 });
