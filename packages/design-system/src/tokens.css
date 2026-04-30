@@ -260,6 +260,20 @@
 		--density-icon-size: 1rem;
 		--density-avatar-size: 2rem;
 		--density-card-gap: 0.5rem;
+		/*
+		 * @lore L11 plan §5.7 — `--card-max-h` caps the in-stream
+		 * RichMessageCard so a 200-line diff cannot push the action footer
+		 * off-viewport. The card body has `overflow-y: auto`; the action
+		 * footer is `position: sticky; bottom: 0`. Mobile override below.
+		 */
+		--card-max-h: 70vh;
+	}
+
+	@media (max-width: 768px) {
+		:root,
+		[data-density="default"] {
+			--card-max-h: 60vh;
+		}
 	}
 
 	[data-density="compact"] {
