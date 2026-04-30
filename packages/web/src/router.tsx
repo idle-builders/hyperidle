@@ -10,6 +10,7 @@ import type { RouteObject } from "react-router-dom";
  */
 import { createBrowserRouter, Navigate, RouterProvider } from "react-router-dom";
 import { AppShell } from "./layouts/AppShell";
+import { ArtifactPermalink } from "./pages/ArtifactPermalink";
 import { ConversationsChat } from "./pages/ConversationsChat";
 import { ConversationsReview } from "./pages/ConversationsReview";
 import { KnowledgeDetail } from "./pages/KnowledgeDetail";
@@ -33,6 +34,8 @@ function buildRoutes(): RouteObject[] {
 				{ path: "work/bet/:betId", element: <WorkBet /> },
 				{ path: "knowledge", element: <KnowledgeList /> },
 				{ path: "knowledge/:knowledgeId", element: <KnowledgeDetail /> },
+				// L3 review fix Arch-M1 / D-M4: wire the ArtifactPermalink page.
+				{ path: "artifacts/:id", element: <ArtifactPermalink /> },
 				{
 					path: "settings",
 					element: <Navigate to="/conversations/review?settings=open" replace />,
@@ -52,6 +55,15 @@ function buildRoutes(): RouteObject[] {
 				const { DesignSystem } = await import("./designsystem/DesignSystem.js");
 				// biome-ignore lint/style/useNamingConvention: React Router lazy() API requires PascalCase Component key
 				return { Component: DesignSystem };
+			},
+		});
+		// L3 throwaway: AC-10 evidence surface; permanent mounts ship in L11/L12.
+		routes.push({
+			path: "/_dev/artifacts",
+			lazy: async () => {
+				const { ArtifactDemo } = await import("./pages/_dev/ArtifactDemo.js");
+				// biome-ignore lint/style/useNamingConvention: React Router lazy() API requires PascalCase Component key
+				return { Component: ArtifactDemo };
 			},
 		});
 	}

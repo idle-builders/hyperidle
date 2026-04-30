@@ -749,6 +749,68 @@ For the long-form authority, including the block-kind table, the id-derivation c
 
 ---
 
+### 4.7 Artifact primitive (cross-domain)
+
+**Definition.** An Artifact is a function-agnostic, task-rooted, persistent record of something the team has produced. It is the concept that lets Work surfaces, review messages in Conversations, and any future surface refer to the same "thing the team made" without each surface inventing its own type. Per the L-track founder reframe — *every output an artifact* — the primitive is one and the renderings are many.
+
+**Essential properties.** Every Artifact has:
+
+- `id` — opaque, stable identity assigned at creation.
+- `producing_task_id` — the Task that produced it. Required at creation; never null; immutable.
+- `kind` — the function-agnostic type label (illustrative, not enumerated here: code diff, deck, contract, dashboard, screenshot, drafted email, design, data analysis, decision with rationale, running service, communication draft, test/verification result, and any future output kind). The exact closed-or-open status of `kind` is settled in `/architecture`; the concept commits only to function-agnosticism.
+- `preview` — a short representation (text excerpt, thumbnail reference, structured summary, or null) used by the gallery card and stack item. May be null at creation; populated when a render is ready. Once non-null, immutable for that render generation.
+- `cost_from_session` — the money + token spend attributable to the session(s) that produced this artifact. May be null until the producing session settles. Once populated, immutable.
+- `created_at` — when the Artifact record was created.
+
+Anything not in this list is incidental and lives on a consumer surface (e.g. a gallery's filter state, a review-message's verdict) — not on the Artifact itself.
+
+**What it is not.**
+
+- **Not a File.** A File is a filesystem entry. An Artifact may correspond to one file, many files, or no file at all (e.g. a "decision with rationale" artifact is a structured record). File handling is a storage detail; Artifact is the user-facing primitive.
+- **Not a Deliverable.** Deliverable implies a contract with an external recipient. An Artifact is internal evidence that work happened; some Artifacts later become Deliverables, but the primitive is upstream of that distinction.
+- **Not an Output.** "Output" is the loose word the team uses in conversation. The canonical noun is Artifact. Output is an alias to retire — see Vocabulary.
+- **Not bet-, product-, or portfolio-owned.** Artifacts root on Tasks. Higher-level surfaces (Bet detail, Product page, Portfolio gallery) **aggregate** Artifacts from their constituent tasks; they never own them and never mutate them.
+- **Not the same thing as `ArtifactView`.** The pre-existing `ArtifactView` component (§4.1) is the renderer for a review message's `proposed_action` payload — one of five shapes (text_diff, content_preview, visual_comparison, action_summary, data_metrics). Those five shapes describe *how a preview is rendered inside a review-message embed*; they are a sub-vocabulary inside one of the four Artifact view-family layouts (see Contracts), not the primitive itself.
+- **Not a fake thumbnail.** When `preview` is null, surfaces render an explicit placeholder. Surfaces never synthesise a fake image, fake metric, or fake excerpt to fill the slot.
+
+**Composition.** An Artifact roots on exactly one Task (`producing_task_id`). Threads (L1) attach to Artifacts via the universal cross-area attachment contract — discussion of an artifact lives on the artifact itself. The producing Session contributes `cost_from_session`. Higher-level surfaces compose Artifacts upward by aggregation: a Bet's Artifacts are the union of its Tasks' Artifacts; a Product's Artifacts are the union of its Bets'; a Portfolio's are the union of its Products'. Aggregation is read-only.
+
+**Lifecycle.** An Artifact is created when a Task produces something worth recording. At creation, only `id`, `producing_task_id`, `kind`, and `created_at` are guaranteed; `preview` and `cost_from_session` may populate later (preview when rendering completes, cost when the session settles). The Artifact is **not deleted** at this layer. Archival, supersession, and retention policy are out of scope for L3 and addressed in a later concept update if needed.
+
+**Authority.** The producing Task owns its Artifacts. The producing Agent (running on that Task) creates them. Aggregating surfaces are read-only consumers. Threads attached to an Artifact are owned by their respective participants; the Artifact does not own its threads, it merely hosts them.
+
+**Vocabulary.**
+
+| Term | Definition | Aliases not to use |
+|---|---|---|
+| **Artifact** | A function-agnostic, task-rooted, persistent record of something the team produced. | Output, File, Deliverable, Result, Asset, Document, Product (in the noun sense) |
+| **Producing Task** | The unique Task that owns an Artifact. | Source, Origin, Parent |
+| **Preview** | The short representation used by gallery card and stack item. May be null. | Thumbnail (ambiguous — could be image-only), Summary (ambiguous — could be a synthesis) |
+| **Artifact view family** | The closed set of four layouts that render an Artifact: gallery card, stack item, single full preview, review-message embed. | Variant, Mode, Style |
+| **Review-message embed** | The Artifact view-family layout used when an Artifact is shown inline in a review message. Internally consumes the five `ArtifactView` shapes for its preview rendering. | Inline preview, Review widget |
+| `ArtifactView` (component) | Pre-existing component that renders the five `proposed_action` shapes (text_diff / content_preview / visual_comparison / action_summary / data_metrics). It is the engine inside the review-message embed layout. | Do not use as a synonym for Artifact-the-primitive. |
+
+**Contracts.**
+
+- **Cardinality.** One Task → many Artifacts (zero or more). One Artifact → exactly one producing Task (required, immutable). Threads → Artifact: zero or more.
+- **Closure (view family).** The Artifact view family is **closed** at four layouts: `gallery_card`, `stack_item`, `single_full_preview`, `review_message_embed`. Adding a fifth layout requires a concept-doc update first. (This is the L3 hard-rule from the spec, line 141.)
+- **Closure (review-message-embed renderers).** The five `ArtifactView` shapes inside the review-message-embed layout remain governed by §4.1 — they are a separate closure independently maintained. Skill extensions specialise; they do not add new shapes.
+- **Mutability.** `id`, `producing_task_id`, `kind`, `created_at` are immutable from creation. `preview` and `cost_from_session` may transition exactly once from null to a populated value; once populated, immutable.
+- **Identity.** Opaque ID. Not a content hash (a re-render of the same artifact must keep the same identity); not a deterministic key derived from task + kind (a Task may produce many Artifacts of the same kind).
+- **Fetching.** The system can fetch Artifacts filtered by Task, Bet, Product, or Portfolio. The shape returned is the canonical Artifact shape (above), with `cost_from_session` already populated where the session has settled.
+
+**Hard rules** (violation downstream means the implementation has broken the concept):
+
+1. **Artifacts root on Tasks.** Nothing else creates them. Bet/Product/Portfolio surfaces aggregate; they never own.
+2. **The view family is closed at four layouts.** New layouts require a concept-doc update before any code.
+3. **Threads attach to Artifacts via the L1 primitive.** No bespoke comment system on Artifacts.
+4. **No fake thumbnails.** When `preview` is null, render a placeholder. Never synthesise.
+5. **No emojis.**
+
+**Rationale.** The L-track founder reframe — *"Every output an artifact"* — collapsed a sprawl of overlapping nouns (output, file, deliverable, result, asset) into one primitive that crosses Work, Knowledge, and Conversation. Without it, every surface that wanted to show "what the team made" reinvented its own shape, the dependency graph grew an undocumented edge into L11 and L12 (the founder noted L12 was missing from the graph entirely), and the existing component-named `ArtifactView` was carrying both the renderer-of-review-payloads job and the implicit-noun-for-an-output job at once. Locking Artifact as a task-rooted, function-agnostic primitive with a closed view family lets L11 (rich review messages) and L12 (Work surfaces) consume one shape and lets the existing five `ArtifactView` shapes remain a *renderer* concept inside one of four Artifact layouts — a cleaner separation than blurring the two.
+
+---
+
 ## 5. The Holistic User Journey
 
 Three views plus a sidebar. What matters is how they thread together into a day, a week, and a month.

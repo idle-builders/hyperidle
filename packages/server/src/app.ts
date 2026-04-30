@@ -9,6 +9,7 @@ import { corsMiddleware } from "./middleware/cors.js";
 import { errorHandler } from "./middleware/error-handler.js";
 import { createRateLimiter } from "./middleware/rate-limit.js";
 import { createAgentRoutes } from "./routes/agents.js";
+import { createArtifactRoutes } from "./routes/artifacts.js";
 import { createAuthRoutes } from "./routes/auth.js";
 import { createBetRoutes } from "./routes/bets.js";
 import { createConversationRoutes } from "./routes/conversations.js";
@@ -263,6 +264,7 @@ function createApp(options?: AppOptions): Hono {
 		const eventBus = options.eventBus ?? new EventBus();
 		api.route("/bets", createBetRoutes(options.db, eventBus));
 		api.route("/tasks", createTaskRoutes(options.db, eventBus));
+		api.route("/artifacts", createArtifactRoutes(options.db));
 		api.route("/knowledge", createKnowledgeRoutes(options.db, eventBus));
 		api.route("/rail", createRailRoutes(options.db, eventBus));
 		api.route("/conversations", createConversationRoutes(options.db, eventBus));

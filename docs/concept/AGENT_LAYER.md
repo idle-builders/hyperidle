@@ -112,6 +112,7 @@ This means:
 - **Specialist capabilities** (security review, accessibility audit, brand-voice check) are packaged as skills that the agent invokes, possibly via sub-agents — not as separate top-level agents the factory manages.
 - **The team roster stays small.** A product team is 3–6 agents, not 15. Specialization happens inside sessions, not at the org chart level.
 - **Cost tracking is per session.** Sub-agent token spend rolls up into the parent session's cost. The factory doesn't need a separate cost line per sub-agent.
+- **Session cost flows to Artifacts.** When a session produces an Artifact (Artifact primitive, `HUMAN_INTERFACE_LAYER.md` §4.5), the session's cost contributes to the Artifact's `cost_from_session` field. The Artifact, not the session, is the surface where Work and Conversations consumers see "what this output cost." The session remains the cost-tracking unit; the Artifact is the consumer-facing projection.
 
 ---
 
