@@ -62,6 +62,8 @@ See `docs/work-packages/SHARED.md` for tech stack and the cross-track dependency
 - The migration is forward-only and ships with a written rollback plan.
 - No emojis.
 
+**Complexity.** L — drives scheduler dispatch.
+
 **Effort.** L (~5d)
 
 ---
@@ -104,6 +106,8 @@ See `docs/work-packages/SHARED.md` for tech stack and the cross-track dependency
 - The block-anchor is the primitive's own affordance — independent of any linking primitive.
 - No emojis.
 
+**Complexity.** L — drives scheduler dispatch.
+
 **Effort.** L (~4-5d)
 
 ---
@@ -141,6 +145,8 @@ See `docs/work-packages/SHARED.md` for tech stack and the cross-track dependency
 - The view family is closed once this lands — adding a new layout requires a concept-doc update first.
 - No emojis.
 
+**Complexity.** L — drives scheduler dispatch.
+
 **Effort.** L (~5d)
 
 ---
@@ -169,6 +175,8 @@ See `docs/work-packages/SHARED.md` for tech stack and the cross-track dependency
 - Money values must not lose precision through rounding.
 - Wall-clock duration is informational only, never a budget axis.
 - No emojis.
+
+**Complexity.** S — drives scheduler dispatch.
 
 **Effort.** S (~1d)
 
@@ -202,6 +210,8 @@ See `docs/work-packages/SHARED.md` for tech stack and the cross-track dependency
 - No fake numbers — `—` when data is absent.
 - No emojis.
 
+**Complexity.** S — drives scheduler dispatch.
+
 **Effort.** S (~1d)
 
 ---
@@ -230,6 +240,8 @@ See `docs/work-packages/SHARED.md` for tech stack and the cross-track dependency
 - Use absolute paths so other agents can grep.
 - Be exhaustive — false negatives are worse than false positives.
 - No emojis.
+
+**Complexity.** M — drives scheduler dispatch.
 
 **Effort.** M (~2d)
 
@@ -262,6 +274,8 @@ See `docs/work-packages/SHARED.md` for tech stack and the cross-track dependency
 - Reuse the existing thread-response server endpoint where one already exists; do not re-spec.
 - No emojis.
 
+**Complexity.** M — drives scheduler dispatch.
+
 **Effort.** M (~2-3d)
 
 ---
@@ -290,6 +304,8 @@ See `docs/work-packages/SHARED.md` for tech stack and the cross-track dependency
 - Counts must match list length. Counts that lie are forbidden.
 - No keyboard verb shortcuts on the list (founder demoted).
 - No emojis.
+
+**Complexity.** M — drives scheduler dispatch.
 
 **Effort.** M (~2-3d)
 
@@ -320,6 +336,8 @@ See `docs/work-packages/SHARED.md` for tech stack and the cross-track dependency
 - Old routes redirect, never 404.
 - No emojis.
 
+**Complexity.** M — drives scheduler dispatch.
+
 **Effort.** M (~2-3d)
 
 ---
@@ -347,6 +365,8 @@ See `docs/work-packages/SHARED.md` for tech stack and the cross-track dependency
 - One axis: sync = blocking, async = non-blocking. Not two axes.
 - No customizable filter sets, no saved presets (founder cut).
 - No emojis.
+
+**Complexity.** S — drives scheduler dispatch.
 
 **Effort.** S (~1d)
 
@@ -378,6 +398,8 @@ See `docs/work-packages/SHARED.md` for tech stack and the cross-track dependency
 - No emoji reactions; pre-formatted actions only.
 - No keyboard verb shortcuts.
 - No emojis in code or comments.
+
+**Complexity.** M — drives scheduler dispatch.
 
 **Effort.** M (~2-3d)
 
@@ -415,6 +437,8 @@ See `docs/work-packages/SHARED.md` for tech stack and the cross-track dependency
 - No hardcoded artifact lists on any Work surface.
 - No emojis.
 
+**Complexity.** M — drives scheduler dispatch.
+
 **Effort.** M (~3d)
 
 ---
@@ -443,6 +467,8 @@ See `docs/work-packages/SHARED.md` for tech stack and the cross-track dependency
 - Product = Team. Do not introduce a separate "team" entity.
 - Drill-down only — no parallel side navigation.
 - No emojis.
+
+**Complexity.** L — drives scheduler dispatch.
 
 **Effort.** L (~5d)
 
@@ -476,6 +502,8 @@ See `docs/work-packages/SHARED.md` for tech stack and the cross-track dependency
 - No keyboard shortcuts (founder demoted).
 - No emojis.
 
+**Complexity.** L — drives scheduler dispatch.
+
 **Effort.** L (~4-5d)
 
 ---
@@ -506,6 +534,8 @@ See `docs/work-packages/SHARED.md` for tech stack and the cross-track dependency
 - Drag survives only Shaped → Committed (Shape Up shaping).
 - No emojis.
 
+**Complexity.** M — drives scheduler dispatch.
+
 **Effort.** M (~3d)
 
 ---
@@ -535,6 +565,8 @@ See `docs/work-packages/SHARED.md` for tech stack and the cross-track dependency
 - The on-disk format remains valid markdown (per L2).
 - No customizable block kits (founder filter).
 - No emojis.
+
+**Complexity.** S — drives scheduler dispatch.
 
 **Effort.** S (~2d)
 
@@ -571,6 +603,8 @@ See `docs/work-packages/SHARED.md` for tech stack and the cross-track dependency
 - Tokens carry a model-tier signal.
 - No emojis.
 
+**Complexity.** M — drives scheduler dispatch.
+
 **Effort.** M (~3-4d)
 
 ---
@@ -605,6 +639,8 @@ See `docs/work-packages/SHARED.md` for tech stack and the cross-track dependency
 - Threads attach to bets, tasks, knowledge items, AND artifacts. Volume is a UI surfacing call, not a model restriction.
 - No emojis.
 
+**Complexity.** M — drives scheduler dispatch.
+
 **Effort.** M (~3d)
 
 ---
@@ -634,6 +670,8 @@ See `docs/work-packages/SHARED.md` for tech stack and the cross-track dependency
 - HyperIdle does NOT render the session interior.
 - Harness URL is opaque — HyperIdle stores and displays, never parses.
 - No emojis.
+
+**Complexity.** S — drives scheduler dispatch.
 
 **Effort.** S (~1-2d)
 
@@ -665,6 +703,8 @@ See `docs/work-packages/SHARED.md` for tech stack and the cross-track dependency
 - Five levels: portfolio > product > bet > task > session. No cycles UI, no sprint planning.
 - The propagation rules live in the concept docs; the data layer implements them.
 - No emojis.
+
+**Complexity.** M — drives scheduler dispatch.
 
 **Effort.** M (~3d)
 
@@ -700,6 +740,8 @@ See `docs/work-packages/SHARED.md` for tech stack and the cross-track dependency
 - CoC threads are user-attached, never bet/task-attached.
 - No emojis.
 
+**Complexity.** M — drives scheduler dispatch.
+
 **Effort.** M (~3-4d)
 
 ---
@@ -730,6 +772,8 @@ See `docs/work-packages/SHARED.md` for tech stack and the cross-track dependency
 - No fake numbers — always `—` until data exists.
 - No customizable saved views (founder cut).
 - No emojis.
+
+**Complexity.** L — drives scheduler dispatch.
 
 **Effort.** L (~5d)
 
@@ -764,6 +808,8 @@ See `docs/work-packages/SHARED.md` for tech stack and the cross-track dependency
 - No customizable view kits.
 - No emojis.
 
+**Complexity.** M — drives scheduler dispatch.
+
 **Effort.** M (~2-3d)
 
 ---
@@ -783,6 +829,8 @@ See `docs/work-packages/SHARED.md` for tech stack and the cross-track dependency
 **Contracts / constraints.**
 - L26 is independent of L24. Per-block discussion uses the L1 thread primitive; the block-anchor is L2's own affordance.
 - When this story is unparked, it MUST not pre-empt the L2 block-anchor or the L1 thread surface.
+
+**Complexity.** M (placeholder; story is parked).
 
 **Effort.** N/A in this track.
 
@@ -812,6 +860,8 @@ See `docs/work-packages/SHARED.md` for tech stack and the cross-track dependency
 - Destructive actions require explicit confirm.
 - Drop "promote" / "merge" / "split" until there's a journey for them.
 - No emojis.
+
+**Complexity.** M — drives scheduler dispatch.
 
 **Effort.** M (~3d)
 
@@ -845,6 +895,8 @@ See `docs/work-packages/SHARED.md` for tech stack and the cross-track dependency
 - The block-anchor comes from L2 — not from L24.
 - No emojis.
 
+**Complexity.** L — drives scheduler dispatch.
+
 **Effort.** L (~4d)
 
 ---
@@ -872,6 +924,8 @@ See `docs/work-packages/SHARED.md` for tech stack and the cross-track dependency
 **Contracts / constraints.**
 - No reuse of the Work status chip on Knowledge.
 - No emojis.
+
+**Complexity.** S — drives scheduler dispatch.
 
 **Effort.** S (~1-2d)
 
@@ -907,6 +961,8 @@ See `docs/work-packages/SHARED.md` for tech stack and the cross-track dependency
 - Per-shape rendering uses the L23 block primitive inside each body.
 - No emojis.
 
+**Complexity.** M — drives scheduler dispatch.
+
 **Effort.** M (~3d)
 
 ---
@@ -936,6 +992,8 @@ See `docs/work-packages/SHARED.md` for tech stack and the cross-track dependency
 - Hardcoded data is OK in tests and stories; it is NOT OK in any runtime page or component.
 - The gap-analysis doc is a deliverable, not a stub.
 - No emojis.
+
+**Complexity.** L — drives scheduler dispatch.
 
 **Effort.** L (~5d)
 

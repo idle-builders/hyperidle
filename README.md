@@ -21,7 +21,7 @@ Open <http://localhost:5173>.
 
 ## Pipeline (autonomous batch story execution)
 
-Two entry points drive the same loop — `plan → tests → code → reviews → DoD → verify → ship → retro` — over the manifest at `docs/work-packages/pipeline-manifest.yaml`. Both checkpoint to `.pipeline/progress.json`, so they can hand off to each other.
+Two entry points drive the same loop — `plan → tests → code → reviews → DoD → verify → ship → retro` — over the manifest at `docs/work-packages/pipeline-manifest.yaml`. Both checkpoint to `.pipeline/progress/<story-id>.json` (one file per story, atomic writes, race-free across parallel agents) plus `.pipeline/run.json` for run-level metadata, so they can hand off to each other.
 
 | Entry point | Runs as | When to use |
 |---|---|---|
@@ -57,34 +57,21 @@ The repo ships a `Dockerfile` with a full agent-ready toolchain pre-installed (B
 docker build -t hyperidle .
 
 # 2. Start the container (bind-mount the repo so changes persist)
-docker run -it -v "$(pwd):/workspace" -p 3001:3001 -p 5173:5173 hyperidle
+docker run -it -v "$(pwd):/workspace" -p 3001:3001 -p 5173:5173 --name hyperidle-dev hyperidle
+
+#2b. Restart the container
+docker start -ai hyperidle-dev
 
 # 3. Inside the container
 bun install
-claude                # launch Claude Code
-# then in the Claude REPL:
-#   /pipeline K       # build all of Track K
-#   /pipeline K1 K2   # build specific stories
+claude login   
+gh auth login 
+
+# 4. start the pipelin
+bin/pipeline <workpackages>
 ```
 
-Add `--rm` if you don't want the container to persist after exit:
-
-```bash
-docker run --rm -it -v "$(pwd):/workspace" -p 3001:3001 -p 5173:5173 hyperidle
-```
-
-To pass through Claude credentials and GitHub auth from the host (so `gh` and Claude work without re-login inside the container):
-
-```bash
-docker run -it \
-  -v "$(pwd):/workspace" \
-  -v "$HOME/.claude:/home/dev/.claude" \
-  -v "$HOME/.config/gh:/home/dev/.config/gh" \
-  -p 3001:3001 -p 5173:5173 \
-  hyperidle
-```
-
-Pipeline state is checkpointed to `.pipeline/progress.json` — re-running `/pipeline <target>` resumes where the last run left off.
+Pipeline state is checkpointed per story under `.pipeline/progress/` — re-running `/pipeline <target>` resumes where the last run left off.
 
 ### Run the pipeline directly on the host
 
@@ -95,7 +82,7 @@ claude                # in this repo root
 # then:  /pipeline K
 ```
 
-The host-mode runner still writes to `.pipeline/progress.json`. Worktrees are created in `.worktrees/<story-id>/` per story.
+The host-mode runner still writes to `.pipeline/progress/<id>.json`. Worktrees are created in `.worktrees/<story-id>/` per story.
 
 ---
 
@@ -148,7 +135,7 @@ hyperidle/
 │   └── pipeline/    # Ink-based CLI for batch story processing
 ├── docs/            # Architecture, requirements, work packages
 ├── bin/             # Shell wrappers (setup, pipeline, service)
-└── .pipeline/       # Pipeline runtime state (progress.json, retro-log)
+└── .pipeline/       # Pipeline runtime state (run.json + progress/<id>.json per story, retro-log)
 ```
 
 ---

@@ -1,5 +1,6 @@
-import { existsSync } from "node:fs";
-import { resolve } from "node:path";
+import { existsSync, mkdtempSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join, resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
 	filterStories,
@@ -10,6 +11,13 @@ import {
 
 const repoRoot = resolve(__dirname, "../../../..");
 const manifestPath = `${repoRoot}/${MANIFEST_RELATIVE_PATH}`;
+
+function writeTmpManifest(yaml: string): string {
+	const dir = mkdtempSync(join(tmpdir(), "pipeline-manifest-"));
+	const path = join(dir, "manifest.yaml");
+	writeFileSync(path, yaml);
+	return path;
+}
 
 describe("MANIFEST_RELATIVE_PATH", () => {
 	it("points at a file that actually exists in the repo", () => {
@@ -60,5 +68,56 @@ describe("validateDependencies", () => {
 	it("the shipped manifest has no dangling dependencies", () => {
 		const stories = loadManifest(manifestPath);
 		expect(validateDependencies(stories)).toEqual([]);
+	});
+});
+
+describe("complexity", () => {
+	it("entries without an explicit complexity default to M", () => {
+		const path = writeTmpManifest(
+			"stories:\n  - id: X1\n    title: t\n    track: X\n    depends: []\n",
+		);
+		const [story] = loadManifest(path);
+		expect(story?.complexity).toBe("M");
+	});
+
+	it("explicit S|M|L values are preserved", () => {
+		const path = writeTmpManifest(
+			[
+				"stories:",
+				"  - id: X1",
+				"    title: small",
+				"    track: X",
+				"    depends: []",
+				"    complexity: S",
+				"  - id: X2",
+				"    title: medium",
+				"    track: X",
+				"    depends: []",
+				"    complexity: M",
+				"  - id: X3",
+				"    title: large",
+				"    track: X",
+				"    depends: []",
+				"    complexity: L",
+				"",
+			].join("\n"),
+		);
+		const stories = loadManifest(path);
+		expect(stories.map((s) => s.complexity)).toEqual(["S", "M", "L"]);
+	});
+
+	it("rejects invalid complexity values", () => {
+		const path = writeTmpManifest(
+			[
+				"stories:",
+				"  - id: X1",
+				"    title: t",
+				"    track: X",
+				"    depends: []",
+				"    complexity: XL",
+				"",
+			].join("\n"),
+		);
+		expect(() => loadManifest(path)).toThrow(/X1.*complexity.*XL/);
 	});
 });
