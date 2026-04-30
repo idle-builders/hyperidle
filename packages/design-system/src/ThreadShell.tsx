@@ -214,31 +214,37 @@ export function ThreadShell({
 		[messages],
 	);
 
-	const promotedId = useMemo(() => promotedRichMessageId(ordered), [ordered]);
-	const promotedMessage = promotedId
-		? ordered.find((m) => m.id === promotedId) ?? null
-		: null;
-
-	// @lore L11 plan §9: when no unresolved candidate exists, the most-recent
-	// RESOLVED review/questionnaire renders as the resolved single-line card
-	// summary so the user retains continuity between "I clicked Approve" and
-	// "the verdict is recorded". Re-expand exposes the original card body.
-	const resolvedCardSubject = useMemo(() => {
-		if (promotedId !== null) return null;
+	// @lore L11 step9 (apply-review C2): a single card subject — the
+	// promoted unresolved candidate when one exists, otherwise the
+	// most-recent resolved review/questionnaire WITH a recorded verdict.
+	// Render goes through ONE path; the card's `resolved` prop is what
+	// flips when `promotedRichMessageId` re-evaluates after a successful
+	// verdict POST. No second `<li>` synthesised above the stream.
+	const cardSubject = useMemo(() => {
+		const promotedId = promotedRichMessageId(ordered);
+		if (promotedId !== null) {
+			const m = ordered.find((x) => x.id === promotedId);
+			return m ? { message: m, verdict: null } : null;
+		}
 		for (let i = ordered.length - 1; i >= 0; i--) {
 			const m = ordered[i];
 			if ((m.type === "review" || m.type === "questionnaire") && m.resolvedAt !== null) {
 				const verdict = ordered.find(
-					(v) => v.type === "verdict" && !isRedactedPayload(v.payload) && v.payload.resolvesMessageId === m.id,
+					(v) =>
+						v.type === "verdict" &&
+						!isRedactedPayload(v.payload) &&
+						v.payload.resolvesMessageId === m.id,
 				);
 				if (verdict && verdict.type === "verdict" && !isRedactedPayload(verdict.payload)) {
 					return { message: m, verdict };
 				}
-				return { message: m, verdict: null };
+				return null;
 			}
 		}
 		return null;
-	}, [ordered, promotedId]);
+	}, [ordered]);
+	const promotedMessage =
+		cardSubject && cardSubject.message.resolvedAt === null ? cardSubject.message : null;
 	const [reExpanded, setReExpanded] = useState(false);
 
 	const participants = thread.participants.map((id) => ({
@@ -330,60 +336,55 @@ export function ThreadShell({
 							/>
 						) : (
 							<ul className="flex flex-col py-[var(--density-pad-y,8px)] gap-[12px]">
-								{resolvedCardSubject && resolvedCardSubject.verdict ? (
-									<li key={`resolved-${resolvedCardSubject.message.id}`}>
-										<RichMessageCard
-											message={resolvedCardSubject.message}
-											sender={{
-												id: resolvedCardSubject.message.senderId,
-												name: identityFor(identities, resolvedCardSubject.message.senderId).name,
-												role: identityFor(identities, resolvedCardSubject.message.senderId).role,
-											}}
-											blocking={false}
-											onAction={(): void => undefined}
-											state={{ phase: "idle" }}
-											resolved={
-												resolvedCardSubject.verdict.type === "verdict" &&
-												!isRedactedPayload(resolvedCardSubject.verdict.payload)
+								{cardSubject
+									? (() => {
+											const m = cardSubject.message;
+											const v = cardSubject.verdict;
+											const resolvedProps =
+												v && v.type === "verdict" && !isRedactedPayload(v.payload)
 													? {
-															decision: resolvedCardSubject.verdict.payload.decision,
-															actor: identityFor(
-																identities,
-																resolvedCardSubject.verdict.senderId,
-															).name,
-															timestamp: resolvedCardSubject.message.resolvedAt ?? "",
+															decision: v.payload.decision,
+															actor: identityFor(identities, v.senderId).name,
+															timestamp: m.resolvedAt ?? "",
 															reExpanded,
 															onReexpandToggle: (): void => setReExpanded((p) => !p),
 														}
-													: undefined
-											}
-										/>
-									</li>
-								) : null}
+													: undefined;
+											return (
+												<li key={`card-${m.id}`}>
+													<RichMessageCard
+														message={m}
+														sender={{
+															id: m.senderId,
+															name: identityFor(identities, m.senderId).name,
+															role: identityFor(identities, m.senderId).role,
+														}}
+														blocking={resolvedProps ? false : blocking}
+														artifactSlot={
+															!resolvedProps &&
+															m.type === "review" &&
+															!isRedactedPayload(m.payload)
+																? artifactSlot?.(m.payload.artifactRef)
+																: undefined
+														}
+														onAction={
+															resolvedProps
+																? (): void => undefined
+																: (action): void => {
+																		void handleCardAction(m, action);
+																	}
+														}
+														state={resolvedProps ? { phase: "idle" } : cardState}
+														{...(resolvedProps ? { resolved: resolvedProps } : {})}
+													/>
+												</li>
+											);
+										})()
+									: null}
 								{groupedStream.map(({ message, showSenderHeader }) => {
 									if (promotedMessage && message.id === promotedMessage.id) {
-										return (
-											<li key={message.id}>
-												<RichMessageCard
-													message={message}
-													sender={{
-														id: message.senderId,
-														name: identityFor(identities, message.senderId).name,
-														role: identityFor(identities, message.senderId).role,
-													}}
-													blocking={blocking}
-													artifactSlot={
-														message.type === "review" && !isRedactedPayload(message.payload)
-															? artifactSlot?.(message.payload.artifactRef)
-															: undefined
-													}
-													onAction={(action): void => {
-														void handleCardAction(message, action);
-													}}
-													state={cardState}
-												/>
-											</li>
-										);
+										// Already rendered as the card above.
+										return null;
 									}
 									if (
 										(message.type === "review" || message.type === "questionnaire") &&
