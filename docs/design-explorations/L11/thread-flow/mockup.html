@@ -1,0 +1,533 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>L11 Thread-flow — Inline rich messages (Variant A)</title>
+  <link rel="stylesheet" href="../_tokens.css" />
+  <style>
+    /* Full-thread shell — host banner + stream. No top action header.
+       Stream is a single column; rich messages render with the same
+       row chrome as plain messages. The action surface is a property
+       of the rich message, not of the thread. */
+
+    body { background: var(--surface-0); padding: 24px; }
+
+    .pane {
+      display: flex;
+      flex-direction: column;
+      max-width: 880px;
+      margin: 0 auto;
+      background: var(--surface-1);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--r2);
+      overflow: hidden;
+    }
+
+    /* ThreadHostBanner (existing) */
+    .host-banner {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: var(--density-pad-y) var(--density-pad-x);
+      border-bottom: 1px solid var(--border-subtle);
+      background: var(--surface-1);
+    }
+    .host-banner__back {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 28px;
+      height: 28px;
+      border-radius: var(--r1);
+      color: var(--text-mid);
+      flex-shrink: 0;
+    }
+    .host-banner__back:hover { background: var(--surface-ghost); color: var(--text-hi); }
+    .host-banner__main { display: flex; align-items: center; gap: 8px; min-width: 0; flex: 1; }
+    .host-banner__title { color: var(--text-hi); font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+    /* Tag / StatusChip — copied from primitives */
+    .tag {
+      display: inline-flex; align-items: center;
+      padding: 2px 8px;
+      border-radius: var(--r-pill);
+      font-size: 11px;
+      font-family: var(--mono);
+      letter-spacing: 0.03em;
+      white-space: nowrap;
+      background: var(--surface-ghost);
+      color: var(--text-mid);
+      flex-shrink: 0;
+    }
+    .tag--decision {
+      background: color-mix(in oklab, var(--primary) 14%, transparent);
+      color: var(--primary);
+    }
+    .status-chip {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 2px 8px;
+      border-radius: var(--r-pill);
+      font-family: var(--mono);
+      font-size: 11px;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      font-weight: 500;
+      flex-shrink: 0;
+    }
+    .status-chip .dot { width: 6px; height: 6px; border-radius: 50%; }
+    .status-chip--blocked {
+      background: color-mix(in oklab, var(--danger) 14%, transparent);
+      color: var(--danger);
+    }
+    .status-chip--blocked .dot { background: var(--danger); }
+    .status-chip--done {
+      background: color-mix(in oklab, var(--ok) 14%, transparent);
+      color: var(--ok);
+    }
+    .status-chip--done .dot { background: var(--ok); }
+    .status-chip--resolved {
+      background: var(--surface-ghost);
+      color: var(--text-mid);
+    }
+    .status-chip--resolved .dot { background: var(--text-lo); }
+
+    /* CommentRow (the row primitive) — Tier 2.
+       Plain messages use header + text. Rich messages use
+       header + richHeader + richBody + richActions. */
+    .stream {
+      display: flex; flex-direction: column;
+      padding: var(--density-pad-y) 0;
+      list-style: none;
+      margin: 0;
+    }
+    .row {
+      display: flex; gap: 8px;
+      padding: 8px var(--density-pad-x);
+    }
+    .row__avatar {
+      width: 28px; height: 28px;
+      border-radius: 50%;
+      background: var(--surface-2);
+      color: var(--text-mid);
+      font-size: 11px; font-weight: 500;
+      border: 1px solid var(--border-subtle);
+      display: inline-flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+    }
+    .row__body {
+      display: flex; flex-direction: column;
+      gap: 6px;
+      min-width: 0;
+      flex: 1;
+    }
+    .row__header {
+      display: flex; align-items: center; gap: 6px;
+      font-size: 12px;
+    }
+    .row__sender { color: var(--text-hi); font-weight: 500; }
+    .row__role { color: var(--text-lo); }
+    .row__time { color: var(--text-lo); margin-left: auto; font-size: 11px; }
+    .row__text {
+      font-size: 13px;
+      color: var(--text-mid);
+      margin: 0;
+    }
+
+    /* Rich message slots — used only for review/questionnaire */
+    .row__rich-header {
+      display: flex; flex-direction: column; gap: 4px;
+    }
+    .row__rich-meta {
+      display: flex; align-items: center; gap: 6px;
+      font-family: var(--mono);
+      font-size: 11px;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      color: var(--text-lo);
+    }
+    .row__rich-title {
+      font-size: 15px; font-weight: 600;
+      color: var(--text-hi);
+      margin: 0;
+    }
+    .row__reasoning-label {
+      font-family: var(--mono);
+      font-size: 11px;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      color: var(--text-lo);
+      margin-top: 2px;
+    }
+    .row__reasoning {
+      list-style: decimal;
+      padding-left: 20px;
+      font-size: 13px;
+      color: var(--text-mid);
+      margin: 0;
+    }
+    .row__reasoning li { margin: 2px 0; }
+
+    /* richBody is just the artifact mount */
+    .row__rich-body {
+      margin-top: 4px;
+    }
+
+    /* ArtifactView surrogate — content_preview shape */
+    .artifact {
+      background: var(--surface-2);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--r2);
+      overflow: hidden;
+    }
+    .artifact__strip {
+      display: flex; align-items: center; gap: 8px;
+      padding: 4px 12px;
+      font-family: var(--mono);
+      font-size: 11px;
+      letter-spacing: 0.05em;
+      border-bottom: 1px solid var(--border-subtle);
+      color: var(--text-mid);
+    }
+    .artifact__kind {
+      padding: 1px 6px;
+      border: 1px solid var(--border-default);
+      border-radius: var(--r1);
+      text-transform: uppercase;
+    }
+    .artifact__label { color: var(--text-lo); }
+    .artifact__value { color: var(--text-hi); }
+    .artifact__routing { margin-left: auto; }
+    .artifact__body { padding: 12px; }
+
+    /* Diff rendering */
+    .diff {
+      font-family: var(--mono);
+      font-size: 12px;
+      line-height: 1.5;
+      white-space: pre;
+      overflow-x: auto;
+    }
+    .diff__hunk-header {
+      color: var(--text-lo);
+      padding: 2px 0;
+    }
+    .diff__line { display: block; padding: 0 4px; }
+    .diff__line--add {
+      background: color-mix(in oklab, var(--ok) 14%, transparent);
+      color: var(--text-hi);
+    }
+    .diff__line--del {
+      background: color-mix(in oklab, var(--danger) 14%, transparent);
+      color: var(--text-hi);
+    }
+    .diff__prefix {
+      color: var(--text-lo);
+      user-select: none;
+      margin-right: 6px;
+    }
+
+    /* richActions — flex-wrap row of buttons directly under artifact */
+    .row__rich-actions {
+      display: flex; flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 4px;
+    }
+    .btn {
+      padding: 6px 12px;
+      border-radius: var(--r1);
+      font-size: 13px;
+      font-weight: 500;
+      border: 1px solid transparent;
+      cursor: pointer;
+      transition: background var(--motion-fast);
+      font-family: inherit;
+    }
+    .btn--primary {
+      background: var(--primary);
+      color: var(--surface-0);
+    }
+    .btn--primary:hover {
+      filter: brightness(1.05);
+    }
+    .btn--ghost {
+      background: transparent;
+      color: var(--text-mid);
+      border-color: var(--border-default);
+    }
+    .btn--ghost:hover {
+      background: var(--surface-ghost);
+      color: var(--text-hi);
+    }
+    .btn--danger {
+      background: transparent;
+      color: var(--danger);
+      border-color: color-mix(in oklab, var(--danger) 30%, transparent);
+    }
+    .btn--danger:hover {
+      background: color-mix(in oklab, var(--danger) 8%, transparent);
+    }
+
+    /* Resolved strip (replaces richActions on resolved messages) */
+    .row__resolved-strip {
+      display: flex; align-items: center; gap: 6px;
+      font-family: var(--mono);
+      font-size: 11px;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      color: var(--text-lo);
+      margin-top: 4px;
+      padding: 6px 0;
+    }
+    .row__resolved-strip strong { color: var(--text-mid); font-weight: 500; }
+
+    /* Verdict message row (uses CommentRow's verdict branch) */
+    .row__verdict {
+      display: flex; align-items: center; gap: 8px;
+      font-size: 13px;
+    }
+    .row__verdict-note { color: var(--text-lo); margin-left: 4px; }
+
+    /* Composer (existing primitive) — kept thin */
+    .composer {
+      display: flex;
+      align-items: stretch;
+      gap: 8px;
+      padding: var(--density-pad-y) var(--density-pad-x);
+      border-top: 1px solid var(--border-subtle);
+      background: var(--surface-1);
+    }
+    .composer__textarea {
+      flex: 1;
+      min-height: 36px;
+      background: var(--surface-2);
+      color: var(--text-mid);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--r1);
+      padding: 8px 10px;
+      font-size: 13px;
+      font-family: var(--ui);
+      resize: vertical;
+    }
+    .composer__send {
+      align-self: flex-end;
+      padding: 6px 14px;
+      border-radius: var(--r1);
+      font-size: 13px;
+      font-weight: 500;
+      background: var(--primary);
+      color: var(--surface-0);
+      border: none;
+      cursor: pointer;
+    }
+
+    /* Subtle separator between rows */
+    .row + .row {
+      border-top: 1px solid var(--border-subtle);
+    }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" crossorigin></script>
+  <script type="text/babel" data-presets="env,react">
+    function HostBanner() {
+      return (
+        <div className="host-banner" data-component="ThreadHostBanner" data-tier="3">
+          <a className="host-banner__back" href="#" aria-label="Back to queue">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <polyline points="15 18 9 12 15 6"/>
+            </svg>
+          </a>
+          <div className="host-banner__main">
+            <span className="tag">BET</span>
+            <span className="host-banner__title">Pricing overhaul (Nimmly)</span>
+          </div>
+          <span className="status-chip status-chip--blocked"><span className="dot" />BLOCKED</span>
+        </div>
+      );
+    }
+
+    function PlainRow({ name, role, text, time }) {
+      return (
+        <li className="row" data-component="CommentRow" data-tier="2">
+          <span className="row__avatar">{name.charAt(0).toUpperCase()}</span>
+          <div className="row__body">
+            <div className="row__header">
+              <span className="row__sender">{name}</span>
+              <span className="row__role">· {role}</span>
+              <span className="row__time">{time}</span>
+            </div>
+            <p className="row__text">{text}</p>
+          </div>
+        </li>
+      );
+    }
+
+    function ReviewRow({ resolved }) {
+      return (
+        <li className="row" data-component="CommentRow" data-variant="rich-review" data-tier="2">
+          <span className="row__avatar">M</span>
+          <div className="row__body">
+            <div className="row__header">
+              <span className="row__sender">Maya</span>
+              <span className="row__role">· Product Manager</span>
+              {resolved ? (
+                <span className="status-chip status-chip--resolved" style={{ marginLeft: 6 }}>
+                  <span className="dot" />RESOLVED
+                </span>
+              ) : null}
+              <span className="row__time">18 min ago</span>
+            </div>
+
+            {/* richHeader */}
+            <div className="row__rich-header">
+              <div className="row__rich-meta">
+                <span className="tag tag--decision">REVIEW</span>
+                <span>#2 in thread</span>
+              </div>
+              <h3 className="row__rich-title">Approve deploy of v2.4 to staging</h3>
+              <div className="row__reasoning-label">REASONING</div>
+              <ol className="row__reasoning">
+                <li>Schema migration adds two columns; backfill verified.</li>
+                <li>All 142 contract tests pass; integration suite green.</li>
+                <li>Cost cap reduced 8%; budget headroom OK.</li>
+              </ol>
+            </div>
+
+            {/* richBody — the L3 ArtifactView, embedded "output" layout */}
+            <div className="row__rich-body">
+              <div className="artifact" data-component="ArtifactView" data-tier="3">
+                <div className="artifact__strip">
+                  <span className="artifact__kind">text_diff</span>
+                  <span className="artifact__label">status</span>
+                  <span className="artifact__value">in review</span>
+                  <span className="artifact__label">sla</span>
+                  <span className="artifact__value">2h</span>
+                  <span className="artifact__routing artifact__label">routing</span>
+                  <span className="artifact__value">staging</span>
+                </div>
+                <div className="artifact__body">
+                  <div className="diff">
+                    <div className="diff__hunk-header">@@ -42,7 +42,9 @@ migrations/v2.4/schema.sql</div>
+                    <span className="diff__line"><span className="diff__prefix"> </span>CREATE TABLE products (</span>
+                    <span className="diff__line"><span className="diff__prefix"> </span>  id UUID PRIMARY KEY,</span>
+                    <span className="diff__line diff__line--add"><span className="diff__prefix">+</span>  cost_cap_cents INT NOT NULL DEFAULT 0,</span>
+                    <span className="diff__line diff__line--add"><span className="diff__prefix">+</span>  budget_headroom_pct INT NOT NULL DEFAULT 8,</span>
+                    <span className="diff__line"><span className="diff__prefix"> </span>  name TEXT NOT NULL,</span>
+                    <span className="diff__line diff__line--del"><span className="diff__prefix">-</span>  legacy_cost_cap INT,</span>
+                    <span className="diff__line"><span className="diff__prefix"> </span>  created_at TIMESTAMPTZ DEFAULT now()</span>
+                    <span className="diff__line"><span className="diff__prefix"> </span>);</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* richActions — INLINE, directly under the artifact, no chrome */}
+            {resolved ? (
+              <div className="row__resolved-strip">
+                <span>RESOLVED</span>
+                <span>·</span>
+                <strong>APPROVED</strong>
+                <span>·</span>
+                <span>A. Founder</span>
+                <span>·</span>
+                <span>2 min ago</span>
+              </div>
+            ) : (
+              <div className="row__rich-actions" role="toolbar" aria-label="Verdict actions">
+                <button type="button" className="btn btn--primary">Approve</button>
+                <button type="button" className="btn btn--ghost">Approve with comments</button>
+                <button type="button" className="btn btn--ghost">Request changes</button>
+                <button type="button" className="btn btn--ghost">Edit</button>
+                <button type="button" className="btn btn--danger">Reject</button>
+              </div>
+            )}
+          </div>
+        </li>
+      );
+    }
+
+    function VerdictRow() {
+      return (
+        <li className="row" data-component="CommentRow" data-variant="verdict" data-tier="2">
+          <span className="row__avatar">A</span>
+          <div className="row__body">
+            <div className="row__header">
+              <span className="row__sender">A. Founder</span>
+              <span className="row__role">· CEO</span>
+              <span className="row__time">2 min ago</span>
+            </div>
+            <div className="row__verdict">
+              <span className="status-chip status-chip--done"><span className="dot" />APPROVED</span>
+              <span className="row__verdict-note">— Good to ship; thanks for the headroom check.</span>
+            </div>
+          </div>
+        </li>
+      );
+    }
+
+    function QuestionnaireRow() {
+      return (
+        <li className="row" data-component="CommentRow" data-variant="rich-questionnaire" data-tier="2">
+          <span className="row__avatar">B</span>
+          <div className="row__body">
+            <div className="row__header">
+              <span className="row__sender">Bob</span>
+              <span className="row__role">· Builder</span>
+              <span className="row__time">3 min ago</span>
+            </div>
+            <div className="row__rich-header">
+              <div className="row__rich-meta">
+                <span className="tag tag--decision">QUESTION</span>
+                <span>#5 in thread</span>
+              </div>
+              <h3 className="row__rich-title">Which retry policy for the cost-cap webhook?</h3>
+              <p className="row__text" style={{ marginTop: 4 }}>
+                The new cost-cap webhook can fail on transient 5xx. We need to pick the retry policy
+                before the deploy goes out. The choice affects the SLA contract with downstream Ambrovia.
+              </p>
+            </div>
+            <div className="row__rich-actions" role="toolbar" aria-label="Answer options">
+              <button type="button" className="btn btn--primary">Exponential backoff (3 tries)</button>
+              <button type="button" className="btn btn--ghost">Linear backoff (5 tries)</button>
+              <button type="button" className="btn btn--ghost">No retry — surface failure</button>
+            </div>
+          </div>
+        </li>
+      );
+    }
+
+    function App() {
+      return (
+        <div className="pane" data-component="ThreadShell" data-tier="3" data-uses="ThreadHostBanner,CommentRow,ArtifactView,Composer">
+          <HostBanner />
+          <ul className="stream">
+            <PlainRow
+              name="Maya" role="Product Manager"
+              text="Heads-up — submitting the v2.4 staging deploy for review. Cost-cap headroom looks healthy."
+              time="22 min ago"
+            />
+            <ReviewRow resolved={false} />
+            <PlainRow
+              name="Bob" role="Builder"
+              text="Quick note: I had to bump the integration test timeout to 90s. Flake on the migration step otherwise."
+              time="9 min ago"
+            />
+            <QuestionnaireRow />
+          </ul>
+          <div className="composer" data-component="Composer" data-tier="2">
+            <textarea className="composer__textarea" placeholder="Reply to thread…" defaultValue="" />
+            <button type="button" className="composer__send">Send</button>
+          </div>
+        </div>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  </script>
+  <script src="../themes/_switcher.js"></script>
+</body>
+</html>
