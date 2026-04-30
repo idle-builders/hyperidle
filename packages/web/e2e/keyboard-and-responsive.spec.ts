@@ -16,18 +16,15 @@ test.describe("Keyboard Navigation", () => {
 		expect(["BUTTON", "A", "INPUT", "SELECT"]).toContain(focusedTag);
 	});
 
-	test("ReviewHeader keyboard shortcut A triggers approve on review page", async ({ page }) => {
-		// Focus outside any input to enable shortcuts
+	test("L11: pressing 'a' on the review page does NOT trigger any verdict shortcut", async ({
+		page,
+	}) => {
+		// L11 plan §6.3 + AC-3 — verdict-keyboard shortcuts (A/R/X/S/C/I/E)
+		// were removed alongside the deleted top toolbar. The page must
+		// remain stable after a stray 'a' keypress and not focus an INPUT.
 		await page.click("[data-testid='main-content']");
-		// Press 'a' for approve — the shortcut should be intercepted.
-		// Assert the actual action fired: either a toast/notification appears,
-		// a CSS class changes, or at minimum the page remains stable and
-		// the shortcut was consumed (not typed into an input).
 		await page.keyboard.press("a");
-		// Page should still be on the review page (shortcut consumed, no navigation)
 		await expect(page.getByTestId("conversations-review-page")).toBeVisible();
-		// Verify no text input received the 'a' character — proves the
-		// shortcut handler intercepted the keypress.
 		const activeTag = await page.evaluate(() => document.activeElement?.tagName);
 		expect(activeTag).not.toBe("INPUT");
 	});

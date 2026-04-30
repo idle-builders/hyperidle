@@ -73,7 +73,7 @@ export function BetCard({
 						/* @lore K10: card-internal lead avatar stays literal 24 px
 						   (not --density-avatar-size). Per density-audit.md § 4.4
 						   the avatar token is for row-anchor avatars only
-						   (ThreadRow, ReviewHeader). Card-internal avatars are
+						   (ThreadRow). Card-internal avatars are
 						   decorative inside the card, not the row anchor. */
 						className="inline-flex h-[24px] w-[24px] shrink-0 items-center justify-center rounded-full bg-[var(--surface-6)] text-[var(--text-hi)] text-[11px] font-semibold"
 						aria-label={`Lead agent: ${leadAvatar.name}`}

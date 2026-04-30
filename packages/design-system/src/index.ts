@@ -53,8 +53,14 @@ export type { NotificationRowProps } from "./NotificationRow.js";
 export { NotificationRow } from "./NotificationRow.js";
 export type { PitchCardProps } from "./PitchCard.js";
 export { PitchCard } from "./PitchCard.js";
-export type { ReviewVerdictBarProps, VerdictGrammarAction } from "./ReviewVerdictBar.js";
-export { ReviewVerdictBar } from "./ReviewVerdictBar.js";
+export type {
+	RichMessageCardAction,
+	RichMessageCardProps,
+	RichMessageCardResolved,
+	RichMessageCardSender,
+	RichMessageCardState,
+} from "./RichMessageCard.js";
+export { RichMessageCard } from "./RichMessageCard.js";
 export type { SearchFieldProps } from "./SearchField.js";
 export { SearchField } from "./SearchField.js";
 export type { SkeletonCardProps, SkeletonListProps } from "./Skeleton.js";
@@ -74,8 +80,6 @@ export type { TagProps } from "./Tag.js";
 export { Tag } from "./Tag.js";
 export type { TaskCardProps } from "./TaskCard.js";
 export { TaskCard } from "./TaskCard.js";
-export type { ThreadHeadProps } from "./ThreadHead.js";
-export { ThreadHead } from "./ThreadHead.js";
 // ── L1a Thread primitive components (stubs during write-tests phase) ──
 export type {
 	ThreadHostBannerParticipant,
@@ -90,10 +94,6 @@ export type {
 	ThreadShellIdentity,
 	ThreadShellProps,
 } from "./ThreadShell.js";
-export {
-	computeSenderGrouping,
-	hasMostRecentUnresolvedReview,
-	ThreadShell,
-} from "./ThreadShell.js";
+export { computeSenderGrouping, ThreadShell } from "./ThreadShell.js";
 export type { TagKind, TagKindMeta } from "./tag-kinds.js";
 export { TAG_KIND_ICONS } from "./tag-kinds.js";

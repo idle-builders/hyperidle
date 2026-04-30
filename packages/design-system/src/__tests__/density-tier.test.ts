@@ -184,7 +184,7 @@ describe("K9 density tier ladder", () => {
 	});
 
 	it("--density-avatar-size progresses 24 → 32 → 40 px across compact / default / comfortable", () => {
-		// K11 § 4.4: row-anchor avatars (ThreadRow, ReviewHeader). Card-
+		// K11 § 4.4: row-anchor avatars (ThreadRow). Card-
 		// internal avatars stay literal at 24 px.
 		expect(compact["--density-avatar-size"]).toBe(24);
 		expect(def["--density-avatar-size"]).toBe(32);

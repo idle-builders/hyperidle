@@ -1,6 +1,6 @@
 import { dsShellProps, KeyValue } from "@hyperidle/design-system";
 import DOMPurify from "dompurify";
-import { cloneElement, type JSX } from "react";
+import type { JSX } from "react";
 
 // --- Data shape types ---
 
@@ -343,7 +343,14 @@ function renderShape(props: ArtifactViewProps): JSX.Element {
 
 export function ArtifactView(props: ArtifactViewProps): JSX.Element {
 	const { loading, error, metadata, relatedHistory } = props;
-	const shellAttrs = dsShellProps("ArtifactView");
+	// @lore L11 AC-8: emit a flat `data-component` alongside `dsShellProps`
+	// so the L11 verification queries (`[data-component='ArtifactView']`)
+	// resolve. The K2 inspector still finds the shell via `data-ds-shell`.
+	const shellAttrs = {
+		...dsShellProps("ArtifactView"),
+		"data-component": "ArtifactView",
+		"data-shape": props.shape,
+	};
 
 	if (loading) {
 		return (
@@ -367,12 +374,12 @@ export function ArtifactView(props: ArtifactViewProps): JSX.Element {
 	const showMetadata = metadata !== undefined;
 	const showHistory = relatedHistory !== undefined && relatedHistory.length > 0;
 	// @lore I-track: bare body preserves existing query selectors when no metadata/history.
-	// @lore K2: cloneElement merges shellAttrs onto body's outer element. WARNING — body
-	// returned by renderShape MUST NOT carry `data-ds-*` attrs; cloneElement shallow-merges
-	// and silently overwrites. If a future renderShape branch wraps in a DS primitive at the
-	// root, switch to a wrapper div instead.
+	// @lore L11: wrap body in a div so the shell audit attributes
+	// (`data-component`, `data-ds-shell`, …) land on a real DOM node.
+	// `cloneElement` over a function component (TextDiffView etc.) would
+	// pass them as props that get dropped on the floor.
 	if (!(showMetadata || showHistory)) {
-		return cloneElement(body, shellAttrs);
+		return <div {...shellAttrs}>{body}</div>;
 	}
 	return (
 		<div {...shellAttrs}>
