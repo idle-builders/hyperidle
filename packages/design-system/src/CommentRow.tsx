@@ -7,8 +7,13 @@
  * (greyed body, "Redacted by X — reason"), grouped vs ungrouped variant.
  */
 
-import type { Message, VerdictDecision } from "@hyperidle/shared";
-import { exhaustiveAssert, isRedactedPayload } from "@hyperidle/shared";
+import type { Message } from "@hyperidle/shared";
+import {
+	exhaustiveAssert,
+	isRedactedPayload,
+	verdictDecisionLabel,
+	verdictDecisionToStatus,
+} from "@hyperidle/shared";
 import type { JSX, ReactNode } from "react";
 import { dsProps } from "./ds-attrs.js";
 import { StatusChip } from "./StatusChip.js";
@@ -42,36 +47,6 @@ export interface CommentRowProps extends CommentRowRichSlots {
 	sender: CommentRowSender;
 	showSenderHeader: boolean;
 	inlineAnchor?: string;
-}
-
-function verdictDecisionToStatus(
-	decision: VerdictDecision,
-): "done" | "blocked" | "behind" | "paused" {
-	switch (decision) {
-		case "approve":
-		case "approve-with-comments":
-			return "done";
-		case "reject":
-			return "blocked";
-		case "request-changes":
-			return "behind";
-		case "edit":
-			return "paused";
-	}
-}
-
-function verdictDecisionLabel(decision: VerdictDecision): string {
-	switch (decision) {
-		case "approve":
-		case "approve-with-comments":
-			return "APPROVED";
-		case "reject":
-			return "REJECTED";
-		case "request-changes":
-			return "CHANGES REQUESTED";
-		case "edit":
-			return "EDITED";
-	}
 }
 
 /**

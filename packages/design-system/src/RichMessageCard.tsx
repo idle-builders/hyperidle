@@ -31,6 +31,7 @@ import {
 	type RedactedPayload,
 	type VerdictDecision,
 	isRedactedPayload,
+	verdictDecisionLabel,
 } from "@hyperidle/shared";
 import { type JSX, type ReactNode, useId, useState } from "react";
 import { dsProps } from "./ds-attrs.js";
@@ -84,36 +85,6 @@ const VERDICT_BUTTONS: ReadonlyArray<VerdictButtonSpec> = [
 	{ action: "edit", label: "Edit", tone: "ghost" },
 	{ action: "reject", label: "Reject", tone: "danger" },
 ];
-
-function verdictDecisionLabel(decision: VerdictDecision): string {
-	switch (decision) {
-		case "approve":
-		case "approve-with-comments":
-			return "APPROVED";
-		case "reject":
-			return "REJECTED";
-		case "request-changes":
-			return "CHANGES REQUESTED";
-		case "edit":
-			return "EDITED";
-	}
-}
-
-function verdictDecisionStatus(
-	decision: VerdictDecision,
-): "done" | "blocked" | "behind" | "paused" {
-	switch (decision) {
-		case "approve":
-		case "approve-with-comments":
-			return "done";
-		case "reject":
-			return "blocked";
-		case "request-changes":
-			return "behind";
-		case "edit":
-			return "paused";
-	}
-}
 
 function toneClass(tone: VerdictButtonSpec["tone"]): string {
 	switch (tone) {
