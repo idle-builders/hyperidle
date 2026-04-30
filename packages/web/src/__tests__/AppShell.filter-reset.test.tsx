@@ -2,8 +2,16 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { ReactElement } from "react";
 import { createMemoryRouter, RouterProvider } from "react-router-dom";
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { AppShell } from "../layouts/AppShell";
+
+beforeEach(() => {
+	// L8: AppShell fetches /api/threads on mount — stub it for this suite.
+	global.fetch = vi.fn(async () => ({
+		ok: true,
+		json: async () => ({ threads: [], nextCursor: null }),
+	})) as unknown as typeof fetch;
+});
 
 /**
  * J2 review O2 / AC 64: when the active view changes, the Submenu filter must

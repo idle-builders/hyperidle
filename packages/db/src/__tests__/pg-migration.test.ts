@@ -10,7 +10,12 @@ import * as pgSchema from "../schema.pg.js";
  * Uses pglite (WASM Postgres) for in-sandbox verification.
  */
 describe("H4 AC3: PG migrations apply to a fresh pglite DB", () => {
-	it("migrated pglite DB has all major tables from the pg migration set", async () => {
+	// pglite WASM cold-starts the migration runner; CI has been observed to
+	// take 6-8s on the cold path now that the migration set is larger
+	// (Thread/Block + Artifact). Locally ~2.6s. Use 30s to leave headroom.
+	it("migrated pglite DB has all major tables from the pg migration set", {
+		timeout: 30_000,
+	}, async () => {
 		const { db, close } = await createPgTestDb({ migrate: true });
 		try {
 			const result = await db.execute(
@@ -48,7 +53,7 @@ describe("H4 AC3: PG migrations apply to a fresh pglite DB", () => {
 		}
 	});
 
-	it("is idempotent: migrating twice does not error", async () => {
+	it("is idempotent: migrating twice does not error", { timeout: 30_000 }, async () => {
 		const { db, runPgMigrations, close } = await createPgTestDb({ migrate: true });
 		try {
 			await runPgMigrations(db);

@@ -4,10 +4,23 @@ import { createMemoryRouter, RouterProvider } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AppShell } from "../layouts/AppShell";
 
+// L8: AppShell now fetches GET /api/threads on mount for the Conversations
+// Submenu. Tests that don't care about the threads list still need a fetch
+// stub so the hook resolves rather than triggering an unhandled rejection.
+function stubThreadsFetch(): void {
+	const existing = global.fetch as unknown;
+	if (typeof existing === "function") return;
+	global.fetch = vi.fn(async () => ({
+		ok: true,
+		json: async () => ({ threads: [], nextCursor: null }),
+	})) as unknown as typeof fetch;
+}
+
 function renderShell(
 	initialPath = "/conversations/review",
 	childContent = "Test Page Content",
 ): ReturnType<typeof render> {
+	stubThreadsFetch();
 	const router = createMemoryRouter(
 		[
 			{
@@ -40,28 +53,13 @@ describe("AppShell", () => {
 		});
 	});
 
-	it("shows Conversations submenu items when on conversations route", async () => {
+	it("shows the Conversations submenu title", async () => {
+		// L8: the legacy static "Review Queue" + "Chat" NavItems are removed.
+		// The submenu now renders a live thread list (covered by
+		// AppShell.threads.test.tsx); here we only assert the title bar.
 		renderShell("/conversations/review");
 		await waitFor(() => {
-			expect(screen.getByText("Review Queue")).toBeInTheDocument();
-			expect(screen.getByText("Chat")).toBeInTheDocument();
-		});
-	});
-
-	it("navigates between submenu items", async () => {
-		const user = userEvent.setup();
-		renderShell("/conversations/review");
-
-		await waitFor(() => {
-			expect(screen.getByText("Test Page Content")).toBeInTheDocument();
-		});
-
-		// Click Chat nav item
-		const chatLink = screen.getByText("Chat");
-		await user.click(chatLink);
-
-		await waitFor(() => {
-			expect(screen.getByText("Chat Page")).toBeInTheDocument();
+			expect(screen.getByText("Conversations")).toBeInTheDocument();
 		});
 	});
 
@@ -118,20 +116,20 @@ describe("AppShell", () => {
 		}
 
 		it("re-collapses Submenu live when the viewport shrinks below 1024px", async () => {
-			// Start at 1920 (wide — submenu expanded, Review Queue visible).
+			// L8: the legacy "Review Queue" NavItem is gone. Use the filter
+			// chips tablist (rendered only when Submenu is expanded — see
+			// Submenu.tsx) as the visibility probe.
 			setViewport(1920);
 			renderShell();
 			await waitFor(() => {
-				expect(screen.getByText("Review Queue")).toBeInTheDocument();
+				expect(screen.getByRole("tablist", { name: /Filter Conversations/i })).toBeInTheDocument();
 			});
-			// Shrink to 800px — Submenu must re-collapse, which means the
-			// Submenu component stops rendering its children (see Submenu.tsx
-			// — when `collapsed`, children are not rendered at all).
 			setViewport(800);
 			await waitFor(() => {
-				expect(screen.queryByText("Review Queue")).not.toBeInTheDocument();
+				expect(
+					screen.queryByRole("tablist", { name: /Filter Conversations/i }),
+				).not.toBeInTheDocument();
 			});
-			// Restore default for other tests.
 			setViewport(1920);
 		});
 	});

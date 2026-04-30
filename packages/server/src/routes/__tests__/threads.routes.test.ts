@@ -816,6 +816,163 @@ describe("Event emission (plan §6.3)", () => {
 	});
 });
 
+describe("L8 — GET /api/threads list rows carry hasUnresolvedReview", () => {
+	let ctx: AppCtx;
+
+	beforeEach(() => {
+		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
+		ctx = setupApp();
+	});
+
+	afterEach(() => {
+		vi.unstubAllEnvs();
+	});
+
+	it("hasUnresolvedReview=true when an unresolved review exists in the thread", async () => {
+		const create = await ctx.app.request("/api/threads", {
+			method: "POST",
+			headers: authHeaders(),
+			body: JSON.stringify({
+				hostKind: "task",
+				hostId: "task-1",
+				participants: ["u-founder", "agent-1"],
+				initialMessage: {
+					type: "review",
+					payload: validReviewPayload,
+					clientKey: "l8-rev-1-key",
+				},
+			}),
+		});
+		expect(create.status).toBe(201);
+
+		const res = await ctx.app.request("/api/threads?host_kind=task&host_id=task-1", {
+			method: "GET",
+			headers: authHeaders(),
+		});
+		expect(res.status).toBe(200);
+		const body = (await res.json()) as {
+			threads: Array<{ id: string; hasUnresolvedReview: boolean }>;
+		};
+		expect(body.threads.length).toBeGreaterThan(0);
+		expect(body.threads[0].hasUnresolvedReview).toBe(true);
+	});
+
+	it("hasUnresolvedReview=false for a plain-only thread", async () => {
+		await ctx.app.request("/api/threads", {
+			method: "POST",
+			headers: authHeaders(),
+			body: JSON.stringify({
+				hostKind: "task",
+				hostId: "task-1",
+				participants: ["u-founder", "agent-1"],
+				initialMessage: {
+					type: "plain",
+					payload: { text: "hi" },
+					clientKey: "l8-plain-1-key",
+				},
+			}),
+		});
+
+		const res = await ctx.app.request("/api/threads?host_kind=task&host_id=task-1", {
+			method: "GET",
+			headers: authHeaders(),
+		});
+		const body = (await res.json()) as {
+			threads: Array<{ id: string; hasUnresolvedReview: boolean }>;
+		};
+		expect(body.threads.length).toBe(1);
+		expect(body.threads[0].hasUnresolvedReview).toBe(false);
+	});
+
+	it("hasUnresolvedReview=false once the review is resolved by a verdict", async () => {
+		const create = await ctx.app.request("/api/threads", {
+			method: "POST",
+			headers: authHeaders(),
+			body: JSON.stringify({
+				hostKind: "task",
+				hostId: "task-1",
+				participants: ["u-founder", "agent-1"],
+				initialMessage: {
+					type: "review",
+					payload: validReviewPayload,
+					clientKey: "l8-resolved-rev-key",
+				},
+			}),
+		});
+		expect(create.status).toBe(201);
+		const created = (await create.json()) as {
+			thread: { id: string };
+			messages: Array<{ id: string }>;
+		};
+		const reviewId = created.messages[0].id;
+		const verdict = await ctx.app.request(`/api/threads/${created.thread.id}/messages`, {
+			method: "POST",
+			headers: authHeaders(),
+			body: JSON.stringify({
+				type: "verdict",
+				payload: { decision: "approve", resolvesMessageId: reviewId },
+				clientKey: "l8-verdict-1-key",
+			}),
+		});
+		expect(verdict.status).toBe(201);
+
+		const res = await ctx.app.request("/api/threads?host_kind=task&host_id=task-1", {
+			method: "GET",
+			headers: authHeaders(),
+		});
+		const body = (await res.json()) as {
+			threads: Array<{ id: string; hasUnresolvedReview: boolean }>;
+		};
+		const row = body.threads.find((t) => t.id === created.thread.id);
+		expect(row).toBeDefined();
+		expect(row?.hasUnresolvedReview).toBe(false);
+	});
+
+	it("participant_id scope returns hasUnresolvedReview per row", async () => {
+		// One review thread, one plain thread; founder participates in both.
+		await ctx.app.request("/api/threads", {
+			method: "POST",
+			headers: authHeaders(),
+			body: JSON.stringify({
+				hostKind: "task",
+				hostId: "task-1",
+				participants: ["u-founder", "agent-1"],
+				initialMessage: {
+					type: "review",
+					payload: validReviewPayload,
+					clientKey: "l8-part-rev-key",
+				},
+			}),
+		});
+		await ctx.app.request("/api/threads", {
+			method: "POST",
+			headers: authHeaders(),
+			body: JSON.stringify({
+				hostKind: "task",
+				hostId: "task-1",
+				participants: ["u-founder", "agent-1"],
+				initialMessage: {
+					type: "plain",
+					payload: { text: "ping" },
+					clientKey: "l8-part-plain-key",
+				},
+			}),
+		});
+
+		const res = await ctx.app.request("/api/threads?participant_id=u-founder", {
+			method: "GET",
+			headers: authHeaders(),
+		});
+		expect(res.status).toBe(200);
+		const body = (await res.json()) as {
+			threads: Array<{ hasUnresolvedReview: boolean }>;
+		};
+		expect(body.threads.length).toBe(2);
+		const flags = body.threads.map((t) => t.hasUnresolvedReview).sort();
+		expect(flags).toEqual([false, true]);
+	});
+});
+
 describe("Schema sanity — threads table is reachable from Drizzle", () => {
 	it("the post-L1 `threads` row carries hostKind/hostId/lastActiveAt columns", () => {
 		// Runtime assertion: the inferred row shape must surface the new

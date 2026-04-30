@@ -4,7 +4,17 @@ export default {
 	title: "ThreadRow",
 	tier: "2" as const,
 	uses: ["StatusChip", "Tag"],
-	order: ["Default", "WithStatusAndTag", "Unread", "Blocking", "WithActions"],
+	order: [
+		"Default",
+		"WithStatusAndTag",
+		"Unread",
+		"Blocking",
+		"Selected",
+		"Pinned",
+		"WithHostTag",
+		"BlockingSelected",
+		"WithActions",
+	],
 };
 
 export const Default = (): React.JSX.Element => (
@@ -47,6 +57,50 @@ export const Blocking = (): React.JSX.Element => (
 		status="blocked"
 		blocking={true}
 		kind="review"
+	/>
+);
+
+export const Selected = (): React.JSX.Element => (
+	<ThreadRow
+		avatarUrl="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32'%3E%3Crect width='32' height='32' fill='%23065f46'/%3E%3C/svg%3E"
+		title="Pricing experiment — week 2"
+		snippet="Conversion up 8% on the $29 tier"
+		timestamp="1h"
+		selected={true}
+		hostTag="bet"
+	/>
+);
+
+export const Pinned = (): React.JSX.Element => (
+	<ThreadRow
+		avatarUrl="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32'%3E%3Crect width='32' height='32' fill='%2327272b'/%3E%3C/svg%3E"
+		title="Chief of Staff — weekly reflection"
+		snippet="3 patterns surfaced from last week's bets"
+		timestamp="2h"
+		pinned={true}
+		hostTag="user"
+	/>
+);
+
+export const WithHostTag = (): React.JSX.Element => (
+	<ThreadRow
+		avatarUrl="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32'%3E%3Crect width='32' height='32' fill='%231e3a8a'/%3E%3C/svg%3E"
+		title="Migration script review"
+		snippet="Two paths considered — picking one"
+		timestamp="3h"
+		hostTag="task"
+	/>
+);
+
+export const BlockingSelected = (): React.JSX.Element => (
+	<ThreadRow
+		avatarUrl="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32'%3E%3Crect width='32' height='32' fill='%23991b1b'/%3E%3C/svg%3E"
+		title="API key needed for Stripe"
+		snippet="Builder cannot proceed without credentials"
+		timestamp="8m"
+		blocking={true}
+		selected={true}
+		hostTag="task"
 	/>
 );
 
