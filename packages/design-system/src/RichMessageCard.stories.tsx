@@ -114,7 +114,7 @@ export const Saving = (): React.JSX.Element => (
 	/>
 );
 
-export const Error = (): React.JSX.Element => (
+export const ErrorState = (): React.JSX.Element => (
 	<RichMessageCard
 		message={reviewMsg(longReasoning)}
 		sender={sender}

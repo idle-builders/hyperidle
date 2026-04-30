@@ -88,12 +88,7 @@ function decodeThreadDetail(value: unknown): ThreadDetail {
  */
 function emptyDataForShape(
 	kind: ArtifactViewShape,
-):
-	| TextDiffData
-	| ContentPreviewData
-	| VisualComparisonData
-	| ActionSummaryData
-	| DataMetricsData {
+): TextDiffData | ContentPreviewData | VisualComparisonData | ActionSummaryData | DataMetricsData {
 	switch (kind) {
 		case "text_diff":
 			return { hunks: [] };
@@ -114,7 +109,9 @@ function emptyDataForShape(
 function resolveArtifactSlot(ref: ArtifactRef): ReactNode {
 	switch (ref.kind) {
 		case "text_diff":
-			return <ArtifactView shape="text_diff" data={emptyDataForShape("text_diff") as TextDiffData} />;
+			return (
+				<ArtifactView shape="text_diff" data={emptyDataForShape("text_diff") as TextDiffData} />
+			);
 		case "content_preview":
 			return (
 				<ArtifactView

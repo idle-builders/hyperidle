@@ -255,9 +255,7 @@ export function isBlocking(
  * pending decisions. Two simultaneous reviews resolve in arrival order;
  * the user can never lose track of which one came first.
  */
-export function promotedRichMessageId(
-	messages: ReadonlyArray<Message>,
-): MessageId | null {
+export function promotedRichMessageId(messages: ReadonlyArray<Message>): MessageId | null {
 	let bestId: MessageId | null = null;
 	let bestCreatedAt: string | null = null;
 	for (const m of messages) {

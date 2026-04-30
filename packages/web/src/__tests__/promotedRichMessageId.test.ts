@@ -13,8 +13,8 @@
  * packages/shared/src/thread.ts and exports it from index.ts.
  */
 
-import { promotedRichMessageId } from "@hyperidle/shared";
 import type { Message, Thread } from "@hyperidle/shared";
+import { promotedRichMessageId } from "@hyperidle/shared";
 import { describe, expect, it } from "vitest";
 
 const THREAD_ID = "t-1";
@@ -31,11 +31,7 @@ const baseThread: Thread = {
 	createdAt: "2026-04-19T12:00:00.000Z",
 };
 
-function review(
-	id: string,
-	createdAt: string,
-	resolvedAt: string | null = null,
-): Message {
+function review(id: string, createdAt: string, resolvedAt: string | null = null): Message {
 	return {
 		id,
 		threadId: THREAD_ID,
@@ -54,11 +50,7 @@ function review(
 	};
 }
 
-function questionnaire(
-	id: string,
-	createdAt: string,
-	resolvedAt: string | null = null,
-): Message {
+function questionnaire(id: string, createdAt: string, resolvedAt: string | null = null): Message {
 	return {
 		id,
 		threadId: THREAD_ID,

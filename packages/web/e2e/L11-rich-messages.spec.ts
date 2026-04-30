@@ -131,10 +131,7 @@ test.describe("L11 — rich messages render inline", () => {
 		};
 		const afterWithVerdict = {
 			...after,
-			messages: [
-				verdictMessage,
-				{ ...before.messages[0], resolvedAt: LATER },
-			],
+			messages: [verdictMessage, { ...before.messages[0], resolvedAt: LATER }],
 		};
 
 		let postObserved = false;
@@ -195,8 +192,9 @@ test.describe("L11 — rich messages render inline", () => {
 		// Note: the resolved card also renders an APPROVED label.
 		await expect(page.getByText("APPROVED").first()).toBeVisible();
 		// Resolved card collapses to single-line summary.
-		await expect(page.locator("[data-testid='rich-message-card'][data-state='resolved']"))
-			.toBeVisible();
+		await expect(
+			page.locator("[data-testid='rich-message-card'][data-state='resolved']"),
+		).toBeVisible();
 	});
 
 	test("the 7 verdict keyboard shortcuts (A/R/X/S/C/I/E) produce ZERO POSTs (AC-3)", async ({

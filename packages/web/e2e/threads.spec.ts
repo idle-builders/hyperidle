@@ -456,7 +456,10 @@ test.describe("L1a — verdict click resolves the review and renders APPROVED", 
 		// Banner now carries the "Resolved" tag — thread.resolvedAt set.
 		// Scope to ThreadShell + .first() to avoid the resolved-card label.
 		await expect(
-			page.locator("[data-testid='thread-shell']").getByText(/^resolved$/i).first(),
+			page
+				.locator("[data-testid='thread-shell']")
+				.getByText(/^resolved$/i)
+				.first(),
 		).toBeVisible();
 	});
 });

@@ -133,9 +133,7 @@ function buildRichSlots(
 							REVIEW
 						</span>
 					</div>
-					<h3 className="text-[14px] font-semibold text-[var(--text-hi)] m-0">
-						{payload.title}
-					</h3>
+					<h3 className="text-[14px] font-semibold text-[var(--text-hi)] m-0">{payload.title}</h3>
 					{payload.reasoning.length > 0 ? (
 						<ol className="list-decimal pl-[20px] text-[13px] text-[var(--text-mid)] m-0">
 							{payload.reasoning.map((line, i) => (
@@ -163,9 +161,7 @@ function buildRichSlots(
 							QUESTION
 						</span>
 					</div>
-					<h3 className="text-[14px] font-semibold text-[var(--text-hi)] m-0">
-						{payload.title}
-					</h3>
+					<h3 className="text-[14px] font-semibold text-[var(--text-hi)] m-0">{payload.title}</h3>
 					<p className="text-[13px] text-[var(--text-mid)] m-0">{payload.question}</p>
 				</>
 			),
@@ -175,22 +171,23 @@ function buildRichSlots(
 			// commit endpoint). Buttons are disabled + aria-disabled so the
 			// user gets honest feedback instead of a dead-click. All-ghost
 			// styling — no false hierarchy on neutral-choice questionnaires.
-			actions: payload.options.length > 0 ? (
-				<>
-					{payload.options.map((opt) => (
-						<button
-							key={`${message.id}-opt-${opt}`}
-							type="button"
-							disabled
-							aria-disabled="true"
-							title="Answer dispatch lands in a follow-up"
-							className="px-[10px] py-[5px] min-h-[44px] rounded-[var(--r1)] text-[12px] font-medium border bg-transparent text-[var(--text-mid)] border-[var(--border-default)] disabled:opacity-50 disabled:cursor-not-allowed"
-						>
-							{opt}
-						</button>
-					))}
-				</>
-			) : null,
+			actions:
+				payload.options.length > 0 ? (
+					<>
+						{payload.options.map((opt) => (
+							<button
+								key={`${message.id}-opt-${opt}`}
+								type="button"
+								disabled
+								aria-disabled="true"
+								title="Answer dispatch lands in a follow-up"
+								className="px-[10px] py-[5px] min-h-[44px] rounded-[var(--r1)] text-[12px] font-medium border bg-transparent text-[var(--text-mid)] border-[var(--border-default)] disabled:opacity-50 disabled:cursor-not-allowed"
+							>
+								{opt}
+							</button>
+						))}
+					</>
+				) : null,
 		};
 	}
 	return null;
@@ -365,9 +362,7 @@ export function ThreadShell({
 														}}
 														blocking={resolvedProps ? false : blocking}
 														artifactSlot={
-															!resolvedProps &&
-															m.type === "review" &&
-															!isRedactedPayload(m.payload)
+															!resolvedProps && m.type === "review" && !isRedactedPayload(m.payload)
 																? artifactSlot?.(m.payload.artifactRef)
 																: undefined
 														}

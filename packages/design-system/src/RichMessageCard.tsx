@@ -27,10 +27,10 @@
  */
 
 import {
+	isRedactedPayload,
 	type Message,
 	type RedactedPayload,
 	type VerdictDecision,
-	isRedactedPayload,
 	verdictDecisionLabel,
 } from "@hyperidle/shared";
 import { type JSX, type ReactNode, useId, useState } from "react";
@@ -211,7 +211,9 @@ function ResolvedView({
 					{title}
 				</span>
 				<span className="text-[var(--text-lo)] ml-[4px] text-[12px]">— {resolved.actor}</span>
-				<span className="text-[var(--text-lo)] text-[11px] tabular-nums">· {resolved.timestamp}</span>
+				<span className="text-[var(--text-lo)] text-[11px] tabular-nums">
+					· {resolved.timestamp}
+				</span>
 				<button
 					type="button"
 					aria-expanded={resolved.reExpanded}
@@ -293,12 +295,7 @@ export function RichMessageCard({
 
 	if (review?.redacted === true) {
 		return (
-			<RedactedView
-				titleId={titleId}
-				kind="review"
-				payload={review.payload}
-				blocking={blocking}
-			/>
+			<RedactedView titleId={titleId} kind="review" payload={review.payload} blocking={blocking} />
 		);
 	}
 	if (questionnaire?.redacted === true) {
@@ -316,11 +313,12 @@ export function RichMessageCard({
 	const isQuestionnaire = questionnaire !== null && questionnaire.redacted === false;
 
 	const tagLabel = isReview ? "REVIEW" : isQuestionnaire ? "QUESTION" : "MESSAGE";
-	const title = isReview && !review.redacted
-		? review.title
-		: isQuestionnaire && !questionnaire.redacted
-			? questionnaire.title
-			: "";
+	const title =
+		isReview && !review.redacted
+			? review.title
+			: isQuestionnaire && !questionnaire.redacted
+				? questionnaire.title
+				: "";
 
 	const handleVerdict = (decision: VerdictDecision): void => {
 		const clientKey = generateClientKey();
@@ -423,9 +421,7 @@ export function RichMessageCard({
 		if (reasoning.length === 0) return null;
 		if (isShortReasoning(reasoning)) {
 			return (
-				<p className="px-[12px] pb-[8px] text-[13px] text-[var(--text-mid)] m-0">
-					{reasoning[0]}
-				</p>
+				<p className="px-[12px] pb-[8px] text-[13px] text-[var(--text-mid)] m-0">{reasoning[0]}</p>
 			);
 		}
 		return (

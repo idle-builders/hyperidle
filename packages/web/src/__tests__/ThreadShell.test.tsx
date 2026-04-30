@@ -320,4 +320,3 @@ describe("computeSenderGrouping (approved.md §2.4)", () => {
 		expect(result.map((g) => g.showSenderHeader)).toEqual([true, true]);
 	});
 });
-

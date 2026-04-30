@@ -159,9 +159,7 @@ describe("ThreadShell promotion (L11 — approved.md §3, plan §5.5)", () => {
 		render(
 			<ThreadShell
 				thread={baseThread}
-				messages={[
-					review("r-resolved", "2026-04-19T12:00:00.000Z", "2026-04-19T12:30:00.000Z"),
-				]}
+				messages={[review("r-resolved", "2026-04-19T12:00:00.000Z", "2026-04-19T12:30:00.000Z")]}
 				identities={identities}
 				onAppendMessage={vi.fn()}
 			/>,

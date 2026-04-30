@@ -17,7 +17,7 @@
  * deletions.
  */
 
-import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
@@ -59,26 +59,17 @@ describe("L11 removals (plan §6.3, AC-2/4/5)", () => {
 	}
 
 	it("design-system index.ts no longer exports ReviewVerdictBar", () => {
-		const idx = readFileSync(
-			join(repoRoot, "packages/design-system/src/index.ts"),
-			"utf8",
-		);
+		const idx = readFileSync(join(repoRoot, "packages/design-system/src/index.ts"), "utf8");
 		expect(idx).not.toMatch(/ReviewVerdictBar/);
 	});
 
 	it("design-system index.ts no longer exports ThreadHead", () => {
-		const idx = readFileSync(
-			join(repoRoot, "packages/design-system/src/index.ts"),
-			"utf8",
-		);
+		const idx = readFileSync(join(repoRoot, "packages/design-system/src/index.ts"), "utf8");
 		expect(idx).not.toMatch(/ThreadHead/);
 	});
 
 	it("no source file imports ReviewHeader / ReviewVerdictBar / ThreadHead", () => {
-		const dirs = [
-			join(repoRoot, "packages/web/src"),
-			join(repoRoot, "packages/design-system/src"),
-		];
+		const dirs = [join(repoRoot, "packages/web/src"), join(repoRoot, "packages/design-system/src")];
 		const offenders: string[] = [];
 		for (const dir of dirs) {
 			for (const file of walkTsx(dir)) {
