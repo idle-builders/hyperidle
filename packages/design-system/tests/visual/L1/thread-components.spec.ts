@@ -18,13 +18,14 @@ import { expect, test } from "@playwright/test";
 
 const HTML_DIR = resolve(import.meta.dirname, "../../../html");
 
+// L11 plan §6.3: ThreadHead and ReviewVerdictBar deleted; their visual
+// targets are covered by the new RichMessageCard component.
 const L1_COMPONENTS = [
 	"ThreadHostBanner",
-	"ThreadHead",
-	"ReviewVerdictBar",
 	"CommentRow",
 	"Composer",
 	"ThreadShell",
+	"RichMessageCard",
 ];
 
 test.describe("L1a — six DS components have HTML references and render", () => {

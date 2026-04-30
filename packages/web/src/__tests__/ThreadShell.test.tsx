@@ -3,16 +3,12 @@
  *
  * Approved-design: §2.6 + §4 (states). The shell mounts:
  *   - ThreadHostBanner (always)
- *   - ThreadHead (iff headCollapsePredicate.headMessageId !== null)
+ *   - The promoted rich message as a card (iff promotedRichMessageId returns one)
  *   - CommentStream (always; full width when no head)
  *   - Composer (always; pinned at floor)
  */
 
-import {
-	computeSenderGrouping,
-	hasMostRecentUnresolvedReview,
-	ThreadShell,
-} from "@hyperidle/design-system";
+import { computeSenderGrouping, ThreadShell } from "@hyperidle/design-system";
 import type { AgentSessionStateSnapshot, Message, Thread } from "@hyperidle/shared";
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
@@ -65,7 +61,7 @@ const plainMessage: Message = {
 };
 
 describe("ThreadShell (approved.md §2.6 + §4 states)", () => {
-	it("populated-issue: mounts ThreadHostBanner + ThreadHead + Composer when there is an unresolved review", () => {
+	it("populated-issue: mounts ThreadHostBanner + RichMessageCard + Composer when there is an unresolved review", () => {
 		render(
 			<ThreadShell
 				thread={baseThread}
@@ -76,7 +72,8 @@ describe("ThreadShell (approved.md §2.6 + §4 states)", () => {
 		);
 		// ThreadHostBanner host title
 		expect(screen.getByText(/task-1/i)).toBeInTheDocument();
-		// ThreadHead title
+		// Review title rendered inside the in-stream RichMessageCard
+		expect(screen.getByTestId("rich-message-card")).toBeInTheDocument();
 		expect(screen.getByText("Review me")).toBeInTheDocument();
 		// Composer placeholder
 		expect(screen.getByPlaceholderText(/reply to thread/i)).toBeInTheDocument();
@@ -200,9 +197,12 @@ describe("ThreadShell (approved.md §2.6 + §4 states)", () => {
 		expect(screen.getAllByText("Founder").length).toBe(2);
 	});
 
-	// L1 step9 (Design-C3): composer fallback link appears when the most recent
-	// message is an unresolved review/questionnaire.
-	it("composer-fallback: 'Unresolved review' link appears when most recent message is an unresolved review", () => {
+	// L11 plan §6.2: the legacy 'Unresolved review · acting required' link
+	// is removed. The card sits in-stream, so there is nothing for the link
+	// to scroll to. The previous J3 fallback test inverts: assert the link
+	// is NEVER rendered, even when the most recent message is an unresolved
+	// review.
+	it("L11: 'Unresolved review' link is NOT rendered (card replaces sticky bar)", () => {
 		render(
 			<ThreadShell
 				thread={baseThread}
@@ -211,10 +211,9 @@ describe("ThreadShell (approved.md §2.6 + §4 states)", () => {
 				onAppendMessage={vi.fn()}
 			/>,
 		);
-		expect(screen.getByText(/unresolved review/i)).toBeInTheDocument();
+		expect(screen.queryByText(/unresolved review/i)).toBeNull();
 	});
 
-	// L1 step9 (Design-C3): the link is hidden when there is no unresolved review.
 	it("composer-fallback: link hidden on a chat-shape thread (no review)", () => {
 		render(
 			<ThreadShell
@@ -242,7 +241,12 @@ describe("ThreadShell (approved.md §2.6 + §4 states)", () => {
 				agentSessionState={snapshot}
 			/>,
 		);
-		expect(screen.getByText("BLOCKED")).toBeInTheDocument();
+		// L11: both the banner AND the in-stream RichMessageCard surface the
+		// blocking signal as a "BLOCKED" chip (text + colour, not colour-only).
+		// Assert at least one renders; the banner one specifically lives in the
+		// host-banner region.
+		const chips = screen.getAllByText("BLOCKED");
+		expect(chips.length).toBeGreaterThan(0);
 	});
 
 	it("isBlocking: no BLOCKED chip when the snapshot does not point at this thread", () => {
@@ -314,53 +318,5 @@ describe("computeSenderGrouping (approved.md §2.4)", () => {
 			make("b", "u2", "2026-04-19T12:00:30.000Z"),
 		]);
 		expect(result.map((g) => g.showSenderHeader)).toEqual([true, true]);
-	});
-});
-
-describe("hasMostRecentUnresolvedReview (approved.md §2.5)", () => {
-	const ts = "2026-04-19T12:00:00.000Z";
-	const review = (resolvedAt: string | null): Message => ({
-		id: "rev",
-		threadId: "t",
-		senderId: "u1",
-		clientKey: "rev",
-		deletedAt: null,
-		redactedAt: null,
-		resolvedAt,
-		createdAt: ts,
-		type: "review",
-		payload: {
-			title: "x",
-			reasoning: ["y"],
-			artifactRef: { id: "art-1", kind: "text_diff" },
-		},
-	});
-	const plain: Message = {
-		id: "p",
-		threadId: "t",
-		senderId: "u1",
-		clientKey: "p",
-		deletedAt: null,
-		redactedAt: null,
-		resolvedAt: null,
-		createdAt: ts,
-		type: "plain",
-		payload: { text: "hi" },
-	};
-
-	it("true when the LAST message is an unresolved review", () => {
-		expect(hasMostRecentUnresolvedReview([review(null)])).toBe(true);
-	});
-
-	it("false when the LAST message is a resolved review", () => {
-		expect(hasMostRecentUnresolvedReview([review("2026-04-19T13:00:00.000Z")])).toBe(false);
-	});
-
-	it("false when the LAST message is plain (chat-shape)", () => {
-		expect(hasMostRecentUnresolvedReview([review(null), plain])).toBe(false);
-	});
-
-	it("false on empty thread", () => {
-		expect(hasMostRecentUnresolvedReview([])).toBe(false);
 	});
 });

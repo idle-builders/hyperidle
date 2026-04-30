@@ -239,6 +239,83 @@ export function isBlocking(
 	return agentSessionState.activeForThreadId === thread.id;
 }
 
+// ── Promotion rule (L11) ────────────────────────────────────────
+
+/**
+ * Approved.md §3 — promotion rule. Pure derivation over a thread's
+ * messages. Returns the id of the SINGLE rich message that should
+ * render as a card, or null when the thread has no candidate.
+ *
+ * @lore L11 plan §6.2 (CONFUSION-A resolution): the helper is a
+ * one-arg pure function — sessionState was dropped. "Oldest unresolved
+ * review or questionnaire wins". Blocking only lifts the danger
+ * left-border, it does not gate promotion.
+ *
+ * @lore L11: oldest-first is the deterministic anchor — the FIFO of
+ * pending decisions. Two simultaneous reviews resolve in arrival order;
+ * the user can never lose track of which one came first.
+ */
+export function promotedRichMessageId(messages: ReadonlyArray<Message>): MessageId | null {
+	let bestId: MessageId | null = null;
+	let bestCreatedAt: string | null = null;
+	for (const m of messages) {
+		if (m.type !== "review" && m.type !== "questionnaire") continue;
+		if (m.resolvedAt !== null) continue;
+		if (bestCreatedAt === null || m.createdAt < bestCreatedAt) {
+			bestCreatedAt = m.createdAt;
+			bestId = m.id;
+		}
+	}
+	return bestId;
+}
+
+// ── Verdict vocabulary (display mapping) ────────────────────────
+
+/**
+ * Single source of truth for the verdict label vocabulary used by
+ * RichMessageCard, CommentRow, and any other consumer that needs the
+ * uppercase label form. Mapping: approve / approve-with-comments →
+ * APPROVED; reject → REJECTED; request-changes → CHANGES REQUESTED;
+ * edit → EDITED.
+ *
+ * @lore L11 step9 (S6): previously duplicated byte-identical in
+ * RichMessageCard.tsx and CommentRow.tsx. Lifted here so adding a 6th
+ * VerdictDecision triggers exactly one TypeScript narrowing failure.
+ */
+export function verdictDecisionLabel(decision: VerdictDecision): string {
+	switch (decision) {
+		case "approve":
+		case "approve-with-comments":
+			return "APPROVED";
+		case "reject":
+			return "REJECTED";
+		case "request-changes":
+			return "CHANGES REQUESTED";
+		case "edit":
+			return "EDITED";
+	}
+}
+
+/**
+ * Map a verdict decision to a `Status` chip token. Pairs with
+ * `verdictDecisionLabel` — same source-of-truth concern.
+ */
+export function verdictDecisionToStatus(
+	decision: VerdictDecision,
+): "done" | "blocked" | "behind" | "paused" {
+	switch (decision) {
+		case "approve":
+		case "approve-with-comments":
+			return "done";
+		case "reject":
+			return "blocked";
+		case "request-changes":
+			return "behind";
+		case "edit":
+			return "paused";
+	}
+}
+
 // ── Zod schemas (boundary validation) ───────────────────────────
 
 // The Zod schemas live in `packages/server/src/routes/threads-schema.ts`.

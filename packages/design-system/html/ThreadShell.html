@@ -7,8 +7,8 @@
   <link rel="stylesheet" href="_tokens.css" />
   <style>
     /* Layout mirrors ThreadShell.tsx — composition root mounting the
-       five L1 surface regions: ThreadHostBanner / ThreadHead /
-       CommentStream / ReviewVerdictBar / Composer. Tier 3 (region). */
+       L11 surface regions: ThreadHostBanner / CommentStream (with the
+       promoted RichMessageCard inline) / Composer. Tier 3 (region). */
     body {
       background: var(--surface-0);
       padding: 24px;
@@ -240,7 +240,7 @@
           className="thread-shell"
           data-component="ThreadShell"
           data-tier="3"
-          data-uses="ThreadHostBanner,ThreadHead,CommentRow,ReviewVerdictBar,Composer"
+          data-uses="ThreadHostBanner,CommentRow,RichMessageCard,Composer"
         >
           <div className="host-banner">
             <div className="host-banner__main">
