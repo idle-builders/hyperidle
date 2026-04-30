@@ -1,11 +1,23 @@
 /**
- * L1a — `ThreadShell` design-system component.
+ * L1a / L11 — `ThreadShell` design-system component.
  *
- * Plan §7.7; approved.md §2.6 + §4. Composition root that mounts:
- *  - `ThreadHostBanner`
- *  - `ThreadHead` (iff `headCollapsePredicate(messages).headMessageId !== null`)
- *  - `CommentStream` (a thin <ul> of CommentRows)
+ * Plan §7.7 (L1) + L11 plan §5.5. Composition root that mounts:
+ *  - `ThreadHostBanner` (always — only chrome above the stream after L11)
+ *  - The message stream — promoted rich message → `RichMessageCard`,
+ *    other unresolved review/questionnaire → `CommentRow` rich-row variant,
+ *    everything else → standard `CommentRow`.
  *  - `Composer` (always pinned at the floor)
+ *
+ * @lore L11 plan §6.2: `ThreadHead` and `ReviewVerdictBar` mounts removed.
+ * The promotion rule (`promotedRichMessageId`) replaces `headCollapsePredicate`
+ * for rendering — head was about WHERE rich content rendered (above the
+ * stream); promotion is about WHICH rich message becomes a card. The
+ * `headCollapsePredicate` helper still ships from shared for `isBlocking`.
+ *
+ * @lore L11 plan §5.5: the IntersectionObserver / verdict-bar wrapper /
+ * verdict-sentinel testid / `Unresolved review · acting required ↑` link
+ * are deleted. Sticky-within-card replaces the sticky bar; the card sits
+ * in the stream so there is nothing for the link to scroll to.
  *
  * State coverage (approved.md §4): empty / loading / error / populated-issue
  * / populated-chat / populated-resolved / populated-overflow.
@@ -17,17 +29,17 @@ import type {
 	Message,
 	MessageType,
 	Thread,
+	VerdictDecision,
 } from "@hyperidle/shared";
-import { headCollapsePredicate, isBlocking, isRedactedPayload } from "@hyperidle/shared";
-import { type JSX, type ReactNode, useEffect, useMemo, useRef, useState } from "react";
+import { isBlocking, isRedactedPayload, promotedRichMessageId } from "@hyperidle/shared";
+import { type JSX, type ReactNode, useMemo, useState } from "react";
 import { CommentRow } from "./CommentRow.js";
 import { Composer } from "./Composer.js";
 import { dsProps } from "./ds-attrs.js";
 import { EmptyState } from "./EmptyState.js";
 import { ErrorState } from "./ErrorState.js";
-import { ReviewVerdictBar } from "./ReviewVerdictBar.js";
+import { RichMessageCard, type RichMessageCardAction } from "./RichMessageCard.js";
 import { SkeletonList } from "./Skeleton.js";
-import { ThreadHead } from "./ThreadHead.js";
 import { ThreadHostBanner } from "./ThreadHostBanner.js";
 
 const SENDER_GROUP_WINDOW_MS = 5 * 60 * 1000; // approved.md §2.4 — 5 minutes
@@ -54,19 +66,11 @@ export interface ThreadShellProps {
 	error?: string;
 	/**
 	 * Optional snapshot of the agent's session state. Drives the
-	 * `ThreadHostBanner` blocking indicator via `isBlocking(thread, messages,
-	 * snapshot)` (concept §4.5.5). When omitted, the banner shows
-	 * `blocking={false}`.
+	 * `ThreadHostBanner` blocking indicator AND the `RichMessageCard`
+	 * `--danger` left-border.
 	 */
 	agentSessionState?: AgentSessionStateSnapshot;
-	/**
-	 * Optional override for the resolved host title. The Conversations page
-	 * resolves the host entity (bet, task, …) and passes its display title;
-	 * `ThreadShell` falls back to `${hostKind}/${hostId}` for tests / pages
-	 * that have not wired host resolution yet.
-	 */
 	hostTitle?: string;
-	/** Optional href for the host-attachment label (approved.md §8 hard-rule 5). */
 	hostHref?: string;
 }
 
@@ -77,11 +81,6 @@ interface SenderGroupedMessage {
 
 /**
  * Group consecutive messages from the same sender within a 5-minute window.
- * Each group's first message renders the sender header; subsequent messages
- * stack indented (no header) per approved.md §2.4 + §8 hard-rule 3.
- *
- * @lore L1 step9 (Design-C2): the previous renderer hardcoded
- * `showSenderHeader={true}` for every row, ignoring the locked design contract.
  */
 export function computeSenderGrouping(
 	messages: ReadonlyArray<Message>,
@@ -106,10 +105,9 @@ export function computeSenderGrouping(
 
 /**
  * Determine whether the most recent message in the thread is an unresolved
- * review/questionnaire. When true, the Composer shows the
- * "Unresolved review · acting required ↑" fallback link (approved.md §2.5).
- *
- * @lore L1 step9 (Design-C3): this rule was specified but never wired.
+ * review/questionnaire. Retained as a pure helper for thread-level analysis;
+ * after L11 the composer no longer renders the legacy "Unresolved review"
+ * link (the in-stream card replaces the off-viewport sticky bar).
  */
 export function hasMostRecentUnresolvedReview(messages: ReadonlyArray<Message>): boolean {
 	if (messages.length === 0) return false;
@@ -126,21 +124,84 @@ function identityFor(
 	return identities[id] ?? FALLBACK_IDENTITY;
 }
 
-/**
- * Resolve the artifact reference embedded in a review-typed head message and
- * hand it to the page-supplied `artifactSlot` callback. Returns undefined for
- * non-review heads, redacted reviews, or when the page did not provide a
- * renderer (L1 step5 SL-C1: type narrowing replaces the unsafe `as` cast).
- */
-function resolveArtifactSlot(
-	headMessage: Message,
+interface RichSlotsForRow {
+	header: ReactNode;
+	body: ReactNode;
+	actions: ReactNode;
+}
+
+function buildRichSlots(
+	message: Message,
 	artifactSlot: ((ref: ArtifactRef) => ReactNode) | undefined,
-): ReactNode | undefined {
-	if (!artifactSlot) return undefined;
-	if (headMessage.type !== "review") return undefined;
-	const { payload } = headMessage;
-	if (isRedactedPayload(payload)) return undefined;
-	return artifactSlot(payload.artifactRef);
+): RichSlotsForRow | null {
+	if (message.type === "review") {
+		const { payload } = message;
+		if (isRedactedPayload(payload)) return null;
+		return {
+			header: (
+				<>
+					<div className="flex items-center gap-[6px] font-mono text-[11px] tracking-[0.05em] uppercase text-[var(--text-lo)]">
+						<span className="inline-flex items-center px-[8px] py-[2px] rounded-[var(--r-pill)] bg-[color-mix(in_oklab,var(--primary)_18%,transparent)] text-[var(--primary)]">
+							REVIEW
+						</span>
+					</div>
+					<h3 className="text-[14px] font-semibold text-[var(--text-hi)] m-0">
+						{payload.title}
+					</h3>
+					{payload.reasoning.length > 0 ? (
+						<ol className="list-decimal pl-[20px] text-[13px] text-[var(--text-mid)] m-0">
+							{payload.reasoning.map((line, i) => (
+								// biome-ignore lint/suspicious/noArrayIndexKey: reasoning entries are immutable once sent.
+								<li key={`${message.id}-r-${i}`} className="my-[2px]">
+									{line}
+								</li>
+							))}
+						</ol>
+					) : null}
+				</>
+			),
+			body: artifactSlot ? artifactSlot(payload.artifactRef) : null,
+			actions: null,
+		};
+	}
+	if (message.type === "questionnaire") {
+		const { payload } = message;
+		if (isRedactedPayload(payload)) return null;
+		return {
+			header: (
+				<>
+					<div className="flex items-center gap-[6px] font-mono text-[11px] tracking-[0.05em] uppercase text-[var(--text-lo)]">
+						<span className="inline-flex items-center px-[8px] py-[2px] rounded-[var(--r-pill)] bg-[color-mix(in_oklab,var(--primary)_18%,transparent)] text-[var(--primary)]">
+							QUESTION
+						</span>
+					</div>
+					<h3 className="text-[14px] font-semibold text-[var(--text-hi)] m-0">
+						{payload.title}
+					</h3>
+					<p className="text-[13px] text-[var(--text-mid)] m-0">{payload.question}</p>
+				</>
+			),
+			body: null,
+			actions: payload.options.length > 0 ? (
+				<>
+					{payload.options.map((opt, idx) => (
+						<button
+							key={`${message.id}-opt-${opt}`}
+							type="button"
+							className={`px-[10px] py-[5px] min-h-[44px] rounded-[var(--r1)] text-[12px] font-medium border ${
+								idx === 0
+									? "bg-[var(--primary)] text-[var(--surface-0)] border-transparent"
+									: "bg-transparent text-[var(--text-mid)] border-[var(--border-default)]"
+							}`}
+						>
+							{opt}
+						</button>
+					))}
+				</>
+			) : null,
+		};
+	}
+	return null;
 }
 
 export function ThreadShell({
@@ -164,59 +225,25 @@ export function ThreadShell({
 			}),
 		[messages],
 	);
-	const head = headCollapsePredicate(ordered);
-	const headMessage = head.headMessageId
-		? ordered.find((m) => m.id === head.headMessageId)
-		: undefined;
+
+	const promotedId = useMemo(() => promotedRichMessageId(ordered), [ordered]);
+	const promotedMessage = promotedId
+		? ordered.find((m) => m.id === promotedId) ?? null
+		: null;
 
 	const participants = thread.participants.map((id) => ({
 		id,
 		name: identityFor(identities, id).name,
 	}));
 
-	// L1 step9 (Arch): drive the banner's blocking indicator from the shared
-	// `isBlocking` predicate when an `agentSessionState` snapshot is supplied.
 	const blocking =
 		agentSessionState !== undefined ? isBlocking(thread, ordered, agentSessionState) : false;
 
-	// L1 step9 (Design-C2): compute sender-grouping for the comment stream
-	// (excluding the head message, which renders separately).
-	const streamMessages = useMemo(
-		() => ordered.filter((m) => m.id !== head.headMessageId),
-		[ordered, head.headMessageId],
-	);
-	const groupedStream = useMemo(() => computeSenderGrouping(streamMessages), [streamMessages]);
+	const groupedStream = useMemo(() => computeSenderGrouping(ordered), [ordered]);
 
-	// L1 step9 (Design-C3): the composer's "Unresolved review · acting required"
-	// fallback link appears when the most recent message in the thread is an
-	// unresolved review/questionnaire. This serves as a fallback for tall mobile
-	// viewports where the sticky verdict bar may scroll out of view.
-	const unresolvedReview = hasMostRecentUnresolvedReview(ordered);
-
-	// L1 step9 (Design-W from review): IntersectionObserver wires the sticky
-	// verdict bar's "head-edge → released" behavior. When the head's artifact
-	// region is in view → bar is pinned; otherwise → bar releases (scrolls
-	// with content).
-	const artifactRegionRef = useRef<HTMLDivElement | null>(null);
-	const verdictBarRef = useRef<HTMLDivElement | null>(null);
-	const [verdictBarSticky, setVerdictBarSticky] = useState(true);
-	useEffect(() => {
-		const target = artifactRegionRef.current;
-		if (!target) return;
-		// Skip when IntersectionObserver is unavailable (e.g. some test environments).
-		if (typeof window === "undefined" || typeof window.IntersectionObserver === "undefined") {
-			return;
-		}
-		const observer = new window.IntersectionObserver(
-			(entries) => {
-				const [entry] = entries;
-				setVerdictBarSticky(Boolean(entry?.isIntersecting));
-			},
-			{ threshold: 0 },
-		);
-		observer.observe(target);
-		return (): void => observer.disconnect();
-	}, []);
+	const [cardState, setCardState] = useState<
+		{ phase: "idle" } | { phase: "saving" } | { phase: "error"; reason: string }
+	>({ phase: "idle" });
 
 	const handleComposerSubmit = async (input: {
 		text: string;
@@ -229,13 +256,33 @@ export function ThreadShell({
 		});
 	};
 
-	const handleScrollToVerdict = (): void => {
-		verdictBarRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+	const handleCardAction = async (
+		message: Message,
+		action: RichMessageCardAction,
+	): Promise<void> => {
+		if (action.kind === "verdict") {
+			setCardState({ phase: "saving" });
+			try {
+				await onAppendMessage({
+					type: "verdict",
+					payload: {
+						decision: action.decision satisfies VerdictDecision,
+						resolvesMessageId: message.id,
+					},
+					clientKey: action.clientKey,
+				});
+				setCardState({ phase: "idle" });
+			} catch (cause) {
+				setCardState({
+					phase: "error",
+					reason: cause instanceof Error ? cause.message : "Could not commit verdict",
+				});
+			}
+		}
+		// answer / retry intentionally render-only at the page level for L11
+		// (plan §5.6 CONFUSION-C). The card surfaces the click; no dispatch.
 	};
 
-	// L1 step5 W10: error and populated branches share the host banner; we
-	// render the banner once and switch the body, instead of duplicating the
-	// outer JSX.
 	const resolvedHostTitle = hostTitle ?? `${thread.hostKind}/${thread.hostId}`;
 	const banner = (
 		<ThreadHostBanner
@@ -249,16 +296,10 @@ export function ThreadShell({
 		/>
 	);
 
-	const verdictBarVisible =
-		headMessage && headMessage.type === "review" && headMessage.resolvedAt === null;
-
 	return (
 		<div
 			{...dsProps("ThreadShell", "3")}
 			data-testid="thread-shell"
-			// L1 step9 (Design-C4): announce shape transitions (head mount /
-			// unmount, canvas promote / demote) via aria-live. Non-blocking
-			// (`polite`) so screen readers complete current speech first.
 			aria-live="polite"
 			className="flex flex-col h-full bg-[var(--surface-1)] focus-within:outline-none"
 		>
@@ -267,24 +308,6 @@ export function ThreadShell({
 				<ErrorState title="Failed to load thread" description={error} />
 			) : (
 				<>
-					{headMessage ? (
-						<ThreadHead
-							message={headMessage}
-							artifactSlot={resolveArtifactSlot(headMessage, artifactSlot)}
-						/>
-					) : null}
-					{/*
-					 * Sentinel for the IntersectionObserver. Sits at the head's
-					 * lower edge when issue-shape; absent for chat-shape.
-					 */}
-					{headMessage ? (
-						<div
-							ref={artifactRegionRef}
-							data-testid="verdict-sentinel"
-							aria-hidden="true"
-							className="h-[1px]"
-						/>
-					) : null}
 					<div className="flex-1 overflow-y-auto">
 						{loading ? (
 							<div className="p-[var(--density-card-pad,12px)]">
@@ -296,53 +319,72 @@ export function ThreadShell({
 								description="Be the first to post in this thread."
 							/>
 						) : (
-							<ul className="flex flex-col py-[var(--density-pad-y,8px)]">
-								{groupedStream.map(({ message, showSenderHeader }) => (
-									<CommentRow
-										key={message.id}
-										message={message}
-										sender={{
-											id: message.senderId,
-											name: identityFor(identities, message.senderId).name,
-											role: identityFor(identities, message.senderId).role,
-										}}
-										showSenderHeader={showSenderHeader}
-									/>
-								))}
+							<ul className="flex flex-col py-[var(--density-pad-y,8px)] gap-[12px]">
+								{groupedStream.map(({ message, showSenderHeader }) => {
+									if (promotedMessage && message.id === promotedMessage.id) {
+										return (
+											<li key={message.id}>
+												<RichMessageCard
+													message={message}
+													sender={{
+														id: message.senderId,
+														name: identityFor(identities, message.senderId).name,
+														role: identityFor(identities, message.senderId).role,
+													}}
+													blocking={blocking}
+													artifactSlot={
+														message.type === "review" && !isRedactedPayload(message.payload)
+															? artifactSlot?.(message.payload.artifactRef)
+															: undefined
+													}
+													onAction={(action): void => {
+														void handleCardAction(message, action);
+													}}
+													state={cardState}
+												/>
+											</li>
+										);
+									}
+									if (
+										(message.type === "review" || message.type === "questionnaire") &&
+										message.resolvedAt === null
+									) {
+										const slots = buildRichSlots(message, artifactSlot);
+										if (slots) {
+											return (
+												<CommentRow
+													key={message.id}
+													message={message}
+													sender={{
+														id: message.senderId,
+														name: identityFor(identities, message.senderId).name,
+														role: identityFor(identities, message.senderId).role,
+													}}
+													showSenderHeader={showSenderHeader}
+													richHeader={slots.header}
+													richBody={slots.body}
+													richActions={slots.actions}
+												/>
+											);
+										}
+									}
+									return (
+										<CommentRow
+											key={message.id}
+											message={message}
+											sender={{
+												id: message.senderId,
+												name: identityFor(identities, message.senderId).name,
+												role: identityFor(identities, message.senderId).role,
+											}}
+											showSenderHeader={showSenderHeader}
+										/>
+									);
+								})}
 							</ul>
 						)}
 					</div>
-					{verdictBarVisible ? (
-						<div
-							ref={verdictBarRef}
-							data-testid="verdict-bar-wrapper"
-							data-sticky={verdictBarSticky ? "true" : "false"}
-							className={verdictBarSticky ? "sticky bottom-0" : "static"}
-						>
-							<ReviewVerdictBar
-								onAction={(action): void => {
-									// `action` is now `VerdictDecision` — every value resolves to
-									// a verdict message. The dead non-binding/sidecar branch was
-									// removed in L1 step5 (S-C1).
-									void onAppendMessage({
-										type: "verdict",
-										payload: {
-											decision: action,
-											resolvesMessageId: headMessage.id,
-										},
-										clientKey: `verdict-${headMessage.id}-${Date.now().toString(36)}`,
-									});
-								}}
-							/>
-						</div>
-					) : null}
-					<Composer
-						threadId={thread.id}
-						onSubmit={handleComposerSubmit}
-						{...(unresolvedReview && verdictBarVisible
-							? { unresolvedReviewLink: { onClick: handleScrollToVerdict } }
-							: {})}
-					/>
+					<Composer threadId={thread.id} onSubmit={handleComposerSubmit} />
 				</>
 			)}
 		</div>
