@@ -103,18 +103,6 @@ export function computeSenderGrouping(
 	return result;
 }
 
-/**
- * Determine whether the most recent message in the thread is an unresolved
- * review/questionnaire. Retained as a pure helper for thread-level analysis;
- * after L11 the composer no longer renders the legacy "Unresolved review"
- * link (the in-stream card replaces the off-viewport sticky bar).
- */
-export function hasMostRecentUnresolvedReview(messages: ReadonlyArray<Message>): boolean {
-	if (messages.length === 0) return false;
-	const last = messages[messages.length - 1];
-	return (last.type === "review" || last.type === "questionnaire") && last.resolvedAt === null;
-}
-
 const FALLBACK_IDENTITY: ThreadShellIdentity = { name: "Unknown" };
 
 function identityFor(

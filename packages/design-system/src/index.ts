@@ -94,10 +94,6 @@ export type {
 	ThreadShellIdentity,
 	ThreadShellProps,
 } from "./ThreadShell.js";
-export {
-	computeSenderGrouping,
-	hasMostRecentUnresolvedReview,
-	ThreadShell,
-} from "./ThreadShell.js";
+export { computeSenderGrouping, ThreadShell } from "./ThreadShell.js";
 export type { TagKind, TagKindMeta } from "./tag-kinds.js";
 export { TAG_KIND_ICONS } from "./tag-kinds.js";

@@ -8,11 +8,7 @@
  *   - Composer (always; pinned at floor)
  */
 
-import {
-	computeSenderGrouping,
-	hasMostRecentUnresolvedReview,
-	ThreadShell,
-} from "@hyperidle/design-system";
+import { computeSenderGrouping, ThreadShell } from "@hyperidle/design-system";
 import type { AgentSessionStateSnapshot, Message, Thread } from "@hyperidle/shared";
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
@@ -325,50 +321,3 @@ describe("computeSenderGrouping (approved.md §2.4)", () => {
 	});
 });
 
-describe("hasMostRecentUnresolvedReview (approved.md §2.5)", () => {
-	const ts = "2026-04-19T12:00:00.000Z";
-	const review = (resolvedAt: string | null): Message => ({
-		id: "rev",
-		threadId: "t",
-		senderId: "u1",
-		clientKey: "rev",
-		deletedAt: null,
-		redactedAt: null,
-		resolvedAt,
-		createdAt: ts,
-		type: "review",
-		payload: {
-			title: "x",
-			reasoning: ["y"],
-			artifactRef: { id: "art-1", kind: "text_diff" },
-		},
-	});
-	const plain: Message = {
-		id: "p",
-		threadId: "t",
-		senderId: "u1",
-		clientKey: "p",
-		deletedAt: null,
-		redactedAt: null,
-		resolvedAt: null,
-		createdAt: ts,
-		type: "plain",
-		payload: { text: "hi" },
-	};
-
-	it("true when the LAST message is an unresolved review", () => {
-		expect(hasMostRecentUnresolvedReview([review(null)])).toBe(true);
-	});
-
-	it("false when the LAST message is a resolved review", () => {
-		expect(hasMostRecentUnresolvedReview([review("2026-04-19T13:00:00.000Z")])).toBe(false);
-	});
-
-	it("false when the LAST message is plain (chat-shape)", () => {
-		expect(hasMostRecentUnresolvedReview([review(null), plain])).toBe(false);
-	});
-
-	it("false on empty thread", () => {
-		expect(hasMostRecentUnresolvedReview([])).toBe(false);
-	});
-});
