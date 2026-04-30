@@ -192,7 +192,8 @@ test.describe("L11 — rich messages render inline", () => {
 		expect((body.clientKey as string).length).toBeGreaterThan(0);
 
 		// Verdict CommentRow appears in the stream.
-		await expect(page.getByText("APPROVED")).toBeVisible();
+		// Note: the resolved card also renders an APPROVED label.
+		await expect(page.getByText("APPROVED").first()).toBeVisible();
 		// Resolved card collapses to single-line summary.
 		await expect(page.locator("[data-testid='rich-message-card'][data-state='resolved']"))
 			.toBeVisible();

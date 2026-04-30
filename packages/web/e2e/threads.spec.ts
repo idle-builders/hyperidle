@@ -450,12 +450,13 @@ test.describe("L1a — verdict click resolves the review and renders APPROVED", 
 		await card.getByRole("button", { name: /^approve$/i }).click();
 
 		// Verdict CommentRow appears (label "APPROVED" comes from
-		// `verdictDecisionLabel('approve')`).
-		await expect(page.getByText("APPROVED")).toBeVisible();
+		// `verdictDecisionLabel('approve')`). After L11 the resolved card
+		// also renders an APPROVED label, so .first() picks either.
+		await expect(page.getByText("APPROVED").first()).toBeVisible();
 		// Banner now carries the "Resolved" tag — thread.resolvedAt set.
-		// Scope to ThreadShell to avoid matching the Submenu filter tab "Resolved".
+		// Scope to ThreadShell + .first() to avoid the resolved-card label.
 		await expect(
-			page.locator("[data-testid='thread-shell']").getByText(/^resolved$/i),
+			page.locator("[data-testid='thread-shell']").getByText(/^resolved$/i).first(),
 		).toBeVisible();
 	});
 });
