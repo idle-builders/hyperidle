@@ -1,7 +1,10 @@
+export type Complexity = "S" | "M" | "L";
+
 export interface Story {
 	id: string;
 	title: string;
 	track: string;
+	complexity: Complexity;
 	dependencies: string[];
 }
 

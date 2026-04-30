@@ -17,13 +17,13 @@ export interface SubAgent {
 	toolUses?: number;
 }
 
-export interface StreamInfo {
+export interface GroupInfo {
 	name: string;
 	storyIds: string[];
 }
 
 export interface AgentFeed {
-	streamName: string;
+	groupName: string;
 	storyIds: string[];
 	lines: string[];
 	status: StoryStatus;
@@ -33,8 +33,8 @@ export interface AgentFeed {
 
 export interface PipelineStore {
 	feeds: Map<string, AgentFeed>;
-	streams: StreamInfo[];
-	selectedStream: string | null;
+	groups: GroupInfo[];
+	selectedGroup: string | null;
 	approvals: ApprovalRequest[];
 	startedAt: number;
 	stories: StoryProgress[];
@@ -50,8 +50,8 @@ export interface ApprovalRequest {
 
 const store: PipelineStore = {
 	feeds: new Map(),
-	streams: [],
-	selectedStream: null,
+	groups: [],
+	selectedGroup: null,
 	approvals: [],
 	startedAt: Date.now(),
 	stories: [],
@@ -75,30 +75,23 @@ function notify(): void {
 	for (const l of listeners) l();
 }
 
-export function initStream(streamName: string, storyIds: string[]): void {
-	store.streams.push({ name: streamName, storyIds });
-	store.feeds.set(streamName, {
-		streamName,
+export function initGroup(groupName: string, storyIds: string[]): void {
+	store.groups.push({ name: groupName, storyIds });
+	store.feeds.set(groupName, {
+		groupName,
 		storyIds,
 		lines: [],
 		status: "in_progress",
 		tools: new Map(),
 		subagents: new Map(),
 	});
-	if (!store.selectedStream) store.selectedStream = streamName;
+	if (!store.selectedGroup) store.selectedGroup = groupName;
 	notify();
 }
 
-/** @deprecated Use initStream instead */
-export function initFeed(storyId: string): void {
-	// Backward compat — creates a single-story stream
-	initStream(storyId, [storyId]);
-}
-
-export function appendOutput(streamName: string, text: string): void {
-	const feed = store.feeds.get(streamName);
+export function appendOutput(groupName: string, text: string): void {
+	const feed = store.feeds.get(groupName);
 	if (!feed) return;
-	// Add a blank separator line between distinct messages
 	if (feed.lines.length > 0 && feed.lines[feed.lines.length - 1] !== "") {
 		feed.lines.push("");
 	}
@@ -111,18 +104,18 @@ export function appendOutput(streamName: string, text: string): void {
 	notify();
 }
 
-export function updateFeedStatus(streamName: string, status: StoryStatus): void {
-	const feed = store.feeds.get(streamName);
+export function updateFeedStatus(groupName: string, status: StoryStatus): void {
+	const feed = store.feeds.get(groupName);
 	if (!feed) return;
 	feed.status = status;
 	notify();
 }
 
-export function updateToolCall(streamName: string, tool: ToolCall): void {
-	const feed = store.feeds.get(streamName);
+export function updateToolCall(groupName: string, tool: ToolCall): void {
+	const feed = store.feeds.get(groupName);
 	if (!feed) return;
 	feed.tools.set(tool.id, tool);
-	// Clean up old completed tools (keep last 20)
+	// Keep last 20 tool entries; drop the oldest done ones first.
 	const tools = [...feed.tools.entries()];
 	if (tools.length > 20) {
 		const done = tools.filter(([, t]) => t.status === "done");
@@ -133,29 +126,23 @@ export function updateToolCall(streamName: string, tool: ToolCall): void {
 	notify();
 }
 
-export function completeToolCall(streamName: string, toolId: string): void {
-	const feed = store.feeds.get(streamName);
+export function completeToolCall(groupName: string, toolId: string): void {
+	const feed = store.feeds.get(groupName);
 	if (!feed) return;
 	const tool = feed.tools.get(toolId);
 	if (tool) tool.status = "done";
 	notify();
 }
 
-export function updateSubAgent(streamName: string, agent: SubAgent): void {
-	const feed = store.feeds.get(streamName);
+export function updateSubAgent(groupName: string, agent: SubAgent): void {
+	const feed = store.feeds.get(groupName);
 	if (!feed) return;
 	feed.subagents.set(agent.taskId, agent);
 	notify();
 }
 
-export function setSelectedStream(streamName: string): void {
-	store.selectedStream = streamName;
-	notify();
-}
-
-/** @deprecated Use setSelectedStream instead */
-export function setSelectedStory(storyId: string): void {
-	store.selectedStream = storyId;
+export function setSelectedGroup(groupName: string): void {
+	store.selectedGroup = groupName;
 	notify();
 }
 

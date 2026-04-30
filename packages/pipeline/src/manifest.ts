@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { parse } from "yaml";
-import type { Story } from "./types.js";
+import type { Complexity, Story } from "./types.js";
 
 /**
  * Canonical path of the work-package manifest, relative to the repository root.
@@ -19,7 +19,19 @@ interface RawManifest {
 		title: string;
 		track: string;
 		depends: string[];
+		complexity?: string;
 	}>;
+}
+
+// @lore complexity is optional in the manifest; missing entries default to "M"
+// (solo agent, same shape as the pre-grouping behavior). New stories created
+// via /work-planning must specify it. S = batchable, M/L = solo.
+const DEFAULT_COMPLEXITY: Complexity = "M";
+
+function parseComplexity(raw: string | undefined, storyId: string): Complexity {
+	if (raw === undefined) return DEFAULT_COMPLEXITY;
+	if (raw === "S" || raw === "M" || raw === "L") return raw;
+	throw new Error(`Story ${storyId} has invalid complexity ${JSON.stringify(raw)}; expected S|M|L`);
 }
 
 export function loadManifest(path: string): Story[] {
@@ -29,6 +41,7 @@ export function loadManifest(path: string): Story[] {
 		id: s.id,
 		title: s.title,
 		track: s.track,
+		complexity: parseComplexity(s.complexity, s.id),
 		dependencies: s.depends,
 	}));
 }
