@@ -1,6 +1,6 @@
 ---
 name: concept
-description: "Aggregate pre-implementation pipeline: probe the concept, then run /design + /design-critique + /architecture + /architecture-critique. Produces concept-doc in docs/concept/, approved design in docs/design-explorations/, and a critiqued plan ready for /write-tests. Run as the entry point on any story that introduces or reshapes a primitive, a domain concept, or a load-bearing noun in the system."
+description: "Aggregate pre-implementation pipeline: probe the concept, Run as the entry point on any story that introduces or reshapes a primitive, a domain concept, or a load-bearing noun in the system."
 argument-hint: "[story-id-or-concept-name]"
 user-invocable: true
 ---
@@ -8,8 +8,6 @@ user-invocable: true
 # Concept
 
 **Why:** Before `/design` decides what the user sees and `/architecture` decides the technical shape, there's an even more upstream question: **what is this thing?** Get the concept wrong and downstream variants explore the wrong space — the design is for the wrong object, the architecture commits to the wrong contracts, and every later skill papers over the original confusion.
-
-This skill is the **aggregate pre-implementation phase**, the mirror of `/implement` for the build phase. Phases 0-6 lock the concept; phases 7-10 invoke `/design`, `/design-critique`, `/architecture`, and `/architecture-critique` so the entire chain produces a single coherent output ready for `/write-tests`. The pipeline runs each sub-skill discretely as its own step; `/concept` is the convenience wrapper for manual use.
 
 This is the layer where:
 - **Thread** is distinguished from Message and Conversation
@@ -147,65 +145,18 @@ Spawn an **adversary agent** to challenge the concept (NOT the downstream design
 
 Address critical issues. Max 1 round.
 
-The concept is now **locked**. Phases 7-10 invoke the downstream skills with the concept as fixed input — they explore *inside* the concept, never reshape it.
-
-## Phase 7 — `/design` (skip when no UI surface)
-
-Invoke `/design $ARGUMENTS`. The skill spawns three parallel `designer` sub-agents under different constraints, each producing an embodied HTML mockup + screenshot, runs `/design-critique` per variant, and synthesises into `docs/design-explorations/<id>/approved.md`.
-
-The concept doc (Phase 5 output) is the fixed input. Variants explore *visual / interaction shape*; they do not redefine what the noun IS.
-
-**Skip when** the story has no user-facing surface — pure backend / schema / infra / concept-doc-only. Concept-only stories (e.g. TRACK-L L4 Cost+Tokens reshape, L5 Knowledge relevance) end at Phase 6 plus a thin Phase 9 architecture pass for the typed exports SHARED.md needs.
-
-If invoked, Phase 7 must produce `approved.md` before proceeding.
-
-## Phase 8 — `/design-critique` on the approved design
-
-Invoke `/design-critique` against the approved design from Phase 7. Score must reach ≥7 across the nine-dimension rubric (visual hierarchy, spacing & density, typography, color, component coherence, states & feedback, accessibility, anti-slop, premium polish). Iterate within the critique loop's max 4 iterations.
-
-If the score plateaus below 7, that's a Phase 7 problem — the variants didn't span the right space. Surface and either re-run Phase 7 with new constraints or escalate to the founder.
-
-**Skip when** Phase 7 was skipped.
-
-## Phase 9 — `/architecture`
-
-Invoke `/architecture $ARGUMENTS`. The architect interrogates the spec one-question-at-a-time (Phase 0 of `/architecture`), reconciles spec ⇆ codebase (Phase 1), produces acceptance criteria + ordered task list + type signatures + route checklist + security & abuse cases + protected tests (Phase 2), runs design-it-twice on non-trivial sub-decisions (Phase 3), and challenges with the adversary (Phase 4).
-
-Fixed inputs at this phase:
-- The concept doc (Phase 5 output)
-- The approved design from Phase 7 if UI is in scope
-
-The architect does NOT redefine the concept or the visual contract; they *plan within them*.
-
-## Phase 10 — `/architecture-critique` on the plan
-
-Invoke `/architecture-critique`. Score the plan against the nine-dimension architectural rubric (spec alignment, layer integrity, API contracts, data model alignment, naming, module depth, failure-mode coverage, simplicity, verifiability). Iterate fixes IN THE PLAN until score ≥7 or 3 rounds reached.
-
-If after 3 rounds the score still won't cross 7, the **concept** may be the problem — surface and consider returning to Phase 0 with a sharper concept brief.
+The concept is now **locked**. The downstream skills with the concept as fixed input — they explore *inside* the concept, never reshape it.
 
 ## Output of `/concept` end-to-end
 
 ```
 docs/concept/<noun>.md              # Phase 5 output (or updated existing doc)
 docs/work-packages/SHARED.md         # Phase 5 may add a "Shared Contracts" entry
-docs/design-explorations/<id>/       # Phase 7 output (when UI is in scope)
-  ├── brief.md
-  ├── <variant-a>/{spec.md, mockup.html, screenshot.png}
-  ├── <variant-b>/{spec.md, mockup.html, screenshot.png}
-  ├── <variant-c>/{spec.md, mockup.html, screenshot.png}
-  ├── comparison.md
-  ├── synthesis.md
-  └── approved.md                    # design-critique score ≥7
-TaskCreate plan                       # Phase 9 + Phase 10 — architecture-critique score ≥7
 ```
-
-The plan from Phase 9-10 is the input to `/write-tests` (`/implement` step 1). At this point every load-bearing decision is locked: what the noun IS, how it looks, how it's typed.
 
 ## What this skill does NOT do
 
-- It does not write tests or code. That's `/implement` (or `/write-tests` + `/write-code` discretely).
-- It does not pick a colour, a font, or a copy register beyond what `/design` settles on.
-- It does not lock implementation choices that can be changed without changing the concept (e.g. SQLite vs PostgreSQL — a contract is "the schema is dual-driver", not "use SQLite").
+- It does not design, define an architecture or write tests or code. That's `/design`, `/architecture`, `/implement`.
 
 Concepts are the part that is *expensive to change*; they ripple through every downstream variant in design and every contract in architecture. Get them right, then let design and architecture explore freely within them.
 
@@ -222,5 +173,4 @@ Concepts are the part that is *expensive to change*; they ripple through every d
 
 - `/design` — consumes the concept as the fixed input; explores how the user perceives and interacts with it.
 - `/architecture` — consumes the concept and the design; produces the technical plan that respects the contracts.
-- `/architecture-critique` Dimension 1 (Spec Alignment) and Dimension 5 (Naming) audit whether the plan respects the concept; misalignments score against the plan, not against the concept.
 - `/lore` — for *local* decisions inside an implementation file. Concept-level decisions live in `docs/concept/`, not in `@lore` comments.

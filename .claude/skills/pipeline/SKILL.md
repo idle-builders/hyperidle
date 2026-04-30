@@ -9,23 +9,35 @@ user-invocable: true
 
 Target: **$ARGUMENTS**
 
-You are autonomous. There is NO human. Never pause, never ask, never stop until every story is done or blocked.
+You are autonomous. There is NO human. Never pause, never ask, never stop until every story you were given is done or blocked.
 
-**NEVER end your turn without a tool call** unless all stories are done/blocked.
-
----
-
-## Setup
-
-1. Determine the track from the story IDs (e.g., A3 → Track A). Read `docs/work-packages/TRACK-<letter>.md` for the stories and `docs/work-packages/SHARED.md` for the dependency graph.
-2. Read or create `.pipeline/progress.json` — skip `done` stories, resume `in_progress` from `currentStep`.
-3. Record session start time.
+**NEVER end your turn without a tool call** unless every story you were given is done/blocked.
 
 ---
 
-## For each story (in dependency order):
+## What you own
 
-Check dependencies are `done`. If not, skip to next. If none ready, exit.
+The scheduler invokes you with **one or more story IDs**. The argument is either:
+
+- **A single ID** (e.g. `L7`) — a solo Medium- or Large-complexity story. Do this one and finish.
+- **Multiple IDs from the same track** (e.g. `A2 A3 A5`) — a batched group of Small-complexity stories. The scheduler has already verified they share a track and have no inter-dependencies, so you may do them in any order.
+
+Cross-track or cross-complexity batches are NEVER dispatched. If you receive a mixed group, treat it as a scheduler bug: mark every story `blocked` with reason `mixed-batch` and exit.
+
+**State contract — non-negotiable.** You own exactly `.pipeline/progress/<id>.json` for **each ID in $ARGUMENTS, and no others**.
+
+- Read `.pipeline/progress/<id>.json` to resume (skip if `status: done`, resume `in_progress` from `currentStep`).
+- Write `.pipeline/progress/<id>.json` after every status/step change for that story.
+- NEVER read or write progress files for IDs you weren't given. Other agents own those.
+- The legacy `.pipeline/progress.json` is gone — do not create it.
+
+`docs/work-packages/TRACK-<letter>.md` and `docs/work-packages/SHARED.md` remain your reference for spec and dependency graph.
+
+Record session start time.
+
+---
+
+## For each story (any order within a batched group, sequential within yours):
 
 Set status to `in_progress`. Create worktree:
 ```
@@ -43,6 +55,7 @@ Then execute these steps. **Each step spawns an agent with a skill. Update `curr
 
 | Step | Agent | Skill | Why |
 |------|-------|-------|-----|
+| 0 | - | `/concept` | **what is this thing?**. Make sure the concept of what we are working on is well defined. |
 | 1 | designer | `/design <id>` | Multi-variant UX/UI exploration. Three parallel sub-agents under different constraints, embodied HTML mockups + screenshots, `/design-critique` per variant, synthesis → `docs/design-explorations/<id>/approved.md`. **Skip when the story has no UI surface.** Operates *inside* the concept already locked upstream; does not redefine it. |
 | 2 | designer | `/design-critique` | Score the approved design against the nine-dimension rubric. Iterate until score ≥7 or 4 iterations reached. Skip when step 1 was skipped. |
 | 3 | architect | `/architecture <id>` | Produce the technical plan — types, schemas, routes, file paths, ordered tasks, security & abuse cases, route checklist, protected tests, plan reconciliation. Architect interrogates one-question-at-a-time. Consumes the concept doc + approved design as fixed inputs. **If the spec enumerates a route list, the plan output MUST include a `route-checklist:` block listing every route + every file the guard/middleware must cover.** Recurrence: L7 retro PROPOSED-L7-B. |
@@ -79,7 +92,7 @@ After step 17: set status to `done`. Move to next story.
 - After each story, check elapsed time. If > 45 minutes, save progress and exit.
 - If context degrades (compaction), finish current story and exit.
 - Max 3 attempts per story. After 3, mark `blocked`.
-- Progress file is the checkpoint. Write it after every status/step change.
+- `.pipeline/progress/<id>.json` is the checkpoint for each story you own. Write it after every status/step change. Touch only files for the IDs in $ARGUMENTS — never anyone else's.
 
 **Don't rationalize skipping steps:**
 - "Concept work isn't done but I'll figure it out" → no. The pipeline does not perform `/concept`. If concept work is missing for a New / Reshaped noun, fail fast with `blocked: concept-missing`; the founder runs `/concept` upstream.
