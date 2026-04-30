@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>ArtifactStackItem — HyperIdle Design System</title>
+  <link rel="stylesheet" href="_tokens.css" />
+  <style>
+    body { background: var(--surface-2); color: var(--text-hi); font-family: var(--ui); padding: 24px; display: flex; flex-direction: column; }
+    .artifact-stack-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      height: 44px;
+      padding: 0 12px;
+      cursor: pointer;
+    }
+    .artifact-stack-item:hover { background: var(--surface-4); }
+    .stack-left { display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0; }
+    .stack-task { font-family: var(--mono); font-size: 11px; color: var(--text-mid); max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .stack-title { font-size: 14px; font-weight: 500; color: var(--text-hi); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .stack-right { display: flex; align-items: center; gap: 8px; font-family: var(--mono); font-size: 11px; color: var(--text-mid); }
+    .thread-pill { background: var(--surface-ghost); color: var(--text-mid); border-radius: var(--r-pill); padding: 1px 6px; }
+    .sep { color: var(--text-lo); }
+    .artifact-kind-badge { display: inline-flex; padding: 2px 8px; border-radius: var(--r2); background: var(--surface-ghost); color: var(--text-mid); font-family: var(--mono); font-size: 11px; letter-spacing: 0.02em; text-transform: uppercase; }
+  </style>
+</head>
+<body>
+  <div class="artifact-stack-item" data-component="ArtifactStackItem" data-tier="2">
+    <div class="stack-left">
+      <span class="artifact-kind-badge">CODE DIFF</span>
+      <span class="stack-task">Implement auth flow</span>
+      <span class="stack-title">src/auth/jwt-middleware.ts</span>
+    </div>
+    <div class="stack-right">
+      <span class="thread-pill">3</span>
+      <span>$0.42</span>
+      <span class="sep">·</span>
+      <span>12 min ago</span>
+    </div>
+  </div>
+  <div class="artifact-stack-item" data-component="ArtifactStackItem" data-tier="2">
+    <div class="stack-left">
+      <span class="artifact-kind-badge">DECISION</span>
+      <span class="stack-task">Pick auth library</span>
+      <span class="stack-title">Adopt Hono JWT — ships native, no extra dep</span>
+    </div>
+    <div class="stack-right">
+      <span>—</span>
+      <span class="sep">·</span>
+      <span>1 hr ago</span>
+    </div>
+  </div>
+</body>
+</html>

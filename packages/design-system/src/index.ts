@@ -1,5 +1,22 @@
 // @hyperidle/design-system — barrel export
 
+// ── Artifact view family (closed: 4 sub-primitives + 4 layouts; L3) ──
+export type { ArtifactCostChipProps } from "./ArtifactCostChip.js";
+export { ArtifactCostChip } from "./ArtifactCostChip.js";
+export type { ArtifactEmbedProps } from "./ArtifactEmbed.js";
+export { ArtifactEmbed } from "./ArtifactEmbed.js";
+export type { ArtifactGalleryCardProps } from "./ArtifactGalleryCard.js";
+export { ArtifactGalleryCard } from "./ArtifactGalleryCard.js";
+export type { ArtifactKindBadgeProps } from "./ArtifactKindBadge.js";
+export { ArtifactKindBadge } from "./ArtifactKindBadge.js";
+export type { ArtifactPreviewProps } from "./ArtifactPreview.js";
+export { ArtifactPreview } from "./ArtifactPreview.js";
+export type { ArtifactPreviewSurfaceProps } from "./ArtifactPreviewSurface.js";
+export { ArtifactPreviewSurface } from "./ArtifactPreviewSurface.js";
+export type { ArtifactStackItemProps } from "./ArtifactStackItem.js";
+export { ArtifactStackItem } from "./ArtifactStackItem.js";
+export type { ArtifactTimestampProps } from "./ArtifactTimestamp.js";
+export { ArtifactTimestamp } from "./ArtifactTimestamp.js";
 export type { BetCardLeadAvatar, BetCardProps } from "./BetCard.js";
 export { BetCard } from "./BetCard.js";
 // ── Tier 2: Block primitive (L2) ──

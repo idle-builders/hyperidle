@@ -38,14 +38,19 @@ export const VERDICT_DECISIONS = [
 ] as const;
 export type VerdictDecision = (typeof VERDICT_DECISIONS)[number];
 
-export const ARTIFACT_KINDS = [
+// The 5 ArtifactView renderer shapes (per SHARED.md "Shared Contracts").
+// Distinct from the L3 Artifact primitive's `kind` (function-agnostic type
+// label). These describe HOW a review-message embed renders its preview;
+// they are a sub-vocabulary inside the L3 review_message_embed layout, not
+// the primitive itself. See HUMAN_INTERFACE_LAYER.md §4.7.
+export const ARTIFACT_VIEW_SHAPES = [
 	"text_diff",
 	"content_preview",
 	"visual_comparison",
 	"action_summary",
 	"data_metrics",
 ] as const;
-export type ArtifactKind = (typeof ARTIFACT_KINDS)[number];
+export type ArtifactViewShape = (typeof ARTIFACT_VIEW_SHAPES)[number];
 
 // ── Identity ────────────────────────────────────────────────────
 
@@ -79,7 +84,7 @@ export interface InlineRef {
 
 export interface ArtifactRef {
 	readonly id: string;
-	readonly kind: ArtifactKind;
+	readonly kind: ArtifactViewShape;
 }
 
 export interface PlainPayload {

@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ArtifactCostChip — HyperIdle Design System</title>
+  <link rel="stylesheet" href="_tokens.css" />
+  <style>
+    body { background: var(--surface-1); color: var(--text-hi); font-family: var(--ui); padding: 24px; display: flex; gap: 12px; }
+    .artifact-cost-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--text-mid);
+      font-variant-numeric: tabular-nums;
+    }
+    .artifact-cost-chip .sep { color: var(--text-lo); }
+  </style>
+</head>
+<body>
+  <span class="artifact-cost-chip" data-component="ArtifactCostChip" data-tier="1">$0.42<span class="sep">·</span>12.4k</span>
+  <span class="artifact-cost-chip" data-component="ArtifactCostChip" data-tier="1">—</span>
+  <span class="artifact-cost-chip" data-component="ArtifactCostChip" data-tier="1">$0.42</span>
+</body>
+</html>

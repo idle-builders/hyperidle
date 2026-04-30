@@ -1,4 +1,5 @@
 import {
+	bigint,
 	boolean,
 	index,
 	integer,
@@ -386,6 +387,33 @@ export const fileLeases = pgTable("file_leases", {
 	releasedAt: text("released_at"),
 });
 
+// --- Artifacts (L3) ---
+
+export const artifacts = pgTable(
+	"artifacts",
+	{
+		id: text("id").primaryKey(),
+		producingTaskId: text("producing_task_id")
+			.notNull()
+			.references(() => tasks.id, { onDelete: "restrict" }),
+		kind: text("kind").notNull(),
+		previewJson: text("preview_json"),
+		// L3 review fix Sec-INFO-1: cost columns must be bigint. PG `integer`
+		// overflows at ~$2.1k of micros (2^31-1 / 1e6 ≈ $2147). SQLite remains
+		// `integer` (SQLite ints are 64-bit by default). Drizzle bigint with
+		// `mode: 'number'` keeps the JS-side type identical to SQLite's.
+		costMoneyMicros: bigint("cost_money_micros", { mode: "number" }),
+		costTokensInput: bigint("cost_tokens_input", { mode: "number" }),
+		costTokensOutput: bigint("cost_tokens_output", { mode: "number" }),
+		costSettledAt: text("cost_settled_at"),
+		createdAt: text("created_at").notNull(),
+	},
+	(table) => [
+		index("artifacts_producing_task_id_idx").on(table.producingTaskId),
+		index("artifacts_created_at_idx").on(table.createdAt),
+	],
+);
+
 // --- Inferred types ---
 
 export type Product = typeof products.$inferSelect;
@@ -438,3 +466,6 @@ export type NewKnowledgeConflict = typeof knowledgeConflicts.$inferInsert;
 
 export type NotificationQueueRow = typeof notificationQueue.$inferSelect;
 export type NewNotificationQueueRow = typeof notificationQueue.$inferInsert;
+
+export type ArtifactRow = typeof artifacts.$inferSelect;
+export type NewArtifactRow = typeof artifacts.$inferInsert;
