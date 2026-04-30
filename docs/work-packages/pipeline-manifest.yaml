@@ -321,115 +321,144 @@ stories:
     title: Thread primitive (concept + shared implementation, DS quality)
     track: L
     depends: []
+    complexity: L
   - id: L2
     title: Block primitive (concept + shared implementation, DS quality)
     track: L
     depends: []
+    complexity: L
   - id: L3
     title: Artifact primitive (concept + shared implementation, DS quality)
     track: L
     depends: []
+    complexity: L
   - id: L4
     title: Concept — Cost & Tokens (no Duration) appetite model
     track: L
     depends: []
+    complexity: S
   - id: L5
     title: Concept — Knowledge relevance signals (citation-driven impact)
     track: L
     depends: []
+    complexity: S
   - id: L6
     title: Hardcoded-data inventory (research)
     track: L
     depends: []
+    complexity: M
   - id: L7
     title: Thread response unblocks the agent
     track: L
     depends: []
+    complexity: M
   - id: L8
     title: Render thread sections in Conversations Submenu
     track: L
     depends: [L1]
+    complexity: M
   - id: L9
     title: Collapse review/chat to one detail route
     track: L
     depends: [L1]
+    complexity: M
   - id: L10
     title: Submenu filter chips actually filter
     track: L
     depends: [L8]
+    complexity: S
   - id: L11
     title: Render rich messages inline; remove the ThreadActionBar abstraction
     track: L
     depends: [L1, L3]
+    complexity: M
   - id: L12
     title: Artifact view family across Work surfaces
     track: L
     depends: [L3, L13]
+    complexity: M
   - id: L13
     title: Add Product=Team level (drill-down hierarchy)
     track: L
     depends: []
+    complexity: L
   - id: L14
     title: Bet-level human actions with consequence preview
     track: L
     depends: [L4]
+    complexity: L
   - id: L15
     title: Strip Kanban drag; add request-state-change + start-thread
     track: L
     depends: [L1]
+    complexity: M
   - id: L16
     title: Render bet pitch as blocks-in-markdown
     track: L
     depends: [L2]
+    complexity: S
   - id: L17
     title: Cost + Tokens model wired into Work
     track: L
     depends: [L4]
+    complexity: M
   - id: L18
     title: Thread primitive attached to bets, tasks, knowledge, and artifacts
     track: L
     depends: [L1, L3, L16]
+    complexity: M
   - id: L19
     title: Harness jump-out from session metadata
     track: L
     depends: []
+    complexity: S
   - id: L20
     title: Lifecycle propagation across the 5 levels
     track: L
     depends: [L14, L17]
+    complexity: M
   - id: L21
     title: CoC create-on-the-fly (bottom-right rail overlay thread)
     track: L
     depends: [L1]
+    complexity: M
   - id: L22
     title: Three relevance signals as first-class data
     track: L
     depends: [L5]
+    complexity: L
   - id: L23
     title: Blocks-in-markdown body renderer (Knowledge)
     track: L
     depends: [L2]
+    complexity: M
   - id: L24
     title: Linking primitive (wiki-link + backlinks) — deferred
     track: L
     depends: [L23]
+    complexity: M
   - id: L25
     title: Knowledge-item actions — manage vs edit
     track: L
     depends: []
+    complexity: M
   - id: L26
     title: Per-block discussion on Knowledge
     track: L
     depends: [L1, L23]
+    complexity: L
   - id: L27
     title: Knowledge-lifecycle status (not Work-status chips)
     track: L
     depends: []
+    complexity: S
   - id: L28
     title: Knowledge shape differentiation (layered, not orthogonal)
     track: L
     depends: []
+    complexity: M
   - id: L29
     title: Final sweep — hardcoded data + test coverage gap
     track: L
     depends: [L6, L7, L8, L9, L10, L11, L12, L13, L14, L15, L16, L17, L18, L19, L20, L21, L22, L23, L24, L25, L26, L27, L28]
+    complexity: L
