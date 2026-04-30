@@ -32,7 +32,7 @@ import type {
 	ThreadResolvedEvent,
 } from "@hyperidle/shared";
 import { API_ERROR_CODES, headCollapsePredicate } from "@hyperidle/shared";
-import { and, desc, eq, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import { Hono } from "hono";
 import type { ZodError } from "zod";
 import { escapeLikePattern } from "../services/like-escape.js";
@@ -144,6 +144,13 @@ export function createThreadRoutes(db: HyperIdleDb, eventBus: EventBus): Hono {
 	const router = new Hono();
 
 	// --- GET /api/threads ---------------------------------------------------
+	// @lore L8 security review (HIGH-1, HIGH-2): the `participant_id` query
+	// param is NOT verified against the authenticated identity. A holder of
+	// a valid API key can call `?participant_id=<other>` and read another
+	// founder's threads (IDOR). This is inherited from L1a's "API-key holder
+	// is implicit sender" model and is explicitly out of L8's scope. The
+	// fix lives in the auth-middleware story; tracked in
+	// docs/work-packages/follow-ups.md (`auth-middleware-participant-scope`).
 	router.get("/", (c) => {
 		const parsed = listThreadsQuerySchema.safeParse({
 			host_kind: c.req.query("host_kind"),
@@ -208,8 +215,33 @@ export function createThreadRoutes(db: HyperIdleDb, eventBus: EventBus): Hono {
 				});
 		}
 
+		// L8 §3.1: extend list response with `hasUnresolvedReview` per row.
+		// Single batched messages query: any unresolved `review`/`questionnaire`
+		// message in the thread sets the flag.
+		const threadIds = rows.map((r) => r.id);
+		const unresolvedThreadIds = new Set<string>();
+		if (threadIds.length > 0) {
+			const unresolvedRows = db
+				.select({ threadId: messages.threadId })
+				.from(messages)
+				.where(
+					and(
+						inArray(messages.threadId, threadIds),
+						inArray(messages.type, ["review", "questionnaire"]),
+						sql`${messages.resolvedAt} IS NULL`,
+					),
+				)
+				.all();
+			for (const r of unresolvedRows) {
+				unresolvedThreadIds.add(r.threadId);
+			}
+		}
+
 		return c.json({
-			threads: rows.map(rowToThread),
+			threads: rows.map((r) => ({
+				...rowToThread(r),
+				hasUnresolvedReview: unresolvedThreadIds.has(r.id),
+			})),
 			nextCursor: null,
 		});
 	});

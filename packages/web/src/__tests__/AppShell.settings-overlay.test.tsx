@@ -36,7 +36,15 @@ describe("AppShell — Settings overlay + Command-K priority (J3)", () => {
 	beforeEach(() => {
 		global.fetch = vi.fn().mockResolvedValue({
 			ok: true,
-			json: () => Promise.resolve({ conversations: [], work: [], knowledge: [] }),
+			json: () =>
+				// L8: include `threads` for the Conversations Submenu hook.
+				Promise.resolve({
+					conversations: [],
+					work: [],
+					knowledge: [],
+					threads: [],
+					nextCursor: null,
+				}),
 		}) as typeof fetch;
 	});
 

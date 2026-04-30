@@ -1,7 +1,19 @@
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { createMemoryRouter, RouterProvider } from "react-router-dom";
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+beforeEach(() => {
+	// L8: AppShell fetches /api/threads on mount.
+	const existing = global.fetch as unknown;
+	if (typeof existing !== "function" || !("mock" in (existing as object))) {
+		global.fetch = vi.fn(async () => ({
+			ok: true,
+			json: async () => ({ threads: [], nextCursor: null }),
+		})) as unknown as typeof fetch;
+	}
+});
+
 import { AppShell } from "../layouts/AppShell";
 import { KnowledgeList } from "../pages/KnowledgeList";
 

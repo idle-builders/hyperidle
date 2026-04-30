@@ -17,6 +17,8 @@
 import { EmptyState, ErrorState, SkeletonList, ThreadShell } from "@hyperidle/design-system";
 import type { Message, Thread } from "@hyperidle/shared";
 import { type JSX, useCallback, useEffect, useState } from "react";
+import { useOutletContext } from "react-router-dom";
+import type { AppShellOutletContext } from "../layouts/AppShell";
 
 interface ThreadDetail {
 	thread: Thread;
@@ -76,33 +78,48 @@ export function ConversationsReview(): JSX.Element {
 	const [error, setError] = useState<string | null>(null);
 	const [threadId, setThreadId] = useState<string | null>(null);
 
+	// @lore L8 review (Architecture C2 / Adversary B1): the lifted selection
+	// state reaches us through Outlet context. We prefer it when set, and
+	// fall back to the legacy `?id=` URL param for deep-links until L9
+	// collapses the duality.
+	const outletContext = useOutletContext<AppShellOutletContext | undefined>();
+	const liftedThreadId = outletContext?.selectedThreadId ?? null;
+
 	useEffect(() => {
-		const id = new URLSearchParams(window.location.search).get("id");
+		const urlId = new URLSearchParams(window.location.search).get("id");
+		const id = liftedThreadId ?? urlId;
 		setThreadId(id);
 		if (!id) {
+			setDetail(null);
+			setError(null);
 			setLoading(false);
 			return;
 		}
+		setLoading(true);
+		setError(null);
 		const ac = new AbortController();
 		(async (): Promise<void> => {
 			try {
 				const res = await fetch(`/api/threads/${id}`, { signal: ac.signal });
+				if (ac.signal.aborted) return;
 				if (!res.ok) {
 					setError(res.status === 404 ? "Thread not found" : `HTTP ${res.status}`);
 					setLoading(false);
 					return;
 				}
 				const body = decodeThreadDetail(await res.json());
+				if (ac.signal.aborted) return;
 				setDetail(body);
 				setLoading(false);
 			} catch (cause) {
+				if (ac.signal.aborted) return;
 				if (cause instanceof Error && cause.name === "AbortError") return;
 				setError(cause instanceof Error ? cause.message : "Network error");
 				setLoading(false);
 			}
 		})();
 		return () => ac.abort();
-	}, []);
+	}, [liftedThreadId]);
 
 	const onAppend = useCallback(
 		async (input: { type: string; payload: unknown; clientKey: string }): Promise<void> => {

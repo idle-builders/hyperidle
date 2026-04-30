@@ -116,4 +116,40 @@ describe("ThreadRow", () => {
 		render(<ThreadRow {...defaultProps} />);
 		expect(screen.getByLabelText("Thread: Deploy pipeline stuck")).toBeInTheDocument();
 	});
+
+	// L8 — selected / pinned / hostTag props
+	it("applies aria-current='true' when selected", () => {
+		const { container } = render(<ThreadRow {...defaultProps} selected={true} />);
+		const root = container.firstElementChild;
+		expect(root).toHaveAttribute("aria-current", "true");
+	});
+
+	it("does not apply aria-current when not selected", () => {
+		const { container } = render(<ThreadRow {...defaultProps} />);
+		const root = container.firstElementChild;
+		expect(root).not.toHaveAttribute("aria-current");
+	});
+
+	it("renders the pin glyph when pinned is true", () => {
+		render(<ThreadRow {...defaultProps} pinned={true} />);
+		expect(screen.getByLabelText("Pinned")).toBeInTheDocument();
+	});
+
+	it("does not render the pin glyph when pinned is false", () => {
+		render(<ThreadRow {...defaultProps} pinned={false} />);
+		expect(screen.queryByLabelText("Pinned")).toBeNull();
+	});
+
+	it("renders the host tag pill when hostTag is provided", () => {
+		render(<ThreadRow {...defaultProps} hostTag="bet" />);
+		expect(screen.getByText("bet")).toBeInTheDocument();
+	});
+
+	it("selected state stacks with blocking — primary border-left wins", () => {
+		const { container } = render(<ThreadRow {...defaultProps} blocking={true} selected={true} />);
+		const root = container.firstElementChild;
+		// Selected applies a primary border-left; blocking applies a danger border-left.
+		// When both are true, the selected primary border must win.
+		expect(root?.className).toContain("border-[var(--primary)]");
+	});
 });

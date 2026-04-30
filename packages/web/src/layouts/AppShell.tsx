@@ -11,6 +11,7 @@ import { ErrorBoundary } from "../components/ErrorBoundary";
 import { GlobalSearchPanel } from "../components/GlobalSearchPanel";
 import type { SettingsData } from "../components/SettingsPanel";
 import { SettingsPanel } from "../components/SettingsPanel";
+import { ThreadSections } from "../components/ThreadSections";
 import {
 	DEFAULT_SETTINGS,
 	MOCK_RAIL_BETS,
@@ -20,6 +21,7 @@ import {
 import { topicsForScope } from "../fixtures/knowledge-data";
 import { useAutoDensity } from "../hooks/useAutoDensity";
 import { useCommandK } from "../hooks/useCommandK";
+import { useConversationsThreads } from "../hooks/useConversationsThreads";
 import { useTheme } from "../hooks/useTheme";
 import { useViewportBreakpoint } from "../hooks/useViewportBreakpoint";
 import { IconRail } from "../shell/IconRail";
@@ -28,18 +30,27 @@ import type { SubmenuFilter, SubmenuFilterOption } from "../shell/Submenu";
 import { Submenu } from "../shell/Submenu";
 import type { ViewId } from "../shell/shell-types";
 
+/**
+ * Outlet context surfaced by AppShell to its children. Read by
+ * `ConversationsReview` (and any future thread-aware page) via
+ * `useOutletContext<AppShellOutletContext>()`.
+ */
+export interface AppShellOutletContext {
+	selectedThreadId: string | null;
+}
+
 interface SubmenuConfig {
 	title: string;
 	items: Array<{ label: string; path: string; count?: number }>;
 }
 
 const SUBMENU_CONFIG: Record<ViewId, SubmenuConfig> = {
+	// L8: the conversations submenu is now driven by the live thread list
+	// (`useConversationsThreads`). The static Review Queue / Chat entries +
+	// hardcoded counts are removed per TRACK-L L8 ACs.
 	conversations: {
 		title: "Conversations",
-		items: [
-			{ label: "Review Queue", path: "/conversations/review", count: 3 },
-			{ label: "Chat", path: "/conversations/chat", count: 1 },
-		],
+		items: [],
 	},
 	work: {
 		title: "Work",
@@ -74,6 +85,9 @@ const SUBMENU_FILTERS: Record<ViewId, ReadonlyArray<SubmenuFilterOption>> = {
 	],
 	work: [],
 };
+
+/** @lore L8: demo seed founder id; replaced with auth-context user id once auth lands. */
+const DEMO_FOUNDER_ID = "u-founder";
 
 function deriveViewFromPath(pathname: string): ViewId {
 	if (pathname.startsWith("/work")) return "work";
@@ -267,6 +281,12 @@ export function AppShell(): JSX.Element {
 
 	const handleViewChange = useCallback(
 		(view: ViewId): void => {
+			// L8: conversations has no static submenu items (the live thread list
+			// is the submenu body). Fall back to the review queue route.
+			if (view === "conversations") {
+				navigate("/conversations/review");
+				return;
+			}
 			const config = SUBMENU_CONFIG[view];
 			if (config.items.length > 0) {
 				navigate(config.items[0].path);
@@ -359,12 +379,30 @@ export function AppShell(): JSX.Element {
 		return out;
 	}, []);
 
-	const submenuTotalCount = useMemo(
-		() => submenuConfig.items.reduce((acc, item) => acc + (item.count ?? 0), 0),
-		[submenuConfig],
-	);
+	// L8 §3.6: live thread list for the Conversations Submenu (declared
+	// before submenuTotalCount + selectedThreadId because both reference it).
+	// @lore L8: participant id is hardcoded to the demo seed founder until
+	// real auth lands. Replace with the auth-context user id when that story
+	// ships; this is the single call site.
+	const conversationsThreads = useConversationsThreads(DEMO_FOUNDER_ID);
+
+	const submenuTotalCount = useMemo(() => {
+		// L8: conversations count derives from the live thread list (never a
+		// literal). Other views keep the static SUBMENU_CONFIG sum.
+		if (activeView === "conversations") {
+			return conversationsThreads.threads.length;
+		}
+		return submenuConfig.items.reduce((acc, item) => acc + (item.count ?? 0), 0);
+	}, [activeView, conversationsThreads.threads, submenuConfig]);
 	const submenuFilters = SUBMENU_FILTERS[activeView];
 	const [submenuFilter, setSubmenuFilter] = useState<SubmenuFilter>("all");
+	// L8 §3.5: lifted-selection state for the Conversations Submenu thread
+	// list. Click on a thread row updates this id; the URL is left alone
+	// (deep-link route collapse is L9's scope).
+	const [selectedThreadId, setSelectedThreadId] = useState<string | null>(null);
+	const handleSelectThread = useCallback((id: string): void => {
+		setSelectedThreadId(id);
+	}, []);
 	// AC 64: reset filter to "all" on view change. The view id is referenced in
 	// the body so Biome's useExhaustiveDependencies rule is satisfied while
 	// preserving the intended "run on view change" semantics.
@@ -440,6 +478,27 @@ export function AppShell(): JSX.Element {
 							topics={knowledgeTopics}
 							onScopeChange={handleScopeChange}
 						/>
+					) : activeView === "conversations" ? (
+						// @lore L8 review (Architecture M2 / Security LOW-2):
+						// `submenuFilter` is captured but intentionally NOT
+						// wired into the classifier here — chip-driven
+						// filtering (`needs-review`/`chats`/`resolved`) is
+						// L10's scope. Keeping the chip inert in L8 avoids
+						// shipping a half-built filter contract; the hook
+						// already returns the unfiltered set, so L10 can drop
+						// in its filter without changing this call site.
+						<ThreadSections
+							threads={conversationsThreads.threads}
+							selectedId={selectedThreadId}
+							onSelect={handleSelectThread}
+							loading={conversationsThreads.status === "loading"}
+							errorMessage={
+								conversationsThreads.status === "error"
+									? (conversationsThreads.error ?? "Network error")
+									: null
+							}
+							onRetry={conversationsThreads.retry}
+						/>
 					) : (
 						<ul className="menu menu-sm">
 							{submenuConfig.items.map((item) => (
@@ -471,7 +530,19 @@ export function AppShell(): JSX.Element {
 					aria-hidden={shellDimmed || undefined}
 				>
 					<ErrorBoundary>
-						<Outlet />
+						{/* @lore L8 review (Architecture C2 / Adversary B1):
+						 * the lifted selected-thread id reaches the Main pane
+						 * via Outlet context. ConversationsReview consumes it
+						 * via `useOutletContext<AppShellOutletContext>()` and
+						 * prefers it over the legacy `?id=` URL param.
+						 */}
+						<Outlet
+							context={
+								{
+									selectedThreadId,
+								} satisfies AppShellOutletContext
+							}
+						/>
 					</ErrorBoundary>
 				</main>
 

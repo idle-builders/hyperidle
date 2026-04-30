@@ -6,27 +6,31 @@ export default { title: "ThreadSections", tier: "utility" as const };
 const AVATAR =
 	"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32'%3E%3Crect width='32' height='32' fill='%23374151'/%3E%3C/svg%3E";
 
+const NOW = Date.parse("2026-04-30T12:00:00Z");
+
 const SAMPLE: ThreadItem[] = [
-	{
-		id: "p1",
-		title: "Pinned cycle retro",
-		snippet: "Keep this on top",
-		timestamp: "pinned",
-		avatarUrl: AVATAR,
-		kind: "chat",
-		blocking: false,
-		pinned: true,
-	},
 	{
 		id: "b1",
 		title: "Blocking: prod outage review",
 		snippet: "Waiting on rollback verdict",
 		timestamp: "2m",
 		avatarUrl: AVATAR,
-		kind: "review",
+		hostKind: "task",
+		hasUnresolvedReview: true,
 		blocking: true,
 		pinned: false,
 		status: "blocked",
+	},
+	{
+		id: "p1",
+		title: "Chief of Staff — weekly",
+		snippet: "Pinned to the top",
+		timestamp: "1h",
+		avatarUrl: AVATAR,
+		hostKind: "user",
+		hasUnresolvedReview: false,
+		blocking: false,
+		pinned: true,
 	},
 	{
 		id: "r1",
@@ -34,7 +38,8 @@ const SAMPLE: ThreadItem[] = [
 		snippet: "Proofread before ship",
 		timestamp: "14m",
 		avatarUrl: AVATAR,
-		kind: "review",
+		hostKind: "task",
+		hasUnresolvedReview: true,
 		blocking: false,
 		pinned: false,
 	},
@@ -44,49 +49,45 @@ const SAMPLE: ThreadItem[] = [
 		snippet: "Daily notes",
 		timestamp: "1h",
 		avatarUrl: AVATAR,
-		kind: "chat",
+		hostKind: "task",
+		hasUnresolvedReview: false,
 		blocking: false,
 		pinned: false,
+	},
+	{
+		id: "res1",
+		title: "Mobile dark mode shipped",
+		snippet: "Resolved 2h ago",
+		timestamp: "2h",
+		avatarUrl: AVATAR,
+		hostKind: "task",
+		hasUnresolvedReview: false,
+		blocking: false,
+		pinned: false,
+		resolvedAt: new Date(NOW - 2 * 60 * 60 * 1000).toISOString(),
 	},
 ];
 
 export const Populated = (): React.JSX.Element => (
 	<div className="max-w-sm">
-		<ThreadSections threads={SAMPLE} />
+		<ThreadSections threads={SAMPLE} now={NOW} />
 	</div>
 );
 
 export const Empty = (): React.JSX.Element => (
 	<div className="max-w-sm">
-		<ThreadSections threads={[]} />
+		<ThreadSections threads={[]} now={NOW} />
 	</div>
 );
 
-export const BlockingOutranksKind = (): React.JSX.Element => (
+export const ActiveQuiet = (): React.JSX.Element => (
 	<div className="max-w-sm">
-		<ThreadSections
-			threads={[
-				{
-					id: "bc",
-					title: "Blocking chat wins over a plain review",
-					snippet: "...",
-					timestamp: "3m",
-					avatarUrl: AVATAR,
-					kind: "chat",
-					blocking: true,
-					pinned: false,
-				},
-				{
-					id: "r",
-					title: "Plain review lands below",
-					snippet: "...",
-					timestamp: "3m",
-					avatarUrl: AVATAR,
-					kind: "review",
-					blocking: false,
-					pinned: false,
-				},
-			]}
-		/>
+		<ThreadSections threads={[SAMPLE[0]]} now={NOW} />
+	</div>
+);
+
+export const ErrorStateStory = (): React.JSX.Element => (
+	<div className="max-w-sm">
+		<ThreadSections threads={[]} now={NOW} errorMessage="HTTP 500" />
 	</div>
 );
