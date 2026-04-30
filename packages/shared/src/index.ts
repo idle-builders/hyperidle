@@ -140,6 +140,7 @@ export {
 	isBlocking,
 	isRedactedPayload,
 	MESSAGE_TYPES,
+	promotedRichMessageId,
 	VERDICT_DECISIONS,
 } from "./thread.js";
 export { decode, encode } from "./toon-codec.js";

@@ -239,6 +239,38 @@ export function isBlocking(
 	return agentSessionState.activeForThreadId === thread.id;
 }
 
+// ── Promotion rule (L11) ────────────────────────────────────────
+
+/**
+ * Approved.md §3 — promotion rule. Pure derivation over a thread's
+ * messages. Returns the id of the SINGLE rich message that should
+ * render as a card, or null when the thread has no candidate.
+ *
+ * @lore L11 plan §6.2 (CONFUSION-A resolution): the helper is a
+ * one-arg pure function — sessionState was dropped. "Oldest unresolved
+ * review or questionnaire wins". Blocking only lifts the danger
+ * left-border, it does not gate promotion.
+ *
+ * @lore L11: oldest-first is the deterministic anchor — the FIFO of
+ * pending decisions. Two simultaneous reviews resolve in arrival order;
+ * the user can never lose track of which one came first.
+ */
+export function promotedRichMessageId(
+	messages: ReadonlyArray<Message>,
+): MessageId | null {
+	let bestId: MessageId | null = null;
+	let bestCreatedAt: string | null = null;
+	for (const m of messages) {
+		if (m.type !== "review" && m.type !== "questionnaire") continue;
+		if (m.resolvedAt !== null) continue;
+		if (bestCreatedAt === null || m.createdAt < bestCreatedAt) {
+			bestCreatedAt = m.createdAt;
+			bestId = m.id;
+		}
+	}
+	return bestId;
+}
+
 // ── Zod schemas (boundary validation) ───────────────────────────
 
 // The Zod schemas live in `packages/server/src/routes/threads-schema.ts`.
