@@ -55,6 +55,20 @@ One surviving warning in design-system, also a documented exception.
   `<X>` icon would require an extra wrapper SVG and disrupt the
   inline-text close button. Designer-call exception from the K7 review.
 
+### `design/no-off-scale-font-size`
+
+One waivered usage in design-system, suppressed inline with
+`eslint-disable-next-line` and a reason.
+
+- **`packages/design-system/src/ThreadRow.tsx:117`** — host-tag pill uses
+  `text-[10px]` mono. L8 approved design §5.6 mandates 10px @ 1px×6px
+  padding @ `--r-pill` radius for the host pill so it visually anchors to
+  but does not compete with sibling primitives (StatusChip / Tag at 11px
+  / 12px). Inline lore comment cites the spec; pixel-parity vs the L8
+  mockup is enforced by the visual-parity tests. Promote to a shared
+  `HostPill` primitive (with this waiver moved to that file) when a
+  second consumer surfaces.
+
 ## Rules at `warn` for `packages/web/src/**` (no promotion)
 
 The wider web codebase still has 5 documented warnings (not in scope for

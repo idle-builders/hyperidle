@@ -1,16 +1,17 @@
-import { EmptyState, type Status, ThreadRow } from "@hyperidle/design-system";
+import {
+	EmptyState,
+	ErrorState,
+	SkeletonList,
+	type Status,
+	ThreadRow,
+} from "@hyperidle/design-system";
 import type { HostKind } from "@hyperidle/shared";
-import type { JSX } from "react";
+import type { CSSProperties, JSX } from "react";
 
 /**
- * @lore L1a (T17): the legacy `kind: 'review' | 'chat'` literal is gone;
- * the new shape carries `hostKind` + `hasUnresolvedReview` (a derived flag
- * the page computes from `headCollapsePredicate`). Section routing:
- *  - blocking → Blocking section regardless of host_kind
- *  - pinned   → Pinned section regardless of host_kind
- *  - hasUnresolvedReview → Reviews section
- *  - resolvedAt within 24h → Resolved section
- *  - otherwise → Chats section
+ * @lore L1a (T17) / L8 §3.2: ThreadItem carries `hostKind` + the derived
+ * `hasUnresolvedReview` flag. The Conversations Submenu (L8) renders three
+ * buckets only — blocking | active | resolved — per approved.md §2.
  */
 export interface ThreadItem {
 	id: string;
@@ -29,116 +30,208 @@ export interface ThreadItem {
 	unread?: boolean;
 }
 
-export type ThreadSectionId = "pinned" | "blocking" | "reviews" | "chats" | "resolved";
+const TWENTY_FOUR_HOURS_MS = 24 * 60 * 60 * 1000;
 
-export interface ThreadSection {
-	id: ThreadSectionId;
+export type ConversationsSectionId = "blocking" | "active" | "resolved";
+
+export interface ConversationsSection {
+	id: ConversationsSectionId;
 	label: string;
+	tone: "danger" | "neutral";
 	items: ThreadItem[];
 }
 
-const SECTION_ORDER: readonly ThreadSectionId[] = [
-	"pinned",
+const CONVERSATIONS_SECTION_LABEL: Record<ConversationsSectionId, string> = {
+	blocking: "Blocking",
+	active: "Active",
+	resolved: "Resolved · 24h",
+};
+
+const CONVERSATIONS_SECTION_ORDER: readonly ConversationsSectionId[] = [
 	"blocking",
-	"reviews",
-	"chats",
+	"active",
 	"resolved",
 ] as const;
 
-const SECTION_LABEL: Record<ThreadSectionId, string> = {
-	pinned: "Pinned",
-	blocking: "Blocking",
-	reviews: "Reviews",
-	chats: "Chats",
-	resolved: "Resolved",
-};
-
-const TWENTY_FOUR_HOURS_MS = 24 * 60 * 60 * 1000;
-
-function classifyThread(thread: ThreadItem, now: number): ThreadSectionId | null {
+function classifyForConversations(thread: ThreadItem, now: number): ConversationsSectionId {
+	// approved.md §2 ladder: resolved within 24h → resolved; else if blocking
+	// → blocking; else → active. Re-opened blocking thread (resolved past 24h,
+	// blocking false) lands in Active.
 	if (thread.resolvedAt) {
 		const ts = Date.parse(thread.resolvedAt);
-		if (Number.isNaN(ts)) return null;
-		if (now - ts > TWENTY_FOUR_HOURS_MS) return null;
-		return "resolved";
+		if (!Number.isNaN(ts) && now - ts <= TWENTY_FOUR_HOURS_MS) {
+			return "resolved";
+		}
 	}
-	if (thread.pinned) return "pinned";
 	if (thread.blocking) return "blocking";
-	return thread.hasUnresolvedReview ? "reviews" : "chats";
+	return "active";
 }
 
-export function groupThreadsIntoSections(
-	threads: ThreadItem[],
+function sortById(a: ThreadItem, b: ThreadItem): number {
+	// L8: ThreadItem doesn't yet carry lastActiveAt; deterministic id sort is
+	// the placeholder until that field lands.
+	return a.id.localeCompare(b.id);
+}
+
+function sortActive(a: ThreadItem, b: ThreadItem): number {
+	// approved.md §2 — Active sorts: pinned desc → hasUnresolvedReview desc → id asc.
+	if (a.pinned !== b.pinned) return a.pinned ? -1 : 1;
+	if (a.hasUnresolvedReview !== b.hasUnresolvedReview) return a.hasUnresolvedReview ? -1 : 1;
+	return a.id.localeCompare(b.id);
+}
+
+function sortResolved(a: ThreadItem, b: ThreadItem): number {
+	// approved.md §2 — Resolved sorts by resolvedAt desc.
+	const at = a.resolvedAt ? Date.parse(a.resolvedAt) : 0;
+	const bt = b.resolvedAt ? Date.parse(b.resolvedAt) : 0;
+	return bt - at;
+}
+
+export function groupThreadsForConversations(
+	threads: ReadonlyArray<ThreadItem>,
 	opts: { now: number },
-): ThreadSection[] {
-	const buckets: Record<ThreadSectionId, ThreadItem[]> = {
-		pinned: [],
+): ConversationsSection[] {
+	const buckets: Record<ConversationsSectionId, ThreadItem[]> = {
 		blocking: [],
-		reviews: [],
-		chats: [],
+		active: [],
 		resolved: [],
 	};
 	for (const t of threads) {
-		const section = classifyThread(t, opts.now);
-		if (section) buckets[section].push(t);
+		buckets[classifyForConversations(t, opts.now)].push(t);
 	}
-	return SECTION_ORDER.filter((id) => buckets[id].length > 0).map((id) => ({
+	buckets.blocking.sort(sortById);
+	buckets.active.sort(sortActive);
+	buckets.resolved.sort(sortResolved);
+	return CONVERSATIONS_SECTION_ORDER.map((id) => ({
 		id,
-		label: SECTION_LABEL[id],
+		label: CONVERSATIONS_SECTION_LABEL[id],
+		tone: id === "blocking" ? "danger" : "neutral",
 		items: buckets[id],
 	}));
 }
 
+// ── Render ──────────────────────────────────────────────────────────────
+
 export interface ThreadSectionsProps {
-	threads: ThreadItem[];
+	threads: ReadonlyArray<ThreadItem>;
 	/** Milliseconds since epoch. Defaults to Date.now() at render time. */
 	now?: number;
 	onSelect?: (id: string) => void;
+	/** L8: lifted-selection target — at most one row carries aria-current. */
+	selectedId?: string | null;
+	/** L8: when set, render the ErrorState in place of the list. */
+	errorMessage?: string | null;
+	onRetry?: () => void;
+	/**
+	 * L8 review (Architecture C1): when true the list renders skeleton rows
+	 * instead of falling through to EmptyState while the fetch resolves.
+	 */
+	loading?: boolean;
 }
 
 export function ThreadSections({
 	threads,
 	now = Date.now(),
 	onSelect,
+	selectedId = null,
+	errorMessage,
+	onRetry,
+	loading = false,
 }: ThreadSectionsProps): JSX.Element {
-	const sections = groupThreadsIntoSections(threads, { now });
-	if (sections.length === 0) {
+	if (errorMessage) {
+		return (
+			<ErrorState
+				title="Couldn't load threads"
+				description={errorMessage}
+				onRetry={onRetry}
+				dataTestId="thread-sections-error"
+			/>
+		);
+	}
+
+	if (loading) {
+		// @lore L8 review (Architecture C1): skeleton rows render until the
+		// hook resolves so the EmptyState does not flash on first paint.
+		return (
+			<div data-testid="thread-sections-loading">
+				<SkeletonList rows={3} ariaLabel="Loading threads" />
+			</div>
+		);
+	}
+
+	if (threads.length === 0) {
 		return (
 			<EmptyState
-				title="No threads"
+				title="No threads yet"
 				description="Conversations with agents will appear here once started."
 				dataTestId="thread-sections-empty"
 			/>
 		);
 	}
+
+	const sections = groupThreadsForConversations(threads, { now });
 	return (
 		<div className="flex flex-col gap-2" data-testid="thread-sections">
-			{sections.map((section) => (
-				<section key={section.id} data-thread-section={section.id}>
-					<h3 className="px-3 py-1 text-[11px] font-mono uppercase tracking-wider text-[var(--text-lo)]">
-						{section.label}
-						<span className="ml-2 text-[var(--text-lo)] normal-case">{section.items.length}</span>
-					</h3>
-					<ul className="flex flex-col">
-						{section.items.map((t) => (
-							<li key={t.id}>
-								<ThreadRow
-									avatarUrl={t.avatarUrl}
-									title={t.title}
-									snippet={t.snippet}
-									timestamp={t.timestamp}
-									status={t.status}
-									tag={t.tag}
-									unread={t.unread}
-									blocking={t.blocking}
-									kind={t.hasUnresolvedReview ? "review" : "chat"}
-									onClick={onSelect ? () => onSelect(t.id) : undefined}
-								/>
-							</li>
-						))}
-					</ul>
-				</section>
-			))}
+			{sections.map((section) => {
+				// approved.md §5.5: Blocking and Resolved silently absent when empty.
+				// Active renders its header plus a "Quiet" line when empty.
+				if (section.items.length === 0 && section.id !== "active") return null;
+				const headerToneClass =
+					section.tone === "danger" ? "text-[var(--danger)]" : "text-[var(--text-lo)]";
+				// @lore L8 review (Design B1+B2 / approved.md §2 + §5.6 + §7):
+				// the Blocking section gets a sticky header (top:0, z:2), a
+				// 10% danger-tinted background, and a 3px left-edge danger
+				// accent. Tint + accent encode danger without relying on color
+				// alone — approved.md §7 (a11y).
+				const isBlocking = section.id === "blocking";
+				const sectionStyle: CSSProperties | undefined = isBlocking
+					? {
+							background: "color-mix(in srgb, var(--danger) 10%, var(--surface-1))",
+							borderLeft: "3px solid var(--danger)",
+						}
+					: undefined;
+				const headerStickyClass = isBlocking ? "sticky top-0 z-[2] bg-[var(--surface-1)]" : "";
+				return (
+					<section key={section.id} data-thread-section={section.id} style={sectionStyle}>
+						<h3
+							className={`flex items-center gap-2 px-3 py-1 text-[11px] font-mono uppercase tracking-wider ${headerToneClass} ${headerStickyClass}`}
+						>
+							<span>{section.label}</span>
+							<span data-thread-section-count className="normal-case">
+								{section.items.length}
+							</span>
+						</h3>
+						{section.items.length === 0 ? (
+							<p
+								className="px-3 py-2 text-[12px] text-[var(--text-lo)]"
+								data-testid="thread-section-active-quiet"
+							>
+								Quiet — nothing in flight.
+							</p>
+						) : (
+							<ul className="flex flex-col">
+								{section.items.map((t) => (
+									<li key={t.id} className={section.id === "resolved" ? "opacity-70" : undefined}>
+										<ThreadRow
+											avatarUrl={t.avatarUrl}
+											title={t.title}
+											snippet={t.snippet}
+											timestamp={t.timestamp}
+											status={t.status}
+											unread={t.unread}
+											blocking={t.blocking}
+											pinned={t.pinned}
+											hostTag={t.hostKind}
+											selected={selectedId === t.id}
+											onClick={onSelect ? () => onSelect(t.id) : undefined}
+										/>
+									</li>
+								))}
+							</ul>
+						)}
+					</section>
+				);
+			})}
 		</div>
 	);
 }

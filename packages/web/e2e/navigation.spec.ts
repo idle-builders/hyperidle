@@ -45,12 +45,18 @@ test.describe("Navigation", () => {
 		).toHaveAttribute("aria-selected", "true");
 	});
 
-	test("Submenu shows correct items for Conversations view", async ({ page }) => {
+	// L8: the Conversations Submenu no longer renders the legacy
+	// "Review Queue" / "Chat" navigation buttons — those are replaced by
+	// the live thread list bucketed into Blocking / Active / Resolved
+	// sections. The conversations-submenu.spec.ts suite covers the
+	// replacement contract. Skipping these legacy assertions until the
+	// chat sub-route is folded into the thread list (separate story).
+	test.skip("Submenu shows correct items for Conversations view", async ({ page }) => {
 		await expect(page.getByRole("button", { name: /^Review Queue/ })).toBeVisible();
 		await expect(page.getByRole("button", { name: /^Chat\b/ })).toBeVisible();
 	});
 
-	test("clicking Submenu item navigates to that page", async ({ page }) => {
+	test.skip("clicking Submenu item navigates to that page", async ({ page }) => {
 		await page.getByRole("button", { name: /^Chat\b/ }).click();
 		await expect(page.getByTestId("conversations-chat-page")).toBeVisible();
 	});
