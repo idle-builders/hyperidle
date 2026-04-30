@@ -17,4 +17,5 @@ logs/
 *.db-shm
 *.db-wal
 .claude/.fuse_*
+.claude/scheduled_tasks.lock
 plans/*
