@@ -1,76 +1,76 @@
 {
-  "version": "7",
-  "dialect": "sqlite",
-  "entries": [
-    {
-      "idx": 0,
-      "version": "6",
-      "when": 1776292318090,
-      "tag": "0000_normal_serpent_society",
-      "breakpoints": true
-    },
-    {
-      "idx": 1,
-      "version": "6",
-      "when": 1776296378932,
-      "tag": "0001_cultured_kitty_pryde",
-      "breakpoints": true
-    },
-    {
-      "idx": 2,
-      "version": "6",
-      "when": 1776444441856,
-      "tag": "0002_productive_sentinels",
-      "breakpoints": true
-    },
-    {
-      "idx": 3,
-      "version": "6",
-      "when": 1776481025554,
-      "tag": "0003_damp_wild_pack",
-      "breakpoints": true
-    },
-    {
-      "idx": 4,
-      "version": "6",
-      "when": 1776485999346,
-      "tag": "0004_flashy_toad",
-      "breakpoints": true
-    },
-    {
-      "idx": 5,
-      "version": "6",
-      "when": 1776518362313,
-      "tag": "0005_empty_sunspot",
-      "breakpoints": true
-    },
-    {
-      "idx": 6,
-      "version": "6",
-      "when": 1776600200000,
-      "tag": "0006_drop_tasks_state_idx",
-      "breakpoints": true
-    },
-    {
-      "idx": 7,
-      "version": "6",
-      "when": 1782950400000,
-      "tag": "0007_thread_primitive_l1",
-      "breakpoints": true
-    },
-    {
-      "idx": 8,
-      "version": "6",
-      "when": 1782950500000,
-      "tag": "0008_thread_host_immutability",
-      "breakpoints": true
-    },
-    {
-      "idx": 9,
-      "version": "6",
-      "when": 1777555586095,
-      "tag": "0009_add_artifacts_l3",
-      "breakpoints": true
-    }
-  ]
+	"version": "7",
+	"dialect": "sqlite",
+	"entries": [
+		{
+			"idx": 0,
+			"version": "6",
+			"when": 1776292318090,
+			"tag": "0000_normal_serpent_society",
+			"breakpoints": true
+		},
+		{
+			"idx": 1,
+			"version": "6",
+			"when": 1776296378932,
+			"tag": "0001_cultured_kitty_pryde",
+			"breakpoints": true
+		},
+		{
+			"idx": 2,
+			"version": "6",
+			"when": 1776444441856,
+			"tag": "0002_productive_sentinels",
+			"breakpoints": true
+		},
+		{
+			"idx": 3,
+			"version": "6",
+			"when": 1776481025554,
+			"tag": "0003_damp_wild_pack",
+			"breakpoints": true
+		},
+		{
+			"idx": 4,
+			"version": "6",
+			"when": 1776485999346,
+			"tag": "0004_flashy_toad",
+			"breakpoints": true
+		},
+		{
+			"idx": 5,
+			"version": "6",
+			"when": 1776518362313,
+			"tag": "0005_empty_sunspot",
+			"breakpoints": true
+		},
+		{
+			"idx": 6,
+			"version": "6",
+			"when": 1776600200000,
+			"tag": "0006_drop_tasks_state_idx",
+			"breakpoints": true
+		},
+		{
+			"idx": 7,
+			"version": "6",
+			"when": 1782950400000,
+			"tag": "0007_thread_primitive_l1",
+			"breakpoints": true
+		},
+		{
+			"idx": 8,
+			"version": "6",
+			"when": 1782950500000,
+			"tag": "0008_thread_host_immutability",
+			"breakpoints": true
+		},
+		{
+			"idx": 9,
+			"version": "6",
+			"when": 1777555586095,
+			"tag": "0009_add_artifacts_l3",
+			"breakpoints": true
+		}
+	]
 }

@@ -109,8 +109,8 @@ export {
 } from "./redact.js";
 export type {
 	AgentSessionStateSnapshot,
-	ArtifactKind,
 	ArtifactRef,
+	ArtifactViewShape,
 	HeadCollapseResult,
 	HostKind,
 	IdentityId,
@@ -132,7 +132,7 @@ export type {
 // phase; functions throw "Not implemented" until the green phase fills
 // them in.
 export {
-	ARTIFACT_KINDS,
+	ARTIFACT_VIEW_SHAPES,
 	classifyThreadConfiguration,
 	exhaustiveAssert,
 	HOST_KINDS,

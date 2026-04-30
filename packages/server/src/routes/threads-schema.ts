@@ -5,7 +5,7 @@
  */
 
 import {
-	ARTIFACT_KINDS,
+	ARTIFACT_VIEW_SHAPES,
 	HOST_KINDS,
 	type MESSAGE_TYPES,
 	VERDICT_DECISIONS,
@@ -28,7 +28,7 @@ const inlineRefSchema = z.object({
 
 const artifactRefSchema = z.object({
 	id: z.string(),
-	kind: z.enum(ARTIFACT_KINDS),
+	kind: z.enum(ARTIFACT_VIEW_SHAPES),
 });
 
 const plainPayloadSchema = z.object({
