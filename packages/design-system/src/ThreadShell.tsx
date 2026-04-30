@@ -231,6 +231,28 @@ export function ThreadShell({
 		? ordered.find((m) => m.id === promotedId) ?? null
 		: null;
 
+	// @lore L11 plan §9: when no unresolved candidate exists, the most-recent
+	// RESOLVED review/questionnaire renders as the resolved single-line card
+	// summary so the user retains continuity between "I clicked Approve" and
+	// "the verdict is recorded". Re-expand exposes the original card body.
+	const resolvedCardSubject = useMemo(() => {
+		if (promotedId !== null) return null;
+		for (let i = ordered.length - 1; i >= 0; i--) {
+			const m = ordered[i];
+			if ((m.type === "review" || m.type === "questionnaire") && m.resolvedAt !== null) {
+				const verdict = ordered.find(
+					(v) => v.type === "verdict" && !isRedactedPayload(v.payload) && v.payload.resolvesMessageId === m.id,
+				);
+				if (verdict && verdict.type === "verdict" && !isRedactedPayload(verdict.payload)) {
+					return { message: m, verdict };
+				}
+				return { message: m, verdict: null };
+			}
+		}
+		return null;
+	}, [ordered, promotedId]);
+	const [reExpanded, setReExpanded] = useState(false);
+
 	const participants = thread.participants.map((id) => ({
 		id,
 		name: identityFor(identities, id).name,
@@ -320,6 +342,36 @@ export function ThreadShell({
 							/>
 						) : (
 							<ul className="flex flex-col py-[var(--density-pad-y,8px)] gap-[12px]">
+								{resolvedCardSubject && resolvedCardSubject.verdict ? (
+									<li key={`resolved-${resolvedCardSubject.message.id}`}>
+										<RichMessageCard
+											message={resolvedCardSubject.message}
+											sender={{
+												id: resolvedCardSubject.message.senderId,
+												name: identityFor(identities, resolvedCardSubject.message.senderId).name,
+												role: identityFor(identities, resolvedCardSubject.message.senderId).role,
+											}}
+											blocking={false}
+											onAction={(): void => undefined}
+											state={{ phase: "idle" }}
+											resolved={
+												resolvedCardSubject.verdict.type === "verdict" &&
+												!isRedactedPayload(resolvedCardSubject.verdict.payload)
+													? {
+															decision: resolvedCardSubject.verdict.payload.decision,
+															actor: identityFor(
+																identities,
+																resolvedCardSubject.verdict.senderId,
+															).name,
+															timestamp: resolvedCardSubject.message.resolvedAt ?? "",
+															reExpanded,
+															onReexpandToggle: (): void => setReExpanded((p) => !p),
+														}
+													: undefined
+											}
+										/>
+									</li>
+								) : null}
 								{groupedStream.map(({ message, showSenderHeader }) => {
 									if (promotedMessage && message.id === promotedMessage.id) {
 										return (
