@@ -1,10 +1,11 @@
 /**
- * L1a — ConversationsReview reasoning-block tests (rewritten per plan T13).
+ * L1a / L11 — ConversationsReview reasoning-block tests.
  *
- * The Reasoning block now lives inside `ThreadHead` (rendered when the
- * predicate identifies an unresolved review/questionnaire HEAD). The
- * legacy collapsible / single-key prefill flow is gone; verdict-grammar
- * shortcuts are deferred to a follow-up.
+ * Per L11 plan §8 migration table: the Reasoning block now lives inside
+ * the in-stream `RichMessageCard` (the promoted unresolved review). Long
+ * reasoning collapses behind a `> N reasons` toggle by default (Fix 2),
+ * inline for a single short string. This test asserts the long-form
+ * variant — the toggle is rendered with aria-expanded=false.
  */
 
 import { render, screen, waitFor } from "@testing-library/react";
@@ -41,7 +42,7 @@ const FAKE_REVIEW_MESSAGE = {
 	},
 };
 
-describe("ConversationsReview — Reasoning (L1a, lives inside ThreadHead)", () => {
+describe("ConversationsReview — Reasoning (L11, lives inside RichMessageCard)", () => {
 	beforeEach(() => {
 		// L1 step5: ConversationsReview now requires ?id= in the URL — set it
 		// before render.
@@ -69,18 +70,21 @@ describe("ConversationsReview — Reasoning (L1a, lives inside ThreadHead)", () 
 		window.history.replaceState({}, "", "/");
 	});
 
-	it("renders the Reasoning label and the numbered steps in ThreadHead", async () => {
+	it("renders the reasoning toggle inside the promoted RichMessageCard (long-form: collapsed by default)", async () => {
 		render(
 			<MemoryRouter>
 				<ConversationsReview />
 			</MemoryRouter>,
 		);
 		await waitFor(() => {
-			expect(screen.getByTestId("thread-head")).toBeInTheDocument();
+			expect(screen.getByTestId("rich-message-card")).toBeInTheDocument();
 		});
-		expect(screen.getByText(/reasoning/i)).toBeInTheDocument();
-		expect(screen.getByText("Step one")).toBeInTheDocument();
-		expect(screen.getByText("Step two")).toBeInTheDocument();
-		expect(screen.getByText("Step three")).toBeInTheDocument();
+		const card = screen.getByTestId("rich-message-card");
+		// Long reasoning (3 entries) renders behind a toggle, collapsed by default.
+		const toggle = screen.getByRole("button", { name: /reasons/i });
+		expect(card.contains(toggle)).toBe(true);
+		expect(toggle.getAttribute("aria-expanded")).toBe("false");
+		// Reasoning entries are not visible while collapsed.
+		expect(screen.queryByText("Step one")).toBeNull();
 	});
 });

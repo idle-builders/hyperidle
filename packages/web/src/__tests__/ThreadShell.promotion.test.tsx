@@ -4,16 +4,16 @@
  *
  * Approved.md §2.6 + §3 + §6 (no top header). Plan §5.5 + §6.2.
  * After L11:
- *   - ThreadShell stops mounting <ThreadHead> entirely.
- *   - ThreadShell stops mounting <ReviewVerdictBar>.
+ *   - ThreadShell stops mounting the legacy thread head entirely.
+ *   - ThreadShell stops mounting the sticky verdict bar.
  *   - The promoted rich message renders as <RichMessageCard>; other
  *     unresolved review/questionnaire messages render as CommentRow with
  *     rich slots filled.
  *   - At most ONE RichMessageCard per thread, deterministic.
  *
- * @lore L11 step5: this file fails today because (a) ThreadShell still
- * mounts ThreadHead/ReviewVerdictBar and (b) RichMessageCard does not
- * exist. Both are addressed by plan T6.
+ * @lore L11 step5: this file fails before the green phase because (a) the
+ * shell mounts the legacy head/verdict bar and (b) RichMessageCard does
+ * not exist. Both are addressed by plan T6.
  */
 
 import { ThreadShell } from "@hyperidle/design-system";
@@ -107,7 +107,7 @@ describe("ThreadShell promotion (L11 — approved.md §3, plan §5.5)", () => {
 		expect(richRows.length).toBe(1);
 	});
 
-	it("does NOT mount <ThreadHead> after L11 (plan §6.3 — file deleted)", () => {
+	it("does NOT mount the legacy thread-head section after L11 (plan §6.3 — file deleted)", () => {
 		render(
 			<ThreadShell
 				thread={baseThread}

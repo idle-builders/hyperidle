@@ -216,8 +216,10 @@ function legacyBackCompatThreadFixture(): {
 
 // ---------------------------------------------------------------------------
 
-test.describe("L1a — review-shape thread renders ThreadHead + ReviewVerdictBar inline", () => {
-	test("ThreadHead + verdict bar mount; plain follow-up renders in stream", async ({ page }) => {
+test.describe("L11 — review-shape thread renders RichMessageCard inline", () => {
+	test("card mounts inline; 5 verdict buttons in card footer; plain follow-up renders in stream", async ({
+		page,
+	}) => {
 		const fixture = reviewThreadFixture();
 
 		await page.route("**/api/threads/t-review-1", async (route) => {
@@ -233,19 +235,18 @@ test.describe("L1a — review-shape thread renders ThreadHead + ReviewVerdictBar
 		// ThreadShell mounted via the new fetch path.
 		await expect(page.locator("[data-testid='thread-shell']")).toBeVisible();
 
-		// ThreadHead renders the review title and reasoning bullets inline.
-		const head = page.locator("[data-testid='thread-head']");
-		await expect(head).toBeVisible();
-		await expect(head.getByText("Approve copy update")).toBeVisible();
-		await expect(head.getByText(/reasoning/i)).toBeVisible();
-		await expect(head.getByText(/headline tightens/i)).toBeVisible();
+		// L11: the in-stream RichMessageCard carries the review title.
+		const card = page.locator("[data-testid='rich-message-card']");
+		await expect(card).toBeVisible();
+		await expect(card).toContainText("Approve copy update");
 
-		// Sticky ReviewVerdictBar exposes all 5 binding verdicts.
-		await expect(page.getByRole("button", { name: /^approve$/i })).toBeVisible();
-		await expect(page.getByRole("button", { name: /approve with comments/i })).toBeVisible();
-		await expect(page.getByRole("button", { name: /request changes/i })).toBeVisible();
-		await expect(page.getByRole("button", { name: /^edit$/i })).toBeVisible();
-		await expect(page.getByRole("button", { name: /reject/i })).toBeVisible();
+		// All 5 binding verdicts live in the card's action toolbar.
+		const toolbar = card.getByRole("toolbar", { name: /verdict actions/i });
+		await expect(toolbar.getByRole("button", { name: /^approve$/i })).toBeVisible();
+		await expect(toolbar.getByRole("button", { name: /approve with comments/i })).toBeVisible();
+		await expect(toolbar.getByRole("button", { name: /request changes/i })).toBeVisible();
+		await expect(toolbar.getByRole("button", { name: /^edit$/i })).toBeVisible();
+		await expect(toolbar.getByRole("button", { name: /reject/i })).toBeVisible();
 
 		// The plain follow-up message renders in the stream as a CommentRow.
 		await expect(page.getByText("Looking at this now.")).toBeVisible();
@@ -443,8 +444,10 @@ test.describe("L1a — verdict click resolves the review and renders APPROVED", 
 		});
 
 		await page.goto("/conversations/review?id=t-review-1");
-		await expect(page.locator("[data-testid='thread-head']")).toBeVisible();
-		await page.getByRole("button", { name: /^approve$/i }).click();
+		// L11: the promoted RichMessageCard mounts inline with the verdict toolbar.
+		const card = page.locator("[data-testid='rich-message-card']");
+		await expect(card).toBeVisible();
+		await card.getByRole("button", { name: /^approve$/i }).click();
 
 		// Verdict CommentRow appears (label "APPROVED" comes from
 		// `verdictDecisionLabel('approve')`).
@@ -454,8 +457,6 @@ test.describe("L1a — verdict click resolves the review and renders APPROVED", 
 		await expect(
 			page.locator("[data-testid='thread-shell']").getByText(/^resolved$/i),
 		).toBeVisible();
-		// Head unmounts after resolve (predicate flips headMessageId → null).
-		await expect(page.locator("[data-testid='thread-head']")).toHaveCount(0);
 	});
 });
 

@@ -9,9 +9,9 @@
  * wired to L7's response-as-event path (the canonical surface, per plan
  * CONFUSION resolution A).
  *
- * @lore L11 step5: fails today because the page mounts ThreadHead +
- * sticky ReviewVerdictBar; the RichMessageCard does not exist. Plan T7
- * makes this pass.
+ * @lore L11 step5: fails before the green phase because the legacy thread
+ * head + sticky verdict bar are mounted instead of the RichMessageCard.
+ * Plan T7 makes this pass.
  */
 
 import { render, screen, waitFor } from "@testing-library/react";
@@ -142,10 +142,11 @@ describe("ConversationsReview — verdict dispatch (AC-11)", () => {
 		expect((body.clientKey as string).length).toBeGreaterThan(0);
 	});
 
-	it("does NOT mount the deleted ReviewHeader top toolbar (AC-2)", async () => {
+	it("does NOT mount the deleted top toolbar (AC-2)", async () => {
 		render(<ConversationsReview />);
 		await screen.findByTestId("rich-message-card");
-		// ReviewHeader was the only thing labelling itself with this testid.
+		// The deleted top toolbar was the only surface labelling itself with
+		// this testid.
 		expect(screen.queryByTestId("review-header")).toBeNull();
 	});
 });
