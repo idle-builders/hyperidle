@@ -20,7 +20,24 @@ export interface CommentRowSender {
 	avatarUrl?: string;
 }
 
-export interface CommentRowProps {
+export interface CommentRowRichSlots {
+	/**
+	 * Tag + meta strip + (always-inline) reasoning. Designed to mirror the
+	 * promoted RichMessageCard's metadata column. Variant marker
+	 * `data-variant="rich-review" | "rich-questionnaire"`.
+	 *
+	 * @lore L11 plan §5.4: rich slots only render when message.type ∈
+	 * {review, questionnaire}. Defensive — supplied slots are ignored for
+	 * plain/verdict messages (the standard body renders instead).
+	 */
+	richHeader?: ReactNode;
+	/** ArtifactView mounted inline, no card chrome. */
+	richBody?: ReactNode;
+	/** Flex-wrap row of buttons — same DaisyUI variants as the card footer. */
+	richActions?: ReactNode;
+}
+
+export interface CommentRowProps extends CommentRowRichSlots {
 	message: Message;
 	sender: CommentRowSender;
 	showSenderHeader: boolean;
@@ -94,7 +111,7 @@ function renderBody(message: Message): ReactNode {
 			);
 		case "review":
 		case "questionnaire":
-			// review/questionnaire substance lives in ThreadHead, not here.
+			// review/questionnaire substance lives in the rich slots; standard body is null.
 			return null;
 		default:
 			return exhaustiveAssert(message);
@@ -106,11 +123,22 @@ export function CommentRow({
 	sender,
 	showSenderHeader,
 	inlineAnchor,
+	richHeader,
+	richBody,
+	richActions,
 }: CommentRowProps): JSX.Element {
+	const isRich = message.type === "review" || message.type === "questionnaire";
+	const richSupplied = isRich && (richHeader || richBody || richActions);
+	const variant = richSupplied
+		? message.type === "review"
+			? "rich-review"
+			: "rich-questionnaire"
+		: undefined;
 	return (
 		<li
 			{...dsProps("CommentRow", "2")}
 			data-testid="comment-row"
+			{...(variant ? { "data-variant": variant } : {})}
 			className="flex gap-[8px] py-[6px] px-[var(--density-pad-x,12px)]"
 		>
 			{showSenderHeader ? (
@@ -132,7 +160,17 @@ export function CommentRow({
 						INLINE COMMENT ON <span className="text-[var(--text-mid)]">{inlineAnchor}</span>
 					</div>
 				) : null}
-				{renderBody(message)}
+				{richSupplied ? (
+					<>
+						{richHeader ? <div className="flex flex-col gap-[6px]">{richHeader}</div> : null}
+						{richBody ? <div className="mt-[2px]">{richBody}</div> : null}
+						{richActions ? (
+							<div className="flex flex-wrap gap-[8px] mt-[4px]">{richActions}</div>
+						) : null}
+					</>
+				) : (
+					renderBody(message)
+				)}
 			</div>
 		</li>
 	);
