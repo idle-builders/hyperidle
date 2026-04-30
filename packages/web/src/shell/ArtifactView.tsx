@@ -374,16 +374,11 @@ export function ArtifactView(props: ArtifactViewProps): JSX.Element {
 	const showMetadata = metadata !== undefined;
 	const showHistory = relatedHistory !== undefined && relatedHistory.length > 0;
 	// @lore I-track: bare body preserves existing query selectors when no metadata/history.
-	// @lore K2: cloneElement merges shellAttrs onto body's outer element. WARNING — body
-	// returned by renderShape MUST NOT carry `data-ds-*` attrs; cloneElement shallow-merges
-	// and silently overwrites. If a future renderShape branch wraps in a DS primitive at the
-	// root, switch to a wrapper div instead.
+	// @lore L11: wrap body in a div so the shell audit attributes
+	// (`data-component`, `data-ds-shell`, …) land on a real DOM node.
+	// `cloneElement` over a function component (TextDiffView etc.) would
+	// pass them as props that get dropped on the floor.
 	if (!(showMetadata || showHistory)) {
-		// @lore L11: body returned by renderShape is a custom component
-		// (`<TextDiffView />`), so `cloneElement(body, shellAttrs)` sets
-		// shellAttrs as PROPS that the function component drops on the
-		// floor — `data-component` never reaches the DOM. Wrap in a div
-		// so the audit attributes land at a real DOM node.
 		return <div {...shellAttrs}>{body}</div>;
 	}
 	return (

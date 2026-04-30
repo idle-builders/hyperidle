@@ -170,17 +170,21 @@ function buildRichSlots(
 				</>
 			),
 			body: null,
+			// @lore L11 plan §6.2 CONFUSION-A + step9 W2: questionnaire
+			// dispatch is render-only at the page level for L11 (no answer
+			// commit endpoint). Buttons are disabled + aria-disabled so the
+			// user gets honest feedback instead of a dead-click. All-ghost
+			// styling — no false hierarchy on neutral-choice questionnaires.
 			actions: payload.options.length > 0 ? (
 				<>
-					{payload.options.map((opt, idx) => (
+					{payload.options.map((opt) => (
 						<button
 							key={`${message.id}-opt-${opt}`}
 							type="button"
-							className={`px-[10px] py-[5px] min-h-[44px] rounded-[var(--r1)] text-[12px] font-medium border ${
-								idx === 0
-									? "bg-[var(--primary)] text-[var(--surface-0)] border-transparent"
-									: "bg-transparent text-[var(--text-mid)] border-[var(--border-default)]"
-							}`}
+							disabled
+							aria-disabled="true"
+							title="Answer dispatch lands in a follow-up"
+							className="px-[10px] py-[5px] min-h-[44px] rounded-[var(--r1)] text-[12px] font-medium border bg-transparent text-[var(--text-mid)] border-[var(--border-default)] disabled:opacity-50 disabled:cursor-not-allowed"
 						>
 							{opt}
 						</button>
@@ -204,7 +208,7 @@ export function ThreadShell({
 	hostTitle,
 	hostHref,
 }: ThreadShellProps): JSX.Element {
-	// Sort ASC for the predicate; rendering is also ASC for natural reading.
+	// Sort ASC by createdAt with id as a stability tiebreaker.
 	const ordered = useMemo(
 		() =>
 			[...messages].sort((a, b) => {

@@ -32,8 +32,9 @@ export interface CommentRowRichSlots {
 	 * `data-variant="rich-review" | "rich-questionnaire"`.
 	 *
 	 * @lore L11 plan §5.4: rich slots only render when message.type ∈
-	 * {review, questionnaire}. Defensive — supplied slots are ignored for
-	 * plain/verdict messages (the standard body renders instead).
+	 * {review, questionnaire}. For plain/verdict messages the slots are
+	 * silently dropped (no warning, no error) and the standard body
+	 * renders instead.
 	 */
 	richHeader?: ReactNode;
 	/** ArtifactView mounted inline, no card chrome. */

@@ -149,14 +149,14 @@ function isShortReasoning(reasoning: ReadonlyArray<string>): boolean {
 	return reasoning.length === 1 && reasoning[0].length <= REASONING_INLINE_THRESHOLD;
 }
 
+// @lore L11 step9 (W5): clientKey contract is "non-empty string, fresh
+// per click intent" (plan §6.2). The previous Math.random() fallback was
+// not cryptographically random AND was unreachable (jsdom ≥ v22 + every
+// modern browser ship `crypto.randomUUID`). Calling it directly lets a
+// missing secure-context surface loudly instead of silently shipping a
+// weak idempotency key.
 function generateClientKey(): string {
-	if (typeof globalThis.crypto !== "undefined" && typeof globalThis.crypto.randomUUID === "function") {
-		return globalThis.crypto.randomUUID();
-	}
-	// Fallback for pre-secure-context test environments. Plan §6.2 — the
-	// only contract is "non-empty string, fresh per click intent". jsdom
-	// since v22 ships randomUUID; this branch is defensive.
-	return `ck-${Date.now().toString(36)}-${Math.floor(Math.random() * 1e9).toString(36)}`;
+	return globalThis.crypto.randomUUID();
 }
 
 function ChevronDown({ open }: { open: boolean }): JSX.Element {
@@ -265,8 +265,6 @@ export function RichMessageCard({
 }: RichMessageCardProps): JSX.Element {
 	const titleId = useId();
 	const [retryClientKey, setRetryClientKey] = useState<string | null>(null);
-	// Reasoning toggle (review variant only). Default closed for long, open
-	// is irrelevant for short (rendered inline without the toggle).
 	const [reasoningOpen, setReasoningOpen] = useState(false);
 
 	const review = deriveReview(message);
@@ -400,11 +398,14 @@ export function RichMessageCard({
 					data-sticky="bottom"
 					className="sticky bottom-0 flex flex-wrap gap-[8px] px-[12px] py-[10px] bg-[var(--surface-2)] border-t border-[var(--border-subtle)]"
 				>
-					{questionnaire.options.map((opt, idx) => (
+					{/* @lore L11 step9 (S11): all-ghost on questionnaire answers —
+					    no spec-required preferred option, so a primary on
+					    index 0 invents false hierarchy on neutral choices. */}
+					{questionnaire.options.map((opt) => (
 						<button
 							key={`${message.id}-opt-${opt}`}
 							type="button"
-							className={`${BUTTON_CLASS_BASE} ${toneClass(idx === 0 ? "primary" : "ghost")}`}
+							className={`${BUTTON_CLASS_BASE} ${toneClass("ghost")}`}
 							onClick={(): void => handleAnswer(opt)}
 						>
 							{opt}
@@ -470,7 +471,6 @@ export function RichMessageCard({
 			data-message-type={message.type}
 			data-blocking={blocking ? "true" : "false"}
 			data-sticky-footer="true"
-			data-promoted="true"
 			aria-labelledby={titleId}
 			style={{ maxHeight: "min(var(--card-max-h), max-content)" }}
 			className={`ml-[36px] bg-[var(--surface-2)] border border-[var(--border-default)] rounded-[var(--r2)] overflow-hidden flex flex-col ${blocking ? "border-l-2 border-l-[var(--danger)]" : ""}`}
