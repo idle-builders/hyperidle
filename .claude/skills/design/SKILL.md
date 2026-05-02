@@ -1,4 +1,5 @@
---- name: design
+---
+name: design
 description: "Explore multiple UX/UI variants in parallel, compare them, run /design-critique, then settle on one. Use BEFORE /architecture when a story has any UI surface — a new page, a new primitive, a new component shape, a new interaction flow, or a redesign of an existing surface."
 argument-hint: "[story-id-or-feature-name]"
 user-invocable: true
