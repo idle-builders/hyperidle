@@ -7,8 +7,10 @@
  */
 import { expect, test } from "@playwright/test";
 
-const NOW_ISO = "2026-04-30T12:00:00.000Z";
-const WITHIN_24H = "2026-04-30T10:00:00.000Z";
+// Relative to test-run wall clock so the `Resolved · 24h` bucket stays valid
+// as the calendar advances. Hardcoded ISO strings rotted out within days.
+const NOW_ISO = new Date().toISOString();
+const WITHIN_24H = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString();
 
 interface MockListRow {
 	id: string;
