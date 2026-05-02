@@ -72,7 +72,8 @@ export const Interactive = (): React.JSX.Element => {
 	);
 };
 
-// J2: Conversations-style filter row with count bubble.
+// L10: Conversations-style filter row — [All, Blocking, Async] with the
+// inline `× Clear` affordance shown when the filter is non-default.
 export const WithFiltersConversations = (): React.JSX.Element => {
 	const [filter, setFilter] = useState<SubmenuFilter>("all");
 	return (
@@ -83,12 +84,12 @@ export const WithFiltersConversations = (): React.JSX.Element => {
 			count={4}
 			filters={[
 				{ id: "all", label: "All" },
-				{ id: "needs-review", label: "Needs review" },
-				{ id: "chats", label: "Chats" },
-				{ id: "resolved", label: "Resolved" },
+				{ id: "blocking", label: "Blocking" },
+				{ id: "async", label: "Async" },
 			]}
 			activeFilter={filter}
 			onFilterChange={setFilter}
+			onClearFilter={() => setFilter("all")}
 		>
 			<ul className="menu menu-sm">
 				<li>
@@ -101,6 +102,60 @@ export const WithFiltersConversations = (): React.JSX.Element => {
 		</Submenu>
 	);
 };
+
+// L10: Conversations chips with a non-default filter active so the inline
+// `× Clear` button is mounted (visible affordance — not a chip).
+export const ConversationsClearAffordance = (): React.JSX.Element => {
+	const [filter, setFilter] = useState<SubmenuFilter>("blocking");
+	return (
+		<Submenu
+			title="Conversations"
+			collapsed={false}
+			onToggleCollapse={() => {}}
+			count={2}
+			filters={[
+				{ id: "all", label: "All" },
+				{ id: "blocking", label: "Blocking" },
+				{ id: "async", label: "Async" },
+			]}
+			activeFilter={filter}
+			onFilterChange={setFilter}
+			onClearFilter={() => setFilter("all")}
+		>
+			<ul className="menu menu-sm">
+				<li>
+					<button type="button">API key needed</button>
+				</li>
+				<li>
+					<button type="button">OAuth scopes review</button>
+				</li>
+			</ul>
+		</Submenu>
+	);
+};
+
+// L10 / approved §5.5: chips inert during error state — aria-disabled,
+// reduced opacity, click handlers short-circuit.
+export const ConversationsDisabledChips = (): React.JSX.Element => (
+	<Submenu
+		title="Conversations"
+		collapsed={false}
+		onToggleCollapse={() => {}}
+		count={0}
+		filters={[
+			{ id: "all", label: "All" },
+			{ id: "blocking", label: "Blocking" },
+			{ id: "async", label: "Async" },
+		]}
+		activeFilter="all"
+		onFilterChange={() => {}}
+		filtersDisabled={true}
+	>
+		<p className="px-2 py-1 text-xs text-[var(--text-lo)]">
+			Couldn't load threads — chips disabled.
+		</p>
+	</Submenu>
+);
 
 // J2: Knowledge-style filter row (shorter).
 export const WithFiltersKnowledge = (): React.JSX.Element => {

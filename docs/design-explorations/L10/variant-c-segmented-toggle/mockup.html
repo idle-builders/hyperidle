@@ -1,0 +1,348 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>L10 Variant C — Segmented Binary Toggle + Persistent Clear Pill</title>
+  <link rel="stylesheet" href="../../../../packages/design-system/html/_tokens.css" />
+  <style>
+    body {
+      background: var(--surface-0);
+      margin: 0;
+      padding: 24px 0;
+      font-family: var(--ui);
+    }
+    .stage {
+      display: flex;
+      gap: 32px;
+      justify-content: center;
+      align-items: flex-start;
+      flex-wrap: nowrap;
+    }
+    .frame-col {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      width: 360px;
+    }
+    .frame-caption {
+      font-family: var(--mono);
+      font-size: 11px;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      color: var(--text-lo);
+      padding: 0 4px;
+    }
+    .frame {
+      display: flex;
+      width: 360px;
+      height: 720px;
+      background: var(--surface-1);
+      border: 1px solid var(--border-default);
+      border-radius: var(--r2);
+      overflow: hidden;
+    }
+    .submenu {
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      gap: var(--density-gap);
+      padding: var(--density-page-gutter);
+      min-height: 0;
+    }
+    .submenu__title-bar { display: flex; align-items: center; justify-content: space-between; }
+    .submenu__title {
+      font-family: var(--mono);
+      font-size: 11px;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      color: var(--text-lo);
+      display: flex; align-items: center; gap: 8px;
+    }
+    .submenu__total {
+      font-family: var(--mono); font-size: 11px;
+      padding: 2px 6px; border-radius: var(--r-pill);
+      background: var(--surface-ghost); color: var(--text-mid);
+    }
+
+    /* ── Segmented control (DaisyUI .join shape, statically styled) ── */
+    .segmented {
+      display: inline-flex;
+      align-self: flex-start;
+      border: 1px solid var(--surface-3);
+      border-radius: var(--r1);
+      overflow: hidden;
+      background: var(--surface-1);
+    }
+    .segmented__btn {
+      appearance: none;
+      border: 0;
+      background: transparent;
+      color: var(--text-mid);
+      font-family: var(--ui);
+      font-size: 11px;
+      font-weight: 500;
+      letter-spacing: 0.01em;
+      padding: 4px 12px;
+      height: 24px;
+      cursor: pointer;
+      transition: background var(--motion-fast), color var(--motion-fast);
+      border-radius: 0;
+    }
+    .segmented__btn + .segmented__btn {
+      border-left: 1px solid var(--surface-3);
+    }
+    .segmented__btn:hover {
+      background: var(--surface-2);
+      color: var(--text-hi);
+    }
+    .segmented__btn--active {
+      background: var(--surface-4);
+      color: var(--text-hi);
+    }
+    .segmented__btn--active:hover {
+      background: var(--surface-4);
+      color: var(--text-hi);
+    }
+
+    /* ── Clear pill (DaisyUI .badge.badge-ghost shape, statically styled) ── */
+    .clear-pill {
+      align-self: flex-start;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 3px 10px 3px 8px;
+      border-radius: var(--r-pill);
+      background: var(--surface-ghost);
+      color: var(--text-mid);
+      font-family: var(--mono);
+      font-size: 10px;
+      letter-spacing: 0.02em;
+      border: 1px solid var(--border-subtle);
+      cursor: pointer;
+      appearance: none;
+      transition: background var(--motion-medium), color var(--motion-medium);
+      margin-top: -4px; /* tighten distance to segmented control */
+    }
+    .clear-pill:hover {
+      background: var(--surface-3);
+      color: var(--text-hi);
+    }
+    .clear-pill__x {
+      font-family: var(--ui);
+      font-size: 12px;
+      line-height: 1;
+      color: var(--text-lo);
+    }
+    .clear-pill:hover .clear-pill__x { color: var(--text-hi); }
+
+    /* ── List + sections ── */
+    .list {
+      display: flex; flex-direction: column;
+      overflow-y: auto; flex: 1; gap: 0;
+      position: relative;
+    }
+    .section { display: flex; flex-direction: column; }
+    .section__header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 12px 4px 12px;
+      background: var(--surface-1);
+    }
+    .section--blocking .section__header {
+      position: sticky;
+      top: 0;
+      z-index: 2;
+      background: color-mix(in oklab, var(--danger) 10%, var(--surface-1));
+      border-left: 3px solid var(--danger);
+      border-radius: var(--r1);
+      margin-bottom: 4px;
+    }
+    .section__label {
+      font-family: var(--mono);
+      font-size: 11px;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      color: var(--text-lo);
+    }
+    .section--blocking .section__label { color: var(--danger); }
+    .section__count {
+      font-family: var(--mono); font-size: 11px; color: var(--text-lo);
+    }
+    .section--blocking .section__count { color: var(--danger); }
+
+    /* ── Thread row (verbatim from L8 substrate) ── */
+    .thread-row {
+      display: flex;
+      align-items: center;
+      gap: var(--density-gap);
+      padding: var(--density-pad-y) var(--density-pad-x);
+      font-size: var(--density-text);
+      border-radius: var(--r1);
+      transition: background var(--motion-fast);
+      cursor: pointer;
+      border-left: 2px solid transparent;
+    }
+    .thread-row:hover { background: var(--surface-4); }
+    .thread-row--blocking { border-left: 2px solid var(--danger); }
+    .thread-row--unread .thread-row__title { font-weight: 700; }
+    .thread-row__avatar {
+      width: var(--density-avatar-size);
+      height: var(--density-avatar-size);
+      border-radius: 50%;
+      flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 13px; font-weight: 600; color: var(--text-hi);
+    }
+    .thread-row__body { flex: 1; min-width: 0; }
+    .thread-row__header { display: flex; align-items: center; gap: var(--density-gap); }
+    .thread-row__title {
+      font-size: var(--density-text);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      color: var(--text-hi);
+    }
+    .thread-row__snippet {
+      font-size: 12px; color: var(--text-mid);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .thread-row__timestamp {
+      font-size: 12px; color: var(--text-lo);
+      white-space: nowrap; flex-shrink: 0;
+    }
+    .host-tag {
+      font-family: var(--mono); font-size: 10px;
+      padding: 1px 6px; border-radius: var(--r-pill);
+      background: var(--surface-ghost); color: var(--text-mid);
+      letter-spacing: 0.03em; flex-shrink: 0;
+    }
+
+    /* ── Empty state (terse, filter-empty variant) ── */
+    .empty-filter {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      padding: 24px 12px 12px 12px;
+      gap: 4px;
+    }
+    .empty-filter__title {
+      font-family: var(--ui);
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-mid);
+      letter-spacing: 0;
+    }
+    .empty-filter__hint {
+      font-family: var(--mono);
+      font-size: 10px;
+      letter-spacing: 0.02em;
+      color: var(--text-lo);
+    }
+  </style>
+</head>
+<body data-theme="lucid-dark">
+  <div class="stage">
+
+    <!-- ─────────────── Frame 1 — Blocking active, populated ─────────────── -->
+    <div class="frame-col">
+      <div class="frame-caption">Frame 1 — Blocking segment active</div>
+      <div class="frame">
+        <div class="submenu">
+          <div class="submenu__title-bar">
+            <div class="submenu__title">
+              <span>Conversations</span>
+              <span class="submenu__total">2</span>
+            </div>
+            <span style="color:var(--text-lo)">&lsaquo;</span>
+          </div>
+
+          <!-- Segmented control: Blocking active -->
+          <div class="segmented" role="tablist" aria-label="Filter threads">
+            <button type="button" role="tab" aria-selected="true" tabindex="0"
+                    class="segmented__btn segmented__btn--active">Blocking</button>
+            <button type="button" role="tab" aria-selected="false" tabindex="-1"
+                    class="segmented__btn">Async</button>
+          </div>
+
+          <!-- Persistent clear pill -->
+          <button type="button" class="clear-pill" aria-label="Clear filter">
+            <span class="clear-pill__x" aria-hidden="true">&#215;</span>
+            <span>Showing blocking only &mdash; clear</span>
+          </button>
+
+          <div class="list">
+            <section class="section section--blocking">
+              <header class="section__header">
+                <span class="section__label">Blocking</span>
+                <span class="section__count">2</span>
+              </header>
+              <div class="thread-row thread-row--blocking thread-row--unread">
+                <span class="thread-row__avatar" style="background:#581c87">T1</span>
+                <div class="thread-row__body">
+                  <div class="thread-row__header">
+                    <span class="thread-row__title">API key needed for Stripe</span>
+                    <span class="host-tag">task</span>
+                  </div>
+                  <p class="thread-row__snippet">Builder cannot proceed without credentials</p>
+                </div>
+                <span class="thread-row__timestamp">8m</span>
+              </div>
+              <div class="thread-row thread-row--blocking">
+                <span class="thread-row__avatar" style="background:#374151">PM</span>
+                <div class="thread-row__body">
+                  <div class="thread-row__header">
+                    <span class="thread-row__title">Onboarding pitch &mdash; verdict needed</span>
+                    <span class="host-tag">bet</span>
+                  </div>
+                  <p class="thread-row__snippet">Reduced 6 weeks &rarr; 4 weeks; small bet candidate</p>
+                </div>
+                <span class="thread-row__timestamp">12m</span>
+              </div>
+            </section>
+
+            <!-- Active and Resolved sections silently absent under Blocking filter -->
+
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ─────────────── Frame 2 — Async active, filter-empty state ─────────────── -->
+    <div class="frame-col">
+      <div class="frame-caption">Frame 2 &mdash; Async, no matches</div>
+      <div class="frame">
+        <div class="submenu">
+          <div class="submenu__title-bar">
+            <div class="submenu__title">
+              <span>Conversations</span>
+              <span class="submenu__total">0</span>
+            </div>
+            <span style="color:var(--text-lo)">&lsaquo;</span>
+          </div>
+
+          <!-- Segmented control: Async active -->
+          <div class="segmented" role="tablist" aria-label="Filter threads">
+            <button type="button" role="tab" aria-selected="false" tabindex="-1"
+                    class="segmented__btn">Blocking</button>
+            <button type="button" role="tab" aria-selected="true" tabindex="0"
+                    class="segmented__btn segmented__btn--active">Async</button>
+          </div>
+
+          <!-- Persistent clear pill (still present in filter-empty state) -->
+          <button type="button" class="clear-pill" aria-label="Clear filter">
+            <span class="clear-pill__x" aria-hidden="true">&#215;</span>
+            <span>Showing async only &mdash; clear</span>
+          </button>
+
+          <div class="list" data-testid="thread-sections-filter-empty">
+            <div class="empty-filter">
+              <div class="empty-filter__title">No async threads.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</body>
+</html>
