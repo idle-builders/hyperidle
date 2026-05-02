@@ -207,3 +207,15 @@ A small `function stubFetch(response): void` helper would centralize the cast an
 - CRITICAL: 0
 - WARNINGS: 13
 - OBSERVATIONS: 6
+
+---
+
+## Status / Resolution (apply-review pass)
+
+| Finding | Status | Notes |
+|---|---|---|
+| W1 — `predicateFor` over-engineered | Won't-fix | Collapsing to `t.blocking === (f === 'blocking')` would lose the exhaustive-switch type-safety architect plan §3.4 requires. The closed `ConversationsFilter` exists precisely to fail typecheck on a future fourth value. |
+| W6 — redundant disabled-state defenses | Partially fixed | Kept `aria-disabled` (semantics) + `pointer-events-none` (mouse) + runtime onClick guard (keyboard — Adversary H1 proves this is the only defense for keyboard users). Added `@lore` documenting why all three layers stay. |
+| W7 — `conversationsFilter` defensive narrowing | Partially fixed | Dropped the misleading "cannot occur" comment; kept the narrowing as a forwards-compatible guard. Per-view filter state refactor is out of scope. |
+| W2–W5, W8–W13 | Won't-fix this pass | Outside MUST/SHOULD list per apply-review boundaries. |
+| O1–O6 | Won't-fix this pass | Observations. |

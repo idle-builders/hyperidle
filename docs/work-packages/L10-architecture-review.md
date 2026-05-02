@@ -172,3 +172,17 @@ Findings O1–O5 are observations only — no action needed.
 - CRITICAL: **1** (scope leak)
 - WARNING: **3** (missing Vitest file, ml-auto layout, view-gated filtersDisabled)
 - OBSERVATION/SUGGESTION: **5**
+
+---
+
+## Status / Resolution (apply-review pass)
+
+**Branch:** `feat/L10-conversations-filter`. Commits: `99a1f02` (revert), `<must-fix>`, `<should-fix>`.
+
+| Finding | Status | Notes |
+|---|---|---|
+| C1 — out-of-scope edits to `.claude/skills/*` and design-system vitest config | Fixed | `git checkout main --` on the three paths; verified with `git diff main..HEAD --stat`. |
+| W1 — missing Vitest `Submenu.touch-target.test.tsx` | Deferred (documented) | Added `@lore` in `packages/web/e2e/l10-conversations-filter.spec.ts` explaining jsdom-layout infeasibility; Playwright bbox loop is the verified harness. |
+| W2 — `ml-auto` without `flex-1` consumer | Fixed | Inner tablist now `flex-1 min-w-0`; clear button is `flex-shrink-0`. Bundled with Design C1. |
+| W3 — `filtersDisabled` view-gating | Fixed | Added `@lore` next to the calculation in `AppShell.tsx`. |
+| O1–O5 (observations) | Won't-fix this pass | Judgment calls; not in MUST/SHOULD list. |

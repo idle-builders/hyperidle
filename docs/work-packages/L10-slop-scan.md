@@ -103,3 +103,15 @@ Findings are listed by severity. Severity is "how loud the slop is" — none of 
 - MEDIUM: 5
 - LOW: 4
 - TOTAL: 13
+
+---
+
+## Status / Resolution (apply-review pass)
+
+| Finding | Status | Notes |
+|---|---|---|
+| H1 — restated JSDoc in ThreadSections | Fixed | Trimmed JSDoc on `ConversationsFilter`, `predicateFor`, prop annotations, and the filter-before-empty inline comment. |
+| H2 — restated comments in useConversationsThreads | Fixed | Dropped the L10 T11a inline restatement; collapsed `typeof row.blocking === "boolean" ? row.blocking : false` to `row.blocking ?? false`. |
+| H3 — nested badge ternary | Fixed | Extracted `submenuBadgeCount` named local in `AppShell.tsx`; JSX now reads `count={submenuBadgeCount}`. |
+| H4 — defensive narrowing for impossible case | Partially fixed | Kept the narrowing as a forwards-compatible guard against shared filter state (e.g. URL restore); rewrote the misleading "cannot occur" comment to describe the guard's actual purpose. Per-view filter state refactor is out of L10 scope. |
+| M1–M5, L1–L4 | Won't-fix this pass | Outside MUST/SHOULD list. |
