@@ -415,7 +415,27 @@ export function AppShell(): JSX.Element {
 	// L10 / approved §5.5 + plan T10: chips inert during the threads-fetch
 	// error state. Only the conversations submenu carries this signal —
 	// other views ignore it (they don't fetch threads).
+	// @lore L10 Arch W3: `Submenu` consumes `filtersDisabled` unconditionally,
+	// but it is only meaningful for the Conversations view (the only view that
+	// fetches threads). For non-conversations views the prop is always false
+	// and the chips remain interactive — this is intentional view-gating.
 	const filtersDisabled = activeView === "conversations" && conversationsThreads.status === "error";
+	// L10 Adversary H2 / Slop H3: hide the count badge unless the conversations
+	// fetch has resolved to ready. During loading/error we have no authoritative
+	// count, so showing `0` under a non-default filter would falsely imply "this
+	// filter has zero matches" when in fact the data has not arrived. For
+	// non-conversations views the count is a static sum and is always trusted.
+	const submenuBadgeCount: number | undefined = (() => {
+		if (activeView !== "conversations") {
+			return submenuTotalCount > 0 ? submenuTotalCount : undefined;
+		}
+		if (conversationsThreads.status !== "ready") return undefined;
+		// L10 §1 Q9: under a non-default filter, `0` is informative — "this
+		// filter has no matches right now". Under `'all'`, fall back to the
+		// L8 zero-hide contract.
+		if (conversationsFilter !== "all") return submenuTotalCount;
+		return submenuTotalCount > 0 ? submenuTotalCount : undefined;
+	})();
 	// L8 §3.5: lifted-selection state for the Conversations Submenu thread
 	// list. Click on a thread row updates this id; the URL is left alone
 	// (deep-link route collapse is L9's scope).
@@ -487,17 +507,7 @@ export function AppShell(): JSX.Element {
 					title={submenuConfig.title}
 					collapsed={submenuCollapsed}
 					onToggleCollapse={toggleSubmenuCollapsed}
-					count={
-						// L10 §1 Q9: when a non-default filter narrows the list to zero,
-						// the badge shows `0` (informative — "this filter has no matches
-						// right now"). When the filter is `'all'` and the global count is
-						// zero, the badge hides (preserves the L8 zero-hide contract).
-						activeView === "conversations" && conversationsFilter !== "all"
-							? submenuTotalCount
-							: submenuTotalCount > 0
-								? submenuTotalCount
-								: undefined
-					}
+					count={submenuBadgeCount}
 					filters={submenuFilters}
 					activeFilter={submenuFilter}
 					onFilterChange={setSubmenuFilter}
