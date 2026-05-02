@@ -11,7 +11,8 @@ import { ErrorBoundary } from "../components/ErrorBoundary";
 import { GlobalSearchPanel } from "../components/GlobalSearchPanel";
 import type { SettingsData } from "../components/SettingsPanel";
 import { SettingsPanel } from "../components/SettingsPanel";
-import { ThreadSections } from "../components/ThreadSections";
+import type { ConversationsFilter } from "../components/ThreadSections";
+import { predicateFor, ThreadSections } from "../components/ThreadSections";
 import {
 	DEFAULT_SETTINGS,
 	MOCK_RAIL_BETS,
@@ -66,18 +67,17 @@ const SUBMENU_CONFIG: Record<ViewId, SubmenuConfig> = {
 };
 
 /**
- * @lore J2 AC 52: per-view segmented filter row. Work has no filters.
- * Conversations/Knowledge render a short list. Filter state is local and
- * resets to "all" when the active view changes (AC 64). The rendered children
- * currently ignore the filter value — J4/J5 wire the filter into the list
- * rendering.
+ * @lore J2 AC 52 / L10: per-view segmented filter row. Work has no filters.
+ * Conversations exposes `[All, Blocking, Async]` (L10 — the chip vocabulary
+ * IS the blocking-vs-async axis); Knowledge keeps `[All, Needs review]`.
+ * Filter state is local to AppShell and resets to "all" when the active view
+ * changes (AC 64).
  */
 const SUBMENU_FILTERS: Record<ViewId, ReadonlyArray<SubmenuFilterOption>> = {
 	conversations: [
 		{ id: "all", label: "All" },
-		{ id: "needs-review", label: "Needs review" },
-		{ id: "chats", label: "Chats" },
-		{ id: "resolved", label: "Resolved" },
+		{ id: "blocking", label: "Blocking" },
+		{ id: "async", label: "Async" },
 	],
 	knowledge: [
 		{ id: "all", label: "All" },
@@ -386,16 +386,55 @@ export function AppShell(): JSX.Element {
 	// ships; this is the single call site.
 	const conversationsThreads = useConversationsThreads(DEMO_FOUNDER_ID);
 
-	const submenuTotalCount = useMemo(() => {
-		// L8: conversations count derives from the live thread list (never a
-		// literal). Other views keep the static SUBMENU_CONFIG sum.
-		if (activeView === "conversations") {
-			return conversationsThreads.threads.length;
-		}
-		return submenuConfig.items.reduce((acc, item) => acc + (item.count ?? 0), 0);
-	}, [activeView, conversationsThreads.threads, submenuConfig]);
 	const submenuFilters = SUBMENU_FILTERS[activeView];
 	const [submenuFilter, setSubmenuFilter] = useState<SubmenuFilter>("all");
+	// Narrow the wider `SubmenuFilter` union to the closed `ConversationsFilter`
+	// subset for the Conversations view. Any id outside the subset (e.g.
+	// `'needs-review'`) is coerced to `'all'`; the view-change effect below
+	// resets to `'all'` so this branch is only a forwards-compatible guard
+	// against future shared filter state (e.g. URL-restored values).
+	const conversationsFilter: ConversationsFilter =
+		submenuFilter === "blocking" || submenuFilter === "async" ? submenuFilter : "all";
+	const submenuTotalCount = useMemo(() => {
+		// L8: conversations count derives from the live thread list (never a
+		// literal). L10 T8: the count is POST-filter so it cannot drift from
+		// the rendered list — both consume the same `predicateFor()`.
+		// @lore L10: the L8 contract for the badge changes from "total threads"
+		// to "post-filter threads". This is intentional (approved §6) — when a
+		// chip narrows the list, the badge reflects what the user is actually
+		// looking at.
+		if (activeView === "conversations") {
+			return conversationsThreads.threads.filter(predicateFor(conversationsFilter)).length;
+		}
+		return submenuConfig.items.reduce((acc, item) => acc + (item.count ?? 0), 0);
+	}, [activeView, conversationsThreads.threads, submenuConfig, conversationsFilter]);
+	const handleClearFilter = useCallback((): void => {
+		setSubmenuFilter("all");
+	}, []);
+	// L10 / approved §5.5 + plan T10: chips inert during the threads-fetch
+	// error state. Only the conversations submenu carries this signal —
+	// other views ignore it (they don't fetch threads).
+	// @lore L10 Arch W3: `Submenu` consumes `filtersDisabled` unconditionally,
+	// but it is only meaningful for the Conversations view (the only view that
+	// fetches threads). For non-conversations views the prop is always false
+	// and the chips remain interactive — this is intentional view-gating.
+	const filtersDisabled = activeView === "conversations" && conversationsThreads.status === "error";
+	// L10 Adversary H2 / Slop H3: hide the count badge unless the conversations
+	// fetch has resolved to ready. During loading/error we have no authoritative
+	// count, so showing `0` under a non-default filter would falsely imply "this
+	// filter has zero matches" when in fact the data has not arrived. For
+	// non-conversations views the count is a static sum and is always trusted.
+	const submenuBadgeCount: number | undefined = (() => {
+		if (activeView !== "conversations") {
+			return submenuTotalCount > 0 ? submenuTotalCount : undefined;
+		}
+		if (conversationsThreads.status !== "ready") return undefined;
+		// L10 §1 Q9: under a non-default filter, `0` is informative — "this
+		// filter has no matches right now". Under `'all'`, fall back to the
+		// L8 zero-hide contract.
+		if (conversationsFilter !== "all") return submenuTotalCount;
+		return submenuTotalCount > 0 ? submenuTotalCount : undefined;
+	})();
 	// L8 §3.5: lifted-selection state for the Conversations Submenu thread
 	// list. Click on a thread row updates this id; the URL is left alone
 	// (deep-link route collapse is L9's scope).
@@ -467,10 +506,16 @@ export function AppShell(): JSX.Element {
 					title={submenuConfig.title}
 					collapsed={submenuCollapsed}
 					onToggleCollapse={toggleSubmenuCollapsed}
-					count={submenuTotalCount > 0 ? submenuTotalCount : undefined}
+					count={submenuBadgeCount}
 					filters={submenuFilters}
 					activeFilter={submenuFilter}
 					onFilterChange={setSubmenuFilter}
+					onClearFilter={
+						// Only conversations uses the inline clear affordance today;
+						// Knowledge's chip is currently inert (deferred follow-up).
+						activeView === "conversations" ? handleClearFilter : undefined
+					}
+					filtersDisabled={filtersDisabled}
 				>
 					{activeView === "knowledge" ? (
 						<KnowledgeSubmenu
@@ -479,14 +524,12 @@ export function AppShell(): JSX.Element {
 							onScopeChange={handleScopeChange}
 						/>
 					) : activeView === "conversations" ? (
-						// @lore L8 review (Architecture M2 / Security LOW-2):
-						// `submenuFilter` is captured but intentionally NOT
-						// wired into the classifier here — chip-driven
-						// filtering (`needs-review`/`chats`/`resolved`) is
-						// L10's scope. Keeping the chip inert in L8 avoids
-						// shipping a half-built filter contract; the hook
-						// already returns the unfiltered set, so L10 can drop
-						// in its filter without changing this call site.
+						// @lore L10: chip-driven filtering is now wired here.
+						// `activeFilter` is the narrowed `ConversationsFilter`
+						// derived from `submenuFilter`. ThreadSections owns the
+						// predicate; AppShell consumes the same predicate via
+						// `predicateFor()` for the post-filter count badge so
+						// the count and the rendered list cannot drift.
 						<ThreadSections
 							threads={conversationsThreads.threads}
 							selectedId={selectedThreadId}
@@ -498,6 +541,8 @@ export function AppShell(): JSX.Element {
 									: null
 							}
 							onRetry={conversationsThreads.retry}
+							activeFilter={conversationsFilter}
+							onClearFilter={handleClearFilter}
 						/>
 					) : (
 						<ul className="menu menu-sm">

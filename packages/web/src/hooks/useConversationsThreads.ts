@@ -24,6 +24,15 @@ interface ThreadListRow {
 	lastActiveAt: string;
 	createdAt: string;
 	hasUnresolvedReview: boolean;
+	/**
+	 * @lore L10 §6 / T11a: optional wire field. Today's server schema does
+	 * NOT emit `blocking`; tomorrow's might (when the agent-runtime plumbing
+	 * for true blocking lands). The client guard accepts it as a backwards-
+	 * compatible additive — when present, the hook trusts it; when absent,
+	 * `false` is the safe default. Playwright fixtures use this to drive
+	 * `blocking=true` rows without a server change.
+	 */
+	blocking?: boolean;
 }
 
 export interface UseConversationsThreadsResult {
@@ -68,7 +77,8 @@ function isThreadListRow(value: unknown): value is ThreadListRow {
 		(v.resolvedAt === null || typeof v.resolvedAt === "string") &&
 		typeof v.lastActiveAt === "string" &&
 		typeof v.createdAt === "string" &&
-		typeof v.hasUnresolvedReview === "boolean"
+		typeof v.hasUnresolvedReview === "boolean" &&
+		(v.blocking === undefined || typeof v.blocking === "boolean")
 	);
 }
 
@@ -104,7 +114,7 @@ function rowToItem(row: ThreadListRow): ThreadItem {
 		avatarUrl: FALLBACK_AVATAR,
 		hostKind: row.hostKind,
 		hasUnresolvedReview: row.hasUnresolvedReview,
-		blocking: false,
+		blocking: row.blocking ?? false,
 		pinned: row.pinned,
 		resolvedAt: row.resolvedAt ?? undefined,
 	};
