@@ -132,15 +132,23 @@ export function Submenu({
 				<>
 					{hasFilters && (
 						/*
-						 * @lore L10 §3.7: outer row holds the tablist and the optional
-						 * inline `× Clear` button as siblings (NOT a tab inside the
-						 * tablist — keeps the role contract clean). flex-wrap stays on
-						 * the inner tablist so chips wrap onto two rows at 240 px
-						 * Submenu width before the clear button breaks. We avoid
-						 * `display: contents` (older WebKit a11y/SR bugs).
+						 * @lore L10 §3.7 + Design C1: outer row holds the tablist and the
+						 * optional inline `× Clear` button as siblings (NOT a tab inside
+						 * the tablist — keeps the role contract clean). The inner tablist
+						 * gets `flex-1 min-w-0` so `ml-auto` on the clear button actually
+						 * pushes to the right edge (Arch W2) AND the four pills [All,
+						 * Blocking, Async, × Clear] fit on a single row at the production
+						 * Submenu width (w-60 = 240 px). Chips drop `min-w-[44px]` at `lg:`
+						 * since the touch-target rule (AQ-015) only binds at viewport ≤
+						 * 1024 px; at desktop tighter chips (px-2) keep the row coherent.
+						 * We avoid `display: contents` (older WebKit a11y/SR bugs).
 						 */
 						<div className={`flex items-center gap-1 ${disabledClass}`}>
-							<div role="tablist" aria-label={`Filter ${title}`} className="flex flex-wrap gap-1">
+							<div
+								role="tablist"
+								aria-label={`Filter ${title}`}
+								className="flex flex-1 min-w-0 flex-wrap gap-1"
+							>
 								{filters.map((f) => {
 									const selected = f.id === activeFilter;
 									return (
@@ -154,7 +162,7 @@ export function Submenu({
 											// active view's edge indicator. btn-neutral keeps the
 											// selected state legible without competing with primary
 											// signal placement (active view, primary CTAs).
-											className={`${selected ? "btn btn-xs btn-neutral" : "btn btn-xs btn-ghost"} h-auto min-h-[var(--density-row-h)] min-w-[44px]`}
+											className={`${selected ? "btn btn-xs btn-neutral" : "btn btn-xs btn-ghost"} h-auto min-h-[var(--density-row-h)] px-2 min-w-[44px] lg:min-w-0`}
 											onClick={() => {
 												if (filtersDisabled) return;
 												onFilterChange?.(f.id);
@@ -168,7 +176,7 @@ export function Submenu({
 							{showClearButton && (
 								<button
 									type="button"
-									className="btn btn-xs btn-ghost text-[var(--text-lo)] font-mono ml-auto h-auto min-h-[var(--density-row-h)] min-w-[44px]"
+									className="btn btn-xs btn-ghost text-[var(--text-lo)] font-mono flex-shrink-0 h-auto min-h-[var(--density-row-h)] px-2 min-w-[44px] lg:min-w-0"
 									aria-label="Clear filter"
 									aria-disabled={filtersDisabled || undefined}
 									data-testid="submenu-filter-clear"

@@ -223,9 +223,13 @@ export function ThreadSections({
 				dataTestId="thread-sections-filter-empty"
 				action={
 					onClearFilter ? (
+						// L10 Design C2 / approved mockup: flat text-link, not a solid button.
+						// Mirrors `.empty-state__action-btn` in
+						// docs/design-explorations/L10/variant-a-pure-axis/mockup.html
+						// (color: var(--primary); background: transparent; border: 0; padding: 0).
 						<button
 							type="button"
-							className="btn btn-primary btn-sm"
+							className="bg-transparent border-0 p-0 text-[12px] text-[var(--primary)] hover:underline cursor-pointer"
 							aria-label="Clear filter"
 							onClick={onClearFilter}
 						>

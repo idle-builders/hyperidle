@@ -82,6 +82,68 @@ describe("Submenu — disabled chips (L10)", () => {
 		expect(onClearFilter).not.toHaveBeenCalled();
 	});
 
+	it("Enter on a focused disabled chip does not invoke onFilterChange (Adversary H1)", async () => {
+		const user = userEvent.setup();
+		const onFilterChange = vi.fn();
+		render(
+			<Submenu
+				{...base}
+				filters={[...conversationsFilters]}
+				activeFilter="all"
+				onFilterChange={onFilterChange}
+				filtersDisabled={true}
+			>
+				content
+			</Submenu>,
+		);
+		const chip = screen.getByRole("tab", { name: "Blocking" });
+		chip.focus();
+		await user.keyboard("{Enter}");
+		expect(onFilterChange).not.toHaveBeenCalled();
+	});
+
+	it("Space on a focused disabled chip does not invoke onFilterChange (Adversary H1)", async () => {
+		const user = userEvent.setup();
+		const onFilterChange = vi.fn();
+		render(
+			<Submenu
+				{...base}
+				filters={[...conversationsFilters]}
+				activeFilter="all"
+				onFilterChange={onFilterChange}
+				filtersDisabled={true}
+			>
+				content
+			</Submenu>,
+		);
+		const chip = screen.getByRole("tab", { name: "Blocking" });
+		chip.focus();
+		await user.keyboard(" ");
+		expect(onFilterChange).not.toHaveBeenCalled();
+	});
+
+	it("Enter / Space on a focused disabled clear button does not invoke onClearFilter (Adversary H1)", async () => {
+		const user = userEvent.setup();
+		const onClearFilter = vi.fn();
+		render(
+			<Submenu
+				{...base}
+				filters={[...conversationsFilters]}
+				activeFilter="blocking"
+				onFilterChange={vi.fn()}
+				onClearFilter={onClearFilter}
+				filtersDisabled={true}
+			>
+				content
+			</Submenu>,
+		);
+		const clearButton = screen.getByTestId("submenu-filter-clear");
+		clearButton.focus();
+		await user.keyboard("{Enter}");
+		await user.keyboard(" ");
+		expect(onClearFilter).not.toHaveBeenCalled();
+	});
+
 	it("default behavior is unchanged when filtersDisabled is false / omitted", async () => {
 		const user = userEvent.setup();
 		const onFilterChange = vi.fn();

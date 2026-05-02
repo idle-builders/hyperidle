@@ -225,6 +225,33 @@ describe("AppShell — L10 conversations filter wiring", () => {
 		expect(screen.getByRole("tab", { name: /^all$/i })).toHaveAttribute("aria-selected", "true");
 	});
 
+	it("error state: count badge is hidden until status is ready (Adversary H2)", async () => {
+		global.fetch = vi.fn(async () => ({
+			ok: false,
+			status: 500,
+			json: async () => ({ error: "boom" }),
+		})) as unknown as typeof fetch;
+		renderShellAt("/conversations/review");
+		await screen.findByTestId("thread-sections-error");
+
+		const header = screen.getAllByText(/Conversations/i)[0]?.closest("div");
+		if (!header) throw new Error("Submenu header not found");
+		// No numeric badge should render in the error state — there is no
+		// authoritative post-filter count to display.
+		expect(within(header).queryByText(/^\d+$/)).toBeNull();
+	});
+
+	it("loading state: count badge is hidden until status is ready (Adversary H2)", async () => {
+		// Never-resolving fetch keeps the hook in `loading` indefinitely.
+		global.fetch = vi.fn(() => new Promise(() => {})) as unknown as typeof fetch;
+		renderShellAt("/conversations/review");
+		await screen.findByTestId("thread-sections-loading");
+
+		const header = screen.getAllByText(/Conversations/i)[0]?.closest("div");
+		if (!header) throw new Error("Submenu header not found");
+		expect(within(header).queryByText(/^\d+$/)).toBeNull();
+	});
+
 	it("error state: chips become inert (aria-disabled) and clicking does not change rendering", async () => {
 		// approved §5.5 / plan T10: when the threads fetch fails, the chips
 		// render as aria-disabled.
