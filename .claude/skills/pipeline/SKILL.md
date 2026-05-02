@@ -60,7 +60,7 @@ Then execute these steps. **Each step spawns an agent with a skill. Update `curr
 | 2 | designer | `/design-critique` | Score the approved design against the nine-dimension rubric. Iterate until score ≥7 or 4 iterations reached. Skip when step 1 was skipped. |
 | 3 | architect | `/architecture <id>` | Produce the technical plan — types, schemas, routes, file paths, ordered tasks, security & abuse cases, route checklist, protected tests, plan reconciliation. Architect interrogates one-question-at-a-time. Consumes the concept doc + approved design as fixed inputs. **If the spec enumerates a route list, the plan output MUST include a `route-checklist:` block listing every route + every file the guard/middleware must cover.** Recurrence: L7 retro PROPOSED-L7-B. |
 | 4 | architect | `/architecture-critique` | Score the plan against the nine-dimension architectural rubric (spec alignment, layer integrity, contracts, data model, naming, depth, failure-mode coverage, simplicity, verifiability). Catches CC-003 happy-path ACs, CC-007 spec drift, CC-008 missing protected-tests, L7 missing route-checklist BEFORE write-tests encodes the wrong intent. Iterate until score ≥7 or 3 iterations reached. |
-| 5 | qa | `/write-tests <id>` | Tests first define the requirement, not the implementation — catches when the wrong thing gets built |
+| 5 | developer | `/write-tests <id>` | Tests first define the requirement, not the implementation — catches when the wrong thing gets built |
 | 6 | developer | `/write-code <id>` | With tests as targets, implementation stays lean and every line exists because a test demands it |
 | 7 | adversary | `/simplification-scan` | Scan for over-abstraction — findings only, no code changes |
 | 8 | adversary | `/slop-scan` | Scan for AI anti-patterns — findings only, no code changes |
@@ -70,8 +70,8 @@ Then execute these steps. **Each step spawns an agent with a skill. Update `curr
 | 12 | security-researcher | `/security-review` | STRIDE, input validation, auth, OWASP top 10 |
 | 13 | designer | `/design-review` | Component specs, states, accessibility, `/designsystem` (skip if no UI) |
 | 14 | developer | `/apply-review` (steps 10-13) | Apply review findings, validate each fix |
-| 14b | developer | `/apply-review` (steps 10-13) | Apply test-related review findings if any |
-| 15 | -- | `/check-definition-of-done <id>` | Independent auditor catches gaps the implementer rationalized away |
+| 14b | qa | `/apply-review` (steps 10-13) | Apply test-related review findings if any |
+| 15 | qa | `/check-definition-of-done <id>` | Independent auditor catches gaps the implementer rationalized away |
 -- repeat 5 to 15 until done --
 | 15b | developer | `/verify` | Run `bun run check && bun run lint && bun run test` — all three must pass. Lint includes Biome + ESLint (React Compiler, hooks, Drizzle safety). **Also run all Playwright e2e specs locally before push, not just unit tests** — UI-shape changes that pass unit tests can break the e2e selectors of unrelated specs. Recurrence: L7 retro; L10 retro. |
 | 16 | developer | `/ship <id>` | Clean git history with atomic commits lets future agents trace decisions. CI must be green before merge. |
