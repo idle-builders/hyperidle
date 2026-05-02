@@ -78,7 +78,6 @@ function isThreadListRow(value: unknown): value is ThreadListRow {
 		typeof v.lastActiveAt === "string" &&
 		typeof v.createdAt === "string" &&
 		typeof v.hasUnresolvedReview === "boolean" &&
-		// L10 T11a: blocking is an optional additive — accept undefined OR a boolean.
 		(v.blocking === undefined || typeof v.blocking === "boolean")
 	);
 }
@@ -115,10 +114,7 @@ function rowToItem(row: ThreadListRow): ThreadItem {
 		avatarUrl: FALLBACK_AVATAR,
 		hostKind: row.hostKind,
 		hasUnresolvedReview: row.hasUnresolvedReview,
-		// @lore L10 §6 / T11a: forwards-compatible — when the wire row carries
-		// `blocking`, trust it; otherwise default to false (preserves L8
-		// behavior). Server schema unchanged in L10.
-		blocking: typeof row.blocking === "boolean" ? row.blocking : false,
+		blocking: row.blocking ?? false,
 		pinned: row.pinned,
 		resolvedAt: row.resolvedAt ?? undefined,
 	};
