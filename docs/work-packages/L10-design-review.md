@@ -214,3 +214,15 @@ All paths absolute, captured against the `feat/L10-conversations-filter` branch 
 - `/tmp/L10-WithFiltersConversations.png` — `/designsystem` story, default state correct
 - `/tmp/L10-WithFiltersKnowledge.png` — `/designsystem` story, Knowledge subset unchanged
 - `docs/design-explorations/L10/variant-a-pure-axis/screenshot.png` — approved mockup reference
+
+---
+
+## Status / Resolution (apply-review pass)
+
+| Finding | Status | Notes |
+|---|---|---|
+| C1 — Async chip wraps at 240 px | Fixed | Inner tablist `flex-1 min-w-0`, chips `px-2 lg:min-w-0`, clear button `flex-shrink-0`. Four pills now fit on one row at 240 px on `lg+`. |
+| C2 — `Clear filter` btn-primary vs flat text-link | Fixed | EmptyState action button now flat text-link (`bg-transparent border-0 p-0 text-[var(--primary)] hover:underline`) per mockup `.empty-state__action-btn`. |
+| W1–W2 | Won't-fix this pass | Judgment calls outside MUST list. |
+| W3 — title wraps at 240 px | Won't-fix this pass | Per apply-review instructions; copy left as-is. |
+| O1–O4 | Won't-fix this pass | Observations. |

@@ -252,3 +252,16 @@ Tests use `container.querySelector("[data-thread-section='active']")` instead of
 ## Verdict
 
 **REVISE.** Ship-blocking? No. But H1 (no keyboard activation test on disabled chips), H2 (badge shows `0` during loading/error), M3 (Blocking chip ships inert against real data), and M5 (untested wrap behavior) are real and addressable cheaply. Fix H1, H2, M5; explicitly accept or address M3 with founder buy-in; sweep the LOWs as cleanup.
+
+---
+
+## Status / Resolution (apply-review pass)
+
+| Finding | Status | Notes |
+|---|---|---|
+| H1 — disabled-chip Enter/Space test missing | Fixed | Added three additive assertions in `Submenu.disabled-chips.test.tsx` covering Enter/Space on focused disabled chip and clear button. Runtime onClick guard kept (pointer-events-none does not block keyboard). |
+| H2 — count badge under loading/error | Fixed | `submenuBadgeCount` extracted in `AppShell.tsx`; returns `undefined` unless `conversationsThreads.status === 'ready'`. New tests in `AppShell.l10-filter.test.tsx`. |
+| M1, M2, M4 | Won't-fix this pass | Not in MUST/SHOULD list. |
+| M3 — Blocking chip inert against prod data | Won't-fix | Out of L10 scope per plan §1 Q10 + follow-ups #2. |
+| M5 — Playwright 240 px wrap assertion | Deferred | Logged to follow-ups; keyboard-tested at unit level. |
+| L1–L4, NIT-* | Won't-fix this pass | Judgment calls. |
