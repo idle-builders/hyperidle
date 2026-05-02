@@ -45,3 +45,22 @@ to the originating story and the story (or track) that should pick it up.
 - **Owner:** TBD — small refactor that should land alongside the next
   cross-view filter work (e.g. when Knowledge filter chips become active).
 - **Status:** open.
+
+---
+
+## L8 — conversations-submenu E2E fixture rot
+
+- **Origin:** noticed during L10 ship-readiness check (2026-05-02).
+- **Issue:** `packages/web/e2e/conversations-submenu.spec.ts` uses
+  `NOW_ISO = "2026-04-30T12:00:00.000Z"` and `WITHIN_24H = "2026-04-30T10:00:00.000Z"`
+  for its mocked thread fixtures. The `Resolved · 24h` section depends on
+  `Date.now()` − `resolvedAt` ≤ 24h. As real time advances past the fixture
+  date, the resolved-bucket assertion fails. Confirmed: failing on `main`
+  before any L10 commit. **Not an L10 regression.**
+- **Reference:** `packages/web/e2e/conversations-submenu.spec.ts:10-11,47-48`.
+- **Fix:** replace the hardcoded ISO strings with `Date.now()`-relative
+  values (e.g., `new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString()`)
+  so the fixture stays valid as the clock advances.
+- **Owner:** TBD — small fixture fix; can land in a maintenance PR or be
+  bundled with the next L8 area touch.
+- **Status:** open.

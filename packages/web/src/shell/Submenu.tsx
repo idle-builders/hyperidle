@@ -138,9 +138,10 @@ export function Submenu({
 						 * gets `flex-1 min-w-0` so `ml-auto` on the clear button actually
 						 * pushes to the right edge (Arch W2) AND the four pills [All,
 						 * Blocking, Async, × Clear] fit on a single row at the production
-						 * Submenu width (w-60 = 240 px). Chips drop `min-w-[44px]` at `lg:`
-						 * since the touch-target rule (AQ-015) only binds at viewport ≤
-						 * 1024 px; at desktop tighter chips (px-2) keep the row coherent.
+						 * Submenu width (w-60 = 240 px). Chips keep `min-w-[44px]` at every
+						 * breakpoint — AQ-015 binds at viewport ≤ 1024 px and Tailwind's
+						 * `lg:` modifier kicks in at exactly 1024 px (would violate the
+						 * floor at the boundary). 4 × 44 + gaps still fits in 240 px.
 						 * We avoid `display: contents` (older WebKit a11y/SR bugs).
 						 */
 						<div className={`flex items-center gap-1 ${disabledClass}`}>
@@ -162,7 +163,7 @@ export function Submenu({
 											// active view's edge indicator. btn-neutral keeps the
 											// selected state legible without competing with primary
 											// signal placement (active view, primary CTAs).
-											className={`${selected ? "btn btn-xs btn-neutral" : "btn btn-xs btn-ghost"} h-auto min-h-[var(--density-row-h)] px-2 min-w-[44px] lg:min-w-0`}
+											className={`${selected ? "btn btn-xs btn-neutral" : "btn btn-xs btn-ghost"} h-auto min-h-[var(--density-row-h)] px-2 min-w-[44px]`}
 											onClick={() => {
 												// @lore L10 Adversary H1: pointer-events-none on the
 												// parent blocks mouse activation but does NOT block
@@ -180,7 +181,7 @@ export function Submenu({
 							{showClearButton && (
 								<button
 									type="button"
-									className="btn btn-xs btn-ghost text-[var(--text-lo)] font-mono flex-shrink-0 h-auto min-h-[var(--density-row-h)] px-2 min-w-[44px] lg:min-w-0"
+									className="btn btn-xs btn-ghost text-[var(--text-lo)] font-mono flex-shrink-0 h-auto min-h-[var(--density-row-h)] px-2 min-w-[44px]"
 									aria-label="Clear filter"
 									aria-disabled={filtersDisabled || undefined}
 									data-testid="submenu-filter-clear"
