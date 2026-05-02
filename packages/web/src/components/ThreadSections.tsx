@@ -32,6 +32,35 @@ export interface ThreadItem {
 
 const TWENTY_FOUR_HOURS_MS = 24 * 60 * 60 * 1000;
 
+/**
+ * L10 §3.3: closed vocabulary for Conversations filter chips. Strict subset
+ * of `SubmenuFilter` — kept narrow at the `ThreadSections` boundary so the
+ * predicate's exhaustive switch fails typecheck on any future addition.
+ */
+export type ConversationsFilter = "all" | "blocking" | "async";
+
+/**
+ * L10 §3.4 — single source of truth for the filter predicate. Reused by
+ * `ThreadSections` (filter before sectioning) and `AppShell` (post-filter
+ * count badge). Defining once prevents the rendered list and the count
+ * badge from drifting.
+ */
+export function predicateFor(f: ConversationsFilter): (t: ThreadItem) => boolean {
+	switch (f) {
+		case "all":
+			return () => true;
+		case "blocking":
+			return (t) => t.blocking === true;
+		case "async":
+			return (t) => t.blocking === false;
+	}
+}
+
+const FILTER_EMPTY_COPY: Record<Exclude<ConversationsFilter, "all">, { description: string }> = {
+	blocking: { description: "No blocking threads right now." },
+	async: { description: "No async conversations." },
+};
+
 export type ConversationsSectionId = "blocking" | "active" | "resolved";
 
 export interface ConversationsSection {
@@ -127,6 +156,16 @@ export interface ThreadSectionsProps {
 	 * instead of falling through to EmptyState while the fetch resolves.
 	 */
 	loading?: boolean;
+	/**
+	 * L10 §3.3: when provided, threads are run through `predicateFor(activeFilter)`
+	 * BEFORE sectioning. Defaults to `'all'` (no filter).
+	 */
+	activeFilter?: ConversationsFilter;
+	/**
+	 * L10 §3.6: click handler for the filter-empty `Clear filter` action
+	 * button. Only relevant when `activeFilter !== 'all'`.
+	 */
+	onClearFilter?: () => void;
 }
 
 export function ThreadSections({
@@ -137,6 +176,8 @@ export function ThreadSections({
 	errorMessage,
 	onRetry,
 	loading = false,
+	activeFilter = "all",
+	onClearFilter,
 }: ThreadSectionsProps): JSX.Element {
 	if (errorMessage) {
 		return (
@@ -159,7 +200,12 @@ export function ThreadSections({
 		);
 	}
 
-	if (threads.length === 0) {
+	// L10 §3.3: filter BEFORE the empty branches. The filter-empty surface is
+	// distinct from L8's "No threads yet" — different copy and a Clear filter
+	// action button. When `activeFilter === 'all'` and the list is globally
+	// empty, fall through to the L8 surface.
+	const filtered = activeFilter === "all" ? threads : threads.filter(predicateFor(activeFilter));
+	if (threads.length === 0 && activeFilter === "all") {
 		return (
 			<EmptyState
 				title="No threads yet"
@@ -168,14 +214,42 @@ export function ThreadSections({
 			/>
 		);
 	}
+	if (filtered.length === 0 && activeFilter !== "all") {
+		const copy = FILTER_EMPTY_COPY[activeFilter];
+		return (
+			<EmptyState
+				title="No threads match this filter"
+				description={copy.description}
+				dataTestId="thread-sections-filter-empty"
+				action={
+					onClearFilter ? (
+						<button
+							type="button"
+							className="btn btn-primary btn-sm"
+							aria-label="Clear filter"
+							onClick={onClearFilter}
+						>
+							Clear filter
+						</button>
+					) : undefined
+				}
+			/>
+		);
+	}
 
-	const sections = groupThreadsForConversations(threads, { now });
+	const sections = groupThreadsForConversations(filtered, { now });
 	return (
 		<div className="flex flex-col gap-2" data-testid="thread-sections">
 			{sections.map((section) => {
 				// approved.md §5.5: Blocking and Resolved silently absent when empty.
-				// Active renders its header plus a "Quiet" line when empty.
-				if (section.items.length === 0 && section.id !== "active") return null;
+				// Active renders its header plus a "Quiet" line when empty —
+				// EXCEPT when L10 §3.5 hides Active for the 'blocking' filter
+				// (the filter restricts the visible domain to blocking threads
+				// only; an empty Active "Quiet" line would be misleading).
+				if (section.items.length === 0) {
+					if (section.id !== "active") return null;
+					if (activeFilter === "blocking") return null;
+				}
 				const headerToneClass =
 					section.tone === "danger" ? "text-[var(--danger)]" : "text-[var(--text-lo)]";
 				// @lore L8 review (Design B1+B2 / approved.md §2 + §5.6 + §7):

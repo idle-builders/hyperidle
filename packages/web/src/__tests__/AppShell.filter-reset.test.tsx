@@ -41,15 +41,17 @@ describe("AppShell — filter reset on view change (J2 AC 64)", () => {
 		const user = userEvent.setup();
 		render(renderShellAt("/conversations/review"));
 
-		// Wait for Conversations submenu + filter row.
-		const needsReview = await screen.findByRole("tab", { name: /needs review/i });
+		// Wait for Conversations submenu + filter row. L10 swapped the
+		// chip vocabulary to [All, Blocking, Async]; we now drive the
+		// reset assertion through the Blocking chip.
+		const blocking = await screen.findByRole("tab", { name: /^blocking$/i });
 		const allTab = screen.getByRole("tab", { name: /^all$/i });
 		expect(allTab).toHaveAttribute("aria-selected", "true");
 
-		// Switch the filter to "Needs review".
-		await user.click(needsReview);
+		// Switch the filter to "Blocking".
+		await user.click(blocking);
 		await waitFor(() => {
-			expect(screen.getByRole("tab", { name: /needs review/i })).toHaveAttribute(
+			expect(screen.getByRole("tab", { name: /^blocking$/i })).toHaveAttribute(
 				"aria-selected",
 				"true",
 			);
@@ -69,7 +71,7 @@ describe("AppShell — filter reset on view change (J2 AC 64)", () => {
 		await waitFor(() => {
 			expect(screen.getByRole("tab", { name: /^all$/i })).toHaveAttribute("aria-selected", "true");
 		});
-		expect(screen.getByRole("tab", { name: /needs review/i })).toHaveAttribute(
+		expect(screen.getByRole("tab", { name: /^blocking$/i })).toHaveAttribute(
 			"aria-selected",
 			"false",
 		);

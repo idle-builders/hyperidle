@@ -20,6 +20,8 @@ interface ListRow {
 	lastActiveAt: string;
 	createdAt: string;
 	hasUnresolvedReview: boolean;
+	/** L10 / T11a — optional wire field. */
+	blocking?: boolean;
 }
 
 const NOW_ISO = "2026-04-30T12:00:00.000Z";
@@ -36,6 +38,10 @@ function row(overrides: Partial<ListRow> = {}): ListRow {
 		lastActiveAt: overrides.lastActiveAt ?? NOW_ISO,
 		createdAt: overrides.createdAt ?? NOW_ISO,
 		hasUnresolvedReview: overrides.hasUnresolvedReview ?? false,
+		// L10 T11a — forward optional `blocking` so the new assertion exercises
+		// the wire-row → ThreadItem mapping. Omitted when not provided so the
+		// existing tests keep their "no blocking field" payload shape.
+		...(overrides.blocking !== undefined ? { blocking: overrides.blocking } : {}),
 	};
 }
 
@@ -168,6 +174,35 @@ describe("useConversationsThreads", () => {
 		});
 		// Only the second cycle's data is present.
 		expect(result.current.threads.map((t) => t.id)).toEqual(["second"]);
+	});
+
+	it("L10 T11a — preserves a wire-row `blocking: true` when present (forwards-compatible)", async () => {
+		// L10 plan §6: the server schema does NOT yet emit `blocking`. The
+		// client guard accepts it as an optional field so Playwright fixtures
+		// (and a future server emit) can drive `blocking=true` rows without a
+		// schema break. When the field is absent the hook still returns
+		// `blocking: false` (existing L8 behavior).
+		global.fetch = vi.fn().mockResolvedValue({
+			ok: true,
+			json: () =>
+				Promise.resolve({
+					threads: [
+						row({ id: "blk", blocking: true }),
+						row({ id: "asy", blocking: false }),
+						row({ id: "omit" }),
+					],
+					nextCursor: null,
+				}),
+		}) as unknown as typeof fetch;
+		const { result } = renderHook(() => useConversationsThreads("u-founder"));
+		await waitFor(() => expect(result.current.status).toBe("ready"));
+
+		const blk = result.current.threads.find((t) => t.id === "blk");
+		const asy = result.current.threads.find((t) => t.id === "asy");
+		const omit = result.current.threads.find((t) => t.id === "omit");
+		expect(blk?.blocking).toBe(true);
+		expect(asy?.blocking).toBe(false);
+		expect(omit?.blocking).toBe(false);
 	});
 
 	it("maps hasUnresolvedReview from the list-row to the ThreadItem", async () => {
