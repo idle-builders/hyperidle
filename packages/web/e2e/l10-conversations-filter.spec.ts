@@ -126,6 +126,11 @@ test.describe("L10 — Conversations filter chips actually filter", () => {
 		// AQ-015 — verifies the touch-target floor that jsdom cannot lay
 		// out reliably. Plan §4 escalation hint: assert per-element bounding
 		// box dimensions in Playwright.
+		// @lore L10 Arch W1: plan §4 originally promised a Vitest
+		// `Submenu.touch-target.test.tsx`. jsdom does not lay flex/min-h
+		// boxes reliably, so the Vitest path was infeasible and we landed
+		// directly at the Playwright bbox check below. This is the verified
+		// harness for AQ-015 on the chip row.
 		await page.setViewportSize({ width: 1024, height: 800 });
 		await page.route("**/api/threads*", async (route) => {
 			await route.fulfill({

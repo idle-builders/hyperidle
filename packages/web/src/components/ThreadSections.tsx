@@ -33,17 +33,16 @@ export interface ThreadItem {
 const TWENTY_FOUR_HOURS_MS = 24 * 60 * 60 * 1000;
 
 /**
- * L10 §3.3: closed vocabulary for Conversations filter chips. Strict subset
- * of `SubmenuFilter` — kept narrow at the `ThreadSections` boundary so the
- * predicate's exhaustive switch fails typecheck on any future addition.
+ * Closed vocabulary for the Conversations filter chips. Strict subset of
+ * `SubmenuFilter` so `predicateFor`'s exhaustive switch fails typecheck on
+ * any future addition.
  */
 export type ConversationsFilter = "all" | "blocking" | "async";
 
 /**
- * L10 §3.4 — single source of truth for the filter predicate. Reused by
- * `ThreadSections` (filter before sectioning) and `AppShell` (post-filter
- * count badge). Defining once prevents the rendered list and the count
- * badge from drifting.
+ * Single source of truth for the filter predicate. Reused by ThreadSections
+ * (filter before sectioning) and AppShell (post-filter count badge) so the
+ * rendered list and the count badge cannot drift.
  */
 export function predicateFor(f: ConversationsFilter): (t: ThreadItem) => boolean {
 	switch (f) {
@@ -156,15 +155,9 @@ export interface ThreadSectionsProps {
 	 * instead of falling through to EmptyState while the fetch resolves.
 	 */
 	loading?: boolean;
-	/**
-	 * L10 §3.3: when provided, threads are run through `predicateFor(activeFilter)`
-	 * BEFORE sectioning. Defaults to `'all'` (no filter).
-	 */
+	/** When provided, threads are filtered before sectioning. Defaults to `'all'`. */
 	activeFilter?: ConversationsFilter;
-	/**
-	 * L10 §3.6: click handler for the filter-empty `Clear filter` action
-	 * button. Only relevant when `activeFilter !== 'all'`.
-	 */
+	/** Handler for the filter-empty `Clear filter` action. Only fires when `activeFilter !== 'all'`. */
 	onClearFilter?: () => void;
 }
 
@@ -200,10 +193,8 @@ export function ThreadSections({
 		);
 	}
 
-	// L10 §3.3: filter BEFORE the empty branches. The filter-empty surface is
-	// distinct from L8's "No threads yet" — different copy and a Clear filter
-	// action button. When `activeFilter === 'all'` and the list is globally
-	// empty, fall through to the L8 surface.
+	// Filter before the empty branches so the filter-empty surface is distinct
+	// from L8's globally-empty "No threads yet".
 	const filtered = activeFilter === "all" ? threads : threads.filter(predicateFor(activeFilter));
 	if (threads.length === 0 && activeFilter === "all") {
 		return (

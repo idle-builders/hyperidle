@@ -388,12 +388,11 @@ export function AppShell(): JSX.Element {
 
 	const submenuFilters = SUBMENU_FILTERS[activeView];
 	const [submenuFilter, setSubmenuFilter] = useState<SubmenuFilter>("all");
-	// L10 §3.5: the conversations filter chips map onto the closed
-	// `ConversationsFilter` vocabulary. When the wider `SubmenuFilter` union
-	// carries an id outside the conversations subset (e.g. `'needs-review'`),
-	// fall back to `'all'` — that case can't actually occur because the filter
-	// is reset to `'all'` on view change, but the narrowing makes the
-	// downstream prop type-safe.
+	// Narrow the wider `SubmenuFilter` union to the closed `ConversationsFilter`
+	// subset for the Conversations view. Any id outside the subset (e.g.
+	// `'needs-review'`) is coerced to `'all'`; the view-change effect below
+	// resets to `'all'` so this branch is only a forwards-compatible guard
+	// against future shared filter state (e.g. URL-restored values).
 	const conversationsFilter: ConversationsFilter =
 		submenuFilter === "blocking" || submenuFilter === "async" ? submenuFilter : "all";
 	const submenuTotalCount = useMemo(() => {

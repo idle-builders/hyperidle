@@ -164,6 +164,10 @@ export function Submenu({
 											// signal placement (active view, primary CTAs).
 											className={`${selected ? "btn btn-xs btn-neutral" : "btn btn-xs btn-ghost"} h-auto min-h-[var(--density-row-h)] px-2 min-w-[44px] lg:min-w-0`}
 											onClick={() => {
+												// @lore L10 Adversary H1: pointer-events-none on the
+												// parent blocks mouse activation but does NOT block
+												// keyboard activation (Enter/Space). The runtime guard
+												// is the only defense for keyboard users when disabled.
 												if (filtersDisabled) return;
 												onFilterChange?.(f.id);
 											}}
