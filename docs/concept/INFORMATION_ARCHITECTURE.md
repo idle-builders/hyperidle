@@ -6,6 +6,7 @@ This document serves three purposes: (1) define every component the app needs, (
 
 ---
 
+<!-- @anchor: app-shell-always-present -->
 ## 1. App Shell (Always Present)
 
 The shell is the fixed frame around every view. Four zones, always rendered:
@@ -84,6 +85,7 @@ Always present. Two states: minimized (icon strip) and expanded (full panel).
 
 ---
 
+<!-- @anchor: conversations-view -->
 ## 2. Conversations View
 
 > **Reframe note (added with TRACK-L L1, the Thread primitive).** This section uses "Review Thread Detail" / "Chat Thread Detail" as a UI shorthand. Per `HUMAN_INTERFACE_LAYER.md §4.5`, there is one Thread primitive and the differences live on the *messages* (review / questionnaire / plain) and on the thread's *configuration*. "Review Thread Detail" reads as "the detail surface when the thread contains a review message"; "Chat Thread Detail" reads as "the detail surface when the thread does not (yet) contain a review or questionnaire message". The two converge to a single detail surface in TRACK-L L9.
@@ -195,6 +197,7 @@ When an ArtifactView is complex, the main pane splits into companion layout:
 
 ---
 
+<!-- @anchor: work-view -->
 ## 3. Work View
 
 **Purpose:** Planning and tracking. The Linear/Jira of the factory.
@@ -279,6 +282,7 @@ Accessed by clicking a BetCard in the Team View. Breadcrumb returns to Team View
 
 ---
 
+<!-- @anchor: knowledge-view -->
 ## 4. Knowledge View
 
 **Purpose:** The company's wiki. Agent-free curation.
@@ -328,6 +332,7 @@ Accessed by clicking a BetCard in the Team View. Breadcrumb returns to Team View
 
 ---
 
+<!-- @anchor: user-journeys -->
 ## 5. User Journeys
 
 ### 5.1 Morning check-in (3 minutes)
@@ -434,6 +439,7 @@ Click Work icon → Portfolio Overview → click product card → Team View
 
 ---
 
+<!-- @anchor: component-tree-summary -->
 ## 6. Component Tree Summary
 
 **Canonical app shell:**
@@ -583,6 +589,7 @@ App Shell (IconRail | Submenu | Main | Rail)
 
 ---
 
+<!-- @anchor: tier-system-canonical -->
 ## Tier System (Canonical)
 
 **Tier 1 — Primitives (5):** StatusChip, Tag, KeyValue, NavItem, SearchField
@@ -598,6 +605,7 @@ App Shell (IconRail | Submenu | Main | Rail)
 
 ---
 
+<!-- @anchor: cross-view-navigation-map -->
 ## 7. Cross-View Navigation Map
 
 | From | To | Trigger |
