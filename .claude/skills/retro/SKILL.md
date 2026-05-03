@@ -3,6 +3,7 @@ name: retro
 description: "Collect observations from all sources after a story or pipeline run. Observe, don't fix."
 argument-hint: "[story-id, 'last-session', or 'pipeline']"
 user-invocable: true
+min_tool_calls: 8
 ---
 
 # Retro

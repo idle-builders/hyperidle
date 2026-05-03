@@ -3,6 +3,7 @@ name: lore
 description: "Use when you encounter or make a non-obvious decision that would surprise future developers. Triggers: architectural tradeoff, workaround, cross-cutting constraint, undocumented gotcha."
 argument-hint: "[file paths, 'scan' to find undocumented decisions, or 'index' to list all lore]"
 user-invocable: true
+min_tool_calls: 5
 ---
 
 # Lore

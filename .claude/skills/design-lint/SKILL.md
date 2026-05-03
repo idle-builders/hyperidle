@@ -3,6 +3,7 @@ name: design-lint
 description: "Read-only design lint pass. Runs eslint-plugin-design (K6) for the regex/AST-detectable violations and adds higher-level cross-component checks the AST cannot do. Output mirrors slop-scan."
 argument-hint: "[file paths or 'all' for the full design-system + web/src tree]"
 user-invocable: true
+min_tool_calls: 3
 ---
 
 # Design Lint

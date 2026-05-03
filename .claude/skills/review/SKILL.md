@@ -3,6 +3,7 @@ name: review
 description: "Multi-perspective code review. Spawns specialist agents in parallel."
 argument-hint: "[file paths, PR number, or description of changes]"
 user-invocable: true
+min_tool_calls: 25
 ---
 
 # Code Review

@@ -3,6 +3,7 @@ name: check-definition-of-done
 description: "Independent audit: is every acceptance criterion met with evidence?"
 argument-hint: "[story-id]"
 user-invocable: true
+min_tool_calls: 12
 ---
 
 # Check Definition of Done

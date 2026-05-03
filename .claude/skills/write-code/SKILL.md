@@ -3,6 +3,7 @@ name: write-code
 description: "Write minimum code to make all tests pass. TDD green phase."
 argument-hint: "[story-id]"
 user-invocable: true
+min_tool_calls: 18
 ---
 
 # Write Code

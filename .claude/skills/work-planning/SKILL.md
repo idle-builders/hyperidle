@@ -3,6 +3,7 @@ name: work-planning
 description: "Create a new work-package spec — outcome-level only — and register it in the manifest + track index. Founder-only. Use when introducing a new story or breaking a track into stories. Triggers: 'add a new story', 'plan a work package', 'register X under Track Y'."
 argument-hint: "[track-letter] [short-title] (e.g. 'L mobile-thread-collapse')"
 user-invocable: true
+min_tool_calls: 8
 ---
 
 # Work Planning — Define and Register a Work Package
