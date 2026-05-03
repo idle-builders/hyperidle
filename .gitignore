@@ -9,6 +9,7 @@ visual-reports/
 sync-reports/
 .pipeline/
 .env
+!infrastructure/langfuse/.env
 .worktrees/
 .DS_Store
 .claude/worktrees/
