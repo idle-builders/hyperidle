@@ -51,7 +51,7 @@ The seven essential probes (adapt; don't ask all of them — pick what's actuall
 
 Stop probing when the concept is sharp, not when you run out of questions. Three to seven branches is typical for a new primitive; one or two for a reshape.
 
-If the founder is reachable, surface the unsettled probes in a single AskUserQuestion call carrying all of them — the founder reads them at once and you don't pay a round-trip per probe. In autonomous mode, propose your answer in the concept doc and let `/architecture-critique`'s spec-alignment dimension catch it later if you got it wrong.
+If the founder is reachable, surface each probe with one AskUserQuestion (never batch). In autonomous mode, propose your answer in the concept doc and let `/architecture`'s in-session spec-alignment scoring catch it later if you got it wrong.
 
 ## Phase 2 — Probe the rejection list
 

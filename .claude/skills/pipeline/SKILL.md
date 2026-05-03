@@ -48,7 +48,64 @@ If a workpackage is dispatched to the pipeline and `/concept` work is missing fo
 
 ## For each story (any order within a batched group, sequential within yours)
 
-Set status to `in_progress`. The scheduler / `bin/pipeline` has already created the worktree and opened a **draft PR** (TE-21). Each persona phase commits its output and pushes; CI is the verify gate.
+Set status to `in_progress`. Run the worktree + draft-PR setup once, then dispatch the four persona phases.
+
+### Worktree + draft-PR setup (TE-21)
+
+```bash
+# 1. Worktree
+git worktree add .worktrees/<id> -b feat/<id>-<desc> main
+cd .worktrees/<id> && bun install
+
+# 2. Initial empty commit so the branch exists on the remote
+git commit --allow-empty -m "chore(<id>): open WIP — pipeline scaffolding [skip ci]"
+git push -u origin HEAD
+
+# 3. Draft PR — opens once, every push auto-updates it
+gh pr create --draft --title "feat(<id>): WIP" \
+  --body "Pipeline run for <id>. Each persona commits its output. Cold DoD flips ready (unless PIPELINE_AB_MODE=1)."
+```
+
+### Continuous-commit rule (TE-21)
+
+Each persona phase **commits its output and pushes** before returning:
+
+| Phase | What gets committed | CI? |
+|---|---|---|
+| architect — concept-read / brief.md | prose only | `[skip ci]` |
+| architect — approved.md | design artifacts | `[skip ci]` |
+| architect — plan | plan doc | `[skip ci]` |
+| builder — Mode 1 (failing tests) | test files | run |
+| builder — Mode 2 (code) | implementation | run |
+| builder — Mode 3 (apply-review fixes) | one commit per applied finding batch | run |
+| reflector — retro doc | prose | `[skip ci]` |
+
+CI is the verify gate. There is no `/verify` skill anymore. Builder runs `bun run check && bun run lint && bun run test` locally for fast iteration; CI is the authoritative pass/fail.
+
+**Squash before flipping ready.** Builder squashes the persona-prose commits before Cold DoD's APPROVED triggers `gh pr ready`. Implementation commits stay atomic; prose commits collapse into one `chore(<id>): pipeline artifacts`. Squash at flip time, not before — Reflector still needs the per-phase history to extract cost signals.
+
+### Ready-flip (replaces /ship)
+
+When Cold DoD emits `Verdict: APPROVED`:
+
+```bash
+if [ "${PIPELINE_AB_MODE:-0}" = "1" ]; then
+  echo "[AB] Cold DoD approved — leaving PR draft for replay"
+else
+  gh pr ready
+fi
+```
+
+In A/B mode the PR stays draft so the run is replayable; the harness compares cost signals across replays without `gh pr merge` destroying the comparison. Outside A/B mode the human still owns `gh pr merge` — pipeline stops at "ready PR with green CI", same boundary as the prior `/ship` skill.
+
+### CI failure handling (replaces /verify retry loop)
+
+If CI is red after a Builder push:
+
+1. Builder pulls the failure log via `gh pr checks <pr-number>`.
+2. Builder fixes locally; runs `bun run check && bun run lint && bun run test` until green.
+3. Pushes again. CI re-runs.
+4. Max 3 push series. After 3, mark `blocked` with reason `ci-red-after-3-fixes`.
 
 Then dispatch the **four durable persona sessions** below, in order. Update `currentStep` in the progress file before each persona dispatch.
 
