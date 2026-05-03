@@ -28,7 +28,15 @@
 		"test:pg": "bun packages/db/src/pg-test-runner.ts",
 		"ds:serve": "bun run --filter @hyperidle/design-system serve",
 		"ds:sync": "bun run --filter @hyperidle/design-system sync-check",
-		"ds:inspect": "bun packages/design-system/scripts/inspect-page.ts"
+		"ds:inspect": "bun packages/design-system/scripts/inspect-page.ts",
+		"obs:up": "bun scripts/obs.ts up",
+		"obs:down": "bun scripts/obs.ts down",
+		"obs:reset": "bun scripts/obs.ts reset",
+		"obs:status": "bun scripts/obs.ts status",
+		"obs:logs": "bun scripts/obs.ts logs",
+		"obs:env": "bun scripts/obs.ts env",
+		"obs:smoke": "bun scripts/obs.ts smoke",
+		"obs:run": "bun scripts/obs.ts run"
 	},
 	"overrides": {
 		"zod-validation-error": "^4.0.0"
@@ -36,6 +44,11 @@
 	"devDependencies": {
 		"@biomejs/biome": "^2.4.12",
 		"@eslint/js": "^10.0.1",
+		"@opentelemetry/api": "^1.9.1",
+		"@opentelemetry/exporter-trace-otlp-http": "^0.216.0",
+		"@opentelemetry/resources": "^2.7.1",
+		"@opentelemetry/sdk-trace-node": "^2.7.1",
+		"@opentelemetry/semantic-conventions": "^1.40.0",
 		"@typescript-eslint/parser": "^8.59.0",
 		"@vitest/coverage-v8": "^4.1.5",
 		"concurrently": "^9.1.0",
