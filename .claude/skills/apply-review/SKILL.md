@@ -1,6 +1,6 @@
 ---
 name: apply-review
-description: "Apply review findings. Run by developer (code) or qa (tests) agent."
+description: "Apply review findings. Run by the builder agent (covers both code and test fixes — the previous developer-vs-qa split is now an internal mode)."
 argument-hint: "[review findings — passed as context from the orchestrating skill]"
 user-invocable: false
 min_tool_calls: 6

@@ -10,7 +10,7 @@ min_tool_calls: 12
 
 **Why:** HyperIdle runs autonomous AI agents with access to code, data, and external services. Every trust boundary is an attack surface. Threat modeling before shipping catches security issues that are expensive to fix after deployment — especially agent-specific risks like prompt injection and workspace escape.
 
-Spawn a **security-researcher agent** to analyze `<target>`.
+Spawn the **reviewer agent** (security lens) to analyze `$ARGUMENTS`.
 
 Give it the relevant code, the architecture plan (`plans/<workpackage-id>/architecture.md`) — its **Required reading** section names the specific docs this target depends on — and the trust boundaries below. Do not browse `docs/` directly.
 
