@@ -1,14 +1,14 @@
 ---
 name: architecture
-description: "Produce the technical plan for a workpackage — types, schemas, APIs, file paths, ordered tasks. Architect interrogates the spec, then drafts; adversary challenges. Run AFTER /concept (always) and AFTER /design (when the workpackage has UI)."
-argument-hint: "[workpackage-id]"
+description: "Produce the technical plan for a story — types, schemas, APIs, file paths, ordered tasks. Designer interrogates the spec, then drafts; adversary challenges. Run AFTER /concept (always) and AFTER /design (when the story has UI)."
+argument-hint: "[story-id]"
 user-invocable: true
 min_tool_calls: 25
 ---
 
 # Architecture
 
-Produces the **how** — file paths, type signatures, schemas, endpoint shapes, task ordering.
+**Why:** A clear plan prevents wasted implementation time. Without architectural planning, the builder builds the wrong thing, misses edge cases, or invents abstractions the system doesn't need. The adversary catches errors before they become expensive rework.
 
 **Fixed inputs (do NOT re-litigate):**
 - Concept doc from `/concept` — includes which docs were read and the relevant canonical-shapes contracts in `docs/<topic>/`.

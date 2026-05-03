@@ -51,7 +51,7 @@ Use every tool at your disposal. "I implemented it" is not proof. Only observabl
 
 For UI criteria, look at pixels not code — screenshot the route, read the PNG, compare to the spec. Code-level inspection alone is not proof. E2E tests (`cd packages/web && npx playwright test`) must pass. Missing E2E coverage for UI criteria is NOT DONE.
 
-Spawn specialist agents as needed: **architect** for API/layer compliance, **qa** for test coverage gaps, **security-researcher** for auth/validation criteria.
+In the pipeline, this skill runs as the **researcher** persona's Mode 1 (Cold DoD) in fresh context. Outside the pipeline, the invoking agent reads the spec + plan + diff directly. Spawn the **reviewer** if you need an architecture / design / security pass against the implementation, or the **adversary** if you need a slop / simplification / hostile-persona pass.
 
 Verdict: **DONE** (all criteria pass with evidence) or **NOT DONE** (list every gap).
 

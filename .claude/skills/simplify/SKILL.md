@@ -16,10 +16,6 @@ Find recently changed files via `git diff --name-only HEAD~1` (or use `<target>`
 
 Spawn an **adversary** agent with `/simplification-scan <target>`. It produces findings with file paths and line numbers but does NOT make changes.
 
-## Phase 2: Fix (developer)
+## Phase 2: Fix (builder)
 
-Spawn a **developer** agent with `/apply-review` passing the adversary's findings. It verifies and applies meaningful & correct simplifications, keeping all changes behavior-preserving. Run `bun run verify` after. Revert anything that breaks.
-
-## Target
-
-$ARGUMENTS
+Spawn a **builder** agent with `/apply-review` passing the adversary's findings. It verifies and applies meaningful & correct simplifications, keeping all changes behavior-preserving. Run `bun run check && bun run lint && bun run test` after. Revert anything that breaks.

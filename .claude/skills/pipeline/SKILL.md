@@ -72,25 +72,25 @@ Each persona phase **commits its output and pushes** before returning:
 
 | Phase | What gets committed | CI? |
 |---|---|---|
-| architect — concept-read / brief.md | prose only | `[skip ci]` |
-| architect — approved.md | design artifacts | `[skip ci]` |
-| architect — plan | plan doc | `[skip ci]` |
+| designer — concept-read / brief.md | prose only | `[skip ci]` |
+| designer — approved.md (UI stories) | design artifacts | `[skip ci]` |
+| designer — plan | plan doc | `[skip ci]` |
 | builder — Mode 1 (failing tests) | test files | run |
 | builder — Mode 2 (code) | implementation | run |
 | builder — Mode 3 (apply-review fixes) | one commit per applied finding batch | run |
-| reflector — retro doc | prose | `[skip ci]` |
+| researcher — retro doc | prose | `[skip ci]` |
 
 CI is the verify gate. There is no `/verify` skill anymore. Builder runs `bun run check && bun run lint && bun run test` locally for fast iteration; CI is the authoritative pass/fail.
 
-**Squash before flipping ready.** Builder squashes the persona-prose commits before Cold DoD's APPROVED triggers `gh pr ready`. Implementation commits stay atomic; prose commits collapse into one `chore(<id>): pipeline artifacts`. Squash at flip time, not before — Reflector still needs the per-phase history to extract cost signals.
+**Squash before flipping ready.** Builder squashes the persona-prose commits before Researcher's APPROVED triggers `gh pr ready`. Implementation commits stay atomic; prose commits collapse into one `chore(<id>): pipeline artifacts`. Squash at flip time, not before — Researcher's retro mode still needs the per-phase history to extract cost signals.
 
 ### Ready-flip (replaces /ship)
 
-When Cold DoD emits `Verdict: APPROVED`:
+When Researcher's DoD pass emits `Verdict: APPROVED`:
 
 ```bash
 if [ "${PIPELINE_AB_MODE:-0}" = "1" ]; then
-  echo "[AB] Cold DoD approved — leaving PR draft for replay"
+  echo "[AB] Researcher (DoD) approved — leaving PR draft for replay"
 else
   gh pr ready
 fi
@@ -107,20 +107,20 @@ If CI is red after a Builder push:
 3. Pushes again. CI re-runs.
 4. Max 3 push series. After 3, mark `blocked` with reason `ci-red-after-3-fixes`.
 
-Then dispatch the **four durable persona sessions** below, in order. Update `currentStep` in the progress file before each persona dispatch.
+Then dispatch the persona sessions below, in order. Update `currentStep` in the progress file before each persona dispatch.
 
-### The 4-persona graph (collapsed from the prior 17-step pipeline)
+### The 5-persona graph (collapsed from the prior 17-step pipeline)
 
-| # | Persona | Absorbed steps | Why |
-|---|---|---|---|
-| 1 | **architect** | concept-read, design, architecture | Concept doc consumed as input. Variant exploration + plan production happen in one durable session, with same-session critique mode-switches (no separate `/design-critique` or `/architecture-critique` — TE-17 dropped them). |
-| 2 | **builder** | write-tests, write-code, apply-review | TDD red/green + apply-review-fixes inside one session. QA-vs-developer is a prompt mode within the persona; tests are derived from the plan, so the rule survives. |
-| W1–W4 | **reviewer workers** (parallel, findings-only) | architecture-review, security-review, design-review, adversary-review | Builder spawns these in parallel via the runtime's sub-agent primitive. Each returns ONE TOON findings block. Hard caps (depth-1, ≤4 parallel) live in the worker prompts so they travel. |
-| 3 | **cold-dod** | check-definition-of-done | Fresh context. Reads live PR + spec. Approves or blocks. Doesn't write code. The one boundary that must not collapse. |
-| 4 | **reflector** | retro | Reads ledger + `gh pr view` + DoD verdict. Emits structured retro entry that feeds the compound agent. Light. |
-| — | scripts | verify, ship | `bun run verify` runs as CI on every push (no skill — TE-21 dropped `/verify`). Continuous-commit logic in `bin/pipeline` flips the draft PR ready when Cold DoD approves (no skill — TE-21 dropped `/ship`). In `PIPELINE_AB_MODE=1`, the final ready-flip / merge step is suppressed so the run can be replayed. |
+| # | Persona | Effort | Absorbed skills | Why |
+|---|---|---|---|---|
+| 1 | **designer** | high | `/concept` (read), `/design`, `/architecture` | Concept doc + variant exploration + technical plan in one durable session, with same-session critique mode-switches (no separate `/design-critique` or `/architecture-critique` — TE-17 dropped them). Spawns the **adversary** once during `/architecture` to challenge the plan. |
+| 2 | **builder** | medium | `/write-tests`, `/write-code`, `/apply-review` | TDD red/green + apply-review-fixes inside one session. The previous developer-vs-qa split is now an internal mode. Builder fans out to **reviewer** + **adversary** in parallel post-green-tests. |
+| W1 | **reviewer** | high | `/architecture-review`, `/design-review`, `/security-review` | Three positive-lens findings blocks (arch / design / sec) in one fresh-context session. Findings-only, depth-1, no sub-spawning. |
+| W2 | **adversary** | medium | `/slop-scan`, `/simplification-scan`, `/adversary-review` | Three negative-lens findings blocks (slop / simplification / adversarial-with-hostile-personas: Saboteur / New Hire / Auditor). Findings-only, depth-1. Also spawned during designer's `/architecture` mode to challenge the plan. |
+| 3 | **researcher** | low | `/check-definition-of-done`, `/retro` | Two-mode persona. Mode 1: fresh-context Cold DoD audit of the live PR — the one boundary that must not collapse into any producer session. Mode 2: retro that emits the cost signals the A/B harness and the compound agent read. |
+| — | scripts | — | verify, ship | `bun run verify` runs as CI on every push (TE-21 dropped `/verify`). Draft PR opened at worktree setup; `gh pr ready` flips on Researcher's DoD APPROVED (TE-21 dropped `/ship`). In `PIPELINE_AB_MODE=1`, the ready-flip is suppressed so the run can be replayed. |
 
-**Total durable agent sessions per story: 4.** Plus up to 4 parallel reviewer workers. Plus scripts.
+**Durable agent sessions per story: 3** (designer + builder + researcher). Plus 2 fresh-context findings sessions (reviewer + adversary) spawned by builder in parallel. Plus 1 in-flight adversary spawn during designer's `/architecture` mode. Plus scripts.
 
 ---
 
@@ -129,48 +129,52 @@ Then dispatch the **four durable persona sessions** below, in order. Update `cur
 For each persona phase, spawn a sub-agent of the named type. The persona prompt encodes its own scope; do NOT re-state it here.
 
 ```
-Phase 1 — architect:
-  spawn agent type=architect with skills /concept (read-only), /design,
-  /architecture available. Architect runs design's Phase 0a routine/novel
-  classifier, generates 1 / 2 / 3 variants accordingly, runs in-session
-  critique to score-≥7 (max 4 rounds), then runs /architecture in the same
-  session including its in-session architectural critique (max 3 rounds).
-  Architect commits each phase output (brief, approved.md, plan) and pushes.
+Phase 1 — designer:
+  spawn agent type=designer.
+  Designer runs Mode 1 (concept read), Mode 2 (design with Phase 0a
+  routine/novel classifier — 1/2/3 variants, in-session critique to
+  score≥7 max 4 rounds), Mode 3 (architecture with in-session critique
+  to score≥7 max 3 rounds). During Mode 3, designer spawns the adversary
+  ONCE for plan-challenge before scoring.
+  Designer commits each mode's output (brief, approved.md, plan) and
+  pushes (prose commits use [skip ci]).
 
 Phase 2 — builder:
   spawn agent type=builder. Builder reads the plan; writes failing tests
   (Mode 1); commits + pushes; writes code (Mode 2); commits + pushes; runs
-  bun run verify locally; on green, spawns the 4 reviewer workers in
-  parallel; collects their TOON findings; applies them (Mode 3); commits +
-  pushes. If Builder hits a plan-vs-reality conflict, it raises a BLOCKER
-  rather than redesigning in-flight (TE-22).
+  bun run check && bun run lint && bun run test locally; on green, spawns
+  reviewer + adversary in parallel; collects their TOON findings; applies
+  them (Mode 3); commits + pushes. If Builder hits a plan-vs-reality
+  conflict, it raises a BLOCKER rather than redesigning in-flight (TE-22).
 
-Phase 2 fan-out — reviewer workers (parallel, depth-1):
-  spawn agent type=reviewer-arch
-  spawn agent type=reviewer-security
-  spawn agent type=reviewer-design   (skip if no UI files in the diff)
-  spawn agent type=reviewer-adversarial
-  Each returns ONE TOON findings block. Builder absorbs them in apply-review
-  mode.
+Phase 2 fan-out — reviewer + adversary (parallel, depth-1, findings-only):
+  spawn agent type=reviewer    (architecture / design / security lenses,
+                                3 TOON blocks; design lens skipped silently
+                                if no UI files)
+  spawn agent type=adversary   (slop / simplification / adversarial lenses,
+                                3 TOON blocks; adversarial lens runs all 3
+                                hostile-persona passes — Saboteur, New Hire,
+                                Auditor — in one block)
 
-Phase 3 — cold-dod:
-  spawn agent type=cold-dod in fresh context. Cold DoD reads gh pr view +
-  the spec + the plan and emits APPROVED | BLOCKED with an AC table.
+Phase 3 — researcher (Mode 1: Cold DoD):
+  spawn agent type=researcher in fresh context with /check-definition-of-done.
+  Researcher reads gh pr view + the spec + the plan and emits
+  APPROVED | BLOCKED with an AC table.
   If BLOCKED → back to Phase 2 (max 3 attempts per story).
   If APPROVED and PIPELINE_AB_MODE != 1 → flip draft PR ready
   (`gh pr ready`). In AB mode, leave the PR draft.
 
-Phase 4 — reflector:
-  spawn agent type=reflector. Writes docs/retro/<id>.md with the cost
-  signals the A/B harness reads.
+Phase 4 — researcher (Mode 2: retro):
+  re-spawn agent type=researcher with /retro. Writes docs/retro/<id>.md
+  with the cost signals the A/B harness reads.
 ```
 
 ### Loop rules
 
-- If Builder raises BLOCKER: surface to Architect for plan amendment, then re-enter Phase 2. Max 3 attempts per story.
-- If Cold DoD blocks: re-enter Phase 2 to fix the cited gaps. Max 3 attempts per story.
+- If Builder raises BLOCKER: surface to Designer for plan amendment, then re-enter Phase 2. Max 3 attempts per story.
+- If Researcher's DoD blocks: re-enter Phase 2 to fix the cited gaps. Max 3 attempts per story.
 - If CI fails after a Builder push: Builder fixes locally and pushes again. Max 3 attempts per push series.
-- If Architect's in-session critique fails to reach ≥7 after the cap: pause, mark `blocked` with reason `concept-or-spec-misalignment`. The concept itself may need upstream `/concept` work.
+- If Designer's in-session critique fails to reach ≥7 after the cap: pause, mark `blocked` with reason `concept-or-spec-misalignment`. The concept itself may need upstream `/concept` work.
 
 After Phase 4: set status to `done`. Move to next story.
 
@@ -180,7 +184,7 @@ After Phase 4: set status to `done`. Move to next story.
 
 ### Adversarial principle preserved
 
-Author / critic boundaries that matter live as either (a) **mode prompts inside Architect** for the plan / design own-critique, or (b) **fresh-context Reviewer workers** for code review. Cold DoD enforces the one boundary that must not be inside any session — it reads a *live* PR, not Builder's notes about the PR.
+Author / critic boundaries that matter live as either (a) **mode prompts inside Designer** for the plan / design own-critique, plus a single in-flight **adversary** spawn for plan-challenge, or (b) **fresh-context reviewer + adversary** spawned by Builder for code review. Researcher's Mode-1 DoD enforces the one boundary that must not be inside any producer session — it reads a *live* PR, not Builder's notes about the PR.
 
 ### Why redundant skills are gone (TE-17)
 
@@ -206,9 +210,9 @@ Routine UI (existing component family, known layout) gets 1 variant + a "did we 
 
 **Don't rationalize skipping personas:**
 - "Concept work isn't done but I'll figure it out" → no. Fail fast with `blocked: concept-missing`; the founder runs `/concept` upstream.
-- "The plan is done, I can stop" → planning is one of four phases. You haven't built anything yet.
-- "This story is simple, skip Builder reviewer fan-out" → simple stories have the highest skip rate and highest regression rate.
-- "Cold DoD is redundant, tests passed" → tests prove behavior, DoD proves the RIGHT thing was built against the spec, in *fresh context*. The boundary is the value.
-- "Reflector is navel-gazing" → without the cost signals it emits, the A/B harness can't prove block-1b actually saved tokens, and the compound agent can't propose the next round.
+- "The plan is done, I can stop" → planning is Phase 1 of 4. You haven't built anything yet.
+- "This story is simple, skip the reviewer + adversary fan-out" → simple stories have the highest skip rate and highest regression rate.
+- "Researcher's DoD is redundant, tests passed" → tests prove behavior, DoD proves the RIGHT thing was built against the spec, in *fresh context*. The boundary is the value.
+- "Researcher's retro is navel-gazing" → without the cost signals it emits, the A/B harness can't prove block-1b actually saved tokens, and the compound agent can't propose the next round.
 
-**When the Architect can skip the design step within Phase 1:** the story has no UI surface (pure backend, schema, infra, concept-doc-only). Verify by reading the AC list — if no AC mentions a page, component, layout, route on the web side, or visible state, skip the design portion and go straight to /architecture. When in doubt, run /design with `routine` classification; one variant is cheap and the brief serves as documentation.
+**When Designer can skip Mode 2 (`/design`):** the story has no UI surface (pure backend, schema, infra, concept-doc-only). Verify by reading the AC list — if no AC mentions a page, component, layout, route on the web side, or visible state, skip Mode 2 and go straight to Mode 3 (`/architecture`). When in doubt, run `/design` with `routine` classification; one variant is cheap and the brief serves as documentation.
