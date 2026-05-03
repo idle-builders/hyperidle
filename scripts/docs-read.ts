@@ -5,7 +5,7 @@
 // up to the next anchor marker (or EOF). With no anchor, prints the
 // full file. Lists available anchors when the requested one isn't found.
 
-import { readFileSync, existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 
 const arg = process.argv[2];
 if (!arg) {
