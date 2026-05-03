@@ -3,6 +3,7 @@ name: upgrade
 description: "Check all dependencies (packages, runtimes, tooling) for updates, research changelogs via subagents, and apply upgrades group-by-group with verification gates and rollback."
 argument-hint: "[scope: 'all', 'packages', 'runtime', or specific package names]"
 user-invocable: true
+min_tool_calls: 20
 ---
 
 # Upgrade — Dependency Update Orchestrator

@@ -1,9 +1,15 @@
+import { existsSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import type { SDKMessage } from "@anthropic-ai/claude-agent-sdk";
 import { query } from "@anthropic-ai/claude-agent-sdk";
+import { type Span, SpanStatusCode } from "@opentelemetry/api";
 
 type SystemMessage = Extract<SDKMessage, { type: "system" }>;
 type ResultMessage = Extract<SDKMessage, { type: "result" }>;
 
+import { getTracer, HYPERIDLE, initOtel, recordSpanError, setSpanAttributes } from "./otel.js";
+import { loadAllSkillFrontmatter, type SkillFrontmatter } from "./skill-frontmatter.js";
 import {
 	addApproval,
 	appendOutput,
@@ -12,6 +18,42 @@ import {
 	updateSubAgent,
 	updateToolCall,
 } from "./store.js";
+
+initOtel();
+
+let skillFrontmatterCache: Map<string, SkillFrontmatter> | null = null;
+
+function findSkillsRoot(): string | null {
+	let dir = dirname(fileURLToPath(import.meta.url));
+	for (let i = 0; i < 8; i++) {
+		const candidate = join(dir, ".claude", "skills");
+		if (existsSync(candidate)) return candidate;
+		const parent = dirname(dir);
+		if (parent === dir) break;
+		dir = parent;
+	}
+	return null;
+}
+
+function skillFrontmatter(name: string): SkillFrontmatter | undefined {
+	if (!skillFrontmatterCache) {
+		try {
+			const root = findSkillsRoot();
+			skillFrontmatterCache = root ? loadAllSkillFrontmatter(root) : new Map();
+		} catch {
+			skillFrontmatterCache = new Map();
+		}
+	}
+	return skillFrontmatterCache.get(name);
+}
+
+function inferSkillName(text: string | undefined): string | undefined {
+	if (!text) return undefined;
+	const slash = text.match(/\/([a-z][a-z0-9-]*)/);
+	if (slash) return slash[1];
+	const word = text.match(/^([a-z][a-z0-9-]*)/);
+	return word ? word[1] : undefined;
+}
 
 export interface RunResult {
 	success: boolean;
@@ -31,7 +73,16 @@ export interface RunOptions {
 
 const IN_DOCKER = process.env.HYPERIDLE_DOCKER === "1";
 
-function handleSystemMessage(groupName: string, sys: SystemMessage): void {
+export function inferSkillNameForTesting(text: string | undefined): string | undefined {
+	return inferSkillName(text);
+}
+
+export function handleSystemMessage(
+	groupName: string,
+	storyId: string,
+	sys: SystemMessage,
+	taskSpans: Map<string, Span>,
+): void {
 	const TRACKED_SUBTYPES = new Set([
 		"task_started",
 		"task_progress",
@@ -56,6 +107,18 @@ function handleSystemMessage(groupName: string, sys: SystemMessage): void {
 			description: sys.description,
 			status: "running",
 		});
+		const skillName = inferSkillName(sys.description);
+		const fm = skillName ? skillFrontmatter(skillName) : undefined;
+		const taskSpan = getTracer().startSpan("hyperidle.persona");
+		setSpanAttributes(taskSpan, {
+			[HYPERIDLE.storyId]: storyId,
+			[HYPERIDLE.persona]: skillName ?? sys.description,
+			[HYPERIDLE.taskDescription]: sys.description,
+			[HYPERIDLE.taskType]: sys.task_type,
+			[HYPERIDLE.taskWorkflow]: sys.workflow_name,
+			[HYPERIDLE.toolCallsMinimumEstimate]: fm?.minToolCalls,
+		});
+		taskSpans.set(sys.task_id, taskSpan);
 	} else if (sys.subtype === "task_progress") {
 		updateSubAgent(groupName, {
 			taskId: sys.task_id,
@@ -74,6 +137,22 @@ function handleSystemMessage(groupName: string, sys: SystemMessage): void {
 			description: sys.summary,
 			status: sys.status === "completed" ? "completed" : "failed",
 		});
+		const taskSpan = taskSpans.get(sys.task_id);
+		if (taskSpan) {
+			setSpanAttributes(taskSpan, {
+				[HYPERIDLE.totalTokens]: sys.usage?.total_tokens,
+				[HYPERIDLE.toolCallsActual]: sys.usage?.tool_uses,
+				[HYPERIDLE.durationMs]: sys.usage?.duration_ms,
+			});
+			if (sys.status !== "completed") {
+				taskSpan.setStatus({
+					code: SpanStatusCode.ERROR,
+					message: `task ${sys.status}`,
+				});
+			}
+			taskSpan.end();
+			taskSpans.delete(sys.task_id);
+		}
 	}
 }
 
@@ -97,6 +176,14 @@ export async function runStory(options: RunOptions): Promise<RunResult> {
 	const { groupName, storyId, cwd, abortController } = options;
 	const startTime = Date.now();
 	let sessionId: string | null = null;
+	const storySpan = getTracer().startSpan("hyperidle.story");
+	const pipelineFm = skillFrontmatter("pipeline");
+	setSpanAttributes(storySpan, {
+		[HYPERIDLE.storyId]: storyId,
+		[HYPERIDLE.persona]: "pipeline",
+		[HYPERIDLE.toolCallsMinimumEstimate]: pipelineFm?.minToolCalls,
+	});
+	const taskSpans = new Map<string, Span>();
 	try {
 		const q = query({
 			prompt: `/pipeline ${storyId}`,
@@ -187,16 +274,28 @@ export async function runStory(options: RunOptions): Promise<RunResult> {
 				}
 
 				case "system": {
-					handleSystemMessage(groupName, message);
+					handleSystemMessage(groupName, storyId, message, taskSpans);
 					break;
 				}
 
 				case "result": {
 					sessionId = message.session_id;
 					handleResultMessage(groupName, storyId, message);
+					setSpanAttributes(storySpan, {
+						[HYPERIDLE.iteration]: message.num_turns,
+						[HYPERIDLE.durationMs]: Date.now() - startTime,
+					});
 					if (message.subtype === "success") {
+						storySpan.end();
+						endLingeringTaskSpans(taskSpans);
 						return { success: true, sessionId, durationMs: Date.now() - startTime, error: null };
 					}
+					storySpan.setStatus({
+						code: SpanStatusCode.ERROR,
+						message: message.errors.join("; "),
+					});
+					storySpan.end();
+					endLingeringTaskSpans(taskSpans);
 					return {
 						success: false,
 						sessionId,
@@ -207,6 +306,12 @@ export async function runStory(options: RunOptions): Promise<RunResult> {
 			}
 		}
 
+		storySpan.setStatus({
+			code: SpanStatusCode.ERROR,
+			message: "Session ended without result",
+		});
+		storySpan.end();
+		endLingeringTaskSpans(taskSpans);
 		return {
 			success: false,
 			sessionId,
@@ -216,6 +321,9 @@ export async function runStory(options: RunOptions): Promise<RunResult> {
 	} catch (err) {
 		const errorMsg = err instanceof Error ? `${err.message}\n${err.stack}` : String(err);
 		appendOutput(groupName, `ERROR: ${errorMsg}`);
+		recordSpanError(storySpan, err);
+		storySpan.end();
+		endLingeringTaskSpans(taskSpans);
 		return {
 			success: false,
 			sessionId,
@@ -223,4 +331,12 @@ export async function runStory(options: RunOptions): Promise<RunResult> {
 			error: errorMsg,
 		};
 	}
+}
+
+function endLingeringTaskSpans(taskSpans: Map<string, Span>): void {
+	for (const span of taskSpans.values()) {
+		span.setStatus({ code: SpanStatusCode.ERROR, message: "task ended without notification" });
+		span.end();
+	}
+	taskSpans.clear();
 }

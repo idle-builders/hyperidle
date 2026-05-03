@@ -3,6 +3,7 @@ name: visual-polish
 description: "Iteratively improve a component/page's visual fidelity against its reference mockup using pixel comparison and Claude vision evaluation."
 argument-hint: "<reference-name|all>"
 user-invocable: true
+min_tool_calls: 18
 ---
 
 # Visual Polish

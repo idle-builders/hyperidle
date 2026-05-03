@@ -3,6 +3,7 @@ name: security-review
 description: "Read-only security review. Run by the security-researcher agent."
 argument-hint: "[file paths or story-id]"
 user-invocable: true
+min_tool_calls: 12
 ---
 
 # Security Review

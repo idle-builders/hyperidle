@@ -3,6 +3,7 @@ name: simplify
 description: "Review changed code for over-abstraction, dead code, and unnecessary complexity. Fix without changing behavior."
 argument-hint: "[file paths or 'all' for recent changes]"
 user-invocable: true
+min_tool_calls: 12
 ---
 
 # Simplify

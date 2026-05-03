@@ -3,6 +3,7 @@ name: architecture
 description: "Produce the technical plan for a story — types, schemas, APIs, file paths, ordered tasks. Architect interrogates the spec, then drafts; adversary challenges. Run AFTER /concept (always) and AFTER /design (when the story has UI)."
 argument-hint: "[story-id]"
 user-invocable: true
+min_tool_calls: 25
 ---
 
 # Architecture

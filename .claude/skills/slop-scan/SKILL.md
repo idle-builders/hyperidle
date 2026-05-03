@@ -3,6 +3,7 @@ name: slop-scan
 description: "Read-only scan for AI-specific code anti-patterns. Run by the adversary agent."
 argument-hint: "[file paths or 'all' for recent changes]"
 user-invocable: true
+min_tool_calls: 8
 ---
 
 # Slop Scan

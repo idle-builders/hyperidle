@@ -2,6 +2,7 @@
 name: verify
 description: "Run type check, lint, and tests. Auto-fix what's fixable."
 user-invocable: true
+min_tool_calls: 4
 ---
 
 # Verify

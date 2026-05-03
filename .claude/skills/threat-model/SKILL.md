@@ -3,6 +3,7 @@ name: threat-model
 description: "Security threat model for a feature or component."
 argument-hint: "[feature name, component, or 'full' for system-wide]"
 user-invocable: true
+min_tool_calls: 12
 ---
 
 # Threat Model

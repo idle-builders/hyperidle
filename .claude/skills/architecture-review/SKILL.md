@@ -3,6 +3,7 @@ name: architecture-review
 description: "Read-only architectural review. Run by the architect agent."
 argument-hint: "[file paths or story-id]"
 user-invocable: true
+min_tool_calls: 10
 ---
 
 # Architecture Review
