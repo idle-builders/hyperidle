@@ -8,15 +8,11 @@ Before responding to ANY implementation or review request, check if a skill shou
 User request arrives
     │
     ├── Is it about defining a primitive or domain concept? → /concept <story>
-    ├── Is it about exploring UI/UX direction? → /design <story>
-    ├── Is it about design quality of one component? → /design-critique <component>
-    ├── Is it about producing the technical plan? → /architecture <story>
-    ├── Is it about scoring an architecture plan? → /architecture-critique <story>
+    ├── Is it about exploring UI/UX direction (and in-session critique)? → /design <story>
+    ├── Is it about producing the technical plan (and in-session critique)? → /architecture <story>
     ├── Is it about building a feature? ─────→ /implement <story>
     ├── Is it about running multiple stories? → /pipeline <target>
     ├── Is it about reviewing code? ─────────→ /review <changes>
-    ├── Is it about verifying code works? ───→ /verify
-    ├── Is it about shipping/committing? ────→ /ship <story>
     ├── Is it about checking if done? ───────→ /check-definition-of-done <story>
     ├── Is it about simplifying code? ───────→ /simplify <files>
     ├── Is it about AI code quality? ────────→ /slop-scan <files>
@@ -29,6 +25,8 @@ User request arrives
     └── None of the above? ──────────────────→ Proceed normally
 ```
 
+**Note (block-1b):** `/design-critique`, `/architecture-critique`, `/verify`, and `/ship` were collapsed away. Critique now runs in-session inside `/design` (Phase 2) and `/architecture` (Phase 4); verify runs as CI on every push; ship is replaced by the continuous-commit + draft-PR pipeline (`gh pr ready` flips when Cold DoD approves, suppressed under `PIPELINE_AB_MODE=1`).
+
 ## Red Flags — Rationalizations for Skipping Skills
 
 | Rationalization | Why It's Wrong |
@@ -36,7 +34,7 @@ User request arrives
 | "This is too simple for /implement" | Simple stories have the highest skip rate and highest regression rate. |
 | "I already know what to do" | The skill isn't about knowing — it's about the process gates that catch what you missed. |
 | "The skill will slow me down" | A 5-minute skill invocation prevents a 2-hour rework. |
-| "I'll just do a quick fix" | Quick fixes without /verify leave broken states for the next agent. |
+| "I'll just do a quick fix" | Quick fixes that skip `bun run check && bun run lint && bun run test` leave broken states for the next agent. |
 | "The user didn't ask for a review" | If code changed, it needs review. That's not optional. |
 | "I can skip the design phase" | You can. You shouldn't. The adversary exists because your designs have blind spots. |
 | "I don't need to plan, I'll figure it out as I go" | That's how you end up rewriting half the implementation. 10 minutes of /architecture saves hours of rework. |
@@ -48,9 +46,9 @@ User request arrives
 ## Skill Priority
 
 1. **Concept first:** /concept (any story that introduces or reshapes a primitive / domain concept / load-bearing noun)
-2. **Design next:** /design + /design-critique (UI stories, before architecture)
-3. **Architecture then:** /architecture + /architecture-critique (every story, before any code)
+2. **Design next:** /design (UI stories, before architecture; in-session critique loop is built in)
+3. **Architecture then:** /architecture (every story, before any code; in-session critique loop is built in)
 4. **Process skills:** /implement, /pipeline, /review, /check-definition-of-done
-5. **Quality skills:** /verify, /simplify, /slop-scan
-6. **Maintenance skills:** /upgrade, /ship, /threat-model, /lore
+5. **Quality skills:** /simplify, /slop-scan
+6. **Maintenance skills:** /upgrade, /threat-model, /lore
 7. **Compounding:** /retro (after shipping — feeds improvements back into skills)

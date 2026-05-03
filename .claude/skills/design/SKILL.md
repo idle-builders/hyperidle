@@ -1,6 +1,6 @@
 ---
 name: design
-description: "Explore multiple UX/UI variants in parallel, compare them, run /design-critique, then settle on one. Use BEFORE /architecture when a story has any UI surface — a new page, a new primitive, a new component shape, a new interaction flow, or a redesign of an existing surface."
+description: "Explore one to three UX/UI variants (gated by routine vs novel), score them in-session against the 9-dimension rubric, settle on one. Runs BEFORE /architecture when a story has any UI surface — a new page, primitive, component shape, interaction flow, or redesign of an existing surface."
 argument-hint: "[story-id-or-feature-name]"
 user-invocable: true
 min_tool_calls: 25
@@ -182,7 +182,7 @@ Produce `docs/design-explorations/<story-id>/comparison.md`:
 | Motion budget | … | … | … |
 | Best at | … | … | … |
 | Worst at | … | … | … |
-| `/design-critique` score | … /10 | … /10 | … /10 |
+| Phase-2 critique score | … /10 | … /10 | … /10 |
 
 Plus the three screenshots side by side.
 
