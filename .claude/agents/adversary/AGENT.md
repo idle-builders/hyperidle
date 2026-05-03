@@ -56,14 +56,6 @@ Challenge with:
 3. **What's the second-order effect?** If we do this, what else has to change? What becomes harder?
 4. **Who benefits from this complexity?** The user, or the developer's aesthetic preferences?
 
-## Code Search
-
-When you need to find references, definitions, or type errors, use the LSP MCP tools first — `lsp_find_references`, `lsp_get_definitions`, `lsp_get_diagnostics`. They return bounded, semantic results; grepping for callers pulls whole files into your context for no extra signal.
-
-Fall back to ripgrep on suspicious LSP negatives — string-keyed lookups, reflection, dynamic dispatch all hide from the LSP. If "zero references" disagrees with what you'd expect, run `bun run search '<symbol>'` before you sign off on a deletion or unused-export claim.
-
-For structural patterns (e.g. `useEffect($A, $B)`) use `bun run search 'useEffect($A, $B)'` — the dispatcher routes to ast-grep.
-
 ## Output Format
 
 Structure your review as:

@@ -107,6 +107,17 @@
 	"includeGitInstructions": false,
 	"plansDirectory": "./plans",
 	"hooks": {
+		"PreToolUse": [
+			{
+				"matcher": "Bash",
+				"hooks": [
+					{
+						"type": "command",
+						"command": ".claude/hooks/search-nudge.sh"
+					}
+				]
+			}
+		]
 	},
 	"CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": true
 }

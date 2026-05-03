@@ -64,7 +64,25 @@ Bun, TypeScript strict, Hono, Drizzle ORM (SQLite + PostgreSQL), React + Vite, T
 
 ## Commands
 
-`bun install`, `bun dev` (server 3001 + web 5173), `bun run test` (Vitest via package.json script — do NOT use bare `bun test` which invokes Bun's native runner), `bun run check` (typecheck), `bun run lint` (Biome + ESLint), `bun run lint:biome`, `bun run lint:eslint`, `bun run lint:fix`, `bun run db:generate`, `bun run db:migrate`.
+`bun install`, `bun dev` (server 3001 + web 5173), `bun run test` (Vitest via package.json script — do NOT use bare `bun test` which invokes Bun's native runner), `bun run check` (typecheck), `bun run lint` (Biome + ESLint), `bun run lint:biome`, `bun run lint:eslint`, `bun run lint:fix`, `bun run db:generate`, `bun run db:migrate`, `bun run search '<pattern>' [path]` (auto-dispatches regex→ripgrep, structural `$METAVAR`→ast-grep).
+
+---
+
+## Code Search
+
+Pick the tool by the *shape of the question*, not by habit. The grep/find reflex is almost always the wrong call in a typed monorepo.
+
+| Question | Tool | Why |
+|---|---|---|
+| "Where is this symbol used / defined / declared?" | MCP `references`, `definition`, `hover` (mcp-language-server, wired in `.mcp.json`) | Type-aware. Returns bounded locations, not file blobs. Resolves re-exports, generics, overloads. |
+| "What are the type errors in this file / project?" | MCP `diagnostics` | Same answer `tsc` would give, scoped. |
+| "Find every `useEffect` with two args / every `as Foo` cast" | `bun run search 'useEffect($A, $B)'` → ast-grep | AST-aware structural patterns. Won't match strings/comments/identifiers-that-happen-to-spell-the-same-word. |
+| "Find this literal string / regex match" | `bun run search '<pattern>'` → ripgrep | Cheap, correct for non-code text and exact strings. |
+| "Programmatically rewrite all calls to API X" | `ts-morph` script under `scripts/` | Read AND mutate the AST with full type info. Use only for one-shot codemods, not casual reads. |
+
+**Rule:** if the symbol has a type, use the LSP first. Fall back to `bun run search` only when the LSP returns a suspicious negative — `references` misses dynamic dispatch (`Object[name]`, `eval`, string-keyed lookups, reflection). When the LSP says "no callers" for something you're sure exists, grep before you delete.
+
+**Never:** raw `grep -r`, `find . -name`, or `Bash(grep ...)` for code search. They drag whole files into the model's context window for no extra signal. The PreToolUse `search-nudge` hook in `.claude/hooks/` will flag it if you do.
 
 ---
 
