@@ -49,13 +49,7 @@ describe("design skill (post-block-1b: design-critique collapsed into /design)",
 
 describe("design skill reference files (per-dimension critique material)", () => {
 	const REFS_DIR = resolve(__dirname, "../../../../.claude/skills/design/references");
-	const expectedRefs = [
-		"hierarchy.md",
-		"spacing.md",
-		"typography.md",
-		"color.md",
-		"finishing.md",
-	];
+	const expectedRefs = ["hierarchy.md", "spacing.md", "typography.md", "color.md", "finishing.md"];
 
 	for (const ref of expectedRefs) {
 		it(`references/${ref} exists and has content`, () => {
