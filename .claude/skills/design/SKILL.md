@@ -35,6 +35,16 @@ Read all of the following in one parallel batch of Read calls — these files ar
 4. `.claude/rules/aesthetic-quality.md`, `.claude/rules/visual-parity.md`.
 5. If `plans/<workpackage-id>/design/` exists, you may be resuming.
 
+For deeper reference material on specific critique dimensions (read on demand when scoring in Phase 2 — each cross-links a section of `packages/design-system/AESTHETICS.md`):
+
+- `references/hierarchy.md` — visual-hierarchy tactics; primary / secondary / tertiary text levels.
+- `references/spacing.md` — 4px grid, density tiers, sub-grid exceptions.
+- `references/typography.md` — type scale (11/12/13/14/18/24), weight limits, monospace usage.
+- `references/color.md` — semantic token usage, halation guard, contrast rules.
+- `references/finishing.md` — hover / focus / pressed states, motion tokens, polish details.
+
+Without these, the Phase 2 critique becomes vibes-grading. Read the relevant reference before assigning a score on its dimension.
+
 ## Phase 0a — Classify: routine vs novel
 
 Before interrogation, classify the story along two axes:
@@ -149,15 +159,17 @@ Variants below 5 fail and get regenerated; variants 5-7 get noted findings; vari
 
 ### Design rubric (0-10 each, averaged)
 
-1. **Visual hierarchy** — clear primary/secondary/tertiary; titles heavier than labels; eye flows naturally.
-2. **Spacing & density** — 4px grid; density appropriate to context; related items grouped.
-3. **Typography** — font sizes from the type scale (11/12/13/14/18/24); weights limited to 400/500/600; monospace only for data.
-4. **Color** — meaning not decoration; only token palette; never sole differentiator; ≥4.5:1 contrast.
-5. **Component coherence** — token-based, no hardcoded hex/px; composes from existing primitives; sibling-component consistency.
-6. **States & feedback** — default/hover/focus/active/disabled/loading/empty/error; motion tokens; visible focus ring.
+Each dimension links to a reference file under `references/` that explains the underlying tactics. Read the reference before scoring — the rubric line below is the gist, not the rule.
+
+1. **Visual hierarchy** (`references/hierarchy.md`) — clear primary/secondary/tertiary; titles heavier than labels; eye flows naturally.
+2. **Spacing & density** (`references/spacing.md`) — 4px grid; density appropriate to context; related items grouped.
+3. **Typography** (`references/typography.md`) — font sizes from the type scale (11/12/13/14/18/24); weights limited to 400/500/600; monospace only for data.
+4. **Color** (`references/color.md`) — meaning not decoration; only token palette; never sole differentiator; ≥4.5:1 contrast.
+5. **Component coherence** (`references/finishing.md` for sibling-treatment rules) — token-based, no hardcoded hex/px; composes from existing primitives; sibling-component consistency.
+6. **States & feedback** (`references/finishing.md`) — default/hover/focus/active/disabled/loading/empty/error; motion tokens; visible focus ring.
 7. **Accessibility** — focus rings visible; keyboard nav; alt/aria; semantic elements.
 8. **Anti-slop** — no purple gradients / centered hero / emoji icons / `rounded-2xl` / generic 3-col card grids; see `packages/design-system/AESTHETICS.md` § AI-Aesthetic Anti-Patterns.
-9. **Premium polish** — `tabular-nums` on numeric cells; `+0.02em` on uppercase labels; `--motion-fast/medium/slow` with `cubic-bezier(0.2, 0, 0, 1)`; `prefers-reduced-motion`; ≥44px touch targets; ≥16px mobile inputs; halation guard.
+9. **Premium polish** (`references/finishing.md`) — `tabular-nums` on numeric cells; `+0.02em` on uppercase labels; `--motion-fast/medium/slow` with `cubic-bezier(0.2, 0, 0, 1)`; `prefers-reduced-motion`; ≥44px touch targets; ≥16px mobile inputs; halation guard.
 
 ### Output line per critique pass
 
