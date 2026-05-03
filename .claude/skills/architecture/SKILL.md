@@ -20,9 +20,9 @@ If the spec contradicts an existing concept doc, stop — that's a `/concept` ga
 
 ## Phase 0 — Interrogate the understanding
 
-Before producing acceptance criteria, walk the decision tree. Ask hard questions ONE AT A TIME (not as a list dump). For each, propose your recommended answer based on what you can read in the spec / track file / existing code, then let the human (or the adversary in autonomous mode) confirm, override, or dig deeper.
+Before producing acceptance criteria, walk the decision tree. Pick only the questions that are actually unsettled — the ones where the spec, track file, or existing code don't give you a confident answer. Skip what's already pinned. For each remaining question, propose your recommended answer with the evidence you have, then ask the human (or the adversary in autonomous mode) to confirm, override, or dig deeper. Issue all of these probes in one parallel batch — independent questions don't need separate round-trips.
 
-**One question at a time.** A list of ten questions invites the easy ones to be answered and the hard ones to become silent assumptions that surface as bugs later.
+**Few, important questions.** Three sharp probes force a real decision; ten low-stakes ones are noise that get answered with shrugs while the load-bearing assumption stays silent. The bar to ask is: "will the answer change the plan?" If no, don't ask.
 
 Sample interrogation lines (adapt to the workpackage):
 - "What's the smallest version of this that's still useful? My read: X. Confirm or correct?"
