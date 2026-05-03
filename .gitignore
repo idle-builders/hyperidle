@@ -18,3 +18,4 @@ logs/
 *.db-wal
 .claude/.fuse_*
 .claude/scheduled_tasks.lock
+test-output.toon
