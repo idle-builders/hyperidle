@@ -6,10 +6,10 @@
 // Subcommands: up | down | reset | status | logs | env | smoke | run
 //
 // Examples:
-//   bun run scripts/obs.ts up           # boot the stack
-//   bun run scripts/obs.ts smoke        # emit one span and confirm ingest
-//   bun run scripts/obs.ts run pipeline L10   # run pipeline with OTel env set
-//   bun run scripts/obs.ts down         # stop (volumes preserved)
+//   bun run scripts/obs.ts up                          # boot the stack
+//   bun run scripts/obs.ts smoke                       # emit one span and confirm ingest
+//   bun run scripts/obs.ts run bun pipeline L10        # run pipeline with OTel env set
+//   bun run scripts/obs.ts down                        # stop (volumes preserved)
 
 import { existsSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";

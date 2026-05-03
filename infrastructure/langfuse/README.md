@@ -8,6 +8,7 @@ Self-hosted Langfuse stack for local A/B testing of token-efficiency blocks. The
 bun run obs:up      # boot the stack, wait for /api/public/health
 bun run obs:smoke   # emit one span and verify it ingests
 bun run obs:run -- bun pipeline L10   # run the pipeline with OTel env set
+                                       # (or `bun pipeline L10` directly if env vars are already exported)
 ```
 
 UI: <http://localhost:3000>. Login `dev@hyperidle.local` / `hyperidle-local-pw`. Project: `hyperidle-pipeline`.
