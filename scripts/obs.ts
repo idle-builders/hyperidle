@@ -31,7 +31,9 @@ const OTEL_ENV: Record<string, string> = {
 function rewriteForContainer(env: Record<string, string>): Record<string, string> {
 	const out: Record<string, string> = {};
 	for (const [k, v] of Object.entries(env)) {
-		out[k] = v.replace(/localhost/g, "host.docker.internal").replace(/127\.0\.0\.1/g, "host.docker.internal");
+		out[k] = v
+			.replace(/localhost/g, "host.docker.internal")
+			.replace(/127\.0\.0\.1/g, "host.docker.internal");
 	}
 	return out;
 }
@@ -69,7 +71,7 @@ function env(args: string[]): void {
 		process.exit(2);
 	}
 
-	let out = inContainer ? rewriteForContainer(OTEL_ENV) : { ...OTEL_ENV };
+	const out = inContainer ? rewriteForContainer(OTEL_ENV) : { ...OTEL_ENV };
 	if (ab && variant) {
 		out.OTEL_RESOURCE_ATTRIBUTES = mergeResourceAttrs(out.OTEL_RESOURCE_ATTRIBUTES, {
 			"ab.test": ab,
