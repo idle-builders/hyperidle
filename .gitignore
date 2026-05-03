@@ -17,6 +17,10 @@ docs/plans
 logs/
 *.db-shm
 *.db-wal
+<<<<<<< Updated upstream
 .claude/.fuse_*
 .claude/scheduled_tasks.lock
+=======
+**/.fuse_*
+>>>>>>> Stashed changes
 plans/*
