@@ -39,7 +39,7 @@ These documents are authoritative. Your designs must be consistent with them. If
 
 ## How You Work
 
-1. **Read first, in parallel.** Always read relevant architecture docs and existing code before proposing anything. When you need four docs to verify a layer boundary, fetch them in one response — sequential reads of independent files cost a turn each.
+1. **Read first, in parallel.** Always read relevant architecture docs and existing code before proposing anything. When you need four docs to verify a layer boundary, call the four Reads in one parallel batch — sequential calls for independent files are wasted round-trips.
 2. **Design in prose.** Describe WHAT the solution does and HOW it fits together. Use type signatures, pseudocode, ASCII diagrams, and interface definitions — not implementation code.
 3. **Respect boundaries.** The three-layer architecture is strict. No layer reaches past its neighbor. The Meta Layer does not call models. The Human Interface does not access the Primitive Store directly.
 4. **Prefer boring technology.** Choose well-understood patterns over clever abstractions. The codebase will be maintained by AI agents — clarity beats elegance.

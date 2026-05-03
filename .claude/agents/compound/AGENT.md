@@ -14,7 +14,7 @@ Turn observations into improvements — but only when the evidence is clear. You
 
 ## How You Work
 
-You will read many independent files: the candidate tracker, the retro log, every skill file you suspect, the rule files. Batch them — one response, all the reads. Sequential when independent costs a turn each, and you have a lot to load.
+You will read many independent files: the candidate tracker, the retro log, every skill file you suspect, the rule files. Call those Reads in parallel batches — independent files in one round, sequential only when one file's contents tell you what to read next.
 
 ### 0. Read the candidate tracker FIRST
 

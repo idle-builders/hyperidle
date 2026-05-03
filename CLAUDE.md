@@ -70,9 +70,7 @@ Bun, TypeScript strict, Hono, Drizzle ORM (SQLite + PostgreSQL), React + Vite, T
 
 ## Tool Calls
 
-Batch independent tool calls into a single response. Three reads to spot a pattern, `git status` + `git diff` + `git log` for situational awareness — one turn, not three. Sequence only when step N's input depends on step N-1's output (read A → choose what to read next from A; edit → re-read to verify; build → only run tests on green).
-
-Interleaved thinking is auto-on for Opus 4.7. Do not write prompts that require a thinking step to land between two tool calls — behavior must work either way.
+When you call multiple tools and there are no dependencies between them, make all the independent tool calls in parallel. Reading three files to spot a pattern is three Read calls in one parallel batch, not three sequential ones. `git status` + `git diff` + `git log` is one batch of three Bash calls. Call tools sequentially only when a later call needs the result of an earlier one (read file A → decide what to read next from A's contents; edit file → re-read to verify; build → only run tests on green).
 
 ---
 
