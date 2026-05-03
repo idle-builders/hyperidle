@@ -1,0 +1,51 @@
+# Local pipeline container. The `pipeline` service runs `bin/pipeline`
+# inside the dev image so the Claude Agent SDK can use
+# --dangerously-skip-permissions. Networking is wired so an in-container
+# OTel exporter can reach the local Langfuse stack via
+# host.docker.internal:3000.
+#
+# Mounts:
+#   ../../                       → /workspace          (the repo)
+#   anonymous volume             → /workspace/node_modules  (host shadow guard)
+#   ${HOME}/.claude              → /home/dev/.claude   (Claude Code creds)
+#   ${HOME}/.config/gh           → /home/dev/.config/gh (gh CLI auth)
+#   ${HOME}/.gitconfig           → /home/dev/.gitconfig (commit identity)
+#
+# Both `~/.claude` and the gh-config mount are gated behind file existence
+# checks elsewhere — if the host paths are missing, drop the corresponding
+# block before invoking. Most local dev setups have all three.
+#
+# Use via `bin/pipeline` (which calls `docker compose run` against this
+# file) — not directly. Or run `docker compose -f ... run --rm pipeline bash`
+# for an interactive shell.
+
+name: hyperidle-pipeline
+
+services:
+  pipeline:
+    image: ${HYPERIDLE_PIPELINE_IMAGE:-hyperidle-dev}
+    build:
+      context: ../..
+      dockerfile: Dockerfile
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    working_dir: /workspace
+    environment:
+      HYPERIDLE_DOCKER: "1"
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
+      OTEL_EXPORTER_OTLP_HEADERS: ${OTEL_EXPORTER_OTLP_HEADERS:-}
+      OTEL_RESOURCE_ATTRIBUTES: ${OTEL_RESOURCE_ATTRIBUTES:-}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      GH_TOKEN: ${GH_TOKEN:-}
+      GITHUB_TOKEN: ${GITHUB_TOKEN:-}
+    volumes:
+      - ../..:/workspace
+      - hyperidle_pipeline_node_modules:/workspace/node_modules
+      - ${HOME}/.claude:/home/dev/.claude
+      - ${HOME}/.config/gh:/home/dev/.config/gh
+      - ${HOME}/.gitconfig:/home/dev/.gitconfig:ro
+    stdin_open: true
+    tty: true
+
+volumes:
+  hyperidle_pipeline_node_modules:

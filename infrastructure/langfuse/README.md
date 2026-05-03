@@ -5,13 +5,19 @@ Self-hosted Langfuse stack for local A/B testing of token-efficiency blocks. The
 ## Quickstart
 
 ```sh
-bun run obs:up      # boot the stack, wait for /api/public/health
-bun run obs:smoke   # emit one span and verify it ingests
-bun run obs:run -- bun pipeline L10   # run the pipeline with OTel env set
-                                       # (or `bun pipeline L10` directly if env vars are already exported)
+bun run pipeline:build              # one-time: build the dev image
+bun run obs:up                      # boot the Langfuse stack
+bun run obs:smoke                   # emit one span and verify it ingests
+bun run obs:run -- bun pipeline L10 # run a story (auto-spawns dev container)
 ```
 
 UI: <http://localhost:3000>. Login `dev@hyperidle.local` / `hyperidle-local-pw`. Project: `hyperidle-pipeline`.
+
+`bun pipeline …` (defined in root `package.json`) routes through `bin/pipeline`. On the host it spawns the `hyperidle-dev` container via `infrastructure/pipeline/docker-compose.yml` so the Claude Agent SDK can run with `--dangerously-skip-permissions`. Inside the container (`HYPERIDLE_DOCKER=1`) it execs `bun packages/pipeline/src/index.tsx` directly. The OTLP endpoint's `localhost` is rewritten to `host.docker.internal` before being passed in, so traces from the container land in the Langfuse stack on the host.
+
+Escape hatches:
+- `HYPERIDLE_PIPELINE_LOCAL=1 bun pipeline L10` — run on the host without docker (you'll have to interactively approve every tool call).
+- `bun run pipeline:shell` — open a bash inside the dev container with the same mounts.
 
 ## What gets created
 
