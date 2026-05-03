@@ -1,11 +1,3 @@
 {
-	"mcpServers": {
-		"langfuse": {
-			"type": "http",
-			"url": "http://localhost:3000/api/public/mcp",
-			"headers": {
-				"Authorization": "Basic cGstbGYtaHlwZXJpZGxlLWxvY2FsLXB1Yjpzay1sZi1oeXBlcmlkbGUtbG9jYWwtc2VjcmV0"
-			}
-		}
-	}
+	"mcpServers": {}
 }
