@@ -36,26 +36,22 @@ Stage files (never `git add -A`). Commit with `<type>(<scope>): <imperative desc
 
 Types: feat, fix, refactor, test, docs, chore. Scopes: db, server, web, fabric, shared, or omit.
 
-## CI gate (MUST PASS before merge)
+## CI gate (MUST PASS — story stops at green PR)
 
-After pushing, CI runs automatically (`.github/workflows/ci.yml`): type check + lint + test. Wait for CI to pass before merging:
+After pushing, CI runs automatically (`.github/workflows/ci.yml`): type check + lint + test. Wait for CI to pass:
 
 ```bash
 # Check CI status
 gh pr checks <pr-number> --watch
-
-# Only merge when all checks pass
-gh pr merge <pr-number> --merge --delete-branch
 ```
 
-If CI fails, read the failure logs (`gh pr checks <pr-number>`), fix the issues, push again, and wait for green CI. Never merge a red PR.
+If CI fails, read the failure logs (`gh pr checks <pr-number>`), fix the issues, push again, and wait for green CI.
 
-## Cleanup
-
-After merge, clean up the worktree and run `bun install` on main to get back to a clean state.
+**Do NOT merge.** The /ship skill stops at "green PR open." Merging is a human decision (the A/B harness depends on PRs staying open and re-runnable; merging mid-experiment destroys the comparison). When the human is ready to merge, they run `gh pr merge` themselves.
 
 **Rules:**
-- **Never merge with failing CI** — check, lint, AND test must all pass
+- **Story is "shipped" when CI is green and the PR is open** — not when merged
+- **Never merge** — leave the PR open, the human decides when to merge
 - Never ship failing tests or lint errors
 - Never `git add -A` or `git add .` — stage specific files
 - Never force push
