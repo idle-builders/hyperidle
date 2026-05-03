@@ -19,7 +19,7 @@ Read-only review. Produce findings — do NOT make code changes.
 5. `docs/INFORMATION_ARCHITECTURE.md` — Information hierarchy, content organization
 6. The relevant track file in `docs/work-packages/TRACK-*.md` for the story being reviewed
 
-Then read the changed UI files (via `$ARGUMENTS` or `git diff --name-only`).
+Then read the changed UI files (via `<target>` or `git diff --name-only`).
 
 ## Be thorough
 
@@ -49,3 +49,7 @@ If the dev server is not running or Playwright is not installed, that is a CRITI
 ## Output
 
 Structured findings: CRITICAL / WARNINGS / OBSERVATIONS with file paths, line numbers, spec reference, and screenshot evidence for visual issues.
+
+## Target
+
+$ARGUMENTS

@@ -208,3 +208,7 @@ The design system may have multiple style variants (themes) defined in `packages
 - Evaluate against the currently active theme's tokens
 - Note if a design choice would break under a different theme
 - Check that the component uses semantic tokens (not hardcoded values) so it's theme-portable
+
+## Target
+
+$ARGUMENTS

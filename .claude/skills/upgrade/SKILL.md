@@ -298,3 +298,7 @@ Produce a final summary:
 - **Pin, don't widen.** When upgrading, set `^{target}` — don't change to `*` or `>=`.
 - **Rollback beats debugging.** If an upgrade causes mysterious failures, roll it back and research more. Don't burn 30 minutes guessing.
 - **Leave the lockfile clean.** After all upgrades, `bun.lock` should reflect exactly what's in `package.json`. Run `bun install` one final time to confirm.
+
+## Target
+
+$ARGUMENTS

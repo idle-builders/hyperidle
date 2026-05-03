@@ -106,3 +106,7 @@ WARN  packages/design-system/src/PitchCard.tsx:15  spacing inconsistent with Bet
 - After a sweep that touched multiple components (K7 territory).
 - When `/design-critique` flags a specific class of issue and you want
   confirmation that the whole codebase is clean.
+
+## Target
+
+$ARGUMENTS

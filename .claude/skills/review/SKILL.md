@@ -52,3 +52,7 @@ If verdict is NEEDS WORK:
 - Distinguish fact from opinion — only facts can be CRITICAL
 - Code without tests for its acceptance criteria is automatically NEEDS WORK
 - New UI components without `.stories.tsx` files are automatically NEEDS WORK
+
+## Target
+
+$ARGUMENTS

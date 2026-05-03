@@ -146,3 +146,7 @@ If a founder pastes implementation detail into the spec, strip it out before reg
 ## After registration
 
 Hand control back to the founder.
+
+## Target
+
+$ARGUMENTS
