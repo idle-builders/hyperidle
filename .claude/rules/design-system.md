@@ -22,7 +22,7 @@ Components live in `packages/design-system` (Tier 1 primitives + Tier 2 blocks).
 
 **Theme variants:** Two theme modes: Lucid Dark + Lucid Light, in `html/themes/` (`lucid-dark.css`, `lucid-light.css`). See `THEMES.md`. All HTML component pages have a theme switcher in the top-right corner.
 
-**Design critique skill:** `/design-critique` evaluates components on 8 dimensions (hierarchy, spacing, typography, color, coherence, states, a11y, anti-slop) with a 0-10 score.
+**Design critique:** runs in-session inside `/design` (Phase 2) — evaluates components on 9 dimensions (hierarchy, spacing, typography, color, coherence, states, a11y, anti-slop, premium polish) with a 0-10 score. The previously separate `/design-critique` skill was collapsed into `/design` in block-1b.
 
 **Visual feedback:** Three options for giving Claude browser-based visual feedback — see `FEEDBACK.md`. Bookmarklet at `http://localhost:8098/feedback.js`, Vibe Annotations (Chrome extension + MCP), or MCP Pointer.
 
