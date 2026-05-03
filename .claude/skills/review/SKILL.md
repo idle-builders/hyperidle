@@ -12,9 +12,11 @@ min_tool_calls: 25
 
 ## Preparation (do not skip)
 
-1. Identify changed files via `git diff --name-only`
-2. Read the relevant workpackage in the appropriate track file under `plans/work-packages/`
-3. Read the architecture plan at `plans/<workpackage-id>/architecture.md` — its **Required reading** section names the specific doc files this workpackage commits to. Read those files. Do not browse `docs/` — the plan is the filter.
+Step 1 (the diff) gates which docs you need from step 3 — run it first. Steps 2 and 3 are then independent: issue the workpackage Read and all the doc Reads in one parallel batch.
+
+1. Identify changed files via `git diff --name-only`.
+2. Read the relevant workpackage in the appropriate track file under `plans/work-packages/`.
+3. Read the architecture plan at `plans/<workpackage-id>/architecture.md` — its **Required reading** section names the specific doc files this workpackage commits to. Read those files in one parallel batch. Do not browse `docs/` — the plan is the filter.
 
 ## Phase 1: Scan (specialists in parallel)
 

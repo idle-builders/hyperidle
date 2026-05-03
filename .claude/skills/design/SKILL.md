@@ -16,7 +16,7 @@ UX/UI counterpart to `/architecture`. Architecture decides *how* (file paths, sc
 
 ## Inputs
 
-Read (anchor-scoped where possible):
+Read all of the following in one parallel batch of Read calls — these files are independent (anchor-scoped where possible):
 
 1. The workpackage in `plans/work-packages/TRACK-<letter>.md`.
 2. The per-workpackage concept output at `plans/<workpackage-id>/concept.md` and the specific `docs/<topic>/<file>.md` files it cites in its **Required reading**. The concept tells you which existing layout/component-budget files matter — do not browse `docs/` directly.
