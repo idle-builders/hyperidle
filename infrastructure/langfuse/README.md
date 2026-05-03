@@ -22,7 +22,16 @@ bun run obs:down    # stop (volumes preserved)
 bun run obs:reset   # stop AND remove volumes
 ```
 
-UI at <http://localhost:3000>. Login `dev@hyperidle.local` / `hyperidle-local-pw`. Project `hyperidle-pipeline`.
+UI at <http://localhost:3000>. Project `hyperidle-pipeline`.
+
+### Default account
+
+| field | value |
+|---|---|
+| email | `dev@hyperidle.local` |
+| password | `hyperidle-local-pw` |
+
+Seeded by `LANGFUSE_INIT_USER_*` in `.env` on first boot. Signup is disabled (`AUTH_DISABLE_SIGNUP=true`), so this is the only login. Log in once — the NextAuth session cookie persists across `obs:down` / `obs:up` cycles (it's stored in your browser, not the stack). Only `obs:reset` invalidates the user record.
 
 ## 2. Tag a terminal session for tracing
 
