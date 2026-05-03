@@ -11,6 +11,7 @@ For where agents *run* (harnesses, workspaces, skills, durability), see `RESEARC
 
 ---
 
+<!-- @anchor: principles -->
 ## 1. Principles
 
 1. **Agent = soul + context + skills.** Soul is who they are (system prompt). Context is what they know (L0–L4 memory, loaded JIT). Skills are what they can do (packaged scripts calling CLIs/APIs). All three are composable and independently swappable.
@@ -25,6 +26,7 @@ For where agents *run* (harnesses, workspaces, skills, durability), see `RESEARC
 
 ---
 
+<!-- @anchor: agent-identity -->
 ## 2. Agent Identity
 
 An agent is defined by three files:
@@ -47,6 +49,7 @@ When the Knowledge Fabric builds an L0 session context for this agent, it loads 
 
 ---
 
+<!-- @anchor: the-two-categories -->
 ## 3. The Two Categories
 
 ### 3.1 Central Agents (Factory-Wide)
@@ -78,6 +81,7 @@ The roster is not fixed. It flexes with the product's lifecycle phase. Specialis
 
 ---
 
+<!-- @anchor: lifecycle-scaling -->
 ## 4. Lifecycle Scaling
 
 Teams scale up and down as the product moves through its lifecycle. Agents are paused (context persists, no active sessions) or reactivated, never deleted while the product is alive.
@@ -96,6 +100,7 @@ Pausing is not dismissal. A paused Builder's context (L2 product memory, L3 prac
 
 ---
 
+<!-- @anchor: one-agent-one-team-sub-agents-are-internal -->
 ## 5. One Agent, One Team — Sub-Agents Are Internal
 
 An agent belongs to exactly one team (or is central). No multi-team membership. This keeps identity clean, context unambiguous, and scheduling simple: every session loads one product's L2, one team's context, no ambiguity.
@@ -116,6 +121,7 @@ This means:
 
 ---
 
+<!-- @anchor: model-routing-and-cost -->
 ## 6. Model Routing and Cost
 
 Agents don't pick their own model. The meta layer assigns models based on the task's requirements, the agent's role, and the factory's current cost posture.
@@ -151,6 +157,7 @@ The model tier is a suggestion, not a hard contract — the deployer configures 
 
 ---
 
+<!-- @anchor: founder-responsibility-routing -->
 ## 7. Founder Responsibility Routing
 
 The Chief of Staff knows which founder to route items to based on the domain:
@@ -165,6 +172,7 @@ This routing is soft — founders can override by replying in each other's threa
 
 ---
 
+<!-- @anchor: what-this-document-does-not-cover -->
 ## 8. What This Document Does Not Cover
 
 - **How agents coordinate on work** (teams, bets, tasks, sessions, handoffs, decomposition) → `PROCESS_LAYER.md`

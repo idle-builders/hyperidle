@@ -6,6 +6,7 @@ This document describes the parts of HyperIdle, how they interface with each oth
 
 ---
 
+<!-- @anchor: system-overview -->
 ## 1. System Overview
 
 HyperIdle is a meta layer that sits between agent harnesses (which run agents) and human interfaces (which present work). It does not call models, execute tools, or manage conversations — those are harness responsibilities. HyperIdle manages the organizational structure: who works on what, what they know, how they coordinate, and how humans stay in the loop.
@@ -67,6 +68,7 @@ The layering is strict. Arrows point down (dependency direction). The Human Inte
 
 ---
 
+<!-- @anchor: components -->
 ## 2. Components
 
 ### 2.1 Primitive Store
@@ -409,6 +411,7 @@ Spans follow OpenTelemetry conventions. The adapter translates into whatever the
 
 ---
 
+<!-- @anchor: the-human-interface-the-factory -->
 ## 3. The Human Interface: The Factory
 
 ### 3.1 Technology Stack
@@ -458,6 +461,7 @@ The Factory app is a PWA with a service worker. In offline mode:
 
 ---
 
+<!-- @anchor: key-interfaces-between-components -->
 ## 4. Key Interfaces Between Components
 
 ### 4.1 Agent → Meta Layer (via skills)
@@ -523,6 +527,7 @@ Facilitators are agents, but their output is special: they produce Items that ne
 
 ---
 
+<!-- @anchor: technology-summary -->
 ## 5. Technology Summary
 
 | Component | Default Technology | Scale Alternative |
@@ -554,6 +559,7 @@ Facilitators are agents, but their output is special: they produce Items that ne
 
 ---
 
+<!-- @anchor: deployment-architecture -->
 ## 6. Deployment Architecture
 
 ### 6.1 Laptop Profile
@@ -609,6 +615,7 @@ Cloud (AWS/GCP/Hetzner)
 
 ---
 
+<!-- @anchor: data-flow-examples -->
 ## 7. Data Flow Examples
 
 ### 7.1 A Bet Ships
@@ -719,6 +726,7 @@ Cloud (AWS/GCP/Hetzner)
 
 ---
 
+<!-- @anchor: what-this-architecture-does-not-include -->
 ## 8. What This Architecture Does Not Include
 
 - **A model-calling loop.** That's the harness.
@@ -732,6 +740,7 @@ Cloud (AWS/GCP/Hetzner)
 
 ---
 
+<!-- @anchor: decisions -->
 ## 9. Decisions
 
 ### Resolved

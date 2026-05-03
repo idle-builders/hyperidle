@@ -29,6 +29,7 @@
 		"ds:serve": "bun run --filter @hyperidle/design-system serve",
 		"ds:sync": "bun run --filter @hyperidle/design-system sync-check",
 		"ds:inspect": "bun packages/design-system/scripts/inspect-page.ts",
+		"docs:read": "bun scripts/docs-read.ts",
 		"obs:env": "bun scripts/obs.ts env",
 		"obs:smoke": "bun scripts/obs.ts smoke",
 		"obs:run": "bun scripts/obs.ts run",

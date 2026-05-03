@@ -2,12 +2,14 @@
 
 Version 0.3 · Desktop app · Dark / Light / System (Lucid theme)
 
+<!-- @anchor: credo -->
 ## Credo
 
 Keep it simple. Every component on this page has to justify its existence. If two components do almost the same thing, merge them. If a DaisyUI class already does the job, use it directly — don't wrap it.
 
 ---
 
+<!-- @anchor: foundation -->
 ## Foundation
 
 - **Tailwind CSS + DaisyUI** (community, not big-tech), configured with two custom themes `lucid-dark` and `lucid-light`. System preference is respected when no explicit theme is set.
@@ -18,6 +20,7 @@ That is the entire dependency surface for the UI layer.
 
 ---
 
+<!-- @anchor: theme-tokens -->
 ## Theme tokens
 
 **Canonical source:** `packages/design-system/DESIGN.md` (full reference) and `packages/design-system/src/tokens.css` (implementation). Do not duplicate token values here — read them there.
@@ -26,6 +29,7 @@ DaisyUI theme wires our surfaces to `base-100/200/300`, primary to `--p`, warn t
 
 ---
 
+<!-- @anchor: what-we-use-from-daisyui-directly-as-is -->
 ## What we use from DaisyUI (directly, as-is)
 
 Listed once here so we don't redefine them downstream. Each is used with our theme, nothing more.
@@ -36,6 +40,7 @@ Anything else in DaisyUI — hero, card, chat bubble, carousel, steps, timeline,
 
 ---
 
+<!-- @anchor: our-components -->
 ## Our components
 
 Built up in four tiers. Each tier composes only from tiers below it. If something seems to belong in a tier but doesn't earn its keep across at least two usage sites, it doesn't exist.
@@ -107,6 +112,7 @@ That's the whole app.
 
 ---
 
+<!-- @anchor: component-tree-at-a-glance -->
 ## Component tree at a glance
 
 ```
@@ -135,6 +141,7 @@ Totals: 5 + 6 + 8 = **19 custom components** for the entire app. That's the simp
 
 ---
 
+<!-- @anchor: rules -->
 ## Rules
 
 1. **Don't wrap DaisyUI for the sake of wrapping.** Use `btn` directly in a page. Only create a Tier-1 primitive when it adds real semantics (state colour mapping, identity labels, label-value pairing, nav selection, standard search shape).
@@ -147,6 +154,7 @@ Totals: 5 + 6 + 8 = **19 custom components** for the entire app. That's the simp
 
 ---
 
+<!-- @anchor: build-order -->
 ## Build order
 
 1. Install Tailwind + DaisyUI, author Lucid themes, load fonts. _(2 days)_
@@ -160,6 +168,7 @@ About 4 weeks to replace the Stitch outputs with a coherent system.
 
 ---
 
+<!-- @anchor: relation-to-other-docs -->
 ## Relation to other docs
 
 - **INFORMATION_ARCHITECTURE.md** — defines *what* each page contains.

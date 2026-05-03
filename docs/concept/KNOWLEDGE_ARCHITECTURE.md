@@ -8,6 +8,7 @@ For how the human interface is designed — views, navigation, interaction gramm
 
 ---
 
+<!-- @anchor: the-five-layers -->
 ## 1. The Five Layers
 
 ```
@@ -102,6 +103,7 @@ The inspiration is double-loop learning (question the rules, not just the work) 
 
 ---
 
+<!-- @anchor: the-storage-split-at-a-glance -->
 ## 2. The Storage Split, at a Glance
 
 All knowledge lives in a single canonical SQLite store (`knowledge_items` table — see §3). The Knowledge Fabric projects it into the right format for each reader:
@@ -124,6 +126,7 @@ L0         working context            session.toon pack      not shown
 
 ---
 
+<!-- @anchor: the-canonical-store -->
 ## 3. The Canonical Store
 
 Everything lives in SQLite. One database per factory instance. Every piece of knowledge — from a factory principle to a task-level failure — is a row in a single table.
@@ -177,6 +180,7 @@ The human-authored files (L2: `BRIEF.md`, `ARCHITECTURE.md`, `BRAND.md`, `PRINCI
 
 ---
 
+<!-- @anchor: the-knowledge-fabric-how-knowledge-moves -->
 ## 4. The Knowledge Fabric: How Knowledge Moves
 
 The factory has two kinds of client. Humans interact through a rich web UI — inline editing, cards, dropdowns, scope selectors. Agents interact through files in a workspace directory — markdown they can read, TOON packs they can parse, plain files they can grep and write to.
@@ -314,6 +318,7 @@ FUSE (Filesystem in Userspace) would let agents see SQLite rows as a virtual fil
 
 ---
 
+<!-- @anchor: the-sync-protocol -->
 ## 5. The Sync Protocol
 
 Two phases: materialization at session start, then continuous writeback via file watcher throughout the session. No dependency on a session-end hook — knowledge flows back to the canonical store incrementally, as the agent works.
@@ -384,13 +389,16 @@ When a session ends, the agent writes **session notes** — a structured summary
 ```
 Session notes (written by agent to work/session-notes.md):
 
+<!-- @anchor: outcome -->
 ## Outcome
 Completed file upload feature. Chunk size of 2MB works for Coolify.
 
+<!-- @anchor: learned -->
 ## Learned
 - 5MB chunks cause OOM on Coolify's free tier (failure)
 - Multipart upload with 2MB chunks handles files up to 500MB reliably
 
+<!-- @anchor: proposed -->
 ## Proposed
 - Update practice "file-handling" → add 2MB chunk size guidance for Coolify
 - New anti-pattern: "large chunk sizes on memory-constrained hosts"
@@ -406,6 +414,7 @@ The watcher must handle: **debouncing** (agents often write files in bursts — 
 
 ---
 
+<!-- @anchor: conflict-resolution -->
 ## 6. Conflict Resolution
 
 Concurrent edits are rare but possible. Two scenarios:
@@ -492,6 +501,7 @@ Two purposes: (a) facilitators can review what humans correct and adjust future 
 
 ---
 
+<!-- @anchor: the-materialization-budget -->
 ## 7. The Materialization Budget
 
 Not all knowledge is equal. Loading everything into every session wastes tokens and context window. The Knowledge Fabric applies a **materialization budget** — a cap on how much knowledge gets loaded, enforced by relevance scoring.
@@ -527,6 +537,7 @@ The budget is generous by design. The real filter is relevance, not size. But ha
 
 ---
 
+<!-- @anchor: future-upgrade-real-time-co-editing -->
 ## 8. Future Upgrade: Real-Time Co-Editing
 
 Continuous file-watcher sync (§5) handles the normal case: agents write files, the fabric syncs them back within seconds. This is near-real-time but not keystroke-level.
@@ -535,6 +546,7 @@ If we ever need true real-time co-editing of a specific document (two humans, or
 
 ---
 
+<!-- @anchor: the-facilitators-the-most-undervalued-role-in-the-factory -->
 ## 9. The Facilitators — the most undervalued role in the factory
 
 Most agent systems have workers (agents that do things) and maybe an orchestrator (routes work). They're missing the role that actually makes knowledge compound: **the facilitator**. A dedicated agent per layer whose entire job is to organize the layer's knowledge, score what needs human attention, and collect exactly the feedback that converts information into knowledge.
@@ -704,6 +716,7 @@ The facilitators are where the human-in-the-loop idea actually becomes sustainab
 
 ---
 
+<!-- @anchor: the-facilitator-stack-in-action -->
 ## 10. The Facilitator Stack in Action
 
 Each human view is fed by a matching facilitator. The facilitators do all the organizing, scoring, and routing. The humans just show up to their views and find the right work waiting.
@@ -722,6 +735,7 @@ This is the loop: agents produce information → facilitators organize and score
 
 ---
 
+<!-- @anchor: design-decisions-and-trade-offs -->
 ## 11. Design Decisions and Trade-offs
 
 **Why SQLite, not Postgres, as the canonical store?** SQLite is the right default: zero ops, single-file backup, fast reads, works on a laptop. The factory is built for small teams — the write throughput ceiling of SQLite (WAL mode, ~50K writes/sec) far exceeds anything a factory of <50 agents will produce. If a deployment grows beyond SQLite's comfort zone, the Postgres adapter extends to `knowledge_items` with the same schema.
@@ -738,6 +752,7 @@ This is the loop: agents produce information → facilitators organize and score
 
 ---
 
+<!-- @anchor: implementation-sequence -->
 ## 12. Implementation Sequence
 
 1. **`knowledge_items` table + basic CRUD API.** The canonical store. All other work depends on this.
@@ -750,6 +765,7 @@ This is the loop: agents produce information → facilitators organize and score
 
 ---
 
+<!-- @anchor: summary -->
 ## 13. Summary
 
 1. **One canonical store.** All knowledge lives in a single `knowledge_items` table in SQLite. No split across multiple databases and file trees.
@@ -764,6 +780,7 @@ This is the loop: agents produce information → facilitators organize and score
 
 ---
 
+<!-- @anchor: inspirations -->
 ## 14. Inspirations
 
 **Storage and memory:**

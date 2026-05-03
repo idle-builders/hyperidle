@@ -6,6 +6,7 @@ This document is the load-bearing concept for Track L story L2 and the upstream 
 
 ---
 
+<!-- @anchor: definition -->
 ## 1. Definition
 
 **A Block is a derived, addressable, renderable region of a markdown body.** It is a *projection* — the output of running a deterministic, GitHub-flavoured-markdown parser over a stored markdown body and grouping the resulting AST into one of a closed set of **BlockKind** shapes. Each block carries a stable **BlockId**, the structural data needed to render it (the parsed AST node, normalised), and an **anchor** affordance that lets external surfaces attach to it (a comment, a link target, a hover popover).
@@ -16,6 +17,7 @@ Blocks live entirely on the read path. The on-disk format is plain markdown. The
 
 ---
 
+<!-- @anchor: essential-properties -->
 ## 2. Essential properties
 
 Every Block has:
@@ -36,6 +38,7 @@ These ride alongside the essential fields but **never** carry identity. Consumer
 
 ---
 
+<!-- @anchor: what-a-block-is-not -->
 ## 3. What a Block is NOT
 
 The rejection list is load-bearing. Get any of these wrong and the primitive collapses.
@@ -60,6 +63,7 @@ The rejection list is load-bearing. Get any of these wrong and the primitive col
 
 ---
 
+<!-- @anchor: composition -->
 ## 4. Composition
 
 A Block:
@@ -77,6 +81,7 @@ The composition is one-way: blocks know nothing about who references them. A thr
 
 ---
 
+<!-- @anchor: lifecycle -->
 ## 5. Lifecycle
 
 Blocks have no independent lifecycle. They are derived, used by the renderer for the duration of a request (or cached by `body_sha`), and discarded. Their "lifecycle" is the lifecycle of the source markdown body:
@@ -91,6 +96,7 @@ There is no "block status", no "block draft", no "block archived". The state of 
 
 ---
 
+<!-- @anchor: blockkind-the-closed-vocabulary -->
 ## 6. BlockKind — the closed vocabulary
 
 The `BlockKind` set is **closed**. Adding a new kind requires updating this document first, then SHARED.md, then the consumers. The set ships with **nine content kinds plus an `unknown` sentinel** (ten total), picked to cover the existing GitHub-flavoured markdown the project already uses in pitches and knowledge bodies:
@@ -122,6 +128,7 @@ deriveBlocks(body, host) → { blocks: Block[]; metadata: BodyMetadata }
 
 ---
 
+<!-- @anchor: vocabulary -->
 ## 7. Vocabulary
 
 | Term | Definition | Aliases not to use |
@@ -141,6 +148,7 @@ deriveBlocks(body, host) → { blocks: Block[]; metadata: BodyMetadata }
 
 ---
 
+<!-- @anchor: contracts -->
 ## 8. Contracts
 
 ### 8.1 Cardinality
@@ -269,6 +277,7 @@ These are violated only by code that has misunderstood the primitive. CI guards 
 
 ---
 
+<!-- @anchor: where-blocks-render -->
 ## 9. Where Blocks render
 
 | Surface | Source body | When it ships | Notes |
@@ -282,6 +291,7 @@ Conversations does **not** render Blocks. Chat messages, review messages, and qu
 
 ---
 
+<!-- @anchor: where-derivation-attaches-in-the-pipeline -->
 ## 10. Where derivation attaches in the pipeline
 
 The L2 spec is explicit: derivation runs "during ingestion" — the moment a markdown body lands in HyperIdle. There are two ingestion paths today and Blocks attach to both:
@@ -297,6 +307,7 @@ The contract concern is **parser-version negotiation across processes** — when
 
 ---
 
+<!-- @anchor: authority -->
 ## 11. Authority
 
 - **Owner of the source body**: the host entity (a knowledge item, a bet pitch). Their existing authority model (L25 for knowledge edit/manage; bets per `PROCESS_LAYER.md`) governs.
@@ -307,6 +318,7 @@ The contract concern is **parser-version negotiation across processes** — when
 
 ---
 
+<!-- @anchor: rationale -->
 ## 12. Rationale
 
 The founder reframe in the L2 story is the entire reason this primitive has the shape it does. Two quoted lines from the spec:
@@ -326,6 +338,7 @@ The cost is the BlockId algorithm complexity in §8.4 — paid once, in one plac
 
 ---
 
+<!-- @anchor: open-questions-parked-for-design -->
 ## 13. Open questions parked for `/design`
 
 Designer call during L2's design + critique pass — these do not block the concept:
@@ -343,6 +356,7 @@ Architect call during L2's architecture pass — concept-shaped:
 
 ---
 
+<!-- @anchor: cross-references -->
 ## 14. Cross-references
 
 - Story: `docs/work-packages/TRACK-L.md` § L2 (lines 69–108).

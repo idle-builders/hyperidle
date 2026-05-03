@@ -10,6 +10,7 @@ This doc bridges them. **The interaction modes live inside one app as three view
 
 ---
 
+<!-- @anchor: why-a-dedicated-interface-layer-at-all -->
 ## 1. Why a Dedicated Interface Layer at All
 
 The 2026 landscape is loud about one thing: most agent dashboards are unusable, and the reason is conflation. A single screen tries to be the inbox, the planner, the diff reviewer, the audit log, and the strategy doc all at once. It ends up being none of them. Real teams open it once, never again.
@@ -22,6 +23,7 @@ The answer is neither a single mega-dashboard nor a swarm of apps. The answer is
 
 ---
 
+<!-- @anchor: three-views-the-rail -->
 ## 2. Three Views + The Rail
 
 The factory is Slack + Linear + Notion in one app. Each view maps to a well-understood tool category, simplified and opinionated for AI-human collaboration:
@@ -38,6 +40,7 @@ The Chief of Staff's chat is a pinned thread in Conversations, not a separate su
 
 ---
 
+<!-- @anchor: one-app-two-form-factors -->
 ## 3. One App, Two Form Factors
 
 The entire human interface layer ships as **one product: the Factory.** Two form factors — desktop and mobile — from one codebase, over one data model, with one interaction grammar.
@@ -109,6 +112,7 @@ If a deployer really wants a menu-bar widget later, it's a thin client over the 
 
 ---
 
+<!-- @anchor: the-three-views-the-rail -->
 ## 4. The Three Views + The Rail
 
 Each view gets a clear home in the app. They share data, they share identity, they share the thread model where applicable, but each has its own affordances tuned for its purpose.
@@ -811,6 +815,7 @@ Anything not in this list is incidental and lives on a consumer surface (e.g. a 
 
 ---
 
+<!-- @anchor: the-holistic-user-journey -->
 ## 5. The Holistic User Journey
 
 Three views plus a sidebar. What matters is how they thread together into a day, a week, and a month.
@@ -845,6 +850,7 @@ The point of the journey: **the human never thinks "which app do I open?"** They
 
 ---
 
+<!-- @anchor: content-examples-for-design-reference -->
 ## 6. Content Examples (for design reference)
 
 Real examples grounded in the factory's products (Ambrovia — team alignment for project work; Nimmly — SME M&A analytics; HyperIdle — this operating system itself). These show what actual content looks like in each view, so design proposals can be populated with realistic density and tone.
@@ -884,6 +890,7 @@ Real examples grounded in the factory's products (Ambrovia — team alignment fo
 
 ---
 
+<!-- @anchor: the-cross-cutting-data-model -->
 ## 7. The Cross-Cutting Data Model
 
 > **Reframe note (added with the L1 Thread primitive).** The Item / Response shape below is a *routing* working set — what's surfaced to which view, with what verdict yet. The *conversation history* (including the verdict and any inline comments) lives as a sequence of typed messages on the underlying Thread (§4.5). The two reconcile in implementation (architect's call during L1 planning); the concept rule is that the Thread + Message rows are the source of truth for the conversation, and the Item / Response model is one projection of it.
@@ -942,6 +949,7 @@ Response {
 
 ---
 
+<!-- @anchor: routing-how-items-find-the-right-view -->
 ## 8. Routing: How Items Find the Right View
 
 The facilitator family (from KNOWLEDGE_ARCHITECTURE.md) does the routing. Each facilitator emits items targeted at a specific view based on the attention they need:
@@ -968,6 +976,7 @@ When in doubt, facilitators err toward the less interruptive view. Conversations
 
 ---
 
+<!-- @anchor: interaction-cadences-notification-discipline -->
 ## 9. Interaction Cadences & Notification Discipline
 
 Notification fatigue is the failure mode every 2026 tool is fighting. The discipline:
@@ -988,6 +997,7 @@ Notification fatigue is the failure mode every 2026 tool is fighting. The discip
 
 ---
 
+<!-- @anchor: trust-building-slow-cumulative -->
 ## 10. Trust-Building (Slow, Cumulative)
 
 Every 2026 tool that's working has a story for how trust gets built over time. Four mechanisms that keep showing up:
@@ -1001,6 +1011,7 @@ The autonomy level is the real trust dial. It's how the factory transitions from
 
 ---
 
+<!-- @anchor: what-the-meta-layer-actually-ships-at-this-layer -->
 ## 11. What the Meta Layer Actually Ships at This Layer
 
 To be deployable for anyone (per the constraint from RESEARCH_EXECUTION_LAYER.md), the meta layer ships:
@@ -1018,6 +1029,7 @@ Everything else — beautification, themes, Slack/Discord integrations — is do
 
 ---
 
+<!-- @anchor: what-this-layer-is-not -->
 ## 12. What This Layer Is Not
 
 To prevent scope creep, a list of things the human interface layer explicitly does not own:
@@ -1034,6 +1046,7 @@ If we end up writing code that fits one of these descriptions, we've crossed a l
 
 ---
 
+<!-- @anchor: decisions -->
 ## 13. Decisions
 
 - **Desktop shell:** web-first. Plain web app served by the API process. No Tauri wrapper, no PWA. Native shells can be added later if needed.
@@ -1051,6 +1064,7 @@ If we end up writing code that fits one of these descriptions, we've crossed a l
 
 ---
 
+<!-- @anchor: inspirations -->
 ## 14. Inspirations
 
 **For the Conversations view:** MCP Agent Mail (Dicklesworthstone / Steve Yegge fork), LangChain Agent Inbox, builderz Mission Control's Aegis blocking gate, Devin Review's red/yellow/gray triage, Linear AI's "never act in the dark" principle, GitHub pull request reviews, Read AI's persistent-context coach, Letta's continuous sessions, Claude Cowork's ongoing dialogue.
@@ -1069,6 +1083,7 @@ If we end up writing code that fits one of these descriptions, we've crossed a l
 
 ---
 
+<!-- @anchor: canonical-component-references -->
 ## 15. Canonical Component References
 
 This document uses component names from the canonical UI_DESIGN.md component tree. Reference implementations ship as follows:
@@ -1083,6 +1098,7 @@ This document uses component names from the canonical UI_DESIGN.md component tre
 
 ---
 
+<!-- @anchor: block-primitive -->
 ## Block primitive
 
 Cross-reference: `docs/concept/BLOCKS.md` is the long-form concept doc. This section is a pointer for readers of HIL.

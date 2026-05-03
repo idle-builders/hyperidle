@@ -10,6 +10,7 @@ Derived from: `AGENT_LAYER.md`, `KNOWLEDGE_ARCHITECTURE.md`, `PROCESS_LAYER.md`,
 
 ---
 
+<!-- @anchor: users-and-their-modes-of-engagement -->
 ## 1. Users and Their Modes of Engagement
 
 HyperIdle has two categories of users — humans and agents — and the system must serve both equally well. The human experience is an app they open. The agent experience is a set of primitives they interact with programmatically.
@@ -36,6 +37,7 @@ Agents interact with HyperIdle through five primitives: workspace, skills, inbox
 
 ---
 
+<!-- @anchor: usability-requirements -->
 ## 2. Usability Requirements
 
 ### UX-1: One App, One Door
@@ -150,6 +152,7 @@ The human interface ships as a single application ("the Factory") with two form 
 
 ---
 
+<!-- @anchor: functional-requirements -->
 ## 3. Functional Requirements
 
 ### F-1: Agent Identity and Lifecycle
@@ -288,6 +291,7 @@ Cost hierarchy is strictly nested: agent < team < factory. An agent cannot excee
 
 ---
 
+<!-- @anchor: system-requirements -->
 ## 4. System Requirements
 
 ### S-1: Deployment Profiles
@@ -382,6 +386,7 @@ Cost hierarchy is strictly nested: agent < team < factory. An agent cannot excee
 
 ---
 
+<!-- @anchor: non-functional-requirements -->
 ## 5. Non-Functional Requirements
 
 ### NF-1: Performance
@@ -418,6 +423,7 @@ Cost hierarchy is strictly nested: agent < team < factory. An agent cannot excee
 
 ---
 
+<!-- @anchor: decisions -->
 ## 6. Decisions
 
 ### Decided

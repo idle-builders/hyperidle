@@ -12,6 +12,7 @@ This doc is the operating mechanics. It's what turns a committed bet into shippe
 
 ---
 
+<!-- @anchor: why-a-dedicated-process-layer -->
 ## 1. Why a Dedicated Process Layer
 
 Most agent demos in 2026 fall apart at exactly this layer. They ship a single agent doing a single task, or they ship a multi-agent demo that runs for one cycle and never picks up where it left off. They have no story for *teams that persist*, *bets that change*, *recurring work that has memory*, or *how an agent decides what task to pick up next*.
@@ -31,6 +32,7 @@ We add three things to this consensus that the ecosystem hasn't fully figured ou
 
 ---
 
+<!-- @anchor: top-down-and-bottom-up-at-the-same-time -->
 ## 2. Top-Down and Bottom-Up at the Same Time
 
 Knowledge in a healthy flat company doesn't flow one way. The founders set direction. The people doing the work surface what they're learning. Both flows shape what happens next. The process layer has to make both first-class or it'll degenerate into either a top-heavy command structure or a leaderless drift.
@@ -62,6 +64,7 @@ This is the same pattern as a healthy flat company: the vision is set by the fou
 
 ---
 
+<!-- @anchor: the-five-primitives -->
 ## 3. The Five Primitives
 
 The process layer rests on five primitives. Everything else in this doc is mechanics on top of these.
@@ -215,6 +218,7 @@ If something doesn't fit one of these five primitives, the right move is usually
 
 ---
 
+<!-- @anchor: teams-persistent-product-bound -->
 ## 4. Teams: Persistent, Product-Bound
 
 A team forms when a product is committed to. The Chief of Staff (with founder approval) assembles it from the available agent pool, drawing from the practices. The team includes whoever the product needs — typically a Product Manager (lead by default), one or more Builders, a Reviewer for the product's primary artifact type, and any specialty agents the product calls for (a growth analyst for a B2C product, a sales agent for a B2B one).
@@ -254,6 +258,7 @@ Only when the product dissolves. Killing a product is a deliberate founder decis
 
 ---
 
+<!-- @anchor: bets-shape-commit-change-ship -->
 ## 5. Bets: Shape, Commit, Change, Ship
 
 ### 5.1 Shape
@@ -317,6 +322,7 @@ Shipping is not "all tasks done" — it's "the done condition is met." The two s
 
 ---
 
+<!-- @anchor: tasks-and-sessions -->
 ## 6. Tasks and Sessions
 
 ### 6.1 Task lifecycle
@@ -412,6 +418,7 @@ When a task escalates (blocked, needs human input, needs another agent), the esc
 
 ---
 
+<!-- @anchor: decomposition-practice-grounded-decentralized -->
 ## 7. Decomposition: Practice-Grounded, Decentralized
 
 This section is short but it's the heart of the doc. Most agent frameworks decompose centrally — a planner agent reads the goal and generates the task graph. We don't.
@@ -461,6 +468,7 @@ Decentralized decomposition by practice-grounded specialists matches how actual 
 
 ---
 
+<!-- @anchor: handoff-the-coordination-primitive -->
 ## 8. Handoff: The Coordination Primitive
 
 The 2026 ecosystem converged on handoff as the coordination primitive: an agent has a `transfer_to_X` tool, calls it, and the system tracks the active agent on the thread. We adopt this directly, inspired by Google's A2A (Agent-to-Agent) protocol's design: structured handoff messages with context IDs, explicit task states, and message parts.
@@ -541,6 +549,7 @@ Platform teams are the legitimate exception: a billing team or a design-system t
 
 ---
 
+<!-- @anchor: recurring-routines -->
 ## 9. Recurring Routines
 
 Routines are how recurring work attaches to the factory. They are the mechanism for "weekly metrics review," "every Monday morning portfolio standup," "every PR triggers a copy review," "every hour the cost sentinel checks burn rate."
@@ -579,6 +588,7 @@ Routines drift. A weekly metrics review made sense for a product that was findin
 
 ---
 
+<!-- @anchor: wip-and-cost-limits -->
 ## 10. WIP and Cost Limits
 
 The single cheapest way to ruin an agent factory is to spawn unbounded parallel work. Three levels of caps, nested: agent < team < factory.
@@ -615,6 +625,7 @@ Cost caps reset on a configurable cycle (default: daily). The factory ships with
 
 ---
 
+<!-- @anchor: retros-and-reviews-learning-flows-back-up -->
 ## 11. Retros and Reviews: Learning Flows Back Up
 
 Every shipped (or killed) bet produces learning. The job of the process layer is to make sure the learning gets *captured* and *reaches the right place*.
@@ -668,6 +679,7 @@ Retros are the bottom-up signal path. Without them, the team learns (in its own 
 
 ---
 
+<!-- @anchor: what-the-meta-layer-ships-at-this-layer -->
 ## 12. What the Meta Layer Ships at This Layer
 
 To be deployable for anyone (per the EXECUTION layer constraint), the meta layer ships:
@@ -687,6 +699,7 @@ Everything else is downstream of this. The meta layer's job is the primitives, t
 
 ---
 
+<!-- @anchor: what-this-layer-is-not -->
 ## 13. What This Layer Is Not
 
 To prevent scope creep:
@@ -701,6 +714,7 @@ To prevent scope creep:
 
 ---
 
+<!-- @anchor: decisions-formerly-open-questions -->
 ## 14. Decisions (formerly Open Questions)
 
 - **No platform team.** There is no separate platform team. HyperIdle itself is a product, developed by a product team using HyperIdle — dogfooding its own framework. The "platform exception" to end-to-end ownership is not needed.
@@ -712,6 +726,7 @@ To prevent scope creep:
 
 ---
 
+<!-- @anchor: inspirations -->
 ## 15. Inspirations
 
 **For decentralized handoff coordination:** LangGraph Swarm, OpenAI Agents SDK handoffs, AG2 Swarm, Anthropic Claude Subagents. The shared insight: handoff beats supervision for non-trivial multi-agent work.
