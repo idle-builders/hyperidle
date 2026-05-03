@@ -38,8 +38,8 @@ Stop interrogating when the path is clear, not when you run out of questions. Th
 
 Before locking the plan, reconcile the spec against the actual codebase. (Why: I2, I4, J2, J4, J7, L1 retros all caught spec/codebase drift at write-tests time — too late.)
 
-For every named symbol the spec references — table, route, component, file, constant, env var:
-1. `grep` for it in the codebase. Does it exist? With what shape?
+For every named symbol the spec references — table, route, component, file, constant, env var — verify it exists with the expected shape. The lookups are independent: collect the full symbol list first, then issue all the greps and reads in one parallel batch (one tool-call round, not one per symbol). Specifically:
+1. `grep` every symbol in the codebase. Does it exist? With what shape?
 2. For UI-touching ACs, read the current rendered DOM (or the existing component) to verify columns / labels / states.
 3. For API-touching ACs, read the existing route handler / OpenAPI / schema to verify the contract.
 
