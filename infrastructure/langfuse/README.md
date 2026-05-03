@@ -1,74 +1,61 @@
-# Local Langfuse — observability backend for the pipeline
+# Local trace collector — observability for the pipeline
 
-Self-hosted Langfuse stack for tracing pipeline runs and Claude Code sessions locally. Built as a small set of independent parts so you can opt into whichever you need.
+> Note: the directory is named `langfuse/` for historical reasons (we tried Langfuse and it didn't parse Claude Code's token attributes correctly). The current setup is a tiny custom OTLP-JSON receiver that dumps spans to SQLite for SQL-based A/B analysis. The Langfuse `docker-compose.yml` and `.env` files in this directory are unused at the moment but kept around for the MCP-server prompt-management use case.
 
 ## What's here
 
 | part | what it is |
 |---|---|
-| `docker-compose.yml` | the Langfuse stack itself (web + worker + Postgres + ClickHouse + Redis + MinIO). Standalone — has no relation to the repo-root `docker-compose.yml` (which deploys hyperidle to a VPS). |
-| `.env` | server-side bootstrap secrets for the Langfuse containers. Local-only credentials. |
-| `otel.env` | SDK-side OTLP env vars (endpoint + auth header) plus `CLAUDE_CODE_ENABLE_TELEMETRY=1`. Source this in any terminal session you want traced. |
-| `scripts/obs.ts` | thin CLI: `up`/`down`/`status`/`logs`/`smoke`/`env`/`ab`. Nothing magical. |
+| `scripts/trace-collector.ts` | Bun HTTP server on port 4318, accepts OTLP/HTTP-JSON traces, writes one row per span to `.pipeline/traces.db` (SQLite, WAL mode). |
+| `scripts/trace-report.ts` | Canned SQL reports (summary / sessions / session / ab / tools / models / sql) plus arbitrary SQL escape hatch. |
+| `infrastructure/langfuse/otel.env` | SDK-side OTLP env vars + Claude Code telemetry flags. Source it in any shell you want traced. |
+| `scripts/obs.ts` | Helpers around `otel.env` — `obs:env` prints export lines, `obs:ab` adds A/B tags. |
+| `infrastructure/langfuse/docker-compose.yml` | Langfuse stack (legacy, still works for the MCP server but does not see your traces). |
 
-## 1. Start the stack
+## Quickstart
 
 ```sh
-bun run obs:up      # boots Langfuse, polls /api/public/health
-bun run obs:smoke   # emit one OTel span and confirm it ingests
-bun run obs:status  # docker compose ps
-bun run obs:logs    # tail logs
-bun run obs:down    # stop (volumes preserved)
-bun run obs:reset   # stop AND remove volumes
+# Terminal A — keep running while you work:
+bun run obs:collector
+
+# Terminal B — any session you want traced:
+source <(bun run obs:env)
+claude        # or bin/pipeline L10 inside the dev container
+
+# Terminal C — read the data, any time:
+bun run obs:report                  # summary, last 24h
+bun run obs:report sessions         # list sessions
+bun run obs:report session <id>     # drill into one
+bun run obs:report ab block-1       # arm-by-arm comparison
+bun run obs:report tools            # tool-call rollup
+bun run obs:report models           # per-model token totals
+bun run obs:report sql "SELECT span_type, COUNT(*) FROM spans GROUP BY 1"
 ```
 
-UI at <http://localhost:3000>. Project `hyperidle-pipeline`.
+DB lives at `.pipeline/traces.db` (gitignored). Open it in any SQLite client. Schema in `scripts/trace-collector.ts`.
 
-### Default account
+## A/B tagging
 
-| field | value |
-|---|---|
-| email | `dev@hyperidle.local` |
-| password | `hyperidle-local-pw` |
-
-Seeded by `LANGFUSE_INIT_USER_*` in `.env` on first boot. Signup is disabled (`AUTH_DISABLE_SIGNUP=true`), so this is the only login. Log in once — the NextAuth session cookie persists across `obs:down` / `obs:up` cycles (it's stored in your browser, not the stack). Only `obs:reset` invalidates the user record.
-
-## 2. Tag a terminal session for tracing
-
-`bun run obs:env` prints `export …` lines you can `source`. Once exported, anything you launch from that shell that supports OTLP will trace to Langfuse — Claude Code interactive sessions (via `CLAUDE_CODE_ENABLE_TELEMETRY=1`) and `bin/pipeline` (via the runner's OTel module) both work.
+Tag a shell once, then any traced process from that shell carries the tag.
 
 ```sh
-source <(bun run obs:env)         # tag this shell — host processes
-claude                            # interactive session, traced
-```
-
-For shells **inside** the dev container, use `--in-container` so the OTLP endpoint resolves through the docker host gateway:
-
-```sh
-# inside `docker run -it … hyperidle-dev bash`:
-source <(bun run obs:env --in-container)
-bin/pipeline L10
-```
-
-## 3. Layer A/B tags on the same shell
-
-`bun run obs:ab <test-id> <arm>` does the same as `obs:env` but appends `ab.test=<test-id>,ab.arm=<arm>` to `OTEL_RESOURCE_ATTRIBUTES`. Langfuse stores these as resource attributes on every trace produced from that shell — group by them in the UI to compare arms.
-
-```sh
-# baseline arm in one terminal:
+# baseline arm (terminal):
 source <(bun run obs:ab block-1 baseline)
-bin/pipeline L10
+claude     # do whatever you want measured
 
-# variant arm in another terminal (different worktree, modified config):
+# variant arm (different terminal, possibly different worktree with the change):
 source <(bun run obs:ab block-1 variant)
-bin/pipeline L10
+claude
+
+# compare:
+bun run obs:report ab block-1
 ```
 
-`--in-container` works on `obs:ab` too.
+A/B tags ride as `ab.test` and `ab.arm` resource attributes on every span.
 
 ## Pipeline path: run inside the dev container
 
-`bin/pipeline` is a thin `bun packages/pipeline/src/index.tsx "$@"` wrapper that the runner (with `--dangerously-skip-permissions`) gates on `HYPERIDLE_DOCKER=1`. So in practice you run it inside the existing dev container:
+`bin/pipeline` is a thin `bun packages/pipeline/src/index.tsx "$@"` wrapper. The runner (with `--dangerously-skip-permissions`) gates on `HYPERIDLE_DOCKER=1`, so in practice you run it inside the existing dev container:
 
 ```sh
 docker build -t hyperidle-dev .          # one-time
@@ -79,28 +66,57 @@ docker run -it --rm \
   hyperidle-dev bash
 
 # inside the container:
-source <(bun run obs:env --in-container)
+source <(bun run obs:env --in-container)   # rewrites localhost → host.docker.internal
 bin/pipeline L10
 ```
 
-The `--add-host` flag is what lets the in-container OTLP exporter reach Langfuse on the host. `bun pipeline L10` (root npm script → `bin/pipeline L10`) works the same way.
+The `--add-host` flag lets the in-container OTel exporter reach the collector on the host. Use `--in-container` on `obs:env` and `obs:ab` to get the same rewrite.
 
-## MCP server
+## Schema
 
-`.mcp.json` at the repo root wires Claude Code to Langfuse's MCP server at `http://localhost:3000/api/public/mcp` with the local keypair. Restart Claude Code (or run `/mcp`) after `obs:up` to pick it up. Currently scoped to Prompt Management; trace querying still uses the REST API:
-
-```sh
-curl -u "pk-lf-hyperidle-local-pub:sk-lf-hyperidle-local-secret" \
-  "http://localhost:3000/api/public/traces?limit=5"
+```sql
+CREATE TABLE spans (
+  ingested_at TEXT,         -- when we wrote the row
+  trace_id TEXT,
+  span_id TEXT PRIMARY KEY,
+  parent_span_id TEXT,
+  name TEXT,
+  span_type TEXT,           -- 'llm_request' | 'tool' | 'tool.execution' | 'tool.blocked_on_user' | …
+  start_unix_ns INTEGER,
+  end_unix_ns INTEGER,
+  duration_ms REAL,
+  service_name TEXT,        -- 'hyperidle-pipeline'
+  service_version TEXT,
+  session_id TEXT,          -- Claude Code session id
+  ab_test TEXT,             -- from OTEL_RESOURCE_ATTRIBUTES via obs:ab
+  ab_arm TEXT,
+  model TEXT,               -- e.g. 'claude-opus-4-7[1m]'
+  tool_name TEXT,           -- 'Bash', 'Read', …
+  input_tokens INTEGER,
+  output_tokens INTEGER,
+  cache_read_tokens INTEGER,
+  cache_creation_tokens INTEGER,
+  ttft_ms REAL,
+  attempt INTEGER,
+  success INTEGER,          -- 0/1, NULL if absent
+  stop_reason TEXT,
+  decision TEXT,            -- for tool.blocked_on_user
+  attributes TEXT,          -- raw span attributes as JSON
+  resource TEXT             -- raw resource attributes as JSON
+);
 ```
 
-Source: <https://langfuse.com/docs/api-and-data-platform/features/mcp-server>.
+The two JSON columns hold everything the collector saw, so any attribute we didn't extract as a column is still queryable via SQLite's `json_extract`.
+
+## MCP server (legacy Langfuse)
+
+The Langfuse MCP server config in repo-root `.mcp.json` still works if you also bring up the Langfuse stack via `bun run obs:up`. It's only useful for Prompt Management at the moment; trace queries go through the SQLite DB and `obs:report`.
 
 ## Troubleshooting
 
-- **`obs:up` hangs at "Waiting for langfuse-web…"** — first boot pulls images and runs migrations. Allow ~2 minutes; check `bun run obs:logs langfuse-worker`.
-- **`obs:smoke` 500 with "Failed to upload JSON to S3"** — the MinIO `langfuse` bucket didn't get created. `bun run obs:reset && bun run obs:up` re-runs the bootstrap.
-- **No traces in UI but smoke works** — Claude Code or pipeline running in a shell that didn't `source obs:env`. Or, in the container, the endpoint still says `localhost` — use `--in-container`.
-- **Claude Code shows nothing in Langfuse** — Claude Code's `CLAUDE_CODE_ENABLE_TELEMETRY=1` ships metrics + logs by default; traces are gated behind `CLAUDE_CODE_ENHANCED_TELEMETRY_BETA=1`. And it defaults to gRPC, while Langfuse only accepts OTLP/HTTP. `otel.env` already sets both flags plus `OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf`; if you exported env vars manually, double-check those three.
-- **Port 3000 collision** — Langfuse UI binds 3000 (the hyperidle dev server uses 3001).
-- **Disk space** — ClickHouse + MinIO grow with trace volume. `bun run obs:reset` reclaims everything.
+- **`obs:report` says "no trace database"** — the collector hasn't been started yet. `bun run obs:collector` first.
+- **No spans showing up despite collector running** — the shell that ran the traced process didn't `source obs:env`. Check `env | grep OTEL_`.
+- **Inside dev container, no traces** — endpoint still says `localhost`; use `bun run obs:env --in-container` so it resolves to `host.docker.internal:3000`.
+- **Claude Code session shows no traces** — `CLAUDE_CODE_ENABLE_TELEMETRY=1` only ships metrics + logs by default; traces are gated behind `CLAUDE_CODE_ENHANCED_TELEMETRY_BETA=1`. `otel.env` already sets it; if you exported manually, double-check.
+- **Collector port collision** — set `HYPERIDLE_TRACE_PORT=4319` (and update `OTEL_EXPORTER_OTLP_ENDPOINT` to match).
+- **Disk space** — `.pipeline/traces.db` grows roughly 1KB per span. `rm .pipeline/traces.db*` to start fresh; the collector recreates on next boot.
