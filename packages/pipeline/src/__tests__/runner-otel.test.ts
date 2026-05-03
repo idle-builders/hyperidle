@@ -41,8 +41,8 @@ function makeNotification(
 describe("inferSkillName", () => {
 	it("extracts from a slash-prefixed token", () => {
 		expect(inferSkillNameForTesting("/concept hello")).toBe("concept");
-		expect(inferSkillNameForTesting("running /architecture-critique now")).toBe(
-			"architecture-critique",
+		expect(inferSkillNameForTesting("running /architecture-review now")).toBe(
+			"architecture-review",
 		);
 	});
 
