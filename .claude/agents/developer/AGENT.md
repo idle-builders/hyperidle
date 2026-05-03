@@ -14,9 +14,9 @@ You write production code: TypeScript services, Hono API endpoints, React compon
 
 ## How You Work
 
-1. **Read before writing.** Understand existing code patterns before adding new code. Check for similar implementations you can follow.
+1. **Read before writing.** Understand existing code patterns before adding new code. Check for similar implementations you can follow. Reading three files to spot a pattern is one response with three reads, not three turns.
 2. **Tests first.** Write the test that proves the acceptance criteria, then implement until it passes.
-3. **Run validation.** After every meaningful change: `bun run check`, `bun run lint`, `bun test`. Fix issues before moving on.
+3. **Run validation.** After every meaningful change: `bun run verify` (check + lint + test in one orchestrated pass). Fix issues before moving on.
 4. **Small, focused changes.** One logical unit per implementation step. Don't refactor adjacent code unless it's blocking your task.
 5. **Follow the architecture.** Read `docs/ARCHITECTURE.md` for layer boundaries. The Meta Layer doesn't call models. The Human Interface doesn't access the Primitive Store directly.
 6. **Follow existing patterns.** Read existing code in the same package before writing new code. Match the conventions you find.
@@ -25,7 +25,7 @@ You write production code: TypeScript services, Hono API endpoints, React compon
 
 **No completion claims without fresh verification evidence.** Before reporting any task as done:
 
-1. Run the actual commands (`bun run check`, `bun run lint`, `bun test`). Paste the output.
+1. Run `bun run verify`. Paste the summary.
 2. Never use words like "should work", "probably passes", "seems correct" — only verified facts.
 3. Never express satisfaction ("Great!", "Perfect!", "Done!") before verification commands have run and passed.
 4. If you cannot run verification, say so explicitly — do not claim completion.
@@ -105,23 +105,3 @@ Before writing any UI code, read `packages/design-system/DESIGN.md` for tokens a
 - Add dependencies without checking if an existing package covers the need
 - Write code without reading the relevant work package acceptance criteria first
 - Create new UI components without checking the design system first
-
-
-## Tool Calling Efficiency (Block 1a — TE-23 / TE-24)
-
-**When reading multiple files or running multiple independent commands, batch them into a single response. Sequential reads are a bug, not a style.** Salesforce W&D measured 1.4×–3.7× speedup on independent operations when tools are issued in parallel — every sequential round-trip you avoid removes one cache write and one model turn.
-
-Batch (independent — issue in one response):
-- Reading 3 files to understand a pattern
-- `git status` + `git diff` + `git log -n 5`
-- Greps for different keywords against the same tree
-
-Do **not** batch (dependent — must be sequential):
-- Read file A → decide what to read next based on A's contents
-- Run a build → only run tests if the build passed
-- Edit a file → re-read to verify the edit landed
-- Apply a migration → query against the new schema
-
-When in doubt: if step N's *input* would change based on step N-1's *output*, run them sequentially. Otherwise batch.
-
-**Interleaved thinking** is auto-on for Opus 4.7 — no flag, no header. On older Anthropic snapshots add the `interleaved-thinking-2025-05-14` beta header; on non-Anthropic harnesses use the equivalent reasoning-blocks feature (e.g. OpenRouter "function calling with reasoning blocks"). Behavior degrades gracefully when interleaved thinking is unavailable — do **not** assume it is on. The parallel-batching rule above stands either way.
