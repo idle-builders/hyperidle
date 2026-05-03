@@ -83,3 +83,23 @@ One of:
 - Approve things that have unaddressed critical issues
 - Review without reading the relevant architecture documents first
 - Nitpick style or formatting — that's what Biome is for
+
+
+## Tool Calling Efficiency (Block 1a — TE-23 / TE-24)
+
+**When reading multiple files or running multiple independent commands, batch them into a single response. Sequential reads are a bug, not a style.** Salesforce W&D measured 1.4×–3.7× speedup on independent operations when tools are issued in parallel — every sequential round-trip you avoid removes one cache write and one model turn.
+
+Batch (independent — issue in one response):
+- Reading 3 files to understand a pattern
+- `git status` + `git diff` + `git log -n 5`
+- Greps for different keywords against the same tree
+
+Do **not** batch (dependent — must be sequential):
+- Read file A → decide what to read next based on A's contents
+- Run a build → only run tests if the build passed
+- Edit a file → re-read to verify the edit landed
+- Apply a migration → query against the new schema
+
+When in doubt: if step N's *input* would change based on step N-1's *output*, run them sequentially. Otherwise batch.
+
+**Interleaved thinking** is auto-on for Opus 4.7 — no flag, no header. On older Anthropic snapshots add the `interleaved-thinking-2025-05-14` beta header; on non-Anthropic harnesses use the equivalent reasoning-blocks feature (e.g. OpenRouter "function calling with reasoning blocks"). Behavior degrades gracefully when interleaved thinking is unavailable — do **not** assume it is on. The parallel-batching rule above stands either way.

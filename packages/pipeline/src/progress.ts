@@ -7,6 +7,7 @@ import {
 	writeFileSync,
 } from "node:fs";
 import { join } from "node:path";
+import { decode, encode } from "@hyperidle/shared";
 import type { PipelineState, Story, StoryProgress } from "./types.js";
 
 export const PROGRESS_DIR = ".pipeline/progress";
@@ -24,11 +25,25 @@ export interface RunMeta {
 // per story it's working on; the scheduler owns run.json. fs.rename gives us
 // atomic single-file writes on the same filesystem, so partial writes from a
 // crashed process can't be observed by readers.
-function atomicWriteJson(path: string, value: unknown): void {
+//
+// @lore TE-5 (block 1a plumbing): per-story files are now written as .toon
+// (more compact, fewer cache writes when reread by agents). Reads honor both
+// .toon and the legacy .json for one release; loadAllProgress prefers .toon
+// when both exist for the same id (defensive — only happens if a legacy
+// runner crashes mid-write before the .json is replaced).
+function atomicWriteString(path: string, body: string): void {
 	mkdirSync(dirOf(path), { recursive: true });
 	const tmp = `${path}.tmp.${process.pid}.${Math.random().toString(36).slice(2)}`;
-	writeFileSync(tmp, JSON.stringify(value, null, "\t"));
+	writeFileSync(tmp, body);
 	renameSync(tmp, path);
+}
+
+function atomicWriteJson(path: string, value: unknown): void {
+	atomicWriteString(path, JSON.stringify(value, null, "\t"));
+}
+
+function atomicWriteToon(path: string, value: Record<string, unknown>): void {
+	atomicWriteString(path, encode(value));
 }
 
 function dirOf(path: string): string {
@@ -37,26 +52,49 @@ function dirOf(path: string): string {
 }
 
 function storyPath(id: string): string {
+	return join(PROGRESS_DIR, `${id}.toon`);
+}
+
+function legacyStoryPath(id: string): string {
 	return join(PROGRESS_DIR, `${id}.json`);
 }
 
-export function loadStoryProgress(id: string): StoryProgress | null {
-	const path = storyPath(id);
-	if (!existsSync(path)) return null;
+function readStoryFile(path: string): StoryProgress {
+	if (path.endsWith(".toon")) {
+		return decode(readFileSync(path, "utf-8")) as unknown as StoryProgress;
+	}
 	return JSON.parse(readFileSync(path, "utf-8")) as StoryProgress;
 }
 
+export function loadStoryProgress(id: string): StoryProgress | null {
+	const toonPath = storyPath(id);
+	if (existsSync(toonPath)) return readStoryFile(toonPath);
+	const jsonPath = legacyStoryPath(id);
+	if (existsSync(jsonPath)) return readStoryFile(jsonPath);
+	return null;
+}
+
 export function saveStoryProgress(progress: StoryProgress): void {
-	atomicWriteJson(storyPath(progress.id), progress);
+	atomicWriteToon(storyPath(progress.id), progress as unknown as Record<string, unknown>);
 }
 
 export function loadAllProgress(): StoryProgress[] {
 	if (!existsSync(PROGRESS_DIR)) return [];
+	const seen = new Set<string>();
 	const out: StoryProgress[] = [];
-	for (const entry of readdirSync(PROGRESS_DIR)) {
+	const entries = readdirSync(PROGRESS_DIR);
+	// Prefer .toon over .json when both exist for the same id.
+	for (const entry of entries) {
+		if (!entry.endsWith(".toon")) continue;
+		const id = entry.slice(0, -".toon".length);
+		seen.add(id);
+		out.push(readStoryFile(join(PROGRESS_DIR, entry)));
+	}
+	for (const entry of entries) {
 		if (!entry.endsWith(".json")) continue;
-		const path = join(PROGRESS_DIR, entry);
-		out.push(JSON.parse(readFileSync(path, "utf-8")) as StoryProgress);
+		const id = entry.slice(0, -".json".length);
+		if (seen.has(id)) continue;
+		out.push(readStoryFile(join(PROGRESS_DIR, entry)));
 	}
 	return out;
 }
@@ -84,7 +122,8 @@ export function migrateLegacyIfPresent(): void {
 	for (const story of legacy.stories) {
 		const path = storyPath(story.id);
 		if (existsSync(path)) continue;
-		atomicWriteJson(path, story);
+		if (existsSync(legacyStoryPath(story.id))) continue;
+		atomicWriteToon(path, story as unknown as Record<string, unknown>);
 	}
 
 	if (!existsSync(RUN_PATH)) {
