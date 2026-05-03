@@ -38,9 +38,9 @@ Inspired by:
 
 ## Phase 0 — Interrogate the user task
 
-Before generating, walk the decision tree. Ask hard questions ONE AT A TIME, propose your read, let the human (or in autonomous mode the adversary) confirm.
+Before generating, walk the decision tree. Pick only the questions that are actually unsettled — skip what the brief, the design system rules, or existing mockups already answer. For each remaining question, propose your read with the evidence you have, then ask the human (or in autonomous mode the adversary) to confirm. Issue all of these probes in one parallel batch — independent questions don't need separate round-trips.
 
-**One question at a time.** A list of ten dumps invites the easy ones to be answered and the hard ones to become silent assumptions.
+**Few, important questions.** Three sharp probes force a real decision; ten low-stakes ones get answered with shrugs. The bar to ask is: "will the answer change a variant constraint?" If no, don't ask.
 
 Sample lines (adapt):
 - "Who is doing this and what decision are they making? My read: X. Confirm?"

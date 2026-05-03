@@ -44,11 +44,11 @@ For each noun, classify it:
 
 Only New + Reshaped nouns enter the rest of this skill. Stable nouns are inputs.
 
-## Phase 1 — Probe the essence (one question at a time)
+## Phase 1 — Probe the essence
 
-For each New / Reshaped noun, walk the decision tree. Ask hard questions ONE AT A TIME, propose your read based on the spec / existing docs, let the human (or in autonomous mode the adversary) confirm, override, or dig deeper.
+For each New / Reshaped noun, walk the decision tree. Pick only the probes that are actually unsettled — skip the ones where the spec or existing concept docs already pin the answer. For each remaining probe, propose your read with the evidence you have, then ask the human (or in autonomous mode the adversary) to confirm, override, or dig deeper. Issue all probes for a noun in one parallel batch — independent probes don't need separate round-trips, and the cost adds up across seven essentials × N nouns.
 
-**One question at a time.** A list of ten dumps invites the easy ones to be answered and the hard ones to become silent assumptions that surface as bugs years later when the concept is already load-bearing.
+**Few, important questions.** Three sharp probes force a real decision; ten low-stakes ones get answered with shrugs while the load-bearing assumption stays silent and surfaces years later as a load-bearing bug. The bar to ask is: "will the answer change the concept doc?" If no, don't ask.
 
 The seven essential probes (adapt; don't ask all of them — pick what's actually unsettled):
 
@@ -62,7 +62,7 @@ The seven essential probes (adapt; don't ask all of them — pick what's actuall
 
 Stop probing when the concept is sharp, not when you run out of questions. Three to seven branches is typical for a new primitive; one or two for a reshape.
 
-If the founder is reachable, surface each probe with one AskUserQuestion (never batch). In autonomous mode, propose your answer in the concept doc and let `/architecture-critique`'s spec-alignment dimension catch it later if you got it wrong.
+If the founder is reachable, surface the unsettled probes in a single AskUserQuestion call carrying all of them — the founder reads them at once and you don't pay a round-trip per probe. In autonomous mode, propose your answer in the concept doc and let `/architecture-critique`'s spec-alignment dimension catch it later if you got it wrong.
 
 ## Phase 2 — Probe the rejection list
 
@@ -168,7 +168,7 @@ Concepts are the part that is *expensive to change*; they ripple through every d
 - **Empty rejection list.** If you can't say what the concept ISN'T, you don't understand what it IS.
 - **Vibes-only definitions.** "A Thread is a way to talk about things" is not a definition; it's a hand-wave.
 - **Re-litigating in `/design` or `/architecture`.** Once the concept doc lands, the visual variants and the technical plan operate inside it. They do not redefine it.
-- **One mega-question dump.** Probes are one at a time. A list of seven questions is one easy answer plus six silent assumptions.
+- **Padding the probe list.** Asking ten questions when only three are actually unsettled produces six shrug-answers and one real one. Cut probes whose answer wouldn't change the concept doc — then ask the survivors as one batch, not seven separate round-trips.
 
 ## Cross-references
 
