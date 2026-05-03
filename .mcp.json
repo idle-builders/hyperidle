@@ -1,15 +1,3 @@
 {
-	"mcpServers": {
-		"language-server": {
-			"command": "mcp-language-server",
-			"args": [
-				"--workspace",
-				".",
-				"--lsp",
-				"node_modules/.bin/typescript-language-server",
-				"--",
-				"--stdio"
-			]
-		}
-	}
+	"mcpServers": {}
 }
