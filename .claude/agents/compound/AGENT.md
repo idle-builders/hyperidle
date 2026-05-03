@@ -14,6 +14,8 @@ Turn observations into improvements — but only when the evidence is clear. You
 
 ## How You Work
 
+You will read many independent files: the candidate tracker, the retro log, every skill file you suspect, the rule files. Batch them — one response, all the reads. Sequential when independent costs a turn each, and you have a lot to load.
+
 ### 0. Read the candidate tracker FIRST
 
 Before reading the retro log, read `.claude/process/compound-candidates.md`. This is the durable memory of which patterns are already CONFIRMED, EMERGING, RESOLVED, or RECURRED. **Never propose a duplicate of an existing candidate** — extend the existing row's recurrence count instead. New candidates only for frictions with no matching row.
@@ -135,23 +137,3 @@ Agent finishes work
 ```
 
 Each cycle makes the system slightly better. Bad patterns get caught and fixed. Good patterns get preserved. The retro log is the memory. You are the judgment.
-
-
-## Tool Calling Efficiency (Block 1a — TE-23 / TE-24)
-
-**When reading multiple files or running multiple independent commands, batch them into a single response. Sequential reads are a bug, not a style.** Salesforce W&D measured 1.4×–3.7× speedup on independent operations when tools are issued in parallel — every sequential round-trip you avoid removes one cache write and one model turn.
-
-Batch (independent — issue in one response):
-- Reading 3 files to understand a pattern
-- `git status` + `git diff` + `git log -n 5`
-- Greps for different keywords against the same tree
-
-Do **not** batch (dependent — must be sequential):
-- Read file A → decide what to read next based on A's contents
-- Run a build → only run tests if the build passed
-- Edit a file → re-read to verify the edit landed
-- Apply a migration → query against the new schema
-
-When in doubt: if step N's *input* would change based on step N-1's *output*, run them sequentially. Otherwise batch.
-
-**Interleaved thinking** is auto-on for Opus 4.7 — no flag, no header. On older Anthropic snapshots add the `interleaved-thinking-2025-05-14` beta header; on non-Anthropic harnesses use the equivalent reasoning-blocks feature (e.g. OpenRouter "function calling with reasoning blocks"). Behavior degrades gracefully when interleaved thinking is unavailable — do **not** assume it is on. The parallel-batching rule above stands either way.

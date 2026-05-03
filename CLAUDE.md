@@ -89,7 +89,15 @@ Bun, TypeScript strict, Hono, Drizzle ORM (SQLite + PostgreSQL), React + Vite, T
 
 ## Commands
 
-`bun install`, `bun dev` (server 3001 + web 5173), `bun run test` (Vitest via package.json script — do NOT use bare `bun test` which invokes Bun's native runner), `bun run check` (typecheck), `bun run lint` (Biome + ESLint), `bun run lint:biome`, `bun run lint:eslint`, `bun run lint:fix`, `bun run db:generate`, `bun run db:migrate`.
+`bun install`, `bun dev` (server 3001 + web 5173), `bun run verify` (orchestrated check + lint + test in one summary — preferred for completion checks), `bun run test` (Vitest via package.json script — do NOT use bare `bun test` which invokes Bun's native runner), `bun run check` (typecheck), `bun run lint` (Biome + ESLint), `bun run lint:biome`, `bun run lint:eslint`, `bun run lint:fix`, `bun run db:generate`, `bun run db:migrate`.
+
+---
+
+## Tool Calls
+
+Batch independent tool calls into a single response. Three reads to spot a pattern, `git status` + `git diff` + `git log` for situational awareness — one turn, not three. Sequence only when step N's input depends on step N-1's output (read A → choose what to read next from A; edit → re-read to verify; build → only run tests on green).
+
+Interleaved thinking is auto-on for Opus 4.7. Do not write prompts that require a thinking step to land between two tool calls — behavior must work either way.
 
 ---
 

@@ -51,6 +51,7 @@ DaisyUI components (btn, input, badge, menu, modal, etc.) are used directly with
 3. **Specify behavior, not pixels.** Define states (empty, loading, error, populated, overflow), transitions, keyboard shortcuts, focus management.
 4. **Think mobile second.** Desktop is the primary form factor (IconRail | Submenu | Main | Rail). Mobile is three tabs. Design desktop first, then verify the mobile adaptation works.
 5. **Reference mockups.** Check `stitch 2/` for existing visual decisions before proposing new patterns.
+6. **Load context in parallel.** DESIGN.md, the relevant `docs/` chapter, and the mockups you're matching against — one response, all the reads. Sequential reads of independent files cost a turn each.
 
 ## Output Format
 
@@ -98,23 +99,3 @@ Screenshot every state: empty, loading, error, populated. If you can't screensho
 - Design for aesthetics over function — this is a productivity tool
 - Ignore existing mockups in `stitch 2/`
 - Review UI by reading code alone — you must look at rendered output
-
-
-## Tool Calling Efficiency (Block 1a — TE-23 / TE-24)
-
-**When reading multiple files or running multiple independent commands, batch them into a single response. Sequential reads are a bug, not a style.** Salesforce W&D measured 1.4×–3.7× speedup on independent operations when tools are issued in parallel — every sequential round-trip you avoid removes one cache write and one model turn.
-
-Batch (independent — issue in one response):
-- Reading 3 files to understand a pattern
-- `git status` + `git diff` + `git log -n 5`
-- Greps for different keywords against the same tree
-
-Do **not** batch (dependent — must be sequential):
-- Read file A → decide what to read next based on A's contents
-- Run a build → only run tests if the build passed
-- Edit a file → re-read to verify the edit landed
-- Apply a migration → query against the new schema
-
-When in doubt: if step N's *input* would change based on step N-1's *output*, run them sequentially. Otherwise batch.
-
-**Interleaved thinking** is auto-on for Opus 4.7 — no flag, no header. On older Anthropic snapshots add the `interleaved-thinking-2025-05-14` beta header; on non-Anthropic harnesses use the equivalent reasoning-blocks feature (e.g. OpenRouter "function calling with reasoning blocks"). Behavior degrades gracefully when interleaved thinking is unavailable — do **not** assume it is on. The parallel-batching rule above stands either way.

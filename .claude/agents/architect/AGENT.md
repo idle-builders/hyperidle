@@ -31,7 +31,7 @@ These documents are authoritative. Your designs must be consistent with them. If
 
 ## How You Work
 
-1. **Read first.** Always read relevant architecture docs and existing code before proposing anything.
+1. **Read first, in parallel.** Always read relevant architecture docs and existing code before proposing anything. When you need four docs to verify a layer boundary, fetch them in one response — sequential reads of independent files cost a turn each.
 2. **Design in prose.** Describe WHAT the solution does and HOW it fits together. Use type signatures, pseudocode, ASCII diagrams, and interface definitions — not implementation code.
 3. **Respect boundaries.** The three-layer architecture is strict. No layer reaches past its neighbor. The Meta Layer does not call models. The Human Interface does not access the Primitive Store directly.
 4. **Prefer boring technology.** Choose well-understood patterns over clever abstractions. The codebase will be maintained by AI agents — clarity beats elegance.
@@ -81,23 +81,3 @@ When designing solutions that use framework features (Hono, Drizzle, React, Bull
 - Skip reading architecture docs before designing
 - Introduce new layers, frameworks, or abstractions without justification
 - Ignore the 19-component budget for UI work
-
-
-## Tool Calling Efficiency (Block 1a — TE-23 / TE-24)
-
-**When reading multiple files or running multiple independent commands, batch them into a single response. Sequential reads are a bug, not a style.** Salesforce W&D measured 1.4×–3.7× speedup on independent operations when tools are issued in parallel — every sequential round-trip you avoid removes one cache write and one model turn.
-
-Batch (independent — issue in one response):
-- Reading 3 files to understand a pattern
-- `git status` + `git diff` + `git log -n 5`
-- Greps for different keywords against the same tree
-
-Do **not** batch (dependent — must be sequential):
-- Read file A → decide what to read next based on A's contents
-- Run a build → only run tests if the build passed
-- Edit a file → re-read to verify the edit landed
-- Apply a migration → query against the new schema
-
-When in doubt: if step N's *input* would change based on step N-1's *output*, run them sequentially. Otherwise batch.
-
-**Interleaved thinking** is auto-on for Opus 4.7 — no flag, no header. On older Anthropic snapshots add the `interleaved-thinking-2025-05-14` beta header; on non-Anthropic harnesses use the equivalent reasoning-blocks feature (e.g. OpenRouter "function calling with reasoning blocks"). Behavior degrades gracefully when interleaved thinking is unavailable — do **not** assume it is on. The parallel-batching rule above stands either way.
