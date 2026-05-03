@@ -107,6 +107,17 @@
 	"includeGitInstructions": false,
 	"plansDirectory": "./plans",
 	"hooks": {
+		"PreToolUse": [
+			{
+				"matcher": "Read",
+				"hooks": [
+					{
+						"type": "command",
+						"command": "bun $CLAUDE_PROJECT_DIR/.claude/hooks/read-dedup.ts"
+					}
+				]
+			}
+		]
 	},
 	"CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": true
 }
