@@ -6,10 +6,11 @@
 // Subcommands: up | down | reset | status | logs | env | smoke | run
 //
 // Examples:
-//   bun run scripts/obs.ts up           # boot the stack
-//   bun run scripts/obs.ts smoke        # emit one span and confirm ingest
-//   bun run scripts/obs.ts run pipeline L10   # run pipeline with OTel env set
-//   bun run scripts/obs.ts down         # stop (volumes preserved)
+//   bun run scripts/obs.ts up                                # boot the Langfuse stack
+//   bun run scripts/obs.ts smoke                             # emit one span and confirm ingest
+//   source <(bun run obs:env)                                # tag this shell with OTel env
+//   source <(bun run obs:env --in-container)                 # same, container-side rewrite
+//   source <(bun run obs:env --ab=block-1 --variant=baseline) # OTel env + ab.test/ab.arm tags
 
 import { existsSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
@@ -112,12 +113,80 @@ function logs(rest: string[]): never {
 	process.exit(exitCode);
 }
 
-function env(): void {
+function readOtelEnvText(): string {
 	if (!existsSync(OTEL_ENV_FILE)) {
 		console.error(`missing ${OTEL_ENV_FILE}`);
 		process.exit(1);
 	}
-	process.stdout.write(readFileSync(OTEL_ENV_FILE, "utf-8"));
+	return readFileSync(OTEL_ENV_FILE, "utf-8");
+}
+
+function rewriteForContainer(text: string): string {
+	return text
+		.split(/\r?\n/)
+		.map((line) => {
+			if (line.trim().startsWith("#")) return line;
+			return line
+				.replace(/localhost/g, "host.docker.internal")
+				.replace(/127\.0\.0\.1/g, "host.docker.internal");
+		})
+		.join("\n");
+}
+
+function flagValue(args: string[], name: string): string | undefined {
+	for (let i = 0; i < args.length; i++) {
+		const a = args[i];
+		if (a === `--${name}`) return args[i + 1];
+		if (a.startsWith(`--${name}=`)) return a.slice(name.length + 3);
+		if (a.startsWith(`--${name}:`)) return a.slice(name.length + 3);
+	}
+	return undefined;
+}
+
+function env(args: string[]): void {
+	const inContainer = args.includes("--in-container");
+	const ab = flagValue(args, "ab");
+	const variant = flagValue(args, "variant") ?? flagValue(args, "arm");
+	if ((ab && !variant) || (variant && !ab)) {
+		console.error("Pass --ab and --variant together (or neither).");
+		console.error("  source <(bun run obs:env --ab=block-1 --variant=baseline)");
+		process.exit(2);
+	}
+
+	let text = readOtelEnvText();
+	if (inContainer) text = rewriteForContainer(text);
+	if (ab && variant) {
+		text = appendResourceAttrs(text, {
+			"ab.test": ab,
+			"ab.arm": variant,
+		});
+	}
+	process.stdout.write(text);
+}
+
+function appendResourceAttrs(text: string, additions: Record<string, string>): string {
+	const lines = text.split(/\r?\n/);
+	const attrLine = lines.findIndex((l) =>
+		/^(?:export\s+)?OTEL_RESOURCE_ATTRIBUTES\s*=/.test(l.trim()),
+	);
+	const additionsCsv = Object.entries(additions)
+		.map(([k, v]) => `${k}=${v}`)
+		.join(",");
+	if (attrLine === -1) {
+		lines.push(`export OTEL_RESOURCE_ATTRIBUTES="${additionsCsv}"`);
+	} else {
+		const m = lines[attrLine].match(
+			/^(\s*(?:export\s+)?OTEL_RESOURCE_ATTRIBUTES\s*=\s*)(["']?)(.*?)\2\s*$/,
+		);
+		if (m) {
+			const prefix = m[1];
+			const quote = m[2] || '"';
+			const inner = m[3];
+			const merged = inner ? `${inner},${additionsCsv}` : additionsCsv;
+			lines[attrLine] = `${prefix}${quote}${merged}${quote}`;
+		}
+	}
+	return `${lines.join("\n").replace(/\n+$/, "")}\n`;
 }
 
 async function smoke(): Promise<void> {
@@ -190,7 +259,7 @@ switch (cmd) {
 		logs(rest);
 		break;
 	case "env":
-		env();
+		env(rest);
 		break;
 	case "smoke":
 		await smoke();
@@ -200,13 +269,15 @@ switch (cmd) {
 		break;
 	default:
 		console.error(`Usage: bun run scripts/obs.ts <up|down|reset|status|logs|env|smoke|run>`);
-		console.error(`  up       boot the Langfuse stack and wait for health`);
-		console.error(`  down     stop the stack (volumes preserved)`);
-		console.error(`  reset    stop the stack AND remove volumes`);
-		console.error(`  status   docker compose ps`);
-		console.error(`  logs     tail logs (optional service name)`);
-		console.error(`  env      print the SDK-side OTLP env vars`);
-		console.error(`  smoke    emit one OTel span and confirm ingest`);
-		console.error(`  run …    exec a command with OTLP env vars set`);
+		console.error(`  up           boot the Langfuse stack and wait for health`);
+		console.error(`  down         stop the stack (volumes preserved)`);
+		console.error(`  reset        stop the stack AND remove volumes`);
+		console.error(`  status       docker compose ps`);
+		console.error(`  logs         tail logs (optional service name)`);
+		console.error(`  env [--in-container] [--ab=<test> --variant=<arm>]`);
+		console.error(`               print export lines for OTLP env vars; A/B flags`);
+		console.error(`               append ab.test / ab.arm resource attributes`);
+		console.error(`  smoke        emit one OTel span and confirm ingest`);
+		console.error(`  run …        exec a command with OTLP env vars set`);
 		process.exit(2);
 }

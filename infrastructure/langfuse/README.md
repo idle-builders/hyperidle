@@ -1,70 +1,152 @@
-# Local Langfuse — observability backend for the pipeline
+# Local trace observability
 
-Self-hosted Langfuse stack for local A/B testing of token-efficiency blocks. The pipeline emits OTLP traces that land here; you read cost/duration/tool-call deltas off the Langfuse UI.
+Tiny custom OTLP receiver: Claude Code and the pipeline runner emit OpenTelemetry traces, the collector appends each span as a JSON line to `.pipeline/traces.jsonl`, and DuckDB reads that file directly for analysis. No central database, no lock contention, no UI to log into.
+
+> The directory is named `langfuse/` for historical reasons. We tried Langfuse first, but it doesn't parse Claude Code's token attributes (they live under `input_tokens` / `cache_read_tokens` / etc., not the OTel GenAI conventions Langfuse expects). The Langfuse `docker-compose.yml` and `.env` here still work and are useful for the Prompt-Management MCP server, but they no longer see your traces.
 
 ## Quickstart
 
+Three terminals, three independent jobs:
+
 ```sh
-bun run obs:up      # boot the stack, wait for /api/public/health
-bun run obs:smoke   # emit one span and verify it ingests
-bun run obs:run -- bun pipeline L10   # run the pipeline with OTel env set
+# Terminal A — keep running while you work:
+bun run obs:collector
+
+# Terminal B — any session you want traced:
+source <(bun run obs:env)
+claude                    # interactive session
+# …or, inside the dev container:
+source <(bun run obs:env --in-container)
+bin/pipeline L10
+
+# Terminal C — read the data, any time:
+bun run obs:report                  # 24h summary
+bun run obs:report ab block-1       # arm-by-arm comparison
 ```
 
-UI: <http://localhost:3000>. Login `dev@hyperidle.local` / `hyperidle-local-pw`. Project: `hyperidle-pipeline`.
+The collector listens on `localhost:4318` (OTLP/HTTP-JSON, `POST /v1/traces`). The trace file at `.pipeline/traces.jsonl` is append-only; you can `tail -f` it, `jq` it, ship it as a tarball, or open it with the DuckDB CLI directly.
 
-## What gets created
+## A/B tagging a session
 
-`bun run obs:up` brings up six containers (`docker compose -f infrastructure/langfuse/docker-compose.yml`):
+Pass `--ab=<test-id> --variant=<arm>` to `obs:env`. Both flags must be set together; they append `ab.test=<test-id>,ab.arm=<arm>` to `OTEL_RESOURCE_ATTRIBUTES` on top of the normal export lines, so every span emitted from that shell carries the tags as resource attributes.
 
-| service | host port | role |
-|---|---|---|
-| `langfuse-web` | 3000 | UI + OTLP ingest |
-| `langfuse-worker` | — | trace processor |
-| `postgres` | — | metadata |
-| `clickhouse` | — | trace storage |
-| `redis` | — | queue + cache |
-| `minio` | 9090 / 9091 | event/media object store |
+```sh
+# Terminal 1 — baseline arm:
+source <(bun run obs:env --ab=block-1 --variant=baseline)
+claude   # do whatever you're measuring
 
-On first boot, Langfuse seeds an org (`hyperidle`), a project (`hyperidle-pipeline`), and a deterministic public/secret keypair from the `.env` file. The matching `Authorization: Basic …` header lives in `otel.env`.
+# Terminal 2 — variant arm (different worktree, modified config):
+source <(bun run obs:env --ab=block-1 --variant=variant)
+claude
 
-## Env files
+# Compare:
+bun run obs:report ab block-1
+```
 
-| file | purpose | who reads it |
-|---|---|---|
-| `.env` | server-side secrets (DB passwords, encryption key, bootstrap keypair) | docker compose |
-| `otel.env` | SDK-side OTLP exporter config (endpoint + auth header) | the pipeline runner via `obs:run` or `source` |
+`--in-container` composes with the A/B flags. `--variant` and `--arm` are aliases.
 
-These are local-only credentials — they only authenticate against your own machine's Langfuse instance. Replace the `.env` keys before exposing this stack on a network.
+## Reports
 
-## Commands
-
-| command | what it does |
+| command | what it shows |
 |---|---|
-| `bun run obs:up` | boot the stack, poll `/api/public/health` until green |
-| `bun run obs:down` | stop the stack (volumes preserved — restart resumes) |
-| `bun run obs:reset` | stop **and remove volumes** (nukes traces + project — bootstrap re-runs on next `up`) |
-| `bun run obs:status` | `docker compose ps` |
-| `bun run obs:logs [service]` | tail logs (optionally for one service) |
-| `bun run obs:env` | print the SDK-side env vars (for `eval "$(bun run obs:env)"`) |
-| `bun run obs:smoke` | emit one OTel span and confirm ingest |
-| `bun run obs:run -- <cmd>` | exec a command with OTLP env vars set (e.g. `bun run obs:run -- bun pipeline L10`) |
+| `bun run obs:report` | 24h totals + recent sessions |
+| `bun run obs:report sessions` | every session, latest first |
+| `bun run obs:report session <id>` | totals + per-span-type + top tools for one session |
+| `bun run obs:report ab <test-id>` | one row per arm — sessions, llm_calls, tool_calls, tokens, duration |
+| `bun run obs:report tools` | per-tool call count + duration (24h) |
+| `bun run obs:report models` | per-model token totals (24h) |
+| `bun run obs:report sql "<query>"` | arbitrary SQL against the `spans` view |
 
-## A/B-testing pattern
+The collector and any number of report processes coexist — JSONL append is lock-free and DuckDB reads via `read_json_auto`.
 
-The validation framing in `plans/token-efficiency-blocks.md` is parallel A/B per block. With Langfuse running:
+## Direct DuckDB
 
-1. Spin two worktrees from the same SHA. Set `OTEL_RESOURCE_ATTRIBUTES` to include `pipeline.arm=baseline` in one and `pipeline.arm=variant` in the other.
-2. Run the same story in both. Each persona spawn produces a `hyperidle.persona` span with the arm tag.
-3. In Langfuse, group by `pipeline.arm` and compare totals: input/output tokens, duration, `hyperidle.tool_calls.actual`, retry count.
-4. Ship rule (per the plan): ≥10% improvement on cost or wall-clock with no AC regression on at least 3 stories of mixed complexity.
+Skip the scripts entirely if you want:
 
-## MCP server
+```sh
+duckdb -c "SELECT span_type, COUNT(*) AS n
+           FROM read_json_auto('.pipeline/traces.jsonl')
+           GROUP BY 1 ORDER BY n DESC"
+```
 
-The local Langfuse stack also exposes Langfuse's MCP server at `http://localhost:3000/api/public/mcp`. The repo root `.mcp.json` already wires Claude Code to it with the local keypair; restart Claude Code (or run `/mcp` to re-init) after `obs:up` and the `langfuse` MCP server appears in the tool list. Currently scoped to Prompt Management; trace querying lives behind the REST API (e.g. `curl -u pk-…:sk-… http://localhost:3000/api/public/traces`). Source: <https://langfuse.com/docs/api-and-data-platform/features/mcp-server>.
+DuckDB infers `attributes` and `resource` as `STRUCT` columns, so nested keys are queryable directly:
+
+```sql
+SELECT attributes.gen_ai.response.id, resource['ab.arm'], input_tokens
+FROM read_json_auto('.pipeline/traces.jsonl')
+WHERE span_type = 'llm_request'
+```
+
+## Per-span shape
+
+Each line in `traces.jsonl` is a flattened span:
+
+```json
+{
+  "ingested_at": "2026-05-03T19:30:00Z",
+  "trace_id": "…", "span_id": "…", "parent_span_id": "…",
+  "name": "llm",
+  "span_type": "llm_request",
+  "start_unix_ns": 1714756800000000000,
+  "end_unix_ns":   1714756803277000000,
+  "duration_ms":   3277.0,
+  "service_name": "hyperidle-pipeline",
+  "session_id": "d53d67cd-…",
+  "ab_test": "block-1",
+  "ab_arm":  "variant",
+  "model": "claude-opus-4-7[1m]",
+  "tool_name": null,
+  "input_tokens": 6,
+  "output_tokens": 210,
+  "cache_read_tokens": 13269,
+  "cache_creation_tokens": 13923,
+  "ttft_ms": 2070.0,
+  "attempt": 1,
+  "success": true,
+  "stop_reason": "tool_use",
+  "decision": null,
+  "attributes": { …raw OTLP span attributes… },
+  "resource":   { …raw OTLP resource attributes… }
+}
+```
+
+The named columns are what we extract and project for reports; the two `STRUCT` columns hold the entire payload Claude Code sent, so anything else is still queryable without touching the collector.
+
+## Pipeline path: run inside the dev container
+
+`bin/pipeline` is a thin `bun packages/pipeline/src/index.tsx "$@"` wrapper. The runner uses `--dangerously-skip-permissions` only when `HYPERIDLE_DOCKER=1`, so in practice you run it inside the existing dev container:
+
+```sh
+docker build -t hyperidle-dev .          # one-time
+docker run -it --rm \
+  --add-host host.docker.internal:host-gateway \
+  -v "$PWD":/workspace \
+  -v "$HOME/.claude":/home/dev/.claude \
+  hyperidle-dev bash
+
+# inside the container:
+source <(bun run obs:env --in-container)   # rewrites localhost → host.docker.internal
+bin/pipeline L10
+```
+
+The `--add-host` flag is what lets the in-container OTel exporter reach the collector on the host.
+
+## Files
+
+| path | role |
+|---|---|
+| `scripts/trace-collector.ts` | Bun HTTP server on `:4318`, OTLP/HTTP-JSON → JSONL appender |
+| `scripts/trace-report.ts` | DuckDB-on-read against the JSONL; canned reports + `sql` escape hatch |
+| `scripts/obs.ts` | helpers around `otel.env` (`obs:env`, `obs:ab`, `obs:smoke`) |
+| `infrastructure/langfuse/otel.env` | OTLP env vars + Claude-Code telemetry flags; `source` it to tag a shell |
+| `infrastructure/langfuse/docker-compose.yml` | Langfuse stack (legacy, used only for the prompt-management MCP) |
+| `.pipeline/traces.jsonl` | append-only span log (gitignored) |
 
 ## Troubleshooting
 
-- **`obs:up` hangs at "Waiting for langfuse-web…"** — first boot pulls images and runs migrations. Allow ~2 minutes; check `bun run obs:logs langfuse-worker`.
-- **Smoke test 401 / 403** — the `.env` keypair was changed but `otel.env` wasn't rebuilt. Recompute `Authorization=Basic $(echo -n "PUB:SEC" | base64)` or run `bun run obs:reset` to start fresh.
-- **Port 3000 collision** — Langfuse UI shares port 3000. Stop whatever else is on 3000 (the hyperidle dev server uses 3001) before `obs:up`.
-- **Disk space** — ClickHouse + MinIO grow with trace volume. `bun run obs:reset` reclaims everything.
+- **`obs:report` says "no trace file"** — the collector hasn't been started yet. `bun run obs:collector` first.
+- **No spans show up despite the collector running** — the shell that ran the traced process didn't `source obs:env`. Check `env | grep OTEL_`.
+- **Inside the dev container, no traces** — endpoint still says `localhost`. Use `bun run obs:env --in-container` so it resolves to `host.docker.internal:4318`. The `docker run` invocation also needs `--add-host host.docker.internal:host-gateway`.
+- **Claude Code session emits nothing** — `CLAUDE_CODE_ENABLE_TELEMETRY=1` ships only metrics + logs by default. Traces are gated behind `CLAUDE_CODE_ENHANCED_TELEMETRY_BETA=1` and Claude Code defaults to gRPC, which the collector doesn't speak. `otel.env` already sets the beta flag, `OTEL_EXPORTER_OTLP_PROTOCOL=http/json`, and forces `OTEL_METRICS_EXPORTER=none` / `OTEL_LOGS_EXPORTER=none`. Verify all of them if you exported manually.
+- **Collector port collision** — set `HYPERIDLE_TRACE_PORT=4319` and update `OTEL_EXPORTER_OTLP_ENDPOINT` to match.
+- **JSONL file too big** — `mv .pipeline/traces.jsonl .pipeline/traces.$(date +%F).jsonl` (collector recreates on next ingest), or `rm` it outright. DuckDB can `read_json_auto('.pipeline/traces.*.jsonl')` with a glob if you want history.
