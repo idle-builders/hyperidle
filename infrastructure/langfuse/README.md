@@ -6,8 +6,8 @@
 
 | part | what it is |
 |---|---|
-| `scripts/trace-collector.ts` | Bun HTTP server on port 4318, accepts OTLP/HTTP-JSON traces, writes one row per span to `.pipeline/traces.db` (SQLite, WAL mode). |
-| `scripts/trace-report.ts` | Canned SQL reports (summary / sessions / session / ab / tools / models / sql) plus arbitrary SQL escape hatch. |
+| `scripts/trace-collector.ts` | Bun HTTP server on port 4318, accepts OTLP/HTTP-JSON traces, appends one JSON line per span to `.pipeline/traces.jsonl`. |
+| `scripts/trace-report.ts` | DuckDB-on-read against the JSONL via `read_json_auto`. Canned reports plus arbitrary SQL escape hatch. |
 | `infrastructure/langfuse/otel.env` | SDK-side OTLP env vars + Claude Code telemetry flags. Source it in any shell you want traced. |
 | `scripts/obs.ts` | Helpers around `otel.env` — `obs:env` prints export lines, `obs:ab` adds A/B tags. |
 | `infrastructure/langfuse/docker-compose.yml` | Langfuse stack (legacy, still works for the MCP server but does not see your traces). |
@@ -32,7 +32,13 @@ bun run obs:report models           # per-model token totals
 bun run obs:report sql "SELECT span_type, COUNT(*) FROM spans GROUP BY 1"
 ```
 
-DB lives at `.pipeline/traces.db` (gitignored). Open it in any SQLite client. Schema in `scripts/trace-collector.ts`.
+Trace data lives at `.pipeline/traces.jsonl` (gitignored). Append-only — the collector never holds an exclusive lock, so DuckDB can read while it writes. Inspect with `tail -f`, `jq`, or directly via the DuckDB CLI:
+
+```sh
+duckdb -c "SELECT span_type, COUNT(*) FROM read_json_auto('.pipeline/traces.jsonl') GROUP BY 1"
+```
+
+Schema is whatever DuckDB infers from the JSONL — see `scripts/trace-collector.ts` for the per-span shape we write.
 
 ## A/B tagging
 
@@ -72,41 +78,49 @@ bin/pipeline L10
 
 The `--add-host` flag lets the in-container OTel exporter reach the collector on the host. Use `--in-container` on `obs:env` and `obs:ab` to get the same rewrite.
 
-## Schema
+## Per-span shape
 
-```sql
-CREATE TABLE spans (
-  ingested_at TEXT,         -- when we wrote the row
-  trace_id TEXT,
-  span_id TEXT PRIMARY KEY,
-  parent_span_id TEXT,
-  name TEXT,
-  span_type TEXT,           -- 'llm_request' | 'tool' | 'tool.execution' | 'tool.blocked_on_user' | …
-  start_unix_ns INTEGER,
-  end_unix_ns INTEGER,
-  duration_ms REAL,
-  service_name TEXT,        -- 'hyperidle-pipeline'
-  service_version TEXT,
-  session_id TEXT,          -- Claude Code session id
-  ab_test TEXT,             -- from OTEL_RESOURCE_ATTRIBUTES via obs:ab
-  ab_arm TEXT,
-  model TEXT,               -- e.g. 'claude-opus-4-7[1m]'
-  tool_name TEXT,           -- 'Bash', 'Read', …
-  input_tokens INTEGER,
-  output_tokens INTEGER,
-  cache_read_tokens INTEGER,
-  cache_creation_tokens INTEGER,
-  ttft_ms REAL,
-  attempt INTEGER,
-  success INTEGER,          -- 0/1, NULL if absent
-  stop_reason TEXT,
-  decision TEXT,            -- for tool.blocked_on_user
-  attributes TEXT,          -- raw span attributes as JSON
-  resource TEXT             -- raw resource attributes as JSON
-);
+Each line in `traces.jsonl` is a flattened span like:
+
+```json
+{
+  "ingested_at": "2026-05-03T19:30:00Z",
+  "trace_id": "…", "span_id": "…", "parent_span_id": "…",
+  "name": "llm",
+  "span_type": "llm_request",
+  "start_unix_ns": 1714756800000000000,
+  "end_unix_ns":   1714756803277000000,
+  "duration_ms":   3277.0,
+  "service_name": "hyperidle-pipeline",
+  "service_version": "2.1.126",
+  "session_id": "d53d67cd-…",
+  "ab_test": "block-1",
+  "ab_arm":  "variant",
+  "model": "claude-opus-4-7[1m]",
+  "tool_name": null,
+  "input_tokens": 6,
+  "output_tokens": 210,
+  "cache_read_tokens": 13269,
+  "cache_creation_tokens": 13923,
+  "ttft_ms": 2070.0,
+  "attempt": 1,
+  "success": true,
+  "stop_reason": "tool_use",
+  "decision": null,
+  "attributes": { …raw OTLP attributes… },
+  "resource":   { …raw OTLP resource attrs… }
+}
 ```
 
-The two JSON columns hold everything the collector saw, so any attribute we didn't extract as a column is still queryable via SQLite's `json_extract`.
+DuckDB infers `attributes` and `resource` as `STRUCT` columns, so they're navigable directly:
+
+```sql
+SELECT attributes.gen_ai.response.id, resource['ab.arm']
+FROM spans
+WHERE span_type = 'llm_request'
+```
+
+Anything Claude Code puts into the OTLP payload that we didn't pull out as a column is still queryable through those structs.
 
 ## MCP server (legacy Langfuse)
 
@@ -114,9 +128,9 @@ The Langfuse MCP server config in repo-root `.mcp.json` still works if you also 
 
 ## Troubleshooting
 
-- **`obs:report` says "no trace database"** — the collector hasn't been started yet. `bun run obs:collector` first.
+- **`obs:report` says "no trace file"** — the collector hasn't been started yet. `bun run obs:collector` first.
 - **No spans showing up despite collector running** — the shell that ran the traced process didn't `source obs:env`. Check `env | grep OTEL_`.
-- **Inside dev container, no traces** — endpoint still says `localhost`; use `bun run obs:env --in-container` so it resolves to `host.docker.internal:3000`.
+- **Inside dev container, no traces** — endpoint still says `localhost`; use `bun run obs:env --in-container` so it resolves to `host.docker.internal:4318`.
 - **Claude Code session shows no traces** — `CLAUDE_CODE_ENABLE_TELEMETRY=1` only ships metrics + logs by default; traces are gated behind `CLAUDE_CODE_ENHANCED_TELEMETRY_BETA=1`. `otel.env` already sets it; if you exported manually, double-check.
 - **Collector port collision** — set `HYPERIDLE_TRACE_PORT=4319` (and update `OTEL_EXPORTER_OTLP_ENDPOINT` to match).
-- **Disk space** — `.pipeline/traces.db` grows roughly 1KB per span. `rm .pipeline/traces.db*` to start fresh; the collector recreates on next boot.
+- **Disk space** — `.pipeline/traces.jsonl` grows ~2KB per span. `rm .pipeline/traces.jsonl` to start fresh; the collector recreates on next ingest. Or `mv` it to archive.

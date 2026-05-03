@@ -1,85 +1,29 @@
 #!/usr/bin/env bun
-// OTLP/HTTP-JSON receiver. Accepts traces from Claude Code and our pipeline
-// runner, dumps each span as a row into SQLite at .pipeline/traces.db.
+// OTLP/HTTP-JSON receiver. Appends each span as a JSONL row to
+// .pipeline/traces.jsonl. Reports query the file via DuckDB
+// read_json_auto — no lock contention because the file is append-only.
 //
-// SQLite (in WAL mode) lets the report tool read concurrently while the
-// collector keeps writing — DuckDB couldn't do that without going through
-// an HTTP query bridge. We trade DuckDB's columnar speed (irrelevant at the
-// thousands-of-spans-per-day scale) for native multi-process access.
+// Why JSONL + DuckDB-on-read instead of a direct DuckDB write path:
+// DuckDB holds an exclusive lock on its database file, so a running writer
+// blocks every other process from reading. Rolling spans into JSONL keeps
+// the collector dead simple, lets DuckDB do real analytics on the same data
+// (read_json_auto + json_extract), and stays inspectable with jq / tail.
 //
 // Usage:
-//   bun run obs:collector              # foreground; Ctrl-C to stop
-//   HYPERIDLE_TRACE_PORT=4318 bun ...  # custom port (default 4318)
-//   HYPERIDLE_TRACE_DB=./db.sqlite …   # custom db path
+//   bun run obs:collector                 # foreground; Ctrl-C to stop
+//   HYPERIDLE_TRACE_PORT=4318 bun ...     # custom port (default 4318)
+//   HYPERIDLE_TRACE_FILE=./trace.jsonl …  # custom path
 //
 // On the SDK side, point OTEL_EXPORTER_OTLP_ENDPOINT at http://localhost:4318
 // and set OTEL_EXPORTER_OTLP_PROTOCOL=http/json. otel.env already does both.
 
-import { Database } from "bun:sqlite";
-import { mkdirSync } from "node:fs";
+import { appendFileSync, mkdirSync } from "node:fs";
 import { dirname } from "node:path";
 
 const PORT = Number(process.env.HYPERIDLE_TRACE_PORT ?? 4318);
-const DB_PATH = process.env.HYPERIDLE_TRACE_DB ?? ".pipeline/traces.db";
+const TRACE_FILE = process.env.HYPERIDLE_TRACE_FILE ?? ".pipeline/traces.jsonl";
 
-mkdirSync(dirname(DB_PATH), { recursive: true });
-const db = new Database(DB_PATH, { create: true });
-db.exec("PRAGMA journal_mode = WAL;");
-db.exec("PRAGMA synchronous = NORMAL;");
-db.exec(`
-CREATE TABLE IF NOT EXISTS spans (
-  ingested_at TEXT NOT NULL DEFAULT (datetime('now')),
-  trace_id TEXT,
-  span_id TEXT PRIMARY KEY,
-  parent_span_id TEXT,
-  name TEXT,
-  span_type TEXT,
-  start_unix_ns INTEGER,
-  end_unix_ns INTEGER,
-  duration_ms REAL,
-  service_name TEXT,
-  service_version TEXT,
-  session_id TEXT,
-  ab_test TEXT,
-  ab_arm TEXT,
-  model TEXT,
-  tool_name TEXT,
-  input_tokens INTEGER,
-  output_tokens INTEGER,
-  cache_read_tokens INTEGER,
-  cache_creation_tokens INTEGER,
-  ttft_ms REAL,
-  attempt INTEGER,
-  success INTEGER,
-  stop_reason TEXT,
-  decision TEXT,
-  attributes TEXT,
-  resource TEXT
-);
-CREATE INDEX IF NOT EXISTS spans_session_idx ON spans(session_id);
-CREATE INDEX IF NOT EXISTS spans_ab_idx ON spans(ab_test, ab_arm);
-CREATE INDEX IF NOT EXISTS spans_type_idx ON spans(span_type);
-`);
-
-const insert = db.prepare(`
-INSERT OR REPLACE INTO spans (
-  trace_id, span_id, parent_span_id, name, span_type,
-  start_unix_ns, end_unix_ns, duration_ms,
-  service_name, service_version, session_id, ab_test, ab_arm,
-  model, tool_name,
-  input_tokens, output_tokens, cache_read_tokens, cache_creation_tokens,
-  ttft_ms, attempt, success, stop_reason, decision,
-  attributes, resource
-) VALUES (
-  $trace_id, $span_id, $parent_span_id, $name, $span_type,
-  $start_unix_ns, $end_unix_ns, $duration_ms,
-  $service_name, $service_version, $session_id, $ab_test, $ab_arm,
-  $model, $tool_name,
-  $input_tokens, $output_tokens, $cache_read_tokens, $cache_creation_tokens,
-  $ttft_ms, $attempt, $success, $stop_reason, $decision,
-  $attributes, $resource
-)
-`);
+mkdirSync(dirname(TRACE_FILE), { recursive: true });
 
 interface OtlpAttribute {
 	key: string;
@@ -117,11 +61,11 @@ function asNumber(v: Scalar | undefined): number | null {
 	return Number.isNaN(n) ? null : n;
 }
 
-function asBool(v: Scalar | undefined): number | null {
+function asBool(v: Scalar | undefined): boolean | null {
 	if (v === null || v === undefined) return null;
-	if (typeof v === "boolean") return v ? 1 : 0;
-	if (typeof v === "string") return v === "true" ? 1 : 0;
-	if (typeof v === "number") return v !== 0 ? 1 : 0;
+	if (typeof v === "boolean") return v;
+	if (typeof v === "string") return v === "true";
+	if (typeof v === "number") return v !== 0;
 	return null;
 }
 
@@ -149,56 +93,92 @@ interface OtlpTraceRequest {
 	resourceSpans?: OtlpResourceSpans[];
 }
 
+interface FlatSpan {
+	ingested_at: string;
+	trace_id: string | null;
+	span_id: string;
+	parent_span_id: string | null;
+	name: string | null;
+	span_type: string | null;
+	start_unix_ns: number;
+	end_unix_ns: number;
+	duration_ms: number | null;
+	service_name: string | null;
+	service_version: string | null;
+	session_id: string | null;
+	ab_test: string | null;
+	ab_arm: string | null;
+	model: string | null;
+	tool_name: string | null;
+	input_tokens: number | null;
+	output_tokens: number | null;
+	cache_read_tokens: number | null;
+	cache_creation_tokens: number | null;
+	ttft_ms: number | null;
+	attempt: number | null;
+	success: boolean | null;
+	stop_reason: string | null;
+	decision: string | null;
+	attributes: Record<string, Scalar>;
+	resource: Record<string, Scalar>;
+}
+
 let totalSpansIngested = 0;
 
-function ingest(req: OtlpTraceRequest): number {
-	let count = 0;
-	const tx = db.transaction((spans: OtlpResourceSpans[]) => {
-		for (const rs of spans) {
-			const resource = attrMap(rs.resource?.attributes);
-			for (const ss of rs.scopeSpans ?? []) {
-				for (const span of ss.spans ?? []) {
-					const attrs = attrMap(span.attributes);
-					const startNs = BigInt(span.startTimeUnixNano ?? 0);
-					const endNs = BigInt(span.endTimeUnixNano ?? 0);
-					const durationMs = endNs > startNs ? Number(endNs - startNs) / 1e6 : null;
-
-					insert.run({
-						$trace_id: span.traceId ?? null,
-						$span_id: span.spanId,
-						$parent_span_id: span.parentSpanId ?? null,
-						$name: span.name ?? null,
-						$span_type: (attrs["span.type"] as string) ?? null,
-						$start_unix_ns: Number(startNs),
-						$end_unix_ns: Number(endNs),
-						$duration_ms: durationMs,
-						$service_name: (resource["service.name"] as string) ?? null,
-						$service_version: (resource["service.version"] as string) ?? null,
-						$session_id: (attrs["session.id"] as string) ?? null,
-						$ab_test: (resource["ab.test"] as string) ?? null,
-						$ab_arm: (resource["ab.arm"] as string) ?? null,
-						$model: (attrs.model as string) ?? (attrs["gen_ai.request.model"] as string) ?? null,
-						$tool_name: (attrs.tool_name as string) ?? null,
-						$input_tokens: asNumber(attrs.input_tokens),
-						$output_tokens: asNumber(attrs.output_tokens),
-						$cache_read_tokens: asNumber(attrs.cache_read_tokens),
-						$cache_creation_tokens: asNumber(attrs.cache_creation_tokens),
-						$ttft_ms: asNumber(attrs.ttft_ms),
-						$attempt: asNumber(attrs.attempt),
-						$success: asBool(attrs.success),
-						$stop_reason: (attrs.stop_reason as string) ?? null,
-						$decision: (attrs.decision as string) ?? null,
-						$attributes: JSON.stringify(attrs),
-						$resource: JSON.stringify(resource),
-					});
-					count++;
-				}
+function flatten(req: OtlpTraceRequest): FlatSpan[] {
+	const out: FlatSpan[] = [];
+	const ingestedAt = new Date().toISOString();
+	for (const rs of req.resourceSpans ?? []) {
+		const resource = attrMap(rs.resource?.attributes);
+		for (const ss of rs.scopeSpans ?? []) {
+			for (const span of ss.spans ?? []) {
+				const attrs = attrMap(span.attributes);
+				const startNs = BigInt(span.startTimeUnixNano ?? 0);
+				const endNs = BigInt(span.endTimeUnixNano ?? 0);
+				const durationMs = endNs > startNs ? Number(endNs - startNs) / 1e6 : null;
+				out.push({
+					ingested_at: ingestedAt,
+					trace_id: span.traceId ?? null,
+					span_id: span.spanId,
+					parent_span_id: span.parentSpanId ?? null,
+					name: span.name ?? null,
+					span_type: (attrs["span.type"] as string) ?? null,
+					start_unix_ns: Number(startNs),
+					end_unix_ns: Number(endNs),
+					duration_ms: durationMs,
+					service_name: (resource["service.name"] as string) ?? null,
+					service_version: (resource["service.version"] as string) ?? null,
+					session_id: (attrs["session.id"] as string) ?? null,
+					ab_test: (resource["ab.test"] as string) ?? null,
+					ab_arm: (resource["ab.arm"] as string) ?? null,
+					model:
+						(attrs.model as string) ?? (attrs["gen_ai.request.model"] as string) ?? null,
+					tool_name: (attrs.tool_name as string) ?? null,
+					input_tokens: asNumber(attrs.input_tokens),
+					output_tokens: asNumber(attrs.output_tokens),
+					cache_read_tokens: asNumber(attrs.cache_read_tokens),
+					cache_creation_tokens: asNumber(attrs.cache_creation_tokens),
+					ttft_ms: asNumber(attrs.ttft_ms),
+					attempt: asNumber(attrs.attempt),
+					success: asBool(attrs.success),
+					stop_reason: (attrs.stop_reason as string) ?? null,
+					decision: (attrs.decision as string) ?? null,
+					attributes: attrs,
+					resource,
+				});
 			}
 		}
-	});
-	tx(req.resourceSpans ?? []);
-	totalSpansIngested += count;
-	return count;
+	}
+	return out;
+}
+
+function ingest(req: OtlpTraceRequest): number {
+	const flat = flatten(req);
+	if (flat.length === 0) return 0;
+	const lines = `${flat.map((s) => JSON.stringify(s)).join("\n")}\n`;
+	appendFileSync(TRACE_FILE, lines);
+	totalSpansIngested += flat.length;
+	return flat.length;
 }
 
 const server = Bun.serve({
@@ -247,13 +227,12 @@ const server = Bun.serve({
 
 console.log(`trace collector listening on http://localhost:${server.port}`);
 console.log(`  endpoint: POST /v1/traces (OTLP/HTTP-JSON)`);
-console.log(`  db:       ${DB_PATH}`);
-console.log(`  query:    bun run obs:report`);
+console.log(`  file:     ${TRACE_FILE}`);
+console.log(`  query:    bun run obs:report   (DuckDB over read_json_auto)`);
 
 const stop = (): void => {
 	console.log("\nshutting down…");
 	server.stop();
-	db.close();
 	process.exit(0);
 };
 process.on("SIGINT", stop);
