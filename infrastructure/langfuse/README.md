@@ -28,22 +28,22 @@ The collector listens on `localhost:4318` (OTLP/HTTP-JSON, `POST /v1/traces`). T
 
 ## A/B tagging a session
 
-`bun run obs:ab <test-id> <arm>` prints the same export lines as `obs:env` plus `ab.test=<test-id>,ab.arm=<arm>` appended to `OTEL_RESOURCE_ATTRIBUTES`. Every span emitted from that shell carries the tags as resource attributes.
+Pass `--ab=<test-id> --variant=<arm>` to `obs:env`. Both flags must be set together; they append `ab.test=<test-id>,ab.arm=<arm>` to `OTEL_RESOURCE_ATTRIBUTES` on top of the normal export lines, so every span emitted from that shell carries the tags as resource attributes.
 
 ```sh
 # Terminal 1 — baseline arm:
-source <(bun run obs:ab block-1 baseline)
+source <(bun run obs:env --ab=block-1 --variant=baseline)
 claude   # do whatever you're measuring
 
 # Terminal 2 — variant arm (different worktree, modified config):
-source <(bun run obs:ab block-1 variant)
+source <(bun run obs:env --ab=block-1 --variant=variant)
 claude
 
 # Compare:
 bun run obs:report ab block-1
 ```
 
-`--in-container` works on `obs:ab` too.
+`--in-container` composes with the A/B flags. `--variant` and `--arm` are aliases.
 
 ## Reports
 

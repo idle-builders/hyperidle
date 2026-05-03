@@ -3,16 +3,14 @@
 // infrastructure/langfuse/docker-compose.yml and provides a smoke test that
 // emits one OTel span and verifies it ingests.
 //
-// Subcommands: up | down | reset | status | logs | env | ab | smoke | run
+// Subcommands: up | down | reset | status | logs | env | smoke | run
 //
 // Examples:
-//   bun run scripts/obs.ts up                          # boot the stack
-//   bun run scripts/obs.ts smoke                       # emit one span and confirm ingest
-//   source <(bun run obs:env)                          # tag this shell with OTel env
-//   source <(bun run obs:env --in-container)           # same, but rewrites localhost
-//                                                       # → host.docker.internal for use
-//                                                       # inside the dev container
-//   source <(bun run obs:ab block-1 variant)           # OTel env + ab.test/ab.arm tags
+//   bun run scripts/obs.ts up                                # boot the Langfuse stack
+//   bun run scripts/obs.ts smoke                             # emit one span and confirm ingest
+//   source <(bun run obs:env)                                # tag this shell with OTel env
+//   source <(bun run obs:env --in-container)                 # same, container-side rewrite
+//   source <(bun run obs:env --ab=block-1 --variant=baseline) # OTel env + ab.test/ab.arm tags
 
 import { existsSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
@@ -135,10 +133,34 @@ function rewriteForContainer(text: string): string {
 		.join("\n");
 }
 
+function flagValue(args: string[], name: string): string | undefined {
+	for (let i = 0; i < args.length; i++) {
+		const a = args[i];
+		if (a === `--${name}`) return args[i + 1];
+		if (a.startsWith(`--${name}=`)) return a.slice(name.length + 3);
+		if (a.startsWith(`--${name}:`)) return a.slice(name.length + 3);
+	}
+	return undefined;
+}
+
 function env(args: string[]): void {
 	const inContainer = args.includes("--in-container");
+	const ab = flagValue(args, "ab");
+	const variant = flagValue(args, "variant") ?? flagValue(args, "arm");
+	if ((ab && !variant) || (variant && !ab)) {
+		console.error("Pass --ab and --variant together (or neither).");
+		console.error("  source <(bun run obs:env --ab=block-1 --variant=baseline)");
+		process.exit(2);
+	}
+
 	let text = readOtelEnvText();
 	if (inContainer) text = rewriteForContainer(text);
+	if (ab && variant) {
+		text = appendResourceAttrs(text, {
+			"ab.test": ab,
+			"ab.arm": variant,
+		});
+	}
 	process.stdout.write(text);
 }
 
@@ -165,30 +187,6 @@ function appendResourceAttrs(text: string, additions: Record<string, string>): s
 		}
 	}
 	return `${lines.join("\n").replace(/\n+$/, "")}\n`;
-}
-
-function ab(args: string[]): void {
-	const positional = args.filter((a) => !a.startsWith("--"));
-	const inContainer = args.includes("--in-container");
-	const [test, arm] = positional;
-	if (!(test && arm)) {
-		console.error("Usage: bun run obs:ab <test-id> <arm> [--in-container]");
-		console.error("");
-		console.error("Tags this terminal session for A/B analysis. Source the output:");
-		console.error("");
-		console.error("  source <(bun run obs:ab block-1 variant)");
-		console.error("");
-		console.error("Then any process you launch (claude, bin/pipeline, …) emits");
-		console.error("traces tagged ab.test=<test-id>, ab.arm=<arm>.");
-		process.exit(2);
-	}
-	let text = readOtelEnvText();
-	if (inContainer) text = rewriteForContainer(text);
-	text = appendResourceAttrs(text, {
-		"ab.test": test,
-		"ab.arm": arm,
-	});
-	process.stdout.write(text);
 }
 
 async function smoke(): Promise<void> {
@@ -263,9 +261,6 @@ switch (cmd) {
 	case "env":
 		env(rest);
 		break;
-	case "ab":
-		ab(rest);
-		break;
 	case "smoke":
 		await smoke();
 		break;
@@ -273,16 +268,15 @@ switch (cmd) {
 		await run(rest);
 		break;
 	default:
-		console.error(`Usage: bun run scripts/obs.ts <up|down|reset|status|logs|env|ab|smoke|run>`);
+		console.error(`Usage: bun run scripts/obs.ts <up|down|reset|status|logs|env|smoke|run>`);
 		console.error(`  up           boot the Langfuse stack and wait for health`);
 		console.error(`  down         stop the stack (volumes preserved)`);
 		console.error(`  reset        stop the stack AND remove volumes`);
 		console.error(`  status       docker compose ps`);
 		console.error(`  logs         tail logs (optional service name)`);
-		console.error(`  env [--in-container]`);
-		console.error(`               print export lines for OTLP env vars`);
-		console.error(`  ab <test> <arm> [--in-container]`);
-		console.error(`               same as 'env' plus ab.test/ab.arm resource attrs`);
+		console.error(`  env [--in-container] [--ab=<test> --variant=<arm>]`);
+		console.error(`               print export lines for OTLP env vars; A/B flags`);
+		console.error(`               append ab.test / ab.arm resource attributes`);
 		console.error(`  smoke        emit one OTel span and confirm ingest`);
 		console.error(`  run …        exec a command with OTLP env vars set`);
 		process.exit(2);
