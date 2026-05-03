@@ -36,13 +36,17 @@
 		"obs:logs": "bun scripts/obs.ts logs",
 		"obs:env": "bun scripts/obs.ts env",
 		"obs:smoke": "bun scripts/obs.ts smoke",
-		"obs:run": "bun scripts/obs.ts run"
+		"obs:run": "bun scripts/obs.ts run",
+		"obs:collector": "bun scripts/trace-collector.ts",
+		"obs:report": "bun scripts/trace-report.ts",
+		"pipeline": "bin/pipeline"
 	},
 	"overrides": {
 		"zod-validation-error": "^4.0.0"
 	},
 	"devDependencies": {
 		"@biomejs/biome": "^2.4.12",
+		"@duckdb/node-api": "^1.5.2-r.1",
 		"@eslint/js": "^10.0.1",
 		"@opentelemetry/api": "^1.9.1",
 		"@opentelemetry/exporter-trace-otlp-http": "^0.216.0",

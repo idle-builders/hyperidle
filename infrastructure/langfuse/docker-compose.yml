@@ -50,6 +50,7 @@ services:
       NEXTAUTH_SECRET: ${LANGFUSE_NEXTAUTH_SECRET}
       NEXTAUTH_URL: http://localhost:3000
       TELEMETRY_ENABLED: "false"
+      AUTH_DISABLE_SIGNUP: "true"
       LANGFUSE_ENABLE_EXPERIMENTAL_FEATURES: "true"
       CLICKHOUSE_MIGRATION_URL: clickhouse://clickhouse:9000
       CLICKHOUSE_URL: http://clickhouse:8123
