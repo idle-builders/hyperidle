@@ -35,6 +35,7 @@
 		"obs:status": "bun scripts/obs.ts status",
 		"obs:logs": "bun scripts/obs.ts logs",
 		"obs:env": "bun scripts/obs.ts env",
+		"obs:ab": "bun scripts/obs.ts ab",
 		"obs:smoke": "bun scripts/obs.ts smoke",
 		"obs:run": "bun scripts/obs.ts run",
 		"pipeline": "bin/pipeline"
