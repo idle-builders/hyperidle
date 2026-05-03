@@ -85,14 +85,42 @@ For each alternative: 1-paragraph shape, 1 trade-off, 1 reason to reject. The sy
 
 Skip when the decision is forced (existing pattern, single sane shape, low blast radius). Don't theatre-design where one obvious answer exists.
 
-## Phase 4 — Adversary challenge + critique
+## Phase 4 — Adversary challenge + self-critique (in-session)
 
 Spawn an **adversary agent** to challenge the plan — over-engineering, missing deps, gaps in AC coverage, scope creep snuck in during interrogation, missing security/abuse cases, missing protected-test list, route-checklist gaps. Address critical issues. Max 1 round.
 
-Then run `/architecture-critique` to score the plan against the architectural rubric. Iterate fixes until score ≥ 7 or 3 rounds reached.
+Then **score the plan yourself in this same session** against the 9-dimension architectural rubric below, in author-then-critic mode. Don't spawn a separate session; the critique loop counter lives inline in this skill's output. Iterate fixes until score ≥ 7 or 3 rounds reached. Output the final score line so downstream skills (and the retro) can read the iteration count.
 
-Write the final plan to `plans/<workpackage-id>/architecture.md`. Downstream skills read it from there.
+### Architectural rubric (0-10 each, averaged)
 
-## Target
+1. **Spec alignment** — every AC maps to a task; no scope-creep tasks; UI plan matches `approved.md` if `/design` ran.
+2. **Layer integrity** — no Human-Interface ↔ Meta-Layer ↔ Agent-Runtime violation; Meta Layer doesn't call models; frontend doesn't reach the Primitive Store.
+3. **API contracts** — every route has method, path, request shape, response shape, status codes, error shape; closed unions are exhaustive.
+4. **Data model alignment** — schemas field-for-field with the spec; FKs, unique constraints, NOT NULL, defaults, check constraints all named; dual-driver issues (`JSONB`, `SERIAL`) flagged.
+5. **Naming** — names eliminate documentation; no generic `Manager`/`Service`/`Helper`; no shadowing of closed vocabularies (Bet/Task/Session/Thread/Block/Artifact).
+6. **Module depth** — small public surface for the size of problem; no per-consumer entry points; one well-shaped API for shared primitives.
+7. **Failure-mode coverage** — error paths identified; rate-limiting, input-trust, secrets, path-traversal, SSRF marked applicable+addressed or N/A; route-checklist present when the spec enumerates a route list. (CC-003, L7 PROPOSED-L7-B.)
+8. **Simplicity** — no flags / abstract bases / plugin points without a caller; no error handling for impossible cases; no future-proof scaffolding; design-it-twice present iff non-trivial.
+9. **Verifiability** — every AC has a concrete verification method; protected-tests list populated. (CC-008.)
 
-$ARGUMENTS
+Score ≥ 7 ships the plan. 5-6 needs work on 2-3 dimensions. ≤ 4 restarts Phase 2.
+
+### Output line (downstream contract)
+
+End the session with one machine-greppable line:
+
+```
+ARCHITECTURE-SCORE: <int>/10  rounds=<n>  score-line: SA:_ LI:_ AC:_ DM:_ N:_ MD:_ FMC:_ S:_ V:_
+```
+
+The retro reads `rounds=<n>` to track plan-quality drift over time.
+
+Save the final plan via TaskCreate so downstream skills can read it.
+
+### Common failure modes this rubric catches
+
+- **CC-003 — happy-path-only ACs.** Dim 7.
+- **CC-007 — spec/codebase drift.** Plan reconciliation section against grep reality.
+- **CC-008 — protected-tests drift.** Dim 9.
+- **L7 PROPOSED-L7-B — route-checklist gap.** Dim 7.
+- **L7 e2e selectors.** Dim 9 — UI shape change vs e2e specs in protected-tests.
