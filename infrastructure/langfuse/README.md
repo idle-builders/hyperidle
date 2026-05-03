@@ -40,7 +40,6 @@ Seeded by `LANGFUSE_INIT_USER_*` in `.env` on first boot. Signup is disabled (`A
 ```sh
 source <(bun run obs:env)         # tag this shell — host processes
 claude                            # interactive session, traced
-bin/pipeline L10                  # pipeline run, traced (run inside the dev container)
 ```
 
 For shells **inside** the dev container, use `--in-container` so the OTLP endpoint resolves through the docker host gateway:
@@ -102,5 +101,6 @@ Source: <https://langfuse.com/docs/api-and-data-platform/features/mcp-server>.
 - **`obs:up` hangs at "Waiting for langfuse-web…"** — first boot pulls images and runs migrations. Allow ~2 minutes; check `bun run obs:logs langfuse-worker`.
 - **`obs:smoke` 500 with "Failed to upload JSON to S3"** — the MinIO `langfuse` bucket didn't get created. `bun run obs:reset && bun run obs:up` re-runs the bootstrap.
 - **No traces in UI but smoke works** — Claude Code or pipeline running in a shell that didn't `source obs:env`. Or, in the container, the endpoint still says `localhost` — use `--in-container`.
+- **Claude Code shows nothing in Langfuse** — Claude Code's `CLAUDE_CODE_ENABLE_TELEMETRY=1` ships metrics + logs by default; traces are gated behind `CLAUDE_CODE_ENHANCED_TELEMETRY_BETA=1`. And it defaults to gRPC, while Langfuse only accepts OTLP/HTTP. `otel.env` already sets both flags plus `OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf`; if you exported env vars manually, double-check those three.
 - **Port 3000 collision** — Langfuse UI binds 3000 (the hyperidle dev server uses 3001).
 - **Disk space** — ClickHouse + MinIO grow with trace volume. `bun run obs:reset` reclaims everything.
