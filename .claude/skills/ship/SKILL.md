@@ -3,6 +3,7 @@ name: ship
 description: "Commit and push changes. Create PR if on a feature branch."
 argument-hint: "[story-id or branch description]"
 user-invocable: true
+min_tool_calls: 5
 ---
 
 # Ship

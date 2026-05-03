@@ -3,6 +3,7 @@ name: design-review
 description: "Read-only UI/UX design review. Run by the designer agent."
 argument-hint: "[file paths or story-id]"
 user-invocable: true
+min_tool_calls: 12
 ---
 
 # Design Review

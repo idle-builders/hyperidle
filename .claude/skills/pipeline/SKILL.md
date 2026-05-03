@@ -3,6 +3,7 @@ name: pipeline
 description: "Use when multiple work packages need to be built in sequence or parallel. Triggers: batch implementation requested, track or story list provided, 'all' target given."
 argument-hint: "[story-ids like 'A1 A2 A3' or track like 'A' or 'all']"
 user-invocable: true
+min_tool_calls: 80
 ---
 
 # Pipeline — Build Stories End-to-End

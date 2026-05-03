@@ -3,6 +3,7 @@ name: design-critique
 description: "Design quality expert. ALWAYS invoke this skill when creating, editing, or reviewing UI components, styles, or layouts. Do not write UI code without checking design quality. Evaluates visual hierarchy, spacing, color, typography, density, and aesthetic coherence against the design system principles."
 argument-hint: "[component-name|file-path|all]"
 user-invocable: true
+min_tool_calls: 5
 ---
 
 # Design Critique

@@ -3,6 +3,7 @@ name: apply-review
 description: "Apply review findings. Run by developer (code) or qa (tests) agent."
 argument-hint: "[review findings — passed as context from the orchestrating skill]"
 user-invocable: false
+min_tool_calls: 6
 ---
 
 # Apply Review

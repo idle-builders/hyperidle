@@ -3,6 +3,7 @@ name: concept
 description: "Aggregate pre-implementation pipeline: probe the concept, Run as the entry point on any story that introduces or reshapes a primitive, a domain concept, or a load-bearing noun in the system."
 argument-hint: "[story-id-or-concept-name]"
 user-invocable: true
+min_tool_calls: 18
 ---
 
 # Concept

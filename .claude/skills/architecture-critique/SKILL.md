@@ -3,6 +3,7 @@ name: architecture-critique
 description: "Architecture quality gate. ALWAYS invoke this skill on the OUTPUT of /architecture (the plan), before any test or code is written. Scores the plan 0-10 across nine dimensions: spec alignment, layer integrity, contracts, data model, naming, depth, failure-mode coverage, simplicity, and verifiability. Iterates fixes until the score crosses the threshold."
 argument-hint: "[story-id|plan-path]"
 user-invocable: true
+min_tool_calls: 5
 ---
 
 # Architecture Critique

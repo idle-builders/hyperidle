@@ -3,6 +3,7 @@ name: write-tests
 description: "Write failing tests for all acceptance criteria. TDD red phase."
 argument-hint: "[story-id]"
 user-invocable: true
+min_tool_calls: 12
 ---
 
 # Write Tests

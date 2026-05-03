@@ -3,6 +3,7 @@ name: simplification-scan
 description: "Read-only scan for over-abstraction and dead code. Run by the adversary agent."
 argument-hint: "[file paths or 'all' for recent changes]"
 user-invocable: true
+min_tool_calls: 8
 ---
 
 # Simplification Scan

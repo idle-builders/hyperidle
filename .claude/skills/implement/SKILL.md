@@ -3,6 +3,7 @@ name: implement
 description: "Aggregate: tests + code + reviews + DoD. Pure implementation — assumes /design and /architecture have already produced the design spec and the technical plan. Use for manual implementation outside the pipeline."
 argument-hint: "[story-id]"
 user-invocable: true
+min_tool_calls: 50
 ---
 
 # Implement

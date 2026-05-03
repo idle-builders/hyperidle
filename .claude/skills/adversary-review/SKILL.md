@@ -3,6 +3,7 @@ name: adversary-review
 description: "Read-only adversarial code review. Run by the adversary agent."
 argument-hint: "[file paths or story-id]"
 user-invocable: true
+min_tool_calls: 8
 ---
 
 # Adversary Review
