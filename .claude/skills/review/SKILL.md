@@ -12,9 +12,11 @@ min_tool_calls: 25
 
 ## Preparation (do not skip)
 
-1. Identify changed files via `git diff --name-only`
-2. Read the relevant story in the appropriate track file under `docs/work-packages/`
-3. Read the relevant concept docs for context:
+Step 1 (the diff) gates which docs you need from step 3 — run it first. Steps 2 and 3 are then independent: issue the story Read and all the concept-doc Reads in one parallel batch.
+
+1. Identify changed files via `git diff --name-only`.
+2. Read the relevant story in the appropriate track file under `docs/work-packages/`.
+3. Read the relevant concept docs for context (all in the same parallel batch as step 2):
    - Always: `docs/ARCHITECTURE.md`, `docs/work-packages/SHARED.md`
    - If backend changes: `docs/PROCESS_LAYER.md`, `docs/AGENT_LAYER.md`, `docs/KNOWLEDGE_ARCHITECTURE.md`
    - If frontend changes: `docs/UI_DESIGN.md`, `docs/HUMAN_INTERFACE_LAYER.md`, `docs/INFORMATION_ARCHITECTURE.md`

@@ -27,7 +27,7 @@ Inspired by:
 
 ## Inputs
 
-`$ARGUMENTS` is the story ID (e.g. `L1`) or a feature name. Read:
+`$ARGUMENTS` is the story ID (e.g. `L1`) or a feature name. Read all of the following in one parallel batch of Read calls — these files are independent:
 
 1. The story in `docs/work-packages/TRACK-<letter>.md` — what user task is this serving? What contracts does the architect expect?
 2. `docs/UI_DESIGN.md`, `docs/HUMAN_INTERFACE_LAYER.md`, `docs/INFORMATION_ARCHITECTURE.md` — existing layout, component budget, journeys.

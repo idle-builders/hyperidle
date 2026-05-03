@@ -83,6 +83,8 @@ If step 15b (verify) fails: fix issues and re-run. Max 3 attempts.
 If review (steps 10-13) blocks: back to step 6. Max 3 attempts.
 If `/architecture-critique` (step 4) fails to reach ≥7 after 3 rounds: pause, mark `blocked` with reason `concept-or-spec-misalignment`, and surface — the concept itself may be the problem and needs upstream `/concept` work, not pipeline retry.
 
+**Parallelize the read-only stages.** Steps 7 and 8 (`/simplification-scan` + `/slop-scan`) are both read-only adversary scans with no inter-dependency — spawn the two sub-agents in one parallel batch, then run step 9 once both return. Same for steps 10–13 (`/architecture-review` + `/adversary-review` + `/security-review` + `/design-review`): all read-only, all independent — spawn the four sub-agents in one parallel batch, then run step 14 / 14b once all return. Steps that mutate code (5, 6, 9, 14, 14b, 16) stay sequential.
+
 After step 17: set status to `done`. Move to next story.
 
 ---
