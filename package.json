@@ -37,9 +37,7 @@
 		"obs:env": "bun scripts/obs.ts env",
 		"obs:smoke": "bun scripts/obs.ts smoke",
 		"obs:run": "bun scripts/obs.ts run",
-		"pipeline": "bin/pipeline",
-		"pipeline:build": "docker build -t hyperidle-dev .",
-		"pipeline:shell": "docker compose -f infrastructure/pipeline/docker-compose.yml run --rm pipeline bash"
+		"pipeline": "bin/pipeline"
 	},
 	"overrides": {
 		"zod-validation-error": "^4.0.0"
