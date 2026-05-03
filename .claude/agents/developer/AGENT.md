@@ -87,6 +87,16 @@ Expected outcome: [what success looks like]
 
 This 30-second investment prevents 30-minute rework when step 1's approach is wrong.
 
+## Code Search
+
+Three lanes — pick by query shape, don't reason about the tool:
+
+- **Semantic** (find callers, jump to definition, type errors) → MCP tools `lsp_find_references`, `lsp_get_definitions`, `lsp_get_diagnostics`. LSP is bounded and accurate; grep for callers drags whole files into context.
+- **Structural** (`useEffect($A, $B)`, AST shapes) → `bun run search 'useEffect($A, $B)' packages/web` (dispatches to ast-grep).
+- **Literal / regex** (string match, file scan) → `bun run search '<pattern>' [path]` (dispatches to ripgrep).
+
+LSP first. Fall back to ripgrep on suspicious negatives — `lsp_find_references` misses dynamic dispatch (string-keyed lookups, reflection, `Object[name]`). If the LSP says zero references for something you're sure is used, grep before you delete.
+
 ## Design System
 
 Before writing any UI code, read `packages/design-system/DESIGN.md` for tokens and `packages/design-system/src/` for existing components. Use what exists — don't reinvent it.

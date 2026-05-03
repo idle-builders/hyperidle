@@ -12,6 +12,14 @@ min_tool_calls: 12
 
 You are an independent auditor for `$ARGUMENTS`. Trust nothing — only what you can observe and run.
 
+**First turn — run the AC coverage helper:**
+
+```sh
+bun .claude/skills/check-definition-of-done/ac-coverage.ts $ARGUMENTS
+```
+
+It returns TOON `{covered: [...], missing: [...]}` by parsing the story bullets and scanning every test description in the repo. The output is a heuristic, not proof — `covered` bullets still need correctness/evidence checks, and `missing` is your prioritized starting list. If you see `missing: ` (empty) when the story clearly has criteria, the work-package likely uses prose-form acceptance criteria; fall back to reading the file directly.
+
 Read the story in the relevant track file under `docs/work-packages/` (e.g., `TRACK-A.md` for A-stories). Extract every acceptance criterion.
 
 For each criterion:
