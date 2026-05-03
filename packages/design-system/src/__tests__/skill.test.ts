@@ -47,6 +47,65 @@ describe("design skill (post-block-1b: design-critique collapsed into /design)",
 	});
 });
 
+describe("design skill reference files (per-dimension critique material)", () => {
+	const REFS_DIR = resolve(__dirname, "../../../../.claude/skills/design/references");
+	const expectedRefs = [
+		"hierarchy.md",
+		"spacing.md",
+		"typography.md",
+		"color.md",
+		"finishing.md",
+	];
+
+	for (const ref of expectedRefs) {
+		it(`references/${ref} exists and has content`, () => {
+			const refPath = resolve(REFS_DIR, ref);
+			expect(existsSync(refPath), `${ref} missing`).toBe(true);
+			const content = readFileSync(refPath, "utf-8");
+			expect(content.length).toBeGreaterThan(100);
+		});
+	}
+
+	it("hierarchy.md covers the three text levels", () => {
+		const content = readFileSync(resolve(REFS_DIR, "hierarchy.md"), "utf-8");
+		expect(content).toContain("Primary");
+		expect(content).toContain("Secondary");
+		expect(content).toContain("Tertiary");
+	});
+
+	it("spacing.md covers the 4px grid", () => {
+		const content = readFileSync(resolve(REFS_DIR, "spacing.md"), "utf-8");
+		expect(content).toContain("4px");
+	});
+
+	it("typography.md covers the type scale", () => {
+		const content = readFileSync(resolve(REFS_DIR, "typography.md"), "utf-8");
+		expect(content).toContain("24px");
+		expect(content).toContain("14px");
+		expect(content).toContain("11px");
+	});
+
+	it("color.md covers semantic token usage", () => {
+		const content = readFileSync(resolve(REFS_DIR, "color.md"), "utf-8");
+		expect(content).toContain("--text-hi");
+		expect(content).toContain("--surface-");
+	});
+
+	it("finishing.md covers hover, focus, and transition states", () => {
+		const content = readFileSync(resolve(REFS_DIR, "finishing.md"), "utf-8");
+		expect(content).toContain("hover");
+		expect(content).toContain("focus");
+		expect(content).toContain("transition");
+	});
+
+	it("the design skill cites each reference file", () => {
+		const skill = readFileSync(DESIGN_SKILL, "utf-8");
+		for (const ref of expectedRefs) {
+			expect(skill, `SKILL.md does not link references/${ref}`).toContain(`references/${ref}`);
+		}
+	});
+});
+
 describe("skill discovery integration", () => {
 	const discoveryPath = resolve(__dirname, "../../../../.claude/rules/skill-discovery.md");
 
