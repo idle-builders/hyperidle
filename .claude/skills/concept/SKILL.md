@@ -102,7 +102,7 @@ Concepts commit the system to contracts. Make them explicit:
 - **Identity contracts.** What gives a `<noun>` its identity — opaque ID, content hash, deterministic key?
 - **Hard rules.** Anything that, if violated downstream, means the implementation has broken the concept. (TRACK-L L2 has one: "On-disk format stays GitHub-flavoured markdown. Blocks are derived, never stored.")
 
-Each contract is one line. The architect later turns these into types, schemas, and guards. Concept work commits to the *shape*, not the implementation.
+Each contract is one line. The designer later turns these into types, schemas, and guards in `/architecture` mode. Concept work commits to the *shape*, not the implementation.
 
 ## Phase 5 — Write or update `docs/concept/`
 

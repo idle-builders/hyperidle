@@ -1,6 +1,6 @@
 ---
 name: architecture
-description: "Produce the technical plan for a story — types, schemas, APIs, file paths, ordered tasks. Architect interrogates the spec, then drafts; adversary challenges. Run AFTER /concept (always) and AFTER /design (when the story has UI)."
+description: "Produce the technical plan for a story — types, schemas, APIs, file paths, ordered tasks. Designer interrogates the spec, then drafts; adversary challenges. Run AFTER /concept (always) and AFTER /design (when the story has UI)."
 argument-hint: "[story-id]"
 user-invocable: true
 min_tool_calls: 25
@@ -8,7 +8,7 @@ min_tool_calls: 25
 
 # Architecture
 
-**Why:** A clear plan prevents wasted implementation time. Without architectural planning, developers build the wrong thing, miss edge cases, or invent abstractions the system doesn't need. The adversary catches errors before they become expensive rework.
+**Why:** A clear plan prevents wasted implementation time. Without architectural planning, the builder builds the wrong thing, misses edge cases, or invents abstractions the system doesn't need. The adversary catches errors before they become expensive rework.
 
 This skill produces the **how** — file paths, type signatures, schemas, endpoint shapes, task ordering.
 

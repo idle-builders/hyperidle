@@ -8,7 +8,7 @@ min_tool_calls: 25
 
 # Code Review
 
-**Why:** A single agent has blind spots. Multiple specialists reviewing in parallel catch different classes of issues — the architect sees layer violations, the adversary finds over-engineering, the security researcher spots injection vectors, the designer catches UX gaps. This is cheaper than fixing issues in production.
+**Why:** A single agent has blind spots. Two specialists reviewing in parallel catch different classes of issues — the **reviewer** sees architecture / design / security contract violations, the **adversary** finds slop, over-engineering, and hostile-persona attacks. This is cheaper than fixing issues in production.
 
 ## Preparation (do not skip)
 
@@ -20,27 +20,23 @@ min_tool_calls: 25
    - If frontend changes: `docs/UI_DESIGN.md`, `docs/HUMAN_INTERFACE_LAYER.md`, `docs/INFORMATION_ARCHITECTURE.md`
    - If requirements questions: `docs/REQUIREMENTS.md`
 
-## Phase 1: Scan (specialists in parallel)
+## Phase 1: Scan (two specialists in parallel)
 
-Spawn review agents in parallel — each runs its scan skill, producing findings only:
+Spawn review agents in parallel — each runs all its lenses, producing TOON findings blocks only:
 
-1. **architect** with `/architecture-review`
-2. **adversary** with `/adversary-review`
-3. **security-researcher** with `/security-review`
-4. **designer** with `/design-review` (skip if no UI files changed) — must screenshot and compare pixels, not just read code
+1. **reviewer** — runs three positive lenses in one session: `/architecture-review`, `/design-review` (skip silently if no UI files changed; must screenshot + compare pixels, not read code), `/security-review`.
+2. **adversary** — runs three negative lenses in one session: `/slop-scan`, `/simplification-scan`, `/adversary-review` (with Saboteur / New Hire / Auditor hostile-persona passes).
 
 Merge findings into: CRITICAL (must fix), WARNINGS (should fix), OBSERVATIONS.
 
 ## Phase 2: Fix
 
-If verdict is NEEDS WORK:
-- **developer** with `/apply-review` for code findings
-- **qa** with `/apply-review` for test-related findings
+If verdict is NEEDS WORK, spawn the **builder** with `/apply-review` to apply both code and test findings (the previous developer-vs-qa split is now an internal mode within builder).
 
 ## Verdict
 
 - **SHIP IT** — zero critical issues
-- **NEEDS WORK** — developer fixes, then re-verify, upgrade to SHIP IT if resolved
+- **NEEDS WORK** — builder fixes, then re-verify, upgrade to SHIP IT if resolved
 - **BLOCK** — critical issues, needs human review
 
 **Rules:**

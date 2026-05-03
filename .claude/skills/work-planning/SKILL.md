@@ -137,7 +137,7 @@ If a founder pastes implementation detail into the spec, strip it out before reg
 |---|---|
 | "I'll add the implementation steps now and clean them out later" | Specs with implementation creep get their architecture step skipped because "the spec already said how." This is how spec drift happens. Keep them out from the start. |
 | "S is fine, the AC bullets are short" | S is about scope and time, not bullet length. If it touches >1 subsystem it's M. |
-| "Dependency on X is just a logical ordering" | Then it's not a dependency. The scheduler will serialize via real `done` blockers. Logical ordering is what the architect uses to plan tasks within a story. |
+| "Dependency on X is just a logical ordering" | Then it's not a dependency. The scheduler will serialize via real `done` blockers. Logical ordering is what the designer uses to plan tasks within a story. |
 | "I'll skip /concept and write the spec; we can backfill the concept later" | The pipeline will refuse to run the story without the concept-doc. You'll backfill anyway, just under deadline pressure. Run `/concept` first. |
 | "This is a small fix, it doesn't need a work package" | Then it's a commit on an open story or a one-off PR — not a thing the pipeline picks up. The manifest is the queue; if it isn't there, the pipeline won't build it. |
 

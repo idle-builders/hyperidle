@@ -20,17 +20,14 @@ If those haven't run, run them first. `/implement` does not re-litigate design o
 
 | Step | Agent | Skill | Why this order |
 |------|-------|-------|---------------|
-| 1 | developer | `/write-tests $ARGUMENTS` | Tests first — define the requirement, not the implementation. |
-| 2 | developer | `/write-code $ARGUMENTS` | With failing tests as targets, implementation stays lean. |
-| 3 | adversary | `/simplification-scan` | Scan for over-abstraction and dead code. |
-| 4 | adversary | `/slop-scan` | Scan for AI-specific anti-patterns. |
-| 5 | developer | `/apply-review` (steps 3+4) | Apply simplification and slop findings. |
-| 6 | architect | `/architecture-review` | Layer violations, API contracts, data model alignment. (Reviews the IMPLEMENTATION against the plan; `/architecture`'s in-session critique already scored the plan itself.) |
-| 7 | adversary | `/adversary-review` | Over-engineering, error paths, type safety, coupling. |
-| 8 | designer | `/design-review` | Implemented UI vs approved design. Skip if no UI. |
-| 9 | developer | `/apply-review` (steps 6-8) | Apply review findings. |
-| 9b | qa | `/apply-review` (steps 6-8) | Apply test-related findings if any. |
-| 10 | qa | `/check-definition-of-done $ARGUMENTS` | Independent audit against the spec with evidence. |
+| 1 | builder | `/write-tests $ARGUMENTS` | Tests first — define the requirement, not the implementation. |
+| 2 | builder | `/write-code $ARGUMENTS` | With failing tests as targets, implementation stays lean. |
+| 3 | adversary | `/simplification-scan` + `/slop-scan` | Adversary spawns once and runs both negative-lens scans in one session. |
+| 4 | builder | `/apply-review` (step 3) | Apply simplification and slop findings. |
+| 5 | reviewer | `/architecture-review` + `/security-review` + `/design-review` | Reviewer spawns once and runs all three positive lenses in one session. Design lens skipped silently if no UI files. |
+| 6 | adversary | `/adversary-review` | Hostile-persona pass: Saboteur / New Hire / Auditor. |
+| 7 | builder | `/apply-review` (steps 5-6) | Apply review findings (the previous developer-vs-qa split is now an internal mode within builder). |
+| 8 | researcher | `/check-definition-of-done $ARGUMENTS` | Fresh-context audit against the spec with evidence. |
 -- repeat 1 to 10 until done --
 
-If step 10 returns NOT DONE, go back to step 1 with the gap list. Max 3 attempts — after that, the story is blocked and needs human attention.
+If step 8 returns NOT DONE, go back to step 1 with the gap list. Max 3 attempts — after that, the story is blocked and needs human attention.
