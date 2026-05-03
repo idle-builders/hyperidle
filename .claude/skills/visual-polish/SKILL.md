@@ -90,3 +90,7 @@ After polishing, report:
 - Number of iterations
 - Key changes made (file:line summary)
 - Remaining known differences (if any) and why they're acceptable
+
+## Target
+
+$ARGUMENTS

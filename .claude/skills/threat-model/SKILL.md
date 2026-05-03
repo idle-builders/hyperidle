@@ -10,7 +10,7 @@ min_tool_calls: 12
 
 **Why:** HyperIdle runs autonomous AI agents with access to code, data, and external services. Every trust boundary is an attack surface. Threat modeling before shipping catches security issues that are expensive to fix after deployment — especially agent-specific risks like prompt injection and workspace escape.
 
-Spawn a **security-researcher agent** to analyze `$ARGUMENTS`.
+Spawn a **security-researcher agent** to analyze `<target>`.
 
 Give it the relevant code, architecture docs (`docs/ARCHITECTURE.md`), and trust boundaries.
 
@@ -19,3 +19,7 @@ Key trust boundaries in HyperIdle: Human Interface ↔ API Layer, API ↔ Meta L
 Ask for STRIDE analysis with focus on: agent-specific threats (workspace escape, prompt injection, cost amplification), knowledge layer integrity (L0-L4 poisoning, cross-product leakage), and multi-tenancy isolation.
 
 Produce a risk matrix (Impact x Likelihood) with recommended mitigations.
+
+## Target
+
+$ARGUMENTS

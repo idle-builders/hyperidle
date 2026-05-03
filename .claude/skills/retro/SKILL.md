@@ -10,7 +10,7 @@ min_tool_calls: 8
 
 **Why:** Without recording what went well and what didn't, the same mistakes repeat every story. The retro log feeds the compound agent which identifies patterns and proposes process improvements. Observations compound — a single friction point noted three times becomes an actionable change.
 
-Collect insights about `$ARGUMENTS` from every available source:
+Collect insights about `<target>` from every available source:
 
 1. **Pipeline progress** — read `.pipeline/progress.json` for attempts, step failures, blocked stories
 2. **Git history** — `git log` for commits, reverts, fixups. How many commits? Any rework?
@@ -35,3 +35,7 @@ Record successes too — they confirm what's working. If something is actively b
 - Tag consistently — check existing tags in the retro log and reuse them
 - Record successes — they protect working practices from being removed in future optimization
 - Escalate rarely — only for things actively broken that will definitely break the next story
+
+## Target
+
+$ARGUMENTS

@@ -45,7 +45,7 @@ Produce a `Plan reconciliation:` block in the plan listing every spec assumption
 
 ## Phase 2 — Acceptance criteria + tasks
 
-Read the story `$ARGUMENTS` in the relevant track file under `docs/work-packages/` (e.g., `TRACK-A.md` for A-stories) and relevant sections of `docs/ARCHITECTURE.md`. Read existing code in affected packages.
+Read the story `<target>` in the relevant track file under `docs/work-packages/` (e.g., `TRACK-A.md` for A-stories) and relevant sections of `docs/ARCHITECTURE.md`. Read existing code in affected packages.
 
 If the story has a UI surface and `/design` produced an approved spec (under `docs/design-explorations/<story-id>/approved.md` or wherever the design step wrote it), read it. The visual contract, component vocabulary, and interaction states are inputs — do not re-litigate them.
 
@@ -90,3 +90,7 @@ Spawn an **adversary agent** to challenge the plan — over-engineering, missing
 Then run `/architecture-critique` to score the plan against the architectural rubric. Iterate fixes until score ≥ 7 or 3 rounds reached.
 
 Save the final plan via TaskCreate so downstream skills can read it.
+
+## Target
+
+$ARGUMENTS

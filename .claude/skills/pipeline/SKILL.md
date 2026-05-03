@@ -8,7 +8,7 @@ min_tool_calls: 80
 
 # Pipeline — Build Stories End-to-End
 
-Target: **$ARGUMENTS**
+Target: **<target>**
 
 You are autonomous. There is NO human. Never pause, never ask, never stop until every story you were given is done or blocked.
 
@@ -25,7 +25,7 @@ The scheduler invokes you with **one or more story IDs**. The argument is either
 
 Cross-track or cross-complexity batches are NEVER dispatched. If you receive a mixed group, treat it as a scheduler bug: mark every story `blocked` with reason `mixed-batch` and exit.
 
-**State contract — non-negotiable.** You own exactly `.pipeline/progress/<id>.json` for **each ID in $ARGUMENTS, and no others**.
+**State contract — non-negotiable.** You own exactly `.pipeline/progress/<id>.json` for **each ID in <target>, and no others**.
 
 - Read `.pipeline/progress/<id>.json` to resume (skip if `status: done`, resume `in_progress` from `currentStep`).
 - Write `.pipeline/progress/<id>.json` after every status/step change for that story.
@@ -93,7 +93,7 @@ After step 17: set status to `done`. Move to next story.
 - After each story, check elapsed time. If > 45 minutes, save progress and exit.
 - If context degrades (compaction), finish current story and exit.
 - Max 3 attempts per story. After 3, mark `blocked`.
-- `.pipeline/progress/<id>.json` is the checkpoint for each story you own. Write it after every status/step change. Touch only files for the IDs in $ARGUMENTS — never anyone else's.
+- `.pipeline/progress/<id>.json` is the checkpoint for each story you own. Write it after every status/step change. Touch only files for the IDs in <target> — never anyone else's.
 
 **Don't rationalize skipping steps:**
 - "Concept work isn't done but I'll figure it out" → no. The pipeline does not perform `/concept`. If concept work is missing for a New / Reshaped noun, fail fast with `blocked: concept-missing`; the founder runs `/concept` upstream.
@@ -105,3 +105,7 @@ After step 17: set status to `done`. Move to next story.
 - "Simplify/slop-scan aren't needed" → AI code accumulates cruft that compounds across stories. 2 minutes now saves hours later.
 
 **When to skip /design + /design-critique (steps 1-2):** the story has no UI surface (pure backend, schema, infra, concept-doc-only). Verify by reading the AC list — if no AC mentions a page, component, layout, route on the web side, or visible state, skip. When in doubt, run `/design`; the cost is bounded and the variants serve as documentation even when the founder picks the obvious one.
+
+## Target
+
+$ARGUMENTS

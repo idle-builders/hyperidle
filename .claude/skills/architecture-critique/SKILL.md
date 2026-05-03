@@ -165,3 +165,7 @@ When the plan ships these gaps, this skill blocks; when the plan addresses them,
 - **Letting design-it-twice be theatre.** If the plan lists two alternatives but the second is straw-manned, that's worse than not having two — flag it.
 - **Re-doing the architect's job.** This skill scores; it does not rewrite the plan. The architect applies the fixes; this skill rescores.
 
+
+## Target
+
+$ARGUMENTS

@@ -19,7 +19,7 @@ Read-only review. Produce findings — do NOT make code changes.
 5. `docs/work-packages/SHARED.md` — tech stack, shared contracts, dependency graph
 6. The relevant track file in `docs/work-packages/TRACK-*.md` for the story being reviewed
 
-Then read the changed files (via `$ARGUMENTS` or `git diff --name-only`).
+Then read the changed files (via `<target>` or `git diff --name-only`).
 
 ## Be thorough
 
@@ -36,3 +36,7 @@ Read every changed file end-to-end. For each file, verify it against the relevan
 - **Spec contradictions** — if two docs disagree, flag it
 
 Output structured findings: CRITICAL / WARNINGS / OBSERVATIONS with file paths, line numbers, AND the spec reference (doc + section) for each finding.
+
+## Target
+
+$ARGUMENTS
