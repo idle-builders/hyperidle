@@ -18,18 +18,15 @@ Continuous design quality gate. Runs whenever UI code is created or modified. Pr
 
 ## Required Reading (Before Any UI Work)
 
-1. `packages/design-system/AESTHETICS.md` — Long-form research, recommendations tables, AI-aesthetic catalog. **The source of truth for every value referenced in critique.**
-2. `packages/design-system/PRINCIPLES.md` — The seven universals + surprise principles
-3. `packages/design-system/DESIGN.md` — Token reference (surfaces, accents, text, spacing, radii, motion)
-4. `packages/design-system/src/tokens.css` — Actual token values
-5. `.claude/rules/aesthetic-quality.md` — Hard rules with rule IDs (AQ-001..AQ-113) that map to K6 ESLint slugs
+Anchor-scoped reads where possible (`bun run docs:read <file>#<anchor>`):
 
-For deeper reference on specific topics, read from `references/` (each file cross-links the AESTHETICS.md section):
-- `references/hierarchy.md` — Visual hierarchy tactics
-- `references/spacing.md` — Spacing systems and density
-- `references/typography.md` — Type scale and font usage
-- `references/color.md` — Color usage and dark mode
-- `references/finishing.md` — Polish, shadows, borders, and micro-details
+1. `packages/design-system/AESTHETICS.md` — source of truth for token values + AI-aesthetic catalog.
+2. `packages/design-system/PRINCIPLES.md` — seven universals.
+3. `packages/design-system/DESIGN.md` — token reference (surfaces, accents, spacing, radii, motion).
+4. `packages/design-system/src/tokens.css` — actual values.
+5. `.claude/rules/aesthetic-quality.md` — hard rules (AQ-001..AQ-113).
+
+Deep reference, only when the dimension is in scope: `references/hierarchy.md`, `spacing.md`, `typography.md`, `color.md`, `finishing.md`.
 
 ## The Critique Loop
 

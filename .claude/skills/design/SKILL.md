@@ -8,49 +8,33 @@ min_tool_calls: 25
 
 # Design
 
-**Why:** Your first idea is rarely the best one. Without forcing yourself to design it twice, you lock onto a local optimum and call it the answer. This skill makes the multi-variant pass cheap so the founder picks from a real spread, not from "the first thing that came to mind."
+UX/UI counterpart to `/architecture`. Architecture decides *how* (file paths, schemas, types, endpoints); design decides *what the user sees and does* (shape, hierarchy, density, interaction grammar, motion, copy, states). Forces a multi-variant pass so the chosen design isn't the first thing that came to mind.
 
-This is the **UX/UI counterpart to `/architecture`**. Where architecture decides the *how* (file paths, schemas, types, endpoints), design decides the *what the user sees and does* (component shape, hierarchy, density, interaction grammar, motion, copy, states).
+**Skip when:** the story has no UI surface, OR an approved design already exists and this is a pure layout tweak (go straight to `/design-critique`).
 
-Inspired by:
-- Garry Tan's **gstack** `/design-shotgun` — three variants on a comparison board.
-- Matt Pocock / nimmly **`/interface-design`** — *Design It Twice* from "A Philosophy of Software Design", with parallel sub-agents under different constraints.
-- nimmly **`/find-design-language`** — broad → variants → spec → embodied artifacts.
-
-## When this runs
-
-- **In the pipeline:** step 2, after `/concept` and before `/design-critique` and `/architecture`.
-- **On `/design <story-id>`:** explicit invocation for any story with a UI surface, especially the L-track primitives (Thread L1, Block L2, Artifact L3) where multiple plausible shapes exist.
-- **Skip when:** the story has no user-facing surface, OR an approved design already exists for this surface and the change is a pure layout tweak (then go straight to `/design-critique`).
-
-**Fixed input from `/concept`:** the relevant `docs/concept/*.md` section is the conceptual model these variants must respect. Variants explore the *visual / interaction shape* of a Thread / Block / Artifact — they do not redefine what a Thread / Block / Artifact IS. If a variant only works by changing the concept, that's a `/concept` issue, not a design issue.
+**Fixed input from `/concept`:** variants explore the visual/interaction shape — they do not redefine what the noun IS. If a variant only works by changing the concept, that's a `/concept` issue.
 
 ## Inputs
 
-`$ARGUMENTS` is the story ID (e.g. `L1`) or a feature name. Read:
+Read (anchor-scoped where possible):
 
-1. The story in `docs/work-packages/TRACK-<letter>.md` — what user task is this serving? What contracts does the architect expect?
-2. `docs/UI_DESIGN.md`, `docs/HUMAN_INTERFACE_LAYER.md`, `docs/INFORMATION_ARCHITECTURE.md` — existing layout, component budget, journeys.
-3. `packages/design-system/PRINCIPLES.md`, `packages/design-system/AESTHETICS.md`, `packages/design-system/DESIGN.md`, `packages/design-system/src/tokens.css` — the design system rules these variants must respect.
-4. `.claude/rules/aesthetic-quality.md`, `.claude/rules/visual-parity.md` — hard rules.
-5. Any approved design references in `docs/design-references/` and live components in `packages/design-system/html/` or `packages/design-system/src/`.
-6. If a `docs/design-explorations/<story-id>/` directory already exists, read it — you may be resuming.
+1. The story in `docs/work-packages/TRACK-<letter>.md`.
+2. `docs/concept/UI_DESIGN.md`, `docs/concept/HUMAN_INTERFACE_LAYER.md`, `docs/concept/INFORMATION_ARCHITECTURE.md` — existing layout + component budget.
+3. `packages/design-system/PRINCIPLES.md`, `AESTHETICS.md`, `DESIGN.md`, `src/tokens.css`.
+4. `.claude/rules/aesthetic-quality.md`, `.claude/rules/visual-parity.md`.
+5. If `docs/design-explorations/<story-id>/` exists, you may be resuming.
 
 ## Phase 0 — Interrogate the user task
 
-Before generating, walk the decision tree. Ask hard questions ONE AT A TIME, propose your read, let the human (or in autonomous mode the adversary) confirm.
+Walk the decision tree. ONE question at a time. Propose your read, let the human (or adversary in autonomous mode) confirm. Probes (adapt):
+- Who is doing this and what decision are they making?
+- What's the smallest UI surface that delivers the outcome?
+- Primary state — populated / empty / loading / error — which is most common?
+- New primitive (variants explore shape) or extension (variants explore application)?
+- What gets overflowed/truncated when dense?
+- Which existing component does this compose from?
 
-**One question at a time.** A list of ten dumps invites the easy ones to be answered and the hard ones to become silent assumptions.
-
-Sample lines (adapt):
-- "Who is doing this and what decision are they making? My read: X. Confirm?"
-- "What's the smallest UI surface that delivers the user's outcome? My read: just A, not B."
-- "What's the primary state — populated / empty / loading / error — and which is most common in real use?"
-- "Are we creating a *new* primitive (then variants must explore the shape) or extending an existing one (then variants must explore the *application*)?"
-- "What gets overflowed, truncated, or hidden when content is dense? My read: …"
-- "What existing component or DaisyUI primitive does this compose from? My read: …"
-
-Stop when the brief is clear, not when you run out of questions. Three to seven branches is typical.
+Stop when the brief is clear. 3-7 branches typical.
 
 ## Phase 1 — Generate three variants in parallel
 
@@ -170,12 +154,12 @@ Then run `/design-critique` once more on the approved design — score must be �
 
 ## Anti-patterns
 
-- **Three flavors of one thing.** All variants "modern minimalism with different accent colors" or "the same layout with the action button in three places" = fail.
-- **Specs without concrete values.** "A clean, modern card" is not a spec; "ThreadRow with KeyValue header, 8px padding, motion-fast hover, surface-1 background" is.
-- **Mockups that describe instead of embody.** Don't describe the variant's motion in prose while the mockup uses default 200ms transitions.
-- **Skipping the critique gate.** Phase 2 isn't optional. A weak variant that wasn't critiqued is a weak variant in the comparison.
-- **Re-litigating in `/architecture`.** Once `approved.md` lands, the visual contract is closed. Architecture asks how, not whether.
-- **AI-aesthetic defaults.** Purple gradients, hero sections, decorative icons, oversized padding, generic 3-column card grids — see `packages/design-system/AESTHETICS.md` § AI-Aesthetic Anti-Patterns.
+- Three flavors of one thing. Variants must differ on shape, not accent.
+- Specs without concrete values. Use named tokens, not "clean, modern".
+- Mockups that describe instead of embody.
+- Skipping Phase 2 critique gate.
+- Re-litigating the visual contract in `/architecture`.
+- AI-aesthetic defaults — see `packages/design-system/AESTHETICS.md` § AI-Aesthetic Anti-Patterns.
 
 ## Output artifacts
 
@@ -199,9 +183,3 @@ docs/design-explorations/<story-id>/
 └── approved.md                 # the locked design — input to /architecture
 ```
 
-## Cross-references
-
-- `/design-critique` — the scoring rubric this skill calls per variant and on `approved.md`
-- `/architecture` — consumes `approved.md` as fixed input; never re-litigates the visual contract
-- `/architecture-critique` — the architectural counterpart of design-critique
-- `/visual-polish` — used later, AFTER implementation, to bring the rendered TSX to pixel parity with the approved mockup

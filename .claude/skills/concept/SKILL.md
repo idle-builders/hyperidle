@@ -8,30 +8,18 @@ min_tool_calls: 18
 
 # Concept
 
-**Why:** Before `/design` decides what the user sees and `/architecture` decides the technical shape, there's an even more upstream question: **what is this thing?** Get the concept wrong and downstream variants explore the wrong space — the design is for the wrong object, the architecture commits to the wrong contracts, and every later skill papers over the original confusion.
+Upstream of `/design` and `/architecture`. Answers "what IS this thing?" — the layer where Thread is distinguished from Message, Block from Section, Artifact from Output, Bet from Task, Cost from Duration.
 
-This is the layer where:
-- **Thread** is distinguished from Message and Conversation
-- **Block** is distinguished from Section, Document, and Markdown dialect
-- **Artifact** is distinguished from Output, File, and Deliverable
-- **Bet** is distinguished from Task and Story
-- **Cost** is distinguished from Duration
+**Skip when:** the concept is already locked in `docs/concept/` and the story doesn't reshape it. Read the relevant `docs/concept/*.md` section (anchor-scoped via `bun run docs:read`) first; if it answers Phase 1 without contradiction, skip.
 
-## When this runs
+## Required reading (use anchors)
 
-- **In the pipeline:** step 0 — before `/design`, before `/architecture`. The very first skill on any story that introduces or reshapes a primitive, a domain concept, or a load-bearing noun in the system.
-- **On `/concept <story-id>`:** explicit invocation. Do this whenever you read a story and find yourself unsure what the central noun *is*, or when the story uses a term inconsistently with `docs/concept/` or `docs/work-packages/SHARED.md`.
-- **Skip when:** the concept is already locked in `docs/concept/` and the story does not reshape it. (Confirm by reading the relevant `docs/concept/*.md` section first; if it answers every question in Phase 1 below without contradiction, skip.)
+1. Story in `docs/work-packages/TRACK-<letter>.md` — central vs incidental nouns.
+2. `docs/work-packages/SHARED.md#shared-contracts` — does the noun already have a contract?
+3. Relevant `docs/concept/*.md` sections (anchor-scoped).
+4. `docs/concept/archive/` — prior versions, if any.
 
-## Required reading
-
-1. The story in `docs/work-packages/TRACK-<letter>.md` — what nouns does it use? Which are central, which are incidental?
-2. `docs/work-packages/SHARED.md` "Shared Contracts" — does the noun already have a contract here?
-3. `docs/concept/*.md` — the canonical concept docs. Read every section that names the noun or its neighbours.
-4. `docs/concept/archive/` — prior versions of concept decisions. If the noun used to be defined differently, that's load-bearing context.
-5. Any related stories that already shipped (per `pipeline-manifest.yaml` or `progress.json`).
-
-If the spec contradicts an existing concept doc, that's a CRITICAL finding before any other work. Surface it; don't silently re-define.
+If the spec contradicts an existing concept doc, that's CRITICAL. Surface it; don't silently re-define.
 
 ## Phase 0 — Identify the thing
 
@@ -163,15 +151,9 @@ Concepts are the part that is *expensive to change*; they ripple through every d
 
 ## Anti-patterns
 
-- **Skipping straight to design.** "I'll figure out what a Thread is by drawing it." → you'll draw three different things and call them Thread.
-- **Concept by code.** Looking at the existing TypeScript type and calling that the concept. The type is one possible expression of the concept, not the concept itself.
-- **Empty rejection list.** If you can't say what the concept ISN'T, you don't understand what it IS.
-- **Vibes-only definitions.** "A Thread is a way to talk about things" is not a definition; it's a hand-wave.
-- **Re-litigating in `/design` or `/architecture`.** Once the concept doc lands, the visual variants and the technical plan operate inside it. They do not redefine it.
-- **One mega-question dump.** Probes are one at a time. A list of seven questions is one easy answer plus six silent assumptions.
-
-## Cross-references
-
-- `/design` — consumes the concept as the fixed input; explores how the user perceives and interacts with it.
-- `/architecture` — consumes the concept and the design; produces the technical plan that respects the contracts.
-- `/lore` — for *local* decisions inside an implementation file. Concept-level decisions live in `docs/concept/`, not in `@lore` comments.
+- Skipping to design before defining the concept.
+- Concept by code (the type is one expression of the concept, not the concept).
+- Empty rejection list.
+- Vibes-only definitions.
+- Re-litigating the concept in `/design` or `/architecture`.
+- One mega-question dump (probes are one at a time).
