@@ -18,15 +18,14 @@ This is **not** `/architecture-review`. The review skill audits the *implemented
 - **Inside `/architecture` Phase 4:** the architect runs this on themselves and iterates. Fixes go into the plan, not into a separate findings file.
 - **On explicit `/architecture-critique <story-id>`:** full audit of the plan saved under TaskCreate or in `docs/work-packages/`/the worktree's plan output.
 
-## Required Reading (Before Critiquing)
+## Required Reading (use anchor reads via `bun run docs:read`)
 
-1. The story in `docs/work-packages/TRACK-<letter>.md` — the spec the plan must serve.
-2. `docs/ARCHITECTURE.md` — system layering, component boundaries, data flow.
-3. `docs/PROCESS_LAYER.md`, `docs/KNOWLEDGE_ARCHITECTURE.md`, `docs/AGENT_LAYER.md` — domain-specific contracts the plan inherits from.
-4. `docs/work-packages/SHARED.md` — shared contracts and tech stack.
-5. `docs/HUMAN_INTERFACE_LAYER.md`, `docs/INFORMATION_ARCHITECTURE.md` — when the plan touches UI.
-6. The story's approved design (`docs/design-explorations/<story-id>/approved.md` if `/design` ran) — the visual contract the plan must respect.
-7. The plan itself — read every section: AC + verification methods, ordered task list, type signatures, route checklist, security & abuse cases, protected tests, plan reconciliation, design-it-twice trade-offs.
+1. The story in `docs/work-packages/TRACK-<letter>.md`.
+2. `docs/concept/ARCHITECTURE.md` — system layering, component boundaries (anchor-scoped).
+3. `docs/concept/PROCESS_LAYER.md`, `KNOWLEDGE_ARCHITECTURE.md`, `AGENT_LAYER.md` — only the anchors that match the plan's scope.
+4. `docs/work-packages/SHARED.md#shared-contracts`.
+5. UI stories: `docs/concept/HUMAN_INTERFACE_LAYER.md`, `INFORMATION_ARCHITECTURE.md` — anchor-scoped + `docs/design-explorations/<story-id>/approved.md`.
+6. The plan itself — every section.
 
 ## The Critique Loop
 
@@ -166,9 +165,3 @@ When the plan ships these gaps, this skill blocks; when the plan addresses them,
 - **Letting design-it-twice be theatre.** If the plan lists two alternatives but the second is straw-manned, that's worse than not having two — flag it.
 - **Re-doing the architect's job.** This skill scores; it does not rewrite the plan. The architect applies the fixes; this skill rescores.
 
-## Cross-References
-
-- `/architecture` — produces the plan this skill scores; calls this skill in its Phase 4.
-- `/architecture-review` — scores the *implemented code*, after `/write-code`. Different phase, different inputs, different findings.
-- `/design-critique` — same loop and rubric structure, applied to the design artifact.
-- `/check-definition-of-done` — runs at the end and audits whether the AC verification methods this skill required were actually implemented and proven.

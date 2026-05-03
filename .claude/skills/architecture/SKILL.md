@@ -8,15 +8,13 @@ min_tool_calls: 25
 
 # Architecture
 
-**Why:** A clear plan prevents wasted implementation time. Without architectural planning, developers build the wrong thing, miss edge cases, or invent abstractions the system doesn't need. The adversary catches errors before they become expensive rework.
+Produces the **how** — file paths, type signatures, schemas, endpoint shapes, task ordering.
 
-This skill produces the **how** — file paths, type signatures, schemas, endpoint shapes, task ordering.
+**Fixed inputs (do NOT re-litigate):**
+- Concept doc from `/concept` — `docs/concept/*.md` (anchor-scoped via `bun run docs:read`) + `docs/work-packages/SHARED.md#shared-contracts`.
+- Approved design from `/design` (UI stories) — `docs/design-explorations/<story-id>/approved.md`.
 
-**Fixed inputs** — these have already been settled by upstream skills, and `/architecture` does NOT re-litigate them:
-- The **concept doc** (from `/concept`) — what the central nouns ARE, what they ARE NOT, the canonical vocabulary, the contracts (cardinality, closure, mutability, identity, hard rules). The plan respects these; it does not redefine them. Read `docs/concept/*.md` and `docs/work-packages/SHARED.md` "Shared Contracts" before drafting.
-- The **approved design** (from `/design`, when the story has UI) — visual contract, component vocabulary, interaction states. Read `docs/design-explorations/<story-id>/approved.md` before drafting.
-
-If `/concept` was skipped because the story uses only locked concepts, that's fine — read the existing `docs/concept/*.md` sections instead. If you find a contradiction between the spec and the existing concept doc, stop: that's a `/concept` gap, not an architecture decision.
+If the spec contradicts an existing concept doc, stop — that's a `/concept` gap.
 
 ## Phase 0 — Interrogate the understanding
 
