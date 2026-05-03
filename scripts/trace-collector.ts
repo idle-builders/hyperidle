@@ -151,8 +151,7 @@ function flatten(req: OtlpTraceRequest): FlatSpan[] {
 					session_id: (attrs["session.id"] as string) ?? null,
 					ab_test: (resource["ab.test"] as string) ?? null,
 					ab_arm: (resource["ab.arm"] as string) ?? null,
-					model:
-						(attrs.model as string) ?? (attrs["gen_ai.request.model"] as string) ?? null,
+					model: (attrs.model as string) ?? (attrs["gen_ai.request.model"] as string) ?? null,
 					tool_name: (attrs.tool_name as string) ?? null,
 					input_tokens: asNumber(attrs.input_tokens),
 					output_tokens: asNumber(attrs.output_tokens),
