@@ -2,12 +2,18 @@
  * Work/Team page — composes Canvas (top) + Kanban (bottom) + PitchSelector
  * (overlay). Spec: HUMAN_INTERFACE_LAYER.md §4 — Team view shows the team's
  * current bets at the top and a per-task kanban board beneath.
+ *
+ * @lore L15 § 4.2: drag-to-move on the Kanban is removed. Humans request
+ * state changes via the per-card TaskActionsMenu, which POSTs to
+ * /api/tasks/:id/request. Agents own state machine transitions.
  */
-import { type JSX, useCallback, useState } from "react";
+import { TaskActionsMenu } from "@hyperidle/design-system";
+import type { RequestVerb } from "@hyperidle/shared";
+import { type JSX, useCallback, useRef, useState } from "react";
 import type { CanvasBet } from "../shell/Canvas";
 import { Canvas } from "../shell/Canvas";
-import type { KanbanColumnState, KanbanTask } from "../shell/Kanban";
-import { COLUMN_TO_STATE, Kanban } from "../shell/Kanban";
+import type { KanbanTask } from "../shell/Kanban";
+import { Kanban } from "../shell/Kanban";
 import type { PitchSelectorPitch } from "../shell/PitchSelector";
 import { PitchSelector } from "../shell/PitchSelector";
 
@@ -37,6 +43,7 @@ const INITIAL_TASKS: KanbanTask[] = [
 		state: "in_progress",
 		cost: "$4.20",
 		betTag: "Auth",
+		pendingRequest: null,
 	},
 	{
 		id: "t2",
@@ -45,6 +52,7 @@ const INITIAL_TASKS: KanbanTask[] = [
 		state: "accepted",
 		cost: "$1.80",
 		betTag: "Auth",
+		pendingRequest: null,
 	},
 	{
 		id: "t3",
@@ -53,6 +61,14 @@ const INITIAL_TASKS: KanbanTask[] = [
 		state: "review",
 		cost: "$6.50",
 		betTag: "Auth",
+		// Demo fixture: a pending `request_changes` so the L15 pending chip
+		// has a render path on /work/team. Live data wiring is a follow-up
+		// (depends on `GET /api/tasks` projection — out of L15 scope).
+		pendingRequest: {
+			messageId: "demo-msg-pending-1",
+			verb: "request_changes",
+			createdAt: new Date().toISOString(),
+		},
 	},
 	{
 		id: "t4",
@@ -61,6 +77,7 @@ const INITIAL_TASKS: KanbanTask[] = [
 		state: "done",
 		cost: "$3.10",
 		betTag: "Auth",
+		pendingRequest: null,
 	},
 	{
 		id: "t5",
@@ -69,6 +86,7 @@ const INITIAL_TASKS: KanbanTask[] = [
 		state: "accepted",
 		cost: "$2.00",
 		betTag: "API",
+		pendingRequest: null,
 	},
 ];
 
@@ -108,23 +126,51 @@ const MOCK_PITCHES: PitchSelectorPitch[] = [
 	},
 ];
 
+const NOOP_MOVE_BET = (_betId: string, _targetStatus: "shaped" | "committed"): void => {};
+
+async function postRequest(
+	taskId: string,
+	verb: RequestVerb,
+	clientKey: string,
+	reason?: string,
+): Promise<void> {
+	await fetch(`/api/tasks/${taskId}/request`, {
+		method: "POST",
+		headers: { "Content-Type": "application/json" },
+		body: JSON.stringify({ verb, reason, clientKey }),
+	});
+}
+
 export function WorkTeam(): JSX.Element {
-	const [tasks, setTasks] = useState<KanbanTask[]>(INITIAL_TASKS);
+	const [tasks] = useState<KanbanTask[]>(INITIAL_TASKS);
 	const [pitchSelectorOpen, setPitchSelectorOpen] = useState(false);
 	const [selectedPitchIds, setSelectedPitchIds] = useState<string[]>([]);
 
-	const handleMoveTask = useCallback((taskId: string, targetColumn: KanbanColumnState): void => {
-		// I4 K1: map the Kanban column key to the canonical TaskState.
-		const targetState = COLUMN_TO_STATE[targetColumn];
-		setTasks((prev) => prev.map((t) => (t.id === taskId ? { ...t, state: targetState } : t)));
-	}, []);
+	// L15 review CRITICAL-1: per-(taskId, verb) clientKey ref so a double-tap
+	// (or React StrictMode double-fire) reuses the SAME key and is deduped by
+	// the server's `(threadId, senderId, clientKey)` unique index. Generating
+	// a fresh UUID per click defeats server-side idempotency.
+	const clientKeyCacheRef = useRef<Map<string, string>>(new Map());
+	function keyFor(taskId: string, verb: RequestVerb): string {
+		const cacheKey = `${taskId}:${verb}`;
+		const cache = clientKeyCacheRef.current;
+		const existing = cache.get(cacheKey);
+		if (existing) return existing;
+		const fresh = crypto.randomUUID();
+		cache.set(cacheKey, fresh);
+		return fresh;
+	}
 
-	const handleMoveBet = useCallback(
-		(_betId: string, _targetStatus: "shaped" | "committed"): void => {
-			// Mock — the team-board canvas does not persist bet moves yet.
+	const handleRequestStateChange = useCallback(
+		(taskId: string, verb: RequestVerb, reason?: string): void => {
+			void postRequest(taskId, verb, keyFor(taskId, verb), reason);
 		},
 		[],
 	);
+
+	const handleCancelPendingRequest = useCallback((taskId: string): void => {
+		void postRequest(taskId, "cancel_request", keyFor(taskId, "cancel_request"));
+	}, []);
 
 	const handleSelectPitch = useCallback((pitchId: string): void => {
 		setSelectedPitchIds((prev) =>
@@ -132,9 +178,29 @@ export function WorkTeam(): JSX.Element {
 		);
 	}, []);
 
-	const handleAddToCanvas = useCallback((_pitchId: string): void => {
-		// Mock — real implementation promotes the pitch to a canvas bet.
+	const handleOpenThread = useCallback((taskId: string): void => {
+		// L18 will implement deep-linking to the task's thread surface; for
+		// now log + leave as a no-op (predictable affordance, no silent UI
+		// activity). The server-side `/api/threads/:id` route exists.
+		void taskId;
 	}, []);
+
+	const renderTaskActions = useCallback(
+		(task: KanbanTask): JSX.Element => (
+			<TaskActionsMenu
+				task={{
+					id: task.id,
+					title: task.title,
+					state: task.state,
+					hasPendingRequest: Boolean(task.pendingRequest),
+				}}
+				onRequestStateChange={(verb, reason) => handleRequestStateChange(task.id, verb, reason)}
+				onCancelPendingRequest={() => handleCancelPendingRequest(task.id)}
+				onOpenThread={() => handleOpenThread(task.id)}
+			/>
+		),
+		[handleRequestStateChange, handleCancelPendingRequest, handleOpenThread],
+	);
 
 	return (
 		<div className="flex flex-col gap-3 h-full" data-testid="work-team-page">
@@ -151,23 +217,24 @@ export function WorkTeam(): JSX.Element {
 				</button>
 			</div>
 
-			{/* I4 P2: Canvas (committed bets overview) on top, Kanban below.
-			    J5: PitchSelector is an overlay that REPLACES the Kanban when
-			    open (not inlined above it). */}
 			<div data-testid="work-team-canvas">
-				<Canvas bets={CANVAS_BETS} capacity={3} onMoveBet={handleMoveBet} />
+				<Canvas bets={CANVAS_BETS} capacity={3} onMoveBet={NOOP_MOVE_BET} />
 			</div>
 			{pitchSelectorOpen ? (
 				<PitchSelector
 					pitches={MOCK_PITCHES}
 					selectedIds={selectedPitchIds}
 					onSelect={handleSelectPitch}
-					onAddToCanvas={handleAddToCanvas}
 					onClose={() => setPitchSelectorOpen(false)}
 				/>
 			) : (
 				<div data-testid="work-team-kanban">
-					<Kanban tasks={tasks} onMoveTask={handleMoveTask} groupByBet />
+					<Kanban
+						tasks={tasks}
+						renderTaskActions={renderTaskActions}
+						onTaskPendingChipClick={handleOpenThread}
+						groupByBet
+					/>
 				</div>
 			)}
 		</div>
