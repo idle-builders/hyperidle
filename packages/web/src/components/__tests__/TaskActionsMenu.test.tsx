@@ -134,4 +134,82 @@ describe("TaskActionsMenu", () => {
 		const alert = await screen.findByRole("alert");
 		expect(alert.textContent).toMatch(/failed|error/i);
 	});
+
+	it("L15 review C4: trigger button hit area is at least 44×44 (AQ-015)", () => {
+		renderMenu({});
+		const trigger = screen.getByLabelText("Actions for Implement login endpoint");
+		const cls = trigger.className;
+		expect(cls).toMatch(/min-w-\[44px\]/);
+		expect(cls).toMatch(/min-h-\[44px\]/);
+	});
+
+	it("L15 review W3: items disable while a request is in-flight", async () => {
+		const user = userEvent.setup();
+		let resolveFind: (handle: { threadId: string }) => void = () => {};
+		const slowClient = makeClient({
+			findOrCreateTaskThread: vi.fn(
+				() =>
+					new Promise<{ threadId: string }>((r) => {
+						resolveFind = r;
+					}),
+			),
+		});
+		renderMenu({ client: slowClient });
+		await user.click(screen.getByLabelText("Actions for Implement login endpoint"));
+		await user.click(screen.getByRole("menuitem", { name: /Request: Done/i }));
+		// While in-flight: every menuitem is aria-disabled.
+		const items = screen.getAllByRole("menuitem");
+		for (const item of items) {
+			expect(item).toHaveAttribute("aria-disabled", "true");
+		}
+		// Trigger announces aria-busy.
+		const trigger = screen.getByLabelText("Actions for Implement login endpoint");
+		expect(trigger).toHaveAttribute("aria-busy", "true");
+		// Resolve to release pending state.
+		resolveFind({ threadId: "th-resolved" });
+		await waitFor(() => {
+			expect(slowClient.postPlainMessage).toHaveBeenCalled();
+		});
+	});
+
+	it("L15 review W6: aria-controls only set while open", async () => {
+		const user = userEvent.setup();
+		renderMenu({});
+		const trigger = screen.getByLabelText("Actions for Implement login endpoint");
+		expect(trigger).not.toHaveAttribute("aria-controls");
+		await user.click(trigger);
+		await waitFor(() => {
+			expect(trigger).toHaveAttribute("aria-controls");
+		});
+	});
+
+	it("L15 review W2: clicking outside the menu closes it", async () => {
+		const user = userEvent.setup();
+		render(
+			<MemoryRouter initialEntries={["/work/team"]}>
+				<Routes>
+					<Route
+						path="/work/team"
+						element={
+							<>
+								<TaskActionsMenu
+									task={{ id: "t-1", title: "X", state: "in_progress" }}
+									client={makeClient()}
+								/>
+								<button type="button" data-testid="outside-target">
+									outside
+								</button>
+							</>
+						}
+					/>
+				</Routes>
+			</MemoryRouter>,
+		);
+		await user.click(screen.getByLabelText("Actions for X"));
+		await screen.findByRole("menu");
+		await user.pointer({ keys: "[MouseLeft]", target: screen.getByTestId("outside-target") });
+		await waitFor(() => {
+			expect(screen.queryByRole("menu")).not.toBeInTheDocument();
+		});
+	});
 });

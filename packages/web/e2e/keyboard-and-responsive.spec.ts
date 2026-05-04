@@ -92,16 +92,24 @@ test.describe("L15: Kanban drag removed", () => {
 		// No draggable wrappers should be rendered.
 		await expect(page.locator("[data-testid^='draggable-task-']")).toHaveCount(0);
 
-		// Focus the In Progress column heading and the task card text.
+		// Resolve the In Progress column subtree by anchoring to its <h3> header.
+		// L15 review W9: assert the card sits inside its original column subtree.
+		const inProgressColumn = page
+			.locator("div.flex.flex-col.gap-2", {
+				has: page.getByRole("heading", { name: "In Progress" }),
+			})
+			.first();
+		await expect(inProgressColumn.getByText("Implement login endpoint")).toBeVisible();
+
+		// Focus the card text and press Space (should be a no-op).
 		const card = page.getByText("Implement login endpoint");
-		await expect(card).toBeVisible();
 		await card.focus().catch(() => {
 			/* text nodes may not be focusable; not a failure */
 		});
 		await page.keyboard.press("Space");
 		await page.keyboard.press("Space");
 
-		// Card must still be visible (nothing crashed) and still in DOM.
-		await expect(page.getByText("Implement login endpoint")).toBeVisible();
+		// Card must still live in the In Progress column subtree.
+		await expect(inProgressColumn.getByText("Implement login endpoint")).toBeVisible();
 	});
 });

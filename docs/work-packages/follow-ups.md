@@ -64,3 +64,64 @@ to the originating story and the story (or track) that should pick it up.
 - **Owner:** TBD — small fixture fix; can land in a maintenance PR or be
   bundled with the next L8 area touch.
 - **Status:** open.
+
+---
+
+## L15 — Per-item danger styling for "Request: Kill" (from Adversary W1)
+
+- **Origin:** L15 adversary review W1; plan §12 A3.
+- **Issue:** plan called for `text-[var(--danger)]` + divider above the
+  "Request: Kill" menu item. `BlockActionsPopover` does not currently
+  expose a per-item color/danger flag or a divider primitive; adding
+  styling-on-item would either bypass the popover (one-off in
+  TaskActionsMenu, breaking visual consistency with other DS popovers)
+  or expand the design-system contract.
+- **Reference:** `packages/design-system/src/BlockActionsPopover.tsx`,
+  `packages/web/src/components/TaskActionsMenu.tsx` REQUESTABLE_STATES.
+- **Owner:** design-system follow-up — add `danger?: boolean` and an
+  optional divider/group separator to `BlockAction` once a second consumer
+  needs the same affordance.
+- **Status:** open.
+
+## L15 — task-thread server-side uniqueness on (host_kind, host_id) (from Adversary C5)
+
+- **Origin:** L15 adversary review C5.
+- **Issue:** `findOrCreateTaskThread` is read-then-write. The web client
+  coalesces concurrent calls per-task in a single Map, but two browser
+  tabs (or the next mobile client) could still race and create duplicate
+  threads. The server has no `(host_kind, host_id)` uniqueness constraint.
+- **Reference:** `packages/web/src/services/task-thread-client.ts` @lore
+  C5; `packages/server/src/routes/threads.ts` POST handler.
+- **Owner:** auth-middleware story (post-L15) — add a unique index on
+  `threads(host_kind, host_id)` for the kinds where one-thread-per-host
+  is the intended invariant (task, knowledge), then collapse the create
+  path into ON CONFLICT DO NOTHING + RETURNING.
+- **Status:** open.
+
+## L15 — Outbound calls bypass `useRecoveryFetch` until the auth context lands
+
+- **Origin:** L15 review C3 (followed up).
+- **Issue:** `task-thread-client` is wrapped via the new
+  `hooks/actor-fetch.ts` helper, which sets `X-Identity` from
+  `DEFAULT_ACTOR_ID = "u-founder"`. This is the same default the server
+  falls back to. When the auth-middleware story lands, the actor id MUST
+  come from the resolved identity, not a constant.
+- **Reference:** `packages/web/src/hooks/actor-fetch.ts`,
+  `packages/web/src/components/TaskActionsMenu.tsx`.
+- **Owner:** auth-middleware story — replace `DEFAULT_ACTOR_ID` with a
+  React-context resolver and update `defaultClient` construction in
+  TaskActionsMenu to read it.
+- **Status:** open.
+
+## L15 — Mock task ids collide cross-session (from Adversary W10)
+
+- **Origin:** L15 adversary review W10.
+- **Issue:** WorkTeam fixtures use mock task ids (t1..t5). Threads created
+  for these ids accumulate cross-session/cross-developer in any shared
+  database. Either gate `TaskActionsMenu` behind a real-id pattern, or
+  seed fixtures with a session prefix (`session-<rand>-t1`).
+- **Reference:** `packages/web/src/pages/WorkTeam.tsx` INITIAL_TASKS.
+- **Owner:** L18 (real task ids land) — at that point the mock fixtures
+  go away entirely. Until then the lore is documented in
+  TaskActionsMenu.tsx.
+- **Status:** open.

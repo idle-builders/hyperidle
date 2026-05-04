@@ -18,16 +18,26 @@
  * UNVERIFIED. The actual existing route is /conversations/review with the
  * thread id passed via ?id=<threadId> (see ConversationsReview.tsx:160 +
  * router.tsx:30). Builder verified this with a grep before wiring.
+ *
+ * @lore L15 review C4: the trigger button is a 44×44 hit area (AQ-015) with
+ * a centered 24px glyph. Density-static allowlist does NOT exempt the
+ * touch-target rule; only padding/font scaling.
+ *
+ * @lore L15 review W3: while a request is in-flight, the menu disables
+ * actions and announces "Requested" via the live region BlockActionsPopover
+ * already wires.
  */
 
 import { BlockActionsPopover } from "@hyperidle/design-system";
 import type { TaskState } from "@hyperidle/shared";
-import { type JSX, useId, useMemo, useState } from "react";
+import { type JSX, useEffect, useId, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { createActorFetch } from "../hooks/actor-fetch";
 import {
 	buildRequestStateText,
 	createTaskThreadClient,
 	type TaskThreadClient,
+	TaskThreadHttpError,
 } from "../services/task-thread-client";
 
 export interface TaskActionsMenuProps {
@@ -66,62 +76,89 @@ const STATE_LABELS: Record<TaskState, string> = {
 	killed: "Kill",
 };
 
-let defaultClient: TaskThreadClient | null = null;
-function getDefaultClient(): TaskThreadClient {
-	if (defaultClient === null) {
-		defaultClient = createTaskThreadClient(globalThis.fetch.bind(globalThis));
-	}
-	return defaultClient;
-}
+// L15 review S4: lazy-singleton dropped — module-scope construction is fine.
+const defaultClient: TaskThreadClient = createTaskThreadClient(createActorFetch());
 
 function newClientKey(): string {
-	// crypto.randomUUID is widely available in evergreen browsers and Node 19+.
 	return globalThis.crypto.randomUUID();
+}
+
+function errorMessageFor(cause: unknown, fallback: string): string {
+	if (cause instanceof TaskThreadHttpError) return cause.userMessage;
+	return fallback;
 }
 
 export function TaskActionsMenu(props: TaskActionsMenuProps): JSX.Element {
 	const { task } = props;
-	const client = props.client ?? getDefaultClient();
+	const client = props.client ?? defaultClient;
 	const navigate = useNavigate();
 	const popoverId = useId();
 	const liveRegionId = useId();
 	const [open, setOpen] = useState(false);
 	const [error, setError] = useState<string | null>(null);
+	const [pending, setPending] = useState(false);
+	const containerRef = useRef<HTMLDivElement | null>(null);
 
-	const items = useMemo(() => {
-		function runAction(fallback: string, action: () => Promise<void>): void {
-			setError(null);
-			void (async () => {
-				try {
-					await action();
-				} catch (cause) {
-					setError(cause instanceof Error ? cause.message : fallback);
-				}
-			})();
-		}
-		const openThread = {
-			id: "open-thread",
-			label: "Open thread",
-			onSelect: (): void => {
-				setError(null);
+	// L15 review W2: outside-click closes the menu (BlockActionsPopover only
+	// handles Escape).
+	useEffect(() => {
+		if (!open) return;
+		function onPointerDown(e: PointerEvent): void {
+			const node = containerRef.current;
+			if (node && e.target instanceof Node && !node.contains(e.target)) {
 				setOpen(false);
-				void (async () => {
-					try {
-						const handle = await client.findOrCreateTaskThread(task.id);
-						navigate(`/conversations/review?id=${encodeURIComponent(handle.threadId)}`);
-					} catch (cause) {
-						setError(cause instanceof Error ? cause.message : "Failed to open thread");
-						setOpen(true);
-					}
-				})();
-			},
-		};
-		const requestItems = REQUESTABLE_STATES.map((targetState) => ({
-			id: `request-${targetState}`,
-			label: `Request: ${STATE_LABELS[targetState]}`,
-			disabled: targetState === task.state,
-			onSelect: (): void => {
-				runAction("Failed to post request", async () => {
+			}
+		}
+		document.addEventListener("pointerdown", onPointerDown);
+		return () => document.removeEventListener("pointerdown", onPointerDown);
+	}, [open]);
+
+	function runAction(args: {
+		fallback: string;
+		closeOnError: boolean;
+		action: () => Promise<void>;
+	}): void {
+		if (pending) return;
+		setError(null);
+		setPending(true);
+		void (async () => {
+			try {
+				await args.action();
+			} catch (cause) {
+				setError(errorMessageFor(cause, args.fallback));
+				if (args.closeOnError) setOpen(false);
+			} finally {
+				setPending(false);
+			}
+		})();
+	}
+
+	const openThreadItem = {
+		id: "open-thread",
+		label: "Open thread",
+		disabled: pending,
+		onSelect: (): void => {
+			runAction({
+				fallback: "Failed to open thread.",
+				closeOnError: false,
+				action: async () => {
+					const handle = await client.findOrCreateTaskThread(task.id);
+					setOpen(false);
+					navigate(`/conversations/review?id=${encodeURIComponent(handle.threadId)}`);
+				},
+			});
+		},
+	};
+
+	const requestItems = REQUESTABLE_STATES.map((targetState) => ({
+		id: `request-${targetState}`,
+		label: `Request: ${STATE_LABELS[targetState]}`,
+		disabled: pending || targetState === task.state,
+		onSelect: (): void => {
+			runAction({
+				fallback: "Failed to post request.",
+				closeOnError: false,
+				action: async () => {
 					const handle = await client.findOrCreateTaskThread(task.id);
 					await client.postPlainMessage(
 						handle.threadId,
@@ -129,27 +166,31 @@ export function TaskActionsMenu(props: TaskActionsMenuProps): JSX.Element {
 						newClientKey(),
 					);
 					setOpen(false);
-				});
-			},
-		}));
-		return [openThread, ...requestItems];
-	}, [client, navigate, task.id, task.state]);
+				},
+			});
+		},
+	}));
+
+	const items = [openThreadItem, ...requestItems];
 
 	return (
-		<div className="relative inline-flex flex-col items-end">
+		<div ref={containerRef} className="relative inline-flex flex-col items-end">
 			<button
 				type="button"
 				aria-label={`Actions for ${task.title}`}
 				aria-haspopup="menu"
 				aria-expanded={open}
-				aria-controls={popoverId}
+				aria-controls={open ? popoverId : undefined}
+				aria-busy={pending || undefined}
 				onClick={() => {
 					setError(null);
 					setOpen((v) => !v);
 				}}
-				className="inline-flex items-center justify-center w-[24px] h-[24px] rounded-[var(--r1)] text-[var(--text-lo)] hover:text-[var(--text-hi)] hover:bg-[var(--surface-ghost)] focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--primary)]"
+				className="inline-flex items-center justify-center min-w-[44px] min-h-[44px] rounded-[var(--r1)] text-[var(--text-lo)] hover:text-[var(--text-hi)] hover:bg-[var(--surface-ghost)] focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--primary)]"
 			>
-				<span aria-hidden>⋯</span>
+				<span aria-hidden className="inline-block w-[24px] h-[24px] leading-[24px] text-center">
+					⋯
+				</span>
 			</button>
 			<BlockActionsPopover
 				id={popoverId}
@@ -160,7 +201,7 @@ export function TaskActionsMenu(props: TaskActionsMenuProps): JSX.Element {
 			/>
 			{error ? (
 				<div role="alert" className="mt-[4px] text-[12px] text-[var(--danger)]">
-					Request failed: {error}
+					{error}
 				</div>
 			) : null}
 		</div>

@@ -37,10 +37,50 @@ test.describe("L15: TaskActionsMenu", () => {
 		await expect(menu.getByRole("menuitem")).toHaveCount(6);
 	});
 
-	test("clicking 'Request: Done' closes the menu without throwing", async ({ page }) => {
+	test("clicking 'Request: Done' POSTs a plain message with the locked prose (W8)", async ({
+		page,
+	}) => {
+		const recordedBodies: Array<Record<string, unknown>> = [];
+		// Stub the find-or-create flow so we don't depend on server state in e2e:
+		// (a) GET threads → empty list; (b) POST /api/threads → created; (c) POST messages.
+		await page.route("**/api/threads?**host_kind=task**", async (route) => {
+			await route.fulfill({
+				status: 200,
+				contentType: "application/json",
+				body: JSON.stringify({ threads: [] }),
+			});
+		});
+		await page.route("**/api/threads", async (route) => {
+			if (route.request().method() !== "POST") return route.fallback();
+			await route.fulfill({
+				status: 201,
+				contentType: "application/json",
+				body: JSON.stringify({ thread: { id: "th-stub-001" }, messages: [] }),
+			});
+		});
+		await page.route("**/api/threads/*/messages", async (route) => {
+			if (route.request().method() === "POST") {
+				const data = route.request().postDataJSON() as Record<string, unknown>;
+				recordedBodies.push(data);
+				await route.fulfill({
+					status: 200,
+					contentType: "application/json",
+					body: JSON.stringify({}),
+				});
+				return;
+			}
+			await route.fallback();
+		});
 		await page.getByLabel("Actions for Implement login endpoint").click();
 		await page.getByRole("menuitem", { name: /Request: Done/i }).click();
 		await expect(page.getByRole("menu")).not.toBeVisible();
+		expect(recordedBodies.length).toBeGreaterThanOrEqual(1);
+		const last = recordedBodies[recordedBodies.length - 1];
+		expect(last).toMatchObject({
+			type: "plain",
+			payload: { text: "Requesting state change to done." },
+		});
+		expect(typeof last.clientKey).toBe("string");
 	});
 
 	test("clicking 'Open thread' navigates to /conversations/review", async ({ page }) => {
