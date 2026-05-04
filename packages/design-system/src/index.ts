@@ -80,6 +80,8 @@ export type { TagProps } from "./Tag.js";
 export { Tag } from "./Tag.js";
 export type { TaskCardProps } from "./TaskCard.js";
 export { TaskCard } from "./TaskCard.js";
+export type { TaskRequestMenuProps, TaskRequestSubmission } from "./TaskRequestMenu.js";
+export { TaskRequestMenu } from "./TaskRequestMenu.js";
 // ── L1a Thread primitive components (stubs during write-tests phase) ──
 export type {
 	ThreadHostBannerParticipant,
