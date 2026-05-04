@@ -1,0 +1,358 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>TaskActionsMenu — HyperIdle Design System</title>
+  <link rel="stylesheet" href="_tokens.css" />
+  <style>
+    /*
+     * TaskActionsMenu — L15 Tier 2 block.
+     *
+     * Per-card menu opened by the `···` trigger on a TaskCard. Renders the
+     * canonical request-verb set + universal items, with a per-item secondary
+     * "→ agent decides" / "→ moves ownership" contract hint that teaches the
+     * human-requests / agent-decides protocol every time the menu is open.
+     *
+     * Approved design: docs/design-explorations/L15/approved.md § 3.5.
+     * Verbs locked at packages/shared/src/task-request-verbs.ts.
+     */
+    .task-actions-menu {
+      min-width: 260px;
+      max-width: 280px;
+      background: var(--surface-1);
+      border: 1px solid var(--border-default);
+      border-radius: var(--r2);
+      box-shadow: var(--float);
+      padding: 4px;
+      display: flex;
+      flex-direction: column;
+      gap: 1px;
+    }
+
+    .task-actions-menu__section-label {
+      font-family: var(--mono);
+      font-size: 11px;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      font-weight: 500;
+      color: var(--text-lo);
+      padding: 6px 10px 4px 10px;
+    }
+
+    .task-actions-menu__divider {
+      height: 1px;
+      background: var(--border-subtle);
+      margin: 4px 0;
+    }
+
+    .task-actions-menu__item {
+      text-align: left;
+      width: 100%;
+      padding: 6px 10px;
+      border-radius: var(--r1);
+      background: transparent;
+      border: none;
+      cursor: pointer;
+      display: grid;
+      grid-template-columns: 1fr auto;
+      align-items: baseline;
+      column-gap: 12px;
+      row-gap: 2px;
+    }
+
+    .task-actions-menu__item:hover,
+    .task-actions-menu__item:focus-visible {
+      background: var(--surface-ghost);
+      outline: none;
+    }
+
+    .task-actions-menu__item--highlighted {
+      background: var(--primary-dim);
+    }
+
+    .task-actions-menu__item--danger .task-actions-menu__primary {
+      color: var(--danger);
+    }
+
+    .task-actions-menu__primary {
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-hi);
+      line-height: 1.35;
+    }
+
+    .task-actions-menu__secondary {
+      grid-column: 1 / -1;
+      font-size: 11px;
+      color: var(--text-lo);
+      line-height: 1.35;
+      font-style: normal;
+    }
+
+    .task-actions-menu__shortcut {
+      font-family: var(--mono);
+      font-size: 11px;
+      letter-spacing: 0.04em;
+      color: var(--text-lo);
+      align-self: center;
+    }
+
+    .task-actions-menu__shortcut kbd {
+      font-family: var(--mono);
+      font-size: 10px;
+      letter-spacing: 0.04em;
+      color: var(--text-mid);
+      background: var(--surface-3);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--r1);
+      padding: 1px 5px;
+      line-height: 1.4;
+    }
+
+    .task-actions-menu__shortcut kbd + kbd {
+      margin-left: 4px;
+    }
+
+    .task-actions-menu__shortcut .sep {
+      margin: 0 4px;
+      color: var(--text-lo);
+    }
+
+    /* Demo grid */
+    body { padding: 24px; }
+    #root { max-width: 960px; }
+    .demo-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      gap: 24px;
+      align-items: start;
+    }
+    .demo-section { display: flex; flex-direction: column; gap: 8px; }
+    .demo-section-title {
+      font-family: var(--mono);
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-lo);
+      padding-bottom: 4px;
+      border-bottom: 1px solid var(--surface-3);
+    }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" crossorigin></script>
+  <script type="text/babel" data-presets="env,react">
+    /*
+     * REQUEST_VERBS (locked) → packages/shared/src/task-request-verbs.ts
+     *   request_stop · request_hold · request_unblock · request_mark_done
+     *   request_changes · hand_back · cancel_request
+     *
+     * State-conditional verb subsets per L15 § 3.5.
+     */
+    const VERB_DEFS = {
+      request_stop: {
+        primary: "Request stop",
+        secondary: "asks the agent to abandon — agent decides",
+        shortcut: ["S"],
+      },
+      request_hold: {
+        primary: "Request hold",
+        secondary: "asks the agent to pause — agent decides",
+        shortcut: ["H"],
+      },
+      request_unblock: {
+        primary: "Request unblock",
+        secondary: "asks the agent to retry — agent decides",
+        shortcut: ["U"],
+      },
+      request_mark_done: {
+        primary: "Request mark done",
+        secondary: "asks the agent to wrap — agent decides",
+        shortcut: ["D"],
+      },
+      request_changes: {
+        primary: "Request changes",
+        secondary: "rejects with comment — agent decides",
+        shortcut: ["C"],
+      },
+      hand_back: {
+        primary: "Hand back to me",
+        secondary: "moves ownership to you — agent confirms",
+        shortcut: ["B"],
+      },
+      cancel_request: {
+        primary: "Cancel pending request",
+        secondary: "withdraws the request",
+        shortcut: ["X"],
+      },
+    };
+
+    const STATE_VERBS = {
+      accepted: ["hand_back"],
+      in_progress: ["request_stop", "request_hold", "request_mark_done", "hand_back"],
+      blocked: ["request_unblock", "hand_back", "request_stop"],
+      review: ["request_mark_done", "request_changes"],
+      proposed: [],
+      hold: [],
+      done: [],
+      killed: [],
+    };
+
+    function Shortcut({ keys }) {
+      return (
+        <span className="task-actions-menu__shortcut">
+          {keys.map((k, i) => (
+            <React.Fragment key={i}>
+              {i > 0 && <span className="sep">·</span>}
+              <kbd>{k}</kbd>
+            </React.Fragment>
+          ))}
+        </span>
+      );
+    }
+
+    function MenuItem({ primary, secondary, shortcut, highlighted, danger }) {
+      const className = [
+        "task-actions-menu__item",
+        highlighted ? "task-actions-menu__item--highlighted" : "",
+        danger ? "task-actions-menu__item--danger" : "",
+      ].filter(Boolean).join(" ");
+
+      return (
+        <button type="button" role="menuitem" className={className}>
+          <span className="task-actions-menu__primary">{primary}</span>
+          {shortcut && <Shortcut keys={shortcut} />}
+          {secondary && (
+            <span className="task-actions-menu__secondary">→ {secondary}</span>
+          )}
+        </button>
+      );
+    }
+
+    function TaskActionsMenu({ state, hasPendingRequest, highlightedVerb }) {
+      const stateVerbs = STATE_VERBS[state] || [];
+      const showStateSection = stateVerbs.length > 0;
+
+      return (
+        <div
+          className="task-actions-menu"
+          role="menu"
+          aria-label="Task actions"
+          data-component="TaskActionsMenu"
+          data-tier="2"
+          data-uses=""
+          data-daisyui="dropdown,menu"
+          data-used-by="TaskCard,Kanban"
+          data-ds-component="TaskActionsMenu"
+          data-ds-tier="2"
+          data-ds-source="design-system"
+          data-state={state}
+          data-pending={hasPendingRequest ? "true" : "false"}
+        >
+          {showStateSection && (
+            <>
+              <div className="task-actions-menu__section-label">Request state change</div>
+              {stateVerbs.map((verb) => {
+                const def = VERB_DEFS[verb];
+                return (
+                  <MenuItem
+                    key={verb}
+                    primary={def.primary}
+                    secondary={def.secondary}
+                    shortcut={def.shortcut}
+                    highlighted={highlightedVerb === verb}
+                  />
+                );
+              })}
+            </>
+          )}
+
+          {hasPendingRequest && (
+            <>
+              {showStateSection && <div className="task-actions-menu__divider" />}
+              <MenuItem
+                primary={VERB_DEFS.cancel_request.primary}
+                secondary={VERB_DEFS.cancel_request.secondary}
+                shortcut={VERB_DEFS.cancel_request.shortcut}
+                danger
+              />
+            </>
+          )}
+
+          {(showStateSection || hasPendingRequest) && (
+            <div className="task-actions-menu__divider" />
+          )}
+
+          <div className="task-actions-menu__section-label">Thread</div>
+          <MenuItem
+            primary="Reply in thread…"
+            secondary="send a free-form message"
+            shortcut={["R"]}
+          />
+          <MenuItem
+            primary="Open thread"
+            secondary="jump to the conversation"
+            shortcut={["O", "↵"]}
+          />
+
+          <div className="task-actions-menu__divider" />
+
+          <div className="task-actions-menu__section-label">Other</div>
+          <MenuItem
+            primary="Snooze 24h"
+            secondary="hide from board until tomorrow"
+            shortcut={["Z"]}
+          />
+          <MenuItem
+            primary="Copy task link"
+            shortcut={["⌘", "L"]}
+          />
+        </div>
+      );
+    }
+
+    function Demo() {
+      return (
+        <div className="demo-grid">
+          <div className="demo-section">
+            <div className="demo-section-title">State: in_progress</div>
+            <TaskActionsMenu state="in_progress" highlightedVerb="request_stop" />
+          </div>
+
+          <div className="demo-section">
+            <div className="demo-section-title">State: blocked</div>
+            <TaskActionsMenu state="blocked" />
+          </div>
+
+          <div className="demo-section">
+            <div className="demo-section-title">State: review</div>
+            <TaskActionsMenu state="review" />
+          </div>
+
+          <div className="demo-section">
+            <div className="demo-section-title">State: accepted</div>
+            <TaskActionsMenu state="accepted" />
+          </div>
+
+          <div className="demo-section">
+            <div className="demo-section-title">Pending — cancel verb visible</div>
+            <TaskActionsMenu state="in_progress" hasPendingRequest />
+          </div>
+
+          <div className="demo-section">
+            <div className="demo-section-title">State: proposed (no state-change verbs)</div>
+            <TaskActionsMenu state="proposed" />
+          </div>
+        </div>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById('root')).render(<Demo />);
+  </script>
+  <script src="themes/_switcher.js"></script>
+</body>
+</html>

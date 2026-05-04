@@ -7,6 +7,9 @@
   <link rel="stylesheet" href="_tokens.css" />
   <style>
     .task-card {
+      /* L15: position relative — anchors the absolute `···` trigger and
+         the dropdown menu (menu-open variant). */
+      position: relative;
       background: var(--surface-4);
       border-radius: var(--r2);
       /* K11: pad/gap/title scale per density-audit.md § 3.2.5. The
@@ -29,6 +32,13 @@
     .task-card--blocked {
       border: 1px solid var(--danger);
     }
+    /* L15 menu-open: card outline + raised surface while the actions menu
+       is open. Spec: docs/design-explorations/L15/approved.md § 3.3. */
+    .task-card--menu-open {
+      background: var(--surface-5);
+      outline: 1px solid var(--border-emphasis);
+      outline-offset: -1px;
+    }
 
     .task-card__title {
       /* K11: title font scales with density per § 3.2.5. */
@@ -38,6 +48,8 @@
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
+      /* L15: leave room for the absolute `···` trigger at top-right. */
+      padding-right: 24px;
     }
 
     .task-card__meta {
@@ -49,6 +61,173 @@
     .task-card__owner {
       font-size: 12px;
       color: var(--text-hi);
+    }
+
+    .task-card__row-foot {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    /* L15: the `···` actions trigger.
+       Invisible at rest, fades to 0.6 on hover/focus-within over
+       --motion-fast, fully visible when the menu is open.
+       Spec: docs/design-explorations/L15/approved.md § 3.1–3.3. */
+    .task-card__actions-trigger {
+      position: absolute;
+      top: 6px;
+      right: 6px;
+      width: 22px;
+      height: 22px;
+      border-radius: var(--r1);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--text-lo);
+      opacity: 0;
+      transition: opacity var(--motion-fast), background var(--motion-fast);
+      cursor: pointer;
+      background: transparent;
+      border: none;
+      font-size: 14px;
+      letter-spacing: 0.04em;
+      line-height: 1;
+    }
+    .task-card:hover .task-card__actions-trigger,
+    .task-card:focus-within .task-card__actions-trigger {
+      opacity: 0.6;
+    }
+    .task-card__actions-trigger:hover,
+    .task-card__actions-trigger:focus-visible {
+      opacity: 1;
+      background: var(--surface-6);
+      outline: none;
+    }
+    .task-card--menu-open .task-card__actions-trigger {
+      opacity: 1;
+      background: var(--surface-6);
+    }
+
+    /* L15 pending indicator — replaces the cost slot when the task has an
+       open request in flight. Click opens the thread (NOT the menu).
+       Spec: docs/design-explorations/L15/approved.md § 3.4. */
+    .task-card__pending-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 2px 6px;
+      border-radius: var(--r-pill);
+      font-family: var(--mono);
+      font-size: 11px;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      color: var(--text-mid);
+      background: var(--surface-ghost);
+      border: 1px dashed var(--border-default);
+      cursor: pointer;
+      line-height: 1.4;
+      flex-shrink: 0;
+    }
+    .task-card__pending-chip:hover {
+      background: var(--primary-dim);
+      color: var(--text-hi);
+    }
+
+    /* L15 menu-open: TaskActionsMenu rendered inline as the menu surface.
+       Anchored bottom-end of the trigger. */
+    .task-actions-menu {
+      position: absolute;
+      top: 30px;
+      right: 6px;
+      min-width: 260px;
+      max-width: 280px;
+      background: var(--surface-1);
+      border: 1px solid var(--border-default);
+      border-radius: var(--r2);
+      box-shadow: var(--float);
+      padding: 4px;
+      display: flex;
+      flex-direction: column;
+      gap: 1px;
+      z-index: 10;
+      cursor: default;
+    }
+    .task-actions-menu__section-label {
+      font-family: var(--mono);
+      font-size: 11px;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      font-weight: 500;
+      color: var(--text-lo);
+      padding: 6px 10px 4px 10px;
+    }
+    .task-actions-menu__divider {
+      height: 1px;
+      background: var(--border-subtle);
+      margin: 4px 0;
+    }
+    .task-actions-menu__item {
+      text-align: left;
+      width: 100%;
+      padding: 6px 10px;
+      border-radius: var(--r1);
+      background: transparent;
+      border: none;
+      cursor: pointer;
+      display: grid;
+      grid-template-columns: 1fr auto;
+      align-items: baseline;
+      column-gap: 12px;
+      row-gap: 2px;
+    }
+    .task-actions-menu__item:hover,
+    .task-actions-menu__item:focus-visible {
+      background: var(--surface-ghost);
+      outline: none;
+    }
+    .task-actions-menu__item--highlighted {
+      background: var(--primary-dim);
+    }
+    .task-actions-menu__item--danger .task-actions-menu__primary {
+      color: var(--danger);
+    }
+    .task-actions-menu__primary {
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-hi);
+      line-height: 1.35;
+    }
+    .task-actions-menu__secondary {
+      grid-column: 1 / -1;
+      font-size: 11px;
+      color: var(--text-lo);
+      line-height: 1.35;
+    }
+    .task-actions-menu__shortcut {
+      font-family: var(--mono);
+      font-size: 11px;
+      letter-spacing: 0.04em;
+      color: var(--text-lo);
+      align-self: center;
+    }
+    .task-actions-menu__shortcut kbd {
+      font-family: var(--mono);
+      font-size: 10px;
+      letter-spacing: 0.04em;
+      color: var(--text-mid);
+      background: var(--surface-3);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--r1);
+      padding: 1px 5px;
+      line-height: 1.4;
+    }
+    .task-actions-menu__shortcut kbd + kbd {
+      margin-left: 4px;
+    }
+    .task-actions-menu__shortcut .sep {
+      margin: 0 4px;
+      color: var(--text-lo);
     }
 
     /* --- Tier 1: StatusChip --- */
@@ -172,31 +351,241 @@
       );
     }
 
-    function TaskCard({ title, owner, state, cost, betTag }) {
-      const presentationStatus = TASK_STATE_MAP[state] || "paused";
-      const isBlocked = state === "blocked";
+    /*
+     * L15 — TaskActionsMenu (inline reproduction; the canonical reference
+     * is TaskActionsMenu.html). State-conditional verb subsets, two-line
+     * items, kbd shortcuts. Per docs/design-explorations/L15/approved.md
+     * § 3.5.
+     */
+    const VERB_DEFS = {
+      request_stop: {
+        primary: "Request stop",
+        secondary: "asks the agent to abandon — agent decides",
+        shortcut: ["S"],
+      },
+      request_hold: {
+        primary: "Request hold",
+        secondary: "asks the agent to pause — agent decides",
+        shortcut: ["H"],
+      },
+      request_unblock: {
+        primary: "Request unblock",
+        secondary: "asks the agent to retry — agent decides",
+        shortcut: ["U"],
+      },
+      request_mark_done: {
+        primary: "Request mark done",
+        secondary: "asks the agent to wrap — agent decides",
+        shortcut: ["D"],
+      },
+      request_changes: {
+        primary: "Request changes",
+        secondary: "rejects with comment — agent decides",
+        shortcut: ["C"],
+      },
+      hand_back: {
+        primary: "Hand back to me",
+        secondary: "moves ownership to you — agent confirms",
+        shortcut: ["B"],
+      },
+      cancel_request: {
+        primary: "Cancel pending request",
+        secondary: "withdraws the request",
+        shortcut: ["X"],
+      },
+    };
+
+    const STATE_VERBS = {
+      accepted: ["hand_back"],
+      in_progress: ["request_stop", "request_hold", "request_mark_done", "hand_back"],
+      blocked: ["request_unblock", "hand_back", "request_stop"],
+      review: ["request_mark_done", "request_changes"],
+      proposed: [],
+      hold: [],
+      done: [],
+      killed: [],
+    };
+
+    function Shortcut({ keys }) {
+      return (
+        <span className="task-actions-menu__shortcut">
+          {keys.map((k, i) => (
+            <React.Fragment key={i}>
+              {i > 0 && <span className="sep">·</span>}
+              <kbd>{k}</kbd>
+            </React.Fragment>
+          ))}
+        </span>
+      );
+    }
+
+    function MenuItem({ primary, secondary, shortcut, highlighted, danger }) {
+      const className = [
+        "task-actions-menu__item",
+        highlighted ? "task-actions-menu__item--highlighted" : "",
+        danger ? "task-actions-menu__item--danger" : "",
+      ].filter(Boolean).join(" ");
+
+      return (
+        <button type="button" role="menuitem" className={className}>
+          <span className="task-actions-menu__primary">{primary}</span>
+          {shortcut && <Shortcut keys={shortcut} />}
+          {secondary && (
+            <span className="task-actions-menu__secondary">→ {secondary}</span>
+          )}
+        </button>
+      );
+    }
+
+    function TaskActionsMenu({ state, hasPendingRequest, highlightedVerb }) {
+      const stateVerbs = STATE_VERBS[state] || [];
+      const showStateSection = stateVerbs.length > 0;
 
       return (
         <div
-          className={`task-card${isBlocked ? " task-card--blocked" : ""}`}
+          className="task-actions-menu"
+          role="menu"
+          aria-label="Task actions"
+          data-component="TaskActionsMenu"
+          data-tier="2"
+        >
+          {showStateSection && (
+            <>
+              <div className="task-actions-menu__section-label">Request state change</div>
+              {stateVerbs.map((verb) => {
+                const def = VERB_DEFS[verb];
+                return (
+                  <MenuItem
+                    key={verb}
+                    primary={def.primary}
+                    secondary={def.secondary}
+                    shortcut={def.shortcut}
+                    highlighted={highlightedVerb === verb}
+                  />
+                );
+              })}
+            </>
+          )}
+
+          {hasPendingRequest && (
+            <>
+              {showStateSection && <div className="task-actions-menu__divider" />}
+              <MenuItem
+                primary={VERB_DEFS.cancel_request.primary}
+                secondary={VERB_DEFS.cancel_request.secondary}
+                shortcut={VERB_DEFS.cancel_request.shortcut}
+                danger
+              />
+            </>
+          )}
+
+          {(showStateSection || hasPendingRequest) && (
+            <div className="task-actions-menu__divider" />
+          )}
+
+          <div className="task-actions-menu__section-label">Thread</div>
+          <MenuItem
+            primary="Reply in thread…"
+            secondary="send a free-form message"
+            shortcut={["R"]}
+          />
+          <MenuItem
+            primary="Open thread"
+            secondary="jump to the conversation"
+            shortcut={["O", "↵"]}
+          />
+
+          <div className="task-actions-menu__divider" />
+
+          <div className="task-actions-menu__section-label">Other</div>
+          <MenuItem
+            primary="Snooze 24h"
+            secondary="hide from board until tomorrow"
+            shortcut={["Z"]}
+          />
+          <MenuItem
+            primary="Copy task link"
+            shortcut={["⌘", "L"]}
+          />
+        </div>
+      );
+    }
+
+    function TaskCard({
+      title,
+      owner,
+      state,
+      cost,
+      betTag,
+      pendingRequest,
+      menuOpen,
+      pendingVerb,
+    }) {
+      const presentationStatus = TASK_STATE_MAP[state] || "paused";
+      const isBlocked = state === "blocked";
+      // L15: pending state derives from a request being in flight. The cost
+      // slot is replaced with the pending chip and the menu (when open)
+      // shows the cancel verb. Spec § 3.4.
+      const isPending = Boolean(pendingRequest);
+
+      const className = [
+        "task-card",
+        isBlocked ? "task-card--blocked" : "",
+        menuOpen ? "task-card--menu-open" : "",
+      ].filter(Boolean).join(" ");
+
+      return (
+        <div
+          className={className}
           role="button"
           tabIndex={0}
           data-component="TaskCard"
           data-tier="2"
-          data-uses="StatusChip,Tag,KeyValue"
+          data-uses="StatusChip,Tag,KeyValue,TaskActionsMenu"
           data-daisyui=""
           data-used-by="Kanban"
           data-ds-component="TaskCard"
           data-ds-tier="2"
           data-ds-source="design-system"
+          data-pending={isPending ? "true" : "false"}
+          data-menu-open={menuOpen ? "true" : "false"}
         >
+          <button
+            type="button"
+            className="task-card__actions-trigger"
+            aria-label="Task actions"
+            aria-haspopup="menu"
+            aria-expanded={menuOpen ? "true" : "false"}
+          >
+            ···
+          </button>
           <span className="task-card__title" aria-label={`Task: ${title}`}>{title}</span>
           <div className="task-card__meta">
             {betTag && <Tag label={betTag} />}
             <StatusChip status={presentationStatus} />
           </div>
-          <span className="task-card__owner">{owner}</span>
-          {cost && <KeyValue label="Cost" value={cost} />}
+          <div className="task-card__row-foot">
+            <span className="task-card__owner">{owner}</span>
+            {isPending ? (
+              <button
+                type="button"
+                className="task-card__pending-chip"
+                title={pendingVerb ? `Requested: ${pendingVerb}` : "Request pending"}
+                aria-label="Open thread for pending request"
+              >
+                ↪ Pending
+              </button>
+            ) : (
+              cost && <span className="key-value__value" style={{ fontFamily: "var(--mono)", fontSize: "11px", color: "var(--text-mid)" }}>{cost}</span>
+            )}
+          </div>
+          {menuOpen && (
+            <TaskActionsMenu
+              state={state}
+              hasPendingRequest={isPending}
+              highlightedVerb={STATE_VERBS[state]?.[0]}
+            />
+          )}
         </div>
       );
     }
@@ -247,6 +636,57 @@
               <TaskCard title="In review" owner="Agent" state="review" />
               <TaskCard title="Completed" owner="Agent" state="done" />
               <TaskCard title="Killed" owner="Agent" state="killed" />
+            </div>
+          </div>
+
+          {/* L15 — Pending variant. Cost slot is replaced with the pending
+              chip; the menu (if opened) would show "Cancel pending request".
+              Spec: docs/design-explorations/L15/approved.md § 3.4. */}
+          <div className="demo-section" data-variant="pending">
+            <div className="demo-section-title">Pending request (cost slot replaced)</div>
+            <TaskCard
+              title="Rate limit middleware"
+              owner="Dev Agent 1"
+              state="in_progress"
+              cost="$2.00"
+              betTag="API"
+              pendingRequest
+              pendingVerb="Request stop"
+            />
+          </div>
+
+          {/* L15 — Menu-open variant. Card outline + raised surface; the
+              TaskActionsMenu is rendered in-flow over the card.
+              Spec: docs/design-explorations/L15/approved.md § 3.3. */}
+          <div className="demo-section" data-variant="menu-open">
+            <div className="demo-section-title">Menu open</div>
+            <div style={{ minHeight: "440px" }}>
+              <TaskCard
+                title="Rate limit middleware"
+                owner="Dev Agent 1"
+                state="in_progress"
+                cost="$2.00"
+                betTag="API"
+                menuOpen
+              />
+            </div>
+          </div>
+
+          {/* L15 — Pending + menu open. The cancel verb appears at the top
+              of the menu in danger color; the cost slot still shows the
+              pending chip. */}
+          <div className="demo-section" data-variant="menu-open-pending">
+            <div className="demo-section-title">Menu open — pending</div>
+            <div style={{ minHeight: "460px" }}>
+              <TaskCard
+                title="JWT refresh logic"
+                owner="Dev Agent 1"
+                state="blocked"
+                betTag="Auth"
+                menuOpen
+                pendingRequest
+                pendingVerb="Request unblock"
+              />
             </div>
           </div>
         </div>

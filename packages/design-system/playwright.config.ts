@@ -2,7 +2,7 @@ import { defineConfig } from "@playwright/test";
 
 export default defineConfig({
 	testDir: "src/__tests__",
-	testMatch: "visual-regression.test.ts",
+	testMatch: ["visual-regression.test.ts", "**/*.visual.test.tsx"],
 	fullyParallel: false,
 	workers: 1,
 	reporter: [["html", { open: "never" }]],

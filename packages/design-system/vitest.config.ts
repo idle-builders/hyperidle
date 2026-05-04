@@ -8,7 +8,12 @@ export default defineProject({
 		// `*.test.ts` files (e.g. zod) doesn't get picked up by the runner.
 		// Vitest project-level `exclude` replaces the root's value rather
 		// than extending it.
-		exclude: ["**/node_modules/**", "**/visual-regression*", "tests/**"],
+		exclude: [
+			"**/node_modules/**",
+			"**/visual-regression*",
+			"**/*.visual.test.tsx",
+			"tests/**",
+		],
 		// Inline shared so its transitive `zod` import resolves under the
 		// project's node resolver.
 		server: { deps: { inline: ["@hyperidle/shared"] } },
