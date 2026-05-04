@@ -1,10 +1,27 @@
-import { readFileSync } from "node:fs";
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
-import { render, screen } from "@testing-library/react";
+/**
+ * L15 — Kanban is now read-only. Drag is removed; the only mutation
+ * affordances on a TaskCard are the `request state change` menu and the
+ * `Open thread` row (both surfaced via `<TaskRequestMenu>` injected into the
+ * TaskCard `actions` slot by `<KanbanTaskCardWithMenu>`).
+ *
+ * NOTE: This file replaces the prior I4 drag-asserting tests. The previous
+ * `imports KeyboardSensor from @dnd-kit/core` test, the `COLUMN_TO_STATE`
+ * round-trip test, and the `data-testid='draggable-task-…'` assumption have
+ * all been REMOVED on purpose — those are the very contracts L15 strips out.
+ * See `Kanban.no-dnd-import.test.ts` for the source-level tripwire that
+ * pins the removal.
+ *
+ * Source of truth: `plans/L15-plan.md` §4.5 + AC-1 + protected tests §9.
+ *
+ * Red phase: `KanbanProps.onMoveTask` is still required and the test file
+ * does not yet provide `onSubmitTaskRequest`/`onOpenTaskThread`, so every
+ * render call fails the typechecker. Green phase swaps the contract.
+ */
+
+import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import type { KanbanTask } from "../shell/Kanban";
-import { Kanban } from "../shell/Kanban";
+import { groupTasksByBet, Kanban } from "../shell/Kanban";
 
 const plannedTask: KanbanTask = {
 	id: "task-1",
@@ -34,96 +51,134 @@ const doneTask: KanbanTask = {
 	state: "done",
 };
 
-describe("Kanban", () => {
-	it("renders four state columns", () => {
-		render(
-			<Kanban tasks={[plannedTask, inProgressTask, blockedTask, doneTask]} onMoveTask={vi.fn()} />,
-		);
+const noopSubmit = vi.fn(async () => {});
+const noopOpen = vi.fn();
+
+function renderKanban(tasks: KanbanTask[], groupByBet?: boolean): ReturnType<typeof render> {
+	return render(
+		<Kanban
+			tasks={tasks}
+			onSubmitTaskRequest={noopSubmit}
+			onOpenTaskThread={noopOpen}
+			groupByBet={groupByBet}
+		/>,
+	);
+}
+
+describe("Kanban — read-only column rendering (L15)", () => {
+	it("renders the four state columns", () => {
+		renderKanban([plannedTask, inProgressTask, blockedTask, doneTask]);
 		expect(screen.getByText("Planned")).toBeInTheDocument();
 		expect(screen.getByText("Blocked")).toBeInTheDocument();
 		expect(screen.getByText("In Progress")).toBeInTheDocument();
 		expect(screen.getByText("Done")).toBeInTheDocument();
 	});
 
-	it("renders tasks in their respective columns", () => {
-		render(
-			<Kanban tasks={[plannedTask, inProgressTask, blockedTask, doneTask]} onMoveTask={vi.fn()} />,
-		);
+	it("places each task in its column based on state", () => {
+		renderKanban([plannedTask, inProgressTask, blockedTask, doneTask]);
 		expect(screen.getByText("Setup CI")).toBeInTheDocument();
 		expect(screen.getByText("Build API")).toBeInTheDocument();
 		expect(screen.getByText("Review PR")).toBeInTheDocument();
 		expect(screen.getByText("Deploy")).toBeInTheDocument();
 	});
 
-	it("renders empty state for columns with no tasks", () => {
-		render(<Kanban tasks={[plannedTask]} onMoveTask={vi.fn()} />);
-		// Other columns show empty state
+	it("renders empty state for columns with no tasks (no drag prompt)", () => {
+		renderKanban([plannedTask]);
 		const emptyMessages = screen.getAllByText(/No tasks in/);
 		expect(emptyMessages.length).toBeGreaterThan(0);
+		// L15 §4.5: the legacy "Drag tasks here…" copy is removed.
+		expect(screen.queryByText(/Drag tasks here/)).not.toBeInTheDocument();
 	});
 
-	it("renders tasks in the correct column based on their state", () => {
-		const { container } = render(
-			<Kanban tasks={[plannedTask, inProgressTask, blockedTask, doneTask]} onMoveTask={vi.fn()} />,
-		);
-		// Verify each task text appears in the rendered output
-		expect(container.textContent).toContain("Setup CI");
-		expect(container.textContent).toContain("Build API");
-		expect(container.textContent).toContain("Review PR");
-		expect(container.textContent).toContain("Deploy");
-	});
-
-	it("excludes tasks with states not in the kanban columns", () => {
+	it("excludes tasks with states not mapped to columns (hold, killed)", () => {
 		const holdTask: KanbanTask = {
 			id: "task-5",
 			title: "Hold Task",
 			owner: "Agent Epsilon",
 			state: "hold",
 		};
-		render(<Kanban tasks={[holdTask]} onMoveTask={vi.fn()} />);
-		// Hold is not mapped to any kanban column, so the task should not appear
+		renderKanban([holdTask]);
 		expect(screen.queryByText("Hold Task")).not.toBeInTheDocument();
 	});
 
-	it("renders TaskCard components showing owner", () => {
-		render(<Kanban tasks={[plannedTask, inProgressTask]} onMoveTask={vi.fn()} />);
-		expect(screen.getByText("Agent Alpha")).toBeInTheDocument();
-		expect(screen.getByText("Agent Beta")).toBeInTheDocument();
-	});
-
-	it("shows column task counts", () => {
-		const tasks: KanbanTask[] = [
-			{ id: "t1", title: "Task 1", owner: "A", state: "accepted" },
-			{ id: "t2", title: "Task 2", owner: "B", state: "proposed" },
-			{ id: "t3", title: "Task 3", owner: "C", state: "in_progress" },
-		];
-		render(<Kanban tasks={tasks} onMoveTask={vi.fn()} />);
-		// Planned column should show count 2 (accepted + proposed)
-		expect(screen.getByText("2")).toBeInTheDocument();
-		// In Progress column should show count 1
-		expect(screen.getByText("1")).toBeInTheDocument();
-	});
-
 	it("uses responsive grid classes grid-cols-1 sm:grid-cols-2 lg:grid-cols-4", () => {
-		// I4 R3: per spec, Kanban must use breakpoint-responsive grid columns.
-		const { container } = render(<Kanban tasks={[]} onMoveTask={vi.fn()} />);
+		const { container } = renderKanban([]);
 		const grid = container.querySelector(".grid");
 		expect(grid).not.toBeNull();
 		expect(grid?.className).toContain("grid-cols-1");
 		expect(grid?.className).toContain("sm:grid-cols-2");
 		expect(grid?.className).toContain("lg:grid-cols-4");
 	});
+});
 
-	it("imports KeyboardSensor from @dnd-kit/core (keyboard a11y)", () => {
-		// I4 KB1: KeyboardSensor must be part of the sensor configuration.
-		// Vitest+jsdom cannot introspect opaque dnd-kit sensor descriptors,
-		// so we verify the source-level contract instead — the Playwright
-		// test in keyboard-and-responsive.spec.ts covers the full keyboard
-		// drag behaviour in a real browser.
-		const Filename = fileURLToPath(import.meta.url);
-		const Dirname = dirname(Filename);
-		const src = readFileSync(join(Dirname, "..", "shell", "Kanban.tsx"), "utf8");
-		expect(src).toMatch(/KeyboardSensor/);
-		expect(src).toMatch(/useSensor\(\s*KeyboardSensor/);
+describe("Kanban — drag is a no-op on tasks (AC-1)", () => {
+	it("does NOT render the legacy `data-testid='draggable-task-…'` wrapper around any task", () => {
+		// The old wrapper was the smoking gun for `useDraggable`. After L15
+		// the wrapper is gone entirely and the TaskCard is rendered raw inside
+		// the column.
+		renderKanban([plannedTask, inProgressTask]);
+		expect(screen.queryByTestId(/^draggable-task-/)).toBeNull();
+	});
+
+	it("does NOT render any `data-droppable-column` zones (no useDroppable)", () => {
+		const { container } = renderKanban([plannedTask, inProgressTask]);
+		const droppable = container.querySelector("[data-droppable-column]");
+		expect(droppable).toBeNull();
+	});
+
+	it("simulating a drag (pointerdown → pointermove → pointerup) is a no-op (no callback fires)", async () => {
+		const onSubmit = vi.fn(async () => {});
+		const onOpen = vi.fn();
+		render(
+			<Kanban
+				tasks={[plannedTask, inProgressTask]}
+				onSubmitTaskRequest={onSubmit}
+				onOpenTaskThread={onOpen}
+			/>,
+		);
+		const card = screen.getByText("Build API").closest("div");
+		expect(card).not.toBeNull();
+		if (card) {
+			fireEvent.pointerDown(card, { clientX: 0, clientY: 0 });
+			fireEvent.pointerMove(card, { clientX: 200, clientY: 0 });
+			fireEvent.pointerUp(card, { clientX: 200, clientY: 0 });
+		}
+		// Read-only: NO mutation callback should fire from a drag attempt.
+		expect(onSubmit).not.toHaveBeenCalled();
+		expect(onOpen).not.toHaveBeenCalled();
+	});
+});
+
+describe("Kanban — KanbanProps no longer carries onMoveTask (AC-1)", () => {
+	it("the resolveKanbanDrop helper is no longer exported from the module", async () => {
+		const mod = (await import("../shell/Kanban")) as Record<string, unknown>;
+		// AC-1 (plan §4.5 + §9.1): both the helper AND the COLUMN_TO_STATE map
+		// are deleted. Their continued existence is the regression smell.
+		expect(mod.resolveKanbanDrop).toBeUndefined();
+		expect(mod.COLUMN_TO_STATE).toBeUndefined();
+	});
+});
+
+describe("Kanban — groupTasksByBet pure helper (preserved from J5)", () => {
+	it("groups tasks by betTag preserving input order", () => {
+		const tasks: KanbanTask[] = [
+			{ id: "a", title: "A", owner: "x", state: "accepted", betTag: "Auth" },
+			{ id: "b", title: "B", owner: "x", state: "accepted", betTag: "Dash" },
+			{ id: "c", title: "C", owner: "x", state: "accepted", betTag: "Auth" },
+		];
+		const groups = groupTasksByBet(tasks);
+		expect(groups.map((g) => g.bet)).toEqual(["Auth", "Dash"]);
+		expect(groups[0].tasks.map((t) => t.id)).toEqual(["a", "c"]);
+		expect(groups[1].tasks.map((t) => t.id)).toEqual(["b"]);
+	});
+
+	it("buckets unset betTag under 'Unassigned'", () => {
+		const tasks: KanbanTask[] = [
+			{ id: "a", title: "A", owner: "x", state: "accepted" },
+			{ id: "b", title: "B", owner: "x", state: "accepted", betTag: "Auth" },
+		];
+		const groups = groupTasksByBet(tasks);
+		expect(groups[0].bet).toBe("Unassigned");
+		expect(groups[1].bet).toBe("Auth");
 	});
 });

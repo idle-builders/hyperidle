@@ -2,12 +2,20 @@
  * Work/Team page — composes Canvas (top) + Kanban (bottom) + PitchSelector
  * (overlay). Spec: HUMAN_INTERFACE_LAYER.md §4 — Team view shows the team's
  * current bets at the top and a per-task kanban board beneath.
+ *
+ * @lore L15: drag/drop is removed from the Kanban; tasks are agent-team-owned.
+ * Humans interact via `<TaskRequestMenu>` (request a state change) and
+ * `Open thread` (navigate to Conversations). The legacy move-task callback
+ * plumbing is gone — task state lives server-side.
  */
-import { type JSX, useCallback, useState } from "react";
+import type { TaskRequestSubmission } from "@hyperidle/design-system";
+import { generateRequestMessageText, type InlineRef, verbLabelFor } from "@hyperidle/shared";
+import { type JSX, useCallback, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import type { CanvasBet } from "../shell/Canvas";
 import { Canvas } from "../shell/Canvas";
-import type { KanbanColumnState, KanbanTask } from "../shell/Kanban";
-import { COLUMN_TO_STATE, Kanban } from "../shell/Kanban";
+import type { KanbanTask } from "../shell/Kanban";
+import { Kanban } from "../shell/Kanban";
 import type { PitchSelectorPitch } from "../shell/PitchSelector";
 import { PitchSelector } from "../shell/PitchSelector";
 
@@ -108,16 +116,110 @@ const MOCK_PITCHES: PitchSelectorPitch[] = [
 	},
 ];
 
+// L15 adversary C3: memoise the clientKey per (taskId, requestedState,
+// note-text-hash) within a 2-second window so a rapid double-click before
+// the first POST is in flight still dedupes server-side. The TaskRequestMenu's
+// in-flight guard alone does not cover the case where the SECOND click fires
+// before React has flushed `setSubmitting(true)`.
+const CLIENT_KEY_DEDUPE_WINDOW_MS = 2000;
+
+interface ClientKeyCacheEntry {
+	readonly key: string;
+	readonly mintedAt: number;
+}
+
+function hashNote(note: string | null): string {
+	// Tiny non-cryptographic hash — only needs to differ when the note text
+	// differs. Used purely as a cache key qualifier.
+	if (note === null) return "0";
+	let h = 0;
+	for (let i = 0; i < note.length; i += 1) {
+		h = (h * 31 + note.charCodeAt(i)) | 0;
+	}
+	return h.toString(36);
+}
+
 export function WorkTeam(): JSX.Element {
-	const [tasks, setTasks] = useState<KanbanTask[]>(INITIAL_TASKS);
+	const navigate = useNavigate();
+	const [tasks] = useState<readonly KanbanTask[]>(INITIAL_TASKS);
 	const [pitchSelectorOpen, setPitchSelectorOpen] = useState(false);
 	const [selectedPitchIds, setSelectedPitchIds] = useState<string[]>([]);
+	const clientKeyCache = useRef<Map<string, ClientKeyCacheEntry>>(new Map());
 
-	const handleMoveTask = useCallback((taskId: string, targetColumn: KanbanColumnState): void => {
-		// I4 K1: map the Kanban column key to the canonical TaskState.
-		const targetState = COLUMN_TO_STATE[targetColumn];
-		setTasks((prev) => prev.map((t) => (t.id === taskId ? { ...t, state: targetState } : t)));
-	}, []);
+	const mintOrReuseClientKey = useCallback(
+		(taskId: string, targetState: string | null, note: string | null): string => {
+			const cacheKey = `${taskId}|${targetState ?? "null"}|${hashNote(note)}`;
+			const now = Date.now();
+			const existing = clientKeyCache.current.get(cacheKey);
+			if (existing && now - existing.mintedAt < CLIENT_KEY_DEDUPE_WINDOW_MS) {
+				return existing.key;
+			}
+			const fresh = crypto.randomUUID();
+			clientKeyCache.current.set(cacheKey, { key: fresh, mintedAt: now });
+			return fresh;
+		},
+		[],
+	);
+
+	const handleSubmitTaskRequest = useCallback(
+		async (taskId: string, req: TaskRequestSubmission): Promise<void> => {
+			const task = tasks.find((t) => t.id === taskId);
+			if (!task) return;
+			const verbLabel = req.targetState === null ? null : verbLabelFor(task.state, req.targetState);
+			const text = generateRequestMessageText({
+				taskTitle: task.title,
+				targetState: req.targetState,
+				targetVerbLabel: verbLabel,
+				note: req.note,
+			});
+			const refs: InlineRef[] = [];
+			if (req.targetState !== null) {
+				refs.push({
+					kind: "request_state_change",
+					taskId,
+					requestedState: req.targetState,
+				});
+			}
+			const body = {
+				type: "plain" as const,
+				payload: { text, refs },
+				clientKey: mintOrReuseClientKey(taskId, req.targetState, req.note),
+			};
+			const res = await fetch(`/api/tasks/${taskId}/thread/messages`, {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify(body),
+			});
+			if (!res.ok) {
+				throw new Error(`Request failed: ${res.status}`);
+			}
+		},
+		[tasks, mintOrReuseClientKey],
+	);
+
+	const handleOpenTaskThread = useCallback(
+		(taskId: string): void => {
+			void (async () => {
+				const res = await fetch(`/api/tasks/${taskId}/thread`, {
+					method: "GET",
+					headers: { "Content-Type": "application/json" },
+				});
+				if (res.status === 404) {
+					// L15 F1: GET is non-mutating; if no thread has been minted yet,
+					// land on the conversations page filtered by task — the user can
+					// initiate from there or via the request menu.
+					navigate(`/conversations?taskId=${encodeURIComponent(taskId)}`);
+					return;
+				}
+				if (!res.ok) {
+					throw new Error(`Failed to open task thread: ${res.status}`);
+				}
+				const data = (await res.json()) as { thread: { id: string } };
+				navigate(`/conversations?id=${encodeURIComponent(data.thread.id)}`);
+			})();
+		},
+		[navigate],
+	);
 
 	const handleMoveBet = useCallback(
 		(_betId: string, _targetStatus: "shaped" | "committed"): void => {
@@ -151,9 +253,6 @@ export function WorkTeam(): JSX.Element {
 				</button>
 			</div>
 
-			{/* I4 P2: Canvas (committed bets overview) on top, Kanban below.
-			    J5: PitchSelector is an overlay that REPLACES the Kanban when
-			    open (not inlined above it). */}
 			<div data-testid="work-team-canvas">
 				<Canvas bets={CANVAS_BETS} capacity={3} onMoveBet={handleMoveBet} />
 			</div>
@@ -167,7 +266,12 @@ export function WorkTeam(): JSX.Element {
 				/>
 			) : (
 				<div data-testid="work-team-kanban">
-					<Kanban tasks={tasks} onMoveTask={handleMoveTask} groupByBet />
+					<Kanban
+						tasks={[...tasks]}
+						onSubmitTaskRequest={handleSubmitTaskRequest}
+						onOpenTaskThread={handleOpenTaskThread}
+						groupByBet
+					/>
 				</div>
 			)}
 		</div>

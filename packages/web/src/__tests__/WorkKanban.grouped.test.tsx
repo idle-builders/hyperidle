@@ -1,9 +1,15 @@
 /**
- * J5 — Kanban tasks grouped by bet with collapsible group headers.
+ * J5 — Kanban tasks grouped by bet under collapsible group headers.
  *
- * AC: TaskCards grouped by bet under bet-name headers showing task count.
- * Drag behavior preserved within groups (dnd-kit wiring untouched).
+ * UPDATED FOR L15: drag is removed from the Kanban; the bet-grouping
+ * structure stays. The legacy `data-testid='draggable-task-…'` assertion
+ * is replaced with `screen.getByText(<title>)` because tasks are now
+ * rendered without the draggable wrapper.
+ *
+ * Red phase: `<Kanban>` no longer accepts `onMoveTask`; the new contract
+ * requires `onSubmitTaskRequest` + `onOpenTaskThread`.
  */
+
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
@@ -34,20 +40,26 @@ const dashTask: KanbanTask = {
 	betTag: "Dashboard",
 };
 
-describe("Kanban — bet grouping (J5)", () => {
+function renderGrouped(tasks: KanbanTask[]): ReturnType<typeof render> {
+	return render(
+		<Kanban
+			tasks={tasks}
+			onSubmitTaskRequest={vi.fn(async () => {})}
+			onOpenTaskThread={vi.fn()}
+			groupByBet
+		/>,
+	);
+}
+
+describe("Kanban — bet grouping (J5, drag-stripped per L15)", () => {
 	it("renders a bet group header per distinct bet (one per column the bet appears in)", () => {
-		render(<Kanban tasks={[authTask, authTask2, dashTask]} onMoveTask={vi.fn()} groupByBet />);
-		// authTask (accepted → planned) and authTask2 (in_progress) live in
-		// different columns, so the Auth header appears twice (one per
-		// column). Dashboard has a single task so it appears once.
+		renderGrouped([authTask, authTask2, dashTask]);
 		expect(screen.getAllByRole("button", { name: /Auth group/i }).length).toBe(2);
 		expect(screen.getAllByRole("button", { name: /Dashboard group/i }).length).toBe(1);
 	});
 
 	it("bet group header shows task count for its column", () => {
-		render(<Kanban tasks={[authTask, authTask2, dashTask]} onMoveTask={vi.fn()} groupByBet />);
-		// Each of the two Auth headers shows 1 (one task in its column).
-		// Dashboard shows 1.
+		renderGrouped([authTask, authTask2, dashTask]);
 		const authHeaders = screen.getAllByRole("button", { name: /Auth group/i });
 		for (const header of authHeaders) {
 			expect(header.textContent).toMatch(/1/);
@@ -58,32 +70,35 @@ describe("Kanban — bet grouping (J5)", () => {
 
 	it("collapses/expands bet groups when header is clicked", async () => {
 		const user = userEvent.setup();
-		render(<Kanban tasks={[authTask, authTask2, dashTask]} onMoveTask={vi.fn()} groupByBet />);
-		// Initially expanded: all titles visible
+		renderGrouped([authTask, authTask2, dashTask]);
 		expect(screen.getByText("Login endpoint")).toBeInTheDocument();
 		expect(screen.getByText("Widget layout")).toBeInTheDocument();
 
-		// Collapsing any Auth header toggles all Auth groups together.
 		const [firstAuthHeader] = screen.getAllByRole("button", { name: /Auth group/i });
 		await user.click(firstAuthHeader);
 
-		// Auth collapsed → Auth tasks not visible, Dashboard still visible
 		expect(screen.queryByText("Login endpoint")).not.toBeInTheDocument();
 		expect(screen.queryByText("JWT refresh")).not.toBeInTheDocument();
 		expect(screen.getByText("Widget layout")).toBeInTheDocument();
 	});
 
 	it("does not render bet group headers when groupByBet is false", () => {
-		render(<Kanban tasks={[authTask, dashTask]} onMoveTask={vi.fn()} />);
+		render(
+			<Kanban
+				tasks={[authTask, dashTask]}
+				onSubmitTaskRequest={vi.fn(async () => {})}
+				onOpenTaskThread={vi.fn()}
+			/>,
+		);
 		expect(screen.queryByRole("button", { name: /Auth group/i })).not.toBeInTheDocument();
 	});
 
-	it("preserves draggable wrappers for each task in groups", () => {
-		// Drag behaviour contract: each task still carries its
-		// `data-testid='draggable-task-…'` regardless of grouping.
-		render(<Kanban tasks={[authTask, authTask2, dashTask]} onMoveTask={vi.fn()} groupByBet />);
-		expect(screen.getByTestId("draggable-task-t1")).toBeInTheDocument();
-		expect(screen.getByTestId("draggable-task-t2")).toBeInTheDocument();
-		expect(screen.getByTestId("draggable-task-t3")).toBeInTheDocument();
+	it("renders each task title even though the draggable wrapper is gone (L15)", () => {
+		renderGrouped([authTask, authTask2, dashTask]);
+		expect(screen.getByText("Login endpoint")).toBeInTheDocument();
+		expect(screen.getByText("JWT refresh")).toBeInTheDocument();
+		expect(screen.getByText("Widget layout")).toBeInTheDocument();
+		// L15: legacy draggable wrappers are gone.
+		expect(screen.queryByTestId(/^draggable-task-/)).toBeNull();
 	});
 });
