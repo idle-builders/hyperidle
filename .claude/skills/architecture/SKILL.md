@@ -1,6 +1,6 @@
 ---
 name: architecture
-description: "Produce the technical plan for a story — types, schemas, APIs, file paths, ordered tasks. Designer interrogates the spec, then drafts; adversary challenges. Run AFTER /concept (always) and AFTER /design (when the story has UI)."
+description: "Produce the technical plan for a story — types, schemas, APIs, file paths, ordered tasks. Interrogate the spec, draft, self-critique against 9-dimension rubric. Run AFTER /concept (always) and AFTER /design (when the story has UI)."
 argument-hint: "[story-id]"
 user-invocable: true
 min_tool_calls: 25
@@ -85,11 +85,11 @@ For each alternative: 1-paragraph shape, 1 trade-off, 1 reason to reject. The sy
 
 Skip when the decision is forced (existing pattern, single sane shape, low blast radius). Don't theatre-design where one obvious answer exists.
 
-## Phase 4 — Adversary challenge + self-critique (in-session)
+## Phase 4 — Self-critique (in-session)
 
-Spawn an **adversary agent** to challenge the plan — over-engineering, missing deps, gaps in AC coverage, scope creep snuck in during interrogation, missing security/abuse cases, missing protected-test list, route-checklist gaps. Address critical issues. Max 1 round.
+Switch to adversarial thinking. Challenge your own plan: over-engineering, missing deps, gaps in AC coverage, scope creep snuck in during interrogation, missing security/abuse cases, missing protected-test list, route-checklist gaps. Address critical issues. Max 1 round.
 
-Then **score the plan yourself in this same session** against the 9-dimension architectural rubric below, in author-then-critic mode. Don't spawn a separate session; the critique loop counter lives inline in this skill's output. Iterate fixes until score ≥ 7 or 3 rounds reached. Output the final score line so downstream skills (and the retro) can read the iteration count.
+Then **score the plan** against the 9-dimension architectural rubric below, in author-then-critic mode. The critique loop counter lives inline in this skill's output. Iterate fixes until score ≥ 7 or 3 rounds reached. Output the final score line so downstream skills (and the retro) can read the iteration count.
 
 ### Architectural rubric (0-10 each, averaged)
 

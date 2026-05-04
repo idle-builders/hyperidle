@@ -124,9 +124,9 @@ Doc structure (adapt sections that aren't relevant; don't pad):
 **Rationale.** The founder reframe or design tension that drove this shape (one paragraph). Future agents need to know WHY, not just WHAT, so they don't re-litigate.
 ```
 
-## Phase 6 — Adversary challenge on the concept
+## Phase 6 — Challenge the concept (in-session self-critique)
 
-Spawn an **adversary agent** to challenge the concept (NOT the downstream design / plan — that comes later):
+Switch to adversarial thinking. Challenge your own concept — NOT the downstream design / plan:
 - Is the rejection list a real list of distinct things, or three flavours of one thing?
 - Does the canonical term collide with an existing term in the codebase or in any specific `docs/<topic>/<file>.md`? (`grep` to verify.)
 - Are the contracts complete, or do they hand-wave on cardinality / closure / mutability / identity?

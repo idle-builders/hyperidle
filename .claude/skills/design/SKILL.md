@@ -92,9 +92,9 @@ For `routine`: produce **one** variant honoring the named existing component / p
 
 For `routine-low-conf`: produce **two** variants — A "stay close to existing pattern" and B "challenge the existing pattern".
 
-For `novel` (and all L1/L2/L3 primitives): spawn **three `designer` sub-agents in parallel**. Each must produce a **radically different** approach. Anti-convergence is a hard rule: variants that all feel like minor tweaks of one idea = fail.
+For `novel` (and all L1/L2/L3 primitives): produce **three radically different** variants. Anti-convergence is a hard rule: variants that all feel like minor tweaks of one idea = fail.
 
-Each agent receives the workpackage brief + design-system pointers + a different **constraint-and-thesis pairing** so the spread is intentional, not accidental:
+Each variant uses the workpackage brief + design-system pointers + a different **constraint-and-thesis pairing** so the spread is intentional, not accidental:
 
 ```
 Variant A — "Minimal scaffold"
@@ -128,14 +128,14 @@ Variant C — "Layered" (a base layer that always renders + extension slots that
             consumers fill — the React `children`-as-slot pattern).
 ```
 
-Anti-convergence requirement — verify before Phase 2 dispatches:
+Anti-convergence requirement — verify before Phase 2:
 - Variants must differ on **at least 3 of these axes per pair**: hierarchy (where the eye lands first), density (how much fits per row/screen), state strategy (one canonical layout vs distinct shapes per state), motion (where it moves), action surface (where verbs live), composition (one component vs three), copy register (terse vs guided).
 
 If two variants converge, regenerate. Do not proceed with three flavours of one thing.
 
 ### Output per variant — the spec is concrete OR it doesn't count
 
-Each sub-agent produces, in `plans/<workpackage-id>/design/<variant-slug>/`:
+Each variant produces, in `plans/<workpackage-id>/design/<variant-slug>/`:
 
 1. **`spec.md`** — opinionated spec, no hand-waving:
    - User workpackage (1 sentence — who, what, why)
