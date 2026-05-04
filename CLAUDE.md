@@ -46,7 +46,7 @@ When you make a non-obvious decision, encounter a cross-cutting constraint, or d
 
 Three-layer system with strict downward dependency: Human Interface → Meta Layer → Agent Runtime. No layer reaches past its neighbor.
 
-**Source of truth:** `docs/` — split by topic, see `docs/index.md` for the routing table. Story specs in `plans/work-packages/`. Agent artifacts (architecture plans, design explorations, reviews) in `plans/`. Agent personas in `docs/souls/`.
+**Source of truth:** `docs/` — split by topic into folders (e.g. `docs/architecture/`, `docs/process-layer/`). Each folder has an `index.md` and per-section files. Story specs in `plans/work-packages/`. Agent artifacts (architecture plans, design explorations, reviews) in `plans/`. Agent personas in `docs/souls/`.
 
 ---
 
