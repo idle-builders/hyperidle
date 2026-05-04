@@ -10,14 +10,14 @@ min_tool_calls: 18
 
 Upstream of `/design` and `/architecture`. Answers "what IS this thing?" — the layer where Thread is distinguished from Message, Block from Section, Artifact from Output, Bet from Task, Cost from Duration.
 
-**Skip when:** the concept is already locked in `docs/concept/` and the story doesn't reshape it. Read the relevant `docs/concept/*.md` section (anchor-scoped via `bun run docs:read`) first; if it answers Phase 1 without contradiction, skip.
+**Skip when:** the concept is already locked in `docs/concept/` and the story doesn't reshape it. Read the relevant `docs/concept/<topic>/<section>.md` (via `bun run docs:read <topic>#<section>`) first; if it answers Phase 1 without contradiction, skip.
 
 ## Required reading (use anchors)
 
 1. Story in `docs/work-packages/TRACK-<letter>.md` — central vs incidental nouns.
 2. `docs/work-packages/SHARED.md#shared-contracts` — does the noun already have a contract?
-3. Relevant `docs/concept/*.md` sections (anchor-scoped).
-4. `docs/concept/archive/` — prior versions, if any.
+3. Relevant `docs/concept/<topic>/<section>.md` files (via `bun run docs:read <topic>#<section>`).
+4. `plans/archive/` — prior versions, if any.
 
 If the spec contradicts an existing concept doc, that's CRITICAL. Surface it; don't silently re-define.
 
@@ -95,8 +95,8 @@ Each contract is one line. The architect later turns these into types, schemas, 
 ## Phase 5 — Write or update `docs/concept/`
 
 The output is a concept doc, not a chat summary. Write to:
-- A new section in `docs/concept/<existing-doc>.md` if the concept fits an existing layer (Thread → `HUMAN_INTERFACE_LAYER.md`, Block → `HUMAN_INTERFACE_LAYER.md` + `BLOCKS.md`, Artifact → `HUMAN_INTERFACE_LAYER.md` + `PROCESS_LAYER.md`).
-- A new `docs/concept/<NOUN>.md` if the concept is large enough to warrant its own doc (TRACK-L L2 explicitly calls for `BLOCKS.md`).
+- A new section file in `docs/concept/<topic>/` if the concept fits an existing layer (Thread → `human-interface-layer/`, Block → `human-interface-layer/` + `blocks/`, Artifact → `human-interface-layer/` + `process-layer/`).
+- A new `docs/concept/<noun>/` directory if the concept is large enough to warrant its own topic.
 - An update to `docs/work-packages/SHARED.md` "Shared Contracts" so downstream stories reference it without re-inventing.
 
 Doc structure (adapt sections that aren't relevant; don't pad):

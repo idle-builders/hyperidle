@@ -71,8 +71,17 @@ interface ArtifactCommonProps {
 
 // --- Discriminated union props ---
 
+/**
+ * @lore L6: text_diff variant gains an optional `onAddComment` callback.
+ * When provided, each diff line renders a gutter "+ Comment" affordance
+ * that the RequestChangesComposer wires into its draft list.
+ */
 export type ArtifactViewProps =
-	| ({ shape: "text_diff"; data: TextDiffData } & ArtifactCommonProps)
+	| ({
+			shape: "text_diff";
+			data: TextDiffData;
+			onAddComment?: (lineKey: string, lineIndex: number, preview: string) => void;
+	  } & ArtifactCommonProps)
 	| ({ shape: "content_preview"; data: ContentPreviewData } & ArtifactCommonProps)
 	| ({ shape: "visual_comparison"; data: VisualComparisonData } & ArtifactCommonProps)
 	| ({ shape: "action_summary"; data: ActionSummaryData } & ArtifactCommonProps)
@@ -92,7 +101,13 @@ const DIFF_LINE_PREFIX: Record<DiffLine["type"], string> = {
 
 // --- Sub-components ---
 
-function TextDiffView({ data }: { data: TextDiffData }): JSX.Element {
+function TextDiffView({
+	data,
+	onAddComment,
+}: {
+	data: TextDiffData;
+	onAddComment?: (lineKey: string, lineIndex: number, preview: string) => void;
+}): JSX.Element {
 	if (data.hunks.length === 0) {
 		return <p className="text-sm text-[var(--text-lo)]">No diff available</p>;
 	}
@@ -103,18 +118,40 @@ function TextDiffView({ data }: { data: TextDiffData }): JSX.Element {
 				{data.hunks.map((hunk) => (
 					<div key={hunk.header}>
 						<div className="text-[var(--text-lo)] select-none px-2 py-1">{hunk.header}</div>
-						{hunk.lines.map((line, li) => (
-							<div
-								key={`${hunk.header}-${li}-${line.type}`}
-								data-diff-type={line.type}
-								className={`px-2 py-1 ${DIFF_LINE_CLASSES[line.type]}`}
-							>
-								<span className="select-none text-[var(--text-lo)] mr-2">
-									{DIFF_LINE_PREFIX[line.type]}
-								</span>
-								<code>{line.content}</code>
-							</div>
-						))}
+						{hunk.lines.map((line, li) => {
+							const lineKey = `${hunk.header}:${li}`;
+							const renderAffordance = onAddComment !== undefined;
+							return (
+								<div
+									key={`${hunk.header}-${li}-${line.type}`}
+									data-diff-type={line.type}
+									className={`group relative px-2 py-1 ${DIFF_LINE_CLASSES[line.type]}`}
+								>
+									{renderAffordance && (
+										/*
+										 * @lore L6 .plan-L6.md § 3.3: gutter button is always
+										 * mounted but visually hidden via opacity-0 +
+										 * group-hover/focus-within reveal so screenreaders can
+										 * still reach it without a flash on initial paint.
+										 * AQ-015: 44 CSS px touch target via min-h-[44px] +
+										 * min-w-[44px] (≤1024px viewport).
+										 */
+										<button
+											type="button"
+											aria-label={`Add comment to line ${li}`}
+											className="btn btn-xs btn-ghost absolute left-0 top-0 min-h-[44px] min-w-[44px] opacity-0 group-hover:opacity-100 focus-within:opacity-100"
+											onClick={() => onAddComment(lineKey, li, line.content)}
+										>
+											+ Comment
+										</button>
+									)}
+									<span className="select-none text-[var(--text-lo)] mr-2">
+										{DIFF_LINE_PREFIX[line.type]}
+									</span>
+									<code>{line.content}</code>
+								</div>
+							);
+						})}
 					</div>
 				))}
 			</pre>
@@ -327,7 +364,7 @@ function RelatedHistorySection({ entries }: { entries: RelatedHistoryEntry[] }):
 function renderShape(props: ArtifactViewProps): JSX.Element {
 	switch (props.shape) {
 		case "text_diff":
-			return <TextDiffView data={props.data} />;
+			return <TextDiffView data={props.data} onAddComment={props.onAddComment} />;
 		case "content_preview":
 			return <ContentPreviewView data={props.data} />;
 		case "visual_comparison":

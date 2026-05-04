@@ -1,53 +1,79 @@
 #!/usr/bin/env bun
-// Anchor-scoped doc reader.
-// Usage: bun run docs:read <file>[#<anchor>]
-// Returns the slice from the matching <!-- @anchor: name --> marker
-// up to the next anchor marker (or EOF). With no anchor, prints the
-// full file. Lists available anchors when the requested one isn't found.
+// Anchor-scoped doc reader for split concept docs.
+// Usage: bun run docs:read <topic>[#<section>]
+//   - `bun run docs:read architecture#components` → reads docs/concept/architecture/components.md
+//   - `bun run docs:read architecture` → reads docs/concept/architecture/index.md
+//   - `bun run docs:read docs/concept/architecture/components.md` → reads file directly
+// Lists available sections when the requested one isn't found.
 
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync } from "node:fs";
+import { join } from "node:path";
+
+const CONCEPT_DIR = join(import.meta.dir, "../docs/concept");
 
 const arg = process.argv[2];
 if (!arg) {
-	console.error("usage: bun run docs:read <file>[#<anchor>]");
+	console.error(
+		"usage: bun run docs:read <topic>[#<section>]\n\nExamples:\n  bun run docs:read architecture#components\n  bun run docs:read architecture\n  bun run docs:read docs/concept/architecture/components.md",
+	);
 	process.exit(2);
 }
 
-const [path, anchor] = arg.split("#") as [string, string | undefined];
-
-if (!existsSync(path)) {
-	console.error(`docs:read: file not found: ${path}`);
-	process.exit(1);
-}
-
-const src = readFileSync(path, "utf8");
-const lines = src.split("\n");
-const ANCHOR_RE = /^<!--\s*@anchor:\s*([a-zA-Z0-9_\-./]+)\s*-->\s*$/;
-
-const anchors: { name: string; line: number }[] = [];
-for (let i = 0; i < lines.length; i++) {
-	const m = lines[i].match(ANCHOR_RE);
-	if (m) anchors.push({ name: m[1], line: i });
-}
-
-if (!anchor) {
-	process.stdout.write(src);
+// Direct file path — just read it
+if (arg.includes("/") && !arg.includes("#")) {
+	if (!existsSync(arg)) {
+		console.error(`docs:read: file not found: ${arg}`);
+		process.exit(1);
+	}
+	process.stdout.write(readFileSync(arg, "utf8"));
 	process.exit(0);
 }
 
-const idx = anchors.findIndex((a) => a.name === anchor);
-if (idx === -1) {
-	console.error(`docs:read: anchor "${anchor}" not found in ${path}`);
-	if (anchors.length) {
-		console.error("available anchors:");
-		for (const a of anchors) console.error(`  - ${a.name}`);
-	} else {
-		console.error("(file has no @anchor markers)");
+const [topic, section] = arg.split("#") as [string, string | undefined];
+
+// Resolve topic to directory
+const topicDir = join(CONCEPT_DIR, topic);
+
+if (!existsSync(topicDir)) {
+	// Try as a direct file path (backward compat)
+	if (existsSync(topic)) {
+		process.stdout.write(readFileSync(topic, "utf8"));
+		process.exit(0);
+	}
+	console.error(`docs:read: topic not found: ${topic}`);
+	const dirs = readdirSync(CONCEPT_DIR, { withFileTypes: true })
+		.filter((d) => d.isDirectory())
+		.map((d) => d.name);
+	if (dirs.length) {
+		console.error("available topics:");
+		for (const d of dirs) console.error(`  - ${d}`);
 	}
 	process.exit(1);
 }
 
-const start = anchors[idx].line;
-const end = idx + 1 < anchors.length ? anchors[idx + 1].line : lines.length;
-process.stdout.write(lines.slice(start, end).join("\n"));
-if (!src.endsWith("\n")) process.stdout.write("\n");
+if (!section) {
+	// Read the index file
+	const indexPath = join(topicDir, "index.md");
+	if (!existsSync(indexPath)) {
+		console.error(`docs:read: no index.md in ${topicDir}`);
+		process.exit(1);
+	}
+	process.stdout.write(readFileSync(indexPath, "utf8"));
+	process.exit(0);
+}
+
+// Read specific section
+const sectionPath = join(topicDir, `${section}.md`);
+if (!existsSync(sectionPath)) {
+	console.error(`docs:read: section "${section}" not found in topic "${topic}"`);
+	const files = readdirSync(topicDir)
+		.filter((f) => f.endsWith(".md") && f !== "index.md")
+		.map((f) => f.replace(/\.md$/, ""));
+	if (files.length) {
+		console.error("available sections:");
+		for (const f of files) console.error(`  - ${f}`);
+	}
+	process.exit(1);
+}
+
+process.stdout.write(readFileSync(sectionPath, "utf8"));

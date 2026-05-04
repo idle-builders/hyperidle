@@ -42,7 +42,7 @@ A work package is the **smallest deliverable end-to-end change** that has its ow
 
 1. **Track letter is valid.** Must match an existing `docs/work-packages/TRACK-<letter>.md` or be a deliberate new track (in which case create the TRACK file first with the same scope-rules section other tracks use).
 2. **Story ID is unique.** Read `docs/work-packages/pipeline-manifest.yaml`; the generated ID (e.g. `L30`) must not collide with any existing entry.
-3. **Concept gate.** If this story introduces or reshapes a primitive / load-bearing noun (Thread / Block / Artifact / Bet / Cost / etc.), the relevant section in `docs/concept/*.md` AND the `SHARED.md` "Shared Contracts" entry must already exist. If not, refuse to register and tell the founder to run `/concept <noun>` first. This mirrors the runtime gate enforced in `/pipeline`.
+3. **Concept gate.** If this story introduces or reshapes a primitive / load-bearing noun (Thread / Block / Artifact / Bet / Cost / etc.), the relevant section in `docs/concept/<topic>/` AND the `SHARED.md` "Shared Contracts" entry must already exist. If not, refuse to register and tell the founder to run `/concept <noun>` first. This mirrors the runtime gate enforced in `/pipeline`.
 4. **Dependencies are real blockers.** For each declared dependency, write one sentence justifying *why* this story cannot start until that one is `done`. "Logically related" is not a blocker — it just serializes the scheduler. If you cannot articulate the blocker, drop the dep.
 5. **Sizing fits the rule.**
 

@@ -44,9 +44,9 @@ When you make a non-obvious decision, encounter a cross-cutting constraint, or d
 
 ## Architecture
 
-Three-layer system with strict downward dependency: Human Interface → Meta Layer → Agent Runtime. No layer reaches past its neighbor. Read `docs/concept/ARCHITECTURE.md` before writing code.
+Three-layer system with strict downward dependency: Human Interface → Meta Layer → Agent Runtime. No layer reaches past its neighbor.
 
-**Source of truth (all in `docs/concept/`):** ARCHITECTURE.md, PROCESS_LAYER.md, KNOWLEDGE_ARCHITECTURE.md, HUMAN_INTERFACE_LAYER.md, UI_DESIGN.md, REQUIREMENTS.md, INFORMATION_ARCHITECTURE.md, AGENT_LAYER.md, BLOCKS.md. Story specs in `docs/work-packages/`.
+**Source of truth:** `docs/concept/` (split by topic — use `bun run docs:read <topic>#<section>` or read files directly). Story specs in `docs/work-packages/`. Agent artifacts (plans, designs, reviews) in `plans/`.
 
 ---
 
@@ -64,7 +64,7 @@ Bun, TypeScript strict, Hono, Drizzle ORM (SQLite + PostgreSQL), React + Vite, T
 
 ## Commands
 
-`bun install`, `bun dev` (server 3001 + web 5173), `bun run test` (Vitest via package.json script — do NOT use bare `bun test` which invokes Bun's native runner), `bun run check` (typecheck), `bun run lint` (Biome + ESLint), `bun run lint:biome`, `bun run lint:eslint`, `bun run lint:fix`, `bun run db:generate`, `bun run db:migrate`, `bun run docs:read <file>#<anchor>` (anchor-scoped read of large docs).
+`bun install`, `bun dev` (server 3001 + web 5173), `bun run test` (Vitest via package.json script — do NOT use bare `bun test` which invokes Bun's native runner), `bun run check` (typecheck), `bun run lint` (Biome + ESLint), `bun run lint:biome`, `bun run lint:eslint`, `bun run lint:fix`, `bun run db:generate`, `bun run db:migrate`, `bun run docs:read <topic>#<section>` (read split concept docs by topic and section).
 
 ---
 

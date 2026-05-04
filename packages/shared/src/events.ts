@@ -97,6 +97,10 @@ export interface ResponseRecordedEvent {
 	responseId: string;
 	itemId: string;
 	decision: string;
+	/** Set when `decision === "request-changes"`. Capped client-side at 140 chars. */
+	summary?: string;
+	/** Set when `decision === "request-changes"`. `lineIndex` indexes the flattened hunk lines. */
+	inlineComments?: Array<{ lineIndex: number; body: string }>;
 	timestamp: number;
 }
 

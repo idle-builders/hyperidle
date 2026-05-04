@@ -11,7 +11,7 @@ min_tool_calls: 25
 Produces the **how** — file paths, type signatures, schemas, endpoint shapes, task ordering.
 
 **Fixed inputs (do NOT re-litigate):**
-- Concept doc from `/concept` — `docs/concept/*.md` (anchor-scoped via `bun run docs:read`) + `docs/work-packages/SHARED.md#shared-contracts`.
+- Concept doc from `/concept` — `docs/concept/<topic>/<section>.md` (via `bun run docs:read <topic>#<section>`) + `docs/work-packages/SHARED.md#shared-contracts`.
 - Approved design from `/design` (UI stories) — `docs/design-explorations/<story-id>/approved.md`.
 
 If the spec contradicts an existing concept doc, stop — that's a `/concept` gap.
@@ -45,7 +45,7 @@ Produce a `Plan reconciliation:` block in the plan listing every spec assumption
 
 ## Phase 2 — Acceptance criteria + tasks
 
-Read the story `<target>` in the relevant track file under `docs/work-packages/` (e.g., `TRACK-A.md` for A-stories) and relevant sections of `docs/ARCHITECTURE.md`. Read existing code in affected packages.
+Read the story `<target>` in the relevant track file under `docs/work-packages/` (e.g., `TRACK-A.md` for A-stories) and relevant sections via `bun run docs:read architecture#<section>`. Read existing code in affected packages.
 
 If the story has a UI surface and `/design` produced an approved spec (under `docs/design-explorations/<story-id>/approved.md` or wherever the design step wrote it), read it. The visual contract, component vocabulary, and interaction states are inputs — do not re-litigate them.
 

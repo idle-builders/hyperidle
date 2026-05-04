@@ -21,10 +21,10 @@ This is **not** `/architecture-review`. The review skill audits the *implemented
 ## Required Reading (use anchor reads via `bun run docs:read`)
 
 1. The story in `docs/work-packages/TRACK-<letter>.md`.
-2. `docs/concept/ARCHITECTURE.md` — system layering, component boundaries (anchor-scoped).
-3. `docs/concept/PROCESS_LAYER.md`, `KNOWLEDGE_ARCHITECTURE.md`, `AGENT_LAYER.md` — only the anchors that match the plan's scope.
+2. `docs/concept/architecture/` — system layering, component boundaries (use `bun run docs:read architecture#<section>`).
+3. `docs/concept/process-layer/`, `knowledge-architecture/`, `agent-layer/` — only the sections that match the plan's scope.
 4. `docs/work-packages/SHARED.md#shared-contracts`.
-5. UI stories: `docs/concept/HUMAN_INTERFACE_LAYER.md`, `INFORMATION_ARCHITECTURE.md` — anchor-scoped + `docs/design-explorations/<story-id>/approved.md`.
+5. UI stories: `docs/concept/human-interface-layer/`, `information-architecture/` — section-scoped + `plans/design-explorations/<story-id>/approved.md`.
 6. The plan itself — every section.
 
 ## The Critique Loop

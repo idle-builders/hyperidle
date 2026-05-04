@@ -1,30 +1,8 @@
 export type { ApiErrorCode, ApiErrorResponse } from "./api-types.js";
 export { API_ERROR_CODES } from "./api-types.js";
-// ── Block primitive (L2) ──
-export type {
-	Block,
-	BlockAnchor,
-	BlockDerivationResult,
-	BlockHostKind,
-	BlockId,
-	BlockKind,
-	BlockPayload,
-	InlineNode,
-	ListItem,
-} from "./blocks/index.js";
-export {
-	assertNoCollisions,
-	BLOCK_HOST_KINDS,
-	BLOCK_ID_VERSION,
-	BLOCK_KINDS,
-	blockId,
-	deriveBlocks,
-	IMAGE_URL_SAFE_SCHEMES,
-	LINK_URL_SAFE_SCHEMES,
-	MAX_BODY_BYTES,
-	normalisedPayload,
-	slug,
-} from "./blocks/index.js";
+export type { DomainTag } from "./constants/domains.js";
+export { DOMAIN_TAGS, domainTagNullableSchema, domainTagSchema } from "./constants/domains.js";
+export { REQUEST_CHANGES_SUMMARY_MAX } from "./constants/request-changes.js";
 export {
 	ActiveRoutinesError,
 	CapacityExceededError,
@@ -57,17 +35,10 @@ export type {
 	SessionOutcome,
 	SessionStartedEvent,
 	TaskStateChangedEvent,
-	ThreadArchivedEvent,
-	ThreadCreatedEvent,
-	ThreadMessageAppendedEvent,
-	ThreadReopenedEvent,
-	ThreadResolvedEvent,
 	ToolCallRecordedEvent,
 	WildcardHandler,
 	WildcardType,
 } from "./events.js";
-export type { ArtifactCostInput } from "./format/artifact-cost.js";
-export { formatArtifactCost } from "./format/artifact-cost.js";
 export type {
 	CompletionEvent,
 	CostUpdateEvent,
@@ -107,62 +78,15 @@ export {
 	scrubInlineTokens,
 	TK_TOKEN_RE,
 } from "./redact.js";
-export type {
-	AgentSessionStateSnapshot,
-	ArtifactRef,
-	ArtifactViewShape,
-	HeadCollapseResult,
-	HostKind,
-	IdentityId,
-	InlineRef,
-	Message,
-	MessageId,
-	MessageType,
-	PlainPayload,
-	QuestionnairePayload,
-	RedactedPayload,
-	ReviewPayload,
-	Thread,
-	ThreadConfiguration,
-	ThreadId,
-	VerdictDecision,
-	VerdictPayload,
-} from "./thread.js";
-// L1a — Thread primitive (concept §4.5, plan §4). Stub during write-tests
-// phase; functions throw "Not implemented" until the green phase fills
-// them in.
-export {
-	ARTIFACT_VIEW_SHAPES,
-	classifyThreadConfiguration,
-	exhaustiveAssert,
-	HOST_KINDS,
-	headCollapsePredicate,
-	isBlocking,
-	isRedactedPayload,
-	MESSAGE_TYPES,
-	promotedRichMessageId,
-	VERDICT_DECISIONS,
-	verdictDecisionLabel,
-	verdictDecisionToStatus,
-} from "./thread.js";
 export { decode, encode } from "./toon-codec.js";
 export { ToonParseError } from "./toon-errors.js";
-export type {
-	Artifact,
-	ArtifactCostFromSession,
-	ArtifactFilterAxis,
-	ArtifactKind,
-	ArtifactPage,
-	ArtifactPreview,
-	ArtifactQuery,
-	CreateArtifactInput,
-	DiffHunk,
-} from "./types/artifact.js";
-export { ARTIFACT_KINDS, artifactDisplayTitle, summarizePreview } from "./types/artifact.js";
+export type { Actor, ActorRole } from "./types/actor.js";
+export { REASSIGN_VERB } from "./types/actor.js";
+export type { AutonomyLevel, AutonomyLevelMeta } from "./types/autonomy.js";
+export { AUTONOMY_LEVEL_META, AUTONOMY_LEVELS, isAutonomyLevel } from "./types/autonomy.js";
 export type {
 	AgentRole,
 	AgentStatus,
-	AutonomyLevel,
 	BetStatus,
 	HealthResponse,
 	KnowledgeFormat,

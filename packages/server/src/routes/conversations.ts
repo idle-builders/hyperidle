@@ -1,20 +1,32 @@
-import { agents, type HyperIdleDb, items, threads } from "@hyperidle/db";
-import type { ApiErrorResponse, EventBus, ItemCreatedEvent } from "@hyperidle/shared";
-import { API_ERROR_CODES } from "@hyperidle/shared";
-import { desc, eq, sql } from "drizzle-orm";
+import { actors, agents, type HyperIdleDb, items, responses, threads } from "@hyperidle/db";
+import type {
+	ApiErrorResponse,
+	EventBus,
+	ItemCreatedEvent,
+	ResponseRecordedEvent,
+} from "@hyperidle/shared";
+import { API_ERROR_CODES, REQUEST_CHANGES_SUMMARY_MAX } from "@hyperidle/shared";
+import { and, desc, eq, isNotNull, ne, sql } from "drizzle-orm";
 import { Hono } from "hono";
 import { z } from "zod";
+import type { ActorEnv } from "../middleware/actor-context.js";
 import { validateBody } from "../middleware/validate.js";
+import { isFounderActor } from "../services/founder-conflict.js";
 import { routeToFounder } from "../services/founder-router.js";
 import { routeItem } from "../services/item-router.js";
 
-// @lore L1 step5 (S-C2): the legacy `POST /api/conversations/responses` path
-// dual-wrote `verdict`-typed messages without founder authz, idempotency, or
-// the resolves-which-message check that `routes/threads.ts` enforces. The
-// dual-write was deleted; verdicts go through `POST /api/threads/:id/messages`
-// (the canonical L1 surface). The `GET /:threadId` projection that re-shaped
-// verdict messages into the legacy `responses` row format went with it —
-// items now expose an empty `responses: []` for one-release wire compat.
+const VERDICT_ACTIONS = [
+	"approve",
+	"approve-with-comments",
+	"comment",
+	"inline-comment",
+	"request-changes",
+	"edit",
+	"reject",
+	"reply",
+	"snooze",
+	"escalate",
+] as const;
 
 const createItemSchema = z.object({
 	sourceAgentId: z.string().optional(),
@@ -35,10 +47,46 @@ const createItemSchema = z.object({
 });
 
 /**
+ * @lore L6: inline comments for a request-changes verdict are anchored to
+ * lines inside the underlying `text_diff` artifact. `line_index` is the
+ * absolute position within the flattened hunk's `lines` array — the same
+ * value the gutter affordance reports back from the web client.
+ */
+const inlineCommentSchema = z.object({
+	line_index: z.number().int().nonnegative(),
+	body: z.string().min(1).max(2000),
+});
+
+/**
+ * @lore L6 (.plan-L6.md § 3.6 option B): for request-changes verdicts,
+ * `summary` writes to `responses.feedback` and `inline_comments[]` is
+ * JSON-stringified into `responses.inlineAnchor`. Summary is required for
+ * request-changes (refine below).
+ */
+const createResponseSchema = z
+	.object({
+		itemId: z.string(),
+		decision: z.enum(VERDICT_ACTIONS),
+		inlineAnchor: z.string().optional(),
+		edits: z.string().optional(),
+		feedback: z.string().optional(),
+		approverId: z.string().optional(),
+		view: z.string().optional(),
+		summary: z.string().max(REQUEST_CHANGES_SUMMARY_MAX).optional(),
+		inline_comments: z.array(inlineCommentSchema).optional(),
+	})
+	.refine(
+		(v) =>
+			v.decision !== "request-changes" ||
+			(typeof v.summary === "string" && v.summary.trim().length > 0),
+		{ message: "summary is required for request-changes verdicts", path: ["summary"] },
+	);
+
+/**
  * Create Hono routes for conversation endpoints.
  */
-export function createConversationRoutes(db: HyperIdleDb, eventBus: EventBus): Hono {
-	const router = new Hono();
+export function createConversationRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<ActorEnv> {
+	const router = new Hono<ActorEnv>();
 
 	// GET / — list threads, paginated, sorted by recency or attention_score
 	router.get("/", (c) => {
@@ -52,8 +100,7 @@ export function createConversationRoutes(db: HyperIdleDb, eventBus: EventBus): H
 			const allThreads = db
 				.select({
 					id: threads.id,
-					hostKind: threads.hostKind,
-					hostId: threads.hostId,
+					kind: threads.kind,
 					pinned: threads.pinned,
 					participants: threads.participants,
 					createdAt: threads.createdAt,
@@ -114,22 +161,18 @@ export function createConversationRoutes(db: HyperIdleDb, eventBus: EventBus): H
 			.orderBy(items.createdAt)
 			.all();
 
-		// L1 step5 (S-C2): the verdict-projection that re-shaped `verdict`
-		// messages into the legacy `responses` row format was removed alongside
-		// the dual-write `POST /responses` path. Verdicts now live on
-		// `GET /api/threads/:id` (messages, type='verdict'). The empty
-		// `responses: []` keeps the wire shape for one release.
-		const itemsWithResponses = threadItems.map((item) => ({
-			...item,
-			responses: [] as ReadonlyArray<never>,
-		}));
+		// For each item, get its responses
+		const itemsWithResponses = threadItems.map((item) => {
+			const itemResponses = db.select().from(responses).where(eq(responses.itemId, item.id)).all();
+			return { ...item, responses: itemResponses };
+		});
 
 		return c.json({ ...thread, items: itemsWithResponses });
 	});
 
 	// POST /items — create item
 	router.post("/items", validateBody(createItemSchema), (c) => {
-		const body = c.req.valid("json" as never) as z.infer<typeof createItemSchema>;
+		const body = c.req.valid("json");
 		const id = crypto.randomUUID();
 		const now = new Date().toISOString();
 
@@ -195,8 +238,158 @@ export function createConversationRoutes(db: HyperIdleDb, eventBus: EventBus): H
 		return c.json({ ...created, view, founderRoute }, 201);
 	});
 
-	// `POST /responses` removed in L1 step5 (S-C2). Verdicts go through the
-	// canonical `POST /api/threads/:id/messages` surface.
+	// POST /responses — record verdict
+	router.post("/responses", validateBody(createResponseSchema), (c) => {
+		const body = c.req.valid("json");
+		const id = crypto.randomUUID();
+		const now = new Date().toISOString();
+
+		// Verify item exists
+		const item = db.select().from(items).where(eq(items.id, body.itemId)).get();
+		if (!item) {
+			const response: ApiErrorResponse = {
+				error: "Item not found",
+				code: API_ERROR_CODES.NOT_FOUND,
+			};
+			return c.json(response, 404);
+		}
+
+		// L2: when an actor is identified, server-derive `approverId` from
+		// `c.get("actorId")` — body value is ignored. Programmatic verdicts
+		// (e.g. `policy_engine`) bypass this path entirely (no `X-Actor-Id`)
+		// and may set `body.approverId` directly — but never as a founder.
+		//
+		// @lore L2 review (security CRIT-2 / adversary C1): when actorId
+		// is null and `body.approverId` is set, we MUST refuse any value
+		// matching a registered actor row. Otherwise an API key holder
+		// could omit `X-Actor-Id`, set `body.approverId = "actor:ceo"`,
+		// and forge a founder verdict bypassing the conflict gate.
+		const actorId = c.get("actorId") ?? null;
+		if (actorId === null && body.approverId && isFounderActor(body.approverId, db)) {
+			const response: ApiErrorResponse = {
+				error: "Cannot claim founder identity without authentication",
+				code: API_ERROR_CODES.UNAUTHORIZED,
+				details: { field: "approverId" },
+			};
+			return c.json(response, 401);
+		}
+		const approverId = actorId ?? body.approverId ?? null;
+
+		// L2 founder-conflict pre-check + insert wrapped in a single
+		// transaction. better-sqlite3 transactions default to DEFERRED
+		// (read-only until first write) which leaves a TOCTOU window: two
+		// concurrent SELECTs see no conflict, both INSERT, both commit.
+		// `behavior: 'immediate'` upgrades to BEGIN IMMEDIATE so the
+		// transaction acquires a write lock at the start and concurrent
+		// founder verdicts serialise.
+		//
+		// @lore L2 review (W1/C2): drizzle better-sqlite3 supports
+		// `.transaction(fn, { behavior: 'immediate' })` since 0.30; PG
+		// default isolation is sufficient given the FK + check. A
+		// belt-and-braces partial unique index would need to enforce
+		// "one founder verdict per thread", but `responses` does not
+		// denormalise `thread_id`. The IMMEDIATE transaction is the
+		// authoritative serialisation point; adding a `thread_id` column
+		// to `responses` is deferred (TRACK-L L8 audit-driven UI surface).
+		const result = db.transaction(
+			(tx) => {
+				if (actorId !== null) {
+					const prior = tx
+						.select({
+							approverId: responses.approverId,
+							decision: responses.decision,
+							respondedAt: responses.respondedAt,
+						})
+						.from(responses)
+						.innerJoin(items, eq(items.id, responses.itemId))
+						.innerJoin(actors, eq(actors.id, responses.approverId))
+						.where(
+							and(
+								eq(items.threadId, item.threadId),
+								isNotNull(responses.approverId),
+								ne(responses.approverId, actorId),
+							),
+						)
+						.limit(1)
+						.get();
+
+					if (prior?.approverId) {
+						return {
+							ok: false as const,
+							conflict: {
+								actor_id: prior.approverId,
+								at: prior.respondedAt,
+								action: prior.decision,
+							},
+						};
+					}
+				}
+
+				// @lore L6: request-changes maps summary→feedback and
+				// inline_comments[]→inlineAnchor JSON; other decisions unchanged.
+				const isRequestChanges = body.decision === "request-changes";
+				const feedbackValue = isRequestChanges
+					? (body.summary ?? body.feedback ?? null)
+					: (body.feedback ?? null);
+				const inlineAnchorValue = isRequestChanges
+					? JSON.stringify(body.inline_comments ?? [])
+					: (body.inlineAnchor ?? null);
+
+				tx.insert(responses)
+					.values({
+						id,
+						itemId: body.itemId,
+						decision: body.decision,
+						inlineAnchor: inlineAnchorValue,
+						edits: body.edits ?? null,
+						feedback: feedbackValue,
+						approverId,
+						view: body.view ?? null,
+						respondedAt: now,
+					})
+					.run();
+
+				const created = tx.select().from(responses).where(eq(responses.id, id)).get();
+				return { ok: true as const, created };
+			},
+			{ behavior: "immediate" },
+		);
+
+		if (!result.ok) {
+			const response: ApiErrorResponse = {
+				error: "founder_conflict",
+				code: API_ERROR_CODES.FOUNDER_CONFLICT,
+				details: { existing_verdict: result.conflict },
+			};
+			return c.json(response, 409);
+		}
+
+		// Emit response_recorded event. L6: for request-changes, propagate
+		// the summary + inline-comment payload onto the event so the agent
+		// runtime can react to structured feedback.
+		const event: ResponseRecordedEvent = {
+			type: "response_recorded",
+			streamId: crypto.randomUUID(),
+			responseId: id,
+			itemId: body.itemId,
+			decision: body.decision,
+			timestamp: Date.now(),
+		};
+		if (body.decision === "request-changes") {
+			if (body.summary !== undefined) {
+				event.summary = body.summary;
+			}
+			if (body.inline_comments !== undefined) {
+				event.inlineComments = body.inline_comments.map((c) => ({
+					lineIndex: c.line_index,
+					body: c.body,
+				}));
+			}
+		}
+		eventBus.emit(event);
+
+		return c.json(result.created, 201);
+	});
 
 	return router;
 }
