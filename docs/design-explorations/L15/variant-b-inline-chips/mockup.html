@@ -1,0 +1,268 @@
+<!doctype html>
+<html lang="en" data-theme="lucid-dark">
+<head>
+<meta charset="utf-8" />
+<title>L15 Variant B — Inline action chips</title>
+<link rel="stylesheet" href="../../../../packages/design-system/src/tokens.css" />
+<style>
+  :root { font-family: var(--ui); color-scheme: dark; }
+  body {
+    background: var(--surface-0);
+    color: var(--text-hi);
+    margin: 0;
+    padding: 24px;
+    font-size: 15px;
+    line-height: var(--leading-body);
+    -webkit-font-smoothing: antialiased;
+  }
+  .page-h {
+    font-family: var(--mono);
+    font-size: 14px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-lo);
+    margin: 0 0 16px;
+  }
+  .board {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(280px, 1fr));
+    gap: 12px;
+  }
+  .col {
+    background: var(--surface-2);
+    border-radius: var(--r2);
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    min-height: 520px;
+  }
+  .col-h {
+    font-family: var(--mono);
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+    color: var(--text-mid);
+    display: flex;
+    justify-content: space-between;
+    padding: 4px 4px 8px;
+    border-bottom: 1px solid var(--border-subtle);
+  }
+  .col-count { color: var(--text-lo); }
+  .card {
+    background: var(--surface-4);
+    border-radius: var(--r2);
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    transition: background var(--motion-fast) var(--motion-ease);
+  }
+  .card:hover { background: var(--surface-5); }
+  .card.blocked { border: 1px solid var(--danger); }
+  .title {
+    font-size: 15px;
+    font-weight: 500;
+    color: var(--text-hi);
+    line-height: 1.35;
+  }
+  .meta { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .tag {
+    font-family: var(--mono);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+    color: var(--text-mid);
+    background: var(--surface-ghost);
+    padding: 2px 6px;
+    border-radius: var(--r1);
+    font-weight: 500;
+  }
+  .chip {
+    font-family: var(--mono);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-hi);
+    background: var(--surface-ghost);
+    padding: 2px 8px;
+    border-radius: var(--r1);
+    font-weight: 500;
+  }
+  .chip.blocked { color: var(--danger); }
+  .owner { font-size: 12px; color: var(--text-hi); }
+  .kv {
+    display: flex;
+    justify-content: space-between;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text-mid);
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+  }
+  .kv-val { color: var(--text-hi); font-variant-numeric: tabular-nums; }
+
+  /* Action row — hidden by default, revealed on hover/focus-within */
+  .actions {
+    display: flex;
+    gap: 4px;
+    flex-wrap: wrap;
+    margin-top: 4px;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity var(--motion-fast) var(--motion-ease);
+  }
+  .card:hover .actions,
+  .card:focus-within .actions,
+  .card.show .actions {
+    opacity: 1;
+    pointer-events: auto;
+  }
+  .action {
+    font-family: var(--mono);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+    color: var(--text-mid);
+    background: var(--surface-ghost);
+    border: 1px solid var(--border-subtle);
+    padding: 4px 8px;
+    border-radius: var(--r1);
+    font-weight: 500;
+    cursor: pointer;
+    transition: background var(--motion-fast) var(--motion-ease),
+                color var(--motion-fast) var(--motion-ease),
+                border-color var(--motion-fast) var(--motion-ease);
+    line-height: 1;
+  }
+  .action:hover { background: var(--surface-6); color: var(--text-hi); border-color: var(--border-default); }
+  .action.thread { color: var(--primary); border-color: var(--border-default); }
+  .action.thread:hover { background: var(--primary-dim); }
+  .action.flash { background: var(--primary-dim); color: var(--primary); border-color: var(--border-emphasis); }
+  /* The action row reserves space — placeholder slot — so cards don't reflow. */
+  .actions-slot { min-height: 26px; display: flex; align-items: stretch; }
+
+  .toast {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    background: var(--surface-3);
+    border: 1px solid var(--border-default);
+    color: var(--text-hi);
+    padding: 10px 14px;
+    border-radius: var(--r2);
+    font-size: 13px;
+    box-shadow: var(--float);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .toast .dot { width: 6px; height: 6px; background: var(--ok); border-radius: 999px; }
+</style>
+</head>
+<body>
+
+<h1 class="page-h">Team Board · Variant B · Inline chips</h1>
+
+<div class="board">
+  <!-- Planned -->
+  <div class="col">
+    <div class="col-h"><span>Planned</span><span class="col-count">2</span></div>
+    <div class="card">
+      <div class="title">Design signup form</div>
+      <div class="meta"><span class="tag">Auth</span><span class="chip">accepted</span></div>
+      <div class="owner">Dev Agent 2</div>
+      <div class="kv"><span>Cost</span><span class="kv-val">$1.80</span></div>
+      <div class="actions-slot"><div class="actions">
+        <button class="action">→ Blocked</button>
+        <button class="action">→ In Progress</button>
+        <button class="action">→ Done</button>
+        <button class="action thread">Thread</button>
+      </div></div>
+    </div>
+    <div class="card">
+      <div class="title">Rate limit middleware</div>
+      <div class="meta"><span class="tag">API</span><span class="chip">accepted</span></div>
+      <div class="owner">Dev Agent 1</div>
+      <div class="kv"><span>Cost</span><span class="kv-val">$2.00</span></div>
+      <div class="actions-slot"><div class="actions">
+        <button class="action">→ Blocked</button>
+        <button class="action">→ In Progress</button>
+        <button class="action">→ Done</button>
+        <button class="action thread">Thread</button>
+      </div></div>
+    </div>
+  </div>
+
+  <!-- Blocked -->
+  <div class="col">
+    <div class="col-h"><span>Blocked</span><span class="col-count">1</span></div>
+    <div class="card blocked">
+      <div class="title">DB migration for sessions</div>
+      <div class="meta"><span class="tag">Auth</span><span class="chip blocked">blocked</span></div>
+      <div class="owner">Dev Agent 1</div>
+      <div class="kv"><span>Cost</span><span class="kv-val">$0.40</span></div>
+      <div class="actions-slot"><div class="actions">
+        <button class="action">→ Planned</button>
+        <button class="action">→ In Progress</button>
+        <button class="action">→ Done</button>
+        <button class="action thread">Thread</button>
+      </div></div>
+    </div>
+  </div>
+
+  <!-- In Progress: featured card with chips visible (representing hover state) -->
+  <div class="col">
+    <div class="col-h"><span>In Progress</span><span class="col-count">2</span></div>
+    <div class="card show">
+      <div class="title">Implement login endpoint</div>
+      <div class="meta"><span class="tag">Auth</span><span class="chip">in_progress</span></div>
+      <div class="owner">Dev Agent 1</div>
+      <div class="kv"><span>Cost</span><span class="kv-val">$4.20</span></div>
+      <div class="actions-slot"><div class="actions">
+        <button class="action">→ Planned</button>
+        <button class="action flash">→ Blocked</button>
+        <button class="action">→ Done</button>
+        <button class="action thread">Thread</button>
+      </div></div>
+    </div>
+    <div class="card">
+      <div class="title">JWT refresh logic</div>
+      <div class="meta"><span class="tag">Auth</span><span class="chip">review</span></div>
+      <div class="owner">Dev Agent 1</div>
+      <div class="kv"><span>Cost</span><span class="kv-val">$6.50</span></div>
+      <div class="actions-slot"><div class="actions">
+        <button class="action">→ Planned</button>
+        <button class="action">→ Blocked</button>
+        <button class="action">→ Done</button>
+        <button class="action thread">Thread</button>
+      </div></div>
+    </div>
+  </div>
+
+  <!-- Done -->
+  <div class="col">
+    <div class="col-h"><span>Done</span><span class="col-count">1</span></div>
+    <div class="card">
+      <div class="title">Write auth tests</div>
+      <div class="meta"><span class="tag">Auth</span><span class="chip">done</span></div>
+      <div class="owner">Dev Agent 2</div>
+      <div class="kv"><span>Cost</span><span class="kv-val">$3.10</span></div>
+      <div class="actions-slot"><div class="actions">
+        <button class="action">→ Planned</button>
+        <button class="action">→ Blocked</button>
+        <button class="action">→ In Progress</button>
+        <button class="action thread">Thread</button>
+      </div></div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" role="status">
+  <span class="dot"></span><span>Requested → Blocked. Posted to thread.</span>
+</div>
+
+</body>
+</html>

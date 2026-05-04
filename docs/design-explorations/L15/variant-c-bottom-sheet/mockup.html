@@ -1,0 +1,307 @@
+<!doctype html>
+<html lang="en" data-theme="lucid-dark">
+<head>
+<meta charset="utf-8" />
+<title>L15 Variant C — Side sheet</title>
+<link rel="stylesheet" href="../../../../packages/design-system/src/tokens.css" />
+<style>
+  :root { font-family: var(--ui); color-scheme: dark; }
+  body {
+    background: var(--surface-0);
+    color: var(--text-hi);
+    margin: 0;
+    padding: 24px;
+    font-size: 15px;
+    line-height: var(--leading-body);
+    -webkit-font-smoothing: antialiased;
+    overflow-x: hidden;
+  }
+  .page-h {
+    font-family: var(--mono);
+    font-size: 14px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-lo);
+    margin: 0 0 16px;
+  }
+  .layout { position: relative; }
+  .board {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(240px, 1fr));
+    gap: 12px;
+    padding-right: 480px;
+  }
+  .col {
+    background: var(--surface-2);
+    border-radius: var(--r2);
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    min-height: 480px;
+  }
+  .col-h {
+    font-family: var(--mono);
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+    color: var(--text-mid);
+    display: flex;
+    justify-content: space-between;
+    padding: 4px 4px 8px;
+    border-bottom: 1px solid var(--border-subtle);
+  }
+  .col-count { color: var(--text-lo); }
+  .card {
+    background: var(--surface-4);
+    border-radius: var(--r2);
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    cursor: pointer;
+    transition: background var(--motion-fast) var(--motion-ease);
+  }
+  .card:hover { background: var(--surface-5); }
+  .card.selected { outline: 1px solid var(--border-emphasis); outline-offset: -1px; background: var(--surface-5); }
+  .card.blocked { border: 1px solid var(--danger); }
+  .title { font-size: 15px; font-weight: 500; color: var(--text-hi); line-height: 1.35; }
+  .meta { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .tag {
+    font-family: var(--mono); font-size: 11px;
+    text-transform: uppercase; letter-spacing: 0.02em;
+    color: var(--text-mid); background: var(--surface-ghost);
+    padding: 2px 6px; border-radius: var(--r1); font-weight: 500;
+  }
+  .chip {
+    font-family: var(--mono); font-size: 11px;
+    text-transform: uppercase; letter-spacing: 0.05em;
+    color: var(--text-hi); background: var(--surface-ghost);
+    padding: 2px 8px; border-radius: var(--r1); font-weight: 500;
+  }
+  .chip.blocked { color: var(--danger); }
+  .owner { font-size: 12px; color: var(--text-hi); }
+  .kv {
+    display: flex; justify-content: space-between;
+    font-family: var(--mono); font-size: 11px; color: var(--text-mid);
+    text-transform: uppercase; letter-spacing: 0.02em;
+  }
+  .kv-val { color: var(--text-hi); font-variant-numeric: tabular-nums; }
+
+  /* Sheet */
+  .backdrop {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.4);
+    pointer-events: none;
+  }
+  .sheet {
+    position: fixed; right: 0; top: 0; bottom: 0;
+    width: 480px;
+    background: var(--surface-2);
+    border-left: 1px solid var(--border-default);
+    box-shadow: var(--float);
+    display: flex;
+    flex-direction: column;
+    z-index: 30;
+  }
+  .sheet-h {
+    padding: 16px;
+    border-bottom: 1px solid var(--border-subtle);
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+  }
+  .sheet-title {
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--text-hi);
+    line-height: 1.25;
+    margin: 0 0 6px;
+  }
+  .sheet-meta {
+    display: flex; gap: 12px; align-items: center; flex-wrap: wrap;
+  }
+  .close {
+    background: var(--surface-ghost);
+    color: var(--text-mid);
+    border: 0;
+    width: 28px; height: 28px;
+    border-radius: var(--r1);
+    cursor: pointer;
+    font-family: var(--mono);
+    font-size: 12px;
+  }
+  .sheet-section {
+    padding: 16px;
+    border-bottom: 1px solid var(--border-subtle);
+    display: flex; flex-direction: column; gap: 8px;
+  }
+  .sheet-section-h {
+    font-family: var(--mono); font-size: 11px;
+    text-transform: uppercase; letter-spacing: 0.02em;
+    color: var(--text-lo);
+  }
+  .req-grid {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 8px;
+  }
+  .btn {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 10px 12px;
+    background: var(--surface-3);
+    border: 1px solid var(--border-default);
+    border-radius: var(--r1);
+    color: var(--text-hi);
+    font-size: 13px;
+    cursor: pointer;
+    line-height: 1;
+    transition: background var(--motion-fast) var(--motion-ease);
+  }
+  .btn:hover { background: var(--surface-4); }
+  .btn[disabled] { opacity: .4; cursor: default; }
+  .btn .arr { color: var(--text-lo); }
+  .btn.danger { color: var(--danger); border-color: var(--danger); }
+
+  .thread {
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px;
+    display: flex; flex-direction: column; gap: 8px;
+  }
+  .thread-empty {
+    color: var(--text-lo);
+    font-size: 13px;
+    text-align: center;
+    padding: 32px 16px;
+    border: 1px dashed var(--border-subtle);
+    border-radius: var(--r2);
+  }
+  .composer {
+    padding: 12px;
+    border-top: 1px solid var(--border-subtle);
+    background: var(--surface-2);
+    display: flex; gap: 8px;
+  }
+  .composer textarea {
+    flex: 1;
+    background: var(--surface-3);
+    border: 1px solid var(--border-default);
+    border-radius: var(--r1);
+    color: var(--text-hi);
+    padding: 8px 10px;
+    font-family: var(--ui);
+    font-size: 13px;
+    resize: none;
+    min-height: 60px;
+  }
+  .composer .send {
+    background: var(--primary-dim);
+    color: var(--primary);
+    border: 1px solid var(--border-default);
+    border-radius: var(--r1);
+    padding: 8px 12px;
+    align-self: flex-end;
+    cursor: pointer;
+    font-size: 13px;
+  }
+</style>
+</head>
+<body>
+
+<h1 class="page-h">Team Board · Variant C · Side sheet</h1>
+
+<div class="layout">
+  <div class="board">
+    <div class="col">
+      <div class="col-h"><span>Planned</span><span class="col-count">2</span></div>
+      <div class="card">
+        <div class="title">Design signup form</div>
+        <div class="meta"><span class="tag">Auth</span><span class="chip">accepted</span></div>
+        <div class="owner">Dev Agent 2</div>
+        <div class="kv"><span>Cost</span><span class="kv-val">$1.80</span></div>
+      </div>
+      <div class="card">
+        <div class="title">Rate limit middleware</div>
+        <div class="meta"><span class="tag">API</span><span class="chip">accepted</span></div>
+        <div class="owner">Dev Agent 1</div>
+        <div class="kv"><span>Cost</span><span class="kv-val">$2.00</span></div>
+      </div>
+    </div>
+
+    <div class="col">
+      <div class="col-h"><span>Blocked</span><span class="col-count">1</span></div>
+      <div class="card blocked">
+        <div class="title">DB migration for sessions</div>
+        <div class="meta"><span class="tag">Auth</span><span class="chip blocked">blocked</span></div>
+        <div class="owner">Dev Agent 1</div>
+        <div class="kv"><span>Cost</span><span class="kv-val">$0.40</span></div>
+      </div>
+    </div>
+
+    <div class="col">
+      <div class="col-h"><span>In Progress</span><span class="col-count">2</span></div>
+      <div class="card selected">
+        <div class="title">Implement login endpoint</div>
+        <div class="meta"><span class="tag">Auth</span><span class="chip">in_progress</span></div>
+        <div class="owner">Dev Agent 1</div>
+        <div class="kv"><span>Cost</span><span class="kv-val">$4.20</span></div>
+      </div>
+      <div class="card">
+        <div class="title">JWT refresh logic</div>
+        <div class="meta"><span class="tag">Auth</span><span class="chip">review</span></div>
+        <div class="owner">Dev Agent 1</div>
+        <div class="kv"><span>Cost</span><span class="kv-val">$6.50</span></div>
+      </div>
+    </div>
+
+    <div class="col">
+      <div class="col-h"><span>Done</span><span class="col-count">1</span></div>
+      <div class="card">
+        <div class="title">Write auth tests</div>
+        <div class="meta"><span class="tag">Auth</span><span class="chip">done</span></div>
+        <div class="owner">Dev Agent 2</div>
+        <div class="kv"><span>Cost</span><span class="kv-val">$3.10</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="backdrop"></div>
+
+  <aside class="sheet" role="dialog" aria-label="Task detail">
+    <div class="sheet-h">
+      <div>
+        <h2 class="sheet-title">Implement login endpoint</h2>
+        <div class="sheet-meta">
+          <span class="chip">in_progress</span>
+          <span class="tag">Auth</span>
+          <span class="kv-val" style="font-family:var(--mono);font-size:12px;color:var(--text-mid)">Dev Agent 1 · $4.20</span>
+        </div>
+      </div>
+      <button class="close" aria-label="Close">ESC</button>
+    </div>
+
+    <div class="sheet-section">
+      <div class="sheet-section-h">Request state change</div>
+      <div class="req-grid">
+        <button class="btn"><span>Planned</span><span class="arr">→</span></button>
+        <button class="btn danger"><span>Blocked</span><span class="arr">→</span></button>
+        <button class="btn" disabled><span>In Progress (current)</span></button>
+        <button class="btn"><span>Done</span><span class="arr">→</span></button>
+      </div>
+    </div>
+
+    <div class="thread">
+      <div class="thread-empty">No messages yet — your request will appear here.</div>
+    </div>
+
+    <div class="composer">
+      <textarea placeholder="Message to Dev Agent 1…"></textarea>
+      <button class="send">Send</button>
+    </div>
+  </aside>
+</div>
+
+</body>
+</html>

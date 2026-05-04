@@ -1,0 +1,325 @@
+<!doctype html>
+<html lang="en" data-theme="lucid-dark">
+<head>
+<meta charset="utf-8" />
+<title>L15 Variant A — Kebab overflow menu</title>
+<link rel="stylesheet" href="../../../../packages/design-system/src/tokens.css" />
+<style>
+  :root { font-family: var(--ui); color-scheme: dark; }
+  body {
+    background: var(--surface-0);
+    color: var(--text-hi);
+    margin: 0;
+    padding: 24px;
+    font-size: 15px;
+    line-height: var(--leading-body);
+    -webkit-font-smoothing: antialiased;
+  }
+  .page-h {
+    font-family: var(--mono);
+    font-size: 14px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-lo);
+    margin: 0 0 16px;
+  }
+  .board {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(280px, 1fr));
+    gap: 12px;
+  }
+  .col {
+    background: var(--surface-2);
+    border-radius: var(--r2);
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    min-height: 480px;
+  }
+  .col-h {
+    font-family: var(--mono);
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+    color: var(--text-mid);
+    display: flex;
+    justify-content: space-between;
+    padding: 4px 4px 8px;
+    border-bottom: 1px solid var(--border-subtle);
+  }
+  .col-count {
+    color: var(--text-lo);
+  }
+  .card {
+    position: relative;
+    background: var(--surface-4);
+    border-radius: var(--r2);
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    cursor: default;
+    transition: background var(--motion-fast) var(--motion-ease);
+  }
+  .card:hover { background: var(--surface-5); }
+  .card.blocked { border: 1px solid var(--danger); }
+  .title {
+    font-size: 15px;
+    font-weight: 500;
+    color: var(--text-hi);
+    line-height: 1.35;
+    padding-right: 28px;
+  }
+  .meta {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+  .tag {
+    font-family: var(--mono);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+    color: var(--text-mid);
+    background: var(--surface-ghost);
+    padding: 2px 6px;
+    border-radius: var(--r1);
+    font-weight: 500;
+  }
+  .chip {
+    font-family: var(--mono);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-hi);
+    background: var(--surface-ghost);
+    padding: 2px 8px;
+    border-radius: var(--r1);
+    font-weight: 500;
+  }
+  .chip.blocked { color: var(--danger); }
+  .owner {
+    font-size: 12px;
+    color: var(--text-hi);
+  }
+  .kv {
+    display: flex;
+    justify-content: space-between;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text-mid);
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+  }
+  .kv-val { color: var(--text-hi); font-variant-numeric: tabular-nums; }
+  .kebab {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: var(--r1);
+    color: var(--text-mid);
+    background: transparent;
+    border: 0;
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity var(--motion-fast) var(--motion-ease),
+                background var(--motion-fast) var(--motion-ease);
+  }
+  .card:hover .kebab,
+  .card:focus-within .kebab,
+  .card.menu-open .kebab { opacity: 1; }
+  .kebab:hover { background: var(--surface-6); color: var(--text-hi); }
+  .kebab svg { width: 14px; height: 14px; }
+  /* Menu */
+  .menu {
+    position: absolute;
+    top: 36px;
+    right: 8px;
+    background: var(--surface-3);
+    border: 1px solid var(--border-default);
+    border-radius: var(--r2);
+    box-shadow: var(--float);
+    min-width: 220px;
+    padding: 4px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    z-index: 20;
+  }
+  .menu-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 10px;
+    border-radius: var(--r1);
+    color: var(--text-hi);
+    font-size: 13px;
+    cursor: pointer;
+    line-height: 1;
+    background: transparent;
+    border: 0;
+    width: 100%;
+    text-align: left;
+    transition: background var(--motion-fast) var(--motion-ease);
+  }
+  .menu-item:hover, .menu-item.focused { background: var(--surface-5); }
+  .menu-item .chev { color: var(--text-lo); font-family: var(--mono); }
+  .menu-divider { height: 1px; background: var(--border-subtle); margin: 4px 6px; }
+  .submenu {
+    position: absolute;
+    top: 36px;
+    right: -228px;
+    background: var(--surface-3);
+    border: 1px solid var(--border-default);
+    border-radius: var(--r2);
+    box-shadow: var(--float);
+    min-width: 220px;
+    padding: 4px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .kbd {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--text-lo);
+    background: var(--surface-ghost);
+    padding: 1px 5px;
+    border-radius: var(--r1);
+    text-transform: uppercase;
+    border: 1px solid var(--border-subtle);
+  }
+  .menu-section {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--text-lo);
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+    padding: 6px 10px 4px;
+  }
+  .toast {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    background: var(--surface-3);
+    border: 1px solid var(--border-default);
+    color: var(--text-hi);
+    padding: 10px 14px;
+    border-radius: var(--r2);
+    font-size: 13px;
+    box-shadow: var(--float);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .toast .dot { width: 6px; height: 6px; background: var(--ok); border-radius: 999px; }
+</style>
+</head>
+<body>
+
+<h1 class="page-h">Team Board · Variant A · Kebab</h1>
+
+<div class="board">
+  <!-- Planned -->
+  <div class="col">
+    <div class="col-h"><span>Planned</span><span class="col-count">2</span></div>
+    <div class="card">
+      <div class="title">Design signup form</div>
+      <div class="meta"><span class="tag">Auth</span><span class="chip">accepted</span></div>
+      <div class="owner">Dev Agent 2</div>
+      <div class="kv"><span>Cost</span><span class="kv-val">$1.80</span></div>
+      <button class="kebab" aria-label="Task actions">
+        <svg viewBox="0 0 16 16" fill="currentColor"><circle cx="8" cy="3" r="1.5"/><circle cx="8" cy="8" r="1.5"/><circle cx="8" cy="13" r="1.5"/></svg>
+      </button>
+    </div>
+    <div class="card">
+      <div class="title">Rate limit middleware</div>
+      <div class="meta"><span class="tag">API</span><span class="chip">accepted</span></div>
+      <div class="owner">Dev Agent 1</div>
+      <div class="kv"><span>Cost</span><span class="kv-val">$2.00</span></div>
+      <button class="kebab" aria-label="Task actions">
+        <svg viewBox="0 0 16 16" fill="currentColor"><circle cx="8" cy="3" r="1.5"/><circle cx="8" cy="8" r="1.5"/><circle cx="8" cy="13" r="1.5"/></svg>
+      </button>
+    </div>
+  </div>
+
+  <!-- Blocked -->
+  <div class="col">
+    <div class="col-h"><span>Blocked</span><span class="col-count">1</span></div>
+    <div class="card blocked">
+      <div class="title">DB migration for sessions</div>
+      <div class="meta"><span class="tag">Auth</span><span class="chip blocked">blocked</span></div>
+      <div class="owner">Dev Agent 1</div>
+      <div class="kv"><span>Cost</span><span class="kv-val">$0.40</span></div>
+      <button class="kebab" aria-label="Task actions">
+        <svg viewBox="0 0 16 16" fill="currentColor"><circle cx="8" cy="3" r="1.5"/><circle cx="8" cy="8" r="1.5"/><circle cx="8" cy="13" r="1.5"/></svg>
+      </button>
+    </div>
+  </div>
+
+  <!-- In Progress (with menu open on featured card) -->
+  <div class="col">
+    <div class="col-h"><span>In Progress</span><span class="col-count">2</span></div>
+    <div class="card menu-open">
+      <div class="title">Implement login endpoint</div>
+      <div class="meta"><span class="tag">Auth</span><span class="chip">in_progress</span></div>
+      <div class="owner">Dev Agent 1</div>
+      <div class="kv"><span>Cost</span><span class="kv-val">$4.20</span></div>
+      <button class="kebab" aria-label="Task actions" aria-expanded="true">
+        <svg viewBox="0 0 16 16" fill="currentColor"><circle cx="8" cy="3" r="1.5"/><circle cx="8" cy="8" r="1.5"/><circle cx="8" cy="13" r="1.5"/></svg>
+      </button>
+      <div class="menu" role="menu">
+        <div class="menu-section">Request</div>
+        <button class="menu-item focused" role="menuitem"><span>Request state change</span><span class="chev">▸</span></button>
+        <div class="menu-divider"></div>
+        <button class="menu-item" role="menuitem"><span>Open thread</span><span class="kbd">T</span></button>
+      </div>
+      <div class="submenu" role="menu" aria-label="Request state">
+        <div class="menu-section">Request → state</div>
+        <button class="menu-item" role="menuitem"><span>Planned</span><span class="kbd">P</span></button>
+        <button class="menu-item" role="menuitem"><span>Blocked</span><span class="kbd">B</span></button>
+        <button class="menu-item" role="menuitem" disabled style="opacity:.4"><span>In Progress (current)</span></button>
+        <button class="menu-item" role="menuitem"><span>Done</span><span class="kbd">D</span></button>
+      </div>
+    </div>
+    <div class="card">
+      <div class="title">JWT refresh logic</div>
+      <div class="meta"><span class="tag">Auth</span><span class="chip">review</span></div>
+      <div class="owner">Dev Agent 1</div>
+      <div class="kv"><span>Cost</span><span class="kv-val">$6.50</span></div>
+      <button class="kebab" aria-label="Task actions">
+        <svg viewBox="0 0 16 16" fill="currentColor"><circle cx="8" cy="3" r="1.5"/><circle cx="8" cy="8" r="1.5"/><circle cx="8" cy="13" r="1.5"/></svg>
+      </button>
+    </div>
+  </div>
+
+  <!-- Done -->
+  <div class="col">
+    <div class="col-h"><span>Done</span><span class="col-count">1</span></div>
+    <div class="card">
+      <div class="title">Write auth tests</div>
+      <div class="meta"><span class="tag">Auth</span><span class="chip">done</span></div>
+      <div class="owner">Dev Agent 2</div>
+      <div class="kv"><span>Cost</span><span class="kv-val">$3.10</span></div>
+      <button class="kebab" aria-label="Task actions">
+        <svg viewBox="0 0 16 16" fill="currentColor"><circle cx="8" cy="3" r="1.5"/><circle cx="8" cy="8" r="1.5"/><circle cx="8" cy="13" r="1.5"/></svg>
+      </button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" role="status">
+  <span class="dot"></span><span>Requested → Blocked. Posted to thread.</span>
+</div>
+
+</body>
+</html>
