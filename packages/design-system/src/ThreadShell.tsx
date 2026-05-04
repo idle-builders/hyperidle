@@ -72,6 +72,14 @@ export interface ThreadShellProps {
 	agentSessionState?: AgentSessionStateSnapshot;
 	hostTitle?: string;
 	hostHref?: string;
+	/**
+	 * @lore L15 review (apply D / Security MUST-1): when `readOnly` is true,
+	 * the shell hides the Composer entirely. Use for surfaces where posting
+	 * happens via a different affordance (e.g. the L15 task request popover
+	 * on the Kanban card). Without this, wiring `onAppendMessage` to a no-op
+	 * silently swallowed user-typed messages.
+	 */
+	readOnly?: boolean;
 }
 
 interface SenderGroupedMessage {
@@ -204,6 +212,7 @@ export function ThreadShell({
 	agentSessionState,
 	hostTitle,
 	hostHref,
+	readOnly = false,
 }: ThreadShellProps): JSX.Element {
 	// Sort ASC by createdAt with id as a stability tiebreaker.
 	const ordered = useMemo(
@@ -424,7 +433,7 @@ export function ThreadShell({
 							</ul>
 						)}
 					</div>
-					<Composer threadId={thread.id} onSubmit={handleComposerSubmit} />
+					{readOnly ? null : <Composer threadId={thread.id} onSubmit={handleComposerSubmit} />}
 				</>
 			)}
 		</div>

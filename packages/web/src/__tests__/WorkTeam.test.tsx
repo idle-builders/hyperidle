@@ -1,8 +1,27 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { WorkTeam } from "../pages/WorkTeam";
+
+// L15: WorkTeam fetches per-task thread metadata on mount; mock fetch so the
+// page renders deterministically.
+beforeEach(() => {
+	vi.stubGlobal("fetch", async (input: string | URL): Promise<Response> => {
+		const url = typeof input === "string" ? input : input.toString();
+		if (url.startsWith("/api/threads?")) {
+			return new Response(JSON.stringify({ threads: [] }), {
+				status: 200,
+				headers: { "content-type": "application/json" },
+			});
+		}
+		return new Response("not found", { status: 404 });
+	});
+});
+
+afterEach(() => {
+	vi.unstubAllGlobals();
+});
 
 function renderPage(): ReturnType<typeof render> {
 	return render(
@@ -70,22 +89,39 @@ describe("WorkTeam", () => {
 		expect(order & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
 	});
 
-	it("exports a COLUMN_TO_STATE map that translates Kanban columns to TaskState values", async () => {
-		// I4 K1/K2: dragging a task to the Planned column must produce
-		// TaskState `accepted`, not the literal column key `planned` (which
-		// is NOT a valid TaskState). The map is co-located with its inverse
-		// `STATE_TO_COLUMN` in Kanban.tsx (the two are inverse relationships
-		// and must not drift) and re-exported for consumers.
-		const mod = (await import("../shell/Kanban")) as {
-			// biome-ignore lint/style/useNamingConvention: exported constant uses SCREAMING_SNAKE_CASE
-			COLUMN_TO_STATE?: Record<string, string>;
-		};
-		expect(mod.COLUMN_TO_STATE).toBeDefined();
-		expect(mod.COLUMN_TO_STATE).toMatchObject({
-			planned: "accepted",
-			in_progress: "in_progress",
-			blocked: "blocked",
-			done: "done",
+	// L15: COLUMN_TO_STATE map and handleMoveTask handler are deleted.
+	it("does NOT export COLUMN_TO_STATE from the Kanban shell (L15 — drag deleted)", async () => {
+		const mod = (await import("../shell/Kanban")) as Record<string, unknown>;
+		expect(mod.COLUMN_TO_STATE).toBeUndefined();
+	});
+
+	// L15 AC2: every requestable task gains a Request ▾ affordance.
+	it("renders a Request ▾ trigger on the in_progress fixture task (L15)", async () => {
+		renderPage();
+		await waitFor(() => {
+			// The fixture's "Implement login endpoint" is in_progress; its card
+			// must expose a Request trigger.
+			const triggers = screen.getAllByRole("button", { name: /request/i });
+			expect(triggers.length).toBeGreaterThan(0);
+		});
+	});
+
+	// L15: WorkTeam should issue per-task thread-list fetches at mount.
+	it("issues GET /api/threads?host_kind=task on mount (per visible task)", async () => {
+		const calls: string[] = [];
+		vi.stubGlobal("fetch", async (input: string | URL): Promise<Response> => {
+			const url = typeof input === "string" ? input : input.toString();
+			calls.push(url);
+			return new Response(JSON.stringify({ threads: [] }), {
+				status: 200,
+				headers: { "content-type": "application/json" },
+			});
+		});
+		renderPage();
+		await waitFor(() => {
+			expect(
+				calls.filter((u) => u.includes("/api/threads?") && u.includes("host_kind=task")).length,
+			).toBeGreaterThan(0);
 		});
 	});
 });

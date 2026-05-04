@@ -19,6 +19,7 @@ import { NotFound } from "./pages/NotFound";
 import { WorkBet } from "./pages/WorkBet";
 import { WorkPortfolio } from "./pages/WorkPortfolio";
 import { WorkTeam } from "./pages/WorkTeam";
+import { WorkTeamTaskThread } from "./pages/WorkTeamTaskThread";
 
 function buildRoutes(): RouteObject[] {
 	const routes: RouteObject[] = [
@@ -31,6 +32,7 @@ function buildRoutes(): RouteObject[] {
 				{ path: "conversations/chat", element: <ConversationsChat /> },
 				{ path: "work/portfolio", element: <WorkPortfolio /> },
 				{ path: "work/team", element: <WorkTeam /> },
+				{ path: "work/team/tasks/:taskId/thread", element: <WorkTeamTaskThread /> },
 				{ path: "work/bet/:betId", element: <WorkBet /> },
 				{ path: "knowledge", element: <KnowledgeList /> },
 				{ path: "knowledge/:knowledgeId", element: <KnowledgeDetail /> },

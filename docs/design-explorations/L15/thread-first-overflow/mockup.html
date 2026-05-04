@@ -1,0 +1,438 @@
+<!doctype html>
+<html lang="en" data-theme="lucid-dark">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>L15 Variant B — Thread-first with overflow</title>
+  <style>
+    /* Tokens (Lucid Dark) */
+    :root, [data-theme="lucid-dark"] {
+      --surface-0: #111113;
+      --surface-1: #19191c;
+      --surface-2: #1e1e22;
+      --surface-3: #27272b;
+      --surface-4: #323237;
+      --surface-5: #3e3e44;
+      --surface-6: #4a4a52;
+      --surface-ghost: rgba(255,255,255,0.05);
+      --primary: #e0e7ff;
+      --primary-dim: rgba(224,231,255,0.08);
+      --primary-hover: rgba(224,231,255,0.14);
+      --warn: #a8a8b0;
+      --ok: #c8c8d0;
+      --danger: #f87171;
+      --text-hi: #ededef;
+      --text-mid: #a0a0a6;
+      --text-lo: #6e6e76;
+      --border-subtle: rgba(255,255,255,0.06);
+      --border-default: rgba(255,255,255,0.10);
+      --border-emphasis: rgba(255,255,255,0.16);
+      --r1: 4px;
+      --r2: 8px;
+      --r-pill: 999px;
+      --motion-fast: 80ms;
+      --motion-medium: 150ms;
+      --motion-ease: cubic-bezier(0.2, 0, 0, 1);
+      --ui: "Geist", "Inter", system-ui, sans-serif;
+      --mono: "Geist Mono", ui-monospace, monospace;
+      --density-pad-x: 1rem;
+      --density-pad-y: 0.75rem;
+      --density-gap: 0.75rem;
+      --density-text: 0.9375rem;
+      --density-card-pad: 0.75rem;
+      --density-card-gap: 0.5rem;
+    }
+
+    * { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; }
+    body {
+      background: var(--surface-0);
+      color: var(--text-hi);
+      font-family: var(--ui);
+      font-size: var(--density-text);
+      line-height: 1.5;
+      min-height: 100vh;
+      padding: 24px;
+    }
+
+    .page-title {
+      font-family: var(--mono);
+      font-size: 14px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--text-lo);
+      margin: 0 0 16px 0;
+    }
+
+    .kanban { display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--density-gap); }
+    .column { display: flex; flex-direction: column; gap: 8px; }
+    .column-header {
+      display: flex; align-items: center; gap: 8px; margin-bottom: 4px;
+    }
+    .column-header h3 {
+      font-size: 14px; font-weight: 600; margin: 0; color: var(--text-hi);
+    }
+    .column-header .count {
+      display: inline-flex; align-items: center;
+      padding: 0 6px; height: 18px; border-radius: var(--r-pill);
+      background: var(--surface-ghost); color: var(--text-lo);
+      font-family: var(--mono); font-size: 11px;
+      font-variant-numeric: tabular-nums;
+    }
+
+    /* Card */
+    .task-card {
+      background: var(--surface-4);
+      border-radius: var(--r2);
+      padding: var(--density-card-pad);
+      display: flex;
+      flex-direction: column;
+      gap: var(--density-card-gap);
+      transition: background var(--motion-fast) var(--motion-ease);
+      cursor: default;
+      position: relative; /* anchor for overflow menu */
+    }
+    .task-card:hover { background: var(--surface-5); }
+    .task-card--blocked { border: 1px solid var(--danger); }
+    .task-card__title {
+      font-size: var(--density-text); font-weight: 500; color: var(--text-hi);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .task-card__meta { display: flex; align-items: center; gap: var(--density-gap); }
+    .task-card__owner { font-size: 12px; color: var(--text-hi); }
+
+    /* Action footer (variant B — quiet thread chip + overflow) */
+    .task-card__footer {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 6px;
+    }
+
+    /* Overflow trigger */
+    .overflow-trigger {
+      width: 28px; height: 24px;
+      display: inline-flex; align-items: center; justify-content: center;
+      background: transparent;
+      border: 0;
+      border-radius: var(--r1);
+      cursor: pointer;
+      color: var(--text-lo);
+      opacity: 0.45;
+      font-size: 16px;
+      line-height: 1;
+      letter-spacing: 0;
+      transition: background var(--motion-fast), opacity var(--motion-fast), color var(--motion-fast);
+    }
+    .task-card:hover .overflow-trigger { opacity: 1; color: var(--text-mid); }
+    .overflow-trigger:hover { background: var(--surface-ghost); color: var(--text-hi) !important; }
+    .overflow-trigger[aria-expanded="true"] { opacity: 1; color: var(--text-hi); background: var(--surface-ghost); }
+
+    /* Thread chip (the dominant affordance) */
+    .thread-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 3px 10px;
+      height: 24px;
+      border-radius: var(--r-pill);
+      background: var(--surface-ghost);
+      color: var(--text-mid);
+      font-family: var(--ui);
+      font-size: 12px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background var(--motion-fast), color var(--motion-fast);
+      border: 0;
+    }
+    .thread-chip:hover { background: color-mix(in oklab, var(--primary) 12%, transparent); color: var(--text-hi); }
+    .thread-chip__count {
+      font-family: var(--mono);
+      font-variant-numeric: tabular-nums;
+      font-size: 11px;
+    }
+    .thread-chip__glyph {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: var(--surface-6);
+    }
+    .thread-chip--unread {
+      background: color-mix(in oklab, var(--primary) 14%, transparent);
+      color: var(--text-hi);
+    }
+    .thread-chip--unread .thread-chip__glyph {
+      background: var(--primary);
+      box-shadow: 0 0 0 2px color-mix(in oklab, var(--primary) 20%, transparent);
+    }
+    .thread-chip--unread .thread-chip__count { color: var(--text-hi); }
+
+    /* StatusChip */
+    .status-chip {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 2px 8px; border-radius: var(--r-pill);
+      font-family: var(--mono); font-size: 11px;
+      letter-spacing: 0.05em; text-transform: uppercase; font-weight: 500;
+      line-height: 1.4; white-space: nowrap; flex-shrink: 0;
+    }
+    .status-chip .dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+    .status-chip--healthy { background: color-mix(in oklab, var(--ok) 14%, transparent); color: var(--ok); }
+    .status-chip--healthy .dot { background: var(--ok); }
+    .status-chip--behind { background: color-mix(in oklab, var(--warn) 14%, transparent); color: var(--warn); }
+    .status-chip--behind .dot { background: var(--warn); }
+    .status-chip--blocked { background: color-mix(in oklab, var(--danger) 14%, transparent); color: var(--danger); }
+    .status-chip--blocked .dot { background: var(--danger); }
+    .status-chip--paused { background: color-mix(in oklab, var(--text-lo) 14%, transparent); color: var(--text-lo); }
+    .status-chip--paused .dot { background: var(--text-lo); }
+    .status-chip--done { background: color-mix(in oklab, var(--ok) 14%, transparent); color: var(--ok); }
+    .status-chip--done .dot { background: var(--ok); }
+
+    /* Tag */
+    .tag {
+      display: inline-flex; align-items: center; gap: 4px;
+      padding: 2px 8px; border-radius: var(--r-pill);
+      font-size: 11px; font-family: var(--mono); letter-spacing: 0.03em;
+      white-space: nowrap; background: var(--surface-ghost);
+      color: var(--text-mid); flex-shrink: 0;
+    }
+
+    /* KeyValue */
+    .key-value { display: flex; align-items: center; justify-content: space-between; gap: 4px; }
+    .key-value__label {
+      font-family: var(--mono); font-size: 11px; letter-spacing: 0.05em;
+      text-transform: uppercase; font-weight: 500; color: var(--text-lo);
+    }
+    .key-value__value {
+      font-size: var(--density-text); color: var(--text-hi);
+      font-variant-numeric: tabular-nums;
+    }
+
+    /* Overflow menu */
+    .overflow-menu {
+      position: absolute;
+      top: calc(100% + 4px);
+      right: 0;
+      width: 220px;
+      background: var(--surface-2);
+      border: 1px solid var(--border-default);
+      border-radius: var(--r2);
+      box-shadow: 0 2px 16px rgba(0,0,0,0.5);
+      z-index: 10;
+      padding: 4px;
+      display: flex;
+      flex-direction: column;
+    }
+    .overflow-menu__label {
+      font-family: var(--mono); font-size: 11px; font-weight: 500;
+      text-transform: uppercase; letter-spacing: 0.05em;
+      color: var(--text-lo); padding: 8px 8px 4px 8px;
+    }
+    .overflow-menu__divider { height: 1px; background: var(--border-subtle); margin: 4px 0; }
+    .overflow-menu__verb {
+      background: transparent; border: 0; text-align: left;
+      padding: 8px; border-radius: var(--r1);
+      font-family: var(--ui); font-size: 13px; color: var(--text-hi);
+      cursor: pointer;
+      transition: background var(--motion-fast);
+    }
+    .overflow-menu__verb:hover { background: var(--surface-ghost); }
+    .overflow-menu__verb--danger { color: var(--danger); }
+    .overflow-menu__hint {
+      padding: 6px 8px;
+      font-size: 11px;
+      font-style: italic;
+      color: var(--text-lo);
+    }
+
+    .mockup-note {
+      margin-top: 24px;
+      padding: 12px 16px;
+      background: var(--surface-2);
+      border: 1px solid var(--border-default);
+      border-radius: var(--r2);
+      font-size: 12px;
+      color: var(--text-mid);
+      font-family: var(--mono);
+    }
+    .mockup-note strong { color: var(--text-hi); font-weight: 500; }
+  </style>
+</head>
+<body>
+
+  <h1 class="page-title">Team Board · L15 Variant B — Thread-first with overflow</h1>
+
+  <div class="kanban">
+
+    <!-- Planned column -->
+    <div class="column">
+      <div class="column-header">
+        <h3>Planned</h3>
+        <span class="count">2</span>
+      </div>
+
+      <div class="task-card">
+        <span class="task-card__title">Design signup form</span>
+        <div class="task-card__meta">
+          <span class="tag">Auth</span>
+          <span class="status-chip status-chip--healthy"><span class="dot"></span>HEALTHY</span>
+        </div>
+        <span class="task-card__owner">Dev Agent 2</span>
+        <div class="key-value">
+          <span class="key-value__label">Cost</span>
+          <span class="key-value__value">$1.80</span>
+        </div>
+        <div class="task-card__footer">
+          <button class="overflow-trigger" type="button" aria-label="Request state change">⋯</button>
+          <button class="thread-chip" type="button" aria-label="Open thread (1 message)">
+            <span class="thread-chip__glyph"></span>
+            <span class="thread-chip__count">1</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="task-card">
+        <span class="task-card__title">Rate limit middleware</span>
+        <div class="task-card__meta">
+          <span class="tag">API</span>
+          <span class="status-chip status-chip--healthy"><span class="dot"></span>HEALTHY</span>
+        </div>
+        <span class="task-card__owner">Dev Agent 1</span>
+        <div class="key-value">
+          <span class="key-value__label">Cost</span>
+          <span class="key-value__value">$2.00</span>
+        </div>
+        <div class="task-card__footer">
+          <button class="overflow-trigger" type="button">⋯</button>
+          <button class="thread-chip" type="button" aria-label="Open thread">
+            <span style="font-size:11px;font-family:var(--mono);color:var(--text-lo);">Open thread</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Blocked column -->
+    <div class="column">
+      <div class="column-header">
+        <h3>Blocked</h3>
+        <span class="count">1</span>
+      </div>
+
+      <div class="task-card task-card--blocked">
+        <span class="task-card__title">Webhook signature verify</span>
+        <div class="task-card__meta">
+          <span class="tag">Auth</span>
+          <span class="status-chip status-chip--blocked"><span class="dot"></span>BLOCKED</span>
+        </div>
+        <span class="task-card__owner">Dev Agent 1</span>
+        <div class="key-value">
+          <span class="key-value__label">Cost</span>
+          <span class="key-value__value">$0.95</span>
+        </div>
+        <!-- Blocked card has unread agent messages -->
+        <div class="task-card__footer">
+          <button class="overflow-trigger" type="button">⋯</button>
+          <button class="thread-chip thread-chip--unread" type="button" aria-label="Open thread (5 messages, unread)">
+            <span class="thread-chip__glyph"></span>
+            <span class="thread-chip__count">5</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- In Progress column with overflow menu OPEN -->
+    <div class="column">
+      <div class="column-header">
+        <h3>In Progress</h3>
+        <span class="count">2</span>
+      </div>
+
+      <div class="task-card">
+        <span class="task-card__title">Implement login endpoint</span>
+        <div class="task-card__meta">
+          <span class="tag">Auth</span>
+          <span class="status-chip status-chip--healthy"><span class="dot"></span>HEALTHY</span>
+        </div>
+        <span class="task-card__owner">Dev Agent 1</span>
+        <div class="key-value">
+          <span class="key-value__label">Cost</span>
+          <span class="key-value__value">$4.20</span>
+        </div>
+        <div class="task-card__footer">
+          <button class="overflow-trigger" type="button" aria-expanded="true">⋯</button>
+          <button class="thread-chip" type="button" aria-label="Open thread">
+            <span class="thread-chip__glyph"></span>
+            <span class="thread-chip__count">3</span>
+          </button>
+
+          <!-- Overflow menu open for the canonical interaction state -->
+          <div class="overflow-menu" role="menu" aria-label="Request state change">
+            <div class="overflow-menu__label">Request from Dev Agent 1</div>
+            <div class="overflow-menu__divider"></div>
+            <button type="button" class="overflow-menu__verb">Mark blocked</button>
+            <button type="button" class="overflow-menu__verb">Pause</button>
+            <button type="button" class="overflow-menu__verb">Ready for review</button>
+            <button type="button" class="overflow-menu__verb overflow-menu__verb--danger">Kill</button>
+            <div class="overflow-menu__divider"></div>
+            <div class="overflow-menu__hint">For richer context, open thread.</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="task-card">
+        <span class="task-card__title">JWT refresh logic</span>
+        <div class="task-card__meta">
+          <span class="tag">Auth</span>
+          <span class="status-chip status-chip--behind"><span class="dot"></span>BEHIND</span>
+        </div>
+        <span class="task-card__owner">Dev Agent 1</span>
+        <div class="key-value">
+          <span class="key-value__label">Cost</span>
+          <span class="key-value__value">$6.50</span>
+        </div>
+        <!-- Card with unread to demonstrate the dot -->
+        <div class="task-card__footer">
+          <button class="overflow-trigger" type="button">⋯</button>
+          <button class="thread-chip thread-chip--unread" type="button" aria-label="Open thread (2 unread)">
+            <span class="thread-chip__glyph"></span>
+            <span class="thread-chip__count">2</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Done column -->
+    <div class="column">
+      <div class="column-header">
+        <h3>Done</h3>
+        <span class="count">1</span>
+      </div>
+
+      <div class="task-card">
+        <span class="task-card__title">Write auth tests</span>
+        <div class="task-card__meta">
+          <span class="tag">Auth</span>
+          <span class="status-chip status-chip--done"><span class="dot"></span>DONE</span>
+        </div>
+        <span class="task-card__owner">Dev Agent 2</span>
+        <div class="key-value">
+          <span class="key-value__label">Cost</span>
+          <span class="key-value__value">$3.10</span>
+        </div>
+        <!-- Done card: thread chip only, no overflow trigger -->
+        <div class="task-card__footer">
+          <button class="thread-chip" type="button" aria-label="Open thread">
+            <span class="thread-chip__glyph"></span>
+            <span class="thread-chip__count">1</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="mockup-note">
+    <strong>State shown.</strong> Two cards (`Webhook signature verify` blocked, `JWT refresh logic` in progress) carry the unread dot — primary-tinted thread chips. Centre column shows the canonical interaction state with the overflow menu OPEN on `Implement login endpoint`. The `Done` card shows the terminal-state collapse: chip only, no overflow trigger.
+  </div>
+
+</body>
+</html>

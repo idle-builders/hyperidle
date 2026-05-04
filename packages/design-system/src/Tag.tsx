@@ -6,6 +6,12 @@ export interface TagProps {
 	label: string;
 	/** Optional Tier-2 kind. When omitted, renders the legacy neutral chip. */
 	kind?: TagKind;
+	/**
+	 * L15 — When true, renders the unread-state visual: a leading 6×6px
+	 * `--primary` dot span + primary tint background. Mutually exclusive with
+	 * `kind` — when both are set, `kind` wins (the dot is skipped).
+	 */
+	unread?: boolean;
 }
 
 /**
@@ -29,7 +35,7 @@ export interface TagProps {
 const TAG_BASE =
 	"inline-flex items-center gap-[4px] px-[8px] py-[2px] rounded-[var(--r2)] font-[family-name:var(--ui)] text-[12px] leading-[1.4] whitespace-nowrap border-none";
 
-export function Tag({ label, kind }: TagProps): JSX.Element {
+export function Tag({ label, kind, unread }: TagProps): JSX.Element {
 	// @lore J1 review: defensive guard — if a caller passes an arbitrary
 	// string typed as `TagKind` (e.g. `kind={item.kind as TagKind}` for a
 	// knowledge-item kind not in the Tier-2 set), `meta` would be undefined
@@ -37,6 +43,23 @@ export function Tag({ label, kind }: TagProps): JSX.Element {
 	// neutral chip in that case so the page stays up.
 	const meta = kind ? TAG_KIND_ICONS[kind] : undefined;
 	if (!meta) {
+		// L15: unread variant — leading dot + primary tint. The unread dot is
+		// a CSS-attached background span (AQ-105 forbids unicode/emoji glyphs).
+		if (unread) {
+			return (
+				<span
+					{...dsProps("Tag", "1")}
+					className={`${TAG_BASE} bg-[color-mix(in_oklab,var(--primary)_14%,transparent)] text-[var(--text-hi)]`}
+				>
+					<span
+						data-testid="tag-unread-dot"
+						aria-hidden="true"
+						className="inline-block w-[6px] h-[6px] rounded-[var(--r-pill)] bg-[var(--primary)]"
+					/>
+					{label}
+				</span>
+			);
+		}
 		return (
 			<span
 				{...dsProps("Tag", "1")}

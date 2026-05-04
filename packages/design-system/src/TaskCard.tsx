@@ -53,7 +53,21 @@ export function TaskCard({
 			</div>
 			<span className="text-[12px] text-[var(--text-hi)]">{owner}</span>
 			{cost && <KeyValue label="Cost" value={cost} />}
-			{actions}
+			{actions ? (
+				/*
+				 * @lore L15: action footer divider — 1px subtle border, mt/pt
+				 * use `var(--density-card-gap)` (8px default / 4px compact / 8px
+				 * comfortable) per Design MF-1. The previous `var(--density-gap)`
+				 * resolved to 12px and made the footer look glued to the next
+				 * card. Card-gap is the right axis: it scales with density and
+				 * stays inside the K10 density-aware allowlist. Slot rendered
+				 * only when `actions` is provided so terminal/orphan cards
+				 * shrink by ~28 px.
+				 */
+				<div className="border-t border-[var(--border-subtle)] mt-[var(--density-card-gap)] pt-[var(--density-card-gap)]">
+					{actions}
+				</div>
+			) : null}
 		</div>
 	);
 }

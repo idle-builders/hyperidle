@@ -1,0 +1,486 @@
+<!doctype html>
+<html lang="en" data-theme="lucid-dark">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>L15 Approved — Inline action row with unread chip</title>
+  <style>
+    /* Tokens (Lucid Dark) — same as variant A's mockup */
+    :root, [data-theme="lucid-dark"] {
+      --surface-0: #111113;
+      --surface-1: #19191c;
+      --surface-2: #1e1e22;
+      --surface-3: #27272b;
+      --surface-4: #323237;
+      --surface-5: #3e3e44;
+      --surface-6: #4a4a52;
+      --surface-ghost: rgba(255,255,255,0.05);
+      --primary: #e0e7ff;
+      --primary-dim: rgba(224,231,255,0.08);
+      --primary-hover: rgba(224,231,255,0.14);
+      --warn: #a8a8b0;
+      --ok: #c8c8d0;
+      --danger: #f87171;
+      --text-hi: #ededef;
+      --text-mid: #a0a0a6;
+      --text-lo: #6e6e76;
+      --border-subtle: rgba(255,255,255,0.06);
+      --border-default: rgba(255,255,255,0.10);
+      --border-emphasis: rgba(255,255,255,0.16);
+      --r1: 4px;
+      --r2: 8px;
+      --r-pill: 999px;
+      --motion-fast: 80ms;
+      --motion-medium: 150ms;
+      --motion-ease: cubic-bezier(0.2, 0, 0, 1);
+      --ui: "Geist", "Inter", system-ui, sans-serif;
+      --mono: "Geist Mono", ui-monospace, monospace;
+      --density-pad-x: 1rem;
+      --density-pad-y: 0.75rem;
+      --density-gap: 0.75rem;
+      --density-text: 0.9375rem;
+      --density-card-pad: 0.75rem;
+      --density-card-gap: 0.5rem;
+      --tracking-caps: 0.02em;
+    }
+
+    * { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; }
+    body {
+      background: var(--surface-0);
+      color: var(--text-hi);
+      font-family: var(--ui);
+      font-size: var(--density-text);
+      line-height: 1.5;
+      min-height: 100vh;
+      padding: 24px;
+    }
+
+    .page-title {
+      font-family: var(--mono);
+      font-size: 14px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--text-lo);
+      margin: 0 0 16px 0;
+    }
+
+    .kanban { display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--density-gap); }
+    .column { display: flex; flex-direction: column; gap: 8px; }
+    .column-header { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+    .column-header h3 { font-size: 14px; font-weight: 600; margin: 0; color: var(--text-hi); }
+    .column-header .count {
+      display: inline-flex; align-items: center;
+      padding: 0 6px; height: 18px; border-radius: var(--r-pill);
+      background: var(--surface-ghost); color: var(--text-lo);
+      font-family: var(--mono); font-size: 11px;
+      font-variant-numeric: tabular-nums;
+    }
+
+    /* Card */
+    .task-card {
+      background: var(--surface-4);
+      border-radius: var(--r2);
+      padding: var(--density-card-pad);
+      display: flex;
+      flex-direction: column;
+      gap: var(--density-card-gap);
+      transition: background var(--motion-fast) var(--motion-ease);
+      cursor: pointer; /* drag is dead, body click is the future task-detail nav */
+      position: relative;
+    }
+    .task-card:hover { background: var(--surface-5); }
+    .task-card--blocked { border: 1px solid var(--danger); }
+    .task-card__title {
+      font-size: var(--density-text); font-weight: 500; color: var(--text-hi);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .task-card__meta { display: flex; align-items: center; gap: var(--density-gap); }
+    .task-card__owner { font-size: 12px; color: var(--text-hi); }
+
+    /* Action footer */
+    .task-card__action-footer {
+      margin-top: 4px;
+      padding-top: 4px;
+      border-top: 1px solid var(--border-subtle);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      position: relative;
+    }
+    .action-btn {
+      background: transparent;
+      border: 0;
+      padding: 4px 6px;
+      border-radius: var(--r1);
+      font-family: var(--ui);
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--text-mid);
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: color var(--motion-fast), background var(--motion-fast);
+    }
+    .action-btn:hover { color: var(--text-hi); background: var(--surface-ghost); }
+    .action-btn[data-open="true"] { background: var(--surface-ghost); color: var(--text-hi); }
+    .action-btn .chevron { font-size: 9px; line-height: 1; color: var(--text-lo); }
+
+    /* Tag — default kind */
+    .tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 2px 8px;
+      height: 20px;
+      border-radius: var(--r-pill);
+      font-family: var(--ui);
+      font-size: 11px;
+      font-weight: 500;
+      background: var(--surface-ghost);
+      color: var(--text-mid);
+      flex-shrink: 0;
+      transition: background var(--motion-fast);
+    }
+    .tag--unread {
+      background: color-mix(in oklab, var(--primary) 14%, transparent);
+      color: var(--text-hi);
+    }
+    .tag__dot {
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: var(--primary);
+      flex-shrink: 0;
+    }
+    .tag__count {
+      font-family: var(--mono);
+      font-variant-numeric: tabular-nums;
+      font-size: 11px;
+    }
+
+    /* Same-shape Tag for betTag (the existing pattern) */
+    .tag--meta {
+      font-family: var(--mono);
+      letter-spacing: 0.03em;
+    }
+
+    /* Open thread fallback (orphan card) */
+    .open-thread-link {
+      font-family: var(--mono);
+      font-size: 11px;
+      font-weight: 500;
+      letter-spacing: var(--tracking-caps);
+      text-transform: uppercase;
+      color: var(--text-mid);
+    }
+
+    /* StatusChip */
+    .status-chip {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 2px 8px; border-radius: var(--r-pill);
+      font-family: var(--mono); font-size: 11px;
+      letter-spacing: 0.05em; text-transform: uppercase; font-weight: 500;
+      line-height: 1.4; white-space: nowrap; flex-shrink: 0;
+    }
+    .status-chip .dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+    .status-chip--healthy { background: color-mix(in oklab, var(--ok) 14%, transparent); color: var(--ok); }
+    .status-chip--healthy .dot { background: var(--ok); }
+    .status-chip--behind { background: color-mix(in oklab, var(--warn) 14%, transparent); color: var(--warn); }
+    .status-chip--behind .dot { background: var(--warn); }
+    .status-chip--blocked { background: color-mix(in oklab, var(--danger) 14%, transparent); color: var(--danger); }
+    .status-chip--blocked .dot { background: var(--danger); }
+    .status-chip--done { background: color-mix(in oklab, var(--ok) 14%, transparent); color: var(--ok); }
+    .status-chip--done .dot { background: var(--ok); }
+
+    /* KeyValue */
+    .key-value { display: flex; align-items: center; justify-content: space-between; gap: 4px; }
+    .key-value__label {
+      font-family: var(--mono); font-size: 11px; letter-spacing: 0.05em;
+      text-transform: uppercase; font-weight: 500; color: var(--text-lo);
+    }
+    .key-value__value {
+      font-size: var(--density-text); color: var(--text-hi);
+      font-variant-numeric: tabular-nums;
+    }
+
+    /* Request popover */
+    .request-popover {
+      position: absolute;
+      top: calc(100% + 4px);
+      left: 0;
+      width: 240px;
+      background: var(--surface-2);
+      border: 1px solid var(--border-default);
+      border-radius: var(--r2);
+      box-shadow: 0 2px 16px rgba(0,0,0,0.5);
+      z-index: 10;
+      padding: 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .request-popover__label {
+      font-family: var(--mono);
+      font-size: 11px;
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-lo);
+      padding: 4px 6px 0 6px;
+    }
+    .request-popover__divider {
+      height: 1px;
+      background: var(--border-subtle);
+      margin: 4px -8px 4px -8px;
+    }
+    .request-popover__verb {
+      background: transparent;
+      border: 0;
+      text-align: left;
+      padding: 8px;
+      border-radius: var(--r1);
+      font-family: var(--ui);
+      font-size: 13px;
+      color: var(--text-hi);
+      cursor: pointer;
+      transition: background var(--motion-fast);
+    }
+    .request-popover__verb:hover { background: var(--surface-ghost); }
+    /* Selected uses --primary-dim (0.08); hover uses --surface-ghost (0.05) — Fix 2 */
+    .request-popover__verb--selected { background: var(--primary-dim); }
+    .request-popover__verb--danger { color: var(--danger); }
+    .request-popover__note-label {
+      font-family: var(--mono);
+      font-size: 11px;
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-lo);
+      padding: 0 6px;
+    }
+    .request-popover__textarea {
+      width: 100%;
+      min-height: 56px;
+      padding: 8px;
+      background: var(--surface-1);
+      border: 1px solid var(--border-default);
+      border-radius: var(--r1);
+      color: var(--text-hi);
+      font-family: var(--ui);
+      font-size: 13px;
+      resize: none;
+    }
+    .request-popover__textarea:focus {
+      outline: 1px solid var(--primary);
+      outline-offset: -1px;
+      border-color: transparent;
+    }
+    .request-popover__buttons {
+      display: flex; align-items: center; justify-content: flex-end; gap: 6px;
+      padding: 0 6px 0 6px;
+    }
+    .btn {
+      padding: 6px 12px;
+      border-radius: var(--r1);
+      border: 1px solid transparent;
+      font-family: var(--ui);
+      font-size: 12px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background var(--motion-fast);
+    }
+    .btn--ghost { background: transparent; color: var(--text-mid); }
+    .btn--ghost:hover { background: var(--surface-ghost); color: var(--text-hi); }
+    .btn--primary { background: var(--primary); color: var(--surface-0); }
+    .btn--primary:hover { filter: brightness(1.05); }
+
+    .mockup-note {
+      margin-top: 24px;
+      padding: 12px 16px;
+      background: var(--surface-2);
+      border: 1px solid var(--border-default);
+      border-radius: var(--r2);
+      font-size: 12px;
+      color: var(--text-mid);
+      font-family: var(--mono);
+    }
+    .mockup-note strong { color: var(--text-hi); font-weight: 500; }
+  </style>
+</head>
+<body>
+
+  <h1 class="page-title">Team Board · L15 Approved — Inline action row + unread chip</h1>
+
+  <div class="kanban">
+
+    <div class="column">
+      <div class="column-header"><h3>Planned</h3><span class="count">2</span></div>
+
+      <div class="task-card">
+        <span class="task-card__title">Design signup form</span>
+        <div class="task-card__meta">
+          <span class="tag tag--meta">Auth</span>
+          <span class="status-chip status-chip--healthy"><span class="dot"></span>HEALTHY</span>
+        </div>
+        <span class="task-card__owner">Dev Agent 2</span>
+        <div class="key-value">
+          <span class="key-value__label">Cost</span>
+          <span class="key-value__value">$1.80</span>
+        </div>
+        <div class="task-card__action-footer">
+          <button class="action-btn" type="button">Request <span class="chevron">▾</span></button>
+          <button class="action-btn" type="button">
+            Thread
+            <span class="tag"><span class="tag__count">1</span></span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Orphan card: no thread yet -->
+      <div class="task-card">
+        <span class="task-card__title">Rate limit middleware</span>
+        <div class="task-card__meta">
+          <span class="tag tag--meta">API</span>
+          <span class="status-chip status-chip--healthy"><span class="dot"></span>HEALTHY</span>
+        </div>
+        <span class="task-card__owner">Dev Agent 1</span>
+        <div class="key-value">
+          <span class="key-value__label">Cost</span>
+          <span class="key-value__value">$2.00</span>
+        </div>
+        <div class="task-card__action-footer">
+          <button class="action-btn" type="button">Request <span class="chevron">▾</span></button>
+          <span class="open-thread-link">Open thread</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="column">
+      <div class="column-header"><h3>Blocked</h3><span class="count">1</span></div>
+
+      <div class="task-card task-card--blocked">
+        <span class="task-card__title">Webhook signature verify</span>
+        <div class="task-card__meta">
+          <span class="tag tag--meta">Auth</span>
+          <span class="status-chip status-chip--blocked"><span class="dot"></span>BLOCKED</span>
+        </div>
+        <span class="task-card__owner">Dev Agent 1</span>
+        <div class="key-value">
+          <span class="key-value__label">Cost</span>
+          <span class="key-value__value">$0.95</span>
+        </div>
+        <!-- Unread chip: agent has posted since founder last opened -->
+        <div class="task-card__action-footer">
+          <button class="action-btn" type="button">Request <span class="chevron">▾</span></button>
+          <button class="action-btn" type="button" aria-label="Open thread (5 messages, 3 unread)">
+            Thread
+            <span class="tag tag--unread">
+              <span class="tag__dot"></span>
+              <span class="tag__count">5</span>
+            </span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div class="column">
+      <div class="column-header"><h3>In Progress</h3><span class="count">2</span></div>
+
+      <div class="task-card">
+        <span class="task-card__title">Implement login endpoint</span>
+        <div class="task-card__meta">
+          <span class="tag tag--meta">Auth</span>
+          <span class="status-chip status-chip--healthy"><span class="dot"></span>HEALTHY</span>
+        </div>
+        <span class="task-card__owner">Dev Agent 1</span>
+        <div class="key-value">
+          <span class="key-value__label">Cost</span>
+          <span class="key-value__value">$4.20</span>
+        </div>
+        <div class="task-card__action-footer">
+          <button class="action-btn" type="button" data-open="true" aria-expanded="true">
+            Request <span class="chevron">▾</span>
+          </button>
+          <button class="action-btn" type="button">
+            Thread
+            <span class="tag"><span class="tag__count">3</span></span>
+          </button>
+
+          <!-- Popover open with the canonical interaction -->
+          <div class="request-popover" role="dialog" aria-label="Request state change">
+            <div class="request-popover__label">Request from Dev Agent 1</div>
+            <button type="button" class="request-popover__verb">Mark blocked</button>
+            <button type="button" class="request-popover__verb request-popover__verb--selected">Pause</button>
+            <button type="button" class="request-popover__verb">Ready for review</button>
+            <button type="button" class="request-popover__verb request-popover__verb--danger">Kill</button>
+            <div class="request-popover__divider"></div>
+            <div class="request-popover__note-label">Note (optional)</div>
+            <textarea class="request-popover__textarea" placeholder="auth provider docs disagree…">auth provider docs disagree</textarea>
+            <div class="request-popover__buttons">
+              <button type="button" class="btn btn--ghost">Cancel</button>
+              <button type="button" class="btn btn--primary">Send</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="task-card">
+        <span class="task-card__title">JWT refresh logic</span>
+        <div class="task-card__meta">
+          <span class="tag tag--meta">Auth</span>
+          <span class="status-chip status-chip--behind"><span class="dot"></span>BEHIND</span>
+        </div>
+        <span class="task-card__owner">Dev Agent 1</span>
+        <div class="key-value">
+          <span class="key-value__label">Cost</span>
+          <span class="key-value__value">$6.50</span>
+        </div>
+        <!-- Another unread to demonstrate the eye-pull across cards -->
+        <div class="task-card__action-footer">
+          <button class="action-btn" type="button">Request <span class="chevron">▾</span></button>
+          <button class="action-btn" type="button" aria-label="Open thread (2 messages, 1 unread)">
+            Thread
+            <span class="tag tag--unread">
+              <span class="tag__dot"></span>
+              <span class="tag__count">2</span>
+            </span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div class="column">
+      <div class="column-header"><h3>Done</h3><span class="count">1</span></div>
+
+      <!-- Terminal card: thread-only footer, no Request -->
+      <div class="task-card">
+        <span class="task-card__title">Write auth tests</span>
+        <div class="task-card__meta">
+          <span class="tag tag--meta">Auth</span>
+          <span class="status-chip status-chip--done"><span class="dot"></span>DONE</span>
+        </div>
+        <span class="task-card__owner">Dev Agent 2</span>
+        <div class="key-value">
+          <span class="key-value__label">Cost</span>
+          <span class="key-value__value">$3.10</span>
+        </div>
+        <div class="task-card__action-footer" style="justify-content: flex-end;">
+          <button class="action-btn" type="button">
+            Thread
+            <span class="tag"><span class="tag__count">1</span></span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="mockup-note">
+    <strong>Approved state.</strong> Two cards (`Webhook signature verify` blocked, `JWT refresh logic` behind) carry the unread chip — primary-tinted with the leading dot — pulling the eye across the Kanban (B's pull-in). Centre column shows the canonical interaction with the popover OPEN on `Implement login endpoint`. Selected verb (`Pause`) uses --primary-dim (0.08), distinct from hover (--surface-ghost 0.05) — Fix 2. The `Done` card collapses to thread-only (no Request). The `Rate limit middleware` card is the orphan-state — no thread yet, "Open thread" mono caps text instead of a chip.
+  </div>
+
+</body>
+</html>

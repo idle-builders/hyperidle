@@ -973,6 +973,103 @@ describe("L8 — GET /api/threads list rows carry hasUnresolvedReview", () => {
 	});
 });
 
+/**
+ * L15 — server contract for the client-side request-to-task-thread flow.
+ *
+ * Append-only describe block (existing assertions in this file are
+ * protected). Verifies that the L15 client can:
+ *  - POST /api/threads with hostKind:'task', participants:[founder, agent],
+ *    initialMessage:{ type:'plain', payload:{ text:<deterministic body> } }
+ *  - Round-trip the deterministic body string verbatim through GET.
+ *  - Append a follow-up plain message via POST /api/threads/:id/messages
+ *    when the founder is in the participants list.
+ */
+describe("L15 — request-to-task-thread client flow", () => {
+	let ctx: AppCtx;
+
+	beforeEach(() => {
+		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
+		ctx = setupApp();
+	});
+
+	afterEach(() => {
+		vi.unstubAllEnvs();
+	});
+
+	const deterministicBody = "@A. Founder requested: Mark blocked\nauth provider docs disagree";
+
+	it("creates a host_kind=task thread with a plain initial message and round-trips the body", async () => {
+		const create = await ctx.app.request("/api/threads", {
+			method: "POST",
+			headers: authHeaders(),
+			body: JSON.stringify({
+				hostKind: "task",
+				hostId: "task-1",
+				participants: ["u-founder", "agent-dev-1"],
+				initialMessage: {
+					type: "plain",
+					payload: { text: deterministicBody },
+					clientKey: "l15-create-1",
+				},
+			}),
+		});
+		expect(create.status).toBe(201);
+		const created = (await create.json()) as {
+			thread: { id: string; hostKind: string; hostId: string };
+			messages: Array<{ type: string; payload: { text: string } }>;
+		};
+		expect(created.thread.hostKind).toBe("task");
+		expect(created.thread.hostId).toBe("task-1");
+		expect(created.messages[0].type).toBe("plain");
+		expect(created.messages[0].payload.text).toBe(deterministicBody);
+
+		const detail = await ctx.app.request(`/api/threads/${created.thread.id}`, {
+			method: "GET",
+			headers: authHeaders(),
+		});
+		expect(detail.status).toBe(200);
+		const body = (await detail.json()) as {
+			messages: Array<{ payload: { text: string } }>;
+		};
+		expect(body.messages[0].payload.text).toBe(deterministicBody);
+	});
+
+	it("allows the founder participant to append a follow-up plain message", async () => {
+		const create = await ctx.app.request("/api/threads", {
+			method: "POST",
+			headers: authHeaders(),
+			body: JSON.stringify({
+				hostKind: "task",
+				hostId: "task-1",
+				participants: ["u-founder", "agent-dev-1"],
+				initialMessage: {
+					type: "plain",
+					payload: { text: "@A. Founder requested: Pause" },
+					clientKey: "l15-create-2",
+				},
+			}),
+		});
+		expect(create.status).toBe(201);
+		const created = (await create.json()) as { thread: { id: string } };
+
+		const append = await ctx.app.request(`/api/threads/${created.thread.id}/messages`, {
+			method: "POST",
+			headers: authHeaders({ "X-Identity": "u-founder" }),
+			body: JSON.stringify({
+				type: "plain",
+				payload: { text: deterministicBody },
+				clientKey: "l15-append-1",
+			}),
+		});
+		expect(append.status).toBe(201);
+		const appended = (await append.json()) as {
+			message: { type: string; payload: { text: string } };
+		};
+		expect(appended.message.type).toBe("plain");
+		expect(appended.message.payload.text).toBe(deterministicBody);
+	});
+});
+
 describe("Schema sanity — threads table is reachable from Drizzle", () => {
 	it("the post-L1 `threads` row carries hostKind/hostId/lastActiveAt columns", () => {
 		// Runtime assertion: the inferred row shape must surface the new

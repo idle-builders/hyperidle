@@ -1,0 +1,610 @@
+<!doctype html>
+<html lang="en" data-theme="lucid-dark">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>L15 Variant C — Right-rail task drawer</title>
+  <style>
+    /* Tokens (Lucid Dark) */
+    :root, [data-theme="lucid-dark"] {
+      --surface-0: #111113;
+      --surface-1: #19191c;
+      --surface-2: #1e1e22;
+      --surface-3: #27272b;
+      --surface-4: #323237;
+      --surface-5: #3e3e44;
+      --surface-6: #4a4a52;
+      --surface-ghost: rgba(255,255,255,0.05);
+      --primary: #e0e7ff;
+      --primary-dim: rgba(224,231,255,0.08);
+      --primary-hover: rgba(224,231,255,0.14);
+      --warn: #a8a8b0;
+      --ok: #c8c8d0;
+      --danger: #f87171;
+      --text-hi: #ededef;
+      --text-mid: #a0a0a6;
+      --text-lo: #6e6e76;
+      --border-subtle: rgba(255,255,255,0.06);
+      --border-default: rgba(255,255,255,0.10);
+      --border-emphasis: rgba(255,255,255,0.16);
+      --r1: 4px;
+      --r2: 8px;
+      --r-pill: 999px;
+      --motion-fast: 80ms;
+      --motion-medium: 150ms;
+      --motion-ease: cubic-bezier(0.2, 0, 0, 1);
+      --ui: "Geist", "Inter", system-ui, sans-serif;
+      --mono: "Geist Mono", ui-monospace, monospace;
+      --density-pad-x: 1rem;
+      --density-pad-y: 0.75rem;
+      --density-gap: 0.75rem;
+      --density-text: 0.9375rem;
+      --density-card-pad: 0.75rem;
+      --density-card-gap: 0.5rem;
+    }
+
+    * { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; }
+    body {
+      background: var(--surface-0);
+      color: var(--text-hi);
+      font-family: var(--ui);
+      font-size: var(--density-text);
+      line-height: 1.5;
+      min-height: 100vh;
+    }
+
+    /* Page layout: Kanban (1fr) + Drawer (360px) */
+    .page {
+      display: grid;
+      grid-template-columns: 1fr 360px;
+      gap: 0;
+      min-height: 100vh;
+    }
+
+    .kanban-area {
+      padding: 24px;
+      overflow: auto;
+    }
+
+    .page-title {
+      font-family: var(--mono);
+      font-size: 14px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--text-lo);
+      margin: 0 0 16px 0;
+    }
+
+    /* Kanban (3-column due to drawer-open reflow) */
+    .kanban {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: var(--density-gap);
+    }
+    .column { display: flex; flex-direction: column; gap: 8px; }
+    .column-header {
+      display: flex; align-items: center; gap: 8px; margin-bottom: 4px;
+    }
+    .column-header h3 {
+      font-size: 14px; font-weight: 600; margin: 0; color: var(--text-hi);
+    }
+    .column-header .count {
+      display: inline-flex; align-items: center;
+      padding: 0 6px; height: 18px; border-radius: var(--r-pill);
+      background: var(--surface-ghost); color: var(--text-lo);
+      font-family: var(--mono); font-size: 11px;
+      font-variant-numeric: tabular-nums;
+    }
+
+    /* Card (UNCHANGED chrome — no new on-card affordance) */
+    .task-card {
+      background: var(--surface-4);
+      border-radius: var(--r2);
+      padding: var(--density-card-pad);
+      display: flex;
+      flex-direction: column;
+      gap: var(--density-card-gap);
+      transition: background var(--motion-fast) var(--motion-ease);
+      cursor: pointer; /* drawer-open trigger */
+      border-left: 2px solid transparent;
+    }
+    .task-card:hover { background: var(--surface-5); }
+    .task-card--blocked { border: 1px solid var(--danger); border-left-width: 1px; }
+    .task-card--selected {
+      border-left: 2px solid var(--primary);
+      background: var(--surface-5);
+    }
+    .task-card__title {
+      font-size: var(--density-text); font-weight: 500; color: var(--text-hi);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .task-card__meta { display: flex; align-items: center; gap: var(--density-gap); }
+    .task-card__owner { font-size: 12px; color: var(--text-hi); }
+
+    /* StatusChip */
+    .status-chip {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 2px 8px; border-radius: var(--r-pill);
+      font-family: var(--mono); font-size: 11px;
+      letter-spacing: 0.05em; text-transform: uppercase; font-weight: 500;
+      line-height: 1.4; white-space: nowrap; flex-shrink: 0;
+    }
+    .status-chip .dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+    .status-chip--healthy { background: color-mix(in oklab, var(--ok) 14%, transparent); color: var(--ok); }
+    .status-chip--healthy .dot { background: var(--ok); }
+    .status-chip--behind { background: color-mix(in oklab, var(--warn) 14%, transparent); color: var(--warn); }
+    .status-chip--behind .dot { background: var(--warn); }
+    .status-chip--blocked { background: color-mix(in oklab, var(--danger) 14%, transparent); color: var(--danger); }
+    .status-chip--blocked .dot { background: var(--danger); }
+    .status-chip--paused { background: color-mix(in oklab, var(--text-lo) 14%, transparent); color: var(--text-lo); }
+    .status-chip--paused .dot { background: var(--text-lo); }
+    .status-chip--done { background: color-mix(in oklab, var(--ok) 14%, transparent); color: var(--ok); }
+    .status-chip--done .dot { background: var(--ok); }
+
+    /* Tag */
+    .tag {
+      display: inline-flex; align-items: center; gap: 4px;
+      padding: 2px 8px; border-radius: var(--r-pill);
+      font-size: 11px; font-family: var(--mono); letter-spacing: 0.03em;
+      white-space: nowrap; background: var(--surface-ghost);
+      color: var(--text-mid); flex-shrink: 0;
+    }
+
+    /* KeyValue */
+    .key-value { display: flex; align-items: center; justify-content: space-between; gap: 4px; }
+    .key-value__label {
+      font-family: var(--mono); font-size: 11px; letter-spacing: 0.05em;
+      text-transform: uppercase; font-weight: 500; color: var(--text-lo);
+    }
+    .key-value__value {
+      font-size: var(--density-text); color: var(--text-hi);
+      font-variant-numeric: tabular-nums;
+    }
+
+    /* Drawer */
+    .drawer {
+      background: var(--surface-1);
+      border-left: 1px solid var(--border-default);
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      position: sticky;
+      top: 0;
+    }
+    .drawer__header {
+      padding: 12px 16px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      border-bottom: 1px solid var(--border-subtle);
+      background: var(--surface-2);
+      flex-shrink: 0;
+    }
+    .drawer__header__chip-row {
+      display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0;
+    }
+    .drawer__header__title {
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--text-hi);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .drawer__header__close {
+      width: 24px; height: 24px;
+      display: inline-flex; align-items: center; justify-content: center;
+      background: transparent;
+      border: 0;
+      border-radius: var(--r1);
+      cursor: pointer;
+      color: var(--text-mid);
+      font-size: 16px;
+      line-height: 1;
+    }
+    .drawer__header__close:hover {
+      background: var(--surface-ghost);
+      color: var(--text-hi);
+    }
+
+    /* Inside the drawer: a mock ThreadShell */
+    .thread-shell {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    .thread-host-banner {
+      display: flex; align-items: center; gap: 12px;
+      padding: 8px 16px;
+      border-bottom: 1px solid var(--border-subtle);
+      background: var(--surface-1);
+    }
+    .thread-host-banner__hostlabel {
+      flex: 1;
+      display: flex; align-items: center; gap: 8px;
+      min-width: 0;
+    }
+    .thread-host-banner__title {
+      font-weight: 500; color: var(--text-hi);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      font-size: 13px;
+    }
+    .thread-host-banner__participants {
+      display: flex; align-items: center; gap: 2px; flex-shrink: 0;
+    }
+    .avatar {
+      width: 24px; height: 24px;
+      display: inline-flex; align-items: center; justify-content: center;
+      border-radius: 50%;
+      background: var(--surface-3);
+      color: var(--text-lo);
+      font-size: 11px;
+      font-weight: 500;
+      border: 1px solid var(--border-subtle);
+    }
+
+    .thread-stream {
+      flex: 1;
+      overflow-y: auto;
+      padding: 12px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .comment-row {
+      display: flex;
+      gap: 8px;
+      align-items: flex-start;
+    }
+    .comment-row__body {
+      flex: 1;
+      min-width: 0;
+    }
+    .comment-row__header {
+      display: flex; align-items: center; gap: 6px; margin-bottom: 2px;
+    }
+    .comment-row__name {
+      font-size: 13px; font-weight: 500; color: var(--text-hi);
+    }
+    .comment-row__time {
+      font-family: var(--mono); font-size: 11px;
+      color: var(--text-lo);
+      font-variant-numeric: tabular-nums;
+    }
+    .comment-row__text {
+      font-size: 13px; color: var(--text-hi);
+      line-height: 1.5;
+    }
+    .comment-row__text--request {
+      background: var(--surface-2);
+      border-left: 2px solid var(--primary);
+      padding: 6px 10px;
+      border-radius: var(--r1);
+      font-family: var(--mono);
+      font-size: 12px;
+    }
+    .comment-row__text--request strong { color: var(--text-hi); font-weight: 500; }
+
+    .composer {
+      flex-shrink: 0;
+      padding: 8px 16px;
+      border-top: 1px solid var(--border-subtle);
+      background: var(--surface-1);
+      display: flex;
+      gap: 8px;
+      align-items: flex-end;
+    }
+    .composer textarea {
+      flex: 1;
+      min-height: 44px;
+      max-height: 88px;
+      padding: 8px;
+      background: var(--surface-3);
+      border: 1px solid var(--border-default);
+      border-radius: var(--r1);
+      color: var(--text-hi);
+      font-family: var(--ui);
+      font-size: 13px;
+      resize: none;
+    }
+    .composer textarea:focus {
+      outline: 1px solid var(--primary);
+      outline-offset: -1px;
+      border-color: transparent;
+    }
+
+    /* Action footer (request state change) */
+    .request-footer {
+      flex-shrink: 0;
+      padding: 12px 16px;
+      background: var(--surface-2);
+      border-top: 1px solid var(--border-default);
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .request-footer__label {
+      font-family: var(--mono); font-size: 11px; font-weight: 500;
+      text-transform: uppercase; letter-spacing: 0.05em;
+      color: var(--text-lo);
+    }
+    .request-footer__buttons {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+    .btn {
+      padding: 6px 10px;
+      border-radius: var(--r1);
+      border: 1px solid var(--border-default);
+      font-family: var(--ui);
+      font-size: 12px;
+      font-weight: 500;
+      cursor: pointer;
+      background: transparent;
+      color: var(--text-hi);
+      transition: background var(--motion-fast);
+    }
+    .btn:hover { background: var(--surface-ghost); }
+    .btn--danger { color: var(--danger); border-color: color-mix(in oklab, var(--danger) 30%, transparent); }
+    .btn--danger:hover { background: color-mix(in oklab, var(--danger) 14%, transparent); }
+
+    /* Verb confirm popover (anchored above a button) */
+    .verb-popover-wrapper { position: relative; }
+    .verb-popover {
+      position: absolute;
+      bottom: calc(100% + 6px);
+      left: 0;
+      width: 280px;
+      background: var(--surface-3);
+      border: 1px solid var(--border-emphasis);
+      border-radius: var(--r2);
+      box-shadow: 0 2px 16px rgba(0,0,0,0.5);
+      padding: 12px;
+      z-index: 10;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .verb-popover__title {
+      font-size: 13px;
+      color: var(--text-hi);
+    }
+    .verb-popover__title strong { font-weight: 500; }
+    .verb-popover__note-label {
+      font-family: var(--mono); font-size: 11px; font-weight: 500;
+      text-transform: uppercase; letter-spacing: 0.05em;
+      color: var(--text-lo);
+    }
+    .verb-popover__textarea {
+      width: 100%;
+      min-height: 56px;
+      padding: 8px;
+      background: var(--surface-1);
+      border: 1px solid var(--border-default);
+      border-radius: var(--r1);
+      color: var(--text-hi);
+      font-family: var(--ui);
+      font-size: 13px;
+      resize: none;
+    }
+    .verb-popover__buttons {
+      display: flex; align-items: center; justify-content: flex-end; gap: 6px;
+    }
+    .btn--ghost { background: transparent; color: var(--text-mid); border-color: transparent; }
+    .btn--ghost:hover { background: var(--surface-ghost); color: var(--text-hi); }
+    .btn--primary { background: var(--primary); color: var(--surface-0); border-color: var(--primary); }
+    .btn--primary:hover { filter: brightness(1.05); }
+
+    .mockup-note {
+      margin-top: 24px;
+      padding: 12px 16px;
+      background: var(--surface-2);
+      border: 1px solid var(--border-default);
+      border-radius: var(--r2);
+      font-size: 12px;
+      color: var(--text-mid);
+      font-family: var(--mono);
+    }
+    .mockup-note strong { color: var(--text-hi); font-weight: 500; }
+  </style>
+</head>
+<body>
+
+  <div class="page">
+
+    <div class="kanban-area">
+      <h1 class="page-title">Team Board · L15 Variant C — Right-rail task drawer</h1>
+
+      <!-- Kanban shows 3 columns (Done collapsed into a header pill — see note) due to drawer-open reflow -->
+      <div class="kanban">
+
+        <div class="column">
+          <div class="column-header"><h3>Planned</h3><span class="count">2</span></div>
+
+          <div class="task-card">
+            <span class="task-card__title">Design signup form</span>
+            <div class="task-card__meta">
+              <span class="tag">Auth</span>
+              <span class="status-chip status-chip--healthy"><span class="dot"></span>HEALTHY</span>
+            </div>
+            <span class="task-card__owner">Dev Agent 2</span>
+            <div class="key-value">
+              <span class="key-value__label">Cost</span>
+              <span class="key-value__value">$1.80</span>
+            </div>
+          </div>
+
+          <div class="task-card">
+            <span class="task-card__title">Rate limit middleware</span>
+            <div class="task-card__meta">
+              <span class="tag">API</span>
+              <span class="status-chip status-chip--healthy"><span class="dot"></span>HEALTHY</span>
+            </div>
+            <span class="task-card__owner">Dev Agent 1</span>
+            <div class="key-value">
+              <span class="key-value__label">Cost</span>
+              <span class="key-value__value">$2.00</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="column">
+          <div class="column-header"><h3>Blocked</h3><span class="count">1</span></div>
+
+          <div class="task-card task-card--blocked">
+            <span class="task-card__title">Webhook signature verify</span>
+            <div class="task-card__meta">
+              <span class="tag">Auth</span>
+              <span class="status-chip status-chip--blocked"><span class="dot"></span>BLOCKED</span>
+            </div>
+            <span class="task-card__owner">Dev Agent 1</span>
+            <div class="key-value">
+              <span class="key-value__label">Cost</span>
+              <span class="key-value__value">$0.95</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="column">
+          <div class="column-header"><h3>In Progress</h3><span class="count">2</span></div>
+
+          <!-- The selected card — primary left border -->
+          <div class="task-card task-card--selected" aria-selected="true">
+            <span class="task-card__title">Implement login endpoint</span>
+            <div class="task-card__meta">
+              <span class="tag">Auth</span>
+              <span class="status-chip status-chip--healthy"><span class="dot"></span>HEALTHY</span>
+            </div>
+            <span class="task-card__owner">Dev Agent 1</span>
+            <div class="key-value">
+              <span class="key-value__label">Cost</span>
+              <span class="key-value__value">$4.20</span>
+            </div>
+          </div>
+
+          <div class="task-card">
+            <span class="task-card__title">JWT refresh logic</span>
+            <div class="task-card__meta">
+              <span class="tag">Auth</span>
+              <span class="status-chip status-chip--behind"><span class="dot"></span>BEHIND</span>
+            </div>
+            <span class="task-card__owner">Dev Agent 1</span>
+            <div class="key-value">
+              <span class="key-value__label">Cost</span>
+              <span class="key-value__value">$6.50</span>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <div class="mockup-note">
+        <strong>State shown.</strong> Drawer OPEN with `Implement login endpoint` selected (primary left border). Kanban reflowed from 4 to 3 columns (Done absorbs into a header pill or a collapsed group at narrower viewports). The drawer holds: TaskHeader with state chip + close, ThreadHostBanner, message stream with a previously-sent request message + a question from the agent + a founder reply, the Composer, and the RequestActionFooter with the verb buttons. The verb confirm popover is OPEN above `Mark blocked` to demonstrate the two-step request commit.
+      </div>
+    </div>
+
+    <!-- Right-rail Task Drawer -->
+    <aside class="drawer" role="region" aria-label="Task detail panel">
+
+      <div class="drawer__header">
+        <span class="status-chip status-chip--healthy"><span class="dot"></span>IN PROGRESS</span>
+        <div class="drawer__header__chip-row">
+          <span class="drawer__header__title">Implement login endpoint</span>
+        </div>
+        <button class="drawer__header__close" type="button" aria-label="Close drawer">×</button>
+      </div>
+
+      <div class="thread-shell">
+
+        <div class="thread-host-banner">
+          <div class="thread-host-banner__hostlabel">
+            <span class="tag">TASK</span>
+            <span class="thread-host-banner__title">Implement login endpoint</span>
+          </div>
+          <div class="thread-host-banner__participants">
+            <span class="avatar" title="Dev Agent 1">D</span>
+            <span class="avatar" title="A. Founder">A</span>
+          </div>
+        </div>
+
+        <div class="thread-stream">
+
+          <div class="comment-row">
+            <span class="avatar">D</span>
+            <div class="comment-row__body">
+              <div class="comment-row__header">
+                <span class="comment-row__name">Dev Agent 1</span>
+                <span class="comment-row__time">2 days ago</span>
+              </div>
+              <div class="comment-row__text">Working through OAuth scopes. The provider docs disagree with our current schema; need clarification on whether to support `offline_access` from day one.</div>
+            </div>
+          </div>
+
+          <div class="comment-row">
+            <span class="avatar">A</span>
+            <div class="comment-row__body">
+              <div class="comment-row__header">
+                <span class="comment-row__name">A. Founder</span>
+                <span class="comment-row__time">1 day ago</span>
+              </div>
+              <div class="comment-row__text comment-row__text--request">
+                <strong>@A. Founder requested:</strong> ready for review<br>
+                worth showing to me before you call it done
+              </div>
+            </div>
+          </div>
+
+          <div class="comment-row">
+            <span class="avatar">D</span>
+            <div class="comment-row__body">
+              <div class="comment-row__header">
+                <span class="comment-row__name">Dev Agent 1</span>
+                <span class="comment-row__time">2h ago</span>
+              </div>
+              <div class="comment-row__text">Acknowledged. I'll mark the task ready for review once the offline-access decision lands. Pinging back here.</div>
+            </div>
+          </div>
+
+        </div>
+
+        <div class="composer">
+          <textarea placeholder="Reply to thread…"></textarea>
+          <button class="btn btn--primary" type="button">Send</button>
+        </div>
+
+      </div>
+
+      <div class="request-footer">
+        <span class="request-footer__label">Request state change</span>
+        <div class="request-footer__buttons">
+
+          <div class="verb-popover-wrapper">
+            <button type="button" class="btn">Mark blocked</button>
+            <!-- Verb confirm popover open -->
+            <div class="verb-popover" role="dialog" aria-label="Confirm mark blocked">
+              <div class="verb-popover__title">Send <strong>"Mark blocked"</strong> to Dev Agent 1?</div>
+              <div class="verb-popover__note-label">Optional note</div>
+              <textarea class="verb-popover__textarea" placeholder="auth provider docs disagree…"></textarea>
+              <div class="verb-popover__buttons">
+                <button type="button" class="btn btn--ghost">Cancel</button>
+                <button type="button" class="btn btn--primary">Send</button>
+              </div>
+            </div>
+          </div>
+
+          <button type="button" class="btn">Pause</button>
+          <button type="button" class="btn">Ready for review</button>
+          <button type="button" class="btn btn--danger">Kill</button>
+        </div>
+      </div>
+
+    </aside>
+
+  </div>
+
+</body>
+</html>

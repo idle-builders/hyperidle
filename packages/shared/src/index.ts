@@ -107,6 +107,14 @@ export {
 	scrubInlineTokens,
 	TK_TOKEN_RE,
 } from "./redact.js";
+// L15 — Request verb derivation + deterministic body formatter.
+export type { FormatRequestMessageBodyArgs, RequestVerb } from "./task-verbs.js";
+export {
+	formatRequestMessageBody,
+	REQUEST_VERBS,
+	requestableVerbsFor,
+	verbDisplayLabel,
+} from "./task-verbs.js";
 export type {
 	AgentSessionStateSnapshot,
 	ArtifactRef,

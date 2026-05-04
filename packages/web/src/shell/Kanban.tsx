@@ -1,42 +1,53 @@
 // @lore Kanban uses four columns matching UI_DESIGN.md Section 4 (line 100):
 // "Planned / Blocked / In Progress / Done". Tasks with proposed or accepted states
 // map to the "Planned" column. Tasks with hold, review, or killed states are excluded.
-import {
-	DndContext,
-	type DragEndEvent,
-	DragOverlay,
-	type DragStartEvent,
-	KeyboardSensor,
-	PointerSensor,
-	useDraggable,
-	useDroppable,
-	useSensor,
-	useSensors,
-} from "@dnd-kit/core";
-import { dsShellProps, EmptyState, TaskCard } from "@hyperidle/design-system";
-import type { TaskState } from "@hyperidle/shared";
+//
+// @lore L15: drag/drop is deleted. Tasks are agent-team-owned per v3 — humans
+// request, agents decide. The DnD scaffolding (DndContext, useDraggable,
+// useDroppable, KeyboardSensor, PointerSensor, COLUMN_TO_STATE,
+// resolveKanbanDrop, DraggableTaskCard, KanbanDropZone, handleDragStart/End,
+// DragOverlay) is gone from this file. `STATE_TO_COLUMN` survives — it's the
+// read-direction map for grouping. The card body uses `data-testid=
+// "task-card-{id}"` (was `draggable-task-{id}` under DnD). Drag survives ONLY
+// on the Canvas (Shaped → Committed) — Canvas.tsx is untouched.
+import { dsShellProps, EmptyState, Tag, TaskCard } from "@hyperidle/design-system";
+import { requestableVerbsFor, type TaskState } from "@hyperidle/shared";
 import { type JSX, useMemo, useState } from "react";
+import { TaskRequestPopover } from "./TaskRequestPopover";
 
 export interface KanbanTask {
 	id: string;
 	title: string;
 	owner: string;
+	/** L15 — server agent id used as a thread participant. */
+	ownerAgentId: string;
 	state: TaskState;
 	cost?: string;
 	betTag?: string;
+	/** L15 — server-confirmed thread id; null when no thread exists yet. */
+	threadId?: string | null;
+	/** L15 — total messages in the attached thread. */
+	threadCount?: number;
+	/** L15 — unread count; defaults 0 in L15 (read-state ships in a follow-up). */
+	threadUnread?: number;
 }
 
 export interface KanbanProps {
 	tasks: KanbanTask[];
-	onMoveTask: (taskId: string, targetState: KanbanColumnState) => void;
 	/**
 	 * J5: when true, tasks within each column are grouped under a
-	 * collapsible bet header (bet name + task count). Drag-drop behaviour
-	 * is unchanged because the draggable wrappers stay rendered inside the
-	 * same `KanbanDropZone` for the column. Tasks without a `betTag` group
-	 * under an "Unassigned" header.
+	 * collapsible bet header (bet name + task count). Tasks without a
+	 * `betTag` group under an "Unassigned" header.
 	 */
 	groupByBet?: boolean;
+	/** L15 — founder identity for participant + actor-name on requests. */
+	founderId?: string;
+	founderName?: string;
+	/**
+	 * L15 — invoked after a request post succeeds, so the parent can update
+	 * the cached `threadId` and bump the unread/count chip optimistically.
+	 */
+	onTaskRequestSent?: (taskId: string, result: { threadId: string }) => void;
 }
 
 export type KanbanColumnState = "planned" | "blocked" | "in_progress" | "done";
@@ -62,46 +73,6 @@ const STATE_TO_COLUMN: Record<TaskState, KanbanColumnState | null> = {
 	killed: null,
 };
 
-/**
- * Inverse of `STATE_TO_COLUMN`: when a card is dragged into a column, this
- * is the canonical TaskState the API should receive. Co-located with the
- * forward map so the lossy round-trip (proposed/accepted both collapse to
- * `planned`; dragging into `planned` promotes to `accepted`) is visible in
- * one file.
- *
- * @lore I4 K1/K2: `"planned"` is NOT a valid TaskState — dragging into the
- * Planned column promotes `proposed` pitches to `accepted` tasks.
- */
-export const COLUMN_TO_STATE: Record<KanbanColumnState, TaskState> = {
-	planned: "accepted",
-	in_progress: "in_progress",
-	blocked: "blocked",
-	done: "done",
-};
-
-/**
- * Pure helper that resolves a @dnd-kit `DragEndEvent` to a Kanban move.
- * Returns the `(taskId, column)` tuple to forward to `onMoveTask`, or
- * `null` when the drop did not land on a known column.
- *
- * @lore I4 DoD B2: extracted from `handleDragEnd` so the move-resolution
- * logic can be exhaustively unit-tested with a synthesized `DragEndEvent`
- * (jsdom can't fully drive @dnd-kit's KeyboardSensor through collision
- * detection because it returns 0×0 rects for every element). The
- * integration test mocks `getBoundingClientRect` and drives the live
- * sensor; this helper is the shared logic both paths exercise.
- */
-export function resolveKanbanDrop(
-	event: DragEndEvent,
-): { taskId: string; column: KanbanColumnState } | null {
-	const { active, over } = event;
-	if (!over) return null;
-	const overId = String(over.id);
-	const validColumns: KanbanColumnState[] = ["planned", "blocked", "in_progress", "done"];
-	if (!validColumns.includes(overId as KanbanColumnState)) return null;
-	return { taskId: String(active.id), column: overId as KanbanColumnState };
-}
-
 const COLUMNS: { key: KanbanColumnState; label: string }[] = [
 	{ key: "planned", label: "Planned" },
 	{ key: "blocked", label: "Blocked" },
@@ -109,52 +80,8 @@ const COLUMNS: { key: KanbanColumnState; label: string }[] = [
 	{ key: "done", label: "Done" },
 ];
 
-function KanbanDropZone({
-	columnKey,
-	children,
-}: {
-	columnKey: string;
-	children: React.ReactNode;
-}): JSX.Element {
-	const { setNodeRef, isOver } = useDroppable({ id: columnKey });
-	// @lore I4 DoD B2: `data-droppable-column` mirrors Canvas's `data-droppable`
-	// pattern so Playwright/E2E tests can locate a column subtree without
-	// relying on text-filter ancestors (the spec for keyboard-drag E2E
-	// requires asserting the card lives in the target column's DOM after the
-	// move). Production code never reads this attribute.
-	return (
-		<div
-			ref={setNodeRef}
-			data-droppable-column={columnKey}
-			className={`flex flex-col gap-2 min-h-[48px] rounded p-1 transition-colors ${
-				isOver ? "bg-accent/10" : ""
-			}`}
-		>
-			{children}
-		</div>
-	);
-}
-
-function DraggableTaskCard({ task }: { task: KanbanTask }): JSX.Element {
-	const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id: task.id });
-	return (
-		<div
-			ref={setNodeRef}
-			{...listeners}
-			{...attributes}
-			data-testid={`draggable-task-${task.id}`}
-			style={{ opacity: isDragging ? 0.4 : 1 }}
-		>
-			<TaskCard
-				title={task.title}
-				owner={task.owner}
-				state={task.state}
-				cost={task.cost}
-				betTag={task.betTag}
-			/>
-		</div>
-	);
-}
+const DEFAULT_FOUNDER_ID = "u-founder";
+const DEFAULT_FOUNDER_NAME = "A. Founder";
 
 /**
  * Pure helper: groups a list of tasks by `betTag` preserving input order.
@@ -180,8 +107,121 @@ export function groupTasksByBet(
 	return order.map((bet) => ({ bet, tasks: groups.get(bet) ?? [] }));
 }
 
-export function Kanban({ tasks, onMoveTask, groupByBet = false }: KanbanProps): JSX.Element {
-	const [activeId, setActiveId] = useState<string | null>(null);
+interface TaskCardActionsProps {
+	task: KanbanTask;
+	founderId: string;
+	founderName: string;
+	onSent: (result: { threadId: string }) => void;
+}
+
+function TaskCardActions({
+	task,
+	founderId,
+	founderName,
+	onSent,
+}: TaskCardActionsProps): JSX.Element | null {
+	const verbs = requestableVerbsFor(task.state);
+	const hasRequest = verbs.length > 0;
+	const threadCount = task.threadCount ?? 0;
+	const threadUnread = task.threadUnread ?? 0;
+	const hasThread = task.threadId != null && threadCount > 0;
+	if (!(hasRequest || hasThread)) {
+		return null;
+	}
+	// L15: AQ-015 — every interactive element must be ≥ 44 CSS px at viewport
+	// ≤ 1024 px. Tailwind responsive variants didn't reliably override
+	// DaisyUI's chrome cascade; inline style is a sledgehammer that always
+	// wins. Desktop visually inherits the same 44px footprint — small price
+	// for a stable touch contract. Tracked: `kanban-thread-chip-density-tokens`.
+	const threadLinkClass =
+		"text-[12px] text-[var(--text-mid)] hover:text-[var(--text-hi)] ml-auto inline-flex items-center";
+	const touchTargetStyle = { minHeight: 44, minWidth: 44 } as const;
+	return (
+		<div className="flex items-center justify-between">
+			{hasRequest ? (
+				<TaskRequestPopover
+					task={{ id: task.id, state: task.state, ownerAgentId: task.ownerAgentId }}
+					founderId={founderId}
+					founderName={founderName}
+					threadId={task.threadId ?? null}
+					onSent={onSent}
+				/>
+			) : null}
+			{hasThread ? (
+				<a
+					href={`/work/team/tasks/${task.id}/thread`}
+					aria-label={
+						threadUnread > 0
+							? `Open thread (${threadCount} messages, ${threadUnread} unread)`
+							: `Open thread (${threadCount} messages)`
+					}
+					className={threadLinkClass}
+					style={touchTargetStyle}
+				>
+					<Tag label={`Thread (${threadCount})`} unread={threadUnread > 0} />
+				</a>
+			) : (
+				<a
+					href={`/work/team/tasks/${task.id}/thread`}
+					className={threadLinkClass}
+					style={touchTargetStyle}
+				>
+					<span className="font-heading text-[11px] uppercase tracking-wider">Open thread</span>
+				</a>
+			)}
+		</div>
+	);
+}
+
+interface RenderTaskOptions {
+	task: KanbanTask;
+	founderId: string;
+	founderName: string;
+	onSent: (taskId: string, result: { threadId: string }) => void;
+}
+
+function renderTask({ task, founderId, founderName, onSent }: RenderTaskOptions): JSX.Element {
+	/*
+	 * @lore L15 review (apply H / Design MF-2): only pass an `actions` slot
+	 * when there is something to render. TaskCard's footer divider check is
+	 * `actions ? <div>…</div> : null`; passing a `<TaskCardActions />` element
+	 * is always truthy even when the component returns `null`, so terminal
+	 * tasks without a thread used to render an empty 1 px divider strip. We
+	 * pre-compute the same `(hasRequest || hasThread)` predicate here and
+	 * omit the slot entirely otherwise.
+	 */
+	const hasRequest = requestableVerbsFor(task.state).length > 0;
+	const hasThread = task.threadId != null && (task.threadCount ?? 0) > 0;
+	const showActions = hasRequest || hasThread;
+	const actionsProp = showActions ? (
+		<TaskCardActions
+			task={task}
+			founderId={founderId}
+			founderName={founderName}
+			onSent={(result) => onSent(task.id, result)}
+		/>
+	) : undefined;
+	return (
+		<div key={task.id} data-testid={`task-card-${task.id}`}>
+			<TaskCard
+				title={task.title}
+				owner={task.owner}
+				state={task.state}
+				cost={task.cost}
+				betTag={task.betTag}
+				{...(actionsProp ? { actions: actionsProp } : {})}
+			/>
+		</div>
+	);
+}
+
+export function Kanban({
+	tasks,
+	groupByBet = false,
+	founderId = DEFAULT_FOUNDER_ID,
+	founderName = DEFAULT_FOUNDER_NAME,
+	onTaskRequestSent,
+}: KanbanProps): JSX.Element {
 	const [collapsedBets, setCollapsedBets] = useState<Set<string>>(() => new Set());
 
 	function toggleBet(bet: string): void {
@@ -195,12 +235,6 @@ export function Kanban({ tasks, onMoveTask, groupByBet = false }: KanbanProps): 
 			return next;
 		});
 	}
-
-	// I4 KB1: KeyboardSensor lets users drive the kanban via keyboard.
-	const sensors = useSensors(
-		useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
-		useSensor(KeyboardSensor),
-	);
 
 	const tasksByColumn = useMemo(() => {
 		const grouped: Record<KanbanColumnState, KanbanTask[]> = {
@@ -218,97 +252,69 @@ export function Kanban({ tasks, onMoveTask, groupByBet = false }: KanbanProps): 
 		return grouped;
 	}, [tasks]);
 
-	const activeTask = activeId ? tasks.find((t) => t.id === activeId) : undefined;
-
-	function handleDragStart(event: DragStartEvent): void {
-		setActiveId(String(event.active.id));
-	}
-
-	function handleDragEnd(event: DragEndEvent): void {
-		setActiveId(null);
-		const move = resolveKanbanDrop(event);
-		if (move) {
-			onMoveTask(move.taskId, move.column);
-		}
-	}
+	const handleSent = (taskId: string, result: { threadId: string }): void => {
+		onTaskRequestSent?.(taskId, result);
+	};
 
 	return (
-		<DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
-			{/* I4 R3: responsive grid — single column on phones, 2 on small,
-				4 on large viewports. */}
-			{/*
-			 * @lore K11: column gap → --density-gap per density-audit.md
-			 * § 3.3.K7. Per Principle 9, comfortable does NOT drop columns
-			 * — wider columns, same count. Column count is fixed at four on
-			 * `lg`; comfortable widens the gap (--density-gap) and the
-			 * per-card pad (--density-card-pad on TaskCard inherits) so
-			 * each column breathes more without losing visibility. K7's
-			 * intentional designer-call (Linear keeps; Trello drops; we
-			 * keep — operational view).
-			 */}
-			<div
-				{...dsShellProps("Kanban")}
-				className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-[var(--density-gap)]"
-			>
-				{COLUMNS.map((col) => {
-					const columnTasks = tasksByColumn[col.key];
-					return (
-						<div key={col.key} className="flex flex-col gap-2">
-							<div className="flex items-center gap-2 mb-1">
-								<h3 className="text-sm font-semibold">{col.label}</h3>
-								{columnTasks.length > 0 && (
-									<span className="badge badge-sm badge-ghost">{columnTasks.length}</span>
-								)}
-							</div>
-							<KanbanDropZone columnKey={col.key}>
-								{columnTasks.length === 0 ? (
-									<EmptyState
-										title={`No tasks in ${col.label.toLowerCase()}`}
-										description="Drag tasks here or create new ones to populate this column."
-									/>
-								) : groupByBet ? (
-									groupTasksByBet(columnTasks).map((group) => {
-										const collapsed = collapsedBets.has(group.bet);
-										const count = group.tasks.length;
-										return (
-											<div key={group.bet} className="flex flex-col gap-1">
-												<button
-													type="button"
-													aria-label={`${group.bet} group (${count} ${count === 1 ? "task" : "tasks"})`}
-													aria-expanded={!collapsed}
-													className="flex items-center gap-2 text-xs font-heading uppercase tracking-wider text-[var(--text-lo)] hover:text-[var(--text-hi)] px-1"
-													onClick={() => toggleBet(group.bet)}
-												>
-													<span aria-hidden>{collapsed ? "▸" : "▾"}</span>
-													<span>{group.bet}</span>
-													<span className="badge badge-xs badge-neutral">{count}</span>
-												</button>
-												{!collapsed &&
-													group.tasks.map((task) => (
-														<DraggableTaskCard key={task.id} task={task} />
-													))}
-											</div>
-										);
-									})
-								) : (
-									columnTasks.map((task) => <DraggableTaskCard key={task.id} task={task} />)
-								)}
-							</KanbanDropZone>
+		/*
+		 * @lore K11: column gap → --density-gap per density-audit.md
+		 * § 3.3.K7. Column count fixed at four on `lg`; comfortable widens
+		 * the gap without dropping columns (operational view).
+		 */
+		<div
+			{...dsShellProps("Kanban")}
+			className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-[var(--density-gap)]"
+		>
+			{COLUMNS.map((col) => {
+				const columnTasks = tasksByColumn[col.key];
+				return (
+					<div key={col.key} className="flex flex-col gap-2">
+						<div className="flex items-center gap-2 mb-1">
+							<h3 className="text-sm font-semibold">{col.label}</h3>
+							{columnTasks.length > 0 && (
+								<span className="badge badge-sm badge-ghost">{columnTasks.length}</span>
+							)}
 						</div>
-					);
-				})}
-			</div>
-			<DragOverlay>
-				{activeTask ? (
-					<TaskCard
-						title={activeTask.title}
-						owner={activeTask.owner}
-						state={activeTask.state}
-						cost={activeTask.cost}
-						betTag={activeTask.betTag}
-					/>
-				) : null}
-			</DragOverlay>
-		</DndContext>
+						<div className="flex flex-col gap-2 min-h-[48px]">
+							{columnTasks.length === 0 ? (
+								<EmptyState
+									title={`No tasks in ${col.label.toLowerCase()}`}
+									description="Tasks land here as agents pick them up."
+								/>
+							) : groupByBet ? (
+								groupTasksByBet(columnTasks).map((group) => {
+									const collapsed = collapsedBets.has(group.bet);
+									const count = group.tasks.length;
+									return (
+										<div key={group.bet} className="flex flex-col gap-1">
+											<button
+												type="button"
+												aria-label={`${group.bet} group (${count} ${count === 1 ? "task" : "tasks"})`}
+												aria-expanded={!collapsed}
+												className="flex items-center gap-2 text-xs font-heading uppercase tracking-wider text-[var(--text-lo)] hover:text-[var(--text-hi)] px-1"
+												onClick={() => toggleBet(group.bet)}
+											>
+												<span aria-hidden>{collapsed ? "▸" : "▾"}</span>
+												<span>{group.bet}</span>
+												<span className="badge badge-xs badge-neutral">{count}</span>
+											</button>
+											{!collapsed &&
+												group.tasks.map((task) =>
+													renderTask({ task, founderId, founderName, onSent: handleSent }),
+												)}
+										</div>
+									);
+								})
+							) : (
+								columnTasks.map((task) =>
+									renderTask({ task, founderId, founderName, onSent: handleSent }),
+								)
+							)}
+						</div>
+					</div>
+				);
+			})}
+		</div>
 	);
 }

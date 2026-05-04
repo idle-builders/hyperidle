@@ -15,10 +15,11 @@
  * crashing somewhere downstream.
  */
 import { EmptyState, ErrorState, SkeletonList, ThreadShell } from "@hyperidle/design-system";
-import type { ArtifactRef, ArtifactViewShape, Message, Thread } from "@hyperidle/shared";
+import type { ArtifactRef, ArtifactViewShape } from "@hyperidle/shared";
 import { type JSX, type ReactNode, useCallback, useEffect, useState } from "react";
 import { useOutletContext } from "react-router-dom";
 import type { AppShellOutletContext } from "../layouts/AppShell";
+import { decodeThreadDetail, type ThreadDetail } from "../lib/thread-detail";
 import {
 	type ActionSummaryData,
 	ArtifactView,
@@ -27,58 +28,6 @@ import {
 	type TextDiffData,
 	type VisualComparisonData,
 } from "../shell/ArtifactView";
-
-interface ThreadDetail {
-	thread: Thread;
-	messages: ReadonlyArray<Message>;
-	headMessageId: string | null;
-	identities: Record<string, { name: string; role?: string }>;
-}
-
-class ThreadDetailDecodeError extends Error {
-	constructor(reason: string) {
-		super(`thread detail decode: ${reason}`);
-		this.name = "ThreadDetailDecodeError";
-	}
-}
-
-function isObject(value: unknown): value is Record<string, unknown> {
-	return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-function decodeThreadDetail(value: unknown): ThreadDetail {
-	if (!isObject(value)) {
-		throw new ThreadDetailDecodeError("response is not an object");
-	}
-	if (!isObject(value.thread)) {
-		throw new ThreadDetailDecodeError("missing thread");
-	}
-	if (!Array.isArray(value.messages)) {
-		throw new ThreadDetailDecodeError("missing messages array");
-	}
-	const headMessageId = value.headMessageId;
-	if (typeof headMessageId !== "string" && headMessageId !== null) {
-		throw new ThreadDetailDecodeError("invalid headMessageId");
-	}
-	const identitiesRaw = isObject(value.identities) ? value.identities : {};
-	const identities: Record<string, { name: string; role?: string }> = {};
-	for (const [k, v] of Object.entries(identitiesRaw)) {
-		if (!isObject(v) || typeof v.name !== "string") continue;
-		identities[k] = {
-			name: v.name,
-			...(typeof v.role === "string" ? { role: v.role } : {}),
-		};
-	}
-	// Server already validates `thread` and each `message` via zod. We trust
-	// the shape here and let runtime narrowing in ThreadShell handle the
-	// per-payload type checks.
-	return {
-		thread: value.thread as unknown as Thread,
-		messages: value.messages as unknown as ReadonlyArray<Message>,
-		headMessageId,
-		identities,
-	};
-}
 
 /**
  * @lore L11 plan §5.6.1 (decision A): there is no `/api/artifacts/:id`

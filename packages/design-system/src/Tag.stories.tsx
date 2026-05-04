@@ -3,7 +3,14 @@ import { Tag } from "./Tag.js";
 export default {
 	title: "Tag",
 	tier: "1" as const,
-	order: ["PlainTagsNoKind", "KindVariants", "MixedGroup", "TagCloud", "InContextDemoCard"],
+	order: [
+		"PlainTagsNoKind",
+		"KindVariants",
+		"UnreadVariant",
+		"MixedGroup",
+		"TagCloud",
+		"InContextDemoCard",
+	],
 };
 
 export const PlainTagsNoKind = (): React.JSX.Element => (
@@ -19,6 +26,14 @@ export const KindVariants = (): React.JSX.Element => (
 		<Tag label="recurring-layout" kind="pattern" />
 		<Tag label="go with plan-A" kind="decision" />
 		<Tag label="deploy broke" kind="failure" />
+	</div>
+);
+
+export const UnreadVariant = (): React.JSX.Element => (
+	<div className="flex flex-wrap gap-3">
+		<Tag label="3" unread />
+		<Tag label="12" unread />
+		<Tag label="Thread (5)" unread />
 	</div>
 );
 
