@@ -22,6 +22,7 @@ import { createRailRoutes } from "./routes/rail.js";
 import { createRoutineRoutes } from "./routes/routines-routes.js";
 import { createSessionRoutes } from "./routes/sessions-routes.js";
 import { createStatusRoutes } from "./routes/status.js";
+import { createTaskThreadRoutes } from "./routes/task-thread.js";
 import { createTaskRoutes } from "./routes/tasks.js";
 import { registerTestRoutes } from "./routes/test-routes.js";
 import { createThreadRoutes } from "./routes/threads.js";
@@ -264,6 +265,9 @@ function createApp(options?: AppOptions): Hono {
 		const eventBus = options.eventBus ?? new EventBus();
 		api.route("/bets", createBetRoutes(options.db, eventBus));
 		api.route("/tasks", createTaskRoutes(options.db, eventBus));
+		// L15: task→thread sub-router (lazy materialization). Paths are
+		// `/api/tasks/:taskId/thread[/messages]`.
+		api.route("/tasks", createTaskThreadRoutes(options.db, eventBus));
 		api.route("/artifacts", createArtifactRoutes(options.db));
 		api.route("/knowledge", createKnowledgeRoutes(options.db, eventBus));
 		api.route("/rail", createRailRoutes(options.db, eventBus));

@@ -8,6 +8,7 @@ import {
 	ARTIFACT_VIEW_SHAPES,
 	HOST_KINDS,
 	type MESSAGE_TYPES,
+	TASK_STATES,
 	VERDICT_DECISIONS,
 } from "@hyperidle/shared";
 import { z } from "zod";
@@ -21,19 +22,29 @@ import { z } from "zod";
 const CLIENT_KEY_RE = /^[A-Za-z0-9_\-:.]+$/;
 export const clientKeySchema = z.string().min(8).max(128).regex(CLIENT_KEY_RE);
 
-const inlineRefSchema = z.object({
-	kind: z.enum(["knowledge_item", "task", "artifact", "bet"]),
-	id: z.string(),
-});
+// L15 plan §3.4: discriminated union admits the structured
+// `request_state_change` variant carrying `{ taskId, requestedState }`.
+const inlineRefSchema = z.discriminatedUnion("kind", [
+	z.object({ kind: z.literal("knowledge_item"), id: z.string().min(1) }),
+	z.object({ kind: z.literal("task"), id: z.string().min(1) }),
+	z.object({ kind: z.literal("artifact"), id: z.string().min(1) }),
+	z.object({ kind: z.literal("bet"), id: z.string().min(1) }),
+	z.object({
+		kind: z.literal("request_state_change"),
+		taskId: z.string().min(1),
+		requestedState: z.enum(TASK_STATES),
+	}),
+]);
 
 const artifactRefSchema = z.object({
 	id: z.string(),
 	kind: z.enum(ARTIFACT_VIEW_SHAPES),
 });
 
+// L15 F4 (security): bound `refs` length to prevent oversized payloads.
 const plainPayloadSchema = z.object({
 	text: z.string().max(16_384),
-	refs: z.array(inlineRefSchema).optional(),
+	refs: z.array(inlineRefSchema).max(32).optional(),
 });
 
 const reviewPayloadSchema = z.object({
@@ -59,6 +70,17 @@ const redactedPayloadSchema = z.object({
 	redactedBy: z.string().min(1),
 	redactedAt: z.string().min(1),
 	reason: z.string(),
+});
+
+/**
+ * L15: narrower variant accepted on the task-thread surface. The task
+ * router rejects every non-`plain` message type at the schema level, so the
+ * type system carries the constraint instead of an imperative `if`.
+ */
+export const plainMessageInputSchema = z.object({
+	type: z.literal("plain"),
+	payload: plainPayloadSchema,
+	clientKey: clientKeySchema,
 });
 
 /** Validates `{ type, payload, clientKey }` for both create-thread and append-message. */
