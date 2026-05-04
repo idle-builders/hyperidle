@@ -1,0 +1,476 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>L15 Variant A — quiet-menu</title>
+  <link rel="stylesheet" href="../../../../packages/design-system/html/_tokens.css" />
+  <style>
+    /* Page chrome */
+    body { padding: 24px; }
+    #root { max-width: 1200px; }
+    h1 {
+      font-size: 13px; font-family: var(--mono); color: var(--text-lo);
+      text-transform: uppercase; letter-spacing: 0.05em;
+      margin-bottom: 4px;
+    }
+    h2 {
+      font-size: 16px; font-weight: 500; color: var(--text-hi);
+      margin-bottom: 16px;
+    }
+    .panel {
+      background: var(--surface-1);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--r2);
+      padding: 16px;
+      margin-bottom: 16px;
+    }
+
+    /* Kanban — minimal repro of the surface */
+    .kanban {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+    }
+    .kanban__col h3 {
+      font-size: 12px; font-weight: 600;
+      color: var(--text-mid);
+      margin-bottom: 8px;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .kanban__col h3 .count {
+      font-family: var(--mono);
+      font-size: 11px;
+      background: var(--surface-3);
+      color: var(--text-lo);
+      padding: 1px 6px;
+      border-radius: var(--r-pill);
+    }
+    .kanban__bet-group {
+      margin-top: 8px;
+    }
+    .kanban__bet-label {
+      font-family: var(--mono);
+      font-size: 11px;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      color: var(--text-lo);
+      padding: 2px 4px;
+      margin-bottom: 4px;
+    }
+
+    /* TaskCard — extends the canonical pattern with a top-right `···` slot */
+    .task-card {
+      position: relative;
+      background: var(--surface-4);
+      border-radius: var(--r2);
+      padding: var(--density-card-pad);
+      display: flex;
+      flex-direction: column;
+      gap: var(--density-card-gap);
+      transition: background var(--motion-fast);
+      cursor: pointer;
+      margin-bottom: 6px;
+    }
+    .task-card:hover {
+      background: var(--surface-5);
+    }
+    .task-card:focus-within {
+      outline: 1px solid var(--primary);
+      outline-offset: -1px;
+    }
+    .task-card--blocked {
+      border: 1px solid var(--danger);
+    }
+    .task-card--menu-open {
+      background: var(--surface-5);
+      outline: 1px solid var(--border-emphasis);
+      outline-offset: -1px;
+    }
+
+    .task-card__title {
+      font-size: var(--density-text);
+      font-weight: 500;
+      color: var(--text-hi);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      padding-right: 24px; /* room for the `···` */
+    }
+    .task-card__meta {
+      display: flex;
+      align-items: center;
+      gap: var(--density-gap);
+      flex-wrap: wrap;
+    }
+    .task-card__owner {
+      font-size: 12px;
+      color: var(--text-mid);
+    }
+    .task-card__row-foot {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    /* The `···` button — invisible at rest, fades on hover/focus-within */
+    .task-card__actions-trigger {
+      position: absolute;
+      top: 6px;
+      right: 6px;
+      width: 22px;
+      height: 22px;
+      border-radius: var(--r1);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--text-lo);
+      opacity: 0;
+      transition: opacity var(--motion-fast), background var(--motion-fast);
+      cursor: pointer;
+      background: transparent;
+      border: none;
+      font-size: 14px;
+      letter-spacing: 0.04em;
+    }
+    .task-card:hover .task-card__actions-trigger,
+    .task-card:focus-within .task-card__actions-trigger {
+      opacity: 0.6;
+    }
+    .task-card__actions-trigger:hover,
+    .task-card__actions-trigger:focus-visible {
+      opacity: 1;
+      background: var(--surface-6);
+      outline: none;
+    }
+    .task-card--menu-open .task-card__actions-trigger {
+      opacity: 1;
+      background: var(--surface-6);
+    }
+
+    /* StatusChip / Tag — copied from canonical TaskCard.html */
+    .status-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 2px 8px;
+      border-radius: var(--r-pill);
+      font-family: var(--mono);
+      font-size: 11px;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      font-weight: 500;
+      line-height: 1.4;
+      flex-shrink: 0;
+    }
+    .status-chip .dot {
+      width: 6px; height: 6px; border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .status-chip--healthy { background: color-mix(in oklab, var(--ok) 14%, transparent); color: var(--ok); }
+    .status-chip--healthy .dot { background: var(--ok); }
+    .status-chip--behind { background: color-mix(in oklab, var(--warn) 14%, transparent); color: var(--warn); }
+    .status-chip--behind .dot { background: var(--warn); }
+    .status-chip--blocked { background: color-mix(in oklab, var(--danger) 14%, transparent); color: var(--danger); }
+    .status-chip--blocked .dot { background: var(--danger); }
+    .status-chip--paused { background: color-mix(in oklab, var(--text-lo) 14%, transparent); color: var(--text-lo); }
+    .status-chip--paused .dot { background: var(--text-lo); }
+    .status-chip--done { background: color-mix(in oklab, var(--ok) 14%, transparent); color: var(--ok); }
+    .status-chip--done .dot { background: var(--ok); }
+
+    /* Pending indicator — replaces cost slot when a request is pending */
+    .pending-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 2px 6px;
+      border-radius: var(--r-pill);
+      font-family: var(--mono);
+      font-size: 11px;
+      letter-spacing: 0.05em;
+      color: var(--text-mid);
+      background: var(--surface-ghost);
+      border: 1px dashed var(--border-default);
+    }
+    .pending-chip:hover { background: var(--primary-dim); color: var(--text-hi); }
+
+    .tag {
+      display: inline-flex;
+      align-items: center;
+      padding: 2px 8px;
+      border-radius: var(--r-pill);
+      font-size: 11px;
+      font-family: var(--mono);
+      letter-spacing: 0.03em;
+      background: var(--surface-ghost);
+      color: var(--text-mid);
+      flex-shrink: 0;
+    }
+
+    .cost {
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--text-mid);
+      font-variant-numeric: tabular-nums;
+    }
+
+    /* The dropdown menu — DaisyUI-equivalent in plain CSS */
+    .actions-menu {
+      position: absolute;
+      top: 30px;
+      right: 6px;
+      min-width: 240px;
+      background: var(--surface-1);
+      border: 1px solid var(--border-default);
+      border-radius: var(--r2);
+      box-shadow: var(--float);
+      padding: 4px;
+      display: flex;
+      flex-direction: column;
+      gap: 1px;
+      z-index: 10;
+    }
+    .actions-menu__section-label {
+      font-family: var(--mono);
+      font-size: 11px;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      color: var(--text-lo);
+      padding: 6px 10px 4px 10px;
+    }
+    .actions-menu__disclosure {
+      font-style: italic;
+      font-size: 12px;
+      color: var(--text-lo);
+      padding: 4px 10px 6px 10px;
+      border-bottom: 1px solid var(--border-subtle);
+      margin-bottom: 4px;
+    }
+    .actions-menu__item {
+      text-align: left;
+      font-size: 13px;
+      color: var(--text-hi);
+      padding: 6px 10px;
+      border-radius: var(--r1);
+      background: transparent;
+      border: none;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+    .actions-menu__item:hover,
+    .actions-menu__item:focus-visible {
+      background: var(--surface-ghost);
+      outline: none;
+    }
+    .actions-menu__item--highlighted {
+      background: var(--primary-dim);
+    }
+    .actions-menu__shortcut {
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--text-lo);
+    }
+    .actions-menu__divider {
+      height: 1px;
+      background: var(--border-subtle);
+      margin: 4px 0;
+    }
+
+    /* Toast */
+    .toast {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      background: var(--surface-2);
+      border: 1px solid var(--border-default);
+      border-radius: var(--r2);
+      padding: 10px 14px;
+      box-shadow: var(--float);
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-size: 13px;
+      color: var(--text-hi);
+      max-width: 360px;
+    }
+
+    /* Annotation labels */
+    .anno {
+      font-family: var(--mono);
+      font-size: 10px;
+      color: var(--text-lo);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      margin-bottom: 6px;
+    }
+    .row { display: flex; gap: 16px; align-items: flex-start; flex-wrap: wrap; }
+    .row > .panel { flex: 1; min-width: 320px; }
+  </style>
+</head>
+<body>
+  <div id="root">
+    <h1>L15 Variant A</h1>
+    <h2>Quiet menu — `···` button anchored to each TaskCard</h2>
+
+    <!-- Primary: open menu showing the canonical request verbs -->
+    <div class="panel">
+      <div class="anno">Primary state — task in_progress, menu OPEN, first-use disclosure visible</div>
+      <div class="kanban">
+        <div class="kanban__col">
+          <h3>Planned <span class="count">2</span></h3>
+          <div class="kanban__bet-label">Auth</div>
+          <div class="task-card">
+            <button type="button" class="task-card__actions-trigger" aria-label="Task actions" aria-haspopup="menu">···</button>
+            <span class="task-card__title">Implement login endpoint</span>
+            <div class="task-card__meta">
+              <span class="tag">Auth</span>
+              <span class="status-chip status-chip--paused"><span class="dot"></span>PAUSED</span>
+            </div>
+            <div class="task-card__row-foot">
+              <span class="task-card__owner">Dev Agent 2</span>
+              <span class="cost">$1.80</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="kanban__col">
+          <h3>Blocked <span class="count">1</span></h3>
+          <div class="kanban__bet-label">Auth</div>
+          <div class="task-card task-card--blocked">
+            <button type="button" class="task-card__actions-trigger" aria-label="Task actions" aria-haspopup="menu">···</button>
+            <span class="task-card__title">JWT refresh logic</span>
+            <div class="task-card__meta">
+              <span class="tag">Auth</span>
+              <span class="status-chip status-chip--blocked"><span class="dot"></span>BLOCKED</span>
+            </div>
+            <div class="task-card__row-foot">
+              <span class="task-card__owner">Dev Agent 1</span>
+              <span class="cost">$6.50</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="kanban__col">
+          <h3>In Progress <span class="count">1</span></h3>
+          <div class="kanban__bet-label">Auth</div>
+          <div class="task-card task-card--menu-open">
+            <button type="button" class="task-card__actions-trigger" aria-label="Task actions" aria-haspopup="menu" aria-expanded="true">···</button>
+            <span class="task-card__title">Rate limit middleware</span>
+            <div class="task-card__meta">
+              <span class="tag">API</span>
+              <span class="status-chip status-chip--healthy"><span class="dot"></span>RUNNING</span>
+            </div>
+            <div class="task-card__row-foot">
+              <span class="task-card__owner">Dev Agent 1</span>
+              <span class="cost">$2.00</span>
+            </div>
+
+            <div class="actions-menu" role="menu" aria-label="Task actions">
+              <div class="actions-menu__section-label">Request state change</div>
+              <div class="actions-menu__disclosure">Agents read these as suggestions, not commands.</div>
+              <button type="button" class="actions-menu__item actions-menu__item--highlighted" role="menuitem">
+                <span>Request stop</span>
+                <span class="actions-menu__shortcut">S</span>
+              </button>
+              <button type="button" class="actions-menu__item" role="menuitem">
+                <span>Request hold</span>
+                <span class="actions-menu__shortcut">H</span>
+              </button>
+              <button type="button" class="actions-menu__item" role="menuitem">
+                <span>Request mark done</span>
+                <span class="actions-menu__shortcut">D</span>
+              </button>
+              <button type="button" class="actions-menu__item" role="menuitem">
+                <span>Hand back to me</span>
+                <span class="actions-menu__shortcut">B</span>
+              </button>
+              <div class="actions-menu__divider"></div>
+              <button type="button" class="actions-menu__item" role="menuitem">
+                <span>Open thread</span>
+                <span class="actions-menu__shortcut">O · ↵</span>
+              </button>
+              <button type="button" class="actions-menu__item" role="menuitem">
+                <span>Snooze 24h</span>
+                <span class="actions-menu__shortcut">Z</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div class="kanban__col">
+          <h3>Done <span class="count">1</span></h3>
+          <div class="kanban__bet-label">Auth</div>
+          <div class="task-card">
+            <button type="button" class="task-card__actions-trigger" aria-label="Task actions" aria-haspopup="menu">···</button>
+            <span class="task-card__title">Write auth tests</span>
+            <div class="task-card__meta">
+              <span class="tag">Auth</span>
+              <span class="status-chip status-chip--done"><span class="dot"></span>DONE</span>
+            </div>
+            <div class="task-card__row-foot">
+              <span class="task-card__owner">Dev Agent 2</span>
+              <span class="cost">$3.10</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Secondary states -->
+    <div class="row">
+      <div class="panel">
+        <div class="anno">State — REQUEST PENDING (cost slot replaced with `↪ pending`)</div>
+        <div style="max-width: 280px;">
+          <div class="task-card">
+            <button type="button" class="task-card__actions-trigger" aria-label="Task actions">···</button>
+            <span class="task-card__title">JWT refresh logic</span>
+            <div class="task-card__meta">
+              <span class="tag">Auth</span>
+              <span class="status-chip status-chip--blocked"><span class="dot"></span>BLOCKED</span>
+            </div>
+            <div class="task-card__row-foot">
+              <span class="task-card__owner">Dev Agent 1</span>
+              <button class="pending-chip" type="button">↪ REQUEST PENDING</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="anno">State — TOAST after request sent</div>
+        <div style="position: relative; min-height: 88px;">
+          <div class="toast" style="position: relative; bottom: auto; right: auto;">
+            <span style="color: var(--ok); font-family: var(--mono); font-size: 11px; letter-spacing: 0.05em; text-transform: uppercase;">SENT</span>
+            <span>Request sent — agent will respond.</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="anno">Drag attempted — visual is identical (no change, no feedback)</div>
+        <div style="max-width: 280px;">
+          <div class="task-card">
+            <button type="button" class="task-card__actions-trigger" aria-label="Task actions">···</button>
+            <span class="task-card__title">Implement login endpoint</span>
+            <div class="task-card__meta">
+              <span class="tag">Auth</span>
+              <span class="status-chip status-chip--paused"><span class="dot"></span>PAUSED</span>
+            </div>
+            <div class="task-card__row-foot">
+              <span class="task-card__owner">Dev Agent 2</span>
+              <span class="cost">$1.80</span>
+            </div>
+          </div>
+          <div style="margin-top: 8px; font-size: 11px; color: var(--text-lo); font-style: italic;">
+            (No `not-allowed` cursor. No shake. The card simply does not drag.)
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

@@ -1,0 +1,443 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>L15 Variant B — inspector-drawer</title>
+  <link rel="stylesheet" href="../../../../packages/design-system/html/_tokens.css" />
+  <style>
+    body { padding: 24px; }
+    #root { max-width: 1200px; }
+    h1 {
+      font-size: 13px; font-family: var(--mono); color: var(--text-lo);
+      text-transform: uppercase; letter-spacing: 0.05em;
+      margin-bottom: 4px;
+    }
+    h2 {
+      font-size: 16px; font-weight: 500; color: var(--text-hi);
+      margin-bottom: 16px;
+    }
+    .panel {
+      background: var(--surface-1);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--r2);
+      padding: 16px;
+      margin-bottom: 16px;
+    }
+
+    .kanban {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+      align-items: start;
+    }
+    .kanban__col h3 {
+      font-size: 12px; font-weight: 600;
+      color: var(--text-mid);
+      margin-bottom: 8px;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .kanban__col h3 .count {
+      font-family: var(--mono);
+      font-size: 11px;
+      background: var(--surface-3);
+      color: var(--text-lo);
+      padding: 1px 6px;
+      border-radius: var(--r-pill);
+    }
+    .kanban__bet-label {
+      font-family: var(--mono);
+      font-size: 11px;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      color: var(--text-lo);
+      padding: 2px 4px;
+      margin-bottom: 4px;
+    }
+
+    .task-card {
+      background: var(--surface-4);
+      border-radius: var(--r2);
+      padding: var(--density-card-pad);
+      display: flex;
+      flex-direction: column;
+      gap: var(--density-card-gap);
+      cursor: pointer;
+      margin-bottom: 6px;
+      transition: background var(--motion-fast);
+    }
+    .task-card:hover { background: var(--surface-5); }
+    .task-card:focus-within { outline: 1px solid var(--primary); outline-offset: -1px; }
+    .task-card--blocked { border: 1px solid var(--danger); }
+
+    /* Selected card is the "header" of the drawer below it */
+    .task-card--selected {
+      background: var(--surface-3);
+      border-left: 2px solid var(--primary);
+      border-radius: var(--r2) var(--r2) 0 0;
+      margin-bottom: 0;
+    }
+
+    .task-card__title {
+      font-size: var(--density-text);
+      font-weight: 500;
+      color: var(--text-hi);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .task-card__meta {
+      display: flex;
+      align-items: center;
+      gap: var(--density-gap);
+      flex-wrap: wrap;
+    }
+    .task-card__row-foot {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+    .task-card__owner {
+      font-size: 12px;
+      color: var(--text-mid);
+    }
+    .cost {
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--text-mid);
+      font-variant-numeric: tabular-nums;
+    }
+
+    .pending-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 2px 6px;
+      border-radius: var(--r-pill);
+      font-family: var(--mono);
+      font-size: 11px;
+      letter-spacing: 0.05em;
+      color: var(--text-mid);
+      background: var(--surface-ghost);
+      border: 1px dashed var(--border-default);
+    }
+
+    /* The inspector drawer */
+    .inspector {
+      background: var(--surface-2);
+      border: 1px solid var(--border-default);
+      border-top: none;
+      border-radius: 0 0 var(--r2) var(--r2);
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin-bottom: 6px;
+    }
+    .inspector__header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+    .inspector__header-left {
+      font-family: var(--mono);
+      font-size: 11px;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      color: var(--text-lo);
+    }
+    .inspector__open-thread {
+      font-size: 11px;
+      font-family: var(--mono);
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      color: var(--primary);
+      background: transparent;
+      border: none;
+      cursor: pointer;
+      padding: 2px 6px;
+      border-radius: var(--r1);
+    }
+    .inspector__open-thread:hover { background: var(--primary-dim); }
+
+    .msg-row {
+      background: var(--surface-1);
+      border-radius: var(--r1);
+      padding: 8px 10px;
+      font-size: 12px;
+      color: var(--text-mid);
+      line-height: 1.45;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .msg-row__head {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-family: var(--mono);
+      font-size: 10px;
+      color: var(--text-lo);
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }
+    .msg-row__head .role {
+      background: var(--surface-3);
+      padding: 1px 5px;
+      border-radius: var(--r-pill);
+      color: var(--text-hi);
+    }
+    .msg-row--question .msg-row__head .role {
+      background: color-mix(in oklab, var(--primary) 18%, transparent);
+      color: var(--text-hi);
+    }
+
+    .verb-chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      align-items: center;
+    }
+    .verb-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 4px 10px;
+      border-radius: var(--r-pill);
+      font-size: 12px;
+      color: var(--text-hi);
+      background: var(--surface-3);
+      border: 1px solid var(--border-subtle);
+      cursor: pointer;
+      transition: background var(--motion-fast);
+    }
+    .verb-chip:hover { background: var(--surface-5); border-color: var(--border-default); }
+    .verb-chip--danger:hover { border-color: var(--danger); color: var(--danger); }
+
+    .composer {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--surface-1);
+      border: 1px solid var(--border-default);
+      border-radius: var(--r1);
+      padding: 6px 10px;
+    }
+    .composer input {
+      flex: 1;
+      font-size: 13px;
+      color: var(--text-hi);
+    }
+    .composer input::placeholder { color: var(--text-lo); }
+    .composer__send {
+      font-family: var(--mono);
+      font-size: 11px;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      color: var(--text-lo);
+      background: transparent;
+      padding: 2px 8px;
+      border-radius: var(--r1);
+    }
+    .composer__send:hover { color: var(--text-hi); background: var(--primary-dim); }
+
+    /* StatusChip / Tag — copied for fidelity */
+    .status-chip {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 2px 8px; border-radius: var(--r-pill);
+      font-family: var(--mono); font-size: 11px;
+      letter-spacing: 0.05em; text-transform: uppercase;
+      font-weight: 500; line-height: 1.4; flex-shrink: 0;
+    }
+    .status-chip .dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+    .status-chip--healthy { background: color-mix(in oklab, var(--ok) 14%, transparent); color: var(--ok); }
+    .status-chip--healthy .dot { background: var(--ok); }
+    .status-chip--blocked { background: color-mix(in oklab, var(--danger) 14%, transparent); color: var(--danger); }
+    .status-chip--blocked .dot { background: var(--danger); }
+    .status-chip--paused { background: color-mix(in oklab, var(--text-lo) 14%, transparent); color: var(--text-lo); }
+    .status-chip--paused .dot { background: var(--text-lo); }
+    .status-chip--done { background: color-mix(in oklab, var(--ok) 14%, transparent); color: var(--ok); }
+    .status-chip--done .dot { background: var(--ok); }
+    .tag {
+      display: inline-flex; align-items: center; padding: 2px 8px;
+      border-radius: var(--r-pill); font-size: 11px;
+      font-family: var(--mono); letter-spacing: 0.03em;
+      background: var(--surface-ghost); color: var(--text-mid); flex-shrink: 0;
+    }
+
+    .anno {
+      font-family: var(--mono);
+      font-size: 10px;
+      color: var(--text-lo);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      margin-bottom: 6px;
+    }
+    .row { display: flex; gap: 16px; align-items: flex-start; flex-wrap: wrap; }
+    .row > .panel { flex: 1; min-width: 320px; }
+  </style>
+</head>
+<body>
+  <div id="root">
+    <h1>L15 Variant B</h1>
+    <h2>Inspector drawer — click a card to expand a thread preview + verb chips inline within the column</h2>
+
+    <div class="panel">
+      <div class="anno">Primary state — `Blocked / JWT refresh logic` is selected; drawer expanded with last 2 messages + verb chips + reply</div>
+      <div class="kanban">
+        <div class="kanban__col">
+          <h3>Planned <span class="count">2</span></h3>
+          <div class="kanban__bet-label">Auth</div>
+          <div class="task-card">
+            <span class="task-card__title">Implement login endpoint</span>
+            <div class="task-card__meta">
+              <span class="tag">Auth</span>
+              <span class="status-chip status-chip--paused"><span class="dot"></span>PAUSED</span>
+            </div>
+            <div class="task-card__row-foot">
+              <span class="task-card__owner">Dev Agent 2</span>
+              <span class="cost">$1.80</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="kanban__col">
+          <h3>Blocked <span class="count">1</span></h3>
+          <div class="kanban__bet-label">Auth</div>
+
+          <div class="task-card task-card--blocked task-card--selected" aria-expanded="true" aria-controls="insp-1">
+            <span class="task-card__title">JWT refresh logic</span>
+            <div class="task-card__meta">
+              <span class="tag">Auth</span>
+              <span class="status-chip status-chip--blocked"><span class="dot"></span>BLOCKED</span>
+            </div>
+            <div class="task-card__row-foot">
+              <span class="task-card__owner">Dev Agent 1</span>
+              <span class="cost">$6.50</span>
+            </div>
+          </div>
+
+          <div class="inspector" id="insp-1" role="region" aria-label="Task thread preview">
+            <div class="inspector__header">
+              <span class="inspector__header-left">Thread · 3 messages · 2h ago</span>
+              <button class="inspector__open-thread" type="button">Open full thread →</button>
+            </div>
+
+            <div class="msg-row msg-row--question">
+              <div class="msg-row__head">
+                <span class="role">QUESTION · DEV AGENT 1</span>
+                <span>2h ago</span>
+              </div>
+              <div>I am blocked: the API key env var is missing in the test runner. Can you confirm the secret name?</div>
+            </div>
+
+            <div class="msg-row">
+              <div class="msg-row__head">
+                <span class="role">DEV AGENT 1</span>
+                <span>3h ago</span>
+              </div>
+              <div>Started JWT refresh task. Initial harness call returned 401.</div>
+            </div>
+
+            <div class="verb-chips">
+              <button class="verb-chip" type="button">Request unblock</button>
+              <button class="verb-chip" type="button">Hand back to me</button>
+              <button class="verb-chip verb-chip--danger" type="button">Request stop</button>
+            </div>
+
+            <div class="composer">
+              <input type="text" placeholder="Reply in thread… (Enter to send)" />
+              <button class="composer__send" type="button">SEND ↵</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="kanban__col">
+          <h3>In Progress <span class="count">1</span></h3>
+          <div class="kanban__bet-label">API</div>
+          <div class="task-card">
+            <span class="task-card__title">Rate limit middleware</span>
+            <div class="task-card__meta">
+              <span class="tag">API</span>
+              <span class="status-chip status-chip--healthy"><span class="dot"></span>RUNNING</span>
+            </div>
+            <div class="task-card__row-foot">
+              <span class="task-card__owner">Dev Agent 1</span>
+              <span class="cost">$2.00</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="kanban__col">
+          <h3>Done <span class="count">1</span></h3>
+          <div class="kanban__bet-label">Auth</div>
+          <div class="task-card">
+            <span class="task-card__title">Write auth tests</span>
+            <div class="task-card__meta">
+              <span class="tag">Auth</span>
+              <span class="status-chip status-chip--done"><span class="dot"></span>DONE</span>
+            </div>
+            <div class="task-card__row-foot">
+              <span class="task-card__owner">Dev Agent 2</span>
+              <span class="cost">$3.10</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Secondary states -->
+    <div class="row">
+      <div class="panel">
+        <div class="anno">Empty state — no thread on this task yet</div>
+        <div style="max-width: 320px;">
+          <div class="task-card task-card--selected">
+            <span class="task-card__title">Implement login endpoint</span>
+            <div class="task-card__meta">
+              <span class="tag">Auth</span>
+              <span class="status-chip status-chip--paused"><span class="dot"></span>PAUSED</span>
+            </div>
+            <div class="task-card__row-foot">
+              <span class="task-card__owner">Dev Agent 2</span>
+              <span class="cost">$1.80</span>
+            </div>
+          </div>
+          <div class="inspector">
+            <div class="inspector__header">
+              <span class="inspector__header-left">No thread yet</span>
+              <button class="inspector__open-thread" type="button">Open full thread →</button>
+            </div>
+            <div class="verb-chips">
+              <button class="verb-chip" type="button">Hand back to me</button>
+              <button class="verb-chip verb-chip--danger" type="button">Request stop</button>
+            </div>
+            <div class="composer">
+              <input type="text" placeholder="Start a thread with the agent…" />
+              <button class="composer__send" type="button">SEND ↵</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="anno">After send (state-change verb) — drawer collapses, card shows `↪ pending`</div>
+        <div style="max-width: 320px;">
+          <div class="task-card task-card--blocked">
+            <span class="task-card__title">JWT refresh logic</span>
+            <div class="task-card__meta">
+              <span class="tag">Auth</span>
+              <span class="status-chip status-chip--blocked"><span class="dot"></span>BLOCKED</span>
+            </div>
+            <div class="task-card__row-foot">
+              <span class="task-card__owner">Dev Agent 1</span>
+              <button class="pending-chip" type="button">↪ REQUEST PENDING</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

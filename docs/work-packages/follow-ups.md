@@ -64,3 +64,60 @@ to the originating story and the story (or track) that should pick it up.
 - **Owner:** TBD — small fixture fix; can land in a maintenance PR or be
   bundled with the next L8 area touch.
 - **Status:** open.
+
+---
+
+## auth-identity-binding (NEVER-tier; pre-existing)
+
+- **Origin:** L15 security review CRITICAL-1 (re-affirmed L15 review iteration 1).
+- **Issue:** The `X-Identity` header is read directly from the HTTP request
+  without binding to the API key. Any holder of `HYPERIDLE_API_KEY` can
+  assert any identity (including `u-founder`), bypassing every task-scoped
+  authz chokepoint. This pre-dates L15 — but L15 widens the blast radius
+  by giving every authenticated client a write path into any task's thread.
+- **Reference:** `packages/server/src/middleware/auth.ts`,
+  `packages/server/src/services/task-authz.ts` (`@lore` updated to call
+  out the gap).
+- **Owner:** auth-middleware story on TRACK-L. The middleware MUST either
+  bind a single identity to each API key, or sign `X-Identity` with an
+  HMAC the server verifies before reading.
+- **Status:** open. Until landed, treat L15 endpoints as
+  `single-principal-dev-only` per the security review verdict.
+
+---
+
+## L15 — snooze table + endpoints + projection (deferred plan items D-1..D-6)
+
+- **Origin:** L15 plan §§ 5.1-5.7 (snooze table + endpoints + event +
+  GET-projection); re-confirmed in L15 review iteration 1 (architecture
+  review D-1..D-4).
+- **Issue:** The L15 plan over-promised relative to the spec ACs. The
+  spec only requires (a) drag removal, (b) request affordance, (c) Canvas
+  drag survives. Snooze, the `task_snoozed` event, the `task_snoozes`
+  table, the `GET /api/tasks` `pendingRequest` + `snoozedUntil` projection
+  were all plan-level extensions that did NOT ship.
+- **Reference:** `docs/work-packages/L15-plan.md` §§ 5.1, 5.2, 5.5, 5.6,
+  5.7.
+- **Owner:** TBD — pick up when the team-board view needs server-driven
+  pending-state OR snooze-from-board affordances. Until then, the L15
+  baseline page (`packages/web/src/pages/WorkTeam.tsx`) seeds a demo
+  pending-request fixture so the chip variant has a render path.
+- **Status:** deferred (spec ACs all met without it).
+
+---
+
+## L15 — request-sent toast + Composer modal (Cmd-click "with reason")
+
+- **Origin:** L15 design review CRITICAL-2 / CRITICAL-3.
+- **Issue:** No toast region renders the `Request sent — agent will respond.`
+  copy from approved.md § 8. No Composer modal opens on Cmd/Alt-click of
+  a verb. The `reason` plumbing exists end-to-end (server schema accepts
+  it, `sanitizeReason` runs, `renderRequestText` honors it) — only the UI
+  surface is missing.
+- **Reference:** `packages/design-system/src/TaskActionsMenu.tsx`,
+  `packages/web/src/pages/WorkTeam.tsx`.
+- **Owner:** L18 (Composer modal lands as part of the thread surface);
+  the toast region should land alongside or as a small follow-up in the
+  L15.x window.
+- **Status:** open.
+

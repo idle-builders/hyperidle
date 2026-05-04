@@ -1,0 +1,536 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>L15 Variant C — linear-palette</title>
+  <link rel="stylesheet" href="../../../../packages/design-system/html/_tokens.css" />
+  <style>
+    body { padding: 24px; }
+    #root { max-width: 1200px; }
+    h1 {
+      font-size: 13px; font-family: var(--mono); color: var(--text-lo);
+      text-transform: uppercase; letter-spacing: 0.05em;
+      margin-bottom: 4px;
+    }
+    h2 {
+      font-size: 16px; font-weight: 500; color: var(--text-hi);
+      margin-bottom: 16px;
+    }
+    .panel {
+      background: var(--surface-1);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--r2);
+      padding: 16px;
+      margin-bottom: 16px;
+      position: relative;
+    }
+
+    .kanban {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+      align-items: start;
+    }
+    .kanban__col h3 {
+      font-size: 12px; font-weight: 600;
+      color: var(--text-mid);
+      margin-bottom: 8px;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .kanban__col h3 .count {
+      font-family: var(--mono);
+      font-size: 11px;
+      background: var(--surface-3);
+      color: var(--text-lo);
+      padding: 1px 6px;
+      border-radius: var(--r-pill);
+    }
+    .kanban__bet-label {
+      font-family: var(--mono);
+      font-size: 11px;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      color: var(--text-lo);
+      padding: 2px 4px;
+      margin-bottom: 4px;
+    }
+
+    .task-card {
+      position: relative;
+      background: var(--surface-4);
+      border-radius: var(--r2);
+      padding: var(--density-card-pad);
+      display: flex;
+      flex-direction: column;
+      gap: var(--density-card-gap);
+      cursor: pointer;
+      margin-bottom: 6px;
+      transition: background var(--motion-fast);
+    }
+    .task-card:hover { background: var(--surface-5); }
+    .task-card--blocked { border: 1px solid var(--danger); }
+
+    /* Focus + K chip */
+    .task-card--focused {
+      outline: 1px solid var(--primary);
+      outline-offset: -1px;
+    }
+    .kchip {
+      position: absolute;
+      top: 6px;
+      right: 6px;
+      font-family: var(--mono);
+      font-size: 10px;
+      letter-spacing: 0.06em;
+      color: var(--text-lo);
+      background: var(--surface-ghost);
+      border: 1px solid var(--border-subtle);
+      padding: 1px 5px;
+      border-radius: var(--r1);
+    }
+
+    .task-card__title {
+      font-size: var(--density-text);
+      font-weight: 500;
+      color: var(--text-hi);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      padding-right: 28px;
+    }
+    .task-card__meta {
+      display: flex;
+      align-items: center;
+      gap: var(--density-gap);
+      flex-wrap: wrap;
+    }
+    .task-card__row-foot {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+    .task-card__owner {
+      font-size: 12px;
+      color: var(--text-mid);
+    }
+    .cost {
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--text-mid);
+      font-variant-numeric: tabular-nums;
+    }
+
+    /* StatusChip / Tag */
+    .status-chip {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 2px 8px; border-radius: var(--r-pill);
+      font-family: var(--mono); font-size: 11px;
+      letter-spacing: 0.05em; text-transform: uppercase;
+      font-weight: 500; line-height: 1.4; flex-shrink: 0;
+    }
+    .status-chip .dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+    .status-chip--healthy { background: color-mix(in oklab, var(--ok) 14%, transparent); color: var(--ok); }
+    .status-chip--healthy .dot { background: var(--ok); }
+    .status-chip--blocked { background: color-mix(in oklab, var(--danger) 14%, transparent); color: var(--danger); }
+    .status-chip--blocked .dot { background: var(--danger); }
+    .status-chip--paused { background: color-mix(in oklab, var(--text-lo) 14%, transparent); color: var(--text-lo); }
+    .status-chip--paused .dot { background: var(--text-lo); }
+    .status-chip--done { background: color-mix(in oklab, var(--ok) 14%, transparent); color: var(--ok); }
+    .status-chip--done .dot { background: var(--ok); }
+    .tag {
+      display: inline-flex; align-items: center; padding: 2px 8px;
+      border-radius: var(--r-pill); font-size: 11px;
+      font-family: var(--mono); letter-spacing: 0.03em;
+      background: var(--surface-ghost); color: var(--text-mid); flex-shrink: 0;
+    }
+
+    /* Backdrop dim */
+    .backdrop-dim {
+      position: absolute;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.45);
+      border-radius: var(--r2);
+      pointer-events: none;
+    }
+
+    /* The palette */
+    .palette {
+      position: absolute;
+      width: 360px;
+      background: var(--surface-1);
+      border: 1px solid var(--border-default);
+      border-radius: var(--r2);
+      box-shadow: var(--float);
+      overflow: hidden;
+      z-index: 10;
+      display: flex;
+      flex-direction: column;
+    }
+    .palette__header {
+      background: var(--surface-2);
+      padding: 8px 12px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-family: var(--mono);
+      font-size: 11px;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      color: var(--text-lo);
+      border-bottom: 1px solid var(--border-subtle);
+    }
+    .palette__header .title { color: var(--text-mid); }
+    .palette__header .esc {
+      background: var(--surface-3);
+      padding: 1px 5px;
+      border-radius: var(--r1);
+      color: var(--text-lo);
+    }
+
+    .palette__filter {
+      padding: 10px 12px;
+      background: var(--surface-1);
+      border-bottom: 1px solid var(--border-subtle);
+    }
+    .palette__filter input {
+      width: 100%;
+      font-size: 13px;
+      color: var(--text-hi);
+      background: transparent;
+      border: none;
+      outline: none;
+    }
+    .palette__filter input::placeholder { color: var(--text-lo); }
+    .palette__filter .cursor {
+      display: inline-block;
+      width: 7px;
+      height: 14px;
+      background: var(--primary);
+      vertical-align: middle;
+      margin-left: 1px;
+      animation: blink 1s step-end infinite;
+    }
+    @keyframes blink { 50% { opacity: 0; } }
+
+    .palette__list {
+      display: flex;
+      flex-direction: column;
+      padding: 4px;
+      max-height: 280px;
+      overflow-y: auto;
+    }
+    .palette__item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 8px 10px;
+      border-radius: var(--r1);
+      background: transparent;
+      border: none;
+      text-align: left;
+      cursor: pointer;
+    }
+    .palette__item:hover { background: var(--surface-ghost); }
+    .palette__item--selected { background: var(--primary-dim); }
+    .palette__item-main {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      min-width: 0;
+    }
+    .palette__item-primary {
+      font-size: 13px;
+      color: var(--text-hi);
+      font-weight: 500;
+    }
+    .palette__item-secondary {
+      font-size: 11px;
+      color: var(--text-lo);
+      font-family: var(--mono);
+      letter-spacing: 0.02em;
+    }
+    .palette__item-shortcut {
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--text-lo);
+      background: var(--surface-3);
+      padding: 1px 6px;
+      border-radius: var(--r1);
+      flex-shrink: 0;
+    }
+    .palette__divider {
+      height: 1px;
+      background: var(--border-subtle);
+      margin: 4px 0;
+    }
+
+    .palette__footer {
+      background: var(--surface-2);
+      padding: 6px 12px;
+      font-family: var(--mono);
+      font-size: 10px;
+      letter-spacing: 0.05em;
+      color: var(--text-lo);
+      border-top: 1px solid var(--border-subtle);
+      display: flex;
+      gap: 14px;
+      flex-wrap: wrap;
+    }
+
+    /* Composer modal (with-reason flow) */
+    .composer-modal {
+      position: absolute;
+      width: 420px;
+      background: var(--surface-1);
+      border: 1px solid var(--border-default);
+      border-radius: var(--r2);
+      box-shadow: var(--float);
+      display: flex;
+      flex-direction: column;
+    }
+    .composer-modal__head {
+      background: var(--surface-2);
+      padding: 10px 14px;
+      border-bottom: 1px solid var(--border-subtle);
+      display: flex;
+      align-items: baseline;
+      gap: 8px;
+    }
+    .composer-modal__head .verb {
+      font-family: var(--mono);
+      font-size: 11px;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      color: var(--primary);
+    }
+    .composer-modal__head .task {
+      font-size: 13px;
+      color: var(--text-hi);
+    }
+    .composer-modal__body {
+      padding: 12px 14px;
+    }
+    .composer-modal__body textarea {
+      width: 100%;
+      min-height: 64px;
+      background: var(--surface-2);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--r1);
+      padding: 8px 10px;
+      font-size: 13px;
+      color: var(--text-hi);
+      resize: vertical;
+    }
+    .composer-modal__body textarea::placeholder { color: var(--text-lo); }
+    .composer-modal__foot {
+      padding: 8px 14px;
+      background: var(--surface-2);
+      border-top: 1px solid var(--border-subtle);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-family: var(--mono);
+      font-size: 11px;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      color: var(--text-lo);
+    }
+    .composer-modal__foot .send {
+      background: var(--primary-dim);
+      color: var(--text-hi);
+      padding: 4px 10px;
+      border-radius: var(--r1);
+    }
+
+    .anno {
+      font-family: var(--mono);
+      font-size: 10px;
+      color: var(--text-lo);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      margin-bottom: 6px;
+    }
+    .row { display: flex; gap: 16px; align-items: flex-start; flex-wrap: wrap; }
+    .row > .panel { flex: 1; min-width: 320px; }
+  </style>
+</head>
+<body>
+  <div id="root">
+    <h1>L15 Variant C</h1>
+    <h2>Linear palette — focus + `K` opens a context-aware command palette anchored to the card</h2>
+
+    <div class="panel" style="min-height: 480px;">
+      <div class="anno">Primary state — `Blocked / JWT refresh logic` is focused, palette is open, filter input is autofocused</div>
+      <div class="kanban">
+        <div class="kanban__col">
+          <h3>Planned <span class="count">2</span></h3>
+          <div class="kanban__bet-label">Auth</div>
+          <div class="task-card">
+            <span class="task-card__title">Implement login endpoint</span>
+            <div class="task-card__meta">
+              <span class="tag">Auth</span>
+              <span class="status-chip status-chip--paused"><span class="dot"></span>PAUSED</span>
+            </div>
+            <div class="task-card__row-foot">
+              <span class="task-card__owner">Dev Agent 2</span>
+              <span class="cost">$1.80</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="kanban__col" style="position: relative;">
+          <h3>Blocked <span class="count">1</span></h3>
+          <div class="kanban__bet-label">Auth</div>
+          <div class="task-card task-card--blocked task-card--focused">
+            <span class="kchip">K</span>
+            <span class="task-card__title">JWT refresh logic</span>
+            <div class="task-card__meta">
+              <span class="tag">Auth</span>
+              <span class="status-chip status-chip--blocked"><span class="dot"></span>BLOCKED</span>
+            </div>
+            <div class="task-card__row-foot">
+              <span class="task-card__owner">Dev Agent 1</span>
+              <span class="cost">$6.50</span>
+            </div>
+          </div>
+
+          <div class="palette" style="top: 130px; left: -8px;" role="dialog" aria-label="Task command palette">
+            <div class="palette__header">
+              <span class="title">JWT REFRESH LOGIC</span>
+              <span class="esc">ESC</span>
+            </div>
+            <div class="palette__filter">
+              <input type="text" placeholder="Type a command…" value="" />
+            </div>
+            <div class="palette__list" role="listbox">
+              <button type="button" class="palette__item palette__item--selected" role="option" aria-selected="true">
+                <span class="palette__item-main">
+                  <span class="palette__item-primary">Request unblock</span>
+                  <span class="palette__item-secondary">→ asks the agent to retry — agent decides</span>
+                </span>
+                <span class="palette__item-shortcut">U</span>
+              </button>
+              <button type="button" class="palette__item" role="option">
+                <span class="palette__item-main">
+                  <span class="palette__item-primary">Hand back to me</span>
+                  <span class="palette__item-secondary">→ moves ownership to you — agent confirms</span>
+                </span>
+                <span class="palette__item-shortcut">B</span>
+              </button>
+              <button type="button" class="palette__item" role="option">
+                <span class="palette__item-main">
+                  <span class="palette__item-primary">Request stop</span>
+                  <span class="palette__item-secondary">→ asks the agent to abandon — agent decides</span>
+                </span>
+                <span class="palette__item-shortcut">S</span>
+              </button>
+              <div class="palette__divider"></div>
+              <button type="button" class="palette__item" role="option">
+                <span class="palette__item-main">
+                  <span class="palette__item-primary">Open thread</span>
+                  <span class="palette__item-secondary">→ jump to the conversation</span>
+                </span>
+                <span class="palette__item-shortcut">↵</span>
+              </button>
+              <button type="button" class="palette__item" role="option">
+                <span class="palette__item-main">
+                  <span class="palette__item-primary">Snooze 24h</span>
+                  <span class="palette__item-secondary">→ hide from board until tomorrow</span>
+                </span>
+                <span class="palette__item-shortcut">Z</span>
+              </button>
+              <button type="button" class="palette__item" role="option">
+                <span class="palette__item-main">
+                  <span class="palette__item-primary">Copy task link</span>
+                </span>
+                <span class="palette__item-shortcut">⌘L</span>
+              </button>
+            </div>
+            <div class="palette__footer">
+              <span>↑↓ NAVIGATE</span>
+              <span>↵ RUN</span>
+              <span>ESC CANCEL</span>
+              <span style="color: var(--text-mid);">AGENTS DECIDE</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="kanban__col">
+          <h3>In Progress <span class="count">1</span></h3>
+          <div class="kanban__bet-label">API</div>
+          <div class="task-card">
+            <span class="task-card__title">Rate limit middleware</span>
+            <div class="task-card__meta">
+              <span class="tag">API</span>
+              <span class="status-chip status-chip--healthy"><span class="dot"></span>RUNNING</span>
+            </div>
+            <div class="task-card__row-foot">
+              <span class="task-card__owner">Dev Agent 1</span>
+              <span class="cost">$2.00</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="kanban__col">
+          <h3>Done <span class="count">1</span></h3>
+          <div class="kanban__bet-label">Auth</div>
+          <div class="task-card">
+            <span class="task-card__title">Write auth tests</span>
+            <div class="task-card__meta">
+              <span class="tag">Auth</span>
+              <span class="status-chip status-chip--done"><span class="dot"></span>DONE</span>
+            </div>
+            <div class="task-card__row-foot">
+              <span class="task-card__owner">Dev Agent 2</span>
+              <span class="cost">$3.10</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Secondary state: with-reason composer flow -->
+    <div class="row">
+      <div class="panel" style="min-height: 280px;">
+        <div class="anno">Secondary state — palette → "Request unblock with reason" → Composer modal in-place</div>
+        <div style="position: relative; height: 240px;">
+          <div class="composer-modal" style="top: 12px; left: 12px;">
+            <div class="composer-modal__head">
+              <span class="verb">REQUEST UNBLOCK</span>
+              <span class="task">JWT refresh logic</span>
+            </div>
+            <div class="composer-modal__body">
+              <textarea placeholder="Why? (optional — the agent reads this before deciding)"></textarea>
+            </div>
+            <div class="composer-modal__foot">
+              <span>ESC CANCEL</span>
+              <span class="send">⌘ ↵ SEND REQUEST</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="anno">Card focus only — `K` chip visible, no palette yet</div>
+        <div style="max-width: 280px;">
+          <div class="task-card task-card--focused">
+            <span class="kchip">K</span>
+            <span class="task-card__title">Implement login endpoint</span>
+            <div class="task-card__meta">
+              <span class="tag">Auth</span>
+              <span class="status-chip status-chip--paused"><span class="dot"></span>PAUSED</span>
+            </div>
+            <div class="task-card__row-foot">
+              <span class="task-card__owner">Dev Agent 2</span>
+              <span class="cost">$1.80</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>
