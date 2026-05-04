@@ -30,7 +30,7 @@ export type SeedableDb = BaseSQLiteDatabase<"sync", unknown, typeof schema>;
 
 // @lore: Facilitator agents encode their scope in the `skills` JSON blob
 // (shape: {"scope": "<community|product_id|null>", "tools": [...]}) because
-// `agents` has no first-class `scope_id` column. See docs/work-packages/plans/G1-plan.md §2.
+// `agents` has no first-class `scope_id` column. See plans/work-packages/G1-plan.md §2.
 // FACILITATOR_TOOLS / PRACTICE_COMMUNITIES / COMMUNITY_DISPLAY_NAMES live in
 // `seed-fixtures.ts` so the PG seed can share them.
 

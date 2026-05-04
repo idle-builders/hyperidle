@@ -6,7 +6,7 @@
  * touched. Integration-level proofs live in the companion
  * `.integration.test.ts` (uses real `git`).
  *
- * AC mapping (see docs/work-packages/TRACK-H.md -> H1):
+ * AC mapping (see plans/work-packages/TRACK-H.md -> H1):
  *   AC1 — Human edit to L4 PRINCIPLES -> export runs, commits new PRINCIPLES.md
  *   AC2 — Commit message includes which items changed
  *   AC3 — No commit if no changes since last export

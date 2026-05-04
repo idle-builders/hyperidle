@@ -150,7 +150,7 @@ export function createThreadRoutes(db: HyperIdleDb, eventBus: EventBus): Hono {
 	// founder's threads (IDOR). This is inherited from L1a's "API-key holder
 	// is implicit sender" model and is explicitly out of L8's scope. The
 	// fix lives in the auth-middleware story; tracked in
-	// docs/work-packages/follow-ups.md (`auth-middleware-participant-scope`).
+	// plans/work-packages/follow-ups.md (`auth-middleware-participant-scope`).
 	router.get("/", (c) => {
 		const parsed = listThreadsQuerySchema.safeParse({
 			host_kind: c.req.query("host_kind"),

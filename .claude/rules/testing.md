@@ -12,7 +12,7 @@ paths:
 - Target 100% test coverage of all new code — backend and frontend.
 - Unit tests: `<name>.test.ts` in `packages/<pkg>/src/__tests__/`.
 - Integration tests: `<name>.integration.test.ts` — use `createTestDb()` for database, `createTestApp()` for API.
-- E2E tests: Playwright for all user-facing features. Every UI story must have E2E tests proving the feature works through the browser.
+- E2E tests: Playwright for all user-facing features. Every workpackage with UI must have E2E tests proving the feature works through the browser.
 - Follow AAA pattern: Arrange, Act, Assert.
 - Test all paths: success, error, boundary values, edge cases. Not just happy paths.
 - Never mock what you can use `createTestDb()` or `createTestApp()` for.

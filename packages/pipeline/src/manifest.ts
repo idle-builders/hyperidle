@@ -5,13 +5,12 @@ import type { Complexity, Story } from "./types.js";
 /**
  * Canonical path of the work-package manifest, relative to the repository root.
  *
- * Lives at `docs/work-packages/pipeline-manifest.yaml` since commit ff35161
- * (cleanup docs folder) — the scheduler used to read `docs/pipeline-manifest.yaml`
- * and silently produced "0 done | 0 active" for every target. The exported
- * constant + path-existence test below pin this so future doc reorganizations
- * can't regress it without a red test.
+ * Lives at `plans/work-packages/pipeline-manifest.yaml` — the scheduler used
+ * to read `docs/pipeline-manifest.yaml` and silently produced "0 done | 0
+ * active" for every target. The exported constant + path-existence test below
+ * pin this so future doc reorganizations can't regress it without a red test.
  */
-export const MANIFEST_RELATIVE_PATH = "docs/work-packages/pipeline-manifest.yaml";
+export const MANIFEST_RELATIVE_PATH = "plans/work-packages/pipeline-manifest.yaml";
 
 interface RawManifest {
 	stories: Array<{

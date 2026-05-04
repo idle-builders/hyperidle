@@ -28,7 +28,7 @@ Read-only scan. Produce findings — do NOT make code changes.
    - `design/no-ai-aesthetic` (AQ-101/AQ-102/AQ-107/AQ-012/AQ-111)
    - `design/no-raw-tailwind-color` (AQ-008)
    - `design/require-ds-attribute` (K2 marker contract)
-   - `design/require-stories-sibling` (design-system contract)
+   - `design/require-workpackages-sibling` (design-system contract)
    - `design/require-focus-on-interactive` (AQ-015 / WCAG 2.1.1)
 
 2. **Higher-level checks the AST cannot easily do.** Read each changed
@@ -106,3 +106,7 @@ WARN  packages/design-system/src/PitchCard.tsx:15  spacing inconsistent with Bet
 - After a sweep that touched multiple components (K7 territory).
 - When `/design-critique` flags a specific class of issue and you want
   confirmation that the whole codebase is clean.
+
+## Target
+
+$ARGUMENTS

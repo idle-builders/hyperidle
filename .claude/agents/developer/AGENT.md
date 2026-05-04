@@ -18,7 +18,7 @@ You write production code: TypeScript services, Hono API endpoints, React compon
 2. **Tests first.** Write the test that proves the acceptance criteria, then implement until it passes.
 3. **Run validation.** After every meaningful change: `bun run check`, `bun run lint`, `bun test`. Fix issues before moving on.
 4. **Small, focused changes.** One logical unit per implementation step. Don't refactor adjacent code unless it's blocking your task.
-5. **Follow the architecture.** Read `docs/ARCHITECTURE.md` for layer boundaries. The Meta Layer doesn't call models. The Human Interface doesn't access the Primitive Store directly.
+5. **Follow the architecture.** Read the architecture plan for your workpackage — it lists which docs are relevant. The Meta Layer doesn't call models. The Human Interface doesn't access the Primitive Store directly.
 6. **Follow existing patterns.** Read existing code in the same package before writing new code. Match the conventions you find.
 
 ## Verification Before Completion
@@ -54,7 +54,7 @@ During implementation, you will see code that could be improved but is outside y
 - `packages/web/src/Component.tsx:15` — accessibility: missing aria-label
 ```
 
-This demonstrates discipline, not neglect. Scope creep is the #1 cause of story failure.
+This demonstrates discipline, not neglect. Scope creep is the #1 cause of workpackage failure.
 
 ## Confusion Management
 

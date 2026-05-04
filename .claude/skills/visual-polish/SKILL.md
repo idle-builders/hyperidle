@@ -14,7 +14,7 @@ Iterative visual fidelity improvement loop. Compare the live implementation agai
 
 - Dev server running on `localhost:5173` (`bun dev` from repo root)
 - Playwright installed (`cd packages/web && bunx playwright install chromium`)
-- Reference mockups in `docs/design-references/`
+- Reference mockups attached to `plans/<workpackage-id>/design/approved.md`
 
 ## Workflow
 
@@ -39,7 +39,7 @@ Read ALL three images. Look at pixels, not code. Identify:
 - **Missing elements** — icons, badges, indicators not implemented
 - **Extra elements** — implementation has things the reference doesn't
 
-Reference the design synthesis docs (`docs/concept/design-synthesis/`) for design intent when differences are ambiguous.
+Reference the design synthesis docs (`plans/design-synthesis/`) for design intent when differences are ambiguous.
 
 ### 3. Fix
 
@@ -74,7 +74,7 @@ Stop when:
 
 - **Never chase 100%** — dynamic content, font rendering, and anti-aliasing make perfect matches impossible
 - **Fix structure before details** — a wrong layout with perfect colors is worse than right layout with slightly off colors
-- **Check the design synthesis first** — when reference and implementation disagree on a design decision, the synthesis docs (`docs/concept/design-synthesis/`) are the source of truth
+- **Check the design synthesis first** — when reference and implementation disagree on a design decision, the synthesis docs (`plans/design-synthesis/`) are the source of truth
 - **One change at a time** — so you can attribute score changes to specific modifications
 - **Disable animations** — the comparison script already injects freeze CSS, but verify no animation-dependent layout shifts
 
@@ -90,3 +90,7 @@ After polishing, report:
 - Number of iterations
 - Key changes made (file:line summary)
 - Remaining known differences (if any) and why they're acceptable
+
+## Target
+
+$ARGUMENTS

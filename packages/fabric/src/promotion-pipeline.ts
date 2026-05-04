@@ -224,7 +224,7 @@ export function checkAutoPromotion(db: HyperIdleDb, knowledgeItemId: string): Au
  * contradictions are not caught — they require the attention engine's
  * conflict signal + human review. False positives are possible when two
  * items share a topic string but semantically don't conflict. Documented
- * limitation — see docs/work-packages/plans/G3-plan.md §3.3.
+ * limitation — see plans/work-packages/G3-plan.md §3.3.
  */
 export function detectLayerContradiction(
 	db: HyperIdleDb,

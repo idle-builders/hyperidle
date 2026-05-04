@@ -64,3 +64,7 @@ Scan the codebase for decisions that should have lore but don't:
 ## Mode: Index (`/lore index`)
 
 Find all existing `@lore` comments across the codebase. Produce a table with file, line, kind, tags, and summary. Group by tags for a knowledge map of the codebase.
+
+## Target
+
+$ARGUMENTS

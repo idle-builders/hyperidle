@@ -16,7 +16,7 @@ CREATE TABLE `_l1_snapshot_items` AS SELECT * FROM `items`;--> statement-breakpo
 CREATE TABLE `_l1_snapshot_responses` AS SELECT * FROM `responses`;--> statement-breakpoint
 
 -- Steps 2-5: rebuild `threads` with new columns. Backfill projection rules
--- per SHARED.md: kind='coach' → host_kind='user'+pinned; kind='direct' →
+-- per docs/human-interface-layer/thread-primitive.md: kind='coach' → host_kind='user'+pinned; kind='direct' →
 -- host_kind='agent'; kind='post-bet-retro' → host_kind='bet'; kind='review'
 -- /'chat' → host_kind from referencing item/task; everything else → 'task'
 -- with id derived from the thread id (best-effort fallback).

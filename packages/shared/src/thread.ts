@@ -9,7 +9,7 @@
  * @lore L1 step-1 (write-tests): the stub is intentionally throwing — it
  * exists ONLY so test files compile against the contract. Step 2
  * (write-code) replaces every body with the real implementation per
- * `docs/work-packages/L1-plan.md` §4.
+ * `plans/L1/architecture.md` §4.
  */
 
 // ── Closed enums ────────────────────────────────────────────────
@@ -38,7 +38,7 @@ export const VERDICT_DECISIONS = [
 ] as const;
 export type VerdictDecision = (typeof VERDICT_DECISIONS)[number];
 
-// The 5 ArtifactView renderer shapes (per SHARED.md "Shared Contracts").
+// The 5 ArtifactView renderer shapes (per docs/process-layer/artifact-primitive.md).
 // Distinct from the L3 Artifact primitive's `kind` (function-agnostic type
 // label). These describe HOW a review-message embed renders its preview;
 // they are a sub-vocabulary inside the L3 review_message_embed layout, not
@@ -174,7 +174,7 @@ export type ThreadConfiguration = "dm" | "coach" | "feed" | "attached";
 
 /**
  * Plan §4: documentation-only classifier — never persisted. Used by the
- * docs/concept anchors to describe how a thread reads visually; the data
+ * docs/ section files to describe how a thread reads visually; the data
  * is the host_kind + pinned + participants tuple.
  */
 export function classifyThreadConfiguration(thread: Thread): ThreadConfiguration {
