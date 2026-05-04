@@ -2,7 +2,7 @@
 
 ## Goal
 
-Replace the `<pre>` fallback at `packages/web/src/pages/WorkBet.tsx:262-267` with the L2 Block primitive view. Rename `MockBetDetail.body → pitch`. Move the four MOCK_BETS pitch strings to a stories-only fixtures location. Keep `bun run check` + `bun run lint` + `bun run test` green; full e2e suite stays green.
+Replace the `<pre>` fallback at `packages/web/src/pages/WorkBet.tsx:262-267` with the L2 Block primitive view. Rename `MockBetDetail.body → pitch`. Move the four MOCK_BETS pitch strings to a stories-only fixtures location, with the boundary enforced by an ESLint `no-restricted-imports` rule (§F). Wire `useBet(betId)` as the page's runtime data path — there is **no `MOCK_BETS` runtime fallback** (the runtime page reads exclusively from the API hook or from the `overrideBet` prop). Keep `bun run check` + `bun run lint` + `bun run test` green; full e2e suite stays green.
 
 ## Non-goals
 
@@ -48,8 +48,8 @@ The fixture-side type is the same shape, defined in the fixtures file (§B). `Be
 
 ### A. `packages/web/src/pages/WorkBet.tsx` — render bets-as-blocks
 
-1. **Delete** the inline `MOCK_BETS`, `FALLBACK_BET`, `MockBetDetail`, and `MockBetComment` definitions from this file. They move to `__fixtures__/work-bet-fixtures.ts` (§B), with `body` renamed to `pitch`. The runtime page MUST NOT import from `__fixtures__/` (enforced by ESLint — see §E).
-2. **Add** a new `useBet(betId)` hook (§G) that calls `GET /api/bets/:id` and returns `{ data, loading, error }`. Wire it as the runtime data source — replace `const bet = (betId && MOCK_BETS[betId]) || FALLBACK_BET;` with the hook.
+1. **Delete** the inline `MOCK_BETS`, `FALLBACK_BET`, `MockBetDetail`, and `MockBetComment` definitions from this file. They move to `__fixtures__/work-bet-fixtures.ts` (§B), with `body` renamed to `pitch`. The runtime page MUST NOT import from `__fixtures__/` (enforced by ESLint — see §F).
+2. **Add** a new `useBet(betId)` hook (§H) that calls `GET /api/bets/:id` and returns `{ data, loading, error }`. Wire it as the runtime data source — replace `const bet = (betId && MOCK_BETS[betId]) || FALLBACK_BET;` with the hook. The `MOCK_BETS` runtime fallback is removed; if the fetch errors or yields nothing, the page renders `<ErrorState …/>` (see step 8).
 3. **Add** `overrideBet?: BetDetail` prop on `WorkBetProps`. When set, the page short-circuits the hook and uses the prop directly. This is the ONLY supported path for stories/tests to inject fixture bets without the page importing from `__fixtures__/`. The existing `overrideBetId` prop is **removed** — it was a fixture-registry lookup that no longer makes sense once `MOCK_BETS` leaves the page module.
 4. Delete the `@lore J5` comment block (lines 9-19) — it's now stale; the rationale (`react-markdown not a dep`) no longer applies.
 5. Replace lines 256-268 with:
@@ -63,7 +63,7 @@ The fixture-side type is the same shape, defined in the fixtures file (§B). `Be
 
 ### B. New file: `packages/web/src/pages/__fixtures__/work-bet-fixtures.ts` — stories/tests only
 
-Move `MOCK_BETS`, `FALLBACK_BET`, `BetDetail`, and `BetComment` here, exported. Field renamed `body → pitch`. **The fixtures file is the single source of truth for the `BetDetail` type** — `WorkBet.tsx` imports the type (a type-only import is permitted by the ESLint rule, see §E) but NOT the values.
+Move `MOCK_BETS` and `FALLBACK_BET` (values) here, exported. Field renamed `body → pitch`. **The `BetDetail` and `BetComment` *types* do NOT live here** — they live in `packages/web/src/types/bet.ts` (see §H "Type location") so the runtime page and the hook can import them without crossing the `__fixtures__/` boundary. The fixtures file `import type { BetDetail }`s from `../../types/bet`. Type flows page-side → fixtures; values flow fixtures → stories/tests. No cycle.
 
 **Permitted importers:**
 - `packages/web/src/pages/WorkBet.stories.tsx`
@@ -74,7 +74,7 @@ Move `MOCK_BETS`, `FALLBACK_BET`, `BetDetail`, and `BetComment` here, exported. 
 
 `@lore` on `__fixtures__/work-bet-fixtures.ts`: **"L16 AC-3: any production module that imports values from this directory is a bug. The ESLint override at `eslint.config.js` (the `__fixtures__` block) enforces this. Type-only imports are allowed (TS-erased; no runtime coupling)."**
 
-Stories invoke the page via `<WorkBet overrideBet={MOCK_BETS.b1} />`. The page module never reads from `__fixtures__/` — see §A step 3 and §G.
+Stories invoke the page via `<WorkBet overrideBet={MOCK_BETS.b1} />`. The page module never reads from `__fixtures__/` — see §A step 3 and §H.
 
 ### C. New helper: `BetPitch` (co-located in `WorkBet.tsx`, NOT a design-system component)
 
@@ -118,19 +118,23 @@ Imports added at top of `WorkBet.tsx`:
 
 ### E. New Vitest: `packages/web/src/__tests__/WorkBet.pitch.test.tsx`
 
-Mounts `WorkBet` with `overrideBet` and asserts:
+Mounts `WorkBet` with `overrideBet` (or — for the pure-derive case — calls `deriveBlocks` directly, no React render) and asserts:
 
-1a. **Render fidelity — markdown markers not visible.** Render a fixture bet whose pitch contains heading+paragraph+list+quote+code+table+divider. Assert each kind renders as a `[data-ds-kind="<k>"]` Block element. Assert that no literal `#` (line-leading), `**`, or ```` ``` ```` markers appear in `textContent` outside `[data-ds-kind="code"]` or `[data-ds-kind="unknown"]` regions. *(Covers AC-1 at the consumer surface and AC-5's intent at the unit layer.)*
+1. **`renders pitch with no '#' symbols visible`** — render fidelity. Render a fixture bet whose pitch contains heading+paragraph+list+quote+code+table+divider. Assert the heading text appears inside a real `<h1>`/`<h2>` (not as raw text), and that no literal `#` (line-leading), `**`, or ```` ``` ```` markers appear in `textContent` outside `[data-ds-kind="code"]` or `[data-ds-kind="unknown"]` regions. Assert each expected kind renders as a `[data-ds-kind="<k>"]` Block element. *(Covers AC-1 at the consumer surface and AC-5's intent at the unit layer. DOM-only — does not exercise the structural lossless contract; that's case 2.)*
 
-1b. **Round-trip lossless — structural equivalence.** Pure call to `deriveBlocks(pitch, { kind: "bet", id: "b1" })` (no React render). Assert that for the seven supported, non-`unknown` kinds present in the fixture pitch, every produced `Block` carries (a) the expected `kind`, (b) a non-empty `payload` matching the fixture's expected payload shape (compared via a deep-equal helper, ignoring `id` / `source.bodyDigest` / `source.range` which are derivation-determined), and (c) the count and ordering of blocks matches the input markdown's top-level node count and order. *(This is the structural contract behind AC-4's "round-trip is lossless for supported block types" — it does NOT touch the DOM.)* If `id-stability.test.ts` or `round-trip.test.ts` in `packages/shared/src/__tests__/blocks/` already prove this for the same fixture, cite that test in a header comment and SHRINK case 1b to just the "all expected kinds appear" assertion (avoid duplication of L2's golden suite). Builder confirms by reading `packages/shared/src/__tests__/blocks/round-trip.test.ts` at the start of the red phase.
+2. **`preserves all kinds round-trip via deriveBlocks`** — structural round-trip lossless, no DOM. Pure call to `deriveBlocks(pitch, { kind: "bet", id: "b1" })`. Feed a pitch that contains every supported non-`unknown` `BlockKind` (heading, paragraph, list, blockquote, code, table, divider, html). Assert `deriveBlocks(pitch).blocks.map(b => b.payload.kind)` covers every input kind without loss — i.e. for every kind in the input set, at least one output block carries that kind, and the order of distinct kinds in the output matches the order of the input markdown's top-level nodes. *(This is the AC-4 contract: "round-trip is lossless for supported block types." It does NOT touch the DOM.)* If `id-stability.test.ts` or `round-trip.test.ts` in `packages/shared/src/__tests__/blocks/` already prove this for the same fixture, cite that test in a header comment and SHRINK case 2 to just the "all expected kinds appear" assertion (avoid duplication of L2's golden suite). Builder confirms by reading `packages/shared/src/__tests__/blocks/round-trip.test.ts` at the start of the red phase.
 
-2. **Block ids stable across re-parse.** Render the page twice with the same pitch; collect all `data-block-id` attributes; assert identical ordered arrays. *(Covers AC-2 at the consumer surface.)*
+3. **Block ids stable across re-parse.** Render the page twice with the same pitch; collect all `data-block-id` attributes; assert identical ordered arrays. *(Covers AC-2 at the consumer surface.)*
 
-3. **Editing one block leaves OTHER block ids unchanged.** Render with a 4-block pitch; rerender with the same pitch except block #2's text appended ` foo`; assert blocks #1, #3, #4 retain their ids. Block #2's id changes. *(Covers AC-4's "editing one block leaves others unchanged" at the consumer level.)*
+4. **Editing one block leaves OTHER block ids unchanged.** Render with a 4-block pitch; rerender with the same pitch except block #2's text appended ` foo`; assert blocks #1, #3, #4 retain their ids. Block #2's id changes. *(Covers AC-4's "editing one block leaves others unchanged" at the consumer level.)*
 
-4. **Empty pitch renders nothing.** With `pitch: ""`, no `[data-testid="bet-pitch"]` element exists.
+5. **Empty pitch renders nothing.** With `pitch: ""`, no `[data-testid="bet-pitch"]` element exists.
 
-5. **Whitespace-only pitch renders nothing.** With `pitch: "   \n\n  "`, ditto.
+6. **Whitespace-only pitch renders nothing.** With `pitch: "   \n\n  "`, ditto.
+
+7. **Malformed pitch renders `unknown` payload without crashing.** Render with a pitch whose body triggers the `unknown` fallback (e.g. an mdast node-type the L2 derivation does not recognise, such as YAML frontmatter, or content sized just over `MAX_BODY_BYTES` to exercise the `body-too-large` reason). Assert the `<section data-testid="bet-pitch">` mounts, contains at least one `[data-ds-kind="unknown"]` element, and the test does not throw. *(Optional polish per reviewer suggestion; defends `UnknownPayload` against regression and is the unit-layer mate of the `MalformedPitch` story.)*
+
+8. **API hook is the runtime data source (positive AC-3 path).** Mount `WorkBet` WITHOUT `overrideBet`, mocking `useBet` (Vitest module mock on `../hooks/useBet`) to return `{ data: shapedBet, loading: false, error: null }`. Assert the rendered pitch matches `shapedBet.pitch`'s derived blocks (e.g. the first block's text content matches the first heading of `shapedBet.pitch`). *(Proves runtime data flows from the API hook, not from a smuggled fixture import. Pairs with §F's ESLint rule — which proves the negative — to fully cover AC-3.)*
 
 ### F. ESLint rule — enforce `__fixtures__/` is stories/tests-only
 
@@ -294,18 +298,19 @@ The Playwright spec needs a real bet row in the seed DB. `packages/db/src/seed.t
 
 | AC | Verification |
 |---|---|
-| AC-1: pitch renders as styled blocks; `<pre>` replaced | `WorkBet.pitch.test.tsx` case 1a (asserts `[data-ds-kind=*]` blocks present); `L16-bet-pitch.spec.ts` step 6 (asserts `<pre data-testid="bet-pitch-body">` is absent). |
-| AC-2: block ids stable per L2 | `WorkBet.pitch.test.tsx` case 2. |
-| AC-3: hardcoded pitch fixtures only in stories/tests | ESLint `no-restricted-imports` rule (§F). Enforced at every `bun run lint` invocation; CI (`bun run verify`) is the gate. |
-| AC-4: round-trip lossless on supported kinds | `WorkBet.pitch.test.tsx` case 1b — structural assertion on `deriveBlocks` output. If `packages/shared/src/__tests__/blocks/round-trip.test.ts` already proves this for the same fixture pitch, case 1b cites it and shrinks to a "kinds present" check. |
-| AC-4: ids stable across re-parse | `WorkBet.pitch.test.tsx` case 2 (consumer-level) + L2's `id-stability.test.ts` (unit-level). |
-| AC-4: editing one block leaves others unchanged | `WorkBet.pitch.test.tsx` case 3. |
-| AC-5: open a bet → pitch renders with no `#` symbols | `L16-bet-pitch.spec.ts` steps 3, 4, 5; `WorkBet.pitch.test.tsx` case 1a covers the same intent at the unit layer. |
+| AC-1: pitch renders as styled blocks; `<pre>` replaced | `WorkBet.pitch.test.tsx` case 1 (asserts `[data-ds-kind=*]` blocks present, no markdown markers visible); `L16-bet-pitch.spec.ts` step 6 (asserts `<pre data-testid="bet-pitch-body">` is absent). |
+| AC-2: block ids stable per L2 | `WorkBet.pitch.test.tsx` case 3. |
+| AC-3: hardcoded pitch fixtures only in stories/tests | ESLint `no-restricted-imports` rule (§F) — enforced at every `bun run lint` invocation; CI (`bun run verify`) is the gate (negative invariant). `WorkBet.pitch.test.tsx` case 8 — proves `useBet` is the runtime data source (positive invariant). |
+| AC-4: round-trip lossless on supported kinds | `WorkBet.pitch.test.tsx` case 2 — structural assertion that `deriveBlocks(pitch).blocks` covers every supported kind in the input pitch. If `packages/shared/src/__tests__/blocks/round-trip.test.ts` already proves this for the same fixture pitch, case 2 cites it and shrinks to a "kinds present" check. |
+| AC-4: ids stable across re-parse | `WorkBet.pitch.test.tsx` case 3 (consumer-level) + L2's `id-stability.test.ts` (unit-level). |
+| AC-4: editing one block leaves others unchanged | `WorkBet.pitch.test.tsx` case 4. |
+| AC-5: open a bet → pitch renders with no `#` symbols | `L16-bet-pitch.spec.ts` steps 3, 4, 5; `WorkBet.pitch.test.tsx` case 1 covers the same intent at the unit layer. |
+| Optional polish: malformed pitch falls back to `UnknownPayload` without crashing | `WorkBet.pitch.test.tsx` case 7; `MalformedPitch` story (visual proof). |
 | AC-6: check + lint + test green; e2e suite green | `bun run verify` + full `bun run e2e`. |
 
 ## Ordered task breakdown for builder
 
-1. **Read L2's existing test surface.** Open `packages/shared/src/__tests__/blocks/round-trip.test.ts` and `id-stability.test.ts`. Decide whether case 1b in §E shrinks to a "kinds present" assertion (if L2 already covers structural lossless on the same kinds) or adds a full structural deep-equal (if L2's fixtures don't overlap). Record the decision in the PR description.
+1. **Read L2's existing test surface.** Open `packages/shared/src/__tests__/blocks/round-trip.test.ts` and `id-stability.test.ts`. Decide whether case 2 in §E shrinks to a "kinds present" assertion (if L2 already covers structural lossless on the same kinds) or adds a full structural deep-equal (if L2's fixtures don't overlap). Record the decision in the PR description.
 2. **Red phase — Vitest + Playwright.** Write `WorkBet.pitch.test.tsx`, `useBet.test.ts`, and `L16-bet-pitch.spec.ts` before any source change. Confirm all three fail (Vitest cases fail because page still uses `<pre>`; e2e fails because seed bet's pitch is sparse OR because the legacy `<pre>` is still present).
 3. **Add ESLint rule.** Edit `eslint.config.js` per §F. Run `bun run lint:eslint` — should still pass (no `__fixtures__/` exists yet, so no edge to flag).
 4. **Add `BetDetail` type module.** Create `packages/web/src/types/bet.ts` carrying `BetDetail` and `BetComment` types (renamed `body → pitch`).
