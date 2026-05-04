@@ -74,7 +74,7 @@ Then execute these steps. **Each step spawns an agent with a skill. Update `curr
 | 14b | qa | `/apply-review` (steps 10-13) | Apply test-related review findings if any |
 | 15 | qa | `/check-definition-of-done <id>` | Independent auditor catches gaps the implementer rationalized away |
 -- repeat 5 to 15 until done --
-| 15b | developer | `/verify` | Run `bun run check && bun run lint && bun run test` — all three must pass. Lint includes Biome + ESLint (React Compiler, hooks, Drizzle safety). **Also run all Playwright e2e specs locally before push, not just unit tests** — UI-shape changes that pass unit tests can break the e2e selectors of unrelated specs. Recurrence: L7 retro; L10 retro. |
+| 15b | developer | `/verify` | Run `bun run verify` — type check + lint + tests in one pass (TOON summary output). **Also run all Playwright e2e specs locally before push, not just unit tests** — UI-shape changes that pass unit tests can break the e2e selectors of unrelated specs. Recurrence: L7 retro; L10 retro. |
 | 16 | developer | `/ship <id>` | Clean git history with atomic commits lets future agents trace decisions. CI must be green before merge. |
 | 17 | — | `/retro <id>` | Recording what went well/badly feeds the compound agent to improve the process over time |
 
