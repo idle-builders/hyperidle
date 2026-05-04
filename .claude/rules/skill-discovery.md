@@ -14,6 +14,8 @@ User request arrives
     ├── Is it about scoring an architecture plan? → /architecture-critique <workpackage>
     ├── Is it about building a feature? ─────→ /implement <workpackage>
     ├── Is it about running multiple workpackages? → /pipeline <target>
+    ├── Is it about writing tests (TDD red)? → /write-tests <workpackage>
+    ├── Is it about writing code (TDD green)? → /write-code <workpackage>
     ├── Is it about reviewing code? ─────────→ /review <changes>
     ├── Is it about verifying code works? ───→ /verify
     ├── Is it about shipping/committing? ────→ /ship <workpackage>
@@ -28,6 +30,10 @@ User request arrives
     ├── Is it about updating dependencies? ──→ /upgrade [scope]
     └── None of the above? ──────────────────→ Proceed normally
 ```
+
+## Verification Gate — Non-Negotiable
+
+Every skill that produces or modifies code MUST end with `bun run verify`. This is built into /write-tests, /write-code, /apply-review, /simplify, /ship, /upgrade, and /pipeline (step 15b). If you invoke any of these skills manually or compose them ad-hoc, verify is still required — never skip it because "the tests already passed during development."
 
 ## Red Flags — Rationalizations for Skipping Skills
 
