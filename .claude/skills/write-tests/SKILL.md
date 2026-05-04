@@ -18,12 +18,15 @@ For each acceptance criterion, write a test that proves it. Use:
 - API: success, error, and edge case tests
 - Data: queries, mutations, validation, constraint violations
 
+**Full-stack coverage check:** Before writing tests, identify EVERY layer the story touches (shared types, server routes/services, design-system components, web components, E2E). If the story implies an API endpoint, write server tests — do not stub the API at the frontend and skip server coverage. If the story introduces a shared primitive, test it in `packages/shared`. A frontend-only test suite for a full-stack feature is incomplete.
+
 Run all tests. Confirm they **fail** (red phase). Do NOT write implementation code.
 
 **Don't rationalize skipping this:**
 - "Too simple to need tests" → simple stories have the highest regression rate
 - "I'll add tests after" → tests after code confirm the implementation, not the requirement
 - "The plan already describes what to build" → the plan describes intent, tests encode it as executable proof
+- "I'll just test the frontend" → if the story touches server/shared/design-system, those layers need tests too
 
 ## Target
 
