@@ -15,19 +15,39 @@
       display: flex;
       flex-direction: column;
       gap: var(--density-card-gap);
-      cursor: pointer;
       transition: background var(--motion-fast);
       max-width: 320px;
-    }
-    .task-card:hover {
-      background: var(--surface-5);
-    }
-    .task-card:focus-visible {
-      outline: 1px solid var(--primary);
-      outline-offset: -1px;
+      position: relative;
     }
     .task-card--blocked {
       border: 1px solid var(--danger);
+    }
+
+    .task-card__head {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: var(--density-gap);
+    }
+
+    .task-card__title-row {
+      display: flex;
+      align-items: center;
+      gap: var(--density-gap);
+      min-width: 0;
+    }
+
+    .task-card__thread-dot {
+      display: inline-block;
+      width: 6px;
+      height: 6px;
+      border-radius: var(--r-pill);
+      flex: 0 0 auto;
+      background: var(--text-lo);
+    }
+    .task-card__thread-dot--unread {
+      background: var(--primary);
+      box-shadow: 0 0 0 2px color-mix(in oklab, var(--primary) 30%, transparent);
     }
 
     .task-card__title {
@@ -38,6 +58,89 @@
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
+    }
+    .task-card__title--interactive {
+      cursor: pointer;
+      transition: color var(--motion-fast);
+    }
+    .task-card__title--interactive:hover { color: var(--primary); }
+
+    .task-card__kebab {
+      width: 28px;
+      height: 28px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      background: transparent;
+      border: 0;
+      border-radius: var(--r1);
+      color: var(--text-mid);
+      cursor: pointer;
+      padding: 0;
+      flex: 0 0 auto;
+    }
+    .task-card__kebab:hover, .task-card__kebab[aria-expanded="true"] {
+      background: var(--surface-5);
+      color: var(--text-hi);
+    }
+    .task-card__kebab svg { width: 16px; height: 16px; }
+
+    .task-card__menu {
+      position: absolute;
+      top: 36px;
+      right: 8px;
+      min-width: 240px;
+      background: var(--surface-3);
+      border: 1px solid var(--border-default);
+      border-radius: var(--r2);
+      box-shadow: var(--float);
+      padding: 4px;
+      z-index: 5;
+      list-style: none;
+      margin: 0;
+    }
+    .task-card__menu-section {
+      padding: 6px 8px 2px 8px;
+      font-family: var(--mono);
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: var(--tracking-caps);
+      color: var(--text-lo);
+      font-weight: 500;
+    }
+    .task-card__menu-divider {
+      height: 1px;
+      background: var(--border-subtle);
+      margin: 4px 0;
+      border: 0;
+    }
+    .task-card__menu-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      padding: 8px 10px;
+      border: 0;
+      background: transparent;
+      color: var(--text-hi);
+      font-size: 14px;
+      width: 100%;
+      text-align: left;
+      cursor: pointer;
+      border-radius: var(--r1);
+      font-family: inherit;
+    }
+    .task-card__menu-item:hover { background: var(--surface-4); }
+    .task-card__menu-item--primary { background: color-mix(in oklab, var(--primary) 14%, transparent); color: var(--primary); }
+    .task-card__menu-item--danger { color: var(--danger); }
+    .task-card__menu-item[aria-disabled="true"] { color: var(--text-lo); cursor: not-allowed; }
+    .task-card__menu-item .target {
+      color: var(--text-lo);
+      margin-left: auto;
+      font-family: var(--mono);
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: var(--tracking-caps);
     }
 
     .task-card__meta {
@@ -113,7 +216,7 @@
     .key-value__label {
       font-family: var(--mono);
       font-size: 11px;
-      letter-spacing: 0.05em;
+      letter-spacing: var(--tracking-caps);
       text-transform: uppercase;
       font-weight: 500;
       color: var(--text-lo);
@@ -172,15 +275,33 @@
       );
     }
 
-    function TaskCard({ title, owner, state, cost, betTag }) {
+    function KebabIcon() {
+      return (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <circle cx="12" cy="5" r="1.5" />
+          <circle cx="12" cy="12" r="1.5" />
+          <circle cx="12" cy="19" r="1.5" />
+        </svg>
+      );
+    }
+
+    /**
+     * L15: TaskCard renders a kebab + thread-dot + dropdown menu.
+     * - thread-dot: undefined → none; 0 → grey; >0 → primary + halo.
+     * - title row is interactive only when unread > 0.
+     * - menu has Open thread row, Request state change section, Kill danger row,
+     *   with horizontal dividers between sections per approved.md §4.1.
+     */
+    function TaskCard({ title, owner, state, cost, betTag, threadUnreadCount, menuOpen }) {
       const presentationStatus = TASK_STATE_MAP[state] || "paused";
       const isBlocked = state === "blocked";
+      const hasThread = threadUnreadCount !== undefined;
+      const unread = threadUnreadCount ?? 0;
+      const interactiveTitle = unread > 0;
 
       return (
         <div
           className={`task-card${isBlocked ? " task-card--blocked" : ""}`}
-          role="button"
-          tabIndex={0}
           data-component="TaskCard"
           data-tier="2"
           data-uses="StatusChip,Tag,KeyValue"
@@ -190,7 +311,78 @@
           data-ds-tier="2"
           data-ds-source="design-system"
         >
-          <span className="task-card__title" aria-label={`Task: ${title}`}>{title}</span>
+          <div className="task-card__head">
+            <div className="task-card__title-row">
+              {hasThread && (
+                <span
+                  className={`task-card__thread-dot${unread > 0 ? " task-card__thread-dot--unread" : ""}`}
+                  aria-hidden="true"
+                />
+              )}
+              {interactiveTitle ? (
+                <span role="button" tabIndex={0} className={`task-card__title task-card__title--interactive`}>{title}</span>
+              ) : (
+                <span className="task-card__title">{title}</span>
+              )}
+            </div>
+            <button
+              type="button"
+              className="task-card__kebab"
+              aria-label={`Task actions for ${title}`}
+              aria-haspopup="menu"
+              aria-expanded={menuOpen ? "true" : "false"}
+            >
+              <KebabIcon />
+            </button>
+            {menuOpen && (
+              <ul className="task-card__menu" role="menu">
+                <li>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    className={`task-card__menu-item${unread > 0 ? " task-card__menu-item--primary" : ""}`}
+                    aria-label="Open thread"
+                  >
+                    <span>Open thread</span>
+                    {unread > 0 && <span className="target">{unread} UNREAD</span>}
+                  </button>
+                </li>
+                <li><hr className="task-card__menu-divider" aria-hidden="true" /></li>
+                <li className="task-card__menu-section">Request state change</li>
+                <li>
+                  <button type="button" role="menuitem" className="task-card__menu-item">
+                    <span>Pause</span><span className="target">HOLD</span>
+                  </button>
+                </li>
+                <li>
+                  <button type="button" role="menuitem" className="task-card__menu-item">
+                    <span>Mark blocked</span><span className="target">BLOCKED</span>
+                  </button>
+                </li>
+                <li>
+                  <button type="button" role="menuitem" className="task-card__menu-item" aria-disabled="true">
+                    <span>Resume</span><span className="target">Already moving</span>
+                  </button>
+                </li>
+                <li>
+                  <button type="button" role="menuitem" className="task-card__menu-item">
+                    <span>Push to review</span><span className="target">REVIEW</span>
+                  </button>
+                </li>
+                <li>
+                  <button type="button" role="menuitem" className="task-card__menu-item">
+                    <span>Mark done</span><span className="target">DONE</span>
+                  </button>
+                </li>
+                <li><hr className="task-card__menu-divider" aria-hidden="true" /></li>
+                <li>
+                  <button type="button" role="menuitem" className="task-card__menu-item task-card__menu-item--danger">
+                    <span>Kill task</span><span className="target">KILLED</span>
+                  </button>
+                </li>
+              </ul>
+            )}
+          </div>
           <div className="task-card__meta">
             {betTag && <Tag label={betTag} />}
             <StatusChip status={presentationStatus} />
@@ -233,6 +425,41 @@
               state="done"
               cost="$2.00"
               betTag="Sprint 1"
+            />
+          </div>
+
+          <div className="demo-section">
+            <div className="demo-section-title">With Unread Dot</div>
+            <TaskCard
+              title="Login endpoint review"
+              owner="Bob Smith"
+              state="in_progress"
+              cost="$3.50"
+              threadUnreadCount={3}
+            />
+          </div>
+
+          <div className="demo-section">
+            <div className="demo-section-title">With Read Dot</div>
+            <TaskCard
+              title="Login endpoint review"
+              owner="Bob Smith"
+              state="in_progress"
+              cost="$3.50"
+              threadUnreadCount={0}
+            />
+          </div>
+
+          <div className="demo-section">
+            <div className="demo-section-title">Kebab Open</div>
+            <TaskCard
+              title="Design signup form"
+              owner="Dev Agent 2"
+              state="accepted"
+              cost="$1.80"
+              betTag="Auth"
+              threadUnreadCount={2}
+              menuOpen={true}
             />
           </div>
 

@@ -1,10 +1,23 @@
+import { useEffect, useRef } from "react";
 import { TaskCard } from "./TaskCard";
 
 export default {
 	title: "TaskCard",
 	tier: "2" as const,
 	uses: ["StatusChip", "Tag", "KeyValue"],
-	order: ["InProgress", "Blocked", "Done", "AllStates"],
+	order: [
+		"InProgress",
+		"Blocked",
+		"Done",
+		"WithUnreadDot",
+		"WithReadDot",
+		"NoThread",
+		"KebabOpen",
+		"RequestInFlight",
+		"BlockedState",
+		"DoneState",
+		"AllStates",
+	],
 };
 
 export const InProgress = (): React.JSX.Element => (
@@ -33,6 +46,124 @@ export const Done = (): React.JSX.Element => (
 			state="done"
 			cost="$2.00"
 			betTag="Sprint 1"
+		/>
+	</div>
+);
+
+export const WithUnreadDot = (): React.JSX.Element => (
+	<div className="max-w-[320px]">
+		<TaskCard
+			title="Login endpoint review"
+			owner="Bob Smith"
+			state="in_progress"
+			threadUnreadCount={3}
+			onOpenThread={() => {}}
+			onRequestStateChange={() => {}}
+		/>
+	</div>
+);
+
+export const WithReadDot = (): React.JSX.Element => (
+	<div className="max-w-[320px]">
+		<TaskCard
+			title="Login endpoint review"
+			owner="Bob Smith"
+			state="in_progress"
+			threadUnreadCount={0}
+			onOpenThread={() => {}}
+			onRequestStateChange={() => {}}
+		/>
+	</div>
+);
+
+export const NoThread = (): React.JSX.Element => (
+	<div className="max-w-[320px]">
+		<TaskCard
+			title="Fresh task"
+			owner="Bob Smith"
+			state="accepted"
+			onOpenThread={() => {}}
+			onRequestStateChange={() => {}}
+		/>
+	</div>
+);
+
+/**
+ * KebabOpen — programmatically opens the kebab menu so the dropdown shape
+ * (Open thread / Request state change section / Kill danger row, with
+ * dividers between sections per approved.md §4.1) is captured in the
+ * catalog.
+ */
+export const KebabOpen = (): React.JSX.Element => {
+	const ref = useRef<HTMLDivElement | null>(null);
+	useEffect(() => {
+		const button = ref.current?.querySelector<HTMLButtonElement>("button[aria-haspopup='menu']");
+		button?.click();
+	}, []);
+	return (
+		<div className="max-w-[320px]" ref={ref}>
+			<TaskCard
+				title="Design signup form"
+				owner="Dev Agent 2"
+				state="accepted"
+				cost="$1.80"
+				betTag="Auth"
+				threadUnreadCount={2}
+				onOpenThread={() => {}}
+				onRequestStateChange={() => {}}
+			/>
+		</div>
+	);
+};
+
+/**
+ * RequestInFlight — Pause is the pending verb; the menu stays open with a
+ * `loading-xs` spinner inline; the kebab is disabled. Approved.md §5 row
+ * "Request in flight".
+ */
+export const RequestInFlight = (): React.JSX.Element => {
+	const ref = useRef<HTMLDivElement | null>(null);
+	useEffect(() => {
+		const button = ref.current?.querySelector<HTMLButtonElement>("button[aria-haspopup='menu']");
+		button?.click();
+	}, []);
+	return (
+		<div className="max-w-[320px]" ref={ref}>
+			<TaskCard
+				title="Implement login flow"
+				owner="Bob Smith"
+				state="in_progress"
+				cost="$3.50"
+				betTag="Auth"
+				threadUnreadCount={0}
+				onOpenThread={() => {}}
+				onRequestStateChange={() => {}}
+				pendingVerb="pause"
+			/>
+		</div>
+	);
+};
+
+export const BlockedState = (): React.JSX.Element => (
+	<div className="max-w-[320px]">
+		<TaskCard
+			title="Blocked task with kebab"
+			owner="Alice"
+			state="blocked"
+			onOpenThread={() => {}}
+			onRequestStateChange={() => {}}
+		/>
+	</div>
+);
+
+export const DoneState = (): React.JSX.Element => (
+	<div className="max-w-[320px]">
+		<TaskCard
+			title="Completed task"
+			owner="Carol"
+			state="done"
+			onOpenThread={() => {}}
+			onRequestStateChange={() => {}}
 		/>
 	</div>
 );

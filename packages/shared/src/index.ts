@@ -107,6 +107,13 @@ export {
 	scrubInlineTokens,
 	TK_TOKEN_RE,
 } from "./redact.js";
+// L15 — Task request verbs (approved.md §4.1 + §4.2).
+export type { RequestableVerbRow, TaskRequestVerb } from "./task-request.js";
+export {
+	getRequestableVerbRows,
+	requestMessageText,
+	TASK_REQUEST_VERBS,
+} from "./task-request.js";
 export type {
 	AgentSessionStateSnapshot,
 	ArtifactRef,
