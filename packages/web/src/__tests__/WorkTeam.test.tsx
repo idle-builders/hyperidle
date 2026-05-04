@@ -1,3 +1,6 @@
+import { readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
@@ -59,33 +62,38 @@ describe("WorkTeam", () => {
 	});
 
 	it("composes Canvas (top) and Kanban (bottom) in DOM order", () => {
-		// I4 P2: WorkTeam must show Canvas above the Kanban board.
 		renderPage();
 		const canvas = screen.getByTestId("work-team-canvas");
 		const kanban = screen.getByTestId("work-team-kanban");
 		expect(canvas).toBeInTheDocument();
 		expect(kanban).toBeInTheDocument();
 		const order = canvas.compareDocumentPosition(kanban);
-		// Node.DOCUMENT_POSITION_FOLLOWING === 4 → kanban follows canvas
 		expect(order & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
 	});
 
-	it("exports a COLUMN_TO_STATE map that translates Kanban columns to TaskState values", async () => {
-		// I4 K1/K2: dragging a task to the Planned column must produce
-		// TaskState `accepted`, not the literal column key `planned` (which
-		// is NOT a valid TaskState). The map is co-located with its inverse
-		// `STATE_TO_COLUMN` in Kanban.tsx (the two are inverse relationships
-		// and must not drift) and re-exported for consumers.
-		const mod = (await import("../shell/Kanban")) as {
-			// biome-ignore lint/style/useNamingConvention: exported constant uses SCREAMING_SNAKE_CASE
-			COLUMN_TO_STATE?: Record<string, string>;
-		};
-		expect(mod.COLUMN_TO_STATE).toBeDefined();
-		expect(mod.COLUMN_TO_STATE).toMatchObject({
-			planned: "accepted",
-			in_progress: "in_progress",
-			blocked: "blocked",
-			done: "done",
-		});
+	// L15: WorkTeam.tsx no longer imports COLUMN_TO_STATE / handleMoveTask is gone.
+	it("L15: source no longer imports COLUMN_TO_STATE", () => {
+		const Filename = fileURLToPath(import.meta.url);
+		const Dirname = dirname(Filename);
+		const src = readFileSync(join(Dirname, "..", "pages", "WorkTeam.tsx"), "utf8");
+		expect(src).not.toMatch(/COLUMN_TO_STATE/);
+	});
+
+	it("L15: source no longer defines handleMoveTask (drag-driven move handler)", () => {
+		const Filename = fileURLToPath(import.meta.url);
+		const Dirname = dirname(Filename);
+		const src = readFileSync(join(Dirname, "..", "pages", "WorkTeam.tsx"), "utf8");
+		expect(src).not.toMatch(/handleMoveTask/);
+	});
+
+	it("L15: renders a TaskActionsMenu trigger for each task", () => {
+		renderPage();
+		// Initial fixture has 5 tasks (t1..t5). Each card mounts a kebab
+		// trigger labelled "Actions for <title>".
+		expect(screen.getByLabelText("Actions for Implement login endpoint")).toBeInTheDocument();
+		expect(screen.getByLabelText("Actions for Design signup form")).toBeInTheDocument();
+		expect(screen.getByLabelText("Actions for JWT refresh logic")).toBeInTheDocument();
+		expect(screen.getByLabelText("Actions for Write auth tests")).toBeInTheDocument();
+		expect(screen.getByLabelText("Actions for Rate limit middleware")).toBeInTheDocument();
 	});
 });
