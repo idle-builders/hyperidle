@@ -154,10 +154,16 @@ test.describe("L15 — Strip drag + Task request sheet", () => {
 		await page.waitForSelector("[data-testid='work-team-page']");
 
 		// Positive structural assertions — each must be zero, independent of
-		// any drag attempt. These prove the markup is gone, not merely inert.
-		await expect(page.locator("[data-droppable-column]")).toHaveCount(0);
-		await expect(page.locator('[data-testid^="draggable-task-"]')).toHaveCount(0);
-		await expect(page.locator('[aria-roledescription="draggable"]')).toHaveCount(0);
+		// any drag attempt. These prove the markup is gone from the Kanban area,
+		// not merely inert. Assertions are scoped to [data-testid='work-team-kanban']
+		// because Canvas (above the Kanban) retains @dnd-kit for bet-card drag and
+		// its draggable elements carry aria-roledescription="draggable" too.
+		// @lore L15: Canvas drag is intentionally preserved; only Kanban task-card
+		// drag was removed. Scoping prevents false failures from Canvas affordances.
+		const kanban = page.getByTestId("work-team-kanban");
+		await expect(kanban.locator("[data-droppable-column]")).toHaveCount(0);
+		await expect(kanban.locator('[data-testid^="draggable-task-"]')).toHaveCount(0);
+		await expect(kanban.locator('[aria-roledescription="draggable"]')).toHaveCount(0);
 	});
 
 	test("(step 2 defense-in-depth) dragTo attempt does not move the task to a different column", async ({
@@ -251,7 +257,12 @@ test.describe("L15 — Strip drag + Task request sheet", () => {
 		await page.getByRole("button", { name: /send request/i }).click();
 
 		// Inline role="status" appears with "Sent."
-		await expect(page.getByRole("status")).toHaveText("Sent.");
+		// Scoped to dialog to avoid strict-mode collision: #DndLiveRegion-0 (Canvas
+		// @dnd-kit live region) also carries role="status" on the same page.
+		// @lore L15: Canvas retains @dnd-kit which injects a DndLiveRegion with
+		// role="status". Without dialog scoping, getByRole('status') resolves to
+		// 2+ elements and Playwright throws in strict mode.
+		await expect(page.getByRole("dialog").getByRole("status")).toHaveText("Sent.");
 
 		// Sheet auto-closes after ~800ms
 		await expect(page.getByRole("dialog")).toHaveCount(0, { timeout: 3000 });
