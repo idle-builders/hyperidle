@@ -278,6 +278,6 @@ Stories at `/designsystem` route are required deliverables (per `.claude/rules/d
 ## 11. Cross-link
 
 - Concept doc: `docs/concept/HUMAN_INTERFACE_LAYER.md` §4.5
-- Shared contract: `docs/work-packages/SHARED.md` "Artifact primitive (L3)"
+- Shared contract: `docs/work-packages/the canonical-shapes contracts under docs/` "Artifact primitive (L3)"
 - Track story: `docs/work-packages/TRACK-L.md` L3
 - Sibling stories that consume this primitive: L11 (rich review messages → uses `ArtifactEmbed`), L12 (Work surfaces → uses `ArtifactGalleryCard`, `ArtifactStackItem`, `ArtifactPreview`).

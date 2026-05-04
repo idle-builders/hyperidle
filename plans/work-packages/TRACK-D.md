@@ -1,6 +1,6 @@
 # Track D: Agent Runtime
 
-See `docs/work-packages/SHARED.md` for tech stack, shared contracts, and dependency graph.
+See `CLAUDE.md` for tech stack and `plans/work-packages/dependency-graph.md` for the dependency graph.
 
 ---
 

@@ -16,7 +16,7 @@ This track implements the founder-accepted improvements from the post-journey-v3
 
 **Reference docs:** `plans/reviews/journeys-conversations.md` (v3), `plans/reviews/journeys-work.md` (v3), `plans/reviews/journeys-knowledge.md` (v3), `plans/reviews/improvements-*.md` (the three Phase 2 alignment outputs), `plans/reviews/track-L-simplification-challenge.md` (v3 simplification — the intent behind every story below), `plans/reviews/reference-{notion,linear,slack}.md` (with the founder priority filter at the top of each), `docs/HUMAN_INTERFACE_LAYER.md`, `docs/KNOWLEDGE_ARCHITECTURE.md`, `docs/PROCESS_LAYER.md`, `docs/AGENT_LAYER.md`.
 
-See `docs/work-packages/SHARED.md` for tech stack and the cross-track dependency graph.
+See `CLAUDE.md` for tech stack and `plans/work-packages/dependency-graph.md` for the cross-track dependency graph.
 
 ---
 
@@ -33,7 +33,7 @@ See `docs/work-packages/SHARED.md` for tech stack and the cross-track dependency
 - DM, coach-thread, and feed are documented as thread *configurations* (visibility, membership, pinning) — NOT as message shapes. The spec rejects the "thread shape vocabulary" framing.
 - The cross-area attachment contract is captured: a thread attaches to any host entity (bet, task, knowledge item, artifact, agent, user). Conversations is a *view* over all threads, never their owner. Un-attached coach threads attach to the current user.
 - The message-type vocabulary is defined for the journeys this track ships — at minimum plain text, review, and questionnaire. The chatbox messages, review messages, and questionnaire messages are *message shapes*, not thread shapes; DM / coach / feed are *configurations*. Adding a new rich message type later requires a concept-doc update first.
-- The same contracts are added to `docs/work-packages/SHARED.md` "Shared Contracts" section so implementation stories can reference them without re-inventing.
+- The same contracts are added to the matching `docs/<topic>/canonical-shapes.md` (or sibling contract file) so implementation stories can reference them without re-inventing.
 - **Shared implementation.** The Thread primitive — thread container, plain-text messages, rich message types — is implemented in shared types, the database, and the design system at DS quality. The implementation matches the concept contract exactly.
 - Threads attach to any host entity per the contract (bet, task, knowledge item, artifact, agent, user).
 - Existing review/chat-only data continues to load (back-compat preserved). Message types beyond plain text are now representable.
@@ -49,7 +49,7 @@ See `docs/work-packages/SHARED.md` for tech stack and the cross-track dependency
 **Validation scenarios.**
 - Given an architect reads the new section, when they later open L18, they can answer "what does a thread carry, what messages can live in it, and what does it attach to?" without re-reading the journey docs.
 - Given the spec, when scanned, every shipping message type has at least one worked example of an initiator and an expected response.
-- Given the contract is in SHARED.md, every implementation story (L8, L9, L11, L15, L18, L21, L26) references it by section anchor.
+- Given the contract is in `docs/`, every implementation story (L8, L9, L11, L15, L18, L21, L26) references it by section anchor.
 - Given a developer creates a questionnaire thread, when the response is read back, the message payload is preserved and the questionnaire renders inline with its constrained answers.
 - Given a thread attached to a bet, when Bet detail mounts (after L18 lands), the thread shows up in the bet's thread surface.
 - Given a fresh database with the migration applied, then existing review-shaped data continues to load with no manual fixup.
@@ -82,7 +82,7 @@ See `docs/work-packages/SHARED.md` for tech stack and the cross-track dependency
 - **Concept-doc updates.** A new "Block primitive" section in `docs/HUMAN_INTERFACE_LAYER.md` and a long-form `docs/BLOCKS.md` together define the block model: what counts as a block, how blocks are derived from a markdown file during file-watcher ingestion, how block ids stay stable across edits, and how per-block affordances (drag, comment-anchor, link-target) attach.
 - The on-disk format remains GitHub-flavoured markdown. Blocks are a *derived* view, never a stored dialect. The architect documents this as a hard rule.
 - Cross-area attachment: per-block discussion uses the L1 thread primitive; the block-anchor is the block primitive's own affordance (so consumers like L26 do not need a separate linking dependency).
-- The contract is added to `docs/work-packages/SHARED.md` "Shared Contracts" so implementation stories can reference it without re-inventing.
+- The contract is added to the matching `docs/<topic>/canonical-shapes.md` (or sibling contract file) so implementation stories can reference it without re-inventing.
 - **Shared implementation.** The Block primitive — derivation pipeline, stable block ids, the renderer, the base-block model, the per-block anchor affordance — is implemented in shared code and the design system at DS quality. The implementation matches the concept contract exactly.
 - L16 (bet pitch) and L23 (knowledge body) consume this primitive without re-implementing it.
 - Round-trip from on-disk markdown → derived blocks → rendered view is lossless for the supported block types; block ids are stable across re-parse with identical content.
@@ -123,7 +123,7 @@ See `docs/work-packages/SHARED.md` for tech stack and the cross-track dependency
 - **Artifacts root on tasks.** Every artifact is produced by a task; no other level produces them. Higher-level surfaces (Bet detail, Product page, Portfolio gallery) aggregate artifacts from their tasks rather than owning them. The architect captures this as a hard rule.
 - The Artifact view family — at minimum gallery card, stack item, single full preview, and the embedded "output" inside a review message — is defined as the shared visual contract. Each layout serves a different consumer surface.
 - Threads attach to artifacts (per L1). Discussion of an artifact lives on the artifact itself; what gets *surfaced* at higher levels (e.g. a count on the bet view, or the full thread on the artifact's detail) is a designer call about volume, not a rule against the data model.
-- The contract is added to `docs/work-packages/SHARED.md` "Shared Contracts" so L11 and L12 reference it directly.
+- The contract is added to `docs/process-layer/artifact-primitive.md` so L11 and L12 reference it directly.
 - **Shared implementation.** The Artifact primitive — the canonical artifact shape (id, producing-task, kind, preview, cost from the producing session, created-at), the four base layouts as design-system components, and the fetching contract (filter by task, bet, product, or portfolio) — is implemented in shared code, the database, and the design system at DS quality.
 - The system can fetch artifacts filtered by task, bet, product, or portfolio in a canonical shape that includes the cost from the producing session.
 - For function-agnostic outputs, the artifact card shows what's needed to recognise it; clicking opens the artifact's preview.
@@ -161,7 +161,7 @@ See `docs/work-packages/SHARED.md` for tech stack and the cross-track dependency
 - The "Appetite / Budget / Cost" section of `docs/PROCESS_LAYER.md` is rewritten so that bet appetite, task caps, and session costs are expressed in money plus tokens. There is no duration budget axis. Wall-clock duration is recorded informationally only.
 - The spec defines a money type that is currency-aware and precision-safe and a token-usage type that distinguishes prompt vs completion tokens and carries a coarse model-tier signal. The exact tier names, default currency, and any numerical defaults are decided by the architect during planning — the spec records the choice and the rationale.
 - A "Rationale" subsection captures the founder framing: "Does duration really matter in an AI world?" Agents work in bursts; complexity is the signal.
-- The money / token-usage shapes are also added to `docs/work-packages/SHARED.md` "Shared Contracts" so L17 picks them up directly.
+- The money / token-usage shapes are also added to the matching `docs/<topic>/canonical-shapes.md` (or sibling contract file) so L17 picks them up directly.
 - `docs/AGENT_LAYER.md` is updated where session cost is mentioned.
 - `bun run check` + `bun run lint` + `bun run test` all green.
 

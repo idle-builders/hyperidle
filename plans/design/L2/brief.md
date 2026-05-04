@@ -78,7 +78,7 @@ fixes the visual contract.
 - Tier 3: `ArtifactView`'s metadata strip pattern (for the `KnowledgeDetail`
   context block — Block does not own this strip; the surrounding page does).
 - DaisyUI: nothing block-specific. Tokens come from `packages/design-system/src/tokens.css`.
-- Behavior: `@floating-ui/react` (per SHARED.md UI Stack) — relevant to variants
+- Behavior: `@floating-ui/react` (per the canonical-shapes contracts under docs/ UI Stack) — relevant to variants
   that float a popover / lightbox.
 - Iconography: inline SVG via `tag-kinds.tsx` precedent — no `lucide-react`.
 

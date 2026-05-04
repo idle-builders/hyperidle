@@ -134,7 +134,7 @@ The current 17 steps mix three concerns: *adversarial separation* (must be diffe
 
 ### Cold-start savings
 
-17 spawns × ~20K loading → 12 spawns × ~5K (with prompt caching of CLAUDE.md, ARCHITECTURE.md, SHARED.md) = ~340K → ~60K. **~280K saved per story** from grouping + caching together.
+17 spawns × ~20K loading → 12 spawns × ~5K (with prompt caching of CLAUDE.md, ARCHITECTURE.md, the canonical-shapes contracts under docs/) = ~340K → ~60K. **~280K saved per story** from grouping + caching together.
 
 ### What the loop-back looks like
 
@@ -231,7 +231,7 @@ routeCheck:
 Compares `bun run test:coverage` before and after the change. Today nobody reads this; a script can flag drops or untested new lines.
 
 #### G. Concept-existence check — `bin/concept-check`
-The pipeline fails fast if `/concept` is missing for a story that introduces a primitive. Today an agent inspects. Script: parse story metadata, parse `docs/concept/*.md`, parse `SHARED.md`, return `ok` / `missing: [noun1, noun2]`. One call before the pipeline starts.
+The pipeline fails fast if `/concept` is missing for a story that introduces a primitive. Today an agent inspects. Script: parse story metadata, parse `docs/concept/*.md`, parse the canonical-shapes contracts under `docs/<topic>/`, return `ok` / `missing: [noun1, noun2]`. One call before the pipeline starts.
 
 #### H. Brief writer — `bin/brief-update`
 The post-step hook from question 1. Reads the latest step artifact, extracts headlines, updates `.pipeline/briefs/<id>.toon`. Pure data wrangling.

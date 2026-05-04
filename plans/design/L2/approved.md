@@ -126,7 +126,7 @@ internal to `Block` and do NOT count.
   block-deleted strip ("DELETED" status `error`).
 - `Tag` — reserved for surface-side use (e.g. metadata strip above the
   body); not used inside `Block` in L2.
-- `@floating-ui/react` `Popover` (existing dep per SHARED.md UI Stack)
+- `@floating-ui/react` `Popover` (existing dep per the canonical-shapes contracts under docs/ UI Stack)
   — drives `BlockActionsPopover` positioning.
 - `Skeleton` — host surfaces use `Skeleton` for body-loading state;
   the renderer is not mounted until the body resolves.

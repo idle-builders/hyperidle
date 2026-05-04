@@ -421,7 +421,7 @@ These are concept-shaped, not visual:
 4. **`max-height: min(70vh, content)` token.** Designer suggestion
    to add `--card-max-h: 70vh` to `tokens.css`. Architect picks
    whether to introduce the token or hardcode.
-5. **The L7 `clientKey` generation strategy.** SHARED.md says
+5. **The L7 `clientKey` generation strategy.** the canonical-shapes contracts under docs/ says
    `(threadId, sender, clientKey)` is the unique constraint;
    architect picks the client-side generator (UUID v4, ULID,
    timestamp+nonce).
@@ -521,7 +521,7 @@ Above the ≥ 7 gate. Design contract locks here.
 - Concept: `docs/concept/HUMAN_INTERFACE_LAYER.md` § 4.5 (Thread).
 - L1 design: `docs/design-explorations/L1/approved.md`.
 - L3 spec: `docs/work-packages/TRACK-L.md` § L3.
-- SHARED contract: `docs/work-packages/SHARED.md` § "Thread primitive (L1)".
+- SHARED contract: `docs/work-packages/the canonical-shapes contracts under docs/` § "Thread primitive (L1)".
 - Existing code being deleted: `packages/web/src/shell/ReviewHeader.tsx`.
 - L7 dispatch path: PR #40 (response-as-event endpoint).
 - Variants:

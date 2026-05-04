@@ -10,7 +10,7 @@
 
 `.claude/skills/review/SKILL.md` lines 12–17:
 ```
-- Always: docs/ARCHITECTURE.md, docs/work-packages/SHARED.md
+- Always: docs/ARCHITECTURE.md, docs/work-packages/the canonical-shapes contracts under docs/
 - If backend changes: docs/PROCESS_LAYER.md, docs/AGENT_LAYER.md, docs/KNOWLEDGE_ARCHITECTURE.md
 - If frontend changes: docs/UI_DESIGN.md, docs/HUMAN_INTERFACE_LAYER.md, docs/INFORMATION_ARCHITECTURE.md
 ```
@@ -45,7 +45,7 @@ No PreToolUse hooks. No file-read deduplication. **Per the OpenWolf benchmark, 7
 ### 6. Cross-skill citation density
 
 Static count of doc citations across `.claude/skills/*/SKILL.md`:
-- `docs/work-packages/SHARED.md` cited 10×
+- `docs/work-packages/the canonical-shapes contracts under docs/` cited 10×
 - `docs/ARCHITECTURE.md` cited 6×
 - `docs/UI_DESIGN.md` cited 5×
 - `docs/HUMAN_INTERFACE_LAYER.md` cited 5× (the 1,110-line file)

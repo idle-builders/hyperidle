@@ -96,7 +96,7 @@ describe("send_message tool", () => {
 			const data = result.data as { threadId: string };
 
 			// L1a: legacy `kind='direct'` projects as host_kind='agent' with the
-			// recipient as host_id (plan §5.3 SHARED.md projection).
+			// recipient as host_id (plan §5.3 thread-primitive projection).
 			const thread = db.select().from(threads).where(eq(threads.id, data.threadId)).get();
 			expect(thread?.hostKind).toBe("agent");
 			expect(thread?.hostId).toBe("agent-b");
@@ -133,7 +133,7 @@ describe("send_message tool", () => {
 			if (!result.success) return;
 			const data = result.data as { messageId: string };
 			// L1a: legacy subject + body collapse into payload.text per the
-			// SHARED.md projection rules (plan §5.3). Subject prefixes the body.
+			// thread-primitive projection rules (plan §5.3). Subject prefixes the body.
 			const inserted = db.select().from(messages).where(eq(messages.id, data.messageId)).get();
 			const payload = JSON.parse(inserted?.payload ?? "{}") as { text?: string };
 			expect(payload.text).toBe("Urgent\n\nHi");

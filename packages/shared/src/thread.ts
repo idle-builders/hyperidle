@@ -38,7 +38,7 @@ export const VERDICT_DECISIONS = [
 ] as const;
 export type VerdictDecision = (typeof VERDICT_DECISIONS)[number];
 
-// The 5 ArtifactView renderer shapes (per SHARED.md "Shared Contracts").
+// The 5 ArtifactView renderer shapes (per docs/process-layer/artifact-primitive.md).
 // Distinct from the L3 Artifact primitive's `kind` (function-agnostic type
 // label). These describe HOW a review-message embed renders its preview;
 // they are a sub-vocabulary inside the L3 review_message_embed layout, not

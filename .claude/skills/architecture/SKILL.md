@@ -11,7 +11,7 @@ min_tool_calls: 25
 Produces the **how** — file paths, type signatures, schemas, endpoint shapes, task ordering.
 
 **Fixed inputs (do NOT re-litigate):**
-- Concept doc from `/concept` — includes which docs were read and the relevant contracts from `plans/work-packages/SHARED.md`.
+- Concept doc from `/concept` — includes which docs were read and the relevant canonical-shapes contracts in `docs/<topic>/`.
 - Approved design from `/design` (UI stories) — `plans/design/<story-id>/approved.md`.
 
 **Doc discovery:** Read the "Required reading" from `/concept` output if available. Otherwise `ls docs/` to identify relevant topic folders. **Output a "Required reading" section in the plan** listing the specific doc files the engineer must read before implementing. This is the natural filter — downstream skills read only what the plan prescribes.
@@ -29,7 +29,7 @@ Sample interrogation lines (adapt to the story):
 - "What's the failure mode if Y is wrong? My read: A. Confirm?"
 - "What's actually being asked vs adjacent and tempting to also build? My read: in-scope = X, out = Y."
 - "Is any domain term in this spec used inconsistently? My read: term Z is used for two distinct concepts."
-- "Does the spec contradict an existing doc? My read: SHARED.md says X, this story says Y."
+- "Does the spec contradict an existing doc? My read: docs/<topic>/canonical-shapes.md says X, this story says Y."
 - "What changes if the user's mental model about W is wrong?"
 
 Stop interrogating when the path is clear, not when you run out of questions. Three to seven branches is typical. If the story already pins a decision, don't re-litigate it — confirm and move on.

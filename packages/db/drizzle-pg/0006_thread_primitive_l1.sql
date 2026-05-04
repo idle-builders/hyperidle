@@ -28,7 +28,7 @@ ALTER TABLE "threads" ADD COLUMN "resolved_at" text;--> statement-breakpoint
 ALTER TABLE "threads" ADD COLUMN "last_active_at" text;--> statement-breakpoint
 
 -- Step 4: backfill threads.host_kind/host_id/initiator_id/last_active_at
--- per the SHARED.md projection rules. kind='coach' → host_kind='user'+pinned;
+-- per the thread-primitive projection rules. kind='coach' → host_kind='user'+pinned;
 -- kind='direct' → host_kind='agent'; kind='post-bet-retro' → host_kind='bet';
 -- review/chat → host_kind='task'; everything else → 'task' as fallback.
 --

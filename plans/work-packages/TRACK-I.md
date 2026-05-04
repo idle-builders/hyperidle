@@ -2,7 +2,7 @@
 
 Post-implementation hardening track. Fixes bugs, security issues, data integrity gaps, UX conformance, and test coverage identified during the comprehensive 12-agent review.
 
-See `docs/work-packages/SHARED.md` for tech stack, shared contracts, and dependency graph.
+See `CLAUDE.md` for tech stack and `plans/work-packages/dependency-graph.md` for the dependency graph.
 
 ---
 

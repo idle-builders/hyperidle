@@ -33,4 +33,7 @@ This doc is the operating mechanics. It's what turns a committed bet into shippe
 - [What This Layer Is Not](./what-this-layer-is-not.md)
 - [Decisions (formerly Open Questions)](./decisions-formerly-open-questions.md)
 - [Inspirations](./inspirations.md)
+- [Canonical shapes](./canonical-shapes.md)
+- [Task lifecycle](./task-lifecycle.md)
+- [Artifact primitive](./artifact-primitive.md)
 

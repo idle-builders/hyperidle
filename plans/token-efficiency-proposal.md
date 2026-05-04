@@ -12,7 +12,7 @@ The pipeline runs ~17 sequential skill steps per story. Each step spawns a sub-a
 1. **CLI output compression** (RTK-style proxy on git/test/lint/build) — biggest single win, ~80% on those commands.
 2. **Token-friendly reporters by default** (Vitest `dot`/`minimal`, Biome `--reporter=summary`, ESLint `--quiet`).
 3. **Structured data in TOON, not JSON** for everything the pipeline reads/writes (progress files, plan→tests handoff, retro feeds). The `toon-codec.ts` in `packages/shared/src/` is the foundation — adopt it everywhere.
-4. **Prompt caching** by reorganizing skill files to put stable prefixes first (CLAUDE.md, ARCHITECTURE.md, SHARED.md) and dynamic args last.
+4. **Prompt caching** by reorganizing skill files to put stable prefixes first (CLAUDE.md, ARCHITECTURE.md, the canonical-shapes contracts under docs/) and dynamic args last.
 5. **Skill prose diet** (Caveman-style) — skills are ~150–600 lines each and read on every step. A 30% trim across 30 skills is meaningful.
 
 Keep all automation rules (autonomy, no human, validation-first). The pipeline orchestration logic in `bin/pipeline` and `.claude/skills/pipeline/SKILL.md` stays — only the *bandwidth between steps* shrinks.
@@ -25,7 +25,7 @@ A rough audit of the 17-step pipeline for a single story:
 
 | Source | Per-step cost | Steps using it | Total |
 |---|---|---|---|
-| Re-reading `CLAUDE.md` + `docs/ARCHITECTURE.md` + `SHARED.md` + track file | ~8K tokens | 17 | ~136K |
+| Re-reading `CLAUDE.md` + `docs/ARCHITECTURE.md` + the canonical-shapes contracts under `docs/<topic>/` + track file | ~8K tokens | 17 | ~136K |
 | `git diff` / `git status` outputs | ~2–10K | 6 (review skills) | ~30K |
 | `bun run test` raw verbose output | ~5–20K | every `/verify` retry | ~60K+ |
 | `bun run lint` (Biome + ESLint full) | ~1–5K | every `/verify` retry | ~20K |
@@ -144,7 +144,7 @@ Run in order. ...
 $ARGUMENTS  ← dynamic arg only at the end
 ```
 
-**Plus:** the pipeline skill itself loads `CLAUDE.md`, `docs/ARCHITECTURE.md`, `docs/work-packages/SHARED.md` — these should be referenced in the same order across every skill so the cache prefix overlaps.
+**Plus:** the pipeline skill itself loads `CLAUDE.md`, `docs/ARCHITECTURE.md`, `docs/work-packages/the canonical-shapes contracts under docs/` — these should be referenced in the same order across every skill so the cache prefix overlaps.
 
 **Estimated saving:** 90% on cache hits for stable prefixes. Skill prefixes are ≥1024 tokens (Anthropic's minimum for caching), so this works. Per story: ~136K of stable doc reads → ~14K (10% of cached input).
 

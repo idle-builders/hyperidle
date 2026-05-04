@@ -218,12 +218,12 @@ These come from `synthesis.md` §"Three open questions for the architect" — li
 
 ## 10. What this design does NOT specify (architect decides)
 
-- Exact field names on the `messages` and `threads` rows (the schema in `ARCHITECTURE.md` §2.1 and SHARED.md is illustrative; architect picks final shapes).
+- Exact field names on the `messages` and `threads` rows (the schema in `ARCHITECTURE.md` §2.1 and the canonical-shapes contracts under docs/ is illustrative; architect picks final shapes).
 - Endpoint paths for fetching threads, listing messages, posting messages, commiting verdicts.
 - The TypeScript discriminant exhaustiveness implementation for message-type dispatch.
 - The IntersectionObserver / scroll-position implementation for sticky behaviors.
 - Any specific React state library or query strategy.
-- The migration sequencing for legacy `responses` table → verdict-payload messages (the SHARED.md migration policy is the rule; the architect picks step ordering).
+- The migration sequencing for legacy `responses` table → verdict-payload messages (the the canonical-shapes contracts under docs/ migration policy is the rule; the architect picks step ordering).
 
 ---
 

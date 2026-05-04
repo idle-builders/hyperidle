@@ -87,7 +87,7 @@ Variant C is the only one that does NOT have a *code-level* enforcement of hard 
 
 ## Component-budget audit
 
-SHARED.md says no strict count, but recommends "create new components only when necessary" and "prefer composition inside existing components when possible". Score:
+the canonical-shapes contracts under docs/ says no strict count, but recommends "create new components only when necessary" and "prefer composition inside existing components when possible". Score:
 
 - **A:** +1 component. Strongest budget hygiene.
 - **B:** +4 public components (+4 sealed sub-primitives). Largest budget cost, but per-layout clarity.

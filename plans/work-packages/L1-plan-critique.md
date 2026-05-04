@@ -69,7 +69,7 @@ The plan's "current bug" claims line up with the codebase. No phantom file paths
 
 - **[§9 migration test]** The migration test fixture exercises one review with a response, one chat without. Recommend adding: (a) a thread with TWO sequential reviews (verify only the most recent's `resolvedAt` is set if both have responses); (b) an `items` row with NO matching `messages` row in the same thread (orphan items — the audit query says count must equal 0 but the migration's fallback path should be exercised).
 
-- **[§6.3 streamId == threadId]** Per-stream-ordering keyed by threadId is fine for thread events, but `thread_created` carries `streamId = threadId` of a *brand-new* thread with no prior events. Consumers tracking per-stream highwater marks initialize the stream from this event — ensure the SHARED.md per-stream-ordering contract supports this initialization step.
+- **[§6.3 streamId == threadId]** Per-stream-ordering keyed by threadId is fine for thread events, but `thread_created` carries `streamId = threadId` of a *brand-new* thread with no prior events. Consumers tracking per-stream highwater marks initialize the stream from this event — ensure the the canonical-shapes contracts under docs/ per-stream-ordering contract supports this initialization step.
 
 ## What's Working Well
 

@@ -42,7 +42,7 @@ A work package is the **smallest deliverable end-to-end change** that has its ow
 
 1. **Track letter is valid.** Must match an existing `plans/work-packages/TRACK-<letter>.md` or be a deliberate new track (in which case create the TRACK file first with the same scope-rules section other tracks use).
 2. **Story ID is unique.** Read `plans/work-packages/pipeline-manifest.yaml`; the generated ID (e.g. `L30`) must not collide with any existing entry.
-3. **Concept gate.** If this story introduces or reshapes a primitive / load-bearing noun (Thread / Block / Artifact / Bet / Cost / etc.), the relevant section in `docs/<topic>/` AND the `SHARED.md` "Shared Contracts" entry must already exist. If not, refuse to register and tell the founder to run `/concept <noun>` first. This mirrors the runtime gate enforced in `/pipeline`.
+3. **Concept gate.** If this story introduces or reshapes a primitive / load-bearing noun (Thread / Block / Artifact / Bet / Cost / etc.), the relevant section in `docs/<topic>/` AND any canonical-shapes contract (e.g. `docs/<topic>/canonical-shapes.md`) must already exist. If not, refuse to register and tell the founder to run `/concept <noun>` first. This mirrors the runtime gate enforced in `/pipeline`.
 4. **Dependencies are real blockers.** For each declared dependency, write one sentence justifying *why* this story cannot start until that one is `done`. "Logically related" is not a blocker — it just serializes the scheduler. If you cannot articulate the blocker, drop the dep.
 5. **Sizing fits the rule.**
 
@@ -71,7 +71,7 @@ Append the spec at the bottom of the relevant `TRACK-<letter>.md`, with **exactl
 ```markdown
 ### <ID> — <Title>
 
-**Story.** One paragraph (4-6 sentences max) framed as: *As a <role>, I want <observable outcome>, so that <reason>.* Concrete, no jargon, no acronyms unless already in `SHARED.md`. The first reader must be able to picture the user-visible or system-visible result without reading further.
+**Story.** One paragraph (4-6 sentences max) framed as: *As a <role>, I want <observable outcome>, so that <reason>.* Concrete, no jargon, no acronyms unless already established in `docs/`. The first reader must be able to picture the user-visible or system-visible result without reading further.
 
 **Depends on.** A bulleted list of story IDs, or "None." For each declared dep, one sentence on *why this story cannot start until that one is `done`*.
 
@@ -104,7 +104,7 @@ If a founder pastes implementation detail into the spec, strip it out before reg
 
 ## Registration steps (perform in order, in one commit)
 
-1. **Append the spec to the track file.** Add the new H3 section at the bottom of `plans/work-packages/TRACK-<letter>.md` per the template above. If the track doesn't exist yet, create the file with the standard preamble (scope rules, reference docs, dependency-graph pointer to `SHARED.md`) before appending.
+1. **Append the spec to the track file.** Add the new H3 section at the bottom of `plans/work-packages/TRACK-<letter>.md` per the template above. If the track doesn't exist yet, create the file with the standard preamble (scope rules, reference docs, dependency-graph pointer to `plans/work-packages/dependency-graph.md`) before appending.
 2. **Append to the manifest.** Add an entry to `plans/work-packages/pipeline-manifest.yaml` under the existing `stories:` list:
     ```yaml
       - id: <ID>

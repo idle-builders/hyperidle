@@ -8,7 +8,8 @@
  *    `resolved_at`, `legacy_item_id` to messages; drops `recipient_id`,
  *    `subject`, `body`, `file_leases`.
  *  - drops `responses` table.
- *  - backfills legacy threads/messages per SHARED.md projection rules.
+ *  - backfills legacy threads/messages per the thread-primitive projection rules
+ *    (docs/human-interface-layer/thread-primitive.md).
  *  - backfills legacy `responses` rows into `verdict`-payload `messages`
  *    rows with `legacy_item_id` set so the join is deterministic.
  *  - adds the indexes from §5.5: threads_host_idx,

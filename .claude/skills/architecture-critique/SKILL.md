@@ -24,7 +24,7 @@ This is **not** `/architecture-review`. The review skill audits the *implemented
 2. `plans/concept/<story-id>.md` — the locked concept output.
 3. The plan itself — every section, including its **Required reading** list.
 4. The specific authoritative files named in the plan's **Required reading** (these are `docs/<topic>/<file>.md` paths the plan picked, not whole folders).
-5. `plans/work-packages/SHARED.md#shared-contracts`.
+5. Canonical-shapes contracts under `docs/<topic>/` (e.g. `docs/blocks/canonical-shapes.md`, `docs/process-layer/artifact-primitive.md`, `docs/human-interface-layer/thread-primitive.md`).
 6. UI stories: `plans/design/<story-id>/approved.md`.
 
 ## The Critique Loop
@@ -77,7 +77,7 @@ This is **not** `/architecture-review`. The review skill audits the *implemented
 - Do names honestly describe what things do?
 - Does a function or column name eliminate a paragraph of doc?
 - Do new names conflict with existing closed vocabularies (Bet / Task / Session / Thread / Block / Artifact)?
-- Are domain terms used consistently with the specific authoritative files named in the plan's Required reading and with `SHARED.md`?
+- Are domain terms used consistently with the specific authoritative files named in the plan's Required reading and with the canonical-shapes contracts under `docs/<topic>/`?
 - **Smell:** generic names (`Manager`, `Service`, `Handler`, `Helper`, `Util`). Function name lies about side effects. New name shadowing or aliasing an existing primitive.
 
 ### 6. Module Depth (Interface Simplicity Hides Complexity)
