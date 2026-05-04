@@ -18,7 +18,7 @@ Spawn an **adversary** agent with `/simplification-scan <target>`. It produces f
 
 ## Phase 2: Fix (developer)
 
-Spawn a **developer** agent with `/apply-review` passing the adversary's findings. It verifies and applies meaningful & correct simplifications, keeping all changes behavior-preserving. Run `bun run check && bun run lint && bun run test` after. Revert anything that breaks.
+Spawn a **developer** agent with `/apply-review` passing the adversary's findings. It verifies and applies meaningful & correct simplifications, keeping all changes behavior-preserving. Run `bun run verify` after. Revert anything that breaks.
 
 ## Target
 

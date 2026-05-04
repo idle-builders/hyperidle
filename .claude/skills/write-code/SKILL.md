@@ -12,7 +12,7 @@ min_tool_calls: 18
 
 Read the plan for `<target>` (check tasks or the workpackage in the relevant track file under `plans/work-packages/`). Read the existing failing tests.
 
-Implement each task in dependency order. Write the minimum code to make tests pass. For UI components, create a `.stories.tsx` file rendering key states. After each logical unit, run the relevant tests. Continue until all tests are green.
+Implement each task in dependency order. Write the minimum code to make tests pass. For UI components, create a `.stories.tsx` file rendering key states. After each logical unit, run the relevant tests. Once all tests are green, run `bun run verify` to confirm the full gate passes (types, lint, tests).
 
 Never weaken a test to make it pass. If a test reveals a design flaw, fix the implementation.
 

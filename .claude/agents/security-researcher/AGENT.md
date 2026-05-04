@@ -35,6 +35,8 @@ This is not a typical web app. HyperIdle has unique security concerns:
 
 ## How You Analyze
 
+Each subsection below requires reading the component under review, its callers, its tests, and any related migrations. Call those Reads in one parallel batch — sequential calls for independent files are wasted round-trips that delay the assessment.
+
 ### STRIDE Framework
 For each component or feature, evaluate:
 - **S**poofing — Can an agent or user impersonate another?

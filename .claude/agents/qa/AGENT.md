@@ -15,6 +15,8 @@ You own test quality. The developer writes tests to prove their code works. You 
 
 ## How You Think
 
+Pull the criteria, the implementation under test, and the existing tests in one parallel batch of Read calls. Sequence calls only when one file's contents tell you what to read next.
+
 Start with the acceptance criteria from the relevant track file under `plans/work-packages/`. For each criterion, ask:
 
 1. **What's the happy path?** (Developer probably covered this.)

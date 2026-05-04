@@ -59,7 +59,7 @@ Then execute these steps. **Each step spawns an agent with a skill. Update `curr
 | 0 | - | `/concept` | **what is this thing?**. Make sure the concept of what we are working on is well defined. |
 | 1 | designer | `/design <id>` | Multi-variant UX/UI exploration. Three parallel sub-agents under different constraints, embodied HTML mockups + screenshots, `/design-critique` per variant, synthesis → `plans/<id>/design/approved.md`. **Skip when the workpackage has no UI surface.** Operates *inside* the concept already locked upstream; does not redefine it. |
 | 2 | designer | `/design-critique` | Score the approved design against the nine-dimension rubric. Iterate until score ≥7 or 4 iterations reached. Skip when step 1 was skipped. |
-| 3 | architect | `/architecture <id>` | Produce the technical plan — types, schemas, routes, file paths, ordered tasks, security & abuse cases, route checklist, protected tests, plan reconciliation. Architect interrogates one-question-at-a-time. Consumes the concept doc + approved design as fixed inputs. **If the spec enumerates a route list, the plan output MUST include a `route-checklist:` block listing every route + every file the guard/middleware must cover.** Recurrence: L7 retro PROPOSED-L7-B. |
+| 3 | architect | `/architecture <id>` | Produce the technical plan — types, schemas, routes, file paths, ordered tasks, security & abuse cases, route checklist, protected tests, plan reconciliation. Architect interrogates only the genuinely unsettled questions and asks them in one parallel batch. Consumes the concept doc + approved design as fixed inputs. **If the spec enumerates a route list, the plan output MUST include a `route-checklist:` block listing every route + every file the guard/middleware must cover.** Recurrence: L7 retro PROPOSED-L7-B. |
 | 4 | architect | `/architecture-critique` | Score the plan against the nine-dimension architectural rubric (spec alignment, layer integrity, contracts, data model, naming, depth, failure-mode coverage, simplicity, verifiability). Catches CC-003 happy-path ACs, CC-007 spec drift, CC-008 missing protected-tests, L7 missing route-checklist BEFORE write-tests encodes the wrong intent. Iterate until score ≥7 or 3 iterations reached. |
 | 5 | developer | `/write-tests <id>` | Tests first define the requirement, not the implementation — catches when the wrong thing gets built |
 | 6 | developer | `/write-code <id>` | With tests as targets, implementation stays lean and every line exists because a test demands it |
@@ -74,7 +74,7 @@ Then execute these steps. **Each step spawns an agent with a skill. Update `curr
 | 14b | qa | `/apply-review` (steps 10-13) | Apply test-related review findings if any |
 | 15 | qa | `/check-definition-of-done <id>` | Independent auditor catches gaps the implementer rationalized away |
 -- repeat 5 to 15 until done --
-| 15b | developer | `/verify` | Run `bun run check && bun run lint && bun run test` — all three must pass. Lint includes Biome + ESLint (React Compiler, hooks, Drizzle safety). **Also run all Playwright e2e specs locally before push, not just unit tests** — UI-shape changes that pass unit tests can break the e2e selectors of unrelated specs. Recurrence: L7 retro; L10 retro. |
+| 15b | developer | `/verify` | Run `bun run verify` — type check + lint + tests in one pass (TOON summary output). **Also run all Playwright e2e specs locally before push, not just unit tests** — UI-shape changes that pass unit tests can break the e2e selectors of unrelated specs. Recurrence: L7 retro; L10 retro. |
 | 16 | developer | `/ship <id>` | Clean git history with atomic commits lets future agents trace decisions. CI must be green before merge. |
 | 17 | — | `/retro <id>` | Recording what went well/badly feeds the compound agent to improve the process over time |
 
@@ -82,6 +82,8 @@ If step 15 (DoD) fails: back to step 5. Max 3 attempts, then `blocked`.
 If step 15b (verify) fails: fix issues and re-run. Max 3 attempts.
 If review (steps 10-13) blocks: back to step 6. Max 3 attempts.
 If `/architecture-critique` (step 4) fails to reach ≥7 after 3 rounds: pause, mark `blocked` with reason `concept-or-spec-misalignment`, and surface — the concept itself may be the problem and needs upstream `/concept` work, not pipeline retry.
+
+**Parallelize the read-only stages.** Steps 7 and 8 (`/simplification-scan` + `/slop-scan`) are both read-only adversary scans with no inter-dependency — spawn the two sub-agents in one parallel batch, then run step 9 once both return. Same for steps 10–13 (`/architecture-review` + `/adversary-review` + `/security-review` + `/design-review`): all read-only, all independent — spawn the four sub-agents in one parallel batch, then run step 14 / 14b once all return. Steps that mutate code (5, 6, 9, 14, 14b, 16) stay sequential.
 
 After step 17: set status to `done`. Move to next workpackage.
 

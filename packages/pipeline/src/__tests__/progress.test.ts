@@ -70,11 +70,37 @@ describe("saveStoryProgress / loadStoryProgress", () => {
 		expect(loadStoryProgress("Z9")).toBeNull();
 	});
 
-	it("each story is written to its own file", () => {
+	it("each story is written to its own file (TE-5: TOON format)", () => {
 		saveStoryProgress(makeStoryProgress("A1"));
 		saveStoryProgress(makeStoryProgress("A2"));
-		expect(existsSync(join(PROGRESS_DIR, "A1.json"))).toBe(true);
-		expect(existsSync(join(PROGRESS_DIR, "A2.json"))).toBe(true);
+		expect(existsSync(join(PROGRESS_DIR, "A1.toon"))).toBe(true);
+		expect(existsSync(join(PROGRESS_DIR, "A2.toon"))).toBe(true);
+	});
+
+	it("reads legacy .json file when no .toon exists (TE-5 backwards compat)", () => {
+		mkdirSync(PROGRESS_DIR, { recursive: true });
+		writeFileSync(
+			join(PROGRESS_DIR, "L9.json"),
+			JSON.stringify({ ...makeStoryProgress("L9"), status: "done", attempts: 3 }),
+		);
+		const loaded = loadStoryProgress("L9");
+		expect(loaded?.status).toBe("done");
+		expect(loaded?.attempts).toBe(3);
+	});
+
+	it("prefers .toon over legacy .json when both exist for the same id", () => {
+		mkdirSync(PROGRESS_DIR, { recursive: true });
+		// Legacy json with old data
+		writeFileSync(
+			join(PROGRESS_DIR, "L9.json"),
+			JSON.stringify({ ...makeStoryProgress("L9"), status: "pending", attempts: 0 }),
+		);
+		// Newer toon with fresh data
+		saveStoryProgress({ ...makeStoryProgress("L9"), status: "done", attempts: 5 });
+
+		const loaded = loadStoryProgress("L9");
+		expect(loaded?.status).toBe("done");
+		expect(loaded?.attempts).toBe(5);
 	});
 });
 
@@ -91,7 +117,7 @@ describe("loadAllProgress", () => {
 		expect(all.map((s) => s.id).sort()).toEqual(["A1", "A2", "B1"]);
 	});
 
-	it("ignores non-json files in the progress dir", () => {
+	it("ignores non-progress files in the progress dir", () => {
 		saveStoryProgress(makeStoryProgress("A1"));
 		writeFileSync(join(PROGRESS_DIR, "junk.txt"), "ignore me");
 		expect(loadAllProgress().map((s) => s.id)).toEqual(["A1"]);

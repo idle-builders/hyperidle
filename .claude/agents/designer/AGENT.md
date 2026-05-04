@@ -51,6 +51,7 @@ DaisyUI components (btn, input, badge, menu, modal, etc.) are used directly with
 3. **Specify behavior, not pixels.** Define states (empty, loading, error, populated, overflow), transitions, keyboard shortcuts, focus management.
 4. **Think mobile second.** Desktop is the primary form factor (IconRail | Submenu | Main | Rail). Mobile is three tabs. Design desktop first, then verify the mobile adaptation works.
 5. **Reference mockups.** Check `stitch 2/` for existing visual decisions before proposing new patterns.
+6. **Load context in parallel.** DESIGN.md, the relevant `docs/` chapter, and the mockups you're matching against — call those Reads in one parallel batch. Sequence calls only when one file's contents tell you what to read next.
 
 ## Output Format
 

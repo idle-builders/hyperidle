@@ -16,7 +16,7 @@ UX/UI counterpart to `/architecture`. Architecture decides *how* (file paths, sc
 
 ## Inputs
 
-Read (anchor-scoped where possible):
+Read all of the following in one parallel batch of Read calls — these files are independent (anchor-scoped where possible):
 
 1. The workpackage in `plans/work-packages/TRACK-<letter>.md`.
 2. The per-workpackage concept output at `plans/<workpackage-id>/concept.md` and the specific `docs/<topic>/<file>.md` files it cites in its **Required reading**. The concept tells you which existing layout/component-budget files matter — do not browse `docs/` directly.
@@ -26,13 +26,17 @@ Read (anchor-scoped where possible):
 
 ## Phase 0 — Interrogate the user task
 
-Walk the decision tree. ONE question at a time. Propose your read, let the human (or adversary in autonomous mode) confirm. Probes (adapt):
-- Who is doing this and what decision are they making?
-- What's the smallest UI surface that delivers the outcome?
-- Primary state — populated / empty / loading / error — which is most common?
-- New primitive (variants explore shape) or extension (variants explore application)?
-- What gets overflowed/truncated when dense?
-- Which existing component does this compose from?
+Pick only the questions that are actually unsettled — skip what the brief, the design system rules, or existing mockups already answer. For each remaining question, propose your read with evidence, then ask the human (or adversary in autonomous mode) to confirm. Issue all probes in one parallel batch — independent questions don't need separate round-trips.
+
+**Few, important questions.** Three sharp probes force a real decision; ten low-stakes ones get answered with shrugs. The bar: "will the answer change a variant constraint?" If no, don't ask.
+
+Sample probes (adapt):
+- "Who is doing this and what decision are they making? My read: X. Confirm?"
+- "What's the smallest UI surface that delivers the outcome? My read: just A, not B."
+- "Primary state — populated / empty / loading / error — which is most common in real use?"
+- "New primitive (variants explore shape) or extension (variants explore application)?"
+- "What gets overflowed/truncated when dense? My read: …"
+- "Which existing component or DaisyUI primitive does this compose from? My read: …"
 
 Stop when the brief is clear. 3-7 branches typical.
 

@@ -2,6 +2,7 @@
 // "Planned / Blocked / In Progress / Done". Tasks with proposed or accepted states
 // map to the "Planned" column. Tasks with hold, review, or killed states are excluded.
 import {
+	closestCenter,
 	DndContext,
 	type DragEndEvent,
 	DragOverlay,
@@ -233,7 +234,12 @@ export function Kanban({ tasks, onMoveTask, groupByBet = false }: KanbanProps): 
 	}
 
 	return (
-		<DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+		<DndContext
+			sensors={sensors}
+			collisionDetection={closestCenter}
+			onDragStart={handleDragStart}
+			onDragEnd={handleDragEnd}
+		>
 			{/* I4 R3: responsive grid — single column on phones, 2 on small,
 				4 on large viewports. */}
 			{/*

@@ -33,6 +33,9 @@ For accessibility: don't just check that aria attributes exist — check they're
 - **Consistency** — same visual role = same treatment everywhere. Compare borders, spacing, radii, typography, hover states across sibling components. Divergence between pages that serve the same purpose is a finding.
 - **Token compliance** — no hardcoded colors, spacing, radii, or font sizes. No raw Tailwind color classes. Everything traces to design tokens.
 - **States** — are ALL states handled (empty, loading, error, populated)? Check each page component.
+- **Action → feedback loop** — Every user action (click, submit, drag) MUST produce visible acknowledgment on the current screen. Trace each new interactive affordance: what changes visually after the user acts? If the answer is "nothing until you navigate away or refresh," that is a CRITICAL finding. Common misses: missing pending/loading indicator after submit, no optimistic update, no confirmation chip/toast.
+- **State-conditional affordances** — Menus, action lists, and contextual controls MUST filter their options by what is semantically valid in the current state. Showing "Request: blocked" when already blocked, or "Mark done" when already done, is a CRITICAL finding. Check that the verb/option list is driven by a state→valid-actions mapping, not a static list with the current state disabled.
+- **DS promotion** — If a new component will be consumed by 2+ pages (check the track file for upcoming stories that reuse it), it belongs in `packages/design-system/`, not page-local. A page-local component that the track file shows being reused later is a WARNING.
 - **Accessibility** — focus management, aria labels, keyboard navigation, focus traps, roving tabindex
 - **Design system** — does a `.stories.tsx` file exist? Do classes match Lucid theme tokens?
 - **Layout** — does the page layout match the spec (IconRail | Submenu | Main | Rail)? No extra columns.

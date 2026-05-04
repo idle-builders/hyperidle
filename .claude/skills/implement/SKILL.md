@@ -35,6 +35,8 @@ If those haven't run, run them first. `/implement` does not re-litigate design o
 
 If step 10 returns NOT DONE, go back to step 1 with the gap list. Max 3 attempts — after that, the workpackage is blocked and needs human attention.
 
+**Parallelize the read-only stages.** Steps 3 and 4 (`/simplification-scan` + `/slop-scan`) are both read-only adversary scans with no inter-dependency — spawn the two sub-agents in one parallel batch, then run step 5 once both return. Same for steps 6–8 (`/architecture-review` + `/adversary-review` + `/design-review`): all read-only, all independent — spawn the sub-agents in one parallel batch, then run step 9 / 9b once all return. Steps that mutate code (1, 2, 5, 9, 9b) stay sequential.
+
 ## Target
 
 $ARGUMENTS

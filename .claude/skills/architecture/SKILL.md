@@ -20,9 +20,9 @@ If the spec contradicts an existing concept doc, stop — that's a `/concept` ga
 
 ## Phase 0 — Interrogate the understanding
 
-Before producing acceptance criteria, walk the decision tree. Ask hard questions ONE AT A TIME (not as a list dump). For each, propose your recommended answer based on what you can read in the spec / track file / existing code, then let the human (or the adversary in autonomous mode) confirm, override, or dig deeper.
+Before producing acceptance criteria, walk the decision tree. Pick only the questions that are actually unsettled — the ones where the spec, track file, or existing code don't give you a confident answer. Skip what's already pinned. For each remaining question, propose your recommended answer with the evidence you have, then ask the human (or the adversary in autonomous mode) to confirm, override, or dig deeper. Issue all of these probes in one parallel batch — independent questions don't need separate round-trips.
 
-**One question at a time.** A list of ten questions invites the easy ones to be answered and the hard ones to become silent assumptions that surface as bugs later.
+**Few, important questions.** Three sharp probes force a real decision; ten low-stakes ones are noise that get answered with shrugs while the load-bearing assumption stays silent. The bar to ask is: "will the answer change the plan?" If no, don't ask.
 
 Sample interrogation lines (adapt to the workpackage):
 - "What's the smallest version of this that's still useful? My read: X. Confirm or correct?"
@@ -38,8 +38,8 @@ Stop interrogating when the path is clear, not when you run out of questions. Th
 
 Before locking the plan, reconcile the spec against the actual codebase. (Why: I2, I4, J2, J4, J7, L1 retros all caught spec/codebase drift at write-tests time — too late.)
 
-For every named symbol the spec references — table, route, component, file, constant, env var:
-1. `grep` for it in the codebase. Does it exist? With what shape?
+For every named symbol the spec references — table, route, component, file, constant, env var — verify it exists with the expected shape. The lookups are independent: collect the full symbol list first, then issue all the greps and reads in one parallel batch (one tool-call round, not one per symbol). Specifically:
+1. `grep` every symbol in the codebase. Does it exist? With what shape?
 2. For UI-touching ACs, read the current rendered DOM (or the existing component) to verify columns / labels / states.
 3. For API-touching ACs, read the existing route handler / OpenAPI / schema to verify the contract.
 

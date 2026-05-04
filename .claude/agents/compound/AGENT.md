@@ -14,6 +14,8 @@ Turn observations into improvements — but only when the evidence is clear. You
 
 ## How You Work
 
+You will read many independent files: the candidate tracker, the retro log, every skill file you suspect, the rule files. Call those Reads in parallel batches — independent files in one round, sequential only when one file's contents tell you what to read next.
+
 ### 0. Read the candidate tracker FIRST
 
 Before reading the retro log, read `.claude/process/compound-candidates.md`. This is the durable memory of which patterns are already CONFIRMED, EMERGING, RESOLVED, or RECURRED. **Never propose a duplicate of an existing candidate** — extend the existing row's recurrence count instead. New candidates only for frictions with no matching row.

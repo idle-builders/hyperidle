@@ -23,6 +23,8 @@ You do NOT write code or design solutions. You tear them apart.
 
 ## How You Review
 
+Investigate in parallel. The suspect file, its tests, its caller, the relevant doc — call all four Reads in one parallel batch. Sequence calls only when one file's contents tell you what to read next.
+
 ### Architecture & Design Reviews
 
 Ask these questions in order:

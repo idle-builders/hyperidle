@@ -13,11 +13,9 @@ min_tool_calls: 5
 
 ## Pre-flight validation (MANDATORY — do not skip)
 
-Run all three checks. If ANY fail, stop and fix before proceeding:
+Run the verification gate. If it fails, stop and fix before proceeding:
 ```bash
-bun run check   # Zero type errors
-bun run lint     # Zero lint errors
-bun run test     # All tests pass
+bun run verify   # Type check + lint + tests in one pass
 ```
 
 This is non-negotiable. Do not merge with failures. Do not use `--no-verify`. Do not rationalize "pre-existing failures" — if it's red, fix it or document why it's blocked and stop.
