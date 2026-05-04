@@ -2,12 +2,21 @@
  * Work/Team page — composes Canvas (top) + Kanban (bottom) + PitchSelector
  * (overlay). Spec: HUMAN_INTERFACE_LAYER.md §4 — Team view shows the team's
  * current bets at the top and a per-task kanban board beneath.
+ *
+ * @lore L15: drag-to-move was removed from the Kanban. Tasks are
+ * agent-team-owned. The founder REQUESTS a state change via the kebab,
+ * which posts a plain message into the task's thread (`host_kind=task`).
+ * On first request for a task without a thread, we lazy-bootstrap the
+ * thread via POST /api/threads (atomic create + initialMessage). See
+ * plans/L15/architecture.md §3.4 + §4.1.
  */
+import { requestMessageText, type TaskRequestVerb } from "@hyperidle/shared";
 import { type JSX, useCallback, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import type { CanvasBet } from "../shell/Canvas";
 import { Canvas } from "../shell/Canvas";
-import type { KanbanColumnState, KanbanTask } from "../shell/Kanban";
-import { COLUMN_TO_STATE, Kanban } from "../shell/Kanban";
+import type { KanbanTask } from "../shell/Kanban";
+import { Kanban } from "../shell/Kanban";
 import type { PitchSelectorPitch } from "../shell/PitchSelector";
 import { PitchSelector } from "../shell/PitchSelector";
 
@@ -108,20 +117,55 @@ const MOCK_PITCHES: PitchSelectorPitch[] = [
 	},
 ];
 
+type ToastTone = "info" | "error";
+
+interface ToastState {
+	id: string;
+	tone: ToastTone;
+	message: string;
+}
+
+const FOUNDER_IDENTITY = "u-founder";
+
+function isThreadCreateResponse(value: unknown): value is { thread: { id: string } } {
+	if (typeof value !== "object" || value === null) return false;
+	const thread = (value as { thread?: unknown }).thread;
+	if (typeof thread !== "object" || thread === null) return false;
+	const id = (thread as { id?: unknown }).id;
+	return typeof id === "string" && id.length > 0;
+}
+
 export function WorkTeam(): JSX.Element {
+	const navigate = useNavigate();
 	const [tasks, setTasks] = useState<KanbanTask[]>(INITIAL_TASKS);
 	const [pitchSelectorOpen, setPitchSelectorOpen] = useState(false);
 	const [selectedPitchIds, setSelectedPitchIds] = useState<string[]>([]);
+	const [toast, setToast] = useState<ToastState | null>(null);
+	// L15 (AR1/SR1/DR5): per-task in-flight guard. Maps taskId → the verb (or
+	// "open-thread") currently being awaited. While an entry exists, the
+	// kebab is disabled and the matching menu row shows a spinner. Approved
+	// §5 + architecture §3.4: this is the front-line guard against
+	// double-firing — without it two distinct UUIDs sneak past the server
+	// idempotency unique-constraint and produce two real messages per click.
+	const [pendingByTask, setPendingByTask] = useState<
+		Record<string, TaskRequestVerb | "open-thread">
+	>({});
 
-	const handleMoveTask = useCallback((taskId: string, targetColumn: KanbanColumnState): void => {
-		// I4 K1: map the Kanban column key to the canonical TaskState.
-		const targetState = COLUMN_TO_STATE[targetColumn];
-		setTasks((prev) => prev.map((t) => (t.id === taskId ? { ...t, state: targetState } : t)));
+	const showToast = useCallback((message: string, tone: ToastTone): void => {
+		const id = crypto.randomUUID();
+		setToast({ id, message, tone });
+		setTimeout(() => {
+			setToast((current) => (current && current.id === id ? null : current));
+		}, 4000);
 	}, []);
 
+	// @lore L15: handleMoveBet / handleAddToCanvas are no-op mocks — bet
+	// persistence is owned by a downstream workpackage. They exist here so
+	// the Canvas / PitchSelector handlers remain wired (component contracts
+	// require the prop) without requiring a real backend write in L15.
 	const handleMoveBet = useCallback(
 		(_betId: string, _targetStatus: "shaped" | "committed"): void => {
-			// Mock — the team-board canvas does not persist bet moves yet.
+			// no-op — see @lore above.
 		},
 		[],
 	);
@@ -133,8 +177,169 @@ export function WorkTeam(): JSX.Element {
 	}, []);
 
 	const handleAddToCanvas = useCallback((_pitchId: string): void => {
-		// Mock — real implementation promotes the pitch to a canvas bet.
+		// no-op — see @lore on handleMoveBet.
 	}, []);
+
+	const handleOpenThread = useCallback(
+		async (taskId: string): Promise<void> => {
+			const task = tasks.find((t) => t.id === taskId);
+			if (!task) return;
+			const threadId = task.threadId;
+			if (threadId) {
+				navigate(`/conversations/review?id=${encodeURIComponent(threadId)}`);
+				return;
+			}
+			// L15 DR4 (BLOCKER): No thread yet — bootstrap server-side then
+			// navigate. Approved.md §5 row "Populated, no thread": *"Open
+			// thread row present; on activation, creates the thread
+			// server-side then navigates."* POST /api/threads with no
+			// initialMessage so the founder lands on a clean thread shell.
+			if (pendingByTask[taskId]) return;
+			setPendingByTask((prev) => ({ ...prev, [taskId]: "open-thread" }));
+			let response: Response;
+			try {
+				response = await fetch("/api/threads", {
+					method: "POST",
+					headers: {
+						"Content-Type": "application/json",
+						"X-Identity": FOUNDER_IDENTITY,
+					},
+					body: JSON.stringify({
+						hostKind: "task",
+						hostId: task.id,
+						participants: [FOUNDER_IDENTITY],
+						pinned: false,
+					}),
+				});
+			} catch {
+				setPendingByTask((prev) => {
+					const { [taskId]: _, ...rest } = prev;
+					return rest;
+				});
+				showToast("Could not open thread — try again.", "error");
+				return;
+			}
+			if (!response.ok) {
+				setPendingByTask((prev) => {
+					const { [taskId]: _, ...rest } = prev;
+					return rest;
+				});
+				showToast("Could not open thread — try again.", "error");
+				return;
+			}
+			const json: unknown = await response.json();
+			if (!isThreadCreateResponse(json)) {
+				setPendingByTask((prev) => {
+					const { [taskId]: _, ...rest } = prev;
+					return rest;
+				});
+				showToast("Could not open thread — try again.", "error");
+				return;
+			}
+			const newThreadId = json.thread.id;
+			setTasks((prev) =>
+				prev.map((t) =>
+					t.id === taskId ? { ...t, threadId: newThreadId, threadUnreadCount: 0 } : t,
+				),
+			);
+			setPendingByTask((prev) => {
+				const { [taskId]: _, ...rest } = prev;
+				return rest;
+			});
+			navigate(`/conversations/review?id=${encodeURIComponent(newThreadId)}`);
+		},
+		[navigate, tasks, pendingByTask, showToast],
+	);
+
+	const handleRequestStateChange = useCallback(
+		async (taskId: string, verb: TaskRequestVerb): Promise<void> => {
+			const task = tasks.find((t) => t.id === taskId);
+			if (!task) return;
+			// L15 AR1/SR1/DR5: in-flight guard. Architecture §3.4 names this
+			// as the front-line guard against duplicate posts.
+			if (pendingByTask[taskId]) return;
+			setPendingByTask((prev) => ({ ...prev, [taskId]: verb }));
+			const clearPending = (): void => {
+				setPendingByTask((prev) => {
+					const { [taskId]: _, ...rest } = prev;
+					return rest;
+				});
+			};
+			const text = requestMessageText(verb);
+			const clientKey = crypto.randomUUID();
+
+			// Network errors and CORS rejections surface as fetch throws — catch
+			// only those and turn them into a user-facing error toast. A 2xx
+			// with a malformed body is handled below as a server contract bug;
+			// JSON parse errors propagate (they are bugs, not network failures).
+			let response: Response;
+			try {
+				if (task.threadId) {
+					response = await fetch(`/api/threads/${encodeURIComponent(task.threadId)}/messages`, {
+						method: "POST",
+						headers: {
+							"Content-Type": "application/json",
+							"X-Identity": FOUNDER_IDENTITY,
+						},
+						body: JSON.stringify({
+							type: "plain",
+							payload: { text },
+							clientKey,
+						}),
+					});
+				} else {
+					response = await fetch("/api/threads", {
+						method: "POST",
+						headers: {
+							"Content-Type": "application/json",
+							"X-Identity": FOUNDER_IDENTITY,
+						},
+						body: JSON.stringify({
+							hostKind: "task",
+							hostId: task.id,
+							participants: [FOUNDER_IDENTITY],
+							pinned: false,
+							initialMessage: {
+								type: "plain",
+								payload: { text },
+								clientKey,
+							},
+						}),
+					});
+				}
+			} catch {
+				clearPending();
+				showToast("Could not post request — try again.", "error");
+				return;
+			}
+
+			if (!response.ok) {
+				clearPending();
+				showToast("Could not post request — try again.", "error");
+				return;
+			}
+
+			if (!task.threadId) {
+				const json: unknown = await response.json();
+				if (!isThreadCreateResponse(json)) {
+					// Server returned 2xx but the body is missing thread.id.
+					// Treat as a server-side error; do not toast success.
+					clearPending();
+					showToast("Could not post request — try again.", "error");
+					return;
+				}
+				const newThreadId = json.thread.id;
+				setTasks((prev) =>
+					prev.map((t) =>
+						t.id === taskId ? { ...t, threadId: newThreadId, threadUnreadCount: 0 } : t,
+					),
+				);
+			}
+			clearPending();
+			showToast("Request posted to thread", "info");
+		},
+		[tasks, showToast, pendingByTask],
+	);
 
 	return (
 		<div className="flex flex-col gap-3 h-full" data-testid="work-team-page">
@@ -151,9 +356,6 @@ export function WorkTeam(): JSX.Element {
 				</button>
 			</div>
 
-			{/* I4 P2: Canvas (committed bets overview) on top, Kanban below.
-			    J5: PitchSelector is an overlay that REPLACES the Kanban when
-			    open (not inlined above it). */}
 			<div data-testid="work-team-canvas">
 				<Canvas bets={CANVAS_BETS} capacity={3} onMoveBet={handleMoveBet} />
 			</div>
@@ -167,7 +369,27 @@ export function WorkTeam(): JSX.Element {
 				/>
 			) : (
 				<div data-testid="work-team-kanban">
-					<Kanban tasks={tasks} onMoveTask={handleMoveTask} groupByBet />
+					<Kanban
+						tasks={tasks}
+						groupByBet
+						onOpenThread={(taskId) => {
+							void handleOpenThread(taskId);
+						}}
+						onRequestStateChange={(taskId, verb) => {
+							void handleRequestStateChange(taskId, verb);
+						}}
+						pendingByTask={pendingByTask}
+					/>
+				</div>
+			)}
+			{toast && (
+				<div className="toast toast-end z-50">
+					<div
+						className={`alert ${toast.tone === "info" ? "alert-info" : "alert-error"} alert-sm text-[11px]`}
+						role="status"
+					>
+						<span>{toast.message}</span>
+					</div>
 				</div>
 			)}
 		</div>

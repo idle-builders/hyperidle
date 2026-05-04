@@ -69,23 +69,4 @@ describe("WorkTeam", () => {
 		// Node.DOCUMENT_POSITION_FOLLOWING === 4 → kanban follows canvas
 		expect(order & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
 	});
-
-	it("exports a COLUMN_TO_STATE map that translates Kanban columns to TaskState values", async () => {
-		// I4 K1/K2: dragging a task to the Planned column must produce
-		// TaskState `accepted`, not the literal column key `planned` (which
-		// is NOT a valid TaskState). The map is co-located with its inverse
-		// `STATE_TO_COLUMN` in Kanban.tsx (the two are inverse relationships
-		// and must not drift) and re-exported for consumers.
-		const mod = (await import("../shell/Kanban")) as {
-			// biome-ignore lint/style/useNamingConvention: exported constant uses SCREAMING_SNAKE_CASE
-			COLUMN_TO_STATE?: Record<string, string>;
-		};
-		expect(mod.COLUMN_TO_STATE).toBeDefined();
-		expect(mod.COLUMN_TO_STATE).toMatchObject({
-			planned: "accepted",
-			in_progress: "in_progress",
-			blocked: "blocked",
-			done: "done",
-		});
-	});
 });

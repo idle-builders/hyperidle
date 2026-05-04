@@ -1,6 +1,6 @@
 import { TaskCard } from "@hyperidle/design-system";
 import { render, screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 
 describe("TaskCard", () => {
 	const defaultProps = {
@@ -42,15 +42,10 @@ describe("TaskCard", () => {
 		expect(screen.getByText("Edit")).toBeInTheDocument();
 	});
 
-	it("calls onClick when card is clicked", () => {
-		const handleClick = vi.fn();
-		render(<TaskCard {...defaultProps} onClick={handleClick} />);
-		const card =
-			screen.getByText("Implement login flow").closest("[role='button'], button, [onClick]") ??
-			screen.getByText("Implement login flow").parentElement;
-		card?.click();
-		expect(handleClick).toHaveBeenCalledOnce();
-	});
+	// L15: legacy `onClick` prop was removed — body click is no longer a
+	// supported interaction grammar (approved.md §1: "card body is
+	// non-interactive"). The unread title-row click path is covered by
+	// TaskCard.title-row.test.tsx.
 
 	// Acceptance criterion: TaskCard in blocked state has red border (border-[var(--danger)])
 	it("applies border-[var(--danger)] class when state is blocked", () => {
