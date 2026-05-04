@@ -22,7 +22,7 @@
 
 import { BlockActionsPopover } from "@hyperidle/design-system";
 import type { TaskState } from "@hyperidle/shared";
-import { type JSX, useId, useMemo, useRef, useState } from "react";
+import { type JSX, useId, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
 	buildRequestStateText,
@@ -87,9 +87,18 @@ export function TaskActionsMenu(props: TaskActionsMenuProps): JSX.Element {
 	const liveRegionId = useId();
 	const [open, setOpen] = useState(false);
 	const [error, setError] = useState<string | null>(null);
-	const containerRef = useRef<HTMLDivElement | null>(null);
 
 	const items = useMemo(() => {
+		function runAction(fallback: string, action: () => Promise<void>): void {
+			setError(null);
+			void (async () => {
+				try {
+					await action();
+				} catch (cause) {
+					setError(cause instanceof Error ? cause.message : fallback);
+				}
+			})();
+		}
 		const openThread = {
 			id: "open-thread",
 			label: "Open thread",
@@ -112,27 +121,22 @@ export function TaskActionsMenu(props: TaskActionsMenuProps): JSX.Element {
 			label: `Request: ${STATE_LABELS[targetState]}`,
 			disabled: targetState === task.state,
 			onSelect: (): void => {
-				setError(null);
-				void (async () => {
-					try {
-						const handle = await client.findOrCreateTaskThread(task.id);
-						await client.postPlainMessage(
-							handle.threadId,
-							buildRequestStateText(targetState),
-							newClientKey(),
-						);
-						setOpen(false);
-					} catch (cause) {
-						setError(cause instanceof Error ? cause.message : "Failed to post request");
-					}
-				})();
+				runAction("Failed to post request", async () => {
+					const handle = await client.findOrCreateTaskThread(task.id);
+					await client.postPlainMessage(
+						handle.threadId,
+						buildRequestStateText(targetState),
+						newClientKey(),
+					);
+					setOpen(false);
+				});
 			},
 		}));
 		return [openThread, ...requestItems];
 	}, [client, navigate, task.id, task.state]);
 
 	return (
-		<div ref={containerRef} className="relative inline-flex flex-col items-end">
+		<div className="relative inline-flex flex-col items-end">
 			<button
 				type="button"
 				aria-label={`Actions for ${task.title}`}
