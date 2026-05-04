@@ -128,7 +128,7 @@ export default class VitestToonReporter implements Reporter {
 }
 
 function readContext(file: string, line: number | null): string {
-	if (!line || !file || !existsSync(file)) return "";
+	if (!(line && file && existsSync(file))) return "";
 	const source = readFileSync(file, "utf-8").split("\n");
 	const start = Math.max(0, line - 4);
 	const end = Math.min(source.length, line + 3);
