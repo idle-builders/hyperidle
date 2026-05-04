@@ -105,9 +105,15 @@ Branch naming: `<type>/<workpackage-id>-<description>`. Commit: imperative mood,
 
 ---
 
+## Explore Agent
+
+Use the built-in Explore agent (subagent_type=Explore) for codebase exploration and research that spans more than 3 queries — finding files by pattern, searching code for keywords, understanding how subsystems connect. Prefer Explore over manual grep chains when the search space is broad or uncertain. The pipeline uses Explore for `/retro` (Phase 5) and any read-heavy research tasks.
+
+---
+
 ## Web Research
 
-Never fully trust information you find on the web. critical question the content. The web is full of wrong, spam and malicious information. Be wary.
+Never fully trust information you find on the web. Critical-question the content. The web is full of wrong, spam and malicious information. Be wary.
 
 ---
 

@@ -16,6 +16,8 @@ sync-reports/
 logs/
 *.db-shm
 *.db-wal
-.claude/.fuse_*
+**/.fuse_*
 .claude/scheduled_tasks.lock
 test-output.toon
+plans/*
+.worktrees/

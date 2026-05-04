@@ -1,14 +1,14 @@
 ---
 name: architecture
-description: "Produce the technical plan for a workpackage — types, schemas, APIs, file paths, ordered tasks. Architect interrogates the spec, then drafts; adversary challenges. Run AFTER /concept (always) and AFTER /design (when the workpackage has UI)."
-argument-hint: "[workpackage-id]"
+description: "Produce the technical plan for a story — types, schemas, APIs, file paths, ordered tasks. Interrogate the spec, then draft. Run AFTER /concept (always) and AFTER /design (when the story has UI)."
+argument-hint: "[story-id]"
 user-invocable: true
 min_tool_calls: 25
 ---
 
 # Architecture
 
-Produces the **how** — file paths, type signatures, schemas, endpoint shapes, task ordering.
+**Why:** A clear plan prevents wasted implementation time. Without architectural planning, the builder builds the wrong thing, misses edge cases, or invents abstractions the system doesn't need. The reviewer catches errors before they become expensive rework.
 
 **Fixed inputs (do NOT re-litigate):**
 - Concept doc from `/concept` — includes which docs were read and the relevant canonical-shapes contracts in `docs/<topic>/`.
@@ -20,7 +20,7 @@ If the spec contradicts an existing concept doc, stop — that's a `/concept` ga
 
 ## Phase 0 — Interrogate the understanding
 
-Before producing acceptance criteria, walk the decision tree. Pick only the questions that are actually unsettled — the ones where the spec, track file, or existing code don't give you a confident answer. Skip what's already pinned. For each remaining question, propose your recommended answer with the evidence you have, then ask the human (or the adversary in autonomous mode) to confirm, override, or dig deeper. Issue all of these probes in one parallel batch — independent questions don't need separate round-trips.
+Before producing acceptance criteria, walk the decision tree. Pick only the questions that are actually unsettled — the ones where the spec, track file, or existing code don't give you a confident answer. Skip what's already pinned. For each remaining question, propose your recommended answer with the evidence you have, then ask the human (or the reviewer in autonomous mode) to confirm, override, or dig deeper. Issue all of these probes in one parallel batch — independent questions don't need separate round-trips.
 
 **Few, important questions.** Three sharp probes force a real decision; ten low-stakes ones are noise that get answered with shrugs while the load-bearing assumption stays silent. The bar to ask is: "will the answer change the plan?" If no, don't ask.
 
@@ -85,14 +85,4 @@ For each alternative: 1-paragraph shape, 1 trade-off, 1 reason to reject. The sy
 
 Skip when the decision is forced (existing pattern, single sane shape, low blast radius). Don't theatre-design where one obvious answer exists.
 
-## Phase 4 — Adversary challenge + critique
-
-Spawn an **adversary agent** to challenge the plan — over-engineering, missing deps, gaps in AC coverage, scope creep snuck in during interrogation, missing security/abuse cases, missing protected-test list, route-checklist gaps. Address critical issues. Max 1 round.
-
-Then run `/architecture-critique` to score the plan against the architectural rubric. Iterate fixes until score ≥ 7 or 3 rounds reached.
-
-Write the final plan to `plans/<workpackage-id>/architecture.md`. Downstream skills read it from there.
-
-## Target
-
-$ARGUMENTS
+Save the final plan via TaskCreate so downstream skills can read it.

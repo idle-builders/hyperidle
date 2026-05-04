@@ -1,22 +1,24 @@
 ---
 name: design-critique
-description: "Design quality expert. ALWAYS invoke this skill when creating, editing, or reviewing UI components, styles, or layouts. Do not write UI code without checking design quality. Evaluates visual hierarchy, spacing, color, typography, density, and aesthetic coherence against the design system principles."
-argument-hint: "[component-name|file-path|all]"
+description: "Score design variants against the 9-dimension rubric. Evaluation act — separate from production. Reviewer persona evaluates the designer's output."
+argument-hint: "[workpackage-id]"
 user-invocable: true
-min_tool_calls: 5
+min_tool_calls: 8
 ---
 
 # Design Critique
 
-Continuous design quality gate. Runs whenever UI code is created or modified. Produces a quality score (0-10), specific findings, and concrete fixes.
+**Why:** The agent that created variants cannot objectively score them. Evaluation must be a different agent — the reviewer — reading the designer's output cold. True producer/evaluator separation: different personas, not just different cognitive modes.
+
+This is the **evaluation** counterpart to `/design` (production). The reviewer persona scores what the designer produced. `/design` generates variants; `/design-critique` scores them. The reviewer's context from this critique carries forward to Phase 4's code review — it arrives already warm on the design decisions.
 
 ## When This Runs
 
-- **Before writing UI code:** Read the principles, check existing component patterns, then write.
-- **After writing UI code:** Screenshot the result, critique it, fix issues, re-screenshot.
-- **On explicit `/design-critique`:** Full audit of specified components or all changed files.
+- **In the pipeline:** Phase 2, after the designer completes `/design`. Reviewer session.
+- **On explicit `/design-critique <workpackage-id>`:** full audit of variants at `plans/<workpackage-id>/design/<variant-slug>/`.
+- **Post-implementation:** score rendered TSX against the approved mockup (pairs with `/visual-polish`).
 
-## Required Reading (Before Any UI Work)
+## Required Reading (Before Scoring)
 
 Read these before critiquing:
 
@@ -30,15 +32,20 @@ Deep reference, only when the dimension is in scope: `references/hierarchy.md`, 
 
 ## The Critique Loop
 
+Read the variants produced by `/design` at `plans/<workpackage-id>/design/<variant-slug>/`.
+
 ```
-1. Read the component code
-2. Screenshot it (Playwright or dev server)
-3. Score it (0-10) against the 9 dimensions below
-4. List specific findings (CRITICAL / WARNING / SUGGESTION)
-5. Fix the highest-priority issue
-6. Re-screenshot and re-score
-7. Repeat until score >= 7 or 4 iterations reached
+1. Screenshot each variant's mockup.html (or read its spec.md if no mockup)
+2. Score it (0-10) against the 9 dimensions below
+3. List specific findings (CRITICAL / WARNING / SUGGESTION)
+4. Fix the highest-priority issue
+5. Re-screenshot and re-score
+6. Repeat until score >= 7 or 4 iterations reached
 ```
+
+Variants below 5 fail and get regenerated; variants 5-7 get noted findings; variants ≥7 advance. If all variants score below 5, the brief was wrong — go back to `/design` Phase 0 and re-interrogate. Do not push weak variants into the comparison.
+
+**Read screenshots, not code, when scoring.** Reading code to score visual hierarchy is theatre.
 
 ## Scoring Dimensions (0-10 each, averaged)
 
@@ -72,7 +79,7 @@ Deep reference, only when the dimension is in scope: `references/hierarchy.md`, 
 - Does the component use design system tokens consistently?
 - Are hardcoded values (hex colors, px spacing, raw font sizes) present? They shouldn't be.
 - Does the component compose from existing primitives where possible?
-- **Cross-component consistency:** Does this component apply borders, spacing, radii, and typography the same way as other components in the same context? (e.g., all list pages should use the same section header style, all cards should use the same border treatment)
+- **Cross-component consistency:** Does this component apply borders, spacing, radii, and typography the same way as other components in the same context?
 - **Smell:** Hardcoded #hex values. `p-8` instead of density tokens. Re-implementing what a Tier 1 primitive already does. Borders used differently than sibling components. Mixed radii in the same view.
 
 ### 6. States & Feedback
@@ -96,17 +103,16 @@ Deep reference, only when the dimension is in scope: `references/hierarchy.md`, 
 - **Smell:** Purple gradients. Centered hero layout. Emoji icons. Generic card grid. Oversized padding. `rounded-2xl`. Glass morphism. Gradient-on-text. Full-bleed accent nav.
 
 ### 9. Premium Polish
-Tied to the AESTHETICS.md "Premium" checklist and the recommendations tables. Premium UI ships the small details that AI defaults skip.
+Tied to the AESTHETICS.md "Premium" checklist and the recommendations tables.
 
-- **Tabular numerals** on numeric KeyValue / table cells (`font-variant-numeric: tabular-nums`) — AESTHETICS.md § Typography (AQ-006).
-- **Letter-spacing** `+0.02em` on uppercase StatusChip/Tag labels (AQ-007).
-- **Density-tier coherence:** compact = default × 0.75, comfortable = default × 1.25, both rounded to 4px (AQ-003).
-- **Motion timing** uses `--motion-fast/medium/slow` with the cubic-bezier(0.2, 0, 0, 1) easing (AQ-013); `prefers-reduced-motion` respected (AQ-014).
+- **Tabular numerals** on numeric KeyValue / table cells (`font-variant-numeric: tabular-nums`) — AQ-006.
+- **Letter-spacing** `+0.02em` on uppercase StatusChip/Tag labels — AQ-007.
+- **Density-tier coherence:** compact = default × 0.75, comfortable = default × 1.25, both rounded to 4px — AQ-003.
+- **Motion timing** uses `--motion-fast/medium/slow` with cubic-bezier(0.2, 0, 0, 1) easing — AQ-013; `prefers-reduced-motion` respected — AQ-014.
 - **Hover/focus/pressed** states defined for every interactive primitive: hover = +1 surface step, focus = 2px outset ring on `--primary` at 60%, pressed = -1 step.
-- **Touch target ≥ 44 CSS px** at viewport ≤ 1024 px on every interactive element (AQ-015).
-- **Mobile inputs ≥ 16px** font-size at viewport ≤ 768 px (AQ-005).
-- **Auto-density** at viewport ≤ 1024 px when Settings preference is `auto` (AQ-016).
-- **Halation guard:** no pure `#000` background; `--text-hi` is off-white not `#fff` (AQ-009).
+- **Touch target ≥ 44 CSS px** at viewport ≤ 1024 px on every interactive element — AQ-015.
+- **Mobile inputs ≥ 16px** font-size at viewport ≤ 768 px — AQ-005.
+- **Halation guard:** no pure `#000` background; `--text-hi` is off-white not `#fff` — AQ-009.
 - **Smell:** numeric columns visibly jitter, status chips at default tracking, hover with no transition, focus rings invisible, mobile input zooms iOS, motion ignores reduced-motion preference.
 
 ## Scoring Guide
@@ -122,14 +128,14 @@ Tied to the AESTHETICS.md "Premium" checklist and the recommendations tables. Pr
 ## Output Format
 
 ```
-## Design Critique: [ComponentName]
+## Design Critique: [ComponentName/WorkpackageId]
 
-**Score: X/10** (H:_ S:_ T:_ C:_ Co:_ St:_ A:_ AS:_ PP:_)
+DESIGN-CRITIQUE: variant=<slug> score=<int>/10  rounds=<n>  axes: H:_ S:_ T:_ C:_ Co:_ St:_ A:_ AS:_ PP:_
 
 ### CRITICAL
 - [file:line] Description of issue → specific fix
 
-### WARNING  
+### WARNING
 - [file:line] Description of issue → specific fix
 
 ### SUGGESTION
@@ -139,75 +145,53 @@ Tied to the AESTHETICS.md "Premium" checklist and the recommendations tables. Pr
 - List 1-2 things the component does right (reinforces good patterns)
 ```
 
+The retro reads `rounds=<n>` to track design-quality drift over time.
+
 ## Screenshot Workflow
 
 When the dev server is running (`bun dev` on :5173):
 
 ```bash
-# Screenshot a specific workpackage
+# Screenshot a specific component
 cd packages/web && npx playwright screenshot \
   "http://localhost:5173/designsystem#ComponentName" \
   /tmp/critique-ComponentName.png \
   --wait-for-timeout=2000
 
-# Screenshot an HTML component
-cd packages/web && npx playwright screenshot \
-  "http://localhost:8098/ComponentName.html" \
-  /tmp/critique-ComponentName-html.png \
+# Screenshot an HTML mockup
+npx playwright screenshot \
+  "file://<absolute-path>/mockup.html" \
+  /tmp/critique-mockup.png \
   --wait-for-timeout=1000
 ```
 
 Read the screenshot. Evaluate it visually. Do not evaluate design from code alone.
 
-## Tailwind Anti-Patterns
+## Cross-Component Checks
 
-Flag — each maps to an AQ rule in `.claude/rules/aesthetic-quality.md` and an upcoming K6 ESLint slug.
+These checks go beyond what AST linters catch. Token/scale violations (hardcoded colors, off-grid spacing, off-scale radius/font/motion, AI-aesthetic tells) are caught by `bun run lint` via `eslint-plugin-design` — don't duplicate that work here. This section is for the judgment calls the linter can't make.
 
-**Tokens / scale violations:**
-- Raw Tailwind color classes (`text-gray-400`, `bg-slate-800`, `text-indigo-500`, `border-white/10`) → AQ-008, `design/no-raw-tailwind-color`.
-- Hardcoded hex / `rgb()` / `hsl()` values in `*.tsx` outside `tokens.css` → AQ-008, `design/no-hardcoded-color`.
-- Non-4px-grid spacing (`p-7`, `gap-5`, `m-[7px]`) → AQ-001, `design/no-off-grid-spacing`.
-- Off-scale radius (`rounded-2xl`, `rounded-3xl`, `rounded-[10px]`) — allow `rounded-full` for pills only → AQ-011 / AQ-101, `design/no-off-scale-radius` + `design/no-ai-aesthetic`.
-- Off-scale font-size (`text-[15px]` outside the closed allowlist) → AQ-004, `design/no-off-scale-font-size`.
-- Off-scale motion (`duration-[120ms]`, bare `ease`) → AQ-013, `design/no-off-scale-motion`.
-- Inline `style={}` attributes for color / spacing / radius / font.
+### Consistency & Reuse
 
-**AI-aesthetic tells** (see AESTHETICS.md § AI-Aesthetic Anti-Patterns; canonical 15-item catalog):
-- `bg-gradient-(to|from|via)-(indigo|purple|violet|fuchsia|pink)-\d{3}` → AQ-102.
-- `p-8` / `p-10` / `p-12` / `p-14` / `p-16` outside hero/expressive contexts → AQ-103.
-- Hero section pattern in `packages/web/src/pages/work/**` → AQ-104.
-- Leading emoji in `Button` / `NavItem` / `StatusChip` text → AQ-105.
-- Page-level `text-center` or `mx-auto` on body content (allow inside `EmptyState` / `Modal` / `Dialog` / `Toast`) → AQ-106.
-- `backdrop-blur` / `backdrop-filter` and `bg-(white|black)/\d+` translucent card chrome → AQ-107.
-- `grid-cols-3` with `.map(` over identical card children outside dashboard contexts → AQ-108.
-- `shadow-lg` / `shadow-xl` / `shadow-2xl` outside files matching `Modal|Dialog|Popover|Tooltip` → AQ-012 / AQ-110-overlay.
-- `Lorem ipsum` / `consectetur adipiscing` / `Click here` placeholder copy → AQ-109.
-- Marketing superlatives in product chrome (`Effortless`, `Seamless`, `Powerful`, `Beautiful`, `Stunning`, `Game-changing`) → AQ-110.
-- `bg-clip-text text-transparent` over a gradient on product headings → AQ-111.
-- NavRail / Sidebar root using `bg-(indigo|purple|teal|emerald|sky|violet)-\d{3}` → AQ-112.
-- Every list row carries a leading icon when content does not require one → AQ-113.
-
-**Premium-polish absences** (Dimension 9):
-- Numeric tables / KeyValue lacking `tabular-nums` → AQ-006.
-- Uppercase labels (StatusChip / Tag) lacking `tracking-wide` or `tracking-[0.02em]` → AQ-007.
-- `<input>` / `<textarea>` / `<select>` lacking `text-base` / `text-[16px]` at the mobile breakpoint → AQ-005.
-- Interactive elements with `min-h` / `h` < 44px at viewport ≤ 1024 px → AQ-015.
-- `transition:` / `animation:` not derived from `var(--motion-*)` → AQ-013 / AQ-014.
-
-## Consistency & Component Reuse
-
-When reviewing multiple components or `all`, evaluate cross-cutting consistency:
-
-- **Same role, same treatment.** Section headers, card borders, list items, dividers, hover states — if two components serve the same visual role, they must look identical. Divergence is a finding.
+- **Same role, same treatment.** Section headers, card borders, list items, dividers, hover states — if two components serve the same visual role, they must look identical. Divergence is a finding even when both files individually pass lint.
 - **Component reuse over inline reimplementation.** The design system has primitives (Tier 1), blocks (Tier 2), regions (Tier 3), and utilities (EmptyState, ErrorState, Skeleton). Read `packages/design-system/src/` to know what exists. Reimplementing any of these inline is **CRITICAL**.
 - **Token compliance.** Every color, spacing value, radius, and font size must trace back to a design token. Read `packages/design-system/DESIGN.md` for the canonical values.
+- **Theme portability.** The design system may have multiple style variants in `packages/design-system/html/themes/`. Components must use semantic tokens (not hardcoded values) so they work across themes.
 
-## Style Variant Awareness
+### Density-Tier Consistency (K10/K11)
 
-The design system may have multiple style variants (themes) defined in `packages/design-system/html/themes/`. When critiquing:
-- Evaluate against the currently active theme's tokens
-- Note if a design choice would break under a different theme
-- Check that the component uses semantic tokens (not hardcoded values) so it's theme-portable
+Read `packages/design-system/research/density-audit.md` (K10 matrix) and `packages/eslint-plugin-design/density-allowlist.json` at run time:
+
+- For every component in `densityAware.components`, confirm it consumes the prescribed `--density-*` tokens for the axes K10 lists. The AST rule `design/use-density-tokens` catches literal-padding; this catches the contextual case (e.g. "the literal `h-[24px]` on BetCard's lead avatar is card-internal per § 4.4, not row-anchor").
+- For every component in `densityStatic.components` (StatusChip, Tag, IconRail, NotFound), confirm zero `var(--density-*)` consumption. The AST rule `design/no-density-tokens` is the gate; this confirms.
+- **Same-role density-awareness.** All Tier 2 cards (BetCard, TaskCard, PitchCard, SkeletonCard) must share the same density shape (`--density-card-pad` + `--density-card-gap`). All list-row primitives (ThreadRow, KnowledgeRow, NotificationRow) must share the same shape (`--density-pad-*` + `--density-gap` + `--density-text`). Drift between siblings is a finding.
+
+### Completeness Checks
+
+- **Empty states.** Every list / table / panel must define an explicit empty state. A component that renders a list with no `<EmptyState>` branch is a finding.
+- **Error states.** Same for failure paths.
+- **Loading states.** Same for in-flight / skeleton paths.
+- **Mobile readiness.** At viewport ≤ 1024 px, does the component switch to comfortable density? Are touch targets ≥ 44 CSS px? (AQ-015 / AQ-016).
 
 ## Target
 

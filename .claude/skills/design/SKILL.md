@@ -1,7 +1,7 @@
 ---
 name: design
-description: "Explore multiple UX/UI variants in parallel, compare them, run /design-critique, then settle on one. Use BEFORE /architecture when a workpackage has any UI surface — a new page, a new primitive, a new component shape, a new interaction flow, or a redesign of an existing surface."
-argument-hint: "[workpackage-id-or-feature-name]"
+description: "Explore one to three UX/UI variants (gated by routine vs novel), score them in-session against the 9-dimension rubric, settle on one. Runs BEFORE /architecture when a story has any UI surface — a new page, primitive, component shape, interaction flow, or redesign of an existing surface."
+argument-hint: "[story-id-or-feature-name]"
 user-invocable: true
 min_tool_calls: 25
 ---
@@ -12,7 +12,18 @@ UX/UI counterpart to `/architecture`. Architecture decides *how* (file paths, sc
 
 **Skip when:** the workpackage has no UI surface, OR an approved design already exists and this is a pure layout tweak (go straight to `/design-critique`).
 
-**Fixed input from `/concept`:** variants explore the visual/interaction shape — they do not redefine what the noun IS. If a variant only works by changing the concept, that's a `/concept` issue.
+Inspired by:
+- Garry Tan's **gstack** `/design-shotgun` — three variants on a comparison board.
+- Matt Pocock / nimmly **`/interface-design`** — *Design It Twice* from "A Philosophy of Software Design", with parallel sub-agents under different constraints.
+- nimmly **`/find-design-language`** — broad → variants → spec → embodied artifacts.
+
+## When this runs
+
+- **In the pipeline:** Architect persona, after `/concept` and before `/architecture`.
+- **On `/design <story-id>`:** explicit invocation for any story with a UI surface, especially the L-track primitives (Thread L1, Block L2, Artifact L3) where multiple plausible shapes exist.
+- **Skip when:** the story has no user-facing surface, OR an approved design already exists for this surface and the change is a pure layout tweak (then run only the in-session Phase 2 critique on the existing `approved.md`).
+
+**Fixed input from `/concept`:** the relevant `docs/concept/*.md` section is the conceptual model these variants must respect. Variants explore the *visual / interaction shape* of a Thread / Block / Artifact — they do not redefine what a Thread / Block / Artifact IS. If a variant only works by changing the concept, that's a `/concept` issue, not a design issue.
 
 ## Inputs
 
@@ -24,9 +35,44 @@ Read all of the following in one parallel batch of Read calls — these files ar
 4. `.claude/rules/aesthetic-quality.md`, `.claude/rules/visual-parity.md`.
 5. If `plans/<workpackage-id>/design/` exists, you may be resuming.
 
+For deeper reference material on specific critique dimensions (read on demand when scoring in Phase 2 — each cross-links a section of `packages/design-system/AESTHETICS.md`):
+
+- `references/hierarchy.md` — visual-hierarchy tactics; primary / secondary / tertiary text levels.
+- `references/spacing.md` — 4px grid, density tiers, sub-grid exceptions.
+- `references/typography.md` — type scale (11/12/13/14/18/24), weight limits, monospace usage.
+- `references/color.md` — semantic token usage, halation guard, contrast rules.
+- `references/finishing.md` — hover / focus / pressed states, motion tokens, polish details.
+
+Without these, the Phase 2 critique becomes vibes-grading. Read the relevant reference before assigning a score on its dimension.
+
+## Phase 0a — Classify: routine vs novel
+
+Before interrogation, classify the story along two axes:
+
+1. **Existing component reference** — does the spec name an existing component family (e.g. "extend `ThreadRow`", "another tab in `SessionDrawer`")?
+2. **Pattern match** — does `packages/design-system/html/` contain a similar embodied pattern (same primitive, same shape)?
+
+Both yes → `routine`. Both no → `novel`. Mixed → `routine` with low-confidence flag (see below).
+
+| Class | Variants in Phase 1 | Phase 2 critique |
+|---|---|---|
+| `novel` | 3, full constraint-and-thesis spread | per-variant + on `approved.md` |
+| `routine` | 1, with a "did we consider X / Y / Z?" check on the rejected directions | only on `approved.md` |
+| `routine` (low-confidence) | 2, A vs. B | per-variant + on `approved.md` |
+
+**Low-confidence trigger.** If only one of the two axes matched (e.g. spec references an existing component but `packages/design-system/html/` has nothing analogous, or vice versa), or the in-session critique on the single-variant flags Anti-slop / Hierarchy / States below 5, fall back to 2 variants. Better to spend one extra variant than to ship unexplored UI.
+
+**Hard rule for new design-system primitives.** L1 (Thread), L2 (Block), L3 (Artifact) and any future named primitive in TRACK-L are **always `novel`** regardless of axis match. The shape itself is what's being decided.
+
+Output one machine-greppable line at the top of `brief.md`:
+
+```
+DESIGN-CLASS: <routine|routine-low-conf|novel>  ref=<existing-component-or-none>  pattern=<html-file-or-none>
+```
+
 ## Phase 0 — Interrogate the user task
 
-Pick only the questions that are actually unsettled — skip what the brief, the design system rules, or existing mockups already answer. For each remaining question, propose your read with evidence, then ask the human (or adversary in autonomous mode) to confirm. Issue all probes in one parallel batch — independent questions don't need separate round-trips.
+Pick only the questions that are actually unsettled — skip what the brief, the design system rules, or existing mockups already answer. For each remaining question, propose your read with evidence, then ask the human (or reviewer in autonomous mode) to confirm. Issue all probes in one parallel batch — independent questions don't need separate round-trips.
 
 **Few, important questions.** Three sharp probes force a real decision; ten low-stakes ones get answered with shrugs. The bar: "will the answer change a variant constraint?" If no, don't ask.
 
@@ -40,11 +86,15 @@ Sample probes (adapt):
 
 Stop when the brief is clear. 3-7 branches typical.
 
-## Phase 1 — Generate three variants in parallel
+## Phase 1 — Generate variants in parallel (count from Phase 0a)
 
-Spawn **three `designer` sub-agents in parallel**. Each must produce a **radically different** approach. Anti-convergence is a hard rule: variants that all feel like minor tweaks of one idea = fail.
+For `routine`: produce **one** variant honoring the named existing component / pattern, plus an explicit `rejected.md` block listing the X / Y / Z directions you considered and rejected (one line each). Do NOT regenerate the rejected directions.
 
-Each agent receives the workpackage brief + design-system pointers + a different **constraint-and-thesis pairing** so the spread is intentional, not accidental:
+For `routine-low-conf`: produce **two** variants — A "stay close to existing pattern" and B "challenge the existing pattern".
+
+For `novel` (and all L1/L2/L3 primitives): produce **three radically different** variants. Anti-convergence is a hard rule: variants that all feel like minor tweaks of one idea = fail.
+
+Each variant uses the workpackage brief + design-system pointers + a different **constraint-and-thesis pairing** so the spread is intentional, not accidental:
 
 ```
 Variant A — "Minimal scaffold"
@@ -78,14 +128,14 @@ Variant C — "Layered" (a base layer that always renders + extension slots that
             consumers fill — the React `children`-as-slot pattern).
 ```
 
-Anti-convergence requirement — verify before Phase 2 dispatches:
+Anti-convergence requirement — verify before Phase 2:
 - Variants must differ on **at least 3 of these axes per pair**: hierarchy (where the eye lands first), density (how much fits per row/screen), state strategy (one canonical layout vs distinct shapes per state), motion (where it moves), action surface (where verbs live), composition (one component vs three), copy register (terse vs guided).
 
 If two variants converge, regenerate. Do not proceed with three flavours of one thing.
 
 ### Output per variant — the spec is concrete OR it doesn't count
 
-Each sub-agent produces, in `plans/<workpackage-id>/design/<variant-slug>/`:
+Each variant produces, in `plans/<workpackage-id>/design/<variant-slug>/`:
 
 1. **`spec.md`** — opinionated spec, no hand-waving:
    - User workpackage (1 sentence — who, what, why)
@@ -101,13 +151,7 @@ Each sub-agent produces, in `plans/<workpackage-id>/design/<variant-slug>/`:
 
 If HTML mockups are too heavy for the workpackage (small primitive, well-understood shape), produce *spec + a TSX sketch in the design-system playground* instead. The hard rule is: each variant must produce a **looked-at artifact**, not just prose.
 
-## Phase 2 — Critique each variant in isolation
-
-For each of the three variants, run `/design-critique` against the screenshot/mockup. Score 0-10 across the nine dimensions. Variants below 5 fail and get regenerated; variants 5-7 get noted findings; variants ≥7 advance.
-
-If all three score below 5, the brief was wrong — go back to Phase 0 and re-interrogate. Do not push three weak variants into the comparison.
-
-## Phase 3 — Build the comparison
+## Phase 2 — Build the comparison
 
 Produce `plans/<workpackage-id>/design/comparison.md`:
 
@@ -121,11 +165,11 @@ Produce `plans/<workpackage-id>/design/comparison.md`:
 | Motion budget | … | … | … |
 | Best at | … | … | … |
 | Worst at | … | … | … |
-| `/design-critique` score | … /10 | … /10 | … /10 |
+| Phase-2 critique score | … /10 | … /10 | … /10 |
 
 Plus the three screenshots side by side.
 
-## Phase 4 — Synthesize
+## Phase 3 — Synthesize
 
 Often the best design combines insights from multiple variants. Write `plans/<workpackage-id>/design/synthesis.md`:
 
@@ -140,7 +184,7 @@ If the project is in autonomous mode, the orchestrator picks based on:
 
 If the founder is reachable, surface the comparison and **let them pick**. One AskUserQuestion, with the three options + your recommendation. Never batch design decisions across multiple AskUserQuestions.
 
-## Phase 5 — Approve and write the chosen design
+## Phase 4 — Approve and write the chosen design
 
 Once a direction is chosen, write `plans/<workpackage-id>/design/approved.md`:
 
@@ -151,8 +195,6 @@ Once a direction is chosen, write `plans/<workpackage-id>/design/approved.md`:
 - Behavior + motion + keyboard shortcuts
 - Mobile adaptation
 - Open questions for the architect (data shape, route, action endpoints)
-
-Then run `/design-critique` once more on the approved design — score must be ≥7. If not, iterate (max 4 iterations, same as `/design-critique`'s loop).
 
 `approved.md` is the **input contract** to `/architecture`. The architect does NOT re-decide visual hierarchy, component vocabulary, or interaction grammar.
 
@@ -188,6 +230,5 @@ plans/<workpackage-id>/design/
 ```
 
 
-## Target
-
-$ARGUMENTS
+- `/architecture` — consumes `approved.md` as fixed input; never re-litigates the visual contract; runs its own in-session architectural critique
+- `/visual-polish` — used later, AFTER implementation, to bring the rendered TSX to pixel parity with the approved mockup

@@ -79,7 +79,7 @@ Append the spec at the bottom of the relevant `TRACK-<letter>.md`, with **exactl
 
 **Acceptance criteria.** A bulleted list of observable, testable statements. Phrased so a test (unit, integration, E2E, screenshot, eval) can prove each one true or false. Forbidden phrasings: "is implemented", "is well-designed", "follows best practices". Required phrasings: concrete user actions, concrete system states, concrete outputs.
 
-**Validation scenarios.** 2–4 Given/When/Then scenarios. These are the minimum the QA gate (`/check-definition-of-done`) will run. They must collectively cover every AC.
+**Validation scenarios.** 2–4 Given/When/Then scenarios. These are the minimum the QA gate (`/review`) will run. They must collectively cover every AC.
 
 **Plan calls.** One short paragraph telling `/architecture` what kind of planning this workpackage needs. Most workpackages: "Standard architecture pass — types, contracts, ordered tasks." Foundational primitives: "Multi-version exploration; design-it-twice on the data shape." Pure-backend infra: "Skip /design step; plan + write-tests + write-code." If the workpackage is concept-introducing, name the noun and point at the concept doc.
 
@@ -137,9 +137,9 @@ If a founder pastes implementation detail into the spec, strip it out before reg
 |---|---|
 | "I'll add the implementation steps now and clean them out later" | Specs with implementation creep get their architecture step skipped because "the spec already said how." This is how spec drift happens. Keep them out from the start. |
 | "S is fine, the AC bullets are short" | S is about scope and time, not bullet length. If it touches >1 subsystem it's M. |
-| "Dependency on X is just a logical ordering" | Then it's not a dependency. The scheduler will serialize via real `done` blockers. Logical ordering is what the architect uses to plan tasks within a workpackage. |
-| "I'll skip /concept and write the spec; we can backfill the concept later" | The pipeline will refuse to run the workpackage without the concept-doc. You'll backfill anyway, just under deadline pressure. Run `/concept` first. |
-| "This is a small fix, it doesn't need a work package" | Then it's a commit on an open workpackage or a one-off PR — not a thing the pipeline picks up. The manifest is the queue; if it isn't there, the pipeline won't build it. |
+| "Dependency on X is just a logical ordering" | Then it's not a dependency. The scheduler will serialize via real `done` blockers. Logical ordering is what the designer uses to plan tasks within a story. |
+| "I'll skip /concept and write the spec; we can backfill the concept later" | The pipeline will refuse to run the story without the concept-doc. You'll backfill anyway, just under deadline pressure. Run `/concept` first. |
+| "This is a small fix, it doesn't need a work package" | Then it's a commit on an open story or a one-off PR — not a thing the pipeline picks up. The manifest is the queue; if it isn't there, the pipeline won't build it. |
 
 ---
 
