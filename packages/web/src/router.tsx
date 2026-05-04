@@ -19,6 +19,7 @@ import { NotFound } from "./pages/NotFound";
 import { WorkBet } from "./pages/WorkBet";
 import { WorkPortfolio } from "./pages/WorkPortfolio";
 import { WorkTeam } from "./pages/WorkTeam";
+import { WorkTeamTaskThread } from "./pages/WorkTeamTaskThread";
 
 function buildRoutes(): RouteObject[] {
 	const routes: RouteObject[] = [
@@ -32,6 +33,7 @@ function buildRoutes(): RouteObject[] {
 				{ path: "work/portfolio", element: <WorkPortfolio /> },
 				{ path: "work/team", element: <WorkTeam /> },
 				{ path: "work/bet/:betId", element: <WorkBet /> },
+				{ path: "work/team/task/:taskId/thread", element: <WorkTeamTaskThread /> },
 				{ path: "knowledge", element: <KnowledgeList /> },
 				{ path: "knowledge/:knowledgeId", element: <KnowledgeDetail /> },
 				// L3 review fix Arch-M1 / D-M4: wire the ArtifactPermalink page.

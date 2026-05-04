@@ -2,14 +2,21 @@
  * Work/Team page — composes Canvas (top) + Kanban (bottom) + PitchSelector
  * (overlay). Spec: HUMAN_INTERFACE_LAYER.md §4 — Team view shows the team's
  * current bets at the top and a per-task kanban board beneath.
+ *
+ * @lore L15: drag-to-move on tasks was removed. Humans REQUEST state changes
+ * via the per-card kebab; agents DECIDE. The card never moves on a request.
  */
 import { type JSX, useCallback, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import type { CanvasBet } from "../shell/Canvas";
 import { Canvas } from "../shell/Canvas";
+import { ensureTaskThread } from "../shell/ensureTaskThread";
 import type { KanbanColumnState, KanbanTask } from "../shell/Kanban";
-import { COLUMN_TO_STATE, Kanban } from "../shell/Kanban";
+import { Kanban } from "../shell/Kanban";
 import type { PitchSelectorPitch } from "../shell/PitchSelector";
 import { PitchSelector } from "../shell/PitchSelector";
+import type { TaskActionsResult } from "../shell/TaskActionsMenu";
+import { formatStateRequestText, makeStateRequestClientKey } from "../shell/taskStateRequest";
 
 const CANVAS_BETS: CanvasBet[] = [
 	{
@@ -109,15 +116,52 @@ const MOCK_PITCHES: PitchSelectorPitch[] = [
 ];
 
 export function WorkTeam(): JSX.Element {
-	const [tasks, setTasks] = useState<KanbanTask[]>(INITIAL_TASKS);
+	const [tasks] = useState<KanbanTask[]>(INITIAL_TASKS);
 	const [pitchSelectorOpen, setPitchSelectorOpen] = useState(false);
 	const [selectedPitchIds, setSelectedPitchIds] = useState<string[]>([]);
+	const navigate = useNavigate();
 
-	const handleMoveTask = useCallback((taskId: string, targetColumn: KanbanColumnState): void => {
-		// I4 K1: map the Kanban column key to the canonical TaskState.
-		const targetState = COLUMN_TO_STATE[targetColumn];
-		setTasks((prev) => prev.map((t) => (t.id === taskId ? { ...t, state: targetState } : t)));
-	}, []);
+	const handleTaskStateRequest = useCallback(
+		async (
+			taskId: string,
+			targetColumn: KanbanColumnState,
+		): Promise<TaskActionsResult> => {
+			const task = tasks.find((t) => t.id === taskId);
+			if (!task) return { ok: false, reason: "validation" };
+			const ensured = await ensureTaskThread(taskId);
+			if (!ensured.ok) return { ok: false, reason: ensured.reason };
+			const text = formatStateRequestText(task.state, targetColumn);
+			const isoTimestamp = new Date().toISOString();
+			const clientKey = makeStateRequestClientKey(taskId, targetColumn, isoTimestamp);
+			try {
+				const resp = await fetch(`/api/threads/${ensured.threadId}/messages`, {
+					method: "POST",
+					headers: { "content-type": "application/json" },
+					body: JSON.stringify({
+						type: "plain",
+						payload: { text, refs: [{ kind: "task", id: taskId }] },
+						clientKey,
+					}),
+				});
+				if (!resp.ok) {
+					if (resp.status === 400) return { ok: false, reason: "validation" };
+					if (resp.status === 403) return { ok: false, reason: "forbidden" };
+					return { ok: false, reason: "server" };
+				}
+				return { ok: true };
+			} catch {
+				return { ok: false, reason: "network" };
+			}
+		},
+		[tasks],
+	);
+
+	const handleOpenTaskThread = useCallback(
+		(taskId: string): void => {
+			navigate(`/work/team/task/${taskId}/thread`);
+		},
+		[navigate],
+	);
 
 	const handleMoveBet = useCallback(
 		(_betId: string, _targetStatus: "shaped" | "committed"): void => {
@@ -151,9 +195,6 @@ export function WorkTeam(): JSX.Element {
 				</button>
 			</div>
 
-			{/* I4 P2: Canvas (committed bets overview) on top, Kanban below.
-			    J5: PitchSelector is an overlay that REPLACES the Kanban when
-			    open (not inlined above it). */}
 			<div data-testid="work-team-canvas">
 				<Canvas bets={CANVAS_BETS} capacity={3} onMoveBet={handleMoveBet} />
 			</div>
@@ -167,7 +208,12 @@ export function WorkTeam(): JSX.Element {
 				/>
 			) : (
 				<div data-testid="work-team-kanban">
-					<Kanban tasks={tasks} onMoveTask={handleMoveTask} groupByBet />
+					<Kanban
+						tasks={tasks}
+						onTaskStateRequest={handleTaskStateRequest}
+						onOpenTaskThread={handleOpenTaskThread}
+						groupByBet
+					/>
 				</div>
 			)}
 		</div>

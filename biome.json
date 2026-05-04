@@ -153,6 +153,7 @@
 			"!.worktrees",
 			"!.pipeline",
 			"!**/docs/concept/design-synthesis",
+			"!**/docs/design-explorations",
 			"!packages/eslint-plugin-design/test-fixtures"
 		]
 	},

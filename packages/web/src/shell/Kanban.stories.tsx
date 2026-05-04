@@ -1,5 +1,4 @@
-import { useState } from "react";
-import type { KanbanColumnState, KanbanTask } from "./Kanban";
+import type { KanbanTask } from "./Kanban";
 import { Kanban } from "./Kanban";
 
 export default { title: "Kanban", tier: "3" as const, uses: ["TaskCard"] };
@@ -13,28 +12,36 @@ const sampleTasks: KanbanTask[] = [
 	{ id: "t6", title: "Fix Login Bug", owner: "Agent Beta", state: "accepted" },
 ];
 
+const okStateRequest = async (): Promise<{ ok: true }> => ({ ok: true });
+const noopOpenThread = (): void => {};
+
 export const Default = (): React.JSX.Element => (
-	<Kanban tasks={sampleTasks} onMoveTask={() => {}} />
+	<Kanban
+		tasks={sampleTasks}
+		onTaskStateRequest={okStateRequest}
+		onOpenTaskThread={noopOpenThread}
+	/>
 );
 
-export const EmptyBoard = (): React.JSX.Element => <Kanban tasks={[]} onMoveTask={() => {}} />;
+export const EmptyBoard = (): React.JSX.Element => (
+	<Kanban tasks={[]} onTaskStateRequest={okStateRequest} onOpenTaskThread={noopOpenThread} />
+);
 
-export const Interactive = (): React.JSX.Element => {
-	const [tasks, setTasks] = useState<KanbanTask[]>(sampleTasks);
-	return (
-		<Kanban
-			tasks={tasks}
-			onMoveTask={(taskId, targetState: KanbanColumnState) => {
-				setTasks((prev) => prev.map((t) => (t.id === taskId ? { ...t, state: targetState } : t)));
-			}}
-		/>
-	);
-};
+export const Grouped = (): React.JSX.Element => (
+	<Kanban
+		tasks={sampleTasks}
+		onTaskStateRequest={okStateRequest}
+		onOpenTaskThread={noopOpenThread}
+		groupByBet
+	/>
+);
 
 export const SingleColumn = (): React.JSX.Element => {
 	const tasks: KanbanTask[] = [
 		{ id: "t1", title: "Task A", owner: "Agent A", state: "in_progress" },
 		{ id: "t2", title: "Task B", owner: "Agent B", state: "in_progress" },
 	];
-	return <Kanban tasks={tasks} onMoveTask={() => {}} />;
+	return (
+		<Kanban tasks={tasks} onTaskStateRequest={okStateRequest} onOpenTaskThread={noopOpenThread} />
+	);
 };

@@ -15,6 +15,13 @@ export interface TaskCardProps {
 	betTag?: string;
 	actions?: ReactNode;
 	onClick?: () => void;
+	/**
+	 * @lore L15: optional kebab-menu slot. Absolute-positioned top-right,
+	 * opacity-0 by default; revealed on `:hover`/`:focus-within` of the card
+	 * or when an ancestor sets `[data-density="comfortable"]` (AQ-016 mobile rule).
+	 * Additive — when omitted, rendered DOM is identical to pre-L15 TaskCard.
+	 */
+	overflowMenu?: ReactNode;
 }
 
 export function TaskCard({
@@ -25,6 +32,7 @@ export function TaskCard({
 	betTag,
 	actions,
 	onClick,
+	overflowMenu,
 }: TaskCardProps): JSX.Element {
 	return (
 		<div
@@ -35,10 +43,14 @@ export function TaskCard({
 			 * --density-text per density-audit.md § 3.2.5. The max-w-[320px]
 			 * stays literal — Kanban-column geometry (per § 3.2.5 + § 3.3.K7).
 			 * Owner font stays literal 12 px (chrome).
+			 *
+			 * @lore L15: `relative` is added unconditionally so the
+			 * absolute-positioned `overflowMenu` slot anchors. Visual parity
+			 * preserved when overflowMenu is undefined (slot is not rendered).
 			 */
 			{...clickableProps(
 				onClick,
-				`bg-[var(--surface-4)] rounded-[var(--r2)] p-[var(--density-card-pad)] flex flex-col gap-[var(--density-card-gap)] max-w-[320px] ${state === "blocked" ? "border border-[var(--danger)]" : ""}`,
+				`relative group bg-[var(--surface-4)] rounded-[var(--r2)] p-[var(--density-card-pad)] max-w-[320px] [&>*+*]:mt-[var(--density-card-gap)] ${state === "blocked" ? "border border-[var(--danger)]" : ""}`,
 			)}
 		>
 			<span
@@ -54,6 +66,14 @@ export function TaskCard({
 			<span className="text-[12px] text-[var(--text-hi)]">{owner}</span>
 			{cost && <KeyValue label="Cost" value={cost} />}
 			{actions}
+			{overflowMenu !== undefined && (
+				<div
+					data-task-overflow
+					className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 [[data-density=comfortable]_&]:opacity-100 transition-opacity duration-[var(--motion-fast)]"
+				>
+					{overflowMenu}
+				</div>
+			)}
 		</div>
 	);
 }
