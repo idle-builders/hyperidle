@@ -73,6 +73,11 @@ export async function shutdownOtel(): Promise<void> {
  * Returns a teardown function that restores the no-op provider.
  */
 export function _setTracerProviderForTesting(processors: SpanProcessor[]): () => Promise<void> {
+	trace.disable();
+	if (provider) {
+		void provider.shutdown();
+		provider = null;
+	}
 	const testProvider = new NodeTracerProvider({
 		resource: resourceFromAttributes({
 			[ATTR_SERVICE_NAME]: SERVICE_NAME,
