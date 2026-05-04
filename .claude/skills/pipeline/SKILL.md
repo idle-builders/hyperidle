@@ -48,7 +48,7 @@ If a workpackage is dispatched to the pipeline and `/concept` work is missing fo
 
 ## For each story (any order within a batched group, sequential within yours)
 
-Set status to `in_progress`. Run the worktree + draft-PR setup once, then dispatch the four persona phases.
+Set status to `in_progress`. Run the worktree + draft-PR setup once, then dispatch the five phases.
 
 ### Worktree + draft-PR setup (TE-21)
 
@@ -63,7 +63,7 @@ git push -u origin HEAD
 
 # 3. Draft PR — opens once, every push auto-updates it
 gh pr create --draft --title "feat(<id>): WIP" \
-  --body "Pipeline run for <id>. Each persona commits its output. Cold DoD flips ready (unless PIPELINE_AB_MODE=1)."
+  --body "Pipeline run for <id>. Each persona commits its output. Reviewer DONE flips ready (unless PIPELINE_AB_MODE=1)."
 ```
 
 ### Continuous-commit rule (TE-21)
@@ -72,25 +72,27 @@ Each persona phase **commits its output and pushes** before returning:
 
 | Phase | What gets committed | CI? |
 |---|---|---|
-| designer — /concept output | prose only | `[skip ci]` |
-| designer — /design + /design-critique (UI stories) | design artifacts + approved.md | `[skip ci]` |
-| designer — /architecture + /architecture-critique | plan doc | `[skip ci]` |
-| builder — /write-tests (red phase) | test files | run |
-| builder — /write-code (green phase) | implementation | run |
-| builder — /apply-review fixes | one commit per applied finding batch | run |
-| researcher — /retro doc | prose | `[skip ci]` |
+| 1 — designer /concept | prose only | `[skip ci]` |
+| 1 — designer /design (UI stories) | design variants | `[skip ci]` |
+| 1 — designer /architecture | plan doc | `[skip ci]` |
+| 2 — reviewer /design-critique | approved.md | `[skip ci]` |
+| 2 — reviewer /architecture-critique | critique doc | `[skip ci]` |
+| 3 — builder /write-tests (red) | test files | run |
+| 3 — builder /write-code (green) | implementation (verified) | run |
+| 4 — builder (apply review fixes) | one commit per applied finding batch | run |
+| 5 — researcher /retro | prose | `[skip ci]` |
 
-CI is the verify gate. There is no `/verify` skill anymore. Builder runs `bun run check && bun run lint && bun run test` locally for fast iteration; CI is the authoritative pass/fail.
+CI is the verify gate. Builder runs `bun run verify` locally and must pass before pushing — no broken code reaches reviewers. CI is the authoritative pass/fail.
 
-**Squash before flipping ready.** Builder squashes the persona-prose commits before Researcher's APPROVED triggers `gh pr ready`. Implementation commits stay atomic; prose commits collapse into one `chore(<id>): pipeline artifacts`. Squash at flip time, not before — Researcher's retro mode still needs the per-phase history to extract cost signals.
+**Squash before flipping ready.** Builder squashes the persona-prose commits before Reviewer's DONE triggers `gh pr ready`. Implementation commits stay atomic; prose commits collapse into one `chore(<id>): pipeline artifacts`. Squash at flip time, not before — Researcher's retro still needs the per-phase history to extract cost signals.
 
 ### Ready-flip (replaces /ship)
 
-When Researcher's DoD pass emits `Verdict: APPROVED`:
+When Reviewer's `/review` pass emits `Verdict: DONE` (after fix cycle):
 
 ```bash
 if [ "${PIPELINE_AB_MODE:-0}" = "1" ]; then
-  echo "[AB] Researcher (DoD) approved — leaving PR draft for replay"
+  echo "[AB] Reviewer approved — leaving PR draft for replay"
 else
   gh pr ready
 fi
@@ -109,18 +111,18 @@ If CI is red after a Builder push:
 
 Then dispatch the persona sessions below, in order. Update `currentStep` in the progress file before each persona dispatch.
 
-### The 5-persona graph (collapsed from the prior 17-step pipeline)
+### The 5-phase pipeline
 
-| # | Persona | Effort | Skill | Why |
+| Phase | Persona | Effort | Skills | Why |
 |---|---|---|---|---|
-| 1 | **designer** | high | `/concept` → `/design` → `/design-critique` → `/architecture` → `/architecture-critique` | Concept doc + variant exploration + technical plan. Sequential skills in one durable session. Production and evaluation are separate acts (different cognitive modes) but same agent to keep context warm. |
-| 2 | **builder** | medium | `/write-tests` → `/write-code` → `/apply-review` | TDD red (define requirement), then green (implement), then apply fixes. Red and green are separate acts — requirement definition must not be contaminated by implementation thinking. |
-| W1 | **reviewer** | high | `/contract-review` | Three positive lenses (architecture, design, security) in one fresh-context session. Findings-only, depth-1, no sub-spawning. |
-| W2 | **adversary** | medium | `/adversary-scan` | Three negative lenses (adversarial, simplification, slop) in one fresh-context session. Findings-only, depth-1. |
-| 3 | **researcher** | low | `/check-definition-of-done` then `/retro` | Fresh-context DoD audit of the live PR, then retro. The one boundary that must not collapse into any producer session. |
-| — | scripts | — | CI + PR | `bun run verify` runs as CI on every push (TE-21). Draft PR opened at worktree setup; `gh pr ready` flips on Researcher's DoD APPROVED. |
+| 1 | **designer** | high | `/concept` → `/design` → `/architecture` | Production only. Concept doc + variant exploration + technical plan. |
+| 2 | **reviewer** | high | `/design-critique` → `/architecture-critique` | Evaluates designer output. True producer/evaluator separation — different agent, not just different mode. Context carries to Phase 4. |
+| 3 | **builder** | medium | `/write-tests` → `/write-code` | TDD red then green. Must pass `bun run verify` before pushing. No broken code reaches reviewers. |
+| 4 | **reviewer** + **adversary** | high | `/review` + `/adversary-review` | Same reviewer from Phase 2 (warm on design/arch) does 3 positive lenses + AC audit. Fresh adversary does 3 negative lenses. Parallel. Builder applies fixes. |
+| 5 | **researcher** | low | `/retro` | Fresh-context retro with cost signals. |
+| — | scripts | — | CI + PR | `bun run verify` runs as CI on every push. Draft PR opened at worktree setup; `gh pr ready` flips on Reviewer's DONE verdict. |
 
-**Durable agent sessions per story: 3** (designer + builder + researcher). Plus 2 fresh-context findings sessions (reviewer + adversary) launched in parallel. Plus scripts.
+**Durable agent sessions per story: 3** (designer, reviewer, builder). Plus 1 fresh-context session (adversary). Plus researcher for retro. Plus scripts.
 
 ---
 
@@ -129,64 +131,66 @@ Then dispatch the persona sessions below, in order. Update `currentStep` in the 
 For each phase, launch an agent of the named type with the listed skill. The persona defines WHO (personality, values, thinking approach); the skill defines WHAT (domain knowledge, checklists, output format).
 
 ```
-Phase 1 — designer:
+Phase 1 — designer (production):
   Launch agent type=designer.
   Run /concept (read concept doc, probe if New/Reshaped nouns exist).
   Run /design (classify routine/novel, generate 1-3 variants).
-    Skip /design + /design-critique if no UI surface.
-  Run /design-critique (score variants against 9-dim rubric, ≥7 to advance,
-    max 4 rounds). Same agent, different cognitive mode — production then evaluation.
+    Skip /design if no UI surface.
   Run /architecture (interrogate spec, draft plan).
-  Run /architecture-critique (score plan against 9-dim rubric, ≥7 to advance,
-    max 3 rounds). Same agent, different cognitive mode.
-  Commit each skill's output (concept.md, approved.md, plan) and push.
+  Commit each skill's output (concept.md, variants, plan) and push.
   Prose commits use [skip ci].
 
-Phase 2a — builder (red):
+Phase 2 — reviewer (critique):
+  Launch agent type=reviewer.
+  Run /design-critique (score variants against 9-dim rubric, ≥7 to advance,
+    max 4 rounds). Skip if no UI surface.
+  Run /architecture-critique (score plan against 9-dim rubric, ≥7 to advance,
+    max 3 rounds).
+  True producer/evaluator separation — different agent reads the
+  designer's output cold. Reviewer session stays alive for Phase 4.
+  Commit critique output (approved.md, critique doc) and push [skip ci].
+
+Phase 3 — builder (TDD):
   Launch agent type=builder with /write-tests.
   Builder reads the plan; writes failing tests for all ACs; commits +
   pushes. Do NOT write implementation code — requirement definition
   must not be contaminated by implementation thinking.
 
-Phase 2b — builder (green):
-  Launch agent type=builder with /write-code.
-  Builder reads the plan + failing tests; writes minimum code to pass;
-  commits + pushes; runs bun run verify locally.
+  Then run /write-code.
+  Builder reads the plan + failing tests; writes minimum code to pass.
+  Runs bun run verify — must pass before pushing.
   If Builder hits a plan-vs-reality conflict, it raises a BLOCKER rather
   than redesigning in-flight (TE-22).
 
-Phase 2 fan-out — reviewer + adversary (parallel, depth-1, findings-only):
-  Launch agent type=reviewer with /contract-review.
-    Three positive lenses (architecture, design, security).
+Phase 4 — review (fan-out):
+  Same reviewer from Phase 2 runs /review (warm on design/arch context).
+    Three positive lenses (architecture, design, security) + AC completeness.
     Design lens skipped silently if no UI files.
-  Launch agent type=adversary with /adversary-scan.
+    Emits DONE | NOT DONE with AC table + findings.
+  Launch fresh agent type=adversary with /adversary-review.
     Three negative lenses (adversarial, simplification, slop).
+  Reviewer and adversary run in parallel.
 
-Phase 2 fix — builder:
-  Launch agent type=builder with /apply-review (fan-out findings).
-  Commits + pushes applied fixes.
+  Builder applies findings from both reviews; commits + pushes;
+  runs bun run verify.
 
-Phase 3 — researcher (Cold DoD):
-  Launch agent type=researcher with /check-definition-of-done.
-  Fresh context. Reads gh pr view + the spec + the plan.
-  Emits APPROVED | BLOCKED with an AC table.
-  If BLOCKED → back to Phase 2 (max 3 attempts per story).
-  If APPROVED and PIPELINE_AB_MODE != 1 → flip draft PR ready
-  (gh pr ready). In AB mode, leave the PR draft.
+  Gate: if reviewer verdict is NOT DONE → back to Phase 3 (max 3 attempts).
+  If DONE and PIPELINE_AB_MODE != 1 → flip draft PR ready (gh pr ready).
+  In AB mode, leave the PR draft.
 
-Phase 4 — researcher (retro):
+Phase 5 — researcher (retro):
   Launch agent type=researcher with /retro.
   Writes docs/retro/<id>.md with cost signals the A/B harness reads.
 ```
 
 ### Loop rules
 
-- If Builder raises BLOCKER: surface to Designer for plan amendment, then re-enter Phase 2. Max 3 attempts per story.
-- If Researcher's DoD blocks: re-enter Phase 2 to fix the cited gaps. Max 3 attempts per story.
+- If Builder raises BLOCKER: surface to Designer for plan amendment, then re-enter Phase 3. Max 3 attempts per story.
+- If Reviewer verdict is NOT DONE: re-enter Phase 3 to fix the cited gaps. Max 3 attempts per story.
 - If CI fails after a Builder push: Builder fixes locally and pushes again. Max 3 attempts per push series.
-- If Designer's critique act (`/design-critique` or `/architecture-critique`) fails to reach ≥7 after the cap: pause, mark `blocked` with reason `concept-or-spec-misalignment`. The concept itself may need upstream `/concept` work.
+- If Reviewer's critique (`/design-critique` or `/architecture-critique`) fails to reach ≥7 after the cap: pause, mark `blocked` with reason `concept-or-spec-misalignment`. The concept itself may need upstream `/concept` work.
 
-After Phase 4: set status to `done`. Move to next story.
+After Phase 5: set status to `done`. Move to next story.
 
 ---
 
@@ -194,15 +198,15 @@ After Phase 4: set status to `done`. Move to next story.
 
 ### Adversarial principle preserved
 
-Author / critic boundaries that matter live as either (a) **separate cognitive-mode acts within the Designer session** — production (`/design`, `/architecture`) then evaluation (`/design-critique`, `/architecture-critique`) as sequential skill invocations on the same warm agent, or (b) **fresh-context reviewer + adversary** launched in parallel for code review. Researcher's DoD audit enforces the one boundary that must not be inside any producer session — it reads a *live* PR, not Builder's notes about the PR.
+Author / critic boundaries are enforced by persona separation: (a) the **designer** produces (`/design`, `/architecture`) and the **reviewer** evaluates (`/design-critique`, `/architecture-critique`) — different agents, true independence; (b) the same **reviewer** later reviews the code in Phase 4, already warm on the design/architecture decisions; (c) a fresh-context **adversary** attacks the code in parallel. The reviewer's AC completeness audit enforces the one boundary that must not be inside any producer session — it reads a *live* PR against the spec, not Builder's notes about the PR.
 
-### Why critique is separate acts, not separate agents (TE-17 + cognitive-mode separation)
+### Why the reviewer does critique (not the designer)
 
-Production (`/design`, `/architecture`) and evaluation (`/design-critique`, `/architecture-critique`) are different cognitive modes — the mind that just created variants cannot objectively score them. But they run as sequential skill invocations on the same warm designer agent, not as separate cold-start sessions. This preserves the cognitive break without paying the context re-warm cost.
+The agent that created the design cannot objectively score it. Moving critique to the reviewer gives true producer/evaluator separation — different agents, not just a "cognitive mode switch" on the same agent. Bonus: the reviewer's Phase 2 context (design decisions, architecture contracts) carries into Phase 4's code review, so it arrives warm on the spec it's checking code against.
 
 ### Why /verify and /ship are gone (TE-21)
 
-`bun run verify` is the same script regardless of who invokes it; CI runs it on every push. `/ship` was a wrapper around `gh pr create` and a CI-watch loop; the worktree setup creates the draft PR up front, every persona pushes incrementally, and Cold DoD's APPROVED flips it ready.
+`bun run verify` is the same script regardless of who invokes it; CI runs it on every push. `/ship` was a wrapper around `gh pr create` and a CI-watch loop; the worktree setup creates the draft PR up front, every persona pushes incrementally, and Reviewer's DONE verdict flips it ready.
 
 ### Why /design's variant count is now conditional (TE-18)
 
@@ -212,7 +216,7 @@ Routine UI (existing component family, known layout) gets 1 variant + a "did we 
 
 ## Rules
 
-- **Never stop after planning.** Architect is Phase 1. The plan isn't done until Builder makes it real and Cold DoD approves.
+- **Never stop after planning.** Architect is Phase 1. The plan isn't done until Builder makes it real and Reviewer approves.
 - After each story, check elapsed time. If > 45 minutes, save progress and exit.
 - If context degrades (compaction), finish current story and exit.
 - Max 3 attempts per story. After 3, mark `blocked`.
@@ -220,9 +224,9 @@ Routine UI (existing component family, known layout) gets 1 variant + a "did we 
 
 **Don't rationalize skipping personas:**
 - "Concept work isn't done but I'll figure it out" → no. Fail fast with `blocked: concept-missing`; the founder runs `/concept` upstream.
-- "The plan is done, I can stop" → planning is Phase 1 of 4. You haven't built anything yet.
+- "The plan is done, I can stop" → planning is Phase 1 of 5. You haven't built anything yet.
 - "This story is simple, skip the reviewer + adversary fan-out" → simple stories have the highest skip rate and highest regression rate.
-- "Researcher's DoD is redundant, tests passed" → tests prove behavior, DoD proves the RIGHT thing was built against the spec, in *fresh context*. The boundary is the value.
+- "The reviewer is redundant, tests passed" → tests prove behavior, the reviewer proves the RIGHT thing was built against the spec, in *fresh context*. The boundary is the value.
 - "Researcher's retro is navel-gazing" → without the cost signals it emits, the A/B harness can't prove block-1b actually saved tokens, and the compound agent can't propose the next round.
 
-**When Designer can skip `/design` + `/design-critique`:** the story has no UI surface (pure backend, schema, infra, concept-doc-only). Verify by reading the AC list — if no AC mentions a page, component, layout, route on the web side, or visible state, skip both and go straight to `/architecture`. When in doubt, run `/design` with `routine` classification; one variant is cheap and the brief serves as documentation.
+**When to skip `/design` + `/design-critique`:** the story has no UI surface (pure backend, schema, infra, concept-doc-only). Verify by reading the AC list — if no AC mentions a page, component, layout, route on the web side, or visible state, Designer skips `/design` and Reviewer skips `/design-critique`. When in doubt, run `/design` with `routine` classification; one variant is cheap and the brief serves as documentation.

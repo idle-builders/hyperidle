@@ -1,6 +1,6 @@
 ---
 name: architecture-critique
-description: "Score the technical plan against the 9-dimension architectural rubric. Evaluation act — separate from production. Same designer agent, different cognitive mode."
+description: "Score the technical plan against the 9-dimension architectural rubric. Evaluation act — separate from production. Reviewer persona evaluates the designer's plan."
 argument-hint: "[workpackage-id]"
 user-invocable: true
 min_tool_calls: 8
@@ -8,15 +8,15 @@ min_tool_calls: 8
 
 # Architecture Critique
 
-**Why:** The mind that just wrote the plan cannot objectively evaluate it. Switching to evaluation mode — even within the same session — requires a deliberate cognitive break. This skill is that break.
+**Why:** The agent that wrote the plan cannot objectively evaluate it. Evaluation must be a different agent — the reviewer — reading the plan cold. True producer/evaluator separation: different personas, not just different cognitive modes.
 
-This is the **evaluation** counterpart to `/architecture` (production). Same designer agent, different cognitive mode. `/architecture` drafts the plan; `/architecture-critique` scores it. They run as sequential skill invocations — never in the same act.
+This is the **evaluation** counterpart to `/architecture` (production). The reviewer persona scores what the designer produced. `/architecture` drafts the plan; `/architecture-critique` scores it. The reviewer's context from this critique carries forward to Phase 4's code review — it arrives already knowing the plan it's checking code against.
 
-This is **not** `/contract-review`. The review skill audits the *implemented code* against the spec, after the fact. This skill audits the *plan* against the spec, before any code is written. They run at different phases and surface different classes of issues.
+This is **not** `/review`. The review skill audits the *implemented code* against the spec, after the fact. This skill audits the *plan* against the spec, before any code is written. They run at different phases and surface different classes of issues — but the same reviewer agent runs both, accumulating context.
 
 ## When This Runs
 
-- **In the pipeline:** immediately after `/architecture`, before builder's `/write-tests`. Same designer session.
+- **In the pipeline:** Phase 2, after the designer completes `/architecture`. Reviewer session.
 - **On explicit `/architecture-critique <workpackage-id>`:** full audit of the plan at `plans/<workpackage-id>/architecture.md`.
 
 ## Required Reading
@@ -155,7 +155,7 @@ The retro reads `rounds=<n>` to track plan-quality drift over time.
 
 ## Common Failure Modes Caught By This Skill
 
-These are the recurrences the compound-candidates log keeps surfacing — every one is something architecture-critique should catch in the plan, not contract-review in the code:
+These are the recurrences the compound-candidates log keeps surfacing — every one is something architecture-critique should catch in the plan, not `/review` in the code:
 
 - **CC-003 — happy-path-only ACs.** Security & abuse cases block missing or thin. Caught by Dimension 7.
 - **CC-007 — spec/codebase drift.** Plan references tables, routes, components that don't exist. Caught by reading the Plan reconciliation section against `grep` reality during scoring.

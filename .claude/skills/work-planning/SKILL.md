@@ -79,7 +79,7 @@ Append the spec at the bottom of the relevant `TRACK-<letter>.md`, with **exactl
 
 **Acceptance criteria.** A bulleted list of observable, testable statements. Phrased so a test (unit, integration, E2E, screenshot, eval) can prove each one true or false. Forbidden phrasings: "is implemented", "is well-designed", "follows best practices". Required phrasings: concrete user actions, concrete system states, concrete outputs.
 
-**Validation scenarios.** 2–4 Given/When/Then scenarios. These are the minimum the QA gate (`/check-definition-of-done`) will run. They must collectively cover every AC.
+**Validation scenarios.** 2–4 Given/When/Then scenarios. These are the minimum the QA gate (`/review`) will run. They must collectively cover every AC.
 
 **Plan calls.** One short paragraph telling `/architecture` what kind of planning this workpackage needs. Most workpackages: "Standard architecture pass — types, contracts, ordered tasks." Foundational primitives: "Multi-version exploration; design-it-twice on the data shape." Pure-backend infra: "Skip /design step; plan + write-tests + write-code." If the workpackage is concept-introducing, name the noun and point at the concept doc.
 

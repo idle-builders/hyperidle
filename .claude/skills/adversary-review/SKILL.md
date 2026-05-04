@@ -1,14 +1,14 @@
 ---
-name: adversary-scan
-description: "Read-only adversarial scan: hostile-persona review, over-abstraction, and AI slop detection. Domain knowledge for the adversary persona — all three negative lenses in one session."
+name: adversary-review
+description: "Read-only adversarial review: hostile-persona review, over-abstraction, and AI slop detection. Domain knowledge for the adversary persona — all three negative lenses in one session."
 argument-hint: "[file paths or workpackage-id]"
 user-invocable: true
 min_tool_calls: 8
 ---
 
-# Adversary Scan
+# Adversary Review
 
-Read-only scan. Produce findings — do NOT make code changes.
+Read-only review. Produce findings — do NOT make code changes.
 
 Three negative lenses, one session.
 
