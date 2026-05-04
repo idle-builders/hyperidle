@@ -10,7 +10,7 @@ Adopts the design synthesis from `docs/design-synthesis/` (Shell, Conversations,
 
 **Reference docs:** `docs/design-synthesis/ShellSynthesis.html`, `ConversationSynthesis.html`, `WorkSynthesis.html`, `KnowledgeSynthesis.html`, `docs/REVIEW_ADVERSARY_DESIGN.md`, `docs/REVIEW_ARCHITECT_DESIGN.md`.
 
-See `docs/work-packages/SHARED.md` for tech stack, shared contracts, and dependency graph.
+See `CLAUDE.md` for tech stack and `plans/work-packages/dependency-graph.md` for the dependency graph.
 
 ---
 

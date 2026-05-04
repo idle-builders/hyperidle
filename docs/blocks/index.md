@@ -26,4 +26,5 @@ This document is the load-bearing concept for Track L story L2 and the upstream 
 - [Rationale](./rationale.md)
 - [Open questions parked for `/design`](./open-questions-parked-for-design.md)
 - [Cross-references](./cross-references.md)
+- [Canonical shapes](./canonical-shapes.md)
 

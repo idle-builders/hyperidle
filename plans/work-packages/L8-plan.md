@@ -2,7 +2,7 @@
 
 **Story:** TRACK-L L8 (lines 269–294).
 **Approved design:** `plans/design-explorations/L8/approved.md` (Variant C — Blocking / Active / Resolved). 9.0/10 critique.
-**Concept inputs:** `docs/HUMAN_INTERFACE_LAYER.md` §4.5; `docs/work-packages/SHARED.md` "Thread primitive".
+**Concept inputs:** `docs/HUMAN_INTERFACE_LAYER.md` §4.5; `docs/work-packages/the canonical-shapes contracts under docs/` "Thread primitive".
 **Worktree:** `/workspace/.worktrees/L8`. **Branch:** `feat/L8-conversations-submenu-threads`.
 
 ---
@@ -13,7 +13,7 @@ Six branches walked; the live ones answered explicitly. The rest accepted from a
 
 1. **Smallest useful version?** Replace static entries in `AppShell.tsx:39-44` with a real query against `GET /api/threads`. Section into Blocking / Active / Resolved per design. Lift selected-thread id. **In scope.** Building a `useThreads` hook, routing changes, deep-link search-param plumbing — **out of scope** (L9 / L10 own those).
 
-2. **Where should `blocking` and `hasUnresolvedReview` come from?** SHARED.md says `blocking` is *derived*. `Thread` (from `@hyperidle/shared/thread.ts`) does not carry it; `isBlocking` needs `messages[]` + `agentSessionState`. The list endpoint returns only thread rows. **Architect call:** for L8, derive `hasUnresolvedReview` and `blocking` *client-side from a per-thread headMessageId hint shipped on the list row*. The server already computes `headMessageId` for the detail endpoint via `headCollapsePredicate`. We extend the list response shape with two derived booleans only — no schema migration. See §3 for the contract; see §10 for the alternative we rejected.
+2. **Where should `blocking` and `hasUnresolvedReview` come from?** the canonical-shapes contracts under docs/ says `blocking` is *derived*. `Thread` (from `@hyperidle/shared/thread.ts`) does not carry it; `isBlocking` needs `messages[]` + `agentSessionState`. The list endpoint returns only thread rows. **Architect call:** for L8, derive `hasUnresolvedReview` and `blocking` *client-side from a per-thread headMessageId hint shipped on the list row*. The server already computes `headMessageId` for the detail endpoint via `headCollapsePredicate`. We extend the list response shape with two derived booleans only — no schema migration. See §3 for the contract; see §10 for the alternative we rejected.
 
 3. **Selection plumbing (design Q11.2 — local state vs URL param)?** Approved design recommends URL search param so deep-links work. **L8 architect call: lifted local state on `AppShell`, NOT a URL param.** Rationale: the AC explicitly says "selection drives a lifted selected-thread id, NOT a route navigation". `?thread=<id>` is route-adjacent (it's a URL change) and L9 owns the one-detail-route collapse. L8 ships local state; L9 / L10 promote to URL or store as needed. Keeps L8 surgical; no breakage of L1's `?id=` query param handling on `/conversations/review`.
 
@@ -23,7 +23,7 @@ Six branches walked; the live ones answered explicitly. The rest accepted from a
 
 6. **24h boundary re-eval (design Q11.5)?** Cache `now` at the hook level; recompute when the threads list refetches. Out-of-band ticking deferred. Documented in §5.
 
-7. **CONFUSION: "L7 retro lessons"** referenced in the prompt — no `docs/retros/L7*` exists. The `L7` reference in `SHARED.md:13` is a generic retro lesson ("re-run the full e2e suite locally before push"). Combined with TRACK-L L8 ACs ("counts must match list length" + "selection drives lifted id, NOT a route navigation"), the user-prompted guard tests are the two named in the prompt: a **counts-derived-from-list** assertion and a **selection-not-routing** assertion. Both encoded in §7 protected tests. Flag for review.
+7. **CONFUSION: "L7 retro lessons"** referenced in the prompt — no `docs/retros/L7*` exists. The `L7` reference in `the canonical-shapes contracts under docs/:13` is a generic retro lesson ("re-run the full e2e suite locally before push"). Combined with TRACK-L L8 ACs ("counts must match list length" + "selection drives lifted id, NOT a route navigation"), the user-prompted guard tests are the two named in the prompt: a **counts-derived-from-list** assertion and a **selection-not-routing** assertion. Both encoded in §7 protected tests. Flag for review.
 
 ---
 
@@ -328,7 +328,7 @@ route-checklist:
       - packages/web/src/layouts/AppShell.tsx          # mounts ThreadSections in Submenu list slot
       - packages/web/src/pages/ConversationsReview.tsx # consumes lifted selectedThreadId via Outlet context
   # All other AppShell routes (/work/*, /knowledge*, /settings, *) — N/A for L8.
-  # Recurrence guard from L7 retro lesson (SHARED.md:13): listed explicitly so the architect-
+  # Recurrence guard from L7 retro lesson (the canonical-shapes contracts under docs/:13): listed explicitly so the architect-
   # review skill can assert N/A is intentional, not omitted.
 ```
 

@@ -104,7 +104,7 @@ Variant B's per-layout components win the closure-enforcement battle for the mos
 - **+4 Tier 1** (the four sub-primitives).
 - **0 new Tier 3** (delegate to existing `ArtifactView`).
 
-The SHARED.md baseline gains 8 new exports. Within the "no strict count enforced" policy, the count is justified by:
+The the canonical-shapes contracts under docs/ baseline gains 8 new exports. Within the "no strict count enforced" policy, the count is justified by:
 1. Each layout has a concrete consumer surface (Bet detail, Stack list, permalink page, review message).
 2. Each sub-primitive has documented reuse beyond L3.
 

@@ -6,7 +6,7 @@
 - Spec: `docs/work-packages/TRACK-L.md` § L11 (lines 375–405).
 - Approved design: `plans/design-explorations/L11/approved.md` (Variant B + promotion-rule pull from A + sticky-within-card pull from C). Rejection list at §11 — load-bearing; the architecture below refuses every item.
 - Visual contract: `packages/design-system/html/L11-approved/mockup.html`.
-- Concept: `docs/HUMAN_INTERFACE_LAYER.md` § 4.5 (Thread); `docs/work-packages/SHARED.md` "Thread primitive (L1)".
+- Concept: `docs/HUMAN_INTERFACE_LAYER.md` § 4.5 (Thread); `docs/work-packages/the canonical-shapes contracts under docs/` "Thread primitive (L1)".
 - L1 Thread primitive: shipped (`packages/design-system/src/{ThreadShell,ThreadHead,ThreadHostBanner,CommentRow,ReviewVerdictBar}.tsx`).
 - L3 Artifact primitive: shipped (`packages/web/src/shell/ArtifactView.tsx`, embedded "output" layout).
 
@@ -550,7 +550,7 @@ These are flagged inline as `### CONFUSION` blocks. Summarised here:
 - HTML mockup: `packages/design-system/html/L11-approved/mockup.html`.
 - Concept: `docs/HUMAN_INTERFACE_LAYER.md` § 4.5.
 - L1 plan: `docs/work-packages/L1-plan.md`.
-- L1 SHARED contract: `docs/work-packages/SHARED.md` § "Thread primitive (L1)".
+- L1 SHARED contract: `docs/work-packages/the canonical-shapes contracts under docs/` § "Thread primitive (L1)".
 - Existing canonical surface: `packages/server/src/routes/threads.ts` (lines 348–564).
 - Existing artifact primitive: `packages/web/src/shell/ArtifactView.tsx`.
 - Components being deleted: `packages/web/src/shell/ReviewHeader.tsx`, `packages/design-system/src/ReviewVerdictBar.tsx`, `packages/design-system/src/ThreadHead.tsx`.

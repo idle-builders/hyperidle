@@ -32,7 +32,7 @@ Cross-track or cross-complexity batches are NEVER dispatched. If you receive a m
 - NEVER read or write progress files for IDs you weren't given. Other agents own those.
 - The legacy `.pipeline/progress.json` is gone — do not create it.
 
-`plans/work-packages/TRACK-<letter>.md` and `plans/work-packages/SHARED.md` remain your reference for spec and dependency graph.
+`plans/work-packages/TRACK-<letter>.md` and `plans/work-packages/dependency-graph.md` remain your reference for spec and dependency graph.
 
 Record session start time.
 
@@ -48,7 +48,7 @@ cd .worktrees/<id> && bun install
 
 Then execute these steps. **Each step spawns an agent with a skill. Update `currentStep` in progress file before each step.**
 
-**Pre-condition.** The pipeline does NOT run `/concept`. Concept-locking is upstream founder work — what a Thread / Block / Artifact / Bet / Cost IS, what it ISN'T, what contracts it commits us to. Those decisions need founder input and don't fit an autonomous pipeline. Before launching the pipeline, the founder must have run `/concept <id>` for any story that introduces or reshapes a primitive — the relevant `docs/<topic>/<section>.md` file + `SHARED.md` "Shared Contracts" entry must exist. The pipeline reads them as fixed input.
+**Pre-condition.** The pipeline does NOT run `/concept`. Concept-locking is upstream founder work — what a Thread / Block / Artifact / Bet / Cost IS, what it ISN'T, what contracts it commits us to. Those decisions need founder input and don't fit an autonomous pipeline. Before launching the pipeline, the founder must have run `/concept <id>` for any story that introduces or reshapes a primitive — the relevant `docs/<topic>/<section>.md` file (including any canonical-shapes contract under `docs/`) must exist. The pipeline reads them as fixed input.
 
 If a story is dispatched to the pipeline and `/concept` work is missing for a New / Reshaped noun, **fail fast**: mark the story `blocked` with reason `concept-missing` and move on. Do not autonomously redefine concepts.
 

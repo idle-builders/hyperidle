@@ -484,7 +484,7 @@ Blocking drives ordering: blocking threads sort first in any rendered list, beca
 | **Questionnaire message** | Rich message embedding a constrained answer set + an answer slot. | form, survey |
 | **Host entity** | The entity the thread is *about* (bet / task / knowledge_item / artifact / agent / user / team / factory). | parent, owner, target |
 | **Thread configuration** | Recognisable preset of host + visibility + membership + pinning (DM, coach, feed). | thread shape, thread type, thread kind |
-| **Verdict** | The *binding* response to a review message — one of `approve`, `approve-with-comments`, `request-changes`, `edit`, `reject`. A verdict terminates the review (sets `resolvedAt` on the underlying message). The other five verdict-grammar actions in SHARED.md (`comment`, `inline-comment`, `reply`, `snooze`, `escalate`) are **review actions**, not verdicts. | decision (overloaded), action (overloaded) |
+| **Verdict** | The *binding* response to a review message — one of `approve`, `approve-with-comments`, `request-changes`, `edit`, `reject`. A verdict terminates the review (sets `resolvedAt` on the underlying message). The other five verdict-grammar actions in `docs/human-interface-layer/verdict-actions.md` (`comment`, `inline-comment`, `reply`, `snooze`, `escalate`) are **review actions**, not verdicts. | decision (overloaded), action (overloaded) |
 | **Review action** | A non-binding response to a review message. `comment`, `inline-comment`, `reply` emit a `plain` message in the thread; `snooze`, `escalate` are sidecar workflow operations (see §4.5.8 for which emit messages). | — |
 
 #### 4.5.8 Contracts
@@ -501,7 +501,7 @@ Blocking drives ordering: blocking threads sort first in any rendered list, beca
   2. Threads carry attachments — no orphan threads. Coach-style threads attach to the user themselves.
   3. Rich messages render via a typed dispatch (TypeScript discriminant exhaustiveness checked by the compiler). No untyped HTML payloads.
   4. A binding verdict is a message in the thread, not a hidden state on the review message.
-  5. Adding a new message type, a new host kind, or a new verdict-grammar action requires updating this section first — not the schema, not the renderer, not SHARED.md.
+  5. Adding a new message type, a new host kind, or a new verdict-grammar action requires updating this section first — not the schema, not the renderer, not `docs/human-interface-layer/thread-primitive.md`.
   6. `resolvedAt` is not terminal. Threads can be re-opened.
   7. Hosts cannot be hard-deleted while threads reference them; soft-archive only.
 

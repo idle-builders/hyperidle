@@ -50,7 +50,7 @@ Three new pieces, all internal to the L2 implementation. None need to be promote
 
 - **`BlockView`** — the slotted base. One file, ~10 kind-specific render branches. Source-of-truth for spacing, focus ring, hover state.
 - **`BlockHandle`** — the gutter-leading content. Renders the 6-dot grip (always) and the thread-count chip (when `threadCount > 0`). Owns its `aria-expanded` / popover toggle.
-- **`BlockActionsPopover`** — the overlay content. Receives a closed enum of action items + their enabled/disabled state. Positioning is delegated to `@floating-ui/react` (existing dep per SHARED.md UI Stack); collision strategy: `flip` to the right side of the block when the page-left edge would clip the popover.
+- **`BlockActionsPopover`** — the overlay content. Receives a closed enum of action items + their enabled/disabled state. Positioning is delegated to `@floating-ui/react` (existing dep per the canonical-shapes contracts under docs/ UI Stack); collision strategy: `flip` to the right side of the block when the page-left edge would clip the popover.
 
 Each kind's payload (`HeadingBlockView`, `ParagraphBlockView`, …) is rendered *inside* `BlockView`'s payload slot — they are not stand-alone in the slot API. This matches BLOCKS.md §7's `*BlockView` naming convention.
 

@@ -31,4 +31,5 @@ For how the human interface is designed — views, navigation, interaction gramm
 - [Implementation Sequence](./implementation-sequence.md)
 - [Summary](./summary.md)
 - [Inspirations](./inspirations.md)
+- [Canonical shapes](./canonical-shapes.md)
 

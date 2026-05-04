@@ -9,7 +9,7 @@ A coordinated upgrade of the web app's aesthetic quality and the design-system t
 
 **Reference docs:** `packages/design-system/PRINCIPLES.md`, `packages/design-system/DESIGN.md`, `packages/design-system/src/tokens.css`, `.claude/rules/design-system.md`, `.claude/rules/frontend.md`, `.claude/rules/visual-parity.md`, `.claude/skills/design-critique/SKILL.md`, `.claude/skills/slop-scan/SKILL.md` (template for a read-only scan skill).
 
-See `docs/work-packages/SHARED.md` for tech stack, shared contracts, and dependency graph.
+See `CLAUDE.md` for tech stack and `plans/work-packages/dependency-graph.md` for the dependency graph.
 
 ---
 

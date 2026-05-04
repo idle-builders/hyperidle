@@ -2,7 +2,7 @@
 
 **Worktree:** `/workspace/.worktrees/L8`. Branch `feat/L8-conversations-submenu-threads`.
 **Story:** `docs/work-packages/TRACK-L.md` lines 269–294.
-**Concept locked upstream:** Thread primitive (HIL §4.5; SHARED.md → Thread). Conversations is a *view* over threads, never their owner. Filter axis is **blocking vs non-blocking** (sync/async = same axis).
+**Concept locked upstream:** Thread primitive (HIL §4.5; the canonical-shapes contracts under docs/ → Thread). Conversations is a *view* over threads, never their owner. Filter axis is **blocking vs non-blocking** (sync/async = same axis).
 
 ---
 

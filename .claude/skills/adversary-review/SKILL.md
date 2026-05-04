@@ -12,7 +12,7 @@ Read-only review. Produce findings — do NOT make code changes.
 
 ## Required reading
 
-1. `plans/work-packages/SHARED.md` — tech stack contracts, component budget
+1. `CLAUDE.md` (tech stack) and `docs/ui-design/component-budget.md` (component budget); canonical contracts under `docs/<topic>/canonical-shapes.md`
 2. The relevant track file in `plans/work-packages/TRACK-*.md` for the story being reviewed
 3. `.claude/rules/typescript.md` — TypeScript rules the code must follow
 

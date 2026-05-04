@@ -4,7 +4,7 @@
 
 Worktree: `/Users/tobiasgrundmann/Development/hyperidle/.claude/worktrees/L1-thread-primitive` · branch `feat/L1-thread-primitive` · base HEAD `e3118ee`.
 
-Sources audited: `docs/work-packages/L1-plan.md` (1250 LOC), concept §4.5 (HUMAN_INTERFACE_LAYER.md L488-L620), `SHARED.md` (Thread primitive entry), `plans/design-explorations/L1/approved.md`, and the implementation diff `git diff main...feat/L1-thread-primitive`.
+Sources audited: `docs/work-packages/L1-plan.md` (1250 LOC), concept §4.5 (HUMAN_INTERFACE_LAYER.md L488-L620), the canonical-shapes contracts under `docs/<topic>/` (Thread primitive entry), `plans/design-explorations/L1/approved.md`, and the implementation diff `git diff main...feat/L1-thread-primitive`.
 
 ---
 
@@ -21,7 +21,7 @@ The four endpoints match plan §6.1 shapes: list (host/participant scopes; 400 o
 `packages/shared/src/thread.ts` exports `HOST_KINDS` (8 entries), `MESSAGE_TYPES` (4 entries closed at `thread.ts:29`), `VERDICT_DECISIONS` (5 entries), `ARTIFACT_KINDS` (5 entries), the `Message` discriminated union (L126-142), `Thread` interface, all five payload interfaces, the redacted variant, `headCollapsePredicate`, `isBlocking`, `classifyThreadConfiguration`, `isRedactedPayload`, `exhaustiveAssert`. **Gap (CRITICAL for AC-11):** `exhaustiveAssert` is exported but never called by any renderer. `CommentRow.tsx:65-92` uses `if/else if` chains that fall through to `null` for unhandled types — adding a 5th `MessageType` would silently render nothing, NOT trigger a TS narrowing error. The structural `_MESSAGE_TYPES_COVERED` constant in `threads-schema.ts:138-144` catches drift between the Zod discriminator and the shared union, but the renderer-side exhaustiveness promised by plan §4 ("Adding a 5th type without updating MessageType triggers a `never`-narrowing failure in the renderer") is not realized.
 
 ### 5. Spec alignment (AC traceability) — 7/10
-- AC-1 (concept-doc updates): landed in HIL §4.5.1/4.5.8 (L504, L604, L609); SHARED.md line 70; `ARCHITECTURE.md` updated. Verified.
+- AC-1 (concept-doc updates): landed in HIL §4.5.1/4.5.8 (L504, L604, L609); the canonical-shapes contracts under docs/ line 70; `ARCHITECTURE.md` updated. Verified.
 - AC-3, AC-4, AC-7: covered by `thread.test.ts:1-150` and `threads.routes.test.ts:131-181` (parametric over `HOST_KINDS`).
 - AC-8 (back-compat): the migration legacy projection path is exercised by `migration-l1.test.ts:172-206` only at the post-migration schema-write level; the actual read-back of pre-migration row content (snapshot insert + run + assert projected payload) is NOT covered. AC-8 is verified against API back-compat in `e2e/threads.spec.ts:66-82` but the e2e relies on a fixture that no harness seeds — see FMC.
 - AC-10, AC-12: covered (threads.routes.test.ts:131-271; round-trips every `MessageType`).
@@ -44,7 +44,7 @@ The shared surface is wider than any consumer needs. `classifyThreadConfiguratio
 
 **Gaps:**
 - **WS subscribe authorization (plan §6.2 + §11 row "Authorization: who can subscribe to thread:<id>"):** `WsBroadcaster.subscribe()` (`ws-broadcaster.ts:94-99`) accepts ANY topic for ANY client. There is no auth check on `thread:<id>` subscribe. The plan §6.2 specifies "Server fetches the thread on subscribe; caller.identityId ∈ thread.participants required. Otherwise replies forbidden". Plan §9 names a "WS subscribe authorization" test under threads.routes — that test does not exist in `ws-broadcaster.thread-topic.test.ts` (which only covers fanout). **A non-participant who can connect to the WebSocket can subscribe to any thread topic and receive every message append, resolution, and re-open event.** The threads route enforces auth on REST GET — but the WS channel leaks the same data unauthenticated.
-- **Error taxonomy:** the plan's reference to SHARED.md harness errors does not apply to this surface (REST endpoints, not harness). REST errors use `{error, code}` (`api-types.ts`) consistently. Acceptable.
+- **Error taxonomy:** the plan's reference to the canonical-shapes contracts under docs/ harness errors does not apply to this surface (REST endpoints, not harness). REST errors use `{error, code}` (`api-types.ts`) consistently. Acceptable.
 - **Idempotency cross-sender (plan §11):** the test at `threads.routes.test.ts:342-359` only checks one half (founder posts) — no second sender posts the same key concurrently. Test text says it does, the body does not. False-positive coverage.
 - **Migration audit query (plan §5.3 step 7):** the pre-migration audit `SELECT count(*) FROM responses LEFT JOIN ... WHERE m.id IS NULL` is documented but never run as a test assertion — `migration-l1.test.ts` only verifies post-migration shape on a fresh DB. The fallback path ("pick the most recent review message in r.item.thread_id") is neither implemented nor tested.
 

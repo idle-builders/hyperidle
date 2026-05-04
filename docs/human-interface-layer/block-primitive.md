@@ -20,6 +20,6 @@ The on-disk format remains GitHub-flavoured markdown. Agents writing into the ma
 - the verb / state "blocked" / "blocking" (workflow states from `PROCESS_LAYER.md` — task on hold or blocked, blocking review threads);
 - "Tier 2 — Blocks" above (a tier of design-system *components* like ThreadRow and BetCard — these are React widgets, not Block primitives, and the renderer components that materialise a Block on screen are named `*BlockView`).
 
-For the kind set, the BlockId stability algorithm, the rejection list, and the contracts every consumer must respect, see `docs/blocks/`. The shared type signatures live in `plans/work-packages/SHARED.md` § "Block primitive".
+For the kind set, the BlockId stability algorithm, the rejection list, and the contracts every consumer must respect, see `docs/blocks/`. The shared type signatures live in `docs/blocks/canonical-shapes.md`.
 
 See UI_DESIGN.md v0.2 for the full component tree and build order.

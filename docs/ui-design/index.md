@@ -17,4 +17,5 @@ Version 0.3 · Desktop app · Dark / Light / System (Lucid theme)
 - [Rules](./rules.md)
 - [Build order](./build-order.md)
 - [Relation to other docs](./relation-to-other-docs.md)
+- [Component budget](./component-budget.md)
 

@@ -7,7 +7,7 @@
 **Status.** Plan for **L1a**; input to `/architecture-critique`, then `/write-tests`, then `/write-code`. The L1b plan is a separate document (to be drafted post-L1a ship).
 **Sources of truth (do not re-litigate).**
 - Concept: `docs/HUMAN_INTERFACE_LAYER.md` §4.5 (4.5.1 → 4.5.10).
-- Shared contract + migration policy: `docs/work-packages/SHARED.md` (Thread primitive entry).
+- Shared contract + migration policy: `docs/work-packages/the canonical-shapes contracts under docs/` (Thread primitive entry).
 - Approved design: `plans/design-explorations/L1/approved.md` (sections 1 → 11).
 - Story scope: `docs/work-packages/TRACK-L.md` lines 23-66.
 
@@ -28,19 +28,19 @@ For each substantive question: my read + 1-2 sentence justification grounded in 
 **Justification.** TRACK-L L1 acceptance criteria (lines 31-45) require shared types + DB migration + back-compat-via-API + Vitest discriminant tests + Playwright e2e per shipping rich type + page-fixture removal. Redaction is a contract item in the migration (column + constraint) but the *operation* surface (`POST .../redact`) has no AC behind it.
 
 ### Q2 — "Back-compat preserved" vs "forward-only migration"
-**Read.** API-level back-compat, NOT row-level. Existing `MOCK_*`-fed pages re-fetch from the new endpoints and continue to render. The legacy columns (`threads.kind`, `messages.recipient_id`, `messages.subject`, `messages.body`, `messages.file_lease_ids`) are dropped on migrate; legacy rows project per the SHARED.md rules (`threads.kind='coach'` → `host_kind='user'` + pinned, `'review'`/`'chat'` → host inferred from referencing item/task, `subject`+`body` collapse into `payload.text`). The legacy `responses` table is dropped — pre-existing verdict rows project into `verdict`-payload `messages` rows.
-**Justification.** SHARED.md Thread-primitive entry, "Migration policy (L1)": forward-only, listed columns dropped, listed projections. The story's "back-compat preserved" is from the user's perspective ("existing review/chat-only data continues to load") — the read path keeps working. Rollback = revert migration; pre-migration snapshot retained for a defined retention window (decision §15-A: 30 days).
+**Read.** API-level back-compat, NOT row-level. Existing `MOCK_*`-fed pages re-fetch from the new endpoints and continue to render. The legacy columns (`threads.kind`, `messages.recipient_id`, `messages.subject`, `messages.body`, `messages.file_lease_ids`) are dropped on migrate; legacy rows project per the the canonical-shapes contracts under docs/ rules (`threads.kind='coach'` → `host_kind='user'` + pinned, `'review'`/`'chat'` → host inferred from referencing item/task, `subject`+`body` collapse into `payload.text`). The legacy `responses` table is dropped — pre-existing verdict rows project into `verdict`-payload `messages` rows.
+**Justification.** the canonical-shapes contracts under docs/ Thread-primitive entry, "Migration policy (L1)": forward-only, listed columns dropped, listed projections. The story's "back-compat preserved" is from the user's perspective ("existing review/chat-only data continues to load") — the read path keeps working. Rollback = revert migration; pre-migration snapshot retained for a defined retention window (decision §15-A: 30 days).
 
 ### Q3 — 5 binding verdicts vs. 10 verdict actions vs. no keyboard verb shortcuts
-**Read.** Three are reconciled, no contradiction. (1) **Five binding verdicts** are concept §4.5.7's "Verdict" definition (`approve`, `approve-with-comments`, `request-changes`, `edit`, `reject`) — they emit a `verdict`-typed message (closed enum entry; see Q3.1) and set `resolvedAt` on the underlying review message. (2) **Ten verdict-grammar actions** is the SHARED.md catalogue: 5 binding + 3 non-binding (`comment`, `inline-comment`, `reply` emit a `plain` message in the thread) + 2 sidecar (`snooze`, `escalate` emit no message). (3) **No keyboard verb shortcuts** — the SHORTCUTS column in the SHARED.md "10 verdict actions" line is informational legacy and is NOT implemented in L1's components. The current `PREFILL_KEYS` map in `ConversationsReview.tsx:110-116` is removed in L1's page rewrite.
-**Justification.** Concept §4.5.7 vocabulary table is explicit on the binding subset. SHARED.md keeps the 10-row table as the action vocabulary catalogue. Approved design §5 keyboard row says "NO verb shortcuts (founder-rejected)" and section 11 lists "Keyboard verb shortcuts" on the rejection list.
+**Read.** Three are reconciled, no contradiction. (1) **Five binding verdicts** are concept §4.5.7's "Verdict" definition (`approve`, `approve-with-comments`, `request-changes`, `edit`, `reject`) — they emit a `verdict`-typed message (closed enum entry; see Q3.1) and set `resolvedAt` on the underlying review message. (2) **Ten verdict-grammar actions** is the the canonical-shapes contracts under docs/ catalogue: 5 binding + 3 non-binding (`comment`, `inline-comment`, `reply` emit a `plain` message in the thread) + 2 sidecar (`snooze`, `escalate` emit no message). (3) **No keyboard verb shortcuts** — the SHORTCUTS column in the the canonical-shapes contracts under docs/ "10 verdict actions" line is informational legacy and is NOT implemented in L1's components. The current `PREFILL_KEYS` map in `ConversationsReview.tsx:110-116` is removed in L1's page rewrite.
+**Justification.** Concept §4.5.7 vocabulary table is explicit on the binding subset. the canonical-shapes contracts under docs/ keeps the 10-row table as the action vocabulary catalogue. Approved design §5 keyboard row says "NO verb shortcuts (founder-rejected)" and section 11 lists "Keyboard verb shortcuts" on the rejection list.
 
 ### Q3.1 — Adding `verdict` to the closed message-type enum (concept-doc closure rule)
 **Read.** Concept §4.5.1 line 504 enumerates `Initial set: plain, review, questionnaire`, and §4.5.8 line 604 closes the enum with the hard rule: *"Adding a new message type requires updating this section first."* The Q3 / Decision §12-B choice (adopt `verdict` as a fourth type) therefore REQUIRES a concept-doc update **as part of L1a's commit**. The plan handles this via task T0 (§13). The concept-doc diff:
 - `docs/HUMAN_INTERFACE_LAYER.md` §4.5.1 line 504 → `Initial set: plain, review, questionnaire, verdict.`
 - `docs/HUMAN_INTERFACE_LAYER.md` §4.5.8 closure rule line 604 → `Message-type vocabulary is closed: plain, review, questionnaire, verdict.`
 - `docs/HUMAN_INTERFACE_LAYER.md` §4.5.8 *Verdict semantics* paragraph: a `verdict`-type message carries `decision` (one of the 5 binding actions) AND `resolvesMessageId` pointing at the review/questionnaire message it terminates. Plain messages (the comment / inline-comment / reply non-binding actions) continue to be `type='plain'`.
-- `docs/work-packages/SHARED.md` Thread primitive entry's `Message types (closed)` line → `plain | review | questionnaire | verdict`.
+- `docs/work-packages/the canonical-shapes contracts under docs/` Thread primitive entry's `Message types (closed)` line → `plain | review | questionnaire | verdict`.
 - `docs/ARCHITECTURE.md` §2.1 messages-table comment → `type ∈ {plain, review, questionnaire, verdict}`.
 
 **Justification.** The plan's discriminated union (§4) and the renderer's exhaustiveness check (§4 / AC-11) only hold once the concept-doc closes the enum at four. Without T0 the L1a commit silently violates the §4.5.8.5 hard rule. The concept-doc itself permits in-PR concept updates when accompanied by primitive-store updates — T0 + T2 in the same commit satisfies that condition.
@@ -65,7 +65,7 @@ For each substantive question: my read + 1-2 sentence justification grounded in 
 
 ### Q8 — How is "redact" surfaced as an API operation?
 **Read.** L1 ships the column + uniqueness/immutability constraint + the projected payload schema for redacted messages. The endpoint `POST /api/threads/:id/messages/:messageId/redact` is **deferred** — design-it-twice decision §12-D resolves to defer. The architect-decided redacted-message payload shape is `{ redacted: true, redactedBy: string, redactedAt: string, reason: string }`, replacing the original payload while preserving `id/sender/type/created_at`. Storage: a new `redactedAt` column on `messages` (nullable timestamp) is the constraint surface.
-**Justification.** Concept §4.5.8 "Redaction" defines the structural rule. SHARED.md migration policy doesn't list `redactedAt` as a dropped column → it's new. Acceptance criteria (TRACK-L L1 lines 31-45) do not require a working redaction operation — they require the *contract*. Deferring to a follow-up keeps L1 in 5d.
+**Justification.** Concept §4.5.8 "Redaction" defines the structural rule. the canonical-shapes contracts under docs/ migration policy doesn't list `redactedAt` as a dropped column → it's new. Acceptance criteria (TRACK-L L1 lines 31-45) do not require a working redaction operation — they require the *contract*. Deferring to a follow-up keeps L1 in 5d.
 
 ### Q9 — `items` and `responses` in L1
 **Read.**
@@ -84,7 +84,7 @@ For each substantive question: my read + 1-2 sentence justification grounded in 
 
 | Spec assumption | Codebase reality (today) | Plan response |
 |---|---|---|
-| `threads(host_kind, host_id, initiator_id, participants[], pinned, resolved_at, last_active_at, created_at)` | `threads(id, kind, pinned, participants, created_at)` — has `kind`, lacks `host_kind`/`host_id`/`initiator_id`/`resolved_at`/`last_active_at`. | Migration adds host_kind/host_id/initiator_id/resolved_at/last_active_at; drops `kind`. Project legacy rows per SHARED.md rules. |
+| `threads(host_kind, host_id, initiator_id, participants[], pinned, resolved_at, last_active_at, created_at)` | `threads(id, kind, pinned, participants, created_at)` — has `kind`, lacks `host_kind`/`host_id`/`initiator_id`/`resolved_at`/`last_active_at`. | Migration adds host_kind/host_id/initiator_id/resolved_at/last_active_at; drops `kind`. Project legacy rows per the canonical-shapes contracts under docs/ rules. |
 | `messages(id, thread_id, sender_id, type, payload, client_key, deleted_at, redacted_at, created_at)` | `messages(id, sender_id, recipient_id, thread_id, subject, body, file_leases, created_at)` — no `type`, no `payload`, no `client_key`, no `deleted_at`, no `redacted_at`. | Migration adds type/payload (TEXT JSON)/client_key/deleted_at/redacted_at; drops recipient_id/subject/body/file_leases. Existing rows project into `type='plain'` with payload `{text: subject? + '\n' + body}`. recipient_id rolls into `threads.participants`. |
 | Closed message-type enum: `plain | review | questionnaire`. | No enum exists; type column doesn't exist. | Add `MessageType` closed string-literal union in shared; runtime check is a Zod enum at the API boundary. Discriminant exhaustiveness in TS via `never` fallthrough (see §4). |
 | Verdicts emit a `verdict`-payload message. | `responses` table records verdicts; no verdict-message concept. | **Decision §12-B:** add a fourth message type `verdict` (closed enum becomes 4: `plain | review | questionnaire | verdict`). Concept §4.5.8 hard-rule 4 mandates verdict-as-message; making it a distinct type satisfies the discriminant exhaustiveness rule cleanly. Concept §4.5.7 says "verdict" terminology refers to the *binding subset of actions* — using `verdict` as a message type matches concept usage ("emit a `verdict`-payload message", §4.5.8). |
@@ -94,7 +94,7 @@ For each substantive question: my read + 1-2 sentence justification grounded in 
 | Idempotency: unique `(thread_id, sender, client_key)`. | No idempotency on messages today. | Add unique index. Server returns existing canonical `id` on duplicate; row count in test stays 1. |
 | Audit invariant: messages immutable after persistence; soft-delete via `deleted_at`. | No `deleted_at` column; rows are mutable through Drizzle. | Add `deleted_at` (nullable text ISO). Server endpoints never expose update-message; only soft-delete + redact endpoints (the latter deferred per Q8). |
 | Server-authoritative; every write emits an event. | `routes/conversations.ts` emits `item_created` and `response_recorded` today. | Replace with the new event types: `thread_created`, `thread_message_appended`, `thread_resolved`, `thread_archived`. Keep the legacy events firing in parallel for one release for downstream subscribers (`Knowledge Fabric`, `Harness Adapter`) until those subscribers move; tracked in retro/upgrade. |
-| WebSocket push contract: `_event: 'update' \| 'delete'`. | `WsBroadcaster` broadcasts events by topic (`'conversations'`, `'work'`, `'rail'`). | Add topic `'thread:<id>'` (per-thread channel — Decision §12-C). Keep the existing `'conversations'` topic firing thread-list events. The shape stays per SHARED.md WebSocket contract. |
+| WebSocket push contract: `_event: 'update' \| 'delete'`. | `WsBroadcaster` broadcasts events by topic (`'conversations'`, `'work'`, `'rail'`). | Add topic `'thread:<id>'` (per-thread channel — Decision §12-C). Keep the existing `'conversations'` topic firing thread-list events. The shape stays per the canonical-shapes contracts under docs/ WebSocket contract. |
 | L1 components in design system. | DS has 14 existing components. Tests + stories per component required. | New files in `packages/design-system/src/`: ThreadHostBanner, ThreadHead, ReviewVerdictBar, QuestionnaireAnswerBar, CommentRow, Composer, ThreadShell. Each gets a `.tsx`, `.stories.tsx`, `__tests__/<name>.test.tsx`, and a corresponding `.html` reference in `packages/design-system/html/`. |
 | Page-local fixtures removed. | `MockReviewItem` `MockThread` `MockBetComment` exist verbatim per spec. | Replace with real `GET /api/threads/:id` (or `GET /api/threads?host_kind=bet&host_id=X` for WorkBet) + `<ThreadShell>` mount. |
 | Thread sort order: `(host_kind, host_id, last_active_at DESC)` for thread list per host; blocking-first for global queue. | Existing `routes/conversations.ts` sorts by `recency` or `attention_score` (joins `items.attention_score`). | New endpoint sorts blocking-first (server applies `isBlocking` predicate to a window of recent threads), then `last_active_at DESC`. The `attention_score` sort is L8/L9 territory and stays untouched on the legacy endpoint. |
@@ -105,7 +105,7 @@ For each substantive question: my read + 1-2 sentence justification grounded in 
 
 Restated from `TRACK-L.md` lines 31-45. Each AC has a numbered identifier and a concrete verification method.
 
-- **AC-1 — Concept-doc updates landed.** HIL §4.5 (4.5.1 → 4.5.10) is present and stable; ARCHITECTURE.md §2.1 references the new schema; AGENT_LAYER.md vocabulary note + SHARED.md Thread-primitive entry exist.
+- **AC-1 — Concept-doc updates landed.** HIL §4.5 (4.5.1 → 4.5.10) is present and stable; ARCHITECTURE.md §2.1 references the new schema; AGENT_LAYER.md vocabulary note + the canonical-shapes contracts under docs/ Thread-primitive entry exist.
   - **Verify.** `git diff --stat` against the L1 base shows the four files. A doc-anchor sweep (manual grep for `§4.5.1` … `§4.5.10`) resolves. No conflicts vs the locked design.
 - **AC-2 — Configurations are described, not enumerated.** No type, no enum, no schema column for "DM"/"coach"/"feed".
   - **Verify.** Grep `packages/shared/src/` and `packages/db/src/` for `'coach'|'feed'|'dm'` returns zero hits. HIL §4.5.2 documents them as recognised patterns.
@@ -113,14 +113,14 @@ Restated from `TRACK-L.md` lines 31-45. Each AC has a numbered identifier and a 
   - **Verify.** Vitest unit: round-trip a thread with each `host_kind`. Concept §4.5.4 anchor stays.
 - **AC-4 — Message vocabulary defined.** Closed enum: `plain | review | questionnaire | verdict`.
   - **Verify.** `MessageType` exported from `@hyperidle/shared`. TS exhaustiveness test (a switch statement that returns a `never` fallthrough — compiles only when all cases are listed). Vitest assertion that `MESSAGE_TYPES` length = 4.
-- **AC-5 — SHARED.md contracts in sync.** SHARED.md "Thread primitive" matches HIL §4.5.
+- **AC-5 — the canonical-shapes contracts under docs/ contracts in sync.** the canonical-shapes contracts under docs/ "Thread primitive" matches HIL §4.5.
   - **Verify.** Manual diff during plan adoption.
 - **AC-6 — Shared implementation matches concept.** Types in `@hyperidle/shared`, schema in `@hyperidle/db`, components in `@hyperidle/design-system`, all enforce the closure rules and the audit invariant.
   - **Verify.** TS compile (`bun run check`) green with `--noUnusedLocals` etc. Drizzle schema infers row types that match the shared types (compile check via shared module re-exporting from `@hyperidle/db`).
 - **AC-7 — Threads attach to any host entity.** All 8 host kinds round-trip.
   - **Verify.** Vitest server integration: parametric over `HOST_KINDS`, `POST /api/threads` + `GET /api/threads?host_kind=<k>&host_id=<id>` returns the row.
 - **AC-8 — Existing review/chat-only data continues to load.** API back-compat at the `/api/threads/:id` endpoint for any thread that had been a `kind='review'` or `kind='chat'` before migration.
-  - **Verify.** Vitest server integration with a fixture pre-migration row (`packages/db/__tests__/migration-l1.test.ts`); after migration, `GET /api/threads/:id` returns a `host_kind` + `host_id` projection per the SHARED.md rules. Plus: a separate Playwright e2e against `ConversationsReview.tsx` loading the same fixture renders the messages.
+  - **Verify.** Vitest server integration with a fixture pre-migration row (`packages/db/__tests__/migration-l1.test.ts`); after migration, `GET /api/threads/:id` returns a `host_kind` + `host_id` projection per the the canonical-shapes contracts under docs/ rules. Plus: a separate Playwright e2e against `ConversationsReview.tsx` loading the same fixture renders the messages.
 - **AC-9 — Page-local fixture types removed.** `MockReviewItem` (`ConversationsReview.tsx:22-33`), `MockThread` (`ConversationsChat.tsx:14-32`), `MockBetComment` (`WorkBet.tsx:24-28`) all gone.
   - **Verify.** `git grep -nE 'Mock(ReviewItem|Thread|BetComment)' packages/web/src/pages/` returns zero outside `__tests__/` and `*.stories.tsx`. Existing page-level tests `ConversationsReview.test.tsx`, `ConversationsChat.test.tsx`, `WorkBet.*.test.tsx` either continue to pass against the new fetch-based render path (with `msw` stubbing the new endpoints) or are explicitly listed in `protectedTests:` (§16) — which they are not (these tests' assertions are about UI, and the UI changes meaningfully in L1).
 - **AC-10 — System lists/fetches/creates.** `GET /api/threads`, `GET /api/threads/:id`, `POST /api/threads`, `POST /api/threads/:id/messages` all functional.
@@ -387,7 +387,7 @@ export const messages = sqliteTable('messages', {
 | Object | Reason |
 |---|---|
 | `threads.kind` column | Replaced by `host_kind` (concept §4.5 closure rule). |
-| `messages.recipient_id` | Folded into `threads.participants` (SHARED.md migration policy). |
+| `messages.recipient_id` | Folded into `threads.participants` (the canonical-shapes contracts under docs/ migration policy). |
 | `messages.subject` | Folded into `payload.text` for `type='plain'`. |
 | `messages.body` | Folded into `payload.text`. |
 | `messages.file_lease_ids` | No replacement in L1; file leases attach via `payload.refs[*]` in a future story. Existing rows preserve the value in `payload._legacy_file_leases` (string array) for the rollback window. |
@@ -400,13 +400,13 @@ The original ordering set every legacy message to `type='plain'` BEFORE attempti
 1. **Snapshot** `threads`, `messages`, `items`, `responses` to `_l1_snapshot_*` tables (same database, separate names) — retention 30 days post-merge (decision §15-A). Source of the rollback artifact.
 2. **Add new columns** to `threads`: `host_kind`, `host_id`, `initiator_id`, `resolved_at`, `last_active_at` (all nullable initially).
 3. **Add new columns** to `messages`: `type`, `payload`, `client_key`, `deleted_at`, `redacted_at`, `resolved_at`, **`legacy_item_id`** (all nullable initially). The `legacy_item_id` column is a `// migration-only` audit column: NOT NULL on rows generated FROM the migration (each legacy `messages` row is tagged with the `items.id` it corresponds to); NULL on every new row created post-migration. The column survives in the schema with a comment noting it is read-only audit metadata; a follow-up DB-cleanup story (post-snapshot-retention) may drop it.
-4. **Backfill `threads`**: for every row, project `host_kind`/`host_id`/`initiator_id`/`last_active_at` per the SHARED.md rules. `initiator_id` derived from the first message's `sender_id` (deterministic by `created_at` ASC). `last_active_at` = MAX(messages.created_at).
+4. **Backfill `threads`**: for every row, project `host_kind`/`host_id`/`initiator_id`/`last_active_at` per the the canonical-shapes contracts under docs/ rules. `initiator_id` derived from the first message's `sender_id` (deterministic by `created_at` ASC). `last_active_at` = MAX(messages.created_at).
 5. **Backfill `messages.type` based on legacy data** (was: previously this step set every message to `'plain'`):
    - For each legacy `messages` row, look up the `items` row that *references the same thread*: `SELECT * FROM items WHERE thread_id = m.thread_id AND created_at <= m.created_at ORDER BY created_at DESC LIMIT 1`. If exactly one matching item exists with `kind='review'`, set `m.type='review'`, `m.payload = JSON{ title: items.title, reasoning: split_to_lines(items.body), artifactRef: { id: items.artifact_id, kind: items.artifact_kind } }`, `m.legacy_item_id = items.id`.
    - If the matching item exists with `kind='questionnaire'` (current code may not have this kind; if so, the branch is a no-op), set `m.type='questionnaire'` analogously. Audit query in T4 confirms zero questionnaire rows in current data.
    - Otherwise (no matching item, or an item with a non-review kind), set `m.type='plain'`, `m.payload = JSON{ text: <subject?+'\n\n'+>body }`, `m.legacy_item_id = NULL`.
    - In all cases set `m.client_key = '__l1_legacy_' || m.id` (per §14 risk row).
-6. **Backfill `threads.host_kind` + `host_id`** from the projection rules (SHARED.md). Already partially done in step 4; this step reconciles edge cases and ensures the JSON `participants` shape (sorted lex).
+6. **Backfill `threads.host_kind` + `host_id`** from the projection rules (the canonical-shapes contracts under docs/). Already partially done in step 4; this step reconciles edge cases and ensures the JSON `participants` shape (sorted lex).
 7. **Backfill verdicts from `responses`**: for each `responses` row r, look up the `messages` row whose `legacy_item_id = r.item_id` (the column populated in step 5). If exactly one row matches AND its `type='review'`, generate a synthetic `verdict`-typed `messages` row: `INSERT INTO messages (id, thread_id, sender_id, type, payload, client_key, created_at, legacy_item_id) VALUES (<new uuid>, <review.thread_id>, r.approver_id, 'verdict', JSON{ decision: r.decision, resolvesMessageId: <review.id>, note: r.feedback }, '__l1_migrate_'||r.id, r.responded_at, r.item_id)`. Set the review message's `resolved_at = r.responded_at`. Also set `threads.resolved_at = r.responded_at` for the underlying thread.
    - **Pre-migration audit query (run in T4 test before applying):** `SELECT count(*) FROM responses r LEFT JOIN messages m ON m.legacy_item_id = r.item_id WHERE m.id IS NULL` — must equal 0. If non-zero, the migration falls back to: pick the most recent `messages` row in `r.item.thread_id` with `type='review'`. The migration test in §9 covers both paths.
 8. **Add indexes**: `threads_host_idx`, `messages_thread_id_idx`, `messages_idempotency_uq`, `messages_unresolved_idx`.
@@ -539,7 +539,7 @@ Out of scope for L1 implementation (Decision §12-D). Column + constraint shippe
 WS path: existing `/ws` route (Bun WebSocket) with topic-based subscriptions per `WsBroadcaster`.
 
 - New topic: `thread:<threadId>` (per-thread channel — Decision §12-C). Clients subscribe when the user opens a thread; unsubscribe on close.
-- Event payload shape per SHARED.md: existing event JSON + `_event: 'update' | 'delete'`. Map:
+- Event payload shape per the canonical-shapes contracts under docs/: existing event JSON + `_event: 'update' | 'delete'`. Map:
   - `thread_message_appended` → broadcast on `thread:<threadId>` topic with `_event: 'update'`.
   - `thread_resolved` → broadcast with `_event: 'update'`.
   - `thread_reopened` → broadcast with `_event: 'update'`.
@@ -606,7 +606,7 @@ export interface ThreadArchivedEvent {
 }
 ```
 
-`streamId` = `threadId` so per-thread events arrive in order (SHARED.md per-stream-ordering guarantee).
+`streamId` = `threadId` so per-thread events arrive in order (the canonical-shapes contracts under docs/ per-stream-ordering guarantee).
 
 Add to `DomainEvent` union; `WsBroadcaster.start()` subscribes to all five and routes per §6.2.
 
@@ -953,13 +953,13 @@ Each task: file(s) touched, what proves it (tests from §9), dependencies (earli
      - `docs/HUMAN_INTERFACE_LAYER.md` §4.5.1 line 504 → `Initial set: plain, review, questionnaire, verdict.`
      - `docs/HUMAN_INTERFACE_LAYER.md` §4.5.8 closure rule line 604 → `Message-type vocabulary is closed: plain, review, questionnaire, verdict.`
      - `docs/HUMAN_INTERFACE_LAYER.md` §4.5.8 *Verdict semantics* paragraph: explicit relationship — a `verdict`-typed message carries `decision` (one of the 5 binding actions) AND `resolvesMessageId` pointing at the review/questionnaire it terminates.
-     - `docs/work-packages/SHARED.md` Thread primitive entry's `Message types (closed)` line.
+     - `docs/work-packages/the canonical-shapes contracts under docs/` Thread primitive entry's `Message types (closed)` line.
      - `docs/ARCHITECTURE.md` §2.1 messages-table comment.
      - `docs/AGENT_LAYER.md` vocabulary note (if present, sync with new vocabulary).
    - Proof: AC-1 git diff; the four anchors all read the new vocabulary.
    - Deps: none.
 
-1. **T1 — Concept-doc verification.** Verify HIL §4.5 + ARCHITECTURE.md §2.1 + AGENT_LAYER.md vocabulary + SHARED.md Thread-primitive entry are all consistent with this plan AND T0's edits.
+1. **T1 — Concept-doc verification.** Verify HIL §4.5 + ARCHITECTURE.md §2.1 + AGENT_LAYER.md vocabulary + the canonical-shapes contracts under docs/ Thread-primitive entry are all consistent with this plan AND T0's edits.
    - Files: same as T0 (read-only verification pass).
    - Proof: AC-1 git diff matches T0's expected changes; manual review.
    - Deps: T0.
@@ -1209,7 +1209,7 @@ protectedTests:
 - `packages/web/src/pages/ConversationsChat.tsx` (delete fixture, mount ThreadShell)
 - `packages/web/src/pages/WorkBet.tsx` (delete MockBetComment — minimal touch per §15 cut)
 - `packages/web/src/components/ThreadSections.tsx` (read host_kind, project to legacy `kind: 'review' | 'chat'` for L8 — non-breaking)
-- `docs/HUMAN_INTERFACE_LAYER.md`, `docs/ARCHITECTURE.md`, `docs/AGENT_LAYER.md`, `docs/work-packages/SHARED.md` (already aligned per T1 verification)
+- `docs/HUMAN_INTERFACE_LAYER.md`, `docs/ARCHITECTURE.md`, `docs/AGENT_LAYER.md`, `docs/work-packages/the canonical-shapes contracts under docs/` (already aligned per T1 verification)
 
 **Drops (in code).**
 - `MockReviewItem`, `MOCK_REVIEWS`, `PREFILL_KEYS` (ConversationsReview.tsx)

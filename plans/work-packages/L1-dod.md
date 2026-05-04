@@ -19,7 +19,7 @@ Surface area: `git diff --name-only main...feat/L1-thread-primitive | wc -l` →
 
 #### AC-1 — Concept-doc updates landed
 - **Status:** DONE.
-- **Evidence:** `git diff main...feat/L1-thread-primitive` touches `docs/HUMAN_INTERFACE_LAYER.md`, `docs/ARCHITECTURE.md`, `docs/AGENT_LAYER.md`, `docs/work-packages/SHARED.md`. HIL contains 12 occurrences of `§4.5` anchors. SHARED.md line 54 declares the Thread-primitive entry pointing back to HIL §4.5.
+- **Evidence:** `git diff main...feat/L1-thread-primitive` touches `docs/HUMAN_INTERFACE_LAYER.md`, `docs/ARCHITECTURE.md`, `docs/AGENT_LAYER.md`, `docs/work-packages/the canonical-shapes contracts under docs/`. HIL contains 12 occurrences of `§4.5` anchors. the canonical-shapes contracts under docs/ line 54 declares the Thread-primitive entry pointing back to HIL §4.5.
 
 #### AC-2 — DM/coach/feed are configurations, not message shapes
 - **Status:** DONE.
@@ -33,9 +33,9 @@ Surface area: `git diff --name-only main...feat/L1-thread-primitive | wc -l` →
 - **Status:** DONE (per T0 / step 9, `verdict` was closed in as the 4th type).
 - **Evidence:** `packages/shared/src/thread.ts:29` declares the closed enum. `packages/shared/src/__tests__/message-types.test.ts:39-42` asserts `MESSAGE_TYPES.length === 4` and the sorted membership matches `{plain, questionnaire, review, verdict}`. 6/6 vitest cases pass.
 
-#### AC-5 — SHARED.md contracts in sync
+#### AC-5 — the canonical-shapes contracts under docs/ contracts in sync
 - **Status:** DONE.
-- **Evidence:** SHARED.md:54 cross-references HIL §4.5 and re-states the closed enum; concept doc and shared schema agree.
+- **Evidence:** the canonical-shapes contracts under docs/:54 cross-references HIL §4.5 and re-states the closed enum; concept doc and shared schema agree.
 
 #### AC-6 — Shared implementation matches concept contract
 - **Status:** DONE.
@@ -188,11 +188,11 @@ The fabric `file-watcher.test.ts:472` failure observed in Run 1 (`expected items
 
 | AC | Loop 1 status | Loop 2 status | Notes |
 |---|---|---|---|
-| AC-1 (concept-doc updates) | DONE | **DONE** (no regression) | HIL §4.5 + 12 anchor occurrences intact; SHARED.md:54 still correct. |
+| AC-1 (concept-doc updates) | DONE | **DONE** (no regression) | HIL §4.5 + 12 anchor occurrences intact; the canonical-shapes contracts under docs/:54 still correct. |
 | AC-2 (DM/coach/feed are configurations) | DONE | **DONE** | 0 grep hits for `'coach'/'feed'/'dm'`; `MESSAGE_TYPES` is `["plain","review","questionnaire","verdict"]`. |
 | AC-3 (cross-area attachment contract) | DONE | **DONE** | `HOST_KINDS` × 8; round-tripped per host kind. |
 | AC-4 (message vocabulary) | DONE | **DONE** | Closed enum; `_MESSAGE_TYPES_COVERED` structural drift guard. |
-| AC-5 (SHARED.md sync) | DONE | **DONE**. |
+| AC-5 (the canonical-shapes contracts under docs/ sync) | DONE | **DONE**. |
 | AC-6 (shared impl matches contract) | DONE | **DONE** — `bun run check` 0 errors. |
 | AC-7 (threads attach to any host) | DONE | **DONE** — 8/8 host kinds round-trip in routes test. |
 | AC-8 (back-compat) | PARTIAL | **DONE** — Playwright `back-compat` case at `threads.spec.ts:290` now passes; `migration-l1.test.ts:172-206` already covered the schema half. The previously-flagged "no e2e for back-compat read-back" gap is closed. |
@@ -285,7 +285,7 @@ One more loop. The implementation, schema, migration, e2e, lint, and types are a
 | AC-2 (DM/coach/feed are configurations) | DONE | **DONE** | `MESSAGE_TYPES` closed; 0 grep hits for legacy vocab. |
 | AC-3 (cross-area attachment contract) | DONE | **DONE** | `HOST_KINDS` × 8 round-trip in routes test. |
 | AC-4 (message vocabulary) | DONE | **DONE** | Closed enum; structural drift guard. |
-| AC-5 (SHARED.md sync) | DONE | **DONE** | |
+| AC-5 (the canonical-shapes contracts under docs/ sync) | DONE | **DONE** | |
 | AC-6 (shared impl matches contract) | DONE | **DONE** | `bun run check` clean. |
 | AC-7 (threads attach to any host) | DONE | **DONE** | 8/8 host kinds. |
 | AC-8 (back-compat) | DONE | **DONE** | Schema (`migration-l1.test.ts`) + e2e (`back-compat` case) both green. |

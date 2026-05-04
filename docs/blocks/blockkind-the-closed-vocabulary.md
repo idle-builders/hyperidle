@@ -1,6 +1,6 @@
 ## 6. BlockKind — the closed vocabulary
 
-The `BlockKind` set is **closed**. Adding a new kind requires updating this document first, then SHARED.md, then the consumers. The set ships with **nine content kinds plus an `unknown` sentinel** (ten total), picked to cover the existing GitHub-flavoured markdown the project already uses in pitches and knowledge bodies:
+The `BlockKind` set is **closed**. Adding a new kind requires updating this document first, then `docs/blocks/canonical-shapes.md`, then the consumers. The set ships with **nine content kinds plus an `unknown` sentinel** (ten total), picked to cover the existing GitHub-flavoured markdown the project already uses in pitches and knowledge bodies:
 
 | Kind | Description | Example markdown |
 |---|---|---|

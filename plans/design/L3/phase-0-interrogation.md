@@ -2,7 +2,7 @@
 
 **Step.** /design Phase 0 — propose-and-commit interrogation. No further input requested; decisions made and recorded here for the variant briefs.
 
-**Concept lock.** `docs/concept/HUMAN_INTERFACE_LAYER.md` §4.5; `docs/work-packages/SHARED.md` "Artifact primitive (L3)".
+**Concept lock.** `docs/concept/HUMAN_INTERFACE_LAYER.md` §4.5; `docs/work-packages/the canonical-shapes contracts under docs/` "Artifact primitive (L3)".
 
 ---
 
@@ -10,7 +10,7 @@
 
 A persistent record that a Task produced something. The visual job: let a human recognise *what was made*, *who made it (which Task)*, *what it cost*, *when*, and (when discussion exists) *that it has discussion* — without opening it. The Artifact view family is the closed set of four layouts that wrap the same canonical shape for four different consumer surfaces.
 
-Locked shape (from SHARED.md):
+Locked shape (from the canonical-shapes contracts under docs/):
 ```
 Artifact { id, producing_task_id, kind, preview, cost_from_session, created_at }
 ```
@@ -136,13 +136,13 @@ From AESTHETICS.md AQ-101..AQ-113, especially:
 
 ## 10. Component-budget cost (per variant, before reuse)
 
-The current baseline (SHARED.md "UI Stack & Component Budget") lists `ArtifactView` already. The L3 primitive adds new components on top. Counting:
+The current baseline (the canonical-shapes contracts under docs/ "UI Stack & Component Budget") lists `ArtifactView` already. The L3 primitive adds new components on top. Counting:
 
 - **Variant A:** +1 (`Artifact`).
 - **Variant B:** +4 (`ArtifactGalleryCard`, `ArtifactStackItem`, `ArtifactPreview`, `ArtifactEmbed`) + 4 internal sub-primitives (counted as private to L3, not budget items if sealed) = +4 to budget.
 - **Variant C:** +1 (`ArtifactSurface`) + N consumer compositions (zero net budget if compositions are inline at call sites).
 
-The budget is no longer strictly capped (per SHARED.md "No strict count enforced"), so cost is a tiebreaker, not a gate. But Variant A's +1 is preferred by the principle "create new components only when necessary".
+The budget is no longer strictly capped (per the canonical-shapes contracts under docs/ "No strict count enforced"), so cost is a tiebreaker, not a gate. But Variant A's +1 is preferred by the principle "create new components only when necessary".
 
 ---
 

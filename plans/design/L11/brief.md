@@ -44,7 +44,7 @@ The L1-approved design currently mounts `ThreadHead` for the substance message a
 
 ## 4. The hard constraints (non-negotiable)
 
-From the story spec + the SHARED.md contract + the founder filter:
+From the story spec + the the canonical-shapes contracts under docs/ contract + the founder filter:
 
 - **Inline placement is non-negotiable.** Founder direction: *"ThreadActionBar inline with the messages, not on top — it's part of the thread."*
 - **No separate action-bar component.** The verdict/answer buttons render inside the message that owns the decision.
@@ -132,7 +132,7 @@ Mobile renders Conversations as a single tab. The rich message must work in a 36
 - L1 Thread concept: `docs/concept/HUMAN_INTERFACE_LAYER.md` § 4.5.
 - L1 approved design: `docs/design-explorations/L1/approved.md`.
 - L3 Artifact spec: `docs/work-packages/TRACK-L.md` § L3.
-- SHARED.md Thread contract: `docs/work-packages/SHARED.md` § "Thread primitive (L1)".
+- the canonical-shapes contracts under docs/ Thread contract: `docs/work-packages/the canonical-shapes contracts under docs/` § "Thread primitive (L1)".
 - Existing Thread primitives: `packages/design-system/html/ThreadShell.html` / `CommentRow.html` / `ReviewVerdictBar.html`.
 - Existing artifact renderer: `packages/web/src/shell/ArtifactView.tsx`.
 - The thing being deleted: `packages/web/src/shell/ReviewHeader.tsx:145-273`.

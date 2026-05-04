@@ -5,7 +5,7 @@
 **Plan.** `docs/architecture-plans/L3.md`
 **Critique.** `docs/architecture-plans/L3-critique.md`
 **Concept.** `docs/concept/HUMAN_INTERFACE_LAYER.md` §4.5
-**Shared contract.** `docs/work-packages/SHARED.md`
+**Shared contract.** `docs/work-packages/the canonical-shapes contracts under docs/`
 
 This review checks the **shipped code** against the **architecture plan** that was scored 8.6/10. It is **not** a re-score of the plan. Different from `/architecture-critique` (Step 4) which reviewed the document.
 
@@ -49,7 +49,7 @@ Add `packages/server/src/services/__tests__/createArtifact.test.ts` per plan §6
 **File.** `packages/server/src/routes/artifacts.ts:160` — `createArtifactRoutes(db: HyperIdleDb)`. No `eventBus` parameter; no emission.
 **Plan reference.** L3.md §5.5 ("Three events emitted") — `artifact_created`, `artifact_preview_settled`, `artifact_cost_settled`, with payload shapes and per-stream ordering keyed on `producingTaskId`. §6.3 mounts the route as `api.route("/artifacts", createArtifactRoutes(options.db, eventBus))`. The slop scan flagged this (M5: "EventBus parameter accepted then ignored") — the apply-review pass appears to have *removed* the unused parameter rather than wire it.
 **Found.** `app.ts:266` mounts as `api.route("/artifacts", createArtifactRoutes(options.db))` — no eventBus passed. No `eventBus.emit("artifact_*", ...)` call in any route handler.
-**Why blocker.** The plan committed three events as part of the contract for downstream consumers. Without them: notifications (G-track) cannot subscribe to artifact lifecycle; observability (H-track) cannot trace artifact creation; the WebSocket push contract (`SHARED.md` line 44) loses parity for artifacts. Drops a whole forward-compat hook the plan promised.
+**Why blocker.** The plan committed three events as part of the contract for downstream consumers. Without them: notifications (G-track) cannot subscribe to artifact lifecycle; observability (H-track) cannot trace artifact creation; the WebSocket push contract (the canonical-shapes contracts under `docs/<topic>/` line 44) loses parity for artifacts. Drops a whole forward-compat hook the plan promised.
 **Fix suggestion.** Reinstate the `eventBus` parameter (typed, not underscored) on `createArtifactRoutes`. Emit the three events from the service-layer extraction (B2). Update `app.ts` to pass `eventBus`. Add an `events.ts` entry in `@hyperidle/shared` for the three event types so other packages can subscribe with type safety.
 
 ---
@@ -74,7 +74,7 @@ Import `ArtifactPermalink` at the top.
 **Plan reference.** L3.md §3.5 + §6.2 names `getArtifactViewProps` as an export from `packages/shared/src/types/artifact.ts`; §10 Q4 made the type-lift to `packages/shared/src/types/artifact-view.ts` an explicit step-1 mitigation for the Q4 layer-violation concern (verified at adversary finding A2). §12 lists the protected test `getArtifactViewProps-mapping-exhaustive`.
 **Found.** The simplification scan H1 explicitly **removed** `getArtifactViewProps` ("70-line layer used by exactly one caller … saves ~70 LOC"). Inspection of `packages/shared/src/types/artifact.ts` confirms only `summarizePreview` and `artifactDisplayTitle` remain. The exhaustive-mapping test the plan promised does not exist.
 **Why major.** Two consequences:
-1. The plan's L11 forward-compat path was: rich review messages embed an Artifact via `ArtifactEmbed`, which calls `getArtifactViewProps(artifact)` to dispatch into the 5 `ArtifactView` shapes (per SHARED.md "5 ArtifactView shapes"). Today `ArtifactEmbed` calls `summarizePreview` and renders a single string. When L11 lands and needs to render the *visual_comparison* shape inline, the dispatch layer is missing.
+1. The plan's L11 forward-compat path was: rich review messages embed an Artifact via `ArtifactEmbed`, which calls `getArtifactViewProps(artifact)` to dispatch into the 5 `ArtifactView` shapes (per the canonical-shapes contracts under docs/ "5 ArtifactView shapes"). Today `ArtifactEmbed` calls `summarizePreview` and renders a single string. When L11 lands and needs to render the *visual_comparison* shape inline, the dispatch layer is missing.
 2. The simplification scan's argument ("only one consumer") was reasonable for the L3 standalone surface — but it conflated current usage with the documented L11 forward-compat. The decision to delete should have been coordinated with the plan's reconciliation table (§13 row "L11 forward-compat (rich review messages embed artifact)").
 
 This is a **legitimate disagreement** between simplification (delete the unused layer) and forward-compat (keep the planned dispatch layer). The plan is the canonical source for L3 — if the plan committed to this layer for L11, deletion is drift.
@@ -190,7 +190,7 @@ File: `packages/server/src/__tests__/artifacts-route.test.ts:58` and the design-
 **Status: ready.** The `threadCount: 0` constant is in place at `routes/artifacts.ts:155`; the `@lore L3 / L1 forward-compat` block at line 24 documents the future query shape. The forward-compat protected test at `artifacts-route.test.ts:204-213` asserts the type is always a number, never null. Once L1 ships `threads.attached_host_*`, the change is one query rewrite at `routes/artifacts.ts` and the forward-compat test continues to pass with non-zero counts.
 
 ### L4 (Money + TokenUsage)
-**Status: ready.** DB stores precision-safe integers (`cost_money_micros`, `cost_tokens_input`, `cost_tokens_output`). Wire shape `ArtifactCostFromSession = { money: string | null; tokens: string | null }` is published in shared. The single chokepoint `formatArtifactCost` in `packages/shared/src/format/artifact-cost.ts:25-32` is the only place that translates DB → wire — when L4 ships, replace this function with the L4 type constructors. SHARED.md publishes the contract. **Watch-out: PG schema uses `integer` not `bigint` (m7); fix before L4 lands real workloads.**
+**Status: ready.** DB stores precision-safe integers (`cost_money_micros`, `cost_tokens_input`, `cost_tokens_output`). Wire shape `ArtifactCostFromSession = { money: string | null; tokens: string | null }` is published in shared. The single chokepoint `formatArtifactCost` in `packages/shared/src/format/artifact-cost.ts:25-32` is the only place that translates DB → wire — when L4 ships, replace this function with the L4 type constructors. the canonical-shapes contracts under docs/ publishes the contract. **Watch-out: PG schema uses `integer` not `bigint` (m7); fix before L4 lands real workloads.**
 
 ### L11 (rich review messages embed artifact)
 **Status: at risk.** The `ArtifactEmbed` component is built and exports a clean wire-shape. But the planned dispatch helper `getArtifactViewProps` was deleted in the simplification pass (M2). When L11 needs to render the 5 `ArtifactView` shapes inline, the dispatch layer must be re-introduced. Reinstate or update the plan to absorb this drift.

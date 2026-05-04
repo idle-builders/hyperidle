@@ -1,6 +1,6 @@
 /**
  * L2 Block primitive types. Concept: docs/blocks/.
- * SHARED.md § "Block primitive (L2)" is the canonical signature.
+ * docs/blocks/canonical-shapes.md is the canonical signature.
  */
 
 export const BLOCK_KINDS = [

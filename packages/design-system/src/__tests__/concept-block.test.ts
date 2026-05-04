@@ -1,5 +1,5 @@
 /**
- * L2 AC-1, AC-2, AC-3: concept-doc + SHARED.md presence.
+ * L2 AC-1, AC-2, AC-3: concept-doc presence.
  */
 
 import { existsSync, readFileSync } from "node:fs";
@@ -32,10 +32,10 @@ describe("concept docs presence (AC-1, AC-2, AC-3)", () => {
 		expect(hil).toContain("BLOCKS.md");
 	});
 
-	it("AC-2: SHARED.md carries the canonical block-type signatures", () => {
-		const shared = readPlan("work-packages/SHARED.md");
-		expect(shared).toMatch(/type BlockKind/);
-		expect(shared).toMatch(/function deriveBlocks/);
+	it("AC-2: docs/blocks/canonical-shapes.md carries the canonical block-type signatures", () => {
+		const shapes = readDoc("blocks/canonical-shapes.md");
+		expect(shapes).toMatch(/type BlockKind/);
+		expect(shapes).toMatch(/function deriveBlocks/);
 	});
 
 	it("AC-3: improvements-work.md cross-references block ids (#5)", () => {
