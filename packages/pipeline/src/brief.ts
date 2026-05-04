@@ -121,8 +121,9 @@ function normalizeMemory(raw: Record<string, unknown>): MemoryData {
 		spec: { headline: "", acs: [] },
 	};
 	const plan = (raw.plan as Partial<MemoryData["plan"]> | undefined) ?? {};
-	const priorPersona =
-		(raw.priorPersona as MemoryData["priorPersona"] | undefined) ?? { headline: "" };
+	const priorPersona = (raw.priorPersona as MemoryData["priorPersona"] | undefined) ?? {
+		headline: "",
+	};
 	return {
 		story: {
 			id: story.id ?? "",
@@ -176,11 +177,7 @@ export function writePrefetch(
 	return p;
 }
 
-export function readPrefetch(
-	cwd: string,
-	storyId: string,
-	persona: string,
-): PrefetchData | null {
+export function readPrefetch(cwd: string, storyId: string, persona: string): PrefetchData | null {
 	const p = prefetchPath(cwd, storyId, persona);
 	if (!existsSync(p)) return null;
 	const raw = decode(readFileSync(p, "utf-8")) as Record<string, unknown>;
@@ -271,9 +268,7 @@ export function formatAdversarialContext(input: AdversarialContextInput): string
 		const paths = input.brief.artifactPaths.length
 			? input.brief.artifactPaths.map((p) => `- ${p}`).join("\n")
 			: "(none)";
-		sections.push(
-			`## Raw artifacts to read (do NOT trust producer summaries):\n${paths}`,
-		);
+		sections.push(`## Raw artifacts to read (do NOT trust producer summaries):\n${paths}`);
 	}
 	return sections.join("\n\n");
 }
