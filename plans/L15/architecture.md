@@ -174,6 +174,19 @@ Removing `Kanban.keyboard-drag.test.tsx` is correct: the drag flow it tests no l
 |---|---|---|
 | `Kanban` exports `COLUMN_TO_STATE` with `{ planned: "accepted", in_progress: "in_progress", blocked: "blocked", done: "done" }` (I4 K1/K2 lossy-round-trip guard) | `packages/web/src/__tests__/WorkTeam.test.tsx:73-90` | The export is being removed by design. The test exists to guard the column-key → `TaskState` translation that a drag handler performs in `WorkTeam.tsx:handleMoveTask`. With drag stripped (§A) and `handleMoveTask` deleted (§B), the export has zero callers; the inverse-mapping invariant has nothing to protect. The contract is moot — there is no longer any code path that turns a column key into a `TaskState`. |
 
+**E2E retirements (added post-CI fix):**
+
+| E2E test | File:lines | Why it goes |
+|---|---|---|
+| `KeyboardSensor activates on Space when a TaskCard wrapper is focused` | `packages/web/e2e/keyboard-and-responsive.spec.ts:84-111` | Tests `draggable-task-t1` testid that no longer exists after drag removal. The KeyboardSensor is gone from Kanban by design. |
+| `Tab → Space → ArrowRight → Space moves a task between columns (I4 DoD B2)` | `packages/web/e2e/keyboard-and-responsive.spec.ts:113-161` | Tests `data-droppable-column` attributes and keyboard-driven Kanban drag, both removed by §A. |
+
+These two tests formed the `test.describe("Kanban keyboard drag (I4 KB4)")` block. The block was deleted; the remainder of `keyboard-and-responsive.spec.ts` (Keyboard Navigation + Responsive Layout describes) is preserved.
+
+**E2E selector fix (added post-CI fix):**
+
+The `[aria-roledescription="draggable"]` assertion in `L15-task-request.spec.ts` step 2 was scoped to `[data-testid='work-team-kanban']` because Canvas (above the Kanban) retains `@dnd-kit` for bet-card drag and its draggable elements carry `aria-roledescription="draggable"` via the `useDraggable({...attributes})` spread. The architecture §A assertion spec (§§F.2 line) assumed a page-wide zero count, which was incorrect given Canvas drag is a non-goal (see §Non-goals).
+
 This retirement is the only protected-test contract L15 breaks; recording it explicitly satisfies CC-008 (silent protected-test removal regression).
 
 ## Test strategy
