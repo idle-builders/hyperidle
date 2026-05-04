@@ -1,0 +1,332 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>L15 Variant A — Minimal Menu</title>
+  <link rel="stylesheet" href="../../../../packages/design-system/html/_tokens.css" />
+  <style>
+    :root { --motion-ease: cubic-bezier(0.2, 0, 0, 1); }
+    html, body { background: var(--surface-0); color: var(--text-hi); font-family: var(--ui); }
+    body { margin: 0; padding: 24px; }
+    .board {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(260px, 1fr));
+      gap: var(--density-gap);
+    }
+    .col-head {
+      display: flex; align-items: center; gap: 8px;
+      font-size: 12px; font-weight: 600; color: var(--text-hi);
+      margin-bottom: 8px;
+    }
+    .col-count {
+      background: var(--surface-3);
+      color: var(--text-mid);
+      border-radius: var(--r-pill);
+      padding: 0 6px; font-size: 11px;
+      font-family: var(--mono);
+    }
+    .col-stack { display: flex; flex-direction: column; gap: 8px; }
+
+    /* TaskCard — copied to match production exactly */
+    .task-card {
+      position: relative;
+      background: var(--surface-4);
+      border-radius: var(--r2);
+      padding: var(--density-card-pad);
+      display: flex; flex-direction: column;
+      gap: var(--density-card-gap);
+      transition: background var(--motion-fast) var(--motion-ease);
+      max-width: 320px;
+    }
+    .task-card:hover { background: var(--surface-5); }
+    .task-card--blocked { border: 1px solid var(--danger); }
+    .task-card__title {
+      font-size: var(--density-text);
+      font-weight: 500;
+      color: var(--text-hi);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      padding-right: 24px; /* room for the trigger */
+    }
+    .task-card__meta { display: flex; align-items: center; gap: var(--density-gap); }
+    .task-card__owner { font-size: 12px; color: var(--text-hi); }
+
+    /* Status chip */
+    .status-chip {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 2px 8px; border-radius: var(--r-pill);
+      font-family: var(--mono); font-size: 11px;
+      letter-spacing: 0.05em; text-transform: uppercase;
+      font-weight: 500; line-height: 1.4; white-space: nowrap;
+    }
+    .status-chip .dot { width: 6px; height: 6px; border-radius: 50%; }
+    .status-chip--healthy { background: color-mix(in oklab, var(--ok) 14%, transparent); color: var(--ok); }
+    .status-chip--healthy .dot { background: var(--ok); }
+    .status-chip--blocked { background: color-mix(in oklab, var(--danger) 14%, transparent); color: var(--danger); }
+    .status-chip--blocked .dot { background: var(--danger); }
+    .status-chip--paused { background: color-mix(in oklab, var(--text-lo) 14%, transparent); color: var(--text-lo); }
+    .status-chip--paused .dot { background: var(--text-lo); }
+    .status-chip--behind { background: color-mix(in oklab, var(--warn) 14%, transparent); color: var(--warn); }
+    .status-chip--behind .dot { background: var(--warn); }
+
+    .tag {
+      display: inline-flex; align-items: center; gap: 4px;
+      padding: 2px 8px; border-radius: var(--r-pill);
+      font-size: 11px; font-family: var(--mono);
+      letter-spacing: 0.03em; white-space: nowrap;
+      background: var(--surface-ghost); color: var(--text-mid);
+    }
+
+    /* The signature: a 16px square trigger top-right */
+    .req-trigger {
+      position: absolute;
+      top: var(--density-card-pad);
+      right: var(--density-card-pad);
+      width: 20px; height: 20px;
+      display: inline-flex; align-items: center; justify-content: center;
+      background: transparent;
+      border: 0; border-radius: var(--r1);
+      color: var(--text-lo);
+      cursor: pointer;
+      transition: background var(--motion-fast) var(--motion-ease), color var(--motion-fast) var(--motion-ease);
+    }
+    .req-trigger:hover, .req-trigger[aria-expanded="true"] {
+      background: var(--surface-5);
+      color: var(--text-hi);
+    }
+    .req-trigger:focus-visible {
+      outline: 1px solid var(--primary);
+      outline-offset: -1px;
+    }
+    .req-trigger .dots { display: inline-flex; gap: 2px; }
+    .req-trigger .dots i {
+      width: 3px; height: 3px; background: currentColor;
+      border-radius: 50%; display: block;
+    }
+
+    /* Menu — DaisyUI dropdown shape */
+    .req-menu {
+      position: absolute;
+      top: calc(var(--density-card-pad) + 24px);
+      right: var(--density-card-pad);
+      min-width: 220px;
+      background: var(--surface-2);
+      border: 1px solid var(--border-default);
+      border-radius: var(--r2);
+      box-shadow: var(--float);
+      padding: 4px;
+      z-index: 10;
+      transform-origin: top right;
+      animation: pop var(--motion-medium) var(--motion-ease);
+    }
+    @keyframes pop {
+      from { opacity: 0; transform: translateY(-4px) scale(0.98); }
+      to   { opacity: 1; transform: translateY(0) scale(1); }
+    }
+    .req-section {
+      font-family: var(--mono); font-size: 10px;
+      letter-spacing: 0.05em; text-transform: uppercase;
+      font-weight: 500; color: var(--text-lo);
+      padding: 6px 8px 2px; line-height: 1;
+    }
+    .req-item {
+      display: flex; align-items: center; justify-content: space-between;
+      width: 100%; gap: 8px;
+      padding: 6px 8px;
+      background: transparent; border: 0;
+      color: var(--text-hi); font-size: 13px;
+      font-family: var(--ui); text-align: left;
+      border-radius: var(--r1);
+      cursor: pointer;
+      transition: background var(--motion-fast) var(--motion-ease);
+    }
+    .req-item:hover, .req-item:focus-visible {
+      background: var(--primary-dim);
+      outline: none;
+    }
+    .req-item__hint {
+      font-family: var(--mono); font-size: 10px;
+      color: var(--text-lo);
+      letter-spacing: 0.03em;
+    }
+    .req-item--danger { color: var(--danger); }
+    .req-divider {
+      height: 1px; background: var(--border-subtle);
+      margin: 4px 0;
+    }
+    .req-note {
+      width: 100%;
+      background: var(--surface-1);
+      border: 1px solid var(--border-default);
+      border-radius: var(--r1);
+      color: var(--text-hi);
+      font-size: 16px; /* AQ-005 */
+      font-family: var(--ui);
+      padding: 6px 8px;
+      margin: 4px 0 6px;
+      box-sizing: border-box;
+    }
+    .req-note::placeholder { color: var(--text-lo); font-size: 13px; }
+    .req-note:focus-visible {
+      outline: 1px solid var(--primary);
+      outline-offset: -1px;
+    }
+    .req-foot {
+      font-family: var(--mono); font-size: 10px;
+      color: var(--text-lo);
+      letter-spacing: 0.03em;
+      padding: 4px 8px 2px;
+    }
+
+    /* Confirm toast */
+    .toast {
+      position: fixed; bottom: 24px; right: 24px;
+      background: var(--surface-2);
+      border: 1px solid var(--border-default);
+      border-radius: var(--r2);
+      padding: 8px 12px;
+      box-shadow: var(--float);
+      font-size: 13px;
+      color: var(--text-hi);
+      display: inline-flex; align-items: center; gap: 8px;
+    }
+    .toast .ok-dot {
+      width: 6px; height: 6px; border-radius: 50%; background: var(--ok);
+    }
+
+    /* Caption above the board */
+    .caption {
+      font-family: var(--mono); font-size: 11px;
+      letter-spacing: 0.05em; text-transform: uppercase;
+      color: var(--text-lo); margin: 0 0 16px;
+    }
+  </style>
+</head>
+<body>
+  <p class="caption">L15 / Variant A — Minimal Menu / Team Board / one card open</p>
+
+  <div class="board">
+    <!-- Planned -->
+    <div>
+      <div class="col-head">Planned <span class="col-count">3</span></div>
+      <div class="col-stack">
+        <div class="task-card">
+          <span class="task-card__title">Wire harness cost contract</span>
+          <button class="req-trigger" aria-label="Request a change to this task" aria-haspopup="menu">
+            <span class="dots"><i></i><i></i><i></i></span>
+          </button>
+          <div class="task-card__meta">
+            <span class="tag">Cost+Tokens</span>
+            <span class="status-chip status-chip--paused"><span class="dot"></span>PAUSED</span>
+          </div>
+          <span class="task-card__owner">@agent.alice</span>
+        </div>
+        <div class="task-card">
+          <span class="task-card__title">Migrate Pitch fixture to L2 blocks</span>
+          <button class="req-trigger" aria-label="Request a change to this task">
+            <span class="dots"><i></i><i></i><i></i></span>
+          </button>
+          <div class="task-card__meta">
+            <span class="tag">Pitch markdown</span>
+            <span class="status-chip status-chip--paused"><span class="dot"></span>PAUSED</span>
+          </div>
+          <span class="task-card__owner">@agent.bob</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Blocked -->
+    <div>
+      <div class="col-head">Blocked <span class="col-count">1</span></div>
+      <div class="col-stack">
+        <div class="task-card task-card--blocked">
+          <span class="task-card__title">Resolve provenance race in fabric</span>
+          <button class="req-trigger" aria-label="Request a change to this task">
+            <span class="dots"><i></i><i></i><i></i></span>
+          </button>
+          <div class="task-card__meta">
+            <span class="tag">Knowledge fabric</span>
+            <span class="status-chip status-chip--blocked"><span class="dot"></span>BLOCKED</span>
+          </div>
+          <span class="task-card__owner">@agent.carol</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- In Progress — the open menu lives here -->
+    <div>
+      <div class="col-head">In Progress <span class="col-count">2</span></div>
+      <div class="col-stack">
+        <div class="task-card" style="position: relative;">
+          <span class="task-card__title">Strip drag/drop from Kanban</span>
+          <button class="req-trigger" aria-label="Request a change to this task" aria-expanded="true">
+            <span class="dots"><i></i><i></i><i></i></span>
+          </button>
+          <div class="task-card__meta">
+            <span class="tag">Process layer</span>
+            <span class="status-chip status-chip--healthy"><span class="dot"></span>IN PROGRESS</span>
+          </div>
+          <span class="task-card__owner">@agent.dan</span>
+
+          <div class="req-menu" role="menu" aria-label="Request actions">
+            <div class="req-section">Request</div>
+            <button class="req-item" role="menuitem">
+              <span>Block</span><span class="req-item__hint">→ blocked</span>
+            </button>
+            <button class="req-item" role="menuitem">
+              <span>Review</span><span class="req-item__hint">→ review</span>
+            </button>
+            <button class="req-item" role="menuitem">
+              <span>Done</span><span class="req-item__hint">→ done</span>
+            </button>
+            <button class="req-item req-item--danger" role="menuitem">
+              <span>Abandon</span><span class="req-item__hint">→ killed</span>
+            </button>
+            <div class="req-divider" role="separator"></div>
+            <input class="req-note" placeholder="Note for the agent (optional)" aria-label="Note for the agent" />
+            <div class="req-divider" role="separator"></div>
+            <button class="req-item" role="menuitem">
+              <span>Open thread</span><span class="req-item__hint">⏎</span>
+            </button>
+            <div class="req-foot">Agent decides whether to honor the request.</div>
+          </div>
+        </div>
+
+        <div class="task-card">
+          <span class="task-card__title">Fold task-thread fixture into L18</span>
+          <button class="req-trigger" aria-label="Request a change to this task">
+            <span class="dots"><i></i><i></i><i></i></span>
+          </button>
+          <div class="task-card__meta">
+            <span class="tag">Threading</span>
+            <span class="status-chip status-chip--behind"><span class="dot"></span>REVIEW</span>
+          </div>
+          <span class="task-card__owner">@agent.elif</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Done -->
+    <div>
+      <div class="col-head">Done <span class="col-count">2</span></div>
+      <div class="col-stack">
+        <div class="task-card">
+          <span class="task-card__title">Lock task-thread host_kind enum</span>
+          <button class="req-trigger" aria-label="Request a change to this task">
+            <span class="dots"><i></i><i></i><i></i></span>
+          </button>
+          <div class="task-card__meta">
+            <span class="status-chip status-chip--healthy"><span class="dot"></span>DONE</span>
+          </div>
+          <span class="task-card__owner">@agent.frank</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" role="status" aria-live="polite">
+    <span class="ok-dot"></span>
+    Sent to <strong style="font-weight: 500;">@agent.dan</strong>.
+  </div>
+</body>
+</html>

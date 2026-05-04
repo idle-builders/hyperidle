@@ -1,0 +1,286 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>L15 Variant C — Inline Thread Peek</title>
+  <link rel="stylesheet" href="../../../../packages/design-system/html/_tokens.css" />
+  <style>
+    :root { --motion-ease: cubic-bezier(0.2, 0, 0, 1); }
+    html, body { background: var(--surface-0); color: var(--text-hi); font-family: var(--ui); }
+    body { margin: 0; padding: 24px; }
+
+    .board {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(260px, 1fr));
+      gap: var(--density-gap);
+      align-items: start;
+    }
+    .col-head {
+      display: flex; align-items: center; gap: 8px;
+      font-size: 12px; font-weight: 600; color: var(--text-hi);
+      margin-bottom: 8px;
+    }
+    .col-count {
+      background: var(--surface-3); color: var(--text-mid);
+      border-radius: var(--r-pill); padding: 0 6px;
+      font-size: 11px; font-family: var(--mono);
+    }
+    .col-stack { display: flex; flex-direction: column; gap: 8px; }
+
+    .task-card {
+      background: var(--surface-4);
+      border-radius: var(--r2);
+      padding: var(--density-card-pad);
+      display: flex; flex-direction: column;
+      gap: var(--density-card-gap);
+      max-width: 320px;
+      transition: background var(--motion-fast) var(--motion-ease);
+    }
+    .task-card:hover { background: var(--surface-5); }
+    .task-card--blocked { border: 1px solid var(--danger); }
+    .task-card__title {
+      font-size: var(--density-text); font-weight: 500; color: var(--text-hi);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .task-card__meta { display: flex; align-items: center; gap: var(--density-gap); }
+    .task-card__owner { font-size: 12px; color: var(--text-hi); }
+
+    .status-chip {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 2px 8px; border-radius: var(--r-pill);
+      font-family: var(--mono); font-size: 11px;
+      letter-spacing: 0.05em; text-transform: uppercase;
+      font-weight: 500; line-height: 1.4; white-space: nowrap;
+      cursor: pointer;
+      border: 1px solid transparent;
+      transition: border-color var(--motion-fast) var(--motion-ease);
+    }
+    .status-chip:hover { border-color: var(--border-emphasis); }
+    .status-chip--healthy { background: color-mix(in oklab, var(--ok) 14%, transparent); color: var(--ok); }
+    .status-chip--healthy .dot { background: var(--ok); }
+    .status-chip--blocked { background: color-mix(in oklab, var(--danger) 14%, transparent); color: var(--danger); }
+    .status-chip--blocked .dot { background: var(--danger); }
+    .status-chip--paused { background: color-mix(in oklab, var(--text-lo) 14%, transparent); color: var(--text-lo); }
+    .status-chip--paused .dot { background: var(--text-lo); }
+    .status-chip--behind { background: color-mix(in oklab, var(--warn) 14%, transparent); color: var(--warn); }
+    .status-chip--behind .dot { background: var(--warn); }
+    .status-chip .dot { width: 6px; height: 6px; border-radius: 50%; }
+
+    .tag {
+      display: inline-flex; align-items: center; gap: 4px;
+      padding: 2px 8px; border-radius: var(--r-pill);
+      font-size: 11px; font-family: var(--mono);
+      letter-spacing: 0.03em; white-space: nowrap;
+      background: var(--surface-ghost); color: var(--text-mid);
+    }
+
+    /* Expanded panel — the signature */
+    .peek {
+      margin-top: 4px;
+      padding-top: 8px;
+      border-top: 1px solid var(--border-subtle);
+      display: flex; flex-direction: column; gap: 6px;
+    }
+    .peek__chips {
+      display: flex; gap: 4px; flex-wrap: wrap;
+    }
+    .peek__chip {
+      background: var(--surface-3); border: 1px solid transparent;
+      color: var(--text-hi);
+      font-family: var(--ui); font-size: 11px;
+      padding: 2px 8px;
+      border-radius: var(--r-pill);
+      cursor: pointer;
+      transition: background var(--motion-fast) var(--motion-ease), border-color var(--motion-fast) var(--motion-ease);
+    }
+    .peek__chip:hover { background: var(--surface-2); border-color: var(--border-emphasis); }
+    .peek__chip--danger { color: var(--danger); }
+
+    .composer {
+      display: flex; align-items: stretch; gap: 4px;
+      background: var(--surface-2);
+      border: 1px solid var(--border-default);
+      border-radius: var(--r1);
+    }
+    .composer textarea {
+      flex: 1;
+      background: transparent; border: 0; outline: 0;
+      color: var(--text-hi);
+      font-family: var(--ui); font-size: 13px;
+      padding: 6px 8px;
+      resize: none; min-height: 28px;
+      line-height: 1.4;
+    }
+    .composer textarea::placeholder { color: var(--text-lo); }
+    .composer textarea:focus-visible { outline: none; }
+    .composer__send {
+      background: transparent; border: 0;
+      color: var(--text-mid);
+      font-family: var(--mono); font-size: 11px;
+      letter-spacing: 0.05em; text-transform: uppercase;
+      padding: 0 8px; cursor: pointer;
+      border-radius: var(--r1);
+      transition: color var(--motion-fast) var(--motion-ease);
+    }
+    .composer__send:hover { color: var(--text-hi); }
+
+    .transcript {
+      display: flex; flex-direction: column; gap: 4px;
+      margin-top: 2px;
+    }
+    .turn {
+      display: flex; gap: 8px;
+      font-size: 11px;
+      color: var(--text-mid);
+      line-height: 1.4;
+    }
+    .turn__when {
+      font-family: var(--mono);
+      color: var(--text-lo);
+      flex-shrink: 0;
+      min-width: 32px;
+    }
+    .turn__who {
+      font-family: var(--mono);
+      color: var(--text-mid);
+      flex-shrink: 0;
+    }
+    .turn__body {
+      flex: 1;
+      color: var(--text-hi);
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .turn--mine .turn__body { color: var(--text-mid); }
+
+    .peek__foot {
+      display: flex; justify-content: space-between; align-items: center;
+      font-family: var(--mono); font-size: 10px;
+      color: var(--text-lo);
+      letter-spacing: 0.03em;
+      padding-top: 2px;
+    }
+    .peek__open {
+      background: transparent; border: 0;
+      color: var(--text-mid);
+      font-family: var(--mono); font-size: 10px;
+      letter-spacing: 0.03em; text-transform: uppercase;
+      cursor: pointer; padding: 0;
+    }
+    .peek__open:hover { color: var(--text-hi); }
+
+    .caption {
+      font-family: var(--mono); font-size: 11px;
+      letter-spacing: 0.05em; text-transform: uppercase;
+      color: var(--text-lo); margin: 0 0 16px;
+    }
+  </style>
+</head>
+<body>
+  <p class="caption">L15 / Variant C — Inline Thread Peek / Team Board / one card expanded</p>
+
+  <div class="board">
+    <div>
+      <div class="col-head">Planned <span class="col-count">2</span></div>
+      <div class="col-stack">
+        <div class="task-card">
+          <span class="task-card__title">Wire harness cost contract</span>
+          <div class="task-card__meta">
+            <span class="tag">Cost+Tokens</span>
+            <span class="status-chip status-chip--paused"><span class="dot"></span>PAUSED</span>
+          </div>
+          <span class="task-card__owner">@agent.alice</span>
+        </div>
+        <div class="task-card">
+          <span class="task-card__title">Migrate Pitch fixture to L2 blocks</span>
+          <div class="task-card__meta">
+            <span class="tag">Pitch markdown</span>
+            <span class="status-chip status-chip--paused"><span class="dot"></span>PAUSED</span>
+          </div>
+          <span class="task-card__owner">@agent.bob</span>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <div class="col-head">Blocked <span class="col-count">1</span></div>
+      <div class="col-stack">
+        <div class="task-card task-card--blocked">
+          <span class="task-card__title">Resolve provenance race in fabric</span>
+          <div class="task-card__meta">
+            <span class="tag">Knowledge fabric</span>
+            <span class="status-chip status-chip--blocked"><span class="dot"></span>BLOCKED</span>
+          </div>
+          <span class="task-card__owner">@agent.carol</span>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <div class="col-head">In Progress <span class="col-count">2</span></div>
+      <div class="col-stack">
+        <!-- Expanded card -->
+        <div class="task-card" aria-expanded="true">
+          <span class="task-card__title">Strip drag/drop from Kanban</span>
+          <div class="task-card__meta">
+            <span class="tag">Process layer</span>
+            <span class="status-chip status-chip--healthy" aria-pressed="true"><span class="dot"></span>IN PROGRESS</span>
+          </div>
+          <span class="task-card__owner">@agent.dan</span>
+
+          <div class="peek">
+            <div class="peek__chips" role="group" aria-label="Request a state change">
+              <button class="peek__chip">Block</button>
+              <button class="peek__chip">Review</button>
+              <button class="peek__chip">Done</button>
+              <button class="peek__chip peek__chip--danger">Abandon</button>
+            </div>
+            <div class="composer">
+              <textarea placeholder="Reply or describe what should change…" aria-label="Reply or describe a state change"></textarea>
+              <button class="composer__send" aria-label="Send (⌘+Enter)">Send</button>
+            </div>
+            <div class="transcript" aria-label="Recent thread messages">
+              <div class="turn">
+                <span class="turn__when">12m</span>
+                <span class="turn__who">@dan</span>
+                <span class="turn__body">drag/drop strip done; menu trigger lands next pass</span>
+              </div>
+              <div class="turn turn--mine">
+                <span class="turn__when">2h</span>
+                <span class="turn__who">you</span>
+                <span class="turn__body">go for the inline panel — match the Conversations grammar</span>
+              </div>
+            </div>
+            <div class="peek__foot">
+              <span>Agent decides whether to honor the request</span>
+              <button class="peek__open">Open thread →</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="task-card">
+          <span class="task-card__title">Fold task-thread fixture into L18</span>
+          <div class="task-card__meta">
+            <span class="tag">Threading</span>
+            <span class="status-chip status-chip--behind"><span class="dot"></span>REVIEW</span>
+          </div>
+          <span class="task-card__owner">@agent.elif</span>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <div class="col-head">Done <span class="col-count">1</span></div>
+      <div class="col-stack">
+        <div class="task-card">
+          <span class="task-card__title">Lock task-thread host_kind enum</span>
+          <div class="task-card__meta">
+            <span class="status-chip status-chip--healthy"><span class="dot"></span>DONE</span>
+          </div>
+          <span class="task-card__owner">@agent.frank</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

@@ -1,0 +1,368 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>L15 Variant B — Structured Form</title>
+  <link rel="stylesheet" href="../../../../packages/design-system/html/_tokens.css" />
+  <style>
+    :root { --motion-ease: cubic-bezier(0.2, 0, 0, 1); }
+    html, body { background: var(--surface-0); color: var(--text-hi); font-family: var(--ui); }
+    body { margin: 0; padding: 24px; }
+
+    .board {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(260px, 1fr));
+      gap: var(--density-gap);
+    }
+    .col-head {
+      display: flex; align-items: center; gap: 8px;
+      font-size: 12px; font-weight: 600; color: var(--text-hi);
+      margin-bottom: 8px;
+    }
+    .col-count {
+      background: var(--surface-3); color: var(--text-mid);
+      border-radius: var(--r-pill); padding: 0 6px;
+      font-size: 11px; font-family: var(--mono);
+    }
+    .col-stack { display: flex; flex-direction: column; gap: 8px; }
+
+    .task-card {
+      background: var(--surface-4);
+      border-radius: var(--r2);
+      padding: var(--density-card-pad);
+      display: flex; flex-direction: column;
+      gap: var(--density-card-gap);
+      max-width: 320px;
+      transition: background var(--motion-fast) var(--motion-ease);
+    }
+    .task-card:hover { background: var(--surface-5); }
+    .task-card--blocked { border: 1px solid var(--danger); }
+    .task-card__title {
+      font-size: var(--density-text); font-weight: 500; color: var(--text-hi);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .task-card__meta { display: flex; align-items: center; gap: var(--density-gap); }
+    .task-card__owner { font-size: 12px; color: var(--text-hi); }
+
+    .status-chip {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 2px 8px; border-radius: var(--r-pill);
+      font-family: var(--mono); font-size: 11px;
+      letter-spacing: 0.05em; text-transform: uppercase;
+      font-weight: 500; line-height: 1.4; white-space: nowrap;
+    }
+    .status-chip .dot { width: 6px; height: 6px; border-radius: 50%; }
+    .status-chip--healthy { background: color-mix(in oklab, var(--ok) 14%, transparent); color: var(--ok); }
+    .status-chip--healthy .dot { background: var(--ok); }
+    .status-chip--blocked { background: color-mix(in oklab, var(--danger) 14%, transparent); color: var(--danger); }
+    .status-chip--blocked .dot { background: var(--danger); }
+    .status-chip--paused { background: color-mix(in oklab, var(--text-lo) 14%, transparent); color: var(--text-lo); }
+    .status-chip--paused .dot { background: var(--text-lo); }
+    .status-chip--behind { background: color-mix(in oklab, var(--warn) 14%, transparent); color: var(--warn); }
+    .status-chip--behind .dot { background: var(--warn); }
+
+    .tag {
+      display: inline-flex; align-items: center; gap: 4px;
+      padding: 2px 8px; border-radius: var(--r-pill);
+      font-size: 11px; font-family: var(--mono);
+      letter-spacing: 0.03em; white-space: nowrap;
+      background: var(--surface-ghost); color: var(--text-mid);
+    }
+
+    /* The signature: two verbs at the card footer */
+    .card-actions {
+      display: flex; gap: 4px;
+      margin-top: 2px;
+      border-top: 1px solid var(--border-subtle);
+      padding-top: 6px;
+    }
+    .card-btn {
+      flex: 1;
+      background: transparent; border: 0;
+      padding: 4px 8px;
+      font-family: var(--mono); font-size: 11px;
+      letter-spacing: 0.05em; text-transform: uppercase;
+      color: var(--text-mid);
+      cursor: pointer; border-radius: var(--r1);
+      transition: background var(--motion-fast) var(--motion-ease), color var(--motion-fast) var(--motion-ease);
+      text-align: center;
+    }
+    .card-btn:hover { background: var(--primary-dim); color: var(--text-hi); }
+    .card-btn:focus-visible { outline: 1px solid var(--primary); outline-offset: -1px; }
+
+    /* Modal */
+    .modal-backdrop {
+      position: fixed; inset: 0;
+      background: var(--surface-0); opacity: 0.6;
+      z-index: 50;
+    }
+    .modal {
+      position: fixed; left: 50%; top: 50%;
+      transform: translate(-50%, -50%);
+      width: min(480px, calc(100vw - 32px));
+      background: var(--surface-1);
+      border: 1px solid var(--border-default);
+      border-radius: var(--r3);
+      box-shadow: var(--float);
+      z-index: 60;
+      display: flex; flex-direction: column;
+    }
+    .modal__head {
+      padding: 16px 16px 8px;
+      display: flex; flex-direction: column; gap: 6px;
+      border-bottom: 1px solid var(--border-subtle);
+    }
+    .modal__title {
+      font-size: 16px; font-weight: 500; color: var(--text-hi); line-height: 1.25;
+    }
+    .key-value {
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 8px; padding: 2px 0;
+    }
+    .key-value__label {
+      font-family: var(--mono); font-size: 11px;
+      letter-spacing: 0.05em; text-transform: uppercase;
+      font-weight: 500; color: var(--text-lo);
+    }
+    .key-value__value {
+      font-size: 13px; color: var(--text-hi);
+      max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+
+    .modal__body {
+      padding: 12px 16px;
+      display: flex; flex-direction: column; gap: 12px;
+    }
+    .field-label {
+      font-family: var(--mono); font-size: 10px;
+      letter-spacing: 0.05em; text-transform: uppercase;
+      font-weight: 500; color: var(--text-lo);
+      margin-bottom: 4px; line-height: 1;
+    }
+    .chips {
+      display: flex; gap: 4px; flex-wrap: wrap;
+    }
+    .chip {
+      background: var(--surface-3);
+      border: 1px solid transparent;
+      border-radius: var(--r-pill);
+      padding: 4px 12px;
+      font-size: 12px; color: var(--text-hi);
+      cursor: pointer;
+      font-family: var(--ui);
+      transition: background var(--motion-fast) var(--motion-ease), border-color var(--motion-fast) var(--motion-ease);
+    }
+    .chip:hover { background: var(--surface-4); }
+    .chip--active {
+      background: var(--primary-dim);
+      border-color: var(--primary);
+      color: var(--text-hi);
+    }
+    .chip--danger.chip--active {
+      background: color-mix(in oklab, var(--danger) 14%, transparent);
+      border-color: var(--danger);
+      color: var(--danger);
+    }
+
+    .textarea {
+      width: 100%;
+      min-height: 64px;
+      background: var(--surface-2);
+      border: 1px solid var(--border-default);
+      border-radius: var(--r1);
+      color: var(--text-hi);
+      font-family: var(--ui); font-size: 16px; /* AQ-005 */
+      padding: 8px 10px;
+      box-sizing: border-box;
+      resize: vertical;
+    }
+    .textarea::placeholder { color: var(--text-lo); }
+    .textarea:focus-visible { outline: 1px solid var(--primary); outline-offset: -1px; }
+
+    .modal__foot {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 12px 16px;
+      border-top: 1px solid var(--border-subtle);
+      gap: 8px;
+    }
+    .link-btn {
+      background: transparent; border: 0;
+      color: var(--text-mid);
+      font-size: 12px; font-family: var(--ui);
+      cursor: pointer; padding: 6px 8px;
+      border-radius: var(--r1);
+      transition: color var(--motion-fast) var(--motion-ease);
+    }
+    .link-btn:hover { color: var(--text-hi); }
+    .link-btn:focus-visible { outline: 1px solid var(--primary); outline-offset: -1px; }
+
+    .btn-row { display: flex; gap: 6px; align-items: center; }
+    .btn {
+      padding: 6px 12px; border-radius: var(--r1);
+      font-size: 12px; font-family: var(--ui);
+      cursor: pointer; border: 0;
+    }
+    .btn-ghost { background: transparent; color: var(--text-mid); }
+    .btn-ghost:hover { background: var(--surface-3); color: var(--text-hi); }
+    .btn-primary { background: var(--primary); color: var(--surface-0); }
+    .btn-primary:hover { background: var(--primary-hover); color: var(--text-hi); }
+    .kbd {
+      font-family: var(--mono); font-size: 10px;
+      color: var(--text-lo); padding: 1px 4px;
+      border: 1px solid var(--border-default); border-radius: var(--r1);
+      background: var(--surface-2);
+    }
+
+    .reminder {
+      font-size: 11px; color: var(--text-lo);
+      padding: 0 16px 12px;
+      font-style: italic;
+    }
+
+    .caption {
+      font-family: var(--mono); font-size: 11px;
+      letter-spacing: 0.05em; text-transform: uppercase;
+      color: var(--text-lo); margin: 0 0 16px;
+    }
+  </style>
+</head>
+<body>
+  <p class="caption">L15 / Variant B — Structured Form / Team Board / modal open</p>
+
+  <div class="board">
+    <div>
+      <div class="col-head">Planned <span class="col-count">2</span></div>
+      <div class="col-stack">
+        <div class="task-card">
+          <span class="task-card__title">Wire harness cost contract</span>
+          <div class="task-card__meta">
+            <span class="tag">Cost+Tokens</span>
+            <span class="status-chip status-chip--paused"><span class="dot"></span>PAUSED</span>
+          </div>
+          <span class="task-card__owner">@agent.alice</span>
+          <div class="card-actions">
+            <button class="card-btn">Request</button>
+            <button class="card-btn">Thread</button>
+          </div>
+        </div>
+        <div class="task-card">
+          <span class="task-card__title">Migrate Pitch fixture to L2 blocks</span>
+          <div class="task-card__meta">
+            <span class="tag">Pitch markdown</span>
+            <span class="status-chip status-chip--paused"><span class="dot"></span>PAUSED</span>
+          </div>
+          <span class="task-card__owner">@agent.bob</span>
+          <div class="card-actions">
+            <button class="card-btn">Request</button>
+            <button class="card-btn">Thread</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <div class="col-head">Blocked <span class="col-count">1</span></div>
+      <div class="col-stack">
+        <div class="task-card task-card--blocked">
+          <span class="task-card__title">Resolve provenance race in fabric</span>
+          <div class="task-card__meta">
+            <span class="tag">Knowledge fabric</span>
+            <span class="status-chip status-chip--blocked"><span class="dot"></span>BLOCKED</span>
+          </div>
+          <span class="task-card__owner">@agent.carol</span>
+          <div class="card-actions">
+            <button class="card-btn">Request</button>
+            <button class="card-btn">Thread</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <div class="col-head">In Progress <span class="col-count">2</span></div>
+      <div class="col-stack">
+        <div class="task-card">
+          <span class="task-card__title">Strip drag/drop from Kanban</span>
+          <div class="task-card__meta">
+            <span class="tag">Process layer</span>
+            <span class="status-chip status-chip--healthy"><span class="dot"></span>IN PROGRESS</span>
+          </div>
+          <span class="task-card__owner">@agent.dan</span>
+          <div class="card-actions">
+            <button class="card-btn">Request</button>
+            <button class="card-btn">Thread</button>
+          </div>
+        </div>
+        <div class="task-card">
+          <span class="task-card__title">Fold task-thread fixture into L18</span>
+          <div class="task-card__meta">
+            <span class="tag">Threading</span>
+            <span class="status-chip status-chip--behind"><span class="dot"></span>REVIEW</span>
+          </div>
+          <span class="task-card__owner">@agent.elif</span>
+          <div class="card-actions">
+            <button class="card-btn">Request</button>
+            <button class="card-btn">Thread</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <div class="col-head">Done <span class="col-count">1</span></div>
+      <div class="col-stack">
+        <div class="task-card">
+          <span class="task-card__title">Lock task-thread host_kind enum</span>
+          <div class="task-card__meta">
+            <span class="status-chip status-chip--healthy"><span class="dot"></span>DONE</span>
+          </div>
+          <span class="task-card__owner">@agent.frank</span>
+          <div class="card-actions">
+            <button class="card-btn">Request</button>
+            <button class="card-btn">Thread</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-backdrop"></div>
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+    <div class="modal__head">
+      <div class="modal__title" id="modal-title">Request a change</div>
+      <div class="key-value">
+        <span class="key-value__label">Task</span>
+        <span class="key-value__value">Strip drag/drop from Kanban</span>
+      </div>
+      <div class="key-value">
+        <span class="key-value__label">Assigned to</span>
+        <span class="key-value__value">@agent.dan</span>
+      </div>
+    </div>
+    <div class="modal__body">
+      <div>
+        <div class="field-label">What should change?</div>
+        <div class="chips">
+          <button class="chip">Block</button>
+          <button class="chip chip--active">Review</button>
+          <button class="chip">Done</button>
+          <button class="chip chip--danger">Abandon</button>
+        </div>
+      </div>
+      <div>
+        <div class="field-label">Note (the agent will read this)</div>
+        <textarea class="textarea" placeholder='e.g. "Skip the modal — keyboard nav matters more here. Please show me what you have."'>Skip the modal — keyboard nav matters more here. Please show me what you have.</textarea>
+      </div>
+    </div>
+    <div class="reminder">The agent decides whether to honor the request — this posts to the task thread.</div>
+    <div class="modal__foot">
+      <button class="link-btn">Open task thread instead</button>
+      <div class="btn-row">
+        <button class="btn btn-ghost">Cancel</button>
+        <button class="btn btn-primary">Send request <span class="kbd">⌘⏎</span></button>
+      </div>
+    </div>
+  </div>
+</body>
+</html>
