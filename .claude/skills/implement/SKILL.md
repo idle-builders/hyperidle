@@ -1,6 +1,6 @@
 ---
 name: implement
-description: "Combined skill: build + review + DoD. Orchestrates agent launches. Assumes /design and /architecture already ran. Use for manual implementation outside the pipeline."
+description: "Combined skill: tests + code + review + DoD. Orchestrates agent launches. Assumes /design and /architecture already ran. Use for manual implementation outside the pipeline."
 argument-hint: "[workpackage-id]"
 user-invocable: true
 min_tool_calls: 50
@@ -22,10 +22,11 @@ If those haven't run, run them first. `/implement` does not re-litigate design o
 
 | Step | Launch agent | With skill | Why this order |
 |------|-------------|-----------|---------------|
-| 1 | **builder** | `/build $ARGUMENTS` | TDD: failing tests first, then minimum code to pass. |
-| 2 | **adversary** | `/adversary-scan` | All three negative lenses (adversarial, simplification, slop) in one session. Findings only. |
-| 3 | **reviewer** | `/contract-review` | All three positive lenses (architecture, design, security) in one session. Design lens skipped silently if no UI files. Findings only. |
-| 4 | **builder** | `/apply-review` (steps 2-3) | Apply all findings from both reviews. |
-| 5 | **researcher** | `/check-definition-of-done $ARGUMENTS` | Fresh-context audit against the spec with evidence. |
+| 1 | **builder** | `/write-tests $ARGUMENTS` | Red phase: define the requirement as failing tests. Do NOT write code yet. |
+| 2 | **builder** | `/write-code $ARGUMENTS` | Green phase: minimum code to pass. Separate act — implementation must not contaminate requirement definition. |
+| 3 | **adversary** | `/adversary-scan` | All three negative lenses (adversarial, simplification, slop) in one session. Findings only. |
+| 4 | **reviewer** | `/contract-review` | All three positive lenses (architecture, design, security) in one session. Design lens skipped silently if no UI files. Findings only. |
+| 5 | **builder** | `/apply-review` (steps 3-4) | Apply all findings from both reviews. |
+| 6 | **researcher** | `/check-definition-of-done $ARGUMENTS` | Fresh-context audit against the spec with evidence. |
 
-If step 5 returns NOT DONE, go back to step 1 with the gap list. Max 3 attempts — after that, the story is blocked and needs human attention.
+If step 6 returns NOT DONE, go back to step 1 with the gap list. Max 3 attempts — after that, the story is blocked and needs human attention.

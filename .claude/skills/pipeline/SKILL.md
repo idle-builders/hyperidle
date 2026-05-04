@@ -75,8 +75,8 @@ Each persona phase **commits its output and pushes** before returning:
 | designer — /concept output | prose only | `[skip ci]` |
 | designer — /design approved.md (UI stories) | design artifacts | `[skip ci]` |
 | designer — /architecture plan | plan doc | `[skip ci]` |
-| builder — /build failing tests | test files | run |
-| builder — /build code | implementation | run |
+| builder — /write-tests (red phase) | test files | run |
+| builder — /write-code (green phase) | implementation | run |
 | builder — /apply-review fixes | one commit per applied finding batch | run |
 | researcher — /retro doc | prose | `[skip ci]` |
 
@@ -114,7 +114,7 @@ Then dispatch the persona sessions below, in order. Update `currentStep` in the 
 | # | Persona | Effort | Skill | Why |
 |---|---|---|---|---|
 | 1 | **designer** | high | `/concept` → `/design` → `/architecture` | Concept doc + variant exploration + technical plan. Sequential skills in one durable session, with in-session self-critique (no separate critique skills — TE-17). |
-| 2 | **builder** | medium | `/build` → `/apply-review` | TDD red/green + apply-review-fixes in one durable session. |
+| 2 | **builder** | medium | `/write-tests` → `/write-code` → `/apply-review` | TDD red (define requirement), then green (implement), then apply fixes. Red and green are separate acts — requirement definition must not be contaminated by implementation thinking. |
 | W1 | **reviewer** | high | `/contract-review` | Three positive lenses (architecture, design, security) in one fresh-context session. Findings-only, depth-1, no sub-spawning. |
 | W2 | **adversary** | medium | `/adversary-scan` | Three negative lenses (adversarial, simplification, slop) in one fresh-context session. Findings-only, depth-1. |
 | 3 | **researcher** | low | `/check-definition-of-done` then `/retro` | Fresh-context DoD audit of the live PR, then retro. The one boundary that must not collapse into any producer session. |
@@ -139,10 +139,16 @@ Phase 1 — designer:
   Commit each skill's output (concept.md, approved.md, plan) and push.
   Prose commits use [skip ci].
 
-Phase 2 — builder:
-  Launch agent type=builder with /build.
-  Builder reads the plan; writes failing tests; commits + pushes; writes
-  code to pass tests; commits + pushes; runs bun run verify locally.
+Phase 2a — builder (red):
+  Launch agent type=builder with /write-tests.
+  Builder reads the plan; writes failing tests for all ACs; commits +
+  pushes. Do NOT write implementation code — requirement definition
+  must not be contaminated by implementation thinking.
+
+Phase 2b — builder (green):
+  Launch agent type=builder with /write-code.
+  Builder reads the plan + failing tests; writes minimum code to pass;
+  commits + pushes; runs bun run verify locally.
   If Builder hits a plan-vs-reality conflict, it raises a BLOCKER rather
   than redesigning in-flight (TE-22).
 
