@@ -107,6 +107,8 @@ export {
 	scrubInlineTokens,
 	TK_TOKEN_RE,
 } from "./redact.js";
+export type { RequestMessageInput } from "./task-request.js";
+export { generateRequestMessageText, requestableStatesFor, verbLabelFor } from "./task-request.js";
 export type {
 	AgentSessionStateSnapshot,
 	ArtifactRef,
@@ -115,6 +117,7 @@ export type {
 	HostKind,
 	IdentityId,
 	InlineRef,
+	InlineRefKind,
 	Message,
 	MessageId,
 	MessageType,
@@ -128,15 +131,14 @@ export type {
 	VerdictDecision,
 	VerdictPayload,
 } from "./thread.js";
-// L1a — Thread primitive (concept §4.5, plan §4). Stub during write-tests
-// phase; functions throw "Not implemented" until the green phase fills
-// them in.
+// L1a — Thread primitive (concept §4.5, plan §4).
 export {
 	ARTIFACT_VIEW_SHAPES,
 	classifyThreadConfiguration,
 	exhaustiveAssert,
 	HOST_KINDS,
 	headCollapsePredicate,
+	INLINE_REF_KINDS,
 	isBlocking,
 	isRedactedPayload,
 	MESSAGE_TYPES,

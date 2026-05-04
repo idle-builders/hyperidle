@@ -1,16 +1,12 @@
 /**
- * Thread primitive — stub types and predicates.
+ * Thread primitive — types and predicates.
  *
- * This file is the TDD red-phase stub. It exposes the type signatures the
- * L1 plan §4 promises so tests in this package and downstream packages
- * type-check. Every runtime export throws "Not implemented" so the test
- * runner shows red until the green phase fills the bodies in.
- *
- * @lore L1 step-1 (write-tests): the stub is intentionally throwing — it
- * exists ONLY so test files compile against the contract. Step 2
- * (write-code) replaces every body with the real implementation per
- * `docs/work-packages/L1-plan.md` §4.
+ * Source of truth: `docs/work-packages/L1-plan.md` §4. The closed enums
+ * (`HOST_KINDS`, `MESSAGE_TYPES`, `VERDICT_DECISIONS`) and the discriminated
+ * `Message` union are the canonical contract every consumer types against.
  */
+
+import type { TaskState } from "./types.js";
 
 // ── Closed enums ────────────────────────────────────────────────
 
@@ -77,10 +73,32 @@ export interface Thread {
 
 // ── Message payloads (discriminated union) ──────────────────────
 
-export interface InlineRef {
-	readonly kind: "knowledge_item" | "task" | "artifact" | "bet";
-	readonly id: string;
-}
+/**
+ * @lore L15 plan §3.1 + CONFUSION-B: `request_state_change` is a structured
+ * discriminated-union variant (NOT free text) so agents can parse intent
+ * without an LLM, and a malicious task title cannot smuggle the verb via
+ * regex. INLINE_REF_KINDS is closed; growing it forces a TypeScript
+ * narrowing failure in every consumer.
+ */
+export const INLINE_REF_KINDS = [
+	"knowledge_item",
+	"task",
+	"artifact",
+	"bet",
+	"request_state_change",
+] as const;
+export type InlineRefKind = (typeof INLINE_REF_KINDS)[number];
+
+export type InlineRef =
+	| { readonly kind: "knowledge_item"; readonly id: string }
+	| { readonly kind: "task"; readonly id: string }
+	| { readonly kind: "artifact"; readonly id: string }
+	| { readonly kind: "bet"; readonly id: string }
+	| {
+			readonly kind: "request_state_change";
+			readonly taskId: string;
+			readonly requestedState: TaskState;
+	  };
 
 export interface ArtifactRef {
 	readonly id: string;
