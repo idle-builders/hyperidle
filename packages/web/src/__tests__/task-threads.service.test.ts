@@ -189,7 +189,7 @@ describe("postRequestMessage (L15)", () => {
 	it("(e) input-trust: note with <script>alert(1)</script> is sent verbatim — no client-side stripping", async () => {
 		fetchSpy.mockResolvedValueOnce(makePostMessageResponse());
 
-		const xssText = 'Request: move to BLOCKED. <script>alert(1)</script>';
+		const xssText = "Request: move to BLOCKED. <script>alert(1)</script>";
 		await postRequestMessage("thread-abc", xssText, "key-001");
 
 		const [, options] = fetchSpy.mock.calls[0] as [string, RequestInit];

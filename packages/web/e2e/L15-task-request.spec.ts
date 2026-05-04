@@ -20,17 +20,19 @@ const TASK_ID = "t1"; // Matches the first task in WorkTeam's INITIAL_TASKS
 const NOW = new Date().toISOString();
 
 function makeThreadListResponse(threads: Array<{ id: string; hostId: string }>): object {
-	return { threads: threads.map((t) => ({
-		id: t.id,
-		hostKind: "task",
-		hostId: t.hostId,
-		initiatorId: "u-founder",
-		participants: ["u-founder", "agent-unassigned"],
-		pinned: false,
-		resolvedAt: null,
-		lastActiveAt: NOW,
-		createdAt: NOW,
-	})) };
+	return {
+		threads: threads.map((t) => ({
+			id: t.id,
+			hostKind: "task",
+			hostId: t.hostId,
+			initiatorId: "u-founder",
+			participants: ["u-founder", "agent-unassigned"],
+			pinned: false,
+			resolvedAt: null,
+			lastActiveAt: NOW,
+			createdAt: NOW,
+		})),
+	};
 }
 
 function makeCreateThreadResponse(): object {
@@ -145,7 +147,9 @@ test.describe("L15 — Strip drag + Task request sheet", () => {
 		});
 	});
 
-	test("(step 2) drag affordances are structurally absent from the Kanban DOM", async ({ page }) => {
+	test("(step 2) drag affordances are structurally absent from the Kanban DOM", async ({
+		page,
+	}) => {
 		await page.goto("/work/team");
 		await page.waitForSelector("[data-testid='work-team-page']");
 
