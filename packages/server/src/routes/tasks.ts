@@ -1,17 +1,71 @@
-import { bets, type HyperIdleDb, sessions, tasks } from "@hyperidle/db";
+import { bets, type HyperIdleDb, messages, sessions, tasks } from "@hyperidle/db";
 import type { EventBus } from "@hyperidle/shared";
-import { API_ERROR_CODES, TASK_STATES } from "@hyperidle/shared";
-import { and, eq } from "drizzle-orm";
+import {
+	API_ERROR_CODES,
+	derivePendingRequest,
+	isVerbLegalForState,
+	renderRequestText,
+	REQUEST_VERBS,
+	sanitizeReason,
+	TASK_STATES,
+	type TaskState,
+} from "@hyperidle/shared";
+import { and, asc, eq } from "drizzle-orm";
 import { Hono } from "hono";
 import { z } from "zod";
 import { validateBody } from "../middleware/validate.js";
+import { appendPlainMessage } from "../services/append-plain-message.js";
+import { ensureTaskThread } from "../services/ensure-task-thread.js";
 import { handoff } from "../services/handoff-protocol.js";
 import type { SessionContext } from "../services/session-lifecycle.js";
+import { assertTaskParticipantAuthz, readSenderId } from "../services/task-authz.js";
 import { transitionTask } from "../services/task-state-machine.js";
+import { rowToMessage } from "../services/thread-row.js";
+import { clientKeySchema } from "./threads-schema.js";
+
+const requestBodySchema = z.object({
+	verb: z.enum(REQUEST_VERBS),
+	reason: z.string().min(1).max(2048).optional(),
+	clientKey: clientKeySchema,
+});
 
 /**
- * Zod schemas for request validation.
+ * @lore L15 security HIGH-2: per-(senderId, taskId) sliding-window limiter
+ * for `POST /api/tasks/:id/request`. The global API limiter buckets by
+ * API-key only, which lets a single shared key flood a victim task at the
+ * global rate. Bucket key is `${senderId}:${taskId}`; window is 60s; cap
+ * is 10 requests — enough for legitimate human dispatch + cancel patterns,
+ * tight enough to interrupt scripted spam.
  */
+const TASK_REQUEST_RATE_LIMIT = 10;
+const TASK_REQUEST_RATE_WINDOW_MS = 60_000;
+interface TaskRequestBucket {
+	count: number;
+	resetAt: number;
+}
+const taskRequestBuckets = new Map<string, TaskRequestBucket>();
+
+function checkTaskRequestRate(senderId: string, taskId: string): boolean {
+	const key = `${senderId}:${taskId}`;
+	const now = Date.now();
+	const bucket = taskRequestBuckets.get(key);
+	if (!bucket || bucket.resetAt <= now) {
+		taskRequestBuckets.set(key, { count: 1, resetAt: now + TASK_REQUEST_RATE_WINDOW_MS });
+		return true;
+	}
+	bucket.count += 1;
+	return bucket.count <= TASK_REQUEST_RATE_LIMIT;
+}
+
+/**
+ * Test-only reset hook. Vitest spawns multiple suites in a single process
+ * with module-level state; clearing the bucket map between tests prevents
+ * cross-suite rate-limit bleed.
+ */
+export function __resetTaskRequestRateLimiter(): void {
+	taskRequestBuckets.clear();
+}
+
 const createTaskSchema = z.object({
 	betId: z.string(),
 	title: z.string().min(1),
@@ -44,10 +98,6 @@ const handoffSchema = z.object({
 	remainingWork: z.array(z.string()).optional(),
 });
 
-/**
- * Create Hono routes for task endpoints.
- * Requires db and eventBus injected.
- */
 export function createTaskRoutes(db: HyperIdleDb, eventBus: EventBus): Hono {
 	const router = new Hono();
 
@@ -191,6 +241,87 @@ export function createTaskRoutes(db: HyperIdleDb, eventBus: EventBus): Hono {
 		});
 
 		return c.json(result);
+	});
+
+	router.post("/:id/request", validateBody(requestBodySchema), (c) => {
+		const taskId = c.req.param("id");
+		const body = c.req.valid("json" as never) as z.infer<typeof requestBodySchema>;
+		const senderId = readSenderId(c);
+
+		if (!checkTaskRequestRate(senderId, taskId)) {
+			c.header("Retry-After", String(Math.ceil(TASK_REQUEST_RATE_WINDOW_MS / 1000)));
+			return c.json(
+				{ error: "Too many requests for this task", code: API_ERROR_CODES.RATE_LIMITED },
+				429,
+			);
+		}
+
+		const task = db.select().from(tasks).where(eq(tasks.id, taskId)).get();
+		if (!task) {
+			return c.json({ error: "Task not found", code: API_ERROR_CODES.NOT_FOUND }, 404);
+		}
+
+		const authz = assertTaskParticipantAuthz(db, senderId, task);
+		if (!authz.ok) {
+			return c.json({ error: authz.message, code: authz.code }, authz.status);
+		}
+
+		const taskState = task.state as TaskState;
+		const isCancel = body.verb === "cancel_request";
+		if (!(isCancel || isVerbLegalForState(body.verb, taskState))) {
+			return c.json(
+				{
+					error: `Verb '${body.verb}' is not legal for state '${taskState}'`,
+					code: "validation_error",
+				},
+				400,
+			);
+		}
+
+		const { threadRow } = ensureTaskThread(db, task, senderId);
+
+		if (isCancel) {
+			const msgRows = db
+				.select()
+				.from(messages)
+				.where(eq(messages.threadId, threadRow.id))
+				.orderBy(asc(messages.createdAt), asc(messages.id))
+				.all();
+			const msgs = msgRows.map(rowToMessage);
+			const pending = derivePendingRequest(msgs);
+			if (!pending) {
+				return c.json(
+					{
+						error: "No pending request to cancel",
+						code: "already_resolved",
+					},
+					409,
+				);
+			}
+		}
+
+		// Sanitize the human-supplied reason BEFORE persistence so prompt-
+		// injection padding (zero-width spaces, RTL marks) is stripped.
+		const cleanReason = body.reason ? sanitizeReason(body.reason) : undefined;
+		const text = renderRequestText(body.verb, cleanReason);
+		const result = appendPlainMessage(db, eventBus, {
+			threadId: threadRow.id,
+			senderId,
+			clientKey: body.clientKey,
+			payload: {
+				text,
+				request: cleanReason ? { verb: body.verb, reason: cleanReason } : { verb: body.verb },
+			},
+			// L15 review CRITICAL-2: tasks-route caller already passed
+			// `assertTaskParticipantAuthz`; auto-add to thread participants if
+			// they are not yet on the roster (lazy-thread first-writer rule).
+			autoAddParticipant: true,
+		});
+
+		if (!result.ok) {
+			return c.json({ error: result.message, code: result.code }, result.status);
+		}
+		return c.json({ message: result.message, thread: result.thread }, result.status);
 	});
 
 	return router;

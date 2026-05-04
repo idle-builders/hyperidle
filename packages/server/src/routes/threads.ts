@@ -14,7 +14,6 @@
 import {
 	agents,
 	type Message as DbMessage,
-	type Thread as DbThread,
 	type HyperIdleDb,
 	messages,
 	threads,
@@ -22,10 +21,7 @@ import {
 import type {
 	ApiErrorResponse,
 	EventBus,
-	HostKind,
-	Message,
 	MessageType,
-	Thread,
 	ThreadCreatedEvent,
 	ThreadMessageAppendedEvent,
 	ThreadReopenedEvent,
@@ -35,25 +31,16 @@ import { API_ERROR_CODES, headCollapsePredicate } from "@hyperidle/shared";
 import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import { Hono } from "hono";
 import type { ZodError } from "zod";
+import { appendPlainMessage } from "../services/append-plain-message.js";
 import { escapeLikePattern } from "../services/like-escape.js";
+import { DEFAULT_FOUNDER_ID, SENDER_HEADER, readSenderId } from "../services/task-authz.js";
+import { rowToMessage, rowToThread } from "../services/thread-row.js";
 import {
 	createThreadBodySchema,
 	listThreadsQuerySchema,
 	messageInputSchema,
-	messageRowSchema,
 	threadParticipantsSchema,
 } from "./threads-schema.js";
-
-const SENDER_HEADER = "X-Identity";
-const DEFAULT_FOUNDER_ID = "u-founder";
-
-function readSenderId(c: { req: { header: (k: string) => string | undefined } }): string {
-	// L1a: identity attribution. Tests pass `X-Identity` to disambiguate
-	// the sender when an API key is shared across multiple senders. For
-	// production, identity comes from the auth middleware (out of scope
-	// for L1a — the API-key holder is the implicit sender otherwise).
-	return c.req.header(SENDER_HEADER) ?? DEFAULT_FOUNDER_ID;
-}
 
 /**
  * Initial-message sender for `POST /api/threads`. Convention: review and
@@ -76,57 +63,6 @@ function readInitialSenderId(
 		}
 	}
 	return DEFAULT_FOUNDER_ID;
-}
-
-/**
- * @lore L1 step5 (SL-C2): the DB→Message boundary parses the row's JSON
- * `payload` and `participants` columns through Zod. A malformed row (e.g.
- * legacy data, manual edit) fails loudly here instead of crashing somewhere
- * downstream. The brand-style `as Thread["id"]` aliases are no-ops because
- * `ThreadId` is `string` in `@hyperidle/shared`; we drop them.
- */
-function rowToThread(row: DbThread): Thread {
-	const participants = threadParticipantsSchema.parse(JSON.parse(row.participants));
-	return {
-		id: row.id,
-		hostKind: row.hostKind as HostKind,
-		hostId: row.hostId,
-		initiatorId: row.initiatorId,
-		participants,
-		pinned: row.pinned === 1,
-		resolvedAt: row.resolvedAt,
-		lastActiveAt: row.lastActiveAt,
-		createdAt: row.createdAt,
-	};
-}
-
-function rowToMessage(row: DbMessage): Message {
-	const parsed = messageRowSchema.parse({
-		type: row.type as MessageType,
-		payload: JSON.parse(row.payload),
-	});
-	const base = {
-		id: row.id,
-		threadId: row.threadId,
-		senderId: row.senderId,
-		clientKey: row.clientKey,
-		deletedAt: row.deletedAt,
-		redactedAt: row.redactedAt,
-		resolvedAt: row.resolvedAt,
-		createdAt: row.createdAt,
-	} as const;
-	// Switch on the parsed discriminator so each Message variant lines up its
-	// `type` with its `payload` — no cast needed.
-	switch (parsed.type) {
-		case "plain":
-			return { ...base, type: "plain", payload: parsed.payload };
-		case "review":
-			return { ...base, type: "review", payload: parsed.payload };
-		case "questionnaire":
-			return { ...base, type: "questionnaire", payload: parsed.payload };
-		case "verdict":
-			return { ...base, type: "verdict", payload: parsed.payload };
-	}
 }
 
 function err(
@@ -396,6 +332,23 @@ export function createThreadRoutes(db: HyperIdleDb, eventBus: EventBus): Hono {
 			}
 			const input = parsed.data;
 			const senderId = readSenderId(c);
+
+			// Plain-type messages route through the shared `appendPlainMessage`
+			// helper (L15 § 5.4 chokepoint). Verdict / review / questionnaire
+			// stay inline because they carry verdict-race + re-open semantics
+			// that are out of scope for the helper.
+			if (input.type === "plain") {
+				const result = appendPlainMessage(db, eventBus, {
+					threadId,
+					senderId,
+					clientKey: input.clientKey,
+					payload: input.payload,
+				});
+				if (!result.ok) {
+					return c.json({ error: result.message, code: result.code }, result.status);
+				}
+				return c.json({ message: result.message, thread: result.thread }, result.status);
+			}
 
 			const threadRow = db.select().from(threads).where(eq(threads.id, threadId)).get();
 			if (!threadRow) {
