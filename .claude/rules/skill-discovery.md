@@ -8,7 +8,7 @@ Before responding to ANY implementation or review request, check if a skill shou
 - `/concept`, `/design`, `/design-critique`, `/architecture`, `/architecture-critique` (designer)
 - `/write-tests`, `/write-code`, `/apply-review`, `/visual-polish` (builder)
 - `/contract-review` (reviewer)
-- `/adversary-scan`, `/design-lint` (adversary)
+- `/adversary-scan` (adversary)
 - `/check-definition-of-done`, `/retro` (researcher)
 - `/lore` (any)
 
@@ -36,7 +36,6 @@ User request arrives
     ├── Is it about security analysis? ──────────→ /threat-model <scope>
     ├── Is it about documenting decisions? ──────→ /lore <files|scan|index>
     ├── Is it about visual fidelity? ────────────→ /visual-polish <reference>
-    ├── Is it about token/grid/aesthetic lint? ──→ /design-lint <files>
     ├── Is it about process improvement? ────────→ /retro <workpackage|pipeline>
     ├── Is it about updating dependencies? ──────→ /upgrade [scope]
     └── None of the above? ──────────────────────→ Proceed normally
@@ -66,6 +65,6 @@ User request arrives
 2. **Design next:** /design then /design-critique (UI stories, before architecture; production then evaluation as separate acts)
 3. **Architecture then:** /architecture then /architecture-critique (every story, before any code; production then evaluation as separate acts)
 4. **Combined skills:** /implement, /pipeline, /review, /check-definition-of-done
-5. **Quality skills:** /simplify, /design-lint
+5. **Quality skills:** /simplify
 6. **Maintenance skills:** /upgrade, /threat-model, /lore
 7. **Compounding:** /retro (after shipping — feeds improvements back into skills)

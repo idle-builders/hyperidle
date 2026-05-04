@@ -167,55 +167,31 @@ npx playwright screenshot \
 
 Read the screenshot. Evaluate it visually. Do not evaluate design from code alone.
 
-## Tailwind Anti-Patterns
+## Cross-Component Checks
 
-Flag — each maps to an AQ rule in `.claude/rules/aesthetic-quality.md` and an upcoming K6 ESLint slug.
+These checks go beyond what AST linters catch. Token/scale violations (hardcoded colors, off-grid spacing, off-scale radius/font/motion, AI-aesthetic tells) are caught by `bun run lint` via `eslint-plugin-design` — don't duplicate that work here. This section is for the judgment calls the linter can't make.
 
-**Tokens / scale violations:**
-- Raw Tailwind color classes (`text-gray-400`, `bg-slate-800`, `text-indigo-500`, `border-white/10`) → AQ-008, `design/no-raw-tailwind-color`.
-- Hardcoded hex / `rgb()` / `hsl()` values in `*.tsx` outside `tokens.css` → AQ-008, `design/no-hardcoded-color`.
-- Non-4px-grid spacing (`p-7`, `gap-5`, `m-[7px]`) → AQ-001, `design/no-off-grid-spacing`.
-- Off-scale radius (`rounded-2xl`, `rounded-3xl`, `rounded-[10px]`) — allow `rounded-full` for pills only → AQ-011 / AQ-101, `design/no-off-scale-radius` + `design/no-ai-aesthetic`.
-- Off-scale font-size (`text-[15px]` outside the closed allowlist) → AQ-004, `design/no-off-scale-font-size`.
-- Off-scale motion (`duration-[120ms]`, bare `ease`) → AQ-013, `design/no-off-scale-motion`.
-- Inline `style={}` attributes for color / spacing / radius / font.
+### Consistency & Reuse
 
-**AI-aesthetic tells** (see AESTHETICS.md § AI-Aesthetic Anti-Patterns; canonical 15-item catalog):
-- `bg-gradient-(to|from|via)-(indigo|purple|violet|fuchsia|pink)-\d{3}` → AQ-102.
-- `p-8` / `p-10` / `p-12` / `p-14` / `p-16` outside hero/expressive contexts → AQ-103.
-- Hero section pattern in `packages/web/src/pages/work/**` → AQ-104.
-- Leading emoji in `Button` / `NavItem` / `StatusChip` text → AQ-105.
-- Page-level `text-center` or `mx-auto` on body content (allow inside `EmptyState` / `Modal` / `Dialog` / `Toast`) → AQ-106.
-- `backdrop-blur` / `backdrop-filter` and `bg-(white|black)/\d+` translucent card chrome → AQ-107.
-- `grid-cols-3` with `.map(` over identical card children outside dashboard contexts → AQ-108.
-- `shadow-lg` / `shadow-xl` / `shadow-2xl` outside files matching `Modal|Dialog|Popover|Tooltip` → AQ-012 / AQ-110-overlay.
-- `Lorem ipsum` / `consectetur adipiscing` / `Click here` placeholder copy → AQ-109.
-- Marketing superlatives in product chrome (`Effortless`, `Seamless`, `Powerful`, `Beautiful`, `Stunning`, `Game-changing`) → AQ-110.
-- `bg-clip-text text-transparent` over a gradient on product headings → AQ-111.
-- NavRail / Sidebar root using `bg-(indigo|purple|teal|emerald|sky|violet)-\d{3}` → AQ-112.
-- Every list row carries a leading icon when content does not require one → AQ-113.
-
-**Premium-polish absences** (Dimension 9):
-- Numeric tables / KeyValue lacking `tabular-nums` → AQ-006.
-- Uppercase labels (StatusChip / Tag) lacking `tracking-wide` or `tracking-[0.02em]` → AQ-007.
-- `<input>` / `<textarea>` / `<select>` lacking `text-base` / `text-[16px]` at the mobile breakpoint → AQ-005.
-- Interactive elements with `min-h` / `h` < 44px at viewport ≤ 1024 px → AQ-015.
-- `transition:` / `animation:` not derived from `var(--motion-*)` → AQ-013 / AQ-014.
-
-## Consistency & Component Reuse
-
-When reviewing multiple components or `all`, evaluate cross-cutting consistency:
-
-- **Same role, same treatment.** Section headers, card borders, list items, dividers, hover states — if two components serve the same visual role, they must look identical. Divergence is a finding.
+- **Same role, same treatment.** Section headers, card borders, list items, dividers, hover states — if two components serve the same visual role, they must look identical. Divergence is a finding even when both files individually pass lint.
 - **Component reuse over inline reimplementation.** The design system has primitives (Tier 1), blocks (Tier 2), regions (Tier 3), and utilities (EmptyState, ErrorState, Skeleton). Read `packages/design-system/src/` to know what exists. Reimplementing any of these inline is **CRITICAL**.
 - **Token compliance.** Every color, spacing value, radius, and font size must trace back to a design token. Read `packages/design-system/DESIGN.md` for the canonical values.
+- **Theme portability.** The design system may have multiple style variants in `packages/design-system/html/themes/`. Components must use semantic tokens (not hardcoded values) so they work across themes.
 
-## Style Variant Awareness
+### Density-Tier Consistency (K10/K11)
 
-The design system may have multiple style variants (themes) defined in `packages/design-system/html/themes/`. When critiquing:
-- Evaluate against the currently active theme's tokens
-- Note if a design choice would break under a different theme
-- Check that the component uses semantic tokens (not hardcoded values) so it's theme-portable
+Read `packages/design-system/research/density-audit.md` (K10 matrix) and `packages/eslint-plugin-design/density-allowlist.json` at run time:
+
+- For every component in `densityAware.components`, confirm it consumes the prescribed `--density-*` tokens for the axes K10 lists. The AST rule `design/use-density-tokens` catches literal-padding; this catches the contextual case (e.g. "the literal `h-[24px]` on BetCard's lead avatar is card-internal per § 4.4, not row-anchor").
+- For every component in `densityStatic.components` (StatusChip, Tag, IconRail, NotFound), confirm zero `var(--density-*)` consumption. The AST rule `design/no-density-tokens` is the gate; this confirms.
+- **Same-role density-awareness.** All Tier 2 cards (BetCard, TaskCard, PitchCard, SkeletonCard) must share the same density shape (`--density-card-pad` + `--density-card-gap`). All list-row primitives (ThreadRow, KnowledgeRow, NotificationRow) must share the same shape (`--density-pad-*` + `--density-gap` + `--density-text`). Drift between siblings is a finding.
+
+### Completeness Checks
+
+- **Empty states.** Every list / table / panel must define an explicit empty state. A component that renders a list with no `<EmptyState>` branch is a finding.
+- **Error states.** Same for failure paths.
+- **Loading states.** Same for in-flight / skeleton paths.
+- **Mobile readiness.** At viewport ≤ 1024 px, does the component switch to comfortable density? Are touch targets ≥ 44 CSS px? (AQ-015 / AQ-016).
 
 ## Target
 
