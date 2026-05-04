@@ -2,13 +2,13 @@
 // "Planned / Blocked / In Progress / Done". Tasks with proposed or accepted states
 // map to the "Planned" column. Tasks with hold, review, or killed states are excluded.
 import {
+	closestCenter,
 	DndContext,
 	type DragEndEvent,
 	DragOverlay,
 	type DragStartEvent,
 	KeyboardSensor,
 	PointerSensor,
-	closestCenter,
 	useDraggable,
 	useDroppable,
 	useSensor,
