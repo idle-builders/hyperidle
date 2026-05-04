@@ -11,8 +11,11 @@
  * (f) Open thread failure: resolveThreadId rejects → role="alert" "Couldn't open thread — try again."
  * (g) ESC closes the sheet
  * (h) close-button click closes the sheet
+ * (i) focus management: initial focus lands on first radio; Tab loops; Shift-Tab loops; close restores focus
+ * (j) Open thread is disabled during submitting (F4)
+ * (k) mobile bottom-sheet classes present on dialog element (F3)
  */
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { KanbanTask } from "../shell/Kanban";
@@ -264,5 +267,139 @@ describe("TaskSheet (L15)", () => {
 		render(<TaskSheet {...makeProps()} />);
 		const textarea = screen.getByRole("textbox");
 		expect(textarea).toBeInTheDocument();
+	});
+
+	// ── F1: Focus management ────────────────────────────────────────────────
+
+	it("(i) initial focus lands on the first radio when the sheet opens", async () => {
+		render(<TaskSheet {...makeProps()} />);
+
+		// Wait for the rAF-deferred focus to settle.
+		await waitFor(() => {
+			const firstRadio = screen.getByRole("radio", { name: /move to blocked/i });
+			expect(document.activeElement).toBe(firstRadio);
+		});
+	});
+
+	it("(i) Tab from the last focusable element wraps to the first (focus trap)", async () => {
+		// @lore userEvent.tab() in jsdom moves focus natively, bypassing React's synthetic
+		// onKeyDown handler. We use fireEvent.keyDown on the dialog element directly — this
+		// is the correct way to test the focus trap since the trap listens on the dialog div.
+		//
+		// @lore The Send request button is disabled until an intent is selected. The focus
+		// trap's getFocusableElements() excludes disabled elements, so the last focusable
+		// element when no intent is selected is the note textarea (not the Send button).
+		// We select an intent first to enable Send request, making it the true last element.
+		const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime.bind(vi) });
+		render(<TaskSheet {...makeProps()} />);
+
+		// Select an intent so the Send request button becomes enabled (last focusable element).
+		await user.click(screen.getByRole("radio", { name: /move to blocked/i }));
+
+		const dialog = screen.getByRole("dialog");
+		const sendBtn = screen.getByRole("button", { name: /send request/i });
+		const closeBtn = screen.getByRole("button", { name: /close/i });
+
+		// Place focus on the last focusable element (Send request button).
+		sendBtn.focus();
+		expect(document.activeElement).toBe(sendBtn);
+
+		// Fire Tab on the dialog — the onKeyDown handler should wrap focus to the first element.
+		fireEvent.keyDown(dialog, { key: "Tab", shiftKey: false });
+
+		// Focus should now be on the Close button (first focusable element).
+		expect(document.activeElement).toBe(closeBtn);
+	});
+
+	it("(i) Shift-Tab from the first focusable element wraps to the last (focus trap)", async () => {
+		// @lore Same reasoning as the Tab test above — use fireEvent.keyDown on the dialog.
+		// Select an intent first so the Send button is enabled and is the true last focusable element.
+		const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime.bind(vi) });
+		render(<TaskSheet {...makeProps()} />);
+
+		// Select an intent so the Send request button becomes the last focusable element.
+		await user.click(screen.getByRole("radio", { name: /move to blocked/i }));
+
+		const dialog = screen.getByRole("dialog");
+		const closeBtn = screen.getByRole("button", { name: /close/i });
+		const sendBtn = screen.getByRole("button", { name: /send request/i });
+
+		// Place focus on the first focusable element (Close button).
+		closeBtn.focus();
+		expect(document.activeElement).toBe(closeBtn);
+
+		// Fire Shift+Tab on the dialog — the handler should wrap focus to the last element.
+		fireEvent.keyDown(dialog, { key: "Tab", shiftKey: true });
+
+		// Focus should now be on Send request (last focusable element).
+		expect(document.activeElement).toBe(sendBtn);
+	});
+
+	it("(i) focus returns to the trigger element after the sheet closes", async () => {
+		// Create a trigger button and focus it before opening the sheet.
+		const trigger = document.createElement("button");
+		trigger.textContent = "Open task";
+		document.body.appendChild(trigger);
+		trigger.focus();
+		expect(document.activeElement).toBe(trigger);
+
+		const onClose = vi.fn();
+		const { rerender } = render(<TaskSheet {...makeProps({ open: true, onClose })} />);
+
+		// Sheet opens: focus moves inside.
+		await waitFor(() => {
+			const dialog = screen.getByRole("dialog");
+			expect(dialog.contains(document.activeElement)).toBe(true);
+		});
+
+		// Close the sheet by rerendering with open=false.
+		rerender(<TaskSheet {...makeProps({ open: false, onClose })} />);
+
+		// Focus should return to the trigger.
+		await waitFor(() => {
+			expect(document.activeElement).toBe(trigger);
+		});
+
+		document.body.removeChild(trigger);
+	});
+
+	// ── F3: Mobile bottom-sheet responsive classes ──────────────────────────
+
+	it("(k) dialog has mobile bottom-sheet classes present", () => {
+		render(<TaskSheet {...makeProps()} />);
+		const dialog = screen.getByRole("dialog");
+
+		// Mobile bottom-sheet classes (design/approved.md Mobile section).
+		expect(dialog.className).toContain("inset-x-0");
+		expect(dialog.className).toContain("bottom-0");
+		expect(dialog.className).toContain("max-h-[85vh]");
+		// Desktop right-drawer classes (sm: prefix).
+		expect(dialog.className).toContain("sm:inset-y-0");
+		expect(dialog.className).toContain("sm:right-0");
+		expect(dialog.className).toContain("sm:max-w-[360px]");
+	});
+
+	// ── F4: Open thread disabled during submitting ──────────────────────────
+
+	it("(j) Open thread button is disabled while a request is submitting", async () => {
+		// Use a never-resolving postRequest so we can observe mid-flight state.
+		const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime.bind(vi) });
+		const neverResolve = new Promise<void>(() => {
+			// intentionally never resolves — keeps the sheet in submitting state
+		});
+		const resolveThreadId = vi.fn().mockResolvedValue("thread-123");
+		const postRequest = vi.fn().mockReturnValue(neverResolve);
+
+		render(<TaskSheet {...makeProps({ resolveThreadId, postRequest })} />);
+
+		// Select an intent and click Send — will enter submitting state.
+		await user.click(screen.getByRole("radio", { name: /move to blocked/i }));
+		await user.click(screen.getByRole("button", { name: /send request/i }));
+
+		// While submitting, the Open thread button must be disabled.
+		await waitFor(() => {
+			const openThreadBtn = screen.getByRole("button", { name: /open thread/i });
+			expect(openThreadBtn).toBeDisabled();
+		});
 	});
 });

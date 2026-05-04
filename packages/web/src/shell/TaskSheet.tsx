@@ -1,6 +1,6 @@
 /**
- * TaskSheet.tsx — Right-anchored drawer that lets a human request a task
- * state change or navigate to the task's attached thread.
+ * TaskSheet.tsx — Right-anchored drawer (desktop) / bottom-sheet (mobile) that
+ * lets a human request a task state change or navigate to the task's attached thread.
  *
  * Design: Variant C from plans/L15/design/approved.md (scored 79/90).
  *
@@ -13,8 +13,15 @@
  * @lore No `useToast` hook is used here (none exists in packages/web/src/).
  * Success and error feedback are rendered inline in the sheet via
  * `role="status"` / `role="alert"` regions (architecture §C, critique R2).
+ *
+ * @lore Focus management: we snapshot `document.activeElement` at open time
+ * (not via a triggerRef passed from WorkTeam) because TaskSheet is a shell
+ * component — the trigger lives in Kanban, two layers away. Snapshotting at
+ * the moment the sheet opens is idiomatic and requires no prop threading. The
+ * restored element must be focusable; if it isn't (e.g. the task card doesn't
+ * have tabIndex) we fall back to document.body silently.
  */
-import { type JSX, useEffect, useRef, useState } from "react";
+import { type JSX, useCallback, useEffect, useRef, useState } from "react";
 import type { KanbanTask } from "./Kanban";
 
 export interface TaskSheetProps {
@@ -40,7 +47,6 @@ export interface TaskSheetProps {
 
 /**
  * Closed intent vocabulary — matches approved.md table.
- * SCREAMING_SNAKE_CASE for the const; individual entries are narrowly typed.
  */
 const REQUEST_INTENTS = [
 	{ id: "blocked", label: "Move to BLOCKED", template: "Request: move to BLOCKED." },
@@ -53,6 +59,15 @@ const REQUEST_INTENTS = [
 type IntentId = (typeof REQUEST_INTENTS)[number]["id"];
 
 type FeedbackStatus = { kind: "success"; text: string } | { kind: "error"; text: string } | null;
+
+/** Selects all focusable elements inside a container (standard A11y candidate set). */
+function getFocusableElements(container: HTMLElement): HTMLElement[] {
+	return Array.from(
+		container.querySelectorAll<HTMLElement>(
+			'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+		),
+	).filter((el) => !el.hasAttribute("disabled") && el.tabIndex >= 0);
+}
 
 export function TaskSheet({
 	task,
@@ -68,7 +83,39 @@ export function TaskSheet({
 	const [status, setStatus] = useState<FeedbackStatus>(null);
 	const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-	// Reset state whenever the sheet closes or a new task is opened.
+	// @lore Focus restoration: capture the active element the moment the sheet
+	// opens (before any DOM mutation) so we can restore it on close. We use a
+	// ref (not state) because it never needs to trigger a re-render.
+	const priorFocusRef = useRef<Element | null>(null);
+	const dialogRef = useRef<HTMLDivElement | null>(null);
+
+	// Capture focus and move it into the dialog when the sheet opens.
+	useEffect(() => {
+		if (open) {
+			// Snapshot the trigger element before focus moves.
+			priorFocusRef.current = document.activeElement;
+
+			// Move focus to the first radio in the intent group after the DOM paints.
+			const raf = requestAnimationFrame(() => {
+				if (!dialogRef.current) return;
+				const focusables = getFocusableElements(dialogRef.current);
+				// Find first radio — it is focus-destination per design §Keyboard navigation.
+				const firstRadio = focusables.find(
+					(el) => el instanceof HTMLInputElement && el.type === "radio",
+				);
+				const target = firstRadio ?? focusables[0];
+				target?.focus();
+			});
+			return () => cancelAnimationFrame(raf);
+		}
+		// Sheet closed: restore focus to the element that was active when it opened.
+		if (priorFocusRef.current instanceof HTMLElement) {
+			priorFocusRef.current.focus();
+		}
+		priorFocusRef.current = null;
+	}, [open]);
+
+	// Reset form state whenever the sheet closes or a new task is opened.
 	useEffect(() => {
 		if (!open) {
 			setSelectedIntent(null);
@@ -104,6 +151,28 @@ export function TaskSheet({
 			document.removeEventListener("keydown", handleKeyDown);
 		};
 	}, [open, onClose]);
+
+	// Focus trap: intercept Tab/Shift-Tab and cycle within the dialog.
+	const handleDialogKeyDown = useCallback((e: React.KeyboardEvent<HTMLDivElement>): void => {
+		if (e.key !== "Tab" || !dialogRef.current) return;
+		const focusables = getFocusableElements(dialogRef.current);
+		if (focusables.length === 0) return;
+
+		const first = focusables[0];
+		const last = focusables[focusables.length - 1];
+
+		if (e.shiftKey) {
+			// Shift+Tab: if focus is at the first element, wrap to last.
+			if (document.activeElement === first) {
+				e.preventDefault();
+				last.focus();
+			}
+		} else if (document.activeElement === last) {
+			// Tab: if focus is at the last element, wrap to first.
+			e.preventDefault();
+			first.focus();
+		}
+	}, []);
 
 	if (!(task && open)) {
 		return null;
@@ -153,10 +222,17 @@ export function TaskSheet({
 
 	return (
 		<div
+			ref={dialogRef}
 			role="dialog"
 			aria-modal="true"
 			aria-labelledby="task-sheet-title"
-			className="fixed inset-y-0 right-0 flex flex-col w-full max-w-[360px] bg-[var(--surface-2)] border-l border-[var(--border-lo)] shadow-lg z-50"
+			// Mobile: bottom-sheet (inset-x-0 bottom-0 max-h-[85vh] rounded-t-[var(--r3)])
+			// sm+: right-anchored drawer (~360px wide)
+			// @lore The responsive classes implement the design/approved.md Mobile section:
+			// small viewports get a bottom-sheet; desktop gets a right drawer. Both share
+			// the same component — Tailwind responsive prefixes do the layout switching.
+			className="fixed inset-x-0 bottom-0 max-h-[85vh] rounded-t-[var(--r3)] flex flex-col w-full bg-[var(--surface-2)] border-t border-[var(--border-lo)] shadow-lg z-50 sm:inset-y-0 sm:right-0 sm:bottom-auto sm:left-auto sm:max-w-[360px] sm:max-h-none sm:rounded-none sm:border-t-0 sm:border-l"
+			onKeyDown={handleDialogKeyDown}
 		>
 			{/* Header */}
 			<div className="flex items-center justify-between px-4 py-3 border-b border-[var(--border-lo)]">
@@ -185,6 +261,7 @@ export function TaskSheet({
 				<button
 					type="button"
 					className="btn btn-ghost btn-sm w-full"
+					disabled={submitting}
 					onClick={() => void handleOpenThread()}
 				>
 					Open thread
