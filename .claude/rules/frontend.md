@@ -6,7 +6,7 @@ paths:
 
 # Frontend Rules
 
-- Only the 19 custom components from `docs/ui-design/`. Use DaisyUI primitives directly — never wrap them.
+- Only the 19 custom components catalogued in `packages/design-system/DESIGN.md` (and rendered live at `/designsystem`). Use DaisyUI primitives directly — never wrap them.
 - Tailwind utility classes with Lucid theme tokens. 8-12px padding default.
 - Handle all states: empty, loading, error, populated.
 - API endpoints in `packages/server/src/routes/`. RESTful naming. Consistent error response format.

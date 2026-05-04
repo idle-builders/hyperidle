@@ -1,5 +1,5 @@
 // L3 — Hono router for /api/artifacts.
-// Source: plans/architecture-plans/L3.md §5.
+// Source: plans/architecture/L3.md §5.
 
 import { artifacts, type HyperIdleDb, tasks } from "@hyperidle/db";
 import {

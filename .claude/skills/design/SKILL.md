@@ -19,10 +19,10 @@ UX/UI counterpart to `/architecture`. Architecture decides *how* (file paths, sc
 Read (anchor-scoped where possible):
 
 1. The story in `plans/work-packages/TRACK-<letter>.md`.
-2. `docs/ui-design/`, `docs/human-interface-layer/`, `docs/information-architecture/` — existing layout + component budget.
+2. The per-story concept output at `plans/concept/<story-id>.md` and the specific `docs/<topic>/<file>.md` files it cites in its **Required reading**. The concept tells you which existing layout/component-budget files matter — do not browse `docs/` directly.
 3. `packages/design-system/PRINCIPLES.md`, `AESTHETICS.md`, `DESIGN.md`, `src/tokens.css`.
 4. `.claude/rules/aesthetic-quality.md`, `.claude/rules/visual-parity.md`.
-5. If `plans/design-explorations/<story-id>/` exists, you may be resuming.
+5. If `plans/design/<story-id>/` exists, you may be resuming.
 
 ## Phase 0 — Interrogate the user task
 
@@ -81,7 +81,7 @@ If two variants converge, regenerate. Do not proceed with three flavours of one 
 
 ### Output per variant — the spec is concrete OR it doesn't count
 
-Each sub-agent produces, in `plans/design-explorations/<story-id>/<variant-slug>/`:
+Each sub-agent produces, in `plans/design/<story-id>/<variant-slug>/`:
 
 1. **`spec.md`** — opinionated spec, no hand-waving:
    - User story (1 sentence — who, what, why)
@@ -105,7 +105,7 @@ If all three score below 5, the brief was wrong — go back to Phase 0 and re-in
 
 ## Phase 3 — Build the comparison
 
-Produce `plans/design-explorations/<story-id>/comparison.md`:
+Produce `plans/design/<story-id>/comparison.md`:
 
 | Dimension | Variant A | Variant B | Variant C |
 |---|---|---|---|
@@ -123,7 +123,7 @@ Plus the three screenshots side by side.
 
 ## Phase 4 — Synthesize
 
-Often the best design combines insights from multiple variants. Write `plans/design-explorations/<story-id>/synthesis.md`:
+Often the best design combines insights from multiple variants. Write `plans/design/<story-id>/synthesis.md`:
 
 - Which variant is the strongest base?
 - Which elements from the other two are worth pulling in?
@@ -138,7 +138,7 @@ If the founder is reachable, surface the comparison and **let them pick**. One A
 
 ## Phase 5 — Approve and write the chosen design
 
-Once a direction is chosen, write `plans/design-explorations/<story-id>/approved.md`:
+Once a direction is chosen, write `plans/design/<story-id>/approved.md`:
 
 - The chosen variant + any pulled-in elements from siblings
 - The rejected list (so `/architecture` and `/write-code` don't re-litigate)
@@ -164,7 +164,7 @@ Then run `/design-critique` once more on the approved design — score must be �
 ## Output artifacts
 
 ```
-plans/design-explorations/<story-id>/
+plans/design/<story-id>/
 ├── brief.md                    # the interrogated brief
 ├── <variant-a-slug>/
 │   ├── spec.md

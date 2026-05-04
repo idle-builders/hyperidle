@@ -12,12 +12,11 @@ Read-only review. Produce findings — do NOT make code changes.
 
 ## Required reading (do ALL before reviewing code)
 
-1. `docs/architecture/` — layers, API contracts, data models, event bus, deployment
-2. `docs/process-layer/` — state machines, task/bet lifecycles, handoff protocol
-3. `docs/knowledge-architecture/` — knowledge fabric, L0-L4, materialization, conflicts
-4. `docs/agent-layer/` — agent runtime, session provisioning, workspace adapters
-5. `plans/work-packages/SHARED.md` — tech stack, shared contracts, dependency graph
-6. The relevant track file in `plans/work-packages/TRACK-*.md` for the story being reviewed
+1. `plans/architecture/<story-id>.md` — the technical plan (always start here)
+2. The specific authoritative files named in the plan's **Required reading** section — these are the `docs/<topic>/<file>.md` paths the architect picked. Read each one end-to-end.
+3. `plans/concept/<story-id>.md` — the locked concept output, if present
+4. `plans/work-packages/SHARED.md` — tech stack, shared contracts, dependency graph
+5. The relevant track file in `plans/work-packages/TRACK-*.md` for the story being reviewed
 
 Then read the changed files (via `<target>` or `git diff --name-only`).
 

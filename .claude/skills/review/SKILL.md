@@ -14,11 +14,7 @@ min_tool_calls: 25
 
 1. Identify changed files via `git diff --name-only`
 2. Read the relevant story in the appropriate track file under `plans/work-packages/`
-3. Read the relevant concept docs for context:
-   - Always: `docs/architecture/`, `plans/work-packages/SHARED.md`
-   - If backend changes: `docs/process-layer/`, `docs/agent-layer/`, `docs/knowledge-architecture/`
-   - If frontend changes: `docs/ui-design/`, `docs/human-interface-layer/`, `docs/information-architecture/`
-   - If requirements questions: `docs/requirements/`
+3. Read the architecture plan at `plans/architecture/<story-id>.md` — its **Required reading** section names the specific doc files this story commits to. Read those files. Do not browse `docs/` — the plan is the filter.
 
 ## Phase 1: Scan (specialists in parallel)
 
@@ -45,7 +41,7 @@ If verdict is NEEDS WORK:
 
 **Rules:**
 - **Be thorough.** Read every changed file end-to-end — no drive-by reviews. Read every function, check every type, verify every import. Skimming is how bugs survive review.
-- **Check against the spec.** Every component, endpoint, and state machine has a spec in `docs/`. If the code diverges from the spec, that's a finding — either the code is wrong or the spec needs updating. Cite the specific doc section.
+- **Check against the spec.** Every component, endpoint, and state machine has a spec in the doc files named in the architecture plan's Required reading. If the code diverges from the spec, that's a finding — either the code is wrong or the spec needs updating. Cite the specific file + section.
 - **Verify, don't trust.** If a component claims to handle drag-drop, check that `useDraggable` is actually called. If a test claims to verify behavior, check that it actually asserts something meaningful. Surface-level "looks right" is not a review.
 - Every issue must reference a file and line number
 - Don't nitpick style — Biome handles formatting

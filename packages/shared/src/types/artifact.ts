@@ -1,5 +1,5 @@
 // L3 — Artifact primitive type definitions.
-// Source: plans/architecture-plans/L3.md §3.
+// Source: plans/architecture/L3.md §3.
 
 export const ARTIFACT_KINDS = [
 	"code_diff",
