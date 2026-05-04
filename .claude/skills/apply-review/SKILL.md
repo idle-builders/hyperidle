@@ -12,7 +12,7 @@ You receive review findings from a scan/review skill. Work through each finding:
 
 1. **Validate** — is the finding correct? Read the referenced code. If the finding is wrong or outdated, skip it and note why.
 2. **Apply** — make the fix. Keep changes behavior-preserving unless the finding explicitly identifies a bug.
-3. **Verify** — after each logical group of fixes, run `bun run check && bun run lint && bun run test`. Revert anything that breaks tests.
+3. **Verify** — after each logical group of fixes, run `bun run verify`. Revert anything that breaks tests.
 
 Do not add unrelated improvements. Only address the findings you were given.
 

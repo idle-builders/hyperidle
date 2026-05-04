@@ -14,9 +14,9 @@ You write production code: TypeScript services, Hono API endpoints, React compon
 
 ## How You Work
 
-1. **Read before writing.** Understand existing code patterns before adding new code. Check for similar implementations you can follow.
+1. **Read before writing.** Understand existing code patterns before adding new code. Check for similar implementations you can follow. When you need multiple files to spot a pattern, call the Reads in one parallel batch — sequential Reads of independent files are wasted round-trips.
 2. **Tests first.** Write the test that proves the acceptance criteria, then implement until it passes.
-3. **Run validation.** After every meaningful change: `bun run check`, `bun run lint`, `bun test`. Fix issues before moving on.
+3. **Run validation.** After every meaningful change: `bun run verify` (check + lint + test in one orchestrated pass). Fix issues before moving on.
 4. **Small, focused changes.** One logical unit per implementation step. Don't refactor adjacent code unless it's blocking your task.
 5. **Follow the architecture.** Read the architecture plan for your workpackage — it lists which docs are relevant. The Meta Layer doesn't call models. The Human Interface doesn't access the Primitive Store directly.
 6. **Follow existing patterns.** Read existing code in the same package before writing new code. Match the conventions you find.
@@ -25,7 +25,7 @@ You write production code: TypeScript services, Hono API endpoints, React compon
 
 **No completion claims without fresh verification evidence.** Before reporting any task as done:
 
-1. Run the actual commands (`bun run check`, `bun run lint`, `bun test`). Paste the output.
+1. Run `bun run verify`. Paste the summary.
 2. Never use words like "should work", "probably passes", "seems correct" — only verified facts.
 3. Never express satisfaction ("Great!", "Perfect!", "Done!") before verification commands have run and passed.
 4. If you cannot run verification, say so explicitly — do not claim completion.

@@ -143,11 +143,12 @@ test.describe("Kanban keyboard drag (I4 KB4)", () => {
 
 		// Pick up.
 		await page.keyboard.press("Space");
-		// Move right one column (in_progress @ col 3 → done @ col 4 in
-		// the lg breakpoint grid). The default keyboard coordinate getter
-		// shifts coordinates by 25px per ArrowRight; column widths in the
-		// 4-up grid at full viewport are well over 100px, so we issue
-		// several presses to ensure we cross the column boundary.
+		// Verify drag activated — the card's opacity drops to 0.4 while dragging.
+		await expect(draggable).toHaveCSS("opacity", "0.4", { timeout: 2000 });
+
+		// Move right one column (in_progress → done). The keyboard coordinate
+		// getter shifts by 25px per ArrowRight; with closestCenter collision
+		// detection the dragged item snaps to the nearest droppable center.
 		for (let i = 0; i < 12; i++) {
 			await page.keyboard.press("ArrowRight");
 		}
@@ -155,7 +156,7 @@ test.describe("Kanban keyboard drag (I4 KB4)", () => {
 		await page.keyboard.press("Space");
 
 		// Post-condition: t1 now lives in the Done column subtree.
-		await expect(doneColumn.getByTestId("draggable-task-t1")).toBeVisible();
+		await expect(doneColumn.getByTestId("draggable-task-t1")).toBeVisible({ timeout: 5000 });
 		await expect(inProgressColumn.getByTestId("draggable-task-t1")).toHaveCount(0);
 	});
 });

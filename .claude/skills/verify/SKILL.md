@@ -9,15 +9,17 @@ min_tool_calls: 4
 
 **Why:** Types, lint, and tests are the three automated gates that catch regressions before they reach other agents or humans. Running them after every change prevents broken code from compounding — the next agent inherits whatever you leave behind.
 
-Run in order. Max 3 fix attempts per step:
+Run `bun run verify` — it orchestrates check + lint + test in one pass and outputs a TOON summary. Use `--only check,lint` or `--only test` to run a subset. Use `--raw` for full uncompressed output when debugging failures.
 
-1. `bun run check` — fix type errors in source files, not type definitions
-2. `bun run lint:biome` — try `bun run lint:fix` first, then fix remaining manually
-3. `bun run lint:eslint` — React Compiler, hooks exhaustive-deps, Drizzle ORM safety. Fix manually.
-4. `bun run test` — fix the implementation, not the test (unless the test is wrong)
-5. `cd packages/web && npx playwright test` — if web/ files changed. E2E proves the UI works in a real browser.
+If verify fails, fix and re-run. Max 3 fix attempts per gate:
 
-Report PASS/FAIL for each step. All must pass.
+1. **Type errors** — fix source files, not type definitions
+2. **Biome lint** — try `bun run lint:fix` first, then fix remaining manually
+3. **ESLint** — React Compiler, hooks exhaustive-deps, Drizzle ORM safety. Fix manually.
+4. **Tests** — fix the implementation, not the test (unless the test is wrong)
+5. **Playwright** — if web/ files changed, also run `cd packages/web && npx playwright test`. E2E proves the UI works in a real browser.
+
+Report PASS/FAIL for each gate. All must pass.
 
 **Boundary conditions:**
 - TypeScript strict mode doesn't produce false positives — read the error, you have a real type mismatch

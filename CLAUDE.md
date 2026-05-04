@@ -89,7 +89,13 @@ Bun, TypeScript strict, Hono, Drizzle ORM (SQLite + PostgreSQL), React + Vite, T
 
 ## Commands
 
-`bun install`, `bun dev` (server 3001 + web 5173), `bun run test` (Vitest via package.json script — do NOT use bare `bun test` which invokes Bun's native runner), `bun run check` (typecheck), `bun run lint` (Biome + ESLint), `bun run lint:biome`, `bun run lint:eslint`, `bun run lint:fix`, `bun run db:generate`, `bun run db:migrate`.
+`bun install`, `bun dev` (server 3001 + web 5173), `bun run verify` (orchestrated check + lint + test in one summary — preferred for completion checks), `bun run test` (Vitest via package.json script — do NOT use bare `bun test` which invokes Bun's native runner), `bun run check` (typecheck), `bun run lint` (Biome + ESLint), `bun run lint:biome`, `bun run lint:eslint`, `bun run lint:fix`, `bun run db:generate`, `bun run db:migrate`.
+
+---
+
+## Tool Calls
+
+When you call multiple tools and there are no dependencies between them, make all the independent tool calls in parallel. Reading three files to spot a pattern is three Read calls in one parallel batch, not three sequential ones. `git status` + `git diff` + `git log` is one batch of three Bash calls. Call tools sequentially only when a later call needs the result of an earlier one (read file A → decide what to read next from A's contents; edit file → re-read to verify; build → only run tests on green).
 
 ---
 
