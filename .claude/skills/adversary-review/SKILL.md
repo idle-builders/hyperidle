@@ -1,7 +1,7 @@
 ---
 name: adversary-review
 description: "Read-only adversarial code review. Run by the adversary agent."
-argument-hint: "[file paths or story-id]"
+argument-hint: "[file paths or workpackage-id]"
 user-invocable: true
 min_tool_calls: 8
 ---
@@ -13,7 +13,7 @@ Read-only review. Produce findings — do NOT make code changes.
 ## Required reading
 
 1. `CLAUDE.md` (tech stack) and `docs/ui-design/component-budget.md` (component budget); canonical contracts under `docs/<topic>/canonical-shapes.md`
-2. The relevant track file in `plans/work-packages/TRACK-*.md` for the story being reviewed
+2. The relevant track file in `plans/work-packages/TRACK-*.md` for the workpackage being reviewed
 3. `.claude/rules/typescript.md` — TypeScript rules the code must follow
 
 Then read ALL changed files (via `<target>` or `git diff --name-only`). Be brutally skeptical.
@@ -30,7 +30,7 @@ Do not skim. Read every function body. Check every `as` cast. Open every test fi
 - **Test quality** — happy-path-only tests, tautologies, tests that mock everything, tests that assert obvious things but miss the hard cases
 - **Performance** — N+1 queries, unbounded lists, missing indexes, allocations in render loops
 - **AI slop** — over-commenting, unnecessary abstractions, code that looks impressive but does nothing, `@lore` comments that document a problem without fixing it
-- **Spec compliance** — check component behavior against the specific authoritative files named in `plans/<story-id>/architecture.md`'s **Required reading** section (and the design spec at `plans/<story-id>/design/approved.md`). If the spec says 4 columns, count the columns.
+- **Spec compliance** — check component behavior against the specific authoritative files named in `plans/<workpackage-id>/architecture.md`'s **Required reading** section (and the design spec at `plans/<workpackage-id>/design/approved.md`). If the spec says 4 columns, count the columns.
 
 Output structured findings: CRITICAL / WARNINGS / OBSERVATIONS with file paths and line numbers.
 

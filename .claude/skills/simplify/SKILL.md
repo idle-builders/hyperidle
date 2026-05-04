@@ -8,7 +8,7 @@ min_tool_calls: 12
 
 # Simplify
 
-**Why:** AI-generated code trends toward over-abstraction — too many layers, premature generalization, unused helpers. Simplifying after implementation keeps the codebase maintainable for the next agent and prevents complexity from compounding across stories.
+**Why:** AI-generated code trends toward over-abstraction — too many layers, premature generalization, unused helpers. Simplifying after implementation keeps the codebase maintainable for the next agent and prevents complexity from compounding across workpackages.
 
 Find recently changed files via `git diff --name-only HEAD~1` (or use `<target>`).
 

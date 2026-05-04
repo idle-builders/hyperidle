@@ -13,8 +13,8 @@ min_tool_calls: 25
 ## Preparation (do not skip)
 
 1. Identify changed files via `git diff --name-only`
-2. Read the relevant story in the appropriate track file under `plans/work-packages/`
-3. Read the architecture plan at `plans/<story-id>/architecture.md` — its **Required reading** section names the specific doc files this story commits to. Read those files. Do not browse `docs/` — the plan is the filter.
+2. Read the relevant workpackage in the appropriate track file under `plans/work-packages/`
+3. Read the architecture plan at `plans/<workpackage-id>/architecture.md` — its **Required reading** section names the specific doc files this workpackage commits to. Read those files. Do not browse `docs/` — the plan is the filter.
 
 ## Phase 1: Scan (specialists in parallel)
 

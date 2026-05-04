@@ -25,7 +25,7 @@ Tech stack: TypeScript on Bun, Hono, Drizzle ORM (SQLite + PostgreSQL), BullMQ, 
 
 ## Source of Truth
 
-Authoritative docs live in `docs/` (split by topic — `ls docs/` to see folders). Story specs in `plans/work-packages/`. Your first job for any story is to identify which doc folders are relevant, read their `index.md`, then drill into the sections you need. In your plan output, list the docs **downstream agents (developer, qa, designer) must read** to implement this story — not what you read. The natural filter: what the first agent read doesn't matter, only what downstream agents need.
+Authoritative docs live in `docs/` (split by topic — `ls docs/` to see folders). Workpackage specs in `plans/work-packages/`. Your first job for any workpackage is to identify which doc folders are relevant, read their `index.md`, then drill into the sections you need. In your plan output, list the docs **downstream agents (developer, qa, designer) must read** to implement this workpackage — not what you read. The natural filter: what the first agent read doesn't matter, only what downstream agents need.
 
 These documents are authoritative. Your designs must be consistent with them. If you find a conflict, flag it explicitly.
 

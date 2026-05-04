@@ -1,7 +1,7 @@
 ---
 name: design
-description: "Explore multiple UX/UI variants in parallel, compare them, run /design-critique, then settle on one. Use BEFORE /architecture when a story has any UI surface — a new page, a new primitive, a new component shape, a new interaction flow, or a redesign of an existing surface."
-argument-hint: "[story-id-or-feature-name]"
+description: "Explore multiple UX/UI variants in parallel, compare them, run /design-critique, then settle on one. Use BEFORE /architecture when a workpackage has any UI surface — a new page, a new primitive, a new component shape, a new interaction flow, or a redesign of an existing surface."
+argument-hint: "[workpackage-id-or-feature-name]"
 user-invocable: true
 min_tool_calls: 25
 ---
@@ -10,7 +10,7 @@ min_tool_calls: 25
 
 UX/UI counterpart to `/architecture`. Architecture decides *how* (file paths, schemas, types, endpoints); design decides *what the user sees and does* (shape, hierarchy, density, interaction grammar, motion, copy, states). Forces a multi-variant pass so the chosen design isn't the first thing that came to mind.
 
-**Skip when:** the story has no UI surface, OR an approved design already exists and this is a pure layout tweak (go straight to `/design-critique`).
+**Skip when:** the workpackage has no UI surface, OR an approved design already exists and this is a pure layout tweak (go straight to `/design-critique`).
 
 **Fixed input from `/concept`:** variants explore the visual/interaction shape — they do not redefine what the noun IS. If a variant only works by changing the concept, that's a `/concept` issue.
 
@@ -18,11 +18,11 @@ UX/UI counterpart to `/architecture`. Architecture decides *how* (file paths, sc
 
 Read (anchor-scoped where possible):
 
-1. The story in `plans/work-packages/TRACK-<letter>.md`.
-2. The per-story concept output at `plans/<story-id>/concept.md` and the specific `docs/<topic>/<file>.md` files it cites in its **Required reading**. The concept tells you which existing layout/component-budget files matter — do not browse `docs/` directly.
+1. The workpackage in `plans/work-packages/TRACK-<letter>.md`.
+2. The per-workpackage concept output at `plans/<workpackage-id>/concept.md` and the specific `docs/<topic>/<file>.md` files it cites in its **Required reading**. The concept tells you which existing layout/component-budget files matter — do not browse `docs/` directly.
 3. `packages/design-system/PRINCIPLES.md`, `AESTHETICS.md`, `DESIGN.md`, `src/tokens.css`.
 4. `.claude/rules/aesthetic-quality.md`, `.claude/rules/visual-parity.md`.
-5. If `plans/<story-id>/design/` exists, you may be resuming.
+5. If `plans/<workpackage-id>/design/` exists, you may be resuming.
 
 ## Phase 0 — Interrogate the user task
 
@@ -40,7 +40,7 @@ Stop when the brief is clear. 3-7 branches typical.
 
 Spawn **three `designer` sub-agents in parallel**. Each must produce a **radically different** approach. Anti-convergence is a hard rule: variants that all feel like minor tweaks of one idea = fail.
 
-Each agent receives the story brief + design-system pointers + a different **constraint-and-thesis pairing** so the spread is intentional, not accidental:
+Each agent receives the workpackage brief + design-system pointers + a different **constraint-and-thesis pairing** so the spread is intentional, not accidental:
 
 ```
 Variant A — "Minimal scaffold"
@@ -59,11 +59,11 @@ Variant C — "Reference-borrowed"
   Constraint: take inspiration from a SPECIFIC named reference (Linear / Notion /
               Slack / Figma / Linear's command palette / Stripe Dashboard) — pick
               one whose interaction grammar fits, and embody it cleanly without
-              copying chrome. The orchestrator names the reference per story.
+              copying chrome. The orchestrator names the reference per workpackage.
   Thesis: a proven interaction grammar shortens the user's learning curve.
 ```
 
-If the story is for a *new design-system primitive* (L1 / L2 / L3 / future primitives), substitute the constraints to explore the **shape itself**:
+If the workpackage is for a *new design-system primitive* (L1 / L2 / L3 / future primitives), substitute the constraints to explore the **shape itself**:
 
 ```
 Variant A — "Container with payload" (the shape is a thin container; the payload
@@ -81,10 +81,10 @@ If two variants converge, regenerate. Do not proceed with three flavours of one 
 
 ### Output per variant — the spec is concrete OR it doesn't count
 
-Each sub-agent produces, in `plans/<story-id>/design/<variant-slug>/`:
+Each sub-agent produces, in `plans/<workpackage-id>/design/<variant-slug>/`:
 
 1. **`spec.md`** — opinionated spec, no hand-waving:
-   - User story (1 sentence — who, what, why)
+   - User workpackage (1 sentence — who, what, why)
    - Component composition: which existing components are used where (named, not "a card-like thing")
    - Information hierarchy: numbered 1/2/3, with one-line content per slot
    - All states: empty / loading / error / populated / overflow — described with copy and component names
@@ -92,10 +92,10 @@ Each sub-agent produces, in `plans/<story-id>/design/<variant-slug>/`:
    - Mobile adaptation: how it maps to the three-tab mobile layout
    - The **signature** — the one thing that makes this variant unmistakably itself
    - Trade-offs: what this variant is bad at
-2. **`mockup.html`** (preferred) — a self-contained HTML file that **embodies** the variant. Imports the design system tokens (link to `packages/design-system/src/tokens.css`), uses real data shapes from the story, demonstrates the primary state. The mockup IS the variant; describing motion in prose while the mockup uses default 200ms transitions = fail.
+2. **`mockup.html`** (preferred) — a self-contained HTML file that **embodies** the variant. Imports the design system tokens (link to `packages/design-system/src/tokens.css`), uses real data shapes from the workpackage, demonstrates the primary state. The mockup IS the variant; describing motion in prose while the mockup uses default 200ms transitions = fail.
 3. **`screenshot.png`** — Playwright screenshot of `mockup.html` at desktop width. (Run `npx playwright screenshot file://<absolute-path>/mockup.html screenshot.png --wait-for-timeout=1000`.)
 
-If HTML mockups are too heavy for the story (small primitive, well-understood shape), produce *spec + a TSX sketch in the design-system playground* instead. The hard rule is: each variant must produce a **looked-at artifact**, not just prose.
+If HTML mockups are too heavy for the workpackage (small primitive, well-understood shape), produce *spec + a TSX sketch in the design-system playground* instead. The hard rule is: each variant must produce a **looked-at artifact**, not just prose.
 
 ## Phase 2 — Critique each variant in isolation
 
@@ -105,7 +105,7 @@ If all three score below 5, the brief was wrong — go back to Phase 0 and re-in
 
 ## Phase 3 — Build the comparison
 
-Produce `plans/<story-id>/design/comparison.md`:
+Produce `plans/<workpackage-id>/design/comparison.md`:
 
 | Dimension | Variant A | Variant B | Variant C |
 |---|---|---|---|
@@ -123,7 +123,7 @@ Plus the three screenshots side by side.
 
 ## Phase 4 — Synthesize
 
-Often the best design combines insights from multiple variants. Write `plans/<story-id>/design/synthesis.md`:
+Often the best design combines insights from multiple variants. Write `plans/<workpackage-id>/design/synthesis.md`:
 
 - Which variant is the strongest base?
 - Which elements from the other two are worth pulling in?
@@ -138,7 +138,7 @@ If the founder is reachable, surface the comparison and **let them pick**. One A
 
 ## Phase 5 — Approve and write the chosen design
 
-Once a direction is chosen, write `plans/<story-id>/design/approved.md`:
+Once a direction is chosen, write `plans/<workpackage-id>/design/approved.md`:
 
 - The chosen variant + any pulled-in elements from siblings
 - The rejected list (so `/architecture` and `/write-code` don't re-litigate)
@@ -164,7 +164,7 @@ Then run `/design-critique` once more on the approved design — score must be �
 ## Output artifacts
 
 ```
-plans/<story-id>/design/
+plans/<workpackage-id>/design/
 ├── brief.md                    # the interrogated brief
 ├── <variant-a-slug>/
 │   ├── spec.md

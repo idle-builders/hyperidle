@@ -1,7 +1,7 @@
 ---
 name: concept
-description: "Aggregate pre-implementation pipeline: probe the concept, Run as the entry point on any story that introduces or reshapes a primitive, a domain concept, or a load-bearing noun in the system."
-argument-hint: "[story-id-or-concept-name]"
+description: "Aggregate pre-implementation pipeline: probe the concept, Run as the entry point on any workpackage that introduces or reshapes a primitive, a domain concept, or a load-bearing noun in the system."
+argument-hint: "[workpackage-id-or-concept-name]"
 user-invocable: true
 min_tool_calls: 18
 ---
@@ -10,15 +10,15 @@ min_tool_calls: 18
 
 Upstream of `/design` and `/architecture`. Answers "what IS this thing?" — the layer where Thread is distinguished from Message, Block from Section, Artifact from Output, Bet from Task, Cost from Duration.
 
-**Skip when:** the concept is already locked in `docs/` and the story doesn't reshape it. Read the relevant section files first; if they answer Phase 1 without contradiction, skip.
+**Skip when:** the concept is already locked in `docs/` and the workpackage doesn't reshape it. Read the relevant section files first; if they answer Phase 1 without contradiction, skip.
 
 ## Required reading
 
-1. Story in `plans/work-packages/TRACK-<letter>.md` — central vs incidental nouns.
+1. Workpackage in `plans/work-packages/TRACK-<letter>.md` — central vs incidental nouns.
 2. Existing canonical-shapes / contract docs under `docs/<topic>/` (e.g. `docs/blocks/canonical-shapes.md`, `docs/process-layer/canonical-shapes.md`, `docs/process-layer/artifact-primitive.md`, `docs/human-interface-layer/thread-primitive.md`, `docs/architecture/event-bus-guarantees.md`, `docs/agent-layer/harness-error-taxonomy.md`) — does the noun already have a contract?
 3. `ls docs/` to identify relevant topic folders, then read `index.md` and drill into the specific `docs/<topic>/<file>.md` sections that match the noun.
 
-**Output a "Required reading" section** listing the specific doc files downstream agents (`/architecture`, `/implement`) must read for this story.
+**Output a "Required reading" section** listing the specific doc files downstream agents (`/architecture`, `/implement`) must read for this workpackage.
 
 If the spec contradicts an existing concept doc, that's CRITICAL. Surface it; don't silently re-define.
 
@@ -27,9 +27,9 @@ If the spec contradicts an existing concept doc, that's CRITICAL. Surface it; do
 Name the noun(s) the spec keeps using. Often there's one central noun and 2-3 satellite nouns. List them with one-line working definitions in your own words, then check each against the specific `docs/<topic>/<file>.md` you identified in Required reading and against any canonical-shapes contract docs under `docs/`.
 
 For each noun, classify it:
-- **New primitive** — not in the system yet; this story introduces it. (L1 Thread, L2 Block, L3 Artifact were each this.)
-- **Reshaped concept** — exists but the story changes what it means or what it commits to. (L4 reshaping Cost+Tokens away from Duration.)
-- **Stable concept** — exists and the story uses it as-is. No concept work needed for this noun.
+- **New primitive** — not in the system yet; this workpackage introduces it. (L1 Thread, L2 Block, L3 Artifact were each this.)
+- **Reshaped concept** — exists but the workpackage changes what it means or what it commits to. (L4 reshaping Cost+Tokens away from Duration.)
+- **Stable concept** — exists and the workpackage uses it as-is. No concept work needed for this noun.
 
 Only New + Reshaped nouns enter the rest of this skill. Stable nouns are inputs.
 
@@ -47,7 +47,7 @@ The seven essential probes (adapt; don't ask all of them — pick what's actuall
 4. **Composition.** "What other concepts does a `<noun>` carry, host, or attach to? My read: a `<noun>` attaches to {hosts}, carries {payload}, is referenced by {references}."
 5. **Lifecycle.** "What states does a `<noun>` move through, and what causes each transition? My read: …"
 6. **Authority.** "Who owns / produces / mutates a `<noun>`? Where does the source of truth live? My read: …"
-7. **Vocabulary collision.** "Does `<noun>` clash with an existing term in any specific `docs/<topic>/<file>.md` (including canonical-shapes contracts)? Is it used inconsistently inside this same story? My read: …"
+7. **Vocabulary collision.** "Does `<noun>` clash with an existing term in any specific `docs/<topic>/<file>.md` (including canonical-shapes contracts)? Is it used inconsistently inside this same workpackage? My read: …"
 
 Stop probing when the concept is sharp, not when you run out of questions. Three to seven branches is typical for a new primitive; one or two for a reshape.
 
@@ -67,7 +67,7 @@ Each rejection has a reason. "We don't do X because Y" — Y is the load-bearing
 ## Phase 3 — Lock the vocabulary
 
 Pick one canonical term per concept. List the aliases that are *not* allowed:
-- Other terms used in the same story for the same thing (collapse to one)
+- Other terms used in the same workpackage for the same thing (collapse to one)
 - Terms from prior systems / existing code that mean something different (rename or rescope)
 - Translations (if the system is bilingual) — mark which language is authoritative
 
@@ -93,12 +93,12 @@ Concepts commit the system to contracts. Make them explicit:
 
 Each contract is one line. The architect later turns these into types, schemas, and guards. Concept work commits to the *shape*, not the implementation.
 
-## Phase 5 — Write the per-story concept doc and update ground truth
+## Phase 5 — Write the per-workpackage concept doc and update ground truth
 
 The output is a concept doc, not a chat summary. Write to:
-- `plans/<story-id>/concept.md` — the per-story concept-locking output (always). This is what `/architecture` reads as a fixed input.
+- `plans/<workpackage-id>/concept.md` — the per-workpackage concept-locking output (always). This is what `/architecture` reads as a fixed input.
 - A specific `docs/<topic>/<noun>.md` ground-truth file if the concept fits an existing layer (Thread → `docs/human-interface-layer/threads.md`, Block → `docs/blocks/<file>.md`, Artifact → `docs/process-layer/artifacts.md`). Update or create the specific file — do not write to a generic folder.
-- An update to the matching `docs/<topic>/canonical-shapes.md` (or sibling contract file) so downstream stories reference it without re-inventing.
+- An update to the matching `docs/<topic>/canonical-shapes.md` (or sibling contract file) so downstream workpackages reference it without re-inventing.
 
 Doc structure (adapt sections that aren't relevant; don't pad):
 
@@ -140,7 +140,7 @@ The concept is now **locked**. The downstream skills with the concept as fixed i
 ## Output of `/concept` end-to-end
 
 ```
-plans/<story-id>/concept.md           # Phase 5 per-story concept-locking output (always)
+plans/<workpackage-id>/concept.md           # Phase 5 per-workpackage concept-locking output (always)
 docs/<topic>/<noun>.md                # Phase 5 ground-truth update (specific file, when applicable)
 docs/<topic>/canonical-shapes.md      # Phase 5 may add a canonical-shapes entry
 ```

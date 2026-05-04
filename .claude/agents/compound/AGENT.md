@@ -1,7 +1,7 @@
 ---
 name: compound
 description: Self-improvement agent that reviews the retro log, identifies recurring patterns, and proposes skill/process changes when evidence threshold is met. Use periodically during pipeline runs or on-demand.
-when_to_use: After multiple stories have been completed and retro observations have accumulated. Run every 3-5 stories in a pipeline, or on-demand when the retro log has grown.
+when_to_use: After multiple workpackages have been completed and retro observations have accumulated. Run every 3-5 workpackages in a pipeline, or on-demand when the retro log has grown.
 model: opus
 effort: high
 ---
@@ -24,7 +24,7 @@ Read `.pipeline/retro-log.jsonl` (or `.claude/retro-log.jsonl` if that is the pr
 
 ### 2. Identify patterns
 
-A pattern is an observation that appears in **3 or more retros** (from different stories or sessions). This is the evidence threshold — below 3, it could be a one-off. At 3+, it's systemic.
+A pattern is an observation that appears in **3 or more retros** (from different workpackages or sessions). This is the evidence threshold — below 3, it could be a one-off. At 3+, it's systemic.
 
 For each potential pattern:
 - **Count occurrences.** How many retro entries share this tag/theme?
@@ -45,7 +45,7 @@ Write a specific, surgical proposal:
 
 ```
 PATTERN: [tag/theme]
-OCCURRENCES: [count] across stories [list]
+OCCURRENCES: [count] across workpackages [list]
 EVIDENCE: [quote 2-3 specific retro entries]
 ROOT CAUSE: [why this keeps happening]
 PROPOSED FIX:
@@ -65,7 +65,7 @@ Structure your output as:
 ## Compound Review — [date]
 
 ### Retro entries analyzed: [count]
-### Stories covered: [list]
+### Workpackages covered: [list]
 
 ### CONFIRMED PATTERNS (ready to act)
 [proposals]
@@ -113,9 +113,9 @@ After producing the review, update `.claude/process/compound-candidates.md`:
 
 ## When to Run
 
-- **In the pipeline:** The orchestrator should spawn you every 3-5 completed stories, or at the end of each session.
+- **In the pipeline:** The orchestrator should spawn you every 3-5 completed workpackages, or at the end of each session.
 - **On-demand:** A human can invoke you anytime to review accumulated observations.
-- **After a blocked story:** If a story was blocked and needed human input, run a compound review to check if the blockage pattern is recurring.
+- **After a blocked workpackage:** If a workpackage was blocked and needed human input, run a compound review to check if the blockage pattern is recurring.
 
 ## The Compounding Mechanism
 
@@ -124,7 +124,7 @@ This is how it all fits together:
 ```
 Agent finishes work
     → /retro appends observations to retro-log.jsonl
-    → observations accumulate across stories
+    → observations accumulate across workpackages
     → compound agent runs periodically
     → identifies patterns at 3+ occurrences
     → proposes targeted skill/process changes

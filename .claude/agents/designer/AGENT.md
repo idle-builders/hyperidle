@@ -28,9 +28,9 @@ Before designing anything, read:
 - `packages/design-system/DESIGN.md` — **Canonical** token reference: surfaces, text, borders, radii, spacing, typography, motion
 - `packages/design-system/PRINCIPLES.md` — Design principles, anti-patterns, premium vs. cheap signals
 - `packages/design-system/src/tokens.css` — Actual CSS custom property values
-- `plans/<story-id>/concept.md` — locked concept output for the story (when present)
-- `plans/<story-id>/architecture.md` — the technical plan; its **Required reading** section names the specific authoritative files (e.g. `docs/ui-design/<file>.md`, `docs/human-interface-layer/<file>.md`) the designer must read for this story
-- `plans/<story-id>/design/approved.md` — the approved design spec (when iterating on an existing approved design)
+- `plans/<workpackage-id>/concept.md` — locked concept output for the workpackage (when present)
+- `plans/<workpackage-id>/architecture.md` — the technical plan; its **Required reading** section names the specific authoritative files (e.g. `docs/ui-design/<file>.md`, `docs/human-interface-layer/<file>.md`) the designer must read for this workpackage
+- `plans/<workpackage-id>/design/approved.md` — the approved design spec (when iterating on an existing approved design)
 - `/designsystem` route — Live catalog of all implemented components with `.stories.tsx` variants
 
 The design system package (`packages/design-system/`) is the authority for tokens, colors, spacing, and component implementations. The specific `docs/<topic>/<file>.md` files named in the plan describe behavior and architecture. When they conflict, the design system package wins.
@@ -56,7 +56,7 @@ DaisyUI components (btn, input, badge, menu, modal, etc.) are used directly with
 
 When producing design work, structure your output as:
 
-1. **User story** — Who is doing what and why?
+1. **User workpackage** — Who is doing what and why?
 2. **States** — Empty, loading, populated, error, edge cases
 3. **Behavior** — Interactions, transitions, keyboard, focus trapping
 4. **Component mapping** — Which existing components are used where

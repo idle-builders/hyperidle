@@ -1,7 +1,7 @@
 ---
 name: security-review
 description: "Read-only security review. Run by the security-researcher agent."
-argument-hint: "[file paths or story-id]"
+argument-hint: "[file paths or workpackage-id]"
 user-invocable: true
 min_tool_calls: 12
 ---
@@ -12,9 +12,9 @@ Read-only review. Produce findings — do NOT make code changes.
 
 ## Required reading
 
-1. `plans/<story-id>/architecture.md` — the technical plan, especially its "Security & abuse cases" block
+1. `plans/<workpackage-id>/architecture.md` — the technical plan, especially its "Security & abuse cases" block
 2. The specific authoritative files named in the plan's **Required reading** section that cover trust boundaries and agent permissions (typically a `docs/architecture/<file>.md` and a `docs/agent-layer/<file>.md`)
-3. The relevant track file in `plans/work-packages/TRACK-*.md` for the story being reviewed
+3. The relevant track file in `plans/work-packages/TRACK-*.md` for the workpackage being reviewed
 
 Then read ALL changed files (via `<target>` or `git diff --name-only`). Focus on new trust boundaries.
 

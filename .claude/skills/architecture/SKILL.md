@@ -1,7 +1,7 @@
 ---
 name: architecture
-description: "Produce the technical plan for a story — types, schemas, APIs, file paths, ordered tasks. Architect interrogates the spec, then drafts; adversary challenges. Run AFTER /concept (always) and AFTER /design (when the story has UI)."
-argument-hint: "[story-id]"
+description: "Produce the technical plan for a workpackage — types, schemas, APIs, file paths, ordered tasks. Architect interrogates the spec, then drafts; adversary challenges. Run AFTER /concept (always) and AFTER /design (when the workpackage has UI)."
+argument-hint: "[workpackage-id]"
 user-invocable: true
 min_tool_calls: 25
 ---
@@ -12,7 +12,7 @@ Produces the **how** — file paths, type signatures, schemas, endpoint shapes, 
 
 **Fixed inputs (do NOT re-litigate):**
 - Concept doc from `/concept` — includes which docs were read and the relevant canonical-shapes contracts in `docs/<topic>/`.
-- Approved design from `/design` (UI stories) — `plans/<story-id>/design/approved.md`.
+- Approved design from `/design` (UI workpackages) — `plans/<workpackage-id>/design/approved.md`.
 
 **Doc discovery:** Read the "Required reading" from `/concept` output if available. Otherwise `ls docs/` to identify relevant topic folders. **Output a "Required reading" section in the plan** listing the specific doc files the engineer must read before implementing. This is the natural filter — downstream skills read only what the plan prescribes.
 
@@ -24,15 +24,15 @@ Before producing acceptance criteria, walk the decision tree. Ask hard questions
 
 **One question at a time.** A list of ten questions invites the easy ones to be answered and the hard ones to become silent assumptions that surface as bugs later.
 
-Sample interrogation lines (adapt to the story):
+Sample interrogation lines (adapt to the workpackage):
 - "What's the smallest version of this that's still useful? My read: X. Confirm or correct?"
 - "What's the failure mode if Y is wrong? My read: A. Confirm?"
 - "What's actually being asked vs adjacent and tempting to also build? My read: in-scope = X, out = Y."
 - "Is any domain term in this spec used inconsistently? My read: term Z is used for two distinct concepts."
-- "Does the spec contradict an existing doc? My read: docs/<topic>/canonical-shapes.md says X, this story says Y."
+- "Does the spec contradict an existing doc? My read: docs/<topic>/canonical-shapes.md says X, this workpackage says Y."
 - "What changes if the user's mental model about W is wrong?"
 
-Stop interrogating when the path is clear, not when you run out of questions. Three to seven branches is typical. If the story already pins a decision, don't re-litigate it — confirm and move on.
+Stop interrogating when the path is clear, not when you run out of questions. Three to seven branches is typical. If the workpackage already pins a decision, don't re-litigate it — confirm and move on.
 
 ## Phase 1 — Plan reconciliation (spec ⇆ reality)
 
@@ -47,9 +47,9 @@ Produce a `Plan reconciliation:` block in the plan listing every spec assumption
 
 ## Phase 2 — Acceptance criteria + tasks
 
-Read the story `$ARGUMENTS` in the relevant track file under `plans/work-packages/` (e.g., `TRACK-A.md` for A-stories). Read existing code in affected packages and the relevant doc sections identified in doc discovery above.
+Read the workpackage `$ARGUMENTS` in the relevant track file under `plans/work-packages/` (e.g., `TRACK-A.md` for A-workpackages). Read existing code in affected packages and the relevant doc sections identified in doc discovery above.
 
-If the story has a UI surface and `/design` produced an approved spec (under `plans/<story-id>/design/approved.md` or wherever the design step wrote it), read it. The visual contract, component vocabulary, and interaction states are inputs — do not re-litigate them.
+If the workpackage has a UI surface and `/design` produced an approved spec (under `plans/<workpackage-id>/design/approved.md` or wherever the design step wrote it), read it. The visual contract, component vocabulary, and interaction states are inputs — do not re-litigate them.
 
 Produce:
 1. **Acceptance criteria** — each with a specific verification method (see table below)
@@ -79,7 +79,7 @@ Produce:
 
 ## Phase 3 — Design-it-twice (for non-trivial decisions)
 
-When a sub-decision in the plan is non-trivial — a schema with multiple plausible shapes, an API where versioning matters, a primitive that 4+ stories will consume — sketch **two** alternative shapes and pick. The reverse cost of getting it wrong is the budget for this phase.
+When a sub-decision in the plan is non-trivial — a schema with multiple plausible shapes, an API where versioning matters, a primitive that 4+ workpackages will consume — sketch **two** alternative shapes and pick. The reverse cost of getting it wrong is the budget for this phase.
 
 For each alternative: 1-paragraph shape, 1 trade-off, 1 reason to reject. The synthesis often combines insights from both. Inspired by *A Philosophy of Software Design* — "design it twice" — and the founder reframe in TRACK-L on reusable primitives.
 
@@ -91,7 +91,7 @@ Spawn an **adversary agent** to challenge the plan — over-engineering, missing
 
 Then run `/architecture-critique` to score the plan against the architectural rubric. Iterate fixes until score ≥ 7 or 3 rounds reached.
 
-Write the final plan to `plans/<story-id>/architecture.md`. Downstream skills read it from there.
+Write the final plan to `plans/<workpackage-id>/architecture.md`. Downstream skills read it from there.
 
 ## Target
 
