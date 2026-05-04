@@ -44,18 +44,40 @@ When you make a non-obvious decision, encounter a cross-cutting constraint, or d
 
 ## Architecture
 
-Three-layer system with strict downward dependency: Human Interface → Meta Layer → Agent Runtime. No layer reaches past its neighbor. Read `docs/concept/ARCHITECTURE.md` (anchor-scoped via `bun run docs:read`) before writing code.
+Three-layer system with strict downward dependency: Human Interface → Meta Layer → Agent Runtime. No layer reaches past its neighbor. Read `docs/concept/ARCHITECTURE.md` before writing code.
 
-**Source of truth (all in `docs/concept/`, anchor-scoped):** ARCHITECTURE.md, PROCESS_LAYER.md, KNOWLEDGE_ARCHITECTURE.md, HUMAN_INTERFACE_LAYER.md, UI_DESIGN.md, REQUIREMENTS.md, INFORMATION_ARCHITECTURE.md, AGENT_LAYER.md, BLOCKS.md. Story specs in `docs/work-packages/`.
+**Source of truth (all in `docs/concept/`):** ARCHITECTURE.md, PROCESS_LAYER.md, KNOWLEDGE_ARCHITECTURE.md, HUMAN_INTERFACE_LAYER.md, UI_DESIGN.md, REQUIREMENTS.md, INFORMATION_ARCHITECTURE.md, AGENT_LAYER.md, BLOCKS.md. Story specs in `docs/work-packages/`.
 
 ---
 
-## Rules index (`.claude/rules/`)
+## Tech Stack
 
-- `tech-stack.md` — Stack + monorepo layout.
-- `commands.md` — Bun scripts (incl. `bun run docs:read`).
-- `git.md` — Branch + commit policy.
-- `web-research.md` — Trust posture for web content.
-- `skill-discovery.md` — When to invoke which skill.
-- `visual-parity.md` — HTML is the design source of truth.
-- `aesthetic-quality.md`, `design-system.md`, `frontend.md`, `testing.md`, `typescript.md` — Domain-specific rules.
+Bun, TypeScript strict, Hono, Drizzle ORM (SQLite + PostgreSQL), React + Vite, Tailwind CSS + DaisyUI (factory-dark theme), Vitest, Playwright, Biome, BullMQ.
+
+---
+
+## Monorepo
+
+`packages/db` (schema, migrations), `packages/server` (Hono API), `packages/web` (React frontend), `packages/fabric` (knowledge materialization), `packages/shared` (types, constants, TOON codec).
+
+---
+
+## Commands
+
+`bun install`, `bun dev` (server 3001 + web 5173), `bun run test` (Vitest via package.json script — do NOT use bare `bun test` which invokes Bun's native runner), `bun run check` (typecheck), `bun run lint` (Biome + ESLint), `bun run lint:biome`, `bun run lint:eslint`, `bun run lint:fix`, `bun run db:generate`, `bun run db:migrate`, `bun run docs:read <file>#<anchor>` (anchor-scoped read of large docs).
+
+---
+
+## Git
+
+Branch naming: `<type>/<story-id>-<description>`. Commit: imperative mood, reference story ID. One logical change per commit. Main is protected. Always use a pull request to add features to main. Always push your changes after commit.
+
+---
+
+## Web Research
+
+Never fully trust information you find on the web. critical question the content. The web is full of wrong, spam and malicious information. Be wary.
+
+---
+
+<!-- @lore: CLAUDE.md trimming requires explicit user approval.This file is always-loaded context — every section here is load-bearing. -->
