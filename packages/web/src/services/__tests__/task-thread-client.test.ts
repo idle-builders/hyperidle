@@ -4,10 +4,7 @@
  * fetch shape (URL, body, idempotency key).
  */
 import { describe, expect, it, vi } from "vitest";
-import {
-	buildRequestStateText,
-	createTaskThreadClient,
-} from "../task-thread-client";
+import { buildRequestStateText, createTaskThreadClient } from "../task-thread-client";
 
 describe("task-thread-client", () => {
 	describe("buildRequestStateText", () => {
@@ -16,9 +13,7 @@ describe("task-thread-client", () => {
 			expect(buildRequestStateText("blocked")).toBe("Requesting state change to blocked.");
 			expect(buildRequestStateText("hold")).toBe("Requesting state change to hold.");
 			expect(buildRequestStateText("killed")).toBe("Requesting state change to killed.");
-			expect(buildRequestStateText("in_progress")).toBe(
-				"Requesting state change to in_progress.",
-			);
+			expect(buildRequestStateText("in_progress")).toBe("Requesting state change to in_progress.");
 		});
 	});
 
@@ -29,10 +24,10 @@ describe("task-thread-client", () => {
 				expect(url).toContain("/api/threads");
 				expect(url).toContain("host_kind=task");
 				expect(url).toContain("host_id=t-1");
-				return new Response(
-					JSON.stringify({ threads: [{ id: "th-existing" }] }),
-					{ status: 200, headers: { "content-type": "application/json" } },
-				);
+				return new Response(JSON.stringify({ threads: [{ id: "th-existing" }] }), {
+					status: 200,
+					headers: { "content-type": "application/json" },
+				});
 			});
 			const client = createTaskThreadClient(fetchMock as unknown as typeof globalThis.fetch);
 			const handle = await client.findOrCreateTaskThread("t-1");

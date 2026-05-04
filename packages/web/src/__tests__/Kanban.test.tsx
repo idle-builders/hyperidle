@@ -112,10 +112,12 @@ describe("Kanban", () => {
 		const Filename = fileURLToPath(import.meta.url);
 		const Dirname = dirname(Filename);
 		const src = readFileSync(join(Dirname, "..", "shell", "Kanban.tsx"), "utf8");
-		expect(src).not.toMatch(/@dnd-kit\/core/);
-		expect(src).not.toMatch(/KeyboardSensor/);
-		expect(src).not.toMatch(/useDraggable/);
-		expect(src).not.toMatch(/useDroppable/);
+		// Comments referencing the removed dependency are allowed; the runtime
+		// import / hook usage must not reappear.
+		expect(src).not.toMatch(/from\s+["']@dnd-kit\/core["']/);
+		expect(src).not.toMatch(/\buseDraggable\s*\(/);
+		expect(src).not.toMatch(/\buseDroppable\s*\(/);
+		expect(src).not.toMatch(/\bnew\s+KeyboardSensor\b/);
 	});
 
 	it("L15: does not render any draggable wrappers", () => {

@@ -10,8 +10,8 @@ import userEvent from "@testing-library/user-event";
 import type { JSX } from "react";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
-import { TaskActionsMenu } from "../TaskActionsMenu";
 import type { TaskThreadClient } from "../../services/task-thread-client";
+import { TaskActionsMenu } from "../TaskActionsMenu";
 
 function makeClient(overrides?: Partial<TaskThreadClient>): TaskThreadClient {
 	return {
@@ -43,7 +43,11 @@ function renderMenu(props: {
 					path="/work/team"
 					element={
 						<TaskActionsMenu
-							task={{ id: "t-1", title: "Implement login endpoint", state: props.state ?? "in_progress" }}
+							task={{
+								id: "t-1",
+								title: "Implement login endpoint",
+								state: props.state ?? "in_progress",
+							}}
 							client={client}
 						/>
 					}
@@ -99,8 +103,8 @@ describe("TaskActionsMenu", () => {
 			expect(client.findOrCreateTaskThread).toHaveBeenCalledWith("t-1");
 		});
 		expect(client.postPlainMessage).toHaveBeenCalledTimes(1);
-		const [threadId, text, clientKey] = (client.postPlainMessage as ReturnType<typeof vi.fn>)
-			.mock.calls[0];
+		const [threadId, text, clientKey] = (client.postPlainMessage as ReturnType<typeof vi.fn>).mock
+			.calls[0];
 		expect(threadId).toBe("th-resolved");
 		expect(text).toBe("Requesting state change to done.");
 		expect(clientKey).toMatch(/^[A-Za-z0-9_\-:.]{8,128}$/);

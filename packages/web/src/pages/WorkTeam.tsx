@@ -2,12 +2,18 @@
  * Work/Team page — composes Canvas (top) + Kanban (bottom) + PitchSelector
  * (overlay). Spec: HUMAN_INTERFACE_LAYER.md §4 — Team view shows the team's
  * current bets at the top and a per-task kanban board beneath.
+ *
+ * @lore L15: handleMoveTask + COLUMN_TO_STATE were removed. Tasks no longer
+ * move via drag; humans request state changes through TaskActionsMenu, which
+ * posts to the task thread (an agent then decides whether to honor the
+ * request). The local INITIAL_TASKS state is retained as a static fixture.
  */
 import { type JSX, useCallback, useState } from "react";
+import { TaskActionsMenu } from "../components/TaskActionsMenu";
 import type { CanvasBet } from "../shell/Canvas";
 import { Canvas } from "../shell/Canvas";
-import type { KanbanColumnState, KanbanTask } from "../shell/Kanban";
-import { COLUMN_TO_STATE, Kanban } from "../shell/Kanban";
+import type { KanbanTask } from "../shell/Kanban";
+import { Kanban } from "../shell/Kanban";
 import type { PitchSelectorPitch } from "../shell/PitchSelector";
 import { PitchSelector } from "../shell/PitchSelector";
 
@@ -109,15 +115,9 @@ const MOCK_PITCHES: PitchSelectorPitch[] = [
 ];
 
 export function WorkTeam(): JSX.Element {
-	const [tasks, setTasks] = useState<KanbanTask[]>(INITIAL_TASKS);
+	const [tasks] = useState<KanbanTask[]>(INITIAL_TASKS);
 	const [pitchSelectorOpen, setPitchSelectorOpen] = useState(false);
 	const [selectedPitchIds, setSelectedPitchIds] = useState<string[]>([]);
-
-	const handleMoveTask = useCallback((taskId: string, targetColumn: KanbanColumnState): void => {
-		// I4 K1: map the Kanban column key to the canonical TaskState.
-		const targetState = COLUMN_TO_STATE[targetColumn];
-		setTasks((prev) => prev.map((t) => (t.id === taskId ? { ...t, state: targetState } : t)));
-	}, []);
 
 	const handleMoveBet = useCallback(
 		(_betId: string, _targetStatus: "shaped" | "committed"): void => {
@@ -167,7 +167,11 @@ export function WorkTeam(): JSX.Element {
 				/>
 			) : (
 				<div data-testid="work-team-kanban">
-					<Kanban tasks={tasks} onMoveTask={handleMoveTask} groupByBet />
+					<Kanban
+						tasks={tasks}
+						groupByBet
+						renderTaskActions={(task) => <TaskActionsMenu task={task} />}
+					/>
 				</div>
 			)}
 		</div>

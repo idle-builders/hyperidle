@@ -28,6 +28,12 @@
 				"file": "packages/web/src/pages/NotFound.tsx",
 				"reason": "Error page — user is recovering from a navigation mistake, not reading. One-off chrome surface.",
 				"matrix": "§ 3.4.P8"
+			},
+			{
+				"name": "TaskActionsMenu",
+				"file": "packages/web/src/components/TaskActionsMenu.tsx",
+				"reason": "L15: kebab-trigger affordance attached to TaskCard. Trigger is a 24px hit-area chrome button (icon glyph) that mirrors BlockHandle's static dimensions; the menu chrome is delegated to BlockActionsPopover (already density-static).",
+				"matrix": "L15 follow-on to § 3.1.1 chip-as-affordance rule."
 			}
 		]
 	},
