@@ -18,7 +18,7 @@ Upstream of `/design` and `/architecture`. Answers "what IS this thing?" — the
 2. Existing canonical-shapes / contract docs under `docs/<topic>/` (e.g. `docs/blocks/canonical-shapes.md`, `docs/process-layer/canonical-shapes.md`, `docs/process-layer/artifact-primitive.md`, `docs/human-interface-layer/thread-primitive.md`, `docs/architecture/event-bus-guarantees.md`, `docs/agent-layer/harness-error-taxonomy.md`) — does the noun already have a contract?
 3. `ls docs/` to identify relevant topic folders, then read `index.md` and drill into the specific `docs/<topic>/<file>.md` sections that match the noun.
 
-**Output a "Required reading" section** listing the specific doc files downstream agents (`/architecture`, `/implement`) must read for this workpackage.
+**Output a "Required reading" section** listing the specific doc files downstream agents (`/architecture`, `/pipeline`) must read for this workpackage.
 
 If the spec contradicts an existing concept doc, that's CRITICAL. Surface it; don't silently re-define.
 
@@ -35,7 +35,7 @@ Only New + Reshaped nouns enter the rest of this skill. Stable nouns are inputs.
 
 ## Phase 1 — Probe the essence
 
-For each New / Reshaped noun, walk the decision tree. Pick only the probes that are actually unsettled — skip the ones where the spec or existing concept docs already pin the answer. For each remaining probe, propose your read with the evidence you have, then ask the human (or in autonomous mode the adversary) to confirm, override, or dig deeper. Issue all probes for a noun in one parallel batch — independent probes don't need separate round-trips, and the cost adds up across seven essentials × N nouns.
+For each New / Reshaped noun, walk the decision tree. Pick only the probes that are actually unsettled — skip the ones where the spec or existing concept docs already pin the answer. For each remaining probe, propose your read with the evidence you have, then ask the human (or in autonomous mode the reviewer) to confirm, override, or dig deeper. Issue all probes for a noun in one parallel batch — independent probes don't need separate round-trips, and the cost adds up across seven essentials × N nouns.
 
 **Few, important questions.** Three sharp probes force a real decision; ten low-stakes ones get answered with shrugs while the load-bearing assumption stays silent and surfaces years later as a load-bearing bug. The bar to ask is: "will the answer change the concept doc?" If no, don't ask.
 
@@ -51,7 +51,7 @@ The seven essential probes (adapt; don't ask all of them — pick what's actuall
 
 Stop probing when the concept is sharp, not when you run out of questions. Three to seven branches is typical for a new primitive; one or two for a reshape.
 
-If the founder is reachable, surface the unsettled probes in a single AskUserQuestion call carrying all of them — the founder reads them at once and you don't pay a round-trip per probe. In autonomous mode, propose your answer in the concept doc and let `/architecture-critique`'s spec-alignment dimension catch it later if you got it wrong.
+If the founder is reachable, surface each probe with one AskUserQuestion (never batch). In autonomous mode, propose your answer in the concept doc and let `/architecture`'s in-session spec-alignment scoring catch it later if you got it wrong.
 
 ## Phase 2 — Probe the rejection list
 
@@ -91,7 +91,7 @@ Concepts commit the system to contracts. Make them explicit:
 - **Identity contracts.** What gives a `<noun>` its identity — opaque ID, content hash, deterministic key?
 - **Hard rules.** Anything that, if violated downstream, means the implementation has broken the concept. (TRACK-L L2 has one: "On-disk format stays GitHub-flavoured markdown. Blocks are derived, never stored.")
 
-Each contract is one line. The architect later turns these into types, schemas, and guards. Concept work commits to the *shape*, not the implementation.
+Each contract is one line. The designer later turns these into types, schemas, and guards in `/architecture` mode. Concept work commits to the *shape*, not the implementation.
 
 ## Phase 5 — Write the per-workpackage concept doc and update ground truth
 
@@ -124,9 +124,9 @@ Doc structure (adapt sections that aren't relevant; don't pad):
 **Rationale.** The founder reframe or design tension that drove this shape (one paragraph). Future agents need to know WHY, not just WHAT, so they don't re-litigate.
 ```
 
-## Phase 6 — Adversary challenge on the concept
+## Phase 6 — Challenge the concept (in-session self-critique)
 
-Spawn an **adversary agent** to challenge the concept (NOT the downstream design / plan — that comes later):
+Switch to adversarial thinking. Challenge your own concept — NOT the downstream design / plan:
 - Is the rejection list a real list of distinct things, or three flavours of one thing?
 - Does the canonical term collide with an existing term in the codebase or in any specific `docs/<topic>/<file>.md`? (`grep` to verify.)
 - Are the contracts complete, or do they hand-wave on cardinality / closure / mutability / identity?
@@ -147,7 +147,7 @@ docs/<topic>/canonical-shapes.md      # Phase 5 may add a canonical-shapes entry
 
 ## What this skill does NOT do
 
-- It does not design, define an architecture or write tests or code. That's `/design`, `/architecture`, `/implement`.
+- It does not design, define an architecture or write tests or code. That's `/design`, `/architecture`, `/write-tests`, `/write-code`.
 
 Concepts are the part that is *expensive to change*; they ripple through every downstream variant in design and every contract in architecture. Get them right, then let design and architecture explore freely within them.
 

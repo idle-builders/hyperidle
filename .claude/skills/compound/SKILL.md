@@ -1,20 +1,18 @@
 ---
 name: compound
-description: Self-improvement agent that reviews the retro log, identifies recurring patterns, and proposes skill/process changes when evidence threshold is met. Use periodically during pipeline runs or on-demand.
-when_to_use: After multiple workpackages have been completed and retro observations have accumulated. Run every 3-5 workpackages in a pipeline, or on-demand when the retro log has grown.
-model: opus
-effort: high
+description: "Review the retro log, identify recurring patterns (3+ occurrences), and propose skill/process changes. Run after multiple workpackages complete or on-demand."
+argument-hint: "[optional: 'review' or 'status']"
+user-invocable: true
+min_tool_calls: 12
 ---
 
-You are the **Compound Agent** — responsible for the self-improvement loop that makes every iteration better than the last. You review the retro log, identify recurring patterns, and decide when accumulated evidence warrants a change to skills or process.
-
-## Your Mission
+# Compound — Self-Improvement Loop
 
 Turn observations into improvements — but only when the evidence is clear. You are the immune system, not the nervous system. You respond to patterns, not individual events.
 
-## How You Work
+## How to work
 
-You will read many independent files: the candidate tracker, the retro log, every skill file you suspect, the rule files. Call those Reads in parallel batches — independent files in one round, sequential only when one file's contents tell you what to read next.
+Read many independent files in parallel batches — candidate tracker, retro log, skill files, rule files. Sequential only when one file's contents tell you what to read next.
 
 ### 0. Read the candidate tracker FIRST
 
@@ -22,11 +20,11 @@ Before reading the retro log, read `.claude/process/compound-candidates.md`. Thi
 
 ### 1. Read the retro log
 
-Read `.pipeline/retro-log.jsonl` (or `.claude/retro-log.jsonl` if that is the project's chosen location). Parse every entry. Group observations by tags. Map each observation against the candidate tracker from step 0 before counting recurrences.
+Read `.pipeline/retro-log.jsonl`. Parse every entry. Group observations by tags. Map each observation against the candidate tracker from step 0 before counting recurrences.
 
 ### 2. Identify patterns
 
-A pattern is an observation that appears in **3 or more retros** (from different workpackages or sessions). This is the evidence threshold — below 3, it could be a one-off. At 3+, it's systemic.
+A pattern is an observation that appears in **3 or more retros** (from different workpackages or sessions). Below 3, it could be a one-off. At 3+, it's systemic.
 
 For each potential pattern:
 - **Count occurrences.** How many retro entries share this tag/theme?
@@ -36,7 +34,7 @@ For each potential pattern:
 
 ### 3. Classify each pattern
 
-- **CONFIRMED (3+ occurrences, consistent severity)** — This is a real, recurring issue. Propose a specific fix.
+- **CONFIRMED (3+ occurrences, consistent severity)** — Real, recurring issue. Propose a specific fix.
 - **EMERGING (2 occurrences)** — Watch this. Note it but don't act yet.
 - **RESOLVED (was confirmed, but recent entries show improvement)** — A past fix is working. Record that it's resolved.
 - **CONTRADICTED (mixed signals)** — Observations disagree. Flag for human review.
@@ -61,8 +59,6 @@ RISK: [what could go wrong with this change]
 
 ### 5. Output your review
 
-Structure your output as:
-
 ```
 ## Compound Review — [date]
 
@@ -85,18 +81,7 @@ Structure your output as:
 [Should the coordinator apply the proposed changes? Any that need human approval first?]
 ```
 
-### 6. Escalation
-
-You can escalate to the coordinator (pipeline orchestrator or human) in two cases:
-
-1. **A CONFIRMED pattern requires changing CLAUDE.md or creating a new skill** — these need human approval.
-2. **A CRITICAL escalation from a retro** that you agree is actively broken — flag it for immediate action.
-
-For skill edits (existing `.claude/skills/*/SKILL.md` files): propose the change and let the coordinator apply it.
-
-For everything else: propose and wait for approval.
-
-### 7. Update the candidate tracker
+### 6. Update the candidate tracker
 
 After producing the review, update `.claude/process/compound-candidates.md`:
 - Add a row for every NEW CONFIRMED candidate (one observation that just crossed the 3-occurrence threshold).
@@ -105,29 +90,21 @@ After producing the review, update `.claude/process/compound-candidates.md`:
 - Transition `RESOLVED` rows to `RECURRED` if the friction reappears after a fix; note which fix didn't stick.
 - Never delete rows — history is the audit trail.
 
-## What You Do NOT Do
+## Rules
 
-- Apply changes to skills or process directly. You propose. Others apply.
-- Act on single observations. The threshold is 3 occurrences.
-- Rewrite entire skills. Changes are surgical — one fix per pattern.
-- Ignore successes. If the retro log says something works well, protect it from being changed.
-- Second-guess resolved patterns. If a fix is working, don't optimize further.
+- Don't apply changes to skills or process directly. Propose. Others apply.
+- Don't act on single observations. The threshold is 3 occurrences.
+- Changes are surgical — one fix per pattern.
+- If the retro log says something works well, protect it from being changed.
+- Don't optimize resolved patterns further.
 
-## When to Run
-
-- **In the pipeline:** The orchestrator should spawn you every 3-5 completed workpackages, or at the end of each session.
-- **On-demand:** A human can invoke you anytime to review accumulated observations.
-- **After a blocked workpackage:** If a workpackage was blocked and needed human input, run a compound review to check if the blockage pattern is recurring.
-
-## The Compounding Mechanism
-
-This is how it all fits together:
+## The compounding mechanism
 
 ```
 Agent finishes work
     → /retro appends observations to retro-log.jsonl
     → observations accumulate across workpackages
-    → compound agent runs periodically
+    → /compound runs periodically
     → identifies patterns at 3+ occurrences
     → proposes targeted skill/process changes
     → coordinator applies approved changes
@@ -136,4 +113,6 @@ Agent finishes work
     → cycle continues
 ```
 
-Each cycle makes the system slightly better. Bad patterns get caught and fixed. Good patterns get preserved. The retro log is the memory. You are the judgment.
+## Target
+
+$ARGUMENTS

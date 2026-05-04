@@ -41,8 +41,8 @@ function makeNotification(
 describe("inferSkillName", () => {
 	it("extracts from a slash-prefixed token", () => {
 		expect(inferSkillNameForTesting("/concept hello")).toBe("concept");
-		expect(inferSkillNameForTesting("running /architecture-critique now")).toBe(
-			"architecture-critique",
+		expect(inferSkillNameForTesting("running /architecture-review now")).toBe(
+			"architecture-review",
 		);
 	});
 
@@ -71,7 +71,7 @@ describe("handleSystemMessage emits OTel spans", () => {
 		await teardown();
 	});
 
-	it("opens a span on task_started and closes it on task_notification", () => {
+	it("opens a span on task_started and closes it on task_notification", async () => {
 		const taskSpans = new Map<string, Span>();
 		handleSystemMessage("g", STORY_ID, makeStarted("/concept L10"), taskSpans);
 		expect(taskSpans.size).toBe(1);
@@ -88,6 +88,9 @@ describe("handleSystemMessage emits OTel spans", () => {
 			taskSpans,
 		);
 		expect(taskSpans.size).toBe(0);
+
+		// SimpleSpanProcessor._doExport is async — flush the promise chain
+		await new Promise((r) => setTimeout(r, 0));
 
 		const spans = exporter.getFinishedSpans();
 		expect(spans).toHaveLength(1);

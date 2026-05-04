@@ -1,22 +1,23 @@
 ---
 name: architecture-critique
-description: "Architecture quality gate. ALWAYS invoke this skill on the OUTPUT of /architecture (the plan), before any test or code is written. Scores the plan 0-10 across nine dimensions: spec alignment, layer integrity, contracts, data model, naming, depth, failure-mode coverage, simplicity, and verifiability. Iterates fixes until the score crosses the threshold."
-argument-hint: "[workpackage-id|plan-path]"
+description: "Score the technical plan against the 9-dimension architectural rubric. Evaluation act — separate from production. Reviewer persona evaluates the designer's plan."
+argument-hint: "[workpackage-id]"
 user-invocable: true
-min_tool_calls: 5
+min_tool_calls: 8
 ---
 
 # Architecture Critique
 
-The architectural counterpart of `/design-critique`. Where design-critique scores a UI artifact, this scores **the plan itself** — the typed contracts, the schemas, the route map, the task order, the security/abuse cases, the protected-test list. The plan goes into write-tests; if the plan is wrong, every test downstream encodes the wrong intent.
+**Why:** The agent that wrote the plan cannot objectively evaluate it. Evaluation must be a different agent — the reviewer — reading the plan cold. True producer/evaluator separation: different personas, not just different cognitive modes.
 
-This is **not** `/architecture-review`. The review skill audits the *implemented code* against the spec, after the fact. This skill audits the *plan* against the spec, before any code is written. They run at different phases and surface different classes of issues.
+This is the **evaluation** counterpart to `/architecture` (production). The reviewer persona scores what the designer produced. `/architecture` drafts the plan; `/architecture-critique` scores it. The reviewer's context from this critique carries forward to Phase 4's code review — it arrives already knowing the plan it's checking code against.
+
+This is **not** `/review`. The review skill audits the *implemented code* against the spec, after the fact. This skill audits the *plan* against the spec, before any code is written. They run at different phases and surface different classes of issues — but the same reviewer agent runs both, accumulating context.
 
 ## When This Runs
 
-- **In the pipeline:** step 4, immediately after `/architecture` produces the plan, before `/write-tests`.
-- **Inside `/architecture` Phase 4:** the architect runs this on themselves and iterates. Fixes go into the plan, not into a separate findings file.
-- **On explicit `/architecture-critique <workpackage-id>`:** full audit of the plan saved under TaskCreate or in `plans/work-packages/`/the worktree's plan output.
+- **In the pipeline:** Phase 2, after the designer completes `/architecture`. Reviewer session.
+- **On explicit `/architecture-critique <workpackage-id>`:** full audit of the plan at `plans/<workpackage-id>/architecture.md`.
 
 ## Required Reading
 
@@ -31,12 +32,16 @@ This is **not** `/architecture-review`. The review skill audits the *implemented
 
 ```
 1. Read the plan
-2. Score it (0-10) against the 9 dimensions below
-3. List specific findings (CRITICAL / WARNING / SUGGESTION) with plan-section references
-4. Architect fixes the highest-priority issue IN THE PLAN
-5. Re-score
-6. Repeat until score >= 7 or 4 iterations reached
+2. Challenge it adversarially (over-engineering, missing deps, AC gaps, scope creep,
+   missing security/abuse cases, missing protected-test list, route-checklist gaps)
+3. Score it (0-10) against the 9 dimensions below
+4. List specific findings (CRITICAL / WARNING / SUGGESTION) with plan-section references
+5. Architect fixes the highest-priority issue IN THE PLAN
+6. Re-score
+7. Repeat until score >= 7 or 3 rounds reached
 ```
+
+Score ≥ 7 ships the plan. 5-6 needs work on 2-3 dimensions. ≤ 4 restarts `/architecture` Phase 2.
 
 ## Scoring Dimensions (0-10 each, averaged)
 
@@ -97,7 +102,7 @@ From *A Philosophy of Software Design*: deep modules have small interfaces hidin
 - For every input boundary (user input, agent-authored field, external API response), is the validation rule specified?
 - Does the plan's "Security & abuse cases" block address rate-limiting, input-trust, secret-handling, path-traversal, and SSRF — each marked applicable+addressed or N/A with reason? (CC-003.)
 - Does the plan name the *route checklist* for any guard/middleware enumerated in the spec? (CC re: L7.)
-- **Smell:** happy-path-only ACs. "Returns an error" without specifying status. Missing rate-limit on POST/PATCH. Missing validation at trust boundary. Missing route in route-checklist. (Recurrence: CC-003, CC-004 — security review still surfaces findings not in plan ACs.)
+- **Smell:** happy-path-only ACs. "Returns an error" without specifying status. Missing rate-limit on POST/PATCH. Missing validation at trust boundary. Missing route in route-checklist. (Recurrence: CC-003, CC-004.)
 
 ### 8. Simplicity / Over-Engineering Risk
 
@@ -131,7 +136,7 @@ From *A Philosophy of Software Design*: deep modules have small interfaces hidin
 ```
 ## Architecture Critique: <workpackage-id>
 
-**Score: X/10** (SA:_ LI:_ AC:_ DM:_ N:_ MD:_ FMC:_ S:_ V:_)
+ARCHITECTURE-SCORE: <int>/10  rounds=<n>  score-line: SA:_ LI:_ AC:_ DM:_ N:_ MD:_ FMC:_ S:_ V:_
 
 ### CRITICAL
 - [plan §<section>] Description of issue → specific fix to apply
@@ -146,9 +151,11 @@ From *A Philosophy of Software Design*: deep modules have small interfaces hidin
 - 1-2 things the plan does right (reinforces good patterns; helps next architect)
 ```
 
+The retro reads `rounds=<n>` to track plan-quality drift over time.
+
 ## Common Failure Modes Caught By This Skill
 
-These are the recurrences the compound-candidates log keeps surfacing — every one is something architecture-critique should catch in the plan, not architecture-review in the code:
+These are the recurrences the compound-candidates log keeps surfacing — every one is something architecture-critique should catch in the plan, not `/review` in the code:
 
 - **CC-003 — happy-path-only ACs.** Security & abuse cases block missing or thin. Caught by Dimension 7.
 - **CC-007 — spec/codebase drift.** Plan references tables, routes, components that don't exist. Caught by reading the Plan reconciliation section against `grep` reality during scoring.
@@ -164,7 +171,6 @@ When the plan ships these gaps, this skill blocks; when the plan addresses them,
 - **Critiquing in the abstract.** Every finding has a plan-section reference and a concrete fix.
 - **Letting design-it-twice be theatre.** If the plan lists two alternatives but the second is straw-manned, that's worse than not having two — flag it.
 - **Re-doing the architect's job.** This skill scores; it does not rewrite the plan. The architect applies the fixes; this skill rescores.
-
 
 ## Target
 

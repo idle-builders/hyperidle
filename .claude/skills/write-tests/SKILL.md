@@ -1,6 +1,6 @@
 ---
 name: write-tests
-description: "Write failing tests for all acceptance criteria. TDD red phase."
+description: "Write failing tests for all acceptance criteria. TDD red phase — define the requirement before thinking about implementation."
 argument-hint: "[workpackage-id]"
 user-invocable: true
 min_tool_calls: 12
@@ -13,17 +13,17 @@ min_tool_calls: 12
 Read the plan for `<target>` (check tasks or the workpackage in the relevant track file under `plans/work-packages/`).
 
 For each acceptance criterion, write a test that proves it. Use:
-- Backend: unit tests with `createTestDb()`, integration tests with `createTestApp()`
-- Frontend: Vitest component tests + Playwright E2E + `.stories.tsx` for visual verification at `/designsystem`
-- API: success, error, and edge case tests
-- Data: queries, mutations, validation, constraint violations
+- **Backend:** unit tests with `createTestDb()`, integration tests with `createTestApp()`
+- **Frontend:** Vitest component tests + Playwright E2E + `.stories.tsx` for visual verification at `/designsystem`
+- **API:** success, error, and edge case tests
+- **Data:** queries, mutations, validation, constraint violations
 
 Run `bun run verify` to confirm tests compile and lint cleanly, then run the test suite. Confirm the new tests **fail** (red phase). Do NOT write implementation code.
 
 **Don't rationalize skipping this:**
-- "Too simple to need tests" → simple workpackages have the highest regression rate
-- "I'll add tests after" → tests after code confirm the implementation, not the requirement
-- "The plan already describes what to build" → the plan describes intent, tests encode it as executable proof
+- "Too simple to need tests" — simple workpackages have the highest regression rate
+- "I'll add tests after" — tests after code confirm the implementation, not the requirement
+- "The plan already describes what to build" — the plan describes intent, tests encode it as executable proof
 
 ## Target
 
