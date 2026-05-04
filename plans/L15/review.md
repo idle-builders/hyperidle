@@ -71,3 +71,30 @@ The implementation is structurally correct, the contracts are honoured, and veri
 ## Verdict rationale
 
 **NOT DONE.** F1 is a HIGH a11y regression: the design and architecture explicitly promised focus trap and focus restoration via the DaisyUI modal primitive, and the implementation rolled its own dialog without either. This is a published design contract for the Sheet, not a nice-to-have, and there is no test guarding it. F2 + F3 + F4 are MED gaps versus the literal AC + design promises (e2e end-state, mobile bottom-sheet, submitting-blocks-open-thread). All ACs at the spec-text level pass except the e2e "message appears in the thread" step. Verify is green; structural drag removal is complete and correct; security posture is sound. Once F1 is addressed (with a regression test) the review can flip to DONE — F2-F4 are remaining items to fix in the Phase 4 fix loop or to triage as L15 follow-ups.
+
+---
+
+# Round 2 (post-fix)
+
+**Verdict:** DONE
+**Date:** 2026-05-04
+**Fix commit:** `f6f49bc`
+
+## Round 1 closeout
+
+- **F1 HIGH: CLOSED** — `TaskSheet.tsx:89-116` introduces `priorFocusRef` snapshot of `document.activeElement` on open + `requestAnimationFrame`-deferred focus to first radio (with fallback to `focusables[0]`). `:155-175` `handleDialogKeyDown` traps Tab/Shift-Tab via `getFocusableElements()` and wraps when `activeElement === first/last`. Restore on close runs in the same `[open]` effect's else branch (`:111-115`) so it covers every close path (ESC, close button, Cancel via `onClose`, post-Send 800ms unmount). Four regression tests at `TaskSheet.test.tsx:274-364`: (i) initial focus on first radio, (i) Tab wrap, (i) Shift-Tab wrap, (i) close-restores-trigger. All 23 tests pass locally.
+- **F2 MED: CLOSED (with documented constraint)** — `L15-task-request.spec.ts:202-263` uses `page.route()` to intercept POST `/messages`, captures `body.payload.text`, and asserts `capturedMessageText === "Request: move to BLOCKED."`. The lore comment at `:198-201` documents why the literal "navigate to chat and visually see the message" path is not taken: `ConversationsChat.tsx` still renders static `MOCK_THREADS`. The intercepted-POST approach proves the message was sent with the correct shape on the correct thread; the persistence semantics are independently covered by `task-threads.service.test.ts`. This is sufficient — the AC's intent is "the request reaches the thread API," and the trust boundary is verified at the network layer.
+- **F3 MED: CLOSED** — `TaskSheet.tsx:234` carries `inset-x-0 bottom-0 max-h-[85vh] rounded-t-[var(--r3)]` (mobile bottom-sheet) + `sm:inset-y-0 sm:right-0 sm:bottom-auto sm:left-auto sm:max-w-[360px] sm:max-h-none sm:rounded-none sm:border-t-0 sm:border-l` (desktop right drawer). Test (k) at `TaskSheet.test.tsx:368-380` asserts both class sets are present.
+- **F4 MED: CLOSED** — `TaskSheet.tsx:264` carries `disabled={submitting}` on the Open thread button. Test (j) at `TaskSheet.test.tsx:384-404` uses a never-resolving `postRequest` to hold the sheet in submitting state and asserts the Open thread button is disabled.
+
+## New findings (if any)
+
+| ID | Severity | File:line | Issue | Required action |
+|---|---|---|---|---|
+| — | — | — | None — fix commit is surgical, no regressions introduced | — |
+
+Round 1 LOW findings (F5 useCallback wrappers, F6 duplicate story) remain — explicitly downgraded to non-blocking per round 1 verdict. Carry to follow-ups.
+
+## Verdict rationale
+
+All four round-1 findings closed with regression tests in place. The focus management implementation is conceptually clean: snapshot-on-open + restore-in-cleanup is the idiomatic React pattern, the trap wraps Tab/Shift-Tab without breaking native focus traversal between trap boundaries, and the four tests cover the load-bearing paths (initial focus, both wrap directions, and restore-to-trigger across `open` toggle). The mobile bottom-sheet classes match the design contract verbatim. The e2e POST interception is the right call given `ConversationsChat`'s static-mock state — it proves the API-write contract that L15 actually owns, with the rendering side correctly deferred to the L18 thread-detail surface. CI status is `pending` (not failing). Verify is green (3213 passed, 3 skipped). Zero new HIGH/MED introduced.
