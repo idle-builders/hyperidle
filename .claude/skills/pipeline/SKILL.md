@@ -72,13 +72,13 @@ Each persona phase **commits its output and pushes** before returning:
 
 | Phase | What gets committed | CI? |
 |---|---|---|
-| designer — concept-read / brief.md | prose only | `[skip ci]` |
-| designer — approved.md (UI stories) | design artifacts | `[skip ci]` |
-| designer — plan | plan doc | `[skip ci]` |
-| builder — Mode 1 (failing tests) | test files | run |
-| builder — Mode 2 (code) | implementation | run |
-| builder — Mode 3 (apply-review fixes) | one commit per applied finding batch | run |
-| researcher — retro doc | prose | `[skip ci]` |
+| designer — /concept output | prose only | `[skip ci]` |
+| designer — /design approved.md (UI stories) | design artifacts | `[skip ci]` |
+| designer — /architecture plan | plan doc | `[skip ci]` |
+| builder — /build failing tests | test files | run |
+| builder — /build code | implementation | run |
+| builder — /apply-review fixes | one commit per applied finding batch | run |
+| researcher — /retro doc | prose | `[skip ci]` |
 
 CI is the verify gate. There is no `/verify` skill anymore. Builder runs `bun run check && bun run lint && bun run test` locally for fast iteration; CI is the authoritative pass/fail.
 
@@ -111,62 +111,63 @@ Then dispatch the persona sessions below, in order. Update `currentStep` in the 
 
 ### The 5-persona graph (collapsed from the prior 17-step pipeline)
 
-| # | Persona | Effort | Absorbed skills | Why |
+| # | Persona | Effort | Skill | Why |
 |---|---|---|---|---|
-| 1 | **designer** | high | `/concept` (read), `/design`, `/architecture` | Concept doc + variant exploration + technical plan in one durable session, with same-session critique mode-switches (no separate `/design-critique` or `/architecture-critique` — TE-17 dropped them). Spawns the **adversary** once during `/architecture` to challenge the plan. |
-| 2 | **builder** | medium | `/write-tests`, `/write-code`, `/apply-review` | TDD red/green + apply-review-fixes inside one session. The previous developer-vs-qa split is now an internal mode. Builder fans out to **reviewer** + **adversary** in parallel post-green-tests. |
-| W1 | **reviewer** | high | `/architecture-review`, `/design-review`, `/security-review` | Three positive-lens findings blocks (arch / design / sec) in one fresh-context session. Findings-only, depth-1, no sub-spawning. |
-| W2 | **adversary** | medium | `/slop-scan`, `/simplification-scan`, `/adversary-review` | Three negative-lens findings blocks (slop / simplification / adversarial-with-hostile-personas: Saboteur / New Hire / Auditor). Findings-only, depth-1. Also spawned during designer's `/architecture` mode to challenge the plan. |
-| 3 | **researcher** | low | `/check-definition-of-done`, `/retro` | Two-mode persona. Mode 1: fresh-context Cold DoD audit of the live PR — the one boundary that must not collapse into any producer session. Mode 2: retro that emits the cost signals the A/B harness and the compound agent read. |
-| — | scripts | — | verify, ship | `bun run verify` runs as CI on every push (TE-21 dropped `/verify`). Draft PR opened at worktree setup; `gh pr ready` flips on Researcher's DoD APPROVED (TE-21 dropped `/ship`). In `PIPELINE_AB_MODE=1`, the ready-flip is suppressed so the run can be replayed. |
+| 1 | **designer** | high | `/concept` → `/design` → `/architecture` | Concept doc + variant exploration + technical plan. Sequential skills in one durable session, with in-session self-critique (no separate critique skills — TE-17). |
+| 2 | **builder** | medium | `/build` → `/apply-review` | TDD red/green + apply-review-fixes in one durable session. |
+| W1 | **reviewer** | high | `/contract-review` | Three positive lenses (architecture, design, security) in one fresh-context session. Findings-only, depth-1, no sub-spawning. |
+| W2 | **adversary** | medium | `/adversary-scan` | Three negative lenses (adversarial, simplification, slop) in one fresh-context session. Findings-only, depth-1. |
+| 3 | **researcher** | low | `/check-definition-of-done` then `/retro` | Fresh-context DoD audit of the live PR, then retro. The one boundary that must not collapse into any producer session. |
+| — | scripts | — | CI + PR | `bun run verify` runs as CI on every push (TE-21). Draft PR opened at worktree setup; `gh pr ready` flips on Researcher's DoD APPROVED. |
 
-**Durable agent sessions per story: 3** (designer + builder + researcher). Plus 2 fresh-context findings sessions (reviewer + adversary) spawned by builder in parallel. Plus 1 in-flight adversary spawn during designer's `/architecture` mode. Plus scripts.
+**Durable agent sessions per story: 3** (designer + builder + researcher). Plus 2 fresh-context findings sessions (reviewer + adversary) launched in parallel. Plus scripts.
 
 ---
 
 ## Persona dispatches — what to invoke
 
-For each persona phase, spawn a sub-agent of the named type. The persona prompt encodes its own scope; do NOT re-state it here.
+For each phase, launch an agent of the named type with the listed skill. The persona defines WHO (personality, values, thinking approach); the skill defines WHAT (domain knowledge, checklists, output format).
 
 ```
 Phase 1 — designer:
-  spawn agent type=designer.
-  Designer runs Mode 1 (concept read), Mode 2 (design with Phase 0a
-  routine/novel classifier — 1/2/3 variants, in-session critique to
-  score≥7 max 4 rounds), Mode 3 (architecture with in-session critique
-  to score≥7 max 3 rounds). During Mode 3, designer spawns the adversary
-  ONCE for plan-challenge before scoring.
-  Designer commits each mode's output (brief, approved.md, plan) and
-  pushes (prose commits use [skip ci]).
+  Launch agent type=designer.
+  Run /concept (read concept doc, probe if New/Reshaped nouns exist).
+  Run /design (classify routine/novel, generate 1-3 variants, in-session
+    critique to score≥7, max 4 rounds). Skip if no UI surface.
+  Run /architecture (interrogate spec, draft plan, in-session self-critique
+    to score≥7, max 3 rounds).
+  Commit each skill's output (concept.md, approved.md, plan) and push.
+  Prose commits use [skip ci].
 
 Phase 2 — builder:
-  spawn agent type=builder. Builder reads the plan; writes failing tests
-  (Mode 1); commits + pushes; writes code (Mode 2); commits + pushes; runs
-  bun run check && bun run lint && bun run test locally; on green, spawns
-  reviewer + adversary in parallel; collects their TOON findings; applies
-  them (Mode 3); commits + pushes. If Builder hits a plan-vs-reality
-  conflict, it raises a BLOCKER rather than redesigning in-flight (TE-22).
+  Launch agent type=builder with /build.
+  Builder reads the plan; writes failing tests; commits + pushes; writes
+  code to pass tests; commits + pushes; runs bun run verify locally.
+  If Builder hits a plan-vs-reality conflict, it raises a BLOCKER rather
+  than redesigning in-flight (TE-22).
 
 Phase 2 fan-out — reviewer + adversary (parallel, depth-1, findings-only):
-  spawn agent type=reviewer    (architecture / design / security lenses,
-                                3 TOON blocks; design lens skipped silently
-                                if no UI files)
-  spawn agent type=adversary   (slop / simplification / adversarial lenses,
-                                3 TOON blocks; adversarial lens runs all 3
-                                hostile-persona passes — Saboteur, New Hire,
-                                Auditor — in one block)
+  Launch agent type=reviewer with /contract-review.
+    Three positive lenses (architecture, design, security).
+    Design lens skipped silently if no UI files.
+  Launch agent type=adversary with /adversary-scan.
+    Three negative lenses (adversarial, simplification, slop).
 
-Phase 3 — researcher (Mode 1: Cold DoD):
-  spawn agent type=researcher in fresh context with /check-definition-of-done.
-  Researcher reads gh pr view + the spec + the plan and emits
-  APPROVED | BLOCKED with an AC table.
+Phase 2 fix — builder:
+  Launch agent type=builder with /apply-review (fan-out findings).
+  Commits + pushes applied fixes.
+
+Phase 3 — researcher (Cold DoD):
+  Launch agent type=researcher with /check-definition-of-done.
+  Fresh context. Reads gh pr view + the spec + the plan.
+  Emits APPROVED | BLOCKED with an AC table.
   If BLOCKED → back to Phase 2 (max 3 attempts per story).
   If APPROVED and PIPELINE_AB_MODE != 1 → flip draft PR ready
-  (`gh pr ready`). In AB mode, leave the PR draft.
+  (gh pr ready). In AB mode, leave the PR draft.
 
-Phase 4 — researcher (Mode 2: retro):
-  re-spawn agent type=researcher with /retro. Writes docs/retro/<id>.md
-  with the cost signals the A/B harness reads.
+Phase 4 — researcher (retro):
+  Launch agent type=researcher with /retro.
+  Writes docs/retro/<id>.md with cost signals the A/B harness reads.
 ```
 
 ### Loop rules
@@ -184,7 +185,7 @@ After Phase 4: set status to `done`. Move to next story.
 
 ### Adversarial principle preserved
 
-Author / critic boundaries that matter live as either (a) **mode prompts inside Designer** for the plan / design own-critique, plus a single in-flight **adversary** spawn for plan-challenge, or (b) **fresh-context reviewer + adversary** spawned by Builder for code review. Researcher's Mode-1 DoD enforces the one boundary that must not be inside any producer session — it reads a *live* PR, not Builder's notes about the PR.
+Author / critic boundaries that matter live as either (a) **in-session self-critique inside Designer's skills** (`/design` rubric, `/architecture` rubric), or (b) **fresh-context reviewer + adversary** launched in parallel for code review. Researcher's DoD audit enforces the one boundary that must not be inside any producer session — it reads a *live* PR, not Builder's notes about the PR.
 
 ### Why redundant skills are gone (TE-17)
 
@@ -215,4 +216,4 @@ Routine UI (existing component family, known layout) gets 1 variant + a "did we 
 - "Researcher's DoD is redundant, tests passed" → tests prove behavior, DoD proves the RIGHT thing was built against the spec, in *fresh context*. The boundary is the value.
 - "Researcher's retro is navel-gazing" → without the cost signals it emits, the A/B harness can't prove block-1b actually saved tokens, and the compound agent can't propose the next round.
 
-**When Designer can skip Mode 2 (`/design`):** the story has no UI surface (pure backend, schema, infra, concept-doc-only). Verify by reading the AC list — if no AC mentions a page, component, layout, route on the web side, or visible state, skip Mode 2 and go straight to Mode 3 (`/architecture`). When in doubt, run `/design` with `routine` classification; one variant is cheap and the brief serves as documentation.
+**When Designer can skip `/design`:** the story has no UI surface (pure backend, schema, infra, concept-doc-only). Verify by reading the AC list — if no AC mentions a page, component, layout, route on the web side, or visible state, skip `/design` and go straight to `/architecture`. When in doubt, run `/design` with `routine` classification; one variant is cheap and the brief serves as documentation.
