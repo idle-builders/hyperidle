@@ -9,7 +9,7 @@
  * expected to fail with a "module not found" import error. Once
  * `../services/session-provisioning.ts` is written (green phase), they pass.
  *
- * AC mapping (see docs/work-packages/TRACK-D.md → D5):
+ * AC mapping (see plans/work-packages/TRACK-D.md → D5):
  *   AC1 — End-to-end mock run leaves DB + FS in the expected state.
  *   AC3 — Crash recovery preserves pre-crash knowledge.
  *   AC4 — Cost cap rejection: no workspace, no session row.

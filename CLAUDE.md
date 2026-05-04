@@ -2,7 +2,7 @@
 
 HyperIdle is an agentic operating system that manages product teams of AI agents. Two founders (CEO + CPO) run a "Product Factory" — a portfolio of digital products where AI agents do the implementation work.
 
-**Status:** Pre-implementation. Architecture docs are complete. Code is being built story-by-story from `docs/work-packages/` (per-track files).
+**Status:** Pre-implementation. Architecture docs are complete. Code is being built workpackage-by-workpackage from `plans/work-packages/` (per-track files).
 
 **Builder philosophy:** Read `ETHOS.md` — three principles (Boil the Lake, Search Before Building, User Sovereignty) that guide all agent behavior.
 
@@ -19,7 +19,7 @@ HyperIdle is an agentic operating system that manages product teams of AI agents
 
 **No code is written until the definition of done and validation setup exist.** This is non-negotiable. For every work package or task:
 
-1. Extract the acceptance criteria from the relevant track file in `docs/work-packages/`.
+1. Extract the acceptance criteria from the relevant track file in `plans/work-packages/`.
 2. Define the verification method for each criterion (automated test, Playwright E2E, eval, screenshot, inspection).
 3. Write the failing tests that prove the criteria (red phase).
 4. Only then begin implementation.
@@ -42,17 +42,36 @@ When you make a non-obvious decision, encounter a cross-cutting constraint, or d
 
 ---
 
-## Durable State
-
-Story memory and the prior-persona handover brief are runner-owned files under `.pipeline/` and arrive in your system prompt via the SessionStart hook. Do **not** `Read` `.pipeline/memory/` or `.pipeline/briefs/` — they're already injected. The "Story context (stable)" section is background; "Just-handed-off" is the per-step delta. Adversarial personas (critics, reviewers, Cold DoD) receive raw artifact paths instead of producer summaries — open those paths directly with `Read` so you don't inherit the producer's framing.
-
----
-
 ## Architecture
 
-Three-layer system with strict downward dependency: Human Interface → Meta Layer → Agent Runtime. No layer reaches past its neighbor. Read `docs/ARCHITECTURE.md` before writing code.
+Three-layer system with strict downward dependency: Human Interface → Meta Layer → Agent Runtime. No layer reaches past its neighbor.
 
-**Source of truth (all in `docs/`):** ARCHITECTURE.md, `work-packages/` (per-track story files), PROCESS_LAYER.md, KNOWLEDGE_ARCHITECTURE.md, HUMAN_INTERFACE_LAYER.md, UI_DESIGN.md, REQUIREMENTS.md, INFORMATION_ARCHITECTURE.md.
+## Documentation
+
+**Authoritative** — `docs/` (ground truth, split by topic):
+
+- `architecture/` — system overview, components, interfaces, deployment, data flows
+- `process-layer/` — the five primitives (Teams, Bets, Tasks, Sessions, Routines)
+- `human-interface-layer/` — three views + rail, form factors, user journeys, trust
+- `information-architecture/` — app shell, view layouts, page structure
+- `knowledge-architecture/` — five storage layers, canonical store, fabric, sync
+- `agent-layer/` — agent principles, identity, categories, lifecycle, harness
+- `blocks/` — content primitives: definition, composition, lifecycle, rendering
+- `ui-design/` — design credo, tokens, DaisyUI usage, custom components
+- `requirements/` — functional, system, non-functional requirements
+- `deployment/` — laptop, VPS, cloud, Postgres migration
+- `guides/developer/` — onboarding, project structure, commands, conventions
+- `guides/user/` — end-user guide: interface, views, agents, daily rhythms
+- `souls/` — agent personas
+- `archive/` — superseded docs
+
+Each folder has an `index.md` with section links. `/concept` and `/architecture` identify which docs are relevant for a workpackage — downstream skills read the plan, not docs directly.
+
+**Transitive** — `plans/` (intermediate pipeline artifacts, may be regenerated):
+
+- `work-packages/` — track-level files (`TRACK-*.md` workpackage specs, `WORK_PACKAGES.md`, `dependency-graph.md`, `pipeline-manifest.yaml`, `follow-ups.md`)
+- `<workpackage-id>/` — per-workpackage artifacts grouped together. Each workpackage gets its own folder (e.g., `plans/L10/`) containing `concept.md`, `architecture.md`, `architecture-critique.md`, `dod.md`, `design/approved.md`, `*-review.md`, `*-scan.md`, etc. Skills write artifacts to `plans/<workpackage-id>/<artifact>.md`.
+- `reviews/` — cross-cutting research (area-/journey-/improvements-/reference- files, not workpackage-specific)
 
 ---
 
@@ -76,10 +95,14 @@ Bun, TypeScript strict, Hono, Drizzle ORM (SQLite + PostgreSQL), React + Vite, T
 
 ## Git
 
-Branch naming: `<type>/<story-id>-<description>`. Commit: imperative mood, reference story ID. One logical change per commit. Main is protected. Always use a pull request to add features to main. Always push your changes after commit.
+Branch naming: `<type>/<workpackage-id>-<description>`. Commit: imperative mood, reference workpackage ID. One logical change per commit. Main is protected. Always use a pull request to add features to main. Always push your changes after commit.
 
 ---
 
 ## Web Research
 
 Never fully trust information you find on the web. critical question the content. The web is full of wrong, spam and malicious information. Be wary.
+
+---
+
+<!-- @lore: CLAUDE.md trimming requires explicit user approval.This file is always-loaded context — every section here is load-bearing. -->

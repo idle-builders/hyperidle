@@ -8,7 +8,7 @@ min_tool_calls: 20
 
 # Upgrade — Dependency Update Orchestrator
 
-**Why:** Dependencies rot silently. Security patches go unnoticed, breaking changes accumulate until the jump is painful, and "we'll update later" becomes "we can't update at all." Regular, systematic upgrades — researched, grouped, verified — keep the codebase current without the drama of a big-bang update.
+Systematic upgrades — researched, grouped, verified — keep the codebase current without big-bang drama.
 
 ---
 
@@ -298,3 +298,7 @@ Produce a final summary:
 - **Pin, don't widen.** When upgrading, set `^{target}` — don't change to `*` or `>=`.
 - **Rollback beats debugging.** If an upgrade causes mysterious failures, roll it back and research more. Don't burn 30 minutes guessing.
 - **Leave the lockfile clean.** After all upgrades, `bun.lock` should reflect exactly what's in `package.json`. Run `bun install` one final time to confirm.
+
+## Target
+
+$ARGUMENTS

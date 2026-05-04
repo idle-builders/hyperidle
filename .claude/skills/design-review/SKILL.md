@@ -1,7 +1,7 @@
 ---
 name: design-review
 description: "Read-only UI/UX design review. Run by the designer agent."
-argument-hint: "[file paths or story-id]"
+argument-hint: "[file paths or workpackage-id]"
 user-invocable: true
 min_tool_calls: 12
 ---
@@ -14,12 +14,12 @@ Read-only review. Produce findings — do NOT make code changes.
 
 1. `packages/design-system/DESIGN.md` — Token reference: surfaces, text, borders, radii, spacing, typography, motion
 2. `packages/design-system/PRINCIPLES.md` — Design principles and anti-patterns
-3. `docs/UI_DESIGN.md` — Component specs, component budget, building order
-4. `docs/HUMAN_INTERFACE_LAYER.md` — Page layouts, interaction patterns, routing rules, keyboard shortcuts
-5. `docs/INFORMATION_ARCHITECTURE.md` — Information hierarchy, content organization
-6. The relevant track file in `docs/work-packages/TRACK-*.md` for the story being reviewed
+3. `plans/<workpackage-id>/design/approved.md` — the approved design spec for this workpackage
+4. `plans/<workpackage-id>/architecture.md` — the technical plan and its **Required reading** section
+5. The specific UI authoritative files named in the plan's Required reading (typically a `docs/ui-design/<file>.md` and a `docs/human-interface-layer/<file>.md`) — read each end-to-end
+6. The relevant track file in `plans/work-packages/TRACK-*.md` for the workpackage being reviewed
 
-Then read the changed UI files (via `$ARGUMENTS` or `git diff --name-only`).
+Then read the changed UI files (via `<target>` or `git diff --name-only`).
 
 ## Be thorough
 
@@ -42,10 +42,14 @@ For accessibility: don't just check that aria attributes exist — check they're
 
 ## Visual verification
 
-Look at pixels, not code. Run `cd packages/web && bun run visual:compare <reference-name>` to generate pixel diffs against the reference mockups in `docs/design-references/`. Read the reference.png, implementation.png, and diff.png. Compare against `docs/UI_DESIGN.md`. Check truncation, contrast, alignment, spacing, all states. Include screenshot paths and match percentages in findings.
+Look at pixels, not code. Run `cd packages/web && bun run visual:compare <reference-name>` to generate pixel diffs against the reference mockups attached to `plans/<workpackage-id>/design/approved.md`. Read the reference.png, implementation.png, and diff.png. Compare against the specific `docs/ui-design/<file>.md` named in the plan's Required reading. Check truncation, contrast, alignment, spacing, all states. Include screenshot paths and match percentages in findings.
 
 If the dev server is not running or Playwright is not installed, that is a CRITICAL finding.
 
 ## Output
 
 Structured findings: CRITICAL / WARNINGS / OBSERVATIONS with file paths, line numbers, spec reference, and screenshot evidence for visual issues.
+
+## Target
+
+$ARGUMENTS

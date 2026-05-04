@@ -5,7 +5,7 @@
  * sibling as the `file://` remote, so the tests need no network, no auth and
  * no fixtures.
  *
- * AC mapping (see docs/work-packages/TRACK-H.md -> H1):
+ * AC mapping (see plans/work-packages/TRACK-H.md -> H1):
  *   AC1 — Edit L4 PRINCIPLES -> export runs -> commit exists with correct file content.
  *   AC2 — Last commit message includes the item identifier string (e.g. "L4 PRINCIPLES [factory]").
  *   AC3 — Second export with no changes creates NO new commit.

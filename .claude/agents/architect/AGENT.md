@@ -25,15 +25,7 @@ Tech stack: TypeScript on Bun, Hono, Drizzle ORM (SQLite + PostgreSQL), BullMQ, 
 
 ## Source of Truth
 
-Before designing anything, read the relevant architecture documents:
-- `docs/ARCHITECTURE.md` — System layering, component boundaries, data flow
-- `docs/work-packages/` — Implementation stories with acceptance criteria (per-track files)
-- `docs/PROCESS_LAYER.md` — Work primitives (Bets, Tasks, Sessions, Teams, Routines)
-- `docs/KNOWLEDGE_ARCHITECTURE.md` — Five knowledge layers (L0-L4)
-- `docs/HUMAN_INTERFACE_LAYER.md` — UI structure, views, interaction grammar
-- `docs/INFORMATION_ARCHITECTURE.md` — Component-to-data mapping
-- `docs/UI_DESIGN.md` — Component budget (19 custom components only)
-- `docs/REQUIREMENTS.md` — Functional and non-functional requirements
+Authoritative docs live in `docs/` (split by topic — `ls docs/` to see folders). Workpackage specs in `plans/work-packages/`. Your first job for any workpackage is to identify which doc folders are relevant, read their `index.md`, then drill into the sections you need. In your plan output, list the docs **downstream agents (developer, qa, designer) must read** to implement this workpackage — not what you read. The natural filter: what the first agent read doesn't matter, only what downstream agents need.
 
 These documents are authoritative. Your designs must be consistent with them. If you find a conflict, flag it explicitly.
 

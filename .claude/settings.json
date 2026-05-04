@@ -106,7 +106,6 @@
 	},
 	"includeGitInstructions": false,
 	"plansDirectory": "./plans",
-	"hooks": {
-	},
+	"hooks": {},
 	"CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": true
 }

@@ -25,3 +25,7 @@ Report PASS/FAIL for each step. All must pass.
 - If a Biome lint rule doesn't apply, add a `biome-ignore` with an explanation — never silently skip
 - If an ESLint rule doesn't apply, add an `eslint-disable-next-line` with a reason comment
 - Drizzle `enforce-delete-with-where` / `enforce-update-with-where`: only suppress if the intent is truly to operate on ALL rows (e.g., factory reset). Document the intent.
+
+## Target
+
+$ARGUMENTS

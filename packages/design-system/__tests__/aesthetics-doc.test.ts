@@ -8,7 +8,7 @@
  * shape, this spec fails (red phase).
  *
  * @lore Each gate maps 1:1 to an acceptance criterion in
- *   `docs/work-packages/TRACK-K.md` story K1, and to a verification row in
+ *   `plans/work-packages/TRACK-K.md` story K1, and to a verification row in
  *   `docs/plans/K1-plan.md` Section 5. The list of expected per-topic research
  *   files is hardcoded from `docs/plans/K1-plan.md` Section 2 (Phase 1 fan-out
  *   plus the Phase 0 reference-systems matrix). Update this list if the plan's
@@ -114,7 +114,7 @@ function readAesthetics(): string {
 	if (!existsSync(AESTHETICS_PATH)) {
 		throw new Error(
 			`AESTHETICS.md not found at ${AESTHETICS_PATH}. ` +
-				`This is K1's primary deliverable — see docs/work-packages/TRACK-K.md story K1.`,
+				`This is K1's primary deliverable — see plans/work-packages/TRACK-K.md story K1.`,
 		);
 	}
 	return readFileSync(AESTHETICS_PATH, "utf-8");

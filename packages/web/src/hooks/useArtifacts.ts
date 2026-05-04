@@ -1,5 +1,5 @@
 // L3 — single hook for /api/artifacts with axis discriminant.
-// Source: docs/architecture-plans/L3.md §6.5.
+// Source: plans/L3/architecture.md §6.5.
 
 import type { Artifact, ArtifactFilterAxis, ArtifactPage } from "@hyperidle/shared";
 import { type FetchState, useFetch } from "./useFetch.js";

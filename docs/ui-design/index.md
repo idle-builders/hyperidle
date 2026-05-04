@@ -1,0 +1,21 @@
+# UI DESIGN
+
+# UI Design — The Factory
+
+Version 0.3 · Desktop app · Dark / Light / System (Lucid theme)
+
+---
+
+## Sections
+
+- [Credo](./credo.md)
+- [Foundation](./foundation.md)
+- [Theme tokens](./theme-tokens.md)
+- [What we use from DaisyUI (directly, as-is)](./what-we-use-from-daisyui-directly-as-is.md)
+- [Our components](./our-components.md)
+- [Component tree at a glance](./component-tree-at-a-glance.md)
+- [Rules](./rules.md)
+- [Build order](./build-order.md)
+- [Relation to other docs](./relation-to-other-docs.md)
+- [Component budget](./component-budget.md)
+

@@ -1,6 +1,7 @@
 /**
- * L2 T29 / SHARED.md L1 name guard: ReasoningBlockView is the canonical
+ * L2 T29 / component-budget name guard: ReasoningBlockView is the canonical
  * export. ReasoningBlock (without the suffix) MUST NOT be re-exported.
+ * See docs/ui-design/component-budget.md.
  */
 
 import { existsSync } from "node:fs";
