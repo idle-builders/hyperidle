@@ -31,6 +31,15 @@ Check every endpoint for input validation. Check every use of `dangerouslySetInn
 - **XSS** — `dangerouslySetInnerHTML`, unescaped template literals, innerHTML assignments
 - **Dangerous patterns** — grep for `eval`, `Function(`, `innerHTML`, `dangerouslySetInnerHTML`, `child_process`, `exec(` across the codebase, not just changed files
 
+## Absence checks (what SHOULD exist but doesn't)
+
+The above checks find bad patterns that exist. These checks find good patterns that are missing — equally critical:
+
+- **Human-text → agent-context sanitization** — Trace every path where user-supplied text (form fields, message bodies, "reason" strings) reaches agent context, LLM prompts, or is stored for agent consumption. Each path MUST have sanitization (unicode normalization, control char stripping, format char removal). Missing sanitization on any human→agent text path is CRITICAL.
+- **Rate limiting on new action endpoints** — Any new endpoint that accepts user-initiated actions (POST/PUT/DELETE) must have per-identity rate limiting. If the story introduces a new user action and no rate limiter is present, that is a CRITICAL finding.
+- **Scoped authorization on new resources** — If the story introduces access to resources (threads, tasks, artifacts), verify authorization is scoped to the actor's team/workspace. A missing authz check that defaults to "anyone with a valid session" is CRITICAL.
+- **Concurrent-write handling** — If the story introduces a create-or-update pattern (e.g., "ensure thread exists, then post to it"), check for race conditions. Two simultaneous requests must not create duplicate resources or corrupt state.
+
 Output structured findings: CRITICAL / WARNINGS / OBSERVATIONS with file paths and line numbers.
 
 ## Target
