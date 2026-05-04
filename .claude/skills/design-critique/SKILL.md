@@ -1,6 +1,6 @@
 ---
 name: design-critique
-description: "Score design variants against the 9-dimension rubric. Evaluation act — separate from production. Same designer agent, different cognitive mode."
+description: "Score design variants against the 9-dimension rubric. Evaluation act — separate from production. Reviewer persona evaluates the designer's output."
 argument-hint: "[workpackage-id]"
 user-invocable: true
 min_tool_calls: 8
@@ -8,13 +8,13 @@ min_tool_calls: 8
 
 # Design Critique
 
-**Why:** The mind that just created variants cannot objectively score them. Switching to evaluation mode — even within the same session — requires a deliberate cognitive break. This skill is that break.
+**Why:** The agent that created variants cannot objectively score them. Evaluation must be a different agent — the reviewer — reading the designer's output cold. True producer/evaluator separation: different personas, not just different cognitive modes.
 
-This is the **evaluation** counterpart to `/design` (production). Same designer agent, different cognitive mode. `/design` generates variants; `/design-critique` scores them. They run as sequential skill invocations — never in the same act.
+This is the **evaluation** counterpart to `/design` (production). The reviewer persona scores what the designer produced. `/design` generates variants; `/design-critique` scores them. The reviewer's context from this critique carries forward to Phase 4's code review — it arrives already warm on the design decisions.
 
 ## When This Runs
 
-- **In the pipeline:** immediately after `/design`, before `/architecture`. Same designer session.
+- **In the pipeline:** Phase 2, after the designer completes `/design`. Reviewer session.
 - **On explicit `/design-critique <workpackage-id>`:** full audit of variants at `plans/<workpackage-id>/design/<variant-slug>/`.
 - **Post-implementation:** score rendered TSX against the approved mockup (pairs with `/visual-polish`).
 
