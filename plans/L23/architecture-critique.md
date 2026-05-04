@@ -87,10 +87,66 @@ T-VERIFY says "capture a screenshot of /knowledge/k1 and /knowledge/<multi-secti
 
 Once 1–3 land, all dims clear 7. Reviewer expects a single round-2 pass with no further design changes.
 
-## Headline numbers
+## Headline numbers (round 1)
 
 - Lowest dim: **Security 6/10** (one blocker).
 - Other near-threshold: Test plan 7, Error handling 7, Observability 7 — all acceptable as-is.
 - Where-deriver-runs: **client-side `useMemo` — reviewer concurs.**
 - L2-FU-1/FU-2: **confirmed irrelevant for L23.** No hidden `BlockHandle` / `BlockActionsPopover` invocation; `slots` prop is not passed.
 
+---
+
+## Round 2 — re-score (commit `ea60794`)
+
+Designer landed all three required addenda. Re-scoring the changed dimensions and re-checking the unchanged ones for regressions.
+
+### Re-scored dimensions
+
+| Dim | R1 | R2 | Δ | Rationale |
+|---|---|---|---|---|
+| Security | 6 | **9** | +3 | T-SEC-1 added with six concrete cases (a–f): `<script>` strip, `<img onerror>` attribute strip, `<iframe>` block, raw `<a href="javascript:…">` strip, `<div onclick onmouseover>` event-handler strip, markdown `[click](javascript:…)` regression guard. DOMPurify config is now explicit: default profile, no overrides, with cited rationale ("audited defaults > hand-rolled allowlist") and the existing two call sites referenced (`ArtifactView.tsx:141`, `KnowledgeDetail.tsx:143`). The encapsulation choice (no `sanitizeHtml` prop on `KnowledgeBodyProps`) is now explicitly stated as intentional. The case-(f) regression test correctly notes that a failure indicates an L2 `renderInline` bug to file as a follow-up — not an L23 blocker. Score remains under 10 only because `data:` URIs on `<img>` are kept by DOMPurify default (acknowledged in the plan as "acceptable for Knowledge bodies"); a paranoid host would tighten that. For L23 it is on-contract. |
+| Error handling | 7 | **8** | +1 | The DOMPurify config statement closes one of the original gaps (sanitiser-error semantics now explicit). Other gaps unchanged. |
+| Test plan | 7 | **8** | +1 | T-RED-2 expanded to "eleven failures (5 prior + 6 new XSS cases)" — atomic and verifiable. Six concrete `it(...)` cases is a stronger test plan than R1 carried. Remaining soft gaps from R1 (multi-section-playbook fixture id, T7 fixture body specification) are unaddressed but were filed as soft, not blockers. |
+
+### Unchanged dimensions (regression check)
+
+| Dim | Score | Status |
+|---|---|---|
+| Surface-area discipline | 9 | No new files introduced by R2 changes; the diff is doc-only. |
+| Contract clarity | 8 | DOMPurify call shape is now spelled out, slight strengthening but not enough to bump. |
+| Type safety | 8 | No type changes. |
+| Performance | 8 | T-SEC-1's six cases run in well under a second. No perf regression. |
+| Simplicity | 9 | Six XSS cases are six `it(...)` blocks calling the same render path — no new abstraction. |
+| Observability | 7 | Unchanged. |
+
+### Cascade resolution (R6) — concur
+
+Designer chose **drop the `line-height` override** (the safer of the two options I offered). `approved.md` patched to remove `line-height` lines from all four `[data-knowledge-body] :is(...)` rules. Builder note in R6 explicitly forbids `!important` or layer escape hatches as a workaround. **Reviewer concurs** — fighting Tailwind's utility cascade for a 0.1 line-height delta is exactly the kind of fragile override that causes silent regressions later.
+
+### Empty-state departure (design-side) — concur
+
+`approved.md` § Empty state now carries the one-sentence rationale: "Wrapping the empty case in an `EmptyState` card would re-introduce the very container (border, padding, centred icon slot) that L23 is removing." That is precisely the framing — chrome-forbidden for "some body" must mean chrome-forbidden for "no body". Approved as written.
+
+### Soft items still open (not blockers)
+
+These remained from round 1 and are not blockers for APPROVE:
+
+- E1/E2's "multi-section-playbook" fixture id is unspecified. Builder must verify a multi-section fixture exists in `packages/web/src/fixtures/knowledge-data.ts` or add one. Track in `plans/L23/follow-ups.md` if absent.
+- T7's "fixture body covering supported kinds" should specify the markdown payload. Builder picks at write-tests time.
+
+These are tractable at builder time and do not require another designer round.
+
+### Round 2 verdict
+
+**APPROVE.** All dims now ≥ 7. Lowest is **Test plan / Error handling / Observability at 8** (Security jumped to 9). The architecture plan is ready for Phase 3 builder hand-off.
+
+## Round 2 headline numbers
+
+- Lowest dim: **Observability 7/10** (acceptable, no blocker).
+- **Security: 9/10** (was 6 — fully addressed).
+- Where-deriver-runs: client-side `useMemo` — concur.
+- L2-FU-1/FU-2: confirmed irrelevant for L23.
+- Cascade resolution: drop `line-height` override, defer to L2's utility — concur.
+- Empty-state departure: explicitly justified in `approved.md` — concur.
+
+Reviewer ready to hand off to builder for Phase 3 (`/write-tests` then `/write-code`). Phase 4 review will be performed by this same persona against the contracts established here.
