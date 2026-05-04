@@ -12,7 +12,7 @@ Produces the **how** — file paths, type signatures, schemas, endpoint shapes, 
 
 **Fixed inputs (do NOT re-litigate):**
 - Concept doc from `/concept` — includes which docs were read and the relevant canonical-shapes contracts in `docs/<topic>/`.
-- Approved design from `/design` (UI stories) — `plans/design/<story-id>/approved.md`.
+- Approved design from `/design` (UI stories) — `plans/<story-id>/design/approved.md`.
 
 **Doc discovery:** Read the "Required reading" from `/concept` output if available. Otherwise `ls docs/` to identify relevant topic folders. **Output a "Required reading" section in the plan** listing the specific doc files the engineer must read before implementing. This is the natural filter — downstream skills read only what the plan prescribes.
 
@@ -49,7 +49,7 @@ Produce a `Plan reconciliation:` block in the plan listing every spec assumption
 
 Read the story `$ARGUMENTS` in the relevant track file under `plans/work-packages/` (e.g., `TRACK-A.md` for A-stories). Read existing code in affected packages and the relevant doc sections identified in doc discovery above.
 
-If the story has a UI surface and `/design` produced an approved spec (under `plans/design/<story-id>/approved.md` or wherever the design step wrote it), read it. The visual contract, component vocabulary, and interaction states are inputs — do not re-litigate them.
+If the story has a UI surface and `/design` produced an approved spec (under `plans/<story-id>/design/approved.md` or wherever the design step wrote it), read it. The visual contract, component vocabulary, and interaction states are inputs — do not re-litigate them.
 
 Produce:
 1. **Acceptance criteria** — each with a specific verification method (see table below)
@@ -91,7 +91,7 @@ Spawn an **adversary agent** to challenge the plan — over-engineering, missing
 
 Then run `/architecture-critique` to score the plan against the architectural rubric. Iterate fixes until score ≥ 7 or 3 rounds reached.
 
-Save the final plan via TaskCreate so downstream skills can read it.
+Write the final plan to `plans/<story-id>/architecture.md`. Downstream skills read it from there.
 
 ## Target
 
