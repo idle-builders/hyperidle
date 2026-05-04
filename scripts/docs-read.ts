@@ -13,9 +13,12 @@ const CONCEPT_DIR = join(import.meta.dir, "../docs/concept");
 
 const arg = process.argv[2];
 if (!arg) {
-	console.error(
-		"usage: bun run docs:read <topic>[#<section>]\n\nExamples:\n  bun run docs:read architecture#components\n  bun run docs:read architecture\n  bun run docs:read docs/concept/architecture/components.md",
-	);
+	const indexPath = join(CONCEPT_DIR, "index.md");
+	if (existsSync(indexPath)) {
+		process.stdout.write(readFileSync(indexPath, "utf8"));
+		process.exit(0);
+	}
+	console.error("usage: bun run docs:read <topic>[#<section>]");
 	process.exit(2);
 }
 
