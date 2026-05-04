@@ -535,7 +535,7 @@ The architect picks the migration sequencing — whether `items` and `responses`
 
 A **Block** is a derived structural unit of a markdown body — an addressable section of structured prose (heading, paragraph, list, code, quote, table, etc.) extracted from a GitHub-flavoured markdown source so a body renders as proper prose with per-section affordances. The on-disk format stays plain GFM; blocks are a runtime view, never a stored dialect.
 
-This section is the cross-cutting concept the prose-bearing surfaces share — knowledge bodies (§4.4) and bet pitches (§4.3). Conversations (§4.1) does **not** use blocks: chat messages are messages, not blocks. The long-form authority is `docs/BLOCKS.md`; this section restates the load-bearing properties.
+This section is the cross-cutting concept the prose-bearing surfaces share — knowledge bodies (§4.4) and bet pitches (§4.3). Conversations (§4.1) does **not** use blocks: chat messages are messages, not blocks. The long-form authority is `docs/blocks/`; this section restates the load-bearing properties.
 
 #### 4.6.1 Definition and essential properties
 
@@ -634,7 +634,7 @@ The reframe and filter together force the *derived view* model. Stored block-row
 
 The reframe also consolidates two surfaces that today fall back to `<pre>` rectangles — the bet pitch in `WorkBet.tsx:262-267` (`@lore J5`) and the knowledge body in `KnowledgeDetail.tsx:301-307` (`@lore J7`). L2 makes them disappear in one stroke: one shared primitive, one renderer, two consumers.
 
-For the long-form authority, including the block-kind table, the id-derivation contract, the round-trip rule, and the consumer story list, see `docs/BLOCKS.md`.
+For the long-form authority, including the block-kind table, the id-derivation contract, the round-trip rule, and the consumer story list, see `docs/blocks/`.
 
 ---
 

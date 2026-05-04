@@ -19,7 +19,7 @@ UX/UI counterpart to `/architecture`. Architecture decides *how* (file paths, sc
 Read (anchor-scoped where possible):
 
 1. The story in `plans/work-packages/TRACK-<letter>.md`.
-2. `docs/ui-design/`, `docs/human-interface-layer/`, `docs/information-architecture/` — existing layout + component budget (use `bun run docs:read <topic>#<section>`).
+2. `docs/ui-design/`, `docs/human-interface-layer/`, `docs/information-architecture/` — existing layout + component budget.
 3. `packages/design-system/PRINCIPLES.md`, `AESTHETICS.md`, `DESIGN.md`, `src/tokens.css`.
 4. `.claude/rules/aesthetic-quality.md`, `.claude/rules/visual-parity.md`.
 5. If `plans/design-explorations/<story-id>/` exists, you may be resuming.

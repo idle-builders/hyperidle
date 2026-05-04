@@ -1,5 +1,5 @@
 /**
- * L2 Block primitive types. Concept: docs/BLOCKS.md.
+ * L2 Block primitive types. Concept: docs/blocks/.
  * SHARED.md § "Block primitive (L2)" is the canonical signature.
  */
 

@@ -25,15 +25,7 @@ Tech stack: TypeScript on Bun, Hono, Drizzle ORM (SQLite + PostgreSQL), BullMQ, 
 
 ## Source of Truth
 
-Before designing anything, read the relevant architecture documents:
-- `docs/ARCHITECTURE.md` — System layering, component boundaries, data flow
-- `plans/work-packages/` — Implementation stories with acceptance criteria (per-track files)
-- `docs/PROCESS_LAYER.md` — Work primitives (Bets, Tasks, Sessions, Teams, Routines)
-- `docs/KNOWLEDGE_ARCHITECTURE.md` — Five knowledge layers (L0-L4)
-- `docs/HUMAN_INTERFACE_LAYER.md` — UI structure, views, interaction grammar
-- `docs/INFORMATION_ARCHITECTURE.md` — Component-to-data mapping
-- `docs/UI_DESIGN.md` — Component budget (19 custom components only)
-- `docs/REQUIREMENTS.md` — Functional and non-functional requirements
+Authoritative docs live in `docs/` (split by topic — `ls docs/` to see folders). Story specs in `plans/work-packages/`. Your first job for any story is to identify which doc folders are relevant, read their `index.md`, then drill into the sections you need. List the docs you read in your plan output so downstream skills don't re-discover them.
 
 These documents are authoritative. Your designs must be consistent with them. If you find a conflict, flag it explicitly.
 

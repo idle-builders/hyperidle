@@ -42,6 +42,9 @@
       "Bash(curl -s http://localhost:8098:*)"
     ]
   },
+  "enabledMcpjsonServers": [
+    "langfuse"
+  ],
   "autoMode": {
     "allow": [
       "Anything that is not dangerous to the computer or secrets is allows",
@@ -50,7 +53,8 @@
       "All Read, Edit, and Write tool calls are pre-approved"
     ]
   },
-  "enabledMcpjsonServers": [
-    "langfuse"
-  ]
+  "sandbox": {
+    "enabled": true,
+    "autoAllowBashIfSandboxed": true
+  }
 }

@@ -14,9 +14,9 @@ Read-only review. Produce findings — do NOT make code changes.
 
 1. `packages/design-system/DESIGN.md` — Token reference: surfaces, text, borders, radii, spacing, typography, motion
 2. `packages/design-system/PRINCIPLES.md` — Design principles and anti-patterns
-3. `docs/UI_DESIGN.md` — Component specs, component budget, building order
-4. `docs/HUMAN_INTERFACE_LAYER.md` — Page layouts, interaction patterns, routing rules, keyboard shortcuts
-5. `docs/INFORMATION_ARCHITECTURE.md` — Information hierarchy, content organization
+3. `docs/ui-design/` — Component specs, component budget, building order
+4. `docs/human-interface-layer/` — Page layouts, interaction patterns, routing rules, keyboard shortcuts
+5. `docs/information-architecture/` — Information hierarchy, content organization
 6. The relevant track file in `plans/work-packages/TRACK-*.md` for the story being reviewed
 
 Then read the changed UI files (via `<target>` or `git diff --name-only`).
@@ -42,7 +42,7 @@ For accessibility: don't just check that aria attributes exist — check they're
 
 ## Visual verification
 
-Look at pixels, not code. Run `cd packages/web && bun run visual:compare <reference-name>` to generate pixel diffs against the reference mockups in `docs/design-references/`. Read the reference.png, implementation.png, and diff.png. Compare against `docs/UI_DESIGN.md`. Check truncation, contrast, alignment, spacing, all states. Include screenshot paths and match percentages in findings.
+Look at pixels, not code. Run `cd packages/web && bun run visual:compare <reference-name>` to generate pixel diffs against the reference mockups in `docs/design-references/`. Read the reference.png, implementation.png, and diff.png. Compare against `docs/ui-design/`. Check truncation, contrast, alignment, spacing, all states. Include screenshot paths and match percentages in findings.
 
 If the dev server is not running or Playwright is not installed, that is a CRITICAL finding.
 

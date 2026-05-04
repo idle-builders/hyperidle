@@ -15,7 +15,7 @@ Tasks move through a small state machine:
 
 The distinction between `hold` and `blocked` is important: `hold` is structural (the task can't start because upstream work isn't done — the system knows this from the dependency graph and resolves it automatically), while `blocked` is situational (the agent started work and hit something it can't resolve alone — requires human or external action).
 
-> **Vocabulary note.** The lower-case `blocked` workflow state described here is unrelated to the upper-case `Block` content primitive (see [`docs/BLOCKS.md`](BLOCKS.md)). They share the English word "block" and nothing else.
+> **Vocabulary note.** The lower-case `blocked` workflow state described here is unrelated to the upper-case `Block` content primitive (see [`docs/blocks/`](BLOCKS.md)). They share the English word "block" and nothing else.
 
 Transitions are events in the audit trail. The Rail surfaces blocked and held tasks prominently because they're the most actionable signal of friction.
 

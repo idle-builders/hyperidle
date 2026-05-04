@@ -15,10 +15,10 @@ min_tool_calls: 25
 1. Identify changed files via `git diff --name-only`
 2. Read the relevant story in the appropriate track file under `plans/work-packages/`
 3. Read the relevant concept docs for context:
-   - Always: `docs/ARCHITECTURE.md`, `plans/work-packages/SHARED.md`
-   - If backend changes: `docs/PROCESS_LAYER.md`, `docs/AGENT_LAYER.md`, `docs/KNOWLEDGE_ARCHITECTURE.md`
-   - If frontend changes: `docs/UI_DESIGN.md`, `docs/HUMAN_INTERFACE_LAYER.md`, `docs/INFORMATION_ARCHITECTURE.md`
-   - If requirements questions: `docs/REQUIREMENTS.md`
+   - Always: `docs/architecture/`, `plans/work-packages/SHARED.md`
+   - If backend changes: `docs/process-layer/`, `docs/agent-layer/`, `docs/knowledge-architecture/`
+   - If frontend changes: `docs/ui-design/`, `docs/human-interface-layer/`, `docs/information-architecture/`
+   - If requirements questions: `docs/requirements/`
 
 ## Phase 1: Scan (specialists in parallel)
 

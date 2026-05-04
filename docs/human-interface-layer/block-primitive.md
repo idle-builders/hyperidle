@@ -1,6 +1,6 @@
 ## Block primitive
 
-Cross-reference: `docs/BLOCKS.md` is the long-form concept doc. This section is a pointer for readers of HIL.
+Cross-reference: `docs/blocks/` is the long-form concept doc. This section is a pointer for readers of HIL.
 
 **A Block is a derived, addressable, renderable region of a markdown body.** Every structured-prose surface in the human interface layer renders through Blocks: the bet pitch on Bet detail (L16), the knowledge body on Knowledge/Detail (L23), and any future surface that wants to show prose. Conversations does NOT use Blocks — chat messages, review messages, and questionnaire messages are L1 message shapes, not Blocks.
 
@@ -20,6 +20,6 @@ The on-disk format remains GitHub-flavoured markdown. Agents writing into the ma
 - the verb / state "blocked" / "blocking" (workflow states from `PROCESS_LAYER.md` — task on hold or blocked, blocking review threads);
 - "Tier 2 — Blocks" above (a tier of design-system *components* like ThreadRow and BetCard — these are React widgets, not Block primitives, and the renderer components that materialise a Block on screen are named `*BlockView`).
 
-For the kind set, the BlockId stability algorithm, the rejection list, and the contracts every consumer must respect, see `docs/BLOCKS.md`. The shared type signatures live in `plans/work-packages/SHARED.md` § "Block primitive".
+For the kind set, the BlockId stability algorithm, the rejection list, and the contracts every consumer must respect, see `docs/blocks/`. The shared type signatures live in `plans/work-packages/SHARED.md` § "Block primitive".
 
 See UI_DESIGN.md v0.2 for the full component tree and build order.

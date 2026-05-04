@@ -46,7 +46,33 @@ When you make a non-obvious decision, encounter a cross-cutting constraint, or d
 
 Three-layer system with strict downward dependency: Human Interface → Meta Layer → Agent Runtime. No layer reaches past its neighbor.
 
-**Source of truth:** `docs/` — split by topic into folders (e.g. `docs/architecture/`, `docs/process-layer/`). Each folder has an `index.md` and per-section files. Story specs in `plans/work-packages/`. Agent artifacts (architecture plans, design explorations, reviews) in `plans/`. Agent personas in `docs/souls/`.
+## Documentation
+
+**Authoritative** — `docs/` (ground truth, split by topic):
+
+- `architecture/` — system overview, components, interfaces, deployment, data flows
+- `process-layer/` — the five primitives (Teams, Bets, Tasks, Sessions, Routines)
+- `human-interface-layer/` — three views + rail, form factors, user journeys, trust
+- `information-architecture/` — app shell, view layouts, page structure
+- `knowledge-architecture/` — five storage layers, canonical store, fabric, sync
+- `agent-layer/` — agent principles, identity, categories, lifecycle, harness
+- `blocks/` — content primitives: definition, composition, lifecycle, rendering
+- `ui-design/` — design credo, tokens, DaisyUI usage, custom components
+- `requirements/` — functional, system, non-functional requirements
+- `deployment/` — laptop, VPS, cloud, Postgres migration
+- `guides/developer/` — onboarding, project structure, commands, conventions
+- `guides/user/` — end-user guide: interface, views, agents, daily rhythms
+- `souls/` — agent personas
+- `archive/` — superseded docs
+
+Each folder has an `index.md` with section links. `/concept` and `/architecture` identify which docs are relevant for a story — downstream skills read the plan, not docs directly.
+
+**Transitive** — `plans/` (intermediate pipeline artifacts, may be regenerated):
+
+- `work-packages/` — story specs and track files
+- `architecture-plans/` — per-story technical plans
+- `design-explorations/` — per-story design variants and approved designs
+- `reviews/` — per-story review outputs
 
 ---
 

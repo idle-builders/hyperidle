@@ -18,7 +18,7 @@ Continuous design quality gate. Runs whenever UI code is created or modified. Pr
 
 ## Required Reading (Before Any UI Work)
 
-Anchor-scoped reads where possible (`bun run docs:read <file>#<anchor>`):
+Read these before critiquing:
 
 1. `packages/design-system/AESTHETICS.md` — source of truth for token values + AI-aesthetic catalog.
 2. `packages/design-system/PRINCIPLES.md` — seven universals.

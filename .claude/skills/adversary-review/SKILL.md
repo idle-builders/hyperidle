@@ -30,7 +30,7 @@ Do not skim. Read every function body. Check every `as` cast. Open every test fi
 - **Test quality** — happy-path-only tests, tautologies, tests that mock everything, tests that assert obvious things but miss the hard cases
 - **Performance** — N+1 queries, unbounded lists, missing indexes, allocations in render loops
 - **AI slop** — over-commenting, unnecessary abstractions, code that looks impressive but does nothing, `@lore` comments that document a problem without fixing it
-- **Spec compliance** — check component behavior against `docs/UI_DESIGN.md` and `docs/HUMAN_INTERFACE_LAYER.md`. If the spec says 4 columns, count the columns.
+- **Spec compliance** — check component behavior against `docs/ui-design/` and `docs/human-interface-layer/`. If the spec says 4 columns, count the columns.
 
 Output structured findings: CRITICAL / WARNINGS / OBSERVATIONS with file paths and line numbers.
 

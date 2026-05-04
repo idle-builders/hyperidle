@@ -9,7 +9,7 @@ describe("H4 AC6: deployment documentation", () => {
 	const repoRoot = path.resolve(__dirname, "..", "..", "..", "..");
 	const docPath = path.join(repoRoot, "docs", "DEPLOYMENT.md");
 
-	it("docs/DEPLOYMENT.md exists", () => {
+	it("docs/deployment/ exists", () => {
 		expect(fs.existsSync(docPath)).toBe(true);
 	});
 

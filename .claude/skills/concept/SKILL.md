@@ -10,14 +10,16 @@ min_tool_calls: 18
 
 Upstream of `/design` and `/architecture`. Answers "what IS this thing?" — the layer where Thread is distinguished from Message, Block from Section, Artifact from Output, Bet from Task, Cost from Duration.
 
-**Skip when:** the concept is already locked in `docs/` and the story doesn't reshape it. Read the relevant `docs/<topic>/<section>.md` (via `bun run docs:read <topic>#<section>`) first; if it answers Phase 1 without contradiction, skip.
+**Skip when:** the concept is already locked in `docs/` and the story doesn't reshape it. Read the relevant section files first; if they answer Phase 1 without contradiction, skip.
 
-## Required reading (use anchors)
+## Required reading
 
 1. Story in `plans/work-packages/TRACK-<letter>.md` — central vs incidental nouns.
-2. `plans/work-packages/SHARED.md#shared-contracts` — does the noun already have a contract?
-3. Relevant `docs/<topic>/<section>.md` files (via `bun run docs:read <topic>#<section>`).
-4. `plans/archive/` — prior versions, if any.
+2. `plans/work-packages/SHARED.md` "Shared Contracts" — does the noun already have a contract?
+3. `ls docs/` to identify relevant topic folders, then read `index.md` and drill into sections.
+4. `docs/archive/` — prior versions, if any.
+
+**Output the docs you read** in your concept doc so `/architecture` and downstream skills don't re-discover them.
 
 If the spec contradicts an existing concept doc, that's CRITICAL. Surface it; don't silently re-define.
 

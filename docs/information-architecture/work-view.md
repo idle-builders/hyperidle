@@ -73,7 +73,7 @@ Accessed by clicking a BetCard in the Team View. Breadcrumb returns to Team View
 | **Bet header** | Title, ID, product, appetite, status badge, extended status (on-track / behind / blocked / paused / shipped / killed), cycle, progress indicator | — |
 | **Progress card** | Percentage complete, visual bar, estimated completion | Read-only |
 | **Cost card** | Total cost, burn rate | Read-only |
-| **Pitch body** | Full markdown rendered as a list of blocks per the **Block primitive** (TRACK-L L2; spec at `docs/BLOCKS.md`): problem statement, solution sketch, rabbit holes, done condition. Each block carries a stable, server-computed id, scoped by `host_id = bet:<id>`. | Read-only rendered prose; per-block discussion via L18+L26 attaches via `(host_id, block_id)` anchor. |
+| **Pitch body** | Full markdown rendered as a list of blocks per the **Block primitive** (TRACK-L L2; spec at `docs/blocks/`): problem statement, solution sketch, rabbit holes, done condition. Each block carries a stable, server-computed id, scoped by `host_id = bet:<id>`. | Read-only rendered prose; per-block discussion via L18+L26 attaches via `(host_id, block_id)` anchor. |
 | **TaskCard rows** (× N) | Per task: title, owner (agent name), state (planned/in progress/done/blocked), dependency, sessions, cost | Click task → open thread in Conversations; Flag for PM |
 | **Task state indicator** | Colored dot + label (pulsing for in-progress, solid for done, red for blocked) | — |
 | **Comment thread** | Chronological: sender, avatar, timestamp, message | Reply |

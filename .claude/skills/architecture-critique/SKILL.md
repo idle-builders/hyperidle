@@ -18,10 +18,10 @@ This is **not** `/architecture-review`. The review skill audits the *implemented
 - **Inside `/architecture` Phase 4:** the architect runs this on themselves and iterates. Fixes go into the plan, not into a separate findings file.
 - **On explicit `/architecture-critique <story-id>`:** full audit of the plan saved under TaskCreate or in `plans/work-packages/`/the worktree's plan output.
 
-## Required Reading (use anchor reads via `bun run docs:read`)
+## Required Reading
 
 1. The story in `plans/work-packages/TRACK-<letter>.md`.
-2. `docs/architecture/` — system layering, component boundaries (use `bun run docs:read architecture#<section>`).
+2. `docs/architecture/` — system layering, component boundaries.
 3. `docs/process-layer/`, `knowledge-architecture/`, `agent-layer/` — only the sections that match the plan's scope.
 4. `plans/work-packages/SHARED.md#shared-contracts`.
 5. UI stories: `docs/human-interface-layer/`, `information-architecture/` — section-scoped + `plans/design-explorations/<story-id>/approved.md`.

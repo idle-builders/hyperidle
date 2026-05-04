@@ -1,7 +1,7 @@
 /**
  * deriveBlocks() — pure markdown → Block[] derivation.
  *
- * Concept: docs/BLOCKS.md.
+ * Concept: docs/blocks/.
  * Plan: plans/work-packages/L2-plan.md § 4.2.
  *
  * Pipeline: oversize byte-cap check → unified().use(remarkParse).use(remarkGfm)

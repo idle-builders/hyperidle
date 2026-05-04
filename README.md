@@ -2,7 +2,7 @@
 
 Agentic operating system for managing product teams of AI agents. Two founders (CEO + CPO) run a "Product Factory" — a portfolio of digital products where AI agents do the implementation work.
 
-See `ETHOS.md` for the builder philosophy and `CLAUDE.md` for the absolute rules. Architecture lives in `docs/ARCHITECTURE.md`; user stories in `plans/work-packages/`.
+See `ETHOS.md` for the builder philosophy and `CLAUDE.md` for the absolute rules. Architecture lives in `docs/architecture/`; user stories in `plans/work-packages/`.
 
 ---
 
@@ -99,7 +99,7 @@ bun run db:migrate:pg
 bun run db:seed:pg
 ```
 
-See `docs/DEPLOYMENT.md` for the full operator guide.
+See `docs/deployment/` for the full operator guide.
 
 ---
 
@@ -142,10 +142,10 @@ hyperidle/
 
 ## More docs
 
-- `docs/DEVELOPER_GUIDE.md` — get from zero to running tests in under 10 minutes
-- `docs/USER_GUIDE.md` — using HyperIdle as an end user
-- `docs/DEPLOYMENT.md` — VPS / cloud deployment
-- `docs/ARCHITECTURE.md` — three-layer system overview
+- `docs/guides/developer/` — get from zero to running tests in under 10 minutes
+- `docs/guides/user/` — using HyperIdle as an end user
+- `docs/deployment/` — VPS / cloud deployment
+- `docs/architecture/` — three-layer system overview
 - `plans/work-packages/` — per-track user stories
 - `CLAUDE.md` — rules for AI agents working in this repo
 - `ETHOS.md` — builder philosophy

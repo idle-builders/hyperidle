@@ -37,7 +37,7 @@
 | **Editable title** | Item title, large text | Click to edit inline |
 | **Metadata bar** | Kind, status, topic (dropdown to change), confidence (0-1 bar), last-edited date + editor, access count, origin agent, creation context, evidence links | Read-only except topic |
 | **Action bar** | Flag, Archive, Move, Merge, Split | Click each |
-| **Rich content body** | Full markdown rendered as a list of blocks per the **Block primitive** (TRACK-L L2; spec at `docs/BLOCKS.md`): headings, paragraphs, lists, code, quotes, tables, hr, images. Each block carries a stable, server-computed id; blocks are a *derived* view over `knowledge_items.body` (markdown stays on disk / in the DB column — never a stored dialect). | Click anywhere to edit inline; auto-save (body-level optimistic lock). Per-block discussion (L26) attaches a thread message to a `(host_id, block_id)` anchor. |
+| **Rich content body** | Full markdown rendered as a list of blocks per the **Block primitive** (TRACK-L L2; spec at `docs/blocks/`): headings, paragraphs, lists, code, quotes, tables, hr, images. Each block carries a stable, server-computed id; blocks are a *derived* view over `knowledge_items.body` (markdown stays on disk / in the DB column — never a stored dialect). | Click anywhere to edit inline; auto-save (body-level optimistic lock). Per-block discussion (L26) attaches a thread message to a `(host_id, block_id)` anchor. |
 | **Edit toolbar** | Bold, italic, link, image, save | Formatting controls (appears when editing) |
 | **Observation logs** | Read-only comments from facilitator agents | — |
 | **Edit history** | Version timeline: what changed, when, by whom | Collapse/expand; click version to preview |

@@ -12,7 +12,7 @@ import { describe, expect, it } from "vitest";
  * follow-up story converts these call sites to `await` the Drizzle
  * builder directly. This test pins the current count so future regressions
  * are visible — the count only changes when someone *actively* adds or
- * removes a sync call. See docs/DEPLOYMENT.md § "Switching SQLite → Postgres".
+ * removes a sync call. See docs/deployment/ § "Switching SQLite → Postgres".
  */
 
 const repoRoot = path.resolve(__dirname, "..", "..", "..", "..");
@@ -81,7 +81,7 @@ describe("H4 honest-state: synchronous Drizzle call-site audit", () => {
 			.map((h) => `  ${h.file}:${h.line}  ${h.text}`)
 			.join("\n");
 		const more = hits.length > 30 ? `\n  … and ${hits.length - 30} more` : "";
-		const msg = `Found ${count} sync Drizzle terminal calls (snapshot ${SNAPSHOT_COUNT} ±${TOLERANCE}).\n${humanReport}${more}\n\nSee docs/DEPLOYMENT.md § "Switching SQLite → Postgres".`;
+		const msg = `Found ${count} sync Drizzle terminal calls (snapshot ${SNAPSHOT_COUNT} ±${TOLERANCE}).\n${humanReport}${more}\n\nSee docs/deployment/ § "Switching SQLite → Postgres".`;
 
 		// Loud expectation so the snapshot message appears on drift.
 		expect(count, msg).toBeGreaterThan(0);
