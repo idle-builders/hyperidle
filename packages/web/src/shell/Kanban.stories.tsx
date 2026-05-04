@@ -1,5 +1,4 @@
-import { useState } from "react";
-import type { KanbanColumnState, KanbanTask } from "./Kanban";
+import type { KanbanTask } from "./Kanban";
 import { Kanban } from "./Kanban";
 
 export default { title: "Kanban", tier: "3" as const, uses: ["TaskCard"] };
@@ -14,21 +13,41 @@ const sampleTasks: KanbanTask[] = [
 ];
 
 export const Default = (): React.JSX.Element => (
-	<Kanban tasks={sampleTasks} onMoveTask={() => {}} />
+	<Kanban tasks={sampleTasks} onOpenThread={() => {}} onRequestStateChange={() => {}} />
 );
 
-export const EmptyBoard = (): React.JSX.Element => <Kanban tasks={[]} onMoveTask={() => {}} />;
+export const EmptyBoard = (): React.JSX.Element => <Kanban tasks={[]} />;
 
-export const Interactive = (): React.JSX.Element => {
-	const [tasks, setTasks] = useState<KanbanTask[]>(sampleTasks);
-	return (
-		<Kanban
-			tasks={tasks}
-			onMoveTask={(taskId, targetState: KanbanColumnState) => {
-				setTasks((prev) => prev.map((t) => (t.id === taskId ? { ...t, state: targetState } : t)));
-			}}
-		/>
-	);
+export const WithThreadDots = (): React.JSX.Element => {
+	const tasks: KanbanTask[] = [
+		{
+			id: "t1",
+			title: "Setup CI Pipeline",
+			owner: "Agent Alpha",
+			state: "in_progress",
+			threadUnreadCount: 0,
+		},
+		{
+			id: "t2",
+			title: "Review PR #42",
+			owner: "Agent Beta",
+			state: "review",
+		},
+	];
+	return <Kanban tasks={tasks} onOpenThread={() => {}} onRequestStateChange={() => {}} />;
+};
+
+export const WithUnreadTask = (): React.JSX.Element => {
+	const tasks: KanbanTask[] = [
+		{
+			id: "t1",
+			title: "Setup CI Pipeline",
+			owner: "Agent Alpha",
+			state: "in_progress",
+			threadUnreadCount: 3,
+		},
+	];
+	return <Kanban tasks={tasks} onOpenThread={() => {}} onRequestStateChange={() => {}} />;
 };
 
 export const SingleColumn = (): React.JSX.Element => {
@@ -36,5 +55,5 @@ export const SingleColumn = (): React.JSX.Element => {
 		{ id: "t1", title: "Task A", owner: "Agent A", state: "in_progress" },
 		{ id: "t2", title: "Task B", owner: "Agent B", state: "in_progress" },
 	];
-	return <Kanban tasks={tasks} onMoveTask={() => {}} />;
+	return <Kanban tasks={tasks} />;
 };
