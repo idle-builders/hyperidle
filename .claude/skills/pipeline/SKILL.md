@@ -73,8 +73,8 @@ Each persona phase **commits its output and pushes** before returning:
 | Phase | What gets committed | CI? |
 |---|---|---|
 | designer — /concept output | prose only | `[skip ci]` |
-| designer — /design approved.md (UI stories) | design artifacts | `[skip ci]` |
-| designer — /architecture plan | plan doc | `[skip ci]` |
+| designer — /design + /design-critique (UI stories) | design artifacts + approved.md | `[skip ci]` |
+| designer — /architecture + /architecture-critique | plan doc | `[skip ci]` |
 | builder — /write-tests (red phase) | test files | run |
 | builder — /write-code (green phase) | implementation | run |
 | builder — /apply-review fixes | one commit per applied finding batch | run |
@@ -113,7 +113,7 @@ Then dispatch the persona sessions below, in order. Update `currentStep` in the 
 
 | # | Persona | Effort | Skill | Why |
 |---|---|---|---|---|
-| 1 | **designer** | high | `/concept` → `/design` → `/architecture` | Concept doc + variant exploration + technical plan. Sequential skills in one durable session, with in-session self-critique (no separate critique skills — TE-17). |
+| 1 | **designer** | high | `/concept` → `/design` → `/design-critique` → `/architecture` → `/architecture-critique` | Concept doc + variant exploration + technical plan. Sequential skills in one durable session. Production and evaluation are separate acts (different cognitive modes) but same agent to keep context warm. |
 | 2 | **builder** | medium | `/write-tests` → `/write-code` → `/apply-review` | TDD red (define requirement), then green (implement), then apply fixes. Red and green are separate acts — requirement definition must not be contaminated by implementation thinking. |
 | W1 | **reviewer** | high | `/contract-review` | Three positive lenses (architecture, design, security) in one fresh-context session. Findings-only, depth-1, no sub-spawning. |
 | W2 | **adversary** | medium | `/adversary-scan` | Three negative lenses (adversarial, simplification, slop) in one fresh-context session. Findings-only, depth-1. |
@@ -132,10 +132,13 @@ For each phase, launch an agent of the named type with the listed skill. The per
 Phase 1 — designer:
   Launch agent type=designer.
   Run /concept (read concept doc, probe if New/Reshaped nouns exist).
-  Run /design (classify routine/novel, generate 1-3 variants, in-session
-    critique to score≥7, max 4 rounds). Skip if no UI surface.
-  Run /architecture (interrogate spec, draft plan, in-session self-critique
-    to score≥7, max 3 rounds).
+  Run /design (classify routine/novel, generate 1-3 variants).
+    Skip /design + /design-critique if no UI surface.
+  Run /design-critique (score variants against 9-dim rubric, ≥7 to advance,
+    max 4 rounds). Same agent, different cognitive mode — production then evaluation.
+  Run /architecture (interrogate spec, draft plan).
+  Run /architecture-critique (score plan against 9-dim rubric, ≥7 to advance,
+    max 3 rounds). Same agent, different cognitive mode.
   Commit each skill's output (concept.md, approved.md, plan) and push.
   Prose commits use [skip ci].
 
@@ -181,7 +184,7 @@ Phase 4 — researcher (retro):
 - If Builder raises BLOCKER: surface to Designer for plan amendment, then re-enter Phase 2. Max 3 attempts per story.
 - If Researcher's DoD blocks: re-enter Phase 2 to fix the cited gaps. Max 3 attempts per story.
 - If CI fails after a Builder push: Builder fixes locally and pushes again. Max 3 attempts per push series.
-- If Designer's in-session critique fails to reach ≥7 after the cap: pause, mark `blocked` with reason `concept-or-spec-misalignment`. The concept itself may need upstream `/concept` work.
+- If Designer's critique act (`/design-critique` or `/architecture-critique`) fails to reach ≥7 after the cap: pause, mark `blocked` with reason `concept-or-spec-misalignment`. The concept itself may need upstream `/concept` work.
 
 After Phase 4: set status to `done`. Move to next story.
 
@@ -191,11 +194,11 @@ After Phase 4: set status to `done`. Move to next story.
 
 ### Adversarial principle preserved
 
-Author / critic boundaries that matter live as either (a) **in-session self-critique inside Designer's skills** (`/design` rubric, `/architecture` rubric), or (b) **fresh-context reviewer + adversary** launched in parallel for code review. Researcher's DoD audit enforces the one boundary that must not be inside any producer session — it reads a *live* PR, not Builder's notes about the PR.
+Author / critic boundaries that matter live as either (a) **separate cognitive-mode acts within the Designer session** — production (`/design`, `/architecture`) then evaluation (`/design-critique`, `/architecture-critique`) as sequential skill invocations on the same warm agent, or (b) **fresh-context reviewer + adversary** launched in parallel for code review. Researcher's DoD audit enforces the one boundary that must not be inside any producer session — it reads a *live* PR, not Builder's notes about the PR.
 
-### Why redundant skills are gone (TE-17)
+### Why critique is separate acts, not separate agents (TE-17 + cognitive-mode separation)
 
-`/design` already runs the design rubric internally (now Phase 2 of /design). `/architecture` already runs the architectural rubric internally (now Phase 4 of /architecture). Calling them as separate skills was cache-write tax for the same loop.
+Production (`/design`, `/architecture`) and evaluation (`/design-critique`, `/architecture-critique`) are different cognitive modes — the mind that just created variants cannot objectively score them. But they run as sequential skill invocations on the same warm designer agent, not as separate cold-start sessions. This preserves the cognitive break without paying the context re-warm cost.
 
 ### Why /verify and /ship are gone (TE-21)
 
@@ -222,4 +225,4 @@ Routine UI (existing component family, known layout) gets 1 variant + a "did we 
 - "Researcher's DoD is redundant, tests passed" → tests prove behavior, DoD proves the RIGHT thing was built against the spec, in *fresh context*. The boundary is the value.
 - "Researcher's retro is navel-gazing" → without the cost signals it emits, the A/B harness can't prove block-1b actually saved tokens, and the compound agent can't propose the next round.
 
-**When Designer can skip `/design`:** the story has no UI surface (pure backend, schema, infra, concept-doc-only). Verify by reading the AC list — if no AC mentions a page, component, layout, route on the web side, or visible state, skip `/design` and go straight to `/architecture`. When in doubt, run `/design` with `routine` classification; one variant is cheap and the brief serves as documentation.
+**When Designer can skip `/design` + `/design-critique`:** the story has no UI surface (pure backend, schema, infra, concept-doc-only). Verify by reading the AC list — if no AC mentions a page, component, layout, route on the web side, or visible state, skip both and go straight to `/architecture`. When in doubt, run `/design` with `routine` classification; one variant is cheap and the brief serves as documentation.
