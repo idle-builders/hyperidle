@@ -72,7 +72,7 @@ DESIGN-CLASS: <routine|routine-low-conf|novel>  ref=<existing-component-or-none>
 
 ## Phase 0 — Interrogate the user task
 
-Pick only the questions that are actually unsettled — skip what the brief, the design system rules, or existing mockups already answer. For each remaining question, propose your read with evidence, then ask the human (or adversary in autonomous mode) to confirm. Issue all probes in one parallel batch — independent questions don't need separate round-trips.
+Pick only the questions that are actually unsettled — skip what the brief, the design system rules, or existing mockups already answer. For each remaining question, propose your read with evidence, then ask the human (or reviewer in autonomous mode) to confirm. Issue all probes in one parallel batch — independent questions don't need separate round-trips.
 
 **Few, important questions.** Three sharp probes force a real decision; ten low-stakes ones get answered with shrugs. The bar: "will the answer change a variant constraint?" If no, don't ask.
 

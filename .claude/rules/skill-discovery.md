@@ -6,9 +6,8 @@ Before responding to ANY implementation or review request, check if a skill shou
 
 **Individual skills** — domain knowledge loaded INTO an agent session. They define a specific act, not a step. They never launch agents.
 - `/concept`, `/design`, `/architecture` (designer — production)
-- `/design-critique`, `/architecture-critique`, `/review` (reviewer — evaluation + AC completeness)
+- `/design-critique`, `/architecture-critique`, `/review` (reviewer — evaluation + 6 lenses + AC completeness)
 - `/write-tests`, `/write-code`, `/visual-polish` (builder)
-- `/adversary-review` (adversary — 3 negative lenses)
 - `/retro` (Explore agent — fresh-context observation)
 - `/compound` (self-improvement — pattern detection in retro log)
 - `/lore` (any)
@@ -36,7 +35,7 @@ User request arrives
     └── None of the above? ──────────────────────→ Proceed normally
 ```
 
-**Note (block-1b):** `/verify` and `/ship` were collapsed away — verify is a script the builder runs as part of `/write-code`; ship is replaced by continuous-commit + draft-PR pipeline. `/review` is the merged reviewer skill (architecture + design + security lenses + AC completeness). `/adversary-review` is the merged adversary skill (adversarial + simplification + slop lenses). `/write-tests` and `/write-code` stay separate — red and green are different cognitive acts. `/design-critique` and `/architecture-critique` moved from designer to reviewer — the evaluator must be a different agent than the producer. The reviewer runs critique in Phase 2, then code review in Phase 4, carrying design/arch context forward.
+**Note (block-1b):** `/verify` and `/ship` were collapsed away — verify is a script the builder runs as part of `/write-code`; ship is replaced by continuous-commit + draft-PR pipeline. `/review` is the single comprehensive review skill — 3 positive lenses (architecture, design, security) + 3 negative lenses (adversarial, simplification, slop) + AC completeness. `/write-tests` and `/write-code` stay separate — red and green are different cognitive acts. `/design-critique` and `/architecture-critique` moved from designer to reviewer — the evaluator must be a different agent than the producer. The reviewer runs critique in Phase 2, then code review in Phase 4, carrying design/arch context forward.
 
 ## Red Flags — Rationalizations for Skipping Skills
 

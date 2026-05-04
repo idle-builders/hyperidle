@@ -117,12 +117,12 @@ Then dispatch the persona sessions below, in order. Update `currentStep` in the 
 |---|---|---|---|---|
 | 1 | **designer** | high | `/concept` → `/design` → `/architecture` | Production only. Concept doc + variant exploration + technical plan. |
 | 2 | **reviewer** | high | `/design-critique` → `/architecture-critique` | Evaluates designer output. True producer/evaluator separation — different agent, not just different mode. Context carries to Phase 4. |
-| 3 | **builder** | medium | `/write-tests` → `/write-code` | TDD red then green. Must pass `bun run verify` before pushing. No broken code reaches reviewers. |
-| 4 | **reviewer** + **adversary** | high | `/review` + `/adversary-review` | Same reviewer from Phase 2 (warm on design/arch) does 3 positive lenses + AC audit. Fresh adversary does 3 negative lenses. Parallel. Builder applies fixes. |
+| 3 | **builder** | medium | `/write-tests` → `/write-code` | TDD red then green. Must pass `bun run verify` before pushing. No broken code reaches the reviewer. |
+| 4 | **reviewer** | high | `/review` | Same reviewer from Phase 2 (warm on design/arch). 6 lenses: 3 positive (architecture, design, security) + 3 negative (adversarial, simplification, slop) + AC audit. Builder applies fixes. |
 | 5 | **Explore** | low | `/retro` | Fresh-context retro with cost signals. Built-in Explore agent, not a custom persona. |
 | — | scripts | — | CI + PR | `bun run verify` runs as CI on every push. Draft PR opened at worktree setup; `gh pr ready` flips on Reviewer's DONE verdict. |
 
-**Durable agent sessions per story: 3** (designer, reviewer, builder). Plus 1 fresh-context session (adversary). Plus Explore agent for retro. Plus scripts.
+**Durable agent sessions per story: 3** (designer, reviewer, builder). Plus Explore agent for retro. Plus scripts.
 
 ---
 
@@ -162,17 +162,14 @@ Phase 3 — builder (TDD):
   If Builder hits a plan-vs-reality conflict, it raises a BLOCKER rather
   than redesigning in-flight (TE-22).
 
-Phase 4 — review (fan-out):
+Phase 4 — review:
   Same reviewer from Phase 2 runs /review (warm on design/arch context).
-    Three positive lenses (architecture, design, security) + AC completeness.
+    Six lenses: 3 positive (architecture, design, security) +
+    3 negative (adversarial, simplification, slop) + AC completeness.
     Design lens skipped silently if no UI files.
     Emits DONE | NOT DONE with AC table + findings.
-  Launch fresh agent type=adversary with /adversary-review.
-    Three negative lenses (adversarial, simplification, slop).
-  Reviewer and adversary run in parallel.
 
-  Builder applies findings from both reviews; commits + pushes;
-  runs bun run verify.
+  Builder applies findings; commits + pushes; runs bun run verify.
 
   Gate: if reviewer verdict is NOT DONE → back to Phase 3 (max 3 attempts).
   If DONE and PIPELINE_AB_MODE != 1 → flip draft PR ready (gh pr ready).
@@ -198,7 +195,7 @@ After Phase 5: set status to `done`. Move to next story.
 
 ### Adversarial principle preserved
 
-Author / critic boundaries are enforced by persona separation: (a) the **designer** produces (`/design`, `/architecture`) and the **reviewer** evaluates (`/design-critique`, `/architecture-critique`) — different agents, true independence; (b) the same **reviewer** later reviews the code in Phase 4, already warm on the design/architecture decisions; (c) a fresh-context **adversary** attacks the code in parallel. The reviewer's AC completeness audit enforces the one boundary that must not be inside any producer session — it reads a *live* PR against the spec, not Builder's notes about the PR.
+Author / critic boundaries are enforced by persona separation: (a) the **designer** produces (`/design`, `/architecture`) and the **reviewer** evaluates (`/design-critique`, `/architecture-critique`) — different agents, true independence; (b) the same **reviewer** later reviews the code in Phase 4, already warm on the design/architecture decisions, applying both positive lenses (does it respect contracts?) and negative lenses (what would break it?). The reviewer's AC completeness audit enforces the one boundary that must not be inside any producer session — it reads a *live* PR against the spec, not Builder's notes about the PR.
 
 ### Why the reviewer does critique (not the designer)
 
@@ -225,7 +222,7 @@ Routine UI (existing component family, known layout) gets 1 variant + a "did we 
 **Don't rationalize skipping personas:**
 - "Concept work isn't done but I'll figure it out" → no. Fail fast with `blocked: concept-missing`; the founder runs `/concept` upstream.
 - "The plan is done, I can stop" → planning is Phase 1 of 5. You haven't built anything yet.
-- "This story is simple, skip the reviewer + adversary fan-out" → simple stories have the highest skip rate and highest regression rate.
+- "This story is simple, skip the review" → simple stories have the highest skip rate and highest regression rate.
 - "The reviewer is redundant, tests passed" → tests prove behavior, the reviewer proves the RIGHT thing was built against the spec, in *fresh context*. The boundary is the value.
 - "The retro is navel-gazing" → without the cost signals it emits, the A/B harness can't prove block-1b actually saved tokens, and `/compound` can't propose the next round.
 
