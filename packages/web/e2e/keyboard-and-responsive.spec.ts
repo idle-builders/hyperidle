@@ -141,8 +141,10 @@ test.describe("Kanban keyboard drag (I4 KB4)", () => {
 		await draggable.focus();
 		await expect(draggable).toBeFocused();
 
-		// Pick up.
+		// Pick up — wait for dnd-kit's KeyboardSensor to register activation
+		// before issuing moves. CI runners under load need this settling time.
 		await page.keyboard.press("Space");
+		await page.waitForTimeout(150);
 		// Move right one column (in_progress @ col 3 → done @ col 4 in
 		// the lg breakpoint grid). The default keyboard coordinate getter
 		// shifts coordinates by 25px per ArrowRight; column widths in the
@@ -151,6 +153,7 @@ test.describe("Kanban keyboard drag (I4 KB4)", () => {
 		for (let i = 0; i < 12; i++) {
 			await page.keyboard.press("ArrowRight");
 		}
+		await page.waitForTimeout(100);
 		// Drop.
 		await page.keyboard.press("Space");
 
