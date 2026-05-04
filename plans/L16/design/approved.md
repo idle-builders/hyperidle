@@ -20,11 +20,14 @@ The Block primitive landed in L2 with its own design exploration, critique, and 
 
 **Interaction.** Block already provides `tabIndex=0`, `↑/↓` block stepping, `Enter`/`Space` to open actions. L16 does NOT pass `onOpenActions` or `onCopyPermalink`. Result: keyboard navigation between blocks works; activation is a no-op. **This is intentional** — the affordances exist structurally in the DOM (Block-side), but the host-side wiring lives in L18 (per-block discussion). When L18 lands, the only WorkBet diff is two prop callbacks plus a `BlockHandle` slot via `slots.gutterLeading`.
 
-**Stories.** `WorkBet.stories.tsx` adds two states:
+**Stories.** `WorkBet.stories.tsx` adds:
 - `WithRichPitch` — fixture with H1/H2 headings, paragraphs, an unordered list, a fenced code block, and a blockquote.
 - `EmptyPitch` — `pitch: ""`. Asserts the `<section>` does not render (Vitest), or simply doesn't appear in the screenshot.
+- `MalformedPitch` — fixture whose pitch contains an mdast node mapping to `kind: "unknown"` (e.g., a YAML frontmatter block at the top). Visual proof that the `UnknownPayload` fallback renders without crashing or breaking the surrounding visual rhythm. Sized small — well under L2's 256 KB byte cap; the body-too-large path is not exercised in stories.
 
-Existing stories (`KnownBet`, `ShapedBet`, `UnknownBet`, `Loading`) keep their fixtures but the field is renamed `body → pitch`. The fixture strings stay inline in the stories file (per AC-3, fixtures in stories/tests are allowed).
+Existing stories (`KnownBet`, `ShapedBet`, `UnknownBet`, `Loading`) keep their names but the fixture data moves to `packages/web/src/pages/__fixtures__/work-bet-fixtures.ts` and the field is renamed `body → pitch`. Stories pass `overrideBet={MOCK_BETS.b1}` (per architecture §A — `overrideBetId` is removed). Per AC-3, fixtures are allowed in `__fixtures__/`, stories, and tests; an ESLint `no-restricted-imports` rule prevents production code from importing from `__fixtures__/`.
+
+**Pitch / Tasks / Comments h2 asymmetry — acknowledged.** Tasks and Comments each carry a small uppercase h2 chrome label; the Pitch section deliberately does NOT. The pitch is documentary prose with its own internal heading hierarchy — chrome labels are reserved for *list-shaped* sections (stacks of repeating rows). A body section earns no label.
 
 ## Did we consider …
 
