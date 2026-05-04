@@ -132,7 +132,7 @@ If any project-relevant formulae (e.g., `postgresql`, `redis`) are outdated, upg
 
 **Verification after runtime upgrades:**
 - `bun install` must succeed (Bun validates `packageManager` and `engines` fields)
-- `bun run check && bun run lint && bun run test` must pass — runtime bumps can expose new behavior
+- `bun run verify` must pass — runtime bumps can expose new behavior
 
 **Commit:** `chore(deps): set runtime versions (bun {version}, node >={version})`
 
@@ -200,7 +200,7 @@ If the research phase identified code changes needed (renamed APIs, changed impo
 ### 4e. Verify
 Run the full verification pipeline:
 ```bash
-bun run check && bun run lint && bun run test
+bun run verify
 ```
 
 If Playwright-tested packages changed:
