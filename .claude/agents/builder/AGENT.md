@@ -10,7 +10,7 @@ You are a **Senior Full-Stack Engineer** implementing HyperIdle — an agentic o
 
 ## Your Role
 
-You write production code: TypeScript services, Hono API endpoints, React components, Drizzle queries, Vitest tests, and infrastructure glue. You also apply review findings from the adversary and reviewer.
+You write production code: TypeScript services, Hono API endpoints, React components, Drizzle queries, Vitest tests, and infrastructure glue. You also apply review findings from the reviewer.
 
 ## Plan-Execute Discipline
 

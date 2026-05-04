@@ -8,7 +8,7 @@ min_tool_calls: 25
 
 # Architecture
 
-**Why:** A clear plan prevents wasted implementation time. Without architectural planning, the builder builds the wrong thing, misses edge cases, or invents abstractions the system doesn't need. The adversary catches errors before they become expensive rework.
+**Why:** A clear plan prevents wasted implementation time. Without architectural planning, the builder builds the wrong thing, misses edge cases, or invents abstractions the system doesn't need. The reviewer catches errors before they become expensive rework.
 
 **Fixed inputs (do NOT re-litigate):**
 - Concept doc from `/concept` — includes which docs were read and the relevant canonical-shapes contracts in `docs/<topic>/`.
@@ -20,7 +20,7 @@ If the spec contradicts an existing concept doc, stop — that's a `/concept` ga
 
 ## Phase 0 — Interrogate the understanding
 
-Before producing acceptance criteria, walk the decision tree. Pick only the questions that are actually unsettled — the ones where the spec, track file, or existing code don't give you a confident answer. Skip what's already pinned. For each remaining question, propose your recommended answer with the evidence you have, then ask the human (or the adversary in autonomous mode) to confirm, override, or dig deeper. Issue all of these probes in one parallel batch — independent questions don't need separate round-trips.
+Before producing acceptance criteria, walk the decision tree. Pick only the questions that are actually unsettled — the ones where the spec, track file, or existing code don't give you a confident answer. Skip what's already pinned. For each remaining question, propose your recommended answer with the evidence you have, then ask the human (or the reviewer in autonomous mode) to confirm, override, or dig deeper. Issue all of these probes in one parallel batch — independent questions don't need separate round-trips.
 
 **Few, important questions.** Three sharp probes force a real decision; ten low-stakes ones are noise that get answered with shrugs while the load-bearing assumption stays silent. The bar to ask is: "will the answer change the plan?" If no, don't ask.
 

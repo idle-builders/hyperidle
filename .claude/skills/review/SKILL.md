@@ -1,6 +1,6 @@
 ---
 name: review
-description: "Read-only review against architecture, design, and security contracts, plus AC completeness audit with evidence. Domain knowledge for the reviewer persona."
+description: "Read-only review: 3 positive lenses (architecture, design, security), 3 negative lenses (adversarial, simplification, slop), plus AC completeness audit. The single comprehensive review skill."
 argument-hint: "[file paths or workpackage-id]"
 user-invocable: true
 min_tool_calls: 12
@@ -10,9 +10,9 @@ min_tool_calls: 12
 
 Read-only review. Produce findings — do NOT make code changes.
 
-Three lenses + AC completeness audit, one session. Skip the design lens silently if no UI files changed.
+Six lenses + AC completeness audit, one session. Three positive lenses check the code respects contracts. Three negative lenses check what the contracts don't cover. Skip the design lens silently if no UI files changed.
 
-**Why:** The agent that built it is the least qualified to verify it — it's biased toward believing its own work is correct. A fresh-context reviewer catches contract violations the implementer rationalized away and gaps the builder didn't notice.
+**Why:** The agent that built it is the least qualified to verify it — it's biased toward believing its own work is correct. A fresh-context reviewer catches contract violations the implementer rationalized away, gaps the builder didn't notice, and complexity the builder introduced without realizing it.
 
 ## Required reading (do ALL before reviewing code)
 
@@ -22,12 +22,15 @@ Three lenses + AC completeness audit, one session. Skip the design lens silently
 4. `plans/<workpackage-id>/concept.md` — the locked concept output, if present
 5. `plans/<workpackage-id>/design/approved.md` — the approved design spec (if UI story)
 6. `CLAUDE.md` (tech stack), `packages/design-system/DESIGN.md` + `PRINCIPLES.md` (if UI), canonical-shapes contracts under `docs/<topic>/`
+7. `.claude/rules/typescript.md` — TypeScript rules the code must follow
 
 Then read ALL changed files (via `<target>` or `git diff --name-only`).
 
-## Be thorough
+## Be thorough — be hostile
 
 Read every changed file end-to-end. For each file, verify it against the relevant spec section. Don't skim — open the doc, find the section, compare field-by-field, state-by-state, endpoint-by-endpoint. If a state machine has 8 states in the spec, count the states in the code. Surface-level "looks right" is not review.
+
+Read every function body. Check every `as` cast. Open every test file and verify the assertions actually test something meaningful. If a test says it tests drag-drop, check that the drag-drop library's hooks are actually invoked. If a component claims accessibility, Tab through the focus order mentally. The failure mode is "looks fine" — fight it.
 
 ---
 
@@ -89,6 +92,52 @@ Check every endpoint for input validation. Grep for known dangerous patterns —
 - **Rate limiting on new action endpoints** — any new POST/PUT/DELETE must have per-identity rate limiting.
 - **Scoped authorization on new resources** — verify authorization is scoped to the actor's team/workspace, not "anyone with a valid session."
 - **Concurrent-write handling** — create-or-update patterns must handle race conditions.
+
+---
+
+## Lens 4: Adversarial (hostile personas)
+
+Switch mindset: you are no longer checking contracts — you are trying to break the code. Read the diff through three hostile personas:
+
+**The Saboteur** — Could a working backdoor or silent regression pass tests, lint, and a normal review? Where could a race condition fire only at scale? What test was weakened?
+
+**The New Hire (Day 7)** — Reading this code cold, what would take 10 minutes to understand that should take 10 seconds? Which name lies about its behavior? What invariant must you know that nothing tells you?
+
+**The Auditor** — Does every claim in the PR description match the diff? "Rate-limit added" — is it actually wired up? Coverage claims supported?
+
+Also review for:
+- **Over-abstraction** — helpers for one-time ops, factories with one product, generic solutions to specific problems
+- **Missing error paths** — what happens when this throws? Who catches it? What state is left?
+- **Type safety** — `any`, `as`, `@ts-ignore`, `!` assertions. Count them. Each one is a finding.
+- **Coupling** — shared mutable state, import cycles, god objects
+- **Test quality** — happy-path-only tests, tautologies, tests that mock everything
+- **Performance** — N+1 queries, unbounded lists, missing indexes, allocations in render loops
+
+---
+
+## Lens 5: Simplification
+
+Flag anything where the same result could be achieved with simpler means:
+- Helpers used only once (inline them)
+- Premature generics
+- Dead code and unused exports
+- Commented-out code
+- Error handling for impossible scenarios
+- Unnecessary async (async on functions that never await)
+- Wrapper types adding no value
+
+---
+
+## Lens 6: AI Slop
+
+Flag AI-generated code anti-patterns:
+- **Verbose naming** — shorten when context is clear
+- **Unnecessary comments** — comments that restate the code
+- **Over-abstraction** — single-use helpers, trivial wrappers
+- **Defensive over-engineering** — null checks for non-nullable types, try-catch around non-throwing code, validation of internal args
+- **Unnecessary async** — async on functions that never await
+- **Filler** — empty catch blocks, `=== true`, redundant else-return
+- **AI tell-tales** — "TODO: implement" on implemented code, "simplified version", "for now", "in production"
 
 ---
 
