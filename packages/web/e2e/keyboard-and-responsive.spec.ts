@@ -80,83 +80,10 @@ test.describe("Responsive Layout", () => {
 	});
 });
 
-test.describe("Kanban keyboard drag (I4 KB4)", () => {
-	test("KeyboardSensor activates on Space when a TaskCard wrapper is focused", async ({ page }) => {
-		// @lore I4 adversary C3: the prior assertion chained ArrowRight +
-		// Space + "task vanished from In Progress" — a fragile tautology in
-		// Playwright because (a) focusing the inner text node does not
-		// activate the dnd-kit wrapper, and (b) `hasText` ancestor matches
-		// bleed across the responsive grid. We reduce the assertion to the
-		// thing @dnd-kit's KeyboardSensor actually guarantees end-to-end:
-		// focusing the draggable wrapper + Space produces an active dnd-kit
-		// state. That is evidence the sensor is wired; drop mechanics are
-		// covered by Kanban unit tests.
-		await page.goto("/work/team");
-		await page.waitForSelector("[data-testid='work-team-page']");
-
-		const draggable = page.getByTestId("draggable-task-t1");
-		await expect(draggable).toBeVisible();
-		await draggable.focus();
-
-		// KeyboardSensor listens for Space/Enter to pick up the draggable.
-		// When active, @dnd-kit sets aria-pressed / role attributes on the
-		// draggable element.
-		await page.keyboard.press("Space");
-
-		// dnd-kit's KeyboardSensor injects `aria-disabled` / pressed state on
-		// activation. We assert the draggable remains focused (proving focus
-		// was on the correct element) and the wrapper still exists — i.e. the
-		// pickup did not crash / detach the element.
-		await expect(draggable).toBeFocused();
-	});
-
-	test("Tab → Space → ArrowRight → Space moves a task between columns (I4 DoD B2)", async ({
-		page,
-	}) => {
-		// I4 DoD B2: the spec requires "tab to a Kanban card, use keyboard
-		// to move it between columns". This test drives the full sequence
-		// in a real browser and asserts the card now lives in a different
-		// column's DOM subtree, located via `data-droppable-column` (a
-		// stable test attribute on the Kanban drop zones — never used in
-		// production styling logic).
-		await page.goto("/work/team");
-		await page.waitForSelector("[data-testid='work-team-page']");
-
-		// `t1` ("Implement login endpoint") starts in the In Progress
-		// column per WorkTeam.tsx fixtures (state: "in_progress").
-		const draggable = page.getByTestId("draggable-task-t1");
-		await expect(draggable).toBeVisible();
-
-		// Pre-condition: the card is inside the in_progress drop zone.
-		const inProgressColumn = page.locator("[data-droppable-column='in_progress']");
-		const doneColumn = page.locator("[data-droppable-column='done']");
-		await expect(inProgressColumn.getByTestId("draggable-task-t1")).toBeVisible();
-		await expect(doneColumn.getByTestId("draggable-task-t1")).toHaveCount(0);
-
-		// Focus the draggable (Tab-to-card flow — a real user would chain
-		// Tabs from the page top, which is also valid but slow; focusing
-		// directly proves the keyboard-driven path without depending on
-		// the global tab order, which is exercised separately by the
-		// "Tab key moves focus" test above).
-		await draggable.focus();
-		await expect(draggable).toBeFocused();
-
-		// Pick up.
-		await page.keyboard.press("Space");
-		// Verify drag activated — the card's opacity drops to 0.4 while dragging.
-		await expect(draggable).toHaveCSS("opacity", "0.4", { timeout: 2000 });
-
-		// Move right one column (in_progress → done). The keyboard coordinate
-		// getter shifts by 25px per ArrowRight; with closestCenter collision
-		// detection the dragged item snaps to the nearest droppable center.
-		for (let i = 0; i < 12; i++) {
-			await page.keyboard.press("ArrowRight");
-		}
-		// Drop.
-		await page.keyboard.press("Space");
-
-		// Post-condition: t1 now lives in the Done column subtree.
-		await expect(doneColumn.getByTestId("draggable-task-t1")).toBeVisible({ timeout: 5000 });
-		await expect(inProgressColumn.getByTestId("draggable-task-t1")).toHaveCount(0);
-	});
-});
+// @lore L15: The "Kanban keyboard drag (I4 KB4)" test.describe block that
+// previously tested KeyboardSensor activation and keyboard-column-move was
+// deleted here. L15 removed drag entirely from Kanban task cards
+// (architecture §A — "Strip drag from Kanban.tsx"). The corresponding unit
+// tests (Kanban.keyboard-drag.test.tsx) were also retired in the same
+// workpackage. These e2e tests referenced draggable-task-* testids and
+// data-droppable-column attributes that no longer exist in production DOM.
