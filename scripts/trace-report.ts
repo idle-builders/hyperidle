@@ -9,6 +9,8 @@
 //   bun run obs:report ab <test-id>          # arm-by-arm comparison
 //   bun run obs:report tools                 # tool-call rollup
 //   bun run obs:report models                # per-model token totals
+//   bun run obs:report workpackages          # per-workpackage rollup
+//   bun run obs:report workpackage <wp-id>   # drill into one workpackage
 //   bun run obs:report sql "<query>"         # arbitrary SQL against `spans` view
 //
 // Concurrent with a running collector — JSONL is append-only so DuckDB
@@ -34,8 +36,30 @@ const conn = await instance.connect();
 // inferred as STRUCT, not VARCHAR.
 const TRACE_FILE_SQL = TRACE_FILE.replace(/'/g, "''");
 await conn.run(
-	`CREATE OR REPLACE VIEW spans AS
+	`CREATE OR REPLACE VIEW spans_raw AS
 	 SELECT * FROM read_json_auto('${TRACE_FILE_SQL}', format='newline_delimited', maximum_object_size=33554432)`,
+);
+// @lore Older JSONL rows (before the collector knew about `workpackage`) lack
+// the top-level column, so we synthesize it via to_json -> json_extract_string.
+// That path tolerates missing struct keys without erroring at parse time.
+const rawColumns = await rows(
+	"SELECT column_name FROM information_schema.columns WHERE table_name = 'spans_raw'",
+);
+const rawColumnNames = new Set(rawColumns.map((r) => r.column_name as string));
+const sources: string[] = [];
+if (rawColumnNames.has("workpackage")) sources.push("workpackage");
+if (rawColumnNames.has("attributes")) {
+	sources.push(`json_extract_string(to_json(attributes), '$."hyperidle.story.id"')`);
+}
+if (rawColumnNames.has("resource")) {
+	sources.push(`json_extract_string(to_json(resource), '$."hyperidle.workpackage"')`);
+}
+const wpFallback = sources.length > 0 ? `COALESCE(${sources.join(", ")})` : "NULL";
+await conn.run(
+	`CREATE OR REPLACE VIEW spans AS
+	 SELECT *${rawColumnNames.has("workpackage") ? " EXCLUDE (workpackage)" : ""},
+	        ${wpFallback} AS workpackage
+	 FROM spans_raw`,
 );
 
 async function rows(sql: string): Promise<Record<string, unknown>[]> {
@@ -63,9 +87,31 @@ async function summary(): Promise<void> {
 				SUM(output_tokens) AS output_tokens,
 				SUM(cache_read_tokens) AS cache_read_tokens,
 				SUM(cache_creation_tokens) AS cache_creation_tokens,
+				ROUND(SUM(duration_ms) / 1000.0, 1) AS total_seconds,
+				string_agg(DISTINCT model, ',' ORDER BY model)
+					FILTER (WHERE span_type = 'llm_request' AND model IS NOT NULL) AS models
+			FROM spans
+			WHERE CAST(ingested_at AS TIMESTAMP) > now() - INTERVAL 1 DAY
+		`),
+	);
+
+	printTable(
+		"Per-model breakdown (last 24h)",
+		await rows(`
+			SELECT
+				model,
+				COUNT(*) AS calls,
+				SUM(input_tokens) AS in_tok,
+				SUM(output_tokens) AS out_tok,
+				SUM(cache_read_tokens) AS cache_r,
+				SUM(cache_creation_tokens) AS cache_w,
 				ROUND(SUM(duration_ms) / 1000.0, 1) AS total_seconds
 			FROM spans
 			WHERE CAST(ingested_at AS TIMESTAMP) > now() - INTERVAL 1 DAY
+				AND span_type = 'llm_request'
+				AND model IS NOT NULL
+			GROUP BY model
+			ORDER BY calls DESC
 		`),
 	);
 
@@ -81,6 +127,10 @@ async function summary(): Promise<void> {
 				SUM(output_tokens) AS out_tok,
 				SUM(cache_read_tokens) AS cache_r,
 				SUM(cache_creation_tokens) AS cache_w,
+				string_agg(DISTINCT model, ',' ORDER BY model)
+					FILTER (WHERE span_type = 'llm_request' AND model IS NOT NULL) AS models,
+				string_agg(DISTINCT workpackage, ',' ORDER BY workpackage)
+					FILTER (WHERE workpackage IS NOT NULL) AS workpackage,
 				ab_test,
 				ab_arm
 			FROM spans
@@ -102,6 +152,10 @@ async function sessions(): Promise<void> {
 				to_timestamp(MIN(start_unix_ns) / 1e9) AS started,
 				to_timestamp(MAX(end_unix_ns) / 1e9) AS ended,
 				COUNT(*) AS spans,
+				string_agg(DISTINCT model, ',' ORDER BY model)
+					FILTER (WHERE span_type = 'llm_request' AND model IS NOT NULL) AS models,
+				string_agg(DISTINCT workpackage, ',' ORDER BY workpackage)
+					FILTER (WHERE workpackage IS NOT NULL) AS workpackage,
 				ab_test,
 				ab_arm
 			FROM spans
@@ -125,8 +179,29 @@ async function session(id: string): Promise<void> {
 				SUM(output_tokens) AS output_tokens,
 				SUM(cache_read_tokens) AS cache_read_tokens,
 				SUM(cache_creation_tokens) AS cache_creation_tokens,
-				ROUND(SUM(duration_ms) / 1000.0, 1) AS total_seconds
+				ROUND(SUM(duration_ms) / 1000.0, 1) AS total_seconds,
+				string_agg(DISTINCT model, ',' ORDER BY model)
+					FILTER (WHERE span_type = 'llm_request' AND model IS NOT NULL) AS models
 			FROM spans WHERE session_id = ${idLit}
+		`),
+	);
+	printTable(
+		`Session ${id} — by model`,
+		await rows(`
+			SELECT
+				model,
+				COUNT(*) AS calls,
+				SUM(input_tokens) AS in_tok,
+				SUM(output_tokens) AS out_tok,
+				SUM(cache_read_tokens) AS cache_r,
+				SUM(cache_creation_tokens) AS cache_w,
+				ROUND(SUM(duration_ms) / 1000.0, 1) AS total_seconds
+			FROM spans
+			WHERE session_id = ${idLit}
+				AND span_type = 'llm_request'
+				AND model IS NOT NULL
+			GROUP BY model
+			ORDER BY calls DESC
 		`),
 	);
 	printTable(
@@ -175,7 +250,9 @@ async function ab(testId: string): Promise<void> {
 				SUM(output_tokens) AS output_tok,
 				SUM(cache_read_tokens) AS cache_r_tok,
 				SUM(cache_creation_tokens) AS cache_w_tok,
-				ROUND(SUM(duration_ms) / 1000.0, 1) AS total_seconds
+				ROUND(SUM(duration_ms) / 1000.0, 1) AS total_seconds,
+				string_agg(DISTINCT model, ',' ORDER BY model)
+					FILTER (WHERE span_type = 'llm_request' AND model IS NOT NULL) AS models
 			FROM spans
 			WHERE ab_test = ${idLit}
 			GROUP BY ab_arm
@@ -225,6 +302,94 @@ async function models(): Promise<void> {
 	);
 }
 
+async function workpackages(): Promise<void> {
+	printTable(
+		"Per-workpackage rollup",
+		await rows(`
+			SELECT
+				workpackage,
+				to_timestamp(MIN(start_unix_ns) / 1e9) AS first_seen,
+				to_timestamp(MAX(end_unix_ns) / 1e9) AS last_seen,
+				COUNT(DISTINCT session_id) AS sessions,
+				COUNT(*) FILTER (WHERE span_type = 'llm_request') AS llm_calls,
+				COUNT(*) FILTER (WHERE span_type LIKE 'tool%' AND span_type != 'tool.blocked_on_user') AS tool_calls,
+				SUM(input_tokens) AS in_tok,
+				SUM(output_tokens) AS out_tok,
+				SUM(cache_read_tokens) AS cache_r,
+				SUM(cache_creation_tokens) AS cache_w,
+				ROUND(SUM(duration_ms) / 1000.0, 1) AS total_seconds,
+				string_agg(DISTINCT model, ',' ORDER BY model)
+					FILTER (WHERE span_type = 'llm_request' AND model IS NOT NULL) AS models
+			FROM spans
+			WHERE workpackage IS NOT NULL
+			GROUP BY workpackage
+			ORDER BY last_seen DESC
+		`),
+	);
+}
+
+async function workpackage(id: string): Promise<void> {
+	const idLit = `'${id.replace(/'/g, "''")}'`;
+	printTable(
+		`Workpackage ${id} — totals`,
+		await rows(`
+			SELECT
+				COUNT(DISTINCT session_id) AS sessions,
+				COUNT(*) FILTER (WHERE span_type = 'llm_request') AS llm_calls,
+				COUNT(*) FILTER (WHERE span_type LIKE 'tool%' AND span_type != 'tool.blocked_on_user') AS tool_calls,
+				SUM(input_tokens) AS input_tokens,
+				SUM(output_tokens) AS output_tokens,
+				SUM(cache_read_tokens) AS cache_read_tokens,
+				SUM(cache_creation_tokens) AS cache_creation_tokens,
+				ROUND(SUM(duration_ms) / 1000.0, 1) AS total_seconds,
+				string_agg(DISTINCT model, ',' ORDER BY model)
+					FILTER (WHERE span_type = 'llm_request' AND model IS NOT NULL) AS models
+			FROM spans WHERE workpackage = ${idLit}
+		`),
+	);
+	printTable(
+		`Workpackage ${id} — by model`,
+		await rows(`
+			SELECT
+				model,
+				COUNT(*) AS calls,
+				SUM(input_tokens) AS in_tok,
+				SUM(output_tokens) AS out_tok,
+				SUM(cache_read_tokens) AS cache_r,
+				SUM(cache_creation_tokens) AS cache_w,
+				ROUND(SUM(duration_ms) / 1000.0, 1) AS total_seconds
+			FROM spans
+			WHERE workpackage = ${idLit}
+				AND span_type = 'llm_request'
+				AND model IS NOT NULL
+			GROUP BY model
+			ORDER BY calls DESC
+		`),
+	);
+	printTable(
+		`Workpackage ${id} — sessions`,
+		await rows(`
+			SELECT
+				session_id,
+				to_timestamp(MIN(start_unix_ns) / 1e9) AS started,
+				COUNT(*) FILTER (WHERE span_type = 'llm_request') AS llms,
+				SUM(input_tokens) AS in_tok,
+				SUM(output_tokens) AS out_tok,
+				SUM(cache_read_tokens) AS cache_r,
+				SUM(cache_creation_tokens) AS cache_w,
+				ROUND(SUM(duration_ms) / 1000.0, 1) AS total_seconds,
+				string_agg(DISTINCT model, ',' ORDER BY model)
+					FILTER (WHERE span_type = 'llm_request' AND model IS NOT NULL) AS models,
+				ab_test,
+				ab_arm
+			FROM spans
+			WHERE workpackage = ${idLit} AND session_id IS NOT NULL
+			GROUP BY session_id, ab_test, ab_arm
+			ORDER BY started DESC
+		`),
+	);
+}
+
 async function sqlCmd(q: string): Promise<void> {
 	printTable("SQL", await rows(q));
 }
@@ -258,6 +423,16 @@ switch (cmd) {
 	case "models":
 		await models();
 		break;
+	case "workpackages":
+		await workpackages();
+		break;
+	case "workpackage":
+		if (!rest[0]) {
+			console.error("Usage: bun run obs:report workpackage <wp-id>");
+			process.exit(2);
+		}
+		await workpackage(rest[0]);
+		break;
 	case "sql":
 		if (!rest[0]) {
 			console.error('Usage: bun run obs:report sql "<query>"');
@@ -268,7 +443,7 @@ switch (cmd) {
 	default:
 		console.error(`Unknown subcommand: ${cmd}`);
 		console.error(
-			"Subcommands: summary | sessions | session <id> | ab <test> | tools | models | sql <query>",
+			"Subcommands: summary | sessions | session <id> | ab <test> | tools | models | workpackages | workpackage <id> | sql <query>",
 		);
 		process.exit(2);
 }
