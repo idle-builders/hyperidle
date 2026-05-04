@@ -121,6 +121,7 @@ export type {
 	PlainPayload,
 	QuestionnairePayload,
 	RedactedPayload,
+	RequestPayload,
 	ReviewPayload,
 	Thread,
 	ThreadConfiguration,
@@ -128,6 +129,17 @@ export type {
 	VerdictDecision,
 	VerdictPayload,
 } from "./thread.js";
+export {
+	isVerbLegalForState,
+	REQUEST_VERB_TEXT,
+	REQUEST_VERBS,
+	renderRequestText,
+	TASK_VERBS_BY_STATE,
+} from "./task-request-verbs.js";
+export type { RequestVerb } from "./task-request-verbs.js";
+export { derivePendingRequest } from "./task-pending.js";
+export type { PendingRequestSummary } from "./task-pending.js";
+export { sanitizeReason } from "./sanitize-reason.js";
 // L1a — Thread primitive (concept §4.5, plan §4). Stub during write-tests
 // phase; functions throw "Not implemented" until the green phase fills
 // them in.

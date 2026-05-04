@@ -12,6 +12,8 @@
  * `docs/work-packages/L1-plan.md` §4.
  */
 
+import type { RequestVerb } from "./task-request-verbs.js";
+
 // ── Closed enums ────────────────────────────────────────────────
 
 export const HOST_KINDS = [
@@ -87,9 +89,20 @@ export interface ArtifactRef {
 	readonly kind: ArtifactViewShape;
 }
 
+/**
+ * L15 § 2.1 — additive extension to PlainPayload. The `request` field carries
+ * a structured human-to-agent ask without introducing a new MessageKind. Agents
+ * branch on `payload.request.verb`; humans see the rendered `text`.
+ */
+export interface RequestPayload {
+	readonly verb: RequestVerb;
+	readonly reason?: string;
+}
+
 export interface PlainPayload {
 	readonly text: string;
 	readonly refs?: ReadonlyArray<InlineRef>;
+	readonly request?: RequestPayload;
 }
 
 export interface ReviewPayload {
