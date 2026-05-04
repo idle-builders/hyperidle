@@ -51,23 +51,17 @@ describe("renderRequestText", () => {
 	});
 
 	it("appends a single-line reason after `: `", () => {
-		expect(renderRequestText("request_hold", "agent stuck")).toBe(
-			"Request hold: agent stuck",
-		);
+		expect(renderRequestText("request_hold", "agent stuck")).toBe("Request hold: agent stuck");
 	});
 
 	it("preserves multiline reason verbatim", () => {
 		const reason = "line one\nline two\nline three";
-		expect(renderRequestText("request_changes", reason)).toBe(
-			`Request changes: ${reason}`,
-		);
+		expect(renderRequestText("request_changes", reason)).toBe(`Request changes: ${reason}`);
 	});
 
 	it("preserves unicode (NFC-friendly) characters in reason", () => {
 		const reason = "café — 日本語 — emoji ✨";
-		expect(renderRequestText("request_mark_done", reason)).toBe(
-			`Request mark done: ${reason}`,
-		);
+		expect(renderRequestText("request_mark_done", reason)).toBe(`Request mark done: ${reason}`);
 	});
 
 	it("renders cancel_request canonical text", () => {

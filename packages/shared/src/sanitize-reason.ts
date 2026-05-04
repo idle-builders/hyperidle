@@ -22,9 +22,7 @@ const MAX_REASON_LENGTH = 2048;
 export function sanitizeReason(text: string): string {
 	const normalised = text.normalize("NFC");
 	const noFormat = normalised.replace(/\p{Cf}/gu, "");
-	const noControl = noFormat.replace(/\p{Cc}/gu, (ch) =>
-		ch === "\n" || ch === "\t" ? ch : "",
-	);
+	const noControl = noFormat.replace(/\p{Cc}/gu, (ch) => (ch === "\n" || ch === "\t" ? ch : ""));
 	const trimmed = noControl.trim();
 	if (trimmed.length <= MAX_REASON_LENGTH) return trimmed;
 	return trimmed.slice(0, MAX_REASON_LENGTH);

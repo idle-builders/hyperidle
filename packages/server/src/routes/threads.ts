@@ -33,7 +33,7 @@ import { Hono } from "hono";
 import type { ZodError } from "zod";
 import { appendPlainMessage } from "../services/append-plain-message.js";
 import { escapeLikePattern } from "../services/like-escape.js";
-import { DEFAULT_FOUNDER_ID, SENDER_HEADER, readSenderId } from "../services/task-authz.js";
+import { DEFAULT_FOUNDER_ID, readSenderId, SENDER_HEADER } from "../services/task-authz.js";
 import { rowToMessage, rowToThread } from "../services/thread-row.js";
 import {
 	createThreadBodySchema,

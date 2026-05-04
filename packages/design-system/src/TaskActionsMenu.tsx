@@ -19,15 +19,7 @@ import {
 	TASK_VERBS_BY_STATE,
 	type TaskState,
 } from "@hyperidle/shared";
-import {
-	type JSX,
-	type ReactNode,
-	useCallback,
-	useEffect,
-	useId,
-	useRef,
-	useState,
-} from "react";
+import { type JSX, type ReactNode, useCallback, useEffect, useId, useRef, useState } from "react";
 import { dsProps } from "./ds-attrs";
 
 interface VerbDef {
@@ -77,7 +69,7 @@ function Shortcut({ keys }: { keys: string[] }): JSX.Element {
 				// biome-ignore lint/suspicious/noArrayIndexKey: shortcut keys are stable per item
 				<span key={i}>
 					{i > 0 && <span className="mx-[4px] text-[var(--text-lo)]">·</span>}
-					<kbd className="font-heading text-[10px] tracking-[0.04em] text-[var(--text-mid)] bg-[var(--surface-3)] border border-[var(--border-subtle)] rounded-[var(--r1)] px-[5px] py-[1px] leading-[1.4]">
+					<kbd className="font-heading text-[11px] tracking-[0.04em] text-[var(--text-mid)] bg-[var(--surface-3)] border border-[var(--border-subtle)] rounded-[var(--r1)] px-[5px] py-[1px] leading-[1.4]">
 						{k}
 					</kbd>
 				</span>
@@ -176,7 +168,7 @@ export function TaskActionsMenu({
 				);
 				if (items.length === 0) return;
 				const active = document.activeElement as HTMLElement | null;
-				const idx = items.findIndex((el) => el === active);
+				const idx = items.indexOf(active);
 				const next =
 					e.key === "ArrowDown"
 						? items[(idx + 1) % items.length]
@@ -208,8 +200,8 @@ export function TaskActionsMenu({
 		};
 		// shortcutMap is rebuilt every render; we rebuild listeners on `open`
 		// transitions only — shortcutMap is read at event-time via closure.
-		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [open, close]);
+		// biome-ignore lint/correctness/useExhaustiveDependencies: shortcutMap is intentionally read at event-time via closure
+	}, [open, close, shortcutMap]);
 
 	return (
 		<div className="relative inline-block">
@@ -259,9 +251,7 @@ export function TaskActionsMenu({
 
 					{hasPending && (
 						<>
-							{showStateSection && (
-								<div className="h-[1px] bg-[var(--border-subtle)] my-[4px]" />
-							)}
+							{showStateSection && <div className="h-[1px] bg-[var(--border-subtle)] my-[4px]" />}
 							<MenuItem
 								primary={REQUEST_VERB_TEXT.cancel_request}
 								secondary={VERB_DEFS.cancel_request.secondary}

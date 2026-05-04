@@ -88,7 +88,10 @@ test.describe("L15 — Team Board", () => {
 				clientKey: string;
 			};
 			requestCalls.push({ url: route.request().url(), body });
-			const taskIdMatch = route.request().url().match(/\/api\/tasks\/([^/]+)\/request$/);
+			const taskIdMatch = route
+				.request()
+				.url()
+				.match(/\/api\/tasks\/([^/]+)\/request$/);
 			const taskId = taskIdMatch ? taskIdMatch[1] : "task-unknown";
 			await route.fulfill({
 				status: 201,

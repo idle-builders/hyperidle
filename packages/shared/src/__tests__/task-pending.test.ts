@@ -87,20 +87,12 @@ describe("derivePendingRequest", () => {
 	});
 
 	it("returns null on two consecutive cancels", () => {
-		const messages = [
-			plain("request_stop"),
-			plain("cancel_request"),
-			plain("cancel_request"),
-		];
+		const messages = [plain("request_stop"), plain("cancel_request"), plain("cancel_request")];
 		expect(derivePendingRequest(messages)).toBeNull();
 	});
 
 	it("returns the latest request when cancel is followed by a new request", () => {
-		const messages = [
-			plain("request_stop"),
-			plain("cancel_request"),
-			plain("request_hold"),
-		];
+		const messages = [plain("request_stop"), plain("cancel_request"), plain("request_hold")];
 		const result = derivePendingRequest(messages);
 		expect(result).not.toBeNull();
 		expect(result?.verb).toBe("request_hold");

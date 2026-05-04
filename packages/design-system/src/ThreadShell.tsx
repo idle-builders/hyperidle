@@ -172,9 +172,8 @@ function buildRichSlots(
 			// user gets honest feedback instead of a dead-click. All-ghost
 			// styling — no false hierarchy on neutral-choice questionnaires.
 			actions:
-				payload.options.length > 0 ? (
-					<>
-						{payload.options.map((opt) => (
+				payload.options.length > 0
+					? payload.options.map((opt) => (
 							<button
 								key={`${message.id}-opt-${opt}`}
 								type="button"
@@ -185,9 +184,8 @@ function buildRichSlots(
 							>
 								{opt}
 							</button>
-						))}
-					</>
-				) : null,
+						))
+					: null,
 		};
 	}
 	return null;

@@ -126,7 +126,9 @@ const MOCK_PITCHES: PitchSelectorPitch[] = [
 	},
 ];
 
-const NOOP_MOVE_BET = (_betId: string, _targetStatus: "shaped" | "committed"): void => {};
+const NOOP_MOVE_BET = (_betId: string, _targetStatus: "shaped" | "committed"): void => {
+	// Canvas drag binding wired by L19; Team Board does not move bets.
+};
 
 async function postRequest(
 	taskId: string,
@@ -151,7 +153,7 @@ export function WorkTeam(): JSX.Element {
 	// the server's `(threadId, senderId, clientKey)` unique index. Generating
 	// a fresh UUID per click defeats server-side idempotency.
 	const clientKeyCacheRef = useRef<Map<string, string>>(new Map());
-	function keyFor(taskId: string, verb: RequestVerb): string {
+	const keyFor = useCallback((taskId: string, verb: RequestVerb): string => {
 		const cacheKey = `${taskId}:${verb}`;
 		const cache = clientKeyCacheRef.current;
 		const existing = cache.get(cacheKey);
@@ -159,18 +161,21 @@ export function WorkTeam(): JSX.Element {
 		const fresh = crypto.randomUUID();
 		cache.set(cacheKey, fresh);
 		return fresh;
-	}
+	}, []);
 
 	const handleRequestStateChange = useCallback(
 		(taskId: string, verb: RequestVerb, reason?: string): void => {
 			void postRequest(taskId, verb, keyFor(taskId, verb), reason);
 		},
-		[],
+		[keyFor],
 	);
 
-	const handleCancelPendingRequest = useCallback((taskId: string): void => {
-		void postRequest(taskId, "cancel_request", keyFor(taskId, "cancel_request"));
-	}, []);
+	const handleCancelPendingRequest = useCallback(
+		(taskId: string): void => {
+			void postRequest(taskId, "cancel_request", keyFor(taskId, "cancel_request"));
+		},
+		[keyFor],
+	);
 
 	const handleSelectPitch = useCallback((pitchId: string): void => {
 		setSelectedPitchIds((prev) =>

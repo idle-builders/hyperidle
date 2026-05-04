@@ -69,5 +69,4 @@ describe("WorkTeam", () => {
 		// Node.DOCUMENT_POSITION_FOLLOWING === 4 → kanban follows canvas
 		expect(order & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
 	});
-
 });

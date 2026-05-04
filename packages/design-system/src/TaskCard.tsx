@@ -72,11 +72,7 @@ export function TaskCard({
 				<button
 					type="button"
 					data-component="TaskCardPendingChip"
-					title={
-						pendingRequest
-							? `Requested: ${pendingRequest.verb}`
-							: "Pending request"
-					}
+					title={pendingRequest ? `Requested: ${pendingRequest.verb}` : "Pending request"}
 					onClick={(e) => {
 						e.stopPropagation();
 						onPendingChipClick?.();

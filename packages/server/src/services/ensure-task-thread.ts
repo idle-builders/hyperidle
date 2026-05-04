@@ -70,7 +70,7 @@ export function ensureTaskThread(
 	} catch (cause) {
 		if (cause instanceof TaskThreadRaceLost) {
 			const reread = db.select().from(tasks).where(eq(tasks.id, task.id)).get();
-			if (!(reread && reread.threadId)) {
+			if (!reread?.threadId) {
 				throw new Error("ensureTaskThread: race lost but no winning thread_id present");
 			}
 			const winner = db.select().from(threads).where(eq(threads.id, reread.threadId)).get();
