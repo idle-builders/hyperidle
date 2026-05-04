@@ -42,6 +42,12 @@ When you make a non-obvious decision, encounter a cross-cutting constraint, or d
 
 ---
 
+## Durable State
+
+Story memory and the prior-persona handover brief are runner-owned files under `.pipeline/` and arrive in your system prompt via the SessionStart hook. Do **not** `Read` `.pipeline/memory/` or `.pipeline/briefs/` — they're already injected. The "Story context (stable)" section is background; "Just-handed-off" is the per-step delta. Adversarial personas (critics, reviewers, Cold DoD) receive raw artifact paths instead of producer summaries — open those paths directly with `Read` so you don't inherit the producer's framing.
+
+---
+
 ## Architecture
 
 Three-layer system with strict downward dependency: Human Interface → Meta Layer → Agent Runtime. No layer reaches past its neighbor. Read `docs/ARCHITECTURE.md` before writing code.
