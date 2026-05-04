@@ -78,6 +78,8 @@ export {
 } from "./status-mapping.js";
 export type { TagProps } from "./Tag.js";
 export { Tag } from "./Tag.js";
+export type { TaskActionsMenuProps } from "./TaskActionsMenu.js";
+export { TaskActionsMenu } from "./TaskActionsMenu.js";
 export type { TaskCardProps } from "./TaskCard.js";
 export { TaskCard } from "./TaskCard.js";
 // ── L1a Thread primitive components (stubs during write-tests phase) ──

@@ -84,6 +84,13 @@
     .status-chip--done { background: color-mix(in oklab, var(--ok) 14%, transparent); color: var(--ok); }
     .status-chip--done .dot { background: var(--ok); }
     .status-chip--error { background: color-mix(in oklab, var(--danger) 14%, transparent); color: var(--danger); }
+    /*
+     * L15: request_pending uses the warn token and a dashed border treatment
+     * to read as a transient action, not a steady state. CRITICAL-8 fix:
+     * the HTML demo must render this so visual-parity diffs have a target.
+     */
+    .status-chip--request_pending { background: color-mix(in oklab, var(--warn) 10%, transparent); color: var(--warn); border: 1px dashed color-mix(in oklab, var(--warn) 50%, transparent); }
+    .status-chip--request_pending .dot { background: var(--warn); }
     .status-chip--error .dot { background: var(--danger); }
 
     /* --- Tier 1: Tag --- */
@@ -172,7 +179,7 @@
       );
     }
 
-    function TaskCard({ title, owner, state, cost, betTag }) {
+    function TaskCard({ title, owner, state, cost, betTag, pendingRequest }) {
       const presentationStatus = TASK_STATE_MAP[state] || "paused";
       const isBlocked = state === "blocked";
 
@@ -196,7 +203,11 @@
             <StatusChip status={presentationStatus} />
           </div>
           <span className="task-card__owner">{owner}</span>
-          {cost && <KeyValue label="Cost" value={cost} />}
+          {pendingRequest ? (
+            <StatusChip status="request_pending" />
+          ) : cost ? (
+            <KeyValue label="Cost" value={cost} />
+          ) : null}
         </div>
       );
     }
@@ -233,6 +244,17 @@
               state="done"
               cost="$2.00"
               betTag="Sprint 1"
+            />
+          </div>
+
+          <div className="demo-section">
+            <div className="demo-section-title">pendingRequest (request_pending chip replaces cost)</div>
+            <TaskCard
+              title="Implement login flow"
+              owner="Bob Smith"
+              state="in_progress"
+              betTag="Mobile V2"
+              pendingRequest={{ messageId: "m-1", verb: "request_stop", createdAt: "2026-04-19T12:00:00Z" }}
             />
           </div>
 

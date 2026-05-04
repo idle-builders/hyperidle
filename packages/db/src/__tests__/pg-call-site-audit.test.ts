@@ -73,7 +73,12 @@ describe("H4 honest-state: synchronous Drizzle call-site audit", () => {
 		// (~60 sync call sites). The snapshot is bumped to absorb that
 		// legitimate growth; production call-sites in services/, routes/,
 		// etc. are not affected.
-		const SNAPSHOT_COUNT = 1070;
+		// L15 added the task-request endpoint stack (services/append-plain-message,
+		// services/ensure-task-thread, services/task-authz, plus the new test
+		// files in routes/__tests__/ and services/__tests__/) which adds ~70
+		// new sync .run()/.get()/.all() callsites in test fixtures. Bump the
+		// snapshot to absorb that legitimate growth.
+		const SNAPSHOT_COUNT = 1140;
 		const TOLERANCE = 50; // absorb routine renames without a fail-open
 
 		const humanReport = hits

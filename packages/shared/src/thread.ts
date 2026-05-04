@@ -87,9 +87,20 @@ export interface ArtifactRef {
 	readonly kind: ArtifactViewShape;
 }
 
+/**
+ * @lore L15 §2.1: `request` is an optional payload extension on `plain`,
+ * NOT a new MessageKind. Concept §4.5.8 hard rule 5 forecloses new types
+ * without a concept-doc update first.
+ */
+export interface RequestPayload {
+	readonly verb: import("./task-request-verbs.js").RequestVerb;
+	readonly reason?: string;
+}
+
 export interface PlainPayload {
 	readonly text: string;
 	readonly refs?: ReadonlyArray<InlineRef>;
+	readonly request?: RequestPayload;
 }
 
 export interface ReviewPayload {

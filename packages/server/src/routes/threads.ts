@@ -35,6 +35,7 @@ import { API_ERROR_CODES, headCollapsePredicate } from "@hyperidle/shared";
 import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import { Hono } from "hono";
 import type { ZodError } from "zod";
+import { appendPlainMessage } from "../services/append-plain-message.js";
 import { escapeLikePattern } from "../services/like-escape.js";
 import {
 	createThreadBodySchema,
@@ -100,7 +101,7 @@ function rowToThread(row: DbThread): Thread {
 	};
 }
 
-function rowToMessage(row: DbMessage): Message {
+export function rowToMessage(row: DbMessage): Message {
 	const parsed = messageRowSchema.parse({
 		type: row.type as MessageType,
 		payload: JSON.parse(row.payload),
@@ -396,6 +397,22 @@ export function createThreadRoutes(db: HyperIdleDb, eventBus: EventBus): Hono {
 			}
 			const input = parsed.data;
 			const senderId = readSenderId(c);
+
+			// L15 §5.4: plain-type writes delegate to the shared helper.
+			// Verdict / review / questionnaire branches stay below — they have
+			// specialised authz, race guards, and event emission.
+			if (input.type === "plain") {
+				const result = appendPlainMessage(db, eventBus, {
+					threadId,
+					senderId,
+					clientKey: input.clientKey,
+					payload: input.payload,
+				});
+				if (result.ok) {
+					return c.json({ message: result.message, thread: result.thread }, result.status);
+				}
+				return c.json({ error: result.message, code: result.code }, result.status);
+			}
 
 			const threadRow = db.select().from(threads).where(eq(threads.id, threadId)).get();
 			if (!threadRow) {

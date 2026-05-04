@@ -1,7 +1,14 @@
 import type { JSX } from "react";
 import { dsProps } from "./ds-attrs";
 
-export type Status = "healthy" | "behind" | "blocked" | "paused" | "done" | "error";
+export type Status =
+	| "healthy"
+	| "behind"
+	| "blocked"
+	| "paused"
+	| "done"
+	| "error"
+	| "request_pending";
 
 export interface StatusChipProps {
 	/**
@@ -39,6 +46,12 @@ export interface StatusChipProps {
 interface StatusStyle {
 	chip: string;
 	dot: string;
+	/** L15: optional label override for variants whose label is not the
+	 * uppercased status name (e.g. `request_pending` → `↪ PENDING`). */
+	label?: string;
+	/** L15: when true, the chip omits the leading dot (used by the dashed
+	 * pending variant). */
+	hideDot?: boolean;
 }
 
 const STATUS_STYLES: Record<Status | "unknown", StatusStyle> = {
@@ -66,6 +79,13 @@ const STATUS_STYLES: Record<Status | "unknown", StatusStyle> = {
 		chip: "bg-[color-mix(in_oklab,var(--danger)_14%,transparent)] text-[var(--danger)]",
 		dot: "bg-[var(--danger)]",
 	},
+	request_pending: {
+		chip:
+			"bg-[var(--surface-ghost)] text-[var(--text-hi)] border border-dashed border-[var(--border-default)]",
+		dot: "",
+		label: "↪ PENDING",
+		hideDot: true,
+	},
 	unknown: {
 		chip: "bg-[color-mix(in_oklab,var(--text-lo)_14%,transparent)] text-[var(--text-lo)]",
 		dot: "bg-[var(--text-lo)]",
@@ -79,6 +99,7 @@ const KNOWN_STATUSES: ReadonlySet<string> = new Set<Status>([
 	"paused",
 	"done",
 	"error",
+	"request_pending",
 ]);
 
 const CHIP_BASE =
@@ -90,6 +111,7 @@ export function StatusChip({ status }: StatusChipProps): JSX.Element {
 
 	const style = STATUS_STYLES[safeStatus];
 
+	const label = style.label ?? safeStatus.toUpperCase();
 	return (
 		<span
 			{...dsProps("StatusChip", "1")}
@@ -97,8 +119,10 @@ export function StatusChip({ status }: StatusChipProps): JSX.Element {
 			title={safeStatus}
 			data-status={safeStatus}
 		>
-			<span className={`h-[6px] w-[6px] rounded-full shrink-0 ${style.dot}`} />
-			{safeStatus.toUpperCase()}
+			{style.hideDot ? null : (
+				<span className={`h-[6px] w-[6px] rounded-full shrink-0 ${style.dot}`} />
+			)}
+			{label}
 		</span>
 	);
 }

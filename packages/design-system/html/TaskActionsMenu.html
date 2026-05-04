@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>TaskActionsMenu — HyperIdle Design System</title>
+  <link rel="stylesheet" href="_tokens.css" />
+  <style>
+    body { font-family: var(--font-sans); background: var(--surface-1); color: var(--text-hi); padding: 24px; }
+    /*
+     * Stack each state demo vertically with its own reserved height so the
+     * absolute-positioned menus do NOT overlap one another. Per design
+     * review CRITICAL-9: the prior layout overlapped five menus in the same
+     * viewport coordinates and could not be used as a pixel-diff reference.
+     */
+    .demo-grid { display: flex; flex-direction: column; gap: 48px; max-width: 720px; }
+    .demo-section { display: flex; flex-direction: column; gap: 8px; }
+    .demo-section-title { font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-lo); }
+    /*
+     * menu-host width matches the card; the trigger sits inside it with
+     * z-index above the card so the trigger remains clickable regardless of
+     * card content overflow (CRITICAL-3 fix).
+     */
+    .menu-host { position: relative; width: 320px; min-height: 360px; }
+    .task-card { position: relative; background: var(--surface-4); border-radius: var(--r2); padding: var(--density-card-pad); display: flex; flex-direction: column; gap: var(--density-card-gap); width: 320px; }
+    .task-actions-trigger { position: absolute; top: 8px; right: 8px; padding: 2px 6px; border-radius: var(--r1); border: 1px solid transparent; background: transparent; cursor: pointer; color: var(--text-hi); z-index: 2; }
+    /*
+     * Anchor the menu to the trigger via right:0 on the host (CRITICAL-1 fix).
+     * Constrain to viewport via max-width.
+     */
+    .task-actions-menu { position: absolute; right: 0; top: calc(100% + 4px); margin-top: 4px; z-index: 10; background: var(--surface-3); border: 1px solid var(--border-default); border-radius: var(--r2); padding: 6px 0; min-width: 260px; max-width: 320px; display: flex; flex-direction: column; box-shadow: 0 4px 12px rgba(0,0,0,0.2); }
+    /* When the host is the immediate flow container, position menu under card. */
+    .menu-host > .task-actions-menu { top: auto; right: 0; bottom: auto; margin-top: 8px; position: relative; }
+    .task-actions-section-label { font-family: var(--font-mono, monospace); font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-lo); padding: 4px 12px; }
+    .task-actions-divider { height: 1px; background: var(--border-default); margin: 4px 0; }
+    .task-actions-item { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; padding: 6px 12px; background: transparent; border: 0; text-align: left; cursor: pointer; color: var(--text-hi); }
+    .task-actions-item:hover { background: var(--surface-ghost); }
+    .task-actions-item__primary { font-size: var(--density-text); }
+    .task-actions-item__secondary { font-size: 12px; color: var(--text-lo); }
+    .task-actions-item__kbd { font-size: 11px; color: var(--text-lo); border: 1px solid var(--border-default); border-radius: var(--r1); padding: 1px 4px; }
+  </style>
+</head>
+<body>
+  <h1>TaskActionsMenu</h1>
+  <p>L15: state-conditional verb menu. Each state demo is rendered in its own vertical band so menus do not overlap. Letter shortcuts: <code>K</code> for hand back, <code>X</code> for cancel — per plan §2.7 (simplification-scan MF4 resolution).</p>
+
+  <div class="demo-grid"
+    data-component="TaskActionsMenu"
+    data-tier="2"
+    data-uses="TaskCard"
+    data-daisyui="dropdown"
+    data-used-by="Kanban,WorkTeam"
+    data-ds-component="TaskActionsMenu"
+    data-ds-tier="2"
+    data-ds-source="design-system">
+    <section class="demo-section">
+      <div class="demo-section-title">accepted</div>
+      <div class="menu-host">
+        <div class="task-card">
+          <button type="button" class="task-actions-trigger" aria-label="Task actions">···</button>
+          <div>Plan release</div>
+          <div>Owner: Alice</div>
+        </div>
+        <div class="task-actions-menu" role="menu">
+          <button type="button" class="task-actions-item" role="menuitem">
+            <span><span class="task-actions-item__primary">Hand back to me</span><br /><span class="task-actions-item__secondary">→ moves ownership to you — agent confirms</span></span>
+            <kbd class="task-actions-item__kbd">K</kbd>
+          </button>
+          <button type="button" class="task-actions-item" role="menuitem"><span class="task-actions-item__primary">Open thread</span><kbd class="task-actions-item__kbd">O</kbd></button>
+          <button type="button" class="task-actions-item" role="menuitem"><span class="task-actions-item__primary">Reply in thread…</span><kbd class="task-actions-item__kbd">R</kbd></button>
+          <button type="button" class="task-actions-item" role="menuitem"><span class="task-actions-item__primary">Snooze 24h</span><kbd class="task-actions-item__kbd">Z</kbd></button>
+          <button type="button" class="task-actions-item" role="menuitem"><span class="task-actions-item__primary">Copy link</span></button>
+        </div>
+      </div>
+    </section>
+
+    <section class="demo-section">
+      <div class="demo-section-title">in_progress</div>
+      <div class="menu-host">
+        <div class="task-card">
+          <button type="button" class="task-actions-trigger" aria-label="Task actions">···</button>
+          <div>Implement login</div>
+          <div>Owner: Bob</div>
+        </div>
+        <div class="task-actions-menu" role="menu">
+          <button type="button" class="task-actions-item" role="menuitem"><span class="task-actions-item__primary">Request stop</span><kbd class="task-actions-item__kbd">S</kbd></button>
+          <button type="button" class="task-actions-item" role="menuitem"><span class="task-actions-item__primary">Request hold</span><kbd class="task-actions-item__kbd">H</kbd></button>
+          <button type="button" class="task-actions-item" role="menuitem"><span class="task-actions-item__primary">Request mark done</span><kbd class="task-actions-item__kbd">D</kbd></button>
+          <button type="button" class="task-actions-item" role="menuitem"><span class="task-actions-item__primary">Hand back to me</span><kbd class="task-actions-item__kbd">K</kbd></button>
+          <button type="button" class="task-actions-item" role="menuitem"><span class="task-actions-item__primary">Open thread</span><kbd class="task-actions-item__kbd">O</kbd></button>
+          <button type="button" class="task-actions-item" role="menuitem"><span class="task-actions-item__primary">Reply in thread…</span><kbd class="task-actions-item__kbd">R</kbd></button>
+          <button type="button" class="task-actions-item" role="menuitem"><span class="task-actions-item__primary">Snooze 24h</span><kbd class="task-actions-item__kbd">Z</kbd></button>
+          <button type="button" class="task-actions-item" role="menuitem"><span class="task-actions-item__primary">Copy link</span></button>
+        </div>
+      </div>
+    </section>
+
+    <section class="demo-section">
+      <div class="demo-section-title">blocked</div>
+      <div class="menu-host">
+        <div class="task-card">
+          <button type="button" class="task-actions-trigger" aria-label="Task actions">···</button>
+          <div>Fix CI</div>
+          <div>Owner: Carol</div>
+        </div>
+        <div class="task-actions-menu" role="menu">
+          <button type="button" class="task-actions-item" role="menuitem"><span class="task-actions-item__primary">Request unblock</span><kbd class="task-actions-item__kbd">B</kbd></button>
+          <button type="button" class="task-actions-item" role="menuitem"><span class="task-actions-item__primary">Request stop</span><kbd class="task-actions-item__kbd">S</kbd></button>
+          <button type="button" class="task-actions-item" role="menuitem"><span class="task-actions-item__primary">Hand back to me</span><kbd class="task-actions-item__kbd">K</kbd></button>
+          <button type="button" class="task-actions-item" role="menuitem"><span class="task-actions-item__primary">Open thread</span><kbd class="task-actions-item__kbd">O</kbd></button>
+          <button type="button" class="task-actions-item" role="menuitem"><span class="task-actions-item__primary">Reply in thread…</span><kbd class="task-actions-item__kbd">R</kbd></button>
+          <button type="button" class="task-actions-item" role="menuitem"><span class="task-actions-item__primary">Snooze 24h</span><kbd class="task-actions-item__kbd">Z</kbd></button>
+        </div>
+      </div>
+    </section>
+
+    <section class="demo-section">
+      <div class="demo-section-title">review</div>
+      <div class="menu-host">
+        <div class="task-card">
+          <button type="button" class="task-actions-trigger" aria-label="Task actions">···</button>
+          <div>Pricing decision</div>
+          <div>Owner: Dave</div>
+        </div>
+        <div class="task-actions-menu" role="menu">
+          <button type="button" class="task-actions-item" role="menuitem"><span class="task-actions-item__primary">Request mark done</span><kbd class="task-actions-item__kbd">D</kbd></button>
+          <button type="button" class="task-actions-item" role="menuitem"><span class="task-actions-item__primary">Request changes</span><kbd class="task-actions-item__kbd">C</kbd></button>
+          <button type="button" class="task-actions-item" role="menuitem"><span class="task-actions-item__primary">Open thread</span><kbd class="task-actions-item__kbd">O</kbd></button>
+          <button type="button" class="task-actions-item" role="menuitem"><span class="task-actions-item__primary">Reply in thread…</span><kbd class="task-actions-item__kbd">R</kbd></button>
+          <button type="button" class="task-actions-item" role="menuitem"><span class="task-actions-item__primary">Snooze 24h</span><kbd class="task-actions-item__kbd">Z</kbd></button>
+        </div>
+      </div>
+    </section>
+
+    <section class="demo-section">
+      <div class="demo-section-title">pending — cancel_request appears</div>
+      <div class="menu-host">
+        <div class="task-card">
+          <button type="button" class="task-actions-trigger" aria-label="Task actions">···</button>
+          <div>Implement login</div>
+          <div>Owner: Bob (pending)</div>
+        </div>
+        <div class="task-actions-menu" role="menu">
+          <button type="button" class="task-actions-item" role="menuitem"><span class="task-actions-item__primary">Request stop</span><kbd class="task-actions-item__kbd">S</kbd></button>
+          <button type="button" class="task-actions-item" role="menuitem"><span class="task-actions-item__primary">Cancel pending request</span><kbd class="task-actions-item__kbd">X</kbd></button>
+          <button type="button" class="task-actions-item" role="menuitem"><span class="task-actions-item__primary">Open thread</span><kbd class="task-actions-item__kbd">O</kbd></button>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script src="themes/_switcher.js"></script>
+</body>
+</html>

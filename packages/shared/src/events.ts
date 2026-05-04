@@ -204,6 +204,18 @@ export interface ThreadArchivedEvent {
 	timestamp: number;
 }
 
+/**
+ * L15 §5.7 — emitted when a user snoozes a task on the team board.
+ */
+export interface TaskSnoozedEvent {
+	type: "task_snoozed";
+	streamId: string;
+	taskId: string;
+	userId: string;
+	snoozedUntil: string;
+	timestamp: number;
+}
+
 /** Discriminated union of all domain events. */
 export type DomainEvent =
 	| TaskStateChangedEvent
@@ -226,7 +238,8 @@ export type DomainEvent =
 	| ThreadMessageAppendedEvent
 	| ThreadResolvedEvent
 	| ThreadReopenedEvent
-	| ThreadArchivedEvent;
+	| ThreadArchivedEvent
+	| TaskSnoozedEvent;
 
 /** All valid event type strings. */
 export type EventType = DomainEvent["type"];

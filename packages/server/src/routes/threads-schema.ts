@@ -8,6 +8,7 @@ import {
 	ARTIFACT_VIEW_SHAPES,
 	HOST_KINDS,
 	type MESSAGE_TYPES,
+	REQUEST_VERBS,
 	VERDICT_DECISIONS,
 } from "@hyperidle/shared";
 import { z } from "zod";
@@ -31,9 +32,18 @@ const artifactRefSchema = z.object({
 	kind: z.enum(ARTIFACT_VIEW_SHAPES),
 });
 
+/**
+ * L15 §5.3: optional `request` extension. Verb constrained to REQUEST_VERBS.
+ */
+export const requestPayloadSchema = z.object({
+	verb: z.enum(REQUEST_VERBS),
+	reason: z.string().min(1).max(2048).optional(),
+});
+
 const plainPayloadSchema = z.object({
 	text: z.string().max(16_384),
 	refs: z.array(inlineRefSchema).optional(),
+	request: requestPayloadSchema.optional(),
 });
 
 const reviewPayloadSchema = z.object({

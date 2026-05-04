@@ -480,3 +480,37 @@ export type NewNotificationQueueRow = typeof notificationQueue.$inferInsert;
 
 export type ArtifactRow = typeof artifacts.$inferSelect;
 export type NewArtifactRow = typeof artifacts.$inferInsert;
+
+// --- L15: per-user task snoozes ---
+//
+// @lore L15 §2.5: per-user snooze is sidecar workflow state; not a thread
+// message; not a task-state-machine transition. Hides the task from the
+// per-user board only.
+//
+// @lore L15 adversary F3 + plan §5.1: `user_id` is intentionally an
+// unconstrained text column, NOT a foreign key. The HyperIdle "user"
+// identity space is a superset of `agents.id` (the literal `u-founder`
+// sentinel + future founder identities are not always agent rows in
+// every deployment), so an FK on agents would over-constrain. The route
+// derives `userId = readSenderId(c)` from the authenticated header — the
+// callsite, not the schema, is the audit gate. If a future endpoint
+// accepts `userId` from a request body it MUST validate against the
+// authenticated identity. A length check / regex would be defence-in-depth.
+export const taskSnoozes = sqliteTable(
+	"task_snoozes",
+	{
+		userId: text("user_id").notNull(),
+		taskId: text("task_id")
+			.notNull()
+			.references(() => tasks.id, { onDelete: "cascade" }),
+		snoozedUntil: text("snoozed_until").notNull(),
+		createdAt: text("created_at").notNull(),
+	},
+	(table) => [
+		primaryKey({ columns: [table.userId, table.taskId] }),
+		index("task_snoozes_user_until_idx").on(table.userId, table.snoozedUntil),
+	],
+);
+
+export type TaskSnooze = typeof taskSnoozes.$inferSelect;
+export type NewTaskSnooze = typeof taskSnoozes.$inferInsert;

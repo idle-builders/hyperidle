@@ -1,4 +1,4 @@
-import type { TaskState } from "@hyperidle/shared";
+import type { PendingRequestSummary, TaskState } from "@hyperidle/shared";
 import type { JSX, ReactNode } from "react";
 import { clickableProps } from "./clickable";
 import { dsProps } from "./ds-attrs";
@@ -15,6 +15,10 @@ export interface TaskCardProps {
 	betTag?: string;
 	actions?: ReactNode;
 	onClick?: () => void;
+	/** L15: when set, replaces the cost slot with a pending status chip. */
+	pendingRequest?: PendingRequestSummary | null;
+	/** L15: invoked on card-body activation (click / keypress). */
+	onActivate?: () => void;
 }
 
 export function TaskCard({
@@ -25,6 +29,8 @@ export function TaskCard({
 	betTag,
 	actions,
 	onClick,
+	pendingRequest,
+	onActivate,
 }: TaskCardProps): JSX.Element {
 	return (
 		<div
@@ -37,7 +43,7 @@ export function TaskCard({
 			 * Owner font stays literal 12 px (chrome).
 			 */
 			{...clickableProps(
-				onClick,
+				onActivate ?? onClick,
 				`bg-[var(--surface-4)] rounded-[var(--r2)] p-[var(--density-card-pad)] flex flex-col gap-[var(--density-card-gap)] max-w-[320px] ${state === "blocked" ? "border border-[var(--danger)]" : ""}`,
 			)}
 		>
@@ -52,7 +58,11 @@ export function TaskCard({
 				<StatusChip status={taskStateToStatus(state)} />
 			</div>
 			<span className="text-[12px] text-[var(--text-hi)]">{owner}</span>
-			{cost && <KeyValue label="Cost" value={cost} />}
+			{pendingRequest ? (
+				<StatusChip status="request_pending" />
+			) : cost ? (
+				<KeyValue label="Cost" value={cost} />
+			) : null}
 			{actions}
 		</div>
 	);

@@ -56,6 +56,7 @@ export type {
 	SessionEndedEvent,
 	SessionOutcome,
 	SessionStartedEvent,
+	TaskSnoozedEvent,
 	TaskStateChangedEvent,
 	ThreadArchivedEvent,
 	ThreadCreatedEvent,
@@ -121,6 +122,7 @@ export type {
 	PlainPayload,
 	QuestionnairePayload,
 	RedactedPayload,
+	RequestPayload,
 	ReviewPayload,
 	Thread,
 	ThreadConfiguration,
@@ -145,6 +147,16 @@ export {
 	verdictDecisionLabel,
 	verdictDecisionToStatus,
 } from "./thread.js";
+export type { PendingRequestSummary } from "./task-pending.js";
+export { derivePendingRequest } from "./task-pending.js";
+export type { RequestVerb } from "./task-request-verbs.js";
+export {
+	isVerbLegalForState,
+	REQUEST_VERB_TEXT,
+	REQUEST_VERBS,
+	renderRequestText,
+	TASK_VERBS_BY_STATE,
+} from "./task-request-verbs.js";
 export { decode, encode } from "./toon-codec.js";
 export { ToonParseError } from "./toon-errors.js";
 export type {

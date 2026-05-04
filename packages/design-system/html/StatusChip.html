@@ -70,6 +70,13 @@
       color: var(--text-lo);
     }
     .status-chip--unknown .dot { background: var(--text-lo); }
+    /* L15: pending request — dashed border, no dot, custom label. */
+    .status-chip--request_pending {
+      background: var(--surface-ghost);
+      color: var(--text-hi);
+      border: 1px dashed var(--border-default);
+    }
+    .status-chip--request_pending .dot { display: none; }
   </style>
 </head>
 <body>
@@ -78,11 +85,14 @@
   <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" crossorigin></script>
   <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" crossorigin></script>
   <script type="text/babel" data-presets="env,react">
-    const KNOWN_STATUSES = new Set(["healthy", "behind", "blocked", "paused", "done", "error"]);
+    const KNOWN_STATUSES = new Set([
+      "healthy", "behind", "blocked", "paused", "done", "error", "request_pending"
+    ]);
+    const LABEL_OVERRIDES = { request_pending: "↪ PENDING" };
 
     function StatusChip({ status }) {
       const safeStatus = typeof status === "string" && KNOWN_STATUSES.has(status) ? status : "unknown";
-
+      const label = LABEL_OVERRIDES[safeStatus] || safeStatus.toUpperCase();
       return (
         <span
           className={`status-chip status-chip--${safeStatus}`}
@@ -95,9 +105,10 @@
           data-ds-component="StatusChip"
           data-ds-tier="1"
           data-ds-source="design-system"
+          data-status={safeStatus}
         >
           <span className="dot" />
-          {safeStatus.toUpperCase()}
+          {label}
         </span>
       );
     }
@@ -114,6 +125,7 @@
               <StatusChip status="paused" />
               <StatusChip status="done" />
               <StatusChip status="error" />
+              <StatusChip status="request_pending" />
             </div>
           </div>
 

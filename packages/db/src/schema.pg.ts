@@ -469,3 +469,27 @@ export type NewNotificationQueueRow = typeof notificationQueue.$inferInsert;
 
 export type ArtifactRow = typeof artifacts.$inferSelect;
 export type NewArtifactRow = typeof artifacts.$inferInsert;
+
+// --- L15: per-user task snoozes ---
+//
+// @lore L15 §2.5: per-user snooze is sidecar workflow state; not a thread
+// message; not a task-state-machine transition. Hides the task from the
+// per-user board only.
+export const taskSnoozes = pgTable(
+	"task_snoozes",
+	{
+		userId: text("user_id").notNull(),
+		taskId: text("task_id")
+			.notNull()
+			.references(() => tasks.id, { onDelete: "cascade" }),
+		snoozedUntil: text("snoozed_until").notNull(),
+		createdAt: text("created_at").notNull(),
+	},
+	(table) => [
+		primaryKey({ columns: [table.userId, table.taskId] }),
+		index("task_snoozes_user_until_idx").on(table.userId, table.snoozedUntil),
+	],
+);
+
+export type TaskSnooze = typeof taskSnoozes.$inferSelect;
+export type NewTaskSnooze = typeof taskSnoozes.$inferInsert;

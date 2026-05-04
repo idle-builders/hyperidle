@@ -64,6 +64,13 @@
 			"when": 1782960000000,
 			"tag": "0008_add_artifacts_l3",
 			"breakpoints": true
+		},
+		{
+			"idx": 9,
+			"version": "7",
+			"when": 1788566400000,
+			"tag": "0009_add_task_snoozes",
+			"breakpoints": true
 		}
 	]
 }
