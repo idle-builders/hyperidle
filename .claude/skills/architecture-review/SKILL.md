@@ -12,14 +12,14 @@ Read-only review. Produce findings — do NOT make code changes.
 
 ## Required reading (do ALL before reviewing code)
 
-1. `docs/ARCHITECTURE.md` — layers, API contracts, data models, event bus, deployment
-2. `docs/PROCESS_LAYER.md` — state machines, task/bet lifecycles, handoff protocol
-3. `docs/KNOWLEDGE_ARCHITECTURE.md` — knowledge fabric, L0-L4, materialization, conflicts
-4. `docs/AGENT_LAYER.md` — agent runtime, session provisioning, workspace adapters
-5. `docs/work-packages/SHARED.md` — tech stack, shared contracts, dependency graph
-6. The relevant track file in `docs/work-packages/TRACK-*.md` for the story being reviewed
+1. `docs/architecture/` — layers, API contracts, data models, event bus, deployment
+2. `docs/process-layer/` — state machines, task/bet lifecycles, handoff protocol
+3. `docs/knowledge-architecture/` — knowledge fabric, L0-L4, materialization, conflicts
+4. `docs/agent-layer/` — agent runtime, session provisioning, workspace adapters
+5. `plans/work-packages/SHARED.md` — tech stack, shared contracts, dependency graph
+6. The relevant track file in `plans/work-packages/TRACK-*.md` for the story being reviewed
 
-Then read the changed files (via `$ARGUMENTS` or `git diff --name-only`).
+Then read the changed files (via `<target>` or `git diff --name-only`).
 
 ## Be thorough
 
@@ -36,3 +36,7 @@ Read every changed file end-to-end. For each file, verify it against the relevan
 - **Spec contradictions** — if two docs disagree, flag it
 
 Output structured findings: CRITICAL / WARNINGS / OBSERVATIONS with file paths, line numbers, AND the spec reference (doc + section) for each finding.
+
+## Target
+
+$ARGUMENTS

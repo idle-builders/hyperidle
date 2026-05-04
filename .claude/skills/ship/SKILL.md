@@ -57,3 +57,7 @@ If CI fails, read the failure logs (`gh pr checks <pr-number>`), fix the issues,
 - Never force push
 - Never use `--no-verify` to skip hooks
 - One PR per story
+
+## Target
+
+$ARGUMENTS

@@ -8,15 +8,15 @@ min_tool_calls: 25
 
 # Architecture
 
-**Why:** A clear plan prevents wasted implementation time. Without architectural planning, developers build the wrong thing, miss edge cases, or invent abstractions the system doesn't need. The adversary catches errors before they become expensive rework.
+Produces the **how** — file paths, type signatures, schemas, endpoint shapes, task ordering.
 
-This skill produces the **how** — file paths, type signatures, schemas, endpoint shapes, task ordering.
+**Fixed inputs (do NOT re-litigate):**
+- Concept doc from `/concept` — includes which docs were read and the relevant contracts from `plans/work-packages/SHARED.md`.
+- Approved design from `/design` (UI stories) — `plans/design-explorations/<story-id>/approved.md`.
 
-**Fixed inputs** — these have already been settled by upstream skills, and `/architecture` does NOT re-litigate them:
-- The **concept doc** (from `/concept`) — what the central nouns ARE, what they ARE NOT, the canonical vocabulary, the contracts (cardinality, closure, mutability, identity, hard rules). The plan respects these; it does not redefine them. Read `docs/concept/*.md` and `docs/work-packages/SHARED.md` "Shared Contracts" before drafting.
-- The **approved design** (from `/design`, when the story has UI) — visual contract, component vocabulary, interaction states. Read `docs/design-explorations/<story-id>/approved.md` before drafting.
+**Doc discovery:** Read the "Required reading" from `/concept` output if available. Otherwise `ls docs/` to identify relevant topic folders. **Output a "Required reading" section in the plan** listing the specific doc files the engineer must read before implementing. This is the natural filter — downstream skills read only what the plan prescribes.
 
-If `/concept` was skipped because the story uses only locked concepts, that's fine — read the existing `docs/concept/*.md` sections instead. If you find a contradiction between the spec and the existing concept doc, stop: that's a `/concept` gap, not an architecture decision.
+If the spec contradicts an existing concept doc, stop — that's a `/concept` gap.
 
 ## Phase 0 — Interrogate the understanding
 
@@ -47,9 +47,9 @@ Produce a `Plan reconciliation:` block in the plan listing every spec assumption
 
 ## Phase 2 — Acceptance criteria + tasks
 
-Read the story `$ARGUMENTS` in the relevant track file under `docs/work-packages/` (e.g., `TRACK-A.md` for A-stories) and relevant sections of `docs/ARCHITECTURE.md`. Read existing code in affected packages.
+Read the story `$ARGUMENTS` in the relevant track file under `plans/work-packages/` (e.g., `TRACK-A.md` for A-stories). Read existing code in affected packages and the relevant doc sections identified in doc discovery above.
 
-If the story has a UI surface and `/design` produced an approved spec (under `docs/design-explorations/<story-id>/approved.md` or wherever the design step wrote it), read it. The visual contract, component vocabulary, and interaction states are inputs — do not re-litigate them.
+If the story has a UI surface and `/design` produced an approved spec (under `plans/design-explorations/<story-id>/approved.md` or wherever the design step wrote it), read it. The visual contract, component vocabulary, and interaction states are inputs — do not re-litigate them.
 
 Produce:
 1. **Acceptance criteria** — each with a specific verification method (see table below)
@@ -92,3 +92,7 @@ Spawn an **adversary agent** to challenge the plan — over-engineering, missing
 Then run `/architecture-critique` to score the plan against the architectural rubric. Iterate fixes until score ≥ 7 or 3 rounds reached.
 
 Save the final plan via TaskCreate so downstream skills can read it.
+
+## Target
+
+$ARGUMENTS

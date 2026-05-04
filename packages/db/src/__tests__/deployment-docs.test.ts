@@ -4,30 +4,43 @@ import { describe, expect, it } from "vitest";
 
 /**
  * H4 AC6: Per-profile deployment docs exist.
+ * Docs restructured: docs/DEPLOYMENT.md → docs/deployment/ directory with
+ * per-profile files (laptop.md, vps.md, cloud.md, etc.).
  */
 describe("H4 AC6: deployment documentation", () => {
 	const repoRoot = path.resolve(__dirname, "..", "..", "..", "..");
-	const docPath = path.join(repoRoot, "docs", "DEPLOYMENT.md");
+	const deployDir = path.join(repoRoot, "docs", "deployment");
 
-	it("docs/DEPLOYMENT.md exists", () => {
-		expect(fs.existsSync(docPath)).toBe(true);
+	it("docs/deployment/ directory exists with per-profile files", () => {
+		expect(fs.existsSync(deployDir)).toBe(true);
+		expect(fs.existsSync(path.join(deployDir, "laptop.md"))).toBe(true);
+		expect(fs.existsSync(path.join(deployDir, "vps.md"))).toBe(true);
+		expect(fs.existsSync(path.join(deployDir, "cloud.md"))).toBe(true);
+		expect(fs.existsSync(path.join(deployDir, "index.md"))).toBe(true);
 	});
 
 	it("has a section per profile (Laptop, VPS, Cloud)", () => {
-		const raw = fs.readFileSync(docPath, "utf-8");
-		expect(raw).toMatch(/^##\s+Laptop/m);
-		expect(raw).toMatch(/^##\s+VPS/m);
-		expect(raw).toMatch(/^##\s+Cloud/m);
+		const laptop = fs.readFileSync(path.join(deployDir, "laptop.md"), "utf-8");
+		const vps = fs.readFileSync(path.join(deployDir, "vps.md"), "utf-8");
+		const cloud = fs.readFileSync(path.join(deployDir, "cloud.md"), "utf-8");
+		expect(laptop).toMatch(/^##\s+Laptop/m);
+		expect(vps).toMatch(/^##\s+VPS/m);
+		expect(cloud).toMatch(/^##\s+Cloud/m);
 	});
 
 	it("references the setup CLI", () => {
-		const raw = fs.readFileSync(docPath, "utf-8");
-		expect(raw).toMatch(/bun run setup/);
+		const laptop = fs.readFileSync(path.join(deployDir, "laptop.md"), "utf-8");
+		const vps = fs.readFileSync(path.join(deployDir, "vps.md"), "utf-8");
+		const cloud = fs.readFileSync(path.join(deployDir, "cloud.md"), "utf-8");
+		const combined = laptop + vps + cloud;
+		expect(combined).toMatch(/bun run setup/);
 	});
 
 	it("references the DATABASE_URL env var for pg profiles", () => {
-		const raw = fs.readFileSync(docPath, "utf-8");
-		expect(raw).toMatch(/DATABASE_URL/);
+		const vps = fs.readFileSync(path.join(deployDir, "vps.md"), "utf-8");
+		const cloud = fs.readFileSync(path.join(deployDir, "cloud.md"), "utf-8");
+		const combined = vps + cloud;
+		expect(combined).toMatch(/DATABASE_URL/);
 	});
 
 	it(".env.example exists at repo root", () => {

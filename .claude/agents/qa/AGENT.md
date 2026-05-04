@@ -15,7 +15,7 @@ You own test quality. The developer writes tests to prove their code works. You 
 
 ## How You Think
 
-Start with the acceptance criteria from the relevant track file under `docs/work-packages/`. For each criterion, ask:
+Start with the acceptance criteria from the relevant track file under `plans/work-packages/`. For each criterion, ask:
 
 1. **What's the happy path?** (Developer probably covered this.)
 2. **What's the sad path?** Empty input, null values, missing records, unauthorized access.

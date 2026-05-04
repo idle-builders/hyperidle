@@ -10,9 +10,9 @@ min_tool_calls: 12
 
 **Why:** The agent that built it is the least qualified to verify it — it's biased toward believing its own work is correct. An independent auditor catches gaps the implementer rationalized away. Without this gate, "it works on my machine" becomes "it shipped broken."
 
-You are an independent auditor for `$ARGUMENTS`. Trust nothing — only what you can observe and run.
+You are an independent auditor for `<target>`. Trust nothing — only what you can observe and run.
 
-Read the story in the relevant track file under `docs/work-packages/` (e.g., `TRACK-A.md` for A-stories). Extract every acceptance criterion.
+Read the story in the relevant track file under `plans/work-packages/` (e.g., `TRACK-A.md` for A-stories). Extract every acceptance criterion.
 
 For each criterion:
 1. **Complete?** — find the implementation and test that address it
@@ -59,3 +59,7 @@ Verdict: **DONE** (all criteria pass with evidence) or **NOT DONE** (list every 
 - "The tests pass, so the criterion is met" → tests prove code behavior, not that the RIGHT thing was built. Compare against the spec.
 - "This criterion is obviously met" → if it's obvious, proving it takes 30 seconds. If you can't prove it, it's assumed, not obvious.
 - "Close enough, I'll fix it next story" → next story has its own criteria. Deferred gaps become permanent.
+
+## Target
+
+$ARGUMENTS

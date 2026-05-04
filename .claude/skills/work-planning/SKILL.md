@@ -40,9 +40,9 @@ A work package is the **smallest deliverable end-to-end change** that has its ow
 
 ## Pre-flight checks (refuse to proceed if any fails)
 
-1. **Track letter is valid.** Must match an existing `docs/work-packages/TRACK-<letter>.md` or be a deliberate new track (in which case create the TRACK file first with the same scope-rules section other tracks use).
-2. **Story ID is unique.** Read `docs/work-packages/pipeline-manifest.yaml`; the generated ID (e.g. `L30`) must not collide with any existing entry.
-3. **Concept gate.** If this story introduces or reshapes a primitive / load-bearing noun (Thread / Block / Artifact / Bet / Cost / etc.), the relevant section in `docs/concept/*.md` AND the `SHARED.md` "Shared Contracts" entry must already exist. If not, refuse to register and tell the founder to run `/concept <noun>` first. This mirrors the runtime gate enforced in `/pipeline`.
+1. **Track letter is valid.** Must match an existing `plans/work-packages/TRACK-<letter>.md` or be a deliberate new track (in which case create the TRACK file first with the same scope-rules section other tracks use).
+2. **Story ID is unique.** Read `plans/work-packages/pipeline-manifest.yaml`; the generated ID (e.g. `L30`) must not collide with any existing entry.
+3. **Concept gate.** If this story introduces or reshapes a primitive / load-bearing noun (Thread / Block / Artifact / Bet / Cost / etc.), the relevant section in `docs/<topic>/` AND the `SHARED.md` "Shared Contracts" entry must already exist. If not, refuse to register and tell the founder to run `/concept <noun>` first. This mirrors the runtime gate enforced in `/pipeline`.
 4. **Dependencies are real blockers.** For each declared dependency, write one sentence justifying *why* this story cannot start until that one is `done`. "Logically related" is not a blocker — it just serializes the scheduler. If you cannot articulate the blocker, drop the dep.
 5. **Sizing fits the rule.**
 
@@ -64,7 +64,7 @@ A work package is the **smallest deliverable end-to-end change** that has its ow
 
 ## Output contract — the spec template
 
-Story specs live **inline as H3 sections inside `docs/work-packages/TRACK-<letter>.md`** (NOT as standalone files). Follow the existing convention used by TRACK-K, TRACK-L, etc. Pipeline-step artifacts (`<id>-architecture-review.md`, `<id>-plan.md`, …) DO get their own files — those are produced later by `/architecture` and friends, not by you.
+Story specs live **inline as H3 sections inside `plans/work-packages/TRACK-<letter>.md`** (NOT as standalone files). Follow the existing convention used by TRACK-K, TRACK-L, etc. Pipeline-step artifacts (`<id>-architecture-review.md`, `<id>-plan.md`, …) DO get their own files — those are produced later by `/architecture` and friends, not by you.
 
 Append the spec at the bottom of the relevant `TRACK-<letter>.md`, with **exactly** these sections, in this order:
 
@@ -104,8 +104,8 @@ If a founder pastes implementation detail into the spec, strip it out before reg
 
 ## Registration steps (perform in order, in one commit)
 
-1. **Append the spec to the track file.** Add the new H3 section at the bottom of `docs/work-packages/TRACK-<letter>.md` per the template above. If the track doesn't exist yet, create the file with the standard preamble (scope rules, reference docs, dependency-graph pointer to `SHARED.md`) before appending.
-2. **Append to the manifest.** Add an entry to `docs/work-packages/pipeline-manifest.yaml` under the existing `stories:` list:
+1. **Append the spec to the track file.** Add the new H3 section at the bottom of `plans/work-packages/TRACK-<letter>.md` per the template above. If the track doesn't exist yet, create the file with the standard preamble (scope rules, reference docs, dependency-graph pointer to `SHARED.md`) before appending.
+2. **Append to the manifest.** Add an entry to `plans/work-packages/pipeline-manifest.yaml` under the existing `stories:` list:
     ```yaml
       - id: <ID>
         title: <Title — same as the spec H3>
@@ -146,3 +146,7 @@ If a founder pastes implementation detail into the spec, strip it out before reg
 ## After registration
 
 Hand control back to the founder.
+
+## Target
+
+$ARGUMENTS

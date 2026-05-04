@@ -1,0 +1,10 @@
+skill,input,output,cache_read,cache_write
+/concept,13,4200,248800,47500
+/design,101,73700,3100000,264400
+/architecture,57,34700,2700000,191300
+/write-tests,52,30500,3900000,122900
+/write-code,67,29700,5800000,125600
+/simp+slop+adversary-review,39,29500,1700000,109200
+/security+design-review,1700,17500,1700000,116600
+/architecture-review,22,13200,1000000,102900
+/verify,59,14800,2600000,62100

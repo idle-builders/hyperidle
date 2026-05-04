@@ -199,7 +199,7 @@ describe("H4 AC1: Bun runtime path for applyLaptopMigrations", () => {
 	// path uses bun:sqlite. We shell out to `bun` so the sandbox exercises
 	// the dynamic-import branch we cannot reach from vitest-under-Node.
 	// When Bun is unavailable (e.g. CI without Bun) we flag UNVERIFIED and
-	// document the operator-side smoke path in docs/DEPLOYMENT.md.
+	// document the operator-side smoke path in docs/deployment/.
 	const bunProbe = spawnSync("bun", ["--version"], { stdio: "pipe" });
 	const bunAvailable = bunProbe.status === 0;
 
@@ -235,7 +235,7 @@ describe("H4 AC1: Bun runtime path for applyLaptopMigrations", () => {
 	it.skipIf(bunAvailable)(
 		"UNVERIFIED: Bun path not exercised (bun not on PATH) — operator must run `bun run setup --profile laptop` manually",
 		() => {
-			// Documented UNVERIFIED marker. See docs/DEPLOYMENT.md § Laptop.
+			// Documented UNVERIFIED marker. See docs/deployment/ § Laptop.
 			expect(bunAvailable).toBe(false);
 		},
 	);

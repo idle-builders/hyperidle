@@ -2,7 +2,7 @@
  * L2 AC-4, AC-5: types and runtime constants for the Block primitive.
  *
  * Closed enums: BLOCK_KINDS (10) and BLOCK_HOST_KINDS (6). The exported
- * names match docs/work-packages/SHARED.md § "Block primitive (L2)".
+ * names match plans/work-packages/SHARED.md § "Block primitive (L2)".
  */
 
 import { describe, expect, expectTypeOf, it } from "vitest";

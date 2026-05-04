@@ -9,7 +9,7 @@
  * @lore L1 step-1 (write-tests): the stub is intentionally throwing — it
  * exists ONLY so test files compile against the contract. Step 2
  * (write-code) replaces every body with the real implementation per
- * `docs/work-packages/L1-plan.md` §4.
+ * `plans/work-packages/L1-plan.md` §4.
  */
 
 // ── Closed enums ────────────────────────────────────────────────
@@ -174,7 +174,7 @@ export type ThreadConfiguration = "dm" | "coach" | "feed" | "attached";
 
 /**
  * Plan §4: documentation-only classifier — never persisted. Used by the
- * docs/concept anchors to describe how a thread reads visually; the data
+ * docs/ section files to describe how a thread reads visually; the data
  * is the host_kind + pinned + participants tuple.
  */
 export function classifyThreadConfiguration(thread: Thread): ThreadConfiguration {

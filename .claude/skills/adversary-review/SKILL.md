@@ -12,11 +12,11 @@ Read-only review. Produce findings — do NOT make code changes.
 
 ## Required reading
 
-1. `docs/work-packages/SHARED.md` — tech stack contracts, component budget
-2. The relevant track file in `docs/work-packages/TRACK-*.md` for the story being reviewed
+1. `plans/work-packages/SHARED.md` — tech stack contracts, component budget
+2. The relevant track file in `plans/work-packages/TRACK-*.md` for the story being reviewed
 3. `.claude/rules/typescript.md` — TypeScript rules the code must follow
 
-Then read ALL changed files (via `$ARGUMENTS` or `git diff --name-only`). Be brutally skeptical.
+Then read ALL changed files (via `<target>` or `git diff --name-only`). Be brutally skeptical.
 
 ## Be thorough
 
@@ -30,6 +30,10 @@ Do not skim. Read every function body. Check every `as` cast. Open every test fi
 - **Test quality** — happy-path-only tests, tautologies, tests that mock everything, tests that assert obvious things but miss the hard cases
 - **Performance** — N+1 queries, unbounded lists, missing indexes, allocations in render loops
 - **AI slop** — over-commenting, unnecessary abstractions, code that looks impressive but does nothing, `@lore` comments that document a problem without fixing it
-- **Spec compliance** — check component behavior against `docs/UI_DESIGN.md` and `docs/HUMAN_INTERFACE_LAYER.md`. If the spec says 4 columns, count the columns.
+- **Spec compliance** — check component behavior against `docs/ui-design/` and `docs/human-interface-layer/`. If the spec says 4 columns, count the columns.
 
 Output structured findings: CRITICAL / WARNINGS / OBSERVATIONS with file paths and line numbers.
+
+## Target
+
+$ARGUMENTS

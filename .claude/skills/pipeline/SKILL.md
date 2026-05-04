@@ -8,7 +8,7 @@ min_tool_calls: 80
 
 # Pipeline — Build Stories End-to-End
 
-Target: **$ARGUMENTS**
+Target: **<target>**
 
 You are autonomous. There is NO human. Never pause, never ask, never stop until every story you were given is done or blocked.
 
@@ -25,14 +25,14 @@ The scheduler invokes you with **one or more story IDs**. The argument is either
 
 Cross-track or cross-complexity batches are NEVER dispatched. If you receive a mixed group, treat it as a scheduler bug: mark every story `blocked` with reason `mixed-batch` and exit.
 
-**State contract — non-negotiable.** You own exactly `.pipeline/progress/<id>.json` for **each ID in $ARGUMENTS, and no others**.
+**State contract — non-negotiable.** You own exactly `.pipeline/progress/<id>.json` for **each ID in <target>, and no others**.
 
 - Read `.pipeline/progress/<id>.json` to resume (skip if `status: done`, resume `in_progress` from `currentStep`).
 - Write `.pipeline/progress/<id>.json` after every status/step change for that story.
 - NEVER read or write progress files for IDs you weren't given. Other agents own those.
 - The legacy `.pipeline/progress.json` is gone — do not create it.
 
-`docs/work-packages/TRACK-<letter>.md` and `docs/work-packages/SHARED.md` remain your reference for spec and dependency graph.
+`plans/work-packages/TRACK-<letter>.md` and `plans/work-packages/SHARED.md` remain your reference for spec and dependency graph.
 
 Record session start time.
 
@@ -48,7 +48,7 @@ cd .worktrees/<id> && bun install
 
 Then execute these steps. **Each step spawns an agent with a skill. Update `currentStep` in progress file before each step.**
 
-**Pre-condition.** The pipeline does NOT run `/concept`. Concept-locking is upstream founder work — what a Thread / Block / Artifact / Bet / Cost IS, what it ISN'T, what contracts it commits us to. Those decisions need founder input and don't fit an autonomous pipeline. Before launching the pipeline, the founder must have run `/concept <id>` for any story that introduces or reshapes a primitive — the relevant `docs/concept/*.md` section + `SHARED.md` "Shared Contracts" entry must exist. The pipeline reads them as fixed input.
+**Pre-condition.** The pipeline does NOT run `/concept`. Concept-locking is upstream founder work — what a Thread / Block / Artifact / Bet / Cost IS, what it ISN'T, what contracts it commits us to. Those decisions need founder input and don't fit an autonomous pipeline. Before launching the pipeline, the founder must have run `/concept <id>` for any story that introduces or reshapes a primitive — the relevant `docs/<topic>/<section>.md` file + `SHARED.md` "Shared Contracts" entry must exist. The pipeline reads them as fixed input.
 
 If a story is dispatched to the pipeline and `/concept` work is missing for a New / Reshaped noun, **fail fast**: mark the story `blocked` with reason `concept-missing` and move on. Do not autonomously redefine concepts.
 
@@ -57,7 +57,7 @@ Then execute these steps. **Each step spawns an agent with a skill. Update `curr
 | Step | Agent | Skill | Why |
 |------|-------|-------|-----|
 | 0 | - | `/concept` | **what is this thing?**. Make sure the concept of what we are working on is well defined. |
-| 1 | designer | `/design <id>` | Multi-variant UX/UI exploration. Three parallel sub-agents under different constraints, embodied HTML mockups + screenshots, `/design-critique` per variant, synthesis → `docs/design-explorations/<id>/approved.md`. **Skip when the story has no UI surface.** Operates *inside* the concept already locked upstream; does not redefine it. |
+| 1 | designer | `/design <id>` | Multi-variant UX/UI exploration. Three parallel sub-agents under different constraints, embodied HTML mockups + screenshots, `/design-critique` per variant, synthesis → `plans/design-explorations/<id>/approved.md`. **Skip when the story has no UI surface.** Operates *inside* the concept already locked upstream; does not redefine it. |
 | 2 | designer | `/design-critique` | Score the approved design against the nine-dimension rubric. Iterate until score ≥7 or 4 iterations reached. Skip when step 1 was skipped. |
 | 3 | architect | `/architecture <id>` | Produce the technical plan — types, schemas, routes, file paths, ordered tasks, security & abuse cases, route checklist, protected tests, plan reconciliation. Architect interrogates one-question-at-a-time. Consumes the concept doc + approved design as fixed inputs. **If the spec enumerates a route list, the plan output MUST include a `route-checklist:` block listing every route + every file the guard/middleware must cover.** Recurrence: L7 retro PROPOSED-L7-B. |
 | 4 | architect | `/architecture-critique` | Score the plan against the nine-dimension architectural rubric (spec alignment, layer integrity, contracts, data model, naming, depth, failure-mode coverage, simplicity, verifiability). Catches CC-003 happy-path ACs, CC-007 spec drift, CC-008 missing protected-tests, L7 missing route-checklist BEFORE write-tests encodes the wrong intent. Iterate until score ≥7 or 3 iterations reached. |
@@ -93,7 +93,7 @@ After step 17: set status to `done`. Move to next story.
 - After each story, check elapsed time. If > 45 minutes, save progress and exit.
 - If context degrades (compaction), finish current story and exit.
 - Max 3 attempts per story. After 3, mark `blocked`.
-- `.pipeline/progress/<id>.json` is the checkpoint for each story you own. Write it after every status/step change. Touch only files for the IDs in $ARGUMENTS — never anyone else's.
+- `.pipeline/progress/<id>.json` is the checkpoint for each story you own. Write it after every status/step change. Touch only files for the IDs in <target> — never anyone else's.
 
 **Don't rationalize skipping steps:**
 - "Concept work isn't done but I'll figure it out" → no. The pipeline does not perform `/concept`. If concept work is missing for a New / Reshaped noun, fail fast with `blocked: concept-missing`; the founder runs `/concept` upstream.
@@ -105,3 +105,7 @@ After step 17: set status to `done`. Move to next story.
 - "Simplify/slop-scan aren't needed" → AI code accumulates cruft that compounds across stories. 2 minutes now saves hours later.
 
 **When to skip /design + /design-critique (steps 1-2):** the story has no UI surface (pure backend, schema, infra, concept-doc-only). Verify by reading the AC list — if no AC mentions a page, component, layout, route on the web side, or visible state, skip. When in doubt, run `/design`; the cost is bounded and the variants serve as documentation even when the founder picks the obvious one.
+
+## Target
+
+$ARGUMENTS

@@ -10,7 +10,7 @@ min_tool_calls: 12
 
 **Why:** Tests written before code define the requirement, not the implementation. They catch when the wrong thing gets built. Tests written after code just confirm what exists — they encode bugs as expected behavior.
 
-Read the plan for `$ARGUMENTS` (check tasks or the story in the relevant track file under `docs/work-packages/`).
+Read the plan for `<target>` (check tasks or the story in the relevant track file under `plans/work-packages/`).
 
 For each acceptance criterion, write a test that proves it. Use:
 - Backend: unit tests with `createTestDb()`, integration tests with `createTestApp()`
@@ -24,3 +24,7 @@ Run all tests. Confirm they **fail** (red phase). Do NOT write implementation co
 - "Too simple to need tests" → simple stories have the highest regression rate
 - "I'll add tests after" → tests after code confirm the implementation, not the requirement
 - "The plan already describes what to build" → the plan describes intent, tests encode it as executable proof
+
+## Target
+
+$ARGUMENTS
