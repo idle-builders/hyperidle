@@ -8,6 +8,7 @@
 //   source <(bun run obs:env)                                # tag this shell with OTel env
 //   source <(bun run obs:env --in-container)                 # same, container-side rewrite
 //   source <(bun run obs:env --ab=block-1 --variant=baseline) # OTel env + ab.test/ab.arm tags
+//   source <(bun run obs:env --workpackage=L15)              # OTel env + hyperidle.workpackage tag
 //   bun run obs:smoke                                        # emit one span; verify ingest
 //   bun run obs:run -- bun bin/pipeline L15                  # run a command with OTel env set
 
@@ -65,6 +66,7 @@ function env(args: string[]): void {
 	const inContainer = args.includes("--in-container");
 	const ab = flagValue(args, "ab");
 	const variant = flagValue(args, "variant") ?? flagValue(args, "arm");
+	const workpackage = flagValue(args, "workpackage") ?? flagValue(args, "wp");
 	if ((ab && !variant) || (variant && !ab)) {
 		console.error("Pass --ab and --variant together (or neither).");
 		console.error("  source <(bun run obs:env --ab=block-1 --variant=baseline)");
@@ -72,13 +74,30 @@ function env(args: string[]): void {
 	}
 
 	const out = inContainer ? rewriteForContainer(OTEL_ENV) : { ...OTEL_ENV };
+	const additions: Record<string, string> = {};
 	if (ab && variant) {
-		out.OTEL_RESOURCE_ATTRIBUTES = mergeResourceAttrs(out.OTEL_RESOURCE_ATTRIBUTES, {
-			"ab.test": ab,
-			"ab.arm": variant,
-		});
+		additions["ab.test"] = ab;
+		additions["ab.arm"] = variant;
+	}
+	if (workpackage) {
+		additions["hyperidle.workpackage"] = workpackage;
+	}
+	if (Object.keys(additions).length > 0) {
+		out.OTEL_RESOURCE_ATTRIBUTES = mergeResourceAttrs(out.OTEL_RESOURCE_ATTRIBUTES, additions);
 	}
 	process.stdout.write(formatExports(out));
+}
+
+function parseResourceAttributesEnv(): Record<string, string> {
+	const raw = process.env.OTEL_RESOURCE_ATTRIBUTES;
+	if (!raw) return {};
+	const out: Record<string, string> = {};
+	for (const pair of raw.split(",")) {
+		const eq = pair.indexOf("=");
+		if (eq <= 0) continue;
+		out[pair.slice(0, eq).trim()] = pair.slice(eq + 1).trim();
+	}
+	return out;
 }
 
 async function smoke(): Promise<void> {
@@ -88,6 +107,7 @@ async function smoke(): Promise<void> {
 
 	const provider = new NodeTracerProvider({
 		resource: resourceFromAttributes({
+			...parseResourceAttributesEnv(),
 			[ATTR_SERVICE_NAME]: "hyperidle-obs-smoke",
 		}),
 		spanProcessors: [new BatchSpanProcessor(new OTLPTraceExporter())],
@@ -137,9 +157,10 @@ switch (cmd) {
 		break;
 	default:
 		console.error(`Usage: bun run scripts/obs.ts <env|smoke|run>`);
-		console.error(`  env [--in-container] [--ab=<test> --variant=<arm>]`);
+		console.error(`  env [--in-container] [--ab=<test> --variant=<arm>] [--workpackage=<id>]`);
 		console.error(`               print export lines for OTLP env vars; A/B flags`);
-		console.error(`               append ab.test / ab.arm resource attributes`);
+		console.error(`               append ab.test / ab.arm / hyperidle.workpackage`);
+		console.error(`               resource attributes`);
 		console.error(`  smoke        emit one OTel span and confirm ingest`);
 		console.error(`  run …        exec a command with OTLP env vars set`);
 		process.exit(2);
