@@ -8,6 +8,14 @@ import { type Span, SpanStatusCode } from "@opentelemetry/api";
 type SystemMessage = Extract<SDKMessage, { type: "system" }>;
 type ResultMessage = Extract<SDKMessage, { type: "result" }>;
 
+import {
+	type BriefData,
+	type MemoryData,
+	readMemory,
+	setActiveStory,
+	writeBrief,
+	writeMemory,
+} from "./brief.js";
 import { getTracer, HYPERIDLE, initOtel, recordSpanError, setSpanAttributes } from "./otel.js";
 import { loadAllSkillFrontmatter, type SkillFrontmatter } from "./skill-frontmatter.js";
 import {
@@ -82,6 +90,8 @@ export function handleSystemMessage(
 	storyId: string,
 	sys: SystemMessage,
 	taskSpans: Map<string, Span>,
+	cwd?: string,
+	taskPersonas?: Map<string, string>,
 ): void {
 	const TRACKED_SUBTYPES = new Set([
 		"task_started",
@@ -119,6 +129,7 @@ export function handleSystemMessage(
 			[HYPERIDLE.toolCallsMinimumEstimate]: fm?.minToolCalls,
 		});
 		taskSpans.set(sys.task_id, taskSpan);
+		taskPersonas?.set(sys.task_id, skillName ?? sys.description);
 	} else if (sys.subtype === "task_progress") {
 		updateSubAgent(groupName, {
 			taskId: sys.task_id,
@@ -153,6 +164,60 @@ export function handleSystemMessage(
 			taskSpan.end();
 			taskSpans.delete(sys.task_id);
 		}
+		if (cwd) {
+			const fromPersona =
+				taskPersonas?.get(sys.task_id) ?? inferSkillName(sys.summary) ?? "unknown";
+			taskPersonas?.delete(sys.task_id);
+			persistHandoverBrief(cwd, storyId, {
+				fromPersona,
+				toPersona: "",
+				priorScore: null,
+				targetFiles: [],
+				openIssues: [],
+				ledgerEntry: sys.summary ?? "",
+				artifactPaths: [],
+			});
+		}
+	}
+}
+
+/**
+ * Prime the runner-owned durable state surface for `storyId` in `cwd`. Sets
+ * the active-story pointer the SessionStart hook reads, and writes a minimal
+ * memory stub if none exists (so the hook always has something to inject).
+ * Returns whether memory existed at session start — recorded as
+ * `hyperidle.brief.injected` for A/B comparison.
+ */
+function primeStoryState(cwd: string, storyId: string): boolean {
+	try {
+		setActiveStory(cwd, storyId);
+	} catch {
+		return false;
+	}
+	const existing = readMemory(cwd, storyId);
+	if (existing) return true;
+	const stub: MemoryData = {
+		story: { id: storyId, spec: { headline: "", acs: [] } },
+		plan: { locked: false, summary: "", routes: [], targetFiles: [] },
+		openIssues: [],
+		priorPersona: { headline: "" },
+	};
+	try {
+		writeMemory(cwd, storyId, stub);
+		return true;
+	} catch {
+		return false;
+	}
+}
+
+function persistHandoverBrief(cwd: string, storyId: string, data: BriefData): void {
+	try {
+		writeBrief(cwd, storyId, data);
+	} catch (err) {
+		// @lore Brief write must never abort the run — the SessionStart hook
+		// degrades gracefully when the brief is missing (emits empty context).
+		const message = err instanceof Error ? err.message : String(err);
+		appendOutput(storyId, `[brief] write failed: ${message}`);
 	}
 }
 
@@ -178,12 +243,15 @@ export async function runStory(options: RunOptions): Promise<RunResult> {
 	let sessionId: string | null = null;
 	const storySpan = getTracer().startSpan("hyperidle.story");
 	const pipelineFm = skillFrontmatter("pipeline");
+	const briefInjected = primeStoryState(cwd, storyId);
 	setSpanAttributes(storySpan, {
 		[HYPERIDLE.storyId]: storyId,
 		[HYPERIDLE.persona]: "pipeline",
 		[HYPERIDLE.toolCallsMinimumEstimate]: pipelineFm?.minToolCalls,
+		[HYPERIDLE.briefInjected]: briefInjected,
 	});
 	const taskSpans = new Map<string, Span>();
+	const taskPersonas = new Map<string, string>();
 	try {
 		const q = query({
 			prompt: `/pipeline ${storyId}`,
@@ -274,7 +342,7 @@ export async function runStory(options: RunOptions): Promise<RunResult> {
 				}
 
 				case "system": {
-					handleSystemMessage(groupName, storyId, message, taskSpans);
+					handleSystemMessage(groupName, storyId, message, taskSpans, cwd, taskPersonas);
 					break;
 				}
 
