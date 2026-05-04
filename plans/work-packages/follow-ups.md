@@ -64,3 +64,20 @@ to the originating story and the story (or track) that should pick it up.
 - **Owner:** TBD — small fixture fix; can land in a maintenance PR or be
   bundled with the next L8 area touch.
 - **Status:** open.
+
+---
+
+## L15 — Apply-review follow-ups
+
+See `plans/L15/follow-ups.md` for full detail. Summary:
+
+- `task-card-mobile-bottom-sheet` — approved §9 bottom-sheet still uses
+  desktop popover with a 44 px row fallback.
+- `crypto-randomuuid-secure-context-fallback` — `crypto.randomUUID`
+  throws on non-secure contexts (SR4).
+- `verb-matrix-spec-amendment` — implementer extended verb matrix beyond
+  approved §4.1 (AR4 / A4 / A5); needs designer amendment.
+- Pre-existing reaffirmed: `auth-middleware-participant-scope` (SR2),
+  `thread-detail-participant-authz` (SR3), `thread-host-existence-check`
+  (SR6), `task-verb-server-validation` (SR5),
+  `task-thread-agent-participant`.

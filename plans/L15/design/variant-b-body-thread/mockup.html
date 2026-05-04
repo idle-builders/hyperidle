@@ -1,0 +1,229 @@
+<!doctype html>
+<html lang="en" data-theme="lucid-dark" data-density="default">
+<head>
+<meta charset="utf-8" />
+<title>L15 Variant B — Body opens thread, kebab requests change</title>
+<link rel="stylesheet" href="../../../../packages/design-system/src/tokens.css" />
+<style>
+  * { box-sizing: border-box; }
+  html, body { background: var(--surface-0); color: var(--text-hi); margin: 0; font-family: var(--ui); font-size: var(--density-text); line-height: var(--leading-body); }
+  .frame { padding: var(--density-page-gutter, 16px); }
+  .page-h1 { font-family: var(--mono); font-size: 14px; font-weight: var(--fw-emphasis); text-transform: uppercase; letter-spacing: var(--tracking-caps); color: var(--text-lo); margin: 0 0 var(--density-gap) 0; }
+
+  .board { display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--density-gap); }
+  .col { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+  .col-h { display: flex; align-items: center; gap: 8px; padding: 0 4px; }
+  .col-h h3 { margin: 0; font-size: 14px; font-weight: var(--fw-emphasis); color: var(--text-hi); }
+  .col-count { font-family: var(--mono); font-size: 11px; color: var(--text-lo); padding: 1px 6px; background: var(--surface-ghost); border-radius: var(--r-pill); }
+  .col-body { display: flex; flex-direction: column; gap: 8px; min-height: 48px; }
+
+  /* The whole card is a button-as-link to the task thread */
+  .card-link { all: unset; cursor: pointer; display: block; }
+  .card-link:hover .card { background: var(--surface-5); }
+  .card-link:focus-visible .card { outline: 2px solid var(--primary); outline-offset: 2px; }
+
+  .card { background: var(--surface-4); border-radius: var(--r2); padding: var(--density-card-pad); display: flex; flex-direction: column; gap: var(--density-card-gap); max-width: 320px; position: relative; transition: background var(--motion-fast) var(--motion-ease); }
+  .card.blocked { border: 1px solid var(--danger); }
+  .card-head { display: flex; align-items: flex-start; gap: 8px; }
+  .card-title { flex: 1 1 auto; min-width: 0; font-size: var(--density-text); font-weight: var(--fw-medium); color: var(--text-hi); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .card-meta { display: flex; align-items: center; gap: var(--density-gap); }
+  .owner { font-size: 12px; color: var(--text-hi); }
+  .kv { display: flex; flex-direction: row; align-items: center; justify-content: space-between; gap: var(--density-card-gap); }
+  .kv-label { font-family: var(--mono); font-size: 11px; text-transform: uppercase; letter-spacing: var(--tracking-caps); font-weight: var(--fw-medium); color: var(--text-lo); }
+  .kv-value { font-size: 14px; color: var(--text-hi); font-variant-numeric: tabular-nums; }
+
+  /* Bottom strip: thread summary + request button */
+  .strip { display: flex; align-items: center; gap: 8px; margin-top: 4px; padding-top: 8px; border-top: 1px solid var(--border-subtle); }
+  .thread-summary { display: inline-flex; align-items: center; gap: 6px; font-family: var(--mono); font-size: 11px; text-transform: uppercase; letter-spacing: var(--tracking-caps); color: var(--text-lo); flex: 1; }
+  .thread-summary .icon { width: 12px; height: 12px; }
+  .thread-summary.unread { color: var(--primary); }
+  .thread-summary .count { font-variant-numeric: tabular-nums; }
+
+  /* Request button — small ghost button */
+  .req-btn { display: inline-flex; align-items: center; gap: 6px; padding: 4px 8px; background: transparent; border: 1px solid var(--border-default); border-radius: var(--r1); color: var(--text-mid); font-family: var(--ui); font-size: 12px; font-weight: var(--fw-medium); cursor: pointer; min-height: 28px; }
+  .req-btn:hover, .req-btn:focus-visible { background: var(--surface-5); color: var(--text-hi); border-color: var(--border-emphasis); outline: none; }
+  .req-btn[aria-expanded="true"] { background: var(--surface-5); color: var(--text-hi); border-color: var(--border-emphasis); }
+  .req-btn .caret { width: 10px; height: 10px; }
+  @media (max-width: 1024px) { .req-btn { min-height: 44px; padding: 8px 12px; } }
+
+  /* StatusChip / Tag (same as A) */
+  .chip { display: inline-flex; align-items: center; gap: 6px; padding: 2px 8px; border-radius: var(--r-pill); font-family: var(--mono); font-size: 11px; letter-spacing: 0.05em; font-weight: var(--fw-medium); text-transform: uppercase; line-height: 1.4; white-space: nowrap; }
+  .chip-dot { display: inline-block; width: 6px; height: 6px; border-radius: var(--r-pill); }
+  .chip-blocked { background: color-mix(in oklab, var(--danger) 14%, transparent); color: var(--danger); }
+  .chip-blocked .chip-dot { background: var(--danger); }
+  .chip-progress { background: color-mix(in oklab, var(--text-lo) 14%, transparent); color: var(--text-lo); }
+  .chip-progress .chip-dot { background: var(--text-lo); }
+  .chip-done { background: color-mix(in oklab, var(--ok) 14%, transparent); color: var(--ok); }
+  .chip-done .chip-dot { background: var(--ok); }
+
+  .tag { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: var(--r2); font-size: 12px; line-height: 1.4; background: var(--surface-ghost); color: var(--text-mid); white-space: nowrap; }
+
+  /* Request menu */
+  .menu { position: absolute; bottom: 44px; right: 8px; min-width: 220px; background: var(--surface-2); border: 1px solid var(--border-default); border-radius: var(--r2); box-shadow: var(--float); padding: 4px; z-index: 5; display: none; }
+  .menu.open { display: block; }
+  .menu-section { padding: 6px 8px 2px 8px; font-family: var(--mono); font-size: 11px; text-transform: uppercase; letter-spacing: var(--tracking-caps); color: var(--text-lo); font-weight: var(--fw-medium); }
+  .menu-divider { height: 1px; background: var(--border-subtle); margin: 4px 0; }
+  .menu-item { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border: 0; background: transparent; color: var(--text-hi); font-size: 14px; width: 100%; text-align: left; cursor: pointer; border-radius: var(--r1); font-family: inherit; }
+  .menu-item:hover, .menu-item:focus-visible { background: var(--surface-4); outline: none; }
+  .menu-item .target { color: var(--text-lo); margin-left: auto; font-family: var(--mono); font-size: 11px; text-transform: uppercase; letter-spacing: var(--tracking-caps); }
+  .menu-item.danger { color: var(--danger); }
+
+  .legend { margin-top: 24px; padding: 12px; background: var(--surface-1); border-radius: var(--r2); border: 1px solid var(--border-subtle); font-size: 13px; color: var(--text-mid); max-width: 720px; }
+  .legend strong { color: var(--text-hi); }
+</style>
+</head>
+<body>
+<div class="frame">
+  <h1 class="page-h1">Team Board</h1>
+
+  <div class="board">
+
+    <!-- Planned -->
+    <section class="col">
+      <div class="col-h"><h3>Planned</h3><span class="col-count">2</span></div>
+      <div class="col-body">
+        <button type="button" class="card-link" aria-label="Open thread for Design signup form">
+          <article class="card" data-state="accepted">
+            <div class="card-head">
+              <span class="card-title">Design signup form</span>
+            </div>
+            <div class="card-meta">
+              <span class="tag">Auth</span>
+              <span class="chip chip-progress"><span class="chip-dot"></span>PAUSED</span>
+            </div>
+            <span class="owner">Dev Agent 2</span>
+            <div class="kv"><span class="kv-label">Cost</span><span class="kv-value">$1.80</span></div>
+            <div class="strip">
+              <span class="thread-summary unread"><svg class="icon" viewBox="0 0 12 12" aria-hidden="true"><path d="M2 3h8v5H7l-2 2v-2H2z" fill="currentColor"/></svg><span class="count">2</span>&nbsp;UNREAD</span>
+              <span class="req-btn" aria-expanded="true" aria-haspopup="menu" role="button" tabindex="0">Request <svg class="caret" viewBox="0 0 10 10" aria-hidden="true"><path d="M2 4l3 3 3-3z" fill="currentColor"/></svg></span>
+              <div class="menu open" role="menu">
+                <div class="menu-section">Request state change</div>
+                <div class="menu-item" role="menuitem"><span>Pause</span><span class="target">Hold</span></div>
+                <div class="menu-item" role="menuitem"><span>Mark blocked</span><span class="target">Blocked</span></div>
+                <div class="menu-item" role="menuitem"><span>Resume</span><span class="target">Move</span></div>
+                <div class="menu-item" role="menuitem"><span>Push to review</span><span class="target">Review</span></div>
+                <div class="menu-item" role="menuitem"><span>Mark done</span><span class="target">Done</span></div>
+                <div class="menu-divider"></div>
+                <div class="menu-item danger" role="menuitem"><span>Kill task</span><span class="target">Killed</span></div>
+              </div>
+            </div>
+          </article>
+        </button>
+
+        <button type="button" class="card-link" aria-label="Open thread for Rate limit middleware (no messages)">
+          <article class="card" data-state="accepted">
+            <div class="card-head">
+              <span class="card-title">Rate limit middleware</span>
+            </div>
+            <div class="card-meta">
+              <span class="tag">API</span>
+              <span class="chip chip-progress"><span class="chip-dot"></span>PAUSED</span>
+            </div>
+            <span class="owner">Dev Agent 1</span>
+            <div class="kv"><span class="kv-label">Cost</span><span class="kv-value">$2.00</span></div>
+            <div class="strip">
+              <span class="thread-summary"><svg class="icon" viewBox="0 0 12 12" aria-hidden="true"><path d="M2 3h8v5H7l-2 2v-2H2z" fill="currentColor"/></svg>NEW THREAD</span>
+              <span class="req-btn">Request <svg class="caret" viewBox="0 0 10 10" aria-hidden="true"><path d="M2 4l3 3 3-3z" fill="currentColor"/></svg></span>
+            </div>
+          </article>
+        </button>
+      </div>
+    </section>
+
+    <!-- Blocked -->
+    <section class="col">
+      <div class="col-h"><h3>Blocked</h3><span class="col-count">1</span></div>
+      <div class="col-body">
+        <button type="button" class="card-link" aria-label="Open thread for Login endpoint">
+          <article class="card blocked" data-state="blocked">
+            <div class="card-head">
+              <span class="card-title">Login endpoint</span>
+            </div>
+            <div class="card-meta">
+              <span class="tag">Auth</span>
+              <span class="chip chip-blocked"><span class="chip-dot"></span>BLOCKED</span>
+            </div>
+            <span class="owner">Dev Agent 1</span>
+            <div class="kv"><span class="kv-label">Cost</span><span class="kv-value">$4.20</span></div>
+            <div class="strip">
+              <span class="thread-summary"><svg class="icon" viewBox="0 0 12 12" aria-hidden="true"><path d="M2 3h8v5H7l-2 2v-2H2z" fill="currentColor"/></svg><span class="count">1</span>&nbsp;MSG</span>
+              <span class="req-btn">Request <svg class="caret" viewBox="0 0 10 10" aria-hidden="true"><path d="M2 4l3 3 3-3z" fill="currentColor"/></svg></span>
+            </div>
+          </article>
+        </button>
+      </div>
+    </section>
+
+    <!-- In Progress -->
+    <section class="col">
+      <div class="col-h"><h3>In Progress</h3><span class="col-count">2</span></div>
+      <div class="col-body">
+        <button type="button" class="card-link" aria-label="Open thread for JWT refresh logic">
+          <article class="card" data-state="in_progress">
+            <div class="card-head">
+              <span class="card-title">JWT refresh logic</span>
+            </div>
+            <div class="card-meta">
+              <span class="tag">Auth</span>
+              <span class="chip chip-progress"><span class="chip-dot"></span>REVIEW</span>
+            </div>
+            <span class="owner">Dev Agent 1</span>
+            <div class="kv"><span class="kv-label">Cost</span><span class="kv-value">$6.50</span></div>
+            <div class="strip">
+              <span class="thread-summary unread"><svg class="icon" viewBox="0 0 12 12" aria-hidden="true"><path d="M2 3h8v5H7l-2 2v-2H2z" fill="currentColor"/></svg><span class="count">3</span>&nbsp;UNREAD</span>
+              <span class="req-btn">Request <svg class="caret" viewBox="0 0 10 10" aria-hidden="true"><path d="M2 4l3 3 3-3z" fill="currentColor"/></svg></span>
+            </div>
+          </article>
+        </button>
+
+        <button type="button" class="card-link" aria-label="Open thread for Implement login endpoint">
+          <article class="card" data-state="in_progress">
+            <div class="card-head">
+              <span class="card-title">Implement login endpoint</span>
+            </div>
+            <div class="card-meta">
+              <span class="tag">Auth</span>
+              <span class="chip chip-progress"><span class="chip-dot"></span>IN PROGRESS</span>
+            </div>
+            <span class="owner">Dev Agent 1</span>
+            <div class="kv"><span class="kv-label">Cost</span><span class="kv-value">$4.20</span></div>
+            <div class="strip">
+              <span class="thread-summary"><svg class="icon" viewBox="0 0 12 12" aria-hidden="true"><path d="M2 3h8v5H7l-2 2v-2H2z" fill="currentColor"/></svg>NEW THREAD</span>
+              <span class="req-btn">Request <svg class="caret" viewBox="0 0 10 10" aria-hidden="true"><path d="M2 4l3 3 3-3z" fill="currentColor"/></svg></span>
+            </div>
+          </article>
+        </button>
+      </div>
+    </section>
+
+    <!-- Done -->
+    <section class="col">
+      <div class="col-h"><h3>Done</h3><span class="col-count">1</span></div>
+      <div class="col-body">
+        <button type="button" class="card-link" aria-label="Open thread for Write auth tests">
+          <article class="card" data-state="done">
+            <div class="card-head">
+              <span class="card-title">Write auth tests</span>
+            </div>
+            <div class="card-meta">
+              <span class="tag">Auth</span>
+              <span class="chip chip-done"><span class="chip-dot"></span>DONE</span>
+            </div>
+            <span class="owner">Dev Agent 2</span>
+            <div class="kv"><span class="kv-label">Cost</span><span class="kv-value">$3.10</span></div>
+            <div class="strip">
+              <span class="thread-summary"><svg class="icon" viewBox="0 0 12 12" aria-hidden="true"><path d="M2 3h8v5H7l-2 2v-2H2z" fill="currentColor"/></svg>NEW THREAD</span>
+              <span class="req-btn">Request <svg class="caret" viewBox="0 0 10 10" aria-hidden="true"><path d="M2 4l3 3 3-3z" fill="currentColor"/></svg></span>
+            </div>
+          </article>
+        </button>
+      </div>
+    </section>
+  </div>
+
+  <div class="legend">
+    <strong>Variant B — Body opens thread; Request button surfaces state changes.</strong> The whole card body is a button that opens the task thread (the most common action gets the largest target). A bottom strip carries a quiet thread summary on the left and a small <code>Request</code> button on the right that opens a state-change menu (click-stopped from the card-link). Drag is gone; cursor is <code>pointer</code> over the card body to signal a navigation target. Two grammars; two affordances. Discovery rides on a known web convention.
+  </div>
+</div>
+</body>
+</html>

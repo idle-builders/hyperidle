@@ -1,0 +1,218 @@
+<!doctype html>
+<html lang="en" data-theme="lucid-dark" data-density="default">
+<head>
+<meta charset="utf-8" />
+<title>L15 Variant C — Inline verb row</title>
+<link rel="stylesheet" href="../../../../packages/design-system/src/tokens.css" />
+<style>
+  * { box-sizing: border-box; }
+  html, body { background: var(--surface-0); color: var(--text-hi); margin: 0; font-family: var(--ui); font-size: var(--density-text); line-height: var(--leading-body); }
+  .frame { padding: var(--density-page-gutter, 16px); }
+  .page-h1 { font-family: var(--mono); font-size: 14px; font-weight: var(--fw-emphasis); text-transform: uppercase; letter-spacing: var(--tracking-caps); color: var(--text-lo); margin: 0 0 var(--density-gap) 0; }
+
+  .board { display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--density-gap); }
+  .col { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+  .col-h { display: flex; align-items: center; gap: 8px; padding: 0 4px; }
+  .col-h h3 { margin: 0; font-size: 14px; font-weight: var(--fw-emphasis); color: var(--text-hi); }
+  .col-count { font-family: var(--mono); font-size: 11px; color: var(--text-lo); padding: 1px 6px; background: var(--surface-ghost); border-radius: var(--r-pill); }
+  .col-body { display: flex; flex-direction: column; gap: 8px; min-height: 48px; }
+
+  .card { background: var(--surface-4); border-radius: var(--r2); padding: var(--density-card-pad); display: flex; flex-direction: column; gap: var(--density-card-gap); max-width: 320px; position: relative; }
+  .card.blocked { border: 1px solid var(--danger); }
+  .card-title { font-size: var(--density-text); font-weight: var(--fw-medium); color: var(--text-hi); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .card-meta { display: flex; align-items: center; gap: var(--density-gap); }
+  .owner { font-size: 12px; color: var(--text-hi); }
+  .kv { display: flex; flex-direction: row; align-items: center; justify-content: space-between; gap: var(--density-card-gap); }
+  .kv-label { font-family: var(--mono); font-size: 11px; text-transform: uppercase; letter-spacing: var(--tracking-caps); font-weight: var(--fw-medium); color: var(--text-lo); }
+  .kv-value { font-size: 14px; color: var(--text-hi); font-variant-numeric: tabular-nums; }
+
+  /* StatusChip / Tag */
+  .chip { display: inline-flex; align-items: center; gap: 6px; padding: 2px 8px; border-radius: var(--r-pill); font-family: var(--mono); font-size: 11px; letter-spacing: 0.05em; font-weight: var(--fw-medium); text-transform: uppercase; line-height: 1.4; white-space: nowrap; }
+  .chip-dot { display: inline-block; width: 6px; height: 6px; border-radius: var(--r-pill); }
+  .chip-blocked { background: color-mix(in oklab, var(--danger) 14%, transparent); color: var(--danger); }
+  .chip-blocked .chip-dot { background: var(--danger); }
+  .chip-progress { background: color-mix(in oklab, var(--text-lo) 14%, transparent); color: var(--text-lo); }
+  .chip-progress .chip-dot { background: var(--text-lo); }
+  .chip-done { background: color-mix(in oklab, var(--ok) 14%, transparent); color: var(--ok); }
+  .chip-done .chip-dot { background: var(--ok); }
+  .tag { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: var(--r2); font-size: 12px; line-height: 1.4; background: var(--surface-ghost); color: var(--text-mid); white-space: nowrap; }
+
+  /* Verb row */
+  .verbs { display: flex; align-items: center; gap: 4px; padding-top: 8px; border-top: 1px solid var(--border-subtle); margin-top: 4px; flex-wrap: nowrap; overflow: hidden; }
+  .verb-btn { display: inline-flex; align-items: center; gap: 4px; padding: 4px 8px; background: transparent; border: 1px solid var(--border-default); border-radius: var(--r1); color: var(--text-mid); font-family: var(--ui); font-size: 12px; font-weight: var(--fw-medium); cursor: pointer; min-height: 28px; white-space: nowrap; }
+  .verb-btn:hover, .verb-btn:focus-visible { background: var(--surface-5); color: var(--text-hi); border-color: var(--border-emphasis); outline: none; }
+  .verb-btn.primary { background: color-mix(in oklab, var(--primary) 12%, transparent); color: var(--primary); border-color: color-mix(in oklab, var(--primary) 24%, transparent); }
+  .verb-btn.primary:hover { background: color-mix(in oklab, var(--primary) 18%, transparent); }
+  .verb-btn.danger { color: var(--danger); border-color: color-mix(in oklab, var(--danger) 30%, transparent); }
+  .verb-btn .badge { display: inline-flex; align-items: center; justify-content: center; min-width: 14px; height: 14px; padding: 0 4px; border-radius: var(--r-pill); background: var(--primary); color: var(--surface-0); font-size: 10px; font-weight: var(--fw-emphasis); margin-left: 2px; font-variant-numeric: tabular-nums; }
+  .verb-more { width: 28px; height: 28px; display: inline-flex; align-items: center; justify-content: center; background: transparent; border: 1px solid var(--border-default); border-radius: var(--r1); color: var(--text-mid); cursor: pointer; padding: 0; flex: 0 0 auto; }
+  .verb-more:hover, .verb-more:focus-visible { background: var(--surface-5); color: var(--text-hi); border-color: var(--border-emphasis); outline: none; }
+  .verb-more svg { width: 14px; height: 14px; }
+  @media (max-width: 1024px) { .verb-btn, .verb-more { min-height: 44px; padding: 8px 12px; } .verb-more { width: 44px; height: 44px; } }
+
+  /* Overflow menu (open on the demo card) */
+  .menu { position: absolute; bottom: 44px; right: 8px; min-width: 200px; background: var(--surface-2); border: 1px solid var(--border-default); border-radius: var(--r2); box-shadow: var(--float); padding: 4px; z-index: 5; display: none; }
+  .menu.open { display: block; }
+  .menu-section { padding: 6px 8px 2px 8px; font-family: var(--mono); font-size: 11px; text-transform: uppercase; letter-spacing: var(--tracking-caps); color: var(--text-lo); font-weight: var(--fw-medium); }
+  .menu-divider { height: 1px; background: var(--border-subtle); margin: 4px 0; }
+  .menu-item { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border: 0; background: transparent; color: var(--text-hi); font-size: 14px; width: 100%; text-align: left; cursor: pointer; border-radius: var(--r1); font-family: inherit; }
+  .menu-item:hover, .menu-item:focus-visible { background: var(--surface-4); outline: none; }
+  .menu-item.danger { color: var(--danger); }
+
+  .legend { margin-top: 24px; padding: 12px; background: var(--surface-1); border-radius: var(--r2); border: 1px solid var(--border-subtle); font-size: 13px; color: var(--text-mid); max-width: 720px; }
+  .legend strong { color: var(--text-hi); }
+</style>
+</head>
+<body>
+<div class="frame">
+  <h1 class="page-h1">Team Board</h1>
+
+  <div class="board">
+
+    <!-- Planned -->
+    <section class="col">
+      <div class="col-h"><h3>Planned</h3><span class="col-count">2</span></div>
+      <div class="col-body">
+
+        <article class="card" data-state="accepted">
+          <span class="card-title">Design signup form</span>
+          <div class="card-meta">
+            <span class="tag">Auth</span>
+            <span class="chip chip-progress"><span class="chip-dot"></span>PAUSED</span>
+          </div>
+          <span class="owner">Dev Agent 2</span>
+          <div class="kv"><span class="kv-label">Cost</span><span class="kv-value">$1.80</span></div>
+          <div class="verbs">
+            <button class="verb-btn primary" type="button">Thread<span class="badge">2</span></button>
+            <button class="verb-btn" type="button">Pause</button>
+            <button class="verb-btn" type="button">Block</button>
+            <button class="verb-more" aria-label="More request actions" aria-expanded="true" aria-haspopup="menu">
+              <svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="3" cy="8" r="1.5" fill="currentColor"/><circle cx="8" cy="8" r="1.5" fill="currentColor"/><circle cx="13" cy="8" r="1.5" fill="currentColor"/></svg>
+            </button>
+            <div class="menu open" role="menu">
+              <div class="menu-section">Request state change</div>
+              <div class="menu-item" role="menuitem"><span>Resume</span></div>
+              <div class="menu-item" role="menuitem"><span>Push to review</span></div>
+              <div class="menu-item" role="menuitem"><span>Mark done</span></div>
+              <div class="menu-divider"></div>
+              <div class="menu-item danger" role="menuitem"><span>Kill task</span></div>
+            </div>
+          </div>
+        </article>
+
+        <article class="card" data-state="accepted">
+          <span class="card-title">Rate limit middleware</span>
+          <div class="card-meta">
+            <span class="tag">API</span>
+            <span class="chip chip-progress"><span class="chip-dot"></span>PAUSED</span>
+          </div>
+          <span class="owner">Dev Agent 1</span>
+          <div class="kv"><span class="kv-label">Cost</span><span class="kv-value">$2.00</span></div>
+          <div class="verbs">
+            <button class="verb-btn" type="button">Thread</button>
+            <button class="verb-btn" type="button">Pause</button>
+            <button class="verb-btn" type="button">Block</button>
+            <button class="verb-more" aria-label="More request actions" aria-haspopup="menu">
+              <svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="3" cy="8" r="1.5" fill="currentColor"/><circle cx="8" cy="8" r="1.5" fill="currentColor"/><circle cx="13" cy="8" r="1.5" fill="currentColor"/></svg>
+            </button>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <!-- Blocked -->
+    <section class="col">
+      <div class="col-h"><h3>Blocked</h3><span class="col-count">1</span></div>
+      <div class="col-body">
+        <article class="card blocked" data-state="blocked">
+          <span class="card-title">Login endpoint</span>
+          <div class="card-meta">
+            <span class="tag">Auth</span>
+            <span class="chip chip-blocked"><span class="chip-dot"></span>BLOCKED</span>
+          </div>
+          <span class="owner">Dev Agent 1</span>
+          <div class="kv"><span class="kv-label">Cost</span><span class="kv-value">$4.20</span></div>
+          <div class="verbs">
+            <button class="verb-btn primary" type="button">Thread<span class="badge">1</span></button>
+            <button class="verb-btn" type="button">Resume</button>
+            <button class="verb-btn danger" type="button">Kill</button>
+            <button class="verb-more" aria-label="More request actions" aria-haspopup="menu">
+              <svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="3" cy="8" r="1.5" fill="currentColor"/><circle cx="8" cy="8" r="1.5" fill="currentColor"/><circle cx="13" cy="8" r="1.5" fill="currentColor"/></svg>
+            </button>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <!-- In Progress -->
+    <section class="col">
+      <div class="col-h"><h3>In Progress</h3><span class="col-count">2</span></div>
+      <div class="col-body">
+        <article class="card" data-state="in_progress">
+          <span class="card-title">JWT refresh logic</span>
+          <div class="card-meta">
+            <span class="tag">Auth</span>
+            <span class="chip chip-progress"><span class="chip-dot"></span>REVIEW</span>
+          </div>
+          <span class="owner">Dev Agent 1</span>
+          <div class="kv"><span class="kv-label">Cost</span><span class="kv-value">$6.50</span></div>
+          <div class="verbs">
+            <button class="verb-btn primary" type="button">Thread<span class="badge">3</span></button>
+            <button class="verb-btn" type="button">Pause</button>
+            <button class="verb-btn" type="button">Block</button>
+            <button class="verb-more" aria-label="More request actions" aria-haspopup="menu">
+              <svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="3" cy="8" r="1.5" fill="currentColor"/><circle cx="8" cy="8" r="1.5" fill="currentColor"/><circle cx="13" cy="8" r="1.5" fill="currentColor"/></svg>
+            </button>
+          </div>
+        </article>
+
+        <article class="card" data-state="in_progress">
+          <span class="card-title">Implement login endpoint</span>
+          <div class="card-meta">
+            <span class="tag">Auth</span>
+            <span class="chip chip-progress"><span class="chip-dot"></span>IN PROGRESS</span>
+          </div>
+          <span class="owner">Dev Agent 1</span>
+          <div class="kv"><span class="kv-label">Cost</span><span class="kv-value">$4.20</span></div>
+          <div class="verbs">
+            <button class="verb-btn" type="button">Thread</button>
+            <button class="verb-btn" type="button">Pause</button>
+            <button class="verb-btn" type="button">Block</button>
+            <button class="verb-more" aria-label="More request actions" aria-haspopup="menu">
+              <svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="3" cy="8" r="1.5" fill="currentColor"/><circle cx="8" cy="8" r="1.5" fill="currentColor"/><circle cx="13" cy="8" r="1.5" fill="currentColor"/></svg>
+            </button>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <!-- Done -->
+    <section class="col">
+      <div class="col-h"><h3>Done</h3><span class="col-count">1</span></div>
+      <div class="col-body">
+        <article class="card" data-state="done">
+          <span class="card-title">Write auth tests</span>
+          <div class="card-meta">
+            <span class="tag">Auth</span>
+            <span class="chip chip-done"><span class="chip-dot"></span>DONE</span>
+          </div>
+          <span class="owner">Dev Agent 2</span>
+          <div class="kv"><span class="kv-label">Cost</span><span class="kv-value">$3.10</span></div>
+          <div class="verbs">
+            <button class="verb-btn" type="button">Thread</button>
+            <button class="verb-btn" type="button">Reopen</button>
+            <button class="verb-more" aria-label="More request actions" aria-haspopup="menu">
+              <svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="3" cy="8" r="1.5" fill="currentColor"/><circle cx="8" cy="8" r="1.5" fill="currentColor"/><circle cx="13" cy="8" r="1.5" fill="currentColor"/></svg>
+            </button>
+          </div>
+        </article>
+      </div>
+    </section>
+  </div>
+
+  <div class="legend">
+    <strong>Variant C — Inline verb row.</strong> Every card grows a one-line strip of explicit verbs: a primary <code>Thread</code> button (with unread badge when applicable), state-relevant request verbs (Pause / Block / Resume / Reopen) chosen by the card's current state, then a <code>...</code> overflow menu for the rest. Verbs are spelled out — no kebab-only ambiguity. Drag is gone; cursor is <code>default</code> over card body. Pure surface; highest discovery, lowest density.
+  </div>
+</div>
+</body>
+</html>

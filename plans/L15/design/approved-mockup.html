@@ -1,0 +1,216 @@
+<!doctype html>
+<html lang="en" data-theme="lucid-dark" data-density="default">
+<head>
+<meta charset="utf-8" />
+<title>L15 Approved — Kebab + conditional unread body-click</title>
+<link rel="stylesheet" href="../../../packages/design-system/src/tokens.css" />
+<style>
+  * { box-sizing: border-box; }
+  html, body { background: var(--surface-0); color: var(--text-hi); margin: 0; font-family: var(--ui); font-size: var(--density-text); line-height: var(--leading-body); }
+  .frame { padding: var(--density-page-gutter, 16px); }
+  .page-h1 { font-family: var(--mono); font-size: 14px; font-weight: var(--fw-emphasis); text-transform: uppercase; letter-spacing: var(--tracking-caps); color: var(--text-lo); margin: 0 0 var(--density-gap) 0; }
+
+  .board { display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--density-gap); }
+  .col { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+  .col-h { display: flex; align-items: center; gap: 8px; padding: 0 4px; }
+  .col-h h3 { margin: 0; font-size: 14px; font-weight: var(--fw-emphasis); color: var(--text-hi); }
+  .col-count { font-family: var(--mono); font-size: 11px; color: var(--text-lo); padding: 1px 6px; background: var(--surface-ghost); border-radius: var(--r-pill); }
+  .col-body { display: flex; flex-direction: column; gap: 8px; min-height: 48px; }
+
+  .card { background: var(--surface-4); border-radius: var(--r2); padding: var(--density-card-pad); display: flex; flex-direction: column; gap: var(--density-card-gap); max-width: 320px; position: relative; cursor: default; }
+  .card.blocked { border: 1px solid var(--danger); }
+  .card-head { display: flex; align-items: flex-start; gap: 8px; }
+  .title-row { flex: 1 1 auto; min-width: 0; display: flex; align-items: center; gap: 6px; }
+  .title-row.unread { cursor: pointer; }
+  .title-row.unread:hover .card-title { color: var(--primary); }
+  .title-row.unread:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; border-radius: var(--r1); }
+  .card-title { font-size: var(--density-text); font-weight: var(--fw-medium); color: var(--text-hi); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; transition: color var(--motion-fast) var(--motion-ease); }
+  .thread-dot { display: inline-block; width: 6px; height: 6px; border-radius: var(--r-pill); background: var(--text-lo); flex: 0 0 auto; }
+  .thread-dot.unread { background: var(--primary); box-shadow: 0 0 0 2px color-mix(in oklab, var(--primary) 30%, transparent); }
+  .card-meta { display: flex; align-items: center; gap: var(--density-gap); }
+  .owner { font-size: 12px; color: var(--text-hi); }
+  .kv { display: flex; flex-direction: row; align-items: center; justify-content: space-between; gap: var(--density-card-gap); }
+  .kv-label { font-family: var(--mono); font-size: 11px; text-transform: uppercase; letter-spacing: var(--tracking-caps); font-weight: var(--fw-medium); color: var(--text-lo); }
+  .kv-value { font-size: 14px; color: var(--text-hi); font-variant-numeric: tabular-nums; }
+
+  .chip { display: inline-flex; align-items: center; gap: 6px; padding: 2px 8px; border-radius: var(--r-pill); font-family: var(--mono); font-size: 11px; letter-spacing: 0.05em; font-weight: var(--fw-medium); text-transform: uppercase; line-height: 1.4; white-space: nowrap; }
+  .chip-dot { display: inline-block; width: 6px; height: 6px; border-radius: var(--r-pill); }
+  .chip-blocked { background: color-mix(in oklab, var(--danger) 14%, transparent); color: var(--danger); } .chip-blocked .chip-dot { background: var(--danger); }
+  .chip-progress { background: color-mix(in oklab, var(--text-lo) 14%, transparent); color: var(--text-lo); } .chip-progress .chip-dot { background: var(--text-lo); }
+  .chip-done { background: color-mix(in oklab, var(--ok) 14%, transparent); color: var(--ok); } .chip-done .chip-dot { background: var(--ok); }
+  .tag { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: var(--r2); font-size: 12px; line-height: 1.4; background: var(--surface-ghost); color: var(--text-mid); white-space: nowrap; }
+
+  .kebab { width: 28px; height: 28px; display: inline-flex; align-items: center; justify-content: center; background: transparent; border: 0; border-radius: var(--r1); color: var(--text-mid); cursor: pointer; padding: 0; flex: 0 0 auto; }
+  .kebab:hover, .kebab:focus-visible { background: var(--surface-5); color: var(--text-hi); outline: none; }
+  .kebab[aria-expanded="true"] { background: var(--surface-5); color: var(--text-hi); }
+  .kebab svg { width: 16px; height: 16px; }
+
+  .menu { position: absolute; top: 36px; right: 8px; min-width: 240px; background: var(--surface-2); border: 1px solid var(--border-default); border-radius: var(--r2); box-shadow: var(--float); padding: 4px; z-index: 5; display: none; }
+  .menu.open { display: block; }
+  .menu-section { padding: 6px 8px 2px 8px; font-family: var(--mono); font-size: 11px; text-transform: uppercase; letter-spacing: var(--tracking-caps); color: var(--text-lo); font-weight: var(--fw-medium); }
+  .menu-divider { height: 1px; background: var(--border-subtle); margin: 4px 0; }
+  .menu-item { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border: 0; background: transparent; color: var(--text-hi); font-size: 14px; width: 100%; text-align: left; cursor: pointer; border-radius: var(--r1); font-family: inherit; }
+  .menu-item:hover, .menu-item:focus-visible { background: var(--surface-4); outline: none; }
+  .menu-item.primary-tint { background: color-mix(in oklab, var(--primary) 10%, transparent); }
+  .menu-item.primary-tint:hover { background: color-mix(in oklab, var(--primary) 16%, transparent); }
+  .menu-item .target { color: var(--text-lo); margin-left: auto; font-family: var(--mono); font-size: 11px; text-transform: uppercase; letter-spacing: var(--tracking-caps); }
+  .menu-item.danger { color: var(--danger); }
+  .menu-item[aria-disabled="true"] { color: var(--text-lo); cursor: not-allowed; }
+
+  .legend { margin-top: 24px; padding: 12px; background: var(--surface-1); border-radius: var(--r2); border: 1px solid var(--border-subtle); font-size: 13px; color: var(--text-mid); max-width: 720px; }
+  .legend strong { color: var(--text-hi); }
+</style>
+</head>
+<body>
+<div class="frame">
+  <h1 class="page-h1">Team Board</h1>
+
+  <div class="board">
+
+    <section class="col">
+      <div class="col-h"><h3>Planned</h3><span class="col-count">2</span></div>
+      <div class="col-body">
+
+        <article class="card" data-state="accepted">
+          <div class="card-head">
+            <span class="title-row unread" tabindex="0" role="button" aria-label="Open thread for Design signup form (2 unread)">
+              <span class="thread-dot unread" aria-hidden="true"></span>
+              <span class="card-title">Design signup form</span>
+            </span>
+            <button class="kebab" aria-label="Task actions for Design signup form" aria-expanded="true" aria-haspopup="menu">
+              <svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="3" r="1.5" fill="currentColor"/><circle cx="8" cy="8" r="1.5" fill="currentColor"/><circle cx="8" cy="13" r="1.5" fill="currentColor"/></svg>
+            </button>
+            <div class="menu open" role="menu">
+              <div class="menu-item primary-tint" role="menuitem">
+                <span>Open thread</span><span class="target">2 unread</span>
+              </div>
+              <div class="menu-divider"></div>
+              <div class="menu-section">Request state change</div>
+              <div class="menu-item" role="menuitem"><span>Pause</span><span class="target">Hold</span></div>
+              <div class="menu-item" role="menuitem"><span>Mark blocked</span><span class="target">Blocked</span></div>
+              <div class="menu-item" role="menuitem" aria-disabled="true"><span>Resume</span><span class="target">Already moving</span></div>
+              <div class="menu-item" role="menuitem"><span>Push to review</span><span class="target">Review</span></div>
+              <div class="menu-item" role="menuitem"><span>Mark done</span><span class="target">Done</span></div>
+              <div class="menu-divider"></div>
+              <div class="menu-item danger" role="menuitem"><span>Kill task</span><span class="target">Killed</span></div>
+            </div>
+          </div>
+          <div class="card-meta">
+            <span class="tag">Auth</span>
+            <span class="chip chip-progress"><span class="chip-dot"></span>PAUSED</span>
+          </div>
+          <span class="owner">Dev Agent 2</span>
+          <div class="kv"><span class="kv-label">Cost</span><span class="kv-value">$1.80</span></div>
+        </article>
+
+        <article class="card" data-state="accepted">
+          <div class="card-head">
+            <span class="title-row">
+              <span class="card-title">Rate limit middleware</span>
+            </span>
+            <button class="kebab" aria-label="Task actions for Rate limit middleware" aria-expanded="false" aria-haspopup="menu">
+              <svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="3" r="1.5" fill="currentColor"/><circle cx="8" cy="8" r="1.5" fill="currentColor"/><circle cx="8" cy="13" r="1.5" fill="currentColor"/></svg>
+            </button>
+          </div>
+          <div class="card-meta">
+            <span class="tag">API</span>
+            <span class="chip chip-progress"><span class="chip-dot"></span>PAUSED</span>
+          </div>
+          <span class="owner">Dev Agent 1</span>
+          <div class="kv"><span class="kv-label">Cost</span><span class="kv-value">$2.00</span></div>
+        </article>
+      </div>
+    </section>
+
+    <section class="col">
+      <div class="col-h"><h3>Blocked</h3><span class="col-count">1</span></div>
+      <div class="col-body">
+        <article class="card blocked" data-state="blocked">
+          <div class="card-head">
+            <span class="title-row">
+              <span class="thread-dot" aria-hidden="true" title="1 message"></span>
+              <span class="card-title">Login endpoint</span>
+            </span>
+            <button class="kebab" aria-label="Task actions for Login endpoint" aria-expanded="false" aria-haspopup="menu">
+              <svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="3" r="1.5" fill="currentColor"/><circle cx="8" cy="8" r="1.5" fill="currentColor"/><circle cx="8" cy="13" r="1.5" fill="currentColor"/></svg>
+            </button>
+          </div>
+          <div class="card-meta">
+            <span class="tag">Auth</span>
+            <span class="chip chip-blocked"><span class="chip-dot"></span>BLOCKED</span>
+          </div>
+          <span class="owner">Dev Agent 1</span>
+          <div class="kv"><span class="kv-label">Cost</span><span class="kv-value">$4.20</span></div>
+        </article>
+      </div>
+    </section>
+
+    <section class="col">
+      <div class="col-h"><h3>In Progress</h3><span class="col-count">2</span></div>
+      <div class="col-body">
+        <article class="card" data-state="in_progress">
+          <div class="card-head">
+            <span class="title-row unread" tabindex="0" role="button" aria-label="Open thread for JWT refresh logic (3 unread)">
+              <span class="thread-dot unread" aria-hidden="true"></span>
+              <span class="card-title">JWT refresh logic</span>
+            </span>
+            <button class="kebab" aria-label="Task actions for JWT refresh logic" aria-expanded="false" aria-haspopup="menu">
+              <svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="3" r="1.5" fill="currentColor"/><circle cx="8" cy="8" r="1.5" fill="currentColor"/><circle cx="8" cy="13" r="1.5" fill="currentColor"/></svg>
+            </button>
+          </div>
+          <div class="card-meta">
+            <span class="tag">Auth</span>
+            <span class="chip chip-progress"><span class="chip-dot"></span>REVIEW</span>
+          </div>
+          <span class="owner">Dev Agent 1</span>
+          <div class="kv"><span class="kv-label">Cost</span><span class="kv-value">$6.50</span></div>
+        </article>
+
+        <article class="card" data-state="in_progress">
+          <div class="card-head">
+            <span class="title-row">
+              <span class="card-title">Implement login endpoint</span>
+            </span>
+            <button class="kebab" aria-label="Task actions for Implement login endpoint" aria-expanded="false" aria-haspopup="menu">
+              <svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="3" r="1.5" fill="currentColor"/><circle cx="8" cy="8" r="1.5" fill="currentColor"/><circle cx="8" cy="13" r="1.5" fill="currentColor"/></svg>
+            </button>
+          </div>
+          <div class="card-meta">
+            <span class="tag">Auth</span>
+            <span class="chip chip-progress"><span class="chip-dot"></span>IN PROGRESS</span>
+          </div>
+          <span class="owner">Dev Agent 1</span>
+          <div class="kv"><span class="kv-label">Cost</span><span class="kv-value">$4.20</span></div>
+        </article>
+      </div>
+    </section>
+
+    <section class="col">
+      <div class="col-h"><h3>Done</h3><span class="col-count">1</span></div>
+      <div class="col-body">
+        <article class="card" data-state="done">
+          <div class="card-head">
+            <span class="title-row">
+              <span class="card-title">Write auth tests</span>
+            </span>
+            <button class="kebab" aria-label="Task actions for Write auth tests" aria-expanded="false" aria-haspopup="menu">
+              <svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="3" r="1.5" fill="currentColor"/><circle cx="8" cy="8" r="1.5" fill="currentColor"/><circle cx="8" cy="13" r="1.5" fill="currentColor"/></svg>
+            </button>
+          </div>
+          <div class="card-meta">
+            <span class="tag">Auth</span>
+            <span class="chip chip-done"><span class="chip-dot"></span>DONE</span>
+          </div>
+          <span class="owner">Dev Agent 2</span>
+          <div class="kv"><span class="kv-label">Cost</span><span class="kv-value">$3.10</span></div>
+        </article>
+      </div>
+    </section>
+  </div>
+
+  <div class="legend">
+    <strong>L15 Approved.</strong> Kebab menu owns every state-change request and "Open thread". A 6 px thread dot appears beside the title when a thread exists; primary-tint when unread. The title row becomes a click target only when there are unread messages — the rest of the time the card body is non-interactive. Drag is gone; cursor stays default. The first card shows the menu open with state-aware ordering and the unread Open-thread row in primary tint.
+  </div>
+</div>
+</body>
+</html>
