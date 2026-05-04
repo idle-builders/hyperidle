@@ -1,5 +1,5 @@
 // L3 — ArtifactPermalink: single_full_preview surface for /artifacts/:id.
-// Source: plans/architecture-plans/L3.md §6.5.
+// Source: plans/architecture/L3.md §6.5.
 
 import { ArtifactPreview, EmptyState, ErrorState } from "@hyperidle/design-system";
 import type { JSX } from "react";

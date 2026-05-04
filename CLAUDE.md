@@ -70,8 +70,9 @@ Each folder has an `index.md` with section links. `/concept` and `/architecture`
 **Transitive** — `plans/` (intermediate pipeline artifacts, may be regenerated):
 
 - `work-packages/` — story specs and track files
-- `architecture-plans/` — per-story technical plans
-- `design-explorations/` — per-story design variants and approved designs
+- `concept/` — per-story concept-locking output (`<story-id>.md`)
+- `architecture/` — per-story technical plans (`<story-id>.md`)
+- `design/` — per-story design variants and approved designs
 - `reviews/` — per-story review outputs
 
 ---

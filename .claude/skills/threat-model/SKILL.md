@@ -12,7 +12,7 @@ min_tool_calls: 12
 
 Spawn a **security-researcher agent** to analyze `<target>`.
 
-Give it the relevant code, architecture docs (`docs/architecture/`), and trust boundaries.
+Give it the relevant code, the architecture plan (`plans/architecture/<story-id>.md`) — its **Required reading** section names the specific docs this target depends on — and the trust boundaries below. Do not browse `docs/` directly.
 
 Key trust boundaries in HyperIdle: Human Interface ↔ API Layer, API ↔ Meta Layer, Meta ↔ Agent Runtime, Knowledge Fabric ↔ Agent Context, Agent ↔ Workspace, Factory ↔ External Services.
 

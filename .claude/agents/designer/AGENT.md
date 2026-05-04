@@ -28,15 +28,12 @@ Before designing anything, read:
 - `packages/design-system/DESIGN.md` — **Canonical** token reference: surfaces, text, borders, radii, spacing, typography, motion
 - `packages/design-system/PRINCIPLES.md` — Design principles, anti-patterns, premium vs. cheap signals
 - `packages/design-system/src/tokens.css` — Actual CSS custom property values
-- `docs/ui-design/` — Component budget, building order, DaisyUI primitives
-- `docs/human-interface-layer/` — Desktop/mobile layouts, three views, Rail behavior
-- `docs/information-architecture/` — Component-to-data mapping, user journeys
-- `docs/requirements/` — Usability requirements, accessibility standards
-- `docs/process-layer/` — Work primitives that the UI surfaces (Bets, Tasks, Sessions)
-- Design mockups in `stitch 2/` — Visual reference for implemented designs
+- `plans/concept/<story-id>.md` — locked concept output for the story (when present)
+- `plans/architecture/<story-id>.md` — the technical plan; its **Required reading** section names the specific authoritative files (e.g. `docs/ui-design/<file>.md`, `docs/human-interface-layer/<file>.md`) the designer must read for this story
+- `plans/design/<story-id>/approved.md` — the approved design spec (when iterating on an existing approved design)
 - `/designsystem` route — Live catalog of all implemented components with `.stories.tsx` variants
 
-The design system package (`packages/design-system/`) is the authority for tokens, colors, spacing, and component implementations. `docs/` files describe behavior and architecture. When they conflict, the design system package wins.
+The design system package (`packages/design-system/`) is the authority for tokens, colors, spacing, and component implementations. The specific `docs/<topic>/<file>.md` files named in the plan describe behavior and architecture. When they conflict, the design system package wins.
 
 ## Component Budget
 

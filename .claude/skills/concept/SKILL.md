@@ -16,16 +16,15 @@ Upstream of `/design` and `/architecture`. Answers "what IS this thing?" — the
 
 1. Story in `plans/work-packages/TRACK-<letter>.md` — central vs incidental nouns.
 2. `plans/work-packages/SHARED.md` "Shared Contracts" — does the noun already have a contract?
-3. `ls docs/` to identify relevant topic folders, then read `index.md` and drill into sections.
-4. `docs/archive/` — prior versions, if any.
+3. `ls docs/` to identify relevant topic folders, then read `index.md` and drill into the specific `docs/<topic>/<file>.md` sections that match the noun.
 
-**Output a "Required reading" section** listing the doc files downstream agents (`/architecture`, `/implement`) must read for this story.
+**Output a "Required reading" section** listing the specific doc files downstream agents (`/architecture`, `/implement`) must read for this story.
 
 If the spec contradicts an existing concept doc, that's CRITICAL. Surface it; don't silently re-define.
 
 ## Phase 0 — Identify the thing
 
-Name the noun(s) the spec keeps using. Often there's one central noun and 2-3 satellite nouns. List them with one-line working definitions in your own words, then check each against `docs/` and SHARED.md.
+Name the noun(s) the spec keeps using. Often there's one central noun and 2-3 satellite nouns. List them with one-line working definitions in your own words, then check each against the specific `docs/<topic>/<file>.md` you identified in Required reading and against SHARED.md.
 
 For each noun, classify it:
 - **New primitive** — not in the system yet; this story introduces it. (L1 Thread, L2 Block, L3 Artifact were each this.)
@@ -48,7 +47,7 @@ The seven essential probes (adapt; don't ask all of them — pick what's actuall
 4. **Composition.** "What other concepts does a `<noun>` carry, host, or attach to? My read: a `<noun>` attaches to {hosts}, carries {payload}, is referenced by {references}."
 5. **Lifecycle.** "What states does a `<noun>` move through, and what causes each transition? My read: …"
 6. **Authority.** "Who owns / produces / mutates a `<noun>`? Where does the source of truth live? My read: …"
-7. **Vocabulary collision.** "Does `<noun>` clash with an existing term in `docs/` or `SHARED.md`? Is it used inconsistently inside this same story? My read: …"
+7. **Vocabulary collision.** "Does `<noun>` clash with an existing term in any specific `docs/<topic>/<file>.md` or in `SHARED.md`? Is it used inconsistently inside this same story? My read: …"
 
 Stop probing when the concept is sharp, not when you run out of questions. Three to seven branches is typical for a new primitive; one or two for a reshape.
 
@@ -94,11 +93,11 @@ Concepts commit the system to contracts. Make them explicit:
 
 Each contract is one line. The architect later turns these into types, schemas, and guards. Concept work commits to the *shape*, not the implementation.
 
-## Phase 5 — Write or update `docs/`
+## Phase 5 — Write the per-story concept doc and update ground truth
 
 The output is a concept doc, not a chat summary. Write to:
-- A new section file in `docs/<topic>/` if the concept fits an existing layer (Thread → `human-interface-layer/`, Block → `human-interface-layer/` + `blocks/`, Artifact → `human-interface-layer/` + `process-layer/`).
-- A new `docs/<noun>/` directory if the concept is large enough to warrant its own topic.
+- `plans/concept/<story-id>.md` — the per-story concept-locking output (always). This is what `/architecture` reads as a fixed input.
+- A specific `docs/<topic>/<noun>.md` ground-truth file if the concept fits an existing layer (Thread → `docs/human-interface-layer/threads.md`, Block → `docs/blocks/<file>.md`, Artifact → `docs/process-layer/artifacts.md`). Update or create the specific file — do not write to a generic folder.
 - An update to `plans/work-packages/SHARED.md` "Shared Contracts" so downstream stories reference it without re-inventing.
 
 Doc structure (adapt sections that aren't relevant; don't pad):
@@ -129,7 +128,7 @@ Doc structure (adapt sections that aren't relevant; don't pad):
 
 Spawn an **adversary agent** to challenge the concept (NOT the downstream design / plan — that comes later):
 - Is the rejection list a real list of distinct things, or three flavours of one thing?
-- Does the canonical term collide with an existing term in the codebase or in `docs/`? (`grep` to verify.)
+- Does the canonical term collide with an existing term in the codebase or in any specific `docs/<topic>/<file>.md`? (`grep` to verify.)
 - Are the contracts complete, or do they hand-wave on cardinality / closure / mutability / identity?
 - Is the rationale concrete (cites a founder reframe, a constraint, a prior bug) or generic ("for clarity")?
 - Did the concept-doc update touch the right files? Are there other concept docs that need to mention this change?
@@ -141,7 +140,8 @@ The concept is now **locked**. The downstream skills with the concept as fixed i
 ## Output of `/concept` end-to-end
 
 ```
-docs/<noun>.md              # Phase 5 output (or updated existing doc)
+plans/concept/<story-id>.md           # Phase 5 per-story concept-locking output (always)
+docs/<topic>/<noun>.md                # Phase 5 ground-truth update (specific file, when applicable)
 plans/work-packages/SHARED.md         # Phase 5 may add a "Shared Contracts" entry
 ```
 
