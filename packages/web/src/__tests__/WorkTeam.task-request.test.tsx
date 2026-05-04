@@ -37,11 +37,10 @@ describe("WorkTeam task request (L15)", () => {
 
 	it("clicking a task card opens the TaskSheet with that task's title", async () => {
 		// Mock: GET threads returns empty (no existing thread), POST creates one
-		fetchSpy
-			.mockResolvedValue({
-				ok: true,
-				json: () => Promise.resolve({ threads: [] }),
-			});
+		fetchSpy.mockResolvedValue({
+			ok: true,
+			json: () => Promise.resolve({ threads: [] }),
+		});
 
 		const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime.bind(vi) });
 		renderPage();
@@ -86,9 +85,15 @@ describe("WorkTeam task request (L15)", () => {
 		// Submit
 		await user.click(screen.getByRole("button", { name: /send request/i }));
 
-		// Sent status appears
+		// Sent status appears inside the dialog
 		await waitFor(() => {
-			expect(screen.getByRole("status")).toHaveTextContent("Sent.");
+			const dialog = screen.getByRole("dialog");
+			// Query status within the dialog to avoid collision with EmptyState
+			// (design-system's EmptyState also uses role="status") and with the
+			// Canvas DnD live region that Canvas preserves for Shaped→Committed drag.
+			const statusEl = dialog.querySelector('[role="status"]');
+			expect(statusEl).not.toBeNull();
+			expect(statusEl?.textContent).toBe("Sent.");
 		});
 
 		// Sheet auto-closes after ~800ms

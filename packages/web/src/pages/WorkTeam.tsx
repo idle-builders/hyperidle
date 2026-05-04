@@ -2,14 +2,23 @@
  * Work/Team page — composes Canvas (top) + Kanban (bottom) + PitchSelector
  * (overlay). Spec: HUMAN_INTERFACE_LAYER.md §4 — Team view shows the team's
  * current bets at the top and a per-task kanban board beneath.
+ *
+ * L15: Drag removed from Kanban. Task cards now open a TaskSheet on click.
  */
 import { type JSX, useCallback, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import {
+	PLACEHOLDER_AGENT_PARTICIPANT_ID,
+	postRequestMessage,
+	resolveOrCreateTaskThread,
+} from "../services/task-threads";
 import type { CanvasBet } from "../shell/Canvas";
 import { Canvas } from "../shell/Canvas";
-import type { KanbanColumnState, KanbanTask } from "../shell/Kanban";
-import { COLUMN_TO_STATE, Kanban } from "../shell/Kanban";
+import type { KanbanTask } from "../shell/Kanban";
+import { Kanban } from "../shell/Kanban";
 import type { PitchSelectorPitch } from "../shell/PitchSelector";
 import { PitchSelector } from "../shell/PitchSelector";
+import { TaskSheet } from "../shell/TaskSheet";
 
 const CANVAS_BETS: CanvasBet[] = [
 	{
@@ -108,16 +117,18 @@ const MOCK_PITCHES: PitchSelectorPitch[] = [
 	},
 ];
 
+// @lore L15: The "founder" identity used here is the same static fallback used
+// throughout the codebase (see threads.ts DEFAULT_FOUNDER_ID). A real identity
+// context will replace this when the agent-assignment story lands.
+const FOUNDER_ID = "u-founder";
+
 export function WorkTeam(): JSX.Element {
-	const [tasks, setTasks] = useState<KanbanTask[]>(INITIAL_TASKS);
+	const navigate = useNavigate();
 	const [pitchSelectorOpen, setPitchSelectorOpen] = useState(false);
 	const [selectedPitchIds, setSelectedPitchIds] = useState<string[]>([]);
+	const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
 
-	const handleMoveTask = useCallback((taskId: string, targetColumn: KanbanColumnState): void => {
-		// I4 K1: map the Kanban column key to the canonical TaskState.
-		const targetState = COLUMN_TO_STATE[targetColumn];
-		setTasks((prev) => prev.map((t) => (t.id === taskId ? { ...t, state: targetState } : t)));
-	}, []);
+	const selectedTask = INITIAL_TASKS.find((t) => t.id === selectedTaskId) ?? null;
 
 	const handleMoveBet = useCallback(
 		(_betId: string, _targetStatus: "shaped" | "committed"): void => {
@@ -125,6 +136,10 @@ export function WorkTeam(): JSX.Element {
 		},
 		[],
 	);
+
+	const handleSelectTask = useCallback((taskId: string): void => {
+		setSelectedTaskId(taskId);
+	}, []);
 
 	const handleSelectPitch = useCallback((pitchId: string): void => {
 		setSelectedPitchIds((prev) =>
@@ -135,6 +150,25 @@ export function WorkTeam(): JSX.Element {
 	const handleAddToCanvas = useCallback((_pitchId: string): void => {
 		// Mock — real implementation promotes the pitch to a canvas bet.
 	}, []);
+
+	const handleResolveThreadId = useCallback(
+		(taskId: string): Promise<string> =>
+			resolveOrCreateTaskThread(taskId, FOUNDER_ID, PLACEHOLDER_AGENT_PARTICIPANT_ID),
+		[],
+	);
+
+	const handlePostRequest = useCallback(
+		(threadId: string, text: string, clientKey: string): Promise<void> =>
+			postRequestMessage(threadId, text, clientKey),
+		[],
+	);
+
+	const handleNavigateToThread = useCallback(
+		(threadId: string): void => {
+			navigate(`/conversations/chat?thread=${encodeURIComponent(threadId)}`);
+		},
+		[navigate],
+	);
 
 	return (
 		<div className="flex flex-col gap-3 h-full" data-testid="work-team-page">
@@ -167,9 +201,19 @@ export function WorkTeam(): JSX.Element {
 				/>
 			) : (
 				<div data-testid="work-team-kanban">
-					<Kanban tasks={tasks} onMoveTask={handleMoveTask} groupByBet />
+					<Kanban tasks={INITIAL_TASKS} onSelectTask={handleSelectTask} groupByBet />
 				</div>
 			)}
+
+			{/* L15: TaskSheet — opens on task card click */}
+			<TaskSheet
+				task={selectedTask}
+				open={selectedTaskId !== null}
+				onClose={() => setSelectedTaskId(null)}
+				resolveThreadId={handleResolveThreadId}
+				postRequest={handlePostRequest}
+				onNavigateToThread={handleNavigateToThread}
+			/>
 		</div>
 	);
 }

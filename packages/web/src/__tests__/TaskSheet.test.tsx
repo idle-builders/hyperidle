@@ -29,7 +29,9 @@ const sampleTask: KanbanTask = {
 
 const THREAD_ID = "thread-123";
 
-function makeProps(overrides: Partial<Parameters<typeof TaskSheet>[0]> = {}): Parameters<typeof TaskSheet>[0] {
+function makeProps(
+	overrides: Partial<Parameters<typeof TaskSheet>[0]> = {},
+): Parameters<typeof TaskSheet>[0] {
 	return {
 		task: sampleTask,
 		open: true,
