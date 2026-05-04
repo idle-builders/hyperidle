@@ -108,6 +108,7 @@ interface FlatSpan {
 	session_id: string | null;
 	ab_test: string | null;
 	ab_arm: string | null;
+	workpackage: string | null;
 	model: string | null;
 	tool_name: string | null;
 	input_tokens: number | null;
@@ -124,6 +125,14 @@ interface FlatSpan {
 }
 
 let totalSpansIngested = 0;
+
+function pickString(map: Record<string, Scalar>, ...keys: string[]): string | null {
+	for (const key of keys) {
+		const v = map[key];
+		if (typeof v === "string") return v;
+	}
+	return null;
+}
 
 function flatten(req: OtlpTraceRequest): FlatSpan[] {
 	const out: FlatSpan[] = [];
@@ -142,17 +151,20 @@ function flatten(req: OtlpTraceRequest): FlatSpan[] {
 					span_id: span.spanId,
 					parent_span_id: span.parentSpanId ?? null,
 					name: span.name ?? null,
-					span_type: (attrs["span.type"] as string) ?? null,
+					span_type: pickString(attrs, "span.type"),
 					start_unix_ns: Number(startNs),
 					end_unix_ns: Number(endNs),
 					duration_ms: durationMs,
-					service_name: (resource["service.name"] as string) ?? null,
-					service_version: (resource["service.version"] as string) ?? null,
-					session_id: (attrs["session.id"] as string) ?? null,
-					ab_test: (resource["ab.test"] as string) ?? null,
-					ab_arm: (resource["ab.arm"] as string) ?? null,
-					model: (attrs.model as string) ?? (attrs["gen_ai.request.model"] as string) ?? null,
-					tool_name: (attrs.tool_name as string) ?? null,
+					service_name: pickString(resource, "service.name"),
+					service_version: pickString(resource, "service.version"),
+					session_id: pickString(attrs, "session.id"),
+					ab_test: pickString(resource, "ab.test"),
+					ab_arm: pickString(resource, "ab.arm"),
+					workpackage:
+						pickString(resource, "hyperidle.workpackage") ??
+						pickString(attrs, "hyperidle.story.id"),
+					model: pickString(attrs, "model", "gen_ai.request.model"),
+					tool_name: pickString(attrs, "tool_name"),
 					input_tokens: asNumber(attrs.input_tokens),
 					output_tokens: asNumber(attrs.output_tokens),
 					cache_read_tokens: asNumber(attrs.cache_read_tokens),
@@ -160,8 +172,8 @@ function flatten(req: OtlpTraceRequest): FlatSpan[] {
 					ttft_ms: asNumber(attrs.ttft_ms),
 					attempt: asNumber(attrs.attempt),
 					success: asBool(attrs.success),
-					stop_reason: (attrs.stop_reason as string) ?? null,
-					decision: (attrs.decision as string) ?? null,
+					stop_reason: pickString(attrs, "stop_reason"),
+					decision: pickString(attrs, "decision"),
 					attributes: attrs,
 					resource,
 				});
