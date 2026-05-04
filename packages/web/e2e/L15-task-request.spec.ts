@@ -177,7 +177,9 @@ test.describe("L15 — Strip drag + Task request sheet", () => {
 		await expect(taskCard).toBeVisible();
 
 		// Attempt drag to the Done column area — should be a no-op since drag is removed
-		const doneColumnHeader = page.getByText("Done");
+		// @lore Use heading role to avoid strict-mode collision with TaskCard status chips
+		// or any other "Done" text on the page.
+		const doneColumnHeader = page.getByRole("heading", { name: "Done" });
 		await expect(doneColumnHeader).toBeVisible();
 
 		// The task should still be visible in its original column (no move happened)
