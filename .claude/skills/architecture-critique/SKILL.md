@@ -1,7 +1,7 @@
 ---
 name: architecture-critique
 description: "Architecture quality gate. ALWAYS invoke this skill on the OUTPUT of /architecture (the plan), before any test or code is written. Scores the plan 0-10 across nine dimensions: spec alignment, layer integrity, contracts, data model, naming, depth, failure-mode coverage, simplicity, and verifiability. Iterates fixes until the score crosses the threshold."
-argument-hint: "[story-id|plan-path]"
+argument-hint: "[workpackage-id|plan-path]"
 user-invocable: true
 min_tool_calls: 5
 ---
@@ -16,16 +16,16 @@ This is **not** `/architecture-review`. The review skill audits the *implemented
 
 - **In the pipeline:** step 4, immediately after `/architecture` produces the plan, before `/write-tests`.
 - **Inside `/architecture` Phase 4:** the architect runs this on themselves and iterates. Fixes go into the plan, not into a separate findings file.
-- **On explicit `/architecture-critique <story-id>`:** full audit of the plan saved under TaskCreate or in `plans/work-packages/`/the worktree's plan output.
+- **On explicit `/architecture-critique <workpackage-id>`:** full audit of the plan saved under TaskCreate or in `plans/work-packages/`/the worktree's plan output.
 
 ## Required Reading
 
-1. The story in `plans/work-packages/TRACK-<letter>.md`.
-2. `plans/<story-id>/concept.md` — the locked concept output.
+1. The workpackage in `plans/work-packages/TRACK-<letter>.md`.
+2. `plans/<workpackage-id>/concept.md` — the locked concept output.
 3. The plan itself — every section, including its **Required reading** list.
 4. The specific authoritative files named in the plan's **Required reading** (these are `docs/<topic>/<file>.md` paths the plan picked, not whole folders).
 5. Canonical-shapes contracts under `docs/<topic>/` (e.g. `docs/blocks/canonical-shapes.md`, `docs/process-layer/artifact-primitive.md`, `docs/human-interface-layer/thread-primitive.md`).
-6. UI stories: `plans/<story-id>/design/approved.md`.
+6. UI workpackages: `plans/<workpackage-id>/design/approved.md`.
 
 ## The Critique Loop
 
@@ -42,11 +42,11 @@ This is **not** `/architecture-review`. The review skill audits the *implemented
 
 ### 1. Spec Alignment
 
-- Does every acceptance criterion in the story map to a task in the plan?
+- Does every acceptance criterion in the workpackage map to a task in the plan?
 - Does every plan task trace back to an AC or a forced dependency?
 - Are scope-creep tasks present (things not asked for)? They shouldn't be.
-- For UI stories, does the plan match the contracts in `approved.md`? If `/design` was skipped on a UI story, that's CRITICAL.
-- **Smell:** plan has more tasks than the story has ACs. Plan is missing a verification method for an AC. Plan invents requirements.
+- For UI workpackages, does the plan match the contracts in `approved.md`? If `/design` was skipped on a UI workpackage, that's CRITICAL.
+- **Smell:** plan has more tasks than the workpackage has ACs. Plan is missing a verification method for an AC. Plan invents requirements.
 
 ### 2. Layer Integrity
 
@@ -68,7 +68,7 @@ This is **not** `/architecture-review`. The review skill audits the *implemented
 
 - Do the schemas match the spec field-by-field, type-by-type? (If the spec says 6 indexes, the plan lists 6.)
 - Are foreign keys, unique constraints, NOT NULL, default values, and check constraints all specified?
-- For dual-driver stories, does the schema work in both SQLite and PostgreSQL? (Watch for `JSONB`, `SERIAL`, `bigint` mismatches.)
+- For dual-driver workpackages, does the schema work in both SQLite and PostgreSQL? (Watch for `JSONB`, `SERIAL`, `bigint` mismatches.)
 - Are migration names forward-only with rollback plans documented?
 - **Smell:** column without a type. Missing FK on a relation. Migration without a rollback note. Schema diverges from the spec's field list.
 
@@ -87,7 +87,7 @@ From *A Philosophy of Software Design*: deep modules have small interfaces hidin
 - Is the public surface small for the size of the problem solved?
 - Are there entry points that exist only for one caller? (Symptom of leaking implementation.)
 - Are `export`s narrow — only what the module's contract requires?
-- For shared primitives (Thread / Block / Artifact), does ONE well-shaped API serve every consumer named in the story, without each consumer needing a custom wrapper?
+- For shared primitives (Thread / Block / Artifact), does ONE well-shaped API serve every consumer named in the workpackage, without each consumer needing a custom wrapper?
 - **Smell:** one new function per consumer. Public types that mirror internal data shapes 1:1. Five exports where two would do.
 
 ### 7. Failure-Mode Coverage
@@ -129,7 +129,7 @@ From *A Philosophy of Software Design*: deep modules have small interfaces hidin
 ## Output Format
 
 ```
-## Architecture Critique: <story-id>
+## Architecture Critique: <workpackage-id>
 
 **Score: X/10** (SA:_ LI:_ AC:_ DM:_ N:_ MD:_ FMC:_ S:_ V:_)
 

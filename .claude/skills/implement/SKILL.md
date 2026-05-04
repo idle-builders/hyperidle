@@ -1,7 +1,7 @@
 ---
 name: implement
 description: "Aggregate: tests + code + reviews + DoD. Pure implementation — assumes /design and /architecture have already produced the design spec and the technical plan. Use for manual implementation outside the pipeline."
-argument-hint: "[story-id]"
+argument-hint: "[workpackage-id]"
 user-invocable: true
 min_tool_calls: 50
 ---
@@ -13,7 +13,7 @@ min_tool_calls: 50
 Runs the full **implementation** sequence for `<target>`. This is a convenience wrapper for manual use — the pipeline calls each skill directly.
 
 **Pre-conditions** — these must already be done before `/implement` runs:
-- `/design <target>` has produced an approved design (for UI stories) under `plans/<id>/design/approved.md`.
+- `/design <target>` has produced an approved design (for UI workpackages) under `plans/<id>/design/approved.md`.
 - `/architecture <target>` has produced a plan that passed `/architecture-critique` ≥7.
 
 If those haven't run, run them first. `/implement` does not re-litigate design or architecture — it executes the plan.
@@ -33,7 +33,7 @@ If those haven't run, run them first. `/implement` does not re-litigate design o
 | 10 | qa | `/check-definition-of-done <target>` | Independent audit against the spec with evidence. |
 -- repeat 1 to 10 until done --
 
-If step 10 returns NOT DONE, go back to step 1 with the gap list. Max 3 attempts — after that, the story is blocked and needs human attention.
+If step 10 returns NOT DONE, go back to step 1 with the gap list. Max 3 attempts — after that, the workpackage is blocked and needs human attention.
 
 ## Target
 

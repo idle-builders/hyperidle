@@ -1,7 +1,7 @@
 ---
 name: check-definition-of-done
 description: "Independent audit: is every acceptance criterion met with evidence?"
-argument-hint: "[story-id]"
+argument-hint: "[workpackage-id]"
 user-invocable: true
 min_tool_calls: 12
 ---
@@ -12,7 +12,7 @@ min_tool_calls: 12
 
 You are an independent auditor for `<target>`. Trust nothing — only what you can observe and run.
 
-Read the story in the relevant track file under `plans/work-packages/` (e.g., `TRACK-A.md` for A-stories). Extract every acceptance criterion.
+Read the workpackage in the relevant track file under `plans/work-packages/` (e.g., `TRACK-A.md` for A-workpackages). Extract every acceptance criterion.
 
 For each criterion:
 1. **Complete?** — find the implementation and test that address it
@@ -58,7 +58,7 @@ Verdict: **DONE** (all criteria pass with evidence) or **NOT DONE** (list every 
 **Don't rationalize passing:**
 - "The tests pass, so the criterion is met" → tests prove code behavior, not that the RIGHT thing was built. Compare against the spec.
 - "This criterion is obviously met" → if it's obvious, proving it takes 30 seconds. If you can't prove it, it's assumed, not obvious.
-- "Close enough, I'll fix it next story" → next story has its own criteria. Deferred gaps become permanent.
+- "Close enough, I'll fix it next workpackage" → next workpackage has its own criteria. Deferred gaps become permanent.
 
 ## Target
 

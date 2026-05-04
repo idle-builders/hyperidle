@@ -2,7 +2,7 @@
 
 HyperIdle is an agentic operating system that manages product teams of AI agents. Two founders (CEO + CPO) run a "Product Factory" — a portfolio of digital products where AI agents do the implementation work.
 
-**Status:** Pre-implementation. Architecture docs are complete. Code is being built story-by-story from `plans/work-packages/` (per-track files).
+**Status:** Pre-implementation. Architecture docs are complete. Code is being built workpackage-by-workpackage from `plans/work-packages/` (per-track files).
 
 **Builder philosophy:** Read `ETHOS.md` — three principles (Boil the Lake, Search Before Building, User Sovereignty) that guide all agent behavior.
 
@@ -65,13 +65,13 @@ Three-layer system with strict downward dependency: Human Interface → Meta Lay
 - `souls/` — agent personas
 - `archive/` — superseded docs
 
-Each folder has an `index.md` with section links. `/concept` and `/architecture` identify which docs are relevant for a story — downstream skills read the plan, not docs directly.
+Each folder has an `index.md` with section links. `/concept` and `/architecture` identify which docs are relevant for a workpackage — downstream skills read the plan, not docs directly.
 
 **Transitive** — `plans/` (intermediate pipeline artifacts, may be regenerated):
 
-- `work-packages/` — track-level files (`TRACK-*.md` story specs, `WORK_PACKAGES.md`, `dependency-graph.md`, `pipeline-manifest.yaml`, `follow-ups.md`)
-- `<story-id>/` — per-story artifacts grouped together. Each story gets its own folder (e.g., `plans/L10/`) containing `concept.md`, `architecture.md`, `architecture-critique.md`, `dod.md`, `design/approved.md`, `*-review.md`, `*-scan.md`, etc. Skills write artifacts to `plans/<story-id>/<artifact>.md`.
-- `reviews/` — cross-cutting research (area-/journey-/improvements-/reference- files, not story-specific)
+- `work-packages/` — track-level files (`TRACK-*.md` workpackage specs, `WORK_PACKAGES.md`, `dependency-graph.md`, `pipeline-manifest.yaml`, `follow-ups.md`)
+- `<workpackage-id>/` — per-workpackage artifacts grouped together. Each workpackage gets its own folder (e.g., `plans/L10/`) containing `concept.md`, `architecture.md`, `architecture-critique.md`, `dod.md`, `design/approved.md`, `*-review.md`, `*-scan.md`, etc. Skills write artifacts to `plans/<workpackage-id>/<artifact>.md`.
+- `reviews/` — cross-cutting research (area-/journey-/improvements-/reference- files, not workpackage-specific)
 
 ---
 
@@ -95,7 +95,7 @@ Bun, TypeScript strict, Hono, Drizzle ORM (SQLite + PostgreSQL), React + Vite, T
 
 ## Git
 
-Branch naming: `<type>/<story-id>-<description>`. Commit: imperative mood, reference story ID. One logical change per commit. Main is protected. Always use a pull request to add features to main. Always push your changes after commit.
+Branch naming: `<type>/<workpackage-id>-<description>`. Commit: imperative mood, reference workpackage ID. One logical change per commit. Main is protected. Always use a pull request to add features to main. Always push your changes after commit.
 
 ---
 

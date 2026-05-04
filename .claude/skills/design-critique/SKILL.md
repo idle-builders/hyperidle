@@ -144,7 +144,7 @@ Tied to the AESTHETICS.md "Premium" checklist and the recommendations tables. Pr
 When the dev server is running (`bun dev` on :5173):
 
 ```bash
-# Screenshot a specific story
+# Screenshot a specific workpackage
 cd packages/web && npx playwright screenshot \
   "http://localhost:5173/designsystem#ComponentName" \
   /tmp/critique-ComponentName.png \

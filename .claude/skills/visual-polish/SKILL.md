@@ -14,7 +14,7 @@ Iterative visual fidelity improvement loop. Compare the live implementation agai
 
 - Dev server running on `localhost:5173` (`bun dev` from repo root)
 - Playwright installed (`cd packages/web && bunx playwright install chromium`)
-- Reference mockups attached to `plans/<story-id>/design/approved.md`
+- Reference mockups attached to `plans/<workpackage-id>/design/approved.md`
 
 ## Workflow
 
