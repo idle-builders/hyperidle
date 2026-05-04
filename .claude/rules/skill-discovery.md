@@ -5,7 +5,7 @@ Before responding to ANY implementation or review request, check if a skill shou
 ## Two kinds of skills
 
 **Individual skills** — domain knowledge loaded INTO an agent session. They define a specific act, not a step. They never launch agents.
-- `/concept`, `/design`, `/architecture` (designer)
+- `/concept`, `/design`, `/design-critique`, `/architecture`, `/architecture-critique` (designer)
 - `/write-tests`, `/write-code`, `/apply-review`, `/visual-polish` (builder)
 - `/contract-review` (reviewer)
 - `/adversary-scan`, `/design-lint` (adversary)
@@ -42,7 +42,7 @@ User request arrives
     └── None of the above? ──────────────────────→ Proceed normally
 ```
 
-**Note (block-1b):** `/design-critique`, `/architecture-critique`, `/verify`, and `/ship` were collapsed away. Critique now runs in-session inside `/design` and `/architecture`; verify runs as CI on every push; ship is replaced by continuous-commit + draft-PR pipeline. `/architecture-review` + `/design-review` + `/security-review` merged into `/contract-review`. `/adversary-review` + `/simplification-scan` + `/slop-scan` merged into `/adversary-scan`. `/write-tests` and `/write-code` stay separate — red and green are different cognitive acts.
+**Note (block-1b):** `/verify` and `/ship` were collapsed away — verify runs as CI on every push; ship is replaced by continuous-commit + draft-PR pipeline. `/architecture-review` + `/design-review` + `/security-review` merged into `/contract-review`. `/adversary-review` + `/simplification-scan` + `/slop-scan` merged into `/adversary-scan`. `/write-tests` and `/write-code` stay separate — red and green are different cognitive acts. `/design-critique` and `/architecture-critique` are separate from `/design` and `/architecture` — production and evaluation are different cognitive modes, even within the same agent session.
 
 ## Red Flags — Rationalizations for Skipping Skills
 
@@ -63,8 +63,8 @@ User request arrives
 ## Skill Priority
 
 1. **Concept first:** /concept (any story that introduces or reshapes a primitive / domain concept / load-bearing noun)
-2. **Design next:** /design (UI stories, before architecture; in-session critique loop is built in)
-3. **Architecture then:** /architecture (every story, before any code; in-session critique loop is built in)
+2. **Design next:** /design then /design-critique (UI stories, before architecture; production then evaluation as separate acts)
+3. **Architecture then:** /architecture then /architecture-critique (every story, before any code; production then evaluation as separate acts)
 4. **Combined skills:** /implement, /pipeline, /review, /check-definition-of-done
 5. **Quality skills:** /simplify, /design-lint
 6. **Maintenance skills:** /upgrade, /threat-model, /lore
