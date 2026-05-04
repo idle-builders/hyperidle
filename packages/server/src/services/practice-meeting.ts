@@ -17,7 +17,7 @@ import { and, eq, isNull } from "drizzle-orm";
  *
  * @lore G3 meeting storage: the meeting lives in `meta.role` on a single
  * `knowledge_items` row. The rationale — documented in
- * docs/work-packages/plans/G3-plan.md §3.7 — is that introducing a new
+ * plans/work-packages/plans/G3-plan.md §3.7 — is that introducing a new
  * table for a feature that already fits a JSON meta blob would pay a
  * migration cost we don't yet need. When meetings grow complex enough to
  * need indexed queries, a `practice_meetings` table becomes the refactor.

@@ -1,7 +1,7 @@
 /**
  * Mapping from Claude Design reference prototypes to live app routes.
  *
- * References live in docs/concept/design-synthesis/ — interactive React apps
+ * References live in docs/design-synthesis/ — interactive React apps
  * served via HTTP. Each entry specifies:
  * - referenceUrl: path on the reference server (default :8099)
  * - referenceSetup: actions to reach the right tab/state in the reference

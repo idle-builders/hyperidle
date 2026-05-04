@@ -2,7 +2,7 @@
 
 HyperIdle is an agentic operating system that manages product teams of AI agents. Two founders (CEO + CPO) run a "Product Factory" — a portfolio of digital products where AI agents do the implementation work.
 
-**Status:** Pre-implementation. Architecture docs are complete. Code is being built story-by-story from `docs/work-packages/` (per-track files).
+**Status:** Pre-implementation. Architecture docs are complete. Code is being built story-by-story from `plans/work-packages/` (per-track files).
 
 **Builder philosophy:** Read `ETHOS.md` — three principles (Boil the Lake, Search Before Building, User Sovereignty) that guide all agent behavior.
 
@@ -19,7 +19,7 @@ HyperIdle is an agentic operating system that manages product teams of AI agents
 
 **No code is written until the definition of done and validation setup exist.** This is non-negotiable. For every work package or task:
 
-1. Extract the acceptance criteria from the relevant track file in `docs/work-packages/`.
+1. Extract the acceptance criteria from the relevant track file in `plans/work-packages/`.
 2. Define the verification method for each criterion (automated test, Playwright E2E, eval, screenshot, inspection).
 3. Write the failing tests that prove the criteria (red phase).
 4. Only then begin implementation.
@@ -46,7 +46,7 @@ When you make a non-obvious decision, encounter a cross-cutting constraint, or d
 
 Three-layer system with strict downward dependency: Human Interface → Meta Layer → Agent Runtime. No layer reaches past its neighbor.
 
-**Source of truth:** `docs/concept/` (split by topic — use `bun run docs:read <topic>#<section>` or read files directly). Story specs in `docs/work-packages/`. Agent artifacts (plans, designs, reviews) in `plans/`.
+**Source of truth:** `docs/` — split by topic, see `docs/index.md` for the routing table. Story specs in `plans/work-packages/`. Agent artifacts (architecture plans, design explorations, reviews) in `plans/`. Agent personas in `docs/souls/`.
 
 ---
 
@@ -64,7 +64,7 @@ Bun, TypeScript strict, Hono, Drizzle ORM (SQLite + PostgreSQL), React + Vite, T
 
 ## Commands
 
-`bun install`, `bun dev` (server 3001 + web 5173), `bun run test` (Vitest via package.json script — do NOT use bare `bun test` which invokes Bun's native runner), `bun run check` (typecheck), `bun run lint` (Biome + ESLint), `bun run lint:biome`, `bun run lint:eslint`, `bun run lint:fix`, `bun run db:generate`, `bun run db:migrate`, `bun run docs:read <topic>#<section>` (read split concept docs by topic and section).
+`bun install`, `bun dev` (server 3001 + web 5173), `bun run test` (Vitest via package.json script — do NOT use bare `bun test` which invokes Bun's native runner), `bun run check` (typecheck), `bun run lint` (Biome + ESLint), `bun run lint:biome`, `bun run lint:eslint`, `bun run lint:fix`, `bun run db:generate`, `bun run db:migrate`.
 
 ---
 

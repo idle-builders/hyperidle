@@ -17,7 +17,7 @@ Read-only review. Produce findings — do NOT make code changes.
 3. `docs/UI_DESIGN.md` — Component specs, component budget, building order
 4. `docs/HUMAN_INTERFACE_LAYER.md` — Page layouts, interaction patterns, routing rules, keyboard shortcuts
 5. `docs/INFORMATION_ARCHITECTURE.md` — Information hierarchy, content organization
-6. The relevant track file in `docs/work-packages/TRACK-*.md` for the story being reviewed
+6. The relevant track file in `plans/work-packages/TRACK-*.md` for the story being reviewed
 
 Then read the changed UI files (via `<target>` or `git diff --name-only`).
 

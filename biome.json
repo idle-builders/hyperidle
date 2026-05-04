@@ -152,7 +152,7 @@
 			"!.claude/settings.local.json",
 			"!.worktrees",
 			"!.pipeline",
-			"!**/docs/concept/design-synthesis",
+			"!**/docs/design-synthesis",
 			"!packages/eslint-plugin-design/test-fixtures"
 		]
 	},

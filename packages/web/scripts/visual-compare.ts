@@ -2,7 +2,7 @@
  * Visual Design Comparison Tool
  *
  * Compares Claude Design reference prototypes against the live app.
- * References are interactive React apps in docs/concept/design-synthesis/,
+ * References are interactive React apps in docs/design-synthesis/,
  * served via a local HTTP server. The live app runs on localhost:5173.
  *
  * Usage:
@@ -34,7 +34,7 @@ import { PNG } from "pngjs";
 import { REFERENCE_MAP, type ReferenceEntry } from "./visual-compare-map.js";
 
 const ROOT = resolve(import.meta.dirname, "../../..");
-const DESIGN_DIR = resolve(ROOT, "docs/concept/design-synthesis");
+const DESIGN_DIR = resolve(ROOT, "docs/design-synthesis");
 const REPORTS_DIR = resolve(import.meta.dirname, "../visual-reports");
 
 const VIEWPORT = { width: 1280, height: 800 };

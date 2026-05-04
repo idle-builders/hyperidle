@@ -13,7 +13,7 @@ const read = (rel: string): string =>
 	existsSync(resolve(docsRoot, rel)) ? readFileSync(resolve(docsRoot, rel), "utf-8") : "";
 
 describe("concept docs presence (AC-1, AC-2, AC-3)", () => {
-	it("AC-1: docs/concept/BLOCKS.md exists", () => {
+	it("AC-1: docs/BLOCKS.md exists", () => {
 		expect(existsSync(resolve(docsRoot, "concept/BLOCKS.md"))).toBe(true);
 	});
 

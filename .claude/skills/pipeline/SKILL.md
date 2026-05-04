@@ -32,7 +32,7 @@ Cross-track or cross-complexity batches are NEVER dispatched. If you receive a m
 - NEVER read or write progress files for IDs you weren't given. Other agents own those.
 - The legacy `.pipeline/progress.json` is gone — do not create it.
 
-`docs/work-packages/TRACK-<letter>.md` and `docs/work-packages/SHARED.md` remain your reference for spec and dependency graph.
+`plans/work-packages/TRACK-<letter>.md` and `plans/work-packages/SHARED.md` remain your reference for spec and dependency graph.
 
 Record session start time.
 
@@ -48,7 +48,7 @@ cd .worktrees/<id> && bun install
 
 Then execute these steps. **Each step spawns an agent with a skill. Update `currentStep` in progress file before each step.**
 
-**Pre-condition.** The pipeline does NOT run `/concept`. Concept-locking is upstream founder work — what a Thread / Block / Artifact / Bet / Cost IS, what it ISN'T, what contracts it commits us to. Those decisions need founder input and don't fit an autonomous pipeline. Before launching the pipeline, the founder must have run `/concept <id>` for any story that introduces or reshapes a primitive — the relevant `docs/concept/<topic>/<section>.md` file + `SHARED.md` "Shared Contracts" entry must exist. The pipeline reads them as fixed input.
+**Pre-condition.** The pipeline does NOT run `/concept`. Concept-locking is upstream founder work — what a Thread / Block / Artifact / Bet / Cost IS, what it ISN'T, what contracts it commits us to. Those decisions need founder input and don't fit an autonomous pipeline. Before launching the pipeline, the founder must have run `/concept <id>` for any story that introduces or reshapes a primitive — the relevant `docs/<topic>/<section>.md` file + `SHARED.md` "Shared Contracts" entry must exist. The pipeline reads them as fixed input.
 
 If a story is dispatched to the pipeline and `/concept` work is missing for a New / Reshaped noun, **fail fast**: mark the story `blocked` with reason `concept-missing` and move on. Do not autonomously redefine concepts.
 
@@ -57,7 +57,7 @@ Then execute these steps. **Each step spawns an agent with a skill. Update `curr
 | Step | Agent | Skill | Why |
 |------|-------|-------|-----|
 | 0 | - | `/concept` | **what is this thing?**. Make sure the concept of what we are working on is well defined. |
-| 1 | designer | `/design <id>` | Multi-variant UX/UI exploration. Three parallel sub-agents under different constraints, embodied HTML mockups + screenshots, `/design-critique` per variant, synthesis → `docs/design-explorations/<id>/approved.md`. **Skip when the story has no UI surface.** Operates *inside* the concept already locked upstream; does not redefine it. |
+| 1 | designer | `/design <id>` | Multi-variant UX/UI exploration. Three parallel sub-agents under different constraints, embodied HTML mockups + screenshots, `/design-critique` per variant, synthesis → `plans/design-explorations/<id>/approved.md`. **Skip when the story has no UI surface.** Operates *inside* the concept already locked upstream; does not redefine it. |
 | 2 | designer | `/design-critique` | Score the approved design against the nine-dimension rubric. Iterate until score ≥7 or 4 iterations reached. Skip when step 1 was skipped. |
 | 3 | architect | `/architecture <id>` | Produce the technical plan — types, schemas, routes, file paths, ordered tasks, security & abuse cases, route checklist, protected tests, plan reconciliation. Architect interrogates one-question-at-a-time. Consumes the concept doc + approved design as fixed inputs. **If the spec enumerates a route list, the plan output MUST include a `route-checklist:` block listing every route + every file the guard/middleware must cover.** Recurrence: L7 retro PROPOSED-L7-B. |
 | 4 | architect | `/architecture-critique` | Score the plan against the nine-dimension architectural rubric (spec alignment, layer integrity, contracts, data model, naming, depth, failure-mode coverage, simplicity, verifiability). Catches CC-003 happy-path ACs, CC-007 spec drift, CC-008 missing protected-tests, L7 missing route-checklist BEFORE write-tests encodes the wrong intent. Iterate until score ≥7 or 3 iterations reached. |

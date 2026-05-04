@@ -13,7 +13,7 @@ min_tool_calls: 50
 Runs the full **implementation** sequence for `<target>`. This is a convenience wrapper for manual use — the pipeline calls each skill directly.
 
 **Pre-conditions** — these must already be done before `/implement` runs:
-- `/design <target>` has produced an approved design (for UI stories) under `docs/design-explorations/<id>/approved.md`.
+- `/design <target>` has produced an approved design (for UI stories) under `plans/design-explorations/<id>/approved.md`.
 - `/architecture <target>` has produced a plan that passed `/architecture-critique` ≥7.
 
 If those haven't run, run them first. `/implement` does not re-litigate design or architecture — it executes the plan.

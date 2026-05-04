@@ -16,8 +16,8 @@ Read-only review. Produce findings — do NOT make code changes.
 2. `docs/PROCESS_LAYER.md` — state machines, task/bet lifecycles, handoff protocol
 3. `docs/KNOWLEDGE_ARCHITECTURE.md` — knowledge fabric, L0-L4, materialization, conflicts
 4. `docs/AGENT_LAYER.md` — agent runtime, session provisioning, workspace adapters
-5. `docs/work-packages/SHARED.md` — tech stack, shared contracts, dependency graph
-6. The relevant track file in `docs/work-packages/TRACK-*.md` for the story being reviewed
+5. `plans/work-packages/SHARED.md` — tech stack, shared contracts, dependency graph
+6. The relevant track file in `plans/work-packages/TRACK-*.md` for the story being reviewed
 
 Then read the changed files (via `<target>` or `git diff --name-only`).
 

@@ -9,7 +9,7 @@
  * @lore L1 step-1 (write-tests): the stub is intentionally throwing — it
  * exists ONLY so test files compile against the contract. Step 2
  * (write-code) replaces every body with the real implementation per
- * `docs/work-packages/L1-plan.md` §4.
+ * `plans/work-packages/L1-plan.md` §4.
  */
 
 // ── Closed enums ────────────────────────────────────────────────

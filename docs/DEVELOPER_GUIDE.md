@@ -232,7 +232,7 @@ Meta Layer (server, fabric)
 Agent Runtime (harness adapters, workspaces)
 ```
 
-No layer reaches past its neighbor. Read `docs/concept/ARCHITECTURE.md` for the full picture.
+No layer reaches past its neighbor. Read `docs/ARCHITECTURE.md` for the full picture.
 
 ### Key Architectural Concepts
 
@@ -260,7 +260,7 @@ See `.claude/rules/` for detailed conventions on TypeScript, frontend, design sy
 
 ## Work Packages
 
-Stories are defined in `docs/work-packages/TRACK-*.md` files (A through J). Each track has numbered stories with acceptance criteria. Implementation follows TDD:
+Stories are defined in `plans/work-packages/TRACK-*.md` files (A through J). Each track has numbered stories with acceptance criteria. Implementation follows TDD:
 
 1. Read the acceptance criteria from the track file
 2. Write failing tests (red)

@@ -150,7 +150,7 @@ export interface ProvisionSessionResult {
  * is destroyed on normal completion and preserved on crash so that any
  * pre-crash writes remain available for post-mortem inspection.
  *
- * See docs/work-packages/plans/D5-plan.md for the full phase breakdown.
+ * See plans/work-packages/plans/D5-plan.md for the full phase breakdown.
  */
 // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: session provisioning coordinates multi-phase lifecycle with error handling
 export async function provisionSession(

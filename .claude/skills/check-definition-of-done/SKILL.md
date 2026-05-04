@@ -12,7 +12,7 @@ min_tool_calls: 12
 
 You are an independent auditor for `<target>`. Trust nothing — only what you can observe and run.
 
-Read the story in the relevant track file under `docs/work-packages/` (e.g., `TRACK-A.md` for A-stories). Extract every acceptance criterion.
+Read the story in the relevant track file under `plans/work-packages/` (e.g., `TRACK-A.md` for A-stories). Extract every acceptance criterion.
 
 For each criterion:
 1. **Complete?** — find the implementation and test that address it

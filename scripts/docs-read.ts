@@ -1,15 +1,15 @@
 #!/usr/bin/env bun
 // Anchor-scoped doc reader for split concept docs.
 // Usage: bun run docs:read <topic>[#<section>]
-//   - `bun run docs:read architecture#components` → reads docs/concept/architecture/components.md
-//   - `bun run docs:read architecture` → reads docs/concept/architecture/index.md
-//   - `bun run docs:read docs/concept/architecture/components.md` → reads file directly
+//   - `bun run docs:read architecture#components` → reads docs/architecture/components.md
+//   - `bun run docs:read architecture` → reads docs/architecture/index.md
+//   - `bun run docs:read docs/architecture/components.md` → reads file directly
 // Lists available sections when the requested one isn't found.
 
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 
-const CONCEPT_DIR = join(import.meta.dir, "../docs/concept");
+const CONCEPT_DIR = join(import.meta.dir, "../docs");
 
 const arg = process.argv[2];
 if (!arg) {

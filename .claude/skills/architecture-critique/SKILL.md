@@ -16,15 +16,15 @@ This is **not** `/architecture-review`. The review skill audits the *implemented
 
 - **In the pipeline:** step 4, immediately after `/architecture` produces the plan, before `/write-tests`.
 - **Inside `/architecture` Phase 4:** the architect runs this on themselves and iterates. Fixes go into the plan, not into a separate findings file.
-- **On explicit `/architecture-critique <story-id>`:** full audit of the plan saved under TaskCreate or in `docs/work-packages/`/the worktree's plan output.
+- **On explicit `/architecture-critique <story-id>`:** full audit of the plan saved under TaskCreate or in `plans/work-packages/`/the worktree's plan output.
 
 ## Required Reading (use anchor reads via `bun run docs:read`)
 
-1. The story in `docs/work-packages/TRACK-<letter>.md`.
-2. `docs/concept/architecture/` — system layering, component boundaries (use `bun run docs:read architecture#<section>`).
-3. `docs/concept/process-layer/`, `knowledge-architecture/`, `agent-layer/` — only the sections that match the plan's scope.
-4. `docs/work-packages/SHARED.md#shared-contracts`.
-5. UI stories: `docs/concept/human-interface-layer/`, `information-architecture/` — section-scoped + `plans/design-explorations/<story-id>/approved.md`.
+1. The story in `plans/work-packages/TRACK-<letter>.md`.
+2. `docs/architecture/` — system layering, component boundaries (use `bun run docs:read architecture#<section>`).
+3. `docs/process-layer/`, `knowledge-architecture/`, `agent-layer/` — only the sections that match the plan's scope.
+4. `plans/work-packages/SHARED.md#shared-contracts`.
+5. UI stories: `docs/human-interface-layer/`, `information-architecture/` — section-scoped + `plans/design-explorations/<story-id>/approved.md`.
 6. The plan itself — every section.
 
 ## The Critique Loop
@@ -77,7 +77,7 @@ This is **not** `/architecture-review`. The review skill audits the *implemented
 - Do names honestly describe what things do?
 - Does a function or column name eliminate a paragraph of doc?
 - Do new names conflict with existing closed vocabularies (Bet / Task / Session / Thread / Block / Artifact)?
-- Are domain terms used consistently with `docs/concept/` and `SHARED.md`?
+- Are domain terms used consistently with `docs/` and `SHARED.md`?
 - **Smell:** generic names (`Manager`, `Service`, `Handler`, `Helper`, `Util`). Function name lies about side effects. New name shadowing or aliasing an existing primitive.
 
 ### 6. Module Depth (Interface Simplicity Hides Complexity)

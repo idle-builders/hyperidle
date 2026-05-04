@@ -12,8 +12,8 @@ Read-only review. Produce findings — do NOT make code changes.
 
 ## Required reading
 
-1. `docs/work-packages/SHARED.md` — tech stack contracts, component budget
-2. The relevant track file in `docs/work-packages/TRACK-*.md` for the story being reviewed
+1. `plans/work-packages/SHARED.md` — tech stack contracts, component budget
+2. The relevant track file in `plans/work-packages/TRACK-*.md` for the story being reviewed
 3. `.claude/rules/typescript.md` — TypeScript rules the code must follow
 
 Then read ALL changed files (via `<target>` or `git diff --name-only`). Be brutally skeptical.

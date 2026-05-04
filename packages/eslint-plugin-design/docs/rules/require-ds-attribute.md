@@ -38,4 +38,4 @@ export default function Foo() {
 ## Cross-link
 
 See `packages/design-system/src/ds-attrs.ts` for the marker helper, and
-`docs/work-packages/TRACK-K.md` § K2 for the full contract.
+`plans/work-packages/TRACK-K.md` § K2 for the full contract.
