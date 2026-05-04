@@ -153,12 +153,12 @@ Concepts are the part that is *expensive to change*; they ripple through every d
 
 ## Anti-patterns
 
-- **Skipping straight to design.** "I'll figure out what a Thread is by drawing it." → you'll draw three different things and call them Thread.
-- **Concept by code.** Looking at the existing TypeScript type and calling that the concept. The type is one possible expression of the concept, not the concept itself.
-- **Empty rejection list.** If you can't say what the concept ISN'T, you don't understand what it IS.
-- **Vibes-only definitions.** "A Thread is a way to talk about things" is not a definition; it's a hand-wave.
-- **Re-litigating in `/design` or `/architecture`.** Once the concept doc lands, the visual variants and the technical plan operate inside it. They do not redefine it.
-- **Padding the probe list.** Asking ten questions when only three are actually unsettled produces six shrug-answers and one real one. Cut probes whose answer wouldn't change the concept doc — then ask the survivors as one batch, not seven separate round-trips.
+- Skipping to design before defining the concept.
+- Concept by code (the type is one expression of the concept, not the concept).
+- Empty rejection list.
+- Vibes-only definitions.
+- Re-litigating the concept in `/design` or `/architecture`.
+- Padding the probe list — ask only what's unsettled, then issue survivors as one batch, not seven separate round-trips.
 
 ## Target
 
