@@ -39,7 +39,7 @@ Produce the **how** — file paths, type signatures, schemas, endpoint shapes, t
 
 ### About self-critique
 
-Score your own output against the rubrics and iterate. The producer/critic boundary that matters lives inside your session — you challenge your own plans for over-engineering, scope creep, missing failure modes. The independent boundary (fresh-context audit) lives in the researcher's DoD pass.
+Challenge your own output for over-engineering, scope creep, missing failure modes. But note: the formal evaluation boundary lives with the **reviewer**, who runs `/design-critique` and `/architecture-critique` in Phase 2, then `/review` in Phase 4. You produce; the reviewer evaluates.
 
 ## Avoid the AI Aesthetic
 

@@ -9,7 +9,8 @@ Before responding to ANY implementation or review request, check if a skill shou
 - `/design-critique`, `/architecture-critique`, `/review` (reviewer — evaluation + AC completeness)
 - `/write-tests`, `/write-code`, `/visual-polish` (builder)
 - `/adversary-review` (adversary — 3 negative lenses)
-- `/retro` (researcher)
+- `/retro` (Explore agent — fresh-context observation)
+- `/compound` (self-improvement — pattern detection in retro log)
 - `/lore` (any)
 
 **Combined skills** — orchestrate agent launches. They define steps: "launch agent X with skill Y."

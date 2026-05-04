@@ -8,7 +8,7 @@ min_tool_calls: 8
 
 # Retro
 
-**Why:** Without recording what went well and what didn't, the same mistakes repeat every workpackage. The retro log feeds the compound agent which identifies patterns and proposes process improvements. Observations compound — a single friction point noted three times becomes an actionable change.
+**Why:** Without recording what went well and what didn't, the same mistakes repeat every workpackage. The retro log feeds `/compound` which identifies patterns and proposes process improvements. Observations compound — a single friction point noted three times becomes an actionable change.
 
 Collect insights about `<target>` from every available source:
 
@@ -29,7 +29,7 @@ Append observations to `.pipeline/retro-log.jsonl` as one JSON line each:
 Record successes too — they confirm what's working. If something is actively broken and will break the next workpackage, record it as `escalation` with `critical` severity and output a warning.
 
 **Rules:**
-- Observe, don't fix — recording is your job, changing process is the compound agent's job
+- Observe, don't fix — recording is your job, changing process is `/compound`'s job
 - Be specific — "tests were hard" is useless; "FK constraint test needed pragma setup not documented anywhere" is actionable
 - One observation per line — don't bundle multiple issues
 - Tag consistently — check existing tags in the retro log and reuse them
