@@ -14,7 +14,7 @@
  *     without a Vite build.
  *
  * @lore Each gate maps 1:1 to a K12 acceptance criterion in
- *   `docs/work-packages/TRACK-K.md` story K12 (Unified Design System
+ *   `plans/work-packages/TRACK-K.md` story K12 (Unified Design System
  *   Workbench).
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";

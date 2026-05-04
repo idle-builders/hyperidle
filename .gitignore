@@ -13,10 +13,8 @@ sync-reports/
 .worktrees/
 .DS_Store
 .claude/worktrees/
-docs/plans
 logs/
 *.db-shm
 *.db-wal
 .claude/.fuse_*
 .claude/scheduled_tasks.lock
-plans/*

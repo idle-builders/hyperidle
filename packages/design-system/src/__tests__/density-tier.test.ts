@@ -17,7 +17,7 @@
  * 18 → 20 → 22 respectively.
  *
  * @lore Each gate maps 1:1 to a K9 acceptance criterion in
- *   `docs/work-packages/TRACK-K.md` story K9 ("`tokens.css` density tier
+ *   `plans/work-packages/TRACK-K.md` story K9 ("`tokens.css` density tier
  *   values" + "AQ-003 ratio enforcement"). The 4 px tolerance on the ratio
  *   matches the AESTHETICS.md § Spacing & Density "Density tier ratio" lint
  *   hint ("each value equals default × 0.75 ±2 px") rounded up to the 4 px

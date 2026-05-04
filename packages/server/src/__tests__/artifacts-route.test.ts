@@ -1,5 +1,5 @@
 // L3 RED — Hono route tests for /api/artifacts.
-// Source of truth: docs/architecture-plans/L3.md §5, §12.
+// Source of truth: plans/architecture-plans/L3.md §5, §12.
 
 import {
 	artifacts,

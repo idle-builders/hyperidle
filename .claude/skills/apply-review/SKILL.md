@@ -15,3 +15,7 @@ You receive review findings from a scan/review skill. Work through each finding:
 3. **Verify** — after each logical group of fixes, run `bun run check && bun run lint && bun run test`. Revert anything that breaks tests.
 
 Do not add unrelated improvements. Only address the findings you were given.
+
+## Target
+
+$ARGUMENTS

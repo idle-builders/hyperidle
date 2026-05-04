@@ -16,17 +16,16 @@ This is **not** `/architecture-review`. The review skill audits the *implemented
 
 - **In the pipeline:** step 4, immediately after `/architecture` produces the plan, before `/write-tests`.
 - **Inside `/architecture` Phase 4:** the architect runs this on themselves and iterates. Fixes go into the plan, not into a separate findings file.
-- **On explicit `/architecture-critique <story-id>`:** full audit of the plan saved under TaskCreate or in `docs/work-packages/`/the worktree's plan output.
+- **On explicit `/architecture-critique <story-id>`:** full audit of the plan saved under TaskCreate or in `plans/work-packages/`/the worktree's plan output.
 
-## Required Reading (Before Critiquing)
+## Required Reading
 
-1. The story in `docs/work-packages/TRACK-<letter>.md` — the spec the plan must serve.
-2. `docs/ARCHITECTURE.md` — system layering, component boundaries, data flow.
-3. `docs/PROCESS_LAYER.md`, `docs/KNOWLEDGE_ARCHITECTURE.md`, `docs/AGENT_LAYER.md` — domain-specific contracts the plan inherits from.
-4. `docs/work-packages/SHARED.md` — shared contracts and tech stack.
-5. `docs/HUMAN_INTERFACE_LAYER.md`, `docs/INFORMATION_ARCHITECTURE.md` — when the plan touches UI.
-6. The story's approved design (`docs/design-explorations/<story-id>/approved.md` if `/design` ran) — the visual contract the plan must respect.
-7. The plan itself — read every section: AC + verification methods, ordered task list, type signatures, route checklist, security & abuse cases, protected tests, plan reconciliation, design-it-twice trade-offs.
+1. The story in `plans/work-packages/TRACK-<letter>.md`.
+2. `docs/architecture/` — system layering, component boundaries.
+3. `docs/process-layer/`, `knowledge-architecture/`, `agent-layer/` — only the sections that match the plan's scope.
+4. `plans/work-packages/SHARED.md#shared-contracts`.
+5. UI stories: `docs/human-interface-layer/`, `information-architecture/` — section-scoped + `plans/design-explorations/<story-id>/approved.md`.
+6. The plan itself — every section.
 
 ## The Critique Loop
 
@@ -78,7 +77,7 @@ This is **not** `/architecture-review`. The review skill audits the *implemented
 - Do names honestly describe what things do?
 - Does a function or column name eliminate a paragraph of doc?
 - Do new names conflict with existing closed vocabularies (Bet / Task / Session / Thread / Block / Artifact)?
-- Are domain terms used consistently with `docs/concept/` and `SHARED.md`?
+- Are domain terms used consistently with `docs/` and `SHARED.md`?
 - **Smell:** generic names (`Manager`, `Service`, `Handler`, `Helper`, `Util`). Function name lies about side effects. New name shadowing or aliasing an existing primitive.
 
 ### 6. Module Depth (Interface Simplicity Hides Complexity)
@@ -166,9 +165,7 @@ When the plan ships these gaps, this skill blocks; when the plan addresses them,
 - **Letting design-it-twice be theatre.** If the plan lists two alternatives but the second is straw-manned, that's worse than not having two — flag it.
 - **Re-doing the architect's job.** This skill scores; it does not rewrite the plan. The architect applies the fixes; this skill rescores.
 
-## Cross-References
 
-- `/architecture` — produces the plan this skill scores; calls this skill in its Phase 4.
-- `/architecture-review` — scores the *implemented code*, after `/write-code`. Different phase, different inputs, different findings.
-- `/design-critique` — same loop and rubric structure, applied to the design artifact.
-- `/check-definition-of-done` — runs at the end and audits whether the AC verification methods this skill required were actually implemented and proven.
+## Target
+
+$ARGUMENTS

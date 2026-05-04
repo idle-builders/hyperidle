@@ -12,11 +12,11 @@ Read-only review. Produce findings — do NOT make code changes.
 
 ## Required reading
 
-1. `docs/ARCHITECTURE.md` — trust boundaries, layer separation, deployment model
-2. `docs/AGENT_LAYER.md` — agent permissions, workspace isolation, tool restrictions
-3. The relevant track file in `docs/work-packages/TRACK-*.md` for the story being reviewed
+1. `docs/architecture/` — trust boundaries, layer separation, deployment model
+2. `docs/agent-layer/` — agent permissions, workspace isolation, tool restrictions
+3. The relevant track file in `plans/work-packages/TRACK-*.md` for the story being reviewed
 
-Then read ALL changed files (via `$ARGUMENTS` or `git diff --name-only`). Focus on new trust boundaries.
+Then read ALL changed files (via `<target>` or `git diff --name-only`). Focus on new trust boundaries.
 
 ## Be thorough
 
@@ -32,3 +32,7 @@ Check every endpoint for input validation. Check every use of `dangerouslySetInn
 - **Dangerous patterns** — grep for `eval`, `Function(`, `innerHTML`, `dangerouslySetInnerHTML`, `child_process`, `exec(` across the codebase, not just changed files
 
 Output structured findings: CRITICAL / WARNINGS / OBSERVATIONS with file paths and line numbers.
+
+## Target
+
+$ARGUMENTS

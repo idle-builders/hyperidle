@@ -10,7 +10,7 @@ min_tool_calls: 8
 
 Read-only scan. Produce findings — do NOT make code changes.
 
-Find recently changed files via git (or use `$ARGUMENTS`).
+Find recently changed files via git (or use `<target>`).
 
 Flag AI anti-patterns:
 - **Verbose naming** — shorten when context is clear
@@ -22,3 +22,7 @@ Flag AI anti-patterns:
 - **AI tell-tales** — "TODO: implement" on implemented code, "simplified version", "for now", "in production"
 
 Output a list of findings with file paths, line numbers, and what to fix.
+
+## Target
+
+$ARGUMENTS

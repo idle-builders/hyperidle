@@ -8,34 +8,24 @@ min_tool_calls: 18
 
 # Concept
 
-**Why:** Before `/design` decides what the user sees and `/architecture` decides the technical shape, there's an even more upstream question: **what is this thing?** Get the concept wrong and downstream variants explore the wrong space — the design is for the wrong object, the architecture commits to the wrong contracts, and every later skill papers over the original confusion.
+Upstream of `/design` and `/architecture`. Answers "what IS this thing?" — the layer where Thread is distinguished from Message, Block from Section, Artifact from Output, Bet from Task, Cost from Duration.
 
-This is the layer where:
-- **Thread** is distinguished from Message and Conversation
-- **Block** is distinguished from Section, Document, and Markdown dialect
-- **Artifact** is distinguished from Output, File, and Deliverable
-- **Bet** is distinguished from Task and Story
-- **Cost** is distinguished from Duration
-
-## When this runs
-
-- **In the pipeline:** step 0 — before `/design`, before `/architecture`. The very first skill on any story that introduces or reshapes a primitive, a domain concept, or a load-bearing noun in the system.
-- **On `/concept <story-id>`:** explicit invocation. Do this whenever you read a story and find yourself unsure what the central noun *is*, or when the story uses a term inconsistently with `docs/concept/` or `docs/work-packages/SHARED.md`.
-- **Skip when:** the concept is already locked in `docs/concept/` and the story does not reshape it. (Confirm by reading the relevant `docs/concept/*.md` section first; if it answers every question in Phase 1 below without contradiction, skip.)
+**Skip when:** the concept is already locked in `docs/` and the story doesn't reshape it. Read the relevant section files first; if they answer Phase 1 without contradiction, skip.
 
 ## Required reading
 
-1. The story in `docs/work-packages/TRACK-<letter>.md` — what nouns does it use? Which are central, which are incidental?
-2. `docs/work-packages/SHARED.md` "Shared Contracts" — does the noun already have a contract here?
-3. `docs/concept/*.md` — the canonical concept docs. Read every section that names the noun or its neighbours.
-4. `docs/concept/archive/` — prior versions of concept decisions. If the noun used to be defined differently, that's load-bearing context.
-5. Any related stories that already shipped (per `pipeline-manifest.yaml` or `progress.json`).
+1. Story in `plans/work-packages/TRACK-<letter>.md` — central vs incidental nouns.
+2. `plans/work-packages/SHARED.md` "Shared Contracts" — does the noun already have a contract?
+3. `ls docs/` to identify relevant topic folders, then read `index.md` and drill into sections.
+4. `docs/archive/` — prior versions, if any.
 
-If the spec contradicts an existing concept doc, that's a CRITICAL finding before any other work. Surface it; don't silently re-define.
+**Output a "Required reading" section** listing the doc files downstream agents (`/architecture`, `/implement`) must read for this story.
+
+If the spec contradicts an existing concept doc, that's CRITICAL. Surface it; don't silently re-define.
 
 ## Phase 0 — Identify the thing
 
-Name the noun(s) the spec keeps using. Often there's one central noun and 2-3 satellite nouns. List them with one-line working definitions in your own words, then check each against `docs/concept/` and SHARED.md.
+Name the noun(s) the spec keeps using. Often there's one central noun and 2-3 satellite nouns. List them with one-line working definitions in your own words, then check each against `docs/` and SHARED.md.
 
 For each noun, classify it:
 - **New primitive** — not in the system yet; this story introduces it. (L1 Thread, L2 Block, L3 Artifact were each this.)
@@ -58,7 +48,7 @@ The seven essential probes (adapt; don't ask all of them — pick what's actuall
 4. **Composition.** "What other concepts does a `<noun>` carry, host, or attach to? My read: a `<noun>` attaches to {hosts}, carries {payload}, is referenced by {references}."
 5. **Lifecycle.** "What states does a `<noun>` move through, and what causes each transition? My read: …"
 6. **Authority.** "Who owns / produces / mutates a `<noun>`? Where does the source of truth live? My read: …"
-7. **Vocabulary collision.** "Does `<noun>` clash with an existing term in `docs/concept/` or `SHARED.md`? Is it used inconsistently inside this same story? My read: …"
+7. **Vocabulary collision.** "Does `<noun>` clash with an existing term in `docs/` or `SHARED.md`? Is it used inconsistently inside this same story? My read: …"
 
 Stop probing when the concept is sharp, not when you run out of questions. Three to seven branches is typical for a new primitive; one or two for a reshape.
 
@@ -104,12 +94,12 @@ Concepts commit the system to contracts. Make them explicit:
 
 Each contract is one line. The architect later turns these into types, schemas, and guards. Concept work commits to the *shape*, not the implementation.
 
-## Phase 5 — Write or update `docs/concept/`
+## Phase 5 — Write or update `docs/`
 
 The output is a concept doc, not a chat summary. Write to:
-- A new section in `docs/concept/<existing-doc>.md` if the concept fits an existing layer (Thread → `HUMAN_INTERFACE_LAYER.md`, Block → `HUMAN_INTERFACE_LAYER.md` + `BLOCKS.md`, Artifact → `HUMAN_INTERFACE_LAYER.md` + `PROCESS_LAYER.md`).
-- A new `docs/concept/<NOUN>.md` if the concept is large enough to warrant its own doc (TRACK-L L2 explicitly calls for `BLOCKS.md`).
-- An update to `docs/work-packages/SHARED.md` "Shared Contracts" so downstream stories reference it without re-inventing.
+- A new section file in `docs/<topic>/` if the concept fits an existing layer (Thread → `human-interface-layer/`, Block → `human-interface-layer/` + `blocks/`, Artifact → `human-interface-layer/` + `process-layer/`).
+- A new `docs/<noun>/` directory if the concept is large enough to warrant its own topic.
+- An update to `plans/work-packages/SHARED.md` "Shared Contracts" so downstream stories reference it without re-inventing.
 
 Doc structure (adapt sections that aren't relevant; don't pad):
 
@@ -139,7 +129,7 @@ Doc structure (adapt sections that aren't relevant; don't pad):
 
 Spawn an **adversary agent** to challenge the concept (NOT the downstream design / plan — that comes later):
 - Is the rejection list a real list of distinct things, or three flavours of one thing?
-- Does the canonical term collide with an existing term in the codebase or in `docs/concept/`? (`grep` to verify.)
+- Does the canonical term collide with an existing term in the codebase or in `docs/`? (`grep` to verify.)
 - Are the contracts complete, or do they hand-wave on cardinality / closure / mutability / identity?
 - Is the rationale concrete (cites a founder reframe, a constraint, a prior bug) or generic ("for clarity")?
 - Did the concept-doc update touch the right files? Are there other concept docs that need to mention this change?
@@ -151,8 +141,8 @@ The concept is now **locked**. The downstream skills with the concept as fixed i
 ## Output of `/concept` end-to-end
 
 ```
-docs/concept/<noun>.md              # Phase 5 output (or updated existing doc)
-docs/work-packages/SHARED.md         # Phase 5 may add a "Shared Contracts" entry
+docs/<noun>.md              # Phase 5 output (or updated existing doc)
+plans/work-packages/SHARED.md         # Phase 5 may add a "Shared Contracts" entry
 ```
 
 ## What this skill does NOT do
@@ -163,15 +153,13 @@ Concepts are the part that is *expensive to change*; they ripple through every d
 
 ## Anti-patterns
 
-- **Skipping straight to design.** "I'll figure out what a Thread is by drawing it." → you'll draw three different things and call them Thread.
-- **Concept by code.** Looking at the existing TypeScript type and calling that the concept. The type is one possible expression of the concept, not the concept itself.
-- **Empty rejection list.** If you can't say what the concept ISN'T, you don't understand what it IS.
-- **Vibes-only definitions.** "A Thread is a way to talk about things" is not a definition; it's a hand-wave.
-- **Re-litigating in `/design` or `/architecture`.** Once the concept doc lands, the visual variants and the technical plan operate inside it. They do not redefine it.
-- **One mega-question dump.** Probes are one at a time. A list of seven questions is one easy answer plus six silent assumptions.
+- Skipping to design before defining the concept.
+- Concept by code (the type is one expression of the concept, not the concept).
+- Empty rejection list.
+- Vibes-only definitions.
+- Re-litigating the concept in `/design` or `/architecture`.
+- One mega-question dump (probes are one at a time).
 
-## Cross-references
+## Target
 
-- `/design` — consumes the concept as the fixed input; explores how the user perceives and interacts with it.
-- `/architecture` — consumes the concept and the design; produces the technical plan that respects the contracts.
-- `/lore` — for *local* decisions inside an implementation file. Concept-level decisions live in `docs/concept/`, not in `@lore` comments.
+$ARGUMENTS

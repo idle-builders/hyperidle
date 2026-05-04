@@ -1,3 +1,8 @@
+---
+paths:
+  - "packages/design-system/**"
+---
+
 # Visual Parity: HTML is the Design Reference
 
 - HTML component files in `packages/design-system/html/` are the design source of truth. They are edited by Claude Design. **NEVER change the styling of HTML files.**

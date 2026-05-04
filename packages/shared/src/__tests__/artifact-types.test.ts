@@ -1,5 +1,5 @@
 // L3 RED — type & runtime closure tests for the Artifact primitive.
-// Source of truth: docs/architecture-plans/L3.md §3, §10 Q4.
+// Source of truth: plans/architecture-plans/L3.md §3, §10 Q4.
 //
 // The implementation does not yet exist; this test file references the
 // modules and exports the production code must publish.

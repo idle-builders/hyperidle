@@ -208,7 +208,7 @@ function runVps(args: ParsedArgs, io: RunSetupIo, root: string): number {
 
 	io.stdout("[setup] VPS profile: Docker Compose bring-up");
 	io.stdout(`[setup]   Compose file: ${composePath}`);
-	io.stdout("[setup]   See docs/DEPLOYMENT.md § VPS for the full bring-up sequence.");
+	io.stdout("[setup]   See docs/deployment/ § VPS for the full bring-up sequence.");
 	io.stdout(
 		"[setup]   Short form: docker compose up -d && bun run db:migrate:pg && bun run db:seed:pg",
 	);
@@ -227,7 +227,7 @@ function runCloud(args: ParsedArgs, io: RunSetupIo, ctx: RunSetupContext): numbe
 	}
 	io.stdout("[setup] Cloud profile: remote Postgres");
 	io.stdout(`[setup]   Target: ${redactDbUrl(url)}`);
-	io.stdout("[setup]   See docs/DEPLOYMENT.md § Cloud for the full bring-up sequence.");
+	io.stdout("[setup]   See docs/deployment/ § Cloud for the full bring-up sequence.");
 	if (args.dryRun) {
 		io.stdout("[setup] (dry-run) Not connecting; skipping.");
 	}
