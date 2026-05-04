@@ -1,5 +1,5 @@
 // L3 RED — formatter contract for ArtifactCostFromSession.
-// Source of truth: plans/architecture/L3.md §3.3.
+// Source of truth: plans/L3/architecture.md §3.3.
 
 import { describe, expect, it } from "vitest";
 import { type ArtifactCostInput, formatArtifactCost } from "../format/artifact-cost.js";

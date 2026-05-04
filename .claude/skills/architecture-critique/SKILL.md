@@ -21,11 +21,11 @@ This is **not** `/architecture-review`. The review skill audits the *implemented
 ## Required Reading
 
 1. The story in `plans/work-packages/TRACK-<letter>.md`.
-2. `plans/concept/<story-id>.md` — the locked concept output.
+2. `plans/<story-id>/concept.md` — the locked concept output.
 3. The plan itself — every section, including its **Required reading** list.
 4. The specific authoritative files named in the plan's **Required reading** (these are `docs/<topic>/<file>.md` paths the plan picked, not whole folders).
 5. Canonical-shapes contracts under `docs/<topic>/` (e.g. `docs/blocks/canonical-shapes.md`, `docs/process-layer/artifact-primitive.md`, `docs/human-interface-layer/thread-primitive.md`).
-6. UI stories: `plans/design/<story-id>/approved.md`.
+6. UI stories: `plans/<story-id>/design/approved.md`.
 
 ## The Critique Loop
 

@@ -12,7 +12,7 @@ Read-only review. Produce findings — do NOT make code changes.
 
 ## Required reading
 
-1. `plans/architecture/<story-id>.md` — the technical plan, especially its "Security & abuse cases" block
+1. `plans/<story-id>/architecture.md` — the technical plan, especially its "Security & abuse cases" block
 2. The specific authoritative files named in the plan's **Required reading** section that cover trust boundaries and agent permissions (typically a `docs/architecture/<file>.md` and a `docs/agent-layer/<file>.md`)
 3. The relevant track file in `plans/work-packages/TRACK-*.md` for the story being reviewed
 

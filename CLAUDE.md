@@ -69,11 +69,9 @@ Each folder has an `index.md` with section links. `/concept` and `/architecture`
 
 **Transitive** — `plans/` (intermediate pipeline artifacts, may be regenerated):
 
-- `work-packages/` — story specs and track files
-- `concept/` — per-story concept-locking output (`<story-id>.md`)
-- `architecture/` — per-story technical plans (`<story-id>.md`)
-- `design/` — per-story design variants and approved designs
-- `reviews/` — per-story review outputs
+- `work-packages/` — track-level files (`TRACK-*.md` story specs, `WORK_PACKAGES.md`, `dependency-graph.md`, `pipeline-manifest.yaml`, `follow-ups.md`)
+- `<story-id>/` — per-story artifacts grouped together. Each story gets its own folder (e.g., `plans/L10/`) containing `concept.md`, `architecture.md`, `architecture-critique.md`, `dod.md`, `design/approved.md`, `*-review.md`, `*-scan.md`, etc. Skills write artifacts to `plans/<story-id>/<artifact>.md`.
+- `reviews/` — cross-cutting research (area-/journey-/improvements-/reference- files, not story-specific)
 
 ---
 

@@ -2,7 +2,7 @@
  * deriveBlocks() — pure markdown → Block[] derivation.
  *
  * Concept: docs/blocks/.
- * Plan: plans/work-packages/L2-plan.md § 4.2.
+ * Plan: plans/L2/architecture.md § 4.2.
  *
  * Pipeline: oversize byte-cap check → unified().use(remarkParse).use(remarkGfm)
  * .parse(body) → walk top-level mdast nodes → map to BlockKind →

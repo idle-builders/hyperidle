@@ -96,7 +96,7 @@ Each contract is one line. The architect later turns these into types, schemas, 
 ## Phase 5 — Write the per-story concept doc and update ground truth
 
 The output is a concept doc, not a chat summary. Write to:
-- `plans/concept/<story-id>.md` — the per-story concept-locking output (always). This is what `/architecture` reads as a fixed input.
+- `plans/<story-id>/concept.md` — the per-story concept-locking output (always). This is what `/architecture` reads as a fixed input.
 - A specific `docs/<topic>/<noun>.md` ground-truth file if the concept fits an existing layer (Thread → `docs/human-interface-layer/threads.md`, Block → `docs/blocks/<file>.md`, Artifact → `docs/process-layer/artifacts.md`). Update or create the specific file — do not write to a generic folder.
 - An update to the matching `docs/<topic>/canonical-shapes.md` (or sibling contract file) so downstream stories reference it without re-inventing.
 
@@ -140,7 +140,7 @@ The concept is now **locked**. The downstream skills with the concept as fixed i
 ## Output of `/concept` end-to-end
 
 ```
-plans/concept/<story-id>.md           # Phase 5 per-story concept-locking output (always)
+plans/<story-id>/concept.md           # Phase 5 per-story concept-locking output (always)
 docs/<topic>/<noun>.md                # Phase 5 ground-truth update (specific file, when applicable)
 docs/<topic>/canonical-shapes.md      # Phase 5 may add a canonical-shapes entry
 ```

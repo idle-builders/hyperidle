@@ -1,6 +1,6 @@
 // L3 — formatter that collapses the precision-safe DB integer columns
 // into the wire-shape display strings consumed by ArtifactCostChip.
-// Source: plans/architecture/L3.md §3.3.
+// Source: plans/L3/architecture.md §3.3.
 
 import type { ArtifactCostFromSession } from "../types/artifact.js";
 

@@ -12,9 +12,9 @@ Read-only review. Produce findings — do NOT make code changes.
 
 ## Required reading (do ALL before reviewing code)
 
-1. `plans/architecture/<story-id>.md` — the technical plan (always start here)
+1. `plans/<story-id>/architecture.md` — the technical plan (always start here)
 2. The specific authoritative files named in the plan's **Required reading** section — these are the `docs/<topic>/<file>.md` paths the architect picked. Read each one end-to-end.
-3. `plans/concept/<story-id>.md` — the locked concept output, if present
+3. `plans/<story-id>/concept.md` — the locked concept output, if present
 4. `CLAUDE.md` (tech stack), canonical-shapes contracts under `docs/<topic>/`, and `plans/work-packages/dependency-graph.md`
 5. The relevant track file in `plans/work-packages/TRACK-*.md` for the story being reviewed
 

@@ -28,9 +28,9 @@ Before designing anything, read:
 - `packages/design-system/DESIGN.md` — **Canonical** token reference: surfaces, text, borders, radii, spacing, typography, motion
 - `packages/design-system/PRINCIPLES.md` — Design principles, anti-patterns, premium vs. cheap signals
 - `packages/design-system/src/tokens.css` — Actual CSS custom property values
-- `plans/concept/<story-id>.md` — locked concept output for the story (when present)
-- `plans/architecture/<story-id>.md` — the technical plan; its **Required reading** section names the specific authoritative files (e.g. `docs/ui-design/<file>.md`, `docs/human-interface-layer/<file>.md`) the designer must read for this story
-- `plans/design/<story-id>/approved.md` — the approved design spec (when iterating on an existing approved design)
+- `plans/<story-id>/concept.md` — locked concept output for the story (when present)
+- `plans/<story-id>/architecture.md` — the technical plan; its **Required reading** section names the specific authoritative files (e.g. `docs/ui-design/<file>.md`, `docs/human-interface-layer/<file>.md`) the designer must read for this story
+- `plans/<story-id>/design/approved.md` — the approved design spec (when iterating on an existing approved design)
 - `/designsystem` route — Live catalog of all implemented components with `.stories.tsx` variants
 
 The design system package (`packages/design-system/`) is the authority for tokens, colors, spacing, and component implementations. The specific `docs/<topic>/<file>.md` files named in the plan describe behavior and architecture. When they conflict, the design system package wins.
