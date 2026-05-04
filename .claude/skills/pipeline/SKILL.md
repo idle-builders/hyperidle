@@ -80,7 +80,7 @@ Each persona phase **commits its output and pushes** before returning:
 | 3 — builder /write-tests (red) | test files | run |
 | 3 — builder /write-code (green) | implementation (verified) | run |
 | 4 — builder (apply review fixes) | one commit per applied finding batch | run |
-| 5 — researcher /retro | prose | `[skip ci]` |
+| 5 — Explore agent /retro | prose | `[skip ci]` |
 
 CI is the verify gate. Builder runs `bun run verify` locally and must pass before pushing — no broken code reaches reviewers. CI is the authoritative pass/fail.
 
@@ -119,10 +119,10 @@ Then dispatch the persona sessions below, in order. Update `currentStep` in the 
 | 2 | **reviewer** | high | `/design-critique` → `/architecture-critique` | Evaluates designer output. True producer/evaluator separation — different agent, not just different mode. Context carries to Phase 4. |
 | 3 | **builder** | medium | `/write-tests` → `/write-code` | TDD red then green. Must pass `bun run verify` before pushing. No broken code reaches reviewers. |
 | 4 | **reviewer** + **adversary** | high | `/review` + `/adversary-review` | Same reviewer from Phase 2 (warm on design/arch) does 3 positive lenses + AC audit. Fresh adversary does 3 negative lenses. Parallel. Builder applies fixes. |
-| 5 | **researcher** | low | `/retro` | Fresh-context retro with cost signals. |
+| 5 | **Explore** | low | `/retro` | Fresh-context retro with cost signals. Built-in Explore agent, not a custom persona. |
 | — | scripts | — | CI + PR | `bun run verify` runs as CI on every push. Draft PR opened at worktree setup; `gh pr ready` flips on Reviewer's DONE verdict. |
 
-**Durable agent sessions per story: 3** (designer, reviewer, builder). Plus 1 fresh-context session (adversary). Plus researcher for retro. Plus scripts.
+**Durable agent sessions per story: 3** (designer, reviewer, builder). Plus 1 fresh-context session (adversary). Plus Explore agent for retro. Plus scripts.
 
 ---
 
@@ -178,8 +178,8 @@ Phase 4 — review (fan-out):
   If DONE and PIPELINE_AB_MODE != 1 → flip draft PR ready (gh pr ready).
   In AB mode, leave the PR draft.
 
-Phase 5 — researcher (retro):
-  Launch agent type=researcher with /retro.
+Phase 5 — retro:
+  Launch Explore agent with /retro.
   Writes docs/retro/<id>.md with cost signals the A/B harness reads.
 ```
 
@@ -227,6 +227,6 @@ Routine UI (existing component family, known layout) gets 1 variant + a "did we 
 - "The plan is done, I can stop" → planning is Phase 1 of 5. You haven't built anything yet.
 - "This story is simple, skip the reviewer + adversary fan-out" → simple stories have the highest skip rate and highest regression rate.
 - "The reviewer is redundant, tests passed" → tests prove behavior, the reviewer proves the RIGHT thing was built against the spec, in *fresh context*. The boundary is the value.
-- "Researcher's retro is navel-gazing" → without the cost signals it emits, the A/B harness can't prove block-1b actually saved tokens, and the compound agent can't propose the next round.
+- "The retro is navel-gazing" → without the cost signals it emits, the A/B harness can't prove block-1b actually saved tokens, and `/compound` can't propose the next round.
 
 **When to skip `/design` + `/design-critique`:** the story has no UI surface (pure backend, schema, infra, concept-doc-only). Verify by reading the AC list — if no AC mentions a page, component, layout, route on the web side, or visible state, Designer skips `/design` and Reviewer skips `/design-critique`. When in doubt, run `/design` with `routine` classification; one variant is cheap and the brief serves as documentation.
