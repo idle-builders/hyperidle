@@ -34,6 +34,10 @@ Implementation plan for the Knowledge body renderer. Designer artefacts:
 
 **No new types.** `KnowledgeBodyProps` is a 3-field local interface. All Block types come from `@hyperidle/shared`.
 
+**Sanitizer choice — explicit.** `KnowledgeBody` constructs `sanitizeHtml = (raw) => DOMPurify.sanitize(raw)` and passes it to every `<Block />` for `kind: "html"` rendering. The library is `dompurify` (already a `packages/web` dep — see `packages/web/package.json` and existing call sites at `packages/web/src/shell/ArtifactView.tsx:141` and `packages/web/src/pages/KnowledgeDetail.tsx:143`). The encapsulation is intentional: `KnowledgeBodyProps` does **not** expose `sanitizeHtml` — one host, one fixed sanitizer. Future hosts that need a different policy (e.g. plain-text-only) get their own component.
+
+**DOMPurify config — default profile, no overrides.** Rationale: DOMPurify's default profile already strips `<script>`, `<iframe>`, `<object>`, `<embed>`, `<style>`, `javascript:` URIs, `data:` URIs on `<a>` (kept on `<img>` for inline base64 images by default — acceptable for Knowledge bodies), and all `on*` event-handler attributes. We do **not** pass `RETURN_TRUSTED_TYPE`, custom `ALLOWED_TAGS`, `ALLOWED_ATTR`, or `FORBID_TAGS` overrides; that locks us to the library's audited default rather than reinventing an allowlist. The single defence-in-depth call site is the `KnowledgeBody` constant `sanitizeHtml`. If a future host needs a stricter profile (e.g. `ALLOWED_TAGS: ["b","i","em","strong","code","a"]`), it builds its own renderer; we do not parametrise this one. **Reference:** `https://github.com/cure53/DOMPurify#default-config` — verified default behaviour matches T-SEC-1 expectations below.
+
 **No new endpoints.** Knowledge bodies are already returned by `GET /api/knowledge/:layer/:id` (`packages/server/src/routes/knowledge.ts:203-222`) as plain text in the `body` column of the response.
 
 **No DB columns.** No `body_sha`, no `parser_version` cache column, no `block_cache` table. `where-derivation-attaches-in-the-pipeline.md` says the cache is an optional optimisation. We ship without it. Re-derivation cost on a 256 KB cap body is sub-millisecond on commodity hardware. Adding caching is a follow-up if a profiler ever flags it.
@@ -96,6 +100,7 @@ The TDD agent (`/write-tests`) writes these before any implementation lands.
 | T8 | `KnowledgeDetail.test.tsx` (update existing) | `data-testid="knowledge-body"` resolves to a `<div data-knowledge-body>`, NOT a `<pre>`. Existing legacy-text assertions (k1 source string, "company"/"belief" tags) still pass. | AC#1 (`<pre>` is gone), regression for protected legacy assertions |
 | T9 | `KnowledgeDetail.test.tsx` (update existing) | Edit-mode preview pane is a `<KnowledgeBody>` instance with `data-testid="knowledge-edit-preview"` — not a `<pre>`. | edit-flow continuity |
 | T10 | `KnowledgeDetail.test.tsx` (update existing) | `LEGACY_DETAILS` and `LEGACY_SOURCES` constants are gone (grep test or import-graph assertion). Note: gated on R1 — see § 8. | spec hardcoded-data deletion clause |
+| T-SEC-1 | `KnowledgeBody.test.tsx` | XSS defence — DOMPurify-backed `sanitizeHtml` strips active payloads from `kind: "html"` blocks AND inline-link `javascript:` URIs. Concrete cases (each is a separate `it(...)`): (a) Body containing `<script>window.__pwn = true</script>` → `document.querySelectorAll('script').length === 0` and `(window as any).__pwn` is `undefined` after render. (b) Body containing `<img src=x onerror="alert(1)">` → rendered `<img>` has no `onerror` attribute (`img.getAttribute('onerror') === null`). (c) Body containing `<iframe src="https://evil.example"></iframe>` → `document.querySelectorAll('iframe').length === 0`. (d) Body containing `<a href="javascript:alert(1)">click</a>` raw HTML inside an html block → rendered `<a>` has no `javascript:` href (DOMPurify rewrites/strips). (e) Body containing `<div onclick="alert(1)" onmouseover="alert(2)">x</div>` → rendered `<div>` has neither `onclick` nor `onmouseover` attribute (event-handler stripping). (f) Markdown link `[click](javascript:alert(1))` → asserted at L23 boundary as a regression guard: rendered `<a>` either has no `href` or `href` does not start with `javascript:`. If the assertion fails, that's an L2 `renderInline` bug — file as a follow-up in `plans/L23/follow-ups.md`; L23 still must not regress vs today's `<pre>` shell. | AC#1 (no XSS surface added) + Security R-XSS |
 
 ### Playwright
 
@@ -118,7 +123,7 @@ Must be green at the end of every task in § 6.
 Each task is ≤ 30 minutes for an LLM agent and verifiable.
 
 1. **T-RED-1.** Write T1, T2, T3 in `KnowledgeBody.test.tsx`. Run `bun run test` — confirm three failures (file does not exist yet).
-2. **T-RED-2.** Write T4, T5 in `KnowledgeBody.test.tsx`. Confirm five failures.
+2. **T-RED-2.** Write T4, T5, **T-SEC-1 (cases a–f)** in `KnowledgeBody.test.tsx`. Confirm eleven failures (5 prior + 6 new XSS cases).
 3. **T-RED-3.** Write T6, T7 in `KnowledgeBody.id-stability.test.ts`. Confirm seven failures.
 4. **T-RED-4.** Update `KnowledgeDetail.test.tsx` for T8, T9, T10 (gate T10 on the R1 decision in § 8). Confirm three additional failures.
 5. **T-RED-5.** Write E1, E2, E3 in `l23-knowledge-body.spec.ts`. `bun run e2e` — confirm three failures.
@@ -173,6 +178,14 @@ The scoped CSS uses `--density-text-h1` and `--density-text-h2`. Both are define
 ### R4 — Long bodies (near 256 KB)
 
 `deriveBlocks` enforces `MAX_BODY_BYTES = 256 * 1024` and emits a single `unknown` block for oversize bodies (`derive-blocks.ts:300-325`). `KnowledgeBody` does no special handling — `Block` renders the unknown payload via `UnknownPayload`, which has its own warn-stripe shell. T2/T3 don't exercise this; T7 implicitly does not either. Low priority — Knowledge bodies in practice are kilobytes, not hundreds of kilobytes. Surface in `follow-ups.md` if oversize bodies are observed in fixtures.
+
+### R6 — Cascade specificity: scoped heading line-height vs L2 utility classes
+
+`HeadingPayload` ships `font-heading text-[var(--text-strong)] leading-[1.2] tracking-[-0.005em] m-0` as Tailwind utility classes on every heading. The proposed `[data-knowledge-body] :is(h2) { line-height: 1.3; }` rule placed in `@layer components` **loses** to `leading-[1.2]` because `packages/web/src/index.css:4-6` declares the layer order `@tailwind base; @tailwind components; @tailwind utilities;` — utilities cascade after components and win at equal specificity.
+
+**Resolution — drop the `line-height` override entirely.** The four scoped heading rules in `approved.md` keep `font-size`, `font-weight`, `color`, `margin-top` but remove `line-height: 1.2 / 1.3 / 1.4`. L2's `leading-[1.2]` carries through unchanged on every heading. Rationale: a uniform `1.2` line-height across h1–h6 is visually correct for a precision-instrument aesthetic at the sizes Knowledge bodies use (h1 ≈ 26 px, h2 ≈ 20 px, body ≈ 14 px); the staggered `1.2 / 1.3 / 1.4` was a refinement we cannot land at the @layer components specificity tier. Builder MUST NOT shadow the utility by raising specificity (e.g. moving the rule outside the layer or adding `!important`) — that fights the L2 contract for one cosmetic delta. If a designer-call later proves `1.3+` for h2 is required, the right fix is L2-side (change the `HeadingPayload` utility per-level), not L23-side override.
+
+**Builder action.** When writing `KnowledgeBody.css` (T-GREEN-2), omit the `line-height` declarations from all four `[data-knowledge-body] :is(...)` rules. Keep everything else.
 
 ### R5 — Heading-with-margin-top inside `flex flex-col`
 

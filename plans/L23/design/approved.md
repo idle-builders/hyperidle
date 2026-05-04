@@ -57,30 +57,28 @@ Colocated `KnowledgeBody.css` (or appended to `packages/web/src/index.css` under
 ```css
 [data-knowledge-body] :is(h1) {
   font-size: var(--density-text-h1);
-  line-height: 1.2;
   font-weight: 600;
   margin-top: 4px;
 }
 [data-knowledge-body] :is(h2) {
   font-size: var(--density-text-h2);
-  line-height: 1.3;
   font-weight: 600;
   margin-top: 4px;
 }
 [data-knowledge-body] :is(h3) {
   font-size: var(--density-text);
-  line-height: 1.4;
   font-weight: 600;
   margin-top: 4px;
 }
 [data-knowledge-body] :is(h4, h5, h6) {
   font-size: var(--density-text);
-  line-height: 1.4;
   font-weight: 600;
   color: var(--text-mid);
   margin-top: 4px;
 }
 ```
+
+**No `line-height` declarations** — `HeadingPayload` ships `leading-[1.2]` as a Tailwind utility, and Tailwind utilities cascade after `@layer components` (verified at `packages/web/src/index.css:4-6`), so any scoped `line-height` here would silently lose. Uniform `1.2` line-height from L2 carries through. See `architecture.md` § R6 for rationale.
 
 Why scoped on `[data-knowledge-body]`: the same CSS would also work for the future Bet pitch host (L16) under a different attribute. We do **not** put global heading styles in the body — that would leak into UI chrome.
 
@@ -102,6 +100,8 @@ Token consumption is closed: `--density-text-h1`, `--density-text-h2`, `--densit
 - Class: `text-[var(--text-lo)] text-sm m-0`
 - No card, no border, no padding, no italic. A single muted line.
 - Same string as today's placeholder so existing tests that grep `(no content yet)` keep working.
+
+**Deliberate departure from `EmptyState` design-system primitive.** The standard pattern for "no data here" is the `EmptyState` card. We inline a muted `<p>` instead because the AC forbids chrome around a 3-sentence body; the same forbids chrome around a zero-sentence body. Wrapping the empty case in an `EmptyState` card would re-introduce the very container (border, padding, centred icon slot) that L23 is removing. One line of muted text is the consistent expression of "no body" that matches the chrome-free expression of "some body".
 
 ## Edit mode preview
 
