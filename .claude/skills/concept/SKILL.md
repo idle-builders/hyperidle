@@ -18,7 +18,7 @@ Upstream of `/design` and `/architecture`. Answers "what IS this thing?" — the
 2. Existing canonical-shapes / contract docs under `docs/<topic>/` (e.g. `docs/blocks/canonical-shapes.md`, `docs/process-layer/canonical-shapes.md`, `docs/process-layer/artifact-primitive.md`, `docs/human-interface-layer/thread-primitive.md`, `docs/architecture/event-bus-guarantees.md`, `docs/agent-layer/harness-error-taxonomy.md`) — does the noun already have a contract?
 3. `ls docs/` to identify relevant topic folders, then read `index.md` and drill into the specific `docs/<topic>/<file>.md` sections that match the noun.
 
-**Output a "Required reading" section** listing the specific doc files downstream agents (`/architecture`, `/implement`) must read for this workpackage.
+**Output a "Required reading" section** listing the specific doc files downstream agents (`/architecture`, `/pipeline`) must read for this workpackage.
 
 If the spec contradicts an existing concept doc, that's CRITICAL. Surface it; don't silently re-define.
 
@@ -147,7 +147,7 @@ docs/<topic>/canonical-shapes.md      # Phase 5 may add a canonical-shapes entry
 
 ## What this skill does NOT do
 
-- It does not design, define an architecture or write tests or code. That's `/design`, `/architecture`, `/implement`.
+- It does not design, define an architecture or write tests or code. That's `/design`, `/architecture`, `/write-tests`, `/write-code`.
 
 Concepts are the part that is *expensive to change*; they ripple through every downstream variant in design and every contract in architecture. Get them right, then let design and architecture explore freely within them.
 

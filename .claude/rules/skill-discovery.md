@@ -14,7 +14,6 @@ Before responding to ANY implementation or review request, check if a skill shou
 
 **Combined skills** — orchestrate agent launches. They define steps: "launch agent X with skill Y."
 - `/pipeline` — full autonomous build pipeline
-- `/implement` — build + review for manual use
 - `/upgrade` — multi-phase dependency upgrade
 
 ## Decision Flowchart
@@ -25,7 +24,7 @@ User request arrives
     ├── Is it about defining a primitive or domain concept? → /concept <story>
     ├── Is it about exploring UI/UX direction? ──→ /design <story>
     ├── Is it about producing the technical plan? → /architecture <story>
-    ├── Is it about building a feature? ─────────→ /implement <story>
+    ├── Is it about building a feature? ─────────→ /pipeline <story>
     ├── Is it about running multiple stories? ───→ /pipeline <target>
     ├── Is it about reviewing code? ─────────────→ /review <changes>
     ├── Is it about documenting decisions? ──────→ /lore <files|scan|index>
@@ -41,7 +40,7 @@ User request arrives
 
 | Rationalization | Why It's Wrong |
 |---|---|
-| "This is too simple for /implement" | Simple workpackages have the highest skip rate and highest regression rate. |
+| "This is too simple for /pipeline" | Simple workpackages have the highest skip rate and highest regression rate. |
 | "I already know what to do" | The skill isn't about knowing — it's about the process gates that catch what you missed. |
 | "The skill will slow me down" | A 5-minute skill invocation prevents a 2-hour rework. |
 | "I'll just do a quick fix" | Quick fixes that skip `bun run check && bun run lint && bun run test` leave broken states for the next agent. |
@@ -59,6 +58,6 @@ User request arrives
 2. **Design next:** /design (designer produces; UI stories, before architecture)
 3. **Architecture then:** /architecture (designer produces; every story, before any code)
 4. **Critique:** /design-critique then /architecture-critique (reviewer evaluates; different agent than producer)
-5. **Combined skills:** /implement, /pipeline
+5. **Combined skills:** /pipeline
 6. **Maintenance skills:** /upgrade, /lore
 7. **Compounding:** /retro (after shipping — feeds improvements back into skills)
