@@ -68,6 +68,25 @@ async function mockArtifactsOnPage(
 	});
 }
 
+async function mockThreadEndpoints(page: Page): Promise<void> {
+	await page.route("**/api/threads**", async (route: Route) => {
+		const url = route.request().url();
+		if (url.includes("?")) {
+			await route.fulfill({
+				status: 200,
+				contentType: "application/json",
+				body: JSON.stringify({ threads: [] }),
+			});
+		} else {
+			await route.fulfill({
+				status: 200,
+				contentType: "application/json",
+				body: JSON.stringify({ id: "thread-stub", messages: [], participants: [] }),
+			});
+		}
+	});
+}
+
 async function mockEmptyArtifacts(page: Page): Promise<void> {
 	await page.route("**/api/artifacts?**", async (route: Route) => {
 		await route.fulfill({
@@ -182,13 +201,7 @@ test.describe("L12 — Artifact surfaces on Work pages", () => {
 				body: JSON.stringify({ summaries: [], totalCount: 0, truncated: false }),
 			});
 		});
-		await page.route("**/api/threads/**", async (route: Route) => {
-			await route.fulfill({
-				status: 200,
-				contentType: "application/json",
-				body: JSON.stringify({ id: "thread-e2e", messages: [], participants: [] }),
-			});
-		});
+		await mockThreadEndpoints(page);
 		await mockArtifactsOnPage(page, ARTIFACT_PAGE_RESPONSE);
 
 		await page.goto("/work/bet/bet-e2e");
@@ -222,13 +235,7 @@ test.describe("L12 — Artifact surfaces on Work pages", () => {
 				body: JSON.stringify({ summaries: [], totalCount: 0, truncated: false }),
 			});
 		});
-		await page.route("**/api/threads/**", async (route: Route) => {
-			await route.fulfill({
-				status: 200,
-				contentType: "application/json",
-				body: JSON.stringify({ id: "thread-e2e-order", messages: [], participants: [] }),
-			});
-		});
+		await mockThreadEndpoints(page);
 		await mockArtifactsOnPage(page, ARTIFACT_PAGE_RESPONSE);
 
 		await page.goto("/work/bet/bet-e2e-order");
@@ -280,13 +287,7 @@ test.describe("L12 — Artifact surfaces on Work pages", () => {
 				body: JSON.stringify({ summaries: [], totalCount: 0, truncated: false }),
 			});
 		});
-		await page.route("**/api/threads/**", async (route: Route) => {
-			await route.fulfill({
-				status: 200,
-				contentType: "application/json",
-				body: JSON.stringify({ id: "thread-permalink", messages: [], participants: [] }),
-			});
-		});
+		await mockThreadEndpoints(page);
 
 		await page.goto("/work/portfolio");
 		await page.waitForSelector("[data-testid='work-portfolio-page']");
@@ -341,13 +342,7 @@ test.describe("L12 — Artifact surfaces on Work pages", () => {
 				body: JSON.stringify({ summaries: [], totalCount: 0, truncated: false }),
 			});
 		});
-		await page.route("**/api/threads/**", async (route: Route) => {
-			await route.fulfill({
-				status: 200,
-				contentType: "application/json",
-				body: JSON.stringify({ id: "thread-ts-e2e", messages: [], participants: [] }),
-			});
-		});
+		await mockThreadEndpoints(page);
 		// Mock with single artifact for the task
 		await page.route("**/api/artifacts?**", async (route: Route) => {
 			await route.fulfill({
