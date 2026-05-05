@@ -14,7 +14,8 @@ Bet {
   product            # which product this bet belongs to
   team               # the persistent team for that product
   pitch              # the original shaped pitch (markdown + sketches)
-  appetite           # 1 week / 2 weeks / 6 weeks — bounded by capacity
+  cost_appetite      # Money — cap on total spend for this bet (see §10)
+  token_appetite?    # optional TokenUsage — cap on token spend, broken down by tier
   done_condition     # explicit, set at commit, revisable with audit
   hypothesis         # what we believe will be true after this
   status         # current progress: figuring it out / making it happen
@@ -33,6 +34,8 @@ Bet {
 ```
 
 A bet is *not* a workflow. It does not encode a sequence of steps. It encodes a *commitment* and the *minimum structure to keep the team honest about it*.
+
+**No duration budget axis on a bet.** The appetite is a Money cap (and optionally a TokenUsage cap), never a wall-clock-time cap. `created_at` and `shipped_at` are recorded for telemetry and retros; their delta is informational only. See §10 for the full Appetite/Budget/Cost spec, including the rationale for why duration is not a budget axis and the anti-pattern rule that rejects any future "duration cap" proposal. The `Money` and `TokenUsage` shapes are defined in `docs/process-layer/canonical-shapes.md`.
 
 ### 3.2 Task
 
@@ -56,8 +59,10 @@ Task {
                      # unique producers of Artifacts (Artifact primitive,
                      # `HUMAN_INTERFACE_LAYER.md` §4.5). Underlying file/diff
                      # storage is a detail of the Artifact, not of the Task.
-  cost_cap           # max budget for this task
-  cost_actual        # running total
+  cost_cap           # Money — max spend on this task (see canonical-shapes.md)
+  cost_actual        # Money — running total of session costs rolled up
+  token_cap?         # optional TokenUsage — cap on tokens, broken down by tier
+  tokens_actual      # TokenUsage — running total, broken down by tier
   durability?        # null | "checkpoint" | "temporal" | ... — opt-in per task
   risk_tier          # low | medium | high — controls review behavior on completion
   attention_score    # numeric, used for prioritization
@@ -65,6 +70,8 @@ Task {
   updated_at
 }
 ```
+
+A task has no duration cap. `created_at` / `updated_at` are informational; the budget axes are Money and TokenUsage only.
 
 The thread on a task is optional. Most tasks don't need one. Threads (chat threads) exist *when there's something to discuss* — a question, a handoff conversation, a clarification, a review. The thread is *attached to* the task, not the same as it. This separates the conversation about the work from the state of the work.
 
@@ -82,13 +89,16 @@ Session {
   state              # active | paused | done | crashed
   workspace_snapshot # pointer to the workspace state at session start
   events             # event stream for this session (for durability replay if enabled)
-  cost
+  cost               # Money — what this session spent (see canonical-shapes.md)
+  tokens             # TokenUsage — prompt/completion split per tier used in this session
   outcome            # made_progress | blocked | completed | handoff | escalated
   notes              # what the agent did, in its own words, written into its memory
 }
 ```
 
 Sessions are how we get **resumability without locking the model into a single long-running process**. A task can be picked up across days. The agent's memory persists between sessions through L2 (its private memory) and the practice (L3). The session is the contract between the task and the durability layer: if a task is `durability: temporal`, then each session is a Temporal workflow execution; if it's null, sessions are just bounded runs with no replay guarantee.
+
+`started_at` and `ended_at` exist for telemetry and retros; their delta is informational. The session's budget posture is Money + TokenUsage only — see §10.
 
 ### 3.4 Team
 
@@ -100,7 +110,7 @@ Team {
   product
   members            # list of agent identities
   lead               # the agent that escalations route to first (typically the Product Manager)
-  capacity           # max parallel bets, max parallel tasks per member, max daily cost
+  capacity           # max parallel bets, max parallel tasks per member, daily_cost_cap (Money), optional daily_token_cap (TokenUsage)
   active_bets        # list of currently active bets — usually one, sometimes more
   bets_shipped       # history
   formed_at

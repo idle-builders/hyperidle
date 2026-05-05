@@ -5,3 +5,54 @@
 ```
 { timestamp: string, field: string, old_value: unknown, new_value: unknown, reason: string }
 ```
+
+## Money and TokenUsage shapes (TRACK-L L4)
+
+**Money and TokenUsage primitives — full spec at `docs/process-layer/wip-and-cost-limits.md` §10.**
+
+The single grammar for every cost field on bets, tasks, sessions, agents, teams, and the factory. Money is currency-aware and precision-safe; TokenUsage carries a coarse model-tier signal. **There is no duration budget axis** — wall-clock duration is informational only, and a future spec proposing a `duration_cap`, `time_budget`, `deadline_as_cap`, or any other duration-shaped budget axis is rejected by `docs/process-layer/wip-and-cost-limits.md` §10.7.
+
+```
+// Closed enum. Adding a currency requires updating this section first
+// and verifying the per-currency `scale` value below.
+type CurrencyCode = 'USD' | 'EUR' | 'GBP' | 'JPY'
+
+// Integer minor units in the currency's smallest indivisible unit.
+// Precision-safe by construction: bigint arithmetic does not drift.
+// `scale` is the decimal exponent for display: USD/EUR/GBP scale=2 (cents),
+// JPY scale=0 (yen). The scale is a property of the value, not of the formatter.
+type Money = {
+  minor: bigint
+  currency: CurrencyCode
+  scale: number
+}
+
+// Closed enum. Matches `docs/agent-layer/model-routing-and-cost.md` §6.1 routing tiers.
+// Adding a tier requires updating both this entry and model-routing-and-cost.md §6.1.
+type ModelTier = 'reasoning' | 'workhorse' | 'fast'
+
+// Per-tier breakdown. `cachedPrompt` is optional and only present when the
+// harness reports prompt-cache hits separately. We never synthesise it.
+type TierTokenCount = {
+  prompt: bigint
+  completion: bigint
+  cachedPrompt?: bigint
+}
+
+// Sparse map: only tiers actually used appear. Totals are derived (helper
+// functions in L17), never stored, to prevent drift between byTier and total.
+type TokenUsage = {
+  byTier: Partial<Record<ModelTier, TierTokenCount>>
+}
+```
+
+- **Precision rules.** Money arithmetic is `bigint` minor-unit arithmetic; no `number` (float64) representation is ever stored or transported. Mixed-currency arithmetic is invalid: helpers in L17 enforce a single-currency invariant on add/compare. Token counts are `bigint` so cross-session rollups (including sub-agent fan-out) cannot overflow `Number.MAX_SAFE_INTEGER`.
+- **Default currency.** `USD` (with `scale=2`). The default applies only to new-row construction; the currency is always carried with the value at read time. JPY values use `scale=0`. No currency conversion is performed by the spec — every Money value stays in its source currency until rendered.
+- **`scale` is a function of `currency`, not free.** The valid `(currency, scale)` pairs are closed: `USD/EUR/GBP -> 2`, `JPY -> 0`. L17 helpers reject any `Money` value whose `scale` does not match its `currency`. The field is carried explicitly so callers and DB rows are self-describing without a per-currency lookup, but its value is constrained, not chosen. Adding a currency requires updating both the `CurrencyCode` enum and the per-currency scale rule in this entry, in the same change.
+- **No numerical defaults in source.** Cap values (per-agent / per-team / per-factory Money caps, optional TokenUsage caps) live in the Primitive Store and the Settings view, not in code.
+- **Tier vocabulary is inherited and closed.** The `ModelTier` enum is the same vocabulary as the routing tier in `docs/agent-layer/model-routing-and-cost.md` §6.1 (`reasoning | workhorse | fast`). A session's reported token spend lines up directly with the routing decision that produced it.
+- **Unknown tier from a harness.** If the Harness Adapter reports tokens against a tier name outside the closed enum (e.g. a future provider ships a `frontier` tier the deployer's adapter has not yet been mapped to a known `ModelTier`), the adapter MUST coerce-and-flag: bucket the spend into the closest known tier (provider-specific mapping owned by the adapter) and emit a `ModelTierUnknownWarning` event so the deployer can update the mapping. The adapter MUST NOT silently drop the tokens, and MUST NOT widen the closed enum at runtime. The `byTier` map is sparse but its keys are always one of the closed `ModelTier` values.
+- **Anti-pattern rule.** Duration is never a budget axis. The canonical statement of this rule is in `docs/process-layer/wip-and-cost-limits.md` §10.7. A spec PR proposing duration-as-budget should be rejected at review with a citation to that section.
+
+Implementation stories that consume this contract:
+- **L17** (Cost + Tokens wired into Work — `plans/work-packages/TRACK-L.md` lines 543-575) ships the actual TypeScript types in `packages/shared`, the `formatMoney` formatter, the `zeroMoney` / `addMoney` / `compareMoney` helpers, the harness cost-reporting contract, the DB columns for Money and TokenUsage on bets / tasks / sessions / teams, and the API responses. L17 also installs the type-level guard preventing string-typed money from being reintroduced.
