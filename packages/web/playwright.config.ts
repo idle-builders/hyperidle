@@ -33,7 +33,9 @@ export default defineConfig({
 	webServer: {
 		command: `bun run dev -- --port ${E2E_PORT} --strictPort`,
 		url: `http://localhost:${E2E_PORT}`,
-		reuseExistingServer: !process.env.CI,
+		// Always boot a fresh server. Reusing one from a sibling worktree on the
+		// same port silently served stale source to the runner.
+		reuseExistingServer: false,
 		timeout: 60_000,
 		cwd: ".",
 	},

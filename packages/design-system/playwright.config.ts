@@ -14,6 +14,8 @@ export default defineConfig({
 	webServer: {
 		command: "bun run serve",
 		port: 8098,
-		reuseExistingServer: true,
+		// Always boot a fresh server; sibling worktrees on the same port served
+		// stale source to the runner.
+		reuseExistingServer: false,
 	},
 });
