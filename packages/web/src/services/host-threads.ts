@@ -16,9 +16,15 @@
  */
 
 import type { HostKind } from "@hyperidle/shared";
-import { PLACEHOLDER_AGENT_PARTICIPANT_ID } from "./task-threads.js";
 
-export { PLACEHOLDER_AGENT_PARTICIPANT_ID };
+/**
+ * Static placeholder until task→agent assignment is wired (a separate
+ * workpackage). Exported so tests and production code share the literal.
+ *
+ * @lore L18: moved here from task-threads.ts (M6 fix) — host-threads.ts is
+ * now the canonical implementation; task-threads.ts is a re-export shim.
+ */
+export const PLACEHOLDER_AGENT_PARTICIPANT_ID = "agent-unassigned" as const;
 
 /**
  * Resolves the host-attached thread. If one exists, returns its id.
