@@ -190,7 +190,11 @@ function BetActionsBar({ bet, onAction }: BetActionsBarProps): JSX.Element | nul
 	const showPause = status === "in_progress" || status === "behind";
 	const showResume = status === "paused";
 	const showAdjust =
-		status === "in_progress" || status === "paused" || status === "behind" || status === "blocked";
+		status === "in_progress" ||
+		status === "paused" ||
+		status === "behind" ||
+		status === "blocked" ||
+		status === "shaped";
 	const showUnblock =
 		status === "in_progress" || status === "paused" || status === "behind" || status === "blocked";
 	const showKill = true;
@@ -226,11 +230,7 @@ function BetActionsBar({ bet, onAction }: BetActionsBarProps): JSX.Element | nul
 				</button>
 			)}
 			{showKill && (
-				<button
-					type="button"
-					className="btn btn-xs btn-error btn-ghost"
-					onClick={() => onAction("kill")}
-				>
+				<button type="button" className="btn btn-xs btn-error" onClick={() => onAction("kill")}>
 					Kill bet
 				</button>
 			)}
@@ -341,22 +341,40 @@ function ConsequencePreviewDialog({
 			<div className="p-4 flex flex-col gap-3 min-w-[320px] max-w-[480px]">
 				<h2 className="text-sm font-heading font-semibold uppercase tracking-wider">{title}</h2>
 
-				{isKill && (
-					<div className="text-xs text-[var(--text-lo)] space-y-1">
-						<p>
-							<span className="font-semibold text-error">STOPS:</span> All active tasks will be
-							halted.
-						</p>
-						<p>
-							<span className="font-semibold text-[var(--text-hi)]">CONTINUES:</span> Existing
-							artifacts are preserved.
-						</p>
-						<p>
-							<span className="font-semibold text-[var(--text-hi)]">SAVED:</span> Team capacity is
-							freed immediately.
-						</p>
-					</div>
-				)}
+				<div className="text-xs text-[var(--text-lo)] space-y-1">
+					{isKill ? (
+						<>
+							<p>
+								<span className="font-semibold text-error">STOPS:</span> All active tasks will be
+								halted.
+							</p>
+							<p>
+								<span className="font-semibold text-[var(--text-hi)]">CONTINUES:</span> Existing
+								artifacts are preserved.
+							</p>
+							<p>
+								<span className="font-semibold text-[var(--text-hi)]">SAVED:</span> Team capacity is
+								freed immediately.
+							</p>
+						</>
+					) : (
+						<>
+							<p>
+								<span className="font-semibold text-error">STOPS:</span> All agent sessions will be
+								suspended. No new tasks will start.
+							</p>
+							<p>
+								<span className="font-semibold text-[var(--text-hi)]">CONTINUES:</span> The bet
+								remains in your portfolio.
+							</p>
+							<p>
+								<span className="font-semibold text-[var(--text-hi)]">SAVED:</span> All completed
+								tasks and artifacts are unaffected. The bet, its tasks, and revision log are
+								preserved in full.
+							</p>
+						</>
+					)}
+				</div>
 
 				<label className="flex flex-col gap-1">
 					<span className="text-xs text-[var(--text-lo)]">
@@ -656,11 +674,15 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 	// can reference it in its dependency array without a hoisting issue.
 	const handleResume = useCallback(async (): Promise<void> => {
 		if (!bet) return;
-		await fetch(`/api/bets/${encodeURIComponent(bet.id)}/resume`, {
+		const res = await fetch(`/api/bets/${encodeURIComponent(bet.id)}/resume`, {
 			method: "POST",
 			headers: { "Content-Type": "application/json" },
 			body: JSON.stringify({}),
 		});
+		if (!res.ok) {
+			const body = (await res.json()) as { error?: string };
+			throw new Error(body.error ?? "Failed to resume bet");
+		}
 		fetched.refresh();
 	}, [bet, fetched]);
 
