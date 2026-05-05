@@ -1,4 +1,13 @@
-import { artifacts, bets, type HyperIdleDb, messages, tasks, teams, threads } from "@hyperidle/db";
+import {
+	artifacts,
+	bets,
+	type HyperIdleDb,
+	messages,
+	products,
+	tasks,
+	teams,
+	threads,
+} from "@hyperidle/db";
 import type { ArtifactKind, ArtifactThreadSummary, EventBus } from "@hyperidle/shared";
 import { ARTIFACT_KINDS, MUTABLE_BET_FIELDS } from "@hyperidle/shared";
 import { and, eq, inArray, sql } from "drizzle-orm";
@@ -42,6 +51,20 @@ const killBetSchema = z.object({
 });
 
 /**
+ * L14: Pause requires a reason so the founder documents why work is paused.
+ */
+const pauseBetSchema = z.object({
+	reason: z.string().min(1),
+});
+
+/**
+ * L14: Resume reason is optional — resuming is non-destructive.
+ */
+const resumeBetSchema = z.object({
+	reason: z.string().optional(),
+});
+
+/**
  * L18: Assert the caller can read the bet — returns the bet row or null when
  * the bet does not exist or the caller cannot access it. Extracted so it is
  * reusable across the detail endpoint and the new aggregate endpoints without
@@ -55,6 +78,28 @@ const killBetSchema = z.object({
 function assertBetReadable(db: HyperIdleDb, betId: string): { id: string } | null {
 	const row = db.select({ id: bets.id }).from(bets).where(eq(bets.id, betId)).get();
 	return row ?? null;
+}
+
+/**
+ * Derive a display title from the bet's pitch markdown.
+ * Takes the first non-empty line, strips leading "# " (or "## " etc.) markers,
+ * and truncates to 60 characters. Falls back to betId when no heading is found.
+ *
+ * @lore L14: pitch is freeform markdown so the first line may not be a heading.
+ * The fallback (betId) ensures the API never returns an empty title field.
+ */
+function deriveTitleFromPitch(pitch: string, betId: string): string {
+	const lines = pitch.split("\n");
+	for (const line of lines) {
+		const trimmed = line.trim();
+		if (!trimmed) continue;
+		// Strip any number of leading '#' chars followed by a space
+		const stripped = trimmed.replace(/^#{1,6}\s+/, "");
+		if (stripped) {
+			return stripped.slice(0, 60);
+		}
+	}
+	return betId;
 }
 
 /**
@@ -102,7 +147,17 @@ export function createBetRoutes(db: HyperIdleDb, eventBus: EventBus): Hono {
 		return c.json(canvas);
 	});
 
-	// GET /bets/:id — bet detail with tasks
+	// GET /bets/:id — bet detail with tasks, enriched with title/product/team/progress.
+	//
+	// @lore L14: The `bets` table has no title, product, or team columns. These
+	// fields are derived server-side:
+	//   - title: first non-empty line of pitch, stripping the "# " prefix.
+	//            Falls back to bet.id if no heading is found.
+	//   - product: joined from products.name via bets.productId.
+	//   - team: teams.id (display identifier; name column not yet on teams table).
+	//   - progress: { done, total } computed from the tasks already fetched.
+	// Keeping enrichment in the API layer preserves the three-layer boundary
+	// (client stays thin) and avoids a second API call from the browser.
 	router.get("/:id", (c) => {
 		const betId = c.req.param("id");
 		const bet = db.select().from(bets).where(eq(bets.id, betId)).get();
@@ -113,7 +168,26 @@ export function createBetRoutes(db: HyperIdleDb, eventBus: EventBus): Hono {
 
 		const betTasks = db.select().from(tasks).where(eq(tasks.betId, betId)).all();
 
-		return c.json({ ...bet, tasks: betTasks });
+		// Derive title from the first heading line of the pitch.
+		// Pattern: strip optional leading "# " (H1) or "## " (H2) markers.
+		const title = deriveTitleFromPitch(bet.pitch, bet.id);
+
+		// Join product name.
+		const productRow = db
+			.select({ name: products.name })
+			.from(products)
+			.where(eq(products.id, bet.productId))
+			.get();
+		const product = productRow?.name ?? bet.productId;
+
+		// Team identifier — teams table has no name column yet; use id.
+		const team = bet.teamId;
+
+		// Compute progress from tasks.
+		const done = betTasks.filter((t) => t.state === "done").length;
+		const total = betTasks.length;
+
+		return c.json({ ...bet, tasks: betTasks, title, product, team, progress: { done, total } });
 	});
 
 	// POST /bets — create shaped bet
@@ -140,12 +214,26 @@ export function createBetRoutes(db: HyperIdleDb, eventBus: EventBus): Hono {
 		return c.json(created, 201);
 	});
 
-	// PATCH /bets/:id — update mutable fields (in_progress only)
+	// PATCH /bets/:id — update mutable fields on active bets.
+	// L14: appetite enum guard at the route level; actor "u-founder" written to revision log.
 	router.patch("/:id", validateBody(updateBetSchema), async (c) => {
 		const betId = c.req.param("id");
 		const body = c.req.valid("json" as never) as z.infer<typeof updateBetSchema>;
 
-		await updateBetField(db, eventBus, betId, body.field, body.value, body.reason);
+		// L14: reject invalid appetite values at the HTTP layer. The state machine
+		// does NOT enforce this (it predates L14 and a protected test covers it with
+		// a non-enum value). Route-level validation is the correct enforcement point.
+		// @lore L14: appetite enum guard lives at the route, not updateBetField, because
+		// the protected bet-state-machine test calls updateBetField directly with "4 weeks"
+		// and must remain green. The route is the correct enforcement boundary.
+		if (body.field === "appetite" && !(BET_APPETITES as readonly string[]).includes(body.value)) {
+			return c.json(
+				{ error: `Invalid appetite value '${body.value}'`, code: "VALIDATION_ERROR" },
+				400,
+			);
+		}
+
+		await updateBetField(db, eventBus, betId, body.field, body.value, body.reason, "u-founder");
 
 		const updated = db.select().from(bets).where(eq(bets.id, betId)).get();
 		return c.json(updated);
@@ -170,8 +258,40 @@ export function createBetRoutes(db: HyperIdleDb, eventBus: EventBus): Hono {
 	// POST /bets/:id/kill — kill with reason (required)
 	router.post("/:id/kill", validateBody(killBetSchema), async (c) => {
 		const betId = c.req.param("id");
+		if (!assertBetReadable(db, betId)) {
+			return c.json({ error: "Bet not found", code: "NOT_FOUND" }, 404);
+		}
 		const body = c.req.valid("json" as never) as z.infer<typeof killBetSchema>;
-		await transitionBet(db, eventBus, betId, "killed", { reason: body.reason });
+		await transitionBet(db, eventBus, betId, "killed", { reason: body.reason, actor: "u-founder" });
+		const updated = db.select().from(bets).where(eq(bets.id, betId)).get();
+		return c.json(updated);
+	});
+
+	// POST /bets/:id/pause — pause an in_progress or behind bet. Reason required.
+	// L14: T3.
+	router.post("/:id/pause", validateBody(pauseBetSchema), async (c) => {
+		const betId = c.req.param("id");
+		if (!assertBetReadable(db, betId)) {
+			return c.json({ error: "Bet not found", code: "NOT_FOUND" }, 404);
+		}
+		const body = c.req.valid("json" as never) as z.infer<typeof pauseBetSchema>;
+		await transitionBet(db, eventBus, betId, "paused", { reason: body.reason, actor: "u-founder" });
+		const updated = db.select().from(bets).where(eq(bets.id, betId)).get();
+		return c.json(updated);
+	});
+
+	// POST /bets/:id/resume — resume a paused bet. Reason optional.
+	// L14: T4.
+	router.post("/:id/resume", validateBody(resumeBetSchema), async (c) => {
+		const betId = c.req.param("id");
+		if (!assertBetReadable(db, betId)) {
+			return c.json({ error: "Bet not found", code: "NOT_FOUND" }, 404);
+		}
+		const body = c.req.valid("json" as never) as z.infer<typeof resumeBetSchema>;
+		await transitionBet(db, eventBus, betId, "in_progress", {
+			reason: body.reason ?? "Resumed by founder",
+			actor: "u-founder",
+		});
 		const updated = db.select().from(bets).where(eq(bets.id, betId)).get();
 		return c.json(updated);
 	});

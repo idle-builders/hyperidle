@@ -9,6 +9,10 @@ import { and, eq } from "drizzle-orm";
 
 /**
  * Shape of a single entry in the revision log JSON array.
+ *
+ * @lore L14: `actor` is optional for backward compatibility — entries written
+ * before L14 will have actor === undefined at read time. New entries written
+ * via human-surfaced actions pass actor: "u-founder".
  */
 export interface RevisionLogEntry {
 	timestamp: string;
@@ -18,6 +22,7 @@ export interface RevisionLogEntry {
 	// biome-ignore lint/style/useNamingConvention: serialized JSON format uses snake_case
 	new_value: unknown;
 	reason: string;
+	actor?: string;
 }
 
 /**
@@ -38,6 +43,8 @@ const VALID_TRANSITIONS: Record<BetStatus, ReadonlySet<BetStatus>> = {
 
 interface TransitionOptions {
 	reason?: string;
+	/** L14: human actor id, written to RevisionLogEntry. Defaults to undefined (system transition). */
+	actor?: string;
 }
 
 /** Fields that can be updated on an in_progress bet. */
@@ -54,6 +61,7 @@ function addRevisionEntry(
 	oldValue: unknown,
 	newValue: unknown,
 	reason: string,
+	actor?: string,
 ): string {
 	const entry: RevisionLogEntry = {
 		timestamp: new Date().toISOString(),
@@ -61,6 +69,7 @@ function addRevisionEntry(
 		old_value: oldValue,
 		new_value: newValue,
 		reason,
+		...(actor !== undefined ? { actor } : {}),
 	};
 	return JSON.stringify([...existing, entry]);
 }
@@ -111,7 +120,14 @@ export async function transitionBet(
 
 	const revisionLog = parseRevisionLog(bet.revisionLog);
 	const reason = options?.reason ?? `Transitioned to ${toState}`;
-	const updatedLog = addRevisionEntry(revisionLog, "status", fromState, toState, reason);
+	const updatedLog = addRevisionEntry(
+		revisionLog,
+		"status",
+		fromState,
+		toState,
+		reason,
+		options?.actor,
+	);
 
 	const updates: Record<string, unknown> = {
 		status: toState,
@@ -218,7 +234,21 @@ export async function transitionBet(
 }
 
 /**
- * Update a mutable field on an in_progress bet with revision logging.
+ * Statuses from which mutable bet fields (done_condition, hypothesis, appetite)
+ * may be updated. Expanded in L14 to include paused/behind/blocked so the
+ * founder can adjust appetite while a bet is not in_progress.
+ *
+ * @lore L14: the original implementation only allowed in_progress. The
+ * architecture critique identified that the UI exposes Adjust Appetite for
+ * paused/behind/blocked bets; restricting to in_progress was incorrect.
+ */
+const MUTABLE_IN_STATUSES = new Set(["in_progress", "paused", "behind", "blocked"]);
+
+/**
+ * Update a mutable field on an active bet with revision logging.
+ *
+ * @lore L14: `actor` is optional — callers that don't pass it leave actor
+ * undefined in the log entry (backward-compatible with pre-L14 call sites).
  */
 // biome-ignore lint/suspicious/useAwait: callers expect Promise return for consistency with async service layer
 export async function updateBetField(
@@ -228,6 +258,7 @@ export async function updateBetField(
 	field: string,
 	newValue: string,
 	reason: string,
+	actor?: string,
 ): Promise<void> {
 	if (!MUTABLE_FIELDS.has(field)) {
 		throw new Error(`Field '${field}' is not mutable on an in_progress bet`);
@@ -238,7 +269,7 @@ export async function updateBetField(
 		throw new Error(`Bet '${betId}' not found`);
 	}
 
-	if (bet.status !== "in_progress") {
+	if (!MUTABLE_IN_STATUSES.has(bet.status)) {
 		throw new Error(`Can only update fields on in_progress bets, current status: '${bet.status}'`);
 	}
 
@@ -255,7 +286,7 @@ export async function updateBetField(
 
 	const oldValue = bet[columnKey];
 	const revisionLog = parseRevisionLog(bet.revisionLog);
-	const updatedLog = addRevisionEntry(revisionLog, field, oldValue, newValue, reason);
+	const updatedLog = addRevisionEntry(revisionLog, field, oldValue, newValue, reason, actor);
 
 	db.update(bets)
 		.set({ [columnKey]: newValue, revisionLog: updatedLog } as Record<string, string>)
