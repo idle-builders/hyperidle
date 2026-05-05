@@ -27,6 +27,17 @@ vi.mock("../hooks/useHostThread", () => ({
 	})),
 }));
 
+// Mock useArtifactThreadSummary so ArtifactThreadsSummary doesn't crash on
+// the generic fetch mock response (which lacks the expected shape).
+vi.mock("../hooks/useArtifactThreadSummary", () => ({
+	useArtifactThreadSummary: vi.fn(() => ({
+		data: null,
+		error: null,
+		isLoading: false,
+		refresh: vi.fn(),
+	})),
+}));
+
 const MOCK_BET_WITH_TASKS: BetDetail = {
 	id: "b1",
 	title: "User auth flow",

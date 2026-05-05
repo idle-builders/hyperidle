@@ -18,7 +18,7 @@ import { KnowledgeList } from "./pages/KnowledgeList";
 import { NotFound } from "./pages/NotFound";
 import { WorkBet } from "./pages/WorkBet";
 import { WorkPortfolio } from "./pages/WorkPortfolio";
-import { WorkTeam } from "./pages/WorkTeam";
+import { WorkProduct } from "./pages/WorkProduct";
 
 function buildRoutes(): RouteObject[] {
 	const routes: RouteObject[] = [
@@ -30,7 +30,13 @@ function buildRoutes(): RouteObject[] {
 				{ path: "conversations/review", element: <ConversationsReview /> },
 				{ path: "conversations/chat", element: <ConversationsChat /> },
 				{ path: "work/portfolio", element: <WorkPortfolio /> },
-				{ path: "work/team", element: <WorkTeam /> },
+				// L13: New product drill-down route
+				{ path: "work/product/:productId", element: <WorkProduct /> },
+				// L13: Legacy /work/team redirects to /work/portfolio (WorkTeam deleted)
+				{
+					path: "work/team",
+					element: <Navigate to="/work/portfolio" replace />,
+				},
 				{ path: "work/bet/:betId", element: <WorkBet /> },
 				{ path: "knowledge", element: <KnowledgeList /> },
 				{ path: "knowledge/:knowledgeId", element: <KnowledgeDetail /> },
