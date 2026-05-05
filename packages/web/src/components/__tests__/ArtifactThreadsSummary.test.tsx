@@ -118,19 +118,19 @@ describe("ArtifactThreadsSummary (L18)", () => {
 		expect(screen.queryByTestId("artifact-threads-summary")).not.toBeInTheDocument();
 	});
 
-	it("renders +N more affordance when truncated", () => {
+	it("renders View all (N more) affordance when truncated", () => {
 		vi.mocked(useArtifactThreadSummary).mockReturnValue({
 			data: makeResponse(
-				new Array(10).fill({
-					artifactId: "art-x",
+				new Array(10).fill(null).map((_, i) => ({
+					artifactId: `art-${i}`,
 					artifactKind: "text_diff",
-					artifactTitle: "file.ts",
-					threadId: "t-x",
+					artifactTitle: `file-${i}.ts`,
+					threadId: `t-${i}`,
 					messageCount: 1,
 					lastMessageAt: "2026-05-04T10:00:00Z",
 					lastMessageSnippet: "snippet",
 					hasUnresolvedReview: false,
-				}),
+				})),
 				12,
 				true,
 			),
@@ -141,10 +141,25 @@ describe("ArtifactThreadsSummary (L18)", () => {
 
 		renderComponent("bet-many");
 
-		// The "+N more" affordance should appear
+		// The "View all (N more) →" affordance should appear
 		expect(screen.getByTestId("artifact-threads-summary-more")).toBeInTheDocument();
-		// It should show +2 more (12 total - 10 shown = 2)
-		expect(screen.getByText(/\+2 more/i)).toBeInTheDocument();
+		// It should show "View all (2 more) →" (12 total - 10 shown = 2)
+		expect(screen.getByText(/View all \(2 more\)/)).toBeInTheDocument();
+	});
+
+	it("renders error state when hook errors", () => {
+		vi.mocked(useArtifactThreadSummary).mockReturnValue({
+			data: null,
+			error: "HTTP 500",
+			isLoading: false,
+			refresh: vi.fn(),
+		});
+
+		renderComponent("bet-error");
+
+		expect(screen.getByTestId("artifact-threads-summary")).toBeInTheDocument();
+		expect(screen.getByTestId("artifact-threads-summary-error")).toBeInTheDocument();
+		expect(screen.getByText(/Could not load artifact discussion/)).toBeInTheDocument();
 	});
 
 	it("renders loading state", () => {

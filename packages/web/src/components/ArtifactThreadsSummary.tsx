@@ -16,6 +16,7 @@
  * summary components in the shell layer.
  */
 
+import { ErrorState } from "@hyperidle/design-system";
 import type { JSX } from "react";
 import { Link } from "react-router-dom";
 import { useArtifactThreadSummary } from "../hooks/useArtifactThreadSummary.js";
@@ -40,13 +41,33 @@ function relativeTime(isoString: string): string {
 }
 
 export function ArtifactThreadsSummary({ betId }: ArtifactThreadsSummaryProps): JSX.Element | null {
-	const { data, isLoading } = useArtifactThreadSummary(betId);
+	const { data, error, isLoading } = useArtifactThreadSummary(betId);
 
 	if (isLoading) {
 		return (
 			<div data-testid="artifact-threads-summary-loading" className="p-3">
 				<div className="animate-pulse h-4 bg-[var(--surface-3)] rounded w-1/3" />
 			</div>
+		);
+	}
+
+	// M3: surface error state when hook errors (design: ErrorState row inside section)
+	if (error !== null) {
+		return (
+			<section
+				data-testid="artifact-threads-summary"
+				aria-label="Artifact discussion"
+				className="flex flex-col gap-2"
+			>
+				<h3 className="text-xs font-heading uppercase tracking-[0.02em] text-[var(--text-lo)]">
+					ARTIFACT DISCUSSION
+				</h3>
+				<ErrorState
+					title="Could not load artifact discussion"
+					description="An error occurred while loading artifact discussions for this bet."
+					dataTestId="artifact-threads-summary-error"
+				/>
+			</section>
 		);
 	}
 
@@ -60,11 +81,12 @@ export function ArtifactThreadsSummary({ betId }: ArtifactThreadsSummaryProps): 
 	return (
 		<section
 			data-testid="artifact-threads-summary"
-			aria-label="Artifact threads"
+			aria-label="Artifact discussion"
 			className="flex flex-col gap-2"
 		>
+			{/* M4: header copy matches design — "ARTIFACT DISCUSSION" */}
 			<h3 className="text-xs font-heading uppercase tracking-[0.02em] text-[var(--text-lo)]">
-				Artifact threads
+				ARTIFACT DISCUSSION
 			</h3>
 
 			{data.summaries.length === 0 ? (
@@ -102,13 +124,14 @@ export function ArtifactThreadsSummary({ betId }: ArtifactThreadsSummaryProps): 
 				</ul>
 			)}
 
+			{/* M4: overflow link copy matches design — "View all (N more) →" */}
 			{data.truncated && remaining > 0 && (
 				<Link
 					data-testid="artifact-threads-summary-more"
 					to={`/artifacts?betId=${betId}`}
 					className="text-xs text-[var(--text-lo)] px-3 py-1 hover:text-[var(--text-hi)]"
 				>
-					+{remaining} more
+					View all ({remaining} more) →
 				</Link>
 			)}
 		</section>
