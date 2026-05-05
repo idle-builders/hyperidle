@@ -395,26 +395,16 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 				</div>
 			)}
 
-			{/* L18: Block-discuss prefill chip — visible at page level so that the
-			    block-popover test (which stubs HostThreadSection without prefill
-			    rendering) can still assert the chip appears. HostThreadSection also
-			    receives the prefill prop for its own composer prefill UX. */}
-			{threadPrefill && (
-				<div
-					data-testid="host-thread-prefill-chip"
-					className="text-xs text-[var(--text-lo)] px-2 py-1 bg-[var(--surface-2)] rounded"
-				>
-					Re: {threadPrefill.blockExcerpt}
-				</div>
-			)}
-
 			{/* L18: Replace hardcoded comment fixture with real thread surface.
-			    @lore L18: prefill is NOT passed to HostThreadSection to avoid
-			    duplicate chip rendering (WorkBet renders it above; the HostThreadSection
-			    mock in tests also renders it when prefill is passed → two chips). The
-			    chip is page-level-only for WorkBet. HostThreadSection.prefill.test.tsx
-			    tests the chip standalone when HostThreadSection is used without WorkBet. */}
-			<HostThreadSection hostKind="bet" hostId={bet.id} title="Discussion" />
+			    prefill carries the blockId so the composer includes it on submit.
+			    onClearPrefill lets the user dismiss the Re: chip. */}
+			<HostThreadSection
+				hostKind="bet"
+				hostId={bet.id}
+				title="Discussion"
+				prefill={threadPrefill}
+				onClearPrefill={() => setThreadPrefill(undefined)}
+			/>
 
 			{/* L18: Per-bet artifact thread summary */}
 			<ArtifactThreadsSummary betId={bet.id} />

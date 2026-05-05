@@ -14,9 +14,14 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { WorkBet } from "../../pages/WorkBet";
 import type { BetDetail } from "../../types/bet";
 
-// Stub HostThreadSection and ArtifactThreadsSummary — not under test here
+// Stub HostThreadSection — renders the prefill chip when prefill is passed
+// so the block-popover test can assert the discuss flow wires through.
 vi.mock("../../shell/HostThreadSection", () => ({
-	HostThreadSection: () => <div data-testid="host-thread-section" />,
+	HostThreadSection: ({ prefill }: { prefill?: { blockId: string; blockExcerpt: string } }) => (
+		<div data-testid="host-thread-section">
+			{prefill && <div data-testid="host-thread-prefill-chip">Re: {prefill.blockExcerpt}</div>}
+		</div>
+	),
 }));
 vi.mock("../../components/ArtifactThreadsSummary", () => ({
 	ArtifactThreadsSummary: () => <div data-testid="artifact-threads-summary" />,
