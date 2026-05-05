@@ -122,7 +122,7 @@ function insertArtifact(
 	db: HyperIdleDb,
 	artifactId: string,
 	producingTaskId: string,
-	kind = "text_diff",
+	kind = "code_diff",
 ): void {
 	const now = new Date().toISOString();
 	db.insert(artifacts)
@@ -152,7 +152,7 @@ function insertThreadWithMessages(
 			hostId: artifactId,
 			initiatorId: "u-founder",
 			participants: JSON.stringify(["u-founder", "agent-1"]),
-			pinned: false,
+			pinned: 0,
 			resolvedAt: null,
 			lastActiveAt: lastAt,
 			createdAt: now,
@@ -232,7 +232,7 @@ describe("L18 — GET /api/bets/:id/artifact-thread-summary", () => {
 		// Each row has the expected shape
 		expect(body.summaries[0].messageCount).toBe(2);
 		expect(body.summaries[0].threadId).toBe("t-b");
-		expect(body.summaries[0].artifactKind).toBe("text_diff");
+		expect(body.summaries[0].artifactKind).toBe("code_diff");
 	});
 
 	it("filters out artifacts with zero thread messages", async () => {
@@ -250,7 +250,7 @@ describe("L18 — GET /api/bets/:id/artifact-thread-summary", () => {
 				hostId: "art-empty",
 				initiatorId: "u-founder",
 				participants: JSON.stringify(["u-founder"]),
-				pinned: false,
+				pinned: 0,
 				resolvedAt: null,
 				lastActiveAt: now,
 				createdAt: now,
@@ -347,7 +347,7 @@ describe("L18 — GET /api/bets/:id/artifact-thread-summary", () => {
 				hostId: "art-snip",
 				initiatorId: "u-founder",
 				participants: JSON.stringify(["u-founder"]),
-				pinned: false,
+				pinned: 0,
 				resolvedAt: null,
 				lastActiveAt: now,
 				createdAt: now,

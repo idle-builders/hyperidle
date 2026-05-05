@@ -11,6 +11,16 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { KanbanTask } from "../../shell/Kanban";
 import { TaskSheet } from "../../shell/TaskSheet";
 
+// Mock useHostThread so HostThreadSection renders without fetch calls
+vi.mock("../../hooks/useHostThread", () => ({
+	useHostThread: vi.fn(() => ({
+		data: null,
+		error: null,
+		isLoading: false,
+		refresh: vi.fn(),
+	})),
+}));
+
 const MOCK_TASK: KanbanTask = {
 	id: "task-sheet-001",
 	title: "Build the feature",

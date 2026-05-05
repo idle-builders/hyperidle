@@ -91,8 +91,16 @@ describe("WorkBet — detail page (J5)", () => {
 		expect(titleHeader).toHaveAttribute("aria-sort", "descending");
 	});
 
-	it("renders the comment thread region", () => {
+	// @lore L18: The old "bet-comment-thread" (hardcoded fixture comments) is replaced
+	// by HostThreadSection (live thread surface). The section renders in loading state
+	// until useHostThread resolves; in tests without explicit mocking it shows the
+	// loading skeleton.
+	it("renders the discussion thread region (HostThreadSection replaces comment fixture)", () => {
 		renderBet(MOCK_BETS.b1);
-		expect(screen.getByTestId("bet-comment-thread")).toBeInTheDocument();
+		// HostThreadSection renders loading or content depending on hook state.
+		// Either testid proves the section is mounted.
+		const loadingEl = screen.queryByTestId("host-thread-section-loading");
+		const sectionEl = screen.queryByTestId("host-thread-section");
+		expect(loadingEl ?? sectionEl).not.toBeNull();
 	});
 });
