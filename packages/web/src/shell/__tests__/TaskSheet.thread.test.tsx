@@ -1,0 +1,47 @@
+/**
+ * L18 — TaskSheet thread tests.
+ *
+ * AC coverage:
+ *  - task sheet renders thread inline (HostThreadSection with hostKind=task)
+ *  - legacy "Open thread" button is absent
+ */
+
+import { render, screen } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import type { KanbanTask } from "../../shell/Kanban";
+import { TaskSheet } from "../../shell/TaskSheet";
+
+const MOCK_TASK: KanbanTask = {
+	id: "task-sheet-001",
+	title: "Build the feature",
+	owner: "Dev Agent",
+	state: "in_progress",
+	betId: "bet-001",
+	betTag: "BET-001",
+	cost: "$5.00",
+};
+
+describe("TaskSheet thread (L18)", () => {
+	afterEach(() => {
+		vi.restoreAllMocks();
+	});
+
+	it("renders thread inline; legacy 'Open thread' button is absent", () => {
+		render(
+			<TaskSheet
+				task={MOCK_TASK}
+				open
+				onClose={vi.fn()}
+				resolveThreadId={vi.fn()}
+				postRequest={vi.fn()}
+				onNavigateToThread={vi.fn()}
+			/>,
+		);
+
+		// L18: the "Open thread" button is replaced by inline HostThreadSection
+		expect(screen.queryByRole("button", { name: /open thread/i })).not.toBeInTheDocument();
+
+		// The inline thread section renders with hostKind=task
+		expect(screen.getByTestId("host-thread-section")).toBeInTheDocument();
+	});
+});
