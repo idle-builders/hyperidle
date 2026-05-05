@@ -1,8 +1,85 @@
 # L18 — Code Review (Reviewer, Phase 4)
 
-**Branch:** `feat/L18-thread-attachments` · **Latest:** `b57b9cf` · **PR:** #68
+**Branch:** `feat/L18-thread-attachments` · **Latest (Round 2):** `bd8ef0f` · **Round 1:** `b57b9cf` · **PR:** #68
 
-## Verdict
+## Round 2 — fix verification (verdict)
+
+**DONE.**
+
+Builder shipped 7 commits closing every must-fix finding from Round 1. All eight items (C1, M1–M7) verified by re-reading the modified files. Verify gates clean: `bun run check` zero errors; `bun run lint` 171 warnings / 8 infos / 0 errors (unchanged from Round 1, matches builder's claim — no drift); `bun run test` 3339 passed / 3 skipped / 0 failed (3 new prefill tests added). The duplicate React key warning flagged in Round 1 m7 is no longer emitted by the test run. CI on PR #68: pending at write time.
+
+### Per-finding closure status
+
+| ID | Round 1 status | Round 2 evidence | Closure |
+|---|---|---|---|
+| **C1** WorkBet block-discuss prefill never reaches composer | critical fail | `WorkBet.tsx:401-407` passes `prefill={threadPrefill}` and `onClearPrefill={() => setThreadPrefill(undefined)}` to `<HostThreadSection>`. The page-level chip JSX is gone. End-to-end trace: `handleDiscussBlock` (line 266) sets state → state passes through prop → `HostThreadSection.handleSend` reads `prefill?.blockId` (`HostThreadSection.tsx:104`) → forwards to `postPlainHostMessage(threadId, text, clientKey, blockId)` (`host-threads.ts:83-91`). `blockId` lands on the wire. Tests `WorkBet.block-popover.test.tsx:94` and `WorkBet.discuss-block.test.tsx:73` both assert via the mocked HostThreadSection that the prefill prop arrives — the test path now exercises the production wiring. | **fixed** |
+| **M1** F5 affordances missing (dismiss × / scroll / focus) | major | `HostThreadSection.tsx:67-89, 175-184`. `onClearPrefill?: () => void` prop added (line 52). `useEffect` on `[prefill]` calls `composerRef.current?.scrollIntoView?.(...)` and `composerRef.current?.focus()` with optional-chaining guard for JSDOM (line 84-89). Dismiss button: `<button aria-label="Cancel block reply">×</button>` rendered conditionally on `onClearPrefill` (line 175-184). 3 new tests in `HostThreadSection.prefill.test.tsx` cover the chip render, dismiss-callback invocation, and absence-when-no-callback paths. | **fixed** |
+| **M2** Empty / loading / error / message states miss design | major | `HostThreadSection.tsx:116-122, 140-145, 157-165`. Loading: `<SkeletonList rows={3} ariaLabel="Loading discussion" />`. Empty: `<EmptyState title="No discussion yet." description="No discussion yet. Be the first to post in this thread." />`. Post error: `try { … } catch (err) { setPostError(err.message ?? "Failed to send message. Please try again.") } finally { setSending(false) }` plus a `role="alert"` line in the rendered tree. Non-plain messages render `[type]` bracket label via `messageText` helper. | **fixed** |
+| **M3** ArtifactThreadsSummary swallows errors | major | `ArtifactThreadsSummary.tsx:54-72` destructures `error` from `useArtifactThreadSummary` and renders an `ErrorState` row inside the section header when `error !== null`. | **fixed** |
+| **M4** Section header / overflow link copy mismatch | major | `ArtifactThreadsSummary.tsx:88-90` literal `"ARTIFACT DISCUSSION"`; `aria-label="Artifact discussion"` on section. `:128-136` overflow link reads `View all ({remaining} more) →`. Matches design F3. | **fixed** |
+| **M5** `useHostThread` refresh fires extra fetches | major | `useHostThread.ts:75-78`. `version` only appears in `listUrl` (line 60); `detailUrl` depends only on `threadId`. Lore comment captures the rationale. The hook test `useHostThread.test.tsx` was updated (24 lines diffed) — refresh path no longer needs sequential mocks for the spurious detail fetches. | **fixed** |
+| **M6** task-threads.ts ↔ host-threads.ts inverted | major | `task-threads.ts` is now a 24-line shim: re-exports `PLACEHOLDER_AGENT_PARTICIPANT_ID` and `postPlainHostMessage as postRequestMessage` from `host-threads.js`; `resolveOrCreateTaskThread` is a 4-line delegate to `resolveOrCreateHostThread("task", …)`. `PLACEHOLDER_AGENT_PARTICIPANT_ID` lives in `host-threads.ts:27`. The architecture's prescribed direction holds. | **fixed** |
+| **M7** Residual `observationLog` data | major | `KnowledgeDetail.tsx` interface `DetailItem` (line 57-71) no longer carries `observationLog`; `LEGACY_DETAILS.k1`/`k2` (line 78-109) no longer hold `observationLog` arrays; `fromFixture` (line 135-151) no longer plumbs the field; `MockObservationEntry` import is gone. `fixtures/knowledge-data.ts` (line 22-63) has no `observationLog` field, no fixture entries, no `MockObservationEntry` type. `grep -r "observationLog\|MockObservationEntry"` across `packages/web/src` returns zero non-comment hits. | **fixed** |
+
+### New regressions / smells introduced by the fix commits
+
+- **None blocking.** The diff stayed inside the must-fix surface; no new `any`/`as`/`!` casts, no new dead code, no widened types. The `task-threads.ts` shim is small and direct; the `EmptyState` description duplicates the title slightly ("No discussion yet." appears as both title and prefix of description) — minor copy redundancy, not a defect, can be tightened in polish if desired.
+- **Noted but accepted:** TaskSheet (`TaskSheet.tsx:262`) still mounts `<HostThreadSection inline>` without `prefill`/`onClearPrefill`. There is no block-discuss flow on TaskSheet today (no Block popover wired to the task body), so the missing props are harmless. Confirmed not a regression.
+- **Noted but accepted:** `useHostThread` is still called twice per page (page-level for inline anchored messages + section-level for the chronological view). With M5 closed, the wasted fetches per page-load drop from 5 → 2 instead of 3 → 1. Round 1 m2 was already triaged as acceptable v1; that triage holds.
+
+### AC re-walk (Round 2)
+
+| AC | Round 1 | Round 2 |
+|---|---|---|
+| §619 thread surface mounted on bet/task/knowledge/artifact | with-finding (M2) | **pass** |
+| §620 every host carries own thread; artifact rule removed | pass | pass |
+| §621 bet comment fixture replaced; task open-thread same primitive | with-finding (M6) | **pass** |
+| §622 volume-management designer call (summary on bet, full on artifact) | with-finding (M3, M4) | **pass** |
+| §623 block-anchored uses L2 anchor affordance | **fail (C1, M1)** | **pass** |
+| §624 vitest covers thread surface lifecycle on each host + posting + block-anchored | with-finding (M5) | **pass** |
+| §625 Playwright e2e bet thread + artifact thread post→reload persist | with-finding (m9) | with-finding (m9, unchanged) — specs land but don't run under `bun run test`; CI workflow on PR #68 still pending |
+| §626 hardcoded comments removed; matching L6 inventory rows closed | with-finding (M7) | **pass** |
+| §627 verify suite green | pass | pass |
+
+**Pass count: 8 / 9 fully pass; 1 with-finding (m9, non-blocking process item — Playwright runs in CI not vitest).**
+
+### Verify-gate evidence (Round 2)
+
+```
+$ bun run check
+$ tsc --noEmit -p tsconfig.json
+(clean — exit 0)
+
+$ bun run lint
+171 warnings, 8 infos. 0 errors.  (no drift from Round 1)
+
+$ bun run test
+Test Files  339 passed | 1 skipped (340)
+Tests       3339 passed | 3 skipped (3342)
+(no duplicate-key warnings; no new console errors in the L18 surface)
+
+$ gh pr checks 68
+Check / Lint / Test  pending  (in flight at write time — Round 2 push not yet finalized in CI)
+```
+
+### What remains open after Round 2
+
+Non-blocking items kept on the follow-ups list, not gating ship:
+
+- **m1**: `BetComment` deprecated-but-exported.
+- **m2**: double-fetch by useHostThread on WorkBet/KnowledgeDetail.
+- **m3**: empty-with-artifacts vs no-artifacts distinguishability (server response shape).
+- **m4**: `data-testid` added to a design-system primitive.
+- **m5**: `AnchoredMessages` defined twice (WorkBet + KnowledgeBody).
+- **m6**: `assertBetReadable` existence-only IDOR posture.
+- **m9**: Playwright not part of `bun run test`.
+- **n1–n5**: nits (token usage, helper hoisting, etc.).
+
+These are visible in Round 1 below; none block this workpackage.
+
+---
+
+## Round 1 — initial review (preserved)
 
 **NOT DONE.**
 
