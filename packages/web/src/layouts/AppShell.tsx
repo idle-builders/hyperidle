@@ -30,6 +30,7 @@ import { Rail } from "../shell/Rail";
 import type { SubmenuFilter, SubmenuFilterOption } from "../shell/Submenu";
 import { Submenu } from "../shell/Submenu";
 import type { ViewId } from "../shell/shell-types";
+import { ToastRegion } from "../shell/ToastRegion";
 
 /**
  * Outlet context surfaced by AppShell to its children. Read by
@@ -489,129 +490,131 @@ export function AppShell(): JSX.Element {
 		: "flex flex-1 min-w-0";
 
 	return (
-		<div
-			className="flex h-screen bg-base-100 overflow-hidden"
-			data-density={resolvedDensity}
-			data-density-preference={settings.appearance.density}
-		>
-			<div className={shellWrapperClass} aria-hidden={shellDimmed || undefined}>
-				<IconRail
-					activeView={activeView}
-					onViewChange={handleViewChange}
-					onAvatarClick={handleAvatarClick}
-					badgeCountByView={badgeCountByView}
+		<ToastRegion>
+			<div
+				className="flex h-screen bg-base-100 overflow-hidden"
+				data-density={resolvedDensity}
+				data-density-preference={settings.appearance.density}
+			>
+				<div className={shellWrapperClass} aria-hidden={shellDimmed || undefined}>
+					<IconRail
+						activeView={activeView}
+						onViewChange={handleViewChange}
+						onAvatarClick={handleAvatarClick}
+						badgeCountByView={badgeCountByView}
+					/>
+
+					<Submenu
+						title={submenuConfig.title}
+						collapsed={submenuCollapsed}
+						onToggleCollapse={toggleSubmenuCollapsed}
+						count={submenuBadgeCount}
+						filters={submenuFilters}
+						activeFilter={submenuFilter}
+						onFilterChange={setSubmenuFilter}
+						onClearFilter={
+							// Only conversations uses the inline clear affordance today;
+							// Knowledge's chip is currently inert (deferred follow-up).
+							activeView === "conversations" ? handleClearFilter : undefined
+						}
+						filtersDisabled={filtersDisabled}
+					>
+						{activeView === "knowledge" ? (
+							<KnowledgeSubmenu
+								scope={currentScope}
+								topics={knowledgeTopics}
+								onScopeChange={handleScopeChange}
+							/>
+						) : activeView === "conversations" ? (
+							// @lore L10: chip-driven filtering is now wired here.
+							// `activeFilter` is the narrowed `ConversationsFilter`
+							// derived from `submenuFilter`. ThreadSections owns the
+							// predicate; AppShell consumes the same predicate via
+							// `predicateFor()` for the post-filter count badge so
+							// the count and the rendered list cannot drift.
+							<ThreadSections
+								threads={conversationsThreads.threads}
+								selectedId={selectedThreadId}
+								onSelect={handleSelectThread}
+								loading={conversationsThreads.status === "loading"}
+								errorMessage={
+									conversationsThreads.status === "error"
+										? (conversationsThreads.error ?? "Network error")
+										: null
+								}
+								onRetry={conversationsThreads.retry}
+								activeFilter={conversationsFilter}
+								onClearFilter={handleClearFilter}
+							/>
+						) : (
+							<ul className="menu menu-sm">
+								{submenuConfig.items.map((item) => (
+									<NavItem
+										key={item.path}
+										label={item.label}
+										count={item.count}
+										selected={location.pathname === item.path}
+										onClick={() => navigate(item.path)}
+									/>
+								))}
+							</ul>
+						)}
+					</Submenu>
+
+					<main
+						/*
+						 * @lore K11: page gutter → --density-page-gutter
+						 * (8/16/24) per density-audit.md § 3.5. Previously the
+						 * `<main>` shared --density-pad-x with component
+						 * interiors, so widening padding on a card and
+						 * widening the page margin became the same dial. They
+						 * are not the same dial. The K11 ladder explicitly
+						 * stops at 24 px (§ 5.3) so K12 cannot quietly push it
+						 * higher.
+						 */
+						className="flex-1 overflow-y-auto px-[var(--density-page-gutter)] py-[var(--density-page-gutter)] text-[length:var(--density-text)]"
+						data-testid="main-content"
+						aria-hidden={shellDimmed || undefined}
+					>
+						<ErrorBoundary>
+							{/* @lore L8 review (Architecture C2 / Adversary B1):
+							 * the lifted selected-thread id reaches the Main pane
+							 * via Outlet context. ConversationsReview consumes it
+							 * via `useOutletContext<AppShellOutletContext>()` and
+							 * prefers it over the legacy `?id=` URL param.
+							 */}
+							<Outlet
+								context={
+									{
+										selectedThreadId,
+									} satisfies AppShellOutletContext
+								}
+							/>
+						</ErrorBoundary>
+					</main>
+
+					<Rail
+						expanded={railExpanded}
+						onToggleExpand={toggleRailExpanded}
+						bets={MOCK_RAIL_BETS}
+						blockers={MOCK_RAIL_BLOCKERS}
+						cost={MOCK_RAIL_COST}
+					/>
+				</div>
+
+				<SettingsPanel
+					open={settingsOpen}
+					onClose={() => setSettingsOpen(false)}
+					onSave={handleSettingsSave}
+					settings={settings}
 				/>
 
-				<Submenu
-					title={submenuConfig.title}
-					collapsed={submenuCollapsed}
-					onToggleCollapse={toggleSubmenuCollapsed}
-					count={submenuBadgeCount}
-					filters={submenuFilters}
-					activeFilter={submenuFilter}
-					onFilterChange={setSubmenuFilter}
-					onClearFilter={
-						// Only conversations uses the inline clear affordance today;
-						// Knowledge's chip is currently inert (deferred follow-up).
-						activeView === "conversations" ? handleClearFilter : undefined
-					}
-					filtersDisabled={filtersDisabled}
-				>
-					{activeView === "knowledge" ? (
-						<KnowledgeSubmenu
-							scope={currentScope}
-							topics={knowledgeTopics}
-							onScopeChange={handleScopeChange}
-						/>
-					) : activeView === "conversations" ? (
-						// @lore L10: chip-driven filtering is now wired here.
-						// `activeFilter` is the narrowed `ConversationsFilter`
-						// derived from `submenuFilter`. ThreadSections owns the
-						// predicate; AppShell consumes the same predicate via
-						// `predicateFor()` for the post-filter count badge so
-						// the count and the rendered list cannot drift.
-						<ThreadSections
-							threads={conversationsThreads.threads}
-							selectedId={selectedThreadId}
-							onSelect={handleSelectThread}
-							loading={conversationsThreads.status === "loading"}
-							errorMessage={
-								conversationsThreads.status === "error"
-									? (conversationsThreads.error ?? "Network error")
-									: null
-							}
-							onRetry={conversationsThreads.retry}
-							activeFilter={conversationsFilter}
-							onClearFilter={handleClearFilter}
-						/>
-					) : (
-						<ul className="menu menu-sm">
-							{submenuConfig.items.map((item) => (
-								<NavItem
-									key={item.path}
-									label={item.label}
-									count={item.count}
-									selected={location.pathname === item.path}
-									onClick={() => navigate(item.path)}
-								/>
-							))}
-						</ul>
-					)}
-				</Submenu>
-
-				<main
-					/*
-					 * @lore K11: page gutter → --density-page-gutter
-					 * (8/16/24) per density-audit.md § 3.5. Previously the
-					 * `<main>` shared --density-pad-x with component
-					 * interiors, so widening padding on a card and
-					 * widening the page margin became the same dial. They
-					 * are not the same dial. The K11 ladder explicitly
-					 * stops at 24 px (§ 5.3) so K12 cannot quietly push it
-					 * higher.
-					 */
-					className="flex-1 overflow-y-auto px-[var(--density-page-gutter)] py-[var(--density-page-gutter)] text-[length:var(--density-text)]"
-					data-testid="main-content"
-					aria-hidden={shellDimmed || undefined}
-				>
-					<ErrorBoundary>
-						{/* @lore L8 review (Architecture C2 / Adversary B1):
-						 * the lifted selected-thread id reaches the Main pane
-						 * via Outlet context. ConversationsReview consumes it
-						 * via `useOutletContext<AppShellOutletContext>()` and
-						 * prefers it over the legacy `?id=` URL param.
-						 */}
-						<Outlet
-							context={
-								{
-									selectedThreadId,
-								} satisfies AppShellOutletContext
-							}
-						/>
-					</ErrorBoundary>
-				</main>
-
-				<Rail
-					expanded={railExpanded}
-					onToggleExpand={toggleRailExpanded}
-					bets={MOCK_RAIL_BETS}
-					blockers={MOCK_RAIL_BLOCKERS}
-					cost={MOCK_RAIL_COST}
+				<GlobalSearchPanel
+					open={commandK.isOpen}
+					onClose={commandK.close}
+					onNavigate={handleSearchNavigate}
 				/>
 			</div>
-
-			<SettingsPanel
-				open={settingsOpen}
-				onClose={() => setSettingsOpen(false)}
-				onSave={handleSettingsSave}
-				settings={settings}
-			/>
-
-			<GlobalSearchPanel
-				open={commandK.isOpen}
-				onClose={commandK.close}
-				onNavigate={handleSearchNavigate}
-			/>
-		</div>
+		</ToastRegion>
 	);
 }

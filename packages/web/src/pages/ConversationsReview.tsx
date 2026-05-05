@@ -13,10 +13,34 @@
  * into production. The fetched JSON is decoded by `decodeThreadDetail`,
  * which fails loudly on a malformed payload at the parse site instead of
  * crashing somewhere downstream.
+ *
+ * @lore L7 §4.5: the previous `onAppend` handler swallowed network errors
+ * silently. The new implementation throws classified errors on failure so
+ * ThreadShell's internal cardState catches and surfaces them. The
+ * "committed" signal is the refreshed thread arriving from
+ * `GET /api/threads/:id`. On 4xx/5xx/network/timeout the thrown string is
+ * the human-readable copy shown in the card error state. On a non-resolving
+ * thread commit (plain reply or agent-async verdict) we fire the async-ack
+ * toast.
+ *
+ * @lore L7 reconciliation: L7's original design passed verdictPending /
+ * verdictError / onRetryCommit through to ThreadShell as props. L11 rewrote
+ * ThreadShell to own cardState internally — it catches from onAppendMessage
+ * and handles retry via lastVerdictInput ref. The page therefore throws
+ * on failure (ThreadShell catches) and does NOT pass commit-state props.
  */
 import { EmptyState, ErrorState, SkeletonList, ThreadShell } from "@hyperidle/design-system";
 import type { ArtifactRef, ArtifactViewShape, Message, Thread } from "@hyperidle/shared";
-import { type JSX, type ReactNode, useCallback, useEffect, useState } from "react";
+import {
+	type JSX,
+	type ReactNode,
+	useCallback,
+	useContext,
+	useEffect,
+	useMemo,
+	useRef,
+	useState,
+} from "react";
 import { useOutletContext } from "react-router-dom";
 import type { AppShellOutletContext } from "../layouts/AppShell";
 import {
@@ -27,6 +51,7 @@ import {
 	type TextDiffData,
 	type VisualComparisonData,
 } from "../shell/ArtifactView";
+import { ToastContext } from "../shell/ToastRegion";
 
 interface ThreadDetail {
 	thread: Thread;
@@ -143,11 +168,83 @@ function resolveArtifactSlot(ref: ArtifactRef): ReactNode {
 	}
 }
 
+const COMMIT_TIMEOUT_MS = 15_000;
+const ASYNC_ACK_COPY = "Response recorded — agent will pick it up on next session.";
+
+function classifyNetworkError(cause: unknown): string {
+	if (cause instanceof Error && cause.name === "AbortError") {
+		return "Request timed out. Try again?";
+	}
+	return "No connection. Try again when you're back online.";
+}
+
+async function classifyHttpError(res: Response): Promise<string> {
+	if (res.status >= 500) {
+		return "Server couldn't record this response. Try again?";
+	}
+	// 4xx — try JSON body, fall back to status copy.
+	try {
+		const cloned = res.clone();
+		const body = (await cloned.json()) as { error?: unknown };
+		if (typeof body?.error === "string" && body.error.length > 0) {
+			return body.error.slice(0, 120);
+		}
+	} catch {
+		// fall through
+	}
+	return `Couldn't record response (HTTP ${res.status}).`;
+}
+
+/**
+ * Bridge to the surrounding `<ToastRegion>` (AppShell mount). When rendered
+ * standalone (unit tests, Storybook) we fall back to a local state toast.
+ *
+ * @lore L7 Adv-C6: the fallback timer is captured in a ref and cleared on
+ * unmount, so navigating away within the 4 s window does not setState on
+ * an unmounted component.
+ */
+function useToastBridge(): {
+	showToast: (message: string) => void;
+	localMessage: string | null;
+} {
+	const [localMessage, setLocalMessage] = useState<string | null>(null);
+	const localTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+	const parent = useContext(ToastContext);
+	const showToast = useCallback(
+		(message: string): void => {
+			if (parent) {
+				parent.showToast(message);
+				return;
+			}
+			if (localTimerRef.current !== null) {
+				clearTimeout(localTimerRef.current);
+				localTimerRef.current = null;
+			}
+			setLocalMessage(message);
+			localTimerRef.current = setTimeout(() => {
+				setLocalMessage(null);
+				localTimerRef.current = null;
+			}, 4_000);
+		},
+		[parent],
+	);
+	useEffect(() => {
+		return (): void => {
+			if (localTimerRef.current !== null) {
+				clearTimeout(localTimerRef.current);
+				localTimerRef.current = null;
+			}
+		};
+	}, []);
+	return useMemo(() => ({ showToast, localMessage }), [showToast, localMessage]);
+}
+
 export function ConversationsReview(): JSX.Element {
 	const [detail, setDetail] = useState<ThreadDetail | null>(null);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
 	const [threadId, setThreadId] = useState<string | null>(null);
+	const toast = useToastBridge();
 
 	// @lore L8 review (Architecture C2 / Adversary B1): the lifted selection
 	// state reaches us through Outlet context. We prefer it when set, and
@@ -192,22 +289,83 @@ export function ConversationsReview(): JSX.Element {
 		return () => ac.abort();
 	}, [liftedThreadId]);
 
+	/**
+	 * Commit a message to the thread. Throws a human-readable string on failure
+	 * so ThreadShell's internal `cardState` machine can catch and surface it.
+	 *
+	 * On success: refreshes the thread detail. Detects async-ack condition
+	 * (non-resolving commit) and fires the toast.
+	 */
 	const onAppend = useCallback(
 		async (input: { type: string; payload: unknown; clientKey: string }): Promise<void> => {
 			if (!detail) return;
-			const res = await fetch(`/api/threads/${detail.thread.id}/messages`, {
-				method: "POST",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify(input),
-			});
-			if (res.ok) {
-				const refresh = await fetch(`/api/threads/${detail.thread.id}`);
+			const currentThreadId = detail.thread.id;
+			const priorResolvedAt = detail.thread.resolvedAt ?? null;
+
+			const ac = new AbortController();
+			const timer = setTimeout(() => ac.abort(), COMMIT_TIMEOUT_MS);
+			let res: Response;
+			try {
+				res = await fetch(`/api/threads/${currentThreadId}/messages`, {
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify(input),
+					signal: ac.signal,
+				});
+			} catch (cause) {
+				clearTimeout(timer);
+				throw new Error(classifyNetworkError(cause));
+			}
+			clearTimeout(timer);
+
+			if (!res.ok) {
+				const message = await classifyHttpError(res);
+				throw new Error(message);
+			}
+
+			// Read commit response to detect async vs sync resolution.
+			let nextResolvedAt: string | null | undefined;
+			let committedType: string | undefined;
+			try {
+				const body = (await res.clone().json()) as {
+					thread?: { resolvedAt?: string | null };
+					message?: { type?: string };
+				};
+				nextResolvedAt = body?.thread?.resolvedAt ?? null;
+				committedType = body?.message?.type;
+			} catch {
+				// no body — treat as sync, refresh fetches the truth.
+			}
+
+			// Refresh detail.
+			try {
+				const refresh = await fetch(`/api/threads/${currentThreadId}`);
 				if (refresh.ok) {
 					setDetail(decodeThreadDetail(await refresh.json()));
 				}
+			} catch {
+				// non-fatal — the commit succeeded; UI keeps prior state.
+			}
+
+			// Async-ack predicate (plan §4.5, review W3 / Adv-C5):
+			// fire when this commit was NOT a head-resolving event. We treat
+			// a head-resolving event as either:
+			//   (a) thread.resolvedAt flipped from null → non-null on this call
+			//       (the canonical sync verdict path), or
+			//   (b) the committed message is itself a verdict — even if the
+			//       thread row's resolvedAt did not change in the response,
+			//       a verdict is by definition a head-resolution event in the
+			//       UI's contract and must not show the "agent will pick it
+			//       up next session" copy.
+			// Plain replies on either resolved or unresolved threads are
+			// async by definition — the agent picks them up on next session.
+			const threadFlippedResolved = priorResolvedAt === null && typeof nextResolvedAt === "string";
+			const isHeadResolvingCommit = threadFlippedResolved || committedType === "verdict";
+			if (!isHeadResolvingCommit) {
+				toast.showToast(ASYNC_ACK_COPY);
 			}
 		},
-		[detail],
+		[detail, toast],
 	);
 
 	if (loading) {
@@ -239,6 +397,11 @@ export function ConversationsReview(): JSX.Element {
 	}
 	return (
 		<div className="flex flex-col h-full" data-testid="conversations-review-page">
+			{toast.localMessage !== null ? (
+				<div role="status" className="sr-only" data-testid="async-ack-fallback">
+					{toast.localMessage}
+				</div>
+			) : null}
 			<ThreadShell
 				thread={detail.thread}
 				messages={detail.messages}
