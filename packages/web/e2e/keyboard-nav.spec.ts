@@ -11,8 +11,8 @@ import { expect, test } from "@playwright/test";
 
 test.describe("J8 — keyboard-only navigation", () => {
 	test("Tab cycles the shell from the first interactive element", async ({ page }) => {
-		await page.goto("/conversations/review");
-		await page.waitForSelector("[data-testid='conversations-review-page']");
+		await page.goto("/conversations");
+		await page.waitForSelector("[data-testid='conversations-page']");
 		const seen = new Set<string>();
 		// Press Tab up to 40 times and collect active-element tag names. We
 		// require the page to reach at least 6 distinct interactive elements
@@ -61,10 +61,10 @@ test.describe("J8 — keyboard-only navigation", () => {
 		await expect(page.getByRole("dialog", { name: /settings/i })).not.toBeVisible();
 	});
 
-	// L1: ConversationsReview was rewritten to mount <ThreadShell>; the legacy ReviewHeader/ReasoningBlockView/PREFILL_KEYS flow this case asserts no longer exists. New contract covered by packages/web/e2e/threads.spec.ts. J-track / L1b can rewrite or delete.
+	// L1/L9: ConversationsReview replaced by Conversations. New contract in threads.spec.ts.
 	test.skip("Review verdict shortcuts A/R/X pre-fill a pending verdict", async ({ page }) => {
-		await page.goto("/conversations/review");
-		await page.waitForSelector("[data-testid='conversations-review-page']");
+		await page.goto("/conversations");
+		await page.waitForSelector("[data-testid='conversations-page']");
 		await page.getByTestId("main-content").click();
 		for (const { key, expected } of [
 			{ key: "a", expected: "approve" },
@@ -76,10 +76,10 @@ test.describe("J8 — keyboard-only navigation", () => {
 		}
 	});
 
-	// L1: ConversationsReview was rewritten to mount <ThreadShell>; the legacy ReviewHeader/ReasoningBlockView/PREFILL_KEYS flow this case asserts no longer exists. New contract covered by packages/web/e2e/threads.spec.ts. J-track / L1b can rewrite or delete.
+	// L1/L9: ConversationsReview replaced by Conversations. New contract in threads.spec.ts.
 	test.skip("ReasoningBlockView toggle is keyboard operable", async ({ page }) => {
-		await page.goto("/conversations/review");
-		await page.waitForSelector("[data-testid='conversations-review-page']");
+		await page.goto("/conversations");
+		await page.waitForSelector("[data-testid='conversations-page']");
 		const toggle = page.getByRole("button", { name: /reasoning/i });
 		await toggle.focus();
 		await expect(toggle).toBeFocused();

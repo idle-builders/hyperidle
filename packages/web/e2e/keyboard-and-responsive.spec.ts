@@ -4,9 +4,10 @@
 import { expect, test } from "@playwright/test";
 
 test.describe("Keyboard Navigation", () => {
+	// L9: /conversations/review redirects to /conversations; use canonical URL.
 	test.beforeEach(async ({ page }) => {
-		await page.goto("/conversations/review");
-		await page.waitForSelector("[data-testid='conversations-review-page']");
+		await page.goto("/conversations");
+		await page.waitForSelector("[data-testid='conversations-page']");
 	});
 
 	test("Tab key moves focus through interactive elements", async ({ page }) => {
@@ -16,7 +17,7 @@ test.describe("Keyboard Navigation", () => {
 		expect(["BUTTON", "A", "INPUT", "SELECT"]).toContain(focusedTag);
 	});
 
-	test("L11: pressing 'a' on the review page does NOT trigger any verdict shortcut", async ({
+	test("L11: pressing 'a' on the conversations page does NOT trigger any verdict shortcut", async ({
 		page,
 	}) => {
 		// L11 plan §6.3 + AC-3 — verdict-keyboard shortcuts (A/R/X/S/C/I/E)
@@ -24,7 +25,7 @@ test.describe("Keyboard Navigation", () => {
 		// remain stable after a stray 'a' keypress and not focus an INPUT.
 		await page.click("[data-testid='main-content']");
 		await page.keyboard.press("a");
-		await expect(page.getByTestId("conversations-review-page")).toBeVisible();
+		await expect(page.getByTestId("conversations-page")).toBeVisible();
 		const activeTag = await page.evaluate(() => document.activeElement?.tagName);
 		expect(activeTag).not.toBe("INPUT");
 	});

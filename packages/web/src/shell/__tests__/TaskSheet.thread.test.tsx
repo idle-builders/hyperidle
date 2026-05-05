@@ -49,7 +49,7 @@ describe("TaskSheet thread (L18)", () => {
 		);
 
 		// L18/L15: AC §621 requires the "Open thread" affordance to remain even though
-		// the thread is now rendered inline. The button navigates to /conversations/chat.
+		// the thread is now rendered inline. L9: button now navigates to /conversations/:threadId.
 		expect(screen.getByRole("button", { name: /open thread/i })).toBeInTheDocument();
 
 		// The inline thread section renders with hostKind=task

@@ -12,9 +12,9 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
 
+// L9: /conversations/review and /conversations/chat replaced by /conversations.
 const ROUTES = [
-	{ path: "/conversations/review", selector: "[data-testid='conversations-review-page']" },
-	{ path: "/conversations/chat", selector: "[data-testid='conversations-chat-page']" },
+	{ path: "/conversations", selector: "[data-testid='conversations-page']" },
 	{ path: "/work/portfolio", selector: "[data-testid='work-portfolio-page']" },
 	// @lore L13: /work/team was removed in L13; the route now redirects to
 	// /work/portfolio. We replace it with a product drilldown to keep route

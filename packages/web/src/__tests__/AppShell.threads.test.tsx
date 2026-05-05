@@ -3,8 +3,15 @@
  *
  * Protected tests (plan §7):
  *   §7.1 counts derived from list (not literals)
- *   §7.2 selection updates lifted id, NOT navigation
+ *   §7.2 L9: selection NAVIGATES to /conversations/:threadId (URL is
+ *        authoritative); selectedThreadId in Outlet context is derived from
+ *        the URL param and still surfaces via useOutletContext (backwards-compat).
  *   §7.3 SUBMENU_CONFIG has no static conversations items
+ *
+ * L9 update to §7.2: clicking a thread row now calls navigate() to
+ * /conversations/:threadId. The legacy "selection must not navigate" assertion
+ * (L8) is updated because the behavior intentionally changed in L9 — the URL
+ * becomes the source of truth for the selected thread.
  */
 
 import { render, screen, waitFor } from "@testing-library/react";
@@ -87,7 +94,7 @@ function MainStub(): JSX.Element {
 	return <div data-testid="main-stub">selected:{ctx?.selectedThreadId ?? "none"}</div>;
 }
 
-function renderShell(initialPath = "/conversations/review"): {
+function renderShell(initialPath = "/conversations"): {
 	router: ReturnType<typeof createMemoryRouter>;
 } {
 	const router = createMemoryRouter(
@@ -96,13 +103,15 @@ function renderShell(initialPath = "/conversations/review"): {
 				path: "/",
 				element: <AppShell />,
 				children: [
+					// L9: canonical routes — the detail route passes :threadId via
+					// React Router's param merge so useParams() in AppShell returns it.
 					{
-						path: "conversations/review",
+						path: "conversations",
 						element: <MainStub />,
 					},
 					{
-						path: "conversations/chat",
-						element: <div>Chat Page</div>,
+						path: "conversations/:threadId",
+						element: <MainStub />,
 					},
 				],
 			},
@@ -163,31 +172,33 @@ describe("L8 — AppShell renders Conversations Submenu thread list", () => {
 		expect(badge?.textContent).toBe("7");
 	});
 
-	it("clicking a thread row updates lifted id, does not call navigate(), and updates main pane via outlet context", async () => {
-		// PROTECTED §7.2 — selection-not-routing assertion + Architecture
-		// C2 / Adversary B1 (the lifted id must reach the Main pane through
-		// Outlet context, not just stay on the chrome).
+	it("clicking a thread row navigates to /conversations/:threadId (L9) and surfaces selectedThreadId via outlet context", async () => {
+		// PROTECTED §7.2 — L9 update: selection NOW navigates to the canonical
+		// /conversations/:threadId URL (the URL is the source of truth). The
+		// selectedThreadId Outlet context field is derived from useParams() so
+		// the Main pane still receives the id through useOutletContext —
+		// backwards-compat contract preserved (arch-critique WARNING §1).
+		// Architecture C2 / Adversary B1: the lifted id reaches the Main pane
+		// through Outlet context regardless of whether it comes from useState or URL.
 		const user = userEvent.setup();
 		const { router } = renderShell();
 		await waitFor(() => {
 			const rows = document.querySelectorAll("[data-ds-component='ThreadRow']");
 			expect(rows.length).toBe(7);
 		});
-		const pathBefore = router.state.location.pathname;
-		const searchBefore = router.state.location.search;
 
-		// Main pane starts with no selection.
+		// Main pane starts with no thread selected (URL = /conversations, threadId undefined).
 		expect(screen.getByTestId("main-stub")).toHaveTextContent("selected:none");
 
 		const rows = document.querySelectorAll("[data-ds-component='ThreadRow']");
 		await user.click(rows[2] as HTMLElement);
 
-		// Selection must not navigate.
-		expect(router.state.location.pathname).toBe(pathBefore);
-		expect(router.state.location.search).toBe(searchBefore);
+		// L9: clicking DOES navigate — URL path changes to /conversations/:threadId.
+		await waitFor(() => {
+			expect(router.state.location.pathname).toMatch(/^\/conversations\/.+$/);
+		});
 
-		// Main pane reflects the lifted id (sorted threads — assert prefix
-		// instead of exact id so this test does not encode classifier order).
+		// Main pane reflects the selected id via Outlet context (derived from URL).
 		await waitFor(() => {
 			expect(screen.getByTestId("main-stub").textContent).toMatch(/^selected:.+$/);
 			expect(screen.getByTestId("main-stub").textContent).not.toBe("selected:none");

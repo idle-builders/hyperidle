@@ -136,10 +136,10 @@ test.describe("J8 synthesis — 10 critical flows", () => {
 		await expect(page.getByRole("button", { name: /add to canvas/i })).toBeVisible();
 	});
 
-	// L1: ConversationsReview was rewritten to mount <ThreadShell>; the legacy ReviewHeader/ReasoningBlockView/PREFILL_KEYS flow this case asserts no longer exists. New contract covered by packages/web/e2e/threads.spec.ts. J-track / L1b can rewrite or delete.
+	// L1/L9: ConversationsReview replaced by Conversations. New contract in threads.spec.ts.
 	test.skip("9. Reasoning block collapses and re-expands via its toggle", async ({ page }) => {
-		await page.goto("/conversations/review");
-		await page.waitForSelector("[data-testid='conversations-review-page']");
+		await page.goto("/conversations");
+		await page.waitForSelector("[data-testid='conversations-page']");
 		const toggle = page.getByRole("button", { name: /reasoning/i });
 		await expect(toggle).toHaveAttribute("aria-expanded", "false");
 		await toggle.click();
@@ -148,10 +148,10 @@ test.describe("J8 synthesis — 10 critical flows", () => {
 		await expect(toggle).toHaveAttribute("aria-expanded", "false");
 	});
 
-	// L1: ConversationsReview was rewritten to mount <ThreadShell>; the legacy ReviewHeader/ReasoningBlockView/PREFILL_KEYS flow this case asserts no longer exists. New contract covered by packages/web/e2e/threads.spec.ts. J-track / L1b can rewrite or delete.
+	// L1/L9: ConversationsReview replaced by Conversations. New contract in threads.spec.ts.
 	test.skip("10. Review verdict shortcut A pre-fills the pending verdict", async ({ page }) => {
-		await page.goto("/conversations/review");
-		await page.waitForSelector("[data-testid='conversations-review-page']");
+		await page.goto("/conversations");
+		await page.waitForSelector("[data-testid='conversations-page']");
 		await page.getByTestId("main-content").click();
 		await page.keyboard.press("a");
 		await expect(page.getByTestId("pending-verdict")).toContainText("approve");

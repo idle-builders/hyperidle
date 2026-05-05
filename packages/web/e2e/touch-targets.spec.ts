@@ -24,9 +24,9 @@ import { expect, type Page, test } from "@playwright/test";
 const MOBILE = { width: 1024, height: 900 };
 const MIN_TOUCH_PX = 44;
 
+// L9: /conversations/review and /conversations/chat replaced by /conversations.
 const ROUTES = [
-	{ path: "/conversations/review", selector: "[data-testid='conversations-review-page']" },
-	{ path: "/conversations/chat", selector: "[data-testid='conversations-chat-page']" },
+	{ path: "/conversations", selector: "[data-testid='conversations-page']" },
 	{ path: "/work/portfolio", selector: "[data-testid='work-portfolio-page']" },
 	// @lore L13: /work/team was removed; route redirects to /work/portfolio.
 	// Replaced with the product drilldown (hermetic via /api/products/p1 mock).
@@ -228,7 +228,7 @@ test.describe("K8 — Touch-target audit at mobile viewport (≤ 1024px)", () =>
 			// audit doesn't briefly catch a transient ErrorState retry button
 			// (a tier-2 design-system primitive whose K8-compliance fix is
 			// tracked separately as a chrome-refactor follow-on).
-			if (route.path.startsWith("/conversations/")) {
+			if (route.path.startsWith("/conversations")) {
 				await page.route("**/api/threads?**", async (r) => {
 					await r.fulfill({
 						status: 200,
@@ -278,8 +278,8 @@ test.describe("K8 — Touch-target audit at mobile viewport (≤ 1024px)", () =>
 		// Use the live app shell at the mobile breakpoint so `useAutoDensity`
 		// picks `comfortable` automatically. Then measure the NavItem button
 		// height in the nav rail (the canonical density consumer).
-		await page.goto("/conversations/review");
-		await page.waitForSelector("[data-testid='conversations-review-page']");
+		await page.goto("/conversations");
+		await page.waitForSelector("[data-testid='conversations-page']");
 		// Verify the shell did resolve to comfortable at the mobile viewport.
 		const density = await page.evaluate(() =>
 			document.querySelector("[data-density]")?.getAttribute("data-density"),
