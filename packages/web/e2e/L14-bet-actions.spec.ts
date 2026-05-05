@@ -152,12 +152,14 @@ test.describe("L14 — Bet actions E2E", () => {
 	test.describe("AC-9 — Kill confirm submits and updates status", () => {
 		test("filling reason and confirming calls POST /bets/:id/kill", async ({ page }) => {
 			let killBody: Record<string, unknown> = {};
+			let killed = false;
 
 			await setupCommonRoutes(page, "in_progress");
 
 			// Intercept kill call
 			await page.route(`**/api/bets/${BET_ID}/kill`, (route) => {
 				killBody = JSON.parse(route.request().postData() ?? "{}") as Record<string, unknown>;
+				killed = true;
 				return route.fulfill({
 					status: 200,
 					contentType: "application/json",
@@ -165,13 +167,13 @@ test.describe("L14 — Bet actions E2E", () => {
 				});
 			});
 
-			// After kill, GET returns killed bet
+			// Override GET — returns in_progress initially, killed after the action (LIFO: this takes priority)
 			await page.route(`**/api/bets/${BET_ID}`, (route) => {
 				if (route.request().method() === "GET") {
 					return route.fulfill({
 						status: 200,
 						contentType: "application/json",
-						body: JSON.stringify(makeBetResponse("killed")),
+						body: JSON.stringify(makeBetResponse(killed ? "killed" : "in_progress")),
 					});
 				}
 				return route.continue();
@@ -284,6 +286,7 @@ test.describe("L14 — Bet actions E2E", () => {
 			page,
 		}) => {
 			let pauseBody: Record<string, unknown> = {};
+			let paused = false;
 			const pausedRevisionLog = JSON.stringify([
 				{
 					timestamp: new Date().toISOString(),
@@ -300,6 +303,7 @@ test.describe("L14 — Bet actions E2E", () => {
 			// Intercept pause call
 			await page.route(`**/api/bets/${BET_ID}/pause`, (route) => {
 				pauseBody = JSON.parse(route.request().postData() ?? "{}") as Record<string, unknown>;
+				paused = true;
 				return route.fulfill({
 					status: 200,
 					contentType: "application/json",
@@ -310,16 +314,17 @@ test.describe("L14 — Bet actions E2E", () => {
 				});
 			});
 
-			// After pause, GET returns paused bet with revision log
+			// Override GET — returns in_progress initially, paused after action (LIFO: takes priority)
 			await page.route(`**/api/bets/${BET_ID}`, (route) => {
 				if (route.request().method() === "GET") {
 					return route.fulfill({
 						status: 200,
 						contentType: "application/json",
-						body: JSON.stringify({
-							...makeBetResponse("paused"),
-							revisionLog: pausedRevisionLog,
-						}),
+						body: JSON.stringify(
+							paused
+								? { ...makeBetResponse("paused"), revisionLog: pausedRevisionLog }
+								: makeBetResponse("in_progress"),
+						),
 					});
 				}
 				return route.continue();
