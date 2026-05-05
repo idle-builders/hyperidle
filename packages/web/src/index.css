@@ -4,3 +4,38 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* L23 — KnowledgeBody scoped heading hierarchy.
+ *
+ * @lore L23 R6: line-height is intentionally omitted. HeadingPayload ships
+ * leading-[1.2] as a Tailwind utility, which cascades after @layer components
+ * and wins at equal specificity. Adding line-height here would silently lose.
+ * Uniform 1.2 from L2 HeadingPayload carries through. See architecture.md § R6.
+ *
+ * @lore L23: Rules are scoped to [data-knowledge-body] so the same tokens could
+ * be reused for future Bet pitch bodies under a different attribute without
+ * polluting global heading styles.
+ */
+@layer components {
+	[data-knowledge-body] :is(h1) {
+		font-size: var(--density-text-h1);
+		font-weight: 600;
+		margin-top: 4px;
+	}
+	[data-knowledge-body] :is(h2) {
+		font-size: var(--density-text-h2);
+		font-weight: 600;
+		margin-top: 4px;
+	}
+	[data-knowledge-body] :is(h3) {
+		font-size: var(--density-text);
+		font-weight: 600;
+		margin-top: 4px;
+	}
+	[data-knowledge-body] :is(h4, h5, h6) {
+		font-size: var(--density-text);
+		font-weight: 600;
+		color: var(--text-mid);
+		margin-top: 4px;
+	}
+}
