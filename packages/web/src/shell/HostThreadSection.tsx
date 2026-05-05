@@ -15,12 +15,23 @@
  * @lore L18: `prefill` is set by the page when the user clicks "Discuss" on
  * a Block. The chip renders a `Re: <excerpt>` affordance above the composer.
  * The chip is stateless here — the page owns the prefill state and can clear
- * it by passing `undefined`.
+ * it by passing `undefined`. `onClearPrefill` is called when the user clicks
+ * the dismiss × button inside the chip.
+ *
+ * @lore L18 (M1): F5 affordances — on prefill change, the composer scrolls
+ * into view and receives focus so the user can type immediately. The ×
+ * dismiss button calls `onClearPrefill` to let the page clear the state.
+ *
+ * @lore L18 (M2): loading uses SkeletonList rows={3}; empty state uses the
+ * design's exact copy; post errors surface via a role="alert" line; non-plain
+ * messages render a bracketed type label (acceptable MVP — full ThreadShell
+ * convergence is a follow-up per architecture.md line 160).
  */
 
+import { EmptyState, ErrorState, SkeletonList } from "@hyperidle/design-system";
 import type { HostKind, Message } from "@hyperidle/shared";
 import { isRedactedPayload } from "@hyperidle/shared";
-import { type JSX, useCallback, useState } from "react";
+import { type JSX, useCallback, useEffect, useRef, useState } from "react";
 import { useHostThread } from "../hooks/useHostThread.js";
 import {
 	PLACEHOLDER_AGENT_PARTICIPANT_ID,
@@ -37,6 +48,8 @@ export interface HostThreadSectionProps {
 	inline?: boolean;
 	/** Set when a block-anchored discussion is initiated from the host surface. */
 	prefill?: { blockId: string; blockExcerpt: string };
+	/** Called when the user dismisses the prefill chip. */
+	onClearPrefill?: () => void;
 }
 
 /** Founder id used for resolve-or-create. Placeholder until auth lands. */
@@ -57,16 +70,30 @@ export function HostThreadSection({
 	title = "Discussion",
 	inline = false,
 	prefill,
+	onClearPrefill,
 }: HostThreadSectionProps): JSX.Element {
 	const { data, error, isLoading, refresh } = useHostThread(hostKind, hostId);
 	const [composerText, setComposerText] = useState("");
 	const [sending, setSending] = useState(false);
+	const [postError, setPostError] = useState<string | null>(null);
+	const composerRef = useRef<HTMLTextAreaElement>(null);
+
+	// F5: when prefill is set, scroll composer into view and focus it.
+	// @lore L18 (M1): scrollIntoView may be undefined in JSDOM test environments
+	// so we guard with optional chaining on the method itself.
+	useEffect(() => {
+		if (prefill && composerRef.current) {
+			composerRef.current.scrollIntoView?.({ block: "nearest", behavior: "smooth" });
+			composerRef.current.focus();
+		}
+	}, [prefill]);
 
 	const handleSend = useCallback(async (): Promise<void> => {
 		const text = composerText.trim();
 		if (!text || sending) return;
 
 		setSending(true);
+		setPostError(null);
 		try {
 			const threadId = await resolveOrCreateHostThread(
 				hostKind,
@@ -77,6 +104,10 @@ export function HostThreadSection({
 			await postPlainHostMessage(threadId, text, crypto.randomUUID(), prefill?.blockId);
 			setComposerText("");
 			refresh();
+		} catch (err) {
+			setPostError(
+				err instanceof Error ? err.message : "Failed to send message. Please try again.",
+			);
 		} finally {
 			setSending(false);
 		}
@@ -85,15 +116,18 @@ export function HostThreadSection({
 	if (isLoading) {
 		return (
 			<div data-testid="host-thread-section-loading" className="p-3">
-				<div className="animate-pulse h-4 bg-[var(--surface-3)] rounded w-1/2" />
+				<SkeletonList rows={3} ariaLabel="Loading discussion" />
 			</div>
 		);
 	}
 
 	if (error) {
 		return (
-			<div data-testid="host-thread-section-error" className="p-3 text-sm text-error">
-				Failed to load thread: {error}
+			<div data-testid="host-thread-section-error" className="p-3">
+				<ErrorState
+					title="Failed to load thread"
+					description={typeof error === "string" ? error : "Could not load this discussion."}
+				/>
 			</div>
 		);
 	}
@@ -102,14 +136,31 @@ export function HostThreadSection({
 
 	const content = (
 		<div data-testid="host-thread-section" className="flex flex-col gap-2">
-			{/* Message list */}
-			{messages.length > 0 && (
+			{/* Message list or empty state */}
+			{messages.length === 0 ? (
+				<EmptyState
+					title="No discussion yet."
+					description="No discussion yet. Be the first to post in this thread."
+					dataTestId="host-thread-section-empty"
+				/>
+			) : (
 				<div className="flex flex-col gap-2 text-sm text-[var(--text-hi)]">
 					{messages.map((msg) => (
 						<div key={msg.id} className="px-3 py-2 rounded bg-[var(--surface-2)]">
 							{messageText(msg)}
 						</div>
 					))}
+				</div>
+			)}
+
+			{/* Post error alert */}
+			{postError && (
+				<div
+					role="alert"
+					data-testid="host-thread-section-post-error"
+					className="text-xs text-error px-2 py-1"
+				>
+					{postError}
 				</div>
 			)}
 
@@ -121,12 +172,23 @@ export function HostThreadSection({
 				>
 					<span>Re:</span>
 					<span className="truncate">{prefill.blockExcerpt}</span>
+					{onClearPrefill && (
+						<button
+							type="button"
+							aria-label="Cancel block reply"
+							className="ml-auto shrink-0 leading-none"
+							onClick={onClearPrefill}
+						>
+							×
+						</button>
+					)}
 				</div>
 			)}
 
 			{/* Composer */}
 			<div className="flex gap-2">
 				<textarea
+					ref={composerRef}
 					className="textarea textarea-bordered text-base resize-none flex-1 h-16"
 					placeholder="Write a message…"
 					value={composerText}

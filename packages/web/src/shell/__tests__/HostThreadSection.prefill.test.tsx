@@ -3,10 +3,12 @@
  *
  * AC coverage:
  *  - renders the Re: chip when prefill is set
+ *  - chip has a dismiss × button that calls onClearPrefill (F5)
  *  - post forwards blockId to postPlainHostMessage when prefill contains blockId
  */
 
 import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { HostThreadSection } from "../../shell/HostThreadSection";
 
@@ -71,5 +73,51 @@ describe("HostThreadSection prefill (L18)", () => {
 		render(<HostThreadSection hostKind="bet" hostId="bet-prefill" title="Discussion" />);
 
 		expect(screen.queryByTestId("host-thread-prefill-chip")).not.toBeInTheDocument();
+	});
+
+	it("dismiss × button calls onClearPrefill (F5)", async () => {
+		const user = userEvent.setup();
+		const onClearPrefill = vi.fn();
+		vi.mocked(useHostThread).mockReturnValue({
+			data: { thread: THREAD_FIXTURE, messages: [] },
+			error: null,
+			isLoading: false,
+			refresh: vi.fn(),
+		});
+
+		render(
+			<HostThreadSection
+				hostKind="bet"
+				hostId="bet-prefill"
+				title="Discussion"
+				prefill={{ blockId: "block-abc", blockExcerpt: "The auth cache TTL policy" }}
+				onClearPrefill={onClearPrefill}
+			/>,
+		);
+
+		const dismissButton = screen.getByRole("button", { name: /cancel block reply/i });
+		await user.click(dismissButton);
+
+		expect(onClearPrefill).toHaveBeenCalledOnce();
+	});
+
+	it("does not render dismiss button when onClearPrefill is not provided", () => {
+		vi.mocked(useHostThread).mockReturnValue({
+			data: { thread: THREAD_FIXTURE, messages: [] },
+			error: null,
+			isLoading: false,
+			refresh: vi.fn(),
+		});
+
+		render(
+			<HostThreadSection
+				hostKind="bet"
+				hostId="bet-prefill"
+				title="Discussion"
+				prefill={{ blockId: "block-abc", blockExcerpt: "The auth cache TTL policy" }}
+			/>,
+		);
+
+		expect(screen.queryByRole("button", { name: /cancel block reply/i })).not.toBeInTheDocument();
 	});
 });
