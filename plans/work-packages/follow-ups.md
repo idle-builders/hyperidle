@@ -64,3 +64,32 @@ to the originating story and the story (or track) that should pick it up.
 - **Owner:** TBD — small fixture fix; can land in a maintenance PR or be
   bundled with the next L8 area touch.
 - **Status:** open.
+
+---
+
+## L13 — UNIQUE(teams.product_id) to schema-enforce 1:1
+
+- **Origin:** L13 architecture (Phase 1) + Phase 2 architecture-critique (required
+  item #2: the follow-up commitment must exist as a row here, not only as prose
+  in the architecture doc).
+- **Issue:** L13 locks the `Product = Team` invariant at 1:1 (concept §1) but
+  enforces the cardinality at the application layer only — via the
+  `loadProductTeam(db, productId)` helper that throws `500` if the team for a
+  product is missing OR if more than one team row exists for the product. The
+  schema does NOT today carry a `UNIQUE` constraint on `teams.product_id`, so
+  the second branch (multiple teams) is a real failure mode any seed bug,
+  test-fixture bug, or future migration could trigger. The application-layer
+  guard catches it but does not prevent it.
+- **Reference:** `packages/db/src/schema.ts` (`teams` table), `plans/L13/architecture.md`
+  §"Server logic notes" → "1:1 invariant enforcement", §"Risk: 1:1 invariant
+  violation in seed/test data".
+- **Fix:** add a one-line Drizzle migration that creates `CREATE UNIQUE INDEX
+  teams_product_id_unique ON teams(product_id)`. The migration must run on both
+  the SQLite (`schema.ts`) and PostgreSQL (`schema.pg.ts`) variants. Lifts the
+  invariant from convention to schema; makes the `length > 1` branch in
+  `loadProductTeam` unreachable (the helper can keep throwing for safety, but
+  no live row could ever trigger it).
+- **Owner:** TBD — small migration; can land in a maintenance PR or alongside
+  the next product/team area touch (e.g. when product-rename or team-roster
+  edits get added).
+- **Status:** open.

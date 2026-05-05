@@ -217,12 +217,14 @@ When `GET /api/products/:id` returns `activeBets: []`, the Product page renders,
 ```tsx
 <EmptyState
   title="No active bets"
-  description="This product team has no bets in flight. Shape a pitch on the team's Canvas to commit one."
+  description="This product team has no bets in flight."
   dataTestId="product-active-bets-empty"
 />
 ```
 
 The roster region remains populated (it is not bet-derived). The burn region remains populated (cap-derived). The artifact slot remains a placeholder. No fallback BetCard, no fake row.
+
+**Phase 2 critique fix.** The earlier copy ("Shape a pitch on the team's Canvas to commit one") referenced an affordance that does NOT exist on the Product page. Pitch authorship is L17's territory and lives elsewhere. The corrected description is descriptive only — see `design/approved.md` §"Routine surface 3" for the rationale.
 
 ## Test plan
 
@@ -251,6 +253,7 @@ The roster region remains populated (it is not bet-derived). The burn region rem
 7. Click on a bet row navigates to `/work/bet/:id`.
 8. Renders the 404 empty state when the fetch returns `404`.
 9. Renders an `ErrorState` when the fetch returns 500.
+10. **Page-level loading state (Phase 2 critique fix):** while `useProduct` is in-flight (mock the hook to return `{ data: null, loading: true, error: null }`), the page renders `SkeletonCard` placeholders for each region (header strip + bets + roster + burn) and does NOT render the `EmptyState` for any of them. Asserted via `data-testid` on the skeleton container. This proves the loading path matches the State table in `design/approved.md` rather than flashing through to an empty state during fetch.
 
 `packages/web/src/hooks/__tests__/useProduct.test.ts` and `useProducts.test.ts`:
 
@@ -294,15 +297,24 @@ The `verify` gate after the build phase: `bun run check` + `bun run lint` + `bun
 
 6. **Routing changes.** In `router.tsx`: import `WorkProduct`; add the `/work/product/:productId` route; replace the `/work/team` route's element with `<Navigate to="/work/portfolio" replace />`; drop the `WorkTeam` import. In `AppShell.tsx`: drop the `Team Board` item from `SUBMENU_CONFIG.work`. Run the router test — it goes green.
 
-7. **Update L15 e2e for the new path.** `L15-task-request.spec.ts` currently navigates via Team Board. Re-route it through Bet detail (`/work/bet/:id`), where the TaskSheet is reachable from the bet's task list. Re-run the L15 e2e — it stays green. (No L15 functionality changes; the affordance still ships in TaskSheet, which is unchanged.)
+7. **Mount TaskSheet on Bet detail (Phase 2 critique BLOCKING fix).** Independent reviewer inspection (Phase 2) confirmed: `grep TaskSheet packages/web/src/` mounts ONLY in `WorkTeam.tsx` today. `WorkBet.tsx` renders task `<tr>` rows with no `onClick` and no `TaskSheet` import. Removing `WorkTeam.tsx` (task 8) WITHOUT first wiring `TaskSheet` somewhere else orphans the entire L15 task-request affordance — the L15 e2e re-route in task 7.1 below would fail at the first task-row click. **This task is mandatory and lands BEFORE task 7.1.** Wire `TaskSheet` into `WorkBet.tsx`:
+   - Import `TaskSheet` from `../shell/TaskSheet`.
+   - Import the host-thread service shims (`resolveOrCreateTaskThread`, `postRequestMessage`, `PLACEHOLDER_AGENT_PARTICIPANT_ID`) the existing `WorkTeam` mount uses (`../services/task-threads`).
+   - Add `useState<string | null>(null)` for `selectedTaskId` plus the same `handleResolveThreadId` / `handlePostRequest` / `handleNavigateToThread` callbacks `WorkTeam.tsx:154-171` defines today (lift them via shared file or copy-paste — copy is acceptable; both pages will mount TaskSheet from now on, but only WorkBet survives after task 8).
+   - On each task `<tr>` in the bet's task table, add `data-testid="bet-task-row"` and an `onClick={() => setSelectedTaskId(task.id)}` (plus `tabIndex={0}` and `onKeyDown` for Enter/Space — the existing roving-focus pattern). The cell that already carries the bet-task title becomes the obvious click target.
+   - Mount `<TaskSheet ... />` once at the bottom of the page (mirroring `WorkTeam.tsx:208-216`). Resolve `selectedTask` from the bet's `tasks` array.
+   - Add a Vitest unit test in `pages/__tests__/WorkBet.task-sheet.test.tsx` covering: click on a `[data-testid="bet-task-row"]` opens the sheet; the request-state-change affordance is reachable; close returns focus to the row.
+   - This step DOES NOT change L15's logic. It only re-mounts the existing TaskSheet on the surface that survives.
 
-8. **Delete the legacy page.** Remove `pages/WorkTeam.tsx`, `pages/WorkTeam.stories.tsx`, `__tests__/WorkTeam.test.tsx`, `__tests__/WorkTeam.task-request.test.tsx`. Run the full test suite — it stays green (the L15 e2e re-route from step 7 catches any orphaned reference).
+7.1. **Update L15 e2e for the new path.** `L15-task-request.spec.ts` currently navigates via Team Board. Re-route it through Bet detail (`/work/bet/:id`) → click `[data-testid="bet-task-row"]` → TaskSheet opens → exercise the request affordance. Re-run the L15 e2e — it stays green. (Task 7's TaskSheet wiring is the precondition for this to pass.)
+
+8. **Delete the legacy page.** Remove `pages/WorkTeam.tsx`, `pages/WorkTeam.stories.tsx`, `__tests__/WorkTeam.test.tsx`, `__tests__/WorkTeam.task-request.test.tsx`. Run the full test suite — it stays green (task 7's TaskSheet re-mount and task 7.1's e2e re-route together catch any orphaned reference).
 
 9. **Wire Portfolio to real data.** In `WorkPortfolio.tsx`, swap `MOCK_PRODUCTS` for `useProducts()`. Wire each product card's onClick to `navigate("/work/product/" + product.id)`. The `MOCK_PRODUCTS` fixture stays in `fixtures/portfolio-data.ts` for stories and tests; its lore comment is updated to "test/story-only — runtime is `useProducts()`" (per the L6 inventory's distinction between forbidden runtime imports and allowed fixtures). Update `WorkPortfolio.test.tsx` to mock `useProducts`. Re-run the Portfolio tests — they go green.
 
 10. **Run the e2e.** `bun run test` (Vitest) + Playwright suite. All previously failing tests are now green. The `L13-product-drilldown.spec.ts` proves the drill-down end-to-end.
 
-11. **Close the inventory rows.** Update `plans/reviews/hardcoded-data-inventory.md`: mark the row at line 31 (`MOCK_PRODUCTS`) as closed by L13; mark the runtime active-bets-on-team mock fragments owned by L13 as closed; leave the rows L13 does not own (L12's `CANVAS_BETS`/`MOCK_PITCHES`, L17's `MOCK_CYCLE`, L15-already-closed `INITIAL_TASKS`) untouched.
+11. **Close the inventory rows + emit follow-ups.** Update `plans/reviews/hardcoded-data-inventory.md`: mark the row at line 31 (`MOCK_PRODUCTS`) as closed by L13; mark the runtime active-bets-on-team mock fragments owned by L13 as closed; leave the rows L13 does not own (L12's `CANVAS_BETS`/`MOCK_PITCHES`, L17's `MOCK_CYCLE`, L15-already-closed `INITIAL_TASKS`) untouched. **Append the `UNIQUE(teams.product_id)` follow-up entry to `plans/work-packages/follow-ups.md`** (Phase 2 critique fix — the entry MUST exist as a row in `follow-ups.md`, not just as a sentence in this architecture). Wording is captured under §"Future work" below.
 
 12. **Verify gate.** `bun run verify` (orchestrated check + lint + test). Zero failures. Push to the open draft PR.
 
@@ -312,9 +324,14 @@ The `verify` gate after the build phase: `bun run check` + `bun run lint` + `bun
 
 ### Risk: legacy `/work/team` removal orphans the L15 surface
 
-The L15 task-request affordance was originally wired through the WorkTeam Kanban. Removing the route + the page eliminates that mount point. The same affordance lives in `TaskSheet.tsx`, which is mounted from the Bet detail's task list; therefore the affordance survives, but its Playwright e2e (`L15-task-request.spec.ts`) needs a routing update.
+The L15 task-request affordance was originally wired through the WorkTeam Kanban. Removing the route + the page eliminates that mount point. **Phase 2 critique caught a false claim in the original architecture draft: the original draft asserted "TaskSheet ships unchanged on Bet detail," but reviewer inspection (`grep TaskSheet packages/web/src/`) confirmed TaskSheet is mounted ONLY in `WorkTeam.tsx` today. `WorkBet.tsx` renders task `<tr>` rows with no `onClick` and no `TaskSheet` import.** Re-routing the L15 e2e through Bet detail without first wiring TaskSheet there would fail at the first task-row click.
 
-**Mitigation:** task 7 in the ordered list explicitly re-routes the L15 e2e through `/work/bet/:id` → click a task row → TaskSheet opens → the request affordance is exercised. This is a test re-route, not a code change to L15's logic.
+**L15 affordance contract (post-amendment):** the L15 task-request affordance lives on whichever surface mounts `TaskSheet`. After L13:
+- `WorkTeam.tsx` is deleted (task 8).
+- `WorkBet.tsx` mounts `TaskSheet` from the bet's task list (task 7).
+- Future surfaces that need the affordance (e.g. a Product-level task feed in a later story) can mount it the same way.
+
+**Mitigation:** task 7 in the ordered list (new, blocking) wires `TaskSheet` into `WorkBet.tsx` with `[data-testid="bet-task-row"]` click targets and a unit test covering open/close/affordance-reachable. Task 7.1 then re-routes the L15 Playwright e2e through `/work/bet/:id`. Task 8 deletes `WorkTeam` only after task 7's wiring is green. This is a code change PLUS a test re-route — not test-only as the earlier draft claimed.
 
 ### Risk: `MOCK_PRODUCTS` is shared with `GlobalSearchPanel`
 
@@ -351,7 +368,7 @@ None block the implementation. Two designer/reviewer-call items:
 
 ## Future work (logged here, not in scope)
 
-- Add `UNIQUE` index on `teams.product_id` (a one-line Drizzle migration). Lifts the 1:1 invariant from convention to schema.
+- **Add `UNIQUE` index on `teams.product_id`** (a one-line Drizzle migration). Lifts the 1:1 invariant from convention to schema. Phase 2 critique flagged that referencing this in prose is not enough — it MUST be tracked as a row in `plans/work-packages/follow-ups.md`. Task 11 above appends the entry, with the title `L13 — UNIQUE(teams.product_id) to schema-enforce 1:1`. Reference: this architecture's §"Server logic notes" block on `loadProductTeam`.
 - A `lead_changed` event on `teams.lead_agent_id` updates so the rail can surface lead-rotation activity.
 - Move the cycle stripe to a separate panel that the Portfolio AND the Product page consume (today the Product page does not show cycle context).
 
