@@ -51,6 +51,7 @@ const TOOLS: Tool[] = [
 		args: ["run", "test"],
 		env: { VITEST_TOON_OUTPUT: TEST_OUTPUT_FILE },
 	},
+	{ name: "build", cmd: "bun", args: ["run", "build"] },
 	{
 		name: "e2e",
 		cmd: "bunx",
