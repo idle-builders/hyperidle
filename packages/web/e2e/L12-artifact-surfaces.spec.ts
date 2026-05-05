@@ -177,7 +177,14 @@ test.describe("L12 — Artifact surfaces on Work pages", () => {
 	// ── WorkBet ───────────────────────────────────────────────────────────────
 
 	test("WorkBet: ArtifactStackItem renders when artifacts exist", async ({ page }) => {
-		await page.route("**/api/bets/**", async (route: Route) => {
+		await page.route("**/api/bets/bet-e2e/artifact-thread-summary", async (route: Route) => {
+			await route.fulfill({
+				status: 200,
+				contentType: "application/json",
+				body: JSON.stringify({ summaries: [], totalCount: 0, truncated: false }),
+			});
+		});
+		await page.route("**/api/bets/bet-e2e", async (route: Route) => {
 			await route.fulfill({
 				status: 200,
 				contentType: "application/json",
@@ -194,13 +201,6 @@ test.describe("L12 — Artifact surfaces on Work pages", () => {
 				}),
 			});
 		});
-		await page.route("**/api/artifact-thread-summaries?**", async (route: Route) => {
-			await route.fulfill({
-				status: 200,
-				contentType: "application/json",
-				body: JSON.stringify({ summaries: [], totalCount: 0, truncated: false }),
-			});
-		});
 		await mockThreadEndpoints(page);
 		await mockArtifactsOnPage(page, ARTIFACT_PAGE_RESPONSE);
 
@@ -211,12 +211,24 @@ test.describe("L12 — Artifact surfaces on Work pages", () => {
 	});
 
 	test("WorkBet: ArtifactSection appears BEFORE thread section in DOM", async ({ page }) => {
-		await page.route("**/api/bets/**", async (route: Route) => {
+		const ORDER_BET_ID = "bet-e2e-order";
+		const ORDER_THREAD_ID = "thread-order-1";
+		await page.route(
+			`**/api/bets/${ORDER_BET_ID}/artifact-thread-summary`,
+			async (route: Route) => {
+				await route.fulfill({
+					status: 200,
+					contentType: "application/json",
+					body: JSON.stringify({ summaries: [], totalCount: 0, truncated: false }),
+				});
+			},
+		);
+		await page.route(`**/api/bets/${ORDER_BET_ID}`, async (route: Route) => {
 			await route.fulfill({
 				status: 200,
 				contentType: "application/json",
 				body: JSON.stringify({
-					id: "bet-e2e-order",
+					id: ORDER_BET_ID,
 					title: "Order Test Bet",
 					product: "E2E Product",
 					team: "E2E Team",
@@ -228,38 +240,71 @@ test.describe("L12 — Artifact surfaces on Work pages", () => {
 				}),
 			});
 		});
-		await page.route("**/api/artifact-thread-summaries?**", async (route: Route) => {
+		// Thread mocks must return a real thread so HostThreadSection renders
+		await page.route(`**/api/threads?**host_kind=bet**`, async (route: Route) => {
 			await route.fulfill({
 				status: 200,
 				contentType: "application/json",
-				body: JSON.stringify({ summaries: [], totalCount: 0, truncated: false }),
+				body: JSON.stringify({
+					threads: [{ id: ORDER_THREAD_ID, hostKind: "bet", hostId: ORDER_BET_ID }],
+				}),
 			});
 		});
-		await mockThreadEndpoints(page);
+		await page.route(`**/api/threads/${ORDER_THREAD_ID}`, async (route: Route) => {
+			await route.fulfill({
+				status: 200,
+				contentType: "application/json",
+				body: JSON.stringify({
+					thread: { id: ORDER_THREAD_ID, hostKind: "bet", hostId: ORDER_BET_ID },
+					messages: [],
+					headMessageId: null,
+					identities: {},
+				}),
+			});
+		});
+		// Catch-all for remaining thread requests (e.g. conversations sidebar)
+		await page.route("**/api/threads**", async (route: Route) => {
+			const url = route.request().url();
+			if (url.includes("?")) {
+				await route.fulfill({
+					status: 200,
+					contentType: "application/json",
+					body: JSON.stringify({ threads: [] }),
+				});
+			} else {
+				await route.fulfill({
+					status: 200,
+					contentType: "application/json",
+					body: JSON.stringify({
+						thread: { id: "stub", hostKind: "bet", hostId: ORDER_BET_ID },
+						messages: [],
+						headMessageId: null,
+						identities: {},
+					}),
+				});
+			}
+		});
 		await mockArtifactsOnPage(page, ARTIFACT_PAGE_RESPONSE);
 
-		await page.goto("/work/bet/bet-e2e-order");
+		await page.goto(`/work/bet/${ORDER_BET_ID}`);
 		await page.waitForSelector("[data-testid='work-bet-page']");
 
-		// Verify ArtifactSection renders before the thread host section in DOM
-		// data-ds-shell="HostThreadSection" is set by dsShellProps in HostThreadSection
+		// Verify ArtifactSection and thread section both render
 		const artifactSectionEl = page.locator("[data-testid='artifact-section-container']");
-		const threadSection = page.locator("[data-ds-shell='HostThreadSection']");
+		const threadSection = page.locator("[data-testid='host-thread-section']");
 
-		// Both must be visible
 		await expect(artifactSectionEl).toBeVisible();
 		await expect(threadSection.first()).toBeVisible();
 
-		// ArtifactSection's top offset must be less than thread section's top offset
-		const artifactBox = await artifactSectionEl.boundingBox();
-		const threadBox = await threadSection.first().boundingBox();
-
-		expect(artifactBox).not.toBeNull();
-		expect(threadBox).not.toBeNull();
-
-		if (artifactBox && threadBox) {
-			expect(artifactBox.y).toBeLessThan(threadBox.y);
-		}
+		// Verify ArtifactSection appears BEFORE thread section in DOM order
+		const artifactBeforeThread = await page.evaluate(() => {
+			const artifact = document.querySelector("[data-testid='artifact-section-container']");
+			const thread = document.querySelector("[data-testid='host-thread-section']");
+			if (!artifact || !thread) return false;
+			// compareDocumentPosition bit 4 = DOCUMENT_POSITION_FOLLOWING
+			return (artifact.compareDocumentPosition(thread) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0;
+		});
+		expect(artifactBeforeThread).toBe(true);
 	});
 
 	// ── Click-through: Portfolio → ArtifactPreview ────────────────────────────
@@ -310,7 +355,14 @@ test.describe("L12 — Artifact surfaces on Work pages", () => {
 	// ── TaskSheet ─────────────────────────────────────────────────────────────
 
 	test("TaskSheet: ArtifactPreview renders when task has artifacts", async ({ page }) => {
-		await page.route("**/api/bets/**", async (route: Route) => {
+		await page.route("**/api/bets/bet-ts-e2e/artifact-thread-summary", async (route: Route) => {
+			await route.fulfill({
+				status: 200,
+				contentType: "application/json",
+				body: JSON.stringify({ summaries: [], totalCount: 0, truncated: false }),
+			});
+		});
+		await page.route("**/api/bets/bet-ts-e2e", async (route: Route) => {
 			await route.fulfill({
 				status: 200,
 				contentType: "application/json",
@@ -333,13 +385,6 @@ test.describe("L12 — Artifact surfaces on Work pages", () => {
 						},
 					],
 				}),
-			});
-		});
-		await page.route("**/api/artifact-thread-summaries?**", async (route: Route) => {
-			await route.fulfill({
-				status: 200,
-				contentType: "application/json",
-				body: JSON.stringify({ summaries: [], totalCount: 0, truncated: false }),
 			});
 		});
 		await mockThreadEndpoints(page);

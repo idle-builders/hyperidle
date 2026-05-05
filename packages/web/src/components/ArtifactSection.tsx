@@ -140,7 +140,7 @@ export function ArtifactSection({
 
 	// ── Empty ──────────────────────────────────────────────────────────────────
 
-	if (data === null || data.items.length === 0) {
+	if (data === null || !Array.isArray(data.items) || data.items.length === 0) {
 		// Without heading: render null (TaskSheet / single layout pattern — no chrome).
 		if (!heading) return null;
 
