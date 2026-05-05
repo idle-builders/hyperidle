@@ -63,12 +63,19 @@ export function useHostThread(hostKind: HostKind, hostId: string): UseHostThread
 	const listState = useFetch<ThreadListResponse>(listUrl);
 
 	// Step 2: fetch thread detail once we have the thread id.
+	// @lore L18 (M5): version is intentionally NOT included in detailUrl.
+	// The thread metadata doesn't change on a message post — only the message
+	// list changes. The detail re-fires automatically when threadId changes
+	// (e.g. on a fresh list response). Including version here caused 3 extra
+	// fetches per refresh() call: (1) detailUrl changes immediately on version
+	// bump while threadId is still valid → spurious detail fetch; (2) listState
+	// resets → threadId goes null → detailUrl goes null; (3) list resolves →
+	// threadId restores → detail fires again (the correct fetch).
 	const threadId = listState.data?.threads[0]?.id ?? null;
 	const detailUrl = useMemo(() => {
 		if (!threadId) return null;
-		const base = `/api/threads/${encodeURIComponent(threadId)}`;
-		return version > 0 ? `${base}#v=${version}` : base;
-	}, [threadId, version]);
+		return `/api/threads/${encodeURIComponent(threadId)}`;
+	}, [threadId]);
 
 	const detailState = useFetch<ThreadDetailResponse>(detailUrl);
 

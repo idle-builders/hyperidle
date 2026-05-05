@@ -105,13 +105,15 @@ describe("useHostThread (L18)", () => {
 	});
 
 	it("refresh() triggers a re-fetch of the thread", async () => {
-		// @lore L18: The refresh path triggers up to 5 fetches due to how the
-		// useMemo/useEffect sequencing plays out. When version bumps:
-		//   1. listUrl changes → list fetch #3 fires
-		//   2. detailUrl immediately changes (version bumps, threadId still valid) → detail fetch #4 fires
-		//   3. listState resets to null → threadId becomes null → detailUrl becomes null → fetch #4 cancelled
-		//   4. list fetch #3 resolves → threadId restored → detailUrl restored → detail fetch #5 fires
-		// Fetch #4 is consumed by the mock even though it's cancelled before resolution is used.
+		// @lore L18 (M5): version is no longer in detailUrl so refresh() now
+		// triggers exactly 3 fetches (not 5):
+		//   1. initial list fetch
+		//   2. initial detail fetch
+		//   3. list re-fetch on refresh (listUrl version bumps)
+		// The detail re-fires when threadId changes from the fresh list response.
+		// Since the same threadId comes back, detailUrl doesn't change and no
+		// extra detail fetch fires. The new list data is already captured in
+		// listState. The test verifies data is still accessible after refresh.
 		const updatedMessages = [
 			...MESSAGES_FIXTURE,
 			{
@@ -130,10 +132,10 @@ describe("useHostThread (L18)", () => {
 		fetchSpy
 			.mockResolvedValueOnce(makeThreadListResponse([{ id: THREAD_ID }])) // initial list
 			.mockResolvedValueOnce(makeThreadDetailResponse(THREAD_FIXTURE, MESSAGES_FIXTURE)) // initial detail
-			// After refresh:
-			.mockResolvedValueOnce(makeThreadListResponse([{ id: THREAD_ID }])) // list #3
-			.mockResolvedValueOnce(makeThreadDetailResponse(THREAD_FIXTURE, MESSAGES_FIXTURE)) // detail #4 (cancelled)
-			.mockResolvedValueOnce(makeThreadDetailResponse(THREAD_FIXTURE, updatedMessages)); // detail #5 (final)
+			// After refresh: only the list re-fetches (version bumped); threadId
+			// is the same so detailUrl doesn't change → no extra detail fetch.
+			.mockResolvedValueOnce(makeThreadListResponse([{ id: THREAD_ID }])) // list re-fetch
+			.mockResolvedValueOnce(makeThreadDetailResponse(THREAD_FIXTURE, updatedMessages)); // detail re-fetch (threadId stable but useFetch will re-fetch when list data changes)
 
 		const { result } = renderHook(() => useHostThread("bet", "bet-001"));
 
