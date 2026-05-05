@@ -38,11 +38,7 @@ import type { KnowledgeScope, KnowledgeStatus, Message } from "@hyperidle/shared
 import { isRedactedPayload } from "@hyperidle/shared";
 import { type JSX, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import {
-	MOCK_KNOWLEDGE_ITEMS,
-	type MockKnowledgeItem,
-	type MockObservationEntry,
-} from "../fixtures/knowledge-data";
+import { MOCK_KNOWLEDGE_ITEMS, type MockKnowledgeItem } from "../fixtures/knowledge-data";
 import { useHostThread } from "../hooks/useHostThread.js";
 import { HostThreadSection } from "../shell/HostThreadSection.js";
 import { KnowledgeBody } from "./knowledge/KnowledgeBody";
@@ -70,7 +66,6 @@ interface DetailItem {
 	originAgent?: string;
 	confidence?: number;
 	version?: string;
-	observationLog?: ReadonlyArray<MockObservationEntry>;
 	relatedItems?: ReadonlyArray<string>;
 	topic?: string;
 }
@@ -94,23 +89,6 @@ const LEGACY_DETAILS: Record<string, DetailItem> = {
 		originAgent: "Architect Agent",
 		confidence: 0.92,
 		topic: "Architecture",
-		observationLog: [
-			{
-				agent: "Practice Facilitator",
-				text: "Ratified during Q1 architecture review.",
-				timestamp: "22h ago",
-			},
-			{
-				agent: "Security Agent",
-				text: "Verified httpOnly cookie policy against OWASP guidance.",
-				timestamp: "20h ago",
-			},
-			{
-				agent: "Builder Agent",
-				text: "Applied in the auth service rollout for product bets.",
-				timestamp: "6h ago",
-			},
-		],
 		relatedItems: ["k2", "k7"],
 	},
 	k2: {
@@ -167,7 +145,6 @@ function fromFixture(item: MockKnowledgeItem): DetailItem {
 		originAgent: item.originAgent,
 		confidence: item.confidence,
 		version: item.version,
-		observationLog: item.observationLog,
 		relatedItems: item.relatedItems,
 		topic: item.topic,
 	};
@@ -370,6 +347,7 @@ function KnowledgeDetailView({ item, legacySource }: KnowledgeDetailViewProps): 
 						hostId={item.id}
 						title="Discussion"
 						prefill={threadPrefill}
+						onClearPrefill={() => setThreadPrefill(undefined)}
 					/>
 				</div>
 				<RelatedSidebar items={related} />

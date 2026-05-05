@@ -19,21 +19,6 @@ import type {
 	KnowledgeTopicHealth,
 } from "@hyperidle/shared";
 
-/**
- * One entry in an item's observation log. Facilitator/agent attribution is
- * required — rendered in the detail-page gutter per J7 AC. Timestamps are
- * free-form relative strings today ("2d ago"); server will emit ISO in prod.
- *
- * @lore J7: shape lives in the fixture because no API is wired yet. When the
- * API lands, move this interface into `@hyperidle/shared` alongside the rest
- * of the knowledge types and reuse in both web and server.
- */
-export interface MockObservationEntry {
-	agent: string;
-	text: string;
-	timestamp: string;
-}
-
 export interface MockKnowledgeItem {
 	id: string;
 	title: string;
@@ -71,11 +56,6 @@ export interface MockKnowledgeItem {
 	 * Semver-ish version string shown on factory-scope rows (J7).
 	 */
 	version?: string;
-	/**
-	 * Facilitator/agent observations appended by the Practice Facilitator.
-	 * Rendered in the gutter of the detail page (J7).
-	 */
-	observationLog?: ReadonlyArray<MockObservationEntry>;
 	/**
 	 * IDs of items related via shared topic or explicit link (J7 sidebar).
 	 */
@@ -116,23 +96,6 @@ export const MOCK_KNOWLEDGE_ITEMS: ReadonlyArray<MockKnowledgeItem> = [
 		originAgent: "Architect Agent",
 		confidence: 0.92,
 		version: "v1.3",
-		observationLog: [
-			{
-				agent: "Practice Facilitator",
-				text: "Ratified during Q1 architecture review.",
-				timestamp: "1d ago",
-			},
-			{
-				agent: "Security Agent",
-				text: "Verified httpOnly cookie policy against OWASP guidance.",
-				timestamp: "20h ago",
-			},
-			{
-				agent: "Builder Agent",
-				text: "Applied in the auth service rollout for product bets.",
-				timestamp: "6h ago",
-			},
-		],
 		relatedItems: ["k2", "k7"],
 	},
 	{
