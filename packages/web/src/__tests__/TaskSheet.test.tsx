@@ -135,10 +135,10 @@ describe("TaskSheet (L15)", () => {
 		await user.click(screen.getByRole("radio", { name: /move to blocked/i }));
 		await user.click(screen.getByRole("button", { name: /send request/i }));
 
+		// @lore L18 (M2): HostThreadSection now renders EmptyState (role="status") when
+		// no messages exist. Use getByText to disambiguate from the "Sent." confirmation.
 		await waitFor(() => {
-			const statusEl = screen.getByRole("status");
-			expect(statusEl).toBeInTheDocument();
-			expect(statusEl).toHaveTextContent("Sent.");
+			expect(screen.getByText("Sent.")).toBeInTheDocument();
 		});
 	});
 
@@ -152,7 +152,7 @@ describe("TaskSheet (L15)", () => {
 
 		// Before timeout: not closed yet
 		await waitFor(() => {
-			expect(screen.getByRole("status")).toHaveTextContent("Sent.");
+			expect(screen.getByText("Sent.")).toBeInTheDocument();
 		});
 
 		// Advance fake timer past the 800ms auto-close
