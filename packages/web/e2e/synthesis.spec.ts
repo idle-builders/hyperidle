@@ -86,6 +86,34 @@ test.describe("J8 synthesis — 10 critical flows", () => {
 	});
 
 	test("7. Bet detail page loads with breadcrumb and tasks table", async ({ page }) => {
+		// @lore L16: WorkBet now calls useBet (real API fetch). Mock the endpoint
+		// so the test is hermetic — no real DB required in CI.
+		await page.route("**/api/bets/b1", (route) =>
+			route.fulfill({
+				status: 200,
+				contentType: "application/json",
+				body: JSON.stringify({
+					id: "b1",
+					title: "User auth flow",
+					product: "Alpha",
+					team: "Alpha Core",
+					status: "committed",
+					appetite: "2 weeks",
+					progress: { done: 3, total: 8 },
+					pitch: "# Problem\n\nAuth is broken.\n",
+					tasks: [
+						{
+							id: "t1",
+							title: "Implement login endpoint",
+							owner: "Dev Agent 1",
+							state: "done",
+							cost: "$4.20",
+						},
+					],
+					comments: [],
+				}),
+			}),
+		);
 		await page.goto("/work/bet/b1");
 		await page.waitForSelector("[data-testid='work-bet-page']");
 		await expect(page.getByRole("navigation", { name: /breadcrumb/i })).toBeVisible();

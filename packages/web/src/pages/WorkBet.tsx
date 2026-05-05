@@ -1,167 +1,34 @@
+/**
+ * Work/Bet page — bet detail view composed from Tier 2 components (BetCard, TaskCard)
+ * and DaisyUI primitives. Shows bet details + task list for that bet.
+ *
+ * @lore L16: bet pitch renders via L2 Block primitive (deriveBlocks → <Block />).
+ * On-disk format is markdown; blocks are derived at render time.
+ */
 import {
 	BetCard,
+	Block,
 	EmptyState,
+	ErrorState,
 	SkeletonCard,
 	SkeletonList,
 	StatusChip,
 	taskStateToStatus,
 } from "@hyperidle/design-system";
-/**
- * Work/Bet page — bet detail view composed from Tier 2 components (BetCard, TaskCard)
- * and DaisyUI primitives. Shows bet details + task list for that bet.
- *
- * @lore J5: the page now includes a breadcrumb (Product → Team → Bet),
- * a markdown-rendered pitch body, a sortable task table (replacing the
- * stacked TaskCards per spec: "denser than stacked TaskCards — use a
- * <table>"), and a comment thread. react-markdown is NOT a dependency
- * yet, so the body renders inside a <pre> with whitespace preserved —
- * the table and breadcrumb are the load-bearing new elements.
- */
-import type { BetStatus, TaskState } from "@hyperidle/shared";
+import { deriveBlocks } from "@hyperidle/shared";
 import { type JSX, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-
-interface MockBetComment {
-	id: string;
-	author: string;
-	body: string;
-}
-
-interface MockBetDetail {
-	id: string;
-	title: string;
-	product: string;
-	team: string;
-	status: BetStatus;
-	appetite: string;
-	progress: { done: number; total: number };
-	body: string;
-	tasks: Array<{
-		id: string;
-		title: string;
-		owner: string;
-		state: TaskState;
-		cost: string;
-	}>;
-	comments: MockBetComment[];
-}
-
-const MOCK_BETS: Record<string, MockBetDetail> = {
-	b1: {
-		id: "b1",
-		title: "User auth flow",
-		product: "Alpha",
-		team: "Alpha Core",
-		status: "committed",
-		appetite: "2 weeks",
-		progress: { done: 3, total: 8 },
-		body: `# Problem
-Current auth is hand-rolled and leaks sessions on reload.
-
-## Appetite
-2 weeks.
-
-## Solution
-Migrate to JWT with refresh rotation.
-
-## Rabbit holes
-- Do not rebuild the signup flow in this bet.`,
-		tasks: [
-			{
-				id: "t1",
-				title: "Implement login endpoint",
-				owner: "Dev Agent 1",
-				state: "done",
-				cost: "$4.20",
-			},
-			{
-				id: "t2",
-				title: "Design signup form",
-				owner: "Dev Agent 2",
-				state: "in_progress",
-				cost: "$1.80",
-			},
-			{
-				id: "t3",
-				title: "JWT refresh logic",
-				owner: "Dev Agent 1",
-				state: "review",
-				cost: "$6.50",
-			},
-		],
-		comments: [
-			{
-				id: "c1",
-				author: "CEO",
-				body: "Prioritise the login path; signup can follow.",
-			},
-			{
-				id: "c2",
-				author: "Dev Agent 1",
-				body: "Refresh rotation works end-to-end in staging.",
-			},
-		],
-	},
-	b2: {
-		id: "b2",
-		title: "Dashboard redesign",
-		product: "Beta",
-		team: "Beta Surface",
-		status: "shaped",
-		appetite: "3 weeks",
-		progress: { done: 0, total: 5 },
-		body: `# Problem
-The dashboard has grown to 14 widgets with no hierarchy.
-
-## Appetite
-3 weeks.
-
-## Solution
-Replace the grid with a three-column layout driven by user roles.
-
-## Rabbit holes
-- Do not ship new widgets in this bet.`,
-		tasks: [
-			{
-				id: "t4",
-				title: "Wireframe layouts",
-				owner: "Designer Agent",
-				state: "accepted",
-				cost: "$2.00",
-			},
-			{
-				id: "t5",
-				title: "Component inventory",
-				owner: "Dev Agent 1",
-				state: "accepted",
-				cost: "$1.50",
-			},
-		],
-		comments: [],
-	},
-};
-
-const FALLBACK_BET: MockBetDetail = {
-	id: "unknown",
-	title: "Unknown Bet",
-	product: "Unknown",
-	team: "Unknown Team",
-	status: "shaped",
-	appetite: "—",
-	progress: { done: 0, total: 0 },
-	body: "",
-	tasks: [],
-	comments: [],
-};
+import { useBet } from "../hooks/useBet";
+import type { BetDetail } from "../types/bet";
 
 type SortColumn = "title" | "status" | "owner" | "cost";
 type SortDirection = "asc" | "desc";
 
 function sortTasks(
-	tasks: MockBetDetail["tasks"],
+	tasks: BetDetail["tasks"],
 	column: SortColumn | null,
 	direction: SortDirection,
-): MockBetDetail["tasks"] {
+): BetDetail["tasks"] {
 	if (column === null) return tasks;
 	const copy = [...tasks];
 	copy.sort((a, b) => {
@@ -174,6 +41,31 @@ function sortTasks(
 	return copy;
 }
 
+/**
+ * BetPitch — co-located adapter: deriveBlocks → <Block />.
+ *
+ * @lore L16: BetPitch is co-located, not a Tier-2 design-system component.
+ * It is a single-call-site adapter and would not earn its keep as a shared
+ * component. L23 (knowledge body) will inline an equivalent adapter at its
+ * own call site; if a third consumer appears, promote then.
+ */
+interface BetPitchProps {
+	pitch: string;
+	betId: string;
+}
+
+function BetPitch({ pitch, betId }: BetPitchProps): JSX.Element | null {
+	const { blocks } = useMemo(() => deriveBlocks(pitch, { kind: "bet", id: betId }), [pitch, betId]);
+	if (blocks.length === 0) return null;
+	return (
+		<section aria-label="Bet pitch" data-testid="bet-pitch">
+			{blocks.map((b) => (
+				<Block key={b.id} id={b.id} payload={b.payload} />
+			))}
+		</section>
+	);
+}
+
 export interface WorkBetProps {
 	/**
 	 * J8: opt-in loading state. When true the page renders a card + list
@@ -182,30 +74,52 @@ export interface WorkBetProps {
 	 */
 	loading?: boolean;
 	/**
-	 * Override the bet id resolved from route params. Used by design system
-	 * stories which render outside the /work/bet/:betId route.
+	 * L16: override the bet with a directly injected BetDetail. When set,
+	 * the useBet hook is not called and the API fetch is skipped. Used by
+	 * stories and tests to inject fixture data without importing from __fixtures__/.
 	 */
-	overrideBetId?: string;
+	overrideBet?: BetDetail;
 }
 
-export function WorkBet({ loading = false, overrideBetId }: WorkBetProps = {}): JSX.Element {
+export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JSX.Element {
 	const { betId: routeBetId } = useParams<{ betId: string }>();
-	const betId = overrideBetId ?? routeBetId;
-	const bet = (betId && MOCK_BETS[betId]) || FALLBACK_BET;
+
+	// Only call useBet when there is no override. When overrideBet is provided,
+	// pass undefined so the hook short-circuits to { data: null, loading: false, error: null }.
+	const fetched = useBet(overrideBet ? undefined : routeBetId);
+
+	const bet = overrideBet ?? fetched.data;
 
 	const [sortColumn, setSortColumn] = useState<SortColumn | null>(null);
 	const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
 
 	const sortedTasks = useMemo(
-		() => sortTasks(bet.tasks, sortColumn, sortDirection),
-		[bet.tasks, sortColumn, sortDirection],
+		() => sortTasks(bet?.tasks ?? [], sortColumn, sortDirection),
+		[bet?.tasks, sortColumn, sortDirection],
 	);
 
-	if (loading) {
+	// Explicit prop loading takes priority (used by Loading story).
+	if (loading || (!overrideBet && fetched.loading)) {
 		return (
 			<div className="flex flex-col gap-3 h-full" data-testid="work-bet-page">
 				<SkeletonCard ariaLabel="Loading bet" />
 				<SkeletonList rows={4} ariaLabel="Loading tasks" />
+			</div>
+		);
+	}
+
+	if (!overrideBet && fetched.error) {
+		return (
+			<div className="flex flex-col gap-3 h-full" data-testid="work-bet-page">
+				<ErrorState title="Failed to load bet" description={fetched.error.message} />
+			</div>
+		);
+	}
+
+	if (!bet) {
+		return (
+			<div className="flex flex-col gap-3 h-full" data-testid="work-bet-page">
+				<ErrorState title="Bet not found" description="The requested bet could not be found." />
 			</div>
 		);
 	}
@@ -253,19 +167,7 @@ export function WorkBet({ loading = false, overrideBetId }: WorkBetProps = {}): 
 				progress={bet.progress}
 			/>
 
-			{bet.body && (
-				// @lore J5: react-markdown is not a dependency; per the J5
-				// constraint we fall back to a <pre> with whitespace preserved
-				// so the pitch body is still readable and heading/lists are
-				// visually separated. Swap in react-markdown if it's ever
-				// added to packages/web/package.json.
-				<pre
-					data-testid="bet-pitch-body"
-					className="bg-base-200 rounded p-3 text-sm text-[var(--text-hi)] whitespace-pre-wrap font-sans"
-				>
-					{bet.body}
-				</pre>
-			)}
+			<BetPitch pitch={bet.pitch} betId={bet.id} />
 
 			<h2 className="text-sm font-heading font-semibold uppercase tracking-wider text-[var(--text-lo)]">
 				Tasks

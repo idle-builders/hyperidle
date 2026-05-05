@@ -139,6 +139,37 @@ async function findUndersizedTargets(page: Page): Promise<Undersized[]> {
 test.describe("K8 — Touch-target audit at mobile viewport (≤ 1024px)", () => {
 	test.use({ viewport: MOBILE });
 
+	// @lore L16: WorkBet calls useBet (real API). Mock /api/bets/b1 so the
+	// bet route is hermetic on CI where no real DB is present.
+	test.beforeEach(async ({ page }) => {
+		await page.route("**/api/bets/b1", (route) =>
+			route.fulfill({
+				status: 200,
+				contentType: "application/json",
+				body: JSON.stringify({
+					id: "b1",
+					title: "User auth flow",
+					product: "Alpha",
+					team: "Alpha Core",
+					status: "committed",
+					appetite: "2 weeks",
+					progress: { done: 3, total: 8 },
+					pitch: "# Problem\n\nAuth is broken.\n",
+					tasks: [
+						{
+							id: "t1",
+							title: "Implement login endpoint",
+							owner: "Dev Agent 1",
+							state: "done",
+							cost: "$4.20",
+						},
+					],
+					comments: [],
+				}),
+			}),
+		);
+	});
+
 	for (const route of ROUTES) {
 		/**
 		 * @lore K8 — assertion runs against `[data-density]`-controlled

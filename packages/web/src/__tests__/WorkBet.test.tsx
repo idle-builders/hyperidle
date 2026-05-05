@@ -1,13 +1,18 @@
 import { render, screen } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { describe, expect, it } from "vitest";
+import { FALLBACK_BET, MOCK_BETS } from "../pages/__fixtures__/work-bet-fixtures";
 import { WorkBet } from "../pages/WorkBet";
 
-function renderPage(betId = "b1"): ReturnType<typeof render> {
+// WorkBet now calls useBet for runtime data. Tests use overrideBet to
+// inject fixture data without crossing the __fixtures__/ import boundary
+// in production code.
+
+function renderPage(overrideBet = MOCK_BETS.b1): ReturnType<typeof render> {
 	return render(
-		<MemoryRouter initialEntries={[`/work/bet/${betId}`]}>
+		<MemoryRouter initialEntries={[`/work/bet/${overrideBet.id}`]}>
 			<Routes>
-				<Route path="/work/bet/:betId" element={<WorkBet />} />
+				<Route path="/work/bet/:betId" element={<WorkBet overrideBet={overrideBet} />} />
 			</Routes>
 		</MemoryRouter>,
 	);
@@ -20,27 +25,27 @@ describe("WorkBet", () => {
 	});
 
 	it("renders bet details for known bet", () => {
-		renderPage("b1");
+		renderPage(MOCK_BETS.b1);
 		expect(screen.getByText("User auth flow")).toBeInTheDocument();
 		expect(screen.getByText("Tasks")).toBeInTheDocument();
 	});
 
 	it("renders task cards for the bet", () => {
-		renderPage("b1");
+		renderPage(MOCK_BETS.b1);
 		expect(screen.getByText("Implement login endpoint")).toBeInTheDocument();
 		expect(screen.getByText("Design signup form")).toBeInTheDocument();
 		expect(screen.getByText("JWT refresh logic")).toBeInTheDocument();
 	});
 
-	it("renders fallback for unknown bet", () => {
-		renderPage("nonexistent");
-		expect(screen.getByText("Unknown Bet")).toBeInTheDocument();
-		expect(screen.getByText("No tasks yet")).toBeInTheDocument();
-	});
-
 	it("renders second bet with its tasks", () => {
-		renderPage("b2");
+		renderPage(MOCK_BETS.b2);
 		expect(screen.getByText("Dashboard redesign")).toBeInTheDocument();
 		expect(screen.getByText("Wireframe layouts")).toBeInTheDocument();
+	});
+
+	it("renders fallback bet data correctly", () => {
+		renderPage(FALLBACK_BET);
+		expect(screen.getByText("Unknown Bet")).toBeInTheDocument();
+		expect(screen.getByText("No tasks yet")).toBeInTheDocument();
 	});
 });
