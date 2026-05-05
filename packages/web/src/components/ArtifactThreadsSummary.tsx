@@ -102,6 +102,7 @@ export function ArtifactThreadsSummary({ betId }: ArtifactThreadsSummaryProps): 
 						<li key={summary.artifactId}>
 							<Link
 								to={`/artifacts/${summary.artifactId}`}
+								data-artifact-id={summary.artifactId}
 								className="flex flex-col gap-0.5 px-3 py-2 rounded hover:bg-[var(--surface-2)] text-sm"
 							>
 								<div className="flex items-center justify-between gap-2">
@@ -131,7 +132,7 @@ export function ArtifactThreadsSummary({ betId }: ArtifactThreadsSummaryProps): 
 					to={`/artifacts?betId=${betId}`}
 					className="text-xs text-[var(--text-lo)] px-3 py-1 hover:text-[var(--text-hi)]"
 				>
-					View all ({remaining} more) →
+					+{remaining} more artifact discussions →
 				</Link>
 			)}
 		</section>

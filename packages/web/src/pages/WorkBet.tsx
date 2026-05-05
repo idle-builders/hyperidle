@@ -197,7 +197,7 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 	// inline anchored-message slots. HostThreadSection uses its own fetch for
 	// the chronological view.
 	const hostThreadId = bet?.id;
-	const { data: threadData } = useHostThread("bet", hostThreadId ?? "");
+	const { data: threadData, refresh: refreshThreadData } = useHostThread("bet", hostThreadId ?? "");
 
 	// L18: Derive messagesByBlockId from the thread messages.
 	const messagesByBlockId = useMemo((): ReadonlyMap<string, ReadonlyArray<Message>> => {
@@ -397,13 +397,16 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 
 			{/* L18: Replace hardcoded comment fixture with real thread surface.
 			    prefill carries the blockId so the composer includes it on submit.
-			    onClearPrefill lets the user dismiss the Re: chip. */}
+			    onClearPrefill lets the user dismiss the Re: chip.
+			    onMessagePosted refreshes the WorkBet-level thread data so that
+			    messagesByBlockId stays in sync with newly posted anchored messages. */}
 			<HostThreadSection
 				hostKind="bet"
 				hostId={bet.id}
 				title="Discussion"
 				prefill={threadPrefill}
 				onClearPrefill={() => setThreadPrefill(undefined)}
+				onMessagePosted={refreshThreadData}
 			/>
 
 			{/* L18: Per-bet artifact thread summary */}

@@ -141,10 +141,10 @@ describe("ArtifactThreadsSummary (L18)", () => {
 
 		renderComponent("bet-many");
 
-		// The "View all (N more) →" affordance should appear
+		// The "+N more" affordance should appear
 		expect(screen.getByTestId("artifact-threads-summary-more")).toBeInTheDocument();
-		// It should show "View all (2 more) →" (12 total - 10 shown = 2)
-		expect(screen.getByText(/View all \(2 more\)/)).toBeInTheDocument();
+		// It should show "+2 more artifact discussions →" (12 total - 10 shown = 2)
+		expect(screen.getByText(/\+2 more/)).toBeInTheDocument();
 	});
 
 	it("renders error state when hook errors", () => {

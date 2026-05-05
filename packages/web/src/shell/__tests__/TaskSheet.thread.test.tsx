@@ -3,7 +3,7 @@
  *
  * AC coverage:
  *  - task sheet renders thread inline (HostThreadSection with hostKind=task)
- *  - legacy "Open thread" button is absent
+ *  - "Open thread" button is present for navigation (AC §621 — L15 affordance retained)
  */
 
 import { render, screen } from "@testing-library/react";
@@ -36,7 +36,7 @@ describe("TaskSheet thread (L18)", () => {
 		vi.restoreAllMocks();
 	});
 
-	it("renders thread inline; legacy 'Open thread' button is absent", () => {
+	it("renders thread inline; 'Open thread' button is present for navigation (AC §621)", () => {
 		render(
 			<TaskSheet
 				task={MOCK_TASK}
@@ -48,8 +48,9 @@ describe("TaskSheet thread (L18)", () => {
 			/>,
 		);
 
-		// L18: the "Open thread" button is replaced by inline HostThreadSection
-		expect(screen.queryByRole("button", { name: /open thread/i })).not.toBeInTheDocument();
+		// L18/L15: AC §621 requires the "Open thread" affordance to remain even though
+		// the thread is now rendered inline. The button navigates to /conversations/chat.
+		expect(screen.getByRole("button", { name: /open thread/i })).toBeInTheDocument();
 
 		// The inline thread section renders with hostKind=task
 		expect(screen.getByTestId("host-thread-section")).toBeInTheDocument();

@@ -16,13 +16,17 @@ const ARTIFACT_ID = "art-e2e-001";
 function makeArtifactResponse() {
 	return {
 		id: ARTIFACT_ID,
-		betId: "bet-001",
-		taskId: null,
-		kind: "text_diff",
-		payload: { title: "auth-service.ts", file: "auth-service.ts" },
-		status: "draft",
+		producingTaskId: "task-001",
+		producingTaskTitle: "auth-service.ts",
+		kind: "code_diff",
+		preview: {
+			kind: "code_diff",
+			file: "auth-service.ts",
+			hunks: [],
+		},
+		cost: { money: "$1.20", tokens: "1200" },
+		threadCount: 0,
 		createdAt: NOW,
-		updatedAt: NOW,
 	};
 }
 

@@ -28,7 +28,7 @@
  * convergence is a follow-up per architecture.md line 160).
  */
 
-import { EmptyState, ErrorState, SkeletonList } from "@hyperidle/design-system";
+import { ErrorState, SkeletonList } from "@hyperidle/design-system";
 import type { HostKind, Message } from "@hyperidle/shared";
 import { isRedactedPayload } from "@hyperidle/shared";
 import { type JSX, useCallback, useEffect, useRef, useState } from "react";
@@ -50,6 +50,17 @@ export interface HostThreadSectionProps {
 	prefill?: { blockId: string; blockExcerpt: string };
 	/** Called when the user dismisses the prefill chip. */
 	onClearPrefill?: () => void;
+	/**
+	 * Called after a message is successfully posted. Used by host pages that
+	 * independently fetch the same thread data (e.g., WorkBet for messagesByBlockId)
+	 * so they can trigger their own refresh.
+	 *
+	 * @lore L18: WorkBet uses two useHostThread instances — one for the chronological
+	 * thread view (inside HostThreadSection) and one for messagesByBlockId derivation.
+	 * They are separate hook instances and don't share refresh state. This callback
+	 * bridges the gap: when HostThreadSection posts, the parent can refresh its copy.
+	 */
+	onMessagePosted?: () => void;
 }
 
 /** Founder id used for resolve-or-create. Placeholder until auth lands. */
@@ -71,6 +82,7 @@ export function HostThreadSection({
 	inline = false,
 	prefill,
 	onClearPrefill,
+	onMessagePosted,
 }: HostThreadSectionProps): JSX.Element {
 	const { data, error, isLoading, refresh } = useHostThread(hostKind, hostId);
 	const [composerText, setComposerText] = useState("");
@@ -104,6 +116,7 @@ export function HostThreadSection({
 			await postPlainHostMessage(threadId, text, crypto.randomUUID(), prefill?.blockId);
 			setComposerText("");
 			refresh();
+			onMessagePosted?.();
 		} catch (err) {
 			setPostError(
 				err instanceof Error ? err.message : "Failed to send message. Please try again.",
@@ -111,7 +124,7 @@ export function HostThreadSection({
 		} finally {
 			setSending(false);
 		}
-	}, [composerText, sending, hostKind, hostId, prefill?.blockId, refresh]);
+	}, [composerText, sending, hostKind, hostId, prefill?.blockId, refresh, onMessagePosted]);
 
 	if (isLoading) {
 		return (
@@ -137,12 +150,24 @@ export function HostThreadSection({
 	const content = (
 		<div data-testid="host-thread-section" className="flex flex-col gap-2">
 			{/* Message list or empty state */}
+			{/* @lore L18: intentionally NOT using the EmptyState design-system component here.
+			    EmptyState carries role="status" per J8 AC — that role conflicts with the
+			    TaskSheet's own role="status" feedback div when HostThreadSection is rendered
+			    inside the task sheet dialog. Playwright strict mode fails when getByRole("status")
+			    resolves to multiple elements inside the dialog. A plain div preserves the visual
+			    design without the accessibility-role side-effect. */}
 			{messages.length === 0 ? (
-				<EmptyState
-					title="No discussion yet."
-					description="No discussion yet. Be the first to post in this thread."
-					dataTestId="host-thread-section-empty"
-				/>
+				<div
+					data-testid="host-thread-section-empty"
+					className="flex flex-col items-start gap-[var(--density-card-gap)] px-[var(--density-pad-x)] py-[var(--density-card-pad)] text-left"
+				>
+					<p className="text-[length:var(--density-text)] font-medium text-[var(--text-hi)] leading-[1.4]">
+						No discussion yet.
+					</p>
+					<p className="text-[12px] text-[var(--text-lo)] leading-[1.4]">
+						Be the first to post in this thread.
+					</p>
+				</div>
 			) : (
 				<div className="flex flex-col gap-2 text-sm text-[var(--text-hi)]">
 					{messages.map((msg) => (
