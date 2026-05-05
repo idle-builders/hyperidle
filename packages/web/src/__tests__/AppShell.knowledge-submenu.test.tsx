@@ -30,7 +30,7 @@ function renderShellAt(initialPath: string): ReturnType<typeof createMemoryRoute
 				path: "/",
 				element: <AppShell />,
 				children: [
-					{ path: "conversations/review", element: <div>Conversations Page</div> },
+					{ path: "conversations", element: <div>Conversations Page</div> },
 					{ path: "knowledge", element: <KnowledgeList /> },
 					{ path: "knowledge/:knowledgeId", element: <div>Detail</div> },
 				],

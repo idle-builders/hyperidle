@@ -69,7 +69,7 @@ test.describe("L10 — Conversations filter chips actually filter", () => {
 			});
 		});
 
-		await page.goto("/conversations/review");
+		await page.goto("/conversations");
 		await page.waitForSelector("[data-ds-component='ThreadRow']");
 		await expect(page.locator("[data-ds-component='ThreadRow']")).toHaveCount(5);
 
@@ -104,7 +104,7 @@ test.describe("L10 — Conversations filter chips actually filter", () => {
 			});
 		});
 
-		await page.goto("/conversations/review");
+		await page.goto("/conversations");
 		await page.waitForSelector("[data-ds-component='ThreadRow']");
 		await expect(page.locator("[data-ds-component='ThreadRow']")).toHaveCount(2);
 
@@ -139,7 +139,7 @@ test.describe("L10 — Conversations filter chips actually filter", () => {
 				body: JSON.stringify({ threads: MIXED_THREADS, nextCursor: null }),
 			});
 		});
-		await page.goto("/conversations/review");
+		await page.goto("/conversations");
 		await page.waitForSelector("[data-ds-component='ThreadRow']");
 
 		// Activate Blocking so the clear button is mounted too.
@@ -166,7 +166,7 @@ test.describe("L10 — Conversations filter chips actually filter", () => {
 		await page.route("**/api/threads*", async (route) => {
 			await route.fulfill({ status: 500, body: JSON.stringify({ error: "boom" }) });
 		});
-		await page.goto("/conversations/review");
+		await page.goto("/conversations");
 		await expect(page.getByTestId("thread-sections-error")).toBeVisible();
 		await expect(page.getByRole("tab", { name: /^blocking$/i })).toHaveAttribute(
 			"aria-disabled",

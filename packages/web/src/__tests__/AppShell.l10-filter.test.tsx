@@ -76,7 +76,7 @@ function renderShellAt(initialPath: string): void {
 				path: "/",
 				element: <AppShell />,
 				children: [
-					{ path: "conversations/review", element: <div>Conversations Page</div> },
+					{ path: "conversations", element: <div>Conversations Page</div> },
 					{ path: "work/portfolio", element: <div>Work Page</div> },
 					{ path: "knowledge", element: <div>Knowledge Page</div> },
 				],
@@ -103,9 +103,9 @@ afterEach(() => {
 });
 
 describe("AppShell — L10 conversations filter wiring", () => {
-	it("renders the L10 chip vocabulary on /conversations/review: All, Blocking, Async", async () => {
+	it("renders the L10 chip vocabulary on /conversations: All, Blocking, Async", async () => {
 		stubFetchOk(MIXED_THREADS);
-		renderShellAt("/conversations/review");
+		renderShellAt("/conversations");
 		expect(await screen.findByRole("tab", { name: /^all$/i })).toBeInTheDocument();
 		expect(screen.getByRole("tab", { name: /^blocking$/i })).toBeInTheDocument();
 		expect(screen.getByRole("tab", { name: /^async$/i })).toBeInTheDocument();
@@ -119,7 +119,7 @@ describe("AppShell — L10 conversations filter wiring", () => {
 	it("clicking 'Blocking' narrows the rendered list to blocking threads only", async () => {
 		stubFetchOk(MIXED_THREADS);
 		const user = userEvent.setup();
-		renderShellAt("/conversations/review");
+		renderShellAt("/conversations");
 		// Wait for hook resolution.
 		await waitFor(() => {
 			expect(document.querySelectorAll("[data-ds-component='ThreadRow']").length).toBe(5);
@@ -134,7 +134,7 @@ describe("AppShell — L10 conversations filter wiring", () => {
 	it("clicking the inline `× Clear` button restores the full list and resets to 'All'", async () => {
 		stubFetchOk(MIXED_THREADS);
 		const user = userEvent.setup();
-		renderShellAt("/conversations/review");
+		renderShellAt("/conversations");
 		await waitFor(() => {
 			expect(document.querySelectorAll("[data-ds-component='ThreadRow']").length).toBe(5);
 		});
@@ -157,7 +157,7 @@ describe("AppShell — L10 conversations filter wiring", () => {
 	it("clicking 'Async' shows only non-blocking threads; clicking 'All' restores", async () => {
 		stubFetchOk(MIXED_THREADS);
 		const user = userEvent.setup();
-		renderShellAt("/conversations/review");
+		renderShellAt("/conversations");
 		await waitFor(() => {
 			expect(document.querySelectorAll("[data-ds-component='ThreadRow']").length).toBe(5);
 		});
@@ -175,7 +175,7 @@ describe("AppShell — L10 conversations filter wiring", () => {
 	it("Submenu total count badge derives from POST-filter length (plan T8)", async () => {
 		stubFetchOk(MIXED_THREADS);
 		const user = userEvent.setup();
-		renderShellAt("/conversations/review");
+		renderShellAt("/conversations");
 
 		// Wait for the rows to render so the count badge is post-fetch.
 		await waitFor(() => {
@@ -205,7 +205,7 @@ describe("AppShell — L10 conversations filter wiring", () => {
 	it("filter-empty: clicking 'Blocking' on an async-only fixture renders the filter-empty EmptyState; Clear filter restores", async () => {
 		stubFetchOk(ASYNC_ONLY);
 		const user = userEvent.setup();
-		renderShellAt("/conversations/review");
+		renderShellAt("/conversations");
 
 		await waitFor(() => {
 			expect(document.querySelectorAll("[data-ds-component='ThreadRow']").length).toBe(2);
@@ -231,7 +231,7 @@ describe("AppShell — L10 conversations filter wiring", () => {
 			status: 500,
 			json: async () => ({ error: "boom" }),
 		})) as unknown as typeof fetch;
-		renderShellAt("/conversations/review");
+		renderShellAt("/conversations");
 		await screen.findByTestId("thread-sections-error");
 
 		const header = screen.getAllByText(/Conversations/i)[0]?.closest("div");
@@ -244,7 +244,7 @@ describe("AppShell — L10 conversations filter wiring", () => {
 	it("loading state: count badge is hidden until status is ready (Adversary H2)", async () => {
 		// Never-resolving fetch keeps the hook in `loading` indefinitely.
 		global.fetch = vi.fn(() => new Promise(() => {})) as unknown as typeof fetch;
-		renderShellAt("/conversations/review");
+		renderShellAt("/conversations");
 		await screen.findByTestId("thread-sections-loading");
 
 		const header = screen.getAllByText(/Conversations/i)[0]?.closest("div");
@@ -261,7 +261,7 @@ describe("AppShell — L10 conversations filter wiring", () => {
 			json: async () => ({ error: "boom" }),
 		})) as unknown as typeof fetch;
 		const user = userEvent.setup();
-		renderShellAt("/conversations/review");
+		renderShellAt("/conversations");
 
 		// Wait for the error state surface (`thread-sections-error`).
 		await screen.findByTestId("thread-sections-error");

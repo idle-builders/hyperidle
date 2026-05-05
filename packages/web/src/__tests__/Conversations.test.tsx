@@ -18,7 +18,7 @@
 
 import { render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { Conversations } from "../pages/Conversations";
 
 // ---------------------------------------------------------------------------
@@ -134,19 +134,20 @@ describe("Conversations page (L9)", () => {
 	// State D — populated (review-shape)
 	// -----------------------------------------------------------------------
 	it("State D: mounts ThreadShell with a review-shape fetched thread", async () => {
-		globalThis.fetch = vi.fn(async () =>
-			new Response(
-				JSON.stringify({
-					thread: FAKE_THREAD,
-					messages: [FAKE_REVIEW_MESSAGE],
-					headMessageId: FAKE_REVIEW_MESSAGE.id,
-					identities: {
-						"u-founder": { name: "Founder", role: "founder" },
-						"agent-1": { name: "Agent", role: "builder" },
-					},
-				}),
-				{ status: 200, headers: { "Content-Type": "application/json" } },
-			),
+		globalThis.fetch = vi.fn(
+			async () =>
+				new Response(
+					JSON.stringify({
+						thread: FAKE_THREAD,
+						messages: [FAKE_REVIEW_MESSAGE],
+						headMessageId: FAKE_REVIEW_MESSAGE.id,
+						identities: {
+							"u-founder": { name: "Founder", role: "founder" },
+							"agent-1": { name: "Agent", role: "builder" },
+						},
+					}),
+					{ status: 200, headers: { "Content-Type": "application/json" } },
+				),
 		) as unknown as typeof globalThis.fetch;
 
 		renderWithThreadId(THREAD_ID);
@@ -160,18 +161,19 @@ describe("Conversations page (L9)", () => {
 	// State D — populated (plain-shape) — proves no per-shape branching
 	// -----------------------------------------------------------------------
 	it("State D: mounts ThreadShell with a plain-shape fetched thread (no per-shape branching)", async () => {
-		globalThis.fetch = vi.fn(async () =>
-			new Response(
-				JSON.stringify({
-					thread: FAKE_THREAD,
-					messages: [FAKE_PLAIN_MESSAGE],
-					headMessageId: null,
-					identities: {
-						"u-founder": { name: "Founder", role: "founder" },
-					},
-				}),
-				{ status: 200, headers: { "Content-Type": "application/json" } },
-			),
+		globalThis.fetch = vi.fn(
+			async () =>
+				new Response(
+					JSON.stringify({
+						thread: FAKE_THREAD,
+						messages: [FAKE_PLAIN_MESSAGE],
+						headMessageId: null,
+						identities: {
+							"u-founder": { name: "Founder", role: "founder" },
+						},
+					}),
+					{ status: 200, headers: { "Content-Type": "application/json" } },
+				),
 		) as unknown as typeof globalThis.fetch;
 
 		renderWithThreadId(THREAD_ID);
@@ -186,8 +188,8 @@ describe("Conversations page (L9)", () => {
 	// State E — not found (404)
 	// -----------------------------------------------------------------------
 	it("State E: renders 'thread not found' EmptyState with a back-to-queue link on a 404", async () => {
-		globalThis.fetch = vi.fn(async () =>
-			new Response("not found", { status: 404 }),
+		globalThis.fetch = vi.fn(
+			async () => new Response("not found", { status: 404 }),
 		) as unknown as typeof globalThis.fetch;
 
 		renderWithThreadId("does-not-exist");
@@ -207,8 +209,8 @@ describe("Conversations page (L9)", () => {
 	// State C — error (non-404 fetch failure)
 	// -----------------------------------------------------------------------
 	it("State C: renders ErrorState with retry on a non-404 fetch failure", async () => {
-		globalThis.fetch = vi.fn(async () =>
-			new Response("server error", { status: 500 }),
+		globalThis.fetch = vi.fn(
+			async () => new Response("server error", { status: 500 }),
 		) as unknown as typeof globalThis.fetch;
 
 		renderWithThreadId(THREAD_ID);

@@ -1,18 +1,21 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import { createMemoryRouter, RouterProvider } from "react-router-dom";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 /**
  * @lore We cannot import the pre-built `router` (it uses createBrowserRouter)
  * because jsdom has no real History API. Instead we reconstruct routes using
  * createMemoryRouter with the same route config for testability.
+ *
+ * @lore L9: ConversationsReview and ConversationsChat are replaced by the
+ * single Conversations page. The route table now has /conversations and
+ * /conversations/:threadId.
  */
 
 // Import page components directly to build test routes
 import { Navigate } from "react-router-dom";
 import { AppShell } from "../layouts/AppShell";
-import { ConversationsChat } from "../pages/ConversationsChat";
-import { ConversationsReview } from "../pages/ConversationsReview";
+import { Conversations } from "../pages/Conversations";
 import { KnowledgeDetail } from "../pages/KnowledgeDetail";
 import { KnowledgeList } from "../pages/KnowledgeList";
 import { NotFound } from "../pages/NotFound";
@@ -20,14 +23,25 @@ import { WorkBet } from "../pages/WorkBet";
 import { WorkPortfolio } from "../pages/WorkPortfolio";
 
 function renderRoute(initialPath: string): ReturnType<typeof render> {
+	// Stub fetch so AppShell and Conversations can mount without network.
+	vi.stubGlobal(
+		"fetch",
+		vi.fn(async () => ({
+			ok: true,
+			json: async () => ({ threads: [], nextCursor: null }),
+			status: 200,
+		})),
+	);
+
 	const router = createMemoryRouter(
 		[
 			{
 				path: "/",
 				element: <AppShell />,
 				children: [
-					{ path: "conversations/review", element: <ConversationsReview /> },
-					{ path: "conversations/chat", element: <ConversationsChat /> },
+					// L9: canonical conversation routes.
+					{ path: "conversations", element: <Conversations /> },
+					{ path: "conversations/:threadId", element: <Conversations /> },
 					{ path: "work/portfolio", element: <WorkPortfolio /> },
 					// L13: WorkTeam deleted; /work/team now redirects to /work/portfolio
 					{
@@ -47,18 +61,23 @@ function renderRoute(initialPath: string): ReturnType<typeof render> {
 	return render(<RouterProvider router={router} />);
 }
 
-describe("Router", () => {
-	it("renders ConversationsReview page at /conversations/review", async () => {
-		renderRoute("/conversations/review");
+describe("Router (L9)", () => {
+	it("renders Conversations page at /conversations (queue — no thread selected)", async () => {
+		renderRoute("/conversations");
 		await waitFor(() => {
-			expect(screen.getByTestId("conversations-review-page")).toBeInTheDocument();
+			expect(screen.getByTestId("conversations-page")).toBeInTheDocument();
 		});
+		// State A: no thread selected → empty state
+		expect(screen.getByTestId("conversations-empty")).toBeInTheDocument();
 	});
 
-	it("renders ConversationsChat page at /conversations/chat", async () => {
-		renderRoute("/conversations/chat");
+	it("renders Conversations page at /conversations/:threadId (detail state — fetch loading)", async () => {
+		// The fetch is stubbed to return threads list (no detail), so the page
+		// renders the loading state briefly, then the not-found state (since
+		// the thread-detail endpoint returns empty thread list body).
+		renderRoute("/conversations/t-test-router");
 		await waitFor(() => {
-			expect(screen.getByTestId("conversations-chat-page")).toBeInTheDocument();
+			expect(screen.getByTestId("conversations-page")).toBeInTheDocument();
 		});
 	});
 
@@ -99,7 +118,7 @@ describe("Router", () => {
 	});
 
 	it("shell layout has IconRail, Submenu, main content, and Rail", async () => {
-		renderRoute("/conversations/review");
+		renderRoute("/conversations");
 		await waitFor(() => {
 			expect(screen.getByRole("navigation", { name: "Main navigation" })).toBeInTheDocument();
 			expect(screen.getByTestId("main-content")).toBeInTheDocument();

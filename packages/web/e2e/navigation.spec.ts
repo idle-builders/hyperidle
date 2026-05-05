@@ -7,7 +7,7 @@ import { expect, test } from "@playwright/test";
 test.describe("Navigation", () => {
 	test.beforeEach(async ({ page }) => {
 		await page.goto("/");
-		// Default route redirects to /conversations/review
+		// Default route redirects to /conversations (L9: canonical queue URL)
 		await page.waitForSelector("[data-testid='main-content']");
 	});
 

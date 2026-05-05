@@ -122,10 +122,7 @@ describe("RedirectLegacyConversation (L9)", () => {
 						path="/conversations/review"
 						element={<RedirectLegacyConversation paramName="id" />}
 					/>
-					<Route
-						path="/conversations"
-						element={<div data-testid="queue-landing" />}
-					/>
+					<Route path="/conversations" element={<div data-testid="queue-landing" />} />
 				</Routes>
 			</MemoryRouter>,
 		);

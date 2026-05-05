@@ -10,8 +10,8 @@
  * 2. Positive drag-absence guards (structural assertions, not behavior)
  * 3. Click a task row [data-testid="bet-task-row"] → TaskSheet opens
  * 4. Select "Move to BLOCKED" intent → Send request → Sent. feedback → sheet closes
- * 5. Navigate to /conversations/chat?thread=<id> → assert the message text is rendered
- * 6. Re-open task row → Open thread → URL navigates to /conversations/chat?thread=<id>
+ * 5. Navigate to /conversations/:threadId → assert the message text is rendered (L9)
+ * 6. Re-open task row → Open thread → URL navigates to /conversations/:threadId (L9)
  *
  * @lore L13: WorkTeam.tsx is deleted. TaskSheet is now mounted on WorkBet.
  * All L15 flows navigate through /work/bet/:id → [data-testid="bet-task-row"]
@@ -334,8 +334,9 @@ test.describe("L15 — Strip drag + Task request sheet (re-routed to Bet detail)
 		expect(capturedMessageText).toBe("Request: move to BLOCKED.");
 	});
 
-	test("(step 6) Open thread navigates to /conversations/chat?thread=<id>", async ({ page }) => {
-		// Mock with existing thread
+	// L9: TaskSheet now navigates to /conversations/:threadId (canonical path, no ?thread= param)
+	test("(step 6) Open thread navigates to /conversations/:threadId (L9)", async ({ page }) => {
+		// For this test, mock GET threads to return an existing thread
 		await page.route("**/api/threads**", async (route) => {
 			const req = route.request();
 			const url = req.url();
@@ -368,7 +369,7 @@ test.describe("L15 — Strip drag + Task request sheet (re-routed to Bet detail)
 		// Click Open thread
 		await page.getByRole("button", { name: /open thread/i }).click();
 
-		// URL should navigate to conversations/chat with thread param
-		await expect(page).toHaveURL(/\/conversations\/chat\?thread=/, { timeout: 3000 });
+		// URL should navigate to canonical /conversations/:threadId (L9)
+		await expect(page).toHaveURL(new RegExp(`/conversations/${TASK_THREAD_ID}`), { timeout: 3000 });
 	});
 });
