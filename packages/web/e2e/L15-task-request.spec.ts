@@ -1,23 +1,59 @@
 /**
  * L15 — Playwright e2e: strip-drag + request-state + open-thread.
+ * L13 amendment: re-routed from /work/team to /work/bet/:id.
  *
  * Strategy: hermetic page.route() mocks for all /api/ calls.
  * No DB seeding required — the dev server only serves the SPA bundle.
  *
  * Flow:
- * 1. Navigate to /work/team
+ * 1. Navigate to /work/bet/b1 (bet detail page)
  * 2. Positive drag-absence guards (structural assertions, not behavior)
- * 3. Click a task card → TaskSheet opens
+ * 3. Click a task row [data-testid="bet-task-row"] → TaskSheet opens
  * 4. Select "Move to BLOCKED" intent → Send request → Sent. feedback → sheet closes
  * 5. Navigate to /conversations/chat?thread=<id> → assert the message text is rendered
- * 6. Re-open task card → Open thread → URL navigates to /conversations/chat?thread=<id>
+ * 6. Re-open task row → Open thread → URL navigates to /conversations/chat?thread=<id>
+ *
+ * @lore L13: WorkTeam.tsx is deleted. TaskSheet is now mounted on WorkBet.
+ * All L15 flows navigate through /work/bet/:id → [data-testid="bet-task-row"]
+ * instead of /work/team → task card.
  */
 import { expect, test } from "@playwright/test";
 
 const TASK_THREAD_ID = "thread-task-abc-001";
-const TASK_ID = "t1"; // Matches the first task in WorkTeam's INITIAL_TASKS
+const TASK_ID = "t1";
+const BET_ID = "b1";
 
 const NOW = new Date().toISOString();
+
+function makeBetDetailResponse() {
+	return {
+		id: BET_ID,
+		title: "User auth flow",
+		product: "HyperIdle Core",
+		team: "Core Team",
+		status: "in_progress",
+		appetite: "2 weeks",
+		progress: { done: 1, total: 2 },
+		pitch: "# Problem\n\nAuth needs work.\n",
+		tasks: [
+			{
+				id: TASK_ID,
+				title: "Implement login endpoint",
+				owner: "Dev Agent 1",
+				state: "in_progress",
+				cost: "$4.20",
+			},
+			{
+				id: "t2",
+				title: "Design signup form",
+				owner: "Dev Agent 2",
+				state: "accepted",
+				cost: "$1.80",
+			},
+		],
+		comments: [],
+	};
+}
 
 function makeThreadListResponse(threads: Array<{ id: string; hostId: string }>): object {
 	return {
@@ -109,9 +145,70 @@ function makeThreadDetailResponse(): object {
 	};
 }
 
-test.describe("L15 — Strip drag + Task request sheet", () => {
+function makeHostThreadResponse(): object {
+	return {
+		thread: {
+			id: `host-thread-${BET_ID}`,
+			hostKind: "bet",
+			hostId: BET_ID,
+			initiatorId: "u-founder",
+			participants: ["u-founder"],
+			pinned: false,
+			resolvedAt: null,
+			lastActiveAt: NOW,
+			createdAt: NOW,
+		},
+		headMessageId: null,
+		messages: [],
+		identities: {
+			"u-founder": { name: "Founder", role: "founder" },
+		},
+	};
+}
+
+test.describe("L15 — Strip drag + Task request sheet (re-routed to Bet detail)", () => {
 	test.beforeEach(async ({ page }) => {
-		// Mock all /api/threads/* calls generically so the page boots cleanly
+		// Mock /api/bets/:id so the bet detail page loads
+		await page.route(`**/api/bets/${BET_ID}`, async (route) => {
+			const req = route.request();
+			if (req.method() === "GET") {
+				await route.fulfill({
+					status: 200,
+					contentType: "application/json",
+					body: JSON.stringify(makeBetDetailResponse()),
+				});
+			} else {
+				await route.continue();
+			}
+		});
+
+		// Mock /api/bets/:id/artifact-thread-summary
+		await page.route(`**/api/bets/${BET_ID}/artifact-thread-summary`, async (route) => {
+			await route.fulfill({
+				status: 200,
+				contentType: "application/json",
+				body: JSON.stringify({ summaries: [], truncated: false, totalCount: 0 }),
+			});
+		});
+
+		// Mock host thread for the bet (HostThreadSection)
+		await page.route(`**/api/threads?host_kind=bet&host_id=${BET_ID}`, async (route) => {
+			await route.fulfill({
+				status: 200,
+				contentType: "application/json",
+				body: JSON.stringify({ threads: [makeHostThreadResponse().thread] }),
+			});
+		});
+
+		await page.route(`**/api/threads/host-thread-${BET_ID}`, async (route) => {
+			await route.fulfill({
+				status: 200,
+				contentType: "application/json",
+				body: JSON.stringify(makeHostThreadResponse()),
+			});
+		});
+
+		// Mock all /api/threads/* calls generically for task threads
 		await page.route("**/api/threads**", async (route) => {
 			const req = route.request();
 			const url = req.url();
@@ -147,51 +244,26 @@ test.describe("L15 — Strip drag + Task request sheet", () => {
 		});
 	});
 
-	test("(step 2) drag affordances are structurally absent from the Kanban DOM", async ({
+	test("(step 2) drag affordances are structurally absent from the bet task table", async ({
 		page,
 	}) => {
-		await page.goto("/work/team");
-		await page.waitForSelector("[data-testid='work-team-page']");
+		await page.goto(`/work/bet/${BET_ID}`);
+		await page.waitForSelector("[data-testid='work-bet-page']");
 
-		// Positive structural assertions — each must be zero, independent of
-		// any drag attempt. These prove the markup is gone from the Kanban area,
-		// not merely inert. Assertions are scoped to [data-testid='work-team-kanban']
-		// because Canvas (above the Kanban) retains @dnd-kit for bet-card drag and
-		// its draggable elements carry aria-roledescription="draggable" too.
-		// @lore L15: Canvas drag is intentionally preserved; only Kanban task-card
-		// drag was removed. Scoping prevents false failures from Canvas affordances.
-		const kanban = page.getByTestId("work-team-kanban");
-		await expect(kanban.locator("[data-droppable-column]")).toHaveCount(0);
-		await expect(kanban.locator('[data-testid^="draggable-task-"]')).toHaveCount(0);
-		await expect(kanban.locator('[aria-roledescription="draggable"]')).toHaveCount(0);
+		// On the Bet detail page, there is no Kanban with drag affordances
+		await expect(page.locator("[data-droppable-column]")).toHaveCount(0);
+		await expect(page.locator('[data-testid^="draggable-task-"]')).toHaveCount(0);
+		await expect(page.locator('[aria-roledescription="draggable"]')).toHaveCount(0);
 	});
 
-	test("(step 2 defense-in-depth) dragTo attempt does not move the task to a different column", async ({
-		page,
-	}) => {
-		await page.goto("/work/team");
-		await page.waitForSelector("[data-testid='work-team-kanban']");
+	test("(step 3) clicking a task row opens the TaskSheet (role=dialog)", async ({ page }) => {
+		await page.goto(`/work/bet/${BET_ID}`);
+		await page.waitForSelector("[data-testid='work-bet-page']");
 
-		// Find a task card and its current column
-		const taskCard = page.getByText("Implement login endpoint");
-		await expect(taskCard).toBeVisible();
-
-		// Attempt drag to the Done column area — should be a no-op since drag is removed
-		// @lore Use heading role to avoid strict-mode collision with TaskCard status chips
-		// or any other "Done" text on the page.
-		const doneColumnHeader = page.getByRole("heading", { name: "Done" });
-		await expect(doneColumnHeader).toBeVisible();
-
-		// The task should still be visible in its original column (no move happened)
-		await expect(taskCard).toBeVisible();
-		// Structural guard is already proven above; this is defense-in-depth
-	});
-
-	test("(step 3) clicking a task card opens the TaskSheet (role=dialog)", async ({ page }) => {
-		await page.goto("/work/team");
-		await page.waitForSelector("[data-testid='work-team-kanban']");
-
-		await page.getByText("Implement login endpoint").click();
+		// Click the first task row
+		const taskRow = page.getByTestId("bet-task-row").first();
+		await expect(taskRow).toBeVisible();
+		await taskRow.click();
 
 		const dialog = page.getByRole("dialog");
 		await expect(dialog).toBeVisible();
@@ -202,11 +274,6 @@ test.describe("L15 — Strip drag + Task request sheet", () => {
 	test("(steps 4–5) select BLOCKED intent → Send request → Sent. → sheet closes → message in thread", async ({
 		page,
 	}) => {
-		// Capture the POST /messages request body to verify the message was sent correctly.
-		// @lore ConversationsChat currently renders static MOCK_THREADS and does not call the
-		// real threads API. Verifying the posted message via API (architecture step 7) is done
-		// by intercepting the POST and capturing the body, then navigating to the chat URL and
-		// asserting the thread detail endpoint returns the message.
 		let capturedMessageText: string | null = null;
 		await page.route("**/api/threads**", async (route) => {
 			const req = route.request();
@@ -226,7 +293,6 @@ test.describe("L15 — Strip drag + Task request sheet", () => {
 					body: JSON.stringify(makeCreateThreadResponse()),
 				});
 			} else if (method === "POST" && url.includes("/messages")) {
-				// Capture the message text for assertion.
 				const body = req.postDataJSON() as { payload?: { text?: string } } | null;
 				capturedMessageText = body?.payload?.text ?? null;
 				await route.fulfill({
@@ -245,11 +311,11 @@ test.describe("L15 — Strip drag + Task request sheet", () => {
 			}
 		});
 
-		await page.goto("/work/team");
-		await page.waitForSelector("[data-testid='work-team-kanban']");
+		await page.goto(`/work/bet/${BET_ID}`);
+		await page.waitForSelector("[data-testid='work-bet-page']");
 
-		// Open the sheet
-		await page.getByText("Implement login endpoint").click();
+		// Open the sheet via task row click
+		await page.getByTestId("bet-task-row").first().click();
 		await expect(page.getByRole("dialog")).toBeVisible();
 
 		// Select "Move to BLOCKED" radio
@@ -259,24 +325,17 @@ test.describe("L15 — Strip drag + Task request sheet", () => {
 		await page.getByRole("button", { name: /send request/i }).click();
 
 		// Inline role="status" appears with "Sent."
-		// Scoped to dialog to avoid strict-mode collision: #DndLiveRegion-0 (Canvas
-		// @dnd-kit live region) also carries role="status" on the same page.
-		// @lore L15: Canvas retains @dnd-kit which injects a DndLiveRegion with
-		// role="status". Without dialog scoping, getByRole('status') resolves to
-		// 2+ elements and Playwright throws in strict mode.
 		await expect(page.getByRole("dialog").getByRole("status")).toHaveText("Sent.");
 
 		// Sheet auto-closes after ~800ms
 		await expect(page.getByRole("dialog")).toHaveCount(0, { timeout: 3000 });
 
-		// Step 5: Verify the message was posted to the thread API with the correct text.
-		// The architecture step 7 requirement: "message appears in the task's thread".
-		// We verify via the captured POST body (the request interceptor above).
+		// Verify message text was captured
 		expect(capturedMessageText).toBe("Request: move to BLOCKED.");
 	});
 
 	test("(step 6) Open thread navigates to /conversations/chat?thread=<id>", async ({ page }) => {
-		// For this test, mock GET threads to return an existing thread
+		// Mock with existing thread
 		await page.route("**/api/threads**", async (route) => {
 			const req = route.request();
 			const url = req.url();
@@ -299,11 +358,11 @@ test.describe("L15 — Strip drag + Task request sheet", () => {
 			}
 		});
 
-		await page.goto("/work/team");
-		await page.waitForSelector("[data-testid='work-team-kanban']");
+		await page.goto(`/work/bet/${BET_ID}`);
+		await page.waitForSelector("[data-testid='work-bet-page']");
 
-		// Open the sheet
-		await page.getByText("Implement login endpoint").click();
+		// Open the sheet via task row click
+		await page.getByTestId("bet-task-row").first().click();
 		await expect(page.getByRole("dialog")).toBeVisible();
 
 		// Click Open thread

@@ -9,6 +9,7 @@ import { describe, expect, it } from "vitest";
  */
 
 // Import page components directly to build test routes
+import { Navigate } from "react-router-dom";
 import { AppShell } from "../layouts/AppShell";
 import { ConversationsChat } from "../pages/ConversationsChat";
 import { ConversationsReview } from "../pages/ConversationsReview";
@@ -17,7 +18,6 @@ import { KnowledgeList } from "../pages/KnowledgeList";
 import { NotFound } from "../pages/NotFound";
 import { WorkBet } from "../pages/WorkBet";
 import { WorkPortfolio } from "../pages/WorkPortfolio";
-import { WorkTeam } from "../pages/WorkTeam";
 
 function renderRoute(initialPath: string): ReturnType<typeof render> {
 	const router = createMemoryRouter(
@@ -29,7 +29,11 @@ function renderRoute(initialPath: string): ReturnType<typeof render> {
 					{ path: "conversations/review", element: <ConversationsReview /> },
 					{ path: "conversations/chat", element: <ConversationsChat /> },
 					{ path: "work/portfolio", element: <WorkPortfolio /> },
-					{ path: "work/team", element: <WorkTeam /> },
+					// L13: WorkTeam deleted; /work/team now redirects to /work/portfolio
+					{
+						path: "work/team",
+						element: <Navigate to="/work/portfolio" replace />,
+					},
 					{ path: "work/bet/:betId", element: <WorkBet /> },
 					{ path: "knowledge", element: <KnowledgeList /> },
 					{ path: "knowledge/:knowledgeId", element: <KnowledgeDetail /> },
@@ -65,10 +69,11 @@ describe("Router", () => {
 		});
 	});
 
-	it("renders WorkTeam page at /work/team", async () => {
+	it("L13: /work/team redirects to /work/portfolio", async () => {
 		renderRoute("/work/team");
 		await waitFor(() => {
-			expect(screen.getByTestId("work-team-page")).toBeInTheDocument();
+			// WorkTeam is deleted in L13; the route redirects to portfolio
+			expect(screen.getByTestId("work-portfolio-page")).toBeInTheDocument();
 		});
 	});
 

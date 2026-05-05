@@ -37,7 +37,12 @@ test.describe("J5 — Work Surface", () => {
 		await expect(stripe).toContainText(/days? remaining/i);
 	});
 
-	test("Team Board → Select Pitches → pitch detail pane exposes Add to canvas", async ({
+	// @lore L13: WorkTeam (Kanban + PitchSelector) was deleted in L13. The
+	// /work/team route now redirects to /work/portfolio. The "Team Board →
+	// Select Pitches" flow no longer exists. This test cannot be migrated
+	// because the PitchSelector surface itself is gone. New product-drilldown
+	// coverage lives in e2e/L13-product-drilldown.spec.ts.
+	test.skip("Team Board → Select Pitches → pitch detail pane exposes Add to canvas", async ({
 		page,
 	}) => {
 		await page.goto("/work/team");

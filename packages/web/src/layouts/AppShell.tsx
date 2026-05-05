@@ -54,12 +54,11 @@ const SUBMENU_CONFIG: Record<ViewId, SubmenuConfig> = {
 		title: "Conversations",
 		items: [],
 	},
+	// L13: "Team Board" entry removed. Portfolio is the single Work landing;
+	// product pages are reached via drill-down, not a submenu tree.
 	work: {
 		title: "Work",
-		items: [
-			{ label: "Portfolio", path: "/work/portfolio" },
-			{ label: "Team Board", path: "/work/team" },
-		],
+		items: [{ label: "Portfolio", path: "/work/portfolio" }],
 	},
 	knowledge: {
 		title: "Knowledge",

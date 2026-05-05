@@ -18,6 +18,7 @@ import { health } from "./routes/health.js";
 import { createKnowledgeRoutes } from "./routes/knowledge.js";
 import { createNotificationRoutes } from "./routes/notifications-routes.js";
 import { createObservabilityRoutes } from "./routes/observability-routes.js";
+import { createProductRoutes } from "./routes/products.js";
 import { createRailRoutes } from "./routes/rail.js";
 import { createRoutineRoutes } from "./routes/routines-routes.js";
 import { createSessionRoutes } from "./routes/sessions-routes.js";
@@ -262,6 +263,7 @@ function createApp(options?: AppOptions): Hono {
 	// Register work endpoints if db is provided
 	if (options?.db) {
 		const eventBus = options.eventBus ?? new EventBus();
+		api.route("/products", createProductRoutes(options.db, eventBus));
 		api.route("/bets", createBetRoutes(options.db, eventBus));
 		api.route("/tasks", createTaskRoutes(options.db, eventBus));
 		api.route("/artifacts", createArtifactRoutes(options.db));
