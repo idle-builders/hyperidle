@@ -12,8 +12,10 @@
  * @lore L1 step10 (DoD gap-1): the previous draft of this spec used
  *   `page.goto("/conversations/review")` without `?id=`, which lands on the
  *   page's `EmptyState` branch — `[data-testid='thread-shell']` never mounts.
- *   It also referenced a "post follow-up review" affordance that L1a never
- *   shipped. Both have been replaced with hermetic route mocks below.
+ *   Both have been replaced with hermetic route mocks below.
+ *
+ * @lore L9: routes changed from `/conversations/review?id=X` to
+ *   `/conversations/X` (canonical path). All `goto()` calls updated.
  *
  * Coverage (AC-13: "at least one thread renders correctly with each shipping
  * rich message type inline"):
@@ -230,7 +232,7 @@ test.describe("L11 — review-shape thread renders RichMessageCard inline", () =
 			});
 		});
 
-		await page.goto("/conversations/review?id=t-review-1");
+		await page.goto("/conversations/t-review-1");
 
 		// ThreadShell mounted via the new fetch path.
 		await expect(page.locator("[data-testid='thread-shell']")).toBeVisible();
@@ -267,7 +269,7 @@ test.describe("L1a — plain-shape thread (chat-only)", () => {
 			});
 		});
 
-		await page.goto("/conversations/review?id=t-plain-1");
+		await page.goto("/conversations/t-plain-1");
 
 		// Shell mounts.
 		await expect(page.locator("[data-testid='thread-shell']")).toBeVisible();
@@ -299,7 +301,7 @@ test.describe("L1a — back-compat (legacy review/chat collapse projection)", ()
 			});
 		});
 
-		await page.goto("/conversations/review?id=t-legacy-1");
+		await page.goto("/conversations/t-legacy-1");
 
 		await expect(page.locator("[data-testid='thread-shell']")).toBeVisible();
 
@@ -366,7 +368,7 @@ test.describe("L1a — composer round-trips a plain message", () => {
 			await route.continue();
 		});
 
-		await page.goto("/conversations/review?id=t-plain-1");
+		await page.goto("/conversations/t-plain-1");
 		await expect(page.locator("[data-testid='thread-shell']")).toBeVisible();
 
 		const composer = page.getByPlaceholder(/reply to thread/i);
@@ -443,7 +445,7 @@ test.describe("L1a — verdict click resolves the review and renders APPROVED", 
 			await route.continue();
 		});
 
-		await page.goto("/conversations/review?id=t-review-1");
+		await page.goto("/conversations/t-review-1");
 		// L11: the promoted RichMessageCard mounts inline with the verdict toolbar.
 		const card = page.locator("[data-testid='rich-message-card']");
 		await expect(card).toBeVisible();

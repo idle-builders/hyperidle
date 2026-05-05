@@ -190,8 +190,12 @@ export function TaskSheet({
 
 	/**
 	 * L18/L15: "Open thread" — resolves (or creates) the task thread, then
-	 * navigates to the full thread view in /conversations/chat. AC §621 requires
+	 * navigates to the full thread view in /conversations/:threadId. AC §621 requires
 	 * this affordance to remain even after the thread is rendered inline.
+	 *
+	 * @lore L9: navigation target updated from /conversations/chat to
+	 * /conversations/:threadId (canonical URL). The actual navigate call is
+	 * delegated through onNavigateToThread which is set by WorkTeam.tsx.
 	 *
 	 * @lore L18: Uses the deprecated `resolveThreadId` prop (still wired in
 	 * WorkTeam) and `_onNavigateToThread`. Both props are kept for backwards-compat

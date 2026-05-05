@@ -12,11 +12,16 @@
  * @lore L11 step5: fails before the green phase because the legacy thread
  * head + sticky verdict bar are mounted instead of the RichMessageCard.
  * Plan T7 makes this pass.
+ *
+ * @lore L9: ConversationsReview replaced by Conversations. The page reads
+ * threadId from useParams() so tests use createMemoryRouter at
+ * /conversations/:threadId instead of window.history.replaceState + ?id=.
  */
 
 import { render, screen, waitFor } from "@testing-library/react";
+import { createMemoryRouter, RouterProvider } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { ConversationsReview } from "../pages/ConversationsReview";
+import { Conversations } from "../pages/Conversations";
 
 const THREAD_ID = "t-l11-dispatch";
 
@@ -54,14 +59,13 @@ interface CapturedPost {
 	body: unknown;
 }
 
-describe("ConversationsReview — verdict dispatch (AC-11)", () => {
+describe("Conversations — verdict dispatch (AC-11)", () => {
 	let posts: CapturedPost[];
 	let originalFetch: typeof globalThis.fetch;
 
 	beforeEach(() => {
 		posts = [];
 		originalFetch = globalThis.fetch;
-		window.history.replaceState({}, "", `/?id=${THREAD_ID}`);
 		const detail = {
 			thread: FAKE_THREAD,
 			messages: [FAKE_REVIEW],
@@ -111,13 +115,20 @@ describe("ConversationsReview — verdict dispatch (AC-11)", () => {
 
 	afterEach(() => {
 		globalThis.fetch = originalFetch;
-		window.history.replaceState({}, "", "/");
 		vi.restoreAllMocks();
 	});
 
+	function renderConversations(): void {
+		const router = createMemoryRouter(
+			[{ path: "/conversations/:threadId", element: <Conversations /> }],
+			{ initialEntries: [`/conversations/${THREAD_ID}`] },
+		);
+		render(<RouterProvider router={router} />);
+	}
+
 	it("clicking Approve in the RichMessageCard POSTs a verdict with the canonical shape", async () => {
 		const user = (await import("@testing-library/user-event")).default.setup();
-		render(<ConversationsReview />);
+		renderConversations();
 
 		const card = await screen.findByTestId("rich-message-card");
 		expect(card).toBeInTheDocument();
@@ -143,7 +154,7 @@ describe("ConversationsReview — verdict dispatch (AC-11)", () => {
 	});
 
 	it("does NOT mount the deleted top toolbar (AC-2)", async () => {
-		render(<ConversationsReview />);
+		renderConversations();
 		await screen.findByTestId("rich-message-card");
 		// The deleted top toolbar was the only surface labelling itself with
 		// this testid.

@@ -87,8 +87,8 @@ test.describe("L7 — thread response loop (error → retry → success)", () =>
 			});
 		});
 
-		await page.goto(`/conversations/review?id=${THREAD_ID}`);
-		await page.waitForSelector("[data-testid='conversations-review-page']");
+		await page.goto(`/conversations/${THREAD_ID}`);
+		await page.waitForSelector("[data-testid='conversations-page']");
 
 		// Click Approve.
 		await page.getByRole("button", { name: "Approve", exact: true }).click();
@@ -134,8 +134,8 @@ test.describe("L7 — thread response loop (error → retry → success)", () =>
 			});
 		});
 
-		await page.goto(`/conversations/review?id=${THREAD_ID}`);
-		await page.waitForSelector("[data-testid='conversations-review-page']");
+		await page.goto(`/conversations/${THREAD_ID}`);
+		await page.waitForSelector("[data-testid='conversations-page']");
 		await page.getByRole("button", { name: "Approve", exact: true }).click();
 		await expect(
 			page.getByText(/Response recorded — agent will pick it up on next session\./i),

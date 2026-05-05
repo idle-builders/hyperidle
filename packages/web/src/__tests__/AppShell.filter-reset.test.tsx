@@ -25,7 +25,9 @@ function renderShellAt(initialPath: string): ReactElement {
 				path: "/",
 				element: <AppShell />,
 				children: [
-					{ path: "conversations/review", element: <div>Conversations Page</div> },
+					// L9: canonical conversation routes replace legacy /review and /chat.
+					{ path: "conversations", element: <div>Conversations Page</div> },
+					{ path: "conversations/:threadId", element: <div>Conversations Page</div> },
 					{ path: "work/portfolio", element: <div>Work Page</div> },
 					{ path: "knowledge", element: <div>Knowledge Page</div> },
 				],
@@ -39,7 +41,7 @@ function renderShellAt(initialPath: string): ReactElement {
 describe("AppShell — filter reset on view change (J2 AC 64)", () => {
 	it("resets the Submenu filter to 'All' when the user navigates to a different view and back", async () => {
 		const user = userEvent.setup();
-		render(renderShellAt("/conversations/review"));
+		render(renderShellAt("/conversations"));
 
 		// Wait for Conversations submenu + filter row. L10 swapped the
 		// chip vocabulary to [All, Blocking, Async]; we now drive the

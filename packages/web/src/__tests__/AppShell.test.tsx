@@ -17,7 +17,7 @@ function stubThreadsFetch(): void {
 }
 
 function renderShell(
-	initialPath = "/conversations/review",
+	initialPath = "/conversations",
 	childContent = "Test Page Content",
 ): ReturnType<typeof render> {
 	stubThreadsFetch();
@@ -27,8 +27,9 @@ function renderShell(
 				path: "/",
 				element: <AppShell />,
 				children: [
-					{ path: "conversations/review", element: <div>{childContent}</div> },
-					{ path: "conversations/chat", element: <div>Chat Page</div> },
+					// L9: canonical conversation routes replace legacy /review and /chat.
+					{ path: "conversations", element: <div>{childContent}</div> },
+					{ path: "conversations/:threadId", element: <div>{childContent}</div> },
 					{ path: "work/portfolio", element: <div>Portfolio Page</div> },
 					{ path: "work/team", element: <div>Team Page</div> },
 					{ path: "knowledge", element: <div>Knowledge Page</div> },
@@ -57,7 +58,7 @@ describe("AppShell", () => {
 		// L8: the legacy static "Review Queue" + "Chat" NavItems are removed.
 		// The submenu now renders a live thread list (covered by
 		// AppShell.threads.test.tsx); here we only assert the title bar.
-		renderShell("/conversations/review");
+		renderShell("/conversations");
 		await waitFor(() => {
 			expect(screen.getByText("Conversations")).toBeInTheDocument();
 		});
@@ -65,7 +66,7 @@ describe("AppShell", () => {
 
 	it("switches views when clicking IconRail buttons", async () => {
 		const user = userEvent.setup();
-		renderShell("/conversations/review");
+		renderShell("/conversations");
 
 		await waitFor(() => {
 			expect(screen.getByText("Test Page Content")).toBeInTheDocument();
@@ -82,7 +83,7 @@ describe("AppShell", () => {
 
 	it("opens settings panel when avatar is clicked", async () => {
 		const user = userEvent.setup();
-		renderShell("/conversations/review");
+		renderShell("/conversations");
 
 		await waitFor(() => {
 			expect(screen.getByRole("button", { name: /user profile/i })).toBeInTheDocument();
@@ -160,7 +161,7 @@ describe("AppShell", () => {
 
 		it('changing density to "compact" via SettingsPanel updates data-density on the shell root', async () => {
 			const user = userEvent.setup();
-			const { container } = renderShell("/conversations/review");
+			const { container } = renderShell("/conversations");
 
 			// Open settings via avatar button.
 			await waitFor(() => {
@@ -190,7 +191,7 @@ describe("AppShell", () => {
 
 		it('changing density to "comfortable" via SettingsPanel updates data-density to comfortable', async () => {
 			const user = userEvent.setup();
-			const { container } = renderShell("/conversations/review");
+			const { container } = renderShell("/conversations");
 
 			await waitFor(() => {
 				expect(screen.getByRole("button", { name: /user profile/i })).toBeInTheDocument();
@@ -215,7 +216,7 @@ describe("AppShell", () => {
 	describe("global search navigation by type", () => {
 		// I4 N1: `handleSearchNavigate` must route by result type.
 		// Fixture routes added so we can observe where navigation lands.
-		function renderShellWithProbes(initialPath = "/conversations/review"): {
+		function renderShellWithProbes(initialPath = "/conversations"): {
 			user: ReturnType<typeof userEvent.setup>;
 			router: ReturnType<typeof createMemoryRouter>;
 		} {
@@ -226,8 +227,12 @@ describe("AppShell", () => {
 						path: "/",
 						element: <AppShell />,
 						children: [
-							{ path: "conversations/review", element: <div>Review Queue Page</div> },
-							{ path: "conversations/chat", element: <div>Chat Page</div> },
+							// L9: canonical conversation routes.
+							{ path: "conversations", element: <div>Conversations Queue Page</div> },
+							{
+								path: "conversations/:threadId",
+								element: <div data-testid="conversations-target">Conversations Detail Page</div>,
+							},
 							{ path: "work/portfolio", element: <div>Portfolio Page</div> },
 							{ path: "work/team", element: <div>Team Page</div> },
 							{
@@ -306,7 +311,9 @@ describe("AppShell", () => {
 			});
 		});
 
-		it("navigates conversation result to /conversations/review", async () => {
+		it("navigates conversation result to /conversations/:id (L9: id from search result)", async () => {
+			// L9: handleSearchNavigate now routes to /conversations/:id when the
+			// search result carries an id (arch-critique SUGGESTION #4 resolved).
 			(global.fetch as ReturnType<typeof vi.fn>).mockResolvedValue({
 				ok: true,
 				json: () =>
@@ -331,7 +338,7 @@ describe("AppShell", () => {
 			await waitFor(() => expect(screen.getByText("Review session")).toBeInTheDocument());
 			await user.click(screen.getByText("Review session"));
 			await waitFor(() => {
-				expect(router.state.location.pathname).toBe("/conversations/review");
+				expect(router.state.location.pathname).toBe("/conversations/c9");
 			});
 		});
 	});
