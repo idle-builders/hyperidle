@@ -1,115 +1,118 @@
-# L18 — Architecture Critique (Reviewer, Round 1)
+# L18 — Architecture Critique (Reviewer)
 
-Source under review: `plans/L18/architecture.md` (designer Round-0).
+Source under review: `plans/L18/architecture.md` (designer Round-2 at commit `f674629`).
 Verification done by reading source files, not trusting the plan.
 
-## 9-dim scoring
+---
 
-Bar to advance: every dim ≥ 7. Round 1 of max 3.
+## Round 2 — final scoring
 
-| Dim | Score | One-line justification |
+Every dim must be ≥ 7 to advance. Round 1 verdict was RE-CRITIQUE (dim-8: 5, dim-9: 4, dim-3: 6).
+
+| Dim | R1 | R2 | One-line justification |
+|---|---|---|---|
+| 1. Spec fit / contract fit | 8 | 9 | AC §619-628 mapped concretely. F7 polish (named failing tests per task) is now landed — every ordered task carries a specific `it(...)` block name. |
+| 2. Schema integrity | 9 | 9 | Re-verified: `threads.host_kind` is `text not null`, `host_kind=artifact` is already permitted (and used by the existing test in `threads.host-kinds.test.ts`). No migration. The plan acknowledges this. |
+| 3. API hygiene / contract | 6 | 8 | F2 fixed (`betId` camelCase confirmed against `routes/artifacts.ts:200`). F6 cap landed (10 rows + `totalCount` + `truncated`). F5 IDOR explicit (reuses bets.ts read path, suggests `assertBetReadable(betId, c)` helper). Endpoint shape concrete; 404-on-unauth path named in tests. |
+| 4. Dependency direction / layering | 7 | 7 | Re-export shim policy is documented (`task-threads.ts` becomes `@deprecated` re-exports + a round-trip Vitest spec at `task-threads-shim.test.ts`). One nit (no blocker): the deprecation does not state when the shim is removed — leave a follow-up row referencing this so it does not linger forever. |
+| 5. Cohesion / over-abstraction | 7 | 8 | `HostThreadSection` for 4 host kinds is the right unification — the only polymorphism is `inline?` and `prefill?`. Round 2's `prefill` prop is small and load-bearing (the `Re: <excerpt>` chip on block-anchored composer); not a generic escape hatch. Acceptable. |
+| 6. Test plan completeness | 8 | 9 | F7 done. Added: `task-threads-shim.test.ts` (asserts legacy names still resolve), `WorkBet.block-popover.test.tsx`, `WorkBet.discuss-block.test.tsx`, `WorkBet.anchored-messages.test.tsx`, KnowledgeDetail parallels. The 19-step ordered list now has a 1:1 test map. |
+| 7. Risk surface | 6 | 7 | F5 IDOR closed in-scope (auth-helper extraction, not deferred). F6 cap closed (10 rows). Stale-summary on cross-tab posts explicit and accepted as v1 behavior. Two ⚠️ UNVERIFIED items remain — both resolved below in this critique. SQLite plan-cost at 100+ artifacts is bounded by the 10-row cap. |
+| 8. Block-anchor mechanism (L2 fidelity) | 5 | 8 | F3 closed. New §"Block popover wiring" is explicit: page-level `openBlockId` state, anchor refs map, portal-mounted popover, `discuss-block` action wired to a page-owned `discussBlock(blockId)` handler. New §"Anchored-message rendering" is explicit: page derives `messagesByBlockId` from a single `useHostThread`, BetPitch/KnowledgeBody pass per-block slices into `<Block slots={{ inlineAfterPayload: ... }} />`. The `slots.inlineAfterPayload` shape is **verified to exist** (see ⚠️ resolution below) — designer was right. |
+| 9. Implementation realism (deps + APIs match codebase) | 4 | 9 | F1 closed. Round 2 §"Data fetching" is rewritten against the real `useFetch` hook (verified `packages/web/src/hooks/useFetch.ts` is the 50-line `fetch + useState + cancellation` primitive at lines 1-49; no React Query in `package.json`; no `@tanstack` references anywhere in `packages/web/src`). The `useFetch(url)`-with-version-fragment refresh trick is consistent with `useFetch`'s URL-keyed `useEffect` (line 46: `[url]` dep). Re-fetch fires when the version fragment changes the URL string. No optimistic updates — server round-trip is the source of truth. The plan now matches `useArtifacts`/`useBet` shape. |
+
+**Round 2 verdict.** **ADVANCE.** Every dim ≥ 7; mean 8.2. The two ⚠️ UNVERIFIED items resolved below; neither changes the public API or ordered tasks.
+
+---
+
+## ⚠️ UNVERIFIED items — resolved by reviewer
+
+The architecture's Open Questions §11 and §12 flag two items as builder-resolves-on-read. I verified them by reading source so the builder does not have to.
+
+### §11 — `Block.slots.inlineAfterPayload` API name — VERIFIED EXISTS
+
+`packages/design-system/src/Block.tsx:55-58`:
+
+```ts
+export interface BlockSlots {
+  gutterLeading?: ReactNode;
+  inlineAfterPayload?: ReactNode;
+}
+```
+
+`Block` accepts `slots?: BlockSlots` (line 64) and renders `{slots?.inlineAfterPayload}` inside the content column at line 124, after `renderPayload(payload, sanitizeHtml)`. The shape is exactly what the architecture assumes.
+
+**Resolution:** The designer's pattern (page derives `messagesByBlockId`, BetPitch/KnowledgeBody pass per-block slices into `<Block slots={{ inlineAfterPayload: <AnchoredMessages messages=... /> }} />`) compiles as-written. **No change to the architecture or ordered tasks.**
+
+### §12 — `Block` anchor ref for the popover — RESOLVED, smaller diff than designer expected
+
+`packages/design-system/src/Block.tsx`:
+
+- Block does **not** accept a `ref` prop today (line 60-71 — no `forwardRef`).
+- Block's outer `<article>` (line 104) carries `data-ds-component="block"`, `data-block-id={id}` (line 109), and a child `<div data-block-gutter>` (line 117) — both queryable by data-attribute.
+- `onOpenActions` is invoked synchronously on Enter / Space (lines 36, 41) and on the click path that the host wires.
+
+**Resolution.** The architecture's first proposal (page-level `anchorRefs.current.set(block.id, el)` via a ref-callback **threaded through `Block`**) is **not buildable as-written** — Block is not a `forwardRef`. Three workable alternatives, in order of smallest diff:
+
+1. **Cleanest (recommended):** Wire the popover anchor at the click moment. `onOpenActions` is the only path that opens the popover; the host can capture `el = document.querySelector(\`[data-block-id="\${blockId}"] [data-block-gutter]\`)` synchronously inside the page's `onOpenActions` handler and stash it in `useState<{ blockId: string; anchor: HTMLElement } | null>`. No ref-callback per Block; no Block API change. This works because `data-block-id` is already on the article and the popover only needs the anchor when it opens.
+2. **Wrap each Block** in a host-controlled `<div ref={(el) => anchorRefs.current.set(b.id, el)}>` — strictly additive, no Block API change. Slightly more nodes; adequate.
+3. **Add `forwardRef` to Block** — strictly additive Block API change. Cleanest at the consumer, but a Block API edit. Builder picks if they want the cleanest consumer.
+
+**The architecture should pick option 1** (smallest diff, no Block API change, no extra DOM nodes). The current §"Block popover wiring" prose threads `ref={(el) => …}` directly through `<Block>`, which today does not accept `ref`. **This is a cosmetic correction — the public surface doesn't change, no task in the ordered list moves — so the builder applies it on read.** I am writing this resolution into the architecture's Open Question §12 as a finding so the builder sees it without re-discovering.
+
+Both items resolved without changing the API contract, file plan, or task list. Both are acceptable for builder-resolves-on-read by my own test ("if the answer changes the public API or the ordered task list materially, it must be resolved now"). They do not.
+
+---
+
+## Verifications I ran (round 2)
+
+I read each file the designer cited and confirmed the quote / line is accurate.
+
+| File | Designer claim | Verified? |
 |---|---|---|
-| 1. Spec fit / contract fit | 8 | Honors AC §619 (no parallel comment table), §620 (artifact threads first-class), §621 (bet/task replacements), §622 (volume = UI), §623 (block-anchor via L2). AC mapping table is concrete. |
-| 2. Schema integrity | 9 | Verified: `threads.host_kind` is `text not null` (`packages/db/src/schema.ts:179`); the closed `HOST_KINDS` enum in `@hyperidle/shared/thread.ts:17-26` already includes `"artifact"`. No migration is required. The plan is correct here. |
-| 3. API hygiene / contract | 6 | New endpoint shape is reasonable; **but** two factual errors and one auth gap. See F1, F2. |
-| 4. Dependency direction / layering | 7 | `host-threads.ts` generalises `task-threads.ts` and re-exports — gentle. `HostThreadSection` lives in shell (Tier 3) — correct. The architecture does not reach across layers. |
-| 5. Cohesion / over-abstraction | 7 | `HostThreadSection` is justified — it's the same `ThreadShell + composer + resolve-or-create` shape on four surfaces. The `inline?` prop is the only polymorphism. Acceptable, not premature. |
-| 6. Test plan completeness | 8 | Vitest list maps to AC §624; Playwright list maps to AC §625. Block-anchor test is named. One missing test: the deprecated `task-threads.ts` re-export round-trip (no callers should break). See F4. |
-| 7. Risk surface | 6 | The summary endpoint at large bet (100+ artifacts) is flagged as ⚠️ UNVERIFIED with no concrete plan B; auth on the new endpoint is hand-waved; WS invalidation is out of scope but the plan does not say what stale data the founder will see. See F5. |
-| 8. Block-anchor mechanism (L2 fidelity) | 5 | **Major gap.** Plan says `BlockActionsPopover` needs "no code change — consumers add a `discuss-block` action to the `items` array". Read of `packages/web/src/pages/WorkBet.tsx:57-67` (BetPitch): `<Block id={b.id} payload={b.payload} />` is rendered with **no `onOpenActions` callback and no popover at all**. There is no host-side popover plumbing today. L18 must add (per BetPitch and KnowledgeBody): popover open-state, `onOpenActions={() => setOpen(blockId)}`, the `BlockActionsPopover` element + items list, anchor positioning, escape-to-close wiring. This is non-trivial new work, not "consumers add an item". The plan understates it. See F3. |
-| 9. Implementation realism (deps + APIs match the codebase) | 4 | **Critical gap.** Plan repeatedly invokes React Query (`["thread", hostKind, hostId]` keys, `queryClient.setQueryData`, hook keyed `["bet", betId, "artifact-thread-summary"]`, "Invalidate when ANY `["thread", "artifact", *]` mutation succeeds"). Reality: **React Query is not installed and not used anywhere in `packages/web`.** Existing hooks (`useBet`, `useArtifact`, `useArtifacts`) all wrap a custom `useFetch` (`packages/web/src/hooks/useArtifacts.ts:5`, `packages/web/src/hooks/useBet.ts`). The architecture footnotes its own "⚠️ UNVERIFIED note: at the time of writing the bet-view fetch is via a custom `useBet` hook" but then continues to spec React Query keys for L18's hooks. This is a contradiction the plan must resolve before code is written. See F1. |
+| `packages/web/src/hooks/useFetch.ts` | 50-line `fetch + useState + cancellation`; URL-keyed `useEffect` | YES — 49 lines, dep `[url]` at line 46. |
+| `packages/web/src/hooks/useBet.ts` | `useEffect + useState + fetch`; not `useFetch`-wrapped | YES — direct `fetch()` (line 33), not via `useFetch`. (Note: the designer's claim that `useBet` "wraps `useFetch`" is slightly imprecise; `useBet` predates the `useFetch` extraction. Architecture text says "Existing consumers (`useBet`, `useArtifact`, `useArtifacts`) all wrap it" — accurate for `useArtifact`/`useArtifacts` per `useArtifacts.ts:5,16,20`, slightly inaccurate for `useBet`. Not load-bearing — the L18 hook spec is `useFetch`-based regardless.) |
+| `packages/web/src/services/task-threads.ts` | Existing exports `resolveOrCreateTaskThread` + `postRequestMessage`; the latter is "misleading — type is plain not request" | YES — line 35 + line 80; the body sends `type: "plain"` (line 89), so `postRequestMessage` is indeed a misnomer. F4 rename rationale is correct. |
+| `packages/web/src/pages/WorkBet.tsx:57-67` | `<Block id payload />` with no `onOpenActions`, no popover | YES — line 63: `<Block key={b.id} id={b.id} payload={b.payload} />`. No popover anywhere on the page. |
+| `packages/server/src/routes/artifacts.ts:200` | `c.req.query("betId")` (camelCase) | YES — line 200 exactly. |
+| `packages/server/src/routes/threads.ts:147-153` | L8 lore IDOR comment on `participant_id` | YES — exact lines, exact wording. |
+| `packages/web/src/fixtures/knowledge-data.ts:78,119` | observationLog is fixture-only | YES — line 78 (type field), line 119 (mock data). Grep across `packages/db` and `packages/server` returns zero matches for `observation_log` / `observationLog`. F8/F9 conclusions correct. |
+| `packages/db/src/schema.ts` (~line 179) | `threads.host_kind` is `text not null` | YES — `hostKind: text("host_kind").notNull()`. |
+| `packages/web/src/pages/knowledge/KnowledgeBody.tsx` | Renders `<Block id payload sanitizeHtml />` with no popover; no `onOpenActions` | YES — line 62. The L23 lore at lines 14-17 explicitly says "popover is not wired in L23". |
+| `packages/design-system/src/Block.tsx` | `slots.inlineAfterPayload?: ReactNode` exists | YES — lines 55-58. See ⚠️ resolution above. |
 
-**Round 1 verdict.** **RE-CRITIQUE REQUIRED.** Two dims below 7: dim-9 (4) and dim-8 (5). Plus dim-3 needs polishing. Round 2 expected.
+Designer's quotes are honest and accurate. The one minor imprecision (`useBet` "wraps useFetch") does not affect any L18 conclusion.
 
-## Findings
+---
 
-### F1 — Critical: React Query is not in the codebase. The hooks section is fiction.
+## Round 1 findings — closure log
 
-**Where:** `architecture.md` §"Files added" (rows for `useHostThread.ts`, `useArtifactThreadSummary.ts`), §"Data fetching" (entire React Query keys table), §"Cache invalidation on post" (`queryClient.setQueryData`).
-
-**Reality:** `grep -rn "@tanstack\|react-query" packages/web/package.json` returns nothing. `useArtifact` is `useFetch<Artifact>(…)`. `useBet` is `useEffect + useState + fetch`. There is no `QueryClient`, no `QueryClientProvider`, no `useQuery`, no key-based invalidation primitive available.
-
-**Required revision (designer choice — pick ONE):**
-- (a) **Match the existing pattern.** Spec `useHostThread` and `useArtifactThreadSummary` as `useFetch`-based hooks, with explicit refetch helpers and an event-bus / window-focus listener for invalidation. Drop all React Query language. This is the lowest-risk path — matches `useArtifact`/`useBet` shape exactly.
-- (b) **Introduce React Query.** Add `@tanstack/react-query` + `QueryClientProvider` to `packages/web` as part of L18's scope. This is a real cross-cutting change; bumps L18 effort significantly. Document migration plan for `useBet`/`useArtifact` (or explicitly carve them out). Probably out-of-scope for L18.
-
-The cache-invalidation specifics ("Invalidate when ANY `[thread, artifact, *]` mutation succeeds inside this bet"; "Naive: invalidate the summary key on every artifact-thread post regardless of bet") are unsupportable without the underlying primitive. Until F1 is resolved, these claims are dead text.
-
-### F2 — Factual: artifacts query param is `betId`, not `bet_id`
-
-**Where:** `architecture.md` §API rationale ("Why a new endpoint, not an extension of `/api/artifacts`? … `GET /api/artifacts?bet_id=…`").
-
-**Reality:** `packages/server/src/routes/artifacts.ts:200` reads `c.req.query("betId")` (camelCase). This was already verified in `useArtifacts.ts:9` — `params.set("betId", filter.betId)`.
-
-**Required revision:** rewrite the param name in the rationale; the conclusion (separate endpoint) is still correct, but the architect should not reference an endpoint shape they haven't read. This kind of error implies similar misreads elsewhere.
-
-### F3 — Major: block-anchor mechanism understates the host-side work
-
-**Where:** `architecture.md` §"Files modified" — "`packages/design-system/src/BlockActionsPopover.tsx`: No code change. Consumers add a `discuss-block` action to the `items` array."
-
-**Reality:** `packages/web/src/pages/WorkBet.tsx:57-67` renders `<Block id={b.id} payload={b.payload} />` with no `onOpenActions`, no popover anchor, no popover state. Read of `packages/design-system/src/Block.tsx:60-71`: Block exposes `onOpenActions: () => void`; the host owns popover open-state, items, anchor positioning, focus management. None of this is wired in BetPitch today. KnowledgeBody is in the same state (verify against `packages/web/src/pages/knowledge/KnowledgeBody.tsx`).
-
-**Required revision:** Add a step in the ordered task list specifically for "Block popover wiring on BetPitch and KnowledgeBody" — open-state hook, anchored popover, items list including the new `discuss-block` action, focus-trap, escape-to-close. Reference this as the actual location of the L2 affordance plumbing (the popover component itself is unchanged; the host wiring is brand-new per consumer). Right now the plan reads as if a one-line items addition does the job; it does not.
-
-Also: the plan's `slots.inlineAfterPayload` claim for rendering anchored messages "via the existing block-id attribute" needs a concrete data flow: how does the bet-pitch knowing-which-thread mounts the messages on the right block? Spell out the wiring (page-level read of all bet-thread messages with `payload.blockId`, group by `blockId`, pass into Block as `slots.inlineAfterPayload`).
-
-### F4 — Service rename: `postRequestMessage` vs `postPlainMessage`
-
-**Where:** Plan says "`host-threads.ts` … `postPlainMessage(threadId, text, clientKey, blockId?)`". Existing helper in `packages/web/src/services/task-threads.ts:80` is `postRequestMessage`. The plan also says `task-threads.ts` will re-export from `host-threads.ts` for back-compat.
-
-**Required revision:** Spell out which name wins. Either:
-- (a) keep `postRequestMessage` and merely add `blockId?`, OR
-- (b) rename to `postPlainMessage` and provide an aliased re-export in `task-threads.ts` so existing callers compile.
-
-Plus: add a Vitest test that the re-export shim still works (`import { postRequestMessage } from "./task-threads"` returns the same function). Without it, "Mark `@deprecated` and re-export" silently breaks every TaskSheet caller.
-
-### F5 — Authorization on the new summary endpoint is hand-waved
-
-**Where:** §API "Authorisation: same as the artifact list — the founder is the implicit caller; per-tenant isolation inherits from the broader auth middleware (open follow-up — see L1's L8 lore comment)."
-
-**Reality:** the L8 lore (`packages/server/src/routes/threads.ts:147-153`) explicitly notes the IDOR risk on `participant_id` is unfixed. The new endpoint at `GET /api/bets/:id/artifact-thread-summary` will return artifact thread snippets for any bet whose id the caller knows — same shape of risk. The plan does not address it.
-
-**Required revision:** Either (a) add an explicit `// @lore L18-auth-gap: same IDOR profile as L1; auth-middleware story closes both` lore note in the architecture's risk section, OR (b) add a route-level participant scope check now (the bet record has owner/team; cross-check against caller identity).
-
-The plan should at minimum **list this in §Open questions / risks** rather than burying it in the API table. Right now it's hidden in one sentence and the risk header below it does not mention it.
-
-### F6 — Pagination of the summary endpoint
-
-**Where:** §"Risks" point 4: SQLite at hundreds of artifacts is ⚠️ UNVERIFIED. No pagination spec.
-
-**Required revision:** Add a hard cap (e.g. `limit=50`, server-enforced) + cursor on `(lastMessageAt, artifactId)` mirroring the existing artifacts cursor (`createdAt|id`, see `routes/artifacts.ts:232-238`). Match the convention. If pagination is deferred to a follow-up, add the cap NOW so a runaway aggregate cannot DoS the bet view. Cap-without-cursor is acceptable as a v1.
-
-### F7 — Test plan: missing the failing-test gates listed in CLAUDE.md
-
-**Where:** §"Tests" enumerates Vitest + Playwright but the §"Ordered tasks" tells the builder "Failing test first" generically.
-
-**Required revision:** For each ordered task, name the **specific** failing test that gates it. The current "Failing tests first" pattern is template language — give the builder one named test per task. (e.g. "Step 4 server endpoint — failing test: `bets.artifact-thread-summary.test.ts > returns one row per artifact with messages`".)
-
-This is a process polish, not a blocker.
-
-### F8 — Knowledge entry: the plan deletes `ObservationLog` and the `observationLog` field, but doesn't say what the L26 follow-up looks like
-
-**Where:** §"Files modified" — "`KnowledgeDetail.tsx`: Replace `<ObservationLog … />` with `<HostThreadSection …/>`. Delete `ObservationLog`, `ObservationLogProps`, and the legacy `observationLog` field on `DetailItem`."
-
-**Concern:** The current `ObservationLog` entries (`packages/web/src/pages/KnowledgeDetail.tsx:309-347`) are agent-attributed `{ agent, text, timestamp }` rows. Threads are message-typed and append-only with sender ids. Are existing observation log entries migrated to thread messages, or is the existing data simply discarded? Read of `packages/web/src/fixtures/knowledge-data.ts` will show whether the entries are real persisted data or pure fixtures. If pure fixture, fine — say so. If persisted, plan a migration.
-
-**Required revision:** One-line answer in §Open questions: "Observation log entries are fixture-only; deletion is non-destructive." (or its opposite, with a migration note).
-
-## Required revisions before advancing
-
-| # | Severity | Required by Round 2 |
+| # | R1 status | R2 closure |
 |---|---|---|
-| F1 | Blocker | Pick (a) `useFetch`-shape OR (b) introduce React Query as part of L18; rewrite §"Data fetching" accordingly. |
-| F2 | Polish | Fix `bet_id` → `betId`. |
-| F3 | Blocker | Add explicit "Block popover wiring on BetPitch + KnowledgeBody" task with required props/state; describe the message → block-id grouping for `slots.inlineAfterPayload`. |
-| F4 | Polish | Pick `postRequestMessage` vs `postPlainMessage`; spell out shim test. |
-| F5 | Polish | Add the IDOR risk to §Open questions explicitly + decide cap-now vs follow-up. |
-| F6 | Polish | Add `limit=50` server cap on the new endpoint. |
-| F7 | Nit | Name the specific failing test per ordered task. |
-| F8 | Nit | One-line answer on observation-log data. |
+| F1 — React Query fiction | Blocker | **CLOSED.** Rewritten against real `useFetch`; verified no `@tanstack` in `package.json` or `src/`. Refresh via version-fragment URL is consistent with `useFetch`'s URL-keyed effect. |
+| F2 — `bet_id` vs `betId` | Polish | **CLOSED.** Architecture now references `betId` and cites `routes/artifacts.ts:200`. |
+| F3 — Block popover wiring | Blocker | **CLOSED.** New §"Block popover wiring" + §"Anchored-message rendering" sections give the page-level state, anchor ref pattern, popover plumbing, focus-restore, and inline-after-payload data flow. Steps 12-15 in the ordered task list cover the work. The only residual is the ref-forwarding nuance, resolved above as an architecture-doc finding (no API change). |
+| F4 — Service rename | Polish | **CLOSED.** `postPlainHostMessage` + `resolveOrCreateHostThread` chosen; old names retained in `task-threads.ts` re-export shim with `@deprecated`; round-trip test at `task-threads-shim.test.ts` named in step 5. |
+| F5 — IDOR on summary | Polish | **CLOSED.** Auth-helper reuse from bets.ts read path documented; suggested `assertBetReadable(betId, c)` helper extraction; 404-on-unauth named in test step 4. Cross-cutting `participant_id` IDOR explicitly out of scope (auth-middleware follow-up). |
+| F6 — Pagination cap | Polish | **CLOSED.** 10-row cap server-enforced; `totalCount` + `truncated` flag in response; cap-without-cursor accepted for v1; "View all" link points to `/artifacts?betId=` which already paginates. |
+| F7 — Failing-test gates | Nit | **CLOSED.** Every step in the 19-step ordered list names specific `*.test.ts(x)` files and `it(...)` blocks. |
+| F8 — Observation log persistence | Nit | **CLOSED.** Verified fixture-only at `knowledge-data.ts:78,119`; no DB or server route. Deletion non-destructive. |
+
+---
+
+## Residual nits (NOT blockers)
+
+These do not affect ADVANCE. Capture as builder hints / follow-ups, not gates.
+
+1. **`task-threads.ts` deprecation has no removal date.** The shim will linger forever absent a follow-up row. Recommend a `plans/work-packages/follow-ups.md` entry: "Remove `task-threads.ts` shim once L1a/L15 callers migrated; deadline = end of Track-L."
+2. **§12 Open Question (Block ref-forwarding) prose still says "or wraps each Block in a host-controlled flex-row that owns the anchor".** My resolution above prefers option 1 (data-attr query at click time) — strictly smaller diff, no extra DOM. Builder applies on read.
+3. **`refresh()` cache-buster fragment trick.** `useFetch(${url}#v=${version})` causes a new effect run because the URL string changes. The fragment is stripped client-side by browsers before the network request, so the server sees the same URL. **Be aware:** if Vite or any dev-only middleware were to log the full URL, the `#v=N` would appear in client-side console, not server logs. Innocuous. The pattern works.
+4. **`useArtifactThreadSummary` cross-tab staleness** is documented + accepted; it is the only data-freshness compromise in v1, and it is bounded by re-mount on navigation. Acceptable.
+
+---
 
 ## Verdict
 
-**RE-CRITIQUE.** Round 1 fails dim-8 (5) and dim-9 (4); dim-3 borderline at 6. Two of three failures are unequivocally factual (React Query absent; popover plumbing missing). Designer must address F1 and F3 at minimum to pass Round 2.
+**ADVANCE.** Round 2 closes both blockers (F1, F3) and all six polish items. Every dim ≥ 7; mean 8.2 (R1 mean was 6.7). Two ⚠️ UNVERIFIED items resolved by direct source read; neither affects the public API or ordered tasks. Architecture is buildable as-written. Builder may proceed to /write-tests.
 
-Recommendation to the orchestrator: send F1–F8 back to the designer (`a69924c6873f11ee5`) for a Round-2 revision focused on F1 (data-fetching realism) and F3 (block popover wiring). The other points are tractable polish.
+Recommendation to the orchestrator: send the architecture to /write-tests. Reviewer keeps context warm for Phase 4 code review.
