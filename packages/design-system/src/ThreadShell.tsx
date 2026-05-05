@@ -32,7 +32,7 @@ import type {
 	VerdictDecision,
 } from "@hyperidle/shared";
 import { isBlocking, isRedactedPayload, promotedRichMessageId } from "@hyperidle/shared";
-import { type JSX, type ReactNode, useMemo, useState } from "react";
+import { type JSX, type ReactNode, useMemo, useRef, useState } from "react";
 import { CommentRow } from "./CommentRow.js";
 import { Composer } from "./Composer.js";
 import { dsProps } from "./ds-attrs.js";
@@ -262,6 +262,36 @@ export function ThreadShell({
 		{ phase: "idle" } | { phase: "saving" } | { phase: "error"; reason: string }
 	>({ phase: "idle" });
 
+	/**
+	 * @lore L7 reconciliation: L11 left retry as render-only (CONFUSION-C §5.6).
+	 * L7 wires retry at the page level via props. The reconciled approach stores
+	 * the last verdict dispatch input here so `handleCardAction("retry")` can
+	 * re-invoke `dispatchVerdict` without re-lifting state to the page.
+	 */
+	const lastVerdictInput = useRef<{
+		type: "verdict";
+		payload: { decision: string; resolvesMessageId: string };
+		clientKey: string;
+	} | null>(null);
+
+	const dispatchVerdict = async (input: {
+		type: "verdict";
+		payload: { decision: string; resolvesMessageId: string };
+		clientKey: string;
+	}): Promise<void> => {
+		setCardState({ phase: "saving" });
+		try {
+			await onAppendMessage(input);
+			lastVerdictInput.current = null;
+			setCardState({ phase: "idle" });
+		} catch (cause) {
+			setCardState({
+				phase: "error",
+				reason: cause instanceof Error ? cause.message : "Could not commit verdict",
+			});
+		}
+	};
+
 	const handleComposerSubmit = async (input: {
 		text: string;
 		clientKey: string;
@@ -278,25 +308,23 @@ export function ThreadShell({
 		action: RichMessageCardAction,
 	): Promise<void> => {
 		if (action.kind === "verdict") {
-			setCardState({ phase: "saving" });
-			try {
-				await onAppendMessage({
-					type: "verdict",
-					payload: {
-						decision: action.decision satisfies VerdictDecision,
-						resolvesMessageId: message.id,
-					},
-					clientKey: action.clientKey,
-				});
-				setCardState({ phase: "idle" });
-			} catch (cause) {
-				setCardState({
-					phase: "error",
-					reason: cause instanceof Error ? cause.message : "Could not commit verdict",
-				});
+			const input = {
+				type: "verdict" as const,
+				payload: {
+					decision: action.decision satisfies VerdictDecision,
+					resolvesMessageId: message.id,
+				},
+				clientKey: action.clientKey,
+			};
+			lastVerdictInput.current = input;
+			await dispatchVerdict(input);
+		} else if (action.kind === "retry") {
+			const prior = lastVerdictInput.current;
+			if (prior) {
+				await dispatchVerdict(prior);
 			}
 		}
-		// answer / retry intentionally render-only at the page level for L11
+		// answer intentionally render-only at the page level for L11
 		// (plan §5.6 CONFUSION-C). The card surfaces the click; no dispatch.
 	};
 
