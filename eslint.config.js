@@ -171,4 +171,38 @@ export default [
 			"design/no-density-tokens": "error",
 		},
 	},
+
+	// L16 AC-3: production code in packages/web/src/ must NOT import values
+	// from any __fixtures__/ directory. Stories (*.stories.tsx) and tests
+	// (*.test.ts, *.test.tsx) are exempt; they are whitelisted by file pattern
+	// in the override below. The fixtures file itself is also exempt.
+	{
+		files: ["packages/web/src/**/*.{ts,tsx}"],
+		ignores: [
+			"packages/web/src/**/*.stories.tsx",
+			"packages/web/src/**/*.test.ts",
+			"packages/web/src/**/*.test.tsx",
+			"packages/web/src/**/__fixtures__/**",
+		],
+		languageOptions: {
+			parser: tsParser,
+			parserOptions: {
+				ecmaFeatures: { jsx: true },
+			},
+		},
+		rules: {
+			"no-restricted-imports": [
+				"error",
+				{
+					patterns: [
+						{
+							group: ["**/__fixtures__/**", "**/__fixtures__"],
+							message:
+								"Production code must not import from __fixtures__/. Fixtures are stories/tests only (L16 AC-3). Use props (e.g. overrideBet) to inject test data.",
+						},
+					],
+				},
+			],
+		},
+	},
 ];
