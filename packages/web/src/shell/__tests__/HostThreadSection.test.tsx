@@ -49,7 +49,7 @@ describe("HostThreadSection (L18)", () => {
 		vi.restoreAllMocks();
 	});
 
-	it("renders loading state", () => {
+	it("renders loading state with SkeletonList", () => {
 		vi.mocked(useHostThread).mockReturnValue({
 			data: null,
 			error: null,
@@ -60,6 +60,7 @@ describe("HostThreadSection (L18)", () => {
 		render(<HostThreadSection hostKind="bet" hostId="bet-001" title="Discussion" />);
 
 		expect(screen.getByTestId("host-thread-section-loading")).toBeInTheDocument();
+		expect(screen.getByRole("status", { name: /loading discussion/i })).toBeInTheDocument();
 	});
 
 	it("renders error state", () => {
@@ -75,7 +76,7 @@ describe("HostThreadSection (L18)", () => {
 		expect(screen.getByTestId("host-thread-section-error")).toBeInTheDocument();
 	});
 
-	it("renders empty state (no thread yet)", () => {
+	it("renders empty state with design copy when no messages exist", () => {
 		vi.mocked(useHostThread).mockReturnValue({
 			data: null,
 			error: null,
@@ -85,8 +86,10 @@ describe("HostThreadSection (L18)", () => {
 
 		render(<HostThreadSection hostKind="bet" hostId="bet-001" title="Discussion" />);
 
-		// Should render the thread section with a composer to start a discussion
 		expect(screen.getByTestId("host-thread-section")).toBeInTheDocument();
+		expect(screen.getByTestId("host-thread-section-empty")).toBeInTheDocument();
+		expect(screen.getAllByText(/No discussion yet/).length).toBeGreaterThan(0);
+		expect(screen.getByText(/Be the first to post in this thread/)).toBeInTheDocument();
 	});
 
 	it("renders populated state with messages", () => {
