@@ -162,6 +162,7 @@ export function Kanban({ tasks, onSelectTask, groupByBet = false }: KanbanProps)
 													<button
 														key={task.id}
 														type="button"
+														data-testid="task-card"
 														className="text-left w-full"
 														onClick={() => onSelectTask?.(task.id)}
 													>
@@ -182,6 +183,7 @@ export function Kanban({ tasks, onSelectTask, groupByBet = false }: KanbanProps)
 									<button
 										key={task.id}
 										type="button"
+										data-testid="task-card"
 										className="text-left w-full"
 										onClick={() => onSelectTask?.(task.id)}
 									>

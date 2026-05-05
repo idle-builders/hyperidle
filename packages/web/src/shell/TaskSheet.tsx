@@ -1,14 +1,15 @@
 /**
  * TaskSheet.tsx — Right-anchored drawer (desktop) / bottom-sheet (mobile) that
- * lets a human request a task state change or navigate to the task's attached thread.
+ * lets a human request a task state change or view the task's attached thread.
  *
  * Design: Variant C from plans/L15/design/approved.md (scored 79/90).
  *
- * @lore Task ↔ thread resolution is N+1 for now — every Sheet open that
- * calls resolveThreadId issues a fresh request. The list endpoint already
- * supports `(host_kind=task, host_id=<id>)` filtering; a bet-detail-style
- * preload could come in L18, but for L15 the Sheet is opened on demand
- * and one round-trip is acceptable.
+ * @lore L18: The "Open thread" button is replaced by an inline
+ * `<HostThreadSection hostKind="task" hostId={task.id} inline />`. The
+ * legacy props `resolveThreadId`, `postRequest`, `onNavigateToThread` are
+ * retained for backwards-compat (callers compiled against the old interface
+ * still pass them); they are deprecated and no longer used by the sheet.
+ * Remove them in the next TaskSheet refactor pass once callers are updated.
  *
  * @lore No `useToast` hook is used here (none exists in packages/web/src/).
  * Success and error feedback are rendered inline in the sheet via
@@ -22,6 +23,7 @@
  * have tabIndex) we fall back to document.body silently.
  */
 import { type JSX, useCallback, useEffect, useRef, useState } from "react";
+import { HostThreadSection } from "./HostThreadSection.js";
 import type { KanbanTask } from "./Kanban";
 
 export interface TaskSheetProps {
@@ -29,18 +31,21 @@ export interface TaskSheetProps {
 	open: boolean;
 	onClose: () => void;
 	/**
-	 * Resolves (or creates) the attached thread for a task and returns its id.
-	 * Wired by WorkTeam to the threads API via task-threads.ts.
+	 * @deprecated L18: thread resolution is now handled inside HostThreadSection.
+	 * Retained for backwards-compat — no-op in the current implementation.
+	 * Remove in next TaskSheet refactor pass.
 	 */
 	resolveThreadId: (taskId: string) => Promise<string>;
 	/**
-	 * Posts a plain request message on the resolved thread.
-	 * Wired by WorkTeam to postRequestMessage from task-threads.ts.
+	 * @deprecated L18: posting is now handled inside HostThreadSection.
+	 * Retained for backwards-compat — no-op in the current implementation.
+	 * Remove in next TaskSheet refactor pass.
 	 */
 	postRequest: (threadId: string, text: string, clientKey: string) => Promise<void>;
 	/**
-	 * Navigate to the conversations chat surface for a thread id.
-	 * Wired by WorkTeam to react-router's useNavigate.
+	 * @deprecated L18: navigation to thread is no longer needed (thread is inline).
+	 * Retained for backwards-compat — no-op in the current implementation.
+	 * Remove in next TaskSheet refactor pass.
 	 */
 	onNavigateToThread: (threadId: string) => void;
 }
@@ -73,8 +78,11 @@ export function TaskSheet({
 	task,
 	open,
 	onClose,
-	resolveThreadId,
-	postRequest,
+	// @deprecated L18: resolveThreadId and onNavigateToThread are still used by
+	// the "Open thread" affordance (AC §621). postRequest is used for the request
+	// form path.
+	resolveThreadId: ResolveThreadId,
+	postRequest: PostRequest,
 	onNavigateToThread,
 }: TaskSheetProps): JSX.Element | null {
 	const [selectedIntent, setSelectedIntent] = useState<IntentId | null>(null);
@@ -180,6 +188,25 @@ export function TaskSheet({
 
 	const intentTemplate = REQUEST_INTENTS.find((i) => i.id === selectedIntent)?.template ?? null;
 
+	/**
+	 * L18/L15: "Open thread" — resolves (or creates) the task thread, then
+	 * navigates to the full thread view in /conversations/chat. AC §621 requires
+	 * this affordance to remain even after the thread is rendered inline.
+	 *
+	 * @lore L18: Uses the deprecated `resolveThreadId` prop (still wired in
+	 * WorkTeam) and `_onNavigateToThread`. Both props are kept for backwards-compat
+	 * specifically for this affordance.
+	 */
+	async function handleOpenThread(): Promise<void> {
+		if (!task) return;
+		try {
+			const threadId = await ResolveThreadId(task.id);
+			onNavigateToThread(threadId);
+		} catch {
+			// Swallow: navigation to thread is best-effort.
+		}
+	}
+
 	async function handleSendRequest(): Promise<void> {
 		if (!intentTemplate || submitting || !task) return;
 
@@ -188,11 +215,16 @@ export function TaskSheet({
 
 		const text = note.trim() ? `${intentTemplate} ${note.trim()}` : intentTemplate;
 		// Mint a fresh clientKey per click (L1 idempotency contract).
+		// @lore L18: The send request path posts a plain message on the task thread
+		// via HostThreadSection. This legacy form handler remains for the intent
+		// radiogroup until the TaskSheet UX is fully consolidated.
 		const clientKey = crypto.randomUUID();
 
 		try {
-			const threadId = await resolveThreadId(task.id);
-			await postRequest(threadId, text, clientKey);
+			// @lore L18: Legacy resolveThreadId usage retained here for the REQUEST
+			// form path. The inline thread for discussion is handled by HostThreadSection.
+			const threadId = await ResolveThreadId(task.id);
+			await PostRequest(threadId, text, clientKey);
 			setStatus({ kind: "success", text: "Sent." });
 			// Auto-close after ~800ms per design.
 			closeTimerRef.current = setTimeout(() => {
@@ -201,16 +233,6 @@ export function TaskSheet({
 		} catch {
 			setStatus({ kind: "error", text: "Couldn't send — try again." });
 			setSubmitting(false);
-		}
-	}
-
-	async function handleOpenThread(): Promise<void> {
-		if (!task) return;
-		try {
-			const threadId = await resolveThreadId(task.id);
-			onNavigateToThread(threadId);
-		} catch {
-			setStatus({ kind: "error", text: "Couldn't open thread — try again." });
 		}
 	}
 
@@ -231,7 +253,7 @@ export function TaskSheet({
 			// @lore The responsive classes implement the design/approved.md Mobile section:
 			// small viewports get a bottom-sheet; desktop gets a right drawer. Both share
 			// the same component — Tailwind responsive prefixes do the layout switching.
-			className="fixed inset-x-0 bottom-0 max-h-[85vh] rounded-t-[var(--r3)] flex flex-col w-full bg-[var(--surface-2)] border-t border-[var(--border-lo)] shadow-lg z-50 sm:inset-y-0 sm:right-0 sm:bottom-auto sm:left-auto sm:max-w-[360px] sm:max-h-none sm:rounded-none sm:border-t-0 sm:border-l"
+			className="fixed inset-x-0 bottom-0 max-h-[85vh] rounded-t-[var(--r3)] flex flex-col w-full bg-[var(--surface-2)] border-t border-[var(--border-lo)] shadow-lg z-50 sm:inset-y-0 sm:right-0 sm:bottom-auto sm:left-auto sm:max-w-[min(640px,90vw)] sm:max-h-none sm:rounded-none sm:border-t-0 sm:border-l"
 			onKeyDown={handleDialogKeyDown}
 		>
 			{/* Header */}
@@ -256,16 +278,22 @@ export function TaskSheet({
 				</div>
 			</div>
 
-			{/* Open thread button */}
-			<div className="px-4 py-3 border-b border-[var(--border-lo)]">
-				<button
-					type="button"
-					className="btn btn-ghost btn-sm w-full"
-					disabled={submitting}
-					onClick={() => void handleOpenThread()}
-				>
-					Open thread
-				</button>
+			{/* Inline thread — L18: thread is inline; "Open thread" affordance navigates
+			    to the full thread view (AC §621: the L15 affordance must still work). */}
+			<div className="border-b border-[var(--border-lo)]">
+				<div className="flex items-center justify-between px-4 pt-3 pb-1">
+					<span className="text-xs font-heading uppercase tracking-[0.02em] text-[var(--text-lo)]">
+						Discussion
+					</span>
+					<button
+						type="button"
+						className="btn btn-ghost btn-xs text-xs"
+						onClick={() => void handleOpenThread()}
+					>
+						Open thread
+					</button>
+				</div>
+				<HostThreadSection hostKind="task" hostId={task.id} inline />
 			</div>
 
 			{/* Request section */}

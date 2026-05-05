@@ -69,6 +69,7 @@ export function BlockActionsPopover({
 		<div
 			id={id}
 			data-ds-component="block-actions-popover"
+			data-testid="block-actions-popover"
 			data-ds-tier="2"
 			data-ds-source="design-system"
 			role="menu"

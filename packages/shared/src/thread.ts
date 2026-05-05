@@ -321,3 +321,57 @@ export function verdictDecisionToStatus(
 // The Zod schemas live in `packages/server/src/routes/threads-schema.ts`.
 // `@hyperidle/shared` stays free of the runtime `zod` dependency on the
 // type-only path.
+
+// ── L18: Artifact thread summary types ──────────────────────────
+
+import type { ArtifactKind } from "./types/artifact.js";
+
+/**
+ * Per-artifact thread summary row returned by
+ * `GET /api/bets/:id/artifact-thread-summary`.
+ *
+ * @lore L18: threadId is null when no thread exists for the artifact yet
+ * (i.e. the artifact appears in the bet but has never had a message posted).
+ * messageCount=0 means "exists but empty" (rare; never rendered in the summary
+ * list because the endpoint filters to messageCount >= 1).
+ */
+export interface ArtifactThreadSummary {
+	artifactId: string;
+	artifactKind: ArtifactKind;
+	/** Derived display label per artifactDisplayTitle() rules. */
+	artifactTitle: string;
+	/** Null when no thread exists yet for this artifact. */
+	threadId: string | null;
+	/** Count of messages in the artifact's thread (0 when no messages). */
+	messageCount: number;
+	/** ISO8601 timestamp of last message, null when no messages. */
+	lastMessageAt: string | null;
+	/** First ~80 chars of the last plain-message payload, null when no messages. */
+	lastMessageSnippet: string | null;
+	/** True when the thread has an unresolved review message. */
+	hasUnresolvedReview: boolean;
+}
+
+/**
+ * Response envelope for `GET /api/bets/:id/artifact-thread-summary`.
+ * Server enforces a cap of 10 summaries; truncated=true when more exist.
+ */
+export interface ArtifactThreadSummaryResponse {
+	summaries: ArtifactThreadSummary[];
+	/** Total count of artifacts with at least one thread message (unbounded). */
+	totalCount: number;
+	/** True when totalCount > 10 (server-enforced cap). */
+	truncated: boolean;
+}
+
+/**
+ * L18: Extended plain payload that includes an optional blockId for
+ * block-anchored discussions. blockId is opaque to the server — just a
+ * string referencing a Block primitive id from the host surface.
+ */
+export interface PlainPayloadWithBlockId {
+	readonly text: string;
+	readonly refs?: ReadonlyArray<InlineRef>;
+	/** L18: Optional block anchor — the id of the Block this message is anchored to. */
+	readonly blockId?: string;
+}
