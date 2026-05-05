@@ -110,6 +110,8 @@ export {
 export type {
 	AgentSessionStateSnapshot,
 	ArtifactRef,
+	ArtifactThreadSummary,
+	ArtifactThreadSummaryResponse,
 	ArtifactViewShape,
 	HeadCollapseResult,
 	HostKind,
@@ -119,6 +121,7 @@ export type {
 	MessageId,
 	MessageType,
 	PlainPayload,
+	PlainPayloadWithBlockId,
 	QuestionnairePayload,
 	RedactedPayload,
 	ReviewPayload,
