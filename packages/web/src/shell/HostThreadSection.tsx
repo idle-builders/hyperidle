@@ -214,6 +214,7 @@ export function HostThreadSection({
 			<div className="flex gap-2">
 				<textarea
 					ref={composerRef}
+					data-testid="composer-textarea"
 					className="textarea textarea-bordered text-base resize-none flex-1 h-16"
 					placeholder="Write a message…"
 					value={composerText}

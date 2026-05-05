@@ -433,6 +433,7 @@ describe("L14 — Bet actions: pause / resume / enrichment / actor", () => {
 					state: "done",
 					priority: 0,
 					createdAt: now,
+					updatedAt: now,
 				})
 				.run();
 			db.insert(tasks)
@@ -445,6 +446,7 @@ describe("L14 — Bet actions: pause / resume / enrichment / actor", () => {
 					state: "in_progress",
 					priority: 1,
 					createdAt: now,
+					updatedAt: now,
 				})
 				.run();
 

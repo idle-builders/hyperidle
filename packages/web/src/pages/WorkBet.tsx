@@ -28,7 +28,7 @@ import {
 } from "@hyperidle/design-system";
 import type { Message } from "@hyperidle/shared";
 import { deriveBlocks, isRedactedPayload } from "@hyperidle/shared";
-import { type JSX, useCallback, useMemo, useState } from "react";
+import { type JSX, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { ArtifactThreadsSummary } from "../components/ArtifactThreadsSummary.js";
 import { useBet } from "../hooks/useBet";
@@ -162,6 +162,393 @@ function BetPitch({
 	);
 }
 
+/**
+ * L14: The set of actions the founder can take on a bet from the action bar.
+ */
+type BetActionKind = "pause" | "resume" | "kill" | "adjust-appetite" | "unblock";
+
+/**
+ * BetActionsBar — co-located action bar rendered below the BetCard.
+ *
+ * @lore L14: co-located (not a design-system component) because this is a
+ * single-call-site adapter that ties bet status to HTTP verbs. It would not
+ * earn its keep as a shared component.
+ *
+ * @lore L14: blocked → paused is NOT in VALID_TRANSITIONS (state machine).
+ * Per the architecture-critique, Pause is NOT shown for blocked bets. A blocked
+ * bet cannot be paused; the Unblock action is the intended path.
+ */
+interface BetActionsBarProps {
+	bet: BetDetail;
+	onAction: (action: BetActionKind) => void;
+}
+
+function BetActionsBar({ bet, onAction }: BetActionsBarProps): JSX.Element | null {
+	const { status } = bet;
+	if (status === "shipped" || status === "killed") return null;
+
+	const showPause = status === "in_progress" || status === "behind";
+	const showResume = status === "paused";
+	const showAdjust =
+		status === "in_progress" || status === "paused" || status === "behind" || status === "blocked";
+	const showUnblock =
+		status === "in_progress" || status === "paused" || status === "behind" || status === "blocked";
+	const showKill = true;
+
+	return (
+		<div
+			className="flex flex-wrap gap-2 items-center"
+			data-testid="bet-actions-bar"
+			aria-label="Bet actions"
+		>
+			{showPause && (
+				<button type="button" className="btn btn-xs btn-ghost" onClick={() => onAction("pause")}>
+					Pause
+				</button>
+			)}
+			{showResume && (
+				<button type="button" className="btn btn-xs btn-ghost" onClick={() => onAction("resume")}>
+					Resume
+				</button>
+			)}
+			{showAdjust && (
+				<button
+					type="button"
+					className="btn btn-xs btn-ghost"
+					onClick={() => onAction("adjust-appetite")}
+				>
+					Adjust appetite
+				</button>
+			)}
+			{showUnblock && (
+				<button type="button" className="btn btn-xs btn-ghost" onClick={() => onAction("unblock")}>
+					Unblock
+				</button>
+			)}
+			{showKill && (
+				<button
+					type="button"
+					className="btn btn-xs btn-error btn-ghost"
+					onClick={() => onAction("kill")}
+				>
+					Kill bet
+				</button>
+			)}
+		</div>
+	);
+}
+
+/**
+ * ConsequencePreviewDialog — non-skippable confirmation dialog for destructive
+ * or pause actions. The user must explicitly Cancel or provide a reason and
+ * confirm. Escape and backdrop click do not close the dialog.
+ *
+ * @lore L14: native <dialog> with showModal() is used for the Escape-prevention
+ * guarantee. We cancel the `cancel` event (fired before `close` by Escape key)
+ * and prevent the default close behavior. Clicking the backdrop fires the
+ * `cancel` event first in Chrome/Safari; capturing it at the dialog level
+ * prevents close on backdrop click as well.
+ *
+ * @lore L14: The dialog renders via React state (open prop) rather than
+ * imperative showModal() so that tests can inspect it in JSDOM via
+ * getByRole("dialog"). We call showModal() in a useEffect so the native
+ * element is synchronised with React state.
+ */
+interface ConsequencePreviewDialogProps {
+	open: boolean;
+	kind: "pause" | "kill";
+	onConfirm: (reason: string) => Promise<void>;
+	onCancel: () => void;
+}
+
+function ConsequencePreviewDialog({
+	open,
+	kind,
+	onConfirm,
+	onCancel,
+}: ConsequencePreviewDialogProps): JSX.Element | null {
+	const [reason, setReason] = useState("");
+	const [submitting, setSubmitting] = useState(false);
+	const [error, setError] = useState<string | null>(null);
+
+	const isKill = kind === "kill";
+	const confirmLabel = isKill ? "Kill bet" : "Pause bet";
+	const title = isKill ? "Kill this bet?" : "Pause this bet?";
+
+	const dialogRef = useRef<HTMLDialogElement>(null);
+
+	// Sync native dialog open/closed state with the `open` prop.
+	// @lore L14: showModal() is guarded with typeof check because JSDOM (used in
+	// Vitest) does not implement it. In production (real browser) showModal() is
+	// always available on HTMLDialogElement. The open attribute on the <dialog>
+	// element drives JSDOM's getByRole("dialog") visibility, so tests work without
+	// the native method.
+	// biome-ignore lint/correctness/useExhaustiveDependencies: reset form state only when open toggles
+	useEffect(() => {
+		if (!dialogRef.current) return;
+		if (open) {
+			setReason("");
+			setError(null);
+			setSubmitting(false);
+			if (!dialogRef.current.open) {
+				if (typeof dialogRef.current.showModal === "function") {
+					dialogRef.current.showModal();
+				} else {
+					dialogRef.current.setAttribute("open", "");
+				}
+			}
+		} else if (dialogRef.current.open) {
+			if (typeof dialogRef.current.close === "function") {
+				dialogRef.current.close();
+			} else {
+				dialogRef.current.removeAttribute("open");
+			}
+		}
+	}, [open]);
+
+	// Prevent Escape (and backdrop click) from closing the dialog (AC-8).
+	// @lore L14: the native dialog `cancel` event fires before `close` when the
+	// user presses Escape or clicks the backdrop. Calling e.preventDefault()
+	// here is the only reliable cross-browser way to make a dialog non-closable
+	// by those means.
+	useEffect(() => {
+		const el = dialogRef.current;
+		if (!el) return;
+		const handleCancel = (e: Event): void => {
+			e.preventDefault();
+		};
+		el.addEventListener("cancel", handleCancel);
+		return (): void => {
+			el.removeEventListener("cancel", handleCancel);
+		};
+	}, []);
+
+	const handleConfirm = async (): Promise<void> => {
+		const trimmed = reason.trim();
+		if (!trimmed) return;
+		setSubmitting(true);
+		setError(null);
+		try {
+			await onConfirm(trimmed);
+		} catch (err) {
+			setError(err instanceof Error ? err.message : "Action failed. Please try again.");
+			setSubmitting(false);
+		}
+	};
+
+	return (
+		<dialog ref={dialogRef} aria-modal="true" aria-label={title}>
+			<div className="p-4 flex flex-col gap-3 min-w-[320px] max-w-[480px]">
+				<h2 className="text-sm font-heading font-semibold uppercase tracking-wider">{title}</h2>
+
+				{isKill && (
+					<div className="text-xs text-[var(--text-lo)] space-y-1">
+						<p>
+							<span className="font-semibold text-error">STOPS:</span> All active tasks will be
+							halted.
+						</p>
+						<p>
+							<span className="font-semibold text-[var(--text-hi)]">CONTINUES:</span> Existing
+							artifacts are preserved.
+						</p>
+						<p>
+							<span className="font-semibold text-[var(--text-hi)]">SAVED:</span> Team capacity is
+							freed immediately.
+						</p>
+					</div>
+				)}
+
+				<label className="flex flex-col gap-1">
+					<span className="text-xs text-[var(--text-lo)]">
+						Reason <span aria-hidden>(required)</span>
+					</span>
+					<textarea
+						className="textarea textarea-bordered text-base resize-none h-20"
+						placeholder={isKill ? "Why is this bet being killed?" : "Why is this bet being paused?"}
+						value={reason}
+						onChange={(e) => setReason(e.target.value)}
+						disabled={submitting}
+						maxLength={500}
+					/>
+				</label>
+
+				{error && (
+					<p role="alert" className="text-xs text-error">
+						{error}
+					</p>
+				)}
+
+				<div className="flex gap-2 justify-end">
+					<button
+						type="button"
+						className="btn btn-xs btn-ghost"
+						onClick={onCancel}
+						disabled={submitting}
+					>
+						Cancel
+					</button>
+					<button
+						type="button"
+						className={`btn btn-xs ${isKill ? "btn-error" : "btn-primary"}`}
+						onClick={() => void handleConfirm()}
+						disabled={!reason.trim() || submitting}
+					>
+						{submitting ? "…" : confirmLabel}
+					</button>
+				</div>
+			</div>
+		</dialog>
+	);
+}
+
+/**
+ * AppetiteDialog — lets the founder adjust the bet appetite with a reason.
+ *
+ * @lore L14: Same non-skippable dialog pattern as ConsequencePreviewDialog.
+ * Escape is cancelled; backdrop click is blocked by the native dialog modal
+ * cancel event handler.
+ */
+interface AppetiteDialogProps {
+	open: boolean;
+	currentAppetite: string;
+	onConfirm: (appetite: string, reason: string) => Promise<void>;
+	onCancel: () => void;
+}
+
+const APPETITE_OPTIONS = ["1 week", "2 weeks", "6 weeks"] as const;
+
+function AppetiteDialog({
+	open,
+	currentAppetite,
+	onConfirm,
+	onCancel,
+}: AppetiteDialogProps): JSX.Element | null {
+	const validDefault = (APPETITE_OPTIONS as readonly string[]).includes(currentAppetite)
+		? currentAppetite
+		: APPETITE_OPTIONS[1];
+
+	const [selected, setSelected] = useState(validDefault);
+	const [reason, setReason] = useState("");
+	const [submitting, setSubmitting] = useState(false);
+	const [error, setError] = useState<string | null>(null);
+
+	const dialogRef = useRef<HTMLDialogElement>(null);
+
+	// biome-ignore lint/correctness/useExhaustiveDependencies: reset only when open changes
+	useEffect(() => {
+		if (!dialogRef.current) return;
+		if (open) {
+			setSelected(validDefault);
+			setReason("");
+			setError(null);
+			setSubmitting(false);
+			if (!dialogRef.current.open) {
+				if (typeof dialogRef.current.showModal === "function") {
+					dialogRef.current.showModal();
+				} else {
+					dialogRef.current.setAttribute("open", "");
+				}
+			}
+		} else if (dialogRef.current.open) {
+			if (typeof dialogRef.current.close === "function") {
+				dialogRef.current.close();
+			} else {
+				dialogRef.current.removeAttribute("open");
+			}
+		}
+	}, [open]);
+
+	useEffect(() => {
+		const el = dialogRef.current;
+		if (!el) return;
+		const handleCancel = (e: Event): void => {
+			e.preventDefault();
+		};
+		el.addEventListener("cancel", handleCancel);
+		return (): void => {
+			el.removeEventListener("cancel", handleCancel);
+		};
+	}, []);
+
+	const handleSave = async (): Promise<void> => {
+		const trimmed = reason.trim();
+		if (!trimmed) return;
+		setSubmitting(true);
+		setError(null);
+		try {
+			await onConfirm(selected, trimmed);
+		} catch (err) {
+			setError(err instanceof Error ? err.message : "Failed to update appetite.");
+			setSubmitting(false);
+		}
+	};
+
+	return (
+		<dialog ref={dialogRef} aria-modal="true" aria-label="Adjust appetite">
+			<div className="p-4 flex flex-col gap-3 min-w-[320px] max-w-[400px]">
+				<h2 className="text-sm font-heading font-semibold uppercase tracking-wider">
+					Adjust appetite
+				</h2>
+
+				<label className="flex flex-col gap-1">
+					<span className="text-xs text-[var(--text-lo)]">New appetite</span>
+					<select
+						className="select select-bordered select-sm"
+						value={selected}
+						onChange={(e) => setSelected(e.target.value)}
+						disabled={submitting}
+					>
+						{APPETITE_OPTIONS.map((opt) => (
+							<option key={opt} value={opt}>
+								{opt}
+							</option>
+						))}
+					</select>
+				</label>
+
+				<label className="flex flex-col gap-1">
+					<span className="text-xs text-[var(--text-lo)]">
+						Reason <span aria-hidden>(required)</span>
+					</span>
+					<textarea
+						className="textarea textarea-bordered text-base resize-none h-16"
+						placeholder="Why is the appetite changing?"
+						value={reason}
+						onChange={(e) => setReason(e.target.value)}
+						disabled={submitting}
+						maxLength={500}
+					/>
+				</label>
+
+				{error && (
+					<p role="alert" className="text-xs text-error">
+						{error}
+					</p>
+				)}
+
+				<div className="flex gap-2 justify-end">
+					<button
+						type="button"
+						className="btn btn-xs btn-ghost"
+						onClick={onCancel}
+						disabled={submitting}
+					>
+						Cancel
+					</button>
+					<button
+						type="button"
+						className="btn btn-xs btn-primary"
+						onClick={() => void handleSave()}
+						disabled={!reason.trim() || submitting}
+					>
+						{submitting ? "…" : "Save"}
+					</button>
+				</div>
+			</div>
+		</dialog>
+	);
+}
+
 export interface WorkBetProps {
 	/**
 	 * J8: opt-in loading state. When true the page renders a card + list
@@ -207,6 +594,13 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 	const [threadPrefill, setThreadPrefill] = useState<
 		{ blockId: string; blockExcerpt: string } | undefined
 	>(undefined);
+
+	// L14: Action dialog state.
+	const [consequenceDialog, setConsequenceDialog] = useState<{
+		open: boolean;
+		kind: "pause" | "kill";
+	}>({ open: false, kind: "kill" });
+	const [appetiteDialogOpen, setAppetiteDialogOpen] = useState(false);
 
 	// L18: Fetch the host thread directly to derive messagesByBlockId for the
 	// inline anchored-message slots. HostThreadSection uses its own fetch for
@@ -256,6 +650,80 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 			navigate(`/conversations/chat?thread=${encodeURIComponent(threadId)}`);
 		},
 		[navigate],
+	);
+
+	// L14: Action bar handlers. handleResume is declared first so handleAction
+	// can reference it in its dependency array without a hoisting issue.
+	const handleResume = useCallback(async (): Promise<void> => {
+		if (!bet) return;
+		await fetch(`/api/bets/${encodeURIComponent(bet.id)}/resume`, {
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({}),
+		});
+		fetched.refresh();
+	}, [bet, fetched]);
+
+	const handleAction = useCallback(
+		(action: BetActionKind): void => {
+			if (action === "pause") {
+				setConsequenceDialog({ open: true, kind: "pause" });
+			} else if (action === "kill") {
+				setConsequenceDialog({ open: true, kind: "kill" });
+			} else if (action === "adjust-appetite") {
+				setAppetiteDialogOpen(true);
+			} else if (action === "resume") {
+				// Resume is non-destructive — no confirmation dialog needed.
+				void handleResume();
+			} else if (action === "unblock") {
+				// Scroll to and focus the composer textarea in HostThreadSection.
+				const textarea = document.querySelector<HTMLTextAreaElement>(
+					'[data-testid="composer-textarea"]',
+				);
+				if (textarea) {
+					textarea.scrollIntoView({ behavior: "smooth", block: "nearest" });
+					textarea.focus();
+				}
+			}
+		},
+		[handleResume],
+	);
+
+	const handleConsequenceConfirm = useCallback(
+		async (reason: string): Promise<void> => {
+			if (!bet) return;
+			const endpoint = consequenceDialog.kind === "kill" ? "kill" : "pause";
+			const res = await fetch(`/api/bets/${encodeURIComponent(bet.id)}/${endpoint}`, {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ reason }),
+			});
+			if (!res.ok) {
+				const body = (await res.json().catch(() => ({}))) as { error?: string };
+				throw new Error(body.error ?? `${endpoint} failed: ${res.status}`);
+			}
+			setConsequenceDialog((prev) => ({ ...prev, open: false }));
+			fetched.refresh();
+		},
+		[bet, consequenceDialog.kind, fetched],
+	);
+
+	const handleAppetiteConfirm = useCallback(
+		async (appetite: string, reason: string): Promise<void> => {
+			if (!bet) return;
+			const res = await fetch(`/api/bets/${encodeURIComponent(bet.id)}`, {
+				method: "PATCH",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ field: "appetite", value: appetite, reason }),
+			});
+			if (!res.ok) {
+				const body = (await res.json().catch(() => ({}))) as { error?: string };
+				throw new Error(body.error ?? `Appetite update failed: ${res.status}`);
+			}
+			setAppetiteDialogOpen(false);
+			fetched.refresh();
+		},
+		[bet, fetched],
 	);
 
 	// Explicit prop loading takes priority (used by Loading story).
@@ -343,6 +811,25 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 				status={bet.status}
 				appetite={bet.appetite}
 				progress={bet.progress}
+			/>
+
+			{/* L14: Bet action bar — shown for active bets only */}
+			<BetActionsBar bet={bet} onAction={handleAction} />
+
+			{/* L14: Consequence preview dialog — pause or kill */}
+			<ConsequencePreviewDialog
+				open={consequenceDialog.open}
+				kind={consequenceDialog.kind}
+				onConfirm={handleConsequenceConfirm}
+				onCancel={() => setConsequenceDialog((prev) => ({ ...prev, open: false }))}
+			/>
+
+			{/* L14: Appetite adjust dialog */}
+			<AppetiteDialog
+				open={appetiteDialogOpen}
+				currentAppetite={bet.appetite}
+				onConfirm={handleAppetiteConfirm}
+				onCancel={() => setAppetiteDialogOpen(false)}
 			/>
 
 			{/* L18: Block popover wiring — onOpenBlockActions opens the page-level

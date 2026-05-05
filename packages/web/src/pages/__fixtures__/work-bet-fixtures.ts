@@ -94,6 +94,54 @@ Replace the grid with a three-column layout driven by user roles.
 			},
 		],
 	},
+	/** L14: in_progress bet — shows Pause, Kill, Adjust Appetite actions. */
+	b_in_progress: {
+		id: "b_ip",
+		title: "Payment Gateway Integration",
+		product: "Alpha",
+		team: "Alpha Core",
+		status: "in_progress",
+		appetite: "2 weeks",
+		progress: { done: 2, total: 6 },
+		pitch: "# Problem\nPayments are handled manually.\n\n## Solution\nIntegrate Stripe.",
+		tasks: [],
+	},
+	/** L14: paused bet — shows Resume, Kill, Adjust Appetite actions. */
+	b_paused: {
+		id: "b_paused",
+		title: "Notification System Overhaul",
+		product: "Alpha",
+		team: "Alpha Core",
+		status: "paused",
+		appetite: "3 weeks",
+		progress: { done: 1, total: 4 },
+		pitch: "# Problem\nNotifications are noisy.\n\n## Solution\nBatch and digest.",
+		tasks: [],
+	},
+	/** L14: blocked bet — shows Unblock, Kill, Adjust Appetite. NO Pause button. */
+	b_blocked: {
+		id: "b_blocked",
+		title: "Data Export Pipeline",
+		product: "Beta",
+		team: "Beta Surface",
+		status: "blocked",
+		appetite: "1 week",
+		progress: { done: 0, total: 3 },
+		pitch: "# Problem\nNo data export.\n\n## Solution\nCSV and JSON export endpoints.",
+		tasks: [],
+	},
+	/** L14: behind bet — shows Pause, Kill, Adjust Appetite actions. */
+	b_behind: {
+		id: "b_behind",
+		title: "Onboarding Wizard",
+		product: "Beta",
+		team: "Beta Surface",
+		status: "behind",
+		appetite: "2 weeks",
+		progress: { done: 1, total: 5 },
+		pitch: "# Problem\nOnboarding is manual.\n\n## Solution\nStep-by-step wizard.",
+		tasks: [],
+	},
 	/** WithRichPitch story fixture — exercises H1, H2, paragraph, list, code, blockquote. */
 	b_rich: {
 		id: "b_rich",
