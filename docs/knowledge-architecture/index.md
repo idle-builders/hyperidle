@@ -32,4 +32,5 @@ For how the human interface is designed — views, navigation, interaction gramm
 - [Summary](./summary.md)
 - [Inspirations](./inspirations.md)
 - [Canonical shapes](./canonical-shapes.md)
+- [Relevance and Attention](./relevance-and-attention.md)
 

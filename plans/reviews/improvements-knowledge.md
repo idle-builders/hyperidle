@@ -26,6 +26,8 @@ Verified the adversary's load-bearing claim against source: `packages/fabric/src
 **Effort hint:** L
 >> impact score is probably citation core I would argue if we force agents to cite when the use a certain knowledge piece. we have to figure out how this is measureable but this is powerful
 
+**Spec / implementation:** TRACK-L story L5 (`plans/L5/architecture.md`) rewrites the "Relevance / Attention" section as `docs/knowledge-architecture/relevance-and-attention.md`. TRACK-L story L22 implements the data contract. Citation is staged with absent values rendering `—` (architect's call, recorded in `plans/L5/architecture.md` § Decision D1).
+
 ### #2 Blocks-in-markdown body renderer — (designer + architect)
 **Shape coverage:** belief, decision, skill, doc-tree
 **Type:** block-primitive
