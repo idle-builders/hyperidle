@@ -122,7 +122,11 @@ test.describe("J8 synthesis — 10 critical flows", () => {
 		await expect(page.locator("table tbody tr").first()).toBeVisible();
 	});
 
-	test("8. PitchSelector detail pane opens when a pitch is selected", async ({ page }) => {
+	// @lore L13: PitchSelector was mounted inside WorkTeam which was deleted.
+	// /work/team now redirects to /work/portfolio. The PitchSelector surface
+	// no longer exists. This test cannot be migrated — the surface is gone.
+	// The J5 work-surface spec that covered this is similarly marked obsolete.
+	test.skip("8. PitchSelector detail pane opens when a pitch is selected", async ({ page }) => {
 		await page.goto("/work/team");
 		await page.waitForSelector("[data-testid='work-team-page']");
 		await page.getByRole("button", { name: /select pitches/i }).click();

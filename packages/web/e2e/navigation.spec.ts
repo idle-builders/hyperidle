@@ -26,12 +26,13 @@ test.describe("Navigation", () => {
 		await expect(page.getByRole("button", { name: /knowledge/i })).toBeVisible();
 	});
 
-	test("clicking Work button switches to Work view with Portfolio and Team submenu", async ({
-		page,
-	}) => {
+	// @lore L13: "Team Board" was removed from the Work submenu. Portfolio is
+	// now the single Work landing; product drilldown is reached via card click.
+	// Updated: assert only "Portfolio" is present (not "Team Board").
+	test("clicking Work button switches to Work view with Portfolio submenu", async ({ page }) => {
 		await page.getByRole("button", { name: /work/i }).click();
 		await expect(page.getByRole("button", { name: "Portfolio" })).toBeVisible();
-		await expect(page.getByRole("button", { name: "Team Board" })).toBeVisible();
+		await expect(page.getByRole("button", { name: "Team Board" })).toHaveCount(0);
 	});
 
 	test("clicking Knowledge button switches to Knowledge view", async ({ page }) => {

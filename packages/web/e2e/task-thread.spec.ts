@@ -105,10 +105,42 @@ test.describe("L18 — Task sheet thread surface", () => {
 			}
 		});
 
-		await page.goto("/work/team");
+		// @lore L13: WorkTeam (Kanban) was deleted; TaskSheet is now mounted in
+		// WorkBet. Navigate to the bet detail page and click a task row to open
+		// the sheet. The bet mock must be registered before the thread mocks so
+		// the page renders before we try to click.
+		await page.route("**/api/bets/b1", (route) =>
+			route.fulfill({
+				status: 200,
+				contentType: "application/json",
+				body: JSON.stringify({
+					id: "b1",
+					title: "User auth flow",
+					product: "Alpha",
+					team: "Alpha Core",
+					status: "committed",
+					appetite: "2 weeks",
+					progress: { done: 1, total: 3 },
+					pitch: "# Problem\n\nAuth is broken.\n",
+					tasks: [
+						{
+							id: TASK_ID,
+							title: "Implement login endpoint",
+							owner: "Dev Agent 1",
+							state: "in_progress",
+							cost: "$1.00",
+						},
+					],
+					comments: [],
+				}),
+			}),
+		);
 
-		// Click a task card to open the task sheet
-		const taskCards = page.locator("[data-testid='task-card']");
+		await page.goto("/work/bet/b1");
+		await page.waitForSelector("[data-testid='work-bet-page']");
+
+		// Click the first task row (bet-task-row) to open the task sheet
+		const taskCards = page.locator("[data-testid='bet-task-row']");
 		await taskCards.first().click();
 
 		// The task sheet should open

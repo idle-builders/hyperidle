@@ -156,4 +156,25 @@ describe("WorkProduct", () => {
 		// Most importantly: empty state for active bets must NOT appear during loading
 		expect(screen.queryByTestId("product-active-bets-empty")).not.toBeInTheDocument();
 	});
+
+	// D1 regression guard: a committed bet must not show the BEHIND status chip.
+	// Previously BetRow mapped `committed → "behind"` which was a category error
+	// (committed = normal active state; behind = actually behind by some signal).
+	it("11. a committed bet renders without 'BEHIND' in the active bets section", () => {
+		renderPage("p1", MOCK_PRODUCT_DETAIL);
+		// The bet title should be visible
+		expect(screen.getByText("Auth migration")).toBeInTheDocument();
+		// The StatusChip for a committed bet should not say BEHIND
+		const betsRegion = screen.getByTestId("product-active-bets");
+		expect(betsRegion.textContent).not.toContain("BEHIND");
+	});
+
+	// D2 regression guard: the lead name (not the agent id) must appear in the header.
+	it("12. renders lead display name (not agent id) in the product header", () => {
+		renderPage("p1", MOCK_PRODUCT_DETAIL);
+		// The roster has leadAgentId="agent-lead" → name "Lead Agent".
+		// The header should show the name, not the raw id.
+		expect(screen.getByText(/Lead:\s*Lead Agent/i)).toBeInTheDocument();
+		expect(screen.queryByText(/Lead:\s*agent-lead/i)).not.toBeInTheDocument();
+	});
 });

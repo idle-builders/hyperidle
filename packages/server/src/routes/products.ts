@@ -53,7 +53,7 @@ function deriveProductStatus(
 	if (hasBlockedTask) return "blocked";
 	const costActual = team.costActual ?? 0;
 	const overCapacity = team.activeBets > team.capacity;
-	const overBudget = team.costCap !== null && team.costCap !== null && costActual >= team.costCap;
+	const overBudget = team.costCap !== null && costActual >= team.costCap;
 	if (overCapacity || overBudget) return "behind";
 	return "healthy";
 }

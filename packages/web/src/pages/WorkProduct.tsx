@@ -1,5 +1,5 @@
 /**
- * L13 — Work/Product page: unified product team view. (CI trigger fix: 2026-05-05)
+ * L13 — Work/Product page: unified product team view.
  *
  * Layout (V1 — Stacked single column, per design/approved.md):
  *   R1 — Product header (breadcrumb + name + status + phase + lead)
@@ -17,6 +17,7 @@
  */
 
 import {
+	betStatusToStatus,
 	EmptyState,
 	ErrorState,
 	KeyValue,
@@ -124,6 +125,12 @@ function WorkProductLoaded({ data }: { data: ProductDetail }): JSX.Element {
 	const navigate = useNavigate();
 	const { product, roster, burn, activeBets } = data;
 
+	// D2: Resolve lead display name from roster instead of showing the agent id.
+	const leadName =
+		product.leadAgentId !== null
+			? (roster.find((m) => m.agentId === product.leadAgentId)?.name ?? product.leadAgentId)
+			: null;
+
 	const capPercent =
 		burn.costCap !== null && burn.costCap > 0
 			? Math.min(1, (burn.costActual ?? 0) / burn.costCap)
@@ -151,7 +158,7 @@ function WorkProductLoaded({ data }: { data: ProductDetail }): JSX.Element {
 				</div>
 				<div className="mt-1 text-xs text-[var(--text-lo)]">
 					<span>Phase: {product.phase}</span>
-					{product.leadAgentId && <span className="ml-3">Lead: {product.leadAgentId}</span>}
+					{leadName && <span className="ml-3">Lead: {leadName}</span>}
 				</div>
 			</section>
 
@@ -253,14 +260,8 @@ function WorkProductLoaded({ data }: { data: ProductDetail }): JSX.Element {
 				)}
 			</section>
 
-			{/* Artifact slot — placeholder for L12 */}
-			<section
-				data-testid="product-artifact-slot"
-				className="rounded-[var(--r1)] bg-[var(--surface-2)] p-[var(--density-card-pad)]"
-				aria-label="Artifact aggregation"
-			>
-				<p className="text-xs text-[var(--text-lo)]">Artifacts aggregation lands in L12</p>
-			</section>
+			{/* Artifact slot — placeholder until artifact aggregation lands */}
+			<section data-testid="product-artifact-slot" aria-label="Artifact aggregation" />
 		</div>
 	);
 }
@@ -279,7 +280,7 @@ function BetRow({ bet, onNavigate }: { bet: BetCardSummary; onNavigate: () => vo
 				<span className="flex-1 text-xs font-medium text-[var(--text-hi)] truncate">
 					{bet.pitchTitle}
 				</span>
-				<StatusChip status={bet.status === "committed" ? "behind" : "healthy"} />
+				<StatusChip status={betStatusToStatus(bet.status)} />
 				<span className="text-[10px] font-mono text-[var(--text-lo)]">{bet.appetite}</span>
 				<span className="text-[10px] font-mono text-[var(--text-lo)]">{progressText}</span>
 			</div>
