@@ -1,0 +1,359 @@
+<!doctype html>
+<html lang="en" data-theme="lucid-dark">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>L14 Variant B — Overflow Menu + Dialog-Driven</title>
+  <link rel="stylesheet" href="file:///Users/tobiasgrundmann/Development/hyperidle/.worktrees/L14/packages/design-system/src/tokens.css" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: var(--ui);
+      background: var(--surface-3);
+      color: var(--text-hi);
+      min-height: 100vh;
+      padding: 24px;
+    }
+
+    /* ── BetCard ── */
+    .bet-card {
+      background: var(--surface-4);
+      border-radius: var(--r2);
+      padding: var(--density-card-pad);
+      display: flex;
+      flex-direction: column;
+      gap: var(--density-card-gap);
+      max-width: 680px;
+    }
+    .bet-card__header {
+      display: flex;
+      align-items: center;
+      gap: var(--density-gap);
+    }
+    .bet-card__title {
+      font-size: var(--density-text);
+      font-weight: 500;
+      color: var(--text-hi);
+      flex: 1;
+      min-width: 0;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .bet-card__meta {
+      display: flex;
+      align-items: center;
+      gap: var(--density-gap);
+    }
+
+    /* ── Tag / StatusChip / KeyValue ── (same as Variant A) */
+    .tag {
+      font-family: var(--mono);
+      font-size: 11px;
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: var(--tracking-caps);
+      color: var(--text-lo);
+      background: var(--surface-ghost);
+      border-radius: var(--r1);
+      padding: 2px 6px;
+      white-space: nowrap;
+    }
+    .status-chip {
+      font-family: var(--mono);
+      font-size: 11px;
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      border-radius: var(--r1);
+      padding: 2px 6px;
+      white-space: nowrap;
+    }
+    .status-chip--active { color: var(--ok); background: rgba(200,200,208,0.08); }
+    .key-value { display: flex; align-items: center; gap: var(--density-card-gap); }
+    .key-value__label { font-family: var(--mono); font-size: 11px; font-weight: 500; text-transform: uppercase; letter-spacing: var(--tracking-caps); color: var(--text-lo); white-space: nowrap; }
+    .key-value__value { font-family: var(--mono); font-size: 13px; color: var(--text-mid); }
+
+    /* ── Actions trigger ── */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      font-family: var(--ui);
+      font-size: 12px;
+      font-weight: 500;
+      border-radius: var(--r1);
+      border: none;
+      cursor: pointer;
+      padding: 4px 10px;
+      height: 28px;
+      transition: background var(--motion-fast) var(--motion-ease), color var(--motion-fast) var(--motion-ease);
+      white-space: nowrap;
+    }
+    .btn:focus-visible { outline: 1px solid var(--primary); outline-offset: 1px; }
+    .btn--ghost { background: transparent; color: var(--text-mid); }
+    .btn--ghost:hover { background: var(--surface-5); color: var(--text-hi); }
+    .btn--error { background: transparent; color: var(--danger); }
+    .btn--error:hover { background: rgba(248,113,113,0.1); color: var(--danger); }
+    .btn--confirm { background: var(--surface-5); color: var(--text-hi); }
+    .btn--confirm:hover { background: var(--surface-6); }
+    .chevron { font-size: 10px; color: var(--text-lo); }
+
+    /* ── Dropdown ── */
+    .dropdown-wrapper {
+      position: relative;
+      display: inline-block;
+    }
+    .dropdown-menu {
+      position: absolute;
+      top: calc(100% + 4px);
+      right: 0;
+      background: var(--surface-1);
+      border: 1px solid var(--border-default);
+      border-radius: var(--r2);
+      box-shadow: var(--float);
+      padding: 4px;
+      min-width: 180px;
+      display: none;
+      flex-direction: column;
+      gap: 1px;
+      z-index: 100;
+    }
+    .dropdown-menu.open { display: flex; }
+    .dropdown-item {
+      font-family: var(--ui);
+      font-size: 13px;
+      color: var(--text-mid);
+      background: transparent;
+      border: none;
+      border-radius: var(--r1);
+      padding: 6px 10px;
+      text-align: left;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: background var(--motion-fast) var(--motion-ease), color var(--motion-fast) var(--motion-ease);
+    }
+    .dropdown-item:hover { background: var(--surface-ghost); color: var(--text-hi); }
+    .dropdown-item--danger { color: var(--danger); }
+    .dropdown-item--danger:hover { background: rgba(248,113,113,0.08); color: var(--danger); }
+    .dropdown-divider { height: 1px; background: var(--border-subtle); margin: 2px 0; }
+
+    /* ── Dialog (ConsequencePreview) — same structure as A, richer content ── */
+    dialog {
+      background: var(--surface-2);
+      border: 1px solid var(--border-default);
+      border-radius: var(--r3);
+      box-shadow: var(--float);
+      color: var(--text-hi);
+      font-family: var(--ui);
+      padding: 0;
+      max-width: 480px;
+      width: 100%;
+      outline: none;
+    }
+    dialog::backdrop { background: rgba(0, 0, 0, 0.6); }
+    .dialog-inner { padding: 20px 20px 16px; display: flex; flex-direction: column; gap: 16px; }
+    .dialog-title { font-size: 15px; font-weight: 600; color: var(--text-hi); }
+    .dialog-title--danger { color: var(--danger); }
+    .consequence-sections { display: flex; flex-direction: column; gap: 8px; }
+    .consequence-section { display: flex; gap: 8px; }
+    .consequence-label { font-family: var(--mono); font-size: 11px; font-weight: 500; text-transform: uppercase; letter-spacing: var(--tracking-caps); color: var(--text-lo); min-width: 72px; padding-top: 1px; }
+    .consequence-label--danger { color: var(--danger); opacity: 0.7; }
+    .consequence-body { font-size: 13px; color: var(--text-mid); line-height: var(--leading-body); }
+    .cost-context {
+      background: var(--surface-3);
+      border-radius: var(--r1);
+      padding: 8px 10px;
+      display: flex;
+      gap: 6px;
+      align-items: flex-start;
+    }
+    .cost-label { font-family: var(--mono); font-size: 11px; text-transform: uppercase; letter-spacing: var(--tracking-caps); color: var(--text-lo); padding-top: 1px; min-width: 36px; }
+    .cost-value { font-family: var(--mono); font-size: 12px; color: var(--text-mid); }
+    .reason-field { display: flex; flex-direction: column; gap: 6px; }
+    .reason-label { font-family: var(--mono); font-size: 11px; font-weight: 500; text-transform: uppercase; letter-spacing: var(--tracking-caps); color: var(--text-lo); }
+    textarea { width: 100%; background: var(--surface-3); border: 1px solid var(--border-default); border-radius: var(--r1); color: var(--text-hi); font-family: var(--ui); font-size: 13px; padding: 8px 10px; resize: vertical; min-height: 64px; outline: none; transition: border-color var(--motion-fast) var(--motion-ease); }
+    textarea::placeholder { color: var(--text-lo); }
+    textarea:focus { border-color: var(--border-emphasis); }
+    select { background: var(--surface-3); border: 1px solid var(--border-default); border-radius: var(--r1); color: var(--text-hi); font-family: var(--ui); font-size: 13px; padding: 6px 10px; width: 100%; outline: none; }
+    .dialog-footer { display: flex; align-items: center; justify-content: flex-end; gap: 8px; padding: 12px 20px; border-top: 1px solid var(--border-subtle); }
+
+    /* ── Page layout ── */
+    .page { max-width: 680px; display: flex; flex-direction: column; gap: 12px; }
+    .section-label { font-family: var(--mono); font-size: 11px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-lo); margin-top: 24px; }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <p class="section-label">Variant B — Overflow Menu (in_progress bet)</p>
+
+    <!-- BetCard with single Actions trigger -->
+    <div class="bet-card" data-component="BetCard" data-tier="2">
+      <div class="bet-card__header">
+        <span class="bet-card__title">Redesign onboarding flow for mobile users</span>
+        <!-- actions slot — single trigger -->
+        <div class="dropdown-wrapper">
+          <button class="btn btn--ghost" type="button" onclick="toggleDropdown('menu-1')" aria-haspopup="menu" aria-expanded="false" id="actions-trigger">
+            Actions <span class="chevron">▾</span>
+          </button>
+          <div class="dropdown-menu" id="menu-1" role="menu">
+            <button class="dropdown-item" role="menuitem" type="button" onclick="closeMenu('menu-1'); document.getElementById('pause-dialog').showModal()">Pause</button>
+            <button class="dropdown-item" role="menuitem" type="button" onclick="closeMenu('menu-1'); document.getElementById('appetite-dialog').showModal()">Adjust appetite</button>
+            <button class="dropdown-item" role="menuitem" type="button" onclick="closeMenu('menu-1'); scrollToThread()">Unblock</button>
+            <div class="dropdown-divider"></div>
+            <button class="dropdown-item dropdown-item--danger" role="menuitem" type="button" onclick="closeMenu('menu-1'); document.getElementById('kill-dialog').showModal()">Kill bet</button>
+          </div>
+        </div>
+      </div>
+      <div class="bet-card__meta">
+        <span class="tag">Product Alpha</span>
+        <span class="status-chip status-chip--active">In progress</span>
+      </div>
+      <div class="key-value">
+        <span class="key-value__label">Appetite</span>
+        <span class="key-value__value">2 weeks</span>
+      </div>
+    </div>
+
+    <p class="section-label">BetCard — clean state (no menu open)</p>
+    <div class="bet-card" data-component="BetCard" data-tier="2">
+      <div class="bet-card__header">
+        <span class="bet-card__title">Redesign onboarding flow for mobile users</span>
+        <button class="btn btn--ghost" type="button" aria-haspopup="menu">
+          Actions <span class="chevron">▾</span>
+        </button>
+      </div>
+      <div class="bet-card__meta">
+        <span class="tag">Product Alpha</span>
+        <span class="status-chip status-chip--active">In progress</span>
+      </div>
+      <div class="key-value">
+        <span class="key-value__label">Appetite</span>
+        <span class="key-value__value">2 weeks</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Pause ConsequencePreview Dialog — with cost context -->
+  <dialog id="pause-dialog" aria-labelledby="pause-title">
+    <div class="dialog-inner">
+      <div class="dialog-title" id="pause-title">Pause this bet?</div>
+      <div class="consequence-sections">
+        <div class="consequence-section">
+          <span class="consequence-label consequence-label--danger">Stops</span>
+          <span class="consequence-body">All agent sessions will be suspended. No new tasks will start.</span>
+        </div>
+        <div class="consequence-section">
+          <span class="consequence-label">Continues</span>
+          <span class="consequence-body">The bet, its tasks, and revision log are preserved in full.</span>
+        </div>
+        <div class="consequence-section">
+          <span class="consequence-label">Saved</span>
+          <span class="consequence-body">All completed tasks and artifacts are unaffected.</span>
+        </div>
+      </div>
+      <!-- Cost context block — distinguishes Variant B -->
+      <div class="cost-context">
+        <span class="cost-label">Cost</span>
+        <span class="cost-value">$12.40 spent this cycle — no additional spend while paused.</span>
+      </div>
+      <div class="reason-field">
+        <label class="reason-label" for="pause-reason">Reason (required)</label>
+        <textarea id="pause-reason" placeholder="Why are you pausing this bet?"></textarea>
+      </div>
+    </div>
+    <div class="dialog-footer">
+      <button class="btn btn--ghost" type="button" onclick="document.getElementById('pause-dialog').close()">Cancel</button>
+      <button class="btn btn--confirm" type="button">Pause bet</button>
+    </div>
+  </dialog>
+
+  <!-- Kill ConsequencePreview Dialog -->
+  <dialog id="kill-dialog" aria-labelledby="kill-title">
+    <div class="dialog-inner">
+      <div class="dialog-title dialog-title--danger" id="kill-title">Kill this bet?</div>
+      <div class="consequence-sections">
+        <div class="consequence-section">
+          <span class="consequence-label consequence-label--danger">Stops</span>
+          <span class="consequence-body">All agent sessions will be terminated immediately. All in-progress tasks move to killed.</span>
+        </div>
+        <div class="consequence-section">
+          <span class="consequence-label consequence-label--danger">Continues</span>
+          <span class="consequence-body">Nothing — this bet ends permanently.</span>
+        </div>
+        <div class="consequence-section">
+          <span class="consequence-label">Saved</span>
+          <span class="consequence-body">Completed tasks, artifacts, and the full revision log are preserved.</span>
+        </div>
+      </div>
+      <div class="cost-context">
+        <span class="cost-label">Cost</span>
+        <span class="cost-value">$12.40 spent this cycle — this spend is final.</span>
+      </div>
+      <div class="reason-field">
+        <label class="reason-label" for="kill-reason">Reason (required)</label>
+        <textarea id="kill-reason" placeholder="Why are you killing this bet?"></textarea>
+      </div>
+    </div>
+    <div class="dialog-footer">
+      <button class="btn btn--ghost" type="button" onclick="document.getElementById('kill-dialog').close()">Cancel</button>
+      <button class="btn btn--error" type="button" style="background: rgba(248,113,113,0.12); padding: 4px 12px;">Kill bet</button>
+    </div>
+  </dialog>
+
+  <!-- Adjust Appetite Dialog -->
+  <dialog id="appetite-dialog" aria-labelledby="appetite-title">
+    <div class="dialog-inner">
+      <div class="dialog-title" id="appetite-title">Adjust appetite</div>
+      <div class="key-value" style="margin-bottom: 4px;">
+        <span class="key-value__label">Current</span>
+        <span class="key-value__value">2 weeks</span>
+      </div>
+      <div class="reason-field">
+        <label class="reason-label" for="appetite-select">New appetite</label>
+        <select id="appetite-select">
+          <option value="1 week">1 week</option>
+          <option value="2 weeks" selected>2 weeks</option>
+          <option value="6 weeks">6 weeks</option>
+        </select>
+      </div>
+      <div class="reason-field">
+        <label class="reason-label" for="appetite-reason">Reason (required)</label>
+        <textarea id="appetite-reason" placeholder="What changed?"></textarea>
+      </div>
+    </div>
+    <div class="dialog-footer">
+      <button class="btn btn--ghost" type="button" onclick="document.getElementById('appetite-dialog').close()">Cancel</button>
+      <button class="btn btn--confirm" type="button">Save</button>
+    </div>
+  </dialog>
+
+  <script>
+    function toggleDropdown(id) {
+      const menu = document.getElementById(id);
+      const isOpen = menu.classList.contains('open');
+      document.querySelectorAll('.dropdown-menu').forEach(m => m.classList.remove('open'));
+      if (!isOpen) menu.classList.add('open');
+    }
+    function closeMenu(id) {
+      document.getElementById(id).classList.remove('open');
+    }
+    function scrollToThread() {
+      closeMenu('menu-1');
+      alert('Scrolls to and focuses the Discussion thread composer.');
+    }
+    // Close dropdown on outside click
+    document.addEventListener('click', (e) => {
+      if (!e.target.closest('.dropdown-wrapper')) {
+        document.querySelectorAll('.dropdown-menu').forEach(m => m.classList.remove('open'));
+      }
+    });
+    // Prevent backdrop click from closing dialogs (non-skippable)
+    document.querySelectorAll('dialog').forEach(d => {
+      d.addEventListener('cancel', e => e.preventDefault());
+    });
+  </script>
+</body>
+</html>

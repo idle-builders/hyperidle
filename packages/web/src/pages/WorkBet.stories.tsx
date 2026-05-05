@@ -40,3 +40,29 @@ const MALFORMED_BET: BetDetail = {
 };
 
 export const MalformedPitch = (): React.JSX.Element => <WorkBet overrideBet={MALFORMED_BET} />;
+
+/**
+ * L14 action bar stories — verify each status exposes the correct set of action buttons.
+ *
+ * @lore L14: BetActionsBar is co-located in WorkBet.tsx. These stories exercise
+ * each status bucket so the action bar states can be verified visually at /designsystem.
+ */
+
+/** InProgress — Pause, Kill, Adjust Appetite are shown. Resume is hidden. */
+export const InProgressActions = (): React.JSX.Element => (
+	<WorkBet overrideBet={MOCK_BETS.b_in_progress} />
+);
+
+/** Paused — Resume, Kill, Adjust Appetite are shown. Pause is hidden. */
+export const PausedActions = (): React.JSX.Element => <WorkBet overrideBet={MOCK_BETS.b_paused} />;
+
+/**
+ * Blocked — Unblock, Kill, Adjust Appetite are shown. Pause is NOT shown.
+ * @lore L14: blocked → paused is not a valid state machine transition.
+ */
+export const BlockedActions = (): React.JSX.Element => (
+	<WorkBet overrideBet={MOCK_BETS.b_blocked} />
+);
+
+/** Behind — Pause, Kill, Adjust Appetite are shown (same as in_progress). */
+export const BehindActions = (): React.JSX.Element => <WorkBet overrideBet={MOCK_BETS.b_behind} />;
