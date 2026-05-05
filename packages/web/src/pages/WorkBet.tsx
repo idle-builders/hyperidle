@@ -457,6 +457,7 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 				filter={{ axis: "bet", betId: bet.id }}
 				layout="stack"
 				heading="Artifacts"
+				emptyDescription="Artifacts appear as agents complete tasks on this bet."
 				onOpen={onOpenArtifact}
 			/>
 

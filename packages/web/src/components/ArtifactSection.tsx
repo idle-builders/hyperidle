@@ -49,6 +49,13 @@ export interface ArtifactSectionProps {
 	limit?: number;
 	heading?: string;
 	/**
+	 * Surface-specific description shown in the empty state. Falls back to a
+	 * generic description when not provided.
+	 *
+	 * @lore L12 review (W-4): each surface has distinct copy per approved design.
+	 */
+	emptyDescription?: string;
+	/**
 	 * Called when the user opens an artifact. If not provided, ArtifactSection
 	 * navigates to /artifacts/:id using useNavigate internally.
 	 *
@@ -71,6 +78,7 @@ export function ArtifactSection({
 	layout,
 	limit,
 	heading,
+	emptyDescription,
 	onOpen,
 }: ArtifactSectionProps): JSX.Element | null {
 	const navigate = useNavigate();
@@ -114,13 +122,14 @@ export function ArtifactSection({
 	// ── Error ──────────────────────────────────────────────────────────────────
 
 	if (error !== null) {
+		// @lore L12 review (W-3): collapse entirely when there's no heading and an
+		// error occurs — matches the TaskSheet "nothing useful to show" pattern.
+		if (!heading) return null;
 		return (
-			<section data-testid="artifact-section-container" aria-label={heading ?? "Artifacts"}>
-				{heading && (
-					<h2 className="text-xs font-heading font-semibold uppercase tracking-wider text-[var(--text-lo)] mb-2">
-						{heading}
-					</h2>
-				)}
+			<section data-testid="artifact-section-container" aria-label={heading}>
+				<h2 className="text-xs font-heading font-semibold uppercase tracking-wider text-[var(--text-lo)] mb-2">
+					{heading}
+				</h2>
 				<ErrorState
 					title="Failed to load artifacts"
 					description="An error occurred while loading artifacts."
@@ -142,7 +151,10 @@ export function ArtifactSection({
 				</h2>
 				<EmptyState
 					title="No artifacts yet"
-					description="Artifacts will appear here once agents produce output for this context."
+					description={
+						emptyDescription ??
+						"Artifacts will appear here once agents produce output for this context."
+					}
 				/>
 			</section>
 		);

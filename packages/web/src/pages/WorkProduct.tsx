@@ -268,6 +268,7 @@ function WorkProductLoaded({ data }: { data: ProductDetail }): JSX.Element {
 				layout="stack"
 				limit={10}
 				heading="Artifacts"
+				emptyDescription="Artifacts appear as agents complete tasks for this product."
 				onOpen={onOpenArtifact}
 			/>
 		</div>

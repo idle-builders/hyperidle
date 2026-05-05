@@ -161,15 +161,6 @@ export function WorkPortfolio({ loading = false, products }: WorkPortfolioProps 
 					))}
 				</div>
 			)}
-			{/* L12: Artifact gallery — portfolio axis, limit=12 */}
-			<ArtifactSection
-				filter={{ axis: "portfolio" }}
-				layout="gallery"
-				limit={12}
-				heading="Artifacts"
-				onOpen={onOpenArtifact}
-			/>
-
 			<div
 				data-testid="cycle-stripe"
 				/* @lore K11: cycle stripe outer pad → --density-card-pad per § 3.4.P1. */
@@ -184,6 +175,17 @@ export function WorkPortfolio({ loading = false, products }: WorkPortfolioProps 
 					}`}
 				</span>
 			</div>
+
+			{/* L12: Artifact gallery — portfolio axis, limit=12, BELOW cycle-stripe per design.
+			    @lore L12 review (W-1): approved design says "below cycle-stripe". */}
+			<ArtifactSection
+				filter={{ axis: "portfolio" }}
+				layout="gallery"
+				limit={12}
+				heading="Artifacts"
+				emptyDescription="Artifacts appear here as agents complete tasks."
+				onOpen={onOpenArtifact}
+			/>
 		</div>
 	);
 }

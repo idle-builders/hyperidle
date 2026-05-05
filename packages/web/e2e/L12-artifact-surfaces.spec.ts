@@ -255,6 +255,57 @@ test.describe("L12 — Artifact surfaces on Work pages", () => {
 		}
 	});
 
+	// ── Click-through: Portfolio → ArtifactPreview ────────────────────────────
+
+	test("WorkPortfolio: clicking ArtifactGalleryCard navigates to /artifacts/:id and shows ArtifactPreview", async ({
+		page,
+	}) => {
+		// Mock artifact list for portfolio
+		await mockArtifactsOnPage(page, ARTIFACT_PAGE_RESPONSE);
+
+		// Mock the individual artifact endpoint (ArtifactPermalink calls /api/artifacts/:id)
+		await page.route("**/api/artifacts/art-e2e-l12-1", async (route: Route) => {
+			await route.fulfill({
+				status: 200,
+				contentType: "application/json",
+				body: JSON.stringify(ARTIFACT_FIXTURES[0]),
+			});
+		});
+
+		// Mock artifact thread summaries (ArtifactPermalink includes HostThreadSection)
+		await page.route("**/api/artifact-thread-summaries?**", async (route: Route) => {
+			await route.fulfill({
+				status: 200,
+				contentType: "application/json",
+				body: JSON.stringify({ summaries: [], totalCount: 0, truncated: false }),
+			});
+		});
+		await page.route("**/api/threads/**", async (route: Route) => {
+			await route.fulfill({
+				status: 200,
+				contentType: "application/json",
+				body: JSON.stringify({ id: "thread-permalink", messages: [], participants: [] }),
+			});
+		});
+
+		await page.goto("/work/portfolio");
+		await page.waitForSelector("[data-testid='work-portfolio-page']");
+
+		// Wait for the gallery card to appear (below the cycle-stripe per W-1 fix)
+		const firstCard = page.locator("[data-ds-component='ArtifactGalleryCard']").first();
+		await expect(firstCard).toBeVisible();
+
+		// Click the first gallery card
+		await firstCard.click();
+
+		// Assert URL changed to /artifacts/:id
+		await page.waitForURL("**/artifacts/art-e2e-l12-1");
+		expect(page.url()).toContain("/artifacts/art-e2e-l12-1");
+
+		// Assert ArtifactPreview is visible on the permalink page
+		await expect(page.locator("[data-ds-component='ArtifactPreview']").first()).toBeVisible();
+	});
+
 	// ── TaskSheet ─────────────────────────────────────────────────────────────
 
 	test("TaskSheet: ArtifactPreview renders when task has artifacts", async ({ page }) => {

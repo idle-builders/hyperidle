@@ -138,7 +138,7 @@ describe("ArtifactSection (L12)", () => {
 
 	// ── Error state ───────────────────────────────────────────────────────────
 
-	it("renders ErrorState when fetch fails", () => {
+	it("renders ErrorState when fetch fails and heading is provided", () => {
 		vi.mocked(useArtifacts).mockReturnValue({
 			data: null,
 			error: "HTTP 500",
@@ -148,6 +148,18 @@ describe("ArtifactSection (L12)", () => {
 		renderSection({ heading: "Artifacts" });
 
 		expect(screen.getByTestId("error-state")).toBeInTheDocument();
+	});
+
+	it("renders null when fetch fails and heading is NOT provided (W-3: TaskSheet collapse)", () => {
+		vi.mocked(useArtifacts).mockReturnValue({
+			data: null,
+			error: "HTTP 500",
+			isLoading: false,
+		});
+
+		// No heading prop — should collapse entirely on error
+		const { container } = renderSection({ layout: "single" });
+		expect(container.firstChild).toBeNull();
 	});
 
 	// ── Empty states ──────────────────────────────────────────────────────────
@@ -162,6 +174,35 @@ describe("ArtifactSection (L12)", () => {
 		renderSection({ heading: "Artifacts" });
 
 		expect(screen.getByTestId("empty-state")).toBeInTheDocument();
+	});
+
+	it("uses emptyDescription prop in EmptyState when provided (W-4)", () => {
+		vi.mocked(useArtifacts).mockReturnValue({
+			data: { items: [], nextCursor: null },
+			error: null,
+			isLoading: false,
+		});
+
+		renderSection({
+			heading: "Artifacts",
+			emptyDescription: "Artifacts appear here as agents complete tasks.",
+		});
+
+		expect(screen.getByText("Artifacts appear here as agents complete tasks.")).toBeInTheDocument();
+	});
+
+	it("falls back to generic description when emptyDescription is not provided", () => {
+		vi.mocked(useArtifacts).mockReturnValue({
+			data: { items: [], nextCursor: null },
+			error: null,
+			isLoading: false,
+		});
+
+		renderSection({ heading: "Artifacts" });
+
+		expect(
+			screen.getByText("Artifacts will appear here once agents produce output for this context."),
+		).toBeInTheDocument();
 	});
 
 	it("without heading: renders null when data is empty (TaskSheet pattern)", () => {
