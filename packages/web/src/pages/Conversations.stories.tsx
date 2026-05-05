@@ -14,8 +14,8 @@
  * page handles all five states by reading :threadId from the URL.
  */
 
-import { createMemoryRouter, RouterProvider } from "react-router-dom";
 import type React from "react";
+import { createMemoryRouter, RouterProvider } from "react-router-dom";
 import { Conversations } from "./Conversations";
 
 export default { title: "Page: Conversations" };
