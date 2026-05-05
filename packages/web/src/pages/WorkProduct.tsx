@@ -1,5 +1,5 @@
 /**
- * L13 — Work/Product page: unified product team view.
+ * L13 — Work/Product page: unified product team view. (CI trigger fix: 2026-05-05)
  *
  * Layout (V1 — Stacked single column, per design/approved.md):
  *   R1 — Product header (breadcrumb + name + status + phase + lead)
