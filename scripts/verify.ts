@@ -24,6 +24,7 @@ interface Tool {
 	cmd: string;
 	args: string[];
 	env?: Record<string, string>;
+	cwd?: string;
 }
 
 interface ToolResult {
@@ -49,6 +50,13 @@ const TOOLS: Tool[] = [
 		cmd: "bun",
 		args: ["run", "test"],
 		env: { VITEST_TOON_OUTPUT: TEST_OUTPUT_FILE },
+	},
+	{ name: "build", cmd: "bun", args: ["run", "build"] },
+	{
+		name: "e2e",
+		cmd: "bunx",
+		args: ["--bun", "playwright", "test", "--reporter=list"],
+		cwd: "packages/web",
 	},
 ];
 
@@ -77,6 +85,7 @@ function runTool(tool: Tool, raw: boolean): Promise<ToolResult> {
 	return new Promise<ToolResult>((resolvePromise) => {
 		const child = spawn(tool.cmd, tool.args, {
 			env: { ...process.env, ...tool.env },
+			cwd: tool.cwd ? resolve(process.cwd(), tool.cwd) : undefined,
 			stdio: raw ? "inherit" : ["ignore", "pipe", "pipe"],
 		});
 

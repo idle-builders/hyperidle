@@ -82,7 +82,9 @@ Each persona phase **commits its output and pushes** before returning:
 | 4 — builder (apply review fixes) | one commit per applied finding batch | run |
 | 5 — Explore agent /retro | prose | `[skip ci]` |
 
-CI is the verify gate. Builder runs `bun run verify` locally and must pass before pushing — no broken code reaches reviewers. CI is the authoritative pass/fail.
+Local `bun run verify` is the gate. Builder runs it (check, lint:biome, lint:eslint, test, e2e — identical tools to CI) and must pass before pushing. CI runs the same `bun run verify --raw` on every push as async post-merge confirmation, not a pipeline blocker. If CI diverges from local on the same SHA, lint-config parity is broken — fix the config, not the symptom.
+
+Stories touching authentication, schema migrations, or `packages/server/src/agent-runtime/` set `gate: ci-required` in the workpackage spec; Reviewer holds the ready-flip until CI is green. Default for everything else is `gate: local-green`.
 
 **Squash before flipping ready.** Builder squashes the persona-prose commits before Reviewer's DONE triggers `gh pr ready`. Implementation commits stay atomic; prose commits collapse into one `chore(<id>): pipeline artifacts`. Squash at flip time, not before — Researcher's retro still needs the per-phase history to extract cost signals.
 
@@ -98,16 +100,17 @@ else
 fi
 ```
 
-In A/B mode the PR stays draft so the run is replayable; the harness compares cost signals across replays without `gh pr merge` destroying the comparison. Outside A/B mode the human still owns `gh pr merge` — pipeline stops at "ready PR with green CI", same boundary as the prior `/ship` skill.
+In A/B mode the PR stays draft so the run is replayable; the harness compares cost signals across replays without `gh pr merge` destroying the comparison. Outside A/B mode the human still owns `gh pr merge` — pipeline stops at "ready PR with green local verify" (or "green CI" for `gate: ci-required` stories).
 
-### CI failure handling (replaces /verify retry loop)
+### Post-push CI handling
 
-If CI is red after a Builder push:
+Phase 4 advances on green local verify; CI runs in parallel.
 
-1. Builder pulls the failure log via `gh pr checks <pr-number>`.
-2. Builder fixes locally; runs `bun run check && bun run lint && bun run test` until green.
-3. Pushes again. CI re-runs.
-4. Max 3 push series. After 3, mark `blocked` with reason `ci-red-after-3-fixes`.
+- `gate: local-green`: ready-flip does not wait on CI. If CI goes red after merge, surface for revert or follow-up — do not silently retry.
+- `gate: ci-required`: Reviewer holds the ready-flip until CI is green. If CI is red:
+  1. Builder pulls the failure log via `gh pr checks <pr-number>`.
+  2. Builder reproduces with `bun run verify`. If local is green and CI is red on the same SHA, lint-config drift is the root — fix the parity, not the symptom.
+  3. Pushes again; max 3 push series. After 3, mark `blocked` with reason `ci-red-after-3-fixes`.
 
 Then dispatch the persona sessions below, in order. Update `currentStep` in the progress file before each persona dispatch.
 
@@ -120,7 +123,7 @@ Then dispatch the persona sessions below, in order. Update `currentStep` in the 
 | 3 | **builder** | medium | `/write-tests` → `/write-code` | TDD red then green. Must pass `bun run verify` before pushing. No broken code reaches the reviewer. |
 | 4 | **reviewer** | high | `/review` | Same reviewer from Phase 2 (warm on design/arch). 6 lenses: 3 positive (architecture, design, security) + 3 negative (adversarial, simplification, slop) + AC audit. Builder applies fixes. |
 | 5 | **Explore** | low | `/retro` | Fresh-context retro with cost signals. Built-in Explore agent, not a custom persona. |
-| — | scripts | — | CI + PR | `bun run verify` runs as CI on every push. Draft PR opened at worktree setup; `gh pr ready` flips on Reviewer's DONE verdict. |
+| — | scripts | — | CI + PR | `bun run verify --raw` runs as CI on every push. Draft PR opens at worktree setup; `gh pr ready` flips on Reviewer's DONE + green local verify (or green CI for `gate: ci-required`). |
 
 **Durable agent sessions per story: 3** (designer, reviewer, builder). Plus Explore agent for retro. Plus scripts.
 
