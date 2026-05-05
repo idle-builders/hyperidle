@@ -18,7 +18,7 @@
  */
 import { EmptyState, ErrorState, SkeletonList, ThreadShell } from "@hyperidle/design-system";
 import type { ArtifactRef, ArtifactViewShape } from "@hyperidle/shared";
-import { type JSX, type ReactNode, useCallback } from "react";
+import { type JSX, type ReactNode, useCallback, useContext } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useThreadDetail } from "../hooks/useThreadDetail";
 import {
@@ -29,6 +29,7 @@ import {
 	type TextDiffData,
 	type VisualComparisonData,
 } from "../shell/ArtifactView";
+import { ToastContext } from "../shell/ToastRegion";
 
 // ---------------------------------------------------------------------------
 // Artifact slot resolver (carried from ConversationsReview.tsx unchanged)
@@ -98,23 +99,63 @@ function resolveArtifactSlot(ref: ArtifactRef): ReactNode {
 // Detail sub-component (fetches + renders States B–E)
 // ---------------------------------------------------------------------------
 
+// L7 contract carried forward into L9: classified failure messages so
+// RichMessageCard's error row shows actionable copy; async-ack toast on
+// non-resolving commits. See @lore on onAppend below.
+const ASYNC_ACK_COPY = "Response recorded — agent will pick it up on next session.";
+
+function classifyHttpError(status: number): string {
+	if (status >= 500) {
+		return "Server couldn't record this response. Try again?";
+	}
+	return `Couldn't record response (HTTP ${status}).`;
+}
+
 function ConversationsDetail({ threadId }: { threadId: string }): JSX.Element {
 	const { status, data, error, retry } = useThreadDetail(threadId);
+	// @lore L9: read ToastContext directly (not useToast) so the page renders
+	// in unit tests / Storybook without a <ToastRegion> ancestor. Production
+	// always has the provider via AppShell. When absent, async-ack falls back
+	// silently — the response still commits, the toast just doesn't fire.
+	const toast = useContext(ToastContext);
 
 	const onAppend = useCallback(
 		async (input: { type: string; payload: unknown; clientKey: string }): Promise<void> => {
 			if (!data) return;
+			const priorResolvedAt = data.thread.resolvedAt ?? null;
 			const res = await fetch(`/api/threads/${data.thread.id}/messages`, {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify(input),
 			});
-			if (res.ok) {
-				// Retry to refresh thread state after append.
-				retry();
+			if (!res.ok) {
+				// @lore L9: throw so ThreadShell's RichMessageCard surfaces the error
+				// (phase: "error") with a Retry control. The L7 thread-response e2e
+				// asserts on this exact text via classifyHttpError — keep them in sync.
+				throw new Error(classifyHttpError(res.status));
+			}
+			// Inspect commit response to decide async-ack toast (L7 plan §4.5).
+			let nextResolvedAt: string | null = null;
+			let committedType: string | undefined;
+			try {
+				const body = (await res.clone().json()) as {
+					thread?: { resolvedAt?: string | null };
+					message?: { type?: string };
+				};
+				nextResolvedAt = body?.thread?.resolvedAt ?? null;
+				committedType = body?.message?.type;
+			} catch {
+				// no body — treat as sync; refresh fetches the truth.
+			}
+			retry();
+			// Async-ack: fire toast when commit was NOT a head-resolving event.
+			const flippedResolved = priorResolvedAt === null && typeof nextResolvedAt === "string";
+			const isHeadResolving = flippedResolved || committedType === "verdict";
+			if (!isHeadResolving) {
+				toast?.showToast(ASYNC_ACK_COPY);
 			}
 		},
-		[data, retry],
+		[data, retry, toast],
 	);
 
 	if (status === "loading") {

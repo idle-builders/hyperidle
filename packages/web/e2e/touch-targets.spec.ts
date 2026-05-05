@@ -228,7 +228,7 @@ test.describe("K8 — Touch-target audit at mobile viewport (≤ 1024px)", () =>
 			// audit doesn't briefly catch a transient ErrorState retry button
 			// (a tier-2 design-system primitive whose K8-compliance fix is
 			// tracked separately as a chrome-refactor follow-on).
-			if (route.path.startsWith("/conversations/")) {
+			if (route.path.startsWith("/conversations")) {
 				await page.route("**/api/threads?**", async (r) => {
 					await r.fulfill({
 						status: 200,
