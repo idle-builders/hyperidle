@@ -191,15 +191,18 @@ The breadcrumb is **not** a multi-segment trail (`Work / Portfolio / Product`) �
 **Decision.** When the bets fetch resolves with zero `committed` | `in_progress` rows for the product, the bets region renders `EmptyState`:
 
 - **Title:** "No active bets"
-- **Description:** "This product team has no bets in flight. Shape a pitch on the team's Canvas to commit one."
+- **Description:** "This product team has no bets in flight."
 - `data-testid="product-active-bets-empty"`
 
 The composition uses the existing `EmptyState` component as it appears on the Portfolio page. No fake bet card. No fallback shipped bet. Zero is zero.
 
+**Phase 2 critique fix.** Earlier draft copy read "Shape a pitch on the team's Canvas to commit one." The Product page does NOT mount a Canvas — pitch authorship is L17's territory and lives on a different surface. Naming an affordance that does not exist on this page would mislead the user. The corrected copy is descriptive only: it tells the user *what* the state is, not what to do next, because the next-action surface is not in L13's scope.
+
 **Did we consider?**
-- *A CTA button "Shape a Pitch" wired into the empty state.* Rejected for L13 scope — pitch authorship is L17's territory. The copy nudges toward the existing PitchSelector flow without minting a new affordance.
+- *A CTA button "Shape a Pitch" wired into the empty state.* Rejected for L13 scope — pitch authorship is L17's territory. No CTA is rendered until L17 places the affordance on a real surface.
 - *A skeleton row to fake activity.* Rejected — fakes erode trust (the v3 trust principle: surface decisions clearly).
 - *Leave the region absent (don't render anything).* Rejected — the user needs the negative confirmation. "No bets" is information.
+- *Copy that names the affordance ("Shape a pitch on the team's Canvas").* Rejected — that affordance does not exist on the Product page surface. Naming it would lie about the layout.
 
 The roster region's empty-state ("Roster not configured") and the burn-vs-cap region's empty-state ("Cost cap not set") follow the same pattern. They are unlikely in production but are specified so the page never falls back to skeleton or `undefined`.
 
