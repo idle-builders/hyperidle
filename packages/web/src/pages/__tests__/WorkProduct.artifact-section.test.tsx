@@ -14,7 +14,8 @@ import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { WorkProduct } from "../../pages/WorkProduct";
 
-// Mock ArtifactSection to capture props
+// Mock ArtifactSection to capture props.
+// useArtifactOpen must also be exported since WorkProductLoaded calls it.
 vi.mock("../../components/ArtifactSection", () => ({
 	ArtifactSection: ({
 		filter,
@@ -38,6 +39,7 @@ vi.mock("../../components/ArtifactSection", () => ({
 			ArtifactSection
 		</div>
 	),
+	useArtifactOpen: () => vi.fn(),
 }));
 
 const MOCK_PRODUCT: ProductDetail = {

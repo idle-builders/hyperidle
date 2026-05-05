@@ -22,7 +22,8 @@ vi.mock("../../hooks/useHostThread", () => ({
 	})),
 }));
 
-// Mock ArtifactSection to capture props
+// Mock ArtifactSection to capture props.
+// useArtifactOpen must also be exported since TaskSheet calls it.
 vi.mock("../../components/ArtifactSection", () => ({
 	ArtifactSection: ({
 		filter,
@@ -46,6 +47,7 @@ vi.mock("../../components/ArtifactSection", () => ({
 			ArtifactSection
 		</div>
 	),
+	useArtifactOpen: () => vi.fn(),
 }));
 
 const MOCK_TASK: KanbanTask = {

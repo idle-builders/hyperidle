@@ -1,0 +1,218 @@
+/**
+ * ArtifactSection — shared section wrapper for the artifact view family.
+ *
+ * Renders artifacts fetched from useArtifacts in one of three layouts:
+ *  - "gallery": ArtifactGalleryCard grid (WorkPortfolio)
+ *  - "stack":   ArtifactStackItem list (WorkProduct, WorkBet)
+ *  - "single":  ArtifactPreview for items[0] (TaskSheet)
+ *
+ * State machine:
+ *  - loading  → SkeletonCard(s) or SkeletonList
+ *  - error    → ErrorState
+ *  - empty + heading  → EmptyState
+ *  - empty without heading → null (TaskSheet pattern — no chrome when no artifact)
+ *  - populated → layout-specific rendering
+ *
+ * Overflow: when nextCursor !== null, a non-interactive <span> "View all" is
+ * rendered. It is NOT a link — the target page doesn't exist yet.
+ *
+ * @lore L12 (B-3): "View all" is deliberately a non-interactive <span>, NOT
+ * an <a> or <button>. The target page does not exist at the time of this
+ * workpackage. Using a link would be a dead link; using a button would imply
+ * an action. The span is a visual affordance only. A TODO marks the upgrade
+ * point.
+ *
+ * @lore L12 (B-4): In "single" layout, items[0] access is guarded by the
+ * empty check above the layout branch. If we reach the "single" branch,
+ * items.length >= 1 is guaranteed.
+ */
+
+import {
+	ArtifactGalleryCard,
+	ArtifactPreview,
+	ArtifactStackItem,
+	EmptyState,
+	ErrorState,
+	SkeletonCard,
+	SkeletonList,
+} from "@hyperidle/design-system";
+import type { ArtifactFilterAxis, ArtifactQuery } from "@hyperidle/shared";
+import type { JSX } from "react";
+import { useNavigate } from "react-router-dom";
+import { useArtifacts } from "../hooks/useArtifacts.js";
+
+export type ArtifactSectionLayout = "gallery" | "stack" | "single";
+
+export interface ArtifactSectionProps {
+	filter: ArtifactFilterAxis;
+	layout: ArtifactSectionLayout;
+	limit?: number;
+	heading?: string;
+	/**
+	 * Called when the user opens an artifact. If not provided, ArtifactSection
+	 * navigates to /artifacts/:id using useNavigate internally.
+	 *
+	 * @lore L12: onOpen is optional so callers (like TaskSheet) don't need to
+	 * hold a useNavigate reference — the default behavior is navigate-to-permalink.
+	 * Callers that override onOpen can intercept navigation (e.g. for analytics).
+	 */
+	onOpen?: (artifactId: string) => void;
+}
+
+/** Number of skeletons to show per layout while loading. */
+const SKELETON_COUNT: Record<ArtifactSectionLayout, number> = {
+	gallery: 3,
+	stack: 2,
+	single: 1,
+};
+
+export function ArtifactSection({
+	filter,
+	layout,
+	limit,
+	heading,
+	onOpen,
+}: ArtifactSectionProps): JSX.Element | null {
+	const navigate = useNavigate();
+	const query: Pick<ArtifactQuery, "limit"> | undefined =
+		limit !== undefined ? { limit } : undefined;
+	const { data, error, isLoading } = useArtifacts(filter, query);
+
+	// Default open handler: navigate to /artifacts/:id.
+	const handleOpen = onOpen ?? ((id: string) => navigate(`/artifacts/${encodeURIComponent(id)}`));
+
+	// ── Loading ────────────────────────────────────────────────────────────────
+
+	if (isLoading) {
+		return (
+			<section data-testid="artifact-section-container" aria-label={heading ?? "Artifacts"}>
+				{heading && (
+					<h2 className="text-xs font-heading font-semibold uppercase tracking-wider text-[var(--text-lo)] mb-2">
+						{heading}
+					</h2>
+				)}
+				{layout === "stack" ? (
+					<SkeletonList rows={SKELETON_COUNT.stack} ariaLabel="Loading artifacts" />
+				) : (
+					<div
+						className={
+							layout === "gallery"
+								? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-[var(--density-gap)]"
+								: undefined
+						}
+					>
+						{Array.from({ length: SKELETON_COUNT[layout] }).map((_, i) => (
+							// biome-ignore lint/suspicious/noArrayIndexKey: fixed-count skeleton placeholders
+							<SkeletonCard key={i} ariaLabel="Loading artifact" />
+						))}
+					</div>
+				)}
+			</section>
+		);
+	}
+
+	// ── Error ──────────────────────────────────────────────────────────────────
+
+	if (error !== null) {
+		return (
+			<section data-testid="artifact-section-container" aria-label={heading ?? "Artifacts"}>
+				{heading && (
+					<h2 className="text-xs font-heading font-semibold uppercase tracking-wider text-[var(--text-lo)] mb-2">
+						{heading}
+					</h2>
+				)}
+				<ErrorState
+					title="Failed to load artifacts"
+					description="An error occurred while loading artifacts."
+				/>
+			</section>
+		);
+	}
+
+	// ── Empty ──────────────────────────────────────────────────────────────────
+
+	if (data === null || data.items.length === 0) {
+		// Without heading: render null (TaskSheet / single layout pattern — no chrome).
+		if (!heading) return null;
+
+		return (
+			<section data-testid="artifact-section-container" aria-label={heading}>
+				<h2 className="text-xs font-heading font-semibold uppercase tracking-wider text-[var(--text-lo)] mb-2">
+					{heading}
+				</h2>
+				<EmptyState
+					title="No artifacts yet"
+					description="Artifacts will appear here once agents produce output for this context."
+				/>
+			</section>
+		);
+	}
+
+	// ── Populated ─────────────────────────────────────────────────────────────
+
+	const { items, nextCursor } = data;
+
+	return (
+		<section data-testid="artifact-section-container" aria-label={heading ?? "Artifacts"}>
+			{heading && (
+				<h2 className="text-xs font-heading font-semibold uppercase tracking-wider text-[var(--text-lo)] mb-2">
+					{heading}
+				</h2>
+			)}
+
+			{layout === "gallery" && (
+				<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-[var(--density-gap)]">
+					{items.map((artifact) => (
+						<ArtifactGalleryCard
+							key={artifact.id}
+							data={artifact}
+							onOpen={() => handleOpen(artifact.id)}
+						/>
+					))}
+				</div>
+			)}
+
+			{layout === "stack" && (
+				<div className="flex flex-col">
+					{items.map((artifact) => (
+						<ArtifactStackItem
+							key={artifact.id}
+							data={artifact}
+							onOpen={() => handleOpen(artifact.id)}
+						/>
+					))}
+				</div>
+			)}
+
+			{layout === "single" && (
+				// @lore L12 (B-4): items[0] access is guarded by the empty check above.
+				// If we reach this branch, items.length >= 1 is guaranteed.
+				<ArtifactPreview data={items[0]} />
+			)}
+
+			{/* @lore L12 (B-3): non-interactive span — the target page doesn't exist yet.
+			    TODO: replace with a <Link> once the full artifact list page ships. */}
+			{nextCursor !== null && (
+				<span
+					data-testid="artifact-section-view-all"
+					className="text-xs text-[var(--text-lo)] mt-2 inline-block"
+				>
+					View all
+				</span>
+			)}
+		</section>
+	);
+}
+
+/**
+ * useArtifactOpen — returns an onOpen callback that navigates to /artifacts/:id.
+ *
+ * @lore L12: all onOpen callbacks navigate to /artifacts/:id using useNavigate.
+ * This hook is used by each surface to avoid duplicating the navigate pattern.
+ */
+export function useArtifactOpen(): (artifactId: string) => void {
+	const navigate = useNavigate();
+	return (artifactId: string): void => {
+		navigate(`/artifacts/${encodeURIComponent(artifactId)}`);
+	};
+}

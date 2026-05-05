@@ -32,7 +32,8 @@ vi.mock("../../components/ArtifactThreadsSummary", () => ({
 	),
 }));
 
-// Mock ArtifactSection to capture props
+// Mock ArtifactSection to capture props.
+// useArtifactOpen must also be exported since WorkBet calls it.
 vi.mock("../../components/ArtifactSection", () => ({
 	ArtifactSection: ({
 		filter,
@@ -56,6 +57,7 @@ vi.mock("../../components/ArtifactSection", () => ({
 			ArtifactSection
 		</div>
 	),
+	useArtifactOpen: () => vi.fn(),
 }));
 
 function renderBet(id = "b1"): ReturnType<typeof render> {

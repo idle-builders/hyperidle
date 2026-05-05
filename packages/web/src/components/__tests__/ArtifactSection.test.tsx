@@ -186,10 +186,10 @@ describe("ArtifactSection (L12)", () => {
 			isLoading: false,
 		});
 
-		renderSection({ layout: "gallery" });
+		const { container } = renderSection({ layout: "gallery" });
 
-		// ArtifactGalleryCard adds data-ds-component="ArtifactGalleryCard" via dsProps
-		const cards = screen.getAllByRole("button", { name: /Build feature/i });
+		// ArtifactGalleryCard adds data-ds-component="ArtifactGalleryCard" via dsProps (B-2 fix)
+		const cards = container.querySelectorAll("[data-ds-component='ArtifactGalleryCard']");
 		expect(cards).toHaveLength(2);
 	});
 
@@ -272,18 +272,26 @@ describe("ArtifactSection (L12)", () => {
 
 	// ── onOpen / navigation ───────────────────────────────────────────────────
 
-	it("onOpen callback navigates to /artifacts/:id via useNavigate", async () => {
+	it("navigates to /artifacts/:id via internal useNavigate when onOpen is not provided", async () => {
 		vi.mocked(useArtifacts).mockReturnValue({
 			data: { items: [MOCK_ARTIFACT], nextCursor: null },
 			error: null,
 			isLoading: false,
 		});
 
-		renderSection({ layout: "gallery" });
+		// Do not pass onOpen — ArtifactSection uses its internal navigate fallback.
+		const { container } = render(
+			<MemoryRouter>
+				<ArtifactSection filter={{ axis: "portfolio" }} layout="gallery" />
+			</MemoryRouter>,
+		);
 
-		const card = screen.getByRole("button", { name: /Build feature X/i });
-		await userEvent.click(card);
+		// ArtifactGalleryCard aria-label = artifactDisplayTitle = file path for code_diff
+		const card = container.querySelector("[data-ds-component='ArtifactGalleryCard']");
+		expect(card).not.toBeNull();
+		await userEvent.click(card as Element);
 
+		// useNavigate mock is captured at module level as mockNavigate
 		expect(mockNavigate).toHaveBeenCalledWith("/artifacts/art-l12-1");
 	});
 

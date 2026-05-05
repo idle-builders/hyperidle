@@ -27,6 +27,7 @@ import {
 import type { BetCardSummary, ProductDetail } from "@hyperidle/shared";
 import type { JSX } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
+import { ArtifactSection, useArtifactOpen } from "../components/ArtifactSection.js";
 import { useProduct } from "../hooks/useProduct";
 
 export interface WorkProductProps {
@@ -124,6 +125,7 @@ export function WorkProduct({
 function WorkProductLoaded({ data }: { data: ProductDetail }): JSX.Element {
 	const navigate = useNavigate();
 	const { product, roster, burn, activeBets } = data;
+	const onOpenArtifact = useArtifactOpen();
 
 	// D2: Resolve lead display name from roster instead of showing the agent id.
 	const leadName =
@@ -260,8 +262,14 @@ function WorkProductLoaded({ data }: { data: ProductDetail }): JSX.Element {
 				)}
 			</section>
 
-			{/* Artifact slot — placeholder until artifact aggregation lands */}
-			<section data-testid="product-artifact-slot" aria-label="Artifact aggregation" />
+			{/* L12: Artifact stack — product axis, limit=10, replaces placeholder */}
+			<ArtifactSection
+				filter={{ axis: "product", productId: product.id }}
+				layout="stack"
+				limit={10}
+				heading="Artifacts"
+				onOpen={onOpenArtifact}
+			/>
 		</div>
 	);
 }

@@ -11,8 +11,9 @@
  * @lore L12 (B-2): E2E selectors use data-ds-component="ArtifactGalleryCard"
  * (NOT data-component). The dsProps() helper sets data-ds-component per ds-attrs.ts.
  */
-import { expect, type Route, test } from "@playwright/test";
+
 import type { Page } from "@playwright/test";
+import { expect, type Route, test } from "@playwright/test";
 
 // Canonical Artifact fixtures — match ArtifactPage shape
 const ARTIFACT_FIXTURES = [
@@ -54,7 +55,10 @@ const ARTIFACT_PAGE_RESPONSE = { items: ARTIFACT_FIXTURES, nextCursor: null };
 const ARTIFACT_PAGE_WITH_CURSOR = { items: ARTIFACT_FIXTURES, nextCursor: "next-page-cursor" };
 const SINGLE_ARTIFACT = { items: [ARTIFACT_FIXTURES[0]], nextCursor: null };
 
-async function mockArtifactsOnPage(page: Page, response: typeof ARTIFACT_PAGE_RESPONSE): Promise<void> {
+async function mockArtifactsOnPage(
+	page: Page,
+	response: typeof ARTIFACT_PAGE_RESPONSE,
+): Promise<void> {
 	await page.route("**/api/artifacts?**", async (route: Route) => {
 		await route.fulfill({
 			status: 200,
@@ -83,9 +87,7 @@ test.describe("L12 — Artifact surfaces on Work pages", () => {
 		await page.waitForSelector("[data-testid='work-portfolio-page']");
 
 		// ArtifactSection renders gallery cards
-		await expect(
-			page.locator("[data-ds-component='ArtifactGalleryCard']").first(),
-		).toBeVisible();
+		await expect(page.locator("[data-ds-component='ArtifactGalleryCard']").first()).toBeVisible();
 	});
 
 	test("WorkPortfolio: 'Artifacts' heading renders above the gallery", async ({ page }) => {
@@ -105,7 +107,9 @@ test.describe("L12 — Artifact surfaces on Work pages", () => {
 		await expect(galleryCards).toHaveCount(0);
 	});
 
-	test("WorkPortfolio: 'View all' is a non-interactive span when nextCursor exists", async ({ page }) => {
+	test("WorkPortfolio: 'View all' is a non-interactive span when nextCursor exists", async ({
+		page,
+	}) => {
 		await mockArtifactsOnPage(page, ARTIFACT_PAGE_WITH_CURSOR);
 		await page.goto("/work/portfolio");
 		await page.waitForSelector("[data-testid='work-portfolio-page']");
@@ -148,9 +152,7 @@ test.describe("L12 — Artifact surfaces on Work pages", () => {
 		await page.goto("/work/product/prod-e2e");
 		await page.waitForSelector("[data-testid='work-product-page']");
 
-		await expect(
-			page.locator("[data-ds-component='ArtifactStackItem']").first(),
-		).toBeVisible();
+		await expect(page.locator("[data-ds-component='ArtifactStackItem']").first()).toBeVisible();
 	});
 
 	// ── WorkBet ───────────────────────────────────────────────────────────────
@@ -192,9 +194,7 @@ test.describe("L12 — Artifact surfaces on Work pages", () => {
 		await page.goto("/work/bet/bet-e2e");
 		await page.waitForSelector("[data-testid='work-bet-page']");
 
-		await expect(
-			page.locator("[data-ds-component='ArtifactStackItem']").first(),
-		).toBeVisible();
+		await expect(page.locator("[data-ds-component='ArtifactStackItem']").first()).toBeVisible();
 	});
 
 	test("WorkBet: ArtifactSection appears BEFORE thread section in DOM", async ({ page }) => {
@@ -271,7 +271,15 @@ test.describe("L12 — Artifact surfaces on Work pages", () => {
 					appetite: "1 week",
 					progress: { done: 0, total: 1 },
 					pitch: "# Test",
-					tasks: [{ id: "task-ts-1", title: "Task for sheet", state: "in_progress", owner: "Dev", cost: "$1.00" }],
+					tasks: [
+						{
+							id: "task-ts-1",
+							title: "Task for sheet",
+							state: "in_progress",
+							owner: "Dev",
+							cost: "$1.00",
+						},
+					],
 				}),
 			});
 		});

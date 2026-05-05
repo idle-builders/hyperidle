@@ -1,19 +1,25 @@
 // L3 — single hook for /api/artifacts with axis discriminant.
 // Source: plans/L3/architecture.md §6.5.
+//
+// L12: optional `query` parameter adds limit to the URL.
 
-import type { Artifact, ArtifactFilterAxis, ArtifactPage } from "@hyperidle/shared";
+import type { Artifact, ArtifactFilterAxis, ArtifactPage, ArtifactQuery } from "@hyperidle/shared";
 import { type FetchState, useFetch } from "./useFetch.js";
 
-function buildUrl(filter: ArtifactFilterAxis): string {
+function buildUrl(filter: ArtifactFilterAxis, query?: Pick<ArtifactQuery, "limit">): string {
 	const params = new URLSearchParams({ axis: filter.axis });
 	if (filter.axis === "task") params.set("taskId", filter.taskId);
 	else if (filter.axis === "bet") params.set("betId", filter.betId);
 	else if (filter.axis === "product") params.set("productId", filter.productId);
+	if (query?.limit !== undefined) params.set("limit", String(query.limit));
 	return `/api/artifacts?${params.toString()}`;
 }
 
-export function useArtifacts(filter: ArtifactFilterAxis): FetchState<ArtifactPage> {
-	return useFetch<ArtifactPage>(buildUrl(filter));
+export function useArtifacts(
+	filter: ArtifactFilterAxis,
+	query?: Pick<ArtifactQuery, "limit">,
+): FetchState<ArtifactPage> {
+	return useFetch<ArtifactPage>(buildUrl(filter, query));
 }
 
 export function useArtifact(id: string): FetchState<Artifact> {

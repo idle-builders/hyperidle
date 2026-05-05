@@ -30,6 +30,7 @@ import type { Message } from "@hyperidle/shared";
 import { deriveBlocks, isRedactedPayload } from "@hyperidle/shared";
 import { type JSX, useCallback, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
+import { ArtifactSection, useArtifactOpen } from "../components/ArtifactSection.js";
 import { ArtifactThreadsSummary } from "../components/ArtifactThreadsSummary.js";
 import { useBet } from "../hooks/useBet";
 import { useHostThread } from "../hooks/useHostThread.js";
@@ -185,6 +186,7 @@ const FOUNDER_ID = "u-founder";
 export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JSX.Element {
 	const { betId: routeBetId } = useParams<{ betId: string }>();
 	const navigate = useNavigate();
+	const onOpenArtifact = useArtifactOpen();
 
 	// Only call useBet when there is no override. When overrideBet is provided,
 	// pass undefined so the hook short-circuits to { data: null, loading: false, error: null }.
@@ -448,6 +450,15 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 					</table>
 				</div>
 			)}
+
+			{/* L12 (B-1): ArtifactSection inserted BEFORE HostThreadSection, not between
+			    HostThreadSection and ArtifactThreadsSummary. Bet axis, stack layout, no limit. */}
+			<ArtifactSection
+				filter={{ axis: "bet", betId: bet.id }}
+				layout="stack"
+				heading="Artifacts"
+				onOpen={onOpenArtifact}
+			/>
 
 			{/* L18: Replace hardcoded comment fixture with real thread surface.
 			    prefill carries the blockId so the composer includes it on submit.

@@ -23,6 +23,7 @@
  * have tabIndex) we fall back to document.body silently.
  */
 import { type JSX, useCallback, useEffect, useRef, useState } from "react";
+import { ArtifactSection } from "../components/ArtifactSection.js";
 import { HostThreadSection } from "./HostThreadSection.js";
 import type { KanbanTask } from "./Kanban";
 
@@ -298,6 +299,12 @@ export function TaskSheet({
 					</button>
 				</div>
 				<HostThreadSection hostKind="task" hostId={task.id} inline />
+			</div>
+
+			{/* L12: single artifact preview — no heading so renders null when empty.
+			    onOpen omitted: ArtifactSection navigates to /artifacts/:id internally. */}
+			<div className="px-4 py-2">
+				<ArtifactSection filter={{ axis: "task", taskId: task.id }} layout="single" limit={1} />
 			</div>
 
 			{/* Request section */}

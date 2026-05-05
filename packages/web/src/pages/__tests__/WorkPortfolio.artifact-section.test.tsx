@@ -25,7 +25,8 @@ vi.mock("../../hooks/useArtifacts", () => ({
 	})),
 }));
 
-// Mock ArtifactSection to capture props; prevents DS component complexity
+// Mock ArtifactSection to capture props; prevents DS component complexity.
+// useArtifactOpen must also be exported from the mock since WorkPortfolio calls it.
 vi.mock("../../components/ArtifactSection", () => ({
 	ArtifactSection: ({
 		filter,
@@ -48,6 +49,8 @@ vi.mock("../../components/ArtifactSection", () => ({
 			ArtifactSection
 		</div>
 	),
+	// WorkPortfolio calls useArtifactOpen() — must be present in the mock.
+	useArtifactOpen: () => vi.fn(),
 }));
 
 function renderPortfolio(): ReturnType<typeof render> {
