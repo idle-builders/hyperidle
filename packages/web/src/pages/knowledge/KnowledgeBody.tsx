@@ -14,10 +14,17 @@
  * @lore L23: `slots` is intentionally omitted from <Block /> calls. FU-1
  * (floating-ui wiring) and FU-2 (mobile sheet) are L26 prereqs; the popover is
  * not wired in L23. BlockHandle never renders without gutterLeading.
+ *
+ * @lore L18: `onOpenBlockActions` and `messagesByBlockId` are added to wire the
+ * L18 block popover and inline anchored-message slots. When provided, blocks
+ * become interactive (Space/Enter opens popover) and messages are shown inline
+ * after their anchor block. Unmatched messages render in a catch-all container
+ * at the bottom (same pattern as BetPitch/WorkBet).
  */
 
 import { Block } from "@hyperidle/design-system";
-import { deriveBlocks } from "@hyperidle/shared";
+import type { Message } from "@hyperidle/shared";
+import { deriveBlocks, isRedactedPayload } from "@hyperidle/shared";
 import DOMPurify from "dompurify";
 import { type JSX, useMemo } from "react";
 
@@ -31,6 +38,10 @@ export interface KnowledgeBodyProps {
 	 * The edit-mode preview passes "knowledge-edit-preview".
 	 */
 	testId?: string;
+	/** L18: Called when the user opens a block's actions menu (Space/Enter). */
+	onOpenBlockActions?: (blockId: string) => void;
+	/** L18: Messages grouped by blockId for inline anchored-message slots. */
+	messagesByBlockId?: ReadonlyMap<string, ReadonlyArray<Message>>;
 }
 
 /**
@@ -40,6 +51,30 @@ export interface KnowledgeBodyProps {
 const sanitizeHtml = (raw: string): string => DOMPurify.sanitize(raw);
 
 /**
+ * Inline anchored messages — shown below a block's payload.
+ * @lore L18: same catch-all pattern as BetPitch/WorkBet.
+ */
+function AnchoredMessages({ messages }: { messages: ReadonlyArray<Message> }): JSX.Element | null {
+	if (messages.length === 0) return null;
+	return (
+		<div data-testid="anchored-messages" className="flex flex-col gap-1 mt-1">
+			{messages.map((msg) => {
+				if (msg.type !== "plain") return null;
+				const text = isRedactedPayload(msg.payload) ? "[redacted]" : msg.payload.text;
+				return (
+					<div
+						key={msg.id}
+						className="text-xs text-[var(--text-lo)] px-2 py-1 bg-[var(--surface-2)] rounded"
+					>
+						{text}
+					</div>
+				);
+			})}
+		</div>
+	);
+}
+
+/**
  * KnowledgeBody renders a markdown body as a sequence of Block primitives.
  * Pure render: no state, no effects.
  */
@@ -47,11 +82,26 @@ export function KnowledgeBody({
 	body,
 	hostId,
 	testId = "knowledge-body",
+	onOpenBlockActions,
+	messagesByBlockId,
 }: KnowledgeBodyProps): JSX.Element {
 	const { blocks } = useMemo(
 		() => deriveBlocks(body, { kind: "knowledge_item", id: hostId }),
 		[body, hostId],
 	);
+
+	// Collect messages whose blockId doesn't match any rendered block (orphans).
+	// @lore L18: pitch content may change after a message was posted; show orphans
+	// so they're never silently dropped.
+	const orphanMessages = useMemo((): ReadonlyArray<Message> => {
+		if (!messagesByBlockId) return [];
+		const renderedIds = new Set(blocks.map((b) => b.id));
+		const out: Message[] = [];
+		for (const [blockId, msgs] of messagesByBlockId) {
+			if (!renderedIds.has(blockId)) out.push(...msgs);
+		}
+		return out;
+	}, [messagesByBlockId, blocks]);
 
 	return (
 		<div data-knowledge-body data-testid={testId} className="flex flex-col">
@@ -59,9 +109,24 @@ export function KnowledgeBody({
 				<p className="text-[var(--text-lo)] text-sm m-0">(no content yet)</p>
 			) : (
 				blocks.map((block) => (
-					<Block key={block.id} id={block.id} payload={block.payload} sanitizeHtml={sanitizeHtml} />
+					<Block
+						key={block.id}
+						id={block.id}
+						payload={block.payload}
+						sanitizeHtml={sanitizeHtml}
+						onOpenActions={
+							onOpenBlockActions !== undefined ? () => onOpenBlockActions(block.id) : undefined
+						}
+						slots={{
+							inlineAfterPayload: messagesByBlockId ? (
+								<AnchoredMessages messages={messagesByBlockId.get(block.id) ?? []} />
+							) : undefined,
+						}}
+					/>
 				))
 			)}
+			{/* Catch-all: anchored messages whose block no longer exists in the body */}
+			<AnchoredMessages messages={orphanMessages} />
 		</div>
 	);
 }

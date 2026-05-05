@@ -11,6 +11,7 @@
  * Forbidden importers: all other production source files in packages/web/src/.
  */
 
+// @lore L18: BetComment type is deprecated; BetDetail.comments field removed.
 import type { BetDetail } from "../../types/bet";
 
 export const MOCK_BETS: Record<string, BetDetail> = {
@@ -56,18 +57,6 @@ Migrate to JWT with refresh rotation.
 				cost: "$6.50",
 			},
 		],
-		comments: [
-			{
-				id: "c1",
-				author: "CEO",
-				body: "Prioritise the login path; signup can follow.",
-			},
-			{
-				id: "c2",
-				author: "Dev Agent 1",
-				body: "Refresh rotation works end-to-end in staging.",
-			},
-		],
 	},
 	b2: {
 		id: "b2",
@@ -104,7 +93,6 @@ Replace the grid with a three-column layout driven by user roles.
 				cost: "$1.50",
 			},
 		],
-		comments: [],
 	},
 	/** WithRichPitch story fixture — exercises H1, H2, paragraph, list, code, blockquote. */
 	b_rich: {
@@ -142,7 +130,6 @@ Replace the grid with a three-column layout driven by user roles.
 - Do not redesign the auth flow here.
 `,
 		tasks: [],
-		comments: [],
 	},
 };
 
@@ -156,5 +143,4 @@ export const FALLBACK_BET: BetDetail = {
 	progress: { done: 0, total: 0 },
 	pitch: "",
 	tasks: [],
-	comments: [],
 };
