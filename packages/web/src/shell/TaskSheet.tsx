@@ -78,10 +78,12 @@ export function TaskSheet({
 	task,
 	open,
 	onClose,
-	// @deprecated L18: these three props are no longer used — thread is inline.
+	// @deprecated L18: resolveThreadId and onNavigateToThread are still used by
+	// the "Open thread" affordance (AC §621). postRequest is used for the request
+	// form path.
 	resolveThreadId: ResolveThreadId,
 	postRequest: PostRequest,
-	onNavigateToThread: _onNavigateToThread,
+	onNavigateToThread,
 }: TaskSheetProps): JSX.Element | null {
 	const [selectedIntent, setSelectedIntent] = useState<IntentId | null>(null);
 	const [note, setNote] = useState("");
@@ -186,6 +188,25 @@ export function TaskSheet({
 
 	const intentTemplate = REQUEST_INTENTS.find((i) => i.id === selectedIntent)?.template ?? null;
 
+	/**
+	 * L18/L15: "Open thread" — resolves (or creates) the task thread, then
+	 * navigates to the full thread view in /conversations/chat. AC §621 requires
+	 * this affordance to remain even after the thread is rendered inline.
+	 *
+	 * @lore L18: Uses the deprecated `resolveThreadId` prop (still wired in
+	 * WorkTeam) and `_onNavigateToThread`. Both props are kept for backwards-compat
+	 * specifically for this affordance.
+	 */
+	async function handleOpenThread(): Promise<void> {
+		if (!task) return;
+		try {
+			const threadId = await ResolveThreadId(task.id);
+			onNavigateToThread(threadId);
+		} catch {
+			// Swallow: navigation to thread is best-effort.
+		}
+	}
+
 	async function handleSendRequest(): Promise<void> {
 		if (!intentTemplate || submitting || !task) return;
 
@@ -257,9 +278,22 @@ export function TaskSheet({
 				</div>
 			</div>
 
-			{/* Inline thread — L18: replaces the "Open thread" button */}
+			{/* Inline thread — L18: thread is inline; "Open thread" affordance navigates
+			    to the full thread view (AC §621: the L15 affordance must still work). */}
 			<div className="border-b border-[var(--border-lo)]">
-				<HostThreadSection hostKind="task" hostId={task.id} title="Discussion" inline />
+				<div className="flex items-center justify-between px-4 pt-3 pb-1">
+					<span className="text-xs font-heading uppercase tracking-[0.02em] text-[var(--text-lo)]">
+						Discussion
+					</span>
+					<button
+						type="button"
+						className="btn btn-ghost btn-xs text-xs"
+						onClick={() => void handleOpenThread()}
+					>
+						Open thread
+					</button>
+				</div>
+				<HostThreadSection hostKind="task" hostId={task.id} inline />
 			</div>
 
 			{/* Request section */}

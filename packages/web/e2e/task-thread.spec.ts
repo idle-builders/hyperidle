@@ -51,9 +51,7 @@ function makeThreadDetailResponse(messages: Array<Record<string, unknown>>) {
 }
 
 test.describe("L18 — Task sheet thread surface", () => {
-	test("kanban task → sheet opens → thread renders inline (no Open thread link)", async ({
-		page,
-	}) => {
+	test("kanban task → sheet opens → thread renders inline", async ({ page }) => {
 		const postedMessages: Array<Record<string, unknown>> = [];
 		let postObserved = false;
 		const composedText = "Task thread comment posted inline.";
@@ -116,10 +114,8 @@ test.describe("L18 — Task sheet thread surface", () => {
 		// The task sheet should open
 		await expect(page.getByRole("dialog")).toBeVisible();
 
-		// L18: No "Open thread" button — thread is inline
-		await expect(page.getByRole("button", { name: /open thread/i })).not.toBeVisible();
-
-		// Thread section renders inline in the sheet
+		// L18: Thread section renders inline in the sheet (AC §621: "Open thread" affordance
+		// also present for navigation to conversations view, per L15 compatibility requirement).
 		await expect(page.getByTestId("host-thread-section")).toBeVisible();
 
 		// Post a message

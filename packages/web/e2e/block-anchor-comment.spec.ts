@@ -178,8 +178,18 @@ test.describe("L18 — Block-anchored comment flow", () => {
 		await composer.fill(composedText);
 		await page.getByRole("button", { name: /^send$/i }).click();
 
-		// After posting, the message appears in the chronological thread log
-		await expect(page.getByText(composedText)).toBeVisible();
+		// Wait for the composer to clear — this happens after setComposerText("") in handleSend,
+		// which only runs AFTER the POST to /messages completes. Waiting here ensures postedBlockId
+		// is captured before we assert it.
+		// @lore L18: do NOT assert getByText(composedText) before the composer clears — the text
+		// is also in the filled textarea before clearing, causing the assertion to pass prematurely
+		// while the POST is still in-flight (race condition).
+		await expect(composer).toHaveValue("");
+
+		// After posting, the message appears in the chronological thread log.
+		// Use .first() because the message appears in BOTH the chronological thread log
+		// (host-thread-section) AND the inline anchored slot (anchored-messages).
+		await expect(page.getByText(composedText).first()).toBeVisible();
 
 		// The blockId was forwarded in the POST body
 		expect(postedBlockId).not.toBeNull();
