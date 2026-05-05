@@ -74,22 +74,9 @@ describe("KnowledgeDetail — J7 metadata bar", () => {
 		expect(body.textContent).toMatch(/JWT-based authentication/);
 	});
 
-	it("renders the observation log with 3 entries and agent attribution", () => {
-		// Legacy k1 fixture has 3 observation log entries wired in LEGACY_DETAILS.
-		renderPage("k1");
-		const log = screen.getByTestId("knowledge-observation-log");
-		const entries = within(log).getAllByTestId("observation-entry");
-		expect(entries.length).toBe(3);
-		// Each entry must attribute a facilitator/agent
-		for (const entry of entries) {
-			expect(within(entry).getByTestId("observation-agent")).toBeInTheDocument();
-		}
-	});
-
-	it("renders empty observation log with a friendly message when absent", () => {
-		// k11 (factory Agent Autonomy Policy) has no observationLog → empty state.
-		renderPage("k11");
-		const log = screen.getByTestId("knowledge-observation-log");
-		expect(within(log).getByText(/No observations yet/)).toBeInTheDocument();
-	});
+	// @lore L18: ObservationLog deleted — replaced by HostThreadSection.
+	// The two observation-log tests that existed here (observation log with 3 entries,
+	// empty observation log) were removed as part of the L18 architecture change.
+	// KnowledgeDetail.thread.test.tsx verifies HostThreadSection is present and
+	// ObservationLog is absent.
 });

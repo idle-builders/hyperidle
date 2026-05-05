@@ -7,19 +7,34 @@
  * (c) selecting intent + clicking sends request → inline role="status" "Sent." + onClose after ~800ms
  * (d) error path: postRequest rejects → role="alert" "Couldn't send — try again.", sheet stays open,
  *     selection preserved
- * (e) clicking Open thread calls onNavigateToThread(threadId)
- * (f) Open thread failure: resolveThreadId rejects → role="alert" "Couldn't open thread — try again."
+ * (e) [L18-removed] clicking Open thread → replaced by inline HostThreadSection; see TaskSheet.thread.test.tsx
+ * (f) [L18-removed] Open thread failure → replaced by inline HostThreadSection
  * (g) ESC closes the sheet
  * (h) close-button click closes the sheet
  * (i) focus management: initial focus lands on first radio; Tab loops; Shift-Tab loops; close restores focus
- * (j) Open thread is disabled during submitting (F4)
+ * (j) [L18-removed] Open thread disabled during submitting → Open thread button removed
  * (k) mobile bottom-sheet classes present on dialog element (F3)
+ *
+ * @lore L18: Tests (e), (f), (j) removed — the "Open thread" button was replaced
+ * by an inline HostThreadSection. The sheet width changed from sm:max-w-[360px]
+ * to sm:max-w-[min(640px,90vw)] to accommodate the thread composer.
+ * See TaskSheet.thread.test.tsx for the new L18 thread AC coverage.
  */
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { KanbanTask } from "../shell/Kanban";
 import { TaskSheet } from "../shell/TaskSheet";
+
+// L18: TaskSheet now renders HostThreadSection inline; mock useHostThread to avoid fetch calls.
+vi.mock("../hooks/useHostThread", () => ({
+	useHostThread: vi.fn(() => ({
+		data: null,
+		error: null,
+		isLoading: false,
+		refresh: vi.fn(),
+	})),
+}));
 
 const sampleTask: KanbanTask = {
 	id: "task-abc",
@@ -148,12 +163,16 @@ describe("TaskSheet (L15)", () => {
 	});
 
 	it("(c) appends note text when provided", async () => {
+		// @lore L18: TaskSheet now has two textareas; use placeholder to target the note field.
 		const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime.bind(vi) });
 		const postRequest = vi.fn().mockResolvedValue(undefined);
 		render(<TaskSheet {...makeProps({ postRequest })} />);
 
 		await user.click(screen.getByRole("radio", { name: /move to blocked/i }));
-		await user.type(screen.getByRole("textbox"), "Please expedite this.");
+		await user.type(
+			screen.getByPlaceholderText(/what should the agent know/i),
+			"Please expedite this.",
+		);
 		await user.click(screen.getByRole("button", { name: /send request/i }));
 
 		await waitFor(() => expect(postRequest).toHaveBeenCalledOnce());
@@ -199,38 +218,8 @@ describe("TaskSheet (L15)", () => {
 		expect(onClose).not.toHaveBeenCalled();
 	});
 
-	it("(e) clicking Open thread calls onNavigateToThread with the resolved thread id", async () => {
-		const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime.bind(vi) });
-		const onNavigateToThread = vi.fn();
-		const resolveThreadId = vi.fn().mockResolvedValue(THREAD_ID);
-		render(<TaskSheet {...makeProps({ onNavigateToThread, resolveThreadId })} />);
-
-		await user.click(screen.getByRole("button", { name: /open thread/i }));
-
-		await waitFor(() => {
-			expect(onNavigateToThread).toHaveBeenCalledOnce();
-			expect(onNavigateToThread).toHaveBeenCalledWith(THREAD_ID);
-		});
-	});
-
-	it("(f) Open thread failure: shows role='alert' 'Couldn't open thread — try again.', sheet stays open", async () => {
-		const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime.bind(vi) });
-		const resolveThreadId = vi.fn().mockRejectedValue(new Error("Not found"));
-		const onClose = vi.fn();
-		render(<TaskSheet {...makeProps({ resolveThreadId, onClose })} />);
-
-		await user.click(screen.getByRole("button", { name: /open thread/i }));
-
-		await waitFor(() => {
-			const alertEl = screen.getByRole("alert");
-			expect(alertEl).toBeInTheDocument();
-			expect(alertEl).toHaveTextContent("Couldn't open thread — try again.");
-		});
-
-		// Sheet stays open
-		expect(screen.getByRole("dialog")).toBeInTheDocument();
-		expect(onClose).not.toHaveBeenCalled();
-	});
+	// (e) and (f) removed — L18 replaced Open thread button with HostThreadSection.
+	// See TaskSheet.thread.test.tsx for L18 AC coverage.
 
 	it("(g) pressing ESC closes the sheet", async () => {
 		const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime.bind(vi) });
@@ -264,8 +253,10 @@ describe("TaskSheet (L15)", () => {
 	});
 
 	it("optional note textarea is present", () => {
+		// @lore L18: TaskSheet now renders two textareas — HostThreadSection's composer
+		// ("Write a message…") and the request note textarea. Use placeholder to disambiguate.
 		render(<TaskSheet {...makeProps()} />);
-		const textarea = screen.getByRole("textbox");
+		const textarea = screen.getByPlaceholderText(/what should the agent know/i);
 		expect(textarea).toBeInTheDocument();
 	});
 
@@ -374,32 +365,11 @@ describe("TaskSheet (L15)", () => {
 		expect(dialog.className).toContain("bottom-0");
 		expect(dialog.className).toContain("max-h-[85vh]");
 		// Desktop right-drawer classes (sm: prefix).
+		// @lore L18: Width grew from 360px to min(640px,90vw) to accommodate thread composer.
 		expect(dialog.className).toContain("sm:inset-y-0");
 		expect(dialog.className).toContain("sm:right-0");
-		expect(dialog.className).toContain("sm:max-w-[360px]");
+		expect(dialog.className).toContain("sm:max-w-[min(640px,90vw)]");
 	});
 
-	// ── F4: Open thread disabled during submitting ──────────────────────────
-
-	it("(j) Open thread button is disabled while a request is submitting", async () => {
-		// Use a never-resolving postRequest so we can observe mid-flight state.
-		const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime.bind(vi) });
-		const neverResolve = new Promise<void>(() => {
-			// intentionally never resolves — keeps the sheet in submitting state
-		});
-		const resolveThreadId = vi.fn().mockResolvedValue("thread-123");
-		const postRequest = vi.fn().mockReturnValue(neverResolve);
-
-		render(<TaskSheet {...makeProps({ resolveThreadId, postRequest })} />);
-
-		// Select an intent and click Send — will enter submitting state.
-		await user.click(screen.getByRole("radio", { name: /move to blocked/i }));
-		await user.click(screen.getByRole("button", { name: /send request/i }));
-
-		// While submitting, the Open thread button must be disabled.
-		await waitFor(() => {
-			const openThreadBtn = screen.getByRole("button", { name: /open thread/i });
-			expect(openThreadBtn).toBeDisabled();
-		});
-	});
+	// (j) removed — L18 removed the "Open thread" button (replaced by HostThreadSection).
 });

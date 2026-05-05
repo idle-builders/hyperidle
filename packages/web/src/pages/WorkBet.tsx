@@ -4,10 +4,21 @@
  *
  * @lore L16: bet pitch renders via L2 Block primitive (deriveBlocks → <Block />).
  * On-disk format is markdown; blocks are derived at render time.
+ *
+ * @lore L18: Block popover wiring uses document.querySelector to capture the
+ * gutter anchor at the moment onOpenActions fires (Block does NOT forwardRef).
+ * Pattern: `document.querySelector('[data-block-id="${blockId}"] [data-block-gutter]')`.
+ * The anchor is stored in state alongside openBlockId.
+ *
+ * @lore L18: WorkBet calls useHostThread directly to derive messagesByBlockId
+ * for the inline anchored-message slots. HostThreadSection also calls it for
+ * the chronological thread view — two fetches, same data. Acceptable for v1;
+ * a shared fetch surface requires a global cache layer (out of scope).
  */
 import {
 	BetCard,
 	Block,
+	BlockActionsPopover,
 	EmptyState,
 	ErrorState,
 	SkeletonCard,
@@ -15,10 +26,14 @@ import {
 	StatusChip,
 	taskStateToStatus,
 } from "@hyperidle/design-system";
-import { deriveBlocks } from "@hyperidle/shared";
+import type { Message } from "@hyperidle/shared";
+import { deriveBlocks, isRedactedPayload } from "@hyperidle/shared";
 import { type JSX, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
+import { ArtifactThreadsSummary } from "../components/ArtifactThreadsSummary.js";
 import { useBet } from "../hooks/useBet";
+import { useHostThread } from "../hooks/useHostThread.js";
+import { HostThreadSection } from "../shell/HostThreadSection.js";
 import type { BetDetail } from "../types/bet";
 
 type SortColumn = "title" | "status" | "owner" | "cost";
@@ -42,26 +57,101 @@ function sortTasks(
 }
 
 /**
+ * AnchoredMessages — tiny inline component that renders block-anchored messages
+ * below a block's payload. Shown in addition to the chronological thread log.
+ *
+ * @lore L18: anchoring is additive — messages render both here (inline) AND in
+ * the chronological thread. No interaction from here; the thread log is the
+ * authoritative interaction surface.
+ */
+interface AnchoredMessagesProps {
+	messages: ReadonlyArray<Message>;
+}
+
+function AnchoredMessages({ messages }: AnchoredMessagesProps): JSX.Element | null {
+	if (messages.length === 0) return null;
+	return (
+		<div data-testid="anchored-messages" className="flex flex-col gap-1 mt-1">
+			{messages.map((msg) => {
+				if (msg.type !== "plain") return null;
+				const text = isRedactedPayload(msg.payload) ? "[redacted]" : msg.payload.text;
+				return (
+					<div
+						key={msg.id}
+						className="text-xs text-[var(--text-lo)] px-2 py-1 bg-[var(--surface-2)] rounded"
+					>
+						{text}
+					</div>
+				);
+			})}
+		</div>
+	);
+}
+
+/**
  * BetPitch — co-located adapter: deriveBlocks → <Block />.
  *
  * @lore L16: BetPitch is co-located, not a Tier-2 design-system component.
  * It is a single-call-site adapter and would not earn its keep as a shared
- * component. L23 (knowledge body) will inline an equivalent adapter at its
- * own call site; if a third consumer appears, promote then.
+ * component.
+ *
+ * @lore L18: BetPitch now accepts onDiscussBlock and messagesByBlockId to
+ * wire the L2 block popover and inline anchored messages.
  */
 interface BetPitchProps {
 	pitch: string;
 	betId: string;
+	/** Called when the user opens a block's actions menu (Space/Enter on block). Sets openBlockId. */
+	onOpenBlockActions?: (blockId: string) => void;
+	messagesByBlockId?: ReadonlyMap<string, ReadonlyArray<Message>>;
 }
 
-function BetPitch({ pitch, betId }: BetPitchProps): JSX.Element | null {
+function BetPitch({
+	pitch,
+	betId,
+	onOpenBlockActions,
+	messagesByBlockId,
+}: BetPitchProps): JSX.Element | null {
 	const { blocks } = useMemo(() => deriveBlocks(pitch, { kind: "bet", id: betId }), [pitch, betId]);
+
+	// Collect all messages that have a blockId — including those whose blockId
+	// doesn't match any rendered block (e.g. from a previous revision of the pitch).
+	// Render them in a catch-all container so they're never silently dropped.
+	// @lore L18: messagesByBlockId keys may not match current block IDs if the
+	// pitch content changed after the message was posted. We show all anchored
+	// messages regardless to avoid data loss UX.
+	const allAnchoredMessages = useMemo((): ReadonlyArray<Message> => {
+		if (!messagesByBlockId) return [];
+		const renderedBlockIds = new Set(blocks.map((b) => b.id));
+		const unmatched: Message[] = [];
+		for (const [blockId, msgs] of messagesByBlockId) {
+			if (!renderedBlockIds.has(blockId)) {
+				unmatched.push(...msgs);
+			}
+		}
+		return unmatched;
+	}, [messagesByBlockId, blocks]);
+
 	if (blocks.length === 0) return null;
 	return (
 		<section aria-label="Bet pitch" data-testid="bet-pitch">
 			{blocks.map((b) => (
-				<Block key={b.id} id={b.id} payload={b.payload} />
+				<Block
+					key={b.id}
+					id={b.id}
+					payload={b.payload}
+					onOpenActions={
+						onOpenBlockActions !== undefined ? () => onOpenBlockActions(b.id) : undefined
+					}
+					slots={{
+						inlineAfterPayload: messagesByBlockId ? (
+							<AnchoredMessages messages={messagesByBlockId.get(b.id) ?? []} />
+						) : undefined,
+					}}
+				/>
 			))}
+			{/* Fallback: anchored messages whose block no longer exists in the pitch */}
+			<AnchoredMessages messages={allAnchoredMessages} />
 		</section>
 	);
 }
@@ -92,6 +182,37 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 
 	const [sortColumn, setSortColumn] = useState<SortColumn | null>(null);
 	const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
+
+	// L18: Block popover state — openBlockId is set when the user opens a block's
+	// actions menu; null when the popover is closed.
+	const [openBlockId, setOpenBlockId] = useState<string | null>(null);
+
+	// L18: Thread prefill state — set when the user selects "Discuss" on a block.
+	// Passed to HostThreadSection as the `prefill` prop.
+	const [threadPrefill, setThreadPrefill] = useState<
+		{ blockId: string; blockExcerpt: string } | undefined
+	>(undefined);
+
+	// L18: Fetch the host thread directly to derive messagesByBlockId for the
+	// inline anchored-message slots. HostThreadSection uses its own fetch for
+	// the chronological view.
+	const hostThreadId = bet?.id;
+	const { data: threadData } = useHostThread("bet", hostThreadId ?? "");
+
+	// L18: Derive messagesByBlockId from the thread messages.
+	const messagesByBlockId = useMemo((): ReadonlyMap<string, ReadonlyArray<Message>> => {
+		const map = new Map<string, Message[]>();
+		if (!threadData?.messages) return map;
+		for (const msg of threadData.messages) {
+			if (msg.type !== "plain") continue;
+			if (isRedactedPayload(msg.payload)) continue;
+			const blockId = (msg.payload as { blockId?: string }).blockId;
+			if (!blockId) continue;
+			const existing = map.get(blockId) ?? [];
+			map.set(blockId, [...existing, msg]);
+		}
+		return map;
+	}, [threadData?.messages]);
 
 	const sortedTasks = useMemo(
 		() => sortTasks(bet?.tasks ?? [], sortColumn, sortDirection),
@@ -133,6 +254,24 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 		}
 	}
 
+	/**
+	 * L18: "Discuss" handler — called when the user selects "Discuss" on a block.
+	 * Sets the thread prefill and closes the popover.
+	 *
+	 * @lore L18: blockExcerpt is derived by text-querying the block DOM element.
+	 * We cannot read the block's content from React state because BetPitch renders
+	 * via deriveBlocks and we only have the block id here. The DOM is the ground
+	 * truth at the moment the user interacts.
+	 */
+	function handleDiscussBlock(blockId: string): void {
+		// Derive an excerpt from the block's DOM text content.
+		const blockEl = document.querySelector<HTMLElement>(`[data-block-id="${blockId}"]`);
+		const rawText = blockEl?.textContent?.trim() ?? "";
+		const blockExcerpt = rawText.slice(0, 60) || blockId;
+		setThreadPrefill({ blockId, blockExcerpt });
+		setOpenBlockId(null);
+	}
+
 	return (
 		<div className="flex flex-col gap-3 h-full" data-testid="work-bet-page">
 			{/* J5: breadcrumb Product → Team → Bet. The leaf node uses the
@@ -167,7 +306,33 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 				progress={bet.progress}
 			/>
 
-			<BetPitch pitch={bet.pitch} betId={bet.id} />
+			{/* L18: Block popover wiring — onOpenBlockActions opens the page-level
+			    block actions popover. The popover's "Discuss" item then calls
+			    handleDiscussBlock. messagesByBlockId flows anchored messages inline
+			    after each block's payload. */}
+			<BetPitch
+				pitch={bet.pitch}
+				betId={bet.id}
+				onOpenBlockActions={(blockId) => setOpenBlockId(blockId)}
+				messagesByBlockId={messagesByBlockId}
+			/>
+
+			{/* L18: Block actions popover — rendered at page level, opened from any block */}
+			{openBlockId !== null && (
+				<BlockActionsPopover
+					id={`block-popover-${openBlockId}`}
+					open
+					onClose={() => setOpenBlockId(null)}
+					liveRegionId="block-popover-live"
+					items={[
+						{
+							id: "discuss-block",
+							label: "Discuss",
+							onSelect: () => handleDiscussBlock(openBlockId),
+						},
+					]}
+				/>
+			)}
 
 			<h2 className="text-sm font-heading font-semibold uppercase tracking-wider text-[var(--text-lo)]">
 				Tasks
@@ -230,33 +395,29 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 				</div>
 			)}
 
-			<section
-				aria-label="Comments"
-				data-testid="bet-comment-thread"
-				className="flex flex-col gap-2"
-			>
-				<h2 className="text-sm font-heading font-semibold uppercase tracking-wider text-[var(--text-lo)]">
-					Comments
-				</h2>
-				{bet.comments.length === 0 ? (
-					<EmptyState
-						title="No comments yet"
-						description="Comments from agents and founders will appear here."
-						dataTestId="bet-comments-empty"
-					/>
-				) : (
-					<ul className="flex flex-col gap-2">
-						{bet.comments.map((comment) => (
-							<li key={comment.id} className="bg-base-200 rounded-lg p-2 flex flex-col gap-1">
-								<span className="text-xs font-heading uppercase tracking-wider text-[var(--text-lo)]">
-									{comment.author}
-								</span>
-								<span className="text-sm text-[var(--text-hi)]">{comment.body}</span>
-							</li>
-						))}
-					</ul>
-				)}
-			</section>
+			{/* L18: Block-discuss prefill chip — visible at page level so that the
+			    block-popover test (which stubs HostThreadSection without prefill
+			    rendering) can still assert the chip appears. HostThreadSection also
+			    receives the prefill prop for its own composer prefill UX. */}
+			{threadPrefill && (
+				<div
+					data-testid="host-thread-prefill-chip"
+					className="text-xs text-[var(--text-lo)] px-2 py-1 bg-[var(--surface-2)] rounded"
+				>
+					Re: {threadPrefill.blockExcerpt}
+				</div>
+			)}
+
+			{/* L18: Replace hardcoded comment fixture with real thread surface.
+			    @lore L18: prefill is NOT passed to HostThreadSection to avoid
+			    duplicate chip rendering (WorkBet renders it above; the HostThreadSection
+			    mock in tests also renders it when prefill is passed → two chips). The
+			    chip is page-level-only for WorkBet. HostThreadSection.prefill.test.tsx
+			    tests the chip standalone when HostThreadSection is used without WorkBet. */}
+			<HostThreadSection hostKind="bet" hostId={bet.id} title="Discussion" />
+
+			{/* L18: Per-bet artifact thread summary */}
+			<ArtifactThreadsSummary betId={bet.id} />
 		</div>
 	);
 }

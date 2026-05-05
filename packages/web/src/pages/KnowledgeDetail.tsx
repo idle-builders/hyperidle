@@ -1,4 +1,9 @@
-import { knowledgeStatusToStatus, StatusChip, Tag } from "@hyperidle/design-system";
+import {
+	BlockActionsPopover,
+	knowledgeStatusToStatus,
+	StatusChip,
+	Tag,
+} from "@hyperidle/design-system";
 /**
  * Knowledge/Detail page (J7) — metadata bar, markdown body, observation log,
  * related-items sidebar. Edit mode is a React state toggle, NOT a route.
@@ -24,8 +29,13 @@ import { knowledgeStatusToStatus, StatusChip, Tag } from "@hyperidle/design-syst
  * The <pre> rendering path is gone; the data remains for the protected tests.
  * Full deletion is deferred to L25 (Save-actually-persists) when the data layer
  * replaces the fixture lookup entirely. See plans/L23/follow-ups.md.
+ *
+ * @lore L18: ObservationLog replaced by HostThreadSection. Block popover wiring
+ * added (same pattern as WorkBet). KnowledgeBody extended with onOpenBlockActions
+ * and messagesByBlockId for inline anchored messages.
  */
-import type { KnowledgeScope, KnowledgeStatus } from "@hyperidle/shared";
+import type { KnowledgeScope, KnowledgeStatus, Message } from "@hyperidle/shared";
+import { isRedactedPayload } from "@hyperidle/shared";
 import { type JSX, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import {
@@ -33,6 +43,8 @@ import {
 	type MockKnowledgeItem,
 	type MockObservationEntry,
 } from "../fixtures/knowledge-data";
+import { useHostThread } from "../hooks/useHostThread.js";
+import { HostThreadSection } from "../shell/HostThreadSection.js";
 import { KnowledgeBody } from "./knowledge/KnowledgeBody";
 
 /**
@@ -213,6 +225,29 @@ function KnowledgeDetailView({ item, legacySource }: KnowledgeDetailViewProps): 
 	const [editing, setEditing] = useState(false);
 	const [draft, setDraft] = useState<string>(initialContent);
 
+	// L18: Block popover state
+	const [openBlockId, setOpenBlockId] = useState<string | null>(null);
+	const [threadPrefill, setThreadPrefill] = useState<
+		{ blockId: string; blockExcerpt: string } | undefined
+	>(undefined);
+
+	// L18: Fetch the host thread for inline anchored messages
+	const { data: threadData } = useHostThread("knowledge_item", item.id);
+
+	const messagesByBlockId = useMemo((): ReadonlyMap<string, ReadonlyArray<Message>> => {
+		const map = new Map<string, Message[]>();
+		if (!threadData?.messages) return map;
+		for (const msg of threadData.messages) {
+			if (msg.type !== "plain") continue;
+			if (isRedactedPayload(msg.payload)) continue;
+			const blockId = (msg.payload as { blockId?: string }).blockId;
+			if (!blockId) continue;
+			const existing = map.get(blockId) ?? [];
+			map.set(blockId, [...existing, msg]);
+		}
+		return map;
+	}, [threadData?.messages]);
+
 	const related = useMemo(() => findRelated(item), [item]);
 
 	function startEdit(): void {
@@ -228,6 +263,18 @@ function KnowledgeDetailView({ item, legacySource }: KnowledgeDetailViewProps): 
 	function saveEdit(): void {
 		setSavedContent(draft);
 		setEditing(false);
+	}
+
+	/**
+	 * L18: "Discuss" handler — closes popover and sets thread prefill.
+	 * @lore L18: same pattern as WorkBet.handleDiscussBlock — DOM query for excerpt.
+	 */
+	function handleDiscussBlock(blockId: string): void {
+		const blockEl = document.querySelector<HTMLElement>(`[data-block-id="${blockId}"]`);
+		const rawText = blockEl?.textContent?.trim() ?? "";
+		const blockExcerpt = rawText.slice(0, 60) || blockId;
+		setThreadPrefill({ blockId, blockExcerpt });
+		setOpenBlockId(null);
 	}
 
 	return (
@@ -268,6 +315,24 @@ function KnowledgeDetailView({ item, legacySource }: KnowledgeDetailViewProps): 
 				</span>
 			</div>
 			{legacySource && <p className="text-xs text-[var(--text-lo)]">{legacySource}</p>}
+
+			{/* L18: Block actions popover */}
+			{openBlockId !== null && (
+				<BlockActionsPopover
+					id={`block-popover-knowledge-${openBlockId}`}
+					open
+					onClose={() => setOpenBlockId(null)}
+					liveRegionId="block-popover-knowledge-live"
+					items={[
+						{
+							id: "discuss-block",
+							label: "Discuss",
+							onSelect: () => handleDiscussBlock(openBlockId),
+						},
+					]}
+				/>
+			)}
+
 			<div className="grid grid-cols-1 lg:grid-cols-[1fr_14rem] gap-4">
 				<div className="flex flex-col gap-3 min-w-0">
 					{editing ? (
@@ -292,57 +357,24 @@ function KnowledgeDetailView({ item, legacySource }: KnowledgeDetailViewProps): 
 							</div>
 						</div>
 					) : (
-						<KnowledgeBody body={savedContent} hostId={item.id} />
+						<KnowledgeBody
+							body={savedContent}
+							hostId={item.id}
+							onOpenBlockActions={(blockId) => setOpenBlockId(blockId)}
+							messagesByBlockId={messagesByBlockId}
+						/>
 					)}
-					<ObservationLog entries={item.observationLog} />
+					{/* L18: Replace ObservationLog with HostThreadSection */}
+					<HostThreadSection
+						hostKind="knowledge_item"
+						hostId={item.id}
+						title="Discussion"
+						prefill={threadPrefill}
+					/>
 				</div>
 				<RelatedSidebar items={related} />
 			</div>
 		</div>
-	);
-}
-
-interface ObservationLogProps {
-	entries?: ReadonlyArray<MockObservationEntry>;
-}
-
-function ObservationLog({ entries = [] }: ObservationLogProps): JSX.Element {
-	const labelCount = `${entries.length} ${entries.length === 1 ? "entry" : "entries"}`;
-	return (
-		<section
-			className="border-t border-[var(--border-subtle)] pt-3"
-			data-testid="knowledge-observation-log"
-			aria-label={`Observation log, ${labelCount}`}
-		>
-			<h2 className="text-xs font-heading font-semibold uppercase tracking-wider text-[var(--text-lo)] mb-2">
-				Observation Log
-			</h2>
-			{entries.length === 0 ? (
-				<p className="text-xs text-[var(--text-lo)]">No observations yet.</p>
-			) : (
-				<ul className="flex flex-col gap-2">
-					{entries.map((entry, idx) => (
-						<li
-							// biome-ignore lint/suspicious/noArrayIndexKey: entries are append-only and positionally stable within a session
-							key={idx}
-							className="flex gap-2 text-sm"
-							data-testid="observation-entry"
-						>
-							<span
-								className="text-xs text-[var(--text-lo)] w-32 shrink-0"
-								data-testid="observation-agent"
-							>
-								{entry.agent}
-							</span>
-							<span className="flex-1">{entry.text}</span>
-							<span className="text-xs text-[var(--text-lo)] whitespace-nowrap">
-								{entry.timestamp}
-							</span>
-						</li>
-					))}
-				</ul>
-			)}
-		</section>
 	);
 }
 

@@ -105,28 +105,35 @@ describe("useHostThread (L18)", () => {
 	});
 
 	it("refresh() triggers a re-fetch of the thread", async () => {
+		// @lore L18: The refresh path triggers up to 5 fetches due to how the
+		// useMemo/useEffect sequencing plays out. When version bumps:
+		//   1. listUrl changes → list fetch #3 fires
+		//   2. detailUrl immediately changes (version bumps, threadId still valid) → detail fetch #4 fires
+		//   3. listState resets to null → threadId becomes null → detailUrl becomes null → fetch #4 cancelled
+		//   4. list fetch #3 resolves → threadId restored → detailUrl restored → detail fetch #5 fires
+		// Fetch #4 is consumed by the mock even though it's cancelled before resolution is used.
+		const updatedMessages = [
+			...MESSAGES_FIXTURE,
+			{
+				id: "msg-002",
+				threadId: THREAD_ID,
+				senderId: "u-founder",
+				type: "plain",
+				payload: { text: "Second message" },
+				clientKey: "ck-002",
+				deletedAt: null,
+				redactedAt: null,
+				resolvedAt: null,
+				createdAt: "2026-05-05T09:02:00Z",
+			},
+		];
 		fetchSpy
-			.mockResolvedValueOnce(makeThreadListResponse([{ id: THREAD_ID }]))
-			.mockResolvedValueOnce(makeThreadDetailResponse(THREAD_FIXTURE, MESSAGES_FIXTURE))
-			// After refresh: same thread but with 2 messages
-			.mockResolvedValueOnce(makeThreadListResponse([{ id: THREAD_ID }]))
-			.mockResolvedValueOnce(
-				makeThreadDetailResponse(THREAD_FIXTURE, [
-					...MESSAGES_FIXTURE,
-					{
-						id: "msg-002",
-						threadId: THREAD_ID,
-						senderId: "u-founder",
-						type: "plain",
-						payload: { text: "Second message" },
-						clientKey: "ck-002",
-						deletedAt: null,
-						redactedAt: null,
-						resolvedAt: null,
-						createdAt: "2026-05-05T09:02:00Z",
-					},
-				]),
-			);
+			.mockResolvedValueOnce(makeThreadListResponse([{ id: THREAD_ID }])) // initial list
+			.mockResolvedValueOnce(makeThreadDetailResponse(THREAD_FIXTURE, MESSAGES_FIXTURE)) // initial detail
+			// After refresh:
+			.mockResolvedValueOnce(makeThreadListResponse([{ id: THREAD_ID }])) // list #3
+			.mockResolvedValueOnce(makeThreadDetailResponse(THREAD_FIXTURE, MESSAGES_FIXTURE)) // detail #4 (cancelled)
+			.mockResolvedValueOnce(makeThreadDetailResponse(THREAD_FIXTURE, updatedMessages)); // detail #5 (final)
 
 		const { result } = renderHook(() => useHostThread("bet", "bet-001"));
 
@@ -141,9 +148,12 @@ describe("useHostThread (L18)", () => {
 			result.current.refresh();
 		});
 
-		await waitFor(() => {
-			expect(result.current.data?.messages).toHaveLength(2);
-		});
+		await waitFor(
+			() => {
+				expect(result.current.data?.messages).toHaveLength(2);
+			},
+			{ timeout: 3000 },
+		);
 	});
 
 	it("returns null when hostId is empty string", async () => {

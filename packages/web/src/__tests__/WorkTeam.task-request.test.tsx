@@ -4,12 +4,26 @@
  * Tests:
  * - Clicking a task card opens the TaskSheet with that task's title
  * - After a request is submitted, the sheet closes on success
+ *
+ * @lore L18: TaskSheet now renders HostThreadSection inline. useHostThread is
+ * mocked here to prevent interference with the fetchSpy-based test flow for
+ * the REQUEST form (which uses the deprecated resolveThreadId/postRequest props).
  */
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { WorkTeam } from "../pages/WorkTeam";
+
+// L18: Mock useHostThread so HostThreadSection doesn't interfere with fetchSpy sequences.
+vi.mock("../hooks/useHostThread", () => ({
+	useHostThread: vi.fn(() => ({
+		data: null,
+		error: null,
+		isLoading: false,
+		refresh: vi.fn(),
+	})),
+}));
 
 function renderPage(): ReturnType<typeof render> {
 	return render(
