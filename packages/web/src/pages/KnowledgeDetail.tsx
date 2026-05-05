@@ -9,17 +9,23 @@ import { knowledgeStatusToStatus, StatusChip, Tag } from "@hyperidle/design-syst
  * sourced from `fixtures/knowledge-data.ts`. When the API lands, swap the
  * lookup for a fetched item and keep the render tree unchanged.
  *
- * @lore J7 markdown: `react-markdown` is not a project dependency. We render
- * the body inside a `<pre>` whose text content is passed through DOMPurify so
- * no inline HTML ever reaches the DOM. This preserves whitespace (AC satisfied)
- * and keeps us out of the dependency-add path while the schema stabilises.
+ * @lore L23: body rendering replaced — the `<pre>` shell (J7 markdown lore)
+ * is gone. `KnowledgeBody` drives both the saved view and the edit preview.
+ * `DOMPurify` is no longer imported here; it lives inside `KnowledgeBody`
+ * as a fixed, non-parametrised sanitiser per architecture.md § 2.
  *
  * @lore J7 edit mode: textarea state is local only — no API call on Save. The
  * persisted body lives in component state; Cancel discards the draft and
  * re-opening Edit shows the last saved value. Refresh resets to the fixture.
+ *
+ * @lore L23 R1: LEGACY_DETAILS constants are kept because the protected
+ * KnowledgeDetail.test.tsx asserts "company" and "belief" string labels that
+ * live only in LEGACY_DETAILS (the fixture k1 uses layer:"L0", kind:"decision").
+ * The <pre> rendering path is gone; the data remains for the protected tests.
+ * Full deletion is deferred to L25 (Save-actually-persists) when the data layer
+ * replaces the fixture lookup entirely. See plans/L23/follow-ups.md.
  */
 import type { KnowledgeScope, KnowledgeStatus } from "@hyperidle/shared";
-import DOMPurify from "dompurify";
 import { type JSX, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import {
@@ -27,6 +33,7 @@ import {
 	type MockKnowledgeItem,
 	type MockObservationEntry,
 } from "../fixtures/knowledge-data";
+import { KnowledgeBody } from "./knowledge/KnowledgeBody";
 
 /**
  * @lore I4 S5: previously a local `knowledgeStatusToChipStatus` switch
@@ -133,14 +140,6 @@ const FALLBACK_DETAIL: DetailItem = {
 function formatConfidence(score: number | undefined): string {
 	if (score === undefined) return "n/a";
 	return `${Math.round(score * 100)}%`;
-}
-
-function sanitize(text: string): string {
-	// @lore J7: DOMPurify on plain text still strips escape sequences that
-	// could form active HTML after a future markdown-to-HTML conversion. Since
-	// we render inside <pre> today the output is already escaped; the sanitize
-	// call is defence-in-depth and keeps us consistent with ArtifactView.
-	return DOMPurify.sanitize(text);
 }
 
 function fromFixture(item: MockKnowledgeItem): DetailItem {
@@ -281,12 +280,7 @@ function KnowledgeDetailView({ item, legacySource }: KnowledgeDetailViewProps): 
 									onChange={(e) => setDraft(e.target.value)}
 									aria-label="Edit knowledge body"
 								/>
-								<pre
-									className="bg-base-200 rounded p-3 text-sm whitespace-pre-wrap overflow-auto"
-									data-testid="knowledge-edit-preview"
-								>
-									{sanitize(draft)}
-								</pre>
+								<KnowledgeBody body={draft} hostId={item.id} testId="knowledge-edit-preview" />
 							</div>
 							<div className="flex items-center gap-2">
 								<button type="button" className="btn btn-xs btn-primary" onClick={saveEdit}>
@@ -298,12 +292,7 @@ function KnowledgeDetailView({ item, legacySource }: KnowledgeDetailViewProps): 
 							</div>
 						</div>
 					) : (
-						<pre
-							className="bg-base-200 rounded p-3 text-sm whitespace-pre-wrap leading-[1.45]"
-							data-testid="knowledge-body"
-						>
-							{sanitize(savedContent || "(no content yet)")}
-						</pre>
+						<KnowledgeBody body={savedContent} hostId={item.id} />
 					)}
 					<ObservationLog entries={item.observationLog} />
 				</div>
