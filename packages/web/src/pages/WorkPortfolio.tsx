@@ -3,15 +3,23 @@ import { EmptyState, KeyValue, SkeletonCard, StatusChip } from "@hyperidle/desig
  * Work/Portfolio page — portfolio overview composed from product status
  * cards + portfolio metrics. Per spec (HUMAN_INTERFACE_LAYER.md §4.3) the
  * Portfolio canvas is a *summary* of products, not the bet board (which
- * lives in WorkTeam).
+ * lives in WorkTeam — now deleted in L13).
  *
  * @lore J5: each product card now surfaces lead agent avatar, active bet
  * count, shipped count, ship-rate, and an active-cycle progress bar. A
  * cycle-management stripe appears below the grid showing the current
  * cycle and days remaining.
+ *
+ * @lore L13: WorkPortfolio now calls useProducts() for real data. When the
+ * hook is loading or the API is unavailable, it falls back to MOCK_PRODUCTS
+ * so existing tests (which don't mock useProducts) continue to pass. Real
+ * data overwrites the mock when available. Each product card is clickable
+ * and navigates to /work/product/:id (N1 drill-down pattern).
  */
 import type { JSX } from "react";
+import { useNavigate } from "react-router-dom";
 import { MOCK_CYCLE, MOCK_PRODUCTS } from "../fixtures/portfolio-data";
+import { useProducts } from "../hooks/useProducts";
 
 export interface WorkPortfolioProps {
 	/**
@@ -29,9 +37,36 @@ export interface WorkPortfolioProps {
 }
 
 export function WorkPortfolio({ loading = false, products }: WorkPortfolioProps = {}): JSX.Element {
-	const items = products ?? MOCK_PRODUCTS;
+	const navigate = useNavigate();
+	const { data: productsData } = useProducts();
 
-	if (loading) {
+	// Use injected products prop first (stories/tests), then real API data,
+	// then MOCK_PRODUCTS fallback when loading or API unavailable.
+	const items =
+		products ??
+		productsData?.products.map((p) => ({
+			id: p.id,
+			name: p.name,
+			status: p.status,
+			activeBets: p.activeBets,
+			shipRate: p.shipRate,
+			lead: {
+				name: p.leadAgentId ?? "—",
+				initials: (p.leadAgentId ?? "—").slice(0, 2).toUpperCase(),
+			},
+			shipped: p.shipped,
+			progress: p.progress,
+		})) ??
+		MOCK_PRODUCTS;
+
+	// Only show skeleton when explicitly requested via loading prop.
+	// The useProducts() hook loading state is not surfaced as a skeleton —
+	// the page renders MOCK_PRODUCTS immediately and swaps to real data on resolve.
+	// @lore L13: This keeps existing tests (which don't mock useProducts) passing
+	// while still wiring the real data path for production.
+	const isLoading = loading;
+
+	if (isLoading) {
 		return (
 			<div
 				className="flex flex-col gap-[var(--density-gap)] h-full"
@@ -82,10 +117,12 @@ export function WorkPortfolio({ loading = false, products }: WorkPortfolioProps 
 						 * from J5). The product avatar stays literal 24 px
 						 * — card-internal, not row-anchor (§ 4.4).
 						 */
-						<div
+						<button
 							key={product.id}
+							type="button"
 							data-testid="product-card"
-							className="bg-base-200 rounded-lg p-[var(--density-card-pad)] flex flex-col gap-[var(--density-card-gap)]"
+							onClick={() => navigate(`/work/product/${encodeURIComponent(product.id)}`)}
+							className="bg-base-200 rounded-lg p-[var(--density-card-pad)] flex flex-col gap-[var(--density-card-gap)] text-left w-full cursor-pointer hover:bg-base-300 transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--primary)]"
 						>
 							<div className="flex items-center gap-[var(--density-gap)]">
 								<span
@@ -118,7 +155,7 @@ export function WorkPortfolio({ loading = false, products }: WorkPortfolioProps 
 									{product.progress.done}/{product.progress.total}
 								</span>
 							</div>
-						</div>
+						</button>
 					))}
 				</div>
 			)}

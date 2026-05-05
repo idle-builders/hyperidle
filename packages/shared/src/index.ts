@@ -89,6 +89,17 @@ export { createLogger, type Logger } from "./logger.js";
 // Server code imports them via "@hyperidle/shared/net" subpath export instead.
 export type { ResolveResult, SanitizeResult, SanitizeUrlOptions } from "./net/ssrf.js";
 export type { ObservabilityEvent } from "./observability/events.js";
+// ── Product primitive (L13) ──
+export type {
+	BetCardSummary,
+	ProductBurn,
+	ProductDetail,
+	ProductListItem,
+	ProductListResponse,
+	ProductStatus,
+	ProductSummary,
+	RosterMember,
+} from "./product.js";
 export {
 	AWS_AKIA_RE,
 	BEARER_TOKEN_RE,

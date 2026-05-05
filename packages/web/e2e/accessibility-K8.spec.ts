@@ -23,7 +23,11 @@ const ROUTES = [
 	{ path: "/conversations/review", selector: "[data-testid='conversations-review-page']" },
 	{ path: "/conversations/chat", selector: "[data-testid='conversations-chat-page']" },
 	{ path: "/work/portfolio", selector: "[data-testid='work-portfolio-page']" },
-	{ path: "/work/team", selector: "[data-testid='work-team-page']" },
+	// @lore L13: /work/team was removed in L13; the route now redirects to
+	// /work/portfolio. We replace it with a product drilldown to keep route
+	// coverage. The /api/products/p1 mock is registered in beforeEach so this
+	// test is hermetic on CI (no real DB needed).
+	{ path: "/work/product/p1", selector: "[data-testid='work-product-page']" },
 	{ path: "/work/bet/b1", selector: "[data-testid='work-bet-page']" },
 	{ path: "/knowledge", selector: "[data-testid='knowledge-list-page']" },
 	{ path: "/knowledge/k1", selector: "[data-testid='knowledge-detail-page']" },
@@ -34,6 +38,8 @@ test.describe("K8 — zero WCAG 2.1 AA violations at mobile viewport", () => {
 
 	// @lore L16: WorkBet calls useBet (real API). Mock /api/bets/b1 so the
 	// bet route is hermetic on CI where no real DB is present.
+	// @lore L13: WorkProduct calls useProduct. Mock /api/products/p1 so the
+	// product drilldown route (added after WorkTeam removal) is also hermetic.
 	test.beforeEach(async ({ page }) => {
 		await page.route("**/api/bets/b1", (route) =>
 			route.fulfill({
@@ -58,6 +64,34 @@ test.describe("K8 — zero WCAG 2.1 AA violations at mobile viewport", () => {
 						},
 					],
 					comments: [],
+				}),
+			}),
+		);
+		await page.route("**/api/products/p1", (route) =>
+			route.fulfill({
+				status: 200,
+				contentType: "application/json",
+				body: JSON.stringify({
+					product: {
+						id: "p1",
+						name: "Alpha",
+						phase: "build",
+						status: "healthy",
+						leadAgentId: "agent-1",
+					},
+					team: { id: "t1", formedAt: "2024-01-01T00:00:00Z", dissolvedAt: null },
+					roster: [{ agentId: "agent-1", name: "Alice", role: "Lead Engineer", isLead: true }],
+					burn: { costActual: 100, costCap: 1000, capacity: 3, activeBets: 1 },
+					activeBets: [
+						{
+							id: "b1",
+							pitchTitle: "User auth flow",
+							appetite: "2 weeks",
+							status: "committed",
+							progressDone: 3,
+							progressTotal: 8,
+						},
+					],
 				}),
 			}),
 		);

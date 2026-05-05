@@ -28,12 +28,18 @@ import {
 } from "@hyperidle/design-system";
 import type { Message } from "@hyperidle/shared";
 import { deriveBlocks, isRedactedPayload } from "@hyperidle/shared";
-import { type JSX, useMemo, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { type JSX, useCallback, useMemo, useState } from "react";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { ArtifactThreadsSummary } from "../components/ArtifactThreadsSummary.js";
 import { useBet } from "../hooks/useBet";
 import { useHostThread } from "../hooks/useHostThread.js";
+import {
+	PLACEHOLDER_AGENT_PARTICIPANT_ID,
+	postRequestMessage,
+	resolveOrCreateTaskThread,
+} from "../services/task-threads";
 import { HostThreadSection } from "../shell/HostThreadSection.js";
+import { TaskSheet } from "../shell/TaskSheet";
 import type { BetDetail } from "../types/bet";
 
 type SortColumn = "title" | "status" | "owner" | "cost";
@@ -171,8 +177,14 @@ export interface WorkBetProps {
 	overrideBet?: BetDetail;
 }
 
+// @lore L13: The "founder" identity used here is the same static fallback used
+// throughout the codebase (see WorkTeam.tsx). A real identity context will
+// replace this when the agent-assignment story lands.
+const FOUNDER_ID = "u-founder";
+
 export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JSX.Element {
 	const { betId: routeBetId } = useParams<{ betId: string }>();
+	const navigate = useNavigate();
 
 	// Only call useBet when there is no override. When overrideBet is provided,
 	// pass undefined so the hook short-circuits to { data: null, loading: false, error: null }.
@@ -182,6 +194,9 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 
 	const [sortColumn, setSortColumn] = useState<SortColumn | null>(null);
 	const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
+
+	// L13: TaskSheet state — selectedTaskId tracks which task row was clicked.
+	const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
 
 	// L18: Block popover state — openBlockId is set when the user opens a block's
 	// actions menu; null when the popover is closed.
@@ -217,6 +232,30 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 	const sortedTasks = useMemo(
 		() => sortTasks(bet?.tasks ?? [], sortColumn, sortDirection),
 		[bet?.tasks, sortColumn, sortDirection],
+	);
+
+	// L13: Derive selectedTask from the bet's task list for TaskSheet.
+	const selectedTask =
+		selectedTaskId !== null ? (bet?.tasks.find((t) => t.id === selectedTaskId) ?? null) : null;
+
+	// L13: TaskSheet callbacks — mirror WorkTeam.tsx patterns.
+	const handleResolveThreadId = useCallback(
+		(taskId: string): Promise<string> =>
+			resolveOrCreateTaskThread(taskId, FOUNDER_ID, PLACEHOLDER_AGENT_PARTICIPANT_ID),
+		[],
+	);
+
+	const handlePostRequest = useCallback(
+		(threadId: string, text: string, clientKey: string): Promise<void> =>
+			postRequestMessage(threadId, text, clientKey),
+		[],
+	);
+
+	const handleNavigateToThread = useCallback(
+		(threadId: string): void => {
+			navigate(`/conversations/chat?thread=${encodeURIComponent(threadId)}`);
+		},
+		[navigate],
 	);
 
 	// Explicit prop loading takes priority (used by Loading story).
@@ -381,7 +420,22 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 						</thead>
 						<tbody>
 							{sortedTasks.map((task) => (
-								<tr key={task.id}>
+								// @lore L13: tr keeps its default table-row role so getAllByRole("cell")
+								// continues to work on td elements. Keyboard accessibility is handled
+								// via tabIndex + onKeyDown without overriding the role.
+								<tr
+									key={task.id}
+									data-testid="bet-task-row"
+									className="cursor-pointer hover:bg-[var(--surface-2)]"
+									onClick={() => setSelectedTaskId(task.id)}
+									onKeyDown={(e) => {
+										if (e.key === "Enter" || e.key === " ") {
+											e.preventDefault();
+											setSelectedTaskId(task.id);
+										}
+									}}
+									tabIndex={0}
+								>
 									<td>{task.title}</td>
 									<td>
 										<StatusChip status={taskStateToStatus(task.state)} />
@@ -411,6 +465,16 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 
 			{/* L18: Per-bet artifact thread summary */}
 			<ArtifactThreadsSummary betId={bet.id} />
+
+			{/* L13: TaskSheet — opens when a task row is clicked */}
+			<TaskSheet
+				task={selectedTask}
+				open={selectedTaskId !== null}
+				onClose={() => setSelectedTaskId(null)}
+				resolveThreadId={handleResolveThreadId}
+				postRequest={handlePostRequest}
+				onNavigateToThread={handleNavigateToThread}
+			/>
 		</div>
 	);
 }
