@@ -146,22 +146,34 @@ Rationale:
 **Spec for B1.**
 
 - New component `ArtifactThreadsSummary` in `packages/web/src/components/`. Density-aware. 19-component budget impact: borderline — see architecture §components for the call.
-- Props: `betId`, list of `{ artifactId, artifactKind, artifactPreviewTitle, threadId | null, messageCount, lastMessageAt | null }`.
+- Props: `betId`, list of `{ artifactId, artifactKind, artifactTitle, threadId | null, messageCount, lastMessageAt | null, lastMessageSnippet | null }`, plus `betHasArtifacts: boolean` so the component can distinguish "no artifacts at all" from "artifacts but no messages".
 - Renders one row per artifact that has at least one message. Artifacts with no thread (or thread but zero messages — initial-creation messages count) collapse out of the list.
-- Each row: artifact-kind tag · title (linked to `/artifacts/:id`) · `<count> messages · <relative-time>`.
+- Each row (revised per F1 — include the snippet): `[kind tag]  [artifact title]  ·  "<first ~80 chars of last plain message>"  ·  <relative-time>`. The snippet is single-line, ellipsised at the row's content edge. Click anywhere on the row navigates to `/artifacts/:id`. The snippet renders as `<span className="text-[var(--text-mid)] italic truncate">"…"</span>` so it reads as quoted speech without competing with the artifact title.
 - Section header `ARTIFACT DISCUSSION` matching the rest of the page's uppercase tracking-wider style.
-- Empty state: section is hidden entirely when no artifact has messages. Don't render an "empty" container — there is nothing to discuss.
+- **Empty-with-artifacts stub (F2):** when the bet has artifacts but none have thread messages, render a single muted line `No artifact discussion yet.` under the section header. This tells the founder "absence is real, not a bug".
+- **No-artifacts case:** if the bet has zero artifacts at all, hide the section entirely (no header, no stub). Different signal — the bet hasn't produced anything yet; an "artifact discussion" section is irrelevant.
+- **Overflow cap (F3):** show top 10 rows, ordered by `lastMessageAt` desc. When more than 10 artifacts have messages, append a `View all (N more) →` link as the last row, navigating to `/artifacts?betId=…` (the existing artifacts list filter, see `packages/server/src/routes/artifacts.ts:200` — query param is `betId`). The 10-cap survives until L12's artifact aggregate absorbs the section.
+- **Loading state:** `SkeletonList rows={3}`.
+- **Error state:** `ErrorState title="Could not load artifact discussion" description={…}` rendered as a single row inside the section.
 
 ---
 
 ## Block-anchored discussion (AC §623)
 
-L2's `BlockActionsPopover` already exposes a closed action set with extensible items. L18 contributes a new action: **"Comment on this block"**. The action ID is `discuss-block`. Selecting it opens the host page's thread composer pre-targeted at this block id (the composer payload includes `{ text, blockId }`). On post, the rendered message in the thread shows a small `Re: <block excerpt>` chip linking to the anchored block. Block messages render inline-after-payload on the host page when present (via `Block`'s existing `slots.inlineAfterPayload`).
+L2's `BlockActionsPopover` already exposes a closed action set with extensible items. L18 contributes a new action with label **"Discuss"** (revised per F4 — short verb phrase matching the popover's existing items like `Copy permalink`, `Delete`). The action ID is `discuss-block`. Selecting it pre-targets the host page's thread composer at this block id (the composer payload includes `{ text, blockId }`). On post, the rendered message in the thread shows a small `Re: <block excerpt>` chip linking to the anchored block. Block messages render inline-after-payload on the host page when present (via `Block`'s existing `slots.inlineAfterPayload`).
+
+**Composer prefill UX (F5).** Selecting `Discuss` on a block performs three things, in order:
+1. The bottom-anchored composer (the same one always visible in `ThreadShell`) is brought into view via `scrollIntoView({ block: "nearest", behavior: "smooth" })`.
+2. The composer renders an `Re: <block-excerpt-or-id-chip>` indicator immediately above the textarea — a small grey chip showing a 6-8 word excerpt of the block payload (or the block id when no excerpt is derivable). The chip carries a × dismiss control that clears the prefill and reverts the post to a plain (non-anchored) message.
+3. The textarea receives focus. The user types and submits; the message lands with `payload.blockId` set. The chip then disappears (next post resets to plain).
+
+The page-level state holding the prefill (`prefillBlockId: BlockId | null`) lives on the host page (e.g. `WorkBet.tsx`), not on `ThreadShell`. `ThreadShell` exposes the prefill via a new optional prop `composerPrefill?: { blockId: BlockId; excerpt: string }`. When set, the chip renders; when null, the composer is plain.
 
 **Important constraints.**
-- The block-anchor is L2's own affordance — L18 only adds an action item to the popover and threads a `blockId` field through the composer-to-message path.
+- The block-anchor is L2's own affordance — L18 contributes one items entry to the popover and threads a `blockId` field through composer → message → renderer.
 - No new message type. The plain message payload extends with an optional `blockId?: BlockId` field. This is a payload-shape addition, not an enum extension — does not violate the closed message-type set in L1 (`docs/human-interface-layer/thread-primitive.md:17`).
 - Bet pitch (L16's blocks-rendered pitch on `WorkBet.tsx`) is the proving ground per AC §629. Knowledge entry body is the second consumer. Both reuse the same code path.
+- a11y: the `Re: <chip>` carries `aria-label="Replying to block: {excerpt}"`; the live region in `BlockActionsPopover` (existing `liveRegionId`) announces "Composer focused, replying to block" on selection. The dismiss × is a `<button>` with `aria-label="Cancel block reply"`.
 
 ---
 
@@ -176,14 +188,24 @@ No new design-system components.
 ## States and a11y
 
 `ThreadShell` already covers empty/loading/error/populated/populated-overflow. `ArtifactThreadsSummary` covers:
-- *Empty (no artifact has a thread yet):* section does not render.
+- *No-artifacts (bet has zero artifacts at all):* section does not render.
+- *Empty-with-artifacts (bet has artifacts but none have messages):* section header renders + the muted line `No artifact discussion yet.` below it. (F2)
 - *Loading:* `SkeletonList rows={3}` (existing component).
 - *Error:* `ErrorState` row inside the section.
-- *Populated:* the listed rows.
+- *Populated (1-10 rows):* the listed rows.
+- *Overflow (more than 10 rows):* the first 10 rows + a final `View all (N more) →` link row. (F3)
 
 Keyboard order on every surface: page tabs → page actions → thread message stream (scrollable, focusable rows) → composer (focusable last). The composer's `<textarea>` is the natural last stop on Tab.
 
 ---
+
+## Round 1 reviewer polish applied
+
+- F1 — `ArtifactThreadsSummary` rows now carry the last-message snippet. Endpoint already returns `lastMessageSnippet`; the design now renders it.
+- F2 — empty-with-artifacts case now shows a `No artifact discussion yet.` stub line under the section header.
+- F3 — top-10 cap on rendered rows + `View all (N more) →` overflow link to `/artifacts?betId=…`.
+- F4 — popover label shortened from `Comment on this block` to `Discuss`; action id remains `discuss-block`.
+- F5 — composer prefill behaviour spelled out: scroll-into-view, `Re: <chip>` indicator with dismiss, focus-textarea, page-level `prefillBlockId` state passed to `ThreadShell` via `composerPrefill?: { blockId, excerpt }`.
 
 ## What this design does NOT decide
 
