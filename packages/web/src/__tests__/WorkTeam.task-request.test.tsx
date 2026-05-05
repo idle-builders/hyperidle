@@ -99,15 +99,11 @@ describe("WorkTeam task request (L15)", () => {
 		// Submit
 		await user.click(screen.getByRole("button", { name: /send request/i }));
 
-		// Sent status appears inside the dialog
+		// Sent status appears inside the dialog.
+		// @lore L18 (M2): HostThreadSection now renders EmptyState (role="status")
+		// so we query by text directly instead of role="status" to avoid ambiguity.
 		await waitFor(() => {
-			const dialog = screen.getByRole("dialog");
-			// Query status within the dialog to avoid collision with EmptyState
-			// (design-system's EmptyState also uses role="status") and with the
-			// Canvas DnD live region that Canvas preserves for Shaped→Committed drag.
-			const statusEl = dialog.querySelector('[role="status"]');
-			expect(statusEl).not.toBeNull();
-			expect(statusEl?.textContent).toBe("Sent.");
+			expect(screen.getByText("Sent.")).toBeInTheDocument();
 		});
 
 		// Sheet auto-closes after ~800ms
