@@ -6,7 +6,7 @@ import { NavItem } from "@hyperidle/design-system";
  */
 import { KNOWLEDGE_SCOPES, type KnowledgeScope } from "@hyperidle/shared";
 import { type JSX, useCallback, useEffect, useMemo, useState } from "react";
-import { Outlet, useLocation, useNavigate, useSearchParams } from "react-router-dom";
+import { Outlet, useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { ErrorBoundary } from "../components/ErrorBoundary";
 import { GlobalSearchPanel } from "../components/GlobalSearchPanel";
 import type { SettingsData } from "../components/SettingsPanel";
@@ -282,10 +282,9 @@ export function AppShell(): JSX.Element {
 
 	const handleViewChange = useCallback(
 		(view: ViewId): void => {
-			// L8: conversations has no static submenu items (the live thread list
-			// is the submenu body). Fall back to the review queue route.
+			// L9: conversations navigates to the canonical queue route.
 			if (view === "conversations") {
-				navigate("/conversations/review");
+				navigate("/conversations");
 				return;
 			}
 			const config = SUBMENU_CONFIG[view];
@@ -357,8 +356,21 @@ export function AppShell(): JSX.Element {
 					navigate(`/knowledge/${safeId}`);
 					break;
 				}
+				case "conversation": {
+					// L9: GlobalSearchPanel emits the thread id as `id`; route to
+					// the canonical detail URL when the id is safe (arch-critique
+					// SUGGESTION #4: verify the search result carries an id and wire
+					// /conversations/:id rather than /conversations).
+					const safeId = sanitizeRouteId(id);
+					if (safeId !== null) {
+						navigate(`/conversations/${safeId}`);
+					} else {
+						navigate("/conversations");
+					}
+					break;
+				}
 				default:
-					navigate("/conversations/review");
+					navigate("/conversations");
 					break;
 			}
 		},
@@ -436,13 +448,27 @@ export function AppShell(): JSX.Element {
 		if (conversationsFilter !== "all") return submenuTotalCount;
 		return submenuTotalCount > 0 ? submenuTotalCount : undefined;
 	})();
-	// L8 §3.5: lifted-selection state for the Conversations Submenu thread
-	// list. Click on a thread row updates this id; the URL is left alone
-	// (deep-link route collapse is L9's scope).
-	const [selectedThreadId, setSelectedThreadId] = useState<string | null>(null);
-	const handleSelectThread = useCallback((id: string): void => {
-		setSelectedThreadId(id);
-	}, []);
+	// L9: the selected thread id is now authoritative from the URL path param.
+	// useParams() inside the layout receives the merged child route params via
+	// React Router v7's param-merge behavior — when mounted at
+	// /conversations/:threadId, `threadId` is the segment value; at
+	// /conversations (no segment), it is undefined.
+	// @lore L9 WARNING (arch-critique): keeping selectedThreadId in the Outlet
+	// context for backwards-compat with any consumer added between L8 and L9
+	// (AppShell.threads.test.tsx line 86 reads it via useOutletContext). The
+	// field is now derived from the URL rather than a useState, so it is always
+	// in sync with the browser location.
+	const { threadId: urlThreadId } = useParams<{ threadId?: string }>();
+	const selectedThreadId = urlThreadId ?? null;
+	const handleSelectThread = useCallback(
+		(id: string): void => {
+			// L9 D5: clicking a thread row navigates to the canonical detail URL.
+			// The URL becomes the source of truth for selection; the Outlet context
+			// field selectedThreadId is derived from it (above) for backwards-compat.
+			navigate(`/conversations/${encodeURIComponent(id)}`);
+		},
+		[navigate],
+	);
 	// AC 64: reset filter to "all" on view change. The view id is referenced in
 	// the body so Biome's useExhaustiveDependencies rule is satisfied while
 	// preserving the intended "run on view change" semantics.

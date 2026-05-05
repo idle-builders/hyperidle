@@ -1,17 +1,20 @@
 /**
- * L1a / L11 — ConversationsReview reasoning-block tests.
+ * L1a / L11 — Conversations reasoning-block tests.
  *
  * Per L11 plan §8 migration table: the Reasoning block now lives inside
  * the in-stream `RichMessageCard` (the promoted unresolved review). Long
  * reasoning collapses behind a `> N reasons` toggle by default (Fix 2),
  * inline for a single short string. This test asserts the long-form
  * variant — the toggle is rendered with aria-expanded=false.
+ *
+ * @lore L9: ConversationsReview replaced by Conversations. Uses
+ * createMemoryRouter at /conversations/:threadId so useParams() resolves.
  */
 
 import { render, screen, waitFor } from "@testing-library/react";
-import { MemoryRouter } from "react-router-dom";
+import { createMemoryRouter, RouterProvider } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { ConversationsReview } from "../pages/ConversationsReview";
+import { Conversations } from "../pages/Conversations";
 
 const FAKE_THREAD = {
 	id: "demo-thread-1",
@@ -42,11 +45,8 @@ const FAKE_REVIEW_MESSAGE = {
 	},
 };
 
-describe("ConversationsReview — Reasoning (L11, lives inside RichMessageCard)", () => {
+describe("Conversations — Reasoning (L11, lives inside RichMessageCard)", () => {
 	beforeEach(() => {
-		// L1 step5: ConversationsReview now requires ?id= in the URL — set it
-		// before render.
-		window.history.replaceState({}, "", "/?id=demo-thread-1");
 		// biome-ignore lint/suspicious/noExplicitAny: testing-only fetch stub
 		(globalThis as any).fetch = vi.fn(
 			async () =>
@@ -67,15 +67,14 @@ describe("ConversationsReview — Reasoning (L11, lives inside RichMessageCard)"
 
 	afterEach(() => {
 		vi.restoreAllMocks();
-		window.history.replaceState({}, "", "/");
 	});
 
 	it("renders the reasoning toggle inside the promoted RichMessageCard (long-form: collapsed by default)", async () => {
-		render(
-			<MemoryRouter>
-				<ConversationsReview />
-			</MemoryRouter>,
+		const router = createMemoryRouter(
+			[{ path: "/conversations/:threadId", element: <Conversations /> }],
+			{ initialEntries: ["/conversations/demo-thread-1"] },
 		);
+		render(<RouterProvider router={router} />);
 		await waitFor(() => {
 			expect(screen.getByTestId("rich-message-card")).toBeInTheDocument();
 		});

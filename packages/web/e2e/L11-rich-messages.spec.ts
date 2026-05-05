@@ -88,7 +88,7 @@ test.describe("L11 — rich messages render inline", () => {
 			await route.continue();
 		});
 
-		await page.goto(`/conversations/review?id=${THREAD_ID}`);
+		await page.goto(`/conversations/${THREAD_ID}`);
 
 		await expect(page.locator("[data-testid='thread-shell']")).toBeVisible();
 
@@ -169,7 +169,7 @@ test.describe("L11 — rich messages render inline", () => {
 			await route.continue();
 		});
 
-		await page.goto(`/conversations/review?id=${THREAD_ID}`);
+		await page.goto(`/conversations/${THREAD_ID}`);
 		const card = page.locator("[data-testid='rich-message-card']");
 		await expect(card).toBeVisible();
 
@@ -225,7 +225,7 @@ test.describe("L11 — rich messages render inline", () => {
 			});
 		});
 
-		await page.goto(`/conversations/review?id=${THREAD_ID}`);
+		await page.goto(`/conversations/${THREAD_ID}`);
 		await expect(page.locator("[data-testid='rich-message-card']")).toBeVisible();
 
 		// Focus the document body so a hypothetical global keydown listener

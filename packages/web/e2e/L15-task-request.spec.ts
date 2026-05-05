@@ -9,8 +9,8 @@
  * 2. Positive drag-absence guards (structural assertions, not behavior)
  * 3. Click a task card → TaskSheet opens
  * 4. Select "Move to BLOCKED" intent → Send request → Sent. feedback → sheet closes
- * 5. Navigate to /conversations/chat?thread=<id> → assert the message text is rendered
- * 6. Re-open task card → Open thread → URL navigates to /conversations/chat?thread=<id>
+ * 5. Navigate to /conversations/:threadId → assert the message text is rendered
+ * 6. Re-open task card → Open thread → URL navigates to /conversations/:threadId (L9)
  */
 import { expect, test } from "@playwright/test";
 
@@ -275,7 +275,8 @@ test.describe("L15 — Strip drag + Task request sheet", () => {
 		expect(capturedMessageText).toBe("Request: move to BLOCKED.");
 	});
 
-	test("(step 6) Open thread navigates to /conversations/chat?thread=<id>", async ({ page }) => {
+	// L9: WorkTeam now navigates to /conversations/:threadId (canonical path, no ?thread= param)
+	test("(step 6) Open thread navigates to /conversations/:threadId (L9)", async ({ page }) => {
 		// For this test, mock GET threads to return an existing thread
 		await page.route("**/api/threads**", async (route) => {
 			const req = route.request();
@@ -309,7 +310,7 @@ test.describe("L15 — Strip drag + Task request sheet", () => {
 		// Click Open thread
 		await page.getByRole("button", { name: /open thread/i }).click();
 
-		// URL should navigate to conversations/chat with thread param
-		await expect(page).toHaveURL(/\/conversations\/chat\?thread=/, { timeout: 3000 });
+		// URL should navigate to canonical /conversations/:threadId (L9)
+		await expect(page).toHaveURL(new RegExp(`/conversations/${TASK_THREAD_ID}`), { timeout: 3000 });
 	});
 });

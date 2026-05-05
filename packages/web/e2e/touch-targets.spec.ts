@@ -24,9 +24,9 @@ import { expect, type Page, test } from "@playwright/test";
 const MOBILE = { width: 1024, height: 900 };
 const MIN_TOUCH_PX = 44;
 
+// L9: /conversations/review and /conversations/chat replaced by /conversations.
 const ROUTES = [
-	{ path: "/conversations/review", selector: "[data-testid='conversations-review-page']" },
-	{ path: "/conversations/chat", selector: "[data-testid='conversations-chat-page']" },
+	{ path: "/conversations", selector: "[data-testid='conversations-page']" },
 	{ path: "/work/portfolio", selector: "[data-testid='work-portfolio-page']" },
 	{ path: "/work/team", selector: "[data-testid='work-team-page']" },
 	{ path: "/work/bet/b1", selector: "[data-testid='work-bet-page']" },
@@ -246,8 +246,8 @@ test.describe("K8 — Touch-target audit at mobile viewport (≤ 1024px)", () =>
 		// Use the live app shell at the mobile breakpoint so `useAutoDensity`
 		// picks `comfortable` automatically. Then measure the NavItem button
 		// height in the nav rail (the canonical density consumer).
-		await page.goto("/conversations/review");
-		await page.waitForSelector("[data-testid='conversations-review-page']");
+		await page.goto("/conversations");
+		await page.waitForSelector("[data-testid='conversations-page']");
 		// Verify the shell did resolve to comfortable at the mobile viewport.
 		const density = await page.evaluate(() =>
 			document.querySelector("[data-density]")?.getAttribute("data-density"),

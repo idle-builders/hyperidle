@@ -46,7 +46,7 @@ export const REFERENCE_MAP: ReferenceEntry[] = [
 		referenceSetup: async (page) => {
 			await waitForReactRender(page);
 		},
-		route: "/conversations/review",
+		route: "/conversations",
 		description: "App shell — conversations view (default landing)",
 	},
 	{
@@ -79,7 +79,7 @@ export const REFERENCE_MAP: ReferenceEntry[] = [
 			await page.click('button[title="Settings"]');
 			await page.waitForTimeout(500);
 		},
-		route: "/conversations/review?settings=open",
+		route: "/conversations?settings=open",
 		implSetup: async (page) => {
 			await page
 				.waitForSelector("[data-testid='settings-panel']", { timeout: 5000 })
@@ -107,7 +107,7 @@ export const REFERENCE_MAP: ReferenceEntry[] = [
 		referenceSetup: async (page) => {
 			await waitForReactRender(page);
 		},
-		route: "/conversations/review",
+		route: "/conversations",
 		description: "Conversations — full review view with data_metrics artifact",
 	},
 	{
@@ -118,7 +118,7 @@ export const REFERENCE_MAP: ReferenceEntry[] = [
 			await page.click("text=02 · TEXT_DIFF");
 			await page.waitForTimeout(500);
 		},
-		route: "/conversations/review",
+		route: "/conversations",
 		description: "Conversations — text_diff artifact view",
 	},
 	{
@@ -129,7 +129,7 @@ export const REFERENCE_MAP: ReferenceEntry[] = [
 			await page.click("text=03 · CONTENT_PREVIEW");
 			await page.waitForTimeout(500);
 		},
-		route: "/conversations/review",
+		route: "/conversations",
 		description: "Conversations — content_preview artifact view",
 	},
 	{
@@ -140,7 +140,7 @@ export const REFERENCE_MAP: ReferenceEntry[] = [
 			await page.click("text=05 · DATA_METRICS");
 			await page.waitForTimeout(500);
 		},
-		route: "/conversations/review",
+		route: "/conversations",
 		description: "Conversations — data_metrics artifact view",
 	},
 	{
@@ -151,7 +151,7 @@ export const REFERENCE_MAP: ReferenceEntry[] = [
 			await page.click("text=04 · ACTION_SUMMARY");
 			await page.waitForTimeout(500);
 		},
-		route: "/conversations/review",
+		route: "/conversations",
 		description: "Conversations — action_summary artifact view",
 	},
 	{
@@ -162,7 +162,7 @@ export const REFERENCE_MAP: ReferenceEntry[] = [
 			await page.click("text=06 · VISUAL_COMPARE");
 			await page.waitForTimeout(500);
 		},
-		route: "/conversations/review",
+		route: "/conversations",
 		description: "Conversations — visual_comparison artifact view",
 	},
 	{
@@ -173,7 +173,7 @@ export const REFERENCE_MAP: ReferenceEntry[] = [
 			await page.click("text=07 · CHAT");
 			await page.waitForTimeout(500);
 		},
-		route: "/conversations/chat",
+		route: "/conversations",
 		description: "Conversations — Chief of Staff chat view",
 	},
 	{
@@ -184,7 +184,7 @@ export const REFERENCE_MAP: ReferenceEntry[] = [
 			await page.click("text=08 · EMPTY");
 			await page.waitForTimeout(500);
 		},
-		route: "/conversations/review",
+		route: "/conversations",
 		description: "Conversations — empty state",
 	},
 

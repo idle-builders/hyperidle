@@ -12,15 +12,16 @@ import { createMemoryRouter, RouterProvider } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AppShell } from "../layouts/AppShell";
 
-function renderShell(initialPath = "/conversations/review"): ReturnType<typeof render> {
+function renderShell(initialPath = "/conversations"): ReturnType<typeof render> {
 	const router = createMemoryRouter(
 		[
 			{
 				path: "/",
 				element: <AppShell />,
 				children: [
-					{ path: "conversations/review", element: <div>Review Page</div> },
-					{ path: "conversations/chat", element: <div>Chat Page</div> },
+					// L9: canonical conversation routes.
+					{ path: "conversations", element: <div>Conversations Page</div> },
+					{ path: "conversations/:threadId", element: <div>Conversations Page</div> },
 					{ path: "work/portfolio", element: <div>Portfolio Page</div> },
 					{ path: "work/team", element: <div>Team Page</div> },
 					{ path: "knowledge", element: <div>Knowledge Page</div> },

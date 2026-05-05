@@ -165,7 +165,8 @@ export function WorkTeam(): JSX.Element {
 
 	const handleNavigateToThread = useCallback(
 		(threadId: string): void => {
-			navigate(`/conversations/chat?thread=${encodeURIComponent(threadId)}`);
+			// L9: canonical URL is /conversations/:threadId.
+			navigate(`/conversations/${encodeURIComponent(threadId)}`);
 		},
 		[navigate],
 	);

@@ -12,9 +12,9 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
 
+// L9: /conversations/review and /conversations/chat replaced by /conversations.
 const ROUTES = [
-	{ path: "/conversations/review", selector: "[data-testid='conversations-review-page']" },
-	{ path: "/conversations/chat", selector: "[data-testid='conversations-chat-page']" },
+	{ path: "/conversations", selector: "[data-testid='conversations-page']" },
 	{ path: "/work/portfolio", selector: "[data-testid='work-portfolio-page']" },
 	{ path: "/work/team", selector: "[data-testid='work-team-page']" },
 	{ path: "/work/bet/b1", selector: "[data-testid='work-bet-page']" },
