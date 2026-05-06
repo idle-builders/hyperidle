@@ -21,7 +21,11 @@ export const MOCK_BETS: Record<string, BetDetail> = {
 		product: "Alpha",
 		team: "Alpha Core",
 		status: "committed",
-		appetite: "2 weeks",
+		// L17: costAppetite replaces appetite string; cost/token actuals added.
+		costAppetite: { minor: 20000, currency: "USD" }, // $200.00
+		tokenAppetite: null,
+		costActual: { minor: 1250, currency: "USD" }, // $12.50
+		tokensActual: null,
 		progress: { done: 3, total: 8 },
 		pitch: `# Problem
 Current auth is hand-rolled and leaks sessions on reload.
@@ -40,21 +44,21 @@ Migrate to JWT with refresh rotation.
 				title: "Implement login endpoint",
 				owner: "Dev Agent 1",
 				state: "done",
-				cost: "$4.20",
+				costActual: { minor: 420, currency: "USD" }, // $4.20
 			},
 			{
 				id: "t2",
 				title: "Design signup form",
 				owner: "Dev Agent 2",
 				state: "in_progress",
-				cost: "$1.80",
+				costActual: { minor: 180, currency: "USD" }, // $1.80
 			},
 			{
 				id: "t3",
 				title: "JWT refresh logic",
 				owner: "Dev Agent 1",
 				state: "review",
-				cost: "$6.50",
+				costActual: { minor: 650, currency: "USD" }, // $6.50
 			},
 		],
 	},
@@ -64,7 +68,10 @@ Migrate to JWT with refresh rotation.
 		product: "Beta",
 		team: "Beta Surface",
 		status: "shaped",
-		appetite: "3 weeks",
+		costAppetite: { minor: 30000, currency: "USD" }, // $300.00
+		tokenAppetite: null,
+		costActual: null,
+		tokensActual: null,
 		progress: { done: 0, total: 5 },
 		pitch: `# Problem
 The dashboard has grown to 14 widgets with no hierarchy.
@@ -83,14 +90,14 @@ Replace the grid with a three-column layout driven by user roles.
 				title: "Wireframe layouts",
 				owner: "Designer Agent",
 				state: "accepted",
-				cost: "$2.00",
+				costActual: { minor: 200, currency: "USD" }, // $2.00
 			},
 			{
 				id: "t5",
 				title: "Component inventory",
 				owner: "Dev Agent 1",
 				state: "accepted",
-				cost: "$1.50",
+				costActual: { minor: 150, currency: "USD" }, // $1.50
 			},
 		],
 	},
@@ -149,7 +156,10 @@ Replace the grid with a three-column layout driven by user roles.
 		product: "Alpha",
 		team: "Alpha Core",
 		status: "shaped",
-		appetite: "3 weeks",
+		costAppetite: null,
+		tokenAppetite: null,
+		costActual: null,
+		tokensActual: null,
 		progress: { done: 1, total: 5 },
 		pitch: `# Problem
 The dashboard has grown to 14 widgets with no clear hierarchy.
@@ -187,7 +197,10 @@ export const FALLBACK_BET: BetDetail = {
 	product: "Unknown",
 	team: "Unknown Team",
 	status: "shaped",
-	appetite: "—",
+	costAppetite: null,
+	tokenAppetite: null,
+	costActual: null,
+	tokensActual: null,
 	progress: { done: 0, total: 0 },
 	pitch: "",
 	tasks: [],

@@ -9,6 +9,7 @@
  * See plans/L13/concept.md §"What 1:1 actually means".
  */
 
+import type { WireMoney } from "./types/money.js";
 import type { BetStatus } from "./types.js";
 
 /**
@@ -39,8 +40,9 @@ export interface RosterMember {
 }
 
 export interface ProductBurn {
-	costActual: number; // teams.cost_actual; cents (matches existing convention)
-	costCap: number | null; // teams.cost_cap; null when not configured
+	// L17: changed from number to WireMoney|null to support structured money.
+	costActual: WireMoney | null;
+	costCap: WireMoney | null;
 	capacity: number; // teams.capacity (max parallel bets)
 	activeBets: number; // teams.active_bets cached counter
 }
@@ -48,7 +50,8 @@ export interface ProductBurn {
 export interface BetCardSummary {
 	id: string;
 	pitchTitle: string; // first non-empty line of bets.pitch
-	appetite: string; // "1 week" | "2 weeks" | "6 weeks"
+	// L17: replaced appetite: string with structured WireMoney.
+	costAppetite: WireMoney | null;
 	status: BetStatus; // "committed" | "in_progress"
 	progressDone: number; // count(tasks where state='done')
 	progressTotal: number; // count(tasks)

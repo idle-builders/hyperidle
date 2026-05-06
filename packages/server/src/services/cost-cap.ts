@@ -19,7 +19,15 @@ export interface CheckCostCapParams {
 
 export interface RecordCostAndCheckParams {
 	sessionId: string;
-	cost: number;
+	/**
+	 * @deprecated Use costMinor + currency instead (L17). Kept for backward
+	 * compatibility with existing callers. If costMinor is provided, cost is ignored.
+	 */
+	cost?: number;
+	/** L17: cost in minor units (e.g. cents for USD). */
+	costMinor?: number;
+	/** L17: currency code for costMinor. */
+	currency?: string;
 	agentId: string;
 	teamId?: string;
 	factoryCap?: number;
@@ -90,15 +98,26 @@ function tryRecordDedupKey(
 	return true;
 }
 
+/**
+ * Sum session costs for an agent.
+ * @lore L17: prefers costMinor (new column) over cost (legacy). Falls back to
+ * cost only when costMinor is NULL (rows from before L17 migration).
+ */
 function getAgentSpend(db: HyperIdleDb, agentId: string): number {
 	const result = db
-		.select({ total: sql<number>`coalesce(sum(${sessions.cost}), 0)` })
+		.select({
+			total: sql<number>`coalesce(sum(coalesce(${sessions.costMinor}, ${sessions.cost}, 0)), 0)`,
+		})
 		.from(sessions)
 		.where(eq(sessions.agentId, agentId))
 		.get();
 	return result?.total ?? 0;
 }
 
+/**
+ * Sum session costs for all agents in a team.
+ * @lore L17: prefers costMinor (new column) over cost (legacy).
+ */
 function getTeamSpend(db: HyperIdleDb, teamId: string): number {
 	// Sum all session costs for agents in this team
 	const teamAgents = db
@@ -111,7 +130,9 @@ function getTeamSpend(db: HyperIdleDb, teamId: string): number {
 
 	const agentIds = teamAgents.map((a) => a.id);
 	const result = db
-		.select({ total: sql<number>`coalesce(sum(${sessions.cost}), 0)` })
+		.select({
+			total: sql<number>`coalesce(sum(coalesce(${sessions.costMinor}, ${sessions.cost}, 0)), 0)`,
+		})
 		.from(sessions)
 		.where(inArray(sessions.agentId, agentIds))
 		.get();
@@ -134,14 +155,16 @@ export async function checkCostCap(
 		throw new Error(`Agent not found: ${params.agentId}`);
 	}
 
-	if (agent.costCap != null) {
+	// L17: prefer costCapMinor (new column) over costCap (legacy)
+	const agentCap = agent.costCapMinor ?? agent.costCap;
+	if (agentCap != null) {
 		const agentSpend = getAgentSpend(db, params.agentId);
-		if (agentSpend >= agent.costCap) {
+		if (agentSpend >= agentCap) {
 			return {
 				allowed: false,
 				level: "agent",
 				currentSpend: agentSpend,
-				cap: agent.costCap,
+				cap: agentCap,
 			};
 		}
 	}
@@ -149,14 +172,16 @@ export async function checkCostCap(
 	// 2. Check team cap
 	if (params.teamId) {
 		const team = db.select().from(teams).where(eq(teams.id, params.teamId)).get();
-		if (team?.costCap != null) {
+		// L17: prefer costCapMinor (new column) over costCap (legacy)
+		const teamCap = team?.costCapMinor ?? team?.costCap;
+		if (teamCap != null) {
 			const teamSpend = getTeamSpend(db, params.teamId);
-			if (teamSpend >= team.costCap) {
+			if (teamSpend >= teamCap) {
 				return {
 					allowed: false,
 					level: "team",
 					currentSpend: teamSpend,
-					cap: team.costCap,
+					cap: teamCap,
 				};
 			}
 		}
@@ -187,8 +212,18 @@ export async function recordCostAndCheck(
 	eventBus: EventBus,
 	params: RecordCostAndCheckParams,
 ): Promise<void> {
-	// Update session cost
-	db.update(sessions).set({ cost: params.cost }).where(eq(sessions.id, params.sessionId)).run();
+	// L17: use costMinor if provided, otherwise fall back to legacy cost
+	const effectiveCostMinor = params.costMinor ?? params.cost ?? 0;
+
+	// Update session cost — write both columns for backward compat
+	db.update(sessions)
+		.set({
+			cost: effectiveCostMinor,
+			costMinor: effectiveCostMinor,
+			...(params.currency ? { costCurrency: params.currency } : {}),
+		})
+		.where(eq(sessions.id, params.sessionId))
+		.run();
 
 	const agent = db.select().from(agents).where(eq(agents.id, params.agentId)).get();
 	if (!agent) {
@@ -197,15 +232,18 @@ export async function recordCostAndCheck(
 
 	const now = Date.now();
 
+	// L17: prefer costCapMinor (new column) over costCap (legacy)
+	const agentCap = agent.costCapMinor ?? agent.costCap;
+
 	// Check agent cap
-	if (agent.costCap != null) {
+	if (agentCap != null) {
 		const agentSpend = getAgentSpend(db, params.agentId);
 		checkAndEmit(db, eventBus, {
 			sessionId: params.sessionId,
 			capLevel: "agent",
 			entityId: params.agentId,
 			spend: agentSpend,
-			cap: agent.costCap,
+			cap: agentCap,
 			timestamp: now,
 			reviewThreadId: params.reviewThreadId,
 			agentId: params.agentId,
@@ -216,14 +254,16 @@ export async function recordCostAndCheck(
 	// Check team cap
 	if (params.teamId) {
 		const team = db.select().from(teams).where(eq(teams.id, params.teamId)).get();
-		if (team?.costCap != null) {
+		// L17: prefer costCapMinor (new column) over costCap (legacy)
+		const teamCap = team?.costCapMinor ?? team?.costCap;
+		if (teamCap != null) {
 			const teamSpend = getTeamSpend(db, params.teamId);
 			checkAndEmit(db, eventBus, {
 				sessionId: params.sessionId,
 				capLevel: "team",
 				entityId: params.teamId,
 				spend: teamSpend,
-				cap: team.costCap,
+				cap: teamCap,
 				timestamp: now,
 				reviewThreadId: params.reviewThreadId,
 				agentId: params.agentId,
@@ -234,7 +274,7 @@ export async function recordCostAndCheck(
 
 	// Check factory cap
 	if (params.factoryCap != null) {
-		const factorySpend = (params.factorySpend ?? 0) + params.cost;
+		const factorySpend = (params.factorySpend ?? 0) + effectiveCostMinor;
 		checkAndEmit(db, eventBus, {
 			sessionId: params.sessionId,
 			capLevel: "factory",
@@ -346,57 +386,74 @@ function createReviewItem(db: HyperIdleDb, _eventBus: EventBus, params: CheckAnd
  * Reset costs for a new billing cycle.
  * For agent/team: zeroes session costs for that entity's sessions.
  * For factory: zeroes all session costs.
+ *
+ * @lore L17: accepts either a `ResetCostsParams` object (old API) or a bare
+ * teamId string (new simplified API). The string form is equivalent to
+ * `{ level: "team", id: teamId }` and resets both costMinor and cost columns.
  */
 // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: cost reset branching across agent/team/factory scopes with dedup cleanup
-export async function resetCosts(db: HyperIdleDb, params: ResetCostsParams): Promise<void> {
+export async function resetCosts(
+	db: HyperIdleDb,
+	params: ResetCostsParams | string,
+): Promise<void> {
+	// Normalize the string form to the object form
+	const normalizedParams: ResetCostsParams =
+		typeof params === "string" ? { level: "team", id: params } : params;
 	// Clear the deduplication state on reset (factory reset clears all,
 	// agent/team reset clears entries belonging to those scopes).
-	if (params.level === "factory") {
+	if (normalizedParams.level === "factory") {
 		dedupBySession.clear();
-	} else if (params.level === "agent" && params.id) {
+	} else if (normalizedParams.level === "agent" && normalizedParams.id) {
 		// I3 review W7: collect-then-delete to avoid mutating the Map mid-iteration.
 		const toDelete: string[] = [];
 		for (const [sid, entry] of dedupBySession) {
-			if (entry.agentId === params.id) toDelete.push(sid);
+			if (entry.agentId === normalizedParams.id) toDelete.push(sid);
 		}
 		for (const sid of toDelete) dedupBySession.delete(sid);
-	} else if (params.level === "team" && params.id) {
+	} else if (normalizedParams.level === "team" && normalizedParams.id) {
 		const toDelete: string[] = [];
 		for (const [sid, entry] of dedupBySession) {
-			if (entry.teamId === params.id) toDelete.push(sid);
+			if (entry.teamId === normalizedParams.id) toDelete.push(sid);
 		}
 		for (const sid of toDelete) dedupBySession.delete(sid);
 	}
 
 	// @lore I6: resetCosts zeroes session costs and running counters for the
 	// specified scope. This is a billing-cycle reset — getAgentSpend/getTeamSpend
-	// sum session.cost, so all sessions for the entity must be zeroed for the
-	// cost cap check to reflect the new cycle. Historical session metadata
+	// sum session.cost/costMinor, so all sessions for the entity must be zeroed
+	// for the cost cap check to reflect the new cycle. Historical session metadata
 	// (state, outcome, notes, timestamps) is preserved.
-	switch (params.level) {
+	// @lore L17: zeroes both cost (legacy) and costMinor (new) columns.
+	switch (normalizedParams.level) {
 		case "agent": {
-			if (!params.id) throw new Error("Agent ID required for agent reset");
-			db.update(sessions).set({ cost: 0 }).where(eq(sessions.agentId, params.id)).run();
-			db.update(agents).set({ costActual: 0 }).where(eq(agents.id, params.id)).run();
+			if (!normalizedParams.id) throw new Error("Agent ID required for agent reset");
+			db.update(sessions)
+				.set({ cost: 0, costMinor: 0 })
+				.where(eq(sessions.agentId, normalizedParams.id))
+				.run();
+			db.update(agents).set({ costActual: 0 }).where(eq(agents.id, normalizedParams.id)).run();
 			break;
 		}
 		case "team": {
-			if (!params.id) throw new Error("Team ID required for team reset");
+			if (!normalizedParams.id) throw new Error("Team ID required for team reset");
 			const teamAgents = db
 				.select({ id: agents.id })
 				.from(agents)
-				.where(eq(agents.teamId, params.id))
+				.where(eq(agents.teamId, normalizedParams.id))
 				.all();
 			if (teamAgents.length > 0) {
 				const agentIds = teamAgents.map((a) => a.id);
-				db.update(sessions).set({ cost: 0 }).where(inArray(sessions.agentId, agentIds)).run();
+				db.update(sessions)
+					.set({ cost: 0, costMinor: 0 })
+					.where(inArray(sessions.agentId, agentIds))
+					.run();
 			}
-			db.update(teams).set({ costActual: 0 }).where(eq(teams.id, params.id)).run();
+			db.update(teams).set({ costActual: 0 }).where(eq(teams.id, normalizedParams.id)).run();
 			break;
 		}
 		case "factory": {
 			// eslint-disable-next-line drizzle/enforce-update-with-where -- intentional: factory reset clears ALL rows
-			db.update(sessions).set({ cost: 0 }).run();
+			db.update(sessions).set({ cost: 0, costMinor: 0 }).run();
 			// eslint-disable-next-line drizzle/enforce-update-with-where -- intentional: factory reset clears ALL rows
 			db.update(agents).set({ costActual: 0 }).run();
 			// eslint-disable-next-line drizzle/enforce-update-with-where -- intentional: factory reset clears ALL rows

@@ -10,10 +10,10 @@ function renderInRouter(ui: ReactElement): ReturnType<typeof render> {
 }
 
 const sampleCost: CostInfo = {
-	todaySpend: "$0",
-	todayBudget: "$0",
-	weekSpend: "$0",
-	weekBudget: "$0",
+	todaySpend: { minor: 0, currency: "USD" },
+	todayCap: { minor: 0, currency: "USD" },
+	weekSpend: { minor: 0, currency: "USD" },
+	weekCap: { minor: 0, currency: "USD" },
 };
 
 /**

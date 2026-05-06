@@ -9,7 +9,7 @@
  * from here. The hook imports it from here. All non-fixture imports are clean.
  */
 
-import type { BetStatus, SessionOutcome, TaskState } from "@hyperidle/shared";
+import type { BetStatus, SessionOutcome, TaskState, TokenUsage, WireMoney } from "@hyperidle/shared";
 
 /**
  * @deprecated L18: BetComment is replaced by the L1 Thread primitive.
@@ -29,7 +29,11 @@ export interface BetDetail {
 	product: string;
 	team: string;
 	status: BetStatus;
-	appetite: string;
+	// L17: replaced appetite: string with structured WireMoney; added costActual and token fields.
+	costAppetite: WireMoney | null;
+	tokenAppetite: TokenUsage | null;
+	costActual: WireMoney | null;
+	tokensActual: TokenUsage | null;
 	progress: { done: number; total: number };
 	/** Markdown pitch body (renamed from 'body' in L16). */
 	pitch: string;
@@ -38,12 +42,11 @@ export interface BetDetail {
 		title: string;
 		owner: string;
 		state: TaskState;
-		cost: string;
+		// L17: replaced cost: string with structured WireMoney.
+		costActual: WireMoney | null;
 		// L19: latest session metadata (nullable — no session yet)
 		latestSessionOutcome?: SessionOutcome | null;
-		latestSessionCost?: number | null;
-		latestSessionTokensInput?: number | null;
-		latestSessionTokensOutput?: number | null;
 		latestSessionHarnessUrl?: string | null;
+		latestSessionModelTier?: string | null;
 	}>;
 }

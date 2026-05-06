@@ -40,8 +40,9 @@ export const MOCK_RAIL_BLOCKERS: BlockerItem[] = [
 ];
 
 export const MOCK_RAIL_COST: CostInfo = {
-	todaySpend: "$12.40",
-	todayBudget: "$50.00",
-	weekSpend: "$84.20",
-	weekBudget: "$350.00",
+	todaySpend: { minor: 1240, currency: "USD" },
+	todayCap: { minor: 5000, currency: "USD" },
+	weekSpend: { minor: 8420, currency: "USD" },
+	weekCap: { minor: 35000, currency: "USD" },
+	weekTokens: 42300,
 };

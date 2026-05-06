@@ -136,7 +136,7 @@ describe("E2E API Integration (I5)", () => {
 					productId: "prod-1",
 					teamId: "team-1",
 					pitch: "E2E integration bet",
-					appetite: "2 weeks",
+					costAppetite: { minor: 20000, currency: "USD" },
 				}),
 			});
 			expect(createRes.status).toBe(201);
@@ -187,7 +187,7 @@ describe("E2E API Integration (I5)", () => {
 					productId: "prod-1",
 					teamId: "team-1",
 					pitch: "Bet to commit",
-					appetite: "2 weeks",
+					costAppetite: { minor: 20000, currency: "USD" },
 				}),
 			});
 			expect(createRes.status).toBe(201);
@@ -217,7 +217,7 @@ describe("E2E API Integration (I5)", () => {
 					productId: "prod-1",
 					teamId: "team-1",
 					pitch: "Test bet",
-					appetite: "2 weeks",
+					costAppetite: { minor: 20000, currency: "USD" },
 					status: "in_progress",
 					createdAt: new Date().toISOString(),
 				})
@@ -539,7 +539,7 @@ describe("E2E API Integration (I5)", () => {
 					productId: "prod-1",
 					teamId: "team-1",
 					pitch: "Session bet",
-					appetite: "2 weeks",
+					costAppetite: { minor: 20000, currency: "USD" },
 					status: "in_progress",
 					createdAt: new Date().toISOString(),
 				})

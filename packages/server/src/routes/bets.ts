@@ -10,7 +10,7 @@ import {
 	threads,
 } from "@hyperidle/db";
 import type { ArtifactKind, ArtifactThreadSummary, EventBus } from "@hyperidle/shared";
-import { ARTIFACT_KINDS, MUTABLE_BET_FIELDS } from "@hyperidle/shared";
+import { ARTIFACT_KINDS, CURRENCY_CODES, MUTABLE_BET_FIELDS } from "@hyperidle/shared";
 import { and, eq, inArray, sql } from "drizzle-orm";
 import { Hono } from "hono";
 import { z } from "zod";
@@ -21,22 +21,33 @@ const RECOGNISED_ARTIFACT_KIND_VALUES = ARTIFACT_KINDS as readonly string[];
 const SUMMARY_CAP = 10;
 
 /**
+ * Zod schema for a WireMoney object in request bodies.
+ * @lore L17: costAppetite replaces the old `appetite` duration string.
+ */
+const wiremoneySchema = z.object({
+	minor: z.number().int().min(0),
+	currency: z.enum(CURRENCY_CODES as unknown as [string, ...string[]]),
+});
+
+/**
  * Zod schemas for request validation.
  */
-/**
- * @lore I6: appetite is now enum-validated to the three spec-defined cycle
- * lengths. Arbitrary strings were never intended here.
- */
-const BET_APPETITES = ["1 week", "2 weeks", "6 weeks"] as const;
-
-const createBetSchema = z.object({
-	productId: z.string(),
-	teamId: z.string(),
-	pitch: z.string(),
-	appetite: z.enum(BET_APPETITES),
-	doneCondition: z.string().optional(),
-	hypothesis: z.string().optional(),
-});
+const createBetSchema = z
+	.object({
+		productId: z.string(),
+		teamId: z.string(),
+		pitch: z.string(),
+		/**
+		 * @lore L17: costAppetite replaces the old `appetite` duration string
+		 * (e.g. "2 weeks"). Accepts null for uncapped bets. POST with the old
+		 * `appetite` string returns 400.
+		 */
+		costAppetite: wiremoneySchema.nullable().optional(),
+		doneCondition: z.string().optional(),
+		hypothesis: z.string().optional(),
+	})
+	// Reject the old `appetite` string field — if it appears in the body, return 400
+	.strict();
 
 // I2 V2: enum-validate `field` so an unknown value is rejected with 400 by
 // Zod instead of falling through to the service layer (which would throw
@@ -232,11 +243,8 @@ export function createBetRoutes(db: HyperIdleDb, eventBus: EventBus): Hono {
 			.where(eq(tasks.betId, betId))
 			.all();
 
-		// Derive title from the first heading line of the pitch.
-		// Pattern: strip optional leading "# " (H1) or "## " (H2) markers.
 		const title = deriveTitleFromPitch(bet.pitch, bet.id);
 
-		// Join product name.
 		const productRow = db
 			.select({ name: products.name })
 			.from(products)
@@ -244,14 +252,54 @@ export function createBetRoutes(db: HyperIdleDb, eventBus: EventBus): Hono {
 			.get();
 		const product = productRow?.name ?? bet.productId;
 
-		// Team identifier — teams table has no name column yet; use id.
 		const team = bet.teamId;
 
-		// Compute progress from tasks.
 		const done = betTasks.filter((t) => t.state === "done").length;
 		const total = betTasks.length;
 
-		return c.json({ ...bet, tasks: betTasks, title, product, team, progress: { done, total } });
+		// L17: compute actual cost from sessions for this bet's tasks
+		let costActualMinor: number | null = null;
+		let costActualCurrency: string | null = null;
+
+		if (bet.costActualMinor != null) {
+			costActualMinor = bet.costActualMinor;
+			costActualCurrency = bet.costActualCurrency ?? "USD";
+		}
+
+		let tokensActual: Record<string, unknown> | null = null;
+		if (bet.tokensActualJson) {
+			try {
+				tokensActual = JSON.parse(bet.tokensActualJson) as Record<string, unknown>;
+			} catch {
+				// ignore malformed JSON
+			}
+		}
+
+		const {
+			appetite: _appetite,
+			costAppetiteMinor,
+			costAppetiteCurrency,
+			tokensActualJson: _tJson,
+			...restBet
+		} = bet;
+
+		return c.json({
+			...restBet,
+			title,
+			product,
+			team,
+			progress: { done, total },
+			costAppetite:
+				costAppetiteMinor != null && costAppetiteCurrency != null
+					? { minor: costAppetiteMinor, currency: costAppetiteCurrency }
+					: null,
+			costActual:
+				costActualMinor != null && costActualCurrency != null
+					? { minor: costActualMinor, currency: costActualCurrency }
+					: null,
+			tokensActual,
+			tasks: betTasks,
+		});
 	});
 
 	// POST /bets — create shaped bet
@@ -266,16 +314,31 @@ export function createBetRoutes(db: HyperIdleDb, eventBus: EventBus): Hono {
 				productId: body.productId,
 				teamId: body.teamId,
 				pitch: body.pitch,
-				appetite: body.appetite,
 				doneCondition: body.doneCondition ?? null,
 				hypothesis: body.hypothesis ?? null,
 				status: "shaped",
 				createdAt: now,
+				costAppetiteMinor: body.costAppetite?.minor ?? null,
+				costAppetiteCurrency: body.costAppetite?.currency ?? null,
 			})
 			.run();
 
 		const created = db.select().from(bets).where(eq(bets.id, id)).get();
-		return c.json(created, 201);
+		if (!created) {
+			return c.json({ error: "Failed to create bet", code: "INTERNAL_ERROR" }, 500);
+		}
+
+		// Return structured costAppetite in the response
+		return c.json(
+			{
+				...created,
+				costAppetite:
+					created.costAppetiteMinor != null && created.costAppetiteCurrency != null
+						? { minor: created.costAppetiteMinor, currency: created.costAppetiteCurrency }
+						: null,
+			},
+			201,
+		);
 	});
 
 	// PATCH /bets/:id — update mutable fields on active bets.

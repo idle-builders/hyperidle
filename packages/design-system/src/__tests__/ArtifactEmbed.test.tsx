@@ -14,7 +14,7 @@ const FIXTURE = {
 	producingTaskTitle: "Implement auth flow",
 	kind: "decision" as const,
 	preview: { kind: "decision" as const, claim: "Ship X", rationale: "y" },
-	cost: { money: "$0.42", tokens: "12.4k" },
+	cost: { money: { minor: 42, currency: "USD" as const }, tokens: null },
 	threadCount: 0,
 	createdAt: "2026-04-28T00:00:00.000Z",
 };

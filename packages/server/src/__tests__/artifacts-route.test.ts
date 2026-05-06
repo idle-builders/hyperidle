@@ -212,7 +212,7 @@ describe("L3 GET /api/artifacts (axis discriminated union)", () => {
 		expect(typeof body.items[0]?.threadCount).toBe("number");
 	});
 
-	it("response items carry cost-from-session shape (display strings)", async () => {
+	it("response items carry cost-from-session shape (WireMoney + TokenUsage after L17)", async () => {
 		const s = seed(db);
 		insertArtifact(db, "art_c", s.taskId, {
 			costMoneyMicros: 420_000,
@@ -223,10 +223,21 @@ describe("L3 GET /api/artifacts (axis discriminated union)", () => {
 			headers: authHeaders(),
 		});
 		const body = (await res.json()) as {
-			items: Array<{ cost: { money: string | null; tokens: string | null } }>;
+			items: Array<{
+				cost: {
+					money: { minor: number; currency: string } | null;
+					tokens: { byTier: Record<string, unknown> } | null;
+				};
+			}>;
 		};
-		expect(body.items[0]?.cost.money).toBe("$0.42");
-		expect(body.items[0]?.cost.tokens).toBe("248");
+		// L17: cost.money is now WireMoney {minor, currency}, not a display string
+		// 420_000 micros / 10_000 = 42 cents
+		expect(body.items[0]?.cost.money).toEqual({ minor: 42, currency: "USD" });
+		// L17: cost.tokens is now TokenUsage {byTier}, not a display string
+		expect(body.items[0]?.cost.tokens).not.toBeNull();
+		if (body.items[0]?.cost.tokens !== null) {
+			expect(body.items[0]?.cost.tokens.byTier).toBeDefined();
+		}
 	});
 
 	it("pagination cap enforced — limit > 200 returns 400 LIMIT_TOO_HIGH", async () => {

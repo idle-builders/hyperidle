@@ -35,6 +35,9 @@ export const agents = pgTable("agents", {
 	maxConcurrentSessions: integer("max_concurrent_sessions").notNull().default(1),
 	costCap: integer("cost_cap"),
 	costActual: integer("cost_actual").default(0),
+	/** L17: structured money cap — minor units + currency code. */
+	costCapMinor: integer("cost_cap_minor"),
+	costCapCurrency: text("cost_cap_currency"),
 	createdAt: text("created_at").notNull(),
 });
 
@@ -49,6 +52,9 @@ export const teams = pgTable("teams", {
 	activeBets: integer("active_bets").notNull().default(0),
 	costCap: integer("cost_cap"),
 	costActual: integer("cost_actual").default(0),
+	/** L17: structured money cap — minor units + currency code. */
+	costCapMinor: integer("cost_cap_minor"),
+	costCapCurrency: text("cost_cap_currency"),
 	formedAt: text("formed_at").notNull(),
 	dissolvedAt: text("dissolved_at"),
 });
@@ -66,13 +72,21 @@ export const bets = pgTable(
 			.notNull()
 			.references(() => teams.id, { onDelete: "restrict" }),
 		pitch: text("pitch").notNull(),
-		appetite: text("appetite").notNull(),
+		appetite: text("appetite"),
 		doneCondition: text("done_condition"),
 		hypothesis: text("hypothesis"),
 		status: text("status").notNull(),
 		revisionLog: text("revision_log"),
 		createdAt: text("created_at").notNull(),
 		shippedAt: text("shipped_at"),
+		/** L17: structured cost appetite — minor units + currency code. */
+		costAppetiteMinor: integer("cost_appetite_minor"),
+		costAppetiteCurrency: text("cost_appetite_currency"),
+		/** L17: accumulated actual cost from sessions — minor units + currency. */
+		costActualMinor: integer("cost_actual_minor"),
+		costActualCurrency: text("cost_actual_currency"),
+		/** L17: accumulated tokens as JSON (TokenUsage shape). */
+		tokensActualJson: text("tokens_actual_json"),
 	},
 	(table) => [
 		index("bets_product_id_idx").on(table.productId),
@@ -137,6 +151,11 @@ export const sessions = pgTable(
 		state: text("state").notNull(),
 		workspaceSnapshot: text("workspace_snapshot"),
 		cost: integer("cost").default(0),
+		/** L17: structured session cost — minor units. NULL = no L17 cost, falls back to legacy cost. */
+		costMinor: integer("cost_minor"),
+		costCurrency: text("cost_currency"),
+		/** L17: per-session token breakdown stored as JSON (TokenUsage shape). */
+		tokensJson: text("tokens_json"),
 		outcome: text("outcome"),
 		notes: text("notes"),
 		traceId: text("trace_id"),
