@@ -59,6 +59,10 @@ export interface RailProps {
 	bets: BetItem[];
 	blockers: BlockerItem[];
 	cost: CostInfo;
+	/** L21: Called when the CoC trigger button is clicked. Optional for backwards-compat. */
+	onCocClick?: () => void;
+	/** L21: Whether the CoC overlay is currently open (drives aria-expanded on trigger). */
+	cocOverlayOpen?: boolean;
 }
 
 interface SectionHeaderProps {
@@ -191,7 +195,15 @@ function CollapsedPill({
 	);
 }
 
-export function Rail({ expanded, onToggleExpand, bets, blockers, cost }: RailProps): JSX.Element {
+export function Rail({
+	expanded,
+	onToggleExpand,
+	bets,
+	blockers,
+	cost,
+	onCocClick,
+	cocOverlayOpen = false,
+}: RailProps): JSX.Element {
 	const navigate = useNavigate();
 
 	const [openSections, setOpenSections] = useState({
@@ -260,6 +272,31 @@ export function Rail({ expanded, onToggleExpand, bets, blockers, cost }: RailPro
 				>
 					{formatCount(totalBets)}
 				</span>
+				{/* L21: CoC trigger — icon-only in collapsed state, pushed to bottom */}
+				<button
+					type="button"
+					className="mt-auto btn btn-ghost btn-xs w-8 h-8 p-0 flex items-center justify-center"
+					aria-label="Chief of Staff"
+					aria-expanded={cocOverlayOpen}
+					onClick={onCocClick}
+				>
+					<svg
+						aria-hidden="true"
+						width={16}
+						height={16}
+						viewBox="0 0 16 16"
+						fill="none"
+						stroke="currentColor"
+						strokeWidth={1.5}
+						className={cocOverlayOpen ? "text-[var(--primary)]" : "text-[var(--text-lo)]"}
+					>
+						<path
+							strokeLinecap="round"
+							strokeLinejoin="round"
+							d="M13.5 3.5H2.5A1 1 0 001.5 4.5v6A1 1 0 002.5 11.5h2l2 2 2-2h4.5a1 1 0 001-1v-6a1 1 0 00-1-1z"
+						/>
+					</svg>
+				</button>
 			</div>
 		);
 	}
@@ -385,6 +422,35 @@ export function Rail({ expanded, onToggleExpand, bets, blockers, cost }: RailPro
 					</div>
 				)}
 			</div>
+
+			{/* L21: CoC trigger — full-width with label in expanded state, pushed to bottom */}
+			<button
+				type="button"
+				className="mt-auto flex w-full items-center gap-2 rounded-[var(--r1)] border border-[var(--border-subtle)] bg-[var(--surface-4)] px-2 hover:bg-[var(--surface-5)] min-h-[36px]"
+				aria-expanded={cocOverlayOpen}
+				aria-label="Chief of Staff"
+				onClick={onCocClick}
+			>
+				<svg
+					aria-hidden="true"
+					width={16}
+					height={16}
+					viewBox="0 0 16 16"
+					fill="none"
+					stroke="currentColor"
+					strokeWidth={1.5}
+					className={
+						cocOverlayOpen ? "shrink-0 text-[var(--primary)]" : "shrink-0 text-[var(--text-lo)]"
+					}
+				>
+					<path
+						strokeLinecap="round"
+						strokeLinejoin="round"
+						d="M13.5 3.5H2.5A1 1 0 001.5 4.5v6A1 1 0 002.5 11.5h2l2 2 2-2h4.5a1 1 0 001-1v-6a1 1 0 00-1-1z"
+					/>
+				</svg>
+				<span className="text-xs text-[var(--text-mid)]">Chief of Staff</span>
+			</button>
 		</div>
 	);
 }

@@ -16,6 +16,27 @@
  * be reused for future Bet pitch bodies under a different attribute without
  * polluting global heading styles.
  */
+/* L21 — CocOverlay entrance animation.
+ *
+ * @lore L21 review D1: the animate-[coc-open] Tailwind arbitrary-value class
+ * references this keyframe. Defined here (not in tokens.css) because it is a
+ * shell-level choreography concern, not a design-system primitive. AQ-013
+ * requires motion durations from --motion-fast/medium/slow; the keyframe
+ * itself is duration-agnostic — the CSS custom property is supplied by the
+ * Tailwind class at call-site: animate-[coc-open_var(--motion-fast)_...].
+ * AQ-014: only transforms opacity + translateY — no layout-property transitions.
+ */
+@keyframes coc-open {
+	from {
+		opacity: 0;
+		transform: translateY(8px);
+	}
+	to {
+		opacity: 1;
+		transform: translateY(0);
+	}
+}
+
 @layer components {
 	[data-knowledge-body] :is(h1) {
 		font-size: var(--density-text-h1);

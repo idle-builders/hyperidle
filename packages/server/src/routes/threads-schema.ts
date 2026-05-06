@@ -22,7 +22,7 @@ const CLIENT_KEY_RE = /^[A-Za-z0-9_\-:.]+$/;
 export const clientKeySchema = z.string().min(8).max(128).regex(CLIENT_KEY_RE);
 
 const inlineRefSchema = z.object({
-	kind: z.enum(["knowledge_item", "task", "artifact", "bet"]),
+	kind: z.enum(["knowledge_item", "task", "artifact", "bet", "message"]),
 	id: z.string(),
 });
 

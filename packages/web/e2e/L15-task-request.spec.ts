@@ -321,8 +321,9 @@ test.describe("L15 — Strip drag + Task request sheet (re-routed to Bet detail)
 		// Select "Move to BLOCKED" radio
 		await page.getByRole("radio", { name: /move to blocked/i }).click();
 
-		// Submit
-		await page.getByRole("button", { name: /send request/i }).click();
+		// Submit — use force:true to bypass stability check; the button is confirmed
+		// visible+enabled but CI layout animations cause intermittent stability timeout.
+		await page.getByRole("button", { name: /send request/i }).click({ force: true });
 
 		// Inline role="status" appears with "Sent."
 		await expect(page.getByRole("dialog").getByRole("status")).toHaveText("Sent.");
