@@ -70,6 +70,16 @@ export {
 	runStaleSweep,
 	STALE_THRESHOLD_MS,
 } from "./promotion-pipeline.js";
+export type {
+	RelevanceConfig,
+	RelevanceInput,
+	RelevanceShape,
+	RelevanceWeights,
+} from "./relevance-engine.js";
+export {
+	computeRelevanceScore,
+	DEFAULT_RELEVANCE_CONFIG,
+} from "./relevance-engine.js";
 export { rankAndBudget, scoreItem } from "./relevance-scoring.js";
 export { ROLE_TO_COMMUNITY } from "./role-community-map.js";
 export type {
@@ -86,6 +96,7 @@ export {
 	getDefaultWeights,
 	KNOWLEDGE_ALLOCATION_RATIO,
 	loadAttentionWeights,
+	loadRelevanceConfig,
 	loadScoringWeights,
 } from "./scoring-config.js";
 export type { SessionContextConfig, SessionContextData } from "./session-context.js";
