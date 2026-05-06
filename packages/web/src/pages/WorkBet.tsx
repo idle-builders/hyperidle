@@ -33,6 +33,7 @@ import { type JSX, useCallback, useEffect, useMemo, useRef, useState } from "rea
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { ArtifactSection, useArtifactOpen } from "../components/ArtifactSection.js";
 import { ArtifactThreadsSummary } from "../components/ArtifactThreadsSummary.js";
+import { CocAttachButton } from "../components/CocAttachButton";
 import { useBet } from "../hooks/useBet";
 import { useHostThread } from "../hooks/useHostThread.js";
 import { isValidHarnessUrl } from "../lib/url-utils.js";
@@ -838,13 +839,16 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 				</ol>
 			</nav>
 
-			<BetCard
-				title={bet.title}
-				product={bet.product}
-				status={bet.status}
-				appetite={bet.appetite}
-				progress={bet.progress}
-			/>
+			<div className="relative">
+				<BetCard
+					title={bet.title}
+					product={bet.product}
+					status={bet.status}
+					appetite={bet.appetite}
+					progress={bet.progress}
+				/>
+				<CocAttachButton ref={{ kind: "bet", id: bet.id, label: bet.title }} />
+			</div>
 
 			{/* L14: Bet action bar — shown for active bets only */}
 			<BetActionsBar bet={bet} onAction={handleAction} />

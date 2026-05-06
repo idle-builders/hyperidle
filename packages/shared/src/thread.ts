@@ -78,7 +78,7 @@ export interface Thread {
 // ── Message payloads (discriminated union) ──────────────────────
 
 export interface InlineRef {
-	readonly kind: "knowledge_item" | "task" | "artifact" | "bet";
+	readonly kind: "knowledge_item" | "task" | "artifact" | "bet" | "message";
 	readonly id: string;
 }
 

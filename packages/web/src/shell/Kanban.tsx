@@ -4,6 +4,7 @@
 import { dsShellProps, EmptyState, TaskCard } from "@hyperidle/design-system";
 import type { SessionOutcome, TaskState } from "@hyperidle/shared";
 import { type JSX, useMemo, useState } from "react";
+import { CocAttachButton } from "../components/CocAttachButton";
 
 export interface KanbanTask {
 	id: string;
@@ -178,6 +179,12 @@ export function Kanban({ tasks, onSelectTask, groupByBet = false }: KanbanProps)
 															state={task.state}
 															cost={task.cost}
 															betTag={task.betTag}
+															actions={
+																// L21 T13: CoC attach affordance.
+																<CocAttachButton
+																	ref={{ kind: "task", id: task.id, label: task.title }}
+																/>
+															}
 														/>
 													</button>
 												))}
@@ -199,6 +206,10 @@ export function Kanban({ tasks, onSelectTask, groupByBet = false }: KanbanProps)
 											state={task.state}
 											cost={task.cost}
 											betTag={task.betTag}
+											actions={
+												// L21 T13: CoC attach affordance.
+												<CocAttachButton ref={{ kind: "task", id: task.id, label: task.title }} />
+											}
 										/>
 									</button>
 								))

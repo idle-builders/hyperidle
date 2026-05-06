@@ -18,6 +18,7 @@ import {
 import { BetCard, dsShellProps, EmptyState } from "@hyperidle/design-system";
 import type { BetStatus } from "@hyperidle/shared";
 import { type JSX, useMemo, useState } from "react";
+import { CocAttachButton } from "../components/CocAttachButton";
 
 export interface CanvasBet {
 	id: string;
@@ -90,6 +91,10 @@ function DraggableBetCard({ bet }: { bet: CanvasBet }): JSX.Element {
 				status={bet.status}
 				appetite={bet.appetite}
 				progress={bet.progress}
+				actions={
+					// L21 T12: CoC attach affordance — shown only when overlay is open.
+					<CocAttachButton ref={{ kind: "bet", id: bet.id, label: bet.title }} />
+				}
 			/>
 		</div>
 	);
