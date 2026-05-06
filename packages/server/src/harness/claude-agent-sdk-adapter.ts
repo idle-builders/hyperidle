@@ -3,9 +3,11 @@
 import type { Query, SDKMessage } from "@anthropic-ai/claude-agent-sdk";
 import { query as sdkQuery } from "@anthropic-ai/claude-agent-sdk";
 import type {
+	CurrencyCode,
 	HarnessAdapter,
 	HarnessCapabilities,
 	HarnessEvent,
+	ModelTier,
 	SessionConfig,
 	SessionHandle,
 	SessionResult,
@@ -36,6 +38,8 @@ interface ActiveSession {
 	totalInputTokens: number;
 	totalOutputTokens: number;
 	totalCost: number;
+	/** L17: the model tier from SessionConfig — used to tag token_usage events. */
+	modelTier: string;
 }
 
 interface AdapterOptions {
@@ -116,6 +120,7 @@ export class ClaudeAgentSdkAdapter implements HarnessAdapter {
 			totalInputTokens: 0,
 			totalOutputTokens: 0,
 			totalCost: 0,
+			modelTier: config.modelTier,
 		});
 
 		return { sessionId };
@@ -148,10 +153,23 @@ export class ClaudeAgentSdkAdapter implements HarnessAdapter {
 		session.abortController.abort();
 		this.sessions.delete(handle.sessionId);
 
+		// L17: return structured cost (WireMoney) and token usage (TokenUsage).
+		// Claude SDK reports cost in USD, so currency is always 'USD' here.
+		// Tokens are attributed to the session's configured model tier.
 		return {
 			outcome: "completed",
-			totalTokens: session.totalInputTokens + session.totalOutputTokens,
-			totalCost: session.totalCost,
+			cost: {
+				minor: Math.round(session.totalCost * 100),
+				currency: "USD" as CurrencyCode,
+			},
+			tokenUsage: {
+				byTier: {
+					[session.modelTier]: {
+						prompt: session.totalInputTokens,
+						completion: session.totalOutputTokens,
+					},
+				},
+			},
 		};
 	}
 
@@ -169,7 +187,13 @@ export class ClaudeAgentSdkAdapter implements HarnessAdapter {
 					const outputTokens = usage.output_tokens ?? 0;
 					session.totalInputTokens += inputTokens;
 					session.totalOutputTokens += outputTokens;
-					yield { type: "token_usage", inputTokens, outputTokens };
+					// L17: include tier so provisioning can accumulate tokens by tier.
+					yield {
+						type: "token_usage",
+						inputTokens,
+						outputTokens,
+						tier: session.modelTier as ModelTier,
+					};
 				}
 
 				// Extract tool_use and text content blocks
@@ -194,12 +218,19 @@ export class ClaudeAgentSdkAdapter implements HarnessAdapter {
 				const totalCost = msg.total_cost_usd ?? 0;
 				const deltaCost = totalCost - session.totalCost;
 				session.totalCost = totalCost;
-				yield { type: "cost_update", totalCost, deltaCost };
+				// L17: Claude SDK reports cost in USD — include currency for structured accumulation.
+				yield { type: "cost_update", totalCost, deltaCost, currency: "USD" as CurrencyCode };
 
 				if (msg.usage) {
 					const inputTokens = msg.usage.input_tokens ?? 0;
 					const outputTokens = msg.usage.output_tokens ?? 0;
-					yield { type: "token_usage", inputTokens, outputTokens };
+					// L17: include tier for token accumulation by tier.
+					yield {
+						type: "token_usage",
+						inputTokens,
+						outputTokens,
+						tier: session.modelTier as ModelTier,
+					};
 				}
 
 				if (msg.subtype === "success" && msg.result) {

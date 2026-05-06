@@ -279,7 +279,12 @@ describe("GET /api/products/:id", () => {
 			product: { id: string; name: string };
 			team: { id: string };
 			roster: Array<{ agentId: string; name: string; isLead: boolean }>;
-			burn: { costActual: number; costCap: number | null; capacity: number; activeBets: number };
+			burn: {
+				costActual: { minor: number; currency: string } | null;
+				costCap: { minor: number; currency: string } | null;
+				capacity: number;
+				activeBets: number;
+			};
 			activeBets: Array<{
 				id: string;
 				status: string;
@@ -311,9 +316,11 @@ describe("GET /api/products/:id", () => {
 		expect(bet1?.progressDone).toBe(1);
 		expect(bet1?.progressTotal).toBe(2);
 
-		// Burn
-		expect(body.burn.costCap).toBe(10000);
-		expect(body.burn.costActual).toBe(4200);
+		// Burn — L17: costCap and costActual are WireMoney objects
+		expect(body.burn.costCap?.minor).toBe(10000);
+		expect(body.burn.costCap?.currency).toBe("USD");
+		expect(body.burn.costActual?.minor).toBe(4200);
+		expect(body.burn.costActual?.currency).toBe("USD");
 	});
 
 	it("returns activeBets: [] for a product whose bets are all shipped", async () => {

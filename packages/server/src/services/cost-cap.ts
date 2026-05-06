@@ -142,6 +142,15 @@ function getTeamSpend(db: HyperIdleDb, teamId: string): number {
 /**
  * Check if a new session is allowed given cost caps.
  * Checks agent -> team -> factory hierarchy, returning the first breach.
+ *
+ * @lore L17: Currency mismatch is NOT enforced at this boundary. The factory
+ * is single-currency in v1 — all agents, teams, and sessions are assumed to
+ * operate in the same currency (USD by default). The comparison is always
+ * minor-unit integers regardless of currency. If a future multi-currency
+ * factory is introduced, this function must validate that agent cap currency
+ * matches session currency before comparing spend vs cap. Until then,
+ * addMoney()'s currency-mismatch guard is not invoked here because we operate
+ * directly on integer minor units for efficiency.
  */
 // biome-ignore lint/suspicious/useAwait: callers expect Promise return for consistency with async service layer
 export async function checkCostCap(

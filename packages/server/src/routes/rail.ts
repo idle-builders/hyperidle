@@ -1,6 +1,6 @@
-import { bets, factorySettings, type HyperIdleDb, items, tasks } from "@hyperidle/db";
-import type { EventBus } from "@hyperidle/shared";
-import { eq, inArray } from "drizzle-orm";
+import { bets, factorySettings, type HyperIdleDb, items, sessions, tasks } from "@hyperidle/db";
+import type { CurrencyCode, EventBus, WireMoney } from "@hyperidle/shared";
+import { eq, gte, inArray, sql } from "drizzle-orm";
 import { Hono } from "hono";
 
 interface RailBet {
@@ -17,10 +17,21 @@ interface RailBlocker {
 	durationBlockedMs: number;
 }
 
+/**
+ * L17: CostBurnRate replaced with structured WireMoney fields.
+ *
+ * @lore L17: The old CostBurnRate used flat number fields (cap, actual, percentage).
+ * L17 replaces these with WireMoney objects so consumers can format money with the
+ * correct currency scale — they no longer assume "cents" and can handle JPY (scale 0).
+ * weekTokens is added to surface aggregate token usage without requiring a separate call.
+ */
 interface CostBurnRate {
-	cap: number;
-	actual: number;
-	percentage: number;
+	todaySpend: WireMoney | null;
+	todayCap: WireMoney | null;
+	weekSpend: WireMoney | null;
+	weekCap: WireMoney | null;
+	/** Total tokens consumed in the current rolling 7-day window. */
+	weekTokens: number | null;
 }
 
 interface RailResponse {
@@ -30,11 +41,77 @@ interface RailResponse {
 	costBurnRate: CostBurnRate;
 }
 
-function getFactorySettingNumber(db: HyperIdleDb, key: string): number {
+/** Read a factory setting string value, or null if not found. */
+function getFactorySetting(db: HyperIdleDb, key: string): string | null {
 	const row = db.select().from(factorySettings).where(eq(factorySettings.key, key)).get();
-	if (!row) return 0;
-	const parsed = Number.parseInt(row.value, 10);
-	return Number.isNaN(parsed) ? 0 : parsed;
+	return row?.value ?? null;
+}
+
+/** Parse a factory setting as a minor-unit integer, or null if missing/invalid. */
+function getFactorySettingMinor(db: HyperIdleDb, key: string): number | null {
+	const val = getFactorySetting(db, key);
+	if (val === null) return null;
+	const parsed = Number.parseInt(val, 10);
+	return Number.isNaN(parsed) ? null : parsed;
+}
+
+/** ISO date string for today (UTC, YYYY-MM-DD). */
+function todayIsoDate(): string {
+	return new Date().toISOString().slice(0, 10);
+}
+
+/** ISO date string for 7 days ago (UTC, YYYY-MM-DD). */
+function weekAgoIsoDate(): string {
+	const d = new Date();
+	d.setUTCDate(d.getUTCDate() - 7);
+	return d.toISOString().slice(0, 10);
+}
+
+/**
+ * Sum session costMinor values (falling back to legacy cost) for sessions
+ * whose startedAt is >= the given ISO prefix (e.g. "2025-05-06T00:00:00.000Z").
+ */
+function sumSessionSpendSince(db: HyperIdleDb, sinceIso: string): number {
+	const result = db
+		.select({
+			total: sql<number>`coalesce(sum(coalesce(${sessions.costMinor}, ${sessions.cost}, 0)), 0)`,
+		})
+		.from(sessions)
+		.where(gte(sessions.startedAt, sinceIso))
+		.get();
+	return result?.total ?? 0;
+}
+
+/**
+ * Count total tokens from sessions started since the given ISO prefix.
+ * Parses each session's tokensJson and sums prompt + completion across all tiers.
+ * Returns null if no sessions have token data.
+ */
+function countWeekTokens(db: HyperIdleDb, sinceIso: string): number | null {
+	const rows = db
+		.select({ tokensJson: sessions.tokensJson })
+		.from(sessions)
+		.where(gte(sessions.startedAt, sinceIso))
+		.all();
+
+	let weekTokens: number | null = null;
+	for (const row of rows) {
+		if (!row.tokensJson) continue;
+		try {
+			const usage = JSON.parse(row.tokensJson) as {
+				byTier?: Record<string, { prompt?: number; completion?: number }>;
+			};
+			if (usage.byTier) {
+				if (weekTokens === null) weekTokens = 0;
+				for (const tier of Object.values(usage.byTier)) {
+					weekTokens += (tier.prompt ?? 0) + (tier.completion ?? 0);
+				}
+			}
+		} catch {
+			// malformed JSON — skip silently
+		}
+	}
+	return weekTokens;
 }
 
 /**
@@ -88,20 +165,38 @@ export function createRailRoutes(db: HyperIdleDb, _eventBus: EventBus): Hono {
 			createdAt: i.createdAt,
 		}));
 
-		// Cost burn rate from factory settings
-		const costCap = getFactorySettingNumber(db, "cost_cap");
-		const costActual = getFactorySettingNumber(db, "cost_actual");
-		const percentage = costCap > 0 ? Math.round((costActual / costCap) * 100) : 0;
+		// L17: read cost cap from factory settings using the new minor-unit keys.
+		//
+		// @lore L17: currency mismatch is NOT enforced at this API boundary.
+		// The factory is single-currency in v1 — all sessions, caps, and spend
+		// are assumed to be in the same currency (USD by default). If a future
+		// multi-currency factory is introduced, this aggregation must group by
+		// currency and return multiple CostBurnRate entries.
+		const factoryCurrency = (getFactorySetting(db, "cost_currency") ?? "USD") as CurrencyCode;
+
+		const dailyCapMinor = getFactorySettingMinor(db, "cost_cap_daily_minor");
+		const weeklyCapMinor = getFactorySettingMinor(db, "cost_cap_weekly_minor");
+
+		const todayIsoStr = `${todayIsoDate()}T00:00:00.000Z`;
+		const weekAgoIsoStr = `${weekAgoIsoDate()}T00:00:00.000Z`;
+
+		const todaySpendMinor = sumSessionSpendSince(db, todayIsoStr);
+		const weekSpendMinor = sumSessionSpendSince(db, weekAgoIsoStr);
+		const weekTokens = countWeekTokens(db, weekAgoIsoStr);
+
+		const costBurnRate: CostBurnRate = {
+			todaySpend: { minor: todaySpendMinor, currency: factoryCurrency },
+			todayCap: dailyCapMinor != null ? { minor: dailyCapMinor, currency: factoryCurrency } : null,
+			weekSpend: { minor: weekSpendMinor, currency: factoryCurrency },
+			weekCap: weeklyCapMinor != null ? { minor: weeklyCapMinor, currency: factoryCurrency } : null,
+			weekTokens,
+		};
 
 		const response: RailResponse = {
 			bets: railBets,
 			blockers: railBlockers,
 			awaitingOrdering,
-			costBurnRate: {
-				cap: costCap,
-				actual: costActual,
-				percentage,
-			},
+			costBurnRate,
 		};
 
 		return c.json(response);

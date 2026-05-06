@@ -21,6 +21,7 @@ import {
 	teams,
 } from "@hyperidle/db";
 import { EventBus } from "@hyperidle/shared";
+import { eq } from "drizzle-orm";
 import type { Hono } from "hono";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
@@ -165,13 +166,10 @@ describe("Cost-cap service with Money columns (AC13)", () => {
 		});
 
 		// Verify session was updated with new column
-		const session = db
-			.select()
-			.from(sessions)
-			.where(/* eq(sessions.id, "s1") */ undefined as never)
-			.get();
+		const session = db.select().from(sessions).where(eq(sessions.id, "s1")).get();
 		// If session rows use new schema, costMinor should be 500
 		expect(session).toBeDefined();
+		expect(session?.costMinor).toBe(500);
 	});
 
 	it("resetCosts clears costMinor across sessions (not old cost column)", async () => {

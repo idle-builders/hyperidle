@@ -631,12 +631,20 @@ describe("E2E API Integration (I5)", () => {
 				bets: unknown[];
 				blockers: unknown[];
 				awaitingOrdering: unknown[];
-				costBurnRate: { cap: number; actual: number; percentage: number };
+				costBurnRate: {
+					todaySpend: { minor: number; currency: string } | null;
+					todayCap: { minor: number; currency: string } | null;
+					weekSpend: { minor: number; currency: string } | null;
+					weekCap: { minor: number; currency: string } | null;
+					weekTokens: number | null;
+				};
 			};
 			expect(Array.isArray(body.bets)).toBe(true);
 			expect(Array.isArray(body.blockers)).toBe(true);
 			expect(Array.isArray(body.awaitingOrdering)).toBe(true);
-			expect(body.costBurnRate).toHaveProperty("cap");
+			// L17: costBurnRate uses WireMoney shape
+			expect(body.costBurnRate).toHaveProperty("todaySpend");
+			expect(body.costBurnRate).toHaveProperty("weekSpend");
 		});
 	});
 

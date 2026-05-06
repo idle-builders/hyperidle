@@ -102,6 +102,8 @@ export async function createSession(
 			state: "active",
 			workspaceSnapshot: workspacePath,
 			cost: 0,
+			costMinor: 0,
+			costCurrency: "USD",
 			traceId,
 		})
 		.run();
@@ -163,13 +165,16 @@ export async function endSession(
 	// 2. Compute cost delta relative to the resolved baseline.
 	const costDelta = costInCents - resolveCostBaseline(db, context.sessionId, baselineCost);
 
-	// 3. Update session row
+	// 3. Update session row — write both legacy cost and new L17 money columns.
 	const now = new Date().toISOString();
 	db.update(sessions)
 		.set({
 			state: "done",
 			outcome: "completed",
 			cost: costInCents,
+			// L17: write structured money columns
+			costMinor: costInCents,
+			costCurrency: "USD",
 			endedAt: now,
 		})
 		.where(eq(sessions.id, context.sessionId))
@@ -223,13 +228,16 @@ export async function crashSession(
 	// 2. Compute cost delta relative to the resolved baseline.
 	const costDelta = costInCents - resolveCostBaseline(db, context.sessionId, baselineCost);
 
-	// 3. Update session row
+	// 3. Update session row — write both legacy cost and new L17 money columns.
 	const now = new Date().toISOString();
 	db.update(sessions)
 		.set({
 			state: "crashed",
 			outcome: "crashed",
 			cost: costInCents,
+			// L17: write structured money columns
+			costMinor: costInCents,
+			costCurrency: "USD",
 			endedAt: now,
 		})
 		.where(eq(sessions.id, context.sessionId))

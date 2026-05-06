@@ -16,7 +16,9 @@ import {
 	type ModelTier,
 	type SessionHandle,
 	type SessionOutcome,
+	scaleForCurrency,
 	type TaskState,
+	type TierTokenCount,
 } from "@hyperidle/shared";
 import { and, eq, sql } from "drizzle-orm";
 import type { WorkspaceAdapter, WorkspaceHandle } from "../harness/workspace-adapter.js";
@@ -231,6 +233,8 @@ export async function provisionSession(
 				state: "active",
 				workspaceSnapshot: workspacePath,
 				cost: 0,
+				costMinor: 0,
+				costCurrency: "USD",
 			})
 			.run();
 
@@ -293,6 +297,8 @@ export async function provisionSession(
 	let harnessHandle: SessionHandle | null = null;
 	let totalCostCents = 0;
 	let crashed = false;
+	/** L17: accumulated tokens by tier for the session's tokensJson column. */
+	const accumulatedTokens: Partial<Record<ModelTier, TierTokenCount>> = {};
 
 	try {
 		// Role-based tool authorization: facilitator-only tools are stripped
@@ -322,18 +328,33 @@ export async function provisionSession(
 					// decrement the running total. A negative delta would
 					// silently suppress cap breaches downstream.
 					const delta = Math.max(0, event.deltaCost);
-					totalCostCents += Math.round(delta * 100);
-					// Forward to C7: persists running total on sessions.cost and emits
+					// L17: use scaleForCurrency to convert harness-reported dollars to
+					// minor units. Claude SDK reports in USD (2 decimal places = 100 units
+					// per dollar). scaleForCurrency ensures correct conversion if the
+					// currency ever changes (e.g. JPY has 0 decimal places = 1:1).
+					const currency = event.currency ?? "USD";
+					const scale = 10 ** scaleForCurrency(currency);
+					totalCostCents += Math.round(delta * scale);
+					// Forward to C7: persists running total on sessions.costMinor and emits
 					// cost_cap_warning / cost_cap_breached when thresholds cross.
 					await recordCostAndCheck(db, eventBus, {
 						sessionId,
-						cost: totalCostCents,
+						costMinor: totalCostCents,
+						currency,
 						agentId: params.agentId,
 						teamId,
 						factoryCap: params.factoryCap,
 						factorySpend: params.factorySpend,
 						reviewThreadId: params.reviewThreadId,
 					});
+				} else if (event.type === "token_usage") {
+					// L17: accumulate tokens by tier for tokensJson written at session end.
+					const tier: ModelTier = event.tier ?? modelTier;
+					const existing = accumulatedTokens[tier];
+					accumulatedTokens[tier] = {
+						prompt: (existing?.prompt ?? 0) + event.inputTokens,
+						completion: (existing?.completion ?? 0) + event.outputTokens,
+					};
 				} else if (event.type === "tool_call") {
 					// Emit to the bus for observability before invoking the tool
 					// so a failure inside the registry doesn't drop the record.
@@ -382,7 +403,19 @@ export async function provisionSession(
 	// ── Phase 11: teardown. Baseline cost is 0 for a freshly-provisioned
 	// session — pass it explicitly so costDelta reflects the full session spend
 	// even though `recordCostAndCheck` has already persisted the running total
-	// onto `sessions.cost`.
+	// onto `sessions.costMinor`.
+	//
+	// L17: write tokensJson before calling end/crash so the lifecycle functions
+	// can include it in the final session row update. We write it here because
+	// provisioning owns the accumulation state (accumulatedTokens).
+	const tokensJson =
+		Object.keys(accumulatedTokens).length > 0
+			? JSON.stringify({ byTier: accumulatedTokens })
+			: null;
+	if (tokensJson !== null) {
+		db.update(sessions).set({ tokensJson }).where(eq(sessions.id, sessionId)).run();
+	}
+
 	if (crashed) {
 		await crashSession(db, eventBus, sessionContext, totalCostCents, 0);
 		return {

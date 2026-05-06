@@ -69,15 +69,13 @@ describe("I2 V2 — PATCH /api/bets/:id field enum", () => {
 		expect(body.code).toBe(API_ERROR_CODES.VALIDATION_ERROR);
 	});
 
-	it("accepts each legal field value (done_condition / hypothesis / appetite)", async () => {
-		// L14: appetite now requires a valid enum value at the route level.
-		// "v" is used for text fields; appetite must use an enum-valid value.
+	it("accepts each legal field value (done_condition / hypothesis / cost_appetite)", async () => {
 		const fieldValues: Record<string, string> = {
 			done_condition: "v",
 			hypothesis: "v",
-			appetite: "1 week",
+			cost_appetite: "v",
 		};
-		for (const field of ["done_condition", "hypothesis", "appetite"]) {
+		for (const field of ["done_condition", "hypothesis", "cost_appetite"]) {
 			const res = await app.request("/api/bets/bet1", {
 				method: "PATCH",
 				headers: authHeaders(),
