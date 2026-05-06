@@ -24,6 +24,7 @@ import {
 	SkeletonCard,
 	SkeletonList,
 	StatusChip,
+	sessionOutcomeToStatus,
 	taskStateToStatus,
 } from "@hyperidle/design-system";
 import type { Message } from "@hyperidle/shared";
@@ -34,6 +35,7 @@ import { ArtifactSection, useArtifactOpen } from "../components/ArtifactSection.
 import { ArtifactThreadsSummary } from "../components/ArtifactThreadsSummary.js";
 import { useBet } from "../hooks/useBet";
 import { useHostThread } from "../hooks/useHostThread.js";
+import { isValidHarnessUrl } from "../lib/url-utils.js";
 import {
 	PLACEHOLDER_AGENT_PARTICIPANT_ID,
 	postRequestMessage,
@@ -43,7 +45,7 @@ import { HostThreadSection } from "../shell/HostThreadSection.js";
 import { TaskSheet } from "../shell/TaskSheet";
 import type { BetDetail } from "../types/bet";
 
-type SortColumn = "title" | "status" | "owner" | "cost";
+type SortColumn = "title" | "status" | "owner" | "cost" | "outcome";
 type SortDirection = "asc" | "desc";
 
 function sortTasks(
@@ -54,8 +56,15 @@ function sortTasks(
 	if (column === null) return tasks;
 	const copy = [...tasks];
 	copy.sort((a, b) => {
-		const av = a[column] ?? "";
-		const bv = b[column] ?? "";
+		// L19: outcome column sorts by the outcome string value
+		const av: string =
+			column === "outcome"
+				? (a.latestSessionOutcome ?? "")
+				: ((a[column as keyof typeof a] as string | undefined) ?? "");
+		const bv: string =
+			column === "outcome"
+				? (b.latestSessionOutcome ?? "")
+				: ((b[column as keyof typeof b] as string | undefined) ?? "");
 		if (av < bv) return direction === "asc" ? -1 : 1;
 		if (av > bv) return direction === "asc" ? 1 : -1;
 		return 0;
@@ -913,6 +922,14 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 									sortDirection={sortDirection}
 									onSort={handleSort}
 								/>
+								{/* L19: Outcome column — sortable, between Status and Owner */}
+								<SortableHeader
+									column="outcome"
+									label="Outcome"
+									sortColumn={sortColumn}
+									sortDirection={sortDirection}
+									onSort={handleSort}
+								/>
 								<SortableHeader
 									column="owner"
 									label="Owner"
@@ -927,6 +944,12 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 									sortDirection={sortDirection}
 									onSort={handleSort}
 								/>
+								{/* L19: Session column — non-sortable, contains jump-out link */}
+								<th scope="col">
+									<span className="uppercase font-heading text-xs tracking-wider text-[var(--text-lo)]">
+										Session
+									</span>
+								</th>
 							</tr>
 						</thead>
 						<tbody>
@@ -951,8 +974,30 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 									<td>
 										<StatusChip status={taskStateToStatus(task.state)} />
 									</td>
+									{/* L19: Outcome chip — renders when a session outcome exists */}
+									<td>
+										{task.latestSessionOutcome != null ? (
+											<StatusChip status={sessionOutcomeToStatus(task.latestSessionOutcome)} />
+										) : null}
+									</td>
 									<td>{task.owner}</td>
 									<td className="font-mono">{task.cost}</td>
+									{/* L19: Jump-out link — only rendered for valid http/https URLs */}
+									<td>
+										{task.latestSessionHarnessUrl &&
+										isValidHarnessUrl(task.latestSessionHarnessUrl) ? (
+											<a
+												href={task.latestSessionHarnessUrl}
+												target="_blank"
+												rel="noopener noreferrer"
+												className="font-mono text-xs text-[var(--primary)] hover:underline"
+												aria-label="Open session in harness (opens in new tab)"
+												onClick={(e) => e.stopPropagation()}
+											>
+												Open in harness
+											</a>
+										) : null}
+									</td>
 								</tr>
 							))}
 						</tbody>

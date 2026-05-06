@@ -4,6 +4,7 @@ import {
 	type HyperIdleDb,
 	messages,
 	products,
+	sessions,
 	tasks,
 	teams,
 	threads,
@@ -166,7 +167,70 @@ export function createBetRoutes(db: HyperIdleDb, eventBus: EventBus): Hono {
 			return c.json({ error: "Bet not found", code: "NOT_FOUND" }, 404);
 		}
 
-		const betTasks = db.select().from(tasks).where(eq(tasks.betId, betId)).all();
+		// L19: Enrich task rows with latest session metadata via correlated subqueries.
+		// The sessions_task_id_idx index covers the task_id lookups efficiently.
+		// @lore L19: Five correlated subqueries rather than a single JSON subquery —
+		// explicit columns are easier to read and the volume is bounded (< 50 tasks/bet,
+		// < 20 sessions/task).
+		//
+		// @lore L19: ${tasks.id} inside a nested sql`` template renders as unqualified
+		// `"id"` (no table prefix), causing SQLite to resolve it against the inner
+		// sessions table. We use sql.identifier to emit `"tasks"."id"` explicitly.
+		// See bets.session-enrichment.test.ts for the proof.
+		const outerTaskId = sql`${sql.identifier("tasks")}.${sql.identifier("id")}`;
+		const betTasks = db
+			.select({
+				id: tasks.id,
+				betId: tasks.betId,
+				productId: tasks.productId,
+				teamId: tasks.teamId,
+				ownerAgentId: tasks.ownerAgentId,
+				title: tasks.title,
+				description: tasks.description,
+				doneCondition: tasks.doneCondition,
+				state: tasks.state,
+				dependencies: tasks.dependencies,
+				artifacts: tasks.artifacts,
+				costCap: tasks.costCap,
+				costActual: tasks.costActual,
+				durability: tasks.durability,
+				riskTier: tasks.riskTier,
+				attentionScore: tasks.attentionScore,
+				crossTeam: tasks.crossTeam,
+				threadId: tasks.threadId,
+				notes: tasks.notes,
+				auditTrail: tasks.auditTrail,
+				createdAt: tasks.createdAt,
+				updatedAt: tasks.updatedAt,
+				latestSessionOutcome: sql<
+					string | null
+				>`(SELECT ${sessions.outcome} FROM ${sessions} WHERE ${sessions.taskId} = ${outerTaskId} ORDER BY ${sessions.startedAt} DESC LIMIT 1)`.as(
+					"latest_session_outcome",
+				),
+				latestSessionCost: sql<
+					number | null
+				>`(SELECT ${sessions.cost} FROM ${sessions} WHERE ${sessions.taskId} = ${outerTaskId} ORDER BY ${sessions.startedAt} DESC LIMIT 1)`.as(
+					"latest_session_cost",
+				),
+				latestSessionTokensInput: sql<
+					number | null
+				>`(SELECT ${sessions.tokensInput} FROM ${sessions} WHERE ${sessions.taskId} = ${outerTaskId} ORDER BY ${sessions.startedAt} DESC LIMIT 1)`.as(
+					"latest_session_tokens_input",
+				),
+				latestSessionTokensOutput: sql<
+					number | null
+				>`(SELECT ${sessions.tokensOutput} FROM ${sessions} WHERE ${sessions.taskId} = ${outerTaskId} ORDER BY ${sessions.startedAt} DESC LIMIT 1)`.as(
+					"latest_session_tokens_output",
+				),
+				latestSessionHarnessUrl: sql<
+					string | null
+				>`(SELECT ${sessions.harnessUrl} FROM ${sessions} WHERE ${sessions.taskId} = ${outerTaskId} ORDER BY ${sessions.startedAt} DESC LIMIT 1)`.as(
+					"latest_session_harness_url",
+				),
+			})
+			.from(tasks)
+			.where(eq(tasks.betId, betId))
+			.all();
 
 		// Derive title from the first heading line of the pitch.
 		// Pattern: strip optional leading "# " (H1) or "## " (H2) markers.

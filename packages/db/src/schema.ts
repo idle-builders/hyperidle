@@ -143,6 +143,10 @@ export const sessions = sqliteTable(
 		 * inserted before the column was added.
 		 */
 		traceId: text("trace_id"),
+		// L19: harness jump-out + token accounting
+		harnessUrl: text("harness_url"),
+		tokensInput: integer("tokens_input"),
+		tokensOutput: integer("tokens_output"),
 	},
 	(table) => [
 		index("sessions_task_id_idx").on(table.taskId),
