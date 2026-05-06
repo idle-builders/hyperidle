@@ -35,7 +35,7 @@ const ARTIFACT_FIXTURES = [
 				},
 			],
 		},
-		cost: { money: "$0.04", tokens: "1.2k" },
+		cost: { money: null, tokens: null },
 		threadCount: 0,
 		createdAt: "2026-05-01T10:00:00.000Z",
 	},
@@ -45,7 +45,7 @@ const ARTIFACT_FIXTURES = [
 		producingTaskTitle: "Design pitch deck",
 		kind: "deck",
 		preview: { kind: "deck", slideCount: 8, firstSlideTitle: "Executive summary" },
-		cost: { money: "$0.12", tokens: "8k" },
+		cost: { money: null, tokens: null },
 		threadCount: 2,
 		createdAt: "2026-05-01T09:00:00.000Z",
 	},
@@ -97,7 +97,54 @@ async function mockEmptyArtifacts(page: Page): Promise<void> {
 	});
 }
 
+async function mockAppShellEndpoints(page: Page): Promise<void> {
+	await page.route("**/api/threads?**participant_id=**", async (route: Route) => {
+		await route.fulfill({
+			status: 200,
+			contentType: "application/json",
+			body: JSON.stringify({ threads: [] }),
+		});
+	});
+
+	await page.route("**/api/products**", async (route: Route) => {
+		const url = route.request().url();
+		if (url.match(/\/products\/?(\?|$)/)) {
+			await route.fulfill({
+				status: 200,
+				contentType: "application/json",
+				body: JSON.stringify({ products: [], total: 0 }),
+			});
+			return;
+		}
+
+		await route.fulfill({
+			status: 200,
+			contentType: "application/json",
+			body: JSON.stringify({
+				product: {
+					id: "prod-stub",
+					name: "Stub Product",
+					status: "active",
+					phase: "build",
+					leadAgentId: null,
+					activeBets: 0,
+					shipped: 0,
+					shipRate: "0%",
+					progress: { done: 0, total: 0 },
+				},
+				roster: [],
+				burn: { costActual: 0, costCap: null, activeBets: 0, capacity: 3 },
+				activeBets: [],
+			}),
+		});
+	});
+}
+
 test.describe("L12 — Artifact surfaces on Work pages", () => {
+	test.beforeEach(async ({ page }) => {
+		await mockAppShellEndpoints(page);
+	});
+
 	// ── WorkPortfolio ─────────────────────────────────────────────────────────
 
 	test("WorkPortfolio: ArtifactGalleryCard renders when artifacts exist", async ({ page }) => {
@@ -213,17 +260,14 @@ test.describe("L12 — Artifact surfaces on Work pages", () => {
 	test("WorkBet: ArtifactSection appears BEFORE thread section in DOM", async ({ page }) => {
 		const ORDER_BET_ID = "bet-e2e-order";
 		const ORDER_THREAD_ID = "thread-order-1";
-		await page.route(
-			`**/api/bets/${ORDER_BET_ID}/artifact-thread-summary`,
-			async (route: Route) => {
-				await route.fulfill({
-					status: 200,
-					contentType: "application/json",
-					body: JSON.stringify({ summaries: [], totalCount: 0, truncated: false }),
-				});
-			},
-		);
-		await page.route(`**/api/bets/${ORDER_BET_ID}`, async (route: Route) => {
+		await page.route(`**/bets/${ORDER_BET_ID}/artifact-thread-summary`, async (route: Route) => {
+			await route.fulfill({
+				status: 200,
+				contentType: "application/json",
+				body: JSON.stringify({ summaries: [], totalCount: 0, truncated: false }),
+			});
+		});
+		await page.route(`**/bets/${ORDER_BET_ID}`, async (route: Route) => {
 			await route.fulfill({
 				status: 200,
 				contentType: "application/json",
@@ -241,7 +285,7 @@ test.describe("L12 — Artifact surfaces on Work pages", () => {
 			});
 		});
 		// Thread mocks must return a real thread so HostThreadSection renders
-		await page.route(`**/api/threads?**host_kind=bet**`, async (route: Route) => {
+		await page.route(`**/threads?**host_kind=bet**`, async (route: Route) => {
 			await route.fulfill({
 				status: 200,
 				contentType: "application/json",
@@ -250,7 +294,7 @@ test.describe("L12 — Artifact surfaces on Work pages", () => {
 				}),
 			});
 		});
-		await page.route(`**/api/threads/${ORDER_THREAD_ID}`, async (route: Route) => {
+		await page.route(`**/threads/${ORDER_THREAD_ID}`, async (route: Route) => {
 			await route.fulfill({
 				status: 200,
 				contentType: "application/json",

@@ -12,7 +12,7 @@ const FIXTURES = [
 		producingTaskTitle: "Decision: ship the diff renderer",
 		kind: "decision",
 		preview: { kind: "decision", claim: "Ship", rationale: "Risk acceptable" },
-		cost: { money: "$0.02", tokens: "800" },
+		cost: { money: null, tokens: null },
 		threadCount: 0,
 		createdAt: "2026-04-28T11:00:00.000Z",
 	},
@@ -27,6 +27,20 @@ async function mockArtifacts(route: Route): Promise<void> {
 }
 
 test("ArtifactEmbed root has no bg-/border-/rounded-/shadow- chrome", async ({ page }) => {
+	await page.route("**/api/threads?**participant_id=**", async (route) => {
+		await route.fulfill({
+			status: 200,
+			contentType: "application/json",
+			body: JSON.stringify({ threads: [] }),
+		});
+	});
+	await page.route("**/api/products**", async (route) => {
+		await route.fulfill({
+			status: 200,
+			contentType: "application/json",
+			body: JSON.stringify({ products: [], total: 0 }),
+		});
+	});
 	await page.route("**/api/artifacts?**", mockArtifacts);
 	await page.goto("/_dev/artifacts");
 	const embed = page.locator("[data-ds-component='ArtifactEmbed']").first();
