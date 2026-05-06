@@ -174,18 +174,13 @@ describe("attention-service", () => {
 	});
 
 	it("recomputeMany emits exactly one ItemCreatedEvent per item that crosses the threshold", async () => {
-		// Seed 3 crossing and 2 non-crossing items.
-		// @lore L22: each crossing item uses a UNIQUE topic so cohort size = 1
-		// (novelty = 1.0). After L22's IMPACT_BY_KIND deletion (impact = 0),
-		// sharing a cohort (topic="brand" for all three) drops novelty to
-		// 1/sqrt(3) ≈ 0.577 and the maximum reachable score falls below 0.7.
-		// Unique topics keep novelty = 1 and the score reaches ~0.74, crossing.
+		// Seed 3 crossing and 2 non-crossing items
 		const crossing = ["c1", "c2", "c3"];
-		for (const [i, id] of crossing.entries()) {
+		for (const id of crossing) {
 			seedKi(db, {
 				id,
 				kind: "brief",
-				topic: `brand-unique-${i}`,
+				topic: "brand",
 				confidence: 0.1,
 				attentionScore: 0.3,
 			});
