@@ -79,92 +79,96 @@ const THREADS_LIST_FIXTURE = {
 
 /** Set up mock API routes used by all CoC tests. */
 async function setupApiMocks(page: import("@playwright/test").Page): Promise<void> {
-	// Mock GET /api/threads/coach — resolves the coach thread.
-	await page.route("**/api/threads/coach", async (route) => {
-		await route.fulfill({
-			status: 200,
-			contentType: "application/json",
-			body: JSON.stringify(COACH_THREAD_FIXTURE),
-		});
-	});
-
-	// Mock GET /api/threads list (Conversations submenu).
-	await page.route("**/api/threads?**", async (route) => {
-		await route.fulfill({
-			status: 200,
-			contentType: "application/json",
-			body: JSON.stringify(THREADS_LIST_FIXTURE),
-		});
-	});
-
-	// Mock GET /api/threads/:id (individual thread detail).
-	await page.route("**/api/threads/*", async (route) => {
-		const url = route.request().url();
-		// Don't intercept the /coach sub-route (already handled above).
-		if (url.includes("/coach")) {
-			await route.continue();
-			return;
-		}
-		await route.fulfill({
-			status: 200,
-			contentType: "application/json",
-			body: JSON.stringify(COACH_THREAD_FIXTURE),
-		});
-	});
-
-	// Mock POST /api/threads/:id/messages — message send.
-	await page.route("**/api/threads/*/messages", async (route) => {
-		if (route.request().method() !== "POST") {
-			await route.continue();
-			return;
-		}
-		const requestBody = route.request().postDataJSON() as { payload?: { text?: string } } | null;
-		const text = requestBody?.payload?.text ?? "sent";
-		await route.fulfill({
-			status: 201,
-			contentType: "application/json",
-			body: JSON.stringify({
-				message: {
-					id: `msg-${Date.now()}`,
-					threadId: COACH_THREAD_ID,
-					senderId: "u-founder",
-					clientKey: `key-${Date.now()}`,
-					type: "plain",
-					payload: { text },
-					createdAt: NOW_ISO,
-					deletedAt: null,
-					redactedAt: null,
-					resolvedAt: null,
-				},
-			}),
-		});
-	});
-
-	// Mock GET /api/bets/:id (for context attachment test).
-	await page.route(`**/api/bets/${BET_ID}`, async (route) => {
-		await route.fulfill({
-			status: 200,
-			contentType: "application/json",
-			body: JSON.stringify(BET_FIXTURE),
-		});
-	});
-
-	// Mock other API endpoints to prevent noise.
+	// Single route handler for all /api/ calls. Uses URL matching internally
+	// to avoid Playwright glob-priority pitfalls (last-registered-wins + glob
+	// `?` matching one char rather than a literal query separator).
 	await page.route("**/api/**", async (route) => {
-		if (
-			!(
-				route.request().url().includes("api/threads") ||
-				route.request().url().includes(`api/bets/${BET_ID}`)
-			)
-		) {
+		const url = route.request().url();
+		const method = route.request().method();
+
+		// POST /api/threads/:id/messages — message send.
+		if (url.includes("/api/threads/") && url.endsWith("/messages") && method === "POST") {
+			const requestBody = route.request().postDataJSON() as {
+				payload?: { text?: string };
+			} | null;
+			const text = requestBody?.payload?.text ?? "sent";
+			await route.fulfill({
+				status: 201,
+				contentType: "application/json",
+				body: JSON.stringify({
+					message: {
+						id: `msg-${Date.now()}`,
+						threadId: COACH_THREAD_ID,
+						senderId: "u-founder",
+						clientKey: `key-${Date.now()}`,
+						type: "plain",
+						payload: { text },
+						createdAt: NOW_ISO,
+						deletedAt: null,
+						redactedAt: null,
+						resolvedAt: null,
+					},
+				}),
+			});
+			return;
+		}
+
+		// GET /api/threads/coach — resolves the coach thread.
+		if (url.includes("/api/threads/coach")) {
 			await route.fulfill({
 				status: 200,
 				contentType: "application/json",
-				body: JSON.stringify({}),
+				body: JSON.stringify(COACH_THREAD_FIXTURE),
 			});
-		} else {
-			await route.continue();
+			return;
 		}
+
+		// GET /api/threads?... — thread list (Conversations submenu, useHostThread).
+		if (url.includes("/api/threads?") || url.match(/\/api\/threads$/)) {
+			await route.fulfill({
+				status: 200,
+				contentType: "application/json",
+				body: JSON.stringify(THREADS_LIST_FIXTURE),
+			});
+			return;
+		}
+
+		// GET /api/threads/:id — individual thread detail.
+		if (url.match(/\/api\/threads\/[^/]+$/) && !url.includes("/coach")) {
+			await route.fulfill({
+				status: 200,
+				contentType: "application/json",
+				body: JSON.stringify(COACH_THREAD_FIXTURE),
+			});
+			return;
+		}
+
+		// GET /api/bets/:id/artifact-thread-summary
+		if (url.includes(`/api/bets/${BET_ID}/artifact-thread-summary`)) {
+			await route.fulfill({
+				status: 200,
+				contentType: "application/json",
+				body: JSON.stringify(null),
+			});
+			return;
+		}
+
+		// GET /api/bets/:id
+		if (url.includes(`/api/bets/${BET_ID}`)) {
+			await route.fulfill({
+				status: 200,
+				contentType: "application/json",
+				body: JSON.stringify(BET_FIXTURE),
+			});
+			return;
+		}
+
+		// Catch-all: return empty JSON for any other API call.
+		await route.fulfill({
+			status: 200,
+			contentType: "application/json",
+			body: JSON.stringify({}),
+		});
 	});
 }
 
@@ -306,10 +310,10 @@ test.describe("L21 — CoC Overlay E2E", () => {
 		await page.goto("/conversations");
 
 		// The coach thread should appear in the Conversations submenu.
-		// It is pinned so it appears at the top of the active section.
+		// Title is derived from hostKind + id prefix: "User thread thr-coac"
 		await page.waitForSelector("[data-ds-component='ThreadRow']");
 		const coachThreadRow = page.locator("[data-ds-component='ThreadRow']").filter({
-			hasText: /chief of staff/i,
+			hasText: /user thread/i,
 		});
 		await expect(coachThreadRow).toBeVisible();
 	});

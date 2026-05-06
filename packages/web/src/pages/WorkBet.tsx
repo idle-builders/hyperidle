@@ -31,6 +31,7 @@ import { deriveBlocks, isRedactedPayload } from "@hyperidle/shared";
 import { type JSX, useCallback, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { ArtifactThreadsSummary } from "../components/ArtifactThreadsSummary.js";
+import { CocAttachButton } from "../components/CocAttachButton";
 import { useBet } from "../hooks/useBet";
 import { useHostThread } from "../hooks/useHostThread.js";
 import {
@@ -337,13 +338,16 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 				</ol>
 			</nav>
 
-			<BetCard
-				title={bet.title}
-				product={bet.product}
-				status={bet.status}
-				appetite={bet.appetite}
-				progress={bet.progress}
-			/>
+			<div className="relative">
+				<BetCard
+					title={bet.title}
+					product={bet.product}
+					status={bet.status}
+					appetite={bet.appetite}
+					progress={bet.progress}
+				/>
+				<CocAttachButton ref={{ kind: "bet", id: bet.id, label: bet.title }} />
+			</div>
 
 			{/* L18: Block popover wiring — onOpenBlockActions opens the page-level
 			    block actions popover. The popover's "Discuss" item then calls
