@@ -9,7 +9,13 @@
  * from here. The hook imports it from here. All non-fixture imports are clean.
  */
 
-import type { BetStatus, SessionOutcome, TaskState, TokenUsage, WireMoney } from "@hyperidle/shared";
+import type {
+	BetStatus,
+	SessionOutcome,
+	TaskState,
+	TokenUsage,
+	WireMoney,
+} from "@hyperidle/shared";
 
 /**
  * @deprecated L18: BetComment is replaced by the L1 Thread primitive.
