@@ -270,7 +270,7 @@ export function TaskSheet({
 			// @lore The responsive classes implement the design/approved.md Mobile section:
 			// small viewports get a bottom-sheet; desktop gets a right drawer. Both share
 			// the same component — Tailwind responsive prefixes do the layout switching.
-			className="fixed inset-x-0 bottom-0 max-h-[85vh] rounded-t-[var(--r3)] flex flex-col w-full bg-[var(--surface-2)] border-t border-[var(--border-lo)] shadow-lg z-50 sm:inset-y-0 sm:right-0 sm:bottom-auto sm:left-auto sm:max-w-[min(640px,90vw)] sm:max-h-none sm:rounded-none sm:border-t-0 sm:border-l"
+			className="fixed inset-x-0 bottom-0 max-h-[85vh] rounded-t-[var(--r3)] flex flex-col w-full bg-[var(--surface-2)] border-t border-[var(--border-lo)] shadow-lg z-50 sm:inset-y-0 sm:right-0 sm:bottom-auto sm:left-auto sm:max-w-[min(640px,90vw)] sm:max-h-screen sm:rounded-none sm:border-t-0 sm:border-l"
 			onKeyDown={handleDialogKeyDown}
 		>
 			{/* Header */}
@@ -283,143 +283,146 @@ export function TaskSheet({
 				</button>
 			</div>
 
-			{/* Task summary */}
-			<div className="px-4 py-3 border-b border-[var(--border-lo)]">
-				<p id="task-sheet-title" className="text-base font-medium text-[var(--text-hi)]">
-					{task.title}
-				</p>
-				<div className="flex items-center gap-2 mt-1 text-xs text-[var(--text-lo)]">
-					<span>{task.owner}</span>
-					{task.betTag && <span>· {task.betTag}</span>}
-					{task.cost && <span>· {task.cost}</span>}
+			{/* Scrollable body — dialog content may exceed viewport height */}
+			<div className="flex-1 overflow-y-auto">
+				{/* Task summary */}
+				<div className="px-4 py-3 border-b border-[var(--border-lo)]">
+					<p id="task-sheet-title" className="text-base font-medium text-[var(--text-hi)]">
+						{task.title}
+					</p>
+					<div className="flex items-center gap-2 mt-1 text-xs text-[var(--text-lo)]">
+						<span>{task.owner}</span>
+						{task.betTag && <span>· {task.betTag}</span>}
+						{task.cost && <span>· {task.cost}</span>}
+					</div>
 				</div>
-			</div>
 
-			{/* L12: single artifact preview — BEFORE discussion per architecture plan. */}
-			<div className="px-4 py-2">
-				<ArtifactSection filter={{ axis: "task", taskId: task.id }} layout="single" limit={1} />
-			</div>
-
-			{task.latestSessionOutcome && (
-				<div
-					data-testid="task-session-metadata"
-					className="flex items-center gap-2 px-4 py-2 border-b border-[var(--border-lo)] text-xs font-mono text-[var(--text-lo)]"
-				>
-					<StatusChip status={sessionOutcomeToStatus(task.latestSessionOutcome)} />
-					{task.latestSessionCost != null && (
-						<>
-							<span aria-hidden>|</span>
-							<span>${(task.latestSessionCost / 100).toFixed(2)}</span>
-						</>
-					)}
-					{(task.latestSessionTokensInput != null || task.latestSessionTokensOutput != null) && (
-						<>
-							<span aria-hidden>|</span>
-							<span>
-								{formatTokens(task.latestSessionTokensInput ?? 0)} in /{" "}
-								{formatTokens(task.latestSessionTokensOutput ?? 0)} out
-							</span>
-						</>
-					)}
-					{task.latestSessionHarnessUrl && isValidHarnessUrl(task.latestSessionHarnessUrl) && (
-						<>
-							<span aria-hidden>|</span>
-							<a
-								href={task.latestSessionHarnessUrl}
-								target="_blank"
-								rel="noopener noreferrer"
-								className="text-[var(--primary)] hover:underline"
-								aria-label="Open session in harness (opens in new tab)"
-							>
-								Open in harness
-							</a>
-						</>
-					)}
+				{/* L12: single artifact preview — BEFORE discussion per architecture plan. */}
+				<div className="px-4 py-2">
+					<ArtifactSection filter={{ axis: "task", taskId: task.id }} layout="single" limit={1} />
 				</div>
-			)}
 
-			{/* Inline thread — L18: thread is inline; "Open thread" affordance navigates
+				{task.latestSessionOutcome && (
+					<div
+						data-testid="task-session-metadata"
+						className="flex items-center gap-2 px-4 py-2 border-b border-[var(--border-lo)] text-xs font-mono text-[var(--text-lo)]"
+					>
+						<StatusChip status={sessionOutcomeToStatus(task.latestSessionOutcome)} />
+						{task.latestSessionCost != null && (
+							<>
+								<span aria-hidden>|</span>
+								<span>${(task.latestSessionCost / 100).toFixed(2)}</span>
+							</>
+						)}
+						{(task.latestSessionTokensInput != null || task.latestSessionTokensOutput != null) && (
+							<>
+								<span aria-hidden>|</span>
+								<span>
+									{formatTokens(task.latestSessionTokensInput ?? 0)} in /{" "}
+									{formatTokens(task.latestSessionTokensOutput ?? 0)} out
+								</span>
+							</>
+						)}
+						{task.latestSessionHarnessUrl && isValidHarnessUrl(task.latestSessionHarnessUrl) && (
+							<>
+								<span aria-hidden>|</span>
+								<a
+									href={task.latestSessionHarnessUrl}
+									target="_blank"
+									rel="noopener noreferrer"
+									className="text-[var(--primary)] hover:underline"
+									aria-label="Open session in harness (opens in new tab)"
+								>
+									Open in harness
+								</a>
+							</>
+						)}
+					</div>
+				)}
+
+				{/* Inline thread — L18: thread is inline; "Open thread" affordance navigates
 			    to the full thread view (AC §621: the L15 affordance must still work). */}
-			<div className="border-b border-[var(--border-lo)]">
-				<div className="flex items-center justify-between px-4 pt-3 pb-1">
-					<span className="text-xs font-heading uppercase tracking-[0.02em] text-[var(--text-lo)]">
-						Discussion
-					</span>
+				<div className="border-b border-[var(--border-lo)]">
+					<div className="flex items-center justify-between px-4 pt-3 pb-1">
+						<span className="text-xs font-heading uppercase tracking-[0.02em] text-[var(--text-lo)]">
+							Discussion
+						</span>
+						<button
+							type="button"
+							className="btn btn-ghost btn-xs text-xs"
+							onClick={() => void handleOpenThread()}
+						>
+							Open thread
+						</button>
+					</div>
+					<HostThreadSection hostKind="task" hostId={task.id} inline />
+				</div>
+
+				{/* Request section */}
+				<div className="flex flex-col gap-3 px-4 py-4">
+					<p className="text-xs font-heading uppercase tracking-[0.02em] text-[var(--text-lo)]">
+						REQUEST
+					</p>
+
+					{/* Intent radiogroup */}
+					<div role="radiogroup" aria-label="Request intent" className="flex flex-col gap-1">
+						{REQUEST_INTENTS.map((intent) => (
+							<label
+								key={intent.id}
+								className="flex items-center gap-2 min-h-[44px] px-3 rounded cursor-pointer hover:bg-[var(--surface-3)]"
+							>
+								<input
+									type="radio"
+									name="request-intent"
+									value={intent.id}
+									checked={selectedIntent === intent.id}
+									onChange={() => handleIntentChange(intent.id)}
+									disabled={submitting}
+									className="radio radio-sm"
+								/>
+								<span className="text-sm text-[var(--text-hi)]">{intent.label}</span>
+							</label>
+						))}
+					</div>
+
+					{/* Optional note */}
+					<label className="flex flex-col gap-1">
+						<span className="text-xs text-[var(--text-lo)]">Note (optional)</span>
+						<textarea
+							className="textarea textarea-bordered text-base resize-none h-20"
+							placeholder="What should the agent know?"
+							value={note}
+							onChange={(e) => {
+								setNote(e.target.value);
+								setStatus(null);
+							}}
+							disabled={submitting}
+						/>
+					</label>
+
+					{/* Inline feedback region — one DOM slot, mutually exclusive states */}
+					{status?.kind === "success" ? (
+						<div role="status" aria-live="polite" className="text-sm text-success">
+							{status.text}
+						</div>
+					) : status?.kind === "error" ? (
+						<div role="alert" aria-live="assertive" className="text-sm text-error">
+							{status.text}
+						</div>
+					) : null}
+
+					{/* Send request button */}
 					<button
 						type="button"
-						className="btn btn-ghost btn-xs text-xs"
-						onClick={() => void handleOpenThread()}
+						className="btn btn-primary btn-sm w-full"
+						disabled={!selectedIntent || submitting}
+						aria-disabled={!selectedIntent || submitting}
+						onClick={() => void handleSendRequest()}
 					>
-						Open thread
+						{submitting ? <span className="loading loading-spinner loading-xs" /> : null}
+						Send request
 					</button>
 				</div>
-				<HostThreadSection hostKind="task" hostId={task.id} inline />
-			</div>
-
-			{/* Request section */}
-			<div className="flex flex-col gap-3 px-4 py-4 flex-1 overflow-y-auto">
-				<p className="text-xs font-heading uppercase tracking-[0.02em] text-[var(--text-lo)]">
-					REQUEST
-				</p>
-
-				{/* Intent radiogroup */}
-				<div role="radiogroup" aria-label="Request intent" className="flex flex-col gap-1">
-					{REQUEST_INTENTS.map((intent) => (
-						<label
-							key={intent.id}
-							className="flex items-center gap-2 min-h-[44px] px-3 rounded cursor-pointer hover:bg-[var(--surface-3)]"
-						>
-							<input
-								type="radio"
-								name="request-intent"
-								value={intent.id}
-								checked={selectedIntent === intent.id}
-								onChange={() => handleIntentChange(intent.id)}
-								disabled={submitting}
-								className="radio radio-sm"
-							/>
-							<span className="text-sm text-[var(--text-hi)]">{intent.label}</span>
-						</label>
-					))}
-				</div>
-
-				{/* Optional note */}
-				<label className="flex flex-col gap-1">
-					<span className="text-xs text-[var(--text-lo)]">Note (optional)</span>
-					<textarea
-						className="textarea textarea-bordered text-base resize-none h-20"
-						placeholder="What should the agent know?"
-						value={note}
-						onChange={(e) => {
-							setNote(e.target.value);
-							setStatus(null);
-						}}
-						disabled={submitting}
-					/>
-				</label>
-
-				{/* Inline feedback region — one DOM slot, mutually exclusive states */}
-				{status?.kind === "success" ? (
-					<div role="status" aria-live="polite" className="text-sm text-success">
-						{status.text}
-					</div>
-				) : status?.kind === "error" ? (
-					<div role="alert" aria-live="assertive" className="text-sm text-error">
-						{status.text}
-					</div>
-				) : null}
-
-				{/* Send request button */}
-				<button
-					type="button"
-					className="btn btn-primary btn-sm w-full"
-					disabled={!selectedIntent || submitting}
-					aria-disabled={!selectedIntent || submitting}
-					onClick={() => void handleSendRequest()}
-				>
-					{submitting ? <span className="loading loading-spinner loading-xs" /> : null}
-					Send request
-				</button>
 			</div>
 		</div>
 	);
