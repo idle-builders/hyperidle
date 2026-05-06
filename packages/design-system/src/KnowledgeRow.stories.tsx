@@ -4,7 +4,7 @@ export default {
 	title: "KnowledgeRow",
 	tier: "2" as const,
 	uses: ["StatusChip", "Tag"],
-	order: ["Validated", "Stale", "FactoryMode", "AllLayers", "WithSignals", "NullSignals"],
+	order: ["Validated", "Stale", "FactoryMode", "AllLayers"],
 };
 
 export const Validated = (): React.JSX.Element => (
@@ -36,38 +36,6 @@ export const FactoryMode = (): React.JSX.Element => (
 		timestamp="1w ago"
 		factoryMode
 		version="v2.1"
-	/>
-);
-
-export const WithSignals = (): React.JSX.Element => (
-	<div className="flex flex-col gap-1">
-		<KnowledgeRow
-			title="Auth Rate Limiting Pattern"
-			layer="L2"
-			kind="pattern"
-			status="validated"
-			timestamp="2d ago"
-			signals={{ recency: "2d", frequency: 7, citation: null }}
-		/>
-		<KnowledgeRow
-			title="Agent Autonomy Policy"
-			layer="L0"
-			kind="decision"
-			status="active"
-			timestamp="1w ago"
-			signals={{ recency: "1w", frequency: 2, citation: 3 }}
-		/>
-	</div>
-);
-
-export const NullSignals = (): React.JSX.Element => (
-	<KnowledgeRow
-		title="Old Deployment Strategy"
-		layer="L1"
-		kind="decision"
-		status="stale"
-		timestamp="30d ago"
-		signals={{ recency: null, frequency: null, citation: null }}
 	/>
 );
 

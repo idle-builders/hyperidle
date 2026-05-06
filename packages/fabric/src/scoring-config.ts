@@ -1,9 +1,5 @@
 import { factorySettings, type HyperIdleDb } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
-import type { RelevanceConfig } from "./relevance-engine.js";
-
-// Re-export so callers can import RelevanceConfig from scoring-config
-export type { RelevanceConfig };
 
 export interface ScoringWeights {
 	tagMatch: number;
@@ -178,73 +174,4 @@ export function loadAttentionWeights(db: HyperIdleDb): AttentionWeights {
 /** Get the default attention weights (no DB access). */
 export function getDefaultAttentionWeights(): AttentionWeights {
 	return { ...DEFAULT_ATTENTION_WEIGHTS };
-}
-
-// --- Relevance config (L22) ---
-
-const DEFAULT_RELEVANCE_WEIGHTS = { recency: 0.4, frequency: 0.4, citation: 0.2 } as const;
-const DEFAULT_RELEVANCE_SHAPE = {
-	recencyHalflifeDays: 14,
-	frequencySaturation: 5,
-	frequencyWindowDays: 30,
-	citationSaturation: 5,
-} as const;
-
-const RELEVANCE_WEIGHT_KEYS = [
-	"relevance.weight.recency",
-	"relevance.weight.frequency",
-	"relevance.weight.citation",
-] as const;
-const RELEVANCE_SHAPE_KEYS = [
-	"relevance.recencyHalflifeDays",
-	"relevance.frequencySaturation",
-	"relevance.frequencyWindowDays",
-	"relevance.citationSaturation",
-] as const;
-
-/**
- * Load relevance config from factory_settings, falling back to defaults.
- *
- * @lore L22: relevance.weight.* values must be in [0,1]; shape constants must
- * be positive finite numbers. Invalid values fall back to defaults (defense in
- * depth so a bad write can never silently break the relevance engine).
- */
-export function loadRelevanceConfig(db: HyperIdleDb): RelevanceConfig {
-	const weights = { ...DEFAULT_RELEVANCE_WEIGHTS } as {
-		recency: number;
-		frequency: number;
-		citation: number;
-	};
-	const shape = { ...DEFAULT_RELEVANCE_SHAPE } as {
-		recencyHalflifeDays: number;
-		frequencySaturation: number;
-		frequencyWindowDays: number;
-		citationSaturation: number;
-	};
-
-	// Load weight overrides
-	for (const settingKey of RELEVANCE_WEIGHT_KEYS) {
-		const row = db.select().from(factorySettings).where(eq(factorySettings.key, settingKey)).get();
-		if (row) {
-			const parsed = Number.parseFloat(row.value);
-			if (Number.isFinite(parsed) && parsed >= 0 && parsed <= 1) {
-				const weightKey = settingKey.replace("relevance.weight.", "") as keyof typeof weights;
-				weights[weightKey] = parsed;
-			}
-		}
-	}
-
-	// Load shape overrides
-	for (const settingKey of RELEVANCE_SHAPE_KEYS) {
-		const row = db.select().from(factorySettings).where(eq(factorySettings.key, settingKey)).get();
-		if (row) {
-			const parsed = Number.parseFloat(row.value);
-			if (Number.isFinite(parsed) && parsed > 0) {
-				const shapeKey = settingKey.replace("relevance.", "") as keyof typeof shape;
-				shape[shapeKey] = parsed;
-			}
-		}
-	}
-
-	return { weights, shape };
 }

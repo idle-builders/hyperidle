@@ -7,18 +7,6 @@ import { knowledgeStatusToStatus } from "./status-mapping";
 import { Tag } from "./Tag";
 import type { TagKind } from "./tag-kinds";
 
-/**
- * L22 relevance signal triad shown on each row.
- * recency: relative time string ("2d ago") or null
- * frequency: 30-day access count or null
- * citation: citation count or null (always null in L22 — staged)
- */
-export interface KnowledgeRowSignals {
-	recency: string | null;
-	frequency: number | null;
-	citation: number | null;
-}
-
 export interface KnowledgeRowProps {
 	title: string;
 	layer: KnowledgeLayer;
@@ -43,16 +31,6 @@ export interface KnowledgeRowProps {
 	 * Ignored when `factoryMode` is false.
 	 */
 	version?: string;
-	/**
-	 * L22 relevance signal triad. When provided, suppresses the caption and
-	 * renders a three-slot signal row: recency / freq / impact.
-	 * Null slot values render as em dash (—).
-	 *
-	 * @lore L22: signals replace caption when present — they occupy the same
-	 * sub-row slot but carry structured data. The em dash for absent signals
-	 * avoids "0" which looks like real data (fake-zero guard, AC-8).
-	 */
-	signals?: KnowledgeRowSignals;
 }
 
 export function KnowledgeRow({
@@ -66,7 +44,6 @@ export function KnowledgeRow({
 	caption,
 	factoryMode = false,
 	version,
-	signals,
 }: KnowledgeRowProps): JSX.Element {
 	/*
 	 * @lore K11: retired the `factoryMode ? "py-[16px]" : "py-[8px]"` override
@@ -87,7 +64,6 @@ export function KnowledgeRow({
 	return (
 		<div
 			{...dsProps("KnowledgeRow", "2")}
-			data-component="KnowledgeRow"
 			className={onClick ? `${baseClassName} cursor-pointer` : baseClassName}
 			{...interactiveProps}
 		>
@@ -113,40 +89,7 @@ export function KnowledgeRow({
 						</span>
 					)}
 				</div>
-				{signals ? (
-					// L22 signal triad: recency / freq / impact — em dash for absent values (AC-8)
-					<div
-						data-testid="knowledge-signals"
-						className="flex items-center gap-[var(--density-gap)] text-[12px] text-[var(--text-lo)]"
-					>
-						<span>
-							<span className="text-[var(--text-lo)] uppercase tracking-[var(--tracking-caps)]">
-								recency
-							</span>{" "}
-							<span className="font-[var(--mono)] tabular-nums">{signals.recency ?? "—"}</span>
-						</span>
-						<span aria-hidden="true">·</span>
-						<span>
-							<span className="text-[var(--text-lo)] uppercase tracking-[var(--tracking-caps)]">
-								freq
-							</span>{" "}
-							<span className="font-[var(--mono)] tabular-nums">
-								{signals.frequency != null ? String(signals.frequency) : "—"}
-							</span>
-						</span>
-						<span aria-hidden="true">·</span>
-						<span>
-							<span className="text-[var(--text-lo)] uppercase tracking-[var(--tracking-caps)]">
-								impact
-							</span>{" "}
-							<span className="font-[var(--mono)] tabular-nums">
-								{signals.citation != null ? String(signals.citation) : "—"}
-							</span>
-						</span>
-					</div>
-				) : (
-					caption && <p className="text-[12px] text-[var(--text-mid)] truncate">{caption}</p>
-				)}
+				{caption && <p className="text-[12px] text-[var(--text-mid)] truncate">{caption}</p>}
 			</div>
 			<span className="text-[12px] text-[var(--text-lo)] whitespace-nowrap">{timestamp}</span>
 			{actions}

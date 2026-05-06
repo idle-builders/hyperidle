@@ -133,34 +133,3 @@ export type AgentStatus = "active" | "paused" | "retired";
 export type RiskTier = "low" | "medium" | "high";
 
 export type AutonomyLevel = 1 | 2 | 3 | 4;
-
-/**
- * Who triggered a knowledge access event. "agent" = autonomous agent read;
- * "human" = human-initiated read (browser GET). Used in access-log entries.
- *
- * @lore L22: accessor_kind must distinguish human reads from agent reads so
- * we can compute frequency signals per accessor type without polluting the
- * 30-day window with automated crawls.
- */
-export type KnowledgeAccessorKind = "human" | "agent";
-
-/**
- * The three relevance signals surfaced in the UI signal triad.
- * - recency: relative time string ("2d ago") or null when never validated/accessed
- * - accessCount30d: integer count of accesses in the last 30 days, or null when no log
- * - citationCount: always null in L22 (staged for a later work-package)
- */
-export interface KnowledgeRelevanceSignals {
-	recency: string | null;
-	accessCount30d: number | null;
-	citationCount: number | null;
-}
-
-/**
- * Sort axis options for the KnowledgeList view.
- *
- * @lore L22: URL state is the single source of truth — `?sort=recency` or
- * `?sort=frequency`. No param means default composite relevance sort.
- */
-export const KNOWLEDGE_SORT_OPTIONS = ["relevance", "recency", "frequency"] as const;
-export type KnowledgeSortOption = (typeof KNOWLEDGE_SORT_OPTIONS)[number];

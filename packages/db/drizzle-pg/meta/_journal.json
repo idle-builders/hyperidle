@@ -71,13 +71,6 @@
 			"when": 1780000000000,
 			"tag": "0009_cost_tokens_l17",
 			"breakpoints": true
-		},
-		{
-			"idx": 10,
-			"version": "7",
-			"when": 1746532800000,
-			"tag": "0010_knowledge_access_log_l22",
-			"breakpoints": true
 		}
 	]
 }
