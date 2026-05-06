@@ -5,6 +5,7 @@ import {
 	knowledgeEditLog,
 	knowledgeItems,
 } from "@hyperidle/db";
+import type { KnowledgeKind } from "@hyperidle/shared";
 import { and, eq, inArray, ne } from "drizzle-orm";
 import { isTasteSensitive } from "./attention-classifier.js";
 import type { AttentionWeights } from "./scoring-config.js";
@@ -28,14 +29,25 @@ const REVIEW_RECENCY_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
 const REVIEW_RECENCY_SATURATION_MS = 90 * 24 * 60 * 60 * 1000;
 
 /**
- * @lore L22: IMPACT_BY_KIND was deleted in L22. Per-kind impact priors were
- * a heuristic that made items of different kinds non-comparable. With L22's
- * three-signal relevance model (recency/frequency/citation), impact contributes
- * 0 by inlining the constant below. The impact weight in AttentionWeights still
- * exists for future use (e.g. a human-audited citation column in L23+), but
- * the kind-based lookup is gone. Do not reinstate it — it was a security risk:
- * a low-trust agent could influence attention scores by crafting item kinds.
+ * Per-kind impact priors.
+ *
+ * @lore G2 security: impact is derived solely from the item's layer/scope/kind
+ * heuristics. Agent-authored `meta.impact` is intentionally NOT honored —
+ * allowing it would let a low-trust agent trivially inflate a knowledge
+ * item's attention score and drive a review into the human queue. Any
+ * future override path must be human-write-only AND gated in the settings
+ * write endpoint. Do not reinstate a `meta.impact` read without that gate.
  */
+const IMPACT_BY_KIND: Readonly<Record<KnowledgeKind, number>> = {
+	principle: 1.0,
+	pattern: 0.8,
+	anti_pattern: 0.8,
+	decision: 0.6,
+	failure: 0.7,
+	reflection: 0.4,
+	brief: 0.5,
+	focus: 0.5,
+};
 
 /** Public context for scoring. Built once per batch and reused across items. */
 export interface AttentionScoringContext {
@@ -77,6 +89,26 @@ function clamp01(x: number): number {
 /** Round to 6 decimals for cross-platform determinism (AC5). */
 function round6(x: number): number {
 	return Math.round(x * 1_000_000) / 1_000_000;
+}
+
+function computeImpact(item: KnowledgeItem): number {
+	const kind = item.kind as KnowledgeKind;
+	return IMPACT_BY_KIND[kind] ?? 0.5;
+}
+
+/**
+ * Usage signal. Intentionally returns 0 in G2 — see @lore on
+ * `IMPACT_BY_KIND` — until a trustworthy reference-count source exists
+ * (either a materialization join table or a human-audited column). Reading
+ * `meta.usageCount` was removed because meta is agent-writable and an
+ * agent could trivially inflate the signal to force its own notes into
+ * the human queue.
+ *
+ * TODO(G3): derive usage from `knowledge_materializations` or an equivalent
+ * reference tracker; until then the usage weight effectively contributes 0.
+ */
+function computeUsage(_item: KnowledgeItem): number {
+	return 0;
 }
 
 function computeNovelty(item: KnowledgeItem, ctx: AttentionScoringContext): number {
@@ -127,15 +159,13 @@ export function scoreAttention(
 	weights: AttentionWeights,
 ): number {
 	const novelty = computeNovelty(item, context);
-	// impact: always 0 after L22 IMPACT_BY_KIND deletion (see @lore above)
-	const impact = 0;
+	const impact = computeImpact(item);
 	const conflict = context.conflictedIds.has(item.id) ? 1 : 0;
 	const repetition = computeRepetitionSignal(item, context);
 	const confidence = computeConfidenceValue(item);
 	const taste = computeTasteSensitivity(item);
 	const recency = computeRecency(item, context);
-	// usage: always 0 until a trustworthy reference-count source exists (L23+)
-	const usage = 0;
+	const usage = computeUsage(item);
 
 	const weighted =
 		novelty * weights.novelty +
