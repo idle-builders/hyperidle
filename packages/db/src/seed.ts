@@ -79,6 +79,21 @@ export function seed(db: SeedableDb | HyperIdleDb): void {
 		.onConflictDoNothing()
 		.run();
 
+	// L20: system:propagation agent — authors review threads when bets enter review.
+	// FK constraint: messages.senderId references agents.id. This agent must exist
+	// before any propagation-triggered review thread can be created.
+	db.insert(agents)
+		.values({
+			id: "system:propagation",
+			name: "Propagation System",
+			role: "system",
+			status: "active",
+			maxConcurrentSessions: 1,
+			createdAt: now,
+		})
+		.onConflictDoNothing()
+		.run();
+
 	// Patch the existing Chief of Staff row with G1 facilitator metadata.
 	// Idempotent: a second run writes the same values.
 	db.update(agents)

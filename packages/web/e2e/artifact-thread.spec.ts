@@ -24,7 +24,7 @@ function makeArtifactResponse() {
 			file: "auth-service.ts",
 			hunks: [],
 		},
-		cost: { money: "$1.20", tokens: "1200" },
+		cost: { money: null, tokens: null },
 		threadCount: 0,
 		createdAt: NOW,
 	};
@@ -74,6 +74,21 @@ test.describe("L18 — Artifact permalink thread surface", () => {
 		const postedMessages: Array<Record<string, unknown>> = [];
 		let postObserved = false;
 		const composedText = "This is a test comment on the artifact thread.";
+
+		await page.route("**/api/threads?**participant_id=**", async (route) => {
+			await route.fulfill({
+				status: 200,
+				contentType: "application/json",
+				body: JSON.stringify({ threads: [] }),
+			});
+		});
+		await page.route("**/api/products**", async (route) => {
+			await route.fulfill({
+				status: 200,
+				contentType: "application/json",
+				body: JSON.stringify({ products: [], total: 0 }),
+			});
+		});
 
 		// Mock /api/artifacts/:id
 		await page.route(`**/api/artifacts/${ARTIFACT_ID}`, async (route) => {

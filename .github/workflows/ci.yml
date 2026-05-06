@@ -34,6 +34,9 @@ jobs:
         run: npx playwright install chromium
         working-directory: packages/web
 
+      - name: apply migrations
+        run: bun run db:migrate
+
       - name: Verify
         run: bun run verify --raw
 

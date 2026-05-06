@@ -28,6 +28,7 @@
 		"verify": "bun run scripts/verify.ts",
 		"db:generate": "bun run --filter @hyperidle/db generate",
 		"db:migrate": "bun run --filter @hyperidle/db migrate",
+		"db:generate:pg": "bun run --filter @hyperidle/db generate:pg",
 		"db:migrate:pg": "bun run --filter @hyperidle/db migrate:pg",
 		"db:seed:pg": "bun packages/db/src/seed-pg-cli.ts",
 		"setup": "bun packages/db/src/setup-cli.ts",

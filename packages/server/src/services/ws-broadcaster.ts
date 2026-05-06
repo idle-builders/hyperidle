@@ -80,6 +80,15 @@ export class WsBroadcaster {
 			this.broadcast(`thread:${event.threadId}`, JSON.stringify(event));
 		});
 
+		// L20: propagation_applied goes to 'work' so the UI can invalidate data.
+		// propagation_failed goes to 'rail' so the notification system picks it up.
+		const unsub11 = this.eventBus.on("propagation_applied", (event) => {
+			this.broadcast("work", JSON.stringify(event));
+		});
+		const unsub12 = this.eventBus.on("propagation_failed", (event) => {
+			this.broadcast("rail", JSON.stringify(event));
+		});
+
 		this.unsubscribers.push(
 			unsub1,
 			unsub2,
@@ -91,6 +100,8 @@ export class WsBroadcaster {
 			unsub8,
 			unsub9,
 			unsub10,
+			unsub11,
+			unsub12,
 		);
 	}
 

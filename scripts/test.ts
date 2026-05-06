@@ -5,7 +5,7 @@
 import { spawn } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { type FileErrors, capByFile, toToon } from "./lib/output-cap.js";
+import { capByFile, type FileErrors, toToon } from "./lib/output-cap.js";
 
 const MAX_FILES = 10;
 const TEST_OUTPUT_FILE = "test-output.toon";

@@ -3,7 +3,7 @@
 // Called via: bun run lint
 
 import { spawn } from "node:child_process";
-import { type FileErrors, capByFile, groupByFile, toToon } from "./lib/output-cap.js";
+import { capByFile, type FileErrors, groupByFile, toToon } from "./lib/output-cap.js";
 
 const MAX_FILES = 10;
 
