@@ -22,6 +22,11 @@ vi.mock("../../hooks/useHostThread", () => ({
 	})),
 }));
 
+// Mock ArtifactSection (L12) which uses useNavigate internally.
+vi.mock("../../components/ArtifactSection", () => ({
+	ArtifactSection: () => null,
+}));
+
 const BASE_TASK: KanbanTask = {
 	id: "task-session-001",
 	title: "Build the pipeline",
