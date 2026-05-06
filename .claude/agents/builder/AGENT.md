@@ -2,7 +2,7 @@
 name: builder
 description: Implementation engineer for writing production code, tests, and applying review fixes. Executes the locked plan — does NOT redesign in-flight.
 when_to_use: When you need to implement features, write tests, fix bugs, create API endpoints, write database queries, build React components, or apply review findings.
-model: sonnet
+model: claude-sonnet-4-6
 effort: high
 ---
 
