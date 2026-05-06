@@ -15,7 +15,7 @@
  */
 
 import { agents, createTestDb, type HyperIdleDb, products, teams, threads } from "@hyperidle/db";
-import { EventBus, classifyThreadConfiguration } from "@hyperidle/shared";
+import { classifyThreadConfiguration, EventBus } from "@hyperidle/shared";
 import { and, eq } from "drizzle-orm";
 import type { Hono } from "hono";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -45,7 +45,9 @@ function setupApp(): AppCtx {
 	const now = new Date().toISOString();
 
 	// Seed base product/team
-	db.insert(products).values({ id: "p1", name: "TestProduct", phase: "build", createdAt: now }).run();
+	db.insert(products)
+		.values({ id: "p1", name: "TestProduct", phase: "build", createdAt: now })
+		.run();
 	db.insert(teams)
 		.values({ id: "t1", productId: "p1", capacity: 5, activeBets: 0, formedAt: now })
 		.run();
@@ -57,13 +59,22 @@ function setupApp(): AppCtx {
 
 	// Seed a second user for X-Identity tests
 	db.insert(agents)
-		.values({ id: "u-other", name: "Other User", role: "founder", status: "active", createdAt: now })
+		.values({
+			id: "u-other",
+			name: "Other User",
+			role: "founder",
+			status: "active",
+			createdAt: now,
+		})
 		.run();
 
-	// Seed agent-coc (well-known CoC agent ID — required for coach thread participants)
+	// Seed seed-agent-cos (well-known CoC agent ID — the existing seed agent).
+	// @lore L21: The architecture plan used "agent-coc" but the actual seed
+	// and reviewer feedback use "seed-agent-cos". The coach route constant
+	// must match the real seeded agent id.
 	db.insert(agents)
 		.values({
-			id: "agent-coc",
+			id: "seed-agent-cos",
 			name: "Chief of Staff",
 			role: "chief_of_staff",
 			status: "active",
@@ -142,14 +153,14 @@ describe("L21 — GET /api/threads/coach", () => {
 			expect(body.thread.hostId).toBe("u-founder");
 		});
 
-		it("thread participants include both user and agent-coc", async () => {
+		it("thread participants include both user and seed-agent-cos (CoC agent)", async () => {
 			const res = await ctx.app.request("/api/threads/coach", {
 				method: "GET",
 				headers: authHeaders({ "X-Identity": "u-founder" }),
 			});
 			const body = (await res.json()) as { thread: { participants: string[] } };
 			expect(body.thread.participants).toContain("u-founder");
-			expect(body.thread.participants).toContain("agent-coc");
+			expect(body.thread.participants).toContain("seed-agent-cos");
 		});
 
 		it("thread resolvedAt is null (coach threads are perpetual)", async () => {
@@ -193,16 +204,13 @@ describe("L21 — GET /api/threads/coach", () => {
 			const rows = ctx.db
 				.select()
 				.from(threads)
-				.where(
-					and(
-						eq(threads.hostKind, "user"),
-						eq(threads.hostId, "u-founder"),
-					),
-				)
+				.where(and(eq(threads.hostKind, "user"), eq(threads.hostId, "u-founder")))
 				.all();
 
 			// Filter to pinned ones only (the coach thread).
-			const pinnedRows = rows.filter((r: { pinned: number | boolean }) => r.pinned === 1 || r.pinned === true);
+			const pinnedRows = rows.filter(
+				(r: { pinned: number | boolean }) => r.pinned === 1 || r.pinned === true,
+			);
 			expect(pinnedRows.length).toBe(1);
 		});
 	});
@@ -227,8 +235,8 @@ describe("L21 — GET /api/threads/coach", () => {
 		});
 	});
 
-	describe("AC-17: identities include agent-coc", () => {
-		it("identities response contains agent-coc with name 'Chief of Staff'", async () => {
+	describe("AC-17: identities include seed-agent-cos (CoC agent)", () => {
+		it("identities response contains seed-agent-cos with name 'Chief of Staff'", async () => {
 			const res = await ctx.app.request("/api/threads/coach", {
 				method: "GET",
 				headers: authHeaders(),
@@ -236,8 +244,8 @@ describe("L21 — GET /api/threads/coach", () => {
 			const body = (await res.json()) as {
 				identities: Record<string, { name: string; role?: string }>;
 			};
-			expect(body.identities).toHaveProperty("agent-coc");
-			const cocIdentity = body.identities["agent-coc"];
+			expect(body.identities).toHaveProperty("seed-agent-cos");
+			const cocIdentity = body.identities["seed-agent-cos"];
 			expect(cocIdentity?.name).toBe("Chief of Staff");
 		});
 

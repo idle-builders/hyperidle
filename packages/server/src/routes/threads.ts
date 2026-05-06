@@ -36,6 +36,7 @@ import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import { Hono } from "hono";
 import type { ZodError } from "zod";
 import { escapeLikePattern } from "../services/like-escape.js";
+import { createCoachRoutes } from "./coach.js";
 import {
 	createThreadBodySchema,
 	listThreadsQuerySchema,
@@ -142,6 +143,12 @@ function err(
 
 export function createThreadRoutes(db: HyperIdleDb, eventBus: EventBus): Hono {
 	const router = new Hono();
+
+	// --- GET /api/threads/coach --------------------------------------------
+	// @lore L21: mounted BEFORE /:id so "coach" is not swallowed as a thread
+	// id by the Hono wildcard handler. Hono matches routes in registration
+	// order — the first match wins.
+	router.route("/coach", createCoachRoutes(db, eventBus));
 
 	// --- GET /api/threads ---------------------------------------------------
 	// @lore L8 security review (HIGH-1, HIGH-2): the `participant_id` query

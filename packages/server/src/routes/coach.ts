@@ -1,0 +1,196 @@
+/**
+ * L21 — GET /api/threads/coach
+ *
+ * Resolve-or-create the current user's coach thread.
+ * The coach thread: hostKind="user", hostId=<userId>, pinned=1.
+ *
+ * @lore L21: The CoC agent id is "seed-agent-cos" (existing seed), NOT
+ * "agent-coc". The architecture plan used "agent-coc" but the reviewer
+ * feedback and the actual seed data both use "seed-agent-cos". This is the
+ * well-known constant for the Chief of Staff facilitator agent.
+ *
+ * @lore L21: This endpoint MUST be mounted BEFORE the generic /:id route in
+ * the threads router so that GET /api/threads/coach is not swallowed by the
+ * /:id handler as if "coach" were a thread id. See app.ts for mount order.
+ */
+
+import { agents, type HyperIdleDb, messages, threads } from "@hyperidle/db";
+import type { EventBus, HostKind, Message, MessageType, Thread } from "@hyperidle/shared";
+import { and, eq } from "drizzle-orm";
+import { Hono } from "hono";
+import { messageRowSchema, threadParticipantsSchema } from "./threads-schema.js";
+
+const SENDER_HEADER = "X-Identity";
+const DEFAULT_FOUNDER_ID = "u-founder";
+
+/** @lore L21: The CoC agent uses the existing seed-agent-cos id (not "agent-coc"). */
+const COC_AGENT_ID = "seed-agent-cos";
+const COC_AGENT_DISPLAY_NAME = "Chief of Staff";
+const COC_AGENT_ROLE = "chief_of_staff";
+
+function readSenderId(c: { req: { header: (k: string) => string | undefined } }): string {
+	return c.req.header(SENDER_HEADER) ?? DEFAULT_FOUNDER_ID;
+}
+
+function rowToThread(row: {
+	id: string;
+	hostKind: string;
+	hostId: string;
+	initiatorId: string;
+	participants: string;
+	pinned: number;
+	resolvedAt: string | null;
+	lastActiveAt: string;
+	createdAt: string;
+}): Thread {
+	const participants = threadParticipantsSchema.parse(JSON.parse(row.participants));
+	return {
+		id: row.id,
+		hostKind: row.hostKind as HostKind,
+		hostId: row.hostId,
+		initiatorId: row.initiatorId,
+		participants,
+		pinned: row.pinned === 1,
+		resolvedAt: row.resolvedAt,
+		lastActiveAt: row.lastActiveAt,
+		createdAt: row.createdAt,
+	};
+}
+
+function rowToMessage(row: {
+	id: string;
+	threadId: string;
+	senderId: string;
+	clientKey: string;
+	deletedAt: string | null;
+	redactedAt: string | null;
+	resolvedAt: string | null;
+	createdAt: string;
+	type: string;
+	payload: string;
+}): Message {
+	const parsed = messageRowSchema.parse({
+		type: row.type as MessageType,
+		payload: JSON.parse(row.payload),
+	});
+	const base = {
+		id: row.id,
+		threadId: row.threadId,
+		senderId: row.senderId,
+		clientKey: row.clientKey,
+		deletedAt: row.deletedAt,
+		redactedAt: row.redactedAt,
+		resolvedAt: row.resolvedAt,
+		createdAt: row.createdAt,
+	} as const;
+	switch (parsed.type) {
+		case "plain":
+			return { ...base, type: "plain", payload: parsed.payload };
+		case "review":
+			return { ...base, type: "review", payload: parsed.payload };
+		case "questionnaire":
+			return { ...base, type: "questionnaire", payload: parsed.payload };
+		case "verdict":
+			return { ...base, type: "verdict", payload: parsed.payload };
+	}
+}
+
+/**
+ * Build the identities map for the coach thread response.
+ * Looks up the user's display name from the agents table (fall back to "You").
+ * The CoC agent always displays as "Chief of Staff".
+ */
+function buildIdentities(
+	db: HyperIdleDb,
+	userId: string,
+): Record<string, { name: string; role?: string }> {
+	const userRow = db.select().from(agents).where(eq(agents.id, userId)).get();
+	const userName = userRow?.name ?? "You";
+	const userRole = userRow?.role;
+
+	const identities: Record<string, { name: string; role?: string }> = {
+		[userId]: { name: userName, ...(userRole ? { role: userRole } : {}) },
+		[COC_AGENT_ID]: { name: COC_AGENT_DISPLAY_NAME, role: COC_AGENT_ROLE },
+	};
+	return identities;
+}
+
+export function createCoachRoutes(db: HyperIdleDb, _eventBus: EventBus): Hono {
+	const router = new Hono();
+
+	/**
+	 * GET /api/threads/coach
+	 *
+	 * Returns the current user's coach thread (pinned, hostKind="user").
+	 * Creates one if it does not exist.
+	 *
+	 * @lore L21: The "create if absent" pattern intentionally does NOT emit a
+	 * thread_created event on the event bus for the auto-creation case. The
+	 * coach thread is a persistent fixture — agents are not expected to react
+	 * to its creation the way they would to a new task thread. This keeps the
+	 * event stream clean.
+	 */
+	router.get("/", (c) => {
+		const userId = readSenderId(c);
+
+		// Find existing pinned coach thread for this user.
+		const existing = db
+			.select()
+			.from(threads)
+			.where(and(eq(threads.hostKind, "user"), eq(threads.hostId, userId), eq(threads.pinned, 1)))
+			.get();
+
+		if (existing) {
+			const messageRows = db
+				.select()
+				.from(messages)
+				.where(eq(messages.threadId, existing.id))
+				.all();
+
+			return c.json({
+				thread: rowToThread(existing),
+				messages: messageRows.map(rowToMessage),
+				headMessageId: null,
+				identities: buildIdentities(db, userId),
+			});
+		}
+
+		// Create coach thread on first use.
+		const threadId = `thr-coach-${userId}`;
+		const now = new Date().toISOString();
+		const participantsList = [userId, COC_AGENT_ID].sort();
+
+		db.insert(threads)
+			.values({
+				id: threadId,
+				hostKind: "user",
+				hostId: userId,
+				initiatorId: userId,
+				participants: JSON.stringify(participantsList),
+				pinned: 1,
+				resolvedAt: null,
+				lastActiveAt: now,
+				createdAt: now,
+			})
+			.run();
+
+		return c.json({
+			thread: rowToThread({
+				id: threadId,
+				hostKind: "user",
+				hostId: userId,
+				initiatorId: userId,
+				participants: JSON.stringify(participantsList),
+				pinned: 1,
+				resolvedAt: null,
+				lastActiveAt: now,
+				createdAt: now,
+			}),
+			messages: [],
+			headMessageId: null,
+			identities: buildIdentities(db, userId),
+		});
+	});
+
+	return router;
+}

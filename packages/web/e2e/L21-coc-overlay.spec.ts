@@ -151,7 +151,12 @@ async function setupApiMocks(page: import("@playwright/test").Page): Promise<voi
 
 	// Mock other API endpoints to prevent noise.
 	await page.route("**/api/**", async (route) => {
-		if (!route.request().url().includes("api/threads") && !route.request().url().includes(`api/bets/${BET_ID}`)) {
+		if (
+			!(
+				route.request().url().includes("api/threads") ||
+				route.request().url().includes(`api/bets/${BET_ID}`)
+			)
+		) {
 			await route.fulfill({
 				status: 200,
 				contentType: "application/json",

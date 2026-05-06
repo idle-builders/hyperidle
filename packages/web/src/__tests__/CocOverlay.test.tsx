@@ -20,15 +20,13 @@
 
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { useContext } from "react";
-import { createRef } from "react";
+import { createRef, useContext } from "react";
 import { MemoryRouter } from "react-router-dom";
-import { describe, expect, it, vi, afterEach } from "vitest";
-
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { CocContext, type CocContextRef } from "../contexts/CocContext";
 // These imports will FAIL until the green phase creates these modules.
 // That's expected — this is the RED phase.
 import { CocOverlay } from "../shell/CocOverlay";
-import { CocContext, type CocContextRef } from "../contexts/CocContext";
 
 // Module-level mock: provides a "ready" coach thread for all CocOverlay tests.
 vi.mock("../hooks/useCocThread", () => ({
@@ -129,7 +127,9 @@ describe("L21 — CocOverlay ThreadShell integration (coach configuration)", () 
 	it("shows 'Chief of Staff' identity in the thread", () => {
 		renderOverlay(true);
 		// The identities include "Chief of Staff" from the mocked useCocThread.
-		expect(screen.getByText(/chief of staff/i)).toBeInTheDocument();
+		// Multiple elements may carry this text (sr-only heading, identity chips, etc.)
+		// — any match confirms the identity is present in the rendered output.
+		expect(screen.getAllByText(/chief of staff/i).length).toBeGreaterThan(0);
 	});
 
 	it("renders the composer for sending messages", () => {
@@ -151,7 +151,9 @@ describe("L21 — CocOverlay ThreadShell integration (coach configuration)", () 
 		// is what gets rendered. The ThreadShell is present (proves the hook result is used).
 		expect(screen.getByTestId("thread-shell")).toBeInTheDocument();
 		// The overlay dialog is present and labeled correctly.
-		expect(screen.getByRole("dialog", { name: /chief of staff conversation/i })).toBeInTheDocument();
+		expect(
+			screen.getByRole("dialog", { name: /chief of staff conversation/i }),
+		).toBeInTheDocument();
 	});
 });
 
@@ -207,8 +209,10 @@ describe("L21 — CocContext (AC-10)", () => {
 	it("CocContext is importable and has correct default shape", () => {
 		// Verify the context exports exist and have the expected interface.
 		// The context default value must have overlayOpen=false and attachContext as a function.
-		let capturedValue: { overlayOpen: boolean; attachContext: (ref: CocContextRef) => void } | null =
-			null;
+		let capturedValue: {
+			overlayOpen: boolean;
+			attachContext: (ref: CocContextRef) => void;
+		} | null = null;
 
 		function Consumer(): null {
 			capturedValue = useContext(CocContext);

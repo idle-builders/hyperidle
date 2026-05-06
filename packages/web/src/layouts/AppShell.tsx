@@ -5,7 +5,7 @@ import { NavItem } from "@hyperidle/design-system";
  * This is NOT a custom component — it is a page-level composition assembling Tier 3 regions.
  */
 import { KNOWLEDGE_SCOPES, type KnowledgeScope } from "@hyperidle/shared";
-import { type JSX, useCallback, useEffect, useMemo, useState } from "react";
+import { type JSX, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Outlet, useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { ErrorBoundary } from "../components/ErrorBoundary";
 import { GlobalSearchPanel } from "../components/GlobalSearchPanel";
@@ -13,6 +13,7 @@ import type { SettingsData } from "../components/SettingsPanel";
 import { SettingsPanel } from "../components/SettingsPanel";
 import type { ConversationsFilter } from "../components/ThreadSections";
 import { predicateFor, ThreadSections } from "../components/ThreadSections";
+import { CocContext, type CocContextRef } from "../contexts/CocContext";
 import {
 	DEFAULT_SETTINGS,
 	MOCK_RAIL_BETS,
@@ -25,6 +26,7 @@ import { useCommandK } from "../hooks/useCommandK";
 import { useConversationsThreads } from "../hooks/useConversationsThreads";
 import { useTheme } from "../hooks/useTheme";
 import { useViewportBreakpoint } from "../hooks/useViewportBreakpoint";
+import { CocOverlay } from "../shell/CocOverlay";
 import { IconRail } from "../shell/IconRail";
 import { Rail } from "../shell/Rail";
 import type { SubmenuFilter, SubmenuFilterOption } from "../shell/Submenu";
@@ -233,6 +235,35 @@ export function AppShell(): JSX.Element {
 	}, [breakpoint.railExpanded]);
 	const [searchParams, setSearchParams] = useSearchParams();
 	const [settingsOpen, setSettingsOpen] = useState(false);
+
+	// L21: CoC overlay state.
+	const [cocOverlayOpen, setCocOverlayOpen] = useState(false);
+	const [cocContextRefs, setCocContextRefs] = useState<ReadonlyArray<CocContextRef>>([]);
+	const cocTriggerRef = useRef<HTMLButtonElement>(null);
+
+	const handleCocClick = useCallback((): void => {
+		setCocOverlayOpen((prev) => !prev);
+	}, []);
+
+	const handleCocClose = useCallback((): void => {
+		setCocOverlayOpen(false);
+	}, []);
+
+	const handleAttachContext = useCallback((ref: CocContextRef): void => {
+		setCocContextRefs((prev) => [...prev, ref]);
+	}, []);
+
+	const handleRemoveCocContextRef = useCallback((index: number): void => {
+		setCocContextRefs((prev) => prev.filter((_, i) => i !== index));
+	}, []);
+
+	const cocContextValue = useMemo(
+		() => ({
+			overlayOpen: cocOverlayOpen,
+			attachContext: handleAttachContext,
+		}),
+		[cocOverlayOpen, handleAttachContext],
+	);
 	// @lore Settings lives at the shell root so [data-density] cascades --density-* CSS vars
 	// to every consumer. Server persistence deferred (J3/J8).
 	// @lore K3: theme lives in useTheme() (localStorage-backed) — settings.appearance.theme
@@ -601,21 +632,23 @@ export function AppShell(): JSX.Element {
 						data-testid="main-content"
 						aria-hidden={shellDimmed || undefined}
 					>
-						<ErrorBoundary>
-							{/* @lore L8 review (Architecture C2 / Adversary B1):
-							 * the lifted selected-thread id reaches the Main pane
-							 * via Outlet context. ConversationsReview consumes it
-							 * via `useOutletContext<AppShellOutletContext>()` and
-							 * prefers it over the legacy `?id=` URL param.
-							 */}
-							<Outlet
-								context={
-									{
-										selectedThreadId,
-									} satisfies AppShellOutletContext
-								}
-							/>
-						</ErrorBoundary>
+						<CocContext.Provider value={cocContextValue}>
+							<ErrorBoundary>
+								{/* @lore L8 review (Architecture C2 / Adversary B1):
+								 * the lifted selected-thread id reaches the Main pane
+								 * via Outlet context. ConversationsReview consumes it
+								 * via `useOutletContext<AppShellOutletContext>()` and
+								 * prefers it over the legacy `?id=` URL param.
+								 */}
+								<Outlet
+									context={
+										{
+											selectedThreadId,
+										} satisfies AppShellOutletContext
+									}
+								/>
+							</ErrorBoundary>
+						</CocContext.Provider>
 					</main>
 
 					<Rail
@@ -624,6 +657,8 @@ export function AppShell(): JSX.Element {
 						bets={MOCK_RAIL_BETS}
 						blockers={MOCK_RAIL_BLOCKERS}
 						cost={MOCK_RAIL_COST}
+						onCocClick={handleCocClick}
+						cocOverlayOpen={cocOverlayOpen}
 					/>
 				</div>
 
@@ -638,6 +673,16 @@ export function AppShell(): JSX.Element {
 					open={commandK.isOpen}
 					onClose={commandK.close}
 					onNavigate={handleSearchNavigate}
+				/>
+
+				{/* L21: CoC overlay — renders above Main (z-30), below Settings (z-40).
+				 * Persists across navigation because it lives at AppShell root. */}
+				<CocOverlay
+					open={cocOverlayOpen}
+					onClose={handleCocClose}
+					anchorRef={cocTriggerRef}
+					contextRefs={cocContextRefs}
+					onRemoveContextRef={handleRemoveCocContextRef}
 				/>
 			</div>
 		</ToastRegion>
