@@ -22,7 +22,6 @@ import { existsSync } from "node:fs";
 import { resolve } from "node:path";
 import { DuckDBInstance } from "@duckdb/node-api";
 
-
 const TRACE_FILE = resolve(process.env.HYPERIDLE_TRACE_FILE ?? ".pipeline/traces.jsonl");
 
 if (!existsSync(TRACE_FILE)) {
@@ -519,7 +518,9 @@ async function workpackage(id: string): Promise<void> {
 async function bashAudit(): Promise<void> {
 	const auditFile = resolve(process.env.HYPERIDLE_BASH_AUDIT ?? ".pipeline/bash-audit.jsonl");
 	if (!existsSync(auditFile)) {
-		console.log("No bash audit data yet. The PostToolUse hook logs bash commands to .pipeline/bash-audit.jsonl.");
+		console.log(
+			"No bash audit data yet. The PostToolUse hook logs bash commands to .pipeline/bash-audit.jsonl.",
+		);
 		console.log("Run some bash commands first, then re-run this report.");
 		return;
 	}

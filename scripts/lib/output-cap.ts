@@ -31,7 +31,10 @@ export function groupByFile(output: string, errorPattern: RegExp): FileErrors[] 
 	return [...groups.entries()].map(([file, errors]) => ({ file, errors }));
 }
 
-export function capByFile(grouped: FileErrors[], maxFiles: number): CappedResult & { files: FileErrors[] } {
+export function capByFile(
+	grouped: FileErrors[],
+	maxFiles: number,
+): CappedResult & { files: FileErrors[] } {
 	const totalFiles = grouped.length;
 	const totalErrors = grouped.reduce((sum, g) => sum + g.errors.length, 0);
 	const shown = grouped.slice(0, maxFiles);

@@ -100,11 +100,11 @@
 			"tag": "0012_knowledge_access_log_l22",
 			"breakpoints": true
 		},
-    {
+		{
 			"idx": 14,
 			"version": "6",
 			"when": 1746547200000,
-			"tag": "0012_add_propagation_log",
-    },
+			"tag": "0012_add_propagation_log"
+		}
 	]
 }
