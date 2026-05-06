@@ -8,7 +8,8 @@
 // on red).
 //
 // Usage:
-//   bun run verify           # compressed TOON summary
+//   bun run verify           # full: check + lint + test (TOON summary)
+//   bun run verify --quick   # quick: check + lint only (no tests)
 //   bun run verify --raw     # forward each tool's full stdout/stderr
 //   bun run verify --only=test,lint:eslint
 //
@@ -37,36 +38,39 @@ interface ToolResult {
 	stderrBytes: number;
 }
 
-const RAW_TAIL_LINES = 200;
+const RAW_TAIL_LINES = 60;
 const TEST_OUTPUT_FILE = "test-output.toon";
 
 const TOOLS: Tool[] = [
-	{ name: "check", cmd: "bun", args: ["run", "check"] },
+	{ name: "check", cmd: "tsc", args: ["--noEmit", "-p", "tsconfig.json"] },
 	{ name: "lint:biome", cmd: "bun", args: ["run", "lint:biome"] },
-	{ name: "lint:eslint", cmd: "bun", args: ["run", "lint:eslint"] },
+	{ name: "lint:eslint", cmd: "bunx", args: ["--bun", "eslint", ".", "--quiet"] },
 	{
 		name: "test",
 		cmd: "bun",
-		args: ["run", "test"],
+		args: ["run", "test:raw"],
 		env: { VITEST_TOON_OUTPUT: TEST_OUTPUT_FILE },
 	},
 ];
 
 interface CliFlags {
 	raw: boolean;
+	quick: boolean;
 	only: Set<string> | null;
 }
 
 function parseFlags(argv: readonly string[]): CliFlags {
 	let raw = false;
+	let quick = false;
 	let only: Set<string> | null = null;
 	for (const arg of argv) {
 		if (arg === "--raw") raw = true;
+		else if (arg === "--quick") quick = true;
 		else if (arg.startsWith("--only=")) {
 			only = new Set(arg.slice("--only=".length).split(",").filter(Boolean));
 		}
 	}
-	return { raw, only };
+	return { raw, quick, only };
 }
 
 function runTool(tool: Tool, raw: boolean): Promise<ToolResult> {
@@ -190,7 +194,15 @@ function printSummary(summary: VerifySummary): void {
 
 async function main(): Promise<void> {
 	const flags = parseFlags(process.argv.slice(2));
-	const tools = flags.only ? TOOLS.filter((t) => flags.only?.has(t.name)) : TOOLS;
+	const QUICK_TOOLS = new Set(["check", "lint:biome", "lint:eslint"]);
+	let tools: Tool[];
+	if (flags.only) {
+		tools = TOOLS.filter((t) => flags.only?.has(t.name));
+	} else if (flags.quick) {
+		tools = TOOLS.filter((t) => QUICK_TOOLS.has(t.name));
+	} else {
+		tools = TOOLS;
+	}
 	if (tools.length === 0) {
 		process.stderr.write("verify: no tools matched --only filter\n");
 		process.exit(2);

@@ -122,61 +122,69 @@ Then dispatch the persona sessions below, in order. Update `currentStep` in the 
 | 5 | **Explore** | low | `/retro` | Fresh-context retro with cost signals. Built-in Explore agent, not a custom persona. |
 | — | scripts | — | CI + PR | `bun run verify` runs as CI on every push. Draft PR opened at worktree setup; `gh pr ready` flips on Reviewer's DONE verdict. |
 
-**Durable agent sessions per story: 3** (designer, reviewer, builder). Plus Explore agent for retro. Plus scripts.
+**Durable agent sessions per story: 3** (designer, reviewer, builder). Spawned once each with named handles (`designer-<id>`, `reviewer-<id>`, `builder-<id>`). After initial spawn, all subsequent communication uses `SendMessage(to=<name>)` to reuse the live session — no re-spawn, no cache-creation cost. Explore agent for retro is ephemeral.
 
 ---
 
 ## Persona dispatches — what to invoke
 
-For each phase, launch an agent of the named type with the listed skill. The persona defines WHO (personality, values, thinking approach); the skill defines WHAT (domain knowledge, checklists, output format).
+For each phase, the orchestrator spawns agents exactly ONCE with a stable name, then uses `SendMessage` for all subsequent communication. This avoids re-paying cache creation costs (~100k tokens per spawn).
+
+**Spawn rule:** Use `Agent(subagent_type=<type>, name="<type>-<id>")` for first contact. Use `SendMessage(to="<type>-<id>")` for every subsequent message to that agent.
 
 ```
 Phase 1 — designer (production):
-  Launch agent type=designer.
+  SPAWN: Agent(subagent_type="designer", name="designer-<id>")
   Run /concept (read concept doc, probe if New/Reshaped nouns exist).
   Run /design (classify routine/novel, generate 1-3 variants).
     Skip /design if no UI surface.
   Run /architecture (interrogate spec, draft plan).
   Commit each skill's output (concept.md, variants, plan) and push.
   Prose commits use [skip ci].
+  Designer exits after Phase 1.
 
 Phase 2 — reviewer (critique):
-  Launch agent type=reviewer.
+  SPAWN: Agent(subagent_type="reviewer", name="reviewer-<id>")
   Run /design-critique (score variants against 9-dim rubric, ≥7 to advance,
     max 4 rounds). Skip if no UI surface.
   Run /architecture-critique (score plan against 9-dim rubric, ≥7 to advance,
     max 3 rounds).
   True producer/evaluator separation — different agent reads the
-  designer's output cold. Reviewer session stays alive for Phase 4.
+  designer's output cold.
   Commit critique output (approved.md, critique doc) and push [skip ci].
+  DO NOT let this agent exit — it will be reused in Phase 4.
 
 Phase 3 — builder (TDD):
-  Launch agent type=builder with /write-tests.
-  Builder reads the plan; writes failing tests for all ACs; commits +
-  pushes. Do NOT write implementation code — requirement definition
-  must not be contaminated by implementation thinking.
+  SPAWN: Agent(subagent_type="builder", name="builder-<id>")
+  Run /write-tests — reads the plan, writes failing tests for all ACs,
+  commits + pushes. Do NOT write implementation code — requirement
+  definition must not be contaminated by implementation thinking.
 
-  Then run /write-code.
+  SEND: SendMessage(to="builder-<id>") with /write-code.
   Builder reads the plan + failing tests; writes minimum code to pass.
   Runs bun run verify — must pass before pushing.
   If Builder hits a plan-vs-reality conflict, it raises a BLOCKER rather
   than redesigning in-flight (TE-22).
 
 Phase 4 — review:
-  Same reviewer from Phase 2 runs /review (warm on design/arch context).
+  SEND: SendMessage(to="reviewer-<id>") — reuses Phase 2 session.
+  Same reviewer runs /review (warm on design/arch context).
     Six lenses: 3 positive (architecture, design, security) +
     3 negative (adversarial, simplification, slop) + AC completeness.
     Design lens skipped silently if no UI files.
     Emits DONE | NOT DONE with AC table + findings.
 
+  SEND: SendMessage(to="builder-<id>") with findings.
   Builder applies findings; commits + pushes; runs bun run verify.
 
-  Gate: if reviewer verdict is NOT DONE → back to Phase 3 (max 3 attempts).
+  Gate: if reviewer verdict is NOT DONE →
+    SendMessage(to="builder-<id>") to fix, then
+    SendMessage(to="reviewer-<id>") to re-review. Max 3 attempts.
   If DONE and PIPELINE_AB_MODE != 1 → flip draft PR ready (gh pr ready).
   In AB mode, leave the PR draft.
 
 Phase 5 — retro:
-  Launch Explore agent with /retro.
+  Launch Explore agent with /retro (ephemeral, no reuse needed).
   Writes docs/retro/<id>.md with cost signals the A/B harness reads.
 ```
 
@@ -210,6 +218,12 @@ The agent that created the design cannot objectively score it. Moving critique t
 Routine UI (existing component family, known layout) gets 1 variant + a "did we consider X / Y / Z" check. Genuinely novel UI gets 3. L1 / L2 / L3 primitives are always novel.
 
 ---
+
+## Token Efficiency
+
+- **Spawn once, message many.** Each agent is spawned exactly once per story with a stable name. Use `SendMessage` for all follow-up communication. Never re-spawn an agent that's still alive.
+- **Incremental verification.** Builder uses `bun run check` (fast typecheck) after edits. Full `bun run verify` only before pushing.
+- **Error output is capped.** The check/lint/test wrappers show max 10 files. Don't re-run hoping for different output — fix the shown errors first.
 
 ## Rules
 
