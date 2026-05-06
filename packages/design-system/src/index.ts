@@ -73,6 +73,8 @@ export {
 	betStatusToStatus,
 	KNOWLEDGE_STATUS_MAP,
 	knowledgeStatusToStatus,
+	SESSION_OUTCOME_MAP,
+	sessionOutcomeToStatus,
 	TASK_STATE_MAP,
 	taskStateToStatus,
 } from "./status-mapping.js";

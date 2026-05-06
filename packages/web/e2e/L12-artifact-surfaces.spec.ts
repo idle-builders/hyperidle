@@ -300,7 +300,7 @@ test.describe("L12 — Artifact surfaces on Work pages", () => {
 		const artifactBeforeThread = await page.evaluate(() => {
 			const artifact = document.querySelector("[data-testid='artifact-section-container']");
 			const thread = document.querySelector("[data-testid='host-thread-section']");
-			if (!artifact || !thread) return false;
+			if (!(artifact && thread)) return false;
 			// compareDocumentPosition bit 4 = DOCUMENT_POSITION_FOLLOWING
 			return (artifact.compareDocumentPosition(thread) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0;
 		});
