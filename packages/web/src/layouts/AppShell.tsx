@@ -5,7 +5,7 @@ import { NavItem } from "@hyperidle/design-system";
  * This is NOT a custom component — it is a page-level composition assembling Tier 3 regions.
  */
 import { KNOWLEDGE_SCOPES, type KnowledgeScope } from "@hyperidle/shared";
-import { type JSX, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { type JSX, useCallback, useEffect, useMemo, useState } from "react";
 import { Outlet, useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { ErrorBoundary } from "../components/ErrorBoundary";
 import { GlobalSearchPanel } from "../components/GlobalSearchPanel";
@@ -239,7 +239,6 @@ export function AppShell(): JSX.Element {
 	// L21: CoC overlay state.
 	const [cocOverlayOpen, setCocOverlayOpen] = useState(false);
 	const [cocContextRefs, setCocContextRefs] = useState<ReadonlyArray<CocContextRef>>([]);
-	const cocTriggerRef = useRef<HTMLButtonElement>(null);
 
 	const handleCocClick = useCallback((): void => {
 		setCocOverlayOpen((prev) => !prev);
@@ -680,7 +679,6 @@ export function AppShell(): JSX.Element {
 				<CocOverlay
 					open={cocOverlayOpen}
 					onClose={handleCocClose}
-					anchorRef={cocTriggerRef}
 					contextRefs={cocContextRefs}
 					onRemoveContextRef={handleRemoveCocContextRef}
 				/>

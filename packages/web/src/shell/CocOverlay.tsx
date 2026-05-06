@@ -25,7 +25,10 @@ import { useCocThread } from "../hooks/useCocThread";
 export interface CocOverlayProps {
 	open: boolean;
 	onClose: () => void;
-	anchorRef: RefObject<HTMLButtonElement | null>;
+	/** @lore L21: anchorRef is reserved for future dynamic positioning relative
+	 * to the CocTrigger button. Currently the overlay uses fixed bottom-16 right-4
+	 * positioning. The prop is optional — pass a ref when dynamic anchoring lands. */
+	anchorRef?: RefObject<HTMLButtonElement | null>;
 	contextRefs: ReadonlyArray<CocContextRef>;
 	onRemoveContextRef: (index: number) => void;
 }
@@ -82,11 +85,19 @@ function CocOverlayInner({
 						}
 					: input.payload;
 
-			await fetch(`/api/threads/${data.thread.id}/messages`, {
+			const res = await fetch(`/api/threads/${data.thread.id}/messages`, {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ ...input, payload }),
 			});
+			// @lore L21 review S1: throw on non-ok so ThreadShell's Composer
+			// receives the rejection and can surface an error state to the user.
+			// Silently discarding fetch errors (the prior behaviour) meant the
+			// user had no indication their message failed to send.
+			if (!res.ok) {
+				const text = await res.text().catch(() => res.statusText);
+				throw new Error(`Failed to send message: ${res.status} ${text}`);
+			}
 		},
 		[data?.thread, contextRefs],
 	);
