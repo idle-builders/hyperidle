@@ -8,7 +8,7 @@ const NO_PREVIEW_FIXTURE = {
 	producingTaskTitle: "Pending render",
 	kind: "screenshot",
 	preview: null,
-	cost: { money: "$0.00", tokens: "0" },
+	cost: { money: null, tokens: null },
 	threadCount: 0,
 	createdAt: "2026-04-28T13:00:00.000Z",
 };
@@ -16,6 +16,27 @@ const NO_PREVIEW_FIXTURE = {
 test("artifact with preview=null shows the PREVIEW PENDING placeholder, not a fake thumbnail", async ({
 	page,
 }) => {
+	await page.route("**/api/threads?**participant_id=**", async (route: Route) => {
+		await route.fulfill({
+			status: 200,
+			contentType: "application/json",
+			body: JSON.stringify({ threads: [] }),
+		});
+	});
+	await page.route("**/api/products**", async (route: Route) => {
+		await route.fulfill({
+			status: 200,
+			contentType: "application/json",
+			body: JSON.stringify({ products: [], total: 0 }),
+		});
+	});
+	await page.route("**/api/threads?**host_kind=artifact**", async (route: Route) => {
+		await route.fulfill({
+			status: 200,
+			contentType: "application/json",
+			body: JSON.stringify({ threads: [] }),
+		});
+	});
 	await page.route("**/api/artifacts/art-no-preview-fixture", async (route: Route) => {
 		await route.fulfill({
 			status: 200,

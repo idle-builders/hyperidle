@@ -58,6 +58,7 @@ export {
 	type NewMessage,
 	type NewNotificationQueueRow,
 	type NewProduct,
+	type NewPropagationLogRow,
 	type NewRoutine,
 	type NewSession,
 	type NewTask,
@@ -67,8 +68,10 @@ export {
 	notificationQueue,
 	// Types
 	type Product,
+	type PropagationLogRow,
 	// Tables
 	products,
+	propagationLog,
 	type Routine,
 	routines,
 	type Session,

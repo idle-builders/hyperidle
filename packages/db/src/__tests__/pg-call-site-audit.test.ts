@@ -74,7 +74,9 @@ describe("H4 honest-state: synchronous Drizzle call-site audit", () => {
 		// 14 sync test-infrastructure call sites. The snapshot is bumped
 		// to absorb that legitimate growth; production call-sites in
 		// services/, routes/, etc. are not affected.
-		const SNAPSHOT_COUNT = 1130;
+		// L20 added lifecycle-propagation.ts (15 sync calls) + its test file
+		// (45 sync calls) = 60 new sync call sites. Snapshot bumped to absorb.
+		const SNAPSHOT_COUNT = 1189;
 		const TOLERANCE = 50; // absorb routine renames without a fail-open
 
 		const humanReport = hits
