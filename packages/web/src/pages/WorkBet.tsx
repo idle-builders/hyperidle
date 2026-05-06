@@ -21,6 +21,7 @@ import {
 	BlockActionsPopover,
 	EmptyState,
 	ErrorState,
+	KeyValue,
 	SkeletonCard,
 	SkeletonList,
 	StatusChip,
@@ -28,7 +29,13 @@ import {
 	taskStateToStatus,
 } from "@hyperidle/design-system";
 import type { Message } from "@hyperidle/shared";
-import { deriveBlocks, isRedactedPayload } from "@hyperidle/shared";
+import {
+	deriveBlocks,
+	formatMoney,
+	formatTokenCount,
+	isRedactedPayload,
+	totalTokens,
+} from "@hyperidle/shared";
 import { type JSX, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { ArtifactSection, useArtifactOpen } from "../components/ArtifactSection.js";
@@ -46,7 +53,9 @@ import { HostThreadSection } from "../shell/HostThreadSection.js";
 import { TaskSheet } from "../shell/TaskSheet";
 import type { BetDetail } from "../types/bet";
 
-type SortColumn = "title" | "status" | "owner" | "cost" | "outcome";
+// L17: "cost" column maps to costActual (WireMoney|null); sort by minor units.
+// L19: "outcome" column added for latest session outcome sort.
+type SortColumn = "title" | "status" | "owner" | "costActual" | "outcome";
 type SortDirection = "asc" | "desc";
 
 function sortTasks(
@@ -57,15 +66,20 @@ function sortTasks(
 	if (column === null) return tasks;
 	const copy = [...tasks];
 	copy.sort((a, b) => {
-		// L19: outcome column sorts by the outcome string value
-		const av: string =
-			column === "outcome"
-				? (a.latestSessionOutcome ?? "")
-				: ((a[column as keyof typeof a] as string | undefined) ?? "");
-		const bv: string =
-			column === "outcome"
-				? (b.latestSessionOutcome ?? "")
-				: ((b[column as keyof typeof b] as string | undefined) ?? "");
+		let av: string | number = "";
+		let bv: string | number = "";
+		if (column === "costActual") {
+			// L17: costActual is WireMoney|null; sort by minor integer units.
+			av = a.costActual?.minor ?? 0;
+			bv = b.costActual?.minor ?? 0;
+		} else if (column === "outcome") {
+			// L19: outcome column sorts by the outcome string value
+			av = a.latestSessionOutcome ?? "";
+			bv = b.latestSessionOutcome ?? "";
+		} else {
+			av = (a[column as keyof typeof a] as string | undefined) ?? "";
+			bv = (b[column as keyof typeof b] as string | undefined) ?? "";
+		}
 		if (av < bv) return direction === "asc" ? -1 : 1;
 		if (av > bv) return direction === "asc" ? 1 : -1;
 		return 0;
@@ -748,7 +762,7 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 			const res = await fetch(`/api/bets/${encodeURIComponent(bet.id)}`, {
 				method: "PATCH",
 				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ field: "appetite", value: appetite, reason }),
+				body: JSON.stringify({ field: "cost_appetite", value: appetite, reason }),
 			});
 			if (!res.ok) {
 				const body = (await res.json().catch(() => ({}))) as { error?: string };
@@ -844,7 +858,7 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 					title={bet.title}
 					product={bet.product}
 					status={bet.status}
-					appetite={bet.appetite}
+					appetite={formatMoney(bet.costAppetite)}
 					progress={bet.progress}
 				/>
 				<CocAttachButton ref={{ kind: "bet", id: bet.id, label: bet.title }} />
@@ -864,10 +878,33 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 			{/* L14: Appetite adjust dialog */}
 			<AppetiteDialog
 				open={appetiteDialogOpen}
-				currentAppetite={bet.appetite}
+				currentAppetite={formatMoney(bet.costAppetite)}
 				onConfirm={handleAppetiteConfirm}
 				onCancel={() => setAppetiteDialogOpen(false)}
 			/>
+
+			{(bet.costActual != null || bet.tokensActual != null) && (
+				<section
+					aria-label="Bet cost"
+					data-testid="bet-cost-section"
+					className="rounded-[var(--r1)] bg-[var(--surface-2)] p-[var(--density-card-pad)]"
+				>
+					<h2 className="text-xs font-heading font-semibold uppercase tracking-wider text-[var(--text-lo)] mb-2">
+						Cost
+					</h2>
+					<div className="flex flex-col gap-1">
+						{bet.costActual != null && (
+							<KeyValue label="Spend" value={formatMoney(bet.costActual)} />
+						)}
+						{bet.tokensActual != null &&
+							(() => {
+								const totals = totalTokens(bet.tokensActual);
+								const total = totals.prompt + totals.completion;
+								return <KeyValue label="Tokens" value={formatTokenCount(total)} />;
+							})()}
+					</div>
+				</section>
+			)}
 
 			{/* L18: Block popover wiring — onOpenBlockActions opens the page-level
 			    block actions popover. The popover's "Discuss" item then calls
@@ -942,7 +979,7 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 									onSort={handleSort}
 								/>
 								<SortableHeader
-									column="cost"
+									column="costActual"
 									label="Cost"
 									sortColumn={sortColumn}
 									sortDirection={sortDirection}
@@ -985,7 +1022,7 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 										) : null}
 									</td>
 									<td>{task.owner}</td>
-									<td className="font-mono">{task.cost}</td>
+									<td className="font-mono">{formatMoney(task.costActual)}</td>
 									{/* L19: Jump-out link — only rendered for valid http/https URLs */}
 									<td>
 										{task.latestSessionHarnessUrl &&

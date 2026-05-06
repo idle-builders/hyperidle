@@ -49,7 +49,10 @@ const MOCK_ARTIFACT = {
 		file: "packages/web/src/Foo.tsx",
 		hunks: [],
 	},
-	cost: { money: "$0.04", tokens: "1.2k" },
+	cost: {
+		money: { minor: 4, currency: "USD" },
+		tokens: { byTier: { haiku: { prompt: 800, completion: 400 } } },
+	},
 	threadCount: 0,
 	createdAt: "2026-05-01T10:00:00.000Z",
 };

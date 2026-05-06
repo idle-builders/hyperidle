@@ -39,7 +39,10 @@ const CODE_DIFF_ARTIFACT = {
 			},
 		],
 	},
-	cost: { money: "$0.04", tokens: "1.2k" },
+	cost: {
+		money: { minor: 4, currency: "USD" },
+		tokens: { byTier: { haiku: { prompt: 800, completion: 400 } } },
+	},
 	threadCount: 2,
 	createdAt: "2026-05-01T10:00:00.000Z",
 };
@@ -51,7 +54,10 @@ const DECK_ARTIFACT = {
 	producingTaskTitle: "Design pitch deck",
 	kind: "deck" as const,
 	preview: { kind: "deck" as const, slideCount: 8, firstSlideTitle: "Executive summary" },
-	cost: { money: "$0.12", tokens: "8k" },
+	cost: {
+		money: { minor: 12, currency: "USD" },
+		tokens: { byTier: { haiku: { prompt: 5000, completion: 3000 } } },
+	},
 	threadCount: 0,
 };
 
@@ -66,7 +72,10 @@ const CONTRACT_ARTIFACT = {
 		parties: ["Acme Corp", "HyperIdle"],
 		title: "Service Agreement",
 	},
-	cost: { money: "$0.08", tokens: "4k" },
+	cost: {
+		money: { minor: 8, currency: "USD" },
+		tokens: { byTier: { haiku: { prompt: 2500, completion: 1500 } } },
+	},
 	threadCount: 1,
 };
 

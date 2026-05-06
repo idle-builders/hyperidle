@@ -31,8 +31,12 @@ export const agents = sqliteTable("agents", {
 	skills: text("skills"),
 	status: text("status").notNull(),
 	maxConcurrentSessions: integer("max_concurrent_sessions").notNull().default(1),
+	/** @lore L17: costCap renamed to costCapMinor; costActual removed (computed from sessions). Legacy column preserved for migration rollback. */
 	costCap: integer("cost_cap"),
 	costActual: integer("cost_actual").default(0),
+	/** L17: structured money cap — minor units + currency code. */
+	costCapMinor: integer("cost_cap_minor"),
+	costCapCurrency: text("cost_cap_currency"),
 	createdAt: text("created_at").notNull(),
 });
 
@@ -45,8 +49,12 @@ export const teams = sqliteTable("teams", {
 	leadAgentId: text("lead_agent_id"),
 	capacity: integer("capacity").notNull(),
 	activeBets: integer("active_bets").notNull().default(0),
+	/** @lore L17: legacy columns kept for rollback safety. */
 	costCap: integer("cost_cap"),
 	costActual: integer("cost_actual").default(0),
+	/** L17: structured money cap — minor units + currency code. */
+	costCapMinor: integer("cost_cap_minor"),
+	costCapCurrency: text("cost_cap_currency"),
 	formedAt: text("formed_at").notNull(),
 	dissolvedAt: text("dissolved_at"),
 });
@@ -64,13 +72,27 @@ export const bets = sqliteTable(
 			.notNull()
 			.references(() => teams.id, { onDelete: "restrict" }),
 		pitch: text("pitch").notNull(),
-		appetite: text("appetite").notNull(),
+		/**
+		 * @lore L17: appetite (duration string "1 week"/"2 weeks"/"6 weeks") is
+		 * deprecated in favour of costAppetiteMinor + costAppetiteCurrency.
+		 * The column is kept for rollback safety but no longer required at the
+		 * API boundary (nullable here, route validation rejects it as a 400).
+		 */
+		appetite: text("appetite"),
 		doneCondition: text("done_condition"),
 		hypothesis: text("hypothesis"),
 		status: text("status").notNull(),
 		revisionLog: text("revision_log"),
 		createdAt: text("created_at").notNull(),
 		shippedAt: text("shipped_at"),
+		/** L17: structured cost appetite — minor units + currency code. */
+		costAppetiteMinor: integer("cost_appetite_minor"),
+		costAppetiteCurrency: text("cost_appetite_currency"),
+		/** L17: accumulated actual cost from sessions — minor units + currency. */
+		costActualMinor: integer("cost_actual_minor"),
+		costActualCurrency: text("cost_actual_currency"),
+		/** L17: accumulated tokens as JSON (TokenUsage shape). */
+		tokensActualJson: text("tokens_actual_json"),
 	},
 	(table) => [
 		index("bets_product_id_idx").on(table.productId),
@@ -134,7 +156,18 @@ export const sessions = sqliteTable(
 		endedAt: text("ended_at"),
 		state: text("state").notNull(),
 		workspaceSnapshot: text("workspace_snapshot"),
+		/** @lore L17: legacy cost column preserved for rollback safety. */
 		cost: integer("cost").default(0),
+		/**
+		 * L17: structured session cost — minor units. NULL means "no L17 cost recorded
+		 * yet", so the cost-cap service falls back to the legacy `cost` column.
+		 * @lore L17: must be nullable (no default) so coalesce(costMinor, cost, 0) can
+		 * differentiate "not yet set" from "zero cost".
+		 */
+		costMinor: integer("cost_minor"),
+		costCurrency: text("cost_currency"),
+		/** L17: per-session token breakdown stored as JSON (TokenUsage shape). */
+		tokensJson: text("tokens_json"),
 		outcome: text("outcome"),
 		notes: text("notes"),
 		/**

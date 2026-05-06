@@ -25,12 +25,18 @@ const MOCK_PRODUCT_DETAIL = {
 		{ agentId: "agent-lead", name: "Lead Agent", role: "lead", isLead: true },
 		{ agentId: "agent-member", name: "Alice Agent", role: "member", isLead: false },
 	],
-	burn: { costActual: 4200, costCap: 10000, capacity: 5, activeBets: 2 },
+	// L17: costActual/costCap are now WireMoney|null; costAppetite replaces appetite.
+	burn: {
+		costActual: { minor: 4200, currency: "USD" },
+		costCap: { minor: 10000, currency: "USD" },
+		capacity: 5,
+		activeBets: 2,
+	},
 	activeBets: [
 		{
 			id: "b1",
 			pitchTitle: "Auth migration",
-			appetite: "2 weeks",
+			costAppetite: { minor: 20000, currency: "USD" },
 			status: "committed",
 			progressDone: 1,
 			progressTotal: 2,

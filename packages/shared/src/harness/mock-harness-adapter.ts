@@ -40,7 +40,15 @@ export class MockHarnessAdapter implements HarnessAdapter {
 			throw new Error(`Unknown session: ${handle.sessionId}`);
 		}
 		session.running = false;
-		return { outcome: "completed", totalTokens: 150, totalCost: 0.003 };
+		return {
+			outcome: "completed",
+			cost: { minor: 300, currency: "USD" }, // $3.00 in cents
+			tokenUsage: {
+				byTier: {
+					workhorse: { prompt: 100, completion: 50 },
+				},
+			},
+		};
 	}
 
 	getCapabilities(): HarnessCapabilities {

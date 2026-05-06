@@ -68,6 +68,7 @@ export type {
 } from "./events.js";
 export type { ArtifactCostInput } from "./format/artifact-cost.js";
 export { formatArtifactCost } from "./format/artifact-cost.js";
+export { formatMoney, formatTokenCount } from "./format/money.js";
 export type {
 	CompletionEvent,
 	CostUpdateEvent,
@@ -173,6 +174,26 @@ export type {
 	DiffHunk,
 } from "./types/artifact.js";
 export { ARTIFACT_KINDS, artifactDisplayTitle, summarizePreview } from "./types/artifact.js";
+export type {
+	CurrencyCode,
+	ModelTier as MoneyModelTier,
+	Money,
+	TierTokenCount,
+	TokenUsage,
+	WireMoney,
+} from "./types/money.js";
+export {
+	addMoney,
+	addTokenUsage,
+	CURRENCY_CODES,
+	CURRENCY_SCALE,
+	compareMoney,
+	moneyFromWire,
+	moneyToWire,
+	scaleForCurrency,
+	totalTokens,
+	zeroMoney,
+} from "./types/money.js";
 export type {
 	AgentRole,
 	AgentStatus,

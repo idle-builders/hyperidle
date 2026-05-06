@@ -6,7 +6,8 @@ import {
 	type Status,
 	StatusChip,
 } from "@hyperidle/design-system";
-import type { BetStatus } from "@hyperidle/shared";
+import type { BetStatus, WireMoney } from "@hyperidle/shared";
+import { formatMoney, formatTokenCount } from "@hyperidle/shared";
 import { type JSX, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useRovingFocus } from "./use-roving-focus";
@@ -47,10 +48,12 @@ export interface BlockerItem {
 }
 
 export interface CostInfo {
-	todaySpend: string;
-	todayBudget: string;
-	weekSpend: string;
-	weekBudget: string;
+	/** L17: WireMoney replaces the old string fields. */
+	todaySpend: WireMoney;
+	todayCap: WireMoney;
+	weekSpend: WireMoney;
+	weekCap: WireMoney;
+	weekTokens?: number | null;
 }
 
 export interface RailProps {
@@ -415,10 +418,13 @@ export function Rail({
 				/>
 				{openSections.cost && (
 					<div id="rail-panel-cost" className="flex flex-col gap-1 px-2 py-1">
-						<KeyValue label="Today" value={cost.todaySpend} />
-						<KeyValue label="Today Budget" value={cost.todayBudget} />
-						<KeyValue label="Week" value={cost.weekSpend} />
-						<KeyValue label="Week Budget" value={cost.weekBudget} />
+						<KeyValue label="Today" value={formatMoney(cost.todaySpend)} />
+						<KeyValue label="Today Budget" value={formatMoney(cost.todayCap)} />
+						<KeyValue label="Week" value={formatMoney(cost.weekSpend)} />
+						<KeyValue label="Week Budget" value={formatMoney(cost.weekCap)} />
+						{cost.weekTokens != null && (
+							<KeyValue label="Week Tokens" value={formatTokenCount(cost.weekTokens)} />
+						)}
 					</div>
 				)}
 			</div>

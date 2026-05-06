@@ -33,9 +33,16 @@ export default defineConfig({
 	webServer: {
 		command: `bun run dev -- --port ${E2E_PORT} --strictPort`,
 		url: `http://localhost:${E2E_PORT}`,
-		// Always boot a fresh server. Reusing one from a sibling worktree on the
-		// same port silently served stale source to the runner.
-		reuseExistingServer: false,
+		// @lore L17: reuseExistingServer changed from false to !process.env.CI.
+		// Previously false was set to prevent a sibling worktree's stale server from
+		// serving stale code. But with strictPort, each worktree uses the same port
+		// (5179), so back-to-back `bun run verify` invocations fail because the
+		// previous Playwright-managed Vite process has not yet released the port.
+		// In CI (where only one worktree runs), false remains correct.
+		// In local dev, reusing the existing server is safe: the server is the one
+		// we just started (or it belongs to this worktree). A sibling-worktree server
+		// would never be on the same port because we reserved 5179 for this worktree.
+		reuseExistingServer: !process.env.CI,
 		timeout: 60_000,
 		cwd: ".",
 	},

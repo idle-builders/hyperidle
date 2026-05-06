@@ -93,10 +93,11 @@ describe("HarnessAdapter interface (D1)", () => {
 			const result: SessionResult = await adapter.stopSession(handle);
 
 			expect(result.outcome).toBe("completed");
-			expect(typeof result.totalTokens).toBe("number");
-			expect(result.totalTokens).toBeGreaterThan(0);
-			expect(typeof result.totalCost).toBe("number");
-			expect(result.totalCost).toBeGreaterThanOrEqual(0);
+			// L17: cost is now WireMoney, tokens is TokenUsage
+			expect(typeof result.cost.minor).toBe("number");
+			expect(result.cost.minor).toBeGreaterThanOrEqual(0);
+			expect(typeof result.cost.currency).toBe("string");
+			expect(result.tokenUsage.byTier).toBeDefined();
 		});
 
 		it("getCapabilities returns expected shape", () => {

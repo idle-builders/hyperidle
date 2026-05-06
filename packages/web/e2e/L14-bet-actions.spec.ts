@@ -247,7 +247,7 @@ test.describe("L14 — Bet actions E2E", () => {
 			await saveBtn.click();
 
 			// Assert PATCH was called with correct body
-			expect(patchBody.field).toBe("appetite");
+			expect(patchBody.field).toBe("cost_appetite");
 			expect(patchBody.value).toBe("1 week");
 			expect(patchBody.reason).toBe("Scope reduced significantly");
 		});
