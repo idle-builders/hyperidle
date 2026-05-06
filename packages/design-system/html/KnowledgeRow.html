@@ -132,6 +132,44 @@
       color: var(--text-mid);
       flex-shrink: 0;
     }
+
+    /* --- Signal triad (L22) --- */
+    /* Three inline chips: recency · frequency · impact.
+       em-dash (—) marks absent data so absent signals are visually distinct
+       from "zero" — a zero access count is a real observation; an em-dash
+       means no signal has been recorded yet. */
+    .signal-triad {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-shrink: 0;
+    }
+    .signal-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+      padding: 1px 6px;
+      border-radius: var(--r-pill);
+      font-family: var(--mono);
+      font-size: 10px;
+      letter-spacing: var(--tracking-caps);
+      background: var(--surface-ghost);
+      color: var(--text-lo);
+      white-space: nowrap;
+    }
+    .signal-chip__label {
+      color: var(--text-lo);
+      font-size: 9px;
+      letter-spacing: var(--tracking-caps);
+      text-transform: uppercase;
+    }
+    .signal-chip__value {
+      color: var(--text-mid);
+    }
+    .signal-chip__value--absent {
+      color: var(--text-lo);
+      opacity: 0.5;
+    }
   </style>
 </head>
 <body>
@@ -172,7 +210,44 @@
       );
     }
 
-    function KnowledgeRow({ title, layer, kind, status, timestamp, caption, factoryMode, version }) {
+    /**
+     * SignalTriad — three inline signal chips: recency · frequency · impact.
+     * Props:
+     *   recency   — string (e.g. "3h ago") or null for absent
+     *   frequency — number or null for absent
+     *   impact    — number or null for absent (always null in L22, staged)
+     *
+     * Absent values render an em-dash (—) with reduced opacity so callers
+     * can distinguish "no data yet" from "zero accesses".
+     */
+    function SignalChip({ label, value }) {
+      const isAbsent = value == null;
+      return (
+        <span className="signal-chip" title={`${label}: ${isAbsent ? "no data" : value}`}>
+          <span className="signal-chip__label">{label}</span>
+          <span className={`signal-chip__value${isAbsent ? " signal-chip__value--absent" : ""}`}>
+            {isAbsent ? "—" : value}
+          </span>
+        </span>
+      );
+    }
+
+    function SignalTriad({ recency, frequency, impact }) {
+      return (
+        <div
+          className="signal-triad"
+          data-component="SignalTriad"
+          data-tier="1"
+          aria-label={`Signals: recency ${recency ?? "absent"}, frequency ${frequency ?? "absent"}, impact ${impact ?? "absent"}`}
+        >
+          <SignalChip label="REC" value={recency} />
+          <SignalChip label="FREQ" value={frequency != null ? frequency : null} />
+          <SignalChip label="IMP" value={impact} />
+        </div>
+      );
+    }
+
+    function KnowledgeRow({ title, layer, kind, status, timestamp, caption, factoryMode, version, signals }) {
       const presentationStatus = KNOWLEDGE_STATUS_MAP[status] || "paused";
       const rowCls = `knowledge-row${factoryMode ? " knowledge-row--factory" : ""}`;
       const titleCls = `knowledge-row__title${factoryMode ? " knowledge-row__title--factory" : ""}`;
@@ -203,6 +278,13 @@
             </div>
             {caption && <p className="knowledge-row__caption">{caption}</p>}
           </div>
+          {signals && (
+            <SignalTriad
+              recency={signals.recency}
+              frequency={signals.frequency}
+              impact={signals.impact}
+            />
+          )}
           <span className="knowledge-row__timestamp">{timestamp}</span>
         </div>
       );
@@ -254,6 +336,51 @@
               <KnowledgeRow title="L2 item" layer="L2" kind="pattern" status="validated" timestamp="2h ago" />
               <KnowledgeRow title="L3 item" layer="L3" kind="anti_pattern" status="provisional" timestamp="3h ago" />
               <KnowledgeRow title="L4 item" layer="L4" kind="reflection" status="archived" timestamp="1d ago" />
+            </div>
+          </div>
+
+          <div className="demo-section">
+            <div className="demo-section-title">Signal Triad — All Signals Present (L22)</div>
+            <KnowledgeRow
+              title="Rate Limiter Pattern (fully signalled)"
+              layer="L3"
+              kind="pattern"
+              status="active"
+              timestamp="2h ago"
+              signals={{ recency: "2h ago", frequency: 7, impact: null }}
+            />
+          </div>
+
+          <div className="demo-section">
+            <div className="demo-section-title">Signal Triad — Absent Data (em-dash marker)</div>
+            <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+              {/* No signals at all — first-ever view, nothing logged yet */}
+              <KnowledgeRow
+                title="Unreferenced Principle (no signals)"
+                layer="L1"
+                kind="principle"
+                status="captured"
+                timestamp="1d ago"
+                signals={{ recency: null, frequency: null, impact: null }}
+              />
+              {/* Recency present, frequency and impact absent */}
+              <KnowledgeRow
+                title="Rarely Accessed Decision (recency only)"
+                layer="L2"
+                kind="decision"
+                status="validated"
+                timestamp="5d ago"
+                signals={{ recency: "5d ago", frequency: null, impact: null }}
+              />
+              {/* Frequency present (0 is a real observation), recency and impact absent */}
+              <KnowledgeRow
+                title="Accessed Once (frequency=1, recency absent)"
+                layer="L3"
+                kind="reflection"
+                status="provisional"
+                timestamp="3d ago"
+                signals={{ recency: null, frequency: 1, impact: null }}
+              />
             </div>
           </div>
         </div>

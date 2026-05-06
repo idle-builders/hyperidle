@@ -85,6 +85,20 @@
 			"when": 1780000000000,
 			"tag": "0011_cost_tokens_l17",
 			"breakpoints": true
+		},
+		{
+			"idx": 9,
+			"version": "6",
+			"when": 1777200000000,
+			"tag": "0009_l9_artifact_metadata",
+			"breakpoints": true
+		},
+		{
+			"idx": 12,
+			"version": "6",
+			"when": 1746532800000,
+			"tag": "0012_knowledge_access_log_l22",
+			"breakpoints": true
 		}
 	]
 }
