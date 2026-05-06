@@ -18,6 +18,7 @@ import { EmptyState, KeyValue, SkeletonCard, StatusChip } from "@hyperidle/desig
  */
 import type { JSX } from "react";
 import { useNavigate } from "react-router-dom";
+import { ArtifactSection, useArtifactOpen } from "../components/ArtifactSection.js";
 import { MOCK_CYCLE, MOCK_PRODUCTS } from "../fixtures/portfolio-data";
 import { useProducts } from "../hooks/useProducts";
 
@@ -39,6 +40,7 @@ export interface WorkPortfolioProps {
 export function WorkPortfolio({ loading = false, products }: WorkPortfolioProps = {}): JSX.Element {
 	const navigate = useNavigate();
 	const { data: productsData } = useProducts();
+	const onOpenArtifact = useArtifactOpen();
 
 	// Use injected products prop first (stories/tests), then real API data,
 	// then MOCK_PRODUCTS fallback when loading or API unavailable.
@@ -173,6 +175,17 @@ export function WorkPortfolio({ loading = false, products }: WorkPortfolioProps 
 					}`}
 				</span>
 			</div>
+
+			{/* L12: Artifact gallery — portfolio axis, limit=12, BELOW cycle-stripe per design.
+			    @lore L12 review (W-1): approved design says "below cycle-stripe". */}
+			<ArtifactSection
+				filter={{ axis: "portfolio" }}
+				layout="gallery"
+				limit={12}
+				heading="Artifacts"
+				emptyDescription="Artifacts appear here as agents complete tasks."
+				onOpen={onOpenArtifact}
+			/>
 		</div>
 	);
 }

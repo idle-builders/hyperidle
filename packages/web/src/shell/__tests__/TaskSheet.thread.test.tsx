@@ -21,6 +21,13 @@ vi.mock("../../hooks/useHostThread", () => ({
 	})),
 }));
 
+// L12: TaskSheet now renders ArtifactSection which calls useNavigate internally.
+// Mock here so existing tests (which don't wrap in Router) continue to pass.
+vi.mock("../../components/ArtifactSection", () => ({
+	ArtifactSection: () => null,
+	useArtifactOpen: () => vi.fn(),
+}));
+
 const MOCK_TASK: KanbanTask = {
 	id: "task-sheet-001",
 	title: "Build the feature",
