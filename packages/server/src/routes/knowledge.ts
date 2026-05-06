@@ -1,4 +1,9 @@
-import { type HyperIdleDb, knowledgeEditLog, knowledgeItems } from "@hyperidle/db";
+import {
+	type HyperIdleDb,
+	knowledgeAccessLog,
+	knowledgeEditLog,
+	knowledgeItems,
+} from "@hyperidle/db";
 import type { ApiErrorResponse, KnowledgeLayer } from "@hyperidle/shared";
 import { API_ERROR_CODES, type EventBus, KNOWLEDGE_LAYERS } from "@hyperidle/shared";
 import { and, eq, or, sql } from "drizzle-orm";
@@ -6,6 +11,7 @@ import { Hono, type MiddlewareHandler } from "hono";
 import { z } from "zod";
 import { validateBody } from "../middleware/validate.js";
 import { escapeLikePattern } from "../services/like-escape.js";
+import { createRelevanceService } from "../services/relevance-service.js";
 
 // biome-ignore lint/style/useNamingConvention: `Variables` is the Hono Env property name; the framework requires this exact PascalCase key.
 type KnowledgeEnv = { Variables: { layer: KnowledgeLayer } };
@@ -178,14 +184,34 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 	router.use("/:layer", layerGuard);
 	router.use("/:layer/*", layerGuard);
 
-	// GET /:layer — list by layer, grouped by topic, kind
+	// GET /:layer — list by layer, grouped by topic, kind + flat items with signals
 	router.get("/:layer", (c) => {
 		const layer = c.get("layer");
-		const items = db.select().from(knowledgeItems).where(eq(knowledgeItems.layer, layer)).all();
+		const rawItems = db.select().from(knowledgeItems).where(eq(knowledgeItems.layer, layer)).all();
 
-		// Group by topic -> kind
-		const groups: Record<string, Record<string, typeof items>> = {};
-		for (const item of items) {
+		// Compute relevance signals for all items in the layer
+		const relevanceService = createRelevanceService(db);
+		const nowMs = Date.now();
+		const itemIds = rawItems.map((i) => i.id);
+		const signalsMap = relevanceService.computeSignals(itemIds, nowMs);
+
+		// Build flat items array with signals (L22 AC-5)
+		const items = rawItems.map((item) => {
+			const signal = signalsMap.get(item.id);
+			return {
+				...item,
+				signals: {
+					lastActivityAt: signal?.lastActivityAt ?? null,
+					accessCount30d: signal?.accessCount30d ?? null,
+					citationCount: null, // staged — always null in L22
+					relevanceScore: item.relevanceScore ?? null,
+				},
+			};
+		});
+
+		// Group by topic -> kind (legacy format, kept for backwards compat)
+		const groups: Record<string, Record<string, typeof rawItems>> = {};
+		for (const item of rawItems) {
 			const topic = item.topic ?? "_uncategorized";
 			if (!groups[topic]) {
 				groups[topic] = {};
@@ -196,11 +222,11 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 			groups[topic][item.kind].push(item);
 		}
 
-		return c.json({ layer, groups });
+		return c.json({ layer, items, groups });
 	});
 
 	// GET /:layer/:id — single item
-	router.get("/:layer/:id", (c) => {
+	router.get("/:layer/:id", async (c) => {
 		const layer = c.get("layer");
 		const id = c.req.param("id");
 
@@ -216,6 +242,38 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 				code: API_ERROR_CODES.NOT_FOUND,
 			};
 			return c.json(response, 404);
+		}
+
+		// L22: append access-log row. Wrapped in try-catch so an INSERT failure
+		// (e.g. disk full, FK race) never breaks the 200 response. The log is
+		// best-effort — a missing row is acceptable; a broken read is not.
+		// @lore L22: accessor_kind defaults to "human" because this endpoint is
+		// browser-initiated. Agent reads will go through the fabric layer directly
+		// and log with kind="agent". No auth context is wired at this point in L22.
+		try {
+			db.insert(knowledgeAccessLog)
+				.values({
+					id: crypto.randomUUID(),
+					itemId: item.id,
+					accessorKind: "human",
+					accessorId: "browser",
+					accessedAt: new Date().toISOString(),
+				})
+				.run();
+		} catch {
+			// best-effort — do not surface access-log INSERT failures to the caller
+		}
+
+		// L22: recompute relevance score for this item after the access log write.
+		// Best-effort — a recompute failure must never break the read response.
+		// @lore L22: single-item recompute keeps the relevanceScore column fresh
+		// without a full-table batch job. The score update is fire-and-forget from
+		// the caller's perspective; the next GET will reflect the updated score.
+		try {
+			const relevanceService = createRelevanceService(db);
+			await relevanceService.recomputeScores([item.id]);
+		} catch {
+			// best-effort — do not surface recompute failures to the caller
 		}
 
 		return c.json(item);
