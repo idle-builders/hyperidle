@@ -279,6 +279,11 @@ export const items = sqliteTable(
 		reasoning: text("reasoning"),
 		costEstimate: integer("cost_estimate"),
 		auditTrail: text("audit_trail"),
+		// L9: nullable. SQLite stores integer (0/1) — mirrors the
+		// SQLite/PG asymmetry already used for `blocking`.
+		reversibility: integer("reversibility"),
+		// L9: nullable text. Producer contract emits 'passed' | 'failed' | 'n/a'.
+		sandboxResult: text("sandbox_result"),
 		threadId: text("thread_id")
 			.notNull()
 			.references(() => threads.id, { onDelete: "restrict" }),
