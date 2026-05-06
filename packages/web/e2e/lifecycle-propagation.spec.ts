@@ -63,6 +63,8 @@ function makeBetResponse(betStatus: string, taskState: string) {
 }
 
 function makeProductResponse(betStatus: string) {
+	// Shape matches ProductDetail from @hyperidle/shared:
+	// activeBets is BetCardSummary[] with pitchTitle, progressDone, progressTotal fields.
 	return {
 		product: {
 			id: PRODUCT_ID,
@@ -79,14 +81,14 @@ function makeProductResponse(betStatus: string) {
 			capacity: 5,
 			activeBets: betStatus === "review" || betStatus === "in_progress" ? 1 : 0,
 		},
-		bets: [
+		activeBets: [
 			{
 				id: BET_ID,
-				title: "L20 Lifecycle Bet",
+				pitchTitle: "L20 Lifecycle Bet",
 				status: betStatus,
-				progress: { done: 1, total: 1 },
+				progressDone: 1,
+				progressTotal: 1,
 				costAppetite: null,
-				costActual: null,
 			},
 		],
 	};
@@ -137,18 +139,6 @@ async function setupCommonRoutes(
 		return route.continue();
 	});
 
-	// Product detail route
-	await page.route(`**/api/products/${PRODUCT_ID}`, (route) => {
-		if (route.request().method() === "GET") {
-			return route.fulfill({
-				status: 200,
-				contentType: "application/json",
-				body: JSON.stringify(makeProductResponse(betStatus)),
-			});
-		}
-		return route.continue();
-	});
-
 	// Threads list
 	await page.route("**/api/threads?**", (route) => {
 		return route.fulfill({
@@ -176,16 +166,31 @@ async function setupCommonRoutes(
 		});
 	});
 
-	// Products list (WorkSurface / navigation)
+	// Products: handle both detail (/api/products/:id) and list (/api/products or /api/products?...)
+	// in a single handler. Playwright evaluates the last-registered route first, so merging
+	// avoids the ambiguity of route.continue() falling through to the network instead of the
+	// earlier specific handler.
+	// @lore L20: Playwright last-registered-wins ordering means a wildcard registered after a
+	// specific pattern will be evaluated FIRST, and route.continue() from the wildcard falls through
+	// to subsequent handlers — but can hit the network if no later handler matches. Consolidating
+	// into one handler is the safest pattern for URL-dispatch in Playwright mocks.
 	await page.route("**/api/products**", (route) => {
-		if (route.request().method() === "GET" && !route.request().url().includes(`/${PRODUCT_ID}`)) {
+		if (route.request().method() !== "GET") return route.continue();
+		const url = route.request().url();
+		if (url.includes(`/${PRODUCT_ID}`)) {
+			// Detail route: /api/products/:id
 			return route.fulfill({
 				status: 200,
 				contentType: "application/json",
-				body: JSON.stringify({ products: [], total: 0 }),
+				body: JSON.stringify(makeProductResponse(betStatus)),
 			});
 		}
-		return route.continue();
+		// List route: /api/products or /api/products?...
+		return route.fulfill({
+			status: 200,
+			contentType: "application/json",
+			body: JSON.stringify({ products: [], total: 0 }),
+		});
 	});
 
 	// Bets list for nav
@@ -214,17 +219,23 @@ test("L20: task shows review state after session ends with outcome=completed", a
 	await setupCommonRoutes(page, "in_progress", "review");
 
 	// Act: navigate to bet detail page
-	await page.goto(`/work/${PRODUCT_ID}/bets/${BET_ID}`);
+	await page.goto(`/work/bet/${BET_ID}`);
 
-	// Assert: task row shows 'review' state chip
+	// Assert: the bet page loads
+	await expect(page.locator('[data-testid="work-bet-page"]')).toBeVisible({ timeout: 10000 });
+
+	// Assert: a task row is visible containing our task title
 	const taskRow = page
-		.locator(`[data-testid="task-row-${TASK_ID}"], tr:has-text("L20 Lifecycle Task")`)
+		.locator('[data-testid="bet-task-row"]:has-text("L20 Lifecycle Task")')
 		.first();
 	await expect(taskRow).toBeVisible({ timeout: 10000 });
 
-	// The task state chip should show 'review'
-	const stateChip = taskRow.locator('[data-testid="task-state"], .badge, [class*="badge"]').first();
-	await expect(stateChip).toContainText("review", { ignoreCase: true });
+	// The task state chip for 'review' maps to status='behind' in StatusChip
+	// (taskStateToStatus('review') === 'behind' — see packages/design-system/src/status-mapping.ts)
+	// @lore L20: 'review' task state renders as data-status="behind" because it means
+	// "action required" — the design system maps review/action-required to the warn/behind color.
+	const stateChip = taskRow.locator('[data-status="behind"]').first();
+	await expect(stateChip).toBeVisible({ timeout: 5000 });
 });
 
 // ── Test: bet shows 'review' state after all tasks complete ──────────────────
@@ -234,14 +245,17 @@ test("L20: bet shows review state after all tasks are done", async ({ page }) =>
 	await setupCommonRoutes(page, "review", "done");
 
 	// Act: navigate to bet detail page
-	await page.goto(`/work/${PRODUCT_ID}/bets/${BET_ID}`);
+	await page.goto(`/work/bet/${BET_ID}`);
 
-	// Assert: bet status chip shows 'review'
-	const betStatusChip = page
-		.locator('[data-testid="bet-status"], [data-testid="status-chip"], .badge')
-		.first();
+	// Assert: the bet page loads
+	await expect(page.locator('[data-testid="work-bet-page"]')).toBeVisible({ timeout: 10000 });
+
+	// Assert: a bet-status chip is visible with data-status="behind"
+	// betStatusToStatus('review') === 'behind' — review means "action required" in the design system
+	// BetCard renders StatusChip with betStatusToStatus(status), which for 'review' yields 'behind'.
+	// @lore L20: bet status 'review' renders as data-status="behind" chip via BetCard > StatusChip.
+	const betStatusChip = page.locator('[data-status="behind"]').first();
 	await expect(betStatusChip).toBeVisible({ timeout: 10000 });
-	await expect(betStatusChip).toContainText("review", { ignoreCase: true });
 });
 
 // ── Test: product page shows bet in 'review' state ───────────────────────────
@@ -251,16 +265,13 @@ test("L20: product page shows bet in review state after propagation", async ({ p
 	await setupCommonRoutes(page, "review", "done");
 
 	// Act: navigate to the product page
-	await page.goto(`/work/${PRODUCT_ID}`);
+	await page.goto(`/work/product/${PRODUCT_ID}`);
 
-	// Assert: the product page renders and shows the bet with review status
-	// (the bet list/card on the product page should reflect the review state)
-	const productPage = page
-		.locator('[data-testid="product-page"], main, [class*="product"]')
-		.first();
+	// Assert: the product page renders
+	const productPage = page.locator('[data-testid="work-product-page"]').first();
 	await expect(productPage).toBeVisible({ timeout: 10000 });
 
-	// At minimum, the page should load without errors (product in review state visible)
+	// Assert: the page body contains "L20" (from product name or bet title in the response)
 	await expect(page.locator("body")).toContainText("L20", { timeout: 10000 });
 });
 
@@ -275,14 +286,19 @@ test("L20: bet stays in review — shipped transition requires human confirmatio
 	// the final automatically-reachable state.
 	await setupCommonRoutes(page, "review", "done");
 
-	await page.goto(`/work/${PRODUCT_ID}/bets/${BET_ID}`);
+	await page.goto(`/work/bet/${BET_ID}`);
 
 	// Bet should be in 'review' state — NOT 'shipped'
-	const statusChip = page.locator('[data-testid="bet-status"], .badge').first();
-	await expect(statusChip).toBeVisible({ timeout: 10000 });
+	// The bet page must load successfully
+	await expect(page.locator('[data-testid="work-bet-page"]')).toBeVisible({ timeout: 10000 });
 
-	// 'shipped' state must NOT appear as the bet status
-	// (it would only appear after human confirms the review thread)
-	const shippedStatus = page.locator('[data-testid="bet-status"]:has-text("shipped")');
-	await expect(shippedStatus).toHaveCount(0);
+	// The bet-level status chip should be data-status="behind" (review → behind in design system)
+	// NOT data-status="done" (shipped → done). BetCard renders the first StatusChip on the page.
+	// @lore L20: betStatusToStatus('review') === 'behind'. betStatusToStatus('shipped') === 'done'.
+	// The BetCard's StatusChip is the first [data-status] on the page.
+	const firstStatusChip = page.locator("[data-status]").first();
+	await expect(firstStatusChip).toBeVisible({ timeout: 10000 });
+	const betChipStatus = await firstStatusChip.getAttribute("data-status");
+	// bet is in review — the first chip (BetCard's) must NOT be "done" (shipped)
+	expect(betChipStatus).not.toBe("done");
 });

@@ -26,7 +26,10 @@ import {
 import { EventBus, type PropagationAppliedEvent } from "@hyperidle/shared";
 import { and, eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { registerLifecyclePropagation } from "../services/lifecycle-propagation.js";
+import {
+	registerLifecyclePropagation,
+	retryFailedPropagations,
+} from "../services/lifecycle-propagation.js";
 
 // ─── Fixtures ────────────────────────────────────────────────────────────────
 
@@ -677,18 +680,34 @@ describe("registerLifecyclePropagation — retry mechanism", () => {
 		vi.restoreAllMocks();
 	});
 
-	it("logs failed propagation with status=pending_retry when transition fails for retryable reason", () => {
-		// Arrange: insert a propagation_log entry with status=pending_retry directly
-		// (simulates what happens when propagation catches a transient error)
+	it("retryFailedPropagations: retries a pending_retry session->task row and transitions task to applied", () => {
+		// Arrange: a real task in in_progress state and a real session that previously
+		// ended completed but whose propagation was stored as pending_retry (simulating
+		// a transient error on first attempt).
 		const now = new Date().toISOString();
+		seedTask(db, "task-retry-1", "in_progress");
+		// Seed the session row as ended+completed so the retry re-execution succeeds
+		db.insert(sessions)
+			.values({
+				id: "session-retry-1",
+				taskId: "task-retry-1",
+				agentId: "agent-1",
+				modelTier: "capable",
+				startedAt: now,
+				endedAt: now,
+				state: "ended",
+				outcome: "completed",
+			})
+			.run();
+
 		db.insert(propagationLog)
 			.values({
 				id: "log-retry-1",
 				sourceLevel: "session",
-				sourceId: "session-x",
+				sourceId: "session-retry-1",
 				sourceEvent: "session_ended",
 				targetLevel: "task",
-				targetId: "task-x",
+				targetId: "task-retry-1",
 				targetTransition: null,
 				status: "pending_retry",
 				failureReason: "Transient DB error",
@@ -698,18 +717,26 @@ describe("registerLifecyclePropagation — retry mechanism", () => {
 			})
 			.run();
 
-		// Assert: the pending_retry row exists
-		const logs = db
+		const eventBus = new EventBus();
+
+		// Act: call retryFailedPropagations
+		retryFailedPropagations(db, eventBus);
+
+		// Assert: the task was transitioned to review
+		const task = db.select().from(tasks).where(eq(tasks.id, "task-retry-1")).get();
+		expect(task?.state).toBe("review");
+
+		// Assert: a new applied log entry was written for the successful retry
+		const appliedLogs = db
 			.select()
 			.from(propagationLog)
-			.where(eq(propagationLog.status, "pending_retry"))
+			.where(and(eq(propagationLog.targetId, "task-retry-1"), eq(propagationLog.status, "applied")))
 			.all();
-		expect(logs).toHaveLength(1);
-		expect(logs[0].attempts).toBe(1);
+		expect(appliedLogs.length).toBeGreaterThanOrEqual(1);
 	});
 
-	it("exhausted retries (3 attempts) results in status=failed and notification created", () => {
-		// Arrange: insert a log entry that has hit max retries
+	it("retryFailedPropagations: row with attempts=3 (at max) changes status to failed and creates notification", () => {
+		// Arrange: insert a pending_retry row that is already at MAX_RETRY_ATTEMPTS (3)
 		const now = new Date().toISOString();
 		db.insert(propagationLog)
 			.values({
@@ -720,37 +747,30 @@ describe("registerLifecyclePropagation — retry mechanism", () => {
 				targetLevel: "task",
 				targetId: "task-y",
 				targetTransition: null,
-				status: "failed",
-				failureReason: "Max retries exceeded",
+				status: "pending_retry",
+				failureReason: "Transient DB error",
 				attempts: 3,
 				createdAt: now,
 				appliedAt: null,
 			})
 			.run();
 
-		// Insert the notification that the retry mechanism should create
-		db.insert(notificationQueue)
-			.values({
-				id: "notif-1",
-				eventType: "propagation_exhausted",
-				subjectId: "log-exhausted-1",
-				severity: "warning",
-				title: "Propagation failed after 3 attempts",
-				reason: "lifecycle-propagation",
-				status: "pending",
-				createdAt: now,
-			})
-			.run();
+		const eventBus = new EventBus();
 
-		// Assert: failed log + notification exist
+		// Act: call retryFailedPropagations
+		retryFailedPropagations(db, eventBus);
+
+		// Assert: the row is now marked failed
 		const failedLogs = db
 			.select()
 			.from(propagationLog)
-			.where(eq(propagationLog.status, "failed"))
+			.where(eq(propagationLog.id, "log-exhausted-1"))
 			.all();
 		expect(failedLogs).toHaveLength(1);
+		expect(failedLogs[0].status).toBe("failed");
 		expect(failedLogs[0].attempts).toBe(3);
 
+		// Assert: a notification queue entry was created
 		const notifs = db
 			.select()
 			.from(notificationQueue)
