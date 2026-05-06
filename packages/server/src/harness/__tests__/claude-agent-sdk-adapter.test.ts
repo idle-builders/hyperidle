@@ -386,8 +386,15 @@ describe("ClaudeAgentSdkAdapter (D2)", () => {
 
 			const result = await adapter.stopSession(handle);
 			expect(result.outcome).toBe("completed");
-			expect(result.totalCost).toBe(0.003);
-			expect(result.totalTokens).toBeGreaterThan(0);
+			// L17: totalCost replaced by cost: WireMoney
+			expect(result.cost.minor).toBe(Math.round(0.003 * 100)); // $0.003 = 0 cents (rounds to 0)
+			expect(result.cost.currency).toBe("USD");
+			// L17: totalTokens replaced by tokenUsage: TokenUsage
+			const totalOut = Object.values(result.tokenUsage.byTier).reduce(
+				(acc, t) => acc + (t?.prompt ?? 0) + (t?.completion ?? 0),
+				0,
+			);
+			expect(totalOut).toBeGreaterThan(0);
 		});
 
 		it("yields error event when stream throws", async () => {
@@ -480,9 +487,14 @@ describe("ClaudeAgentSdkAdapter (D2)", () => {
 
 			const result = await adapter.stopSession(handle);
 			expect(result.outcome).toBe("completed");
-			expect(result.totalCost).toBe(0.005);
+			// L17: totalCost replaced by cost: WireMoney
+			expect(result.cost.minor).toBe(Math.round(0.005 * 100)); // $0.005 = 1 cent (rounded)
+			expect(result.cost.currency).toBe("USD");
+			// L17: totalTokens replaced by tokenUsage: TokenUsage
 			// 100 input + 50 output from assistant message
-			expect(result.totalTokens).toBe(100 + 50);
+			const workhorseTier = result.tokenUsage.byTier.workhorse;
+			expect(workhorseTier?.prompt).toBe(100);
+			expect(workhorseTier?.completion).toBe(50);
 		});
 
 		it("throws for unknown session handle", async () => {

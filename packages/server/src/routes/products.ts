@@ -17,10 +17,12 @@
 import { agents, bets, type HyperIdleDb, products, tasks, teams } from "@hyperidle/db";
 import type {
 	BetCardSummary,
+	CurrencyCode,
 	EventBus,
 	ProductDetail,
 	ProductListItem,
 	RosterMember,
+	WireMoney,
 } from "@hyperidle/shared";
 import { and, count, eq, inArray } from "drizzle-orm";
 import { Hono } from "hono";
@@ -45,17 +47,35 @@ function derivePitchTitle(pitch: string, betId: string): string {
  * - "blocked" if any active bet has any task in state = 'blocked'
  * - "behind" if active_bets > capacity OR cost_actual >= cost_cap (when cap is set)
  * - "healthy" otherwise
+ *
+ * L17: compares minor-unit values (costCapMinor prefers over legacy costCap).
  */
 function deriveProductStatus(
-	team: { activeBets: number; capacity: number; costActual: number | null; costCap: number | null },
+	team: {
+		activeBets: number;
+		capacity: number;
+		costActualMinor: number | null;
+		costCapMinor: number | null;
+	},
 	hasBlockedTask: boolean,
 ): "healthy" | "behind" | "blocked" {
 	if (hasBlockedTask) return "blocked";
-	const costActual = team.costActual ?? 0;
+	const costActual = team.costActualMinor ?? 0;
 	const overCapacity = team.activeBets > team.capacity;
-	const overBudget = team.costCap !== null && costActual >= team.costCap;
+	const overBudget = team.costCapMinor !== null && costActual >= team.costCapMinor;
 	if (overCapacity || overBudget) return "behind";
 	return "healthy";
+}
+
+/**
+ * Build a WireMoney from minor units + currency, or null if minor is null/undefined.
+ */
+function toWireMoney(
+	minor: number | null | undefined,
+	currency: string | null | undefined,
+): WireMoney | null {
+	if (minor == null) return null;
+	return { minor, currency: (currency ?? "USD") as CurrencyCode };
 }
 
 export function createProductRoutes(db: HyperIdleDb, _eventBus: EventBus): Hono {
@@ -117,8 +137,9 @@ export function createProductRoutes(db: HyperIdleDb, _eventBus: EventBus): Hono 
 						{
 							activeBets: team.activeBets,
 							capacity: team.capacity,
-							costActual: team.costActual ?? null,
-							costCap: team.costCap ?? null,
+							// L17: prefer costCapMinor over legacy costCap
+							costActualMinor: null, // list route doesn't compute actual spend
+							costCapMinor: team.costCapMinor ?? team.costCap ?? null,
 						},
 						false,
 					)
@@ -195,7 +216,8 @@ export function createProductRoutes(db: HyperIdleDb, _eventBus: EventBus): Hono 
 				return {
 					id: bet.id,
 					pitchTitle: derivePitchTitle(bet.pitch, bet.id),
-					appetite: bet.appetite,
+					// L17: costAppetite as WireMoney (replaces appetite duration string)
+					costAppetite: toWireMoney(bet.costAppetiteMinor, bet.costAppetiteCurrency),
 					status: bet.status as "committed" | "in_progress",
 					progressDone,
 					progressTotal,
@@ -211,15 +233,22 @@ export function createProductRoutes(db: HyperIdleDb, _eventBus: EventBus): Hono 
 			});
 
 			// 6. Derive product status
+			// L17: prefer costCapMinor over legacy costCap
+			const teamCostCapMinor = teamRow.costCapMinor ?? teamRow.costCap ?? null;
+			// Compute team actual spend from sessions (via legacy costActual for now)
+			const teamCostActualMinor = teamRow.costActual ?? null;
 			const productStatus = deriveProductStatus(
 				{
 					activeBets: teamRow.activeBets,
 					capacity: teamRow.capacity,
-					costActual: teamRow.costActual ?? null,
-					costCap: teamRow.costCap ?? null,
+					costActualMinor: teamCostActualMinor,
+					costCapMinor: teamCostCapMinor,
 				},
 				hasBlockedTask,
 			);
+
+			// L17: currency for the team defaults to costCapCurrency or "USD"
+			const teamCurrency = teamRow.costCapCurrency ?? "USD";
 
 			const detail: ProductDetail = {
 				product: {
@@ -236,8 +265,12 @@ export function createProductRoutes(db: HyperIdleDb, _eventBus: EventBus): Hono 
 				},
 				roster,
 				burn: {
-					costActual: teamRow.costActual ?? 0,
-					costCap: teamRow.costCap ?? null,
+					// L17: return WireMoney|null instead of raw numbers
+					costActual:
+						teamCostActualMinor != null
+							? { minor: teamCostActualMinor, currency: teamCurrency as CurrencyCode }
+							: null,
+					costCap: toWireMoney(teamCostCapMinor, teamCurrency),
 					capacity: teamRow.capacity,
 					activeBets: teamRow.activeBets,
 				},

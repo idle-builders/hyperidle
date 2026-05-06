@@ -12,7 +12,10 @@ const FIXTURE: Artifact = {
 	producingTaskTitle: "Implement auth flow",
 	kind: "decision",
 	preview: { kind: "decision", claim: "Ship X", rationale: "y" },
-	cost: { money: "$0.42", tokens: "12.4k" },
+	cost: {
+		money: { minor: 42, currency: "USD" },
+		tokens: { byTier: { haiku: { prompt: 8000, completion: 4400 } } },
+	},
 	threadCount: 0,
 	createdAt: new Date(Date.now() - 12 * 60_000).toISOString(),
 };

@@ -10,7 +10,7 @@ import {
 	threads,
 } from "@hyperidle/db";
 import type { ArtifactKind, ArtifactThreadSummary, EventBus } from "@hyperidle/shared";
-import { ARTIFACT_KINDS, MUTABLE_BET_FIELDS } from "@hyperidle/shared";
+import { ARTIFACT_KINDS, CURRENCY_CODES } from "@hyperidle/shared";
 import { and, eq, inArray, sql } from "drizzle-orm";
 import { Hono } from "hono";
 import { z } from "zod";
@@ -21,31 +21,56 @@ const RECOGNISED_ARTIFACT_KIND_VALUES = ARTIFACT_KINDS as readonly string[];
 const SUMMARY_CAP = 10;
 
 /**
+ * Zod schema for a WireMoney object in request bodies.
+ * @lore L17: costAppetite replaces the old `appetite` duration string.
+ */
+const wiremoneySchema = z.object({
+	minor: z.number().int().min(0),
+	currency: z.enum(CURRENCY_CODES as unknown as [string, ...string[]]),
+});
+
+/**
  * Zod schemas for request validation.
  */
-/**
- * @lore I6: appetite is now enum-validated to the three spec-defined cycle
- * lengths. Arbitrary strings were never intended here.
- */
-const BET_APPETITES = ["1 week", "2 weeks", "6 weeks"] as const;
-
-const createBetSchema = z.object({
-	productId: z.string(),
-	teamId: z.string(),
-	pitch: z.string(),
-	appetite: z.enum(BET_APPETITES),
-	doneCondition: z.string().optional(),
-	hypothesis: z.string().optional(),
-});
+const createBetSchema = z
+	.object({
+		productId: z.string(),
+		teamId: z.string(),
+		pitch: z.string(),
+		/**
+		 * @lore L17: costAppetite replaces the old `appetite` duration string
+		 * (e.g. "2 weeks"). Accepts null for uncapped bets. POST with the old
+		 * `appetite` string returns 400.
+		 */
+		costAppetite: wiremoneySchema.nullable().optional(),
+		doneCondition: z.string().optional(),
+		hypothesis: z.string().optional(),
+	})
+	// Reject the old `appetite` string field — if it appears in the body, return 400
+	.strict();
 
 // I2 V2: enum-validate `field` so an unknown value is rejected with 400 by
 // Zod instead of falling through to the service layer (which would throw
 // a generic Error mapped to 500).
-const updateBetSchema = z.object({
-	field: z.enum(MUTABLE_BET_FIELDS),
+// @lore L17: cost_appetite is WireMoney (not a string), so updateBetSchema
+// is a discriminated union: string-valued fields (done_condition, hypothesis)
+// use a string `value`, while cost_appetite uses a WireMoney object `value`.
+const updateBetStringFieldSchema = z.object({
+	field: z.enum(["done_condition", "hypothesis"] as const),
 	value: z.string(),
 	reason: z.string(),
 });
+
+const updateBetCostAppetiteSchema = z.object({
+	field: z.literal("cost_appetite"),
+	value: wiremoneySchema.nullable(),
+	reason: z.string(),
+});
+
+const updateBetSchema = z.discriminatedUnion("field", [
+	updateBetStringFieldSchema,
+	updateBetCostAppetiteSchema,
+]);
 
 const killBetSchema = z.object({
 	reason: z.string().min(1),
@@ -232,11 +257,8 @@ export function createBetRoutes(db: HyperIdleDb, eventBus: EventBus): Hono {
 			.where(eq(tasks.betId, betId))
 			.all();
 
-		// Derive title from the first heading line of the pitch.
-		// Pattern: strip optional leading "# " (H1) or "## " (H2) markers.
 		const title = deriveTitleFromPitch(bet.pitch, bet.id);
 
-		// Join product name.
 		const productRow = db
 			.select({ name: products.name })
 			.from(products)
@@ -244,14 +266,58 @@ export function createBetRoutes(db: HyperIdleDb, eventBus: EventBus): Hono {
 			.get();
 		const product = productRow?.name ?? bet.productId;
 
-		// Team identifier — teams table has no name column yet; use id.
 		const team = bet.teamId;
 
-		// Compute progress from tasks.
 		const done = betTasks.filter((t) => t.state === "done").length;
 		const total = betTasks.length;
 
-		return c.json({ ...bet, tasks: betTasks, title, product, team, progress: { done, total } });
+		// L17: compute actual cost from sessions for this bet's tasks
+		let costActualMinor: number | null = null;
+		let costActualCurrency: string | null = null;
+
+		if (bet.costActualMinor != null) {
+			costActualMinor = bet.costActualMinor;
+			costActualCurrency = bet.costActualCurrency ?? "USD";
+		}
+
+		let tokensActual: Record<string, unknown> | null = null;
+		if (bet.tokensActualJson) {
+			try {
+				tokensActual = JSON.parse(bet.tokensActualJson) as Record<string, unknown>;
+			} catch {
+				// ignore malformed JSON
+			}
+		}
+
+		const {
+			appetite: _appetite,
+			costAppetiteMinor,
+			costAppetiteCurrency,
+			tokensActualJson: _tJson,
+			...restBet
+		} = bet;
+
+		return c.json({
+			...restBet,
+			title,
+			product,
+			team,
+			progress: { done, total },
+			costAppetite:
+				costAppetiteMinor != null && costAppetiteCurrency != null
+					? { minor: costAppetiteMinor, currency: costAppetiteCurrency }
+					: null,
+			costActual:
+				costActualMinor != null && costActualCurrency != null
+					? { minor: costActualMinor, currency: costActualCurrency }
+					: null,
+			tokensActual,
+			tasks: betTasks.map((t) => ({
+				...t,
+				costActual: t.costActual != null ? { minor: t.costActual, currency: "USD" as const } : null,
+				costCap: t.costCap != null ? { minor: t.costCap, currency: "USD" as const } : null,
+			})),
+		});
 	});
 
 	// POST /bets — create shaped bet
@@ -266,35 +332,84 @@ export function createBetRoutes(db: HyperIdleDb, eventBus: EventBus): Hono {
 				productId: body.productId,
 				teamId: body.teamId,
 				pitch: body.pitch,
-				appetite: body.appetite,
 				doneCondition: body.doneCondition ?? null,
 				hypothesis: body.hypothesis ?? null,
 				status: "shaped",
 				createdAt: now,
+				costAppetiteMinor: body.costAppetite?.minor ?? null,
+				costAppetiteCurrency: body.costAppetite?.currency ?? null,
 			})
 			.run();
 
 		const created = db.select().from(bets).where(eq(bets.id, id)).get();
-		return c.json(created, 201);
+		if (!created) {
+			return c.json({ error: "Failed to create bet", code: "INTERNAL_ERROR" }, 500);
+		}
+
+		// Return structured costAppetite in the response
+		return c.json(
+			{
+				...created,
+				costAppetite:
+					created.costAppetiteMinor != null && created.costAppetiteCurrency != null
+						? { minor: created.costAppetiteMinor, currency: created.costAppetiteCurrency }
+						: null,
+			},
+			201,
+		);
 	});
 
 	// PATCH /bets/:id — update mutable fields on active bets.
-	// L14: appetite enum guard at the route level; actor "u-founder" written to revision log.
+	// L14: actor "u-founder" written to revision log.
+	// L17: cost_appetite replaced the old appetite string; handled directly in the route.
 	router.patch("/:id", validateBody(updateBetSchema), async (c) => {
 		const betId = c.req.param("id");
 		const body = c.req.valid("json" as never) as z.infer<typeof updateBetSchema>;
 
-		// L14: reject invalid appetite values at the HTTP layer. The state machine
-		// does NOT enforce this (it predates L14 and a protected test covers it with
-		// a non-enum value). Route-level validation is the correct enforcement point.
-		// @lore L14: appetite enum guard lives at the route, not updateBetField, because
-		// the protected bet-state-machine test calls updateBetField directly with "4 weeks"
-		// and must remain green. The route is the correct enforcement boundary.
-		if (body.field === "appetite" && !(BET_APPETITES as readonly string[]).includes(body.value)) {
-			return c.json(
-				{ error: `Invalid appetite value '${body.value}'`, code: "VALIDATION_ERROR" },
-				400,
-			);
+		// @lore L17: cost_appetite is a WireMoney object — it cannot go through
+		// updateBetField (which maps fields to single string DB columns). Write
+		// costAppetiteMinor + costAppetiteCurrency directly and add a revision entry.
+		if (body.field === "cost_appetite") {
+			const bet = db.select().from(bets).where(eq(bets.id, betId)).get();
+			if (!bet) {
+				return c.json({ error: "Bet not found", code: "NOT_FOUND" }, 404);
+			}
+			const MUTABLE_IN_STATUSES = new Set(["in_progress", "paused", "behind", "blocked"]);
+			if (!MUTABLE_IN_STATUSES.has(bet.status)) {
+				return c.json(
+					{
+						error: `Field 'cost_appetite' is not mutable on an in_progress bet`,
+						code: "VALIDATION_ERROR",
+					},
+					400,
+				);
+			}
+			const revisionLog: Array<Record<string, unknown>> = bet.revisionLog
+				? (JSON.parse(bet.revisionLog) as Array<Record<string, unknown>>)
+				: [];
+			const oldAppetite =
+				bet.costAppetiteMinor != null && bet.costAppetiteCurrency != null
+					? { minor: bet.costAppetiteMinor, currency: bet.costAppetiteCurrency }
+					: null;
+			revisionLog.push({
+				timestamp: new Date().toISOString(),
+				field: "cost_appetite",
+				old_value: oldAppetite,
+				new_value: body.value,
+				reason: body.reason,
+				actor: "u-founder",
+			});
+			db.update(bets)
+				.set({
+					costAppetiteMinor: body.value?.minor ?? null,
+					costAppetiteCurrency: body.value?.currency ?? null,
+					revisionLog: JSON.stringify(revisionLog),
+				})
+				.where(eq(bets.id, betId))
+				.run();
+
+			const updated = db.select().from(bets).where(eq(bets.id, betId)).get();
+			return c.json(updated);
 		}
 
 		await updateBetField(db, eventBus, betId, body.field, body.value, body.reason, "u-founder");

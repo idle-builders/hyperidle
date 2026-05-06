@@ -210,74 +210,94 @@ describe("L14 — Bet actions: pause / resume / enrichment / actor", () => {
 		});
 	});
 
-	// ─── AC-4: Appetite enum validation ─────────────────────────────────────
+	// ─── AC-4: cost_appetite WireMoney validation (L17 replaces old appetite string) ─
 
-	describe("AC-4 — Appetite enum guard on PATCH", () => {
+	describe("AC-4 — cost_appetite WireMoney guard on PATCH", () => {
 		beforeEach(async () => {
-			// Walk to in_progress so updateBetField doesn't reject on status
+			// Walk to in_progress so the cost_appetite update is allowed
 			await transitionBet(db, eventBus, "bet1", "committed");
 			await transitionBet(db, eventBus, "bet1", "in_progress");
 		});
 
-		it("accepts appetite '1 week'", async () => {
+		it("accepts cost_appetite WireMoney { minor: 10000, currency: 'USD' }", async () => {
 			const res = await app.request("/api/bets/bet1", {
 				method: "PATCH",
 				headers: authHeaders(),
-				body: JSON.stringify({ field: "appetite", value: "1 week", reason: "Changed timeline" }),
+				body: JSON.stringify({
+					field: "cost_appetite",
+					value: { minor: 10000, currency: "USD" },
+					reason: "Changed timeline",
+				}),
 			});
 			expect(res.status).toBe(200);
 		});
 
-		it("accepts appetite '2 weeks'", async () => {
+		it("accepts cost_appetite WireMoney { minor: 5000, currency: 'USD' }", async () => {
 			const res = await app.request("/api/bets/bet1", {
 				method: "PATCH",
 				headers: authHeaders(),
-				body: JSON.stringify({ field: "appetite", value: "2 weeks", reason: "Changed timeline" }),
+				body: JSON.stringify({
+					field: "cost_appetite",
+					value: { minor: 5000, currency: "USD" },
+					reason: "Changed timeline",
+				}),
 			});
 			expect(res.status).toBe(200);
 		});
 
-		it("accepts appetite '6 weeks'", async () => {
+		it("accepts cost_appetite null (uncapped)", async () => {
 			const res = await app.request("/api/bets/bet1", {
 				method: "PATCH",
 				headers: authHeaders(),
-				body: JSON.stringify({ field: "appetite", value: "6 weeks", reason: "Changed timeline" }),
+				body: JSON.stringify({
+					field: "cost_appetite",
+					value: null,
+					reason: "Going uncapped",
+				}),
 			});
 			expect(res.status).toBe(200);
 		});
 
-		it("rejects appetite 'small' with 400", async () => {
+		it("rejects cost_appetite with invalid currency with 400", async () => {
 			const res = await app.request("/api/bets/bet1", {
 				method: "PATCH",
 				headers: authHeaders(),
-				body: JSON.stringify({ field: "appetite", value: "small", reason: "test" }),
+				body: JSON.stringify({
+					field: "cost_appetite",
+					value: { minor: 100, currency: "INVALID" },
+					reason: "test",
+				}),
 			});
 			expect(res.status).toBe(400);
 		});
 
-		it("rejects appetite 'big' with 400", async () => {
+		it("rejects cost_appetite with negative minor with 400", async () => {
 			const res = await app.request("/api/bets/bet1", {
 				method: "PATCH",
 				headers: authHeaders(),
-				body: JSON.stringify({ field: "appetite", value: "big", reason: "test" }),
+				body: JSON.stringify({
+					field: "cost_appetite",
+					value: { minor: -1, currency: "USD" },
+					reason: "test",
+				}),
 			});
 			expect(res.status).toBe(400);
 		});
 
-		it("rejects arbitrary duration string with 400", async () => {
+		it("rejects unknown field 'appetite' with 400 (L17 removed old appetite string)", async () => {
 			const res = await app.request("/api/bets/bet1", {
 				method: "PATCH",
 				headers: authHeaders(),
-				body: JSON.stringify({ field: "appetite", value: "3 months", reason: "test" }),
+				body: JSON.stringify({ field: "appetite", value: "1 week", reason: "test" }),
 			});
 			expect(res.status).toBe(400);
 		});
 	});
 
-	// ─── AC-4: Appetite update allowed from paused / behind / blocked states ─
+	// ─── AC-4: cost_appetite update allowed from paused / behind / blocked states ─
 
-	describe("AC-4 — Appetite update from non-in_progress mutable states", () => {
-		it("allows appetite update when bet is paused", async () => {
+	describe("AC-4 — cost_appetite update from non-in_progress mutable states", () => {
+		it("allows cost_appetite update when bet is paused", async () => {
 			await transitionBet(db, eventBus, "bet1", "committed");
 			await transitionBet(db, eventBus, "bet1", "in_progress");
 			await transitionBet(db, eventBus, "bet1", "paused");
@@ -285,12 +305,16 @@ describe("L14 — Bet actions: pause / resume / enrichment / actor", () => {
 			const res = await app.request("/api/bets/bet1", {
 				method: "PATCH",
 				headers: authHeaders(),
-				body: JSON.stringify({ field: "appetite", value: "6 weeks", reason: "Paused, extended" }),
+				body: JSON.stringify({
+					field: "cost_appetite",
+					value: { minor: 30000, currency: "USD" },
+					reason: "Paused, extended",
+				}),
 			});
 			expect(res.status).toBe(200);
 		});
 
-		it("allows appetite update when bet is behind", async () => {
+		it("allows cost_appetite update when bet is behind", async () => {
 			await transitionBet(db, eventBus, "bet1", "committed");
 			await transitionBet(db, eventBus, "bet1", "in_progress");
 			await transitionBet(db, eventBus, "bet1", "behind");
@@ -298,12 +322,16 @@ describe("L14 — Bet actions: pause / resume / enrichment / actor", () => {
 			const res = await app.request("/api/bets/bet1", {
 				method: "PATCH",
 				headers: authHeaders(),
-				body: JSON.stringify({ field: "appetite", value: "6 weeks", reason: "Running behind" }),
+				body: JSON.stringify({
+					field: "cost_appetite",
+					value: { minor: 30000, currency: "USD" },
+					reason: "Running behind",
+				}),
 			});
 			expect(res.status).toBe(200);
 		});
 
-		it("allows appetite update when bet is blocked", async () => {
+		it("allows cost_appetite update when bet is blocked", async () => {
 			await transitionBet(db, eventBus, "bet1", "committed");
 			await transitionBet(db, eventBus, "bet1", "in_progress");
 			await transitionBet(db, eventBus, "bet1", "blocked");
@@ -311,7 +339,11 @@ describe("L14 — Bet actions: pause / resume / enrichment / actor", () => {
 			const res = await app.request("/api/bets/bet1", {
 				method: "PATCH",
 				headers: authHeaders(),
-				body: JSON.stringify({ field: "appetite", value: "6 weeks", reason: "Blocked" }),
+				body: JSON.stringify({
+					field: "cost_appetite",
+					value: { minor: 30000, currency: "USD" },
+					reason: "Blocked",
+				}),
 			});
 			expect(res.status).toBe(200);
 		});

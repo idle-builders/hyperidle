@@ -25,6 +25,7 @@ import {
 	StatusChip,
 } from "@hyperidle/design-system";
 import type { BetCardSummary, ProductDetail } from "@hyperidle/shared";
+import { formatMoney } from "@hyperidle/shared";
 import type { JSX } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { ArtifactSection, useArtifactOpen } from "../components/ArtifactSection.js";
@@ -133,9 +134,10 @@ function WorkProductLoaded({ data }: { data: ProductDetail }): JSX.Element {
 			? (roster.find((m) => m.agentId === product.leadAgentId)?.name ?? product.leadAgentId)
 			: null;
 
+	// L17: burn.costActual and burn.costCap are now WireMoney|null.
 	const capPercent =
-		burn.costCap !== null && burn.costCap > 0
-			? Math.min(1, (burn.costActual ?? 0) / burn.costCap)
+		burn.costCap !== null && burn.costCap.minor > 0
+			? Math.min(1, (burn.costActual?.minor ?? 0) / burn.costCap.minor)
 			: 0;
 
 	return (
@@ -174,11 +176,8 @@ function WorkProductLoaded({ data }: { data: ProductDetail }): JSX.Element {
 					Burn vs Cap
 				</h2>
 				<div className="flex flex-col gap-1">
-					<KeyValue label="Cost (actual)" value={`$${((burn.costActual ?? 0) / 100).toFixed(2)}`} />
-					<KeyValue
-						label="Cap"
-						value={burn.costCap !== null ? `$${(burn.costCap / 100).toFixed(2)}` : "—"}
-					/>
+					<KeyValue label="Cost (actual)" value={formatMoney(burn.costActual)} />
+					<KeyValue label="Cap" value={formatMoney(burn.costCap)} />
 					<KeyValue label="Capacity" value={`${burn.activeBets} / ${burn.capacity}`} />
 				</div>
 				{burn.costCap !== null && (
@@ -290,7 +289,9 @@ function BetRow({ bet, onNavigate }: { bet: BetCardSummary; onNavigate: () => vo
 					{bet.pitchTitle}
 				</span>
 				<StatusChip status={betStatusToStatus(bet.status)} />
-				<span className="text-[10px] font-mono text-[var(--text-lo)]">{bet.appetite}</span>
+				<span className="text-[10px] font-mono text-[var(--text-lo)]">
+					{formatMoney(bet.costAppetite)}
+				</span>
 				<span className="text-[10px] font-mono text-[var(--text-lo)]">{progressText}</span>
 			</div>
 		</button>

@@ -1,5 +1,8 @@
 // L3 — Artifact primitive type definitions.
 // Source: plans/L3/architecture.md §3.
+// L17 — ArtifactCostFromSession updated to use WireMoney + TokenUsage.
+
+import type { TokenUsage, WireMoney } from "./money.js";
 
 export const ARTIFACT_KINDS = [
 	"code_diff",
@@ -49,8 +52,8 @@ export type ArtifactPreview =
 	| { kind: "verification"; suite: string; passed: number; failed: number };
 
 export interface ArtifactCostFromSession {
-	readonly money: string | null;
-	readonly tokens: string | null;
+	readonly money: WireMoney | null;
+	readonly tokens: TokenUsage | null;
 }
 
 export interface Artifact {

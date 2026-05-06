@@ -26,10 +26,10 @@ const sampleBlockers: BlockerItem[] = [
 ];
 
 const sampleCost: CostInfo = {
-	todaySpend: "$12.50",
-	todayBudget: "$50.00",
-	weekSpend: "$87.30",
-	weekBudget: "$350.00",
+	todaySpend: { minor: 1250, currency: "USD" },
+	todayCap: { minor: 5000, currency: "USD" },
+	weekSpend: { minor: 8730, currency: "USD" },
+	weekCap: { minor: 35000, currency: "USD" },
 };
 
 const defaultProps = {
@@ -91,8 +91,9 @@ describe("Rail", () => {
 			expect(screen.getByText("Waiting for API key")).toBeInTheDocument();
 		});
 
-		it("renders cost information", () => {
+		it("renders cost information (L17: formatted from WireMoney)", () => {
 			renderInRouter(<Rail {...defaultProps} />);
+			// 1250 cents = $12.50, 5000 cents = $50.00, 8730 cents = $87.30, 35000 cents = $350.00
 			expect(screen.getByText("$12.50")).toBeInTheDocument();
 			expect(screen.getByText("$50.00")).toBeInTheDocument();
 			expect(screen.getByText("$87.30")).toBeInTheDocument();

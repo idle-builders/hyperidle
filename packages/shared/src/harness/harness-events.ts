@@ -1,9 +1,13 @@
 /** Harness-level events streamed from agent sessions (D1). */
 
+import type { CurrencyCode, ModelTier } from "../types/money.js";
+
 export interface TokenUsageEvent {
 	readonly type: "token_usage";
 	readonly inputTokens: number;
 	readonly outputTokens: number;
+	/** L17: optional tier identifying which model tier produced these tokens. */
+	readonly tier?: ModelTier;
 }
 
 export interface ToolCallEvent {
@@ -27,6 +31,8 @@ export interface CostUpdateEvent {
 	readonly type: "cost_update";
 	readonly totalCost: number;
 	readonly deltaCost: number;
+	/** L17: optional currency code for the cost values. */
+	readonly currency?: CurrencyCode;
 }
 
 export interface PreCompactionEvent {

@@ -1,5 +1,6 @@
 // L3 RED — formatter contract for ArtifactCostFromSession.
 // Source of truth: plans/L3/architecture.md §3.3.
+// L17: updated to reflect WireMoney + TokenUsage output contract.
 
 import { describe, expect, it } from "vitest";
 import { type ArtifactCostInput, formatArtifactCost } from "../format/artifact-cost.js";
@@ -41,61 +42,75 @@ describe("formatArtifactCost — null inputs", () => {
 	});
 });
 
-describe("formatArtifactCost — money formatting", () => {
-	it("420000 micros -> '$0.42'", () => {
+describe("formatArtifactCost — money formatting (L17: WireMoney output)", () => {
+	it("420000 micros -> WireMoney {minor:42, currency:'USD'}", () => {
 		const out = formatArtifactCost({
 			money_micros: 420_000,
 			tokens_input: null,
 			tokens_output: null,
 		});
-		expect(out.money).toBe("$0.42");
+		// 420_000 micros / 10_000 = 42 cents = $0.42
+		expect(out.money).toEqual({ minor: 42, currency: "USD" });
 	});
 
-	it("12000000 micros -> '$12.00'", () => {
+	it("12000000 micros -> WireMoney {minor:1200, currency:'USD'}", () => {
 		const out = formatArtifactCost({
 			money_micros: 12_000_000,
 			tokens_input: null,
 			tokens_output: null,
 		});
-		expect(out.money).toBe("$12.00");
+		// 12_000_000 micros / 10_000 = 1200 cents = $12.00
+		expect(out.money).toEqual({ minor: 1200, currency: "USD" });
 	});
 
-	it("0 micros renders '$0.00' (not null) — an explicit zero is data, not pending", () => {
+	it("0 micros renders WireMoney {minor:0} (not null) — an explicit zero is data, not pending", () => {
 		const out = formatArtifactCost({
 			money_micros: 0,
 			tokens_input: null,
 			tokens_output: null,
 		});
-		expect(out.money).toBe("$0.00");
+		expect(out.money).toEqual({ minor: 0, currency: "USD" });
 	});
 });
 
-describe("formatArtifactCost — token short form", () => {
-	it("sums input + output", () => {
+describe("formatArtifactCost — token usage (L17: TokenUsage output)", () => {
+	it("sums input + output into workhorse tier", () => {
 		const out = formatArtifactCost({
 			money_micros: null,
 			tokens_input: 100,
 			tokens_output: 148,
 		});
-		expect(out.tokens).toBe("248");
+		expect(out.tokens).not.toBeNull();
+		if (out.tokens !== null) {
+			expect(out.tokens.byTier.workhorse?.prompt).toBe(100);
+			expect(out.tokens.byTier.workhorse?.completion).toBe(148);
+		}
 	});
 
-	it("12k+ uses '12.4k' short form", () => {
+	it("returns TokenUsage with correct prompt/completion counts", () => {
 		const out = formatArtifactCost({
 			money_micros: null,
 			tokens_input: 6_000,
 			tokens_output: 6_400,
 		});
-		expect(out.tokens).toBe("12.4k");
+		expect(out.tokens).not.toBeNull();
+		if (out.tokens !== null) {
+			expect(out.tokens.byTier.workhorse?.prompt).toBe(6_000);
+			expect(out.tokens.byTier.workhorse?.completion).toBe(6_400);
+		}
 	});
 
-	it("under 1k stays as integer", () => {
+	it("under 1k prompt still maps to byTier", () => {
 		const out = formatArtifactCost({
 			money_micros: null,
 			tokens_input: 100,
 			tokens_output: 0,
 		});
-		expect(out.tokens).toBe("100");
+		expect(out.tokens).not.toBeNull();
+		if (out.tokens !== null) {
+			expect(out.tokens.byTier.workhorse?.prompt).toBe(100);
+			expect(out.tokens.byTier.workhorse?.completion).toBe(0);
+		}
 	});
 });
 

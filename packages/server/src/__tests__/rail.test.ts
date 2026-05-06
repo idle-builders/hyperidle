@@ -167,12 +167,13 @@ describe("Rail Endpoint (E5)", () => {
 				})
 				.run();
 
-			// Set cost settings
+			// Set cost settings — L17: use new minor-unit keys
 			db.insert(factorySettings)
-				.values({ key: "cost_cap", value: "10000", updatedAt: new Date().toISOString() })
-				.run();
-			db.insert(factorySettings)
-				.values({ key: "cost_actual", value: "2500", updatedAt: new Date().toISOString() })
+				.values({
+					key: "cost_cap_daily_minor",
+					value: "10000",
+					updatedAt: new Date().toISOString(),
+				})
 				.run();
 
 			const res = await app.request("/api/rail", { headers: authHeaders() });
@@ -192,10 +193,18 @@ describe("Rail Endpoint (E5)", () => {
 			const awaitingOrdering = body.awaitingOrdering as Array<Record<string, unknown>>;
 			expect(awaitingOrdering).toHaveLength(1);
 
-			// Cost burn rate
-			const cost = body.costBurnRate as Record<string, unknown>;
-			expect(cost.cap).toBe(10000);
-			expect(cost.actual).toBe(2500);
+			// Cost burn rate — L17: WireMoney shape
+			const cost = body.costBurnRate as {
+				todaySpend: { minor: number; currency: string } | null;
+				todayCap: { minor: number; currency: string } | null;
+				weekSpend: { minor: number; currency: string } | null;
+				weekCap: { minor: number; currency: string } | null;
+				weekTokens: number | null;
+			};
+			expect(cost.todayCap?.minor).toBe(10000);
+			expect(cost.todayCap?.currency).toBe("USD");
+			// No sessions seeded, so spend is 0
+			expect(cost.todaySpend?.minor).toBe(0);
 		});
 	});
 
@@ -437,33 +446,52 @@ describe("Rail Endpoint (E5)", () => {
 		});
 	});
 
-	// AC7: Cost updates pushed every 30s or per session cost
-	describe("AC7: Cost burn rate in rail response", () => {
-		it("returns cost burn rate from factory settings", async () => {
+	// AC7 / AC18: Cost burn rate in rail response (L17: WireMoney shape)
+	describe("AC7/AC18: Cost burn rate in rail response", () => {
+		it("returns todayCap from factory settings when cost_cap_daily_minor is set", async () => {
 			db.insert(factorySettings)
-				.values({ key: "cost_cap", value: "50000", updatedAt: new Date().toISOString() })
-				.run();
-			db.insert(factorySettings)
-				.values({ key: "cost_actual", value: "12500", updatedAt: new Date().toISOString() })
+				.values({
+					key: "cost_cap_daily_minor",
+					value: "50000",
+					updatedAt: new Date().toISOString(),
+				})
 				.run();
 
 			const res = await app.request("/api/rail", { headers: authHeaders() });
 			const body = (await res.json()) as Record<string, unknown>;
-			const cost = body.costBurnRate as Record<string, unknown>;
+			const cost = body.costBurnRate as {
+				todaySpend: { minor: number; currency: string } | null;
+				todayCap: { minor: number; currency: string } | null;
+				weekSpend: { minor: number; currency: string } | null;
+				weekCap: { minor: number; currency: string } | null;
+				weekTokens: number | null;
+			};
 
-			expect(cost.cap).toBe(50000);
-			expect(cost.actual).toBe(12500);
-			expect(cost.percentage).toBe(25);
+			expect(cost.todayCap).not.toBeNull();
+			expect(cost.todayCap?.minor).toBe(50000);
+			expect(cost.todayCap?.currency).toBe("USD");
+			// spend fields are WireMoney objects (minor=0 when no sessions seeded)
+			expect(cost.todaySpend).not.toBeNull();
+			expect(typeof cost.todaySpend?.minor).toBe("number");
 		});
 
-		it("returns zero cost when no factory settings exist", async () => {
+		it("returns null caps when no factory settings exist", async () => {
 			const res = await app.request("/api/rail", { headers: authHeaders() });
 			const body = (await res.json()) as Record<string, unknown>;
-			const cost = body.costBurnRate as Record<string, unknown>;
+			const cost = body.costBurnRate as {
+				todaySpend: { minor: number; currency: string } | null;
+				todayCap: { minor: number; currency: string } | null;
+				weekSpend: { minor: number; currency: string } | null;
+				weekCap: { minor: number; currency: string } | null;
+				weekTokens: number | null;
+			};
 
-			expect(cost.cap).toBe(0);
-			expect(cost.actual).toBe(0);
-			expect(cost.percentage).toBe(0);
+			expect(cost.todayCap).toBeNull();
+			expect(cost.weekCap).toBeNull();
+			// spend fields are always WireMoney (zero spend when no sessions seeded)
+			expect(cost.todaySpend).not.toBeNull();
+			expect(cost.todaySpend?.minor).toBe(0);
+			expect(cost.weekSpend?.minor).toBe(0);
 		});
 	});
 

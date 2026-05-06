@@ -17,7 +17,10 @@ const FIXTURE: Artifact = {
 		subject: "Welcome",
 		bodyExcerpt: "Hi there",
 	},
-	cost: { money: "$0.42", tokens: "12.4k" },
+	cost: {
+		money: { minor: 42, currency: "USD" },
+		tokens: { byTier: { haiku: { prompt: 8000, completion: 4400 } } },
+	},
 	threadCount: 3,
 	createdAt: new Date(Date.now() - 12 * 60_000).toISOString(),
 };

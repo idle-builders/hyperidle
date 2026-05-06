@@ -18,7 +18,7 @@ function fixture(kind: ArtifactKind, preview: Artifact["preview"] = null): Artif
 		producingTaskTitle: "Task title",
 		kind,
 		preview,
-		cost: { money: "$0.42", tokens: "12.4k" },
+		cost: { money: { minor: 42, currency: "USD" as const }, tokens: null },
 		threadCount: 0,
 		createdAt: "2026-04-28T00:00:00.000Z",
 	};

@@ -46,7 +46,7 @@ describe("Bet Endpoints (E3)", () => {
 	});
 
 	// Helper to create a bet via API
-	async function createBet(overrides?: Record<string, string>): Promise<Record<string, unknown>> {
+	async function createBet(overrides?: Record<string, unknown>): Promise<Record<string, unknown>> {
 		const res = await app.request("/api/bets", {
 			method: "POST",
 			headers: authHeaders(),
@@ -54,7 +54,8 @@ describe("Bet Endpoints (E3)", () => {
 				productId: "prod-1",
 				teamId: "team-1",
 				pitch: "Build feature X",
-				appetite: "1 week",
+				// L17: costAppetite replaces the old `appetite` string
+				costAppetite: { minor: 10000, currency: "USD" },
 				...overrides,
 			}),
 		});
@@ -142,7 +143,8 @@ describe("Bet Endpoints (E3)", () => {
 					productId: "prod-1",
 					teamId: "team-1",
 					pitch: "New bet pitch",
-					appetite: "2 weeks",
+					// L17: costAppetite replaces old `appetite` duration string
+					costAppetite: { minor: 20000, currency: "USD" },
 					hypothesis: "Users will engage more",
 				}),
 			});
@@ -151,7 +153,6 @@ describe("Bet Endpoints (E3)", () => {
 			const body = (await res.json()) as Record<string, unknown>;
 			expect(body.status).toBe("shaped");
 			expect(body.pitch).toBe("New bet pitch");
-			expect(body.appetite).toBe("2 weeks");
 			expect(body.hypothesis).toBe("Users will engage more");
 			expect(body.id).toBeTruthy();
 			expect(body.createdAt).toBeTruthy();

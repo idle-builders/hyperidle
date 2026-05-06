@@ -12,7 +12,10 @@ const FIXTURE: Artifact = {
 	producingTaskTitle: "Implement auth flow",
 	kind: "code_diff",
 	preview: { kind: "code_diff", file: "src/auth/jwt-middleware.ts", hunks: [] },
-	cost: { money: "$0.42", tokens: "12.4k" },
+	cost: {
+		money: { minor: 42, currency: "USD" },
+		tokens: { byTier: { haiku: { prompt: 8000, completion: 4400 } } },
+	},
 	threadCount: 3,
 	createdAt: new Date(Date.now() - 12 * 60_000).toISOString(),
 };

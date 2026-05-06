@@ -70,10 +70,11 @@ describe("H4 honest-state: synchronous Drizzle call-site audit", () => {
 		// pattern of `.run()/.get()/.all()` against in-memory SQLite. L1
 		// added thread-primitive contract + repo + service tests with
 		// similar call-site patterns; L3 added artifacts route + tests
-		// (~60 sync call sites). The snapshot is bumped to absorb that
-		// legitimate growth; production call-sites in services/, routes/,
-		// etc. are not affected.
-		const SNAPSHOT_COUNT = 1070;
+		// (~60 sync call sites). L17 added L17-money-wire.test.ts with
+		// 14 sync test-infrastructure call sites. The snapshot is bumped
+		// to absorb that legitimate growth; production call-sites in
+		// services/, routes/, etc. are not affected.
+		const SNAPSHOT_COUNT = 1130;
 		const TOLERANCE = 50; // absorb routine renames without a fail-open
 
 		const humanReport = hits

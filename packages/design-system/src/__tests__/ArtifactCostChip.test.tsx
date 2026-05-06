@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
-// L3 RED — sub-primitive ArtifactCostChip.
+// L3 — ArtifactCostChip tests.
+// L17: updated to use WireMoney + TokenUsage instead of display strings.
 // Protected: AC-7 — cost-cell-em-dash (renders `—`, never `$0.00`).
 import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
@@ -35,12 +36,18 @@ describe("ArtifactCostChip", () => {
 		act(() => {
 			root.render(
 				createElement(ArtifactCostChip, {
-					cost: { money: "$0.42", tokens: "12.4k" },
+					cost: {
+						money: { minor: 42, currency: "USD" }, // $0.42
+						tokens: {
+							byTier: { workhorse: { prompt: 6000, completion: 6400 } },
+						},
+					},
 					variant: "compact",
 				}),
 			);
 		});
 		expect(container.textContent).toContain("$0.42");
+		// compact variant should not show tokens
 		expect(container.textContent).not.toContain("12.4k");
 	});
 
@@ -48,7 +55,12 @@ describe("ArtifactCostChip", () => {
 		act(() => {
 			root.render(
 				createElement(ArtifactCostChip, {
-					cost: { money: "$0.42", tokens: "12.4k" },
+					cost: {
+						money: { minor: 42, currency: "USD" }, // $0.42
+						tokens: {
+							byTier: { workhorse: { prompt: 6000, completion: 6400 } }, // 12400 → 12.4k
+						},
+					},
 					variant: "full",
 				}),
 			);
@@ -61,7 +73,12 @@ describe("ArtifactCostChip", () => {
 		act(() => {
 			root.render(
 				createElement(ArtifactCostChip, {
-					cost: { money: null, tokens: "248" },
+					cost: {
+						money: null,
+						tokens: {
+							byTier: { workhorse: { prompt: 100, completion: 148 } },
+						},
+					},
 				}),
 			);
 		});

@@ -30,10 +30,11 @@ const sampleBlockers = [
 ];
 
 const sampleCost = {
-	todaySpend: "$12.50",
-	todayBudget: "$50.00",
-	weekSpend: "$87.30",
-	weekBudget: "$350.00",
+	todaySpend: { minor: 1250, currency: "USD" as const },
+	todayCap: { minor: 5000, currency: "USD" as const },
+	weekSpend: { minor: 8730, currency: "USD" as const },
+	weekCap: { minor: 35000, currency: "USD" as const },
+	weekTokens: 42300,
 };
 
 export const Expanded = (): React.JSX.Element => (
