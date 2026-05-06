@@ -30,6 +30,7 @@ import { registerBuiltinRoutineHandlers } from "./services/builtin-routines.js";
 import { registerCostCapDedupReleaser } from "./services/cost-cap.js";
 import { registerGitExportHandler } from "./services/git-export.js";
 import { createGitRunner } from "./services/git-export-runner.js";
+import { registerLifecyclePropagation } from "./services/lifecycle-propagation.js";
 import type { NotificationConfig } from "./services/notifications/config.js";
 import { createConsoleAdapter } from "./services/notifications/console-adapter.js";
 import { registerNotificationDispatcher } from "./services/notifications/dispatcher.js";
@@ -344,6 +345,7 @@ function createApp(options?: AppOptions): Hono {
 		const disposers: Array<() => void> = [];
 		disposers.push(registerSessionReviewCreator(db, eventBus));
 		disposers.push(registerPolicyEngine(db, eventBus));
+		disposers.push(registerLifecyclePropagation(db, eventBus));
 		disposers.push(registerBuiltinRoutineHandlers(db, eventBus));
 		// I3 review C1 / arch H-1: drop cost-cap dedup-map entries on every
 		// session_ended event (graceful end, crash, client PATCH). Single

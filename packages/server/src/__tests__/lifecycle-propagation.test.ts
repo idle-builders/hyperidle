@@ -23,12 +23,7 @@ import {
 	teams,
 	threads,
 } from "@hyperidle/db";
-import {
-	EventBus,
-	type PropagationAppliedEvent,
-	type PropagationFailedEvent,
-	type TaskStateChangedEvent,
-} from "@hyperidle/shared";
+import { EventBus, type PropagationAppliedEvent } from "@hyperidle/shared";
 import { and, eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { registerLifecyclePropagation } from "../services/lifecycle-propagation.js";
@@ -76,12 +71,7 @@ function seedBase(db: HyperIdleDb): void {
 		.run();
 }
 
-function seedTask(
-	db: HyperIdleDb,
-	id: string,
-	state: string,
-	betId = "bet-1",
-): void {
+function seedTask(db: HyperIdleDb, id: string, state: string, betId = "bet-1"): void {
 	const now = new Date().toISOString();
 	db.insert(tasks)
 		.values({
@@ -180,9 +170,7 @@ describe("registerLifecyclePropagation — session -> task", () => {
 		const logs = db
 			.select()
 			.from(propagationLog)
-			.where(
-				and(eq(propagationLog.sourceId, "session-1"), eq(propagationLog.status, "applied")),
-			)
+			.where(and(eq(propagationLog.sourceId, "session-1"), eq(propagationLog.status, "applied")))
 			.all();
 		expect(logs).toHaveLength(1);
 		expect(logs[0].sourceLevel).toBe("session");
@@ -214,11 +202,7 @@ describe("registerLifecyclePropagation — session -> task", () => {
 		expect(task?.state).toBe("in_progress");
 
 		// And propagation_log records skipped
-		const logs = db
-			.select()
-			.from(propagationLog)
-			.where(eq(propagationLog.status, "skipped"))
-			.all();
+		const logs = db.select().from(propagationLog).where(eq(propagationLog.status, "skipped")).all();
 		expect(logs.length).toBeGreaterThanOrEqual(1);
 	});
 
@@ -317,7 +301,11 @@ describe("registerLifecyclePropagation — session -> task", () => {
 		});
 
 		// Assert: no exception thrown; propagation_log has a skipped or failed entry
-		const logs = db.select().from(propagationLog).where(eq(propagationLog.sourceId, "session-1")).all();
+		const logs = db
+			.select()
+			.from(propagationLog)
+			.where(eq(propagationLog.sourceId, "session-1"))
+			.all();
 		expect(logs.length).toBeGreaterThanOrEqual(1);
 		const lastLog = logs[logs.length - 1];
 		expect(["skipped", "failed"]).toContain(lastLog.status);
@@ -447,15 +435,12 @@ describe("registerLifecyclePropagation — task -> bet", () => {
 
 		// Assert: a message of type review exists in the thread
 		const thread = allThreads[0];
-		const allMessages = db
-			.select()
-			.from(messages)
-			.where(eq(messages.threadId, thread.id))
-			.all();
+		const allMessages = db.select().from(messages).where(eq(messages.threadId, thread.id)).all();
 		expect(allMessages.length).toBeGreaterThanOrEqual(1);
 		const reviewMsg = allMessages.find((m) => m.type === "review");
 		expect(reviewMsg).toBeDefined();
-		const payload = JSON.parse(reviewMsg!.payload) as { kind: string };
+		if (!reviewMsg) return; // narrowing for TypeScript — expect above ensures this is reached
+		const payload = JSON.parse(reviewMsg.payload) as { kind: string };
 		expect(payload.kind).toBe("ship_confirmation");
 	});
 
@@ -489,11 +474,7 @@ describe("registerLifecyclePropagation — task -> bet", () => {
 		});
 
 		// Assert: no unhandled exception; propagation_log has a skipped entry for the bet
-		const logs = db
-			.select()
-			.from(propagationLog)
-			.where(eq(propagationLog.targetId, "bet-1"))
-			.all();
+		const logs = db.select().from(propagationLog).where(eq(propagationLog.targetId, "bet-1")).all();
 		expect(logs.length).toBeGreaterThanOrEqual(1);
 		const lastLog = logs[logs.length - 1];
 		expect(["skipped", "failed"]).toContain(lastLog.status);
@@ -627,9 +608,7 @@ describe("registerLifecyclePropagation — bet -> product", () => {
 		const logs = db
 			.select()
 			.from(propagationLog)
-			.where(
-				and(eq(propagationLog.sourceId, "bet-1"), eq(propagationLog.sourceLevel, "bet")),
-			)
+			.where(and(eq(propagationLog.sourceId, "bet-1"), eq(propagationLog.sourceLevel, "bet")))
 			.all();
 		expect(logs.length).toBeGreaterThanOrEqual(1);
 		expect(logs[0].targetLevel).toBe("product");
@@ -676,9 +655,7 @@ describe("registerLifecyclePropagation — bet -> product", () => {
 		const logs = db
 			.select()
 			.from(propagationLog)
-			.where(
-				and(eq(propagationLog.sourceId, "bet-1"), eq(propagationLog.sourceLevel, "bet")),
-			)
+			.where(and(eq(propagationLog.sourceId, "bet-1"), eq(propagationLog.sourceLevel, "bet")))
 			.all();
 		expect(logs.length).toBeGreaterThanOrEqual(1);
 	});
@@ -688,12 +665,10 @@ describe("registerLifecyclePropagation — bet -> product", () => {
 
 describe("registerLifecyclePropagation — retry mechanism", () => {
 	let db: HyperIdleDb;
-	let eventBus: EventBus;
 	let unsubscribe: () => void;
 
 	beforeEach(() => {
 		db = createTestDb();
-		eventBus = new EventBus();
 		seedBase(db);
 	});
 
