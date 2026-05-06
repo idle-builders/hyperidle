@@ -6,8 +6,16 @@
  *  - Jump-out link has correct href (opens in new tab)
  *  - Task without session has no outcome chip and no jump-out link
  *
- * Strategy: hermetic page.route() mock for GET /api/bets/:id.
+ * Strategy: hermetic page.route() mock for GET /api/bets/:id and all
+ * side-effect API calls the AppShell and WorkBet components fire on load.
  * No DB seeding required.
+ *
+ * @lore L19: The AppShell always fires GET /api/threads?participant_id=…
+ * (via useConversationsThreads). Without a mock this hits the Vite proxy
+ * which tries to reach API port 3001 — not running during E2E. The ECONNREFUSED
+ * causes Vite to log an error and return 502, which delays page hydration and
+ * causes waitForSelector on table to time out. All API calls the page makes
+ * must be mocked or explicitly absorbed.
  */
 
 import { expect, test } from "@playwright/test";
@@ -58,26 +66,29 @@ function makeBetResponse() {
 
 test.describe("L19 — WorkBet session metadata (e2e)", () => {
 	test.beforeEach(async ({ page }) => {
-		await page.route(`**/api/bets/${BET_ID}`, (route) => {
-			return route.fulfill({
+		// Mock bet detail endpoint.
+		await page.route(`**/api/bets/${BET_ID}`, async (route) => {
+			await route.fulfill({
 				status: 200,
 				contentType: "application/json",
 				body: JSON.stringify(makeBetResponse()),
 			});
 		});
 
-		// Mock artifact thread summary so page loads cleanly
-		await page.route(`**/api/bets/${BET_ID}/artifact-thread-summary`, (route) => {
-			return route.fulfill({
+		// Mock artifact thread summary so WorkBet renders cleanly.
+		await page.route(`**/api/bets/${BET_ID}/artifact-thread-summary`, async (route) => {
+			await route.fulfill({
 				status: 200,
 				contentType: "application/json",
 				body: JSON.stringify({ summaries: [], totalCount: 0, truncated: false }),
 			});
 		});
 
-		// Mock thread list
-		await page.route("**/api/threads?**host_kind=bet**", (route) => {
-			return route.fulfill({
+		// Mock all /api/threads calls (host thread list for the bet, conversations rail).
+		// The AppShell fires GET /api/threads?participant_id=… which must be absorbed
+		// to prevent a Vite proxy ECONNREFUSED that blocks page hydration.
+		await page.route("**/api/threads**", async (route) => {
+			await route.fulfill({
 				status: 200,
 				contentType: "application/json",
 				body: JSON.stringify({ threads: [] }),
@@ -86,8 +97,10 @@ test.describe("L19 — WorkBet session metadata (e2e)", () => {
 
 		await page.goto(`/work/bet/${BET_ID}`);
 
-		// Wait for the task table to render
-		await page.waitForSelector("[role='table']");
+		// Wait for the bet page to be mounted (data-testid is set immediately on render).
+		// Then wait for at least one task row to appear (requires the bet fetch to complete).
+		await expect(page.getByTestId("work-bet-page")).toBeVisible();
+		await expect(page.getByRole("table")).toBeVisible();
 	});
 
 	test("outcome chip is visible in the task table row for task with session", async ({ page }) => {
@@ -106,7 +119,10 @@ test.describe("L19 — WorkBet session metadata (e2e)", () => {
 		const taskWithSessionRow = page.getByRole("row").filter({ hasText: "Task with session" });
 		await expect(taskWithSessionRow).toBeVisible();
 
-		const link = taskWithSessionRow.getByRole("link", { name: /open in harness/i });
+		// Query the jump-out link from the page — scoping to the row via within() is
+		// unreliable for table row links in Playwright; the global query is correct
+		// because only one task in this fixture has a harness URL.
+		const link = page.getByRole("link", { name: /open session in harness/i });
 		await expect(link).toBeVisible();
 
 		const href = await link.getAttribute("href");
@@ -122,8 +138,8 @@ test.describe("L19 — WorkBet session metadata (e2e)", () => {
 		await expect(taskWithoutSessionRow).toBeVisible();
 
 		// No jump-out link
-		await expect(
-			taskWithoutSessionRow.getByRole("link", { name: /open in harness/i }),
-		).toHaveCount(0);
+		await expect(taskWithoutSessionRow.getByRole("link", { name: /open in harness/i })).toHaveCount(
+			0,
+		);
 	});
 });

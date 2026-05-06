@@ -15,12 +15,19 @@ const createSessionSchema = z.object({
 	agentId: z.string(),
 	taskId: z.string(),
 	modelTier: z.enum(["reasoning", "workhorse", "fast"]),
+	// L19: harness URL and token counts (all optional)
+	harnessUrl: z.string().url().optional(),
+	tokensInput: z.number().int().nonnegative().optional(),
+	tokensOutput: z.number().int().nonnegative().optional(),
 });
 
 const updateSessionSchema = z.object({
 	state: z.enum(["done", "crashed"]),
 	outcome: z.string().optional(),
 	notes: z.string().optional(),
+	// L19: agents report final token counts at session end
+	tokensInput: z.number().int().nonnegative().optional(),
+	tokensOutput: z.number().int().nonnegative().optional(),
 });
 
 /**
@@ -73,6 +80,10 @@ export function createSessionRoutes(db: HyperIdleDb, eventBus: EventBus): Hono {
 				modelTier: body.modelTier,
 				startedAt: now,
 				state: "active",
+				// L19: optional harness fields
+				harnessUrl: body.harnessUrl ?? null,
+				tokensInput: body.tokensInput ?? null,
+				tokensOutput: body.tokensOutput ?? null,
 			})
 			.run();
 
@@ -106,6 +117,9 @@ export function createSessionRoutes(db: HyperIdleDb, eventBus: EventBus): Hono {
 		};
 		if (body.outcome !== undefined) updates.outcome = body.outcome;
 		if (body.notes !== undefined) updates.notes = body.notes;
+		// L19: token counts reported at session end
+		if (body.tokensInput !== undefined) updates.tokensInput = body.tokensInput;
+		if (body.tokensOutput !== undefined) updates.tokensOutput = body.tokensOutput;
 
 		db.update(sessions).set(updates).where(eq(sessions.id, sessionId)).run();
 

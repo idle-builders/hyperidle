@@ -1,4 +1,4 @@
-import type { BetStatus, KnowledgeStatus, TaskState } from "@hyperidle/shared";
+import type { BetStatus, KnowledgeStatus, SessionOutcome, TaskState } from "@hyperidle/shared";
 import type { Status } from "./StatusChip";
 
 /**
@@ -62,4 +62,23 @@ export function knowledgeStatusToStatus(ks: KnowledgeStatus): Status {
 
 export function betStatusToStatus(bs: BetStatus): Status {
 	return BET_STATUS_MAP[bs];
+}
+
+/**
+ * Session outcome → presentation Status. Exhaustive over all 3 SessionOutcome
+ * values so a new outcome added to the shared union surfaces as a TS error.
+ *
+ * @lore L19: "completed" maps to "done" (not the raw "completed" string) —
+ * StatusChip renders the status label, which shows "DONE" to the founder.
+ * This is deliberate: the chip vocabulary is the presentation system's, not
+ * the session domain's.
+ */
+export const SESSION_OUTCOME_MAP: Record<SessionOutcome, Status> = {
+	completed: "done",
+	crashed: "error",
+	stopped: "paused",
+};
+
+export function sessionOutcomeToStatus(outcome: SessionOutcome): Status {
+	return SESSION_OUTCOME_MAP[outcome];
 }

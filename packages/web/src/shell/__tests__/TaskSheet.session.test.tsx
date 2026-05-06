@@ -30,9 +30,7 @@ const BASE_TASK: KanbanTask = {
 	cost: "$5.00",
 };
 
-function makeProps(
-	taskOverrides: Partial<KanbanTask> = {},
-): Parameters<typeof TaskSheet>[0] {
+function makeProps(taskOverrides: Partial<KanbanTask> = {}): Parameters<typeof TaskSheet>[0] {
 	return {
 		task: { ...BASE_TASK, ...taskOverrides },
 		open: true,
@@ -57,17 +55,23 @@ describe("TaskSheet — session metadata (L19)", () => {
 			/>,
 		);
 
-		// Outcome chip: "completed" maps to "done" → renders "DONE"
-		expect(screen.getByText(/done/i)).toBeInTheDocument();
+		// Session metadata section present
+		const dialog = screen.getByRole("dialog");
+		const sessionSection = dialog.querySelector("[data-testid='task-session-metadata']");
+		expect(sessionSection).not.toBeNull();
+
+		// Outcome chip: "completed" maps to "done" → renders "DONE" (in session metadata section)
+		expect(sessionSection?.querySelector("[data-status='done']")).not.toBeNull();
 
 		// Cost: $4.20 rendered as "$4.20"
-		expect(screen.getByText(/\$4\.20/)).toBeInTheDocument();
+		expect(sessionSection?.textContent).toContain("$4.20");
 
 		// Tokens: 1.5k in / 2.5k out
-		expect(screen.getByText(/1\.5k in \/ 2\.5k out/i)).toBeInTheDocument();
+		expect(sessionSection?.textContent).toContain("1.5k in");
+		expect(sessionSection?.textContent).toContain("2.5k out");
 
 		// Jump-out link
-		const link = screen.getByRole("link", { name: /open in harness/i });
+		const link = screen.getByRole("link", { name: /open session in harness/i });
 		expect(link).toBeInTheDocument();
 		expect(link).toHaveAttribute("href", "https://harness.example.com/session/xyz");
 		expect(link).toHaveAttribute("target", "_blank");
@@ -87,15 +91,14 @@ describe("TaskSheet — session metadata (L19)", () => {
 			/>,
 		);
 
-		// No jump-out link
-		expect(screen.queryByRole("link", { name: /open in harness/i })).not.toBeInTheDocument();
-
-		// No cost in session format ("$X.XX" in the session section — task cost "$5.00" exists
-		// from the task card, but session cost is separate)
-		// The session metadata div is not rendered
+		// The session metadata section should not be rendered
 		const dialog = screen.getByRole("dialog");
-		// The session metadata section uses a data-testid
 		expect(dialog.querySelector("[data-testid='task-session-metadata']")).toBeNull();
+
+		// No jump-out link
+		expect(
+			screen.queryByRole("link", { name: /open session in harness/i }),
+		).not.toBeInTheDocument();
 	});
 
 	it("KanbanTask with malformed harness URL → jump-out link not rendered but outcome chip is", () => {
@@ -111,10 +114,16 @@ describe("TaskSheet — session metadata (L19)", () => {
 			/>,
 		);
 
+		const dialog = screen.getByRole("dialog");
+		const sessionSection = dialog.querySelector("[data-testid='task-session-metadata']");
+		expect(sessionSection).not.toBeNull();
+
 		// Outcome chip present: "stopped" → "paused" → "PAUSED"
-		expect(screen.getByText(/paused/i)).toBeInTheDocument();
+		expect(sessionSection?.querySelector("[data-status='paused']")).not.toBeNull();
 
 		// Jump-out link NOT rendered for ftp:// URL
-		expect(screen.queryByRole("link", { name: /open in harness/i })).not.toBeInTheDocument();
+		expect(
+			screen.queryByRole("link", { name: /open session in harness/i }),
+		).not.toBeInTheDocument();
 	});
 });

@@ -2,7 +2,7 @@
 // "Planned / Blocked / In Progress / Done". Tasks with proposed or accepted states
 // map to the "Planned" column. Tasks with hold, review, or killed states are excluded.
 import { dsShellProps, EmptyState, TaskCard } from "@hyperidle/design-system";
-import type { TaskState } from "@hyperidle/shared";
+import type { SessionOutcome, TaskState } from "@hyperidle/shared";
 import { type JSX, useMemo, useState } from "react";
 
 export interface KanbanTask {
@@ -12,6 +12,12 @@ export interface KanbanTask {
 	state: TaskState;
 	cost?: string;
 	betTag?: string;
+	// L19: latest session metadata (all optional — callers that don't have session data don't break)
+	latestSessionOutcome?: SessionOutcome | null;
+	latestSessionCost?: number | null;
+	latestSessionTokensInput?: number | null;
+	latestSessionTokensOutput?: number | null;
+	latestSessionHarnessUrl?: string | null;
 }
 
 export type KanbanColumnState = "planned" | "blocked" | "in_progress" | "done";

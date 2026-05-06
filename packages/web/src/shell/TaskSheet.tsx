@@ -22,10 +22,22 @@
  * restored element must be focusable; if it isn't (e.g. the task card doesn't
  * have tabIndex) we fall back to document.body silently.
  */
+import { StatusChip, sessionOutcomeToStatus } from "@hyperidle/design-system";
 import { type JSX, useCallback, useEffect, useRef, useState } from "react";
 import { ArtifactSection } from "../components/ArtifactSection.js";
+import { isValidHarnessUrl } from "../lib/url-utils.js";
 import { HostThreadSection } from "./HostThreadSection.js";
 import type { KanbanTask } from "./Kanban";
+
+/**
+ * L19: Formats token counts for compact display.
+ * 1500 → "1.5k", 1_500_000 → "1.5M", 500 → "500".
+ */
+function formatTokens(n: number): string {
+	if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
+	if (n >= 1_000) return `${(n / 1_000).toFixed(1)}k`;
+	return String(n);
+}
 
 export interface TaskSheetProps {
 	task: KanbanTask | null;
@@ -283,13 +295,48 @@ export function TaskSheet({
 				</div>
 			</div>
 
-			{/* L12: single artifact preview — BEFORE discussion per architecture plan.
-			    No heading so renders null when empty (W-3) or no artifacts.
-			    onOpen omitted: ArtifactSection navigates to /artifacts/:id internally.
-			    @lore L12 review (W-2): moved before HostThreadSection per architecture plan. */}
+			{/* L12: single artifact preview — BEFORE discussion per architecture plan. */}
 			<div className="px-4 py-2">
 				<ArtifactSection filter={{ axis: "task", taskId: task.id }} layout="single" limit={1} />
 			</div>
+
+			{task.latestSessionOutcome && (
+				<div
+					data-testid="task-session-metadata"
+					className="flex items-center gap-2 px-4 py-2 border-b border-[var(--border-lo)] text-xs font-mono text-[var(--text-lo)]"
+				>
+					<StatusChip status={sessionOutcomeToStatus(task.latestSessionOutcome)} />
+					{task.latestSessionCost != null && (
+						<>
+							<span aria-hidden>|</span>
+							<span>${(task.latestSessionCost / 100).toFixed(2)}</span>
+						</>
+					)}
+					{(task.latestSessionTokensInput != null || task.latestSessionTokensOutput != null) && (
+						<>
+							<span aria-hidden>|</span>
+							<span>
+								{formatTokens(task.latestSessionTokensInput ?? 0)} in /{" "}
+								{formatTokens(task.latestSessionTokensOutput ?? 0)} out
+							</span>
+						</>
+					)}
+					{task.latestSessionHarnessUrl && isValidHarnessUrl(task.latestSessionHarnessUrl) && (
+						<>
+							<span aria-hidden>|</span>
+							<a
+								href={task.latestSessionHarnessUrl}
+								target="_blank"
+								rel="noopener noreferrer"
+								className="text-[var(--primary)] hover:underline"
+								aria-label="Open session in harness (opens in new tab)"
+							>
+								Open in harness
+							</a>
+						</>
+					)}
+				</div>
+			)}
 
 			{/* Inline thread — L18: thread is inline; "Open thread" affordance navigates
 			    to the full thread view (AC §621: the L15 affordance must still work). */}

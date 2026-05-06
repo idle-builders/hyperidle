@@ -4,7 +4,7 @@
  * L19: Extends with SessionOutcome → Status mapping coverage.
  */
 
-import { sessionOutcomeToStatus, type Status } from "@hyperidle/design-system";
+import { type Status, sessionOutcomeToStatus } from "@hyperidle/design-system";
 import type { SessionOutcome } from "@hyperidle/shared";
 import { describe, expect, it } from "vitest";
 

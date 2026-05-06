@@ -9,7 +9,7 @@
  * from here. The hook imports it from here. All non-fixture imports are clean.
  */
 
-import type { BetStatus, TaskState } from "@hyperidle/shared";
+import type { BetStatus, SessionOutcome, TaskState } from "@hyperidle/shared";
 
 /**
  * @deprecated L18: BetComment is replaced by the L1 Thread primitive.
@@ -39,5 +39,11 @@ export interface BetDetail {
 		owner: string;
 		state: TaskState;
 		cost: string;
+		// L19: latest session metadata (nullable — no session yet)
+		latestSessionOutcome?: SessionOutcome | null;
+		latestSessionCost?: number | null;
+		latestSessionTokensInput?: number | null;
+		latestSessionTokensOutput?: number | null;
+		latestSessionHarnessUrl?: string | null;
 	}>;
 }
