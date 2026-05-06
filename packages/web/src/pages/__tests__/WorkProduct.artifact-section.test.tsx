@@ -56,8 +56,8 @@ const MOCK_PRODUCT: ProductDetail = {
 	},
 	roster: [],
 	burn: {
-		costActual: 100,
-		costCap: 1000,
+		costActual: { minor: 100, currency: "USD" },
+		costCap: { minor: 1000, currency: "USD" },
 		activeBets: 1,
 		capacity: 3,
 	},

@@ -70,10 +70,12 @@ describe("I2 V2 — PATCH /api/bets/:id field enum", () => {
 	});
 
 	it("accepts each legal field value (done_condition / hypothesis / cost_appetite)", async () => {
-		const fieldValues: Record<string, string> = {
+		// @lore L17: cost_appetite uses WireMoney (not a string), so each field has
+		// a distinct value shape in the test fixture.
+		const fieldValues: Record<string, unknown> = {
 			done_condition: "v",
 			hypothesis: "v",
-			cost_appetite: "v",
+			cost_appetite: { minor: 10000, currency: "USD" },
 		};
 		for (const field of ["done_condition", "hypothesis", "cost_appetite"]) {
 			const res = await app.request("/api/bets/bet1", {

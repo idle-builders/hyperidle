@@ -12,7 +12,10 @@ const FIXTURE: Artifact = {
 	producingTaskTitle: "Pick auth library",
 	kind: "decision",
 	preview: { kind: "decision", claim: "Adopt Hono JWT", rationale: "Built in." },
-	cost: { money: "$0.42", tokens: "12.4k" },
+	cost: {
+		money: { minor: 42, currency: "USD" },
+		tokens: { byTier: { haiku: { prompt: 8000, completion: 4400 } } },
+	},
 	threadCount: 0,
 	createdAt: new Date(Date.now() - 12 * 60_000).toISOString(),
 };

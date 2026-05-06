@@ -82,7 +82,10 @@ describe("Artifact canonical wire shape", () => {
 				subject: "Hi",
 				bodyExcerpt: "Hello",
 			},
-			cost: { money: "$0.42", tokens: "12.4k" },
+			cost: {
+				money: { minor: 42, currency: "USD" },
+				tokens: { byTier: { haiku: { prompt: 8000, completion: 4400 } } },
+			},
 			threadCount: 0,
 			createdAt: "2026-04-28T00:00:00.000Z",
 		};
@@ -106,12 +109,16 @@ describe("Artifact canonical wire shape", () => {
 });
 
 describe("ArtifactCostFromSession forward-compat shape", () => {
-	it("carries pre-formatted display strings (L3 proxy until L4 lands)", () => {
+	it("carries WireMoney and TokenUsage (L17 structured cost types)", () => {
 		const cost: ArtifactCostFromSession = { money: null, tokens: null };
 		expect(cost.money).toBeNull();
 		expect(cost.tokens).toBeNull();
-		expectTypeOf<ArtifactCostFromSession["money"]>().toEqualTypeOf<string | null>();
-		expectTypeOf<ArtifactCostFromSession["tokens"]>().toEqualTypeOf<string | null>();
+		expectTypeOf<ArtifactCostFromSession["money"]>().toEqualTypeOf<
+			import("../types/money.js").WireMoney | null
+		>();
+		expectTypeOf<ArtifactCostFromSession["tokens"]>().toEqualTypeOf<
+			import("../types/money.js").TokenUsage | null
+		>();
 	});
 });
 
