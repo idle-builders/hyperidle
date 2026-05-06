@@ -38,6 +38,16 @@ vi.mock("../hooks/useArtifactThreadSummary", () => ({
 	})),
 }));
 
+// L12: WorkBet now renders ArtifactSection which calls useArtifacts.
+// Mock to prevent fetch calls and unstable data shapes in unit tests.
+vi.mock("../hooks/useArtifacts", () => ({
+	useArtifacts: vi.fn(() => ({
+		data: { items: [], nextCursor: null },
+		error: null,
+		isLoading: false,
+	})),
+}));
+
 const MOCK_BET_WITH_TASKS: BetDetail = {
 	id: "b1",
 	title: "User auth flow",
