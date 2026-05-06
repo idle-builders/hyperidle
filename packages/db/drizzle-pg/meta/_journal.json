@@ -73,13 +73,6 @@
 			"breakpoints": true
 		},
 		{
-			"idx": 8,
-			"version": "7",
-			"when": 1777200000000,
-			"tag": "0008_l9_artifact_metadata",
-			"breakpoints": true
-		},
-		{
 			"idx": 10,
 			"version": "7",
 			"when": 1746532800000,
