@@ -226,7 +226,7 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 	});
 
 	// GET /:layer/:id — single item
-	router.get("/:layer/:id", (c) => {
+	router.get("/:layer/:id", async (c) => {
 		const layer = c.get("layer");
 		const id = c.req.param("id");
 
@@ -262,6 +262,18 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 				.run();
 		} catch {
 			// best-effort — do not surface access-log INSERT failures to the caller
+		}
+
+		// L22: recompute relevance score for this item after the access log write.
+		// Best-effort — a recompute failure must never break the read response.
+		// @lore L22: single-item recompute keeps the relevanceScore column fresh
+		// without a full-table batch job. The score update is fire-and-forget from
+		// the caller's perspective; the next GET will reflect the updated score.
+		try {
+			const relevanceService = createRelevanceService(db);
+			await relevanceService.recomputeScores([item.id]);
+		} catch {
+			// best-effort — do not surface recompute failures to the caller
 		}
 
 		return c.json(item);

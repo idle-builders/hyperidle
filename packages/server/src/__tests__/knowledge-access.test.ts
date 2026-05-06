@@ -58,7 +58,7 @@ describe("Knowledge access-log creation (L22 AC-1)", () => {
 	}
 
 	async function getAccessLogCount(itemId: string): Promise<number> {
-		// @ts-expect-error — knowledgeAccessLog not yet exported from @hyperidle/db (T1)
+		// knowledgeAccessLog exported from @hyperidle/db since T1
 		const { knowledgeAccessLog } = await import("@hyperidle/db");
 		const rows = db.select().from(knowledgeAccessLog).all();
 		return rows.filter((r: { itemId: string }) => r.itemId === itemId).length;
@@ -136,7 +136,7 @@ describe("Knowledge access-log creation (L22 AC-1)", () => {
 			headers: authHeaders(),
 		});
 
-		// @ts-expect-error — knowledgeAccessLog not yet exported from @hyperidle/db (T1)
+		// knowledgeAccessLog exported from @hyperidle/db since T1
 		const { knowledgeAccessLog } = await import("@hyperidle/db");
 		const rows = db.select().from(knowledgeAccessLog).all();
 		const row = rows.find((r: { itemId: string }) => r.itemId === itemId);

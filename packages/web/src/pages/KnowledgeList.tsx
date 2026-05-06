@@ -85,29 +85,32 @@ function sortApiItems(items: ApiKnowledgeItem[], sort: KnowledgeSortOption): Api
 			return copy.sort((a, b) => {
 				const aAt = a.signals?.lastActivityAt ?? null;
 				const bAt = b.signals?.lastActivityAt ?? null;
-				if (aAt === null && bAt === null) return 0;
+				if (aAt === null && bAt === null) return a.id.localeCompare(b.id);
 				if (aAt === null) return 1;
 				if (bAt === null) return -1;
-				return bAt.localeCompare(aAt); // most recent first
+				const primary = bAt.localeCompare(aAt); // most recent first
+				return primary !== 0 ? primary : a.id.localeCompare(b.id);
 			});
 		case "frequency":
 			return copy.sort((a, b) => {
 				const aCount = a.signals?.accessCount30d ?? null;
 				const bCount = b.signals?.accessCount30d ?? null;
-				if (aCount === null && bCount === null) return 0;
+				if (aCount === null && bCount === null) return a.id.localeCompare(b.id);
 				if (aCount === null) return 1;
 				if (bCount === null) return -1;
-				return bCount - aCount; // highest frequency first
+				const primary = bCount - aCount; // highest frequency first
+				return primary !== 0 ? primary : a.id.localeCompare(b.id);
 			});
 		case "relevance":
 		default:
 			return copy.sort((a, b) => {
 				const aScore = a.signals?.relevanceScore ?? a.relevanceScore ?? null;
 				const bScore = b.signals?.relevanceScore ?? b.relevanceScore ?? null;
-				if (aScore === null && bScore === null) return 0;
+				if (aScore === null && bScore === null) return a.id.localeCompare(b.id);
 				if (aScore === null) return 1;
 				if (bScore === null) return -1;
-				return bScore - aScore; // highest relevance first
+				const primary = bScore - aScore; // highest relevance first
+				return primary !== 0 ? primary : a.id.localeCompare(b.id);
 			});
 	}
 }

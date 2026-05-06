@@ -56,7 +56,7 @@ describe("GET /api/knowledge/:layer — signals in response (L22 AC-5)", () => {
 	}
 
 	async function insertAccessLog(itemId: string, accessedAt: string): Promise<void> {
-		// @ts-expect-error — knowledgeAccessLog not yet exported from @hyperidle/db (T1)
+		// knowledgeAccessLog exported from @hyperidle/db since T1
 		const { knowledgeAccessLog } = await import("@hyperidle/db");
 		db.insert(knowledgeAccessLog)
 			.values({

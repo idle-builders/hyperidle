@@ -50,8 +50,7 @@ async function insertAccessLog(
 	accessorKind = "human",
 	accessorId = "user-1",
 ): Promise<void> {
-	// Uses knowledgeAccessLog table — will fail until T1 schema migration exists
-	// @ts-expect-error knowledgeAccessLog not yet exported from @hyperidle/db (T1)
+	// Uses knowledgeAccessLog table — exported from @hyperidle/db since T1
 	const { knowledgeAccessLog } = await import("@hyperidle/db");
 	db.insert(knowledgeAccessLog)
 		.values({
@@ -214,9 +213,7 @@ describe("RelevanceService.recomputeScores (L22)", () => {
 		const allItems = db.select().from(knowledgeItems).all();
 		const target = allItems.find((i) => i.id === itemId);
 		expect(target).toBeDefined();
-		// @ts-expect-error relevanceScore not yet on schema (T1)
 		expect(target?.relevanceScore).not.toBeNull();
-		// @ts-expect-error relevanceScore not yet on schema (T1)
 		expect(typeof target?.relevanceScore).toBe("number");
 	});
 
@@ -230,7 +227,6 @@ describe("RelevanceService.recomputeScores (L22)", () => {
 		const allItems = db.select().from(knowledgeItems).all();
 		const target = allItems.find((i) => i.id === itemId);
 		expect(target).toBeDefined();
-		// @ts-expect-error relevanceScore not yet on schema (T1)
 		expect(target?.relevanceScore).toBeNull();
 	});
 
