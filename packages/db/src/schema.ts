@@ -336,6 +336,12 @@ export const knowledgeItems = sqliteTable(
 		format: text("format").notNull(),
 		status: text("status").notNull(),
 		attentionScore: real("attention_score"),
+		/** L22: composite relevance score [0,1], recomputed by batch from access log + edit log. */
+		relevanceScore: real("relevance_score"),
+		/** L22: citation count. null = staged (always null until citation tracking is wired). */
+		citationCount: integer("citation_count"),
+		/** L22: most recent citation timestamp. null = staged. */
+		lastCitedAt: text("last_cited_at"),
 		confidence: real("confidence"),
 		version: integer("version").notNull().default(1),
 		updatedBy: text("updated_by").notNull(),
@@ -371,6 +377,37 @@ export const knowledgeEditLog = sqliteTable("knowledge_edit_log", {
 	editType: text("edit_type").notNull(),
 	createdAt: text("created_at").notNull(),
 });
+
+// --- Knowledge access log (L22) ---
+
+/**
+ * Append-only log of knowledge item detail-view fetches. One row per
+ * GET /api/knowledge/:layer/:id 200 response.
+ *
+ * @lore L22: the composite index (item_id, accessed_at) serves both
+ * recency (MAX) and frequency (COUNT with range filter) queries without
+ * a second index. ON DELETE RESTRICT matches knowledge_edit_log — the
+ * access log MUST outlive its subject (same audit rationale as I3 HIGH-2).
+ *
+ * @lore L22: accessorKind defaults to "human" when the auth context is
+ * not wired into the knowledge routes. The real accessor comes from the
+ * auth middleware — wiring it is out of L22 scope.
+ */
+export const knowledgeAccessLog = sqliteTable(
+	"knowledge_access_log",
+	{
+		id: text("id").primaryKey(),
+		itemId: text("item_id")
+			.notNull()
+			.references(() => knowledgeItems.id, { onDelete: "restrict" }),
+		/** "human" | "agent" — closed vocabulary per KnowledgeAccessorKind. */
+		accessorKind: text("accessor_kind").notNull(),
+		accessorId: text("accessor_id").notNull(),
+		/** ISO 8601 timestamp. */
+		accessedAt: text("accessed_at").notNull(),
+	},
+	(table) => [index("kal_item_accessed_idx").on(table.itemId, table.accessedAt)],
+);
 
 // --- Knowledge conflicts ---
 
@@ -510,6 +547,9 @@ export type NewKnowledgeItem = typeof knowledgeItems.$inferInsert;
 
 export type KnowledgeEditLogEntry = typeof knowledgeEditLog.$inferSelect;
 export type NewKnowledgeEditLogEntry = typeof knowledgeEditLog.$inferInsert;
+
+export type KnowledgeAccessLogEntry = typeof knowledgeAccessLog.$inferSelect;
+export type NewKnowledgeAccessLogEntry = typeof knowledgeAccessLog.$inferInsert;
 
 export type FileLease = typeof fileLeases.$inferSelect;
 export type NewFileLease = typeof fileLeases.$inferInsert;

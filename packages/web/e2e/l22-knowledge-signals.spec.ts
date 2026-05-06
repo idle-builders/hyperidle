@@ -93,21 +93,28 @@ const LIST_RESPONSE = {
 
 test.describe("L22 — Knowledge Signals", () => {
 	test.beforeEach(async ({ page }) => {
-		// Mock the knowledge list API to return items with signals
-		await page.route("**/api/knowledge/L3**", async (route) => {
+		// Mock all knowledge layer requests.
+		// In Playwright, the LAST registered route has highest priority (LIFO).
+		// Register the catch-all first, then the specific L3 route so L3 wins.
+		// @lore L22: Playwright routes are LIFO — last registered matches first.
+
+		// 1. Catch-all for all non-L3 knowledge layers (lower priority — registered first)
+		await page.route(/\/api\/knowledge\/L[0-9](\?.*)?$/, async (route) => {
+			const urlObj = new URL(route.request().url());
+			const layer = urlObj.pathname.split("/").pop() ?? "L0";
+			await route.fulfill({
+				status: 200,
+				contentType: "application/json",
+				body: JSON.stringify({ layer, groups: {}, items: [] }),
+			});
+		});
+
+		// 2. Specific L3 route with mock data (higher priority — registered last)
+		await page.route(/\/api\/knowledge\/L3(\?.*)?$/, async (route) => {
 			await route.fulfill({
 				status: 200,
 				contentType: "application/json",
 				body: JSON.stringify(LIST_RESPONSE),
-			});
-		});
-
-		// Mock other knowledge layers to return empty
-		await page.route("**/api/knowledge/L*", async (route) => {
-			await route.fulfill({
-				status: 200,
-				contentType: "application/json",
-				body: JSON.stringify({ layer: "L0", groups: {}, items: [] }),
 			});
 		});
 
@@ -118,6 +125,9 @@ test.describe("L22 — Knowledge Signals", () => {
 		const triageTab = page.getByRole("tab", { name: /triage/i });
 		await triageTab.click();
 		await page.waitForSelector("[data-testid='knowledge-triage-view']");
+
+		// Wait for the API response to load — signals appear once fetch resolves.
+		await page.waitForSelector("[data-testid='knowledge-signals']");
 	});
 
 	// AC-E1: Signal triad visible on rows in Triage view
@@ -223,8 +233,11 @@ test.describe("L22 — Knowledge Signals", () => {
 	test("sort state in URL is read on page load — navigating to ?sort=recency shows Recency active", async ({
 		page,
 	}) => {
+		// The beforeEach already set up routes; we navigate fresh with sort param
 		await page.goto("/knowledge?sort=recency");
 		await page.waitForSelector("[data-testid='knowledge-list-page']");
+		// Wait for the sort controls to be visible
+		await page.waitForSelector("[data-testid='knowledge-sort-controls']");
 
 		const recencyButton = page.getByRole("radio", { name: /recency/i });
 		await expect(recencyButton).toHaveAttribute("aria-checked", "true");

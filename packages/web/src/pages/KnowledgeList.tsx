@@ -8,11 +8,12 @@ import { EmptyState, ErrorState, KnowledgeRow, SkeletonList } from "@hyperidle/d
  * of the page. Tab memory (Triage/Curated) stays in component state only —
  * AC explicitly forbids localStorage persistence here.
  *
- * Attention scores and "Why now" reason strings come from the server in
- * production; fixtures live in `packages/web/src/fixtures/knowledge-data.ts`
- * with comments marking server wiring as deferred.
+ * @lore L22: Triage view now fetches from /api/knowledge/L3 for real items
+ * with signals. Sort controls use URL state (?sort=recency|frequency).
+ * Default (no param) = relevance sort.
  */
-import type { KnowledgeScope } from "@hyperidle/shared";
+import type { KnowledgeScope, KnowledgeSortOption } from "@hyperidle/shared";
+import { KNOWLEDGE_SORT_OPTIONS } from "@hyperidle/shared";
 import { type JSX, useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { CurationSuggestionCard } from "../components/CurationSuggestionCard";
@@ -23,6 +24,8 @@ import {
 	MOCK_KNOWLEDGE_ITEMS,
 	type MockKnowledgeItem,
 } from "../fixtures/knowledge-data";
+import { useFetch } from "../hooks/useFetch";
+import { relativeTime } from "../utils/relative-time";
 
 type KnowledgeTab = "triage" | "curated";
 
@@ -42,6 +45,73 @@ function deriveScope(searchParams: URLSearchParams): KnowledgeScope {
 	return isKnowledgeScope(raw) ? raw : "practice";
 }
 
+function isKnowledgeSortOption(value: string | null): value is KnowledgeSortOption {
+	return (KNOWLEDGE_SORT_OPTIONS as readonly string[]).includes(value ?? "");
+}
+
+function deriveSort(searchParams: URLSearchParams): KnowledgeSortOption {
+	const raw = searchParams.get("sort");
+	return isKnowledgeSortOption(raw) ? raw : "relevance";
+}
+
+/** Shape of an item returned by GET /api/knowledge/:layer with signals. */
+interface ApiKnowledgeItem {
+	id: string;
+	layer: string;
+	kind: string;
+	status: string;
+	title: string;
+	updatedAt: string;
+	relevanceScore?: number | null;
+	signals?: {
+		lastActivityAt?: string | null;
+		accessCount30d?: number | null;
+		citationCount?: number | null;
+		relevanceScore?: number | null;
+	} | null;
+}
+
+interface ApiKnowledgeListResponse {
+	layer: string;
+	items: ApiKnowledgeItem[];
+	groups?: Record<string, Record<string, ApiKnowledgeItem[]>>;
+}
+
+/** Sort a list of API items by the given sort option. */
+function sortApiItems(items: ApiKnowledgeItem[], sort: KnowledgeSortOption): ApiKnowledgeItem[] {
+	const copy = [...items];
+	switch (sort) {
+		case "recency":
+			return copy.sort((a, b) => {
+				const aAt = a.signals?.lastActivityAt ?? null;
+				const bAt = b.signals?.lastActivityAt ?? null;
+				if (aAt === null && bAt === null) return 0;
+				if (aAt === null) return 1;
+				if (bAt === null) return -1;
+				return bAt.localeCompare(aAt); // most recent first
+			});
+		case "frequency":
+			return copy.sort((a, b) => {
+				const aCount = a.signals?.accessCount30d ?? null;
+				const bCount = b.signals?.accessCount30d ?? null;
+				if (aCount === null && bCount === null) return 0;
+				if (aCount === null) return 1;
+				if (bCount === null) return -1;
+				return bCount - aCount; // highest frequency first
+			});
+		case "relevance":
+		default:
+			return copy.sort((a, b) => {
+				const aScore = a.signals?.relevanceScore ?? a.relevanceScore ?? null;
+				const bScore = b.signals?.relevanceScore ?? b.relevanceScore ?? null;
+				if (aScore === null && bScore === null) return 0;
+				if (aScore === null) return 1;
+				if (bScore === null) return -1;
+				return bScore - aScore; // highest relevance first
+			});
+	}
+}
+
 export interface KnowledgeListProps {
 	/**
 	 * J8: opt-in loading state so callers (and stories) can render the
@@ -58,8 +128,9 @@ export function KnowledgeList({
 	error = null,
 }: KnowledgeListProps = {}): JSX.Element {
 	const navigate = useNavigate();
-	const [searchParams] = useSearchParams();
+	const [searchParams, setSearchParams] = useSearchParams();
 	const scope = deriveScope(searchParams);
+	const sort = deriveSort(searchParams);
 
 	// @lore J6 AC: tab choice remembered in component state only — NOT
 	// localStorage. Default recomputed below whenever `scope` changes.
@@ -75,11 +146,6 @@ export function KnowledgeList({
 	);
 	// AC: "Default to Triage when any items have status === 'needs_human', else
 	// Curated." Also AC: "Switching scope resets list selection and filters."
-	// Keying this effect on `scope` (not a derived hasNeedsHuman) ensures the
-	// tab resets every time the user switches scope — even between two scopes
-	// whose needs_human flag happens to be equal. The current scope's item set
-	// is resolved inline so the exhaustive-deps lint is satisfied without
-	// suppression comments.
 	useEffect(() => {
 		const needsHuman = MOCK_KNOWLEDGE_ITEMS.some(
 			(i) => i.scope === scope && i.status === "needs_human",
@@ -93,6 +159,27 @@ export function KnowledgeList({
 		() => [...scopedItems].sort((a, b) => b.attentionScore - a.attentionScore),
 		[scopedItems],
 	);
+
+	// L22: fetch from /api/knowledge/L3 for triage items with signals
+	const { data: apiData, isLoading: apiLoading } = useFetch<ApiKnowledgeListResponse>(
+		tab === "triage" ? "/api/knowledge/L3" : null,
+	);
+
+	const apiItems = useMemo<ApiKnowledgeItem[]>(() => {
+		if (!apiData?.items) return [];
+		return sortApiItems(apiData.items, sort);
+	}, [apiData, sort]);
+
+	/** Update sort URL state. Removes param when defaulting to relevance. */
+	function handleSortChange(newSort: KnowledgeSortOption): void {
+		const next = new URLSearchParams(searchParams);
+		if (newSort === "relevance") {
+			next.delete("sort");
+		} else {
+			next.set("sort", newSort);
+		}
+		setSearchParams(next, { replace: true });
+	}
 
 	if (loading) {
 		return (
@@ -167,15 +254,91 @@ export function KnowledgeList({
 							))}
 						</div>
 					)}
-					<div className="flex flex-col">
-						{triageSorted.length === 0 ? (
-							<EmptyState
-								title="Nothing needs attention"
-								description="Triage is clear for this scope — agents will surface new items here as they learn."
-								dataTestId="knowledge-triage-empty"
-							/>
-						) : (
-							triageSorted.map((item) => (
+
+					{/* L22 sort controls — radiogroup semantics per accessibility spec */}
+					<div
+						role="radiogroup"
+						aria-label="Sort order"
+						data-testid="knowledge-sort-controls"
+						className="flex items-center gap-1"
+					>
+						{KNOWLEDGE_SORT_OPTIONS.map((option) => {
+							const isActive = sort === option;
+							return (
+								<button
+									key={option}
+									type="button"
+									role="radio"
+									aria-checked={isActive}
+									onClick={() => handleSortChange(option)}
+									className={
+										isActive
+											? "btn btn-xs btn-neutral capitalize"
+											: "btn btn-xs btn-ghost capitalize"
+									}
+								>
+									{option}
+								</button>
+							);
+						})}
+					</div>
+
+					{apiLoading ? (
+						<SkeletonList rows={4} ariaLabel="Loading triage items" />
+					) : apiItems.length > 0 ? (
+						<div className="flex flex-col">
+							{apiItems.map((item) => {
+								const signals = item.signals
+									? {
+											recency: item.signals.lastActivityAt
+												? relativeTime(item.signals.lastActivityAt)
+												: null,
+											frequency: item.signals.accessCount30d ?? null,
+											citation: item.signals.citationCount ?? null,
+										}
+									: undefined;
+								return (
+									<KnowledgeRow
+										key={item.id}
+										title={item.title}
+										layer={item.layer as "L0" | "L1" | "L2" | "L3" | "L4"}
+										kind={
+											item.kind as
+												| "pattern"
+												| "anti_pattern"
+												| "brief"
+												| "principle"
+												| "decision"
+												| "failure"
+												| "reflection"
+												| "focus"
+										}
+										status={
+											item.status as
+												| "captured"
+												| "provisional"
+												| "validated"
+												| "active"
+												| "stale"
+												| "archived"
+												| "needs_human"
+										}
+										timestamp={relativeTime(item.updatedAt)}
+										signals={signals}
+										onClick={() => navigate(`/knowledge/${item.id}`)}
+									/>
+								);
+							})}
+						</div>
+					) : triageSorted.length === 0 ? (
+						<EmptyState
+							title="Nothing needs attention"
+							description="Triage is clear for this scope — agents will surface new items here as they learn."
+							dataTestId="knowledge-triage-empty"
+						/>
+					) : (
+						<div className="flex flex-col">
+							{triageSorted.map((item) => (
 								<KnowledgeRow
 									key={item.id}
 									title={item.title}
@@ -186,9 +349,9 @@ export function KnowledgeList({
 									caption={truncateReason(item.whyNow)}
 									onClick={() => navigate(`/knowledge/${item.id}`)}
 								/>
-							))
-						)}
-					</div>
+							))}
+						</div>
+					)}
 				</div>
 			) : (
 				<div className="flex flex-col gap-2" data-testid="knowledge-curated-view">

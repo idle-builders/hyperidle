@@ -314,6 +314,12 @@ export const knowledgeItems = pgTable(
 		format: text("format").notNull(),
 		status: text("status").notNull(),
 		attentionScore: real("attention_score"),
+		/** L22: composite relevance score [0,1], recomputed by batch from access log + edit log. */
+		relevanceScore: real("relevance_score"),
+		/** L22: citation count. null = staged (always null until citation tracking is wired). */
+		citationCount: integer("citation_count"),
+		/** L22: most recent citation timestamp. null = staged. */
+		lastCitedAt: text("last_cited_at"),
 		confidence: real("confidence"),
 		version: integer("version").notNull().default(1),
 		updatedBy: text("updated_by").notNull(),
@@ -349,6 +355,26 @@ export const knowledgeEditLog = pgTable("knowledge_edit_log", {
 	editType: text("edit_type").notNull(),
 	createdAt: text("created_at").notNull(),
 });
+
+// --- Knowledge access log (L22) ---
+
+/**
+ * Append-only log of knowledge item detail-view fetches.
+ * @lore L22: mirrors SQLite schema. See schema.ts for rationale.
+ */
+export const knowledgeAccessLog = pgTable(
+	"knowledge_access_log",
+	{
+		id: text("id").primaryKey(),
+		itemId: text("item_id")
+			.notNull()
+			.references(() => knowledgeItems.id, { onDelete: "restrict" }),
+		accessorKind: text("accessor_kind").notNull(),
+		accessorId: text("accessor_id").notNull(),
+		accessedAt: text("accessed_at").notNull(),
+	},
+	(table) => [index("kal_item_accessed_idx").on(table.itemId, table.accessedAt)],
+);
 
 // --- Knowledge conflicts ---
 
