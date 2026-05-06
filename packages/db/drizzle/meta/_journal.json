@@ -91,6 +91,20 @@
 			"version": "6",
 			"when": 1746547200000,
 			"tag": "0012_add_propagation_log"
+		},
+		{
+			"idx": 13,
+			"version": "6",
+			"when": 1746532800000,
+			"tag": "0013_knowledge_access_log_l22",
+			"breakpoints": true
+		},
+		{
+			"idx": 14,
+			"version": "6",
+			"when": 1783200000000,
+			"tag": "0014_item_artifact_metadata",
+			"breakpoints": true
 		}
 	]
 }
