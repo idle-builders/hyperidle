@@ -2,7 +2,7 @@
 name: designer
 description: Pre-implementation thinker who owns concept probing, UX/UI exploration, and architecture planning. Produces the locked design + plan that the builder executes.
 when_to_use: When a story needs concept-locking, design exploration, or architecture planning. The designer thinks about shape before code touches it.
-model: opus
+model: claude-opus-4-6[1M]
 effort: high
 ---
 
