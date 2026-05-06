@@ -410,6 +410,31 @@ export const fileLeases = pgTable("file_leases", {
 	releasedAt: text("released_at"),
 });
 
+// --- Propagation log (L20) ---
+
+export const propagationLog = pgTable(
+	"propagation_log",
+	{
+		id: text("id").primaryKey(),
+		sourceLevel: text("source_level").notNull(),
+		sourceId: text("source_id").notNull(),
+		sourceEvent: text("source_event").notNull(),
+		targetLevel: text("target_level").notNull(),
+		targetId: text("target_id").notNull(),
+		targetTransition: text("target_transition"),
+		status: text("status").notNull(),
+		failureReason: text("failure_reason"),
+		attempts: integer("attempts").notNull().default(1),
+		createdAt: text("created_at").notNull(),
+		appliedAt: text("applied_at"),
+	},
+	(table) => [
+		index("propagation_log_source_idx").on(table.sourceLevel, table.sourceId),
+		index("propagation_log_status_idx").on(table.status),
+		index("propagation_log_created_at_idx").on(table.createdAt),
+	],
+);
+
 // --- Artifacts (L3) ---
 
 export const artifacts = pgTable(
@@ -492,3 +517,6 @@ export type NewNotificationQueueRow = typeof notificationQueue.$inferInsert;
 
 export type ArtifactRow = typeof artifacts.$inferSelect;
 export type NewArtifactRow = typeof artifacts.$inferInsert;
+
+export type PropagationLogRow = typeof propagationLog.$inferSelect;
+export type NewPropagationLogRow = typeof propagationLog.$inferInsert;

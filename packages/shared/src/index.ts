@@ -51,6 +51,8 @@ export type {
 	ItemCreatedEvent,
 	KnowledgeUpdatedEvent,
 	NotificationEvent,
+	PropagationAppliedEvent,
+	PropagationFailedEvent,
 	ResponseRecordedEvent,
 	RoutineFiredEvent,
 	SessionEndedEvent,
@@ -101,6 +103,11 @@ export type {
 	ProductSummary,
 	RosterMember,
 } from "./product.js";
+export type {
+	PropagationLevel,
+	PropagationResult,
+	PropagationStatus,
+} from "./propagation.js";
 export {
 	AWS_AKIA_RE,
 	BEARER_TOKEN_RE,

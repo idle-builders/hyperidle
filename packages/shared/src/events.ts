@@ -1,3 +1,4 @@
+import type { PropagationLevel } from "./propagation.js";
 import type { HostKind, MessageType } from "./thread.js";
 import type { BetStatus, TaskState } from "./types.js";
 
@@ -204,6 +205,33 @@ export interface ThreadArchivedEvent {
 	timestamp: number;
 }
 
+/** L20: Emitted when lifecycle propagation successfully applies a transition. */
+export interface PropagationAppliedEvent {
+	type: "propagation_applied";
+	/** streamId = targetId so per-entity streams receive the event. */
+	streamId: string;
+	sourceLevel: PropagationLevel;
+	sourceId: string;
+	targetLevel: PropagationLevel;
+	targetId: string;
+	targetTransition: string;
+	timestamp: number;
+}
+
+/** L20: Emitted when lifecycle propagation fails after exhausting retries. */
+export interface PropagationFailedEvent {
+	type: "propagation_failed";
+	/** streamId = targetId so per-entity streams receive the event. */
+	streamId: string;
+	sourceLevel: PropagationLevel;
+	sourceId: string;
+	targetLevel: PropagationLevel;
+	targetId: string;
+	failureReason: string;
+	attempts: number;
+	timestamp: number;
+}
+
 /** Discriminated union of all domain events. */
 export type DomainEvent =
 	| TaskStateChangedEvent
@@ -226,7 +254,9 @@ export type DomainEvent =
 	| ThreadMessageAppendedEvent
 	| ThreadResolvedEvent
 	| ThreadReopenedEvent
-	| ThreadArchivedEvent;
+	| ThreadArchivedEvent
+	| PropagationAppliedEvent
+	| PropagationFailedEvent;
 
 /** All valid event type strings. */
 export type EventType = DomainEvent["type"];
