@@ -13,6 +13,7 @@ import { scaleForCurrency } from "../types/money.js";
 /** Format a money value for display. Returns "--" for null/undefined. */
 export function formatMoney(value: WireMoney | Money | null | undefined): string {
 	if (value == null) return "--";
+	if (!value.currency) return "--";
 
 	const minor = typeof value.minor === "bigint" ? Number(value.minor) : (value.minor as number);
 	const currency = value.currency as CurrencyCode;

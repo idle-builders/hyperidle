@@ -312,7 +312,17 @@ export function createBetRoutes(db: HyperIdleDb, eventBus: EventBus): Hono {
 					? { minor: costActualMinor, currency: costActualCurrency }
 					: null,
 			tokensActual,
-			tasks: betTasks,
+			tasks: betTasks.map((t) => ({
+				...t,
+				costActual:
+					t.costActual != null
+						? { minor: t.costActual, currency: "USD" as const }
+						: null,
+				costCap:
+					t.costCap != null
+						? { minor: t.costCap, currency: "USD" as const }
+						: null,
+			})),
 		});
 	});
 
