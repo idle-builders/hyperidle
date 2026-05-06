@@ -432,6 +432,51 @@ export const fileLeases = sqliteTable("file_leases", {
 	releasedAt: text("released_at"),
 });
 
+// --- Propagation log (L20) ---
+
+/**
+ * Audit and retry log for lifecycle propagation events.
+ *
+ * Every propagation attempt — whether applied, skipped, or failed — gets a
+ * row here. The `status` and `attempts` columns drive the retry mechanism.
+ *
+ * @lore L20: This table has NO retention policy. Every propagation attempt
+ * accumulates indefinitely. A follow-up story should add a TTL sweep or
+ * archival job (e.g., delete rows older than 90 days with status=applied|skipped).
+ * At current expected volumes (~10 propagations/day) a year's worth is ~3,650
+ * rows — negligible. Revisit if bet/task throughput increases 100x.
+ */
+export const propagationLog = sqliteTable(
+	"propagation_log",
+	{
+		id: text("id").primaryKey(),
+		/** "session" | "task" | "bet" */
+		sourceLevel: text("source_level").notNull(),
+		/** ID of the entity whose transition triggered propagation */
+		sourceId: text("source_id").notNull(),
+		/** e.g. "session_ended", "task_state_changed" */
+		sourceEvent: text("source_event").notNull(),
+		/** "task" | "bet" | "product" */
+		targetLevel: text("target_level").notNull(),
+		/** ID of the entity that should be affected */
+		targetId: text("target_id").notNull(),
+		/** e.g. "in_progress -> review" (null if no transition was needed) */
+		targetTransition: text("target_transition"),
+		/** "applied" | "skipped" | "failed" | "pending_retry" */
+		status: text("status").notNull(),
+		/** Error message if status=failed or pending_retry */
+		failureReason: text("failure_reason"),
+		attempts: integer("attempts").notNull().default(1),
+		createdAt: text("created_at").notNull(),
+		appliedAt: text("applied_at"),
+	},
+	(table) => [
+		index("propagation_log_source_idx").on(table.sourceLevel, table.sourceId),
+		index("propagation_log_status_idx").on(table.status),
+		index("propagation_log_created_at_idx").on(table.createdAt),
+	],
+);
+
 // --- Artifacts (L3) ---
 
 // @lore L3 — `kind` is stored as text but normalised to ARTIFACT_KINDS at the
@@ -517,3 +562,6 @@ export type NewNotificationQueueRow = typeof notificationQueue.$inferInsert;
 
 export type ArtifactRow = typeof artifacts.$inferSelect;
 export type NewArtifactRow = typeof artifacts.$inferInsert;
+
+export type PropagationLogRow = typeof propagationLog.$inferSelect;
+export type NewPropagationLogRow = typeof propagationLog.$inferInsert;

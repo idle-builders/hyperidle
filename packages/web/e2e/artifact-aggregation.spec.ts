@@ -27,7 +27,7 @@ const ARTIFACT_FIXTURES = [
 				},
 			],
 		},
-		cost: { money: "$0.04", tokens: "1.2k" },
+		cost: { money: null, tokens: null },
 		threadCount: 0,
 		createdAt: "2026-04-28T10:00:00.000Z",
 	},
@@ -37,7 +37,7 @@ const ARTIFACT_FIXTURES = [
 		producingTaskTitle: "Pitch deck draft",
 		kind: "deck",
 		preview: { kind: "deck", slideCount: 12, firstSlideTitle: "Why now" },
-		cost: { money: "$0.12", tokens: "8.4k" },
+		cost: { money: null, tokens: null },
 		threadCount: 0,
 		createdAt: "2026-04-28T09:00:00.000Z",
 	},
@@ -51,8 +51,24 @@ async function mockArtifacts(route: Route): Promise<void> {
 	});
 }
 
+async function mockAppShellEndpoints(route: Route): Promise<void> {
+	await route.fulfill({
+		status: 200,
+		contentType: "application/json",
+		body: JSON.stringify({ threads: [] }),
+	});
+}
+
 test.describe("L3 Artifact aggregation surfaces (dev preview)", () => {
 	test.beforeEach(async ({ page }) => {
+		await page.route("**/api/threads?**participant_id=**", mockAppShellEndpoints);
+		await page.route("**/api/products**", async (route) => {
+			await route.fulfill({
+				status: 200,
+				contentType: "application/json",
+				body: JSON.stringify({ products: [], total: 0 }),
+			});
+		});
 		await page.route("**/api/artifacts?**", mockArtifacts);
 	});
 

@@ -153,7 +153,8 @@
 			"!.worktrees",
 			"!.pipeline",
 			"!**/plans",
-			"!packages/eslint-plugin-design/test-fixtures"
+			"!packages/eslint-plugin-design/test-fixtures",
+			"!scripts"
 		]
 	},
 	"overrides": [

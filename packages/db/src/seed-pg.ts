@@ -73,6 +73,21 @@ export async function seedPg(db: SeedablePgDb): Promise<void> {
 		})
 		.onConflictDoNothing();
 
+	// L20: system:propagation agent — authors review threads when bets enter review.
+	// FK constraint: messages.senderId references agents.id. This agent must exist
+	// before any propagation-triggered review thread can be created.
+	await db
+		.insert(agents)
+		.values({
+			id: "system:propagation",
+			name: "Propagation System",
+			role: "system",
+			status: "active",
+			maxConcurrentSessions: 1,
+			createdAt: now,
+		})
+		.onConflictDoNothing();
+
 	// Patch the existing Chief of Staff row with G1 facilitator metadata.
 	await db
 		.update(agents)
