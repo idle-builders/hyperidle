@@ -217,7 +217,9 @@ test("L20: task shows review state after session ends with outcome=completed", a
 	await page.goto(`/work/${PRODUCT_ID}/bets/${BET_ID}`);
 
 	// Assert: task row shows 'review' state chip
-	const taskRow = page.locator(`[data-testid="task-row-${TASK_ID}"], tr:has-text("L20 Lifecycle Task")`).first();
+	const taskRow = page
+		.locator(`[data-testid="task-row-${TASK_ID}"], tr:has-text("L20 Lifecycle Task")`)
+		.first();
 	await expect(taskRow).toBeVisible({ timeout: 10000 });
 
 	// The task state chip should show 'review'
@@ -253,14 +255,10 @@ test("L20: product page shows bet in review state after propagation", async ({ p
 
 	// Assert: the product page renders and shows the bet with review status
 	// (the bet list/card on the product page should reflect the review state)
-	const productPage = page.locator('[data-testid="product-page"], main, [class*="product"]').first();
-	await expect(productPage).toBeVisible({ timeout: 10000 });
-
-	// Look for the bet in review state — check any status indicator
-	const reviewIndicator = page
-		.locator("text=review", { exact: false })
-		.or(page.locator('[class*="review"]'))
+	const productPage = page
+		.locator('[data-testid="product-page"], main, [class*="product"]')
 		.first();
+	await expect(productPage).toBeVisible({ timeout: 10000 });
 
 	// At minimum, the page should load without errors (product in review state visible)
 	await expect(page.locator("body")).toContainText("L20", { timeout: 10000 });
@@ -268,7 +266,9 @@ test("L20: product page shows bet in review state after propagation", async ({ p
 
 // ── Note: shipped transition requires human confirmation (out of scope) ───────
 
-test("L20: bet stays in review — shipped transition requires human confirmation (stop condition)", async ({ page }) => {
+test("L20: bet stays in review — shipped transition requires human confirmation (stop condition)", async ({
+	page,
+}) => {
 	// This test documents that the propagation chain stops at 'review' for bets.
 	// The review->shipped transition requires human approval via a review thread.
 	// L20 does NOT automate this step. This test verifies the 'review' state is
