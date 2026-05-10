@@ -1,0 +1,308 @@
+[
+  {
+    "path": "/Users/tg/hyperidle/packages/server/src/routes/bets.ts",
+    "line": 363,
+    "symbol": "u-founder",
+    "kind": "literal-id",
+    "shape": "string",
+    "importerCount": 0,
+    "triageHint": "straight-swap"
+  },
+  {
+    "path": "/Users/tg/hyperidle/packages/server/src/routes/bets.ts",
+    "line": 400,
+    "symbol": "u-founder",
+    "kind": "literal-id",
+    "shape": "string",
+    "importerCount": 0,
+    "triageHint": "straight-swap"
+  },
+  {
+    "path": "/Users/tg/hyperidle/packages/server/src/routes/bets.ts",
+    "line": 415,
+    "symbol": "u-founder",
+    "kind": "literal-id",
+    "shape": "string",
+    "importerCount": 0,
+    "triageHint": "straight-swap"
+  },
+  {
+    "path": "/Users/tg/hyperidle/packages/server/src/routes/bets.ts",
+    "line": 444,
+    "symbol": "u-founder",
+    "kind": "literal-id",
+    "shape": "string",
+    "importerCount": 0,
+    "triageHint": "straight-swap"
+  },
+  {
+    "path": "/Users/tg/hyperidle/packages/server/src/routes/bets.ts",
+    "line": 457,
+    "symbol": "u-founder",
+    "kind": "literal-id",
+    "shape": "string",
+    "importerCount": 0,
+    "triageHint": "straight-swap"
+  },
+  {
+    "path": "/Users/tg/hyperidle/packages/server/src/routes/bets.ts",
+    "line": 472,
+    "symbol": "u-founder",
+    "kind": "literal-id",
+    "shape": "string",
+    "importerCount": 0,
+    "triageHint": "straight-swap"
+  },
+  {
+    "path": "/Users/tg/hyperidle/packages/server/src/routes/coach.ts",
+    "line": 24,
+    "symbol": "DEFAULT_FOUNDER_ID",
+    "kind": "symbol",
+    "shape": "string",
+    "importerCount": 1,
+    "triageHint": "straight-swap"
+  },
+  {
+    "path": "/Users/tg/hyperidle/packages/server/src/routes/coach.ts",
+    "line": 24,
+    "symbol": "u-founder",
+    "kind": "literal-id",
+    "shape": "string",
+    "importerCount": 0,
+    "triageHint": "straight-swap"
+  },
+  {
+    "path": "/Users/tg/hyperidle/packages/server/src/routes/threads.ts",
+    "line": 49,
+    "symbol": "DEFAULT_FOUNDER_ID",
+    "kind": "symbol",
+    "shape": "string",
+    "importerCount": 1,
+    "triageHint": "straight-swap"
+  },
+  {
+    "path": "/Users/tg/hyperidle/packages/server/src/routes/threads.ts",
+    "line": 49,
+    "symbol": "u-founder",
+    "kind": "literal-id",
+    "shape": "string",
+    "importerCount": 0,
+    "triageHint": "straight-swap"
+  },
+  {
+    "path": "/Users/tg/hyperidle/packages/server/src/services/bet-state-machine.ts",
+    "line": 15,
+    "symbol": "u-founder",
+    "kind": "literal-id",
+    "shape": "string",
+    "importerCount": 0,
+    "triageHint": "straight-swap"
+  },
+  {
+    "path": "/Users/tg/hyperidle/packages/server/src/services/lifecycle-propagation.ts",
+    "line": 411,
+    "symbol": "u-founder",
+    "kind": "literal-id",
+    "shape": "string",
+    "importerCount": 0,
+    "triageHint": "straight-swap"
+  },
+  {
+    "path": "/Users/tg/hyperidle/packages/web/src/fixtures/app-shell-data.ts",
+    "line": 9,
+    "symbol": "DEFAULT_SETTINGS",
+    "kind": "symbol",
+    "shape": "object",
+    "importerCount": 2,
+    "triageHint": "needs-contract"
+  },
+  {
+    "path": "/Users/tg/hyperidle/packages/web/src/fixtures/app-shell-data.ts",
+    "line": 10,
+    "symbol": "founder@hyperidle.com",
+    "kind": "literal-id",
+    "shape": "string",
+    "importerCount": 0,
+    "triageHint": "straight-swap"
+  },
+  {
+    "path": "/Users/tg/hyperidle/packages/web/src/fixtures/app-shell-data.ts",
+    "line": 33,
+    "symbol": "MOCK_RAIL_BETS",
+    "kind": "symbol",
+    "shape": "array",
+    "importerCount": 1,
+    "triageHint": "needs-contract"
+  },
+  {
+    "path": "/Users/tg/hyperidle/packages/web/src/fixtures/app-shell-data.ts",
+    "line": 38,
+    "symbol": "MOCK_RAIL_BLOCKERS",
+    "kind": "symbol",
+    "shape": "array",
+    "importerCount": 1,
+    "triageHint": "needs-contract"
+  },
+  {
+    "path": "/Users/tg/hyperidle/packages/web/src/fixtures/app-shell-data.ts",
+    "line": 42,
+    "symbol": "MOCK_RAIL_COST",
+    "kind": "symbol",
+    "shape": "object",
+    "importerCount": 1,
+    "triageHint": "needs-contract"
+  },
+  {
+    "path": "/Users/tg/hyperidle/packages/web/src/fixtures/knowledge-data.ts",
+    "line": 81,
+    "symbol": "MOCK_KNOWLEDGE_ITEMS",
+    "kind": "symbol",
+    "shape": "array",
+    "importerCount": 3,
+    "triageHint": "borderline"
+  },
+  {
+    "path": "/Users/tg/hyperidle/packages/web/src/fixtures/knowledge-data.ts",
+    "line": 288,
+    "symbol": "MOCK_CURATION_SUGGESTIONS",
+    "kind": "symbol",
+    "shape": "array",
+    "importerCount": 2,
+    "triageHint": "borderline"
+  },
+  {
+    "path": "/Users/tg/hyperidle/packages/web/src/fixtures/portfolio-data.ts",
+    "line": 23,
+    "symbol": "MOCK_PRODUCTS",
+    "kind": "symbol",
+    "shape": "array",
+    "importerCount": 3,
+    "triageHint": "borderline"
+  },
+  {
+    "path": "/Users/tg/hyperidle/packages/web/src/fixtures/portfolio-data.ts",
+    "line": 70,
+    "symbol": "MOCK_CYCLE",
+    "kind": "symbol",
+    "shape": "object",
+    "importerCount": 1,
+    "triageHint": "borderline"
+  },
+  {
+    "path": "/Users/tg/hyperidle/packages/web/src/hooks/useConversationsThreads.ts",
+    "line": 45,
+    "symbol": "FALLBACK_AVATAR",
+    "kind": "symbol",
+    "shape": "expression",
+    "importerCount": 0,
+    "triageHint": "borderline"
+  },
+  {
+    "path": "/Users/tg/hyperidle/packages/web/src/layouts/AppShell.tsx",
+    "line": 23,
+    "symbol": "../fixtures/knowledge-data",
+    "kind": "import",
+    "shape": "import",
+    "importerCount": 0,
+    "triageHint": "borderline"
+  },
+  {
+    "path": "/Users/tg/hyperidle/packages/web/src/layouts/AppShell.tsx",
+    "line": 92,
+    "symbol": "DEMO_FOUNDER_ID",
+    "kind": "symbol",
+    "shape": "string",
+    "importerCount": 0,
+    "triageHint": "straight-swap"
+  },
+  {
+    "path": "/Users/tg/hyperidle/packages/web/src/layouts/AppShell.tsx",
+    "line": 92,
+    "symbol": "u-founder",
+    "kind": "literal-id",
+    "shape": "string",
+    "importerCount": 0,
+    "triageHint": "straight-swap"
+  },
+  {
+    "path": "/Users/tg/hyperidle/packages/web/src/pages/KnowledgeDetail.tsx",
+    "line": 41,
+    "symbol": "../fixtures/knowledge-data",
+    "kind": "import",
+    "shape": "import",
+    "importerCount": 0,
+    "triageHint": "borderline"
+  },
+  {
+    "path": "/Users/tg/hyperidle/packages/web/src/pages/KnowledgeDetail.tsx",
+    "line": 78,
+    "symbol": "LEGACY_DETAILS",
+    "kind": "symbol",
+    "shape": "object",
+    "importerCount": 2,
+    "triageHint": "borderline"
+  },
+  {
+    "path": "/Users/tg/hyperidle/packages/web/src/pages/KnowledgeDetail.tsx",
+    "line": 115,
+    "symbol": "LEGACY_SOURCES",
+    "kind": "symbol",
+    "shape": "object",
+    "importerCount": 1,
+    "triageHint": "borderline"
+  },
+  {
+    "path": "/Users/tg/hyperidle/packages/web/src/pages/KnowledgeDetail.tsx",
+    "line": 120,
+    "symbol": "FALLBACK_DETAIL",
+    "kind": "symbol",
+    "shape": "object",
+    "importerCount": 0,
+    "triageHint": "borderline"
+  },
+  {
+    "path": "/Users/tg/hyperidle/packages/web/src/pages/WorkBet.tsx",
+    "line": 613,
+    "symbol": "u-founder",
+    "kind": "literal-id",
+    "shape": "string",
+    "importerCount": 0,
+    "triageHint": "straight-swap"
+  },
+  {
+    "path": "/Users/tg/hyperidle/packages/web/src/pages/WorkPortfolio.tsx",
+    "line": 22,
+    "symbol": "../fixtures/portfolio-data",
+    "kind": "import",
+    "shape": "import",
+    "importerCount": 0,
+    "triageHint": "borderline"
+  },
+  {
+    "path": "/Users/tg/hyperidle/packages/web/src/services/host-threads.ts",
+    "line": 27,
+    "symbol": "PLACEHOLDER_AGENT_PARTICIPANT_ID",
+    "kind": "symbol",
+    "shape": "string",
+    "importerCount": 5,
+    "triageHint": "borderline"
+  },
+  {
+    "path": "/Users/tg/hyperidle/packages/web/src/services/host-threads.ts",
+    "line": 27,
+    "symbol": "agent-unassigned",
+    "kind": "literal-id",
+    "shape": "string",
+    "importerCount": 0,
+    "triageHint": "needs-contract"
+  },
+  {
+    "path": "/Users/tg/hyperidle/packages/web/src/shell/HostThreadSection.tsx",
+    "line": 67,
+    "symbol": "u-founder",
+    "kind": "literal-id",
+    "shape": "string",
+    "importerCount": 0,
+    "triageHint": "straight-swap"
+  }
+]

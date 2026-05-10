@@ -41,7 +41,9 @@
 		"obs:run": "bun scripts/obs.ts run",
 		"obs:collector": "bun scripts/trace-collector.ts",
 		"obs:report": "bun scripts/trace-report.ts",
-		"pipeline": "bin/pipeline"
+		"pipeline": "bin/pipeline",
+		"mock-inventory": "bun scripts/mock-inventory.ts",
+		"mock-inventory:check": "bun scripts/mock-inventory.ts --check"
 	},
 	"overrides": {
 		"zod-validation-error": "^4.0.0"
