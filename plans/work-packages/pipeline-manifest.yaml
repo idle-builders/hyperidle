@@ -462,3 +462,70 @@ stories:
     track: L
     depends: [L6, L7, L8, L9, L10, L11, L12, L13, L14, L15, L16, L17, L18, L19, L20, L21, L22, L23, L24, L25, L26, L27, L28]
     complexity: L
+
+  # Track M: Mock-Data Purge (pre-rollout)
+  # Restructured 2026-05-10: linter-generates-inventory + bundled architecture +
+  # parallel coding pool + sweep. Architect is invoked ONCE (M2). Most rows are
+  # straight-swap mechanical refactors run in parallel under M3.
+  - id: M1
+    title: Mock-data linter + auto-inventory generator
+    track: M
+    depends: []
+    complexity: L
+  - id: M2
+    title: Replacement contracts (architecture pass, bundled)
+    track: M
+    depends: [M1]
+    complexity: L
+  - id: M3
+    title: Parallel refactor pool (mechanical row closures)
+    track: M
+    depends: [M2]
+    complexity: L
+  - id: M4
+    title: Final sweep + lint promotion to error
+    track: M
+    depends: [M1, M2, M3]
+    complexity: M
+
+  # Track N: Desktop Distribution
+  - id: N1
+    title: Node runtime for the user-shipped server
+    track: N
+    depends: []
+    complexity: M
+  - id: N2
+    title: Desktop auth model (X-API-Key injection)
+    track: N
+    depends: [N1]
+    complexity: M
+  - id: N3
+    title: Agent execution scope decision
+    track: N
+    depends: [N1]
+    complexity: S
+  - id: N4
+    title: Electron shell + server-in-main-process
+    track: N
+    depends: [N1, N2]
+    complexity: L
+  - id: N5
+    title: First-run UX + safeStorage + migrations-on-launch
+    track: N
+    depends: [N4]
+    complexity: M
+  - id: N6
+    title: Production bundle + sign + notarize
+    track: N
+    depends: [N4]
+    complexity: L
+  - id: N7
+    title: Auto-update via electron-updater
+    track: N
+    depends: [N6]
+    complexity: S
+  - id: N8
+    title: Homebrew tap + cask distribution
+    track: N
+    depends: [N6]
+    complexity: S
