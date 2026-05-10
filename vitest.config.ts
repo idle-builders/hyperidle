@@ -14,6 +14,7 @@ export default defineConfig({
 			"packages/design-system",
 			"packages/eslint-plugin-design",
 			"packages/pipeline",
+			"scripts",
 		],
 	},
 });
