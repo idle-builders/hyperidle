@@ -7,7 +7,6 @@
  *  AC-4: Prefers window.__HYPERIDLE_API_KEY__ over VITE_HYPERIDLE_API_KEY
  *  AC-6: Vitest covers the fetch wrapper
  *
- * These tests FAIL in the red phase because apiFetch does not exist yet.
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";

@@ -12,8 +12,6 @@
  * AC-7b: /api/products request carries X-API-Key header injected by apiFetch
  *        (WorkPortfolio navigates to /work/portfolio and calls useProducts())
  *
- * These tests FAIL in the red phase because apiFetch does not exist yet and
- * all fetch() calls go bare (no X-API-Key header).
  */
 
 import { expect, test } from "@playwright/test";

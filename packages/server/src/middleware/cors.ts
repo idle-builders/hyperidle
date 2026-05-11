@@ -23,7 +23,9 @@ function resolveOrigin(origin: string, _c: Context): string | undefined {
 	if (origin === ALLOWED_DEV_ORIGIN) {
 		return origin;
 	}
-	if (origin.startsWith(ELECTRON_ORIGIN_PREFIX)) {
+	// @lore N2: Use exact match or require ':' after "127.0.0.1" to prevent
+	// prefix-bypass attacks like http://127.0.0.1.evil.com matching the prefix.
+	if (origin === ELECTRON_ORIGIN_PREFIX || origin.startsWith("http://127.0.0.1:")) {
 		return origin;
 	}
 	return undefined;

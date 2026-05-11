@@ -89,6 +89,16 @@ describe("CORS middleware", () => {
 		expect(res.headers.get("Access-Control-Allow-Origin")).toBe("http://127.0.0.1:3001");
 	});
 
+	it("denies http://127.0.0.1.evil.com (prefix bypass attempt)", async () => {
+		const db = createTestDb();
+		const app = createTestApp({ db, eventBus: new EventBus() });
+		const res = await app.request("/api/health", {
+			headers: { origin: "http://127.0.0.1.evil.com" },
+		});
+		expect(res.status).toBe(200);
+		expect(res.headers.get("Access-Control-Allow-Origin")).toBeNull();
+	});
+
 	it("denies http://127.0.0.2:3001 (not loopback — only exact 127.0.0.1 is allowed)", async () => {
 		// Arrange: 127.0.0.2 is not the canonical loopback address
 		const db = createTestDb();

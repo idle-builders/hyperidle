@@ -8,6 +8,14 @@
 import { renderHook, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { BetDetail } from "../../types/bet";
+
+// Mock apiFetch so tests are not sensitive to fetch() call argument count.
+// Header injection is covered by api-fetch.test.ts; these tests focus on
+// refresh() behaviour.
+vi.mock("../../services/api-fetch.js", () => ({
+	apiFetch: vi.fn(),
+}));
+
 import { useBet } from "../useBet";
 
 const MOCK_BET: BetDetail = {
@@ -28,8 +36,12 @@ const UPDATED_BET: BetDetail = {
 };
 
 describe("L14 — useBet refresh", () => {
-	beforeEach(() => {
-		vi.spyOn(globalThis, "fetch");
+	let fetchSpy: ReturnType<typeof vi.fn>;
+
+	beforeEach(async () => {
+		const { apiFetch } = await import("../../services/api-fetch.js");
+		fetchSpy = vi.mocked(apiFetch);
+		fetchSpy.mockReset();
 	});
 
 	afterEach(() => {
@@ -37,7 +49,7 @@ describe("L14 — useBet refresh", () => {
 	});
 
 	it("UseBetResult includes a refresh function", async () => {
-		vi.mocked(fetch).mockResolvedValue(new Response(JSON.stringify(MOCK_BET), { status: 200 }));
+		fetchSpy.mockResolvedValue(new Response(JSON.stringify(MOCK_BET), { status: 200 }));
 		const { result } = renderHook(() => useBet("b1"));
 
 		await waitFor(() => expect(result.current.loading).toBe(false));
@@ -46,7 +58,7 @@ describe("L14 — useBet refresh", () => {
 	});
 
 	it("calling refresh() triggers a new fetch", async () => {
-		vi.mocked(fetch)
+		fetchSpy
 			.mockResolvedValueOnce(new Response(JSON.stringify(MOCK_BET), { status: 200 }))
 			.mockResolvedValueOnce(new Response(JSON.stringify(UPDATED_BET), { status: 200 }));
 
@@ -59,18 +71,18 @@ describe("L14 — useBet refresh", () => {
 		result.current.refresh();
 
 		await waitFor(() => expect(result.current.data?.status).toBe("paused"));
-		expect(fetch).toHaveBeenCalledTimes(2);
+		expect(fetchSpy).toHaveBeenCalledTimes(2);
 	});
 
 	it("refresh fetches from the same URL", async () => {
-		vi.mocked(fetch).mockResolvedValue(new Response(JSON.stringify(MOCK_BET), { status: 200 }));
+		fetchSpy.mockResolvedValue(new Response(JSON.stringify(MOCK_BET), { status: 200 }));
 
 		const { result } = renderHook(() => useBet("b1"));
 		await waitFor(() => expect(result.current.loading).toBe(false));
 
 		result.current.refresh();
 
-		await waitFor(() => expect(fetch).toHaveBeenCalledTimes(2));
-		expect(fetch).toHaveBeenNthCalledWith(2, "/api/bets/b1");
+		await waitFor(() => expect(fetchSpy).toHaveBeenCalledTimes(2));
+		expect(fetchSpy).toHaveBeenNthCalledWith(2, "/api/bets/b1");
 	});
 });
