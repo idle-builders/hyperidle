@@ -46,6 +46,13 @@ const TOOLS: Tool[] = [
 	{ name: "check", cmd: "tsc", args: ["--noEmit", "-p", "tsconfig.json"] },
 	{ name: "lint:biome", cmd: "bun", args: ["run", "lint:biome"] },
 	{ name: "lint:eslint", cmd: "bunx", args: ["--bun", "eslint", ".", "--quiet"] },
+	// M1 — inventory drift check. Fails if inventory.json is stale.
+	// Excluded from --quick (QUICK_TOOLS set). Architecture ref: M1 § Decision 6.
+	{
+		name: "mock-inventory",
+		cmd: "bun",
+		args: ["run", "scripts/mock-inventory.ts", "--check"],
+	},
 	{
 		name: "test",
 		cmd: "bun",

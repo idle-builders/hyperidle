@@ -30,3 +30,4 @@ Playwright config is in `packages/web/playwright.config.ts`. It runs Chromium on
 - Follow AAA pattern: Arrange, Act, Assert
 - Test all paths: success, error, boundary values, edge cases
 - Never mock what `createTestDb()` / `createTestApp()` can provide
+- Mock data is allowed only inside the permitted-mock surface (tests, stories, `__fixtures__/`, e2e, seed scripts). See [mock-data policy](./mock-data-policy.md).

@@ -2,6 +2,8 @@
 
 Nine implementation tracks plus one design-synthesis adoption track. Within each track, stories are sequential. Tracks run in parallel where dependencies allow.
 
+Track M (Mock-Data Purge) is a cross-cutting pre-rollout track. M1 lands a linter + an auto-inventory generator (the inventory is machine-generated, never hand-curated). M2 is a single bundled architecture pass that pins replacement contracts for the rows that need them. M3 is a parallel refactor pool — many small builder PRs drawing rows from the inventory and applying the M2 contracts; the architect is NOT involved in M3 unless a row requires re-triage. M4 verifies and promotes the lint rules from warn to error. See `TRACK-M.md`.
+
 Critical path: **A1 → A2 → B1 → B2 → B4 → C3 → D5 → E6 → UI-00 → UI-10 → UI-20 → UI-30 → UI-31 → UI-32 → UI-40 → G1 → G2 → G3 → G4 → H4**
 
 Parallel windows:

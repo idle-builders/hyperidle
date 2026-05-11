@@ -18,6 +18,8 @@ This file has been split into per-track files for easier navigation and reduced 
 | [TRACK-J.md](work-packages/TRACK-J.md) | J: UI Polish & Synthesis | J1, J2, J3, J4, J5, J6, J7, J8 |
 | [TRACK-K.md](work-packages/TRACK-K.md) | K: Aesthetics Uplift | K1, K2, K3, K4, K5, K6, K7, K8, K9, K10, K11, K12, K13 |
 | [TRACK-L.md](work-packages/TRACK-L.md) | L: Journey-Aligned Improvements | L1–L29 |
+| [TRACK-M.md](work-packages/TRACK-M.md) | M: Mock-Data Purge (pre-rollout) | M1, M2, M3, M4 |
+| [TRACK-N.md](work-packages/TRACK-N.md) | N: Desktop Distribution | N1, N2, N3, N4, N5, N6, N7, N8 |
 
 ## Critical Path
 
