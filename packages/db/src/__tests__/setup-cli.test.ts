@@ -203,14 +203,10 @@ describe("H4 AC1: setup-cli subprocess under Node", () => {
 	it("runs under Node (tsx): creates a usable SQLite DB", () => {
 		const dbPath = path.join(tmpdir, "node-hyperidle.db");
 		const cliPath = path.resolve(__dirname, "..", "setup-cli.ts");
-		const result = spawnSync(
-			"npx",
-			["tsx", cliPath, "--profile", "laptop", "--db-path", dbPath],
-			{
-				stdio: "pipe",
-				env: { ...process.env, HYPERIDLE_PROFILE: "" },
-			},
-		);
+		const result = spawnSync("npx", ["tsx", cliPath, "--profile", "laptop", "--db-path", dbPath], {
+			stdio: "pipe",
+			env: { ...process.env, HYPERIDLE_PROFILE: "" },
+		});
 		const err = result.stderr?.toString() ?? "";
 		const out = result.stdout?.toString() ?? "";
 		expect(result.status, `tsx exit=${result.status}\nstdout:\n${out}\nstderr:\n${err}`).toBe(0);

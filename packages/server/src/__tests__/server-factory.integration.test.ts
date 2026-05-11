@@ -109,7 +109,9 @@ describe("server-factory — I1 integration (S1–S5)", () => {
 
 		const serverRoot = resolve(__dirname, "../..");
 
-		serverProcess = spawn("bun", ["run", "src/index.ts"], {
+		// @lore N1: spawn via tsx (Node) instead of bun because better-sqlite3
+		// cannot be dlopened under Bun (oven-sh/bun#4290).
+		serverProcess = spawn("npx", ["tsx", "src/index.ts"], {
 			cwd: serverRoot,
 			env: {
 				...process.env,
