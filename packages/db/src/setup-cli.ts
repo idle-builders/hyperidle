@@ -2,6 +2,9 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 import { redactDbUrl } from "@hyperidle/shared";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 import { type DeploymentProfile, resolveProfile } from "./profiles.js";
 import * as schema from "./schema.js";
 import { seed } from "./seed.js";
