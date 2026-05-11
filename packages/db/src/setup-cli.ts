@@ -2,12 +2,12 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 import { redactDbUrl } from "@hyperidle/shared";
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
 import { type DeploymentProfile, resolveProfile } from "./profiles.js";
 import * as schema from "./schema.js";
 import { seed } from "./seed.js";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // @lore N1: setup-cli uses better-sqlite3 unconditionally. The Bun-specific
 // SQLite branch was removed in N1. Both Bun and Node now use the same
