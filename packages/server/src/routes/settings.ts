@@ -16,20 +16,33 @@ import { agents, factorySettings, type HyperIdleDb, products } from "@hyperidle/
 import type { EventBus } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
 import { Hono } from "hono";
+import z from "zod";
 import type { HyperIdleEnv } from "../middleware/auth.js";
 
-interface NotificationPatch {
-	reviewAlerts?: boolean;
-	costAlerts?: boolean;
-	blockerAlerts?: boolean;
-	quietHoursStart?: string;
-	quietHoursEnd?: string;
-	mutedProducts?: string[];
-}
+/**
+ * @lore M3 review W2: Zod validation for the PATCH body so we reject malformed
+ * payloads with a 400 before touching the database.
+ */
+const notificationPatchSchema = z.object({
+	reviewAlerts: z.boolean().optional(),
+	costAlerts: z.boolean().optional(),
+	blockerAlerts: z.boolean().optional(),
+	quietHoursStart: z
+		.string()
+		.regex(/^\d{2}:\d{2}$/, "Expected HH:MM format")
+		.optional(),
+	quietHoursEnd: z
+		.string()
+		.regex(/^\d{2}:\d{2}$/, "Expected HH:MM format")
+		.optional(),
+	mutedProducts: z.array(z.string()).optional(),
+});
 
-interface SettingsPatchBody {
-	notifications?: NotificationPatch;
-}
+const settingsPatchSchema = z.object({
+	notifications: notificationPatchSchema.optional(),
+});
+
+type SettingsPatchBody = z.infer<typeof settingsPatchSchema>;
 
 export function createSettingsRoutes(db: HyperIdleDb, _eventBus: EventBus): Hono<HyperIdleEnv> {
 	const router = new Hono<HyperIdleEnv>();
@@ -43,12 +56,22 @@ export function createSettingsRoutes(db: HyperIdleDb, _eventBus: EventBus): Hono
 	});
 
 	router.patch("/", async (c) => {
-		let body: SettingsPatchBody;
+		let rawBody: unknown;
 		try {
-			body = (await c.req.json()) as SettingsPatchBody;
+			rawBody = await c.req.json();
 		} catch {
 			return c.json({ error: "Invalid JSON", code: "VALIDATION_ERROR" }, 400);
 		}
+
+		// @lore M3 review W2: validate with Zod before touching the database.
+		const parsed = settingsPatchSchema.safeParse(rawBody);
+		if (!parsed.success) {
+			return c.json(
+				{ error: "Validation failed", code: "VALIDATION_ERROR", issues: parsed.error.issues },
+				400,
+			);
+		}
+		const body: SettingsPatchBody = parsed.data;
 
 		const now = new Date().toISOString();
 		const notif = body.notifications;
@@ -68,6 +91,10 @@ export function createSettingsRoutes(db: HyperIdleDb, _eventBus: EventBus): Hono
 			if (notif.quietHoursEnd !== undefined) {
 				persistSetting(db, "notifications_quiet_hours_end", notif.quietHoursEnd, now);
 			}
+			// @lore M3 review W3: persist mutedProducts as a comma-separated list in factorySettings.
+			if (notif.mutedProducts !== undefined) {
+				persistSetting(db, "notifications_muted_products", notif.mutedProducts.join(","), now);
+			}
 		}
 
 		return c.json(readSettings());
@@ -86,6 +113,11 @@ function persistSetting(db: HyperIdleDb, key: string, value: string, updatedAt: 
 	}
 }
 
+/**
+ * @lore M3 review W1: `appearance` is a client-side concern (localStorage-backed
+ * via useTheme). Contract 2 says appearance stays in localStorage, NOT in the API
+ * response. The appearance field is excluded from this response type.
+ */
 function buildSettingsResponse(db: HyperIdleDb): {
 	profile: { name: string; email: string; avatarUrl: null };
 	products: Array<{ id: string; name: string; active: boolean }>;
@@ -98,7 +130,6 @@ function buildSettingsResponse(db: HyperIdleDb): {
 		quietHoursEnd: string;
 		mutedProducts: string[];
 	};
-	appearance: { density: string; theme: string };
 } {
 	// Read founder profile from factorySettings
 	const nameRow = db
@@ -138,17 +169,11 @@ function buildSettingsResponse(db: HyperIdleDb): {
 		.from(factorySettings)
 		.where(eq(factorySettings.key, "notifications_quiet_hours_end"))
 		.get();
-
-	// Read appearance settings
-	const densityRow = db
+	// @lore M3 review W3: mutedProducts is stored as a comma-separated list in factorySettings
+	const mutedProductsRow = db
 		.select()
 		.from(factorySettings)
-		.where(eq(factorySettings.key, "appearance_density"))
-		.get();
-	const themeRow = db
-		.select()
-		.from(factorySettings)
-		.where(eq(factorySettings.key, "appearance_theme"))
+		.where(eq(factorySettings.key, "notifications_muted_products"))
 		.get();
 
 	// Products — active derived from phase !== "archived"
@@ -174,16 +199,14 @@ function buildSettingsResponse(db: HyperIdleDb): {
 			paused: a.status === "paused",
 		})),
 		notifications: {
-			reviewAlerts: reviewAlertsRow?.value === "false" ? false : true,
-			costAlerts: costAlertsRow?.value === "false" ? false : true,
-			blockerAlerts: blockerAlertsRow?.value === "false" ? false : true,
+			reviewAlerts: reviewAlertsRow?.value !== "false",
+			costAlerts: costAlertsRow?.value !== "false",
+			blockerAlerts: blockerAlertsRow?.value !== "false",
 			quietHoursStart: quietStartRow?.value ?? "22:00",
 			quietHoursEnd: quietEndRow?.value ?? "08:00",
-			mutedProducts: [],
-		},
-		appearance: {
-			density: densityRow?.value ?? "auto",
-			theme: themeRow?.value ?? "system",
+			mutedProducts: mutedProductsRow?.value
+				? mutedProductsRow.value.split(",").filter(Boolean)
+				: [],
 		},
 	};
 }

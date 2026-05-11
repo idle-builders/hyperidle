@@ -4,23 +4,66 @@ import { createMemoryRouter, RouterProvider } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AppShell } from "../layouts/AppShell";
 
-// L8: AppShell now fetches GET /api/threads on mount for the Conversations
-// Submenu. Tests that don't care about the threads list still need a fetch
-// stub so the hook resolves rather than triggering an unhandled rejection.
-function stubThreadsFetch(): void {
-	const existing = global.fetch as unknown;
-	if (typeof existing === "function") return;
-	global.fetch = vi.fn(async () => ({
-		ok: true,
-		json: async () => ({ threads: [], nextCursor: null }),
-	})) as unknown as typeof fetch;
+// Minimal settings response (no appearance field — Contract 2).
+const STUB_SETTINGS = {
+	profile: { name: "Founder", email: "", avatarUrl: null },
+	products: [],
+	agents: [],
+	notifications: {
+		reviewAlerts: true,
+		costAlerts: true,
+		blockerAlerts: true,
+		quietHoursStart: "22:00",
+		quietHoursEnd: "08:00",
+		mutedProducts: [],
+	},
+};
+
+// L8: AppShell fetches /api/threads, /api/settings, /api/rail, /api/auth/me
+// on mount. Route-aware stub so all API paths resolve rather than triggering
+// unhandled rejections. Applied unconditionally (jsdom 20+ provides native
+// fetch which would cause real network errors in test; we always override).
+// @lore M3 review C2: stub must cover PATCH /api/settings so handleSettingsSave
+// succeeds and the density-wiring tests can assert the dialog closes.
+function stubApiFetch(): void {
+	global.fetch = vi.fn(async (input: RequestInfo | URL) => {
+		const url =
+			typeof input === "string"
+				? input
+				: input instanceof URL
+					? input.href
+					: (input as Request).url;
+		// /api/settings (GET and PATCH) — return ok so SettingsPanel closes on save
+		if (url.includes("/api/settings")) {
+			return { ok: true, json: async () => STUB_SETTINGS } as unknown as Response;
+		}
+		// GET /api/rail
+		if (url.includes("/api/rail")) {
+			return {
+				ok: true,
+				json: async () => ({ bets: [], blockers: [], cost: null }),
+			} as unknown as Response;
+		}
+		// GET /api/auth/me
+		if (url.includes("/api/auth/me")) {
+			return {
+				ok: true,
+				json: async () => ({ id: "u-test", name: "Test", email: "", role: "founder" }),
+			} as unknown as Response;
+		}
+		// Fallback: threads and anything else
+		return {
+			ok: true,
+			json: async () => ({ threads: [], nextCursor: null }),
+		} as unknown as Response;
+	}) as unknown as typeof fetch;
 }
 
 function renderShell(
 	initialPath = "/conversations",
 	childContent = "Test Page Content",
 ): ReturnType<typeof render> {
-	stubThreadsFetch();
+	stubApiFetch();
 	const router = createMemoryRouter(
 		[
 			{

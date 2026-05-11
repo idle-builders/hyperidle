@@ -19,6 +19,11 @@ export interface KanbanTask {
 	latestSessionTokensInput?: number | null;
 	latestSessionTokensOutput?: number | null;
 	latestSessionHarnessUrl?: string | null;
+	/**
+	 * M3 D4: agent participant id for HostThreadSection on the task detail view.
+	 * Null/undefined means no agent is assigned.
+	 */
+	ownerAgentId?: string | null;
 }
 
 export type KanbanColumnState = "planned" | "blocked" | "in_progress" | "done";

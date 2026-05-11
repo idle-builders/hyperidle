@@ -80,17 +80,17 @@ export function useSettings(): UseSettingsResult {
 	}, [tick]);
 
 	const save = useCallback(async (updated: SettingsData): Promise<void> => {
-		// Persist notifications to API; appearance is local-only
-		try {
-			await fetch("/api/settings", {
-				method: "PATCH",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ notifications: updated.notifications }),
-			});
-			setSettings(updated);
-		} catch {
-			// Swallow — callers handle via UI
+		// @lore M3 review W6: errors propagate to the caller — do not swallow.
+		// AppShell.handleSettingsSave or other callers can handle the error.
+		const res = await fetch("/api/settings", {
+			method: "PATCH",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({ notifications: updated.notifications }),
+		});
+		if (!res.ok) {
+			throw new Error(`Failed to save settings: HTTP ${res.status}`);
 		}
+		setSettings(updated);
 	}, []);
 
 	const retry = useCallback((): void => {

@@ -54,5 +54,10 @@ export interface BetDetail {
 		latestSessionOutcome?: SessionOutcome | null;
 		latestSessionHarnessUrl?: string | null;
 		latestSessionModelTier?: string | null;
+		/**
+		 * M3 D4: agent participant id for HostThreadSection on the per-task thread.
+		 * Null means no agent assigned.
+		 */
+		ownerAgentId?: string | null;
 	}>;
 }

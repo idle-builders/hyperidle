@@ -391,10 +391,10 @@ export function AppShell(): JSX.Element {
 
 	const handleSettingsSave = useCallback(
 		async (next: SettingsData): Promise<void> => {
-			// Mock save — real API wiring deferred. J1: mirror the new draft into
-			// local state so density (and other appearance values) take effect on
-			// save. The data-density attribute on the shell root reads from this.
-			await new Promise((resolve) => setTimeout(resolve, 300));
+			// @lore M3 review C2: use the real save() from useSettings — calls
+			// PATCH /api/settings. Mirror the new draft into local state so density
+			// (and other appearance values) take effect immediately on save.
+			await settingsData.save(next);
 			// K3: theme is persisted via useTheme() (localStorage). Route the
 			// chosen value through setTheme so the boot script picks it up on
 			// the next reload and matchMedia subscription stays correct.
@@ -403,7 +403,7 @@ export function AppShell(): JSX.Element {
 			}
 			setSettings(next);
 		},
-		[setTheme, theme],
+		[settingsData, setTheme, theme],
 	);
 
 	const handleSearchNavigate = useCallback(

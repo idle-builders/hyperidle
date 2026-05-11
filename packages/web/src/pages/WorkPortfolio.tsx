@@ -1,4 +1,3 @@
-import { EmptyState, KeyValue, SkeletonCard, StatusChip } from "@hyperidle/design-system";
 /**
  * Work/Portfolio page — portfolio overview composed from product status
  * cards + portfolio metrics. Per spec (HUMAN_INTERFACE_LAYER.md §4.3) the
@@ -15,12 +14,33 @@ import { EmptyState, KeyValue, SkeletonCard, StatusChip } from "@hyperidle/desig
  * so existing tests (which don't mock useProducts) continue to pass. Real
  * data overwrites the mock when available. Each product card is clickable
  * and navigates to /work/product/:id (N1 drill-down pattern).
+ *
+ * @lore M3 review C1: PortfolioProduct type moved here from
+ * fixtures/portfolio-data.ts (which has been deleted). The type is a
+ * page-local shape; co-locating it avoids indirect dependencies on fixture
+ * files from production code.
  */
+import type { Status } from "@hyperidle/design-system";
+import { EmptyState, KeyValue, SkeletonCard, StatusChip } from "@hyperidle/design-system";
 import type { JSX } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArtifactSection, useArtifactOpen } from "../components/ArtifactSection.js";
-import type { PortfolioProduct } from "../fixtures/portfolio-data";
 import { useProducts } from "../hooks/useProducts";
+
+/**
+ * Page-local shape for a product card in the Portfolio view.
+ * Previously exported from fixtures/portfolio-data.ts; moved here on M3 review C1.
+ */
+export interface PortfolioProduct {
+	id: string;
+	name: string;
+	status: Status;
+	activeBets: number;
+	shipRate: string;
+	lead: { name: string; initials: string };
+	shipped: number;
+	progress: { done: number; total: number };
+}
 
 export interface WorkPortfolioProps {
 	/**

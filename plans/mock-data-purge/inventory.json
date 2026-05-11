@@ -63,51 +63,6 @@
     "triageHint": "straight-swap"
   },
   {
-    "path": "packages/web/src/fixtures/app-shell-data.ts",
-    "line": 9,
-    "symbol": "DEFAULT_SETTINGS",
-    "kind": "symbol",
-    "shape": "object",
-    "importerCount": 5,
-    "triageHint": "needs-contract"
-  },
-  {
-    "path": "packages/web/src/fixtures/app-shell-data.ts",
-    "line": 10,
-    "symbol": "founder@hyperidle.com",
-    "kind": "literal-id",
-    "shape": "string",
-    "importerCount": 0,
-    "triageHint": "straight-swap"
-  },
-  {
-    "path": "packages/web/src/fixtures/app-shell-data.ts",
-    "line": 33,
-    "symbol": "MOCK_RAIL_BETS",
-    "kind": "symbol",
-    "shape": "array",
-    "importerCount": 3,
-    "triageHint": "needs-contract"
-  },
-  {
-    "path": "packages/web/src/fixtures/app-shell-data.ts",
-    "line": 38,
-    "symbol": "MOCK_RAIL_BLOCKERS",
-    "kind": "symbol",
-    "shape": "array",
-    "importerCount": 1,
-    "triageHint": "needs-contract"
-  },
-  {
-    "path": "packages/web/src/fixtures/app-shell-data.ts",
-    "line": 42,
-    "symbol": "MOCK_RAIL_COST",
-    "kind": "symbol",
-    "shape": "object",
-    "importerCount": 1,
-    "triageHint": "needs-contract"
-  },
-  {
     "path": "packages/web/src/fixtures/knowledge-data.ts",
     "line": 81,
     "symbol": "MOCK_KNOWLEDGE_ITEMS",
@@ -123,24 +78,6 @@
     "kind": "symbol",
     "shape": "array",
     "importerCount": 2,
-    "triageHint": "borderline"
-  },
-  {
-    "path": "packages/web/src/fixtures/portfolio-data.ts",
-    "line": 23,
-    "symbol": "MOCK_PRODUCTS",
-    "kind": "symbol",
-    "shape": "array",
-    "importerCount": 7,
-    "triageHint": "borderline"
-  },
-  {
-    "path": "packages/web/src/fixtures/portfolio-data.ts",
-    "line": 70,
-    "symbol": "MOCK_CYCLE",
-    "kind": "symbol",
-    "shape": "object",
-    "importerCount": 3,
     "triageHint": "borderline"
   },
   {
@@ -185,15 +122,6 @@
     "symbol": "FALLBACK_DETAIL",
     "kind": "symbol",
     "shape": "object",
-    "importerCount": 0,
-    "triageHint": "borderline"
-  },
-  {
-    "path": "packages/web/src/pages/WorkPortfolio.tsx",
-    "line": 22,
-    "symbol": "../fixtures/portfolio-data",
-    "kind": "import",
-    "shape": "import",
     "importerCount": 0,
     "triageHint": "borderline"
   },

@@ -355,7 +355,14 @@ export function TaskSheet({
 							Open thread
 						</button>
 					</div>
-					<HostThreadSection hostKind="task" hostId={task.id} inline />
+					{/* M3 D4: pass the task's ownerAgentId so HostThreadSection includes
+					    the agent as a thread participant when the thread is created. */}
+					<HostThreadSection
+						hostKind="task"
+						hostId={task.id}
+						inline
+						agentId={task.ownerAgentId ?? null}
+					/>
 				</div>
 
 				{/* Request section */}
