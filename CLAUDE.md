@@ -101,7 +101,7 @@ When you call multiple tools and there are no dependencies between them, make al
 
 ## Git
 
-Branch naming: `<type>/<workpackage-id>-<description>`. Commit: imperative mood, reference workpackage ID. One logical change per commit. Main is protected. Always use a pull request to add features to main. Always push your changes after commit.
+Branch naming: `<type>/<workpackage-id>-<description>`. Commit: imperative mood, reference workpackage ID. One logical change per commit. Main is protected. Always use a pull request to add features to main. Always push your changes after commit. **Every feature branch must be based on `origin/main` and every PR must target `main`.** No stacked PRs — never target another feature branch.
 
 ---
 
