@@ -14,7 +14,7 @@ import { bets, createTestDb, products, teams } from "@hyperidle/db";
 import { EventBus } from "@hyperidle/shared";
 import { testClient } from "hono/testing";
 import { describe, expect, expectTypeOf, it } from "vitest";
-import { createBetRoutes, type BetsRoutes } from "../bets.js";
+import { type BetsRoutes, createBetRoutes } from "../bets.js";
 
 // ─── BetsRoutes type export ──────────────────────────────────────────────────
 
