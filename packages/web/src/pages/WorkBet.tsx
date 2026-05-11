@@ -44,6 +44,7 @@ import { CocAttachButton } from "../components/CocAttachButton";
 import { useBet } from "../hooks/useBet";
 import { useHostThread } from "../hooks/useHostThread.js";
 import { isValidHarnessUrl } from "../lib/url-utils.js";
+import { apiFetch } from "../services/api-fetch.js";
 import {
 	PLACEHOLDER_AGENT_PARTICIPANT_ID,
 	postRequestMessage,
@@ -700,7 +701,7 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 	// can reference it in its dependency array without a hoisting issue.
 	const handleResume = useCallback(async (): Promise<void> => {
 		if (!bet) return;
-		const res = await fetch(`/api/bets/${encodeURIComponent(bet.id)}/resume`, {
+		const res = await apiFetch(`/api/bets/${encodeURIComponent(bet.id)}/resume`, {
 			method: "POST",
 			headers: { "Content-Type": "application/json" },
 			body: JSON.stringify({}),
@@ -741,7 +742,7 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 		async (reason: string): Promise<void> => {
 			if (!bet) return;
 			const endpoint = consequenceDialog.kind === "kill" ? "kill" : "pause";
-			const res = await fetch(`/api/bets/${encodeURIComponent(bet.id)}/${endpoint}`, {
+			const res = await apiFetch(`/api/bets/${encodeURIComponent(bet.id)}/${endpoint}`, {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ reason }),
@@ -759,7 +760,7 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 	const handleAppetiteConfirm = useCallback(
 		async (appetite: string, reason: string): Promise<void> => {
 			if (!bet) return;
-			const res = await fetch(`/api/bets/${encodeURIComponent(bet.id)}`, {
+			const res = await apiFetch(`/api/bets/${encodeURIComponent(bet.id)}`, {
 				method: "PATCH",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ field: "cost_appetite", value: appetite, reason }),

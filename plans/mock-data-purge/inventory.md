@@ -23,7 +23,7 @@ Total offenders: **34**
 | `packages/web/src/fixtures/app-shell-data.ts` | 10 | `founder@hyperidle.com` | literal-id | string |
 | `packages/web/src/layouts/AppShell.tsx` | 92 | `DEMO_FOUNDER_ID` | symbol | string |
 | `packages/web/src/layouts/AppShell.tsx` | 92 | `u-founder` | literal-id | string |
-| `packages/web/src/pages/WorkBet.tsx` | 613 | `u-founder` | literal-id | string |
+| `packages/web/src/pages/WorkBet.tsx` | 614 | `u-founder` | literal-id | string |
 | `packages/web/src/shell/HostThreadSection.tsx` | 67 | `u-founder` | literal-id | string |
 
 ## needs-contract (5)
@@ -34,7 +34,7 @@ Total offenders: **34**
 | `packages/web/src/fixtures/app-shell-data.ts` | 33 | `MOCK_RAIL_BETS` | symbol | array |
 | `packages/web/src/fixtures/app-shell-data.ts` | 38 | `MOCK_RAIL_BLOCKERS` | symbol | array |
 | `packages/web/src/fixtures/app-shell-data.ts` | 42 | `MOCK_RAIL_COST` | symbol | object |
-| `packages/web/src/services/host-threads.ts` | 27 | `agent-unassigned` | literal-id | string |
+| `packages/web/src/services/host-threads.ts` | 28 | `agent-unassigned` | literal-id | string |
 
 ## borderline (12)
 
@@ -44,11 +44,11 @@ Total offenders: **34**
 | `packages/web/src/fixtures/knowledge-data.ts` | 288 | `MOCK_CURATION_SUGGESTIONS` | symbol | array |
 | `packages/web/src/fixtures/portfolio-data.ts` | 23 | `MOCK_PRODUCTS` | symbol | array |
 | `packages/web/src/fixtures/portfolio-data.ts` | 70 | `MOCK_CYCLE` | symbol | object |
-| `packages/web/src/hooks/useConversationsThreads.ts` | 45 | `FALLBACK_AVATAR` | symbol | expression |
+| `packages/web/src/hooks/useConversationsThreads.ts` | 46 | `FALLBACK_AVATAR` | symbol | expression |
 | `packages/web/src/layouts/AppShell.tsx` | 23 | `../fixtures/knowledge-data` | import | import |
 | `packages/web/src/pages/KnowledgeDetail.tsx` | 41 | `../fixtures/knowledge-data` | import | import |
 | `packages/web/src/pages/KnowledgeDetail.tsx` | 78 | `LEGACY_DETAILS` | symbol | object |
 | `packages/web/src/pages/KnowledgeDetail.tsx` | 115 | `LEGACY_SOURCES` | symbol | object |
 | `packages/web/src/pages/KnowledgeDetail.tsx` | 120 | `FALLBACK_DETAIL` | symbol | object |
 | `packages/web/src/pages/WorkPortfolio.tsx` | 22 | `../fixtures/portfolio-data` | import | import |
-| `packages/web/src/services/host-threads.ts` | 27 | `PLACEHOLDER_AGENT_PARTICIPANT_ID` | symbol | string |
+| `packages/web/src/services/host-threads.ts` | 28 | `PLACEHOLDER_AGENT_PARTICIPANT_ID` | symbol | string |

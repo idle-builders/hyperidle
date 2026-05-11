@@ -15,6 +15,7 @@
 
 import type { ArtifactRef, Message, Thread } from "@hyperidle/shared";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { apiFetch } from "../services/api-fetch.js";
 
 export interface ThreadDetail {
 	thread: Thread;
@@ -105,7 +106,7 @@ export function useThreadDetail(threadId: string): ThreadDetailState {
 
 		(async (): Promise<void> => {
 			try {
-				const res = await fetch(`/api/threads/${threadId}`, { signal: ac.signal });
+				const res = await apiFetch(`/api/threads/${threadId}`, { signal: ac.signal });
 				if (ac.signal.aborted) return;
 				if (res.status === 404) {
 					setStatus("not-found");

@@ -39,6 +39,7 @@ describe("apiFetch (N2)", () => {
 		vi.unstubAllGlobals();
 		// Clean up window.__HYPERIDLE_API_KEY__ if set
 		if (typeof window !== "undefined") {
+			// biome-ignore lint/style/useNamingConvention: matches Electron contextBridge key name
 			delete (window as Window & { __HYPERIDLE_API_KEY__?: string }).__HYPERIDLE_API_KEY__;
 		}
 	});
@@ -182,6 +183,7 @@ describe("apiFetch (N2)", () => {
 	it("prefers window.__HYPERIDLE_API_KEY__ over VITE_HYPERIDLE_API_KEY", async () => {
 		// Arrange: both keys set, window key should win
 		vi.stubEnv("VITE_HYPERIDLE_API_KEY", TEST_KEY);
+		// biome-ignore lint/style/useNamingConvention: matches Electron contextBridge key name
 		(window as Window & { __HYPERIDLE_API_KEY__?: string }).__HYPERIDLE_API_KEY__ = ELECTRON_KEY;
 
 		// Act

@@ -12,6 +12,7 @@
 
 import type { Message, Thread } from "@hyperidle/shared";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { apiFetch } from "../services/api-fetch.js";
 
 export interface CocThreadData {
 	thread: Thread;
@@ -78,7 +79,7 @@ export function useCocThread(): CocThreadState {
 
 		(async (): Promise<void> => {
 			try {
-				const res = await fetch("/api/threads/coach", { signal: ac.signal });
+				const res = await apiFetch("/api/threads/coach", { signal: ac.signal });
 				if (ac.signal.aborted) return;
 				if (!res.ok) {
 					setError(`HTTP ${res.status}`);

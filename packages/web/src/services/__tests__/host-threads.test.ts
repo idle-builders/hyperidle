@@ -11,6 +11,13 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { postPlainHostMessage, resolveOrCreateHostThread } from "../../services/host-threads";
 
+// Mock apiFetch so host-threads.ts does not call global.fetch directly.
+// Header injection is covered by api-fetch.test.ts; these tests focus on
+// service logic (URLs, payloads, error handling).
+vi.mock("../../services/api-fetch.js", () => ({
+	apiFetch: vi.fn(),
+}));
+
 const EXISTING_THREAD_ID = "thread-existing-001";
 const CREATED_THREAD_ID = "thread-created-002";
 const FOUNDER_ID = "u-founder";
@@ -40,9 +47,10 @@ function makePostMessageResponse(): Response {
 describe("resolveOrCreateHostThread (L18)", () => {
 	let fetchSpy: ReturnType<typeof vi.fn>;
 
-	beforeEach(() => {
-		fetchSpy = vi.fn();
-		global.fetch = fetchSpy;
+	beforeEach(async () => {
+		const { apiFetch } = await import("../../services/api-fetch.js");
+		fetchSpy = vi.mocked(apiFetch);
+		fetchSpy.mockReset();
 	});
 
 	afterEach(() => {
@@ -102,9 +110,10 @@ describe("resolveOrCreateHostThread (L18)", () => {
 describe("postPlainHostMessage (L18)", () => {
 	let fetchSpy: ReturnType<typeof vi.fn>;
 
-	beforeEach(() => {
-		fetchSpy = vi.fn();
-		global.fetch = fetchSpy;
+	beforeEach(async () => {
+		const { apiFetch } = await import("../../services/api-fetch.js");
+		fetchSpy = vi.mocked(apiFetch);
+		fetchSpy.mockReset();
 	});
 
 	afterEach(() => {

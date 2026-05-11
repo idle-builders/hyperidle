@@ -2,6 +2,7 @@
 // Cancels in-flight responses when the URL changes or the consumer unmounts.
 
 import { useEffect, useState } from "react";
+import { apiFetch } from "../services/api-fetch.js";
 
 export interface FetchState<T> {
 	data: T | null;
@@ -23,7 +24,7 @@ export function useFetch<T>(url: string | null): FetchState<T> {
 		}
 		let cancelled = false;
 		setState({ data: null, error: null, isLoading: true });
-		fetch(url)
+		apiFetch(url)
 			.then((res) => {
 				if (!res.ok) throw new Error(`HTTP ${res.status}`);
 				return res.json() as Promise<T>;
