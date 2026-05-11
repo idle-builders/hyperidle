@@ -31,60 +31,11 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { resolve } from "node:path";
-import { createDb } from "@hyperidle/db";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import WebSocket from "ws";
+import { authHeaders, createMigratedDb, waitForReady } from "./integration-helpers.js";
 
 const TEST_API_KEY = "test-node-ws-N1-e2e-key";
-
-function authHeaders(): Record<string, string> {
-	return { "X-API-Key": TEST_API_KEY, "Content-Type": "application/json" };
-}
-
-async function createMigratedDb(dbPath: string): Promise<void> {
-	const { migrate } = await import("drizzle-orm/better-sqlite3/migrator");
-	const migrationsFolder = resolve(__dirname, "../../../db/drizzle");
-	const db = createDb(dbPath);
-	migrate(db, { migrationsFolder });
-}
-
-async function waitForReady(proc: ChildProcess, port: number, timeoutMs = 12000): Promise<void> {
-	await new Promise<void>((resolveReady, rejectReady) => {
-		const timer = setTimeout(
-			() => rejectReady(new Error(`Node server start timeout after ${timeoutMs}ms`)),
-			timeoutMs,
-		);
-		let ready = false;
-
-		const maybeReady = async (): Promise<void> => {
-			if (ready) return;
-			try {
-				const res = await fetch(`http://localhost:${port}/api/health`);
-				if (res.ok) {
-					ready = true;
-					clearTimeout(timer);
-					resolveReady();
-				}
-			} catch {
-				// not ready yet
-			}
-		};
-
-		proc.stdout?.on("data", () => void maybeReady());
-		proc.stderr?.on("data", () => void maybeReady());
-		proc.on("error", (err) => {
-			clearTimeout(timer);
-			rejectReady(err);
-		});
-
-		const pollTimer = setInterval(() => {
-			void maybeReady().then(() => {
-				if (ready) clearInterval(pollTimer);
-			});
-		}, 250);
-		proc.on("exit", () => clearInterval(pollTimer));
-	});
-}
 
 /**
  * Mint a one-shot WebSocket upgrade token from the server.
@@ -93,7 +44,7 @@ async function waitForReady(proc: ChildProcess, port: number, timeoutMs = 12000)
 async function issueUpgradeToken(port: number): Promise<string> {
 	const res = await fetch(`http://localhost:${port}/api/auth/ws-token`, {
 		method: "POST",
-		headers: authHeaders(),
+		headers: authHeaders(TEST_API_KEY),
 	});
 	expect(res.status).toBe(200);
 	const body = (await res.json()) as { token?: string };

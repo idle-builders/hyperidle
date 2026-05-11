@@ -50,8 +50,8 @@ function registerWsRoute(
 	apiApp: Hono,
 	eventBus: EventBus | undefined,
 	tokenStore: UpgradeTokenStore,
-	injectedBroadcaster: WsBroadcaster | null = null,
 	upgradeWebSocket: UpgradeWebSocket,
+	injectedBroadcaster: WsBroadcaster | null = null,
 ): () => void {
 	// Delegate event forwarding to WsBroadcaster when eventBus is available.
 	// L1 step9: server-factory may pass an authz-bound broadcaster; tests +

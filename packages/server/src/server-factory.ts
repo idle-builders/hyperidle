@@ -112,7 +112,7 @@ export function createServer(port: number): ServerHandle {
 			// table on each subscribe call.
 			const broadcaster = new WsBroadcaster(eventBus, createDbSubscribeAuthorizer(db));
 			broadcaster.start();
-			wsDispose = registerWsRoute(apiRouter, eventBus, tokenStore, broadcaster, upgradeWebSocket);
+			wsDispose = registerWsRoute(apiRouter, eventBus, tokenStore, upgradeWebSocket, broadcaster);
 		},
 	});
 
