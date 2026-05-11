@@ -7,7 +7,12 @@
  */
 
 export type { AuthMeResponse } from "./auth.js";
-
+export type {
+	RailBet,
+	RailBlocker,
+	RailCostBurnRate,
+	RailResponse,
+} from "./rail.js";
 export type {
 	AutonomyLevel,
 	SettingsAgent,
@@ -16,10 +21,3 @@ export type {
 	SettingsProfile,
 	SettingsResponse,
 } from "./settings.js";
-
-export type {
-	RailBet,
-	RailBlocker,
-	RailCostBurnRate,
-	RailResponse,
-} from "./rail.js";
