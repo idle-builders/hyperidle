@@ -5,6 +5,7 @@
 	"type": "module",
 	"exports": {
 		".": "./src/index.ts",
+		"./server-factory": "./src/server-factory.ts",
 		"./test-utils": "./src/test-utils.ts",
 		"./skill-tools": "./src/skill-tools/index.ts"
 	},

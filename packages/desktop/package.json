@@ -1,0 +1,21 @@
+{
+	"name": "@hyperidle/desktop",
+	"version": "0.0.1",
+	"private": true,
+	"type": "module",
+	"main": "src/main.ts",
+	"scripts": {
+		"dev": "NODE_OPTIONS='--import tsx' electron .",
+		"check": "tsc --noEmit",
+		"test": "vitest run"
+	},
+	"dependencies": {
+		"@hyperidle/db": "workspace:*",
+		"@hyperidle/server": "workspace:*",
+		"@hyperidle/shared": "workspace:*"
+	},
+	"devDependencies": {
+		"electron": "^36.0.0",
+		"vitest": "*"
+	}
+}
