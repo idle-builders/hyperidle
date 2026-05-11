@@ -504,6 +504,11 @@ stories:
     track: N
     depends: [N1]
     complexity: S
+  - id: N3a
+    title: Agent execution wiring for desktop
+    track: N
+    depends: [N3, N4]
+    complexity: M
   - id: N4
     title: Electron shell + server-in-main-process
     track: N
