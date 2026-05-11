@@ -12,6 +12,7 @@
 		"dev": "concurrently --names server,web --prefix-colors blue,green \"bun run --filter @hyperidle/server dev\" \"bun run --filter @hyperidle/web dev\"",
 		"build": "bun run --filter @hyperidle/web build",
 		"start": "HYPERIDLE_STATIC_DIR=packages/web/dist bun run --filter @hyperidle/server start",
+		"start:node": "bun run --filter @hyperidle/server build:node && node packages/server/dist/index.cjs",
 		"test": "bun scripts/test.ts",
 		"test:raw": "vitest run",
 		"test:verbose": "vitest run --reporter=verbose",
@@ -65,6 +66,7 @@
 		"eslint-plugin-drizzle": "^0.2.3",
 		"eslint-plugin-react-compiler": "^19.1.0-rc.2",
 		"eslint-plugin-react-hooks": "^7.1.1",
+		"tsx": "^4.21.0",
 		"typescript": "^6.0.3",
 		"typescript-eslint": "^8.59.0",
 		"vitest": "^4.1.5"

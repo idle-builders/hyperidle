@@ -78,13 +78,14 @@ interface AppOptions {
 	 */
 	observabilityAdapter?: ObservabilityAdapter;
 	/**
-	 * Optional Bun-only WebSocket registration hook. When provided,
+	 * Optional WebSocket registration hook. When provided,
 	 * `createApp` invokes it with the `/api` sub-router just after the
 	 * error handler and public `/api/health` route and BEFORE the
 	 * `authMiddleware` catch-all so the WS route can authenticate via
-	 * query token. Kept optional so non-Bun integration tests can omit it.
+	 * query token. Kept optional so integration tests that do not need
+	 * WebSocket support can omit it.
 	 *
-	 * @lore I1 S1-S5: production `createBunServer` passes this hook so the
+	 * @lore I1 S1-S5: production `createServer` passes this hook so the
 	 * same `createApp` instance powers both production and the integration
 	 * test harness — no divergent "minimal app" path.
 	 */
@@ -160,7 +161,8 @@ const appLogger = createLogger({ pkg: "server.app" });
 
 /**
  * Create the Hono application.
- * WebSocket routes are registered separately via registerWsRoute() in Bun-only context.
+ * WebSocket routes are registered separately via registerWsRoute(), injected
+ * through the `registerWebSocket` option so the app remains runtime-agnostic.
  */
 function createApp(options?: AppOptions): Hono {
 	const app = new Hono();
@@ -233,8 +235,8 @@ function createApp(options?: AppOptions): Hono {
 
 	// I2 review arch H-2/H-3: the upgrade-token store and the
 	// `/api/auth/ws-token` route are constructed ONLY when WS support is
-	// being wired. Apps without a `registerWebSocket` hook (most non-Bun
-	// integration tests) never expose `/api/auth/ws-token`.
+	// being wired. Apps without a `registerWebSocket` hook (integration
+	// tests that don't need WebSocket) never expose `/api/auth/ws-token`.
 	let tokenStore: UpgradeTokenStore | null = null;
 	if (options?.registerWebSocket) {
 		tokenStore = options.upgradeTokenStore ?? createUpgradeTokenStore();

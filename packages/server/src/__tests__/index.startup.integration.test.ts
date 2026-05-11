@@ -47,7 +47,9 @@ describe("I2 A6 — index.ts fails fast on missing HYPERIDLE_API_KEY", () => {
 		cleanEnv.DATABASE_URL = dbPath;
 		cleanEnv.NODE_ENV = "test";
 
-		proc = spawn("bun", ["run", "src/index.ts"], {
+		// @lore N1: spawn via tsx (Node) instead of bun because better-sqlite3
+		// cannot be dlopened under Bun (oven-sh/bun#4290).
+		proc = spawn("npx", ["tsx", "src/index.ts"], {
 			cwd: serverRoot,
 			env: cleanEnv,
 			stdio: ["ignore", "pipe", "pipe"],

@@ -1,5 +1,5 @@
 import { createLogger } from "@hyperidle/shared";
-import { createBunServer } from "./server-factory.js";
+import { createServer } from "./server-factory.js";
 
 const log = createLogger({ pkg: "server" });
 
@@ -16,6 +16,6 @@ if (!process.env.HYPERIDLE_API_KEY) {
 
 const port = Number(process.env.PORT) || 3001;
 
-await createBunServer(port);
+createServer(port);
 
 log.info(`Server running on http://localhost:${port}`);

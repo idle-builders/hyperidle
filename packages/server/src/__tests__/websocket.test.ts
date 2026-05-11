@@ -31,7 +31,9 @@ describe("AC6: WebSocket upgrade on /api/ws", () => {
 		// Resolve the server package root
 		const serverRoot = resolve(__dirname, "../..");
 
-		serverProcess = spawn("bun", ["run", "src/index.ts"], {
+		// @lore N1: spawn via tsx (Node) instead of bun because better-sqlite3
+		// cannot be dlopened under Bun (oven-sh/bun#4290).
+		serverProcess = spawn("npx", ["tsx", "src/index.ts"], {
 			cwd: serverRoot,
 			env: {
 				...process.env,
