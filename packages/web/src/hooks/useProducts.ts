@@ -17,8 +17,13 @@ import { useEffect, useState } from "react";
 
 const client = hc<ProductsRoutes>("/api/products");
 
-// Extract the inferred response type from the typed client
-type ProductsResponse = Awaited<ReturnType<Awaited<ReturnType<typeof client.index.$get>>["json"]>>;
+// Extract the inferred response type from the typed client.
+// Resolves to: { products: Array<{ id, name, phase, ... }> }
+// NonNullable<typeof client.index> because hc<T> marks path keys as optional in the type
+// (Proxy-based at runtime, always defined). See @lore in api-contract.test.ts.
+type ProductsResponse = Awaited<
+	ReturnType<Awaited<ReturnType<NonNullable<typeof client.index>["$get"]>>["json"]>
+>;
 
 export interface UseProductsResult {
 	data: ProductsResponse | null;
@@ -36,9 +41,10 @@ export function useProducts(): UseProductsResult {
 	useEffect(() => {
 		let cancelled = false;
 		setState({ data: null, loading: true, error: null });
-		client.index
-			.$get()
-			.then(async (res) => {
+		// biome-ignore lint/style/noNonNullAssertion: root path always present on ProductsRoutes client
+		client
+			.index!.$get()
+			.then((res) => {
 				if (!res.ok) throw new Error(`Products fetch failed: ${res.status}`);
 				return res.json();
 			})

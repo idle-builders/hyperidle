@@ -1,16 +1,9 @@
 /**
- * api-contract red phase: AC-4 (no `as never` casts), AC-6 (status-code rule),
+ * api-contract Phase 2 — AC-4 (no `as never` casts), AC-6 (status-code rule),
  * AC-7 (verbatimModuleSyntax + Biome useImportType)
  *
  * Convention/grep tests that verify structural properties of the codebase
- * without executing runtime code. These tests fail right now because:
- * - AC-4: `as never` casts exist in products.ts and bets.ts (will be 0 after conversion)
- * - AC-6: products.ts uses imperative router form (not chained) — not yet converted
- * - AC-7: verbatimModuleSyntax is not yet in root tsconfig.json
- *
- * NOTE: products.ts currently has 0 `as never` casts. The test on AC-4 targets
- * products.ts specifically because it is the pilot file. After conversion it must
- * remain 0. For bets.ts the test checks the current 5 → 0 transition.
+ * without executing runtime code.
  */
 
 import { readFileSync } from "node:fs";
@@ -44,13 +37,13 @@ describe("AC-4: No `as never` casts in pilot route files after conversion", () =
 		expect(count, `Found ${count} 'as z.infer<' cast(s) in products.ts — expected 0`).toBe(0);
 	});
 
-	it("bets.ts has zero `as never` casts (will fail until Phase 3b converts bets.ts)", () => {
+	it("bets.ts has zero `as never` casts", () => {
 		const content = readFile("packages/server/src/routes/bets.ts");
 		const count = countMatches(content, /as never/g);
 		expect(count, `Found ${count} 'as never' cast(s) in bets.ts — expected 0`).toBe(0);
 	});
 
-	it("bets.ts has zero `as z.infer<` casts (will fail until Phase 3b converts bets.ts)", () => {
+	it("bets.ts has zero `as z.infer<` casts", () => {
 		const content = readFile("packages/server/src/routes/bets.ts");
 		const count = countMatches(content, /as z\.infer</g);
 		expect(count, `Found ${count} 'as z.infer<' cast(s) in bets.ts — expected 0`).toBe(0);
@@ -73,7 +66,7 @@ describe("AC-4 (extended): validateBody is replaced in pilot files after convers
 		expect(count, `Found ${count} validateBody() call(s) in products.ts — expected 0`).toBe(0);
 	});
 
-	it("bets.ts has zero validateBody() call sites (will fail until Phase 3b converts bets.ts)", () => {
+	it("bets.ts has zero validateBody() call sites", () => {
 		const content = readFile("packages/server/src/routes/bets.ts");
 		// Strip import lines to count only call sites
 		const nonImportLines = content
@@ -90,13 +83,13 @@ describe("AC-4 (extended): validateBody is replaced in pilot files after convers
 // ---------------------------------------------------------------------------
 
 describe("AC-4 (type exports): Route type exports present after conversion", () => {
-	it("products.ts exports ProductsRoutes type (will fail until Phase 3b adds the export)", () => {
+	it("products.ts exports ProductsRoutes type", () => {
 		const content = readFile("packages/server/src/routes/products.ts");
 		// Must contain: export type ProductsRoutes
 		expect(content).toMatch(/export\s+type\s+ProductsRoutes/);
 	});
 
-	it("bets.ts exports BetsRoutes type (will fail until Phase 3b adds the export)", () => {
+	it("bets.ts exports BetsRoutes type", () => {
 		const content = readFile("packages/server/src/routes/bets.ts");
 		expect(content).toMatch(/export\s+type\s+BetsRoutes/);
 	});
@@ -113,7 +106,7 @@ describe("AC-6: Status-code rule in converted pilot files", () => {
 		expect(content).toMatch(/c\.json\(.*,\s*404\)/s);
 	});
 
-	it("products.ts uses the chained route form after conversion (will fail until Phase 3b)", () => {
+	it("products.ts uses the chained route form", () => {
 		const content = readFile("packages/server/src/routes/products.ts");
 		// Chained form must start with `return new Hono()` inside the factory
 		// and NOT assign to a `const router = new Hono()` with separate statements.
@@ -122,7 +115,7 @@ describe("AC-6: Status-code rule in converted pilot files", () => {
 		expect(content).toMatch(/return new Hono\(\)/);
 	});
 
-	it("bets.ts POST create route uses c.json(... 201) after conversion (will fail until Phase 3b)", () => {
+	it("bets.ts POST create route uses c.json(... 201)", () => {
 		const content = readFile("packages/server/src/routes/bets.ts");
 		// The POST / create route must return 201
 		expect(content).toMatch(/c\.json\(.*,\s*201\)/s);
@@ -134,7 +127,7 @@ describe("AC-6: Status-code rule in converted pilot files", () => {
 // ---------------------------------------------------------------------------
 
 describe("AC-7: verbatimModuleSyntax in root tsconfig.json", () => {
-	it("root tsconfig.json has verbatimModuleSyntax: true (will fail until Phase 1 adds it)", () => {
+	it("root tsconfig.json has verbatimModuleSyntax: true", () => {
 		const content = readFile("tsconfig.json");
 		// Must contain verbatimModuleSyntax: true
 		expect(content).toMatch(/"verbatimModuleSyntax"\s*:\s*true/);
@@ -163,7 +156,7 @@ describe("AC-7: Biome useImportType and useExportType are error-level (already t
 // ---------------------------------------------------------------------------
 
 describe("AC-7 (extended): web tsconfig.json has server project reference", () => {
-	it("packages/web/tsconfig.json references ../server (will fail until Phase 1 adds it)", () => {
+	it("packages/web/tsconfig.json references ../server", () => {
 		const content = readFile("packages/web/tsconfig.json");
 		const parsed = JSON.parse(content) as {
 			references?: Array<{ path: string }>;

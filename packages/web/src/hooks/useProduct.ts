@@ -18,7 +18,8 @@ import { useEffect, useState } from "react";
 
 const client = hc<ProductsRoutes>("/api/products");
 
-// Extract the inferred response type for product detail (200 status)
+// Extract the inferred response type for product detail (200 status).
+// Resolves to: { id, name, phase, createdAt, ... } (the full product row shape)
 type ProductDetailResponse = Awaited<
 	ReturnType<Awaited<ReturnType<(typeof client)[":productId"]["$get"]>>["json"]>
 >;

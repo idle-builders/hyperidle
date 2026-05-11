@@ -1,7 +1,7 @@
 /**
- * api-contract red phase: AC-2 (typed route handle export) + AC-3 (zValidator replaces validateBody)
+ * api-contract Phase 2 — AC-2 (typed route handle export) + AC-3 (zValidator replaces validateBody)
  *
- * These tests target the CONVERTED products.ts that:
+ * Tests for the converted products.ts:
  * 1. Exports `ProductsRoutes = ReturnType<typeof createProductRoutes>`
  * 2. Uses the chained Hono form so the type is fully captured
  * 3. testClient(app) gives a typed client with narrowed response types
@@ -9,9 +9,6 @@
  *
  * products.ts has no POST route so AC-3 (invalid body → 400) is verified here
  * by asserting the GET error path (404) returns ApiErrorResponse shape.
- *
- * These tests will fail until Phase 3b converts products.ts to chained form
- * and exports `ProductsRoutes`.
  */
 
 import { createTestDb } from "@hyperidle/db";
