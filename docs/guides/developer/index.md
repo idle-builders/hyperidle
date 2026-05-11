@@ -13,6 +13,7 @@ Get from zero to running tests in under 10 minutes.
 - [Database](./database.md)
 - [Testing](./testing.md)
 - [Linting & Formatting](./linting-and-formatting.md)
+- [Mock-data policy](./mock-data-policy.md)
 - [Design System](./design-system.md)
 - [Architecture](./architecture.md)
 - [Coding Conventions](./coding-conventions.md)

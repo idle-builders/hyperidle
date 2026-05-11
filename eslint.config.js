@@ -172,6 +172,40 @@ export default [
 		},
 	},
 
+	// M1 — Mock-data guard (warn-level baseline). Promotion to error is M4.
+	// Both rules share one block: same file set, same ignores.
+	// The existing L16 no-restricted-imports block stays unchanged — it fires at
+	// error for __fixtures__/ imports. This rule layers on top with broader
+	// coverage (also catches fixtures/ without double-underscore) at warn.
+	{
+		files: ["packages/web/src/**/*.{ts,tsx}", "packages/server/src/**/*.ts"],
+		ignores: [
+			"packages/web/src/**/*.stories.tsx",
+			"packages/web/src/**/__tests__/**",
+			"packages/web/src/**/*.test.{ts,tsx}",
+			"packages/web/src/**/*.spec.{ts,tsx}",
+			"packages/web/src/**/__fixtures__/**",
+			"packages/web/src/**/e2e/**",
+			"packages/server/src/**/__tests__/**",
+			"packages/server/src/**/*.test.ts",
+			"packages/server/src/**/*.spec.ts",
+			"packages/server/src/**/__fixtures__/**",
+			"packages/server/src/**/e2e/**",
+			"packages/server/src/**/seed*.ts",
+		],
+		languageOptions: {
+			parser: tsParser,
+			parserOptions: {
+				ecmaFeatures: { jsx: true },
+			},
+		},
+		plugins: { design },
+		rules: {
+			"design/no-mock-data-import": "warn",
+			"design/no-mock-data-symbol": "warn",
+		},
+	},
+
 	// L16 AC-3: production code in packages/web/src/ must NOT import values
 	// from any __fixtures__/ directory. Stories (*.stories.tsx) and tests
 	// (*.test.ts, *.test.tsx) are exempt; they are whitelisted by file pattern

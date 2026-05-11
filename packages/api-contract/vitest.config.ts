@@ -1,0 +1,9 @@
+import { defineProject } from "vitest/config";
+
+export default defineProject({
+	test: {
+		name: "api-contract",
+		// Scope to source tests; `dist/**/*.test.js` are stale tsc artifacts.
+		include: ["src/**/*.test.{ts,tsx}"],
+	},
+});

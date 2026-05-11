@@ -26,6 +26,13 @@
         "vitest": "^4.1.5",
       },
     },
+    "packages/api-contract": {
+      "name": "@hyperidle/api-contract",
+      "version": "0.0.1",
+      "dependencies": {
+        "@hyperidle/shared": "workspace:*",
+      },
+    },
     "packages/db": {
       "name": "@hyperidle/db",
       "version": "0.0.1",
@@ -415,6 +422,8 @@
     "@humanwhocodes/module-importer": ["@humanwhocodes/module-importer@1.0.1", "", {}, "sha512-bxveV4V8v5Yb4ncFTT3rPSgZBOpCkjfK0y4oVVVJwIuDVBRMDXrPyXRL988i5ap9m9bnyEEjWfm5WkBmtffLfA=="],
 
     "@humanwhocodes/retry": ["@humanwhocodes/retry@0.4.3", "", {}, "sha512-bV0Tgo9K4hfPCek+aMAn81RppFKv2ySDQeMoSZuvTASywNTnVJCArCZE2FWqpvIatKu7VMRLWlR1EazvVhDyhQ=="],
+
+    "@hyperidle/api-contract": ["@hyperidle/api-contract@workspace:packages/api-contract"],
 
     "@hyperidle/db": ["@hyperidle/db@workspace:packages/db"],
 
