@@ -396,8 +396,13 @@ export async function runInventory(options: RunInventoryOptions): Promise<Invent
 export async function runInventoryCheck(
 	options: RunInventoryCheckOptions,
 ): Promise<InventoryCheckResult> {
-	const { inventoryPath, ...runOptions } = options;
-	const current = await runInventory(runOptions);
+	const { inventoryPath, repoRoot, ...runOptions } = options;
+	const currentAbs = await runInventory(runOptions);
+	// Relativize against repoRoot when supplied so the comparison is portable
+	// across machines (local macOS path prefixes differ from CI Linux).
+	const current = repoRoot
+		? currentAbs.map((r) => ({ ...r, path: relative(repoRoot, r.path) }))
+		: currentAbs;
 
 	// Read checked-in inventory
 	let checkedIn: InventoryRow[] = [];
@@ -509,6 +514,7 @@ if (import.meta.main) {
 			webSrc: webSrcExists ? webSrc : null,
 			serverSrc: serverSrcExists ? serverSrc : null,
 			inventoryPath,
+			repoRoot,
 		});
 
 		if (!result.ok) {
@@ -517,7 +523,7 @@ if (import.meta.main) {
 				process.stderr.write(`  Added rows (${result.added.length}):\n`);
 				for (const row of result.added) {
 					process.stderr.write(
-						`    + ${relative(repoRoot, row.path)}:${row.line} ${row.symbol} (${row.kind})\n`,
+						`    + ${row.path}:${row.line} ${row.symbol} (${row.kind})\n`,
 					);
 				}
 			}
@@ -525,7 +531,7 @@ if (import.meta.main) {
 				process.stderr.write(`  Removed rows (${result.removed.length}):\n`);
 				for (const row of result.removed) {
 					process.stderr.write(
-						`    - ${relative(repoRoot, row.path)}:${row.line} ${row.symbol} (${row.kind})\n`,
+						`    - ${row.path}:${row.line} ${row.symbol} (${row.kind})\n`,
 					);
 				}
 			}
@@ -539,17 +545,20 @@ if (import.meta.main) {
 		process.exit(0);
 	}
 
-	// Write mode
-	const rows = await runInventory({
+	// Write mode — persist with repo-relative paths so the file is portable
+	// across machines (local macOS vs CI Linux). Markdown emitters take the
+	// absolute rows + repoRoot and relativize themselves.
+	const rowsAbs = await runInventory({
 		webSrc: webSrcExists ? webSrc : null,
 		serverSrc: serverSrcExists ? serverSrc : null,
 	});
+	const rows = rowsAbs.map((r) => ({ ...r, path: relative(repoRoot, r.path) }));
 
 	mkdirSync(outDir, { recursive: true });
 
 	writeFileSync(inventoryPath, JSON.stringify(rows, null, 2));
-	writeFileSync(join(outDir, "inventory.md"), emitMarkdown(rows, repoRoot));
-	writeFileSync(join(outDir, "queue.md"), emitQueue(rows, repoRoot));
+	writeFileSync(join(outDir, "inventory.md"), emitMarkdown(rowsAbs, repoRoot));
+	writeFileSync(join(outDir, "queue.md"), emitQueue(rowsAbs, repoRoot));
 
 	const byKind = {
 		symbol: rows.filter((r) => r.kind === "symbol").length,

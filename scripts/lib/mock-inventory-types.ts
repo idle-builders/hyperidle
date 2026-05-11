@@ -27,4 +27,10 @@ export interface RunInventoryOptions {
 
 export interface RunInventoryCheckOptions extends RunInventoryOptions {
 	inventoryPath: string;
+	/**
+	 * Optional repo root. When set, walked paths are relativized to this prefix
+	 * before comparing against the on-disk inventory so the check is portable
+	 * across machines (local macOS vs CI Linux).
+	 */
+	repoRoot?: string;
 }
