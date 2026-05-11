@@ -8,12 +8,12 @@ Total offenders: **34**
 
 | path | line | symbol | kind | shape |
 |---|---|---|---|---|
-| `packages/server/src/routes/bets.ts` | 365 | `u-founder` | literal-id | string |
-| `packages/server/src/routes/bets.ts` | 402 | `u-founder` | literal-id | string |
-| `packages/server/src/routes/bets.ts` | 417 | `u-founder` | literal-id | string |
-| `packages/server/src/routes/bets.ts` | 445 | `u-founder` | literal-id | string |
-| `packages/server/src/routes/bets.ts` | 460 | `u-founder` | literal-id | string |
-| `packages/server/src/routes/bets.ts` | 475 | `u-founder` | literal-id | string |
+| `packages/server/src/routes/bets.ts` | 363 | `u-founder` | literal-id | string |
+| `packages/server/src/routes/bets.ts` | 400 | `u-founder` | literal-id | string |
+| `packages/server/src/routes/bets.ts` | 415 | `u-founder` | literal-id | string |
+| `packages/server/src/routes/bets.ts` | 444 | `u-founder` | literal-id | string |
+| `packages/server/src/routes/bets.ts` | 457 | `u-founder` | literal-id | string |
+| `packages/server/src/routes/bets.ts` | 472 | `u-founder` | literal-id | string |
 | `packages/server/src/routes/coach.ts` | 24 | `DEFAULT_FOUNDER_ID` | symbol | string |
 | `packages/server/src/routes/coach.ts` | 24 | `u-founder` | literal-id | string |
 | `packages/server/src/routes/threads.ts` | 49 | `DEFAULT_FOUNDER_ID` | symbol | string |

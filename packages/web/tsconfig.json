@@ -4,10 +4,10 @@
 		"outDir": "dist",
 		"rootDir": "src",
 		"jsx": "react-jsx",
-		"composite": true,
-		"declaration": true,
-		"declarationMap": true
+		"composite": false,
+		"declaration": false,
+		"declarationMap": false
 	},
 	"include": ["src"],
-	"references": [{ "path": "../shared" }, { "path": "../design-system" }, { "path": "../server" }]
+	"references": [{ "path": "../shared" }, { "path": "../design-system" }]
 }

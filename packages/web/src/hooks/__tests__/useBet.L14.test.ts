@@ -71,8 +71,6 @@ describe("L14 — useBet refresh", () => {
 		result.current.refresh();
 
 		await waitFor(() => expect(fetch).toHaveBeenCalledTimes(2));
-		// hc<BetsRoutes> passes a full options object alongside the URL;
-		// assert only that the first argument is the expected URL.
-		expect(fetch).toHaveBeenNthCalledWith(2, "/api/bets/b1", expect.any(Object));
+		expect(fetch).toHaveBeenNthCalledWith(2, "/api/bets/b1");
 	});
 });

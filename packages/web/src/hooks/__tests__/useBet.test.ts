@@ -96,9 +96,7 @@ describe("useBet", () => {
 		renderHook(() => useBet("b1"));
 
 		await waitFor(() => {
-			// hc<BetsRoutes> passes a full options object alongside the URL;
-			// assert only that the first argument is the expected URL.
-			expect(fetch).toHaveBeenCalledWith("/api/bets/b1", expect.any(Object));
+			expect(fetch).toHaveBeenCalledWith("/api/bets/b1");
 		});
 	});
 
