@@ -1,35 +1,63 @@
-import { Database } from "bun:sqlite";
+import { createRequire } from "node:module";
 import { resolve } from "node:path";
-import { drizzle } from "drizzle-orm/bun-sqlite";
-import { migrate } from "drizzle-orm/bun-sqlite/migrator";
 import type { HyperIdleDb } from "./connection.js";
 import * as schema from "./schema.js";
 
 /**
  * In-memory SQLite with all tables via Drizzle migrations.
  *
- * @lore api-contract: Uses bun:sqlite (Bun's built-in SQLite) instead of
- * better-sqlite3 (a native Node.js addon). better-sqlite3 requires dlopen of
- * a compiled .node file, which Bun does not support (ABI mismatch). Drizzle
- * has a first-class bun-sqlite adapter with the same query API. The result is
- * cast to HyperIdleDb because both BunSQLiteDatabase and BetterSQLite3Database
- * extend BaseSQLiteDatabase<'sync', void, TSchema> — structurally identical
- * query interfaces. Production code continues to use better-sqlite3 via
- * createDb(); only tests use bun:sqlite.
- * Vite transform must skip this module: add `bun:sqlite` to server.deps.external
- * in packages/db/vitest.config.ts so Vite does not attempt to resolve the
- * `bun:` protocol specifier, allowing Bun's runtime to handle it natively.
+ * @lore api-contract: The test runtime is heterogeneous:
+ *   - Locally (macOS, Bun): vitest workers run under Bun's runtime, which
+ *     cannot dlopen better-sqlite3 (ERR_DLOPEN_FAILED, no native addon ABI).
+ *   - CI (Linux, GitHub Actions, oven-sh/setup-bun): vitest forks Node.js
+ *     child processes via child_process.fork(). These workers use Node's ESM
+ *     loader which rejects `bun:` protocol imports with "Only URLs with a
+ *     scheme in: file, data, and node are supported".
+ *
+ * Solution: detect the runtime via `typeof globalThis.Bun !== "undefined"` and
+ * use `createRequire` to load the appropriate adapter synchronously (CJS
+ * require avoids ESM protocol restrictions). bun:sqlite for Bun workers,
+ * better-sqlite3 for Node workers. Both adapters present the same synchronous
+ * query interface; the result is cast to HyperIdleDb.
  */
 export function createTestDb(): HyperIdleDb {
-	const sqlite = new Database(":memory:");
-	sqlite.run("PRAGMA journal_mode = WAL");
-	sqlite.run("PRAGMA foreign_keys = ON");
-	const db = drizzle(sqlite, { schema });
+	const nodeRequire = createRequire(import.meta.url);
+	const isBun = typeof globalThis.Bun !== "undefined";
 
+	if (isBun) {
+		const { Database } = nodeRequire("bun:sqlite") as typeof import("bun:sqlite");
+		const { drizzle } = nodeRequire(
+			"drizzle-orm/bun-sqlite",
+		) as typeof import("drizzle-orm/bun-sqlite");
+		const { migrate } = nodeRequire(
+			"drizzle-orm/bun-sqlite/migrator",
+		) as typeof import("drizzle-orm/bun-sqlite/migrator");
+
+		const sqlite = new Database(":memory:");
+		sqlite.run("PRAGMA journal_mode = WAL");
+		sqlite.run("PRAGMA foreign_keys = ON");
+		const db = drizzle(sqlite, { schema });
+		const migrationsFolder = resolve(__dirname, "../drizzle");
+		migrate(db, { migrationsFolder });
+		return db as unknown as HyperIdleDb;
+	}
+
+	// Node.js worker path (CI): use better-sqlite3
+	const BetterSqlite = nodeRequire("better-sqlite3") as typeof import("better-sqlite3");
+	const Database =
+		BetterSqlite.default ?? (BetterSqlite as unknown as typeof import("better-sqlite3").default);
+	const { drizzle } = nodeRequire(
+		"drizzle-orm/better-sqlite3",
+	) as typeof import("drizzle-orm/better-sqlite3");
+	const { migrate } = nodeRequire(
+		"drizzle-orm/better-sqlite3/migrator",
+	) as typeof import("drizzle-orm/better-sqlite3/migrator");
+
+	const sqlite = new Database(":memory:");
+	sqlite.pragma("journal_mode = WAL");
+	sqlite.pragma("foreign_keys = ON");
+	const db = drizzle(sqlite, { schema });
 	const migrationsFolder = resolve(__dirname, "../drizzle");
 	migrate(db, { migrationsFolder });
-
-	// Cast is safe: BunSQLiteDatabase and BetterSQLite3Database both extend
-	// BaseSQLiteDatabase<'sync', void, schema> with identical query interfaces.
-	return db as unknown as HyperIdleDb;
+	return db;
 }
