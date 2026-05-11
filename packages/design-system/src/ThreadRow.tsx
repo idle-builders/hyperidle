@@ -7,7 +7,12 @@ import { Tag } from "./Tag";
 import type { TagKind } from "./tag-kinds";
 
 export interface ThreadRowProps {
-	avatarUrl: string;
+	/**
+	 * M3 E1: avatarUrl is now nullable.
+	 * - string URL → render <img>
+	 * - null → render initials chip (first two uppercase chars of title)
+	 */
+	avatarUrl: string | null;
 	title: string;
 	snippet: string;
 	timestamp: string;
@@ -79,11 +84,22 @@ export function ThreadRow({
 			aria-current={selected ? "true" : undefined}
 			className={baseClassName}
 		>
-			<img
-				src={avatarUrl}
-				alt=""
-				className="h-[var(--density-avatar-size)] w-[var(--density-avatar-size)] rounded-full"
-			/>
+			{avatarUrl !== null ? (
+				<img
+					src={avatarUrl}
+					alt=""
+					className="h-[var(--density-avatar-size)] w-[var(--density-avatar-size)] rounded-full"
+				/>
+			) : (
+				// M3 E2: initials chip — first two uppercase chars of the title.
+				// Falls back to a neutral chip when title is empty or undefined.
+				<span
+					aria-hidden="true"
+					className="flex h-[var(--density-avatar-size)] w-[var(--density-avatar-size)] items-center justify-center rounded-full bg-[var(--surface-4)] text-[var(--text-mid)] text-[11px] font-mono font-bold uppercase shrink-0"
+				>
+					{title.slice(0, 2).toUpperCase() || "??"}
+				</span>
+			)}
 			<div className="flex-1 min-w-0">
 				<div className="flex items-center gap-[var(--density-gap)]">
 					{pinned && (

@@ -9,7 +9,7 @@
 
 import { render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { MOCK_BETS } from "../pages/__fixtures__/work-bet-fixtures";
 import { WorkBet } from "../pages/WorkBet";
 
@@ -24,10 +24,7 @@ function renderPage(overrideBet = MOCK_BETS.b1): ReturnType<typeof render> {
 	return render(
 		<MemoryRouter initialEntries={[`/work/bet/${overrideBet.id}`]}>
 			<Routes>
-				<Route
-					path="/work/bet/:betId"
-					element={<WorkBet overrideBet={overrideBet} />}
-				/>
+				<Route path="/work/bet/:betId" element={<WorkBet overrideBet={overrideBet} />} />
 			</Routes>
 		</MemoryRouter>,
 	);

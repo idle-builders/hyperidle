@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { items, threads } from "@hyperidle/db";
 import type { ItemCreatedEvent } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
-import { z } from "zod";
+import z from "zod";
 import { routeItem } from "../services/item-router.js";
 import type { ToolContext, ToolDefinition } from "./tool-registry.js";
 import { err, ok, type ToolResult } from "./tool-result.js";

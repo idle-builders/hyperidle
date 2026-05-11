@@ -43,8 +43,8 @@ export interface UseConversationsThreadsResult {
 	retry: () => void;
 }
 
-const FALLBACK_AVATAR =
-	"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32'%3E%3Crect width='32' height='32' fill='%23374151'/%3E%3C/svg%3E";
+// @lore M3 E1: FALLBACK_AVATAR deleted. rowToItem now passes null so ThreadRow
+// renders an initials chip instead of a data: URI SVG fallback.
 
 const HOST_KIND_SET: ReadonlySet<string> = new Set<string>([
 	"bet",
@@ -112,7 +112,7 @@ function rowToItem(row: ThreadListRow): ThreadItem {
 		title: `${capitalize(row.hostKind)} thread ${row.id.slice(0, 8)}`,
 		snippet: "",
 		timestamp: relative,
-		avatarUrl: FALLBACK_AVATAR,
+		avatarUrl: null,
 		hostKind: row.hostKind,
 		hasUnresolvedReview: row.hasUnresolvedReview,
 		blocking: row.blocking ?? false,

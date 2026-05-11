@@ -61,7 +61,13 @@ describe("M3 — AppShell: no 'u-founder' in DOM (A11)", () => {
 					bets: [],
 					blockers: [],
 					awaitingOrdering: [],
-					costBurnRate: { todaySpend: null, todayCap: null, weekSpend: null, weekCap: null, weekTokens: null },
+					costBurnRate: {
+						todaySpend: null,
+						todayCap: null,
+						weekSpend: null,
+						weekCap: null,
+						weekTokens: null,
+					},
 					// /api/threads response
 					threads: [],
 					nextCursor: null,
@@ -108,7 +114,13 @@ describe("M3 — AppShell: knowledge submenu count:12 removed (F1)", () => {
 					bets: [],
 					blockers: [],
 					awaitingOrdering: [],
-					costBurnRate: { todaySpend: null, todayCap: null, weekSpend: null, weekCap: null, weekTokens: null },
+					costBurnRate: {
+						todaySpend: null,
+						todayCap: null,
+						weekSpend: null,
+						weekCap: null,
+						weekTokens: null,
+					},
 					threads: [],
 					nextCursor: null,
 				}),
@@ -146,10 +158,23 @@ describe("M3 — AppShell: uses useRail hook instead of MOCK_RAIL_* (C4)", () =>
 					ok: true,
 					json: () =>
 						Promise.resolve({
-							bets: [{ id: "b-real", title: "Real Bet from API", status: "in_progress", progress: { done: 1, total: 3 } }],
+							bets: [
+								{
+									id: "b-real",
+									title: "Real Bet from API",
+									status: "in_progress",
+									progress: { done: 1, total: 3 },
+								},
+							],
 							blockers: [],
 							awaitingOrdering: [],
-							costBurnRate: { todaySpend: null, todayCap: null, weekSpend: null, weekCap: null, weekTokens: null },
+							costBurnRate: {
+								todaySpend: null,
+								todayCap: null,
+								weekSpend: null,
+								weekCap: null,
+								weekTokens: null,
+							},
 						}),
 				});
 			}

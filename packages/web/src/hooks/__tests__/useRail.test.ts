@@ -6,7 +6,7 @@
  *  - The hook fetches GET /api/rail and returns { data, status, error, retry }
  */
 
-import { act, renderHook, waitFor } from "@testing-library/react";
+import { renderHook, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useRail } from "../../hooks/useRail";
 
@@ -38,7 +38,12 @@ const FIXTURE_RAIL: RailResponse = {
 		{ id: "b1", title: "User auth flow", status: "in_progress", progress: { done: 2, total: 5 } },
 	],
 	blockers: [
-		{ taskId: "t-blocked-1", title: "Waiting for API", owner: "agent-1", durationBlockedMs: 7200000 },
+		{
+			taskId: "t-blocked-1",
+			title: "Waiting for API",
+			owner: "agent-1",
+			durationBlockedMs: 7200000,
+		},
 	],
 	awaitingOrdering: [],
 	costBurnRate: {

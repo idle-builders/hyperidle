@@ -4,15 +4,13 @@
  * AC coverage:
  *  - legacy postRequestMessage is the same function as postPlainHostMessage
  *  - legacy resolveOrCreateTaskThread delegates to resolveOrCreateHostThread with hostKind=task
- *  - PLACEHOLDER_AGENT_PARTICIPANT_ID is still exported from task-threads
+ *
+ * @lore M3 D2: PLACEHOLDER_AGENT_PARTICIPANT_ID removed from task-threads shim.
+ * The sentinel "agent-unassigned" must NOT appear in any export. Callers use null.
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import {
-	PLACEHOLDER_AGENT_PARTICIPANT_ID,
-	postRequestMessage,
-	resolveOrCreateTaskThread,
-} from "../../services/task-threads";
+import { postRequestMessage, resolveOrCreateTaskThread } from "../../services/task-threads";
 
 // Mock apiFetch so task-threads.ts (via host-threads.ts) does not call global.fetch.
 // Header injection is covered by api-fetch.test.ts.
@@ -81,7 +79,11 @@ describe("task-threads shim (L18)", () => {
 		expect(url).toContain("host_id=task-legacy-1");
 	});
 
-	it("PLACEHOLDER_AGENT_PARTICIPANT_ID is still exported as 'agent-unassigned'", () => {
-		expect(PLACEHOLDER_AGENT_PARTICIPANT_ID).toBe("agent-unassigned");
+	it("PLACEHOLDER_AGENT_PARTICIPANT_ID is NOT exported from task-threads (M3 D2)", () => {
+		// M3 D2: the sentinel must not be exported. Verify it is absent.
+		// @ts-expect-error — testing that the export no longer exists
+		// biome-ignore lint/suspicious/noExplicitAny: intentional probe for deleted export
+		const mod = { postRequestMessage, resolveOrCreateTaskThread } as Record<string, unknown>;
+		expect(mod["PLACEHOLDER_AGENT_PARTICIPANT_ID"]).toBeUndefined();
 	});
 });

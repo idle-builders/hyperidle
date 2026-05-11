@@ -17,12 +17,7 @@ import type { BetItem, BlockerItem, CostInfo } from "../shell/Rail";
 import { Rail } from "../shell/Rail";
 
 function renderRail(
-	props: {
-		bets?: BetItem[];
-		blockers?: BlockerItem[];
-		cost?: CostInfo;
-		expanded?: boolean;
-	} = {},
+	props: { bets?: BetItem[]; blockers?: BlockerItem[]; cost?: CostInfo; expanded?: boolean } = {},
 ): ReturnType<typeof render> {
 	const defaults: {
 		bets: BetItem[];
@@ -66,7 +61,8 @@ describe("M3 — Rail component: BetItem uses progress (not product) (C2)", () =
 
 		expect(screen.getByText("User auth flow")).toBeInTheDocument();
 		// Progress values should appear (2/5, or similar)
-		const railContent = screen.getByText("User auth flow").closest("[data-testid]") ?? document.body;
+		const railContent =
+			screen.getByText("User auth flow").closest("[data-testid]") ?? document.body;
 		expect(railContent.textContent).toMatch(/2/);
 		expect(railContent.textContent).toMatch(/5/);
 	});

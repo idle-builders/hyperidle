@@ -183,9 +183,7 @@ describe("M3 — Bets routes: revision log actor comes from auth context (A5)", 
 
 		expect(res.status).toBe(200);
 		const body = (await res.json()) as { revisionLog?: string };
-		const log = body.revisionLog
-			? (JSON.parse(body.revisionLog) as Array<{ actor: string }>)
-			: [];
+		const log = body.revisionLog ? (JSON.parse(body.revisionLog) as Array<{ actor: string }>) : [];
 		expect(log.length).toBeGreaterThan(0);
 		const lastEntry = log[log.length - 1];
 		expect(lastEntry?.actor).toBe("test-founder-1");

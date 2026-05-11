@@ -12,16 +12,16 @@ function renderInRouter(ui: ReactElement): ReturnType<typeof render> {
 }
 
 const sampleBets: BetItem[] = [
-	{ id: "bet-1", title: "Launch MVP", product: "HyperIdle", status: "committed" },
-	{ id: "bet-2", title: "User Onboarding", product: "HyperIdle", status: "behind" },
+	{ id: "bet-1", title: "Launch MVP", progress: { done: 1, total: 3 }, status: "committed" },
+	{ id: "bet-2", title: "User Onboarding", progress: { done: 0, total: 5 }, status: "behind" },
 ];
 
 const sampleBlockers: BlockerItem[] = [
 	{
-		id: "blocker-1",
-		agent: "Agent Alpha",
-		reason: "Waiting for API key",
-		severity: "low",
+		taskId: "blocker-1",
+		owner: "Agent Alpha",
+		title: "Waiting for API key",
+		durationBlockedMs: 1_800_000, // 0.5h → low
 	},
 ];
 
@@ -79,10 +79,11 @@ describe("Rail", () => {
 			expect(screen.getByText("User Onboarding")).toBeInTheDocument();
 		});
 
-		it("renders bet products", () => {
+		it("renders bet progress (M3 C2: progress replaces product)", () => {
 			renderInRouter(<Rail {...defaultProps} />);
-			const products = screen.getAllByText("HyperIdle");
-			expect(products.length).toBeGreaterThanOrEqual(1);
+			// Progress values rendered as done/total
+			const progressEls = screen.getAllByLabelText(/tasks done/i);
+			expect(progressEls.length).toBeGreaterThanOrEqual(1);
 		});
 
 		it("renders blocker details", () => {
@@ -257,7 +258,7 @@ describe("Rail", () => {
 		// chip (not the HEALTHY fallback the old duplicate used as default).
 		it("renders the BEHIND chip for a behind bet", () => {
 			const behindBets: BetItem[] = [
-				{ id: "b", title: "Behind Bet", product: "P", status: "behind" },
+				{ id: "b", title: "Behind Bet", progress: { done: 0, total: 2 }, status: "behind" },
 			];
 			// Empty blockers so the only chip is the bet's chip — severities
 			// also render StatusChip and would otherwise collide.
@@ -270,7 +271,7 @@ describe("Rail", () => {
 
 		it("renders the BLOCKED chip for a blocked bet", () => {
 			const blockedBets: BetItem[] = [
-				{ id: "b", title: "Blocked Bet", product: "P", status: "blocked" },
+				{ id: "b", title: "Blocked Bet", progress: { done: 1, total: 3 }, status: "blocked" },
 			];
 			renderInRouter(<Rail {...defaultProps} bets={blockedBets} blockers={[]} />);
 			expect(screen.getByText("BLOCKED")).toBeInTheDocument();
@@ -278,7 +279,7 @@ describe("Rail", () => {
 
 		it("renders the PAUSED chip for a paused bet", () => {
 			const pausedBets: BetItem[] = [
-				{ id: "b", title: "Paused Bet", product: "P", status: "paused" },
+				{ id: "b", title: "Paused Bet", progress: { done: 0, total: 1 }, status: "paused" },
 			];
 			renderInRouter(<Rail {...defaultProps} bets={pausedBets} blockers={[]} />);
 			expect(screen.getByText("PAUSED")).toBeInTheDocument();
@@ -286,7 +287,7 @@ describe("Rail", () => {
 
 		it("renders a non-HEALTHY chip for a review bet", () => {
 			const reviewBets: BetItem[] = [
-				{ id: "b", title: "Review Bet", product: "P", status: "review" },
+				{ id: "b", title: "Review Bet", progress: { done: 2, total: 2 }, status: "review" },
 			];
 			renderInRouter(<Rail {...defaultProps} bets={reviewBets} />);
 			expect(screen.queryByText("HEALTHY")).not.toBeInTheDocument();

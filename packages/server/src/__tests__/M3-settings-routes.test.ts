@@ -7,13 +7,7 @@
  *  - factorySettings are seeded with founder profile keys
  */
 
-import {
-	agents,
-	createTestDb,
-	factorySettings,
-	type HyperIdleDb,
-	products,
-} from "@hyperidle/db";
+import { agents, createTestDb, factorySettings, type HyperIdleDb, products } from "@hyperidle/db";
 import { EventBus } from "@hyperidle/shared";
 import type { Hono } from "hono";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";

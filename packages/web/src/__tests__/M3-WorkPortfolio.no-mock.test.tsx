@@ -11,7 +11,7 @@
 
 import { render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { WorkPortfolio } from "../pages/WorkPortfolio";
 
 // Mock useProducts to control returned data
@@ -21,13 +21,9 @@ vi.mock("../hooks/useProducts", () => ({
 
 import { useProducts } from "../hooks/useProducts";
 
-type UseProductsReturn = {
-	data: { products: Array<{ id: string; name: string; status: string; activeBets: number; shipRate: string; leadAgentId: string | null; shipped: number; progress: { done: number; total: number } }> } | null;
-	loading?: boolean;
-	error?: string | null;
-};
-
-function renderPage(props: { loading?: boolean; products?: unknown } = {}): ReturnType<typeof render> {
+function renderPage(
+	props: { loading?: boolean; products?: unknown } = {},
+): ReturnType<typeof render> {
 	return render(
 		<MemoryRouter>
 			<WorkPortfolio {...props} />

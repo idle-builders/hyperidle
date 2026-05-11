@@ -34,22 +34,13 @@ vi.mock("../../services/host-threads", () => ({
 	postPlainHostMessage: vi.fn().mockResolvedValue(undefined),
 }));
 
-import { resolveOrCreateHostThread } from "../../services/host-threads";
-
 describe("M3 — HostThreadSection: accepts agentId prop (D3)", () => {
 	afterEach(() => {
 		vi.clearAllMocks();
 	});
 
 	it("renders without error when agentId is null", () => {
-		render(
-			<HostThreadSection
-				hostKind="bet"
-				hostId="bet-001"
-				title="Discussion"
-				agentId={null}
-			/>,
-		);
+		render(<HostThreadSection hostKind="bet" hostId="bet-001" title="Discussion" agentId={null} />);
 
 		expect(screen.getByTestId("host-thread-section")).toBeInTheDocument();
 	});
@@ -76,12 +67,7 @@ describe("M3 — HostThreadSection: accepts agentId prop (D3)", () => {
 
 	it("does NOT use 'agent-unassigned' string in the component", () => {
 		const { container } = render(
-			<HostThreadSection
-				hostKind="bet"
-				hostId="bet-001"
-				title="Discussion"
-				agentId={null}
-			/>,
+			<HostThreadSection hostKind="bet" hostId="bet-001" title="Discussion" agentId={null} />,
 		);
 
 		// The hardcoded sentinel "agent-unassigned" must never appear in the DOM

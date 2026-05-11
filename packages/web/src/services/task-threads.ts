@@ -9,17 +9,19 @@
  * preserved in host-threads.ts and apply equally to the shim callers.
  */
 
-export {
-	PLACEHOLDER_AGENT_PARTICIPANT_ID,
-	postPlainHostMessage as postRequestMessage,
-} from "./host-threads.js";
+/**
+ * @lore M3 D2: PLACEHOLDER_AGENT_PARTICIPANT_ID deleted — callers that have no
+ * agent yet pass null. Re-export removed so no consumer can accidentally use
+ * the "agent-unassigned" sentinel.
+ */
+export { postPlainHostMessage as postRequestMessage } from "./host-threads.js";
 
 import { resolveOrCreateHostThread } from "./host-threads.js";
 
 export function resolveOrCreateTaskThread(
 	taskId: string,
 	founderId: string,
-	agentParticipantId: string,
+	agentParticipantId: string | null,
 ): Promise<string> {
 	return resolveOrCreateHostThread("task", taskId, founderId, agentParticipantId);
 }

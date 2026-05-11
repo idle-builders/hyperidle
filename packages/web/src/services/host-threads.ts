@@ -19,18 +19,14 @@ import type { HostKind } from "@hyperidle/shared";
 import { apiFetch } from "./api-fetch.js";
 
 /**
- * Static placeholder until task→agent assignment is wired (a separate
- * workpackage). Exported so tests and production code share the literal.
- *
- * @lore L18: moved here from task-threads.ts (M6 fix) — host-threads.ts is
- * now the canonical implementation; task-threads.ts is a re-export shim.
- */
-export const PLACEHOLDER_AGENT_PARTICIPANT_ID = "agent-unassigned" as const;
-
-/**
  * Resolves the host-attached thread. If one exists, returns its id.
  * If none exists, creates one (with an initial "Thread started." plain message)
  * and returns the new id.
+ *
+ * @lore M3 D1: agentParticipantId changed from `string` to `string | null`.
+ * When null, the thread is created with only the founder as participant
+ * (no "agent-unassigned" sentinel). PLACEHOLDER_AGENT_PARTICIPANT_ID is
+ * deleted — callers that have no agent yet pass null.
  *
  * @lore URL construction uses encodeURIComponent(hostId) to protect against
  * ids ever containing & or #. UUIDs are safe today but the encoding is the
@@ -40,7 +36,7 @@ export async function resolveOrCreateHostThread(
 	hostKind: HostKind,
 	hostId: string,
 	founderId: string,
-	agentParticipantId: string,
+	agentParticipantId: string | null,
 ): Promise<string> {
 	const listUrl = `/api/threads?host_kind=${hostKind}&host_id=${encodeURIComponent(hostId)}`;
 	const listResp = await apiFetch(listUrl);
@@ -52,6 +48,10 @@ export async function resolveOrCreateHostThread(
 		return listData.threads[0].id;
 	}
 
+	// Build participant list: always include the founder; include the agent only
+	// when a real agent id is provided (null means "no agent assigned yet").
+	const participants = agentParticipantId !== null ? [founderId, agentParticipantId] : [founderId];
+
 	// No thread exists — create one.
 	const createResp = await apiFetch("/api/threads", {
 		method: "POST",
@@ -59,7 +59,7 @@ export async function resolveOrCreateHostThread(
 		body: JSON.stringify({
 			hostKind,
 			hostId,
-			participants: [founderId, agentParticipantId],
+			participants,
 			initialMessage: {
 				type: "plain",
 				payload: { text: "Thread started." },

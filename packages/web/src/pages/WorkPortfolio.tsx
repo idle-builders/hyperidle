@@ -19,7 +19,7 @@ import { EmptyState, KeyValue, SkeletonCard, StatusChip } from "@hyperidle/desig
 import type { JSX } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArtifactSection, useArtifactOpen } from "../components/ArtifactSection.js";
-import { MOCK_CYCLE, MOCK_PRODUCTS } from "../fixtures/portfolio-data";
+import type { PortfolioProduct } from "../fixtures/portfolio-data";
 import { useProducts } from "../hooks/useProducts";
 
 export interface WorkPortfolioProps {
@@ -33,8 +33,12 @@ export interface WorkPortfolioProps {
 	 * J8: opt-in override of the product list so the empty state can be
 	 * exercised via props (and in stories) without mutating the shared
 	 * fixture module.
+	 *
+	 * @lore M3 G1: no more MOCK_PRODUCTS fallback — callers must pass real data
+	 * or leave undefined (renders empty/loading state). Type changed to
+	 * `PortfolioProduct[] | undefined`.
 	 */
-	products?: typeof MOCK_PRODUCTS;
+	products?: PortfolioProduct[];
 }
 
 export function WorkPortfolio({ loading = false, products }: WorkPortfolioProps = {}): JSX.Element {
@@ -42,14 +46,16 @@ export function WorkPortfolio({ loading = false, products }: WorkPortfolioProps 
 	const { data: productsData } = useProducts();
 	const onOpenArtifact = useArtifactOpen();
 
-	// Use injected products prop first (stories/tests), then real API data,
-	// then MOCK_PRODUCTS fallback when loading or API unavailable.
-	const items =
+	// Use injected products prop first (stories/tests), then real API data.
+	// No MOCK_PRODUCTS fallback — show empty state when data is unavailable.
+	// @lore M3 G1: MOCK_PRODUCTS deleted — the real wiring from L13 is now
+	// the only production data path.
+	const items: PortfolioProduct[] =
 		products ??
 		productsData?.products.map((p) => ({
 			id: p.id,
 			name: p.name,
-			status: p.status,
+			status: p.status as PortfolioProduct["status"],
 			activeBets: p.activeBets,
 			shipRate: p.shipRate,
 			lead: {
@@ -59,13 +65,9 @@ export function WorkPortfolio({ loading = false, products }: WorkPortfolioProps 
 			shipped: p.shipped,
 			progress: p.progress,
 		})) ??
-		MOCK_PRODUCTS;
+		[];
 
 	// Only show skeleton when explicitly requested via loading prop.
-	// The useProducts() hook loading state is not surfaced as a skeleton —
-	// the page renders MOCK_PRODUCTS immediately and swaps to real data on resolve.
-	// @lore L13: This keeps existing tests (which don't mock useProducts) passing
-	// while still wiring the real data path for production.
 	const isLoading = loading;
 
 	if (isLoading) {
@@ -161,20 +163,9 @@ export function WorkPortfolio({ loading = false, products }: WorkPortfolioProps 
 					))}
 				</div>
 			)}
-			<div
-				data-testid="cycle-stripe"
-				/* @lore K11: cycle stripe outer pad → --density-card-pad per § 3.4.P1. */
-				className="bg-base-200 rounded-lg p-[var(--density-card-pad)] flex items-center justify-between gap-[var(--density-gap)]"
-			>
-				<span className="text-sm font-heading font-semibold uppercase tracking-wider text-[var(--text-lo)]">
-					{MOCK_CYCLE.label}
-				</span>
-				<span className="text-xs text-[var(--text-mid)]">
-					{`${MOCK_CYCLE.daysRemaining} ${
-						MOCK_CYCLE.daysRemaining === 1 ? "day remaining" : "days remaining"
-					}`}
-				</span>
-			</div>
+			{/* @lore M3 G1: MOCK_CYCLE removed. Cycle data is not yet wired from the
+			    server (deferred follow-up). The stripe is hidden when no real cycle
+			    data is available rather than showing mock "Cycle 12". */}
 
 			{/* L12: Artifact gallery — portfolio axis, limit=12, BELOW cycle-stripe per design.
 			    @lore L12 review (W-1): approved design says "below cycle-stripe". */}

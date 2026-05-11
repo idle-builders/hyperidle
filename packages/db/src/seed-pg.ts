@@ -168,6 +168,21 @@ export async function seedPg(db: SeedablePgDb): Promise<void> {
 		.values({ key: "cost_cycle", value: "daily", updatedAt: now })
 		.onConflictDoNothing();
 
+	// M3 A1: Seed founder identity. Values come FROM the database at runtime
+	// rather than being hardcoded at each call site.
+	await db
+		.insert(factorySettings)
+		.values({ key: "founder_id", value: "u-founder", updatedAt: now })
+		.onConflictDoNothing();
+	await db
+		.insert(factorySettings)
+		.values({ key: "founder_name", value: "Founder", updatedAt: now })
+		.onConflictDoNothing();
+	await db
+		.insert(factorySettings)
+		.values({ key: "founder_email", value: "founder@hyperidle.com", updatedAt: now })
+		.onConflictDoNothing();
+
 	// --- H2: daily-digest scaffolding bet/task/routine ---
 	await db
 		.insert(bets)

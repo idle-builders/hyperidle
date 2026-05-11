@@ -1,6 +1,6 @@
 import { agents } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
-import { z } from "zod";
+import z from "zod";
 import { type HandoffMetadata, type HandoffParams, handoff } from "../services/handoff-protocol.js";
 import type { SessionContext } from "../services/session-lifecycle.js";
 import type { ToolContext, ToolDefinition } from "./tool-registry.js";

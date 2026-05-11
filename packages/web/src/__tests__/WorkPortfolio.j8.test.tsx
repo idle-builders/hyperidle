@@ -3,8 +3,14 @@
  */
 import { render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { WorkPortfolio } from "../pages/WorkPortfolio";
+
+// M3 G1: mock useProducts so J8 tests that exercise the products prop don't
+// race with a real useProducts fetch that might return null.
+vi.mock("../hooks/useProducts", () => ({
+	useProducts: vi.fn().mockReturnValue({ data: null }),
+}));
 
 function renderPage(props: Parameters<typeof WorkPortfolio>[0] = {}): ReturnType<typeof render> {
 	return render(

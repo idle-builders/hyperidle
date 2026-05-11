@@ -130,11 +130,7 @@ describe("M3 — lifecycle-propagation: thread participants use factorySettings 
 		await new Promise<void>((r) => setTimeout(r, 50));
 
 		// Find threads created by propagation for bet-1
-		const propagationThreads = db
-			.select()
-			.from(threads)
-			.where(eq(threads.hostId, "bet-1"))
-			.all();
+		const propagationThreads = db.select().from(threads).where(eq(threads.hostId, "bet-1")).all();
 
 		// A thread may or may not have been created depending on propagation conditions
 		// The key check: if a thread was created, it must NOT contain "u-founder" as participant
@@ -142,7 +138,10 @@ describe("M3 — lifecycle-propagation: thread participants use factorySettings 
 			const participants = JSON.parse(thread.participants) as string[];
 			expect(participants).not.toContain("u-founder");
 			// The seeded founder_id should be in participants if a founder participant is included
-			if (participants.includes("test-founder-1") || participants.some((p) => p !== SYSTEM_PROPAGATION_ID)) {
+			if (
+				participants.includes("test-founder-1") ||
+				participants.some((p) => p !== SYSTEM_PROPAGATION_ID)
+			) {
 				expect(participants).toContain("test-founder-1");
 			}
 		}

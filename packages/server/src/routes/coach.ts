@@ -18,18 +18,29 @@ import { agents, type HyperIdleDb, messages, threads } from "@hyperidle/db";
 import type { EventBus, HostKind, Message, MessageType, Thread } from "@hyperidle/shared";
 import { and, eq } from "drizzle-orm";
 import { Hono } from "hono";
+import type { HyperIdleEnv } from "../middleware/auth.js";
 import { messageRowSchema, threadParticipantsSchema } from "./threads-schema.js";
 
 const SENDER_HEADER = "X-Identity";
-const DEFAULT_FOUNDER_ID = "u-founder";
 
 /** @lore L21: The CoC agent uses the existing seed-agent-cos id (not "agent-coc"). */
 const COC_AGENT_ID = "seed-agent-cos";
 const COC_AGENT_DISPLAY_NAME = "Chief of Staff";
 const COC_AGENT_ROLE = "chief_of_staff";
 
-function readSenderId(c: { req: { header: (k: string) => string | undefined } }): string {
-	return c.req.header(SENDER_HEADER) ?? DEFAULT_FOUNDER_ID;
+/**
+ * Read the sender id. Prefers X-Identity header; falls back to the auth context
+ * userId set by createAuthMiddleware(db).
+ *
+ * @lore M3 A6: DEFAULT_FOUNDER_ID constant deleted. The fallback is now the
+ * auth context userId (set from factorySettings.founder_id). This ensures
+ * the coach thread is created for the configured founder, not a hardcoded literal.
+ */
+function readSenderId(c: {
+	req: { header: (k: string) => string | undefined };
+	get: (k: "userId") => string;
+}): string {
+	return c.req.header(SENDER_HEADER) ?? c.get("userId");
 }
 
 function rowToThread(row: {
@@ -115,8 +126,8 @@ function buildIdentities(
 	return identities;
 }
 
-export function createCoachRoutes(db: HyperIdleDb, _eventBus: EventBus): Hono {
-	const router = new Hono();
+export function createCoachRoutes(db: HyperIdleDb, _eventBus: EventBus): Hono<HyperIdleEnv> {
+	const router = new Hono<HyperIdleEnv>();
 
 	/**
 	 * GET /api/threads/coach

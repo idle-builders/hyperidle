@@ -6,7 +6,7 @@
  *  - The hook fetches GET /api/settings and returns { settings, status, error, save, retry }
  */
 
-import { act, renderHook, waitFor } from "@testing-library/react";
+import { renderHook, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useSettings } from "../../hooks/useSettings";
 

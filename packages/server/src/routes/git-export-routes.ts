@@ -2,7 +2,7 @@ import type { HyperIdleDb } from "@hyperidle/db";
 import type { ApiErrorResponse } from "@hyperidle/shared";
 import { API_ERROR_CODES } from "@hyperidle/shared";
 import { Hono } from "hono";
-import { z } from "zod";
+import z from "zod";
 import { validateBody } from "../middleware/validate.js";
 import { createNodeFsAdapter, type FsAdapter, runGitExport } from "../services/git-export.js";
 import {

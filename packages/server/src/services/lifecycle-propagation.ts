@@ -26,6 +26,7 @@
 import type { HyperIdleDb } from "@hyperidle/db";
 import {
 	bets,
+	factorySettings,
 	messages,
 	type NewPropagationLogRow,
 	notificationQueue,
@@ -398,6 +399,15 @@ function createShipConfirmationThread(
 	const now = new Date().toISOString();
 	const threadId = crypto.randomUUID();
 
+	// Read founder_id from factorySettings so the thread participants list
+	// reflects the configured founder rather than a hardcoded literal.
+	const founderRow = db
+		.select()
+		.from(factorySettings)
+		.where(eq(factorySettings.key, "founder_id"))
+		.get();
+	const founderId = founderRow?.value ?? "u-founder";
+
 	const doneCount = allBetTasks.filter((t) => t.state === "done").length;
 	const killedCount = allBetTasks.filter((t) => t.state === "killed").length;
 	const totalCount = allBetTasks.length;
@@ -408,7 +418,7 @@ function createShipConfirmationThread(
 			hostKind: "bet",
 			hostId: betId,
 			initiatorId: SYSTEM_PROPAGATION_AGENT_ID,
-			participants: JSON.stringify([SYSTEM_PROPAGATION_AGENT_ID, "u-founder"]),
+			participants: JSON.stringify([SYSTEM_PROPAGATION_AGENT_ID, founderId]),
 			lastActiveAt: now,
 			createdAt: now,
 		})

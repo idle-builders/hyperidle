@@ -36,24 +36,49 @@ function severityToChipStatus(severity: "low" | "medium" | "high"): Status {
 export interface BetItem {
 	id: string;
 	title: string;
-	product: string;
+	/** M3 C2: progress replaces product string — matches /api/rail wire format. */
+	progress: { done: number; total: number };
 	status: BetStatus;
 }
 
 export interface BlockerItem {
-	id: string;
-	agent: string;
-	reason: string;
-	severity: "low" | "medium" | "high";
+	/** M3 C2: taskId replaces id — matches /api/rail wire format. */
+	taskId: string;
+	/** M3 C2: title replaces reason — matches /api/rail wire format. */
+	title: string;
+	/** M3 C2: owner replaces agent — matches /api/rail wire format. */
+	owner: string | null;
+	/**
+	 * M3 C2: durationBlockedMs replaces severity.
+	 * Severity is DERIVED via deriveBlockerSeverity at render time, not stored.
+	 * @lore M3: the API emits the raw duration; the Rail component derives
+	 * display severity locally so the API stays pure data and presentation
+	 * thresholds can change without a schema migration.
+	 */
+	durationBlockedMs: number;
 }
 
 export interface CostInfo {
-	/** L17: WireMoney replaces the old string fields. */
-	todaySpend: WireMoney;
-	todayCap: WireMoney;
-	weekSpend: WireMoney;
-	weekCap: WireMoney;
+	/** M3 C3: all cost fields are nullable — null means "no data". */
+	todaySpend: WireMoney | null;
+	todayCap: WireMoney | null;
+	weekSpend: WireMoney | null;
+	weekCap: WireMoney | null;
 	weekTokens?: number | null;
+}
+
+/**
+ * Derive blocker display severity from durationBlockedMs.
+ * Thresholds: <4h → low, 4–24h → medium, ≥24h → high.
+ *
+ * @lore M3 C3: severity is a presentation concept — the API emits raw
+ * duration so thresholds can change client-side without a schema migration.
+ */
+export function deriveBlockerSeverity(durationBlockedMs: number): "low" | "medium" | "high" {
+	const hours = durationBlockedMs / 3_600_000;
+	if (hours >= 24) return "high";
+	if (hours >= 4) return "medium";
+	return "low";
 }
 
 export interface RailProps {
@@ -364,7 +389,12 @@ export function Rail({
 									<span className="text-sm text-[var(--text-hi)]">{bet.title}</span>
 									<StatusChip status={betStatusToStatus(bet.status)} />
 								</div>
-								<span className="text-xs text-[var(--text-lo)]">{bet.product}</span>
+								<span
+									className="text-xs text-[var(--text-lo)]"
+									aria-label={`${bet.progress.done} of ${bet.progress.total} tasks done`}
+								>
+									{bet.progress.done}/{bet.progress.total}
+								</span>
 							</button>
 						))}
 					</div>
@@ -393,12 +423,16 @@ export function Rail({
 							/>
 						)}
 						{blockers.map((blocker) => (
-							<div key={blocker.id} className="flex flex-col gap-1 py-1">
+							<div key={blocker.taskId} className="flex flex-col gap-1 py-1">
 								<div className="flex items-center justify-between">
-									<span className="text-sm text-[var(--text-hi)]">{blocker.agent}</span>
-									<StatusChip status={severityToChipStatus(blocker.severity)} />
+									<span className="text-sm text-[var(--text-hi)]">{blocker.title}</span>
+									<StatusChip
+										status={severityToChipStatus(deriveBlockerSeverity(blocker.durationBlockedMs))}
+									/>
 								</div>
-								<span className="text-xs text-[var(--text-lo)]">{blocker.reason}</span>
+								{blocker.owner !== null && (
+									<span className="text-xs text-[var(--text-lo)]">{blocker.owner}</span>
+								)}
 							</div>
 						))}
 					</div>
@@ -418,10 +452,22 @@ export function Rail({
 				/>
 				{openSections.cost && (
 					<div id="rail-panel-cost" className="flex flex-col gap-1 px-2 py-1">
-						<KeyValue label="Today" value={formatMoney(cost.todaySpend)} />
-						<KeyValue label="Today Budget" value={formatMoney(cost.todayCap)} />
-						<KeyValue label="Week" value={formatMoney(cost.weekSpend)} />
-						<KeyValue label="Week Budget" value={formatMoney(cost.weekCap)} />
+						<KeyValue
+							label="Today"
+							value={cost.todaySpend !== null ? formatMoney(cost.todaySpend) : "—"}
+						/>
+						<KeyValue
+							label="Today Budget"
+							value={cost.todayCap !== null ? formatMoney(cost.todayCap) : "No cap"}
+						/>
+						<KeyValue
+							label="Week"
+							value={cost.weekSpend !== null ? formatMoney(cost.weekSpend) : "—"}
+						/>
+						<KeyValue
+							label="Week Budget"
+							value={cost.weekCap !== null ? formatMoney(cost.weekCap) : "No cap"}
+						/>
 						{cost.weekTokens != null && (
 							<KeyValue label="Week Tokens" value={formatTokenCount(cost.weekTokens)} />
 						)}
