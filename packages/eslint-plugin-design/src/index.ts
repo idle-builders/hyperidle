@@ -12,6 +12,8 @@ import type { ESLint, Linter, Rule } from "eslint";
 import { noAiAesthetic } from "./rules/no-ai-aesthetic.js";
 import { noDensityTokens } from "./rules/no-density-tokens.js";
 import { noHardcodedColor } from "./rules/no-hardcoded-color.js";
+import { noMockDataImport } from "./rules/no-mock-data-import.js";
+import { noMockDataSymbol } from "./rules/no-mock-data-symbol.js";
 import { noOffGridSpacing } from "./rules/no-off-grid-spacing.js";
 import { noOffScaleFontSize } from "./rules/no-off-scale-font-size.js";
 import { noOffScaleRadius } from "./rules/no-off-scale-radius.js";
@@ -23,6 +25,8 @@ import { requireStoriesSibling } from "./rules/require-stories-sibling.js";
 import { useDensityTokens } from "./rules/use-density-tokens.js";
 
 export const rules: Record<string, Rule.RuleModule> = {
+	"no-mock-data-import": noMockDataImport,
+	"no-mock-data-symbol": noMockDataSymbol,
 	"no-hardcoded-color": noHardcodedColor,
 	"no-off-grid-spacing": noOffGridSpacing,
 	"no-off-scale-radius": noOffScaleRadius,
