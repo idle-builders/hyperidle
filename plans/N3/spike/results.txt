@@ -1,7 +1,7 @@
 ========================================================================
 N3 Spike — Agent Execution Scope Decision
 ========================================================================
-Date: 2026-05-11T17:15:47.271Z
+Date: 2026-05-11T17:25:01.379Z
 Node version: v24.3.0
 Platform: darwin arm64
 CWD: /Users/tg/hyperidle/.worktrees/N3
@@ -10,7 +10,7 @@ CWD: /Users/tg/hyperidle/.worktrees/N3
 Phase B — MockHarnessAdapter + LocalWorkspaceAdapter
 ────────────────────────────────────────────────────────────────────────
 Phase B result: {
-  "sessionId": "f507bce3-fc36-4046-a3da-ab2e92769b17",
+  "sessionId": "6172db9b-0e96-480f-ab4e-b1e25faaee85",
   "outcome": "completed",
   "totalCostCents": 0,
   "taskId": "task-spike"
@@ -25,14 +25,14 @@ ASSERTION PASSED: session row exists in DB
 Phase C — StubHarnessAdapter (read_file tool_call fails silently)
 ────────────────────────────────────────────────────────────────────────
 Phase C result: {
-  "sessionId": "56c3d215-3bca-4b6b-8e01-73acb162227f",
+  "sessionId": "76a6c1cd-1c09-4fb0-a98a-8c1db9a1c8b9",
   "outcome": "completed",
   "totalCostCents": 0,
   "taskId": "task-spike"
 }
 ASSERTION PASSED: provisionSession completed without throwing
   outcome: completed
-  (crashed is expected when registry.invoke fails on unknown tool read_file)
+  (read_file tool_call for unregistered tool was handled gracefully — no crash)
 ASSERTION PASSED: session row exists in DB
   session.state: done
 
@@ -74,11 +74,13 @@ Phase E — Surface Audit
   - Source: packages/server/src/harness/local-workspace-adapter.ts:62-67
   - DockerWorkspaceAdapter is the production path
 
-## MockHarnessAdapter read_file tool_call (EXPECTED SILENT FAILURE)
-  - MockHarnessAdapter yields { type:'tool_call', toolName:'read_file', args:{...} }
-  - registry.invoke('read_file', args) throws: tool not registered
-  - session-provisioning catches the throw → sets crashed=true → crashSession()
-  - Result: outcome='crashed' (not 'completed') when using MockHarnessAdapter as-is
+## MockHarnessAdapter read_file tool_call
+  - MockHarnessAdapter/StubHarnessAdapter yield { type:'tool_call', toolName:'read_file', args:{...} }
+  - read_file is not registered in the spike's tool registry
+  - ACTUAL RESULT: provisionSession handles the unknown tool gracefully
+  - Both adapters completed with outcome='completed' — no crash
+  - This contradicts the architecture prediction of outcome='crashed'
+  - Likely cause: registry.invoke returns an error result rather than throwing
 
 ## Key source files (with line-number evidence)
   packages/shared/src/harness/harness-adapter.ts:38-43      HarnessAdapter interface

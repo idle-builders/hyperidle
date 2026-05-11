@@ -117,6 +117,16 @@ The threat model covers the **workspace surface** — the execution sandbox wher
 
 **Mitigation required:** See section 6.
 
+### Accepted residual risk: T1/T2 (filesystem escape)
+
+T1 and T2 are inherent to `LocalWorkspaceAdapter` — `sh -c` runs with the user's full filesystem permissions. No mitigation is proposed for v1:
+
+- **Why not macOS Seatbelt / sandbox-exec?** Apple's sandbox profiles are undocumented for third-party use, deprecated for new development, and would require maintaining per-OS-version profiles. The engineering cost exceeds the security gain for a single-user desktop app where the agent already operates with the user's own permissions.
+- **Why not chroot / process limits?** `chroot` requires root on macOS. Process limits (`ulimit`) can restrict resource usage but not filesystem access.
+- **Why acceptable?** In the desktop context, the agent can only access what the user can access. This is the same trust model as every AI coding assistant on the market. The user explicitly installed the app and initiated the agent session.
+
+Future hardening options (not v1): macOS App Sandbox via Electron's entitlements, or migrating to `DockerWorkspaceAdapter` for users who need isolation.
+
 ### Desktop context re-evaluation
 
 The production gate was designed for multi-tenant servers where Agent A escaping its workspace can access Agent B's data. In the desktop context:

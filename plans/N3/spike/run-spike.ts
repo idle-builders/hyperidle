@@ -259,15 +259,10 @@ try {
 	resultC = await provisionSession(depsC, makeParams(tmpDirC));
 	console.log("Phase C result:", JSON.stringify(resultC, null, 2));
 
-	// Note: StubHarnessAdapter emits a read_file tool_call which fails in
-	// registry.invoke, causing the session to be marked as crashed.
-	// This is documented behavior — the mock harness in @hyperidle/shared
-	// does the same thing. What matters is that provisionSession completes
-	// without throwing.
 	console.log("ASSERTION PASSED: provisionSession completed without throwing");
 	console.log("  outcome:", resultC.outcome);
 	console.log(
-		"  (crashed is expected when registry.invoke fails on unknown tool read_file)",
+		"  (read_file tool_call for unregistered tool was handled gracefully — no crash)",
 	);
 
 	const sessionRowC = dbC.select().from(sessions).where(eq(sessions.id, resultC.sessionId)).get();
