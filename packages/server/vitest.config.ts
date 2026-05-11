@@ -15,6 +15,12 @@ export default defineProject({
 		server: {
 			deps: {
 				inline: ["zod"],
+				// @lore api-contract: bun:sqlite is a Bun runtime built-in that
+				// Vite's module resolver cannot handle. Marking it external lets
+				// Bun's native loader resolve it at runtime. Without this, CI's
+				// vitest workers throw "Cannot find package 'bun:sqlite'" for any
+				// server test that transitively imports @hyperidle/db test-utils.
+				external: [/^bun:/],
 			},
 		},
 	},

@@ -16,6 +16,9 @@ import * as schema from "./schema.js";
  * extend BaseSQLiteDatabase<'sync', void, TSchema> — structurally identical
  * query interfaces. Production code continues to use better-sqlite3 via
  * createDb(); only tests use bun:sqlite.
+ * Vite transform must skip this module: add `bun:sqlite` to server.deps.external
+ * in packages/db/vitest.config.ts so Vite does not attempt to resolve the
+ * `bun:` protocol specifier, allowing Bun's runtime to handle it natively.
  */
 export function createTestDb(): HyperIdleDb {
 	const sqlite = new Database(":memory:");
