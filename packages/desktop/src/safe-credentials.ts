@@ -71,9 +71,12 @@ export function createSafeCredentialsManager(credentialsPath: string): SafeCrede
 		}
 	}
 
-	/** Persist the on-disk JSON store. */
+	/** Persist the on-disk JSON store with mode 0o600 (owner read/write only). */
 	function saveStore(store: Record<string, string>): void {
-		fs.writeFileSync(credentialsPath, JSON.stringify(store), "utf-8");
+		// @lore N4: credentials.json stores encrypted credential blobs.
+		// Even though values are encrypted, we restrict file access to the owner
+		// per architecture §10.1: "The file itself is written with mode 0o600."
+		fs.writeFileSync(credentialsPath, JSON.stringify(store), { mode: 0o600 });
 	}
 
 	function registerHandlers(): void {

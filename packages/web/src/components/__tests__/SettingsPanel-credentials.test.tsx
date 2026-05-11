@@ -110,7 +110,7 @@ describe("SettingsPanel — Credentials tab content (with electron bridge)", () 
 		setupElectronBridge({
 			credentials: {
 				list: vi.fn().mockResolvedValue(["MY_KEY"]),
-				get: vi.fn().mockResolvedValue("sk-abc1234"),
+				get: vi.fn().mockResolvedValue(null), // get() is NOT called for display
 				set: vi.fn().mockResolvedValue({ stored: true }),
 				delete: vi.fn().mockResolvedValue(undefined),
 				isEncryptionAvailable: vi.fn().mockResolvedValue(true),
@@ -123,11 +123,17 @@ describe("SettingsPanel — Credentials tab content (with electron bridge)", () 
 		await waitFor(() => expect(screen.getByText("MY_KEY")).toBeInTheDocument());
 	});
 
-	it("masks the credential value showing only last 4 chars (••••abcd format)", async () => {
+	it("shows a static mask (••••••••) without decrypting the credential value", async () => {
+		// @lore N4 review-fix: CredentialsTab no longer calls credentials.get() for
+		// display. It only calls list() and shows a static ••••••••  mask. This avoids
+		// decrypting all credentials into renderer memory on every tab open.
+		// Architecture §10.5: "The full value is retrievable only via credentials.get()
+		// (which the renderer uses when making API calls, not for display)."
+		const getMock = vi.fn().mockResolvedValue("sk-secret1234");
 		setupElectronBridge({
 			credentials: {
 				list: vi.fn().mockResolvedValue(["MY_KEY"]),
-				get: vi.fn().mockResolvedValue("sk-secret1234"),
+				get: getMock,
 				set: vi.fn().mockResolvedValue({ stored: true }),
 				delete: vi.fn().mockResolvedValue(undefined),
 				isEncryptionAvailable: vi.fn().mockResolvedValue(true),
@@ -137,10 +143,12 @@ describe("SettingsPanel — Credentials tab content (with electron bridge)", () 
 		render(<SettingsPanel open={true} onClose={vi.fn()} onSave={NOOP_SAVE} settings={SETTINGS} />);
 		await userEvent.click(screen.getByRole("tab", { name: /credentials/i }));
 		await waitFor(() => {
-			// The full value should NOT be displayed; only last 4 chars are shown
+			// The full value should NOT be displayed
 			expect(screen.queryByText("sk-secret1234")).not.toBeInTheDocument();
-			// Last 4 chars "1234" should appear after masking dots
-			expect(screen.getByText(/•+1234/)).toBeInTheDocument();
+			// Static mask should be displayed
+			expect(screen.getByText("••••••••")).toBeInTheDocument();
+			// credentials.get() must NOT be called for display purposes
+			expect(getMock).not.toHaveBeenCalled();
 		});
 	});
 
@@ -216,7 +224,7 @@ describe("SettingsPanel — Credentials tab content (with electron bridge)", () 
 		setupElectronBridge({
 			credentials: {
 				list: vi.fn().mockResolvedValue(["TO_REMOVE"]),
-				get: vi.fn().mockResolvedValue("value1234"),
+				get: vi.fn().mockResolvedValue(null), // get() is NOT called for display
 				set: vi.fn().mockResolvedValue({ stored: true }),
 				delete: deleteMock,
 				isEncryptionAvailable: vi.fn().mockResolvedValue(true),

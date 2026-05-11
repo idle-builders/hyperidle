@@ -9,20 +9,14 @@ import { type JSX, useCallback, useEffect, useState } from "react";
 
 interface CredentialEntry {
 	name: string;
-	maskedValue: string;
 }
 
-/**
- * Mask a credential value, showing only the last 4 characters.
- * Format: ••••{last4}
- */
-function maskValue(value: string): string {
-	if (value.length <= 4) {
-		return "••••";
-	}
-	const last4 = value.slice(-4);
-	return `••••${last4}`;
-}
+// @lore N4: CredentialsTab only calls credentials.list() for display — never
+// credentials.get(). The get() API is for runtime API calls, not for display.
+// Decrypting all credentials on every tab open exposes plaintext in renderer
+// memory unnecessarily. We show a static mask (••••••••) instead.
+// Architecture §10.5: "The full value is retrievable only via credentials.get()
+// (which the renderer uses when making API calls, not for display)."
 
 export function CredentialsTab(): JSX.Element {
 	const bridge = window.__HYPERIDLE__;
@@ -36,15 +30,7 @@ export function CredentialsTab(): JSX.Element {
 	const loadCredentials = useCallback(async (): Promise<void> => {
 		if (!bridge) return;
 		const names = await bridge.credentials.list();
-		const entries = await Promise.all(
-			names.map(async (n) => {
-				const raw = await bridge.credentials.get(n);
-				return {
-					name: n,
-					maskedValue: raw ? maskValue(raw) : "••••",
-				};
-			}),
-		);
+		const entries = names.map((n) => ({ name: n }));
 		setCredentials(entries);
 	}, []); // eslint-disable-line react-hooks/exhaustive-deps -- bridge is stable (window property)
 
@@ -96,9 +82,7 @@ export function CredentialsTab(): JSX.Element {
 					{credentials.map((cred) => (
 						<div key={cred.name} className="flex items-center justify-between py-1 gap-3">
 							<span className="text-sm font-medium text-[var(--text-hi)]">{cred.name}</span>
-							<span className="text-sm font-mono text-[var(--text-lo)] flex-1">
-								{cred.maskedValue}
-							</span>
+							<span className="text-sm font-mono text-[var(--text-lo)] flex-1">••••••••</span>
 							<button
 								type="button"
 								className="btn btn-ghost btn-xs text-error"

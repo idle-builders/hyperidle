@@ -131,17 +131,26 @@ export function validateDbPath(input: string, cwd: string): string {
 	return resolved;
 }
 
+/**
+ * Apply migrations for the laptop profile using the shared applyMigrations
+ * function, then seed the database.
+ *
+ * @lore N4: Uses the extracted applyMigrations() from migrate.ts as the single
+ * source of truth. setup-cli was the original inline migration owner; we now
+ * delegate to applyMigrations() so both CLI and desktop share identical logic.
+ * Architecture §6.1: "Option A. The migration logic must be a single source of
+ * truth. The setup-cli and the desktop must run identical migrations."
+ */
 async function applyLaptopMigrations(dbPath: string, migrationsFolder: string): Promise<void> {
-	// @lore N1: uses better-sqlite3 unconditionally. No Bun/Node branching.
+	const { applyMigrations } = await import("./migrate.js");
+	applyMigrations(dbPath, migrationsFolder);
+
+	// Seed the database — setup-cli always seeds; desktop does not.
 	const { default: BetterSqlite } = await import("better-sqlite3");
 	const { drizzle: nodeDrizzle } = await import("drizzle-orm/better-sqlite3");
-	const { migrate: nodeMigrate } = await import("drizzle-orm/better-sqlite3/migrator");
 	const sqlite = new BetterSqlite(dbPath);
 	try {
-		sqlite.pragma("journal_mode = WAL");
-		sqlite.pragma("foreign_keys = ON");
 		const db = nodeDrizzle(sqlite, { schema });
-		nodeMigrate(db, { migrationsFolder });
 		seed(db);
 	} finally {
 		sqlite.close();

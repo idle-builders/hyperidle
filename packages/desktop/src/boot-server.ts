@@ -2,21 +2,13 @@
  * Server lifecycle: migrate → start → health-check.
  */
 
-// @lore N4: ServerHandle is the shape returned by @hyperidle/server/server-factory.
-// The subpath export doesn't exist yet; we use a local interface that matches.
-export interface ServerHandle {
-	readonly httpServer: {
-		address(): { port: number } | string | null;
-		close(cb?: (err?: Error) => void): void;
-	};
-	readonly dispose: () => void;
-}
-
 // @lore N4: Import @hyperidle/server/server-factory as a static ESM import so
 // vi.mock() in tests can intercept it. A dynamic require() bypasses Vitest's
 // mock hoisting and the real module (which imports better-sqlite3) would run
 // during tests, causing 'better-sqlite3 is not yet supported in Bun' errors.
-import { createServer as _createServer } from "@hyperidle/server/server-factory";
+import { createServer as _createServer, type ServerHandle } from "@hyperidle/server/server-factory";
+
+export type { ServerHandle };
 
 /**
  * Start the Hono server on port 0 (OS-assigned) and return a handle.
@@ -24,7 +16,7 @@ import { createServer as _createServer } from "@hyperidle/server/server-factory"
  * HYPERIDLE_STATIC_DIR must be set before calling this.
  */
 export function startServer(): ServerHandle {
-	return _createServer(0) as unknown as ServerHandle;
+	return _createServer(0);
 }
 
 /**
