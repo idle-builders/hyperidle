@@ -94,7 +94,9 @@ describe("useProducts", () => {
 		renderHook(() => useProducts());
 
 		await waitFor(() => {
-			expect(fetch).toHaveBeenCalledWith("/api/products");
+			// hc<ProductsRoutes> passes a full options object alongside the URL;
+			// assert only that the first argument is the expected URL.
+			expect(fetch).toHaveBeenCalledWith("/api/products", expect.any(Object));
 		});
 	});
 

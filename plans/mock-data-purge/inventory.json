@@ -1,7 +1,7 @@
 [
   {
     "path": "packages/server/src/routes/bets.ts",
-    "line": 363,
+    "line": 365,
     "symbol": "u-founder",
     "kind": "literal-id",
     "shape": "string",
@@ -10,7 +10,7 @@
   },
   {
     "path": "packages/server/src/routes/bets.ts",
-    "line": 400,
+    "line": 402,
     "symbol": "u-founder",
     "kind": "literal-id",
     "shape": "string",
@@ -19,7 +19,7 @@
   },
   {
     "path": "packages/server/src/routes/bets.ts",
-    "line": 415,
+    "line": 417,
     "symbol": "u-founder",
     "kind": "literal-id",
     "shape": "string",
@@ -28,7 +28,7 @@
   },
   {
     "path": "packages/server/src/routes/bets.ts",
-    "line": 444,
+    "line": 445,
     "symbol": "u-founder",
     "kind": "literal-id",
     "shape": "string",
@@ -37,7 +37,7 @@
   },
   {
     "path": "packages/server/src/routes/bets.ts",
-    "line": 457,
+    "line": 460,
     "symbol": "u-founder",
     "kind": "literal-id",
     "shape": "string",
@@ -46,7 +46,7 @@
   },
   {
     "path": "packages/server/src/routes/bets.ts",
-    "line": 472,
+    "line": 475,
     "symbol": "u-founder",
     "kind": "literal-id",
     "shape": "string",
