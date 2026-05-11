@@ -11,11 +11,9 @@ import { createLogger, type Logger } from "@hyperidle/shared";
  * failure errors immediately instead of hanging on an interactive password
  * prompt (see docs/plans/H1-plan.md §7).
  *
- * @lore DEFERRED vs plan §7: the plan mandates `Bun.spawn`; we use
- * `node:child_process.spawn` so the Vitest/Node test harness and the
- * Bun runtime execute the same code path. Both stream stdio the same
- * way in practice; Bun provides the Node shim. Adjusted plan language
- * rather than forcing two implementations.
+ * @lore N1: `node:child_process.spawn` is the canonical subprocess API.
+ * Both Bun and Node execute the same code path — Bun provides the
+ * Node compatibility shim. No runtime-specific branching needed.
  */
 export interface GitRunner {
 	/** Initialize a new repo. Uses `-b <branch>` so the default branch is set correctly. */

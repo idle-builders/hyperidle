@@ -20,12 +20,9 @@ import {
 	PRACTICE_COMMUNITIES,
 } from "./seed-fixtures.js";
 
-// @lore `seed` accepts any synchronous SQLite Drizzle instance over our
-// schema — better-sqlite3 and bun:sqlite both fit. Narrowing to
-// `HyperIdleDb` (better-sqlite3 only) would force unsafe casts in the Bun
-// setup path. `TRunResult` is `unknown` because the better-sqlite3 driver
-// returns a `RunResult` and the bun:sqlite driver returns `void`; the seed
-// discards the value.
+// @lore N1: `seed` accepts any synchronous SQLite Drizzle instance over our
+// schema. `TRunResult` is `unknown` because different Drizzle drivers
+// return different types; the seed discards the value.
 export type SeedableDb = BaseSQLiteDatabase<"sync", unknown, typeof schema>;
 
 // @lore: Facilitator agents encode their scope in the `skills` JSON blob
