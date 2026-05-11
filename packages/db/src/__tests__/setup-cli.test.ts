@@ -194,41 +194,28 @@ describe("H4 idempotency: laptop setup is safe to run twice", () => {
 	});
 });
 
-describe("H4 AC1: Bun runtime path for applyLaptopMigrations", () => {
-	// @lore N1: The bun:sqlite branch was removed in N1 — setup-cli.ts now
-	// uses better-sqlite3 unconditionally under both Bun and Node. The test
-	// previously used `bun --bun` to force Bun's native runtime and exercise
-	// the bun:sqlite dynamic-import branch. That flag is now dropped because:
-	//   (a) there is no longer a Bun-specific code path to exercise, and
-	//   (b) `--bun` mode may not load Node native addons (better-sqlite3)
-	//       correctly in all CI environments.
-	// We still shell out to plain `bun` so the Bun runtime compatibility is
-	// verified end-to-end (Bun's Node compat layer loads better-sqlite3).
-	// When Bun is unavailable (e.g. CI without Bun) we flag UNVERIFIED and
-	// document the operator-side smoke path in docs/deployment/.
-	const bunProbe = spawnSync("bun", ["--version"], { stdio: "pipe" });
-	const bunAvailable = bunProbe.status === 0;
-
-	it.runIf(bunAvailable)("runs under Bun: creates a usable SQLite DB", () => {
-		const dbPath = path.join(tmpdir, "bun-hyperidle.db");
+// @lore N1: The bun:sqlite branch was removed — setup-cli.ts uses better-sqlite3
+// unconditionally. Bun cannot dlopen better-sqlite3 natively (oven-sh/bun#4290),
+// so the subprocess test that spawned `bun setup-cli.ts` is replaced with a
+// Node (tsx) subprocess test. The in-process tests above already exercise
+// setup-cli under Vitest's Node runtime.
+describe("H4 AC1: setup-cli subprocess under Node", () => {
+	it("runs under Node (tsx): creates a usable SQLite DB", () => {
+		const dbPath = path.join(tmpdir, "node-hyperidle.db");
 		const cliPath = path.resolve(__dirname, "..", "setup-cli.ts");
 		const result = spawnSync(
-			"bun",
-			[cliPath, "--profile", "laptop", "--db-path", dbPath],
+			"npx",
+			["tsx", cliPath, "--profile", "laptop", "--db-path", dbPath],
 			{
 				stdio: "pipe",
 				env: { ...process.env, HYPERIDLE_PROFILE: "" },
 			},
 		);
-		// Bun prints to stderr on failure; include both streams for
-		// diagnostics when the assertion fails.
 		const err = result.stderr?.toString() ?? "";
 		const out = result.stdout?.toString() ?? "";
-		expect(result.status, `bun exit=${result.status}\nstdout:\n${out}\nstderr:\n${err}`).toBe(0);
+		expect(result.status, `tsx exit=${result.status}\nstdout:\n${out}\nstderr:\n${err}`).toBe(0);
 		expect(fs.existsSync(dbPath)).toBe(true);
 
-		// Open under better-sqlite3 (the file format is the same) to prove
-		// the DB is valid and seeded.
 		const raw = new Database(dbPath);
 		try {
 			const agents = raw.prepare("SELECT id FROM agents").all() as Array<{ id: string }>;
@@ -237,12 +224,4 @@ describe("H4 AC1: Bun runtime path for applyLaptopMigrations", () => {
 			raw.close();
 		}
 	});
-
-	it.skipIf(bunAvailable)(
-		"UNVERIFIED: Bun path not exercised (bun not on PATH) — operator must run `bun run setup --profile laptop` manually",
-		() => {
-			// Documented UNVERIFIED marker. See docs/deployment/ § Laptop.
-			expect(bunAvailable).toBe(false);
-		},
-	);
 });
