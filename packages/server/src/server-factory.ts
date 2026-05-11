@@ -1,43 +1,29 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
-import type { HyperIdleDb } from "@hyperidle/db";
-import * as dbSchema from "@hyperidle/db";
+import { type ServerType, serve, upgradeWebSocket } from "@hono/node-server";
+import { createDb } from "@hyperidle/db";
 import { EventBus } from "@hyperidle/shared";
-import { serve } from "bun";
+import { WebSocketServer } from "ws";
 import { createApp, disposeApp } from "./app.js";
-import { registerWsRoute, wsHandler } from "./routes/ws.js";
+import { registerWsRoute } from "./routes/ws.js";
 import { createDbSubscribeAuthorizer, WsBroadcaster } from "./services/ws-broadcaster.js";
 
 /**
- * Handle returned from `createBunServer` so callers can shut the server down
+ * Handle returned from `createServer` so callers can shut the server down
  * cleanly in tests + graceful shutdown.
- */
-export interface BunServerHandle {
-	readonly server: ReturnType<typeof serve>;
-	readonly dispose: () => void;
-}
-
-/**
- * Open the production SQLite database using Bun's native `bun:sqlite` driver.
  *
- * @lore I1: Bun cannot dlopen better-sqlite3 (see
- * https://github.com/oven-sh/bun/issues/4290), so production (which always
- * runs under Bun) uses bun:sqlite via `drizzle-orm/bun-sqlite`. The schema
- * and query API are identical to the Node/test path (better-sqlite3), so
- * we can return a `HyperIdleDb` by structural compatibility without
- * forcing unsafe casts anywhere except this one boundary.
+ * `httpServer` is typed as `ServerType` from @hono/node-server (which is
+ * `http.Server | Http2Server | Http2SecureServer`). In practice, since we
+ * do not pass HTTP/2 options to `serve()`, the runtime value is always
+ * `http.Server`. We store `ServerType` to avoid an unsafe `as http.Server`
+ * cast — `.close()` exists on all three union members.
+ *
+ * @lore N1: B1 (reviewer): do NOT use `as http.Server` cast. Use ServerType
+ * directly — `.close()` exists on all union members.
  */
-async function openProductionDb(dbPath: string): Promise<HyperIdleDb> {
-	const { Database: BunDatabase } = await import("bun:sqlite");
-	const { drizzle: bunDrizzle } = await import("drizzle-orm/bun-sqlite");
-	const sqlite = new BunDatabase(dbPath);
-	sqlite.exec("PRAGMA journal_mode = WAL");
-	sqlite.exec("PRAGMA foreign_keys = ON");
-	// The bun-sqlite Drizzle driver has the same query surface (insert,
-	// select, update, transaction, etc.) as better-sqlite3; cast once here
-	// so the rest of the server (which is typed against better-sqlite3's
-	// `HyperIdleDb`) works unchanged.
-	return bunDrizzle(sqlite, { schema: dbSchema.schema }) as unknown as HyperIdleDb;
+export interface ServerHandle {
+	readonly httpServer: ServerType;
+	readonly dispose: () => void;
 }
 
 const MIME_TYPES: Record<string, string> = {
@@ -89,7 +75,10 @@ function createStaticHandler(
 }
 
 /**
- * Create a Bun server with the full domain app + WebSocket support.
+ * Create a Node-compatible server with the full domain app + WebSocket support.
+ *
+ * Uses `@hono/node-server` (which runs under both Node and Bun via Node
+ * compatibility shims). Replaces the previous Bun-native serve API.
  *
  * Reads the DB path from `DATABASE_URL` (falling back to `./hyperidle.db`),
  * builds a fresh `EventBus`, and wires them into `createApp`. The WebSocket
@@ -98,14 +87,19 @@ function createStaticHandler(
  *
  * Pass port 0 for a random available port (useful in tests).
  *
+ * @lore N1: production DB path now uses `createDb` from `@hyperidle/db`
+ * (better-sqlite3) unconditionally. The `openProductionDb` function that used
+ * Bun-specific SQLite drivers was removed — better-sqlite3 works under both
+ * Node and Bun via Bun's native module dlopen support (fixed in Bun >=1.1.0).
+ *
  * @lore I1 S1-S5: the previous `createFullApp` factory mounted only
  * `/health`, `/api/health`, and `/api/ws` — every domain route returned 404
  * in production. Converging on `createApp` is the fix; any future divergence
  * would re-introduce the same bug.
  */
-export async function createBunServer(port: number): Promise<BunServerHandle> {
+export function createServer(port: number): ServerHandle {
 	const dbPath = process.env.DATABASE_URL ?? "./hyperidle.db";
-	const db = await openProductionDb(dbPath);
+	const db = createDb(dbPath);
 	const eventBus = new EventBus();
 
 	let wsDispose: (() => void) | null = null;
@@ -118,7 +112,7 @@ export async function createBunServer(port: number): Promise<BunServerHandle> {
 			// table on each subscribe call.
 			const broadcaster = new WsBroadcaster(eventBus, createDbSubscribeAuthorizer(db));
 			broadcaster.start();
-			wsDispose = registerWsRoute(apiRouter, eventBus, tokenStore, broadcaster);
+			wsDispose = registerWsRoute(apiRouter, eventBus, tokenStore, broadcaster, upgradeWebSocket);
 		},
 	});
 
@@ -138,27 +132,31 @@ export async function createBunServer(port: number): Promise<BunServerHandle> {
 		? createStaticHandler(resolvedStaticDir, appFetch)
 		: appFetch;
 
-	const server = serve({
+	// Create the WebSocketServer with noServer: true — @hono/node-server
+	// handles the upgrade event internally and delegates to this wss instance.
+	const wss = new WebSocketServer({ noServer: true });
+
+	const httpServer = serve({
 		fetch: staticFetch,
 		port,
-		websocket: wsHandler,
+		websocket: { server: wss },
 	});
 
 	const dispose = (): void => {
 		// @lore I1 M1: tear down event-bus subscriptions first so none of the
 		// five createApp-registered handlers (session-review-creator,
 		// policy-engine, builtin-routines, git-export, notification-dispatcher,
-		// observability) outlive the server. If we called `server.stop()` or
+		// observability) outlive the server. If we called `server.close()` or
 		// the WS disposer first, `disposeApp` would still run, but background
 		// handlers could observe events during shutdown against a torn-down
-		// runtime. Order: domain handlers -> WS route -> Bun server.
+		// runtime. Order: domain handlers -> WS route -> HTTP server.
 		disposeApp(app);
 		if (wsDispose) {
 			wsDispose();
 			wsDispose = null;
 		}
-		server.stop();
+		httpServer.close();
 	};
 
-	return { server, dispose };
+	return { httpServer, dispose };
 }

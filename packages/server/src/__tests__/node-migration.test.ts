@@ -145,7 +145,9 @@ describe("N1: Bun-API removal — source file assertions", () => {
 		it("@lore block references node:child_process.spawn as canonical", () => {
 			const src = readSrc("services/git-export-runner.ts");
 			// After N1, the lore must say node:child_process.spawn is canonical.
-			expect(src).toMatch(/node:child_process\.spawn.*canonical|canonical.*node:child_process\.spawn/is);
+			expect(src).toMatch(
+				/node:child_process\.spawn.*canonical|canonical.*node:child_process\.spawn/is,
+			);
 		});
 	});
 

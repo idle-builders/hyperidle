@@ -106,9 +106,7 @@ async function issueUpgradeToken(port: number): Promise<string> {
  * first message (the "connected" ack). Returns the open WebSocket.
  */
 async function connectWs(port: number, token: string): Promise<WebSocket> {
-	const ws = new WebSocket(
-		`ws://localhost:${port}/api/ws?token=${encodeURIComponent(token)}`,
-	);
+	const ws = new WebSocket(`ws://localhost:${port}/api/ws?token=${encodeURIComponent(token)}`);
 
 	// Wait for the "connected" message or an error.
 	await new Promise<void>((res, rej) => {
@@ -243,9 +241,7 @@ describe("N1: WebSocket e2e lifecycle under Node runtime (AC10)", () => {
 		ws.close();
 
 		// Second use of the same token — must be rejected.
-		const res = await fetch(
-			`http://localhost:${port}/api/ws?token=${encodeURIComponent(token)}`,
-		);
+		const res = await fetch(`http://localhost:${port}/api/ws?token=${encodeURIComponent(token)}`);
 		expect(res.status).toBe(401);
 	});
 

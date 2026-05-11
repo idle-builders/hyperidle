@@ -4,7 +4,7 @@ import { eq } from "drizzle-orm";
 
 /**
  * Manages WebSocket topic subscriptions and event broadcasting.
- * Extracted from ws.ts route for testability (hono/bun requires Bun runtime).
+ * Extracted from ws.ts route for testability and runtime independence.
  */
 export interface WsClient {
 	send(data: string): void;

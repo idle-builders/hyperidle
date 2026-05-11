@@ -1,20 +1,14 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
+import { fileURLToPath } from "node:url";
 import { redactDbUrl } from "@hyperidle/shared";
 import { type DeploymentProfile, resolveProfile } from "./profiles.js";
 import * as schema from "./schema.js";
 import { seed } from "./seed.js";
 
-// @lore The setup CLI runs under both Bun (production `bun run setup`) and
-// Node (test harness via vitest). Bun refuses to dlopen `better-sqlite3`
-// (https://github.com/oven-sh/bun/issues/4290); Node cannot import
-// `bun:sqlite`. So we pick the SQLite driver dynamically at runtime.
-// Drizzle exposes equivalent wrappers for both; they share the same schema
-// and the same query API we use in seed.ts.
-declare global {
-	var Bun: { main?: string } | undefined;
-}
-const RUNNING_UNDER_BUN = typeof globalThis.Bun !== "undefined";
+// @lore N1: setup-cli uses better-sqlite3 unconditionally. The Bun-specific
+// SQLite branch was removed in N1. Both Bun and Node now use the same
+// better-sqlite3 code path.
 
 export interface RunSetupIo {
 	stdout: (line: string) => void;
@@ -135,24 +129,7 @@ export function validateDbPath(input: string, cwd: string): string {
 }
 
 async function applyLaptopMigrations(dbPath: string, migrationsFolder: string): Promise<void> {
-	if (RUNNING_UNDER_BUN) {
-		// Bun runtime: use bun:sqlite. Drizzle exposes a dedicated driver.
-		const { Database: BunDatabase } = await import("bun:sqlite");
-		const { drizzle: bunDrizzle } = await import("drizzle-orm/bun-sqlite");
-		const { migrate: bunMigrate } = await import("drizzle-orm/bun-sqlite/migrator");
-		const sqlite = new BunDatabase(dbPath);
-		try {
-			sqlite.exec("PRAGMA journal_mode = WAL");
-			sqlite.exec("PRAGMA foreign_keys = ON");
-			const db = bunDrizzle(sqlite, { schema });
-			bunMigrate(db, { migrationsFolder });
-			seed(db);
-		} finally {
-			sqlite.close();
-		}
-		return;
-	}
-	// Node runtime: use better-sqlite3 via the same APIs createTestDb uses.
+	// @lore N1: uses better-sqlite3 unconditionally. No Bun/Node branching.
 	const { default: BetterSqlite } = await import("better-sqlite3");
 	const { drizzle: nodeDrizzle } = await import("drizzle-orm/better-sqlite3");
 	const { migrate: nodeMigrate } = await import("drizzle-orm/better-sqlite3/migrator");
@@ -277,12 +254,11 @@ export async function runSetup(
  * dispatches here.
  */
 /* c8 ignore start */
-// @lore `import.meta.main` on Bun is the canonical "am I the entry point"
-// check. We guard on both the Bun global and `import.meta.main` so the
-// file is inert when imported by the test harness under Node.
-const isEntrypoint =
-	typeof globalThis.Bun !== "undefined" &&
-	(import.meta as unknown as { main?: boolean }).main === true;
+// @lore N1: `process.argv[1] === fileURLToPath(import.meta.url)` is the
+// Node-compatible entrypoint check. Works under both Bun (which supports
+// import.meta.url and process.argv[1]) and Node. Replaces the previous
+// `globalThis.Bun + import.meta.main` guard.
+const isEntrypoint = process.argv[1] === fileURLToPath(import.meta.url);
 if (isEntrypoint) {
 	const io: RunSetupIo = {
 		stdout: (line) => process.stdout.write(`${line}\n`),

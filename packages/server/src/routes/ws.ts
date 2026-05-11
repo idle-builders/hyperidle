@@ -1,16 +1,18 @@
 import type { ApiErrorResponse, EventBus } from "@hyperidle/shared";
 import { API_ERROR_CODES } from "@hyperidle/shared";
 import type { Hono } from "hono";
-import { createBunWebSocket } from "hono/bun";
-import type { WSContext } from "hono/ws";
+import type { UpgradeWebSocket, WSContext } from "hono/ws";
 import type { UpgradeTokenStore } from "../auth/upgrade-token-store.js";
 import { WsBroadcaster, type WsClient } from "../services/ws-broadcaster.js";
 
-const { upgradeWebSocket, websocket: wsHandler } = createBunWebSocket();
-
 /**
- * Adapter that wraps a raw Hono WSContext into the WsClient interface
- * expected by WsBroadcaster.
+ * Adapter that wraps a Hono WSContext into the WsClient interface
+ * expected by WsBroadcaster. Uses WSContext.send() which is runtime-agnostic
+ * (works under both @hono/node-server and any compatible WebSocket adapter).
+ *
+ * @lore N1: previously this adapter held `ws.raw as WSContext` which accessed
+ * the underlying runtime socket. Switched to WSContext directly so the code
+ * is runtime-agnostic — no Bun.ServerWebSocket or ws.WebSocket dependency.
  */
 class WsContextAdapter implements WsClient {
 	constructor(private readonly ws: WSContext) {}
@@ -22,12 +24,20 @@ class WsContextAdapter implements WsClient {
 /**
  * Register WebSocket route on the given Hono app.
  * Auth is checked before upgrade via query param `token`.
- * This module requires the Bun runtime (uses hono/bun).
+ *
+ * The `upgradeWebSocket` function is injected by the caller (server-factory)
+ * so this module is runtime-agnostic — works with @hono/node-server under
+ * Node and with Bun's adapter alike.
+ *
+ * @lore N1: this module previously used a Bun-specific WebSocket factory at
+ * module scope. N1 removes that dependency by injecting `upgradeWebSocket`
+ * as a parameter. The route behaviour is identical; only the transport
+ * adapter changes.
  *
  * @lore I6: ws.ts now delegates all event forwarding to WsBroadcaster,
  * eliminating the duplicate event subscription logic that previously
  * existed in both files. WsBroadcaster owns the topic-based routing
- * and event subscriptions; ws.ts handles only the Bun WebSocket
+ * and event subscriptions; ws.ts handles only the WebSocket
  * lifecycle (auth, connect, disconnect, subscribe/unsubscribe messages).
  *
  * @lore I1 W2: in-process test isolation relies on the returned disposer.
@@ -35,14 +45,13 @@ class WsContextAdapter implements WsClient {
  * @lore L1 step9 (Adv-C1): the upgrade token now binds an identityId.
  * `consumePending` pulls the identity off the consume result so the next
  * `onOpen` can register the client with the broadcaster's authz table.
- * Bun's WS upgrade flow does not surface request headers in `onOpen` —
- * the middleware-side consume is the only place we can capture identity.
  */
 function registerWsRoute(
 	apiApp: Hono,
 	eventBus: EventBus | undefined,
 	tokenStore: UpgradeTokenStore,
 	injectedBroadcaster: WsBroadcaster | null = null,
+	upgradeWebSocket: UpgradeWebSocket,
 ): () => void {
 	// Delegate event forwarding to WsBroadcaster when eventBus is available.
 	// L1 step9: server-factory may pass an authz-bound broadcaster; tests +
@@ -55,10 +64,10 @@ function registerWsRoute(
 		owned = true;
 	}
 
-	// Map raw WSContext to its adapter for cleanup.
+	// Map WSContext to its adapter for cleanup.
 	const adapters = new Map<WSContext, WsContextAdapter>();
 	// Pending identity from the token-consume step. The consume happens in
-	// the middleware (URL-time); the addClient happens on `onOpen`. Bun's
+	// the middleware (URL-time); the addClient happens on `onOpen`. The
 	// upgrade flow does not let us thread the identity through directly,
 	// so we stash it in a single-slot queue keyed by request order. This
 	// is safe because the middleware → onOpen handoff is synchronous.
@@ -90,16 +99,14 @@ function registerWsRoute(
 		"/ws",
 		upgradeWebSocket(() => ({
 			onOpen(_evt, ws) {
-				const rawWs = ws.raw as WSContext;
-				const adapter = new WsContextAdapter(rawWs);
-				adapters.set(rawWs, adapter);
+				const adapter = new WsContextAdapter(ws);
+				adapters.set(ws, adapter);
 				broadcaster?.addClient(adapter, pendingIdentity);
 				pendingIdentity = undefined;
 				ws.send(JSON.stringify({ type: "connected" }));
 			},
 			onMessage(evt, ws) {
-				const rawWs = ws.raw as WSContext;
-				const adapter = adapters.get(rawWs);
+				const adapter = adapters.get(ws);
 				if (typeof evt.data === "string") {
 					try {
 						const msg = JSON.parse(evt.data) as { type?: string; topic?: string };
@@ -131,11 +138,10 @@ function registerWsRoute(
 				}
 			},
 			onClose(_evt, ws) {
-				const rawWs = ws.raw as WSContext;
-				const adapter = adapters.get(rawWs);
+				const adapter = adapters.get(ws);
 				if (adapter) {
 					broadcaster?.removeClient(adapter);
-					adapters.delete(rawWs);
+					adapters.delete(ws);
 				}
 			},
 		})),
@@ -149,4 +155,4 @@ function registerWsRoute(
 	};
 }
 
-export { registerWsRoute, wsHandler };
+export { registerWsRoute };

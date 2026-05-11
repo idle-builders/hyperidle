@@ -32,8 +32,8 @@
 import { createTestDb, type HyperIdleDb, knowledgeEditLog, knowledgeItems } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
 import { beforeEach, describe, expect, it } from "vitest";
-import { create, getById, update } from "../knowledge-repository.js";
 import { knowledgeEvents } from "../events.js";
+import { create, getById, update } from "../knowledge-repository.js";
 
 describe("N1 AC6: transaction semantics under better-sqlite3", () => {
 	let db: HyperIdleDb;
@@ -59,8 +59,7 @@ describe("N1 AC6: transaction semantics under better-sqlite3", () => {
 		const inserted = db.transaction((tx) => {
 			const id = crypto.randomUUID();
 			const now = new Date().toISOString();
-			tx
-				.insert(knowledgeItems)
+			tx.insert(knowledgeItems)
 				.values({
 					id,
 					layer: "L1",
@@ -92,8 +91,7 @@ describe("N1 AC6: transaction semantics under better-sqlite3", () => {
 			db.transaction((tx) => {
 				attemptedId = crypto.randomUUID();
 				const now = new Date().toISOString();
-				tx
-					.insert(knowledgeItems)
+				tx.insert(knowledgeItems)
 					.values({
 						id: attemptedId,
 						layer: "L1",
@@ -115,11 +113,7 @@ describe("N1 AC6: transaction semantics under better-sqlite3", () => {
 
 		// The write must NOT be visible — the transaction was rolled back.
 		if (attemptedId) {
-			const row = db
-				.select()
-				.from(knowledgeItems)
-				.where(eq(knowledgeItems.id, attemptedId))
-				.get();
+			const row = db.select().from(knowledgeItems).where(eq(knowledgeItems.id, attemptedId)).get();
 			expect(row).toBeUndefined();
 		} else {
 			expect.unreachable("attemptedId should have been set before the throw");
@@ -150,8 +144,7 @@ describe("N1 AC6: transaction semantics under better-sqlite3", () => {
 			const id = db.transaction((tx) => {
 				const rowId = crypto.randomUUID();
 				const now = new Date().toISOString();
-				tx
-					.insert(knowledgeItems)
+				tx.insert(knowledgeItems)
 					.values({
 						id: rowId,
 						layer: "L1",

@@ -186,8 +186,8 @@ export function update(
 	// SELECT, UPDATE-with-version-predicate, edit-log INSERTs, read-back —
 	// runs inside a single transaction so a crash between UPDATE and
 	// edit-log INSERT can't persist the version bump without provenance.
-	// `db.transaction` on bun:sqlite / better-sqlite3 issues BEGIN
-	// IMMEDIATE which serialises writes — the version-check is atomic.
+	// `db.transaction` on better-sqlite3 issues BEGIN IMMEDIATE which
+	// serialises writes — the version-check is atomic.
 	const result = db.transaction((tx) => {
 		const existing = tx.select().from(knowledgeItems).where(eq(knowledgeItems.id, id)).get();
 
