@@ -1,6 +1,6 @@
 # N1 Code Review
 
-## Verdict: NOT DONE
+## Verdict: DONE (updated on re-review)
 
 ---
 
@@ -84,3 +84,24 @@
 - **F5: [severity: minor] `registerWsRoute` parameter ordering.** `upgradeWebSocket` (required) follows `injectedBroadcaster` (has default `= null`). This makes the default unusable. Swap the parameter order so `upgradeWebSocket` comes before `injectedBroadcaster`, or remove the default value from `injectedBroadcaster` since all callers pass it explicitly anyway.
 
 - **F6: [severity: minor] Duplicated test infrastructure.** `waitForReady`, `createMigratedDb`, `authHeaders`, and the server spawn pattern are duplicated across `node-server.integration.test.ts` and `node-ws-e2e.integration.test.ts` (and partially in `server-factory.integration.test.ts`). Extract into a shared test utility in `packages/server/src/__tests__/helpers/` or similar.
+
+---
+
+## Re-review (commit 04664be)
+
+### Verdict: DONE
+
+All 6 findings from the initial review are resolved. No regressions introduced.
+
+| Finding | Status | Evidence |
+|---------|--------|----------|
+| F1 [major] better-sqlite3 version mismatch | RESOLVED | `packages/server/package.json` now specifies `^11.7.0`, matching `packages/db`. |
+| F2 [minor] Missing root-level start:node script | RESOLVED | Root `package.json` now has `"start:node": "bun run --filter @hyperidle/server build:node && node packages/server/dist/index.cjs"`. |
+| F3 [minor] Stale Bun-only comments in app.ts | RESOLVED | All five stale references updated to runtime-agnostic language. Zero grep hits for `createBunServer`, `bun-only`, or `non-Bun` in `app.ts`. |
+| F4 [minor] Stale comments in server-factory integration test | RESOLVED | Header comment rewritten. No `createBunServer` references. `@lore` comment correctly describes Node-compatible state post-N1. |
+| F5 [minor] Parameter ordering in registerWsRoute | RESOLVED | `upgradeWebSocket` (required) now precedes `injectedBroadcaster` (optional, default `null`). The sole production caller in `server-factory.ts` updated to match. |
+| F6 [minor] Duplicated test infrastructure | RESOLVED | `integration-helpers.ts` (84 lines) created with `createMigratedDb`, `waitForReady`, `authHeaders`. All three integration test files import from it. Duplicated implementations removed (net -99 lines). |
+
+### Regression check
+
+The fix commit touches 9 files. Changes are strictly: comment updates (F3, F4), parameter reorder with matching caller update (F5), version alignment (F1), script addition (F2), and test utility extraction (F6). No behavioral changes, no new code paths, no new dependencies.
