@@ -6,6 +6,7 @@ export default defineConfig({
 		exclude: ["**/node_modules/**", "**/.git/**", "**/dist/**", "**/.worktrees/**"],
 		reporters: [["dot"], new VitestToonReporter()],
 		projects: [
+			"packages/api-contract",
 			"packages/db",
 			"packages/server",
 			"packages/fabric",
