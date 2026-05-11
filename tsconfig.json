@@ -16,7 +16,6 @@
 		"noUnusedParameters": true,
 		"exactOptionalPropertyTypes": false,
 		"composite": true,
-		"verbatimModuleSyntax": true,
 		"paths": {
 			"@hyperidle/shared": ["./packages/shared/src"],
 			"@hyperidle/db": ["./packages/db/src"],
