@@ -1,5 +1,6 @@
 import FocusTrap from "focus-trap-react";
 import { type JSX, useCallback, useEffect, useRef, useState } from "react";
+import { CredentialsTab } from "./CredentialsTab.js";
 
 // --- Types ---
 
@@ -68,9 +69,10 @@ export interface SettingsPanelProps {
 	onSave: (settings: SettingsData) => Promise<void>;
 	settings: SettingsData;
 	onFeedback?: (feedback: FeedbackMessage) => void;
+	initialTab?: TabId;
 }
 
-type TabId = "profile" | "products" | "agents" | "notifications" | "appearance";
+type TabId = "profile" | "products" | "agents" | "notifications" | "appearance" | "credentials";
 
 const TABS: { id: TabId; label: string }[] = [
 	{ id: "profile", label: "Profile" },
@@ -78,6 +80,7 @@ const TABS: { id: TabId; label: string }[] = [
 	{ id: "agents", label: "Agents" },
 	{ id: "notifications", label: "Notifications" },
 	{ id: "appearance", label: "Appearance" },
+	{ id: "credentials", label: "Credentials" },
 ];
 
 const TIME_24H_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
@@ -105,8 +108,9 @@ export function SettingsPanel({
 	onSave,
 	settings,
 	onFeedback,
+	initialTab,
 }: SettingsPanelProps): JSX.Element | null {
-	const [activeTab, setActiveTab] = useState<TabId>("profile");
+	const [activeTab, setActiveTab] = useState<TabId>(initialTab ?? "profile");
 	const [draft, setDraft] = useState<SettingsData>(settings);
 	const [saving, setSaving] = useState(false);
 	const [validationErrors, setValidationErrors] = useState<string[]>([]);
@@ -116,9 +120,9 @@ export function SettingsPanel({
 		if (open) {
 			setDraft(settings);
 			setValidationErrors([]);
-			setActiveTab("profile");
+			setActiveTab(initialTab ?? "profile");
 		}
-	}, [open, settings]);
+	}, [open, settings, initialTab]);
 
 	const updateProfile = useCallback((field: keyof ProfileSettings, value: string): void => {
 		setDraft((prev) => ({
@@ -321,6 +325,7 @@ export function SettingsPanel({
 								onThemeChange={updateTheme}
 							/>
 						)}
+						{activeTab === "credentials" && <CredentialsTab />}
 					</div>
 
 					{/* Validation errors */}
@@ -334,25 +339,27 @@ export function SettingsPanel({
 						</div>
 					)}
 
-					{/* Footer with Save */}
-					<div className="flex justify-end gap-2 p-3 border-t border-[var(--border-subtle)]">
-						<button
-							type="button"
-							className="btn btn-ghost btn-sm text-[var(--text-mid)]"
-							onClick={onClose}
-						>
-							Cancel
-						</button>
-						<button
-							type="button"
-							className="btn btn-primary btn-sm"
-							disabled={saving}
-							onClick={handleSave}
-						>
-							{saving && <span className="loading loading-spinner loading-xs" />}
-							Save
-						</button>
-					</div>
+					{/* Footer with Save — hidden on the Credentials tab, which manages its own save */}
+					{activeTab !== "credentials" && (
+						<div className="flex justify-end gap-2 p-3 border-t border-[var(--border-subtle)]">
+							<button
+								type="button"
+								className="btn btn-ghost btn-sm text-[var(--text-mid)]"
+								onClick={onClose}
+							>
+								Cancel
+							</button>
+							<button
+								type="button"
+								className="btn btn-primary btn-sm"
+								disabled={saving}
+								onClick={handleSave}
+							>
+								{saving && <span className="loading loading-spinner loading-xs" />}
+								Save
+							</button>
+						</div>
+					)}
 				</div>
 			</FocusTrap>
 			{/* biome-ignore lint/a11y/useKeyWithClickEvents: Backdrop is a visual overlay; keyboard close is handled by Escape */}

@@ -1,9 +1,10 @@
 /**
  * N4 migration orchestrator for the desktop main process.
  * Calls into @hyperidle/db's applyMigrations and isDowngrade.
- *
- * N4 stub — implementation pending.
  */
+
+import * as path from "node:path";
+import { applyMigrations, isDowngrade } from "@hyperidle/db";
 
 export interface MigrationOrchestrationResult {
 	applied: number;
@@ -14,9 +15,16 @@ export interface MigrationOrchestrationResult {
  * Resolve the migrations folder path.
  * In dev mode: relative to the monorepo packages/db/drizzle.
  * In packaged app (N5): relative to process.resourcesPath.
+ *
+ * @lore N4: We use __dirname-relative resolution so this works both in the
+ * worktree during development and in the packaged app. The `drizzle` folder
+ * lives at packages/db/drizzle relative to the monorepo root.
  */
 export function resolveMigrationsFolder(): string {
-	throw new Error("not implemented");
+	// In the monorepo, this file lives at packages/desktop/src/migrate.ts.
+	// The migrations folder lives at packages/db/drizzle.
+	// Relative path: ../../../db/drizzle from packages/desktop/src/
+	return path.resolve(__dirname, "..", "..", "..", "db", "drizzle");
 }
 
 /**
@@ -27,8 +35,16 @@ export function resolveMigrationsFolder(): string {
  * @throws if schema downgrade detected or migration fails.
  */
 export function runMigrations(
-	_dbPath: string,
-	_migrationsFolder: string,
+	dbPath: string,
+	migrationsFolder: string,
 ): MigrationOrchestrationResult {
-	throw new Error("not implemented");
+	if (isDowngrade(dbPath, migrationsFolder)) {
+		throw new Error(
+			`Schema downgrade detected: the database at ${dbPath} was created by a newer version of the app. ` +
+				"Please update the application or restore from a backup.",
+		);
+	}
+
+	const result = applyMigrations(dbPath, migrationsFolder);
+	return { applied: result.applied, schemaVersion: result.schemaVersion };
 }

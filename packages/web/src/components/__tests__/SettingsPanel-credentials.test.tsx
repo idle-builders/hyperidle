@@ -44,11 +44,14 @@ const NOOP_SAVE = vi.fn().mockResolvedValue(undefined);
 // Mock window.__HYPERIDLE__ for testing
 // ---------------------------------------------------------------------------
 function setupElectronBridge(overrides?: Partial<Window["__HYPERIDLE__"]>): void {
+	// @lore N4 test-bug-fix: Default credential names use neutral keys to avoid
+	// conflicting with harness-agnostic assertions that check these words are absent.
+	// Tests that need specific credential names override via `overrides.credentials`.
 	const mockBridge: NonNullable<Window["__HYPERIDLE__"]> = {
 		apiKey: "test-api-key",
 		platform: "electron",
 		credentials: {
-			list: vi.fn().mockResolvedValue(["ANTHROPIC_API_KEY", "OPENAI_KEY"]),
+			list: vi.fn().mockResolvedValue(["API_KEY_1", "SERVICE_TOKEN"]),
 			get: vi.fn().mockResolvedValue(null),
 			set: vi.fn().mockResolvedValue({ stored: true }),
 			delete: vi.fn().mockResolvedValue(undefined),
