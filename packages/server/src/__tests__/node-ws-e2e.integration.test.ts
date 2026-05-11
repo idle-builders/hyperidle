@@ -40,11 +40,20 @@ const TEST_API_KEY = "test-node-ws-N1-e2e-key";
 /**
  * Mint a one-shot WebSocket upgrade token from the server.
  * Mirrors the helper in websocket.test.ts.
+ *
+ * @lore N1: The server uses createDbSubscribeAuthorizer which requires an
+ * authenticated identity (senderId) before allowing subscribe calls —
+ * even for global topics like "work" and "conversations". The authorizer
+ * checks `clientIdentities.get(client)` and returns "forbidden" when no
+ * identity is set. Passing X-Identity here binds an identityId to the
+ * upgrade token so the WS broadcaster accepts subscribe requests from
+ * this client. See ws-broadcaster.ts subscribe() and createServer() in
+ * server-factory.ts.
  */
 async function issueUpgradeToken(port: number): Promise<string> {
 	const res = await fetch(`http://localhost:${port}/api/auth/ws-token`, {
 		method: "POST",
-		headers: authHeaders(TEST_API_KEY),
+		headers: { ...authHeaders(TEST_API_KEY), "X-Identity": "test-identity-n1-ws" },
 	});
 	expect(res.status).toBe(200);
 	const body = (await res.json()) as { token?: string };

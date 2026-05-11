@@ -195,9 +195,15 @@ describe("H4 idempotency: laptop setup is safe to run twice", () => {
 });
 
 describe("H4 AC1: Bun runtime path for applyLaptopMigrations", () => {
-	// @lore The Node test path exercises better-sqlite3 directly; the Bun
-	// path uses bun:sqlite. We shell out to `bun` so the sandbox exercises
-	// the dynamic-import branch we cannot reach from vitest-under-Node.
+	// @lore N1: The bun:sqlite branch was removed in N1 — setup-cli.ts now
+	// uses better-sqlite3 unconditionally under both Bun and Node. The test
+	// previously used `bun --bun` to force Bun's native runtime and exercise
+	// the bun:sqlite dynamic-import branch. That flag is now dropped because:
+	//   (a) there is no longer a Bun-specific code path to exercise, and
+	//   (b) `--bun` mode may not load Node native addons (better-sqlite3)
+	//       correctly in all CI environments.
+	// We still shell out to plain `bun` so the Bun runtime compatibility is
+	// verified end-to-end (Bun's Node compat layer loads better-sqlite3).
 	// When Bun is unavailable (e.g. CI without Bun) we flag UNVERIFIED and
 	// document the operator-side smoke path in docs/deployment/.
 	const bunProbe = spawnSync("bun", ["--version"], { stdio: "pipe" });
@@ -208,7 +214,7 @@ describe("H4 AC1: Bun runtime path for applyLaptopMigrations", () => {
 		const cliPath = path.resolve(__dirname, "..", "setup-cli.ts");
 		const result = spawnSync(
 			"bun",
-			["--bun", cliPath, "--profile", "laptop", "--db-path", dbPath],
+			[cliPath, "--profile", "laptop", "--db-path", dbPath],
 			{
 				stdio: "pipe",
 				env: { ...process.env, HYPERIDLE_PROFILE: "" },
