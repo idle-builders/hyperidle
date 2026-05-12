@@ -229,7 +229,10 @@ test.describe("L14 — Bet actions E2E", () => {
 					return route.fulfill({
 						status: 200,
 						contentType: "application/json",
-						body: JSON.stringify({ ...makeBetResponse("in_progress"), costAppetite: { minor: 50000, currency: "USD" } }),
+						body: JSON.stringify({
+							...makeBetResponse("in_progress"),
+							costAppetite: { minor: 50000, currency: "USD" },
+						}),
 					});
 				}
 				if (route.request().method() === "GET") {

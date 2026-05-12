@@ -81,7 +81,12 @@ async function mockThreadEndpoints(page: Page): Promise<void> {
 			await route.fulfill({
 				status: 200,
 				contentType: "application/json",
-				body: JSON.stringify({ thread: { id: "thread-stub" }, messages: [], headMessageId: null, nextMessagesCursor: null }),
+				body: JSON.stringify({
+					thread: { id: "thread-stub" },
+					messages: [],
+					headMessageId: null,
+					nextMessagesCursor: null,
+				}),
 			});
 		}
 	});
@@ -291,7 +296,14 @@ test.describe("L12 — Artifact surfaces on Work pages", () => {
 				status: 200,
 				contentType: "application/json",
 				body: JSON.stringify({
-					threads: [{ id: ORDER_THREAD_ID, hostKind: "bet", hostId: ORDER_BET_ID, hasUnresolvedReview: false }],
+					threads: [
+						{
+							id: ORDER_THREAD_ID,
+							hostKind: "bet",
+							hostId: ORDER_BET_ID,
+							hasUnresolvedReview: false,
+						},
+					],
 					nextCursor: null,
 				}),
 			});

@@ -214,7 +214,10 @@ test.describe("L15 — Strip drag + Task request sheet (re-routed to Bet detail)
 			await route.fulfill({
 				status: 200,
 				contentType: "application/json",
-				body: JSON.stringify({ threads: [{ ...makeHostThreadResponse().thread, hasUnresolvedReview: false }], nextCursor: null }),
+				body: JSON.stringify({
+					threads: [{ ...makeHostThreadResponse().thread, hasUnresolvedReview: false }],
+					nextCursor: null,
+				}),
 			});
 		});
 

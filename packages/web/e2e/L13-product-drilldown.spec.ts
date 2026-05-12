@@ -52,7 +52,12 @@ function makeProductDetailResponse() {
 			{ agentId: "agent-lead", name: "Lead Agent", role: "lead", isLead: true },
 			{ agentId: "agent-member", name: "Alice Agent", role: "member", isLead: false },
 		],
-		burn: { costActual: { minor: 420000, currency: "USD" }, costCap: { minor: 1000000, currency: "USD" }, capacity: 5, activeBets: 2 },
+		burn: {
+			costActual: { minor: 420000, currency: "USD" },
+			costCap: { minor: 1000000, currency: "USD" },
+			capacity: 5,
+			activeBets: 2,
+		},
 		activeBets: [
 			{
 				id: "b1",

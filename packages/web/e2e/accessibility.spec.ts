@@ -80,7 +80,12 @@ test.describe("axe-core — zero WCAG 2.1 AA violations", () => {
 					},
 					team: { id: "t1", formedAt: "2024-01-01T00:00:00Z", dissolvedAt: null },
 					roster: [{ agentId: "agent-1", name: "Alice", role: "Lead Engineer", isLead: true }],
-					burn: { costActual: { minor: 10000, currency: "USD" }, costCap: { minor: 100000, currency: "USD" }, capacity: 3, activeBets: 1 },
+					burn: {
+						costActual: { minor: 10000, currency: "USD" },
+						costCap: { minor: 100000, currency: "USD" },
+						capacity: 3,
+						activeBets: 1,
+					},
 					activeBets: [
 						{
 							id: "b1",
