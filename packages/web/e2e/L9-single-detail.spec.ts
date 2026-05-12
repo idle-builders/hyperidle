@@ -37,10 +37,7 @@ function makeThreadDetail(messages: Array<Record<string, unknown>> = []) {
 		},
 		messages,
 		headMessageId: null,
-		identities: {
-			[FOUNDER_ID]: { name: "Founder", role: "founder" },
-			"agent-1": { name: "Agent", role: "builder" },
-		},
+		nextMessagesCursor: null,
 	};
 }
 
@@ -249,7 +246,9 @@ test.describe("L9 — single Conversations detail surface", () => {
 					product: "Alpha",
 					team: "Alpha Core",
 					status: "in_progress",
-					appetite: "1 week",
+					costAppetite: { minor: 50000, currency: "USD" },
+					costActual: null,
+					tokensActual: null,
 					progress: { done: 0, total: 1 },
 					pitch: "# Test\nL9 bet for e2e.",
 					tasks: [],
@@ -299,7 +298,7 @@ test.describe("L9 — single Conversations detail surface", () => {
 					},
 					messages: [],
 					headMessageId: null,
-					identities: { [FOUNDER_ID]: { name: "Founder", role: "founder" } },
+					nextMessagesCursor: null,
 				}),
 			});
 		});

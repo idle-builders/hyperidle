@@ -27,7 +27,9 @@ const RICH_BET_FIXTURE = {
 	product: "Nimmly",
 	team: "Alpha Core",
 	status: "shaped",
-	appetite: "small",
+	costAppetite: { minor: 50000, currency: "USD" },
+	costActual: null,
+	tokensActual: null,
 	progress: { done: 0, total: 1 },
 	pitch: `# Problem
 The daily digest is missing.
@@ -49,13 +51,19 @@ const digest = true;
 	tasks: [
 		{
 			id: "seed-task-daily-digest",
+			betId: BET_ID,
 			title: "Daily digest anchor task",
-			owner: "seed-agent-cos",
+			ownerAgentId: "seed-agent-cos",
 			state: "ready",
-			cost: "$0.00",
+			costActual: null,
+			costCap: null,
+			latestSessionOutcome: null,
+			latestSessionCost: null,
+			latestSessionTokensInput: null,
+			latestSessionTokensOutput: null,
+			latestSessionHarnessUrl: null,
 		},
 	],
-	comments: [],
 };
 
 test.describe("L16 — Bet pitch as L2 blocks (e2e)", () => {

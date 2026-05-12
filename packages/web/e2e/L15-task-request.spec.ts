@@ -32,26 +32,41 @@ function makeBetDetailResponse() {
 		product: "HyperIdle Core",
 		team: "Core Team",
 		status: "in_progress",
-		appetite: "2 weeks",
+		costAppetite: { minor: 100000, currency: "USD" },
+		costActual: { minor: 6000, currency: "USD" },
+		tokensActual: null,
 		progress: { done: 1, total: 2 },
 		pitch: "# Problem\n\nAuth needs work.\n",
 		tasks: [
 			{
 				id: TASK_ID,
+				betId: BET_ID,
 				title: "Implement login endpoint",
-				owner: "Dev Agent 1",
+				ownerAgentId: "agent-dev-1",
 				state: "in_progress",
-				cost: "$4.20",
+				costActual: { minor: 4200, currency: "USD" },
+				costCap: null,
+				latestSessionOutcome: null,
+				latestSessionCost: null,
+				latestSessionTokensInput: null,
+				latestSessionTokensOutput: null,
+				latestSessionHarnessUrl: null,
 			},
 			{
 				id: "t2",
+				betId: BET_ID,
 				title: "Design signup form",
-				owner: "Dev Agent 2",
+				ownerAgentId: "agent-dev-2",
 				state: "accepted",
-				cost: "$1.80",
+				costActual: { minor: 1800, currency: "USD" },
+				costCap: null,
+				latestSessionOutcome: null,
+				latestSessionCost: null,
+				latestSessionTokensInput: null,
+				latestSessionTokensOutput: null,
+				latestSessionHarnessUrl: null,
 			},
 		],
-		comments: [],
 	};
 }
 
@@ -67,7 +82,9 @@ function makeThreadListResponse(threads: Array<{ id: string; hostId: string }>):
 			resolvedAt: null,
 			lastActiveAt: NOW,
 			createdAt: NOW,
+			hasUnresolvedReview: false,
 		})),
+		nextCursor: null,
 	};
 }
 
@@ -84,12 +101,7 @@ function makeCreateThreadResponse(): object {
 			lastActiveAt: NOW,
 			createdAt: NOW,
 		},
-		headMessageId: null,
 		messages: [],
-		identities: {
-			"u-founder": { name: "Founder", role: "founder" },
-			"agent-unassigned": { name: "Agent", role: "agent" },
-		},
 	};
 }
 
@@ -105,6 +117,17 @@ function makePostMessageResponse(): object {
 			deletedAt: null,
 			redactedAt: null,
 			resolvedAt: null,
+			createdAt: NOW,
+		},
+		thread: {
+			id: TASK_THREAD_ID,
+			hostKind: "task",
+			hostId: TASK_ID,
+			initiatorId: "u-founder",
+			participants: ["u-founder", "agent-unassigned"],
+			pinned: false,
+			resolvedAt: null,
+			lastActiveAt: NOW,
 			createdAt: NOW,
 		},
 	};
@@ -138,10 +161,7 @@ function makeThreadDetailResponse(): object {
 				createdAt: NOW,
 			},
 		],
-		identities: {
-			"u-founder": { name: "Founder", role: "founder" },
-			"agent-unassigned": { name: "Agent", role: "agent" },
-		},
+		nextMessagesCursor: null,
 	};
 }
 
@@ -160,9 +180,7 @@ function makeHostThreadResponse(): object {
 		},
 		headMessageId: null,
 		messages: [],
-		identities: {
-			"u-founder": { name: "Founder", role: "founder" },
-		},
+		nextMessagesCursor: null,
 	};
 }
 
@@ -196,7 +214,10 @@ test.describe("L15 — Strip drag + Task request sheet (re-routed to Bet detail)
 			await route.fulfill({
 				status: 200,
 				contentType: "application/json",
-				body: JSON.stringify({ threads: [makeHostThreadResponse().thread] }),
+				body: JSON.stringify({
+					threads: [{ ...makeHostThreadResponse().thread, hasUnresolvedReview: false }],
+					nextCursor: null,
+				}),
 			});
 		});
 

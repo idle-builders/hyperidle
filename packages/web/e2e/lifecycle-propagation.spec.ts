@@ -32,10 +32,12 @@ const AGENT_ID = "agent-l20-1";
 function makeTask(state: string) {
 	return {
 		id: TASK_ID,
+		betId: BET_ID,
 		title: "L20 Lifecycle Task",
-		owner: "Builder Agent",
+		ownerAgentId: AGENT_ID,
 		state,
-		cost: "$0.00",
+		costActual: null,
+		costCap: null,
 		latestSessionOutcome: state === "review" ? "completed" : null,
 		latestSessionCost: null,
 		latestSessionTokensInput: null,
@@ -51,7 +53,9 @@ function makeBetResponse(betStatus: string, taskState: string) {
 		product: "L20 Product",
 		team: "Alpha Core",
 		status: betStatus,
-		appetite: "1 week",
+		costAppetite: { minor: 50000, currency: "USD" },
+		costActual: null,
+		tokensActual: null,
 		progress: {
 			done: taskState === "done" ? 1 : 0,
 			total: 1,
@@ -95,11 +99,11 @@ function makeProductResponse(betStatus: string) {
 }
 
 function makeEmptyThreadResponse() {
-	return { threads: [], total: 0 };
+	return { threads: [], nextCursor: null };
 }
 
 function makeEmptyMessagesResponse() {
-	return { messages: [], total: 0 };
+	return { messages: [] };
 }
 
 function makeSessionsResponse(taskId: string, state: string, outcome: string | null) {
@@ -189,7 +193,7 @@ async function setupCommonRoutes(
 		return route.fulfill({
 			status: 200,
 			contentType: "application/json",
-			body: JSON.stringify({ products: [], total: 0 }),
+			body: JSON.stringify({ products: [] }),
 		});
 	});
 
@@ -198,7 +202,7 @@ async function setupCommonRoutes(
 		return route.fulfill({
 			status: 200,
 			contentType: "application/json",
-			body: JSON.stringify({ bets: [], total: 0 }),
+			body: JSON.stringify({ bets: [] }),
 		});
 	});
 

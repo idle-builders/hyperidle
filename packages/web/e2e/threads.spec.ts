@@ -41,10 +41,7 @@ const LATER = "2026-04-28T10:05:00.000Z";
 const FOUNDER_ID = "u-founder";
 const AGENT_ID = "a-aria";
 
-const IDENTITIES = {
-	[FOUNDER_ID]: { name: "Founder", role: "founder" },
-	[AGENT_ID]: { name: "Aria", role: "agent" },
-};
+// identities is NOT returned by GET /api/threads/:id — only by GET /api/threads/coach
 
 interface BaseMessageFixture {
 	id: string;
@@ -93,7 +90,7 @@ function reviewThreadFixture(): {
 	};
 	messages: Array<Record<string, unknown>>;
 	headMessageId: string;
-	identities: Record<string, { name: string; role: string }>;
+	nextMessagesCursor: null;
 } {
 	const threadId = "t-review-1";
 	const reviewMessage = {
@@ -137,7 +134,7 @@ function reviewThreadFixture(): {
 		// Server returns DESC by createdAt (most-recent first).
 		messages: [plainFollowup, reviewMessage],
 		headMessageId: "m-review-1",
-		identities: IDENTITIES,
+		nextMessagesCursor: null,
 	};
 }
 
@@ -145,7 +142,7 @@ function plainOnlyThreadFixture(): {
 	thread: Record<string, unknown>;
 	messages: Array<Record<string, unknown>>;
 	headMessageId: null;
-	identities: typeof IDENTITIES;
+	nextMessagesCursor: null;
 } {
 	const threadId = "t-plain-1";
 	const m = {
@@ -173,7 +170,7 @@ function plainOnlyThreadFixture(): {
 		},
 		messages: [m],
 		headMessageId: null,
-		identities: IDENTITIES,
+		nextMessagesCursor: null,
 	};
 }
 
@@ -181,7 +178,7 @@ function legacyBackCompatThreadFixture(): {
 	thread: Record<string, unknown>;
 	messages: Array<Record<string, unknown>>;
 	headMessageId: null;
-	identities: typeof IDENTITIES;
+	nextMessagesCursor: null;
 } {
 	// Migration projects legacy `kind='chat'` rows into `payload.text` by
 	// concatenating `subject` and `body`. The fixture mirrors the post-
@@ -212,7 +209,7 @@ function legacyBackCompatThreadFixture(): {
 		},
 		messages: [m],
 		headMessageId: null,
-		identities: IDENTITIES,
+		nextMessagesCursor: null,
 	};
 }
 
@@ -413,7 +410,7 @@ test.describe("L1a — verdict click resolves the review and renders APPROVED", 
 		const after = {
 			thread: { ...before.thread, resolvedAt: LATER },
 			headMessageId: null,
-			identities: before.identities,
+			nextMessagesCursor: null,
 			messages: [verdictMessage, before.messages[0], headResolved],
 		};
 

@@ -21,7 +21,9 @@ function makeBetResponse() {
 		product: "Alpha",
 		team: "Alpha Core",
 		status: "in_progress",
-		appetite: "2 weeks",
+		costAppetite: { minor: 100000, currency: "USD" },
+		costActual: null,
+		tokensActual: null,
 		progress: { done: 0, total: 1 },
 		pitch:
 			"# Problem\n\nThis paragraph block will receive an anchored comment.\n\n## Solution\n\nAnother block here.",
@@ -30,7 +32,7 @@ function makeBetResponse() {
 }
 
 function makeThreadListResponse() {
-	return { threads: [] };
+	return { threads: [], nextCursor: null };
 }
 
 function makeCreateThreadResponse() {
@@ -46,18 +48,20 @@ function makeCreateThreadResponse() {
 			lastActiveAt: NOW,
 			createdAt: NOW,
 		},
-		message: {
-			id: "msg-init",
-			threadId: THREAD_ID,
-			senderId: FOUNDER_ID,
-			type: "plain",
-			payload: { text: "Thread started." },
-			clientKey: "ck-init",
-			deletedAt: null,
-			redactedAt: null,
-			resolvedAt: null,
-			createdAt: NOW,
-		},
+		messages: [
+			{
+				id: "msg-init",
+				threadId: THREAD_ID,
+				senderId: FOUNDER_ID,
+				type: "plain",
+				payload: { text: "Thread started." },
+				clientKey: "ck-init",
+				deletedAt: null,
+				redactedAt: null,
+				resolvedAt: null,
+				createdAt: NOW,
+			},
+		],
 	};
 }
 
@@ -120,7 +124,7 @@ test.describe("L18 — Block-anchored comment flow", () => {
 						thread: makeCreateThreadResponse().thread,
 						messages: postedMessages,
 						headMessageId: null,
-						identities: { [FOUNDER_ID]: { name: "Founder", role: "founder" } },
+						nextMessagesCursor: null,
 					}),
 				});
 			} else {
