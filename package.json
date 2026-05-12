@@ -45,7 +45,10 @@
 		"obs:report": "bun scripts/trace-report.ts",
 		"pipeline": "bin/pipeline",
 		"mock-inventory": "bun scripts/mock-inventory.ts",
-		"mock-inventory:check": "bun scripts/mock-inventory.ts --check"
+		"mock-inventory:check": "bun scripts/mock-inventory.ts --check",
+		"native:electron": "cd packages/desktop && bunx electron-rebuild -f -w better-sqlite3 -m ../..",
+		"native:node": "bun install --force",
+		"check:native": "bun packages/desktop/scripts/check-native.ts"
 	},
 	"overrides": {
 		"zod-validation-error": "^4.0.0"

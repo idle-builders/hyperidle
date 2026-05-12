@@ -12,7 +12,8 @@ import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 import { app, BrowserWindow, dialog, ipcMain, Menu, shell } from "electron";
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const Dirname = path.dirname(fileURLToPath(import.meta.url));
+
 import { buildAppMenuTemplate } from "./app-menu.js";
 import { getPort, startServer, waitForHealth } from "./boot-server.js";
 import type { LogRotator } from "./log-rotation.js";
@@ -308,7 +309,7 @@ async function startApp(): Promise<void> {
 	const windowState = loadWindowState(windowStatePath, displayBounds);
 
 	// Create the BrowserWindow
-	const preloadPath = path.join(__dirname, "preload.js");
+	const preloadPath = path.join(Dirname, "preload.js");
 	const mainWindow = new BrowserWindow({
 		x: windowState.x,
 		y: windowState.y,
@@ -325,7 +326,7 @@ async function startApp(): Promise<void> {
 	});
 
 	// Show splash first
-	const splashPath = path.join(__dirname, "splash.html");
+	const splashPath = path.join(Dirname, "splash.html");
 	mainWindow.loadFile(splashPath);
 	mainWindow.show();
 

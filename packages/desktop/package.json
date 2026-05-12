@@ -5,7 +5,8 @@
 	"type": "module",
 	"main": "src/main.ts",
 	"scripts": {
-		"dev": "NODE_OPTIONS='--import tsx' electron .",
+		"dev": "bun scripts/check-native.ts && NODE_OPTIONS='--import tsx' electron .",
+		"check:native": "bun scripts/check-native.ts",
 		"check": "tsc --noEmit",
 		"test": "vitest run"
 	},
@@ -15,6 +16,7 @@
 		"@hyperidle/shared": "workspace:*"
 	},
 	"devDependencies": {
+		"@electron/rebuild": "^4.0.4",
 		"electron": "^36.0.0",
 		"vitest": "*"
 	}

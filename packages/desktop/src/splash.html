@@ -43,11 +43,11 @@
   <div class="status" id="status-text">Starting...</div>
   <div class="migration-status" id="migration-status"></div>
   <script>
-    window.updateStatus = function(text) {
+    window.updateStatus = (text) => {
       var el = document.getElementById('status-text');
       if (el) el.textContent = text;
     };
-    window.showMigrationStatus = function(text) {
+    window.showMigrationStatus = (text) => {
       var el = document.getElementById('migration-status');
       if (el) {
         el.style.display = 'block';
