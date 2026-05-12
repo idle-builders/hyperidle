@@ -45,5 +45,15 @@ export default defineConfig({
 		reuseExistingServer: !process.env.CI,
 		timeout: 60_000,
 		cwd: ".",
+		// @lore N2: Inject VITE_HYPERIDLE_API_KEY into the Vite dev server spawned by
+		// Playwright. The e2e tests use page.route() mocking (no real API server), so
+		// the value is arbitrary — "playwright-test-key" is a stable sentinel. Vite
+		// inherits this from the parent process env and exposes it via import.meta.env.
+		// N2 architecture critique condition: use webServer.env, not a .env file, so
+		// the test is fully self-contained and works in CI without env file setup.
+		env: {
+			...process.env,
+			VITE_HYPERIDLE_API_KEY: "playwright-test-key",
+		},
 	},
 });

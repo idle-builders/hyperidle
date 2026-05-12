@@ -1,5 +1,5 @@
 /**
- * L16 — useBet hook unit tests (red phase).
+ * L16 — useBet hook unit tests.
  *
  * Covers:
  *   - Initial loading state when betId is defined.
@@ -13,7 +13,13 @@ import { renderHook, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { BetDetail } from "../../types/bet";
 
-// Import the hook — it doesn't exist yet so this test will fail until green phase.
+// Mock apiFetch so tests are not sensitive to fetch() call argument count.
+// Header injection is covered by api-fetch.test.ts; these tests focus on
+// hook logic (loading state, data, error, cancellation).
+vi.mock("../../services/api-fetch.js", () => ({
+	apiFetch: vi.fn(),
+}));
+
 import { useBet } from "../useBet";
 
 const MOCK_BET: BetDetail = {
@@ -30,8 +36,12 @@ const MOCK_BET: BetDetail = {
 };
 
 describe("useBet", () => {
-	beforeEach(() => {
-		vi.spyOn(globalThis, "fetch");
+	let fetchSpy: ReturnType<typeof vi.fn>;
+
+	beforeEach(async () => {
+		const { apiFetch } = await import("../../services/api-fetch.js");
+		fetchSpy = vi.mocked(apiFetch);
+		fetchSpy.mockReset();
 	});
 
 	afterEach(() => {
@@ -39,7 +49,7 @@ describe("useBet", () => {
 	});
 
 	it("starts in loading state when betId is defined", () => {
-		vi.mocked(fetch).mockImplementation(() => new Promise(() => {})); // never resolves
+		fetchSpy.mockImplementation(() => new Promise(() => {})); // never resolves
 		const { result } = renderHook(() => useBet("b1"));
 		expect(result.current.loading).toBe(true);
 		expect(result.current.data).toBeNull();
@@ -54,7 +64,7 @@ describe("useBet", () => {
 	});
 
 	it("populates data on successful fetch", async () => {
-		vi.mocked(fetch).mockResolvedValueOnce(new Response(JSON.stringify(MOCK_BET), { status: 200 }));
+		fetchSpy.mockResolvedValueOnce(new Response(JSON.stringify(MOCK_BET), { status: 200 }));
 		const { result } = renderHook(() => useBet("b1"));
 
 		await waitFor(() => {
@@ -66,7 +76,7 @@ describe("useBet", () => {
 	});
 
 	it("populates error on non-ok response", async () => {
-		vi.mocked(fetch).mockResolvedValueOnce(new Response("Not Found", { status: 404 }));
+		fetchSpy.mockResolvedValueOnce(new Response("Not Found", { status: 404 }));
 		const { result } = renderHook(() => useBet("missing"));
 
 		await waitFor(() => {
@@ -79,7 +89,7 @@ describe("useBet", () => {
 	});
 
 	it("populates error on network failure", async () => {
-		vi.mocked(fetch).mockRejectedValueOnce(new Error("Network error"));
+		fetchSpy.mockRejectedValueOnce(new Error("Network error"));
 		const { result } = renderHook(() => useBet("b1"));
 
 		await waitFor(() => {
@@ -91,12 +101,12 @@ describe("useBet", () => {
 		expect(result.current.error?.message).toBe("Network error");
 	});
 
-	it("calls fetch with the correct URL", async () => {
-		vi.mocked(fetch).mockResolvedValueOnce(new Response(JSON.stringify(MOCK_BET), { status: 200 }));
+	it("calls apiFetch with the correct URL", async () => {
+		fetchSpy.mockResolvedValueOnce(new Response(JSON.stringify(MOCK_BET), { status: 200 }));
 		renderHook(() => useBet("b1"));
 
 		await waitFor(() => {
-			expect(fetch).toHaveBeenCalledWith("/api/bets/b1");
+			expect(fetchSpy).toHaveBeenCalledWith("/api/bets/b1");
 		});
 	});
 
@@ -106,7 +116,7 @@ describe("useBet", () => {
 			firstResolve = res;
 		});
 
-		vi.mocked(fetch)
+		fetchSpy
 			.mockReturnValueOnce(firstFetch)
 			.mockResolvedValueOnce(
 				new Response(JSON.stringify({ ...MOCK_BET, id: "b2" }), { status: 200 }),

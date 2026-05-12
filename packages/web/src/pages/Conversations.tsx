@@ -21,6 +21,7 @@ import type { ArtifactRef, ArtifactViewShape } from "@hyperidle/shared";
 import { type JSX, type ReactNode, useCallback, useContext } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useThreadDetail } from "../hooks/useThreadDetail";
+import { apiFetch } from "../services/api-fetch.js";
 import {
 	type ActionSummaryData,
 	ArtifactView,
@@ -123,7 +124,7 @@ function ConversationsDetail({ threadId }: { threadId: string }): JSX.Element {
 		async (input: { type: string; payload: unknown; clientKey: string }): Promise<void> => {
 			if (!data) return;
 			const priorResolvedAt = data.thread.resolvedAt ?? null;
-			const res = await fetch(`/api/threads/${data.thread.id}/messages`, {
+			const res = await apiFetch(`/api/threads/${data.thread.id}/messages`, {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify(input),

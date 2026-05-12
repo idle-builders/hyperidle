@@ -11,6 +11,7 @@
 
 import type { ProductDetail } from "@hyperidle/shared";
 import { useEffect, useState } from "react";
+import { apiFetch } from "../services/api-fetch.js";
 
 export interface UseProductResult {
 	data: ProductDetail | null;
@@ -32,7 +33,7 @@ export function useProduct(productId: string | undefined): UseProductResult {
 		}
 		let cancelled = false;
 		setState({ data: null, loading: true, error: null });
-		fetch(`/api/products/${encodeURIComponent(productId)}`)
+		apiFetch(`/api/products/${encodeURIComponent(productId)}`)
 			.then((res) => {
 				if (!res.ok) throw new Error(`Product fetch failed: ${res.status}`);
 				return res.json() as Promise<ProductDetail>;

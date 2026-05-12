@@ -1,0 +1,212 @@
+/**
+ * N2 — Unit tests for apiFetch fetch wrapper.
+ *
+ * AC coverage:
+ *  AC-2: Single fetch wrapper injects X-API-Key on every /api/* request
+ *  AC-3: In dev, reads from VITE_HYPERIDLE_API_KEY via Vite env var
+ *  AC-4: Prefers window.__HYPERIDLE_API_KEY__ over VITE_HYPERIDLE_API_KEY
+ *  AC-6: Vitest covers the fetch wrapper
+ *
+ */
+
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { apiFetch } from "../api-fetch.js";
+
+const TEST_KEY = "test-api-key-abc123";
+const ELECTRON_KEY = "electron-api-key-xyz789";
+
+function makeMockResponse(status = 200): Response {
+	return {
+		ok: status >= 200 && status < 300,
+		status,
+		headers: new Headers(),
+		json: () => Promise.resolve({}),
+		text: () => Promise.resolve(""),
+	} as unknown as Response;
+}
+
+describe("apiFetch (N2)", () => {
+	let fetchSpy: ReturnType<typeof vi.fn>;
+
+	beforeEach(() => {
+		fetchSpy = vi.fn().mockResolvedValue(makeMockResponse(200));
+		vi.stubGlobal("fetch", fetchSpy);
+	});
+
+	afterEach(() => {
+		vi.unstubAllEnvs();
+		vi.unstubAllGlobals();
+		// Clean up window.__HYPERIDLE_API_KEY__ if set
+		if (typeof window !== "undefined") {
+			// biome-ignore lint/style/useNamingConvention: matches Electron contextBridge key name
+			delete (window as Window & { __HYPERIDLE_API_KEY__?: string }).__HYPERIDLE_API_KEY__;
+		}
+	});
+
+	// ── AC-2 + AC-3: Vite env var path ───────────────────────────────────────────
+
+	it("adds X-API-Key header when VITE_HYPERIDLE_API_KEY is set", async () => {
+		// Arrange
+		vi.stubEnv("VITE_HYPERIDLE_API_KEY", TEST_KEY);
+
+		// Act
+		await apiFetch("/api/teams");
+
+		// Assert
+		expect(fetchSpy).toHaveBeenCalledOnce();
+		const [, init] = fetchSpy.mock.calls[0] as [string, RequestInit];
+		const headers = new Headers(init?.headers);
+		expect(headers.has("X-API-Key")).toBe(true);
+	});
+
+	it("adds the correct key value from VITE_HYPERIDLE_API_KEY", async () => {
+		// Arrange
+		vi.stubEnv("VITE_HYPERIDLE_API_KEY", TEST_KEY);
+
+		// Act
+		await apiFetch("/api/teams");
+
+		// Assert
+		const [, init] = fetchSpy.mock.calls[0] as [string, RequestInit];
+		const headers = new Headers(init?.headers);
+		expect(headers.get("X-API-Key")).toBe(TEST_KEY);
+	});
+
+	it("does NOT add X-API-Key header to non-/api/* URLs", async () => {
+		// Arrange
+		vi.stubEnv("VITE_HYPERIDLE_API_KEY", TEST_KEY);
+
+		// Act
+		await apiFetch("/static/main.js");
+
+		// Assert
+		expect(fetchSpy).toHaveBeenCalledOnce();
+		// fetch is called with the original input, either without init or with
+		// init that does NOT have X-API-Key
+		const [, init] = fetchSpy.mock.calls[0] as [string, RequestInit | undefined];
+		if (init?.headers) {
+			const headers = new Headers(init.headers);
+			expect(headers.has("X-API-Key")).toBe(false);
+		}
+		// If init is undefined, the header was never added — which is correct
+	});
+
+	it("does NOT override an existing X-API-Key header", async () => {
+		// Arrange
+		vi.stubEnv("VITE_HYPERIDLE_API_KEY", TEST_KEY);
+		const callerKey = "caller-supplied-key";
+
+		// Act
+		await apiFetch("/api/teams", {
+			headers: { "X-API-Key": callerKey },
+		});
+
+		// Assert
+		const [, init] = fetchSpy.mock.calls[0] as [string, RequestInit];
+		const headers = new Headers(init?.headers);
+		expect(headers.get("X-API-Key")).toBe(callerKey);
+	});
+
+	it("passes through without X-API-Key header when no key is available", async () => {
+		// Arrange: no env var, no window key (cleared in afterEach)
+		// vi.stubEnv with undefined is not needed — the env var is simply absent
+
+		// Act
+		await apiFetch("/api/teams");
+
+		// Assert: fetch was still called (no throw), but without X-API-Key
+		expect(fetchSpy).toHaveBeenCalledOnce();
+		const [, init] = fetchSpy.mock.calls[0] as [string, RequestInit | undefined];
+		if (init?.headers) {
+			const headers = new Headers(init.headers);
+			expect(headers.has("X-API-Key")).toBe(false);
+		}
+	});
+
+	it("preserves method, body, and signal from init", async () => {
+		// Arrange
+		vi.stubEnv("VITE_HYPERIDLE_API_KEY", TEST_KEY);
+		const controller = new AbortController();
+		const body = JSON.stringify({ name: "test" });
+
+		// Act
+		await apiFetch("/api/teams", {
+			method: "POST",
+			body,
+			signal: controller.signal,
+		});
+
+		// Assert
+		const [, init] = fetchSpy.mock.calls[0] as [string, RequestInit];
+		expect(init.method).toBe("POST");
+		expect(init.body).toBe(body);
+		expect(init.signal).toBe(controller.signal);
+	});
+
+	// ── Robustness: URL and Request object inputs ─────────────────────────────────
+
+	it("handles URL object input for /api/* path", async () => {
+		// Arrange
+		vi.stubEnv("VITE_HYPERIDLE_API_KEY", TEST_KEY);
+		const url = new URL("http://localhost:3001/api/teams");
+
+		// Act
+		await apiFetch(url);
+
+		// Assert: X-API-Key header is injected
+		expect(fetchSpy).toHaveBeenCalledOnce();
+		const [, init] = fetchSpy.mock.calls[0] as [URL, RequestInit];
+		const headers = new Headers(init?.headers);
+		expect(headers.get("X-API-Key")).toBe(TEST_KEY);
+	});
+
+	it("handles Request object input for /api/* path", async () => {
+		// Arrange
+		vi.stubEnv("VITE_HYPERIDLE_API_KEY", TEST_KEY);
+		const request = new Request("http://localhost:3001/api/teams", {
+			method: "GET",
+		});
+
+		// Act
+		await apiFetch(request);
+
+		// Assert: X-API-Key header is injected
+		expect(fetchSpy).toHaveBeenCalledOnce();
+		const [, init] = fetchSpy.mock.calls[0] as [Request, RequestInit];
+		const headers = new Headers(init?.headers);
+		expect(headers.get("X-API-Key")).toBe(TEST_KEY);
+	});
+
+	// ── AC-4: Electron preload window.__HYPERIDLE_API_KEY__ priority ─────────────
+
+	it("prefers window.__HYPERIDLE_API_KEY__ over VITE_HYPERIDLE_API_KEY", async () => {
+		// Arrange: both keys set, window key should win
+		vi.stubEnv("VITE_HYPERIDLE_API_KEY", TEST_KEY);
+		// biome-ignore lint/style/useNamingConvention: matches Electron contextBridge key name
+		(window as Window & { __HYPERIDLE_API_KEY__?: string }).__HYPERIDLE_API_KEY__ = ELECTRON_KEY;
+
+		// Act
+		await apiFetch("/api/teams");
+
+		// Assert: the Electron key is used, not the Vite env key
+		const [, init] = fetchSpy.mock.calls[0] as [string, RequestInit];
+		const headers = new Headers(init?.headers);
+		expect(headers.get("X-API-Key")).toBe(ELECTRON_KEY);
+	});
+
+	// ── Architecture critique condition M-1: bare /api path ──────────────────────
+
+	it("handles bare /api path (no trailing slash) as an API URL", async () => {
+		// Arrange
+		vi.stubEnv("VITE_HYPERIDLE_API_KEY", TEST_KEY);
+
+		// Act
+		await apiFetch("/api");
+
+		// Assert: X-API-Key header is injected even for bare /api (no trailing slash)
+		expect(fetchSpy).toHaveBeenCalledOnce();
+		const [, init] = fetchSpy.mock.calls[0] as [string, RequestInit];
+		const headers = new Headers(init?.headers);
+		expect(headers.get("X-API-Key")).toBe(TEST_KEY);
+	});
+});

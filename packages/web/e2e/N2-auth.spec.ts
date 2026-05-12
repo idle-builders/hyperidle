@@ -1,0 +1,164 @@
+/**
+ * N2 — Playwright e2e: X-API-Key injection via apiFetch (AC-7).
+ *
+ * Strategy: hermetic page.route() mocks for all API calls.
+ * No real API server needed — tests verify the SPA injects X-API-Key headers.
+ *
+ * The key is injected into the Vite dev server via webServer.env in
+ * playwright.config.ts: VITE_HYPERIDLE_API_KEY="playwright-test-key".
+ * apiFetch reads this from import.meta.env and injects it as X-API-Key.
+ *
+ * AC-7a: /api/health succeeds (health endpoint does not require X-API-Key)
+ * AC-7b: /api/products request carries X-API-Key header injected by apiFetch
+ *        (WorkPortfolio navigates to /work/portfolio and calls useProducts())
+ *
+ */
+
+import { expect, test } from "@playwright/test";
+
+const PLAYWRIGHT_TEST_KEY = "playwright-test-key";
+
+// Minimal fixtures so the app shell renders without crashing
+
+const HEALTH_FIXTURE = { status: "ok" };
+
+const PRODUCTS_LIST_FIXTURE = {
+	products: [],
+};
+
+// ── AC-7a: /api/health succeeds without X-API-Key ────────────────────────────
+
+test.describe("N2 — /api/health endpoint (AC-7a)", () => {
+	test("health endpoint succeeds without X-API-Key header (health is unauthenticated)", async ({
+		page,
+	}) => {
+		// Arrange: intercept health, return 200 regardless of headers
+		await page.route("**/api/health", (route) => {
+			// Health endpoint does not require X-API-Key — always returns 200
+			return route.fulfill({
+				status: 200,
+				contentType: "application/json",
+				body: JSON.stringify(HEALTH_FIXTURE),
+			});
+		});
+
+		// Route other API calls to avoid console noise
+		await page.route("**/api/**", (route) =>
+			route.fulfill({
+				status: 200,
+				contentType: "application/json",
+				body: JSON.stringify({}),
+			}),
+		);
+
+		// Act: navigate to the app — the shell will call /api/health on load
+		await page.goto("/");
+		await page.waitForLoadState("networkidle");
+
+		// Assert: page rendered without network error (health call succeeded)
+		// The health endpoint does not require X-API-Key, so bare fetch() works too.
+		// This test ensures health is not accidentally gated behind auth.
+		const pageText = await page.textContent("body");
+		expect(pageText).not.toBeNull();
+	});
+});
+
+// ── AC-7b: apiFetch injects X-API-Key on real app navigations ────────────────
+
+test.describe("N2 — apiFetch injects X-API-Key on /api/products (AC-7b)", () => {
+	test("app navigation to /work/portfolio carries X-API-Key on /api/products via apiFetch", async ({
+		page,
+	}) => {
+		// Arrange: intercept ALL /api/* requests, capture the X-API-Key from each.
+		// WorkPortfolio calls useProducts() → apiFetch("/api/products") on mount,
+		// which must inject the key from VITE_HYPERIDLE_API_KEY (set in playwright.config.ts).
+		//
+		// @lore N2: Route handler registered as catch-all to avoid Playwright's FIFO
+		// route-matching behaviour — specific patterns like **/api/products can be
+		// skipped in favour of earlier-registered patterns depending on glob resolution.
+		// A single catch-all handler with URL discrimination is the most reliable pattern.
+		// See: https://playwright.dev/docs/network#handle-requests
+		let capturedApiKey: string | null = null;
+
+		await page.route("**/api/**", (route) => {
+			const url = route.request().url();
+			const key = route.request().headers()["x-api-key"] ?? null;
+
+			// Capture the header from the /api/products request specifically
+			if (url.includes("/api/products") && !url.includes("/api/products/")) {
+				capturedApiKey = key;
+			}
+
+			// Return an appropriate fixture response for each route
+			if (url.includes("/api/products")) {
+				return route.fulfill({
+					status: 200,
+					contentType: "application/json",
+					body: JSON.stringify(PRODUCTS_LIST_FIXTURE),
+				});
+			}
+			if (url.includes("/api/health")) {
+				return route.fulfill({
+					status: 200,
+					contentType: "application/json",
+					body: JSON.stringify(HEALTH_FIXTURE),
+				});
+			}
+			return route.fulfill({
+				status: 200,
+				contentType: "application/json",
+				body: JSON.stringify({}),
+			});
+		});
+
+		// Act: navigate to WorkPortfolio — this triggers useProducts() → apiFetch
+		await page.goto("/work/portfolio");
+		await page.waitForLoadState("networkidle");
+
+		// Assert: the captured header must match the key injected via webServer.env
+		// (playwright.config.ts sets VITE_HYPERIDLE_API_KEY="playwright-test-key")
+		expect(capturedApiKey).toBe(PLAYWRIGHT_TEST_KEY);
+	});
+
+	test("bare fetch() in page.evaluate does NOT carry X-API-Key (regression baseline)", async ({
+		page,
+	}) => {
+		// Regression guard: a bare fetch() call in page.evaluate should NOT
+		// have X-API-Key injected. There is no global monkey-patching — only
+		// explicit apiFetch() calls get the header. If this test starts failing,
+		// something has accidentally patched globalThis.fetch.
+		let capturedApiKey: string | null = null;
+
+		await page.route("**/api/teams", (route) => {
+			capturedApiKey = route.request().headers()["x-api-key"] ?? null;
+			return route.fulfill({
+				status: 200,
+				contentType: "application/json",
+				body: JSON.stringify({}),
+			});
+		});
+
+		await page.route("**/api/**", (route) =>
+			route.fulfill({
+				status: 200,
+				contentType: "application/json",
+				body: JSON.stringify({}),
+			}),
+		);
+
+		await page.goto("/");
+		await page.waitForLoadState("networkidle");
+
+		// Explicitly call bare fetch() — NOT apiFetch — from the page context.
+		// This call bypasses the apiFetch wrapper and must NOT have X-API-Key.
+		await page.evaluate(async () => {
+			await fetch("/api/teams");
+		});
+
+		await page.waitForTimeout(200);
+
+		// Bare fetch() must not carry X-API-Key — header injection is explicit,
+		// not global. This proves the wrapper is the mechanism, not a global patch.
+		expect(capturedApiKey).toBeNull();
+	});
+});

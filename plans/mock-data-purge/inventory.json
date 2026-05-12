@@ -190,7 +190,7 @@
   },
   {
     "path": "packages/web/src/hooks/useConversationsThreads.ts",
-    "line": 45,
+    "line": 46,
     "symbol": "FALLBACK_AVATAR",
     "kind": "symbol",
     "shape": "expression",
@@ -262,7 +262,7 @@
   },
   {
     "path": "packages/web/src/pages/WorkBet.tsx",
-    "line": 613,
+    "line": 614,
     "symbol": "u-founder",
     "kind": "literal-id",
     "shape": "string",
@@ -280,7 +280,7 @@
   },
   {
     "path": "packages/web/src/services/host-threads.ts",
-    "line": 27,
+    "line": 28,
     "symbol": "PLACEHOLDER_AGENT_PARTICIPANT_ID",
     "kind": "symbol",
     "shape": "string",
@@ -289,7 +289,7 @@
   },
   {
     "path": "packages/web/src/services/host-threads.ts",
-    "line": 27,
+    "line": 28,
     "symbol": "agent-unassigned",
     "kind": "literal-id",
     "shape": "string",
