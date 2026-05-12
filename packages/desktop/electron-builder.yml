@@ -1,0 +1,22 @@
+# electron-builder configuration skeleton for N5
+# N4 only needs `electron .` to run — no distribution yet.
+# Distribution (signing, notarization, DMG) is N5.
+appId: com.hyperidle.app
+productName: HyperIdle
+copyright: Copyright © 2025 HyperIdle
+
+mac:
+  category: public.app-category.productivity
+  target:
+    - target: dmg
+      arch: [arm64, x64]
+
+files:
+  - "dist/**/*"
+  - "!dist/**/*.map"
+
+extraResources:
+  - from: "../../packages/db/drizzle"
+    to: "drizzle"
+  - from: "../../packages/web/dist"
+    to: "web-dist"

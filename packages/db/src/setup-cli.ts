@@ -6,8 +6,8 @@ import { type DeploymentProfile, resolveProfile } from "./profiles.js";
 import * as schema from "./schema.js";
 import { seed } from "./seed.js";
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+const Filename = fileURLToPath(import.meta.url);
+const Dirname = path.dirname(Filename);
 
 // @lore N1: setup-cli uses better-sqlite3 unconditionally. The Bun-specific
 // SQLite branch was removed in N1. Both Bun and Node now use the same
@@ -86,7 +86,7 @@ function parseArgs(argv: readonly string[]): ParsedArgs {
 function defaultRoot(cwd: string | undefined): string {
 	// packages/db/src → repo root is ../../..
 	if (cwd) return cwd;
-	return path.resolve(__dirname, "..", "..", "..");
+	return path.resolve(Dirname, "..", "..", "..");
 }
 
 /**
@@ -131,17 +131,26 @@ export function validateDbPath(input: string, cwd: string): string {
 	return resolved;
 }
 
+/**
+ * Apply migrations for the laptop profile using the shared applyMigrations
+ * function, then seed the database.
+ *
+ * @lore N4: Uses the extracted applyMigrations() from migrate.ts as the single
+ * source of truth. setup-cli was the original inline migration owner; we now
+ * delegate to applyMigrations() so both CLI and desktop share identical logic.
+ * Architecture §6.1: "Option A. The migration logic must be a single source of
+ * truth. The setup-cli and the desktop must run identical migrations."
+ */
 async function applyLaptopMigrations(dbPath: string, migrationsFolder: string): Promise<void> {
-	// @lore N1: uses better-sqlite3 unconditionally. No Bun/Node branching.
+	const { applyMigrations } = await import("./migrate.js");
+	applyMigrations(dbPath, migrationsFolder);
+
+	// Seed the database — setup-cli always seeds; desktop does not.
 	const { default: BetterSqlite } = await import("better-sqlite3");
 	const { drizzle: nodeDrizzle } = await import("drizzle-orm/better-sqlite3");
-	const { migrate: nodeMigrate } = await import("drizzle-orm/better-sqlite3/migrator");
 	const sqlite = new BetterSqlite(dbPath);
 	try {
-		sqlite.pragma("journal_mode = WAL");
-		sqlite.pragma("foreign_keys = ON");
 		const db = nodeDrizzle(sqlite, { schema });
-		nodeMigrate(db, { migrationsFolder });
 		seed(db);
 	} finally {
 		sqlite.close();
@@ -171,7 +180,7 @@ async function runLaptop(
 		return 0;
 	}
 
-	const migrationsFolder = path.resolve(__dirname, "..", "drizzle");
+	const migrationsFolder = path.resolve(Dirname, "..", "drizzle");
 	await applyLaptopMigrations(dbPath, migrationsFolder);
 
 	io.stdout(`[setup] Ready. SQLite DB at ${dbPath}`);
