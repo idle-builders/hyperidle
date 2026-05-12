@@ -5,7 +5,7 @@
  * endpoint. Asserts list loads, click updates main pane, counts match list,
  * and network failure surfaces ErrorState with retry.
  */
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./fixtures";
 
 // Relative to test-run wall clock so the `Resolved · 24h` bucket stays valid
 // as the calendar advances. Hardcoded ISO strings rotted out within days.

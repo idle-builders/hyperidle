@@ -35,6 +35,7 @@ import { API_ERROR_CODES, headCollapsePredicate } from "@hyperidle/shared";
 import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import { Hono } from "hono";
 import type { ZodError } from "zod";
+import type { HyperIdleEnv } from "../middleware/auth.js";
 import { escapeLikePattern } from "../services/like-escape.js";
 import { createCoachRoutes } from "./coach.js";
 import {
@@ -46,24 +47,36 @@ import {
 } from "./threads-schema.js";
 
 const SENDER_HEADER = "X-Identity";
-const DEFAULT_FOUNDER_ID = "u-founder";
 
-function readSenderId(c: { req: { header: (k: string) => string | undefined } }): string {
+/**
+ * Read the sender id. Prefers X-Identity header; falls back to the auth context
+ * userId set by createAuthMiddleware(db).
+ *
+ * @lore M3 A7: DEFAULT_FOUNDER_ID constant deleted. The fallback is now the
+ * auth context userId (set from factorySettings.founder_id).
+ */
+function readSenderId(c: {
+	req: { header: (k: string) => string | undefined };
+	get: (k: "userId") => string;
+}): string {
 	// L1a: identity attribution. Tests pass `X-Identity` to disambiguate
 	// the sender when an API key is shared across multiple senders. For
-	// production, identity comes from the auth middleware (out of scope
-	// for L1a — the API-key holder is the implicit sender otherwise).
-	return c.req.header(SENDER_HEADER) ?? DEFAULT_FOUNDER_ID;
+	// production, identity comes from the auth middleware via c.get("userId").
+	return c.req.header(SENDER_HEADER) ?? c.get("userId");
 }
 
 /**
  * Initial-message sender for `POST /api/threads`. Convention: review and
  * questionnaire messages are posted BY the agent FOR a founder to verdict;
  * if no `X-Identity` is supplied, default to the first non-founder
- * participant. Plain messages keep the standard founder default.
+ * participant. Plain messages keep the standard founder default (auth context userId).
+ *
+ * @lore M3 A7 C3: threads.ts:79 previously used DEFAULT_FOUNDER_ID here too.
+ * Both readSenderId and readInitialSenderId now use c.get("userId") as the
+ * fallback, sourced from factorySettings via the auth middleware.
  */
 function readInitialSenderId(
-	c: { req: { header: (k: string) => string | undefined } },
+	c: { req: { header: (k: string) => string | undefined }; get: (k: "userId") => string },
 	db: HyperIdleDb,
 	participants: ReadonlyArray<string>,
 	messageType: MessageType,
@@ -76,7 +89,7 @@ function readInitialSenderId(
 			if (ag && ag.role !== "founder") return p;
 		}
 	}
-	return DEFAULT_FOUNDER_ID;
+	return c.get("userId");
 }
 
 /**
@@ -141,8 +154,8 @@ function err(
 	return { body: { error, code }, status };
 }
 
-export function createThreadRoutes(db: HyperIdleDb, eventBus: EventBus): Hono {
-	const router = new Hono();
+export function createThreadRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<HyperIdleEnv> {
+	const router = new Hono<HyperIdleEnv>();
 
 	// --- GET /api/threads/coach --------------------------------------------
 	// @lore L21: mounted BEFORE /:id so "coach" is not swallowed as a thread

@@ -12,7 +12,8 @@ import { and, eq } from "drizzle-orm";
  *
  * @lore L14: `actor` is optional for backward compatibility — entries written
  * before L14 will have actor === undefined at read time. New entries written
- * via human-surfaced actions pass actor: "u-founder".
+ * via human-surfaced actions pass actor from the authenticated user context
+ * (set by createAuthMiddleware from factorySettings.founder_id).
  */
 export interface RevisionLogEntry {
 	timestamp: string;

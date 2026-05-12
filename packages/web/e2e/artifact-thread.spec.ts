@@ -5,7 +5,7 @@
  *  - open /artifacts/:id → thread renders → post a message → reload → message persists
  */
 
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./fixtures";
 
 const NOW = "2026-05-05T09:00:00.000Z";
 const LATER = "2026-05-05T09:05:00.000Z";

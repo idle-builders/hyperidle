@@ -6,7 +6,7 @@
 // (useArtifacts). The test mocks that endpoint with canonical-shape Artifact
 // JSON so the assertions exercise real component-rendered output without
 // requiring backend seeding or auth wiring.
-import { expect, type Route, test } from "@playwright/test";
+import { expect, type Route, test } from "./fixtures";
 
 const ARTIFACT_FIXTURES = [
 	{

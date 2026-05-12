@@ -8,7 +8,7 @@ import type { ApiErrorResponse, KnowledgeLayer } from "@hyperidle/shared";
 import { API_ERROR_CODES, type EventBus, KNOWLEDGE_LAYERS } from "@hyperidle/shared";
 import { and, eq, or, sql } from "drizzle-orm";
 import { Hono, type MiddlewareHandler } from "hono";
-import { z } from "zod";
+import z from "zod";
 import { validateBody } from "../middleware/validate.js";
 import { escapeLikePattern } from "../services/like-escape.js";
 import { createRelevanceService } from "../services/relevance-service.js";

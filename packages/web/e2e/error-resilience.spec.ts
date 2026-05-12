@@ -1,7 +1,7 @@
 /**
  * I4 E3: Error resilience E2E — unknown URL shows NotFound, not a blank page.
  */
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./fixtures";
 
 test.describe("Error resilience", () => {
 	test("navigating to /nonexistent shows a 'Page not found' message", async ({ page }) => {

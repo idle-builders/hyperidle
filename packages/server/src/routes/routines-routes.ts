@@ -2,7 +2,7 @@ import { type HyperIdleDb, routines, sessions, tasks } from "@hyperidle/db";
 import { API_ERROR_CODES, type EventBus, type SessionStartedEvent } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
 import { Hono } from "hono";
-import { z } from "zod";
+import z from "zod";
 import { validateBody } from "../middleware/validate.js";
 import {
 	isBuiltinRoutineId,

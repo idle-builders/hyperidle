@@ -10,7 +10,27 @@
  * specs; they complement them by exercising the end-to-end paths the user
  * will actually walk.
  */
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./fixtures";
+
+const RAIL_FIXTURE_ONE_BLOCKER = {
+	bets: [],
+	blockers: [
+		{
+			taskId: "task-1",
+			title: "Synthesis blocker",
+			owner: null,
+			durationBlockedMs: 90_000_000, // 25 h → high severity
+		},
+	],
+	awaitingOrdering: [],
+	costBurnRate: {
+		todaySpend: null,
+		todayCap: null,
+		weekSpend: null,
+		weekCap: null,
+		weekTokens: null,
+	},
+};
 
 test.describe("J8 synthesis — 10 critical flows", () => {
 	test("1. Settings overlay opens from the avatar and closes via the header X", async ({
@@ -42,6 +62,13 @@ test.describe("J8 synthesis — 10 critical flows", () => {
 		page,
 	}) => {
 		await page.setViewportSize({ width: 1024, height: 800 });
+		await page.route("**/api/rail", async (route) => {
+			await route.fulfill({
+				status: 200,
+				contentType: "application/json",
+				body: JSON.stringify(RAIL_FIXTURE_ONE_BLOCKER),
+			});
+		});
 		await page.goto("/");
 		await page.waitForSelector("[data-testid='main-content']");
 		// Collapsed: semantic BLK pill visible via aria-label.
@@ -49,7 +76,7 @@ test.describe("J8 synthesis — 10 critical flows", () => {
 		await expect(page.getByText("Active Bets")).not.toBeVisible();
 		// Expand.
 		await page.getByRole("button", { name: /expand rail/i }).click();
-		await expect(page.getByText("Active Bets")).toBeVisible();
+		await expect(page.getByText("Active Bets").first()).toBeVisible();
 	});
 
 	test("4. Triage ↔ Curated tab switch preserves scope and updates the tab state", async ({

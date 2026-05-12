@@ -19,7 +19,7 @@
  * the sort assertion is deterministic (AC-7 reviewer warning fix).
  */
 
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./fixtures";
 
 const NOW_ISO = new Date("2026-05-06T12:00:00.000Z").toISOString();
 

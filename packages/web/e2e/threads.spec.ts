@@ -31,7 +31,7 @@
  * pages.
  */
 
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./fixtures";
 
 // --- canonical fixture builders (shape-mirrored from @hyperidle/shared) ----
 

@@ -12,7 +12,7 @@ import {
 } from "@hyperidle/shared";
 import { and, desc, eq, inArray, isNull, lt, or } from "drizzle-orm";
 import { Hono } from "hono";
-import { z } from "zod";
+import z from "zod";
 import { createBodyLimit } from "../middleware/body-limit.js";
 import { validateBody } from "../middleware/validate.js";
 

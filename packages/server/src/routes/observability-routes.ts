@@ -2,7 +2,7 @@ import type { HyperIdleDb } from "@hyperidle/db";
 import type { ApiErrorResponse, Logger } from "@hyperidle/shared";
 import { API_ERROR_CODES, createLogger } from "@hyperidle/shared";
 import { Hono, type MiddlewareHandler } from "hono";
-import { z } from "zod";
+import z from "zod";
 import { validateBody } from "../middleware/validate.js";
 import {
 	type ObservabilityConfig,

@@ -3,7 +3,7 @@
 // (/_dev/artifacts) until the production review-thread embed mount lands
 // in L11. The embed is rendered identically by both surfaces — same DS
 // component, same lack of bg-/border-/rounded-/shadow- classes.
-import { expect, type Route, test } from "@playwright/test";
+import { expect, type Route, test } from "./fixtures";
 
 const FIXTURES = [
 	{

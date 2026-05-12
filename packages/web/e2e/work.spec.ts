@@ -1,11 +1,38 @@
 /**
  * E2E tests for the Work section: Portfolio canvas, Team kanban board,
  * bet cards, and pitch selector.
+ *
+ * @lore M3: Products now come from /api/products (no mock fallback). Tests
+ * that need product cards must mock the endpoint with fixture data.
  */
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./fixtures";
+
+const PRODUCTS_FIXTURE = {
+	products: [
+		{
+			id: "p1",
+			name: "HyperIdle Core",
+			phase: "growth",
+			status: "healthy",
+			leadAgentId: "agent-lead",
+			activeBets: 2,
+			shipped: 5,
+			shipRate: "71%",
+			progress: { done: 3, total: 6 },
+		},
+	],
+};
 
 test.describe("Work Portfolio", () => {
 	test.beforeEach(async ({ page }) => {
+		// Mock /api/products so cards render deterministically in e2e.
+		await page.route("**/api/products", async (route) => {
+			await route.fulfill({
+				status: 200,
+				contentType: "application/json",
+				body: JSON.stringify(PRODUCTS_FIXTURE),
+			});
+		});
 		await page.goto("/work/portfolio");
 		await page.waitForSelector("[data-testid='work-portfolio-page']");
 	});

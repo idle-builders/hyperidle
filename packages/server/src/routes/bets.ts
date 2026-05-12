@@ -13,7 +13,8 @@ import type { ArtifactKind, ArtifactThreadSummary, EventBus } from "@hyperidle/s
 import { ARTIFACT_KINDS, CURRENCY_CODES } from "@hyperidle/shared";
 import { and, eq, inArray, sql } from "drizzle-orm";
 import { Hono } from "hono";
-import { z } from "zod";
+import z from "zod";
+import type { HyperIdleEnv } from "../middleware/auth.js";
 import { validateBody } from "../middleware/validate.js";
 import { transitionBet, updateBetField } from "../services/bet-state-machine.js";
 
@@ -132,8 +133,8 @@ function deriveTitleFromPitch(pitch: string, betId: string): string {
  * Create Hono routes for bet endpoints.
  * Requires db and eventBus to be set in context via middleware.
  */
-export function createBetRoutes(db: HyperIdleDb, eventBus: EventBus): Hono {
-	const router = new Hono();
+export function createBetRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<HyperIdleEnv> {
+	const router = new Hono<HyperIdleEnv>();
 
 	// GET /bets — list all bets grouped by status, with pagination
 	router.get("/", (c) => {
@@ -360,7 +361,7 @@ export function createBetRoutes(db: HyperIdleDb, eventBus: EventBus): Hono {
 	});
 
 	// PATCH /bets/:id — update mutable fields on active bets.
-	// L14: actor "u-founder" written to revision log.
+	// M3 A5: actor comes from auth context (c.get("userId")), not hardcoded "u-founder".
 	// L17: cost_appetite replaced the old appetite string; handled directly in the route.
 	router.patch("/:id", validateBody(updateBetSchema), async (c) => {
 		const betId = c.req.param("id");
@@ -397,7 +398,7 @@ export function createBetRoutes(db: HyperIdleDb, eventBus: EventBus): Hono {
 				old_value: oldAppetite,
 				new_value: body.value,
 				reason: body.reason,
-				actor: "u-founder",
+				actor: c.get("userId"),
 			});
 			db.update(bets)
 				.set({
@@ -412,7 +413,7 @@ export function createBetRoutes(db: HyperIdleDb, eventBus: EventBus): Hono {
 			return c.json(updated);
 		}
 
-		await updateBetField(db, eventBus, betId, body.field, body.value, body.reason, "u-founder");
+		await updateBetField(db, eventBus, betId, body.field, body.value, body.reason, c.get("userId"));
 
 		const updated = db.select().from(bets).where(eq(bets.id, betId)).get();
 		return c.json(updated);
@@ -441,7 +442,10 @@ export function createBetRoutes(db: HyperIdleDb, eventBus: EventBus): Hono {
 			return c.json({ error: "Bet not found", code: "NOT_FOUND" }, 404);
 		}
 		const body = c.req.valid("json" as never) as z.infer<typeof killBetSchema>;
-		await transitionBet(db, eventBus, betId, "killed", { reason: body.reason, actor: "u-founder" });
+		await transitionBet(db, eventBus, betId, "killed", {
+			reason: body.reason,
+			actor: c.get("userId"),
+		});
 		const updated = db.select().from(bets).where(eq(bets.id, betId)).get();
 		return c.json(updated);
 	});
@@ -454,7 +458,10 @@ export function createBetRoutes(db: HyperIdleDb, eventBus: EventBus): Hono {
 			return c.json({ error: "Bet not found", code: "NOT_FOUND" }, 404);
 		}
 		const body = c.req.valid("json" as never) as z.infer<typeof pauseBetSchema>;
-		await transitionBet(db, eventBus, betId, "paused", { reason: body.reason, actor: "u-founder" });
+		await transitionBet(db, eventBus, betId, "paused", {
+			reason: body.reason,
+			actor: c.get("userId"),
+		});
 		const updated = db.select().from(bets).where(eq(bets.id, betId)).get();
 		return c.json(updated);
 	});
@@ -469,7 +476,7 @@ export function createBetRoutes(db: HyperIdleDb, eventBus: EventBus): Hono {
 		const body = c.req.valid("json" as never) as z.infer<typeof resumeBetSchema>;
 		await transitionBet(db, eventBus, betId, "in_progress", {
 			reason: body.reason ?? "Resumed by founder",
-			actor: "u-founder",
+			actor: c.get("userId"),
 		});
 		const updated = db.select().from(bets).where(eq(bets.id, betId)).get();
 		return c.json(updated);

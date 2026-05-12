@@ -1,7 +1,7 @@
 import type { HyperIdleDb } from "@hyperidle/db";
 import type { FileWatcher } from "@hyperidle/fabric";
 import type { AgentRole, EventBus } from "@hyperidle/shared";
-import { z } from "zod";
+import z from "zod";
 import { createConflictReviewTool } from "./create-conflict-review.js";
 import { createItemTool } from "./create-item.js";
 import { handoffToTool } from "./handoff-to.js";

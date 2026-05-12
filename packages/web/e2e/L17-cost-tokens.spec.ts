@@ -11,7 +11,7 @@
  * These tests will FAIL until Task 5-6 implementation ships.
  */
 
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./fixtures";
 
 const BET_ID = "test-bet-l17";
 const PRODUCT_ID = "test-product-l17";

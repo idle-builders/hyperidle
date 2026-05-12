@@ -10,10 +10,30 @@
  * present on <main> would only prove the JSX wrote the var-token utility,
  * not that the [data-density] attribute changed the resolved value.
  */
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./fixtures";
+
+/**
+ * Stub for PATCH /api/settings so Save closes the dialog in e2e.
+ * @lore M3: AppShell.handleSettingsSave calls PATCH /api/settings — without
+ * a real server in e2e this throws and the dialog never closes. Mock it here.
+ */
+async function stubSettingsPatch(page: import("@playwright/test").Page): Promise<void> {
+	await page.route("**/api/settings", async (route) => {
+		if (route.request().method() === "PATCH") {
+			await route.fulfill({
+				status: 200,
+				contentType: "application/json",
+				body: JSON.stringify({ ok: true }),
+			});
+		} else {
+			await route.continue();
+		}
+	});
+}
 
 test.describe("Density toggle", () => {
 	test.beforeEach(async ({ page }) => {
+		await stubSettingsPatch(page);
 		await page.goto("/");
 		await page.waitForSelector("[data-testid='main-content']");
 	});

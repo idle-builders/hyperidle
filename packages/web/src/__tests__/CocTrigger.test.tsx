@@ -24,16 +24,17 @@ function renderInRouter(ui: ReactElement): ReturnType<typeof render> {
 }
 
 const sampleBets: BetItem[] = [
-	{ id: "bet-1", title: "Launch MVP", product: "HyperIdle", status: "committed" },
+	{ id: "bet-1", title: "Launch MVP", progress: { done: 2, total: 4 }, status: "committed" },
 ];
 
 const sampleBlockers: BlockerItem[] = [];
 
 const sampleCost: CostInfo = {
-	todaySpend: "$0.00",
-	todayBudget: "$50.00",
-	weekSpend: "$0.00",
-	weekBudget: "$350.00",
+	todaySpend: { minor: 0, currency: "USD" },
+	todayCap: { minor: 5000, currency: "USD" },
+	weekSpend: { minor: 0, currency: "USD" },
+	weekCap: { minor: 35000, currency: "USD" },
+	weekTokens: null,
 };
 
 function defaultProps(overrides: Partial<RailProps> = {}): RailProps {

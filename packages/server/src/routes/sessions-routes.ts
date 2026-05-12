@@ -8,7 +8,7 @@ import {
 } from "@hyperidle/shared";
 import { and, eq } from "drizzle-orm";
 import { Hono } from "hono";
-import { z } from "zod";
+import z from "zod";
 import { validateBody } from "../middleware/validate.js";
 
 const createSessionSchema = z.object({

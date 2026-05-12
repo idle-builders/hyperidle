@@ -3,7 +3,7 @@ import type { ApiErrorResponse } from "@hyperidle/shared";
 import { API_ERROR_CODES, createLogger, EventBus } from "@hyperidle/shared";
 import { Hono } from "hono";
 import { createUpgradeTokenStore, type UpgradeTokenStore } from "./auth/upgrade-token-store.js";
-import { authMiddleware } from "./middleware/auth.js";
+import { authMiddleware, createAuthMiddleware } from "./middleware/auth.js";
 import { createBodyLimit } from "./middleware/body-limit.js";
 import { corsMiddleware } from "./middleware/cors.js";
 import { errorHandler } from "./middleware/error-handler.js";
@@ -22,6 +22,7 @@ import { createProductRoutes } from "./routes/products.js";
 import { createRailRoutes } from "./routes/rail.js";
 import { createRoutineRoutes } from "./routes/routines-routes.js";
 import { createSessionRoutes } from "./routes/sessions-routes.js";
+import { createSettingsRoutes } from "./routes/settings.js";
 import { createStatusRoutes } from "./routes/status.js";
 import { createTaskRoutes } from "./routes/tasks.js";
 import { registerTestRoutes } from "./routes/test-routes.js";
@@ -246,8 +247,15 @@ function createApp(options?: AppOptions): Hono {
 		options.registerWebSocket(api, tokenStore);
 	}
 
-	// Auth middleware for all other /api routes (except /health above)
-	api.use("*", authMiddleware);
+	// Auth middleware for all other /api routes (except /health above).
+	// M3 A3: when db is available, use createAuthMiddleware(db) to set userId
+	// from factorySettings. Without db, fall back to the stateless middleware
+	// (used only by non-db app instances in tests).
+	if (options?.db) {
+		api.use("*", createAuthMiddleware(options.db));
+	} else {
+		api.use("*", authMiddleware);
+	}
 
 	// I2 A3 + review O6: ws-token issuance lives behind the standard auth
 	// middleware so the master HYPERIDLE_API_KEY mints a one-shot upgrade
@@ -255,7 +263,15 @@ function createApp(options?: AppOptions): Hono {
 	// limiter so a reconnect storm doesn't drain the API bucket.
 	if (tokenStore) {
 		api.use("/auth/*", authMintLimiter);
-		api.route("/auth", createAuthRoutes(tokenStore));
+	}
+
+	// M3 A4: /api/auth/me is always mounted (regardless of tokenStore).
+	// The /ws-token endpoint is conditionally mounted only when WS support exists.
+	// This restructuring allows /me to be available in all deployments.
+	if (options?.db) {
+		api.route("/auth", createAuthRoutes(options.db, tokenStore ?? null));
+	} else if (tokenStore) {
+		api.route("/auth", createAuthRoutes(null, tokenStore));
 	}
 
 	// Register test routes only in non-production environments
@@ -272,6 +288,7 @@ function createApp(options?: AppOptions): Hono {
 		api.route("/artifacts", createArtifactRoutes(options.db));
 		api.route("/knowledge", createKnowledgeRoutes(options.db, eventBus));
 		api.route("/rail", createRailRoutes(options.db, eventBus));
+		api.route("/settings", createSettingsRoutes(options.db, eventBus));
 		api.route("/conversations", createConversationRoutes(options.db, eventBus));
 		api.route("/threads", createThreadRoutes(options.db, eventBus));
 		api.route("/agents", createAgentRoutes(options.db, eventBus));

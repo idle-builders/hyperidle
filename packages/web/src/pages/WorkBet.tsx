@@ -42,14 +42,11 @@ import { ArtifactSection, useArtifactOpen } from "../components/ArtifactSection.
 import { ArtifactThreadsSummary } from "../components/ArtifactThreadsSummary.js";
 import { CocAttachButton } from "../components/CocAttachButton";
 import { useBet } from "../hooks/useBet";
+import { useCurrentUser } from "../hooks/useCurrentUser.js";
 import { useHostThread } from "../hooks/useHostThread.js";
 import { isValidHarnessUrl } from "../lib/url-utils.js";
 import { apiFetch } from "../services/api-fetch.js";
-import {
-	PLACEHOLDER_AGENT_PARTICIPANT_ID,
-	postRequestMessage,
-	resolveOrCreateTaskThread,
-} from "../services/task-threads";
+import { postRequestMessage, resolveOrCreateTaskThread } from "../services/task-threads";
 import { HostThreadSection } from "../shell/HostThreadSection.js";
 import { TaskSheet } from "../shell/TaskSheet";
 import type { BetDetail } from "../types/bet";
@@ -607,14 +604,13 @@ export interface WorkBetProps {
 	overrideBet?: BetDetail;
 }
 
-// @lore L13: The "founder" identity used here is the same static fallback used
-// throughout the codebase (see WorkTeam.tsx). A real identity context will
-// replace this when the agent-assignment story lands.
-const FOUNDER_ID = "u-founder";
+// @lore M3 A12: FOUNDER_ID constant deleted. The founder id is now read from
+// useCurrentUser() so the correct authenticated user is always used.
 
 export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JSX.Element {
 	const { betId: routeBetId } = useParams<{ betId: string }>();
 	const navigate = useNavigate();
+	const { user } = useCurrentUser();
 	const onOpenArtifact = useArtifactOpen();
 
 	// Only call useBet when there is no override. When overrideBet is provided,
@@ -677,10 +673,10 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 		selectedTaskId !== null ? (bet?.tasks.find((t) => t.id === selectedTaskId) ?? null) : null;
 
 	// L13: TaskSheet callbacks — mirror WorkTeam.tsx patterns.
+	// @lore M3 A12: FOUNDER_ID constant deleted; use user?.id from useCurrentUser.
 	const handleResolveThreadId = useCallback(
-		(taskId: string): Promise<string> =>
-			resolveOrCreateTaskThread(taskId, FOUNDER_ID, PLACEHOLDER_AGENT_PARTICIPANT_ID),
-		[],
+		(taskId: string): Promise<string> => resolveOrCreateTaskThread(taskId, user?.id ?? "", null),
+		[user],
 	);
 
 	const handlePostRequest = useCallback(

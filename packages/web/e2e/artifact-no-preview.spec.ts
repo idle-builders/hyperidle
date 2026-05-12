@@ -1,6 +1,6 @@
 // L3 — Playwright: protected — preview=null renders the placeholder, never a fake thumbnail.
 // AC-9 + concept §4.5 hard rule #4.
-import { expect, type Route, test } from "@playwright/test";
+import { expect, type Route, test } from "./fixtures";
 
 const NO_PREVIEW_FIXTURE = {
 	id: "art-no-preview-fixture",

@@ -11,7 +11,26 @@
  * so the boot script sees a fresh default. Reading localStorage / dataset
  * happens via page.evaluate to inspect actual browser state, not derived UI.
  */
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./fixtures";
+
+/**
+ * Stub PATCH /api/settings so Save closes the Settings dialog in e2e.
+ * @lore M3: AppShell.handleSettingsSave calls PATCH /api/settings — without
+ * a real server in e2e this throws and the dialog never closes.
+ */
+async function stubSettingsPatch(page: import("@playwright/test").Page): Promise<void> {
+	await page.route("**/api/settings", async (route) => {
+		if (route.request().method() === "PATCH") {
+			await route.fulfill({
+				status: 200,
+				contentType: "application/json",
+				body: JSON.stringify({ ok: true }),
+			});
+		} else {
+			await route.continue();
+		}
+	});
+}
 
 test.describe("Theme persistence", () => {
 	// @lore Each test creates its own browser.newContext so localStorage is
@@ -55,6 +74,7 @@ test.describe("Theme persistence", () => {
 		// `browser.newContext` already starts with empty storage.
 		const ctx = await browser.newContext({ colorScheme: "light" });
 		const page = await ctx.newPage();
+		await stubSettingsPatch(page);
 		await page.goto("/");
 		await page.waitForSelector("[data-testid='main-content']");
 

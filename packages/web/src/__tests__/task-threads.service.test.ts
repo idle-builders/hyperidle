@@ -9,11 +9,7 @@
  * (e) input-trust boundary: note with <script>alert(1)</script> is sent as literal string (no client-side stripping)
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import {
-	PLACEHOLDER_AGENT_PARTICIPANT_ID,
-	postRequestMessage,
-	resolveOrCreateTaskThread,
-} from "../services/task-threads";
+import { postRequestMessage, resolveOrCreateTaskThread } from "../services/task-threads";
 
 const EXISTING_THREAD_ID = "thread-existing-001";
 const CREATED_THREAD_ID = "thread-created-002";
@@ -120,8 +116,10 @@ describe("resolveOrCreateTaskThread (L15)", () => {
 		expect(typeof body.initialMessage.clientKey).toBe("string");
 	});
 
-	it("exports PLACEHOLDER_AGENT_PARTICIPANT_ID constant", () => {
-		expect(PLACEHOLDER_AGENT_PARTICIPANT_ID).toBe("agent-unassigned");
+	it("M3 D2: PLACEHOLDER_AGENT_PARTICIPANT_ID is NOT exported from task-threads", async () => {
+		// @ts-expect-error — testing deleted export
+		const { PLACEHOLDER_AGENT_PARTICIPANT_ID } = await import("../services/task-threads");
+		expect(PLACEHOLDER_AGENT_PARTICIPANT_ID).toBeUndefined();
 	});
 });
 

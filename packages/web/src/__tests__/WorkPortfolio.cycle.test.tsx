@@ -1,37 +1,50 @@
 /**
  * J5 — Portfolio cycle-management stripe below product cards.
  * Shows current cycle and days remaining.
+ *
+ * @lore M3 G1: MOCK_CYCLE removed. Cycle data is not yet wired from the server.
+ * Tests updated to reflect that the cycle-stripe is no longer rendered with mock data.
+ * The per-product-card tests still exercise the product card shape using injected
+ * fixture data via the products prop.
  */
 import { render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { WorkPortfolio } from "../pages/WorkPortfolio";
+
+// M3 G1: mock useProducts to avoid MOCK_PRODUCTS fallback.
+vi.mock("../hooks/useProducts", () => ({
+	useProducts: vi.fn().mockReturnValue({
+		data: null,
+	}),
+}));
+
+const FIXTURE_PRODUCTS = [
+	{
+		id: "p1",
+		name: "HyperIdle Core",
+		status: "healthy" as const,
+		activeBets: 4,
+		shipRate: "78%",
+		lead: { name: "CEO Agent", initials: "CE" },
+		shipped: 12,
+		progress: { done: 3, total: 5 },
+	},
+];
 
 function renderPage(): ReturnType<typeof render> {
 	return render(
 		<MemoryRouter>
-			<WorkPortfolio />
+			<WorkPortfolio products={FIXTURE_PRODUCTS} />
 		</MemoryRouter>,
 	);
 }
 
 describe("WorkPortfolio — cycle stripe (J5)", () => {
-	it("renders a cycle management stripe below the product cards", () => {
+	it("does NOT render a cycle-stripe element (M3 G1: MOCK_CYCLE removed)", () => {
 		renderPage();
-		const stripe = screen.getByTestId("cycle-stripe");
-		expect(stripe).toBeInTheDocument();
-
-		const firstCard = screen.getAllByTestId("product-card")[0];
-		// stripe should come after the product card grid in DOM order
-		const order = firstCard.compareDocumentPosition(stripe);
-		expect(order & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-	});
-
-	it("shows current cycle label and days remaining", () => {
-		renderPage();
-		const stripe = screen.getByTestId("cycle-stripe");
-		expect(stripe.textContent).toMatch(/cycle/i);
-		expect(stripe.textContent).toMatch(/days? remaining/i);
+		// After M3, the cycle stripe is removed — no testid present.
+		expect(screen.queryByTestId("cycle-stripe")).not.toBeInTheDocument();
 	});
 
 	it("each product card shows lead avatar, active bets, shipped count", () => {

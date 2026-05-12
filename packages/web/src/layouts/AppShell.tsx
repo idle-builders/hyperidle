@@ -14,16 +14,14 @@ import { SettingsPanel } from "../components/SettingsPanel";
 import type { ConversationsFilter } from "../components/ThreadSections";
 import { predicateFor, ThreadSections } from "../components/ThreadSections";
 import { CocContext, type CocContextRef } from "../contexts/CocContext";
-import {
-	DEFAULT_SETTINGS,
-	MOCK_RAIL_BETS,
-	MOCK_RAIL_BLOCKERS,
-	MOCK_RAIL_COST,
-} from "../fixtures/app-shell-data";
+// eslint-disable-next-line design/no-mock-data-import -- tracked in #92
 import { topicsForScope } from "../fixtures/knowledge-data";
 import { useAutoDensity } from "../hooks/useAutoDensity";
 import { useCommandK } from "../hooks/useCommandK";
 import { useConversationsThreads } from "../hooks/useConversationsThreads";
+import { useCurrentUser } from "../hooks/useCurrentUser.js";
+import { useRail } from "../hooks/useRail.js";
+import { useSettings } from "../hooks/useSettings.js";
 import { useTheme } from "../hooks/useTheme";
 import { useViewportBreakpoint } from "../hooks/useViewportBreakpoint";
 import { CocOverlay } from "../shell/CocOverlay";
@@ -64,7 +62,7 @@ const SUBMENU_CONFIG: Record<ViewId, SubmenuConfig> = {
 	},
 	knowledge: {
 		title: "Knowledge",
-		items: [{ label: "All Items", path: "/knowledge", count: 12 }],
+		items: [{ label: "All Items", path: "/knowledge" }],
 	},
 };
 
@@ -88,8 +86,8 @@ const SUBMENU_FILTERS: Record<ViewId, ReadonlyArray<SubmenuFilterOption>> = {
 	work: [],
 };
 
-/** @lore L8: demo seed founder id; replaced with auth-context user id once auth lands. */
-const DEMO_FOUNDER_ID = "u-founder";
+// @lore M3 A11: DEMO_FOUNDER_ID deleted — AppShell uses useCurrentUser() to get the
+// authenticated founder id from /api/auth/me. The hook is called inside AppShell below.
 
 function deriveViewFromPath(pathname: string): ViewId {
 	if (pathname.startsWith("/work")) return "work";
@@ -210,6 +208,9 @@ function KnowledgeSubmenu({ scope, topics, onScopeChange }: KnowledgeSubmenuProp
 export function AppShell(): JSX.Element {
 	const location = useLocation();
 	const navigate = useNavigate();
+	const { user } = useCurrentUser();
+	const railData = useRail();
+	const settingsData = useSettings();
 
 	const activeView = useMemo(() => deriveViewFromPath(location.pathname), [location.pathname]);
 
@@ -267,11 +268,49 @@ export function AppShell(): JSX.Element {
 	// to every consumer. Server persistence deferred (J3/J8).
 	// @lore K3: theme lives in useTheme() (localStorage-backed) — settings.appearance.theme
 	// is initialised from useTheme()'s value and kept in sync via the hook below.
+	// @lore M3 B4: settings are now fetched from /api/settings via useSettings().
+	// The local state is initialized from the API response when it arrives, overriding
+	// the theme-only default. Until the response arrives, a minimal default is used.
 	const { theme, setTheme } = useTheme();
 	const [settings, setSettings] = useState<SettingsData>(() => ({
-		...DEFAULT_SETTINGS,
-		appearance: { ...DEFAULT_SETTINGS.appearance, theme },
+		profile: { name: "Founder", email: "", avatarUrl: "" },
+		products: [],
+		agents: [],
+		notifications: {
+			reviewAlerts: true,
+			costAlerts: true,
+			blockerAlerts: true,
+			quietHoursStart: "22:00",
+			quietHoursEnd: "08:00",
+			mutedProducts: [],
+		},
+		appearance: { density: "auto", theme },
 	}));
+
+	// When the API settings arrive, merge them into local state (preserving the
+	// localStorage-backed theme from useTheme() as the source of truth for appearance).
+	// @lore M3 B4: merge with prev to preserve default fields if the API response
+	// is incomplete (e.g. test mocks that only return partial data). This prevents
+	// SettingsPanel from crashing when notifications.quietHoursStart is undefined.
+	useEffect(() => {
+		if (settingsData.data) {
+			setSettings((prev) => ({
+				...prev,
+				...settingsData.data,
+				// Ensure notifications always has defaults (defensive merge).
+				notifications: {
+					...prev.notifications,
+					...(settingsData.data?.notifications ?? {}),
+				},
+				// Preserve the localStorage theme as the single source of truth.
+				appearance: {
+					...(settingsData.data?.appearance ?? prev.appearance),
+					theme: prev.appearance.theme,
+				},
+			}));
+		}
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [settingsData.data]);
 	// @lore K7 / AESTHETICS.md § Mobile & Touch row "Auto-density behavior":
 	// the user's Settings preference is the source of truth. When the
 	// preference is `auto` (factory default) the viewport drives the chosen
@@ -352,10 +391,10 @@ export function AppShell(): JSX.Element {
 
 	const handleSettingsSave = useCallback(
 		async (next: SettingsData): Promise<void> => {
-			// Mock save — real API wiring deferred. J1: mirror the new draft into
-			// local state so density (and other appearance values) take effect on
-			// save. The data-density attribute on the shell root reads from this.
-			await new Promise((resolve) => setTimeout(resolve, 300));
+			// @lore M3 review C2: use the real save() from useSettings — calls
+			// PATCH /api/settings. Mirror the new draft into local state so density
+			// (and other appearance values) take effect immediately on save.
+			await settingsData.save(next);
 			// K3: theme is persisted via useTheme() (localStorage). Route the
 			// chosen value through setTheme so the boot script picks it up on
 			// the next reload and matchMedia subscription stays correct.
@@ -364,7 +403,7 @@ export function AppShell(): JSX.Element {
 			}
 			setSettings(next);
 		},
-		[setTheme, theme],
+		[settingsData, setTheme, theme],
 	);
 
 	const handleSearchNavigate = useCallback(
@@ -423,10 +462,9 @@ export function AppShell(): JSX.Element {
 
 	// L8 §3.6: live thread list for the Conversations Submenu (declared
 	// before submenuTotalCount + selectedThreadId because both reference it).
-	// @lore L8: participant id is hardcoded to the demo seed founder until
-	// real auth lands. Replace with the auth-context user id when that story
-	// ships; this is the single call site.
-	const conversationsThreads = useConversationsThreads(DEMO_FOUNDER_ID);
+	// @lore M3 A11: participant id comes from useCurrentUser() — no more
+	// DEMO_FOUNDER_ID constant.
+	const conversationsThreads = useConversationsThreads(user?.id ?? "");
 
 	const submenuFilters = SUBMENU_FILTERS[activeView];
 	const [submenuFilter, setSubmenuFilter] = useState<SubmenuFilter>("all");
@@ -653,9 +691,9 @@ export function AppShell(): JSX.Element {
 					<Rail
 						expanded={railExpanded}
 						onToggleExpand={toggleRailExpanded}
-						bets={MOCK_RAIL_BETS}
-						blockers={MOCK_RAIL_BLOCKERS}
-						cost={MOCK_RAIL_COST}
+						bets={railData.bets}
+						blockers={railData.blockers}
+						cost={railData.cost}
 						onCocClick={handleCocClick}
 						cocOverlayOpen={cocOverlayOpen}
 					/>

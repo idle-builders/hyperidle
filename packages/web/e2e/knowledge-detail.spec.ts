@@ -2,7 +2,7 @@
  * E2E tests for the Knowledge Detail page (J7): factory-scope treatment and
  * the non-factory edit-mode round trip.
  */
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./fixtures";
 
 test.describe("Knowledge Detail (J7)", () => {
 	test("non-factory item supports edit round-trip without URL change", async ({ page }) => {

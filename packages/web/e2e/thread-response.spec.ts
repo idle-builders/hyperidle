@@ -12,7 +12,7 @@
  * Playwright spec only proves the user-facing loop end-to-end.
  */
 
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./fixtures";
 
 const THREAD_ID = "demo-thread-1";
 
