@@ -16,8 +16,10 @@
 		"@hyperidle/shared": "workspace:*"
 	},
 	"devDependencies": {
-		"@electron/rebuild": "^4.0.4",
-		"electron": "^36.0.0",
 		"vitest": "*"
+	},
+	"optionalDependencies": {
+		"@electron/rebuild": "^4.0.4",
+		"electron": "^36.0.0"
 	}
 }
