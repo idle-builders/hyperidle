@@ -11,7 +11,7 @@
  * redirected, pressing back must go to whatever was before — NOT bounce into
  * the legacy URL again. <Navigate replace /> removes the legacy URL from history.
  */
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./fixtures";
 
 // ---------------------------------------------------------------------------
 // Fixtures shared across tests

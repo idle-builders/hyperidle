@@ -10,7 +10,7 @@
  * present on <main> would only prove the JSX wrote the var-token utility,
  * not that the [data-density] attribute changed the resolved value.
  */
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./fixtures";
 
 /**
  * Stub for PATCH /api/settings so Save closes the dialog in e2e.

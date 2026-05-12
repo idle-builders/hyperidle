@@ -17,7 +17,7 @@
  * All L15 flows navigate through /work/bet/:id → [data-testid="bet-task-row"]
  * instead of /work/team → task card.
  */
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./fixtures";
 
 const TASK_THREAD_ID = "thread-task-abc-001";
 const TASK_ID = "t1";

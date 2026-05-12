@@ -1,7 +1,7 @@
 /**
  * E2E tests for the Knowledge section: list view, item details, navigation.
  */
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./fixtures";
 
 test.describe("Knowledge", () => {
 	test.beforeEach(async ({ page }) => {

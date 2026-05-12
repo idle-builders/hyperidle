@@ -10,7 +10,7 @@
  * wire field. We inject the fixture via `page.route('**\/api/threads*', ...)`.
  */
 
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./fixtures";
 
 const NOW_ISO = "2026-04-30T12:00:00.000Z";
 

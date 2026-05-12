@@ -1,6 +1,6 @@
 // L3 — Playwright: cost chip renders the pending em-dash when cost is null.
 // Protected: AC-7 / approved-design §3 cost-pending row.
-import { expect, type Route, test } from "@playwright/test";
+import { expect, type Route, test } from "./fixtures";
 
 const COST_PENDING_FIXTURE = {
 	id: "art-cost-pending-fixture",

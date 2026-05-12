@@ -5,7 +5,7 @@
  * @lore M3: Products now come from /api/products (no mock fallback). Tests
  * that need product cards must mock the endpoint with fixture data.
  */
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./fixtures";
 
 const PRODUCTS_FIXTURE = {
 	products: [

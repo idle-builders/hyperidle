@@ -22,7 +22,7 @@
  * does not exist yet, so all three tests fail before plan T4 lands.
  */
 
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./fixtures";
 
 const NOW = "2026-04-28T10:00:00.000Z";
 const LATER = "2026-04-28T10:05:00.000Z";

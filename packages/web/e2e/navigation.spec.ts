@@ -2,7 +2,7 @@
  * E2E tests for the shell navigation: IconRail view switching, Submenu items,
  * and overall layout structure.
  */
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./fixtures";
 
 test.describe("Navigation", () => {
 	test.beforeEach(async ({ page }) => {

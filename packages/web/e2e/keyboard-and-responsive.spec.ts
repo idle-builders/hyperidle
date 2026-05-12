@@ -1,7 +1,7 @@
 /**
  * E2E tests for keyboard navigation and responsive layout.
  */
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./fixtures";
 
 test.describe("Keyboard Navigation", () => {
 	// L9: /conversations/review redirects to /conversations; use canonical URL.

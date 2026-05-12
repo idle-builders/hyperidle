@@ -19,7 +19,7 @@
  * narrow strip if the touch zone extends via padding to 44px on the
  * primary tap axis — we use Math.min as the conservative measure).
  */
-import { expect, type Page, test } from "@playwright/test";
+import { expect, type Page, test } from "./fixtures";
 
 const MOBILE = { width: 1024, height: 900 };
 const MIN_TOUCH_PX = 44;

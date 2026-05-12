@@ -8,7 +8,7 @@
  * The expanded-state toggle is proved by seeing "Active Bets" reappear after
  * clicking the expand chevron.
  */
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./fixtures";
 
 const RAIL_FIXTURE = {
 	bets: [],

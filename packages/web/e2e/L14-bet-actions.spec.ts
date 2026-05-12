@@ -11,7 +11,7 @@
  * AC-12: After pause action, revisionLog last entry has actor="u-founder".
  */
 
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./fixtures";
 
 const BET_ID = "bet-l14-actions";
 const FOUNDER_ID = "u-founder";

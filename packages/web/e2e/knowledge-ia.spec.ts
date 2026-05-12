@@ -2,7 +2,7 @@
  * E2E tests for the Knowledge Information Architecture (J6): scope browser,
  * topic grouping, and the Triage/Curated tab switcher.
  */
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./fixtures";
 
 test.describe("Knowledge IA (J6)", () => {
 	test("scope switching re-scopes the list and topic nav", async ({ page }) => {

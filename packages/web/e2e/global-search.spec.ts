@@ -1,7 +1,7 @@
 /**
  * E2E tests for Global Search (Cmd+K): opening, typing, filtering, closing.
  */
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./fixtures";
 
 test.describe("Global Search", () => {
 	test.beforeEach(async ({ page }) => {

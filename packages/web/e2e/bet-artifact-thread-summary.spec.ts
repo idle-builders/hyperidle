@@ -8,7 +8,7 @@
  *  - +N more affordance appears when truncated
  */
 
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./fixtures";
 
 const NOW = "2026-05-05T09:00:00.000Z";
 const BET_ID = "bet-summary-e2e";

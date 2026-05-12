@@ -6,7 +6,7 @@
  * here to ensure deterministic product names in the Products tab and to allow
  * the PATCH endpoint (called on Save) to succeed so the dialog closes.
  */
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./fixtures";
 
 const SETTINGS_FIXTURE = {
 	profile: { name: "Test Founder", email: "test@hyperidle.dev", avatarUrl: null },

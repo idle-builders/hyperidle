@@ -10,7 +10,7 @@
  * All API calls are mocked via page.route() — no real server required.
  */
 
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./fixtures";
 
 // Minimal settings response — what GET /api/settings returns after M3 (no appearance field).
 const SETTINGS_API_RESPONSE = {

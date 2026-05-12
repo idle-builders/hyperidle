@@ -9,7 +9,7 @@
  * KnowledgeDetail. They will fail until Phase B lands.
  */
 
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./fixtures";
 
 // ── E1 — Multi-section playbook has heading semantics and no <pre> ──
 

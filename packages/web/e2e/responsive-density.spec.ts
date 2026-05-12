@@ -14,7 +14,7 @@
  * what actually drives the cascade. We also assert [data-density-preference]
  * to prove the preference itself was not mutated by the viewport switch.
  */
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./fixtures";
 
 /**
  * Stub PATCH /api/settings so Save closes the Settings dialog in e2e.

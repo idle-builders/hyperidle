@@ -11,7 +11,7 @@
  * so the boot script sees a fresh default. Reading localStorage / dataset
  * happens via page.evaluate to inspect actual browser state, not derived UI.
  */
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./fixtures";
 
 /**
  * Stub PATCH /api/settings so Save closes the Settings dialog in e2e.

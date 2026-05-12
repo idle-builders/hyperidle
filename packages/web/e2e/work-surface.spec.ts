@@ -12,7 +12,7 @@
  * detail pane appears with problem / solution / rabbit holes and the
  * "Add to canvas" button.
  */
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./fixtures";
 
 const PRODUCTS_FIXTURE = {
 	products: [

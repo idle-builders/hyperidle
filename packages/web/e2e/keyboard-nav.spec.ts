@@ -7,7 +7,7 @@
  * surface). Complements the lighter `keyboard-and-responsive.spec.ts` file
  * which predates J8 and covers drag/drop specifically.
  */
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./fixtures";
 
 test.describe("J8 — keyboard-only navigation", () => {
 	test("Tab cycles the shell from the first interactive element", async ({ page }) => {

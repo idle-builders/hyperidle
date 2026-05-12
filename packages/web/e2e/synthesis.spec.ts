@@ -10,7 +10,7 @@
  * specs; they complement them by exercising the end-to-end paths the user
  * will actually walk.
  */
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./fixtures";
 
 const RAIL_FIXTURE_ONE_BLOCKER = {
 	bets: [],
