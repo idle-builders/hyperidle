@@ -18,10 +18,11 @@ import { type JSX, useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { CurationSuggestionCard } from "../components/CurationSuggestionCard";
 import { KnowledgeTopicGroup } from "../components/KnowledgeTopicGroup";
+// eslint-disable-next-line design/no-mock-data-import -- tracked in #93
 import {
+	curationSuggestions,
 	groupItemsByTopic,
-	MOCK_CURATION_SUGGESTIONS,
-	MOCK_KNOWLEDGE_ITEMS,
+	knowledgeItems,
 	type MockKnowledgeItem,
 } from "../fixtures/knowledge-data";
 import { useFetch } from "../hooks/useFetch";
@@ -140,19 +141,17 @@ export function KnowledgeList({
 	const [tab, setTab] = useState<KnowledgeTab>("triage");
 
 	const scopedItems = useMemo<ReadonlyArray<MockKnowledgeItem>>(
-		() => MOCK_KNOWLEDGE_ITEMS.filter((i) => i.scope === scope),
+		() => knowledgeItems.filter((i) => i.scope === scope),
 		[scope],
 	);
 	const scopedSuggestions = useMemo(
-		() => MOCK_CURATION_SUGGESTIONS.filter((s) => s.scope === scope),
+		() => curationSuggestions.filter((s) => s.scope === scope),
 		[scope],
 	);
 	// AC: "Default to Triage when any items have status === 'needs_human', else
 	// Curated." Also AC: "Switching scope resets list selection and filters."
 	useEffect(() => {
-		const needsHuman = MOCK_KNOWLEDGE_ITEMS.some(
-			(i) => i.scope === scope && i.status === "needs_human",
-		);
+		const needsHuman = knowledgeItems.some((i) => i.scope === scope && i.status === "needs_human");
 		setTab(needsHuman ? "triage" : "curated");
 	}, [scope]);
 

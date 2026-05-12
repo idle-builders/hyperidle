@@ -201,8 +201,8 @@ export default [
 		},
 		plugins: { design },
 		rules: {
-			"design/no-mock-data-import": "warn",
-			"design/no-mock-data-symbol": "warn",
+			"design/no-mock-data-import": "error",
+			"design/no-mock-data-symbol": "error",
 		},
 	},
 
