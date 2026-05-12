@@ -63,10 +63,7 @@ test.describe("L7 — thread response loop (error → retry → success)", () =>
 					thread: { ...THREAD, resolvedAt },
 					messages: [resolvedAt ? { ...REVIEW_MESSAGE, resolvedAt } : REVIEW_MESSAGE],
 					headMessageId: resolvedAt ? null : REVIEW_MESSAGE.id,
-					identities: {
-						"u-founder": { name: "Founder", role: "founder" },
-						"agent-1": { name: "Agent", role: "builder" },
-					},
+					nextMessagesCursor: null,
 				}),
 			});
 		});
@@ -115,10 +112,7 @@ test.describe("L7 — thread response loop (error → retry → success)", () =>
 					thread: THREAD,
 					messages: [REVIEW_MESSAGE],
 					headMessageId: REVIEW_MESSAGE.id,
-					identities: {
-						"u-founder": { name: "Founder", role: "founder" },
-						"agent-1": { name: "Agent", role: "builder" },
-					},
+					nextMessagesCursor: null,
 				}),
 			});
 		});

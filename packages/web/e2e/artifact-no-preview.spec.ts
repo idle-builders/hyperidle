@@ -20,21 +20,21 @@ test("artifact with preview=null shows the PREVIEW PENDING placeholder, not a fa
 		await route.fulfill({
 			status: 200,
 			contentType: "application/json",
-			body: JSON.stringify({ threads: [] }),
+			body: JSON.stringify({ threads: [], nextCursor: null }),
 		});
 	});
 	await page.route("**/api/products**", async (route: Route) => {
 		await route.fulfill({
 			status: 200,
 			contentType: "application/json",
-			body: JSON.stringify({ products: [], total: 0 }),
+			body: JSON.stringify({ products: [] }),
 		});
 	});
 	await page.route("**/api/threads?**host_kind=artifact**", async (route: Route) => {
 		await route.fulfill({
 			status: 200,
 			contentType: "application/json",
-			body: JSON.stringify({ threads: [] }),
+			body: JSON.stringify({ threads: [], nextCursor: null }),
 		});
 	});
 	await page.route("**/api/artifacts/art-no-preview-fixture", async (route: Route) => {

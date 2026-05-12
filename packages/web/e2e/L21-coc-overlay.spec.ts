@@ -52,11 +52,12 @@ const BET_FIXTURE = {
 	product: "Nimmly",
 	team: "Alpha Core",
 	status: "shaped",
-	appetite: "small",
+	costAppetite: { minor: 25000, currency: "USD" },
+	costActual: null,
+	tokensActual: null,
 	progress: { done: 0, total: 1 },
 	pitch: "A bet about daily digest.",
 	tasks: [],
-	comments: [],
 };
 
 const THREADS_LIST_FIXTURE = {
@@ -108,6 +109,7 @@ async function setupApiMocks(page: import("@playwright/test").Page): Promise<voi
 						redactedAt: null,
 						resolvedAt: null,
 					},
+					thread: COACH_THREAD_FIXTURE.thread,
 				}),
 			});
 			return;
@@ -138,7 +140,12 @@ async function setupApiMocks(page: import("@playwright/test").Page): Promise<voi
 			await route.fulfill({
 				status: 200,
 				contentType: "application/json",
-				body: JSON.stringify(COACH_THREAD_FIXTURE),
+				body: JSON.stringify({
+					thread: COACH_THREAD_FIXTURE.thread,
+					messages: COACH_THREAD_FIXTURE.messages,
+					headMessageId: null,
+					nextMessagesCursor: null,
+				}),
 			});
 			return;
 		}

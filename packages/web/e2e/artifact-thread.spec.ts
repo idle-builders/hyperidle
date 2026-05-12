@@ -43,8 +43,10 @@ function makeThreadListResponse() {
 				resolvedAt: null,
 				lastActiveAt: NOW,
 				createdAt: NOW,
+				hasUnresolvedReview: false,
 			},
 		],
+		nextCursor: null,
 	};
 }
 
@@ -63,7 +65,7 @@ function makeThreadDetailResponse(messages: Array<Record<string, unknown>>) {
 		},
 		messages,
 		headMessageId: null,
-		identities: { [FOUNDER_ID]: { name: "Founder", role: "founder" } },
+		nextMessagesCursor: null,
 	};
 }
 
@@ -79,14 +81,14 @@ test.describe("L18 — Artifact permalink thread surface", () => {
 			await route.fulfill({
 				status: 200,
 				contentType: "application/json",
-				body: JSON.stringify({ threads: [] }),
+				body: JSON.stringify({ threads: [], nextCursor: null }),
 			});
 		});
 		await page.route("**/api/products**", async (route) => {
 			await route.fulfill({
 				status: 200,
 				contentType: "application/json",
-				body: JSON.stringify({ products: [], total: 0 }),
+				body: JSON.stringify({ products: [] }),
 			});
 		});
 

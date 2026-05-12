@@ -32,16 +32,20 @@ function makeBetResponse() {
 		product: "Alpha",
 		team: "Alpha Core",
 		status: "in_progress",
-		appetite: "1 week",
+		costAppetite: { minor: 50000, currency: "USD" },
+		costActual: null,
+		tokensActual: null,
 		progress: { done: 0, total: 2 },
 		pitch: "# Problem\n\nTest session metadata display.",
 		tasks: [
 			{
 				id: TASK_WITH_SESSION_ID,
+				betId: BET_ID,
 				title: "Task with session",
-				owner: "Dev Agent",
+				ownerAgentId: "agent-dev-1",
 				state: "in_progress",
-				cost: "$3.50",
+				costActual: { minor: 350, currency: "USD" },
+				costCap: null,
 				latestSessionOutcome: "completed",
 				latestSessionCost: 350,
 				latestSessionTokensInput: 2000,
@@ -50,10 +54,12 @@ function makeBetResponse() {
 			},
 			{
 				id: TASK_WITHOUT_SESSION_ID,
+				betId: BET_ID,
 				title: "Task without session",
-				owner: "Dev Agent",
+				ownerAgentId: "agent-dev-1",
 				state: "accepted",
-				cost: "$0.00",
+				costActual: null,
+				costCap: null,
 				latestSessionOutcome: null,
 				latestSessionCost: null,
 				latestSessionTokensInput: null,
@@ -91,7 +97,7 @@ test.describe("L19 — WorkBet session metadata (e2e)", () => {
 			await route.fulfill({
 				status: 200,
 				contentType: "application/json",
-				body: JSON.stringify({ threads: [] }),
+				body: JSON.stringify({ threads: [], nextCursor: null }),
 			});
 		});
 

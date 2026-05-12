@@ -26,8 +26,10 @@ function makeThreadListResponse() {
 				resolvedAt: null,
 				lastActiveAt: NOW,
 				createdAt: NOW,
+				hasUnresolvedReview: false,
 			},
 		],
+		nextCursor: null,
 	};
 }
 
@@ -46,7 +48,7 @@ function makeThreadDetailResponse(messages: Array<Record<string, unknown>>) {
 		},
 		messages,
 		headMessageId: null,
-		identities: { [FOUNDER_ID]: { name: "Founder", role: "founder" } },
+		nextMessagesCursor: null,
 	};
 }
 
@@ -119,19 +121,27 @@ test.describe("L18 — Task sheet thread surface", () => {
 					product: "Alpha",
 					team: "Alpha Core",
 					status: "committed",
-					appetite: "2 weeks",
+					costAppetite: { minor: 100000, currency: "USD" },
+					costActual: null,
+					tokensActual: null,
 					progress: { done: 1, total: 3 },
 					pitch: "# Problem\n\nAuth is broken.\n",
 					tasks: [
 						{
 							id: TASK_ID,
+							betId: "b1",
 							title: "Implement login endpoint",
-							owner: "Dev Agent 1",
+							ownerAgentId: "agent-dev-1",
 							state: "in_progress",
-							cost: "$1.00",
+							costActual: { minor: 100, currency: "USD" },
+							costCap: null,
+							latestSessionOutcome: null,
+							latestSessionCost: null,
+							latestSessionTokensInput: null,
+							latestSessionTokensOutput: null,
+							latestSessionHarnessUrl: null,
 						},
 					],
-					comments: [],
 				}),
 			}),
 		);
