@@ -185,7 +185,11 @@ describe("M3 — Thread route readSenderId + readInitialSenderId use auth contex
 				participants: ["test-founder-1", "agent-builder-1"],
 				initialMessage: {
 					type: "review",
-					payload: { text: "Review: please confirm." },
+					payload: {
+						title: "Review: please confirm.",
+						reasoning: ["The implementation looks correct."],
+						artifactRef: { id: "artifact-1", kind: "text_diff" },
+					},
 					clientKey: crypto.randomUUID(),
 				},
 			}),

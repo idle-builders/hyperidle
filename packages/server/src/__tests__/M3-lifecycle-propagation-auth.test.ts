@@ -117,7 +117,7 @@ describe("M3 — lifecycle-propagation: thread participants use factorySettings 
 	it("propagation thread participants include factorySettings founder_id, not 'u-founder'", async () => {
 		// Trigger the propagation that creates a review thread (all tasks done)
 		// Fire a task_state_changed event to drive the propagation
-		await eventBus.emitAsync({
+		eventBus.emit({
 			type: "task_state_changed",
 			streamId: "stream-1",
 			taskId: "task-1",
