@@ -40,7 +40,7 @@ test.describe("Responsive Layout", () => {
 		// All four regions should be visible
 		await expect(page.getByRole("navigation", { name: "Main navigation" })).toBeVisible();
 		await expect(page.getByTestId("main-content")).toBeVisible();
-		await expect(page.getByText("Active Bets")).toBeVisible();
+		await expect(page.getByText("Active Bets").first()).toBeVisible();
 	});
 
 	test("layout renders correctly at 1280x720", async ({ page }) => {

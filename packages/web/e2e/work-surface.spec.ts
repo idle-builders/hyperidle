@@ -2,8 +2,11 @@
  * J5 — Work Surface E2E flows.
  *
  * Flow 1: Portfolio page structure — product cards carry lead avatar,
- * active-bet count, shipped count, and a cycle-management stripe
- * renders below the grid.
+ * active-bet count, and shipped count.
+ *
+ * @lore M3 G1: cycle-stripe was removed when MOCK_CYCLE was deleted.
+ * Cycle data is not yet wired from the server (deferred follow-up).
+ * The J5 test no longer asserts on the cycle-stripe testid.
  *
  * Flow 2: Team Board → Select Pitches → Click a pitch → the inline
  * detail pane appears with problem / solution / rabbit holes and the
@@ -11,10 +14,66 @@
  */
 import { expect, test } from "@playwright/test";
 
+const PRODUCTS_FIXTURE = {
+	products: [
+		{
+			id: "p1",
+			name: "Product One",
+			phase: "growth",
+			status: "healthy",
+			leadAgentId: "agent-lead",
+			activeBets: 2,
+			shipped: 5,
+			shipRate: "71%",
+			progress: { done: 3, total: 6 },
+		},
+		{
+			id: "p2",
+			name: "Product Two",
+			phase: "growth",
+			status: "healthy",
+			leadAgentId: "agent-lead-2",
+			activeBets: 1,
+			shipped: 3,
+			shipRate: "75%",
+			progress: { done: 1, total: 2 },
+		},
+		{
+			id: "p3",
+			name: "Product Three",
+			phase: "growth",
+			status: "behind",
+			leadAgentId: "agent-lead-3",
+			activeBets: 3,
+			shipped: 1,
+			shipRate: "25%",
+			progress: { done: 2, total: 8 },
+		},
+		{
+			id: "p4",
+			name: "Product Four",
+			phase: "growth",
+			status: "blocked",
+			leadAgentId: "agent-lead-4",
+			activeBets: 0,
+			shipped: 2,
+			shipRate: "100%",
+			progress: { done: 0, total: 0 },
+		},
+	],
+};
+
 test.describe("J5 — Work Surface", () => {
-	test("Portfolio renders 4 product cards with lead + bets + shipped + cycle stripe", async ({
-		page,
-	}) => {
+	test("Portfolio renders 4 product cards with lead + bets + shipped", async ({ page }) => {
+		// Mock /api/products so the portfolio renders deterministic data.
+		await page.route("**/api/products", async (route) => {
+			await route.fulfill({
+				status: 200,
+				contentType: "application/json",
+				body: JSON.stringify(PRODUCTS_FIXTURE),
+			});
+		});
+
 		await page.goto("/work/portfolio");
 		await page.waitForSelector("[data-testid='work-portfolio-page']");
 
@@ -28,13 +87,6 @@ test.describe("J5 — Work Surface", () => {
 		// "Active bets" / "Shipped" labels appear on every card.
 		await expect(cards.first().getByText(/Active bets?/i)).toBeVisible();
 		await expect(cards.first().getByText(/Shipped/i)).toBeVisible();
-
-		// Cycle-management stripe below the grid with current cycle +
-		// days remaining.
-		const stripe = page.getByTestId("cycle-stripe");
-		await expect(stripe).toBeVisible();
-		await expect(stripe).toContainText(/cycle/i);
-		await expect(stripe).toContainText(/days? remaining/i);
 	});
 
 	// @lore L13: WorkTeam (Kanban + PitchSelector) was deleted in L13. The

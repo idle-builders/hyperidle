@@ -1,11 +1,47 @@
 /**
  * E2E tests for the Settings panel: opening from avatar, tab switching,
  * form inputs.
+ *
+ * @lore M3: Settings data now comes from /api/settings. We mock the endpoint
+ * here to ensure deterministic product names in the Products tab and to allow
+ * the PATCH endpoint (called on Save) to succeed so the dialog closes.
  */
 import { expect, test } from "@playwright/test";
 
+const SETTINGS_FIXTURE = {
+	profile: { name: "Test Founder", email: "test@hyperidle.dev", avatarUrl: null },
+	products: [{ id: "prod-alpha", name: "Product Alpha", active: true }],
+	agents: [],
+	notifications: {
+		reviewAlerts: true,
+		costAlerts: false,
+		blockerAlerts: true,
+		quietHoursStart: "22:00",
+		quietHoursEnd: "08:00",
+		mutedProducts: [],
+	},
+};
+
 test.describe("Settings", () => {
 	test.beforeEach(async ({ page }) => {
+		// Mock GET /api/settings so the panel shows deterministic data.
+		await page.route("**/api/settings", async (route) => {
+			if (route.request().method() === "GET") {
+				await route.fulfill({
+					status: 200,
+					contentType: "application/json",
+					body: JSON.stringify(SETTINGS_FIXTURE),
+				});
+			} else if (route.request().method() === "PATCH") {
+				await route.fulfill({
+					status: 200,
+					contentType: "application/json",
+					body: JSON.stringify(SETTINGS_FIXTURE),
+				});
+			} else {
+				await route.continue();
+			}
+		});
 		await page.goto("/");
 		await page.waitForSelector("[data-testid='main-content']");
 	});

@@ -17,7 +17,7 @@ test.describe("Navigation", () => {
 		// Main content area
 		await expect(page.getByTestId("main-content")).toBeVisible();
 		// Rail sections
-		await expect(page.getByText("Active Bets")).toBeVisible();
+		await expect(page.getByText("Active Bets").first()).toBeVisible();
 	});
 
 	test("IconRail shows three view buttons: Conversations, Work, Knowledge", async ({ page }) => {
