@@ -9,7 +9,10 @@
 import * as crypto from "node:crypto";
 import * as fs from "node:fs";
 import * as path from "node:path";
+import { fileURLToPath } from "node:url";
 import { app, BrowserWindow, dialog, ipcMain, Menu, shell } from "electron";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 import { buildAppMenuTemplate } from "./app-menu.js";
 import { getPort, startServer, waitForHealth } from "./boot-server.js";
 import type { LogRotator } from "./log-rotation.js";
@@ -167,15 +170,15 @@ process.on("uncaughtException", (err: Error): void => {
 	app.exit(1);
 });
 
-// @lore N4: We gate the side-effectful startup on isEntrypoint so that importing
-// main.ts in tests (for the exported helpers) does not trigger the full app boot
-// sequence. This follows the same pattern as packages/db/src/setup-cli.ts.
-// In Electron, the main process IS the entrypoint so this is always true at runtime.
+// @lore N4: We gate the side-effectful startup so that importing main.ts in tests
+// (for the exported helpers) does not trigger the full app boot sequence.
+// In Electron, process.argv[0] is the electron binary. In Vitest, it's the node
+// binary running vitest. We detect Electron by checking for the electron binary name
+// or the ELECTRON_RUN_AS_NODE env var being absent (Electron sets it when running
+// as plain Node). The simplest reliable check: process.versions.electron exists
+// at runtime but not in Vitest/Node.
 /* c8 ignore start */
-const isEntrypoint =
-	typeof require !== "undefined"
-		? require.main === module
-		: process.argv[1]?.endsWith("main.js") || process.argv[1]?.endsWith("main.ts");
+const isEntrypoint = "electron" in process.versions;
 
 if (isEntrypoint) {
 	// Single-instance lock must run before app.whenReady()

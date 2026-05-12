@@ -4,6 +4,7 @@
  */
 
 import * as path from "node:path";
+import { fileURLToPath } from "node:url";
 import { applyMigrations, isDowngrade } from "@hyperidle/db";
 
 export interface MigrationOrchestrationResult {
@@ -16,15 +17,15 @@ export interface MigrationOrchestrationResult {
  * In dev mode: relative to the monorepo packages/db/drizzle.
  * In packaged app (N5): relative to process.resourcesPath.
  *
- * @lore N4: We use __dirname-relative resolution so this works both in the
- * worktree during development and in the packaged app. The `drizzle` folder
- * lives at packages/db/drizzle relative to the monorepo root.
+ * @lore N4: ESM has no __dirname — we derive it from import.meta.url.
+ * The `drizzle` folder lives at packages/db/drizzle relative to the monorepo root.
  */
 export function resolveMigrationsFolder(): string {
 	// In the monorepo, this file lives at packages/desktop/src/migrate.ts.
 	// The migrations folder lives at packages/db/drizzle.
 	// Relative path: ../../../db/drizzle from packages/desktop/src/
-	return path.resolve(__dirname, "..", "..", "..", "db", "drizzle");
+	const currentDir = path.dirname(fileURLToPath(import.meta.url));
+	return path.resolve(currentDir, "..", "..", "db", "drizzle");
 }
 
 /**
