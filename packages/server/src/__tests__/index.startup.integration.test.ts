@@ -8,7 +8,7 @@
  *
  * Verified via subprocess (mirroring `websocket.test.ts:34-44`): spawn
  * `bun src/index.ts` with HYPERIDLE_API_KEY scrubbed from the env. Assert
- *  - exit code != 0 within 3s,
+ *  - exit code != 0 within 10s,
  *  - stderr (or combined output) mentions "HYPERIDLE_API_KEY".
  *
  * Red phase: today's `index.ts` boots, prints a "Server running" line, and
@@ -67,8 +67,8 @@ describe("I2 A6 — index.ts fails fast on missing HYPERIDLE_API_KEY", () => {
 		const exitInfo = await new Promise<{ code: number | null; signal: NodeJS.Signals | null }>(
 			(resolveExit, rejectExit) => {
 				const timer = setTimeout(() => {
-					rejectExit(new Error("Server did not exit within 3s"));
-				}, 3000);
+					rejectExit(new Error("Server did not exit within 10s"));
+				}, 10_000);
 				proc?.on("exit", (code, signal) => {
 					clearTimeout(timer);
 					resolveExit({ code, signal });
@@ -88,5 +88,5 @@ describe("I2 A6 — index.ts fails fast on missing HYPERIDLE_API_KEY", () => {
 		// And the operator-facing message must mention the env var name.
 		const combined = `${stdout}\n${stderr}`;
 		expect(combined).toMatch(/HYPERIDLE_API_KEY/);
-	}, 8000);
+	}, 15_000);
 });

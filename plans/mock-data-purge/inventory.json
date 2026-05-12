@@ -262,7 +262,7 @@
   },
   {
     "path": "packages/web/src/pages/WorkBet.tsx",
-    "line": 614,
+    "line": 613,
     "symbol": "u-founder",
     "kind": "literal-id",
     "shape": "string",

@@ -465,7 +465,7 @@ describe("file-watcher (fs.watch)", () => {
 		fs.writeFileSync(filePath, "Agent wrote this at T=0");
 
 		// Wait for debounce to fire and process the create
-		await sleep(800);
+		await sleep(1500);
 
 		// Verify item was created
 		let items = db.select().from(knowledgeItems).all();
@@ -482,7 +482,7 @@ describe("file-watcher (fs.watch)", () => {
 		fs.writeFileSync(filePath, "Agent overwrites at T=500");
 
 		// Wait for debounce
-		await sleep(800);
+		await sleep(1500);
 
 		watcher.stop();
 

@@ -2,6 +2,38 @@ import { cleanup } from "@testing-library/react";
 import { afterEach, vi } from "vitest";
 import "@testing-library/jest-dom/vitest";
 
+// @lore Node 26 defines globalThis.localStorage as experimental (returns undefined
+// without --localstorage-file). This shadows jsdom's localStorage on the window object.
+// Provide an in-memory Storage polyfill so tests that use localStorage work.
+if (typeof window !== "undefined" && window.localStorage === undefined) {
+	const store = new Map<string, string>();
+	const storage: Storage = {
+		get length() {
+			return store.size;
+		},
+		clear() {
+			store.clear();
+		},
+		getItem(key: string) {
+			return store.get(key) ?? null;
+		},
+		key(index: number) {
+			return [...store.keys()][index] ?? null;
+		},
+		removeItem(key: string) {
+			store.delete(key);
+		},
+		setItem(key: string, value: string) {
+			store.set(key, value);
+		},
+	};
+	Object.defineProperty(window, "localStorage", {
+		value: storage,
+		writable: true,
+		configurable: true,
+	});
+}
+
 /**
  * @lore RTL's waitFor checks `typeof jest !== 'undefined'` to detect fake
  * timers and use jest.advanceTimersByTime for retries. Without this shim,
