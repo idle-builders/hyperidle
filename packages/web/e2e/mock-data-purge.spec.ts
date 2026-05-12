@@ -45,7 +45,9 @@ const OLD_MOCK_WEEK_SPEND_FORMATTED = "$84.20";
 
 // Override rail with known distinct values to prove the render path uses the API
 const OVERRIDE_RAIL = {
-	bets: [{ id: "b1", title: "M4 Test Bet", status: "in_progress", progress: { done: 1, total: 2 } }],
+	bets: [
+		{ id: "b1", title: "M4 Test Bet", status: "in_progress", progress: { done: 1, total: 2 } },
+	],
 	blockers: [],
 	awaitingOrdering: [],
 	costBurnRate: {
@@ -128,9 +130,7 @@ test.describe("M4 AC-3b — Rail cost values match API response, not old MOCK_RA
 		).toHaveCount(0);
 	});
 
-	test("rail renders week spend from API override, not old $84.20 mock value", async ({
-		page,
-	}) => {
+	test("rail renders week spend from API override, not old $84.20 mock value", async ({ page }) => {
 		await page.route("**/api/rail", async (route) => {
 			await route.fulfill({
 				status: 200,
@@ -183,9 +183,7 @@ test.describe("M4 AC-3b — Rail cost values match API response, not old MOCK_RA
 // ---------------------------------------------------------------------------
 
 test.describe("M4 AC-3c — Settings panel reflects logged-in user profile", () => {
-	test("settings panel shows name from API override, not hardcoded Founder", async ({
-		page,
-	}) => {
+	test("settings panel shows name from API override, not hardcoded Founder", async ({ page }) => {
 		// Override settings BEFORE the page loads
 		await page.route("**/api/settings", async (route) => {
 			const method = route.request().method();
