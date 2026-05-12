@@ -26,8 +26,10 @@ function makeThreadListResponse() {
 				resolvedAt: null,
 				lastActiveAt: NOW,
 				createdAt: NOW,
+				hasUnresolvedReview: false,
 			},
 		],
+		nextCursor: null,
 	};
 }
 
@@ -46,7 +48,7 @@ function makeThreadDetailResponse(messages: Array<Record<string, unknown>>) {
 		},
 		messages,
 		headMessageId: null,
-		identities: { [FOUNDER_ID]: { name: "Founder", role: "founder" } },
+		nextMessagesCursor: null,
 	};
 }
 

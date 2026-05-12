@@ -42,20 +42,33 @@ const BET_DETAIL_FIXTURE = {
 	tasks: [
 		{
 			id: "task-l17-1",
+			betId: BET_ID,
 			title: "Wire up Money types",
-			owner: "builder-agent",
+			ownerAgentId: "builder-agent",
 			state: "done",
 			costActual: { minor: 12000, currency: "USD" }, // $120.00
+			costCap: null,
+			latestSessionOutcome: "success",
+			latestSessionCost: 12000,
+			latestSessionTokensInput: 18000,
+			latestSessionTokensOutput: 2100,
+			latestSessionHarnessUrl: null,
 		},
 		{
 			id: "task-l17-2",
+			betId: BET_ID,
 			title: "Add formatMoney formatter",
-			owner: "builder-agent",
+			ownerAgentId: "builder-agent",
 			state: "done",
 			costActual: { minor: 9430, currency: "USD" }, // $94.30
+			costCap: null,
+			latestSessionOutcome: "success",
+			latestSessionCost: 9430,
+			latestSessionTokensInput: 20200,
+			latestSessionTokensOutput: 2000,
+			latestSessionHarnessUrl: null,
 		},
 	],
-	comments: [],
 };
 
 /**

@@ -30,11 +30,6 @@ const LATER = "2026-04-28T10:05:00.000Z";
 const FOUNDER_ID = "u-founder";
 const AGENT_ID = "a-aria";
 
-const IDENTITIES = {
-	[FOUNDER_ID]: { name: "Founder", role: "founder" },
-	[AGENT_ID]: { name: "Aria", role: "agent" },
-};
-
 const THREAD_ID = "t-l11-review";
 const REVIEW_ID = "m-l11-review";
 
@@ -69,7 +64,7 @@ function reviewFixture(resolvedAt: string | null = null) {
 		},
 		messages: [reviewMessage],
 		headMessageId: resolvedAt ? null : REVIEW_ID,
-		identities: IDENTITIES,
+		nextMessagesCursor: null,
 	};
 }
 

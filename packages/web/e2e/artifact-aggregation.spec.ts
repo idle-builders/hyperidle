@@ -55,7 +55,7 @@ async function mockAppShellEndpoints(route: Route): Promise<void> {
 	await route.fulfill({
 		status: 200,
 		contentType: "application/json",
-		body: JSON.stringify({ threads: [] }),
+		body: JSON.stringify({ threads: [], nextCursor: null }),
 	});
 }
 
@@ -66,7 +66,7 @@ test.describe("L3 Artifact aggregation surfaces (dev preview)", () => {
 			await route.fulfill({
 				status: 200,
 				contentType: "application/json",
-				body: JSON.stringify({ products: [], total: 0 }),
+				body: JSON.stringify({ products: [] }),
 			});
 		});
 		await page.route("**/api/artifacts?**", mockArtifacts);

@@ -31,14 +31,14 @@ test("ArtifactEmbed root has no bg-/border-/rounded-/shadow- chrome", async ({ p
 		await route.fulfill({
 			status: 200,
 			contentType: "application/json",
-			body: JSON.stringify({ threads: [] }),
+			body: JSON.stringify({ threads: [], nextCursor: null }),
 		});
 	});
 	await page.route("**/api/products**", async (route) => {
 		await route.fulfill({
 			status: 200,
 			contentType: "application/json",
-			body: JSON.stringify({ products: [], total: 0 }),
+			body: JSON.stringify({ products: [] }),
 		});
 	});
 	await page.route("**/api/artifacts?**", mockArtifacts);

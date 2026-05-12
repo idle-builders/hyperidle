@@ -24,7 +24,9 @@ function makeBetResponse(status = "in_progress") {
 		product: "Alpha",
 		team: "t1",
 		status,
-		appetite: "2 weeks",
+		costAppetite: { minor: 100000, currency: "USD" },
+		costActual: null,
+		tokensActual: null,
 		progress: { done: 1, total: 3 },
 		pitch: "# Problem\n\nThis bet needs action bar testing.\n",
 		tasks: [],
@@ -33,7 +35,7 @@ function makeBetResponse(status = "in_progress") {
 }
 
 function makeEmptyThreadResponse() {
-	return { threads: [], total: 0 };
+	return { threads: [], nextCursor: null };
 }
 
 function makeEmptyMessagesResponse() {
@@ -85,7 +87,20 @@ async function setupCommonRoutes(
 			return route.fulfill({
 				status: 201,
 				contentType: "application/json",
-				body: JSON.stringify({ id: THREAD_ID }),
+				body: JSON.stringify({
+					thread: {
+						id: THREAD_ID,
+						hostKind: "bet",
+						hostId: BET_ID,
+						initiatorId: FOUNDER_ID,
+						participants: [FOUNDER_ID],
+						pinned: false,
+						resolvedAt: null,
+						lastActiveAt: new Date().toISOString(),
+						createdAt: new Date().toISOString(),
+					},
+					messages: [],
+				}),
 			});
 		}
 		return route.continue();
@@ -214,7 +229,7 @@ test.describe("L14 — Bet actions E2E", () => {
 					return route.fulfill({
 						status: 200,
 						contentType: "application/json",
-						body: JSON.stringify({ ...makeBetResponse("in_progress"), appetite: "1 week" }),
+						body: JSON.stringify({ ...makeBetResponse("in_progress"), costAppetite: { minor: 50000, currency: "USD" } }),
 					});
 				}
 				if (route.request().method() === "GET") {

@@ -105,7 +105,7 @@ test.describe("L8 — Conversations Submenu list", () => {
 					},
 					messages: [],
 					headMessageId: null,
-					identities: {},
+					nextMessagesCursor: null,
 				}),
 			});
 		});

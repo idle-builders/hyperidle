@@ -22,7 +22,9 @@ function makeBetResponse() {
 		product: "Alpha",
 		team: "Alpha Core",
 		status: "in_progress",
-		appetite: "2 weeks",
+		costAppetite: { minor: 100000, currency: "USD" },
+		costActual: null,
+		tokensActual: null,
 		progress: { done: 1, total: 3 },
 		pitch: "# Problem\n\nThis bet has artifact threads.",
 		tasks: [],
@@ -85,7 +87,7 @@ test.describe("L18 — Bet artifact thread summary section", () => {
 			await route.fulfill({
 				status: 200,
 				contentType: "application/json",
-				body: JSON.stringify({ threads: [] }),
+				body: JSON.stringify({ threads: [], nextCursor: null }),
 			});
 		});
 
@@ -127,7 +129,7 @@ test.describe("L18 — Bet artifact thread summary section", () => {
 			await route.fulfill({
 				status: 200,
 				contentType: "application/json",
-				body: JSON.stringify({ threads: [] }),
+				body: JSON.stringify({ threads: [], nextCursor: null }),
 			});
 		});
 
@@ -168,7 +170,7 @@ test.describe("L18 — Bet artifact thread summary section", () => {
 			await route.fulfill({
 				status: 200,
 				contentType: "application/json",
-				body: JSON.stringify({ threads: [] }),
+				body: JSON.stringify({ threads: [], nextCursor: null }),
 			});
 		});
 

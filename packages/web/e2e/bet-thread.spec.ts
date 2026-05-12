@@ -20,7 +20,9 @@ function makeBetResponse() {
 		product: "Alpha",
 		team: "Alpha Core",
 		status: "in_progress",
-		appetite: "2 weeks",
+		costAppetite: { minor: 100000, currency: "USD" },
+		costActual: null,
+		tokensActual: null,
 		progress: { done: 2, total: 5 },
 		pitch: "# Problem\n\nThis bet has a discussion thread.\n",
 		tasks: [],
@@ -40,8 +42,10 @@ function makeThreadListResponse() {
 				resolvedAt: null,
 				lastActiveAt: NOW,
 				createdAt: NOW,
+				hasUnresolvedReview: false,
 			},
 		],
+		nextCursor: null,
 	};
 }
 
@@ -60,7 +64,7 @@ function makeThreadDetailResponse(messages: Array<Record<string, unknown>>) {
 		},
 		messages,
 		headMessageId: null,
-		identities: { [FOUNDER_ID]: { name: "Founder", role: "founder" } },
+		nextMessagesCursor: null,
 	};
 }
 

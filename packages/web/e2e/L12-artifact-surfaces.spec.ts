@@ -75,13 +75,13 @@ async function mockThreadEndpoints(page: Page): Promise<void> {
 			await route.fulfill({
 				status: 200,
 				contentType: "application/json",
-				body: JSON.stringify({ threads: [] }),
+				body: JSON.stringify({ threads: [], nextCursor: null }),
 			});
 		} else {
 			await route.fulfill({
 				status: 200,
 				contentType: "application/json",
-				body: JSON.stringify({ id: "thread-stub", messages: [], participants: [] }),
+				body: JSON.stringify({ thread: { id: "thread-stub" }, messages: [], headMessageId: null, nextMessagesCursor: null }),
 			});
 		}
 	});
@@ -102,7 +102,7 @@ async function mockAppShellEndpoints(page: Page): Promise<void> {
 		await route.fulfill({
 			status: 200,
 			contentType: "application/json",
-			body: JSON.stringify({ threads: [] }),
+			body: JSON.stringify({ threads: [], nextCursor: null }),
 		});
 	});
 
@@ -112,7 +112,7 @@ async function mockAppShellEndpoints(page: Page): Promise<void> {
 			await route.fulfill({
 				status: 200,
 				contentType: "application/json",
-				body: JSON.stringify({ products: [], total: 0 }),
+				body: JSON.stringify({ products: [] }),
 			});
 			return;
 		}
@@ -133,7 +133,7 @@ async function mockAppShellEndpoints(page: Page): Promise<void> {
 					progress: { done: 0, total: 0 },
 				},
 				roster: [],
-				burn: { costActual: 0, costCap: null, activeBets: 0, capacity: 3 },
+				burn: { costActual: null, costCap: null, activeBets: 0, capacity: 3 },
 				activeBets: [],
 			}),
 		});
@@ -202,13 +202,10 @@ test.describe("L12 — Artifact surfaces on Work pages", () => {
 						status: "active",
 						phase: "build",
 						leadAgentId: null,
-						activeBets: 0,
-						shipped: 0,
-						shipRate: "0%",
-						progress: { done: 0, total: 0 },
 					},
+					team: { id: "team-e2e", formedAt: "2024-01-01T00:00:00Z", dissolvedAt: null },
 					roster: [],
-					burn: { costActual: 0, costCap: null, activeBets: 0, capacity: 3 },
+					burn: { costActual: null, costCap: null, activeBets: 0, capacity: 3 },
 					activeBets: [],
 				}),
 			});
@@ -241,7 +238,9 @@ test.describe("L12 — Artifact surfaces on Work pages", () => {
 					product: "E2E Product",
 					team: "E2E Team",
 					status: "committed",
-					appetite: "2 weeks",
+					costAppetite: { minor: 100000, currency: "USD" },
+					costActual: null,
+					tokensActual: null,
 					progress: { done: 1, total: 3 },
 					pitch: "# Problem\nTest.",
 					tasks: [],
@@ -277,7 +276,9 @@ test.describe("L12 — Artifact surfaces on Work pages", () => {
 					product: "E2E Product",
 					team: "E2E Team",
 					status: "committed",
-					appetite: "2 weeks",
+					costAppetite: { minor: 100000, currency: "USD" },
+					costActual: null,
+					tokensActual: null,
 					progress: { done: 0, total: 1 },
 					pitch: "# Problem\nTest order.",
 					tasks: [],
@@ -290,7 +291,8 @@ test.describe("L12 — Artifact surfaces on Work pages", () => {
 				status: 200,
 				contentType: "application/json",
 				body: JSON.stringify({
-					threads: [{ id: ORDER_THREAD_ID, hostKind: "bet", hostId: ORDER_BET_ID }],
+					threads: [{ id: ORDER_THREAD_ID, hostKind: "bet", hostId: ORDER_BET_ID, hasUnresolvedReview: false }],
+					nextCursor: null,
 				}),
 			});
 		});
@@ -302,7 +304,7 @@ test.describe("L12 — Artifact surfaces on Work pages", () => {
 					thread: { id: ORDER_THREAD_ID, hostKind: "bet", hostId: ORDER_BET_ID },
 					messages: [],
 					headMessageId: null,
-					identities: {},
+					nextMessagesCursor: null,
 				}),
 			});
 		});
@@ -313,7 +315,7 @@ test.describe("L12 — Artifact surfaces on Work pages", () => {
 				await route.fulfill({
 					status: 200,
 					contentType: "application/json",
-					body: JSON.stringify({ threads: [] }),
+					body: JSON.stringify({ threads: [], nextCursor: null }),
 				});
 			} else {
 				await route.fulfill({
@@ -323,7 +325,7 @@ test.describe("L12 — Artifact surfaces on Work pages", () => {
 						thread: { id: "stub", hostKind: "bet", hostId: ORDER_BET_ID },
 						messages: [],
 						headMessageId: null,
-						identities: {},
+						nextMessagesCursor: null,
 					}),
 				});
 			}
@@ -416,16 +418,25 @@ test.describe("L12 — Artifact surfaces on Work pages", () => {
 					product: "TS Product",
 					team: "TS Team",
 					status: "committed",
-					appetite: "1 week",
+					costAppetite: { minor: 50000, currency: "USD" },
+					costActual: null,
+					tokensActual: null,
 					progress: { done: 0, total: 1 },
 					pitch: "# Test",
 					tasks: [
 						{
 							id: "task-ts-1",
+							betId: "bet-ts-e2e",
 							title: "Task for sheet",
 							state: "in_progress",
-							owner: "Dev",
-							cost: "$1.00",
+							ownerAgentId: "agent-dev-1",
+							costActual: { minor: 100, currency: "USD" },
+							costCap: null,
+							latestSessionOutcome: null,
+							latestSessionCost: null,
+							latestSessionTokensInput: null,
+							latestSessionTokensOutput: null,
+							latestSessionHarnessUrl: null,
 						},
 					],
 				}),
