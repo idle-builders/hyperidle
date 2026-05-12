@@ -1,0 +1,94 @@
+========================================================================
+N3 Spike — Agent Execution Scope Decision
+========================================================================
+Date: 2026-05-11T17:25:01.379Z
+Node version: v24.3.0
+Platform: darwin arm64
+CWD: /Users/tg/hyperidle/.worktrees/N3
+
+────────────────────────────────────────────────────────────────────────
+Phase B — MockHarnessAdapter + LocalWorkspaceAdapter
+────────────────────────────────────────────────────────────────────────
+Phase B result: {
+  "sessionId": "6172db9b-0e96-480f-ab4e-b1e25faaee85",
+  "outcome": "completed",
+  "totalCostCents": 0,
+  "taskId": "task-spike"
+}
+ASSERTION PASSED: result.outcome === 'completed'
+ASSERTION PASSED: session row exists in DB
+  session.state: done
+  session.outcome: completed
+  session.cost: 0
+
+────────────────────────────────────────────────────────────────────────
+Phase C — StubHarnessAdapter (read_file tool_call fails silently)
+────────────────────────────────────────────────────────────────────────
+Phase C result: {
+  "sessionId": "76a6c1cd-1c09-4fb0-a98a-8c1db9a1c8b9",
+  "outcome": "completed",
+  "totalCostCents": 0,
+  "taskId": "task-spike"
+}
+ASSERTION PASSED: provisionSession completed without throwing
+  outcome: completed
+  (read_file tool_call for unregistered tool was handled gracefully — no crash)
+ASSERTION PASSED: session row exists in DB
+  session.state: done
+
+────────────────────────────────────────────────────────────────────────
+Phase D — ClaudeAgentSdkAdapter (real API, conditional)
+────────────────────────────────────────────────────────────────────────
+SKIPPED: ANTHROPIC_API_KEY not set.
+To run Phase D: ANTHROPIC_API_KEY=<key> bun run plans/N3/spike/run-spike.ts
+
+────────────────────────────────────────────────────────────────────────
+Phase E — Surface Audit
+────────────────────────────────────────────────────────────────────────
+
+## Binaries invoked by LocalWorkspaceAdapter
+  - sh (via node:child_process.spawn ['sh', '-c', command])
+  - Source: packages/server/src/harness/local-workspace-adapter.ts:24-48
+  - Note: exec() passes the full command string to 'sh -c'
+  - Threat: shell injection if agent-controlled strings reach exec()
+
+## Filesystem paths created/destroyed
+  - spawn(baseDir) → creates baseDir/<workspaceId> via mkdir({ recursive: true })
+  - destroy(handle) → removes path via rm({ recursive: true, force: true })
+  - materialize() writes to workspace/.fabric/ (manifest) + knowledge/ (items)
+  - startWatcher() watches workspace/ recursively via fs.watch
+
+## Environment variables forwarded to agent subprocess
+  ClaudeAgentSdkAdapter (packages/server/src/harness/claude-agent-sdk-adapter.ts:29):
+  ALLOWED_ENV_KEYS = ['PATH', 'HOME', 'LANG'] + ANTHROPIC_API_KEY
+  All other env vars (HYPERIDLE_API_KEY, DATABASE_URL, SMTP_*, Langfuse) are blocked.
+  LocalWorkspaceAdapter.exec() inherits full process.env via sh -c (no sandbox).
+
+## Network calls
+  - LocalWorkspaceAdapter: NONE (host fs only — exec() runs sh on host, not network)
+  - ClaudeAgentSdkAdapter: HTTPS to api.anthropic.com via @anthropic-ai/claude-agent-sdk
+  - materialize() + watcher: no network (SQLite + host fs only)
+
+## Production gate
+  - LocalWorkspaceAdapter constructor throws if NODE_ENV === 'production'
+  - Source: packages/server/src/harness/local-workspace-adapter.ts:62-67
+  - DockerWorkspaceAdapter is the production path
+
+## MockHarnessAdapter read_file tool_call
+  - MockHarnessAdapter/StubHarnessAdapter yield { type:'tool_call', toolName:'read_file', args:{...} }
+  - read_file is not registered in the spike's tool registry
+  - ACTUAL RESULT: provisionSession handles the unknown tool gracefully
+  - Both adapters completed with outcome='completed' — no crash
+  - This contradicts the architecture prediction of outcome='crashed'
+  - Likely cause: registry.invoke returns an error result rather than throwing
+
+## Key source files (with line-number evidence)
+  packages/shared/src/harness/harness-adapter.ts:38-43      HarnessAdapter interface
+  packages/shared/src/harness/mock-harness-adapter.ts:14-57  MockHarnessAdapter
+  packages/server/src/harness/local-workspace-adapter.ts:1-110  LocalWorkspaceAdapter
+  packages/server/src/harness/claude-agent-sdk-adapter.ts:29     ALLOWED_ENV_KEYS
+  packages/server/src/services/session-provisioning.ts:158-441  provisionSession
+
+========================================================================
+N3 Spike COMPLETE
+========================================================================
