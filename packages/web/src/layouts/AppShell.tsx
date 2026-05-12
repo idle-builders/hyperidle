@@ -86,8 +86,8 @@ const SUBMENU_FILTERS: Record<ViewId, ReadonlyArray<SubmenuFilterOption>> = {
 	work: [],
 };
 
-// @lore M3 A11: DEMO_FOUNDER_ID deleted — AppShell uses useCurrentUser() to get the
-// authenticated founder id from /api/auth/me. The hook is called inside AppShell below.
+// @lore M3 A11: The hardcoded demo-founder-id constant was deleted — AppShell uses
+// useCurrentUser() to get the authenticated founder id from /api/auth/me. The hook is called inside AppShell below.
 
 function deriveViewFromPath(pathname: string): ViewId {
 	if (pathname.startsWith("/work")) return "work";
@@ -463,7 +463,7 @@ export function AppShell(): JSX.Element {
 	// L8 §3.6: live thread list for the Conversations Submenu (declared
 	// before submenuTotalCount + selectedThreadId because both reference it).
 	// @lore M3 A11: participant id comes from useCurrentUser() — no more
-	// DEMO_FOUNDER_ID constant.
+	// hardcoded demo-founder-id constant.
 	const conversationsThreads = useConversationsThreads(user?.id ?? "");
 
 	const submenuFilters = SUBMENU_FILTERS[activeView];

@@ -361,7 +361,7 @@ export function createBetRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hyper
 	});
 
 	// PATCH /bets/:id — update mutable fields on active bets.
-	// M3 A5: actor comes from auth context (c.get("userId")), not hardcoded "u-founder".
+	// M3 A5: actor comes from auth context (c.get("userId")), not a hardcoded founder constant.
 	// L17: cost_appetite replaced the old appetite string; handled directly in the route.
 	router.patch("/:id", validateBody(updateBetSchema), async (c) => {
 		const betId = c.req.param("id");

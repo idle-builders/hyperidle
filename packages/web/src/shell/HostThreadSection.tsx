@@ -62,7 +62,7 @@ export interface HostThreadSectionProps {
 	 * M3 D3: agent participant id for thread creation. Null means "no agent
 	 * assigned" — the thread is created founder-only. Defaults to null.
 	 *
-	 * @lore M3: replaces the PLACEHOLDER_AGENT_PARTICIPANT_ID sentinel.
+	 * @lore M3: replaces the placeholder agent participant sentinel.
 	 * Callers pass the actual agent id when known (e.g. WorkBet passes the
 	 * bet's lead agent), or null when no agent is yet assigned.
 	 */
