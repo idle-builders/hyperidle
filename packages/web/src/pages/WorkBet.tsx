@@ -309,7 +309,6 @@ function ConsequencePreviewDialog({
 	// always available on HTMLDialogElement. The open attribute on the <dialog>
 	// element drives JSDOM's getByRole("dialog") visibility, so tests work without
 	// the native method.
-	// biome-ignore lint/correctness/useExhaustiveDependencies: reset form state only when open toggles
 	useEffect(() => {
 		if (!dialogRef.current) return;
 		if (open) {
