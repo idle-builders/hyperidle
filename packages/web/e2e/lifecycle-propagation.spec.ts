@@ -19,7 +19,7 @@
  * and returns 502, causing timeout on hydration. Pattern from L19.
  */
 
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./fixtures";
 
 const PRODUCT_ID = "prod-l20";
 const BET_ID = "bet-l20";

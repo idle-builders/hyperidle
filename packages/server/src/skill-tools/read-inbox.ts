@@ -1,6 +1,6 @@
 import { messages, threads } from "@hyperidle/db";
 import { desc, eq, ne } from "drizzle-orm";
-import { z } from "zod";
+import z from "zod";
 import type { ToolContext, ToolDefinition } from "./tool-registry.js";
 import { err, ok, type ToolResult } from "./tool-result.js";
 

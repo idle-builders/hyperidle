@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { knowledgeConflicts, knowledgeEditLog, knowledgeItems } from "@hyperidle/db";
 import { KNOWLEDGE_STATUSES, type KnowledgeStatus } from "@hyperidle/shared";
 import { and, eq } from "drizzle-orm";
-import { z } from "zod";
+import z from "zod";
 import type { ToolContext, ToolDefinition } from "./tool-registry.js";
 import { err, ok, type ToolResult } from "./tool-result.js";
 

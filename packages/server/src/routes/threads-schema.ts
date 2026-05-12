@@ -10,7 +10,7 @@ import {
 	type MESSAGE_TYPES,
 	VERDICT_DECISIONS,
 } from "@hyperidle/shared";
-import { z } from "zod";
+import z from "zod";
 
 // `clientKey` URL-safe regex: [A-Za-z0-9_\-:.], length 8-128 chars (plan
 // §6.1 REVISED for adversary M1). Empty strings and whitespace fail the

@@ -32,12 +32,9 @@ import { ErrorState, SkeletonList } from "@hyperidle/design-system";
 import type { HostKind, Message } from "@hyperidle/shared";
 import { isRedactedPayload } from "@hyperidle/shared";
 import { type JSX, useCallback, useEffect, useRef, useState } from "react";
+import { useCurrentUser } from "../hooks/useCurrentUser.js";
 import { useHostThread } from "../hooks/useHostThread.js";
-import {
-	PLACEHOLDER_AGENT_PARTICIPANT_ID,
-	postPlainHostMessage,
-	resolveOrCreateHostThread,
-} from "../services/host-threads.js";
+import { postPlainHostMessage, resolveOrCreateHostThread } from "../services/host-threads.js";
 
 export interface HostThreadSectionProps {
 	hostKind: HostKind;
@@ -61,10 +58,16 @@ export interface HostThreadSectionProps {
 	 * bridges the gap: when HostThreadSection posts, the parent can refresh its copy.
 	 */
 	onMessagePosted?: () => void;
+	/**
+	 * M3 D3: agent participant id for thread creation. Null means "no agent
+	 * assigned" — the thread is created founder-only. Defaults to null.
+	 *
+	 * @lore M3: replaces the PLACEHOLDER_AGENT_PARTICIPANT_ID sentinel.
+	 * Callers pass the actual agent id when known (e.g. WorkBet passes the
+	 * bet's lead agent), or null when no agent is yet assigned.
+	 */
+	agentId?: string | null;
 }
-
-/** Founder id used for resolve-or-create. Placeholder until auth lands. */
-const FOUNDER_ID = "u-founder";
 
 /**
  * Render a plain-message payload text, handling redacted state and other types.
@@ -83,7 +86,9 @@ export function HostThreadSection({
 	prefill,
 	onClearPrefill,
 	onMessagePosted,
+	agentId = null,
 }: HostThreadSectionProps): JSX.Element {
+	const { user } = useCurrentUser();
 	const { data, error, isLoading, refresh } = useHostThread(hostKind, hostId);
 	const [composerText, setComposerText] = useState("");
 	const [sending, setSending] = useState(false);
@@ -107,11 +112,12 @@ export function HostThreadSection({
 		setSending(true);
 		setPostError(null);
 		try {
+			const founderId = user?.id ?? "";
 			const threadId = await resolveOrCreateHostThread(
 				hostKind,
 				hostId,
-				FOUNDER_ID,
-				PLACEHOLDER_AGENT_PARTICIPANT_ID,
+				founderId,
+				agentId ?? null,
 			);
 			await postPlainHostMessage(threadId, text, crypto.randomUUID(), prefill?.blockId);
 			setComposerText("");
@@ -124,7 +130,17 @@ export function HostThreadSection({
 		} finally {
 			setSending(false);
 		}
-	}, [composerText, sending, hostKind, hostId, prefill?.blockId, refresh, onMessagePosted]);
+	}, [
+		composerText,
+		sending,
+		hostKind,
+		hostId,
+		prefill?.blockId,
+		refresh,
+		onMessagePosted,
+		user,
+		agentId,
+	]);
 
 	if (isLoading) {
 		return (

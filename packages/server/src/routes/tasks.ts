@@ -3,7 +3,7 @@ import type { EventBus } from "@hyperidle/shared";
 import { API_ERROR_CODES, TASK_STATES } from "@hyperidle/shared";
 import { and, eq } from "drizzle-orm";
 import { Hono } from "hono";
-import { z } from "zod";
+import z from "zod";
 import { validateBody } from "../middleware/validate.js";
 import { handoff } from "../services/handoff-protocol.js";
 import type { SessionContext } from "../services/session-lifecycle.js";

@@ -5,7 +5,7 @@
  * Conversations page. Legacy routes redirect to the canonical surface.
  * Detailed coverage lives in L9-single-detail.spec.ts and threads.spec.ts.
  */
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./fixtures";
 
 test.describe("Conversations — canonical routes (L9)", () => {
 	test.beforeEach(async ({ page }) => {

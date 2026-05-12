@@ -14,7 +14,7 @@
  *
  */
 
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./fixtures";
 
 const PLAYWRIGHT_TEST_KEY = "playwright-test-key";
 

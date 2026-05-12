@@ -26,12 +26,12 @@ const sampleCost: CostInfo = {
 describe("Rail — collapsed pills (J2)", () => {
 	it("renders BLK and REV pills when counts are positive, omits PSD when count is 0", () => {
 		const bets: BetItem[] = [
-			{ id: "r1", title: "Review bet", product: "P", status: "review" },
-			{ id: "c1", title: "Committed", product: "P", status: "committed" },
+			{ id: "r1", title: "Review bet", progress: { done: 1, total: 2 }, status: "review" },
+			{ id: "c1", title: "Committed", progress: { done: 0, total: 1 }, status: "committed" },
 		];
 		const blockers: BlockerItem[] = [
-			{ id: "b1", agent: "A", reason: "r", severity: "high" },
-			{ id: "b2", agent: "B", reason: "r", severity: "low" },
+			{ taskId: "b1", owner: "A", title: "r", durationBlockedMs: 90_000_000 },
+			{ taskId: "b2", owner: "B", title: "r", durationBlockedMs: 3_600_000 },
 		];
 		renderInRouter(
 			<Rail
@@ -63,9 +63,9 @@ describe("Rail — collapsed pills (J2)", () => {
 
 	it("renders only the PSD pill when only paused bets exist", () => {
 		const bets: BetItem[] = [
-			{ id: "p1", title: "Paused", product: "P", status: "paused" },
-			{ id: "p2", title: "Paused 2", product: "P", status: "paused" },
-			{ id: "p3", title: "Paused 3", product: "P", status: "paused" },
+			{ id: "p1", title: "Paused", progress: { done: 0, total: 1 }, status: "paused" },
+			{ id: "p2", title: "Paused 2", progress: { done: 0, total: 1 }, status: "paused" },
+			{ id: "p3", title: "Paused 3", progress: { done: 0, total: 1 }, status: "paused" },
 		];
 		renderInRouter(
 			<Rail
@@ -83,10 +83,12 @@ describe("Rail — collapsed pills (J2)", () => {
 
 	it("pills use the correct semantic color classes (BLK=error, REV=primary, PSD=neutral)", () => {
 		const bets: BetItem[] = [
-			{ id: "r1", title: "Review", product: "P", status: "review" },
-			{ id: "p1", title: "Paused", product: "P", status: "paused" },
+			{ id: "r1", title: "Review", progress: { done: 1, total: 2 }, status: "review" },
+			{ id: "p1", title: "Paused", progress: { done: 0, total: 1 }, status: "paused" },
 		];
-		const blockers: BlockerItem[] = [{ id: "b1", agent: "A", reason: "r", severity: "high" }];
+		const blockers: BlockerItem[] = [
+			{ taskId: "b1", owner: "A", title: "r", durationBlockedMs: 90_000_000 },
+		];
 		renderInRouter(
 			<Rail
 				expanded={false}
@@ -111,10 +113,12 @@ describe("Rail — collapsed pills (J2)", () => {
 
 	it("uses singular noun forms when count === 1 (review W1)", () => {
 		const bets: BetItem[] = [
-			{ id: "r1", title: "Review", product: "P", status: "review" },
-			{ id: "p1", title: "Paused", product: "P", status: "paused" },
+			{ id: "r1", title: "Review", progress: { done: 1, total: 2 }, status: "review" },
+			{ id: "p1", title: "Paused", progress: { done: 0, total: 1 }, status: "paused" },
 		];
-		const blockers: BlockerItem[] = [{ id: "b1", agent: "A", reason: "r", severity: "high" }];
+		const blockers: BlockerItem[] = [
+			{ taskId: "b1", owner: "A", title: "r", durationBlockedMs: 90_000_000 },
+		];
 		renderInRouter(
 			<Rail
 				expanded={false}
@@ -137,7 +141,7 @@ describe("Rail — collapsed pills (J2)", () => {
 		const bets: BetItem[] = Array.from({ length: 150 }, (_, i) => ({
 			id: `p${i}`,
 			title: `Paused ${i}`,
-			product: "P",
+			progress: { done: 0, total: 1 },
 			status: "paused" as const,
 		}));
 		renderInRouter(

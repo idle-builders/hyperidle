@@ -17,7 +17,7 @@
  * structural removal of legacy <pre>.
  */
 
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./fixtures";
 
 const BET_ID = "seed-bet-daily-digest";
 

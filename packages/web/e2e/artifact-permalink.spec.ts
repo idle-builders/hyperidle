@@ -1,6 +1,6 @@
 // L3 — Playwright: permalink renders single full preview; unknown id 404s gracefully.
 // AC-10 evidence for the single-full-preview layout.
-import { expect, type Page, type Route, test } from "@playwright/test";
+import { expect, type Page, type Route, test } from "./fixtures";
 
 const FIXTURE = {
 	id: "art-fixture-1",

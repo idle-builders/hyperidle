@@ -1,5 +1,5 @@
 import { search as searchKnowledge } from "@hyperidle/fabric";
-import { z } from "zod";
+import z from "zod";
 import type { ToolContext, ToolDefinition } from "./tool-registry.js";
 import { err, ok, type ToolResult } from "./tool-result.js";
 

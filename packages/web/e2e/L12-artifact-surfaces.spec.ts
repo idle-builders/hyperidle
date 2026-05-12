@@ -12,8 +12,8 @@
  * (NOT data-component). The dsProps() helper sets data-ds-component per ds-attrs.ts.
  */
 
-import type { Page } from "@playwright/test";
-import { expect, type Route, test } from "@playwright/test";
+import type { Page } from "./fixtures";
+import { expect, type Route, test } from "./fixtures";
 
 // Canonical Artifact fixtures — match ArtifactPage shape
 const ARTIFACT_FIXTURES = [

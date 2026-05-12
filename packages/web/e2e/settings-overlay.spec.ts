@@ -5,7 +5,7 @@
  * - Open Settings → press Esc → verify closed.
  * - Open Settings → press Command-K → Settings closed + search open.
  */
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./fixtures";
 
 test.describe("Settings overlay (J3)", () => {
 	test.beforeEach(async ({ page }) => {

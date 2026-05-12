@@ -18,7 +18,8 @@ export interface ThreadItem {
 	title: string;
 	snippet: string;
 	timestamp: string;
-	avatarUrl: string;
+	/** M3 E1: null means no avatar — renders initials chip instead of <img>. */
+	avatarUrl: string | null;
 	hostKind: HostKind;
 	hasUnresolvedReview: boolean;
 	blocking: boolean;

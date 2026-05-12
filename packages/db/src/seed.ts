@@ -173,6 +173,22 @@ export function seed(db: SeedableDb | HyperIdleDb): void {
 		.onConflictDoNothing()
 		.run();
 
+	// M3 A1: Seed founder identity. Values come FROM the database at runtime
+	// rather than being hardcoded at each call site. The seed value "u-founder"
+	// is the default single-founder factory identity.
+	db.insert(factorySettings)
+		.values({ key: "founder_id", value: "u-founder", updatedAt: now })
+		.onConflictDoNothing()
+		.run();
+	db.insert(factorySettings)
+		.values({ key: "founder_name", value: "Founder", updatedAt: now })
+		.onConflictDoNothing()
+		.run();
+	db.insert(factorySettings)
+		.values({ key: "founder_email", value: "founder@hyperidle.com", updatedAt: now })
+		.onConflictDoNothing()
+		.run();
+
 	// --- H2: daily digest routine (disabled by default — operator enables) ---
 	// @lore The routine lives at the seed level so the scheduler picks it up
 	// without extra provisioning. `active: 0` means the scheduler will NOT

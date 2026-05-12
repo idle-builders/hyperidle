@@ -4,8 +4,8 @@
  * Replaces the runtime MOCK_PRODUCTS import in WorkPortfolio.tsx.
  *
  * @lore L13: No caching, no retry — same pattern as useBet and useProduct.
- * The fixture MOCK_PRODUCTS in fixtures/portfolio-data.ts survives for
- * stories and tests only; its lore comment is updated to "test/story-only".
+ * @lore M3 review C1: fixtures/portfolio-data.ts deleted. MOCK_PRODUCTS no
+ * longer exists; tests mock this hook directly.
  */
 
 import type { ProductListResponse } from "@hyperidle/shared";

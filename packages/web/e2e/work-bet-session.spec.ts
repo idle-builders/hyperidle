@@ -18,7 +18,7 @@
  * must be mocked or explicitly absorbed.
  */
 
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./fixtures";
 
 const BET_ID = "bet-session-e2e";
 const TASK_WITH_SESSION_ID = "task-with-session-001";

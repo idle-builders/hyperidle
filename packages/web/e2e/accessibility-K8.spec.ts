@@ -15,7 +15,7 @@
  * mobile-specific changes (mobile font scale, touch density).
  */
 import AxeBuilder from "@axe-core/playwright";
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./fixtures";
 
 const MOBILE = { width: 1024, height: 900 };
 

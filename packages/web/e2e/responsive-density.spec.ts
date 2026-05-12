@@ -14,11 +14,60 @@
  * what actually drives the cascade. We also assert [data-density-preference]
  * to prove the preference itself was not mutated by the viewport switch.
  */
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./fixtures";
+
+/**
+ * Stub PATCH /api/settings so Save closes the Settings dialog in e2e.
+ * @lore M3: AppShell.handleSettingsSave calls PATCH /api/settings — without
+ * a real server in e2e this throws and the dialog never closes.
+ */
+async function stubSettingsPatch(page: import("@playwright/test").Page): Promise<void> {
+	await page.route("**/api/settings", async (route) => {
+		if (route.request().method() === "PATCH") {
+			await route.fulfill({
+				status: 200,
+				contentType: "application/json",
+				body: JSON.stringify({ ok: true }),
+			});
+		} else {
+			await route.continue();
+		}
+	});
+}
 
 const DESKTOP = { width: 1440, height: 900 };
 const MOBILE = { width: 1024, height: 800 }; // ≤ 1024 per K1 mobile breakpoint
 const NARROW = { width: 390, height: 800 }; // iPhone-ish
+
+/**
+ * Stub GET /api/products with a single product so product cards render on
+ * /work/portfolio. Required by density tests that assert product-card padding.
+ * @lore M3: MOCK_PRODUCTS was deleted — tests visiting /work/portfolio need
+ * to mock the endpoint to get deterministic product card rendering.
+ */
+async function stubProductsApi(page: import("@playwright/test").Page): Promise<void> {
+	await page.route("**/api/products", async (route) => {
+		await route.fulfill({
+			status: 200,
+			contentType: "application/json",
+			body: JSON.stringify({
+				products: [
+					{
+						id: "p1",
+						name: "Portfolio Product",
+						phase: "growth",
+						status: "healthy",
+						leadAgentId: "agent-lead",
+						activeBets: 1,
+						shipped: 2,
+						shipRate: "67%",
+						progress: { done: 2, total: 4 },
+					},
+				],
+			}),
+		});
+	});
+}
 
 async function readShellAttrs(
 	page: import("@playwright/test").Page,
@@ -79,6 +128,7 @@ test.describe("K8 — Explicit density override wins over viewport", () => {
 	test("user picks compact in Settings; survives breakpoint change", async ({ browser }) => {
 		const ctx = await browser.newContext({ viewport: DESKTOP, colorScheme: "dark" });
 		const page = await ctx.newPage();
+		await stubSettingsPatch(page);
 		await page.goto("/");
 		await page.waitForSelector("[data-testid='main-content']");
 
@@ -114,6 +164,8 @@ test.describe("K9 — Comfortable density bumps body text to 16 px end-to-end", 
 	}) => {
 		const ctx = await browser.newContext({ viewport: DESKTOP, colorScheme: "dark" });
 		const page = await ctx.newPage();
+		await stubSettingsPatch(page);
+		await stubProductsApi(page);
 		// Land on /work/portfolio so a real KeyValue is rendered and we don't
 		// need a navigation between density-set and assertion (Settings density
 		// is currently in-memory only — server-side persistence is J3/J8).
@@ -233,6 +285,8 @@ test.describe("K11 — Density tokens flow into rendered primitives across all 3
 		}) => {
 			const ctx = await browser.newContext({ viewport: DESKTOP, colorScheme: "dark" });
 			const page = await ctx.newPage();
+			await stubSettingsPatch(page);
+			await stubProductsApi(page);
 			await page.goto("/work/portfolio");
 			await page.waitForSelector("[data-testid='work-portfolio-page']");
 
@@ -295,6 +349,8 @@ test.describe("K11 — Density tokens flow into rendered primitives across all 3
 		for (const preference of ["compact", "default", "comfortable"] as const) {
 			const ctx = await browser.newContext({ viewport: DESKTOP, colorScheme: "dark" });
 			const page = await ctx.newPage();
+			await stubSettingsPatch(page);
+			await stubProductsApi(page);
 			await page.goto("/work/portfolio");
 			await page.waitForSelector("[data-testid='work-portfolio-page']");
 
@@ -329,6 +385,8 @@ test.describe("K11 — Density tokens flow into rendered primitives across all 3
 		for (const preference of ["compact", "default", "comfortable"] as const) {
 			const ctx = await browser.newContext({ viewport: DESKTOP, colorScheme: "dark" });
 			const page = await ctx.newPage();
+			await stubSettingsPatch(page);
+			await stubProductsApi(page);
 			await page.goto("/work/portfolio");
 			await page.waitForSelector("[data-testid='work-portfolio-page']");
 
@@ -363,6 +421,7 @@ test.describe("K8 — Theme persistence across breakpoint changes", () => {
 		// OS = light so dark choice is visibly different.
 		const ctx = await browser.newContext({ viewport: DESKTOP, colorScheme: "light" });
 		const page = await ctx.newPage();
+		await stubSettingsPatch(page);
 		await page.goto("/");
 		await page.waitForSelector("[data-testid='main-content']");
 

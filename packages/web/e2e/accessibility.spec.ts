@@ -10,7 +10,7 @@
  * consumer benefits — never annotate the DOM just to silence axe.
  */
 import AxeBuilder from "@axe-core/playwright";
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./fixtures";
 
 // L9: /conversations/review and /conversations/chat replaced by /conversations.
 const ROUTES = [

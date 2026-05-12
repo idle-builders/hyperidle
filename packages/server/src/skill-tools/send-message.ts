@@ -1,7 +1,7 @@
 import * as crypto from "node:crypto";
 import { agents, messages } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
-import { z } from "zod";
+import z from "zod";
 import { findOrCreateDirectThread } from "../services/direct-thread.js";
 import type { ToolContext, ToolDefinition } from "./tool-registry.js";
 import { err, ok, type ToolResult } from "./tool-result.js";

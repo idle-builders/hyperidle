@@ -1,7 +1,43 @@
 [
   {
-    "path": "packages/server/src/routes/bets.ts",
-    "line": 363,
+    "path": "packages/server/src/middleware/auth.ts",
+    "line": 27,
+    "symbol": "u-founder",
+    "kind": "literal-id",
+    "shape": "string",
+    "importerCount": 0,
+    "triageHint": "straight-swap"
+  },
+  {
+    "path": "packages/server/src/middleware/auth.ts",
+    "line": 59,
+    "symbol": "u-founder",
+    "kind": "literal-id",
+    "shape": "string",
+    "importerCount": 0,
+    "triageHint": "straight-swap"
+  },
+  {
+    "path": "packages/server/src/middleware/auth.ts",
+    "line": 89,
+    "symbol": "u-founder",
+    "kind": "literal-id",
+    "shape": "string",
+    "importerCount": 0,
+    "triageHint": "straight-swap"
+  },
+  {
+    "path": "packages/server/src/middleware/auth.ts",
+    "line": 97,
+    "symbol": "u-founder",
+    "kind": "literal-id",
+    "shape": "string",
+    "importerCount": 0,
+    "triageHint": "straight-swap"
+  },
+  {
+    "path": "packages/server/src/routes/auth.ts",
+    "line": 50,
     "symbol": "u-founder",
     "kind": "literal-id",
     "shape": "string",
@@ -10,88 +46,7 @@
   },
   {
     "path": "packages/server/src/routes/bets.ts",
-    "line": 400,
-    "symbol": "u-founder",
-    "kind": "literal-id",
-    "shape": "string",
-    "importerCount": 0,
-    "triageHint": "straight-swap"
-  },
-  {
-    "path": "packages/server/src/routes/bets.ts",
-    "line": 415,
-    "symbol": "u-founder",
-    "kind": "literal-id",
-    "shape": "string",
-    "importerCount": 0,
-    "triageHint": "straight-swap"
-  },
-  {
-    "path": "packages/server/src/routes/bets.ts",
-    "line": 444,
-    "symbol": "u-founder",
-    "kind": "literal-id",
-    "shape": "string",
-    "importerCount": 0,
-    "triageHint": "straight-swap"
-  },
-  {
-    "path": "packages/server/src/routes/bets.ts",
-    "line": 457,
-    "symbol": "u-founder",
-    "kind": "literal-id",
-    "shape": "string",
-    "importerCount": 0,
-    "triageHint": "straight-swap"
-  },
-  {
-    "path": "packages/server/src/routes/bets.ts",
-    "line": 472,
-    "symbol": "u-founder",
-    "kind": "literal-id",
-    "shape": "string",
-    "importerCount": 0,
-    "triageHint": "straight-swap"
-  },
-  {
-    "path": "packages/server/src/routes/coach.ts",
-    "line": 24,
-    "symbol": "DEFAULT_FOUNDER_ID",
-    "kind": "symbol",
-    "shape": "string",
-    "importerCount": 1,
-    "triageHint": "straight-swap"
-  },
-  {
-    "path": "packages/server/src/routes/coach.ts",
-    "line": 24,
-    "symbol": "u-founder",
-    "kind": "literal-id",
-    "shape": "string",
-    "importerCount": 0,
-    "triageHint": "straight-swap"
-  },
-  {
-    "path": "packages/server/src/routes/threads.ts",
-    "line": 49,
-    "symbol": "DEFAULT_FOUNDER_ID",
-    "kind": "symbol",
-    "shape": "string",
-    "importerCount": 1,
-    "triageHint": "straight-swap"
-  },
-  {
-    "path": "packages/server/src/routes/threads.ts",
-    "line": 49,
-    "symbol": "u-founder",
-    "kind": "literal-id",
-    "shape": "string",
-    "importerCount": 0,
-    "triageHint": "straight-swap"
-  },
-  {
-    "path": "packages/server/src/services/bet-state-machine.ts",
-    "line": 15,
+    "line": 364,
     "symbol": "u-founder",
     "kind": "literal-id",
     "shape": "string",
@@ -100,57 +55,12 @@
   },
   {
     "path": "packages/server/src/services/lifecycle-propagation.ts",
-    "line": 411,
+    "line": 409,
     "symbol": "u-founder",
     "kind": "literal-id",
     "shape": "string",
     "importerCount": 0,
     "triageHint": "straight-swap"
-  },
-  {
-    "path": "packages/web/src/fixtures/app-shell-data.ts",
-    "line": 9,
-    "symbol": "DEFAULT_SETTINGS",
-    "kind": "symbol",
-    "shape": "object",
-    "importerCount": 2,
-    "triageHint": "needs-contract"
-  },
-  {
-    "path": "packages/web/src/fixtures/app-shell-data.ts",
-    "line": 10,
-    "symbol": "founder@hyperidle.com",
-    "kind": "literal-id",
-    "shape": "string",
-    "importerCount": 0,
-    "triageHint": "straight-swap"
-  },
-  {
-    "path": "packages/web/src/fixtures/app-shell-data.ts",
-    "line": 33,
-    "symbol": "MOCK_RAIL_BETS",
-    "kind": "symbol",
-    "shape": "array",
-    "importerCount": 1,
-    "triageHint": "needs-contract"
-  },
-  {
-    "path": "packages/web/src/fixtures/app-shell-data.ts",
-    "line": 38,
-    "symbol": "MOCK_RAIL_BLOCKERS",
-    "kind": "symbol",
-    "shape": "array",
-    "importerCount": 1,
-    "triageHint": "needs-contract"
-  },
-  {
-    "path": "packages/web/src/fixtures/app-shell-data.ts",
-    "line": 42,
-    "symbol": "MOCK_RAIL_COST",
-    "kind": "symbol",
-    "shape": "object",
-    "importerCount": 1,
-    "triageHint": "needs-contract"
   },
   {
     "path": "packages/web/src/fixtures/knowledge-data.ts",
@@ -171,58 +81,13 @@
     "triageHint": "borderline"
   },
   {
-    "path": "packages/web/src/fixtures/portfolio-data.ts",
-    "line": 23,
-    "symbol": "MOCK_PRODUCTS",
-    "kind": "symbol",
-    "shape": "array",
-    "importerCount": 3,
-    "triageHint": "borderline"
-  },
-  {
-    "path": "packages/web/src/fixtures/portfolio-data.ts",
-    "line": 70,
-    "symbol": "MOCK_CYCLE",
-    "kind": "symbol",
-    "shape": "object",
-    "importerCount": 1,
-    "triageHint": "borderline"
-  },
-  {
-    "path": "packages/web/src/hooks/useConversationsThreads.ts",
-    "line": 46,
-    "symbol": "FALLBACK_AVATAR",
-    "kind": "symbol",
-    "shape": "expression",
-    "importerCount": 0,
-    "triageHint": "borderline"
-  },
-  {
     "path": "packages/web/src/layouts/AppShell.tsx",
-    "line": 23,
+    "line": 18,
     "symbol": "../fixtures/knowledge-data",
     "kind": "import",
     "shape": "import",
     "importerCount": 0,
     "triageHint": "borderline"
-  },
-  {
-    "path": "packages/web/src/layouts/AppShell.tsx",
-    "line": 92,
-    "symbol": "DEMO_FOUNDER_ID",
-    "kind": "symbol",
-    "shape": "string",
-    "importerCount": 0,
-    "triageHint": "straight-swap"
-  },
-  {
-    "path": "packages/web/src/layouts/AppShell.tsx",
-    "line": 92,
-    "symbol": "u-founder",
-    "kind": "literal-id",
-    "shape": "string",
-    "importerCount": 0,
-    "triageHint": "straight-swap"
   },
   {
     "path": "packages/web/src/pages/KnowledgeDetail.tsx",
@@ -261,33 +126,6 @@
     "triageHint": "borderline"
   },
   {
-    "path": "packages/web/src/pages/WorkBet.tsx",
-    "line": 613,
-    "symbol": "u-founder",
-    "kind": "literal-id",
-    "shape": "string",
-    "importerCount": 0,
-    "triageHint": "straight-swap"
-  },
-  {
-    "path": "packages/web/src/pages/WorkPortfolio.tsx",
-    "line": 22,
-    "symbol": "../fixtures/portfolio-data",
-    "kind": "import",
-    "shape": "import",
-    "importerCount": 0,
-    "triageHint": "borderline"
-  },
-  {
-    "path": "packages/web/src/services/host-threads.ts",
-    "line": 28,
-    "symbol": "PLACEHOLDER_AGENT_PARTICIPANT_ID",
-    "kind": "symbol",
-    "shape": "string",
-    "importerCount": 5,
-    "triageHint": "borderline"
-  },
-  {
     "path": "packages/web/src/services/host-threads.ts",
     "line": 28,
     "symbol": "agent-unassigned",
@@ -297,12 +135,12 @@
     "triageHint": "needs-contract"
   },
   {
-    "path": "packages/web/src/shell/HostThreadSection.tsx",
-    "line": 67,
-    "symbol": "u-founder",
+    "path": "packages/web/src/services/task-threads.ts",
+    "line": 15,
+    "symbol": "agent-unassigned",
     "kind": "literal-id",
     "shape": "string",
     "importerCount": 0,
-    "triageHint": "straight-swap"
+    "triageHint": "needs-contract"
   }
 ]

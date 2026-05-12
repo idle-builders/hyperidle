@@ -1,7 +1,37 @@
 import { render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { WorkPortfolio } from "../pages/WorkPortfolio";
+
+// M3 G1: MOCK_PRODUCTS removed — mock useProducts for tests that need product cards.
+vi.mock("../hooks/useProducts", () => ({
+	useProducts: vi.fn().mockReturnValue({
+		data: {
+			products: [
+				{
+					id: "p1",
+					name: "HyperIdle Core",
+					status: "healthy",
+					activeBets: 4,
+					shipRate: "78%",
+					leadAgentId: "CE",
+					shipped: 12,
+					progress: { done: 3, total: 5 },
+				},
+				{
+					id: "p2",
+					name: "Knowledge Fabric",
+					status: "behind",
+					activeBets: 2,
+					shipRate: "62%",
+					leadAgentId: "FL",
+					shipped: 6,
+					progress: { done: 1, total: 4 },
+				},
+			],
+		},
+	}),
+}));
 
 function renderPage(): ReturnType<typeof render> {
 	return render(

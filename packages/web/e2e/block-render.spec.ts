@@ -6,7 +6,7 @@
  * Block.stories.tsx). The story includes a "all kinds" variant.
  */
 
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./fixtures";
 
 // TODO(L2-FU-8): Re-enable these assertions once a markdown-body fixture renders
 // all 10 BlockKinds (including `html`) inside the design-system viewer. The

@@ -15,7 +15,7 @@
  * 7. No-Kanban: negative assertion — no Kanban region on the Product page.
  */
 
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./fixtures";
 
 const NOW = new Date().toISOString();
 const PRODUCT_ID = "p1";

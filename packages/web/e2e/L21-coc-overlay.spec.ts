@@ -19,7 +19,7 @@
  * remains open. Only Escape and clicking the trigger again close it.
  */
 
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./fixtures";
 
 const NOW_ISO = new Date().toISOString();
 const COACH_THREAD_ID = "thr-coach-u-founder";

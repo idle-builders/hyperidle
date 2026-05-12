@@ -2,7 +2,7 @@
  * E2E tests for the shell navigation: IconRail view switching, Submenu items,
  * and overall layout structure.
  */
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./fixtures";
 
 test.describe("Navigation", () => {
 	test.beforeEach(async ({ page }) => {
@@ -17,7 +17,7 @@ test.describe("Navigation", () => {
 		// Main content area
 		await expect(page.getByTestId("main-content")).toBeVisible();
 		// Rail sections
-		await expect(page.getByText("Active Bets")).toBeVisible();
+		await expect(page.getByText("Active Bets").first()).toBeVisible();
 	});
 
 	test("IconRail shows three view buttons: Conversations, Work, Knowledge", async ({ page }) => {

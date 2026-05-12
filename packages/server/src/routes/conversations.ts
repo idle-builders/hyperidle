@@ -3,7 +3,7 @@ import type { ApiErrorResponse, EventBus, ItemCreatedEvent } from "@hyperidle/sh
 import { API_ERROR_CODES } from "@hyperidle/shared";
 import { desc, eq, sql } from "drizzle-orm";
 import { Hono } from "hono";
-import { z } from "zod";
+import z from "zod";
 import { validateBody } from "../middleware/validate.js";
 import { routeToFounder } from "../services/founder-router.js";
 import { routeItem } from "../services/item-router.js";
