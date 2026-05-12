@@ -12,6 +12,7 @@
 import type { HostKind } from "@hyperidle/shared";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { ThreadItem } from "../components/ThreadSections";
+import { apiFetch } from "../services/api-fetch.js";
 
 interface ThreadListRow {
 	id: string;
@@ -138,7 +139,7 @@ export function useConversationsThreads(participantId: string): UseConversations
 		(async (): Promise<void> => {
 			try {
 				const url = `/api/threads?participant_id=${encodeURIComponent(participantId)}&limit=50`;
-				const res = await fetch(url, { signal: ac.signal });
+				const res = await apiFetch(url, { signal: ac.signal });
 				// @lore L8 review (Adversary B2): every state setter after an
 				// `await` is guarded by `ac.signal.aborted`. The fetch's signal
 				// is still respected by the runtime but a resolved-then-aborted

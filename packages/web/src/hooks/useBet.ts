@@ -12,6 +12,7 @@
  */
 
 import { useCallback, useEffect, useState } from "react";
+import { apiFetch } from "../services/api-fetch.js";
 import type { BetDetail } from "../types/bet";
 
 export interface UseBetResult {
@@ -38,7 +39,7 @@ export function useBet(betId: string | undefined): UseBetResult {
 		}
 		let cancelled = false;
 		setState({ data: null, loading: true, error: null });
-		fetch(`/api/bets/${encodeURIComponent(betId)}`)
+		apiFetch(`/api/bets/${encodeURIComponent(betId)}`)
 			.then((res) => {
 				if (!res.ok) throw new Error(`Bet fetch failed: ${res.status}`);
 				return res.json() as Promise<BetDetail>;

@@ -1,6 +1,7 @@
 import type { BetStatus, KnowledgeKind, KnowledgeLayer, KnowledgeStatus } from "@hyperidle/shared";
 import { BET_STATUSES, KNOWLEDGE_STATUSES } from "@hyperidle/shared";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { apiFetch } from "../services/api-fetch.js";
 
 interface ConversationResult {
 	id: string;
@@ -222,7 +223,7 @@ async function runSearch(
 	cb: SearchCallbacks,
 ): Promise<void> {
 	try {
-		const res = await fetch(`/api/search?q=${encodeURIComponent(query)}`, {
+		const res = await apiFetch(`/api/search?q=${encodeURIComponent(query)}`, {
 			signal: controller.signal,
 		});
 		if (!res.ok) {

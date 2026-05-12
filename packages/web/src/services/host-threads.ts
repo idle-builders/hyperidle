@@ -16,6 +16,7 @@
  */
 
 import type { HostKind } from "@hyperidle/shared";
+import { apiFetch } from "./api-fetch.js";
 
 /**
  * Static placeholder until task→agent assignment is wired (a separate
@@ -42,7 +43,7 @@ export async function resolveOrCreateHostThread(
 	agentParticipantId: string,
 ): Promise<string> {
 	const listUrl = `/api/threads?host_kind=${hostKind}&host_id=${encodeURIComponent(hostId)}`;
-	const listResp = await fetch(listUrl);
+	const listResp = await apiFetch(listUrl);
 	if (!listResp.ok) {
 		throw new Error(`Failed to list threads for ${hostKind} ${hostId}: ${listResp.status}`);
 	}
@@ -52,7 +53,7 @@ export async function resolveOrCreateHostThread(
 	}
 
 	// No thread exists — create one.
-	const createResp = await fetch("/api/threads", {
+	const createResp = await apiFetch("/api/threads", {
 		method: "POST",
 		headers: { "Content-Type": "application/json" },
 		body: JSON.stringify({
@@ -90,7 +91,7 @@ export async function postPlainHostMessage(
 	if (blockId !== undefined) {
 		payload.blockId = blockId;
 	}
-	const resp = await fetch(`/api/threads/${encodeURIComponent(threadId)}/messages`, {
+	const resp = await apiFetch(`/api/threads/${encodeURIComponent(threadId)}/messages`, {
 		method: "POST",
 		headers: { "Content-Type": "application/json" },
 		body: JSON.stringify({

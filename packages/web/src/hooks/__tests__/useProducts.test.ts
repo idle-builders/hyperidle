@@ -1,5 +1,5 @@
 /**
- * L13 — useProducts hook unit tests (red phase).
+ * L13 — useProducts hook unit tests.
  *
  * Covers:
  *   - Initial loading state.
@@ -12,7 +12,13 @@
 import { renderHook, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-// Import the hook — it doesn't exist yet so this test will fail until green phase.
+// Mock apiFetch so tests are not sensitive to fetch() call argument count.
+// Header injection is covered by api-fetch.test.ts; these tests focus on
+// hook logic (loading state, data, error, cancellation).
+vi.mock("../../services/api-fetch.js", () => ({
+	apiFetch: vi.fn(),
+}));
+
 import { useProducts } from "../useProducts";
 
 const MOCK_PRODUCTS_RESPONSE = {
@@ -32,8 +38,12 @@ const MOCK_PRODUCTS_RESPONSE = {
 };
 
 describe("useProducts", () => {
-	beforeEach(() => {
-		vi.spyOn(globalThis, "fetch");
+	let fetchSpy: ReturnType<typeof vi.fn>;
+
+	beforeEach(async () => {
+		const { apiFetch } = await import("../../services/api-fetch.js");
+		fetchSpy = vi.mocked(apiFetch);
+		fetchSpy.mockReset();
 	});
 
 	afterEach(() => {
@@ -41,7 +51,7 @@ describe("useProducts", () => {
 	});
 
 	it("starts in loading state", () => {
-		vi.mocked(fetch).mockImplementation(() => new Promise(() => {})); // never resolves
+		fetchSpy.mockImplementation(() => new Promise(() => {})); // never resolves
 		const { result } = renderHook(() => useProducts());
 		expect(result.current.loading).toBe(true);
 		expect(result.current.data).toBeNull();
@@ -49,7 +59,7 @@ describe("useProducts", () => {
 	});
 
 	it("populates data on successful fetch", async () => {
-		vi.mocked(fetch).mockResolvedValueOnce(
+		fetchSpy.mockResolvedValueOnce(
 			new Response(JSON.stringify(MOCK_PRODUCTS_RESPONSE), { status: 200 }),
 		);
 		const { result } = renderHook(() => useProducts());
@@ -63,7 +73,7 @@ describe("useProducts", () => {
 	});
 
 	it("populates error on non-ok response", async () => {
-		vi.mocked(fetch).mockResolvedValueOnce(new Response("Server Error", { status: 500 }));
+		fetchSpy.mockResolvedValueOnce(new Response("Server Error", { status: 500 }));
 		const { result } = renderHook(() => useProducts());
 
 		await waitFor(() => {
@@ -76,7 +86,7 @@ describe("useProducts", () => {
 	});
 
 	it("populates error on network failure", async () => {
-		vi.mocked(fetch).mockRejectedValueOnce(new Error("Network error"));
+		fetchSpy.mockRejectedValueOnce(new Error("Network error"));
 		const { result } = renderHook(() => useProducts());
 
 		await waitFor(() => {
@@ -87,14 +97,14 @@ describe("useProducts", () => {
 		expect(result.current.error).toBeInstanceOf(Error);
 	});
 
-	it("calls fetch with the correct URL", async () => {
-		vi.mocked(fetch).mockResolvedValueOnce(
+	it("calls apiFetch with the correct URL", async () => {
+		fetchSpy.mockResolvedValueOnce(
 			new Response(JSON.stringify(MOCK_PRODUCTS_RESPONSE), { status: 200 }),
 		);
 		renderHook(() => useProducts());
 
 		await waitFor(() => {
-			expect(fetch).toHaveBeenCalledWith("/api/products");
+			expect(fetchSpy).toHaveBeenCalledWith("/api/products");
 		});
 	});
 
@@ -103,7 +113,7 @@ describe("useProducts", () => {
 		const pending = new Promise<Response>((res) => {
 			resolve = res;
 		});
-		vi.mocked(fetch).mockReturnValueOnce(pending);
+		fetchSpy.mockReturnValueOnce(pending);
 
 		const { unmount } = renderHook(() => useProducts());
 		unmount();

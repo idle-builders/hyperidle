@@ -14,6 +14,12 @@ import {
 	resolveOrCreateTaskThread,
 } from "../../services/task-threads";
 
+// Mock apiFetch so task-threads.ts (via host-threads.ts) does not call global.fetch.
+// Header injection is covered by api-fetch.test.ts.
+vi.mock("../../services/api-fetch.js", () => ({
+	apiFetch: vi.fn(),
+}));
+
 function makeThreadListResponse(threadList: Array<{ id: string }>): Response {
 	return {
 		ok: true,
@@ -31,9 +37,10 @@ function makePostMessageResponse(): Response {
 describe("task-threads shim (L18)", () => {
 	let fetchSpy: ReturnType<typeof vi.fn>;
 
-	beforeEach(() => {
-		fetchSpy = vi.fn();
-		global.fetch = fetchSpy;
+	beforeEach(async () => {
+		const { apiFetch } = await import("../../services/api-fetch.js");
+		fetchSpy = vi.mocked(apiFetch);
+		fetchSpy.mockReset();
 	});
 
 	afterEach(() => {

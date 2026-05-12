@@ -21,6 +21,7 @@ import type { Message } from "@hyperidle/shared";
 import { type JSX, type RefObject, useCallback, useEffect, useRef } from "react";
 import type { CocContextRef } from "../contexts/CocContext";
 import { useCocThread } from "../hooks/useCocThread";
+import { apiFetch } from "../services/api-fetch.js";
 
 export interface CocOverlayProps {
 	open: boolean;
@@ -85,7 +86,7 @@ function CocOverlayInner({
 						}
 					: input.payload;
 
-			const res = await fetch(`/api/threads/${data.thread.id}/messages`, {
+			const res = await apiFetch(`/api/threads/${data.thread.id}/messages`, {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ ...input, payload }),
