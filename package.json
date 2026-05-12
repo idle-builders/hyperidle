@@ -10,6 +10,7 @@
 	],
 	"scripts": {
 		"dev": "concurrently --names server,web --prefix-colors blue,green \"bun run --filter @hyperidle/server dev\" \"bun run --filter @hyperidle/web dev\"",
+		"dev:desktop": "concurrently --names web,desktop --prefix-colors green,blue \"bun run --filter @hyperidle/web dev\" \"bun run --filter @hyperidle/desktop dev\"",
 		"build": "bun run --filter @hyperidle/web build",
 		"start": "HYPERIDLE_STATIC_DIR=packages/web/dist bun run --filter @hyperidle/server start",
 		"start:node": "bun run --filter @hyperidle/server build:node && node packages/server/dist/index.cjs",
@@ -44,7 +45,10 @@
 		"obs:report": "bun scripts/trace-report.ts",
 		"pipeline": "bin/pipeline",
 		"mock-inventory": "bun scripts/mock-inventory.ts",
-		"mock-inventory:check": "bun scripts/mock-inventory.ts --check"
+		"mock-inventory:check": "bun scripts/mock-inventory.ts --check",
+		"native:electron": "cd packages/desktop && bunx electron-rebuild -f -w better-sqlite3 -m ../..",
+		"native:node": "bun install --force",
+		"check:native": "bun packages/desktop/scripts/check-native.ts"
 	},
 	"overrides": {
 		"zod-validation-error": "^4.0.0"

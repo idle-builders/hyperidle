@@ -1,4 +1,5 @@
 export { createDb, type HyperIdleDb } from "./connection.js";
+export { applyMigrations, isDowngrade, type MigrationResult } from "./migrate.js";
 export {
 	createPgDb,
 	DEFAULT_PG_POOL_SIZE,

@@ -5,6 +5,7 @@
 	"type": "module",
 	"exports": {
 		".": "./src/index.ts",
+		"./server-factory": "./src/server-factory.ts",
 		"./test-utils": "./src/test-utils.ts",
 		"./skill-tools": "./src/skill-tools/index.ts"
 	},
@@ -22,7 +23,6 @@
 		"@hyperidle/db": "workspace:*",
 		"@hyperidle/fabric": "workspace:*",
 		"@hyperidle/shared": "workspace:*",
-		"better-sqlite3": "^11.7.0",
 		"drizzle-orm": "^0.39.0",
 		"hono": "^4.7.0",
 		"nodemailer": "^8.0.5",
@@ -30,7 +30,6 @@
 		"zod": "^4.3.6"
 	},
 	"devDependencies": {
-		"@types/better-sqlite3": "^7.6.13",
 		"@types/nodemailer": "^8.0.0",
 		"@types/smtp-server": "^3.5.13",
 		"@types/ws": "^8.18.1",
