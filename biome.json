@@ -144,6 +144,7 @@
 			"!**/visual-reports",
 			"!**/sync-reports",
 			"!.claude/agents",
+			"!.claude/package.json",
 			"!.claude/process",
 			"!.claude/references",
 			"!.claude/rules",
