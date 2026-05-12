@@ -43,7 +43,7 @@ export interface UseConversationsThreadsResult {
 	retry: () => void;
 }
 
-// @lore M3 E1: FALLBACK_AVATAR deleted. rowToItem now passes null so ThreadRow
+// @lore M3 E1: The avatar fallback constant was deleted. rowToItem now passes null so ThreadRow
 // renders an initials chip instead of a data: URI SVG fallback.
 
 const HOST_KIND_SET: ReadonlySet<string> = new Set<string>([

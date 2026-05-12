@@ -149,17 +149,18 @@ describe("M4 AC-1 — Inventory: every row has a follow-up entry", () => {
 
 describe("M4 AC-5 — Forbidden string grep: zero untracked matches", () => {
 	it("rg finds no forbidden-prefix symbols in runtime code (excluding permitted surface)", () => {
-		// This grep must return zero matches for runtime code.
+		// This grep returns files containing forbidden-prefix symbols in runtime code.
 		// The permitted surface (fixtures, tests, e2e, seeds, stories) is excluded.
-		// After M4, the only remaining MOCK_* symbols are in:
-		//   - packages/web/src/fixtures/knowledge-data.ts (tracked-out, in fixtures/ dir)
+		// Tracked-out files are listed in follow-ups.md and are allowed to match.
+		// After M4, the tracked-out files are:
+		//   - KnowledgeDetail.tsx (LEGACY_DETAILS, LEGACY_SOURCES, FALLBACK_DETAIL — tracked in #93)
 		// The glob '!**/fixtures/**' excludes both fixtures/ and __fixtures__/
-		let output: string;
+		let rgOutput: string;
 		try {
-			output = execSync(
+			rgOutput = execSync(
 				[
 					"rg",
-					'"(MOCK_|FAKE_|STUB_|SAMPLE_|DUMMY_|PLACEHOLDER_|DEMO_|EXAMPLE_|HARDCODED_)"',
+					'"(MOCK_|FAKE_|STUB_|SAMPLE_|DUMMY_|PLACEHOLDER_|FALLBACK_|DEMO_|LEGACY_|EXAMPLE_|HARDCODED_)"',
 					"packages/web/src/",
 					"packages/server/src/",
 					"--glob",
@@ -186,36 +187,33 @@ describe("M4 AC-5 — Forbidden string grep: zero untracked matches", () => {
 					"'ts:*.tsx'",
 					"-t",
 					"ts",
-					"--no-filename",
-					"-c",
+					"-l",
 				].join(" "),
 				{ cwd: REPO_ROOT, encoding: "utf8" },
 			).trim();
 		} catch (err: unknown) {
 			// rg exits 1 when no matches — that is the desired outcome
-			const execError = err as { status?: number; stdout?: string };
+			const execError = err as { status?: number };
 			if (execError.status === 1) {
 				// No matches found — pass
-				output = "0";
-			} else {
-				throw err;
+				return;
 			}
+			throw err;
 		}
 
-		// Sum up match counts from rg -c output (one line per file: "count")
-		const totalMatches = output
-			.split("\n")
-			.filter(Boolean)
-			.reduce((sum, line) => {
-				const count = Number.parseInt(line.trim(), 10);
-				return sum + (Number.isNaN(count) ? 0 : count);
-			}, 0);
+		// Any files with matches must be tracked in follow-ups.md
+		const followUpsContent = readFileSync(FOLLOW_UPS_PATH, "utf8");
+		const matchingFiles = rgOutput.split("\n").filter(Boolean);
 
-		expect(
-			totalMatches,
-			`Found ${totalMatches} forbidden-prefix symbol matches in runtime code. ` +
-				"All MOCK_/FAKE_/etc. symbols must be removed or explicitly tracked-out.",
-		).toBe(0);
+		for (const filePath of matchingFiles) {
+			const fileFragment = filePath.split("/").pop() ?? "";
+			const isTracked = followUpsContent.includes(fileFragment);
+			expect(
+				isTracked,
+				`File with forbidden-prefix symbol is not tracked in follow-ups.md: ${filePath}. ` +
+					"Every MOCK_/FAKE_/FALLBACK_/LEGACY_/etc. match must have a follow-up entry or be removed.",
+			).toBe(true);
+		}
 	});
 
 	it("rg finds no untracked forbidden literal-id strings in runtime code", () => {

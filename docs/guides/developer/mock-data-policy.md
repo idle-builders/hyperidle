@@ -81,7 +81,7 @@ Verify zero hits for forbidden prefixes and literal-id strings across runtime co
 (excluding the permitted-mock surface):
 
 ```bash
-rg "(MOCK_|FAKE_|STUB_|SAMPLE_|DUMMY_|PLACEHOLDER_|DEMO_|EXAMPLE_|HARDCODED_)" \
+rg "(MOCK_|FAKE_|STUB_|SAMPLE_|DUMMY_|PLACEHOLDER_|FALLBACK_|DEMO_|LEGACY_|EXAMPLE_|HARDCODED_)" \
   packages/web/src/ packages/server/src/ \
   --glob '!**/fixtures/**' \
   --glob '!**/__fixtures__/**' \
