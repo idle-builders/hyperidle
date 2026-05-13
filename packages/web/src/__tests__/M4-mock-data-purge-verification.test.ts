@@ -24,8 +24,7 @@
  * follow-ups.md — not that inventory.json is empty.
  */
 
-import { execSync } from "node:child_process";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
@@ -147,64 +146,61 @@ describe("M4 AC-1 — Inventory: every row has a follow-up entry", () => {
 // Test 3: Forbidden string grep returns zero untracked matches (AC-5)
 // ---------------------------------------------------------------------------
 
-describe("M4 AC-5 — Forbidden string grep: zero untracked matches", () => {
-	it("rg finds no forbidden-prefix symbols in runtime code (excluding permitted surface)", () => {
-		// This grep returns files containing forbidden-prefix symbols in runtime code.
-		// The permitted surface (fixtures, tests, e2e, seeds, stories) is excluded.
-		// Tracked-out files are listed in follow-ups.md and are allowed to match.
-		// After M4, the tracked-out files are:
-		//   - KnowledgeDetail.tsx (LEGACY_DETAILS, LEGACY_SOURCES, FALLBACK_DETAIL — tracked in #93)
-		// The glob '!**/fixtures/**' excludes both fixtures/ and __fixtures__/
-		let rgOutput: string;
-		try {
-			rgOutput = execSync(
-				[
-					"rg",
-					'"(MOCK_|FAKE_|STUB_|SAMPLE_|DUMMY_|PLACEHOLDER_|FALLBACK_|DEMO_|LEGACY_|EXAMPLE_|HARDCODED_)"',
-					"packages/web/src/",
-					"packages/server/src/",
-					"--glob",
-					"'!**/fixtures/**'",
-					"--glob",
-					"'!**/__fixtures__/**'",
-					"--glob",
-					"'!**/__tests__/**'",
-					"--glob",
-					"'!**/*.test.ts'",
-					"--glob",
-					"'!**/*.test.tsx'",
-					"--glob",
-					"'!**/*.spec.ts'",
-					"--glob",
-					"'!**/*.spec.tsx'",
-					"--glob",
-					"'!**/*.stories.tsx'",
-					"--glob",
-					"'!**/e2e/**'",
-					"--glob",
-					"'!**/seed*.ts'",
-					"--type-add",
-					"'ts:*.tsx'",
-					"-t",
-					"ts",
-					"-l",
-				].join(" "),
-				{ cwd: REPO_ROOT, encoding: "utf8" },
-			).trim();
-		} catch (err: unknown) {
-			// rg exits 1 when no matches — that is the desired outcome
-			const execError = err as { status?: number };
-			if (execError.status === 1) {
-				// No matches found — pass
-				return;
-			}
-			throw err;
+const PERMITTED_SURFACE_PATTERNS = [
+	/[/\\]fixtures[/\\]/,
+	/[/\\]__fixtures__[/\\]/,
+	/[/\\]__tests__[/\\]/,
+	/\.test\.tsx?$/,
+	/\.spec\.tsx?$/,
+	/\.stories\.tsx$/,
+	/[/\\]e2e[/\\]/,
+	/[/\\]seed[^/\\]*\.ts$/,
+];
+
+function walkTsFiles(dir: string): string[] {
+	const results: string[] = [];
+	let entries: string[];
+	try {
+		entries = readdirSync(dir);
+	} catch {
+		return results;
+	}
+	for (const entry of entries) {
+		const full = join(dir, entry);
+		const st = statSync(full, { throwIfNoEntry: false });
+		if (!st) continue;
+		if (st.isDirectory()) {
+			results.push(...walkTsFiles(full));
+		} else if (/\.tsx?$/.test(entry)) {
+			results.push(full);
 		}
+	}
+	return results;
+}
 
-		// Any files with matches must be tracked in follow-ups.md
+function searchRuntimeFiles(rootDirs: string[], pattern: RegExp): string[] {
+	const matches: string[] = [];
+	for (const dir of rootDirs) {
+		for (const file of walkTsFiles(dir)) {
+			if (PERMITTED_SURFACE_PATTERNS.some((p) => p.test(file))) continue;
+			const content = readFileSync(file, "utf8");
+			if (pattern.test(content)) matches.push(file);
+		}
+	}
+	return matches;
+}
+
+describe("M4 AC-5 — Forbidden string grep: zero untracked matches", () => {
+	it("no forbidden-prefix symbols in runtime code (excluding permitted surface)", () => {
+		const searchDirs = [
+			join(REPO_ROOT, "packages/web/src"),
+			join(REPO_ROOT, "packages/server/src"),
+		];
+		const pattern =
+			/\b(MOCK_|FAKE_|STUB_|SAMPLE_|DUMMY_|PLACEHOLDER_|FALLBACK_|DEMO_|LEGACY_|EXAMPLE_|HARDCODED_)/;
+		const matchingFiles = searchRuntimeFiles(searchDirs, pattern);
+
 		const followUpsContent = readFileSync(FOLLOW_UPS_PATH, "utf8");
-		const matchingFiles = rgOutput.split("\n").filter(Boolean);
-
 		for (const filePath of matchingFiles) {
 			const fileFragment = filePath.split("/").pop() ?? "";
 			const isTracked = followUpsContent.includes(fileFragment);
@@ -216,58 +212,15 @@ describe("M4 AC-5 — Forbidden string grep: zero untracked matches", () => {
 		}
 	});
 
-	it("rg finds no untracked forbidden literal-id strings in runtime code", () => {
-		// The 3 server fallback rows (?? 'u-founder') are tracked-out in follow-ups.md.
-		// This test verifies the follow-ups.md accounts for any matches found.
-		let rgOutput: string;
-		try {
-			rgOutput = execSync(
-				[
-					"rg",
-					'"(u-founder|agent-unassigned|founder@hyperidle\\.com)"',
-					"packages/web/src/",
-					"packages/server/src/",
-					"--glob",
-					"'!**/fixtures/**'",
-					"--glob",
-					"'!**/__fixtures__/**'",
-					"--glob",
-					"'!**/__tests__/**'",
-					"--glob",
-					"'!**/*.test.ts'",
-					"--glob",
-					"'!**/*.test.tsx'",
-					"--glob",
-					"'!**/*.spec.ts'",
-					"--glob",
-					"'!**/*.spec.tsx'",
-					"--glob",
-					"'!**/*.stories.tsx'",
-					"--glob",
-					"'!**/e2e/**'",
-					"--glob",
-					"'!**/seed*.ts'",
-					"--type-add",
-					"'ts:*.tsx'",
-					"-t",
-					"ts",
-					"-l",
-				].join(" "),
-				{ cwd: REPO_ROOT, encoding: "utf8" },
-			).trim();
-		} catch (err: unknown) {
-			const execError = err as { status?: number };
-			if (execError.status === 1) {
-				// No matches — pass
-				return;
-			}
-			throw err;
-		}
+	it("no untracked forbidden literal-id strings in runtime code", () => {
+		const searchDirs = [
+			join(REPO_ROOT, "packages/web/src"),
+			join(REPO_ROOT, "packages/server/src"),
+		];
+		const pattern = /u-founder|agent-unassigned|founder@hyperidle\.com/;
+		const matchingFiles = searchRuntimeFiles(searchDirs, pattern);
 
-		// Any files with matches must be tracked in follow-ups.md
 		const followUpsContent = readFileSync(FOLLOW_UPS_PATH, "utf8");
-		const matchingFiles = rgOutput.split("\n").filter(Boolean);
-
 		for (const filePath of matchingFiles) {
 			const fileFragment = filePath.split("/").pop() ?? "";
 			const isTracked = followUpsContent.includes(fileFragment);
