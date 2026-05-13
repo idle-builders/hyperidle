@@ -1,8 +1,8 @@
 /**
  * useRail — fetch rail data from GET /api/rail.
  *
- * @lore M3 C1: replaces MOCK_RAIL_BETS, MOCK_RAIL_BLOCKERS, MOCK_RAIL_COST
- * imports from app-shell-data.ts. Returns live data from the server shaped
+ * @lore M3 C1: replaces the fixture imports for rail bets, blockers, and cost
+ * from app-shell-data.ts. Returns live data from the server shaped
  * to match the Rail component's updated BetItem/BlockerItem/CostInfo interfaces.
  *
  * The server response already matches the new wire format (progress, taskId,

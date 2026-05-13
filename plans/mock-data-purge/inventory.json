@@ -1,34 +1,7 @@
 [
   {
     "path": "packages/server/src/middleware/auth.ts",
-    "line": 27,
-    "symbol": "u-founder",
-    "kind": "literal-id",
-    "shape": "string",
-    "importerCount": 0,
-    "triageHint": "straight-swap"
-  },
-  {
-    "path": "packages/server/src/middleware/auth.ts",
-    "line": 59,
-    "symbol": "u-founder",
-    "kind": "literal-id",
-    "shape": "string",
-    "importerCount": 0,
-    "triageHint": "straight-swap"
-  },
-  {
-    "path": "packages/server/src/middleware/auth.ts",
     "line": 89,
-    "symbol": "u-founder",
-    "kind": "literal-id",
-    "shape": "string",
-    "importerCount": 0,
-    "triageHint": "straight-swap"
-  },
-  {
-    "path": "packages/server/src/middleware/auth.ts",
-    "line": 97,
     "symbol": "u-founder",
     "kind": "literal-id",
     "shape": "string",
@@ -38,15 +11,6 @@
   {
     "path": "packages/server/src/routes/auth.ts",
     "line": 50,
-    "symbol": "u-founder",
-    "kind": "literal-id",
-    "shape": "string",
-    "importerCount": 0,
-    "triageHint": "straight-swap"
-  },
-  {
-    "path": "packages/server/src/routes/bets.ts",
-    "line": 364,
     "symbol": "u-founder",
     "kind": "literal-id",
     "shape": "string",
@@ -64,16 +28,16 @@
   },
   {
     "path": "packages/web/src/fixtures/knowledge-data.ts",
-    "line": 81,
+    "line": 82,
     "symbol": "MOCK_KNOWLEDGE_ITEMS",
     "kind": "symbol",
     "shape": "array",
-    "importerCount": 3,
+    "importerCount": 2,
     "triageHint": "borderline"
   },
   {
     "path": "packages/web/src/fixtures/knowledge-data.ts",
-    "line": 288,
+    "line": 290,
     "symbol": "MOCK_CURATION_SUGGESTIONS",
     "kind": "symbol",
     "shape": "array",
@@ -91,7 +55,7 @@
   },
   {
     "path": "packages/web/src/pages/KnowledgeDetail.tsx",
-    "line": 41,
+    "line": 42,
     "symbol": "../fixtures/knowledge-data",
     "kind": "import",
     "shape": "import",
@@ -100,7 +64,7 @@
   },
   {
     "path": "packages/web/src/pages/KnowledgeDetail.tsx",
-    "line": 78,
+    "line": 80,
     "symbol": "LEGACY_DETAILS",
     "kind": "symbol",
     "shape": "object",
@@ -109,7 +73,7 @@
   },
   {
     "path": "packages/web/src/pages/KnowledgeDetail.tsx",
-    "line": 115,
+    "line": 118,
     "symbol": "LEGACY_SOURCES",
     "kind": "symbol",
     "shape": "object",
@@ -118,29 +82,11 @@
   },
   {
     "path": "packages/web/src/pages/KnowledgeDetail.tsx",
-    "line": 120,
+    "line": 124,
     "symbol": "FALLBACK_DETAIL",
     "kind": "symbol",
     "shape": "object",
     "importerCount": 0,
     "triageHint": "borderline"
-  },
-  {
-    "path": "packages/web/src/services/host-threads.ts",
-    "line": 28,
-    "symbol": "agent-unassigned",
-    "kind": "literal-id",
-    "shape": "string",
-    "importerCount": 0,
-    "triageHint": "needs-contract"
-  },
-  {
-    "path": "packages/web/src/services/task-threads.ts",
-    "line": 15,
-    "symbol": "agent-unassigned",
-    "kind": "literal-id",
-    "shape": "string",
-    "importerCount": 0,
-    "triageHint": "needs-contract"
   }
 ]

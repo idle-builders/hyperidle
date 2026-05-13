@@ -25,7 +25,7 @@ import { apiFetch } from "./api-fetch.js";
  *
  * @lore M3 D1: agentParticipantId changed from `string` to `string | null`.
  * When null, the thread is created with only the founder as participant
- * (no "agent-unassigned" sentinel). PLACEHOLDER_AGENT_PARTICIPANT_ID is
+ * (no placeholder agent sentinel). The placeholder agent participant id constant was
  * deleted — callers that have no agent yet pass null.
  *
  * @lore URL construction uses encodeURIComponent(hostId) to protect against

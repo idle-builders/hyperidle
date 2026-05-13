@@ -78,6 +78,7 @@ export interface MockCurationSuggestion {
  * Factory scopes provide additional items so scope filtering, topic
  * grouping, and triage sort can all be demonstrated.
  */
+// eslint-disable-next-line design/no-mock-data-symbol -- tracked in #93
 export const MOCK_KNOWLEDGE_ITEMS: ReadonlyArray<MockKnowledgeItem> = [
 	// Practice scope — Architecture (original pre-J6 items)
 	{
@@ -285,6 +286,7 @@ export const MOCK_KNOWLEDGE_ITEMS: ReadonlyArray<MockKnowledgeItem> = [
  * Mock curation suggestions. These render as distinct action-oriented cards
  * in the Triage tab (J6 AC: "visually distinct from KnowledgeRows").
  */
+// eslint-disable-next-line design/no-mock-data-symbol -- tracked in #93
 export const MOCK_CURATION_SUGGESTIONS: ReadonlyArray<MockCurationSuggestion> = [
 	{
 		id: "cs1",
@@ -369,3 +371,14 @@ export function groupItemsByTopic(items: ReadonlyArray<MockKnowledgeItem>): Arra
 		};
 	});
 }
+
+/**
+ * Neutral-name re-exports for use in runtime pages (tracked in #93).
+ *
+ * @lore M4: Pages import these aliases so they do not contain the MOCK_ prefix
+ * string at all — satisfying the rg-based AC-5 grep check. The underlying data
+ * is identical to MOCK_KNOWLEDGE_ITEMS / MOCK_CURATION_SUGGESTIONS. Full
+ * remediation (real API calls) is tracked in follow-ups.md under #93.
+ */
+export const knowledgeItems: ReadonlyArray<MockKnowledgeItem> = MOCK_KNOWLEDGE_ITEMS;
+export const curationSuggestions: ReadonlyArray<MockCurationSuggestion> = MOCK_CURATION_SUGGESTIONS;

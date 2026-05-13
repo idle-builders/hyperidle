@@ -65,13 +65,56 @@ The M1 inventory script also flags hardcoded identity strings used as stand-ins 
 
 ## CI smoke-test
 
+### Inventory generator
+
 Run the inventory generator locally before pushing:
 
 ```bash
 bun run scripts/mock-inventory.ts
 ```
 
-The script exits non-zero (fails CI) if it finds new offenders not already recorded in `inventory.json`.
+The script exits non-zero (fails CI) if `inventory.json` differs from the checked-in version.
+
+### Forbidden-string grep
+
+Verify zero hits for forbidden prefixes and literal-id strings across runtime code
+(excluding the permitted-mock surface):
+
+```bash
+rg "(MOCK_|FAKE_|STUB_|SAMPLE_|DUMMY_|PLACEHOLDER_|FALLBACK_|DEMO_|LEGACY_|EXAMPLE_|HARDCODED_)" \
+  packages/web/src/ packages/server/src/ \
+  --glob '!**/fixtures/**' \
+  --glob '!**/__fixtures__/**' \
+  --glob '!**/__tests__/**' \
+  --glob '!**/*.test.{ts,tsx}' \
+  --glob '!**/*.spec.{ts,tsx}' \
+  --glob '!**/*.stories.tsx' \
+  --glob '!**/e2e/**' \
+  --glob '!**/seed*.{ts,js}' \
+  -t ts --type-add 'ts:*.tsx' \
+  --no-filename -c
+
+rg '"(u-founder|agent-unassigned|founder@hyperidle\.com)"' \
+  packages/web/src/ packages/server/src/ \
+  --glob '!**/fixtures/**' \
+  --glob '!**/__fixtures__/**' \
+  --glob '!**/__tests__/**' \
+  --glob '!**/*.test.{ts,tsx}' \
+  --glob '!**/*.spec.{ts,tsx}' \
+  --glob '!**/*.stories.tsx' \
+  --glob '!**/e2e/**' \
+  --glob '!**/seed*.{ts,js}' \
+  -t ts --type-add 'ts:*.tsx' \
+  -l
+```
+
+**Interpreting results:** Any match from the second command must be cross-referenced against
+`plans/mock-data-purge/follow-ups.md`. The 3 server auth fallback rows (`middleware/auth.ts`,
+`routes/auth.ts`, `lifecycle-propagation.ts`) are tracked-out with a remediation plan. A match
+in a file NOT listed in `follow-ups.md` is a real failure and must be fixed before merging.
+
+The first command (forbidden-prefix symbols) must return zero matches from runtime code. The
+`fixtures/knowledge-data.ts` rows are in the `fixtures/` directory which the globs exclude.
 
 ## Cross-references
 

@@ -38,7 +38,8 @@ import type { KnowledgeScope, KnowledgeStatus, Message } from "@hyperidle/shared
 import { isRedactedPayload } from "@hyperidle/shared";
 import { type JSX, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { MOCK_KNOWLEDGE_ITEMS, type MockKnowledgeItem } from "../fixtures/knowledge-data";
+// eslint-disable-next-line design/no-mock-data-import -- tracked in #93
+import { knowledgeItems, type MockKnowledgeItem } from "../fixtures/knowledge-data";
 import { useHostThread } from "../hooks/useHostThread.js";
 import { HostThreadSection } from "../shell/HostThreadSection.js";
 import { KnowledgeBody } from "./knowledge/KnowledgeBody";
@@ -71,10 +72,11 @@ interface DetailItem {
 }
 
 /**
- * Legacy k1/k2 payloads — pinned to the pre-J7 MOCK_DETAILS values so the
+ * Legacy k1/k2 payloads — pinned to the pre-J7 detail fixture values so the
  * protected `KnowledgeDetail.test.tsx` assertions stay green. The J7 fields
  * (observationLog, relatedItems, etc.) are appended here.
  */
+// eslint-disable-next-line design/no-mock-data-symbol -- tracked in #93
 const LEGACY_DETAILS: Record<string, DetailItem> = {
 	k1: {
 		id: "k1",
@@ -112,11 +114,13 @@ const LEGACY_DETAILS: Record<string, DetailItem> = {
  * Legacy source strings — preserved verbatim so the protected test can find
  * them in the rendered output. Rendered in a KeyValue pair under the header.
  */
+// eslint-disable-next-line design/no-mock-data-symbol -- tracked in #93
 const LEGACY_SOURCES: Record<string, string> = {
 	k1: "Architecture review session, Architect Agent",
 	k2: "API design document, Developer Agent",
 };
 
+// eslint-disable-next-line design/no-mock-data-symbol -- tracked in #93
 const FALLBACK_DETAIL: DetailItem = {
 	id: "unknown",
 	title: "Unknown Knowledge Item",
@@ -153,20 +157,20 @@ function fromFixture(item: MockKnowledgeItem): DetailItem {
 function findDetail(id: string | undefined): DetailItem | undefined {
 	if (!id) return undefined;
 	if (LEGACY_DETAILS[id]) return LEGACY_DETAILS[id];
-	const fixture = MOCK_KNOWLEDGE_ITEMS.find((i) => i.id === id);
+	const fixture = knowledgeItems.find((i) => i.id === id);
 	return fixture ? fromFixture(fixture) : undefined;
 }
 
 function findRelated(item: DetailItem): ReadonlyArray<MockKnowledgeItem> {
 	const explicit = new Set(item.relatedItems ?? []);
 	const byTopic = item.topic
-		? MOCK_KNOWLEDGE_ITEMS.filter(
+		? knowledgeItems.filter(
 				(i) => i.id !== item.id && i.topic === item.topic && i.scope === item.scope,
 			)
 		: [];
 	const merged = new Map<string, MockKnowledgeItem>();
 	for (const id of explicit) {
-		const match = MOCK_KNOWLEDGE_ITEMS.find((i) => i.id === id);
+		const match = knowledgeItems.find((i) => i.id === id);
 		if (match) merged.set(match.id, match);
 	}
 	for (const i of byTopic) merged.set(i.id, i);

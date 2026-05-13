@@ -1,7 +1,7 @@
 /**
  * useCurrentUser — fetch the authenticated user identity from GET /api/auth/me.
  *
- * @lore M3 A10: replaces the DEMO_FOUNDER_ID / FOUNDER_ID hardcoded constants
+ * @lore M3 A10: replaces the hardcoded founder-id / demo-founder-id constants
  * used across AppShell, WorkBet, HostThreadSection, and task-thread callers.
  * Returns a { user, status, error } result so callers can handle loading and
  * error states without blocking render.

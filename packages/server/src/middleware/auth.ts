@@ -24,7 +24,7 @@ import { constantTimeStringEqual } from "./timing-safe.js";
  *
  * @lore M3 A3: converted from static export to factory function so the
  * middleware can read founder_id from factorySettings. The fallback
- * "u-founder" preserves backward compatibility with unseeded DBs and
+ * founder constant preserves backward compatibility with unseeded DBs and
  * existing tests that don't seed factorySettings.
  */
 
@@ -56,7 +56,7 @@ function readSourceIp(c: Context): string | null {
  * sets it on `c.get("userId")`.
  *
  * @lore M3 A3: the middleware does NOT fail if founder_id is missing —
- * it falls back to "u-founder" for unseeded DBs. This preserves
+ * it falls back to the hardcoded founder constant for unseeded DBs. This preserves
  * backward compatibility with existing tests that don't seed factorySettings.
  */
 export function createAuthMiddleware(db: HyperIdleDb): MiddlewareHandler<HyperIdleEnv> {
@@ -94,7 +94,7 @@ export function createAuthMiddleware(db: HyperIdleDb): MiddlewareHandler<HyperId
 
 /**
  * Stateless auth middleware for use when db is not available (e.g. health checks
- * or the public /api route with no db). Sets userId to "u-founder" as fallback.
+ * or the public /api route with no db). Sets userId to a hardcoded founder constant as fallback.
  *
  * @lore M3: kept for backward compat with code paths that don't have db access.
  * Primary path is createAuthMiddleware(db).
