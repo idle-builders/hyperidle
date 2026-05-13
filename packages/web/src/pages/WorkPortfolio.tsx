@@ -10,9 +10,9 @@
  * cycle and days remaining.
  *
  * @lore L13: WorkPortfolio now calls useProducts() for real data. When the
- * hook is loading or the API is unavailable, it falls back to MOCK_PRODUCTS
- * so existing tests (which don't mock useProducts) continue to pass. Real
- * data overwrites the mock when available. Each product card is clickable
+ * hook is loading or the API is unavailable, it shows an empty/loading state
+ * rather than falling back to a fixture. Real data drives all product cards.
+ * Each product card is clickable
  * and navigates to /work/product/:id (N1 drill-down pattern).
  *
  * @lore M3 review C1: PortfolioProduct type moved here from
@@ -54,7 +54,7 @@ export interface WorkPortfolioProps {
 	 * exercised via props (and in stories) without mutating the shared
 	 * fixture module.
 	 *
-	 * @lore M3 G1: no more MOCK_PRODUCTS fallback — callers must pass real data
+	 * @lore M3 G1: no more products fixture fallback — callers must pass real data
 	 * or leave undefined (renders empty/loading state). Type changed to
 	 * `PortfolioProduct[] | undefined`.
 	 */
@@ -67,8 +67,8 @@ export function WorkPortfolio({ loading = false, products }: WorkPortfolioProps 
 	const onOpenArtifact = useArtifactOpen();
 
 	// Use injected products prop first (stories/tests), then real API data.
-	// No MOCK_PRODUCTS fallback — show empty state when data is unavailable.
-	// @lore M3 G1: MOCK_PRODUCTS deleted — the real wiring from L13 is now
+	// No products fixture fallback — show empty state when data is unavailable.
+	// @lore M3 G1: The products fixture was deleted — the real wiring from L13 is now
 	// the only production data path.
 	const items: PortfolioProduct[] =
 		products ??
@@ -183,7 +183,7 @@ export function WorkPortfolio({ loading = false, products }: WorkPortfolioProps 
 					))}
 				</div>
 			)}
-			{/* @lore M3 G1: MOCK_CYCLE removed. Cycle data is not yet wired from the
+			{/* @lore M3 G1: The cycle fixture was removed. Cycle data is not yet wired from the
 			    server (deferred follow-up). The stripe is hidden when no real cycle
 			    data is available rather than showing mock "Cycle 12". */}
 

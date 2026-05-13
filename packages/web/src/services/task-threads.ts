@@ -10,9 +10,9 @@
  */
 
 /**
- * @lore M3 D2: PLACEHOLDER_AGENT_PARTICIPANT_ID deleted — callers that have no
- * agent yet pass null. Re-export removed so no consumer can accidentally use
- * the "agent-unassigned" sentinel.
+ * @lore M3 D2: The placeholder agent participant id constant was deleted — callers
+ * that have no agent yet pass null. Re-export removed so no consumer can accidentally
+ * use the placeholder agent sentinel.
  */
 export { postPlainHostMessage as postRequestMessage } from "./host-threads.js";
 
