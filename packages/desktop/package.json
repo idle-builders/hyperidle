@@ -12,8 +12,7 @@
 	},
 	"dependencies": {
 		"@hyperidle/db": "workspace:*",
-		"@hyperidle/server": "workspace:*",
-		"@hyperidle/shared": "workspace:*"
+		"@hyperidle/server": "workspace:*"
 	},
 	"devDependencies": {
 		"vitest": "*"

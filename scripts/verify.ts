@@ -46,6 +46,8 @@ const TOOLS: Tool[] = [
 	{ name: "check", cmd: "tsc", args: ["--noEmit", "-p", "tsconfig.json"] },
 	{ name: "lint:biome", cmd: "bun", args: ["run", "lint:biome"] },
 	{ name: "lint:eslint", cmd: "bunx", args: ["--bun", "eslint", ".", "--quiet"] },
+	// Dead-code / unused-exports check. Excluded from --quick.
+	{ name: "knip", cmd: "bunx", args: ["knip"] },
 	// M1 — inventory drift check. Fails if inventory.json is stale.
 	// Excluded from --quick (QUICK_TOOLS set). Architecture ref: M1 § Decision 6.
 	{
