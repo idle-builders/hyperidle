@@ -82,7 +82,6 @@ describe("task-threads shim (L18)", () => {
 	it("PLACEHOLDER_AGENT_PARTICIPANT_ID is NOT exported from task-threads (M3 D2)", () => {
 		// M3 D2: the sentinel must not be exported. Verify it is absent.
 		// @ts-expect-error — testing that the export no longer exists
-		// biome-ignore lint/suspicious/noExplicitAny: intentional probe for deleted export
 		const mod = { postRequestMessage, resolveOrCreateTaskThread } as Record<string, unknown>;
 		expect(mod["PLACEHOLDER_AGENT_PARTICIPANT_ID"]).toBeUndefined();
 	});

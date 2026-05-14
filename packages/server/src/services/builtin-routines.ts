@@ -14,7 +14,6 @@ import type {
 	BetShippedEvent,
 	CostCapBreachedEvent,
 	CostCapWarningEvent,
-	DomainEvent,
 	EventBus,
 	ItemCreatedEvent,
 } from "@hyperidle/shared";
@@ -639,7 +638,3 @@ function runKnowledgeDecay(
 	const sweep = runStaleSweep(db, eventBus, nowMs, undefined, { silent });
 	return { fired: true, extra: { markedCount: sweep.markedIds.length } };
 }
-
-// --- Type guard export for tests ---
-
-export type BuiltinEventSignature = DomainEvent["type"];

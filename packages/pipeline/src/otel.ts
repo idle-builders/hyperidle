@@ -62,12 +62,6 @@ export function initOtel(): void {
 	provider.register();
 }
 
-export async function shutdownOtel(): Promise<void> {
-	if (!provider) return;
-	await provider.shutdown();
-	provider = null;
-}
-
 /**
  * Test-only: register a custom tracer provider (e.g. with an in-memory exporter).
  * Returns a teardown function that restores the no-op provider.
