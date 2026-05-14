@@ -63,7 +63,21 @@ const DEFAULT_RAIL = {
 const DEFAULT_THREADS = { threads: [] };
 
 /** Default mock response for GET /api/products */
-const DEFAULT_PRODUCTS = { products: [] };
+const DEFAULT_PRODUCTS = {
+	products: [
+		{
+			id: "test-product-1",
+			name: "Test Product",
+			phase: "build",
+			status: "healthy",
+			leadAgentId: "test-agent-1",
+			activeBets: 0,
+			shipped: 0,
+			shipRate: "—",
+			progress: { done: 0, total: 0 },
+		},
+	],
+};
 
 type CoreApiFixtures = {
 	/** Auto-use fixture: registers default M3 API mocks before every test. */

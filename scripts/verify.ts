@@ -26,6 +26,7 @@ interface Tool {
 	args: string[];
 	env?: Record<string, string>;
 	cwd?: string;
+	timeoutMs?: number;
 }
 
 interface ToolResult {
@@ -37,36 +38,37 @@ interface ToolResult {
 	stderrTail: string;
 	stdoutBytes: number;
 	stderrBytes: number;
+	timedOut?: boolean;
 }
 
 const RAW_TAIL_LINES = 60;
 const TEST_OUTPUT_FILE = "test-output.toon";
 
 const TOOLS: Tool[] = [
-	{ name: "check", cmd: "tsc", args: ["--noEmit", "-p", "tsconfig.json"] },
-	{ name: "lint:biome", cmd: "bun", args: ["run", "lint:biome"] },
-	{ name: "lint:eslint", cmd: "bunx", args: ["--bun", "eslint", ".", "--quiet"] },
-	// Dead-code / unused-exports check. Excluded from --quick.
-	{ name: "knip", cmd: "bunx", args: ["knip"] },
-	// M1 — inventory drift check. Fails if inventory.json is stale.
-	// Excluded from --quick (QUICK_TOOLS set). Architecture ref: M1 § Decision 6.
+	{ name: "check", cmd: "tsc", args: ["--noEmit", "-p", "tsconfig.json"], timeoutMs: 60_000 },
+	{ name: "lint:biome", cmd: "bun", args: ["run", "lint:biome"], timeoutMs: 60_000 },
+	{ name: "lint:eslint", cmd: "bunx", args: ["--bun", "eslint", ".", "--quiet"], timeoutMs: 60_000 },
+	{ name: "knip", cmd: "bunx", args: ["knip"], timeoutMs: 60_000 },
 	{
 		name: "mock-inventory",
 		cmd: "bun",
 		args: ["run", "scripts/mock-inventory.ts", "--check"],
+		timeoutMs: 30_000,
 	},
 	{
 		name: "test",
 		cmd: "bun",
 		args: ["run", "test:raw"],
 		env: { VITEST_TOON_OUTPUT: TEST_OUTPUT_FILE },
+		timeoutMs: 120_000,
 	},
-	{ name: "build", cmd: "bun", args: ["run", "build"] },
+	{ name: "build", cmd: "bun", args: ["run", "build"], timeoutMs: 60_000 },
 	{
 		name: "e2e",
 		cmd: "bunx",
 		args: ["--bun", "playwright", "test", "--reporter=list"],
 		cwd: "packages/web",
+		timeoutMs: 300_000,
 	},
 ];
 
@@ -102,23 +104,40 @@ function runTool(tool: Tool, raw: boolean): Promise<ToolResult> {
 			stdio: raw ? "inherit" : ["ignore", "pipe", "pipe"],
 		});
 
+		let timedOut = false;
+		let timer: ReturnType<typeof setTimeout> | undefined;
+		if (tool.timeoutMs) {
+			timer = setTimeout(() => {
+				timedOut = true;
+				child.kill("SIGTERM");
+				setTimeout(() => {
+					if (!child.killed) child.kill("SIGKILL");
+				}, 5_000);
+			}, tool.timeoutMs);
+		}
+
 		if (!raw && child.stdout && child.stderr) {
 			child.stdout.on("data", (chunk: Buffer) => stdoutChunks.push(chunk.toString("utf-8")));
 			child.stderr.on("data", (chunk: Buffer) => stderrChunks.push(chunk.toString("utf-8")));
 		}
 
 		child.on("close", (code) => {
+			if (timer) clearTimeout(timer);
 			const stdout = stdoutChunks.join("");
 			const stderr = stderrChunks.join("");
+			const timeoutMsg = timedOut
+				? `\n[verify] ${tool.name} killed after ${Math.round((tool.timeoutMs ?? 0) / 1000)}s timeout\n`
+				: "";
 			resolvePromise({
 				name: tool.name,
-				ok: code === 0,
+				ok: !timedOut && code === 0,
 				exitCode: code ?? -1,
 				durationMs: Date.now() - startedAt,
 				stdoutBytes: Buffer.byteLength(stdout, "utf-8"),
 				stderrBytes: Buffer.byteLength(stderr, "utf-8"),
-				stdoutTail: tail(stdout, RAW_TAIL_LINES),
-				stderrTail: tail(stderr, RAW_TAIL_LINES),
+				stdoutTail: tail(stdout, RAW_TAIL_LINES) + timeoutMsg,
+				stderrTail: tail(stderr, RAW_TAIL_LINES) + timeoutMsg,
+				timedOut,
 			});
 		});
 	});
@@ -212,7 +231,7 @@ function printSummary(summary: VerifySummary): void {
 
 async function main(): Promise<void> {
 	const flags = parseFlags(process.argv.slice(2));
-	const QUICK_TOOLS = new Set(["check", "lint:biome", "lint:eslint"]);
+	const QUICK_TOOLS = new Set(["check", "lint:biome", "lint:eslint", "knip"]);
 	let tools: Tool[];
 	if (flags.only) {
 		tools = TOOLS.filter((t) => flags.only?.has(t.name));
@@ -237,7 +256,12 @@ async function main(): Promise<void> {
 	}
 	const totalDurationMs = Date.now() - startedAt;
 	const summary = buildSummary(results, totalDurationMs);
-	if (!flags.raw) printSummary(summary);
+	if (!flags.raw) {
+		printSummary(summary);
+	} else if (summary.failed > 0) {
+		const names = summary.failures.map((f) => `${f.name} (exit ${f.exitCode})`).join(", ");
+		process.stderr.write(`\nverify: ${summary.failed} tool(s) failed: ${names}\n`);
+	}
 	process.exit(summary.failed);
 }
 
