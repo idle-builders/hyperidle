@@ -4,8 +4,7 @@
 // review-message host that injects an ArtifactEmbed `viewSlot`.
 
 import type { Artifact } from "@hyperidle/shared";
-import type { JSX } from "react";
-import { ArtifactView, type ArtifactViewProps } from "./ArtifactView.js";
+import type { ArtifactViewProps } from "./ArtifactView.js";
 
 /**
  * @lore L3 D-B5: maps a recognised L3 `ArtifactPreview` to the closed
@@ -51,11 +50,4 @@ export function artifactToViewProps(artifact: Artifact): ArtifactViewProps | nul
 		default:
 			return null;
 	}
-}
-
-/** Convenience — returns the `<ArtifactView>` element or null. */
-export function renderArtifactView(artifact: Artifact): JSX.Element | null {
-	const props = artifactToViewProps(artifact);
-	if (!props) return null;
-	return <ArtifactView {...props} />;
 }
