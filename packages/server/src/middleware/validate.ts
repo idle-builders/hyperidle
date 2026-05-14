@@ -24,11 +24,10 @@ export function validationHook(
 	c: Context,
 ): Response | void {
 	if (!result.success) {
-		const failResult = result as { success: false; error: { issues: unknown[] } };
 		const response: ApiErrorResponse = {
 			error: "Validation failed",
 			code: API_ERROR_CODES.VALIDATION_ERROR,
-			details: { issues: failResult.error.issues },
+			details: { issues: result.error.issues },
 		};
 		return c.json(response, 400) as unknown as Response;
 	}

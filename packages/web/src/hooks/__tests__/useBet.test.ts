@@ -7,17 +7,29 @@
  *   - Failed fetch → error populated, data null, loading false.
  *   - undefined betId → no fetch, loading false, data null.
  *   - betId change → cancels stale request, issues new one.
+ *
+ * @lore api-typesafety S4: The tests now mock the typed hono/client
+ * (apiClient.bets[":id"].$get) instead of the raw apiFetch function.
+ * This keeps the tests focused on hook logic (loading state, data, error,
+ * cancellation) without coupling to the HTTP transport layer. The hono
+ * client's fetch option is tested separately in the api-fetch tests.
  */
 
 import { renderHook, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { BetDetail } from "../../types/bet";
 
-// Mock apiFetch so tests are not sensitive to fetch() call argument count.
-// Header injection is covered by api-fetch.test.ts; these tests focus on
-// hook logic (loading state, data, error, cancellation).
-vi.mock("../../services/api-fetch.js", () => ({
-	apiFetch: vi.fn(),
+// Mock the typed API client. We target the specific method used by useBet:
+// apiClient.bets[":id"].$get(). By mocking the module at the client level
+// we avoid any coupling to HTTP transport details.
+vi.mock("../../api/client.js", () => ({
+	apiClient: {
+		bets: {
+			":id": {
+				$get: vi.fn(),
+			},
+		},
+	},
 }));
 
 import { useBet } from "../useBet";
@@ -28,20 +40,24 @@ const MOCK_BET: BetDetail = {
 	product: "Alpha",
 	team: "Alpha Core",
 	status: "committed",
-	appetite: "2 weeks",
 	progress: { done: 1, total: 3 },
 	pitch: "# Problem\n\nAuth is broken.\n",
+	costAppetite: null,
+	tokenAppetite: null,
+	costActual: null,
+	tokensActual: null,
 	tasks: [],
-	comments: [],
 };
 
 describe("useBet", () => {
-	let fetchSpy: ReturnType<typeof vi.fn>;
+	let getBetSpy: ReturnType<typeof vi.fn>;
 
 	beforeEach(async () => {
-		const { apiFetch } = await import("../../services/api-fetch.js");
-		fetchSpy = vi.mocked(apiFetch);
-		fetchSpy.mockReset();
+		const { apiClient } = await import("../../api/client.js");
+		getBetSpy = vi.mocked(
+			(apiClient as { bets: { ":id": { $get: ReturnType<typeof vi.fn> } } }).bets[":id"].$get,
+		);
+		getBetSpy.mockReset();
 	});
 
 	afterEach(() => {
@@ -49,7 +65,7 @@ describe("useBet", () => {
 	});
 
 	it("starts in loading state when betId is defined", () => {
-		fetchSpy.mockImplementation(() => new Promise(() => {})); // never resolves
+		getBetSpy.mockImplementation(() => new Promise(() => {})); // never resolves
 		const { result } = renderHook(() => useBet("b1"));
 		expect(result.current.loading).toBe(true);
 		expect(result.current.data).toBeNull();
@@ -64,7 +80,10 @@ describe("useBet", () => {
 	});
 
 	it("populates data on successful fetch", async () => {
-		fetchSpy.mockResolvedValueOnce(new Response(JSON.stringify(MOCK_BET), { status: 200 }));
+		getBetSpy.mockResolvedValueOnce({
+			ok: true,
+			json: () => Promise.resolve(MOCK_BET),
+		});
 		const { result } = renderHook(() => useBet("b1"));
 
 		await waitFor(() => {
@@ -76,7 +95,7 @@ describe("useBet", () => {
 	});
 
 	it("populates error on non-ok response", async () => {
-		fetchSpy.mockResolvedValueOnce(new Response("Not Found", { status: 404 }));
+		getBetSpy.mockResolvedValueOnce({ ok: false, status: 404 });
 		const { result } = renderHook(() => useBet("missing"));
 
 		await waitFor(() => {
@@ -89,7 +108,7 @@ describe("useBet", () => {
 	});
 
 	it("populates error on network failure", async () => {
-		fetchSpy.mockRejectedValueOnce(new Error("Network error"));
+		getBetSpy.mockRejectedValueOnce(new Error("Network error"));
 		const { result } = renderHook(() => useBet("b1"));
 
 		await waitFor(() => {
@@ -101,26 +120,30 @@ describe("useBet", () => {
 		expect(result.current.error?.message).toBe("Network error");
 	});
 
-	it("calls apiFetch with the correct URL", async () => {
-		fetchSpy.mockResolvedValueOnce(new Response(JSON.stringify(MOCK_BET), { status: 200 }));
+	it("calls the typed client with the correct bet id", async () => {
+		getBetSpy.mockResolvedValueOnce({
+			ok: true,
+			json: () => Promise.resolve(MOCK_BET),
+		});
 		renderHook(() => useBet("b1"));
 
 		await waitFor(() => {
-			expect(fetchSpy).toHaveBeenCalledWith("/api/bets/b1");
+			expect(getBetSpy).toHaveBeenCalledWith({ param: { id: "b1" } });
 		});
 	});
 
 	it("cancels stale response when betId changes", async () => {
-		let firstResolve!: (r: Response) => void;
-		const firstFetch = new Promise<Response>((res) => {
+		let firstResolve!: (r: { ok: boolean; json: () => Promise<BetDetail> }) => void;
+		const firstFetch = new Promise<{ ok: boolean; json: () => Promise<BetDetail> }>((res) => {
 			firstResolve = res;
 		});
 
-		fetchSpy
+		getBetSpy
 			.mockReturnValueOnce(firstFetch)
-			.mockResolvedValueOnce(
-				new Response(JSON.stringify({ ...MOCK_BET, id: "b2" }), { status: 200 }),
-			);
+			.mockResolvedValueOnce({
+				ok: true,
+				json: () => Promise.resolve({ ...MOCK_BET, id: "b2" }),
+			});
 
 		const { result, rerender } = renderHook(({ id }) => useBet(id), {
 			initialProps: { id: "b1" as string | undefined },
@@ -135,7 +158,7 @@ describe("useBet", () => {
 		});
 
 		// Now resolve the first (stale) fetch — data should remain b2.
-		firstResolve(new Response(JSON.stringify(MOCK_BET), { status: 200 }));
+		firstResolve({ ok: true, json: () => Promise.resolve(MOCK_BET) });
 
 		// State should reflect b2, not b1.
 		expect(result.current.data?.id).toBe("b2");

@@ -22,6 +22,9 @@ import { z } from "zod";
  */
 export const wireMoneySchema = z.object({
 	minor: z.number().int().min(0),
+	// @lore api-typesafety: CURRENCY_CODES is a readonly string[] from @hyperidle/shared.
+	// Zod v4 requires a [string, ...string[]] tuple for z.enum(). The `as unknown as` cast
+	// is the idiomatic escape hatch — CURRENCY_CODES is guaranteed non-empty at compile time.
 	currency: z.enum(CURRENCY_CODES as unknown as [string, ...string[]]),
 });
 

@@ -39,6 +39,10 @@ export const betTaskRowSchema = z.object({
 	id: z.string(),
 	title: z.string(),
 	owner: z.string(),
+	// @lore api-typesafety: TASK_STATES_EXTENDED is a readonly string[] from @hyperidle/shared.
+	// Zod v4 requires a [string, ...string[]] tuple for z.enum(). The `as unknown as` cast
+	// is the idiomatic escape hatch — TASK_STATES_EXTENDED is guaranteed non-empty at
+	// compile time (it's a const array), so this is safe.
 	state: z.enum(TASK_STATES_EXTENDED as unknown as [string, ...string[]]),
 	costActual: wireMoneySchema.nullable(),
 	latestSessionOutcome: z.string().nullable(),
@@ -70,6 +74,9 @@ export const betDetailResponseSchema = z.object({
 	title: z.string(),
 	product: z.string(),
 	team: z.string(),
+	// @lore api-typesafety: BET_STATUSES is a readonly string[] from @hyperidle/shared.
+	// Zod v4 requires a [string, ...string[]] tuple for z.enum(). The `as unknown as` cast
+	// is the idiomatic escape hatch — BET_STATUSES is guaranteed non-empty at compile time.
 	status: z.enum(BET_STATUSES as unknown as [string, ...string[]]),
 	costAppetite: wireMoneySchema.nullable(),
 	tokenAppetite: z.number().nullable().optional(),

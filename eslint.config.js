@@ -276,4 +276,180 @@ export default [
 			],
 		},
 	},
+
+	// api-typesafety Rule 3 (warn): Discourage imperative router.get/post/… pattern in route files.
+	// Routes should use the Hono chaining pattern (.get().post()…) so the return type is
+	// inferred as a union of typed routes — required for AppType / hono/client.
+	{
+		files: ["packages/server/src/routes/**/*.ts"],
+		languageOptions: {
+			parser: tsParser,
+		},
+		rules: {
+			"no-restricted-syntax": [
+				"warn",
+				{
+					selector:
+						"CallExpression[callee.type='MemberExpression'][callee.property.name=/^(get|post|put|patch|delete|options|head|all|use)$/][callee.object.name='router']",
+					message:
+						"api-typesafety Rule 3: Use the Hono chaining pattern (new Hono().get()…) instead of router.get(). The chained form preserves typed route inference for AppType.",
+				},
+			],
+		},
+	},
+
+	// api-typesafety Rule 4 (warn): Discourage importing the legacy services/api-fetch module
+	// from web package code. Prefer the typed hono/client via packages/web/src/api/client.ts.
+	{
+		files: ["packages/web/src/**/*.{ts,tsx}"],
+		ignores: [
+			"packages/web/src/**/*.stories.tsx",
+			"packages/web/src/**/*.test.ts",
+			"packages/web/src/**/*.test.tsx",
+		],
+		languageOptions: {
+			parser: tsParser,
+			parserOptions: {
+				ecmaFeatures: { jsx: true },
+			},
+		},
+		rules: {
+			"no-restricted-imports": [
+				"warn",
+				{
+					patterns: [
+						{
+							group: ["**/services/api-fetch", "**/services/api-fetch/**"],
+							message:
+								"api-typesafety Rule 4: Import from @/api/client instead of services/api-fetch. The typed hono/client enforces contract safety.",
+						},
+					],
+				},
+			],
+		},
+	},
+
+	// api-typesafety Rule 5 (error): Ban raw fetch('/api/…') calls in web package.
+	// All API calls must go through the typed hono/client so TypeScript can verify
+	// request/response shapes at compile time.
+	{
+		files: ["packages/web/src/**/*.{ts,tsx}"],
+		ignores: [
+			"packages/web/src/api/client.ts",
+			"packages/web/src/**/*.test.ts",
+			"packages/web/src/**/*.test.tsx",
+		],
+		languageOptions: {
+			parser: tsParser,
+			parserOptions: {
+				ecmaFeatures: { jsx: true },
+			},
+		},
+		rules: {
+			"no-restricted-syntax": [
+				"error",
+				{
+					selector: "CallExpression[callee.name='fetch'] > Literal[value=/^\\/api\\//]",
+					message:
+						"api-typesafety Rule 5: Use the typed hono/client from @/api/client instead of raw fetch('/api/…'). Raw fetch bypasses type-safety.",
+				},
+				{
+					selector:
+						"CallExpression[callee.name='fetch'] > TemplateLiteral > TemplateElement[value.raw=/^\\/api\\//]",
+					message:
+						"api-typesafety Rule 5: Use the typed hono/client from @/api/client instead of raw fetch('/api/…'). Raw fetch bypasses type-safety.",
+				},
+			],
+		},
+	},
+
+	// api-typesafety Rule 6 (error): Ban zValidator from @hono/zod-validator in route files.
+	// Use the internal validateBody() helper (packages/server/src/middleware/validate.ts) which
+	// integrates with the response-validator middleware and error schema.
+	{
+		files: ["packages/server/src/routes/**/*.ts"],
+		languageOptions: {
+			parser: tsParser,
+		},
+		rules: {
+			"no-restricted-imports": [
+				"error",
+				{
+					paths: [
+						{
+							name: "@hono/zod-validator",
+							message:
+								"api-typesafety Rule 6: Use validateBody() from ../middleware/validate.js instead of zValidator. It integrates with the response-validator and error schema.",
+						},
+					],
+				},
+			],
+		},
+	},
+
+	// api-typesafety Rule 7 (error): Ban importing @hyperidle/server from the web package
+	// (except schema files). The web package must only consume the server via the typed
+	// hono/client — not by importing server internals directly.
+	//
+	// The client.ts file is the ONLY file allowed to import from @hyperidle/server/schemas
+	// (it uses AppType for hc<AppType>). All other web code must go through @/api/client.
+	{
+		files: ["packages/web/src/**/*.{ts,tsx}"],
+		ignores: [
+			// client.ts legitimately imports AppType from @hyperidle/server/schemas
+			"packages/web/src/api/client.ts",
+		],
+		languageOptions: {
+			parser: tsParser,
+			parserOptions: {
+				ecmaFeatures: { jsx: true },
+			},
+		},
+		rules: {
+			"no-restricted-imports": [
+				"error",
+				{
+					patterns: [
+						{
+							// Ban any @hyperidle/server import (including subpaths like /schemas)
+							// from general web code. Only client.ts (ignored above) may import /schemas.
+							group: ["@hyperidle/server", "@hyperidle/server/**"],
+							message:
+								"api-typesafety Rule 7: The web package must not import @hyperidle/server internals directly. Use the typed hono/client from @/api/client. Only packages/web/src/api/client.ts may import @hyperidle/server/schemas.",
+						},
+					],
+				},
+			],
+		},
+	},
+
+	// api-typesafety Rule 8 (error): Ban unsafe type casts in web package.
+	// Patterns like `as Promise<`, `as any`, and `res.json() as` hide type errors
+	// that the hono/client already prevents — using them defeats the purpose of typed API calls.
+	{
+		files: ["packages/web/src/**/*.{ts,tsx}"],
+		ignores: ["packages/web/src/**/*.test.ts", "packages/web/src/**/*.test.tsx"],
+		languageOptions: {
+			parser: tsParser,
+			parserOptions: {
+				ecmaFeatures: { jsx: true },
+			},
+		},
+		rules: {
+			"no-restricted-syntax": [
+				// warn-level: existing hooks still use `res.json() as Promise<T>` patterns
+				// that predate the typed hono/client. Promote to error once the baseline is cleared.
+				"warn",
+				{
+					selector: "TSAsExpression > TSTypeReference[typeName.name='Promise']",
+					message:
+						"api-typesafety Rule 8: Casting to Promise<T> hides async type errors. Use the typed hono/client — it returns correctly-typed promises.",
+				},
+				{
+					selector: "TSAsExpression > TSAnyKeyword",
+					message: "api-typesafety Rule 8: 'as any' defeats TypeScript. Prove the type instead.",
+				},
+			],
+		},
+	},
 ];

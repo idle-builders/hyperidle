@@ -9,10 +9,18 @@
  * @lore L14: `refresh()` increments an internal counter that triggers the
  * useEffect. Incrementing is cheaper than toggling a boolean and avoids
  * race conditions where two rapid refresh() calls collapse to a single fetch.
+ *
+ * @lore api-typesafety S4: Migrated from raw apiFetch('/api/bets/:id') to the
+ * typed hono/client (apiClient). The client infers request/response shapes from
+ * AppType so TypeScript catches wire-shape mismatches at compile time rather
+ * than at runtime. BetDetail remains the page-layer type; we cast from the
+ * wire type because the wire schema uses z.record(z.unknown()) for nested
+ * objects (see bets.ts inline schemas). A full wire→page mapping function is
+ * deferred until the bets route schema is tightened in a follow-up workpackage.
  */
 
 import { useCallback, useEffect, useState } from "react";
-import { apiFetch } from "../services/api-fetch.js";
+import { apiClient } from "../api/client.js";
 import type { BetDetail } from "../types/bet";
 
 export interface UseBetResult {
@@ -39,9 +47,15 @@ export function useBet(betId: string | undefined): UseBetResult {
 		}
 		let cancelled = false;
 		setState({ data: null, loading: true, error: null });
-		apiFetch(`/api/bets/${encodeURIComponent(betId)}`)
+		apiClient.bets[":id"]
+			.$get({ param: { id: betId } })
 			.then((res) => {
 				if (!res.ok) throw new Error(`Bet fetch failed: ${res.status}`);
+				// @lore api-typesafety S4: The inline bets schema uses z.record(z.unknown())
+				// for nested task objects — the wire type is structurally compatible with
+				// BetDetail but not identical. The cast is intentional and bounded: both
+				// sides agree on the top-level string fields; only tasks[] sub-shapes differ.
+				// Remove this cast once the bets route schema is tightened to match BetDetail.
 				return res.json() as Promise<BetDetail>;
 			})
 			.then((data) => {
