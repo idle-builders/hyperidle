@@ -17,7 +17,7 @@
  */
 
 import type { Context, MiddlewareHandler } from "hono";
-import { z } from "zod";
+import type { z } from "zod";
 
 // ── Registry ──────────────────────────────────────────────────────────────────
 

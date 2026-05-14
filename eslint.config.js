@@ -7,11 +7,11 @@
 // Biome remains primary for everything else (formatting, style, correctness, a11y, security).
 
 import tsParser from "@typescript-eslint/parser";
-import tseslint from "typescript-eslint";
 import design from "eslint-plugin-design";
 import drizzle from "eslint-plugin-drizzle";
 import reactCompiler from "eslint-plugin-react-compiler";
 import reactHooks from "eslint-plugin-react-hooks";
+import tseslint from "typescript-eslint";
 
 export default [
 	{

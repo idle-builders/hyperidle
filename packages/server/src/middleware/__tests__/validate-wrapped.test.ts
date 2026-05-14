@@ -15,10 +15,7 @@ import { describe, expect, it } from "vitest";
 import { z } from "zod";
 
 // The wrapped exports that don't exist yet
-import {
-	validateBody,
-	validationHook,
-} from "../../middleware/validate.js";
+import { validateBody, validationHook } from "../../middleware/validate.js";
 
 describe("F1. validateBody returns 400 with ApiErrorResponse format on failure", () => {
 	it("returns 400 with VALIDATION_ERROR code when body is invalid", async () => {
@@ -37,7 +34,7 @@ describe("F1. validateBody returns 400 with ApiErrorResponse format on failure",
 		});
 
 		expect(res.status).toBe(400);
-		const body = await res.json() as { code: string; error: string };
+		const body = (await res.json()) as { code: string; error: string };
 		expect(body.code).toBe("VALIDATION_ERROR");
 		expect(typeof body.error).toBe("string");
 	});
@@ -73,7 +70,7 @@ describe("F1. validateBody returns 400 with ApiErrorResponse format on failure",
 		});
 
 		expect(res.status).toBe(400);
-		const body = await res.json() as { code: string; details?: { issues: unknown[] } };
+		const body = (await res.json()) as { code: string; details?: { issues: unknown[] } };
 		expect(body.code).toBe("VALIDATION_ERROR");
 		expect(body.details?.issues).toBeDefined();
 		expect(Array.isArray(body.details?.issues)).toBe(true);
@@ -95,7 +92,7 @@ describe("F2. validationHook is exported", () => {
 		};
 
 		// Mock context
-		const responseSent: { status: number; body: unknown } | null = null;
+		const _responseSent: { status: number; body: unknown } | null = null;
 		let capturedResponse: unknown = null;
 		const mockContext = {
 			json: (body: unknown, status: number) => {

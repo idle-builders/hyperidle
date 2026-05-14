@@ -14,9 +14,9 @@ import { Hono } from "hono";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 import {
-	responseValidator,
-	registerResponseSchema,
 	getResponseSchema,
+	registerResponseSchema,
+	responseValidator,
 } from "../../middleware/response-validator.js";
 
 // ── helpers ──────────────────────────────────────────────────────────────────
@@ -61,7 +61,7 @@ describe("C2. error responses (4xx, 5xx) pass through unchanged", () => {
 
 		const res = await app.request("/bad-request");
 		expect(res.status).toBe(400);
-		const body = await res.json() as { error: string };
+		const body = (await res.json()) as { error: string };
 		expect(body.error).toBe("bad");
 	});
 
@@ -79,7 +79,7 @@ describe("C2. error responses (4xx, 5xx) pass through unchanged", () => {
 
 		const res = await app.request("/server-error");
 		expect(res.status).toBe(500);
-		const body = await res.json() as { error: string };
+		const body = (await res.json()) as { error: string };
 		expect(body.error).toBe("crash");
 	});
 });
@@ -97,7 +97,7 @@ describe("C3. validates 2xx JSON responses against registered schema", () => {
 
 		const res = await app.request("/items");
 		expect(res.status).toBe(200);
-		const body = await res.json() as { id: string; name: string };
+		const body = (await res.json()) as { id: string; name: string };
 		expect(body.id).toBe("item-1");
 		expect(body.name).toBe("Widget");
 	});
@@ -127,7 +127,7 @@ describe("C4. returns 500 with SCHEMA_VIOLATION code on mismatch", () => {
 
 		const res = await app.request("/strict-items");
 		expect(res.status).toBe(500);
-		const body = await res.json() as { code: string; error: string };
+		const body = (await res.json()) as { code: string; error: string };
 		expect(body.code).toBe("SCHEMA_VIOLATION");
 		expect(typeof body.error).toBe("string");
 	});
@@ -154,7 +154,7 @@ describe("C4. returns 500 with SCHEMA_VIOLATION code on mismatch", () => {
 
 		const res = await app.request("/mismatch");
 		expect(res.status).toBe(500);
-		const body = await res.json() as { error: string; code: string };
+		const body = (await res.json()) as { error: string; code: string };
 		expect(body).toHaveProperty("error");
 		expect(body).toHaveProperty("code");
 		expect(body.code).toBe("SCHEMA_VIOLATION");
@@ -171,7 +171,7 @@ describe("C5. routes with no registered schema pass through unchanged", () => {
 
 		const res = await app.request("/unregistered");
 		expect(res.status).toBe(200);
-		const body = await res.json() as { anything: string };
+		const body = (await res.json()) as { anything: string };
 		expect(body.anything).toBe("goes");
 	});
 });

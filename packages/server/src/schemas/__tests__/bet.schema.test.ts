@@ -12,8 +12,8 @@ import { describe, expect, it } from "vitest";
 import {
 	betDetailResponseSchema,
 	betListResponseSchema,
-	betTaskRowSchema,
 	betProgressSchema,
+	betTaskRowSchema,
 } from "../bet.schema.js";
 
 describe("B1. betDetailResponseSchema", () => {

@@ -12,7 +12,7 @@
  * is updated with the api-typesafety rules.
  */
 
-import { readFileSync, existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
@@ -34,9 +34,7 @@ function readEslintConfig(): string {
 			return readFileSync(candidate, "utf8");
 		}
 	}
-	throw new Error(
-		`ESLint config not found in monorepo root. Searched: ${candidates.join(", ")}`,
-	);
+	throw new Error(`ESLint config not found in monorepo root. Searched: ${candidates.join(", ")}`);
 }
 
 describe("G1. ESLint config exists", () => {

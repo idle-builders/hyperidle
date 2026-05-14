@@ -9,10 +9,10 @@
 
 import { describe, expect, it } from "vitest";
 import {
-	wireMoneySchema,
-	progressSchema,
 	errorResponseSchema,
 	paginationSchema,
+	progressSchema,
+	wireMoneySchema,
 } from "../common.schema.js";
 
 describe("B5. wireMoneySchema", () => {

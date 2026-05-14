@@ -15,11 +15,8 @@ import { bets, createTestDb, type HyperIdleDb, products, teams } from "@hyperidl
 import { API_ERROR_CODES, EventBus } from "@hyperidle/shared";
 import type { Hono } from "hono";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { betDetailResponseSchema, betListResponseSchema } from "../../schemas/bet.schema.js";
 import { createTestApp } from "../../test-utils.js";
-import {
-	betListResponseSchema,
-	betDetailResponseSchema,
-} from "../../schemas/bet.schema.js";
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
@@ -66,8 +63,12 @@ describe("D2. GET /api/bets returns betListResponseSchema-conforming response", 
 		app = createTestApp({ db, eventBus });
 
 		const now = new Date().toISOString();
-		db.insert(products).values({ id: "prod-d2", name: "Product D2", phase: "build", createdAt: now }).run();
-		db.insert(teams).values({ id: "team-d2", productId: "prod-d2", capacity: 3, activeBets: 0, formedAt: now }).run();
+		db.insert(products)
+			.values({ id: "prod-d2", name: "Product D2", phase: "build", createdAt: now })
+			.run();
+		db.insert(teams)
+			.values({ id: "team-d2", productId: "prod-d2", capacity: 3, activeBets: 0, formedAt: now })
+			.run();
 	});
 
 	afterEach(() => {
@@ -86,7 +87,7 @@ describe("D2. GET /api/bets returns betListResponseSchema-conforming response", 
 
 	it("returns each status group (shaped, committed, in_progress, shipped, killed)", async () => {
 		const res = await app.request("/api/bets", { headers: authHeaders() });
-		const body = await res.json() as Record<string, unknown>;
+		const body = (await res.json()) as Record<string, unknown>;
 		expect(body).toHaveProperty("shaped");
 		expect(body).toHaveProperty("committed");
 		expect(body).toHaveProperty("in_progress");
@@ -96,7 +97,7 @@ describe("D2. GET /api/bets returns betListResponseSchema-conforming response", 
 
 	it("returns empty arrays when no bets exist", async () => {
 		const res = await app.request("/api/bets", { headers: authHeaders() });
-		const body = await res.json() as { shaped: unknown[] };
+		const body = (await res.json()) as { shaped: unknown[] };
 		expect(Array.isArray(body.shaped)).toBe(true);
 		expect(body.shaped.length).toBe(0);
 	});
@@ -116,16 +117,22 @@ describe("D3. GET /api/bets/:id returns betDetailResponseSchema-conforming respo
 		app = createTestApp({ db, eventBus });
 
 		const now = new Date().toISOString();
-		db.insert(products).values({ id: "prod-d3", name: "Product D3", phase: "build", createdAt: now }).run();
-		db.insert(teams).values({ id: "team-d3", productId: "prod-d3", capacity: 3, activeBets: 0, formedAt: now }).run();
-		db.insert(bets).values({
-			id: "bet-d3",
-			productId: "prod-d3",
-			teamId: "team-d3",
-			pitch: "# Bet D3\n\nThis is a test bet.",
-			status: "shaped",
-			createdAt: now,
-		}).run();
+		db.insert(products)
+			.values({ id: "prod-d3", name: "Product D3", phase: "build", createdAt: now })
+			.run();
+		db.insert(teams)
+			.values({ id: "team-d3", productId: "prod-d3", capacity: 3, activeBets: 0, formedAt: now })
+			.run();
+		db.insert(bets)
+			.values({
+				id: "bet-d3",
+				productId: "prod-d3",
+				teamId: "team-d3",
+				pitch: "# Bet D3\n\nThis is a test bet.",
+				status: "shaped",
+				createdAt: now,
+			})
+			.run();
 	});
 
 	afterEach(() => {
@@ -176,7 +183,7 @@ describe("D4. POST /api/bets with invalid body returns 400 VALIDATION_ERROR", ()
 		});
 
 		expect(res.status).toBe(400);
-		const body = await res.json() as { code: string };
+		const body = (await res.json()) as { code: string };
 		expect(body.code).toBe(API_ERROR_CODES.VALIDATION_ERROR);
 	});
 
@@ -193,7 +200,7 @@ describe("D4. POST /api/bets with invalid body returns 400 VALIDATION_ERROR", ()
 		});
 
 		expect(res.status).toBe(400);
-		const body = await res.json() as { code: string };
+		const body = (await res.json()) as { code: string };
 		expect(body.code).toBe(API_ERROR_CODES.VALIDATION_ERROR);
 	});
 });
@@ -224,7 +231,7 @@ describe("D5. Response validator integration with routes", () => {
 
 		const res = await app.request("/api/validator-test");
 		expect(res.status).toBe(500);
-		const body = await res.json() as { code: string };
+		const body = (await res.json()) as { code: string };
 		expect(body.code).toBe("SCHEMA_VIOLATION");
 	});
 });

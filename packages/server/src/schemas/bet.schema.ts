@@ -12,9 +12,9 @@
  * that enriched shape.
  */
 
+import { selectBetSchema } from "@hyperidle/db";
 import { BET_STATUSES, TASK_STATES } from "@hyperidle/shared";
 import { z } from "zod";
-import { selectBetSchema } from "@hyperidle/db";
 import { progressSchema, wireMoneySchema } from "./common.schema.js";
 
 /**
