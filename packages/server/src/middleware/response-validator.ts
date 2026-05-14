@@ -17,6 +17,7 @@
  */
 
 import type { Context, MiddlewareHandler } from "hono";
+import { routePath } from "hono/route";
 import type { z } from "zod";
 
 // ── Registry ──────────────────────────────────────────────────────────────────
@@ -71,9 +72,14 @@ export function responseValidator(): MiddlewareHandler {
 			return;
 		}
 
-		// Look up the schema for this method + path
+		// Look up the schema for this method + route pattern.
+		// @lore api-typesafety C2: Use routePath(c) from "hono/route" (not c.req.path)
+		// so parameterized routes like /bets/:id match correctly. c.req.path returns
+		// the actual request URL (e.g. /bets/bet-123) which never matches a pattern
+		// like /bets/:id. routePath(c) returns the registered pattern. Note:
+		// c.req.routePath is deprecated in Hono 4.12.14+ — use routePath(c) instead.
 		const method = c.req.method;
-		const path = c.req.path;
+		const path = routePath(c);
 		const schema = getResponseSchema(method, path);
 
 		if (!schema) {
@@ -96,7 +102,7 @@ export function responseValidator(): MiddlewareHandler {
 		if (!result.success) {
 			const violation = {
 				error: `Response body does not match registered schema for ${method} ${path}`,
-				code: "SCHEMA_VIOLATION",
+				code: "SCHEMA_VIOLATION" as const,
 				details: {
 					issues: result.error.issues,
 				},

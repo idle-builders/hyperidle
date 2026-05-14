@@ -3,11 +3,12 @@ import type { ApiErrorResponse } from "@hyperidle/shared";
 import { API_ERROR_CODES, createLogger, EventBus } from "@hyperidle/shared";
 import { Hono } from "hono";
 import { createUpgradeTokenStore, type UpgradeTokenStore } from "./auth/upgrade-token-store.js";
-import { authMiddleware, createAuthMiddleware } from "./middleware/auth.js";
+import { authMiddleware, createAuthMiddleware, type HyperIdleEnv } from "./middleware/auth.js";
 import { createBodyLimit } from "./middleware/body-limit.js";
 import { corsMiddleware } from "./middleware/cors.js";
 import { errorHandler } from "./middleware/error-handler.js";
 import { createRateLimiter } from "./middleware/rate-limit.js";
+import { responseValidator } from "./middleware/response-validator.js";
 import { createAgentRoutes } from "./routes/agents.js";
 import { createArtifactRoutes } from "./routes/artifacts.js";
 import { createAuthRoutes } from "./routes/auth.js";
@@ -179,6 +180,15 @@ function createApp(options?: AppOptions): Hono {
 
 	// Error handler
 	api.onError(errorHandler);
+
+	// Response validator — always-on, validates 2xx JSON responses against
+	// declared Zod schemas. Registered after CORS so error responses from
+	// the validator still carry CORS headers. The middleware calls next()
+	// first, then inspects c.res after the route handler runs.
+	// @lore api-typesafety C3: mounted here (before auth, rate-limit) so it
+	// intercepts ALL responses including 4xx from auth and rate-limit. The
+	// middleware short-circuits on non-2xx and non-JSON, so this is safe.
+	api.use("*", responseValidator());
 
 	// Public: /api/health (no auth required)
 	api.get("/health", (c) => {
@@ -451,13 +461,57 @@ export function disposeApp(hono: Hono): void {
 }
 
 /**
+ * Create the typed API route chain for AppType inference.
+ *
+ * This function returns a chained Hono expression that encodes the full route
+ * type tree. TypeScript infers the return type from the chain, producing the
+ * exact route schema that `hc<AppType>` needs for compile-time type safety.
+ *
+ * @lore api-typesafety C1: AppType must derive from this chained expression,
+ * NOT from `typeof app` (the root Hono instance). `typeof app` has no route
+ * type information because `app.route()` erases sub-router types. Only a
+ * chained `.route()` expression on a single Hono instance propagates types.
+ *
+ * The function is never called at runtime — it exists only so TypeScript can
+ * infer `ReturnType<typeof createTypedApiRoutes>`. The `db` and `eventBus`
+ * parameters are required because the route factories need them; TypeScript
+ * must see real call sites to infer the return type.
+ *
+ * IMPORTANT: AppType has BasePath "/" — routes are typed as "/bets/:id",
+ * not "/api/bets/:id". The "/api" prefix is added by the outer `app.route("/api", api)`.
+ * The `hc` client MUST include "/api" in its base URL to produce correct request URLs.
+ * See packages/web/src/api/client.ts.
+ */
+function createTypedApiRoutes(db: HyperIdleDb, eventBus: EventBus) {
+	return new Hono<HyperIdleEnv>()
+		.route("/products", createProductRoutes(db, eventBus))
+		.route("/bets", createBetRoutes(db, eventBus))
+		.route("/tasks", createTaskRoutes(db, eventBus))
+		.route("/artifacts", createArtifactRoutes(db))
+		.route("/knowledge", createKnowledgeRoutes(db, eventBus))
+		.route("/rail", createRailRoutes(db, eventBus))
+		.route("/settings", createSettingsRoutes(db, eventBus))
+		.route("/conversations", createConversationRoutes(db, eventBus))
+		.route("/threads", createThreadRoutes(db, eventBus))
+		.route("/agents", createAgentRoutes(db, eventBus))
+		.route("/routines", createRoutineRoutes(db, eventBus))
+		.route("/sessions", createSessionRoutes(db, eventBus))
+		.route("/status", createStatusRoutes(db))
+		.route("/git-export", createGitExportRoutes(db));
+}
+
+/**
  * AppType: the typed surface of the API routes, used with Hono's `hc` client.
  *
- * @lore api-typesafety: `AppType` is derived from `typeof app` where `app`
- * is the root Hono instance. The web package imports this type to construct
- * a type-safe client via `hc<AppType>(baseUrl)`. Because this is a `type`
- * export (not a value), it has zero runtime cost.
+ * Derived from `ReturnType<typeof createTypedApiRoutes>` — a chained Hono
+ * expression where TypeScript infers the full route type tree. The web package
+ * imports this type to construct a type-safe client via `hc<AppType>(baseUrl)`.
+ * Because this is a `type` export (not a value), it has zero runtime cost.
+ *
+ * @lore api-typesafety C1: Do NOT change this to `typeof app`. The root app
+ * instance has no route type information. Only the chained expression in
+ * `createTypedApiRoutes` carries type data.
  */
-export type AppType = typeof app;
+export type AppType = ReturnType<typeof createTypedApiRoutes>;
 export type { AppOptions };
 export { app, createApp };
