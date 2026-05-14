@@ -18,7 +18,7 @@ concurrency:
 # ~/.config/hyperidle/verify-secret on the developer's machine.
 jobs:
   verify:
-    name: check attestation
+    name: bun run verify
     runs-on: ubuntu-latest
     timeout-minutes: 2
     steps:
