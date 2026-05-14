@@ -138,12 +138,10 @@ describe("useBet", () => {
 			firstResolve = res;
 		});
 
-		getBetSpy
-			.mockReturnValueOnce(firstFetch)
-			.mockResolvedValueOnce({
-				ok: true,
-				json: () => Promise.resolve({ ...MOCK_BET, id: "b2" }),
-			});
+		getBetSpy.mockReturnValueOnce(firstFetch).mockResolvedValueOnce({
+			ok: true,
+			json: () => Promise.resolve({ ...MOCK_BET, id: "b2" }),
+		});
 
 		const { result, rerender } = renderHook(({ id }) => useBet(id), {
 			initialProps: { id: "b1" as string | undefined },

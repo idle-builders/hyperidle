@@ -461,6 +461,40 @@ export function disposeApp(hono: Hono): void {
 }
 
 /**
+ * Options for `createTypedApiRoutes` — the additional dependencies needed
+ * beyond `db` and `eventBus` by the three route groups that have extra wiring.
+ *
+ * @lore api-typesafety N-C1: These deps are required to include
+ * /notifications, /observability, and /auth in the typed route chain so
+ * AppType covers all 17 route groups. The function is never called at runtime;
+ * the parameters exist only so TypeScript can infer the full return type.
+ */
+interface TypedApiRoutesDeps {
+	/**
+	 * Notification adapter factory — passed to createNotificationRoutes
+	 * as `{ adapterFactory }`. In production this is
+	 * `defaultNotificationAdapterFactory`; tests inject a FakeAdapter.
+	 */
+	adapterFactory: (cfg: NotificationConfig) => NotificationAdapter;
+	/**
+	 * Returns the currently active ObservabilityDispatcher (or null when
+	 * the dispatcher is disabled). Passed to createObservabilityRoutes as
+	 * `getDispatcher`.
+	 */
+	getDispatcher: () => ObservabilityDispatcher | null;
+	/**
+	 * Optional callback invoked after a successful PATCH /observability/config
+	 * so the dispatcher can be rebuilt in-place. Passed as `onConfigChange`.
+	 */
+	onConfigChange?: (cfg: ObservabilityConfig) => void;
+	/**
+	 * Upgrade-token store for /auth/ws-token minting. May be null when
+	 * WebSocket support is not wired (tests and deployments without WS).
+	 */
+	tokenStore: UpgradeTokenStore | null;
+}
+
+/**
  * Create the typed API route chain for AppType inference.
  *
  * This function returns a chained Hono expression that encodes the full route
@@ -473,16 +507,16 @@ export function disposeApp(hono: Hono): void {
  * chained `.route()` expression on a single Hono instance propagates types.
  *
  * The function is never called at runtime — it exists only so TypeScript can
- * infer `ReturnType<typeof createTypedApiRoutes>`. The `db` and `eventBus`
- * parameters are required because the route factories need them; TypeScript
- * must see real call sites to infer the return type.
+ * infer `ReturnType<typeof createTypedApiRoutes>`. The `db`, `eventBus`, and
+ * `deps` parameters are required because the route factories need them;
+ * TypeScript must see real call sites to infer the return type.
  *
  * IMPORTANT: AppType has BasePath "/" — routes are typed as "/bets/:id",
  * not "/api/bets/:id". The "/api" prefix is added by the outer `app.route("/api", api)`.
  * The `hc` client MUST include "/api" in its base URL to produce correct request URLs.
  * See packages/web/src/api/client.ts.
  */
-function createTypedApiRoutes(db: HyperIdleDb, eventBus: EventBus) {
+function createTypedApiRoutes(db: HyperIdleDb, eventBus: EventBus, deps: TypedApiRoutesDeps) {
 	return new Hono<HyperIdleEnv>()
 		.route("/products", createProductRoutes(db, eventBus))
 		.route("/bets", createBetRoutes(db, eventBus))
@@ -497,7 +531,16 @@ function createTypedApiRoutes(db: HyperIdleDb, eventBus: EventBus) {
 		.route("/routines", createRoutineRoutes(db, eventBus))
 		.route("/sessions", createSessionRoutes(db, eventBus))
 		.route("/status", createStatusRoutes(db))
-		.route("/git-export", createGitExportRoutes(db));
+		.route("/git-export", createGitExportRoutes(db))
+		.route("/notifications", createNotificationRoutes(db, { adapterFactory: deps.adapterFactory }))
+		.route(
+			"/observability",
+			createObservabilityRoutes(db, {
+				getDispatcher: deps.getDispatcher,
+				onConfigChange: deps.onConfigChange,
+			}),
+		)
+		.route("/auth", createAuthRoutes(db, deps.tokenStore));
 }
 
 /**
