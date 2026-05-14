@@ -236,7 +236,12 @@ async function main(): Promise<void> {
 	}
 	const totalDurationMs = Date.now() - startedAt;
 	const summary = buildSummary(results, totalDurationMs);
-	if (!flags.raw) printSummary(summary);
+	if (!flags.raw) {
+		printSummary(summary);
+	} else if (summary.failed > 0) {
+		const names = summary.failures.map((f) => `${f.name} (exit ${f.exitCode})`).join(", ");
+		process.stderr.write(`\nverify: ${summary.failed} tool(s) failed: ${names}\n`);
+	}
 	process.exit(summary.failed);
 }
 
