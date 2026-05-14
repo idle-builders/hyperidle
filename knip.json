@@ -1,0 +1,69 @@
+{
+	"$schema": "https://unpkg.com/knip@6/schema.json",
+	"ignore": [
+		"**/.worktrees/**",
+		"**/.claude/**",
+		"packages/db/src/migrations/**",
+		"packages/db/drizzle-pg/**",
+		"packages/design-system/html/**",
+		"packages/eslint-plugin-design/test-fixtures/**",
+		"packages/design-system/scripts/feedback-overlay.js"
+	],
+	"ignoreExportsUsedInFile": true,
+	"exclude": ["duplicates"],
+	"workspaces": {
+		".": {
+			"entry": ["scripts/*.ts"],
+			"ignoreBinaries": ["bin/pipeline"]
+		},
+		"packages/shared": {},
+		"packages/db": {
+			"entry": [
+				"src/setup-cli.ts",
+				"src/seed-pg-cli.ts",
+				"src/pg-test-runner.ts",
+				"drizzle.config.pg.ts"
+			],
+			"ignore": ["src/migrations/**", "drizzle-pg/**"]
+		},
+		"packages/fabric": {},
+		"packages/api-contract": {},
+		"packages/server": {
+			"ignoreDependencies": ["ws", "@types/ws"]
+		},
+		"packages/design-system": {
+			"entry": [
+				"src/**/*.stories.tsx",
+				"scripts/*.ts",
+				"viewer/discovery.ts",
+				"viewer/tailwind.config.ts",
+				"viewer/postcss.config.js"
+			],
+			"ignoreDependencies": ["autoprefixer", "postcss"],
+			"playwright": {
+				"config": [
+					"playwright.config.ts",
+					"playwright.l1.config.ts",
+					"playwright.workbench.config.ts"
+				]
+			}
+		},
+		"packages/web": {
+			"entry": ["src/**/*.stories.tsx", "scripts/*.ts"],
+			"playwright": {
+				"config": ["playwright.config.ts"]
+			}
+		},
+		"packages/pipeline": {
+			"ignoreBinaries": ["src/index.ts"]
+		},
+		"packages/desktop": {
+			"entry": ["src/preload.ts"],
+			"ignoreBinaries": ["electron"]
+		},
+		"packages/eslint-plugin-design": {},
+		"scripts": {
+			"entry": ["*.ts", "__tests__/**/*.test.ts"]
+		}
+	}
+}

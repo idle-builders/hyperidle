@@ -224,11 +224,6 @@ function readRepoAllowRoots(db: HyperIdleDb): readonly string[] {
 		.filter((s) => s.startsWith("/"));
 }
 
-/** Expose the raw key map so routes/tests can seed safely without hard-coding strings. */
-export function getGitExportKeys(): typeof KEYS {
-	return KEYS;
-}
-
 /**
  * Validate a candidate `repoPath` for safe filesystem usage.
  *

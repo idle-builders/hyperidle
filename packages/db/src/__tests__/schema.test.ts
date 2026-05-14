@@ -6,7 +6,6 @@ import {
 	agents,
 	bets,
 	factorySettings,
-	fileLeases,
 	items,
 	knowledgeEditLog,
 	knowledgeItems,
@@ -591,34 +590,6 @@ describe("A2: Database Schema", () => {
 				id: "kel-1",
 				itemId: "ki-1",
 				field: "title",
-			});
-		});
-
-		it("inserts and reads file_leases", () => {
-			const now = new Date().toISOString();
-			db.insert(agents)
-				.values({
-					id: "agent-1",
-					name: "A",
-					role: "builder",
-					status: "active",
-					maxConcurrentSessions: 1,
-					createdAt: now,
-				})
-				.run();
-			db.insert(fileLeases)
-				.values({
-					id: "fl-1",
-					agentId: "agent-1",
-					filePath: "/workspace/src/index.ts",
-					acquiredAt: now,
-				})
-				.run();
-
-			const result = db.select().from(fileLeases).where(eq(fileLeases.id, "fl-1")).get();
-			expect(result).toMatchObject({
-				id: "fl-1",
-				filePath: "/workspace/src/index.ts",
 			});
 		});
 

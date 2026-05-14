@@ -74,11 +74,6 @@ export const RAW_TAILWIND_PALETTE = [
 ] as const;
 
 /**
- * AI-aesthetic gradient palette per AESTHETICS.md § AI-Aesthetic — tell #2.
- */
-export const GRADIENT_AI_PALETTE = ["indigo", "purple", "violet", "fuchsia", "pink"] as const;
-
-/**
  * Files that are exempt from the "no heavy shadow on cards" rule.
  * Source: AESTHETICS.md § AI-Aesthetic tell #10 — "outside files matching
  * `/Modal|Dialog|Popover|Tooltip/`".

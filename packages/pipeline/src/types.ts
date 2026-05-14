@@ -40,9 +40,3 @@ export interface PipelineOptions {
 	interactive: boolean;
 	cwd: string;
 }
-
-export interface AgentStatus {
-	storyId: string;
-	step: string;
-	elapsed: number;
-}

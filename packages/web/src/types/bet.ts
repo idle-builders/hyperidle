@@ -17,18 +17,6 @@ import type {
 	WireMoney,
 } from "@hyperidle/shared";
 
-/**
- * @deprecated L18: BetComment is replaced by the L1 Thread primitive.
- * `HostThreadSection hostKind="bet"` renders the real thread.
- * This type is kept temporarily to avoid breaking any callers that have
- * not been updated yet; delete after the next cleanup pass.
- */
-export interface BetComment {
-	id: string;
-	author: string;
-	body: string;
-}
-
 export interface BetDetail {
 	id: string;
 	title: string;

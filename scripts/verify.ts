@@ -46,6 +46,7 @@ const TOOLS: Tool[] = [
 	{ name: "check", cmd: "tsc", args: ["--noEmit", "-p", "tsconfig.json"] },
 	{ name: "lint:biome", cmd: "bun", args: ["run", "lint:biome"] },
 	{ name: "lint:eslint", cmd: "bunx", args: ["--bun", "eslint", ".", "--quiet"] },
+	{ name: "knip", cmd: "bunx", args: ["--bun", "knip"] },
 	// M1 — inventory drift check. Fails if inventory.json is stale.
 	// Excluded from --quick (QUICK_TOOLS set). Architecture ref: M1 § Decision 6.
 	{
@@ -210,7 +211,7 @@ function printSummary(summary: VerifySummary): void {
 
 async function main(): Promise<void> {
 	const flags = parseFlags(process.argv.slice(2));
-	const QUICK_TOOLS = new Set(["check", "lint:biome", "lint:eslint"]);
+	const QUICK_TOOLS = new Set(["check", "lint:biome", "lint:eslint", "knip"]);
 	let tools: Tool[];
 	if (flags.only) {
 		tools = TOOLS.filter((t) => flags.only?.has(t.name));
