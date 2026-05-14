@@ -450,5 +450,14 @@ export function disposeApp(hono: Hono): void {
 	APP_DISPOSERS.delete(hono);
 }
 
+/**
+ * AppType: the typed surface of the API routes, used with Hono's `hc` client.
+ *
+ * @lore api-typesafety: `AppType` is derived from `typeof app` where `app`
+ * is the root Hono instance. The web package imports this type to construct
+ * a type-safe client via `hc<AppType>(baseUrl)`. Because this is a `type`
+ * export (not a value), it has zero runtime cost.
+ */
+export type AppType = typeof app;
 export type { AppOptions };
 export { app, createApp };

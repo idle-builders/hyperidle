@@ -2,10 +2,12 @@
 //   - React Compiler (no Biome equivalent)
 //   - React hooks exhaustive-deps (Biome's version is partial)
 //   - Drizzle ORM safety (no Biome equivalent)
+//   - TypeScript type-safety escape hatches (api-typesafety workpackage)
 //
 // Biome remains primary for everything else (formatting, style, correctness, a11y, security).
 
 import tsParser from "@typescript-eslint/parser";
+import tseslint from "typescript-eslint";
 import design from "eslint-plugin-design";
 import drizzle from "eslint-plugin-drizzle";
 import reactCompiler from "eslint-plugin-react-compiler";
@@ -133,6 +135,41 @@ export default [
 		plugins: { design },
 		rules: {
 			"design/no-density-tokens": "error",
+		},
+	},
+
+	// api-typesafety: TypeScript-ESLint rules that block type-safety bypass
+	// escape hatches in the server and web packages.
+	//
+	// Rules enforced:
+	//   @typescript-eslint/no-explicit-any     — ban `any` type
+	//   @typescript-eslint/no-unsafe-assignment — ban assigning `any`-typed values
+	//   @typescript-eslint/no-unsafe-return     — ban returning `any` from typed fns
+	//   @typescript-eslint/no-unsafe-member-access — ban member access on `any`
+	//
+	// Warn-level so the baseline does not break during the migration window;
+	// will promote to error once the remaining offenders are cleared.
+	{
+		files: ["packages/server/src/**/*.ts", "packages/web/src/**/*.{ts,tsx}"],
+		ignores: [
+			"packages/server/src/**/__tests__/**",
+			"packages/server/src/**/*.test.ts",
+			"packages/server/src/**/*.spec.ts",
+			"packages/web/src/**/__tests__/**",
+			"packages/web/src/**/*.test.{ts,tsx}",
+			"packages/web/src/**/*.spec.{ts,tsx}",
+		],
+		languageOptions: {
+			parser: tsParser,
+		},
+		plugins: {
+			"@typescript-eslint": tseslint.plugin,
+		},
+		rules: {
+			"@typescript-eslint/no-explicit-any": "warn",
+			"@typescript-eslint/no-unsafe-assignment": "warn",
+			"@typescript-eslint/no-unsafe-return": "warn",
+			"@typescript-eslint/no-unsafe-member-access": "warn",
 		},
 	},
 
