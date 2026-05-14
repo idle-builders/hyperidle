@@ -1,10 +1,7 @@
 {
 	"$schema": "https://unpkg.com/knip@6/schema.json",
 	"ignore": [
-		"**/.worktrees/**",
 		"**/.claude/**",
-		"packages/db/src/migrations/**",
-		"packages/db/drizzle-pg/**",
 		"packages/design-system/html/**",
 		"packages/eslint-plugin-design/test-fixtures/**",
 		"packages/design-system/scripts/feedback-overlay.js"
@@ -23,8 +20,7 @@
 				"src/seed-pg-cli.ts",
 				"src/pg-test-runner.ts",
 				"drizzle.config.pg.ts"
-			],
-			"ignore": ["src/migrations/**", "drizzle-pg/**"]
+			]
 		},
 		"packages/fabric": {},
 		"packages/api-contract": {},

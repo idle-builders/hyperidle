@@ -43,29 +43,30 @@ const RAW_TAIL_LINES = 60;
 const TEST_OUTPUT_FILE = "test-output.toon";
 
 const TOOLS: Tool[] = [
-	{ name: "check", cmd: "tsc", args: ["--noEmit", "-p", "tsconfig.json"] },
-	{ name: "lint:biome", cmd: "bun", args: ["run", "lint:biome"] },
-	{ name: "lint:eslint", cmd: "bunx", args: ["--bun", "eslint", ".", "--quiet"] },
-	{ name: "knip", cmd: "bunx", args: ["--bun", "knip"] },
-	// M1 — inventory drift check. Fails if inventory.json is stale.
-	// Excluded from --quick (QUICK_TOOLS set). Architecture ref: M1 § Decision 6.
+	{ name: "check", cmd: "tsc", args: ["--noEmit", "-p", "tsconfig.json"], timeoutMs: 60_000 },
+	{ name: "lint:biome", cmd: "bun", args: ["run", "lint:biome"], timeoutMs: 60_000 },
+	{ name: "lint:eslint", cmd: "bunx", args: ["--bun", "eslint", ".", "--quiet"], timeoutMs: 60_000 },
+	{ name: "knip", cmd: "bunx", args: ["--bun", "knip"], timeoutMs: 60_000 },
 	{
 		name: "mock-inventory",
 		cmd: "bun",
 		args: ["run", "scripts/mock-inventory.ts", "--check"],
+		timeoutMs: 30_000,
 	},
 	{
 		name: "test",
 		cmd: "bun",
 		args: ["run", "test:raw"],
 		env: { VITEST_TOON_OUTPUT: TEST_OUTPUT_FILE },
+		timeoutMs: 120_000,
 	},
-	{ name: "build", cmd: "bun", args: ["run", "build"] },
+	{ name: "build", cmd: "bun", args: ["run", "build"], timeoutMs: 60_000 },
 	{
 		name: "e2e",
 		cmd: "bunx",
 		args: ["--bun", "playwright", "test", "--reporter=list"],
 		cwd: "packages/web",
+		timeoutMs: 300_000,
 	},
 ];
 
@@ -101,23 +102,40 @@ function runTool(tool: Tool, raw: boolean): Promise<ToolResult> {
 			stdio: raw ? "inherit" : ["ignore", "pipe", "pipe"],
 		});
 
+		let timedOut = false;
+		let timer: ReturnType<typeof setTimeout> | undefined;
+		if (tool.timeoutMs) {
+			timer = setTimeout(() => {
+				timedOut = true;
+				child.kill("SIGTERM");
+				setTimeout(() => {
+					if (!child.killed) child.kill("SIGKILL");
+				}, 5_000);
+			}, tool.timeoutMs);
+		}
+
 		if (!raw && child.stdout && child.stderr) {
 			child.stdout.on("data", (chunk: Buffer) => stdoutChunks.push(chunk.toString("utf-8")));
 			child.stderr.on("data", (chunk: Buffer) => stderrChunks.push(chunk.toString("utf-8")));
 		}
 
 		child.on("close", (code) => {
+			if (timer) clearTimeout(timer);
 			const stdout = stdoutChunks.join("");
 			const stderr = stderrChunks.join("");
+			const timeoutMsg = timedOut
+				? `\n[verify] ${tool.name} killed after ${Math.round((tool.timeoutMs ?? 0) / 1000)}s timeout\n`
+				: "";
 			resolvePromise({
 				name: tool.name,
-				ok: code === 0,
+				ok: !timedOut && code === 0,
 				exitCode: code ?? -1,
 				durationMs: Date.now() - startedAt,
 				stdoutBytes: Buffer.byteLength(stdout, "utf-8"),
 				stderrBytes: Buffer.byteLength(stderr, "utf-8"),
-				stdoutTail: tail(stdout, RAW_TAIL_LINES),
-				stderrTail: tail(stderr, RAW_TAIL_LINES),
+				stdoutTail: tail(stdout, RAW_TAIL_LINES) + timeoutMsg,
+				stderrTail: tail(stderr, RAW_TAIL_LINES) + timeoutMsg,
+				timedOut,
 			});
 		});
 	});
@@ -231,7 +249,9 @@ async function main(): Promise<void> {
 	// their own internal parallelism.
 	const results: ToolResult[] = [];
 	for (const tool of tools) {
+		if (flags.raw) process.stderr.write(`\n[verify] ▶ ${tool.name}\n`);
 		const result = await runTool(tool, flags.raw);
+		if (flags.raw) process.stderr.write(`[verify] ${result.ok ? "✓" : "✗"} ${tool.name} exit=${result.exitCode} (${result.durationMs}ms)\n`);
 		results.push(result);
 	}
 	const totalDurationMs = Date.now() - startedAt;
