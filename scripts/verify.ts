@@ -15,9 +15,11 @@
 //
 // Exit code is the count of failing tools (0 = all green).
 
-import { spawn } from "node:child_process";
-import { existsSync, readFileSync } from "node:fs";
-import { resolve } from "node:path";
+import { spawn, execSync } from "node:child_process";
+import { createHmac, randomBytes } from "node:crypto";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { homedir } from "node:os";
+import { join, resolve } from "node:path";
 import { encode } from "../packages/shared/src/toon-codec.js";
 
 interface Tool {
@@ -229,6 +231,60 @@ function printSummary(summary: VerifySummary): void {
 	}
 }
 
+const ATTESTATION_FILE = ".verify-attestation.json";
+const SECRET_DIR = join(homedir(), ".config", "hyperidle");
+const SECRET_PATH = join(SECRET_DIR, "verify-secret");
+
+const ALL_TOOL_NAMES = TOOLS.map((t) => t.name);
+
+function getOrCreateSecret(): string | null {
+	if (existsSync(SECRET_PATH)) {
+		return readFileSync(SECRET_PATH, "utf-8").trim();
+	}
+	mkdirSync(SECRET_DIR, { recursive: true });
+	const secret = randomBytes(32).toString("hex");
+	writeFileSync(SECRET_PATH, secret + "\n", { mode: 0o600 });
+	process.stderr.write(`verify: created signing key at ${SECRET_PATH}\n`);
+	process.stderr.write(
+		"verify: add it to GitHub → gh secret set VERIFY_SECRET < " + SECRET_PATH + "\n",
+	);
+	return secret;
+}
+
+function writeAttestation(summary: VerifySummary, toolNames: string[]): void {
+	if (summary.status !== "passed") return;
+
+	const secret = getOrCreateSecret();
+	if (!secret) return;
+
+	const sha = execSync("git rev-parse HEAD", { encoding: "utf-8" }).trim();
+	const dirty =
+		execSync("git status --porcelain", { encoding: "utf-8" }).trim().length > 0;
+
+	const payload = {
+		sha,
+		status: "passed" as const,
+		dirty,
+		tools: toolNames,
+		allTools: ALL_TOOL_NAMES,
+		partial: toolNames.length < ALL_TOOL_NAMES.length,
+		timestamp: new Date().toISOString(),
+	};
+
+	const hmac = createHmac("sha256", secret)
+		.update(JSON.stringify(payload))
+		.digest("hex");
+
+	writeFileSync(
+		resolve(process.cwd(), ATTESTATION_FILE),
+		JSON.stringify({ ...payload, hmac }, null, "\t") + "\n",
+	);
+	process.stderr.write(`verify: attestation written → ${ATTESTATION_FILE}\n`);
+	if (dirty) {
+		process.stderr.write("verify: WARNING — working tree is dirty, commit first for CI\n");
+	}
+}
+
 async function main(): Promise<void> {
 	const flags = parseFlags(process.argv.slice(2));
 	const QUICK_TOOLS = new Set(["check", "lint:biome", "lint:eslint", "knip"]);
@@ -262,6 +318,10 @@ async function main(): Promise<void> {
 		const names = summary.failures.map((f) => `${f.name} (exit ${f.exitCode})`).join(", ");
 		process.stderr.write(`\nverify: ${summary.failed} tool(s) failed: ${names}\n`);
 	}
+	writeAttestation(
+		summary,
+		tools.map((t) => t.name),
+	);
 	process.exit(summary.failed);
 }
 
