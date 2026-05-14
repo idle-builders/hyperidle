@@ -20,6 +20,7 @@ jobs:
   verify:
     name: bun run verify
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v6
 
