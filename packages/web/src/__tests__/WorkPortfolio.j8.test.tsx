@@ -25,7 +25,7 @@ describe("WorkPortfolio — J8 states", () => {
 		renderPage({ products: [] });
 		expect(screen.getByTestId("portfolio-empty")).toBeInTheDocument();
 		expect(screen.getByText(/no products in the portfolio/i)).toBeInTheDocument();
-		expect(screen.getByText(/add a product from settings/i)).toBeInTheDocument();
+		expect(screen.getByText(/create your first product/i)).toBeInTheDocument();
 		expect(screen.queryByTestId("product-card")).not.toBeInTheDocument();
 	});
 
