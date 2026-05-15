@@ -3,24 +3,17 @@
  *
  * The existing useBet tests (useBet.test.ts) are protected — not changed here.
  * These tests are ADDITIVE: they assert the new `refresh()` return value.
- *
- * @lore api-typesafety S4: Migrated from mocking apiFetch to mocking apiClient
- * (same pattern as useBet.test.ts). The hook now uses the typed hono/client.
  */
 
 import { renderHook, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { BetDetail } from "../../types/bet";
 
-// Mock the typed API client so tests focus on refresh() behaviour, not transport.
-vi.mock("../../api/client.js", () => ({
-	apiClient: {
-		bets: {
-			":id": {
-				$get: vi.fn(),
-			},
-		},
-	},
+// Mock apiFetch so tests are not sensitive to fetch() call argument count.
+// Header injection is covered by api-fetch.test.ts; these tests focus on
+// refresh() behaviour.
+vi.mock("../../services/api-fetch.js", () => ({
+	apiFetch: vi.fn(),
 }));
 
 import { useBet } from "../useBet";
@@ -31,12 +24,9 @@ const MOCK_BET: BetDetail = {
 	product: "Alpha",
 	team: "t1",
 	status: "in_progress",
+	appetite: "2 weeks",
 	progress: { done: 1, total: 3 },
 	pitch: "# Problem\n\nAuth is broken.\n",
-	costAppetite: null,
-	tokenAppetite: null,
-	costActual: null,
-	tokensActual: null,
 	tasks: [],
 };
 
@@ -46,14 +36,12 @@ const UPDATED_BET: BetDetail = {
 };
 
 describe("L14 — useBet refresh", () => {
-	let getBetSpy: ReturnType<typeof vi.fn>;
+	let fetchSpy: ReturnType<typeof vi.fn>;
 
 	beforeEach(async () => {
-		const { apiClient } = await import("../../api/client.js");
-		getBetSpy = vi.mocked(
-			(apiClient as { bets: { ":id": { $get: ReturnType<typeof vi.fn> } } }).bets[":id"].$get,
-		);
-		getBetSpy.mockReset();
+		const { apiFetch } = await import("../../services/api-fetch.js");
+		fetchSpy = vi.mocked(apiFetch);
+		fetchSpy.mockReset();
 	});
 
 	afterEach(() => {
@@ -61,10 +49,7 @@ describe("L14 — useBet refresh", () => {
 	});
 
 	it("UseBetResult includes a refresh function", async () => {
-		getBetSpy.mockResolvedValue({
-			ok: true,
-			json: () => Promise.resolve(MOCK_BET),
-		});
+		fetchSpy.mockResolvedValue(new Response(JSON.stringify(MOCK_BET), { status: 200 }));
 		const { result } = renderHook(() => useBet("b1"));
 
 		await waitFor(() => expect(result.current.loading).toBe(false));
@@ -73,15 +58,9 @@ describe("L14 — useBet refresh", () => {
 	});
 
 	it("calling refresh() triggers a new fetch", async () => {
-		getBetSpy
-			.mockResolvedValueOnce({
-				ok: true,
-				json: () => Promise.resolve(MOCK_BET),
-			})
-			.mockResolvedValueOnce({
-				ok: true,
-				json: () => Promise.resolve(UPDATED_BET),
-			});
+		fetchSpy
+			.mockResolvedValueOnce(new Response(JSON.stringify(MOCK_BET), { status: 200 }))
+			.mockResolvedValueOnce(new Response(JSON.stringify(UPDATED_BET), { status: 200 }));
 
 		const { result } = renderHook(() => useBet("b1"));
 
@@ -92,21 +71,18 @@ describe("L14 — useBet refresh", () => {
 		result.current.refresh();
 
 		await waitFor(() => expect(result.current.data?.status).toBe("paused"));
-		expect(getBetSpy).toHaveBeenCalledTimes(2);
+		expect(fetchSpy).toHaveBeenCalledTimes(2);
 	});
 
-	it("refresh fetches with the same bet id", async () => {
-		getBetSpy.mockResolvedValue({
-			ok: true,
-			json: () => Promise.resolve(MOCK_BET),
-		});
+	it("refresh fetches from the same URL", async () => {
+		fetchSpy.mockResolvedValue(new Response(JSON.stringify(MOCK_BET), { status: 200 }));
 
 		const { result } = renderHook(() => useBet("b1"));
 		await waitFor(() => expect(result.current.loading).toBe(false));
 
 		result.current.refresh();
 
-		await waitFor(() => expect(getBetSpy).toHaveBeenCalledTimes(2));
-		expect(getBetSpy).toHaveBeenNthCalledWith(2, { param: { id: "b1" } });
+		await waitFor(() => expect(fetchSpy).toHaveBeenCalledTimes(2));
+		expect(fetchSpy).toHaveBeenNthCalledWith(2, "/api/bets/b1");
 	});
 });

@@ -15,7 +15,6 @@ import { and, eq, inArray, sql } from "drizzle-orm";
 import { Hono } from "hono";
 import z from "zod";
 import type { HyperIdleEnv } from "../middleware/auth.js";
-import { registerResponseSchema } from "../middleware/response-validator.js";
 import { validateBody } from "../middleware/validate.js";
 import { transitionBet, updateBetField } from "../services/bet-state-machine.js";
 
@@ -28,10 +27,6 @@ const SUMMARY_CAP = 10;
  */
 const wiremoneySchema = z.object({
 	minor: z.number().int().min(0),
-	// @lore api-typesafety: CURRENCY_CODES is a readonly string[] from @hyperidle/shared.
-	// Zod v4 requires a [string, ...string[]] tuple for z.enum(). The `as unknown as`
-	// cast is the idiomatic escape hatch — CURRENCY_CODES is guaranteed non-empty at
-	// compile time (it's a non-empty const array), so this is safe.
 	currency: z.enum(CURRENCY_CODES as unknown as [string, ...string[]]),
 });
 
@@ -134,546 +129,491 @@ function deriveTitleFromPitch(pitch: string, betId: string): string {
 	return betId;
 }
 
-// Register response schemas at module load time so the response validator
-// middleware can validate 2xx JSON responses for these endpoints.
-// @lore api-typesafety S2: Paths are relative to the api router (which mounts
-// bets at /bets), so routePath(c) returns "/bets" and "/bets/:id" when the
-// middleware runs on the api router. These keys must match exactly.
-//
-// @lore api-typesafety S2 (schemas): We define lightweight inline schemas here
-// rather than importing from ../schemas/bet.schema.ts. The full composite
-// schemas (betListResponseSchema, betDetailResponseSchema) in bet.schema.ts
-// depend on selectBetSchema from @hyperidle/db — a worktree-only export that
-// breaks the node-server integration test (which resolves @hyperidle/db from
-// the monorepo root where the export doesn't exist yet). The inline schemas
-// validate the structural shape (status-bucketed list, enriched detail object)
-// without the cross-package dependency. See bet.schema.ts for the authoritative
-// type-level definitions used by AppType.
-const betListResponseInlineSchema = z.object({
-	shaped: z.array(z.record(z.unknown())),
-	committed: z.array(z.record(z.unknown())),
-	in_progress: z.array(z.record(z.unknown())),
-	shipped: z.array(z.record(z.unknown())),
-	killed: z.array(z.record(z.unknown())),
-});
-const betDetailResponseInlineSchema = z.object({
-	id: z.string(),
-	title: z.string(),
-	product: z.string(),
-	team: z.string(),
-	status: z.string(),
-	progress: z.object({ done: z.number(), total: z.number() }),
-	pitch: z.string(),
-	tasks: z.array(z.record(z.unknown())),
-});
-registerResponseSchema("GET", "/bets", betListResponseInlineSchema);
-registerResponseSchema("GET", "/bets/:id", betDetailResponseInlineSchema);
-
 /**
  * Create Hono routes for bet endpoints.
  * Requires db and eventBus to be set in context via middleware.
- *
- * @lore api-typesafety S1: Returns a chained expression (not a `router` variable)
- * so TypeScript infers the full route type tree. The explicit `: Hono<HyperIdleEnv>`
- * return type annotation is intentionally omitted — adding it would erase the
- * inferred route types and break AppType inference.
  */
-export function createBetRoutes(db: HyperIdleDb, eventBus: EventBus) {
+export function createBetRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<HyperIdleEnv> {
+	const router = new Hono<HyperIdleEnv>();
+
 	// GET /bets — list all bets grouped by status, with pagination
-	return (
-		new Hono<HyperIdleEnv>()
-			.get("/", (c) => {
-				const limit = Math.min(Number.parseInt(c.req.query("limit") ?? "50", 10) || 50, 200);
-				const offset = Number.parseInt(c.req.query("offset") ?? "0", 10) || 0;
+	router.get("/", (c) => {
+		const limit = Math.min(Number.parseInt(c.req.query("limit") ?? "50", 10) || 50, 200);
+		const offset = Number.parseInt(c.req.query("offset") ?? "0", 10) || 0;
 
-				const allBets = db.select().from(bets).limit(limit).offset(offset).all();
+		const allBets = db.select().from(bets).limit(limit).offset(offset).all();
 
-				const grouped = {
-					shaped: allBets.filter((b) => b.status === "shaped"),
-					committed: allBets.filter((b) => b.status === "committed"),
-					in_progress: allBets.filter((b) => b.status === "in_progress"),
-					shipped: allBets.filter((b) => b.status === "shipped"),
-					killed: allBets.filter((b) => b.status === "killed"),
-				};
+		const grouped = {
+			shaped: allBets.filter((b) => b.status === "shaped"),
+			committed: allBets.filter((b) => b.status === "committed"),
+			in_progress: allBets.filter((b) => b.status === "in_progress"),
+			shipped: allBets.filter((b) => b.status === "shipped"),
+			killed: allBets.filter((b) => b.status === "killed"),
+		};
 
-				return c.json(grouped);
+		return c.json(grouped);
+	});
+
+	// GET /bets/canvas — canvas data: shaped, committed, capacity info
+	router.get("/canvas", (c) => {
+		const allBets = db.select().from(bets).all();
+		const allTeams = db.select().from(teams).all();
+
+		const totalCapacity = allTeams.reduce((sum, t) => sum + t.capacity, 0);
+		const totalUsed = allTeams.reduce((sum, t) => sum + t.activeBets, 0);
+
+		const canvas = {
+			shaped: allBets.filter((b) => b.status === "shaped"),
+			committed: allBets.filter((b) => b.status === "committed"),
+			capacity: {
+				used: totalUsed,
+				max: totalCapacity,
+			},
+		};
+
+		return c.json(canvas);
+	});
+
+	// GET /bets/:id — bet detail with tasks, enriched with title/product/team/progress.
+	//
+	// @lore L14: The `bets` table has no title, product, or team columns. These
+	// fields are derived server-side:
+	//   - title: first non-empty line of pitch, stripping the "# " prefix.
+	//            Falls back to bet.id if no heading is found.
+	//   - product: joined from products.name via bets.productId.
+	//   - team: teams.id (display identifier; name column not yet on teams table).
+	//   - progress: { done, total } computed from the tasks already fetched.
+	// Keeping enrichment in the API layer preserves the three-layer boundary
+	// (client stays thin) and avoids a second API call from the browser.
+	router.get("/:id", (c) => {
+		const betId = c.req.param("id");
+		const bet = db.select().from(bets).where(eq(bets.id, betId)).get();
+
+		if (!bet) {
+			return c.json({ error: "Bet not found", code: "NOT_FOUND" }, 404);
+		}
+
+		// L19: Enrich task rows with latest session metadata via correlated subqueries.
+		// The sessions_task_id_idx index covers the task_id lookups efficiently.
+		// @lore L19: Five correlated subqueries rather than a single JSON subquery —
+		// explicit columns are easier to read and the volume is bounded (< 50 tasks/bet,
+		// < 20 sessions/task).
+		//
+		// @lore L19: ${tasks.id} inside a nested sql`` template renders as unqualified
+		// `"id"` (no table prefix), causing SQLite to resolve it against the inner
+		// sessions table. We use sql.identifier to emit `"tasks"."id"` explicitly.
+		// See bets.session-enrichment.test.ts for the proof.
+		const outerTaskId = sql`${sql.identifier("tasks")}.${sql.identifier("id")}`;
+		const betTasks = db
+			.select({
+				id: tasks.id,
+				betId: tasks.betId,
+				productId: tasks.productId,
+				teamId: tasks.teamId,
+				ownerAgentId: tasks.ownerAgentId,
+				title: tasks.title,
+				description: tasks.description,
+				doneCondition: tasks.doneCondition,
+				state: tasks.state,
+				dependencies: tasks.dependencies,
+				artifacts: tasks.artifacts,
+				costCap: tasks.costCap,
+				costActual: tasks.costActual,
+				durability: tasks.durability,
+				riskTier: tasks.riskTier,
+				attentionScore: tasks.attentionScore,
+				crossTeam: tasks.crossTeam,
+				threadId: tasks.threadId,
+				notes: tasks.notes,
+				auditTrail: tasks.auditTrail,
+				createdAt: tasks.createdAt,
+				updatedAt: tasks.updatedAt,
+				latestSessionOutcome: sql<
+					string | null
+				>`(SELECT ${sessions.outcome} FROM ${sessions} WHERE ${sessions.taskId} = ${outerTaskId} ORDER BY ${sessions.startedAt} DESC LIMIT 1)`.as(
+					"latest_session_outcome",
+				),
+				latestSessionCost: sql<
+					number | null
+				>`(SELECT ${sessions.cost} FROM ${sessions} WHERE ${sessions.taskId} = ${outerTaskId} ORDER BY ${sessions.startedAt} DESC LIMIT 1)`.as(
+					"latest_session_cost",
+				),
+				latestSessionTokensInput: sql<
+					number | null
+				>`(SELECT ${sessions.tokensInput} FROM ${sessions} WHERE ${sessions.taskId} = ${outerTaskId} ORDER BY ${sessions.startedAt} DESC LIMIT 1)`.as(
+					"latest_session_tokens_input",
+				),
+				latestSessionTokensOutput: sql<
+					number | null
+				>`(SELECT ${sessions.tokensOutput} FROM ${sessions} WHERE ${sessions.taskId} = ${outerTaskId} ORDER BY ${sessions.startedAt} DESC LIMIT 1)`.as(
+					"latest_session_tokens_output",
+				),
+				latestSessionHarnessUrl: sql<
+					string | null
+				>`(SELECT ${sessions.harnessUrl} FROM ${sessions} WHERE ${sessions.taskId} = ${outerTaskId} ORDER BY ${sessions.startedAt} DESC LIMIT 1)`.as(
+					"latest_session_harness_url",
+				),
 			})
+			.from(tasks)
+			.where(eq(tasks.betId, betId))
+			.all();
 
-			// GET /bets/canvas — canvas data: shaped, committed, capacity info
-			.get("/canvas", (c) => {
-				const allBets = db.select().from(bets).all();
-				const allTeams = db.select().from(teams).all();
+		const title = deriveTitleFromPitch(bet.pitch, bet.id);
 
-				const totalCapacity = allTeams.reduce((sum, t) => sum + t.capacity, 0);
-				const totalUsed = allTeams.reduce((sum, t) => sum + t.activeBets, 0);
+		const productRow = db
+			.select({ name: products.name })
+			.from(products)
+			.where(eq(products.id, bet.productId))
+			.get();
+		const product = productRow?.name ?? bet.productId;
 
-				const canvas = {
-					shaped: allBets.filter((b) => b.status === "shaped"),
-					committed: allBets.filter((b) => b.status === "committed"),
-					capacity: {
-						used: totalUsed,
-						max: totalCapacity,
-					},
-				};
+		const team = bet.teamId;
 
-				return c.json(canvas);
+		const done = betTasks.filter((t) => t.state === "done").length;
+		const total = betTasks.length;
+
+		// L17: compute actual cost from sessions for this bet's tasks
+		let costActualMinor: number | null = null;
+		let costActualCurrency: string | null = null;
+
+		if (bet.costActualMinor != null) {
+			costActualMinor = bet.costActualMinor;
+			costActualCurrency = bet.costActualCurrency ?? "USD";
+		}
+
+		let tokensActual: Record<string, unknown> | null = null;
+		if (bet.tokensActualJson) {
+			try {
+				tokensActual = JSON.parse(bet.tokensActualJson) as Record<string, unknown>;
+			} catch {
+				// ignore malformed JSON
+			}
+		}
+
+		const {
+			appetite: _appetite,
+			costAppetiteMinor,
+			costAppetiteCurrency,
+			tokensActualJson: _tJson,
+			...restBet
+		} = bet;
+
+		return c.json({
+			...restBet,
+			title,
+			product,
+			team,
+			progress: { done, total },
+			costAppetite:
+				costAppetiteMinor != null && costAppetiteCurrency != null
+					? { minor: costAppetiteMinor, currency: costAppetiteCurrency }
+					: null,
+			costActual:
+				costActualMinor != null && costActualCurrency != null
+					? { minor: costActualMinor, currency: costActualCurrency }
+					: null,
+			tokensActual,
+			tasks: betTasks.map((t) => ({
+				...t,
+				costActual: t.costActual != null ? { minor: t.costActual, currency: "USD" as const } : null,
+				costCap: t.costCap != null ? { minor: t.costCap, currency: "USD" as const } : null,
+			})),
+		});
+	});
+
+	// POST /bets — create shaped bet
+	router.post("/", validateBody(createBetSchema), (c) => {
+		const body = c.req.valid("json" as never) as z.infer<typeof createBetSchema>;
+		const id = crypto.randomUUID();
+		const now = new Date().toISOString();
+
+		db.insert(bets)
+			.values({
+				id,
+				productId: body.productId,
+				teamId: body.teamId,
+				pitch: body.pitch,
+				doneCondition: body.doneCondition ?? null,
+				hypothesis: body.hypothesis ?? null,
+				status: "shaped",
+				createdAt: now,
+				costAppetiteMinor: body.costAppetite?.minor ?? null,
+				costAppetiteCurrency: body.costAppetite?.currency ?? null,
 			})
+			.run();
 
-			// GET /bets/:id — bet detail with tasks, enriched with title/product/team/progress.
-			//
-			// @lore L14: The `bets` table has no title, product, or team columns. These
-			// fields are derived server-side:
-			//   - title: first non-empty line of pitch, stripping the "# " prefix.
-			//            Falls back to bet.id if no heading is found.
-			//   - product: joined from products.name via bets.productId.
-			//   - team: teams.id (display identifier; name column not yet on teams table).
-			//   - progress: { done, total } computed from the tasks already fetched.
-			// Keeping enrichment in the API layer preserves the three-layer boundary
-			// (client stays thin) and avoids a second API call from the browser.
-			.get("/:id", (c) => {
-				const betId = c.req.param("id");
-				const bet = db.select().from(bets).where(eq(bets.id, betId)).get();
+		const created = db.select().from(bets).where(eq(bets.id, id)).get();
+		if (!created) {
+			return c.json({ error: "Failed to create bet", code: "INTERNAL_ERROR" }, 500);
+		}
 
-				if (!bet) {
-					return c.json({ error: "Bet not found", code: "NOT_FOUND" }, 404);
-				}
+		// Return structured costAppetite in the response
+		return c.json(
+			{
+				...created,
+				costAppetite:
+					created.costAppetiteMinor != null && created.costAppetiteCurrency != null
+						? { minor: created.costAppetiteMinor, currency: created.costAppetiteCurrency }
+						: null,
+			},
+			201,
+		);
+	});
 
-				// L19: Enrich task rows with latest session metadata via correlated subqueries.
-				// The sessions_task_id_idx index covers the task_id lookups efficiently.
-				// @lore L19: Five correlated subqueries rather than a single JSON subquery —
-				// explicit columns are easier to read and the volume is bounded (< 50 tasks/bet,
-				// < 20 sessions/task).
-				//
-				// @lore L19: ${tasks.id} inside a nested sql`` template renders as unqualified
-				// `"id"` (no table prefix), causing SQLite to resolve it against the inner
-				// sessions table. We use sql.identifier to emit `"tasks"."id"` explicitly.
-				// See bets.session-enrichment.test.ts for the proof.
-				const outerTaskId = sql`${sql.identifier("tasks")}.${sql.identifier("id")}`;
-				const betTasks = db
-					.select({
-						id: tasks.id,
-						betId: tasks.betId,
-						productId: tasks.productId,
-						teamId: tasks.teamId,
-						ownerAgentId: tasks.ownerAgentId,
-						title: tasks.title,
-						description: tasks.description,
-						doneCondition: tasks.doneCondition,
-						state: tasks.state,
-						dependencies: tasks.dependencies,
-						artifacts: tasks.artifacts,
-						costCap: tasks.costCap,
-						costActual: tasks.costActual,
-						durability: tasks.durability,
-						riskTier: tasks.riskTier,
-						attentionScore: tasks.attentionScore,
-						crossTeam: tasks.crossTeam,
-						threadId: tasks.threadId,
-						notes: tasks.notes,
-						auditTrail: tasks.auditTrail,
-						createdAt: tasks.createdAt,
-						updatedAt: tasks.updatedAt,
-						latestSessionOutcome: sql<
-							string | null
-						>`(SELECT ${sessions.outcome} FROM ${sessions} WHERE ${sessions.taskId} = ${outerTaskId} ORDER BY ${sessions.startedAt} DESC LIMIT 1)`.as(
-							"latest_session_outcome",
-						),
-						latestSessionCost: sql<
-							number | null
-						>`(SELECT ${sessions.cost} FROM ${sessions} WHERE ${sessions.taskId} = ${outerTaskId} ORDER BY ${sessions.startedAt} DESC LIMIT 1)`.as(
-							"latest_session_cost",
-						),
-						latestSessionTokensInput: sql<
-							number | null
-						>`(SELECT ${sessions.tokensInput} FROM ${sessions} WHERE ${sessions.taskId} = ${outerTaskId} ORDER BY ${sessions.startedAt} DESC LIMIT 1)`.as(
-							"latest_session_tokens_input",
-						),
-						latestSessionTokensOutput: sql<
-							number | null
-						>`(SELECT ${sessions.tokensOutput} FROM ${sessions} WHERE ${sessions.taskId} = ${outerTaskId} ORDER BY ${sessions.startedAt} DESC LIMIT 1)`.as(
-							"latest_session_tokens_output",
-						),
-						latestSessionHarnessUrl: sql<
-							string | null
-						>`(SELECT ${sessions.harnessUrl} FROM ${sessions} WHERE ${sessions.taskId} = ${outerTaskId} ORDER BY ${sessions.startedAt} DESC LIMIT 1)`.as(
-							"latest_session_harness_url",
-						),
-					})
-					.from(tasks)
-					.where(eq(tasks.betId, betId))
-					.all();
+	// PATCH /bets/:id — update mutable fields on active bets.
+	// M3 A5: actor comes from auth context (c.get("userId")), not a hardcoded founder constant.
+	// L17: cost_appetite replaced the old appetite string; handled directly in the route.
+	router.patch("/:id", validateBody(updateBetSchema), async (c) => {
+		const betId = c.req.param("id");
+		const body = c.req.valid("json" as never) as z.infer<typeof updateBetSchema>;
 
-				const title = deriveTitleFromPitch(bet.pitch, bet.id);
-
-				const productRow = db
-					.select({ name: products.name })
-					.from(products)
-					.where(eq(products.id, bet.productId))
-					.get();
-				const product = productRow?.name ?? bet.productId;
-
-				const team = bet.teamId;
-
-				const done = betTasks.filter((t) => t.state === "done").length;
-				const total = betTasks.length;
-
-				// L17: compute actual cost from sessions for this bet's tasks
-				let costActualMinor: number | null = null;
-				let costActualCurrency: string | null = null;
-
-				if (bet.costActualMinor != null) {
-					costActualMinor = bet.costActualMinor;
-					costActualCurrency = bet.costActualCurrency ?? "USD";
-				}
-
-				let tokensActual: Record<string, unknown> | null = null;
-				if (bet.tokensActualJson) {
-					try {
-						tokensActual = JSON.parse(bet.tokensActualJson) as Record<string, unknown>;
-					} catch {
-						// ignore malformed JSON
-					}
-				}
-
-				const {
-					appetite: _appetite,
-					costAppetiteMinor,
-					costAppetiteCurrency,
-					tokensActualJson: _tJson,
-					...restBet
-				} = bet;
-
-				return c.json({
-					...restBet,
-					title,
-					product,
-					team,
-					progress: { done, total },
-					costAppetite:
-						costAppetiteMinor != null && costAppetiteCurrency != null
-							? { minor: costAppetiteMinor, currency: costAppetiteCurrency }
-							: null,
-					costActual:
-						costActualMinor != null && costActualCurrency != null
-							? { minor: costActualMinor, currency: costActualCurrency }
-							: null,
-					tokensActual,
-					tasks: betTasks.map((t) => ({
-						...t,
-						costActual:
-							t.costActual != null ? { minor: t.costActual, currency: "USD" as const } : null,
-						costCap: t.costCap != null ? { minor: t.costCap, currency: "USD" as const } : null,
-					})),
-				});
-			})
-
-			// POST /bets — create shaped bet
-			.post("/", validateBody(createBetSchema), (c) => {
-				const body = c.req.valid("json" as never) as z.infer<typeof createBetSchema>;
-				const id = crypto.randomUUID();
-				const now = new Date().toISOString();
-
-				db.insert(bets)
-					.values({
-						id,
-						productId: body.productId,
-						teamId: body.teamId,
-						pitch: body.pitch,
-						doneCondition: body.doneCondition ?? null,
-						hypothesis: body.hypothesis ?? null,
-						status: "shaped",
-						createdAt: now,
-						costAppetiteMinor: body.costAppetite?.minor ?? null,
-						costAppetiteCurrency: body.costAppetite?.currency ?? null,
-					})
-					.run();
-
-				const created = db.select().from(bets).where(eq(bets.id, id)).get();
-				if (!created) {
-					return c.json({ error: "Failed to create bet", code: "INTERNAL_ERROR" }, 500);
-				}
-
-				// Return structured costAppetite in the response
+		// @lore L17: cost_appetite is a WireMoney object — it cannot go through
+		// updateBetField (which maps fields to single string DB columns). Write
+		// costAppetiteMinor + costAppetiteCurrency directly and add a revision entry.
+		if (body.field === "cost_appetite") {
+			const bet = db.select().from(bets).where(eq(bets.id, betId)).get();
+			if (!bet) {
+				return c.json({ error: "Bet not found", code: "NOT_FOUND" }, 404);
+			}
+			const MUTABLE_IN_STATUSES = new Set(["in_progress", "paused", "behind", "blocked"]);
+			if (!MUTABLE_IN_STATUSES.has(bet.status)) {
 				return c.json(
 					{
-						...created,
-						costAppetite:
-							created.costAppetiteMinor != null && created.costAppetiteCurrency != null
-								? { minor: created.costAppetiteMinor, currency: created.costAppetiteCurrency }
-								: null,
+						error: `Field 'cost_appetite' is not mutable on an in_progress bet`,
+						code: "VALIDATION_ERROR",
 					},
-					201,
+					400,
 				);
+			}
+			const revisionLog: Array<Record<string, unknown>> = bet.revisionLog
+				? (JSON.parse(bet.revisionLog) as Array<Record<string, unknown>>)
+				: [];
+			const oldAppetite =
+				bet.costAppetiteMinor != null && bet.costAppetiteCurrency != null
+					? { minor: bet.costAppetiteMinor, currency: bet.costAppetiteCurrency }
+					: null;
+			revisionLog.push({
+				timestamp: new Date().toISOString(),
+				field: "cost_appetite",
+				old_value: oldAppetite,
+				new_value: body.value,
+				reason: body.reason,
+				actor: c.get("userId"),
+			});
+			db.update(bets)
+				.set({
+					costAppetiteMinor: body.value?.minor ?? null,
+					costAppetiteCurrency: body.value?.currency ?? null,
+					revisionLog: JSON.stringify(revisionLog),
+				})
+				.where(eq(bets.id, betId))
+				.run();
+
+			const updated = db.select().from(bets).where(eq(bets.id, betId)).get();
+			return c.json(updated);
+		}
+
+		await updateBetField(db, eventBus, betId, body.field, body.value, body.reason, c.get("userId"));
+
+		const updated = db.select().from(bets).where(eq(bets.id, betId)).get();
+		return c.json(updated);
+	});
+
+	// POST /bets/:id/commit — transition shaped→committed
+	router.post("/:id/commit", async (c) => {
+		const betId = c.req.param("id");
+		await transitionBet(db, eventBus, betId, "committed");
+		const updated = db.select().from(bets).where(eq(bets.id, betId)).get();
+		return c.json(updated);
+	});
+
+	// POST /bets/:id/ship — transition in_progress→shipped
+	router.post("/:id/ship", async (c) => {
+		const betId = c.req.param("id");
+		await transitionBet(db, eventBus, betId, "shipped");
+		const updated = db.select().from(bets).where(eq(bets.id, betId)).get();
+		return c.json(updated);
+	});
+
+	// POST /bets/:id/kill — kill with reason (required)
+	router.post("/:id/kill", validateBody(killBetSchema), async (c) => {
+		const betId = c.req.param("id");
+		if (!assertBetReadable(db, betId)) {
+			return c.json({ error: "Bet not found", code: "NOT_FOUND" }, 404);
+		}
+		const body = c.req.valid("json" as never) as z.infer<typeof killBetSchema>;
+		await transitionBet(db, eventBus, betId, "killed", {
+			reason: body.reason,
+			actor: c.get("userId"),
+		});
+		const updated = db.select().from(bets).where(eq(bets.id, betId)).get();
+		return c.json(updated);
+	});
+
+	// POST /bets/:id/pause — pause an in_progress or behind bet. Reason required.
+	// L14: T3.
+	router.post("/:id/pause", validateBody(pauseBetSchema), async (c) => {
+		const betId = c.req.param("id");
+		if (!assertBetReadable(db, betId)) {
+			return c.json({ error: "Bet not found", code: "NOT_FOUND" }, 404);
+		}
+		const body = c.req.valid("json" as never) as z.infer<typeof pauseBetSchema>;
+		await transitionBet(db, eventBus, betId, "paused", {
+			reason: body.reason,
+			actor: c.get("userId"),
+		});
+		const updated = db.select().from(bets).where(eq(bets.id, betId)).get();
+		return c.json(updated);
+	});
+
+	// POST /bets/:id/resume — resume a paused bet. Reason optional.
+	// L14: T4.
+	router.post("/:id/resume", validateBody(resumeBetSchema), async (c) => {
+		const betId = c.req.param("id");
+		if (!assertBetReadable(db, betId)) {
+			return c.json({ error: "Bet not found", code: "NOT_FOUND" }, 404);
+		}
+		const body = c.req.valid("json" as never) as z.infer<typeof resumeBetSchema>;
+		await transitionBet(db, eventBus, betId, "in_progress", {
+			reason: body.reason ?? "Resumed by founder",
+			actor: c.get("userId"),
+		});
+		const updated = db.select().from(bets).where(eq(bets.id, betId)).get();
+		return c.json(updated);
+	});
+
+	// GET /bets/:id/artifact-thread-summary — per-bet aggregate of artifact threads.
+	// Returns up to SUMMARY_CAP summaries ordered by lastMessageAt DESC.
+	// Requires the bet to exist (404 guard via assertBetReadable).
+	//
+	// @lore L18: the endpoint joins artifacts → tasks → bet, then aggregates
+	// per-artifact thread stats. A correlated subquery counts messages and
+	// fetches the last message in one pass. SQLite handles this efficiently at
+	// expected volumes (< 100 artifacts per bet). The server-enforced cap of 10
+	// bounds the worst-case payload and query cost.
+	router.get("/:id/artifact-thread-summary", (c) => {
+		const betId = c.req.param("id");
+
+		if (!assertBetReadable(db, betId)) {
+			return c.json({ error: "Bet not found", code: "NOT_FOUND" }, 404);
+		}
+
+		// 1. Collect all task ids for this bet (fan-out guard: bets have bounded tasks).
+		const taskRows = db.select({ id: tasks.id }).from(tasks).where(eq(tasks.betId, betId)).all();
+		const taskIds = taskRows.map((r) => r.id);
+
+		if (taskIds.length === 0) {
+			return c.json({ summaries: [], totalCount: 0, truncated: false });
+		}
+
+		// 2. For each artifact linked to those tasks, compute:
+		//    - thread id (if any) via LEFT JOIN threads WHERE host_kind='artifact'
+		//    - messageCount, lastMessageAt, lastMessageSnippet via correlated subquery on messages
+		//    - hasUnresolvedReview: whether any review-type message in the thread has resolvedAt IS NULL
+		//
+		// We use Drizzle's sql`` template for the aggregate expressions.
+		// @lore L18: Drizzle SQLite does not expose a built-in correlated-subquery helper.
+		// Using sql`` template tags is the idiomatic escape hatch for aggregate queries.
+		const rows = db
+			.select({
+				artifactId: artifacts.id,
+				artifactKind: artifacts.kind,
+				artifactPreviewJson: artifacts.previewJson,
+				taskTitle: tasks.title,
+				threadId: threads.id,
+				messageCount:
+					sql<number>`COALESCE((SELECT COUNT(*) FROM ${messages} WHERE ${messages.threadId} = ${threads.id}), 0)`.as(
+						"message_count",
+					),
+				lastMessageAt: sql<
+					string | null
+				>`(SELECT ${messages.createdAt} FROM ${messages} WHERE ${messages.threadId} = ${threads.id} AND ${messages.deletedAt} IS NULL ORDER BY ${messages.createdAt} DESC LIMIT 1)`.as(
+					"last_message_at",
+				),
+				lastMessagePayload: sql<
+					string | null
+				>`(SELECT ${messages.payload} FROM ${messages} WHERE ${messages.threadId} = ${threads.id} AND ${messages.type} = 'plain' AND ${messages.deletedAt} IS NULL ORDER BY ${messages.createdAt} DESC LIMIT 1)`.as(
+					"last_message_payload",
+				),
+				hasUnresolvedReview:
+					sql<number>`COALESCE((SELECT 1 FROM ${messages} WHERE ${messages.threadId} = ${threads.id} AND ${messages.type} = 'review' AND ${messages.resolvedAt} IS NULL LIMIT 1), 0)`.as(
+						"has_unresolved_review",
+					),
 			})
+			.from(artifacts)
+			.innerJoin(tasks, eq(tasks.id, artifacts.producingTaskId))
+			.leftJoin(threads, and(eq(threads.hostKind, "artifact"), eq(threads.hostId, artifacts.id)))
+			.where(inArray(artifacts.producingTaskId, taskIds))
+			.all();
 
-			// PATCH /bets/:id — update mutable fields on active bets.
-			// M3 A5: actor comes from auth context (c.get("userId")), not a hardcoded founder constant.
-			// L17: cost_appetite replaced the old appetite string; handled directly in the route.
-			.patch("/:id", validateBody(updateBetSchema), async (c) => {
-				const betId = c.req.param("id");
-				const body = c.req.valid("json" as never) as z.infer<typeof updateBetSchema>;
+		// 3. Filter to only artifacts with at least one message.
+		const withMessages = rows.filter((r) => r.threadId !== null && (r.messageCount ?? 0) >= 1);
 
-				// @lore L17: cost_appetite is a WireMoney object — it cannot go through
-				// updateBetField (which maps fields to single string DB columns). Write
-				// costAppetiteMinor + costAppetiteCurrency directly and add a revision entry.
-				if (body.field === "cost_appetite") {
-					const bet = db.select().from(bets).where(eq(bets.id, betId)).get();
-					if (!bet) {
-						return c.json({ error: "Bet not found", code: "NOT_FOUND" }, 404);
+		// 4. Sort by lastMessageAt DESC (already stable since we control the ordering).
+		withMessages.sort((a, b) => {
+			if (a.lastMessageAt && b.lastMessageAt) {
+				if (a.lastMessageAt > b.lastMessageAt) return -1;
+				if (a.lastMessageAt < b.lastMessageAt) return 1;
+			}
+			// Tie-break by artifactId ASC for determinism.
+			return a.artifactId < b.artifactId ? -1 : 1;
+		});
+
+		const totalCount = withMessages.length;
+		const truncated = totalCount > SUMMARY_CAP;
+		const capped = withMessages.slice(0, SUMMARY_CAP);
+
+		const summaries: ArtifactThreadSummary[] = capped.map((r) => {
+			// Derive artifact title from previewJson (look for 'file' or 'title' fields),
+			// falling back to the producing task's title.
+			let artifactTitle = r.taskTitle;
+			if (r.artifactPreviewJson) {
+				try {
+					const preview = JSON.parse(r.artifactPreviewJson) as Record<string, unknown>;
+					if (typeof preview["file"] === "string" && preview["file"]) {
+						artifactTitle = preview["file"];
+					} else if (typeof preview["title"] === "string" && preview["title"]) {
+						artifactTitle = preview["title"];
 					}
-					const MUTABLE_IN_STATUSES = new Set(["in_progress", "paused", "behind", "blocked"]);
-					if (!MUTABLE_IN_STATUSES.has(bet.status)) {
-						return c.json(
-							{
-								error: `Field 'cost_appetite' is not mutable on an in_progress bet`,
-								code: "VALIDATION_ERROR",
-							},
-							400,
-						);
+				} catch {
+					// ignore malformed previewJson; fall back to task title
+				}
+			}
+
+			// Normalise artifactKind to a recognised value.
+			const recognised =
+				RECOGNISED_ARTIFACT_KIND_VALUES.includes(r.artifactKind) &&
+				r.artifactKind !== "unknown_kind";
+			const artifactKind = (recognised ? r.artifactKind : "unknown_kind") as ArtifactKind;
+
+			// Extract snippet from the last plain-message payload (first 80 chars of text).
+			let lastMessageSnippet: string | null = null;
+			if (r.lastMessagePayload) {
+				try {
+					const payload = JSON.parse(r.lastMessagePayload) as Record<string, unknown>;
+					const text = payload["text"];
+					if (typeof text === "string" && text) {
+						lastMessageSnippet = text.slice(0, 80);
 					}
-					const revisionLog: Array<Record<string, unknown>> = bet.revisionLog
-						? (JSON.parse(bet.revisionLog) as Array<Record<string, unknown>>)
-						: [];
-					const oldAppetite =
-						bet.costAppetiteMinor != null && bet.costAppetiteCurrency != null
-							? { minor: bet.costAppetiteMinor, currency: bet.costAppetiteCurrency }
-							: null;
-					revisionLog.push({
-						timestamp: new Date().toISOString(),
-						field: "cost_appetite",
-						old_value: oldAppetite,
-						new_value: body.value,
-						reason: body.reason,
-						actor: c.get("userId"),
-					});
-					db.update(bets)
-						.set({
-							costAppetiteMinor: body.value?.minor ?? null,
-							costAppetiteCurrency: body.value?.currency ?? null,
-							revisionLog: JSON.stringify(revisionLog),
-						})
-						.where(eq(bets.id, betId))
-						.run();
-
-					const updated = db.select().from(bets).where(eq(bets.id, betId)).get();
-					return c.json(updated);
+				} catch {
+					// ignore malformed payload
 				}
+			}
 
-				await updateBetField(
-					db,
-					eventBus,
-					betId,
-					body.field,
-					body.value,
-					body.reason,
-					c.get("userId"),
-				);
+			return {
+				artifactId: r.artifactId,
+				artifactKind,
+				artifactTitle,
+				threadId: r.threadId ?? null,
+				messageCount: r.messageCount ?? 0,
+				lastMessageAt: r.lastMessageAt ?? null,
+				lastMessageSnippet,
+				hasUnresolvedReview: r.hasUnresolvedReview === 1,
+			};
+		});
 
-				const updated = db.select().from(bets).where(eq(bets.id, betId)).get();
-				return c.json(updated);
-			})
+		return c.json({ summaries, totalCount, truncated });
+	});
 
-			// POST /bets/:id/commit — transition shaped→committed
-			.post("/:id/commit", async (c) => {
-				const betId = c.req.param("id");
-				await transitionBet(db, eventBus, betId, "committed");
-				const updated = db.select().from(bets).where(eq(bets.id, betId)).get();
-				return c.json(updated);
-			})
-
-			// POST /bets/:id/ship — transition in_progress→shipped
-			.post("/:id/ship", async (c) => {
-				const betId = c.req.param("id");
-				await transitionBet(db, eventBus, betId, "shipped");
-				const updated = db.select().from(bets).where(eq(bets.id, betId)).get();
-				return c.json(updated);
-			})
-
-			// POST /bets/:id/kill — kill with reason (required)
-			.post("/:id/kill", validateBody(killBetSchema), async (c) => {
-				const betId = c.req.param("id");
-				if (!assertBetReadable(db, betId)) {
-					return c.json({ error: "Bet not found", code: "NOT_FOUND" }, 404);
-				}
-				const body = c.req.valid("json" as never) as z.infer<typeof killBetSchema>;
-				await transitionBet(db, eventBus, betId, "killed", {
-					reason: body.reason,
-					actor: c.get("userId"),
-				});
-				const updated = db.select().from(bets).where(eq(bets.id, betId)).get();
-				return c.json(updated);
-			})
-
-			// POST /bets/:id/pause — pause an in_progress or behind bet. Reason required.
-			// L14: T3.
-			.post("/:id/pause", validateBody(pauseBetSchema), async (c) => {
-				const betId = c.req.param("id");
-				if (!assertBetReadable(db, betId)) {
-					return c.json({ error: "Bet not found", code: "NOT_FOUND" }, 404);
-				}
-				const body = c.req.valid("json" as never) as z.infer<typeof pauseBetSchema>;
-				await transitionBet(db, eventBus, betId, "paused", {
-					reason: body.reason,
-					actor: c.get("userId"),
-				});
-				const updated = db.select().from(bets).where(eq(bets.id, betId)).get();
-				return c.json(updated);
-			})
-
-			// POST /bets/:id/resume — resume a paused bet. Reason optional.
-			// L14: T4.
-			.post("/:id/resume", validateBody(resumeBetSchema), async (c) => {
-				const betId = c.req.param("id");
-				if (!assertBetReadable(db, betId)) {
-					return c.json({ error: "Bet not found", code: "NOT_FOUND" }, 404);
-				}
-				const body = c.req.valid("json" as never) as z.infer<typeof resumeBetSchema>;
-				await transitionBet(db, eventBus, betId, "in_progress", {
-					reason: body.reason ?? "Resumed by founder",
-					actor: c.get("userId"),
-				});
-				const updated = db.select().from(bets).where(eq(bets.id, betId)).get();
-				return c.json(updated);
-			})
-
-			// GET /bets/:id/artifact-thread-summary — per-bet aggregate of artifact threads.
-			// Returns up to SUMMARY_CAP summaries ordered by lastMessageAt DESC.
-			// Requires the bet to exist (404 guard via assertBetReadable).
-			//
-			// @lore L18: the endpoint joins artifacts → tasks → bet, then aggregates
-			// per-artifact thread stats. A correlated subquery counts messages and
-			// fetches the last message in one pass. SQLite handles this efficiently at
-			// expected volumes (< 100 artifacts per bet). The server-enforced cap of 10
-			// bounds the worst-case payload and query cost.
-			.get("/:id/artifact-thread-summary", (c) => {
-				const betId = c.req.param("id");
-
-				if (!assertBetReadable(db, betId)) {
-					return c.json({ error: "Bet not found", code: "NOT_FOUND" }, 404);
-				}
-
-				// 1. Collect all task ids for this bet (fan-out guard: bets have bounded tasks).
-				const taskRows = db
-					.select({ id: tasks.id })
-					.from(tasks)
-					.where(eq(tasks.betId, betId))
-					.all();
-				const taskIds = taskRows.map((r) => r.id);
-
-				if (taskIds.length === 0) {
-					return c.json({ summaries: [], totalCount: 0, truncated: false });
-				}
-
-				// 2. For each artifact linked to those tasks, compute:
-				//    - thread id (if any) via LEFT JOIN threads WHERE host_kind='artifact'
-				//    - messageCount, lastMessageAt, lastMessageSnippet via correlated subquery on messages
-				//    - hasUnresolvedReview: whether any review-type message in the thread has resolvedAt IS NULL
-				//
-				// We use Drizzle's sql`` template for the aggregate expressions.
-				// @lore L18: Drizzle SQLite does not expose a built-in correlated-subquery helper.
-				// Using sql`` template tags is the idiomatic escape hatch for aggregate queries.
-				const rows = db
-					.select({
-						artifactId: artifacts.id,
-						artifactKind: artifacts.kind,
-						artifactPreviewJson: artifacts.previewJson,
-						taskTitle: tasks.title,
-						threadId: threads.id,
-						messageCount:
-							sql<number>`COALESCE((SELECT COUNT(*) FROM ${messages} WHERE ${messages.threadId} = ${threads.id}), 0)`.as(
-								"message_count",
-							),
-						lastMessageAt: sql<
-							string | null
-						>`(SELECT ${messages.createdAt} FROM ${messages} WHERE ${messages.threadId} = ${threads.id} AND ${messages.deletedAt} IS NULL ORDER BY ${messages.createdAt} DESC LIMIT 1)`.as(
-							"last_message_at",
-						),
-						lastMessagePayload: sql<
-							string | null
-						>`(SELECT ${messages.payload} FROM ${messages} WHERE ${messages.threadId} = ${threads.id} AND ${messages.type} = 'plain' AND ${messages.deletedAt} IS NULL ORDER BY ${messages.createdAt} DESC LIMIT 1)`.as(
-							"last_message_payload",
-						),
-						hasUnresolvedReview:
-							sql<number>`COALESCE((SELECT 1 FROM ${messages} WHERE ${messages.threadId} = ${threads.id} AND ${messages.type} = 'review' AND ${messages.resolvedAt} IS NULL LIMIT 1), 0)`.as(
-								"has_unresolved_review",
-							),
-					})
-					.from(artifacts)
-					.innerJoin(tasks, eq(tasks.id, artifacts.producingTaskId))
-					.leftJoin(
-						threads,
-						and(eq(threads.hostKind, "artifact"), eq(threads.hostId, artifacts.id)),
-					)
-					.where(inArray(artifacts.producingTaskId, taskIds))
-					.all();
-
-				// 3. Filter to only artifacts with at least one message.
-				const withMessages = rows.filter((r) => r.threadId !== null && (r.messageCount ?? 0) >= 1);
-
-				// 4. Sort by lastMessageAt DESC (already stable since we control the ordering).
-				withMessages.sort((a, b) => {
-					if (a.lastMessageAt && b.lastMessageAt) {
-						if (a.lastMessageAt > b.lastMessageAt) return -1;
-						if (a.lastMessageAt < b.lastMessageAt) return 1;
-					}
-					// Tie-break by artifactId ASC for determinism.
-					return a.artifactId < b.artifactId ? -1 : 1;
-				});
-
-				const totalCount = withMessages.length;
-				const truncated = totalCount > SUMMARY_CAP;
-				const capped = withMessages.slice(0, SUMMARY_CAP);
-
-				const summaries: ArtifactThreadSummary[] = capped.map((r) => {
-					// Derive artifact title from previewJson (look for 'file' or 'title' fields),
-					// falling back to the producing task's title.
-					let artifactTitle = r.taskTitle;
-					if (r.artifactPreviewJson) {
-						try {
-							const preview = JSON.parse(r.artifactPreviewJson) as Record<string, unknown>;
-							if (typeof preview.file === "string" && preview.file) {
-								artifactTitle = preview.file;
-							} else if (typeof preview.title === "string" && preview.title) {
-								artifactTitle = preview.title;
-							}
-						} catch {
-							// ignore malformed previewJson; fall back to task title
-						}
-					}
-
-					// Normalise artifactKind to a recognised value.
-					const recognised =
-						RECOGNISED_ARTIFACT_KIND_VALUES.includes(r.artifactKind) &&
-						r.artifactKind !== "unknown_kind";
-					const artifactKind = (recognised ? r.artifactKind : "unknown_kind") as ArtifactKind;
-
-					// Extract snippet from the last plain-message payload (first 80 chars of text).
-					let lastMessageSnippet: string | null = null;
-					if (r.lastMessagePayload) {
-						try {
-							const payload = JSON.parse(r.lastMessagePayload) as Record<string, unknown>;
-							const text = payload.text;
-							if (typeof text === "string" && text) {
-								lastMessageSnippet = text.slice(0, 80);
-							}
-						} catch {
-							// ignore malformed payload
-						}
-					}
-
-					return {
-						artifactId: r.artifactId,
-						artifactKind,
-						artifactTitle,
-						threadId: r.threadId ?? null,
-						messageCount: r.messageCount ?? 0,
-						lastMessageAt: r.lastMessageAt ?? null,
-						lastMessageSnippet,
-						hasUnresolvedReview: r.hasUnresolvedReview === 1,
-					};
-				});
-
-				return c.json({ summaries, totalCount, truncated });
-			})
-	);
+	return router;
 }

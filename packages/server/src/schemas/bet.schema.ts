@@ -12,7 +12,7 @@
  * that enriched shape.
  */
 
-import { selectBetSchema } from "@hyperidle/db";
+import { selectBetSchema } from "@hyperidle/db/zod-schemas";
 import { BET_STATUSES, TASK_STATES } from "@hyperidle/shared";
 import { z } from "zod";
 import { progressSchema, wireMoneySchema } from "./common.schema.js";
@@ -51,14 +51,10 @@ export const betTaskRowSchema = z.object({
 	ownerAgentId: z.string().nullable(),
 });
 
-export type BetTaskRow = z.infer<typeof betTaskRowSchema>;
-
 /**
  * Progress schema for a bet (re-exported for convenience).
  */
 export const betProgressSchema = progressSchema;
-
-export type BetProgress = z.infer<typeof betProgressSchema>;
 
 /**
  * Token usage shape stored as JSON.
@@ -87,15 +83,11 @@ export const betDetailResponseSchema = z.object({
 	tasks: z.array(betTaskRowSchema),
 });
 
-export type BetDetailResponse = z.infer<typeof betDetailResponseSchema>;
-
 /**
  * A raw bet list item — the DB row shape used in the grouped list response.
  * Uses the drizzle-zod generated select schema.
  */
 export const betListItemSchema = selectBetSchema;
-
-export type BetListItem = z.infer<typeof betListItemSchema>;
 
 /**
  * Grouped bet list response from GET /api/bets.
@@ -108,5 +100,3 @@ export const betListResponseSchema = z.object({
 	shipped: z.array(betListItemSchema),
 	killed: z.array(betListItemSchema),
 });
-
-export type BetListResponse = z.infer<typeof betListResponseSchema>;

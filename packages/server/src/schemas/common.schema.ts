@@ -28,8 +28,6 @@ export const wireMoneySchema = z.object({
 	currency: z.enum(CURRENCY_CODES as unknown as [string, ...string[]]),
 });
 
-export type WireMoney = z.infer<typeof wireMoneySchema>;
-
 /**
  * Progress: task completion counter.
  * Both done and total must be non-negative integers.
@@ -38,8 +36,6 @@ export const progressSchema = z.object({
 	done: z.number().int().min(0),
 	total: z.number().int().min(0),
 });
-
-export type Progress = z.infer<typeof progressSchema>;
 
 /**
  * Standard API error response shape.
@@ -55,8 +51,6 @@ export const errorResponseSchema = z.object({
 		.optional(),
 });
 
-export type ErrorResponse = z.infer<typeof errorResponseSchema>;
-
 /**
  * Pagination query parameters with sensible defaults.
  * limit: 1-100, default 50. offset: >= 0, default 0.
@@ -65,5 +59,3 @@ export const paginationSchema = z.object({
 	limit: z.coerce.number().int().min(1).max(100).default(50),
 	offset: z.coerce.number().int().min(0).default(0),
 });
-
-export type Pagination = z.infer<typeof paginationSchema>;

@@ -69,18 +69,4 @@ export const insertRoutineSchema = createInsertSchema(routines);
 export const insertThreadSchema = createInsertSchema(threads);
 export const insertMessageSchema = createInsertSchema(messages);
 export const insertItemSchema = createInsertSchema(items);
-export const insertAgentSkillSchema = createInsertSchema(agentSkills);
-export const insertFactorySettingSchema = createInsertSchema(factorySettings);
-export const insertKnowledgeItemSchema = createInsertSchema(knowledgeItems);
-export const insertKnowledgeEditLogSchema = createInsertSchema(knowledgeEditLog);
-export const insertKnowledgeAccessLogSchema = createInsertSchema(knowledgeAccessLog);
-export const insertKnowledgeConflictSchema = createInsertSchema(knowledgeConflicts);
-export const insertNotificationQueueSchema = createInsertSchema(notificationQueue);
-export const insertFileLeaseSchema = createInsertSchema(fileLeases);
-export const insertPropagationLogSchema = createInsertSchema(propagationLog);
 export const insertArtifactSchema = createInsertSchema(artifacts);
-
-// ─── Inferred types ───────────────────────────────────────────────────────────
-
-export type SelectProduct = typeof selectProductSchema._type;
-export type InsertProduct = typeof insertProductSchema._type;
