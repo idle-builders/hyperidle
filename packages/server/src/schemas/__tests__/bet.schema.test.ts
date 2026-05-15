@@ -1,0 +1,210 @@
+/**
+ * B. Composite Schema Tests — bet schemas
+ *
+ * These tests verify that `packages/server/src/schemas/bet.schema.ts`
+ * (not yet created) exports composite Zod schemas for bet API responses.
+ *
+ * @lore api-typesafety RED phase: this file will fail until bet.schema.ts
+ * is created. The tests define the wire shapes the frontend consumes.
+ */
+
+import { describe, expect, it } from "vitest";
+import {
+	betDetailResponseSchema,
+	betListResponseSchema,
+	betProgressSchema,
+	betTaskRowSchema,
+} from "../bet.schema.js";
+
+describe("B1. betDetailResponseSchema", () => {
+	const validBetDetail = {
+		id: "bet-1",
+		title: "Build feature X",
+		product: "My Product",
+		team: "Team Alpha",
+		status: "shaped",
+		costAppetite: { minor: 10000, currency: "USD" },
+		tokenAppetite: null,
+		costActual: null,
+		tokensActual: null,
+		progress: { done: 0, total: 3 },
+		pitch: "# Build feature X\n\nThis is the pitch.",
+		tasks: [
+			{
+				id: "task-1",
+				title: "Implement endpoint",
+				owner: "Agent Alpha",
+				state: "open",
+				costActual: null,
+				latestSessionOutcome: null,
+				latestSessionHarnessUrl: null,
+				latestSessionModelTier: null,
+				ownerAgentId: "agent-1",
+			},
+		],
+	};
+
+	it("betDetailResponseSchema is defined and has parse/safeParse", () => {
+		expect(betDetailResponseSchema).toBeDefined();
+		expect(typeof betDetailResponseSchema.parse).toBe("function");
+		expect(typeof betDetailResponseSchema.safeParse).toBe("function");
+	});
+
+	it("accepts a valid bet detail payload", () => {
+		const result = betDetailResponseSchema.safeParse(validBetDetail);
+		expect(result.success).toBe(true);
+	});
+
+	it("accepts null costAppetite (uncapped bet)", () => {
+		const result = betDetailResponseSchema.safeParse({
+			...validBetDetail,
+			costAppetite: null,
+		});
+		expect(result.success).toBe(true);
+	});
+
+	it("rejects payload missing required fields", () => {
+		const result = betDetailResponseSchema.safeParse({
+			id: "bet-1",
+			// missing title, product, team, status, progress, pitch, tasks
+		});
+		expect(result.success).toBe(false);
+	});
+
+	it("rejects invalid status value", () => {
+		const result = betDetailResponseSchema.safeParse({
+			...validBetDetail,
+			status: "invalid-status",
+		});
+		expect(result.success).toBe(false);
+	});
+
+	it("rejects tasks with invalid state", () => {
+		const result = betDetailResponseSchema.safeParse({
+			...validBetDetail,
+			tasks: [
+				{
+					id: "task-1",
+					title: "Task",
+					owner: "Agent",
+					state: "not-a-real-state",
+					costActual: null,
+				},
+			],
+		});
+		expect(result.success).toBe(false);
+	});
+
+	it("validates nested progress schema", () => {
+		const result = betDetailResponseSchema.safeParse({
+			...validBetDetail,
+			progress: { done: -1, total: 3 },
+		});
+		// progress.done must be >= 0
+		expect(result.success).toBe(false);
+	});
+});
+
+describe("B2. betListResponseSchema", () => {
+	const validList = {
+		shaped: [],
+		committed: [],
+		in_progress: [],
+		shipped: [],
+		killed: [],
+	};
+
+	it("betListResponseSchema is defined and has parse/safeParse", () => {
+		expect(betListResponseSchema).toBeDefined();
+		expect(typeof betListResponseSchema.parse).toBe("function");
+		expect(typeof betListResponseSchema.safeParse).toBe("function");
+	});
+
+	it("accepts a valid empty grouped bet list", () => {
+		const result = betListResponseSchema.safeParse(validList);
+		expect(result.success).toBe(true);
+	});
+
+	it("accepts a list with bets in each group", () => {
+		const result = betListResponseSchema.safeParse({
+			shaped: [
+				{
+					id: "bet-2",
+					productId: "prod-1",
+					teamId: "team-1",
+					pitch: "Pitch",
+					appetite: null,
+					doneCondition: null,
+					hypothesis: null,
+					status: "shaped",
+					revisionLog: null,
+					createdAt: "2025-01-01T00:00:00.000Z",
+					shippedAt: null,
+					costAppetiteMinor: null,
+					costAppetiteCurrency: null,
+					costActualMinor: null,
+					costActualCurrency: null,
+					tokensActualJson: null,
+				},
+			],
+			committed: [],
+			in_progress: [],
+			shipped: [],
+			killed: [],
+		});
+		expect(result.success).toBe(true);
+	});
+
+	it("rejects payload missing a group", () => {
+		const result = betListResponseSchema.safeParse({
+			shaped: [],
+			committed: [],
+			// missing in_progress, shipped, killed
+		});
+		expect(result.success).toBe(false);
+	});
+});
+
+describe("B3. betTaskRowSchema", () => {
+	it("betTaskRowSchema is defined", () => {
+		expect(betTaskRowSchema).toBeDefined();
+		expect(typeof betTaskRowSchema.safeParse).toBe("function");
+	});
+
+	it("accepts a valid task row", () => {
+		const result = betTaskRowSchema.safeParse({
+			id: "task-1",
+			title: "Implement API",
+			owner: "Agent Alpha",
+			state: "open",
+			costActual: null,
+			latestSessionOutcome: null,
+			latestSessionHarnessUrl: null,
+			latestSessionModelTier: null,
+			ownerAgentId: null,
+		});
+		expect(result.success).toBe(true);
+	});
+});
+
+describe("B4. betProgressSchema", () => {
+	it("betProgressSchema is defined", () => {
+		expect(betProgressSchema).toBeDefined();
+		expect(typeof betProgressSchema.safeParse).toBe("function");
+	});
+
+	it("accepts valid progress", () => {
+		const result = betProgressSchema.safeParse({ done: 2, total: 5 });
+		expect(result.success).toBe(true);
+	});
+
+	it("rejects negative done count", () => {
+		const result = betProgressSchema.safeParse({ done: -1, total: 5 });
+		expect(result.success).toBe(false);
+	});
+
+	it("rejects negative total count", () => {
+		const result = betProgressSchema.safeParse({ done: 0, total: -1 });
+		expect(result.success).toBe(false);
+	});
+});
