@@ -1,5 +1,9 @@
 # M3 Architecture -- Parallel refactor pool
 
+> **Note (2026-05-14):** M3 imports types from `packages/api-contract/` which is superseded by V6 API type-safety
+> (`plans/api-typesafety/architecture.md`). M3 implementation is valid as-is — the api-contract types will be migrated
+> to V6 Zod schemas in a later phase. No M3 rework needed.
+
 **Workpackage:** M3 (Track M -- Mock-Data Purge)
 **Author:** Designer (architecture phase)
 **Date:** 2026-05-11
