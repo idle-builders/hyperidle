@@ -462,18 +462,6 @@ export const notificationQueue = sqliteTable(
 	],
 );
 
-// --- File leases ---
-
-export const fileLeases = sqliteTable("file_leases", {
-	id: text("id").primaryKey(),
-	agentId: text("agent_id")
-		.notNull()
-		.references(() => agents.id, { onDelete: "restrict" }),
-	filePath: text("file_path").notNull(),
-	acquiredAt: text("acquired_at").notNull(),
-	releasedAt: text("released_at"),
-});
-
 // --- Propagation log (L20) ---
 
 /**
@@ -595,9 +583,6 @@ export type NewKnowledgeEditLogEntry = typeof knowledgeEditLog.$inferInsert;
 
 export type KnowledgeAccessLogEntry = typeof knowledgeAccessLog.$inferSelect;
 export type NewKnowledgeAccessLogEntry = typeof knowledgeAccessLog.$inferInsert;
-
-export type FileLease = typeof fileLeases.$inferSelect;
-export type NewFileLease = typeof fileLeases.$inferInsert;
 
 export type KnowledgeConflict = typeof knowledgeConflicts.$inferSelect;
 export type NewKnowledgeConflict = typeof knowledgeConflicts.$inferInsert;

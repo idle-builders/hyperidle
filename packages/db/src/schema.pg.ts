@@ -429,18 +429,6 @@ export const notificationQueue = pgTable(
 	],
 );
 
-// --- File leases ---
-
-export const fileLeases = pgTable("file_leases", {
-	id: text("id").primaryKey(),
-	agentId: text("agent_id")
-		.notNull()
-		.references(() => agents.id, { onDelete: "restrict" }),
-	filePath: text("file_path").notNull(),
-	acquiredAt: text("acquired_at").notNull(),
-	releasedAt: text("released_at"),
-});
-
 // --- Propagation log (L20) ---
 
 export const propagationLog = pgTable(
@@ -536,9 +524,6 @@ export type NewKnowledgeItem = typeof knowledgeItems.$inferInsert;
 
 export type KnowledgeEditLogEntry = typeof knowledgeEditLog.$inferSelect;
 export type NewKnowledgeEditLogEntry = typeof knowledgeEditLog.$inferInsert;
-
-export type FileLease = typeof fileLeases.$inferSelect;
-export type NewFileLease = typeof fileLeases.$inferInsert;
 
 export type KnowledgeConflict = typeof knowledgeConflicts.$inferSelect;
 export type NewKnowledgeConflict = typeof knowledgeConflicts.$inferInsert;
