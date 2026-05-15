@@ -28,7 +28,6 @@ import {
 	selectArtifactSchema,
 	selectBetSchema,
 	selectFactorySettingSchema,
-	selectFileLeaseSchema,
 	selectItemSchema,
 	selectKnowledgeAccessLogSchema,
 	selectKnowledgeConflictSchema,
@@ -166,11 +165,6 @@ describe("A. drizzle-zod base schemas", () => {
 		it("selectNotificationQueueSchema is a valid Zod schema", () => {
 			expect(selectNotificationQueueSchema).toBeDefined();
 			expect(typeof selectNotificationQueueSchema.parse).toBe("function");
-		});
-
-		it("selectFileLeaseSchema is a valid Zod schema", () => {
-			expect(selectFileLeaseSchema).toBeDefined();
-			expect(typeof selectFileLeaseSchema.parse).toBe("function");
 		});
 
 		it("selectPropagationLogSchema is a valid Zod schema", () => {

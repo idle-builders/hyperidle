@@ -1,5 +1,5 @@
 /**
- * Drizzle-Zod generated base schemas for all 20 HyperIdle tables.
+ * Drizzle-Zod generated base schemas for all 19 HyperIdle tables.
  *
  * These are generated from the Drizzle table definitions via `drizzle-zod`.
  * They provide base-level validation for select and insert operations.
@@ -17,7 +17,6 @@ import {
 	artifacts,
 	bets,
 	factorySettings,
-	fileLeases,
 	items,
 	knowledgeAccessLog,
 	knowledgeConflicts,
@@ -53,7 +52,6 @@ export const selectKnowledgeEditLogSchema = createSelectSchema(knowledgeEditLog)
 export const selectKnowledgeAccessLogSchema = createSelectSchema(knowledgeAccessLog);
 export const selectKnowledgeConflictSchema = createSelectSchema(knowledgeConflicts);
 export const selectNotificationQueueSchema = createSelectSchema(notificationQueue);
-export const selectFileLeaseSchema = createSelectSchema(fileLeases);
 export const selectPropagationLogSchema = createSelectSchema(propagationLog);
 export const selectArtifactSchema = createSelectSchema(artifacts);
 
