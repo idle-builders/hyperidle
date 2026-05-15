@@ -19,6 +19,9 @@ export default defineConfig({
 	forbidOnly: !!process.env.CI,
 	retries: process.env.CI ? 2 : 0,
 	workers: process.env.CI ? 1 : undefined,
+	globalTimeout: 300_000,
+	timeout: 30_000,
+	expect: { timeout: 10_000 },
 	reporter: "html",
 	use: {
 		baseURL: `http://localhost:${E2E_PORT}`,

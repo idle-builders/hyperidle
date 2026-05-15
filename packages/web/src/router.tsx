@@ -16,9 +16,11 @@ import { createBrowserRouter, Navigate, RouterProvider } from "react-router-dom"
 import { AppShell } from "./layouts/AppShell";
 import { ArtifactPermalink } from "./pages/ArtifactPermalink";
 import { Conversations } from "./pages/Conversations";
+import { FirstRunRedirect } from "./pages/FirstRunRedirect";
 import { KnowledgeDetail } from "./pages/KnowledgeDetail";
 import { KnowledgeList } from "./pages/KnowledgeList";
 import { NotFound } from "./pages/NotFound";
+import { Onboarding } from "./pages/Onboarding";
 import { RedirectLegacyConversation } from "./pages/RedirectLegacyConversation";
 import { WorkBet } from "./pages/WorkBet";
 import { WorkPortfolio } from "./pages/WorkPortfolio";
@@ -27,11 +29,14 @@ import { WorkProduct } from "./pages/WorkProduct";
 function buildRoutes(): RouteObject[] {
 	const routes: RouteObject[] = [
 		{
+			path: "/onboarding",
+			element: <Onboarding />,
+		},
+		{
 			path: "/",
 			element: <AppShell />,
 			children: [
-				// L9: canonical landing is /conversations (queue).
-				{ index: true, element: <Navigate to="/conversations" replace /> },
+				{ index: true, element: <FirstRunRedirect /> },
 				// Canonical conversation routes.
 				{ path: "conversations", element: <Conversations /> },
 				{ path: "conversations/:threadId", element: <Conversations /> },

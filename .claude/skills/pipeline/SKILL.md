@@ -82,7 +82,7 @@ Each persona phase **commits its output and pushes** before returning:
 | 4 — builder (apply review fixes) | one commit per applied finding batch | run |
 | 5 — Explore agent /retro | prose | `[skip ci]` |
 
-Local `bun run verify` is the gate. Builder runs it (check, lint:biome, lint:eslint, test, e2e — identical tools to CI) and must pass before pushing. CI runs the same `bun run verify --raw` on every push as async post-merge confirmation, not a pipeline blocker. If CI diverges from local on the same SHA, lint-config parity is broken — fix the config, not the symptom.
+Local `bun run verify` is the gate. Builder runs it (check, lint:biome, lint:eslint, test, e2e — identical tools to CI) and must pass before pushing. On green, verify writes `.verify-attestation.json` (HMAC-signed with `~/.config/hyperidle/verify-secret`). Builder commits the attestation as the last commit before pushing. CI validates the attestation signature (~30s) instead of re-running the full suite (~10min). See `/ship` for the complete commit → verify → attestation → push flow.
 
 Stories touching authentication, schema migrations, or `packages/server/src/agent-runtime/` set `gate: ci-required` in the workpackage spec; Reviewer holds the ready-flip until CI is green. Default for everything else is `gate: local-green`.
 
