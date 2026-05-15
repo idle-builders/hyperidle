@@ -44,6 +44,7 @@
 		"obs:collector": "bun scripts/trace-collector.ts",
 		"obs:report": "bun scripts/trace-report.ts",
 		"pipeline": "bin/pipeline",
+		"knip": "bunx --bun knip",
 		"mock-inventory": "bun scripts/mock-inventory.ts",
 		"mock-inventory:check": "bun scripts/mock-inventory.ts --check",
 		"native:electron": "cd packages/desktop && bunx electron-rebuild -f -w better-sqlite3 -m ../..",

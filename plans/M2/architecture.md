@@ -1,5 +1,10 @@
 # M2 Architecture -- Replacement contracts (architecture pass)
 
+> **Note (2026-05-14):** M2's contract approach (`packages/api-contract/` with hand-written type-only interfaces) is superseded
+> by V6 API type-safety (`plans/api-typesafety/architecture.md`). V6 uses Hono RPC AppType inference + Zod response schemas
+> in `packages/server/src/schemas/`. The existing M2-shipped types in `packages/api-contract/` will be migrated to V6 Zod
+> schemas during V6 Phase 3. This document is retained as a historical record of the M2 deliverable.
+
 **Workpackage:** M2 (Track M -- Mock-Data Purge)
 **Author:** Designer (architecture phase)
 **Date:** 2026-05-11
