@@ -152,10 +152,12 @@
 			"!.claude/settings.json",
 			"!.claude/settings.local.json",
 			"!.worktrees",
+			"!.claude/worktrees",
 			"!.pipeline",
 			"!**/plans",
 			"!packages/eslint-plugin-design/test-fixtures",
-			"!scripts"
+			"!scripts",
+			"!.verify-attestation.json"
 		]
 	},
 	"overrides": [

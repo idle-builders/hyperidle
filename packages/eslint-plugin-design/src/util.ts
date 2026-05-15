@@ -74,11 +74,6 @@ export const RAW_TAILWIND_PALETTE = [
 ] as const;
 
 /**
- * AI-aesthetic gradient palette per AESTHETICS.md § AI-Aesthetic — tell #2.
- */
-export const GRADIENT_AI_PALETTE = ["indigo", "purple", "violet", "fuchsia", "pink"] as const;
-
-/**
  * Files that are exempt from the "no heavy shadow on cards" rule.
  * Source: AESTHETICS.md § AI-Aesthetic tell #10 — "outside files matching
  * `/Modal|Dialog|Popover|Tooltip/`".
@@ -88,7 +83,7 @@ export const GRADIENT_AI_PALETTE = ["indigo", "purple", "violet", "fuchsia", "pi
  * silently exempts every card. We anchor strictly to the basename and require
  * an exact `(Modal|Dialog|Popover|Tooltip|Sheet|Drawer).tsx` filename.
  */
-export const SHADOW_OVERLAY_BASENAME_REGEX = /^(Modal|Dialog|Popover|Tooltip|Sheet|Drawer)\.tsx$/;
+const SHADOW_OVERLAY_BASENAME_REGEX = /^(Modal|Dialog|Popover|Tooltip|Sheet|Drawer)\.tsx$/;
 
 /**
  * Returns true when the file is one of the overlay primitive component files
@@ -140,7 +135,7 @@ export function getClassNameLiteral(
  * as className strings (per K6 review SEV-2 — class-string composition is the
  * common case in real components). Walked by `collectClassStringsFromExpression`.
  */
-export const CLASSNAME_HELPER_NAMES: ReadonlySet<string> = new Set([
+const CLASSNAME_HELPER_NAMES: ReadonlySet<string> = new Set([
 	"cn",
 	"clsx",
 	"classnames",

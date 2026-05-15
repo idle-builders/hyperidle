@@ -5,13 +5,7 @@ import {
 	MANIFEST_RELATIVE_PATH,
 	validateDependencies,
 } from "./manifest.js";
-import {
-	initProgress,
-	loadAllProgress,
-	loadProgress,
-	loadStoryProgress,
-	updateStory,
-} from "./progress.js";
+import { initProgress, loadAllProgress, loadStoryProgress, updateStory } from "./progress.js";
 import { runStory } from "./runner.js";
 import { appendOutput, initGroup, setStories, updateFeedStatus } from "./store.js";
 import type { PipelineOptions, Story } from "./types.js";
@@ -23,7 +17,7 @@ const log = createLogger({ pkg: "pipeline" });
 // time estimates per story today — by the S-definition (≤30min) four stories
 // sums to ~2h naturally, so the count cap is the operative limit.
 export const MAX_BATCHED_GROUP_SIZE = 4;
-export const MAX_ATTEMPTS_PER_STORY = 3;
+const MAX_ATTEMPTS_PER_STORY = 3;
 
 export type GroupLane = "solo" | "batched";
 
@@ -312,5 +306,3 @@ async function runGroup(
 		`${label}: ${allDone ? "all done" : "session ended without completion"}`,
 	);
 }
-
-export { loadProgress };

@@ -19,7 +19,7 @@ import z from "zod";
 // large and to ensure clients use real UUIDs / short hashes rather than
 // trivial strings.
 const CLIENT_KEY_RE = /^[A-Za-z0-9_\-:.]+$/;
-export const clientKeySchema = z.string().min(8).max(128).regex(CLIENT_KEY_RE);
+const clientKeySchema = z.string().min(8).max(128).regex(CLIENT_KEY_RE);
 
 const inlineRefSchema = z.object({
 	kind: z.enum(["knowledge_item", "task", "artifact", "bet", "message"]),
@@ -122,33 +122,6 @@ export const createThreadBodySchema = z.object({
 	initialMessage: messageInputSchema,
 });
 
-/**
- * L8 §3.1: list-endpoint row shape. The wire row is the canonical Thread
- * fields plus the server-derived `hasUnresolvedReview` flag. Defined here
- * (server-only) because `@hyperidle/shared` stays type-only and free of the
- * `zod` runtime dependency.
- */
-export const threadListRowSchema = z.object({
-	id: z.string().min(1),
-	hostKind: z.enum(HOST_KINDS),
-	hostId: z.string().min(1),
-	initiatorId: z.string().min(1),
-	participants: z.array(z.string().min(1)),
-	pinned: z.boolean(),
-	resolvedAt: z.string().nullable(),
-	lastActiveAt: z.string(),
-	createdAt: z.string(),
-	hasUnresolvedReview: z.boolean(),
-});
-
-export const listThreadsResponseSchema = z.object({
-	threads: z.array(threadListRowSchema),
-	nextCursor: z.string().nullable(),
-});
-
-export type ThreadListRow = z.infer<typeof threadListRowSchema>;
-export type ListThreadsResponse = z.infer<typeof listThreadsResponseSchema>;
-
 export const listThreadsQuerySchema = z.object({
 	host_kind: z.enum(HOST_KINDS).optional(),
 	host_id: z.string().optional(),
@@ -160,10 +133,6 @@ export const listThreadsQuerySchema = z.object({
 		.transform((v) => (v ? Number(v) : 50))
 		.pipe(z.number().int().min(1).max(50)),
 });
-
-export type MessageInput = z.infer<typeof messageInputSchema>;
-export type CreateThreadBody = z.infer<typeof createThreadBodySchema>;
-export type MessageRowParsed = z.infer<typeof messageRowSchema>;
 
 /**
  * Build-time assertion that `MESSAGE_TYPES` matches the message-input

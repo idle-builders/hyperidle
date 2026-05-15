@@ -62,20 +62,6 @@ export function filterStories(stories: Story[], target: string): Story[] {
 	return stories.filter((s) => idSet.has(s.id.toUpperCase()));
 }
 
-export function getReadyStories(
-	stories: Story[],
-	done: Set<string>,
-	inProgress: Set<string>,
-	blocked: Set<string>,
-): Story[] {
-	return stories.filter((s) => {
-		if (done.has(s.id) || inProgress.has(s.id) || blocked.has(s.id)) {
-			return false;
-		}
-		return s.dependencies.every((dep) => done.has(dep));
-	});
-}
-
 export function validateDependencies(stories: Story[]): string[] {
 	const ids = new Set(stories.map((s) => s.id));
 	const errors: string[] = [];

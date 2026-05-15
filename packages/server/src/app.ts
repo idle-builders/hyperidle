@@ -144,15 +144,6 @@ function defaultNotificationAdapterFactory(cfg: NotificationConfig): Notificatio
 }
 
 /**
- * Disposers returned from `createApp` so tests + graceful shutdown can
- * tear down event-bus subscriptions. Each function is safe to call more
- * than once.
- */
-export interface AppDisposer {
-	dispose(): void;
-}
-
-/**
  * @lore Event-bus disposers live alongside the app instance but must not
  * appear on the public Hono surface. A module-scoped WeakMap keyed by
  * the Hono instance keeps the association without string-cast stash
@@ -426,8 +417,6 @@ function createApp(options?: AppOptions): Hono {
 	return app;
 }
 
-const app = createApp();
-
 /**
  * Dispose all event-bus subscriptions attached to an app created via
  * `createApp`. Safe no-op if `createApp` did not attach any (e.g. when
@@ -557,4 +546,4 @@ function createTypedApiRoutes(db: HyperIdleDb, eventBus: EventBus, deps: TypedAp
  */
 export type AppType = ReturnType<typeof createTypedApiRoutes>;
 export type { AppOptions };
-export { app, createApp };
+export { createApp };

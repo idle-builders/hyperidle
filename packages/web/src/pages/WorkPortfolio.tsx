@@ -23,7 +23,7 @@
 import type { Status } from "@hyperidle/design-system";
 import { EmptyState, KeyValue, SkeletonCard, StatusChip } from "@hyperidle/design-system";
 import type { JSX } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { ArtifactSection, useArtifactOpen } from "../components/ArtifactSection.js";
 import { useProducts } from "../hooks/useProducts";
 
@@ -119,13 +119,18 @@ export function WorkPortfolio({ loading = false, products }: WorkPortfolioProps 
 			className="flex flex-col gap-[var(--density-gap)] h-full"
 			data-testid="work-portfolio-page"
 		>
-			<h1 className="text-sm font-heading font-semibold uppercase tracking-wider text-[var(--text-lo)]">
-				Portfolio
-			</h1>
+			<div className="flex items-center justify-between">
+				<h1 className="text-sm font-heading font-semibold uppercase tracking-wider text-[var(--text-lo)]">
+					Portfolio
+				</h1>
+				<Link to="/onboarding" className="btn btn-primary btn-xs">
+					Add product
+				</Link>
+			</div>
 			{items.length === 0 ? (
 				<EmptyState
 					title="No products in the portfolio"
-					description="Add a product from Settings to start shaping bets and tracking ship rate here."
+					description="Create your first product to start working with AI agents."
 					dataTestId="portfolio-empty"
 				/>
 			) : (

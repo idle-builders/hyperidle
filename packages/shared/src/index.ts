@@ -95,6 +95,8 @@ export type { ObservabilityEvent } from "./observability/events.js";
 // ── Product primitive (L13) ──
 export type {
 	BetCardSummary,
+	CreateProductRequest,
+	CreateProductResponse,
 	ProductBurn,
 	ProductDetail,
 	ProductListItem,
