@@ -79,3 +79,13 @@ export interface ProductListItem extends ProductSummary {
 export interface ProductListResponse {
 	products: ProductListItem[];
 }
+
+export interface CreateProductRequest {
+	name: string;
+	repoPath?: string;
+}
+
+export interface CreateProductResponse {
+	product: { id: string; name: string; phase: string };
+	team: { id: string };
+}

@@ -17,6 +17,8 @@
 import { agents, bets, type HyperIdleDb, products, tasks, teams } from "@hyperidle/db";
 import type {
 	BetCardSummary,
+	CreateProductRequest,
+	CreateProductResponse,
 	CurrencyCode,
 	EventBus,
 	ProductDetail,
@@ -159,6 +161,80 @@ export function createProductRoutes(db: HyperIdleDb, _eventBus: EventBus): Hono 
 		});
 
 		return c.json({ products: result });
+	});
+
+	// POST / — create a new product with a team and default agents
+	router.post("/", async (c) => {
+		let body: unknown;
+		try {
+			body = await c.req.json();
+		} catch {
+			return c.json({ error: "Invalid JSON", code: "validation_error" }, 400);
+		}
+
+		const { name, repoPath } = body as CreateProductRequest;
+		if (!name || typeof name !== "string" || name.trim().length === 0) {
+			return c.json({ error: "name is required", code: "validation_error" }, 400);
+		}
+
+		const now = new Date().toISOString();
+		const productId = `product-${crypto.randomUUID()}`;
+		const teamId = `team-${crypto.randomUUID()}`;
+		const builderId = `agent-builder-${crypto.randomUUID()}`;
+		const pmId = `agent-pm-${crypto.randomUUID()}`;
+
+		db.insert(products)
+			.values({
+				id: productId,
+				name: name.trim(),
+				phase: "build",
+				factoryDbPath: typeof repoPath === "string" ? repoPath.trim() || null : null,
+				createdAt: now,
+			})
+			.run();
+
+		db.insert(teams)
+			.values({
+				id: teamId,
+				productId,
+				capacity: 5,
+				activeBets: 0,
+				formedAt: now,
+			})
+			.run();
+
+		db.insert(agents)
+			.values({
+				id: builderId,
+				name: `${name.trim()} Builder`,
+				role: "builder",
+				status: "active",
+				maxConcurrentSessions: 3,
+				teamId,
+				createdAt: now,
+			})
+			.run();
+
+		db.insert(agents)
+			.values({
+				id: pmId,
+				name: `${name.trim()} Product Manager`,
+				role: "product_manager",
+				status: "active",
+				maxConcurrentSessions: 1,
+				teamId,
+				createdAt: now,
+			})
+			.run();
+
+		db.update(teams).set({ leadAgentId: builderId }).where(eq(teams.id, teamId)).run();
+
+		const result: CreateProductResponse = {
+			product: { id: productId, name: name.trim(), phase: "build" },
+			team: { id: teamId },
+		};
+
+		return c.json(result, 201);
 	});
 
 	// GET /:productId — full ProductDetail

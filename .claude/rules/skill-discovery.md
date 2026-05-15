@@ -8,6 +8,7 @@ Before responding to ANY implementation or review request, check if a skill shou
 - `/concept`, `/design`, `/architecture` (designer — production)
 - `/design-critique`, `/architecture-critique`, `/review` (reviewer — evaluation + 6 lenses + AC completeness)
 - `/write-tests`, `/write-code`, `/visual-polish` (builder)
+- `/ship` (builder — verify + attestation + PR)
 - `/retro` (Explore agent — fresh-context observation)
 - `/compound` (self-improvement — pattern detection in retro log)
 - `/lore` (any)
@@ -27,6 +28,7 @@ User request arrives
     ├── Is it about building a feature? ─────────→ /pipeline <story>
     ├── Is it about running multiple stories? ───→ /pipeline <target>
     ├── Is it about reviewing code? ─────────────→ /review <changes>
+    ├── Is it about shipping / pushing / PRs? ──→ /ship <workpackage-id>
     ├── Is it about documenting decisions? ──────→ /lore <files|scan|index>
     ├── Is it about visual fidelity? ────────────→ /visual-polish <reference>
     ├── Is it about process improvement? ────────→ /retro <workpackage|pipeline>
@@ -34,7 +36,7 @@ User request arrives
     └── None of the above? ──────────────────────→ Proceed normally
 ```
 
-**Note (block-1b):** `/verify` and `/ship` were collapsed away — verify is a script the builder runs as part of `/write-code`; ship is replaced by continuous-commit + draft-PR pipeline. `/review` is the single comprehensive review skill — 3 positive lenses (architecture, design, security) + 3 negative lenses (adversarial, simplification, slop) + AC completeness. `/write-tests` and `/write-code` stay separate — red and green are different cognitive acts. `/design-critique` and `/architecture-critique` moved from designer to reviewer — the evaluator must be a different agent than the producer. The reviewer runs critique in Phase 2, then code review in Phase 4, carrying design/arch context forward.
+**Note (block-1b):** `/ship` handles the verify → attestation → commit → push → PR flow. The attestation system (HMAC-signed `.verify-attestation.json`) lets CI validate in ~30s instead of re-running full verify. `/review` is the single comprehensive review skill — 3 positive lenses (architecture, design, security) + 3 negative lenses (adversarial, simplification, slop) + AC completeness. `/write-tests` and `/write-code` stay separate — red and green are different cognitive acts. `/design-critique` and `/architecture-critique` moved from designer to reviewer — the evaluator must be a different agent than the producer. The reviewer runs critique in Phase 2, then code review in Phase 4, carrying design/arch context forward.
 
 ## Red Flags — Rationalizations for Skipping Skills
 

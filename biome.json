@@ -156,7 +156,8 @@
 			"!.pipeline",
 			"!**/plans",
 			"!packages/eslint-plugin-design/test-fixtures",
-			"!scripts"
+			"!scripts",
+			"!.verify-attestation.json"
 		]
 	},
 	"overrides": [

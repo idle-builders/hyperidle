@@ -8,53 +8,130 @@ min_tool_calls: 5
 
 # Ship
 
-**Why:** Clean main branch ensure the next change will start from a reliable basis. Clean git history makes it possible to understand what changed and why. Atomic commits with clear messages let future agents (and humans) trace decisions. PRs create a review record. CI gates prevent broken code from reaching main.
+**Why:** Clean main branch ensures the next change starts from a reliable basis. Clean git history makes it possible to understand what changed and why. The attestation system lets CI validate in seconds instead of re-running the full verify suite.
 
+## Steps
 
-## Pre-flight validation (MANDATORY — do not skip)
+### 1. Pre-flight validation (MANDATORY — do not skip)
 
-Run the verification gate. If it fails, stop and fix before proceeding:
+Run the full verification gate. If it fails, stop and fix before proceeding:
+
 ```bash
-bun run verify   # Type check + lint + tests in one pass
+bun run verify
 ```
 
-This is non-negotiable. Do not merge with failures. Do not use `--no-verify`. Do not rationalize "pre-existing failures" — if it's red, fix it or document why it's blocked and stop.
+This is non-negotiable. Do not ship with failures. Do not use `--no-verify`. Do not rationalize "pre-existing failures" — if it's red, fix it or document why it's blocked and stop.
 
-## Branch and PR
+On green, verify automatically writes `.verify-attestation.json` — an HMAC-signed attestation proving this machine ran verify against the current HEAD. The signing key lives at `~/.config/hyperidle/verify-secret` (auto-generated on first green run, never committed to the repo).
+
+If the working tree is dirty when verify runs, the attestation is marked `dirty: true` and CI will reject it. **Commit all code changes before running verify.**
+
+### 2. Stage and commit
+
+Stage files intentionally — never `git add -A` or `git add .`.
+
+Commit with `<type>(<scope>): <imperative description>` referencing the workpackage ID. If changes span multiple logical units, make multiple atomic commits.
+
+Types: `feat`, `fix`, `refactor`, `test`, `docs`, `chore`. Scopes: `db`, `server`, `web`, `fabric`, `shared`, or omit.
+
+### 3. Run verify (if not already green for this commit)
+
+If you committed new code after the last verify run, re-run:
+
+```bash
+bun run verify
+```
+
+The attestation must match HEAD. If code changed since the last green run, the attestation's SHA won't match and CI will reject it.
+
+### 4. Commit the attestation
+
+```bash
+git add .verify-attestation.json
+git commit -m "verify: attestation"
+```
+
+This must be the **last commit** before pushing. CI checks that no source files changed between the attested SHA and HEAD — only `.verify-attestation.json` may differ.
+
+### 5. Branch and push
 
 If not on a feature branch, create one: `feat/<workpackage-id>-<description>`.
 
-Push with `-u`. Create PR via `gh pr create` with summary and workpackage reference.
-
-Main is a protected branch and can only be commited to via a pull request.
-
-## Commit
-
-Stage files (never `git add -A`). Commit with `<type>(<scope>): <imperative description>` referencing the workpackage ID. If changes span multiple logical units, make multiple atomic commits.
-
-Types: feat, fix, refactor, test, docs, chore. Scopes: db, server, web, fabric, shared, or omit.
-
-## CI gate (MUST PASS — workpackage stops at green PR)
-
-After pushing, CI runs automatically (`.github/workflows/ci.yml`): type check + lint + test. Wait for CI to pass:
-
 ```bash
-# Check CI status
-gh pr checks <pr-number> --watch
+git push -u origin HEAD
 ```
 
-If CI fails, read the failure logs (`gh pr checks <pr-number>`), fix the issues, push again, and wait for green CI.
+### 6. Create PR
 
-**Do NOT merge.** The /ship skill stops at "green PR open." Merging is a human decision (the A/B harness depends on PRs staying open and re-runnable; merging mid-experiment destroys the comparison). When the human is ready to merge, they run `gh pr merge` themselves.
+```bash
+gh pr create --title "<type>(<scope>): <description>" \
+  --body "## Summary\n\n<what changed and why>\n\n## Verification\n\nbun run verify — all green (attestation attached)"
+```
 
-**Rules:**
-- **Workpackage is "shipped" when CI is green and the PR is open** — not when merged
-- **Never merge** — leave the PR open, the human decides when to merge
-- Never ship failing tests or lint errors
-- Never `git add -A` or `git add .` — stage specific files
-- Never force push
-- Never use `--no-verify` to skip hooks
-- One PR per workpackage
+Main is protected — commits only land via pull request.
+
+### 7. CI attestation check
+
+CI runs `check-attestation.ts` which validates:
+- **HMAC signature** — the attestation was signed with the shared secret
+- **Full coverage** — all tools ran (not `--quick` or `--only=...`)
+- **Clean tree** — no uncommitted changes when verify ran
+- **No post-verify changes** — no source files changed after the attested SHA
+
+CI completes in ~30 seconds (checkout + attestation check) instead of ~10 minutes (full verify).
+
+If CI fails, read the error:
+- `HMAC signature invalid` → secret mismatch; re-run `gh secret set VERIFY_SECRET < ~/.config/hyperidle/verify-secret`
+- `partial verify` → re-run `bun run verify` without `--quick` or `--only`
+- `working tree dirty` → commit everything, then re-run verify
+- `source files changed after verify` → code was committed after verify; re-run verify and re-commit attestation
+
+### 8. Merge decision
+
+**Do NOT merge automatically.** The `/ship` skill stops at "green PR open." Merging is a human decision — the A/B harness depends on PRs staying open and re-runnable.
+
+When the human is ready: `gh pr merge --squash`.
+
+## Quick reference
+
+The full ship flow in one block:
+
+```bash
+# 1. Commit your code
+git add <files>
+git commit -m "feat(web): add onboarding flow"
+
+# 2. Verify (writes attestation on green)
+bun run verify
+
+# 3. Commit attestation + push
+git add .verify-attestation.json
+git commit -m "verify: attestation"
+git push -u origin HEAD
+
+# 4. Open PR
+gh pr create --title "feat(web): add onboarding flow" --body "..."
+```
+
+## Rules
+
+- **Never ship failing verify** — fix first
+- **Never `git add -A`** — stage specific files
+- **Never force push** — history is shared
+- **Never `--no-verify`** — hooks exist for a reason
+- **Never merge** — leave the PR for the human
+- **One PR per workpackage** in pipeline mode
+- **Attestation must be the last commit** — no code after it
+
+## GitHub secret setup (one-time)
+
+The HMAC secret must exist both locally and in GitHub Actions:
+
+```bash
+# Local key is auto-generated on first `bun run verify` green run.
+# Add it to GitHub:
+gh secret set VERIFY_SECRET < ~/.config/hyperidle/verify-secret
+```
 
 ## Target
 
