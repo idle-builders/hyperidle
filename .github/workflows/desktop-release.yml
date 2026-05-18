@@ -53,10 +53,12 @@ jobs:
       # Code signing — Developer ID Application certificate (.p12 base64-encoded)
       CSC_LINK: ${{ secrets.MAC_CERT_P12_BASE64 }}
       CSC_KEY_PASSWORD: ${{ secrets.MAC_CERT_PASSWORD }}
-      # Notarization — App Store Connect API key (notarytool)
-      APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
-      APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
-      APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+      # Notarization — Apple ID + app-specific password (NOT the App Store
+      # Connect API). Generate the app-specific password at appleid.apple.com →
+      # Sign-In and Security → App-Specific Passwords.
+      APPLE_ID: ${{ secrets.APPLE_ID }}
+      APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+      APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
 
     steps:
       - uses: actions/checkout@v4

@@ -59,29 +59,27 @@ describe("desktop-release.yml — secrets never echoed (AC6)", () => {
 		expect(wf).toMatch(/secrets\.MAC_CERT_PASSWORD/);
 	});
 
-	it("references APPLE_API_KEY as a secret", () => {
+	it("references APPLE_ID as a secret (notarization via Apple ID + app-specific password)", () => {
 		const wf = readWorkflow();
-		expect(wf).toMatch(/secrets\.APPLE_API_KEY/);
+		expect(wf).toMatch(/secrets\.APPLE_ID/);
 	});
 
-	it("references APPLE_API_KEY_ID as a secret", () => {
+	it("references APPLE_APP_SPECIFIC_PASSWORD as a secret", () => {
 		const wf = readWorkflow();
-		expect(wf).toMatch(/secrets\.APPLE_API_KEY_ID/);
+		expect(wf).toMatch(/secrets\.APPLE_APP_SPECIFIC_PASSWORD/);
 	});
 
-	it("references APPLE_API_ISSUER as a secret", () => {
+	it("references APPLE_TEAM_ID as a secret", () => {
 		const wf = readWorkflow();
-		expect(wf).toMatch(/secrets\.APPLE_API_ISSUER/);
+		expect(wf).toMatch(/secrets\.APPLE_TEAM_ID/);
 	});
 
 	it("does NOT echo any secret values (AC6 — secrets must never appear in logs)", () => {
 		const wf = readWorkflow();
-		// No `echo ${{ secrets.* }}` or `echo "$CSC_LINK"` patterns
-		// This checks that the workflow doesn't print secret env vars
 		expect(wf).not.toMatch(/echo\s+\$\{\{\s*secrets\./);
 		expect(wf).not.toMatch(/echo\s+["']?\$CSC_LINK/);
 		expect(wf).not.toMatch(/echo\s+["']?\$CSC_KEY_PASSWORD/);
-		expect(wf).not.toMatch(/echo\s+["']?\$APPLE_API_KEY["']?\b/);
+		expect(wf).not.toMatch(/echo\s+["']?\$APPLE_ID["']?\s/);
 	});
 });
 
