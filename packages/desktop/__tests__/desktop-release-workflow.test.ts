@@ -32,12 +32,19 @@ describe("desktop-release.yml exists (AC7)", () => {
 });
 
 describe("desktop-release.yml — trigger (AC7)", () => {
-	it("triggers on tag push matching v* pattern", () => {
+	it("triggers on manual workflow_dispatch with version input", () => {
 		const wf = readWorkflow();
 		expect(wf).toMatch(/on\s*:/);
-		expect(wf).toMatch(/push\s*:/);
-		expect(wf).toMatch(/tags\s*:/);
-		expect(wf).toMatch(/v\*/);
+		expect(wf).toMatch(/workflow_dispatch\s*:/);
+		expect(wf).toMatch(/version\s*:/);
+	});
+
+	it("has a bump type selector (patch/minor/major)", () => {
+		const wf = readWorkflow();
+		expect(wf).toMatch(/bump\s*:/);
+		expect(wf).toMatch(/patch/);
+		expect(wf).toMatch(/minor/);
+		expect(wf).toMatch(/major/);
 	});
 });
 

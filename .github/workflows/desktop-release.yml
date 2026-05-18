@@ -1,9 +1,20 @@
 name: Desktop Release
 
 on:
-  push:
-    tags:
-      - "v*"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Release version (e.g. 0.1.0, 1.0.0)"
+        required: true
+        type: string
+      bump:
+        description: "Bump type (for changelog context only — version is explicit)"
+        required: true
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
 
 # Only one release build at a time — do not cancel in-progress (a partial
 # release would leave assets missing from the GitHub Release).
@@ -12,7 +23,18 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  tag:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - uses: actions/checkout@v4
+      - name: Create and push tag
+        run: |
+          git tag "v${{ inputs.version }}"
+          git push origin "v${{ inputs.version }}"
+
   build:
+    needs: tag
     # @lore N5: Each arch needs its NATIVE runner for electron-rebuild to
     # compile better-sqlite3 without cross-compilation toolchain issues.
     # - arm64 → macos-latest (Apple Silicon M-series runner)
@@ -80,6 +102,8 @@ jobs:
         with:
           repository: ambrovia/hyperidle-releases
           token: ${{ secrets.RELEASES_TOKEN }}
+          tag_name: v${{ inputs.version }}
+          name: HyperIdle v${{ inputs.version }}
           files: packages/desktop/release/*.dmg
 
   update-homebrew:
@@ -87,11 +111,11 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - name: Get release version from tag
+      - name: Get release version from inputs
         id: release
         run: |
-          TAG="${GITHUB_REF#refs/tags/}"
-          VERSION="${TAG#v}"
+          VERSION="${{ inputs.version }}"
+          TAG="v${VERSION}"
           echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
           echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
 
