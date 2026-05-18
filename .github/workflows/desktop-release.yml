@@ -71,9 +71,15 @@ jobs:
         working-directory: packages/desktop
         run: npx electron-builder --config electron-builder.yml --mac --${{ matrix.arch }}
 
-      - name: Upload DMG to GitHub Release
+      - name: Upload DMG to public releases repo
+        # @lore N5: DMGs are uploaded to ambrovia/hyperidle-releases (public)
+        # instead of the main repo (private). This lets Homebrew download
+        # the DMGs without authentication. The RELEASES_TOKEN needs repo
+        # scope on ambrovia/hyperidle-releases.
         uses: softprops/action-gh-release@v2
         with:
+          repository: ambrovia/hyperidle-releases
+          token: ${{ secrets.RELEASES_TOKEN }}
           files: packages/desktop/release/*.dmg
 
   update-homebrew:
@@ -99,7 +105,7 @@ jobs:
         run: |
           TAG="${{ steps.release.outputs.tag }}"
           VERSION="${{ steps.release.outputs.version }}"
-          BASE_URL="https://github.com/hyperidle/hyperidle/releases/download/${TAG}"
+          BASE_URL="https://github.com/ambrovia/hyperidle-releases/releases/download/${TAG}"
           ARM64_URL="${BASE_URL}/HyperIdle-${VERSION}-arm64.dmg"
           X64_URL="${BASE_URL}/HyperIdle-${VERSION}-x64.dmg"
 
@@ -140,7 +146,7 @@ jobs:
         run: |
           TAG="${{ steps.release.outputs.tag }}"
           VERSION="${{ steps.release.outputs.version }}"
-          BASE_URL="https://github.com/hyperidle/hyperidle/releases/download/${TAG}"
+          BASE_URL="https://github.com/ambrovia/hyperidle-releases/releases/download/${TAG}"
 
           curl -sL "${BASE_URL}/HyperIdle-${VERSION}-arm64.dmg" -o arm64.dmg
           curl -sL "${BASE_URL}/HyperIdle-${VERSION}-x64.dmg" -o x64.dmg
@@ -158,7 +164,7 @@ jobs:
         uses: peter-evans/repository-dispatch@v3
         with:
           token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
-          repository: hyperidle/homebrew-tap
+          repository: ambrovia/homebrew-tap
           event-type: update-cask
           client-payload: |
             {

@@ -2,16 +2,16 @@ cask "hyperidle" do
   version "0.0.1"
 
   if Hardware::CPU.arm?
-    url "https://github.com/hyperidle/hyperidle/releases/download/v#{version}/HyperIdle-#{version}-arm64.dmg"
+    url "https://github.com/ambrovia/hyperidle-releases/releases/download/v#{version}/HyperIdle-#{version}-arm64.dmg"
     sha256 "PLACEHOLDER_ARM64_SHA256"
   else
-    url "https://github.com/hyperidle/hyperidle/releases/download/v#{version}/HyperIdle-#{version}-x64.dmg"
+    url "https://github.com/ambrovia/hyperidle-releases/releases/download/v#{version}/HyperIdle-#{version}-x64.dmg"
     sha256 "PLACEHOLDER_X64_SHA256"
   end
 
   name "HyperIdle"
   desc "Agentic operating system for AI product teams"
-  homepage "https://github.com/hyperidle/hyperidle"
+  homepage "https://hyperidle.com"
 
   livecheck do
     url :url

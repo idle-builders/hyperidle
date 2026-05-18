@@ -64,7 +64,7 @@ describe("homebrew/Casks/hyperidle.rb — required fields (AC8)", () => {
 	it("has URL pointing to GitHub releases with version interpolation", () => {
 		const cask = readCask();
 		expect(cask).toMatch(/url\s+["']/i);
-		expect(cask).toMatch(/github\.com\/hyperidle\/hyperidle\/releases/);
+		expect(cask).toMatch(/github\.com\/ambrovia\/hyperidle-releases\/releases/);
 		expect(cask).toMatch(/#\{version\}/);
 	});
 
@@ -84,10 +84,9 @@ describe("homebrew/Casks/hyperidle.rb — required fields (AC8)", () => {
 		}
 	});
 
-	it("has homepage pointing to hyperidle GitHub repo", () => {
+	it("has homepage field", () => {
 		const cask = readCask();
-		expect(cask).toMatch(/homepage\s+["']/);
-		expect(cask).toMatch(/github\.com\/hyperidle/);
+		expect(cask).toMatch(/homepage\s+["']https?:\/\//);
 	});
 
 	it("has livecheck block (AC8 — brew upgrade auto-detects new releases)", () => {
