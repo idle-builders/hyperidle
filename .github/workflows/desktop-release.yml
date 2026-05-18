@@ -104,24 +104,36 @@ jobs:
           X64_URL="${BASE_URL}/HyperIdle-${VERSION}-x64.dmg"
 
           echo "Waiting for arm64 DMG: ${ARM64_URL}"
+          ARM64_READY=false
           for i in $(seq 1 30); do
             if curl -sILf "${ARM64_URL}" > /dev/null 2>&1; then
               echo "arm64 DMG available."
+              ARM64_READY=true
               break
             fi
             echo "Attempt ${i}/30: arm64 DMG not yet available. Retrying in 10s..."
             sleep 10
           done
+          if [ "$ARM64_READY" != "true" ]; then
+            echo "::error::arm64 DMG not available after 5 minutes. Aborting."
+            exit 1
+          fi
 
           echo "Waiting for x64 DMG: ${X64_URL}"
+          X64_READY=false
           for i in $(seq 1 30); do
             if curl -sILf "${X64_URL}" > /dev/null 2>&1; then
               echo "x64 DMG available."
+              X64_READY=true
               break
             fi
             echo "Attempt ${i}/30: x64 DMG not yet available. Retrying in 10s..."
             sleep 10
           done
+          if [ "$X64_READY" != "true" ]; then
+            echo "::error::x64 DMG not available after 5 minutes. Aborting."
+            exit 1
+          fi
 
       - name: Download DMGs and compute sha256 checksums
         id: sha

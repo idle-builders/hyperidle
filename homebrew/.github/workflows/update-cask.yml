@@ -11,6 +11,24 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Validate dispatch payload
+        run: |
+          VERSION="${{ github.event.client_payload.version }}"
+          ARM64_SHA="${{ github.event.client_payload.arm64_sha256 }}"
+          X64_SHA="${{ github.event.client_payload.x64_sha256 }}"
+          if [ -z "$VERSION" ] || [ -z "$ARM64_SHA" ] || [ -z "$X64_SHA" ]; then
+            echo "::error::Missing required fields in client_payload (version, arm64_sha256, x64_sha256)"
+            exit 1
+          fi
+          if ! echo "$ARM64_SHA" | grep -qE '^[a-f0-9]{64}$'; then
+            echo "::error::arm64_sha256 is not a valid sha256 hash"
+            exit 1
+          fi
+          if ! echo "$X64_SHA" | grep -qE '^[a-f0-9]{64}$'; then
+            echo "::error::x64_sha256 is not a valid sha256 hash"
+            exit 1
+          fi
+
       - name: Update cask formula
         run: |
           VERSION="${{ github.event.client_payload.version }}"
