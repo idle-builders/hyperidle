@@ -101,3 +101,58 @@ describe("runMigrations", () => {
 		expect(() => runMigrations("/tmp/test.db", "/tmp/drizzle")).toThrow("SQLITE_IOERR");
 	});
 });
+
+// ---------------------------------------------------------------------------
+// N5: Production path resolution (app.isPackaged branch)
+// ---------------------------------------------------------------------------
+
+describe("resolveMigrationsFolder — packaged app (AC11)", () => {
+	it("returns process.resourcesPath/drizzle when app.isPackaged is true", async () => {
+		// Mock electron's app module so we can control app.isPackaged
+		vi.mock("electron", () => ({
+			app: {
+				isPackaged: true,
+			},
+		}));
+
+		// process.resourcesPath is set by Electron in packaged apps
+		const originalResourcesPath = process.resourcesPath;
+		Object.defineProperty(process, "resourcesPath", {
+			value: "/tmp/test-resources",
+			configurable: true,
+			writable: true,
+		});
+
+		// Re-import to pick up the mock
+		vi.resetModules();
+		const { resolveMigrationsFolder: resolvePackaged } = await import("../src/migrate.js");
+
+		const folder = resolvePackaged();
+		expect(folder).toBe("/tmp/test-resources/drizzle");
+
+		// Restore
+		Object.defineProperty(process, "resourcesPath", {
+			value: originalResourcesPath,
+			configurable: true,
+			writable: true,
+		});
+		vi.resetModules();
+	});
+
+	it("returns monorepo db/drizzle path in dev mode (app.isPackaged is false)", async () => {
+		vi.mock("electron", () => ({
+			app: {
+				isPackaged: false,
+			},
+		}));
+
+		vi.resetModules();
+		const { resolveMigrationsFolder: resolveDev } = await import("../src/migrate.js");
+
+		const folder = resolveDev();
+		expect(folder).toMatch(/drizzle$/);
+		expect(folder.startsWith("/")).toBe(true);
+
+		vi.resetModules();
+	});
+});
