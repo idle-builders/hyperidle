@@ -11,7 +11,7 @@
 	"workspaces": {
 		".": {
 			"entry": ["scripts/*.ts"],
-			"ignoreBinaries": ["bin/pipeline"],
+			"ignoreBinaries": ["bin/pipeline", "electron-builder"],
 			"ignoreDependencies": ["@typescript-eslint/utils"]
 		},
 		"packages/shared": {},
@@ -53,8 +53,9 @@
 			"ignoreBinaries": ["src/index.ts"]
 		},
 		"packages/desktop": {
-			"entry": ["src/preload.ts"],
-			"ignoreBinaries": ["electron"]
+			"entry": ["src/preload.ts", "scripts/bundle.ts"],
+			"ignoreBinaries": ["electron", "electron-builder"],
+			"ignoreDependencies": ["better-sqlite3"]
 		},
 		"packages/eslint-plugin-design": {},
 		"scripts": {

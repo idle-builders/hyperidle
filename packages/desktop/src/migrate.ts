@@ -6,6 +6,7 @@
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 import { applyMigrations, isDowngrade } from "@hyperidle/db";
+import { app } from "electron";
 
 export interface MigrationOrchestrationResult {
 	applied: number;
@@ -19,9 +20,21 @@ export interface MigrationOrchestrationResult {
  *
  * @lore N4: ESM has no __dirname — we derive it from import.meta.url.
  * The `drizzle` folder lives at packages/db/drizzle relative to the monorepo root.
+ *
+ * @lore N5: In packaged app mode (app.isPackaged === true), import.meta.url
+ * resolves to dist/main.cjs (esbuild CJS shim). We cannot use a relative path
+ * from the bundle to find migrations. Instead, electron-builder copies the
+ * drizzle/ folder to extraResources, making it available at
+ * process.resourcesPath/drizzle. The app.isPackaged branch handles this.
  */
 export function resolveMigrationsFolder(): string {
-	// In the monorepo, this file lives at packages/desktop/src/migrate.ts.
+	if (app.isPackaged) {
+		// Packaged app: migrations are in extraResources, accessible via
+		// process.resourcesPath (set by Electron for the running app bundle).
+		return path.join(process.resourcesPath, "drizzle");
+	}
+	// Dev mode: relative to the monorepo packages/db/drizzle.
+	// This file lives at packages/desktop/src/migrate.ts.
 	// The migrations folder lives at packages/db/drizzle.
 	// Relative path: ../../../db/drizzle from packages/desktop/src/
 	const currentDir = path.dirname(fileURLToPath(import.meta.url));

@@ -13,6 +13,16 @@ import { describe, expect, it, vi } from "vitest";
 import { resolveMigrationsFolder, runMigrations } from "../src/migrate.js";
 
 // ---------------------------------------------------------------------------
+// Mock electron — app.isPackaged defaults to false (dev mode) for N4 tests.
+// N5 tests override isPackaged per-test via vi.mocked().
+// ---------------------------------------------------------------------------
+vi.mock("electron", () => ({
+	app: {
+		isPackaged: false,
+	},
+}));
+
+// ---------------------------------------------------------------------------
 // Mock @hyperidle/db — applyMigrations and isDowngrade live there
 // ---------------------------------------------------------------------------
 vi.mock("@hyperidle/db", async (importOriginal) => {
@@ -105,45 +115,41 @@ describe("runMigrations", () => {
 // ---------------------------------------------------------------------------
 // N5: Production path resolution (app.isPackaged branch)
 // ---------------------------------------------------------------------------
+// @lore N5: vi.mock() is hoisted and cannot be used inside it() for
+// per-test module control. Use vi.doMock() (not hoisted) + vi.resetModules()
+// before the dynamic import so each test gets its own module instance with
+// the correct mock applied.
 
 describe("resolveMigrationsFolder — packaged app (AC11)", () => {
 	it("returns process.resourcesPath/drizzle when app.isPackaged is true", async () => {
-		// Mock electron's app module so we can control app.isPackaged
-		vi.mock("electron", () => ({
-			app: {
-				isPackaged: true,
-			},
-		}));
-
-		// process.resourcesPath is set by Electron in packaged apps
-		const originalResourcesPath = process.resourcesPath;
+		// Set up process.resourcesPath before the module loads
 		Object.defineProperty(process, "resourcesPath", {
 			value: "/tmp/test-resources",
 			configurable: true,
 			writable: true,
 		});
 
-		// Re-import to pick up the mock
-		vi.resetModules();
-		const { resolveMigrationsFolder: resolvePackaged } = await import("../src/migrate.js");
+		// vi.doMock is NOT hoisted — it applies to the NEXT dynamic import
+		vi.doMock("electron", () => ({
+			app: { isPackaged: true },
+		}));
 
+		// Reset module registry so the next import() gets a fresh module
+		// that picks up the vi.doMock above
+		vi.resetModules();
+
+		const { resolveMigrationsFolder: resolvePackaged } = await import("../src/migrate.js");
 		const folder = resolvePackaged();
 		expect(folder).toBe("/tmp/test-resources/drizzle");
 
 		// Restore
-		Object.defineProperty(process, "resourcesPath", {
-			value: originalResourcesPath,
-			configurable: true,
-			writable: true,
-		});
+		vi.doUnmock("electron");
 		vi.resetModules();
 	});
 
 	it("returns monorepo db/drizzle path in dev mode (app.isPackaged is false)", async () => {
-		vi.mock("electron", () => ({
-			app: {
-				isPackaged: false,
-			},
+		vi.doMock("electron", () => ({
+			app: { isPackaged: false },
 		}));
 
 		vi.resetModules();
@@ -153,6 +159,7 @@ describe("resolveMigrationsFolder — packaged app (AC11)", () => {
 		expect(folder).toMatch(/drizzle$/);
 		expect(folder.startsWith("/")).toBe(true);
 
+		vi.doUnmock("electron");
 		vi.resetModules();
 	});
 });
