@@ -36,12 +36,10 @@ export interface SessionContext {
 	traceId: string;
 }
 
-// @lore O1: resolveCostBaseline and costDelta were removed from session_ended
-// as part of the kernel/strategy separation. costDelta was always 0 in
-// practice (the field was intended for cost accounting but never wired up
-// to a real cost source). The observability layer no longer receives
-// costDelta — this is an intentional data gap. See architecture.md for
-// the rationale.
+// @lore O1: resolveCostBaseline and costDelta removed from session_ended
+// as part of kernel/strategy separation. Session cost tracking is a
+// strategy concern, not kernel. The observability layer no longer receives
+// costDelta — intentional gap, cost signals belong in the strategy layer.
 
 /**
  * Create a new agent session: check concurrency, set up workspace,
