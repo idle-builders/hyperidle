@@ -83,13 +83,24 @@ jobs:
         run: bun packages/desktop/scripts/bundle.ts
 
       - name: Generate package-lock.json for electron-rebuild
-        # @lore N5: electron-rebuild requires a package-lock.json to resolve
-        # native module versions. bun uses bun.lockb (not package-lock.json).
-        # We generate it here as a CI-only artifact — it is NOT committed.
-        # npm may warn about workspace:* protocol references but still
-        # generates a usable lock file for the better-sqlite3 native dep.
+        # @lore N5: electron-rebuild needs a package-lock.json but npm cannot
+        # parse bun's workspace:* protocol. We write a minimal temp package.json
+        # with only better-sqlite3 (the sole native dep), run npm install
+        # --package-lock-only on that, then restore the original.
         working-directory: packages/desktop
-        run: npm install --package-lock-only --ignore-scripts
+        run: |
+          cp package.json package.json.bak
+          node -e "
+            const pkg = require('./package.json');
+            const minimal = {
+              name: pkg.name,
+              version: pkg.version,
+              dependencies: { 'better-sqlite3': pkg.dependencies['better-sqlite3'] }
+            };
+            require('fs').writeFileSync('package.json', JSON.stringify(minimal, null, 2));
+          "
+          npm install --package-lock-only --ignore-scripts
+          mv package.json.bak package.json
 
       - name: Build, sign, and notarize
         working-directory: packages/desktop
