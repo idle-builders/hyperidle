@@ -90,19 +90,20 @@ jobs:
         # Fix: run npm in an isolated temp dir outside the monorepo, then
         # copy the generated package-lock.json into packages/desktop/.
         run: |
-          TMPDIR=$(mktemp -d)
+          ISOLATED=$(mktemp -d)
           node -e "
-            const pkg = JSON.parse(require('fs').readFileSync('packages/desktop/package.json', 'utf-8'));
+            const fs = require('fs');
+            const pkg = JSON.parse(fs.readFileSync('packages/desktop/package.json', 'utf-8'));
             const minimal = {
               name: pkg.name,
               version: pkg.version,
               dependencies: { 'better-sqlite3': pkg.dependencies['better-sqlite3'] }
             };
-            require('fs').writeFileSync('${TMPDIR}/package.json', JSON.stringify(minimal, null, 2));
-          "
-          cd "$TMPDIR" && npm install --package-lock-only --ignore-scripts
-          cp "$TMPDIR/package-lock.json" packages/desktop/package-lock.json
-          rm -rf "$TMPDIR"
+            fs.writeFileSync(process.argv[1] + '/package.json', JSON.stringify(minimal, null, 2));
+          " "$ISOLATED"
+          (cd "$ISOLATED" && npm install --package-lock-only --ignore-scripts)
+          cp "$ISOLATED/package-lock.json" packages/desktop/package-lock.json
+          rm -rf "$ISOLATED"
 
       - name: Build, sign, and notarize
         working-directory: packages/desktop
