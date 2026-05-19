@@ -5,9 +5,6 @@
  *   AC8: Homebrew cask with name, desc, homepage, version, sha256, URL, livecheck.
  *   AC9: Release workflow updates cask formula (version + sha256).
  *   AC10: brew uninstall preserves userData. --zap clause for full purge.
- *
- * The cask formula lives in homebrew/Casks/hyperidle.rb (in THIS repo).
- * The update-cask workflow lives in homebrew/.github/workflows/update-cask.yml.
  */
 
 import * as fs from "node:fs";
@@ -49,16 +46,9 @@ describe("homebrew/Casks/hyperidle.rb — required fields (AC8)", () => {
 		expect(cask).toMatch(/version\s+["']/);
 	});
 
-	it("has sha256 field for arm64", () => {
+	it("has sha256 field", () => {
 		const cask = readCask();
 		expect(cask).toMatch(/sha256\s+["']/);
-		expect(cask).toMatch(/arm64/);
-	});
-
-	it("has sha256 field for x64", () => {
-		const cask = readCask();
-		expect(cask).toMatch(/sha256\s+["']/);
-		expect(cask).toMatch(/x64/);
 	});
 
 	it("has URL pointing to GitHub releases with version interpolation", () => {
@@ -66,6 +56,11 @@ describe("homebrew/Casks/hyperidle.rb — required fields (AC8)", () => {
 		expect(cask).toMatch(/url\s+["']/i);
 		expect(cask).toMatch(/github\.com\/ambrovia\/hyperidle-releases\/releases/);
 		expect(cask).toMatch(/#\{version\}/);
+	});
+
+	it("URL serves arm64 DMG", () => {
+		const cask = readCask();
+		expect(cask).toMatch(/arm64\.dmg/);
 	});
 
 	it("has name field (AC8 — display name)", () => {
@@ -76,7 +71,6 @@ describe("homebrew/Casks/hyperidle.rb — required fields (AC8)", () => {
 	it("has desc field (AC8 — description)", () => {
 		const cask = readCask();
 		expect(cask).toMatch(/desc\s+["']/);
-		// Must be a meaningful description, not empty
 		const descMatch = /desc\s+["']([^"']+)["']/.exec(cask);
 		expect(descMatch).not.toBeNull();
 		if (descMatch) {
@@ -100,23 +94,6 @@ describe("homebrew/Casks/hyperidle.rb — required fields (AC8)", () => {
 	});
 });
 
-describe("homebrew/Casks/hyperidle.rb — architecture support (AC8)", () => {
-	it("uses Hardware::CPU.arm? to select the correct DMG for the user's CPU", () => {
-		const cask = readCask();
-		expect(cask).toMatch(/Hardware::CPU\.arm\?/);
-	});
-
-	it("serves arm64 DMG to Apple Silicon users", () => {
-		const cask = readCask();
-		expect(cask).toMatch(/arm64\.dmg/);
-	});
-
-	it("serves x64 DMG to Intel users", () => {
-		const cask = readCask();
-		expect(cask).toMatch(/x64\.dmg/);
-	});
-});
-
 describe("homebrew/Casks/hyperidle.rb — install/uninstall (AC10)", () => {
 	it("installs HyperIdle.app", () => {
 		const cask = readCask();
@@ -125,8 +102,6 @@ describe("homebrew/Casks/hyperidle.rb — install/uninstall (AC10)", () => {
 
 	it("does NOT have uninstall clause that removes Application Support (AC10 — userData preserved)", () => {
 		const cask = readCask();
-		// brew uninstall without --zap must preserve ~/Library/Application Support/HyperIdle
-		// There should be no uninstall_postflight or uninstall block removing AppSupport
 		expect(cask).not.toMatch(/uninstall_postflight[\s\S]*?Application Support/);
 		expect(cask).not.toMatch(/uninstall do[\s\S]*?Application Support/);
 	});
@@ -166,7 +141,6 @@ describe("homebrew/.github/workflows/update-cask.yml — cask update automation 
 	it("updates version in cask formula (AC9)", () => {
 		const wf = readUpdateWorkflow();
 		expect(wf).toMatch(/version/i);
-		// Must have a sed or replacement command
 		expect(wf).toMatch(/sed\s+-i/);
 	});
 
@@ -174,11 +148,6 @@ describe("homebrew/.github/workflows/update-cask.yml — cask update automation 
 		const wf = readUpdateWorkflow();
 		expect(wf).toMatch(/arm64/);
 		expect(wf).toMatch(/sha256/);
-	});
-
-	it("updates x64 sha256 in cask formula (AC9)", () => {
-		const wf = readUpdateWorkflow();
-		expect(wf).toMatch(/x64/);
 	});
 
 	it("creates a PR for the formula update (AC9 — not a direct push)", () => {
