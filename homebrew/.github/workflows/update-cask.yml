@@ -1,0 +1,56 @@
+name: Update Cask
+
+on:
+  repository_dispatch:
+    types: [update-cask]
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate dispatch payload
+        run: |
+          VERSION="${{ github.event.client_payload.version }}"
+          ARM64_SHA="${{ github.event.client_payload.arm64_sha256 }}"
+          X64_SHA="${{ github.event.client_payload.x64_sha256 }}"
+          if [ -z "$VERSION" ] || [ -z "$ARM64_SHA" ] || [ -z "$X64_SHA" ]; then
+            echo "::error::Missing required fields in client_payload (version, arm64_sha256, x64_sha256)"
+            exit 1
+          fi
+          if ! echo "$ARM64_SHA" | grep -qE '^[a-f0-9]{64}$'; then
+            echo "::error::arm64_sha256 is not a valid sha256 hash"
+            exit 1
+          fi
+          if ! echo "$X64_SHA" | grep -qE '^[a-f0-9]{64}$'; then
+            echo "::error::x64_sha256 is not a valid sha256 hash"
+            exit 1
+          fi
+
+      - name: Update cask formula
+        run: |
+          VERSION="${{ github.event.client_payload.version }}"
+          ARM64_SHA="${{ github.event.client_payload.arm64_sha256 }}"
+          X64_SHA="${{ github.event.client_payload.x64_sha256 }}"
+
+          # Update version line
+          sed -i "s/version \".*\"/version \"${VERSION}\"/" Casks/hyperidle.rb
+
+          # Update arm64 sha256 — the sha256 line immediately follows the arm64 url line
+          sed -i "/arm64\.dmg/{ n; s/sha256 \".*\"/sha256 \"${ARM64_SHA}\"/; }" Casks/hyperidle.rb
+
+          # Update x64 sha256 — the sha256 line immediately follows the x64 url line
+          sed -i "/x64\.dmg/{ n; s/sha256 \".*\"/sha256 \"${X64_SHA}\"/; }" Casks/hyperidle.rb
+
+      - name: Create PR with formula update
+        uses: peter-evans/create-pull-request@v6
+        with:
+          title: "Update HyperIdle to ${{ github.event.client_payload.version }}"
+          commit-message: "Update HyperIdle to ${{ github.event.client_payload.version }}"
+          branch: "update-${{ github.event.client_payload.version }}"
+          body: |
+            Automated update from hyperidle/hyperidle release workflow.
+
+            Version: ${{ github.event.client_payload.version }}
