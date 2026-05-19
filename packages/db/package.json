@@ -4,7 +4,8 @@
 	"private": true,
 	"type": "module",
 	"exports": {
-		".": "./src/index.ts"
+		".": "./src/index.ts",
+		"./zod-schemas": "./src/zod-schemas.ts"
 	},
 	"scripts": {
 		"check": "tsc --noEmit",
@@ -17,7 +18,9 @@
 		"@hyperidle/shared": "workspace:*",
 		"better-sqlite3": "^12.9.0",
 		"drizzle-orm": "^0.39.0",
-		"postgres": "^3.4.9"
+		"drizzle-zod": "^0.8.3",
+		"postgres": "^3.4.9",
+		"zod": "^4.3.6"
 	},
 	"devDependencies": {
 		"@electric-sql/pglite": "^0.4.4",

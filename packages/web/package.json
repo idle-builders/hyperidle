@@ -13,7 +13,9 @@
 	"dependencies": {
 		"@dnd-kit/core": "^6.3.1",
 		"@hyperidle/design-system": "workspace:*",
+		"@hyperidle/server": "workspace:*",
 		"@hyperidle/shared": "workspace:*",
+		"hono": "^4.12.14",
 		"dompurify": "^3.4.0",
 		"focus-trap-react": "^12.0.0",
 		"react": "^19.0.0",
