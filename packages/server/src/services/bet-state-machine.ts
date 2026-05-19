@@ -149,10 +149,13 @@ export async function transitionBet(
 	// so two callers racing to `transitionBet(…, "shipped")` cannot both
 	// observe the same starting state. The loser sees `changes === 0` and
 	// throws `InvalidTransitionError`; only the winner post-emits
-	// `bet_state_changed` + `bet_shipped`. Without the compare-and-set,
-	// concurrent commits double-emit `bet_shipped` and trip any downstream
-	// handler that treats the event as a signal to fire an action exactly
-	// once (e.g. release announcements).
+	// `bet_state_changed`. Without the compare-and-set, concurrent commits
+	// double-emit `bet_state_changed` and trip any downstream handler that
+	// treats the event as a signal to fire an action exactly once (e.g.
+	// release announcements).
+	// @lore O1: `bet_shipped` was a redundant event. Consumers that need to
+	// react to shipping subscribe to `bet_state_changed` and filter
+	// `event.toState === "shipped"` instead.
 	const transitioned = db.transaction((): boolean => {
 		// Capacity check: re-read the team inside the tx so two concurrent
 		// commits cannot both observe `activeBets < capacity` against a stale
@@ -212,7 +215,7 @@ export async function transitionBet(
 
 	// Events emit AFTER commit — at-least-once delivery after durability.
 	// Only the winner reaches this point (losers threw InvalidTransitionError
-	// above), so `bet_state_changed` + `bet_shipped` fire exactly once.
+	// above), so `bet_state_changed` fires exactly once.
 	if (!transitioned) return;
 
 	eventBus.emit({
@@ -223,15 +226,6 @@ export async function transitionBet(
 		toState,
 		timestamp: Date.now(),
 	});
-
-	if (toState === "shipped") {
-		eventBus.emit({
-			type: "bet_shipped",
-			streamId: bet.productId,
-			betId,
-			timestamp: Date.now(),
-		});
-	}
 }
 
 /**

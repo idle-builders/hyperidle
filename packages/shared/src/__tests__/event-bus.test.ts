@@ -20,7 +20,7 @@ vi.mock("../logger.js", () => ({
 
 import { EventBus } from "../event-bus.js";
 import type {
-	BetShippedEvent,
+	BetStateChangedEvent,
 	DomainEvent,
 	NotificationEvent,
 	TaskStateChangedEvent,
@@ -206,7 +206,7 @@ describe("EventBus", () => {
 		const bus = new EventBus();
 		const handler = vi.fn();
 
-		bus.on("bet_shipped", handler);
+		bus.on("bet_state_changed", handler);
 		bus.emit(makeTaskEvent("t1", 1));
 
 		expect(handler).not.toHaveBeenCalled();
@@ -227,18 +227,20 @@ describe("EventBus", () => {
 			expect(To).toBeDefined();
 		});
 
-		bus.on("bet_shipped", (e) => {
+		bus.on("bet_state_changed", (e) => {
 			const BetId: string = e.betId;
 			expect(BetId).toBeDefined();
 		});
 
 		bus.emit(makeTaskEvent("t1", 1));
 		bus.emit({
-			type: "bet_shipped",
+			type: "bet_state_changed",
 			streamId: "bet:b1",
 			betId: "b1",
+			fromState: "in_progress",
+			toState: "shipped",
 			timestamp: 1,
-		} satisfies BetShippedEvent);
+		} satisfies BetStateChangedEvent);
 	});
 
 	// ---------------- I1 / EventBus resilience ----------------

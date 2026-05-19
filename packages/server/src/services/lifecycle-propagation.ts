@@ -40,9 +40,9 @@ import {
 	type EventBus,
 	type PropagationAppliedEvent,
 	type PropagationFailedEvent,
-	type PropagationLevel,
 	InvalidTransitionError as SharedInvalidTransitionError,
 } from "@hyperidle/shared";
+import type { PropagationLevel } from "@hyperidle/fabric";
 import { and, eq, ne } from "drizzle-orm";
 import type { RevisionLogEntry } from "./bet-state-machine.js";
 import { transitionTask } from "./task-state-machine.js";

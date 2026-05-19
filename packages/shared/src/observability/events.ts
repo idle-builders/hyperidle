@@ -42,7 +42,6 @@ interface SessionEndedObservabilityEvent extends ObservabilityEventBase {
 	readonly agentId: string;
 	readonly taskId: string;
 	readonly outcome: SessionOutcome;
-	readonly costDelta: number;
 }
 
 interface ToolCallObservabilityEvent extends ObservabilityEventBase {

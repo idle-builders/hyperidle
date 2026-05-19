@@ -142,7 +142,6 @@ describe("registerLifecyclePropagation — session -> task", () => {
 			agentId: "agent-1",
 			taskId: "task-1",
 			timestamp: Date.now(),
-			costDelta: 0,
 			outcome: "completed",
 		});
 
@@ -165,7 +164,6 @@ describe("registerLifecyclePropagation — session -> task", () => {
 			agentId: "agent-1",
 			taskId: "task-1",
 			timestamp: Date.now(),
-			costDelta: 0,
 			outcome: "completed",
 		});
 
@@ -196,7 +194,6 @@ describe("registerLifecyclePropagation — session -> task", () => {
 			agentId: "agent-1",
 			taskId: "task-1",
 			timestamp: Date.now(),
-			costDelta: 0,
 			outcome: "crashed",
 		});
 
@@ -223,7 +220,6 @@ describe("registerLifecyclePropagation — session -> task", () => {
 			agentId: "agent-1",
 			taskId: "task-1",
 			timestamp: Date.now(),
-			costDelta: 0,
 			outcome: "stopped",
 		});
 
@@ -247,7 +243,6 @@ describe("registerLifecyclePropagation — session -> task", () => {
 			agentId: "agent-1",
 			taskId: "task-1",
 			timestamp: Date.now(),
-			costDelta: 0,
 			outcome: "completed",
 		});
 
@@ -270,7 +265,6 @@ describe("registerLifecyclePropagation — session -> task", () => {
 			agentId: "agent-1",
 			taskId: "task-1",
 			timestamp: Date.now(),
-			costDelta: 0,
 			outcome: "completed",
 		});
 
@@ -299,7 +293,6 @@ describe("registerLifecyclePropagation — session -> task", () => {
 			agentId: "agent-1",
 			taskId: "task-1",
 			timestamp: Date.now(),
-			costDelta: 0,
 			outcome: "completed",
 		});
 
@@ -516,7 +509,6 @@ describe("registerLifecyclePropagation — re-entrant cascade", () => {
 			agentId: "agent-1",
 			taskId: "task-1",
 			timestamp: Date.now(),
-			costDelta: 0,
 			outcome: "completed",
 		});
 
@@ -815,7 +807,6 @@ describe("registerLifecyclePropagation — propagation log", () => {
 			agentId: "agent-1",
 			taskId: "task-1",
 			timestamp: Date.now(),
-			costDelta: 0,
 			outcome: "completed",
 		});
 
@@ -841,7 +832,6 @@ describe("registerLifecyclePropagation — propagation log", () => {
 			agentId: "agent-1",
 			taskId: "task-1",
 			timestamp: Date.now(),
-			costDelta: 0,
 			outcome: "completed",
 		});
 
@@ -868,7 +858,6 @@ describe("registerLifecyclePropagation — propagation log", () => {
 			agentId: "agent-1",
 			taskId: "task-1",
 			timestamp: Date.now(),
-			costDelta: 0,
 			outcome: "completed",
 		});
 

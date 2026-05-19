@@ -34,8 +34,9 @@ import {
  * added (same pattern as WorkBet). KnowledgeBody extended with onOpenBlockActions
  * and messagesByBlockId for inline anchored messages.
  */
-import type { KnowledgeScope, KnowledgeStatus, Message } from "@hyperidle/shared";
+import type { Message } from "@hyperidle/shared";
 import { isRedactedPayload } from "@hyperidle/shared";
+import type { KnowledgeScope, KnowledgeStatus } from "@hyperidle/fabric";
 import { type JSX, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 // eslint-disable-next-line design/no-mock-data-import -- tracked in #93

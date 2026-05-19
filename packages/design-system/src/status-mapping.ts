@@ -1,4 +1,5 @@
-import type { BetStatus, KnowledgeStatus, SessionOutcome, TaskState } from "@hyperidle/shared";
+import type { BetStatus, SessionOutcome, TaskState } from "@hyperidle/shared";
+import type { KnowledgeStatus } from "@hyperidle/fabric";
 import type { Status } from "./StatusChip";
 
 /**

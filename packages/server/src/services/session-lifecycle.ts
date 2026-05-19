@@ -36,27 +36,12 @@ export interface SessionContext {
 	traceId: string;
 }
 
-/**
- * Resolve the cost baseline used to compute `costDelta` on a session_ended
- * event. If an explicit baseline is provided (e.g. the orchestrator captured
- * it at session-insert time, before `recordCostAndCheck` mutated
- * `sessions.cost`), use it. Otherwise fall back to reading the currently
- * persisted cost — this preserves behavior for direct callers of
- * `endSession`/`crashSession`.
- */
-function resolveCostBaseline(
-	db: HyperIdleDb,
-	sessionId: string,
-	baselineCost: number | undefined,
-): number {
-	if (baselineCost !== undefined) return baselineCost;
-	const row = db
-		.select({ cost: sessions.cost })
-		.from(sessions)
-		.where(eq(sessions.id, sessionId))
-		.get();
-	return row?.cost ?? 0;
-}
+// @lore O1: resolveCostBaseline and costDelta were removed from session_ended
+// as part of the kernel/strategy separation. costDelta was always 0 in
+// practice (the field was intended for cost accounting but never wired up
+// to a real cost source). The observability layer no longer receives
+// costDelta — this is an intentional data gap. See architecture.md for
+// the rationale.
 
 /**
  * Create a new agent session: check concurrency, set up workspace,
@@ -162,10 +147,9 @@ export async function endSession(
 	// 1. Stop watcher (final pass/flush)
 	context.watcher.stop();
 
-	// 2. Compute cost delta relative to the resolved baseline.
-	const costDelta = costInCents - resolveCostBaseline(db, context.sessionId, baselineCost);
-
-	// 3. Update session row — write both legacy cost and new L17 money columns.
+	// 2. Update session row — write both legacy cost and new L17 money columns.
+	// baselineCost parameter is retained for API compatibility but no longer used.
+	void baselineCost;
 	const now = new Date().toISOString();
 	db.update(sessions)
 		.set({
@@ -180,7 +164,7 @@ export async function endSession(
 		.where(eq(sessions.id, context.sessionId))
 		.run();
 
-	// 4. Emit session_ended event
+	// 3. Emit session_ended event
 	eventBus.emit({
 		type: "session_ended",
 		streamId: context.sessionId,
@@ -188,7 +172,6 @@ export async function endSession(
 		agentId: context.agentId,
 		taskId: context.taskId,
 		timestamp: Date.now(),
-		costDelta,
 		outcome: "completed",
 	});
 
@@ -225,10 +208,9 @@ export async function crashSession(
 		// Watcher may already be in a bad state during crash
 	}
 
-	// 2. Compute cost delta relative to the resolved baseline.
-	const costDelta = costInCents - resolveCostBaseline(db, context.sessionId, baselineCost);
-
-	// 3. Update session row — write both legacy cost and new L17 money columns.
+	// 2. Update session row — write both legacy cost and new L17 money columns.
+	// baselineCost parameter is retained for API compatibility but no longer used.
+	void baselineCost;
 	const now = new Date().toISOString();
 	db.update(sessions)
 		.set({
@@ -243,7 +225,7 @@ export async function crashSession(
 		.where(eq(sessions.id, context.sessionId))
 		.run();
 
-	// 4. Emit session_ended event
+	// 3. Emit session_ended event
 	eventBus.emit({
 		type: "session_ended",
 		streamId: context.sessionId,
@@ -251,7 +233,6 @@ export async function crashSession(
 		agentId: context.agentId,
 		taskId: context.taskId,
 		timestamp: Date.now(),
-		costDelta,
 		outcome: "crashed",
 	});
 

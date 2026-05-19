@@ -4,12 +4,8 @@ import {
 	knowledgeEditLog,
 	knowledgeItems,
 } from "@hyperidle/db";
-import type {
-	KnowledgeFormat,
-	KnowledgeKind,
-	KnowledgeLayer,
-	KnowledgeStatus,
-} from "@hyperidle/shared";
+import type { KnowledgeFormat } from "@hyperidle/shared";
+import type { KnowledgeKind, KnowledgeLayer, KnowledgeStatus } from "./types.js";
 import { and, eq } from "drizzle-orm";
 import { ItemDeletedError, VersionConflictError } from "./errors.js";
 import { getKnowledgeEvents, KnowledgeEventType } from "./events.js";

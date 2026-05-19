@@ -1,3 +1,27 @@
+// --- Strategy types (O1: moved from @hyperidle/shared) ---
+export type {
+	AutonomyLevel,
+	KnowledgeAccessorKind,
+	KnowledgeKind,
+	KnowledgeLayer,
+	KnowledgeRelevanceSignals,
+	KnowledgeScope,
+	KnowledgeSortOption,
+	KnowledgeStatus,
+	KnowledgeTopicHealth,
+	PropagationLevel,
+	PropagationResult,
+	PropagationStatus,
+	RiskTier,
+} from "./types.js";
+export {
+	KNOWLEDGE_LAYERS,
+	KNOWLEDGE_SCOPES,
+	KNOWLEDGE_SORT_OPTIONS,
+	KNOWLEDGE_STATUSES,
+	KNOWLEDGE_TOPIC_HEALTHS,
+} from "./types.js";
+
 export { isTasteSensitive } from "./attention-classifier.js";
 export type { AttentionScoringContext } from "./attention-scoring.js";
 export {

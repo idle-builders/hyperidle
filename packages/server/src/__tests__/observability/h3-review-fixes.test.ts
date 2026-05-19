@@ -722,7 +722,6 @@ describe("H3 review fixes — (11) event ordering within a session", () => {
 			agentId: "a",
 			taskId: "t",
 			timestamp: t0 + 100,
-			costDelta: 10,
 			outcome: "completed",
 		});
 		await dispatcher.flush();

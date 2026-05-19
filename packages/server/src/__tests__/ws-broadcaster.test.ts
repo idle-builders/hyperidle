@@ -1,4 +1,4 @@
-import type { ItemCreatedEvent, ResponseRecordedEvent } from "@hyperidle/shared";
+import type { ItemCreatedEvent, KnowledgeUpdatedEvent } from "@hyperidle/shared";
 import { EventBus } from "@hyperidle/shared";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { WsBroadcaster, type WsClient } from "../services/ws-broadcaster.js";
@@ -49,27 +49,26 @@ describe("WsBroadcaster", () => {
 		expect(received.itemId).toBe("item-1");
 	});
 
-	// AC5: WebSocket pushes responses in real time
-	it("forwards response_recorded events to clients subscribed to conversations topic", () => {
+	// AC5: WebSocket pushes knowledge updates in real time
+	it("forwards knowledge_updated events to clients subscribed to conversations topic", () => {
 		const client = createMockClient();
 		broadcaster.addClient(client);
 		broadcaster.subscribe(client, "conversations");
 
-		const event: ResponseRecordedEvent = {
-			type: "response_recorded",
-			streamId: "item-1",
-			responseId: "resp-1",
-			itemId: "item-1",
-			decision: "approve",
+		const event: KnowledgeUpdatedEvent = {
+			type: "knowledge_updated",
+			streamId: "ki-1",
+			itemId: "ki-1",
+			action: "created",
 			timestamp: Date.now(),
 		};
 		eventBus.emit(event);
 
 		expect(client.messages).toHaveLength(1);
 		const received = JSON.parse(client.messages[0]);
-		expect(received.type).toBe("response_recorded");
-		expect(received.responseId).toBe("resp-1");
-		expect(received.decision).toBe("approve");
+		expect(received.type).toBe("knowledge_updated");
+		expect(received.itemId).toBe("ki-1");
+		expect(received.action).toBe("created");
 	});
 
 	it("does not forward events to clients not subscribed to conversations", () => {

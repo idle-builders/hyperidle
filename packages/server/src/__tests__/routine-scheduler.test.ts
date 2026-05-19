@@ -247,7 +247,7 @@ describe("Routine Scheduler", () => {
 					id: "r-event",
 					ownerAgentId: "agent-1",
 					triggerType: "event",
-					triggerConfig: JSON.stringify({ eventType: "bet_shipped", taskId: "task-1" }),
+					triggerConfig: JSON.stringify({ eventType: "bet_state_changed", taskId: "task-1" }),
 					active: 1,
 				})
 				.run();
@@ -258,9 +258,11 @@ describe("Routine Scheduler", () => {
 			registerEventTriggers(db, eventBus);
 
 			eventBus.emit({
-				type: "bet_shipped",
+				type: "bet_state_changed",
 				streamId: "b1",
 				betId: "b1",
+				fromState: "review",
+				toState: "shipped",
 				timestamp: Date.now(),
 			});
 

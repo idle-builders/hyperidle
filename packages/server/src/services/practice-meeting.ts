@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { type HyperIdleDb, knowledgeEditLog, knowledgeItems } from "@hyperidle/db";
-import type { EventBus, KnowledgeKind, KnowledgeUpdatedEvent } from "@hyperidle/shared";
+import type { EventBus, KnowledgeUpdatedEvent } from "@hyperidle/shared";
+import type { KnowledgeKind } from "@hyperidle/fabric";
 import { and, eq, isNull } from "drizzle-orm";
 
 /**

@@ -33,65 +33,24 @@ export const MUTABLE_BET_FIELDS = ["done_condition", "hypothesis", "cost_appetit
 
 export type MutableBetField = (typeof MUTABLE_BET_FIELDS)[number];
 
-export type KnowledgeLayer = "L0" | "L1" | "L2" | "L3" | "L4";
-
-export const KNOWLEDGE_LAYERS: readonly KnowledgeLayer[] = ["L0", "L1", "L2", "L3", "L4"] as const;
-
 export interface HealthResponse {
 	status: "ok";
 	timestamp: string;
 }
 
-/**
- * The full set of legal knowledge lifecycle statuses. The `KnowledgeStatus`
- * union is derived from this constant so the runtime list (used for
- * exhaustive iteration in tests and presentation maps) and the type checker
- * cannot drift.
- *
- * @lore I4 cross-cutting: `needs_human` is included so the UI status mapper
- * can iterate the union at runtime without falling back to a default chip.
- */
-export const KNOWLEDGE_STATUSES = [
-	"captured",
-	"provisional",
-	"validated",
-	"active",
-	"stale",
-	"archived",
-	"needs_human",
-] as const;
-
-export type KnowledgeStatus = (typeof KNOWLEDGE_STATUSES)[number];
-
 export type KnowledgeFormat = "markdown" | "toon";
 
-export type KnowledgeKind =
-	| "pattern"
-	| "anti_pattern"
-	| "brief"
-	| "principle"
-	| "decision"
-	| "failure"
-	| "reflection"
-	| "focus";
-
 /**
- * Knowledge scope taxonomy (J6). Three-scope segmented browser: Practice
- * (how we work), Product (what we build), Factory (governance/meta).
+ * Kernel-level knowledge statuses: the three states the kernel cares about
+ * (draft → active → archived). The full 7-state taxonomy lives in
+ * @hyperidle/fabric as KnowledgeStatus.
  *
- * @lore J6: the scope is a first-class axis alongside layer/kind/status —
- * UI filters, submenu, and list grouping all branch on it.
+ * @lore O1: moved as part of kernel/strategy separation. The kernel only needs
+ * to know if knowledge is draft, active, or archived. The strategy layer
+ * (fabric) owns the richer 7-state lifecycle.
  */
-export const KNOWLEDGE_SCOPES = ["practice", "product", "factory"] as const;
-export type KnowledgeScope = (typeof KNOWLEDGE_SCOPES)[number];
-
-/**
- * Health signal for a topic group: fresh = all items healthy, some_stale =
- * partial staleness, mostly_stale = majority stale. Rendered as a colored
- * dot on topic NavItems and group headers (J6).
- */
-export const KNOWLEDGE_TOPIC_HEALTHS = ["fresh", "some_stale", "mostly_stale"] as const;
-export type KnowledgeTopicHealth = (typeof KNOWLEDGE_TOPIC_HEALTHS)[number];
+export const KERNEL_KNOWLEDGE_STATUSES = ["draft", "active", "archived"] as const;
+export type KernelKnowledgeStatus = (typeof KERNEL_KNOWLEDGE_STATUSES)[number];
 
 /**
  * The full set of legal bet lifecycle statuses. The `BetStatus` union is
@@ -120,47 +79,18 @@ export type ModelTier = "reasoning" | "workhorse" | "fast";
 
 export type TriggerType = "heartbeat" | "calendar" | "event" | "continuous";
 
-export type AgentRole =
-	| "builder"
-	| "growth"
-	| "product_manager"
-	| "practice_facilitator"
-	| "chief_of_staff"
-	| "brand_voice";
+/**
+ * Kernel agent roles (assigned to agents that run inside the kernel runtime).
+ * Fabric roles (practice_facilitator, chief_of_staff, brand_voice) live in
+ * FABRIC_AGENT_ROLES and are composed into AGENT_ROLES below.
+ *
+ * @lore O1: split from the flat AgentRole union as part of kernel/strategy
+ * separation. Kernel services only care about kernel roles; fabric/UI code
+ * uses AGENT_ROLES for the full composed list.
+ */
+export const KERNEL_AGENT_ROLES = ["builder", "growth", "product_manager"] as const;
+export const FABRIC_AGENT_ROLES = ["practice_facilitator", "chief_of_staff", "brand_voice"] as const;
+export const AGENT_ROLES = [...KERNEL_AGENT_ROLES, ...FABRIC_AGENT_ROLES] as const;
+export type AgentRole = (typeof AGENT_ROLES)[number];
 
 export type AgentStatus = "active" | "paused" | "retired";
-
-export type RiskTier = "low" | "medium" | "high";
-
-export type AutonomyLevel = 1 | 2 | 3 | 4;
-
-/**
- * Who triggered a knowledge access event. "agent" = autonomous agent read;
- * "human" = human-initiated read (browser GET). Used in access-log entries.
- *
- * @lore L22: accessor_kind must distinguish human reads from agent reads so
- * we can compute frequency signals per accessor type without polluting the
- * 30-day window with automated crawls.
- */
-export type KnowledgeAccessorKind = "human" | "agent";
-
-/**
- * The three relevance signals surfaced in the UI signal triad.
- * - recency: relative time string ("2d ago") or null when never validated/accessed
- * - accessCount30d: integer count of accesses in the last 30 days, or null when no log
- * - citationCount: always null in L22 (staged for a later work-package)
- */
-export interface KnowledgeRelevanceSignals {
-	recency: string | null;
-	accessCount30d: number | null;
-	citationCount: number | null;
-}
-
-/**
- * Sort axis options for the KnowledgeList view.
- *
- * @lore L22: URL state is the single source of truth — `?sort=recency` or
- * `?sort=frequency`. No param means default composite relevance sort.
- */
-export const KNOWLEDGE_SORT_OPTIONS = ["relevance", "recency", "frequency"] as const;
-export type KnowledgeSortOption = (typeof KNOWLEDGE_SORT_OPTIONS)[number];

@@ -1,5 +1,5 @@
 import { type HyperIdleDb, type KnowledgeItem, knowledgeConflicts } from "@hyperidle/db";
-import type { KnowledgeKind, KnowledgeStatus } from "@hyperidle/shared";
+import type { KnowledgeKind, KnowledgeStatus } from "./types.js";
 import { and, eq } from "drizzle-orm";
 import type { UpdateKnowledgeItemInput } from "./knowledge-repository.js";
 import * as repo from "./knowledge-repository.js";

@@ -127,23 +127,27 @@ describe("bet-state-machine", () => {
 			expect(bet?.status).toBe("in_progress");
 		});
 
-		it("ships bet with bet_shipped event", async () => {
+		it("ships bet with bet_state_changed event (toState=shipped)", async () => {
 			db.update(teams).set({ activeBets: 1 }).where(eq(teams.id, "team-1")).run();
 			db.insert(bets)
 				.values(makeBet({ status: "in_progress" }))
 				.run();
 
 			const shippedHandler = vi.fn();
-			eventBus.on("bet_shipped", shippedHandler);
+			eventBus.on("bet_state_changed", shippedHandler);
 
 			await transitionBet(db, eventBus, "bet-1", "shipped");
 
 			const bet = db.select().from(bets).where(eq(bets.id, "bet-1")).get();
 			expect(bet?.status).toBe("shipped");
 			expect(bet?.shippedAt).toBeDefined();
-			expect(shippedHandler).toHaveBeenCalledTimes(1);
-			expect(shippedHandler).toHaveBeenCalledWith(
-				expect.objectContaining({ type: "bet_shipped", betId: "bet-1" }),
+			// Filter for just the shipped transition
+			const shippedCalls = shippedHandler.mock.calls.filter(
+				(c) => c[0].toState === "shipped",
+			);
+			expect(shippedCalls).toHaveLength(1);
+			expect(shippedCalls[0][0]).toEqual(
+				expect.objectContaining({ type: "bet_state_changed", betId: "bet-1", toState: "shipped" }),
 			);
 
 			// activeBets decremented
@@ -475,9 +479,9 @@ describe("bet-state-machine", () => {
 		});
 	});
 
-	// ---------------- I1 adversary-M1: concurrent bet_shipped double-emit ----------------
+	// ---------------- I1 adversary-M1: concurrent shipped transition double-emit ----------------
 	describe("I1 M1: concurrent transitions are compare-and-set", () => {
-		it("second transitionBet to shipped throws InvalidTransitionError and does NOT re-emit bet_shipped", async () => {
+		it("second transitionBet to shipped throws InvalidTransitionError and does NOT re-emit bet_state_changed", async () => {
 			// Walk the bet forward to `review` so "shipped" is a valid
 			// transition from the read snapshot.
 			db.insert(bets)
@@ -487,10 +491,12 @@ describe("bet-state-machine", () => {
 			await transitionBet(db, eventBus, "bet-1", "in_progress");
 			await transitionBet(db, eventBus, "bet-1", "review");
 
-			const events: Array<{ type: string; betId?: string }> = [];
-			eventBus.on("*", (e) => events.push(e as { type: string; betId?: string }));
+			const events: Array<{ type: string; betId?: string; toState?: string }> = [];
+			eventBus.on("*", (e) =>
+				events.push(e as { type: string; betId?: string; toState?: string }),
+			);
 
-			// First transition wins — commits and emits both events.
+			// First transition wins — commits and emits bet_state_changed.
 			await transitionBet(db, eventBus, "bet-1", "shipped");
 
 			// Second transition observes the same `fromState` ("review")
@@ -502,10 +508,12 @@ describe("bet-state-machine", () => {
 				InvalidTransitionError,
 			);
 
-			const shippedEvents = events.filter((e) => e.type === "bet_shipped");
+			const shippedStateEvents = events.filter(
+				(e) => e.type === "bet_state_changed" && e.toState === "shipped",
+			);
 			const stateEvents = events.filter((e) => e.type === "bet_state_changed");
-			// Exactly one bet_shipped despite the second transition attempt.
-			expect(shippedEvents).toHaveLength(1);
+			// Exactly one bet_state_changed(toState=shipped) despite the second transition attempt.
+			expect(shippedStateEvents).toHaveLength(1);
 			// Exactly one bet_state_changed fires (from the winning
 			// review->shipped transition). The loser throws before emit.
 			expect(stateEvents).toHaveLength(1);

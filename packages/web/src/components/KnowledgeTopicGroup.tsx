@@ -6,7 +6,7 @@
  * red). Clicking the header toggles collapse; collapsed groups hide their
  * children but keep the header visible.
  */
-import type { KnowledgeTopicHealth } from "@hyperidle/shared";
+import type { KnowledgeTopicHealth } from "@hyperidle/fabric";
 import { type JSX, type ReactNode, useState } from "react";
 
 export interface KnowledgeTopicGroupProps {

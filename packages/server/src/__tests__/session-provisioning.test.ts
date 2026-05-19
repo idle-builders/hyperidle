@@ -16,7 +16,7 @@
  *   AC5 — Concurrent sessions are independent.
  *   AC6 — Task state moves accepted -> in_progress on session start.
  *   AC7 — Sub-agent cost aggregation.
- *   AC8 — session_ended event carries { sessionId, costDelta, outcome, taskId };
+ *   AC8 — session_ended event carries { sessionId, outcome, taskId };
  *         E2 subscriber creates review items.
  *
  * AC2 (real Claude SDK) lives in the companion `.integration.test.ts`.
@@ -693,7 +693,7 @@ describe("Session Provisioning (D5)", () => {
 
 	// ---------------------------------------------------------------------- AC8
 	describe("AC8: session_ended event carries full payload", () => {
-		it("emits { sessionId, costDelta, outcome, taskId } on normal end", async () => {
+		it("emits { sessionId, outcome, taskId } on normal end", async () => {
 			seedDomain(db);
 
 			const received: SessionEndedEvent[] = [];
@@ -715,8 +715,7 @@ describe("Session Provisioning (D5)", () => {
 			expect(ev.sessionId).toBe(result.sessionId);
 			expect(ev.taskId).toBe("task-1");
 			expect(ev.outcome).toBe("completed");
-			// costDelta is reported in cents. Starting from 0 persisted, delta = 5.
-			expect(ev.costDelta).toBe(5);
+			// costDelta was removed in O1 (kernel/strategy separation)
 		});
 
 		it("emits outcome=crashed when the harness throws", async () => {
@@ -727,7 +726,7 @@ describe("Session Provisioning (D5)", () => {
 
 			const harness = new ScriptedHarnessAdapter({
 				// $0.02 is yielded before the crash; orchestrator must still
-				// propagate that into sessions.cost and the crash event's delta.
+				// propagate that into sessions.cost.
 				events: [{ type: "cost_update", totalCost: 0.02, deltaCost: 0.02 }],
 				throwAfter: 1,
 			});
@@ -737,7 +736,7 @@ describe("Session Provisioning (D5)", () => {
 
 			expect(received).toHaveLength(1);
 			expect(received[0].outcome).toBe("crashed");
-			expect(received[0].costDelta).toBe(2);
+			// costDelta was removed in O1 (kernel/strategy separation)
 		});
 
 		it("emits a tool_call_recorded DomainEvent for each harness tool_call (H3 AC4)", async () => {

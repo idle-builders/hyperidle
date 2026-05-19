@@ -155,7 +155,6 @@ describe("I3 review C1: session_ended releases cost-cap dedup", () => {
 			agentId: "a1",
 			taskId: "task-1",
 			timestamp: Date.now(),
-			costDelta: 0,
 			outcome: "completed",
 		});
 
