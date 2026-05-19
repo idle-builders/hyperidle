@@ -84,23 +84,25 @@ jobs:
 
       - name: Generate package-lock.json for electron-rebuild
         # @lore N5: electron-rebuild needs a package-lock.json but npm cannot
-        # parse bun's workspace:* protocol. We write a minimal temp package.json
-        # with only better-sqlite3 (the sole native dep), run npm install
-        # --package-lock-only on that, then restore the original.
-        working-directory: packages/desktop
+        # parse bun's workspace:* protocol. npm also walks up the directory
+        # tree and discovers the root workspace config, so even a minimal
+        # package.json in packages/desktop/ gets workspace-resolved.
+        # Fix: run npm in an isolated temp dir outside the monorepo, then
+        # copy the generated package-lock.json into packages/desktop/.
         run: |
-          cp package.json package.json.bak
+          TMPDIR=$(mktemp -d)
           node -e "
-            const pkg = require('./package.json');
+            const pkg = JSON.parse(require('fs').readFileSync('packages/desktop/package.json', 'utf-8'));
             const minimal = {
               name: pkg.name,
               version: pkg.version,
               dependencies: { 'better-sqlite3': pkg.dependencies['better-sqlite3'] }
             };
-            require('fs').writeFileSync('package.json', JSON.stringify(minimal, null, 2));
+            require('fs').writeFileSync('${TMPDIR}/package.json', JSON.stringify(minimal, null, 2));
           "
-          npm install --package-lock-only --ignore-scripts
-          mv package.json.bak package.json
+          cd "$TMPDIR" && npm install --package-lock-only --ignore-scripts
+          cp "$TMPDIR/package-lock.json" packages/desktop/package-lock.json
+          rm -rf "$TMPDIR"
 
       - name: Build, sign, and notarize
         working-directory: packages/desktop
