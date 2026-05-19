@@ -89,7 +89,11 @@ export type TriggerType = "heartbeat" | "calendar" | "event" | "continuous";
  * uses AGENT_ROLES for the full composed list.
  */
 export const KERNEL_AGENT_ROLES = ["builder", "growth", "product_manager"] as const;
-export const FABRIC_AGENT_ROLES = ["practice_facilitator", "chief_of_staff", "brand_voice"] as const;
+export const FABRIC_AGENT_ROLES = [
+	"practice_facilitator",
+	"chief_of_staff",
+	"brand_voice",
+] as const;
 export const AGENT_ROLES = [...KERNEL_AGENT_ROLES, ...FABRIC_AGENT_ROLES] as const;
 export type AgentRole = (typeof AGENT_ROLES)[number];
 

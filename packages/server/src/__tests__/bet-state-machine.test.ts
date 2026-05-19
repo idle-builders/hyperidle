@@ -142,9 +142,7 @@ describe("bet-state-machine", () => {
 			expect(bet?.status).toBe("shipped");
 			expect(bet?.shippedAt).toBeDefined();
 			// Filter for just the shipped transition
-			const shippedCalls = shippedHandler.mock.calls.filter(
-				(c) => c[0].toState === "shipped",
-			);
+			const shippedCalls = shippedHandler.mock.calls.filter((c) => c[0].toState === "shipped");
 			expect(shippedCalls).toHaveLength(1);
 			expect(shippedCalls[0][0]).toEqual(
 				expect.objectContaining({ type: "bet_state_changed", betId: "bet-1", toState: "shipped" }),
@@ -492,9 +490,7 @@ describe("bet-state-machine", () => {
 			await transitionBet(db, eventBus, "bet-1", "review");
 
 			const events: Array<{ type: string; betId?: string; toState?: string }> = [];
-			eventBus.on("*", (e) =>
-				events.push(e as { type: string; betId?: string; toState?: string }),
-			);
+			eventBus.on("*", (e) => events.push(e as { type: string; betId?: string; toState?: string }));
 
 			// First transition wins — commits and emits bet_state_changed.
 			await transitionBet(db, eventBus, "bet-1", "shipped");

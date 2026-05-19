@@ -311,8 +311,5 @@ export type WildcardHandler = (event: DomainEvent) => void;
 export interface EventBusAdapter {
 	publish(event: DomainEvent): Promise<void>;
 	subscribe(type: EventType | WildcardType, handler: (event: DomainEvent) => void): Promise<void>;
-	unsubscribe(
-		type: EventType | WildcardType,
-		handler: (event: DomainEvent) => void,
-	): Promise<void>;
+	unsubscribe(type: EventType | WildcardType, handler: (event: DomainEvent) => void): Promise<void>;
 }

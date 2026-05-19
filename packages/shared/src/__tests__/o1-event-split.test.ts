@@ -14,11 +14,7 @@
  * union exhaustiveness via `bun run check`.
  */
 import { describe, expect, it } from "vitest";
-import type {
-	DomainEvent,
-	KnowledgeUpdatedEvent,
-	SessionEndedEvent,
-} from "../events.js";
+import type { DomainEvent, KnowledgeUpdatedEvent, SessionEndedEvent } from "../events.js";
 import * as sharedIndex from "../index.js";
 
 describe("O1 event split", () => {

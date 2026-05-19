@@ -68,8 +68,12 @@ describe("O1 kernel type additions to @hyperidle/shared", () => {
 		it("AGENT_ROLES composes KERNEL_AGENT_ROLES and FABRIC_AGENT_ROLES", () => {
 			expect("AGENT_ROLES" in sharedIndex).toBe(true);
 			const agentRoles = (sharedIndex as Record<string, unknown>)["AGENT_ROLES"] as string[];
-			const kernelRoles = (sharedIndex as Record<string, unknown>)["KERNEL_AGENT_ROLES"] as string[];
-			const fabricRoles = (sharedIndex as Record<string, unknown>)["FABRIC_AGENT_ROLES"] as string[];
+			const kernelRoles = (sharedIndex as Record<string, unknown>)[
+				"KERNEL_AGENT_ROLES"
+			] as string[];
+			const fabricRoles = (sharedIndex as Record<string, unknown>)[
+				"FABRIC_AGENT_ROLES"
+			] as string[];
 			expect(agentRoles.length).toBe(6);
 			for (const role of kernelRoles) {
 				expect(agentRoles).toContain(role);

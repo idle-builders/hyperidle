@@ -4,6 +4,7 @@ import {
 	StatusChip,
 	Tag,
 } from "@hyperidle/design-system";
+import type { KnowledgeScope, KnowledgeStatus } from "@hyperidle/fabric";
 /**
  * Knowledge/Detail page (J7) — metadata bar, markdown body, observation log,
  * related-items sidebar. Edit mode is a React state toggle, NOT a route.
@@ -36,7 +37,6 @@ import {
  */
 import type { Message } from "@hyperidle/shared";
 import { isRedactedPayload } from "@hyperidle/shared";
-import type { KnowledgeScope, KnowledgeStatus } from "@hyperidle/fabric";
 import { type JSX, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 // eslint-disable-next-line design/no-mock-data-import -- tracked in #93

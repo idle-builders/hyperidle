@@ -1,13 +1,13 @@
 import { describe, expect, it } from "vitest";
 import {
-	BET_STATUSES,
-	type BetStatus,
-	KERNEL_KNOWLEDGE_STATUSES,
-	type KernelKnowledgeStatus,
-	KERNEL_AGENT_ROLES,
-	FABRIC_AGENT_ROLES,
 	AGENT_ROLES,
 	type AgentRole,
+	BET_STATUSES,
+	type BetStatus,
+	FABRIC_AGENT_ROLES,
+	KERNEL_AGENT_ROLES,
+	KERNEL_KNOWLEDGE_STATUSES,
+	type KernelKnowledgeStatus,
 	TASK_STATES,
 	type TaskState,
 } from "../types.js";

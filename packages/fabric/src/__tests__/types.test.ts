@@ -9,13 +9,6 @@
  * in fabric after O1 since KNOWLEDGE_STATUSES moves to fabric).
  */
 import { describe, expect, it } from "vitest";
-import {
-	KNOWLEDGE_LAYERS,
-	KNOWLEDGE_SCOPES,
-	KNOWLEDGE_SORT_OPTIONS,
-	KNOWLEDGE_STATUSES,
-	KNOWLEDGE_TOPIC_HEALTHS,
-} from "../types.js";
 import type {
 	AutonomyLevel,
 	KnowledgeAccessorKind,
@@ -30,6 +23,13 @@ import type {
 	PropagationResult,
 	PropagationStatus,
 	RiskTier,
+} from "../types.js";
+import {
+	KNOWLEDGE_LAYERS,
+	KNOWLEDGE_SCOPES,
+	KNOWLEDGE_SORT_OPTIONS,
+	KNOWLEDGE_STATUSES,
+	KNOWLEDGE_TOPIC_HEALTHS,
 } from "../types.js";
 
 describe("KNOWLEDGE_LAYERS (moved from shared)", () => {

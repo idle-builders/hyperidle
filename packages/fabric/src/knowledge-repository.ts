@@ -5,11 +5,11 @@ import {
 	knowledgeItems,
 } from "@hyperidle/db";
 import type { KnowledgeFormat } from "@hyperidle/shared";
-import type { KnowledgeKind, KnowledgeLayer, KnowledgeStatus } from "./types.js";
 import { and, eq } from "drizzle-orm";
 import { ItemDeletedError, VersionConflictError } from "./errors.js";
 import { getKnowledgeEvents, KnowledgeEventType } from "./events.js";
 import { type FtsSearchOptions, ftsSearch } from "./fts.js";
+import type { KnowledgeKind, KnowledgeLayer, KnowledgeStatus } from "./types.js";
 
 export interface CreateKnowledgeItemInput {
 	layer: KnowledgeLayer;

@@ -1,6 +1,10 @@
 import { agents } from "@hyperidle/db";
-import { create as createKnowledgeItem } from "@hyperidle/fabric";
-import { KNOWLEDGE_LAYERS, KNOWLEDGE_STATUSES, type KnowledgeLayer } from "@hyperidle/fabric";
+import {
+	create as createKnowledgeItem,
+	KNOWLEDGE_LAYERS,
+	KNOWLEDGE_STATUSES,
+	type KnowledgeLayer,
+} from "@hyperidle/fabric";
 import { eq } from "drizzle-orm";
 import z from "zod";
 import type { ToolContext, ToolDefinition } from "./tool-registry.js";
