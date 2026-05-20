@@ -62,7 +62,7 @@ export const BUILTIN_ROUTINE_SEEDS: readonly BuiltinRoutineSeed[] = [
 		id: "builtin:post-bet-retro",
 		ownerAgentId: "seed-agent-pm-nimmly",
 		triggerType: "event",
-		triggerConfig: { eventType: "bet_shipped" },
+		triggerConfig: { eventType: "bet_state_changed" },
 		skillId: "bet_retro",
 		doneCondition: "Review item comparing hypothesis vs reality written",
 		humanReview: true,

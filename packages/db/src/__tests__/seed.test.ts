@@ -206,7 +206,7 @@ describe("A2: Seed script", () => {
 			{
 				id: "builtin:post-bet-retro",
 				triggerType: "event",
-				triggerConfig: { eventType: "bet_shipped" },
+				triggerConfig: { eventType: "bet_state_changed" },
 				ownerAgentId: "seed-agent-pm-nimmly",
 				skillId: "bet_retro",
 				humanReview: 1,

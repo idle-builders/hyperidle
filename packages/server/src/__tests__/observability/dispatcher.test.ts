@@ -286,14 +286,7 @@ describe("registerObservabilityDispatcher — bus subscriber", () => {
 			agentId: "a",
 			taskId: "t",
 			timestamp: now,
-			costDelta: 25,
 			outcome: "completed",
-		});
-		bus.emit<"bet_shipped">({
-			type: "bet_shipped",
-			streamId: "bet-1",
-			betId: "bet-1",
-			timestamp: now,
 		});
 
 		await dispatcher.flush();
@@ -307,7 +300,6 @@ describe("registerObservabilityDispatcher — bus subscriber", () => {
 			"cost_incurred",
 			"knowledge_write",
 			"session_ended",
-			"bet_state_changed",
 		]);
 		// Session events carry the pre-seeded trace id (AC3).
 		const sessionEvents = flat.filter(

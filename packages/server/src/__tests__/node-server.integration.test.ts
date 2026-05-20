@@ -45,9 +45,10 @@ describe("N1: Node server integration (AC9)", () => {
 		dbPath = path.join(tmpDir, "test.db");
 		await createMigratedDb(dbPath);
 
-		// Resolve the monorepo root — tsx must be invoked from there so
-		// workspace package resolution works.
-		const monoRoot = resolve(__dirname, "../../../../..");
+		// @lore O1: 4 levels up from __tests__/ → src/ → server/ → packages/ → root.
+		// Was 5 levels, which resolves above the monorepo in both normal
+		// checkouts and git worktrees.
+		const monoRoot = resolve(__dirname, "../../../..");
 		const serverEntrypoint = resolve(__dirname, "../../src/index.ts");
 
 		// Spawn the server under Node via tsx.

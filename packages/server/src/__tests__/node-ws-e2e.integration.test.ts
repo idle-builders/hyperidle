@@ -115,7 +115,8 @@ describe("N1: WebSocket e2e lifecycle under Node runtime (AC10)", () => {
 		dbPath = path.join(tmpDir, "test.db");
 		await createMigratedDb(dbPath);
 
-		const monoRoot = resolve(__dirname, "../../../../..");
+		// @lore O1: 4 levels up, not 5. See node-server.integration.test.ts.
+		const monoRoot = resolve(__dirname, "../../../..");
 		const serverEntrypoint = resolve(__dirname, "../../src/index.ts");
 
 		serverProcess = spawn("npx", ["tsx", serverEntrypoint], {

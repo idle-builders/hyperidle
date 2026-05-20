@@ -16,6 +16,7 @@
 		"serve:static": "bun run scripts/serve.ts"
 	},
 	"dependencies": {
+		"@hyperidle/fabric": "workspace:*",
 		"@hyperidle/shared": "workspace:*"
 	},
 	"peerDependencies": {

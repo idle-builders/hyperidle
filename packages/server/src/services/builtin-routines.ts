@@ -11,7 +11,7 @@ import {
 } from "@hyperidle/db";
 import { runStaleSweep } from "@hyperidle/fabric";
 import type {
-	BetShippedEvent,
+	BetStateChangedEvent,
 	CostCapBreachedEvent,
 	CostCapWarningEvent,
 	EventBus,
@@ -115,7 +115,7 @@ const BUILTIN_SPECS: readonly BuiltinSpec[] = [
 		id: "builtin:post-bet-retro",
 		ownerAgentId: "seed-agent-pm-nimmly",
 		triggerType: "event",
-		triggerConfig: { eventType: "bet_shipped" },
+		triggerConfig: { eventType: "bet_state_changed" },
 		skillId: "bet_retro",
 		doneCondition: "Review item comparing hypothesis vs reality written",
 		humanReview: 1,
@@ -245,18 +245,24 @@ export async function runBuiltinRoutine(
 
 /**
  * Register direct event subscriptions for builtin event-triggered routines
- * (currently just `builtin:post-bet-retro` on `bet_shipped`). Returns an
- * unsubscribe function for test/teardown use.
+ * (currently just `builtin:post-bet-retro` on `bet_state_changed` with
+ * `toState === "shipped"` filter). Returns an unsubscribe function for
+ * test/teardown use.
  *
  * We do NOT go through the generic scheduler's event path because the
  * builtin handlers don't create sessions — they write review items
  * directly. The scheduler still ignores event-trigger routines lacking a
  * `taskId` in their trigger config, so the two paths don't collide.
+ *
+ * @lore O1: migrated from `bet_shipped` (deleted) to `bet_state_changed`
+ * with a `toState === "shipped"` filter. The guard must be FIRST to ensure
+ * non-shipped transitions are ignored before any work is done.
  */
 export function registerBuiltinRoutineHandlers(db: HyperIdleDb, eventBus: EventBus): () => void {
 	const unsubs: Array<() => void> = [];
 
-	const betShippedHandler = (event: BetShippedEvent): void => {
+	const betShippedHandler = (event: BetStateChangedEvent): void => {
+		if (event.toState !== "shipped") return;
 		const routine = db
 			.select()
 			.from(routines)
@@ -268,7 +274,7 @@ export function registerBuiltinRoutineHandlers(db: HyperIdleDb, eventBus: EventB
 		// handler all run synchronously because drizzle-sqlite is synchronous.
 		void runBuiltinRoutine(db, eventBus, "builtin:post-bet-retro", { betId: event.betId });
 	};
-	unsubs.push(eventBus.on("bet_shipped", betShippedHandler));
+	unsubs.push(eventBus.on("bet_state_changed", betShippedHandler));
 
 	return () => {
 		for (const u of unsubs) u();
@@ -436,17 +442,18 @@ function runPracticeMeetingRoutine(db: HyperIdleDb, routine: Routine): RunBuilti
 
 /**
  * Stable marker embedded in Post-Bet Retro review item bodies so we can
- * dedupe across repeated `bet_shipped` emissions for the same bet.
+ * dedupe across repeated `bet_state_changed` (toState="shipped") emissions
+ * for the same bet.
  *
- * @lore G4 review WARN-3 post-bet-retro dedupe: `bet_shipped` can fire
- * more than once for the same bet (e.g. during an outage replay or when
- * an operator manually triggers the routine). Without a dedupe check,
- * each emission produces a new review item. We embed `betId=<id>` on its
- * own line in the item body and a `LIKE '%betId=<id>%'` probe joined
- * against `threads.kind = 'post-bet-retro'` tells us whether we already
- * wrote a retro for that bet. We use body-text over a dedicated column
- * because `items` has no `source_ref_id`/`foreign_id` field and adding
- * one purely for this case is out of scope for a fix-pack review.
+ * @lore G4 review WARN-3 post-bet-retro dedupe: `bet_state_changed` with
+ * `toState="shipped"` can fire more than once for the same bet (e.g. during
+ * an outage replay or when an operator manually triggers the routine).
+ * Without a dedupe check, each emission produces a new review item. We embed
+ * `betId=<id>` on its own line in the item body and a `LIKE '%betId=<id>%'`
+ * probe joined against `threads.kind = 'post-bet-retro'` tells us whether
+ * we already wrote a retro for that bet. We use body-text over a dedicated
+ * column because `items` has no `source_ref_id`/`foreign_id` field and
+ * adding one purely for this case is out of scope for a fix-pack review.
  */
 function postBetRetroBetIdMarker(betId: string): string {
 	return `betId=${betId}`;

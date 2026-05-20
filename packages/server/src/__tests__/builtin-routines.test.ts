@@ -11,7 +11,7 @@ import {
 	teams,
 } from "@hyperidle/db";
 import {
-	type BetShippedEvent,
+	type BetStateChangedEvent,
 	type CostCapBreachedEvent,
 	type CostCapWarningEvent,
 	type DomainEvent,
@@ -121,7 +121,7 @@ describe("G4: Built-in Routines", () => {
 
 			expect(byId.get("builtin:post-bet-retro")?.triggerType).toBe("event");
 			expect(JSON.parse(byId.get("builtin:post-bet-retro")?.triggerConfig ?? "{}")).toEqual({
-				eventType: "bet_shipped",
+				eventType: "bet_state_changed",
 			});
 
 			expect(byId.get("builtin:portfolio-retro")?.triggerType).toBe("calendar");
@@ -378,16 +378,18 @@ describe("G4: Built-in Routines", () => {
 			expect(itemEvents).toHaveLength(1);
 		});
 
-		it("fires on bet_shipped event when handler is registered", async () => {
+		it("fires on bet_state_changed(toState=shipped) event when handler is registered", async () => {
 			seedBuiltinRoutines(db);
 			seedShippedBet();
 
 			const unsub = registerBuiltinRoutineHandlers(db, eventBus);
 			try {
-				const shipped: BetShippedEvent = {
-					type: "bet_shipped",
+				const shipped: BetStateChangedEvent = {
+					type: "bet_state_changed",
 					streamId: "bet-shipped-1",
 					betId: "bet-shipped-1",
+					fromState: "review",
+					toState: "shipped",
 					timestamp: Date.now(),
 				};
 				eventBus.emit(shipped);
@@ -423,16 +425,18 @@ describe("G4: Built-in Routines", () => {
 			expect(reviewRows).toHaveLength(1);
 		});
 
-		it("dedupes across consecutive bet_shipped events for same betId", async () => {
+		it("dedupes across consecutive bet_state_changed(toState=shipped) events for same betId", async () => {
 			seedBuiltinRoutines(db);
 			seedShippedBet();
 
 			const unsub = registerBuiltinRoutineHandlers(db, eventBus);
 			try {
-				const shipped: BetShippedEvent = {
-					type: "bet_shipped",
+				const shipped: BetStateChangedEvent = {
+					type: "bet_state_changed",
 					streamId: "bet-shipped-1",
 					betId: "bet-shipped-1",
+					fromState: "review",
+					toState: "shipped",
 					timestamp: Date.now(),
 				};
 				eventBus.emit(shipped);
@@ -441,6 +445,31 @@ describe("G4: Built-in Routines", () => {
 
 				const reviewRows = db.select().from(items).all();
 				expect(reviewRows).toHaveLength(1);
+			} finally {
+				unsub();
+			}
+		});
+
+		it("does NOT fire on non-shipped bet_state_changed transitions", async () => {
+			seedBuiltinRoutines(db);
+			seedShippedBet();
+
+			const unsub = registerBuiltinRoutineHandlers(db, eventBus);
+			try {
+				// Emit a non-shipped transition — should be ignored
+				const nonShipped: BetStateChangedEvent = {
+					type: "bet_state_changed",
+					streamId: "bet-shipped-1",
+					betId: "bet-shipped-1",
+					fromState: "shaped",
+					toState: "committed",
+					timestamp: Date.now(),
+				};
+				eventBus.emit(nonShipped);
+				await new Promise((r) => setTimeout(r, 20));
+
+				const reviewRows = db.select().from(items).all();
+				expect(reviewRows).toHaveLength(0);
 			} finally {
 				unsub();
 			}
@@ -654,10 +683,12 @@ describe("G4: Built-in Routines", () => {
 
 			const unsub = registerBuiltinRoutineHandlers(db, eventBus);
 			try {
-				const shipped: BetShippedEvent = {
-					type: "bet_shipped",
+				const shipped: BetStateChangedEvent = {
+					type: "bet_state_changed",
 					streamId: "bet-inactive-1",
 					betId: "bet-inactive-1",
+					fromState: "review",
+					toState: "shipped",
 					timestamp: Date.now(),
 				};
 				eventBus.emit(shipped);

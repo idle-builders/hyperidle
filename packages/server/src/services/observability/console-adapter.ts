@@ -44,7 +44,6 @@ function serialize(ev: ObservabilityEvent): Record<string, unknown> {
 			out.agentId = ev.agentId;
 			out.taskId = ev.taskId;
 			out.outcome = ev.outcome;
-			out.costDelta = ev.costDelta;
 			break;
 		case "tool_call":
 			out.toolName = ev.toolName;

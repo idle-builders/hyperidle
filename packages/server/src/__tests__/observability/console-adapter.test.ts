@@ -102,7 +102,6 @@ describe("ConsoleObservabilityAdapter (H3 AC1)", () => {
 				agentId: "a",
 				taskId: "tk",
 				outcome: "completed",
-				costDelta: 50,
 			},
 			{ kind: "tool_call", traceId: "t", sessionId: "s", ts, toolName: "Read", argsSummary: "{}" },
 			{

@@ -26,7 +26,6 @@
 import type { HyperIdleDb } from "@hyperidle/db";
 import { sessions } from "@hyperidle/db";
 import {
-	type BetShippedEvent,
 	type BetStateChangedEvent,
 	type CostCapBreachedEvent,
 	type CostCapWarningEvent,
@@ -355,7 +354,6 @@ export function registerObservabilityDispatcher(
 					agentId: ev.agentId,
 					taskId: ev.taskId,
 					outcome: ev.outcome,
-					costDelta: ev.costDelta,
 				});
 				return true;
 			}
@@ -398,19 +396,6 @@ export function registerObservabilityDispatcher(
 					betId: ev.betId,
 					fromState: ev.fromState,
 					toState: ev.toState,
-				});
-				return true;
-			}
-			case "bet_shipped": {
-				const ev = event as BetShippedEvent;
-				deps.dispatcher.enqueue({
-					kind: "bet_state_changed",
-					traceId: `bet:${ev.betId}`,
-					sessionId: null,
-					ts: nowIso(ev.timestamp),
-					betId: ev.betId,
-					fromState: "active",
-					toState: "shipped",
 				});
 				return true;
 			}
