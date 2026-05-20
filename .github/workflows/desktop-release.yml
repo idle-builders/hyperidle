@@ -38,15 +38,12 @@ jobs:
     runs-on: macos-latest
     timeout-minutes: 45
     env:
-      # Code signing — Developer ID Application certificate (.p12 base64-encoded)
-      CSC_LINK: ${{ secrets.MAC_CERT_P12_BASE64 }}
-      CSC_KEY_PASSWORD: ${{ secrets.MAC_CERT_PASSWORD }}
       # Notarization — Apple ID + app-specific password
       APPLE_ID: ${{ secrets.APPLE_ID }}
       APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
       APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
       # Verbose logging for signing + notarization diagnostics
-      DEBUG: "electron-builder,@electron/notarize*"
+      DEBUG: "electron-builder,electron-notarize*"
 
     steps:
       - uses: actions/checkout@v4
@@ -62,16 +59,17 @@ jobs:
           node-version: "22"
 
       - name: Set up code signing keychain
+        env:
+          CSC_LINK: ${{ secrets.MAC_CERT_P12_BASE64 }}
+          CSC_KEY_PASSWORD: ${{ secrets.MAC_CERT_PASSWORD }}
         run: |
           KEYCHAIN_PASSWORD="$(openssl rand -hex 16)"
           KEYCHAIN_PATH="$RUNNER_TEMP/signing.keychain-db"
 
-          # Create and configure a temporary keychain
           security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
           security set-keychain-settings -lut 7200 "$KEYCHAIN_PATH"
           security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
 
-          # Decode and import the p12 certificate
           echo "$CSC_LINK" | base64 --decode > "$RUNNER_TEMP/cert.p12"
           security import "$RUNNER_TEMP/cert.p12" \
             -k "$KEYCHAIN_PATH" \
@@ -85,13 +83,14 @@ jobs:
             -S apple-tool:,apple:,codesign: \
             -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
 
-          # Prepend signing keychain to the search list
           security list-keychains -d user -s "$KEYCHAIN_PATH" $(security list-keychains -d user | tr -d '"')
 
           echo "Imported identities:"
           security find-identity -v "$KEYCHAIN_PATH"
 
-          # electron-builder will use this keychain for signing
+          # CSC_KEYCHAIN tells electron-builder to use our keychain.
+          # CSC_LINK is NOT set at job level — this prevents electron-builder
+          # from creating its own keychain (which lacks set-key-partition-list).
           echo "CSC_KEYCHAIN=$KEYCHAIN_PATH" >> "$GITHUB_ENV"
 
       - name: Verify notarytool credentials
