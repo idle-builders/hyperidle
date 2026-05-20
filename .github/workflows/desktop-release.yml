@@ -35,20 +35,15 @@ jobs:
 
   build:
     needs: tag
-    # @lore N5: arm64-only — Apple Silicon is the only current Mac architecture.
-    # Intel Macs reached end-of-sale in 2022; no need to spend CI minutes on x64.
     runs-on: macos-latest
-    timeout-minutes: 30
+    timeout-minutes: 45
     env:
-      # Code signing — Developer ID Application certificate (.p12 base64-encoded)
-      CSC_LINK: ${{ secrets.MAC_CERT_P12_BASE64 }}
-      CSC_KEY_PASSWORD: ${{ secrets.MAC_CERT_PASSWORD }}
-      # Notarization — Apple ID + app-specific password (NOT the App Store
-      # Connect API). Generate the app-specific password at appleid.apple.com →
-      # Sign-In and Security → App-Specific Passwords.
+      # Notarization — Apple ID + app-specific password
       APPLE_ID: ${{ secrets.APPLE_ID }}
       APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
       APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+      # Verbose logging for signing + notarization diagnostics
+      DEBUG: "electron-builder,@electron/notarize*"
 
     steps:
       - uses: actions/checkout@v4
@@ -62,6 +57,52 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
+
+      - name: Set up code signing keychain
+        env:
+          CSC_LINK: ${{ secrets.MAC_CERT_P12_BASE64 }}
+          CSC_KEY_PASSWORD: ${{ secrets.MAC_CERT_PASSWORD }}
+        run: |
+          KEYCHAIN_PASSWORD="$(openssl rand -hex 16)"
+          KEYCHAIN_PATH="$RUNNER_TEMP/signing.keychain-db"
+
+          # Create and configure a temporary keychain
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security set-keychain-settings -lut 7200 "$KEYCHAIN_PATH"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+
+          # Decode and import the p12 certificate
+          echo "$CSC_LINK" | base64 --decode > "$RUNNER_TEMP/cert.p12"
+          security import "$RUNNER_TEMP/cert.p12" \
+            -k "$KEYCHAIN_PATH" \
+            -P "$CSC_KEY_PASSWORD" \
+            -T /usr/bin/codesign \
+            -T /usr/bin/security
+          rm -f "$RUNNER_TEMP/cert.p12"
+
+          # Allow codesign to access the key without UI prompt (critical on Sonoma+)
+          security set-key-partition-list \
+            -S apple-tool:,apple:,codesign: \
+            -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+
+          # Prepend signing keychain to the search list
+          security list-keychains -d user -s "$KEYCHAIN_PATH" $(security list-keychains -d user | tr -d '"')
+
+          echo "Imported identities:"
+          security find-identity -v "$KEYCHAIN_PATH"
+
+          # Tell electron-builder to use our keychain (skip its own import)
+          echo "CSC_KEYCHAIN=$KEYCHAIN_PATH" >> "$GITHUB_ENV"
+          echo "CSC_LINK=" >> "$GITHUB_ENV"
+
+      - name: Verify notarytool credentials
+        run: |
+          xcrun notarytool history \
+            --apple-id "$APPLE_ID" \
+            --password "$APPLE_APP_SPECIFIC_PASSWORD" \
+            --team-id "$APPLE_TEAM_ID" \
+            --output-format json 2>&1 | head -5
+          echo "Notarytool credentials verified."
 
       - name: Install dependencies
         run: bun install
@@ -97,7 +138,7 @@ jobs:
 
       - name: Build, sign, and notarize
         working-directory: packages/desktop
-        run: npx electron-builder --config electron-builder.yml --mac --arm64
+        run: npx electron-builder --config electron-builder.yml --mac --arm64 --publish never
 
       - name: Upload DMG to public releases repo
         # @lore N5: DMGs are uploaded to ambrovia/hyperidle-releases (public)
