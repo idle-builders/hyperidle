@@ -17,7 +17,7 @@ import type {
 	KnowledgeScope,
 	KnowledgeStatus,
 	KnowledgeTopicHealth,
-} from "@hyperidle/fabric";
+} from "@hyperidle/fabric/types";
 
 export interface MockKnowledgeItem {
 	id: string;

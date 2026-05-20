@@ -4,7 +4,7 @@ import {
 	type Status,
 	taskStateToStatus,
 } from "@hyperidle/design-system";
-import { KNOWLEDGE_STATUSES, type KnowledgeStatus } from "@hyperidle/fabric";
+import { KNOWLEDGE_STATUSES, type KnowledgeStatus } from "@hyperidle/fabric/types";
 import { BET_STATUSES, type BetStatus, TASK_STATES, type TaskState } from "@hyperidle/shared";
 import { describe, expect, it } from "vitest";
 

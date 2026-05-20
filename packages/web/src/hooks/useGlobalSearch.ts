@@ -1,5 +1,5 @@
-import type { KnowledgeKind, KnowledgeLayer, KnowledgeStatus } from "@hyperidle/fabric";
-import { KNOWLEDGE_STATUSES } from "@hyperidle/fabric";
+import type { KnowledgeKind, KnowledgeLayer, KnowledgeStatus } from "@hyperidle/fabric/types";
+import { KNOWLEDGE_STATUSES } from "@hyperidle/fabric/types";
 import type { BetStatus } from "@hyperidle/shared";
 import { BET_STATUSES } from "@hyperidle/shared";
 import { useCallback, useEffect, useRef, useState } from "react";
