@@ -38,6 +38,9 @@ jobs:
     runs-on: macos-latest
     timeout-minutes: 45
     env:
+      # Code signing — Developer ID Application certificate (.p12 base64-encoded)
+      CSC_LINK: ${{ secrets.MAC_CERT_P12_BASE64 }}
+      CSC_KEY_PASSWORD: ${{ secrets.MAC_CERT_PASSWORD }}
       # Notarization — Apple ID + app-specific password
       APPLE_ID: ${{ secrets.APPLE_ID }}
       APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
@@ -59,9 +62,6 @@ jobs:
           node-version: "22"
 
       - name: Set up code signing keychain
-        env:
-          CSC_LINK: ${{ secrets.MAC_CERT_P12_BASE64 }}
-          CSC_KEY_PASSWORD: ${{ secrets.MAC_CERT_PASSWORD }}
         run: |
           KEYCHAIN_PASSWORD="$(openssl rand -hex 16)"
           KEYCHAIN_PATH="$RUNNER_TEMP/signing.keychain-db"
@@ -91,9 +91,8 @@ jobs:
           echo "Imported identities:"
           security find-identity -v "$KEYCHAIN_PATH"
 
-          # Tell electron-builder to use our keychain (skip its own import)
+          # electron-builder will use this keychain for signing
           echo "CSC_KEYCHAIN=$KEYCHAIN_PATH" >> "$GITHUB_ENV"
-          echo "CSC_LINK=" >> "$GITHUB_ENV"
 
       - name: Verify notarytool credentials
         run: |
