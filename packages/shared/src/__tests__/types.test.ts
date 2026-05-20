@@ -1,9 +1,13 @@
 import { describe, expect, it } from "vitest";
 import {
+	AGENT_ROLES,
+	type AgentRole,
 	BET_STATUSES,
 	type BetStatus,
-	KNOWLEDGE_STATUSES,
-	type KnowledgeStatus,
+	FABRIC_AGENT_ROLES,
+	KERNEL_AGENT_ROLES,
+	KERNEL_KNOWLEDGE_STATUSES,
+	type KernelKnowledgeStatus,
 	TASK_STATES,
 	type TaskState,
 } from "../types.js";
@@ -60,29 +64,51 @@ describe("status-union runtime constants", () => {
 		});
 	});
 
-	describe("KNOWLEDGE_STATUSES", () => {
+	describe("KERNEL_KNOWLEDGE_STATUSES", () => {
 		it("is exported as a runtime array", () => {
-			expect(Array.isArray(KNOWLEDGE_STATUSES)).toBe(true);
+			expect(Array.isArray(KERNEL_KNOWLEDGE_STATUSES)).toBe(true);
 		});
 
-		it("has 7 knowledge statuses including needs_human", () => {
-			expect(KNOWLEDGE_STATUSES).toHaveLength(7);
-			expect(KNOWLEDGE_STATUSES).toContain("needs_human");
+		it("has 3 kernel knowledge statuses", () => {
+			expect(KERNEL_KNOWLEDGE_STATUSES).toHaveLength(3);
 		});
 
-		it("includes every KnowledgeStatus value", () => {
-			const expected: readonly KnowledgeStatus[] = [
-				"captured",
-				"provisional",
-				"validated",
-				"active",
-				"stale",
-				"archived",
-				"needs_human",
-			];
+		it("includes draft, active, archived", () => {
+			const expected: readonly KernelKnowledgeStatus[] = ["draft", "active", "archived"];
 			for (const ks of expected) {
-				expect(KNOWLEDGE_STATUSES).toContain(ks);
+				expect(KERNEL_KNOWLEDGE_STATUSES).toContain(ks);
 			}
+		});
+	});
+
+	describe("Agent role split", () => {
+		it("KERNEL_AGENT_ROLES has 3 roles", () => {
+			expect(KERNEL_AGENT_ROLES).toHaveLength(3);
+			expect(KERNEL_AGENT_ROLES).toContain("builder");
+			expect(KERNEL_AGENT_ROLES).toContain("growth");
+			expect(KERNEL_AGENT_ROLES).toContain("product_manager");
+		});
+
+		it("FABRIC_AGENT_ROLES has 3 roles", () => {
+			expect(FABRIC_AGENT_ROLES).toHaveLength(3);
+			expect(FABRIC_AGENT_ROLES).toContain("practice_facilitator");
+			expect(FABRIC_AGENT_ROLES).toContain("chief_of_staff");
+			expect(FABRIC_AGENT_ROLES).toContain("brand_voice");
+		});
+
+		it("AGENT_ROLES composes both arrays (6 total)", () => {
+			expect(AGENT_ROLES).toHaveLength(6);
+			for (const role of KERNEL_AGENT_ROLES) {
+				expect(AGENT_ROLES).toContain(role);
+			}
+			for (const role of FABRIC_AGENT_ROLES) {
+				expect(AGENT_ROLES).toContain(role);
+			}
+		});
+
+		it("derives AgentRole type", () => {
+			const r: AgentRole = AGENT_ROLES[0];
+			expect(typeof r).toBe("string");
 		});
 	});
 });

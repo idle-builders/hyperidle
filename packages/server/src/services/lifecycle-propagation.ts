@@ -35,12 +35,12 @@ import {
 	tasks,
 	threads,
 } from "@hyperidle/db";
+import type { PropagationLevel } from "@hyperidle/fabric";
 import {
 	type BetStatus,
 	type EventBus,
 	type PropagationAppliedEvent,
 	type PropagationFailedEvent,
-	type PropagationLevel,
 	InvalidTransitionError as SharedInvalidTransitionError,
 } from "@hyperidle/shared";
 import { and, eq, ne } from "drizzle-orm";

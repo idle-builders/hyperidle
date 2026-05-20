@@ -42,7 +42,7 @@ export class WsBroadcaster {
 			this.broadcast("conversations", JSON.stringify(event));
 		});
 
-		const unsub2 = this.eventBus.on("response_recorded", (event) => {
+		const unsub2 = this.eventBus.on("knowledge_updated", (event) => {
 			this.broadcast("conversations", JSON.stringify(event));
 		});
 

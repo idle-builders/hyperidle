@@ -4,6 +4,7 @@ import {
 	StatusChip,
 	Tag,
 } from "@hyperidle/design-system";
+import type { KnowledgeScope, KnowledgeStatus } from "@hyperidle/fabric/types";
 /**
  * Knowledge/Detail page (J7) — metadata bar, markdown body, observation log,
  * related-items sidebar. Edit mode is a React state toggle, NOT a route.
@@ -34,7 +35,7 @@ import {
  * added (same pattern as WorkBet). KnowledgeBody extended with onOpenBlockActions
  * and messagesByBlockId for inline anchored messages.
  */
-import type { KnowledgeScope, KnowledgeStatus, Message } from "@hyperidle/shared";
+import type { Message } from "@hyperidle/shared";
 import { isRedactedPayload } from "@hyperidle/shared";
 import { type JSX, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";

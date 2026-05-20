@@ -1,4 +1,3 @@
-import type { PropagationLevel } from "./propagation.js";
 import type { HostKind, MessageType } from "./thread.js";
 import type { BetStatus, TaskState } from "./types.js";
 
@@ -19,13 +18,6 @@ export interface BetStateChangedEvent {
 	betId: string;
 	fromState: BetStatus;
 	toState: BetStatus;
-	timestamp: number;
-}
-
-export interface BetShippedEvent {
-	type: "bet_shipped";
-	streamId: string;
-	betId: string;
 	timestamp: number;
 }
 
@@ -56,8 +48,6 @@ export interface SessionEndedEvent {
 	agentId: string;
 	taskId: string;
 	timestamp: number;
-	/** Cost (in cents) attributed to this session since last recorded value. */
-	costDelta: number;
 	/** Final disposition of the session. */
 	outcome: SessionOutcome;
 }
@@ -92,20 +82,50 @@ export interface NotificationEvent {
 	timestamp: number;
 }
 
-export interface ResponseRecordedEvent {
-	type: "response_recorded";
-	streamId: string;
-	responseId: string;
-	itemId: string;
-	decision: string;
-	timestamp: number;
-}
-
+/**
+ * @lore O1: action stays as `string` because the codebase emits 11+ distinct
+ * action values across 4 files, including a dynamic `practice_meeting_turn_N`
+ * pattern in practice-meeting.ts that makes a closed union impossible.
+ *
+ * Actual values emitted today:
+ *   knowledge.ts routes:      "created", "updated", "merged", "split", "archived", "flagged"
+ *   attention-service.ts:     "attention_recomputed"
+ *   promotion-pipeline.ts:    "contradiction_flagged", "auto_promoted", "marked_stale"
+ *   practice-meeting.ts:      `practice_meeting_turn_${turnNumber}` (dynamic, unbounded)
+ *
+ * Tightening requires either (a) making the dynamic pattern use a fixed action
+ * with turnNumber as a separate field, or (b) a branded string with a
+ * `practice_meeting_turn_` prefix type. Both are behavior changes, out of O1 scope.
+ * Filed as follow-up.
+ */
 export interface KnowledgeUpdatedEvent {
 	type: "knowledge_updated";
 	streamId: string;
 	itemId: string;
-	action: string;
+	action: string; // intentionally loose -- see @lore above
+	timestamp: number;
+}
+
+export interface KnowledgeCreatedEvent {
+	type: "knowledge_created";
+	streamId: string;
+	itemId: string;
+	timestamp: number;
+}
+
+export interface KnowledgeArchivedEvent {
+	type: "knowledge_archived";
+	streamId: string;
+	itemId: string;
+	timestamp: number;
+}
+
+export interface KnowledgeAccessedEvent {
+	type: "knowledge_accessed";
+	streamId: string;
+	itemId: string;
+	accessorKind: "human" | "agent";
+	accessorId: string;
 	timestamp: number;
 }
 
@@ -122,14 +142,6 @@ export interface DependencyMetEvent {
 	streamId: string;
 	taskId: string;
 	dependencyId: string;
-	timestamp: number;
-}
-
-export interface BetCommittedEvent {
-	type: "bet_committed";
-	streamId: string;
-	betId: string;
-	teamId: string;
 	timestamp: number;
 }
 
@@ -205,14 +217,21 @@ export interface ThreadArchivedEvent {
 	timestamp: number;
 }
 
+/**
+ * @lore O1: PropagationLevel moved to @hyperidle/fabric. This inline literal
+ * union avoids importing from fabric in shared (boundary rule: kernel never
+ * imports from strategy). The canonical definition is in @hyperidle/fabric.
+ */
+type PropagationLevelLiteral = "session" | "task" | "bet" | "product" | "portfolio";
+
 /** L20: Emitted when lifecycle propagation successfully applies a transition. */
 export interface PropagationAppliedEvent {
 	type: "propagation_applied";
 	/** streamId = targetId so per-entity streams receive the event. */
 	streamId: string;
-	sourceLevel: PropagationLevel;
+	sourceLevel: PropagationLevelLiteral;
 	sourceId: string;
-	targetLevel: PropagationLevel;
+	targetLevel: PropagationLevelLiteral;
 	targetId: string;
 	targetTransition: string;
 	timestamp: number;
@@ -223,40 +242,55 @@ export interface PropagationFailedEvent {
 	type: "propagation_failed";
 	/** streamId = targetId so per-entity streams receive the event. */
 	streamId: string;
-	sourceLevel: PropagationLevel;
+	sourceLevel: PropagationLevelLiteral;
 	sourceId: string;
-	targetLevel: PropagationLevel;
+	targetLevel: PropagationLevelLiteral;
 	targetId: string;
 	failureReason: string;
 	attempts: number;
 	timestamp: number;
 }
 
-/** Discriminated union of all domain events. */
-export type DomainEvent =
+/**
+ * Kernel events: entity lifecycle facts. When a kernel entity changes state,
+ * these events announce what happened.
+ *
+ * @lore O1: To add a kernel event: (1) define the interface with type literal
+ * discriminant, streamId, and timestamp, (2) add it to this union, (3) emit
+ * from the route/service after the DB write. The EventBus is generic — no
+ * bus changes needed. A switch(event.type) over KernelEvent must compile
+ * without a default case.
+ */
+export type KernelEvent =
 	| TaskStateChangedEvent
 	| BetStateChangedEvent
-	| BetShippedEvent
-	| ItemCreatedEvent
+	| BetRevisedEvent
 	| SessionStartedEvent
 	| SessionEndedEvent
-	| CostCapWarningEvent
-	| CostCapBreachedEvent
-	| NotificationEvent
-	| ResponseRecordedEvent
-	| KnowledgeUpdatedEvent
-	| RoutineFiredEvent
-	| DependencyMetEvent
-	| BetCommittedEvent
-	| BetRevisedEvent
-	| ToolCallRecordedEvent
 	| ThreadCreatedEvent
 	| ThreadMessageAppendedEvent
 	| ThreadResolvedEvent
 	| ThreadReopenedEvent
 	| ThreadArchivedEvent
+	| ItemCreatedEvent
+	| DependencyMetEvent
+	| KnowledgeCreatedEvent
+	| KnowledgeUpdatedEvent
+	| KnowledgeArchivedEvent
+	| KnowledgeAccessedEvent;
+
+/** Strategy events: automation reactions and strategy-layer observations. */
+export type StrategyEvent =
+	| CostCapWarningEvent
+	| CostCapBreachedEvent
+	| NotificationEvent
 	| PropagationAppliedEvent
-	| PropagationFailedEvent;
+	| PropagationFailedEvent
+	| RoutineFiredEvent
+	| ToolCallRecordedEvent;
+
+/** Discriminated union of all domain events. */
+export type DomainEvent = KernelEvent | StrategyEvent;
 
 /** All valid event type strings. */
 export type EventType = DomainEvent["type"];

@@ -1,9 +1,7 @@
-import { search as searchKnowledge } from "@hyperidle/fabric";
+import { KNOWLEDGE_LAYERS, search as searchKnowledge } from "@hyperidle/fabric";
 import z from "zod";
 import type { ToolContext, ToolDefinition } from "./tool-registry.js";
 import { err, ok, type ToolResult } from "./tool-result.js";
-
-const KNOWLEDGE_LAYERS = ["L0", "L1", "L2", "L3", "L4"] as const;
 
 const queryPracticeInputSchema = z.object({
 	query: z.string().min(1),

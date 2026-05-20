@@ -133,7 +133,6 @@ function toIngestionEvents(events: readonly ObservabilityEvent[]): IngestionEnve
 						timestamp: ts,
 						metadata: {
 							outcome: ev.outcome,
-							costDelta: ev.costDelta,
 							taskId: ev.taskId,
 						},
 					},

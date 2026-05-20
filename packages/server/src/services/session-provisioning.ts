@@ -400,10 +400,8 @@ export async function provisionSession(
 		}
 	}
 
-	// ── Phase 11: teardown. Baseline cost is 0 for a freshly-provisioned
-	// session — pass it explicitly so costDelta reflects the full session spend
-	// even though `recordCostAndCheck` has already persisted the running total
-	// onto `sessions.costMinor`.
+	// ── Phase 11: teardown. The baseline cost parameter is retained for API
+	// compatibility but is no longer used to compute costDelta (removed in O1).
 	//
 	// L17: write tokensJson before calling end/crash so the lifecycle functions
 	// can include it in the final session row update. We write it here because

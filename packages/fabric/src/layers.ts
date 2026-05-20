@@ -1,4 +1,4 @@
-import { KNOWLEDGE_LAYERS, type KnowledgeLayer } from "@hyperidle/shared";
+import { KNOWLEDGE_LAYERS, type KnowledgeLayer } from "./types.js";
 
 export function isValidLayer(value: string): value is KnowledgeLayer {
 	return (KNOWLEDGE_LAYERS as readonly string[]).includes(value);

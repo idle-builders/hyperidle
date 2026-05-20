@@ -124,8 +124,6 @@ export function createSessionRoutes(db: HyperIdleDb, eventBus: EventBus): Hono {
 		db.update(sessions).set(updates).where(eq(sessions.id, sessionId)).run();
 
 		const outcome: SessionOutcome = body.state === "crashed" ? "crashed" : "completed";
-		// This PATCH endpoint does not receive a cost update — the delta since the
-		// last recorded cost is 0 by construction.
 		eventBus.emit<"session_ended">({
 			type: "session_ended",
 			streamId: sessionId,
@@ -133,7 +131,6 @@ export function createSessionRoutes(db: HyperIdleDb, eventBus: EventBus): Hono {
 			agentId: existing.agentId,
 			taskId: existing.taskId,
 			timestamp: Date.now(),
-			costDelta: 0,
 			outcome,
 		} satisfies SessionEndedEvent);
 

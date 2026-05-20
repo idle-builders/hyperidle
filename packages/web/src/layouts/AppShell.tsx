@@ -4,7 +4,7 @@ import { NavItem } from "@hyperidle/design-system";
  * It manages view state, submenu state, settings panel, and global search.
  * This is NOT a custom component — it is a page-level composition assembling Tier 3 regions.
  */
-import { KNOWLEDGE_SCOPES, type KnowledgeScope } from "@hyperidle/shared";
+import { KNOWLEDGE_SCOPES, type KnowledgeScope } from "@hyperidle/fabric/types";
 import { type JSX, useCallback, useEffect, useMemo, useState } from "react";
 import { Outlet, useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { ErrorBoundary } from "../components/ErrorBoundary";

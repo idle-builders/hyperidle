@@ -12,8 +12,8 @@ import { EmptyState, ErrorState, KnowledgeRow, SkeletonList } from "@hyperidle/d
  * with signals. Sort controls use URL state (?sort=recency|frequency).
  * Default (no param) = relevance sort.
  */
-import type { KnowledgeScope, KnowledgeSortOption } from "@hyperidle/shared";
-import { KNOWLEDGE_SORT_OPTIONS } from "@hyperidle/shared";
+import type { KnowledgeScope, KnowledgeSortOption } from "@hyperidle/fabric/types";
+import { KNOWLEDGE_SORT_OPTIONS } from "@hyperidle/fabric/types";
 import { type JSX, useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { CurationSuggestionCard } from "../components/CurationSuggestionCard";
