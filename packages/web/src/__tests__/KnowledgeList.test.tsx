@@ -3,7 +3,7 @@ import { MemoryRouter } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
 import { KnowledgeList } from "../pages/KnowledgeList";
 
-// L22: KnowledgeList now fetches from /api/knowledge/L3 for triage items.
+// L22 / O3: KnowledgeList now fetches from /api/knowledge for triage items.
 // In unit tests there is no API server, so we stub useFetch to return
 // the not-loading / no-data state so the mock-data fallback renders.
 // @lore L22: mocking useFetch here keeps these unit tests independent of

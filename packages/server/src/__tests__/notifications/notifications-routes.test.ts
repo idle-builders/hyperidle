@@ -12,16 +12,16 @@
  */
 
 import { createTestDb, factorySettings, type HyperIdleDb, notificationQueue } from "@hyperidle/db";
-import type { ApiErrorResponse } from "@hyperidle/shared";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { createApp, disposeApp } from "../../app.js";
-import type { SafeNotificationConfig } from "../../services/notifications/config.js";
 import type {
 	Notification,
 	NotificationAdapter,
 	Recipient,
+	SafeNotificationConfig,
 	SendResult,
-} from "../../services/notifications/types.js";
+} from "@hyperidle/fabric";
+import type { ApiErrorResponse } from "@hyperidle/shared";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { createApp, disposeApp } from "../../app.js";
 
 const API_KEY = "test-key-H2-routes";
 
@@ -309,8 +309,7 @@ describe("H2 /api/notifications routes", () => {
 		const audit = createApp({
 			db,
 			notificationAdapterFactory: () => adapter,
-			// biome-ignore lint/suspicious/noExplicitAny: test-only logger override
-		} as any);
+		});
 		// Route factory is not swappable on createApp — the audit surfaces
 		// via the notifications.audit logger which writes to stdout. We
 		// assert the in-process logger capture through a direct

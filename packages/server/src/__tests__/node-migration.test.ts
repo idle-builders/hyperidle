@@ -37,6 +37,11 @@ function readDb(relPath: string): string {
 	return fs.readFileSync(path.join(dbSrc, relPath), "utf-8");
 }
 
+function readFabric(relPath: string): string {
+	const fabricSrc = path.resolve(SERVER_SRC, "../../fabric/src");
+	return fs.readFileSync(path.join(fabricSrc, relPath), "utf-8");
+}
+
 describe("N1: Bun-API removal — source file assertions", () => {
 	// ------------------------------------------------------------------ AC1
 	describe("AC1: server-factory.ts uses @hono/node-server; no Bun serve", () => {
@@ -137,13 +142,16 @@ describe("N1: Bun-API removal — source file assertions", () => {
 
 	// ------------------------------------------------------------------ AC5
 	describe("AC5: git-export-runner.ts @lore updated — node:child_process.spawn is canonical", () => {
+		// @lore O3: git-export-runner.ts moved from packages/server/src/services/
+		// to packages/fabric/src/services/ as part of the service-move. The test
+		// reads from fabric now.
 		it("does not reference Bun.spawn as the plan mandate", () => {
-			const src = readSrc("services/git-export-runner.ts");
+			const src = readFabric("services/git-export-runner.ts");
 			expect(src).not.toMatch(/the plan mandates `Bun\.spawn`/);
 		});
 
 		it("@lore block references node:child_process.spawn as canonical", () => {
-			const src = readSrc("services/git-export-runner.ts");
+			const src = readFabric("services/git-export-runner.ts");
 			// After N1, the lore must say node:child_process.spawn is canonical.
 			expect(src).toMatch(
 				/node:child_process\.spawn.*canonical|canonical.*node:child_process\.spawn/is,

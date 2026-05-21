@@ -11,15 +11,16 @@ import {
 	notificationQueue,
 	threads,
 } from "@hyperidle/db";
+import {
+	type Notification,
+	type NotificationAdapter,
+	type Recipient,
+	registerNotificationDispatcher,
+	type SendResult,
+} from "@hyperidle/fabric";
 import { type CostCapBreachedEvent, EventBus, type RoutineFiredEvent } from "@hyperidle/shared";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createApp, disposeApp } from "../../app.js";
-import type {
-	Notification,
-	NotificationAdapter,
-	Recipient,
-	SendResult,
-} from "../../services/notifications/types.js";
 
 interface AdapterCall {
 	recipient: Recipient;
@@ -69,10 +70,16 @@ describe("H2 Dispatcher integration via createApp", () => {
 		db = createTestDb();
 		bus = new EventBus();
 		adapter = createFakeAdapter();
+		// O3: notificationAdapterFactory removed from AppOptions for the dispatcher.
+		// Use strategyBootstrap to wire the dispatcher with the fake adapter.
 		app = createApp({
 			db,
 			eventBus: bus,
-			notificationAdapterFactory: () => adapter,
+			strategyBootstrap: ({ db: testDb, eventBus: testBus }) => [
+				registerNotificationDispatcher(testDb, testBus, {
+					adapterFactory: () => adapter,
+				}),
+			],
 		});
 	});
 

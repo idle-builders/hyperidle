@@ -10,10 +10,10 @@ import {
 	teams,
 	threads,
 } from "@hyperidle/db";
+import { registerPolicyEngine } from "@hyperidle/fabric";
 import { EventBus, type NotificationEvent } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { registerPolicyEngine } from "../services/policy-engine.js";
 
 // L1a: legacy `responses` table dropped (plan §5.2). Verdicts now project as
 // `verdict`-typed messages whose `legacy_item_id` ties them back to the source

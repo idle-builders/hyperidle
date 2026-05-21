@@ -10,15 +10,15 @@ import {
 	teams,
 	threads,
 } from "@hyperidle/db";
-import { type CostCapBreachedEvent, type CostCapWarningEvent, EventBus } from "@hyperidle/shared";
-import { and, eq, sql } from "drizzle-orm";
-import { beforeEach, describe, expect, it } from "vitest";
 import {
 	checkCostCap,
 	clearDeduplicationCache,
 	recordCostAndCheck,
 	resetCosts,
-} from "../services/cost-cap.js";
+} from "@hyperidle/fabric";
+import { type CostCapBreachedEvent, type CostCapWarningEvent, EventBus } from "@hyperidle/shared";
+import { and, eq, sql } from "drizzle-orm";
+import { beforeEach, describe, expect, it } from "vitest";
 
 const NOW = new Date().toISOString();
 

@@ -1,4 +1,5 @@
 import type { HyperIdleDb } from "@hyperidle/db";
+import { defaultNotificationAdapterFactory } from "@hyperidle/fabric";
 import type { ApiErrorResponse } from "@hyperidle/shared";
 import { API_ERROR_CODES, createLogger, EventBus } from "@hyperidle/shared";
 import { Hono } from "hono";
@@ -27,17 +28,6 @@ import { createStatusRoutes } from "./routes/status.js";
 import { createTaskRoutes } from "./routes/tasks.js";
 import { registerTestRoutes } from "./routes/test-routes.js";
 import { createThreadRoutes } from "./routes/threads.js";
-import { registerBuiltinRoutineHandlers } from "./services/builtin-routines.js";
-import { registerCostCapDedupReleaser } from "./services/cost-cap.js";
-import { registerGitExportHandler } from "./services/git-export.js";
-import { createGitRunner } from "./services/git-export-runner.js";
-import { registerLifecyclePropagation } from "./services/lifecycle-propagation.js";
-import type { NotificationConfig } from "./services/notifications/config.js";
-import { createConsoleAdapter } from "./services/notifications/console-adapter.js";
-import { registerNotificationDispatcher } from "./services/notifications/dispatcher.js";
-import { createNtfyAdapter } from "./services/notifications/ntfy-adapter.js";
-import { createSmtpAdapter } from "./services/notifications/smtp-adapter.js";
-import type { NotificationAdapter } from "./services/notifications/types.js";
 import {
 	type ObservabilityConfig,
 	readObservabilityConfig,
@@ -53,24 +43,41 @@ import type {
 	ObservabilityAdapter,
 	ObservabilityDispatcher,
 } from "./services/observability/types.js";
-import { registerPolicyEngine } from "./services/policy-engine.js";
-import { registerSessionReviewCreator } from "./services/session-review-creator.js";
 
 interface AppOptions {
 	db?: HyperIdleDb;
 	eventBus?: EventBus;
 	/**
-	 * Optional override for the git-runner factory used by the
-	 * `knowledge_updated` event handler. Tests can substitute a FakeGitRunner
-	 * to prove the event-triggered path without spawning `git`.
+	 * Strategy-layer bootstrap function. When provided, `createApp` calls it
+	 * with `{ db, eventBus }` and pushes the returned disposers into the app's
+	 * disposer bag. When omitted (or undefined), the app boots in kernel-only
+	 * mode — no strategy event handlers are registered.
+	 *
+	 * Production entry point passes `bootstrapFabric` from `@hyperidle/fabric`.
+	 * Tests that need kernel-only mode pass `undefined` (or simply omit the field).
+	 * Tests that need custom strategy wiring pass a custom function.
+	 *
+	 * @lore O3: This replaces 7 hardwired `register*` calls in app.ts, enforcing
+	 * the kernel/strategy boundary via the package dependency graph.
 	 */
-	gitRunnerFactory?: (repoPath: string) => ReturnType<typeof createGitRunner>;
+	strategyBootstrap?: (ctx: { db: HyperIdleDb; eventBus: EventBus }) => Array<() => void>;
 	/**
 	 * Optional override for the notification adapter factory used by the
-	 * dispatcher + HTTP `/notifications/test` + `/notifications/flush`
-	 * routes. Tests inject a FakeAdapter that records every send.
+	 * HTTP `/notifications/test`, `/notifications/flush`, and
+	 * `/notifications/digest` routes. Tests inject a FakeAdapter that
+	 * records every send.
+	 *
+	 * NOTE: This does NOT affect the strategy-layer dispatcher (registered via
+	 * `strategyBootstrap`). The dispatcher uses its own factory (internalized
+	 * in `bootstrapFabric`). This option is purely for the HTTP route layer.
+	 *
+	 * @lore O3: Kept on AppOptions (HTTP route concern) even though the
+	 * dispatcher factory was internalized in bootstrapFabric. Removing it
+	 * would require restructuring notification route tests to not use createApp.
 	 */
-	notificationAdapterFactory?: (cfg: NotificationConfig) => NotificationAdapter;
+	notificationAdapterFactory?: (
+		cfg: import("@hyperidle/fabric").NotificationConfig,
+	) => import("@hyperidle/fabric").NotificationAdapter;
 	/**
 	 * Optional override for the observability adapter (H3). Tests inject
 	 * a FakeAdapter whose `record` captures every event. When omitted
@@ -116,29 +123,6 @@ function buildObservabilityAdapter(cfg: ObservabilityConfig): ObservabilityAdapt
 		}
 		case "noop":
 			return null;
-	}
-}
-
-function defaultNotificationAdapterFactory(cfg: NotificationConfig): NotificationAdapter {
-	switch (cfg.primaryChannel) {
-		case "ntfy":
-			return createNtfyAdapter({
-				baseUrl: cfg.ntfy.baseUrl,
-				authToken: cfg.ntfy.authToken,
-			});
-		case "smtp":
-			if (!(cfg.smtp.host && cfg.smtp.from)) return createConsoleAdapter();
-			return createSmtpAdapter({
-				host: cfg.smtp.host,
-				port: cfg.smtp.port,
-				secure: cfg.smtp.secure,
-				username: cfg.smtp.username,
-				password: cfg.smtp.password,
-				from: cfg.smtp.from,
-				ignoreTls: cfg.smtpIgnoreTls,
-			});
-		default:
-			return createConsoleAdapter();
 	}
 }
 
@@ -287,8 +271,14 @@ function createApp(options?: AppOptions): Hono {
 		api.route("/sessions", createSessionRoutes(options.db, eventBus));
 		api.route("/status", createStatusRoutes(options.db));
 		api.route("/git-export", createGitExportRoutes(options.db));
-		const adapterFactory = options.notificationAdapterFactory ?? defaultNotificationAdapterFactory;
-		api.route("/notifications", createNotificationRoutes(options.db, { adapterFactory }));
+		// O3: defaultNotificationAdapterFactory moved to @hyperidle/fabric (imported at top).
+		// Tests may override via notificationAdapterFactory for route-level adapter injection.
+		api.route(
+			"/notifications",
+			createNotificationRoutes(options.db, {
+				adapterFactory: options.notificationAdapterFactory ?? defaultNotificationAdapterFactory,
+			}),
+		);
 
 		// Observability dispatcher (H3). Constructed lazily so tests can
 		// spin up apps without needing a configured adapter; the /status
@@ -353,21 +343,14 @@ function createApp(options?: AppOptions): Hono {
 		);
 
 		const disposers: Array<() => void> = [];
-		disposers.push(registerSessionReviewCreator(db, eventBus));
-		disposers.push(registerPolicyEngine(db, eventBus));
-		disposers.push(registerLifecyclePropagation(db, eventBus));
-		disposers.push(registerBuiltinRoutineHandlers(db, eventBus));
-		// I3 review C1 / arch H-1: drop cost-cap dedup-map entries on every
-		// session_ended event (graceful end, crash, client PATCH). Single
-		// chokepoint keeps the per-session map bounded across the factory's
-		// lifetime — see services/cost-cap.ts for context.
-		disposers.push(registerCostCapDedupReleaser(eventBus));
-		disposers.push(
-			registerGitExportHandler(db, eventBus, {
-				runnerFactory: options.gitRunnerFactory ?? ((repoPath) => createGitRunner(repoPath)),
-			}),
-		);
-		disposers.push(registerNotificationDispatcher(db, eventBus, { adapterFactory }));
+
+		// O3: strategy-layer services are wired via strategyBootstrap (if provided).
+		// Kernel-only mode (strategyBootstrap: undefined) skips all strategy handlers.
+		// @lore O3: This replaces 7 hardwired register* calls; the kernel/strategy
+		// boundary is now enforced by the package dependency graph.
+		const strategyDisposers = options.strategyBootstrap?.({ db, eventBus }) ?? [];
+		disposers.push(...strategyDisposers);
+
 		disposers.push(() => {
 			if (observabilityUnsubscribe) {
 				observabilityUnsubscribe();

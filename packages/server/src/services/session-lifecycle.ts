@@ -6,6 +6,7 @@ import {
 	type FileWatcher,
 	type FileWatcherConfig,
 	materialize,
+	releaseSessionDedup,
 	startWatcher,
 } from "@hyperidle/fabric";
 import {
@@ -15,7 +16,6 @@ import {
 	type ModelTier,
 } from "@hyperidle/shared";
 import { and, eq, sql } from "drizzle-orm";
-import { releaseSessionDedup } from "./cost-cap.js";
 
 export interface CreateSessionParams {
 	taskId: string;
