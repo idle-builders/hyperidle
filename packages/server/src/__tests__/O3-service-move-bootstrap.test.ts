@@ -21,7 +21,6 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { createTestDb } from "@hyperidle/db";
-// @ts-expect-error — bootstrapFabric does not yet exist; import will fail until Task 3 is complete
 import { bootstrapFabric } from "@hyperidle/fabric";
 import { EventBus } from "@hyperidle/shared";
 import { describe, expect, it } from "vitest";
