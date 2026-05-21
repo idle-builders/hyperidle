@@ -35,6 +35,7 @@ export { startWatcher } from "./file-watcher.js";
 export { setupFts } from "./fts.js";
 export type {
 	CreateKnowledgeItemInput,
+	KnowledgeItemWithFabric,
 	ListFilters,
 	UpdateKnowledgeItemInput,
 } from "./knowledge-repository.js";

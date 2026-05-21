@@ -1,4 +1,11 @@
-import { type HyperIdleDb, items, sessions, tasks, threads } from "@hyperidle/db";
+import {
+	type HyperIdleDb,
+	items,
+	sessions,
+	taskStrategyFabric,
+	tasks,
+	threads,
+} from "@hyperidle/db";
 import type { EventBus, ItemCreatedEvent, SessionEndedEvent } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
 
@@ -14,12 +21,19 @@ export function registerSessionReviewCreator(db: HyperIdleDb, eventBus: EventBus
 		const session = db.select().from(sessions).where(eq(sessions.id, event.sessionId)).get();
 		if (!session) return;
 
-		// Look up task to get riskTier
+		// Look up task
 		const task = db.select().from(tasks).where(eq(tasks.id, session.taskId)).get();
 		if (!task) return;
 
-		// Only create review items for medium/high risk
-		if (task.riskTier !== "medium" && task.riskTier !== "high") return;
+		// @lore O2: riskTier moved from tasks to taskStrategyFabric extension table.
+		// Only create review items for medium/high risk.
+		const fabricRow = db
+			.select()
+			.from(taskStrategyFabric)
+			.where(eq(taskStrategyFabric.taskId, session.taskId))
+			.get();
+		const riskTier = fabricRow?.riskTier ?? null;
+		if (riskTier !== "medium" && riskTier !== "high") return;
 
 		// Create or use existing thread
 		let threadId = task.threadId;
@@ -55,7 +69,7 @@ export function registerSessionReviewCreator(db: HyperIdleDb, eventBus: EventBus
 				kind: "review",
 				title: `Session completed: ${outcome}`,
 				threadId,
-				riskTier: task.riskTier,
+				riskTier,
 				createdAt: now,
 			})
 			.run();

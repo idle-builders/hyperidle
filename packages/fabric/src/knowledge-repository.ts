@@ -1,8 +1,19 @@
+/**
+ * @lore O2: knowledge-repository updated for kernel/strategy separation.
+ * - knowledgeItems table no longer has layer, scopeId, kind, attentionScore,
+ *   relevanceScore, citationCount, lastCitedAt, confidence, meta columns.
+ * - These fields are now stored in knowledgeStrategyFabric (extension table).
+ * - create() inserts into both tables; update() updates both tables;
+ *   list() JOINs against extension table for filter/sort on strategy fields.
+ * - KnowledgeItem type is augmented with optional strategy fields from the
+ *   extension table via KnowledgeItemWithFabric.
+ */
 import {
 	type HyperIdleDb,
 	type KnowledgeItem,
 	knowledgeEditLog,
 	knowledgeItems,
+	knowledgeStrategyFabric,
 } from "@hyperidle/db";
 import type { KnowledgeFormat } from "@hyperidle/shared";
 import { and, eq } from "drizzle-orm";
@@ -50,6 +61,19 @@ export interface ListFilters {
 	offset?: number;
 }
 
+/**
+ * Augments the kernel KnowledgeItem with strategy-layer fields from the
+ * knowledgeStrategyFabric extension table.
+ */
+export interface KnowledgeItemWithFabric extends KnowledgeItem {
+	layer?: string | null;
+	scopeId?: string | null;
+	kind?: string | null;
+	attentionScore?: string | null;
+	confidence?: string | null;
+	meta?: string | null;
+}
+
 function generateId(): string {
 	return crypto.randomUUID();
 }
@@ -58,30 +82,74 @@ function now(): string {
 	return new Date().toISOString();
 }
 
-export function create(db: HyperIdleDb, input: CreateKnowledgeItemInput): KnowledgeItem {
+/**
+ * Fetch the fabric extension row for a knowledge item, or null if not found.
+ */
+function getFabricRow(
+	db: HyperIdleDb,
+	knowledgeItemId: string,
+): typeof knowledgeStrategyFabric.$inferSelect | null {
+	return (
+		db
+			.select()
+			.from(knowledgeStrategyFabric)
+			.where(eq(knowledgeStrategyFabric.knowledgeItemId, knowledgeItemId))
+			.get() ?? null
+	);
+}
+
+/**
+ * Merge kernel item with its strategy fabric extension row.
+ */
+function mergeWithFabric(
+	item: KnowledgeItem,
+	fabric: typeof knowledgeStrategyFabric.$inferSelect | null,
+): KnowledgeItemWithFabric {
+	if (!fabric) return item;
+	return {
+		...item,
+		layer: fabric.layer,
+		scopeId: fabric.scopeId,
+		kind: fabric.kind,
+		attentionScore: fabric.attentionScore,
+		confidence: fabric.confidence,
+		meta: fabric.meta,
+	};
+}
+
+export function create(db: HyperIdleDb, input: CreateKnowledgeItemInput): KnowledgeItemWithFabric {
 	const id = generateId();
 	const timestamp = now();
 
-	const item: typeof knowledgeItems.$inferInsert = {
-		id,
-		layer: input.layer,
-		scopeId: input.scopeId ?? null,
-		kind: input.kind,
-		topic: input.topic ?? null,
-		title: input.title,
-		body: input.body,
-		format: input.format,
-		status: input.status,
-		attentionScore: input.attentionScore ?? null,
-		confidence: input.confidence ?? null,
-		version: 1,
-		updatedBy: input.updatedBy,
-		createdAt: timestamp,
-		updatedAt: timestamp,
-		meta: input.meta ?? null,
-	};
+	// Insert into kernel table (strategy fields excluded)
+	db.insert(knowledgeItems)
+		.values({
+			id,
+			topic: input.topic ?? null,
+			title: input.title,
+			body: input.body,
+			format: input.format,
+			status: input.status,
+			version: 1,
+			updatedBy: input.updatedBy,
+			createdAt: timestamp,
+			updatedAt: timestamp,
+		})
+		.run();
 
-	db.insert(knowledgeItems).values(item).run();
+	// Insert into strategy extension table
+	db.insert(knowledgeStrategyFabric)
+		.values({
+			id: generateId(),
+			knowledgeItemId: id,
+			layer: input.layer,
+			scopeId: input.scopeId ?? null,
+			kind: input.kind,
+			attentionScore: input.attentionScore != null ? String(input.attentionScore) : null,
+			confidence: input.confidence != null ? String(input.confidence) : null,
+			meta: input.meta ?? null,
+		})
+		.run();
 
 	// Edit log for create
 	db.insert(knowledgeEditLog)
@@ -108,55 +176,55 @@ export function create(db: HyperIdleDb, input: CreateKnowledgeItemInput): Knowle
 	if (!created) {
 		throw new Error(`Failed to read back created knowledge item ${id}`);
 	}
-	return created;
+	const fabricRow = getFabricRow(db, id);
+	return mergeWithFabric(created, fabricRow);
 }
 
-export function getById(db: HyperIdleDb, id: string): KnowledgeItem | null {
+export function getById(db: HyperIdleDb, id: string): KnowledgeItemWithFabric | null {
 	const item = db.select().from(knowledgeItems).where(eq(knowledgeItems.id, id)).get();
-	return item ?? null;
+	if (!item) return null;
+	const fabricRow = getFabricRow(db, id);
+	return mergeWithFabric(item, fabricRow);
 }
 
 /**
- * Allow-list of caller-mutable fields. @lore I3 review sec HIGH-3:
- * explicit pick (no `...changes` spread). A JS caller passing a
- * runtime-extra `version` field via UpdateKnowledgeItemInput would
- * otherwise pin the version low, enabling replay attacks against the
- * optimistic-lock check.
+ * Allow-list of caller-mutable fields for the kernel table.
+ * @lore O2: Strategy fields (layer, scopeId, kind, attentionScore, confidence, meta)
+ * are removed from the kernel EDITABLE_FIELDS and written to the extension table instead.
  */
-const EDITABLE_FIELDS = [
+const KERNEL_EDITABLE_FIELDS = ["topic", "title", "body", "format", "status", "updatedBy"] as const;
+
+const FABRIC_EDITABLE_FIELDS = [
 	"layer",
 	"scopeId",
 	"kind",
-	"topic",
-	"title",
-	"body",
-	"format",
-	"status",
-	"updatedBy",
 	"attentionScore",
 	"confidence",
 	"meta",
 ] as const;
 
 interface DiffResult {
-	readonly safeChanges: Record<string, unknown>;
+	readonly kernelChanges: Record<string, unknown>;
+	readonly fabricChanges: Record<string, unknown>;
 	readonly editLogEntries: ReadonlyArray<typeof knowledgeEditLog.$inferInsert>;
 }
 
 /** Build the safe-changes payload + per-field edit-log rows. */
 function buildDiff(
 	itemId: string,
-	existing: KnowledgeItem,
+	existing: KnowledgeItemWithFabric,
 	changes: UpdateKnowledgeItemInput,
 	timestamp: string,
 ): DiffResult {
 	const editLogEntries: Array<typeof knowledgeEditLog.$inferInsert> = [];
-	const safeChanges: Record<string, unknown> = {};
-	for (const field of EDITABLE_FIELDS) {
+	const kernelChanges: Record<string, unknown> = {};
+	const fabricChanges: Record<string, unknown> = {};
+
+	for (const field of KERNEL_EDITABLE_FIELDS) {
 		if (!(field in changes) || changes[field] === undefined) continue;
 		const oldVal = existing[field];
 		const newVal = changes[field];
-		safeChanges[field] = newVal;
+		kernelChanges[field] = newVal;
 		if (oldVal === newVal) continue;
 		editLogEntries.push({
 			id: generateId(),
@@ -169,7 +237,32 @@ function buildDiff(
 			createdAt: timestamp,
 		});
 	}
-	return { safeChanges, editLogEntries };
+
+	for (const field of FABRIC_EDITABLE_FIELDS) {
+		if (!(field in changes) || changes[field] === undefined) continue;
+		const oldVal = existing[field];
+		const newVal = changes[field];
+		// Store numeric fields as strings in the extension table
+		fabricChanges[field] =
+			field === "attentionScore" || field === "confidence"
+				? newVal != null
+					? String(newVal)
+					: null
+				: newVal;
+		if (oldVal === newVal) continue;
+		editLogEntries.push({
+			id: generateId(),
+			itemId,
+			editor: changes.updatedBy ?? existing.updatedBy,
+			field,
+			oldValue: oldVal == null ? null : String(oldVal),
+			newValue: newVal == null ? null : String(newVal),
+			editType: "update",
+			createdAt: timestamp,
+		});
+	}
+
+	return { kernelChanges, fabricChanges, editLogEntries };
 }
 
 export function update(
@@ -177,13 +270,11 @@ export function update(
 	id: string,
 	changes: UpdateKnowledgeItemInput,
 	expectedVersion: number,
-): KnowledgeItem {
-	// @lore I3 review sec HIGH-3: the entire optimistic-lock dance —
-	// SELECT, UPDATE-with-version-predicate, edit-log INSERTs, read-back —
-	// runs inside a single transaction so a crash between UPDATE and
-	// edit-log INSERT can't persist the version bump without provenance.
-	// `db.transaction` on better-sqlite3 issues BEGIN IMMEDIATE which
-	// serialises writes — the version-check is atomic.
+): KnowledgeItemWithFabric {
+	// @lore N1/O2: better-sqlite3 issues BEGIN IMMEDIATE (write-ahead) on
+	// db.transaction so concurrent readers are not blocked by the kernel +
+	// extension table update. Do NOT use bun:sqlite — better-sqlite3 is the
+	// sole synchronous SQLite driver in this package.
 	const result = db.transaction((tx) => {
 		const existing = tx.select().from(knowledgeItems).where(eq(knowledgeItems.id, id)).get();
 
@@ -194,19 +285,26 @@ export function update(
 			throw new VersionConflictError(id, existing.version);
 		}
 
+		const fabricRow = tx
+			.select()
+			.from(knowledgeStrategyFabric)
+			.where(eq(knowledgeStrategyFabric.knowledgeItemId, id))
+			.get();
+		const existingWithFabric = mergeWithFabric(existing, fabricRow ?? null);
+
 		const timestamp = now();
 		const newVersion = existing.version + 1;
-		const { safeChanges, editLogEntries } = buildDiff(id, existing, changes, timestamp);
+		const { kernelChanges, fabricChanges, editLogEntries } = buildDiff(
+			id,
+			existingWithFabric,
+			changes,
+			timestamp,
+		);
 
-		// @lore I3 optimistic locking (TRACK-I.md L141-144): predicate the
-		// UPDATE on the expected version. The JS-side check catches the
-		// *sequential* stale case; this SQL-side predicate catches the
-		// *racy* TOCTOU case. Inside a transaction the two are equivalent
-		// but we keep both for defence-in-depth.
 		const updateResult = tx
 			.update(knowledgeItems)
 			.set({
-				...safeChanges,
+				...kernelChanges,
 				version: newVersion,
 				updatedAt: timestamp,
 			})
@@ -214,16 +312,36 @@ export function update(
 			.run();
 
 		if (updateResult.changes === 0) {
-			// @lore I3 review W1: distinguish "row deleted concurrently"
-			// from "version conflict". Pre-fix this fell back to
-			// `current?.version ?? expectedVersion` which silently masked
-			// deletion as a conflict reporting the caller's own version.
 			const current = tx.select().from(knowledgeItems).where(eq(knowledgeItems.id, id)).get();
 			if (!current) throw new ItemDeletedError(id);
 			throw new VersionConflictError(id, current.version);
 		}
 
-		// Insert edit log entries (only after successful UPDATE).
+		// Update extension table if there are fabric changes
+		if (Object.keys(fabricChanges).length > 0) {
+			const existingFabric = tx
+				.select({ id: knowledgeStrategyFabric.id })
+				.from(knowledgeStrategyFabric)
+				.where(eq(knowledgeStrategyFabric.knowledgeItemId, id))
+				.get();
+			if (existingFabric) {
+				tx.update(knowledgeStrategyFabric)
+					.set(fabricChanges)
+					.where(eq(knowledgeStrategyFabric.knowledgeItemId, id))
+					.run();
+			} else {
+				// Create extension row if it doesn't exist
+				tx.insert(knowledgeStrategyFabric)
+					.values({
+						id: generateId(),
+						knowledgeItemId: id,
+						...fabricChanges,
+					})
+					.run();
+			}
+		}
+
+		// Insert edit log entries
 		for (const entry of editLogEntries) {
 			tx.insert(knowledgeEditLog).values(entry).run();
 		}
@@ -232,13 +350,15 @@ export function update(
 		if (!updated) {
 			throw new Error(`Failed to read back updated knowledge item ${id}`);
 		}
-		return { updated, newVersion };
+		const updatedFabric = tx
+			.select()
+			.from(knowledgeStrategyFabric)
+			.where(eq(knowledgeStrategyFabric.knowledgeItemId, id))
+			.get();
+		return { updated: mergeWithFabric(updated, updatedFabric ?? null), newVersion };
 	});
 
-	// Emit event AFTER the transaction commits — observers must not see
-	// the new version while the txn is still open (they could read the
-	// not-yet-committed version on a connection without snapshot
-	// isolation).
+	// Emit event AFTER the transaction commits
 	getKnowledgeEvents().emit(KnowledgeEventType.UPDATED, {
 		type: KnowledgeEventType.UPDATED,
 		itemId: id,
@@ -248,50 +368,85 @@ export function update(
 	return result.updated;
 }
 
-export function list(db: HyperIdleDb, filters: ListFilters = {}): KnowledgeItem[] {
-	const conditions = [];
-
-	if (filters.layer !== undefined) {
-		conditions.push(eq(knowledgeItems.layer, filters.layer));
-	}
-	if (filters.scopeId !== undefined) {
-		conditions.push(eq(knowledgeItems.scopeId, filters.scopeId));
-	}
-	if (filters.kind !== undefined) {
-		conditions.push(eq(knowledgeItems.kind, filters.kind));
-	}
-	if (filters.topic !== undefined) {
-		conditions.push(eq(knowledgeItems.topic, filters.topic));
-	}
+export function list(db: HyperIdleDb, filters: ListFilters = {}): KnowledgeItemWithFabric[] {
+	// For filters on strategy fields (layer, scopeId, kind), we need to JOIN with
+	// the extension table. Start with a base query that always includes the JOIN.
+	const hasStrategyFilter =
+		filters.layer !== undefined || filters.scopeId !== undefined || filters.kind !== undefined;
 
 	const limit = filters.limit ?? 50;
 	const offset = filters.offset ?? 0;
 
-	let query = db.select().from(knowledgeItems).$dynamic();
+	if (!hasStrategyFilter) {
+		// Simple case: no strategy filters — just query kernel table
+		const kernelConditions = [];
+		if (filters.topic !== undefined) {
+			kernelConditions.push(eq(knowledgeItems.topic, filters.topic));
+		}
 
-	if (conditions.length > 0) {
-		query = query.where(and(...conditions));
+		let query = db.select().from(knowledgeItems).$dynamic();
+		if (kernelConditions.length > 0) {
+			query = query.where(and(...kernelConditions));
+		}
+		const rows = query.limit(limit).offset(offset).all();
+
+		return rows.map((item) => {
+			const fabric = getFabricRow(db, item.id);
+			return mergeWithFabric(item, fabric);
+		});
 	}
 
-	return query.limit(limit).offset(offset).all();
+	// Strategy filters: JOIN with extension table
+	// @lore O2: strategy filter queries must JOIN with knowledgeStrategyFabric.
+	// The JOIN is INNER (not LEFT) when strategy fields are required filters,
+	// so items without extension rows are excluded from filtered results.
+	const conditions: ReturnType<typeof eq>[] = [];
+
+	if (filters.topic !== undefined) {
+		conditions.push(eq(knowledgeItems.topic, filters.topic));
+	}
+	if (filters.layer !== undefined) {
+		conditions.push(eq(knowledgeStrategyFabric.layer, filters.layer));
+	}
+	if (filters.scopeId !== undefined) {
+		conditions.push(eq(knowledgeStrategyFabric.scopeId, filters.scopeId));
+	}
+	if (filters.kind !== undefined) {
+		conditions.push(eq(knowledgeStrategyFabric.kind, filters.kind));
+	}
+
+	const rows = db
+		.select({ item: knowledgeItems, fabric: knowledgeStrategyFabric })
+		.from(knowledgeItems)
+		.innerJoin(
+			knowledgeStrategyFabric,
+			eq(knowledgeStrategyFabric.knowledgeItemId, knowledgeItems.id),
+		)
+		.where(and(...conditions))
+		.limit(limit)
+		.offset(offset)
+		.all();
+
+	return rows.map(({ item, fabric }) => mergeWithFabric(item, fabric));
 }
 
 export function search(
 	db: HyperIdleDb,
 	query: string,
 	options: FtsSearchOptions = {},
-): KnowledgeItem[] {
+): KnowledgeItemWithFabric[] {
 	const ids = ftsSearch(db, query, options);
 	if (ids.length === 0) {
 		return [];
 	}
 
 	// Fetch items in the order returned by FTS (ranked by relevance)
-	const items: KnowledgeItem[] = [];
+	const items: KnowledgeItemWithFabric[] = [];
 	for (const id of ids) {
 		const item = db.select().from(knowledgeItems).where(eq(knowledgeItems.id, id)).get();
 		if (item) {
-			items.push(item);
+			const fabric = getFabricRow(db, id);
+			items.push(mergeWithFabric(item, fabric));
 		}
 	}
 

@@ -105,6 +105,20 @@
 			"when": 1783200000000,
 			"tag": "0014_item_artifact_metadata",
 			"breakpoints": true
+		},
+		{
+			"idx": 15,
+			"version": "6",
+			"when": 1783300000000,
+			"tag": "0015_O2_schema_migration",
+			"breakpoints": true
+		},
+		{
+			"idx": 16,
+			"version": "6",
+			"when": 1783400000000,
+			"tag": "0016_tsf_risk_tier",
+			"breakpoints": true
 		}
 	]
 }

@@ -6,6 +6,7 @@ import {
 	items,
 	products,
 	sessions,
+	taskStrategyFabric,
 	tasks,
 	teams,
 	threads,
@@ -91,11 +92,13 @@ describe("registerSessionReviewCreator", () => {
 				teamId: "team-1",
 				title: "High risk task",
 				state: "in_progress",
-				riskTier: "high",
 				threadId: "thread-1",
 				createdAt: new Date().toISOString(),
 				updatedAt: new Date().toISOString(),
 			})
+			.run();
+		db.insert(taskStrategyFabric)
+			.values({ id: "tsf-task-1", taskId: "task-1", riskTier: "high" })
 			.run();
 		db.insert(sessions)
 			.values({
@@ -149,10 +152,12 @@ describe("registerSessionReviewCreator", () => {
 				teamId: "team-1",
 				title: "Low risk task",
 				state: "in_progress",
-				riskTier: "low",
 				createdAt: new Date().toISOString(),
 				updatedAt: new Date().toISOString(),
 			})
+			.run();
+		db.insert(taskStrategyFabric)
+			.values({ id: "tsf-task-low", taskId: "task-low", riskTier: "low" })
 			.run();
 		db.insert(sessions)
 			.values({
@@ -194,10 +199,12 @@ describe("registerSessionReviewCreator", () => {
 				teamId: "team-1",
 				title: "No thread task",
 				state: "in_progress",
-				riskTier: "medium",
 				createdAt: new Date().toISOString(),
 				updatedAt: new Date().toISOString(),
 			})
+			.run();
+		db.insert(taskStrategyFabric)
+			.values({ id: "tsf-task-no-thread", taskId: "task-no-thread", riskTier: "medium" })
 			.run();
 		db.insert(sessions)
 			.values({
@@ -253,10 +260,12 @@ describe("registerSessionReviewCreator", () => {
 				teamId: "team-1",
 				title: "Unsub task",
 				state: "in_progress",
-				riskTier: "high",
 				createdAt: new Date().toISOString(),
 				updatedAt: new Date().toISOString(),
 			})
+			.run();
+		db.insert(taskStrategyFabric)
+			.values({ id: "tsf-task-unsub", taskId: "task-unsub", riskTier: "high" })
 			.run();
 		db.insert(sessions)
 			.values({

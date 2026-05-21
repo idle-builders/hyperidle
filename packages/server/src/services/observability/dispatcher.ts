@@ -24,7 +24,6 @@
  */
 
 import type { HyperIdleDb } from "@hyperidle/db";
-import { sessions } from "@hyperidle/db";
 import {
 	type BetStateChangedEvent,
 	type CostCapBreachedEvent,
@@ -41,7 +40,6 @@ import {
 	type TaskStateChangedEvent,
 	type ToolCallRecordedEvent,
 } from "@hyperidle/shared";
-import { eq } from "drizzle-orm";
 import type { ObservabilityConfig } from "./config.js";
 import type {
 	FlushOutcome,
@@ -142,15 +140,16 @@ export interface TraceIdResolver {
 }
 
 export function createDbTraceIdResolver(db: HyperIdleDb): TraceIdResolver {
+	// @lore O2: `sessions.traceId` column was stripped as part of kernel/strategy
+	// separation. The DB resolver now falls through to cache-only resolution.
+	// TraceIds must be seeded via `seed()` (e.g., from session-lifecycle which
+	// keeps traceId in-memory on SessionContext). The `db` parameter is retained
+	// for API compatibility but no longer queries the sessions table.
+	void db;
 	const cache = new Map<string, string>();
 	return {
 		resolve(sessionId: string): string | null {
-			const hit = cache.get(sessionId);
-			if (hit) return hit;
-			const row = db.select().from(sessions).where(eq(sessions.id, sessionId)).get();
-			const traceId = row?.traceId ?? null;
-			if (traceId) cache.set(sessionId, traceId);
-			return traceId;
+			return cache.get(sessionId) ?? null;
 		},
 		seed(sessionId: string, traceId: string): void {
 			cache.set(sessionId, traceId);

@@ -74,6 +74,8 @@ export async function createSession(
 	fs.mkdirSync(workspacePath, { recursive: true });
 
 	// 3. Insert session row
+	// @lore O2: cost, costMinor, costCurrency, traceId columns stripped from
+	// sessions table. traceId is kept in-memory on SessionContext only.
 	const now = new Date().toISOString();
 	db.insert(sessions)
 		.values({
@@ -84,10 +86,6 @@ export async function createSession(
 			startedAt: now,
 			state: "active",
 			workspaceSnapshot: workspacePath,
-			cost: 0,
-			costMinor: 0,
-			costCurrency: "USD",
-			traceId,
 		})
 		.run();
 
@@ -145,18 +143,17 @@ export async function endSession(
 	// 1. Stop watcher (final pass/flush)
 	context.watcher.stop();
 
-	// 2. Update session row — write both legacy cost and new L17 money columns.
-	// baselineCost parameter is retained for API compatibility but no longer used.
+	// 2. Update session row.
+	// @lore O2: cost, costMinor, costCurrency columns stripped from sessions table.
+	// costInCents parameter retained for API compatibility but no longer written to DB.
+	// Cost tracking is now a strategy concern handled at the fabric layer.
 	void baselineCost;
+	void costInCents;
 	const now = new Date().toISOString();
 	db.update(sessions)
 		.set({
 			state: "done",
 			outcome: "completed",
-			cost: costInCents,
-			// L17: write structured money columns
-			costMinor: costInCents,
-			costCurrency: "USD",
 			endedAt: now,
 		})
 		.where(eq(sessions.id, context.sessionId))
@@ -206,18 +203,15 @@ export async function crashSession(
 		// Watcher may already be in a bad state during crash
 	}
 
-	// 2. Update session row — write both legacy cost and new L17 money columns.
-	// baselineCost parameter is retained for API compatibility but no longer used.
+	// 2. Update session row.
+	// @lore O2: cost, costMinor, costCurrency columns stripped from sessions table.
 	void baselineCost;
+	void costInCents;
 	const now = new Date().toISOString();
 	db.update(sessions)
 		.set({
 			state: "crashed",
 			outcome: "crashed",
-			cost: costInCents,
-			// L17: write structured money columns
-			costMinor: costInCents,
-			costCurrency: "USD",
 			endedAt: now,
 		})
 		.where(eq(sessions.id, context.sessionId))

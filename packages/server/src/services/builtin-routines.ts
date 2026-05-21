@@ -5,6 +5,7 @@ import {
 	type HyperIdleDb,
 	items,
 	knowledgeItems,
+	knowledgeStrategyFabric,
 	type Routine,
 	routines,
 	threads,
@@ -564,23 +565,31 @@ function runPortfolioRetro(
 	const nowMs = Date.now();
 	const cutoffIso = new Date(nowMs - PORTFOLIO_WINDOW_MS).toISOString();
 
-	const recent = db
-		.select()
+	// @lore O2: layer is in knowledgeStrategyFabric. JOIN to filter by layer.
+	const recentRows = db
+		.select({ item: knowledgeItems, fabric: knowledgeStrategyFabric })
 		.from(knowledgeItems)
+		.innerJoin(
+			knowledgeStrategyFabric,
+			eq(knowledgeStrategyFabric.knowledgeItemId, knowledgeItems.id),
+		)
 		.where(
-			and(inArray(knowledgeItems.layer, ["L3", "L4"]), gte(knowledgeItems.updatedAt, cutoffIso)),
+			and(
+				inArray(knowledgeStrategyFabric.layer, ["L3", "L4"]),
+				gte(knowledgeItems.updatedAt, cutoffIso),
+			),
 		)
 		.all();
 
 	const bodyLines = [
 		`Portfolio retro — window: last 30 days (since ${cutoffIso})`,
-		`Recent L3/L4 items: ${recent.length}`,
+		`Recent L3/L4 items: ${recentRows.length}`,
 		"",
 	];
-	for (const ki of recent) {
-		bodyLines.push(`- [${ki.layer}] ${ki.title} (updated ${ki.updatedAt})`);
+	for (const { item: ki, fabric } of recentRows) {
+		bodyLines.push(`- [${fabric.layer ?? "?"}] ${ki.title} (updated ${ki.updatedAt})`);
 	}
-	if (recent.length === 0) {
+	if (recentRows.length === 0) {
 		bodyLines.push("(no cross-product patterns updated in the window)");
 	}
 
@@ -628,7 +637,7 @@ function runPortfolioRetro(
 		eventBus.emit(evt);
 	}
 
-	return { fired: true, extra: { itemId, threadId, count: recent.length } };
+	return { fired: true, extra: { itemId, threadId, count: recentRows.length } };
 }
 
 // --- Knowledge Decay ---

@@ -1,11 +1,9 @@
 import {
-	bigint,
 	boolean,
 	index,
 	integer,
 	pgTable,
 	primaryKey,
-	real,
 	text,
 	uniqueIndex,
 } from "drizzle-orm/pg-core";
@@ -116,10 +114,6 @@ export const tasks = pgTable(
 		artifacts: text("artifacts"),
 		costCap: integer("cost_cap"),
 		costActual: integer("cost_actual").default(0),
-		durability: text("durability"),
-		riskTier: text("risk_tier"),
-		attentionScore: integer("attention_score"),
-		crossTeam: boolean("cross_team").default(false),
 		threadId: text("thread_id").references(() => threads.id, { onDelete: "restrict" }),
 		notes: text("notes"),
 		auditTrail: text("audit_trail"),
@@ -150,19 +144,8 @@ export const sessions = pgTable(
 		endedAt: text("ended_at"),
 		state: text("state").notNull(),
 		workspaceSnapshot: text("workspace_snapshot"),
-		cost: integer("cost").default(0),
-		/** L17: structured session cost — minor units. NULL = no L17 cost, falls back to legacy cost. */
-		costMinor: integer("cost_minor"),
-		costCurrency: text("cost_currency"),
-		/** L17: per-session token breakdown stored as JSON (TokenUsage shape). */
-		tokensJson: text("tokens_json"),
 		outcome: text("outcome"),
 		notes: text("notes"),
-		traceId: text("trace_id"),
-		// L19: harness jump-out + token accounting
-		harnessUrl: text("harness_url"),
-		tokensInput: integer("tokens_input"),
-		tokensOutput: integer("tokens_output"),
 	},
 	(table) => [
 		index("sessions_task_id_idx").on(table.taskId),
@@ -253,16 +236,9 @@ export const items = pgTable(
 		proposedAction: text("proposed_action"),
 		options: text("options"),
 		riskTier: text("risk_tier"),
-		attentionScore: integer("attention_score"),
 		blocking: boolean("blocking").default(false),
 		reasoning: text("reasoning"),
-		costEstimate: integer("cost_estimate"),
 		auditTrail: text("audit_trail"),
-		// L9: nullable boolean. Mirrors the SQLite integer/PG boolean
-		// asymmetry already used for `blocking`.
-		reversibility: boolean("reversibility"),
-		// L9: nullable text. 'passed' | 'failed' | 'n/a'.
-		sandboxResult: text("sandbox_result"),
 		threadId: text("thread_id")
 			.notNull()
 			.references(() => threads.id, { onDelete: "restrict" }),
@@ -301,40 +277,28 @@ export const factorySettings = pgTable("factory_settings", {
 
 // --- Knowledge ---
 
+/**
+ * @lore O2: kernel/strategy separation. Strategy fields (layer, scopeId, kind,
+ * attentionScore, relevanceScore, citationCount, lastCitedAt, confidence, meta)
+ * moved to knowledgeStrategyFabric extension table.
+ */
 export const knowledgeItems = pgTable(
 	"knowledge_items",
 	{
 		id: text("id").primaryKey(),
-		layer: text("layer").notNull(),
-		scopeId: text("scope_id"),
-		kind: text("kind").notNull(),
 		topic: text("topic"),
 		title: text("title").notNull(),
 		body: text("body").notNull(),
 		format: text("format").notNull(),
 		status: text("status").notNull(),
-		attentionScore: real("attention_score"),
-		/** L22: composite relevance score [0,1], recomputed by batch from access log + edit log. */
-		relevanceScore: real("relevance_score"),
-		/** L22: citation count. null = staged (always null until citation tracking is wired). */
-		citationCount: integer("citation_count"),
-		/** L22: most recent citation timestamp. null = staged. */
-		lastCitedAt: text("last_cited_at"),
-		confidence: real("confidence"),
 		version: integer("version").notNull().default(1),
 		updatedBy: text("updated_by").notNull(),
 		createdAt: text("created_at").notNull(),
 		updatedAt: text("updated_at").notNull(),
-		meta: text("meta"),
 	},
 	(table) => [
-		index("ki_layer_idx").on(table.layer),
-		index("ki_scope_id_idx").on(table.scopeId),
-		index("ki_kind_idx").on(table.kind),
 		index("ki_topic_idx").on(table.topic),
 		index("ki_status_idx").on(table.status),
-		index("ki_layer_scope_idx").on(table.layer, table.scopeId),
-		index("ki_attention_desc_idx").on(table.attentionScore),
 		index("ki_updated_desc_idx").on(table.updatedAt),
 	],
 );
@@ -456,6 +420,10 @@ export const propagationLog = pgTable(
 
 // --- Artifacts (L3) ---
 
+/**
+ * @lore O2: cost columns (costMoneyMicros, costTokensInput, costTokensOutput,
+ * costSettledAt) stripped from the kernel artifacts table. Cost is a strategy concern.
+ */
 export const artifacts = pgTable(
 	"artifacts",
 	{
@@ -465,20 +433,66 @@ export const artifacts = pgTable(
 			.references(() => tasks.id, { onDelete: "restrict" }),
 		kind: text("kind").notNull(),
 		previewJson: text("preview_json"),
-		// L3 review fix Sec-INFO-1: cost columns must be bigint. PG `integer`
-		// overflows at ~$2.1k of micros (2^31-1 / 1e6 ≈ $2147). SQLite remains
-		// `integer` (SQLite ints are 64-bit by default). Drizzle bigint with
-		// `mode: 'number'` keeps the JS-side type identical to SQLite's.
-		costMoneyMicros: bigint("cost_money_micros", { mode: "number" }),
-		costTokensInput: bigint("cost_tokens_input", { mode: "number" }),
-		costTokensOutput: bigint("cost_tokens_output", { mode: "number" }),
-		costSettledAt: text("cost_settled_at"),
 		createdAt: text("created_at").notNull(),
 	},
 	(table) => [
 		index("artifacts_producing_task_id_idx").on(table.producingTaskId),
 		index("artifacts_created_at_idx").on(table.createdAt),
 	],
+);
+
+// --- Extension tables (O2) ---
+
+/**
+ * Stores strategy-layer data for knowledge items (PG mirror of SQLite knowledgeStrategyFabric).
+ *
+ * @lore O2: kernel/strategy separation. Strategy signals moved from knowledge_items.
+ */
+export const knowledgeStrategyFabric = pgTable(
+	"knowledge_strategy_fabric",
+	{
+		id: text("id").primaryKey(),
+		knowledgeItemId: text("knowledge_item_id")
+			.notNull()
+			.unique()
+			.references(() => knowledgeItems.id, { onDelete: "cascade" }),
+		layer: text("layer"),
+		scopeId: text("scope_id"),
+		kind: text("kind"),
+		attentionScore: text("attention_score"),
+		relevanceScore: text("relevance_score"),
+		confidence: text("confidence"),
+		citationCount: integer("citation_count"),
+		lastCitedAt: text("last_cited_at"),
+		meta: text("meta"),
+	},
+	(table) => [
+		index("ksf_knowledge_item_id_idx").on(table.knowledgeItemId),
+		index("ksf_layer_idx").on(table.layer),
+		index("ksf_kind_idx").on(table.kind),
+	],
+);
+
+/**
+ * Stores strategy-layer data for tasks (PG mirror of SQLite taskStrategyFabric).
+ *
+ * @lore O2: kernel/strategy separation. Strategy signals moved from tasks.
+ */
+export const taskStrategyFabric = pgTable(
+	"task_strategy_fabric",
+	{
+		id: text("id").primaryKey(),
+		taskId: text("task_id")
+			.notNull()
+			.unique()
+			.references(() => tasks.id, { onDelete: "cascade" }),
+		/**
+		 * @lore O2: riskTier moved from tasks to taskStrategyFabric.
+		 * Drives review-item creation in session-review-creator.
+		 */
+		riskTier: text("risk_tier"),
+	},
+	(table) => [index("tsf_task_id_idx").on(table.taskId)],
 );
 
 // --- Inferred types ---
@@ -536,3 +550,9 @@ export type NewArtifactRow = typeof artifacts.$inferInsert;
 
 export type PropagationLogRow = typeof propagationLog.$inferSelect;
 export type NewPropagationLogRow = typeof propagationLog.$inferInsert;
+
+export type KnowledgeStrategyFabricRow = typeof knowledgeStrategyFabric.$inferSelect;
+export type NewKnowledgeStrategyFabricRow = typeof knowledgeStrategyFabric.$inferInsert;
+
+export type TaskStrategyFabricRow = typeof taskStrategyFabric.$inferSelect;
+export type NewTaskStrategyFabricRow = typeof taskStrategyFabric.$inferInsert;

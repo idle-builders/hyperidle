@@ -1,4 +1,5 @@
 import type { KnowledgeItem } from "@hyperidle/db";
+import type { KnowledgeItemWithFabric } from "./knowledge-repository.js";
 
 /**
  * Topics that imply human judgment / taste. Hard-coded here as an opinionated
@@ -23,10 +24,18 @@ const TASTE_TOPICS: ReadonlySet<string> = new Set([
  * Returns true when a knowledge item is "taste-sensitive" — i.e. it concerns
  * human voice, brand, or aesthetics and should preferentially surface to the
  * founders for review. Pure classifier; no DB access.
+ *
+ * @lore O2: accepts KnowledgeItemWithFabric since kind and scopeId moved to
+ * the strategy extension table. KnowledgeItem is still accepted for backward
+ * compat (type intersection).
  */
-export function isTasteSensitive(item: KnowledgeItem): boolean {
+export function isTasteSensitive(item: KnowledgeItem | KnowledgeItemWithFabric): boolean {
+	// @lore O2: kind and scopeId are optional on KnowledgeItemWithFabric (from fabric extension).
+	const kind = (item as KnowledgeItemWithFabric).kind ?? null;
+	const scopeId = (item as KnowledgeItemWithFabric).scopeId ?? null;
+
 	// 1. kind gate — briefs and principles are always human-authored voice.
-	if (item.kind === "brief" || item.kind === "principle") {
+	if (kind === "brief" || kind === "principle") {
 		return true;
 	}
 	// 2. topic gate — brand / voice / aesthetics / strategy buckets.
@@ -34,7 +43,7 @@ export function isTasteSensitive(item: KnowledgeItem): boolean {
 		return true;
 	}
 	// 3. scope gate — explicit brand scope.
-	if (item.scopeId === "brand") {
+	if (scopeId === "brand") {
 		return true;
 	}
 	return false;

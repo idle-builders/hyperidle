@@ -1,33 +1,49 @@
+/**
+ * O2: Knowledge routes rewritten for kernel purity.
+ *
+ * URL shape simplified from /:layer/... to /:id and /.
+ * Layer guard, createRelevanceService, and computeSignals removed.
+ * Events emitted per-route using the typed event interfaces.
+ * Status simplified to draft | active | archived.
+ *
+ * @lore O2: The layer-based URL scheme was a strategy concern embedded in
+ * the kernel API. Removing it (along with layer/scopeId/kind columns on
+ * knowledgeItems) keeps the kernel pure. Strategy layers compute their
+ * signals in the fabric and write to knowledgeStrategyFabric.
+ */
 import {
 	type HyperIdleDb,
 	knowledgeAccessLog,
 	knowledgeEditLog,
 	knowledgeItems,
+	knowledgeStrategyFabric,
 } from "@hyperidle/db";
-import { KNOWLEDGE_LAYERS, type KnowledgeLayer } from "@hyperidle/fabric";
 import type { ApiErrorResponse } from "@hyperidle/shared";
-import { API_ERROR_CODES, type EventBus } from "@hyperidle/shared";
+import {
+	API_ERROR_CODES,
+	type EventBus,
+	type KnowledgeAccessedEvent,
+	type KnowledgeArchivedEvent,
+	type KnowledgeCreatedEvent,
+	type KnowledgeUpdatedEvent,
+} from "@hyperidle/shared";
 import { and, eq, or, sql } from "drizzle-orm";
-import { Hono, type MiddlewareHandler } from "hono";
+import { Hono } from "hono";
 import z from "zod";
 import { validateBody } from "../middleware/validate.js";
 import { escapeLikePattern } from "../services/like-escape.js";
-import { createRelevanceService } from "../services/relevance-service.js";
 
-// biome-ignore lint/style/useNamingConvention: `Variables` is the Hono Env property name; the framework requires this exact PascalCase key.
-type KnowledgeEnv = { Variables: { layer: KnowledgeLayer } };
+// O2: status simplified to draft | active | archived
+const KNOWLEDGE_STATUSES = ["draft", "active", "archived"] as const;
+type KnowledgeStatus = (typeof KNOWLEDGE_STATUSES)[number];
 
 const createKnowledgeSchema = z.object({
-	kind: z.string(),
 	topic: z.string().optional(),
 	title: z.string(),
 	body: z.string(),
 	format: z.string(),
 	updatedBy: z.string(),
-	scopeId: z.string().optional(),
-	status: z.string().optional(),
-	confidence: z.number().optional(),
-	meta: z.string().optional(),
+	status: z.enum(KNOWLEDGE_STATUSES).optional(),
 });
 
 const updateKnowledgeSchema = z.object({
@@ -36,11 +52,8 @@ const updateKnowledgeSchema = z.object({
 	title: z.string().optional(),
 	body: z.string().optional(),
 	topic: z.string().optional(),
-	kind: z.string().optional(),
 	format: z.string().optional(),
-	status: z.string().optional(),
-	confidence: z.number().optional(),
-	meta: z.string().optional(),
+	status: z.enum(KNOWLEDGE_STATUSES).optional(),
 });
 
 const mergeSchema = z.object({
@@ -54,7 +67,6 @@ const splitSchema = z.object({
 			z.object({
 				title: z.string(),
 				body: z.string(),
-				kind: z.string(),
 				topic: z.string().optional(),
 			}),
 		)
@@ -67,81 +79,18 @@ const flagSchema = z.object({
 });
 
 /**
- * I2 V3: Validate the `:layer` path param against KNOWLEDGE_LAYERS. The
- * middleware runs before any handler bound under `/:layer/*`, parses the
- * value, and stashes it on the context so handlers can read a typed value
- * without re-parsing. Invalid layers short-circuit with 400 + VALIDATION_ERROR
- * before any DB access.
- */
-const LayerSchema = z.enum(KNOWLEDGE_LAYERS as readonly [KnowledgeLayer, ...KnowledgeLayer[]]);
-
-const layerGuard: MiddlewareHandler<KnowledgeEnv> = async (c, next) => {
-	const result = LayerSchema.safeParse(c.req.param("layer"));
-	if (!result.success) {
-		const response: ApiErrorResponse = {
-			error: "Invalid knowledge layer",
-			code: API_ERROR_CODES.VALIDATION_ERROR,
-		};
-		return c.json(response, 400);
-	}
-	c.set("layer", result.data);
-	await next();
-};
-
-/**
- * Emit a knowledge_updated event via the EventBus.
- * Now properly uses the DomainEvent union since knowledge_updated is a first-class event.
- */
-function emitKnowledgeEvent(
-	eventBus: EventBus,
-	action: string,
-	item: Record<string, unknown>,
-): void {
-	eventBus.emit({
-		type: "knowledge_updated",
-		streamId: `knowledge:${item.id as string}`,
-		itemId: item.id as string,
-		action,
-		timestamp: Date.now(),
-	});
-}
-
-/**
  * Create Hono routes for knowledge endpoints.
+ * O2: routes use /:id URL shape (no layer prefix).
  */
 export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono {
-	const router = new Hono<KnowledgeEnv>();
-
-	// GET / — Bounded resource descriptor. Proves the route is mounted
-	// (I1 S2). Listing happens via `/:layer`, `/:layer/:id`, and
-	// `/search` — each of which scopes the result set.
-	// @lore I1 simplification-#2 / architecture-S1: the previous handler
-	// returned every knowledge item across every layer, which is
-	// unbounded by construction.
-	router.get("/", (c) =>
-		c.json({
-			ok: true,
-			resource: "knowledge",
-			endpoints: [
-				"GET /:layer",
-				"GET /:layer/:id",
-				"GET /search",
-				"POST /:layer",
-				"PATCH /:layer/:id",
-				"POST /:layer/:id/merge",
-				"POST /:layer/:id/split",
-				"POST /:layer/:id/archive",
-				"POST /:layer/:id/flag",
-			],
-		}),
-	);
+	const router = new Hono();
 
 	// I2 review M-4 / HIGH-5: cap query length so an attacker cannot
 	// drive a long full-table LIKE scan with a 1 MiB query string.
 	const SEARCH_QUERY_SCHEMA = z.string().min(1).max(500);
 
 	// GET /search — FTS search across all knowledge items
-	// Must be registered before /:layer to avoid route conflict
+	// Must be registered before /:id to avoid route conflict
 	router.get("/search", (c) => {
 		const rawQuery = c.req.query("q");
 		const parsed = SEARCH_QUERY_SCHEMA.safeParse(rawQuery?.trim());
@@ -155,10 +104,7 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 		const query = parsed.data;
 
 		// I2 V4: escape LIKE wildcards (%, _, \) so the user's literal
-		// query characters do not turn into SQL pattern operators. The
-		// `ESCAPE '\\'` clause must be passed through Drizzle's `sql`
-		// template tag because the `like()` helper does not expose the
-		// SQLite ESCAPE modifier.
+		// query characters do not turn into SQL pattern operators.
 		const pattern = `%${escapeLikePattern(query)}%`;
 		const results = db
 			.select()
@@ -177,65 +123,68 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 		return c.json({ results });
 	});
 
-	// I2 V3 / O1: validate `:layer` once for every handler that takes one.
-	// Registered AFTER `GET /` and `GET /search` so those literal paths are
-	// not captured by the `:layer` param. Handlers below read the parsed
-	// layer via `c.get("layer")` instead of repeating the parse-and-400
-	// dance per route.
-	router.use("/:layer", layerGuard);
-	router.use("/:layer/*", layerGuard);
+	// GET / — list all items with LEFT JOIN to knowledgeStrategyFabric for pre-computed signals.
+	// Also computes L22 signals (accessCount30d, lastActivityAt) from knowledgeAccessLog.
+	// @lore O2: Kernel route queries strategy extension + access-log tables —
+	// pragmatic boundary compromise to avoid a second round-trip from the fabric.
+	router.get("/", (c) => {
+		const rawItems = db
+			.select({
+				item: knowledgeItems,
+				fabricId: knowledgeStrategyFabric.id,
+				relevanceScore: knowledgeStrategyFabric.relevanceScore,
+			})
+			.from(knowledgeItems)
+			.leftJoin(
+				knowledgeStrategyFabric,
+				eq(knowledgeStrategyFabric.knowledgeItemId, knowledgeItems.id),
+			)
+			.all();
 
-	// GET /:layer — list by layer, grouped by topic, kind + flat items with signals
-	router.get("/:layer", (c) => {
-		const layer = c.get("layer");
-		const rawItems = db.select().from(knowledgeItems).where(eq(knowledgeItems.layer, layer)).all();
+		// L22: compute access signals per item from the access log.
+		// 30-day window relative to now.
+		const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
 
-		// Compute relevance signals for all items in the layer
-		const relevanceService = createRelevanceService(db);
-		const nowMs = Date.now();
-		const itemIds = rawItems.map((i) => i.id);
-		const signalsMap = relevanceService.computeSignals(itemIds, nowMs);
+		const items = rawItems.map(({ item, relevanceScore }) => {
+			const accessRows = db
+				.select()
+				.from(knowledgeAccessLog)
+				.where(
+					and(
+						eq(knowledgeAccessLog.itemId, item.id),
+						sql`${knowledgeAccessLog.accessedAt} >= ${thirtyDaysAgo}`,
+					),
+				)
+				.all();
 
-		// Build flat items array with signals (L22 AC-5)
-		const items = rawItems.map((item) => {
-			const signal = signalsMap.get(item.id);
+			const accessCount30d = accessRows.length > 0 ? accessRows.length : null;
+			const lastActivityAt =
+				accessRows.length > 0
+					? accessRows.reduce(
+							(latest, r) => (r.accessedAt > latest ? r.accessedAt : latest),
+							accessRows[0]?.accessedAt ?? "",
+						)
+					: null;
+
 			return {
 				...item,
 				signals: {
-					lastActivityAt: signal?.lastActivityAt ?? null,
-					accessCount30d: signal?.accessCount30d ?? null,
-					citationCount: null, // staged — always null in L22
-					relevanceScore: item.relevanceScore ?? null,
+					lastActivityAt,
+					accessCount30d,
+					citationCount: null, // AC-3: citation staged — always null in L22
+					relevanceScore: relevanceScore ?? null,
 				},
 			};
 		});
 
-		// Group by topic -> kind (legacy format, kept for backwards compat)
-		const groups: Record<string, Record<string, typeof rawItems>> = {};
-		for (const item of rawItems) {
-			const topic = item.topic ?? "_uncategorized";
-			if (!groups[topic]) {
-				groups[topic] = {};
-			}
-			if (!groups[topic][item.kind]) {
-				groups[topic][item.kind] = [];
-			}
-			groups[topic][item.kind].push(item);
-		}
-
-		return c.json({ layer, items, groups });
+		return c.json({ items });
 	});
 
-	// GET /:layer/:id — single item
-	router.get("/:layer/:id", async (c) => {
-		const layer = c.get("layer");
+	// GET /:id — single item, emit knowledge_accessed event
+	router.get("/:id", async (c) => {
 		const id = c.req.param("id");
 
-		const item = db
-			.select()
-			.from(knowledgeItems)
-			.where(and(eq(knowledgeItems.id, id), eq(knowledgeItems.layer, layer)))
-			.get();
+		const item = db.select().from(knowledgeItems).where(eq(knowledgeItems.id, id)).get();
 
 		if (!item) {
 			const response: ApiErrorResponse = {
@@ -245,12 +194,8 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 			return c.json(response, 404);
 		}
 
-		// L22: append access-log row. Wrapped in try-catch so an INSERT failure
-		// (e.g. disk full, FK race) never breaks the 200 response. The log is
-		// best-effort — a missing row is acceptable; a broken read is not.
-		// @lore L22: accessor_kind defaults to "human" because this endpoint is
-		// browser-initiated. Agent reads will go through the fabric layer directly
-		// and log with kind="agent". No auth context is wired at this point in L22.
+		// L22: append access-log row (best-effort — never break the read)
+		// @lore O2: accessor_kind defaults to "human" for browser-initiated reads.
 		try {
 			db.insert(knowledgeAccessLog)
 				.values({
@@ -265,24 +210,22 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 			// best-effort — do not surface access-log INSERT failures to the caller
 		}
 
-		// L22: recompute relevance score for this item after the access log write.
-		// Best-effort — a recompute failure must never break the read response.
-		// @lore L22: single-item recompute keeps the relevanceScore column fresh
-		// without a full-table batch job. The score update is fire-and-forget from
-		// the caller's perspective; the next GET will reflect the updated score.
-		try {
-			const relevanceService = createRelevanceService(db);
-			await relevanceService.recomputeScores([item.id]);
-		} catch {
-			// best-effort — do not surface recompute failures to the caller
-		}
+		// O2: emit knowledge_accessed event (replaces inline recomputeScores call)
+		const accessedEvent: KnowledgeAccessedEvent = {
+			type: "knowledge_accessed",
+			streamId: `knowledge:${item.id}`,
+			itemId: item.id,
+			accessorKind: "human",
+			accessorId: "browser",
+			timestamp: Date.now(),
+		};
+		eventBus.emit(accessedEvent);
 
 		return c.json(item);
 	});
 
-	// POST /:layer — create (version=1)
-	router.post("/:layer", validateBody(createKnowledgeSchema), (c) => {
-		const layer = c.get("layer");
+	// POST / — create (version=1), status defaults to "draft"
+	router.post("/", validateBody(createKnowledgeSchema), (c) => {
 		const body = c.req.valid("json" as never) as z.infer<typeof createKnowledgeSchema>;
 		const id = crypto.randomUUID();
 		const now = new Date().toISOString();
@@ -290,40 +233,40 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 		db.insert(knowledgeItems)
 			.values({
 				id,
-				layer,
-				scopeId: body.scopeId ?? null,
-				kind: body.kind,
 				topic: body.topic ?? null,
 				title: body.title,
 				body: body.body,
 				format: body.format,
-				status: body.status ?? "captured",
-				confidence: body.confidence ?? null,
+				// O2: default status is "draft" (was "captured" in old implementation)
+				status: (body.status ?? "draft") as KnowledgeStatus,
 				version: 1,
 				updatedBy: body.updatedBy,
 				createdAt: now,
 				updatedAt: now,
-				meta: body.meta ?? null,
 			})
 			.run();
 
 		const created = db.select().from(knowledgeItems).where(eq(knowledgeItems.id, id)).get();
-		emitKnowledgeEvent(eventBus, "created", created as unknown as Record<string, unknown>);
+
+		// O2: emit knowledge_created event
+		const createdEvent: KnowledgeCreatedEvent = {
+			type: "knowledge_created",
+			streamId: `knowledge:${id}`,
+			itemId: id,
+			timestamp: Date.now(),
+		};
+		eventBus.emit(createdEvent);
+
 		return c.json(created, 201);
 	});
 
-	// PATCH /:layer/:id — update (optimistic locking)
-	// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: knowledge PATCH handler validates layer, version, and diff fields in one route
-	router.patch("/:layer/:id", validateBody(updateKnowledgeSchema), (c) => {
-		const layer = c.get("layer");
+	// PATCH /:id — update (optimistic locking)
+	// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: knowledge PATCH handler validates version and diff fields in one route
+	router.patch("/:id", validateBody(updateKnowledgeSchema), (c) => {
 		const id = c.req.param("id");
 		const body = c.req.valid("json" as never) as z.infer<typeof updateKnowledgeSchema>;
 
-		const existing = db
-			.select()
-			.from(knowledgeItems)
-			.where(and(eq(knowledgeItems.id, id), eq(knowledgeItems.layer, layer)))
-			.get();
+		const existing = db.select().from(knowledgeItems).where(eq(knowledgeItems.id, id)).get();
 
 		if (!existing) {
 			const response: ApiErrorResponse = {
@@ -345,17 +288,8 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 
 		const now = new Date().toISOString();
 
-		// Track changes for edit log
-		const updatableFields = [
-			"title",
-			"body",
-			"topic",
-			"kind",
-			"format",
-			"status",
-			"confidence",
-			"meta",
-		] as const;
+		// Track changes for edit log (O2: removed kind, confidence, meta fields)
+		const updatableFields = ["title", "body", "topic", "format", "status"] as const;
 		type UpdatableField = (typeof updatableFields)[number];
 
 		for (const field of updatableFields) {
@@ -391,30 +325,32 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 		if (body.title !== undefined) updates.title = body.title;
 		if (body.body !== undefined) updates.body = body.body;
 		if (body.topic !== undefined) updates.topic = body.topic;
-		if (body.kind !== undefined) updates.kind = body.kind;
 		if (body.format !== undefined) updates.format = body.format;
 		if (body.status !== undefined) updates.status = body.status;
-		if (body.confidence !== undefined) updates.confidence = body.confidence;
-		if (body.meta !== undefined) updates.meta = body.meta;
 
 		db.update(knowledgeItems).set(updates).where(eq(knowledgeItems.id, id)).run();
 
 		const updated = db.select().from(knowledgeItems).where(eq(knowledgeItems.id, id)).get();
-		emitKnowledgeEvent(eventBus, "updated", updated as unknown as Record<string, unknown>);
+
+		// O2: emit knowledge_updated event
+		const updatedEvent: KnowledgeUpdatedEvent = {
+			type: "knowledge_updated",
+			streamId: `knowledge:${id}`,
+			itemId: id,
+			action: "updated",
+			timestamp: Date.now(),
+		};
+		eventBus.emit(updatedEvent);
+
 		return c.json(updated);
 	});
 
-	// POST /:layer/:id/merge — merge two items
-	router.post("/:layer/:id/merge", validateBody(mergeSchema), (c) => {
-		const layer = c.get("layer");
+	// POST /:id/merge — merge two items
+	router.post("/:id/merge", validateBody(mergeSchema), (c) => {
 		const targetId = c.req.param("id");
 		const body = c.req.valid("json" as never) as z.infer<typeof mergeSchema>;
 
-		const target = db
-			.select()
-			.from(knowledgeItems)
-			.where(and(eq(knowledgeItems.id, targetId), eq(knowledgeItems.layer, layer)))
-			.get();
+		const target = db.select().from(knowledgeItems).where(eq(knowledgeItems.id, targetId)).get();
 
 		if (!target) {
 			const response: ApiErrorResponse = {
@@ -490,21 +426,26 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 			.run();
 
 		const merged = db.select().from(knowledgeItems).where(eq(knowledgeItems.id, targetId)).get();
-		emitKnowledgeEvent(eventBus, "merged", merged as unknown as Record<string, unknown>);
+
+		// O2: emit knowledge_updated event for merge
+		const mergedEvent: KnowledgeUpdatedEvent = {
+			type: "knowledge_updated",
+			streamId: `knowledge:${targetId}`,
+			itemId: targetId,
+			action: "merged",
+			timestamp: Date.now(),
+		};
+		eventBus.emit(mergedEvent);
+
 		return c.json(merged);
 	});
 
-	// POST /:layer/:id/split — split into two
-	router.post("/:layer/:id/split", validateBody(splitSchema), (c) => {
-		const layer = c.get("layer");
+	// POST /:id/split — split into two or more items
+	router.post("/:id/split", validateBody(splitSchema), (c) => {
 		const id = c.req.param("id");
 		const body = c.req.valid("json" as never) as z.infer<typeof splitSchema>;
 
-		const original = db
-			.select()
-			.from(knowledgeItems)
-			.where(and(eq(knowledgeItems.id, id), eq(knowledgeItems.layer, layer)))
-			.get();
+		const original = db.select().from(knowledgeItems).where(eq(knowledgeItems.id, id)).get();
 
 		if (!original) {
 			const response: ApiErrorResponse = {
@@ -522,14 +463,12 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 			db.insert(knowledgeItems)
 				.values({
 					id: newId,
-					layer,
-					scopeId: original.scopeId,
-					kind: newItem.kind,
 					topic: newItem.topic ?? original.topic,
 					title: newItem.title,
 					body: newItem.body,
 					format: original.format,
-					status: "captured",
+					// O2 reviewer finding: split handler must set status: "draft"
+					status: "draft",
 					version: 1,
 					updatedBy: body.updatedBy,
 					createdAt: now,
@@ -565,20 +504,24 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 			})
 			.run();
 
-		emitKnowledgeEvent(eventBus, "split", { id, items: createdItems });
+		// O2: emit knowledge_updated event for split
+		const splitEvent: KnowledgeUpdatedEvent = {
+			type: "knowledge_updated",
+			streamId: `knowledge:${id}`,
+			itemId: id,
+			action: "split",
+			timestamp: Date.now(),
+		};
+		eventBus.emit(splitEvent);
+
 		return c.json({ items: createdItems });
 	});
 
-	// POST /:layer/:id/archive — archive
-	router.post("/:layer/:id/archive", (c) => {
-		const layer = c.get("layer");
+	// POST /:id/archive — archive item, emit knowledge_archived event
+	router.post("/:id/archive", (c) => {
 		const id = c.req.param("id");
 
-		const item = db
-			.select()
-			.from(knowledgeItems)
-			.where(and(eq(knowledgeItems.id, id), eq(knowledgeItems.layer, layer)))
-			.get();
+		const item = db.select().from(knowledgeItems).where(eq(knowledgeItems.id, id)).get();
 
 		if (!item) {
 			const response: ApiErrorResponse = {
@@ -612,21 +555,26 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 			.run();
 
 		const updated = db.select().from(knowledgeItems).where(eq(knowledgeItems.id, id)).get();
-		emitKnowledgeEvent(eventBus, "archived", updated as unknown as Record<string, unknown>);
+
+		// O2: emit knowledge_archived event (distinct from knowledge_updated)
+		const archivedEvent: KnowledgeArchivedEvent = {
+			type: "knowledge_archived",
+			streamId: `knowledge:${id}`,
+			itemId: id,
+			timestamp: Date.now(),
+		};
+		eventBus.emit(archivedEvent);
+
 		return c.json(updated);
 	});
 
-	// POST /:layer/:id/flag — flag for review
-	router.post("/:layer/:id/flag", validateBody(flagSchema), (c) => {
-		const layer = c.get("layer");
+	// POST /:id/flag — flag for review, emit knowledge_updated with action "flagged"
+	// O2: removed attentionScore write (column stripped from kernel table)
+	router.post("/:id/flag", validateBody(flagSchema), (c) => {
 		const id = c.req.param("id");
 		const body = c.req.valid("json" as never) as z.infer<typeof flagSchema>;
 
-		const item = db
-			.select()
-			.from(knowledgeItems)
-			.where(and(eq(knowledgeItems.id, id), eq(knowledgeItems.layer, layer)))
-			.get();
+		const item = db.select().from(knowledgeItems).where(eq(knowledgeItems.id, id)).get();
 
 		if (!item) {
 			const response: ApiErrorResponse = {
@@ -637,14 +585,8 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 		}
 
 		const now = new Date().toISOString();
-		db.update(knowledgeItems)
-			.set({
-				status: "provisional",
-				attentionScore: 100,
-				updatedAt: now,
-			})
-			.where(eq(knowledgeItems.id, id))
-			.run();
+		// O2: no attentionScore write (column stripped). Flag is recorded in the edit log.
+		db.update(knowledgeItems).set({ updatedAt: now }).where(eq(knowledgeItems.id, id)).run();
 
 		// Edit log — include flag reason
 		db.insert(knowledgeEditLog)
@@ -654,14 +596,24 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 				editor: item.updatedBy,
 				field: "status",
 				oldValue: item.status,
-				newValue: `provisional (reason: ${body.reason})`,
+				newValue: `flagged (reason: ${body.reason})`,
 				editType: "flag",
 				createdAt: now,
 			})
 			.run();
 
 		const updated = db.select().from(knowledgeItems).where(eq(knowledgeItems.id, id)).get();
-		emitKnowledgeEvent(eventBus, "flagged", updated as unknown as Record<string, unknown>);
+
+		// O2: emit knowledge_updated with action "flagged"
+		const flaggedEvent: KnowledgeUpdatedEvent = {
+			type: "knowledge_updated",
+			streamId: `knowledge:${id}`,
+			itemId: id,
+			action: "flagged",
+			timestamp: Date.now(),
+		};
+		eventBus.emit(flaggedEvent);
+
 		return c.json(updated);
 	});
 

@@ -6,6 +6,7 @@ import {
 	type HyperIdleDb,
 	items,
 	knowledgeItems,
+	knowledgeStrategyFabric,
 	products,
 	routines,
 	teams,
@@ -317,11 +318,17 @@ describe("G4: Built-in Routines", () => {
 				.all();
 			expect(anchors.length).toBeGreaterThanOrEqual(1);
 			const anchor = anchors[0];
-			expect(anchor.layer).toBe("L2");
-			expect(anchor.kind).toBe("reflection");
 			expect(anchor.status).toBe("captured");
-			expect(anchor.meta).toBeTruthy();
-			const meta = JSON.parse(anchor.meta ?? "{}") as { role?: string };
+			// @lore O2: layer/kind/meta are in knowledgeStrategyFabric
+			const anchorFabric = db
+				.select()
+				.from(knowledgeStrategyFabric)
+				.where(eq(knowledgeStrategyFabric.knowledgeItemId, anchor.id))
+				.get();
+			expect(anchorFabric?.layer).toBe("L2");
+			expect(anchorFabric?.kind).toBe("reflection");
+			expect(anchorFabric?.meta).toBeTruthy();
+			const meta = JSON.parse(anchorFabric?.meta ?? "{}") as { role?: string };
 			expect(meta.role).toBe("practice_meeting_anchor");
 		});
 	});
@@ -486,11 +493,10 @@ describe("G4: Built-in Routines", () => {
 			const recentIso = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
 			const staleIso = new Date(Date.now() - 60 * 24 * 60 * 60 * 1000).toISOString();
 
+			// @lore O2: split kernel (knowledgeItems) from strategy (knowledgeStrategyFabric)
 			db.insert(knowledgeItems)
 				.values({
 					id: "ki-recent-l3",
-					layer: "L3",
-					kind: "pattern",
 					title: "Recent L3 pattern",
 					body: "…",
 					format: "markdown",
@@ -501,11 +507,17 @@ describe("G4: Built-in Routines", () => {
 					updatedAt: recentIso,
 				})
 				.run();
+			db.insert(knowledgeStrategyFabric)
+				.values({
+					id: "ksf-ki-recent-l3",
+					knowledgeItemId: "ki-recent-l3",
+					layer: "L3",
+					kind: "pattern",
+				})
+				.run();
 			db.insert(knowledgeItems)
 				.values({
 					id: "ki-recent-l4",
-					layer: "L4",
-					kind: "principle",
 					title: "Recent L4 principle",
 					body: "…",
 					format: "markdown",
@@ -516,11 +528,17 @@ describe("G4: Built-in Routines", () => {
 					updatedAt: recentIso,
 				})
 				.run();
+			db.insert(knowledgeStrategyFabric)
+				.values({
+					id: "ksf-ki-recent-l4",
+					knowledgeItemId: "ki-recent-l4",
+					layer: "L4",
+					kind: "principle",
+				})
+				.run();
 			db.insert(knowledgeItems)
 				.values({
 					id: "ki-stale-l3",
-					layer: "L3",
-					kind: "pattern",
 					title: "Stale L3 pattern",
 					body: "…",
 					format: "markdown",
@@ -529,6 +547,14 @@ describe("G4: Built-in Routines", () => {
 					updatedBy: "agent:test",
 					createdAt: staleIso,
 					updatedAt: staleIso,
+				})
+				.run();
+			db.insert(knowledgeStrategyFabric)
+				.values({
+					id: "ksf-ki-stale-l3",
+					knowledgeItemId: "ki-stale-l3",
+					layer: "L3",
+					kind: "pattern",
 				})
 				.run();
 

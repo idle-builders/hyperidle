@@ -232,9 +232,6 @@ export async function provisionSession(
 				startedAt,
 				state: "active",
 				workspaceSnapshot: workspacePath,
-				cost: 0,
-				costMinor: 0,
-				costCurrency: "USD",
 			})
 			.run();
 
@@ -335,7 +332,7 @@ export async function provisionSession(
 					const currency = event.currency ?? "USD";
 					const scale = 10 ** scaleForCurrency(currency);
 					totalCostCents += Math.round(delta * scale);
-					// Forward to C7: persists running total on sessions.costMinor and emits
+					// Forward to C7: updates agents/teams.costActual and emits
 					// cost_cap_warning / cost_cap_breached when thresholds cross.
 					await recordCostAndCheck(db, eventBus, {
 						sessionId,
@@ -403,16 +400,8 @@ export async function provisionSession(
 	// ── Phase 11: teardown. The baseline cost parameter is retained for API
 	// compatibility but is no longer used to compute costDelta (removed in O1).
 	//
-	// L17: write tokensJson before calling end/crash so the lifecycle functions
-	// can include it in the final session row update. We write it here because
-	// provisioning owns the accumulation state (accumulatedTokens).
-	const tokensJson =
-		Object.keys(accumulatedTokens).length > 0
-			? JSON.stringify({ byTier: accumulatedTokens })
-			: null;
-	if (tokensJson !== null) {
-		db.update(sessions).set({ tokensJson }).where(eq(sessions.id, sessionId)).run();
-	}
+	// @lore O2: tokensJson column stripped from sessions table.
+	// Token accumulation kept in-memory for the result object only.
 
 	if (crashed) {
 		await crashSession(db, eventBus, sessionContext, totalCostCents, 0);

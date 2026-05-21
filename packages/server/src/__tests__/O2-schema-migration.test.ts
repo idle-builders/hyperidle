@@ -14,20 +14,7 @@
  * 7. Status simplified to draft | active | archived
  */
 
-import {
-	createTestDb,
-	type HyperIdleDb,
-	knowledgeItems,
-	tasks,
-	sessions,
-	items,
-	artifacts,
-	bets,
-	products,
-	teams,
-	agents,
-	threads,
-} from "@hyperidle/db";
+import { createTestDb, type HyperIdleDb } from "@hyperidle/db";
 import { EventBus } from "@hyperidle/shared";
 import type { Hono } from "hono";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -62,55 +49,43 @@ describe("O2 — Schema Migration & Route Rewrite", () => {
 	describe("1. Extension tables exist with correct structure", () => {
 		it("knowledge_strategy_fabric table exists in the database", () => {
 			// PRAGMA table_info returns rows for existing tables, empty for non-existent
-			const raw = db.run("PRAGMA table_info(knowledge_strategy_fabric)");
+			const _raw = db.run("PRAGMA table_info(knowledge_strategy_fabric)");
 			// The table should exist — if it doesn't, PRAGMA returns no rows
 			// but doesn't error. We check via SELECT to trigger an error on missing table.
 			expect(() => {
-				db.run(
-					"SELECT id FROM knowledge_strategy_fabric LIMIT 1",
-				);
+				db.run("SELECT id FROM knowledge_strategy_fabric LIMIT 1");
 			}).not.toThrow();
 		});
 
 		it("task_strategy_fabric table exists in the database", () => {
 			expect(() => {
-				db.run(
-					"SELECT id FROM task_strategy_fabric LIMIT 1",
-				);
+				db.run("SELECT id FROM task_strategy_fabric LIMIT 1");
 			}).not.toThrow();
 		});
 
 		it("knowledge_strategy_fabric has FK to knowledge_items with cascade delete", () => {
 			// Verify the table columns exist: id, knowledge_item_id, and strategy data
-			const columns = db.all<{ name: string }>(
-				"PRAGMA table_info(knowledge_strategy_fabric)",
-			);
+			const columns = db.all<{ name: string }>("PRAGMA table_info(knowledge_strategy_fabric)");
 			const colNames = columns.map((c) => c.name);
 			expect(colNames).toContain("id");
 			expect(colNames).toContain("knowledge_item_id");
 		});
 
 		it("task_strategy_fabric has FK to tasks with cascade delete", () => {
-			const columns = db.all<{ name: string }>(
-				"PRAGMA table_info(task_strategy_fabric)",
-			);
+			const columns = db.all<{ name: string }>("PRAGMA table_info(task_strategy_fabric)");
 			const colNames = columns.map((c) => c.name);
 			expect(colNames).toContain("id");
 			expect(colNames).toContain("task_id");
 		});
 
 		it("knowledge_strategy_fabric does NOT have a strategy discriminator column", () => {
-			const columns = db.all<{ name: string }>(
-				"PRAGMA table_info(knowledge_strategy_fabric)",
-			);
+			const columns = db.all<{ name: string }>("PRAGMA table_info(knowledge_strategy_fabric)");
 			const colNames = columns.map((c) => c.name);
 			expect(colNames).not.toContain("strategy");
 		});
 
 		it("task_strategy_fabric does NOT have a strategy discriminator column", () => {
-			const columns = db.all<{ name: string }>(
-				"PRAGMA table_info(task_strategy_fabric)",
-			);
+			const columns = db.all<{ name: string }>("PRAGMA table_info(task_strategy_fabric)");
 			const colNames = columns.map((c) => c.name);
 			expect(colNames).not.toContain("strategy");
 		});
@@ -122,81 +97,61 @@ describe("O2 — Schema Migration & Route Rewrite", () => {
 
 	describe("2. knowledgeItems kernel table columns stripped", () => {
 		it("knowledgeItems no longer has 'layer' column", () => {
-			const columns = db.all<{ name: string }>(
-				"PRAGMA table_info(knowledge_items)",
-			);
+			const columns = db.all<{ name: string }>("PRAGMA table_info(knowledge_items)");
 			const colNames = columns.map((c) => c.name);
 			expect(colNames).not.toContain("layer");
 		});
 
 		it("knowledgeItems no longer has 'scopeId' / 'scope_id' column", () => {
-			const columns = db.all<{ name: string }>(
-				"PRAGMA table_info(knowledge_items)",
-			);
+			const columns = db.all<{ name: string }>("PRAGMA table_info(knowledge_items)");
 			const colNames = columns.map((c) => c.name);
 			expect(colNames).not.toContain("scope_id");
 		});
 
 		it("knowledgeItems no longer has 'kind' column", () => {
-			const columns = db.all<{ name: string }>(
-				"PRAGMA table_info(knowledge_items)",
-			);
+			const columns = db.all<{ name: string }>("PRAGMA table_info(knowledge_items)");
 			const colNames = columns.map((c) => c.name);
 			expect(colNames).not.toContain("kind");
 		});
 
 		it("knowledgeItems no longer has 'attentionScore' / 'attention_score' column", () => {
-			const columns = db.all<{ name: string }>(
-				"PRAGMA table_info(knowledge_items)",
-			);
+			const columns = db.all<{ name: string }>("PRAGMA table_info(knowledge_items)");
 			const colNames = columns.map((c) => c.name);
 			expect(colNames).not.toContain("attention_score");
 		});
 
 		it("knowledgeItems no longer has 'relevanceScore' / 'relevance_score' column", () => {
-			const columns = db.all<{ name: string }>(
-				"PRAGMA table_info(knowledge_items)",
-			);
+			const columns = db.all<{ name: string }>("PRAGMA table_info(knowledge_items)");
 			const colNames = columns.map((c) => c.name);
 			expect(colNames).not.toContain("relevance_score");
 		});
 
 		it("knowledgeItems no longer has 'citationCount' / 'citation_count' column", () => {
-			const columns = db.all<{ name: string }>(
-				"PRAGMA table_info(knowledge_items)",
-			);
+			const columns = db.all<{ name: string }>("PRAGMA table_info(knowledge_items)");
 			const colNames = columns.map((c) => c.name);
 			expect(colNames).not.toContain("citation_count");
 		});
 
 		it("knowledgeItems no longer has 'lastCitedAt' / 'last_cited_at' column", () => {
-			const columns = db.all<{ name: string }>(
-				"PRAGMA table_info(knowledge_items)",
-			);
+			const columns = db.all<{ name: string }>("PRAGMA table_info(knowledge_items)");
 			const colNames = columns.map((c) => c.name);
 			expect(colNames).not.toContain("last_cited_at");
 		});
 
 		it("knowledgeItems no longer has 'confidence' column", () => {
-			const columns = db.all<{ name: string }>(
-				"PRAGMA table_info(knowledge_items)",
-			);
+			const columns = db.all<{ name: string }>("PRAGMA table_info(knowledge_items)");
 			const colNames = columns.map((c) => c.name);
 			expect(colNames).not.toContain("confidence");
 		});
 
 		it("knowledgeItems no longer has 'meta' column", () => {
-			const columns = db.all<{ name: string }>(
-				"PRAGMA table_info(knowledge_items)",
-			);
+			const columns = db.all<{ name: string }>("PRAGMA table_info(knowledge_items)");
 			const colNames = columns.map((c) => c.name);
 			expect(colNames).not.toContain("meta");
 		});
 
 		it("knowledgeItems still has 'topic' column", () => {
-			const columns = db.all<{ name: string }>(
-				"PRAGMA table_info(knowledge_items)",
-			);
+			const columns = db.all<{ name: string }>("PRAGMA table_info(knowledge_items)");
 			const colNames = columns.map((c) => c.name);
 			expect(colNames).toContain("topic");
 		});
@@ -208,33 +163,25 @@ describe("O2 — Schema Migration & Route Rewrite", () => {
 
 	describe("3. tasks kernel table columns stripped", () => {
 		it("tasks no longer has 'risk_tier' column", () => {
-			const columns = db.all<{ name: string }>(
-				"PRAGMA table_info(tasks)",
-			);
+			const columns = db.all<{ name: string }>("PRAGMA table_info(tasks)");
 			const colNames = columns.map((c) => c.name);
 			expect(colNames).not.toContain("risk_tier");
 		});
 
 		it("tasks no longer has 'attention_score' column", () => {
-			const columns = db.all<{ name: string }>(
-				"PRAGMA table_info(tasks)",
-			);
+			const columns = db.all<{ name: string }>("PRAGMA table_info(tasks)");
 			const colNames = columns.map((c) => c.name);
 			expect(colNames).not.toContain("attention_score");
 		});
 
 		it("tasks no longer has 'durability' column", () => {
-			const columns = db.all<{ name: string }>(
-				"PRAGMA table_info(tasks)",
-			);
+			const columns = db.all<{ name: string }>("PRAGMA table_info(tasks)");
 			const colNames = columns.map((c) => c.name);
 			expect(colNames).not.toContain("durability");
 		});
 
 		it("tasks no longer has 'cross_team' column", () => {
-			const columns = db.all<{ name: string }>(
-				"PRAGMA table_info(tasks)",
-			);
+			const columns = db.all<{ name: string }>("PRAGMA table_info(tasks)");
 			const colNames = columns.map((c) => c.name);
 			expect(colNames).not.toContain("cross_team");
 		});
@@ -246,65 +193,49 @@ describe("O2 — Schema Migration & Route Rewrite", () => {
 
 	describe("4. sessions kernel table columns stripped", () => {
 		it("sessions no longer has 'cost' column", () => {
-			const columns = db.all<{ name: string }>(
-				"PRAGMA table_info(sessions)",
-			);
+			const columns = db.all<{ name: string }>("PRAGMA table_info(sessions)");
 			const colNames = columns.map((c) => c.name);
 			expect(colNames).not.toContain("cost");
 		});
 
 		it("sessions no longer has 'cost_minor' column", () => {
-			const columns = db.all<{ name: string }>(
-				"PRAGMA table_info(sessions)",
-			);
+			const columns = db.all<{ name: string }>("PRAGMA table_info(sessions)");
 			const colNames = columns.map((c) => c.name);
 			expect(colNames).not.toContain("cost_minor");
 		});
 
 		it("sessions no longer has 'cost_currency' column", () => {
-			const columns = db.all<{ name: string }>(
-				"PRAGMA table_info(sessions)",
-			);
+			const columns = db.all<{ name: string }>("PRAGMA table_info(sessions)");
 			const colNames = columns.map((c) => c.name);
 			expect(colNames).not.toContain("cost_currency");
 		});
 
 		it("sessions no longer has 'tokens_json' column", () => {
-			const columns = db.all<{ name: string }>(
-				"PRAGMA table_info(sessions)",
-			);
+			const columns = db.all<{ name: string }>("PRAGMA table_info(sessions)");
 			const colNames = columns.map((c) => c.name);
 			expect(colNames).not.toContain("tokens_json");
 		});
 
 		it("sessions no longer has 'tokens_input' column", () => {
-			const columns = db.all<{ name: string }>(
-				"PRAGMA table_info(sessions)",
-			);
+			const columns = db.all<{ name: string }>("PRAGMA table_info(sessions)");
 			const colNames = columns.map((c) => c.name);
 			expect(colNames).not.toContain("tokens_input");
 		});
 
 		it("sessions no longer has 'tokens_output' column", () => {
-			const columns = db.all<{ name: string }>(
-				"PRAGMA table_info(sessions)",
-			);
+			const columns = db.all<{ name: string }>("PRAGMA table_info(sessions)");
 			const colNames = columns.map((c) => c.name);
 			expect(colNames).not.toContain("tokens_output");
 		});
 
 		it("sessions no longer has 'trace_id' column", () => {
-			const columns = db.all<{ name: string }>(
-				"PRAGMA table_info(sessions)",
-			);
+			const columns = db.all<{ name: string }>("PRAGMA table_info(sessions)");
 			const colNames = columns.map((c) => c.name);
 			expect(colNames).not.toContain("trace_id");
 		});
 
 		it("sessions no longer has 'harness_url' column", () => {
-			const columns = db.all<{ name: string }>(
-				"PRAGMA table_info(sessions)",
-			);
+			const columns = db.all<{ name: string }>("PRAGMA table_info(sessions)");
 			const colNames = columns.map((c) => c.name);
 			expect(colNames).not.toContain("harness_url");
 		});
@@ -316,33 +247,25 @@ describe("O2 — Schema Migration & Route Rewrite", () => {
 
 	describe("5. items kernel table columns stripped", () => {
 		it("items no longer has 'attention_score' column", () => {
-			const columns = db.all<{ name: string }>(
-				"PRAGMA table_info(items)",
-			);
+			const columns = db.all<{ name: string }>("PRAGMA table_info(items)");
 			const colNames = columns.map((c) => c.name);
 			expect(colNames).not.toContain("attention_score");
 		});
 
 		it("items no longer has 'reversibility' column", () => {
-			const columns = db.all<{ name: string }>(
-				"PRAGMA table_info(items)",
-			);
+			const columns = db.all<{ name: string }>("PRAGMA table_info(items)");
 			const colNames = columns.map((c) => c.name);
 			expect(colNames).not.toContain("reversibility");
 		});
 
 		it("items no longer has 'sandbox_result' column", () => {
-			const columns = db.all<{ name: string }>(
-				"PRAGMA table_info(items)",
-			);
+			const columns = db.all<{ name: string }>("PRAGMA table_info(items)");
 			const colNames = columns.map((c) => c.name);
 			expect(colNames).not.toContain("sandbox_result");
 		});
 
 		it("items no longer has 'cost_estimate' column", () => {
-			const columns = db.all<{ name: string }>(
-				"PRAGMA table_info(items)",
-			);
+			const columns = db.all<{ name: string }>("PRAGMA table_info(items)");
 			const colNames = columns.map((c) => c.name);
 			expect(colNames).not.toContain("cost_estimate");
 		});
@@ -354,33 +277,25 @@ describe("O2 — Schema Migration & Route Rewrite", () => {
 
 	describe("6. artifacts kernel table columns stripped", () => {
 		it("artifacts no longer has 'cost_money_micros' column", () => {
-			const columns = db.all<{ name: string }>(
-				"PRAGMA table_info(artifacts)",
-			);
+			const columns = db.all<{ name: string }>("PRAGMA table_info(artifacts)");
 			const colNames = columns.map((c) => c.name);
 			expect(colNames).not.toContain("cost_money_micros");
 		});
 
 		it("artifacts no longer has 'cost_tokens_input' column", () => {
-			const columns = db.all<{ name: string }>(
-				"PRAGMA table_info(artifacts)",
-			);
+			const columns = db.all<{ name: string }>("PRAGMA table_info(artifacts)");
 			const colNames = columns.map((c) => c.name);
 			expect(colNames).not.toContain("cost_tokens_input");
 		});
 
 		it("artifacts no longer has 'cost_tokens_output' column", () => {
-			const columns = db.all<{ name: string }>(
-				"PRAGMA table_info(artifacts)",
-			);
+			const columns = db.all<{ name: string }>("PRAGMA table_info(artifacts)");
 			const colNames = columns.map((c) => c.name);
 			expect(colNames).not.toContain("cost_tokens_output");
 		});
 
 		it("artifacts no longer has 'cost_settled_at' column", () => {
-			const columns = db.all<{ name: string }>(
-				"PRAGMA table_info(artifacts)",
-			);
+			const columns = db.all<{ name: string }>("PRAGMA table_info(artifacts)");
 			const colNames = columns.map((c) => c.name);
 			expect(colNames).not.toContain("cost_settled_at");
 		});
@@ -835,9 +750,7 @@ describe("O2 — Schema Migration & Route Rewrite", () => {
 
 			// Insert extension row — table must exist with FK cascade
 			const extId = crypto.randomUUID();
-			db.run(
-				`INSERT INTO task_strategy_fabric (id, task_id) VALUES ('${extId}', '${taskId}')`,
-			);
+			db.run(`INSERT INTO task_strategy_fabric (id, task_id) VALUES ('${extId}', '${taskId}')`);
 
 			// Verify extension row exists
 			const before = db.all<{ id: string }>(
@@ -897,8 +810,8 @@ describe("O2 — Schema Migration & Route Rewrite", () => {
 			// (the inline calls to routeItem and routeToFounder are removed)
 			// Currently they ARE returned (current implementation) — these expectations
 			// will pass once the O2 route purity implementation removes them.
-			expect(Object.prototype.hasOwnProperty.call(body, "view")).toBe(false);
-			expect(Object.prototype.hasOwnProperty.call(body, "founderRoute")).toBe(false);
+			expect(Object.hasOwn(body, "view")).toBe(false);
+			expect(Object.hasOwn(body, "founderRoute")).toBe(false);
 		});
 
 		it("POST /api/conversations/items emits item_created event", async () => {
@@ -957,10 +870,10 @@ describe("O2 — Schema Migration & Route Rewrite", () => {
 			const body = (await res.json()) as Record<string, unknown>;
 			// O2 requirement: stripped columns must not appear in the response at all
 			// (neither as null nor as a value — the columns no longer exist)
-			expect(Object.prototype.hasOwnProperty.call(body, "traceId")).toBe(false);
-			expect(Object.prototype.hasOwnProperty.call(body, "harnessUrl")).toBe(false);
-			expect(Object.prototype.hasOwnProperty.call(body, "tokensInput")).toBe(false);
-			expect(Object.prototype.hasOwnProperty.call(body, "tokensOutput")).toBe(false);
+			expect(Object.hasOwn(body, "traceId")).toBe(false);
+			expect(Object.hasOwn(body, "harnessUrl")).toBe(false);
+			expect(Object.hasOwn(body, "tokensInput")).toBe(false);
+			expect(Object.hasOwn(body, "tokensOutput")).toBe(false);
 		});
 
 		it("PATCH /api/sessions/:id ends session without tokensInput/tokensOutput fields", async () => {

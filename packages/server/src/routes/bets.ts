@@ -204,6 +204,9 @@ export function createBetRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hyper
 		// sessions table. We use sql.identifier to emit `"tasks"."id"` explicitly.
 		// See bets.session-enrichment.test.ts for the proof.
 		const outerTaskId = sql`${sql.identifier("tasks")}.${sql.identifier("id")}`;
+		// @lore O2: stripped strategy columns (durability, riskTier, attentionScore,
+		// crossTeam) removed from select. Session cost/token/harness columns also
+		// stripped — those are strategy concerns now in the fabric layer.
 		const betTasks = db
 			.select({
 				id: tasks.id,
@@ -219,10 +222,6 @@ export function createBetRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hyper
 				artifacts: tasks.artifacts,
 				costCap: tasks.costCap,
 				costActual: tasks.costActual,
-				durability: tasks.durability,
-				riskTier: tasks.riskTier,
-				attentionScore: tasks.attentionScore,
-				crossTeam: tasks.crossTeam,
 				threadId: tasks.threadId,
 				notes: tasks.notes,
 				auditTrail: tasks.auditTrail,
@@ -232,26 +231,6 @@ export function createBetRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hyper
 					string | null
 				>`(SELECT ${sessions.outcome} FROM ${sessions} WHERE ${sessions.taskId} = ${outerTaskId} ORDER BY ${sessions.startedAt} DESC LIMIT 1)`.as(
 					"latest_session_outcome",
-				),
-				latestSessionCost: sql<
-					number | null
-				>`(SELECT ${sessions.cost} FROM ${sessions} WHERE ${sessions.taskId} = ${outerTaskId} ORDER BY ${sessions.startedAt} DESC LIMIT 1)`.as(
-					"latest_session_cost",
-				),
-				latestSessionTokensInput: sql<
-					number | null
-				>`(SELECT ${sessions.tokensInput} FROM ${sessions} WHERE ${sessions.taskId} = ${outerTaskId} ORDER BY ${sessions.startedAt} DESC LIMIT 1)`.as(
-					"latest_session_tokens_input",
-				),
-				latestSessionTokensOutput: sql<
-					number | null
-				>`(SELECT ${sessions.tokensOutput} FROM ${sessions} WHERE ${sessions.taskId} = ${outerTaskId} ORDER BY ${sessions.startedAt} DESC LIMIT 1)`.as(
-					"latest_session_tokens_output",
-				),
-				latestSessionHarnessUrl: sql<
-					string | null
-				>`(SELECT ${sessions.harnessUrl} FROM ${sessions} WHERE ${sessions.taskId} = ${outerTaskId} ORDER BY ${sessions.startedAt} DESC LIMIT 1)`.as(
-					"latest_session_harness_url",
 				),
 			})
 			.from(tasks)
@@ -315,6 +294,7 @@ export function createBetRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hyper
 			tokensActual,
 			tasks: betTasks.map((t) => ({
 				...t,
+				// O2: costActual/costCap mapped to WireMoney for display; strategy columns removed
 				costActual: t.costActual != null ? { minor: t.costActual, currency: "USD" as const } : null,
 				costCap: t.costCap != null ? { minor: t.costCap, currency: "USD" as const } : null,
 			})),

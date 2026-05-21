@@ -1,6 +1,6 @@
-import { type HyperIdleDb, type KnowledgeItem, knowledgeConflicts } from "@hyperidle/db";
+import { type HyperIdleDb, knowledgeConflicts } from "@hyperidle/db";
 import { and, eq } from "drizzle-orm";
-import type { UpdateKnowledgeItemInput } from "./knowledge-repository.js";
+import type { KnowledgeItemWithFabric, UpdateKnowledgeItemInput } from "./knowledge-repository.js";
 import * as repo from "./knowledge-repository.js";
 import type { KnowledgeKind, KnowledgeStatus } from "./types.js";
 
@@ -39,7 +39,7 @@ export interface ConflictResult {
 	/** Field-level conflicts that were auto-resolved or escalated. */
 	conflicts: FieldConflict[];
 	/** The updated item after resolution (if merged). */
-	item: KnowledgeItem | null;
+	item: KnowledgeItemWithFabric | null;
 }
 
 // --- Helpers ---
@@ -129,7 +129,9 @@ export function resolveConflict(
 		throw new Error(`Knowledge item ${itemId} not found`);
 	}
 
-	if (isStructuredKind(item.kind)) {
+	// @lore O2: kind is now optional on KnowledgeItemWithFabric (from fabric extension).
+	// Items without a fabric row have kind=undefined/null → treated as unstructured.
+	if (item.kind != null && isStructuredKind(item.kind)) {
 		return resolveStructured(db, item, edits);
 	}
 	return resolveProse(db, item, edits);
@@ -137,14 +139,15 @@ export function resolveConflict(
 
 function resolveStructured(
 	db: HyperIdleDb,
-	item: KnowledgeItem,
+	item: KnowledgeItemWithFabric,
 	edits: ConcurrentEdit[],
 ): ConflictResult {
 	const existing: Record<string, unknown> = {
 		title: item.title,
 		body: item.body,
 		topic: item.topic,
-		meta: item.meta,
+		// @lore O2: meta is from the fabric extension table (optional)
+		meta: item.meta ?? null,
 		status: item.status,
 	};
 
@@ -184,7 +187,7 @@ function resolveStructured(
 
 function resolveProse(
 	db: HyperIdleDb,
-	item: KnowledgeItem,
+	item: KnowledgeItemWithFabric,
 	edits: ConcurrentEdit[],
 ): ConflictResult {
 	// Sort by timestamp ascending - older first
@@ -263,7 +266,7 @@ export function promote(
 	db: HyperIdleDb,
 	itemId: string,
 	targetStatus: KnowledgeStatus,
-): KnowledgeItem {
+): KnowledgeItemWithFabric {
 	if (!canPromote(db, itemId)) {
 		throw new Error(`Cannot promote item ${itemId}: open conflict(s) exist`);
 	}

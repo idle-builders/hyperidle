@@ -1,5 +1,10 @@
 import { randomUUID } from "node:crypto";
-import { type HyperIdleDb, knowledgeEditLog, knowledgeItems } from "@hyperidle/db";
+import {
+	type HyperIdleDb,
+	knowledgeEditLog,
+	knowledgeItems,
+	knowledgeStrategyFabric,
+} from "@hyperidle/db";
 import type { KnowledgeKind } from "@hyperidle/fabric";
 import type { EventBus, KnowledgeUpdatedEvent } from "@hyperidle/shared";
 import { and, eq, isNull } from "drizzle-orm";
@@ -175,12 +180,13 @@ export function createPracticeMeeting(
 		title: input.title,
 		turnsCompleted: [],
 	};
+	// @lore O2: kernel/strategy separation. Insert identity+content into
+	// knowledgeItems; strategy fields (layer, kind, scopeId, meta) go to
+	// knowledgeStrategyFabric. The anchor meta includes the meeting state
+	// so the practice-meeting service can track turn progress.
 	db.insert(knowledgeItems)
 		.values({
 			id,
-			layer: "L2",
-			scopeId: input.scopeId,
-			kind: "reflection",
 			topic: "practice_meeting",
 			title: input.title,
 			body: "Practice meeting anchor — created by practice-meeting service",
@@ -190,6 +196,15 @@ export function createPracticeMeeting(
 			updatedBy: "agent:practice-meeting",
 			createdAt: isoNow,
 			updatedAt: isoNow,
+		})
+		.run();
+	db.insert(knowledgeStrategyFabric)
+		.values({
+			id: `ksf-${id}`,
+			knowledgeItemId: id,
+			layer: "L2",
+			kind: "reflection",
+			scopeId: input.scopeId,
 			meta: JSON.stringify(meta),
 		})
 		.run();
@@ -290,7 +305,15 @@ export async function runPracticeMeetingTurn(
 					message: `meeting ${meetingId} not found`,
 				});
 			}
-			const parsed = parseAnchorMeta(anchor.meta);
+			// @lore O2: anchor meta and scopeId are in knowledgeStrategyFabric.
+			// Read the fabric row inside the same transaction for atomic meta
+			// pinning on the conditional UPDATE.
+			const anchorFabric = tx
+				.select()
+				.from(knowledgeStrategyFabric)
+				.where(eq(knowledgeStrategyFabric.knowledgeItemId, meetingId))
+				.get();
+			const parsed = parseAnchorMeta(anchorFabric?.meta ?? null);
 			if (parsed.kind === "not-anchor") {
 				throw new PracticeMeetingTxError({
 					success: false,
@@ -306,6 +329,7 @@ export async function runPracticeMeetingTurn(
 				});
 			}
 			const anchorMeta = parsed.meta;
+			const anchorScopeId = anchorFabric?.scopeId ?? null;
 
 			const turnsCompleted = anchorMeta.turnsCompleted ?? [];
 			const lastCompleted =
@@ -321,11 +345,11 @@ export async function runPracticeMeetingTurn(
 
 			let turnResult: PracticeMeetingTurnResult;
 			if (turnNumber === 1 && "proposals" in turnInput) {
-				turnResult = runTurn1(tx, meetingId, anchor.scopeId, turnInput.proposals, isoNow);
+				turnResult = runTurn1(tx, meetingId, anchorScopeId, turnInput.proposals, isoNow);
 			} else if (turnNumber === 2 && "reactions" in turnInput) {
-				turnResult = runTurn2(tx, meetingId, anchor.scopeId, turnInput.reactions, isoNow);
+				turnResult = runTurn2(tx, meetingId, anchorScopeId, turnInput.reactions, isoNow);
 			} else if (turnNumber === 3 && "synthesis" in turnInput) {
-				turnResult = runTurn3(tx, meetingId, anchor.scopeId, turnInput.synthesis, isoNow);
+				turnResult = runTurn3(tx, meetingId, anchorScopeId, turnInput.synthesis, isoNow);
 			} else {
 				// Unreachable — the shape checks above cover all three turns.
 				throw new PracticeMeetingTxError({
@@ -344,6 +368,8 @@ export async function runPracticeMeetingTurn(
 			// gate. If two callers race on turn 1 the loser's UPDATE
 			// changes=0 and we throw CONCURRENT_MODIFICATION — the tx
 			// rollback undoes the per-turn inserts the loser wrote.
+			// @lore O2: meta lives in knowledgeStrategyFabric now. The conditional
+			// UPDATE targets that table, pinning via knowledgeItemId + old meta value.
 			const nextTurns: number[] = [...turnsCompleted, turnNumber];
 			const nextMeta: AnchorMeta = {
 				...anchorMeta,
@@ -351,15 +377,25 @@ export async function runPracticeMeetingTurn(
 			};
 			const oldSerialized = serializeTurnsCompleted(turnsCompleted);
 			// @lore G3 meta not-null invariant: `createPracticeMeeting`
-			// writes a JSON object into `meta` so the anchor row always has
-			// a non-null meta we can pin here. If that invariant is ever
-			// broken the `eq` below will no-op and the caller will see
-			// CONCURRENT_MODIFICATION — which is a safe default.
-			const pinMeta = anchor.meta ?? "";
+			// writes a JSON object into `meta` in knowledgeStrategyFabric so
+			// the fabric row always has a non-null meta we can pin here. If
+			// that invariant is ever broken the `eq` below will no-op and
+			// the caller will see CONCURRENT_MODIFICATION — safe default.
+			const pinMeta = anchorFabric?.meta ?? "";
 			const updateRes = tx
-				.update(knowledgeItems)
-				.set({ meta: JSON.stringify(nextMeta), updatedAt: isoNow })
-				.where(and(eq(knowledgeItems.id, meetingId), eq(knowledgeItems.meta, pinMeta)))
+				.update(knowledgeStrategyFabric)
+				.set({ meta: JSON.stringify(nextMeta) })
+				.where(
+					and(
+						eq(knowledgeStrategyFabric.knowledgeItemId, meetingId),
+						eq(knowledgeStrategyFabric.meta, pinMeta),
+					),
+				)
+				.run();
+			// Also update kernel updatedAt for recency tracking
+			tx.update(knowledgeItems)
+				.set({ updatedAt: isoNow })
+				.where(eq(knowledgeItems.id, meetingId))
 				.run();
 			if (updateRes.changes === 0) {
 				throw new PracticeMeetingTxError({
@@ -428,16 +464,11 @@ function runTurn1(
 	const createdIds: string[] = [];
 	for (const p of proposals) {
 		const id = randomUUID();
-		const meta = {
-			meetingId,
-			meetingPhase: "proposal",
-		};
+		// @lore O2: kernel/strategy separation. Kernel row: identity + content.
+		// Strategy row: layer, kind, scopeId, meta (meeting state).
 		tx.insert(knowledgeItems)
 			.values({
 				id,
-				layer: p.layer,
-				scopeId: anchorScopeId,
-				kind: p.kind ?? "reflection",
 				topic: p.topic ?? null,
 				title: p.title,
 				body: p.body,
@@ -447,7 +478,16 @@ function runTurn1(
 				updatedBy: "agent:practice-meeting",
 				createdAt: isoNow,
 				updatedAt: isoNow,
-				meta: JSON.stringify(meta),
+			})
+			.run();
+		tx.insert(knowledgeStrategyFabric)
+			.values({
+				id: `ksf-${id}`,
+				knowledgeItemId: id,
+				layer: p.layer,
+				kind: p.kind ?? "reflection",
+				scopeId: anchorScopeId,
+				meta: JSON.stringify({ meetingId, meetingPhase: "proposal" }),
 			})
 			.run();
 		tx.insert(knowledgeEditLog)
@@ -482,18 +522,10 @@ function runTurn2(
 	const createdIds: string[] = [];
 	for (const r of reactions) {
 		const id = randomUUID();
-		const meta = {
-			meetingId,
-			meetingPhase: "reaction",
-			proposalId: r.proposalId,
-			author: r.author,
-		};
+		// @lore O2: kernel/strategy separation.
 		tx.insert(knowledgeItems)
 			.values({
 				id,
-				layer: "L2",
-				scopeId: anchorScopeId,
-				kind: "reflection",
 				topic: "practice_meeting_reaction",
 				title: `Reaction to ${r.proposalId}`,
 				body: r.body,
@@ -503,7 +535,21 @@ function runTurn2(
 				updatedBy: "agent:practice-meeting",
 				createdAt: isoNow,
 				updatedAt: isoNow,
-				meta: JSON.stringify(meta),
+			})
+			.run();
+		tx.insert(knowledgeStrategyFabric)
+			.values({
+				id: `ksf-${id}`,
+				knowledgeItemId: id,
+				layer: "L2",
+				kind: "reflection",
+				scopeId: anchorScopeId,
+				meta: JSON.stringify({
+					meetingId,
+					meetingPhase: "reaction",
+					proposalId: r.proposalId,
+					author: r.author,
+				}),
 			})
 			.run();
 		tx.insert(knowledgeEditLog)
@@ -540,30 +586,29 @@ function runTurn3(
 
 	// Find all proposal + reaction intermediates for this meeting.
 	// @lore G3 meeting intermediates: the meeting linkage lives inside
-	// `meta` JSON and there is no dedicated FK column by design (plan
-	// §3.7). To keep the candidate set small we narrow at the SQL layer
-	// on `status = 'captured'` AND `scope_id = <anchor scope>`; the
-	// final filter on `meta.meetingId` + `meta.meetingPhase` is done in
-	// JS because the JSON path lookup would require a functional index
-	// we haven't justified yet. Without the scope filter this was a
-	// full-table scan over every captured item in the database.
-	//
-	// `anchorScopeId` is nullable; `eq(col, null)` would render
-	// `col = NULL` which never matches in SQL three-valued logic, so
-	// we branch on `isNull` when the anchor has no scope.
+	// `meta` JSON on knowledgeStrategyFabric (O2: meta moved from kernel table).
+	// To keep the candidate set small we JOIN with fabric and filter on
+	// `status = 'captured'` AND `scope_id = <anchor scope>` from the fabric row;
+	// the final filter on `meta.meetingId` + `meta.meetingPhase` is done in JS.
+	// `anchorScopeId` is nullable; `eq(col, null)` renders `col = NULL` which
+	// never matches in SQL three-valued logic, so we branch on `isNull`.
 	const scopeFilter =
 		anchorScopeId === null
-			? isNull(knowledgeItems.scopeId)
-			: eq(knowledgeItems.scopeId, anchorScopeId);
-	const candidates = tx
-		.select()
+			? isNull(knowledgeStrategyFabric.scopeId)
+			: eq(knowledgeStrategyFabric.scopeId, anchorScopeId);
+	const candidateRows = tx
+		.select({ item: knowledgeItems, fabric: knowledgeStrategyFabric })
 		.from(knowledgeItems)
+		.innerJoin(
+			knowledgeStrategyFabric,
+			eq(knowledgeStrategyFabric.knowledgeItemId, knowledgeItems.id),
+		)
 		.where(and(eq(knowledgeItems.status, "captured"), scopeFilter))
 		.all();
-	const intermediates = candidates.filter((c) => {
-		if (!c.meta) return false;
+	const intermediates = candidateRows.filter(({ fabric }) => {
+		if (!fabric.meta) return false;
 		try {
-			const parsed: unknown = JSON.parse(c.meta);
+			const parsed: unknown = JSON.parse(fabric.meta);
 			if (typeof parsed !== "object" || parsed === null) return false;
 			const m = parsed as Record<string, unknown>;
 			return (
@@ -576,18 +621,12 @@ function runTurn3(
 	});
 
 	// Insert synthesis items as provisional.
+	// @lore O2: kernel/strategy separation.
 	for (const s of synthesis) {
 		const id = randomUUID();
-		const meta = {
-			meetingId,
-			meetingPhase: "synthesis",
-		};
 		tx.insert(knowledgeItems)
 			.values({
 				id,
-				layer: s.layer,
-				scopeId: anchorScopeId,
-				kind: s.kind ?? "pattern",
 				topic: s.topic ?? null,
 				title: s.title,
 				body: s.body,
@@ -597,7 +636,16 @@ function runTurn3(
 				updatedBy: "agent:practice-meeting",
 				createdAt: isoNow,
 				updatedAt: isoNow,
-				meta: JSON.stringify(meta),
+			})
+			.run();
+		tx.insert(knowledgeStrategyFabric)
+			.values({
+				id: `ksf-${id}`,
+				knowledgeItemId: id,
+				layer: s.layer,
+				kind: s.kind ?? "pattern",
+				scopeId: anchorScopeId,
+				meta: JSON.stringify({ meetingId, meetingPhase: "synthesis" }),
 			})
 			.run();
 		tx.insert(knowledgeEditLog)
@@ -617,7 +665,7 @@ function runTurn3(
 
 	// Archive all intermediates. Use the standard captured→archived
 	// path (it is a legal transition per the G1 table).
-	for (const inter of intermediates) {
+	for (const { item: inter } of intermediates) {
 		tx.update(knowledgeItems)
 			.set({
 				status: "archived",

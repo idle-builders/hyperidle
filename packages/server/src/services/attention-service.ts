@@ -2,14 +2,15 @@ import { randomUUID } from "node:crypto";
 import {
 	type HyperIdleDb,
 	items,
-	type KnowledgeItem,
 	knowledgeConflicts,
 	knowledgeItems,
+	knowledgeStrategyFabric,
 } from "@hyperidle/db";
 import {
 	ATTENTION_THRESHOLD,
 	type AttentionWeights,
 	buildAttentionContext,
+	type KnowledgeItemWithFabric,
 	loadAttentionWeights,
 	scoreAttentionBatch,
 } from "@hyperidle/fabric";
@@ -121,13 +122,30 @@ export function buildAttentionService(deps: AttentionServiceDeps): AttentionServ
 	): Promise<ReadonlyArray<AttentionRecomputeResult>> {
 		if (ids.length === 0) return [];
 
-		const loadedItems = db
-			.select()
+		// @lore O2: JOIN with knowledgeStrategyFabric to get strategy fields
+		// (layer, scopeId, kind, attentionScore, confidence) needed for scoring.
+		const rows = db
+			.select({ item: knowledgeItems, fabric: knowledgeStrategyFabric })
 			.from(knowledgeItems)
+			.leftJoin(
+				knowledgeStrategyFabric,
+				eq(knowledgeStrategyFabric.knowledgeItemId, knowledgeItems.id),
+			)
 			.where(inArray(knowledgeItems.id, Array.from(ids)))
 			.all();
 
-		if (loadedItems.length === 0) return [];
+		if (rows.length === 0) return [];
+
+		// Merge kernel + fabric into KnowledgeItemWithFabric
+		const loadedItems: KnowledgeItemWithFabric[] = rows.map(({ item, fabric }) => ({
+			...item,
+			layer: fabric?.layer ?? null,
+			scopeId: fabric?.scopeId ?? null,
+			kind: fabric?.kind ?? null,
+			attentionScore: fabric?.attentionScore ?? null,
+			confidence: fabric?.confidence ?? null,
+			meta: fabric?.meta ?? null,
+		}));
 
 		const nowMs = now();
 		const weights = loadWeights(db);
@@ -154,14 +172,17 @@ export function buildAttentionService(deps: AttentionServiceDeps): AttentionServ
 	 * Creating the review item + emitting `item_created` happens inside the
 	 * same transaction so two callers both seeing `prior < 0.7` serialize and
 	 * only one creates the review.
+	 *
+	 * @lore O2: attentionScore is stored in knowledgeStrategyFabric (not on
+	 * the kernel knowledgeItems table). Reading the prior score and writing the
+	 * new score both touch the extension table. The kernel table is not updated
+	 * by attention recomputes — only content edits bump knowledgeItems.updatedAt.
 	 */
 	function applyRecomputeForItem(
-		item: KnowledgeItem,
+		item: KnowledgeItemWithFabric,
 		currentScore: number,
 		nowMs: number,
 	): AttentionRecomputeResult {
-		const isoNow = new Date(nowMs).toISOString();
-
 		const txResult = db.transaction(
 			(
 				tx,
@@ -170,17 +191,37 @@ export function buildAttentionService(deps: AttentionServiceDeps): AttentionServ
 				crossed: boolean;
 				reviewItemCreated: boolean;
 			} => {
-				const refreshed = tx
-					.select({ attentionScore: knowledgeItems.attentionScore })
-					.from(knowledgeItems)
-					.where(eq(knowledgeItems.id, item.id))
+				// @lore O2: read prior attentionScore from the extension table.
+				// parseFloat safely converts the stored string to a number.
+				const fabricRow = tx
+					.select({ attentionScore: knowledgeStrategyFabric.attentionScore })
+					.from(knowledgeStrategyFabric)
+					.where(eq(knowledgeStrategyFabric.knowledgeItemId, item.id))
 					.get();
-				const prior = refreshed?.attentionScore ?? null;
+				const priorStr = fabricRow?.attentionScore ?? null;
+				const prior = priorStr != null ? Number.parseFloat(priorStr) : null;
 
-				tx.update(knowledgeItems)
-					.set({ attentionScore: currentScore, updatedAt: isoNow })
-					.where(eq(knowledgeItems.id, item.id))
-					.run();
+				// @lore O2: write attentionScore to the extension table.
+				// Upsert: update if row exists, insert if not.
+				const existingFabric = tx
+					.select({ id: knowledgeStrategyFabric.id })
+					.from(knowledgeStrategyFabric)
+					.where(eq(knowledgeStrategyFabric.knowledgeItemId, item.id))
+					.get();
+				if (existingFabric) {
+					tx.update(knowledgeStrategyFabric)
+						.set({ attentionScore: String(currentScore) })
+						.where(eq(knowledgeStrategyFabric.knowledgeItemId, item.id))
+						.run();
+				} else {
+					tx.insert(knowledgeStrategyFabric)
+						.values({
+							id: randomUUID(),
+							knowledgeItemId: item.id,
+							attentionScore: String(currentScore),
+						})
+						.run();
+				}
 
 				// @lore G2 threshold interval: the crossing predicate is half-open
 				// on prior (strictly less than 0.7) and closed on current
@@ -203,7 +244,8 @@ export function buildAttentionService(deps: AttentionServiceDeps): AttentionServ
 
 						createReviewItemForKnowledge(tx, eventBus, {
 							knowledgeItemId: item.id,
-							layer: item.layer,
+							// @lore O2: layer comes from the fabric item (may be null)
+							layer: item.layer ?? null,
 							title: `Knowledge item needs attention: ${item.title}`,
 							body: bodySummary,
 							riskTier,
@@ -252,17 +294,14 @@ export function buildAttentionService(deps: AttentionServiceDeps): AttentionServ
 	async function recomputeScope(
 		filter: AttentionServiceFilter,
 	): Promise<AttentionRecomputeScopeResult> {
-		const conditions = [];
-		if (filter.layer) conditions.push(eq(knowledgeItems.layer, filter.layer));
-		if (filter.scopeId) conditions.push(eq(knowledgeItems.scopeId, filter.scopeId));
-		if (filter.status) conditions.push(eq(knowledgeItems.status, filter.status));
-		if (filter.kind) conditions.push(eq(knowledgeItems.kind, filter.kind));
-		if (filter.topic) conditions.push(eq(knowledgeItems.topic, filter.topic));
-		if (filter.ids && filter.ids.length > 0) {
-			conditions.push(inArray(knowledgeItems.id, Array.from(filter.ids)));
-		}
+		// @lore O2: strategy fields (layer, scopeId, kind) are in knowledgeStrategyFabric.
+		// Kernel fields (status, topic, ids) are on knowledgeItems.
+		// When strategy filters are present we JOIN; otherwise we query kernel only.
+		const hasFabricFilter = !!(filter.layer || filter.scopeId || filter.kind);
+		const hasAnyFilter =
+			hasFabricFilter || !!(filter.status || filter.topic || (filter.ids && filter.ids.length > 0));
 
-		if (conditions.length === 0) {
+		if (!hasAnyFilter) {
 			return {
 				ok: false,
 				error: {
@@ -273,11 +312,39 @@ export function buildAttentionService(deps: AttentionServiceDeps): AttentionServ
 			};
 		}
 
-		const rows = db
-			.select({ id: knowledgeItems.id })
-			.from(knowledgeItems)
-			.where(and(...conditions))
-			.all();
+		const kernelConditions = [];
+		const fabricConditions = [];
+
+		if (filter.status) kernelConditions.push(eq(knowledgeItems.status, filter.status));
+		if (filter.topic) kernelConditions.push(eq(knowledgeItems.topic, filter.topic));
+		if (filter.ids && filter.ids.length > 0) {
+			kernelConditions.push(inArray(knowledgeItems.id, Array.from(filter.ids)));
+		}
+		if (filter.layer) fabricConditions.push(eq(knowledgeStrategyFabric.layer, filter.layer));
+		if (filter.scopeId) fabricConditions.push(eq(knowledgeStrategyFabric.scopeId, filter.scopeId));
+		if (filter.kind) fabricConditions.push(eq(knowledgeStrategyFabric.kind, filter.kind));
+
+		let rows: Array<{ id: string }>;
+
+		if (hasFabricFilter) {
+			// Need JOIN when filtering by strategy fields
+			const allConditions = [...kernelConditions, ...fabricConditions];
+			rows = db
+				.select({ id: knowledgeItems.id })
+				.from(knowledgeItems)
+				.innerJoin(
+					knowledgeStrategyFabric,
+					eq(knowledgeStrategyFabric.knowledgeItemId, knowledgeItems.id),
+				)
+				.where(and(...allConditions))
+				.all();
+		} else {
+			rows = db
+				.select({ id: knowledgeItems.id })
+				.from(knowledgeItems)
+				.where(and(...kernelConditions))
+				.all();
+		}
 
 		if (rows.length > MAX_RECOMPUTE_BATCH) {
 			return {

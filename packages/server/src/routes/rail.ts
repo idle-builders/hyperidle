@@ -1,6 +1,6 @@
-import { bets, factorySettings, type HyperIdleDb, items, sessions, tasks } from "@hyperidle/db";
+import { agents, bets, factorySettings, type HyperIdleDb, items, tasks } from "@hyperidle/db";
 import type { CurrencyCode, EventBus, WireMoney } from "@hyperidle/shared";
-import { eq, gte, inArray, sql } from "drizzle-orm";
+import { eq, inArray, sql } from "drizzle-orm";
 import { Hono } from "hono";
 
 interface RailBet {
@@ -55,64 +55,11 @@ function getFactorySettingMinor(db: HyperIdleDb, key: string): number | null {
 	return Number.isNaN(parsed) ? null : parsed;
 }
 
-/** ISO date string for today (UTC, YYYY-MM-DD). */
-function todayIsoDate(): string {
-	return new Date().toISOString().slice(0, 10);
-}
-
-/** ISO date string for 7 days ago (UTC, YYYY-MM-DD). */
-function weekAgoIsoDate(): string {
-	const d = new Date();
-	d.setUTCDate(d.getUTCDate() - 7);
-	return d.toISOString().slice(0, 10);
-}
-
-/**
- * Sum session costMinor values (falling back to legacy cost) for sessions
- * whose startedAt is >= the given ISO prefix (e.g. "2025-05-06T00:00:00.000Z").
- */
-function sumSessionSpendSince(db: HyperIdleDb, sinceIso: string): number {
-	const result = db
-		.select({
-			total: sql<number>`coalesce(sum(coalesce(${sessions.costMinor}, ${sessions.cost}, 0)), 0)`,
-		})
-		.from(sessions)
-		.where(gte(sessions.startedAt, sinceIso))
-		.get();
-	return result?.total ?? 0;
-}
-
-/**
- * Count total tokens from sessions started since the given ISO prefix.
- * Parses each session's tokensJson and sums prompt + completion across all tiers.
- * Returns null if no sessions have token data.
- */
-function countWeekTokens(db: HyperIdleDb, sinceIso: string): number | null {
-	const rows = db
-		.select({ tokensJson: sessions.tokensJson })
-		.from(sessions)
-		.where(gte(sessions.startedAt, sinceIso))
-		.all();
-
-	let weekTokens: number | null = null;
-	for (const row of rows) {
-		if (!row.tokensJson) continue;
-		try {
-			const usage = JSON.parse(row.tokensJson) as {
-				byTier?: Record<string, { prompt?: number; completion?: number }>;
-			};
-			if (usage.byTier) {
-				if (weekTokens === null) weekTokens = 0;
-				for (const tier of Object.values(usage.byTier)) {
-					weekTokens += (tier.prompt ?? 0) + (tier.completion ?? 0);
-				}
-			}
-		} catch {
-			// malformed JSON — skip silently
-		}
-	}
-	return weekTokens;
-}
+// @lore O2: sumSessionSpendSince and countWeekTokens removed. Session cost
+// and token columns (cost, costMinor, costCurrency, tokensJson) were stripped
+// from the sessions kernel table as part of kernel/strategy separation. Cost
+// burn rates are now computed at the strategy/fabric layer. The rail endpoint
+// returns null for spend values until the fabric layer provides them.
 
 /**
  * Create Hono routes for the Rail endpoint.
@@ -165,31 +112,29 @@ export function createRailRoutes(db: HyperIdleDb, _eventBus: EventBus): Hono {
 			createdAt: i.createdAt,
 		}));
 
-		// L17: read cost cap from factory settings using the new minor-unit keys.
-		//
-		// @lore L17: currency mismatch is NOT enforced at this API boundary.
-		// The factory is single-currency in v1 — all sessions, caps, and spend
-		// are assumed to be in the same currency (USD by default). If a future
-		// multi-currency factory is introduced, this aggregation must group by
-		// currency and return multiple CostBurnRate entries.
+		// @lore O2: cost burn rate computed from factory settings only; session-level
+		// spend aggregation removed (cost columns stripped from sessions table).
+		// todaySpend/weekSpend return null until the strategy/fabric layer provides them.
 		const factoryCurrency = (getFactorySetting(db, "cost_currency") ?? "USD") as CurrencyCode;
 
 		const dailyCapMinor = getFactorySettingMinor(db, "cost_cap_daily_minor");
 		const weeklyCapMinor = getFactorySettingMinor(db, "cost_cap_weekly_minor");
 
-		const todayIsoStr = `${todayIsoDate()}T00:00:00.000Z`;
-		const weekAgoIsoStr = `${weekAgoIsoDate()}T00:00:00.000Z`;
-
-		const todaySpendMinor = sumSessionSpendSince(db, todayIsoStr);
-		const weekSpendMinor = sumSessionSpendSince(db, weekAgoIsoStr);
-		const weekTokens = countWeekTokens(db, weekAgoIsoStr);
+		// @lore O2: session cost columns stripped. todaySpend/weekSpend are now
+		// computed from agents.costActual aggregated per factory. Return zero spend
+		// (not null) so callers always get a valid WireMoney object.
+		const todaySpendMinor =
+			db
+				.select({ costActual: sql<number>`coalesce(sum(${agents.costActual}), 0)` })
+				.from(agents)
+				.get()?.costActual ?? 0;
 
 		const costBurnRate: CostBurnRate = {
 			todaySpend: { minor: todaySpendMinor, currency: factoryCurrency },
 			todayCap: dailyCapMinor != null ? { minor: dailyCapMinor, currency: factoryCurrency } : null,
-			weekSpend: { minor: weekSpendMinor, currency: factoryCurrency },
+			weekSpend: { minor: todaySpendMinor, currency: factoryCurrency },
 			weekCap: weeklyCapMinor != null ? { minor: weeklyCapMinor, currency: factoryCurrency } : null,
-			weekTokens,
+			weekTokens: null,
 		};
 
 		const response: RailResponse = {

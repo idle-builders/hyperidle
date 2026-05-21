@@ -8,6 +8,7 @@ import {
 	type HyperIdleDb,
 	knowledgeConflicts,
 	knowledgeItems,
+	knowledgeStrategyFabric,
 	products,
 	sessions,
 	tasks,
@@ -150,7 +151,13 @@ describe("writeback", () => {
 		expect(items.length).toBe(1);
 		expect(items[0].status).toBe("captured");
 		expect(items[0].body).toBe("# New Pattern\nSome content here");
-		expect(items[0].layer).toBe("L1");
+		// @lore O2: layer moved to knowledgeStrategyFabric extension table
+		const fabric = db
+			.select()
+			.from(knowledgeStrategyFabric)
+			.where(eq(knowledgeStrategyFabric.knowledgeItemId, items[0].id))
+			.get();
+		expect(fabric?.layer).toBe("L1");
 
 		// Verify manifest was updated
 		const manifest = readManifest(manifestPath);

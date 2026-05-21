@@ -1,14 +1,15 @@
 import {
 	createTestDb,
 	type HyperIdleDb,
-	type KnowledgeItem,
 	knowledgeConflicts,
 	knowledgeEditLog,
 	knowledgeItems,
+	knowledgeStrategyFabric,
 } from "@hyperidle/db";
 import { EventBus, type KnowledgeUpdatedEvent } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
 import { beforeEach, describe, expect, it } from "vitest";
+import type { KnowledgeItemWithFabric } from "../knowledge-repository.js";
 import {
 	AUTO_PROMOTION_EDITOR,
 	AUTO_PROMOTION_REPETITION_THRESHOLD,
@@ -38,30 +39,52 @@ interface SeedOverrides {
 	readonly version?: number;
 }
 
-function seedKi(db: HyperIdleDb, overrides: SeedOverrides): KnowledgeItem {
-	const row: KnowledgeItem = {
+/**
+ * @lore O2: seedKi inserts into BOTH the kernel knowledgeItems table and the
+ * knowledgeStrategyFabric extension table. Strategy fields (layer, scopeId,
+ * kind, meta) are no longer columns on the kernel table.
+ */
+function seedKi(db: HyperIdleDb, overrides: SeedOverrides): KnowledgeItemWithFabric {
+	const metaStr =
+		overrides.meta === null || overrides.meta === undefined ? null : JSON.stringify(overrides.meta);
+
+	const kernelRow = {
 		id: overrides.id,
-		layer: overrides.layer ?? "L3",
-		scopeId: overrides.scopeId === undefined ? "scope-a" : overrides.scopeId,
-		kind: overrides.kind ?? "pattern",
 		topic: overrides.topic === undefined ? "testing" : overrides.topic,
 		title: overrides.title ?? "Test",
 		body: overrides.body ?? "Body",
 		format: "markdown",
 		status: overrides.status ?? "provisional",
-		attentionScore: null,
-		confidence: null,
 		version: overrides.version ?? 1,
 		updatedBy: "agent:seed",
 		createdAt: NOW,
 		updatedAt: overrides.updatedAt ?? NOW,
-		meta:
-			overrides.meta === null || overrides.meta === undefined
-				? null
-				: JSON.stringify(overrides.meta),
 	};
-	db.insert(knowledgeItems).values(row).run();
-	return row;
+	db.insert(knowledgeItems).values(kernelRow).run();
+
+	// Insert strategy extension row
+	db.insert(knowledgeStrategyFabric)
+		.values({
+			id: `ksf-${overrides.id}`,
+			knowledgeItemId: overrides.id,
+			layer: overrides.layer ?? "L3",
+			scopeId: overrides.scopeId === undefined ? "scope-a" : overrides.scopeId,
+			kind: overrides.kind ?? "pattern",
+			attentionScore: null,
+			confidence: null,
+			meta: metaStr,
+		})
+		.run();
+
+	return {
+		...kernelRow,
+		layer: overrides.layer ?? "L3",
+		scopeId: overrides.scopeId === undefined ? "scope-a" : overrides.scopeId,
+		kind: overrides.kind ?? "pattern",
+		attentionScore: null,
+		confidence: null,
+		meta: metaStr,
+	};
 }
 
 function seedConflict(
@@ -544,9 +567,10 @@ describe("promotion-pipeline", () => {
 		it("does NOT promote when contradiction detected, even with 5+ repetitions (AC3)", async () => {
 			seedProvisionalClusterOf5(db, "subject");
 			// Store claims on subject; add a contradicting L4 principle
-			db.update(knowledgeItems)
+			// @lore O2: meta is in knowledgeStrategyFabric, not knowledgeItems
+			db.update(knowledgeStrategyFabric)
 				.set({ meta: JSON.stringify({ claims: ["forbidden-x"] }) })
-				.where(eq(knowledgeItems.id, "subject"))
+				.where(eq(knowledgeStrategyFabric.knowledgeItemId, "subject"))
 				.run();
 			seedKi(db, {
 				id: "l4-forbid",
@@ -566,9 +590,10 @@ describe("promotion-pipeline", () => {
 
 		it("emits knowledge_updated action=contradiction_flagged (AC3)", async () => {
 			seedProvisionalClusterOf5(db, "subject");
-			db.update(knowledgeItems)
+			// @lore O2: meta is in knowledgeStrategyFabric, not knowledgeItems
+			db.update(knowledgeStrategyFabric)
 				.set({ meta: JSON.stringify({ claims: ["forbidden-x"] }) })
-				.where(eq(knowledgeItems.id, "subject"))
+				.where(eq(knowledgeStrategyFabric.knowledgeItemId, "subject"))
 				.run();
 			seedKi(db, {
 				id: "l4-forbid",

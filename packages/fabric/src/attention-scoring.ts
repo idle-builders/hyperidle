@@ -1,12 +1,13 @@
 import {
 	type HyperIdleDb,
-	type KnowledgeItem,
 	knowledgeConflicts,
 	knowledgeEditLog,
 	knowledgeItems,
+	knowledgeStrategyFabric,
 } from "@hyperidle/db";
 import { and, eq, inArray, ne } from "drizzle-orm";
 import { isTasteSensitive } from "./attention-classifier.js";
+import type { KnowledgeItemWithFabric } from "./knowledge-repository.js";
 import type { AttentionWeights } from "./scoring-config.js";
 
 /**
@@ -55,17 +56,21 @@ export interface AttentionScoringContext {
 
 /** Build a (layer, scope_id, topic, kind) cohort key. */
 export function cohortKey(
-	layer: string,
+	layer: string | null,
 	scopeId: string | null,
 	topic: string | null,
-	kind: string,
+	kind: string | null,
 ): string {
-	return `${layer}|${scopeId ?? ""}|${topic ?? ""}|${kind}`;
+	return `${layer ?? ""}|${scopeId ?? ""}|${topic ?? ""}|${kind ?? ""}`;
 }
 
 /** Build a (layer, topic, kind) cross-scope key. */
-export function crossScopeKey(layer: string, topic: string | null, kind: string): string {
-	return `${layer}|${topic ?? ""}|${kind}`;
+export function crossScopeKey(
+	layer: string | null,
+	topic: string | null,
+	kind: string | null,
+): string {
+	return `${layer ?? ""}|${topic ?? ""}|${kind ?? ""}`;
 }
 
 function clamp01(x: number): number {
@@ -79,25 +84,31 @@ function round6(x: number): number {
 	return Math.round(x * 1_000_000) / 1_000_000;
 }
 
-function computeNovelty(item: KnowledgeItem, ctx: AttentionScoringContext): number {
-	const key = cohortKey(item.layer, item.scopeId, item.topic, item.kind);
+function computeNovelty(item: KnowledgeItemWithFabric, ctx: AttentionScoringContext): number {
+	const key = cohortKey(item.layer ?? null, item.scopeId ?? null, item.topic, item.kind ?? null);
 	const size = ctx.cohortSizeByKey.get(key) ?? 1;
 	return clamp01(1 - size / COHORT_NOVELTY_CEILING);
 }
 
-function computeRepetitionSignal(item: KnowledgeItem, ctx: AttentionScoringContext): number {
-	const key = crossScopeKey(item.layer, item.topic, item.kind);
+function computeRepetitionSignal(
+	item: KnowledgeItemWithFabric,
+	ctx: AttentionScoringContext,
+): number {
+	const key = crossScopeKey(item.layer ?? null, item.topic, item.kind ?? null);
 	const nScopes = ctx.crossScopeCountByKey.get(key) ?? 1;
 	// (nScopes - 1): a single-scope item yields 0; 5+ scopes saturates.
 	return clamp01((nScopes - 1) / REPETITION_SATURATION);
 }
 
-function computeConfidenceValue(item: KnowledgeItem): number {
+function computeConfidenceValue(item: KnowledgeItemWithFabric): number {
+	// @lore O2: confidence stored as string in knowledgeStrategyFabric; parse to number.
 	if (item.confidence == null) return 0.5;
-	return clamp01(item.confidence);
+	const val =
+		typeof item.confidence === "string" ? Number.parseFloat(item.confidence) : item.confidence;
+	return clamp01(Number.isFinite(val) ? val : 0.5);
 }
 
-function computeRecency(item: KnowledgeItem, ctx: AttentionScoringContext): number {
+function computeRecency(item: KnowledgeItemWithFabric, ctx: AttentionScoringContext): number {
 	// Recency = "how STALE is this in terms of human attention".
 	// If recently human-edited → 0 (low need to look again).
 	// Otherwise grow with time since last edit, saturating at 90 days.
@@ -113,16 +124,19 @@ function computeRecency(item: KnowledgeItem, ctx: AttentionScoringContext): numb
 	return clamp01(age / REVIEW_RECENCY_SATURATION_MS);
 }
 
-function computeTasteSensitivity(item: KnowledgeItem): number {
+function computeTasteSensitivity(item: KnowledgeItemWithFabric): number {
 	return isTasteSensitive(item) ? 1 : 0;
 }
 
 /**
  * Score a single knowledge item. Pure. Returns a value in [0, 1] rounded to
  * six decimals.
+ *
+ * @lore O2: accepts KnowledgeItemWithFabric since strategy fields (layer, kind,
+ * scopeId, attentionScore, confidence) moved to the extension table.
  */
 export function scoreAttention(
-	item: KnowledgeItem,
+	item: KnowledgeItemWithFabric,
 	context: AttentionScoringContext,
 	weights: AttentionWeights,
 ): number {
@@ -163,16 +177,24 @@ export function scoreAttention(
 
 /** Score a batch of items sharing a context. Output order matches input order. */
 export function scoreAttentionBatch(
-	items: readonly KnowledgeItem[],
+	items: readonly KnowledgeItemWithFabric[],
 	context: AttentionScoringContext,
 	weights: AttentionWeights,
 ): ReadonlyArray<{ id: string; score: number; prior: number | null }> {
 	const out: Array<{ id: string; score: number; prior: number | null }> = [];
 	for (const item of items) {
+		// @lore O2: attentionScore stored as string in fabric extension table; parse to number.
+		const priorRaw = item.attentionScore;
+		const prior =
+			priorRaw == null
+				? null
+				: typeof priorRaw === "string"
+					? Number.parseFloat(priorRaw)
+					: priorRaw;
 		out.push({
 			id: item.id,
 			score: scoreAttention(item, context, weights),
-			prior: item.attentionScore ?? null,
+			prior: prior != null && Number.isFinite(prior) ? prior : null,
 		});
 	}
 	return out;
@@ -183,13 +205,18 @@ export function scoreAttentionBatch(
  * fixed number of aggregate queries — the cost is O(distinct cohorts), not
  * O(items) — which is what makes the 1000-item AC6 budget achievable.
  *
+ * @lore O2: cohort/cross-scope counts are now computed by JOINing
+ * knowledge_items with knowledge_strategy_fabric. The items passed in must
+ * be KnowledgeItemWithFabric (strategy fields are optional — items without
+ * a fabric row contribute null layer/kind/scopeId to the cohort keys).
+ *
  * @lore Confidence correctness over raw SQL: Drizzle's composite-key IN
  * support varies; we filter in-app rather than risk adapter quirks. The
  * outer GROUP BY runs server-side; the subset-of-batch filter happens in JS.
  */
 export function buildAttentionContext(
 	db: HyperIdleDb,
-	items: readonly KnowledgeItem[],
+	items: readonly KnowledgeItemWithFabric[],
 	now?: number,
 ): AttentionScoringContext {
 	const nowMs = now ?? Date.now();
@@ -211,8 +238,10 @@ export function buildAttentionContext(
 	const neededCohortKeys = new Set<string>();
 	const neededCrossScopeKeys = new Set<string>();
 	for (const it of items) {
-		neededCohortKeys.add(cohortKey(it.layer, it.scopeId, it.topic, it.kind));
-		neededCrossScopeKeys.add(crossScopeKey(it.layer, it.topic, it.kind));
+		neededCohortKeys.add(
+			cohortKey(it.layer ?? null, it.scopeId ?? null, it.topic, it.kind ?? null),
+		);
+		neededCrossScopeKeys.add(crossScopeKey(it.layer ?? null, it.topic, it.kind ?? null));
 	}
 
 	// 1) Open conflicts
@@ -223,25 +252,37 @@ export function buildAttentionContext(
 		.all();
 	const conflictedIds = new Set<string>(conflictRows.map((r) => r.itemId));
 
-	// 2) Cohort sizes — fetch all non-archived knowledge_items and aggregate in JS.
-	//    For 1000 items the table itself is bounded and the GROUP BY would need
-	//    composite tuple-IN; we stream rows matching the layers we care about.
-	const distinctLayers = new Set<string>(items.map((i) => i.layer));
-	const cohortRows = db
-		.select({
-			layer: knowledgeItems.layer,
-			scopeId: knowledgeItems.scopeId,
-			topic: knowledgeItems.topic,
-			kind: knowledgeItems.kind,
-		})
-		.from(knowledgeItems)
-		.where(
-			and(
-				ne(knowledgeItems.status, "archived"),
-				inArray(knowledgeItems.layer, Array.from(distinctLayers)),
-			),
-		)
-		.all();
+	// 2) Cohort sizes — JOIN with strategy fabric to get layer/kind/scopeId.
+	//    @lore O2: strategy fields (layer, kind, scopeId) moved to
+	//    knowledgeStrategyFabric. We LEFT JOIN so kernel-only items (no fabric
+	//    row) still appear in the result with null strategy fields.
+	const distinctLayers = new Set<string>(
+		items.map((i) => i.layer).filter((l): l is string => l != null),
+	);
+
+	// Only query if we have layers to filter on; otherwise cohort counts are 0.
+	const cohortRows =
+		distinctLayers.size > 0
+			? db
+					.select({
+						layer: knowledgeStrategyFabric.layer,
+						scopeId: knowledgeStrategyFabric.scopeId,
+						topic: knowledgeItems.topic,
+						kind: knowledgeStrategyFabric.kind,
+					})
+					.from(knowledgeItems)
+					.innerJoin(
+						knowledgeStrategyFabric,
+						eq(knowledgeStrategyFabric.knowledgeItemId, knowledgeItems.id),
+					)
+					.where(
+						and(
+							ne(knowledgeItems.status, "archived"),
+							inArray(knowledgeStrategyFabric.layer, Array.from(distinctLayers)),
+						),
+					)
+					.all()
+			: [];
 
 	const cohortSizeByKey = new Map<string, number>();
 	const crossScopeSetsByKey = new Map<string, Set<string>>();
