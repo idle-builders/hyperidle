@@ -1,7 +1,7 @@
 import { items, knowledgeItems, knowledgeStrategyFabric } from "@hyperidle/db";
+import { buildAttentionService } from "@hyperidle/fabric";
 import { eq } from "drizzle-orm";
 import z from "zod";
-import { buildAttentionService } from "../services/attention-service.js";
 import type { ToolContext, ToolDefinition } from "./tool-registry.js";
 import { err, ok, type ToolResult } from "./tool-result.js";
 

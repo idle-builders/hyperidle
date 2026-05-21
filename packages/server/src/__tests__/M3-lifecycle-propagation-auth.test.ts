@@ -17,10 +17,10 @@ import {
 	teams,
 	threads,
 } from "@hyperidle/db";
+import { registerLifecyclePropagation } from "@hyperidle/fabric";
 import { EventBus } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { registerLifecyclePropagation } from "../services/lifecycle-propagation.js";
 
 const SYSTEM_PROPAGATION_ID = "system:propagation";
 

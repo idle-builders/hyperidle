@@ -39,7 +39,11 @@ import {
 	teams,
 	threads,
 } from "@hyperidle/db";
-import { processWriteback } from "@hyperidle/fabric";
+import {
+	clearDeduplicationCache,
+	processWriteback,
+	registerSessionReviewCreator,
+} from "@hyperidle/fabric";
 import {
 	type CostCapBreachedEvent,
 	CostCapExceededError,
@@ -56,7 +60,6 @@ import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { LocalWorkspaceAdapter } from "../harness/local-workspace-adapter.js";
 import type { WorkspaceAdapter } from "../harness/workspace-adapter.js";
-import { clearDeduplicationCache } from "../services/cost-cap.js";
 // Importing from a not-yet-written module — RED phase. The green phase will
 // create this file; until then every test in this suite fails at import time.
 import {
@@ -65,7 +68,6 @@ import {
 	type ProvisionSessionResult,
 	provisionSession,
 } from "../services/session-provisioning.js";
-import { registerSessionReviewCreator } from "../services/session-review-creator.js";
 
 // --- Scripted mock harness ---------------------------------------------------
 

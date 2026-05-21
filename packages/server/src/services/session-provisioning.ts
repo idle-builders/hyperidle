@@ -2,9 +2,11 @@ import { randomUUID } from "node:crypto";
 import * as path from "node:path";
 import { agents, type HyperIdleDb, sessions, tasks } from "@hyperidle/db";
 import {
+	checkCostCap,
 	type FileWatcher,
 	type FileWatcherConfig,
 	materialize,
+	recordCostAndCheck,
 	startWatcher,
 } from "@hyperidle/fabric";
 import {
@@ -23,7 +25,6 @@ import {
 import { and, eq, sql } from "drizzle-orm";
 import type { WorkspaceAdapter, WorkspaceHandle } from "../harness/workspace-adapter.js";
 import { buildToolRegistry, type ToolContext, toolsForRole } from "../skill-tools/tool-registry.js";
-import { checkCostCap, recordCostAndCheck } from "./cost-cap.js";
 import { summarizeToolArgs } from "./observability/dispatcher.js";
 import { crashSession, endSession, type SessionContext } from "./session-lifecycle.js";
 import type { StateTransitionAuditEntry, TaskAuditEntry } from "./task-audit.js";

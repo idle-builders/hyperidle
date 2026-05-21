@@ -8,8 +8,6 @@ import {
 	tasks,
 	teams,
 } from "@hyperidle/db";
-import { EventBus } from "@hyperidle/shared";
-import { beforeEach, describe, expect, it } from "vitest";
 // @lore These exports do not yet exist on cost-cap.ts as of I3 red phase.
 // The plan §3.7 specifies adding `releaseSessionDedup(sessionId)` and a
 // test-only `getDedupCacheSize()` accessor (or a similar inspection hook).
@@ -19,7 +17,9 @@ import {
 	getDedupCacheSize,
 	recordCostAndCheck,
 	releaseSessionDedup,
-} from "../services/cost-cap.js";
+} from "@hyperidle/fabric";
+import { EventBus } from "@hyperidle/shared";
+import { beforeEach, describe, expect, it } from "vitest";
 
 /**
  * I3 — cost-cap dedup memory bound acceptance tests.

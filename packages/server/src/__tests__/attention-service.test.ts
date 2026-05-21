@@ -7,12 +7,15 @@ import {
 	knowledgeItems,
 	knowledgeStrategyFabric,
 } from "@hyperidle/db";
+import {
+	attentionReviewReasoningMarker,
+	buildAttentionService,
+	MAX_RECOMPUTE_BATCH,
+} from "@hyperidle/fabric";
 import type { ItemCreatedEvent, KnowledgeUpdatedEvent } from "@hyperidle/shared";
 import { EventBus } from "@hyperidle/shared";
 import { eq, like } from "drizzle-orm";
 import { beforeEach, describe, expect, it } from "vitest";
-import { buildAttentionService, MAX_RECOMPUTE_BATCH } from "../services/attention-service.js";
-import { attentionReviewReasoningMarker } from "../services/review-item-factory.js";
 
 const NOW = "2026-04-18T00:00:00.000Z";
 const NOW_MS = new Date(NOW).getTime();

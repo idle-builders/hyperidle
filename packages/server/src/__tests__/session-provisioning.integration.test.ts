@@ -23,12 +23,12 @@ import {
 	tasks,
 	teams,
 } from "@hyperidle/db";
+import { clearDeduplicationCache } from "@hyperidle/fabric";
 import { EventBus } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { ClaudeAgentSdkAdapter } from "../harness/claude-agent-sdk-adapter.js";
 import { LocalWorkspaceAdapter } from "../harness/local-workspace-adapter.js";
-import { clearDeduplicationCache } from "../services/cost-cap.js";
 // Imported from a not-yet-written module. Until the green phase creates
 // session-provisioning.ts this suite fails with a module-not-found error.
 import { type ProvisionSessionDeps, provisionSession } from "../services/session-provisioning.js";

@@ -8,8 +8,8 @@ import {
 	teams,
 	threads,
 } from "@hyperidle/db";
+import { getDailyDigest } from "@hyperidle/fabric";
 import { beforeEach, describe, expect, it } from "vitest";
-import { getDailyDigest } from "../services/daily-digest.js";
 
 describe("Daily Digest (E7)", () => {
 	let db: HyperIdleDb;

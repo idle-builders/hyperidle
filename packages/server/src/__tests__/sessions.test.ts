@@ -7,15 +7,16 @@ import {
 	tasks,
 	teams,
 } from "@hyperidle/db";
+import {
+	bootstrapFabric,
+	clearDeduplicationCache,
+	getDedupCacheSize,
+	recordCostAndCheck,
+} from "@hyperidle/fabric";
 import { type DomainEvent, EventBus } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
 import type { Hono } from "hono";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import {
-	clearDeduplicationCache,
-	getDedupCacheSize,
-	recordCostAndCheck,
-} from "../services/cost-cap.js";
 import { createTestApp } from "../test-utils.js";
 
 const TEST_API_KEY = "test-key-sessions";
@@ -36,7 +37,10 @@ describe("Session Endpoints (E6)", () => {
 		// I3 review C1 / arch H-2: cost-cap dedup map is module-level state.
 		// Reset before each test to avoid bleed between Vitest runs.
 		clearDeduplicationCache();
-		app = createTestApp({ db, eventBus });
+		// @lore O3: strategyBootstrap is required for cost-cap dedup releaser to
+		// fire on session_ended. Before O3, app.ts hardwired all 7 register* calls
+		// unconditionally; now they are injected via strategyBootstrap.
+		app = createTestApp({ db, eventBus, strategyBootstrap: bootstrapFabric });
 
 		// Seed required data
 		db.insert(products)

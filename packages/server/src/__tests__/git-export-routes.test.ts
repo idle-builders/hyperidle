@@ -9,6 +9,7 @@
  */
 
 import { createTestDb, factorySettings, type HyperIdleDb, knowledgeItems } from "@hyperidle/db";
+import { type FsAdapter, type GitRunner, resetExportMutexes } from "@hyperidle/fabric";
 import type { ApiErrorResponse } from "@hyperidle/shared";
 import { API_ERROR_CODES } from "@hyperidle/shared";
 import { Hono } from "hono";
@@ -16,8 +17,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { authMiddleware } from "../middleware/auth.js";
 import { errorHandler } from "../middleware/error-handler.js";
 import { createGitExportRoutes } from "../routes/git-export-routes.js";
-import { type FsAdapter, resetExportMutexes } from "../services/git-export.js";
-import type { GitRunner } from "../services/git-export-runner.js";
 
 const TEST_API_KEY = "test-key-git-export";
 const REPO = "/tmp/h1-routes-repo";

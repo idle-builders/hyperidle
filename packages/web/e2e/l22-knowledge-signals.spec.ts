@@ -9,7 +9,7 @@
  *   AC-E5: Click "Relevance" → URL has no sort param (default)
  *   AC-E6: Sort change re-orders list (deterministic with seeded data)
  *
- * Strategy: page.route() mocks the /api/knowledge/L3 and related endpoints.
+ * Strategy: page.route() mocks the /api/knowledge and related endpoints.
  * No real DB or server needed.
  *
  * @lore L22: Sort controls use button group semantics. The architecture-critique
@@ -94,11 +94,11 @@ const LIST_RESPONSE = {
 test.describe("L22 — Knowledge Signals", () => {
 	test.beforeEach(async ({ page }) => {
 		// Mock all knowledge layer requests.
-		// In Playwright, the LAST registered route has highest priority (LIFO).
-		// Register the catch-all first, then the specific L3 route so L3 wins.
-		// @lore L22: Playwright routes are LIFO — last registered matches first.
+		// @lore O3: The Triage view now fetches from /api/knowledge (the general
+		// list endpoint) instead of /api/knowledge/L3. The layer-scoped endpoint
+		// is still mocked as a catch-all to handle any Curated view requests.
 
-		// 1. Catch-all for all non-L3 knowledge layers (lower priority — registered first)
+		// 1. Catch-all for all layer-scoped knowledge requests (lower priority — registered first)
 		await page.route(/\/api\/knowledge\/L[0-9](\?.*)?$/, async (route) => {
 			const urlObj = new URL(route.request().url());
 			const layer = urlObj.pathname.split("/").pop() ?? "L0";
@@ -109,8 +109,8 @@ test.describe("L22 — Knowledge Signals", () => {
 			});
 		});
 
-		// 2. Specific L3 route with mock data (higher priority — registered last)
-		await page.route(/\/api\/knowledge\/L3(\?.*)?$/, async (route) => {
+		// 2. General list endpoint with mock data (used by Triage view after O3)
+		await page.route(/\/api\/knowledge(\?.*)?$/, async (route) => {
 			await route.fulfill({
 				status: 200,
 				contentType: "application/json",

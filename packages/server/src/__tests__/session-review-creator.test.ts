@@ -11,11 +11,11 @@ import {
 	teams,
 	threads,
 } from "@hyperidle/db";
+import { registerSessionReviewCreator } from "@hyperidle/fabric";
 import type { ItemCreatedEvent, SessionEndedEvent } from "@hyperidle/shared";
 import { EventBus } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { registerSessionReviewCreator } from "../services/session-review-creator.js";
 
 describe("registerSessionReviewCreator", () => {
 	let db: HyperIdleDb;

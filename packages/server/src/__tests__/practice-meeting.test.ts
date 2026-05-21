@@ -4,10 +4,10 @@ import {
 	knowledgeItems,
 	knowledgeStrategyFabric,
 } from "@hyperidle/db";
+import { createPracticeMeeting, runPracticeMeetingTurn } from "@hyperidle/fabric";
 import { EventBus, type KnowledgeUpdatedEvent } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
 import { beforeEach, describe, expect, it } from "vitest";
-import { createPracticeMeeting, runPracticeMeetingTurn } from "../services/practice-meeting.js";
 
 const NOW = "2026-04-18T00:00:00.000Z";
 const NOW_MS = new Date(NOW).getTime();

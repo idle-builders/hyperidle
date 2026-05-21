@@ -1,8 +1,8 @@
 import * as crypto from "node:crypto";
 import { agents, type HyperIdleDb, items, messages, sessions, tasks, threads } from "@hyperidle/db";
+import { releaseSessionDedup } from "@hyperidle/fabric";
 import type { DomainEvent, EventBus, TaskState, TaskStateChangedEvent } from "@hyperidle/shared";
 import { and, eq, ne } from "drizzle-orm";
-import { releaseSessionDedup } from "./cost-cap.js";
 import type { SessionContext } from "./session-lifecycle.js";
 import type { HandoffAuditEntry, TaskAuditEntry } from "./task-audit.js";
 import { InvalidTransitionError, VALID_TRANSITIONS } from "./task-state-machine.js";

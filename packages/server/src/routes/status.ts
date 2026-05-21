@@ -1,12 +1,11 @@
 import { agents, factorySettings, type HyperIdleDb, sessions } from "@hyperidle/db";
+import { getDailyDigest, REDACTED } from "@hyperidle/fabric";
 import type { ApiErrorResponse } from "@hyperidle/shared";
 import { API_ERROR_CODES } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
 import { Hono } from "hono";
 import z from "zod";
 import { validateBody } from "../middleware/validate.js";
-import { getDailyDigest } from "../services/daily-digest.js";
-import { REDACTED } from "../services/notifications/config.js";
 
 const updateSettingSchema = z.object({
 	key: z.string().min(1),
