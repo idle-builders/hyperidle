@@ -82,17 +82,15 @@
       "name": "@hyperidle/desktop",
       "version": "0.0.1",
       "dependencies": {
-        "@hyperidle/db": "workspace:*",
-        "@hyperidle/server": "workspace:*",
         "better-sqlite3": "^12.9.0",
       },
       "devDependencies": {
+        "@electron/rebuild": "^4.0.4",
+        "@hyperidle/db": "workspace:*",
+        "@hyperidle/server": "workspace:*",
+        "electron": "^36.0.0",
         "esbuild": "^0.25.0",
         "vitest": "*",
-      },
-      "optionalDependencies": {
-        "@electron/rebuild": "^4.0.4",
-        "electron": "^36.0.0",
       },
     },
     "packages/eslint-plugin-design": {
@@ -152,12 +150,10 @@
         "@hyperidle/shared": "workspace:*",
         "drizzle-orm": "^0.39.0",
         "hono": "^4.7.0",
-        "nodemailer": "^8.0.5",
         "ws": "^8.20.0",
         "zod": "^4.3.6",
       },
       "devDependencies": {
-        "@types/nodemailer": "^8.0.0",
         "@types/smtp-server": "^3.5.13",
         "@types/ws": "^8.18.1",
         "smtp-server": "^3.18.4",
@@ -1879,10 +1875,6 @@
     "@eslint-community/eslint-utils/eslint-visitor-keys": ["eslint-visitor-keys@3.4.3", "", {}, "sha512-wpc+LXeiyiisxPlEkUzU6svyS1frIO3Mgxj1fdy7Pm8Ygzguax2N3Fa/D/ag1WqbOprdI+uY6wMUl8/a2G+iag=="],
 
     "@hyperidle/pipeline/yaml": ["yaml@2.8.3", "", { "bin": { "yaml": "bin.mjs" } }, "sha512-AvbaCLOO2Otw/lW5bmh9d/WEdcDFdQp2Z2ZUH3pX9U2ihyUY0nvLv7J6TrWowklRGPYbB/IuIMfYgxaCPg5Bpg=="],
-
-    "@hyperidle/server/@types/nodemailer": ["@types/nodemailer@8.0.0", "", { "dependencies": { "@types/node": "*" } }, "sha512-fyf8jWULsCo0d0BuoQ75i6IeoHs47qcqxWc7yUdUcV0pOZGjUTTOvwdG1PRXUDqN/8A64yQdQdnA2pZgcdi+cA=="],
-
-    "@hyperidle/server/nodemailer": ["nodemailer@8.0.5", "", {}, "sha512-0PF8Yb1yZuQfQbq+5/pZJrtF6WQcjTd5/S4JOHs9PGFxuTqoB/icwuB44pOdURHJbRKX1PPoJZtY7R4VUoCC8w=="],
 
     "@modelcontextprotocol/sdk/@hono/node-server": ["@hono/node-server@1.19.14", "", { "peerDependencies": { "hono": "^4" } }, "sha512-GwtvgtXxnWsucXvbQXkRgqksiH2Qed37H9xHZocE5sA3N8O8O8/8FA3uclQXxXVzc9XBZuEOMK7+r02FmSpHtw=="],
 

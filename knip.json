@@ -25,7 +25,9 @@
 		},
 		"packages/fabric": {},
 		"packages/api-contract": {},
-		"packages/server": {},
+		"packages/server": {
+			"ignoreDependencies": ["ws", "@types/ws"]
+		},
 		"packages/design-system": {
 			"entry": [
 				"src/**/*.stories.tsx",
@@ -55,7 +57,7 @@
 		"packages/desktop": {
 			"entry": ["src/preload.ts", "scripts/bundle.ts"],
 			"ignoreBinaries": ["electron", "electron-builder"],
-			"ignoreDependencies": ["better-sqlite3"]
+			"ignoreDependencies": ["better-sqlite3", "@electron/rebuild"]
 		},
 		"packages/eslint-plugin-design": {},
 		"scripts": {
