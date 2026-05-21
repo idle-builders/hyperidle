@@ -1,40 +1,62 @@
 import {
 	createTestDb,
 	type HyperIdleDb,
-	type KnowledgeItem,
 	knowledgeConflicts,
 	knowledgeEditLog,
 	knowledgeItems,
+	knowledgeStrategyFabric,
 } from "@hyperidle/db";
 import { beforeEach, describe, expect, it } from "vitest";
 import { buildAttentionContext, cohortKey, crossScopeKey } from "../attention-scoring.js";
+import type { KnowledgeItemWithFabric } from "../knowledge-repository.js";
 
 const NOW = new Date("2026-04-18T00:00:00.000Z").getTime();
 
+/**
+ * Seed a knowledge item + its strategy fabric row.
+ * @lore O2: kernel/strategy separation. Inserts into both tables.
+ */
 function seedItem(
 	db: HyperIdleDb,
-	overrides: Partial<KnowledgeItem> & { id: string },
-): KnowledgeItem {
-	const row: KnowledgeItem = {
+	overrides: Partial<KnowledgeItemWithFabric> & { id: string },
+): KnowledgeItemWithFabric {
+	const kernelRow = {
 		id: overrides.id,
-		layer: overrides.layer ?? "L3",
-		scopeId: overrides.scopeId ?? null,
-		kind: overrides.kind ?? "pattern",
 		topic: overrides.topic ?? null,
 		title: overrides.title ?? "Seed",
 		body: overrides.body ?? "Body",
 		format: overrides.format ?? "markdown",
 		status: overrides.status ?? "active",
-		attentionScore: overrides.attentionScore ?? null,
-		confidence: overrides.confidence ?? null,
 		version: overrides.version ?? 1,
 		updatedBy: overrides.updatedBy ?? "agent-seed",
 		createdAt: overrides.createdAt ?? "2026-04-18T00:00:00.000Z",
 		updatedAt: overrides.updatedAt ?? "2026-04-18T00:00:00.000Z",
+	};
+	db.insert(knowledgeItems).values(kernelRow).run();
+
+	// Insert fabric row for strategy fields
+	db.insert(knowledgeStrategyFabric)
+		.values({
+			id: `ksf-${overrides.id}`,
+			knowledgeItemId: overrides.id,
+			layer: overrides.layer ?? "L3",
+			scopeId: overrides.scopeId ?? null,
+			kind: overrides.kind ?? "pattern",
+			attentionScore: overrides.attentionScore != null ? String(overrides.attentionScore) : null,
+			confidence: overrides.confidence != null ? String(overrides.confidence) : null,
+			meta: overrides.meta ?? null,
+		})
+		.run();
+
+	return {
+		...kernelRow,
+		layer: overrides.layer ?? "L3",
+		scopeId: overrides.scopeId ?? null,
+		kind: overrides.kind ?? "pattern",
+		attentionScore: overrides.attentionScore != null ? String(overrides.attentionScore) : null,
+		confidence: overrides.confidence != null ? String(overrides.confidence) : null,
 		meta: overrides.meta ?? null,
 	};
-	db.insert(knowledgeItems).values(row).run();
-	return row;
 }
 
 describe("buildAttentionContext", () => {

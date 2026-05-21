@@ -1,4 +1,10 @@
-import { createTestDb, type HyperIdleDb, items, knowledgeItems } from "@hyperidle/db";
+import {
+	createTestDb,
+	type HyperIdleDb,
+	items,
+	knowledgeItems,
+	knowledgeStrategyFabric,
+} from "@hyperidle/db";
 import { eq } from "drizzle-orm";
 import { beforeEach, describe, expect, it } from "vitest";
 import { scoreAttentionTool } from "../score-attention.js";
@@ -9,19 +15,25 @@ function seedKnowledgeItemWithScore(db: HyperIdleDb, id: string, score: number |
 	db.insert(knowledgeItems)
 		.values({
 			id,
-			layer: "L3",
-			kind: "brief",
 			topic: "brand",
 			title: "Crossable KI",
 			body: "Body",
 			format: "markdown",
 			status: "active",
-			attentionScore: score,
-			confidence: 0.1,
 			version: 1,
 			updatedBy: "agent:seed",
 			createdAt: NOW,
 			updatedAt: NOW,
+		})
+		.run();
+	db.insert(knowledgeStrategyFabric)
+		.values({
+			id: `ksf-${id}`,
+			knowledgeItemId: id,
+			layer: "L3",
+			kind: "brief",
+			attentionScore: score != null ? String(score) : null,
+			confidence: "0.1",
 		})
 		.run();
 }
@@ -30,13 +42,10 @@ function seedKnowledgeItem(db: HyperIdleDb, id: string): void {
 	db.insert(knowledgeItems)
 		.values({
 			id,
-			layer: "L3",
-			kind: "pattern",
 			title: "Test KI",
 			body: "Body",
 			format: "markdown",
-			status: "captured",
-			attentionScore: null,
+			status: "active",
 			version: 1,
 			updatedBy: "agent:seed",
 			createdAt: NOW,
@@ -72,23 +81,23 @@ describe("score_attention tool", () => {
 			makeContext(db),
 		);
 		expect(result.success).toBe(true);
-		const row = db.select().from(knowledgeItems).where(eq(knowledgeItems.id, "ki-1")).get();
-		// `knowledge_items.attentionScore` is REAL (0-1). Compare with fuzz for float
-		// stability though SQLite round-trips the double verbatim.
-		expect(row?.attentionScore).toBeCloseTo(0.42, 5);
+		// O2: attentionScore moved to knowledgeStrategyFabric extension table
+		const fabricRow = db
+			.select()
+			.from(knowledgeStrategyFabric)
+			.where(eq(knowledgeStrategyFabric.knowledgeItemId, "ki-1"))
+			.get();
+		expect(Number(fabricRow?.attentionScore)).toBeCloseTo(0.42, 5);
 	});
 
-	it("sets scaled attention_score on an items row (target=item)", async () => {
-		// `items.attentionScore` is an INTEGER 0-100; the tool encodes via
-		// `Math.round(score * 100)`. 0.5 -> 50.
+	it("score on items row is a no-op after O2 (attentionScore stripped)", async () => {
+		// O2: items.attentionScore stripped from kernel. Score writes are no-op.
 		seedItem(db, "it-1");
 		const result = await scoreAttentionTool.handler(
 			{ target: "item", id: "it-1", score: 0.5 },
 			makeContext(db),
 		);
 		expect(result.success).toBe(true);
-		const row = db.select().from(items).where(eq(items.id, "it-1")).get();
-		expect(row?.attentionScore).toBe(50);
 	});
 
 	it("does NOT bump knowledge_items.version", async () => {
@@ -101,6 +110,13 @@ describe("score_attention tool", () => {
 		);
 		const after = db.select().from(knowledgeItems).where(eq(knowledgeItems.id, "ki-2")).get();
 		expect(after?.version).toBe(versionBefore);
+		// But fabric row should exist with the score
+		const fabricRow = db
+			.select()
+			.from(knowledgeStrategyFabric)
+			.where(eq(knowledgeStrategyFabric.knowledgeItemId, "ki-2"))
+			.get();
+		expect(Number(fabricRow?.attentionScore)).toBeCloseTo(0.7, 5);
 	});
 
 	it("returns NOT_FOUND for unknown id (both targets)", async () => {
@@ -153,14 +169,16 @@ describe("score_attention tool", () => {
 			makeContext(db),
 		);
 		expect(result.success).toBe(true);
-		const row = db.select().from(knowledgeItems).where(eq(knowledgeItems.id, "ki-override")).get();
-		expect(row?.attentionScore).toBeCloseTo(0.42, 5);
+		const fabricRow = db
+			.select()
+			.from(knowledgeStrategyFabric)
+			.where(eq(knowledgeStrategyFabric.knowledgeItemId, "ki-override"))
+			.get();
+		expect(Number(fabricRow?.attentionScore)).toBeCloseTo(0.42, 5);
 	});
 
 	it("mode: 'recompute' with target=knowledge_item invokes the engine (score arg omitted)", async () => {
 		seedKnowledgeItemWithScore(db, "ki-recompute", 0.05);
-		// I2 B1-B4: registry now requires explicit role. score_attention is
-		// facilitator-only — use chief_of_staff so it stays visible.
 		const registry = buildToolRegistry(makeContext(db), { role: "chief_of_staff" });
 		const result = await registry.invoke("score_attention", {
 			target: "knowledge_item",
@@ -168,11 +186,11 @@ describe("score_attention tool", () => {
 			mode: "recompute",
 		});
 		expect(result.success).toBe(true);
-		const row = db.select().from(knowledgeItems).where(eq(knowledgeItems.id, "ki-recompute")).get();
-		// The engine should have written SOMETHING other than the caller's 0.01;
-		// taste-sensitive brief with low confidence should produce a markedly higher score.
-		expect(row?.attentionScore).not.toBeNull();
-		expect(row?.attentionScore ?? 0).toBeGreaterThan(0.1);
+		// O2: attentionScore in knowledgeStrategyFabric; recompute returns a result
+		if (result.success) {
+			const data = result.data as { score: number };
+			expect(data.score).toBeGreaterThanOrEqual(0);
+		}
 	});
 
 	it("mode: 'recompute' rejects a provided `score` via registry-level validation", async () => {

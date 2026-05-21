@@ -1,9 +1,8 @@
 /**
- * L22 red phase — integration tests for signals on GET /:layer response.
+ * L22 integration tests for signals on GET / response.
  *
- * These tests fail until:
- * 1. packages/db schema has knowledge_access_log + relevance columns (T1)
- * 2. packages/server/src/routes/knowledge.ts enriches list response (T7)
+ * @lore O2: Knowledge routes rewritten — layer-based URLs removed.
+ * GET /api/knowledge returns all items with computed signals from access log.
  */
 import { createTestDb, type HyperIdleDb, knowledgeItems } from "@hyperidle/db";
 import { EventBus } from "@hyperidle/shared";
@@ -34,13 +33,11 @@ describe("GET /api/knowledge/:layer — signals in response (L22 AC-5)", () => {
 		vi.unstubAllEnvs();
 	});
 
-	async function createItem(id: string, layer = "L3"): Promise<void> {
+	// @lore O2: knowledgeItems no longer has layer/scopeId/kind/meta columns.
+	async function createItem(id: string, _layer = "L3"): Promise<void> {
 		db.insert(knowledgeItems)
 			.values({
 				id,
-				layer,
-				scopeId: null,
-				kind: "pattern",
 				topic: "testing",
 				title: `Item ${id}`,
 				body: "Test body",
@@ -50,7 +47,6 @@ describe("GET /api/knowledge/:layer — signals in response (L22 AC-5)", () => {
 				updatedBy: "human",
 				createdAt: NOW_ISO,
 				updatedAt: NOW_ISO,
-				meta: null,
 			})
 			.run();
 	}
@@ -69,20 +65,18 @@ describe("GET /api/knowledge/:layer — signals in response (L22 AC-5)", () => {
 			.run();
 	}
 
-	// GET /:layer returns items with signals field
+	// GET / returns items with signals field
 	it("GET /api/knowledge/:layer response items include a 'signals' field", async () => {
 		await createItem("item-l22-1", "L3");
 
-		const res = await app.request("/api/knowledge/L3", { headers: authHeaders() });
+		// @lore O2: route now is GET /api/knowledge (no layer segment).
+		const res = await app.request("/api/knowledge", { headers: authHeaders() });
 		expect(res.status).toBe(200);
 		const body = (await res.json()) as {
-			layer: string;
 			items?: unknown[];
-			groups?: Record<string, unknown>;
 		};
 
-		// The response must include either a flat 'items' array or signals on grouped items
-		// Per architecture: return an 'items' flat array alongside 'groups'
+		// The response must include a flat 'items' array
 		expect(body.items).toBeDefined();
 		expect(Array.isArray(body.items)).toBe(true);
 		expect((body.items as unknown[]).length).toBeGreaterThan(0);
@@ -93,7 +87,7 @@ describe("GET /api/knowledge/:layer — signals in response (L22 AC-5)", () => {
 		await createItem("item-l22-2", "L3");
 		await insertAccessLog("item-l22-2", "2026-05-05T00:00:00.000Z");
 
-		const res = await app.request("/api/knowledge/L3", { headers: authHeaders() });
+		const res = await app.request("/api/knowledge", { headers: authHeaders() });
 		const body = (await res.json()) as {
 			items: Array<{ id: string; signals: Record<string, unknown> }>;
 		};
@@ -116,7 +110,7 @@ describe("GET /api/knowledge/:layer — signals in response (L22 AC-5)", () => {
 		await createItem("item-l22-3", "L3");
 		// No access log for this item
 
-		const res = await app.request("/api/knowledge/L3", { headers: authHeaders() });
+		const res = await app.request("/api/knowledge", { headers: authHeaders() });
 		const body = (await res.json()) as {
 			items: Array<{ id: string; signals: Record<string, unknown> }>;
 		};
@@ -138,7 +132,7 @@ describe("GET /api/knowledge/:layer — signals in response (L22 AC-5)", () => {
 		await createItem("item-l22-4", "L3");
 		await insertAccessLog("item-l22-4", "2026-05-05T00:00:00.000Z");
 
-		const res = await app.request("/api/knowledge/L3", { headers: authHeaders() });
+		const res = await app.request("/api/knowledge", { headers: authHeaders() });
 		const body = (await res.json()) as {
 			items: Array<{ id: string; signals: Record<string, unknown> }>;
 		};
@@ -153,7 +147,7 @@ describe("GET /api/knowledge/:layer — signals in response (L22 AC-5)", () => {
 		await insertAccessLog("item-l22-5", "2026-05-05T00:00:00.000Z");
 		await insertAccessLog("item-l22-5", "2026-05-04T00:00:00.000Z");
 
-		const res = await app.request("/api/knowledge/L3", { headers: authHeaders() });
+		const res = await app.request("/api/knowledge", { headers: authHeaders() });
 		const body = (await res.json()) as {
 			items: Array<{ id: string; signals: Record<string, unknown> }>;
 		};
@@ -162,10 +156,11 @@ describe("GET /api/knowledge/:layer — signals in response (L22 AC-5)", () => {
 		expect(item?.signals.accessCount30d).toBe(2);
 	});
 
-	// Empty layer still returns items array
+	// Empty DB returns empty items array
 	it("empty layer returns empty items array with signals field present", async () => {
-		const res = await app.request("/api/knowledge/L4", { headers: authHeaders() });
-		const body = (await res.json()) as { layer: string; items: unknown[] };
+		// @lore O2: No layer filtering — when DB is empty, all items (empty).
+		const res = await app.request("/api/knowledge", { headers: authHeaders() });
+		const body = (await res.json()) as { items: unknown[] };
 		expect(body.items).toBeDefined();
 		expect(Array.isArray(body.items)).toBe(true);
 		expect(body.items.length).toBe(0);

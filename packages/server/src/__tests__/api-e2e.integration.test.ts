@@ -405,21 +405,22 @@ describe("E2E API Integration (I5)", () => {
 	// -------------------------------------------------------
 	// 6. Knowledge
 	// -------------------------------------------------------
+	// @lore O2: Knowledge routes rewritten. Layer-based URL prefix removed.
+	// New URL shape: POST /api/knowledge (create), GET /api/knowledge (list),
+	// GET /api/knowledge/:id (get), GET /api/knowledge/search?q=... (search).
 	describe("Knowledge", () => {
-		it("GET /api/knowledge returns resource descriptor", async () => {
+		it("GET /api/knowledge returns items list", async () => {
 			const res = await app.request("/api/knowledge", { headers: auth() });
 			expect(res.status).toBe(200);
-			const body = (await res.json()) as { ok: boolean; resource: string };
-			expect(body.ok).toBe(true);
-			expect(body.resource).toBe("knowledge");
+			const body = (await res.json()) as { items: unknown[] };
+			expect(Array.isArray(body.items)).toBe(true);
 		});
 
-		it("POST /api/knowledge/L0 creates a knowledge item", async () => {
-			const res = await app.request("/api/knowledge/L0", {
+		it("POST /api/knowledge creates a knowledge item (O2: no layer prefix)", async () => {
+			const res = await app.request("/api/knowledge", {
 				method: "POST",
 				headers: auth(),
 				body: JSON.stringify({
-					kind: "decision",
 					title: "Test decision",
 					body: "We decided X",
 					format: "markdown",
@@ -427,33 +428,37 @@ describe("E2E API Integration (I5)", () => {
 				}),
 			});
 			expect(res.status).toBe(201);
-			const body = (await res.json()) as { id: string; layer: string; version: number };
-			expect(body.layer).toBe("L0");
+			const body = (await res.json()) as { id: string; version: number };
+			expect(body.id).toBeDefined();
 			expect(body.version).toBe(1);
 		});
 
-		it("GET /api/knowledge/L2 returns items grouped by topic and kind", async () => {
-			const res = await app.request("/api/knowledge/L2", { headers: auth() });
+		it("GET /api/knowledge/:id returns item by id (O2: no layer prefix)", async () => {
+			// Create an item first
+			const createRes = await app.request("/api/knowledge", {
+				method: "POST",
+				headers: auth(),
+				body: JSON.stringify({
+					title: "Get-by-id test",
+					body: "Content",
+					format: "markdown",
+					updatedBy: "agent-1",
+				}),
+			});
+			const created = (await createRes.json()) as { id: string };
+			const res = await app.request(`/api/knowledge/${created.id}`, { headers: auth() });
 			expect(res.status).toBe(200);
-			const body = (await res.json()) as { layer: string; groups: Record<string, unknown> };
-			expect(body.layer).toBe("L2");
-			expect(body.groups).toBeDefined();
-		});
-
-		it("GET /api/knowledge/invalid_layer returns 400", async () => {
-			const res = await app.request("/api/knowledge/invalid_layer", { headers: auth() });
-			expect(res.status).toBe(400);
-			const body = (await res.json()) as { code: string };
-			expect(body.code).toBe("VALIDATION_ERROR");
+			const body = (await res.json()) as { id: string; title: string };
+			expect(body.id).toBe(created.id);
+			expect(body.title).toBe("Get-by-id test");
 		});
 
 		it("GET /api/knowledge/search?q=test returns search results", async () => {
 			// First create a knowledge item so search has something to find
-			await app.request("/api/knowledge/L0", {
+			await app.request("/api/knowledge", {
 				method: "POST",
 				headers: auth(),
 				body: JSON.stringify({
-					kind: "decision",
 					title: "Searchable decision",
 					body: "This is a test item for search",
 					format: "markdown",

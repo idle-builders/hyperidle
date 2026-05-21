@@ -5,9 +5,11 @@ import {
 	knowledgeConflicts,
 	knowledgeEditLog,
 	knowledgeItems,
+	knowledgeStrategyFabric,
 } from "@hyperidle/db";
 import type { EventBus, KnowledgeUpdatedEvent } from "@hyperidle/shared";
 import { and, eq, isNotNull, isNull, lt, ne, sql } from "drizzle-orm";
+import type { KnowledgeItemWithFabric } from "./knowledge-repository.js";
 
 // --- Constants ---
 
@@ -122,16 +124,21 @@ function parseMeta(raw: string | null): ParsedMeta {
  * where `topic = ''`. If a future use-case genuinely wants the merged
  * behavior, add it as an explicit option rather than flipping the
  * default back.
+ *
+ * @lore O2: layer and kind are now in the fabric extension table; the
+ * function accepts KnowledgeItemWithFabric (optional strategy fields).
+ * Items missing a fabric row have layer=null and kind=null, meaning
+ * they form their own degenerate signature group.
  */
-function signatureFor(item: Pick<KnowledgeItem, "layer" | "topic" | "kind">): {
-	layer: string;
+function signatureFor(item: Pick<KnowledgeItemWithFabric, "layer" | "topic" | "kind">): {
+	layer: string | null;
 	topic: string | null;
-	kind: string;
+	kind: string | null;
 } {
 	return {
-		layer: item.layer,
+		layer: item.layer ?? null,
 		topic: item.topic,
-		kind: item.kind,
+		kind: item.kind ?? null,
 	};
 }
 
@@ -159,34 +166,62 @@ function hasOpenConflict(db: HyperIdleDb, itemId: string): boolean {
  * defeat AC2 ("same finding in 5 products → VALIDATED").
  */
 export function checkAutoPromotion(db: HyperIdleDb, knowledgeItemId: string): AutoPromotionResult {
-	const subject = db
-		.select()
+	// @lore O2: strategy fields (layer, kind, scopeId) are in knowledgeStrategyFabric.
+	// We LEFT JOIN to get both kernel and fabric columns together.
+	const subjectRow = db
+		.select({
+			item: knowledgeItems,
+			fabric: knowledgeStrategyFabric,
+		})
 		.from(knowledgeItems)
+		.leftJoin(
+			knowledgeStrategyFabric,
+			eq(knowledgeStrategyFabric.knowledgeItemId, knowledgeItems.id),
+		)
 		.where(eq(knowledgeItems.id, knowledgeItemId))
 		.get();
-	if (!subject) {
+	if (!subjectRow) {
 		return { shouldPromote: false, reason: "NOT_FOUND", distinctScopes: 0 };
 	}
+
+	const subject: KnowledgeItemWithFabric = {
+		...subjectRow.item,
+		layer: subjectRow.fabric?.layer ?? null,
+		scopeId: subjectRow.fabric?.scopeId ?? null,
+		kind: subjectRow.fabric?.kind ?? null,
+		attentionScore: subjectRow.fabric?.attentionScore ?? null,
+		confidence: subjectRow.fabric?.confidence ?? null,
+		meta: subjectRow.fabric?.meta ?? null,
+	};
 
 	const sig = signatureFor(subject);
 
 	// Count distinct scope_id values for non-archived items with matching signature.
 	// Items with NULL scope_id are excluded — they cannot demonstrate
 	// cross-product repetition (which is the whole point of AC2).
+	// @lore O2: JOIN with knowledgeStrategyFabric to filter on layer/kind/scopeId.
 	const row = db
-		.select({ count: sql<number>`COUNT(DISTINCT ${knowledgeItems.scopeId})` })
+		.select({ count: sql<number>`COUNT(DISTINCT ${knowledgeStrategyFabric.scopeId})` })
 		.from(knowledgeItems)
+		.innerJoin(
+			knowledgeStrategyFabric,
+			eq(knowledgeStrategyFabric.knowledgeItemId, knowledgeItems.id),
+		)
 		.where(
 			and(
-				eq(knowledgeItems.layer, sig.layer),
-				eq(knowledgeItems.kind, sig.kind),
+				sig.layer != null
+					? eq(knowledgeStrategyFabric.layer, sig.layer)
+					: isNull(knowledgeStrategyFabric.layer),
+				sig.kind != null
+					? eq(knowledgeStrategyFabric.kind, sig.kind)
+					: isNull(knowledgeStrategyFabric.kind),
 				// Topic matching: NULL and '' are distinct signatures — see
 				// `signatureFor` lore. `eq` with a NULL RHS would yield a SQL
 				// `topic = NULL` which is always false in SQL three-valued
 				// logic, so we branch on `isNull` explicitly.
 				sig.topic === null ? isNull(knowledgeItems.topic) : eq(knowledgeItems.topic, sig.topic),
 				ne(knowledgeItems.status, "archived"),
-				isNotNull(knowledgeItems.scopeId),
+				isNotNull(knowledgeStrategyFabric.scopeId),
 			),
 		)
 		.get();
@@ -230,51 +265,71 @@ export function detectLayerContradiction(
 	db: HyperIdleDb,
 	knowledgeItemId: string,
 ): ContradictionResult {
-	const subject = db
-		.select()
+	// @lore O2: layer, kind, meta are in knowledgeStrategyFabric. LEFT JOIN to get them.
+	const subjectRow = db
+		.select({
+			item: knowledgeItems,
+			fabric: knowledgeStrategyFabric,
+		})
 		.from(knowledgeItems)
+		.leftJoin(
+			knowledgeStrategyFabric,
+			eq(knowledgeStrategyFabric.knowledgeItemId, knowledgeItems.id),
+		)
 		.where(eq(knowledgeItems.id, knowledgeItemId))
 		.get();
-	if (!subject) {
+	if (!subjectRow) {
 		return { contradicts: false };
 	}
+
+	const subjectLayer = subjectRow.fabric?.layer ?? null;
+	const subjectMeta = subjectRow.fabric?.meta ?? null;
 
 	// The rule applies only to L3 proposals being checked against L4 principles.
-	if (subject.layer !== "L3") {
+	if (subjectLayer !== "L3") {
 		return { contradicts: false };
 	}
-	if (!subject.topic) {
+	if (!subjectRow.item.topic) {
 		return { contradicts: false };
 	}
 
-	const subjectMeta = parseMeta(subject.meta);
-	const subjectClaims = subjectMeta.claims ?? [];
+	const subjectMetaParsed = parseMeta(subjectMeta);
+	const subjectClaims = subjectMetaParsed.claims ?? [];
+	const subjectTopic = subjectRow.item.topic;
 
 	// Find L4 principles on the same topic.
-	const principles = db
-		.select()
+	// @lore O2: JOIN with fabric to filter by layer and kind from the extension table.
+	const principleRows = db
+		.select({
+			item: knowledgeItems,
+			fabric: knowledgeStrategyFabric,
+		})
 		.from(knowledgeItems)
+		.innerJoin(
+			knowledgeStrategyFabric,
+			eq(knowledgeStrategyFabric.knowledgeItemId, knowledgeItems.id),
+		)
 		.where(
 			and(
-				eq(knowledgeItems.layer, "L4"),
-				eq(knowledgeItems.kind, "principle"),
-				eq(knowledgeItems.topic, subject.topic),
+				eq(knowledgeStrategyFabric.layer, "L4"),
+				eq(knowledgeStrategyFabric.kind, "principle"),
+				eq(knowledgeItems.topic, subjectTopic),
 				ne(knowledgeItems.status, "archived"),
 			),
 		)
 		.all();
 
-	for (const principle of principles) {
-		const pMeta = parseMeta(principle.meta);
+	for (const principleRow of principleRows) {
+		const pMeta = parseMeta(principleRow.fabric?.meta ?? null);
 		const forbids = pMeta.forbids ?? [];
 		if (forbids.length === 0) continue;
 
 		// Clause 1a: forbids contains the L3 item's topic
-		if (subject.topic && forbids.includes(subject.topic)) {
+		if (forbids.includes(subjectTopic)) {
 			return {
 				contradicts: true,
-				withItemId: principle.id,
-				reason: `L4 principle ${principle.id}.meta.forbids includes topic '${subject.topic}'`,
+				withItemId: principleRow.item.id,
+				reason: `L4 principle ${principleRow.item.id}.meta.forbids includes topic '${subjectTopic}'`,
 			};
 		}
 
@@ -283,8 +338,8 @@ export function detectLayerContradiction(
 			if (forbids.includes(claim)) {
 				return {
 					contradicts: true,
-					withItemId: principle.id,
-					reason: `L4 principle ${principle.id}.meta.forbids overlaps L3 claim '${claim}'`,
+					withItemId: principleRow.item.id,
+					reason: `L4 principle ${principleRow.item.id}.meta.forbids overlaps L3 claim '${claim}'`,
 				};
 			}
 		}

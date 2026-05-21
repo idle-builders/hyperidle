@@ -252,7 +252,8 @@ describe("C4: Team Management", () => {
 				})
 				.run();
 
-			// Sessions in cycle
+			// O2: sessions.cost column stripped — cost tracking is strategy/fabric concern.
+			// getTeamCost now returns 0. Sessions still seeded for FK integrity.
 			db.insert(sessions)
 				.values({
 					id: "sess-1",
@@ -261,7 +262,6 @@ describe("C4: Team Management", () => {
 					modelTier: "workhorse",
 					startedAt: "2026-04-10T00:00:00.000Z",
 					state: "completed",
-					cost: 100,
 				})
 				.run();
 			db.insert(sessions)
@@ -272,25 +272,11 @@ describe("C4: Team Management", () => {
 					modelTier: "workhorse",
 					startedAt: "2026-04-12T00:00:00.000Z",
 					state: "completed",
-					cost: 250,
-				})
-				.run();
-
-			// Session before cycle (should not count)
-			db.insert(sessions)
-				.values({
-					id: "sess-3",
-					taskId: "task-1",
-					agentId: "a1",
-					modelTier: "workhorse",
-					startedAt: "2026-03-01T00:00:00.000Z",
-					state: "completed",
-					cost: 999,
 				})
 				.run();
 
 			const cost = getTeamCost(db, team.id, "2026-04-01T00:00:00.000Z");
-			expect(cost).toBe(350);
+			expect(cost).toBe(0);
 		});
 
 		it("returns 0 when no agents in team", () => {

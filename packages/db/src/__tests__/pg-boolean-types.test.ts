@@ -7,9 +7,11 @@ import * as pgSchema from "../schema.pg.js";
  *
  * Per AC (TRACK-I.md L161-164):
  *  - Boolean columns (`delegationAllowed`, `humanReview`, `silent`, `active`,
- *    `pinned`, `blocking`, `crossTeam`) use `boolean()` in PG schema.
+ *    `pinned`, `blocking`) use `boolean()` in PG schema.
  *  - The schema-parity test is updated to account for the dialect-level
  *    bool/int divergence.
+ *  - @lore O2: `tasks.crossTeam` stripped from the kernel tasks table as
+ *    part of kernel/strategy separation. Removed from this test.
  *
  * Per plan §3.8 we choose Option A (diverge per-dialect): PG uses native
  * `boolean`, SQLite keeps `integer` (since SQLite has no native bool and the
@@ -27,7 +29,6 @@ const BOOLEAN_COLUMN_LOCATIONS: Array<{
 	{ tableName: "routines", columnName: "silent" },
 	{ tableName: "routines", columnName: "active" },
 	{ tableName: "threads", columnName: "pinned" },
-	{ tableName: "tasks", columnName: "crossTeam" },
 	{ tableName: "items", columnName: "blocking" },
 ];
 

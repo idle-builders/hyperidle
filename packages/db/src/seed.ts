@@ -7,6 +7,7 @@ import {
 	bets,
 	factorySettings,
 	knowledgeItems,
+	knowledgeStrategyFabric,
 	products,
 	routines,
 	tasks,
@@ -146,11 +147,11 @@ export function seed(db: SeedableDb | HyperIdleDb): void {
 		.where(eq(teams.id, "seed-team-1"))
 		.run();
 
+	// @lore O2: kernel/strategy separation. Kernel table only gets identity+content.
+	// Strategy fields (layer, kind) go to knowledgeStrategyFabric extension table.
 	db.insert(knowledgeItems)
 		.values({
 			id: "seed-ki-1",
-			layer: "L4",
-			kind: "principle",
 			title: "Boil the Lake",
 			body: "Solve the full problem, not a subset.",
 			format: "markdown",
@@ -159,6 +160,16 @@ export function seed(db: SeedableDb | HyperIdleDb): void {
 			updatedBy: "seed-agent-cos",
 			createdAt: now,
 			updatedAt: now,
+		})
+		.onConflictDoNothing()
+		.run();
+
+	db.insert(knowledgeStrategyFabric)
+		.values({
+			id: "seed-ksf-1",
+			knowledgeItemId: "seed-ki-1",
+			layer: "L4",
+			kind: "principle",
 		})
 		.onConflictDoNothing()
 		.run();

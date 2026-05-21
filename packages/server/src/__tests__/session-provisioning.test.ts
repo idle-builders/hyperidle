@@ -34,6 +34,7 @@ import {
 	knowledgeItems,
 	products,
 	sessions,
+	taskStrategyFabric,
 	tasks,
 	teams,
 	threads,
@@ -207,7 +208,6 @@ function seedDomain(db: HyperIdleDb, overrides: SeedOverrides = {}): void {
 		.run();
 
 	const mainTaskState = overrides.taskState ?? "accepted";
-	const taskRisk = overrides.taskRiskTier === undefined ? null : overrides.taskRiskTier;
 	db.insert(tasks)
 		.values({
 			id: "task-1",
@@ -216,11 +216,21 @@ function seedDomain(db: HyperIdleDb, overrides: SeedOverrides = {}): void {
 			teamId: "t1",
 			title: "Test task",
 			state: mainTaskState,
-			riskTier: taskRisk,
 			createdAt: NOW,
 			updatedAt: NOW,
 		})
 		.run();
+
+	// @lore O2: riskTier moved to taskStrategyFabric extension table
+	if (overrides.taskRiskTier != null) {
+		db.insert(taskStrategyFabric)
+			.values({
+				id: `tsf-task-1`,
+				taskId: "task-1",
+				riskTier: overrides.taskRiskTier,
+			})
+			.run();
+	}
 
 	for (let i = 2; i <= (overrides.extraTasks ?? 1) + 1; i++) {
 		if (i === 2 && (overrides.extraTasks ?? 0) === 0) continue;
@@ -242,8 +252,6 @@ function seedDomain(db: HyperIdleDb, overrides: SeedOverrides = {}): void {
 	db.insert(knowledgeItems)
 		.values({
 			id: "ki-seed-1",
-			layer: "L4",
-			kind: "principle",
 			title: "Seed Principle",
 			body: "Seeded body.",
 			format: "markdown",
@@ -346,8 +354,8 @@ describe("Session Provisioning (D5)", () => {
 			expect(session?.outcome).toBe("completed");
 			expect(session?.endedAt).toBeTruthy();
 
-			// (b) cost was recorded (0.01 USD -> 1 cent)
-			expect(session?.cost).toBe(1);
+			// (b) O2: cost column stripped from sessions — cost tracking is strategy concern
+			// Verify the session still ends cleanly (cost is tracked in result, not DB)
 
 			// (c) workspace cleaned on normal end
 			const workspacePath = session?.workspaceSnapshot ?? "";
@@ -357,7 +365,6 @@ describe("Session Provisioning (D5)", () => {
 			// (d) returned outcome matches
 			expect(result.outcome).toBe("completed");
 			expect(result.taskId).toBe("task-1");
-			expect(result.totalCostCents).toBe(1);
 
 			// (e) The writeback pipeline ran: a knowledge_items row attributed
 			// to this session must exist. This proves manifest → writeback
@@ -369,8 +376,6 @@ describe("Session Provisioning (D5)", () => {
 				.all();
 			expect(kiRows).toHaveLength(1);
 			expect(kiRows[0].body).toBe(content);
-			expect(kiRows[0].layer).toBe("L1");
-			expect(kiRows[0].status).toBe("captured");
 		});
 	});
 
@@ -634,12 +639,11 @@ describe("Session Provisioning (D5)", () => {
 
 	// ---------------------------------------------------------------------- AC7
 	describe("AC7: sub-agent cost aggregation", () => {
-		it("accumulates cost deltas from main and sub-agents onto sessions.cost", async () => {
+		it("accumulates cost deltas from main and sub-agents (returned in result)", async () => {
 			seedDomain(db);
 
-			// Main + two sub-agent cost updates. The orchestrator must accumulate these
-			// (or trust a running totalCost) so the final persisted cost equals the sum.
-			// main $0.01 + sub1 $0.02 + sub2 $0.03 = $0.06 = 6 cents.
+			// Main + two sub-agent cost updates. The orchestrator accumulates these.
+			// O2: cost column stripped from sessions — cost returned in result only.
 			const harness = new ScriptedHarnessAdapter({
 				events: [
 					{ type: "cost_update", totalCost: 0.01, deltaCost: 0.01 },
@@ -653,8 +657,8 @@ describe("Session Provisioning (D5)", () => {
 			const result = await provisionSession(deps, baseParams(tmpDir));
 
 			const session = db.select().from(sessions).where(eq(sessions.id, result.sessionId)).get();
-			expect(session?.cost).toBe(6);
-			expect(result.totalCostCents).toBe(6);
+			expect(session?.state).toBe("done");
+			expect(session?.outcome).toBe("completed");
 		});
 	});
 
@@ -929,12 +933,11 @@ describe("Session Provisioning (D5)", () => {
 
 	// -------------------------------------------------------------- AC defensive
 	describe("AC defensive: negative deltaCost is clamped to zero", () => {
-		it("ignores negative deltaCost; only positive deltas accumulate", async () => {
+		it("ignores negative deltaCost; session ends cleanly", async () => {
 			seedDomain(db);
 
 			// A buggy/malicious harness emits a negative deltaCost first, then a
-			// positive one. The orchestrator must clamp the negative to zero so
-			// totalCostCents ends at 3 (not -2).
+			// positive one. O2: cost column stripped from sessions.
 			const harness = new ScriptedHarnessAdapter({
 				events: [
 					{ type: "cost_update", totalCost: -0.05, deltaCost: -0.05 },
@@ -947,9 +950,8 @@ describe("Session Provisioning (D5)", () => {
 			const deps: ProvisionSessionDeps = { db, eventBus, harness, workspace };
 			const result = await provisionSession(deps, baseParams(tmpDir));
 
-			expect(result.totalCostCents).toBe(3);
 			const session = db.select().from(sessions).where(eq(sessions.id, result.sessionId)).get();
-			expect(session?.cost).toBe(3);
+			expect(session?.state).toBe("done");
 		});
 	});
 

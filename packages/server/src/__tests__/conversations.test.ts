@@ -109,46 +109,31 @@ describe("Conversations Endpoints (E2)", () => {
 			expect(body.pagination.total).toBe(2);
 		});
 
-		it("sorts by attention_score when requested", async () => {
+		it("sorts by attention_score when requested falls through to recency (O2: attentionScore stripped from items)", async () => {
+			// @lore O2: attentionScore column removed from items table.
+			// ?sort=attention_score falls through to recency sort. Test verifies
+			// the endpoint still returns 200 with threads in some order.
+			const now = Date.now();
 			db.insert(threads)
 				.values({
-					id: "t-low",
+					id: "t-older",
 					hostKind: "task",
 					hostId: "task-1",
 					initiatorId: "agent-1",
 					participants: JSON.stringify(["agent-1"]),
-					lastActiveAt: new Date().toISOString(),
-					createdAt: new Date().toISOString(),
+					lastActiveAt: new Date(now - 10000).toISOString(),
+					createdAt: new Date(now - 10000).toISOString(),
 				})
 				.run();
 			db.insert(threads)
 				.values({
-					id: "t-high",
+					id: "t-newer",
 					hostKind: "task",
 					hostId: "task-1",
 					initiatorId: "agent-1",
 					participants: JSON.stringify(["agent-1"]),
-					lastActiveAt: new Date().toISOString(),
-					createdAt: new Date().toISOString(),
-				})
-				.run();
-
-			db.insert(items)
-				.values({
-					id: "item-low",
-					title: "Low",
-					threadId: "t-low",
-					attentionScore: 10,
-					createdAt: new Date().toISOString(),
-				})
-				.run();
-			db.insert(items)
-				.values({
-					id: "item-high",
-					title: "High",
-					threadId: "t-high",
-					attentionScore: 90,
-					createdAt: new Date().toISOString(),
+					lastActiveAt: new Date(now).toISOString(),
+					createdAt: new Date(now).toISOString(),
 				})
 				.run();
 
@@ -158,11 +143,11 @@ describe("Conversations Endpoints (E2)", () => {
 			expect(res.status).toBe(200);
 
 			const body = (await res.json()) as {
-				threads: Array<{ id: string; maxAttentionScore: number }>;
+				threads: Array<{ id: string }>;
 			};
-			expect(body.threads[0].id).toBe("t-high");
-			expect(body.threads[0].maxAttentionScore).toBe(90);
-			expect(body.threads[1].id).toBe("t-low");
+			// Falls through to recency — newer thread first
+			expect(body.threads[0].id).toBe("t-newer");
+			expect(body.threads[1].id).toBe("t-older");
 		});
 
 		it("paginates correctly", async () => {
@@ -293,10 +278,12 @@ describe("Conversations Endpoints (E2)", () => {
 			});
 			expect(res.status).toBe(201);
 
-			const body = (await res.json()) as { id: string; title: string; view: string };
+			// @lore O2: view and founderRoute fields removed from response (routing is
+			// a strategy concern, not a kernel concern).
+			const body = (await res.json()) as { id: string; title: string; view?: string };
 			expect(body.title).toBe("Test item");
 			expect(body.id).toBeDefined();
-			expect(body.view).toBe("conversations");
+			expect(body.view).toBeUndefined();
 		});
 
 		it("validates required fields (missing title -> 400)", async () => {
@@ -325,7 +312,7 @@ describe("Conversations Endpoints (E2)", () => {
 			expect(emitted[0].kind).toBe("chat");
 		});
 
-		it("includes routing info in response", async () => {
+		it("includes routing info in response (O2: view removed, response is the created item)", async () => {
 			const res = await app.request("/api/conversations/items", {
 				method: "POST",
 				headers: authHeaders(),
@@ -337,8 +324,10 @@ describe("Conversations Endpoints (E2)", () => {
 			});
 			expect(res.status).toBe(201);
 
-			const body = (await res.json()) as { view: string };
-			expect(body.view).toBe("knowledge");
+			// @lore O2: view/founderRoute removed. The response is just the created item row.
+			const body = (await res.json()) as { kind: string; view?: string };
+			expect(body.kind).toBe("knowledge");
+			expect(body.view).toBeUndefined();
 		});
 
 		it("returns 404 for nonexistent threadId", async () => {
@@ -505,8 +494,11 @@ describe("Conversations Endpoints (E2)", () => {
 
 	// --- Founder routing integration ---
 
-	describe("Founder routing integration", () => {
-		it("agent with role 'growth' -> item tagged CEO", async () => {
+	// @lore O2: routeToFounder removed from POST /items handler. The founderRoute
+	// field is no longer returned in the response — routing is a strategy concern,
+	// not a kernel concern. Tests updated to verify items are created without routing.
+	describe("Founder routing integration (O2: founderRoute removed)", () => {
+		it("agent with role 'growth' -> item created without founderRoute field", async () => {
 			db.insert(threads)
 				.values({
 					id: "thread-1",
@@ -539,11 +531,13 @@ describe("Conversations Endpoints (E2)", () => {
 			});
 			expect(res.status).toBe(201);
 
-			const body = (await res.json()) as { founderRoute: string };
-			expect(body.founderRoute).toBe("ceo");
+			const body = (await res.json()) as { founderRoute?: string; sourceAgentId: string };
+			// O2: founderRoute no longer returned
+			expect(body.founderRoute).toBeUndefined();
+			expect(body.sourceAgentId).toBe("agent-growth");
 		});
 
-		it("agent with role 'builder' -> item tagged CPO", async () => {
+		it("agent with role 'builder' -> item created without founderRoute field", async () => {
 			db.insert(threads)
 				.values({
 					id: "thread-1",
@@ -576,8 +570,10 @@ describe("Conversations Endpoints (E2)", () => {
 			});
 			expect(res.status).toBe(201);
 
-			const body = (await res.json()) as { founderRoute: string };
-			expect(body.founderRoute).toBe("cpo");
+			const body = (await res.json()) as { founderRoute?: string; sourceAgentId: string };
+			// O2: founderRoute no longer returned
+			expect(body.founderRoute).toBeUndefined();
+			expect(body.sourceAgentId).toBe("agent-builder");
 		});
 	});
 

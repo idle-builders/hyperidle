@@ -109,12 +109,9 @@ describe("Cost-cap service with Money columns (AC13)", () => {
 			.run();
 	});
 
-	function insertSessionWithMoney(
-		id: string,
-		agentId: string,
-		costMinor: number,
-		costCurrency = "USD",
-	): void {
+	function insertSession(id: string, agentId: string): void {
+		// @lore O2: session cost columns (costMinor, costCurrency) stripped from
+		// the kernel sessions table. Sessions no longer carry cost data directly.
 		db.insert(sessions)
 			.values({
 				id,
@@ -123,39 +120,41 @@ describe("Cost-cap service with Money columns (AC13)", () => {
 				modelTier: "workhorse",
 				startedAt: NOW,
 				state: "done",
-				// New columns from migration 0010
-				costMinor,
-				costCurrency,
 			})
 			.run();
 	}
 
 	it("reads costCapMinor from agents table (not old costCap)", async () => {
-		insertSessionWithMoney("s1", "agent-1", 500, "USD"); // $5.00 spent
+		// @lore O2: session cost stripped — spend is always 0 from kernel layer.
+		// checkCostCap still reads costCapMinor from agents table for the cap value.
+		insertSession("s1", "agent-1");
 
 		const result = await checkCostCap(db, eventBus, {
 			agentId: "agent-1",
 			teamId: "t1",
 		});
 
-		// Under $10 cap — allowed
+		// Spend is 0 (no session cost columns), cap is $10 → always allowed
 		expect(result.allowed).toBe(true);
 	});
 
-	it("sums costMinor from sessions (not old cost column)", async () => {
-		insertSessionWithMoney("s1", "agent-1", 1000, "USD"); // exactly at $10 cap
+	it("O2: session cost is always 0 (cost columns stripped from kernel table)", async () => {
+		// @lore O2: session cost columns stripped. getAgentSpend returns 0 regardless
+		// of how many sessions exist. Cap enforcement is always allowed from kernel layer.
+		insertSession("s1", "agent-1");
 
 		const result = await checkCostCap(db, eventBus, {
 			agentId: "agent-1",
 			teamId: "t1",
 		});
 
-		expect(result.allowed).toBe(false);
-		expect(result.level).toBe("agent");
+		// No session cost tracking at kernel layer — always allowed
+		expect(result.allowed).toBe(true);
 	});
 
-	it("recordCostAndCheck writes costMinor to session (not old cost)", async () => {
-		insertSessionWithMoney("s1", "agent-1", 0, "USD");
+	it("recordCostAndCheck accepts cost params but does not write to session (O2)", async () => {
+		// @lore O2: cost is accepted for API compat but not stored.
+		insertSession("s1", "agent-1");
 
 		await recordCostAndCheck(db, eventBus, {
 			sessionId: "s1",
@@ -165,20 +164,20 @@ describe("Cost-cap service with Money columns (AC13)", () => {
 			teamId: "t1",
 		});
 
-		// Verify session was updated with new column
+		// Session should still be readable; cost data is not in the kernel table
 		const session = db.select().from(sessions).where(eq(sessions.id, "s1")).get();
-		// If session rows use new schema, costMinor should be 500
 		expect(session).toBeDefined();
-		expect(session?.costMinor).toBe(500);
+		// The kernel table doesn't have costMinor; verifying the session exists is sufficient
+		expect(session?.id).toBe("s1");
 	});
 
-	it("resetCosts clears costMinor across sessions (not old cost column)", async () => {
-		insertSessionWithMoney("s1", "agent-1", 500, "USD");
-		insertSessionWithMoney("s2", "agent-1", 200, "USD");
+	it("resetCosts resets agent/team running cost counters (O2)", async () => {
+		insertSession("s1", "agent-1");
+		insertSession("s2", "agent-1");
 
 		await resetCosts(db, "t1");
 
-		// After reset, agent spend should be 0
+		// After reset, cost check should still be allowed (spend is always 0 from kernel)
 		const result = await checkCostCap(db, eventBus, {
 			agentId: "agent-1",
 			teamId: "t1",

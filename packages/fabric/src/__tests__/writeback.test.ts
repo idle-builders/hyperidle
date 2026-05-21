@@ -7,6 +7,7 @@ import {
 	type HyperIdleDb,
 	knowledgeConflicts,
 	knowledgeItems,
+	knowledgeStrategyFabric,
 	products,
 	sessions,
 	tasks,
@@ -197,8 +198,14 @@ describe("processWriteback", () => {
 		expect(items).toHaveLength(1);
 		expect(items[0].status).toBe("captured");
 		expect(items[0].body).toBe("# My Pattern\nSome content here");
-		expect(items[0].layer).toBe("L1");
 		expect(items[0].version).toBe(1);
+		// @lore O2: layer moved to knowledgeStrategyFabric extension table
+		const fabric = db
+			.select()
+			.from(knowledgeStrategyFabric)
+			.where(eq(knowledgeStrategyFabric.knowledgeItemId, items[0].id))
+			.get();
+		expect(fabric?.layer).toBe("L1");
 	});
 
 	// AC2: Modified file updates corresponding row, version increments
@@ -206,11 +213,10 @@ describe("processWriteback", () => {
 		// Pre-create a knowledge item
 		const itemId = "existing-item-1";
 		const now = new Date().toISOString();
+		// @lore O2: kernel table no longer has layer/kind; those go to knowledgeStrategyFabric
 		db.insert(knowledgeItems)
 			.values({
 				id: itemId,
-				layer: "L1",
-				kind: "pattern",
 				title: "existing pattern",
 				body: "original body",
 				format: "markdown",
@@ -220,6 +226,9 @@ describe("processWriteback", () => {
 				createdAt: now,
 				updatedAt: now,
 			})
+			.run();
+		db.insert(knowledgeStrategyFabric)
+			.values({ id: `ksf-${itemId}`, knowledgeItemId: itemId, layer: "L1", kind: "pattern" })
 			.run();
 
 		const manifest: Manifest = {
@@ -259,11 +268,10 @@ describe("processWriteback", () => {
 	it("AC3: deleted file flags for review, not auto-deleted", () => {
 		const itemId = "delete-item-1";
 		const now = new Date().toISOString();
+		// @lore O2: kernel table no longer has layer/kind; those go to knowledgeStrategyFabric
 		db.insert(knowledgeItems)
 			.values({
 				id: itemId,
-				layer: "L1",
-				kind: "pattern",
 				title: "to be deleted",
 				body: "some body",
 				format: "markdown",
@@ -273,6 +281,9 @@ describe("processWriteback", () => {
 				createdAt: now,
 				updatedAt: now,
 			})
+			.run();
+		db.insert(knowledgeStrategyFabric)
+			.values({ id: `ksf-${itemId}`, knowledgeItemId: itemId, layer: "L1", kind: "pattern" })
 			.run();
 
 		const manifest: Manifest = {
@@ -314,11 +325,10 @@ describe("processWriteback", () => {
 	it("AC5: version conflict creates knowledge_conflicts row", () => {
 		const itemId = "conflict-item-1";
 		const now = new Date().toISOString();
+		// @lore O2: kernel table no longer has layer/kind; those go to knowledgeStrategyFabric
 		db.insert(knowledgeItems)
 			.values({
 				id: itemId,
-				layer: "L1",
-				kind: "pattern",
 				title: "conflict item",
 				body: "original body",
 				format: "markdown",
@@ -328,6 +338,9 @@ describe("processWriteback", () => {
 				createdAt: now,
 				updatedAt: now,
 			})
+			.run();
+		db.insert(knowledgeStrategyFabric)
+			.values({ id: `ksf-${itemId}`, knowledgeItemId: itemId, layer: "L1", kind: "pattern" })
 			.run();
 
 		// Manifest thinks version is 1 (stale)
@@ -425,11 +438,10 @@ describe("processWriteback", () => {
 		const now = new Date().toISOString();
 
 		// Agent write at T=0: create item with version 1
+		// @lore O2: kernel table no longer has layer/kind; those go to knowledgeStrategyFabric
 		db.insert(knowledgeItems)
 			.values({
 				id: itemId,
-				layer: "L1",
-				kind: "pattern",
 				title: "lww item",
 				body: "agent original",
 				format: "markdown",
@@ -439,6 +451,9 @@ describe("processWriteback", () => {
 				createdAt: now,
 				updatedAt: now,
 			})
+			.run();
+		db.insert(knowledgeStrategyFabric)
+			.values({ id: `ksf-${itemId}`, knowledgeItemId: itemId, layer: "L1", kind: "pattern" })
 			.run();
 
 		// Manifest tracks version 1

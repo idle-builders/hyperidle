@@ -58,6 +58,7 @@ describe("L3 artifacts schema", () => {
 	});
 
 	it("supports insert + select round-trip", () => {
+		// @lore O2: cost columns stripped from artifacts kernel table.
 		const { taskId } = seedTask(db);
 		db.insert(artifacts)
 			.values({
@@ -65,10 +66,6 @@ describe("L3 artifacts schema", () => {
 				producingTaskId: taskId,
 				kind: "code_diff",
 				previewJson: null,
-				costMoneyMicros: null,
-				costTokensInput: null,
-				costTokensOutput: null,
-				costSettledAt: null,
 				createdAt: NOW,
 			})
 			.run();
@@ -81,6 +78,7 @@ describe("L3 artifacts schema", () => {
 
 	// AC-2 / protected: insert with non-existent producing_task_id must fail (FK restrict)
 	it("rejects inserts with a non-existent producing_task_id (FK restrict)", () => {
+		// @lore O2: cost columns stripped from artifacts kernel table.
 		expect(() =>
 			db
 				.insert(artifacts)
@@ -89,10 +87,6 @@ describe("L3 artifacts schema", () => {
 					producingTaskId: "nonexistent",
 					kind: "deck",
 					previewJson: null,
-					costMoneyMicros: null,
-					costTokensInput: null,
-					costTokensOutput: null,
-					costSettledAt: null,
 					createdAt: NOW,
 				})
 				.run(),
@@ -101,16 +95,13 @@ describe("L3 artifacts schema", () => {
 
 	it("rejects deletion of a task that owns artifacts (ON DELETE RESTRICT)", () => {
 		const { taskId } = seedTask(db);
+		// @lore O2: cost columns stripped from artifacts kernel table.
 		db.insert(artifacts)
 			.values({
 				id: "art3",
 				producingTaskId: taskId,
 				kind: "deck",
 				previewJson: null,
-				costMoneyMicros: null,
-				costTokensInput: null,
-				costTokensOutput: null,
-				costSettledAt: null,
 				createdAt: NOW,
 			})
 			.run();
@@ -119,16 +110,13 @@ describe("L3 artifacts schema", () => {
 
 	it("enforces unique id constraint (PK)", () => {
 		const { taskId } = seedTask(db);
+		// @lore O2: cost columns stripped from artifacts kernel table.
 		db.insert(artifacts)
 			.values({
 				id: "art4",
 				producingTaskId: taskId,
 				kind: "deck",
 				previewJson: null,
-				costMoneyMicros: null,
-				costTokensInput: null,
-				costTokensOutput: null,
-				costSettledAt: null,
 				createdAt: NOW,
 			})
 			.run();
@@ -140,10 +128,6 @@ describe("L3 artifacts schema", () => {
 					producingTaskId: taskId,
 					kind: "deck",
 					previewJson: null,
-					costMoneyMicros: null,
-					costTokensInput: null,
-					costTokensOutput: null,
-					costSettledAt: null,
 					createdAt: NOW,
 				})
 				.run(),
@@ -182,18 +166,15 @@ describe("L3 artifacts schema", () => {
 		expect(previewCol?.notnull).toBe(0);
 	});
 
-	it("cost columns are nullable (null until session settles)", () => {
-		const cols = db.all<{ name: string; notnull: number }>(sql`PRAGMA table_info(artifacts)`);
-		for (const name of [
-			"cost_money_micros",
-			"cost_tokens_input",
-			"cost_tokens_output",
-			"cost_settled_at",
-		]) {
-			const c = cols.find((x) => x.name === name);
-			expect(c, `${name} column missing`).toBeDefined();
-			expect(c?.notnull).toBe(0);
-		}
+	it("cost columns are absent (stripped from kernel table in O2)", () => {
+		// @lore O2: cost columns (cost_money_micros, cost_tokens_input,
+		// cost_tokens_output, cost_settled_at) stripped from the kernel artifacts
+		// table as part of kernel/strategy separation. Cost is now a strategy concern.
+		const cols = db.all<{ name: string }>(sql`PRAGMA table_info(artifacts)`).map((c) => c.name);
+		expect(cols).not.toContain("cost_money_micros");
+		expect(cols).not.toContain("cost_tokens_input");
+		expect(cols).not.toContain("cost_tokens_output");
+		expect(cols).not.toContain("cost_settled_at");
 	});
 
 	it("created_at is NOT NULL", () => {

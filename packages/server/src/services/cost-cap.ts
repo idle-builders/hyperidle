@@ -1,7 +1,7 @@
 import * as crypto from "node:crypto";
-import { agents, type HyperIdleDb, items, sessions, teams } from "@hyperidle/db";
+import { agents, type HyperIdleDb, items, teams } from "@hyperidle/db";
 import type { EventBus, SessionEndedEvent } from "@hyperidle/shared";
-import { eq, inArray, sql } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 
 export interface CostCapResult {
 	allowed: boolean;
@@ -100,43 +100,34 @@ function tryRecordDedupKey(
 
 /**
  * Sum session costs for an agent.
- * @lore L17: prefers costMinor (new column) over cost (legacy). Falls back to
- * cost only when costMinor is NULL (rows from before L17 migration).
+ *
+ * @lore O2: session cost columns (cost, costMinor, costCurrency) stripped from
+ * the kernel sessions table as part of kernel/strategy separation. Cost is now
+ * accumulated on agents.costActual (integer minor units). This column is the
+ * authoritative running total for an agent's spend within the current cycle.
  */
 function getAgentSpend(db: HyperIdleDb, agentId: string): number {
-	const result = db
-		.select({
-			total: sql<number>`coalesce(sum(coalesce(${sessions.costMinor}, ${sessions.cost}, 0)), 0)`,
-		})
-		.from(sessions)
-		.where(eq(sessions.agentId, agentId))
+	const row = db
+		.select({ costActual: agents.costActual })
+		.from(agents)
+		.where(eq(agents.id, agentId))
 		.get();
-	return result?.total ?? 0;
+	return row?.costActual ?? 0;
 }
 
 /**
  * Sum session costs for all agents in a team.
- * @lore L17: prefers costMinor (new column) over cost (legacy).
+ *
+ * @lore O2: reads teams.costActual, which is the running minor-unit total
+ * accumulated across all agents in the team for the current billing cycle.
  */
 function getTeamSpend(db: HyperIdleDb, teamId: string): number {
-	// Sum all session costs for agents in this team
-	const teamAgents = db
-		.select({ id: agents.id })
-		.from(agents)
-		.where(eq(agents.teamId, teamId))
-		.all();
-
-	if (teamAgents.length === 0) return 0;
-
-	const agentIds = teamAgents.map((a) => a.id);
-	const result = db
-		.select({
-			total: sql<number>`coalesce(sum(coalesce(${sessions.costMinor}, ${sessions.cost}, 0)), 0)`,
-		})
-		.from(sessions)
-		.where(inArray(sessions.agentId, agentIds))
+	const row = db
+		.select({ costActual: teams.costActual })
+		.from(teams)
+		.where(eq(teams.id, teamId))
 		.get();
-	return result?.total ?? 0;
+	return row?.costActual ?? 0;
 }
 
 /**
@@ -221,18 +212,27 @@ export async function recordCostAndCheck(
 	eventBus: EventBus,
 	params: RecordCostAndCheckParams,
 ): Promise<void> {
-	// L17: use costMinor if provided, otherwise fall back to legacy cost
+	// @lore O2: session cost columns stripped from the kernel sessions table.
+	// Cost is accumulated on agents.costActual and teams.costActual (minor units).
+	// recordCostAndCheck increments these counters atomically so checkCostCap
+	// can read the authoritative running total without scanning sessions.
 	const effectiveCostMinor = params.costMinor ?? params.cost ?? 0;
 
-	// Update session cost — write both columns for backward compat
-	db.update(sessions)
-		.set({
-			cost: effectiveCostMinor,
-			costMinor: effectiveCostMinor,
-			...(params.currency ? { costCurrency: params.currency } : {}),
-		})
-		.where(eq(sessions.id, params.sessionId))
-		.run();
+	if (effectiveCostMinor > 0) {
+		// Accumulate on agent
+		db.update(agents)
+			.set({ costActual: sql`coalesce(${agents.costActual}, 0) + ${effectiveCostMinor}` })
+			.where(eq(agents.id, params.agentId))
+			.run();
+
+		// Accumulate on team if provided
+		if (params.teamId) {
+			db.update(teams)
+				.set({ costActual: sql`coalesce(${teams.costActual}, 0) + ${effectiveCostMinor}` })
+				.where(eq(teams.id, params.teamId))
+				.run();
+		}
+	}
 
 	const agent = db.select().from(agents).where(eq(agents.id, params.agentId)).get();
 	if (!agent) {
@@ -427,42 +427,22 @@ export async function resetCosts(
 		for (const sid of toDelete) dedupBySession.delete(sid);
 	}
 
-	// @lore I6: resetCosts zeroes session costs and running counters for the
-	// specified scope. This is a billing-cycle reset — getAgentSpend/getTeamSpend
-	// sum session.cost/costMinor, so all sessions for the entity must be zeroed
-	// for the cost cap check to reflect the new cycle. Historical session metadata
-	// (state, outcome, notes, timestamps) is preserved.
-	// @lore L17: zeroes both cost (legacy) and costMinor (new) columns.
+	// @lore O2: session cost columns (cost, costMinor, costCurrency) stripped from
+	// the kernel sessions table. resetCosts no longer zeroes session cost columns;
+	// it only resets agent/team running cost counters. Cost aggregation is now a
+	// strategy/fabric concern.
 	switch (normalizedParams.level) {
 		case "agent": {
 			if (!normalizedParams.id) throw new Error("Agent ID required for agent reset");
-			db.update(sessions)
-				.set({ cost: 0, costMinor: 0 })
-				.where(eq(sessions.agentId, normalizedParams.id))
-				.run();
 			db.update(agents).set({ costActual: 0 }).where(eq(agents.id, normalizedParams.id)).run();
 			break;
 		}
 		case "team": {
 			if (!normalizedParams.id) throw new Error("Team ID required for team reset");
-			const teamAgents = db
-				.select({ id: agents.id })
-				.from(agents)
-				.where(eq(agents.teamId, normalizedParams.id))
-				.all();
-			if (teamAgents.length > 0) {
-				const agentIds = teamAgents.map((a) => a.id);
-				db.update(sessions)
-					.set({ cost: 0, costMinor: 0 })
-					.where(inArray(sessions.agentId, agentIds))
-					.run();
-			}
 			db.update(teams).set({ costActual: 0 }).where(eq(teams.id, normalizedParams.id)).run();
 			break;
 		}
 		case "factory": {
-			// eslint-disable-next-line drizzle/enforce-update-with-where -- intentional: factory reset clears ALL rows
-			db.update(sessions).set({ cost: 0, costMinor: 0 }).run();
 			// eslint-disable-next-line drizzle/enforce-update-with-where -- intentional: factory reset clears ALL rows
 			db.update(agents).set({ costActual: 0 }).run();
 			// eslint-disable-next-line drizzle/enforce-update-with-where -- intentional: factory reset clears ALL rows

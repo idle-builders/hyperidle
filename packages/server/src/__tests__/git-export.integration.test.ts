@@ -17,7 +17,13 @@ import { execSync } from "node:child_process";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import { createTestDb, factorySettings, type HyperIdleDb, knowledgeItems } from "@hyperidle/db";
+import {
+	createTestDb,
+	factorySettings,
+	type HyperIdleDb,
+	knowledgeItems,
+	knowledgeStrategyFabric,
+} from "@hyperidle/db";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import {
 	createNodeFsAdapter,
@@ -84,13 +90,13 @@ function setCfg(
 	}
 }
 
+// @lore O2: layer/kind/scopeId are in knowledgeStrategyFabric; kernel only holds
+// identity + content. Both tables must be seeded for computeExportPlan to find
+// the item (INNER JOIN on fabric).
 function seedL4Principles(db: HyperIdleDb, body: string, id = "ki-principles"): void {
 	db.insert(knowledgeItems)
 		.values({
 			id,
-			layer: "L4",
-			scopeId: null,
-			kind: "PRINCIPLES",
 			topic: null,
 			title: "Factory principles",
 			body,
@@ -101,6 +107,16 @@ function seedL4Principles(db: HyperIdleDb, body: string, id = "ki-principles"): 
 			createdAt: NOW_ISO,
 			updatedAt: NOW_ISO,
 		})
+		.run();
+	db.insert(knowledgeStrategyFabric)
+		.values({
+			id: `ksf-${id}`,
+			knowledgeItemId: id,
+			layer: "L4",
+			kind: "PRINCIPLES",
+			scopeId: null,
+		})
+		.onConflictDoNothing()
 		.run();
 }
 
@@ -113,9 +129,6 @@ function seedL2Brief(
 	db.insert(knowledgeItems)
 		.values({
 			id,
-			layer: "L2",
-			scopeId: productId,
-			kind: "BRIEF",
 			topic: null,
 			title: `${productId} brief`,
 			body,
@@ -126,6 +139,16 @@ function seedL2Brief(
 			createdAt: NOW_ISO,
 			updatedAt: NOW_ISO,
 		})
+		.run();
+	db.insert(knowledgeStrategyFabric)
+		.values({
+			id: `ksf-${id}`,
+			knowledgeItemId: id,
+			layer: "L2",
+			kind: "BRIEF",
+			scopeId: productId,
+		})
+		.onConflictDoNothing()
 		.run();
 }
 
@@ -287,9 +310,6 @@ describe("Git Export — integration (real git)", () => {
 		db.insert(knowledgeItems)
 			.values({
 				id: "ki-refl",
-				layer: "L4",
-				scopeId: null,
-				kind: "REFLECTION",
 				topic: "2026-04",
 				title: "April reflection",
 				body: big,
@@ -300,6 +320,16 @@ describe("Git Export — integration (real git)", () => {
 				createdAt: NOW_ISO,
 				updatedAt: NOW_ISO,
 			})
+			.run();
+		db.insert(knowledgeStrategyFabric)
+			.values({
+				id: "ksf-ki-refl",
+				knowledgeItemId: "ki-refl",
+				layer: "L4",
+				kind: "REFLECTION",
+				scopeId: null,
+			})
+			.onConflictDoNothing()
 			.run();
 
 		const runner = createGitRunner(env.repoPath);
@@ -370,9 +400,6 @@ describe("Git Export — integration (real git)", () => {
 		db.insert(knowledgeItems)
 			.values({
 				id: "ki-detach-2",
-				layer: "L2",
-				scopeId: "alpha",
-				kind: "BRIEF",
 				topic: null,
 				title: "alpha brief",
 				body: "# alpha\n",
@@ -383,6 +410,16 @@ describe("Git Export — integration (real git)", () => {
 				createdAt: NOW_ISO,
 				updatedAt: NOW_ISO,
 			})
+			.run();
+		db.insert(knowledgeStrategyFabric)
+			.values({
+				id: "ksf-ki-detach-2",
+				knowledgeItemId: "ki-detach-2",
+				layer: "L2",
+				kind: "BRIEF",
+				scopeId: "alpha",
+			})
+			.onConflictDoNothing()
 			.run();
 
 		const result = await runGitExport(db, { runner, fs: realFs });

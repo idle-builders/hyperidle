@@ -29,12 +29,10 @@ function seedKi(db: HyperIdleDb, id: string, title: string, body = "body"): void
 	db.insert(knowledgeItems)
 		.values({
 			id,
-			layer: "L1",
-			kind: "pattern",
 			title,
 			body,
 			format: "markdown",
-			status: "captured",
+			status: "active",
 			version: 1,
 			updatedBy: "human",
 			createdAt: now,
@@ -43,13 +41,14 @@ function seedKi(db: HyperIdleDb, id: string, title: string, body = "body"): void
 		.run();
 }
 
-describe("I2 V3 — GET /api/knowledge/:layer rejects invalid layer", () => {
-	let db: HyperIdleDb;
+// @lore O2: V3 layer validation tests removed — /:layer URL pattern no longer exists.
+// Knowledge routes now use /:id patterns. Old layer URLs return 404 naturally.
+describe("I2 V3 — O2: /:layer URL returns 404 (layer routing removed)", () => {
 	let app: Hono;
 
 	beforeEach(() => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		db = createTestDb();
+		const db = createTestDb();
 		app = createTestApp({ db, eventBus: new EventBus() });
 	});
 
@@ -57,23 +56,19 @@ describe("I2 V3 — GET /api/knowledge/:layer rejects invalid layer", () => {
 		vi.unstubAllEnvs();
 	});
 
-	it("returns 400 with VALIDATION_ERROR for an unknown layer (L99)", async () => {
+	it("GET /api/knowledge/L99 returns 404 (not 400 — layer routing removed)", async () => {
 		const res = await app.request("/api/knowledge/L99", { headers: authHeaders() });
-		expect(res.status).toBe(400);
-		const body = (await res.json()) as { code?: string };
-		expect(body.code).toBe(API_ERROR_CODES.VALIDATION_ERROR);
+		expect(res.status).toBe(404);
 	});
 
-	it("returns 400 for non-layer values like /knowledge/banana", async () => {
+	it("GET /api/knowledge/banana returns 404", async () => {
 		const res = await app.request("/api/knowledge/banana", { headers: authHeaders() });
-		expect(res.status).toBe(400);
+		expect(res.status).toBe(404);
 	});
 
-	it("accepts each valid layer (L0..L4)", async () => {
-		for (const layer of ["L0", "L1", "L2", "L3", "L4"]) {
-			const res = await app.request(`/api/knowledge/${layer}`, { headers: authHeaders() });
-			expect(res.status, `layer ${layer} should be 200`).toBe(200);
-		}
+	it("GET /api/knowledge/L0 returns 404 (layer is not a valid item ID)", async () => {
+		const res = await app.request("/api/knowledge/L0", { headers: authHeaders() });
+		expect(res.status).toBe(404);
 	});
 });
 

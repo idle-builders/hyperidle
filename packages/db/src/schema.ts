@@ -2,7 +2,6 @@ import {
 	index,
 	integer,
 	primaryKey,
-	real,
 	sqliteTable,
 	text,
 	uniqueIndex,
@@ -122,10 +121,6 @@ export const tasks = sqliteTable(
 		artifacts: text("artifacts"),
 		costCap: integer("cost_cap"),
 		costActual: integer("cost_actual").default(0),
-		durability: text("durability"),
-		riskTier: text("risk_tier"),
-		attentionScore: integer("attention_score"),
-		crossTeam: integer("cross_team").default(0),
 		threadId: text("thread_id").references(() => threads.id, { onDelete: "restrict" }),
 		notes: text("notes"),
 		auditTrail: text("audit_trail"),
@@ -156,30 +151,8 @@ export const sessions = sqliteTable(
 		endedAt: text("ended_at"),
 		state: text("state").notNull(),
 		workspaceSnapshot: text("workspace_snapshot"),
-		/** @lore L17: legacy cost column preserved for rollback safety. */
-		cost: integer("cost").default(0),
-		/**
-		 * L17: structured session cost — minor units. NULL means "no L17 cost recorded
-		 * yet", so the cost-cap service falls back to the legacy `cost` column.
-		 * @lore L17: must be nullable (no default) so coalesce(costMinor, cost, 0) can
-		 * differentiate "not yet set" from "zero cost".
-		 */
-		costMinor: integer("cost_minor"),
-		costCurrency: text("cost_currency"),
-		/** L17: per-session token breakdown stored as JSON (TokenUsage shape). */
-		tokensJson: text("tokens_json"),
 		outcome: text("outcome"),
 		notes: text("notes"),
-		/**
-		 * Correlates every observability event emitted within this session.
-		 * Populated on insert by `createSession` (H3). Nullable for rows
-		 * inserted before the column was added.
-		 */
-		traceId: text("trace_id"),
-		// L19: harness jump-out + token accounting
-		harnessUrl: text("harness_url"),
-		tokensInput: integer("tokens_input"),
-		tokensOutput: integer("tokens_output"),
 	},
 	(table) => [
 		index("sessions_task_id_idx").on(table.taskId),
@@ -198,7 +171,17 @@ export const routines = sqliteTable("routines", {
 	skillId: text("skill_id"),
 	doneCondition: text("done_condition"),
 	stateKey: text("state_key"),
+	/**
+	 * @lore O2: `delegationAllowed` governs whether the routine can hand off
+	 * execution to a sub-agent. Kernel-only concern (identity of who executes).
+	 * Separate from strategy signals like riskTier.
+	 */
 	delegationAllowed: integer("delegation_allowed").default(0),
+	/**
+	 * @lore O2: `humanReview` marks routines that must pause for human approval
+	 * before completing. Kernel-only: determines the execution handoff path,
+	 * not a strategy metric.
+	 */
 	humanReview: integer("human_review").default(0),
 	autonomyLevel: integer("autonomy_level"),
 	silent: integer("silent").default(0),
@@ -274,16 +257,9 @@ export const items = sqliteTable(
 		proposedAction: text("proposed_action"),
 		options: text("options"),
 		riskTier: text("risk_tier"),
-		attentionScore: integer("attention_score"),
 		blocking: integer("blocking").default(0),
 		reasoning: text("reasoning"),
-		costEstimate: integer("cost_estimate"),
 		auditTrail: text("audit_trail"),
-		// L9: nullable. SQLite stores integer (0/1) — mirrors the
-		// SQLite/PG asymmetry already used for `blocking`.
-		reversibility: integer("reversibility"),
-		// L9: nullable text. Producer contract emits 'passed' | 'failed' | 'n/a'.
-		sandboxResult: text("sandbox_result"),
 		threadId: text("thread_id")
 			.notNull()
 			.references(() => threads.id, { onDelete: "restrict" }),
@@ -327,36 +303,19 @@ export const knowledgeItems = sqliteTable(
 	"knowledge_items",
 	{
 		id: text("id").primaryKey(),
-		layer: text("layer").notNull(),
-		scopeId: text("scope_id"),
-		kind: text("kind").notNull(),
 		topic: text("topic"),
 		title: text("title").notNull(),
 		body: text("body").notNull(),
 		format: text("format").notNull(),
 		status: text("status").notNull(),
-		attentionScore: real("attention_score"),
-		/** L22: composite relevance score [0,1], recomputed by batch from access log + edit log. */
-		relevanceScore: real("relevance_score"),
-		/** L22: citation count. null = staged (always null until citation tracking is wired). */
-		citationCount: integer("citation_count"),
-		/** L22: most recent citation timestamp. null = staged. */
-		lastCitedAt: text("last_cited_at"),
-		confidence: real("confidence"),
 		version: integer("version").notNull().default(1),
 		updatedBy: text("updated_by").notNull(),
 		createdAt: text("created_at").notNull(),
 		updatedAt: text("updated_at").notNull(),
-		meta: text("meta"),
 	},
 	(table) => [
-		index("ki_layer_idx").on(table.layer),
-		index("ki_scope_id_idx").on(table.scopeId),
-		index("ki_kind_idx").on(table.kind),
 		index("ki_topic_idx").on(table.topic),
 		index("ki_status_idx").on(table.status),
-		index("ki_layer_scope_idx").on(table.layer, table.scopeId),
-		index("ki_attention_desc_idx").on(table.attentionScore),
 		index("ki_updated_desc_idx").on(table.updatedAt),
 	],
 );
@@ -428,6 +387,69 @@ export const knowledgeConflicts = sqliteTable("knowledge_conflicts", {
 	resolvedAt: text("resolved_at"),
 	createdAt: text("created_at").notNull(),
 });
+
+// --- Extension tables (O2) ---
+
+/**
+ * Stores strategy-layer data for knowledge items. Each row maps 1:1 to a
+ * knowledge_items row (knowledge_item_id UNIQUE). Cascade DELETE keeps
+ * orphan rows impossible.
+ *
+ * @lore O2: kernel/strategy separation. All strategy signals that were inline
+ * on knowledge_items (layer, scopeId, kind, attentionScore, relevanceScore,
+ * citationCount, lastCitedAt, confidence, meta) are moved here. The kernel
+ * table retains only identity + content columns. No `strategy` discriminator
+ * column: multiple strategies can coexist in the same row.
+ */
+export const knowledgeStrategyFabric = sqliteTable(
+	"knowledge_strategy_fabric",
+	{
+		id: text("id").primaryKey(),
+		knowledgeItemId: text("knowledge_item_id")
+			.notNull()
+			.unique()
+			.references(() => knowledgeItems.id, { onDelete: "cascade" }),
+		layer: text("layer"),
+		scopeId: text("scope_id"),
+		kind: text("kind"),
+		attentionScore: text("attention_score"),
+		relevanceScore: text("relevance_score"),
+		confidence: text("confidence"),
+		citationCount: integer("citation_count"),
+		lastCitedAt: text("last_cited_at"),
+		meta: text("meta"),
+	},
+	(table) => [
+		index("ksf_knowledge_item_id_idx").on(table.knowledgeItemId),
+		index("ksf_layer_idx").on(table.layer),
+		index("ksf_kind_idx").on(table.kind),
+	],
+);
+
+/**
+ * Stores strategy-layer data computed for tasks. Each row maps 1:1 to a tasks
+ * row (task_id UNIQUE). Cascade DELETE keeps orphan rows impossible.
+ *
+ * @lore O2: kernel/strategy separation. All strategy signals that were inline
+ * on tasks (riskTier, attentionScore, durability, crossTeam) are moved here.
+ * The kernel tasks table retains only identity + work columns.
+ */
+export const taskStrategyFabric = sqliteTable(
+	"task_strategy_fabric",
+	{
+		id: text("id").primaryKey(),
+		taskId: text("task_id")
+			.notNull()
+			.unique()
+			.references(() => tasks.id, { onDelete: "cascade" }),
+		/**
+		 * @lore O2: riskTier moved from tasks to taskStrategyFabric.
+		 * Drives review-item creation in session-review-creator.
+		 */
+		riskTier: text("risk_tier"),
+	},
+	(table) => [index("tsf_task_id_idx").on(table.taskId)],
+);
 
 // --- Notification queue (H2) ---
 
@@ -511,11 +533,11 @@ export const propagationLog = sqliteTable(
 
 // @lore L3 — `kind` is stored as text but normalised to ARTIFACT_KINDS at the
 // API boundary (forward-compat for new ingest tokens).
-// @lore L3 — cost columns are null-until-settled per concept §4.5 mutability
-// rule; immutability is enforced in the createArtifact / settleCost services,
-// NOT by a DB trigger.
 // @lore L3 name-collision: tasks.artifacts (line 92) carries handoff
 // filename array; rename deferred to L3-FU-1.
+// @lore O2: cost columns (costMoneyMicros, costTokensInput, costTokensOutput,
+// costSettledAt) stripped from the kernel artifacts table as part of
+// kernel/strategy separation. Cost is a strategy concern.
 export const artifacts = sqliteTable(
 	"artifacts",
 	{
@@ -525,10 +547,6 @@ export const artifacts = sqliteTable(
 			.references(() => tasks.id, { onDelete: "restrict" }),
 		kind: text("kind").notNull(),
 		previewJson: text("preview_json"),
-		costMoneyMicros: integer("cost_money_micros"),
-		costTokensInput: integer("cost_tokens_input"),
-		costTokensOutput: integer("cost_tokens_output"),
-		costSettledAt: text("cost_settled_at"),
 		createdAt: text("created_at").notNull(),
 	},
 	(table) => [
@@ -595,3 +613,9 @@ export type NewArtifactRow = typeof artifacts.$inferInsert;
 
 export type PropagationLogRow = typeof propagationLog.$inferSelect;
 export type NewPropagationLogRow = typeof propagationLog.$inferInsert;
+
+export type KnowledgeStrategyFabricRow = typeof knowledgeStrategyFabric.$inferSelect;
+export type NewKnowledgeStrategyFabricRow = typeof knowledgeStrategyFabric.$inferInsert;
+
+export type TaskStrategyFabricRow = typeof taskStrategyFabric.$inferSelect;
+export type NewTaskStrategyFabricRow = typeof taskStrategyFabric.$inferInsert;

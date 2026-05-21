@@ -119,7 +119,6 @@ function seed(db: HyperIdleDb): void {
 			modelTier: "workhorse",
 			startedAt: NOW,
 			state: "active",
-			cost: 0,
 		})
 		.run();
 }
