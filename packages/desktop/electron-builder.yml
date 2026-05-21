@@ -15,6 +15,13 @@ appId: com.hyperidle.app
 productName: HyperIdle
 copyright: Copyright © 2025-2026 HyperIdle
 
+# @lore N5: electron-builder defaults output to dist/, which overlaps with the
+# esbuild output (dist/main.cjs). This causes a circular inclusion — the
+# packaged app (dist/mac-arm64/) gets bundled INTO the asar via the dist/**/*
+# files pattern, inflating it by 262MB. Separating to release/ avoids this.
+directories:
+  output: release
+
 # Override main entry for production bundle without modifying source package.json
 extraMetadata:
   main: dist/main.cjs
@@ -36,15 +43,18 @@ mac:
   icon: build/icon.icns
 
 # Files included in the asar (app bundle)
+# @lore N5: electron-builder's bun file traversal walks ALL of node_modules
+# (it can't parse bun.lockb). Without explicit exclusions it bundles the entire
+# dependency tree — including the 262MB electron package and 50+ prebuild-install
+# transitive deps that are only needed at install time. Only better-sqlite3
+# (native .node binary), bindings, and file-uri-to-path are needed at runtime.
+# Everything else is compiled into dist/main.cjs by esbuild.
 files:
   - "dist/**/*"
-  # Exclude source maps from the production bundle (useful for crash diagnostics
-  # but adds size; include if crash reporting requires them)
   - "!dist/**/*.map"
-  # better-sqlite3 native module — must be in node_modules for require() resolution.
-  # electron-builder detects the .node binary and unpacks it from the asar
-  # automatically (native modules cannot be loaded from inside an asar archive).
-  - "node_modules/better-sqlite3/**/*"
+  - "node_modules/better-sqlite3/**"
+  - "node_modules/bindings/**"
+  - "node_modules/file-uri-to-path/**"
 
 # Resources outside the asar, accessible via process.resourcesPath at runtime.
 # resolveMigrationsFolder() uses process.resourcesPath + "/drizzle" in packaged mode.

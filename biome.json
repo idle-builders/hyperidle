@@ -157,7 +157,8 @@
 			"!**/plans",
 			"!packages/eslint-plugin-design/test-fixtures",
 			"!scripts",
-			"!.verify-attestation.json"
+			"!.verify-attestation.json",
+			"!packages/desktop/release"
 		]
 	},
 	"overrides": [
