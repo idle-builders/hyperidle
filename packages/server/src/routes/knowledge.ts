@@ -35,7 +35,6 @@ import { escapeLikePattern } from "../services/like-escape.js";
 
 // O2: status simplified to draft | active | archived
 const KNOWLEDGE_STATUSES = ["draft", "active", "archived"] as const;
-type KnowledgeStatus = (typeof KNOWLEDGE_STATUSES)[number];
 
 const createKnowledgeSchema = z.object({
 	topic: z.string().optional(),
@@ -131,7 +130,6 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 		const rawItems = db
 			.select({
 				item: knowledgeItems,
-				fabricId: knowledgeStrategyFabric.id,
 				relevanceScore: knowledgeStrategyFabric.relevanceScore,
 			})
 			.from(knowledgeItems)
@@ -143,19 +141,26 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 
 		// L22: compute access signals per item from the access log.
 		// 30-day window relative to now.
+		// @lore O2: Batch all access-log rows in a single query before mapping to avoid
+		// N+1 queries (one per item). Group by itemId in application code.
 		const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
 
+		const allAccessRows = db
+			.select()
+			.from(knowledgeAccessLog)
+			.where(sql`${knowledgeAccessLog.accessedAt} >= ${thirtyDaysAgo}`)
+			.all();
+
+		// Group access rows by itemId for O(1) lookup in the map below.
+		const accessByItem = new Map<string, typeof allAccessRows>();
+		for (const row of allAccessRows) {
+			const existing = accessByItem.get(row.itemId) ?? [];
+			existing.push(row);
+			accessByItem.set(row.itemId, existing);
+		}
+
 		const items = rawItems.map(({ item, relevanceScore }) => {
-			const accessRows = db
-				.select()
-				.from(knowledgeAccessLog)
-				.where(
-					and(
-						eq(knowledgeAccessLog.itemId, item.id),
-						sql`${knowledgeAccessLog.accessedAt} >= ${thirtyDaysAgo}`,
-					),
-				)
-				.all();
+			const accessRows = accessByItem.get(item.id) ?? [];
 
 			const accessCount30d = accessRows.length > 0 ? accessRows.length : null;
 			const lastActivityAt =
@@ -238,7 +243,7 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 				body: body.body,
 				format: body.format,
 				// O2: default status is "draft" (was "captured" in old implementation)
-				status: (body.status ?? "draft") as KnowledgeStatus,
+				status: body.status ?? "draft",
 				version: 1,
 				updatedBy: body.updatedBy,
 				createdAt: now,
@@ -586,7 +591,11 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 
 		const now = new Date().toISOString();
 		// O2: no attentionScore write (column stripped). Flag is recorded in the edit log.
-		db.update(knowledgeItems).set({ updatedAt: now }).where(eq(knowledgeItems.id, id)).run();
+		// Status set to "draft" so flagged items re-enter the review queue.
+		db.update(knowledgeItems)
+			.set({ status: "draft", updatedAt: now })
+			.where(eq(knowledgeItems.id, id))
+			.run();
 
 		// Edit log — include flag reason
 		db.insert(knowledgeEditLog)

@@ -74,10 +74,39 @@ ALTER TABLE "items" DROP COLUMN IF EXISTS "attention_score";
 ALTER TABLE "items" DROP COLUMN IF EXISTS "cost_estimate";
 --> statement-breakpoint
 
+-- 3b. Drop harness/token columns from sessions (stripped from kernel table in O2).
+ALTER TABLE "sessions" DROP COLUMN IF EXISTS "tokens_json";
+--> statement-breakpoint
+ALTER TABLE "sessions" DROP COLUMN IF EXISTS "trace_id";
+--> statement-breakpoint
+ALTER TABLE "sessions" DROP COLUMN IF EXISTS "harness_url";
+--> statement-breakpoint
+ALTER TABLE "sessions" DROP COLUMN IF EXISTS "tokens_input";
+--> statement-breakpoint
+ALTER TABLE "sessions" DROP COLUMN IF EXISTS "tokens_output";
+--> statement-breakpoint
+
+-- 4b. Drop strategy columns from items table.
+ALTER TABLE "items" DROP COLUMN IF EXISTS "reversibility";
+--> statement-breakpoint
+ALTER TABLE "items" DROP COLUMN IF EXISTS "sandbox_result";
+--> statement-breakpoint
+
+-- 7. Drop strategy columns from tasks table.
+ALTER TABLE "tasks" DROP COLUMN IF EXISTS "durability";
+--> statement-breakpoint
+ALTER TABLE "tasks" DROP COLUMN IF EXISTS "risk_tier";
+--> statement-breakpoint
+ALTER TABLE "tasks" DROP COLUMN IF EXISTS "attention_score";
+--> statement-breakpoint
+ALTER TABLE "tasks" DROP COLUMN IF EXISTS "cross_team";
+--> statement-breakpoint
+
 -- 6. Create task_strategy_fabric (O2: tasks strategy signals)
 CREATE TABLE IF NOT EXISTS "task_strategy_fabric" (
     "id" text PRIMARY KEY NOT NULL,
     "task_id" text NOT NULL UNIQUE,
+    "risk_tier" text,
     CONSTRAINT "task_strategy_fabric_task_id_tasks_id_fk"
         FOREIGN KEY ("task_id") REFERENCES "public"."tasks"("id") ON DELETE CASCADE ON UPDATE NO ACTION
 );

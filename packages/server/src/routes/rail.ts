@@ -1,6 +1,6 @@
-import { agents, bets, factorySettings, type HyperIdleDb, items, tasks } from "@hyperidle/db";
+import { bets, factorySettings, type HyperIdleDb, items, tasks } from "@hyperidle/db";
 import type { CurrencyCode, EventBus, WireMoney } from "@hyperidle/shared";
-import { eq, inArray, sql } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 import { Hono } from "hono";
 
 interface RailBet {
@@ -120,19 +120,11 @@ export function createRailRoutes(db: HyperIdleDb, _eventBus: EventBus): Hono {
 		const dailyCapMinor = getFactorySettingMinor(db, "cost_cap_daily_minor");
 		const weeklyCapMinor = getFactorySettingMinor(db, "cost_cap_weekly_minor");
 
-		// @lore O2: session cost columns stripped. todaySpend/weekSpend are now
-		// computed from agents.costActual aggregated per factory. Return zero spend
-		// (not null) so callers always get a valid WireMoney object.
-		const todaySpendMinor =
-			db
-				.select({ costActual: sql<number>`coalesce(sum(${agents.costActual}), 0)` })
-				.from(agents)
-				.get()?.costActual ?? 0;
-
+		// @lore O2: session cost columns stripped; spend values return 0 until fabric provides aggregation.
 		const costBurnRate: CostBurnRate = {
-			todaySpend: { minor: todaySpendMinor, currency: factoryCurrency },
+			todaySpend: { minor: 0, currency: factoryCurrency },
 			todayCap: dailyCapMinor != null ? { minor: dailyCapMinor, currency: factoryCurrency } : null,
-			weekSpend: { minor: todaySpendMinor, currency: factoryCurrency },
+			weekSpend: { minor: 0, currency: factoryCurrency },
 			weekCap: weeklyCapMinor != null ? { minor: weeklyCapMinor, currency: factoryCurrency } : null,
 			weekTokens: null,
 		};

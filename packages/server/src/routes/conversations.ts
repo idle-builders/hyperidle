@@ -1,4 +1,4 @@
-import { agents, type HyperIdleDb, items, threads } from "@hyperidle/db";
+import { type HyperIdleDb, items, threads } from "@hyperidle/db";
 import type { ApiErrorResponse, EventBus, ItemCreatedEvent } from "@hyperidle/shared";
 import { API_ERROR_CODES } from "@hyperidle/shared";
 import { desc, eq, sql } from "drizzle-orm";
@@ -138,10 +138,7 @@ export function createConversationRoutes(db: HyperIdleDb, eventBus: EventBus): H
 			return c.json(response, 404);
 		}
 
-		// O2: agents table is still read for the FK reference but routing logic removed
-		// sourceAgentId is still stored for audit purposes
-		void agents; // referenced by schema FK, kept for future routing at strategy layer
-
+		// O2: agents routing logic removed; sourceAgentId stored for audit purposes only
 		db.insert(items)
 			.values({
 				id,
