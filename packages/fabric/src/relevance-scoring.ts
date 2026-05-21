@@ -1,5 +1,5 @@
-import type { KnowledgeItem } from "@hyperidle/db";
 import type { AgentRole } from "@hyperidle/shared";
+import type { KnowledgeItemWithFabric } from "./knowledge-repository.js";
 import { ROLE_TO_COMMUNITY } from "./role-community-map.js";
 import type { ScoringContext, ScoringWeights } from "./scoring-config.js";
 import { enforceBudget, type ScoredItem } from "./token-budget.js";
@@ -9,17 +9,20 @@ const RECENCY_WINDOW_MS = 30 * 24 * 60 * 60 * 1000;
 
 /**
  * Extract tags from a knowledge item's topic and JSON meta.tags fields.
+ *
+ * @lore O2: meta field moved to knowledgeStrategyFabric; accepts KnowledgeItemWithFabric.
  */
-function extractItemTags(item: KnowledgeItem): string[] {
+function extractItemTags(item: KnowledgeItemWithFabric): string[] {
 	const tags: string[] = [];
 	if (item.topic) {
 		tags.push(item.topic.toLowerCase());
 	}
-	if (item.meta) {
+	const meta = item.meta ?? null;
+	if (meta) {
 		try {
-			const meta: unknown = JSON.parse(item.meta);
-			if (meta && typeof meta === "object" && "tags" in meta) {
-				const metaTags = (meta as { tags: unknown }).tags;
+			const parsed: unknown = JSON.parse(meta);
+			if (parsed && typeof parsed === "object" && "tags" in parsed) {
+				const metaTags = (parsed as { tags: unknown }).tags;
 				if (Array.isArray(metaTags)) {
 					for (const t of metaTags) {
 						if (typeof t === "string") {
@@ -39,7 +42,7 @@ function extractItemTags(item: KnowledgeItem): string[] {
  * Compute tag match factor (0-1).
  * Compares taskTags against item topic and meta.tags.
  */
-function computeTagMatch(item: KnowledgeItem, taskTags: string[]): number {
+function computeTagMatch(item: KnowledgeItemWithFabric, taskTags: string[]): number {
 	if (taskTags.length === 0) {
 		return 0;
 	}
@@ -77,7 +80,7 @@ function isAgentRole(value: string): value is AgentRole {
 }
 
 /** Compute role match factor (0 or 1). */
-function computeRoleMatch(item: KnowledgeItem, agentRole: string): number {
+function computeRoleMatch(item: KnowledgeItemWithFabric, agentRole: string): number {
 	// ScoringContext.agentRole is typed as `string` (public API); the role map
 	// is keyed by the canonical `AgentRole` union. Narrow via a type guard so
 	// an unknown role returns 0 rather than throwing.
@@ -85,18 +88,19 @@ function computeRoleMatch(item: KnowledgeItem, agentRole: string): number {
 		return 0;
 	}
 	const community = ROLE_TO_COMMUNITY[agentRole];
-	if (item.scopeId === community) {
+	const scopeId = item.scopeId ?? null;
+	if (scopeId === community) {
 		return 1;
 	}
 	// Also match if scopeId contains the role name
-	if (item.scopeId?.includes(agentRole)) {
+	if (scopeId?.includes(agentRole)) {
 		return 0.5;
 	}
 	return 0;
 }
 
 /** Compute recency factor (0-1). Items updated within last 30 days score higher. */
-function computeRecency(item: KnowledgeItem, now: number): number {
+function computeRecency(item: KnowledgeItemWithFabric, now: number): number {
 	const updatedAt = new Date(item.updatedAt).getTime();
 	const age = now - updatedAt;
 
@@ -110,24 +114,31 @@ function computeRecency(item: KnowledgeItem, now: number): number {
 	return 1 - age / RECENCY_WINDOW_MS;
 }
 
-/** Compute confidence factor (0-1). Confidence is stored as `real` in [0,1]. */
-function computeConfidence(item: KnowledgeItem): number {
+/** Compute confidence factor (0-1). Confidence stored as string in fabric table. */
+function computeConfidence(item: KnowledgeItemWithFabric): number {
+	// @lore O2: confidence moved to knowledgeStrategyFabric as text column.
+	// Parse to float; clamp to [0,1].
 	if (item.confidence == null) {
 		return 0.5; // neutral default
 	}
+	const val =
+		typeof item.confidence === "string" ? Number.parseFloat(item.confidence) : item.confidence;
+	if (!Number.isFinite(val)) return 0.5;
 	// @lore I3 (TRACK-I.md L147-149): the previous `/ 100` divisor scaled this
 	// 100× too small (a confidence of 0.8 became a factor of 0.008). The
 	// schema stores `confidence` as `real` already in [0,1] — no normalization
 	// needed. Clamp keeps us safe against out-of-range historic data.
-	return Math.max(0, Math.min(1, item.confidence));
+	return Math.max(0, Math.min(1, val));
 }
 
 /**
  * Compute layer proximity factor (0-1).
  * Items closer to task context (lower layers) score higher for task work.
  * L0 (session) and L1 (task) are closest, L4 (factory) is furthest but always included.
+ *
+ * @lore O2: layer field is now optional (from fabric extension table).
  */
-function computeLayerProximity(item: KnowledgeItem): number {
+function computeLayerProximity(item: KnowledgeItemWithFabric): number {
 	const layerScores: Record<string, number> = {
 		L0: 1.0,
 		L1: 0.9,
@@ -135,21 +146,27 @@ function computeLayerProximity(item: KnowledgeItem): number {
 		L3: 0.5,
 		L4: 0.3,
 	};
-	return layerScores[item.layer] ?? 0;
+	return layerScores[item.layer ?? ""] ?? 0;
 }
 
-/** Compute attention score factor (0-1). attentionScore is `real` in [0,1]. */
-function computeAttentionScore(item: KnowledgeItem): number {
+/** Compute attention score factor (0-1). attentionScore stored as string in fabric table. */
+function computeAttentionScore(item: KnowledgeItemWithFabric): number {
+	// @lore O2: attentionScore moved to knowledgeStrategyFabric as text column.
 	if (item.attentionScore == null) {
 		return 0.5; // neutral default
 	}
+	const val =
+		typeof item.attentionScore === "string"
+			? Number.parseFloat(item.attentionScore)
+			: item.attentionScore;
+	if (!Number.isFinite(val)) return 0.5;
 	// @lore I3: same fix as `computeConfidence` — drop the `/ 100` divisor.
-	return Math.max(0, Math.min(1, item.attentionScore));
+	return Math.max(0, Math.min(1, val));
 }
 
 /** Score a single knowledge item against the given context. Returns 0-100. */
 export function scoreItem(
-	item: KnowledgeItem,
+	item: KnowledgeItemWithFabric,
 	context: ScoringContext,
 	weights: ScoringWeights,
 	now?: number,
@@ -193,16 +210,16 @@ export function scoreItem(
  * Returns the top-scoring items that fit within the budget.
  */
 export function rankAndBudget(
-	items: KnowledgeItem[],
+	items: KnowledgeItemWithFabric[],
 	context: ScoringContext,
 	weights: ScoringWeights,
 	budgetTokens: number,
 	now?: number,
-): KnowledgeItem[] {
+): KnowledgeItemWithFabric[] {
 	const scored: ScoredItem[] = items.map((item) => ({
 		item,
 		score: scoreItem(item, context, weights, now),
 	}));
 
-	return enforceBudget(scored, budgetTokens);
+	return enforceBudget(scored, budgetTokens) as KnowledgeItemWithFabric[];
 }

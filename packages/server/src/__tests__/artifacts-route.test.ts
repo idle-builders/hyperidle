@@ -64,6 +64,9 @@ function seed(db: HyperIdleDb, suffix = ""): SeedScope {
 	return { productId, betId, taskId };
 }
 
+// @lore O2: costMoneyMicros, costTokensInput, costTokensOutput, costSettledAt
+// stripped from the kernel artifacts table. Callers that relied on those columns
+// for test setup must use the simplified insert below.
 function insertArtifact(
 	db: HyperIdleDb,
 	id: string,
@@ -71,9 +74,6 @@ function insertArtifact(
 	overrides: Partial<{
 		kind: string;
 		previewJson: string | null;
-		costMoneyMicros: number | null;
-		costTokensInput: number | null;
-		costTokensOutput: number | null;
 	}> = {},
 ): void {
 	db.insert(artifacts)
@@ -82,10 +82,6 @@ function insertArtifact(
 			producingTaskId: taskId,
 			kind: overrides.kind ?? "code_diff",
 			previewJson: overrides.previewJson ?? null,
-			costMoneyMicros: overrides.costMoneyMicros ?? null,
-			costTokensInput: overrides.costTokensInput ?? null,
-			costTokensOutput: overrides.costTokensOutput ?? null,
-			costSettledAt: null,
 			createdAt: NOW,
 		})
 		.run();
@@ -213,30 +209,27 @@ describe("L3 GET /api/artifacts (axis discriminated union)", () => {
 	});
 
 	it("response items carry cost-from-session shape (WireMoney + TokenUsage after L17)", async () => {
+		// @lore O2: cost columns stripped from kernel artifacts table.
+		// cost.money and cost.tokens are null when no session cost data exists.
 		const s = seed(db);
-		insertArtifact(db, "art_c", s.taskId, {
-			costMoneyMicros: 420_000,
-			costTokensInput: 100,
-			costTokensOutput: 148,
-		});
+		insertArtifact(db, "art_c", s.taskId);
 		const res = await app.request(`/api/artifacts?axis=task&taskId=${s.taskId}`, {
 			headers: authHeaders(),
 		});
+		expect(res.status).toBe(200);
 		const body = (await res.json()) as {
 			items: Array<{
 				cost: {
 					money: { minor: number; currency: string } | null;
 					tokens: { byTier: Record<string, unknown> } | null;
-				};
+				} | null;
 			}>;
 		};
-		// L17: cost.money is now WireMoney {minor, currency}, not a display string
-		// 420_000 micros / 10_000 = 42 cents
-		expect(body.items[0]?.cost.money).toEqual({ minor: 42, currency: "USD" });
-		// L17: cost.tokens is now TokenUsage {byTier}, not a display string
-		expect(body.items[0]?.cost.tokens).not.toBeNull();
-		if (body.items[0]?.cost.tokens !== null) {
-			expect(body.items[0]?.cost.tokens.byTier).toBeDefined();
+		// O2: cost shape is present but money/tokens are null (kernel table has no cost data)
+		expect(body.items[0]).toBeDefined();
+		// cost may be null or an object with null fields — either is valid post-O2
+		if (body.items[0]?.cost != null) {
+			expect(body.items[0].cost.money).toBeNull();
 		}
 	});
 
@@ -416,45 +409,37 @@ describe("L3 PATCH immutability (preview, cost) — protected", () => {
 		expect(res.status).toBe(409);
 	});
 
-	it("second PATCH /cost returns 409 IMMUTABLE", async () => {
+	it("PATCH /cost returns 404 (O2: cost route removed — cost columns stripped from kernel table)", async () => {
+		// @lore O2: PATCH /:id/cost route removed because cost columns were stripped
+		// from the kernel artifacts table. Cost settlement is now a strategy concern.
 		const s = seed(db);
-		// Settled rows have cost_settled_at; we settle via the route to model
-		// the real lifecycle.
 		insertArtifact(db, "art_costimm", s.taskId);
-		const settle = await app.request("/api/artifacts/art_costimm/cost", {
+		const res = await app.request("/api/artifacts/art_costimm/cost", {
 			method: "PATCH",
 			headers: authHeaders(),
 			body: JSON.stringify({ money_micros: 1000, tokens_input: 10, tokens_output: 10 }),
 		});
-		expect(settle.status).toBe(200);
-		const res = await app.request("/api/artifacts/art_costimm/cost", {
-			method: "PATCH",
-			headers: authHeaders(),
-			body: JSON.stringify({ money_micros: 2000, tokens_input: 20, tokens_output: 20 }),
-		});
-		expect(res.status).toBe(409);
+		expect(res.status).toBe(404);
 	});
 
-	// L3 review fix Adv-B6: a partial-cost row (any non-null cost column with
-	// cost_settled_at NULL) must NOT be locked out of completion.
-	it("partial cost row (cost_settled_at IS NULL) is still PATCHable to completion", async () => {
+	// L3 review fix Adv-B6 (O2 superseded): the PATCH /cost route was removed in O2.
+	// @lore O2: cost columns stripped from kernel artifacts table. PATCH /cost
+	// route removed. Cost settlement is now a strategy concern.
+	it("PATCH /cost returns 404 for any artifact (O2: route removed)", async () => {
 		const s = seed(db);
-		// Insert with a partially-populated cost row but no settled marker.
-		insertArtifact(db, "art_partial", s.taskId, {
-			costMoneyMicros: 500,
-			costTokensInput: null,
-			costTokensOutput: null,
-		});
+		insertArtifact(db, "art_partial", s.taskId);
 		const res = await app.request("/api/artifacts/art_partial/cost", {
 			method: "PATCH",
 			headers: authHeaders(),
 			body: JSON.stringify({ money_micros: 1000, tokens_input: 10, tokens_output: 10 }),
 		});
-		expect(res.status).toBe(200);
+		expect(res.status).toBe(404);
 	});
 
-	// L3 review fix Sec-MED-3: cost numeric Zod must reject -1, NaN, fractions.
-	it("rejects negative cost values with 400", async () => {
+	// L3 review fix Sec-MED-3 (O2 superseded): PATCH /cost route removed in O2.
+	// @lore O2: validation for negative/fractional cost values no longer applies
+	// since the route is gone. These tests document the 404 behavior.
+	it("PATCH /cost with negative values returns 404 (O2: route removed)", async () => {
 		const s = seed(db);
 		insertArtifact(db, "art_neg", s.taskId);
 		const res = await app.request("/api/artifacts/art_neg/cost", {
@@ -462,10 +447,10 @@ describe("L3 PATCH immutability (preview, cost) — protected", () => {
 			headers: authHeaders(),
 			body: JSON.stringify({ money_micros: -1, tokens_input: 0, tokens_output: 0 }),
 		});
-		expect(res.status).toBe(400);
+		expect(res.status).toBe(404);
 	});
 
-	it("rejects fractional cost values with 400", async () => {
+	it("PATCH /cost with fractional values returns 404 (O2: route removed)", async () => {
 		const s = seed(db);
 		insertArtifact(db, "art_frac", s.taskId);
 		const res = await app.request("/api/artifacts/art_frac/cost", {
@@ -473,7 +458,7 @@ describe("L3 PATCH immutability (preview, cost) — protected", () => {
 			headers: authHeaders(),
 			body: JSON.stringify({ money_micros: 1.5, tokens_input: 0, tokens_output: 0 }),
 		});
-		expect(res.status).toBe(400);
+		expect(res.status).toBe(404);
 	});
 });
 
@@ -493,6 +478,7 @@ describe("L3 GET /api/artifacts pagination cursor", () => {
 	it("cursor roundtrip: page 2 yields non-overlapping older artifacts", async () => {
 		const s = seed(db);
 		// Insert 5 artifacts with monotonically increasing createdAt.
+		// @lore O2: cost columns stripped from kernel artifacts table
 		for (let i = 0; i < 5; i++) {
 			db.insert(artifacts)
 				.values({
@@ -500,10 +486,6 @@ describe("L3 GET /api/artifacts pagination cursor", () => {
 					producingTaskId: s.taskId,
 					kind: "decision",
 					previewJson: null,
-					costMoneyMicros: null,
-					costTokensInput: null,
-					costTokensOutput: null,
-					costSettledAt: null,
 					createdAt: `2026-04-28T00:00:0${i}.000Z`,
 				})
 				.run();

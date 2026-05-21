@@ -1,4 +1,9 @@
-import { createTestDb, type HyperIdleDb, knowledgeItems } from "@hyperidle/db";
+import {
+	createTestDb,
+	type HyperIdleDb,
+	knowledgeItems,
+	knowledgeStrategyFabric,
+} from "@hyperidle/db";
 import { EventBus, type KnowledgeUpdatedEvent } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
 import { beforeEach, describe, expect, it } from "vitest";
@@ -31,9 +36,16 @@ describe("practice-meeting (AC6)", () => {
 			title: "W1",
 			nowMs: NOW_MS,
 		});
+		// @lore O2: meta moved from knowledgeItems to knowledgeStrategyFabric.
+		// The kernel row has no meta column; meta.role lives in the fabric row.
 		const anchor = db.select().from(knowledgeItems).where(eq(knowledgeItems.id, meetingId)).get();
 		expect(anchor).toBeDefined();
-		const meta = JSON.parse(anchor?.meta ?? "{}") as {
+		const fabricRow = db
+			.select()
+			.from(knowledgeStrategyFabric)
+			.where(eq(knowledgeStrategyFabric.knowledgeItemId, meetingId))
+			.get();
+		const meta = JSON.parse(fabricRow?.meta ?? "{}") as {
 			role?: string;
 			turnsCompleted?: number[];
 		};
@@ -62,7 +74,13 @@ describe("practice-meeting (AC6)", () => {
 		for (const id of result.createdIds) {
 			const row = db.select().from(knowledgeItems).where(eq(knowledgeItems.id, id)).get();
 			expect(row?.status).toBe("captured");
-			const meta = JSON.parse(row?.meta ?? "{}") as {
+			// @lore O2: meta moved to knowledgeStrategyFabric.
+			const fabricRow = db
+				.select()
+				.from(knowledgeStrategyFabric)
+				.where(eq(knowledgeStrategyFabric.knowledgeItemId, id))
+				.get();
+			const meta = JSON.parse(fabricRow?.meta ?? "{}") as {
 				meetingId?: string;
 				meetingPhase?: string;
 			};
@@ -106,8 +124,13 @@ describe("practice-meeting (AC6)", () => {
 		expect(t2.createdIds.length).toBe(2);
 
 		for (const id of t2.createdIds) {
-			const row = db.select().from(knowledgeItems).where(eq(knowledgeItems.id, id)).get();
-			const meta = JSON.parse(row?.meta ?? "{}") as {
+			// @lore O2: meta moved to knowledgeStrategyFabric.
+			const fabricRow = db
+				.select()
+				.from(knowledgeStrategyFabric)
+				.where(eq(knowledgeStrategyFabric.knowledgeItemId, id))
+				.get();
+			const meta = JSON.parse(fabricRow?.meta ?? "{}") as {
 				meetingId?: string;
 				meetingPhase?: string;
 				proposalId?: string;
@@ -168,7 +191,13 @@ describe("practice-meeting (AC6)", () => {
 		if (!synthId) return;
 		const synth = db.select().from(knowledgeItems).where(eq(knowledgeItems.id, synthId)).get();
 		expect(synth?.status).toBe("provisional");
-		const meta = JSON.parse(synth?.meta ?? "{}") as {
+		// @lore O2: meta moved to knowledgeStrategyFabric.
+		const fabricRow = db
+			.select()
+			.from(knowledgeStrategyFabric)
+			.where(eq(knowledgeStrategyFabric.knowledgeItemId, synthId))
+			.get();
+		const meta = JSON.parse(fabricRow?.meta ?? "{}") as {
 			meetingId?: string;
 			meetingPhase?: string;
 		};
@@ -290,8 +319,9 @@ describe("practice-meeting (AC6)", () => {
 
 	it("malformed anchor meta returns INVALID_STATE (distinct from NOT_FOUND)", async () => {
 		// Seed an anchor with a role match but a broken turnsCompleted shape.
+		// @lore O2: meta lives in knowledgeStrategyFabric, not knowledgeItems.
 		const meetingId = seedMeeting();
-		db.update(knowledgeItems)
+		db.update(knowledgeStrategyFabric)
 			.set({
 				meta: JSON.stringify({
 					role: "practice_meeting_anchor",
@@ -300,7 +330,7 @@ describe("practice-meeting (AC6)", () => {
 					turnsCompleted: "not-an-array",
 				}),
 			})
-			.where(eq(knowledgeItems.id, meetingId))
+			.where(eq(knowledgeStrategyFabric.knowledgeItemId, meetingId))
 			.run();
 
 		const result = await runPracticeMeetingTurn(db, eventBus, {
@@ -332,8 +362,9 @@ describe("practice-meeting (AC6)", () => {
 		const meetingId = seedMeeting();
 
 		function countProposals(): number {
-			const rows = db.select().from(knowledgeItems).all();
-			return rows.filter((r) => {
+			// @lore O2: meta lives in knowledgeStrategyFabric, not knowledgeItems.
+			const fabricRows = db.select().from(knowledgeStrategyFabric).all();
+			return fabricRows.filter((r) => {
 				if (!r.meta) return false;
 				try {
 					const m = JSON.parse(r.meta) as Record<string, unknown>;
@@ -368,17 +399,23 @@ describe("practice-meeting (AC6)", () => {
 					if (prop === "get") {
 						return (...args: unknown[]) => {
 							const result = fn.apply(target, args);
+							// @lore O2: inject race on the FABRIC row read (has
+							// knowledgeItemId === meetingId), not the kernel row (id === meetingId).
+							// The proxy fires BEFORE returning the result, so the service
+							// receives the ORIGINAL fabric meta value and uses it as the pin.
+							// The mutation changes the DB, making the pinned UPDATE fail.
 							if (
 								result &&
 								typeof result === "object" &&
-								"id" in (result as Record<string, unknown>) &&
-								(result as { id: unknown }).id === meetingId &&
+								"knowledgeItemId" in (result as Record<string, unknown>) &&
+								(result as { knowledgeItemId: unknown }).knowledgeItemId === meetingId &&
 								anchorReadCount === 0
 							) {
 								anchorReadCount += 1;
 								// Inject concurrent mutation WITHIN the tx so the
 								// subsequent pinned UPDATE no longer matches.
-								tx.update(knowledgeItems)
+								// @lore O2: meta lives in knowledgeStrategyFabric.
+								tx.update(knowledgeStrategyFabric)
 									.set({
 										meta: JSON.stringify({
 											role: "practice_meeting_anchor",
@@ -388,7 +425,7 @@ describe("practice-meeting (AC6)", () => {
 											raceInjection: true,
 										}),
 									})
-									.where(eq(knowledgeItems.id, meetingId))
+									.where(eq(knowledgeStrategyFabric.knowledgeItemId, meetingId))
 									.run();
 							}
 							return result;
@@ -454,8 +491,13 @@ describe("practice-meeting (AC6)", () => {
 		// correct behavior: the race's mutation happened inside the same
 		// tx that then failed its own pin-UPDATE, so nothing the tx wrote
 		// commits.
-		const anchor = db.select().from(knowledgeItems).where(eq(knowledgeItems.id, meetingId)).get();
-		const anchorMeta = JSON.parse(anchor?.meta ?? "{}") as {
+		// @lore O2: meta lives in knowledgeStrategyFabric.
+		const anchorFabric = db
+			.select()
+			.from(knowledgeStrategyFabric)
+			.where(eq(knowledgeStrategyFabric.knowledgeItemId, meetingId))
+			.get();
+		const anchorMeta = JSON.parse(anchorFabric?.meta ?? "{}") as {
 			turnsCompleted?: number[];
 			raceInjection?: boolean;
 		};

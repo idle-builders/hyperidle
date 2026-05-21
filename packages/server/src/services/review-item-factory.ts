@@ -8,10 +8,12 @@ export const ATTENTION_REVIEW_SOURCE = "attention_engine";
 /** Input for creating a review `items` row tied to a knowledge item. */
 export interface CreateReviewItemForKnowledgeInput {
 	readonly knowledgeItemId: string;
-	readonly layer: string;
+	/** @lore O2: layer comes from knowledgeStrategyFabric and may be null when no fabric row exists. */
+	readonly layer: string | null;
 	readonly title: string;
 	readonly body: string;
 	readonly riskTier: "low" | "medium" | "high";
+	/** @lore O2: attentionScore no longer stored as a column on items; embedded in reasoningBlob for traceability. */
 	readonly attentionScore: number;
 	/** Additional payload to merge into the reasoning JSON (source + knowledgeItemId are always set). */
 	readonly reasoning: Readonly<Record<string, unknown>>;
@@ -71,9 +73,15 @@ export function createReviewItemForKnowledge(
 	const reasoningBlob = {
 		source: ATTENTION_REVIEW_SOURCE,
 		knowledgeItemId: input.knowledgeItemId,
+		// @lore O2: attentionScore embedded here since it has no column on items
+		attentionScore: input.attentionScore,
 		...input.reasoning,
 	};
 
+	// @lore O2: attentionScore and costEstimate columns stripped from the items
+	// kernel table. The riskTier remains on items; attentionScore is persisted
+	// on knowledgeStrategyFabric instead. Embed attentionScore in reasoningBlob
+	// for traceability rather than as a first-class column.
 	db.insert(items)
 		.values({
 			id: itemId,
@@ -86,10 +94,8 @@ export function createReviewItemForKnowledge(
 			proposedAction: null,
 			options: null,
 			riskTier: input.riskTier,
-			attentionScore: input.attentionScore,
 			blocking: 0,
 			reasoning: JSON.stringify(reasoningBlob),
-			costEstimate: null,
 			threadId,
 			createdAt: isoNow,
 		})

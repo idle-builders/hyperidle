@@ -1,6 +1,6 @@
-import { agents, type HyperIdleDb, routines, sessions, type Team, teams } from "@hyperidle/db";
+import { agents, type HyperIdleDb, routines, type Team, teams } from "@hyperidle/db";
 import { ActiveRoutinesError } from "@hyperidle/shared";
-import { and, eq, gte, inArray, sql } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 
 interface CreateTeamOpts {
 	productId: string;
@@ -74,7 +74,7 @@ export function dissolveTeam(db: HyperIdleDb, teamId: string): void {
 	db.update(agents).set({ teamId: null }).where(eq(agents.teamId, teamId)).run();
 }
 
-export function getTeamCost(db: HyperIdleDb, teamId: string, cycleStart: string): number {
+export function getTeamCost(db: HyperIdleDb, teamId: string, _cycleStart: string): number {
 	const teamAgents = db
 		.select({ id: agents.id })
 		.from(agents)
@@ -85,13 +85,9 @@ export function getTeamCost(db: HyperIdleDb, teamId: string, cycleStart: string)
 		return 0;
 	}
 
-	const agentIds = teamAgents.map((a) => a.id);
+	const _agentIds = teamAgents.map((a) => a.id);
 
-	const result = db
-		.select({ total: sql<number>`coalesce(sum(${sessions.cost}), 0)` })
-		.from(sessions)
-		.where(and(inArray(sessions.agentId, agentIds), gte(sessions.startedAt, cycleStart)))
-		.get();
-
-	return Number(result?.total ?? 0);
+	// @lore O2: sessions.cost column stripped (cost tracking is now strategy/fabric concern).
+	// Return 0 — fabric will provide cost aggregation in O3 via extension tables.
+	return 0;
 }

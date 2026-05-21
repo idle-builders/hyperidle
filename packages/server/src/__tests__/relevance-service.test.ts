@@ -5,7 +5,14 @@
  * 1. packages/db schema has knowledge_access_log + relevance columns (T1)
  * 2. packages/server/src/services/relevance-service.ts is created (T6)
  */
-import { createTestDb, type HyperIdleDb, knowledgeEditLog, knowledgeItems } from "@hyperidle/db";
+import {
+	createTestDb,
+	type HyperIdleDb,
+	knowledgeEditLog,
+	knowledgeItems,
+	knowledgeStrategyFabric,
+} from "@hyperidle/db";
+import { eq } from "drizzle-orm";
 import { beforeEach, describe, expect, it } from "vitest";
 import { createRelevanceService } from "../services/relevance-service.js";
 
@@ -17,7 +24,6 @@ function insertItem(
 	overrides: Partial<{
 		id: string;
 		title: string;
-		kind: string;
 		status: string;
 	}> = {},
 ): string {
@@ -25,9 +31,6 @@ function insertItem(
 	db.insert(knowledgeItems)
 		.values({
 			id,
-			layer: "L3",
-			scopeId: null,
-			kind: overrides.kind ?? "pattern",
 			topic: "testing",
 			title: overrides.title ?? `Item ${id}`,
 			body: "Test body",
@@ -201,7 +204,7 @@ describe("RelevanceService.recomputeScores (L22)", () => {
 		db = createTestDb();
 	});
 
-	it("updates relevanceScore on knowledge_items after recompute", async () => {
+	it("updates relevanceScore on knowledgeStrategyFabric after recompute", async () => {
 		const itemId = insertItem(db);
 		// Give it some access history so score is non-null
 		await insertAccessLog(db, itemId, "2026-05-05T00:00:00.000Z");
@@ -209,12 +212,15 @@ describe("RelevanceService.recomputeScores (L22)", () => {
 		const service = createRelevanceService(db);
 		await service.recomputeScores([itemId]);
 
-		// Read the item back — relevanceScore should be set
-		const allItems = db.select().from(knowledgeItems).all();
-		const target = allItems.find((i) => i.id === itemId);
-		expect(target).toBeDefined();
-		expect(target?.relevanceScore).not.toBeNull();
-		expect(typeof target?.relevanceScore).toBe("number");
+		// O2: relevanceScore moved to knowledgeStrategyFabric
+		const fabricRow = db
+			.select()
+			.from(knowledgeStrategyFabric)
+			.where(eq(knowledgeStrategyFabric.knowledgeItemId, itemId))
+			.get();
+		expect(fabricRow).toBeDefined();
+		expect(fabricRow?.relevanceScore).not.toBeNull();
+		expect(typeof Number(fabricRow?.relevanceScore)).toBe("number");
 	});
 
 	it("sets relevanceScore to null for items with no signal data", async () => {
@@ -224,10 +230,14 @@ describe("RelevanceService.recomputeScores (L22)", () => {
 		const service = createRelevanceService(db);
 		await service.recomputeScores([itemId]);
 
-		const allItems = db.select().from(knowledgeItems).all();
-		const target = allItems.find((i) => i.id === itemId);
-		expect(target).toBeDefined();
-		expect(target?.relevanceScore).toBeNull();
+		// O2: relevanceScore moved to knowledgeStrategyFabric
+		const fabricRow = db
+			.select()
+			.from(knowledgeStrategyFabric)
+			.where(eq(knowledgeStrategyFabric.knowledgeItemId, itemId))
+			.get();
+		expect(fabricRow).toBeDefined();
+		expect(fabricRow?.relevanceScore).toBeNull();
 	});
 
 	it("handles empty itemIds without error", async () => {

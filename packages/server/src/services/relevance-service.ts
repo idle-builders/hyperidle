@@ -14,6 +14,7 @@ import {
 	knowledgeAccessLog,
 	knowledgeEditLog,
 	knowledgeItems,
+	knowledgeStrategyFabric,
 } from "@hyperidle/db";
 import {
 	computeRelevanceScore,
@@ -184,11 +185,29 @@ export function createRelevanceService(db: HyperIdleDb): RelevanceService {
 				);
 			}
 
-			// Write relevanceScore back to DB
-			db.update(knowledgeItems)
-				.set({ relevanceScore: score } as Record<string, unknown>)
-				.where(eq(knowledgeItems.id, itemId))
-				.run();
+			// @lore O2: relevanceScore moved from knowledgeItems to knowledgeStrategyFabric.
+			// Upsert: update if fabric row exists, otherwise insert a minimal row.
+			const existingFabric = db
+				.select()
+				.from(knowledgeStrategyFabric)
+				.where(eq(knowledgeStrategyFabric.knowledgeItemId, itemId))
+				.get();
+			if (existingFabric) {
+				db.update(knowledgeStrategyFabric)
+					.set({ relevanceScore: score != null ? String(score) : null })
+					.where(eq(knowledgeStrategyFabric.knowledgeItemId, itemId))
+					.run();
+			} else {
+				db.insert(knowledgeStrategyFabric)
+					.values({
+						id: `ksf-recompute-${itemId}`,
+						knowledgeItemId: itemId,
+						layer: "L0",
+						kind: "pattern",
+						relevanceScore: score != null ? String(score) : null,
+					})
+					.run();
+			}
 		}
 	}
 

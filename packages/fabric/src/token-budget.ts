@@ -1,4 +1,5 @@
 import type { KnowledgeItem } from "@hyperidle/db";
+import type { KnowledgeItemWithFabric } from "./knowledge-repository.js";
 
 /** Approximate token count via whitespace split. */
 export function countTokens(text: string): number {
@@ -14,7 +15,7 @@ export function countItemTokens(item: KnowledgeItem): number {
 }
 
 export interface ScoredItem {
-	item: KnowledgeItem;
+	item: KnowledgeItemWithFabric;
 	score: number;
 }
 
@@ -22,14 +23,21 @@ export interface ScoredItem {
  * Enforce a token budget on scored items using greedy fill.
  * L4 (factory) items are always included first as non-negotiable context.
  * Returns items sorted by score descending, within budget.
+ *
+ * @lore O2: layer moved to knowledgeStrategyFabric; items without a fabric row
+ * have layer=undefined/null and are treated as non-L4 (not always included).
  */
-export function enforceBudget(scoredItems: ScoredItem[], maxTokens: number): KnowledgeItem[] {
+export function enforceBudget(
+	scoredItems: ScoredItem[],
+	maxTokens: number,
+): KnowledgeItemWithFabric[] {
 	// Separate L4 items (non-negotiable) from the rest
 	const l4Items: ScoredItem[] = [];
 	const otherItems: ScoredItem[] = [];
 
 	for (const si of scoredItems) {
-		if (si.item.layer === "L4") {
+		// @lore O2: layer is optional on KnowledgeItemWithFabric
+		if ((si.item as KnowledgeItemWithFabric).layer === "L4") {
 			l4Items.push(si);
 		} else {
 			otherItems.push(si);
@@ -40,7 +48,7 @@ export function enforceBudget(scoredItems: ScoredItem[], maxTokens: number): Kno
 	l4Items.sort((a, b) => b.score - a.score);
 	otherItems.sort((a, b) => b.score - a.score);
 
-	const result: KnowledgeItem[] = [];
+	const result: KnowledgeItemWithFabric[] = [];
 	let usedTokens = 0;
 
 	// Include all L4 items first (non-negotiable)

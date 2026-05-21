@@ -1,14 +1,16 @@
 // L3 — Hono router for /api/artifacts.
 // Source: plans/L3/architecture.md §5.
+// O2 — cost columns (costMoneyMicros, costTokensInput, costTokensOutput, costSettledAt)
+// stripped from the artifacts kernel table. Cost is now a strategy concern.
 
 import { artifacts, type HyperIdleDb, tasks } from "@hyperidle/db";
 import {
 	ARTIFACT_KINDS,
 	type Artifact,
+	type ArtifactCostFromSession,
 	type ArtifactKind,
 	type ArtifactPage,
 	type ArtifactPreview,
-	formatArtifactCost,
 } from "@hyperidle/shared";
 import { and, desc, eq, inArray, isNull, lt, or } from "drizzle-orm";
 import { Hono } from "hono";
@@ -18,19 +20,10 @@ import { validateBody } from "../middleware/validate.js";
 
 const RECOGNISED_KIND_VALUES = ARTIFACT_KINDS as readonly string[];
 const PREVIEW_BODY_LIMIT = 64 * 1024;
-// L3 review fix Sec-MED-1: cost payloads are tiny; cap at 4 KiB.
-const COST_BODY_LIMIT = 4 * 1024;
 const DEFAULT_LIMIT = 50;
 const HARD_LIMIT_CAP = 200;
-// L3 review fix Sec-MED-4: cap intermediate task-id materialisation. Beyond
-// this we'd need a sub-select rewrite; reject with 400 to surface the limit
-// rather than silently truncate.
+// L3 review fix Sec-MED-4: cap intermediate task-id materialisation.
 const MAX_TASK_ID_FANOUT = 1000;
-
-// L3 review fix Sec-MED-3: numeric cost fields must be non-negative finite
-// integers. `z.number().nullable()` previously accepted -1, NaN, Infinity,
-// and fractions — see security-review.md MEDIUM-3.
-const costNumberSchema = z.number().int().nonnegative().finite().nullable();
 
 // @lore L3 / L1 forward-compat: when L1 ships threads.attached_host_*, the
 // thread_count subquery (currently constant 0) reads:
@@ -114,33 +107,34 @@ const createArtifactSchema = z.object({
 		message: "unknown_kind is not allowed at create",
 	}),
 	preview: artifactPreviewSchema.nullable(),
+	// @lore O2: cost is accepted as a no-op field for wire compat; values are
+	// ignored since cost columns were stripped from the kernel artifacts table.
 	cost: z
 		.object({
-			money_micros: costNumberSchema,
-			tokens_input: costNumberSchema,
-			tokens_output: costNumberSchema,
+			money_micros: z.number().int().nonnegative().finite().nullable(),
+			tokens_input: z.number().int().nonnegative().finite().nullable(),
+			tokens_output: z.number().int().nonnegative().finite().nullable(),
 		})
-		.nullable(),
+		.nullable()
+		.optional(),
 });
 
 const patchPreviewSchema = z.object({ preview: artifactPreviewSchema });
-const patchCostSchema = z.object({
-	money_micros: costNumberSchema,
-	tokens_input: costNumberSchema,
-	tokens_output: costNumberSchema,
-});
 
 interface ArtifactRow {
 	id: string;
 	producingTaskId: string;
 	kind: string;
 	previewJson: string | null;
-	costMoneyMicros: number | null;
-	costTokensInput: number | null;
-	costTokensOutput: number | null;
-	costSettledAt: string | null;
 	createdAt: string;
 }
+
+/**
+ * @lore O2: cost columns stripped from artifacts table. The Artifact wire
+ * type still has a `cost` field (kept for API compat with existing consumers).
+ * We return `{ money: null, tokens: null }` — cost is now a strategy concern.
+ */
+const NULL_COST: ArtifactCostFromSession = { money: null, tokens: null };
 
 function rowToArtifact(row: ArtifactRow, producingTaskTitle: string): Artifact {
 	const recognised = RECOGNISED_KIND_VALUES.includes(row.kind) && row.kind !== "unknown_kind";
@@ -150,8 +144,7 @@ function rowToArtifact(row: ArtifactRow, producingTaskTitle: string): Artifact {
 		// L3 review fix Sec-LOW-1: defence-in-depth. Even though we control
 		// writes, validate data-at-rest with the same schema we apply to
 		// inbound POST/PATCH. A schema mismatch (corruption, manual SQL,
-		// future-version drift) yields preview=null instead of crashing or
-		// trusting bad data. JSON.parse exceptions still propagate as 500.
+		// future-version drift) yields preview=null instead of crashing.
 		const raw: unknown = JSON.parse(row.previewJson);
 		const parsed = artifactPreviewSchema.safeParse(raw);
 		if (parsed.success && parsed.data.kind === kind) {
@@ -164,11 +157,7 @@ function rowToArtifact(row: ArtifactRow, producingTaskTitle: string): Artifact {
 		producingTaskTitle,
 		kind,
 		preview,
-		cost: formatArtifactCost({
-			money_micros: row.costMoneyMicros,
-			tokens_input: row.costTokensInput,
-			tokens_output: row.costTokensOutput,
-		}),
+		cost: NULL_COST,
 		threadCount: 0,
 		createdAt: row.createdAt,
 	};
@@ -229,8 +218,7 @@ export function createArtifactRoutes(db: HyperIdleDb): Hono {
 			taskIds = rows.map((r) => r.id);
 		}
 
-		// L3 review fix Adv-B5: composite cursor on (createdAt, id) — ISO-only
-		// timestamps cannot disambiguate ties. Encoded as `createdAt|id`.
+		// L3 review fix Adv-B5: composite cursor on (createdAt, id)
 		const cursorParam = c.req.query("cursor");
 		let cursorClause: ReturnType<typeof or> | undefined;
 		if (cursorParam) {
@@ -270,8 +258,6 @@ export function createArtifactRoutes(db: HyperIdleDb): Hono {
 
 		const sliced = rows.slice(0, limit);
 		const items = sliced.map((r) => rowToArtifact(r.artifact, r.taskTitle));
-		// Cursor encodes the last returned row's (createdAt, id) so the next
-		// page query is monotonically older.
 		const last = sliced[sliced.length - 1];
 		const nextCursor =
 			rows.length > limit && last ? `${last.artifact.createdAt}|${last.artifact.id}` : null;
@@ -314,21 +300,16 @@ export function createArtifactRoutes(db: HyperIdleDb): Hono {
 
 			const id = crypto.randomUUID();
 			const now = new Date().toISOString();
-			const costMoneyMicros = body.cost?.money_micros ?? null;
-			const costTokensInput = body.cost?.tokens_input ?? null;
-			const costTokensOutput = body.cost?.tokens_output ?? null;
-			const costSettledAt = body.cost ? now : null;
 
+			// @lore O2: cost fields from the request body are intentionally ignored
+			// (cost columns stripped from artifacts table). The body still accepts
+			// cost for wire compat with existing callers.
 			db.insert(artifacts)
 				.values({
 					id,
 					producingTaskId: body.producingTaskId,
 					kind: body.kind,
 					previewJson: body.preview ? JSON.stringify(body.preview) : null,
-					costMoneyMicros,
-					costTokensInput,
-					costTokensOutput,
-					costSettledAt,
 					createdAt: now,
 				})
 				.run();
@@ -339,11 +320,7 @@ export function createArtifactRoutes(db: HyperIdleDb): Hono {
 				producingTaskTitle: taskRow.title,
 				kind: body.kind,
 				preview: body.preview,
-				cost: formatArtifactCost({
-					money_micros: costMoneyMicros,
-					tokens_input: costTokensInput,
-					tokens_output: costTokensOutput,
-				}),
+				cost: NULL_COST,
 				threadCount: 0,
 				createdAt: now,
 			};
@@ -377,49 +354,8 @@ export function createArtifactRoutes(db: HyperIdleDb): Hono {
 		},
 	);
 
-	router.patch(
-		"/:id/cost",
-		// L3 review fix Sec-MED-1: explicit small body limit on cost payloads.
-		createBodyLimit({ maxSize: COST_BODY_LIMIT }),
-		validateBody(patchCostSchema),
-		(c) => {
-			const id = c.req.param("id");
-			const body = c.req.valid("json" as never) as z.infer<typeof patchCostSchema>;
-			const now = new Date().toISOString();
-			// L3 review fix Adv-B6: settled is defined ONLY by `cost_settled_at IS
-			// NOT NULL`. Conflating any non-null cost column with "settled"
-			// previously locked partially-populated rows out of completion.
-			const existing = db
-				.select({ settled: artifacts.costSettledAt })
-				.from(artifacts)
-				.where(eq(artifacts.id, id))
-				.get();
-			if (!existing) return c.json({ error: "Not found", code: "NOT_FOUND" }, 404);
-			if (existing.settled !== null) {
-				return c.json({ error: "Cost already settled", code: "IMMUTABLE" }, 409);
-			}
-			const updated = db
-				.update(artifacts)
-				.set({
-					costMoneyMicros: body.money_micros,
-					costTokensInput: body.tokens_input,
-					costTokensOutput: body.tokens_output,
-					costSettledAt: now,
-				})
-				.where(and(eq(artifacts.id, id), isNull(artifacts.costSettledAt)))
-				.run();
-			if (updated.changes === 0) {
-				const exists = db
-					.select({ id: artifacts.id })
-					.from(artifacts)
-					.where(eq(artifacts.id, id))
-					.get();
-				if (!exists) return c.json({ error: "Not found", code: "NOT_FOUND" }, 404);
-				return c.json({ error: "Cost already settled", code: "IMMUTABLE" }, 409);
-			}
-			return c.json({ ok: true });
-		},
-	);
+	// @lore O2: PATCH /:id/cost route removed — cost columns stripped from
+	// artifacts table. Cost settlement is now handled at the strategy layer.
 
 	return router;
 }

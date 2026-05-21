@@ -173,7 +173,8 @@ export function createTaskRoutes(db: HyperIdleDb, eventBus: EventBus): Hono {
 					/* no-op */
 				},
 			},
-			traceId: session.traceId ?? "",
+			// @lore O2: traceId stripped from sessions kernel table; use empty string until strategy layer provides it.
+			traceId: "",
 		};
 
 		const result = await handoff(db, eventBus, {

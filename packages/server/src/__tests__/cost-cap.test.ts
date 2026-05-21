@@ -11,7 +11,7 @@ import {
 	threads,
 } from "@hyperidle/db";
 import { type CostCapBreachedEvent, type CostCapWarningEvent, EventBus } from "@hyperidle/shared";
-import { and, eq } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { beforeEach, describe, expect, it } from "vitest";
 import {
 	checkCostCap,
@@ -107,9 +107,28 @@ function insertSession(
 			modelTier: "workhorse",
 			startedAt: NOW,
 			state,
-			cost,
 		})
 		.run();
+	// @lore O2: sessions.cost removed; accumulate on agents.costActual and
+	// teams.costActual so checkCostCap can read the running total.
+	if (cost > 0) {
+		db.update(agents)
+			.set({ costActual: sql`coalesce(cost_actual, 0) + ${cost}` })
+			.where(eq(agents.id, agentId))
+			.run();
+		// Find which team this agent belongs to and accumulate there too
+		const agent = db
+			.select({ teamId: agents.teamId })
+			.from(agents)
+			.where(eq(agents.id, agentId))
+			.get();
+		if (agent?.teamId) {
+			db.update(teams)
+				.set({ costActual: sql`coalesce(cost_actual, 0) + ${cost}` })
+				.where(eq(teams.id, agent.teamId))
+				.run();
+		}
+	}
 }
 
 describe("Cost Cap Enforcement", () => {

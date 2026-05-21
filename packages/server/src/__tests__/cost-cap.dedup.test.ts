@@ -120,7 +120,6 @@ function seedSession(
 			modelTier: "workhorse",
 			startedAt: NOW,
 			state: "active",
-			cost: 0,
 		})
 		.onConflictDoNothing()
 		.run();
@@ -267,11 +266,15 @@ describe("I3: cost-cap dedup cache bounded", () => {
 	// registered an empty entry on every recordCostAndCheck, leaking
 	// for sessions that never breached.
 	it("1000 cost checks under cap on one session create zero dedup entries", async () => {
+		// @lore O2: costActual accumulates across all calls; use a cap large
+		// enough that 1000 * 10 = 10_000 stays below the 80% warning threshold
+		// (0.8 * 100_000 = 80_000). The old test used 10_000 which would breach
+		// after 1000 iterations.
 		seedAgentWithCap(db, {
 			agentId: "agent-x",
 			teamId: "team-x",
 			productId: "prod-x",
-			costCap: 10_000,
+			costCap: 100_000,
 		});
 		seedSession(db, {
 			sessionId: "sess-x",

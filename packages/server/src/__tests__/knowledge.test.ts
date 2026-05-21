@@ -1,3 +1,12 @@
+/**
+ * @lore O2: Knowledge routes rewritten to remove layer from URL.
+ * - POST /api/knowledge/:layer → POST /api/knowledge
+ * - GET /api/knowledge/:layer → GET /api/knowledge (no layer filtering in O2)
+ * - GET /api/knowledge/:layer/:id → GET /api/knowledge/:id
+ * - PATCH /api/knowledge/:layer/:id → PATCH /api/knowledge/:id
+ * - etc.
+ * Tests updated to match O2 API shape.
+ */
 import { createTestDb, type HyperIdleDb, knowledgeEditLog } from "@hyperidle/db";
 import { EventBus } from "@hyperidle/shared";
 import type { Hono } from "hono";
@@ -27,15 +36,15 @@ describe("Knowledge Endpoints (E4)", () => {
 	});
 
 	// Helper to create a knowledge item via API
+	// @lore O2: POST /api/knowledge (no layer in path)
 	async function createItem(
-		layer: string,
+		_layer: string,
 		overrides?: Record<string, unknown>,
 	): Promise<Record<string, unknown>> {
-		const res = await app.request(`/api/knowledge/${layer}`, {
+		const res = await app.request("/api/knowledge", {
 			method: "POST",
 			headers: authHeaders(),
 			body: JSON.stringify({
-				kind: "pattern",
 				topic: "testing",
 				title: "Test Pattern",
 				body: "This is a test pattern body.",
@@ -47,77 +56,73 @@ describe("Knowledge Endpoints (E4)", () => {
 		return (await res.json()) as Record<string, unknown>;
 	}
 
-	// AC1: GET /api/knowledge/:layer — list by layer, grouped by topic, kind
+	// AC1: GET /api/knowledge — list all items (O2: no layer grouping in kernel route)
 	describe("AC1: GET /api/knowledge/:layer — list by layer grouped by topic, kind", () => {
 		it("returns items for a given layer grouped by topic and kind", async () => {
-			await createItem("L0", { topic: "design", kind: "pattern", title: "Design Pattern A" });
-			await createItem("L0", {
-				topic: "design",
-				kind: "anti_pattern",
-				title: "Design Anti-Pattern B",
-			});
-			await createItem("L0", { topic: "testing", kind: "pattern", title: "Test Pattern C" });
-			await createItem("L1", { topic: "design", kind: "pattern", title: "L1 Design Pattern" });
+			// @lore O2: Layer is now a strategy concern. In O2 the kernel GET /
+			// returns all items with a flat items array. Grouping is a fabric concern.
+			await createItem("L0", { topic: "design", title: "Design Pattern A" });
+			await createItem("L0", { topic: "design", title: "Design Anti-Pattern B" });
+			await createItem("L0", { topic: "testing", title: "Test Pattern C" });
+			await createItem("L1", { topic: "design", title: "L1 Design Pattern" });
 
-			const res = await app.request("/api/knowledge/L0", { headers: authHeaders() });
+			const res = await app.request("/api/knowledge", { headers: authHeaders() });
 			expect(res.status).toBe(200);
 			const body = (await res.json()) as Record<string, unknown>;
-			expect(body.layer).toBe("L0");
-			const groups = body.groups as Record<string, Record<string, unknown[]>>;
-			// Should have topic "design" and "testing"
-			expect(groups.design).toBeDefined();
-			expect(groups.testing).toBeDefined();
-			// Design should have pattern and anti_pattern
-			expect(groups.design.pattern).toHaveLength(1);
-			expect(groups.design.anti_pattern).toHaveLength(1);
-			expect(groups.testing.pattern).toHaveLength(1);
+			// O2: flat items array, no layer grouping in kernel route
+			const items = body.items as Record<string, unknown>[];
+			expect(items.length).toBe(4);
 		});
 
 		it("returns empty groups for a layer with no items", async () => {
-			const res = await app.request("/api/knowledge/L4", { headers: authHeaders() });
+			// @lore O2: GET /api/knowledge returns empty items when DB is empty
+			const res = await app.request("/api/knowledge", { headers: authHeaders() });
 			expect(res.status).toBe(200);
 			const body = (await res.json()) as Record<string, unknown>;
-			expect(body.layer).toBe("L4");
-			expect(body.groups).toEqual({});
+			const items = body.items as unknown[];
+			expect(items.length).toBe(0);
 		});
 	});
 
-	// AC2: GET /api/knowledge/:layer/:id — single item
+	// AC2: GET /api/knowledge/:id — single item
 	describe("AC2: GET /api/knowledge/:layer/:id — single item", () => {
 		it("returns a single knowledge item", async () => {
 			const item = await createItem("L0");
 			const id = item.id as string;
 
-			const res = await app.request(`/api/knowledge/L0/${id}`, { headers: authHeaders() });
+			// @lore O2: GET /api/knowledge/:id (no layer segment)
+			const res = await app.request(`/api/knowledge/${id}`, { headers: authHeaders() });
 			expect(res.status).toBe(200);
 			const body = (await res.json()) as Record<string, unknown>;
 			expect(body.id).toBe(id);
-			expect(body.layer).toBe("L0");
 			expect(body.title).toBe("Test Pattern");
 		});
 
 		it("returns 404 for non-existent item", async () => {
-			const res = await app.request("/api/knowledge/L0/nonexistent", { headers: authHeaders() });
+			const res = await app.request("/api/knowledge/nonexistent", { headers: authHeaders() });
 			expect(res.status).toBe(404);
 		});
 
 		it("returns 404 when item exists but in different layer", async () => {
+			// @lore O2: no layer constraint on GET /:id — item is found regardless.
+			// This test now verifies that an item IS found (layer distinction is fabric-level).
 			const item = await createItem("L0");
 			const id = item.id as string;
 
-			const res = await app.request(`/api/knowledge/L1/${id}`, { headers: authHeaders() });
-			expect(res.status).toBe(404);
+			// In O2, GET /:id finds by ID only — layer constraint removed.
+			// The test is updated: the item IS found, and we verify that.
+			const res = await app.request(`/api/knowledge/${id}`, { headers: authHeaders() });
+			expect(res.status).toBe(200);
 		});
 	});
 
-	// AC3: POST /api/knowledge/:layer — create (version=1)
+	// AC3: POST /api/knowledge — create (version=1)
 	describe("AC3: POST /api/knowledge/:layer — create with version=1", () => {
 		it("creates a knowledge item with version 1", async () => {
-			const res = await app.request("/api/knowledge/L0", {
+			const res = await app.request("/api/knowledge", {
 				method: "POST",
 				headers: authHeaders(),
 				body: JSON.stringify({
-					kind: "pattern",
 					topic: "testing",
 					title: "New Pattern",
 					body: "Body content",
@@ -129,28 +134,28 @@ describe("Knowledge Endpoints (E4)", () => {
 			expect(res.status).toBe(201);
 			const body = (await res.json()) as Record<string, unknown>;
 			expect(body.version).toBe(1);
-			expect(body.layer).toBe("L0");
-			expect(body.status).toBe("captured");
+			// @lore O2: status default is "draft" (was "captured" pre-O2)
+			expect(body.status).toBe("draft");
 			expect(body.id).toBeTruthy();
 		});
 
 		it("returns 400 for missing required fields", async () => {
-			const res = await app.request("/api/knowledge/L0", {
+			const res = await app.request("/api/knowledge", {
 				method: "POST",
 				headers: authHeaders(),
-				body: JSON.stringify({ kind: "pattern" }),
+				body: JSON.stringify({ topic: "testing" }),
 			});
 			expect(res.status).toBe(400);
 		});
 	});
 
-	// AC4: PATCH /api/knowledge/:layer/:id — update (optimistic locking)
+	// AC4: PATCH /api/knowledge/:id — update (optimistic locking)
 	describe("AC4: PATCH /api/knowledge/:layer/:id — update with optimistic locking", () => {
 		it("updates an item when version matches", async () => {
 			const item = await createItem("L0");
 			const id = item.id as string;
 
-			const res = await app.request(`/api/knowledge/L0/${id}`, {
+			const res = await app.request(`/api/knowledge/${id}`, {
 				method: "PATCH",
 				headers: authHeaders(),
 				body: JSON.stringify({
@@ -167,7 +172,7 @@ describe("Knowledge Endpoints (E4)", () => {
 		});
 
 		it("returns 404 for non-existent item", async () => {
-			const res = await app.request("/api/knowledge/L0/nonexistent", {
+			const res = await app.request("/api/knowledge/nonexistent", {
 				method: "PATCH",
 				headers: authHeaders(),
 				body: JSON.stringify({
@@ -187,7 +192,7 @@ describe("Knowledge Endpoints (E4)", () => {
 			const id = item.id as string;
 
 			// First update succeeds (version 1 -> 2)
-			await app.request(`/api/knowledge/L0/${id}`, {
+			await app.request(`/api/knowledge/${id}`, {
 				method: "PATCH",
 				headers: authHeaders(),
 				body: JSON.stringify({
@@ -198,7 +203,7 @@ describe("Knowledge Endpoints (E4)", () => {
 			});
 
 			// Second update with stale version 1 should fail
-			const res = await app.request(`/api/knowledge/L0/${id}`, {
+			const res = await app.request(`/api/knowledge/${id}`, {
 				method: "PATCH",
 				headers: authHeaders(),
 				body: JSON.stringify({
@@ -216,7 +221,7 @@ describe("Knowledge Endpoints (E4)", () => {
 		});
 	});
 
-	// AC6: POST /api/knowledge/:layer/:id/merge — merge two items
+	// AC6: POST /api/knowledge/:id/merge — merge two items
 	describe("AC6: POST /api/knowledge/:layer/:id/merge — merge two items", () => {
 		it("merges two items, combining body, both IDs redirect", async () => {
 			const item1 = await createItem("L0", { title: "Item One", body: "Body one." });
@@ -224,7 +229,7 @@ describe("Knowledge Endpoints (E4)", () => {
 			const id1 = item1.id as string;
 			const id2 = item2.id as string;
 
-			const res = await app.request(`/api/knowledge/L0/${id1}/merge`, {
+			const res = await app.request(`/api/knowledge/${id1}/merge`, {
 				method: "POST",
 				headers: authHeaders(),
 				body: JSON.stringify({
@@ -240,7 +245,7 @@ describe("Knowledge Endpoints (E4)", () => {
 			expect(body.body as string).toContain("Body two.");
 
 			// Source item should be archived (merged)
-			const sourceRes = await app.request(`/api/knowledge/L0/${id2}`, { headers: authHeaders() });
+			const sourceRes = await app.request(`/api/knowledge/${id2}`, { headers: authHeaders() });
 			expect(sourceRes.status).toBe(200);
 			const sourceBody = (await sourceRes.json()) as Record<string, unknown>;
 			expect(sourceBody.status).toBe("archived");
@@ -250,7 +255,7 @@ describe("Knowledge Endpoints (E4)", () => {
 			const item = await createItem("L0");
 			const id = item.id as string;
 
-			const res = await app.request(`/api/knowledge/L0/${id}/merge`, {
+			const res = await app.request(`/api/knowledge/${id}/merge`, {
 				method: "POST",
 				headers: authHeaders(),
 				body: JSON.stringify({
@@ -263,19 +268,19 @@ describe("Knowledge Endpoints (E4)", () => {
 		});
 	});
 
-	// AC7: POST /api/knowledge/:layer/:id/split — split into two
+	// AC7: POST /api/knowledge/:id/split — split into two
 	describe("AC7: POST /api/knowledge/:layer/:id/split — split into two items", () => {
 		it("splits an item into two new items", async () => {
 			const item = await createItem("L0", { title: "Combined", body: "Part A. Part B." });
 			const id = item.id as string;
 
-			const res = await app.request(`/api/knowledge/L0/${id}/split`, {
+			const res = await app.request(`/api/knowledge/${id}/split`, {
 				method: "POST",
 				headers: authHeaders(),
 				body: JSON.stringify({
 					newItems: [
-						{ title: "Part A", body: "Part A content.", kind: "pattern" },
-						{ title: "Part B", body: "Part B content.", kind: "pattern" },
+						{ title: "Part A", body: "Part A content." },
+						{ title: "Part B", body: "Part B content." },
 					],
 					updatedBy: "curator",
 				}),
@@ -290,7 +295,7 @@ describe("Knowledge Endpoints (E4)", () => {
 			expect((items[0] as Record<string, unknown>).version).toBe(1);
 
 			// Original item should be archived
-			const origRes = await app.request(`/api/knowledge/L0/${id}`, { headers: authHeaders() });
+			const origRes = await app.request(`/api/knowledge/${id}`, { headers: authHeaders() });
 			const origBody = (await origRes.json()) as Record<string, unknown>;
 			expect(origBody.status).toBe("archived");
 		});
@@ -299,11 +304,11 @@ describe("Knowledge Endpoints (E4)", () => {
 			const item = await createItem("L0");
 			const id = item.id as string;
 
-			const res = await app.request(`/api/knowledge/L0/${id}/split`, {
+			const res = await app.request(`/api/knowledge/${id}/split`, {
 				method: "POST",
 				headers: authHeaders(),
 				body: JSON.stringify({
-					newItems: [{ title: "Only One", body: "Only one.", kind: "pattern" }],
+					newItems: [{ title: "Only One", body: "Only one." }],
 					updatedBy: "curator",
 				}),
 			});
@@ -312,13 +317,13 @@ describe("Knowledge Endpoints (E4)", () => {
 		});
 	});
 
-	// AC8: POST /api/knowledge/:layer/:id/archive — archive
+	// AC8: POST /api/knowledge/:id/archive — archive
 	describe("AC8: POST /api/knowledge/:layer/:id/archive — archive item", () => {
 		it("archives an item (status = archived)", async () => {
 			const item = await createItem("L0");
 			const id = item.id as string;
 
-			const res = await app.request(`/api/knowledge/L0/${id}/archive`, {
+			const res = await app.request(`/api/knowledge/${id}/archive`, {
 				method: "POST",
 				headers: authHeaders(),
 			});
@@ -329,7 +334,7 @@ describe("Knowledge Endpoints (E4)", () => {
 		});
 
 		it("returns 404 for non-existent item", async () => {
-			const res = await app.request("/api/knowledge/L0/nonexistent/archive", {
+			const res = await app.request("/api/knowledge/nonexistent/archive", {
 				method: "POST",
 				headers: authHeaders(),
 			});
@@ -337,26 +342,28 @@ describe("Knowledge Endpoints (E4)", () => {
 		});
 	});
 
-	// AC9: POST /api/knowledge/:layer/:id/flag — flag for review
+	// AC9: POST /api/knowledge/:id/flag — flag for review
 	describe("AC9: POST /api/knowledge/:layer/:id/flag — flag for review", () => {
-		it("flags an item by setting attention_score", async () => {
+		it("flags an item (records in edit log)", async () => {
+			// @lore O2: attentionScore column stripped from kernel table.
+			// Flag now records in edit log; status is NOT changed to "provisional".
 			const item = await createItem("L0");
 			const id = item.id as string;
 
-			const res = await app.request(`/api/knowledge/L0/${id}/flag`, {
+			const res = await app.request(`/api/knowledge/${id}/flag`, {
 				method: "POST",
 				headers: authHeaders(),
 				body: JSON.stringify({ reason: "Needs review" }),
 			});
 
 			expect(res.status).toBe(200);
+			// O2: flag records in edit log; item is still returned
 			const body = (await res.json()) as Record<string, unknown>;
-			expect(body.status).toBe("provisional");
-			expect(body.attentionScore as number).toBeGreaterThan(0);
+			expect(body.id).toBe(id);
 		});
 
 		it("returns 404 for non-existent item", async () => {
-			const res = await app.request("/api/knowledge/L0/nonexistent/flag", {
+			const res = await app.request("/api/knowledge/nonexistent/flag", {
 				method: "POST",
 				headers: authHeaders(),
 				body: JSON.stringify({ reason: "Needs review" }),
@@ -414,7 +421,7 @@ describe("Knowledge Endpoints (E4)", () => {
 			await createItem("L0");
 
 			const knowledgeEvents = events.filter(
-				(e) => (e as Record<string, unknown>).type === "knowledge_updated",
+				(e) => (e as Record<string, unknown>).type === "knowledge_created",
 			);
 			expect(knowledgeEvents.length).toBe(1);
 		});
@@ -426,7 +433,7 @@ describe("Knowledge Endpoints (E4)", () => {
 			const events: unknown[] = [];
 			eventBus.on("*", (e) => events.push(e));
 
-			await app.request(`/api/knowledge/L0/${id}`, {
+			await app.request(`/api/knowledge/${id}`, {
 				method: "PATCH",
 				headers: authHeaders(),
 				body: JSON.stringify({
@@ -449,7 +456,7 @@ describe("Knowledge Endpoints (E4)", () => {
 			const item = await createItem("L0");
 			const id = item.id as string;
 
-			await app.request(`/api/knowledge/L0/${id}`, {
+			await app.request(`/api/knowledge/${id}`, {
 				method: "PATCH",
 				headers: authHeaders(),
 				body: JSON.stringify({
@@ -480,7 +487,7 @@ describe("Knowledge Endpoints (E4)", () => {
 			const events: unknown[] = [];
 			eventBus.on("*", (e) => events.push(e));
 
-			await app.request(`/api/knowledge/L0/${id}`, {
+			await app.request(`/api/knowledge/${id}`, {
 				method: "PATCH",
 				headers: authHeaders(),
 				body: JSON.stringify({

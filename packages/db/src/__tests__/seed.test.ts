@@ -56,12 +56,18 @@ describe("A2: Seed script", () => {
 		expect(team?.id).toBeTruthy();
 		expect(team?.capacity).toBeGreaterThan(0);
 
-		const ki = db.get<{ id: string; layer: string; version: number }>(
-			sql`SELECT id, layer, version FROM knowledge_items LIMIT 1`,
+		// @lore O2: layer moved to knowledgeStrategyFabric; query via JOIN.
+		const ki = db.get<{ id: string; version: number }>(
+			sql`SELECT id, version FROM knowledge_items LIMIT 1`,
 		);
 		expect(ki?.id).toBeTruthy();
-		expect(ki?.layer).toBeTruthy();
 		expect(ki?.version).toBeGreaterThanOrEqual(1);
+
+		// Verify layer is accessible via the extension table
+		const ksf = db.get<{ layer: string | null }>(
+			sql`SELECT layer FROM knowledge_strategy_fabric WHERE knowledge_item_id = ${ki?.id}`,
+		);
+		expect(ksf?.layer).toBeTruthy();
 	});
 
 	it("is idempotent (running twice does not error)", () => {

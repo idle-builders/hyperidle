@@ -1,6 +1,6 @@
 import * as nodeFs from "node:fs";
 import * as path from "node:path";
-import { type HyperIdleDb, knowledgeItems } from "@hyperidle/db";
+import { type HyperIdleDb, knowledgeItems, knowledgeStrategyFabric } from "@hyperidle/db";
 import {
 	createLogger,
 	type EventBus,
@@ -119,24 +119,39 @@ export function buildCommitMessage(entries: ExportPlanEntry[], trigger: GitExpor
 }
 
 /**
+ * @lore O2: layer/kind/scopeId are now in knowledgeStrategyFabric, not
+ * knowledgeItems. mapRowToEntry takes a combined row with both item and
+ * fabric fields so the caller can do one JOIN query and pass results here.
+ */
+interface JoinedExportRow {
+	item: typeof knowledgeItems.$inferSelect;
+	fabric: typeof knowledgeStrategyFabric.$inferSelect | null;
+}
+
+/**
  * Map a DB row to a plan entry. Returns `null` when the row should be
  * skipped silently (wrong layer/kind). Returns a rejection object when
  * the row tried to do something unsafe (path traversal via scopeId/topic)
  * so the caller can surface the rejection in the result + log.
  */
 function mapRowToEntry(
-	row: typeof knowledgeItems.$inferSelect,
+	joined: JoinedExportRow,
 ): ExportPlanEntry | { rejected: true; reason: string } | null {
-	if (!isExportedLayer(row.layer)) return null;
-	const kind = row.kind.toUpperCase();
+	const { item, fabric } = joined;
+	const layer = fabric?.layer ?? null;
+	if (!isExportedLayer(layer ?? "")) return null;
+	const exportLayer = layer as "L2" | "L4";
+	const rawKind = fabric?.kind ?? null;
+	if (!rawKind) return null;
+	const kind = rawKind.toUpperCase();
 	if (!EXPORTED_KINDS.has(kind)) return null;
 
-	const layer = row.layer;
+	const scopeId = fabric?.scopeId ?? null;
 
 	let relPath: string;
-	if (layer === "L4") {
+	if (exportLayer === "L4") {
 		if (kind === "REFLECTION") {
-			const rawTopic = row.topic && row.topic.length > 0 ? row.topic : row.id;
+			const rawTopic = item.topic && item.topic.length > 0 ? item.topic : item.id;
 			const topic = sanitizePathSegment(rawTopic);
 			if (topic === null) {
 				return {
@@ -150,12 +165,12 @@ function mapRowToEntry(
 		}
 	} else {
 		// L2 — scopeId required to route to products/<scope>
-		if (!row.scopeId || row.scopeId.length === 0) return null;
-		const scope = sanitizePathSegment(row.scopeId);
+		if (!scopeId || scopeId.length === 0) return null;
+		const scope = sanitizePathSegment(scopeId);
 		if (scope === null) {
 			return {
 				rejected: true,
-				reason: `scopeId '${row.scopeId}' is not a safe path segment`,
+				reason: `scopeId '${scopeId}' is not a safe path segment`,
 			};
 		}
 		relPath = `products/${scope}/${kind}.md`;
@@ -163,13 +178,13 @@ function mapRowToEntry(
 
 	return {
 		relPath,
-		body: row.body,
-		knowledgeItemId: row.id,
-		layer,
+		body: item.body,
+		knowledgeItemId: item.id,
+		layer: exportLayer,
 		kind,
-		scopeId: layer === "L4" ? (row.scopeId ?? "factory") : row.scopeId,
-		version: row.version,
-		title: row.title,
+		scopeId: exportLayer === "L4" ? (scopeId ?? "factory") : scopeId,
+		version: item.version,
+		title: item.title,
 	};
 }
 
@@ -180,14 +195,30 @@ function compareEntries(a: ExportPlanEntry, b: ExportPlanEntry): number {
 /**
  * Compute the full export plan from the DB. Filters at the SQL layer:
  * only L2/L4 rows with non-archived/non-draft status hit our code.
+ *
+ * @lore O2: layer/kind/scopeId are now in knowledgeStrategyFabric. The
+ * kernel-layer filter (status) is still on knowledgeItems. The strategy
+ * filter (layer=L2|L4) is on the fabric table via an INNER JOIN so items
+ * without a fabric row (no layer assigned) are automatically excluded.
+ * The status filter is on the kernel table as before.
  */
 export function computeExportPlan(db: HyperIdleDb): ExportPlan {
+	// @lore O2: INNER JOIN with knowledgeStrategyFabric so only items that
+	// have a fabric row (and thus a layer assignment) are included. Items
+	// without a fabric row have no layer and are not exportable.
 	const rows = db
-		.select()
+		.select({
+			item: knowledgeItems,
+			fabric: knowledgeStrategyFabric,
+		})
 		.from(knowledgeItems)
+		.innerJoin(
+			knowledgeStrategyFabric,
+			eq(knowledgeStrategyFabric.knowledgeItemId, knowledgeItems.id),
+		)
 		.where(
 			and(
-				inArray(knowledgeItems.layer, ["L2", "L4"]),
+				inArray(knowledgeStrategyFabric.layer, ["L2", "L4"]),
 				inArray(knowledgeItems.status, EXPORTED_STATUSES as string[]),
 				// Belt+braces — defend even if EXPORTED_STATUSES ever grows.
 				notInArray(knowledgeItems.status, [
@@ -202,11 +233,11 @@ export function computeExportPlan(db: HyperIdleDb): ExportPlan {
 		.all();
 	const entries: ExportPlanEntry[] = [];
 	const rejected: Array<{ itemId: string; reason: string }> = [];
-	for (const row of rows) {
-		const mapped = mapRowToEntry(row);
+	for (const joined of rows) {
+		const mapped = mapRowToEntry(joined);
 		if (mapped === null) continue;
 		if ("rejected" in mapped) {
-			rejected.push({ itemId: row.id, reason: mapped.reason });
+			rejected.push({ itemId: joined.item.id, reason: mapped.reason });
 			continue;
 		}
 		entries.push(mapped);
@@ -523,10 +554,22 @@ export function registerGitExportHandler(
 
 	const handler = (event: KnowledgeUpdatedEvent): void => {
 		if (disposed) return;
-		const item = db.select().from(knowledgeItems).where(eq(knowledgeItems.id, event.itemId)).get();
-		if (!item) return;
-		if (!isExportedLayer(item.layer)) return;
-		if (!EXPORTED_KINDS.has(item.kind.toUpperCase())) return;
+		// @lore O2: layer/kind are in knowledgeStrategyFabric. LEFT JOIN to
+		// get fabric fields for the updated item; skip if no fabric row.
+		const row = db
+			.select({ item: knowledgeItems, fabric: knowledgeStrategyFabric })
+			.from(knowledgeItems)
+			.leftJoin(
+				knowledgeStrategyFabric,
+				eq(knowledgeStrategyFabric.knowledgeItemId, knowledgeItems.id),
+			)
+			.where(eq(knowledgeItems.id, event.itemId))
+			.get();
+		if (!row) return;
+		const fabricLayer = row.fabric?.layer ?? null;
+		const fabricKind = row.fabric?.kind ?? null;
+		if (!isExportedLayer(fabricLayer ?? "")) return;
+		if (!(fabricKind && EXPORTED_KINDS.has(fabricKind.toUpperCase()))) return;
 
 		const cfg = loadGitExportConfig(db);
 		if (!cfg) return;

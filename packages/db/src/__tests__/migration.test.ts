@@ -69,28 +69,46 @@ describe("A2: Migration", () => {
 		expect(result[0]).toMatchObject({ id: "test-prod", name: "Test" });
 	});
 
-	it("migrated database has all five knowledge_items indexes", () => {
-		const indexes = db
+	it("migrated database has kernel and fabric knowledge indexes", () => {
+		// @lore O2: layer, scope_id, kind indexes removed from knowledge_items kernel table.
+		// They now live on knowledge_strategy_fabric extension table.
+		const kiIndexes = db
 			.all<{ name: string }>(
 				sql`SELECT name FROM sqlite_master WHERE type='index' AND tbl_name='knowledge_items' AND name NOT LIKE 'sqlite_%'`,
 			)
 			.map((r) => r.name);
 
-		expect(indexes.length).toBeGreaterThanOrEqual(5);
+		// Kernel table should have at least 3 indexes (topic, status, updated_at)
+		expect(kiIndexes.length).toBeGreaterThanOrEqual(3);
 
-		const indexedColumns = new Set<string>();
-		for (const idx of indexes) {
+		const kiIndexedColumns = new Set<string>();
+		for (const idx of kiIndexes) {
 			const cols = db.all<{ name: string }>(sql.raw(`PRAGMA index_info("${idx}")`));
 			for (const col of cols) {
-				indexedColumns.add(col.name);
+				kiIndexedColumns.add(col.name);
 			}
 		}
 
-		expect(indexedColumns).toContain("layer");
-		expect(indexedColumns).toContain("scope_id");
-		expect(indexedColumns).toContain("kind");
-		expect(indexedColumns).toContain("topic");
-		expect(indexedColumns).toContain("status");
+		expect(kiIndexedColumns).toContain("topic");
+		expect(kiIndexedColumns).toContain("status");
+
+		// Strategy fabric table should have layer and kind indexes
+		const ksfIndexes = db
+			.all<{ name: string }>(
+				sql`SELECT name FROM sqlite_master WHERE type='index' AND tbl_name='knowledge_strategy_fabric' AND name NOT LIKE 'sqlite_%'`,
+			)
+			.map((r) => r.name);
+
+		const ksfIndexedColumns = new Set<string>();
+		for (const idx of ksfIndexes) {
+			const cols = db.all<{ name: string }>(sql.raw(`PRAGMA index_info("${idx}")`));
+			for (const col of cols) {
+				ksfIndexedColumns.add(col.name);
+			}
+		}
+
+		expect(ksfIndexedColumns).toContain("layer");
+		expect(ksfIndexedColumns).toContain("kind");
 	});
 
 	it("migration is idempotent (running twice does not error)", () => {

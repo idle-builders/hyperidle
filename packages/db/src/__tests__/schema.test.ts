@@ -495,16 +495,15 @@ describe("A2: Database Schema", () => {
 		});
 
 		it("inserts and reads knowledge_items", () => {
+			// @lore O2: layer, kind stripped from kernel table; use knowledgeStrategyFabric.
 			const now = new Date().toISOString();
 			db.insert(knowledgeItems)
 				.values({
 					id: "ki-1",
-					layer: "L3",
-					kind: "pattern",
 					title: "Chunked uploads",
 					body: "Use chunked uploads for files >10MB",
 					format: "markdown",
-					status: "captured",
+					status: "draft",
 					version: 1,
 					updatedBy: "agent-1",
 					createdAt: now,
@@ -515,24 +514,21 @@ describe("A2: Database Schema", () => {
 			const result = db.select().from(knowledgeItems).where(eq(knowledgeItems.id, "ki-1")).get();
 			expect(result).toMatchObject({
 				id: "ki-1",
-				layer: "L3",
-				kind: "pattern",
 				title: "Chunked uploads",
 				version: 1,
 			});
 		});
 
 		it("updates knowledge_items version", () => {
+			// @lore O2: layer, kind stripped from kernel table.
 			const now = new Date().toISOString();
 			db.insert(knowledgeItems)
 				.values({
 					id: "ki-1",
-					layer: "L3",
-					kind: "pattern",
 					title: "Original",
 					body: "Body",
 					format: "markdown",
-					status: "captured",
+					status: "draft",
 					version: 1,
 					updatedBy: "agent-1",
 					createdAt: now,
@@ -551,16 +547,15 @@ describe("A2: Database Schema", () => {
 		});
 
 		it("inserts and reads knowledge_edit_log", () => {
+			// @lore O2: layer, kind stripped from kernel table.
 			const now = new Date().toISOString();
 			db.insert(knowledgeItems)
 				.values({
 					id: "ki-1",
-					layer: "L3",
-					kind: "pattern",
 					title: "T",
 					body: "B",
 					format: "markdown",
-					status: "captured",
+					status: "draft",
 					version: 1,
 					updatedBy: "a",
 					createdAt: now,
@@ -606,17 +601,19 @@ describe("A2: Database Schema", () => {
 		});
 	});
 
-	// --- AC3: All five knowledge_items indexes exist ---
+	// --- AC3: knowledge_items kernel indexes exist; strategy indexes on extension table ---
 	describe("AC3: knowledge_items indexes", () => {
-		it("has indexes on layer, scope_id, kind, topic, and status", () => {
+		it("has indexes on topic, status, and updated_at (kernel table)", () => {
+			// @lore O2: layer, scope_id, kind indexes removed from kernel table.
+			// They now live on knowledge_strategy_fabric.
 			const indexes = db
 				.all<{ name: string }>(
 					sql`SELECT name FROM sqlite_master WHERE type='index' AND tbl_name='knowledge_items' AND name NOT LIKE 'sqlite_%'`,
 				)
 				.map((r) => r.name);
 
-			// Should have at least 5 indexes
-			expect(indexes.length).toBeGreaterThanOrEqual(5);
+			// Should have at least 3 indexes (topic, status, updated_at)
+			expect(indexes.length).toBeGreaterThanOrEqual(3);
 
 			// Verify each indexed column by checking index info
 			const indexedColumns = new Set<string>();
@@ -627,11 +624,29 @@ describe("A2: Database Schema", () => {
 				}
 			}
 
-			expect(indexedColumns).toContain("layer");
-			expect(indexedColumns).toContain("scope_id");
-			expect(indexedColumns).toContain("kind");
 			expect(indexedColumns).toContain("topic");
 			expect(indexedColumns).toContain("status");
+		});
+
+		it("knowledge_strategy_fabric has indexes on knowledge_item_id, layer, and kind", () => {
+			// @lore O2: strategy-layer indexes live on the extension table.
+			const indexes = db
+				.all<{ name: string }>(
+					sql`SELECT name FROM sqlite_master WHERE type='index' AND tbl_name='knowledge_strategy_fabric' AND name NOT LIKE 'sqlite_%'`,
+				)
+				.map((r) => r.name);
+
+			const indexedColumns = new Set<string>();
+			for (const idx of indexes) {
+				const cols = db.all<{ name: string }>(sql.raw(`PRAGMA index_info("${idx}")`));
+				for (const col of cols) {
+					indexedColumns.add(col.name);
+				}
+			}
+
+			expect(indexedColumns).toContain("knowledge_item_id");
+			expect(indexedColumns).toContain("layer");
+			expect(indexedColumns).toContain("kind");
 		});
 	});
 

@@ -14,7 +14,13 @@
  *   AC5 — Configurable: repo path, remote URL, branch
  */
 
-import { createTestDb, factorySettings, type HyperIdleDb, knowledgeItems } from "@hyperidle/db";
+import {
+	createTestDb,
+	factorySettings,
+	type HyperIdleDb,
+	knowledgeItems,
+	knowledgeStrategyFabric,
+} from "@hyperidle/db";
 import { EventBus, type KnowledgeUpdatedEvent } from "@hyperidle/shared";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createApp, disposeApp } from "../app.js";
@@ -222,13 +228,14 @@ function seedKnowledge(
 		status?: string;
 	}>,
 ): void {
+	// @lore O2: layer/kind/scopeId are in knowledgeStrategyFabric; kernel only
+	// holds identity + content. Insert both tables so computeExportPlan (which
+	// does an INNER JOIN) finds the fabric row.
 	for (const r of rows) {
+		const itemId = r.id ?? crypto.randomUUID();
 		db.insert(knowledgeItems)
 			.values({
-				id: r.id ?? crypto.randomUUID(),
-				layer: r.layer,
-				scopeId: r.scopeId ?? null,
-				kind: r.kind,
+				id: itemId,
 				topic: r.topic ?? null,
 				title: r.title ?? `${r.layer} ${r.kind}`,
 				body: r.body,
@@ -239,6 +246,16 @@ function seedKnowledge(
 				createdAt: NOW_ISO,
 				updatedAt: NOW_ISO,
 			})
+			.run();
+		db.insert(knowledgeStrategyFabric)
+			.values({
+				id: `ksf-${itemId}`,
+				knowledgeItemId: itemId,
+				layer: r.layer,
+				kind: r.kind,
+				scopeId: r.scopeId ?? null,
+			})
+			.onConflictDoNothing()
 			.run();
 	}
 }

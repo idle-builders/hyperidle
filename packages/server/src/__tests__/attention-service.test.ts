@@ -3,9 +3,9 @@ import {
 	factorySettings,
 	type HyperIdleDb,
 	items,
-	type KnowledgeItem,
 	knowledgeConflicts,
 	knowledgeItems,
+	knowledgeStrategyFabric,
 } from "@hyperidle/db";
 import type { ItemCreatedEvent, KnowledgeUpdatedEvent } from "@hyperidle/shared";
 import { EventBus } from "@hyperidle/shared";
@@ -17,30 +17,63 @@ import { attentionReviewReasoningMarker } from "../services/review-item-factory.
 const NOW = "2026-04-18T00:00:00.000Z";
 const NOW_MS = new Date(NOW).getTime();
 
-function seedKi(
-	db: HyperIdleDb,
-	overrides: Partial<KnowledgeItem> & { id: string },
-): KnowledgeItem {
-	const row: KnowledgeItem = {
+interface SeedKiOverrides {
+	readonly id: string;
+	readonly layer?: string | null;
+	readonly scopeId?: string | null;
+	readonly kind?: string | null;
+	readonly topic?: string | null;
+	readonly title?: string;
+	readonly body?: string;
+	readonly format?: string;
+	readonly status?: string;
+	/** @lore O2: attentionScore stored as text in knowledgeStrategyFabric */
+	readonly attentionScore?: number | null;
+	/** @lore O2: confidence stored as text in knowledgeStrategyFabric */
+	readonly confidence?: number | null;
+	readonly version?: number;
+	readonly updatedBy?: string;
+	readonly createdAt?: string;
+	readonly updatedAt?: string;
+	readonly meta?: string | null;
+}
+
+/**
+ * @lore O2: seedKi inserts into BOTH the kernel knowledgeItems table AND the
+ * knowledgeStrategyFabric extension table. Strategy fields (layer, scopeId,
+ * kind, attentionScore, confidence, meta) are no longer columns on the kernel
+ * table.
+ */
+function seedKi(db: HyperIdleDb, overrides: SeedKiOverrides): SeedKiOverrides & { id: string } {
+	const kernelRow = {
 		id: overrides.id,
-		layer: overrides.layer ?? "L3",
-		scopeId: overrides.scopeId ?? null,
-		kind: overrides.kind ?? "pattern",
 		topic: overrides.topic ?? null,
 		title: overrides.title ?? "Test",
 		body: overrides.body ?? "Body",
 		format: overrides.format ?? "markdown",
 		status: overrides.status ?? "active",
-		attentionScore: overrides.attentionScore ?? null,
-		confidence: overrides.confidence ?? null,
 		version: overrides.version ?? 1,
 		updatedBy: overrides.updatedBy ?? "agent-1",
 		createdAt: overrides.createdAt ?? NOW,
 		updatedAt: overrides.updatedAt ?? NOW,
-		meta: overrides.meta ?? null,
 	};
-	db.insert(knowledgeItems).values(row).run();
-	return row;
+	db.insert(knowledgeItems).values(kernelRow).run();
+
+	// Insert strategy extension row
+	db.insert(knowledgeStrategyFabric)
+		.values({
+			id: `ksf-${overrides.id}`,
+			knowledgeItemId: overrides.id,
+			layer: overrides.layer ?? "L3",
+			scopeId: overrides.scopeId ?? null,
+			kind: overrides.kind ?? "pattern",
+			attentionScore: overrides.attentionScore != null ? String(overrides.attentionScore) : null,
+			confidence: overrides.confidence != null ? String(overrides.confidence) : null,
+			meta: overrides.meta ?? null,
+		})
+		.run();
+
+	return overrides;
 }
 
 function seedConflict(db: HyperIdleDb, id: string, itemId: string): void {
@@ -67,13 +100,21 @@ describe("attention-service", () => {
 		eventBus = new EventBus();
 	});
 
-	it("recomputeOne persists the new score on knowledge_items.attentionScore and does NOT bump version", async () => {
+	it("recomputeOne persists the new score on knowledge_strategy_fabric.attentionScore and does NOT bump version", async () => {
+		// @lore O2: attentionScore moved from kernel knowledgeItems to extension table
 		seedKi(db, { id: "ki-1", attentionScore: 0.1, version: 3, confidence: 0.5 });
 		const service = buildAttentionService({ db, eventBus, now: () => NOW_MS });
 		await service.recomputeOne("ki-1");
+		// Kernel version must NOT be bumped
 		const row = db.select().from(knowledgeItems).where(eq(knowledgeItems.id, "ki-1")).get();
-		expect(row?.attentionScore).not.toBeNull();
 		expect(row?.version).toBe(3);
+		// attentionScore written to fabric extension table
+		const fabric = db
+			.select()
+			.from(knowledgeStrategyFabric)
+			.where(eq(knowledgeStrategyFabric.knowledgeItemId, "ki-1"))
+			.get();
+		expect(fabric?.attentionScore).not.toBeNull();
 	});
 
 	it("recomputeOne fires ItemCreatedEvent on prior<0.7 & current>=0.7 AND writes items row", async () => {
@@ -237,6 +278,7 @@ describe("attention-service", () => {
 	});
 
 	it("recomputeScope({layer:'L3', scopeId:'build'}) updates only L3/build items", async () => {
+		// @lore O2: attentionScore is now in knowledgeStrategyFabric, not knowledgeItems
 		seedKi(db, { id: "a", layer: "L3", scopeId: "build", confidence: 0.5, attentionScore: 0.1 });
 		seedKi(db, { id: "b", layer: "L3", scopeId: "other", confidence: 0.5, attentionScore: 0.1 });
 		seedKi(db, { id: "c", layer: "L2", scopeId: "build", confidence: 0.5, attentionScore: 0.1 });
@@ -248,14 +290,27 @@ describe("attention-service", () => {
 		if (!result.ok) return;
 		expect(result.summary.updated).toBe(1);
 
-		const rowA = db.select().from(knowledgeItems).where(eq(knowledgeItems.id, "a")).get();
-		const rowB = db.select().from(knowledgeItems).where(eq(knowledgeItems.id, "b")).get();
-		const rowC = db.select().from(knowledgeItems).where(eq(knowledgeItems.id, "c")).get();
+		// Check via fabric extension table
+		const fabricA = db
+			.select()
+			.from(knowledgeStrategyFabric)
+			.where(eq(knowledgeStrategyFabric.knowledgeItemId, "a"))
+			.get();
+		const fabricB = db
+			.select()
+			.from(knowledgeStrategyFabric)
+			.where(eq(knowledgeStrategyFabric.knowledgeItemId, "b"))
+			.get();
+		const fabricC = db
+			.select()
+			.from(knowledgeStrategyFabric)
+			.where(eq(knowledgeStrategyFabric.knowledgeItemId, "c"))
+			.get();
 
-		// Only A updated; B and C retain prior attentionScore of 0.1
-		expect(rowA?.attentionScore).not.toBeNull();
-		expect(rowB?.attentionScore).toBe(0.1);
-		expect(rowC?.attentionScore).toBe(0.1);
+		// Only A updated (recomputed to new value); B and C retain prior "0.1"
+		expect(fabricA?.attentionScore).not.toBeNull();
+		expect(fabricB?.attentionScore).toBe("0.1");
+		expect(fabricC?.attentionScore).toBe("0.1");
 	});
 
 	it("respects weights loaded from factory_settings", async () => {
@@ -315,9 +370,10 @@ describe("attention-service", () => {
 		// Reset the KI's stored attention so the next recompute ALSO observes a
 		// upward crossing (prior<0.7 → current>=0.7). Without idempotency this
 		// would double-create the review item.
-		db.update(knowledgeItems)
-			.set({ attentionScore: 0.3 })
-			.where(eq(knowledgeItems.id, "ki-dup"))
+		// @lore O2: attentionScore is in knowledgeStrategyFabric, not knowledgeItems
+		db.update(knowledgeStrategyFabric)
+			.set({ attentionScore: "0.3" })
+			.where(eq(knowledgeStrategyFabric.knowledgeItemId, "ki-dup"))
 			.run();
 
 		const second = await service.recomputeOne("ki-dup");
@@ -502,9 +558,10 @@ describe("attention-service", () => {
 
 		// Reset the stored attention and re-run with the same fixed now — the
 		// scorer inputs (recency etc) depend on now, so same now → same score.
-		db.update(knowledgeItems)
-			.set({ attentionScore: 0.1 })
-			.where(eq(knowledgeItems.id, "det-1"))
+		// @lore O2: attentionScore is in knowledgeStrategyFabric, not knowledgeItems
+		db.update(knowledgeStrategyFabric)
+			.set({ attentionScore: "0.1" })
+			.where(eq(knowledgeStrategyFabric.knowledgeItemId, "det-1"))
 			.run();
 		const svcB = buildAttentionService({ db, eventBus, now: () => fixedNow });
 		const b = await svcB.recomputeOne("det-1");

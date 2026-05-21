@@ -34,14 +34,13 @@ describe("Knowledge access-log creation (L22 AC-1)", () => {
 		vi.unstubAllEnvs();
 	});
 
-	async function createItem(layer = "L3"): Promise<string> {
+	async function createItem(_layer = "L3"): Promise<string> {
+		// @lore O2: knowledgeItems no longer has layer/scopeId/kind/meta columns.
+		// The kernel row holds identity+content only.
 		const id = crypto.randomUUID();
 		db.insert(knowledgeItems)
 			.values({
 				id,
-				layer,
-				scopeId: null,
-				kind: "pattern",
 				topic: "testing",
 				title: "Test Item",
 				body: "Test body",
@@ -51,7 +50,6 @@ describe("Knowledge access-log creation (L22 AC-1)", () => {
 				updatedBy: "human",
 				createdAt: NOW_ISO,
 				updatedAt: NOW_ISO,
-				meta: null,
 			})
 			.run();
 		return id;
@@ -68,7 +66,7 @@ describe("Knowledge access-log creation (L22 AC-1)", () => {
 	it("GET /:layer/:id creates exactly one access-log row on success", async () => {
 		const itemId = await createItem("L3");
 
-		const res = await app.request(`/api/knowledge/L3/${itemId}`, {
+		const res = await app.request(`/api/knowledge/${itemId}`, {
 			headers: authHeaders(),
 		});
 		expect(res.status).toBe(200);
@@ -82,7 +80,7 @@ describe("Knowledge access-log creation (L22 AC-1)", () => {
 		const itemId = await createItem("L3");
 
 		for (let i = 0; i < 3; i++) {
-			const res = await app.request(`/api/knowledge/L3/${itemId}`, {
+			const res = await app.request(`/api/knowledge/${itemId}`, {
 				headers: authHeaders(),
 			});
 			expect(res.status).toBe(200);
@@ -96,7 +94,7 @@ describe("Knowledge access-log creation (L22 AC-1)", () => {
 	it("GET /:layer/:id 404 does NOT create an access-log row", async () => {
 		const nonExistentId = "00000000-0000-0000-0000-000000000000";
 
-		const res = await app.request(`/api/knowledge/L3/${nonExistentId}`, {
+		const res = await app.request(`/api/knowledge/${nonExistentId}`, {
 			headers: authHeaders(),
 		});
 		expect(res.status).toBe(404);
@@ -116,7 +114,7 @@ describe("Knowledge access-log creation (L22 AC-1)", () => {
 		// the response body contains the item.
 		const itemId = await createItem("L3");
 
-		const res = await app.request(`/api/knowledge/L3/${itemId}`, {
+		const res = await app.request(`/api/knowledge/${itemId}`, {
 			headers: authHeaders(),
 		});
 		expect(res.status).toBe(200);
@@ -132,7 +130,7 @@ describe("Knowledge access-log creation (L22 AC-1)", () => {
 	it("access-log row has correct itemId, accessorKind, and accessedAt", async () => {
 		const itemId = await createItem("L3");
 
-		await app.request(`/api/knowledge/L3/${itemId}`, {
+		await app.request(`/api/knowledge/${itemId}`, {
 			headers: authHeaders(),
 		});
 

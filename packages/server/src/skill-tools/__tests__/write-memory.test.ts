@@ -6,6 +6,7 @@ import {
 	type HyperIdleDb,
 	knowledgeEditLog,
 	knowledgeItems,
+	knowledgeStrategyFabric,
 } from "@hyperidle/db";
 import { setupFts } from "@hyperidle/fabric";
 import { EventBus } from "@hyperidle/shared";
@@ -90,10 +91,16 @@ describe("write_memory tool", () => {
 				.from(knowledgeItems)
 				.where(eq(knowledgeItems.id, data.knowledgeItemId))
 				.get();
-			expect(row?.layer).toBe("L3");
-			expect(row?.kind).toBe("pattern");
 			expect(row?.title).toBe("New practice");
 			expect(row?.body).toBe("Always validate input at the boundary.");
+			// O2: layer and kind moved to knowledgeStrategyFabric
+			const fabricRow = db
+				.select()
+				.from(knowledgeStrategyFabric)
+				.where(eq(knowledgeStrategyFabric.knowledgeItemId, data.knowledgeItemId))
+				.get();
+			expect(fabricRow?.layer).toBe("L3");
+			expect(fabricRow?.kind).toBe("pattern");
 		});
 
 		it("attributes updatedBy to `agent:<agentId>`", async () => {

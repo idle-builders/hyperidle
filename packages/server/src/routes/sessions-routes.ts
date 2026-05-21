@@ -11,23 +11,20 @@ import { Hono } from "hono";
 import z from "zod";
 import { validateBody } from "../middleware/validate.js";
 
+// @lore O2: harnessUrl, tokensInput, tokensOutput fields removed from session
+// schemas. Those columns were stripped from the sessions kernel table as part
+// of kernel/strategy separation. Cost and token tracking are strategy concerns.
+
 const createSessionSchema = z.object({
 	agentId: z.string(),
 	taskId: z.string(),
 	modelTier: z.enum(["reasoning", "workhorse", "fast"]),
-	// L19: harness URL and token counts (all optional)
-	harnessUrl: z.string().url().optional(),
-	tokensInput: z.number().int().nonnegative().optional(),
-	tokensOutput: z.number().int().nonnegative().optional(),
 });
 
 const updateSessionSchema = z.object({
 	state: z.enum(["done", "crashed"]),
 	outcome: z.string().optional(),
 	notes: z.string().optional(),
-	// L19: agents report final token counts at session end
-	tokensInput: z.number().int().nonnegative().optional(),
-	tokensOutput: z.number().int().nonnegative().optional(),
 });
 
 /**
@@ -38,9 +35,6 @@ export function createSessionRoutes(db: HyperIdleDb, eventBus: EventBus): Hono {
 
 	// GET / — List sessions with optional filtering by task_id, agent_id, state.
 	// @lore I6: replaces the bounded resource descriptor with actual filtering.
-	// The previous handler was a placeholder from I1 to avoid unbounded SELECT *.
-	// Now supports query params: ?task_id=, ?agent_id=, ?state= with pagination
-	// via ?limit= and ?offset=.
 	router.get("/", (c) => {
 		const taskId = c.req.query("task_id");
 		const agentId = c.req.query("agent_id");
@@ -80,10 +74,6 @@ export function createSessionRoutes(db: HyperIdleDb, eventBus: EventBus): Hono {
 				modelTier: body.modelTier,
 				startedAt: now,
 				state: "active",
-				// L19: optional harness fields
-				harnessUrl: body.harnessUrl ?? null,
-				tokensInput: body.tokensInput ?? null,
-				tokensOutput: body.tokensOutput ?? null,
 			})
 			.run();
 
@@ -117,9 +107,6 @@ export function createSessionRoutes(db: HyperIdleDb, eventBus: EventBus): Hono {
 		};
 		if (body.outcome !== undefined) updates.outcome = body.outcome;
 		if (body.notes !== undefined) updates.notes = body.notes;
-		// L19: token counts reported at session end
-		if (body.tokensInput !== undefined) updates.tokensInput = body.tokensInput;
-		if (body.tokensOutput !== undefined) updates.tokensOutput = body.tokensOutput;
 
 		db.update(sessions).set(updates).where(eq(sessions.id, sessionId)).run();
 

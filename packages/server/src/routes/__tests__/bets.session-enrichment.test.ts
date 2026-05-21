@@ -127,10 +127,6 @@ describe("L19 — GET /api/bets/:id — session enrichment", () => {
 				startedAt: NOW,
 				state: "done",
 				outcome: "completed",
-				cost: 420,
-				tokensInput: 1000,
-				tokensOutput: 500,
-				harnessUrl: "https://harness.example.com/session/1",
 			})
 			.run();
 
@@ -145,10 +141,6 @@ describe("L19 — GET /api/bets/:id — session enrichment", () => {
 			tasks: Array<{
 				id: string;
 				latestSessionOutcome: string | null;
-				latestSessionCost: number | null;
-				latestSessionTokensInput: number | null;
-				latestSessionTokensOutput: number | null;
-				latestSessionHarnessUrl: string | null;
 			}>;
 		};
 
@@ -158,10 +150,6 @@ describe("L19 — GET /api/bets/:id — session enrichment", () => {
 		const task = body.tasks[0];
 		expect(task.id).toBe("task-with-session");
 		expect(task.latestSessionOutcome).toBe("completed");
-		expect(task.latestSessionCost).toBe(420);
-		expect(task.latestSessionTokensInput).toBe(1000);
-		expect(task.latestSessionTokensOutput).toBe(500);
-		expect(task.latestSessionHarnessUrl).toBe("https://harness.example.com/session/1");
 	});
 
 	it("task with no session has null for all latestSession* fields", async () => {
@@ -202,10 +190,6 @@ describe("L19 — GET /api/bets/:id — session enrichment", () => {
 			tasks: Array<{
 				id: string;
 				latestSessionOutcome: string | null;
-				latestSessionCost: number | null;
-				latestSessionTokensInput: number | null;
-				latestSessionTokensOutput: number | null;
-				latestSessionHarnessUrl: string | null;
 			}>;
 		};
 
@@ -214,10 +198,6 @@ describe("L19 — GET /api/bets/:id — session enrichment", () => {
 		const task = body.tasks[0];
 		expect(task.id).toBe("task-no-session");
 		expect(task.latestSessionOutcome).toBeNull();
-		expect(task.latestSessionCost).toBeNull();
-		expect(task.latestSessionTokensInput).toBeNull();
-		expect(task.latestSessionTokensOutput).toBeNull();
-		expect(task.latestSessionHarnessUrl).toBeNull();
 	});
 
 	it("mixed bet: one task with session, one without — each correctly enriched", async () => {
@@ -270,10 +250,6 @@ describe("L19 — GET /api/bets/:id — session enrichment", () => {
 				startedAt: NOW,
 				state: "done",
 				outcome: "completed",
-				cost: 100,
-				tokensInput: 200,
-				tokensOutput: 100,
-				harnessUrl: "https://harness.example.com/session/mixed-1",
 			})
 			.run();
 
@@ -287,10 +263,6 @@ describe("L19 — GET /api/bets/:id — session enrichment", () => {
 			tasks: Array<{
 				id: string;
 				latestSessionOutcome: string | null;
-				latestSessionCost: number | null;
-				latestSessionTokensInput: number | null;
-				latestSessionTokensOutput: number | null;
-				latestSessionHarnessUrl: string | null;
 			}>;
 		};
 
@@ -301,19 +273,9 @@ describe("L19 — GET /api/bets/:id — session enrichment", () => {
 
 		expect(withSession).toBeDefined();
 		expect(withSession?.latestSessionOutcome).toBe("completed");
-		expect(withSession?.latestSessionCost).toBe(100);
-		expect(withSession?.latestSessionTokensInput).toBe(200);
-		expect(withSession?.latestSessionTokensOutput).toBe(100);
-		expect(withSession?.latestSessionHarnessUrl).toBe(
-			"https://harness.example.com/session/mixed-1",
-		);
 
 		expect(withoutSession).toBeDefined();
 		expect(withoutSession?.latestSessionOutcome).toBeNull();
-		expect(withoutSession?.latestSessionCost).toBeNull();
-		expect(withoutSession?.latestSessionTokensInput).toBeNull();
-		expect(withoutSession?.latestSessionTokensOutput).toBeNull();
-		expect(withoutSession?.latestSessionHarnessUrl).toBeNull();
 	});
 
 	it("uses the most recent session (by startedAt) when a task has multiple sessions", async () => {
@@ -354,10 +316,6 @@ describe("L19 — GET /api/bets/:id — session enrichment", () => {
 				startedAt: "2026-05-01T10:00:00Z",
 				state: "done",
 				outcome: "failed",
-				cost: 50,
-				tokensInput: 100,
-				tokensOutput: 50,
-				harnessUrl: "https://harness.example.com/session/older",
 			})
 			.run();
 
@@ -371,10 +329,6 @@ describe("L19 — GET /api/bets/:id — session enrichment", () => {
 				startedAt: "2026-05-05T10:00:00Z",
 				state: "done",
 				outcome: "completed",
-				cost: 300,
-				tokensInput: 800,
-				tokensOutput: 400,
-				harnessUrl: "https://harness.example.com/session/newer",
 			})
 			.run();
 
@@ -388,10 +342,6 @@ describe("L19 — GET /api/bets/:id — session enrichment", () => {
 			tasks: Array<{
 				id: string;
 				latestSessionOutcome: string | null;
-				latestSessionCost: number | null;
-				latestSessionTokensInput: number | null;
-				latestSessionTokensOutput: number | null;
-				latestSessionHarnessUrl: string | null;
 			}>;
 		};
 
@@ -399,9 +349,5 @@ describe("L19 — GET /api/bets/:id — session enrichment", () => {
 		const task = body.tasks[0];
 		// Should reflect the newer session
 		expect(task.latestSessionOutcome).toBe("completed");
-		expect(task.latestSessionCost).toBe(300);
-		expect(task.latestSessionTokensInput).toBe(800);
-		expect(task.latestSessionTokensOutput).toBe(400);
-		expect(task.latestSessionHarnessUrl).toBe("https://harness.example.com/session/newer");
 	});
 });

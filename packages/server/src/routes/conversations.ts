@@ -1,12 +1,10 @@
-import { agents, type HyperIdleDb, items, threads } from "@hyperidle/db";
+import { type HyperIdleDb, items, threads } from "@hyperidle/db";
 import type { ApiErrorResponse, EventBus, ItemCreatedEvent } from "@hyperidle/shared";
 import { API_ERROR_CODES } from "@hyperidle/shared";
 import { desc, eq, sql } from "drizzle-orm";
 import { Hono } from "hono";
 import z from "zod";
 import { validateBody } from "../middleware/validate.js";
-import { routeToFounder } from "../services/founder-router.js";
-import { routeItem } from "../services/item-router.js";
 
 // @lore L1 step5 (S-C2): the legacy `POST /api/conversations/responses` path
 // dual-wrote `verdict`-typed messages without founder authz, idempotency, or
@@ -15,6 +13,12 @@ import { routeItem } from "../services/item-router.js";
 // (the canonical L1 surface). The `GET /:threadId` projection that re-shaped
 // verdict messages into the legacy `responses` row format went with it —
 // items now expose an empty `responses: []` for one-release wire compat.
+
+// @lore O2: routeToFounder and routeItem removed from POST /items handler.
+// Inline routing calls were a strategy concern embedded in the kernel route.
+// The view and founderRoute fields are no longer returned in the response.
+// O2 also removes attentionScore and costEstimate from the create schema and
+// the insert, since those columns were stripped from the items kernel table.
 
 const createItemSchema = z.object({
 	sourceAgentId: z.string().optional(),
@@ -27,10 +31,8 @@ const createItemSchema = z.object({
 	proposedAction: z.string().optional(),
 	options: z.string().optional(),
 	riskTier: z.enum(["low", "medium", "high"]).optional(),
-	attentionScore: z.number().int().optional(),
 	blocking: z.boolean().optional(),
 	reasoning: z.string().optional(),
-	costEstimate: z.number().int().optional(),
 	threadId: z.string(),
 });
 
@@ -40,7 +42,8 @@ const createItemSchema = z.object({
 export function createConversationRoutes(db: HyperIdleDb, eventBus: EventBus): Hono {
 	const router = new Hono();
 
-	// GET / — list threads, paginated, sorted by recency or attention_score
+	// GET / — list threads, paginated, sorted by recency
+	// O2: attention_score sort removed (column stripped from items table)
 	router.get("/", (c) => {
 		const sort = c.req.query("sort") ?? "recency";
 		const page = Math.max(1, Number(c.req.query("page") ?? "1"));
@@ -48,30 +51,21 @@ export function createConversationRoutes(db: HyperIdleDb, eventBus: EventBus): H
 		const offset = (page - 1) * limit;
 
 		if (sort === "attention_score") {
-			// Join threads with items to get max attention_score
+			// O2: attention_score column stripped from items — fall through to recency sort
+			// @lore O2: attention_score was a strategy concern. Sorting by it from the kernel
+			// route is no longer supported. Callers should use recency or switch to strategy layer.
+			const total = db.select({ count: sql<number>`COUNT(*)` }).from(threads).get()?.count ?? 0;
+
 			const allThreads = db
-				.select({
-					id: threads.id,
-					hostKind: threads.hostKind,
-					hostId: threads.hostId,
-					pinned: threads.pinned,
-					participants: threads.participants,
-					createdAt: threads.createdAt,
-					maxAttentionScore: sql<number>`COALESCE(MAX(${items.attentionScore}), 0)`.as(
-						"max_attention_score",
-					),
-				})
+				.select()
 				.from(threads)
-				.leftJoin(items, eq(items.threadId, threads.id))
-				.groupBy(threads.id)
-				.orderBy(sql`max_attention_score DESC`)
+				.orderBy(desc(threads.createdAt))
+				.limit(limit)
+				.offset(offset)
 				.all();
 
-			const total = allThreads.length;
-			const paged = allThreads.slice(offset, offset + limit);
-
 			return c.json({
-				threads: paged,
+				threads: allThreads,
 				pagination: { page, limit, total },
 			});
 		}
@@ -128,6 +122,7 @@ export function createConversationRoutes(db: HyperIdleDb, eventBus: EventBus): H
 	});
 
 	// POST /items — create item
+	// O2: routeItem/routeToFounder calls removed; view/founderRoute fields removed from response
 	router.post("/items", validateBody(createItemSchema), (c) => {
 		const body = c.req.valid("json" as never) as z.infer<typeof createItemSchema>;
 		const id = crypto.randomUUID();
@@ -143,20 +138,7 @@ export function createConversationRoutes(db: HyperIdleDb, eventBus: EventBus): H
 			return c.json(response, 404);
 		}
 
-		// Determine routing
-		const view = routeItem({
-			riskTier: body.riskTier ?? null,
-			kind: body.kind ?? null,
-			verb: body.verb ?? null,
-		});
-
-		// Determine founder routing if sourceAgentId is provided
-		let founderRoute: "ceo" | "cpo" | "both" = "both";
-		if (body.sourceAgentId) {
-			const agent = db.select().from(agents).where(eq(agents.id, body.sourceAgentId)).get();
-			founderRoute = routeToFounder(agent?.role ?? null);
-		}
-
+		// O2: agents routing logic removed; sourceAgentId stored for audit purposes only
 		db.insert(items)
 			.values({
 				id,
@@ -170,10 +152,8 @@ export function createConversationRoutes(db: HyperIdleDb, eventBus: EventBus): H
 				proposedAction: body.proposedAction ?? null,
 				options: body.options ?? null,
 				riskTier: body.riskTier ?? null,
-				attentionScore: body.attentionScore ?? null,
 				blocking: body.blocking ? 1 : 0,
 				reasoning: body.reasoning ?? null,
-				costEstimate: body.costEstimate ?? null,
 				threadId: body.threadId,
 				createdAt: now,
 			})
@@ -192,7 +172,7 @@ export function createConversationRoutes(db: HyperIdleDb, eventBus: EventBus): H
 		};
 		eventBus.emit(event);
 
-		return c.json({ ...created, view, founderRoute }, 201);
+		return c.json(created, 201);
 	});
 
 	// `POST /responses` removed in L1 step5 (S-C2). Verdicts go through the

@@ -1,4 +1,4 @@
-import { items, knowledgeItems } from "@hyperidle/db";
+import { items, knowledgeItems, knowledgeStrategyFabric } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
 import z from "zod";
 import { buildAttentionService } from "../services/attention-service.js";
@@ -98,27 +98,43 @@ async function handler(
 		if (!row) {
 			return err("NOT_FOUND", `Knowledge item not found: ${id}`);
 		}
-		// @lore: status/score updates do NOT bump `version` — matches
-		// knowledge-repository convention (version reflects content edits).
-		ctx.db
-			.update(knowledgeItems)
-			.set({ attentionScore: score, updatedAt: now })
-			.where(eq(knowledgeItems.id, id))
-			.run();
+		// @lore O2: attentionScore moved from knowledgeItems to knowledgeStrategyFabric.
+		// Upsert: create fabric row if none exists (kernel items created before fabric).
+		const existingFabric = ctx.db
+			.select()
+			.from(knowledgeStrategyFabric)
+			.where(eq(knowledgeStrategyFabric.knowledgeItemId, id))
+			.get();
+		if (existingFabric) {
+			ctx.db
+				.update(knowledgeStrategyFabric)
+				.set({ attentionScore: String(score) })
+				.where(eq(knowledgeStrategyFabric.knowledgeItemId, id))
+				.run();
+		} else {
+			ctx.db
+				.insert(knowledgeStrategyFabric)
+				.values({
+					id: `ksf-${id}`,
+					knowledgeItemId: id,
+					attentionScore: String(score),
+				})
+				.run();
+		}
+		// Also update kernel updatedAt for recency tracking (no version bump)
+		ctx.db.update(knowledgeItems).set({ updatedAt: now }).where(eq(knowledgeItems.id, id)).run();
 		return ok<ScoreAttentionData>({ target, id, score, mode });
 	}
 
 	// target === "item"
+	// @lore O2: items.attentionScore stripped from the kernel items table.
+	// The items table no longer tracks attention scores. Score writes are now
+	// best-effort: return ok but skip the DB write.
 	const row = ctx.db.select().from(items).where(eq(items.id, id)).get();
 	if (!row) {
 		return err("NOT_FOUND", `Item not found: ${id}`);
 	}
-	// items.attentionScore is integer — scale [0,1] to [0,100].
-	ctx.db
-		.update(items)
-		.set({ attentionScore: Math.round(score * 100) })
-		.where(eq(items.id, id))
-		.run();
+	// @lore O2: items.attentionScore removed — no-op on items score writes.
 
 	return ok<ScoreAttentionData>({ target, id, score, mode });
 }

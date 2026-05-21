@@ -195,16 +195,19 @@ describe("Session Lifecycle", () => {
 		expect(ki?.body).toBe("This is a test principle.");
 	});
 
-	// AC4: Session cost recorded: $0.15 -> stored as 15 cents
-	it("records session cost as integer cents", async () => {
+	// AC4: Session cost is a strategy concern (O2: cost column stripped from sessions).
+	// The session ends cleanly even when a cost value is passed.
+	it("ends session cleanly (cost is a strategy concern, not kernel)", async () => {
 		const params = makeParams(tmpDir);
 		const ctx = await createSession(db, eventBus, params);
 		cleanupContexts.push(ctx);
 
+		// costInCents param is accepted for API compat but no longer written to DB.
 		await endSession(db, eventBus, ctx, 15);
 
 		const session = db.select().from(sessions).where(eq(sessions.id, ctx.sessionId)).get();
-		expect(session?.cost).toBe(15);
+		expect(session?.state).toBe("done");
+		expect(session?.endedAt).toBeTruthy();
 	});
 
 	// AC5: Creating session at max_concurrent_sessions -> ConcurrencyLimitError
