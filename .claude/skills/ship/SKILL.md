@@ -1,6 +1,6 @@
 ---
 name: ship
-description: "Commit and push changes. Create PR if on a feature branch."
+description: "Verify, attest, push, and wait for CI green. The single gate between code and a merge-ready PR."
 argument-hint: "[workpackage-id or branch description]"
 user-invocable: true
 min_tool_calls: 5
@@ -10,11 +10,32 @@ min_tool_calls: 5
 
 **Why:** Clean main branch ensures the next change starts from a reliable basis. Clean git history makes it possible to understand what changed and why. The attestation system lets CI validate in seconds instead of re-running the full verify suite.
 
+**Ship is not done until CI is green.** Local verify is necessary but not sufficient — the PR check must pass.
+
 ## Steps
 
-### 1. Pre-flight validation (MANDATORY — do not skip)
+### 1. Stage and commit all code changes
 
-Run the full verification gate. If it fails, stop and fix before proceeding:
+Stage files intentionally — never `git add -A` or `git add .`.
+
+Commit with `<type>(<scope>): <imperative description>` referencing the workpackage ID. If changes span multiple logical units, make multiple atomic commits.
+
+Types: `feat`, `fix`, `refactor`, `test`, `docs`, `chore`. Scopes: `db`, `server`, `web`, `fabric`, `shared`, or omit.
+
+### 2. Merge origin/main (MANDATORY — do not skip)
+
+Merge main before verify so the attestation covers the merged tree. This prevents attestation conflicts when main has moved since the branch was created.
+
+```bash
+git fetch origin main
+git merge origin/main --no-edit
+```
+
+If there are merge conflicts, resolve them. If the only conflict is `.verify-attestation.json`, take either side — it will be regenerated in the next step.
+
+After resolving conflicts, commit the merge. The working tree must be **completely clean** before proceeding.
+
+### 3. Pre-flight validation (MANDATORY — do not skip)
 
 ```bash
 bun run verify
@@ -24,25 +45,7 @@ This is non-negotiable. Do not ship with failures. Do not use `--no-verify`. Do 
 
 On green, verify automatically writes `.verify-attestation.json` — an HMAC-signed attestation proving this machine ran verify against the current HEAD. The signing key lives at `~/.config/hyperidle/verify-secret` (auto-generated on first green run, never committed to the repo).
 
-If the working tree is dirty when verify runs, the attestation is marked `dirty: true` and CI will reject it. **Commit all code changes before running verify.**
-
-### 2. Stage and commit
-
-Stage files intentionally — never `git add -A` or `git add .`.
-
-Commit with `<type>(<scope>): <imperative description>` referencing the workpackage ID. If changes span multiple logical units, make multiple atomic commits.
-
-Types: `feat`, `fix`, `refactor`, `test`, `docs`, `chore`. Scopes: `db`, `server`, `web`, `fabric`, `shared`, or omit.
-
-### 3. Run verify (if not already green for this commit)
-
-If you committed new code after the last verify run, re-run:
-
-```bash
-bun run verify
-```
-
-The attestation must match HEAD. If code changed since the last green run, the attestation's SHA won't match and CI will reject it.
+If the working tree is dirty when verify runs, the attestation is marked `dirty: true` and CI will reject it. **The working tree must be clean when verify runs.**
 
 ### 4. Commit the attestation
 
@@ -53,42 +56,67 @@ git commit -m "verify: attestation"
 
 This must be the **last commit** before pushing. CI checks that no source files changed between the attested SHA and HEAD — only `.verify-attestation.json` may differ.
 
-### 5. Branch and push
-
-If not on a feature branch, create one: `feat/<workpackage-id>-<description>`.
+### 5. Push
 
 ```bash
 git push -u origin HEAD
 ```
 
-### 6. Create PR
+### 6. Create or update PR
+
+If no PR exists yet:
 
 ```bash
 gh pr create --title "<type>(<scope>): <description>" \
   --body "## Summary\n\n<what changed and why>\n\n## Verification\n\nbun run verify — all green (attestation attached)"
 ```
 
+If a draft PR already exists (pipeline mode), flip it ready:
+
+```bash
+gh pr ready
+```
+
 Main is protected — commits only land via pull request.
 
-### 7. CI attestation check
+### 7. Wait for CI green (MANDATORY — do not skip)
 
-CI runs `check-attestation.ts` which validates:
-- **HMAC signature** — the attestation was signed with the shared secret
-- **Full coverage** — all tools ran (not `--quick` or `--only=...`)
-- **Clean tree** — no uncommitted changes when verify ran
-- **No post-verify changes** — no source files changed after the attested SHA
+Poll until CI reports a result. **Ship is not complete until CI is green.**
 
-CI completes in ~30 seconds (checkout + attestation check) instead of ~10 minutes (full verify).
+```bash
+# Get PR number for this branch
+PR_NUMBER=$(gh pr view --json number -q '.number')
 
-If CI fails, read the error:
-- `HMAC signature invalid` → secret mismatch; re-run `gh secret set VERIFY_SECRET < ~/.config/hyperidle/verify-secret`
-- `partial verify` → re-run `bun run verify` without `--quick` or `--only`
-- `working tree dirty` → commit everything, then re-run verify
-- `source files changed after verify` → code was committed after verify; re-run verify and re-commit attestation
+# Poll CI status (max 10 attempts, 30s apart = 5 minutes)
+for i in $(seq 1 10); do
+  sleep 30
+  STATUS=$(gh pr checks "$PR_NUMBER" 2>&1)
+  if echo "$STATUS" | grep -q "pass"; then
+    echo "CI green"
+    break
+  elif echo "$STATUS" | grep -q "fail"; then
+    echo "CI red — read the failure log and fix"
+    break
+  fi
+  echo "Attempt $i: CI still pending..."
+done
+```
+
+**If CI is red:**
+1. Pull the failure log: `gh run view <run-id> --log-failed`
+2. Read the error message — common causes:
+   - `HMAC signature invalid` → secret mismatch; re-run `gh secret set VERIFY_SECRET < ~/.config/hyperidle/verify-secret`
+   - `partial verify` → re-run `bun run verify` without `--quick` or `--only`
+   - `working tree dirty` → commit everything, merge main, then re-run verify
+   - `source files changed after verify` → code was committed after verify; re-run verify and re-commit attestation
+3. Fix the issue, then re-run from step 2 (merge main, verify, attest, push).
+4. Max 3 push attempts. After 3, mark `blocked` with reason `ci-red-after-3-fixes`.
+
+**Ship is only complete when `gh pr checks` returns green.** Do not declare success before this.
 
 ### 8. Merge decision
 
-**Do NOT merge automatically.** The `/ship` skill stops at "green PR open." Merging is a human decision — the A/B harness depends on PRs staying open and re-runnable.
+**Do NOT merge automatically.** The `/ship` skill stops at "CI-green PR open." Merging is a human decision — the A/B harness depends on PRs staying open and re-runnable.
 
 When the human is ready: `gh pr merge --squash`.
 
@@ -101,21 +129,29 @@ The full ship flow in one block:
 git add <files>
 git commit -m "feat(web): add onboarding flow"
 
-# 2. Verify (writes attestation on green)
+# 2. Merge main (prevents attestation conflicts)
+git fetch origin main && git merge origin/main --no-edit
+
+# 3. Verify (writes attestation on green)
 bun run verify
 
-# 3. Commit attestation + push
+# 4. Commit attestation + push
 git add .verify-attestation.json
 git commit -m "verify: attestation"
 git push -u origin HEAD
 
-# 4. Open PR
+# 5. Open PR (or gh pr ready if draft exists)
 gh pr create --title "feat(web): add onboarding flow" --body "..."
+
+# 6. Wait for CI green
+gh pr checks <number>  # poll until green
 ```
 
 ## Rules
 
 - **Never ship failing verify** — fix first
+- **Never skip the merge-main step** — attestation conflicts are the #1 CI failure cause
+- **Never declare ship complete before CI is green** — local green is not enough
 - **Never `git add -A`** — stage specific files
 - **Never force push** — history is shared
 - **Never `--no-verify`** — hooks exist for a reason
