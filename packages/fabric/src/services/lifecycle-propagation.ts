@@ -42,10 +42,95 @@ import {
 	type PropagationAppliedEvent,
 	type PropagationFailedEvent,
 	InvalidTransitionError as SharedInvalidTransitionError,
+	type TaskState,
 } from "@hyperidle/shared";
 import { and, eq, ne } from "drizzle-orm";
-import type { RevisionLogEntry } from "./bet-state-machine.js";
-import { transitionTask } from "./task-state-machine.js";
+
+/**
+ * Shape of a single entry in the revision log JSON array.
+ *
+ * @lore O3: Inlined from bet-state-machine.ts (kernel) to avoid a forbidden
+ * reverse dependency from fabric -> server. The interface is identical.
+ */
+interface RevisionLogEntry {
+	timestamp: string;
+	field: string;
+	// biome-ignore lint/style/useNamingConvention: serialized JSON format uses snake_case
+	old_value: unknown;
+	// biome-ignore lint/style/useNamingConvention: serialized JSON format uses snake_case
+	new_value: unknown;
+	reason: string;
+	actor?: string;
+}
+
+/** Valid task transitions (mirrored from task-state-machine — kernel). */
+const VALID_TASK_TRANSITIONS: Record<TaskState, readonly TaskState[]> = {
+	proposed: ["accepted", "killed"],
+	accepted: ["in_progress", "hold", "killed"],
+	hold: ["accepted", "killed"],
+	in_progress: ["review", "blocked", "killed"],
+	blocked: ["in_progress", "killed"],
+	review: ["done", "in_progress", "killed"],
+	done: ["killed"],
+	killed: [],
+} as const;
+
+/**
+ * Transition a task to a new state with DB update and event emission.
+ *
+ * @lore O3: This is an inlined copy of transitionTask from task-state-machine.ts
+ * (kernel). It cannot be imported from the kernel package because fabric must
+ * never import from the server kernel package. The logic is identical; any future
+ * changes to the kernel transitionTask must be mirrored here.
+ * See architecture-critique.md CRITICAL finding.
+ */
+function transitionTask(
+	db: HyperIdleDb,
+	eventBus: EventBus,
+	taskId: string,
+	toState: TaskState,
+): void {
+	const task = db.select().from(tasks).where(eq(tasks.id, taskId)).get();
+	if (!task) {
+		throw new Error(`Task not found: ${taskId}`);
+	}
+
+	const fromState = task.state as TaskState;
+	const allowed = VALID_TASK_TRANSITIONS[fromState];
+	if (!allowed.includes(toState)) {
+		const err = new Error(`Invalid transition for task ${taskId}: ${fromState} -> ${toState}`);
+		err.name = "InvalidTransitionError";
+		throw err;
+	}
+
+	// Build audit trail
+	const existingAudit: Array<{ from: string; to: string; timestamp: string }> = task.auditTrail
+		? (JSON.parse(task.auditTrail) as Array<{ from: string; to: string; timestamp: string }>)
+		: [];
+	existingAudit.push({
+		from: fromState,
+		to: toState,
+		timestamp: new Date().toISOString(),
+	});
+
+	db.update(tasks)
+		.set({
+			state: toState,
+			auditTrail: JSON.stringify(existingAudit),
+			updatedAt: new Date().toISOString(),
+		})
+		.where(eq(tasks.id, taskId))
+		.run();
+
+	eventBus.emit({
+		type: "task_state_changed",
+		streamId: taskId,
+		taskId,
+		fromState,
+		toState,
+		timestamp: Date.now(),
+	});
+}
 
 /** Type guard: check if an error is an InvalidTransitionError from either source. */
 function isInvalidTransitionError(err: unknown): boolean {

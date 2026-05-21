@@ -24,16 +24,16 @@ import {
 	tasks,
 	teams,
 } from "@hyperidle/db";
+import {
+	checkAndFireRoutine,
+	type Notification,
+	type NotificationAdapter,
+	type Recipient,
+	registerNotificationDispatcher,
+	type SendResult,
+} from "@hyperidle/fabric";
 import { EventBus } from "@hyperidle/shared";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { registerNotificationDispatcher } from "../../services/notifications/dispatcher.js";
-import type {
-	Notification,
-	NotificationAdapter,
-	Recipient,
-	SendResult,
-} from "../../services/notifications/types.js";
-import { checkAndFireRoutine } from "../../services/routine-scheduler.js";
 
 interface AdapterCall {
 	recipient: Recipient;

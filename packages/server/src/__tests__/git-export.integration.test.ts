@@ -24,14 +24,14 @@ import {
 	knowledgeItems,
 	knowledgeStrategyFabric,
 } from "@hyperidle/db";
-import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import {
+	createGitRunner,
 	createNodeFsAdapter,
 	type GitExportConfig,
 	resetExportMutexes,
 	runGitExport,
-} from "../services/git-export.js";
-import { createGitRunner } from "../services/git-export-runner.js";
+} from "@hyperidle/fabric";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 
 const NOW_ISO = "2026-04-18T12:00:00.000Z";
 

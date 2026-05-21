@@ -6,8 +6,8 @@ import {
 	products,
 	teams,
 } from "@hyperidle/db";
+import { isInSilenceWindow, isSilenced } from "@hyperidle/fabric";
 import { beforeEach, describe, expect, it } from "vitest";
-import { isInSilenceWindow, isSilenced } from "../services/silence-policy.js";
 
 describe("isInSilenceWindow", () => {
 	it("returns true when now is exactly at window start", () => {

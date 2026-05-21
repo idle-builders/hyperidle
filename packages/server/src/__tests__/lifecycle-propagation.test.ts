@@ -23,13 +23,10 @@ import {
 	teams,
 	threads,
 } from "@hyperidle/db";
+import { registerLifecyclePropagation, retryFailedPropagations } from "@hyperidle/fabric";
 import { EventBus, type PropagationAppliedEvent } from "@hyperidle/shared";
 import { and, eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import {
-	registerLifecyclePropagation,
-	retryFailedPropagations,
-} from "../services/lifecycle-propagation.js";
 
 // ─── Fixtures ────────────────────────────────────────────────────────────────
 

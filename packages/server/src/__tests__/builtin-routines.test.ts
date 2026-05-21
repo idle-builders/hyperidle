@@ -12,6 +12,13 @@ import {
 	teams,
 } from "@hyperidle/db";
 import {
+	BUILTIN_ROUTINE_IDS,
+	clearBuiltinCostSentinelCache,
+	registerBuiltinRoutineHandlers,
+	runBuiltinRoutine,
+	seedBuiltinRoutines,
+} from "@hyperidle/fabric";
+import {
 	type BetStateChangedEvent,
 	type CostCapBreachedEvent,
 	type CostCapWarningEvent,
@@ -20,13 +27,6 @@ import {
 } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import {
-	BUILTIN_ROUTINE_IDS,
-	clearBuiltinCostSentinelCache,
-	registerBuiltinRoutineHandlers,
-	runBuiltinRoutine,
-	seedBuiltinRoutines,
-} from "../services/builtin-routines.js";
 
 const NOW_ISO = "2026-04-18T10:00:00.000Z";
 

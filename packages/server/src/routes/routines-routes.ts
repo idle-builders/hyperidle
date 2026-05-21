@@ -1,14 +1,10 @@
 import { type HyperIdleDb, routines, sessions, tasks } from "@hyperidle/db";
+import { isBuiltinRoutineId, type PostBetRetroArgs, runBuiltinRoutine } from "@hyperidle/fabric";
 import { API_ERROR_CODES, type EventBus, type SessionStartedEvent } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
 import { Hono } from "hono";
 import z from "zod";
 import { validateBody } from "../middleware/validate.js";
-import {
-	isBuiltinRoutineId,
-	type PostBetRetroArgs,
-	runBuiltinRoutine,
-} from "../services/builtin-routines.js";
 
 const updateRoutineSchema = z.object({
 	active: z.boolean().optional(),

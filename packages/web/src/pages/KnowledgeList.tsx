@@ -8,8 +8,9 @@ import { EmptyState, ErrorState, KnowledgeRow, SkeletonList } from "@hyperidle/d
  * of the page. Tab memory (Triage/Curated) stays in component state only —
  * AC explicitly forbids localStorage persistence here.
  *
- * @lore L22: Triage view now fetches from /api/knowledge/L3 for real items
- * with signals. Sort controls use URL state (?sort=recency|frequency).
+ * @lore L22: Triage view originally fetched from the L3-scoped endpoint but
+ * O3 updated it to use /api/knowledge (the general list endpoint).
+ * Sort controls use URL state (?sort=recency|frequency).
  * Default (no param) = relevance sort.
  */
 import type { KnowledgeScope, KnowledgeSortOption } from "@hyperidle/fabric/types";
@@ -73,7 +74,6 @@ interface ApiKnowledgeItem {
 }
 
 interface ApiKnowledgeListResponse {
-	layer: string;
 	items: ApiKnowledgeItem[];
 	groups?: Record<string, Record<string, ApiKnowledgeItem[]>>;
 }
@@ -162,9 +162,10 @@ export function KnowledgeList({
 		[scopedItems],
 	);
 
-	// L22: fetch from /api/knowledge/L3 for triage items with signals
+	// L22 / O3: fetch from /api/knowledge for triage items with signals
+	// (updated in O3 from the layer-scoped endpoint to the general list endpoint)
 	const { data: apiData, isLoading: apiLoading } = useFetch<ApiKnowledgeListResponse>(
-		tab === "triage" ? "/api/knowledge/L3" : null,
+		tab === "triage" ? "/api/knowledge" : null,
 	);
 
 	const apiItems = useMemo<ApiKnowledgeItem[]>(() => {

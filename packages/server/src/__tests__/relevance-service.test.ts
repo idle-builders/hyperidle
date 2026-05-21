@@ -12,9 +12,9 @@ import {
 	knowledgeItems,
 	knowledgeStrategyFabric,
 } from "@hyperidle/db";
+import { createRelevanceService } from "@hyperidle/fabric";
 import { eq } from "drizzle-orm";
 import { beforeEach, describe, expect, it } from "vitest";
-import { createRelevanceService } from "../services/relevance-service.js";
 
 const NOW_ISO = "2026-05-06T12:00:00.000Z";
 const NOW_MS = new Date(NOW_ISO).getTime();

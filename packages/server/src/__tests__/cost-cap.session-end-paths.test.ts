@@ -9,14 +9,14 @@ import {
 	teams,
 	threads,
 } from "@hyperidle/db";
-import { EventBus } from "@hyperidle/shared";
-import { beforeEach, describe, expect, it } from "vitest";
 import {
 	clearDeduplicationCache,
 	getDedupCacheSize,
 	recordCostAndCheck,
 	registerCostCapDedupReleaser,
-} from "../services/cost-cap.js";
+} from "@hyperidle/fabric";
+import { EventBus } from "@hyperidle/shared";
+import { beforeEach, describe, expect, it } from "vitest";
 import { type HandoffMetadata, handoff } from "../services/handoff-protocol.js";
 import type { SessionContext } from "../services/session-lifecycle.js";
 

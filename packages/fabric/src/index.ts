@@ -1,3 +1,256 @@
+// --- Bootstrap (O3) ---
+
+export { bootstrapFabric } from "./bootstrap.js";
+
+// --- Strategy services (O3: moved from packages/server to packages/fabric) ---
+
+// attention-service
+export type {
+	AttentionRecomputeResult,
+	AttentionRecomputeScopeError,
+	AttentionRecomputeScopeResult,
+	AttentionRecomputeSummary,
+	AttentionService,
+	AttentionServiceDeps,
+	AttentionServiceFilter,
+} from "./services/attention-service.js";
+export {
+	buildAttentionService,
+	MAX_RECOMPUTE_BATCH,
+} from "./services/attention-service.js";
+
+// builtin-routines
+export type {
+	BuiltinRoutineId,
+	PostBetRetroArgs,
+	RunBuiltinResult,
+} from "./services/builtin-routines.js";
+export {
+	BUILTIN_ROUTINE_IDS,
+	clearBuiltinCostSentinelCache,
+	isBuiltinRoutineId,
+	registerBuiltinRoutineHandlers,
+	runBuiltinRoutine,
+	seedBuiltinRoutines,
+} from "./services/builtin-routines.js";
+
+// cost-cap
+export type {
+	CheckCostCapParams,
+	CostCapResult,
+	RecordCostAndCheckParams,
+	ResetCostsParams,
+} from "./services/cost-cap.js";
+export {
+	checkCostCap,
+	clearDeduplicationCache,
+	getDedupCacheSize,
+	recordCostAndCheck,
+	registerCostCapDedupReleaser,
+	releaseSessionDedup,
+	resetCosts,
+} from "./services/cost-cap.js";
+
+// daily-digest
+export { getDailyDigest } from "./services/daily-digest.js";
+
+// founder-router
+export { routeToFounder } from "./services/founder-router.js";
+
+// git-export
+export type {
+	ExportPlan,
+	ExportPlanEntry,
+	FsAdapter,
+	GitExportResult,
+	GitExportTrigger,
+	RegisterGitExportHandlerOptions,
+	RunGitExportDeps,
+} from "./services/git-export.js";
+export {
+	buildCommitMessage,
+	computeExportPlan,
+	createNodeFsAdapter,
+	EXPORTED_KINDS,
+	EXPORTED_STATUSES,
+	registerGitExportHandler,
+	resetExportMutexes,
+	runGitExport,
+} from "./services/git-export.js";
+
+// git-export-config
+export type {
+	GitExportConfig,
+	GitExportConfigPatch,
+	LastExportMeta,
+	SanitizeRemoteUrlOptions,
+} from "./services/git-export-config.js";
+export {
+	GIT_EXPORT_CONFIG_DEFAULTS,
+	getLastExportMeta,
+	loadGitExportConfig,
+	readGitExportConfig,
+	redactRemoteUrl,
+	sanitizeAuthorEmail,
+	sanitizeAuthorName,
+	sanitizeBranch,
+	sanitizePathSegment,
+	sanitizeRemoteUrl,
+	sanitizeRepoPath,
+	updateGitExportConfig,
+	writeLastCommit,
+	writeLastPush,
+} from "./services/git-export-config.js";
+
+// git-export-runner
+export type {
+	CreateGitRunnerOptions,
+	GitRunner,
+} from "./services/git-export-runner.js";
+export { createGitRunner } from "./services/git-export-runner.js";
+
+// item-router
+export { routeItem } from "./services/item-router.js";
+
+// lifecycle-propagation
+export {
+	registerLifecyclePropagation,
+	retryFailedPropagations,
+} from "./services/lifecycle-propagation.js";
+
+// notifications/adapter-factory
+export { defaultNotificationAdapterFactory } from "./services/notifications/adapter-factory.js";
+
+// notifications/config
+export type {
+	NotificationConfig,
+	NotificationConfigPatch,
+	SafeNotificationConfig,
+} from "./services/notifications/config.js";
+export {
+	assertNtfyUrlNotSSRF,
+	loadNotificationConfig,
+	pickRecipient,
+	REDACTED,
+	readNotificationConfig,
+	redactNotificationConfig,
+	sanitizeCron,
+	sanitizeEmail,
+	sanitizeNtfyUrl,
+	sanitizeSmtpCredential,
+	sanitizeSmtpHost,
+	sanitizeTopic,
+	updateNotificationConfig,
+} from "./services/notifications/config.js";
+
+// notifications/console-adapter
+export type { ConsoleAdapterOptions } from "./services/notifications/console-adapter.js";
+export { createConsoleAdapter } from "./services/notifications/console-adapter.js";
+
+// notifications/digest
+export type { DigestResult } from "./services/notifications/digest.js";
+export { runDailyDigest } from "./services/notifications/digest.js";
+
+// notifications/dispatcher
+export type {
+	AdapterFactory,
+	DispatcherDeps,
+} from "./services/notifications/dispatcher.js";
+export {
+	dispatchDigest,
+	enqueueNotification,
+	flushQueue,
+	recoverStuckLeases,
+	registerNotificationDispatcher,
+	tryFloodReserve,
+} from "./services/notifications/dispatcher.js";
+
+// notifications/ntfy-adapter
+export type { NtfyAdapterOptions } from "./services/notifications/ntfy-adapter.js";
+export { createNtfyAdapter } from "./services/notifications/ntfy-adapter.js";
+
+// notifications/redact
+export type { ScrubContext } from "./services/notifications/redact.js";
+export { scrubErrorMessage } from "./services/notifications/redact.js";
+
+// notifications/smtp-adapter
+export type { SmtpAdapterOptions } from "./services/notifications/smtp-adapter.js";
+export { createSmtpAdapter } from "./services/notifications/smtp-adapter.js";
+
+// notifications/types
+export type {
+	Classification,
+	Notification,
+	NotificationAdapter,
+	NotificationChannel,
+	NotificationSeverity,
+	QueueReason,
+	QueueStatus,
+	Recipient,
+	SendResult,
+} from "./services/notifications/types.js";
+
+// policy-engine
+export { registerPolicyEngine } from "./services/policy-engine.js";
+
+// practice-meeting
+export type {
+	CreatePracticeMeetingInput,
+	CreatePracticeMeetingResult,
+	PracticeMeetingTurnInput,
+	PracticeMeetingTurnResult,
+	ProposalInput,
+	ReactionInput,
+	RunPracticeMeetingTurnInput,
+	SynthesisInput,
+} from "./services/practice-meeting.js";
+export {
+	createPracticeMeeting,
+	PRACTICE_MEETING_ANCHOR_ROLE,
+	runPracticeMeetingTurn,
+} from "./services/practice-meeting.js";
+
+// relevance-service
+export type {
+	RelevanceService,
+	SignalSet,
+} from "./services/relevance-service.js";
+export { createRelevanceService } from "./services/relevance-service.js";
+
+// review-item-factory
+export type {
+	CreateReviewItemForKnowledgeInput,
+	CreateReviewItemForKnowledgeResult,
+} from "./services/review-item-factory.js";
+export {
+	ATTENTION_REVIEW_SOURCE,
+	attentionReviewReasoningMarker,
+	createReviewItemForKnowledge,
+} from "./services/review-item-factory.js";
+
+// routine-scheduler
+export type {
+	FireResult,
+	RoutineScheduler,
+	RoutineSchedulerConfig,
+} from "./services/routine-scheduler.js";
+export {
+	checkAndFireRoutine,
+	nextCronMatch,
+	parseCron,
+	registerEventTriggers,
+	startRoutineScheduler,
+} from "./services/routine-scheduler.js";
+
+// session-review-creator
+export { registerSessionReviewCreator } from "./services/session-review-creator.js";
+
+// silence-policy
+export {
+	isInSilenceWindow,
+	isSilenced,
+} from "./services/silence-policy.js";
+
 // --- Strategy types (O1: moved from @hyperidle/shared) ---
 
 export { isTasteSensitive } from "./attention-classifier.js";

@@ -20,16 +20,16 @@ import {
 	tasks,
 	teams,
 } from "@hyperidle/db";
-import { EventBus } from "@hyperidle/shared";
-import { eq } from "drizzle-orm";
-import type { Hono } from "hono";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
 	checkCostCap,
 	clearDeduplicationCache,
 	recordCostAndCheck,
 	resetCosts,
-} from "../services/cost-cap.js";
+} from "@hyperidle/fabric";
+import { EventBus } from "@hyperidle/shared";
+import { eq } from "drizzle-orm";
+import type { Hono } from "hono";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createTestApp } from "../test-utils.js";
 
 const TEST_API_KEY = "test-key-l17-money";

@@ -21,30 +21,28 @@ import {
 	knowledgeItems,
 	knowledgeStrategyFabric,
 } from "@hyperidle/db";
-import { EventBus, type KnowledgeUpdatedEvent } from "@hyperidle/shared";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { createApp, disposeApp } from "../app.js";
 import {
 	buildCommitMessage,
 	computeExportPlan,
 	type ExportPlanEntry,
 	type FsAdapter,
+	type GitExportConfig,
+	type GitRunner,
+	loadGitExportConfig,
+	redactRemoteUrl,
 	registerGitExportHandler,
 	resetExportMutexes,
 	runGitExport,
-} from "../services/git-export.js";
-import {
-	type GitExportConfig,
-	loadGitExportConfig,
-	redactRemoteUrl,
 	sanitizeAuthorEmail,
 	sanitizeAuthorName,
 	sanitizeBranch,
 	sanitizePathSegment,
 	sanitizeRemoteUrl,
 	sanitizeRepoPath,
-} from "../services/git-export-config.js";
-import type { GitRunner } from "../services/git-export-runner.js";
+} from "@hyperidle/fabric";
+import { EventBus, type KnowledgeUpdatedEvent } from "@hyperidle/shared";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { createApp, disposeApp } from "../app.js";
 
 type GitCall =
 	| { cmd: "init"; branch: string }
@@ -1144,13 +1142,19 @@ describe("createApp -> git-export wiring (AC1 production path)", () => {
 		const app = createApp({
 			db,
 			eventBus: bus,
-			gitRunnerFactory: (repoPath) => {
-				factoryCalls.push(repoPath);
-				// Ignore type friction with createGitRunner return shape — the
-				// handler only uses the GitRunner interface methods.
-				return runner as unknown as ReturnType<
-					typeof import("../services/git-export-runner.js").createGitRunner
-				>;
+			// O3: gitRunnerFactory moved out of AppOptions. Use strategyBootstrap
+			// to inject a custom runner factory for this test.
+			strategyBootstrap: ({ db: testDb, eventBus: testBus }) => {
+				const disposers: Array<() => void> = [];
+				disposers.push(
+					registerGitExportHandler(testDb, testBus, {
+						runnerFactory: (repoPath) => {
+							factoryCalls.push(repoPath);
+							return runner as unknown as GitRunner;
+						},
+					}),
+				);
+				return disposers;
 			},
 		});
 		try {

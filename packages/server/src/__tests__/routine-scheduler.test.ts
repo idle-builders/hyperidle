@@ -13,9 +13,6 @@ import {
 	teams,
 	threads,
 } from "@hyperidle/db";
-import { EventBus } from "@hyperidle/shared";
-import { eq } from "drizzle-orm";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
 	checkAndFireRoutine,
 	nextCronMatch,
@@ -23,7 +20,10 @@ import {
 	type RoutineSchedulerConfig,
 	registerEventTriggers,
 	startRoutineScheduler,
-} from "../services/routine-scheduler.js";
+} from "@hyperidle/fabric";
+import { EventBus } from "@hyperidle/shared";
+import { eq } from "drizzle-orm";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 function seedBase(db: HyperIdleDb): void {
 	const now = new Date().toISOString();

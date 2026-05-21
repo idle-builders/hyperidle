@@ -2,6 +2,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { type ServerType, serve, upgradeWebSocket } from "@hono/node-server";
 import { createDb } from "@hyperidle/db";
+import { bootstrapFabric } from "@hyperidle/fabric";
 import { EventBus } from "@hyperidle/shared";
 import { WebSocketServer } from "ws";
 import { createApp, disposeApp } from "./app.js";
@@ -106,6 +107,7 @@ export function createServer(port: number): ServerHandle {
 	const app = createApp({
 		db,
 		eventBus,
+		strategyBootstrap: bootstrapFabric,
 		registerWebSocket: (apiRouter, tokenStore) => {
 			// L1 step9 (Adv-C1): production WS subscribe must enforce participant
 			// authz on `thread:<id>` topics. The authorizer reads the threads
