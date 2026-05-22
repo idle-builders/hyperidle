@@ -88,29 +88,17 @@ Stories touching authentication, schema migrations, or `packages/server/src/agen
 
 **Squash before flipping ready.** Builder squashes the persona-prose commits before Reviewer's DONE triggers `gh pr ready`. Implementation commits stay atomic; prose commits collapse into one `chore(<id>): pipeline artifacts`. Squash at flip time, not before — Researcher's retro still needs the per-phase history to extract cost signals.
 
-### Ready-flip (replaces /ship)
+### Ship (after reviewer DONE)
 
-When Reviewer's `/review` pass emits `Verdict: DONE` (after fix cycle):
+When Reviewer's `/review` pass emits `Verdict: DONE` (after fix cycle), the builder runs `/ship`:
 
-```bash
-if [ "${PIPELINE_AB_MODE:-0}" = "1" ]; then
-  echo "[AB] Reviewer approved — leaving PR draft for replay"
-else
-  gh pr ready
-fi
-```
+1. Builder commits all remaining code changes.
+2. Builder runs `/ship <id>` — this merges `origin/main`, runs `bun run verify`, commits attestation, pushes, flips draft PR ready, and **waits for CI green**.
+3. `/ship` is only complete when `gh pr checks` returns green. If CI is red, builder fixes and re-ships (max 3 attempts).
 
-In A/B mode the PR stays draft so the run is replayable; the harness compares cost signals across replays without `gh pr merge` destroying the comparison. Outside A/B mode the human still owns `gh pr merge` — pipeline stops at "ready PR with green local verify" (or "green CI" for `gate: ci-required` stories).
+In A/B mode (`PIPELINE_AB_MODE=1`), the builder still runs `/ship` but skips `gh pr ready` — the PR stays draft for replay.
 
-### Post-push CI handling
-
-Phase 4 advances on green local verify; CI runs in parallel.
-
-- `gate: local-green`: ready-flip does not wait on CI. If CI goes red after merge, surface for revert or follow-up — do not silently retry.
-- `gate: ci-required`: Reviewer holds the ready-flip until CI is green. If CI is red:
-  1. Builder pulls the failure log via `gh pr checks <pr-number>`.
-  2. Builder reproduces with `bun run verify`. If local is green and CI is red on the same SHA, lint-config drift is the root — fix the parity, not the symptom.
-  3. Pushes again; max 3 push series. After 3, mark `blocked` with reason `ci-red-after-3-fixes`.
+**Ship is the single gate.** The pipeline does not declare a workpackage done until `/ship` confirms CI green. No exceptions.
 
 Then dispatch the persona sessions below, in order. Update `currentStep` in the progress file before each persona dispatch.
 
@@ -121,9 +109,9 @@ Then dispatch the persona sessions below, in order. Update `currentStep` in the 
 | 1 | **designer** | high | `/concept` → `/design` → `/architecture` | Production only. Concept doc + variant exploration + technical plan. |
 | 2 | **reviewer** | high | `/design-critique` → `/architecture-critique` | Evaluates designer output. True producer/evaluator separation — different agent, not just different mode. Context carries to Phase 4. |
 | 3 | **builder** | medium | `/write-tests` → `/write-code` | TDD red then green. Must pass `bun run verify` before pushing. No broken code reaches the reviewer. |
-| 4 | **reviewer** | high | `/review` | Same reviewer from Phase 2 (warm on design/arch). 6 lenses: 3 positive (architecture, design, security) + 3 negative (adversarial, simplification, slop) + AC audit. Builder applies fixes. |
+| 4 | **reviewer** + **builder** | high | `/review` → `/ship` | Same reviewer from Phase 2 (warm on design/arch). 6 lenses + AC audit. Builder applies fixes. On DONE, builder runs `/ship` (merge main → verify → attest → push → PR ready → CI green). |
 | 5 | **Explore** | low | `/retro` | Fresh-context retro with cost signals. Built-in Explore agent, not a custom persona. |
-| — | scripts | — | CI + PR | `bun run verify --raw` runs as CI on every push. Draft PR opens at worktree setup; `gh pr ready` flips on Reviewer's DONE + green local verify (or green CI for `gate: ci-required`). |
+| — | scripts | — | CI + PR | `bun run verify --raw` runs as CI on every push. Draft PR opens at worktree setup; `/ship` flips ready + waits for CI green after Reviewer's DONE. |
 
 **Durable agent sessions per story: 3** (designer, reviewer, builder). Spawned once each with named handles (`designer-<id>`, `reviewer-<id>`, `builder-<id>`). After initial spawn, all subsequent communication uses `SendMessage(to=<name>)` to reuse the live session — no re-spawn, no cache-creation cost. Explore agent for retro is ephemeral.
 
@@ -169,7 +157,7 @@ Phase 3 — builder (TDD):
   If Builder hits a plan-vs-reality conflict, it raises a BLOCKER rather
   than redesigning in-flight (TE-22).
 
-Phase 4 — review:
+Phase 4 — review + ship:
   SEND: SendMessage(to="reviewer-<id>") — reuses Phase 2 session.
   Same reviewer runs /review (warm on design/arch context).
     Six lenses: 3 positive (architecture, design, security) +
@@ -177,14 +165,17 @@ Phase 4 — review:
     Design lens skipped silently if no UI files.
     Emits DONE | NOT DONE with AC table + findings.
 
-  SEND: SendMessage(to="builder-<id>") with findings.
-  Builder applies findings; commits + pushes; runs bun run verify.
+  If NOT DONE:
+    SEND: SendMessage(to="builder-<id>") with findings.
+    Builder applies findings; commits + pushes; runs bun run verify.
+    SEND back to reviewer for re-review. Max 3 attempts.
 
-  Gate: if reviewer verdict is NOT DONE →
-    SendMessage(to="builder-<id>") to fix, then
-    SendMessage(to="reviewer-<id>") to re-review. Max 3 attempts.
-  If DONE and PIPELINE_AB_MODE != 1 → flip draft PR ready (gh pr ready).
-  In AB mode, leave the PR draft.
+  If DONE:
+    SEND: SendMessage(to="builder-<id>") with /ship <id>.
+    Builder runs /ship: merges origin/main, runs bun run verify,
+    commits attestation, pushes, flips PR ready (unless AB mode),
+    and waits for CI green. If CI red, builder fixes and re-ships
+    (max 3 attempts). /ship is not done until CI green.
 
 Phase 5 — retro:
   Launch Explore agent with /retro (ephemeral, no reuse needed).
@@ -212,9 +203,9 @@ Author / critic boundaries are enforced by persona separation: (a) the **designe
 
 The agent that created the design cannot objectively score it. Moving critique to the reviewer gives true producer/evaluator separation — different agents, not just a "cognitive mode switch" on the same agent. Bonus: the reviewer's Phase 2 context (design decisions, architecture contracts) carries into Phase 4's code review, so it arrives warm on the spec it's checking code against.
 
-### Why /verify and /ship are gone (TE-21)
+### Why /ship is the final gate
 
-`bun run verify` is the same script regardless of who invokes it; CI runs it on every push. `/ship` was a wrapper around `gh pr create` and a CI-watch loop; the worktree setup creates the draft PR up front, every persona pushes incrementally, and Reviewer's DONE verdict flips it ready.
+`/ship` owns the full sequence: merge main → verify → attest → push → PR ready → CI green. It exists as a separate skill because the sequence is error-prone (attestation conflicts from stale main, dirty tree, CI divergence) and must be followed exactly. The pipeline delegates to `/ship` rather than inlining this logic because every inline attempt has produced a different subset of the steps.
 
 ### Why /design's variant count is now conditional (TE-18)
 
