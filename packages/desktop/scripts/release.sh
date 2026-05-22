@@ -53,11 +53,15 @@ if [ -n "$(git status --porcelain)" ]; then
   exit 1
 fi
 
-# Bump version in package.json
+# Bump version in package.json (node -e avoids npm's workspace:* issues)
 echo "==> Setting version to $VERSION"
-cd "$DESKTOP_DIR"
-npm version "$VERSION" --no-git-tag-version
-cd "$REPO_ROOT"
+node -e "
+  const fs = require('fs');
+  const p = '$DESKTOP_DIR/package.json';
+  const pkg = JSON.parse(fs.readFileSync(p, 'utf-8'));
+  pkg.version = '$VERSION';
+  fs.writeFileSync(p, JSON.stringify(pkg, null, '\t') + '\n');
+"
 
 # Build everything
 echo "==> Building web SPA"
