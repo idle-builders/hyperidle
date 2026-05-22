@@ -30,7 +30,7 @@ mac:
   category: public.app-category.productivity
   target:
     - target: dmg
-      arch: [arm64, x64]
+      arch: [arm64]
   # Required for macOS notarization. Hardened runtime restricts what code can
   # execute — see build/entitlements.mac.plist for the required exceptions.
   hardenedRuntime: true
