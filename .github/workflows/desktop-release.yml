@@ -1,192 +1,70 @@
-name: Desktop Release
+name: Desktop Release — Distribute
 
+# Triggered when a release is published on this repo (by the local release script).
+# Downloads the signed+notarized DMG, mirrors it to the public releases repo,
+# and updates the Homebrew tap. Runs on ubuntu — no macOS minutes needed.
 on:
-  workflow_dispatch:
-    inputs:
-      version:
-        description: "Release version (e.g. 0.1.0, 1.0.0)"
-        required: true
-        type: string
-      bump:
-        description: "Bump type (for changelog context only — version is explicit)"
-        required: true
-        type: choice
-        options:
-          - patch
-          - minor
-          - major
+  release:
+    types: [published]
 
-# Only one release build at a time — do not cancel in-progress (a partial
-# release would leave assets missing from the GitHub Release).
 concurrency:
   group: desktop-release
   cancel-in-progress: false
 
 jobs:
-  tag:
+  distribute:
     runs-on: ubuntu-latest
-    timeout-minutes: 2
+    timeout-minutes: 5
     steps:
-      - uses: actions/checkout@v4
-      - name: Create and push tag
-        run: |
-          git tag "v${{ inputs.version }}"
-          git push origin "v${{ inputs.version }}"
-
-  build:
-    needs: tag
-    # @lore N5: Each arch needs its NATIVE runner for electron-rebuild to
-    # compile better-sqlite3 without cross-compilation toolchain issues.
-    # - arm64 → macos-latest (Apple Silicon M-series runner)
-    # - x64   → macos-13 (Intel runner, last x64-only macOS GH Actions runner)
-    # See architecture-critique.md CRITICAL finding #3.
-    strategy:
-      matrix:
-        include:
-          - arch: arm64
-            runs-on: macos-latest
-          - arch: x64
-            runs-on: macos-13
-    runs-on: ${{ matrix.runs-on }}
-    timeout-minutes: 30
-    env:
-      # Code signing — Developer ID Application certificate (.p12 base64-encoded)
-      CSC_LINK: ${{ secrets.MAC_CERT_P12_BASE64 }}
-      CSC_KEY_PASSWORD: ${{ secrets.MAC_CERT_PASSWORD }}
-      # Notarization — Apple ID + app-specific password (NOT the App Store
-      # Connect API). Generate the app-specific password at appleid.apple.com →
-      # Sign-In and Security → App-Specific Passwords.
-      APPLE_ID: ${{ secrets.APPLE_ID }}
-      APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
-      APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: latest
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: "22"
-
-      - name: Install dependencies
-        run: bun install
-
-      - name: Build web SPA
-        run: bun run --filter @hyperidle/web build
-
-      - name: Bundle desktop (esbuild → dist/main.cjs)
-        run: bun packages/desktop/scripts/bundle.ts
-
-      - name: Generate package-lock.json for electron-rebuild
-        # @lore N5: electron-rebuild requires a package-lock.json to resolve
-        # native module versions. bun uses bun.lockb (not package-lock.json).
-        # We generate it here as a CI-only artifact — it is NOT committed.
-        # npm may warn about workspace:* protocol references but still
-        # generates a usable lock file for the better-sqlite3 native dep.
-        working-directory: packages/desktop
-        run: npm install --package-lock-only --ignore-scripts
-
-      - name: Build, sign, and notarize
-        working-directory: packages/desktop
-        run: npx electron-builder --config electron-builder.yml --mac --${{ matrix.arch }}
-
-      - name: Upload DMG to public releases repo
-        # @lore N5: DMGs are uploaded to ambrovia/hyperidle-releases (public)
-        # instead of the main repo (private). This lets Homebrew download
-        # the DMGs without authentication. The RELEASES_TOKEN needs repo
-        # scope on ambrovia/hyperidle-releases.
-        uses: softprops/action-gh-release@v2
-        with:
-          repository: ambrovia/hyperidle-releases
-          token: ${{ secrets.RELEASES_TOKEN }}
-          tag_name: v${{ inputs.version }}
-          name: HyperIdle v${{ inputs.version }}
-          files: packages/desktop/release/*.dmg
-
-  update-homebrew:
-    needs: build
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    steps:
-      - name: Get release version from inputs
+      - name: Extract version from tag
         id: release
         run: |
-          VERSION="${{ inputs.version }}"
-          TAG="v${VERSION}"
+          TAG="${{ github.event.release.tag_name }}"
+          VERSION="${TAG#v}"
           echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
           echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "Distributing HyperIdle $TAG"
 
-      - name: Wait for BOTH release assets (arm64 + x64) to be uploaded
-        # @lore N5: The build matrix runs arm64 and x64 concurrently. Both
-        # jobs upload to the same GitHub Release. If we proceed before both
-        # DMGs are available, the x64 download silently returns a 404 HTML page
-        # and sha256sum computes the hash of the error page, not the DMG.
-        # We poll for both URLs before downloading.
-        # See architecture-critique.md WARNING finding #7.
+      - name: Download DMG from this release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION="${{ steps.release.outputs.version }}"
+          DMG_NAME="HyperIdle-${VERSION}-arm64.dmg"
+
+          gh release download "${{ steps.release.outputs.tag }}" \
+            --repo "${{ github.repository }}" \
+            --pattern "$DMG_NAME" \
+            --dir .
+
+          echo "Downloaded: $DMG_NAME ($(du -sh "$DMG_NAME" | cut -f1))"
+
+      - name: Upload DMG to public releases repo
+        env:
+          GH_TOKEN: ${{ secrets.RELEASES_TOKEN }}
         run: |
           TAG="${{ steps.release.outputs.tag }}"
           VERSION="${{ steps.release.outputs.version }}"
-          BASE_URL="https://github.com/ambrovia/hyperidle-releases/releases/download/${TAG}"
-          ARM64_URL="${BASE_URL}/HyperIdle-${VERSION}-arm64.dmg"
-          X64_URL="${BASE_URL}/HyperIdle-${VERSION}-x64.dmg"
+          DMG_NAME="HyperIdle-${VERSION}-arm64.dmg"
 
-          echo "Waiting for arm64 DMG: ${ARM64_URL}"
-          ARM64_READY=false
-          for i in $(seq 1 30); do
-            if curl -sILf "${ARM64_URL}" > /dev/null 2>&1; then
-              echo "arm64 DMG available."
-              ARM64_READY=true
-              break
-            fi
-            echo "Attempt ${i}/30: arm64 DMG not yet available. Retrying in 10s..."
-            sleep 10
-          done
-          if [ "$ARM64_READY" != "true" ]; then
-            echo "::error::arm64 DMG not available after 5 minutes. Aborting."
-            exit 1
-          fi
+          gh release create "$TAG" "$DMG_NAME" \
+            --repo ambrovia/hyperidle-releases \
+            --title "HyperIdle $TAG" \
+            --notes "Desktop release $TAG (arm64)" \
+            2>/dev/null \
+          || gh release upload "$TAG" "$DMG_NAME" --clobber \
+            --repo ambrovia/hyperidle-releases
 
-          echo "Waiting for x64 DMG: ${X64_URL}"
-          X64_READY=false
-          for i in $(seq 1 30); do
-            if curl -sILf "${X64_URL}" > /dev/null 2>&1; then
-              echo "x64 DMG available."
-              X64_READY=true
-              break
-            fi
-            echo "Attempt ${i}/30: x64 DMG not yet available. Retrying in 10s..."
-            sleep 10
-          done
-          if [ "$X64_READY" != "true" ]; then
-            echo "::error::x64 DMG not available after 5 minutes. Aborting."
-            exit 1
-          fi
-
-      - name: Download DMGs and compute sha256 checksums
+      - name: Compute sha256 checksum
         id: sha
         run: |
-          TAG="${{ steps.release.outputs.tag }}"
           VERSION="${{ steps.release.outputs.version }}"
-          BASE_URL="https://github.com/ambrovia/hyperidle-releases/releases/download/${TAG}"
-
-          curl -sL "${BASE_URL}/HyperIdle-${VERSION}-arm64.dmg" -o arm64.dmg
-          curl -sL "${BASE_URL}/HyperIdle-${VERSION}-x64.dmg" -o x64.dmg
-
-          # @lore N5: Use sha256sum (GNU coreutils, available on ubuntu-latest).
-          # The macOS equivalent (shasum with -a flag) is NOT available on ubuntu.
-          # See architecture-critique.md CRITICAL finding #2.
-          ARM64_SHA=$(sha256sum arm64.dmg | cut -d' ' -f1)
-          X64_SHA=$(sha256sum x64.dmg | cut -d' ' -f1)
-
+          DMG_NAME="HyperIdle-${VERSION}-arm64.dmg"
+          ARM64_SHA=$(sha256sum "$DMG_NAME" | cut -d' ' -f1)
           echo "arm64_sha=${ARM64_SHA}" >> "$GITHUB_OUTPUT"
-          echo "x64_sha=${X64_SHA}" >> "$GITHUB_OUTPUT"
+          echo "SHA256: ${ARM64_SHA}"
 
-      - name: Dispatch cask update to homebrew tap
+      - name: Dispatch cask update to Homebrew tap
         uses: peter-evans/repository-dispatch@v3
         with:
           token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
@@ -195,6 +73,5 @@ jobs:
           client-payload: |
             {
               "version": "${{ steps.release.outputs.version }}",
-              "arm64_sha256": "${{ steps.sha.outputs.arm64_sha }}",
-              "x64_sha256": "${{ steps.sha.outputs.x64_sha }}"
+              "arm64_sha256": "${{ steps.sha.outputs.arm64_sha }}"
             }
