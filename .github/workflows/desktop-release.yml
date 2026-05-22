@@ -14,7 +14,7 @@ concurrency:
 jobs:
   distribute:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 15
     steps:
       - name: Extract version from tag
         id: release
@@ -47,12 +47,14 @@ jobs:
           VERSION="${{ steps.release.outputs.version }}"
           DMG_NAME="HyperIdle-${VERSION}-arm64.dmg"
 
-          gh release create "$TAG" "$DMG_NAME" \
-            --repo ambrovia/hyperidle-releases \
-            --title "HyperIdle $TAG" \
-            --notes "Desktop release $TAG (arm64)" \
-            2>/dev/null \
-          || gh release upload "$TAG" "$DMG_NAME" --clobber \
+          if ! gh release view "$TAG" --repo ambrovia/hyperidle-releases &>/dev/null; then
+            gh release create "$TAG" \
+              --repo ambrovia/hyperidle-releases \
+              --title "HyperIdle $TAG" \
+              --notes "Desktop release $TAG (arm64)"
+          fi
+
+          gh release upload "$TAG" "$DMG_NAME" --clobber \
             --repo ambrovia/hyperidle-releases
 
       - name: Compute sha256 checksum
