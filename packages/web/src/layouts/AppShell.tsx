@@ -464,7 +464,10 @@ export function AppShell(): JSX.Element {
 	// before submenuTotalCount + selectedThreadId because both reference it).
 	// @lore M3 A11: participant id comes from useCurrentUser() — no more
 	// hardcoded demo-founder-id constant.
-	const conversationsThreads = useConversationsThreads(user?.id ?? "");
+	// @lore N5: pass user?.id directly (string | undefined). The hook accepts
+	// string | null | undefined and short-circuits to empty ready state when
+	// falsy — avoiding a 400 "Missing scope" error when no user is loaded yet.
+	const conversationsThreads = useConversationsThreads(user?.id);
 
 	const submenuFilters = SUBMENU_FILTERS[activeView];
 	const [submenuFilter, setSubmenuFilter] = useState<SubmenuFilter>("all");

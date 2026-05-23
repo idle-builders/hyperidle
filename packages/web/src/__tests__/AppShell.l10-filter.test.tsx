@@ -87,11 +87,30 @@ function renderShellAt(initialPath: string): void {
 	render(<RouterProvider router={router} />);
 }
 
+/**
+ * Stub user returned by /api/auth/me. The id must be non-empty so that
+ * useConversationsThreads receives a truthy participantId and fires the
+ * threads fetch (instead of short-circuiting to the empty ready state).
+ */
+const STUB_USER = { id: "u-founder-test", name: "Founder", email: "", avatarUrl: null };
+
 function stubFetchOk(rows: MockListRow[]): void {
-	global.fetch = vi.fn(async () => ({
-		ok: true,
-		json: async () => ({ threads: rows, nextCursor: null }),
-	})) as unknown as typeof fetch;
+	global.fetch = vi.fn(async (input: RequestInfo | URL) => {
+		const url = typeof input === "string" ? input : input.toString();
+		// /api/auth/me → return a valid user so useCurrentUser resolves with an id.
+		if (url.includes("/api/auth/me")) {
+			return { ok: true, json: async () => STUB_USER } as Response;
+		}
+		// /api/threads list → return the fixture rows.
+		if (url.includes("/api/threads") && !url.match(/\/api\/threads\/[^?]/)) {
+			return {
+				ok: true,
+				json: async () => ({ threads: rows, nextCursor: null }),
+			} as Response;
+		}
+		// Any other endpoint (settings, products, etc.) → empty ok.
+		return { ok: true, json: async () => ({}) } as Response;
+	}) as unknown as typeof fetch;
 }
 
 beforeEach(() => {
@@ -226,11 +245,13 @@ describe("AppShell — L10 conversations filter wiring", () => {
 	});
 
 	it("error state: count badge is hidden until status is ready (Adversary H2)", async () => {
-		global.fetch = vi.fn(async () => ({
-			ok: false,
-			status: 500,
-			json: async () => ({ error: "boom" }),
-		})) as unknown as typeof fetch;
+		global.fetch = vi.fn(async (input: RequestInfo | URL) => {
+			const url = typeof input === "string" ? input : input.toString();
+			if (url.includes("/api/auth/me")) {
+				return { ok: true, json: async () => STUB_USER } as Response;
+			}
+			return { ok: false, status: 500, json: async () => ({ error: "boom" }) } as Response;
+		}) as unknown as typeof fetch;
 		renderShellAt("/conversations");
 		await screen.findByTestId("thread-sections-error");
 
@@ -242,8 +263,16 @@ describe("AppShell — L10 conversations filter wiring", () => {
 	});
 
 	it("loading state: count badge is hidden until status is ready (Adversary H2)", async () => {
-		// Never-resolving fetch keeps the hook in `loading` indefinitely.
-		global.fetch = vi.fn(() => new Promise(() => {})) as unknown as typeof fetch;
+		// /api/auth/me resolves quickly so participantId is set, then the threads
+		// fetch never resolves — keeping the hook in `loading` indefinitely.
+		global.fetch = vi.fn(async (input: RequestInfo | URL) => {
+			const url = typeof input === "string" ? input : input.toString();
+			if (url.includes("/api/auth/me")) {
+				return { ok: true, json: async () => STUB_USER } as Response;
+			}
+			// Thread and all other endpoints never resolve → infinite loading.
+			return new Promise<Response>(() => {});
+		}) as unknown as typeof fetch;
 		renderShellAt("/conversations");
 		await screen.findByTestId("thread-sections-loading");
 
@@ -255,11 +284,13 @@ describe("AppShell — L10 conversations filter wiring", () => {
 	it("error state: chips become inert (aria-disabled) and clicking does not change rendering", async () => {
 		// approved §5.5 / plan T10: when the threads fetch fails, the chips
 		// render as aria-disabled.
-		global.fetch = vi.fn(async () => ({
-			ok: false,
-			status: 500,
-			json: async () => ({ error: "boom" }),
-		})) as unknown as typeof fetch;
+		global.fetch = vi.fn(async (input: RequestInfo | URL) => {
+			const url = typeof input === "string" ? input : input.toString();
+			if (url.includes("/api/auth/me")) {
+				return { ok: true, json: async () => STUB_USER } as Response;
+			}
+			return { ok: false, status: 500, json: async () => ({ error: "boom" }) } as Response;
+		}) as unknown as typeof fetch;
 		const user = userEvent.setup();
 		renderShellAt("/conversations");
 

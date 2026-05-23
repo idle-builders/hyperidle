@@ -121,8 +121,20 @@ function rowToItem(row: ThreadListRow): ThreadItem {
 	};
 }
 
-export function useConversationsThreads(participantId: string): UseConversationsThreadsResult {
-	const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
+/**
+ * @lore N5: participantId is typed as `string | null | undefined` so callers
+ * that hold `user?.id` (which is `string | undefined` when `user` is null) do
+ * not need to coerce to an empty string. When participantId is falsy the hook
+ * short-circuits to `{ status: "ready", threads: [] }` instead of sending
+ * `?participant_id=` to the server — which would return a 400 "Missing scope"
+ * error and display "Couldn't load threads" on a fresh install with no users.
+ */
+export function useConversationsThreads(
+	participantId: string | null | undefined,
+): UseConversationsThreadsResult {
+	const [status, setStatus] = useState<"loading" | "ready" | "error">(
+		participantId ? "loading" : "ready",
+	);
 	const [threads, setThreads] = useState<ReadonlyArray<ThreadItem>>([]);
 	const [error, setError] = useState<string | null>(null);
 	const [tick, setTick] = useState(0);
@@ -130,6 +142,16 @@ export function useConversationsThreads(participantId: string): UseConversations
 
 	// biome-ignore lint/correctness/useExhaustiveDependencies: `tick` is intentionally a dependency — bumping it via retry() re-runs the fetch.
 	useEffect(() => {
+		// When there is no participant id (fresh install, user not yet set up),
+		// return an empty ready state without hitting the API — which would return
+		// a 400 "Missing scope" error and show "Couldn't load threads".
+		if (!participantId) {
+			setThreads([]);
+			setStatus("ready");
+			setError(null);
+			return;
+		}
+
 		const ac = new AbortController();
 		abortRef.current?.abort();
 		abortRef.current = ac;
