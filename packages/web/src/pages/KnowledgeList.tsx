@@ -237,7 +237,7 @@ export function KnowledgeList({
 	useEffect(() => {
 		const hasDraft = allItems.some((i) => i.status === "draft");
 		setTab(hasDraft ? "triage" : "curated");
-	}, [allItems]);
+	}, [allItems, scope]);
 
 	/** Update sort URL state. Removes param when defaulting to relevance. */
 	function handleSortChange(newSort: KnowledgeSortOption): void {

@@ -4,14 +4,24 @@ import { createMemoryRouter, RouterProvider } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 beforeEach(() => {
-	// L8: AppShell fetches /api/threads on mount.
-	const existing = global.fetch as unknown;
-	if (typeof existing !== "function" || !("mock" in (existing as object))) {
-		global.fetch = vi.fn(async () => ({
-			ok: true,
-			json: async () => ({ threads: [], nextCursor: null }),
-		})) as unknown as typeof fetch;
-	}
+	global.fetch = vi.fn(async (url: string | URL | Request) => {
+		const urlStr = typeof url === "string" ? url : url instanceof URL ? url.href : url.url;
+		if (urlStr.includes("/api/knowledge")) {
+			return {
+				ok: true,
+				json: async () => ({
+					items: [
+						{ id: "k1", topic: "Architecture", title: "Auth", body: "", format: "markdown", status: "draft", version: 1, updatedBy: "agent", createdAt: "2025-01-01", updatedAt: "2025-01-01", signals: null },
+						{ id: "k2", topic: "Architecture", title: "DB", body: "", format: "markdown", status: "active", version: 1, updatedBy: "agent", createdAt: "2025-01-01", updatedAt: "2025-01-01", signals: null },
+					],
+				}),
+			};
+		}
+		if (urlStr.includes("/api/auth/me")) {
+			return { ok: true, json: async () => ({ id: "u-founder", name: "Founder" }) };
+		}
+		return { ok: true, json: async () => ({ threads: [], nextCursor: null }) };
+	}) as unknown as typeof fetch;
 });
 
 import { AppShell } from "../layouts/AppShell";
