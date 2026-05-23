@@ -37,7 +37,7 @@ export function resolveMigrationsFolder(): string {
 	// This file lives at packages/desktop/src/migrate.ts.
 	// The migrations folder lives at packages/db/drizzle.
 	// Relative path: ../../../db/drizzle from packages/desktop/src/
-	const currentDir = path.dirname(fileURLToPath(import.meta.url));
+	const currentDir = typeof __dirname === "string" ? __dirname : path.dirname(fileURLToPath(import.meta.url));
 	return path.resolve(currentDir, "..", "..", "db", "drizzle");
 }
 

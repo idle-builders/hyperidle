@@ -1,19 +1,14 @@
 /**
  * Preload script — exposes window.__HYPERIDLE__ via contextBridge.
  *
- * IMPORTANT: This file uses require() for Electron modules (NOT import).
- * Sandboxed Electron preloads run in a restricted CJS context.
- * See architecture.md §4 for the full rationale.
- *
- * N4 stub — implementation pending.
+ * @lore N4: Sandboxed preloads (sandbox: true) run in a restricted CJS
+ * context at runtime. In dev mode tsx handles the TS→JS transform; in
+ * production esbuild compiles this to CJS with `electron` as external
+ * (producing `require("electron")`). Using static `import` in source
+ * gives us full type checking while the toolchain handles the CJS output.
  */
 
-// @lore N4: preload uses CJS require() for Electron modules, not ESM import.
-// Sandboxed preloads (sandbox: true) do not go through Node's ESM loader.
-// NODE_OPTIONS='--import tsx' applies only to the main process, not preload.
-
-// biome-ignore lint/suspicious/noExplicitAny: CJS interop in sandboxed preload
-const { contextBridge, ipcRenderer } = require("electron") as any;
+import { contextBridge, ipcRenderer } from "electron";
 
 contextBridge.exposeInMainWorld("__HYPERIDLE__", {
 	apiKey: process.argv.find((a: string) => a.startsWith("--api-key="))?.split("=")[1] ?? "",

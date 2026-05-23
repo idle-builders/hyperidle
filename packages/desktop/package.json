@@ -8,6 +8,7 @@
 		"dev": "bun scripts/check-native.ts && NODE_OPTIONS='--import tsx' electron .",
 		"build": "bun scripts/bundle.ts",
 		"build:dist": "electron-builder --config electron-builder.yml",
+		"build:local": "bash scripts/build-local.sh",
 		"check:native": "bun scripts/check-native.ts",
 		"check": "tsc --noEmit",
 		"test": "vitest run"
