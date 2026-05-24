@@ -471,8 +471,8 @@ describe("file-watcher (fs.watch)", () => {
 		const filePath = path.join(workspace, "knowledge/practices/contested.md");
 		fs.writeFileSync(filePath, "Agent wrote this at T=0");
 
-		// Wait for debounce to fire and process the create
-		await sleep(1500);
+		// Wait for debounce (500ms) + fs.watch delivery + processing margin
+		await sleep(3000);
 
 		// Verify item was created
 		let items = db.select().from(knowledgeItems).all();
@@ -488,8 +488,8 @@ describe("file-watcher (fs.watch)", () => {
 		// Agent modifies the file again
 		fs.writeFileSync(filePath, "Agent overwrites at T=500");
 
-		// Wait for debounce
-		await sleep(1500);
+		// Wait for debounce + fs.watch delivery under load
+		await sleep(3000);
 
 		watcher.stop();
 
