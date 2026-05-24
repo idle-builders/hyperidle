@@ -275,13 +275,7 @@ describe("O3 AC-3: notifications subtree moved to fabric/src/services/notificati
 // ── AC-4: Observability stays in server/src/services/ ────────────────────────
 
 describe("O3 AC-4: observability/ stays in server/src/services/", () => {
-	const observabilityFiles = [
-		"config.ts",
-		"console-adapter.ts",
-		"dispatcher.ts",
-		"langfuse-adapter.ts",
-		"types.ts",
-	];
+	const observabilityFiles = ["config.ts", "console-adapter.ts", "dispatcher.ts", "types.ts"];
 
 	for (const file of observabilityFiles) {
 		it(`observability/${file} still exists in server/src/services/observability/`, () => {

@@ -8,27 +8,18 @@
  *  2. Wildcard bus subscription — every declared DomainEvent kind is
  *     either translated or explicitly dropped, never silently ignored
  *     (architect C2).
- *  3. Langfuse flush race — concurrent record() calls mean flush()
- *     awaits EVERY in-flight POST, not just the most recent
- *     (adversary critical #3).
- *  4. DNS-rebinding TOCTOU — a lookup that flips from public → private
- *     between the pre-check and fetch is caught (security H-1).
- *  5. PATCH /config rebuild — adapter rotation + key rotation takes
- *     effect without a process restart (architect C1 / security M-3 /
- *     adversary WARN).
- *  6. Empty sessionId rejected silently — does not collapse onto an
+ *  3. PATCH /config rebuild — adapter rotation takes effect without a
+ *     process restart (architect C1 / security M-3 / adversary WARN).
+ *  4. Empty sessionId rejected silently — does not collapse onto an
  *     empty traceId (adversary WARN).
- *  7. Stable envelopeId — deterministic across batches (adversary #9).
- *  8. FlushOutcome partial-drain — callers can distinguish clean
+ *  5. FlushOutcome partial-drain — callers can distinguish clean
  *     drains from partial errors (review non-blocking #15).
- *  9. Drop-oldest is O(1) at cap — covered in performance.bench; this
+ *  6. Drop-oldest is O(1) at cap — covered in performance.bench; this
  *     file exercises the buffer semantics in a targeted way.
- * 10. scrubInlineTokens broader coverage — AKIA, xox, AIza, JWT,
+ *  7. scrubInlineTokens broader coverage — AKIA, xox, AIza, JWT,
  *     Stripe, PEM (security M-2).
  */
 
-import { createServer, type Server } from "node:http";
-import type { AddressInfo } from "node:net";
 import { createTestDb, factorySettings, type HyperIdleDb } from "@hyperidle/db";
 import {
 	EventBus,
@@ -38,7 +29,7 @@ import {
 	scrubInlineTokens,
 	type ToolCallRecordedEvent,
 } from "@hyperidle/shared";
-import { afterEach, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 import { createObservabilityRoutes } from "../../routes/observability-routes.js";
 import {
 	type ObservabilityConfig,
@@ -48,14 +39,13 @@ import {
 	createObservabilityDispatcher,
 	registerObservabilityDispatcher,
 } from "../../services/observability/dispatcher.js";
-import { createLangfuseObservabilityAdapter } from "../../services/observability/langfuse-adapter.js";
 import type {
 	ObservabilityAdapter,
 	ObservabilityDispatcher,
 } from "../../services/observability/types.js";
 
 function captureAdapter(
-	name: "console" | "langfuse" = "console",
+	name: "console" = "console",
 ): ObservabilityAdapter & { events: ObservabilityEvent[]; flushed: number } {
 	const events: ObservabilityEvent[] = [];
 	let flushed = 0;
@@ -237,156 +227,7 @@ describe("H3 review fixes — (2) wildcard subscription", () => {
 	});
 });
 
-describe("H3 review fixes — (3) Langfuse flush race", () => {
-	let server: Server | null = null;
-	afterEach(async () => {
-		if (server) await new Promise<void>((r) => server?.close(() => r()));
-		server = null;
-	});
-
-	it("flush() awaits every in-flight batch, not just the most recent", async () => {
-		// Fixture that introduces a per-request delay so two concurrent
-		// record() calls overlap in flight. The old single-slot `inFlight`
-		// only tracked the latest batch; flush() could return before the
-		// earlier batch finished.
-		let pendingA: (() => void) | null = null;
-		let pendingB: (() => void) | null = null;
-		const captured: number[] = [];
-		await new Promise<void>((resolve, reject) => {
-			server = createServer(async (req, res) => {
-				let pass: () => void;
-				if (!pendingA) {
-					pass = (): void => {
-						res.statusCode = 207;
-						res.end("{}");
-					};
-					pendingA = pass;
-				} else {
-					pass = (): void => {
-						res.statusCode = 207;
-						res.end("{}");
-					};
-					pendingB = pass;
-				}
-				req.on("data", () => {});
-				req.on("end", () => {
-					captured.push(captured.length);
-				});
-			});
-			server.on("error", reject);
-			server.listen(0, "127.0.0.1", () => resolve());
-		});
-		if (!server) throw new Error("no server");
-		const port = (server.address() as AddressInfo).port;
-		const adapter = createLangfuseObservabilityAdapter({
-			url: `http://127.0.0.1:${port}`,
-			publicKey: "pk",
-			secretKey: "sk",
-		});
-		const ts = "2026-04-18T00:00:00.000Z";
-		const ev: ObservabilityEvent = {
-			kind: "session_started",
-			traceId: "t",
-			sessionId: "s",
-			ts,
-			agentId: "a",
-			taskId: "k",
-		};
-		const a = adapter.record([ev]);
-		const b = adapter.record([ev]);
-		// Resolve both fixture responses, B first then A, so the
-		// more-recent record's promise would have settled BEFORE the
-		// older one. flush() must still await the older one.
-		let resolved = 0;
-		a.then(() => {
-			resolved += 1;
-		});
-		b.then(() => {
-			resolved += 1;
-		});
-		// Wait until both requests arrived at the fixture.
-		await new Promise<void>((r) => {
-			const iv = setInterval(() => {
-				if (pendingA && pendingB) {
-					clearInterval(iv);
-					r();
-				}
-			}, 10);
-		});
-		pendingB?.();
-		pendingA?.();
-		await adapter.flush();
-		expect(resolved).toBe(2);
-		await a;
-		await b;
-	});
-});
-
-describe("H3 review fixes — (4) DNS rebinding TOCTOU", () => {
-	it("re-resolves before fetch; a flip to a private IP blocks the outbound", async () => {
-		// First lookup returns a public IP; second returns 10.0.0.1. The
-		// adapter must refuse the fetch.
-		let call = 0;
-		const lookup = async (_h: string): Promise<Array<{ address: string; family: 4 | 6 }>> => {
-			call += 1;
-			if (call === 1) return [{ address: "203.0.113.10", family: 4 }];
-			return [{ address: "10.0.0.1", family: 4 }];
-		};
-		let fetchCalls = 0;
-		const adapter = createLangfuseObservabilityAdapter({
-			url: "https://attacker.example.com",
-			publicKey: "pk",
-			secretKey: "sk",
-			lookup,
-			fetch: async (): Promise<Response> => {
-				fetchCalls += 1;
-				return new Response(null, { status: 207 });
-			},
-		});
-		const ts = "2026-04-18T00:00:00.000Z";
-		const ev: ObservabilityEvent = {
-			kind: "session_started",
-			traceId: "t",
-			sessionId: "s",
-			ts,
-			agentId: "a",
-			taskId: "k",
-		};
-		await expect(adapter.record([ev])).rejects.toThrow(/blocked.*private/i);
-		expect(fetchCalls).toBe(0);
-	});
-
-	it("passes through when both lookups stay public", async () => {
-		const lookup = async (): Promise<Array<{ address: string; family: 4 | 6 }>> => [
-			{ address: "203.0.113.10", family: 4 },
-		];
-		let fetchCalls = 0;
-		const adapter = createLangfuseObservabilityAdapter({
-			url: "https://safe.example.com",
-			publicKey: "pk",
-			secretKey: "sk",
-			lookup,
-			fetch: async (): Promise<Response> => {
-				fetchCalls += 1;
-				return new Response(null, { status: 207 });
-			},
-		});
-		const ts = "2026-04-18T00:00:00.000Z";
-		await adapter.record([
-			{
-				kind: "session_started",
-				traceId: "t",
-				sessionId: "s",
-				ts,
-				agentId: "a",
-				taskId: "k",
-			},
-		]);
-		expect(fetchCalls).toBe(1);
-	});
-});
-
-describe("H3 review fixes — (5) PATCH /config live rebuild", () => {
+describe("H3 review fixes — (3) PATCH /config live rebuild", () => {
 	it("switches adapter + rotates keys without restart", async () => {
 		const db = createTestDb();
 		const events: ObservabilityEvent[] = [];
@@ -453,18 +294,15 @@ describe("H3 review fixes — (5) PATCH /config live rebuild", () => {
 		expect(res.status).toBe(200);
 		expect(currentDispatcher).toBeNull();
 
-		// Then patch back to enabled + langfuse keys; a new dispatcher
-		// must be constructed with the updated config. Langfuse-keyed
-		// adapters build here with a fake adapter to keep the test
-		// offline.
+		// Then patch back to enabled=true + adapter=console; a new dispatcher
+		// must be constructed with the updated config.
 		const res2 = await router.fetch(
 			new Request("http://test.local/config", {
 				method: "PATCH",
 				headers: { "content-type": "application/json" },
 				body: JSON.stringify({
 					enabled: true,
-					langfusePublicKey: "pk-lf-rotated",
-					langfuseSecretKey: "sk-lf-rotated",
+					adapter: "console",
 				}),
 			}),
 		);
@@ -509,7 +347,7 @@ describe("H3 review fixes — (5) PATCH /config live rebuild", () => {
 	});
 });
 
-describe("H3 review fixes — (6) empty sessionId rejected", () => {
+describe("H3 review fixes — (4) empty sessionId rejected", () => {
 	it("falls back to 'unknown' instead of the empty string", async () => {
 		const bus = new EventBus();
 		const adapter = captureAdapter();
@@ -534,64 +372,7 @@ describe("H3 review fixes — (6) empty sessionId rejected", () => {
 	});
 });
 
-describe("H3 review fixes — (7) stable envelopeId", () => {
-	it("same event fields produce the same envelope id across batches", async () => {
-		// Fire the same event through the adapter twice (simulates a
-		// retry loop or a replay). Adversary review #9: previous
-		// index-based ids diverged, defeating Langfuse dedupe.
-		const fixture = await new Promise<{
-			server: Server;
-			port: number;
-			captured: Array<{ body: string }>;
-		}>((resolve, reject) => {
-			const captured: Array<{ body: string }> = [];
-			const server = createServer((req, res) => {
-				const chunks: Buffer[] = [];
-				req.on("data", (c: Buffer) => chunks.push(c));
-				req.on("end", () => {
-					captured.push({ body: Buffer.concat(chunks).toString("utf-8") });
-					res.statusCode = 207;
-					res.end("{}");
-				});
-			});
-			server.on("error", reject);
-			server.listen(0, "127.0.0.1", () => {
-				const a = server.address() as AddressInfo;
-				resolve({ server, port: a.port, captured });
-			});
-		});
-		try {
-			const adapter = createLangfuseObservabilityAdapter({
-				url: `http://127.0.0.1:${fixture.port}`,
-				publicKey: "pk",
-				secretKey: "sk",
-			});
-			const ts = "2026-04-18T00:00:00.000Z";
-			const ev: ObservabilityEvent = {
-				kind: "session_started",
-				traceId: "trace-Z",
-				sessionId: "sess-Z",
-				ts,
-				agentId: "a",
-				taskId: "t",
-			};
-			await adapter.record([ev]);
-			await adapter.record([ev]);
-			expect(fixture.captured).toHaveLength(2);
-			const first = JSON.parse(fixture.captured[0].body) as {
-				batch: Array<{ id: string }>;
-			};
-			const second = JSON.parse(fixture.captured[1].body) as {
-				batch: Array<{ id: string }>;
-			};
-			expect(first.batch[0].id).toBe(second.batch[0].id);
-		} finally {
-			await new Promise<void>((r) => fixture.server.close(() => r()));
-		}
-	});
-});
-
-describe("H3 review fixes — (8) FlushOutcome partial-drain", () => {
+describe("H3 review fixes — (5) FlushOutcome partial-drain", () => {
 	it("returns { flushed, dropped, errors } so callers can distinguish partial", async () => {
 		let failCount = 0;
 		const adapter: ObservabilityAdapter = {
@@ -630,7 +411,7 @@ describe("H3 review fixes — (8) FlushOutcome partial-drain", () => {
 	});
 });
 
-describe("H3 review fixes — (9) request-size cap", () => {
+describe("H3 review fixes — (6) request-size cap", () => {
 	it("rejects POST /flush with oversized content-length", async () => {
 		const db = createTestDb();
 		const router = createObservabilityRoutes(db, {
@@ -650,7 +431,7 @@ describe("H3 review fixes — (9) request-size cap", () => {
 	});
 });
 
-describe("H3 review fixes — (10) scrubInlineTokens broader coverage", () => {
+describe("H3 review fixes — (7) scrubInlineTokens broader coverage", () => {
 	it("scrubs AWS AKIA access keys", () => {
 		const out = scrubInlineTokens("leaked AKIAABCDEFGHIJKLMNOP here");
 		expect(out).not.toContain("AKIAABCDEFGHIJKLMNOP");
@@ -683,7 +464,7 @@ describe("H3 review fixes — (10) scrubInlineTokens broader coverage", () => {
 	});
 });
 
-describe("H3 review fixes — (11) event ordering within a session", () => {
+describe("H3 review fixes — (8) event ordering within a session", () => {
 	it("events emitted in order from the bus reach the adapter in order", async () => {
 		// EventBus.emit is synchronous; enqueue is synchronous. Drain
 		// runs in insertion order because the ring buffer is FIFO.
@@ -739,7 +520,7 @@ describe("H3 review fixes — (11) event ordering within a session", () => {
 	});
 });
 
-describe("H3 review fixes — (12) ring buffer semantics", () => {
+describe("H3 review fixes — (9) ring buffer semantics", () => {
 	it("evicting oldest preserves insertion order of surviving events", async () => {
 		const adapter = captureAdapter();
 		const dispatcher = createObservabilityDispatcher({

@@ -214,12 +214,12 @@ describe("ObservabilityDispatcher — enqueue / drain", () => {
 	});
 
 	it("status reflects adapter name", async () => {
-		const adapter = fakeAdapter("langfuse");
+		const adapter = fakeAdapter("noop");
 		const dispatcher = createObservabilityDispatcher({
 			adapter,
 			config: { batchSize: 10, flushIntervalMs: 60_000, bufferCap: 100 },
 		});
-		expect(dispatcher.status().adapter).toBe("langfuse");
+		expect(dispatcher.status().adapter).toBe("noop");
 		await dispatcher.dispose();
 	});
 });

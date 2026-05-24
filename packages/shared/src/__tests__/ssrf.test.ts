@@ -53,20 +53,20 @@ describe("shared/net/ssrf: isPrivateHostLiteral + isLoopbackHost", () => {
 		expect(isLoopbackHost("127.0.0.1")).toBe(true);
 	});
 	it("public hosts pass", () => {
-		expect(isPrivateHostLiteral("langfuse.com")).toBe(false);
+		expect(isPrivateHostLiteral("example.com")).toBe(false);
 	});
 });
 
 describe("shared/net/ssrf: sanitizeHttpUrl", () => {
 	it("accepts https to public host", () => {
-		expect(sanitizeHttpUrl("https://cloud.langfuse.com")).toEqual({ ok: true });
+		expect(sanitizeHttpUrl("https://api.example.com")).toEqual({ ok: true });
 	});
 	it("accepts http to loopback", () => {
 		expect(sanitizeHttpUrl("http://127.0.0.1:3000")).toEqual({ ok: true });
 		expect(sanitizeHttpUrl("http://localhost:9000")).toEqual({ ok: true });
 	});
 	it("rejects http to public host", () => {
-		const r = sanitizeHttpUrl("http://evil.example.com", { label: "langfuse url" });
+		const r = sanitizeHttpUrl("http://evil.example.com", { label: "webhook url" });
 		expect(r.ok).toBe(false);
 		if (!r.ok) expect(r.reason).toContain("loopback");
 	});
@@ -75,7 +75,7 @@ describe("shared/net/ssrf: sanitizeHttpUrl", () => {
 		expect(r.ok).toBe(false);
 	});
 	it("rejects userinfo", () => {
-		const r = sanitizeHttpUrl("https://user:pass@cloud.langfuse.com");
+		const r = sanitizeHttpUrl("https://user:pass@api.example.com");
 		expect(r.ok).toBe(false);
 		if (!r.ok) expect(r.reason).toContain("userinfo");
 	});
@@ -109,7 +109,7 @@ describe("shared/net/ssrf: assertUrlNotSSRF", () => {
 
 describe("shared/net/ssrf: resolveUrlForSSRF (H3 H-1)", () => {
 	it("returns resolved public IPs so callers can pin them", async () => {
-		const r = await resolveUrlForSSRF("https://langfuse.example.com", {
+		const r = await resolveUrlForSSRF("https://traces.example.com", {
 			lookup: async () => [{ address: "203.0.113.10", family: 4 }],
 		});
 		expect(r.ok).toBe(true);

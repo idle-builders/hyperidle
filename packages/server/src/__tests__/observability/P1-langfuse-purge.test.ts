@@ -14,17 +14,18 @@
  *  - AC10: No langfuse strings in packages/ or non-archive docs/
  */
 
-import { createTestDb } from "@hyperidle/db";
-import { existsSync } from "node:fs";
 import { execSync } from "node:child_process";
+import { existsSync } from "node:fs";
+import path from "node:path";
+import { createTestDb } from "@hyperidle/db";
 import { describe, expect, it } from "vitest";
 import { createObservabilityRoutes } from "../../routes/observability-routes.js";
-import type { ObservabilityChannel } from "../../services/observability/types.js";
 import type {
 	ObservabilityConfig,
 	ObservabilityConfigPatch,
 	SafeObservabilityConfig,
 } from "../../services/observability/config.js";
+import type { ObservabilityChannel } from "../../services/observability/types.js";
 
 // ---------------------------------------------------------------------------
 // AC4: ObservabilityChannel type only includes "console" | "noop"
@@ -46,9 +47,7 @@ describe("P1 AC4 — ObservabilityChannel type is console | noop only", () => {
 		// config.ts exports it via the ADAPTERS set used by isAdapter().
 		// We verify by checking isAdapter behaviour: a valid adapter string
 		// that the config module would recognise.
-		const { readObservabilityConfig } = await import(
-			"../../services/observability/config.js"
-		);
+		const { readObservabilityConfig } = await import("../../services/observability/config.js");
 		const db = createTestDb();
 		// Seed "langfuse" as the adapter — if ADAPTERS still contains "langfuse",
 		// readObservabilityConfig will return adapter:"langfuse". After the purge
@@ -76,9 +75,7 @@ describe("P1 AC4 — ObservabilityChannel type is console | noop only", () => {
 
 describe("P1 AC2 + AC6 — ObservabilityConfig has no langfuse property", () => {
 	it("ObservabilityConfig type has no langfuse property", async () => {
-		const { readObservabilityConfig } = await import(
-			"../../services/observability/config.js"
-		);
+		const { readObservabilityConfig } = await import("../../services/observability/config.js");
 		const db = createTestDb();
 		const cfg: ObservabilityConfig = readObservabilityConfig(db);
 		// The langfuse property must not exist on the config object after purge
@@ -205,16 +202,24 @@ describe("P1 AC6 — GET /config response has no langfuse property", () => {
 // AC1: langfuse-adapter.ts file does not exist
 // ---------------------------------------------------------------------------
 
+// @lore: __dirname resolves to the directory of this compiled/source file at runtime.
+// Five levels up from `observability/__tests__/src/server/packages/` reaches the project root.
+const PROJECT_ROOT = path.resolve(__dirname, "..", "..", "..", "..", "..");
+
 describe("P1 AC1 — langfuse-adapter.ts is deleted", () => {
 	it("langfuse-adapter.ts does not exist on disk", () => {
-		const adapterPath =
-			"/Users/tg/hyperidle/.worktrees/P1/packages/server/src/services/observability/langfuse-adapter.ts";
+		const adapterPath = path.join(
+			PROJECT_ROOT,
+			"packages/server/src/services/observability/langfuse-adapter.ts",
+		);
 		expect(existsSync(adapterPath)).toBe(false);
 	});
 
 	it("langfuse-adapter.integration.test.ts does not exist on disk", () => {
-		const testPath =
-			"/Users/tg/hyperidle/.worktrees/P1/packages/server/src/__tests__/observability/langfuse-adapter.integration.test.ts";
+		const testPath = path.join(
+			PROJECT_ROOT,
+			"packages/server/src/__tests__/observability/langfuse-adapter.integration.test.ts",
+		);
 		expect(existsSync(testPath)).toBe(false);
 	});
 });
@@ -224,12 +229,15 @@ describe("P1 AC1 — langfuse-adapter.ts is deleted", () => {
 // ---------------------------------------------------------------------------
 
 describe("P1 AC10 — no langfuse strings in packages/ or non-archive docs/", () => {
-	it("grep finds no langfuse references in packages/ (excluding node_modules)", () => {
-		const worktree = "/Users/tg/hyperidle/.worktrees/P1";
+	it("grep finds no langfuse references in packages/ production code (excluding node_modules and test files)", () => {
+		// Test files that prove langfuse is absent necessarily reference the word
+		// "langfuse" as string literals in assertions — that is expected and correct.
+		// AC10 targets production source files and JSON config, not test assertions.
+		const packagesDir = path.join(PROJECT_ROOT, "packages");
 		let output = "";
 		try {
 			output = execSync(
-				`grep -ri "langfuse" "${worktree}/packages/" --include="*.ts" --include="*.tsx" --include="*.json" --include="*.md" | grep -v node_modules || true`,
+				`grep -ri "langfuse" "${packagesDir}" --include="*.ts" --include="*.tsx" --include="*.json" --include="*.md" | grep -v node_modules | grep -v "__tests__" | grep -v ".test.ts" | grep -v ".test.tsx" || true`,
 				{ encoding: "utf-8" },
 			);
 		} catch {
@@ -240,11 +248,11 @@ describe("P1 AC10 — no langfuse strings in packages/ or non-archive docs/", ()
 	});
 
 	it("grep finds no langfuse references in docs/ (excluding docs/archive/)", () => {
-		const worktree = "/Users/tg/hyperidle/.worktrees/P1";
+		const docsDir = path.join(PROJECT_ROOT, "docs");
 		let output = "";
 		try {
 			output = execSync(
-				`grep -ri "langfuse" "${worktree}/docs/" --include="*.md" | grep -v "docs/archive/" || true`,
+				`grep -ri "langfuse" "${docsDir}" --include="*.md" | grep -v "docs/archive/" || true`,
 				{ encoding: "utf-8" },
 			);
 		} catch {
@@ -254,13 +262,12 @@ describe("P1 AC10 — no langfuse strings in packages/ or non-archive docs/", ()
 	});
 
 	it("grep finds no langfuse references in .claude/ settings files", () => {
-		const worktree = "/Users/tg/hyperidle/.worktrees/P1";
+		const claudeDir = path.join(PROJECT_ROOT, ".claude");
 		let output = "";
 		try {
-			output = execSync(
-				`grep -ri "langfuse" "${worktree}/.claude/" --include="*.json" || true`,
-				{ encoding: "utf-8" },
-			);
+			output = execSync(`grep -ri "langfuse" "${claudeDir}" --include="*.json" || true`, {
+				encoding: "utf-8",
+			});
 		} catch {
 			output = "";
 		}
