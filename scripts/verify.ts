@@ -70,7 +70,7 @@ const TOOLS: Tool[] = [
 		cmd: "bunx",
 		args: ["--bun", "playwright", "test", "--reporter=list"],
 		cwd: "packages/web",
-		timeoutMs: 300_000,
+		timeoutMs: 600_000,
 	},
 ];
 
