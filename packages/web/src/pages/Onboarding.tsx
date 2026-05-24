@@ -74,14 +74,28 @@ export function Onboarding(): JSX.Element {
 						<label className="label" htmlFor="onboarding-repo">
 							<span className="label-text text-[var(--text-mid)]">Repository path</span>
 						</label>
-						<input
-							id="onboarding-repo"
-							type="text"
-							className="input input-sm input-bordered w-full text-[var(--text-hi)]"
-							placeholder="/Users/you/projects/my-app"
-							value={repoPath}
-							onChange={(e) => setRepoPath(e.target.value)}
-						/>
+						<div className="flex gap-2">
+							<input
+								id="onboarding-repo"
+								type="text"
+								className="input input-sm input-bordered flex-1 text-[var(--text-hi)]"
+								placeholder="/Users/you/projects/my-app"
+								value={repoPath}
+								onChange={(e) => setRepoPath(e.target.value)}
+							/>
+							{window.__HYPERIDLE__?.shell?.selectFolder && (
+								<button
+									type="button"
+									className="btn btn-sm btn-ghost"
+									onClick={async () => {
+										const folder = await window.__HYPERIDLE__?.shell.selectFolder();
+										if (folder) setRepoPath(folder);
+									}}
+								>
+									Browse
+								</button>
+							)}
+						</div>
 						<label className="label" htmlFor="onboarding-repo">
 							<span className="label-text-alt text-[var(--text-lo)]">
 								Local path to the git repository (optional)

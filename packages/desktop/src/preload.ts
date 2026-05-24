@@ -25,6 +25,7 @@ contextBridge.exposeInMainWorld("__HYPERIDLE__", {
 	shell: {
 		openLogs: (): Promise<void> => ipcRenderer.invoke("shell:open-logs"),
 		openData: (): Promise<void> => ipcRenderer.invoke("shell:open-data"),
+		selectFolder: (): Promise<string | null> => ipcRenderer.invoke("shell:select-folder"),
 	},
 	onOpenSettings: (callback: () => void): (() => void) => {
 		ipcRenderer.on("open-settings", callback);

@@ -407,6 +407,13 @@ async function startApp(): Promise<void> {
 	ipcMain.handle("shell:open-data", async (): Promise<void> => {
 		await shell.openPath(userDataDir);
 	});
+	ipcMain.handle("shell:select-folder", async (): Promise<string | null> => {
+		const result = await dialog.showOpenDialog(mainWindow, {
+			properties: ["openDirectory"],
+			title: "Select repository folder",
+		});
+		return result.canceled ? null : (result.filePaths[0] ?? null);
+	});
 
 	// Build and set application menu
 	const menu = buildAppMenuTemplate({
