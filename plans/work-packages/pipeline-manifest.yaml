@@ -534,3 +534,20 @@ stories:
     track: N
     depends: [N6]
     complexity: S
+
+  # Track Q: Human Initiative
+  - id: Q1
+    title: Human-initiated conversations and session dial-in
+    track: Q
+    depends: []
+    complexity: L
+  - id: Q2
+    title: Human-authored knowledge at any scope
+    track: Q
+    depends: []
+    complexity: L
+  - id: Q3
+    title: Human-created bets
+    track: Q
+    depends: []
+    complexity: M

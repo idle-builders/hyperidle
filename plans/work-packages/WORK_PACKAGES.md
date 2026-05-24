@@ -20,6 +20,7 @@ This file has been split into per-track files for easier navigation and reduced 
 | [TRACK-L.md](work-packages/TRACK-L.md) | L: Journey-Aligned Improvements | L1–L29 |
 | [TRACK-M.md](work-packages/TRACK-M.md) | M: Mock-Data Purge (pre-rollout) | M1, M2, M3, M4 |
 | [TRACK-N.md](work-packages/TRACK-N.md) | N: Desktop Distribution | N1, N2, N3, N4, N5, N6, N7, N8 |
+| [TRACK-Q.md](work-packages/TRACK-Q.md) | Q: Human Initiative | Q1, Q2, Q3 |
 
 ## Critical Path
 
