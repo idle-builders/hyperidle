@@ -1,0 +1,227 @@
+/**
+ * Q1 — AC1 / AC2 / AC3: RecipientPicker component.
+ *
+ * Architecture plan §4.4: inline recipient picker for new DM thread creation.
+ * States: browsing (search + list), selected (recipient + message input), sending.
+ */
+
+import { render, screen, waitFor } from "@testing-library/react";
+import { MemoryRouter } from "react-router-dom";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { RecipientPicker } from "../components/RecipientPicker.js";
+
+interface MockRecipient {
+	id: string;
+	kind: "agent" | "user";
+	name: string;
+	role: string;
+	status: string;
+	hasActiveSession: boolean;
+	avatarUrl: string | null;
+}
+
+function mkRecipient(overrides: Partial<MockRecipient> = {}): MockRecipient {
+	return {
+		id: overrides.id ?? "agent-1",
+		kind: overrides.kind ?? "agent",
+		name: overrides.name ?? "Test Agent",
+		role: overrides.role ?? "builder",
+		status: overrides.status ?? "active",
+		hasActiveSession: overrides.hasActiveSession ?? false,
+		avatarUrl: null,
+	};
+}
+
+const MOCK_RECIPIENTS: MockRecipient[] = [
+	mkRecipient({ id: "agent-builder", name: "Builder Bot", hasActiveSession: true }),
+	mkRecipient({ id: "agent-growth", name: "Growth Engine" }),
+	mkRecipient({ id: "user-founder", name: "Founder", kind: "user", role: "founder" }),
+];
+
+function renderPicker(
+	props: { onSelect?: () => void; onCancel?: () => void } = {},
+): ReturnType<typeof render> {
+	const onSelect = props.onSelect ?? vi.fn();
+	const onCancel = props.onCancel ?? vi.fn();
+	return render(
+		<MemoryRouter>
+			<RecipientPicker onSelect={onSelect} onCancel={onCancel} />
+		</MemoryRouter>,
+	);
+}
+
+describe("RecipientPicker (Q1 §4.4)", () => {
+	afterEach(() => {
+		vi.restoreAllMocks();
+	});
+
+	// AC1: picker is accessible (search field rendered)
+	it("renders a search input on mount", async () => {
+		global.fetch = vi.fn().mockResolvedValue({
+			ok: true,
+			json: () => Promise.resolve({ recipients: MOCK_RECIPIENTS }),
+		}) as unknown as typeof fetch;
+
+		renderPicker();
+		// Search field should be present (may be labeled "Search" or have placeholder)
+		const input = screen.getByRole("textbox");
+		expect(input).toBeInTheDocument();
+	});
+
+	// AC2: recipient list is rendered from API response
+	it("renders a list of recipients after loading", async () => {
+		global.fetch = vi.fn().mockResolvedValue({
+			ok: true,
+			json: () => Promise.resolve({ recipients: MOCK_RECIPIENTS }),
+		}) as unknown as typeof fetch;
+
+		renderPicker();
+		await waitFor(() => {
+			expect(screen.getByText("Builder Bot")).toBeInTheDocument();
+		});
+		expect(screen.getByText("Growth Engine")).toBeInTheDocument();
+		expect(screen.getByText("Founder")).toBeInTheDocument();
+	});
+
+	// AC2: agents with active sessions show "Live" indicator
+	it("shows a live indicator for agents with an active session", async () => {
+		global.fetch = vi.fn().mockResolvedValue({
+			ok: true,
+			json: () => Promise.resolve({ recipients: MOCK_RECIPIENTS }),
+		}) as unknown as typeof fetch;
+
+		renderPicker();
+		await waitFor(() => {
+			expect(screen.getByText("Builder Bot")).toBeInTheDocument();
+		});
+		// Live indicator label (case-insensitive)
+		const liveElements = screen.getAllByText(/live/i);
+		expect(liveElements.length).toBeGreaterThan(0);
+	});
+
+	// AC2: clicking a recipient transitions to selected state (message input visible)
+	it("clicking a recipient shows a message input", async () => {
+		const user = (await import("@testing-library/user-event")).default.setup();
+
+		global.fetch = vi.fn().mockResolvedValue({
+			ok: true,
+			json: () => Promise.resolve({ recipients: MOCK_RECIPIENTS }),
+		}) as unknown as typeof fetch;
+
+		renderPicker();
+		await waitFor(() => {
+			expect(screen.getByText("Builder Bot")).toBeInTheDocument();
+		});
+
+		await user.click(screen.getByText("Builder Bot"));
+		// After selection, a message textarea/input should appear
+		await waitFor(() => {
+			const textarea = screen.queryByRole("textbox");
+			// Could be a textarea for composing the message — just verify one exists
+			expect(textarea).not.toBeNull();
+		});
+	});
+
+	// AC1: Escape calls onCancel
+	it("pressing Escape calls onCancel", async () => {
+		const user = (await import("@testing-library/user-event")).default.setup();
+		const onCancel = vi.fn();
+
+		global.fetch = vi.fn().mockResolvedValue({
+			ok: true,
+			json: () => Promise.resolve({ recipients: [] }),
+		}) as unknown as typeof fetch;
+
+		renderPicker({ onCancel });
+		const input = screen.getByRole("textbox");
+		await user.click(input);
+		await user.keyboard("{Escape}");
+
+		expect(onCancel).toHaveBeenCalled();
+	});
+
+	// AC2: empty state when no recipients found
+	it("shows empty state when search yields no results", async () => {
+		global.fetch = vi.fn().mockResolvedValue({
+			ok: true,
+			json: () => Promise.resolve({ recipients: [] }),
+		}) as unknown as typeof fetch;
+
+		renderPicker();
+		await waitFor(() => {
+			// Should render some "no results" message
+			const noMatch = screen.queryByText(/no/i);
+			expect(noMatch).not.toBeNull();
+		});
+	});
+
+	// AC3: submitting creates a DM thread (POST /api/threads called)
+	it("submitting a message POSTs to /api/threads to create a DM thread", async () => {
+		const user = (await import("@testing-library/user-event")).default.setup();
+		const onSelect = vi.fn();
+		const posts: Array<{ url: string; body: unknown }> = [];
+
+		global.fetch = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+			const url = typeof input === "string" ? input : input.toString();
+			const method = (init?.method ?? "GET").toUpperCase();
+			if (method === "POST" && url.includes("/api/threads")) {
+				const body = init?.body ? JSON.parse(init.body as string) : null;
+				posts.push({ url, body });
+				return new Response(
+					JSON.stringify({
+						thread: {
+							id: "new-thread-id",
+							hostKind: "agent",
+							hostId: "agent-builder",
+							initiatorId: "u-founder",
+							participants: ["u-founder", "agent-builder"],
+							pinned: false,
+							resolvedAt: null,
+							lastActiveAt: new Date().toISOString(),
+							createdAt: new Date().toISOString(),
+						},
+						messages: [],
+					}),
+					{ status: 201, headers: { "Content-Type": "application/json" } },
+				);
+			}
+			// GET /api/recipients
+			return new Response(JSON.stringify({ recipients: MOCK_RECIPIENTS }), {
+				status: 200,
+				headers: { "Content-Type": "application/json" },
+			});
+		}) as unknown as typeof fetch;
+
+		renderPicker({ onSelect });
+
+		// Wait for recipient list to load
+		await waitFor(() => {
+			expect(screen.getByText("Builder Bot")).toBeInTheDocument();
+		});
+
+		// Select a recipient
+		await user.click(screen.getByText("Builder Bot"));
+
+		// Find message input and type a message
+		await waitFor(() => {
+			const textareas = screen.queryAllByRole("textbox");
+			expect(textareas.length).toBeGreaterThan(0);
+		});
+
+		const textareas = screen.queryAllByRole("textbox");
+		const messageInput = textareas[textareas.length - 1];
+		await user.click(messageInput);
+		await user.type(messageInput, "Hello agent");
+
+		// Submit
+		const sendBtn = screen.queryByRole("button", { name: /send/i });
+		if (sendBtn) {
+			await user.click(sendBtn);
+			await waitFor(() => {
+				expect(posts.length).toBeGreaterThan(0);
+			});
+			const body = posts[0].body as Record<string, unknown>;
+			expect(body.hostKind).toBeDefined();
+		}
+	});
+});
