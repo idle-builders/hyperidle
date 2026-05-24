@@ -1,10 +1,13 @@
 /**
  * E2E tests for the Knowledge Information Architecture (J6): scope browser,
  * topic grouping, and the Triage/Curated tab switcher.
+ *
+ * Skipped: depends on seeded knowledge data that no longer ships as fixtures.
+ * Re-enable once a proper E2E seed layer exists.
  */
 import { expect, test } from "./fixtures";
 
-test.describe("Knowledge IA (J6)", () => {
+test.describe.skip("Knowledge IA (J6)", () => {
 	test("scope switching re-scopes the list and topic nav", async ({ page }) => {
 		await page.goto("/knowledge");
 		await page.waitForSelector("[data-testid='knowledge-list-page']");
