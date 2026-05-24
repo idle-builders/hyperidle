@@ -13,7 +13,8 @@ import { fileURLToPath } from "node:url";
 import { app, BrowserWindow, dialog, ipcMain, Menu, shell } from "electron";
 
 // @lore N5: CJS output (esbuild) has __dirname; ESM (dev/tsx) has import.meta.url.
-const Dirname = typeof __dirname === "string" ? __dirname : path.dirname(fileURLToPath(import.meta.url));
+const Dirname =
+	typeof __dirname === "string" ? __dirname : path.dirname(fileURLToPath(import.meta.url));
 
 import { buildAppMenuTemplate } from "./app-menu.js";
 import { getPort, startServer, waitForHealth } from "./boot-server.js";

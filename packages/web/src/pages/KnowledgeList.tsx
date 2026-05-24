@@ -235,6 +235,7 @@ export function KnowledgeList({
 	// AC: "Default to Triage when any items have status === 'draft', else Curated."
 	// Also AC: "Switching scope resets list selection and filters."
 	useEffect(() => {
+		void scope;
 		const hasDraft = allItems.some((i) => i.status === "draft");
 		setTab(hasDraft ? "triage" : "curated");
 	}, [allItems, scope]);

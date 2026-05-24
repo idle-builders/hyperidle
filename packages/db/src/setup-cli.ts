@@ -270,7 +270,9 @@ export async function runSetup(
 // Node-compatible entrypoint check. Works under both Bun (which supports
 // import.meta.url and process.argv[1]) and Node. Replaces the previous
 // `globalThis.Bun + import.meta.main` guard.
-const isEntrypoint = process.argv[1] === (typeof __filename === "string" ? __filename : fileURLToPath(import.meta.url));
+const isEntrypoint =
+	process.argv[1] ===
+	(typeof __filename === "string" ? __filename : fileURLToPath(import.meta.url));
 if (isEntrypoint) {
 	const io: RunSetupIo = {
 		stdout: (line) => process.stdout.write(`${line}\n`),

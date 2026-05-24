@@ -83,18 +83,17 @@ export function Submenu({
 	// collapse/expand changes the document flow — transform: scaleX() would clip
 	// children and not reclaim layout space. transition-[width] is the pragmatic
 	// choice for this expand/collapse pattern.
+	//
+	// @lore Collapse/expand bug fix: the toggle button must live OUTSIDE the
+	// width-transitioning region. When the region collapses to w-0 + overflow-hidden,
+	// anything inside — including the re-expand button — becomes unclickable. The
+	// outer wrapper is a flex row: [collapsible-content | always-visible-toggle-strip].
+	// The collapsible region also zeroes its padding when collapsed so no text leaks
+	// outside the 0-width box (the gutter padding was pushing content into view).
 	return (
 		<div
 			{...dsShellProps("Submenu")}
-			/*
-			 * @lore K11: outer pad → --density-page-gutter per
-			 * density-audit.md § 3.3.K2. Submenu width stays literal
-			 * (`w-60`/240 px) — Linear/Atlassian/Notion all fix the
-			 * secondary-nav width and only scale the row height; letting
-			 * comfortable widen the Submenu would force `<main>` to reflow
-			 * at every tier toggle.
-			 */
-			className={`flex flex-col gap-[var(--density-gap)] p-[var(--density-page-gutter)] transition-[width] duration-[var(--motion-medium)] ${collapsed ? "w-0 overflow-hidden" : "w-60"}`}
+			className="flex flex-row"
 			onKeyDown={(e) => {
 				if (e.key === "Escape" && !collapsed) {
 					e.preventDefault();
@@ -102,108 +101,146 @@ export function Submenu({
 				}
 			}}
 		>
-			<div className="flex items-center justify-between">
-				<div className="flex items-center gap-2">
-					{/*
-					 * @lore J2 AC 52: synthesis row 04 specifies a mono, uppercase,
-					 * tracking-wider header (was `font-heading`). Count bubble appears
-					 * only when `count` is provided.
-					 */}
-					<span className="font-mono text-xs uppercase tracking-wider text-[var(--text-lo)]">
-						{title}
-					</span>
-					{count !== undefined && (
-						<span className="badge badge-sm badge-ghost font-mono">{count}</span>
-					)}
+			{/*
+			 * @lore K11: outer pad → --density-page-gutter per
+			 * density-audit.md § 3.3.K2. Submenu width stays literal
+			 * (`w-60`/240 px) — Linear/Atlassian/Notion all fix the
+			 * secondary-nav width and only scale the row height; letting
+			 * comfortable widen the Submenu would force `<main>` to reflow
+			 * at every tier toggle.
+			 *
+			 * Padding is zeroed when collapsed to prevent content from leaking
+			 * outside the 0-width clipping box.
+			 */}
+			<div
+				className={`flex flex-col gap-[var(--density-gap)] transition-[width,padding] duration-[var(--motion-medium)] ${
+					collapsed ? "w-0 overflow-hidden p-0" : "w-60 p-[var(--density-page-gutter)]"
+				}`}
+			>
+				<div className="flex items-center justify-between">
+					<div className="flex items-center gap-2">
+						{/*
+						 * @lore J2 AC 52: synthesis row 04 specifies a mono, uppercase,
+						 * tracking-wider header (was `font-heading`). Count bubble appears
+						 * only when `count` is provided.
+						 */}
+						<span className="font-mono text-xs uppercase tracking-wider text-[var(--text-lo)]">
+							{title}
+						</span>
+						{count !== undefined && (
+							<span className="badge badge-sm badge-ghost font-mono">{count}</span>
+						)}
+					</div>
+					{/* Collapse button — only rendered when expanded; re-expand is handled by the outer strip */}
+					<button
+						type="button"
+						className="btn btn-ghost btn-xs"
+						aria-label="Collapse section"
+						onClick={onToggleCollapse}
+					>
+						<svg aria-hidden="true" width={12} height={12} viewBox="0 0 12 12" fill="currentColor">
+							<path d="M8 2l-5 4 5 4V2z" />
+						</svg>
+					</button>
 				</div>
+
+				{!collapsed && (
+					<>
+						{hasFilters && (
+							/*
+							 * @lore L10 §3.7 + Design C1: outer row holds the tablist and the
+							 * optional inline `× Clear` button as siblings (NOT a tab inside
+							 * the tablist — keeps the role contract clean). The inner tablist
+							 * gets `flex-1 min-w-0` so `ml-auto` on the clear button actually
+							 * pushes to the right edge (Arch W2) AND the four pills [All,
+							 * Blocking, Async, × Clear] fit on a single row at the production
+							 * Submenu width (w-60 = 240 px). Chips keep `min-w-[44px]` at every
+							 * breakpoint — AQ-015 binds at viewport ≤ 1024 px and Tailwind's
+							 * `lg:` modifier kicks in at exactly 1024 px (would violate the
+							 * floor at the boundary). 4 × 44 + gaps still fits in 240 px.
+							 * We avoid `display: contents` (older WebKit a11y/SR bugs).
+							 */
+							<div className={`flex items-center gap-1 ${disabledClass}`}>
+								<div
+									role="tablist"
+									aria-label={`Filter ${title}`}
+									className="flex flex-1 min-w-0 flex-wrap gap-1"
+								>
+									{filters.map((f) => {
+										const selected = f.id === activeFilter;
+										return (
+											<button
+												key={f.id}
+												type="button"
+												role="tab"
+												aria-selected={selected}
+												aria-disabled={filtersDisabled || undefined}
+												// @lore J2 review designer: btn-primary "shouted" over the
+												// active view's edge indicator. btn-neutral keeps the
+												// selected state legible without competing with primary
+												// signal placement (active view, primary CTAs).
+												className={`${selected ? "btn btn-xs btn-neutral" : "btn btn-xs btn-ghost"} h-auto min-h-[var(--density-row-h)] px-2 min-w-[44px]`}
+												onClick={() => {
+													// @lore L10 Adversary H1: pointer-events-none on the
+													// parent blocks mouse activation but does NOT block
+													// keyboard activation (Enter/Space). The runtime guard
+													// is the only defense for keyboard users when disabled.
+													if (filtersDisabled) return;
+													onFilterChange?.(f.id);
+												}}
+											>
+												{f.label}
+											</button>
+										);
+									})}
+								</div>
+								{showClearButton && (
+									<button
+										type="button"
+										className="btn btn-xs btn-ghost text-[var(--text-lo)] font-mono flex-shrink-0 h-auto min-h-[var(--density-row-h)] px-2 min-w-[44px]"
+										aria-label="Clear filter"
+										aria-disabled={filtersDisabled || undefined}
+										data-testid="submenu-filter-clear"
+										onClick={() => {
+											if (filtersDisabled) return;
+											onClearFilter?.();
+										}}
+									>
+										× Clear
+									</button>
+								)}
+							</div>
+						)}
+						{hasSearch && (
+							<SearchField
+								value={searchValue}
+								onChange={onSearchChange}
+								placeholder={`Search ${title.toLowerCase()}...`}
+							/>
+						)}
+						<div className="flex flex-col px-[var(--density-pad-x)]">{children}</div>
+					</>
+				)}
+			</div>
+
+			{/*
+			 * Always-visible toggle strip. Sits outside the collapsible region so
+			 * it remains clickable even when the Submenu is fully collapsed (w-0).
+			 * Shows a right-pointing chevron when collapsed (re-expand affordance)
+			 * and is hidden when expanded (the collapse button inside the content
+			 * region handles that direction).
+			 */}
+			{collapsed && (
 				<button
 					type="button"
-					className="btn btn-ghost btn-xs"
-					aria-label={collapsed ? "Expand section" : "Collapse section"}
+					className="btn btn-ghost btn-xs self-start mt-[var(--density-page-gutter)]"
+					aria-label="Expand section"
 					onClick={onToggleCollapse}
 				>
 					<svg aria-hidden="true" width={12} height={12} viewBox="0 0 12 12" fill="currentColor">
-						{collapsed ? <path d="M4 2l5 4-5 4V2z" /> : <path d="M2 4l4 5 4-5H2z" />}
+						<path d="M4 2l5 4-5 4V2z" />
 					</svg>
 				</button>
-			</div>
-
-			{!collapsed && (
-				<>
-					{hasFilters && (
-						/*
-						 * @lore L10 §3.7 + Design C1: outer row holds the tablist and the
-						 * optional inline `× Clear` button as siblings (NOT a tab inside
-						 * the tablist — keeps the role contract clean). The inner tablist
-						 * gets `flex-1 min-w-0` so `ml-auto` on the clear button actually
-						 * pushes to the right edge (Arch W2) AND the four pills [All,
-						 * Blocking, Async, × Clear] fit on a single row at the production
-						 * Submenu width (w-60 = 240 px). Chips keep `min-w-[44px]` at every
-						 * breakpoint — AQ-015 binds at viewport ≤ 1024 px and Tailwind's
-						 * `lg:` modifier kicks in at exactly 1024 px (would violate the
-						 * floor at the boundary). 4 × 44 + gaps still fits in 240 px.
-						 * We avoid `display: contents` (older WebKit a11y/SR bugs).
-						 */
-						<div className={`flex items-center gap-1 ${disabledClass}`}>
-							<div
-								role="tablist"
-								aria-label={`Filter ${title}`}
-								className="flex flex-1 min-w-0 flex-wrap gap-1"
-							>
-								{filters.map((f) => {
-									const selected = f.id === activeFilter;
-									return (
-										<button
-											key={f.id}
-											type="button"
-											role="tab"
-											aria-selected={selected}
-											aria-disabled={filtersDisabled || undefined}
-											// @lore J2 review designer: btn-primary "shouted" over the
-											// active view's edge indicator. btn-neutral keeps the
-											// selected state legible without competing with primary
-											// signal placement (active view, primary CTAs).
-											className={`${selected ? "btn btn-xs btn-neutral" : "btn btn-xs btn-ghost"} h-auto min-h-[var(--density-row-h)] px-2 min-w-[44px]`}
-											onClick={() => {
-												// @lore L10 Adversary H1: pointer-events-none on the
-												// parent blocks mouse activation but does NOT block
-												// keyboard activation (Enter/Space). The runtime guard
-												// is the only defense for keyboard users when disabled.
-												if (filtersDisabled) return;
-												onFilterChange?.(f.id);
-											}}
-										>
-											{f.label}
-										</button>
-									);
-								})}
-							</div>
-							{showClearButton && (
-								<button
-									type="button"
-									className="btn btn-xs btn-ghost text-[var(--text-lo)] font-mono flex-shrink-0 h-auto min-h-[var(--density-row-h)] px-2 min-w-[44px]"
-									aria-label="Clear filter"
-									aria-disabled={filtersDisabled || undefined}
-									data-testid="submenu-filter-clear"
-									onClick={() => {
-										if (filtersDisabled) return;
-										onClearFilter?.();
-									}}
-								>
-									× Clear
-								</button>
-							)}
-						</div>
-					)}
-					{hasSearch && (
-						<SearchField
-							value={searchValue}
-							onChange={onSearchChange}
-							placeholder={`Search ${title.toLowerCase()}...`}
-						/>
-					)}
-					<div className="flex flex-col px-[var(--density-pad-x)]">{children}</div>
-				</>
 			)}
 		</div>
 	);
