@@ -18,6 +18,7 @@ interface HyperIdleElectronBridge {
 	shell: {
 		openLogs(): Promise<void>;
 		openData(): Promise<void>;
+		selectFolder(): Promise<string | null>;
 	};
 	/** Subscribe to the Settings open event from the application menu. Returns a disposer. */
 	onOpenSettings(callback: () => void): () => void;

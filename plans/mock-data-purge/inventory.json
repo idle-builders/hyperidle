@@ -36,15 +36,6 @@
     "triageHint": "borderline"
   },
   {
-    "path": "packages/web/src/layouts/AppShell.tsx",
-    "line": 19,
-    "symbol": "../fixtures/knowledge-data",
-    "kind": "import",
-    "shape": "import",
-    "importerCount": 0,
-    "triageHint": "borderline"
-  },
-  {
     "path": "packages/web/src/pages/KnowledgeDetail.tsx",
     "line": 43,
     "symbol": "../fixtures/knowledge-data",

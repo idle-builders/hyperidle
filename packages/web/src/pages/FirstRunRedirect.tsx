@@ -18,7 +18,11 @@ export function FirstRunRedirect(): JSX.Element {
 				setTarget(data.products.length > 0 ? "/conversations" : "/onboarding");
 			})
 			.catch(() => {
-				if (!cancelled) setTarget("/conversations");
+				// @lore N5: On API failure (network error, auth timing, etc.), default
+				// to /onboarding rather than /conversations. On a fresh install any
+				// failure means the user hasn't set up yet — onboarding is always safer
+				// than a broken conversations view.
+				if (!cancelled) setTarget("/onboarding");
 			});
 		return (): void => {
 			cancelled = true;

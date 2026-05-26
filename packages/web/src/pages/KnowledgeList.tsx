@@ -1,42 +1,42 @@
 import { EmptyState, ErrorState, KnowledgeRow, SkeletonList } from "@hyperidle/design-system";
 /**
- * Knowledge/List page — scope-aware list with topic grouping (Curated) and
- * attention-scored Triage view (J6).
+ * Knowledge/List page — list with topic grouping (Curated) and
+ * draft-item Triage view.
  *
  * @lore J6: the page reads scope from the URL search param `scope` so the
  * AppShell's Submenu scope browser can drive it without lifting state out
  * of the page. Tab memory (Triage/Curated) stays in component state only —
  * AC explicitly forbids localStorage persistence here.
  *
- * @lore L22: Triage view originally fetched from the L3-scoped endpoint but
- * O3 updated it to use /api/knowledge (the general list endpoint).
- * Sort controls use URL state (?sort=recency|frequency).
+ * @lore L22: Triage view fetches from /api/knowledge (the general list
+ * endpoint). Sort controls use URL state (?sort=recency|frequency).
  * Default (no param) = relevance sort.
+ *
+ * @lore N5: Replaced all fixture imports with real API calls. Both Triage and
+ * Curated tabs now read from /api/knowledge. The real schema has no layer/kind
+ * columns — those were mock-only fields removed in O2. layer and kind are
+ * rendered with fallback values ("L0" / "brief") when absent from the API.
+ * Curation suggestions have no API yet so that block is suppressed.
+ * Tab-default logic uses API status ("draft" = needs review, was "needs_human").
+ * Scope param is preserved in the URL for future API filter support but does
+ * not filter the item list today — the O2 schema has no scope column.
  */
-import type { KnowledgeScope, KnowledgeSortOption } from "@hyperidle/fabric/types";
+import type {
+	KnowledgeKind,
+	KnowledgeLayer,
+	KnowledgeScope,
+	KnowledgeSortOption,
+	KnowledgeStatus,
+	KnowledgeTopicHealth,
+} from "@hyperidle/fabric/types";
 import { KNOWLEDGE_SORT_OPTIONS } from "@hyperidle/fabric/types";
 import { type JSX, useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { CurationSuggestionCard } from "../components/CurationSuggestionCard";
 import { KnowledgeTopicGroup } from "../components/KnowledgeTopicGroup";
-// eslint-disable-next-line design/no-mock-data-import -- tracked in #93
-import {
-	curationSuggestions,
-	groupItemsByTopic,
-	knowledgeItems,
-	type MockKnowledgeItem,
-} from "../fixtures/knowledge-data";
 import { useFetch } from "../hooks/useFetch";
 import { relativeTime } from "../utils/relative-time";
 
 type KnowledgeTab = "triage" | "curated";
-
-const REASON_MAX_CHARS = 60;
-
-function truncateReason(reason: string): string {
-	if (reason.length <= REASON_MAX_CHARS) return reason;
-	return `${reason.slice(0, REASON_MAX_CHARS - 1)}…`;
-}
 
 function isKnowledgeScope(value: string | null): value is KnowledgeScope {
 	return value === "practice" || value === "product" || value === "factory";
@@ -56,15 +56,18 @@ function deriveSort(searchParams: URLSearchParams): KnowledgeSortOption {
 	return isKnowledgeSortOption(raw) ? raw : "relevance";
 }
 
-/** Shape of an item returned by GET /api/knowledge/:layer with signals. */
+/** Shape of an item returned by GET /api/knowledge */
 interface ApiKnowledgeItem {
 	id: string;
-	layer: string;
-	kind: string;
-	status: string;
+	topic: string | null;
 	title: string;
+	body: string;
+	format: string;
+	status: string;
+	version: number;
+	updatedBy: string;
+	createdAt: string;
 	updatedAt: string;
-	relevanceScore?: number | null;
 	signals?: {
 		lastActivityAt?: string | null;
 		accessCount30d?: number | null;
@@ -75,7 +78,26 @@ interface ApiKnowledgeItem {
 
 interface ApiKnowledgeListResponse {
 	items: ApiKnowledgeItem[];
-	groups?: Record<string, Record<string, ApiKnowledgeItem[]>>;
+}
+
+/**
+ * Map an API status string to a valid KnowledgeStatus for the design system.
+ * O2 simplified statuses are "draft" | "active" | "archived"; the design
+ * system KnowledgeStatus type uses the extended pre-O2 set.
+ * @lore N5: "draft" maps to "captured" (paused chip) because the design
+ * system KNOWLEDGE_STATUS_MAP doesn't contain "draft". This is a UI-display
+ * mapping only — the underlying status string from the API is unchanged.
+ */
+function toKnowledgeStatus(apiStatus: string): KnowledgeStatus {
+	switch (apiStatus) {
+		case "active":
+			return "active";
+		case "archived":
+			return "archived";
+		case "draft":
+		default:
+			return "captured";
+	}
 }
 
 /** Sort a list of API items by the given sort option. */
@@ -105,8 +127,8 @@ function sortApiItems(items: ApiKnowledgeItem[], sort: KnowledgeSortOption): Api
 		case "relevance":
 		default:
 			return copy.sort((a, b) => {
-				const aScore = a.signals?.relevanceScore ?? a.relevanceScore ?? null;
-				const bScore = b.signals?.relevanceScore ?? b.relevanceScore ?? null;
+				const aScore = a.signals?.relevanceScore ?? null;
+				const bScore = b.signals?.relevanceScore ?? null;
 				if (aScore === null && bScore === null) return a.id.localeCompare(b.id);
 				if (aScore === null) return 1;
 				if (bScore === null) return -1;
@@ -114,6 +136,49 @@ function sortApiItems(items: ApiKnowledgeItem[], sort: KnowledgeSortOption): Api
 				return primary !== 0 ? primary : a.id.localeCompare(b.id);
 			});
 	}
+}
+
+/**
+ * Derive topic health from the share of archived items in the group.
+ * In the O2 schema "stale" no longer exists; archived items serve as
+ * the stale-equivalent for health colouring.
+ */
+function deriveTopicHealth(totalCount: number, archivedCount: number): KnowledgeTopicHealth {
+	if (totalCount === 0 || archivedCount === 0) return "fresh";
+	const ratio = archivedCount / totalCount;
+	if (ratio >= 0.5) return "mostly_stale";
+	return "some_stale";
+}
+
+/**
+ * Group a list of API items by topic. Items with no topic go to "General".
+ * Returns a stable-ordered list (insertion order of first topic occurrence).
+ */
+function groupByTopic(items: ApiKnowledgeItem[]): Array<{
+	topic: string;
+	items: ApiKnowledgeItem[];
+	staleCount: number;
+	health: KnowledgeTopicHealth;
+}> {
+	const byTopic = new Map<string, ApiKnowledgeItem[]>();
+	for (const item of items) {
+		const key = item.topic ?? "General";
+		const bucket = byTopic.get(key);
+		if (bucket) {
+			bucket.push(item);
+		} else {
+			byTopic.set(key, [item]);
+		}
+	}
+	return Array.from(byTopic.entries()).map(([topic, topicItems]) => {
+		const archivedCount = topicItems.filter((i) => i.status === "archived").length;
+		return {
+			topic,
+			items: topicItems,
+			staleCount: archivedCount,
+			health: deriveTopicHealth(topicItems.length, archivedCount),
+		};
+	});
 }
 
 export interface KnowledgeListProps {
@@ -137,41 +202,43 @@ export function KnowledgeList({
 	const sort = deriveSort(searchParams);
 
 	// @lore J6 AC: tab choice remembered in component state only — NOT
-	// localStorage. Default recomputed below whenever `scope` changes.
+	// localStorage. Default recomputed below whenever API data changes.
 	const [tab, setTab] = useState<KnowledgeTab>("triage");
 
-	const scopedItems = useMemo<ReadonlyArray<MockKnowledgeItem>>(
-		() => knowledgeItems.filter((i) => i.scope === scope),
-		[scope],
+	// N5: fetch all items from the real API unconditionally (both tabs need the data)
+	const {
+		data: apiData,
+		isLoading: apiLoading,
+		error: apiError,
+	} = useFetch<ApiKnowledgeListResponse>("/api/knowledge");
+
+	const allItems = useMemo<ApiKnowledgeItem[]>(() => apiData?.items ?? [], [apiData]);
+
+	// Triage = draft items (needs human review in O2 schema)
+	const triageItems = useMemo<ApiKnowledgeItem[]>(
+		() =>
+			sortApiItems(
+				allItems.filter((i) => i.status === "draft"),
+				sort,
+			),
+		[allItems, sort],
 	);
-	const scopedSuggestions = useMemo(
-		() => curationSuggestions.filter((s) => s.scope === scope),
-		[scope],
+
+	// Curated = active items grouped by topic
+	const curatedItems = useMemo<ApiKnowledgeItem[]>(
+		() => allItems.filter((i) => i.status === "active"),
+		[allItems],
 	);
-	// AC: "Default to Triage when any items have status === 'needs_human', else
-	// Curated." Also AC: "Switching scope resets list selection and filters."
+
+	const grouped = useMemo(() => groupByTopic(curatedItems), [curatedItems]);
+
+	// AC: "Default to Triage when any items have status === 'draft', else Curated."
+	// Also AC: "Switching scope resets list selection and filters."
 	useEffect(() => {
-		const needsHuman = knowledgeItems.some((i) => i.scope === scope && i.status === "needs_human");
-		setTab(needsHuman ? "triage" : "curated");
-	}, [scope]);
-
-	const grouped = useMemo(() => groupItemsByTopic(scopedItems), [scopedItems]);
-
-	const triageSorted = useMemo<ReadonlyArray<MockKnowledgeItem>>(
-		() => [...scopedItems].sort((a, b) => b.attentionScore - a.attentionScore),
-		[scopedItems],
-	);
-
-	// L22 / O3: fetch from /api/knowledge for triage items with signals
-	// (updated in O3 from the layer-scoped endpoint to the general list endpoint)
-	const { data: apiData, isLoading: apiLoading } = useFetch<ApiKnowledgeListResponse>(
-		tab === "triage" ? "/api/knowledge" : null,
-	);
-
-	const apiItems = useMemo<ApiKnowledgeItem[]>(() => {
-		if (!apiData?.items) return [];
-		return sortApiItems(apiData.items, sort);
-	}, [apiData, sort]);
+		void scope;
+		const hasDraft = allItems.some((i) => i.status === "draft");
+		setTab(hasDraft ? "triage" : "curated");
+	}, [allItems, scope]);
 
 	/** Update sort URL state. Removes param when defaulting to relevance. */
 	function handleSortChange(newSort: KnowledgeSortOption): void {
@@ -246,18 +313,6 @@ export function KnowledgeList({
 
 			{tab === "triage" ? (
 				<div className="flex flex-col gap-2" data-testid="knowledge-triage-view">
-					{scopedSuggestions.length > 0 && (
-						<div
-							className="flex flex-col gap-2"
-							data-testid="curation-suggestions"
-							aria-label="Curation suggestions"
-						>
-							{scopedSuggestions.map((s) => (
-								<CurationSuggestionCard key={s.id} action={s.action} detail={s.detail} />
-							))}
-						</div>
-					)}
-
 					{/* L22 sort controls — radiogroup semantics per accessibility spec */}
 					<div
 						role="radiogroup"
@@ -288,9 +343,11 @@ export function KnowledgeList({
 
 					{apiLoading ? (
 						<SkeletonList rows={4} ariaLabel="Loading triage items" />
-					) : apiItems.length > 0 ? (
+					) : apiError ? (
+						<ErrorState title="Couldn't load knowledge" description={apiError} />
+					) : triageItems.length > 0 ? (
 						<div className="flex flex-col">
-							{apiItems.map((item) => {
+							{triageItems.map((item) => {
 								const signals = item.signals
 									? {
 											recency: item.signals.lastActivityAt
@@ -304,28 +361,9 @@ export function KnowledgeList({
 									<KnowledgeRow
 										key={item.id}
 										title={item.title}
-										layer={item.layer as "L0" | "L1" | "L2" | "L3" | "L4"}
-										kind={
-											item.kind as
-												| "pattern"
-												| "anti_pattern"
-												| "brief"
-												| "principle"
-												| "decision"
-												| "failure"
-												| "reflection"
-												| "focus"
-										}
-										status={
-											item.status as
-												| "captured"
-												| "provisional"
-												| "validated"
-												| "active"
-												| "stale"
-												| "archived"
-												| "needs_human"
-										}
+										layer={"L0" as KnowledgeLayer}
+										kind={"brief" as KnowledgeKind}
+										status={toKnowledgeStatus(item.status)}
 										timestamp={relativeTime(item.updatedAt)}
 										signals={signals}
 										onClick={() => navigate(`/knowledge/${item.id}`)}
@@ -333,32 +371,19 @@ export function KnowledgeList({
 								);
 							})}
 						</div>
-					) : triageSorted.length === 0 ? (
+					) : (
 						<EmptyState
 							title="Nothing needs attention"
-							description="Triage is clear for this scope — agents will surface new items here as they learn."
+							description="Triage is clear — agents will surface draft items here as they learn."
 							dataTestId="knowledge-triage-empty"
 						/>
-					) : (
-						<div className="flex flex-col">
-							{triageSorted.map((item) => (
-								<KnowledgeRow
-									key={item.id}
-									title={item.title}
-									layer={item.layer}
-									kind={item.kind}
-									status={item.status}
-									timestamp={item.timestamp}
-									caption={truncateReason(item.whyNow)}
-									onClick={() => navigate(`/knowledge/${item.id}`)}
-								/>
-							))}
-						</div>
 					)}
 				</div>
 			) : (
 				<div className="flex flex-col gap-2" data-testid="knowledge-curated-view">
-					{grouped.length === 0 ? (
+					{apiLoading ? (
+						<SkeletonList rows={4} ariaLabel="Loading curated items" />
+					) : grouped.length === 0 ? (
 						<EmptyState
 							title="No knowledge items yet"
 							description="Agents will populate this scope as they learn. Check back after the next review cycle."
@@ -377,10 +402,10 @@ export function KnowledgeList({
 									<KnowledgeRow
 										key={item.id}
 										title={item.title}
-										layer={item.layer}
-										kind={item.kind}
-										status={item.status}
-										timestamp={item.timestamp}
+										layer={"L0" as KnowledgeLayer}
+										kind={"brief" as KnowledgeKind}
+										status={toKnowledgeStatus(item.status)}
+										timestamp={relativeTime(item.updatedAt)}
 										onClick={() => navigate(`/knowledge/${item.id}`)}
 									/>
 								))}

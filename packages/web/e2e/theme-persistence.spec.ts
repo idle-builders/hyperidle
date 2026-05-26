@@ -11,7 +11,7 @@
  * so the boot script sees a fresh default. Reading localStorage / dataset
  * happens via page.evaluate to inspect actual browser state, not derived UI.
  */
-import { expect, test } from "./fixtures";
+import { expect, registerCoreMocks, test } from "./fixtures";
 
 /**
  * Stub PATCH /api/settings so Save closes the Settings dialog in e2e.
@@ -41,6 +41,7 @@ test.describe("Theme persistence", () => {
 	test("default = system resolves to OS dark preference", async ({ browser }) => {
 		const ctx = await browser.newContext({ colorScheme: "dark" });
 		const page = await ctx.newPage();
+		await registerCoreMocks(page);
 		await page.goto("/");
 		await page.waitForSelector("[data-testid='main-content']");
 
@@ -56,6 +57,7 @@ test.describe("Theme persistence", () => {
 	test("default = system resolves to OS light preference", async ({ browser }) => {
 		const ctx = await browser.newContext({ colorScheme: "light" });
 		const page = await ctx.newPage();
+		await registerCoreMocks(page);
 		await page.goto("/");
 		await page.waitForSelector("[data-testid='main-content']");
 
@@ -74,6 +76,7 @@ test.describe("Theme persistence", () => {
 		// `browser.newContext` already starts with empty storage.
 		const ctx = await browser.newContext({ colorScheme: "light" });
 		const page = await ctx.newPage();
+		await registerCoreMocks(page);
 		await stubSettingsPatch(page);
 		await page.goto("/");
 		await page.waitForSelector("[data-testid='main-content']");
@@ -117,6 +120,7 @@ test.describe("Theme persistence", () => {
 			}
 		});
 		const page = await ctx.newPage();
+		await registerCoreMocks(page);
 		await page.goto("/");
 		await page.waitForSelector("[data-testid='main-content']");
 
@@ -143,6 +147,7 @@ test.describe("Theme persistence", () => {
 			}
 		});
 		const page = await ctx.newPage();
+		await registerCoreMocks(page);
 		await page.goto("/");
 		await page.waitForSelector("[data-testid='main-content']");
 

@@ -4,7 +4,7 @@
  * AC coverage:
  *  AC-2: Single fetch wrapper injects X-API-Key on every /api/* request
  *  AC-3: In dev, reads from VITE_HYPERIDLE_API_KEY via Vite env var
- *  AC-4: Prefers window.__HYPERIDLE_API_KEY__ over VITE_HYPERIDLE_API_KEY
+ *  AC-4: Prefers window.__HYPERIDLE__.apiKey over VITE_HYPERIDLE_API_KEY
  *  AC-6: Vitest covers the fetch wrapper
  *
  */
@@ -36,10 +36,9 @@ describe("apiFetch (N2)", () => {
 	afterEach(() => {
 		vi.unstubAllEnvs();
 		vi.unstubAllGlobals();
-		// Clean up window.__HYPERIDLE_API_KEY__ if set
+		// Clean up window.__HYPERIDLE__ if set
 		if (typeof window !== "undefined") {
-			// biome-ignore lint/style/useNamingConvention: matches Electron contextBridge key name
-			delete (window as Window & { __HYPERIDLE_API_KEY__?: string }).__HYPERIDLE_API_KEY__;
+			delete window.__HYPERIDLE__;
 		}
 	});
 
@@ -177,13 +176,12 @@ describe("apiFetch (N2)", () => {
 		expect(headers.get("X-API-Key")).toBe(TEST_KEY);
 	});
 
-	// ── AC-4: Electron preload window.__HYPERIDLE_API_KEY__ priority ─────────────
+	// ── AC-4: Electron preload window.__HYPERIDLE__.apiKey priority ──────────────
 
-	it("prefers window.__HYPERIDLE_API_KEY__ over VITE_HYPERIDLE_API_KEY", async () => {
+	it("prefers window.__HYPERIDLE__.apiKey over VITE_HYPERIDLE_API_KEY", async () => {
 		// Arrange: both keys set, window key should win
 		vi.stubEnv("VITE_HYPERIDLE_API_KEY", TEST_KEY);
-		// biome-ignore lint/style/useNamingConvention: matches Electron contextBridge key name
-		(window as Window & { __HYPERIDLE_API_KEY__?: string }).__HYPERIDLE_API_KEY__ = ELECTRON_KEY;
+		window.__HYPERIDLE__ = { apiKey: ELECTRON_KEY } as HyperIdleElectronBridge;
 
 		// Act
 		await apiFetch("/api/teams");

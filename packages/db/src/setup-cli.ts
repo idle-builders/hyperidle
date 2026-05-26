@@ -6,7 +6,7 @@ import { type DeploymentProfile, resolveProfile } from "./profiles.js";
 import * as schema from "./schema.js";
 import { seed } from "./seed.js";
 
-const Filename = fileURLToPath(import.meta.url);
+const Filename = typeof __filename === "string" ? __filename : fileURLToPath(import.meta.url);
 const Dirname = path.dirname(Filename);
 
 // @lore N1: setup-cli uses better-sqlite3 unconditionally. The Bun-specific
@@ -270,7 +270,9 @@ export async function runSetup(
 // Node-compatible entrypoint check. Works under both Bun (which supports
 // import.meta.url and process.argv[1]) and Node. Replaces the previous
 // `globalThis.Bun + import.meta.main` guard.
-const isEntrypoint = process.argv[1] === fileURLToPath(import.meta.url);
+const isEntrypoint =
+	process.argv[1] ===
+	(typeof __filename === "string" ? __filename : fileURLToPath(import.meta.url));
 if (isEntrypoint) {
 	const io: RunSetupIo = {
 		stdout: (line) => process.stdout.write(`${line}\n`),

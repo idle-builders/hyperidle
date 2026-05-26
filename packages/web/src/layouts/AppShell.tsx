@@ -15,8 +15,6 @@ import { SettingsPanel } from "../components/SettingsPanel";
 import type { ConversationsFilter } from "../components/ThreadSections";
 import { predicateFor, ThreadSections } from "../components/ThreadSections";
 import { CocContext, type CocContextRef } from "../contexts/CocContext";
-// eslint-disable-next-line design/no-mock-data-import -- tracked in #92
-import { topicsForScope } from "../fixtures/knowledge-data";
 import { useAutoDensity } from "../hooks/useAutoDensity";
 import { useCommandK } from "../hooks/useCommandK";
 import { useConversationsThreads } from "../hooks/useConversationsThreads";
@@ -465,7 +463,10 @@ export function AppShell(): JSX.Element {
 	// before submenuTotalCount + selectedThreadId because both reference it).
 	// @lore M3 A11: participant id comes from useCurrentUser() — no more
 	// hardcoded demo-founder-id constant.
-	const conversationsThreads = useConversationsThreads(user?.id ?? "");
+	// @lore N5: pass user?.id directly (string | undefined). The hook accepts
+	// string | null | undefined and short-circuits to empty ready state when
+	// falsy — avoiding a 400 "Missing scope" error when no user is loaded yet.
+	const conversationsThreads = useConversationsThreads(user?.id);
 
 	const submenuFilters = SUBMENU_FILTERS[activeView];
 	const [submenuFilter, setSubmenuFilter] = useState<SubmenuFilter>("all");
@@ -602,7 +603,12 @@ export function AppShell(): JSX.Element {
 		return raw === "practice" || raw === "product" || raw === "factory" ? raw : "practice";
 	}, [searchParams]);
 
-	const knowledgeTopics = useMemo(() => topicsForScope(currentScope), [currentScope]);
+	const knowledgeTopics: Array<{
+		topic: string;
+		itemCount: number;
+		staleCount: number;
+		health: "fresh" | "some_stale" | "mostly_stale";
+	}> = [];
 
 	const handleScopeChange = useCallback(
 		(next: KnowledgeScope): void => {

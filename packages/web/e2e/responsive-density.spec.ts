@@ -14,7 +14,7 @@
  * what actually drives the cascade. We also assert [data-density-preference]
  * to prove the preference itself was not mutated by the viewport switch.
  */
-import { expect, test } from "./fixtures";
+import { expect, registerCoreMocks, test } from "./fixtures";
 
 /**
  * Stub PATCH /api/settings so Save closes the Settings dialog in e2e.
@@ -86,6 +86,7 @@ test.describe("K8 — Responsive density resolution", () => {
 	test("auto preference + viewport ≤ 1024 → resolves to comfortable", async ({ browser }) => {
 		const ctx = await browser.newContext({ viewport: MOBILE, colorScheme: "dark" });
 		const page = await ctx.newPage();
+		await registerCoreMocks(page);
 		await page.goto("/");
 		await page.waitForSelector("[data-testid='main-content']");
 
@@ -98,6 +99,7 @@ test.describe("K8 — Responsive density resolution", () => {
 	test("auto preference + desktop viewport → resolves to default", async ({ browser }) => {
 		const ctx = await browser.newContext({ viewport: DESKTOP, colorScheme: "dark" });
 		const page = await ctx.newPage();
+		await registerCoreMocks(page);
 		await page.goto("/");
 		await page.waitForSelector("[data-testid='main-content']");
 
@@ -110,6 +112,7 @@ test.describe("K8 — Responsive density resolution", () => {
 	test("auto preference flips when viewport crosses the breakpoint live", async ({ browser }) => {
 		const ctx = await browser.newContext({ viewport: DESKTOP, colorScheme: "dark" });
 		const page = await ctx.newPage();
+		await registerCoreMocks(page);
 		await page.goto("/");
 		await page.waitForSelector("[data-testid='main-content']");
 
@@ -128,6 +131,7 @@ test.describe("K8 — Explicit density override wins over viewport", () => {
 	test("user picks compact in Settings; survives breakpoint change", async ({ browser }) => {
 		const ctx = await browser.newContext({ viewport: DESKTOP, colorScheme: "dark" });
 		const page = await ctx.newPage();
+		await registerCoreMocks(page);
 		await stubSettingsPatch(page);
 		await page.goto("/");
 		await page.waitForSelector("[data-testid='main-content']");
@@ -164,6 +168,7 @@ test.describe("K9 — Comfortable density bumps body text to 16 px end-to-end", 
 	}) => {
 		const ctx = await browser.newContext({ viewport: DESKTOP, colorScheme: "dark" });
 		const page = await ctx.newPage();
+		await registerCoreMocks(page);
 		await stubSettingsPatch(page);
 		await stubProductsApi(page);
 		// Land on /work/portfolio so a real KeyValue is rendered and we don't
@@ -285,6 +290,7 @@ test.describe("K11 — Density tokens flow into rendered primitives across all 3
 		}) => {
 			const ctx = await browser.newContext({ viewport: DESKTOP, colorScheme: "dark" });
 			const page = await ctx.newPage();
+			await registerCoreMocks(page);
 			await stubSettingsPatch(page);
 			await stubProductsApi(page);
 			await page.goto("/work/portfolio");
@@ -349,6 +355,7 @@ test.describe("K11 — Density tokens flow into rendered primitives across all 3
 		for (const preference of ["compact", "default", "comfortable"] as const) {
 			const ctx = await browser.newContext({ viewport: DESKTOP, colorScheme: "dark" });
 			const page = await ctx.newPage();
+			await registerCoreMocks(page);
 			await stubSettingsPatch(page);
 			await stubProductsApi(page);
 			await page.goto("/work/portfolio");
@@ -385,6 +392,7 @@ test.describe("K11 — Density tokens flow into rendered primitives across all 3
 		for (const preference of ["compact", "default", "comfortable"] as const) {
 			const ctx = await browser.newContext({ viewport: DESKTOP, colorScheme: "dark" });
 			const page = await ctx.newPage();
+			await registerCoreMocks(page);
 			await stubSettingsPatch(page);
 			await stubProductsApi(page);
 			await page.goto("/work/portfolio");
@@ -421,6 +429,7 @@ test.describe("K8 — Theme persistence across breakpoint changes", () => {
 		// OS = light so dark choice is visibly different.
 		const ctx = await browser.newContext({ viewport: DESKTOP, colorScheme: "light" });
 		const page = await ctx.newPage();
+		await registerCoreMocks(page);
 		await stubSettingsPatch(page);
 		await page.goto("/");
 		await page.waitForSelector("[data-testid='main-content']");

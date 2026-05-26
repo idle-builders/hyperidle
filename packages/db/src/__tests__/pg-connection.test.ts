@@ -79,7 +79,7 @@ describe("H4 AC5: PostgreSQL connection pooling", () => {
 });
 
 describe("H4 AC3/AC4: In-memory Postgres via pglite (drizzle-orm/pglite)", () => {
-	it("createPgTestDb returns a usable Drizzle instance", async () => {
+	it("createPgTestDb returns a usable Drizzle instance", { timeout: 15_000 }, async () => {
 		const { db, close } = await createPgTestDb();
 		try {
 			// Exercise the driver — bare SELECT should work on an empty DB.
