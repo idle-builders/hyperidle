@@ -9,7 +9,7 @@
  * Format: base64(iv[12] + ciphertext[n] + authTag[16])
  */
 
-import { createCipheriv, createDecipheriv, createHmac, hkdfSync, randomBytes } from "node:crypto";
+import { createCipheriv, createDecipheriv, hkdfSync, randomBytes } from "node:crypto";
 
 /** AES-256-GCM IV length in bytes. */
 const IV_LENGTH = 12;
@@ -96,7 +96,3 @@ export function decryptCredentialValue(encrypted: string, serverSecret: string):
 export function getServerSecret(): string {
 	return process.env.HYPERIDLE_CREDENTIAL_KEY ?? process.env.HYPERIDLE_API_KEY ?? "";
 }
-
-// Suppress unused import warning — createHmac is exported for potential use by callers
-// that need HMAC-based operations with the same key material.
-void createHmac;
