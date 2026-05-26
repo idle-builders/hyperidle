@@ -35,7 +35,7 @@ import type { KnowledgeScope, KnowledgeStatus } from "@hyperidle/fabric/types";
  * added (same pattern as WorkBet). KnowledgeBody extended with onOpenBlockActions
  * and messagesByBlockId for inline anchored messages.
  */
-import type { Message } from "@hyperidle/shared";
+import type { Message, ScopeKind } from "@hyperidle/shared";
 import { isRedactedPayload } from "@hyperidle/shared";
 import { type JSX, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
@@ -44,6 +44,7 @@ import { knowledgeItems, type MockKnowledgeItem } from "../fixtures/knowledge-da
 import { useHostThread } from "../hooks/useHostThread.js";
 import { HostThreadSection } from "../shell/HostThreadSection.js";
 import { KnowledgeBody } from "./knowledge/KnowledgeBody";
+import { ScopeChangeDialog } from "./knowledge/ScopeChangeDialog";
 
 /**
  * @lore I4 S5: previously a local `knowledgeStatusToChipStatus` switch
@@ -68,6 +69,10 @@ interface DetailItem {
 	originAgent?: string;
 	confidence?: number;
 	version?: string;
+	/** Q2: numeric version for scope mutation optimistic concurrency. Defaults to 1. */
+	versionNum?: number;
+	/** Q2: scope_kind column. Defaults to "factory" for pre-Q2 items. */
+	scopeKind?: ScopeKind;
 	relatedItems?: ReadonlyArray<string>;
 	topic?: string;
 }
@@ -191,21 +196,37 @@ export function KnowledgeDetail({ overrideKnowledgeId }: KnowledgeDetailProps = 
 	const knowledgeId = overrideKnowledgeId ?? routeKnowledgeId;
 	const detail = findDetail(knowledgeId) ?? FALLBACK_DETAIL;
 	const legacySource = knowledgeId !== undefined ? LEGACY_SOURCES[knowledgeId] : undefined;
-	return <KnowledgeDetailView item={detail} legacySource={legacySource} />;
+	// Q2: Pass the route-resolved knowledgeId to the view so ScopeChangeDialog
+	// uses the actual route param for the PATCH URL, not item.id from fixture data
+	// (FALLBACK_DETAIL.id would be "unknown" for non-fixture item IDs).
+	return (
+		<KnowledgeDetailView item={detail} legacySource={legacySource} routeKnowledgeId={knowledgeId} />
+	);
 }
 
 interface KnowledgeDetailViewProps {
 	item: DetailItem;
 	legacySource?: string;
+	/** Q2: The route-resolved knowledge id. Supersedes item.id for API calls. */
+	routeKnowledgeId?: string;
 }
 
-function KnowledgeDetailView({ item, legacySource }: KnowledgeDetailViewProps): JSX.Element {
+function KnowledgeDetailView({
+	item,
+	legacySource,
+	routeKnowledgeId,
+}: KnowledgeDetailViewProps): JSX.Element {
+	// Q2: Use the route-resolved id for API calls to avoid FALLBACK_DETAIL.id = "unknown"
+	const effectiveKnowledgeId = routeKnowledgeId ?? item.id;
 	const isFactory = item.scope === "factory";
 	const amendableBanner = isFactory && item.status === "needs_human";
 	const initialContent = item.content ?? "";
 	const [savedContent, setSavedContent] = useState<string>(initialContent);
 	const [editing, setEditing] = useState(false);
 	const [draft, setDraft] = useState<string>(initialContent);
+
+	// Q2: Scope change dialog state.
+	const [scopeChangeOpen, setScopeChangeOpen] = useState(false);
 
 	// L18: Block popover state
 	const [openBlockId, setOpenBlockId] = useState<string | null>(null);
@@ -272,12 +293,35 @@ function KnowledgeDetailView({ item, legacySource }: KnowledgeDetailViewProps): 
 			)}
 			<div className="flex items-start justify-between gap-2">
 				<h1 className="text-sm font-semibold">{item.title}</h1>
-				{!(isFactory || editing) && (
-					<button type="button" className="btn btn-xs btn-ghost" onClick={startEdit}>
-						Edit
-					</button>
-				)}
+				<div className="flex items-center gap-1">
+					{!(isFactory || editing) && (
+						<button type="button" className="btn btn-xs btn-ghost" onClick={startEdit}>
+							Edit
+						</button>
+					)}
+					{/* Q2: Change scope button — visible when not in edit mode */}
+					{!editing && (
+						<button
+							type="button"
+							className="btn btn-xs btn-ghost"
+							onClick={() => setScopeChangeOpen(true)}
+						>
+							Change scope
+						</button>
+					)}
+				</div>
 			</div>
+
+			{/* Q2: Scope change dialog — uses effectiveKnowledgeId (route param) not
+			    item.id so that FALLBACK_DETAIL cases send to the correct endpoint. */}
+			<ScopeChangeDialog
+				open={scopeChangeOpen}
+				onClose={() => setScopeChangeOpen(false)}
+				onSaved={() => setScopeChangeOpen(false)}
+				knowledgeId={effectiveKnowledgeId}
+				currentVersion={item.versionNum ?? 1}
+				currentScopeKind={item.scopeKind ?? "factory"}
+			/>
 			<div className="flex items-center gap-2 flex-wrap" data-testid="knowledge-metadata-bar">
 				<Tag label={item.kind} />
 				<StatusChip status={knowledgeStatusToStatus(item.status)} />

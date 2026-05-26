@@ -209,6 +209,7 @@ export type {
 	KnowledgeFormat,
 	ModelTier,
 	MutableBetField,
+	ScopeKind,
 	SessionState,
 	TaskState,
 	TriggerType,
@@ -220,5 +221,6 @@ export {
 	KERNEL_AGENT_ROLES,
 	KERNEL_KNOWLEDGE_STATUSES,
 	MUTABLE_BET_FIELDS,
+	SCOPE_KINDS,
 	TASK_STATES,
 } from "./types.js";

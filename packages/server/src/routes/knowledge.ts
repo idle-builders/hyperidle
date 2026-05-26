@@ -1,5 +1,9 @@
 /**
  * O2: Knowledge routes rewritten for kernel purity.
+ * Q2: scope_kind + scope_id fields added to creation, list, and detail endpoints.
+ *     PATCH /:id/scope endpoint added for scope mutation with version tracking.
+ *     User-scoped items filtered by userId at GET / and GET /:id.
+ *     Fabric layer assigned (via knowledgeStrategyFabric) on creation and scope change.
  *
  * URL shape simplified from /:layer/... to /:id and /.
  * Layer guard, createRelevanceService, and computeSignals removed.
@@ -10,6 +14,12 @@
  * the kernel API. Removing it (along with layer/scopeId/kind columns on
  * knowledgeItems) keeps the kernel pure. Strategy layers compute their
  * signals in the fabric and write to knowledgeStrategyFabric.
+ *
+ * @lore Q2: scope_kind lives on the kernel knowledgeItems table so every item
+ * knows where it belongs, regardless of which strategy fabric is active.
+ * scopeToLayer() from @hyperidle/fabric maps scope_kind → layer for fabric assignment.
+ * The assignment is done inline (not via event) so the fabric row is immediately
+ * visible to the caller — this is a pragmatic boundary compromise per the Q2 lore.
  */
 import {
 	type HyperIdleDb,
@@ -17,7 +27,9 @@ import {
 	knowledgeEditLog,
 	knowledgeItems,
 	knowledgeStrategyFabric,
+	teams,
 } from "@hyperidle/db";
+import { scopeToLayer } from "@hyperidle/fabric";
 import type { ApiErrorResponse } from "@hyperidle/shared";
 import {
 	API_ERROR_CODES,
@@ -26,15 +38,28 @@ import {
 	type KnowledgeArchivedEvent,
 	type KnowledgeCreatedEvent,
 	type KnowledgeUpdatedEvent,
+	SCOPE_KINDS,
 } from "@hyperidle/shared";
-import { and, eq, or, sql } from "drizzle-orm";
+import { and, eq, ne, or, sql } from "drizzle-orm";
 import { Hono } from "hono";
 import z from "zod";
+import type { HyperIdleEnv } from "../middleware/auth.js";
 import { validateBody } from "../middleware/validate.js";
 import { escapeLikePattern } from "../services/like-escape.js";
 
 // O2: status simplified to draft | active | archived
 const KNOWLEDGE_STATUSES = ["draft", "active", "archived"] as const;
+
+/**
+ * Q2: Scope kinds that require a scopeId from the caller.
+ * factory and user auto-assign their scope from context — no external id needed.
+ */
+const SCOPE_KINDS_REQUIRING_ID = ["product", "practice", "team", "bet", "task"] as const;
+type ScopeKindRequiringId = (typeof SCOPE_KINDS_REQUIRING_ID)[number];
+
+function requiresScopeId(kind: string): kind is ScopeKindRequiringId {
+	return (SCOPE_KINDS_REQUIRING_ID as readonly string[]).includes(kind);
+}
 
 const createKnowledgeSchema = z.object({
 	topic: z.string().optional(),
@@ -43,6 +68,9 @@ const createKnowledgeSchema = z.object({
 	format: z.string(),
 	updatedBy: z.string(),
 	status: z.enum(KNOWLEDGE_STATUSES).optional(),
+	// Q2: scope fields
+	scopeKind: z.enum(SCOPE_KINDS),
+	scopeId: z.string().optional(),
 });
 
 const updateKnowledgeSchema = z.object({
@@ -78,11 +106,61 @@ const flagSchema = z.object({
 });
 
 /**
- * Create Hono routes for knowledge endpoints.
- * O2: routes use /:id URL shape (no layer prefix).
+ * Q2: Schema for PATCH /:id/scope — change scope_kind and scope_id with version tracking.
+ * `reason` is required (min 1 char) so scope changes always have an audit trail.
  */
-export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono {
-	const router = new Hono();
+const changeScopeSchema = z.object({
+	scopeKind: z.enum(SCOPE_KINDS),
+	scopeId: z.string().optional(),
+	reason: z.string().min(1),
+	updatedBy: z.string(),
+	version: z.number(),
+});
+
+/**
+ * Write or upsert a knowledgeStrategyFabric row for the given knowledge item.
+ * If a fabric row already exists, updates the layer column.
+ * If no fabric row exists and layer is non-null, creates one.
+ *
+ * @lore Q2: Inline fabric assignment is a pragmatic boundary compromise. The
+ * caller sees the fabric row immediately without waiting for an event handler.
+ * If layer is null (bet/team/user scope), we still create the fabric row but
+ * leave layer null — this is consistent with the O2 seed pattern.
+ */
+function upsertFabricLayer(db: HyperIdleDb, knowledgeItemId: string, scopeKind: string): void {
+	const layer = scopeToLayer(
+		// Safe cast: scopeKind validated via z.enum(SCOPE_KINDS) before this call.
+		scopeKind as (typeof SCOPE_KINDS)[number],
+	);
+
+	const existing = db
+		.select()
+		.from(knowledgeStrategyFabric)
+		.where(eq(knowledgeStrategyFabric.knowledgeItemId, knowledgeItemId))
+		.get();
+
+	if (existing) {
+		db.update(knowledgeStrategyFabric)
+			.set({ layer })
+			.where(eq(knowledgeStrategyFabric.knowledgeItemId, knowledgeItemId))
+			.run();
+	} else {
+		db.insert(knowledgeStrategyFabric)
+			.values({
+				id: crypto.randomUUID(),
+				knowledgeItemId,
+				layer,
+			})
+			.run();
+	}
+}
+
+/**
+ * Create Hono routes for knowledge endpoints.
+ * Q2: upgraded to Hono<HyperIdleEnv> to read userId from auth middleware.
+ */
+export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<HyperIdleEnv> {
+	const router = new Hono<HyperIdleEnv>();
 
 	// I2 review M-4 / HIGH-5: cap query length so an attacker cannot
 	// drive a long full-table LIKE scan with a 1 MiB query string.
@@ -124,9 +202,14 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 
 	// GET / — list all items with LEFT JOIN to knowledgeStrategyFabric for pre-computed signals.
 	// Also computes L22 signals (accessCount30d, lastActivityAt) from knowledgeAccessLog.
+	// Q2: user-scoped items filtered: only visible to their author (updatedBy = userId).
 	// @lore O2: Kernel route queries strategy extension + access-log tables —
 	// pragmatic boundary compromise to avoid a second round-trip from the fabric.
+	// @lore Q2: The filter is: include item if scope_kind != 'user' OR updatedBy = userId.
+	// Using 404 (not 403) for unauthorized access prevents leaking existence.
 	router.get("/", (c) => {
+		const userId = c.get("userId");
+
 		const rawItems = db
 			.select({
 				item: knowledgeItems,
@@ -137,6 +220,7 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 				knowledgeStrategyFabric,
 				eq(knowledgeStrategyFabric.knowledgeItemId, knowledgeItems.id),
 			)
+			.where(or(ne(knowledgeItems.scopeKind, "user"), eq(knowledgeItems.updatedBy, userId)))
 			.all();
 
 		// L22: compute access signals per item from the access log.
@@ -186,12 +270,23 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 	});
 
 	// GET /:id — single item, emit knowledge_accessed event
-	router.get("/:id", async (c) => {
+	// Q2: returns 404 for user-scoped items not authored by the requesting user.
+	router.get("/:id", (c) => {
 		const id = c.req.param("id");
+		const userId = c.get("userId");
 
 		const item = db.select().from(knowledgeItems).where(eq(knowledgeItems.id, id)).get();
 
 		if (!item) {
+			const response: ApiErrorResponse = {
+				error: "Knowledge item not found",
+				code: API_ERROR_CODES.NOT_FOUND,
+			};
+			return c.json(response, 404);
+		}
+
+		// Q2: user-scoped items are private — return 404 (not 403) to avoid leaking existence.
+		if (item.scopeKind === "user" && item.updatedBy !== userId) {
 			const response: ApiErrorResponse = {
 				error: "Knowledge item not found",
 				code: API_ERROR_CODES.NOT_FOUND,
@@ -230,14 +325,35 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 	});
 
 	// POST / — create (version=1), status defaults to "draft"
+	// Q2: scopeKind required. scopeId required for product/practice/team/bet/task.
+	//     factory and user scopes need no external scopeId.
+	//     user scope auto-fills scopeId from userId.
+	//     Fabric layer assigned inline on creation.
 	router.post("/", validateBody(createKnowledgeSchema), (c) => {
 		const body = c.req.valid("json" as never) as z.infer<typeof createKnowledgeSchema>;
+		const userId = c.get("userId");
+
+		// Q2: scopeId validation — required for scopes that reference an external entity.
+		if (requiresScopeId(body.scopeKind) && !body.scopeId) {
+			const response: ApiErrorResponse = {
+				error: `scopeId is required for scopeKind '${body.scopeKind}'`,
+				code: API_ERROR_CODES.VALIDATION_ERROR,
+			};
+			return c.json(response, 400);
+		}
+
+		// Q2: user scope auto-fills scopeId from userId (private to the requesting user).
+		const resolvedScopeId =
+			body.scopeKind === "user" ? (body.scopeId ?? userId) : (body.scopeId ?? null);
+
 		const id = crypto.randomUUID();
 		const now = new Date().toISOString();
 
 		db.insert(knowledgeItems)
 			.values({
 				id,
+				scopeKind: body.scopeKind,
+				scopeId: resolvedScopeId,
 				topic: body.topic ?? null,
 				title: body.title,
 				body: body.body,
@@ -251,6 +367,9 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 			})
 			.run();
 
+		// Q2: assign fabric layer inline on creation.
+		upsertFabricLayer(db, id, body.scopeKind);
+
 		const created = db.select().from(knowledgeItems).where(eq(knowledgeItems.id, id)).get();
 
 		// O2: emit knowledge_created event
@@ -263,6 +382,105 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 		eventBus.emit(createdEvent);
 
 		return c.json(created, 201);
+	});
+
+	// PATCH /:id/scope — Q2: change scope_kind and scope_id with version tracking.
+	// Bumps version, logs change in knowledgeEditLog, updates fabric layer.
+	router.patch("/:id/scope", validateBody(changeScopeSchema), (c) => {
+		const id = c.req.param("id");
+		const body = c.req.valid("json" as never) as z.infer<typeof changeScopeSchema>;
+
+		const existing = db.select().from(knowledgeItems).where(eq(knowledgeItems.id, id)).get();
+
+		if (!existing) {
+			const response: ApiErrorResponse = {
+				error: "Knowledge item not found",
+				code: API_ERROR_CODES.NOT_FOUND,
+			};
+			return c.json(response, 404);
+		}
+
+		// Optimistic locking: check version
+		if (existing.version !== body.version) {
+			const response: ApiErrorResponse = {
+				error: `Version conflict: expected ${body.version}, current is ${existing.version}`,
+				code: API_ERROR_CODES.CONFLICT,
+				details: { currentVersion: existing.version },
+			};
+			return c.json(response, 409);
+		}
+
+		// Q2: scopeId validation for the new scope kind
+		if (requiresScopeId(body.scopeKind) && !body.scopeId) {
+			const response: ApiErrorResponse = {
+				error: `scopeId is required for scopeKind '${body.scopeKind}'`,
+				code: API_ERROR_CODES.VALIDATION_ERROR,
+			};
+			return c.json(response, 400);
+		}
+
+		const now = new Date().toISOString();
+		const resolvedScopeId = body.scopeId ?? null;
+
+		// Log scope_kind change to knowledgeEditLog (with reason in newValue)
+		if (existing.scopeKind !== body.scopeKind) {
+			db.insert(knowledgeEditLog)
+				.values({
+					id: crypto.randomUUID(),
+					itemId: id,
+					editor: body.updatedBy,
+					field: "scope_kind",
+					oldValue: existing.scopeKind,
+					newValue: `${body.scopeKind} (reason: ${body.reason})`,
+					editType: "scope_change",
+					createdAt: now,
+				})
+				.run();
+		}
+
+		// Log scope_id change to knowledgeEditLog if it changed
+		if (existing.scopeId !== resolvedScopeId) {
+			db.insert(knowledgeEditLog)
+				.values({
+					id: crypto.randomUUID(),
+					itemId: id,
+					editor: body.updatedBy,
+					field: "scope_id",
+					oldValue: existing.scopeId ?? null,
+					newValue: resolvedScopeId ?? null,
+					editType: "scope_change",
+					createdAt: now,
+				})
+				.run();
+		}
+
+		db.update(knowledgeItems)
+			.set({
+				scopeKind: body.scopeKind,
+				scopeId: resolvedScopeId,
+				version: existing.version + 1,
+				updatedBy: body.updatedBy,
+				updatedAt: now,
+			})
+			.where(eq(knowledgeItems.id, id))
+			.run();
+
+		// Q2: update fabric layer for new scope
+		upsertFabricLayer(db, id, body.scopeKind);
+
+		const updated = db.select().from(knowledgeItems).where(eq(knowledgeItems.id, id)).get();
+
+		// Emit knowledge_updated event for scope change
+		const updatedEvent: KnowledgeUpdatedEvent = {
+			type: "knowledge_updated",
+			streamId: `knowledge:${id}`,
+			itemId: id,
+			action: "updated",
+			timestamp: Date.now(),
+		};
+		eventBus.emit(updatedEvent);
+
+		return c.json(updated);
 	});
 
 	// PATCH /:id — update (optimistic locking)
@@ -468,6 +686,8 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 			db.insert(knowledgeItems)
 				.values({
 					id: newId,
+					scopeKind: original.scopeKind,
+					scopeId: original.scopeId,
 					topic: newItem.topic ?? original.topic,
 					title: newItem.title,
 					body: newItem.body,
@@ -480,6 +700,9 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 					updatedAt: now,
 				})
 				.run();
+
+			// Q2: assign fabric layer for split items (inherits parent scope)
+			upsertFabricLayer(db, newId, original.scopeKind);
 
 			const created = db.select().from(knowledgeItems).where(eq(knowledgeItems.id, newId)).get();
 			createdItems.push(created);
@@ -624,6 +847,33 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 		eventBus.emit(flaggedEvent);
 
 		return c.json(updated);
+	});
+
+	return router;
+}
+
+/**
+ * Q2 T13: Lightweight GET /api/teams endpoint.
+ * Returns teams with their associated product name.
+ * Used by the KnowledgeCreateDialog to populate the scope selector.
+ */
+export function createTeamsRoutes(db: HyperIdleDb): Hono<HyperIdleEnv> {
+	const router = new Hono<HyperIdleEnv>();
+
+	router.get("/", (c) => {
+		const rows = db
+			.select({
+				id: teams.id,
+				productId: teams.productId,
+				capacity: teams.capacity,
+				activeBets: teams.activeBets,
+				formedAt: teams.formedAt,
+				dissolvedAt: teams.dissolvedAt,
+			})
+			.from(teams)
+			.all();
+
+		return c.json({ teams: rows });
 	});
 
 	return router;

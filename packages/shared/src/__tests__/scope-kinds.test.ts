@@ -6,7 +6,6 @@
  */
 
 import { describe, expect, it } from "vitest";
-// @ts-expect-error — SCOPE_KINDS does not exist yet (red phase)
 import { SCOPE_KINDS } from "../types.js";
 
 describe("Q2 AC-2: SCOPE_KINDS and ScopeKind", () => {

@@ -402,7 +402,7 @@ test.describe("Q2 AC-12: Change scope from user to product", () => {
 			}
 		});
 
-		// Mock GET for single item
+		// Mock GET for single item (exact path match)
 		await page.route(`**/api/knowledge/${userItem.id}`, async (route) => {
 			if (route.request().method() === "GET") {
 				await route.fulfill({
@@ -413,7 +413,16 @@ test.describe("Q2 AC-12: Change scope from user to product", () => {
 						scopeKind: currentScopeKind,
 					}),
 				});
-			} else if (route.request().method() === "PATCH") {
+			} else {
+				await route.continue();
+			}
+		});
+
+		// Mock PATCH /:id/scope — scope change endpoint
+		// @lore Q2: ScopeChangeDialog sends PATCH to /api/knowledge/:id/scope,
+		// not to /api/knowledge/:id. The pattern must include the /scope suffix.
+		await page.route(`**/api/knowledge/${userItem.id}/scope`, async (route) => {
+			if (route.request().method() === "PATCH") {
 				const body = (await route.request().postDataJSON()) as {
 					scopeKind?: string;
 				};
@@ -439,8 +448,9 @@ test.describe("Q2 AC-12: Change scope from user to product", () => {
 		await page.goto("/knowledge");
 		await page.waitForSelector("[data-testid='knowledge-list-page']");
 
-		// User-scoped item should show Private tag
-		await expect(page.getByText("Private")).toBeVisible();
+		// User-scoped item should show Private tag (exact: true to avoid case-insensitive
+		// substring match with item title "My private note" which contains "private")
+		await expect(page.getByText("Private", { exact: true })).toBeVisible();
 
 		// Click on the item to go to detail page
 		await page.getByText("My private note").click();
@@ -479,7 +489,7 @@ test.describe("Q2 AC-12: Change scope from user to product", () => {
 		await page.waitForSelector("[data-testid='knowledge-list-page']");
 
 		// Private tag should no longer appear
-		await expect(page.getByText("Private")).not.toBeVisible();
+		await expect(page.getByText("Private", { exact: true })).not.toBeVisible();
 	});
 });
 
@@ -504,7 +514,7 @@ test.describe("Q2 AC-20: Private tag for user-scoped items in list", () => {
 		await page.goto("/knowledge");
 		await page.waitForSelector("[data-testid='knowledge-list-page']");
 
-		await expect(page.getByText("Private")).toBeVisible();
+		await expect(page.getByText("Private", { exact: true })).toBeVisible();
 	});
 
 	test("non-user-scoped item does NOT render Private tag", async ({ page }) => {
@@ -523,6 +533,6 @@ test.describe("Q2 AC-20: Private tag for user-scoped items in list", () => {
 		await page.goto("/knowledge");
 		await page.waitForSelector("[data-testid='knowledge-list-page']");
 
-		await expect(page.getByText("Private")).not.toBeVisible();
+		await expect(page.getByText("Private", { exact: true })).not.toBeVisible();
 	});
 });

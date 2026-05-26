@@ -149,9 +149,12 @@ export function seed(db: SeedableDb | HyperIdleDb): void {
 
 	// @lore O2: kernel/strategy separation. Kernel table only gets identity+content.
 	// Strategy fields (layer, kind) go to knowledgeStrategyFabric extension table.
+	// @lore Q2: scopeKind defaults to "factory" (factory-level principle applies to all).
 	db.insert(knowledgeItems)
 		.values({
 			id: "seed-ki-1",
+			scopeKind: "factory",
+			scopeId: null,
 			title: "Boil the Lake",
 			body: "Solve the full problem, not a subset.",
 			format: "markdown",

@@ -49,6 +49,7 @@ describe("Knowledge Endpoints (E4)", () => {
 				title: "Test Pattern",
 				body: "This is a test pattern body.",
 				format: "markdown",
+				scopeKind: "factory",
 				updatedBy: "human",
 				...overrides,
 			}),
@@ -127,6 +128,7 @@ describe("Knowledge Endpoints (E4)", () => {
 					title: "New Pattern",
 					body: "Body content",
 					format: "markdown",
+					scopeKind: "factory",
 					updatedBy: "human",
 				}),
 			});

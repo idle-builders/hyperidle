@@ -16,7 +16,7 @@ import { createBetRoutes } from "./routes/bets.js";
 import { createConversationRoutes } from "./routes/conversations.js";
 import { createGitExportRoutes } from "./routes/git-export-routes.js";
 import { health } from "./routes/health.js";
-import { createKnowledgeRoutes } from "./routes/knowledge.js";
+import { createKnowledgeRoutes, createTeamsRoutes } from "./routes/knowledge.js";
 import { createNotificationRoutes } from "./routes/notifications-routes.js";
 import { createObservabilityRoutes } from "./routes/observability-routes.js";
 import { createProductRoutes } from "./routes/products.js";
@@ -252,6 +252,7 @@ function createApp(options?: AppOptions): Hono {
 		api.route("/tasks", createTaskRoutes(options.db, eventBus));
 		api.route("/artifacts", createArtifactRoutes(options.db));
 		api.route("/knowledge", createKnowledgeRoutes(options.db, eventBus));
+		api.route("/teams", createTeamsRoutes(options.db));
 		api.route("/rail", createRailRoutes(options.db, eventBus));
 		api.route("/settings", createSettingsRoutes(options.db, eventBus));
 		api.route("/conversations", createConversationRoutes(options.db, eventBus));

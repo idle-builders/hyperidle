@@ -98,3 +98,23 @@ export const AGENT_ROLES = [...KERNEL_AGENT_ROLES, ...FABRIC_AGENT_ROLES] as con
 export type AgentRole = (typeof AGENT_ROLES)[number];
 
 export type AgentStatus = "active" | "paused" | "retired";
+
+/**
+ * Kernel-level scope kinds for knowledge items. Closed enum — adding a new
+ * scope kind requires a concept-doc update per the Q2 contract.
+ *
+ * @lore Q2: scope_kind lives on the kernel knowledgeItems table so every
+ * item knows where it belongs, regardless of which strategy fabric is active.
+ * The fabric maps scope_kind → layer via scopeToLayer() in @hyperidle/fabric.
+ */
+export const SCOPE_KINDS = [
+	"factory",
+	"product",
+	"practice",
+	"team",
+	"bet",
+	"task",
+	"user",
+] as const;
+
+export type ScopeKind = (typeof SCOPE_KINDS)[number];

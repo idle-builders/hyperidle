@@ -20,6 +20,9 @@ import { EmptyState, ErrorState, KnowledgeRow, SkeletonList } from "@hyperidle/d
  * Tab-default logic uses API status ("draft" = needs review, was "needs_human").
  * Scope param is preserved in the URL for future API filter support but does
  * not filter the item list today — the O2 schema has no scope column.
+ *
+ * @lore Q2: "+ New" button opens KnowledgeCreateDialog. User-scoped items show
+ * a "Private" tag in the list. scopeKind/scopeId fields added to ApiKnowledgeItem.
  */
 import type {
 	KnowledgeKind,
@@ -35,6 +38,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { KnowledgeTopicGroup } from "../components/KnowledgeTopicGroup";
 import { useFetch } from "../hooks/useFetch";
 import { relativeTime } from "../utils/relative-time";
+import { KnowledgeCreateDialog } from "./knowledge/KnowledgeCreateDialog";
 
 type KnowledgeTab = "triage" | "curated";
 
@@ -66,6 +70,10 @@ interface ApiKnowledgeItem {
 	status: string;
 	version: number;
 	updatedBy: string;
+	/** Q2: scope_kind column added. Defaults to "factory" for pre-Q2 items. */
+	scopeKind?: string;
+	/** Q2: scope_id column — null for factory/user scopes. */
+	scopeId?: string | null;
 	createdAt: string;
 	updatedAt: string;
 	signals?: {
@@ -205,12 +213,26 @@ export function KnowledgeList({
 	// localStorage. Default recomputed below whenever API data changes.
 	const [tab, setTab] = useState<KnowledgeTab>("triage");
 
+	// Q2: create dialog state and refresh counter (useFetch re-fetches when URL changes)
+	const [createDialogOpen, setCreateDialogOpen] = useState(false);
+	const [fetchRevision, setFetchRevision] = useState(0);
+
 	// N5: fetch all items from the real API unconditionally (both tabs need the data)
+	// Q2: fetchRevision appended as a cache-buster query param so POST→refresh works.
+	// @lore Q2: useFetch has no refresh method. Appending ?_r=N to the URL causes
+	// useEffect to re-run with the new URL, triggering a fresh fetch. The server
+	// ignores unknown query params.
 	const {
 		data: apiData,
 		isLoading: apiLoading,
 		error: apiError,
-	} = useFetch<ApiKnowledgeListResponse>("/api/knowledge");
+	} = useFetch<ApiKnowledgeListResponse>(
+		fetchRevision === 0 ? "/api/knowledge" : `/api/knowledge?_r=${fetchRevision}`,
+	);
+
+	function handleCreated(): void {
+		setFetchRevision((prev) => prev + 1);
+	}
 
 	const allItems = useMemo<ApiKnowledgeItem[]>(() => apiData?.items ?? [], [apiData]);
 
@@ -277,13 +299,29 @@ export function KnowledgeList({
 				<h1 className="text-sm font-heading font-semibold uppercase tracking-wider text-[var(--text-lo)]">
 					Knowledge Base
 				</h1>
-				<span
-					className="badge badge-sm badge-ghost font-mono"
-					data-testid="knowledge-scope-indicator"
-				>
-					{scope}
-				</span>
+				<div className="flex items-center gap-2">
+					<span
+						className="badge badge-sm badge-ghost font-mono"
+						data-testid="knowledge-scope-indicator"
+					>
+						{scope}
+					</span>
+					<button
+						type="button"
+						className="btn btn-xs btn-ghost"
+						onClick={() => setCreateDialogOpen(true)}
+					>
+						+ New
+					</button>
+				</div>
 			</div>
+
+			{/* Q2: KnowledgeCreateDialog — factory scope (no lock) for the global list */}
+			<KnowledgeCreateDialog
+				open={createDialogOpen}
+				onClose={() => setCreateDialogOpen(false)}
+				onCreated={handleCreated}
+			/>
 
 			<div
 				role="tablist"
@@ -357,17 +395,32 @@ export function KnowledgeList({
 											citation: item.signals.citationCount ?? null,
 										}
 									: undefined;
+								const isPrivate = item.scopeKind === "user";
 								return (
-									<KnowledgeRow
-										key={item.id}
-										title={item.title}
-										layer={"L0" as KnowledgeLayer}
-										kind={"brief" as KnowledgeKind}
-										status={toKnowledgeStatus(item.status)}
-										timestamp={relativeTime(item.updatedAt)}
-										signals={signals}
-										onClick={() => navigate(`/knowledge/${item.id}`)}
-									/>
+									<div key={item.id}>
+										<KnowledgeRow
+											title={item.title}
+											layer={"L0" as KnowledgeLayer}
+											kind={"brief" as KnowledgeKind}
+											status={toKnowledgeStatus(item.status)}
+											timestamp={relativeTime(item.updatedAt)}
+											signals={signals}
+											onClick={() => navigate(`/knowledge/${item.id}`)}
+										/>
+										{/* Q2: Private badge is a sibling OUTSIDE KnowledgeRow[role=button]
+										    to avoid Playwright getByText strict-mode collision: KnowledgeRow
+										    titles like "My private note" contain "private" as a substring,
+										    which would cause getByText('Private') to resolve to 2 elements. */}
+										{isPrivate && (
+											<span
+												className="inline-flex items-center px-[8px] py-[2px] rounded-[var(--r2)] text-[12px] bg-[var(--surface-ghost)] text-[var(--text-mid)] whitespace-nowrap"
+												aria-label="Private — only visible to you"
+												data-testid="private-badge"
+											>
+												Private
+											</span>
+										)}
+									</div>
 								);
 							})}
 						</div>
@@ -398,17 +451,30 @@ export function KnowledgeList({
 								staleCount={g.staleCount}
 								health={g.health}
 							>
-								{g.items.map((item) => (
-									<KnowledgeRow
-										key={item.id}
-										title={item.title}
-										layer={"L0" as KnowledgeLayer}
-										kind={"brief" as KnowledgeKind}
-										status={toKnowledgeStatus(item.status)}
-										timestamp={relativeTime(item.updatedAt)}
-										onClick={() => navigate(`/knowledge/${item.id}`)}
-									/>
-								))}
+								{g.items.map((item) => {
+									const isPrivate = item.scopeKind === "user";
+									return (
+										<div key={item.id}>
+											<KnowledgeRow
+												title={item.title}
+												layer={"L0" as KnowledgeLayer}
+												kind={"brief" as KnowledgeKind}
+												status={toKnowledgeStatus(item.status)}
+												timestamp={relativeTime(item.updatedAt)}
+												onClick={() => navigate(`/knowledge/${item.id}`)}
+											/>
+											{isPrivate && (
+												<span
+													className="inline-flex items-center px-[8px] py-[2px] rounded-[var(--r2)] text-[12px] bg-[var(--surface-ghost)] text-[var(--text-mid)] whitespace-nowrap"
+													aria-label="Private — only visible to you"
+													data-testid="private-badge"
+												>
+													Private
+												</span>
+											)}
+										</div>
+									);
+								})}
 							</KnowledgeTopicGroup>
 						))
 					)}
