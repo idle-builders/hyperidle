@@ -50,6 +50,7 @@ import { postRequestMessage, resolveOrCreateTaskThread } from "../services/task-
 import { HostThreadSection } from "../shell/HostThreadSection.js";
 import { TaskSheet } from "../shell/TaskSheet";
 import type { BetDetail } from "../types/bet";
+import { KnowledgeCreateDialog } from "./knowledge/KnowledgeCreateDialog";
 
 // L17: "cost" column maps to costActual (WireMoney|null); sort by minor units.
 // L19: "outcome" column added for latest session outcome sort.
@@ -642,6 +643,9 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 	}>({ open: false, kind: "kill" });
 	const [appetiteDialogOpen, setAppetiteDialogOpen] = useState(false);
 
+	// Q2: Add knowledge dialog state.
+	const [addKnowledgeOpen, setAddKnowledgeOpen] = useState(false);
+
 	// L18: Fetch the host thread directly to derive messagesByBlockId for the
 	// inline anchored-message slots. HostThreadSection uses its own fetch for
 	// the chronological view.
@@ -863,6 +867,17 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 			{/* L14: Bet action bar — shown for active bets only */}
 			<BetActionsBar bet={bet} onAction={handleAction} />
 
+			{/* Q2: Add knowledge button — opens KnowledgeCreateDialog with bet scope locked */}
+			<div className="flex items-center gap-2">
+				<button
+					type="button"
+					className="btn btn-xs btn-ghost"
+					onClick={() => setAddKnowledgeOpen(true)}
+				>
+					Add knowledge
+				</button>
+			</div>
+
 			{/* L14: Consequence preview dialog — pause or kill */}
 			<ConsequencePreviewDialog
 				open={consequenceDialog.open}
@@ -877,6 +892,15 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 				currentAppetite={formatMoney(bet.costAppetite)}
 				onConfirm={handleAppetiteConfirm}
 				onCancel={() => setAppetiteDialogOpen(false)}
+			/>
+
+			{/* Q2: Add knowledge dialog — locked to bet scope */}
+			<KnowledgeCreateDialog
+				open={addKnowledgeOpen}
+				onClose={() => setAddKnowledgeOpen(false)}
+				onCreated={() => setAddKnowledgeOpen(false)}
+				lockedScopeKind="bet"
+				lockedScopeId={bet.id}
 			/>
 
 			{(bet.costActual != null || bet.tokensActual != null) && (

@@ -303,6 +303,13 @@ export const knowledgeItems = sqliteTable(
 	"knowledge_items",
 	{
 		id: text("id").primaryKey(),
+		/**
+		 * @lore Q2: scope_kind + scope_id added to the kernel table so every item
+		 * knows where it belongs. The 7-value closed enum mirrors ScopeKind in
+		 * @hyperidle/shared. Default "factory" preserves existing rows.
+		 */
+		scopeKind: text("scope_kind").notNull().default("factory"),
+		scopeId: text("scope_id"),
 		topic: text("topic"),
 		title: text("title").notNull(),
 		body: text("body").notNull(),
@@ -314,6 +321,7 @@ export const knowledgeItems = sqliteTable(
 		updatedAt: text("updated_at").notNull(),
 	},
 	(table) => [
+		index("ki_scope_idx").on(table.scopeKind, table.scopeId),
 		index("ki_topic_idx").on(table.topic),
 		index("ki_status_idx").on(table.status),
 		index("ki_updated_desc_idx").on(table.updatedAt),
