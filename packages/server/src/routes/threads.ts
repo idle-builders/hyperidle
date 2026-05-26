@@ -53,7 +53,7 @@ const SENDER_HEADER = "X-Identity";
  * userId set by createAuthMiddleware(db).
  *
  * @lore M3 A7: DEFAULT_FOUNDER_ID constant deleted. The fallback is now the
- * auth context userId (set from factorySettings.founder_id).
+ * auth context userId (resolved from users WHERE kind = 'human' LIMIT 1).
  */
 function readSenderId(c: {
 	req: { header: (k: string) => string | undefined };
@@ -73,7 +73,7 @@ function readSenderId(c: {
  *
  * @lore M3 A7 C3: threads.ts:79 previously used DEFAULT_FOUNDER_ID here too.
  * Both readSenderId and readInitialSenderId now use c.get("userId") as the
- * fallback, sourced from factorySettings via the auth middleware.
+ * fallback, resolved from users WHERE kind = 'human' LIMIT 1 by the auth middleware.
  */
 function readInitialSenderId(
 	c: { req: { header: (k: string) => string | undefined }; get: (k: "userId") => string },
@@ -86,6 +86,10 @@ function readInitialSenderId(
 	if (messageType === "review" || messageType === "questionnaire") {
 		for (const p of participants) {
 			const ag = db.select().from(users).where(eq(users.id, p)).get();
+			// @lore P2: "founder" is intentionally NOT in USER_ROLES (the role column is
+			// unconstrained text). This check selects the first non-founder participant as
+			// the sender for review/questionnaire messages. If you rename or remove the
+			// "founder" role, update this check and the verdict authorization at line ~494.
 			if (ag && ag.role !== "founder") return p;
 		}
 	}
@@ -491,6 +495,10 @@ export function createThreadRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hy
 					return c.json(e.body, e.status);
 				}
 				const senderAgent = db.select().from(users).where(eq(users.id, senderId)).get();
+				// @lore P2: "founder" role is NOT in USER_ROLES (role column is unconstrained text).
+				// Verdict authorization is load-bearing: ONLY the founder may post verdict messages,
+				// and not for their own submissions (selfVerdict). If you rename or remove the
+				// "founder" role, update this check and the sender-selection at readInitialSenderId.
 				const isFounder = senderAgent?.role === "founder";
 				const selfVerdict = resolvesMessageRow.senderId === senderId;
 				if (!isFounder || selfVerdict) {

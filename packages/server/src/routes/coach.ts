@@ -33,8 +33,8 @@ const COC_AGENT_ROLE = "chief_of_staff";
  * userId set by createAuthMiddleware(db).
  *
  * @lore M3 A6: DEFAULT_FOUNDER_ID constant deleted. The fallback is now the
- * auth context userId (set from factorySettings.founder_id). This ensures
- * the coach thread is created for the configured founder, not a hardcoded literal.
+ * auth context userId (resolved from users WHERE kind = 'human' LIMIT 1). This
+ * ensures the coach thread is created for the configured founder, not a hardcoded literal.
  */
 function readSenderId(c: {
 	req: { header: (k: string) => string | undefined };

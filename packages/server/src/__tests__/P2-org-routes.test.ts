@@ -252,6 +252,51 @@ describe("P2 — /api/org endpoints (AC5, AC6, AC10)", () => {
 			expect(res.status).toBe(400);
 		});
 
+		it("returns 400 when mechanism=direct and target userId does not exist", async () => {
+			const res = await app.request("/api/org/edges", {
+				method: "PUT",
+				headers: authHeaders(),
+				body: JSON.stringify({
+					fromUserId: "u-human-org",
+					mechanism: "direct",
+					target: "u-nonexistent-user",
+				}),
+			});
+			expect(res.status).toBe(400);
+			const body = (await res.json()) as { code: string };
+			expect(body.code).toBe("VALIDATION_ERROR");
+		});
+
+		it("returns 400 when mechanism=function and target is not a valid UserRole", async () => {
+			const res = await app.request("/api/org/edges", {
+				method: "PUT",
+				headers: authHeaders(),
+				body: JSON.stringify({
+					fromUserId: "u-human-org",
+					mechanism: "function",
+					target: "garbage_role",
+				}),
+			});
+			expect(res.status).toBe(400);
+			const body = (await res.json()) as { code: string };
+			expect(body.code).toBe("VALIDATION_ERROR");
+		});
+
+		it("returns 400 when mechanism=team and target teamId does not exist", async () => {
+			const res = await app.request("/api/org/edges", {
+				method: "PUT",
+				headers: authHeaders(),
+				body: JSON.stringify({
+					fromUserId: "u-human-org",
+					mechanism: "team",
+					target: "nonexistent-team-id",
+				}),
+			});
+			expect(res.status).toBe(400);
+			const body = (await res.json()) as { code: string };
+			expect(body.code).toBe("VALIDATION_ERROR");
+		});
+
 		it("creates a function-mechanism edge", async () => {
 			const res = await app.request("/api/org/edges", {
 				method: "PUT",

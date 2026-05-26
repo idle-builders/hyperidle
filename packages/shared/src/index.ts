@@ -201,8 +201,6 @@ export {
 	zeroMoney,
 } from "./types/money.js";
 export type {
-	AgentRole,
-	AgentStatus,
 	BetStatus,
 	HealthResponse,
 	KernelKnowledgeStatus,
@@ -218,11 +216,8 @@ export type {
 	UserStatus,
 } from "./types.js";
 export {
-	AGENT_ROLES,
 	BET_STATUSES,
-	FABRIC_AGENT_ROLES,
 	FABRIC_USER_ROLES,
-	KERNEL_AGENT_ROLES,
 	KERNEL_KNOWLEDGE_STATUSES,
 	KERNEL_USER_ROLES,
 	MUTABLE_BET_FIELDS,

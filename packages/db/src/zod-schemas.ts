@@ -61,13 +61,6 @@ export const insertProductSchema = createInsertSchema(products);
 export const insertUserSchema = createInsertSchema(users);
 export const insertTeamSchema = createInsertSchema(teams);
 
-// ─── P2 backward-compat aliases (agent → user rename) ────────────────────────
-// @lore P2: keep old names as re-exports so existing tests compiled before the
-// rename continue to pass without a mass-update. New code should use selectUserSchema
-// / insertUserSchema / selectUserSkillSchema.
-export const selectAgentSchema = selectUserSchema;
-export const insertAgentSchema = insertUserSchema;
-export const selectAgentSkillSchema = selectUserSkillSchema;
 export const insertBetSchema = createInsertSchema(bets);
 export const insertTaskSchema = createInsertSchema(tasks);
 export const insertSessionSchema = createInsertSchema(sessions);

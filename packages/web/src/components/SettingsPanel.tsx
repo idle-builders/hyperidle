@@ -18,7 +18,7 @@ export interface ProductSetting {
 
 export type AutonomyLevel = "manual" | "supervised" | "autonomous";
 
-export interface AgentSetting {
+export interface UserSetting {
 	id: string;
 	name: string;
 	autonomyLevel: AutonomyLevel;
@@ -26,10 +26,10 @@ export interface AgentSetting {
 }
 
 /**
- * @lore P2: Renamed from AgentSetting. AgentSetting kept as deprecated alias
- * for backward compatibility with consumers not yet migrated.
+ * @deprecated Use UserSetting. Kept as alias until all callsites are migrated.
+ * @lore P2: AgentSetting renamed to UserSetting as part of the Unified User primitive rename.
  */
-export type UserSetting = AgentSetting;
+export type AgentSetting = UserSetting;
 
 export interface NotificationSettings {
 	reviewAlerts: boolean;

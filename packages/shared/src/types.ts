@@ -112,20 +112,3 @@ export type UserKind = (typeof USER_KINDS)[number];
  */
 export const ORG_EDGE_MECHANISMS = ["direct", "function", "team"] as const;
 export type OrgEdgeMechanism = (typeof ORG_EDGE_MECHANISMS)[number];
-
-// ---------------------------------------------------------------------------
-// Backward-compat aliases — these are kept so the full rename lands atomically
-// across all consumers. They are intentionally NOT deprecated for now; P2
-// replaces all usages below and they will be deleted in a follow-up.
-// ---------------------------------------------------------------------------
-
-/** @deprecated Use UserRole */
-export type AgentRole = UserRole;
-/** @deprecated Use UserStatus */
-export type AgentStatus = UserStatus;
-/** @deprecated Use KERNEL_USER_ROLES */
-export const KERNEL_AGENT_ROLES = KERNEL_USER_ROLES;
-/** @deprecated Use FABRIC_USER_ROLES */
-export const FABRIC_AGENT_ROLES = FABRIC_USER_ROLES;
-/** @deprecated Use USER_ROLES */
-export const AGENT_ROLES = USER_ROLES;

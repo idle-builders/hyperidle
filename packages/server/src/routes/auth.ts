@@ -1,7 +1,7 @@
 /**
  * Authentication helper routes.
  *
- * `GET /api/auth/me` returns the authenticated user's identity from factorySettings.
+ * `GET /api/auth/me` returns the authenticated user's identity from the users table.
  * Always mounted (regardless of WebSocket support).
  *
  * `POST /api/auth/ws-token` mints a one-shot upgrade token that the client

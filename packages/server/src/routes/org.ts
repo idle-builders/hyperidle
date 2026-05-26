@@ -14,9 +14,9 @@
  * resolve names.
  */
 
-import { type HyperIdleDb, orgEdges, users } from "@hyperidle/db";
-import { ORG_EDGE_MECHANISMS } from "@hyperidle/shared";
-import { eq } from "drizzle-orm";
+import { type HyperIdleDb, orgEdges, teams, users } from "@hyperidle/db";
+import { ORG_EDGE_MECHANISMS, USER_ROLES } from "@hyperidle/shared";
+import { and, eq } from "drizzle-orm";
 import { Hono } from "hono";
 import z from "zod";
 import type { HyperIdleEnv } from "../middleware/auth.js";
@@ -77,13 +77,53 @@ export function createOrgRoutes(db: HyperIdleDb): Hono<HyperIdleEnv> {
 			);
 		}
 
-		// Check if the exact tuple already exists
+		// Validate target based on mechanism (plan section 2.3).
+		// @lore P2: mechanism-dependent target validation — "direct" targets a userId,
+		// "function" targets a UserRole string, "team" targets a teamId. Each has a
+		// distinct existence check so stale/garbage targets are rejected at write time.
+		if (mechanism === "direct") {
+			const targetUser = db.select().from(users).where(eq(users.id, target)).get();
+			if (!targetUser) {
+				return c.json(
+					{ error: `target userId not found: ${target}`, code: "VALIDATION_ERROR" },
+					400,
+				);
+			}
+		} else if (mechanism === "function") {
+			if (!(USER_ROLES as readonly string[]).includes(target)) {
+				return c.json(
+					{
+						error: `target role not valid: ${target}. Must be one of: ${USER_ROLES.join(", ")}`,
+						code: "VALIDATION_ERROR",
+					},
+					400,
+				);
+			}
+		} else if (mechanism === "team") {
+			const targetTeam = db.select().from(teams).where(eq(teams.id, target)).get();
+			if (!targetTeam) {
+				return c.json(
+					{ error: `target teamId not found: ${target}`, code: "VALIDATION_ERROR" },
+					400,
+				);
+			}
+		}
+
+		// Check if the exact tuple already exists using the composite unique index
+		// (from_user_id, mechanism, target) — avoids a full-table scan + JS filter.
+		// @lore P2 WARNING-ADV1: replaced the previous .all().find() JS-filter with a
+		// 3-column WHERE clause that hits the org_edges_unique composite index directly.
 		const existing = db
 			.select()
 			.from(orgEdges)
-			.where(eq(orgEdges.fromUserId, fromUserId))
-			.all()
-			.find((e) => e.mechanism === mechanism && e.target === target);
+			.where(
+				and(
+					eq(orgEdges.fromUserId, fromUserId),
+					eq(orgEdges.mechanism, mechanism),
+					eq(orgEdges.target, target),
+				),
+			)
+			.get();
 
 		if (existing) {
 			// Upsert: return existing edge with 200

@@ -66,7 +66,7 @@ function computeTagMatch(item: KnowledgeItemWithFabric, taskTags: string[]): num
 	return matches / normalizedTaskTags.length;
 }
 
-const KNOWN_AGENT_ROLES: readonly UserRole[] = [
+const KNOWN_USER_ROLES: readonly UserRole[] = [
 	"builder",
 	"growth",
 	"product_manager",
@@ -76,7 +76,7 @@ const KNOWN_AGENT_ROLES: readonly UserRole[] = [
 ];
 
 function isUserRole(value: string): value is UserRole {
-	return (KNOWN_AGENT_ROLES as readonly string[]).includes(value);
+	return (KNOWN_USER_ROLES as readonly string[]).includes(value);
 }
 
 /** Compute role match factor (0 or 1). */
