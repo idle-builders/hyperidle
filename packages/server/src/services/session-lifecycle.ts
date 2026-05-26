@@ -1,7 +1,7 @@
 import * as crypto from "node:crypto";
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { agents, type HyperIdleDb, sessions } from "@hyperidle/db";
+import { type HyperIdleDb, sessions, users } from "@hyperidle/db";
 import {
 	type FileWatcher,
 	type FileWatcherConfig,
@@ -10,17 +10,17 @@ import {
 	startWatcher,
 } from "@hyperidle/fabric";
 import {
-	type AgentRole,
 	ConcurrencyLimitError,
 	type EventBus,
 	type ModelTier,
+	type UserRole,
 } from "@hyperidle/shared";
 import { and, eq, sql } from "drizzle-orm";
 
 export interface CreateSessionParams {
 	taskId: string;
 	agentId: string;
-	agentRole: AgentRole;
+	agentRole: UserRole;
 	productId: string;
 	modelTier: ModelTier;
 	workspaceBasePath: string;
@@ -51,7 +51,7 @@ export async function createSession(
 	params: CreateSessionParams,
 ): Promise<SessionContext> {
 	// 1. Check concurrency limit
-	const agent = db.select().from(agents).where(eq(agents.id, params.agentId)).get();
+	const agent = db.select().from(users).where(eq(users.id, params.agentId)).get();
 
 	if (!agent) {
 		throw new Error(`Agent not found: ${params.agentId}`);

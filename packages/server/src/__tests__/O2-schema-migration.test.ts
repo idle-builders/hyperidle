@@ -806,10 +806,10 @@ describe("O2 — Schema Migration & Route Rewrite", () => {
 				`INSERT INTO teams (id, product_id, capacity, active_bets, formed_at) VALUES ('team-conv', 'prod-conv', 3, 0, '${now}')`,
 			);
 			db.run(
-				`INSERT INTO agents (id, name, role, status, created_at) VALUES ('agent-conv', 'Agent', 'builder', 'idle', '${now}')`,
+				`INSERT INTO users (id, name, role, status, created_at) VALUES ('agent-conv', 'Agent', 'builder', 'idle', '${now}')`,
 			);
 			db.run(
-				`INSERT INTO agents (id, name, role, status, created_at) VALUES ('policy_engine', 'Policy Engine', 'system', 'active', '${now}')`,
+				`INSERT INTO users (id, name, role, status, created_at) VALUES ('policy_engine', 'Policy Engine', 'system', 'active', '${now}')`,
 			);
 			db.run(
 				`INSERT INTO threads (id, host_kind, host_id, initiator_id, participants, last_active_at, created_at)
@@ -868,7 +868,7 @@ describe("O2 — Schema Migration & Route Rewrite", () => {
 				`INSERT INTO teams (id, product_id, capacity, active_bets, formed_at) VALUES ('team-sess', 'prod-sess', 3, 0, '${now}')`,
 			);
 			db.run(
-				`INSERT INTO agents (id, name, role, status, created_at) VALUES ('agent-sess', 'Agent', 'builder', 'idle', '${now}')`,
+				`INSERT INTO users (id, name, role, status, created_at) VALUES ('agent-sess', 'Agent', 'builder', 'idle', '${now}')`,
 			);
 			db.run(
 				`INSERT INTO bets (id, product_id, team_id, pitch, status, created_at) VALUES ('bet-sess', 'prod-sess', 'team-sess', 'Pitch', 'committed', '${now}')`,

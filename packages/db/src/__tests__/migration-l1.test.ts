@@ -185,7 +185,7 @@ describe("L1a migration — legacy data projection (§5.3)", () => {
 		);
 		db.run(
 			sql.raw(
-				`INSERT INTO agents (id, name, role, status, created_at) VALUES ('u1', 'U', 'founder', 'active', '${now}')`,
+				`INSERT INTO users (id, kind, name, role, status, created_at) VALUES ('u1', 'human', 'U', 'founder', 'active', '${now}')`,
 			),
 		);
 		db.run(
@@ -216,12 +216,12 @@ describe("L1a migration — legacy data projection (§5.3)", () => {
 		);
 		db.run(
 			sql.raw(
-				`INSERT INTO agents (id, name, role, status, created_at) VALUES ('u1', 'U', 'founder', 'active', '${now}')`,
+				`INSERT INTO users (id, kind, name, role, status, created_at) VALUES ('u1', 'human', 'U', 'founder', 'active', '${now}')`,
 			),
 		);
 		db.run(
 			sql.raw(
-				`INSERT INTO agents (id, name, role, status, created_at) VALUES ('agent-1', 'A', 'builder', 'active', '${now}')`,
+				`INSERT INTO users (id, kind, name, role, status, created_at) VALUES ('agent-1', 'ai', 'A', 'builder', 'active', '${now}')`,
 			),
 		);
 		const reviewPayload = JSON.stringify({
@@ -265,7 +265,7 @@ describe("L1a migration — legacy data projection (§5.3)", () => {
 		);
 		db.run(
 			sql.raw(
-				`INSERT INTO agents (id, name, role, status, created_at) VALUES ('u1', 'U', 'founder', 'active', '${now}')`,
+				`INSERT INTO users (id, kind, name, role, status, created_at) VALUES ('u1', 'human', 'U', 'founder', 'active', '${now}')`,
 			),
 		);
 		db.run(
@@ -291,7 +291,7 @@ describe("L1a — host immutability triggers (Adv-C4)", () => {
 		const now = new Date().toISOString();
 		db.run(
 			sql.raw(
-				`INSERT INTO agents (id, name, role, status, created_at) VALUES ('u1', 'U', 'founder', 'active', '${now}')`,
+				`INSERT INTO users (id, kind, name, role, status, created_at) VALUES ('u1', 'human', 'U', 'founder', 'active', '${now}')`,
 			),
 		);
 		db.run(

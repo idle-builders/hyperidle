@@ -1,7 +1,6 @@
 import { eq } from "drizzle-orm";
 import type { PgDatabase, PgQueryResultHKT } from "drizzle-orm/pg-core";
 import {
-	agents,
 	bets,
 	factorySettings,
 	knowledgeItems,
@@ -10,6 +9,7 @@ import {
 	routines,
 	tasks,
 	teams,
+	users,
 } from "./schema.pg.js";
 import {
 	BUILTIN_ROUTINE_SEEDS,
@@ -49,10 +49,26 @@ export async function seedPg(db: SeedablePgDb): Promise<void> {
 		})
 		.onConflictDoNothing();
 
+	// P2: Seed the human founder user row.
 	await db
-		.insert(agents)
+		.insert(users)
+		.values({
+			id: "u-founder",
+			kind: "human",
+			name: "Founder",
+			role: "founder",
+			status: "active",
+			email: "founder@hyperidle.com",
+			maxConcurrentSessions: 0,
+			createdAt: now,
+		})
+		.onConflictDoNothing();
+
+	await db
+		.insert(users)
 		.values({
 			id: "seed-agent-builder",
+			kind: "ai",
 			name: "Nimmly Builder",
 			role: "builder",
 			status: "active",
@@ -63,9 +79,10 @@ export async function seedPg(db: SeedablePgDb): Promise<void> {
 		.onConflictDoNothing();
 
 	await db
-		.insert(agents)
+		.insert(users)
 		.values({
 			id: "seed-agent-cos",
+			kind: "ai",
 			name: "Chief of Staff",
 			role: "chief_of_staff",
 			status: "active",
@@ -74,13 +91,14 @@ export async function seedPg(db: SeedablePgDb): Promise<void> {
 		})
 		.onConflictDoNothing();
 
-	// L20: system:propagation agent — authors review threads when bets enter review.
-	// FK constraint: messages.senderId references agents.id. This agent must exist
+	// L20: system:propagation user — authors review threads when bets enter review.
+	// FK constraint: messages.senderId references users.id. This user must exist
 	// before any propagation-triggered review thread can be created.
 	await db
-		.insert(agents)
+		.insert(users)
 		.values({
 			id: "system:propagation",
+			kind: "ai",
 			name: "Propagation System",
 			role: "system",
 			status: "active",
@@ -91,18 +109,19 @@ export async function seedPg(db: SeedablePgDb): Promise<void> {
 
 	// Patch the existing Chief of Staff row with G1 facilitator metadata.
 	await db
-		.update(agents)
+		.update(users)
 		.set({
 			soulPromptPath: "docs/souls/chief-of-staff.md",
 			skills: JSON.stringify({ scope: null, tools: FACILITATOR_TOOLS }),
 		})
-		.where(eq(agents.id, "seed-agent-cos"));
+		.where(eq(users.id, "seed-agent-cos"));
 
 	// Product Manager — scoped to seed-product-1.
 	await db
-		.insert(agents)
+		.insert(users)
 		.values({
 			id: "seed-agent-pm-nimmly",
+			kind: "ai",
 			name: "Nimmly Product Manager",
 			role: "product_manager",
 			teamId: "seed-team-1",
@@ -120,9 +139,10 @@ export async function seedPg(db: SeedablePgDb): Promise<void> {
 	// Practice Facilitators — one per community of practice.
 	for (const community of PRACTICE_COMMUNITIES) {
 		await db
-			.insert(agents)
+			.insert(users)
 			.values({
 				id: `seed-agent-pf-${community}`,
+				kind: "ai",
 				name: `${COMMUNITY_DISPLAY_NAMES[community]} Practice Facilitator`,
 				role: "practice_facilitator",
 				teamId: null,
@@ -179,20 +199,8 @@ export async function seedPg(db: SeedablePgDb): Promise<void> {
 		.values({ key: "cost_cycle", value: "daily", updatedAt: now })
 		.onConflictDoNothing();
 
-	// M3 A1: Seed founder identity. Values come FROM the database at runtime
-	// rather than being hardcoded at each call site.
-	await db
-		.insert(factorySettings)
-		.values({ key: "founder_id", value: "u-founder", updatedAt: now })
-		.onConflictDoNothing();
-	await db
-		.insert(factorySettings)
-		.values({ key: "founder_name", value: "Founder", updatedAt: now })
-		.onConflictDoNothing();
-	await db
-		.insert(factorySettings)
-		.values({ key: "founder_email", value: "founder@hyperidle.com", updatedAt: now })
-		.onConflictDoNothing();
+	// P2: founder_id, founder_name, founder_email factorySettings keys removed.
+	// The human founder identity now lives in the users table (kind = 'human').
 
 	// --- H2: daily-digest scaffolding bet/task/routine ---
 	await db

@@ -48,7 +48,8 @@ describe("H4 AC1: `bun run setup --profile laptop`", () => {
 			const products = raw.prepare("SELECT id FROM products").all() as Array<{ id: string }>;
 			expect(products.length).toBeGreaterThan(0);
 
-			const agents = raw.prepare("SELECT id FROM agents").all() as Array<{ id: string }>;
+			// @lore P2: agents → users table
+			const agents = raw.prepare("SELECT id FROM users").all() as Array<{ id: string }>;
 			expect(agents.length).toBeGreaterThan(0);
 		} finally {
 			raw.close();
@@ -181,7 +182,8 @@ describe("H4 idempotency: laptop setup is safe to run twice", () => {
 		// still be there exactly once (onConflictDoNothing).
 		const raw = new Database(dbPath);
 		try {
-			const agents = raw.prepare("SELECT id FROM agents").all() as Array<{ id: string }>;
+			// @lore P2: agents → users table
+			const agents = raw.prepare("SELECT id FROM users").all() as Array<{ id: string }>;
 			expect(agents.length).toBeGreaterThan(0);
 			const products = raw
 				.prepare("SELECT COUNT(*) AS n FROM products WHERE id = 'seed-product-1'")

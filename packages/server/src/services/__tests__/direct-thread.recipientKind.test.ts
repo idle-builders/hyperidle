@@ -6,7 +6,7 @@
  * on the created thread. Default to "agent" for backward compatibility.
  */
 
-import { agents, createTestDb, threads } from "@hyperidle/db";
+import { createTestDb, threads, users } from "@hyperidle/db";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { findOrCreateDirectThread } from "../direct-thread.js";
 
@@ -17,22 +17,25 @@ describe("findOrCreateDirectThread — recipientKind (Q1 §3.1)", () => {
 
 	beforeEach(() => {
 		db = createTestDb();
-		// Seed two agents so FK constraints on initiatorId/participants are met
-		db.insert(agents)
+		// Seed two users so FK constraints on initiatorId/participants are met
+		// @lore P2: agents → users table; kind:"human" for founder, "ai" for AI agents
+		db.insert(users)
 			.values({
 				id: "sender-1",
 				name: "Sender Agent",
 				role: "founder",
 				status: "active",
+				kind: "human",
 				createdAt: NOW,
 			})
 			.run();
-		db.insert(agents)
+		db.insert(users)
 			.values({
 				id: "agent-recipient",
 				name: "Agent Recipient",
 				role: "builder",
 				status: "active",
+				kind: "ai",
 				createdAt: NOW,
 			})
 			.run();

@@ -15,7 +15,7 @@ const mockSettings: SettingsData = {
 		{ id: "p2", name: "SideProject", active: false },
 		{ id: "p3", name: "Internal Tools", active: true },
 	],
-	agents: [
+	users: [
 		{ id: "a1", name: "Builder Agent", autonomyLevel: "supervised", paused: false },
 		{ id: "a2", name: "Review Agent", autonomyLevel: "autonomous", paused: true },
 		{ id: "a3", name: "Deploy Agent", autonomyLevel: "manual", paused: false },

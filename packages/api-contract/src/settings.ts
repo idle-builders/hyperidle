@@ -29,14 +29,19 @@ export interface SettingsProduct {
 	readonly active: boolean;
 }
 
-/** Agent entry in settings response. */
-export interface SettingsAgent {
+/** User (AI) entry in settings response. P2: renamed from SettingsAgent. */
+export interface SettingsUser {
 	readonly id: string;
 	readonly name: string;
 	readonly autonomyLevel: AutonomyLevel;
-	/** Derived from agent.status === "paused". */
+	/** Derived from user.status === "paused". */
 	readonly paused: boolean;
 }
+
+/**
+ * @deprecated Use SettingsUser. Kept for backward compatibility during transition.
+ */
+export type SettingsAgent = SettingsUser;
 
 /** Notification preferences in settings response. */
 export interface SettingsNotifications {
@@ -54,6 +59,7 @@ export interface SettingsNotifications {
 export interface SettingsResponse {
 	readonly profile: SettingsProfile;
 	readonly products: readonly SettingsProduct[];
-	readonly agents: readonly SettingsAgent[];
+	/** P2: renamed from `agents`. Contains AI users only. */
+	readonly users: readonly SettingsUser[];
 	readonly notifications: SettingsNotifications;
 }

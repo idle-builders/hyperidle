@@ -1,5 +1,4 @@
 import {
-	agents,
 	bets,
 	createTestDb,
 	type HyperIdleDb,
@@ -10,6 +9,7 @@ import {
 	tasks,
 	teams,
 	threads,
+	users,
 } from "@hyperidle/db";
 // @lore O2: sessions.cost stripped; cost tracking moved to agents.costActual.
 import { EventBus } from "@hyperidle/shared";
@@ -49,7 +49,7 @@ function insertAgent(
 	status = "active",
 ): void {
 	const now = new Date().toISOString();
-	db.insert(agents)
+	db.insert(users)
 		.values({
 			id,
 			name: `Agent ${id}`,
@@ -578,7 +578,7 @@ describe("Handoff Protocol", () => {
 		});
 	});
 
-	describe("I1 H3: handoff does NOT zero agents.costActual", () => {
+	describe("I1 H3: handoff does NOT zero users.costActual", () => {
 		// @lore O2: sessions.cost stripped; cost tracking moved to agents.costActual.
 		// The test now verifies that agents.costActual is preserved across a handoff.
 		it("preserves the agent's accumulated costActual on handoff", async () => {
@@ -588,7 +588,7 @@ describe("Handoff Protocol", () => {
 			insertSession(db, "session-h3", "task-h3", "agent-a");
 
 			// Pre-accumulate cost on the agent.
-			db.update(agents).set({ costActual: 150 }).where(eq(agents.id, "agent-a")).run();
+			db.update(users).set({ costActual: 150 }).where(eq(users.id, "agent-a")).run();
 
 			const ctx = makeSessionContext("session-h3", "agent-a", "task-h3");
 			await handoff(db, eventBus, {
@@ -601,7 +601,7 @@ describe("Handoff Protocol", () => {
 			expect(session?.state).toBe("done");
 			expect(session?.endedAt).toBeTruthy();
 			// Key assertion: agents.costActual must survive the handoff unchanged.
-			const agent = db.select().from(agents).where(eq(agents.id, "agent-a")).get();
+			const agent = db.select().from(users).where(eq(users.id, "agent-a")).get();
 			expect(agent?.costActual).toBe(150);
 		});
 	});
@@ -615,7 +615,7 @@ describe("Handoff Protocol", () => {
 			insertSession(db, "session-atomic", "task-atomic", "agent-a");
 			// Bump the agent costActual so we can prove it survives the rollback.
 			// @lore O2: sessions.cost stripped; rollback proof via agents.costActual.
-			db.update(agents).set({ costActual: 250 }).where(eq(agents.id, "agent-a")).run();
+			db.update(users).set({ costActual: 250 }).where(eq(users.id, "agent-a")).run();
 
 			// Force the `messages` INSERT inside the handoff transaction to
 			// throw by dropping the referenced thread row. We temporarily
@@ -652,7 +652,7 @@ describe("Handoff Protocol", () => {
 			expect(session?.state).toBe("active");
 			expect(session?.endedAt).toBeFalsy();
 			// @lore O2: sessions.cost stripped; prove rollback via agents.costActual.
-			const agentRow = db.select().from(agents).where(eq(agents.id, "agent-a")).get();
+			const agentRow = db.select().from(users).where(eq(users.id, "agent-a")).get();
 			expect(agentRow?.costActual).toBe(250);
 
 			// Task unchanged: ownership still agent-a, auditTrail has no

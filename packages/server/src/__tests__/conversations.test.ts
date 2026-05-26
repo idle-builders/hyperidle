@@ -1,11 +1,11 @@
 import {
-	agents,
 	createTestDb,
 	type HyperIdleDb,
 	items,
 	products,
 	teams,
 	threads,
+	users,
 } from "@hyperidle/db";
 import type { ItemCreatedEvent } from "@hyperidle/shared";
 import { EventBus } from "@hyperidle/shared";
@@ -53,7 +53,7 @@ describe("Conversations Endpoints (E2)", () => {
 		// requires the agent to exist (legacy `responses.approver_id` had no
 		// FK). Seeding the synthetic agent satisfies the constraint without
 		// changing test intent.
-		db.insert(agents)
+		db.insert(users)
 			.values({
 				id: "policy_engine",
 				name: "Policy Engine",
@@ -350,7 +350,7 @@ describe("Conversations Endpoints (E2)", () => {
 		beforeEach(() => {
 			// Seed a founder approver and a non-founder review author so the
 			// canonical route's authz check (founder + not-self) passes.
-			db.insert(agents)
+			db.insert(users)
 				.values({
 					id: "founder-1",
 					name: "Founder",
@@ -359,7 +359,7 @@ describe("Conversations Endpoints (E2)", () => {
 					createdAt: new Date().toISOString(),
 				})
 				.run();
-			db.insert(agents)
+			db.insert(users)
 				.values({
 					id: "agent-1",
 					name: "Agent",
@@ -510,7 +510,7 @@ describe("Conversations Endpoints (E2)", () => {
 					createdAt: new Date().toISOString(),
 				})
 				.run();
-			db.insert(agents)
+			db.insert(users)
 				.values({
 					id: "agent-growth",
 					name: "Growth Agent",
@@ -549,7 +549,7 @@ describe("Conversations Endpoints (E2)", () => {
 					createdAt: new Date().toISOString(),
 				})
 				.run();
-			db.insert(agents)
+			db.insert(users)
 				.values({
 					id: "agent-builder",
 					name: "Builder Agent",

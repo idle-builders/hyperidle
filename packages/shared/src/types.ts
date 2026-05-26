@@ -80,24 +80,38 @@ export type ModelTier = "reasoning" | "workhorse" | "fast";
 export type TriggerType = "heartbeat" | "calendar" | "event" | "continuous";
 
 /**
- * Kernel agent roles (assigned to agents that run inside the kernel runtime).
+ * Kernel user roles (assigned to AI users that run inside the kernel runtime).
  * Fabric roles (practice_facilitator, chief_of_staff, brand_voice) live in
- * FABRIC_AGENT_ROLES and are composed into AGENT_ROLES below.
+ * FABRIC_USER_ROLES and are composed into USER_ROLES below.
  *
- * @lore O1: split from the flat AgentRole union as part of kernel/strategy
+ * @lore O1: split from the flat UserRole union as part of kernel/strategy
  * separation. Kernel services only care about kernel roles; fabric/UI code
- * uses AGENT_ROLES for the full composed list.
+ * uses USER_ROLES for the full composed list.
+ * @lore P2: Renamed from KERNEL_AGENT_ROLES / AGENT_ROLES to KERNEL_USER_ROLES / USER_ROLES
+ * as part of the Unified User primitive rename.
  */
-export const KERNEL_AGENT_ROLES = ["builder", "growth", "product_manager"] as const;
-export const FABRIC_AGENT_ROLES = [
-	"practice_facilitator",
-	"chief_of_staff",
-	"brand_voice",
-] as const;
-export const AGENT_ROLES = [...KERNEL_AGENT_ROLES, ...FABRIC_AGENT_ROLES] as const;
-export type AgentRole = (typeof AGENT_ROLES)[number];
+export const KERNEL_USER_ROLES = ["builder", "growth", "product_manager"] as const;
+export const FABRIC_USER_ROLES = ["practice_facilitator", "chief_of_staff", "brand_voice"] as const;
+export const USER_ROLES = [...KERNEL_USER_ROLES, ...FABRIC_USER_ROLES] as const;
+export type UserRole = (typeof USER_ROLES)[number];
 
-export type AgentStatus = "active" | "paused" | "retired";
+export type UserStatus = "active" | "paused" | "retired";
+
+/**
+ * P2: Human vs AI kind discriminator.
+ * "human" = a real person (the founder); "ai" = an AI agent.
+ */
+export const USER_KINDS = ["human", "ai"] as const;
+export type UserKind = (typeof USER_KINDS)[number];
+
+/**
+ * P2: OrgChart edge mechanisms.
+ * "direct" = edge targets a specific userId,
+ * "function" = edge targets a role string,
+ * "team" = edge targets a teamId.
+ */
+export const ORG_EDGE_MECHANISMS = ["direct", "function", "team"] as const;
+export type OrgEdgeMechanism = (typeof ORG_EDGE_MECHANISMS)[number];
 
 /**
  * Kernel-level scope kinds for knowledge items. Closed enum — adding a new

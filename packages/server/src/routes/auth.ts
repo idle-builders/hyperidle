@@ -1,7 +1,7 @@
 /**
  * Authentication helper routes.
  *
- * `GET /api/auth/me` returns the authenticated user's identity from factorySettings.
+ * `GET /api/auth/me` returns the authenticated user's identity from the users table.
  * Always mounted (regardless of WebSocket support).
  *
  * `POST /api/auth/ws-token` mints a one-shot upgrade token that the client
@@ -32,7 +32,7 @@
  * all deployments, not just those with WebSocket support.
  */
 
-import { factorySettings, type HyperIdleDb } from "@hyperidle/db";
+import { type HyperIdleDb, users } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
 import { Hono } from "hono";
 import type { UpgradeTokenStore } from "../auth/upgrade-token-store.js";
@@ -44,8 +44,8 @@ export function createAuthRoutes(
 ): Hono<HyperIdleEnv> {
 	const router = new Hono<HyperIdleEnv>();
 
-	// GET /me — returns the authenticated founder's identity.
-	// M3 A4: always available, reads from factorySettings when db is present.
+	// GET /me — returns the authenticated user's identity.
+	// P2: reads from users table instead of factorySettings founder_name/founder_email.
 	router.get("/me", (c) => {
 		const userId = c.get("userId") ?? "u-founder";
 
@@ -59,22 +59,13 @@ export function createAuthRoutes(
 			});
 		}
 
-		const nameRow = db
-			.select()
-			.from(factorySettings)
-			.where(eq(factorySettings.key, "founder_name"))
-			.get();
-		const emailRow = db
-			.select()
-			.from(factorySettings)
-			.where(eq(factorySettings.key, "founder_email"))
-			.get();
+		const userRow = db.select().from(users).where(eq(users.id, userId)).get();
 
 		return c.json({
 			id: userId,
-			name: nameRow?.value ?? "Founder",
-			email: emailRow?.value ?? "",
-			avatarUrl: null,
+			name: userRow?.name ?? "Founder",
+			email: userRow?.email ?? "",
+			avatarUrl: userRow?.avatarUrl ?? null,
 		});
 	});
 

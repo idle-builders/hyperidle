@@ -11,7 +11,6 @@
 
 import { describe, expect, it } from "vitest";
 import {
-	insertAgentSchema,
 	insertArtifactSchema,
 	insertBetSchema,
 	insertItemSchema,
@@ -23,8 +22,7 @@ import {
 	insertTaskSchema,
 	insertTeamSchema,
 	insertThreadSchema,
-	selectAgentSchema,
-	selectAgentSkillSchema,
+	insertUserSchema,
 	selectArtifactSchema,
 	selectBetSchema,
 	selectFactorySettingSchema,
@@ -43,6 +41,8 @@ import {
 	selectTaskSchema,
 	selectTeamSchema,
 	selectThreadSchema,
+	selectUserSchema,
+	selectUserSkillSchema,
 } from "../zod-schemas.js";
 
 describe("A. drizzle-zod base schemas", () => {
@@ -66,9 +66,9 @@ describe("A. drizzle-zod base schemas", () => {
 			expect(valid.success).toBe(true);
 		});
 
-		it("selectAgentSchema is a valid Zod schema", () => {
-			expect(selectAgentSchema).toBeDefined();
-			expect(typeof selectAgentSchema.parse).toBe("function");
+		it("selectUserSchema is a valid Zod schema", () => {
+			expect(selectUserSchema).toBeDefined();
+			expect(typeof selectUserSchema.parse).toBe("function");
 		});
 
 		it("selectTeamSchema is a valid Zod schema", () => {
@@ -132,9 +132,9 @@ describe("A. drizzle-zod base schemas", () => {
 			expect(typeof selectItemSchema.parse).toBe("function");
 		});
 
-		it("selectAgentSkillSchema is a valid Zod schema", () => {
-			expect(selectAgentSkillSchema).toBeDefined();
-			expect(typeof selectAgentSkillSchema.parse).toBe("function");
+		it("selectUserSkillSchema is a valid Zod schema", () => {
+			expect(selectUserSkillSchema).toBeDefined();
+			expect(typeof selectUserSkillSchema.parse).toBe("function");
 		});
 
 		it("selectFactorySettingSchema is a valid Zod schema", () => {
@@ -184,9 +184,9 @@ describe("A. drizzle-zod base schemas", () => {
 			expect(typeof insertProductSchema.parse).toBe("function");
 		});
 
-		it("insertAgentSchema is a valid Zod schema", () => {
-			expect(insertAgentSchema).toBeDefined();
-			expect(typeof insertAgentSchema.parse).toBe("function");
+		it("insertUserSchema is a valid Zod schema", () => {
+			expect(insertUserSchema).toBeDefined();
+			expect(typeof insertUserSchema.parse).toBe("function");
 		});
 
 		it("insertTeamSchema is a valid Zod schema", () => {

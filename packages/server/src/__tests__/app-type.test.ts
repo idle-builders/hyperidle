@@ -70,7 +70,8 @@ describe("E3. Client paths match expected route structure", () => {
 				products: { $get: () => Promise<Response> };
 				tasks: { $get: () => Promise<Response> };
 				sessions: { $get: () => Promise<Response> };
-				agents: { $get: () => Promise<Response> };
+				/** @lore P2: renamed from agents → users */
+				users: { $get: () => Promise<Response> };
 				settings: { $get: () => Promise<Response> };
 				knowledge: { $get: () => Promise<Response> };
 			};
@@ -83,7 +84,7 @@ describe("E3. Client paths match expected route structure", () => {
 		expect(client.api.products).toBeDefined();
 		expect(client.api.tasks).toBeDefined();
 		expect(client.api.sessions).toBeDefined();
-		expect(client.api.agents).toBeDefined();
+		expect(client.api.users).toBeDefined();
 		expect(client.api.settings).toBeDefined();
 		expect(client.api.knowledge).toBeDefined();
 	});

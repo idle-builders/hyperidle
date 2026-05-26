@@ -1,7 +1,7 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { type HyperIdleDb, type KnowledgeItem, tasks } from "@hyperidle/db";
-import type { AgentRole } from "@hyperidle/shared";
+import type { UserRole } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
 import { list } from "./knowledge-repository.js";
 import { rankAndBudget } from "./relevance-scoring.js";
@@ -15,7 +15,7 @@ export interface MaterializationConfig {
 	sessionId: string;
 	taskId: string;
 	agentId: string;
-	agentRole: AgentRole;
+	agentRole: UserRole;
 	productId: string;
 }
 

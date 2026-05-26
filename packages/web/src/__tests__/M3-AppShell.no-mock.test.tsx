@@ -48,7 +48,7 @@ describe("M3 — AppShell: no 'u-founder' in DOM (A11)", () => {
 					// /api/settings response (for other fetch calls)
 					profile: { name: "Real User", email: "real@hyperidle.dev", avatarUrl: null },
 					products: [],
-					agents: [],
+					users: [],
 					notifications: {
 						reviewAlerts: true,
 						costAlerts: true,

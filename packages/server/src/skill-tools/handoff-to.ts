@@ -1,4 +1,4 @@
-import { agents } from "@hyperidle/db";
+import { users } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
 import z from "zod";
 import { type HandoffMetadata, type HandoffParams, handoff } from "../services/handoff-protocol.js";
@@ -36,7 +36,7 @@ async function handler(args: HandoffToInput, ctx: ToolContext): Promise<ToolResu
 	// Pre-validate target agent so we can return a structured NOT_FOUND
 	// instead of letting the service throw.
 	if (input.toAgent) {
-		const target = ctx.db.select().from(agents).where(eq(agents.id, input.toAgent)).get();
+		const target = ctx.db.select().from(users).where(eq(users.id, input.toAgent)).get();
 		if (!target) {
 			return err("NOT_FOUND", `Target agent not found: ${input.toAgent}`);
 		}

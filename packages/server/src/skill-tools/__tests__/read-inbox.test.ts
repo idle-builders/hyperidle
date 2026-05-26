@@ -1,13 +1,13 @@
 import * as os from "node:os";
 import * as path from "node:path";
 import {
-	agents,
 	createTestDb,
 	type HyperIdleDb,
 	messages,
 	products,
 	teams,
 	threads,
+	users,
 } from "@hyperidle/db";
 import { EventBus } from "@hyperidle/shared";
 import { beforeEach, describe, expect, it } from "vitest";
@@ -20,7 +20,7 @@ function seedFactory(db: HyperIdleDb): void {
 	db.insert(teams)
 		.values({ id: "t1", productId: "p1", capacity: 5, activeBets: 0, formedAt: now })
 		.run();
-	db.insert(agents)
+	db.insert(users)
 		.values([
 			{
 				id: "agent-a",

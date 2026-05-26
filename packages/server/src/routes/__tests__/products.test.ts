@@ -11,15 +11,7 @@
  * 7. GET /api/products/:id with teams.cost_cap = null returns burn.costCap: null.
  */
 
-import {
-	agents,
-	bets,
-	createTestDb,
-	type HyperIdleDb,
-	products,
-	tasks,
-	teams,
-} from "@hyperidle/db";
+import { bets, createTestDb, type HyperIdleDb, products, tasks, teams, users } from "@hyperidle/db";
 import { EventBus } from "@hyperidle/shared";
 import type { Hono } from "hono";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -186,7 +178,7 @@ describe("GET /api/products/:id", () => {
 				costActual: 4200,
 			})
 			.run();
-		db.insert(agents)
+		db.insert(users)
 			.values({
 				id: "agent-lead",
 				name: "Lead Agent",
@@ -196,7 +188,7 @@ describe("GET /api/products/:id", () => {
 				createdAt: NOW,
 			})
 			.run();
-		db.insert(agents)
+		db.insert(users)
 			.values({
 				id: "agent-member",
 				name: "Alice Agent",

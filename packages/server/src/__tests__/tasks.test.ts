@@ -1,12 +1,4 @@
-import {
-	agents,
-	bets,
-	createTestDb,
-	type HyperIdleDb,
-	products,
-	tasks,
-	teams,
-} from "@hyperidle/db";
+import { bets, createTestDb, type HyperIdleDb, products, tasks, teams, users } from "@hyperidle/db";
 import { EventBus } from "@hyperidle/shared";
 import type { Hono } from "hono";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -49,10 +41,10 @@ describe("Task Endpoints (E3)", () => {
 			})
 			.run();
 		// Seed agents for FK references
-		db.insert(agents)
+		db.insert(users)
 			.values({ id: "agent-1", name: "Agent 1", role: "builder", status: "active", createdAt: now })
 			.run();
-		db.insert(agents)
+		db.insert(users)
 			.values({ id: "agent-2", name: "Agent 2", role: "builder", status: "active", createdAt: now })
 			.run();
 	});

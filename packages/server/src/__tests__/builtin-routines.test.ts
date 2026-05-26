@@ -1,5 +1,4 @@
 import {
-	agents,
 	bets,
 	createTestDb,
 	factorySettings,
@@ -10,6 +9,7 @@ import {
 	products,
 	routines,
 	teams,
+	users,
 } from "@hyperidle/db";
 import {
 	BUILTIN_ROUTINE_IDS,
@@ -44,7 +44,7 @@ function seedOwners(db: HyperIdleDb): void {
 			formedAt: NOW_ISO,
 		})
 		.run();
-	db.insert(agents)
+	db.insert(users)
 		.values({
 			id: "seed-agent-cos",
 			name: "Chief of Staff",
@@ -54,7 +54,7 @@ function seedOwners(db: HyperIdleDb): void {
 			createdAt: NOW_ISO,
 		})
 		.run();
-	db.insert(agents)
+	db.insert(users)
 		.values({
 			id: "seed-agent-pf-facilitation",
 			name: "Facilitation Practice Facilitator",
@@ -64,7 +64,7 @@ function seedOwners(db: HyperIdleDb): void {
 			createdAt: NOW_ISO,
 		})
 		.run();
-	db.insert(agents)
+	db.insert(users)
 		.values({
 			id: "seed-agent-pm-nimmly",
 			name: "Nimmly Product Manager",

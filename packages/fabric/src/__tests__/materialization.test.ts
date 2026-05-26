@@ -1,7 +1,6 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import {
-	agents,
 	bets,
 	createTestDb,
 	type HyperIdleDb,
@@ -10,6 +9,7 @@ import {
 	tasks,
 	teams,
 	threads,
+	users,
 } from "@hyperidle/db";
 import { decode } from "@hyperidle/shared";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -48,7 +48,7 @@ function seedTestData(db: HyperIdleDb): {
 			formedAt: now,
 		})
 		.run();
-	db.insert(agents)
+	db.insert(users)
 		.values({
 			id: agentId,
 			name: "BuilderBot",

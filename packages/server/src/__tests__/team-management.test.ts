@@ -1,5 +1,4 @@
 import {
-	agents,
 	bets,
 	createTestDb,
 	type HyperIdleDb,
@@ -8,6 +7,7 @@ import {
 	sessions,
 	tasks,
 	teams,
+	users,
 } from "@hyperidle/db";
 import { ActiveRoutinesError } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
@@ -30,7 +30,7 @@ function seedProduct(db: HyperIdleDb): void {
 }
 
 function seedAgent(db: HyperIdleDb, id: string): void {
-	db.insert(agents)
+	db.insert(users)
 		.values({
 			id,
 			name: `Agent-${id}`,
@@ -68,9 +68,9 @@ describe("C4: Team Management", () => {
 			expect(team.activeBets).toBe(0);
 			expect(team.dissolvedAt).toBeNull();
 
-			const a1 = db.select().from(agents).where(eq(agents.id, "a1")).get();
-			const a2 = db.select().from(agents).where(eq(agents.id, "a2")).get();
-			const a3 = db.select().from(agents).where(eq(agents.id, "a3")).get();
+			const a1 = db.select().from(users).where(eq(users.id, "a1")).get();
+			const a2 = db.select().from(users).where(eq(users.id, "a2")).get();
+			const a3 = db.select().from(users).where(eq(users.id, "a3")).get();
 
 			expect(a1?.teamId).toBe(team.id);
 			expect(a2?.teamId).toBe(team.id);
@@ -102,7 +102,7 @@ describe("C4: Team Management", () => {
 
 			addMember(db, team.id, "a1");
 
-			const agent = db.select().from(agents).where(eq(agents.id, "a1")).get();
+			const agent = db.select().from(users).where(eq(users.id, "a1")).get();
 			expect(agent?.teamId).toBe(team.id);
 		});
 	});
@@ -138,7 +138,7 @@ describe("C4: Team Management", () => {
 
 			removeMember(db, team.id, "a1");
 
-			const agent = db.select().from(agents).where(eq(agents.id, "a1")).get();
+			const agent = db.select().from(users).where(eq(users.id, "a1")).get();
 			expect(agent?.teamId).toBeNull();
 		});
 
@@ -161,7 +161,7 @@ describe("C4: Team Management", () => {
 
 			removeMember(db, team.id, "a1");
 
-			const agent = db.select().from(agents).where(eq(agents.id, "a1")).get();
+			const agent = db.select().from(users).where(eq(users.id, "a1")).get();
 			expect(agent?.teamId).toBeNull();
 		});
 	});
@@ -210,8 +210,8 @@ describe("C4: Team Management", () => {
 			const dissolved = db.select().from(teams).where(eq(teams.id, team.id)).get();
 			expect(dissolved?.dissolvedAt).not.toBeNull();
 
-			const a1 = db.select().from(agents).where(eq(agents.id, "a1")).get();
-			const a2 = db.select().from(agents).where(eq(agents.id, "a2")).get();
+			const a1 = db.select().from(users).where(eq(users.id, "a1")).get();
+			const a2 = db.select().from(users).where(eq(users.id, "a2")).get();
 			expect(a1?.teamId).toBeNull();
 			expect(a2?.teamId).toBeNull();
 		});

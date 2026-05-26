@@ -1,5 +1,4 @@
 import {
-	agents,
 	bets,
 	createTestDb,
 	type HyperIdleDb,
@@ -8,6 +7,7 @@ import {
 	tasks,
 	teams,
 	threads,
+	users,
 } from "@hyperidle/db";
 import {
 	clearDeduplicationCache,
@@ -48,7 +48,7 @@ function seed(db: HyperIdleDb): void {
 			formedAt: NOW,
 		})
 		.run();
-	db.insert(agents)
+	db.insert(users)
 		.values({
 			id: "a1",
 			name: "A1",
@@ -61,7 +61,7 @@ function seed(db: HyperIdleDb): void {
 			createdAt: NOW,
 		})
 		.run();
-	db.insert(agents)
+	db.insert(users)
 		.values({
 			id: "a2",
 			name: "A2",

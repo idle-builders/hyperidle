@@ -1,7 +1,6 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import {
-	agents,
 	bets,
 	createTestDb,
 	type HyperIdleDb,
@@ -13,6 +12,7 @@ import {
 	tasks,
 	teams,
 	threads,
+	users,
 } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -60,7 +60,7 @@ function setupSessionData(db: HyperIdleDb): {
 
 	db.insert(products).values({ id: productId, name: "Test", phase: "build", createdAt: now }).run();
 	db.insert(teams).values({ id: teamId, productId, capacity: 5, formedAt: now }).run();
-	db.insert(agents)
+	db.insert(users)
 		.values({
 			id: agentId,
 			name: "Test Agent",

@@ -12,8 +12,6 @@
 
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 import {
-	agentSkills,
-	agents,
 	artifacts,
 	bets,
 	factorySettings,
@@ -31,12 +29,14 @@ import {
 	tasks,
 	teams,
 	threads,
+	userSkills,
+	users,
 } from "./schema.js";
 
 // ─── Select schemas ───────────────────────────────────────────────────────────
 
 export const selectProductSchema = createSelectSchema(products);
-export const selectAgentSchema = createSelectSchema(agents);
+export const selectUserSchema = createSelectSchema(users);
 export const selectTeamSchema = createSelectSchema(teams);
 export const selectBetSchema = createSelectSchema(bets);
 export const selectTaskSchema = createSelectSchema(tasks);
@@ -45,7 +45,7 @@ export const selectRoutineSchema = createSelectSchema(routines);
 export const selectThreadSchema = createSelectSchema(threads);
 export const selectMessageSchema = createSelectSchema(messages);
 export const selectItemSchema = createSelectSchema(items);
-export const selectAgentSkillSchema = createSelectSchema(agentSkills);
+export const selectUserSkillSchema = createSelectSchema(userSkills);
 export const selectFactorySettingSchema = createSelectSchema(factorySettings);
 export const selectKnowledgeItemSchema = createSelectSchema(knowledgeItems);
 export const selectKnowledgeEditLogSchema = createSelectSchema(knowledgeEditLog);
@@ -58,8 +58,9 @@ export const selectArtifactSchema = createSelectSchema(artifacts);
 // ─── Insert schemas ───────────────────────────────────────────────────────────
 
 export const insertProductSchema = createInsertSchema(products);
-export const insertAgentSchema = createInsertSchema(agents);
+export const insertUserSchema = createInsertSchema(users);
 export const insertTeamSchema = createInsertSchema(teams);
+
 export const insertBetSchema = createInsertSchema(bets);
 export const insertTaskSchema = createInsertSchema(tasks);
 export const insertSessionSchema = createInsertSchema(sessions);

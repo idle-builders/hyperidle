@@ -14,7 +14,7 @@
  * /:id handler as if "coach" were a thread id. See app.ts for mount order.
  */
 
-import { agents, type HyperIdleDb, messages, threads } from "@hyperidle/db";
+import { type HyperIdleDb, messages, threads, users } from "@hyperidle/db";
 import type { EventBus, HostKind, Message, MessageType, Thread } from "@hyperidle/shared";
 import { and, eq } from "drizzle-orm";
 import { Hono } from "hono";
@@ -33,8 +33,8 @@ const COC_AGENT_ROLE = "chief_of_staff";
  * userId set by createAuthMiddleware(db).
  *
  * @lore M3 A6: DEFAULT_FOUNDER_ID constant deleted. The fallback is now the
- * auth context userId (set from factorySettings.founder_id). This ensures
- * the coach thread is created for the configured founder, not a hardcoded literal.
+ * auth context userId (resolved from users WHERE kind = 'human' LIMIT 1). This
+ * ensures the coach thread is created for the configured founder, not a hardcoded literal.
  */
 function readSenderId(c: {
 	req: { header: (k: string) => string | undefined };
@@ -115,7 +115,7 @@ function buildIdentities(
 	db: HyperIdleDb,
 	userId: string,
 ): Record<string, { name: string; role?: string }> {
-	const userRow = db.select().from(agents).where(eq(agents.id, userId)).get();
+	const userRow = db.select().from(users).where(eq(users.id, userId)).get();
 	const userName = userRow?.name ?? "You";
 	const userRole = userRow?.role;
 

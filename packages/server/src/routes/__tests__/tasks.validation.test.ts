@@ -7,15 +7,7 @@
  * `transitionTask(...)` and return 409 (InvalidTransitionError) — not 400.
  */
 
-import {
-	agents,
-	bets,
-	createTestDb,
-	type HyperIdleDb,
-	products,
-	tasks,
-	teams,
-} from "@hyperidle/db";
+import { bets, createTestDb, type HyperIdleDb, products, tasks, teams, users } from "@hyperidle/db";
 import { API_ERROR_CODES, EventBus } from "@hyperidle/shared";
 import type { Hono } from "hono";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -54,7 +46,7 @@ describe("I2 V1 — POST /api/tasks/:id/transition Zod enum", () => {
 				createdAt: now,
 			})
 			.run();
-		db.insert(agents)
+		db.insert(users)
 			.values({ id: "a1", name: "A", role: "builder", status: "active", createdAt: now })
 			.run();
 		db.insert(tasks)

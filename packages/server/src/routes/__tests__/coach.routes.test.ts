@@ -14,7 +14,7 @@
  * /api/threads/coach route (not yet mounted — will FAIL until green phase).
  */
 
-import { agents, createTestDb, type HyperIdleDb, products, teams, threads } from "@hyperidle/db";
+import { createTestDb, type HyperIdleDb, products, teams, threads, users } from "@hyperidle/db";
 import { classifyThreadConfiguration, EventBus } from "@hyperidle/shared";
 import { and, eq } from "drizzle-orm";
 import type { Hono } from "hono";
@@ -53,12 +53,12 @@ function setupApp(): AppCtx {
 		.run();
 
 	// Seed founder user
-	db.insert(agents)
+	db.insert(users)
 		.values({ id: "u-founder", name: "Founder", role: "founder", status: "active", createdAt: now })
 		.run();
 
 	// Seed a second user for X-Identity tests
-	db.insert(agents)
+	db.insert(users)
 		.values({
 			id: "u-other",
 			name: "Other User",
@@ -72,7 +72,7 @@ function setupApp(): AppCtx {
 	// @lore L21: The architecture plan used "agent-coc" but the actual seed
 	// and reviewer feedback use "seed-agent-cos". The coach route constant
 	// must match the real seeded agent id.
-	db.insert(agents)
+	db.insert(users)
 		.values({
 			id: "seed-agent-cos",
 			name: "Chief of Staff",

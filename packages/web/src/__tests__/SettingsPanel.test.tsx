@@ -13,7 +13,7 @@ const defaultSettings: SettingsData = {
 		{ id: "p1", name: "HyperIdle", active: true },
 		{ id: "p2", name: "SideProject", active: false },
 	],
-	agents: [
+	users: [
 		{ id: "a1", name: "Builder Agent", autonomyLevel: "supervised", paused: false },
 		{ id: "a2", name: "Review Agent", autonomyLevel: "autonomous", paused: true },
 	],

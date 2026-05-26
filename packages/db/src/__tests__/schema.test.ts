@@ -2,8 +2,6 @@ import { eq, sql } from "drizzle-orm";
 import { beforeEach, describe, expect, it } from "vitest";
 import type { HyperIdleDb } from "../connection.js";
 import {
-	agentSkills,
-	agents,
 	bets,
 	factorySettings,
 	items,
@@ -16,6 +14,8 @@ import {
 	tasks,
 	teams,
 	threads,
+	userSkills,
+	users,
 } from "../schema.js";
 import { createTestDb } from "../test-utils.js";
 
@@ -40,8 +40,9 @@ describe("A2: Database Schema", () => {
 
 			expect(tableNames).toEqual(
 				expect.arrayContaining([
-					"agents",
-					"agent_skills",
+					// @lore P2: agents → users, agent_skills → user_skills
+					"users",
+					"user_skills",
 					"bets",
 					"factory_settings",
 					"items",
@@ -83,11 +84,12 @@ describe("A2: Database Schema", () => {
 			});
 		});
 
-		it("inserts and reads agents", () => {
+		it("inserts and reads users (AI kind)", () => {
 			const now = new Date().toISOString();
-			db.insert(agents)
+			db.insert(users)
 				.values({
 					id: "agent-1",
+					kind: "ai",
 					name: "Builder",
 					role: "builder",
 					status: "active",
@@ -96,10 +98,11 @@ describe("A2: Database Schema", () => {
 				})
 				.run();
 
-			const result = db.select().from(agents).where(eq(agents.id, "agent-1")).get();
+			const result = db.select().from(users).where(eq(users.id, "agent-1")).get();
 
 			expect(result).toMatchObject({
 				id: "agent-1",
+				kind: "ai",
 				name: "Builder",
 				role: "builder",
 				status: "active",
@@ -252,9 +255,10 @@ describe("A2: Database Schema", () => {
 			db.insert(teams)
 				.values({ id: "team-1", productId: "prod-1", capacity: 5, activeBets: 0, formedAt: now })
 				.run();
-			db.insert(agents)
+			db.insert(users)
 				.values({
 					id: "agent-1",
+					kind: "ai",
 					name: "Builder",
 					role: "builder",
 					status: "active",
@@ -308,9 +312,10 @@ describe("A2: Database Schema", () => {
 
 		it("inserts and reads routines", () => {
 			const now = new Date().toISOString();
-			db.insert(agents)
+			db.insert(users)
 				.values({
 					id: "agent-1",
+					kind: "ai",
 					name: "CoS",
 					role: "chief_of_staff",
 					status: "active",
@@ -350,9 +355,10 @@ describe("A2: Database Schema", () => {
 					createdAt: now,
 				})
 				.run();
-			db.insert(agents)
+			db.insert(users)
 				.values({
 					id: "agent-1",
+					kind: "ai",
 					name: "A",
 					role: "builder",
 					status: "active",
@@ -360,9 +366,10 @@ describe("A2: Database Schema", () => {
 					createdAt: now,
 				})
 				.run();
-			db.insert(agents)
+			db.insert(users)
 				.values({
 					id: "agent-2",
+					kind: "ai",
 					name: "B",
 					role: "builder",
 					status: "active",
@@ -409,10 +416,11 @@ describe("A2: Database Schema", () => {
 					createdAt: now,
 				})
 				.run();
-			db.insert(agents)
+			db.insert(users)
 				.values([
 					{
 						id: "agent-1",
+						kind: "ai",
 						name: "A",
 						role: "builder",
 						status: "active",
@@ -421,6 +429,7 @@ describe("A2: Database Schema", () => {
 					},
 					{
 						id: "human-1",
+						kind: "human",
 						name: "Human",
 						role: "founder",
 						status: "active",
@@ -463,11 +472,12 @@ describe("A2: Database Schema", () => {
 			expect(verdict.decision).toBe("approve");
 		});
 
-		it("inserts and reads agent_skills", () => {
+		it("inserts and reads user_skills", () => {
 			const now = new Date().toISOString();
-			db.insert(agents)
+			db.insert(users)
 				.values({
 					id: "agent-1",
+					kind: "ai",
 					name: "A",
 					role: "builder",
 					status: "active",
@@ -475,9 +485,9 @@ describe("A2: Database Schema", () => {
 					createdAt: now,
 				})
 				.run();
-			db.insert(agentSkills)
+			db.insert(userSkills)
 				.values({
-					agentId: "agent-1",
+					userId: "agent-1",
 					skillId: "code_review",
 					autonomyLevel: 3,
 					successCount: 10,
@@ -485,10 +495,10 @@ describe("A2: Database Schema", () => {
 				})
 				.run();
 
-			const result = db.select().from(agentSkills).where(eq(agentSkills.agentId, "agent-1")).get();
+			const result = db.select().from(userSkills).where(eq(userSkills.userId, "agent-1")).get();
 
 			expect(result).toMatchObject({
-				agentId: "agent-1",
+				userId: "agent-1",
 				skillId: "code_review",
 				autonomyLevel: 3,
 			});
@@ -725,7 +735,7 @@ describe("A2: Database Schema", () => {
 			// L1a: legacy `responses.item_id` FK no longer exists — `responses`
 			// table dropped (plan §5.2). Replacement contract: verdict-typed
 			// messages set sender_id=approver; messages.sender_id FK to
-			// agents.id rejects unknown senders.
+			// users.id rejects unknown senders. P2: agents → users.
 			const now = new Date().toISOString();
 			db.insert(threads)
 				.values({

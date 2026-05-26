@@ -14,7 +14,6 @@
  */
 
 import {
-	agents,
 	bets,
 	createTestDb,
 	type HyperIdleDb,
@@ -22,6 +21,7 @@ import {
 	tasks,
 	teams,
 	threads,
+	users,
 } from "@hyperidle/db";
 import { type DomainEvent, EventBus, HOST_KINDS, MESSAGE_TYPES } from "@hyperidle/shared";
 import type { Hono } from "hono";
@@ -66,7 +66,7 @@ function setupApp(): AppCtx {
 		})
 		.run();
 	// "u-founder" is the founder participant; "agent-1" is an agent.
-	db.insert(agents)
+	db.insert(users)
 		.values({
 			id: "u-founder",
 			name: "Founder",
@@ -75,7 +75,7 @@ function setupApp(): AppCtx {
 			createdAt: now,
 		})
 		.run();
-	db.insert(agents)
+	db.insert(users)
 		.values({
 			id: "agent-1",
 			name: "Agent",
@@ -84,7 +84,7 @@ function setupApp(): AppCtx {
 			createdAt: now,
 		})
 		.run();
-	db.insert(agents)
+	db.insert(users)
 		.values({
 			id: "agent-2",
 			name: "Other Agent",

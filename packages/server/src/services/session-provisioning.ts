@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import * as path from "node:path";
-import { agents, type HyperIdleDb, sessions, tasks } from "@hyperidle/db";
+import { type HyperIdleDb, sessions, tasks, users } from "@hyperidle/db";
 import {
 	checkCostCap,
 	type FileWatcher,
@@ -10,7 +10,6 @@ import {
 	startWatcher,
 } from "@hyperidle/fabric";
 import {
-	type AgentRole,
 	ConcurrencyLimitError,
 	CostCapExceededError,
 	type EventBus,
@@ -21,6 +20,7 @@ import {
 	scaleForCurrency,
 	type TaskState,
 	type TierTokenCount,
+	type UserRole,
 } from "@hyperidle/shared";
 import { and, eq, sql } from "drizzle-orm";
 import type { WorkspaceAdapter, WorkspaceHandle } from "../harness/workspace-adapter.js";
@@ -163,11 +163,11 @@ export async function provisionSession(
 	const { db, eventBus, harness, workspace } = deps;
 
 	// ── Phase 1: load agent
-	const agent = db.select().from(agents).where(eq(agents.id, params.agentId)).get();
+	const agent = db.select().from(users).where(eq(users.id, params.agentId)).get();
 	if (!agent) {
 		throw new Error(`Agent not found: ${params.agentId}`);
 	}
-	const agentRole = agent.role as AgentRole;
+	const agentRole = agent.role as UserRole;
 	const teamId = agent.teamId ?? undefined;
 	const modelTier: ModelTier = params.modelTier ?? "workhorse";
 	// Validate/resolve the soul prompt path up front. Invalid values (empty,

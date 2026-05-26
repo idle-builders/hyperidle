@@ -1,6 +1,4 @@
 import {
-	agentSkills,
-	agents,
 	bets,
 	createTestDb,
 	factorySettings,
@@ -12,6 +10,8 @@ import {
 	tasks,
 	teams,
 	threads,
+	userSkills,
+	users,
 } from "@hyperidle/db";
 import {
 	checkAndFireRoutine,
@@ -61,9 +61,10 @@ function seedBase(db: HyperIdleDb): void {
 		})
 		.run();
 
-	db.insert(agents)
+	db.insert(users)
 		.values({
 			id: "agent-1",
+			kind: "ai",
 			name: "Builder Agent",
 			role: "builder",
 			skills: JSON.stringify(["deploy"]),
@@ -73,9 +74,10 @@ function seedBase(db: HyperIdleDb): void {
 		})
 		.run();
 
-	db.insert(agents)
+	db.insert(users)
 		.values({
 			id: "agent-2",
+			kind: "ai",
 			name: "Teammate Agent",
 			role: "builder",
 			skills: JSON.stringify(["deploy"]),
@@ -85,9 +87,9 @@ function seedBase(db: HyperIdleDb): void {
 		})
 		.run();
 
-	db.insert(agentSkills)
+	db.insert(userSkills)
 		.values({
-			agentId: "agent-2",
+			userId: "agent-2",
 			skillId: "deploy",
 			autonomyLevel: 3,
 			successCount: 0,

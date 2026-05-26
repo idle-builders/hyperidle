@@ -2,7 +2,6 @@ import { eq } from "drizzle-orm";
 import { beforeEach, describe, expect, it } from "vitest";
 import type { HyperIdleDb } from "../connection.js";
 import {
-	agents,
 	bets,
 	items,
 	knowledgeConflicts,
@@ -15,6 +14,7 @@ import {
 	tasks,
 	teams,
 	threads,
+	users,
 } from "../schema.js";
 import { createTestDb } from "../test-utils.js";
 
@@ -46,9 +46,11 @@ function seedProductTeamBetTaskAgent(db: HyperIdleDb): void {
 	db.insert(teams)
 		.values({ id: "t1", productId: "p1", capacity: 5, activeBets: 0, formedAt: NOW })
 		.run();
-	db.insert(agents)
+	// @lore P2: agents → users table. kind: "ai" required.
+	db.insert(users)
 		.values({
 			id: "a1",
+			kind: "ai",
 			name: "A",
 			role: "builder",
 			status: "active",
@@ -135,7 +137,7 @@ describe("I3: FK actions — RESTRICT on reference data", () => {
 				state: "active",
 			})
 			.run();
-		expect(() => db.delete(agents).where(eq(agents.id, "a1")).run()).toThrow(/constraint/i);
+		expect(() => db.delete(users).where(eq(users.id, "a1")).run()).toThrow(/constraint/i);
 	});
 
 	it("rejects deleting a thread while a message references it", () => {
@@ -151,9 +153,10 @@ describe("I3: FK actions — RESTRICT on reference data", () => {
 				createdAt: NOW,
 			})
 			.run();
-		db.insert(agents)
+		db.insert(users)
 			.values({
 				id: "a2",
+				kind: "ai",
 				name: "B",
 				role: "builder",
 				status: "active",
@@ -215,7 +218,7 @@ describe("I3: FK actions — RESTRICT on reference data", () => {
 				active: 1,
 			})
 			.run();
-		expect(() => db.delete(agents).where(eq(agents.id, "a1")).run()).toThrow(/constraint/i);
+		expect(() => db.delete(users).where(eq(users.id, "a1")).run()).toThrow(/constraint/i);
 	});
 });
 
@@ -333,10 +336,11 @@ describe("I3: FK actions — CASCADE on dependent data", () => {
 				createdAt: NOW,
 			})
 			.run();
-		db.insert(agents)
+		db.insert(users)
 			.values([
 				{
 					id: "a1",
+					kind: "ai",
 					name: "A",
 					role: "builder",
 					status: "active",
@@ -345,6 +349,7 @@ describe("I3: FK actions — CASCADE on dependent data", () => {
 				},
 				{
 					id: "human-1",
+					kind: "human",
 					name: "Human",
 					role: "founder",
 					status: "active",

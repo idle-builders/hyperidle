@@ -16,7 +16,6 @@
  */
 
 import {
-	agents,
 	artifacts,
 	bets,
 	createTestDb,
@@ -26,6 +25,7 @@ import {
 	tasks,
 	teams,
 	threads,
+	users,
 } from "@hyperidle/db";
 import type { ArtifactThreadSummary } from "@hyperidle/shared";
 import { type DomainEvent, EventBus } from "@hyperidle/shared";
@@ -65,7 +65,7 @@ function setupApp(): AppCtx {
 	db.insert(teams)
 		.values({ id: "t1", productId: "p1", capacity: 5, activeBets: 0, formedAt: now })
 		.run();
-	db.insert(agents)
+	db.insert(users)
 		.values({
 			id: "u-founder",
 			name: "Founder",
@@ -74,7 +74,7 @@ function setupApp(): AppCtx {
 			createdAt: now,
 		})
 		.run();
-	db.insert(agents)
+	db.insert(users)
 		.values({
 			id: "agent-1",
 			name: "Agent",

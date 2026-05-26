@@ -1,5 +1,4 @@
 import {
-	agents,
 	bets,
 	createTestDb,
 	factorySettings,
@@ -9,6 +8,7 @@ import {
 	tasks,
 	teams,
 	threads,
+	users,
 } from "@hyperidle/db";
 import type {
 	CostCapBreachedEvent,
@@ -101,7 +101,7 @@ describe("Rail Endpoint (E5)", () => {
 				.run();
 
 			// Create agent for owner
-			db.insert(agents)
+			db.insert(users)
 				.values({
 					id: "agent-1",
 					name: "Builder Bot",
@@ -277,7 +277,7 @@ describe("Rail Endpoint (E5)", () => {
 				})
 				.run();
 
-			db.insert(agents)
+			db.insert(users)
 				.values({
 					id: "agent-owner",
 					name: "Owner Agent",

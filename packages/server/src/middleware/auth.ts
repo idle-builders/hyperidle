@@ -1,4 +1,4 @@
-import { factorySettings, type HyperIdleDb } from "@hyperidle/db";
+import { type HyperIdleDb, users } from "@hyperidle/db";
 import type { ApiErrorResponse } from "@hyperidle/shared";
 import { API_ERROR_CODES, createLogger } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
@@ -52,12 +52,15 @@ function readSourceIp(c: Context): string | null {
 
 /**
  * Create the API key auth middleware with database access for identity lookup.
- * After the API key check succeeds, reads founder_id from factorySettings and
- * sets it on `c.get("userId")`.
+ * After the API key check succeeds, resolves the authenticated user from the
+ * users table (users WHERE kind = 'human' LIMIT 1).
  *
- * @lore M3 A3: the middleware does NOT fail if founder_id is missing —
- * it falls back to the hardcoded founder constant for unseeded DBs. This preserves
- * backward compatibility with existing tests that don't seed factorySettings.
+ * @lore P2: replaced factorySettings.founder_id lookup with users table query.
+ * In single-human desktop mode, there is exactly one human user. The fallback
+ * to "u-founder" is a safety net for unseeded DBs and existing tests that don't
+ * seed a human user. All production paths should have a human user row.
+ * @lore M3 A3: converted from static export to factory function so the
+ * middleware can access the database for identity resolution.
  */
 export function createAuthMiddleware(db: HyperIdleDb): MiddlewareHandler<HyperIdleEnv> {
 	return async (c, next) => {
@@ -79,14 +82,12 @@ export function createAuthMiddleware(db: HyperIdleDb): MiddlewareHandler<HyperId
 			return c.json(response, 401);
 		}
 
-		// M3: Set authenticated user identity on context.
-		// Read founder_id from factorySettings (single-founder v1).
-		const founderRow = db
-			.select()
-			.from(factorySettings)
-			.where(eq(factorySettings.key, "founder_id"))
-			.get();
-		c.set("userId", founderRow?.value ?? "u-founder");
+		// P2: Resolve authenticated user from users table (kind = 'human').
+		// @lore P2: fallback to "u-founder" for unseeded DBs and existing tests
+		// that don't seed a human user. The fallback is a safety net, not a
+		// design choice — all production paths should have a human user row.
+		const humanUser = db.select().from(users).where(eq(users.kind, "human")).limit(1).get();
+		c.set("userId", humanUser?.id ?? "u-founder");
 
 		await next();
 	};
