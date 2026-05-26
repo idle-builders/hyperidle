@@ -17,18 +17,10 @@
  * Inputs are text-base (16px) to prevent iOS Safari zoom on focus.
  */
 
-import { SCOPE_KINDS, type ScopeKind } from "@hyperidle/shared";
+import { SCOPE_KINDS, SCOPES_REQUIRING_ID, type ScopeKind } from "@hyperidle/shared";
 import { type JSX, useEffect, useRef, useState } from "react";
+import { useCurrentUser } from "../../hooks/useCurrentUser.js";
 import { apiFetch } from "../../services/api-fetch.js";
-
-/** Scopes that require an external ID (not self-referential or global). */
-const SCOPES_REQUIRING_ID: ReadonlySet<ScopeKind> = new Set<ScopeKind>([
-	"product",
-	"practice",
-	"team",
-	"bet",
-	"task",
-]);
 
 export interface KnowledgeCreateDialogProps {
 	open: boolean;
@@ -48,6 +40,7 @@ export function KnowledgeCreateDialog({
 	lockedScopeId,
 }: KnowledgeCreateDialogProps): JSX.Element | null {
 	const dialogRef = useRef<HTMLDialogElement>(null);
+	const { user } = useCurrentUser();
 
 	const [title, setTitle] = useState("");
 	const [body, setBody] = useState("");
@@ -103,6 +96,7 @@ export function KnowledgeCreateDialog({
 			body: trimmedBody,
 			format: "markdown",
 			scopeKind: effectiveScopeKind,
+			updatedBy: user?.id ?? "human",
 		};
 
 		if (needsScopeId && scopeId.trim()) {

@@ -470,12 +470,8 @@ test.describe("Q2 AC-12: Change scope from user to product", () => {
 		const newScopeSelect = dialog.getByRole("combobox").first();
 		await newScopeSelect.selectOption("product");
 
-		// Fill scope_id
-		const scopeIdSelect = dialog.getByRole("combobox").nth(1);
-		// For product scope, might be a select — try to select or fill
-		await scopeIdSelect.fill("prod-abc").catch(async () => {
-			await scopeIdSelect.selectOption({ index: 0 }).catch(() => {});
-		});
+		// Fill scope_id — plain text input, located by placeholder
+		await dialog.getByPlaceholder("product ID").fill("prod-abc");
 
 		// Fill reason
 		await dialog.getByPlaceholder("Why are you changing the scope?").fill("Promoting to product");

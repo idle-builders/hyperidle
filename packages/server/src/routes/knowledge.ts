@@ -39,6 +39,7 @@ import {
 	type KnowledgeCreatedEvent,
 	type KnowledgeUpdatedEvent,
 	SCOPE_KINDS,
+	SCOPES_REQUIRING_ID,
 } from "@hyperidle/shared";
 import { and, eq, ne, or, sql } from "drizzle-orm";
 import { Hono } from "hono";
@@ -53,12 +54,10 @@ const KNOWLEDGE_STATUSES = ["draft", "active", "archived"] as const;
 /**
  * Q2: Scope kinds that require a scopeId from the caller.
  * factory and user auto-assign their scope from context — no external id needed.
+ * Defined once in @hyperidle/shared; imported here for the server-side guard.
  */
-const SCOPE_KINDS_REQUIRING_ID = ["product", "practice", "team", "bet", "task"] as const;
-type ScopeKindRequiringId = (typeof SCOPE_KINDS_REQUIRING_ID)[number];
-
-function requiresScopeId(kind: string): kind is ScopeKindRequiringId {
-	return (SCOPE_KINDS_REQUIRING_ID as readonly string[]).includes(kind);
+function requiresScopeId(kind: string): boolean {
+	return SCOPES_REQUIRING_ID.has(kind as Parameters<typeof SCOPES_REQUIRING_ID.has>[0]);
 }
 
 const createKnowledgeSchema = z.object({

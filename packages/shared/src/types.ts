@@ -118,3 +118,18 @@ export const SCOPE_KINDS = [
 ] as const;
 
 export type ScopeKind = (typeof SCOPE_KINDS)[number];
+
+/**
+ * Scope kinds that require an external scopeId.
+ * "factory" and "user" are self-referential/global — they never need an id.
+ *
+ * @lore Q2: Extracted to @hyperidle/shared so the web dialogs (KnowledgeCreateDialog,
+ * ScopeChangeDialog) and the server route (knowledge.ts) share a single source of truth.
+ */
+export const SCOPES_REQUIRING_ID: ReadonlySet<ScopeKind> = new Set<ScopeKind>([
+	"product",
+	"practice",
+	"team",
+	"bet",
+	"task",
+]);

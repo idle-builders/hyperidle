@@ -16,18 +16,10 @@
  * free-text input satisfies the AC and unblocks the E2E tests.
  */
 
-import { SCOPE_KINDS, type ScopeKind } from "@hyperidle/shared";
+import { SCOPE_KINDS, SCOPES_REQUIRING_ID, type ScopeKind } from "@hyperidle/shared";
 import { type JSX, useEffect, useRef, useState } from "react";
+import { useCurrentUser } from "../../hooks/useCurrentUser.js";
 import { apiFetch } from "../../services/api-fetch.js";
-
-/** Scopes that require an external ID. */
-const SCOPES_REQUIRING_ID: ReadonlySet<ScopeKind> = new Set<ScopeKind>([
-	"product",
-	"practice",
-	"team",
-	"bet",
-	"task",
-]);
 
 export interface ScopeChangeDialogProps {
 	open: boolean;
@@ -50,6 +42,7 @@ export function ScopeChangeDialog({
 	currentScopeKind,
 }: ScopeChangeDialogProps): JSX.Element | null {
 	const dialogRef = useRef<HTMLDialogElement>(null);
+	const { user } = useCurrentUser();
 
 	const [scopeKind, setScopeKind] = useState<ScopeKind>(currentScopeKind);
 	const [scopeId, setScopeId] = useState<string>("");
@@ -97,6 +90,7 @@ export function ScopeChangeDialog({
 			scopeKind,
 			reason: trimmedReason,
 			version: currentVersion,
+			updatedBy: user?.id ?? "human",
 		};
 
 		if (needsScopeId && scopeId.trim()) {
@@ -154,20 +148,12 @@ export function ScopeChangeDialog({
 					</select>
 				</label>
 
-				{/* Scope ID — free text for scopes that need an external id.
-				    @lore Q2: role="combobox" is set explicitly so Playwright E2E tests
-				    can locate this field via getByRole("combobox").nth(1). The scope kind
-				    <select> is the first combobox; this field must be the second. Without
-				    the explicit role, <input type="text"> has role "textbox" and the test's
-				    nth(1) locator would not find it. */}
+				{/* Scope ID — free text for scopes that need an external id. */}
 				{needsScopeId && (
 					<label className="flex flex-col gap-1">
 						<span className="text-xs text-[var(--text-lo)]">Scope ID</span>
 						<input
 							type="text"
-							role="combobox"
-							aria-expanded="false"
-							aria-autocomplete="none"
 							className="input input-bordered input-sm text-base w-full"
 							placeholder={`${scopeKind} ID`}
 							value={scopeId}
