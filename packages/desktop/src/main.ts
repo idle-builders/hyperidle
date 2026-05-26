@@ -10,7 +10,7 @@ import * as crypto from "node:crypto";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
-import { app, BrowserWindow, dialog, ipcMain, Menu, shell } from "electron";
+import { app, BrowserWindow, dialog, ipcMain, Menu, safeStorage, shell } from "electron";
 
 // @lore N5: CJS output (esbuild) has __dirname; ESM (dev/tsx) has import.meta.url.
 const Dirname =
@@ -18,11 +18,11 @@ const Dirname =
 
 import { buildAppMenuTemplate } from "./app-menu.js";
 import { getPort, startServer, waitForHealth } from "./boot-server.js";
+import { loadClientConfig, migrateWindowState, saveClientConfig } from "./client-config.js";
 import type { LogRotator } from "./log-rotation.js";
 import { createLogRotator } from "./log-rotation.js";
 import { resolveMigrationsFolder, runMigrations } from "./migrate.js";
 import { createSafeCredentialsManager } from "./safe-credentials.js";
-import { loadWindowState, saveWindowState } from "./window-state.js";
 
 // @lore N4: IS_DEV uses app.isPackaged which is false when running `electron .`
 // from source and true in the packaged .app bundle. This is the correct way
@@ -39,6 +39,39 @@ export const IS_DEV = !app.isPackaged;
  */
 export function resolveDbPath(userDataDir: string): string {
 	return path.join(userDataDir, "hyperidle.db");
+}
+
+/**
+ * Poll GET {serverUrl}/api/health until a 200 response is received or timeout.
+ * Used for shared-mode health check against a remote server.
+ * Throws if the health check does not succeed within timeoutMs.
+ *
+ * @lore P3 AC-4: Separate from waitForHealth() (which takes a port number)
+ * to avoid changing the existing function signature that tests rely on.
+ */
+export async function waitForRemoteHealth(serverUrl: string, timeoutMs = 30_000): Promise<void> {
+	const url = `${serverUrl.replace(/\/$/, "")}/api/health`;
+	const deadline = Date.now() + timeoutMs;
+
+	while (Date.now() < deadline) {
+		try {
+			const response = await fetch(url);
+			if (response.ok) {
+				return;
+			}
+		} catch {
+			// Server not ready yet; retry after a short delay.
+		}
+		if (Date.now() + 100 < deadline) {
+			await new Promise<void>((resolve) => setTimeout(resolve, 100));
+		} else {
+			break;
+		}
+	}
+
+	throw new Error(
+		`Remote health check failed: server at ${url} did not respond within ${timeoutMs}ms`,
+	);
 }
 
 interface SecretsFile {
@@ -205,28 +238,111 @@ if (isEntrypoint) {
 }
 /* c8 ignore stop */
 
-async function startApp(): Promise<void> {
-	await app.whenReady();
+/**
+ * Interface for safeStorage operations — extracted for testability.
+ * In production, this is the Electron safeStorage module.
+ */
+export interface SafeStorageLike {
+	isEncryptionAvailable(): boolean;
+	decryptString(buffer: Buffer): string;
+}
 
-	// Resolve paths
-	const userDataDir = app.getPath("userData");
-	const dbPath = resolveDbPath(userDataDir);
-	const logDir = app.getPath("logs");
-	const secretsPath = path.join(userDataDir, "secrets.json");
-	const windowStatePath = path.join(userDataDir, "window-state.json");
+/**
+ * Read anthropic_api_key from safeStorage credential store if available.
+ * Returns the key value or null if not stored.
+ * Used during boot to set process.env.ANTHROPIC_API_KEY before the server starts.
+ *
+ * @lore P3 AC-12: Local mode sets ANTHROPIC_API_KEY from safeStorage before
+ * server boot so the harness adapter picks it up via env (existing pattern).
+ * The credentialResolver injection (Decision 4) is for shared mode.
+ */
+export function readAnthropicKeyFromStore(
+	credentialsPath: string,
+	safeStorageImpl: SafeStorageLike = safeStorage,
+): string | null {
+	try {
+		const raw = fs.readFileSync(credentialsPath, "utf-8");
+		const store = JSON.parse(raw) as Record<string, string>;
+		const encoded = store.anthropic_api_key;
+		if (!encoded) return null;
 
-	// Initialize log rotation early so server output is captured from the start
-	fs.mkdirSync(logDir, { recursive: true });
-	logRotator = createLogRotator(logDir);
-	logRotator.attach();
+		if (!safeStorageImpl.isEncryptionAvailable()) {
+			// Encryption not available — value may have been stored in memory only
+			return null;
+		}
+		const buf = Buffer.from(encoded, "base64");
+		return safeStorageImpl.decryptString(buf);
+	} catch {
+		return null;
+	}
+}
 
-	// Read or generate API key
-	const apiKey = readOrGenerateApiKey(secretsPath);
+/** Parameters shared by local and shared mode boot paths. */
+interface BootContext {
+	userDataDir: string;
+	logDir: string;
+	configPath: string;
+	credentialsPath: string;
+}
 
-	// Resolve migrations folder
-	const migrationsFolder = resolveMigrationsFolder();
+/**
+ * Register common IPC handlers used in both local and shared mode.
+ */
+function registerCommonIpcHandlers(mainWindow: BrowserWindow, ctx: BootContext): void {
+	ipcMain.handle("shell:open-logs", async (): Promise<void> => {
+		await shell.openPath(ctx.logDir);
+	});
+	ipcMain.handle("shell:open-data", async (): Promise<void> => {
+		await shell.openPath(ctx.userDataDir);
+	});
+	ipcMain.handle("shell:select-folder", async (): Promise<string | null> => {
+		const result = await dialog.showOpenDialog(mainWindow, {
+			properties: ["openDirectory"],
+			title: "Select repository folder",
+		});
+		return result.canceled ? null : (result.filePaths[0] ?? null);
+	});
+}
 
-	// Run migrations with SQLITE_BUSY retry loop (architecture §13.1)
+/**
+ * Bind window state persistence handlers to save config.json on window changes.
+ */
+function bindWindowStatePersistence(mainWindow: BrowserWindow, configPath: string): void {
+	const saveState = (): void => {
+		if (!mainWindow.isDestroyed()) {
+			const bounds = mainWindow.getBounds();
+			saveClientConfig(configPath, {
+				windowState: {
+					...bounds,
+					isMaximized: mainWindow.isMaximized(),
+					isFullScreen: mainWindow.isFullScreen(),
+				},
+			});
+		}
+	};
+
+	let resizeMoveTimer: ReturnType<typeof setTimeout> | null = null;
+	const debouncedSaveState = (): void => {
+		if (resizeMoveTimer) clearTimeout(resizeMoveTimer);
+		resizeMoveTimer = setTimeout(saveState, 500);
+	};
+
+	mainWindow.on("resize", debouncedSaveState);
+	mainWindow.on("move", debouncedSaveState);
+	mainWindow.on("close", saveState);
+	mainWindow.on("enter-full-screen", saveState);
+	mainWindow.on("leave-full-screen", saveState);
+}
+
+/**
+ * Run DB migrations with SQLITE_BUSY retry dialog.
+ * Returns false if the user chose to quit, true on success.
+ */
+async function runMigrationsWithRetry(
+	dbPath: string,
+	migrationsFolder: string,
+	logDir: string,
+): Promise<boolean> {
 	let migrated = false;
 	while (!migrated) {
 		try {
@@ -245,9 +361,8 @@ async function startApp(): Promise<void> {
 				});
 				if (response.response === 1) {
 					app.quit();
-					return;
+					return false;
 				}
-				// Loop back to retry
 			} else if (err instanceof Error && /downgrade/i.test(err.message)) {
 				const response = await dialog.showMessageBox({
 					type: "error",
@@ -261,7 +376,7 @@ async function startApp(): Promise<void> {
 					shell.showItemInFolder(dbPath);
 				}
 				app.quit();
-				return;
+				return false;
 			} else {
 				await showStartupError(
 					"Database migration failed.",
@@ -269,12 +384,33 @@ async function startApp(): Promise<void> {
 					logDir,
 					dbPath,
 				);
-				return;
+				return false;
 			}
 		}
 	}
+	return true;
+}
 
-	// Set environment variables before calling createServer
+/**
+ * Boot sequence for local mode: migrate DB, start embedded server, open window.
+ *
+ * @lore P3 AC-3/AC-5: local mode (including null/unset backendMode) boots the embedded server.
+ * AC-12: anthropic_api_key is read from safeStorage before server boot.
+ */
+async function bootLocalMode(ctx: BootContext, apiKey: string): Promise<void> {
+	const dbPath = resolveDbPath(ctx.userDataDir);
+	const clientConfig = loadClientConfig(ctx.configPath);
+
+	// P3 AC-12: Read anthropic_api_key from safeStorage before server boot
+	const anthropicKey = readAnthropicKeyFromStore(ctx.credentialsPath);
+	if (anthropicKey) {
+		process.env.ANTHROPIC_API_KEY = anthropicKey;
+	}
+
+	const migrationsFolder = resolveMigrationsFolder();
+	const migrated = await runMigrationsWithRetry(dbPath, migrationsFolder, ctx.logDir);
+	if (!migrated) return;
+
 	process.env.DATABASE_URL = dbPath;
 	process.env.HYPERIDLE_API_KEY = apiKey;
 	if (!IS_DEV) {
@@ -284,33 +420,21 @@ async function startApp(): Promise<void> {
 			process.env.HYPERIDLE_STATIC_DIR = staticDir;
 		}
 	}
-
-	// In dev mode, bind to port 3001 so Vite proxy target works
-	// (Vite proxies /api/* to http://localhost:3001)
 	if (IS_DEV) {
 		process.env.PORT = "3001";
 	}
 
-	// Start the server
 	let handle: ReturnType<typeof startServer>;
 	try {
 		handle = startServer();
 	} catch (err) {
-		await showStartupError("Server failed to start.", (err as Error).message, logDir);
+		await showStartupError("Server failed to start.", (err as Error).message, ctx.logDir);
 		return;
 	}
 	serverHandle = handle;
 
-	// Extract assigned port
 	const port = getPort(handle);
-
-	// Load window state
-	const { screen } = await import("electron");
-	const primaryDisplay = screen.getPrimaryDisplay();
-	const displayBounds = primaryDisplay.bounds;
-	const windowState = loadWindowState(windowStatePath, displayBounds);
-
-	// Create the BrowserWindow
+	const windowState = clientConfig.windowState;
 	const preloadPath = path.join(Dirname, "preload.js");
 	const mainWindow = new BrowserWindow({
 		x: windowState.x,
@@ -327,116 +451,164 @@ async function startApp(): Promise<void> {
 		show: false,
 	});
 
-	// Show splash first
 	const splashPath = path.join(Dirname, "splash.html");
 	mainWindow.loadFile(splashPath);
 	mainWindow.show();
+	if (windowState.isMaximized) mainWindow.maximize();
+	if (windowState.isFullScreen) mainWindow.setFullScreen(true);
 
-	if (windowState.isMaximized) {
-		mainWindow.maximize();
-	}
-	if (windowState.isFullScreen) {
-		mainWindow.setFullScreen(true);
-	}
-
-	// Show migration progress if it takes > 2s (already ran, but keep the pattern for future use)
-	const migrationTimer = setTimeout(() => {
-		if (!mainWindow.isDestroyed()) {
-			void mainWindow.webContents.executeJavaScript(
-				'window.showMigrationStatus && window.showMigrationStatus("Running database migrations...")',
-			);
-		}
-	}, 2000);
-	clearTimeout(migrationTimer);
-
-	// Update splash status
 	if (!mainWindow.isDestroyed()) {
 		void mainWindow.webContents.executeJavaScript(
 			'window.updateStatus && window.updateStatus("Starting server...")',
 		);
 	}
 
-	// Poll health with 30s timeout
 	try {
 		await waitForHealth(port, 30_000);
 	} catch {
 		await showStartupError(
 			"Server not responding.",
 			"The server did not start within 30 seconds.",
-			logDir,
+			ctx.logDir,
 		);
 		return;
 	}
 
-	// Load the app
 	const appUrl = IS_DEV ? "http://localhost:5173" : `http://127.0.0.1:${port}`;
 	mainWindow.loadURL(appUrl);
 
-	// Persist window state on resize/move/close
-	const saveState = (): void => {
-		if (!mainWindow.isDestroyed()) {
-			const bounds = mainWindow.getBounds();
-			saveWindowState(windowStatePath, {
-				...bounds,
-				isMaximized: mainWindow.isMaximized(),
-				isFullScreen: mainWindow.isFullScreen(),
-			});
-		}
-	};
+	bindWindowStatePersistence(mainWindow, ctx.configPath);
 
-	let resizeMoveTimer: ReturnType<typeof setTimeout> | null = null;
-	const debouncedSaveState = (): void => {
-		if (resizeMoveTimer) clearTimeout(resizeMoveTimer);
-		resizeMoveTimer = setTimeout(saveState, 500);
-	};
-
-	mainWindow.on("resize", debouncedSaveState);
-	mainWindow.on("move", debouncedSaveState);
-	mainWindow.on("close", saveState);
-	mainWindow.on("enter-full-screen", saveState);
-	mainWindow.on("leave-full-screen", saveState);
-
-	// Register IPC handlers for safeStorage credentials
-	const credentialsPath = path.join(userDataDir, "credentials.json");
-	const credManager = createSafeCredentialsManager(credentialsPath);
+	const credManager = createSafeCredentialsManager(ctx.credentialsPath);
 	credManager.registerHandlers();
+	registerCommonIpcHandlers(mainWindow, ctx);
 
-	// Register shell IPC handlers
-	ipcMain.handle("shell:open-logs", async (): Promise<void> => {
-		await shell.openPath(logDir);
-	});
-	ipcMain.handle("shell:open-data", async (): Promise<void> => {
-		await shell.openPath(userDataDir);
-	});
-	ipcMain.handle("shell:select-folder", async (): Promise<string | null> => {
-		const result = await dialog.showOpenDialog(mainWindow, {
-			properties: ["openDirectory"],
-			title: "Select repository folder",
-		});
-		return result.canceled ? null : (result.filePaths[0] ?? null);
-	});
-
-	// Build and set application menu
 	const menu = buildAppMenuTemplate({
 		isDev: IS_DEV,
-		logDir,
-		dataDir: userDataDir,
+		logDir: ctx.logDir,
+		dataDir: ctx.userDataDir,
 		onOpenSettings: (): void => {
-			if (!mainWindow.isDestroyed()) {
-				mainWindow.webContents.send("open-settings");
-			}
+			if (!mainWindow.isDestroyed()) mainWindow.webContents.send("open-settings");
 		},
 	});
 	Menu.setApplicationMenu(menu as unknown as Electron.Menu);
-
-	// Graceful shutdown
 	app.on("before-quit", getBeforeQuitHandler(serverHandle, logRotator));
-
-	// macOS: clicking the Dock icon when all windows are closed reopens the window
 	app.on("activate", (): void => {
-		if (BrowserWindow.getAllWindows().length === 0) {
-			// Recreate the window
-			void startApp();
-		}
+		if (BrowserWindow.getAllWindows().length === 0) void startApp();
 	});
+}
+
+/**
+ * Boot sequence for shared mode: connect to remote server, open window pointing at serverUrl.
+ *
+ * @lore P3 AC-4: No embedded server is started. The desktop connects to the remote serverUrl.
+ * The embedded server (startServer/migrations) is NOT called.
+ */
+async function bootSharedMode(ctx: BootContext, serverUrl: string): Promise<void> {
+	const clientConfig = loadClientConfig(ctx.configPath);
+	const windowState = clientConfig.windowState;
+	const preloadPath = path.join(Dirname, "preload.js");
+
+	const mainWindow = new BrowserWindow({
+		x: windowState.x,
+		y: windowState.y,
+		width: windowState.width,
+		height: windowState.height,
+		backgroundColor: "#1a1a2e",
+		webPreferences: {
+			preload: preloadPath,
+			contextIsolation: true,
+			sandbox: true,
+			additionalArguments: [],
+		},
+		show: false,
+	});
+
+	const splashPath = path.join(Dirname, "splash.html");
+	mainWindow.loadFile(splashPath);
+	mainWindow.show();
+	if (windowState.isMaximized) mainWindow.maximize();
+	if (windowState.isFullScreen) mainWindow.setFullScreen(true);
+
+	if (!mainWindow.isDestroyed()) {
+		void mainWindow.webContents.executeJavaScript(
+			'window.updateStatus && window.updateStatus("Connecting to remote server...")',
+		);
+	}
+
+	try {
+		await waitForRemoteHealth(serverUrl, 30_000);
+	} catch {
+		await showStartupError(
+			"Remote server not responding.",
+			`Could not connect to ${serverUrl} within 30 seconds.`,
+			ctx.logDir,
+		);
+		return;
+	}
+
+	mainWindow.loadURL(serverUrl);
+	bindWindowStatePersistence(mainWindow, ctx.configPath);
+
+	const credManager = createSafeCredentialsManager(ctx.credentialsPath);
+	credManager.registerHandlers();
+	registerCommonIpcHandlers(mainWindow, ctx);
+
+	const menu = buildAppMenuTemplate({
+		isDev: IS_DEV,
+		logDir: ctx.logDir,
+		dataDir: ctx.userDataDir,
+		onOpenSettings: (): void => {
+			if (!mainWindow.isDestroyed()) mainWindow.webContents.send("open-settings");
+		},
+	});
+	Menu.setApplicationMenu(menu as unknown as Electron.Menu);
+	// No server handle in shared mode
+	app.on("before-quit", getBeforeQuitHandler(null, logRotator));
+	app.on("activate", (): void => {
+		if (BrowserWindow.getAllWindows().length === 0) void startApp();
+	});
+}
+
+async function startApp(): Promise<void> {
+	await app.whenReady();
+
+	// Resolve paths
+	const userDataDir = app.getPath("userData");
+	const logDir = app.getPath("logs");
+	const secretsPath = path.join(userDataDir, "secrets.json");
+	const windowStatePath = path.join(userDataDir, "window-state.json");
+	const configPath = path.join(userDataDir, "config.json");
+	const credentialsPath = path.join(userDataDir, "credentials.json");
+
+	// Initialize log rotation early so server output is captured from the start
+	fs.mkdirSync(logDir, { recursive: true });
+	logRotator = createLogRotator(logDir);
+	logRotator.attach();
+
+	// P3: Migrate window-state.json → config.json on first run after upgrade.
+	migrateWindowState(windowStatePath, configPath);
+
+	// P3: Read client config to determine BackendMode.
+	// @lore P3 AC-3/AC-4/AC-5: null backendMode (first run) defaults to local.
+	const clientConfig = loadClientConfig(configPath);
+	const ctx: BootContext = { userDataDir, logDir, configPath, credentialsPath };
+
+	if (clientConfig.backendMode === "shared") {
+		// SHARED MODE: connect to remote server, no embedded server started.
+		const serverUrl = clientConfig.serverUrl;
+		if (!serverUrl) {
+			await showStartupError(
+				"Shared mode requires a server URL.",
+				"Go to Settings → Backend to configure the remote server URL.",
+				logDir,
+			);
+			return;
+		}
+		await bootSharedMode(ctx, serverUrl);
+	} else {
+		// LOCAL MODE (or null/unset): boot embedded server.
+		const apiKey = readOrGenerateApiKey(secretsPath);
+		await bootLocalMode(ctx, apiKey);
+	}
 }
