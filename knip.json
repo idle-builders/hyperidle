@@ -34,7 +34,7 @@
 				"scripts/*.ts",
 				"viewer/discovery.ts",
 				"viewer/tailwind.config.ts",
-				"viewer/postcss.config.js"
+				"viewer/postcss.config.ts"
 			],
 			"ignoreDependencies": ["autoprefixer", "postcss"],
 			"playwright": {

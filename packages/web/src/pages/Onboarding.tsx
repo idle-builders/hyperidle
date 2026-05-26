@@ -74,14 +74,42 @@ export function Onboarding(): JSX.Element {
 						<label className="label" htmlFor="onboarding-repo">
 							<span className="label-text text-[var(--text-mid)]">Repository path</span>
 						</label>
-						<input
-							id="onboarding-repo"
-							type="text"
-							className="input input-sm input-bordered w-full text-[var(--text-hi)]"
-							placeholder="/Users/you/projects/my-app"
-							value={repoPath}
-							onChange={(e) => setRepoPath(e.target.value)}
-						/>
+						<div className="relative">
+							{window.__HYPERIDLE__?.shell?.selectFolder && (
+								<button
+									type="button"
+									aria-label="Browse for folder"
+									className="absolute inset-y-0 left-0 flex items-center pl-2 text-[var(--text-lo)] hover:text-[var(--text-mid)] cursor-pointer"
+									onClick={async () => {
+										const folder = await window.__HYPERIDLE__?.shell.selectFolder();
+										if (folder) setRepoPath(folder);
+									}}
+								>
+									<svg
+										xmlns="http://www.w3.org/2000/svg"
+										width="14"
+										height="14"
+										viewBox="0 0 24 24"
+										fill="none"
+										stroke="currentColor"
+										strokeWidth="2"
+										strokeLinecap="round"
+										strokeLinejoin="round"
+										aria-hidden="true"
+									>
+										<path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
+									</svg>
+								</button>
+							)}
+							<input
+								id="onboarding-repo"
+								type="text"
+								className={`input input-sm input-bordered w-full text-[var(--text-hi)]${window.__HYPERIDLE__?.shell?.selectFolder ? " pl-7" : ""}`}
+								placeholder="/Users/you/projects/my-app"
+								value={repoPath}
+								onChange={(e) => setRepoPath(e.target.value)}
+							/>
+						</div>
 						<label className="label" htmlFor="onboarding-repo">
 							<span className="label-text-alt text-[var(--text-lo)]">
 								Local path to the git repository (optional)

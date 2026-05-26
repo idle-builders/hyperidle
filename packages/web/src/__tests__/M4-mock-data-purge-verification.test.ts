@@ -10,7 +10,7 @@
  * 5. test-coverage-gap.md exists and contains concrete file:line examples (AC-4)
  *
  * These tests FAIL until:
- *  - eslint.config.js promotes both rules from "warn" to "error"
+ *  - eslint.config.ts promotes both rules from "warn" to "error"
  *  - plans/mock-data-purge/follow-ups.md is created with server auth fallback
  *    and knowledge page API wiring sections
  *  - plans/mock-data-purge/test-coverage-gap.md is created with concrete examples
@@ -32,7 +32,7 @@ import { describe, expect, it } from "vitest";
 // Count: __tests__ → src → web → packages → M4(worktree root)
 const REPO_ROOT = new URL("../../../..", import.meta.url).pathname.replace(/^\/@fs/, "");
 
-const ESLINT_CONFIG_PATH = join(REPO_ROOT, "eslint.config.js");
+const ESLINT_CONFIG_PATH = join(REPO_ROOT, "eslint.config.ts");
 const FOLLOW_UPS_PATH = join(REPO_ROOT, "plans/mock-data-purge/follow-ups.md");
 const INVENTORY_JSON_PATH = join(REPO_ROOT, "plans/mock-data-purge/inventory.json");
 const GAP_ANALYSIS_PATH = join(REPO_ROOT, "plans/mock-data-purge/test-coverage-gap.md");
@@ -42,7 +42,7 @@ const GAP_ANALYSIS_PATH = join(REPO_ROOT, "plans/mock-data-purge/test-coverage-g
 // ---------------------------------------------------------------------------
 
 describe("M4 AC-2 — Lint rules promoted from warn to error", () => {
-	it("eslint.config.js sets design/no-mock-data-import to error (not warn)", () => {
+	it("eslint.config.ts sets design/no-mock-data-import to error (not warn)", () => {
 		const content = readFileSync(ESLINT_CONFIG_PATH, "utf8");
 		const lines = content.split("\n");
 
@@ -52,7 +52,7 @@ describe("M4 AC-2 — Lint rules promoted from warn to error", () => {
 		expect(importRuleLine).not.toContain('"warn"');
 	});
 
-	it("eslint.config.js sets design/no-mock-data-symbol to error (not warn)", () => {
+	it("eslint.config.ts sets design/no-mock-data-symbol to error (not warn)", () => {
 		const content = readFileSync(ESLINT_CONFIG_PATH, "utf8");
 		const lines = content.split("\n");
 

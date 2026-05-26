@@ -381,4 +381,3 @@ export function groupItemsByTopic(items: ReadonlyArray<MockKnowledgeItem>): Arra
  * remediation (real API calls) is tracked in follow-ups.md under #93.
  */
 export const knowledgeItems: ReadonlyArray<MockKnowledgeItem> = MOCK_KNOWLEDGE_ITEMS;
-export const curationSuggestions: ReadonlyArray<MockCurationSuggestion> = MOCK_CURATION_SUGGESTIONS;

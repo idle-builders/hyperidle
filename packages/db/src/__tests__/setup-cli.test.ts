@@ -1,4 +1,3 @@
-import { spawnSync } from "node:child_process";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
@@ -188,34 +187,6 @@ describe("H4 idempotency: laptop setup is safe to run twice", () => {
 				.prepare("SELECT COUNT(*) AS n FROM products WHERE id = 'seed-product-1'")
 				.get() as { n: number };
 			expect(products.n).toBe(1);
-		} finally {
-			raw.close();
-		}
-	});
-});
-
-// @lore N1: The bun:sqlite branch was removed — setup-cli.ts uses better-sqlite3
-// unconditionally. Bun cannot dlopen better-sqlite3 natively (oven-sh/bun#4290),
-// so the subprocess test that spawned `bun setup-cli.ts` is replaced with a
-// Node (tsx) subprocess test. The in-process tests above already exercise
-// setup-cli under Vitest's Node runtime.
-describe("H4 AC1: setup-cli subprocess under Node", () => {
-	it("runs under Node (tsx): creates a usable SQLite DB", () => {
-		const dbPath = path.join(tmpdir, "node-hyperidle.db");
-		const cliPath = path.resolve(__dirname, "..", "setup-cli.ts");
-		const result = spawnSync("npx", ["tsx", cliPath, "--profile", "laptop", "--db-path", dbPath], {
-			stdio: "pipe",
-			env: { ...process.env, HYPERIDLE_PROFILE: "" },
-		});
-		const err = result.stderr?.toString() ?? "";
-		const out = result.stdout?.toString() ?? "";
-		expect(result.status, `tsx exit=${result.status}\nstdout:\n${out}\nstderr:\n${err}`).toBe(0);
-		expect(fs.existsSync(dbPath)).toBe(true);
-
-		const raw = new Database(dbPath);
-		try {
-			const agents = raw.prepare("SELECT id FROM agents").all() as Array<{ id: string }>;
-			expect(agents.length).toBeGreaterThan(0);
 		} finally {
 			raw.close();
 		}

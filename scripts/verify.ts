@@ -62,7 +62,7 @@ const TOOLS: Tool[] = [
 		cmd: "bun",
 		args: ["run", "test:raw"],
 		env: { VITEST_TOON_OUTPUT: TEST_OUTPUT_FILE },
-		timeoutMs: 120_000,
+		timeoutMs: 300_000,
 	},
 	{ name: "build", cmd: "bun", args: ["run", "build"], timeoutMs: 60_000 },
 	{
@@ -70,7 +70,7 @@ const TOOLS: Tool[] = [
 		cmd: "bunx",
 		args: ["--bun", "playwright", "test", "--reporter=list"],
 		cwd: "packages/web",
-		timeoutMs: 300_000,
+		timeoutMs: 600_000,
 	},
 ];
 

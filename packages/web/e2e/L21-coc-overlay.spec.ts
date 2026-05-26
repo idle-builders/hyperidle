@@ -170,12 +170,9 @@ async function setupApiMocks(page: import("@playwright/test").Page): Promise<voi
 			return;
 		}
 
-		// Catch-all: return empty JSON for any other API call.
-		await route.fulfill({
-			status: 200,
-			contentType: "application/json",
-			body: JSON.stringify({}),
-		});
+		// Unrecognized paths: fall through to auto-use fixture handlers
+		// (auth/me, settings, rail, threads, products).
+		await route.fallback();
 	});
 }
 

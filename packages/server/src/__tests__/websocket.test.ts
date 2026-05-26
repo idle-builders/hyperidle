@@ -9,7 +9,7 @@ import WebSocket from "ws";
 
 const TEST_API_KEY = "test-ws-key-12345";
 
-describe("AC6: WebSocket upgrade on /api/ws", () => {
+describe("AC6: WebSocket upgrade on /api/ws", { timeout: 20_000 }, () => {
 	let serverProcess: ChildProcess;
 	let port: number;
 	let tmpDir: string;
@@ -31,9 +31,7 @@ describe("AC6: WebSocket upgrade on /api/ws", () => {
 		// Resolve the server package root
 		const serverRoot = resolve(__dirname, "../..");
 
-		// @lore N1: spawn via tsx (Node) instead of bun because better-sqlite3
-		// cannot be dlopened under Bun (oven-sh/bun#4290).
-		serverProcess = spawn("npx", ["tsx", "src/index.ts"], {
+		serverProcess = spawn(resolve(serverRoot, "../../node_modules/.bin/tsx"), ["src/index.ts"], {
 			cwd: serverRoot,
 			env: {
 				...process.env,

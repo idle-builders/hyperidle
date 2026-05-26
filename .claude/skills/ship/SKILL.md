@@ -169,6 +169,54 @@ The HMAC secret must exist both locally and in GitHub Actions:
 gh secret set VERIFY_SECRET < ~/.config/hyperidle/verify-secret
 ```
 
+## Optional: Desktop Release
+
+After CI is green, ask the user: **"Should I also cut a desktop release?"**
+
+If yes, the release flow runs from the repo root. It builds, signs, notarizes, and uploads a DMG to GitHub Releases.
+
+### Prerequisites
+
+- Apple credentials in `.env` or environment: `APPLE_ID`, `APPLE_APP_SPECIFIC_PASSWORD`, `APPLE_TEAM_ID`
+- Developer ID Application certificate in the keychain
+- `gh` CLI authenticated
+
+### Release steps
+
+1. **Determine version.** Ask the user for the version string (e.g. `0.2.0`). Check `packages/desktop/package.json` for the current version.
+
+2. **Run the release script:**
+
+```bash
+./packages/desktop/scripts/release.sh <version>
+```
+
+This script does everything in sequence:
+- Bumps `packages/desktop/package.json` version
+- Builds the web SPA (`bun run --filter @hyperidle/web build`)
+- Bundles desktop (`bun packages/desktop/scripts/bundle.ts`)
+- Generates `package-lock.json` for electron-rebuild
+- Runs `electron-builder` with signing + notarization
+- Commits the version bump, tags `v<version>`, pushes both
+- Creates a GitHub Release with the DMG attached
+
+3. **Verify the release exists:**
+
+```bash
+gh release view v<version>
+```
+
+### Local-only test build (no signing)
+
+If the user wants to test the build before a signed release:
+
+```bash
+./packages/desktop/scripts/build-local.sh
+open packages/desktop/release/mac-arm64/HyperIdle.app
+```
+
+This produces an unsigned `.app` for local testing. No Apple credentials needed.
+
 ## Target
 
 $ARGUMENTS
