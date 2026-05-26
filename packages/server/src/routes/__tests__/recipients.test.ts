@@ -6,7 +6,6 @@
  */
 
 import {
-	agents,
 	bets,
 	createTestDb,
 	type HyperIdleDb,
@@ -14,6 +13,7 @@ import {
 	sessions,
 	tasks,
 	teams,
+	users,
 } from "@hyperidle/db";
 import { EventBus } from "@hyperidle/shared";
 import type { Hono } from "hono";
@@ -70,41 +70,45 @@ describe("GET /api/recipients (Q1 §3.3)", () => {
 			})
 			.run();
 
-		// Seed agents
-		db.insert(agents)
+		// Seed users (P2: agents → users table; kind:"ai" for AI agents)
+		db.insert(users)
 			.values({
 				id: "agent-builder",
 				name: "Builder Bot",
 				role: "builder",
 				status: "active",
+				kind: "ai",
 				teamId: "team-1",
 				createdAt: NOW,
 			})
 			.run();
-		db.insert(agents)
+		db.insert(users)
 			.values({
 				id: "agent-growth",
 				name: "Growth Engine",
 				role: "growth",
 				status: "idle",
+				kind: "ai",
 				createdAt: NOW,
 			})
 			.run();
-		db.insert(agents)
+		db.insert(users)
 			.values({
 				id: "agent-founder",
 				name: "Founder Self",
 				role: "founder",
 				status: "active",
+				kind: "human",
 				createdAt: NOW,
 			})
 			.run();
-		db.insert(agents)
+		db.insert(users)
 			.values({
 				id: "agent-retired",
 				name: "Retired Bot",
 				role: "builder",
 				status: "retired",
+				kind: "ai",
 				createdAt: NOW,
 			})
 			.run();
