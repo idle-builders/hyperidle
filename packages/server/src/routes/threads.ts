@@ -12,12 +12,12 @@
  */
 
 import {
-	agents,
 	type Message as DbMessage,
 	type Thread as DbThread,
 	type HyperIdleDb,
 	messages,
 	threads,
+	users,
 } from "@hyperidle/db";
 import type {
 	ApiErrorResponse,
@@ -85,7 +85,7 @@ function readInitialSenderId(
 	if (explicit) return explicit;
 	if (messageType === "review" || messageType === "questionnaire") {
 		for (const p of participants) {
-			const ag = db.select().from(agents).where(eq(agents.id, p)).get();
+			const ag = db.select().from(users).where(eq(users.id, p)).get();
 			if (ag && ag.role !== "founder") return p;
 		}
 	}
@@ -490,7 +490,7 @@ export function createThreadRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hy
 					const e = err("validation_error", "resolvesMessageId not found in thread", 400);
 					return c.json(e.body, e.status);
 				}
-				const senderAgent = db.select().from(agents).where(eq(agents.id, senderId)).get();
+				const senderAgent = db.select().from(users).where(eq(users.id, senderId)).get();
 				const isFounder = senderAgent?.role === "founder";
 				const selfVerdict = resolvesMessageRow.senderId === senderId;
 				if (!isFounder || selfVerdict) {

@@ -1,25 +1,12 @@
 /**
- * M3 RED — Coach and Thread routes: readSenderId uses auth context (A6, A7).
+ * M3 — Coach and Thread routes: readSenderId uses auth context (A6, A7).
  *
- * C3 (critique): threads.ts:79 has readInitialSenderId() which also uses
- * DEFAULT_FOUNDER_ID. Both readSenderId (line 56) and readInitialSenderId
- * (line 79) must be covered.
- *
- * These tests FAIL until:
- *  - DEFAULT_FOUNDER_ID is deleted from coach.ts and threads.ts
- *  - readSenderId() uses c.get("userId") as fallback
- *  - readInitialSenderId() uses c.get("userId") as fallback (C3)
- *  - createAuthMiddleware(db) sets userId from factorySettings
+ * @lore P2: Updated from factorySettings.founder_id to users table query.
+ * Auth middleware resolves userId from `users WHERE kind = 'human' LIMIT 1`.
+ * Tests seed a human user row to drive identity resolution.
  */
 
-import {
-	agents,
-	createTestDb,
-	factorySettings,
-	type HyperIdleDb,
-	products,
-	teams,
-} from "@hyperidle/db";
+import { createTestDb, type HyperIdleDb, products, teams, users } from "@hyperidle/db";
 import { EventBus } from "@hyperidle/shared";
 import type { Hono } from "hono";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -31,18 +18,22 @@ function authHeaders(extra?: Record<string, string>): Record<string, string> {
 	return { "X-API-Key": TEST_API_KEY, "Content-Type": "application/json", ...extra };
 }
 
-function seedFounderSettings(db: HyperIdleDb, founderId: string): void {
+/**
+ * P2: seed a human founder user row (replaces factorySettings.founder_id lookup).
+ * The auth middleware queries `users WHERE kind = 'human' LIMIT 1`.
+ */
+function seedFounderUser(db: HyperIdleDb, founderId: string): void {
 	const now = new Date().toISOString();
-	db.insert(factorySettings)
-		.values({ key: "founder_id", value: founderId, updatedAt: now })
-		.onConflictDoNothing()
-		.run();
-	db.insert(factorySettings)
-		.values({ key: "founder_name", value: "Test Founder", updatedAt: now })
-		.onConflictDoNothing()
-		.run();
-	db.insert(factorySettings)
-		.values({ key: "founder_email", value: "test@hyperidle.dev", updatedAt: now })
+	db.insert(users)
+		.values({
+			id: founderId,
+			kind: "human",
+			name: "Test Founder",
+			email: "test@hyperidle.dev",
+			role: "founder",
+			status: "active",
+			createdAt: now,
+		})
 		.onConflictDoNothing()
 		.run();
 }
@@ -59,10 +50,10 @@ describe("M3 — Coach route readSenderId uses auth context, not DEFAULT_FOUNDER
 		app = createTestApp({ db, eventBus });
 
 		const now = new Date().toISOString();
-		seedFounderSettings(db, "test-founder-1");
+		seedFounderUser(db, "test-founder-1");
 
 		// Seed the CoC agent (required for coach route)
-		db.insert(agents)
+		db.insert(users)
 			.values({
 				id: "seed-agent-cos",
 				name: "Chief of Staff",
@@ -102,7 +93,8 @@ describe("M3 — Thread route readSenderId + readInitialSenderId use auth contex
 		app = createTestApp({ db, eventBus });
 
 		const now = new Date().toISOString();
-		seedFounderSettings(db, "test-founder-1");
+		// P2: seedFounderUser seeds kind='human' so auth middleware resolves this user
+		seedFounderUser(db, "test-founder-1");
 
 		db.insert(products)
 			.values({ id: "prod-1", name: "Test Product", phase: "build", createdAt: now })
@@ -116,17 +108,7 @@ describe("M3 — Thread route readSenderId + readInitialSenderId use auth contex
 				formedAt: now,
 			})
 			.run();
-
-		// Seed a founder-type agent for participants
-		db.insert(agents)
-			.values({
-				id: "test-founder-1",
-				name: "Test Founder",
-				role: "founder",
-				status: "active",
-				createdAt: now,
-			})
-			.run();
+		// Note: "test-founder-1" is already seeded by seedFounderUser above — no duplicate insert.
 	});
 
 	afterEach(() => {
@@ -166,7 +148,7 @@ describe("M3 — Thread route readSenderId + readInitialSenderId use auth contex
 		// A review-type message triggers the readInitialSenderId code path.
 		// Seed an agent participant so the agent lookup inside readInitialSenderId can find a non-founder
 		const now = new Date().toISOString();
-		db.insert(agents)
+		db.insert(users)
 			.values({
 				id: "agent-builder-1",
 				name: "Builder Agent",

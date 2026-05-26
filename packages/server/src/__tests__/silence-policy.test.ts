@@ -1,10 +1,10 @@
 import {
-	agents,
 	createTestDb,
 	factorySettings,
 	type HyperIdleDb,
 	products,
 	teams,
+	users,
 } from "@hyperidle/db";
 import { isInSilenceWindow, isSilenced } from "@hyperidle/fabric";
 import { beforeEach, describe, expect, it } from "vitest";
@@ -109,7 +109,7 @@ describe("isSilenced", () => {
 				formedAt: new Date().toISOString(),
 			})
 			.run();
-		db.insert(agents)
+		db.insert(users)
 			.values({
 				id: "agent-1",
 				name: "Test Agent",

@@ -1,5 +1,4 @@
 import {
-	agents,
 	bets,
 	createTestDb,
 	type HyperIdleDb,
@@ -9,6 +8,7 @@ import {
 	tasks,
 	teams,
 	threads,
+	users,
 } from "@hyperidle/db";
 import {
 	checkCostCap,
@@ -64,7 +64,7 @@ function seedBase(db: HyperIdleDb): void {
 		})
 		.run();
 
-	db.insert(agents)
+	db.insert(users)
 		.values({
 			id: "agent-1",
 			name: "Builder Agent",
@@ -112,15 +112,15 @@ function insertSession(
 	// @lore O2: sessions.cost removed; accumulate on agents.costActual and
 	// teams.costActual so checkCostCap can read the running total.
 	if (cost > 0) {
-		db.update(agents)
+		db.update(users)
 			.set({ costActual: sql`coalesce(cost_actual, 0) + ${cost}` })
-			.where(eq(agents.id, agentId))
+			.where(eq(users.id, agentId))
 			.run();
 		// Find which team this agent belongs to and accumulate there too
 		const agent = db
-			.select({ teamId: agents.teamId })
-			.from(agents)
-			.where(eq(agents.id, agentId))
+			.select({ teamId: users.teamId })
+			.from(users)
+			.where(eq(users.id, agentId))
 			.get();
 		if (agent?.teamId) {
 			db.update(teams)
@@ -185,7 +185,7 @@ describe("Cost Cap Enforcement", () => {
 
 		it("allows session when agent has no cost cap", async () => {
 			// Create agent without cost cap
-			db.insert(agents)
+			db.insert(users)
 				.values({
 					id: "agent-nocap",
 					name: "No Cap Agent",
@@ -214,7 +214,7 @@ describe("Cost Cap Enforcement", () => {
 	describe("AC2: Team cap enforcement", () => {
 		it("blocks session when team total reaches cap even if agent has budget", async () => {
 			// Add another agent to team
-			db.insert(agents)
+			db.insert(users)
 				.values({
 					id: "agent-2",
 					name: "Agent 2",
@@ -298,7 +298,7 @@ describe("Cost Cap Enforcement", () => {
 			eventBus.on("cost_cap_breached", (e) => events.push(e));
 
 			// Team at 4800, add 200 to reach 5000 (team cap)
-			db.insert(agents)
+			db.insert(users)
 				.values({
 					id: "agent-2",
 					name: "Agent 2",
@@ -354,7 +354,7 @@ describe("Cost Cap Enforcement", () => {
 			eventBus.on("cost_cap_warning", (e) => warnings.push(e));
 
 			// Agent-2 spent 3800, agent-1 adds 200 = team total 4000 = 80% of 5000
-			db.insert(agents)
+			db.insert(users)
 				.values({
 					id: "agent-2",
 					name: "Agent 2",
@@ -427,7 +427,7 @@ describe("Cost Cap Enforcement", () => {
 		});
 
 		it("allows sessions after team cost reset", async () => {
-			db.insert(agents)
+			db.insert(users)
 				.values({
 					id: "agent-2",
 					name: "Agent 2",
@@ -585,7 +585,7 @@ describe("Cost Cap Enforcement", () => {
 			insertSession(db, "s1", "agent-1", 1000); // agent at cap
 
 			// Also make team at cap
-			db.insert(agents)
+			db.insert(users)
 				.values({
 					id: "agent-2",
 					name: "Agent 2",

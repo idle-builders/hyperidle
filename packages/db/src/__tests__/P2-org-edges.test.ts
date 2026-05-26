@@ -16,13 +16,7 @@ import { eq, sql } from "drizzle-orm";
 import { beforeEach, describe, expect, it } from "vitest";
 import type { HyperIdleDb } from "../connection.js";
 // P2: import new symbols — these will fail to compile until implementation is done
-import {
-	type NewOrgEdge,
-	type OrgEdge,
-	orgEdges,
-	type NewUser,
-	users,
-} from "../schema.js";
+import { type NewOrgEdge, type NewUser, type OrgEdge, orgEdges, users } from "../schema.js";
 import { createTestDb } from "../test-utils.js";
 
 const NOW = new Date().toISOString();
@@ -69,9 +63,7 @@ describe("P2 — org_edges table (AC5)", () => {
 	describe("AC5: table exists with correct columns", () => {
 		it("org_edges table exists after migration", () => {
 			const tableNames = db
-				.all<{ name: string }>(
-					sql`SELECT name FROM sqlite_master WHERE type='table' ORDER BY name`,
-				)
+				.all<{ name: string }>(sql`SELECT name FROM sqlite_master WHERE type='table' ORDER BY name`)
 				.map((r) => r.name);
 
 			expect(tableNames).toContain("org_edges");
@@ -87,13 +79,13 @@ describe("P2 — org_edges table (AC5)", () => {
 
 			expect(cols["id"]).toBeDefined();
 			expect(cols["from_user_id"]).toBeDefined();
-			expect(cols["from_user_id"]!.notnull).toBe(1);
+			expect(cols["from_user_id"]).toMatchObject({ notnull: 1 });
 			expect(cols["mechanism"]).toBeDefined();
-			expect(cols["mechanism"]!.notnull).toBe(1);
+			expect(cols["mechanism"]).toMatchObject({ notnull: 1 });
 			expect(cols["target"]).toBeDefined();
-			expect(cols["target"]!.notnull).toBe(1);
+			expect(cols["target"]).toMatchObject({ notnull: 1 });
 			expect(cols["created_at"]).toBeDefined();
-			expect(cols["created_at"]!.notnull).toBe(1);
+			expect(cols["created_at"]).toMatchObject({ notnull: 1 });
 		});
 
 		it("org_edges_unique index exists on (from_user_id, mechanism, target)", () => {
@@ -146,8 +138,8 @@ describe("P2 — org_edges table (AC5)", () => {
 			db.insert(orgEdges).values(edge).run();
 
 			const row = db.select().from(orgEdges).where(eq(orgEdges.id, "edge-func-1")).get();
-			expect(row!.mechanism).toBe("function");
-			expect(row!.target).toBe("builder");
+			expect(row).toBeDefined();
+			expect(row).toMatchObject({ mechanism: "function", target: "builder" });
 		});
 
 		it("inserts an org edge with mechanism = team", () => {
@@ -164,8 +156,8 @@ describe("P2 — org_edges table (AC5)", () => {
 			db.insert(orgEdges).values(edge).run();
 
 			const row = db.select().from(orgEdges).where(eq(orgEdges.id, "edge-team-1")).get();
-			expect(row!.mechanism).toBe("team");
-			expect(row!.target).toBe("team-alpha");
+			expect(row).toBeDefined();
+			expect(row).toMatchObject({ mechanism: "team", target: "team-alpha" });
 		});
 
 		it("deletes an org edge by id", () => {
@@ -184,11 +176,7 @@ describe("P2 — org_edges table (AC5)", () => {
 
 			db.delete(orgEdges).where(eq(orgEdges.id, "edge-delete-me")).run();
 
-			const row = db
-				.select()
-				.from(orgEdges)
-				.where(eq(orgEdges.id, "edge-delete-me"))
-				.get();
+			const row = db.select().from(orgEdges).where(eq(orgEdges.id, "edge-delete-me")).get();
 			expect(row).toBeUndefined();
 		});
 	});

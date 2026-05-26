@@ -14,11 +14,11 @@
 import {
 	createTestDb,
 	type HyperIdleDb,
-	// P2: import new symbols — compile error until implementation done
-	users,
-	userSkills,
 	products,
 	teams,
+	userSkills,
+	// P2: import new symbols — compile error until implementation done
+	users,
 } from "@hyperidle/db";
 import { EventBus } from "@hyperidle/shared";
 import type { Hono } from "hono";

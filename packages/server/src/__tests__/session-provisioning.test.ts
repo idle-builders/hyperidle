@@ -26,7 +26,6 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import {
-	agents,
 	bets,
 	createTestDb,
 	type HyperIdleDb,
@@ -38,6 +37,7 @@ import {
 	tasks,
 	teams,
 	threads,
+	users,
 } from "@hyperidle/db";
 import {
 	clearDeduplicationCache,
@@ -195,7 +195,7 @@ function seedDomain(db: HyperIdleDb, overrides: SeedOverrides = {}): void {
 		})
 		.run();
 
-	db.insert(agents)
+	db.insert(users)
 		.values({
 			id: "agent-1",
 			name: "Builder Agent",
@@ -883,7 +883,7 @@ describe("Session Provisioning (D5)", () => {
 			expect(harness.startedConfigs.length).toBe(0);
 
 			// Agent cost unchanged.
-			const agent = db.select().from(agents).where(eq(agents.id, "agent-1")).get();
+			const agent = db.select().from(users).where(eq(users.id, "agent-1")).get();
 			expect(agent?.costActual).toBe(0);
 		});
 	});
@@ -993,9 +993,9 @@ describe("Session Provisioning (D5)", () => {
 
 			// Replace the default builder agent on task-1 with a practice_facilitator.
 			db.delete(tasks).where(eq(tasks.id, "task-1")).run();
-			db.delete(agents).where(eq(agents.id, "agent-1")).run();
+			db.delete(users).where(eq(users.id, "agent-1")).run();
 
-			db.insert(agents)
+			db.insert(users)
 				.values({
 					id: "agent-fac",
 					name: "Ops Practice Facilitator",
@@ -1088,9 +1088,9 @@ describe("Session Provisioning (D5)", () => {
 			// Mutate the seeded agent to point at a path that resolves outside
 			// docs/souls. The validator must throw before any DB writes or
 			// workspace spawns.
-			db.update(agents)
+			db.update(users)
 				.set({ soulPromptPath: "../../../etc/passwd" })
-				.where(eq(agents.id, "agent-1"))
+				.where(eq(users.id, "agent-1"))
 				.run();
 
 			const harness = new ScriptedHarnessAdapter({ events: [] });

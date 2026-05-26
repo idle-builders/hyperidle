@@ -1,5 +1,5 @@
 import * as crypto from "node:crypto";
-import { agents, messages } from "@hyperidle/db";
+import { messages, users } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
 import z from "zod";
 import { findOrCreateDirectThread } from "../services/direct-thread.js";
@@ -22,7 +22,7 @@ async function handler(args: SendMessageInput, ctx: ToolContext): Promise<ToolRe
 	}
 	const { to, subject, body } = parsed.data;
 
-	const recipient = ctx.db.select().from(agents).where(eq(agents.id, to)).get();
+	const recipient = ctx.db.select().from(users).where(eq(users.id, to)).get();
 	if (!recipient) {
 		return err("NOT_FOUND", `Recipient agent not found: ${to}`);
 	}

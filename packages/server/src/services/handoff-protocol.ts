@@ -1,5 +1,5 @@
 import * as crypto from "node:crypto";
-import { agents, type HyperIdleDb, items, messages, sessions, tasks, threads } from "@hyperidle/db";
+import { type HyperIdleDb, items, messages, sessions, tasks, threads, users } from "@hyperidle/db";
 import { releaseSessionDedup } from "@hyperidle/fabric";
 import type { DomainEvent, EventBus, TaskState, TaskStateChangedEvent } from "@hyperidle/shared";
 import { and, eq, ne } from "drizzle-orm";
@@ -72,7 +72,7 @@ export async function handoff(
 	// predictable "not found" (keeps error semantics identical to the
 	// pre-transactional implementation).
 	if (params.toAgent) {
-		const targetAgent = db.select().from(agents).where(eq(agents.id, params.toAgent)).get();
+		const targetAgent = db.select().from(users).where(eq(users.id, params.toAgent)).get();
 		if (!targetAgent) {
 			throw new Error(`Agent not found: ${params.toAgent}`);
 		}
@@ -174,13 +174,13 @@ export async function handoff(
 		} else if (params.toRole) {
 			const availableAgent = tx
 				.select()
-				.from(agents)
+				.from(users)
 				.where(
 					and(
-						eq(agents.role, params.toRole),
-						eq(agents.teamId, task.teamId),
-						eq(agents.status, "active"),
-						ne(agents.id, sessionContext.agentId),
+						eq(users.role, params.toRole),
+						eq(users.teamId, task.teamId),
+						eq(users.status, "active"),
+						ne(users.id, sessionContext.agentId),
 					),
 				)
 				.get();

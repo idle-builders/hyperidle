@@ -1,5 +1,4 @@
 import {
-	agents,
 	bets,
 	createTestDb,
 	type HyperIdleDb,
@@ -8,6 +7,7 @@ import {
 	sessions,
 	tasks,
 	teams,
+	users,
 } from "@hyperidle/db";
 import { type DomainEvent, EventBus } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
@@ -50,7 +50,7 @@ describe("Routine Endpoints (E6)", () => {
 				formedAt: new Date().toISOString(),
 			})
 			.run();
-		db.insert(agents)
+		db.insert(users)
 			.values({
 				id: "agent-1",
 				name: "Builder Bot",

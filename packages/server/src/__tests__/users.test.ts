@@ -1,6 +1,11 @@
+/**
+ * P2: Users endpoint tests (renamed from agents.test.ts).
+ *
+ * @lore P2: /api/agents → /api/users. agents table → users table.
+ * agentSkills table → userSkills table. All endpoint behaviors preserved.
+ */
+
 import {
-	agentSkills,
-	agents,
 	createTestDb,
 	type HyperIdleDb,
 	items,
@@ -8,19 +13,22 @@ import {
 	products,
 	teams,
 	threads,
+	userSkills,
+	users,
 } from "@hyperidle/db";
 import { type DomainEvent, EventBus } from "@hyperidle/shared";
 import type { Hono } from "hono";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createTestApp } from "../test-utils.js";
 
-const TEST_API_KEY = "test-key-agents";
+const TEST_API_KEY = "test-key-users";
+const NOW = new Date().toISOString();
 
 function authHeaders(extra?: Record<string, string>): Record<string, string> {
 	return { "X-API-Key": TEST_API_KEY, "Content-Type": "application/json", ...extra };
 }
 
-describe("Agent Endpoints (E6)", () => {
+describe("User Endpoints /api/users (E6 — renamed from agents)", () => {
 	let db: HyperIdleDb;
 	let eventBus: EventBus;
 	let app: Hono;
@@ -37,7 +45,7 @@ describe("Agent Endpoints (E6)", () => {
 				id: "prod-1",
 				name: "Test Product",
 				phase: "build",
-				createdAt: new Date().toISOString(),
+				createdAt: NOW,
 			})
 			.run();
 		db.insert(teams)
@@ -46,37 +54,39 @@ describe("Agent Endpoints (E6)", () => {
 				productId: "prod-1",
 				capacity: 3,
 				activeBets: 0,
-				formedAt: new Date().toISOString(),
+				formedAt: NOW,
 			})
 			.run();
 
-		// Seed agents
-		db.insert(agents)
+		// Seed AI users (formerly agents)
+		db.insert(users)
 			.values([
 				{
 					id: "agent-1",
+					kind: "ai",
 					name: "Builder Bot",
 					role: "builder",
 					status: "idle",
 					teamId: "team-1",
-					createdAt: new Date().toISOString(),
+					createdAt: NOW,
 				},
 				{
 					id: "agent-2",
+					kind: "ai",
 					name: "Growth Bot",
 					role: "growth",
 					status: "active",
 					teamId: "team-1",
-					createdAt: new Date().toISOString(),
+					createdAt: NOW,
 				},
 			])
 			.run();
 
-		// Seed agent skills
-		db.insert(agentSkills)
+		// Seed user skills (formerly agent skills)
+		db.insert(userSkills)
 			.values([
-				{ agentId: "agent-1", skillId: "coding", autonomyLevel: 2 },
-				{ agentId: "agent-1", skillId: "testing", autonomyLevel: 3 },
+				{ userId: "agent-1", skillId: "coding", autonomyLevel: 2 },
+				{ userId: "agent-1", skillId: "testing", autonomyLevel: 3 },
 			])
 			.run();
 	});
@@ -85,10 +95,10 @@ describe("Agent Endpoints (E6)", () => {
 		vi.unstubAllEnvs();
 	});
 
-	// AC1: GET /api/agents — list all with status, team, role, current sessions
-	describe("AC1: GET /api/agents — list all agents", () => {
-		it("returns all agents with activeSessions count", async () => {
-			const res = await app.request("/api/agents", { headers: authHeaders() });
+	// AC1: GET /api/users — list all with status, team, role, current sessions
+	describe("AC1: GET /api/users — list all users", () => {
+		it("returns all users with activeSessions count", async () => {
+			const res = await app.request("/api/users", { headers: authHeaders() });
 			expect(res.status).toBe(200);
 
 			const body = (await res.json()) as Array<Record<string, unknown>>;
@@ -100,15 +110,15 @@ describe("Agent Endpoints (E6)", () => {
 		});
 
 		it("returns 401 without auth", async () => {
-			const res = await app.request("/api/agents");
+			const res = await app.request("/api/users");
 			expect(res.status).toBe(401);
 		});
 	});
 
-	// AC2: GET /api/agents/:id — detail with skills, autonomy levels, cost
-	describe("AC2: GET /api/agents/:id — agent detail", () => {
-		it("returns agent with skills", async () => {
-			const res = await app.request("/api/agents/agent-1", { headers: authHeaders() });
+	// AC2: GET /api/users/:id — detail with skills, autonomy levels, cost
+	describe("AC2: GET /api/users/:id — user detail", () => {
+		it("returns user with skills", async () => {
+			const res = await app.request("/api/users/agent-1", { headers: authHeaders() });
 			expect(res.status).toBe(200);
 
 			const body = (await res.json()) as Record<string, unknown>;
@@ -121,8 +131,8 @@ describe("Agent Endpoints (E6)", () => {
 			expect(skills[0]).toHaveProperty("autonomyLevel");
 		});
 
-		it("returns 404 for unknown agent", async () => {
-			const res = await app.request("/api/agents/nonexistent", { headers: authHeaders() });
+		it("returns 404 for unknown user", async () => {
+			const res = await app.request("/api/users/nonexistent", { headers: authHeaders() });
 			expect(res.status).toBe(404);
 
 			const body = (await res.json()) as Record<string, unknown>;
@@ -130,10 +140,10 @@ describe("Agent Endpoints (E6)", () => {
 		});
 	});
 
-	// AC3 + AC15: PATCH /api/agents/:id/skills/:skillId — update autonomy level (creates review thread)
-	describe("AC3/AC15: PATCH /api/agents/:id/skills/:skillId — update autonomy", () => {
+	// AC3 + AC15: PATCH /api/users/:id/skills/:skillId — update autonomy level
+	describe("AC3/AC15: PATCH /api/users/:id/skills/:skillId — update autonomy", () => {
 		it("updates autonomy level", async () => {
-			const res = await app.request("/api/agents/agent-1/skills/coding", {
+			const res = await app.request("/api/users/agent-1/skills/coding", {
 				method: "PATCH",
 				headers: authHeaders(),
 				body: JSON.stringify({ autonomyLevel: 4 }),
@@ -148,13 +158,13 @@ describe("Agent Endpoints (E6)", () => {
 			const emitted: DomainEvent[] = [];
 			eventBus.on("item_created", (e) => emitted.push(e));
 
-			await app.request("/api/agents/agent-1/skills/coding", {
+			await app.request("/api/users/agent-1/skills/coding", {
 				method: "PATCH",
 				headers: authHeaders(),
 				body: JSON.stringify({ autonomyLevel: 4 }),
 			});
 
-			// L1a: legacy `kind='review'` projects to host_kind='agent' for an
+			// @lore L1a: legacy `kind='review'` projects to host_kind='agent' for an
 			// agent-scoped autonomy review (plan §5.3). Find the thread by
 			// the agent host and the linked autonomy_change item.
 			const allThreads = db.select().from(threads).all();
@@ -175,7 +185,7 @@ describe("Agent Endpoints (E6)", () => {
 			const emitted: DomainEvent[] = [];
 			eventBus.on("item_created", (e) => emitted.push(e));
 
-			await app.request("/api/agents/agent-1/skills/coding", {
+			await app.request("/api/users/agent-1/skills/coding", {
 				method: "PATCH",
 				headers: authHeaders(),
 				body: JSON.stringify({ autonomyLevel: 2 }), // same as current
@@ -187,7 +197,7 @@ describe("Agent Endpoints (E6)", () => {
 		});
 
 		it("returns 404 for unknown skill", async () => {
-			const res = await app.request("/api/agents/agent-1/skills/nonexistent", {
+			const res = await app.request("/api/users/agent-1/skills/nonexistent", {
 				method: "PATCH",
 				headers: authHeaders(),
 				body: JSON.stringify({ autonomyLevel: 3 }),
@@ -196,7 +206,7 @@ describe("Agent Endpoints (E6)", () => {
 		});
 
 		it("returns 400 for invalid autonomy level", async () => {
-			const res = await app.request("/api/agents/agent-1/skills/coding", {
+			const res = await app.request("/api/users/agent-1/skills/coding", {
 				method: "PATCH",
 				headers: authHeaders(),
 				body: JSON.stringify({ autonomyLevel: 5 }),
@@ -205,9 +215,9 @@ describe("Agent Endpoints (E6)", () => {
 		});
 	});
 
-	// AC8: GET /api/agents/:id/inbox — agent's inbox
-	describe("AC8: GET /api/agents/:id/inbox", () => {
-		it("returns messages for the agent", async () => {
+	// AC8: GET /api/users/:id/inbox — user's inbox
+	describe("AC8: GET /api/users/:id/inbox", () => {
+		it("returns messages for the user", async () => {
 			// Seed a thread and message
 			db.insert(threads)
 				.values({
@@ -216,8 +226,8 @@ describe("Agent Endpoints (E6)", () => {
 					hostId: "agent-1",
 					initiatorId: "agent-2",
 					participants: JSON.stringify(["agent-2", "agent-1"]),
-					lastActiveAt: new Date().toISOString(),
-					createdAt: new Date().toISOString(),
+					lastActiveAt: NOW,
+					createdAt: NOW,
 				})
 				.run();
 			db.insert(messages)
@@ -228,31 +238,34 @@ describe("Agent Endpoints (E6)", () => {
 					type: "plain",
 					payload: JSON.stringify({ text: "Hello!" }),
 					clientKey: "msg-1",
-					createdAt: new Date().toISOString(),
+					createdAt: NOW,
 				})
 				.run();
 
-			const res = await app.request("/api/agents/agent-1/inbox", { headers: authHeaders() });
+			const res = await app.request("/api/users/agent-1/inbox", { headers: authHeaders() });
 			expect(res.status).toBe(200);
 
-			// L1a: messages now carry payload (JSON), not body. The route
-			// returns the row as-is.
-			const body = (await res.json()) as Array<{ payload: string; senderId: string }>;
-			expect(body).toHaveLength(1);
-			const payload = JSON.parse(body[0].payload) as { text?: string };
+			// P2: inbox returns { messages, total } shape
+			const body = (await res.json()) as {
+				messages: Array<{ payload: string; senderId: string }>;
+				total: number;
+			};
+			expect(body).toHaveProperty("messages");
+			expect(body.messages).toHaveLength(1);
+			const payload = JSON.parse(body.messages[0].payload) as { text?: string };
 			expect(payload.text).toBe("Hello!");
 		});
 
-		it("returns 404 for unknown agent", async () => {
-			const res = await app.request("/api/agents/nonexistent/inbox", { headers: authHeaders() });
+		it("returns 404 for unknown user", async () => {
+			const res = await app.request("/api/users/nonexistent/inbox", { headers: authHeaders() });
 			expect(res.status).toBe(404);
 		});
 	});
 
-	// AC9: POST /api/agents/:id/inbox — send message to agent
-	describe("AC9: POST /api/agents/:id/inbox — send message", () => {
+	// AC9: POST /api/users/:id/inbox — send message to user
+	describe("AC9: POST /api/users/:id/inbox — send message", () => {
 		it("sends a message and creates thread if needed", async () => {
-			const res = await app.request("/api/agents/agent-1/inbox", {
+			const res = await app.request("/api/users/agent-1/inbox", {
 				method: "POST",
 				headers: authHeaders({ "X-Identity": "agent-2" }),
 				body: JSON.stringify({ body: "Hey there!" }),
@@ -273,14 +286,14 @@ describe("Agent Endpoints (E6)", () => {
 
 		it("reuses existing thread for same sender/recipient pair", async () => {
 			// Send first message
-			await app.request("/api/agents/agent-1/inbox", {
+			await app.request("/api/users/agent-1/inbox", {
 				method: "POST",
 				headers: authHeaders({ "X-Identity": "agent-2" }),
 				body: JSON.stringify({ body: "First" }),
 			});
 
 			// Send second message
-			await app.request("/api/agents/agent-1/inbox", {
+			await app.request("/api/users/agent-1/inbox", {
 				method: "POST",
 				headers: authHeaders({ "X-Identity": "agent-2" }),
 				body: JSON.stringify({ body: "Second" }),
@@ -293,8 +306,8 @@ describe("Agent Endpoints (E6)", () => {
 			expect(allMessages).toHaveLength(2);
 		});
 
-		it("returns 404 for unknown recipient agent", async () => {
-			const res = await app.request("/api/agents/nonexistent/inbox", {
+		it("returns 404 for unknown recipient user", async () => {
+			const res = await app.request("/api/users/nonexistent/inbox", {
 				method: "POST",
 				headers: authHeaders({ "X-Identity": "agent-2" }),
 				body: JSON.stringify({ body: "Hello" }),
@@ -303,7 +316,7 @@ describe("Agent Endpoints (E6)", () => {
 		});
 
 		it("returns 400 for missing body text", async () => {
-			const res = await app.request("/api/agents/agent-1/inbox", {
+			const res = await app.request("/api/users/agent-1/inbox", {
 				method: "POST",
 				headers: authHeaders({ "X-Identity": "agent-2" }),
 				body: JSON.stringify({}),
@@ -311,12 +324,8 @@ describe("Agent Endpoints (E6)", () => {
 			expect(res.status).toBe(400);
 		});
 
-		// L1 step9 (Adv-C2): senderId must NOT be derivable from the request
-		// body. A body-supplied `senderId` either (a) is rejected outright by
-		// the strict schema (no extra keys), or (b) is silently ignored. The
-		// derived sender must come from `X-Identity`.
 		it("rejects body-supplied senderId — no spoofing", async () => {
-			const res = await app.request("/api/agents/agent-1/inbox", {
+			const res = await app.request("/api/users/agent-1/inbox", {
 				method: "POST",
 				headers: authHeaders({ "X-Identity": "agent-2" }),
 				body: JSON.stringify({ senderId: "u-founder", body: "spoof" }),
@@ -325,7 +334,7 @@ describe("Agent Endpoints (E6)", () => {
 		});
 
 		it("returns 400 when X-Identity header is missing", async () => {
-			const res = await app.request("/api/agents/agent-1/inbox", {
+			const res = await app.request("/api/users/agent-1/inbox", {
 				method: "POST",
 				headers: authHeaders(),
 				body: JSON.stringify({ body: "no identity" }),

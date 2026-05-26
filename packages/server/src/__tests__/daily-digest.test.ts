@@ -1,5 +1,4 @@
 import {
-	agents,
 	createTestDb,
 	type HyperIdleDb,
 	items,
@@ -7,6 +6,7 @@ import {
 	products,
 	teams,
 	threads,
+	users,
 } from "@hyperidle/db";
 import { getDailyDigest } from "@hyperidle/fabric";
 import { beforeEach, describe, expect, it } from "vitest";
@@ -23,7 +23,7 @@ describe("Daily Digest (E7)", () => {
 		db.insert(teams)
 			.values({ id: "team-1", productId: "prod-1", capacity: 3, activeBets: 0, formedAt: ts })
 			.run();
-		db.insert(agents)
+		db.insert(users)
 			.values({
 				id: "agent-1",
 				name: "Builder",
@@ -101,7 +101,7 @@ describe("Daily Digest (E7)", () => {
 		// `legacy_item_id` matches the source item. The digest now joins via
 		// messages.legacy_item_id (plan §10 / T8). Seed a `human` agent so
 		// the message FK on sender_id is satisfied.
-		db.insert(agents)
+		db.insert(users)
 			.values({
 				id: "human",
 				name: "Human",

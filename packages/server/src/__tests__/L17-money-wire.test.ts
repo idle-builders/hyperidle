@@ -11,7 +11,6 @@
  */
 
 import {
-	agents,
 	bets,
 	createTestDb,
 	type HyperIdleDb,
@@ -19,6 +18,7 @@ import {
 	sessions,
 	tasks,
 	teams,
+	users,
 } from "@hyperidle/db";
 import {
 	checkCostCap,
@@ -93,7 +93,7 @@ describe("Cost-cap service with Money columns (AC13)", () => {
 			})
 			.run();
 
-		db.insert(agents)
+		db.insert(users)
 			.values({
 				id: "agent-1",
 				name: "Builder Agent",

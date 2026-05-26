@@ -273,7 +273,7 @@ export function AppShell(): JSX.Element {
 	const [settings, setSettings] = useState<SettingsData>(() => ({
 		profile: { name: "Founder", email: "", avatarUrl: "" },
 		products: [],
-		agents: [],
+		users: [],
 		notifications: {
 			reviewAlerts: true,
 			costAlerts: true,

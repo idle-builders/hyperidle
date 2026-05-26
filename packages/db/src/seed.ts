@@ -3,7 +3,6 @@ import type { BaseSQLiteDatabase } from "drizzle-orm/sqlite-core";
 import type { HyperIdleDb } from "./connection.js";
 import type * as schema from "./schema.js";
 import {
-	agents,
 	bets,
 	factorySettings,
 	knowledgeItems,
@@ -12,6 +11,7 @@ import {
 	routines,
 	tasks,
 	teams,
+	users,
 } from "./schema.js";
 import {
 	asBit01,
@@ -52,9 +52,26 @@ export function seed(db: SeedableDb | HyperIdleDb): void {
 		.onConflictDoNothing()
 		.run();
 
-	db.insert(agents)
+	// P2: Seed the human founder user row. This is the authenticated identity for
+	// the auth middleware (users WHERE kind = 'human' LIMIT 1).
+	db.insert(users)
+		.values({
+			id: "u-founder",
+			kind: "human",
+			name: "Founder",
+			role: "founder",
+			status: "active",
+			email: "founder@hyperidle.com",
+			maxConcurrentSessions: 0,
+			createdAt: now,
+		})
+		.onConflictDoNothing()
+		.run();
+
+	db.insert(users)
 		.values({
 			id: "seed-agent-builder",
+			kind: "ai",
 			name: "Nimmly Builder",
 			role: "builder",
 			status: "active",
@@ -65,9 +82,10 @@ export function seed(db: SeedableDb | HyperIdleDb): void {
 		.onConflictDoNothing()
 		.run();
 
-	db.insert(agents)
+	db.insert(users)
 		.values({
 			id: "seed-agent-cos",
+			kind: "ai",
 			name: "Chief of Staff",
 			role: "chief_of_staff",
 			status: "active",
@@ -77,12 +95,13 @@ export function seed(db: SeedableDb | HyperIdleDb): void {
 		.onConflictDoNothing()
 		.run();
 
-	// L20: system:propagation agent — authors review threads when bets enter review.
-	// FK constraint: messages.senderId references agents.id. This agent must exist
+	// L20: system:propagation user — authors review threads when bets enter review.
+	// FK constraint: messages.senderId references users.id. This user must exist
 	// before any propagation-triggered review thread can be created.
-	db.insert(agents)
+	db.insert(users)
 		.values({
 			id: "system:propagation",
+			kind: "ai",
 			name: "Propagation System",
 			role: "system",
 			status: "active",
@@ -94,18 +113,19 @@ export function seed(db: SeedableDb | HyperIdleDb): void {
 
 	// Patch the existing Chief of Staff row with G1 facilitator metadata.
 	// Idempotent: a second run writes the same values.
-	db.update(agents)
+	db.update(users)
 		.set({
 			soulPromptPath: "docs/souls/chief-of-staff.md",
 			skills: JSON.stringify({ scope: null, tools: FACILITATOR_TOOLS }),
 		})
-		.where(eq(agents.id, "seed-agent-cos"))
+		.where(eq(users.id, "seed-agent-cos"))
 		.run();
 
 	// Product Manager — scoped to seed-product-1.
-	db.insert(agents)
+	db.insert(users)
 		.values({
 			id: "seed-agent-pm-nimmly",
+			kind: "ai",
 			name: "Nimmly Product Manager",
 			role: "product_manager",
 			teamId: "seed-team-1",
@@ -123,9 +143,10 @@ export function seed(db: SeedableDb | HyperIdleDb): void {
 
 	// Practice Facilitators — one per community of practice.
 	for (const community of PRACTICE_COMMUNITIES) {
-		db.insert(agents)
+		db.insert(users)
 			.values({
 				id: `seed-agent-pf-${community}`,
+				kind: "ai",
 				name: `${COMMUNITY_DISPLAY_NAMES[community]} Practice Facilitator`,
 				role: "practice_facilitator",
 				teamId: null,
@@ -184,21 +205,9 @@ export function seed(db: SeedableDb | HyperIdleDb): void {
 		.onConflictDoNothing()
 		.run();
 
-	// M3 A1: Seed founder identity. Values come FROM the database at runtime
-	// rather than being hardcoded at each call site. The seed value "u-founder"
-	// is the default single-founder factory identity.
-	db.insert(factorySettings)
-		.values({ key: "founder_id", value: "u-founder", updatedAt: now })
-		.onConflictDoNothing()
-		.run();
-	db.insert(factorySettings)
-		.values({ key: "founder_name", value: "Founder", updatedAt: now })
-		.onConflictDoNothing()
-		.run();
-	db.insert(factorySettings)
-		.values({ key: "founder_email", value: "founder@hyperidle.com", updatedAt: now })
-		.onConflictDoNothing()
-		.run();
+	// P2: founder_id, founder_name, founder_email factorySettings keys removed.
+	// The human founder identity now lives in the users table (kind = 'human').
+	// Auth middleware resolves from users WHERE kind = 'human' LIMIT 1.
 
 	// --- H2: daily digest routine (disabled by default — operator enables) ---
 	// @lore The routine lives at the seed level so the scheduler picks it up

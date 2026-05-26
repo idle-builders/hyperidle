@@ -6,7 +6,7 @@
 
 import * as os from "node:os";
 import * as path from "node:path";
-import { agents, type HyperIdleDb, products, teams, threads } from "@hyperidle/db";
+import { type HyperIdleDb, products, teams, threads, users } from "@hyperidle/db";
 import { EventBus } from "@hyperidle/shared";
 import type { ToolContext } from "../tool-registry.js";
 
@@ -48,7 +48,7 @@ export function seedBase(db: HyperIdleDb): void {
 	db.insert(teams)
 		.values({ id: "t1", productId: "p1", capacity: 5, activeBets: 0, formedAt: NOW })
 		.run();
-	db.insert(agents)
+	db.insert(users)
 		.values({
 			id: "agent-fac",
 			name: "Facilitator",

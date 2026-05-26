@@ -1,6 +1,6 @@
 import type { HyperIdleDb } from "@hyperidle/db";
 import type { FileWatcher } from "@hyperidle/fabric";
-import type { AgentRole, EventBus } from "@hyperidle/shared";
+import type { EventBus, UserRole } from "@hyperidle/shared";
 import z from "zod";
 import { createConflictReviewTool } from "./create-conflict-review.js";
 import { createItemTool } from "./create-item.js";
@@ -46,7 +46,7 @@ export interface ToolDefinition<Input = unknown> {
 	readonly description: string;
 	readonly inputSchema: z.ZodType<Input>;
 	readonly handler: (args: Input, ctx: ToolContext) => Promise<ToolResult>;
-	readonly roles?: readonly AgentRole[];
+	readonly roles?: readonly UserRole[];
 }
 
 /**
@@ -125,7 +125,7 @@ export const ALL_TOOL_DEFINITIONS: readonly ToolDefinition[] = [
  * A tool with `roles === undefined` is available to all roles; otherwise the
  * role must appear in the tool's `roles` array.
  */
-export function toolsForRole(role: AgentRole): readonly ToolDefinition[] {
+export function toolsForRole(role: UserRole): readonly ToolDefinition[] {
 	return ALL_TOOL_DEFINITIONS.filter((d) => d.roles === undefined || d.roles.includes(role));
 }
 
@@ -139,7 +139,7 @@ export function toolsForRole(role: AgentRole): readonly ToolDefinition[] {
  * the constructor boundary, mirroring the harness allowed-tool list.
  */
 export interface BuildToolRegistryOptions {
-	readonly role: AgentRole;
+	readonly role: UserRole;
 }
 
 /**

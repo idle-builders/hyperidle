@@ -20,9 +20,9 @@
 import {
 	createTestDb,
 	type HyperIdleDb,
+	products,
 	// P2: import new symbol — compile error until implementation done
 	users,
-	products,
 } from "@hyperidle/db";
 import { EventBus } from "@hyperidle/shared";
 import type { Hono } from "hono";

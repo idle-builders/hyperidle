@@ -26,7 +26,6 @@
 import type { HyperIdleDb } from "@hyperidle/db";
 import {
 	bets,
-	factorySettings,
 	messages,
 	type NewPropagationLogRow,
 	notificationQueue,
@@ -34,6 +33,7 @@ import {
 	sessions,
 	tasks,
 	threads,
+	users,
 } from "@hyperidle/db";
 import type { PropagationLevel } from "@hyperidle/fabric";
 import {
@@ -484,14 +484,10 @@ function createShipConfirmationThread(
 	const now = new Date().toISOString();
 	const threadId = crypto.randomUUID();
 
-	// Read founder_id from factorySettings so the thread participants list
-	// reflects the configured founder rather than a hardcoded literal.
-	const founderRow = db
-		.select()
-		.from(factorySettings)
-		.where(eq(factorySettings.key, "founder_id"))
-		.get();
-	const founderId = founderRow?.value ?? "u-founder";
+	// P2: Read founder from users table (kind = 'human') instead of factorySettings.
+	// @lore P2: fallback to "u-founder" for unseeded DBs — same sentinel as auth middleware.
+	const humanUser = db.select().from(users).where(eq(users.kind, "human")).limit(1).get();
+	const founderId = humanUser?.id ?? "u-founder";
 
 	const doneCount = allBetTasks.filter((t) => t.state === "done").length;
 	const killedCount = allBetTasks.filter((t) => t.state === "killed").length;

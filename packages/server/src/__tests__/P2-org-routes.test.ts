@@ -16,9 +16,9 @@ import {
 	type HyperIdleDb,
 	// P2: import new symbols — compile error until implementation done
 	orgEdges,
-	users,
 	products,
 	teams,
+	users,
 } from "@hyperidle/db";
 import { EventBus } from "@hyperidle/shared";
 import type { Hono } from "hono";
@@ -137,9 +137,11 @@ describe("P2 — /api/org endpoints (AC5, AC6, AC10)", () => {
 			};
 
 			expect(body.edges).toHaveLength(1);
-			expect(body.edges[0]!.fromUserId).toBe("u-human-org");
-			expect(body.edges[0]!.mechanism).toBe("direct");
-			expect(body.edges[0]!.target).toBe("u-ai-org");
+			expect(body.edges[0]).toMatchObject({
+				fromUserId: "u-human-org",
+				mechanism: "direct",
+				target: "u-ai-org",
+			});
 
 			// users array in response has id, kind, name, role
 			const userIds = body.users.map((u) => u.id);

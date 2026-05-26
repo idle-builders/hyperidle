@@ -1,7 +1,5 @@
 import * as crypto from "node:crypto";
 import {
-	agentSkills,
-	agents,
 	factorySettings,
 	type HyperIdleDb,
 	items,
@@ -9,6 +7,8 @@ import {
 	routines,
 	sessions,
 	threads,
+	userSkills,
+	users,
 } from "@hyperidle/db";
 import type { EventBus, EventType } from "@hyperidle/shared";
 import { and, eq, sql } from "drizzle-orm";
@@ -181,7 +181,7 @@ function getActiveSessionCount(db: HyperIdleDb, agentId: string): number {
 }
 
 function isAgentAtWipLimit(db: HyperIdleDb, agentId: string): boolean {
-	const agent = db.select().from(agents).where(eq(agents.id, agentId)).get();
+	const agent = db.select().from(users).where(eq(users.id, agentId)).get();
 	if (!agent) return true;
 	const activeCount = getActiveSessionCount(db, agentId);
 	return activeCount >= agent.maxConcurrentSessions;
@@ -190,11 +190,11 @@ function isAgentAtWipLimit(db: HyperIdleDb, agentId: string): boolean {
 // --- Delegation ---
 
 function findDelegate(db: HyperIdleDb, skillId: string, ownerId: string): string | undefined {
-	// Find an agent with the matching skill who is not at their WIP limit
+	// Find a user with the matching skill who is not at their WIP limit
 	const candidates = db
-		.select({ agentId: agentSkills.agentId })
-		.from(agentSkills)
-		.where(eq(agentSkills.skillId, skillId))
+		.select({ agentId: userSkills.userId })
+		.from(userSkills)
+		.where(eq(userSkills.skillId, skillId))
 		.all();
 
 	for (const candidate of candidates) {

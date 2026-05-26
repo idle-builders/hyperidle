@@ -1,22 +1,13 @@
 /**
- * M3 RED — Auth middleware: createAuthMiddleware(db) sets userId from factorySettings.
+ * M3 — Auth middleware: createAuthMiddleware(db) sets userId from users table.
  *
- * These tests FAIL until:
- *  - createAuthMiddleware(db) is implemented
- *  - factorySettings are seeded with founder_id
- *  - GET /api/auth/me returns identity from factorySettings
- *
- * C1 (critique): seed target is seed.ts + seed-pg.ts, NOT seed-fixtures.ts.
+ * @lore P2: Updated from factorySettings.founder_id lookup to users table query.
+ * The middleware now queries `users WHERE kind = 'human' LIMIT 1` after API key
+ * validation. Tests seed a human user row instead of factorySettings founder_id.
+ * The fallback to "u-founder" is preserved for unseeded DBs.
  */
 
-import {
-	bets,
-	createTestDb,
-	factorySettings,
-	type HyperIdleDb,
-	products,
-	teams,
-} from "@hyperidle/db";
+import { bets, createTestDb, type HyperIdleDb, products, teams, users } from "@hyperidle/db";
 import { EventBus } from "@hyperidle/shared";
 import type { Hono } from "hono";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -28,18 +19,21 @@ function authHeaders(extra?: Record<string, string>): Record<string, string> {
 	return { "X-API-Key": TEST_API_KEY, "Content-Type": "application/json", ...extra };
 }
 
-function seedFounderSettings(db: HyperIdleDb, founderId = "test-founder-1"): void {
+/**
+ * Seed a human founder user row. P2: auth resolves from users WHERE kind = 'human'.
+ */
+function seedFounderUser(db: HyperIdleDb, founderId = "test-founder-1"): void {
 	const now = new Date().toISOString();
-	db.insert(factorySettings)
-		.values({ key: "founder_id", value: founderId, updatedAt: now })
-		.onConflictDoNothing()
-		.run();
-	db.insert(factorySettings)
-		.values({ key: "founder_name", value: "Test Founder", updatedAt: now })
-		.onConflictDoNothing()
-		.run();
-	db.insert(factorySettings)
-		.values({ key: "founder_email", value: "test@hyperidle.dev", updatedAt: now })
+	db.insert(users)
+		.values({
+			id: founderId,
+			kind: "human",
+			name: "Test Founder",
+			email: "test@hyperidle.dev",
+			role: "founder",
+			status: "active",
+			createdAt: now,
+		})
 		.onConflictDoNothing()
 		.run();
 }
@@ -60,8 +54,8 @@ describe("M3 — Auth middleware: createAuthMiddleware(db) (A3)", () => {
 		vi.unstubAllEnvs();
 	});
 
-	it("sets userId on context from factorySettings founder_id", async () => {
-		seedFounderSettings(db, "test-founder-1");
+	it("sets userId on context from users table (kind=human)", async () => {
+		seedFounderUser(db, "test-founder-1");
 
 		// Probe via GET /api/auth/me which returns c.get("userId")
 		const res = await app.request("/api/auth/me", { headers: authHeaders() });
@@ -73,8 +67,8 @@ describe("M3 — Auth middleware: createAuthMiddleware(db) (A3)", () => {
 		expect(body.id).not.toBe("u-founder");
 	});
 
-	it("falls back to u-founder when factorySettings has no founder_id (backward compat)", async () => {
-		// Do NOT seed founder_id
+	it("falls back to u-founder when no human user is seeded (backward compat)", async () => {
+		// Do NOT seed any human user
 		const res = await app.request("/api/auth/me", { headers: authHeaders() });
 		expect(res.status).toBe(200);
 		const body = (await res.json()) as { id: string };
@@ -88,7 +82,7 @@ describe("M3 — Auth middleware: createAuthMiddleware(db) (A3)", () => {
 	});
 });
 
-describe("M3 — GET /api/auth/me returns full identity from factorySettings (A4)", () => {
+describe("M3 — GET /api/auth/me returns full identity from users table (A4)", () => {
 	let db: HyperIdleDb;
 	let eventBus: EventBus;
 	let app: Hono;
@@ -98,14 +92,14 @@ describe("M3 — GET /api/auth/me returns full identity from factorySettings (A4
 		db = createTestDb();
 		eventBus = new EventBus();
 		app = createTestApp({ db, eventBus });
-		seedFounderSettings(db, "test-founder-1");
+		seedFounderUser(db, "test-founder-1");
 	});
 
 	afterEach(() => {
 		vi.unstubAllEnvs();
 	});
 
-	it("returns id, name, email, avatarUrl from factorySettings", async () => {
+	it("returns id, name, email, avatarUrl from users table", async () => {
 		const res = await app.request("/api/auth/me", { headers: authHeaders() });
 		expect(res.status).toBe(200);
 
@@ -168,8 +162,8 @@ describe("M3 — Bets routes: revision log actor comes from auth context (A5)", 
 		vi.unstubAllEnvs();
 	});
 
-	it("revision log actor is the seeded founder_id, NOT 'u-founder'", async () => {
-		seedFounderSettings(db, "test-founder-1");
+	it("revision log actor is the seeded human user id, NOT 'u-founder'", async () => {
+		seedFounderUser(db, "test-founder-1");
 
 		const res = await app.request("/api/bets/bet-1", {
 			method: "PATCH",

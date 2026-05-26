@@ -1,5 +1,5 @@
-import { agents, bets, type HyperIdleDb, products, tasks } from "@hyperidle/db";
-import type { AgentRole } from "@hyperidle/shared";
+import { bets, type HyperIdleDb, products, tasks, users } from "@hyperidle/db";
+import type { UserRole } from "@hyperidle/shared";
 import { encode } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
 
@@ -7,7 +7,7 @@ export interface SessionContextConfig {
 	sessionId: string;
 	taskId: string;
 	agentId: string;
-	agentRole: AgentRole;
+	agentRole: UserRole;
 	productId: string;
 }
 
@@ -47,7 +47,7 @@ export function buildSessionContext(db: HyperIdleDb, config: SessionContextConfi
 		throw new Error(`Bet ${task.betId} not found`);
 	}
 
-	const agent = db.select().from(agents).where(eq(agents.id, config.agentId)).get();
+	const agent = db.select().from(users).where(eq(users.id, config.agentId)).get();
 	if (!agent) {
 		throw new Error(`Agent ${config.agentId} not found`);
 	}

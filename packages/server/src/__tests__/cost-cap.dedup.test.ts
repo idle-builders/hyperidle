@@ -1,5 +1,4 @@
 import {
-	agents,
 	bets,
 	createTestDb,
 	type HyperIdleDb,
@@ -7,6 +6,7 @@ import {
 	sessions,
 	tasks,
 	teams,
+	users,
 } from "@hyperidle/db";
 // @lore These exports do not yet exist on cost-cap.ts as of I3 red phase.
 // The plan §3.7 specifies adding `releaseSessionDedup(sessionId)` and a
@@ -62,7 +62,7 @@ function seedAgentWithCap(
 		})
 		.onConflictDoNothing()
 		.run();
-	db.insert(agents)
+	db.insert(users)
 		.values({
 			id: agentId,
 			name: `A-${agentId}`,

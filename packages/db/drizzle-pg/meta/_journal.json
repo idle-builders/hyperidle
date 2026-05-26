@@ -85,6 +85,13 @@
 			"when": 1748000000000,
 			"tag": "0011_o2_kernel_strategy_separation",
 			"breakpoints": true
+		},
+		{
+			"idx": 12,
+			"version": "7",
+			"when": 1748400000000,
+			"tag": "0012_P2_rename_agents_to_users",
+			"breakpoints": true
 		}
 	]
 }

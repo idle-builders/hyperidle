@@ -42,9 +42,7 @@ describe("P2 — users table schema (AC1, AC2, AC9)", () => {
 	describe("AC1: table renamed to users with kind column", () => {
 		it("users table exists after migration", () => {
 			const tableNames = db
-				.all<{ name: string }>(
-					sql`SELECT name FROM sqlite_master WHERE type='table' ORDER BY name`,
-				)
+				.all<{ name: string }>(sql`SELECT name FROM sqlite_master WHERE type='table' ORDER BY name`)
 				.map((r) => r.name);
 
 			expect(tableNames).toContain("users");
@@ -56,17 +54,13 @@ describe("P2 — users table schema (AC1, AC2, AC9)", () => {
 				.all<{ name: string; dflt_value: string | null; notnull: number }>(
 					sql`PRAGMA table_info(users)`,
 				)
-				.reduce<Record<string, { dflt_value: string | null; notnull: number }>>(
-					(acc, col) => {
-						acc[col.name] = { dflt_value: col.dflt_value, notnull: col.notnull };
-						return acc;
-					},
-					{},
-				);
+				.reduce<Record<string, { dflt_value: string | null; notnull: number }>>((acc, col) => {
+					acc[col.name] = { dflt_value: col.dflt_value, notnull: col.notnull };
+					return acc;
+				}, {});
 
 			expect(cols["kind"]).toBeDefined();
-			expect(cols["kind"]!.dflt_value).toBe("'ai'");
-			expect(cols["kind"]!.notnull).toBe(1);
+			expect(cols["kind"]).toMatchObject({ dflt_value: "'ai'", notnull: 1 });
 		});
 
 		it("inserts an AI user with kind defaulting to ai", () => {
@@ -82,7 +76,7 @@ describe("P2 — users table schema (AC1, AC2, AC9)", () => {
 
 			const row = db.select().from(users).where(eq(users.id, "u-test-ai")).get();
 			expect(row).toBeDefined();
-			expect(row!.kind).toBe("ai");
+			expect(row).toMatchObject({ kind: "ai" });
 		});
 
 		it("inserts a human user with kind = human", () => {
@@ -100,9 +94,8 @@ describe("P2 — users table schema (AC1, AC2, AC9)", () => {
 
 			const row = db.select().from(users).where(eq(users.id, "u-founder")).get();
 			expect(row).toBeDefined();
-			expect(row!.kind).toBe("human");
 			// role column is text — "founder" is valid even though it is not in USER_ROLES union
-			expect(row!.role).toBe("founder");
+			expect(row).toMatchObject({ kind: "human", role: "founder" });
 		});
 
 		it("inferred User type has kind, email, avatarUrl fields", () => {
@@ -110,13 +103,13 @@ describe("P2 — users table schema (AC1, AC2, AC9)", () => {
 			// If the schema is wrong this file will fail to compile (red phase).
 			const user = {} as User;
 			// Access the new fields — this will be a type error if the fields don't exist
-			const _kind: string = user.kind;
-			const _email: string | null = user.email;
-			const _avatarUrl: string | null = user.avatarUrl;
+			const Kind: string = user.kind;
+			const Email: string | null = user.email;
+			const AvatarUrl: string | null = user.avatarUrl;
 			// Suppress unused variable lint
-			void _kind;
-			void _email;
-			void _avatarUrl;
+			void Kind;
+			void Email;
+			void AvatarUrl;
 		});
 	});
 
@@ -139,8 +132,8 @@ describe("P2 — users table schema (AC1, AC2, AC9)", () => {
 			db.insert(users).values(aiUser).run();
 
 			const row = db.select().from(users).where(eq(users.id, "u-ai-no-email")).get();
-			expect(row!.email).toBeNull();
-			expect(row!.avatarUrl).toBeNull();
+			expect(row).toBeDefined();
+			expect(row).toMatchObject({ email: null, avatarUrl: null });
 		});
 
 		it("inserts a human user with email and avatarUrl populated", () => {
@@ -158,8 +151,11 @@ describe("P2 — users table schema (AC1, AC2, AC9)", () => {
 			db.insert(users).values(humanUser).run();
 
 			const row = db.select().from(users).where(eq(users.id, "u-human-with-profile")).get();
-			expect(row!.email).toBe("human@example.com");
-			expect(row!.avatarUrl).toBe("https://cdn.example.com/avatar.png");
+			expect(row).toBeDefined();
+			expect(row).toMatchObject({
+				email: "human@example.com",
+				avatarUrl: "https://cdn.example.com/avatar.png",
+			});
 		});
 
 		it("email column exists in PRAGMA table_info and allows null", () => {
@@ -171,10 +167,10 @@ describe("P2 — users table schema (AC1, AC2, AC9)", () => {
 				}, {});
 
 			expect(cols["email"]).toBeDefined();
-			expect(cols["email"]!.notnull).toBe(0); // nullable
+			expect(cols["email"]).toMatchObject({ notnull: 0 }); // nullable
 
 			expect(cols["avatar_url"]).toBeDefined();
-			expect(cols["avatar_url"]!.notnull).toBe(0); // nullable
+			expect(cols["avatar_url"]).toMatchObject({ notnull: 0 }); // nullable
 		});
 	});
 
@@ -184,9 +180,7 @@ describe("P2 — users table schema (AC1, AC2, AC9)", () => {
 	describe("AC1 (critique): user_skills table has user_id column", () => {
 		it("user_skills table exists and does NOT have agent_id column", () => {
 			const tableNames = db
-				.all<{ name: string }>(
-					sql`SELECT name FROM sqlite_master WHERE type='table' ORDER BY name`,
-				)
+				.all<{ name: string }>(sql`SELECT name FROM sqlite_master WHERE type='table' ORDER BY name`)
 				.map((r) => r.name);
 
 			expect(tableNames).toContain("user_skills");
@@ -223,11 +217,7 @@ describe("P2 — users table schema (AC1, AC2, AC9)", () => {
 
 			db.insert(userSkills).values(skill).run();
 
-			const row = db
-				.select()
-				.from(userSkills)
-				.where(eq(userSkills.userId, "u-skill-test"))
-				.get();
+			const row = db.select().from(userSkills).where(eq(userSkills.userId, "u-skill-test")).get();
 			expect(row).toBeDefined();
 			expect((row as UserSkill).userId).toBe("u-skill-test");
 		});
@@ -239,9 +229,7 @@ describe("P2 — users table schema (AC1, AC2, AC9)", () => {
 	describe("AC9: migration 0017 creates users and user_skills tables", () => {
 		it("migration creates org_edges table", () => {
 			const tableNames = db
-				.all<{ name: string }>(
-					sql`SELECT name FROM sqlite_master WHERE type='table' ORDER BY name`,
-				)
+				.all<{ name: string }>(sql`SELECT name FROM sqlite_master WHERE type='table' ORDER BY name`)
 				.map((r) => r.name);
 
 			expect(tableNames).toContain("org_edges");

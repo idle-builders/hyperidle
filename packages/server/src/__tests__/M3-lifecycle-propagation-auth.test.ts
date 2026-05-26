@@ -1,21 +1,20 @@
 /**
- * M3 RED — lifecycle-propagation.ts: thread participants use founder_id from
- * factorySettings, NOT the hardcoded "u-founder" (A9).
+ * M3 — lifecycle-propagation.ts: thread participants use founder from users table (A9).
  *
- * These tests FAIL until lifecycle-propagation.ts reads founder_id from
- * factorySettings instead of the hardcoded "u-founder" literal at line 411.
+ * @lore P2: Updated from factorySettings.founder_id to users table query.
+ * The lifecycle-propagation service queries `users WHERE kind = 'human' LIMIT 1`
+ * and uses that id as the founder participant in propagation threads.
  */
 
 import {
-	agents,
 	bets,
 	createTestDb,
-	factorySettings,
 	type HyperIdleDb,
 	products,
 	tasks,
 	teams,
 	threads,
+	users,
 } from "@hyperidle/db";
 import { registerLifecyclePropagation } from "@hyperidle/fabric";
 import { EventBus } from "@hyperidle/shared";
@@ -27,8 +26,16 @@ const SYSTEM_PROPAGATION_ID = "system:propagation";
 function seedBase(db: HyperIdleDb, founderId = "test-founder-1"): void {
 	const now = new Date().toISOString();
 
-	db.insert(factorySettings)
-		.values({ key: "founder_id", value: founderId, updatedAt: now })
+	// P2: seed human founder user row (replaces factorySettings.founder_id lookup)
+	db.insert(users)
+		.values({
+			id: founderId,
+			kind: "human",
+			name: "Test Founder",
+			role: "founder",
+			status: "active",
+			createdAt: now,
+		})
 		.onConflictDoNothing()
 		.run();
 
@@ -48,7 +55,7 @@ function seedBase(db: HyperIdleDb, founderId = "test-founder-1"): void {
 			createdAt: now,
 		})
 		.run();
-	db.insert(agents)
+	db.insert(users)
 		.values({
 			id: "agent-1",
 			name: "Builder Agent",
@@ -57,7 +64,7 @@ function seedBase(db: HyperIdleDb, founderId = "test-founder-1"): void {
 			createdAt: now,
 		})
 		.run();
-	db.insert(agents)
+	db.insert(users)
 		.values({
 			id: SYSTEM_PROPAGATION_ID,
 			name: "Propagation System",
@@ -98,7 +105,7 @@ function seedDoneTasks(db: HyperIdleDb): void {
 		.run();
 }
 
-describe("M3 — lifecycle-propagation: thread participants use factorySettings founder_id (A9)", () => {
+describe("M3 — lifecycle-propagation: thread participants use users-table founder id (A9)", () => {
 	let db: HyperIdleDb;
 	let eventBus: EventBus;
 
@@ -114,7 +121,7 @@ describe("M3 — lifecycle-propagation: thread participants use factorySettings 
 		vi.restoreAllMocks();
 	});
 
-	it("propagation thread participants include factorySettings founder_id, not 'u-founder'", async () => {
+	it("propagation thread participants include users-table founder id, not 'u-founder'", async () => {
 		// Trigger the propagation that creates a review thread (all tasks done)
 		// Fire a task_state_changed event to drive the propagation
 		eventBus.emit({

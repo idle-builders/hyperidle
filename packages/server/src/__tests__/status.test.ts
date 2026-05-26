@@ -1,5 +1,4 @@
 import {
-	agents,
 	bets,
 	createTestDb,
 	factorySettings,
@@ -8,6 +7,7 @@ import {
 	sessions,
 	tasks,
 	teams,
+	users,
 } from "@hyperidle/db";
 import { EventBus } from "@hyperidle/shared";
 import type { Hono } from "hono";
@@ -49,7 +49,7 @@ describe("Status & Settings Endpoints (E6)", () => {
 				formedAt: new Date().toISOString(),
 			})
 			.run();
-		db.insert(agents)
+		db.insert(users)
 			.values([
 				{
 					id: "agent-1",

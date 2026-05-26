@@ -14,7 +14,7 @@
  * /:id handler as if "coach" were a thread id. See app.ts for mount order.
  */
 
-import { agents, type HyperIdleDb, messages, threads } from "@hyperidle/db";
+import { type HyperIdleDb, messages, threads, users } from "@hyperidle/db";
 import type { EventBus, HostKind, Message, MessageType, Thread } from "@hyperidle/shared";
 import { and, eq } from "drizzle-orm";
 import { Hono } from "hono";
@@ -115,7 +115,7 @@ function buildIdentities(
 	db: HyperIdleDb,
 	userId: string,
 ): Record<string, { name: string; role?: string }> {
-	const userRow = db.select().from(agents).where(eq(agents.id, userId)).get();
+	const userRow = db.select().from(users).where(eq(users.id, userId)).get();
 	const userName = userRow?.name ?? "You";
 	const userRole = userRow?.role;
 

@@ -22,8 +22,10 @@ export const products = pgTable("products", {
 	createdAt: text("created_at").notNull(),
 });
 
-export const agents = pgTable("agents", {
+export const users = pgTable("users", {
 	id: text("id").primaryKey(),
+	/** "human" | "ai" — P2: kind column distinguishes human founders from AI agents. */
+	kind: text("kind").notNull().default("ai"),
 	name: text("name").notNull(),
 	soulPromptPath: text("soul_prompt_path"),
 	teamId: text("team_id").references(() => teams.id, { onDelete: "restrict" }),
@@ -36,6 +38,9 @@ export const agents = pgTable("agents", {
 	/** L17: structured money cap — minor units + currency code. */
 	costCapMinor: integer("cost_cap_minor"),
 	costCapCurrency: text("cost_cap_currency"),
+	/** P2: human-specific nullable columns. Null for AI users. */
+	email: text("email"),
+	avatarUrl: text("avatar_url"),
 	createdAt: text("created_at").notNull(),
 });
 
@@ -105,7 +110,7 @@ export const tasks = pgTable(
 		teamId: text("team_id")
 			.notNull()
 			.references(() => teams.id, { onDelete: "restrict" }),
-		ownerAgentId: text("owner_agent_id").references(() => agents.id, { onDelete: "restrict" }),
+		ownerAgentId: text("owner_agent_id").references(() => users.id, { onDelete: "restrict" }),
 		title: text("title").notNull(),
 		description: text("description"),
 		doneCondition: text("done_condition"),
@@ -138,7 +143,7 @@ export const sessions = pgTable(
 			.references(() => tasks.id, { onDelete: "restrict" }),
 		agentId: text("agent_id")
 			.notNull()
-			.references(() => agents.id, { onDelete: "restrict" }),
+			.references(() => users.id, { onDelete: "restrict" }),
 		modelTier: text("model_tier").notNull(),
 		startedAt: text("started_at").notNull(),
 		endedAt: text("ended_at"),
@@ -158,7 +163,7 @@ export const routines = pgTable("routines", {
 	id: text("id").primaryKey(),
 	ownerAgentId: text("owner_agent_id")
 		.notNull()
-		.references(() => agents.id, { onDelete: "restrict" }),
+		.references(() => users.id, { onDelete: "restrict" }),
 	triggerType: text("trigger_type").notNull(),
 	triggerConfig: text("trigger_config"),
 	skillId: text("skill_id"),
@@ -200,7 +205,7 @@ export const messages = pgTable(
 		id: text("id").primaryKey(),
 		senderId: text("sender_id")
 			.notNull()
-			.references(() => agents.id, { onDelete: "restrict" }),
+			.references(() => users.id, { onDelete: "restrict" }),
 		threadId: text("thread_id")
 			.notNull()
 			.references(() => threads.id, { onDelete: "restrict" }),
@@ -226,7 +231,7 @@ export const items = pgTable(
 	"items",
 	{
 		id: text("id").primaryKey(),
-		sourceAgentId: text("source_agent_id").references(() => agents.id, { onDelete: "restrict" }),
+		sourceAgentId: text("source_agent_id").references(() => users.id, { onDelete: "restrict" }),
 		layer: text("layer"),
 		verb: text("verb"),
 		kind: text("kind"),
@@ -249,14 +254,14 @@ export const items = pgTable(
 
 // L1a: `responses` table dropped — see schema.ts.
 
-// --- Agent skills ---
+// --- User skills ---
 
-export const agentSkills = pgTable(
-	"agent_skills",
+export const userSkills = pgTable(
+	"user_skills",
 	{
-		agentId: text("agent_id")
+		userId: text("user_id")
 			.notNull()
-			.references(() => agents.id, { onDelete: "restrict" }),
+			.references(() => users.id, { onDelete: "restrict" }),
 		skillId: text("skill_id").notNull(),
 		autonomyLevel: integer("autonomy_level").notNull(),
 		successCount: integer("success_count").notNull().default(0),
@@ -264,7 +269,32 @@ export const agentSkills = pgTable(
 		lastUsedAt: text("last_used_at"),
 		promotedAt: text("promoted_at"),
 	},
-	(table) => [primaryKey({ columns: [table.agentId, table.skillId] })],
+	(table) => [primaryKey({ columns: [table.userId, table.skillId] })],
+);
+
+// --- Org chart edges (P2) ---
+
+/**
+ * OrgChart edges: defines review-routing relationships between human users and
+ * AI users / roles / teams.
+ *
+ * @lore P2: Option A (single table, polymorphic target). See schema.ts for full rationale.
+ */
+export const orgEdges = pgTable(
+	"org_edges",
+	{
+		id: text("id").primaryKey(),
+		fromUserId: text("from_user_id")
+			.notNull()
+			.references(() => users.id, { onDelete: "cascade" }),
+		mechanism: text("mechanism").notNull(),
+		target: text("target").notNull(),
+		createdAt: text("created_at").notNull(),
+	},
+	(table) => [
+		uniqueIndex("org_edges_unique").on(table.fromUserId, table.mechanism, table.target),
+		index("org_edges_from_user_idx").on(table.fromUserId),
+	],
 );
 
 // --- Factory settings ---
@@ -500,8 +530,8 @@ export const taskStrategyFabric = pgTable(
 export type Product = typeof products.$inferSelect;
 export type NewProduct = typeof products.$inferInsert;
 
-export type Agent = typeof agents.$inferSelect;
-export type NewAgent = typeof agents.$inferInsert;
+export type User = typeof users.$inferSelect;
+export type NewUser = typeof users.$inferInsert;
 
 export type Team = typeof teams.$inferSelect;
 export type NewTeam = typeof teams.$inferInsert;
@@ -527,8 +557,11 @@ export type NewMessage = typeof messages.$inferInsert;
 export type Item = typeof items.$inferSelect;
 export type NewItem = typeof items.$inferInsert;
 
-export type AgentSkill = typeof agentSkills.$inferSelect;
-export type NewAgentSkill = typeof agentSkills.$inferInsert;
+export type UserSkill = typeof userSkills.$inferSelect;
+export type NewUserSkill = typeof userSkills.$inferInsert;
+
+export type OrgEdge = typeof orgEdges.$inferSelect;
+export type NewOrgEdge = typeof orgEdges.$inferInsert;
 
 export type FactorySetting = typeof factorySettings.$inferSelect;
 export type NewFactorySetting = typeof factorySettings.$inferInsert;

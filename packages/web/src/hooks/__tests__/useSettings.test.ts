@@ -13,7 +13,8 @@ import { useSettings } from "../../hooks/useSettings";
 type ApiSettingsResponse = {
 	profile: { name: string; email: string; avatarUrl: string | null };
 	products: Array<{ id: string; name: string; active: boolean }>;
-	agents: Array<{ id: string; name: string; autonomyLevel: string; paused: boolean }>;
+	/** @lore P2: renamed from agents. */
+	users: Array<{ id: string; name: string; autonomyLevel: string; paused: boolean }>;
 	notifications: {
 		reviewAlerts: boolean;
 		costAlerts: boolean;
@@ -30,7 +31,7 @@ const FIXTURE_API_SETTINGS: ApiSettingsResponse = {
 		{ id: "p1", name: "Product A", active: true },
 		{ id: "p2", name: "Product B", active: false },
 	],
-	agents: [{ id: "a1", name: "Builder", autonomyLevel: "supervised", paused: false }],
+	users: [{ id: "a1", name: "Builder", autonomyLevel: "supervised", paused: false }],
 	notifications: {
 		reviewAlerts: true,
 		costAlerts: true,
@@ -70,7 +71,7 @@ describe("useSettings (M3 B3)", () => {
 		expect(result.current.settings).toBeNull();
 	});
 
-	it("returns settings on success with profile, products, agents, notifications", async () => {
+	it("returns settings on success with profile, products, users, notifications", async () => {
 		fetchSpy.mockResolvedValueOnce(makeOkResponse(FIXTURE_API_SETTINGS));
 
 		const { result } = renderHook(() => useSettings());
@@ -82,7 +83,7 @@ describe("useSettings (M3 B3)", () => {
 		expect(result.current.settings).not.toBeNull();
 		expect(result.current.settings?.profile.name).toBe("Test Founder");
 		expect(result.current.settings?.products).toHaveLength(2);
-		expect(result.current.settings?.agents).toHaveLength(1);
+		expect(result.current.settings?.users).toHaveLength(1);
 		expect(result.current.settings?.notifications.reviewAlerts).toBe(true);
 	});
 
