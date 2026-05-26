@@ -188,9 +188,7 @@ describe("P3 AC-11 — credentials:status handler", () => {
 		manager.registerHandlers();
 
 		const handleMock = ipcMain.handle as ReturnType<typeof vi.fn>;
-		type StatusFn = (
-			_event: unknown,
-		) => Promise<Record<string, string>>;
+		type StatusFn = (_event: unknown) => Promise<Record<string, string>>;
 		const statusHandler = getHandler<StatusFn>(handleMock, "credentials:status");
 
 		const status = await statusHandler(null);

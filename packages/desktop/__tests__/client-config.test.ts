@@ -18,11 +18,7 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import {
-	loadClientConfig,
-	migrateWindowState,
-	saveClientConfig,
-} from "../src/client-config.js";
+import { loadClientConfig, migrateWindowState, saveClientConfig } from "../src/client-config.js";
 
 let tmpDir: string;
 

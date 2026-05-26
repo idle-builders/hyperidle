@@ -14,12 +14,14 @@
 		"test": "vitest run"
 	},
 	"dependencies": {
-		"better-sqlite3": "^12.9.0"
+		"better-sqlite3": "^12.9.0",
+		"zod": "^4.3.6"
 	},
 	"devDependencies": {
 		"@electron/rebuild": "^4.0.4",
 		"@hyperidle/db": "workspace:*",
 		"@hyperidle/server": "workspace:*",
+		"@hyperidle/shared": "workspace:*",
 		"electron": "^36.0.0",
 		"esbuild": "^0.25.0",
 		"vitest": "*"

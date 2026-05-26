@@ -21,6 +21,9 @@ contextBridge.exposeInMainWorld("__HYPERIDLE__", {
 		delete: (name: string): Promise<void> => ipcRenderer.invoke("credentials:delete", name),
 		isEncryptionAvailable: (): Promise<boolean> =>
 			ipcRenderer.invoke("credentials:encryption-available"),
+		status: (): Promise<Record<string, string>> => ipcRenderer.invoke("credentials:status"),
+		validate: (name: string): Promise<{ valid: boolean; error?: string }> =>
+			ipcRenderer.invoke("credentials:validate", name),
 	},
 	shell: {
 		openLogs: (): Promise<void> => ipcRenderer.invoke("shell:open-logs"),

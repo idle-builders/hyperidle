@@ -9,11 +9,16 @@ interface HyperIdleElectronBridge {
 	apiKey: string;
 	platform: "electron";
 	credentials: {
+		/** @deprecated Use status() for catalog display instead */
 		list(): Promise<string[]>;
 		get(name: string): Promise<string | null>;
 		set(name: string, value: string): Promise<{ stored: boolean; warning?: string }>;
 		delete(name: string): Promise<void>;
 		isEncryptionAvailable(): Promise<boolean>;
+		/** @lore P3: Returns CredentialState for all three catalog entries. */
+		status(): Promise<Record<string, string>>;
+		/** @lore P3: Validates a catalog credential against its service. */
+		validate(name: string): Promise<{ valid: boolean; error?: string }>;
 	};
 	shell: {
 		openLogs(): Promise<void>;

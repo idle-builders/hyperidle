@@ -47,9 +47,7 @@ function makeDefaultBridgeCredentials(
 	} as unknown as MockBridgeCredentials;
 }
 
-function setupElectronBridge(
-	credentialsOverrides?: Partial<MockBridgeCredentials>,
-): void {
+function setupElectronBridge(credentialsOverrides?: Partial<MockBridgeCredentials>): void {
 	const mockBridge = {
 		apiKey: "test-api-key",
 		platform: "electron" as const,
