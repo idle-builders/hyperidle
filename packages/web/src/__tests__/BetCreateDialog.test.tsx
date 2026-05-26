@@ -7,7 +7,7 @@
  * AC covered: AC2, AC9, AC10
  */
 
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { BetCreateDialog } from "../pages/work/BetCreateDialog";
 
@@ -155,7 +155,9 @@ describe("BetCreateDialog", () => {
 	describe("AC9 — appetite is optional", () => {
 		it("appetite amount field accepts decimal values (S-4 step='any' or step='0.01')", () => {
 			const { container } = openDialog();
-			const amountInput = container.querySelector("input[name='appetite-amount'], input[type='number']");
+			const amountInput = container.querySelector(
+				"input[name='appetite-amount'], input[type='number']",
+			);
 			expect(amountInput).not.toBeNull();
 			// step must not be "1" (blocks $12.50 style values)
 			const step = amountInput?.getAttribute("step");

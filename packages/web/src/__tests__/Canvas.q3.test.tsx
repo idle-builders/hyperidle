@@ -37,27 +37,14 @@ describe("Canvas Q3 — onNewPitch button", () => {
 	// AC1: "New pitch" button visible in Canvas Shaped column header
 	describe("AC1 — New pitch button", () => {
 		it("renders a '+' button with aria-label='New pitch' when onNewPitch is provided", () => {
-			render(
-				<Canvas
-					bets={[SHAPED_BET]}
-					capacity={3}
-					onMoveBet={vi.fn()}
-					onNewPitch={vi.fn()}
-				/>,
-			);
+			render(<Canvas bets={[SHAPED_BET]} capacity={3} onMoveBet={vi.fn()} onNewPitch={vi.fn()} />);
 
 			const newPitchBtn = screen.getByRole("button", { name: /new pitch/i });
 			expect(newPitchBtn).toBeInTheDocument();
 		});
 
 		it("does NOT render the New pitch button when onNewPitch is not provided", () => {
-			render(
-				<Canvas
-					bets={[SHAPED_BET]}
-					capacity={3}
-					onMoveBet={vi.fn()}
-				/>,
-			);
+			render(<Canvas bets={[SHAPED_BET]} capacity={3} onMoveBet={vi.fn()} />);
 
 			const newPitchBtn = screen.queryByRole("button", { name: /new pitch/i });
 			expect(newPitchBtn).toBeNull();
@@ -66,12 +53,7 @@ describe("Canvas Q3 — onNewPitch button", () => {
 		it("calls onNewPitch when the '+' button is clicked", () => {
 			const onNewPitch = vi.fn();
 			render(
-				<Canvas
-					bets={[SHAPED_BET]}
-					capacity={3}
-					onMoveBet={vi.fn()}
-					onNewPitch={onNewPitch}
-				/>,
+				<Canvas bets={[SHAPED_BET]} capacity={3} onMoveBet={vi.fn()} onNewPitch={onNewPitch} />,
 			);
 
 			const newPitchBtn = screen.getByRole("button", { name: /new pitch/i });
@@ -107,14 +89,7 @@ describe("Canvas Q3 — onNewPitch button", () => {
 		});
 
 		it("New pitch button uses btn-sm (not btn-xs) for touch target ≥ 44px (W-1)", () => {
-			render(
-				<Canvas
-					bets={[]}
-					capacity={3}
-					onMoveBet={vi.fn()}
-					onNewPitch={vi.fn()}
-				/>,
-			);
+			render(<Canvas bets={[]} capacity={3} onMoveBet={vi.fn()} onNewPitch={vi.fn()} />);
 
 			// Even with empty bets, the new pitch button should still render
 			// (Canvas renders empty state when bets is empty — check both paths)
@@ -123,14 +98,7 @@ describe("Canvas Q3 — onNewPitch button", () => {
 		});
 
 		it("renders New pitch button even when Canvas is empty (no bets)", () => {
-			render(
-				<Canvas
-					bets={[]}
-					capacity={3}
-					onMoveBet={vi.fn()}
-					onNewPitch={vi.fn()}
-				/>,
-			);
+			render(<Canvas bets={[]} capacity={3} onMoveBet={vi.fn()} onNewPitch={vi.fn()} />);
 
 			// The new pitch button must be visible even in empty state
 			const newPitchBtn = screen.getByRole("button", { name: /new pitch/i });

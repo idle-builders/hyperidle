@@ -153,7 +153,7 @@ describe("Bet Endpoints (Q3)", () => {
 			// Check the DB row directly for revisionLog
 			const betRow = db.select().from(bets).where(eq(bets.id, body.id)).get();
 			expect(betRow).toBeTruthy();
-			const revisionLog = JSON.parse(betRow!.revisionLog ?? "[]") as Array<Record<string, unknown>>;
+			const revisionLog = JSON.parse(betRow?.revisionLog ?? "[]") as Array<Record<string, unknown>>;
 			expect(revisionLog).toHaveLength(1);
 			expect(revisionLog[0]?.field).toBe("status");
 			expect(revisionLog[0]?.new_value).toBe("shaped");
@@ -341,7 +341,7 @@ describe("Bet Endpoints (Q3)", () => {
 			});
 
 			const betRow = db.select().from(bets).where(eq(bets.id, betId)).get();
-			const revisionLog = JSON.parse(betRow!.revisionLog ?? "[]") as Array<Record<string, unknown>>;
+			const revisionLog = JSON.parse(betRow?.revisionLog ?? "[]") as Array<Record<string, unknown>>;
 			// At least 2 entries: creation + pitch update
 			expect(revisionLog.length).toBeGreaterThanOrEqual(2);
 
@@ -479,7 +479,7 @@ describe("Bet Endpoints (Q3)", () => {
 			expect(patchRes.status).toBe(200);
 
 			const betRow = db.select().from(bets).where(eq(bets.id, betId)).get();
-			const revisionLog = JSON.parse(betRow!.revisionLog ?? "[]") as Array<Record<string, unknown>>;
+			const revisionLog = JSON.parse(betRow?.revisionLog ?? "[]") as Array<Record<string, unknown>>;
 			// At minimum 2 entries: creation + agent patch
 			expect(revisionLog.length).toBeGreaterThanOrEqual(2);
 		});
