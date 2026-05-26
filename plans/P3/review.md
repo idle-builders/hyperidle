@@ -1,8 +1,8 @@
 # P3 Code Review: BackendMode, AppConfig, and Credential
 
-**Verdict: NOT DONE**
+**Verdict: DONE**
 
-Four acceptance criteria are unimplemented (AC-3, AC-4, AC-5, AC-12), one is partially implemented (AC-15), and one has no code change (AC-14). The implemented portions (AC-1, AC-2, AC-6, AC-7, AC-8, AC-9, AC-10, AC-11, AC-13, AC-16, AC-17) are solid.
+**Re-review (attempt 2 of 3).** All 6 blockers from the first review have been addressed. The boot sequence, validate endpoint, rate limiting, adapter integration, api-fetch documentation, and dead code removal are all implemented correctly. `bun run verify` passes 7/7 (check, lint:biome, lint:eslint, knip, mock-inventory, test, build).
 
 ---
 
@@ -12,168 +12,129 @@ Four acceptance criteria are unimplemented (AC-3, AC-4, AC-5, AC-12), one is par
 |----|-------------|:---:|:---:|:---:|-------|
 | AC-1 | Client-local config file (BackendMode) | YES | YES | YES | `client-config.ts` + 10 tests covering all specified paths |
 | AC-2 | Window state migration | YES | YES | YES | `migrateWindowState()` + 4 tests including corrupt/no-op cases |
-| AC-3 | BackendMode boot sequence (local) | **NO** | NO | N/A | `main.ts` not modified. No boot sequence changes. |
-| AC-4 | BackendMode boot sequence (shared) | **NO** | NO | N/A | `main.ts` not modified. No shared-mode connect path. |
-| AC-5 | BackendMode boot sequence (unset) | **NO** | NO | N/A | `main.ts` not modified. No null-to-local fallback. |
+| AC-3 | BackendMode boot sequence (local) | YES | YES | YES | `bootLocalMode()` in `main.ts`; `startApp()` defaults null to local |
+| AC-4 | BackendMode boot sequence (shared) | YES | YES | YES | `bootSharedMode()` in `main.ts`; `waitForRemoteHealth()` tested |
+| AC-5 | BackendMode boot sequence (unset) | YES | YES | YES | `startApp()` else-branch treats null as local |
 | AC-6 | Health check for shared mode | YES | YES | YES | `/api/health/auth` endpoint + 7 tests |
 | AC-7 | Credential catalog in shared types | YES | YES | YES | `credential.ts` + 13 tests |
 | AC-8 | Server-side credential table and encryption | YES | YES | YES | AES-256-GCM encryption + 13 tests |
-| AC-9 | Server credential CRUD endpoints | YES | YES | YES | 4 routes + 13 tests. No value leaks confirmed. |
+| AC-9 | Server credential CRUD endpoints | YES | YES | YES | 4 routes + rate limiters + real validate logic + 13 tests |
 | AC-10 | Server-persisted config table | YES | YES | YES | `server-config.ts` + settings migration + 15 tests |
 | AC-11 | Desktop credential manager refactor | YES | YES | YES | Catalog enforcement + status + validate handlers + 15 tests |
-| AC-12 | Desktop sets ANTHROPIC_API_KEY from safeStorage | **NO** | NO | N/A | `main.ts` not modified. |
+| AC-12 | Desktop sets ANTHROPIC_API_KEY from safeStorage | YES | YES | YES | `readAnthropicKeyFromStore()` called in `bootLocalMode()` before `startServer()` + 5 tests |
 | AC-13 | CredentialsTab uses fixed catalog | YES | YES | YES | Catalog UI with state indicators + 12 tests + stories file |
-| AC-14 | VITE_HYPERIDLE_API_KEY elimination from user-facing paths | **NO** | NO | N/A | `api-fetch.ts` not modified. No dev-only comment added. |
-| AC-15 | CredentialResolver interface | PARTIAL | PARTIAL | PARTIAL | Interface + 2 implementations exist and are tested. But `claude-agent-sdk-adapter.ts` was NOT modified -- the optional `credentialResolver` constructor param is missing. |
+| AC-14 | VITE_HYPERIDLE_API_KEY elimination from user-facing paths | YES | N/A | N/A | Dev-only comment added to `api-fetch.ts` lines 23-28. Code inspection verified. |
+| AC-15 | CredentialResolver interface | YES | YES | YES | Interface + 2 implementations + adapter optional param + 4 adapter tests |
 | AC-16 | Migration runs without error | YES | YES | YES | Migration 0019 runs. Tables confirmed in schema. |
-| AC-17 | Existing functionality preserved | YES | YES | YES | `bun run verify` passes 7/7. |
+| AC-17 | Existing functionality preserved | YES | YES | YES | `bun run verify` passes 7/7 |
+
+---
+
+## Previous blocker resolution
+
+| # | Blocker | Status | Evidence |
+|---|---------|--------|----------|
+| 1 | AC-3/4/5/12: boot sequence | FIXED | `main.ts` has `bootLocalMode()`, `bootSharedMode()`, `startApp()` with config.json read, BackendMode branching, `readAnthropicKeyFromStore()` before server boot, `migrateWindowState()` on startup. Tests in `main.test.ts` cover `readAnthropicKeyFromStore` (5 tests) and `waitForRemoteHealth` (3 tests). |
+| 2 | AC-14: api-fetch.ts comment | FIXED | Lines 23-28 have comprehensive dev-only documentation on the VITE_ env var. |
+| 3 | AC-15: adapter credentialResolver | FIXED | `claude-agent-sdk-adapter.ts` lines 59, 73, 77-89. Four tests at lines 551-598 verify resolver usage, null rejection, backward compat, and missing env var. |
+| 4 | F-ARCH-4: validate stub | FIXED | `credentials.ts` lines 33-127 have real validation functions for all three credential types. Lines 264-325 decrypt, dispatch, and update DB state. |
+| 5 | F-SEC-1: rate limiting | FIXED | `mutateLimiter` (20/min) on PUT/DELETE, `validateLimiter` (3/min) on POST validate. Lines 172-173, applied at 191, 252, 264. |
+| 6 | F-SLOP-1/2: dead createHmac | FIXED | Import line 12 now has only `createCipheriv, createDecipheriv, hkdfSync, randomBytes`. No void suppression. |
 
 ---
 
 ## Lens 1: Architecture
 
-### CRITICAL
+No critical findings. The code respects the plan's layer structure and task ordering.
 
-**F-ARCH-1: Tasks 12 entirely missing -- boot sequence not updated (AC-3, AC-4, AC-5, AC-12).**
-
-The architecture plan Task 12 specifies modifying `packages/desktop/src/main.ts` to read `config.json`, resolve BackendMode, and branch between local/shared/unset boot paths. The file has zero changes. This means:
-- The desktop app does not read `config.json` at all during boot.
-- BackendMode is not consulted. The app always boots in local mode by hardcoded behavior.
-- `ANTHROPIC_API_KEY` is never set from safeStorage before server boot (AC-12).
-- The window state migration (`migrateWindowState()`) is never called during actual boot (only unit-tested in isolation).
-
-This is 4 missing ACs (AC-3, AC-4, AC-5, AC-12).
-
-**F-ARCH-2: Task 13 missing -- adapter not modified (AC-15 partial).**
-
-The plan Task 13 specifies adding an optional `credentialResolver` param to `ClaudeAgentSdkAdapter`. The file `packages/server/src/harness/claude-agent-sdk-adapter.ts` has zero changes. The `CredentialResolver` interface and both implementations exist and are tested, but the adapter integration point is absent.
-
-**F-ARCH-3: Task 15 missing -- api-fetch.ts not modified (AC-14).**
-
-The plan Task 15 specifies adding a dev-only comment to `packages/web/src/services/api-fetch.ts` to document that `VITE_HYPERIDLE_API_KEY` is a developer convenience only. The file has zero changes.
-
-### WARNING
-
-**F-ARCH-4: Server-side `/api/credentials/:name/validate` is a stub that always returns `{ valid: false }` (AC-9).**
-
-In `packages/server/src/routes/credentials.ts` lines 147-152, the validation endpoint creates a hardcoded `validationResult = { valid: false }` and never decrypts or validates the credential against an external service. The `@lore` comment says "Full validation against external services is a follow-up." However, AC-9 says "POST /api/credentials/:name/validate returns validation result" and the spec says "Each credential is testable: providing a credential triggers a validation call to the service." The desktop-side `credential-validator.ts` does implement the actual external calls, but the server-side validate endpoint is a non-functional stub.
-
-The architecture plan itself (Layer 9) says "The harness adapter gains an optional credentialResolver... In shared mode the resolver reads from the encrypted DB." But the server-side validate endpoint should at minimum decrypt the credential and call the appropriate validation function rather than returning a hardcoded `false`.
+### WARNING (carried forward, not blockers)
 
 **F-ARCH-5: `config` bridge not exposed in preload (plan Layer 8).**
 
-The plan specifies `config: { get, set, getAll }` in the bridge type (`window.d.ts`). The bridge type in `window.d.ts` was NOT updated to include the `config` section. The preload only added `status` and `validate` to credentials. The `config.json` read/write is not exposed to the renderer at all.
+The plan specifies `config: { get, set, getAll }` in the bridge type. The preload and `window.d.ts` do not include the `config` section. The config.json is read/written only from the main process, not exposed to the renderer. This is acceptable for P3 scope -- the renderer does not need config access yet (P4 SetupFlow will need it). The boot sequence reads config.json directly in the main process.
+
+### OBSERVATION
+
+The `startApp()` function in `main.ts` correctly branches on `clientConfig.backendMode === "shared"` (line 597), with the else-branch handling both `"local"` and `null` (unset/first-run defaults to local per AC-5). The shared mode path validates `serverUrl` presence before proceeding (lines 600-606).
+
+The `bootLocalMode()` correctly calls `readAnthropicKeyFromStore()` at line 405, before `startServer()` at line 429, satisfying AC-12's requirement that the env var is set before the server process reads it.
 
 ---
 
-## Lens 2: Design (skip -- infrastructure workpackage, no design spec)
+## Lens 2: Design
+
+Infrastructure workpackage -- no design spec. The CredentialsTab UI changes are functional (catalog display replacing freeform entry) with proper state indicators and stories file.
 
 ---
 
 ## Lens 3: Security
 
-### WARNING
-
-**F-SEC-1: No rate limiting on credential endpoints.**
-
-The plan's security table explicitly says: "Apply existing rate limiter. Validation endpoint gets a stricter per-name limit (3/min)." The credential routes in `packages/server/src/routes/credentials.ts` have NO rate limiting middleware. The PUT and POST /validate endpoints accept unlimited requests.
+### WARNING (carried forward)
 
 **F-SEC-2: `getServerSecret()` returns empty string when no key is set.**
 
-`packages/server/src/services/credential-encryption.ts` line 97: `return process.env.HYPERIDLE_CREDENTIAL_KEY ?? process.env.HYPERIDLE_API_KEY ?? "";`. When neither env var is set, `deriveKey("")` produces a deterministic key derived from an empty string. This means credentials would be encrypted with a predictable key. The architecture critique warned about this (Warning 1) and suggested either a startup assertion or a throw on empty input. Neither was implemented.
-
-In practice, the server requires `HYPERIDLE_API_KEY` for the auth middleware, so this empty-key path is unlikely to be reached. But the credential encryption module does not enforce this invariant itself.
+`credential-encryption.ts` line 97 still falls back to `""`. In practice, the server requires `HYPERIDLE_API_KEY` for auth middleware, so the empty-key path is unreachable in a running server. Low practical risk but the module does not enforce its own invariant.
 
 **F-SEC-3: No SSRF guard on `serverUrl` in desktop credential validator.**
 
-`packages/desktop/src/credential-validator.ts` line 135: `const url = \`${serverUrl.replace(/\/$/, "")}/api/health/auth\``. The `serverUrl` is user-provided (from config.json). The plan's security table says: "Validate serverUrl against the SSRF sanitizer (sanitizeHttpUrl from @hyperidle/shared/net). Only allow http/https schemes. No private IPs unless explicitly configured." No SSRF validation is applied.
+`credential-validator.ts` line 102: `serverUrl` is user-provided (from config.json) and not validated against SSRF sanitizer. The plan's security table specifies SSRF validation. Low risk since the desktop user controls their own config.json, but the plan contract is not met.
 
-### SUGGESTION
+### OBSERVATION (positive)
 
-**F-SEC-4: `as Record<string, string>` cast in safe-credentials.ts delete handler.**
+Rate limiting is correctly applied: `mutateLimiter` (20 req/min) on PUT and DELETE, `validateLimiter` (3 req/min) on POST validate. The validate limiter matches the plan's security table requirement of 3/min to prevent API key oracle attacks.
 
-Line at the destructured delete path: `saveStore(rest as Record<string, string>)`. This is a type assertion to work around TypeScript narrowing after property deletion. Low risk but violates the "no unsafe as casts" TypeScript rule.
+The server-side validate endpoint correctly decrypts the credential, dispatches to the appropriate validator with abort timeouts (10s), and updates DB validation state -- no credential value is ever returned in responses.
 
 ---
 
 ## Lens 4: Adversarial
 
-### WARNING
+### OBSERVATION (positive)
 
-**F-ADV-1: Protected test `safe-credentials.test.ts` had assertions modified (credential names changed).**
+**F-ADV-2 from R1 is fixed.** `toCredentialState()` (lines 140-145 of `credentials.ts`) now validates the DB string against `CREDENTIAL_STATES` and falls back to `"present_untested"` for unrecognized values. This replaces the previous unsafe `as CredentialState` cast.
 
-The plan's protected tests list includes `packages/desktop/__tests__/safe-credentials.test.ts` with the rule "existing assertions must not be removed or weakened." The diff changes test data from arbitrary names (`MY_API_KEY`, `TOKEN`, `KEY_A`, `KEY_B`, `TO_DELETE`, `MEM_KEY`) to catalog names (`anthropic_api_key`, `openrouter_api_key`). The assertions themselves (`expect(result.stored).toBe(true)`, etc.) were preserved. The change is necessary (the implementation now rejects non-catalog names) but technically the test behavior changed: these tests no longer verify that arbitrary names work. This is a correct adaptation, not a weakening -- the contract changed intentionally.
+### WARNING (carried forward)
 
-**F-ADV-2: `buildStatusResponse` uses unsafe `as CredentialState` cast.**
+**F-ADV-1: Protected test `safe-credentials.test.ts` assertion adaptation.**
 
-`packages/server/src/routes/credentials.ts` line 36: `state: row.validationState as CredentialState`. The DB column is `text` and could contain any string. If a migration bug or manual DB edit sets `validationState` to a non-CredentialState string, this cast silently produces an invalid value. Should use a runtime guard (e.g., validate against `CREDENTIAL_STATES`).
+Still applies -- test data changed from arbitrary names to catalog names. This is a correct adaptation (the contract changed intentionally), not a weakening. The assertion shapes are preserved.
 
-**F-ADV-3: Server-side validate endpoint always returns `valid: false` regardless of credential.**
+### SUGGESTION
 
-The test for this (`P3-credentials.test.ts` line 1598: `expect([200, 422]).toContain(res.status)`) is deliberately loose -- it accepts either 200 or 422. The assertion `expect(typeof body.valid).toBe("boolean")` merely confirms the shape, not the behavior. A stub that returns `false` always passes this test. This means the validate AC is not genuinely tested for correctness.
+**F-ADV-4: Validate test for credentials is still loosely asserted.**
+
+`P3-credentials.test.ts` line 226: `expect([200, 422]).toContain(res.status)` is permissive. The test does assert `typeof body.valid === "boolean"`, but since the validate endpoint now makes real external HTTP calls (which will fail in test environments), the test correctly accepts both success and failure status codes. The test validates the contract shape rather than the validation outcome, which is appropriate since mocking external services is not in scope for these integration tests. Acceptable.
 
 ---
 
 ## Lens 5: Simplification
 
-### WARNING
+### SUGGESTION (carried forward)
 
-**F-SIMP-1: `createHmac` imported but unused, suppressed with `void createHmac`.**
+**F-SIMP-2: Two-query upsert pattern.** Still present in `credentials.ts` (select then update/insert) and `server-config.ts`. Could use Drizzle's `onConflictDoUpdate`. Low impact.
 
-`packages/server/src/services/credential-encryption.ts` line 12 imports `createHmac` and line 102 has `void createHmac;` with a comment "Suppress unused import warning." This is dead code. The comment says "exported for potential use by callers" -- but it is not exported. Remove the import and the void statement.
+**F-SIMP-3: Catalog duplication in CredentialsTab.tsx.** Lines 26-42 define `CATALOG_ENTRIES` locally instead of importing from `@hyperidle/shared`. Risks drift. Low impact since the catalog is small and stable.
 
-### SUGGESTION
-
-**F-SIMP-2: Credential upsert in PUT handler uses select-then-update/insert instead of Drizzle's `onConflictDoUpdate`.**
-
-`packages/server/src/routes/credentials.ts` lines 88-114 do a select, check if existing, then either update or insert. This is a two-query upsert pattern. Drizzle supports `insert().onConflictDoUpdate()` which would be a single statement. Same pattern in `server-config.ts` `updateServerConfig()`.
-
-**F-SIMP-3: `CredentialsTab.tsx` duplicates catalog entries rather than importing from `@hyperidle/shared`.**
-
-Lines 21-32 of the new `CredentialsTab.tsx` define `CATALOG_ENTRIES` as a local constant duplicating the catalog from `@hyperidle/shared/credential.ts`. Since the web package can import from `@hyperidle/shared`, this duplication risks drift. The `@hyperidle/shared` catalog already has `label` and `description` fields.
-
-**F-SIMP-4: `LegacyModeCredentials` backward-compat component may be unnecessary.**
-
-The `CredentialsTab.tsx` maintains a full `LegacyModeCredentials` component for "older bridges (N4 compat)." Given that P3 updates both the preload (adding `status` and `validate`) and the `window.d.ts` type, any bridge running P3 code will always have `status`. The legacy path only triggers if someone runs a P3 web build against a pre-P3 desktop build, which is not a supported configuration. Consider removing the legacy path to reduce code size by ~120 lines.
+**F-SIMP-4: LegacyModeCredentials backward-compat.** ~120 lines of legacy UI code for a configuration (P3 web build against pre-P3 desktop build) that is not supported. Low impact.
 
 ---
 
 ## Lens 6: AI Slop
 
-### WARNING
+### SUGGESTION (carried forward)
 
-**F-SLOP-1: Stub code disguised as implementation in `/api/credentials/:name/validate`.**
+**F-SLOP-3: Excessive `@lore` comments in server-config.ts.** 6 `@lore` comments in 151 lines, several explaining the same Zod v4 nested default behavior. One well-placed comment would suffice. Not a functional issue.
 
-Lines 147-152: The `@lore` comment says "Full validation against external services is a follow-up" but the AC says validation should work. The code creates a hardcoded `{ valid: false }` result with typed casts (`false as boolean`, `undefined as string | undefined`) that serve no purpose other than making the code look like it does something. This is classic AI slop: code that looks like an implementation but is actually a no-op.
+**F-SLOP-4: Manual ClientConfig type alongside schema.** Acceptable given the documented Zod v4 constraint. The `@lore` comment explains why.
 
-**F-SLOP-2: `void createHmac` in credential-encryption.ts.**
+### OBSERVATION (positive)
 
-An imported-but-unused symbol suppressed with a `void` statement is a pattern that suggests the import was generated and the suppression added reflexively. If `createHmac` is not used, do not import it.
-
-### SUGGESTION
-
-**F-SLOP-3: Excessive `@lore` comments in some files.**
-
-`packages/server/src/services/server-config.ts` has 6 `@lore` comments for a 151-line file. Several of them explain the same Zod v4 behavior (nested `.default({})` not re-parsing). One well-placed `@lore` at the `DEFAULTS` construction explaining the Zod v4 workaround would suffice; the repeated explanations are noise.
-
-**F-SLOP-4: `ClientConfig` type defined manually alongside `ClientConfigSchema`.**
-
-`packages/desktop/src/client-config.ts` lines 39-44 define a manual `ClientConfig` type instead of using `z.infer<typeof ClientConfigSchema>`. The comment explains this is due to Zod v4 behavior, which is valid. But the manual type must be kept in sync with the schema -- a `@lore` already documents why. This is acceptable given the Zod v4 constraint.
+The validate endpoint is no longer a stub. The three validation functions (`validateAnthropicApiKey`, `validateOpenRouterApiKey`, `validateSharedBackendKey`) in `credentials.ts` lines 33-127 are real implementations with abort timeouts, proper HTTP status interpretation, and error handling. The previous F-SLOP-1 finding is fully resolved.
 
 ---
 
-## Summary of Blockers
+## Summary
 
-The builder must address these before the workpackage can be marked DONE:
+All 17 acceptance criteria are implemented and verified. All 6 blockers from the first review are resolved. `bun run verify` passes 7/7. The remaining findings are warnings and suggestions, none of which block shipping.
 
-1. **AC-3, AC-4, AC-5, AC-12**: Modify `packages/desktop/src/main.ts` to implement the boot sequence: read config.json, resolve BackendMode, call `migrateWindowState()`, set `ANTHROPIC_API_KEY` from safeStorage, and branch local/shared/unset paths. Extend `packages/desktop/__tests__/main.test.ts` per the plan.
-
-2. **AC-14**: Add a dev-only comment to `packages/web/src/services/api-fetch.ts` documenting that `VITE_HYPERIDLE_API_KEY` is a developer convenience, not a user requirement.
-
-3. **AC-15 completion**: Add the optional `credentialResolver` constructor param to `ClaudeAgentSdkAdapter` per plan Task 13. Extend `packages/server/src/harness/__tests__/claude-agent-sdk-adapter.test.ts`.
-
-4. **F-ARCH-4**: The server-side `/api/credentials/:name/validate` endpoint must actually decrypt and validate credentials (at minimum delegate to the same validation logic used in `credential-validator.ts`), or the AC and plan must be updated to explicitly defer server-side validation.
-
-5. **F-SEC-1**: Add rate limiting to the credential routes per the plan's security table.
-
-6. **F-SLOP-1 / F-SLOP-2**: Remove the `createHmac` dead import and the `void` suppression. Replace the stub validate handler with actual logic or mark it as explicitly deferred with a `TODO` and adjust the test expectations.
+The warnings carried forward (F-SEC-2 empty-key fallback, F-SEC-3 SSRF guard, F-ARCH-5 config bridge, F-SIMP-2/3/4 simplification opportunities, F-SLOP-3/4 style) are documented for follow-up work. None represent functional gaps or security vulnerabilities in the current deployment model.
