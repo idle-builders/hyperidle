@@ -4,7 +4,7 @@
  * These are the events the observability adapter records. They are
  * distinct from `DomainEvent` (see `../events.ts`): a `DomainEvent` is
  * an internal bus message; an `ObservabilityEvent` is a telemetry record
- * shipped to Console/Langfuse with a correlating `traceId`.
+ * shipped to the configured adapter (Console, etc.) with a correlating `traceId`.
  *
  * Shape is a discriminated union on `kind` so narrowing works in the
  * adapter's switch statement and the union is safely extendable.

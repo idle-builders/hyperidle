@@ -15,7 +15,7 @@
 | Desktop shell | Browser tab (default) / Tauri (optional) | Same |
 | Canvas (bet placement) | React DnD (or similar drag-and-drop) | — |
 | Notifications | ntfy.sh / SMTP | APNs, Firebase |
-| Observability | No-op / local file | Langfuse, LangSmith |
+| Observability | Console / no-op | OpenTelemetry (planned) |
 | Auth | API keys + Tailscale | OAuth / passkeys |
 | Version control | Git (for markdown artifacts) | Same |
 

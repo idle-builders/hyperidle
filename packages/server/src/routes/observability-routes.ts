@@ -9,8 +9,6 @@ import {
 	type ObservabilityConfigPatch,
 	readObservabilityConfig,
 	redactObservabilityConfig,
-	sanitizeLangfuseKey,
-	sanitizeLangfuseUrl,
 	updateObservabilityConfig,
 } from "../services/observability/config.js";
 import type { ObservabilityDispatcher } from "../services/observability/types.js";
@@ -38,52 +36,36 @@ const requestSizeCap: MiddlewareHandler = async (c, next) => {
 	await next();
 };
 
-const adapterEnum = z.enum(["console", "langfuse", "noop"]);
+const adapterEnum = z.enum(["console", "noop"]);
 
 const patchConfigSchema = z
 	.object({
 		enabled: z.boolean().optional(),
 		adapter: adapterEnum.optional(),
-		langfuseUrl: z.string().min(1).max(2048).optional(),
-		langfusePublicKey: z.union([z.string().max(512), z.null()]).optional(),
-		langfuseSecretKey: z.union([z.string().max(512), z.null()]).optional(),
 		batchSize: z.number().int().min(1).max(1000).optional(),
 		flushIntervalMs: z.number().int().min(100).max(60_000).optional(),
 		bufferCap: z.number().int().min(100).max(100_000).optional(),
 	})
 	.strict();
 
-function validatePatchBody(body: z.infer<typeof patchConfigSchema>): string | null {
-	if (body.langfuseUrl !== undefined) {
-		const r = sanitizeLangfuseUrl(body.langfuseUrl);
-		if (!r.ok) return r.reason;
-	}
-	if (typeof body.langfusePublicKey === "string") {
-		const r = sanitizeLangfuseKey(body.langfusePublicKey);
-		if (!r.ok) return r.reason;
-	}
-	if (typeof body.langfuseSecretKey === "string") {
-		const r = sanitizeLangfuseKey(body.langfuseSecretKey);
-		if (!r.ok) return r.reason;
-	}
+/**
+ * @lore P1: validatePatchBody is retained as a named function even though it
+ * is now a no-op passthrough (always returns null). The Zod schema handles all
+ * remaining validation. Keeping the function preserves the structural call
+ * pattern in the route handler — a future adapter with custom URL/key
+ * validation can re-add logic here without touching the handler.
+ */
+function validatePatchBody(_body: z.infer<typeof patchConfigSchema>): string | null {
 	return null;
 }
 
 /** Sanitize a patch for the admin audit log — booleans kept, secrets masked. */
 function auditDiff(body: ObservabilityConfigPatch): Record<string, unknown> {
-	const SECRET_FIELDS: ReadonlyArray<keyof ObservabilityConfigPatch> = [
-		"langfusePublicKey",
-		"langfuseSecretKey",
-	];
 	const out: Record<string, unknown> = {};
 	for (const [key, value] of Object.entries(body) as Array<
 		[keyof ObservabilityConfigPatch, unknown]
 	>) {
 		if (value === undefined) continue;
-		if (SECRET_FIELDS.includes(key)) {
-			out[key] = value === null ? null : "***";
-			continue;
-		}
 		out[key] = value;
 	}
 	return out;

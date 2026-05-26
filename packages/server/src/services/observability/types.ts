@@ -1,7 +1,7 @@
 import type { ObservabilityEvent } from "@hyperidle/shared";
 
 /** Adapter channel — mirrors the configured adapter's `name`. */
-export type ObservabilityChannel = "console" | "langfuse" | "noop";
+export type ObservabilityChannel = "console" | "noop";
 
 /**
  * Observability sink. Accepts a batch so network adapters can amortise

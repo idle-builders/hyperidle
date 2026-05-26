@@ -18,7 +18,7 @@ import { resolveModel } from "./model-tier-map.js";
 /**
  * Environment variables explicitly forwarded into the agent subprocess.
  * Anything not in this list (DATABASE_URL, HYPERIDLE_API_KEY, SMTP_PASSWORD,
- * Langfuse keys, etc) MUST NOT be visible to the agent.
+ * observability keys, etc) MUST NOT be visible to the agent.
  *
  * @lore I2 S1: the previous adapter spread `...process.env` into the SDK
  * `env` option. That gave a hostile agent the master Meta-Layer key, the

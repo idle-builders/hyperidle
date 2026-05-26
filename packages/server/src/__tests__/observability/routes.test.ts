@@ -69,34 +69,34 @@ function appWithRoutes(
 }
 
 describe("H3 observability routes — GET /config", () => {
-	it("redacts keys when set", async () => {
+	it("returns config shape with no langfuse property", async () => {
 		const db = createTestDb();
 		seedKeys(db, {
 			"observability.enabled": "true",
-			"observability.adapter": "langfuse",
-			"observability.langfuse_url": "https://cloud.langfuse.com",
-			"observability.langfuse_public_key": "pk-lf-abcdef",
-			"observability.langfuse_secret_key": "sk-lf-verysecret",
+			"observability.adapter": "console",
 		});
 		const { request } = appWithRoutes(db, null);
 		const res = await request("/config");
 		expect(res.status).toBe(200);
 		const body = (await res.json()) as Record<string, unknown>;
-		const langfuse = body.langfuse as Record<string, unknown>;
-		expect(langfuse.publicKey).toBe("***");
-		expect(langfuse.secretKey).toBe("***");
-		expect(JSON.stringify(body)).not.toContain("pk-lf-abcdef");
-		expect(JSON.stringify(body)).not.toContain("sk-lf-verysecret");
+		// Shape must include all surviving fields
+		expect(body).toHaveProperty("enabled", true);
+		expect(body).toHaveProperty("adapter", "console");
+		expect(body).toHaveProperty("batchSize");
+		expect(body).toHaveProperty("flushIntervalMs");
+		expect(body).toHaveProperty("bufferCap");
+		// No langfuse property after purge
+		expect(body).not.toHaveProperty("langfuse");
+		expect(JSON.stringify(body)).not.toContain("langfuse");
 	});
 
-	it("reports null when keys are unset", async () => {
+	it("returns enabled=false and adapter=console by default", async () => {
 		const db = createTestDb();
-		seedKeys(db, { "observability.enabled": "true" });
 		const { request } = appWithRoutes(db, null);
 		const body = (await (await request("/config")).json()) as Record<string, unknown>;
-		const langfuse = body.langfuse as Record<string, unknown>;
-		expect(langfuse.publicKey).toBeNull();
-		expect(langfuse.secretKey).toBeNull();
+		expect(body.enabled).toBe(false);
+		expect(body.adapter).toBe("console");
+		expect(body).not.toHaveProperty("langfuse");
 	});
 });
 
@@ -109,54 +109,38 @@ describe("H3 observability routes — PATCH /config", () => {
 			headers: { "content-type": "application/json" },
 			body: JSON.stringify({
 				enabled: true,
-				adapter: "langfuse",
-				langfuseUrl: "https://cloud.langfuse.com",
-				langfusePublicKey: "pk-lf-newkey",
-				langfuseSecretKey: "sk-lf-newsecret",
+				adapter: "console",
+				batchSize: 50,
 			}),
 		});
 		expect(res.status).toBe(200);
 		const body = (await res.json()) as Record<string, unknown>;
 		expect(body.enabled).toBe(true);
-		expect((body.langfuse as Record<string, unknown>).publicKey).toBe("***");
+		expect(body.adapter).toBe("console");
+		expect(body.batchSize).toBe(50);
+		expect(body).not.toHaveProperty("langfuse");
 		expect(auditCalls).toHaveLength(1);
 		expect(auditCalls[0].msg).toBe("config_changed");
-		const extra = auditCalls[0].extra as Record<string, unknown>;
-		const diff = extra.diff as Record<string, unknown>;
-		expect(diff.langfusePublicKey).toBe("***");
-		expect(diff.langfuseSecretKey).toBe("***");
-		expect(JSON.stringify(auditCalls)).not.toContain("pk-lf-newkey");
 	});
 
-	it("rejects SSRF langfuse URL (private IP literal)", async () => {
+	it('rejects adapter: "langfuse" with 400 (AC3)', async () => {
 		const db = createTestDb();
 		const { request } = appWithRoutes(db, null);
 		const res = await request("/config", {
 			method: "PATCH",
 			headers: { "content-type": "application/json" },
-			body: JSON.stringify({ langfuseUrl: "https://10.0.0.1" }),
+			body: JSON.stringify({ adapter: "langfuse" }),
 		});
 		expect(res.status).toBe(400);
 	});
 
-	it("rejects http to public host", async () => {
+	it("rejects unknown fields (strict schema)", async () => {
 		const db = createTestDb();
 		const { request } = appWithRoutes(db, null);
 		const res = await request("/config", {
 			method: "PATCH",
 			headers: { "content-type": "application/json" },
-			body: JSON.stringify({ langfuseUrl: "http://evil.example.com" }),
-		});
-		expect(res.status).toBe(400);
-	});
-
-	it("rejects CR/LF in keys (header injection defense)", async () => {
-		const db = createTestDb();
-		const { request } = appWithRoutes(db, null);
-		const res = await request("/config", {
-			method: "PATCH",
-			headers: { "content-type": "application/json" },
-			body: JSON.stringify({ langfusePublicKey: "pk\r\nevil" }),
+			body: JSON.stringify({ langfuseUrl: "https://cloud.langfuse.com" }),
 		});
 		expect(res.status).toBe(400);
 	});

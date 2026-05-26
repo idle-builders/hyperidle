@@ -50,7 +50,5 @@
       "All Read, Edit, and Write tool calls are pre-approved"
     ]
   },
-  "enabledMcpjsonServers": [
-    "langfuse"
-  ]
+  "enabledMcpjsonServers": []
 }
