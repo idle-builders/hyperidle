@@ -38,7 +38,6 @@ import {
 	createObservabilityDispatcher,
 	registerObservabilityDispatcher,
 } from "./services/observability/dispatcher.js";
-import { createLangfuseObservabilityAdapter } from "./services/observability/langfuse-adapter.js";
 import type {
 	ObservabilityAdapter,
 	ObservabilityDispatcher,
@@ -81,7 +80,7 @@ interface AppOptions {
 	/**
 	 * Optional override for the observability adapter (H3). Tests inject
 	 * a FakeAdapter whose `record` captures every event. When omitted
-	 * production wiring picks console or langfuse based on
+	 * production wiring picks console or noop based on
 	 * `factory_settings.observability.adapter`.
 	 */
 	observabilityAdapter?: ObservabilityAdapter;
@@ -110,17 +109,6 @@ function buildObservabilityAdapter(cfg: ObservabilityConfig): ObservabilityAdapt
 	switch (cfg.adapter) {
 		case "console":
 			return createConsoleObservabilityAdapter();
-		case "langfuse": {
-			if (!(cfg.langfuse.publicKey && cfg.langfuse.secretKey)) {
-				return createConsoleObservabilityAdapter();
-			}
-			return createLangfuseObservabilityAdapter({
-				url: cfg.langfuse.url,
-				publicKey: cfg.langfuse.publicKey,
-				secretKey: cfg.langfuse.secretKey,
-				swallowErrors: true,
-			});
-		}
 		case "noop":
 			return null;
 	}
@@ -326,7 +314,7 @@ function createApp(options?: AppOptions): Hono {
 			}
 			if (previous) {
 				// Drain + release the old adapter. Fire-and-forget: we must
-				// not block the PATCH route on an outbound Langfuse flush.
+				// not block the PATCH route on an outbound adapter flush.
 				void previous.dispose();
 			}
 		}

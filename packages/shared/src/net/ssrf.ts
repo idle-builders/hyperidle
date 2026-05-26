@@ -2,8 +2,8 @@
  * Shared SSRF (Server-Side Request Forgery) defenses.
  *
  * Originally extracted from `packages/server/src/services/notifications/config.ts`
- * (H2 security review #5) so the same blocklist can guard Langfuse,
- * future webhook adapters, and any outbound HTTP that takes a
+ * (H2 security review #5) so the same blocklist can guard
+ * webhook adapters and any outbound HTTP that takes a
  * user-controlled URL.
  *
  * Two gates:
@@ -36,12 +36,12 @@ export type ResolveResult =
 export interface SanitizeUrlOptions {
 	/**
 	 * If `true`, http:// is only accepted for loopback hosts. Default `true`.
-	 * Matches ntfy + Langfuse: both require https except when a test is
-	 * targeting a local HTTP fixture.
+	 * Matches ntfy and similar adapters: both require https except when a test
+	 * is targeting a local HTTP fixture.
 	 */
 	readonly requireHttps?: boolean;
 	/**
-	 * Label used in error messages (e.g. "ntfy url", "langfuse url").
+	 * Label used in error messages (e.g. "ntfy url", "webhook url").
 	 * Default "url".
 	 */
 	readonly label?: string;
