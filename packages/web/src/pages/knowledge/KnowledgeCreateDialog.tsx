@@ -86,7 +86,7 @@ export function KnowledgeCreateDialog({
 	const handleSubmit = async (): Promise<void> => {
 		const trimmedTitle = title.trim();
 		const trimmedBody = body.trim();
-		if (!trimmedTitle || !trimmedBody) return;
+		if (!(trimmedTitle && trimmedBody)) return;
 
 		setSubmitting(true);
 		setError(null);

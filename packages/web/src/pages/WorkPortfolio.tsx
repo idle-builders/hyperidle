@@ -23,9 +23,13 @@
 import type { Status } from "@hyperidle/design-system";
 import { EmptyState, KeyValue, SkeletonCard, StatusChip } from "@hyperidle/design-system";
 import type { JSX } from "react";
+import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { ArtifactSection, useArtifactOpen } from "../components/ArtifactSection.js";
+import { useCanvasBets } from "../hooks/useCanvasBets.js";
 import { useProducts } from "../hooks/useProducts";
+import { Canvas } from "../shell/Canvas.js";
+import { BetCreateDialog } from "./work/BetCreateDialog.js";
 
 /**
  * Page-local shape for a product card in the Portfolio view.
@@ -65,6 +69,8 @@ export function WorkPortfolio({ loading = false, products }: WorkPortfolioProps 
 	const navigate = useNavigate();
 	const { data: productsData } = useProducts();
 	const onOpenArtifact = useArtifactOpen();
+	const { bets: canvasBets, capacity: canvasCapacity, refresh: refreshCanvas } = useCanvasBets();
+	const [dialogOpen, setDialogOpen] = useState(false);
 
 	// Use injected products prop first (stories/tests), then real API data.
 	// No products fixture fallback — show empty state when data is unavailable.
@@ -191,6 +197,32 @@ export function WorkPortfolio({ loading = false, products }: WorkPortfolioProps 
 			{/* @lore M3 G1: The cycle fixture was removed. Cycle data is not yet wired from the
 			    server (deferred follow-up). The stripe is hidden when no real cycle
 			    data is available rather than showing mock "Cycle 12". */}
+
+			{/* Q3 T1/T6: Bet Canvas — shaped + committed columns with capacity badge.
+			    onNewPitch opens BetCreateDialog. onMoveBet POSTs to /api/bets/:id/commit.
+			    @lore Q3: Canvas is mounted below product grid. useCanvasBets provides data. */}
+			<Canvas
+				bets={canvasBets}
+				capacity={canvasCapacity.max}
+				onMoveBet={(betId, targetStatus) => {
+					if (targetStatus === "committed") {
+						void fetch(`/api/bets/${betId}/commit`, { method: "POST" }).then(() => refreshCanvas());
+					}
+				}}
+				onNewPitch={() => setDialogOpen(true)}
+			/>
+
+			{/* Q3 T5: BetCreateDialog — opens when onNewPitch is triggered. */}
+			<BetCreateDialog
+				open={dialogOpen}
+				onClose={() => setDialogOpen(false)}
+				onCreated={() => {
+					setDialogOpen(false);
+					// Optimistic: trigger background refetch of canvas data.
+					refreshCanvas();
+				}}
+				products={productsData?.products.map((p) => ({ id: p.id, name: p.name })) ?? []}
+			/>
 
 			{/* L12: Artifact gallery — portfolio axis, limit=12, BELOW cycle-stripe per design.
 			    @lore L12 review (W-1): approved design says "below cycle-stripe". */}

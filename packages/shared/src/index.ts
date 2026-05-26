@@ -72,6 +72,7 @@ export type {
 } from "./events.js";
 export type { ArtifactCostInput } from "./format/artifact-cost.js";
 export { formatArtifactCost } from "./format/artifact-cost.js";
+export { deriveTitleFromPitch } from "./format/bet.js";
 export { formatMoney, formatTokenCount } from "./format/money.js";
 export type {
 	CompletionEvent,

@@ -10,13 +10,19 @@ import {
 	threads,
 } from "@hyperidle/db";
 import type { ArtifactKind, ArtifactThreadSummary, EventBus } from "@hyperidle/shared";
-import { ARTIFACT_KINDS, CURRENCY_CODES } from "@hyperidle/shared";
+import {
+	ARTIFACT_KINDS,
+	CURRENCY_CODES,
+	deriveTitleFromPitch,
+	formatMoney,
+} from "@hyperidle/shared";
 import { and, eq, inArray, sql } from "drizzle-orm";
 import { Hono } from "hono";
 import z from "zod";
 import type { HyperIdleEnv } from "../middleware/auth.js";
 import { validateBody } from "../middleware/validate.js";
 import { transitionBet, updateBetField } from "../services/bet-state-machine.js";
+import { ApiError, loadProductTeam } from "../services/product-team.js";
 
 const RECOGNISED_ARTIFACT_KIND_VALUES = ARTIFACT_KINDS as readonly string[];
 const SUMMARY_CAP = 10;
@@ -36,8 +42,16 @@ const wiremoneySchema = z.object({
 const createBetSchema = z
 	.object({
 		productId: z.string(),
-		teamId: z.string(),
-		pitch: z.string(),
+		/**
+		 * @lore Q3: teamId is now optional. When absent, the server resolves
+		 * the team from the product's team via loadProductTeam(). When present,
+		 * the explicit value is used. Either way, a team is always written.
+		 */
+		teamId: z.string().optional(),
+		/**
+		 * @lore Q3: pitch must be non-empty (min 1 char). Previously unconstrained.
+		 */
+		pitch: z.string().min(1),
 		/**
 		 * @lore L17: costAppetite replaces the old `appetite` duration string
 		 * (e.g. "2 weeks"). Accepts null for uncapped bets. POST with the old
@@ -68,9 +82,38 @@ const updateBetCostAppetiteSchema = z.object({
 	reason: z.string(),
 });
 
+/**
+ * @lore Q3: pitch PATCH schema — pitch is mutable in shaped, committed,
+ * in_progress, paused, behind, blocked, review. NOT in shipped or killed.
+ * Handled directly in the PATCH route (not via bet-state-machine.MUTABLE_FIELDS)
+ * per architecture design-it-twice decision.
+ */
+const updateBetPitchSchema = z.object({
+	field: z.literal("pitch"),
+	value: z.string().min(1),
+	reason: z.string(),
+});
+
+/**
+ * Statuses in which pitch is mutable.
+ *
+ * @lore Q3 W-1 arch critique: explicit set documented here as the single
+ * source of truth. shipped and killed are excluded — the bet is done.
+ */
+const PITCH_MUTABLE_IN_STATUSES = new Set([
+	"shaped",
+	"committed",
+	"in_progress",
+	"paused",
+	"behind",
+	"blocked",
+	"review",
+]);
+
 const updateBetSchema = z.discriminatedUnion("field", [
 	updateBetStringFieldSchema,
 	updateBetCostAppetiteSchema,
+	updateBetPitchSchema,
 ]);
 
 const killBetSchema = z.object({
@@ -108,28 +151,6 @@ function assertBetReadable(db: HyperIdleDb, betId: string): { id: string } | nul
 }
 
 /**
- * Derive a display title from the bet's pitch markdown.
- * Takes the first non-empty line, strips leading "# " (or "## " etc.) markers,
- * and truncates to 60 characters. Falls back to betId when no heading is found.
- *
- * @lore L14: pitch is freeform markdown so the first line may not be a heading.
- * The fallback (betId) ensures the API never returns an empty title field.
- */
-function deriveTitleFromPitch(pitch: string, betId: string): string {
-	const lines = pitch.split("\n");
-	for (const line of lines) {
-		const trimmed = line.trim();
-		if (!trimmed) continue;
-		// Strip any number of leading '#' chars followed by a space
-		const stripped = trimmed.replace(/^#{1,6}\s+/, "");
-		if (stripped) {
-			return stripped.slice(0, 60);
-		}
-	}
-	return betId;
-}
-
-/**
  * Create Hono routes for bet endpoints.
  * Requires db and eventBus to be set in context via middleware.
  */
@@ -155,6 +176,10 @@ export function createBetRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hyper
 	});
 
 	// GET /bets/canvas — canvas data: shaped, committed, capacity info
+	//
+	// @lore Q3 T3: enriched with product name (batch lookup) + derived title +
+	// formatted appetite string. Uses a Map for batch product lookup to avoid
+	// N+1 queries (Q3 arch critique W-4).
 	router.get("/canvas", (c) => {
 		const allBets = db.select().from(bets).all();
 		const allTeams = db.select().from(teams).all();
@@ -162,9 +187,40 @@ export function createBetRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hyper
 		const totalCapacity = allTeams.reduce((sum, t) => sum + t.capacity, 0);
 		const totalUsed = allTeams.reduce((sum, t) => sum + t.activeBets, 0);
 
+		// Batch product lookup — one query, then a Map for O(1) access.
+		const allProducts = db.select({ id: products.id, name: products.name }).from(products).all();
+		const productMap = new Map(allProducts.map((p) => [p.id, p.name]));
+
+		/** Shape a bet row into the CanvasBetWire format. */
+		function enrichBet(bet: (typeof allBets)[number]): Record<string, unknown> {
+			const title = deriveTitleFromPitch(bet.pitch, bet.id);
+			const product = productMap.get(bet.productId) ?? bet.productId;
+			const appetite =
+				bet.costAppetiteMinor != null && bet.costAppetiteCurrency != null
+					? formatMoney({
+							minor: bet.costAppetiteMinor,
+							currency: bet.costAppetiteCurrency as "USD" | "EUR" | "GBP" | "JPY",
+						})
+					: "—";
+
+			return {
+				id: bet.id,
+				title,
+				product,
+				productId: bet.productId,
+				status: bet.status,
+				appetite,
+				costAppetite:
+					bet.costAppetiteMinor != null && bet.costAppetiteCurrency != null
+						? { minor: bet.costAppetiteMinor, currency: bet.costAppetiteCurrency }
+						: null,
+				progress: null,
+			};
+		}
+
 		const canvas = {
-			shaped: allBets.filter((b) => b.status === "shaped"),
-			committed: allBets.filter((b) => b.status === "committed"),
+			shaped: allBets.filter((b) => b.status === "shaped").map(enrichBet),
+			committed: allBets.filter((b) => b.status === "committed").map(enrichBet),
 			capacity: {
 				used: totalUsed,
 				max: totalCapacity,
@@ -302,16 +358,64 @@ export function createBetRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hyper
 	});
 
 	// POST /bets — create shaped bet
+	//
+	// @lore Q3 T2: teamId is optional — when absent, the server resolves it from
+	// the product's team via loadProductTeam(). Product existence is checked first
+	// (returns 400, not 500) before team lookup. revisionLog is seeded with a
+	// creation entry on every new bet.
 	router.post("/", validateBody(createBetSchema), (c) => {
 		const body = c.req.valid("json" as never) as z.infer<typeof createBetSchema>;
+
+		// Q3 W-3 arch critique: check product existence before team lookup.
+		const productRow = db
+			.select({ id: products.id })
+			.from(products)
+			.where(eq(products.id, body.productId))
+			.get();
+		if (!productRow) {
+			return c.json(
+				{ error: `Product '${body.productId}' not found`, code: "VALIDATION_ERROR" },
+				400,
+			);
+		}
+
+		// Resolve teamId — explicit or derived from product's team.
+		let resolvedTeamId: string;
+		if (body.teamId) {
+			resolvedTeamId = body.teamId;
+		} else {
+			try {
+				const team = loadProductTeam(db, body.productId);
+				resolvedTeamId = team.id;
+			} catch (err) {
+				if (err instanceof ApiError) {
+					return c.json({ error: err.message, code: err.code }, 400);
+				}
+				throw err;
+			}
+		}
+
 		const id = crypto.randomUUID();
 		const now = new Date().toISOString();
+		const actor = c.get("userId");
+
+		// Seed initial revisionLog entry for the creation event.
+		const initialLog: Array<Record<string, unknown>> = [
+			{
+				timestamp: now,
+				field: "status",
+				old_value: null,
+				new_value: "shaped",
+				reason: "Bet created",
+				...(actor !== undefined ? { actor } : {}),
+			},
+		];
 
 		db.insert(bets)
 			.values({
 				id,
 				productId: body.productId,
-				teamId: body.teamId,
+				teamId: resolvedTeamId,
 				pitch: body.pitch,
 				doneCondition: body.doneCondition ?? null,
 				hypothesis: body.hypothesis ?? null,
@@ -319,6 +423,7 @@ export function createBetRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hyper
 				createdAt: now,
 				costAppetiteMinor: body.costAppetite?.minor ?? null,
 				costAppetiteCurrency: body.costAppetite?.currency ?? null,
+				revisionLog: JSON.stringify(initialLog),
 			})
 			.run();
 
@@ -343,9 +448,49 @@ export function createBetRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hyper
 	// PATCH /bets/:id — update mutable fields on active bets.
 	// M3 A5: actor comes from auth context (c.get("userId")), not a hardcoded founder constant.
 	// L17: cost_appetite replaced the old appetite string; handled directly in the route.
+	// Q3 T4: pitch is now patchable; handled directly (not via bet-state-machine).
 	router.patch("/:id", validateBody(updateBetSchema), async (c) => {
 		const betId = c.req.param("id");
 		const body = c.req.valid("json" as never) as z.infer<typeof updateBetSchema>;
+
+		// @lore Q3 T4: pitch is mutable on shaped/committed/in_progress/paused/behind/blocked/review.
+		// NOT shipped or killed. Handled here (not via bet-state-machine.MUTABLE_FIELDS) per
+		// architecture design-it-twice decision.
+		if (body.field === "pitch") {
+			const bet = db.select().from(bets).where(eq(bets.id, betId)).get();
+			if (!bet) {
+				return c.json({ error: "Bet not found", code: "NOT_FOUND" }, 404);
+			}
+			if (!PITCH_MUTABLE_IN_STATUSES.has(bet.status)) {
+				return c.json(
+					{
+						error: `Field 'pitch' is not mutable in status '${bet.status}'`,
+						code: "VALIDATION_ERROR",
+					},
+					400,
+				);
+			}
+			const revisionLog: Array<Record<string, unknown>> = bet.revisionLog
+				? (JSON.parse(bet.revisionLog) as Array<Record<string, unknown>>)
+				: [];
+			revisionLog.push({
+				timestamp: new Date().toISOString(),
+				field: "pitch",
+				old_value: bet.pitch,
+				new_value: body.value,
+				reason: body.reason,
+				actor: c.get("userId"),
+			});
+			db.update(bets)
+				.set({
+					pitch: body.value,
+					revisionLog: JSON.stringify(revisionLog),
+				})
+				.where(eq(bets.id, betId))
+				.run();
+			const updated = db.select().from(bets).where(eq(bets.id, betId)).get();
+			return c.json(updated);
+		}
 
 		// @lore L17: cost_appetite is a WireMoney object — it cannot go through
 		// updateBetField (which maps fields to single string DB columns). Write
