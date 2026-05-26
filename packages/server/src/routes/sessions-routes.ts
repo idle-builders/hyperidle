@@ -10,6 +10,7 @@ import { and, eq } from "drizzle-orm";
 import { Hono } from "hono";
 import z from "zod";
 import { validateBody } from "../middleware/validate.js";
+import type { SessionActivityBuffer } from "../services/session-activity-buffer.js";
 
 // @lore O2: harnessUrl, tokensInput, tokensOutput fields removed from session
 // schemas. Those columns were stripped from the sessions kernel table as part
@@ -29,8 +30,15 @@ const updateSessionSchema = z.object({
 
 /**
  * Create Hono routes for session endpoints (E6).
+ *
+ * @param activityBuffer - Optional in-memory ring buffer for session activity
+ *   (Q1 §3.2). When wired, GET /:id/activity returns entries from the buffer.
  */
-export function createSessionRoutes(db: HyperIdleDb, eventBus: EventBus): Hono {
+export function createSessionRoutes(
+	db: HyperIdleDb,
+	eventBus: EventBus,
+	activityBuffer?: SessionActivityBuffer,
+): Hono {
 	const router = new Hono();
 
 	// GET / — List sessions with optional filtering by task_id, agent_id, state.
@@ -88,6 +96,33 @@ export function createSessionRoutes(db: HyperIdleDb, eventBus: EventBus): Hono {
 
 		const created = db.select().from(sessions).where(eq(sessions.id, sessionId)).get();
 		return c.json(created, 201);
+	});
+
+	// GET /:id/activity — Session activity stream (Q1 §3.2)
+	// Returns session metadata + recent activity entries from the in-memory buffer.
+	// Capped at 50 most-recent entries to bound response size.
+	router.get("/:id/activity", (c) => {
+		const sessionId = c.req.param("id");
+		const session = db.select().from(sessions).where(eq(sessions.id, sessionId)).get();
+		if (!session) {
+			return c.json({ error: "Session not found", code: API_ERROR_CODES.NOT_FOUND }, 404);
+		}
+
+		const allEntries = activityBuffer ? activityBuffer.getActivity(sessionId) : [];
+		// Return 50 most-recent entries (tail of the insertion-ordered array)
+		const activity = allEntries.slice(-50);
+
+		return c.json({
+			session: {
+				id: session.id,
+				agentId: session.agentId,
+				taskId: session.taskId,
+				state: session.state,
+				startedAt: session.startedAt,
+				modelTier: session.modelTier,
+			},
+			activity,
+		});
 	});
 
 	// PATCH /:id — Update session state
