@@ -357,7 +357,7 @@ export async function provisionSession(
 					// Emit to the bus for observability before invoking the tool
 					// so a failure inside the registry doesn't drop the record.
 					// `summarizeToolArgs` scrubs secrets + truncates to 512 chars —
-					// the resulting string is safe to ship to Langfuse.
+					// the resulting string is safe to ship to the observability adapter.
 					eventBus.emit({
 						type: "tool_call_recorded",
 						streamId: sessionId,

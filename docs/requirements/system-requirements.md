@@ -66,7 +66,7 @@
 
 **S-7.1** Every harness call, tool invocation, skill load, and inbox message emits an OpenTelemetry-style span through one adapter.
 
-**S-7.2** Default adapter is no-op for minimal installs. Supported backends: Langfuse (self-hosted), LangSmith, Helicone (managed).
+**S-7.2** Default adapter is console for minimal installs. OpenTelemetry integration is planned for production backends.
 
 ### S-8: Notification Delivery
 

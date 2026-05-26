@@ -22,17 +22,15 @@ const SERVER_START_TIME = new Date().toISOString();
  * untyped `factorySettings` rows rather than the structured configs.
  *
  * @lore I1 security-H1: before I1, `GET /api/status/settings` leaked every
- * raw factorySetting to the authenticated caller — including SMTP passwords,
- * ntfy auth tokens, and Langfuse secret keys. A single compromised API key
- * would therefore leak every third-party credential. The domain-specific
- * routes (`/api/notifications/config`, `/api/observability/config`) already
+ * raw factorySetting to the authenticated caller — including SMTP passwords
+ * and ntfy auth tokens. A single compromised API key would therefore leak
+ * every third-party credential. The domain-specific routes
+ * (`/api/notifications/config`, `/api/observability/config`) already
  * redacted; this generic listing had to match.
  */
 const SECRET_SETTING_KEYS: ReadonlySet<string> = new Set([
 	"notifications.smtp_password",
 	"notifications.ntfy_auth_token",
-	"observability.langfuse_secret_key",
-	"observability.langfuse_public_key",
 ]);
 
 /**

@@ -48,8 +48,8 @@ HyperIdle is a meta layer that sits between agent harnesses (which run agents) a
 │  │ Workspace    │  │ Harness      │  │ Observability        │    │
 │  │ Adapter      │  │ Adapter      │  │ Adapter              │    │
 │  │              │  │              │  │                      │    │
-│  │ Docker/E2B/  │  │ Claude SDK/  │  │ Langfuse/LangSmith/  │    │
-│  │ Daytona/Git  │  │ Letta/Goose/ │  │ no-op                │    │
+│  │ Docker/E2B/  │  │ Claude SDK/  │  │ Console / no-op /    │    │
+│  │ Daytona/Git  │  │ Letta/Goose/ │  │ OTel (planned)       │    │
 │  │              │  │ OpenHands    │  │                      │    │
 │  └──────────────┘  └──────────────┘  └──────────────────────┘    │
 └──────────────────────────────────────────────────────────────────┘

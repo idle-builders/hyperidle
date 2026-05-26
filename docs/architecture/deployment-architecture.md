@@ -25,14 +25,14 @@ Install: `bun install && bun run db:migrate && bun dev`
 
 ### 6.2 VPS Profile
 
-Same architecture, but the VPS is always on. Tailscale for secure remote access. Optional: Langfuse container for observability.
+Same architecture, but the VPS is always on. Tailscale for secure remote access. Optional: OpenTelemetry collector for observability (planned).
 
 ```
 VPS (Ubuntu, 4+ cores, 8+ GB RAM)
 ├── hyperidle (systemd service)
 ├── Docker (agent workspaces)
 ├── Tailscale (network access)
-├── Langfuse (docker compose, optional)
+├── OpenTelemetry collector (optional, planned)
 └── Nginx reverse proxy (for HTTPS)
 ```
 
@@ -48,7 +48,7 @@ Cloud (AWS/GCP/Hetzner)
 ├── Postgres (Primitive Store + Knowledge)
 ├── E2B / Daytona (agent workspaces)
 ├── Redis (Event Bus, optional)
-└── Managed observability (LangSmith / Helicone)
+└── Managed observability (OpenTelemetry planned)
 ```
 
 ---

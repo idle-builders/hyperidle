@@ -42,8 +42,6 @@ describe("I2 V5 — PATCH /api/status/settings blocks reserved-prefix keys", () 
 		"notifications.ntfy_auth_token",
 		"git_export.repo_path",
 		"git_export.token",
-		"observability.langfuse_secret_key",
-		"observability.langfuse_public_key",
 	];
 
 	for (const key of BLOCKED_KEYS) {

@@ -8,7 +8,7 @@
  *    an early flush via `queueMicrotask` to bound buffer growth during
  *    bursts.
  *  - Adapter failures are telemetry-only. Observability data is
- *    disposable by design; a Langfuse outage must never stall the
+ *    disposable by design; an adapter outage must never stall the
  *    factory.
  *  - We subscribe to the EventBus exactly once (wildcard). Per H3 plan
  *    §3.9, this replaces the alternative of wiring 30+ call sites.
@@ -372,8 +372,7 @@ export function registerObservabilityDispatcher(
 			case "task_state_changed": {
 				const ev = event as TaskStateChangedEvent;
 				// Tasks live across sessions; no 1:1 session correlation. We
-				// use the taskId as trace id so task-scoped Langfuse traces
-				// coalesce.
+				// use the taskId as trace id so task-scoped traces coalesce.
 				deps.dispatcher.enqueue({
 					kind: "task_state_changed",
 					traceId: `task:${ev.taskId}`,

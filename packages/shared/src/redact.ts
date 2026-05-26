@@ -2,7 +2,7 @@
  * Shared secret-token regex patterns used to scrub error messages and
  * tool-arg summaries across the server. Consolidated here so inline
  * scrubbers (dispatcher.summarizeToolArgs) and context-aware error
- * scrubbers (notifications/redact.scrubErrorMessage, langfuse-adapter)
+ * scrubbers (notifications/redact.scrubErrorMessage)
  * share a single set of patterns.
  *
  * Redaction sentinels differ per call site: `summarizeToolArgs` keeps
@@ -19,10 +19,10 @@ export const GITHUB_TOKEN_RE: RegExp = /gh[pousr]_[A-Za-z0-9]{20,}/g;
 /** `Bearer <token>` in HTTP Authorization headers. */
 export const BEARER_TOKEN_RE: RegExp = /Bearer\s+[A-Za-z0-9._-]{8,}/g;
 
-/** OpenAI / Langfuse / generic "sk-" secret key shape. */
+/** OpenAI / generic "sk-" secret key shape. */
 export const SK_TOKEN_RE: RegExp = /sk-[A-Za-z0-9._-]{8,}/g;
 
-/** Langfuse / generic "pk-" publishable key shape. */
+/** Generic "pk-" publishable key shape. */
 export const PK_TOKEN_RE: RegExp = /pk-[A-Za-z0-9._-]{8,}/g;
 
 /** `tk_`-prefixed generic tokens. */

@@ -239,8 +239,6 @@ describe("Status & Settings Endpoints (E6)", () => {
 		const SECRET_ROWS = [
 			{ key: "notifications.smtp_password", value: "super-secret-pass" },
 			{ key: "notifications.ntfy_auth_token", value: "tk_abc_private" },
-			{ key: "observability.langfuse_secret_key", value: "sk-lf-secret" },
-			{ key: "observability.langfuse_public_key", value: "pk-lf-public" },
 		];
 		const SAFE_ROW = { key: "cost_cap", value: "10000" };
 

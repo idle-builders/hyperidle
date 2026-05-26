@@ -1,9 +1,8 @@
 /**
  * Scrub secrets from adapter error messages before they land in
  * `notification_queue.last_error` or in structured logs. Reuses the
- * shared `ERROR_TOKEN_PATTERNS` set so all four scrub sites (git-export
- * redact, Langfuse adapter, notifications, tool-arg summaries) share one
- * regex table.
+ * shared `ERROR_TOKEN_PATTERNS` set so all scrub sites (git-export
+ * redact, notifications, tool-arg summaries) share one regex table.
  *
  * @lore Security review H2 #9: SMTP error messages from nodemailer
  * occasionally embed the username (e.g., "BadCredentials: Your username
@@ -25,14 +24,12 @@ function escapeRegExp(value: string): string {
 
 /**
  * Remove known-secret substrings from `message`. Context-aware values
- * (the live SMTP username/password, ntfy token, Langfuse keys) are
- * matched first and replaced wholesale; then generic token-shape
- * patterns sweep the rest.
+ * (the live SMTP username/password, ntfy token) are matched first and
+ * replaced wholesale; then generic token-shape patterns sweep the rest.
  *
  * @lore H3 security M-1 (unified token-length threshold): we previously
- * skipped short context values (`length < 4`) here while
- * `sanitizeLangfuseKey` accepted any non-empty key. That left 1–3 char
- * keys un-redacted in an error body. We now match any non-empty value —
+ * skipped short context values (`length < 4`). That left 1–3 char
+ * values un-redacted in an error body. We now match any non-empty value —
  * the prior cutoff guarded against accidental matches of common words,
  * but a context value is already known to be a credential by construction.
  */

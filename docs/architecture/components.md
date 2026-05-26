@@ -332,9 +332,9 @@ The adapter reads the Router's notification policy (push immediately / silent / 
 **What it is.** Every harness call, tool invocation, skill load, inbox message, and state transition emits a span through this adapter.
 
 **Technology.**
-- **No-op** (default for laptop) — logs to a local file.
-- **Langfuse** (self-hosted) — one `docker compose up` for traces, evals, cost tracking.
-- **LangSmith / Helicone** (managed) — zero-ops, paid.
+- **Console** (default) — structured logs to stdout.
+- **No-op** — drops all events; useful for load tests and CI.
+- **OpenTelemetry** (planned) — future integration for traces, evals, cost tracking.
 
 Spans follow OpenTelemetry conventions. The adapter translates into whatever the backend expects.
 
