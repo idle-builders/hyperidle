@@ -2,6 +2,7 @@ import type { Query, SDKMessage } from "@anthropic-ai/claude-agent-sdk";
 import type { HarnessAdapter, HarnessEvent, SessionConfig } from "@hyperidle/shared";
 import { MissingCredentialError } from "@hyperidle/shared";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type { CredentialResolver } from "../../services/credential-resolver.js";
 import { ClaudeAgentSdkAdapter } from "../claude-agent-sdk-adapter.js";
 import { MODEL_TIER_MAP, resolveModel } from "../model-tier-map.js";
 
@@ -544,6 +545,55 @@ describe("ClaudeAgentSdkAdapter (D2)", () => {
 				expect(lastCost.totalCost).toBeCloseTo(sdkCost, 4);
 				expect(Math.abs(lastCost.totalCost - sdkCost) / sdkCost).toBeLessThan(0.1);
 			}
+		});
+	});
+
+	describe("credentialResolver integration (P3 AC-15)", () => {
+		it("uses resolver.resolve() instead of env var when resolver is provided", async () => {
+			const mockQuery = createMockQuery([]);
+			const queryFn = vi.fn(() => mockQuery);
+
+			// Remove env var to confirm it's not used
+			process.env.ANTHROPIC_API_KEY = undefined;
+
+			const mockResolver: CredentialResolver = {
+				resolve: vi.fn().mockResolvedValue("resolver-provided-key-abc"),
+			};
+
+			const adapter = new ClaudeAgentSdkAdapter({ queryFn, credentialResolver: mockResolver });
+			const handle = await adapter.startSession(TEST_CONFIG);
+
+			expect(handle.sessionId).toBeDefined();
+			expect(mockResolver.resolve).toHaveBeenCalledWith("anthropic_api_key");
+		});
+
+		it("throws MissingCredentialError when resolver returns null", async () => {
+			const mockResolver: CredentialResolver = {
+				resolve: vi.fn().mockResolvedValue(null),
+			};
+
+			const adapter = new ClaudeAgentSdkAdapter({ credentialResolver: mockResolver });
+
+			await expect(adapter.startSession(TEST_CONFIG)).rejects.toThrow(MissingCredentialError);
+			expect(mockResolver.resolve).toHaveBeenCalledWith("anthropic_api_key");
+		});
+
+		it("falls back to env var when no resolver is provided (backward compat)", async () => {
+			const mockQuery = createMockQuery([]);
+			const queryFn = vi.fn(() => mockQuery);
+
+			// Env var is set (from beforeEach)
+			const adapter = new ClaudeAgentSdkAdapter({ queryFn });
+			const handle = await adapter.startSession(TEST_CONFIG);
+
+			expect(handle.sessionId).toBeDefined();
+		});
+
+		it("throws MissingCredentialError when no resolver and no env var", async () => {
+			process.env.ANTHROPIC_API_KEY = undefined;
+
+			const adapter = new ClaudeAgentSdkAdapter();
+			await expect(adapter.startSession(TEST_CONFIG)).rejects.toThrow(MissingCredentialError);
 		});
 	});
 });

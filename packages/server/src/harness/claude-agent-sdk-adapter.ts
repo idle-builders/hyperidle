@@ -13,6 +13,7 @@ import type {
 	SessionResult,
 } from "@hyperidle/shared";
 import { createLogger, MissingCredentialError } from "@hyperidle/shared";
+import type { CredentialResolver } from "../services/credential-resolver.js";
 import { resolveModel } from "./model-tier-map.js";
 
 /**
@@ -46,24 +47,45 @@ interface AdapterOptions {
 	readonly apiKeyEnvVar?: string;
 	/** Injected query function for testing. */
 	readonly queryFn?: typeof sdkQuery;
+	/**
+	 * Optional credential resolver. When present, used instead of reading
+	 * process.env[apiKeyEnvVar] for the Anthropic API key. Supports shared-mode
+	 * deployments where credentials live in the encrypted server_credentials table.
+	 *
+	 * @lore P3 AC-15 / Decision 4: inject resolver rather than mutating process.env.
+	 * In local mode no resolver is injected and the env var path is unchanged.
+	 * In shared mode the resolver reads from the encrypted DB.
+	 */
+	readonly credentialResolver?: CredentialResolver;
 }
 
 export class ClaudeAgentSdkAdapter implements HarnessAdapter {
 	private readonly apiKeyEnvVar: string;
 	private readonly sessions = new Map<string, ActiveSession>();
 	private readonly queryFn: typeof sdkQuery;
+	private readonly credentialResolver: CredentialResolver | undefined;
 	private nextId = 1;
 
 	constructor(options?: AdapterOptions) {
 		this.apiKeyEnvVar = options?.apiKeyEnvVar ?? "ANTHROPIC_API_KEY";
 		this.queryFn = options?.queryFn ?? sdkQuery;
+		this.credentialResolver = options?.credentialResolver;
 	}
 
-	// biome-ignore lint/suspicious/useAwait: interface HarnessAdapter requires async signature
 	async startSession(config: SessionConfig): Promise<SessionHandle> {
-		const apiKey = process.env[this.apiKeyEnvVar];
+		// Use resolver if provided (shared mode), else fall back to env var (local mode).
+		let apiKey: string | null | undefined;
+		if (this.credentialResolver) {
+			apiKey = await this.credentialResolver.resolve("anthropic_api_key");
+		} else {
+			apiKey = process.env[this.apiKeyEnvVar];
+		}
 		if (!apiKey) {
-			throw new MissingCredentialError(`Environment variable ${this.apiKeyEnvVar} is not set`);
+			throw new MissingCredentialError(
+				this.credentialResolver
+					? "anthropic_api_key not found in credential resolver"
+					: `Environment variable ${this.apiKeyEnvVar} is not set`,
+			);
 		}
 
 		const abortController = new AbortController();
