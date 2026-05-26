@@ -78,7 +78,9 @@ describe("H4 honest-state: synchronous Drizzle call-site audit", () => {
 		// (45 sync calls) = 60 new sync call sites. Snapshot bumped to absorb.
 		// O3 moved 25 service files from packages/server to packages/fabric,
 		// removing ~124 sync call sites from the server scan. Snapshot updated.
-		const SNAPSHOT_COUNT = 1129;
+		// Q3 added pitch PATCH + product existence check + canvas enrichment
+		// in bets route (~5 new sync call sites). Snapshot bumped to absorb.
+		const SNAPSHOT_COUNT = 1189;
 		const TOLERANCE = 50; // absorb routine renames without a fail-open
 
 		const humanReport = hits
