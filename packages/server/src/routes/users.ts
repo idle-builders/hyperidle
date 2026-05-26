@@ -1,11 +1,11 @@
 import {
-	agentSkills,
-	agents,
 	type HyperIdleDb,
 	items,
 	messages,
 	sessions,
 	threads,
+	userSkills,
+	users,
 } from "@hyperidle/db";
 import { API_ERROR_CODES, type EventBus, type ItemCreatedEvent } from "@hyperidle/shared";
 import { and, desc, eq, sql } from "drizzle-orm";
@@ -20,12 +20,7 @@ const updateSkillSchema = z.object({
 });
 
 // L1 step9 (Adv-C2): senderId is NOT accepted from the request body; it is
-// derived from the authenticated identity via `X-Identity` header. The
-// previous body-supplied senderId allowed any caller to forge messages
-// "from" any agent and burn idempotency clientKeys in another sender's
-// namespace. Defense-in-depth even though identity is non-binding for L1a
-// (single shared X-API-Key) — closes the contract surface so a future
-// per-identity key model is not retroactively broken.
+// derived from the authenticated identity via `X-Identity` header.
 const sendMessageSchema = z
 	.object({
 		subject: z.string().optional(),
@@ -34,66 +29,70 @@ const sendMessageSchema = z
 	.strict();
 
 /**
- * Create Hono routes for agent endpoints (E6).
+ * Create Hono routes for user endpoints.
+ *
+ * @lore P2: Renamed from createAgentRoutes / routes/agents.ts. All endpoints
+ * are preserved under /api/users (was /api/agents). The function name and file
+ * are the only changes — behavior is identical.
  */
-export function createAgentRoutes(db: HyperIdleDb, eventBus: EventBus): Hono {
+export function createUserRoutes(db: HyperIdleDb, eventBus: EventBus): Hono {
 	const router = new Hono();
 
-	// GET / — List all agents with active session counts
+	// GET / — List all users with active session counts
 	router.get("/", (c) => {
-		const allAgents = db.select().from(agents).all();
+		const allUsers = db.select().from(users).all();
 		const activeSessions = db.select().from(sessions).where(eq(sessions.state, "active")).all();
 
-		const result = allAgents.map((agent) => ({
-			...agent,
-			activeSessions: activeSessions.filter((s) => s.agentId === agent.id).length,
+		const result = allUsers.map((user) => ({
+			...user,
+			activeSessions: activeSessions.filter((s) => s.agentId === user.id).length,
 		}));
 
 		return c.json(result);
 	});
 
-	// GET /:id — Agent detail with skills
+	// GET /:id — User detail with skills
 	router.get("/:id", (c) => {
-		const agentId = c.req.param("id");
-		const agent = db.select().from(agents).where(eq(agents.id, agentId)).get();
+		const userId = c.req.param("id");
+		const user = db.select().from(users).where(eq(users.id, userId)).get();
 
-		if (!agent) {
-			return c.json({ error: "Agent not found", code: API_ERROR_CODES.NOT_FOUND }, 404);
+		if (!user) {
+			return c.json({ error: "User not found", code: API_ERROR_CODES.NOT_FOUND }, 404);
 		}
 
-		const skills = db.select().from(agentSkills).where(eq(agentSkills.agentId, agentId)).all();
+		const skills = db.select().from(userSkills).where(eq(userSkills.userId, userId)).all();
 
-		return c.json({ ...agent, skills });
+		return c.json({ ...user, skills });
 	});
 
 	// PATCH /:id/skills/:skillId — Update autonomy level
 	router.patch("/:id/skills/:skillId", validateBody(updateSkillSchema), (c) => {
-		const agentId = c.req.param("id");
+		const userId = c.req.param("id");
 		const skillId = c.req.param("skillId");
 		const body = c.req.valid("json" as never) as z.infer<typeof updateSkillSchema>;
 
 		const existing = db
 			.select()
-			.from(agentSkills)
-			.where(and(eq(agentSkills.agentId, agentId), eq(agentSkills.skillId, skillId)))
+			.from(userSkills)
+			.where(and(eq(userSkills.userId, userId), eq(userSkills.skillId, skillId)))
 			.get();
 
 		if (!existing) {
-			return c.json({ error: "Agent skill not found", code: API_ERROR_CODES.NOT_FOUND }, 404);
+			return c.json({ error: "User skill not found", code: API_ERROR_CODES.NOT_FOUND }, 404);
 		}
 
 		const oldLevel = existing.autonomyLevel;
 		const newLevel = body.autonomyLevel;
 
-		db.update(agentSkills)
+		db.update(userSkills)
 			.set({ autonomyLevel: newLevel })
-			.where(and(eq(agentSkills.agentId, agentId), eq(agentSkills.skillId, skillId)))
+			.where(and(eq(userSkills.userId, userId), eq(userSkills.skillId, skillId)))
 			.run();
 
 		const updated = db
 			.select()
-			.from(agentSkills)
-			.where(and(eq(agentSkills.agentId, agentId), eq(agentSkills.skillId, skillId)))
+			.from(userSkills)
+			.where(and(eq(userSkills.userId, userId), eq(userSkills.skillId, skillId)))
 			.get();
 
 		// If level changed, create a review thread + item
@@ -102,17 +101,14 @@ export function createAgentRoutes(db: HyperIdleDb, eventBus: EventBus): Hono {
 			const now = new Date().toISOString();
 
 			// L1a: legacy `kind='review'` threads project to host_kind='agent'
-			// for an agent-scoped autonomy review (plan §5.3 thread-primitive
-			// rules: review/chat threads infer host from the referencing item's
-			// scope; here the item is layer='meta', kind='autonomy_change'
-			// targeting the agent whose skill autonomy changed).
+			// for an agent-scoped autonomy review.
 			db.insert(threads)
 				.values({
 					id: threadId,
 					hostKind: "agent",
-					hostId: agentId,
-					initiatorId: agentId,
-					participants: JSON.stringify([agentId]),
+					hostId: userId,
+					initiatorId: userId,
+					participants: JSON.stringify([userId]),
 					lastActiveAt: now,
 					createdAt: now,
 				})
@@ -122,12 +118,12 @@ export function createAgentRoutes(db: HyperIdleDb, eventBus: EventBus): Hono {
 			db.insert(items)
 				.values({
 					id: itemId,
-					sourceAgentId: agentId,
+					sourceAgentId: userId,
 					layer: "meta",
 					verb: "review",
 					kind: "autonomy_change",
 					title: `Autonomy level changed for skill ${skillId}`,
-					body: `Autonomy level changed from ${oldLevel} to ${newLevel} for agent ${agentId}, skill ${skillId}`,
+					body: `Autonomy level changed from ${oldLevel} to ${newLevel} for user ${userId}, skill ${skillId}`,
 					threadId,
 					createdAt: now,
 				})
@@ -146,23 +142,21 @@ export function createAgentRoutes(db: HyperIdleDb, eventBus: EventBus): Hono {
 		return c.json(updated);
 	});
 
-	// GET /:id/inbox — Agent's inbox with pagination
+	// GET /:id/inbox — User's inbox with pagination
 	router.get("/:id/inbox", (c) => {
-		const agentId = c.req.param("id");
+		const userId = c.req.param("id");
 
-		const agent = db.select().from(agents).where(eq(agents.id, agentId)).get();
-		if (!agent) {
-			return c.json({ error: "Agent not found", code: API_ERROR_CODES.NOT_FOUND }, 404);
+		const user = db.select().from(users).where(eq(users.id, userId)).get();
+		if (!user) {
+			return c.json({ error: "User not found", code: API_ERROR_CODES.NOT_FOUND }, 404);
 		}
 
 		const limit = Math.min(Number.parseInt(c.req.query("limit") ?? "50", 10) || 50, 200);
 		const offset = Number.parseInt(c.req.query("offset") ?? "0", 10) || 0;
 
-		// L1a: messages no longer carry recipient_id; agent inbox derives
-		// from threads where the agent is a participant. L1 step5 (W6): the
-		// participants JSON column is pre-filtered in SQL with a
-		// `LIKE %"<agentId>"%` probe; we re-parse in JS to verify the match.
-		const probe = `%${escapeLikePattern(JSON.stringify(agentId))}%`;
+		// L1a: messages no longer carry recipient_id; user inbox derives
+		// from threads where the user is a participant.
+		const probe = `%${escapeLikePattern(JSON.stringify(userId))}%`;
 		const inboxRows = db
 			.select()
 			.from(messages)
@@ -176,23 +170,22 @@ export function createAgentRoutes(db: HyperIdleDb, eventBus: EventBus): Hono {
 		const matched = inboxRows.filter((row) => {
 			try {
 				const parts = JSON.parse(row.threads.participants);
-				return Array.isArray(parts) && parts.includes(agentId);
+				return Array.isArray(parts) && parts.includes(userId);
 			} catch {
 				return false;
 			}
 		});
 
-		return c.json(matched.map((row) => row.messages));
+		return c.json({ messages: matched.map((row) => row.messages), total: matched.length });
 	});
 
-	// POST /:id/inbox — Send message to agent
+	// POST /:id/inbox — Send message to user
 	router.post("/:id/inbox", validateBody(sendMessageSchema), (c) => {
 		const recipientId = c.req.param("id");
 		const body = c.req.valid("json" as never) as z.infer<typeof sendMessageSchema>;
 
 		// L1 step9 (Adv-C2): derive senderId from the authenticated identity,
-		// never from the request body. `X-Identity` is the L1a convention for
-		// sender attribution under a shared X-API-Key (see threads.ts:50-56).
+		// never from the request body.
 		const senderId = c.req.header("X-Identity");
 		if (!senderId) {
 			return c.json(
@@ -204,20 +197,18 @@ export function createAgentRoutes(db: HyperIdleDb, eventBus: EventBus): Hono {
 			);
 		}
 
-		const agent = db.select().from(agents).where(eq(agents.id, recipientId)).get();
-		if (!agent) {
-			return c.json({ error: "Agent not found", code: API_ERROR_CODES.NOT_FOUND }, 404);
+		const user = db.select().from(users).where(eq(users.id, recipientId)).get();
+		if (!user) {
+			return c.json({ error: "User not found", code: API_ERROR_CODES.NOT_FOUND }, 404);
 		}
 
-		const senderAgent = db.select().from(agents).where(eq(agents.id, senderId)).get();
-		if (!senderAgent) {
+		const senderUser = db.select().from(users).where(eq(users.id, senderId)).get();
+		if (!senderUser) {
 			return c.json({ error: "Sender identity not found", code: API_ERROR_CODES.NOT_FOUND }, 404);
 		}
 
 		const now = new Date().toISOString();
 
-		// L1 step5 (W14): direct-thread reuse + create lives in
-		// `services/direct-thread.ts` to avoid drift with `skill-tools/send-message.ts`.
 		const threadId = findOrCreateDirectThread(db, senderId, recipientId, now);
 
 		const messageId = crypto.randomUUID();

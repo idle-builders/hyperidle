@@ -14,7 +14,7 @@
  * for it. See services/product-team.ts.
  */
 
-import { agents, bets, type HyperIdleDb, products, tasks, teams } from "@hyperidle/db";
+import { bets, type HyperIdleDb, products, tasks, teams, users } from "@hyperidle/db";
 import type {
 	BetCardSummary,
 	CreateProductRequest,
@@ -203,9 +203,10 @@ export function createProductRoutes(db: HyperIdleDb, _eventBus: EventBus): Hono 
 			})
 			.run();
 
-		db.insert(agents)
+		db.insert(users)
 			.values({
 				id: builderId,
+				kind: "ai",
 				name: `${name.trim()} Builder`,
 				role: "builder",
 				status: "active",
@@ -215,9 +216,10 @@ export function createProductRoutes(db: HyperIdleDb, _eventBus: EventBus): Hono 
 			})
 			.run();
 
-		db.insert(agents)
+		db.insert(users)
 			.values({
 				id: pmId,
+				kind: "ai",
 				name: `${name.trim()} Product Manager`,
 				role: "product_manager",
 				status: "active",
@@ -251,7 +253,7 @@ export function createProductRoutes(db: HyperIdleDb, _eventBus: EventBus): Hono 
 		try {
 			const teamRow = loadProductTeam(db, productId);
 			// 3. Load roster
-			const agentRows = db.select().from(agents).where(eq(agents.teamId, teamRow.id)).all();
+			const agentRows = db.select().from(users).where(eq(users.teamId, teamRow.id)).all();
 
 			const roster: RosterMember[] = agentRows.map((agent) => ({
 				agentId: agent.id,

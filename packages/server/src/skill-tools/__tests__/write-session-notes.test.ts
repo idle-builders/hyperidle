@@ -2,7 +2,6 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import {
-	agents,
 	bets,
 	createTestDb,
 	type HyperIdleDb,
@@ -11,6 +10,7 @@ import {
 	tasks,
 	teams,
 	threads,
+	users,
 } from "@hyperidle/db";
 import { EventBus } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
@@ -35,7 +35,7 @@ function seed(db: HyperIdleDb): void {
 			createdAt: now,
 		})
 		.run();
-	db.insert(agents)
+	db.insert(users)
 		.values({
 			id: "agent-a",
 			name: "A",

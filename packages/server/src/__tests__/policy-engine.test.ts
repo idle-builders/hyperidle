@@ -1,6 +1,4 @@
 import {
-	agentSkills,
-	agents,
 	createTestDb,
 	factorySettings,
 	type HyperIdleDb,
@@ -9,6 +7,8 @@ import {
 	products,
 	teams,
 	threads,
+	userSkills,
+	users,
 } from "@hyperidle/db";
 import { registerPolicyEngine } from "@hyperidle/fabric";
 import { EventBus, type NotificationEvent } from "@hyperidle/shared";
@@ -59,22 +59,24 @@ describe("Policy Engine (E7)", () => {
 		db.insert(teams)
 			.values({ id: "team-1", productId: "prod-1", capacity: 3, activeBets: 0, formedAt: now })
 			.run();
-		db.insert(agents)
+		db.insert(users)
 			.values([
 				{
 					id: "agent-1",
+					kind: "ai",
 					name: "Builder",
 					role: "builder",
 					status: "idle",
 					teamId: "team-1",
 					createdAt: now,
 				},
-				// L1a: synthetic sender for verdict-typed messages emitted by
+				// @lore L1a: synthetic sender for verdict-typed messages emitted by
 				// the policy engine. The new `messages.sender_id` FK requires
-				// the agent row to exist (legacy `responses.approver_id` had
-				// no FK).
+				// the user row to exist (legacy `responses.approver_id` had
+				// no FK). P2: agents → users table.
 				{
 					id: "policy_engine",
+					kind: "ai",
 					name: "Policy Engine",
 					role: "system",
 					status: "active",
@@ -96,9 +98,9 @@ describe("Policy Engine (E7)", () => {
 	}
 
 	function seedAgentSkill(autonomyLevel: number): void {
-		db.insert(agentSkills)
+		db.insert(userSkills)
 			.values({
-				agentId: "agent-1",
+				userId: "agent-1",
 				skillId: "skill-1",
 				autonomyLevel,
 				successCount: 0,

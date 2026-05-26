@@ -1,12 +1,12 @@
 import * as os from "node:os";
 import * as path from "node:path";
 import {
-	agents,
 	createTestDb,
 	type HyperIdleDb,
 	knowledgeEditLog,
 	knowledgeItems,
 	knowledgeStrategyFabric,
+	users,
 } from "@hyperidle/db";
 import { setupFts } from "@hyperidle/fabric";
 import { EventBus } from "@hyperidle/shared";
@@ -24,7 +24,7 @@ function makeDb(): HyperIdleDb {
 }
 
 function seedFacilitator(db: HyperIdleDb): void {
-	db.insert(agents)
+	db.insert(users)
 		.values({
 			id: "agent-a",
 			name: "Agent A",
@@ -37,7 +37,7 @@ function seedFacilitator(db: HyperIdleDb): void {
 }
 
 function seedBuilder(db: HyperIdleDb): void {
-	db.insert(agents)
+	db.insert(users)
 		.values({
 			id: "agent-builder",
 			name: "Builder Agent",

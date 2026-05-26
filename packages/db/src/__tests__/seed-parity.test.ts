@@ -79,9 +79,10 @@ describe("I3: SQLite/PG seed parity", () => {
 		};
 	});
 
-	it("produces the same set of agent IDs", async () => {
-		const sq = sqliteIds(sqliteDb, "agents");
-		const pg = await pgIds(pgHandle, "agents");
+	it("produces the same set of user IDs", async () => {
+		// @lore P2: agents → users table
+		const sq = sqliteIds(sqliteDb, "users");
+		const pg = await pgIds(pgHandle, "users");
 		expect(pg).toEqual(sq);
 	});
 
@@ -123,14 +124,15 @@ describe("I3: SQLite/PG seed parity", () => {
 	});
 
 	it("produces ≥1 row in each major reference table on the PG side", async () => {
-		for (const table of ["agents", "teams", "products", "bets", "tasks", "routines"]) {
+		// @lore P2: agents → users
+		for (const table of ["users", "teams", "products", "bets", "tasks", "routines"]) {
 			const n = await pgCount(pgHandle, table);
 			expect(n, `${table} should have ≥1 row`).toBeGreaterThanOrEqual(1);
 		}
 	});
 
 	it("PG seed exposes the exported pgSchema (sanity check)", () => {
-		// Sanity: ensure the test imports resolved.
-		expect(pgSchema.agents).toBeDefined();
+		// Sanity: ensure the test imports resolved. @lore P2: agents → users
+		expect(pgSchema.users).toBeDefined();
 	});
 });

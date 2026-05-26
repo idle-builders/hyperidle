@@ -2,7 +2,6 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import {
-	agents,
 	bets,
 	createTestDb,
 	type HyperIdleDb,
@@ -11,6 +10,7 @@ import {
 	sessions,
 	tasks,
 	teams,
+	users,
 } from "@hyperidle/db";
 import {
 	ConcurrencyLimitError,
@@ -64,7 +64,7 @@ function seedAll(db: HyperIdleDb): void {
 		})
 		.run();
 
-	db.insert(agents)
+	db.insert(users)
 		.values({
 			id: "agent-1",
 			name: "Builder Agent",

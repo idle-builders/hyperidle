@@ -10,7 +10,6 @@
  */
 
 import {
-	agents,
 	bets,
 	createTestDb,
 	type HyperIdleDb,
@@ -18,6 +17,7 @@ import {
 	sessions,
 	tasks,
 	teams,
+	users,
 } from "@hyperidle/db";
 import { EventBus } from "@hyperidle/shared";
 import type { Hono } from "hono";
@@ -52,7 +52,7 @@ function setupApp(): AppCtx {
 	db.insert(teams)
 		.values({ id: "t1", productId: "p1", capacity: 5, activeBets: 0, formedAt: now })
 		.run();
-	db.insert(agents)
+	db.insert(users)
 		.values({
 			id: "agent-1",
 			name: "Builder Agent",

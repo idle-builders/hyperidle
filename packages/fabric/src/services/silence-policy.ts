@@ -10,7 +10,7 @@
  * dependency direction look like a reach-across-subfolder.
  */
 
-import { agents, factorySettings, type HyperIdleDb, teams } from "@hyperidle/db";
+import { factorySettings, type HyperIdleDb, teams, users } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
 
 interface SilenceItem {
@@ -37,7 +37,7 @@ export function isSilenced(db: HyperIdleDb, item: SilenceItem, now: Date): boole
 
 	// 2. Per-product silence
 	if (item.sourceAgentId) {
-		const agent = db.select().from(agents).where(eq(agents.id, item.sourceAgentId)).get();
+		const agent = db.select().from(users).where(eq(users.id, item.sourceAgentId)).get();
 		if (agent?.teamId) {
 			const team = db.select().from(teams).where(eq(teams.id, agent.teamId)).get();
 			if (team) {

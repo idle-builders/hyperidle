@@ -38,13 +38,13 @@ describe("O1 kernel type additions to @hyperidle/shared", () => {
 		});
 	});
 
-	describe("Agent role split (KERNEL_AGENT_ROLES, FABRIC_AGENT_ROLES, AGENT_ROLES)", () => {
-		it("KERNEL_AGENT_ROLES is exported from shared", () => {
-			expect("KERNEL_AGENT_ROLES" in sharedIndex).toBe(true);
+	describe("User role split (KERNEL_USER_ROLES, FABRIC_USER_ROLES, USER_ROLES)", () => {
+		it("KERNEL_USER_ROLES is exported from shared", () => {
+			expect("KERNEL_USER_ROLES" in sharedIndex).toBe(true);
 		});
 
-		it("KERNEL_AGENT_ROLES has 3 roles", () => {
-			const val = (sharedIndex as Record<string, unknown>)["KERNEL_AGENT_ROLES"] as string[];
+		it("KERNEL_USER_ROLES has 3 roles", () => {
+			const val = (sharedIndex as Record<string, unknown>)["KERNEL_USER_ROLES"] as string[];
 			expect(Array.isArray(val)).toBe(true);
 			expect(val.length).toBe(3);
 			expect(val).toContain("builder");
@@ -52,12 +52,12 @@ describe("O1 kernel type additions to @hyperidle/shared", () => {
 			expect(val).toContain("product_manager");
 		});
 
-		it("FABRIC_AGENT_ROLES is exported from shared", () => {
-			expect("FABRIC_AGENT_ROLES" in sharedIndex).toBe(true);
+		it("FABRIC_USER_ROLES is exported from shared", () => {
+			expect("FABRIC_USER_ROLES" in sharedIndex).toBe(true);
 		});
 
-		it("FABRIC_AGENT_ROLES has 3 roles", () => {
-			const val = (sharedIndex as Record<string, unknown>)["FABRIC_AGENT_ROLES"] as string[];
+		it("FABRIC_USER_ROLES has 3 roles", () => {
+			const val = (sharedIndex as Record<string, unknown>)["FABRIC_USER_ROLES"] as string[];
 			expect(Array.isArray(val)).toBe(true);
 			expect(val.length).toBe(3);
 			expect(val).toContain("practice_facilitator");
@@ -65,21 +65,17 @@ describe("O1 kernel type additions to @hyperidle/shared", () => {
 			expect(val).toContain("brand_voice");
 		});
 
-		it("AGENT_ROLES composes KERNEL_AGENT_ROLES and FABRIC_AGENT_ROLES", () => {
-			expect("AGENT_ROLES" in sharedIndex).toBe(true);
-			const agentRoles = (sharedIndex as Record<string, unknown>)["AGENT_ROLES"] as string[];
-			const kernelRoles = (sharedIndex as Record<string, unknown>)[
-				"KERNEL_AGENT_ROLES"
-			] as string[];
-			const fabricRoles = (sharedIndex as Record<string, unknown>)[
-				"FABRIC_AGENT_ROLES"
-			] as string[];
-			expect(agentRoles.length).toBe(6);
+		it("USER_ROLES composes KERNEL_USER_ROLES and FABRIC_USER_ROLES", () => {
+			expect("USER_ROLES" in sharedIndex).toBe(true);
+			const userRoles = (sharedIndex as Record<string, unknown>)["USER_ROLES"] as string[];
+			const kernelRoles = (sharedIndex as Record<string, unknown>)["KERNEL_USER_ROLES"] as string[];
+			const fabricRoles = (sharedIndex as Record<string, unknown>)["FABRIC_USER_ROLES"] as string[];
+			expect(userRoles.length).toBe(6);
 			for (const role of kernelRoles) {
-				expect(agentRoles).toContain(role);
+				expect(userRoles).toContain(role);
 			}
 			for (const role of fabricRoles) {
-				expect(agentRoles).toContain(role);
+				expect(userRoles).toContain(role);
 			}
 		});
 	});

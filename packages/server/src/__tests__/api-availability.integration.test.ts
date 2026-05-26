@@ -49,7 +49,7 @@ describe("API Availability Regression Guard (I6)", () => {
 		{ path: "/api/knowledge", description: "Knowledge" },
 		{ path: "/api/rail", description: "Rail" },
 		{ path: "/api/conversations", description: "Conversations" },
-		{ path: "/api/agents", description: "Agents" },
+		{ path: "/api/users", description: "Users" },
 		{ path: "/api/routines", description: "Routines" },
 		{ path: "/api/sessions", description: "Sessions" },
 		{ path: "/api/status", description: "Status" },

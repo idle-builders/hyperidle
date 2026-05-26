@@ -9,7 +9,6 @@ import { createBodyLimit } from "./middleware/body-limit.js";
 import { corsMiddleware } from "./middleware/cors.js";
 import { errorHandler } from "./middleware/error-handler.js";
 import { createRateLimiter } from "./middleware/rate-limit.js";
-import { createAgentRoutes } from "./routes/agents.js";
 import { createArtifactRoutes } from "./routes/artifacts.js";
 import { createAuthRoutes } from "./routes/auth.js";
 import { createBetRoutes } from "./routes/bets.js";
@@ -19,6 +18,7 @@ import { health } from "./routes/health.js";
 import { createKnowledgeRoutes, createTeamsRoutes } from "./routes/knowledge.js";
 import { createNotificationRoutes } from "./routes/notifications-routes.js";
 import { createObservabilityRoutes } from "./routes/observability-routes.js";
+import { createOrgRoutes } from "./routes/org.js";
 import { createProductRoutes } from "./routes/products.js";
 import { createRailRoutes } from "./routes/rail.js";
 import { createRecipientRoutes } from "./routes/recipients.js";
@@ -29,6 +29,7 @@ import { createStatusRoutes } from "./routes/status.js";
 import { createTaskRoutes } from "./routes/tasks.js";
 import { registerTestRoutes } from "./routes/test-routes.js";
 import { createThreadRoutes } from "./routes/threads.js";
+import { createUserRoutes } from "./routes/users.js";
 import {
 	type ObservabilityConfig,
 	readObservabilityConfig,
@@ -257,7 +258,8 @@ function createApp(options?: AppOptions): Hono {
 		api.route("/settings", createSettingsRoutes(options.db, eventBus));
 		api.route("/conversations", createConversationRoutes(options.db, eventBus));
 		api.route("/threads", createThreadRoutes(options.db, eventBus));
-		api.route("/agents", createAgentRoutes(options.db, eventBus));
+		api.route("/users", createUserRoutes(options.db, eventBus));
+		api.route("/org", createOrgRoutes(options.db));
 		api.route("/routines", createRoutineRoutes(options.db, eventBus));
 		api.route("/recipients", createRecipientRoutes(options.db, eventBus));
 

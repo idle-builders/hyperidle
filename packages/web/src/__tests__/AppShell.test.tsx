@@ -8,7 +8,7 @@ import { AppShell } from "../layouts/AppShell";
 const STUB_SETTINGS = {
 	profile: { name: "Founder", email: "", avatarUrl: null },
 	products: [],
-	agents: [],
+	users: [],
 	notifications: {
 		reviewAlerts: true,
 		costAlerts: true,

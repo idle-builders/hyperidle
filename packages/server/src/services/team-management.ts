@@ -1,4 +1,4 @@
-import { agents, type HyperIdleDb, routines, type Team, teams } from "@hyperidle/db";
+import { type HyperIdleDb, routines, type Team, teams, users } from "@hyperidle/db";
 import { ActiveRoutinesError } from "@hyperidle/shared";
 import { and, eq } from "drizzle-orm";
 
@@ -25,7 +25,7 @@ export function createTeam(db: HyperIdleDb, opts: CreateTeamOpts): Team {
 		.run();
 
 	for (const agentId of opts.agentIds) {
-		db.update(agents).set({ teamId: id }).where(eq(agents.id, agentId)).run();
+		db.update(users).set({ teamId: id }).where(eq(users.id, agentId)).run();
 	}
 
 	const team = db.select().from(teams).where(eq(teams.id, id)).get();
@@ -36,7 +36,7 @@ export function createTeam(db: HyperIdleDb, opts: CreateTeamOpts): Team {
 }
 
 export function addMember(db: HyperIdleDb, teamId: string, agentId: string): void {
-	db.update(agents).set({ teamId }).where(eq(agents.id, agentId)).run();
+	db.update(users).set({ teamId }).where(eq(users.id, agentId)).run();
 }
 
 export function removeMember(db: HyperIdleDb, teamId: string, agentId: string): void {
@@ -52,9 +52,9 @@ export function removeMember(db: HyperIdleDb, teamId: string, agentId: string): 
 		);
 	}
 
-	db.update(agents)
+	db.update(users)
 		.set({ teamId: null })
-		.where(and(eq(agents.id, agentId), eq(agents.teamId, teamId)))
+		.where(and(eq(users.id, agentId), eq(users.teamId, teamId)))
 		.run();
 }
 
@@ -71,15 +71,11 @@ export function dissolveTeam(db: HyperIdleDb, teamId: string): void {
 
 	db.update(teams).set({ dissolvedAt: now }).where(eq(teams.id, teamId)).run();
 
-	db.update(agents).set({ teamId: null }).where(eq(agents.teamId, teamId)).run();
+	db.update(users).set({ teamId: null }).where(eq(users.teamId, teamId)).run();
 }
 
 export function getTeamCost(db: HyperIdleDb, teamId: string, _cycleStart: string): number {
-	const teamAgents = db
-		.select({ id: agents.id })
-		.from(agents)
-		.where(eq(agents.teamId, teamId))
-		.all();
+	const teamAgents = db.select({ id: users.id }).from(users).where(eq(users.teamId, teamId)).all();
 
 	if (teamAgents.length === 0) {
 		return 0;

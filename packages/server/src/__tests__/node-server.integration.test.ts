@@ -94,7 +94,7 @@ describe("N1: Node server integration (AC9)", () => {
 
 	// ------------------------------------------------------------------ N1-HTTP-3
 	it("domain routes are mounted (non-404) under Node runtime", async () => {
-		const domainPaths = ["/api/bets", "/api/tasks", "/api/agents", "/api/sessions"];
+		const domainPaths = ["/api/bets", "/api/tasks", "/api/users", "/api/sessions"];
 		for (const domainPath of domainPaths) {
 			const res = await fetch(`http://localhost:${port}${domainPath}`, {
 				headers: authHeaders(TEST_API_KEY),

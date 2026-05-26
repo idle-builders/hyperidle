@@ -1,12 +1,4 @@
-import {
-	agents,
-	bets,
-	createTestDb,
-	type HyperIdleDb,
-	products,
-	tasks,
-	teams,
-} from "@hyperidle/db";
+import { bets, createTestDb, type HyperIdleDb, products, tasks, teams, users } from "@hyperidle/db";
 import {
 	bootstrapFabric,
 	clearDeduplicationCache,
@@ -60,7 +52,7 @@ describe("Session Endpoints (E6)", () => {
 				formedAt: new Date().toISOString(),
 			})
 			.run();
-		db.insert(agents)
+		db.insert(users)
 			.values({
 				id: "agent-1",
 				name: "Builder Bot",
@@ -225,7 +217,7 @@ describe("Session Endpoints (E6)", () => {
 			// Force a dedup-map entry to exist for this session by recording
 			// a cost above the agent cap. This pins the entry the PATCH
 			// must later reclaim.
-			db.update(agents).set({ costCap: 100 }).where(eq(agents.id, "agent-1")).run();
+			db.update(users).set({ costCap: 100 }).where(eq(users.id, "agent-1")).run();
 			await recordCostAndCheck(db, eventBus, {
 				sessionId,
 				cost: 200,
@@ -246,7 +238,7 @@ describe("Session Endpoints (E6)", () => {
 
 		it("PATCH state=crashed releases the cost-cap dedup entry", async () => {
 			const sessionId = await createSession();
-			db.update(agents).set({ costCap: 100 }).where(eq(agents.id, "agent-1")).run();
+			db.update(users).set({ costCap: 100 }).where(eq(users.id, "agent-1")).run();
 			await recordCostAndCheck(db, eventBus, {
 				sessionId,
 				cost: 200,

@@ -1,5 +1,5 @@
 import * as crypto from "node:crypto";
-import { agents, type HyperIdleDb, items, teams } from "@hyperidle/db";
+import { type HyperIdleDb, items, teams, users } from "@hyperidle/db";
 import type { EventBus, SessionEndedEvent } from "@hyperidle/shared";
 import { eq, sql } from "drizzle-orm";
 
@@ -103,23 +103,23 @@ function tryRecordDedupKey(
  *
  * @lore O2: session cost columns (cost, costMinor, costCurrency) stripped from
  * the kernel sessions table as part of kernel/strategy separation. Cost is now
- * accumulated on agents.costActual (integer minor units). This column is the
+ * accumulated on users.costActual (integer minor units). This column is the
  * authoritative running total for an agent's spend within the current cycle.
  */
 function getAgentSpend(db: HyperIdleDb, agentId: string): number {
 	const row = db
-		.select({ costActual: agents.costActual })
-		.from(agents)
-		.where(eq(agents.id, agentId))
+		.select({ costActual: users.costActual })
+		.from(users)
+		.where(eq(users.id, agentId))
 		.get();
 	return row?.costActual ?? 0;
 }
 
 /**
- * Sum session costs for all agents in a team.
+ * Sum session costs for all users in a team.
  *
  * @lore O2: reads teams.costActual, which is the running minor-unit total
- * accumulated across all agents in the team for the current billing cycle.
+ * accumulated across all users in the team for the current billing cycle.
  */
 function getTeamSpend(db: HyperIdleDb, teamId: string): number {
 	const row = db
@@ -135,7 +135,7 @@ function getTeamSpend(db: HyperIdleDb, teamId: string): number {
  * Checks agent -> team -> factory hierarchy, returning the first breach.
  *
  * @lore L17: Currency mismatch is NOT enforced at this boundary. The factory
- * is single-currency in v1 — all agents, teams, and sessions are assumed to
+ * is single-currency in v1 — all users, teams, and sessions are assumed to
  * operate in the same currency (USD by default). The comparison is always
  * minor-unit integers regardless of currency. If a future multi-currency
  * factory is introduced, this function must validate that agent cap currency
@@ -150,7 +150,7 @@ export async function checkCostCap(
 	params: CheckCostCapParams,
 ): Promise<CostCapResult> {
 	// 1. Check agent cap
-	const agent = db.select().from(agents).where(eq(agents.id, params.agentId)).get();
+	const agent = db.select().from(users).where(eq(users.id, params.agentId)).get();
 	if (!agent) {
 		throw new Error(`Agent not found: ${params.agentId}`);
 	}
@@ -213,16 +213,16 @@ export async function recordCostAndCheck(
 	params: RecordCostAndCheckParams,
 ): Promise<void> {
 	// @lore O2: session cost columns stripped from the kernel sessions table.
-	// Cost is accumulated on agents.costActual and teams.costActual (minor units).
+	// Cost is accumulated on users.costActual and teams.costActual (minor units).
 	// recordCostAndCheck increments these counters atomically so checkCostCap
 	// can read the authoritative running total without scanning sessions.
 	const effectiveCostMinor = params.costMinor ?? params.cost ?? 0;
 
 	if (effectiveCostMinor > 0) {
 		// Accumulate on agent
-		db.update(agents)
-			.set({ costActual: sql`coalesce(${agents.costActual}, 0) + ${effectiveCostMinor}` })
-			.where(eq(agents.id, params.agentId))
+		db.update(users)
+			.set({ costActual: sql`coalesce(${users.costActual}, 0) + ${effectiveCostMinor}` })
+			.where(eq(users.id, params.agentId))
 			.run();
 
 		// Accumulate on team if provided
@@ -234,7 +234,7 @@ export async function recordCostAndCheck(
 		}
 	}
 
-	const agent = db.select().from(agents).where(eq(agents.id, params.agentId)).get();
+	const agent = db.select().from(users).where(eq(users.id, params.agentId)).get();
 	if (!agent) {
 		throw new Error(`Agent not found: ${params.agentId}`);
 	}
@@ -434,7 +434,7 @@ export async function resetCosts(
 	switch (normalizedParams.level) {
 		case "agent": {
 			if (!normalizedParams.id) throw new Error("Agent ID required for agent reset");
-			db.update(agents).set({ costActual: 0 }).where(eq(agents.id, normalizedParams.id)).run();
+			db.update(users).set({ costActual: 0 }).where(eq(users.id, normalizedParams.id)).run();
 			break;
 		}
 		case "team": {
@@ -444,7 +444,7 @@ export async function resetCosts(
 		}
 		case "factory": {
 			// eslint-disable-next-line drizzle/enforce-update-with-where -- intentional: factory reset clears ALL rows
-			db.update(agents).set({ costActual: 0 }).run();
+			db.update(users).set({ costActual: 0 }).run();
 			// eslint-disable-next-line drizzle/enforce-update-with-where -- intentional: factory reset clears ALL rows
 			db.update(teams).set({ costActual: 0 }).run();
 			break;

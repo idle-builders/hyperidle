@@ -16,11 +16,11 @@
 
 import {
 	createTestDb,
-	factorySettings,
 	type HyperIdleDb,
 	knowledgeEditLog,
 	knowledgeItems,
 	knowledgeStrategyFabric,
+	users,
 } from "@hyperidle/db";
 import { EventBus } from "@hyperidle/shared";
 import { eq, sql } from "drizzle-orm";
@@ -34,10 +34,21 @@ function authHeaders(extra?: Record<string, string>): Record<string, string> {
 	return { "X-API-Key": TEST_API_KEY, "Content-Type": "application/json", ...extra };
 }
 
-/** Seed a factorySettings founder_id row so the auth middleware resolves a consistent userId. */
+/**
+ * Seed a human user row so the auth middleware resolves a consistent userId.
+ * @lore P2: After the P2 rename, auth reads from users WHERE kind='human' LIMIT 1
+ * instead of factorySettings.founder_id. seedFounder inserts a human user row.
+ */
 function seedFounder(db: HyperIdleDb, userId: string): void {
-	db.insert(factorySettings)
-		.values({ key: "founder_id", value: userId, updatedAt: new Date().toISOString() })
+	db.insert(users)
+		.values({
+			id: userId,
+			name: "Founder",
+			role: "founder",
+			status: "active",
+			kind: "human",
+			createdAt: new Date().toISOString(),
+		})
 		.run();
 }
 
@@ -298,10 +309,18 @@ describe("Q2 AC-6: user-scoped item visibility", () => {
 		expect(createRes.status).toBe(201);
 		const created = (await createRes.json()) as { id: string };
 
-		// Now rebuild app as user-B by changing founder_id
-		db.update(factorySettings)
-			.set({ value: "user-B" })
-			.where(eq(factorySettings.key, "founder_id"))
+		// Switch to user-B: demote user-A to AI kind, insert user-B as human
+		// @lore P2: auth reads users WHERE kind='human' LIMIT 1, not factorySettings
+		db.update(users).set({ kind: "ai" }).where(eq(users.id, "user-A")).run();
+		db.insert(users)
+			.values({
+				id: "user-B",
+				name: "User B",
+				role: "founder",
+				status: "active",
+				kind: "human",
+				createdAt: new Date().toISOString(),
+			})
 			.run();
 
 		const appB = createTestApp({ db, eventBus: new EventBus() });
@@ -330,10 +349,18 @@ describe("Q2 AC-6: user-scoped item visibility", () => {
 		expect(createRes.status).toBe(201);
 		const created = (await createRes.json()) as { id: string };
 
-		// Switch to user-B
-		db.update(factorySettings)
-			.set({ value: "user-B" })
-			.where(eq(factorySettings.key, "founder_id"))
+		// Switch to user-B: demote user-A to AI kind, insert user-B as human
+		// @lore P2: auth reads users WHERE kind='human' LIMIT 1, not factorySettings
+		db.update(users).set({ kind: "ai" }).where(eq(users.id, "user-A")).run();
+		db.insert(users)
+			.values({
+				id: "user-B",
+				name: "User B",
+				role: "founder",
+				status: "active",
+				kind: "human",
+				createdAt: new Date().toISOString(),
+			})
 			.run();
 
 		const appB = createTestApp({ db, eventBus: new EventBus() });

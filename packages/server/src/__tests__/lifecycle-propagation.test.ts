@@ -10,7 +10,6 @@
  */
 
 import {
-	agents,
 	bets,
 	createTestDb,
 	type HyperIdleDb,
@@ -22,6 +21,7 @@ import {
 	tasks,
 	teams,
 	threads,
+	users,
 } from "@hyperidle/db";
 import { registerLifecyclePropagation, retryFailedPropagations } from "@hyperidle/fabric";
 import { EventBus, type PropagationAppliedEvent } from "@hyperidle/shared";
@@ -50,7 +50,7 @@ function seedBase(db: HyperIdleDb): void {
 			createdAt: now,
 		})
 		.run();
-	db.insert(agents)
+	db.insert(users)
 		.values({
 			id: "agent-1",
 			name: "Builder Agent",
@@ -60,7 +60,7 @@ function seedBase(db: HyperIdleDb): void {
 		})
 		.run();
 	// F6: Seed the system propagation agent so review-thread messages can insert
-	db.insert(agents)
+	db.insert(users)
 		.values({
 			id: SYSTEM_PROPAGATION_ID,
 			name: "Propagation System",

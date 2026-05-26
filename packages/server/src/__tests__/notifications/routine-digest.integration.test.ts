@@ -13,7 +13,6 @@
 
 import * as crypto from "node:crypto";
 import {
-	agents,
 	bets,
 	createTestDb,
 	factorySettings,
@@ -23,6 +22,7 @@ import {
 	routines,
 	tasks,
 	teams,
+	users,
 } from "@hyperidle/db";
 import {
 	checkAndFireRoutine,
@@ -82,7 +82,7 @@ function seedFixture(db: HyperIdleDb): void {
 			formedAt: now,
 		})
 		.run();
-	db.insert(agents)
+	db.insert(users)
 		.values({
 			id: "agent-cos",
 			name: "Chief of Staff",

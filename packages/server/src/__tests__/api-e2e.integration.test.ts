@@ -1,5 +1,4 @@
 import {
-	agents,
 	bets,
 	createTestDb,
 	type HyperIdleDb,
@@ -9,6 +8,7 @@ import {
 	tasks,
 	teams,
 	threads,
+	users,
 } from "@hyperidle/db";
 import { EventBus } from "@hyperidle/shared";
 import type { Hono } from "hono";
@@ -50,7 +50,7 @@ describe("E2E API Integration (I5)", () => {
 				formedAt: new Date().toISOString(),
 			})
 			.run();
-		db.insert(agents)
+		db.insert(users)
 			.values([
 				{
 					id: "agent-1",
@@ -352,7 +352,7 @@ describe("E2E API Integration (I5)", () => {
 			// `agent-1` is already seeded by the outer `beforeEach`; we just
 			// add a founder so the verdict authz check (founder + not-self)
 			// has a sender to claim.
-			db.insert(agents)
+			db.insert(users)
 				.values({
 					id: "founder-1",
 					name: "Founder",
@@ -489,39 +489,40 @@ describe("E2E API Integration (I5)", () => {
 	// 7. Agents
 	// -------------------------------------------------------
 	describe("Agents", () => {
-		it("GET /api/agents lists agents with active session counts", async () => {
-			const res = await app.request("/api/agents", { headers: auth() });
+		it("GET /api/users lists agents with active session counts", async () => {
+			const res = await app.request("/api/users", { headers: auth() });
 			expect(res.status).toBe(200);
 			const body = (await res.json()) as Array<{ id: string; activeSessions: number }>;
 			expect(body.length).toBeGreaterThanOrEqual(1);
 			expect(body[0].activeSessions).toBe(0);
 		});
 
-		it("GET /api/agents/:id returns agent detail", async () => {
-			const res = await app.request("/api/agents/agent-1", { headers: auth() });
+		it("GET /api/users/:id returns agent detail", async () => {
+			const res = await app.request("/api/users/agent-1", { headers: auth() });
 			expect(res.status).toBe(200);
 			const body = (await res.json()) as { id: string; skills: unknown[] };
 			expect(body.id).toBe("agent-1");
 			expect(Array.isArray(body.skills)).toBe(true);
 		});
 
-		it("GET /api/agents/:id returns 404 for unknown agent", async () => {
-			const res = await app.request("/api/agents/nonexistent", { headers: auth() });
+		it("GET /api/users/:id returns 404 for unknown agent", async () => {
+			const res = await app.request("/api/users/nonexistent", { headers: auth() });
 			expect(res.status).toBe(404);
 			const body = (await res.json()) as { code: string };
 			expect(body.code).toBe("NOT_FOUND");
 		});
 
-		it("GET /api/agents/:id/inbox returns empty inbox", async () => {
-			const res = await app.request("/api/agents/agent-1/inbox", { headers: auth() });
+		it("GET /api/users/:id/inbox returns empty inbox", async () => {
+			const res = await app.request("/api/users/agent-1/inbox", { headers: auth() });
 			expect(res.status).toBe(200);
-			const body = (await res.json()) as unknown[];
-			expect(body).toEqual([]);
+			const body = (await res.json()) as { messages: unknown[]; total: number };
+			expect(body.messages).toEqual([]);
+			expect(body.total).toBe(0);
 		});
 
-		it("POST /api/agents/:id/inbox sends message and returns 201", async () => {
+		it("POST /api/users/:id/inbox sends message and returns 201", async () => {
 			// L1 step9 (Adv-C2): sender is derived from X-Identity, not the body.
-			const res = await app.request("/api/agents/agent-1/inbox", {
+			const res = await app.request("/api/users/agent-1/inbox", {
 				method: "POST",
 				headers: auth({ "X-Identity": "agent-1" }),
 				body: JSON.stringify({ body: "Hello agent!" }),

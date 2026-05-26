@@ -10,7 +10,7 @@
  * hasActiveSession is derived by joining against sessions with state=active.
  */
 
-import { agents, type HyperIdleDb, sessions } from "@hyperidle/db";
+import { type HyperIdleDb, sessions, users } from "@hyperidle/db";
 import type { EventBus } from "@hyperidle/shared";
 import { eq, sql } from "drizzle-orm";
 import { Hono } from "hono";
@@ -35,37 +35,41 @@ export function createRecipientRoutes(db: HyperIdleDb, _eventBus?: EventBus): Ho
 		const q = c.req.query("q") ?? "";
 		const kind = c.req.query("kind");
 
-		// For Q1, only "agent" kind exists. When kind=user is requested,
-		// return empty (no user table yet). When kind=agent or no kind, return agents.
-		if (kind === "user") {
-			return c.json({ recipients: [] });
-		}
-
-		// Q1 review issue #13: fetch once with the appropriate filter rather than
-		// fetching all unconditionally then re-fetching when a query is present.
-		const allAgents =
+		// @lore P2: agents table renamed to users (P2 Unified User primitive).
+		// Q1 originally fetched from agents; after the P2 merge, all rows live in users.
+		// kind=user filter returns human users only; kind=agent returns AI users.
+		// No kind filter returns all users (AI + human).
+		const allUsers =
 			q.length > 0
 				? db
 						.select()
-						.from(agents)
+						.from(users)
 						.where(
-							sql`LOWER(${agents.name}) LIKE ${`%${escapeLikePattern(q.toLowerCase())}%`} ESCAPE '\\'`,
+							sql`LOWER(${users.name}) LIKE ${`%${escapeLikePattern(q.toLowerCase())}%`} ESCAPE '\\'`,
 						)
 						.all()
-				: db.select().from(agents).all();
+				: db.select().from(users).all();
+
+		// Apply kind filter post-query (human/ai kinds both live in users table)
+		const filtered =
+			kind === "user"
+				? allUsers.filter((u) => u.kind === "human")
+				: kind === "agent"
+					? allUsers.filter((u) => u.kind === "ai")
+					: allUsers;
 
 		// Fetch active sessions to determine hasActiveSession
 		const activeSessions = db.select().from(sessions).where(eq(sessions.state, "active")).all();
-		const activeAgentIds = new Set(activeSessions.map((s) => s.agentId));
+		const activeUserIds = new Set(activeSessions.map((s) => s.agentId));
 
-		const recipients: RecipientRow[] = allAgents.map((agent) => ({
-			id: agent.id,
-			kind: "agent" as const,
-			name: agent.name,
-			role: agent.role,
-			status: agent.status,
-			hasActiveSession: activeAgentIds.has(agent.id),
-			avatarUrl: null,
+		const recipients: RecipientRow[] = filtered.map((user) => ({
+			id: user.id,
+			kind: user.kind === "human" ? "user" : ("agent" as const),
+			name: user.name,
+			role: user.role,
+			status: user.status,
+			hasActiveSession: activeUserIds.has(user.id),
+			avatarUrl: user.avatarUrl ?? null,
 		}));
 
 		return c.json({ recipients });

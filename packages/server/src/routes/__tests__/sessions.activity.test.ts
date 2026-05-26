@@ -6,7 +6,6 @@
  */
 
 import {
-	agents,
 	bets,
 	createTestDb,
 	type HyperIdleDb,
@@ -14,6 +13,7 @@ import {
 	sessions,
 	tasks,
 	teams,
+	users,
 } from "@hyperidle/db";
 import { EventBus } from "@hyperidle/shared";
 import type { Hono } from "hono";
@@ -45,12 +45,13 @@ describe("GET /api/sessions/:id/activity (Q1 §3.2)", () => {
 		db.insert(teams)
 			.values({ id: "team-1", productId: "prod-1", capacity: 3, activeBets: 0, formedAt: NOW })
 			.run();
-		db.insert(agents)
+		db.insert(users)
 			.values({
 				id: "agent-1",
 				name: "Builder",
 				role: "builder",
 				status: "active",
+				kind: "ai",
 				teamId: "team-1",
 				createdAt: NOW,
 			})

@@ -1,4 +1,4 @@
-import { agentSkills, type HyperIdleDb, items, messages, threads } from "@hyperidle/db";
+import { type HyperIdleDb, items, messages, threads, userSkills } from "@hyperidle/db";
 import type { EventBus, ItemCreatedEvent, NotificationEvent } from "@hyperidle/shared";
 import { and, desc, eq } from "drizzle-orm";
 import { isSilenced as sharedIsSilenced } from "./silence-policy.js";
@@ -52,7 +52,7 @@ function evaluateItem(
 function getAutonomyLevel(db: HyperIdleDb, sourceAgentId: string | null): number {
 	if (!sourceAgentId) return 1;
 
-	const skills = db.select().from(agentSkills).where(eq(agentSkills.agentId, sourceAgentId)).all();
+	const skills = db.select().from(userSkills).where(eq(userSkills.userId, sourceAgentId)).all();
 
 	if (skills.length === 0) return 1;
 

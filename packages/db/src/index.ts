@@ -21,11 +21,7 @@ export {
 } from "./profiles.js";
 export * as schema from "./schema.js";
 export {
-	type Agent,
-	type AgentSkill,
 	type ArtifactRow,
-	agentSkills,
-	agents,
 	artifacts,
 	type Bet,
 	bets,
@@ -45,8 +41,6 @@ export {
 	knowledgeStrategyFabric,
 	type Message,
 	messages,
-	type NewAgent,
-	type NewAgentSkill,
 	type NewArtifactRow,
 	type NewBet,
 	type NewFactorySetting,
@@ -58,6 +52,7 @@ export {
 	type NewKnowledgeStrategyFabricRow,
 	type NewMessage,
 	type NewNotificationQueueRow,
+	type NewOrgEdge,
 	type NewProduct,
 	type NewPropagationLogRow,
 	type NewRoutine,
@@ -66,8 +61,12 @@ export {
 	type NewTaskStrategyFabricRow,
 	type NewTeam,
 	type NewThread,
+	type NewUser,
+	type NewUserSkill,
 	type NotificationQueueRow,
 	notificationQueue,
+	type OrgEdge,
+	orgEdges,
 	// Types
 	type Product,
 	type PropagationLogRow,
@@ -86,6 +85,10 @@ export {
 	tasks,
 	teams,
 	threads,
+	type User,
+	type UserSkill,
+	userSkills,
+	users,
 } from "./schema.js";
 export * as pgSchema from "./schema.pg.js";
 export { seed } from "./seed.js";

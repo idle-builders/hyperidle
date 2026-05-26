@@ -1,4 +1,4 @@
-import { agents } from "@hyperidle/db";
+import { users } from "@hyperidle/db";
 import {
 	create as createKnowledgeItem,
 	KNOWLEDGE_LAYERS,
@@ -61,7 +61,7 @@ async function handler(args: WriteMemoryInput, ctx: ToolContext): Promise<ToolRe
 
 	// I6: restrict non-facilitator agents to L0-L2 only
 	if (!NON_FACILITATOR_MAX_LAYER.has(layer)) {
-		const agent = ctx.db.select().from(agents).where(eq(agents.id, ctx.agentId)).get();
+		const agent = ctx.db.select().from(users).where(eq(users.id, ctx.agentId)).get();
 		const role = agent?.role ?? "";
 		if (!FACILITATOR_ROLES.has(role)) {
 			return err("FORBIDDEN", `insufficient role for ${layer}`);

@@ -7,7 +7,7 @@
  *  - factorySettings are seeded with founder profile keys
  */
 
-import { agents, createTestDb, factorySettings, type HyperIdleDb, products } from "@hyperidle/db";
+import { createTestDb, type HyperIdleDb, products, users } from "@hyperidle/db";
 import { EventBus } from "@hyperidle/shared";
 import type { Hono } from "hono";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -19,18 +19,23 @@ function authHeaders(): Record<string, string> {
 	return { "X-API-Key": TEST_API_KEY, "Content-Type": "application/json" };
 }
 
+/**
+ * @lore P2: Profile now comes from `users WHERE kind='human'` instead of
+ * factorySettings founder_name/email keys. Seed a human user for profile tests.
+ */
 function seedFounderProfile(db: HyperIdleDb): void {
 	const now = new Date().toISOString();
-	db.insert(factorySettings)
-		.values({ key: "founder_id", value: "test-founder-1", updatedAt: now })
-		.onConflictDoNothing()
-		.run();
-	db.insert(factorySettings)
-		.values({ key: "founder_name", value: "Test Founder", updatedAt: now })
-		.onConflictDoNothing()
-		.run();
-	db.insert(factorySettings)
-		.values({ key: "founder_email", value: "test@hyperidle.dev", updatedAt: now })
+	db.insert(users)
+		.values({
+			id: "test-founder-1",
+			kind: "human",
+			name: "Test Founder",
+			email: "test@hyperidle.dev",
+			role: "founder",
+			status: "active",
+			maxConcurrentSessions: 0,
+			createdAt: now,
+		})
 		.onConflictDoNothing()
 		.run();
 }
@@ -57,19 +62,21 @@ describe("M3 — GET /api/settings (B1)", () => {
 			.values({ id: "prod-2", name: "Product Beta", phase: "archived", createdAt: now })
 			.run();
 
-		// Seed 2 agents
-		db.insert(agents)
+		// Seed 2 AI users (formerly agents)
+		db.insert(users)
 			.values({
 				id: "agent-1",
+				kind: "ai",
 				name: "Builder Bot",
 				role: "builder",
 				status: "idle",
 				createdAt: now,
 			})
 			.run();
-		db.insert(agents)
+		db.insert(users)
 			.values({
 				id: "agent-2",
+				kind: "ai",
 				name: "Reviewer Bot",
 				role: "reviewer",
 				status: "paused",
@@ -82,14 +89,15 @@ describe("M3 — GET /api/settings (B1)", () => {
 		vi.unstubAllEnvs();
 	});
 
-	it("returns 200 with profile, products, agents, notifications", async () => {
+	it("returns 200 with profile, products, users, notifications", async () => {
 		const res = await app.request("/api/settings", { headers: authHeaders() });
 		expect(res.status).toBe(200);
 
 		const body = (await res.json()) as {
 			profile: { name: string; email: string; avatarUrl: string | null };
 			products: Array<{ id: string; name: string; active: boolean }>;
-			agents: Array<{
+			/** @lore P2: renamed from agents. Contains AI users only. */
+			users: Array<{
 				id: string;
 				name: string;
 				autonomyLevel: string;
@@ -106,7 +114,7 @@ describe("M3 — GET /api/settings (B1)", () => {
 		expect(body.profile.email).toBe("test@hyperidle.dev");
 		expect(body.profile.avatarUrl).toBeNull();
 		expect(body.products).toHaveLength(2);
-		expect(body.agents).toHaveLength(2);
+		expect(body.users).toHaveLength(2);
 		expect(body.notifications).toBeDefined();
 	});
 
@@ -122,14 +130,14 @@ describe("M3 — GET /api/settings (B1)", () => {
 		expect(prod2?.active).toBe(false); // phase "archived" → inactive
 	});
 
-	it("agents include paused flag derived from status", async () => {
+	it("users include paused flag derived from status", async () => {
 		const res = await app.request("/api/settings", { headers: authHeaders() });
 		const body = (await res.json()) as {
-			agents: Array<{ id: string; paused: boolean }>;
+			users: Array<{ id: string; paused: boolean }>;
 		};
 
-		const agent1 = body.agents.find((a) => a.id === "agent-1");
-		const agent2 = body.agents.find((a) => a.id === "agent-2");
+		const agent1 = body.users.find((a) => a.id === "agent-1");
+		const agent2 = body.users.find((a) => a.id === "agent-2");
 		expect(agent1?.paused).toBe(false); // status "idle"
 		expect(agent2?.paused).toBe(true); // status "paused"
 	});

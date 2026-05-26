@@ -29,8 +29,9 @@ describe("H4 AC3: PG migrations apply to a fresh pglite DB", () => {
 			// are migration artifacts.
 			expect(tableNames).toEqual(
 				expect.arrayContaining([
-					"agents",
-					"agent_skills",
+					// @lore P2: agents → users, agent_skills → user_skills
+					"users",
+					"user_skills",
 					"bets",
 					"factory_settings",
 					"file_leases",

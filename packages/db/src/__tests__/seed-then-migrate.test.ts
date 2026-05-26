@@ -42,9 +42,11 @@ describe("I3 review C3: migration 0005 is safe on a populated DB", () => {
 		db.insert(schema.teams)
 			.values({ id: "t1", productId: "p1", capacity: 5, activeBets: 0, formedAt: NOW })
 			.run();
-		db.insert(schema.agents)
+		// @lore P2: agents → users table. kind: "ai" required.
+		db.insert(schema.users)
 			.values({
 				id: "a1",
+				kind: "ai",
 				name: "A1",
 				role: "builder",
 				status: "active",
@@ -95,7 +97,7 @@ describe("I3 review C3: migration 0005 is safe on a populated DB", () => {
 		// All rows must survive.
 		expect(db.select().from(schema.products).all()).toHaveLength(1);
 		expect(db.select().from(schema.teams).all()).toHaveLength(1);
-		expect(db.select().from(schema.agents).all()).toHaveLength(1);
+		expect(db.select().from(schema.users).all()).toHaveLength(1);
 		expect(db.select().from(schema.bets).all()).toHaveLength(1);
 		expect(db.select().from(schema.tasks).all()).toHaveLength(1);
 		expect(db.select().from(schema.sessions).all()).toHaveLength(1);

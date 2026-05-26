@@ -12,7 +12,7 @@
  * agent.status === "paused".
  */
 
-import { agents, factorySettings, type HyperIdleDb, products } from "@hyperidle/db";
+import { factorySettings, type HyperIdleDb, products, users } from "@hyperidle/db";
 import type { EventBus } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
 import { Hono } from "hono";
@@ -117,11 +117,14 @@ function persistSetting(db: HyperIdleDb, key: string, value: string, updatedAt: 
  * @lore M3 review W1: `appearance` is a client-side concern (localStorage-backed
  * via useTheme). Contract 2 says appearance stays in localStorage, NOT in the API
  * response. The appearance field is excluded from this response type.
+ * @lore P2: profile now reads from users table (kind = 'human') instead of
+ * factorySettings founder_name/founder_email. The `agents` field renamed to `users`
+ * but returns only AI users (kind = 'ai') for the settings panel display.
  */
 function buildSettingsResponse(db: HyperIdleDb): {
 	profile: { name: string; email: string; avatarUrl: null };
 	products: Array<{ id: string; name: string; active: boolean }>;
-	agents: Array<{ id: string; name: string; autonomyLevel: string; paused: boolean }>;
+	users: Array<{ id: string; name: string; autonomyLevel: string; paused: boolean }>;
 	notifications: {
 		reviewAlerts: boolean;
 		costAlerts: boolean;
@@ -131,17 +134,8 @@ function buildSettingsResponse(db: HyperIdleDb): {
 		mutedProducts: string[];
 	};
 } {
-	// Read founder profile from factorySettings
-	const nameRow = db
-		.select()
-		.from(factorySettings)
-		.where(eq(factorySettings.key, "founder_name"))
-		.get();
-	const emailRow = db
-		.select()
-		.from(factorySettings)
-		.where(eq(factorySettings.key, "founder_email"))
-		.get();
+	// P2: Read founder profile from users table (kind = 'human')
+	const humanUser = db.select().from(users).where(eq(users.kind, "human")).limit(1).get();
 
 	// Read notification settings (with defaults if not configured)
 	const reviewAlertsRow = db
@@ -178,13 +172,13 @@ function buildSettingsResponse(db: HyperIdleDb): {
 
 	// Products — active derived from phase !== "archived"
 	const productRows = db.select().from(products).all();
-	// Agents — paused derived from status === "paused"
-	const agentRows = db.select().from(agents).all();
+	// AI Users — paused derived from status === "paused" (kind = 'ai' for the agents panel)
+	const aiUserRows = db.select().from(users).where(eq(users.kind, "ai")).all();
 
 	return {
 		profile: {
-			name: nameRow?.value ?? "Founder",
-			email: emailRow?.value ?? "",
+			name: humanUser?.name ?? "Founder",
+			email: humanUser?.email ?? "",
 			avatarUrl: null,
 		},
 		products: productRows.map((p) => ({
@@ -192,11 +186,11 @@ function buildSettingsResponse(db: HyperIdleDb): {
 			name: p.name,
 			active: p.phase !== "archived",
 		})),
-		agents: agentRows.map((a) => ({
-			id: a.id,
-			name: a.name,
+		users: aiUserRows.map((u) => ({
+			id: u.id,
+			name: u.name,
 			autonomyLevel: "supervised" as const,
-			paused: a.status === "paused",
+			paused: u.status === "paused",
 		})),
 		notifications: {
 			reviewAlerts: reviewAlertsRow?.value !== "false",

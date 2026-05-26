@@ -5,9 +5,9 @@
  * Replaces all hardcoded "u-founder" / DEFAULT_FOUNDER_ID / DEMO_FOUNDER_ID
  * literals across server and client code.
  *
- * @lore M2: v1 is single-founder. The factory has exactly one founder whose
- * id is stored in factorySettings ("founder_id"). Multi-user support is a
- * future concern — this contract is deliberately narrow.
+ * @lore M2: v1 is single-founder. The factory has exactly one founder who is a
+ * row in the users table (kind='human'). Multi-user support is a future concern
+ * — this contract is deliberately narrow.
  *
  * @lore M2 REVIEWER FINDING (plan gap): `packages/server/src/routes/threads.ts:79`
  * has a second `DEFAULT_FOUNDER_ID` fallback inside `readInitialSenderId()` that

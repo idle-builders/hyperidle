@@ -1,5 +1,4 @@
 import {
-	agents,
 	bets,
 	createTestDb,
 	type HyperIdleDb,
@@ -10,6 +9,7 @@ import {
 	tasks,
 	teams,
 	threads,
+	users,
 } from "@hyperidle/db";
 import { registerSessionReviewCreator } from "@hyperidle/fabric";
 import type { ItemCreatedEvent, SessionEndedEvent } from "@hyperidle/shared";
@@ -54,7 +54,7 @@ describe("registerSessionReviewCreator", () => {
 				createdAt: new Date().toISOString(),
 			})
 			.run();
-		db.insert(agents)
+		db.insert(users)
 			.values({
 				id: "agent-1",
 				name: "Test Agent",

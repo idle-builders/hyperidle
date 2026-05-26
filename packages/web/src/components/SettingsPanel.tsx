@@ -18,12 +18,18 @@ export interface ProductSetting {
 
 export type AutonomyLevel = "manual" | "supervised" | "autonomous";
 
-export interface AgentSetting {
+export interface UserSetting {
 	id: string;
 	name: string;
 	autonomyLevel: AutonomyLevel;
 	paused: boolean;
 }
+
+/**
+ * @deprecated Use UserSetting. Kept as alias until all callsites are migrated.
+ * @lore P2: AgentSetting renamed to UserSetting as part of the Unified User primitive rename.
+ */
+export type AgentSetting = UserSetting;
 
 export interface NotificationSettings {
 	reviewAlerts: boolean;
@@ -53,7 +59,8 @@ export interface AppearanceSettings {
 export interface SettingsData {
 	profile: ProfileSettings;
 	products: ProductSetting[];
-	agents: AgentSetting[];
+	/** @lore P2: renamed from `agents`. Contains AI users only. */
+	users: UserSetting[];
 	notifications: NotificationSettings;
 	appearance: AppearanceSettings;
 }
@@ -141,14 +148,14 @@ export function SettingsPanel({
 	const updateAgentAutonomy = useCallback((agentId: string, level: AutonomyLevel): void => {
 		setDraft((prev) => ({
 			...prev,
-			agents: prev.agents.map((a) => (a.id === agentId ? { ...a, autonomyLevel: level } : a)),
+			users: prev.users.map((a) => (a.id === agentId ? { ...a, autonomyLevel: level } : a)),
 		}));
 	}, []);
 
 	const toggleAgentPause = useCallback((agentId: string): void => {
 		setDraft((prev) => ({
 			...prev,
-			agents: prev.agents.map((a) => (a.id === agentId ? { ...a, paused: !a.paused } : a)),
+			users: prev.users.map((a) => (a.id === agentId ? { ...a, paused: !a.paused } : a)),
 		}));
 	}, []);
 
@@ -306,7 +313,7 @@ export function SettingsPanel({
 						)}
 						{activeTab === "agents" && (
 							<AgentsTab
-								agents={draft.agents}
+								agents={draft.users}
 								onAutonomyChange={updateAgentAutonomy}
 								onPauseToggle={toggleAgentPause}
 							/>

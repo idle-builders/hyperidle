@@ -26,7 +26,7 @@ import { type SettingsData, SettingsPanel } from "../SettingsPanel.js";
 const SETTINGS: SettingsData = {
 	profile: { name: "Test User", email: "test@example.com", avatarUrl: "" },
 	products: [],
-	agents: [],
+	users: [],
 	notifications: {
 		reviewAlerts: false,
 		costAlerts: false,

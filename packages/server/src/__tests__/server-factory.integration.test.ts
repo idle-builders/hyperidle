@@ -34,7 +34,7 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { resolve } from "node:path";
-import { agents, bets, createDb, products, teams, threads } from "@hyperidle/db";
+import { bets, createDb, products, teams, threads, users } from "@hyperidle/db";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import WebSocket from "ws";
 import { authHeaders, waitForReady } from "./integration-helpers.js";
@@ -71,9 +71,10 @@ async function createAndSeedDb(dbPath: string): Promise<void> {
 			createdAt: now,
 		})
 		.run();
-	db.insert(agents)
+	db.insert(users)
 		.values({
 			id: "agent-sf",
+			kind: "ai",
 			name: "SF Agent",
 			role: "builder",
 			teamId: "t-sf",
@@ -158,7 +159,7 @@ describe("server-factory — I1 integration (S1–S5)", () => {
 			"/api/tasks",
 			"/api/knowledge",
 			"/api/conversations",
-			"/api/agents",
+			"/api/users",
 			"/api/sessions",
 			"/api/rail",
 			"/api/status",

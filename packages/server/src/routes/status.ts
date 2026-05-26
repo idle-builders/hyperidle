@@ -1,4 +1,4 @@
-import { agents, factorySettings, type HyperIdleDb, sessions } from "@hyperidle/db";
+import { factorySettings, type HyperIdleDb, sessions, users } from "@hyperidle/db";
 import { getDailyDigest, REDACTED } from "@hyperidle/fabric";
 import type { ApiErrorResponse } from "@hyperidle/shared";
 import { API_ERROR_CODES } from "@hyperidle/shared";
@@ -78,7 +78,7 @@ export function createStatusRoutes(db: HyperIdleDb): Hono {
 	router.get("/", (c) => {
 		const activeSessions = db.select().from(sessions).where(eq(sessions.state, "active")).all();
 
-		const allAgents = db.select().from(agents).all();
+		const allAgents = db.select().from(users).all();
 
 		const agentStates: Record<string, number> = {};
 		for (const agent of allAgents) {
