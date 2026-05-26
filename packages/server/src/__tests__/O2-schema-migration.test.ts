@@ -102,10 +102,19 @@ describe("O2 — Schema Migration & Route Rewrite", () => {
 			expect(colNames).not.toContain("layer");
 		});
 
-		it("knowledgeItems no longer has 'scopeId' / 'scope_id' column", () => {
+		it("knowledgeItems no longer has 'scopeId' / 'scope_id' column from the old strategy layer", () => {
+			// @lore Q2: scope_id WAS stripped in O2 (from the strategy layer).
+			// Q2 re-adds scope_kind + scope_id to the KERNEL table so each item
+			// knows its scope. The O2 assertion that scope_id was absent is
+			// superseded by Q2. This test now asserts that scope_kind IS present
+			// (replacing the column that O2 removed with a new kernel-level one).
 			const columns = db.all<{ name: string }>("PRAGMA table_info(knowledge_items)");
 			const colNames = columns.map((c) => c.name);
-			expect(colNames).not.toContain("scope_id");
+			// Q2: scope_kind is a kernel column — should exist.
+			expect(colNames).toContain("scope_kind");
+			// scope_id from the strategy layer was removed in O2;
+			// Q2 re-adds a kernel-level scope_id (nullable) for scoped items.
+			expect(colNames).toContain("scope_id");
 		});
 
 		it("knowledgeItems no longer has 'kind' column", () => {
@@ -315,6 +324,7 @@ describe("O2 — Schema Migration & Route Rewrite", () => {
 					title: "Test Item",
 					body: "Test body content.",
 					format: "markdown",
+					scopeKind: "factory",
 					updatedBy: "human",
 				}),
 			});
@@ -331,6 +341,7 @@ describe("O2 — Schema Migration & Route Rewrite", () => {
 					title: "Fetch Me",
 					body: "Fetch body.",
 					format: "markdown",
+					scopeKind: "factory",
 					updatedBy: "human",
 				}),
 			});
@@ -356,6 +367,7 @@ describe("O2 — Schema Migration & Route Rewrite", () => {
 					title: "Layer Test",
 					body: "Test.",
 					format: "markdown",
+					scopeKind: "factory",
 					updatedBy: "human",
 				}),
 			});
@@ -385,6 +397,7 @@ describe("O2 — Schema Migration & Route Rewrite", () => {
 					title: "Patch Me",
 					body: "Original body.",
 					format: "markdown",
+					scopeKind: "factory",
 					updatedBy: "human",
 				}),
 			});
@@ -414,6 +427,7 @@ describe("O2 — Schema Migration & Route Rewrite", () => {
 					title: "Archive Me",
 					body: "Body.",
 					format: "markdown",
+					scopeKind: "factory",
 					updatedBy: "human",
 				}),
 			});
@@ -445,6 +459,7 @@ describe("O2 — Schema Migration & Route Rewrite", () => {
 					title: "Event Test",
 					body: "Body.",
 					format: "markdown",
+					scopeKind: "factory",
 					updatedBy: "human",
 				}),
 			});
@@ -466,6 +481,7 @@ describe("O2 — Schema Migration & Route Rewrite", () => {
 					title: "Access Event",
 					body: "Body.",
 					format: "markdown",
+					scopeKind: "factory",
 					updatedBy: "human",
 				}),
 			});
@@ -495,6 +511,7 @@ describe("O2 — Schema Migration & Route Rewrite", () => {
 					title: "Update Event",
 					body: "Body.",
 					format: "markdown",
+					scopeKind: "factory",
 					updatedBy: "human",
 				}),
 			});
@@ -530,6 +547,7 @@ describe("O2 — Schema Migration & Route Rewrite", () => {
 					title: "Archive Event",
 					body: "Body.",
 					format: "markdown",
+					scopeKind: "factory",
 					updatedBy: "human",
 				}),
 			});
@@ -560,6 +578,7 @@ describe("O2 — Schema Migration & Route Rewrite", () => {
 					title: "Flag Event",
 					body: "Body.",
 					format: "markdown",
+					scopeKind: "factory",
 					updatedBy: "human",
 				}),
 			});
@@ -599,6 +618,7 @@ describe("O2 — Schema Migration & Route Rewrite", () => {
 					title: "Status Test",
 					body: "Body.",
 					format: "markdown",
+					scopeKind: "factory",
 					updatedBy: "human",
 				}),
 			});
@@ -616,6 +636,7 @@ describe("O2 — Schema Migration & Route Rewrite", () => {
 					title: "Archive Status",
 					body: "Body.",
 					format: "markdown",
+					scopeKind: "factory",
 					updatedBy: "human",
 				}),
 			});
@@ -640,6 +661,7 @@ describe("O2 — Schema Migration & Route Rewrite", () => {
 					title: "Invalid Status",
 					body: "Body.",
 					format: "markdown",
+					scopeKind: "factory",
 					updatedBy: "human",
 				}),
 			});
@@ -668,6 +690,7 @@ describe("O2 — Schema Migration & Route Rewrite", () => {
 					title: "Activate Me",
 					body: "Body.",
 					format: "markdown",
+					scopeKind: "factory",
 					updatedBy: "human",
 				}),
 			});
@@ -921,6 +944,7 @@ describe("O2 — Schema Migration & Route Rewrite", () => {
 					title: "Item A",
 					body: "Body A.",
 					format: "markdown",
+					scopeKind: "factory",
 					updatedBy: "human",
 				}),
 			});
@@ -932,6 +956,7 @@ describe("O2 — Schema Migration & Route Rewrite", () => {
 					title: "Item B",
 					body: "Body B.",
 					format: "markdown",
+					scopeKind: "factory",
 					updatedBy: "human",
 				}),
 			});

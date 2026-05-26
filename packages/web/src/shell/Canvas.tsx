@@ -24,6 +24,8 @@ export interface CanvasBet {
 	id: string;
 	title: string;
 	product: string;
+	/** @lore Q3: productId added for canvas bet creation — the dialog needs it to POST the new bet. */
+	productId?: string;
 	status: BetStatus;
 	appetite: string;
 	progress?: { done: number; total: number };
@@ -33,6 +35,11 @@ export interface CanvasProps {
 	bets: CanvasBet[];
 	capacity: number;
 	onMoveBet: (betId: string, targetStatus: "shaped" | "committed") => void;
+	/**
+	 * @lore Q3 T6: when supplied, a '+' button appears in the Shaped column header.
+	 * When absent, the button is not rendered (design critique W-1: no phantom controls).
+	 */
+	onNewPitch?: () => void;
 }
 
 type CanvasColumn = "shaped" | "committed";
@@ -48,15 +55,18 @@ function DroppableColumn({
 	children,
 	capacityBadge,
 	warning,
+	headerAction,
 }: {
 	columnKey: string;
 	label: string;
 	children: React.ReactNode;
 	capacityBadge?: { text: string; over: boolean };
 	warning?: string;
+	/** Optional action rendered in the column header (e.g. the '+' button). */
+	headerAction?: React.ReactNode;
 }): JSX.Element {
 	return (
-		<div className="flex-1 min-w-0 flex flex-col gap-2" data-droppable={columnKey}>
+		<div className="flex-1 min-w-0 flex flex-col gap-2">
 			<div className="flex items-center gap-2 mb-1">
 				<h3 className="text-sm font-semibold">{label}</h3>
 				{/* J5: capacity badge is the prominent commitment signal. We
@@ -75,8 +85,9 @@ function DroppableColumn({
 					</span>
 				)}
 				{warning && <span className="text-xs text-error font-semibold">{warning}</span>}
+				{headerAction && <div className="ml-auto">{headerAction}</div>}
 			</div>
-			<div className="flex flex-col gap-2 min-h-[48px]">{children}</div>
+			{children}
 		</div>
 	);
 }
@@ -100,7 +111,7 @@ function DraggableBetCard({ bet }: { bet: CanvasBet }): JSX.Element {
 	);
 }
 
-export function Canvas({ bets, capacity, onMoveBet }: CanvasProps): JSX.Element {
+export function Canvas({ bets, capacity, onMoveBet, onNewPitch }: CanvasProps): JSX.Element {
 	const [activeId, setActiveId] = useState<string | null>(null);
 
 	// I4 KB1: KeyboardSensor enables drag-drop via keyboard (Space to pick
@@ -135,10 +146,30 @@ export function Canvas({ bets, capacity, onMoveBet }: CanvasProps): JSX.Element 
 
 	const shellAttrs = dsShellProps("Canvas");
 
+	/** @lore Q3 W-1: btn-sm gives ~32px height with extra min-h to meet AQ-015 44px touch target floor. */
+	const newPitchButton = onNewPitch ? (
+		<button
+			type="button"
+			className="btn btn-sm btn-ghost min-h-[44px] min-w-[44px]"
+			aria-label="New pitch"
+			onClick={onNewPitch}
+		>
+			+
+		</button>
+	) : null;
+
 	if (bets.length === 0) {
 		// @lore K2: wrapper div carries the Canvas shell marker even when empty.
+		// @lore Q3: even in the empty state, the shaped column header action (+) is rendered
+		// so founders can create the first bet without navigating away.
 		return (
 			<div {...shellAttrs}>
+				{newPitchButton && (
+					<div className="flex items-center gap-2 mb-2">
+						<h3 className="text-sm font-semibold">Shaped</h3>
+						<div className="ml-auto">{newPitchButton}</div>
+					</div>
+				)}
 				<EmptyState
 					title="No bets yet"
 					description="Shaped bets will appear here once they are created. Drag between columns to commit."
@@ -176,6 +207,7 @@ export function Canvas({ bets, capacity, onMoveBet }: CanvasProps): JSX.Element 
 							label={col.label}
 							capacityBadge={capacityBadge}
 							warning={warning}
+							headerAction={col.key === "shaped" ? newPitchButton : undefined}
 						>
 							<CanvasDropZone columnKey={col.key}>
 								{columnBets.map((bet) => (
@@ -214,6 +246,7 @@ function CanvasDropZone({
 	return (
 		<div
 			ref={setNodeRef}
+			data-droppable={columnKey}
 			className={`flex flex-col gap-2 min-h-[48px] rounded p-1 transition-colors ${
 				isOver ? "bg-accent/10" : ""
 			}`}

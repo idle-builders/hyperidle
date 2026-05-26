@@ -15,12 +15,13 @@ import { createBetRoutes } from "./routes/bets.js";
 import { createConversationRoutes } from "./routes/conversations.js";
 import { createGitExportRoutes } from "./routes/git-export-routes.js";
 import { health } from "./routes/health.js";
-import { createKnowledgeRoutes } from "./routes/knowledge.js";
+import { createKnowledgeRoutes, createTeamsRoutes } from "./routes/knowledge.js";
 import { createNotificationRoutes } from "./routes/notifications-routes.js";
 import { createObservabilityRoutes } from "./routes/observability-routes.js";
 import { createOrgRoutes } from "./routes/org.js";
 import { createProductRoutes } from "./routes/products.js";
 import { createRailRoutes } from "./routes/rail.js";
+import { createRecipientRoutes } from "./routes/recipients.js";
 import { createRoutineRoutes } from "./routes/routines-routes.js";
 import { createSessionRoutes } from "./routes/sessions-routes.js";
 import { createSettingsRoutes } from "./routes/settings.js";
@@ -43,6 +44,7 @@ import type {
 	ObservabilityAdapter,
 	ObservabilityDispatcher,
 } from "./services/observability/types.js";
+import { SessionActivityBuffer } from "./services/session-activity-buffer.js";
 
 interface AppOptions {
 	db?: HyperIdleDb;
@@ -251,6 +253,7 @@ function createApp(options?: AppOptions): Hono {
 		api.route("/tasks", createTaskRoutes(options.db, eventBus));
 		api.route("/artifacts", createArtifactRoutes(options.db));
 		api.route("/knowledge", createKnowledgeRoutes(options.db, eventBus));
+		api.route("/teams", createTeamsRoutes(options.db));
 		api.route("/rail", createRailRoutes(options.db, eventBus));
 		api.route("/settings", createSettingsRoutes(options.db, eventBus));
 		api.route("/conversations", createConversationRoutes(options.db, eventBus));
@@ -258,7 +261,16 @@ function createApp(options?: AppOptions): Hono {
 		api.route("/users", createUserRoutes(options.db, eventBus));
 		api.route("/org", createOrgRoutes(options.db));
 		api.route("/routines", createRoutineRoutes(options.db, eventBus));
-		api.route("/sessions", createSessionRoutes(options.db, eventBus));
+		api.route("/recipients", createRecipientRoutes(options.db, eventBus));
+
+		// Q1 §6.1: session activity buffer — subscribe to tool_call_recorded events
+		// and expose recent activity via GET /api/sessions/:id/activity.
+		// @lore Q1: The buffer is created once per app instance, started immediately,
+		// and disposed with the app. Tests that emit events against the same eventBus
+		// instance will see the buffer populated correctly.
+		const activityBuffer = new SessionActivityBuffer(eventBus);
+		activityBuffer.start();
+		api.route("/sessions", createSessionRoutes(options.db, eventBus, activityBuffer));
 		api.route("/status", createStatusRoutes(options.db));
 		api.route("/git-export", createGitExportRoutes(options.db));
 		// O3: defaultNotificationAdapterFactory moved to @hyperidle/fabric (imported at top).
@@ -340,6 +352,10 @@ function createApp(options?: AppOptions): Hono {
 		// boundary is now enforced by the package dependency graph.
 		const strategyDisposers = options.strategyBootstrap?.({ db, eventBus }) ?? [];
 		disposers.push(...strategyDisposers);
+
+		disposers.push(() => {
+			activityBuffer.stop();
+		});
 
 		disposers.push(() => {
 			if (observabilityUnsubscribe) {

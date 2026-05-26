@@ -112,3 +112,38 @@ export type UserKind = (typeof USER_KINDS)[number];
  */
 export const ORG_EDGE_MECHANISMS = ["direct", "function", "team"] as const;
 export type OrgEdgeMechanism = (typeof ORG_EDGE_MECHANISMS)[number];
+
+/**
+ * Kernel-level scope kinds for knowledge items. Closed enum — adding a new
+ * scope kind requires a concept-doc update per the Q2 contract.
+ *
+ * @lore Q2: scope_kind lives on the kernel knowledgeItems table so every
+ * item knows where it belongs, regardless of which strategy fabric is active.
+ * The fabric maps scope_kind → layer via scopeToLayer() in @hyperidle/fabric.
+ */
+export const SCOPE_KINDS = [
+	"factory",
+	"product",
+	"practice",
+	"team",
+	"bet",
+	"task",
+	"user",
+] as const;
+
+export type ScopeKind = (typeof SCOPE_KINDS)[number];
+
+/**
+ * Scope kinds that require an external scopeId.
+ * "factory" and "user" are self-referential/global — they never need an id.
+ *
+ * @lore Q2: Extracted to @hyperidle/shared so the web dialogs (KnowledgeCreateDialog,
+ * ScopeChangeDialog) and the server route (knowledge.ts) share a single source of truth.
+ */
+export const SCOPES_REQUIRING_ID: ReadonlySet<ScopeKind> = new Set<ScopeKind>([
+	"product",
+	"practice",
+	"team",
+	"bet",
+	"task",
+]);

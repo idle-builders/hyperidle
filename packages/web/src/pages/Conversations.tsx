@@ -15,11 +15,25 @@
  * found") does NOT mount ThreadShell — no message list, no composer, no
  * fixture content. This is the explicit rejection of the editable-fallback
  * anti-pattern that ConversationsChat.tsx embodied.
+ *
+ * @lore Q1: Dial-in support added. When viewing a task-hosted thread with an
+ * active session, a "Live" badge + "Dial In" button appear in the thread header.
+ * Clicking "Dial In" opens the companion split: thread on the left (flex-[3]),
+ * SessionActivityPanel on the right (flex-[2]).
  */
 import { EmptyState, ErrorState, SkeletonList, ThreadShell } from "@hyperidle/design-system";
 import type { ArtifactRef, ArtifactViewShape } from "@hyperidle/shared";
-import { type JSX, type ReactNode, useCallback, useContext } from "react";
+import {
+	type JSX,
+	type ReactNode,
+	useCallback,
+	useContext,
+	useEffect,
+	useRef,
+	useState,
+} from "react";
 import { Link, useParams } from "react-router-dom";
+import { SessionActivityPanel } from "../components/SessionActivityPanel";
 import { useThreadDetail } from "../hooks/useThreadDetail";
 import { apiFetch } from "../services/api-fetch.js";
 import {
@@ -97,6 +111,76 @@ function resolveArtifactSlot(ref: ArtifactRef): ReactNode {
 }
 
 // ---------------------------------------------------------------------------
+// useActiveSessionForTask — Q1 §4.6
+// Fetches GET /api/sessions?task_id=<taskId>&state=active.
+// Returns the first active session for the task, or null.
+// ---------------------------------------------------------------------------
+
+interface ActiveSession {
+	id: string;
+	agentId: string;
+	taskId: string;
+	state: string;
+	startedAt: string;
+	modelTier: string;
+}
+
+interface UseActiveSessionResult {
+	activeSession: ActiveSession | null;
+	loading: boolean;
+}
+
+async function fetchActiveSession(
+	taskId: string,
+	signal: AbortSignal,
+): Promise<ActiveSession | null> {
+	const url = `/api/sessions?task_id=${encodeURIComponent(taskId)}&state=active`;
+	const res = await apiFetch(url, { signal });
+	if (signal.aborted || !res.ok) return null;
+	const body = (await res.json()) as unknown;
+	if (signal.aborted) return null;
+	const sessions = Array.isArray(body) ? (body as ActiveSession[]) : [];
+	return sessions.length > 0 ? (sessions[0] ?? null) : null;
+}
+
+function useActiveSessionForTask(taskId: string | null): UseActiveSessionResult {
+	const [activeSession, setActiveSession] = useState<ActiveSession | null>(null);
+	const [loading, setLoading] = useState(false);
+	const abortRef = useRef<AbortController | null>(null);
+
+	useEffect(() => {
+		if (!taskId) {
+			setActiveSession(null);
+			return;
+		}
+
+		const ac = new AbortController();
+		abortRef.current?.abort();
+		abortRef.current = ac;
+		setLoading(true);
+
+		fetchActiveSession(taskId, ac.signal)
+			.then((session) => {
+				if (ac.signal.aborted) return;
+				setActiveSession(session);
+				setLoading(false);
+			})
+			.catch((cause) => {
+				if (ac.signal.aborted) return;
+				if (cause instanceof Error && cause.name === "AbortError") return;
+				setActiveSession(null);
+				setLoading(false);
+			});
+
+		return () => {
+			ac.abort();
+		};
+	}, [taskId]);
+
+	return { activeSession, loading };
+}
+
+// ---------------------------------------------------------------------------
 // Detail sub-component (fetches + renders States B–E)
 // ---------------------------------------------------------------------------
 
@@ -119,6 +203,36 @@ function ConversationsDetail({ threadId }: { threadId: string }): JSX.Element {
 	// always has the provider via AppShell. When absent, async-ack falls back
 	// silently — the response still commits, the toast just doesn't fire.
 	const toast = useContext(ToastContext);
+
+	// Q1 §4.6: dial-in state
+	const [dialInSessionId, setDialInSessionId] = useState<string | null>(null);
+
+	// Q1 §4.6: check for active session when viewing a task-hosted thread
+	const taskId = data?.thread.hostKind === "task" ? (data.thread.hostId ?? null) : null;
+	const { activeSession } = useActiveSessionForTask(taskId);
+
+	// Q1 Task 15 / review issue #7: keyboard shortcut D toggles dial-in
+	// when the active session badge is visible. Must not fire in text inputs.
+	useEffect(() => {
+		if (!activeSession) return;
+		const handler = (e: KeyboardEvent): void => {
+			const target = e.target as HTMLElement | null;
+			if (target) {
+				const tag = target.tagName.toLowerCase();
+				if (tag === "input" || tag === "textarea" || target.isContentEditable) {
+					return;
+				}
+			}
+			if (e.key === "d" || e.key === "D") {
+				e.preventDefault();
+				setDialInSessionId((prev) => (prev ? null : (activeSession.id ?? null)));
+			}
+		};
+		document.addEventListener("keydown", handler);
+		return () => {
+			document.removeEventListener("keydown", handler);
+		};
+	}, [activeSession]);
 
 	const onAppend = useCallback(
 		async (input: { type: string; payload: unknown; clientKey: string }): Promise<void> => {
@@ -197,8 +311,62 @@ function ConversationsDetail({ threadId }: { threadId: string }): JSX.Element {
 		return <div className="h-full" data-testid="conversations-page" />;
 	}
 
+	// Q1 §4.6: "Live" badge + "Dial In" button header (only for task threads with active session)
+	const dialInHeader =
+		activeSession && !dialInSessionId ? (
+			<div className="flex items-center gap-[8px] px-[4px] pb-[8px] flex-shrink-0">
+				<span
+					role="status"
+					className="inline-flex items-center gap-[4px] px-[6px] py-[1px] rounded-full bg-[color-mix(in_oklab,var(--ok)_14%,transparent)] text-[var(--ok)] text-[10px] font-medium uppercase tracking-[0.05em]"
+					aria-label="Live session"
+					data-testid="live-session-badge"
+				>
+					<span className="w-[5px] h-[5px] rounded-full bg-[var(--ok)] animate-pulse" />
+					Live
+				</span>
+				<button
+					type="button"
+					className="btn btn-xs btn-primary"
+					onClick={() => setDialInSessionId(activeSession.id)}
+					data-testid="dial-in-btn"
+				>
+					Dial In
+				</button>
+			</div>
+		) : null;
+
+	// Q1 §4.6: companion split layout when dialed in
+	if (dialInSessionId) {
+		const agentId = activeSession?.agentId ?? data.thread.hostId;
+		const agentIdentity = data.identities[agentId];
+		const agentName = agentIdentity?.name ?? agentId;
+
+		return (
+			<div className="flex flex-row h-full gap-0" data-testid="conversations-page">
+				<div className="flex-[3] min-w-0 flex flex-col border-r border-[var(--border-subtle)]">
+					<ThreadShell
+						thread={data.thread}
+						messages={data.messages}
+						identities={data.identities}
+						artifactSlot={resolveArtifactSlot}
+						onAppendMessage={onAppend}
+					/>
+				</div>
+				<div className="flex-[2] min-w-0 flex flex-col">
+					<SessionActivityPanel
+						sessionId={dialInSessionId}
+						agentName={agentName}
+						taskTitle={data.thread.hostId}
+						onClose={() => setDialInSessionId(null)}
+					/>
+				</div>
+			</div>
+		);
+	}
+
 	return (
 		<div className="flex flex-col h-full" data-testid="conversations-page">
+			{dialInHeader}
 			<ThreadShell
 				thread={data.thread}
 				messages={data.messages}

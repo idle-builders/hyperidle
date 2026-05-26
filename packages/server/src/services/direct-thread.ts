@@ -12,19 +12,23 @@ import { and, eq } from "drizzle-orm";
 /**
  * Find an existing direct thread between `senderId` and `recipientId`, or
  * create one if none exists. Direct threads are projected as
- * `host_kind='agent', host_id=recipientId` (plan §5.3) with exactly two
+ * `host_kind=recipientKind, host_id=recipientId` with exactly two
  * participants. Returns the thread id.
+ *
+ * @param recipientKind - Determines the `hostKind` on the created thread.
+ *   Defaults to `"agent"` for backward compatibility (Q1 §3.1).
  */
 export function findOrCreateDirectThread(
 	db: HyperIdleDb,
 	senderId: string,
 	recipientId: string,
 	now: string,
+	recipientKind: "agent" | "user" = "agent",
 ): string {
 	const directThreads = db
 		.select()
 		.from(threads)
-		.where(and(eq(threads.hostKind, "agent"), eq(threads.hostId, recipientId)))
+		.where(and(eq(threads.hostKind, recipientKind), eq(threads.hostId, recipientId)))
 		.all();
 	for (const thread of directThreads) {
 		const parsed = JSON.parse(thread.participants);
@@ -38,7 +42,7 @@ export function findOrCreateDirectThread(
 	db.insert(threads)
 		.values({
 			id: threadId,
-			hostKind: "agent",
+			hostKind: recipientKind,
 			hostId: recipientId,
 			initiatorId: senderId,
 			participants: JSON.stringify([senderId, recipientId]),

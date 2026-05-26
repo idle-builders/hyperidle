@@ -2,6 +2,21 @@ import { cleanup } from "@testing-library/react";
 import { afterEach, vi } from "vitest";
 import "@testing-library/jest-dom/vitest";
 
+/**
+ * @lore Q1: The ws-client singleton lazily connects to the WebSocket server.
+ * In JSDOM tests, `global.fetch` is typically mocked per-test to return
+ * specific responses for API calls. Without this module mock, the WS client's
+ * `connect()` method would call `apiFetch("/api/auth/ws-token")` which
+ * intercepts mocked `fetch` calls intended for other API endpoints (e.g.
+ * `/api/threads`), corrupting per-test `fetchMock` call-count assertions.
+ * Mocking the module here prevents any WS connection attempts in unit tests.
+ */
+vi.mock("./services/ws-client.js", () => ({
+	getWsClient: () => ({
+		subscribe: () => () => undefined,
+	}),
+}));
+
 // @lore Node 26 defines globalThis.localStorage as experimental (returns undefined
 // without --localstorage-file). This shadows jsdom's localStorage on the window object.
 // Provide an in-memory Storage polyfill so tests that use localStorage work.

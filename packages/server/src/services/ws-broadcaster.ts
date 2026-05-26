@@ -89,6 +89,19 @@ export class WsBroadcaster {
 			this.broadcast("rail", JSON.stringify(event));
 		});
 
+		// Q1 §3.4: forward session lifecycle and tool-call events to per-session
+		// topic `session:<sessionId>`. Any authenticated client may subscribe —
+		// observe mode is read-only and not gated by participant membership.
+		const unsub13 = this.eventBus.on("session_started", (event) => {
+			this.broadcast(`session:${event.sessionId}`, JSON.stringify(event));
+		});
+		const unsub14 = this.eventBus.on("session_ended", (event) => {
+			this.broadcast(`session:${event.sessionId}`, JSON.stringify(event));
+		});
+		const unsub15 = this.eventBus.on("tool_call_recorded", (event) => {
+			this.broadcast(`session:${event.sessionId}`, JSON.stringify(event));
+		});
+
 		this.unsubscribers.push(
 			unsub1,
 			unsub2,
@@ -102,6 +115,9 @@ export class WsBroadcaster {
 			unsub10,
 			unsub11,
 			unsub12,
+			unsub13,
+			unsub14,
+			unsub15,
 		);
 	}
 
@@ -197,6 +213,14 @@ export function createDbSubscribeAuthorizer(db: HyperIdleDb): SubscribeAuthorize
 	return {
 		canSubscribe(senderId: string, topic: string): boolean {
 			if (GLOBAL_TOPICS.has(topic)) return true;
+			// Q1 §3.4: any authenticated identity may subscribe to session topics.
+			// Observation is read-only and intentionally not participant-gated —
+			// the spec says "observe mode is read-only; the agent's session is not
+			// interrupted or notified by observation alone." No participant check needed.
+			if (topic.startsWith("session:")) {
+				const sessionId = topic.slice("session:".length);
+				return sessionId.length > 0;
+			}
 			if (!topic.startsWith("thread:")) return false;
 			const threadId = topic.slice("thread:".length);
 			if (!threadId) return false;

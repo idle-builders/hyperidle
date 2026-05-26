@@ -380,6 +380,8 @@ export {
 	KNOWLEDGE_SORT_OPTIONS,
 	KNOWLEDGE_STATUSES,
 	KNOWLEDGE_TOPIC_HEALTHS,
+	SCOPE_TO_LAYER,
+	scopeToLayer,
 } from "./types.js";
 export type { WritebackChange, WritebackConfig, WritebackResult } from "./writeback.js";
 export {

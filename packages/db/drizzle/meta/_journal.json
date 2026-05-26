@@ -123,8 +123,15 @@
 		{
 			"idx": 17,
 			"version": "6",
+			"when": 1779817622461,
+			"tag": "0017_Q2_knowledge_scope",
+			"breakpoints": true
+		},
+		{
+			"idx": 18,
+			"version": "6",
 			"when": 1748400000000,
-			"tag": "0017_P2_rename_agents_to_users",
+			"tag": "0018_P2_rename_agents_to_users",
 			"breakpoints": true
 		}
 	]

@@ -13,6 +13,7 @@ import type { HostKind } from "@hyperidle/shared";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { ThreadItem } from "../components/ThreadSections";
 import { apiFetch } from "../services/api-fetch.js";
+import { getWsClient } from "../services/ws-client.js";
 
 interface ThreadListRow {
 	id: string;
@@ -198,6 +199,26 @@ export function useConversationsThreads(
 
 	const retry = useCallback((): void => {
 		setTick((n) => n + 1);
+	}, []);
+
+	// Q1 review issue #6 / Task 16: subscribe to `thread_created` WS events so
+	// the thread list auto-refreshes when a new thread is created.
+	// @lore Q1: We bump the tick counter to trigger a re-fetch rather than
+	// appending the event directly. This is simpler and guarantees the list
+	// uses the same data transformation path (rowToItem) as the initial fetch.
+	// A brief flash of the old list during the re-fetch is acceptable.
+	useEffect(() => {
+		const wsClient = getWsClient();
+		const unsubscribe = wsClient.subscribe("conversations", (data) => {
+			if (typeof data !== "object" || data === null) return;
+			const msg = data as Record<string, unknown>;
+			if (msg.type === "thread_created") {
+				setTick((n) => n + 1);
+			}
+		});
+		return () => {
+			unsubscribe();
+		};
 	}, []);
 
 	return { status, threads, error, retry };

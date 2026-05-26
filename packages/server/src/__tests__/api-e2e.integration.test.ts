@@ -424,6 +424,7 @@ describe("E2E API Integration (I5)", () => {
 					title: "Test decision",
 					body: "We decided X",
 					format: "markdown",
+					scopeKind: "factory",
 					updatedBy: "agent-1",
 				}),
 			});
@@ -442,6 +443,7 @@ describe("E2E API Integration (I5)", () => {
 					title: "Get-by-id test",
 					body: "Content",
 					format: "markdown",
+					scopeKind: "factory",
 					updatedBy: "agent-1",
 				}),
 			});
@@ -462,6 +464,7 @@ describe("E2E API Integration (I5)", () => {
 					title: "Searchable decision",
 					body: "This is a test item for search",
 					format: "markdown",
+					scopeKind: "factory",
 					updatedBy: "agent-1",
 				}),
 			});

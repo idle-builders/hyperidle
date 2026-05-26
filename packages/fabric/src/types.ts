@@ -6,10 +6,35 @@
  * strategy/UI code that needs these imports from @hyperidle/fabric.
  */
 
+import type { ScopeKind } from "@hyperidle/shared";
+
 // --- Knowledge taxonomy (fabric's classification system) ---
 
 export type KnowledgeLayer = "L0" | "L1" | "L2" | "L3" | "L4";
 export const KNOWLEDGE_LAYERS: readonly KnowledgeLayer[] = ["L0", "L1", "L2", "L3", "L4"] as const;
+
+/**
+ * Maps scope kinds that participate in the L0-L4 maturity flow to their
+ * default layer. Returns null for scope kinds outside the maturity flow.
+ *
+ * @lore Q2: layer assignment is fabric's job. The creation flow does NOT
+ * set layer. This function is called inline in the knowledge route handlers
+ * (pragmatic: the fabric event listener may not exist yet) and will be
+ * moved to a fabric listener in a follow-up workpackage.
+ */
+export const SCOPE_TO_LAYER: Readonly<Record<ScopeKind, KnowledgeLayer | null>> = {
+	factory: "L4",
+	product: "L2",
+	practice: "L3",
+	task: "L1",
+	bet: null,
+	team: null,
+	user: null,
+};
+
+export function scopeToLayer(scopeKind: ScopeKind): KnowledgeLayer | null {
+	return SCOPE_TO_LAYER[scopeKind];
+}
 
 export const KNOWLEDGE_STATUSES = [
 	"captured",
@@ -32,7 +57,13 @@ export type KnowledgeKind =
 	| "reflection"
 	| "focus";
 
+/**
+ * @deprecated Q2: Use `ScopeKind` from `@hyperidle/shared` instead. `KnowledgeScope`
+ * predates the Q2 scope model and covers only three of the seven scope kinds.
+ * Kept for backwards compatibility with pre-Q2 fabric code; do not use in new code.
+ */
 export const KNOWLEDGE_SCOPES = ["practice", "product", "factory"] as const;
+/** @deprecated Use `ScopeKind` from `@hyperidle/shared`. See `KNOWLEDGE_SCOPES`. */
 export type KnowledgeScope = (typeof KNOWLEDGE_SCOPES)[number];
 
 export const KNOWLEDGE_TOPIC_HEALTHS = ["fresh", "some_stale", "mostly_stale"] as const;

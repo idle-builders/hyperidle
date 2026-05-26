@@ -72,6 +72,7 @@ export type {
 } from "./events.js";
 export type { ArtifactCostInput } from "./format/artifact-cost.js";
 export { formatArtifactCost } from "./format/artifact-cost.js";
+export { deriveTitleFromPitch } from "./format/bet.js";
 export { formatMoney, formatTokenCount } from "./format/money.js";
 export type {
 	CompletionEvent,
@@ -208,6 +209,7 @@ export type {
 	ModelTier,
 	MutableBetField,
 	OrgEdgeMechanism,
+	ScopeKind,
 	SessionState,
 	TaskState,
 	TriggerType,
@@ -222,6 +224,8 @@ export {
 	KERNEL_USER_ROLES,
 	MUTABLE_BET_FIELDS,
 	ORG_EDGE_MECHANISMS,
+	SCOPE_KINDS,
+	SCOPES_REQUIRING_ID,
 	TASK_STATES,
 	USER_KINDS,
 	USER_ROLES,
