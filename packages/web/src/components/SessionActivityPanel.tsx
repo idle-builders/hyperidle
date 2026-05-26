@@ -11,9 +11,15 @@
  *
  * @lore Q1: Accessible region landmark (aside) so screen readers and a11y
  * tools can identify the panel as a complementary section.
+ *
+ * @lore Q1 review issues #10–12:
+ * #10: Auto-scroll pauses when the user scrolls up (threshold 40px from bottom),
+ *      resumes automatically when they scroll back to the bottom.
+ * #11: Filter tabs added (All | Tools | Reasoning | Cost) via DaisyUI tabs.
+ * #12: Emoji 💭 replaced with an SVG reasoning icon.
  */
 
-import { type JSX, useEffect, useRef } from "react";
+import { type JSX, useCallback, useEffect, useRef, useState } from "react";
 import type { ActivityEntry } from "../hooks/useSessionActivity.js";
 import { useSessionActivity } from "../hooks/useSessionActivity.js";
 
@@ -24,6 +30,16 @@ export interface SessionActivityPanelProps {
 	onClose: () => void;
 }
 
+type ActivityFilter = "all" | "tools" | "reasoning" | "cost";
+
+function ReasoningIcon(): JSX.Element {
+	return (
+		<svg viewBox="0 0 16 16" fill="currentColor" className="w-[10px] h-[10px]" aria-hidden="true">
+			<path d="M8 1a6 6 0 100 12A6 6 0 008 1zM2 7a6 6 0 1112 0A6 6 0 012 7zm6-3a.75.75 0 01.75.75v2.5h1.5a.75.75 0 010 1.5h-2a.75.75 0 01-.75-.75V4.75A.75.75 0 018 4z" />
+		</svg>
+	);
+}
+
 function ActivityEntryRow({ entry }: { entry: ActivityEntry }): JSX.Element | null {
 	const time = new Date(entry.timestamp).toLocaleTimeString(undefined, {
 		hour: "2-digit",
@@ -32,8 +48,7 @@ function ActivityEntryRow({ entry }: { entry: ActivityEntry }): JSX.Element | nu
 	});
 
 	if (entry.type === "tool_call") {
-		const toolName = typeof entry.data.toolName === "string" ? entry.data.toolName : "unknown";
-		const argsSummary = typeof entry.data.argsSummary === "string" ? entry.data.argsSummary : "";
+		const { toolName, argsSummary } = entry.data;
 		return (
 			<div className="flex items-start gap-[8px] py-[6px] px-[8px] rounded-[var(--r1)] hover:bg-[var(--surface-ghost)]">
 				<span className="flex-shrink-0 mt-[2px] inline-flex items-center justify-center w-[20px] h-[20px] rounded-[var(--r1)] bg-[var(--surface-4)] text-[var(--text-lo)]">
@@ -60,10 +75,13 @@ function ActivityEntryRow({ entry }: { entry: ActivityEntry }): JSX.Element | nu
 	}
 
 	if (entry.type === "reasoning") {
-		const excerpt = typeof entry.data.excerpt === "string" ? entry.data.excerpt : "";
+		const { excerpt } = entry.data;
 		return (
 			<div className="flex items-start gap-[8px] py-[6px] px-[8px] rounded-[var(--r1)] hover:bg-[var(--surface-ghost)]">
-				<span className="flex-shrink-0 mt-[2px] text-[var(--text-lo)] text-[12px]">💭</span>
+				{/* Q1 review issue #12: SVG icon instead of emoji 💭 */}
+				<span className="flex-shrink-0 mt-[2px] inline-flex items-center justify-center w-[20px] h-[20px] rounded-[var(--r1)] bg-[var(--surface-4)] text-[var(--text-lo)]">
+					<ReasoningIcon />
+				</span>
 				<p className="flex-1 text-[12px] text-[var(--text-mid)] italic">{excerpt}</p>
 				<span className="flex-shrink-0 text-[10px] text-[var(--text-lo)] font-mono">{time}</span>
 			</div>
@@ -71,8 +89,7 @@ function ActivityEntryRow({ entry }: { entry: ActivityEntry }): JSX.Element | nu
 	}
 
 	if (entry.type === "cost_tick") {
-		const deltaMinor = typeof entry.data.deltaMinor === "number" ? entry.data.deltaMinor : 0;
-		const totalMinor = typeof entry.data.totalMinor === "number" ? entry.data.totalMinor : 0;
+		const { deltaMinor, totalMinor } = entry.data;
 		return (
 			<div className="flex items-center gap-[8px] py-[4px] px-[8px] rounded-[var(--r1)] hover:bg-[var(--surface-ghost)]">
 				<span className="text-[11px] text-[var(--text-lo)] tabular-nums">
@@ -85,6 +102,17 @@ function ActivityEntryRow({ entry }: { entry: ActivityEntry }): JSX.Element | nu
 
 	return null;
 }
+
+function filterEntry(entry: ActivityEntry, filter: ActivityFilter): boolean {
+	if (filter === "all") return true;
+	if (filter === "tools") return entry.type === "tool_call";
+	if (filter === "reasoning") return entry.type === "reasoning";
+	if (filter === "cost") return entry.type === "cost_tick";
+	return false;
+}
+
+// Threshold (px from bottom) below which we consider the user "scrolled up"
+const SCROLL_PAUSE_THRESHOLD = 40;
 
 /**
  * Companion pane showing live session activity alongside the thread.
@@ -100,15 +128,37 @@ export function SessionActivityPanel({
 }: SessionActivityPanelProps): JSX.Element {
 	const { status, entries, error } = useSessionActivity(sessionId);
 	const scrollRef = useRef<HTMLDivElement>(null);
+	// Q1 review issue #10: pause auto-scroll when user scrolls up
+	const [autoScrollPaused, setAutoScrollPaused] = useState(false);
+	// Q1 review issue #11: filter tabs
+	const [activeFilter, setActiveFilter] = useState<ActivityFilter>("all");
+
+	// Q1 review issue #10: detect scroll position to pause/resume auto-scroll
+	const handleScroll = useCallback((): void => {
+		const el = scrollRef.current;
+		if (!el) return;
+		const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
+		setAutoScrollPaused(distanceFromBottom > SCROLL_PAUSE_THRESHOLD);
+	}, []);
 
 	// biome-ignore lint/correctness/useExhaustiveDependencies: entries.length triggers scroll on new entries
 	useEffect(() => {
-		if (scrollRef.current) {
+		// Q1 review issue #10: only auto-scroll when not paused by user
+		if (!autoScrollPaused && scrollRef.current) {
 			scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
 		}
-	}, [entries.length]);
+	}, [entries.length, autoScrollPaused]);
 
 	const isLive = status === "streaming" || status === "connecting";
+
+	const filteredEntries = entries.filter((e) => filterEntry(e, activeFilter));
+
+	const FILTER_TABS: Array<{ id: ActivityFilter; label: string }> = [
+		{ id: "all", label: "All" },
+		{ id: "tools", label: "Tools" },
+		{ id: "reasoning", label: "Reasoning" },
+		{ id: "cost", label: "Cost" },
+	];
 
 	return (
 		<aside
@@ -162,8 +212,30 @@ export function SessionActivityPanel({
 				</button>
 			</div>
 
+			{/* Q1 review issue #11: filter tabs */}
+			<div className="flex-shrink-0 px-[8px] pt-[6px] pb-[2px] border-b border-[var(--border-subtle)]">
+				<div role="tablist" aria-label="Activity filter" className="tabs tabs-bordered tabs-xs">
+					{FILTER_TABS.map((tab) => (
+						<button
+							key={tab.id}
+							type="button"
+							role="tab"
+							aria-selected={activeFilter === tab.id}
+							className={`tab${activeFilter === tab.id ? " tab-active" : ""}`}
+							onClick={() => setActiveFilter(tab.id)}
+						>
+							{tab.label}
+						</button>
+					))}
+				</div>
+			</div>
+
 			{/* Activity stream */}
-			<div ref={scrollRef} className="flex-1 overflow-y-auto px-[4px] py-[4px]">
+			<div
+				ref={scrollRef}
+				className="flex-1 overflow-y-auto px-[4px] py-[4px]"
+				onScroll={handleScroll}
+			>
 				{status === "connecting" && (
 					<div className="py-[16px] text-center text-[var(--text-lo)] text-[12px]">
 						Connecting...
@@ -176,16 +248,34 @@ export function SessionActivityPanel({
 					</div>
 				)}
 
-				{(status === "streaming" || status === "ended") && entries.length === 0 && (
+				{(status === "streaming" || status === "ended") && filteredEntries.length === 0 && (
 					<div className="py-[16px] text-center text-[var(--text-lo)] text-[12px]">
 						No activity yet
 					</div>
 				)}
 
-				{entries.map((entry, i) => (
+				{filteredEntries.map((entry, i) => (
 					// biome-ignore lint/suspicious/noArrayIndexKey: entries have no stable id
 					<ActivityEntryRow key={i} entry={entry} />
 				))}
+
+				{/* Q1 review issue #10: scroll-to-bottom nudge when paused */}
+				{autoScrollPaused && entries.length > 0 && (
+					<div className="sticky bottom-0 flex justify-center pb-[4px]">
+						<button
+							type="button"
+							className="btn btn-xs btn-ghost text-[var(--text-lo)] text-[10px]"
+							onClick={() => {
+								if (scrollRef.current) {
+									scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+								}
+								setAutoScrollPaused(false);
+							}}
+						>
+							↓ Scroll to latest
+						</button>
+					</div>
+				)}
 			</div>
 
 			{/* Summary / footer */}

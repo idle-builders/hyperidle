@@ -10,20 +10,30 @@
  * exceptional event and users re-opening the dial-in will see a fresh buffer.
  */
 
-import type { EventBus, ToolCallRecordedEvent } from "@hyperidle/shared";
+import type { EventBus, SessionEndedEvent, ToolCallRecordedEvent } from "@hyperidle/shared";
 
 const MAX_PER_SESSION = 100;
 
-export interface ActivityEntry {
-	type: "tool_call";
-	timestamp: number;
-	data: Record<string, unknown>;
-}
+// Q1 review issue #9: discriminated union instead of Record<string, unknown>
+export type ToolCallData = { toolName: string; argsSummary: string };
+export type ReasoningData = { excerpt: string };
+export type CostTickData = { deltaMinor: number; totalMinor: number; currency: string };
+
+export type ActivityEntry =
+	| { type: "tool_call"; timestamp: number; data: ToolCallData }
+	| { type: "reasoning"; timestamp: number; data: ReasoningData }
+	| { type: "cost_tick"; timestamp: number; data: CostTickData };
+
+// Eviction delay after session ends (ms). Entries are cleaned up after this window
+// to allow late REST fetches to still see the final activity snapshot.
+const EVICTION_DELAY_MS = 5 * 60 * 1000; // 5 minutes
 
 export class SessionActivityBuffer {
 	private readonly eventBus: EventBus;
 	private readonly entries: Map<string, ActivityEntry[]> = new Map();
-	private unsubscribe: (() => void) | null = null;
+	private unsubscribers: Array<() => void> = [];
+	// NodeJS.Timeout is not available in browser-compatible code; use ReturnType<typeof setTimeout>
+	private evictionTimers: Map<string, ReturnType<typeof setTimeout>> = new Map();
 
 	constructor(eventBus: EventBus) {
 		this.eventBus = eventBus;
@@ -31,9 +41,9 @@ export class SessionActivityBuffer {
 
 	/** Subscribe to the EventBus and begin collecting activity. */
 	start(): void {
-		if (this.unsubscribe) return; // already started
+		if (this.unsubscribers.length > 0) return; // already started
 
-		const handler = (event: ToolCallRecordedEvent): void => {
+		const toolCallHandler = (event: ToolCallRecordedEvent): void => {
 			const { sessionId, toolName, argsSummary, timestamp } = event;
 			const entry: ActivityEntry = {
 				type: "tool_call",
@@ -53,25 +63,50 @@ export class SessionActivityBuffer {
 			}
 		};
 
-		this.eventBus.on("tool_call_recorded", handler);
-		this.unsubscribe = (): void => {
-			this.eventBus.off("tool_call_recorded", handler);
+		// Q1 review issue #14: schedule buffer eviction after session ends.
+		// Entries are kept for 5 minutes to allow the REST fetch to still serve
+		// the final snapshot after the session ends. Then the bucket is removed.
+		const sessionEndedHandler = (event: SessionEndedEvent): void => {
+			const { sessionId } = event;
+			// Cancel any existing timer for this session (e.g. double-ended edge case)
+			const existing = this.evictionTimers.get(sessionId);
+			if (existing) clearTimeout(existing);
+			const timer = setTimeout(() => {
+				this.entries.delete(sessionId);
+				this.evictionTimers.delete(sessionId);
+			}, EVICTION_DELAY_MS);
+			this.evictionTimers.set(sessionId, timer);
 		};
+
+		const unsubToolCall = this.eventBus.on("tool_call_recorded", toolCallHandler);
+		const unsubSessionEnded = this.eventBus.on("session_ended", sessionEndedHandler);
+
+		this.unsubscribers.push(unsubToolCall, unsubSessionEnded);
 	}
 
 	/** Unsubscribe from the EventBus and stop collecting. */
 	stop(): void {
-		if (this.unsubscribe) {
-			this.unsubscribe();
-			this.unsubscribe = null;
+		for (const unsub of this.unsubscribers) {
+			unsub();
 		}
+		this.unsubscribers = [];
+		// Cancel pending eviction timers
+		for (const timer of this.evictionTimers.values()) {
+			clearTimeout(timer);
+		}
+		this.evictionTimers.clear();
 	}
 
 	/**
 	 * Return activity entries for a session in insertion order (oldest first).
 	 * Returns an empty array for unknown sessions.
+	 *
+	 * @lore Q1 review issue #15: returns a defensive copy ([...bucket]) so
+	 * callers cannot mutate the internal buffer. The spread avoids exposing a
+	 * mutable reference while preserving ReadonlyArray semantics on the type.
 	 */
-	getActivity(sessionId: string): ActivityEntry[] {
-		return this.entries.get(sessionId) ?? [];
+	getActivity(sessionId: string): ReadonlyArray<ActivityEntry> {
+		const bucket = this.entries.get(sessionId);
+		return bucket ? [...bucket] : [];
 	}
 }

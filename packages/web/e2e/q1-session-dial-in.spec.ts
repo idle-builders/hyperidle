@@ -136,19 +136,22 @@ test.describe("Q1 — Session Dial-In", () => {
 		await page.waitForLoadState("networkidle");
 
 		// The thread detail should be visible
-		await expect(
-			page.locator("[data-testid='thread-shell'], [data-testid='conversations-page']"),
-		).toBeVisible({
+		await expect(page.locator("[data-testid='conversations-page']")).toBeVisible({
 			timeout: 10000,
 		});
 
-		// Should show a "Dial In" button or affordance when there is an active session
-		const dialInBtn = page.locator("button").filter({ hasText: /dial.?in/i });
-		await expect(dialInBtn.first())
-			.toBeVisible({ timeout: 5000 })
-			.catch(() => {
-				// If dial-in detection is not yet wired, the test documents the intent
-			});
+		// Should show a "Dial In" button when there is an active session
+		const dialInBtn = page.locator("[data-testid='dial-in-btn']");
+		await expect(dialInBtn).toBeVisible({ timeout: 5000 });
+	});
+
+	// AC5: "Live" badge visible when active session exists
+	test("AC5: 'Live' badge visible for thread with active agent session", async ({ page }) => {
+		await page.goto("/conversations/task-thread-id");
+		await page.waitForLoadState("networkidle");
+
+		const liveBadge = page.locator("[data-testid='live-session-badge']");
+		await expect(liveBadge).toBeVisible({ timeout: 5000 });
 	});
 
 	// AC6: dial-in mode shows activity stream alongside thread
@@ -156,24 +159,18 @@ test.describe("Q1 — Session Dial-In", () => {
 		await page.goto("/conversations/task-thread-id");
 		await page.waitForLoadState("networkidle");
 
-		// Click dial in if available
-		const dialInBtn = page.locator("button").filter({ hasText: /dial.?in/i });
-		const hasDiabBtn = await dialInBtn
-			.first()
-			.isVisible({ timeout: 3000 })
-			.catch(() => false);
+		// Click dial in
+		const dialInBtn = page.locator("[data-testid='dial-in-btn']");
+		await expect(dialInBtn).toBeVisible({ timeout: 5000 });
+		await dialInBtn.click();
 
-		if (hasDiabBtn) {
-			await dialInBtn.first().click();
+		// Activity panel should appear
+		await expect(page.locator("[data-testid='session-activity-panel']")).toBeVisible({
+			timeout: 5000,
+		});
 
-			// Activity panel should appear
-			await expect(
-				page.locator("[data-testid='session-activity-panel'], aside, [role='region']").first(),
-			).toBeVisible({ timeout: 5000 });
-
-			// Activity entries (tool call) should be visible
-			await expect(page.getByText(/bash/i)).toBeVisible({ timeout: 5000 });
-		}
+		// Activity entries (tool call "bash") should be visible
+		await expect(page.getByText(/bash/i)).toBeVisible({ timeout: 5000 });
 	});
 
 	// AC7: interjection — user can post a message via the thread composer
@@ -210,9 +207,7 @@ test.describe("Q1 — Session Dial-In", () => {
 		await page.goto("/conversations/task-thread-id");
 		await page.waitForLoadState("networkidle");
 
-		await expect(
-			page.locator("[data-testid='thread-shell'], [data-testid='conversations-page']"),
-		).toBeVisible({
+		await expect(page.locator("[data-testid='conversations-page']")).toBeVisible({
 			timeout: 10000,
 		});
 
@@ -221,8 +216,12 @@ test.describe("Q1 — Session Dial-In", () => {
 		if (await composerInput.isVisible({ timeout: 2000 }).catch(() => false)) {
 			await composerInput.fill("Interject this");
 			await page.keyboard.press("Enter");
-			await page.waitForFunction(() => true, { timeout: 2000 }).catch(() => null);
-			// Posts array should have a message if composer submits
+			// Give the request time to process
+			await page
+				.waitForResponse("**/api/threads/task-thread-id/messages", { timeout: 3000 })
+				.catch(() => {
+					// Composer might use Shift+Enter or button click — acceptable if no request fires
+				});
 		}
 	});
 
@@ -243,15 +242,10 @@ test.describe("Q1 — Session Dial-In", () => {
 		await page.goto("/conversations/task-thread-id");
 		await page.waitForLoadState("networkidle");
 
-		// Activate dial-in if possible
-		const dialInBtn = page.locator("button").filter({ hasText: /dial.?in/i });
-		if (
-			await dialInBtn
-				.first()
-				.isVisible({ timeout: 3000 })
-				.catch(() => false)
-		) {
-			await dialInBtn.first().click();
+		// Activate dial-in
+		const dialInBtn = page.locator("[data-testid='dial-in-btn']");
+		if (await dialInBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
+			await dialInBtn.click();
 			await page.waitForTimeout(1000);
 		}
 
@@ -259,38 +253,34 @@ test.describe("Q1 — Session Dial-In", () => {
 		expect(writeToSessions).toHaveLength(0);
 	});
 
-	// AC9: when session ends, view transitions gracefully to normal thread view
+	// AC9: closing the activity panel reverts to full-width thread view
 	test("AC9: closing the activity panel reverts to full-width thread view", async ({ page }) => {
 		await page.goto("/conversations/task-thread-id");
 		await page.waitForLoadState("networkidle");
 
-		const dialInBtn = page.locator("button").filter({ hasText: /dial.?in/i });
-		const hasDiabBtn = await dialInBtn
-			.first()
-			.isVisible({ timeout: 3000 })
-			.catch(() => false);
+		const dialInBtn = page.locator("[data-testid='dial-in-btn']");
+		await expect(dialInBtn).toBeVisible({ timeout: 5000 });
+		await dialInBtn.click();
 
-		if (hasDiabBtn) {
-			await dialInBtn.first().click();
+		// Activity panel should appear
+		await expect(page.locator("[data-testid='session-activity-panel']")).toBeVisible({
+			timeout: 5000,
+		});
 
-			// Close the panel
-			const closeBtn = page.locator("button").filter({ hasText: /close/i }).first();
-			if (await closeBtn.isVisible({ timeout: 2000 }).catch(() => false)) {
-				await closeBtn.click();
+		// Close the panel via aria-label button
+		const closeBtn = page.locator("button[aria-label='Close activity panel']");
+		await expect(closeBtn).toBeVisible({ timeout: 3000 });
+		await closeBtn.click();
 
-				// Activity panel should be gone
-				await expect(page.locator("[data-testid='session-activity-panel']"))
-					.not.toBeVisible({ timeout: 3000 })
-					.catch(() => {
-						// Acceptable if testid not set — verify thread shell still shows
-					});
+		// Activity panel should be gone
+		await expect(page.locator("[data-testid='session-activity-panel']")).not.toBeVisible({
+			timeout: 3000,
+		});
 
-				// Thread shell should still be present
-				await expect(
-					page.locator("[data-testid='thread-shell'], [data-testid='conversations-page']"),
-				).toBeVisible({ timeout: 3000 });
-			}
-		}
+		// Thread shell should still be present
+		await expect(page.locator("[data-testid='conversations-page']")).toBeVisible({
+			timeout: 3000,
+		});
 	});
 
 	// AC4 / thread_created refresh: new thread appears after WS event
@@ -301,10 +291,10 @@ test.describe("Q1 — Session Dial-In", () => {
 		await page.goto("/conversations");
 		await page.waitForLoadState("networkidle");
 
-		// Thread list should load (even if empty threads from other mocks)
+		// Thread list should load
 		const rows = page.locator("[data-ds-component='ThreadRow']");
 		const count = await rows.count();
-		// May be 0 if threads mock returns empty — this just proves the fetch ran
-		expect(count).toBeGreaterThanOrEqual(0);
+		// The mocked task thread should be in the list
+		expect(count).toBeGreaterThanOrEqual(1);
 	});
 });

@@ -1,14 +1,15 @@
 import { NavItem } from "@hyperidle/design-system";
-/**
- * @lore AppShell is the main layout composition: IconRail | Submenu | Main (Outlet) | Rail.
- * It manages view state, submenu state, settings panel, and global search.
- * This is NOT a custom component — it is a page-level composition assembling Tier 3 regions.
- */
 import { KNOWLEDGE_SCOPES, type KnowledgeScope } from "@hyperidle/fabric/types";
 import { type JSX, useCallback, useEffect, useMemo, useState } from "react";
 import { Outlet, useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { ErrorBoundary } from "../components/ErrorBoundary";
 import { GlobalSearchPanel } from "../components/GlobalSearchPanel";
+/**
+ * @lore AppShell is the main layout composition: IconRail | Submenu | Main (Outlet) | Rail.
+ * It manages view state, submenu state, settings panel, and global search.
+ * This is NOT a custom component — it is a page-level composition assembling Tier 3 regions.
+ */
+import { RecipientPicker } from "../components/RecipientPicker";
 import type { SettingsData } from "../components/SettingsPanel";
 import { SettingsPanel } from "../components/SettingsPanel";
 import type { ConversationsFilter } from "../components/ThreadSections";
@@ -525,6 +526,22 @@ export function AppShell(): JSX.Element {
 	// (AppShell.threads.test.tsx line 86 reads it via useOutletContext). The
 	// field is now derived from the URL rather than a useState, so it is always
 	// in sync with the browser location.
+	// Q1 §4.9: recipient picker state
+	const [showRecipientPicker, setShowRecipientPicker] = useState(false);
+
+	const handleRecipientPickerSelect = useCallback(
+		(recipient: { id: string; kind: "agent" | "user"; name: string }): void => {
+			setShowRecipientPicker(false);
+			// recipient.id is the new thread id returned by POST /api/threads
+			navigate(`/conversations/${encodeURIComponent(recipient.id)}`);
+		},
+		[navigate],
+	);
+
+	const handleRecipientPickerCancel = useCallback((): void => {
+		setShowRecipientPicker(false);
+	}, []);
+
 	const { threadId: urlThreadId } = useParams<{ threadId?: string }>();
 	const selectedThreadId = urlThreadId ?? null;
 	const handleSelectThread = useCallback(
@@ -543,6 +560,35 @@ export function AppShell(): JSX.Element {
 		void activeView;
 		setSubmenuFilter("all");
 	}, [activeView]);
+
+	// Q1 §4.9 / Task 15: keyboard shortcut N opens the recipient picker in the
+	// Conversations view. Escape closes it. Must not fire inside text inputs.
+	// @lore Q1 review issue #7: D and N must not fire inside input/textarea/
+	// contenteditable. We check event.target's tagName and contenteditable attr.
+	useEffect(() => {
+		if (activeView !== "conversations") return;
+		const handler = (e: KeyboardEvent): void => {
+			// Do not fire when a text input/textarea/contenteditable is focused
+			const target = e.target as HTMLElement | null;
+			if (target) {
+				const tag = target.tagName.toLowerCase();
+				if (tag === "input" || tag === "textarea" || target.isContentEditable) {
+					return;
+				}
+			}
+			if (e.key === "n" || e.key === "N") {
+				e.preventDefault();
+				setShowRecipientPicker(true);
+			}
+			if (e.key === "Escape" && showRecipientPicker) {
+				setShowRecipientPicker(false);
+			}
+		};
+		document.addEventListener("keydown", handler);
+		return () => {
+			document.removeEventListener("keydown", handler);
+		};
+	}, [activeView, showRecipientPicker]);
 
 	// J6: Knowledge submenu carries a scope browser (Practice/Product/Factory)
 	// and per-scope topic NavItems. Scope lives in the URL ?scope= param so
@@ -619,26 +665,60 @@ export function AppShell(): JSX.Element {
 								onScopeChange={handleScopeChange}
 							/>
 						) : activeView === "conversations" ? (
-							// @lore L10: chip-driven filtering is now wired here.
-							// `activeFilter` is the narrowed `ConversationsFilter`
-							// derived from `submenuFilter`. ThreadSections owns the
-							// predicate; AppShell consumes the same predicate via
-							// `predicateFor()` for the post-filter count badge so
-							// the count and the rendered list cannot drift.
-							<ThreadSections
-								threads={conversationsThreads.threads}
-								selectedId={selectedThreadId}
-								onSelect={handleSelectThread}
-								loading={conversationsThreads.status === "loading"}
-								errorMessage={
-									conversationsThreads.status === "error"
-										? (conversationsThreads.error ?? "Network error")
-										: null
-								}
-								onRetry={conversationsThreads.retry}
-								activeFilter={conversationsFilter}
-								onClearFilter={handleClearFilter}
-							/>
+							// Q1 §4.9: Conversations submenu shows either the RecipientPicker
+							// (when showRecipientPicker is true) or the thread list with a
+							// "New Thread" button above. The button is always rendered above
+							// the picker/list so the user can always start a new thread.
+							<>
+								{!showRecipientPicker && (
+									<div className="px-[2px] pb-[4px]">
+										<button
+											type="button"
+											className="btn btn-ghost btn-xs w-full justify-start gap-[6px] text-[var(--text-lo)] hover:text-[var(--text-mid)]"
+											onClick={() => setShowRecipientPicker(true)}
+											data-testid="new-thread-btn"
+											aria-label="New Thread"
+										>
+											<svg
+												viewBox="0 0 16 16"
+												fill="currentColor"
+												className="w-[12px] h-[12px] flex-shrink-0"
+												aria-hidden="true"
+											>
+												<path d="M8 1a.75.75 0 01.75.75v5.5h5.5a.75.75 0 010 1.5h-5.5v5.5a.75.75 0 01-1.5 0v-5.5H1.75a.75.75 0 010-1.5h5.5v-5.5A.75.75 0 018 1z" />
+											</svg>
+											New Thread
+										</button>
+									</div>
+								)}
+								{showRecipientPicker ? (
+									<RecipientPicker
+										onSelect={handleRecipientPickerSelect}
+										onCancel={handleRecipientPickerCancel}
+									/>
+								) : (
+									// @lore L10: chip-driven filtering is now wired here.
+									// `activeFilter` is the narrowed `ConversationsFilter`
+									// derived from `submenuFilter`. ThreadSections owns the
+									// predicate; AppShell consumes the same predicate via
+									// `predicateFor()` for the post-filter count badge so
+									// the count and the rendered list cannot drift.
+									<ThreadSections
+										threads={conversationsThreads.threads}
+										selectedId={selectedThreadId}
+										onSelect={handleSelectThread}
+										loading={conversationsThreads.status === "loading"}
+										errorMessage={
+											conversationsThreads.status === "error"
+												? (conversationsThreads.error ?? "Network error")
+												: null
+										}
+										onRetry={conversationsThreads.retry}
+										activeFilter={conversationsFilter}
+										onClearFilter={handleClearFilter}
+									/>
+								)}
+							</>
 						) : (
 							<ul className="menu menu-sm">
 								{submenuConfig.items.map((item) => (

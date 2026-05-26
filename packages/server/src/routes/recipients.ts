@@ -41,18 +41,18 @@ export function createRecipientRoutes(db: HyperIdleDb, _eventBus?: EventBus): Ho
 			return c.json({ recipients: [] });
 		}
 
-		// Fetch all agents
-		let allAgents = db.select().from(agents).all();
-
-		// Apply name filter (case-insensitive substring)
-		if (q.length > 0) {
-			const pattern = `%${escapeLikePattern(q.toLowerCase())}%`;
-			allAgents = db
-				.select()
-				.from(agents)
-				.where(sql`LOWER(${agents.name}) LIKE ${pattern} ESCAPE '\\'`)
-				.all();
-		}
+		// Q1 review issue #13: fetch once with the appropriate filter rather than
+		// fetching all unconditionally then re-fetching when a query is present.
+		const allAgents =
+			q.length > 0
+				? db
+						.select()
+						.from(agents)
+						.where(
+							sql`LOWER(${agents.name}) LIKE ${`%${escapeLikePattern(q.toLowerCase())}%`} ESCAPE '\\'`,
+						)
+						.all()
+				: db.select().from(agents).all();
 
 		// Fetch active sessions to determine hasActiveSession
 		const activeSessions = db.select().from(sessions).where(eq(sessions.state, "active")).all();

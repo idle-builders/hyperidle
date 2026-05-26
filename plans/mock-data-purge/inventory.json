@@ -37,7 +37,7 @@
   },
   {
     "path": "packages/web/src/layouts/AppShell.tsx",
-    "line": 18,
+    "line": 19,
     "symbol": "../fixtures/knowledge-data",
     "kind": "import",
     "shape": "import",

@@ -192,8 +192,8 @@ test.describe("Q1 — New DM Thread Creation", () => {
 		// Send it
 		await page.locator("button").filter({ hasText: /send/i }).click();
 
-		// The thread creation POST should have been made
-		await page.waitForFunction(() => true, { timeout: 3000 }).catch(() => null);
+		// The thread creation POST should have been made — wait for navigation to complete
+		await page.waitForURL(/\/conversations\//, { timeout: 5000 });
 		expect(threadCreationRequests.length).toBeGreaterThan(0);
 	});
 
@@ -214,16 +214,14 @@ test.describe("Q1 — New DM Thread Creation", () => {
 		await page.goto("/conversations");
 		await page.waitForLoadState("networkidle");
 
-		// Focus outside text inputs
-		await page.keyboard.press("Escape");
+		// Click on the main content area (not a text input) to ensure focus is there
+		await page.locator("[data-testid='main-content']").click({ force: true });
+
+		// Press N to open recipient picker
 		await page.keyboard.press("n");
 
-		// Picker or search field should appear
-		const picker = page.locator("input[type='text'], input[type='search']");
-		await expect(picker.first())
-			.toBeVisible({ timeout: 3000 })
-			.catch(() => {
-				// OK if shortcut isn't implemented yet — test still documents intent
-			});
+		// Picker should appear — check for the search field or recipient-picker testid
+		const picker = page.locator("[data-testid='recipient-picker']");
+		await expect(picker).toBeVisible({ timeout: 3000 });
 	});
 });
