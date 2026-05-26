@@ -11,17 +11,137 @@
 
 import { type HyperIdleDb, serverCredentials } from "@hyperidle/db";
 import type { CredentialName, CredentialState } from "@hyperidle/shared";
-import { CREDENTIAL_CATALOG, isCredentialName } from "@hyperidle/shared";
+import { CREDENTIAL_CATALOG, CREDENTIAL_STATES, isCredentialName } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
 import { Hono } from "hono";
 import { z } from "zod";
 import type { HyperIdleEnv } from "../middleware/auth.js";
-import { encryptCredentialValue, getServerSecret } from "../services/credential-encryption.js";
+import { createRateLimiter } from "../middleware/rate-limit.js";
+import {
+	decryptCredentialValue,
+	encryptCredentialValue,
+	getServerSecret,
+} from "../services/credential-encryption.js";
+
+/** Validation timeout: 10 seconds for all external service calls. */
+const VALIDATE_TIMEOUT_MS = 10_000;
+
+/**
+ * Call Anthropic API to test key validity.
+ * A non-401 response means the key is valid (even 400 = bad request, not bad key).
+ */
+async function validateAnthropicApiKey(
+	apiKey: string,
+): Promise<{ valid: boolean; error?: string }> {
+	try {
+		const controller = new AbortController();
+		const timer = setTimeout(() => controller.abort(), VALIDATE_TIMEOUT_MS);
+		try {
+			const response = await fetch("https://api.anthropic.com/v1/models", {
+				headers: {
+					"x-api-key": apiKey,
+					"anthropic-version": "2023-06-01",
+				},
+				signal: controller.signal,
+			});
+			if (response.status === 401) {
+				return { valid: false, error: "Invalid API key" };
+			}
+			return { valid: true };
+		} finally {
+			clearTimeout(timer);
+		}
+	} catch (err) {
+		return {
+			valid: false,
+			error: err instanceof Error ? err.message : "Network error",
+		};
+	}
+}
+
+/**
+ * Call OpenRouter auth check endpoint to test key validity.
+ */
+async function validateOpenRouterApiKey(
+	apiKey: string,
+): Promise<{ valid: boolean; error?: string }> {
+	try {
+		const controller = new AbortController();
+		const timer = setTimeout(() => controller.abort(), VALIDATE_TIMEOUT_MS);
+		try {
+			const headers = new Headers();
+			headers.set("Authorization", `Bearer ${apiKey}`);
+			const response = await fetch("https://openrouter.ai/api/v1/auth/key", {
+				headers,
+				signal: controller.signal,
+			});
+			if (response.status === 401 || response.status === 403) {
+				return { valid: false, error: "Invalid API key" };
+			}
+			return { valid: true };
+		} finally {
+			clearTimeout(timer);
+		}
+	} catch (err) {
+		return {
+			valid: false,
+			error: err instanceof Error ? err.message : "Network error",
+		};
+	}
+}
+
+/**
+ * Call this server's own health/auth endpoint to validate a shared backend key.
+ * @lore P3: The server validates its own key by calling itself. This confirms the
+ * key format is correct and the auth middleware accepts it.
+ */
+async function validateSharedBackendKey(
+	apiKey: string,
+	selfUrl: string,
+): Promise<{ valid: boolean; error?: string }> {
+	try {
+		const controller = new AbortController();
+		const timer = setTimeout(() => controller.abort(), VALIDATE_TIMEOUT_MS);
+		try {
+			const url = `${selfUrl.replace(/\/$/, "")}/api/health/auth`;
+			const response = await fetch(url, {
+				headers: { "X-API-Key": apiKey },
+				signal: controller.signal,
+			});
+			if (response.status === 200) {
+				return { valid: true };
+			}
+			if (response.status === 401) {
+				return { valid: false, error: "Invalid API key" };
+			}
+			return { valid: false, error: `Unexpected status: ${response.status}` };
+		} finally {
+			clearTimeout(timer);
+		}
+	} catch (err) {
+		return {
+			valid: false,
+			error: err instanceof Error ? err.message : "Network error",
+		};
+	}
+}
 
 interface CredentialStatusResponse {
 	name: CredentialName;
 	state: CredentialState;
 	lastValidatedAt: string | null;
+}
+
+/**
+ * Safely cast a DB validationState string to CredentialState.
+ * Falls back to "present_untested" for any unrecognized value.
+ * @lore P3 F-ADV-2: validate at runtime, do not blindly cast text column.
+ */
+function toCredentialState(raw: string): CredentialState {
+	if ((CREDENTIAL_STATES as readonly string[]).includes(raw)) {
+		return raw as CredentialState;
+	}
+	return "present_untested";
 }
 
 function buildStatusResponse(
@@ -33,7 +153,7 @@ function buildStatusResponse(
 	}
 	return {
 		name,
-		state: row.validationState as CredentialState,
+		state: toCredentialState(row.validationState),
 		lastValidatedAt: row.lastValidatedAt ?? null,
 	};
 }
@@ -41,6 +161,16 @@ function buildStatusResponse(
 const setCredentialBodySchema = z.object({
 	value: z.string().min(1),
 });
+
+/**
+ * Rate limiter for credential mutation + validation endpoints.
+ * Validation endpoint is the most sensitive (potential API key oracle).
+ * Limit: 20 req/min for PUT/DELETE, 3 req/min per identity for POST /validate.
+ *
+ * @lore P3 F-SEC-1: rate limiting required per security table in architecture.
+ */
+const mutateLimiter = createRateLimiter({ limit: 20, windowMs: 60_000 });
+const validateLimiter = createRateLimiter({ limit: 3, windowMs: 60_000 });
 
 export function createCredentialRoutes(db: HyperIdleDb): Hono<HyperIdleEnv> {
 	const router = new Hono<HyperIdleEnv>();
@@ -58,7 +188,7 @@ export function createCredentialRoutes(db: HyperIdleDb): Hono<HyperIdleEnv> {
 	});
 
 	/** PUT /api/credentials/:name — set credential (encrypt + store) */
-	router.put("/:name", async (c) => {
+	router.put("/:name", mutateLimiter, async (c) => {
 		const name = c.req.param("name");
 		if (!isCredentialName(name)) {
 			return c.json({ error: "Unknown credential name", code: "VALIDATION_ERROR" }, 400);
@@ -119,7 +249,7 @@ export function createCredentialRoutes(db: HyperIdleDb): Hono<HyperIdleEnv> {
 	});
 
 	/** DELETE /api/credentials/:name — remove credential */
-	router.delete("/:name", (c) => {
+	router.delete("/:name", mutateLimiter, (c) => {
 		const name = c.req.param("name");
 		if (!isCredentialName(name)) {
 			return c.json({ error: "Unknown credential name", code: "VALIDATION_ERROR" }, 400);
@@ -131,7 +261,7 @@ export function createCredentialRoutes(db: HyperIdleDb): Hono<HyperIdleEnv> {
 	});
 
 	/** POST /api/credentials/:name/validate — validate against external service */
-	router.post("/:name/validate", async (c) => {
+	router.post("/:name/validate", validateLimiter, async (c) => {
 		const name = c.req.param("name");
 		if (!isCredentialName(name)) {
 			return c.json({ error: "Unknown credential name", code: "VALIDATION_ERROR" }, 400);
@@ -144,16 +274,42 @@ export function createCredentialRoutes(db: HyperIdleDb): Hono<HyperIdleEnv> {
 			return c.json({ valid: false, error: "Credential not set" }, 200);
 		}
 
-		// @lore P3: Validation calls external services. In test environments,
-		// we return a simple "present but untested" result without making real calls.
-		// A real implementation would decrypt and call the target service.
-		// For now, we update the state to "present_untested" and return the result.
-		// Full validation against external services is a follow-up.
-		const validationResult = { valid: false as boolean, error: undefined as string | undefined };
+		// Decrypt the stored value for validation
+		const serverSecret = getServerSecret();
+		const plaintext = decryptCredentialValue(row.encryptedValue, serverSecret);
 
-		// Mark as attempted — update state based on result
+		if (!plaintext) {
+			return c.json({ valid: false, error: "Credential decryption failed" }, 200);
+		}
+
+		// Call the appropriate external service to validate the key.
+		// @lore P3 F-ARCH-4: Each credential type dispatches to its own validator.
+		// Tests mock these external calls via vi.spyOn / global fetch mocking.
+		let validationResult: { valid: boolean; error?: string };
+		switch (name) {
+			case "anthropic_api_key":
+				validationResult = await validateAnthropicApiKey(plaintext);
+				break;
+			case "openrouter_api_key":
+				validationResult = await validateOpenRouterApiKey(plaintext);
+				break;
+			case "shared_backend_key": {
+				// Self-validate: use local server address
+				const port = process.env.PORT ?? "3001";
+				const selfUrl = `http://127.0.0.1:${port}`;
+				validationResult = await validateSharedBackendKey(plaintext, selfUrl);
+				break;
+			}
+			default: {
+				// TypeScript exhaustive check
+				const _exhaustive: never = name;
+				validationResult = { valid: false, error: "Unknown credential name" };
+			}
+		}
+
+		// Update validation state in DB
 		const now = new Date().toISOString();
-		const newState: CredentialState = validationResult.valid ? "valid" : "present_untested";
+		const newState: CredentialState = validationResult.valid ? "valid" : "invalid";
 
 		db.update(serverCredentials)
 			.set({ validationState: newState, lastValidatedAt: now, updatedAt: now })
