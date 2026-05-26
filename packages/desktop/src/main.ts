@@ -12,7 +12,9 @@ import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 import { app, BrowserWindow, dialog, ipcMain, Menu, shell } from "electron";
 
-const Dirname = path.dirname(fileURLToPath(import.meta.url));
+// @lore N5: CJS output (esbuild) has __dirname; ESM (dev/tsx) has import.meta.url.
+const Dirname =
+	typeof __dirname === "string" ? __dirname : path.dirname(fileURLToPath(import.meta.url));
 
 import { buildAppMenuTemplate } from "./app-menu.js";
 import { getPort, startServer, waitForHealth } from "./boot-server.js";
@@ -405,6 +407,13 @@ async function startApp(): Promise<void> {
 	});
 	ipcMain.handle("shell:open-data", async (): Promise<void> => {
 		await shell.openPath(userDataDir);
+	});
+	ipcMain.handle("shell:select-folder", async (): Promise<string | null> => {
+		const result = await dialog.showOpenDialog(mainWindow, {
+			properties: ["openDirectory"],
+			title: "Select repository folder",
+		});
+		return result.canceled ? null : (result.filePaths[0] ?? null);
 	});
 
 	// Build and set application menu

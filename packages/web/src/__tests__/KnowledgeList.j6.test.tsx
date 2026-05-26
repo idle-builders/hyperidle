@@ -1,8 +1,120 @@
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { KnowledgeList } from "../pages/KnowledgeList";
+
+/**
+ * N5: KnowledgeList j6 tests updated to use real API-shaped data.
+ * The scope indicator still reads from the URL param (J6 AC preserved).
+ * Tab default logic now uses status === "draft" (was "needs_human").
+ * Scope-based item filtering is removed — the O2 schema has no scope column.
+ * Curation suggestions are suppressed (no /api/knowledge/suggestions endpoint yet).
+ */
+
+/** API items that include a draft item — Triage should be default tab. */
+const ITEMS_WITH_DRAFT = [
+	{
+		id: "k1",
+		topic: "Architecture",
+		title: "Auth Strategy",
+		body: "Auth",
+		format: "markdown",
+		status: "active",
+		version: 1,
+		updatedBy: "agent",
+		createdAt: "2024-01-01T00:00:00Z",
+		updatedAt: "2024-01-02T00:00:00Z",
+		signals: {
+			lastActivityAt: null,
+			accessCount30d: null,
+			citationCount: null,
+			relevanceScore: null,
+		},
+	},
+	{
+		id: "k2",
+		topic: "Process",
+		title: "Review Queue Triage Heuristics",
+		body: "Triage heuristics",
+		format: "markdown",
+		status: "draft",
+		version: 1,
+		updatedBy: "agent",
+		createdAt: "2024-01-01T00:00:00Z",
+		updatedAt: "2024-01-03T05:00:00Z",
+		signals: {
+			lastActivityAt: null,
+			accessCount30d: null,
+			citationCount: null,
+			relevanceScore: null,
+		},
+	},
+	{
+		id: "k3",
+		topic: "Architecture",
+		title: "Legacy Service Mesh Pattern",
+		body: "Legacy mesh",
+		format: "markdown",
+		status: "archived",
+		version: 1,
+		updatedBy: "agent",
+		createdAt: "2024-01-01T00:00:00Z",
+		updatedAt: "2024-01-01T00:00:00Z",
+		signals: {
+			lastActivityAt: null,
+			accessCount30d: null,
+			citationCount: null,
+			relevanceScore: null,
+		},
+	},
+];
+
+/** API items with no draft — Curated should be default tab. */
+const ITEMS_NO_DRAFT = [
+	{
+		id: "k4",
+		topic: "Architecture",
+		title: "Validated Auth Decision",
+		body: "Auth",
+		format: "markdown",
+		status: "active",
+		version: 1,
+		updatedBy: "agent",
+		createdAt: "2024-01-01T00:00:00Z",
+		updatedAt: "2024-01-02T00:00:00Z",
+		signals: {
+			lastActivityAt: null,
+			accessCount30d: null,
+			citationCount: null,
+			relevanceScore: null,
+		},
+	},
+	{
+		id: "k5",
+		topic: "Research",
+		title: "User Research Summary",
+		body: "Research summary",
+		format: "markdown",
+		status: "active",
+		version: 1,
+		updatedBy: "agent",
+		createdAt: "2024-01-01T00:00:00Z",
+		updatedAt: "2024-01-01T00:00:00Z",
+		signals: {
+			lastActivityAt: null,
+			accessCount30d: null,
+			citationCount: null,
+			relevanceScore: null,
+		},
+	},
+];
+
+// Mock module — each test configures the return value via mockReturnValue
+const mockUseFetch = vi.fn();
+vi.mock("../hooks/useFetch", () => ({
+	useFetch: (...args: unknown[]) => mockUseFetch(...args),
+}));
 
 function renderAt(path: string): ReturnType<typeof render> {
 	return render(
@@ -13,6 +125,19 @@ function renderAt(path: string): ReturnType<typeof render> {
 }
 
 describe("KnowledgeList — J6 scope + tabs + triage", () => {
+	beforeEach(() => {
+		// Default: items with a draft item so Triage is default
+		mockUseFetch.mockReturnValue({
+			data: { items: ITEMS_WITH_DRAFT },
+			error: null,
+			isLoading: false,
+		});
+	});
+
+	afterEach(() => {
+		vi.clearAllMocks();
+	});
+
 	it("defaults to the practice scope when no ?scope= is provided", () => {
 		renderAt("/knowledge");
 		expect(screen.getByTestId("knowledge-scope-indicator")).toHaveTextContent("practice");
@@ -28,8 +153,7 @@ describe("KnowledgeList — J6 scope + tabs + triage", () => {
 		expect(screen.getByTestId("knowledge-scope-indicator")).toHaveTextContent("practice");
 	});
 
-	it("defaults to the Triage tab when any item has status 'needs_human'", async () => {
-		// Practice scope has k6 with status=needs_human
+	it("defaults to the Triage tab when any item has status 'draft'", async () => {
 		renderAt("/knowledge");
 		await waitFor(() => {
 			expect(screen.getByRole("tab", { name: "Triage" })).toHaveAttribute("aria-selected", "true");
@@ -37,27 +161,10 @@ describe("KnowledgeList — J6 scope + tabs + triage", () => {
 		expect(screen.getByTestId("knowledge-triage-view")).toBeInTheDocument();
 	});
 
-	it("sorts Triage items by attention score descending with reason captions under titles", async () => {
+	it("renders draft items in the Triage view", async () => {
 		renderAt("/knowledge");
 		const view = await screen.findByTestId("knowledge-triage-view");
-		const titles = within(view)
-			.getAllByLabelText(/^Knowledge: /)
-			.map((el) => el.textContent);
-		// k6 (92) > k7 (74) > k3 (68) > k5 (32) > k4 (15) > k2 (12) > k1 (10)
-		expect(titles[0]).toBe("Review Queue Triage Heuristics");
-		expect(titles[1]).toBe("Legacy Service Mesh Pattern");
-		// The "Why now" reason line is rendered as a caption under the title.
-		expect(within(view).getByText("3 new observations since review")).toBeInTheDocument();
-		expect(within(view).getByText("Unused for 2 cycles")).toBeInTheDocument();
-	});
-
-	it("truncates reason lines longer than 60 characters with an ellipsis", async () => {
-		// None of the practice-scope reasons exceed 60 chars currently; the
-		// truncation function is exercised unit-style via a short custom fixture.
-		// Here we assert the shortest practice reason renders in full.
-		renderAt("/knowledge");
-		const view = await screen.findByTestId("knowledge-triage-view");
-		expect(within(view).getByText("Applied 4 times this cycle")).toBeInTheDocument();
+		expect(within(view).getByText("Review Queue Triage Heuristics")).toBeInTheDocument();
 	});
 
 	it("switches to Curated on tab click", async () => {
@@ -68,58 +175,53 @@ describe("KnowledgeList — J6 scope + tabs + triage", () => {
 		expect(screen.getByTestId("knowledge-curated-view")).toBeInTheDocument();
 	});
 
-	it("Curated view renders topic group headers with counts and stale counts", async () => {
+	it("Curated view renders topic group headers with item counts", async () => {
 		const user = userEvent.setup();
 		renderAt("/knowledge");
 		await user.click(screen.getByRole("tab", { name: "Curated" }));
 		const curated = await screen.findByTestId("knowledge-curated-view");
-		// Architecture has 3 items (k1, k2, k7) with k7 stale
+		// ITEMS_WITH_DRAFT: only k1 is "active" in "Architecture" topic
 		const architectureHeader = within(curated).getByTestId("topic-group-Architecture");
 		expect(within(architectureHeader).getByText("Architecture")).toBeInTheDocument();
-		expect(within(architectureHeader).getByLabelText("3 items")).toBeInTheDocument();
-		expect(within(architectureHeader).getByLabelText("1 stale")).toBeInTheDocument();
-		// Amber dot for some_stale (1/3 stale)
-		expect(within(architectureHeader).getByTestId("topic-health-Architecture")).toHaveAttribute(
-			"data-health",
-			"some_stale",
-		);
+		expect(within(architectureHeader).getByLabelText("1 items")).toBeInTheDocument();
 	});
 
-	it("renders the curation suggestion card in Triage, distinct from KnowledgeRow", async () => {
+	it("defaults to Curated tab when no items have status 'draft'", async () => {
+		mockUseFetch.mockReturnValue({
+			data: { items: ITEMS_NO_DRAFT },
+			error: null,
+			isLoading: false,
+		});
 		renderAt("/knowledge");
-		const triage = await screen.findByTestId("knowledge-triage-view");
-		const suggestions = within(triage).getByTestId("curation-suggestions");
-		expect(within(suggestions).getByText("Merge these 3 items?")).toBeInTheDocument();
-		expect(
-			within(suggestions).getByRole("group", { name: /curation suggestion/i }),
-		).toBeInTheDocument();
-	});
-
-	it("defaults to Curated tab for scopes with no needs_human items", async () => {
-		renderAt("/knowledge?scope=factory");
-		// Factory has k12 needs_human, so actually defaults to Triage. Use a scope
-		// that has none: there is no such scope in our fixtures, so we assert
-		// product also defaults to Triage (k8 is needs_human). We negatively check
-		// that once the user flips to a scope without needs_human, default is
-		// Curated. Trick-free approach: render Practice and verify Triage; flip
-		// to Curated manually.
 		await waitFor(() => {
-			expect(screen.getByRole("tab", { name: "Triage" })).toHaveAttribute("aria-selected", "true");
+			expect(screen.getByRole("tab", { name: "Curated" })).toHaveAttribute("aria-selected", "true");
 		});
 	});
 
-	it("switching scope via the URL resets the tab back to the default for the new scope", async () => {
-		// Product scope also has needs_human (k8), so both default to Triage.
-		// We validate by switching Curated manually, then remounting under a new
-		// scope URL — the tab must reset.
+	it("shows empty triage state when there are no draft items", async () => {
+		mockUseFetch.mockReturnValue({
+			data: { items: ITEMS_NO_DRAFT },
+			error: null,
+			isLoading: false,
+		});
 		const user = userEvent.setup();
-		const { unmount } = renderAt("/knowledge?scope=practice");
-		await user.click(screen.getByRole("tab", { name: "Curated" }));
-		expect(screen.getByRole("tab", { name: "Curated" })).toHaveAttribute("aria-selected", "true");
-		unmount();
-		renderAt("/knowledge?scope=product");
-		await waitFor(() => {
-			expect(screen.getByRole("tab", { name: "Triage" })).toHaveAttribute("aria-selected", "true");
+		renderAt("/knowledge");
+		// Switch to triage manually
+		await user.click(screen.getByRole("tab", { name: "Triage" }));
+		expect(await screen.findByTestId("knowledge-triage-empty")).toBeInTheDocument();
+	});
+
+	it("shows empty curated state when no active items exist", async () => {
+		mockUseFetch.mockReturnValue({
+			data: { items: [] },
+			error: null,
+			isLoading: false,
 		});
+		renderAt("/knowledge");
+		// All tabs default to curated when no draft items
+		await waitFor(() => {
+			expect(screen.getByRole("tab", { name: "Curated" })).toHaveAttribute("aria-selected", "true");
+		});
+		expect(await screen.findByTestId("knowledge-curated-empty")).toBeInTheDocument();
 	});
 });

@@ -71,6 +71,15 @@ function setFetchMock(threads: MockListRow[]): ReturnType<typeof vi.fn> {
 				json: async () => ({ threads, nextCursor: null }),
 			} as Response;
 		}
+		// /api/auth/me — return a valid user so useCurrentUser resolves with a truthy
+		// id, which allows useConversationsThreads to fire its fetch rather than
+		// short-circuiting to the empty ready state (N5 fix).
+		if (url.includes("/api/auth/me")) {
+			return {
+				ok: true,
+				json: async () => ({ id: "u-founder-test", name: "Founder", email: "", avatarUrl: null }),
+			} as Response;
+		}
 		// Detail endpoint: return minimal valid body so ConversationsReview can mount.
 		return {
 			ok: true,
@@ -222,11 +231,19 @@ describe("L8 — AppShell renders Conversations Submenu thread list", () => {
 	});
 
 	it("renders ErrorState when /api/threads request fails", async () => {
-		global.fetch = vi.fn(async () => ({
-			ok: false,
-			status: 500,
-			json: async () => ({ error: "boom" }),
-		})) as unknown as typeof fetch;
+		// /api/auth/me must resolve with a valid user so that useConversationsThreads
+		// fires the threads fetch (rather than short-circuiting to the empty ready
+		// state). Only the threads endpoint is made to fail (N5 fix).
+		global.fetch = vi.fn(async (input: RequestInfo | URL) => {
+			const url = typeof input === "string" ? input : input.toString();
+			if (url.includes("/api/auth/me")) {
+				return {
+					ok: true,
+					json: async () => ({ id: "u-founder-test", name: "Founder", email: "", avatarUrl: null }),
+				} as Response;
+			}
+			return { ok: false, status: 500, json: async () => ({ error: "boom" }) } as Response;
+		}) as unknown as typeof fetch;
 		renderShell();
 		await waitFor(() => {
 			expect(screen.getByTestId("thread-sections-error")).toBeInTheDocument();

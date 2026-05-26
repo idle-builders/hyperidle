@@ -60,19 +60,38 @@ describe("bundle script (AC1, AC12)", () => {
 		expect(src).toMatch(/["']better-sqlite3["']/);
 	});
 
-	it("bundle script externalizes postgres (AC1 — pg driver not used in desktop)", () => {
+	it("bundle script stubs postgres via pgStubPlugin (desktop uses SQLite only)", () => {
 		const src = fs.readFileSync(BUNDLE_SCRIPT, "utf-8");
+		expect(src).toMatch(/pgStubPlugin/);
 		expect(src).toMatch(/["']postgres["']/);
 	});
 
-	it("bundle script externalizes drizzle-orm/postgres-js (critique finding #1 — db barrel re-exports pg-connection)", () => {
+	it("bundle script stubs drizzle-orm/postgres-js via pgStubPlugin (db barrel re-exports pg-connection)", () => {
 		const src = fs.readFileSync(BUNDLE_SCRIPT, "utf-8");
+		expect(src).toMatch(/pgStubPlugin/);
 		expect(src).toMatch(/drizzle-orm\/postgres-js/);
 	});
 
-	it("bundle script externalizes @electric-sql/pglite (AC1 — not needed in desktop)", () => {
+	it("bundle script stubs @electric-sql/pglite via pgStubPlugin (not needed in desktop)", () => {
 		const src = fs.readFileSync(BUNDLE_SCRIPT, "utf-8");
+		expect(src).toMatch(/pgStubPlugin/);
 		expect(src).toMatch(/@electric-sql\/pglite/);
+	});
+
+	it("bundle script does NOT externalize pg modules (v0.1.0 bug — dangling require in packaged app)", () => {
+		const src = fs.readFileSync(BUNDLE_SCRIPT, "utf-8");
+		const externalsMatch = src.match(/const EXTERNALS\s*=\s*\[([^\]]*)\]/s);
+		expect(externalsMatch).toBeTruthy();
+		const externalsContent = externalsMatch?.[1] ?? "";
+		expect(externalsContent).not.toContain("postgres");
+		expect(externalsContent).not.toContain("drizzle-orm");
+		expect(externalsContent).not.toContain("pglite");
+	});
+
+	it("bundle script validates the output for dangling requires", () => {
+		const src = fs.readFileSync(BUNDLE_SCRIPT, "utf-8");
+		expect(src).toMatch(/danglingRequires/);
+		expect(src).toMatch(/Bundle validation FAILED/);
 	});
 
 	it("bundle script compiles a separate preload entry (preload runs in separate Electron context)", () => {

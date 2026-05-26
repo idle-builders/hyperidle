@@ -180,3 +180,67 @@ export const test = base.extend<CoreApiFixtures>({
 });
 
 export { expect };
+
+/**
+ * Register core API mocks on a manually-created page (browser.newContext/newPage).
+ * The auto-use fixture only covers the default `page` — tests that create their
+ * own contexts must call this to get the same /api/* fallbacks.
+ */
+export async function registerCoreMocks(page: import("@playwright/test").Page): Promise<void> {
+	await page.route("**/api/auth/me", async (route) => {
+		if (route.request().method() === "GET") {
+			await route.fulfill({
+				status: 200,
+				contentType: "application/json",
+				body: JSON.stringify(DEFAULT_AUTH_ME),
+			});
+		} else {
+			await route.continue();
+		}
+	});
+	await page.route("**/api/settings", async (route) => {
+		const m = route.request().method();
+		if (m === "GET" || m === "PATCH") {
+			await route.fulfill({
+				status: 200,
+				contentType: "application/json",
+				body: JSON.stringify(DEFAULT_SETTINGS),
+			});
+		} else {
+			await route.continue();
+		}
+	});
+	await page.route("**/api/rail", async (route) => {
+		if (route.request().method() === "GET") {
+			await route.fulfill({
+				status: 200,
+				contentType: "application/json",
+				body: JSON.stringify(DEFAULT_RAIL),
+			});
+		} else {
+			await route.continue();
+		}
+	});
+	await page.route("**/api/threads", async (route) => {
+		if (route.request().method() === "GET") {
+			await route.fulfill({
+				status: 200,
+				contentType: "application/json",
+				body: JSON.stringify(DEFAULT_THREADS),
+			});
+		} else {
+			await route.continue();
+		}
+	});
+	await page.route("**/api/products", async (route) => {
+		if (route.request().method() === "GET") {
+			await route.fulfill({
+				status: 200,
+				contentType: "application/json",
+				body: JSON.stringify(DEFAULT_PRODUCTS),
+			});
+		} else {
+			await route.continue();
+		}
+	});
+}

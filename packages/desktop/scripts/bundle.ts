@@ -11,13 +11,13 @@
  * require() tricks. See plans/N5/architecture.md §Design-it-twice for the
  * full rationale.
  *
- * @lore N5: drizzle-orm/postgres-js MUST be external even though postgres is
- * already external. The @hyperidle/db barrel re-exports createPgDb from
- * pg-connection.ts which has a top-level `import { drizzle } from
- * "drizzle-orm/postgres-js"`. esbuild processes the full barrel and tries to
- * bundle the subpath import. Since postgres (the dep) is external, the
- * subpath import must also be external to avoid a broken bundle.
- * See plans/N5/architecture-critique.md CRITICAL finding #1.
+ * @lore N5: postgres, drizzle-orm/postgres-js, and @electric-sql/pglite are
+ * stubbed (not externalized) via the pgStubPlugin. The @hyperidle/db barrel
+ * re-exports pg-connection.ts which has top-level imports of these modules.
+ * Externalizing them leaves dangling require() calls in the bundle that fail
+ * at runtime because the modules aren't in the packaged node_modules. The
+ * stub plugin replaces them with empty modules at bundle time — desktop only
+ * uses SQLite so these code paths are never reached.
  *
  * @lore N5: Node target is node22 (NOT node20). Electron 36 ships Node 22.x
  * (ABI 135). Using node20 produces a technically working but incorrect build
@@ -43,18 +43,29 @@ fs.mkdirSync(DIST_DIR, { recursive: true });
 // Packages that must NOT be bundled:
 // - electron: provided by the Electron runtime at startup
 // - better-sqlite3: native .node addon, must be rebuilt per ABI and cannot be bundled
-// - postgres: pg driver is not used in desktop mode (SQLite only); the db barrel
-//   re-exports pg code so we must exclude it from the bundle
-// - drizzle-orm/postgres-js: subpath of drizzle-orm that imports from postgres;
-//   must be external because postgres itself is external (see lore above)
-// - @electric-sql/pglite: PGlite is a separate native module, unused in desktop
-const EXTERNALS = [
-	"electron",
-	"better-sqlite3",
-	"postgres",
-	"drizzle-orm/postgres-js",
-	"@electric-sql/pglite",
-];
+const EXTERNALS = ["electron", "better-sqlite3"];
+
+// PostgreSQL-only modules that the @hyperidle/db barrel pulls in via
+// pg-connection.ts. Desktop uses SQLite only — these are never called at
+// runtime. Instead of externalizing (which leaves require() calls for
+// modules not in the packaged node_modules), we stub them at bundle time.
+const PG_STUB_MODULES = ["postgres", "drizzle-orm/postgres-js", "@electric-sql/pglite"];
+
+const pgStubPlugin: esbuild.Plugin = {
+	name: "pg-stub",
+	setup(build) {
+		const escaped = PG_STUB_MODULES.map((s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
+		const filter = new RegExp(`^(${escaped.join("|")})$`);
+		build.onResolve({ filter }, (args) => ({
+			path: args.path,
+			namespace: "pg-stub",
+		}));
+		build.onLoad({ filter: /.*/, namespace: "pg-stub" }, () => ({
+			contents: "module.exports = {};",
+			loader: "js",
+		}));
+	},
+};
 
 // Bundle main process
 await esbuild.build({
@@ -66,6 +77,7 @@ await esbuild.build({
 	format: "cjs",
 	outfile: path.join(DIST_DIR, "main.cjs"),
 	external: EXTERNALS,
+	plugins: [pgStubPlugin],
 	// sourcemap: true for crash diagnostics — stack traces must be readable
 	sourcemap: true,
 	// minify: false — crash stack traces must be human-readable; bundle size is
@@ -92,4 +104,41 @@ await esbuild.build({
 // where Dirname resolves to dist/ in the bundled CJS output
 fs.copyFileSync(path.join(DESKTOP_DIR, "src/splash.html"), path.join(DIST_DIR, "splash.html"));
 
-process.stdout.write("Desktop bundle complete.\n");
+// Post-bundle validation: scan output for require() calls that reference modules
+// not available in the packaged app. Catches the class of bug where an external
+// module is missing at runtime (e.g. drizzle-orm/postgres-js in v0.1.0).
+import { isBuiltin } from "node:module";
+
+const ALLOWED_EXTERNALS = new Set([
+	...EXTERNALS,
+	// Optional ws peer deps — ws try/catches these, safe if missing
+	"bufferutil",
+	"utf-8-validate",
+]);
+
+const bundleContent = fs.readFileSync(path.join(DIST_DIR, "main.cjs"), "utf-8");
+const requirePattern = /require\("([^"]+)"\)/g;
+const danglingRequires: string[] = [];
+for (const match of bundleContent.matchAll(requirePattern)) {
+	const mod = match[1];
+	if (mod.startsWith("./") || mod.startsWith("../")) continue;
+	if (isBuiltin(mod)) continue;
+	if (ALLOWED_EXTERNALS.has(mod)) continue;
+	danglingRequires.push(mod);
+}
+
+if (danglingRequires.length > 0) {
+	const unique = [...new Set(danglingRequires)];
+	process.stderr.write(
+		`\nBundle validation FAILED: found require() for modules not in the packaged app:\n`,
+	);
+	for (const mod of unique) {
+		process.stderr.write(`  - ${mod}\n`);
+	}
+	process.stderr.write(
+		`\nThese modules must be either stubbed (pgStubPlugin) or included in electron-builder files.\n`,
+	);
+	process.exit(1);
+}
+
+process.stdout.write("Desktop bundle complete. Validation passed.\n");

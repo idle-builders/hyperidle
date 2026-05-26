@@ -15,17 +15,10 @@
  * See plans/electron/auth-decision.md for the full auth model.
  */
 
-declare global {
-	interface Window {
-		// biome-ignore lint/style/useNamingConvention: Electron contextBridge exposeInMainWorld uses this exact name; must match N3 preload
-		__HYPERIDLE_API_KEY__?: string;
-	}
-}
-
 function getApiKey(): string | undefined {
-	// Electron preload (N3 will set this via contextBridge)
-	if (typeof window !== "undefined" && window.__HYPERIDLE_API_KEY__) {
-		return window.__HYPERIDLE_API_KEY__;
+	// Electron preload — contextBridge exposes window.__HYPERIDLE__.apiKey
+	if (typeof window !== "undefined" && window.__HYPERIDLE__?.apiKey) {
+		return window.__HYPERIDLE__.apiKey;
 	}
 	// Vite dev: VITE_ prefix required by Vite to expose to client code
 	if (import.meta.env.VITE_HYPERIDLE_API_KEY) {
