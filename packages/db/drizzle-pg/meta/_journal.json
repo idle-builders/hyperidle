@@ -85,6 +85,13 @@
 			"when": 1748000000000,
 			"tag": "0011_o2_kernel_strategy_separation",
 			"breakpoints": true
+		},
+		{
+			"idx": 12,
+			"version": "7",
+			"when": 1779817622461,
+			"tag": "0012_Q2_knowledge_scope",
+			"breakpoints": true
 		}
 	]
 }
