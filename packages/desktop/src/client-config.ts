@@ -16,8 +16,6 @@ import { z } from "zod";
 
 const BackendModeSchema = z.enum(["local", "shared"]);
 
-export type BackendMode = z.infer<typeof BackendModeSchema>;
-
 const WindowStateSchema = z.object({
 	x: z.number().optional(),
 	y: z.number().optional(),

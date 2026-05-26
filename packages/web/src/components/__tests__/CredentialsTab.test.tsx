@@ -192,7 +192,6 @@ describe("P3 AC-13 — CredentialsTab: fixed catalog display", () => {
 			await userEvent.click(setButtons[0]);
 
 			await waitFor(() => {
-				const passwordInput = screen.queryByRole("textbox", { hidden: true });
 				// Look for a password-type input
 				const inputs = document.querySelectorAll('input[type="password"]');
 				expect(inputs.length).toBeGreaterThanOrEqual(1);

@@ -197,7 +197,6 @@ function CatalogModeCredentials({ bridge }: CatalogModeProps): JSX.Element {
 									value={editValue}
 									onChange={(e) => setEditValue(e.target.value)}
 									placeholder={`Enter ${entry.label}`}
-									autoFocus
 								/>
 								{warning && editingName === entry.name && (
 									<p className="text-xs text-warning">{warning}</p>
