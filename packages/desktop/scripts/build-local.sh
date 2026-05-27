@@ -31,6 +31,20 @@ node -e "
 cp "$ISOLATED/package-lock.json" "$DESKTOP_DIR/package-lock.json"
 rm -rf "$ISOLATED"
 
+# Rebuild better-sqlite3 for Electron's Node ABI (not system Node).
+# electron-builder's built-in npmRebuild doesn't reliably find hoisted
+# workspace deps, so we rebuild the native binary explicitly using
+# Electron's Node headers.
+echo "==> Rebuilding better-sqlite3 for Electron"
+ELECTRON_VERSION=$(node -e "console.log(require('$REPO_ROOT/node_modules/electron/package.json').version)")
+cd "$REPO_ROOT/node_modules/better-sqlite3"
+HOME="$HOME/.electron-gyp" npx --yes node-gyp rebuild \
+  --target="$ELECTRON_VERSION" \
+  --arch=arm64 \
+  --dist-url=https://electronjs.org/headers \
+  --runtime=electron
+cd "$REPO_ROOT"
+
 echo "==> Building unsigned app (no signing, no notarization)"
 cd "$DESKTOP_DIR"
 CSC_IDENTITY_AUTO_DISCOVERY=false \
@@ -41,10 +55,8 @@ CSC_IDENTITY_AUTO_DISCOVERY=false \
   --publish never
 cd "$REPO_ROOT"
 
-# electron-builder's npmRebuild recompiles better-sqlite3 for Electron's Node
-# ABI, breaking it for Node dev tooling. Restore the dev-compatible binary.
+# Restore better-sqlite3 for system Node (dev tooling).
 echo "==> Restoring dev-compatible native modules"
-cd "$REPO_ROOT"
 npm rebuild better-sqlite3 2>/dev/null
 
 echo ""

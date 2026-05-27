@@ -71,7 +71,7 @@ extraResources:
 # @lore N5: npmRebuild:true runs electron-rebuild internally. better-sqlite3
 # MUST be in desktop/package.json dependencies (not just workspace packages)
 # so electron-rebuild and electron-builder find it in the right node_modules.
-npmRebuild: true
+npmRebuild: false
 
 # DMG window layout (standard Drag-to-Applications style)
 dmg:
