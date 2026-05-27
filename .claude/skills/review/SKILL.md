@@ -44,6 +44,7 @@ Read every function body. Check every `as` cast. Open every test file and verify
 - **Naming** — do names honestly describe what things do?
 - **Component boundaries** — is responsibility correctly assigned across packages?
 - **Spec contradictions** — if two docs disagree, flag it
+- **Doc staleness** — if the implementation changes behavior that a doc in `docs/` describes (API shape, state machine, UI layout, lifecycle, data model), flag the stale doc section as CRITICAL. The builder must update the doc in the same PR. Docs are not "someone else's problem" — they are part of the deliverable.
 
 ---
 

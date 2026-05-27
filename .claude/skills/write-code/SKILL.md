@@ -16,6 +16,8 @@ Implement each task in dependency order. Write the minimum code to make tests pa
 
 Never weaken a test to make it pass. If a test reveals a design flaw, fix the implementation.
 
+**Doc sync:** If your implementation changes behavior documented in `docs/` (API shapes, state machines, UI layouts, lifecycles, data models, decision records), update the relevant doc section in the same commit. Docs are part of the deliverable, not a follow-up task. The reviewer will flag stale docs as CRITICAL.
+
 **Don't rationalize shortcuts:**
 - "The test is wrong" — prove it's wrong before changing it. Most of the time, the implementation is wrong.
 - "I'll add this extra feature while I'm here" — scope creep is the #1 cause of workpackage failure. Build exactly what was asked.

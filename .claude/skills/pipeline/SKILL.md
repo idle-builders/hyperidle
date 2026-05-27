@@ -153,6 +153,8 @@ Phase 3 — builder (TDD):
 
   SEND: SendMessage(to="builder-<id>") with /write-code.
   Builder reads the plan + failing tests; writes minimum code to pass.
+  If the implementation changes behavior described in docs/, builder
+  updates the relevant doc sections in the same commit (doc sync).
   Runs npm run verify — must pass before pushing.
   If Builder hits a plan-vs-reality conflict, it raises a BLOCKER rather
   than redesigning in-flight (TE-22).
