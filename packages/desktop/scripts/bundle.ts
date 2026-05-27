@@ -11,13 +11,12 @@
  * require() tricks. See plans/N5/architecture.md §Design-it-twice for the
  * full rationale.
  *
- * @lore N5: postgres, drizzle-orm/postgres-js, and @electric-sql/pglite are
- * stubbed (not externalized) via the pgStubPlugin. The @hyperidle/db barrel
- * re-exports pg-connection.ts which has top-level imports of these modules.
- * Externalizing them leaves dangling require() calls in the bundle that fail
- * at runtime because the modules aren't in the packaged node_modules. The
- * stub plugin replaces them with empty modules at bundle time — desktop only
- * uses SQLite so these code paths are never reached.
+ * @lore PGlite migration: postgres and drizzle-orm/postgres-js are stubbed
+ * (not externalized) via the pgStubPlugin. Desktop uses PGlite (not
+ * postgres-js), so these code paths are never reached. @electric-sql/pglite
+ * is externalized (not stubbed) — it must be available at runtime since
+ * desktop now uses PGlite as its database engine. The WASM binary ships
+ * inside the pglite package and must be resolvable from node_modules.
  *
  * @lore N5: Node target is node22 (NOT node20). Electron 36 ships Node 22.x
  * (ABI 135). Using node20 produces a technically working but incorrect build
@@ -42,14 +41,13 @@ fs.mkdirSync(DIST_DIR, { recursive: true });
 
 // Packages that must NOT be bundled:
 // - electron: provided by the Electron runtime at startup
-// - better-sqlite3: native .node addon, must be rebuilt per ABI and cannot be bundled
-const EXTERNALS = ["electron", "better-sqlite3"];
+// - @electric-sql/pglite: WASM binary must be loaded from disk at runtime
+const EXTERNALS = ["electron", "@electric-sql/pglite"];
 
-// PostgreSQL-only modules that the @hyperidle/db barrel pulls in via
-// pg-connection.ts. Desktop uses SQLite only — these are never called at
-// runtime. Instead of externalizing (which leaves require() calls for
-// modules not in the packaged node_modules), we stub them at bundle time.
-const PG_STUB_MODULES = ["postgres", "drizzle-orm/postgres-js", "@electric-sql/pglite"];
+// VPS/cloud-only modules that the @hyperidle/db barrel pulls in via
+// pg-connection.ts. Desktop uses PGlite only — these are never called at
+// runtime. Stubbed at bundle time to avoid dangling require() calls.
+const PG_STUB_MODULES = ["postgres", "drizzle-orm/postgres-js"];
 
 const pgStubPlugin: esbuild.Plugin = {
 	name: "pg-stub",

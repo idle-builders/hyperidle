@@ -341,7 +341,7 @@ function bindWindowStatePersistence(mainWindow: BrowserWindow, configPath: strin
 }
 
 /**
- * Run DB migrations with SQLITE_BUSY retry dialog.
+ * Run DB migrations with lock-contention retry dialog.
  * Returns false if the user chose to quit, true on success.
  */
 async function runMigrationsWithRetry(
@@ -355,8 +355,11 @@ async function runMigrationsWithRetry(
 			await runMigrations(dbPath, migrationsFolder);
 			migrated = true;
 		} catch (err) {
-			const nodeErr = err as NodeJS.ErrnoException;
-			if (nodeErr.code === "SQLITE_BUSY") {
+			const msg = err instanceof Error ? err.message : "";
+			// @lore PGlite migration: PGlite throws "database is locked" or
+			// Postgres error code 55P03 (lock_not_available) when another
+			// process holds the data directory. Replaces SQLITE_BUSY check.
+			if (msg.includes("locked") || msg.includes("55P03")) {
 				const response = await dialog.showMessageBox({
 					type: "warning",
 					title: "HyperIdle",

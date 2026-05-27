@@ -43,18 +43,13 @@ mac:
   icon: build/icon.icns
 
 # Files included in the asar (app bundle)
-# @lore N5: electron-builder's bun file traversal walks ALL of node_modules
-# (it can't parse bun.lockb). Without explicit exclusions it bundles the entire
-# dependency tree — including the 262MB electron package and 50+ prebuild-install
-# transitive deps that are only needed at install time. Only better-sqlite3
-# (native .node binary), bindings, and file-uri-to-path are needed at runtime.
-# Everything else is compiled into dist/main.cjs by esbuild.
+# @lore PGlite migration: PGlite is pure WASM — no native binaries needed.
+# The WASM bundle ships inside @electric-sql/pglite/dist and must be included
+# in the asar. Everything else is compiled into dist/main.cjs by esbuild.
 files:
   - "dist/**/*"
   - "!dist/**/*.map"
-  - "node_modules/better-sqlite3/**"
-  - "node_modules/bindings/**"
-  - "node_modules/file-uri-to-path/**"
+  - "node_modules/@electric-sql/pglite/**"
 
 # Resources outside the asar, accessible via process.resourcesPath at runtime.
 # resolveMigrationsFolder() uses process.resourcesPath + "/drizzle" in packaged mode.
@@ -67,10 +62,7 @@ extraResources:
   - from: "../../packages/web/dist"
     to: "web-dist"
 
-# Trigger electron-rebuild for better-sqlite3 against Electron's Node ABI.
-# @lore N5: npmRebuild:true runs electron-rebuild internally. better-sqlite3
-# MUST be in desktop/package.json dependencies (not just workspace packages)
-# so electron-rebuild and electron-builder find it in the right node_modules.
+# @lore PGlite migration: no native modules — npmRebuild not needed.
 npmRebuild: false
 
 # DMG window layout (standard Drag-to-Applications style)
