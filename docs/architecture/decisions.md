@@ -7,12 +7,12 @@
 - **Session note quality.** No rigid template. LLMs write good prose; what matters is flight-level guidance on what to write about (goal, outcome, changes, next steps, hazards). The skill package provides defaults; the meta layer doesn't parse notes structurally.
 - **Context compaction detection.** Continuous session notes throughout the session (agent writes to `work/session-notes.md` as it works). Pre-compaction trigger where the harness supports it (part of the Harness Adapter contract). Token-counting heuristic as fallback.
 - **Hot-reload for skills.** Next session picks it up. No mid-session propagation needed.
-- **Desktop shell.** Web-first. No Tauri, no PWA wrapper. Plain web app served by the API process. Native apps or PWA can be added later if needed.
-- **Mobile strategy.** Start online-first with a responsive web app. No dedicated native app or offline-first PWA in v1.
+- **Desktop shell.** Electron. Server embedded in main process (`@hono/node-server`). SQLite via `better-sqlite3`. Auth via auto-generated API key injected by preload bridge. Distributed as signed/notarized DMG via Homebrew cask.
+- **Mobile strategy.** None. Desktop-only. Two power users at desks.
 - **Canvas (bet placement) tech.** Simple symbolic UI — not an actual canvas or drag-and-drop zone. A two-column layout (shaped / committed) with a hard capacity cap, rendered as `BetCard`s. Standard React components, no canvas library needed.
 - **Scheduler architecture.** Single-process (Node.js event loop). API server and Scheduler share one process. Materialization and session-start calls run as async tasks so the event loop isn't blocked. **Scaling note:** if measured latency degrades under load, extract Scheduler to its own process communicating via Event Bus. Monitor for this.
 - **No external framework integrations in the meta layer.** No Letta, no Agent Mail, no Temporal, no Inngest. All agentic integrations happen through the Agent Runtime layer (Harness Adapters). The meta layer stays minimal: SQLite, TypeScript/Node.js, the Knowledge Fabric, and the Hono API. Complex dependencies are avoided as long as possible.
-- **Laptop minimum install.** Node.js + Docker + Claude API key. 10-minute install bar for anyone.
+- **Minimum install.** `brew install --cask hyperidle`. Under 2 minutes from download to rendered Factory shell. SetupFlow guides first-run configuration.
 - **Cross-product routine ownership.** Chief of Staff owns routines that observe patterns across products (e.g., portfolio-level Cost Sentinel).
 - **Knowledge Fabric sync.** Continuous writeback via file watcher is the v1 design — no session-boundary dependency. The file watcher on `knowledge/` and `work/` directories writes back changes incrementally (500ms debounce), with WebSocket push to open Knowledge view tabs. See KNOWLEDGE_ARCHITECTURE.md §5.
 - **Notifications.** TBD during development. Will need some notification adapter; specific technology (ntfy.sh, SMTP, push API) decided at implementation time.

@@ -2,15 +2,15 @@
 
 ### UX-1: One App, One Door
 
-The human interface ships as a single application ("the Factory") with two form factors: desktop and mobile. The human never decides "which app do I open." They open the Factory and the Factory presents the right thing.
+The human interface ships as a single native macOS desktop application ("the Factory"). The human never decides "which app do I open." They open the Factory and the Factory presents the right thing.
 
-**UX-1.1** Desktop is a single window with four persistent zones: an **IconRail** (left, view switching), a **Submenu** (per-view, collapsible), a **Main** pane (active content — Conversations, Work, or Knowledge), and a **Rail** (right sidebar, ambient state — always visible, expandable to full panel or minimizable to icon strip). The Rail is the only notification surface; there is no top-bar bell or global toast stream.
+**UX-1.1** Desktop is a single Electron window with four persistent zones: an **IconRail** (left, view switching), a **Submenu** (per-view, collapsible), a **Main** pane (active content — Conversations, Work, or Knowledge), and a **Rail** (right sidebar, ambient state — always visible, expandable to full panel or minimizable to icon strip). The Rail is the only notification surface; there is no top-bar bell or global toast stream.
 
-**UX-1.2** Mobile has three tabs: Home (the Rail translated to a phone screen), Conversations (Conversation List + individual threads), and Work (read-only view of bets and tasks with nudge ordering).
+**UX-1.2** Desktop-only. No mobile form factor.
 
-**UX-1.3** No Knowledge view on mobile. Curating a knowledge base on a phone is hostile to the user.
+**UX-1.3** First-run experience: SetupFlow page guides profile creation (name, email), first product setup, and optional API key configuration. Contextual hints (5 total) appear at key moments for first-time interactions (e.g., first empty bet view, first review thread).
 
-**UX-1.4** One codebase for both form factors. PWA first; native mobile wrapper only if push integrations demand it later. Optional Tauri desktop wrapper for OS-native notifications and tray icon.
+**UX-1.4** One codebase. Electron bundles the Hono API server in-process with the React renderer.
 
 ### UX-2: One Interaction Grammar
 
@@ -20,7 +20,7 @@ The human interface ships as a single application ("the Factory") with two form 
 
 **UX-2.3** Chat threads support reply, start-a-task, close, and escalate.
 
-**UX-2.4** The Coach thread is a pinned thread at the top of the Conversation List, not a separate surface. Same interaction grammar as any other thread.
+**UX-2.4** The Chief of Staff is accessible via an overlay triggered from a button in the bottom-right of the Rail. Opens as a dedicated overlay surface without leaving the current view context. Same interaction grammar as any other thread.
 
 **UX-2.5** Every thread item carries visible `reasoning` — why the agent surfaced this. Non-negotiable for trust.
 
@@ -50,7 +50,7 @@ The human interface ships as a single application ("the Factory") with two form 
 
 ### UX-5: Work View
 
-**UX-5.1** The Work view has three levels of depth: Portfolio Overview (all products — the default landing screen), Team View (per product — bet canvas + task kanban), and Bet Detail (per bet). Navigation drills down; breadcrumbs navigate back up.
+**UX-5.1** The Work view has a five-level drill-down hierarchy: Portfolio (all products), Product (= Team — canvas + task list), Bet Detail (pitch as styled blocks + tasks + artifacts + thread), Task, and Session (jump-out to harness). Navigation drills down; breadcrumbs navigate back up.
 
 **UX-5.2** Portfolio Overview shows product status cards (with velocity sparklines), portfolio-level metrics, and cycle management (phase indicator, advance action, past cycle summaries with cost variance).
 
@@ -58,7 +58,7 @@ The human interface ships as a single application ("the Factory") with two form 
 
 **UX-5.4** Pitches are only visible when the founder clicks "Add bet (+)" on the canvas. This opens a pitch selector overlay that replaces the task kanban temporarily. The founder can browse, expand, commit, reshape, kill, or create new pitches. Closing the selector returns to the task kanban.
 
-**UX-5.5** Capacity is a hard limit on the bet canvas. The commit action on a pitch card enforces it — no drag-to-commit. Cards that exceed capacity cannot be committed.
+**UX-5.5** Capacity is a hard limit on the bet canvas. The commit action on a pitch card enforces it. Cards that exceed capacity cannot be committed. Founders can also create new bets with markdown pitches via BetCreateDialog ("+" button on Canvas).
 
 **UX-5.6** No backlog. Pitches not picked drift off after two cycles unless reshaped.
 
@@ -68,7 +68,7 @@ The human interface ships as a single application ("the Factory") with two form 
 
 **UX-5.9** Pitch creation happens in-app via the pitch selector: a "New Pitch" form (title, appetite, problem, solution sketch, rabbit holes, done condition). No external tooling required.
 
-**UX-5.10** Work view is desktop only. Mobile Work tab shows a read-only list of bets and tasks with nudge-up/nudge-down ordering.
+**UX-5.10** Work view is desktop only. Tasks are agent-owned — humans do not drag or move tasks between states. State changes are requested via thread conversations. Bet-level actions (pause, stop, adjust appetite) show consequence previews before execution.
 
 ### UX-6: Knowledge View
 
@@ -100,7 +100,7 @@ The human interface ships as a single application ("the Factory") with two form 
 
 **UX-8.2** No dedicated notification panel in the top bar. The Rail is the notification surface — minimized strip shows counts (blocked, unread, cost burn), expanded panel shows details and links to relevant views. Push notifications (UX-3) route through the Rail's data, not a separate panel.
 
-**UX-8.3** Settings accessible from user avatar: Notifications (per-type toggles, quiet hours, per-product mute), Budgets (cost caps per agent/team/factory), Agents & Permissions (autonomy levels, pause/reactivate), Cycles (length, cool-down, phase management), Knowledge (auto-archive threshold, conflict rules, import/export).
+**UX-8.3** Settings accessible via gear icon in IconRail. Opens as an overlay (Submenu swaps to settings nav, Main shows active section, Escape to close). Seven sections: Profile, Org Chart, Credentials, Notifications, Appearance, Products, Backend.
 
 **UX-8.4** Keyboard shortcuts: ⌘K (search), ⌘1/2/3 (switch views), ⌘B (toggle Rail), J/K (next/previous in lists), A/R/X/S (verdict actions in review threads), ? (show shortcut help).
 
