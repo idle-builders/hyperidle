@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import Database from "better-sqlite3";
 import { sql } from "drizzle-orm";
@@ -110,6 +111,26 @@ describe("A2: Migration", () => {
 
 		expect(ksfIndexedColumns).toContain("layer");
 		expect(ksfIndexedColumns).toContain("kind");
+	});
+
+	it("journal timestamps are strictly monotonically increasing", () => {
+		const journalPath = resolve(__dirname, "../../drizzle/meta/_journal.json");
+		const journal = JSON.parse(readFileSync(journalPath, "utf-8")) as {
+			entries: Array<{ idx: number; when: number; tag: string }>;
+		};
+
+		expect(journal.entries.length).toBeGreaterThan(0);
+
+		for (let i = 1; i < journal.entries.length; i++) {
+			const prev = journal.entries[i - 1];
+			const curr = journal.entries[i];
+			expect(curr.when).toBeGreaterThan(
+				prev.when,
+				`Migration ${curr.tag} (idx ${curr.idx}, when=${curr.when}) has a timestamp ≤ ${prev.tag} (idx ${prev.idx}, when=${prev.when}). ` +
+					"Drizzle skips migrations whose timestamp is ≤ the last applied migration. " +
+					"This WILL break upgrades for existing users.",
+			);
+		}
 	});
 
 	it("migration is idempotent (running twice does not error)", () => {
