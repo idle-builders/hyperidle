@@ -20,8 +20,8 @@ import { FirstRunRedirect } from "./pages/FirstRunRedirect";
 import { KnowledgeDetail } from "./pages/KnowledgeDetail";
 import { KnowledgeList } from "./pages/KnowledgeList";
 import { NotFound } from "./pages/NotFound";
-import { Onboarding } from "./pages/Onboarding";
 import { RedirectLegacyConversation } from "./pages/RedirectLegacyConversation";
+import { SetupFlow } from "./pages/SetupFlow";
 import { WorkBet } from "./pages/WorkBet";
 import { WorkPortfolio } from "./pages/WorkPortfolio";
 import { WorkProduct } from "./pages/WorkProduct";
@@ -29,8 +29,9 @@ import { WorkProduct } from "./pages/WorkProduct";
 function buildRoutes(): RouteObject[] {
 	const routes: RouteObject[] = [
 		{
-			path: "/onboarding",
-			element: <Onboarding />,
+			// P4: /setup replaces /onboarding. SetupFlow is the initial setup page.
+			path: "/setup",
+			element: <SetupFlow />,
 		},
 		{
 			path: "/",

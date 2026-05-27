@@ -6,7 +6,7 @@
  * AC-25: Profile edits do NOT silently revert (bug fix)
  */
 
-import { act, render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { SettingsProfile } from "../settings/SettingsProfile";
@@ -29,8 +29,8 @@ vi.mock("../hooks/useCurrentUser", () => ({
 
 // Mock useToast
 const mockShowToast = vi.fn();
-vi.mock("../shell/ToastRegion", async () => {
-	const actual = await vi.importActual("../shell/ToastRegion");
+vi.mock("../shell/ToastRegion.js", async () => {
+	const actual = await vi.importActual("../shell/ToastRegion.js");
 	return {
 		...actual,
 		useToast: vi.fn(() => ({ showToast: mockShowToast })),
@@ -88,7 +88,7 @@ describe("SettingsProfile", () => {
 					(opts as RequestInit)?.method === "PATCH",
 			);
 			expect(patchCall).toBeDefined();
-			const body = JSON.parse((patchCall![1] as RequestInit)?.body as string);
+			const body = JSON.parse((patchCall?.[1] as RequestInit)?.body as string);
 			expect(body.name).toBe("Bob Updated");
 		});
 	});
@@ -106,9 +106,8 @@ describe("SettingsProfile", () => {
 		await user.click(saveBtn);
 
 		await waitFor(() => {
-			expect(mockShowToast).toHaveBeenCalledWith(
-				expect.objectContaining({ message: expect.stringMatching(/profile saved/i) }),
-			);
+			// useToast returns showToast(message: string)
+			expect(mockShowToast).toHaveBeenCalledWith(expect.stringMatching(/profile saved/i));
 		});
 	});
 
@@ -136,9 +135,7 @@ describe("SettingsProfile", () => {
 		await user.click(saveBtn);
 
 		await waitFor(() => {
-			expect(mockShowToast).toHaveBeenCalledWith(
-				expect.objectContaining({ message: expect.stringMatching(/failed/i) }),
-			);
+			expect(mockShowToast).toHaveBeenCalledWith(expect.stringMatching(/failed/i));
 		});
 	});
 

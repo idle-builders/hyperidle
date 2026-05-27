@@ -46,7 +46,11 @@ describe("FirstRunRedirect (P4) — setup completion check", () => {
 			"fetch",
 			vi.fn().mockImplementation((url: string) => {
 				if (url.includes("/api/auth/me")) {
-					return Promise.resolve({ ok: false, status: 401, json: async () => ({ error: "Unauthorized" }) });
+					return Promise.resolve({
+						ok: false,
+						status: 401,
+						json: async () => ({ error: "Unauthorized" }),
+					});
 				}
 				if (url.includes("/api/products")) {
 					return Promise.resolve({

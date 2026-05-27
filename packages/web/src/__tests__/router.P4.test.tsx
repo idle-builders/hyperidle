@@ -4,8 +4,6 @@
  * AC-9: Old Onboarding.tsx is deleted and /onboarding route removed. Router has no /onboarding entry.
  */
 
-import { render, screen } from "@testing-library/react";
-import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { describe, expect, it } from "vitest";
 
 // Test that /setup route exists in the router
@@ -19,15 +17,17 @@ describe("Router (P4) — /setup route", () => {
 		expect(typeof SetupFlow).toBe("function");
 	});
 
-	// AC-9: Onboarding.tsx does not exist
-	it("Onboarding module is removed — importing it should fail", async () => {
-		let error: unknown = null;
-		try {
-			await import("../pages/Onboarding");
-		} catch (e) {
-			error = e;
-		}
-		expect(error).not.toBeNull();
+	// AC-9: Onboarding.tsx does not exist — verified by file system check
+	it("Onboarding module is removed — file does not exist", async () => {
+		// Use Node's fs module (available in Vitest test environment) to check
+		// that the file truly no longer exists on disk.
+		const { existsSync } = await import("node:fs");
+		const { join } = await import("node:path");
+		const onboardingPath = join(
+			import.meta.url.replace("file://", "").replace(/\/[^/]+$/, ""),
+			"../pages/Onboarding.tsx",
+		);
+		expect(existsSync(onboardingPath)).toBe(false);
 	});
 
 	// The router should not have /onboarding in its route table

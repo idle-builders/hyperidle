@@ -102,8 +102,8 @@ test.describe("SetupFlow (P4)", () => {
 		).toBeAttached();
 
 		// Default is "Run locally"
-		const selectedValue = await backendSelect.evaluate((el: HTMLSelectElement) =>
-			el.options[el.selectedIndex].text,
+		const selectedValue = await backendSelect.evaluate(
+			(el: HTMLSelectElement) => el.options[el.selectedIndex].text,
 		);
 		expect(selectedValue).toMatch(/run locally/i);
 	});

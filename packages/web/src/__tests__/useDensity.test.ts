@@ -58,19 +58,21 @@ describe("useDensity", () => {
 	});
 
 	// All valid density values can be set
-	it.each(["auto", "compact", "default", "comfortable"] as const)(
-		"accepts density value '%s'",
-		(density) => {
-			const { result } = renderHook(() => useDensity());
+	it.each([
+		"auto",
+		"compact",
+		"default",
+		"comfortable",
+	] as const)("accepts density value '%s'", (density) => {
+		const { result } = renderHook(() => useDensity());
 
-			act(() => {
-				result.current.setDensity(density);
-			});
+		act(() => {
+			result.current.setDensity(density);
+		});
 
-			expect(result.current.density).toBe(density);
-			expect(localStorage.getItem(DENSITY_KEY)).toBe(density);
-		},
-	);
+		expect(result.current.density).toBe(density);
+		expect(localStorage.getItem(DENSITY_KEY)).toBe(density);
+	});
 
 	// Simulates page reload by reading from localStorage
 	it("simulates persistence across reload (reading pre-set localStorage)", () => {

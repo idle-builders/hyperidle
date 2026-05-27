@@ -66,7 +66,13 @@ describe("AppShell — P4 Settings overlay", () => {
 					bets: [],
 					blockers: [],
 					awaitingOrdering: [],
-					costBurnRate: { todaySpend: null, todayCap: null, weekSpend: null, weekCap: null, weekTokens: null },
+					costBurnRate: {
+						todaySpend: null,
+						todayCap: null,
+						weekSpend: null,
+						weekCap: null,
+						weekTokens: null,
+					},
 				}),
 		}) as typeof fetch;
 	});

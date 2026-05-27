@@ -157,15 +157,18 @@ describe("PATCH /api/users/:id — profile update", () => {
 		expect(res.status).toBe(400);
 	});
 
-	// Returns 404 for unknown user id
-	it("returns 404 for an unknown user id", async () => {
+	// Returns 403 for unknown user id (self-only check prevents leaking existence)
+	// @lore P4: 403 is returned for unknown user ids, not 404, because the
+	// self-only auth check fails first. This prevents leaking user existence
+	// information to unauthorized callers.
+	it("returns 403 for an unknown user id (self-only check fails before existence check)", async () => {
 		const res = await app.request("/api/users/u-does-not-exist", {
 			method: "PATCH",
 			headers: authHeaders(),
 			body: JSON.stringify({ name: "Ghost" }),
 		});
 
-		expect(res.status).toBe(404);
+		expect(res.status).toBe(403);
 	});
 
 	// Unauthenticated request returns 401

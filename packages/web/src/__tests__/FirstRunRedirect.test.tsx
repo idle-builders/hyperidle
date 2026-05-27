@@ -1,17 +1,17 @@
 /**
- * FirstRunRedirect unit tests — N5 bug fix.
+ * FirstRunRedirect unit tests — N5 bug fix + P4 update.
  *
- * Verifies that the first-run redirect component sends users to /onboarding
- * when there are no products (fresh install) AND when the API call fails
- * (network error, auth timing, etc.).
- *
- * The bug: the .catch() block was defaulting to /conversations instead of
- * /onboarding. On a fresh install, any API failure should show onboarding,
+ * @lore N5: The .catch() block was defaulting to /conversations instead of
+ * the setup route. On a fresh install, any API failure should show setup,
  * not a broken conversations view.
  *
- * @lore N5: Uses vitest's global fetch mock (vi.stubGlobal) to control
+ * @lore P4: Updated from /onboarding to /setup. The component now checks
+ * both human user existence (GET /api/auth/me) AND products (GET /api/products)
+ * in parallel. Redirects to /setup if either check fails.
+ *
+ * Uses vitest's global fetch mock (vi.stubGlobal) to control
  * apiFetch's underlying fetch. The component is rendered in MemoryRouter
- * with stub routes at /onboarding and /conversations so we can observe
+ * with stub routes at /setup and /conversations so we can observe
  * the final navigation destination via rendered text.
  */
 
@@ -24,8 +24,8 @@ import { FirstRunRedirect } from "../pages/FirstRunRedirect";
 // Stubs
 // ---------------------------------------------------------------------------
 
-function OnboardingStub(): React.JSX.Element {
-	return <div data-testid="landing">onboarding</div>;
+function SetupStub(): React.JSX.Element {
+	return <div data-testid="landing">setup</div>;
 }
 
 function ConversationsStub(): React.JSX.Element {
@@ -37,7 +37,7 @@ function renderFirstRunRedirect(): typeof screen {
 		<MemoryRouter initialEntries={["/"]}>
 			<Routes>
 				<Route path="/" element={<FirstRunRedirect />} />
-				<Route path="/onboarding" element={<OnboardingStub />} />
+				<Route path="/setup" element={<SetupStub />} />
 				<Route path="/conversations" element={<ConversationsStub />} />
 			</Routes>
 		</MemoryRouter>,
@@ -53,29 +53,41 @@ afterEach(() => {
 	vi.restoreAllMocks();
 });
 
-describe("FirstRunRedirect (N5)", () => {
-	it("redirects to /onboarding when there are no products (fresh install)", async () => {
+describe("FirstRunRedirect (N5 + P4)", () => {
+	// P4: no products and no user → /setup
+	it("redirects to /setup when there are no products (fresh install)", async () => {
 		vi.stubGlobal(
 			"fetch",
-			vi.fn().mockResolvedValue({
-				ok: true,
-				json: async () => ({ products: [] }),
+			vi.fn().mockImplementation((url: string) => {
+				if (url.includes("/api/auth/me")) {
+					return Promise.resolve({ ok: false, status: 401, json: async () => ({}) });
+				}
+				return Promise.resolve({
+					ok: true,
+					json: async () => ({ products: [] }),
+				});
 			}),
 		);
 
 		renderFirstRunRedirect();
 
 		await waitFor(() => {
-			expect(screen.getByTestId("landing")).toHaveTextContent("onboarding");
+			expect(screen.getByTestId("landing")).toHaveTextContent("setup");
 		});
 	});
 
-	it("redirects to /conversations when products exist", async () => {
+	// Both user and products exist → /conversations
+	it("redirects to /conversations when user and products exist", async () => {
 		vi.stubGlobal(
 			"fetch",
-			vi.fn().mockResolvedValue({
-				ok: true,
-				json: async () => ({ products: [{ id: "p1", name: "My App" }] }),
+			vi.fn().mockImplementation((url: string) => {
+				if (url.includes("/api/auth/me")) {
+					return Promise.resolve({ ok: true, json: async () => ({ id: "u-1" }) });
+				}
+				return Promise.resolve({
+					ok: true,
+					json: async () => ({ products: [{ id: "p1", name: "My App" }] }),
+				});
 			}),
 		);
 
@@ -86,32 +98,40 @@ describe("FirstRunRedirect (N5)", () => {
 		});
 	});
 
-	it("redirects to /onboarding when the API call fails (network error)", async () => {
-		// BUG N5: the .catch() block was routing to /conversations.
-		// On a fresh install, any API failure should show onboarding.
+	// P4 + N5: API failure → /setup (not /conversations)
+	it("redirects to /setup when the API call fails (network error)", async () => {
 		vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("Network error")));
 
 		renderFirstRunRedirect();
 
 		await waitFor(() => {
-			expect(screen.getByTestId("landing")).toHaveTextContent("onboarding");
+			expect(screen.getByTestId("landing")).toHaveTextContent("setup");
 		});
 	});
 
-	it("redirects to /onboarding when the API returns a non-ok response", async () => {
+	// P4: auth/me 401 → /setup even when products exist
+	it("redirects to /setup when the API returns a non-ok response for auth/me", async () => {
 		vi.stubGlobal(
 			"fetch",
-			vi.fn().mockResolvedValue({
-				ok: false,
-				status: 401,
-				json: async () => ({ error: "Unauthorized" }),
+			vi.fn().mockImplementation((url: string) => {
+				if (url.includes("/api/auth/me")) {
+					return Promise.resolve({
+						ok: false,
+						status: 401,
+						json: async () => ({ error: "Unauthorized" }),
+					});
+				}
+				return Promise.resolve({
+					ok: true,
+					json: async () => ({ products: [{ id: "p1", name: "My App" }] }),
+				});
 			}),
 		);
 
 		renderFirstRunRedirect();
 
 		await waitFor(() => {
-			expect(screen.getByTestId("landing")).toHaveTextContent("onboarding");
+			expect(screen.getByTestId("landing")).toHaveTextContent("setup");
 		});
 	});
 });

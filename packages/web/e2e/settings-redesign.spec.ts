@@ -163,9 +163,7 @@ test.describe("Settings Overlay (P4)", () => {
 
 		await page.getByRole("button", { name: /save profile/i }).click();
 
-		await expect
-			.poll(() => patchCalled, { timeout: 5_000 })
-			.toBe(true);
+		await expect.poll(() => patchCalled, { timeout: 5_000 }).toBe(true);
 	});
 
 	// AC-24: Toast appears on profile save

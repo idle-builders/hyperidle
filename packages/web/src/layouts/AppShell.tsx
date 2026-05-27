@@ -1,17 +1,19 @@
+/**
+ * @lore AppShell is the main layout composition: IconRail | Submenu | Main (Outlet) | Rail.
+ * It manages view state, submenu state, settings panel, and global search.
+ * This is NOT a custom component — it is a page-level composition assembling Tier 3 regions.
+ * @lore P4: SettingsPanel modal removed. Settings now use an overlay pattern:
+ * when settingsOpen, Submenu shows settings section nav + Main shows the active section.
+ * The Rail/IconRail wrapper is dimmed with opacity-60 + pointer-events-none.
+ */
+
 import { NavItem } from "@hyperidle/design-system";
 import { KNOWLEDGE_SCOPES, type KnowledgeScope } from "@hyperidle/fabric/types";
 import { type JSX, useCallback, useEffect, useMemo, useState } from "react";
 import { Outlet, useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { ErrorBoundary } from "../components/ErrorBoundary";
 import { GlobalSearchPanel } from "../components/GlobalSearchPanel";
-/**
- * @lore AppShell is the main layout composition: IconRail | Submenu | Main (Outlet) | Rail.
- * It manages view state, submenu state, settings panel, and global search.
- * This is NOT a custom component — it is a page-level composition assembling Tier 3 regions.
- */
 import { RecipientPicker } from "../components/RecipientPicker";
-import type { SettingsData } from "../components/SettingsPanel";
-import { SettingsPanel } from "../components/SettingsPanel";
 import type { ConversationsFilter } from "../components/ThreadSections";
 import { predicateFor, ThreadSections } from "../components/ThreadSections";
 import { CocContext, type CocContextRef } from "../contexts/CocContext";
@@ -19,10 +21,17 @@ import { useAutoDensity } from "../hooks/useAutoDensity";
 import { useCommandK } from "../hooks/useCommandK";
 import { useConversationsThreads } from "../hooks/useConversationsThreads";
 import { useCurrentUser } from "../hooks/useCurrentUser.js";
+import { useDensity } from "../hooks/useDensity.js";
 import { useRail } from "../hooks/useRail.js";
-import { useSettings } from "../hooks/useSettings.js";
-import { useTheme } from "../hooks/useTheme";
 import { useViewportBreakpoint } from "../hooks/useViewportBreakpoint";
+import { SettingsAppearance } from "../settings/SettingsAppearance.js";
+import { SettingsBackend } from "../settings/SettingsBackend.js";
+import { SettingsCredentials } from "../settings/SettingsCredentials.js";
+import { SettingsNotifications } from "../settings/SettingsNotifications.js";
+import { SettingsOrgChart } from "../settings/SettingsOrgChart.js";
+import { SettingsProducts } from "../settings/SettingsProducts.js";
+import { SettingsProfile } from "../settings/SettingsProfile.js";
+import { SETTINGS_SECTIONS, type SettingsSectionId } from "../settings/settings-types.js";
 import { CocOverlay } from "../shell/CocOverlay";
 import { IconRail } from "../shell/IconRail";
 import { Rail } from "../shell/Rail";
@@ -209,7 +218,9 @@ export function AppShell(): JSX.Element {
 	const navigate = useNavigate();
 	const { user } = useCurrentUser();
 	const railData = useRail();
-	const settingsData = useSettings();
+	// settingsData removed: each section component uses useSettings() directly.
+	// @lore P4: useSettings() call removed from AppShell; SettingsNotifications
+	// and SettingsProducts fetch their own data via the hook.
 
 	const activeView = useMemo(() => deriveViewFromPath(location.pathname), [location.pathname]);
 
@@ -235,6 +246,8 @@ export function AppShell(): JSX.Element {
 	}, [breakpoint.railExpanded]);
 	const [searchParams, setSearchParams] = useSearchParams();
 	const [settingsOpen, setSettingsOpen] = useState(false);
+	// P4: active settings section — defaults to "profile" when settings opens.
+	const [activeSettingsSection, setActiveSettingsSection] = useState<SettingsSectionId>("profile");
 
 	// L21: CoC overlay state.
 	const [cocOverlayOpen, setCocOverlayOpen] = useState(false);
@@ -263,70 +276,20 @@ export function AppShell(): JSX.Element {
 		}),
 		[cocOverlayOpen, handleAttachContext],
 	);
-	// @lore Settings lives at the shell root so [data-density] cascades --density-* CSS vars
-	// to every consumer. Server persistence deferred (J3/J8).
-	// @lore K3: theme lives in useTheme() (localStorage-backed) — settings.appearance.theme
-	// is initialised from useTheme()'s value and kept in sync via the hook below.
-	// @lore M3 B4: settings are now fetched from /api/settings via useSettings().
-	// The local state is initialized from the API response when it arrives, overriding
-	// the theme-only default. Until the response arrives, a minimal default is used.
-	const { theme, setTheme } = useTheme();
-	const [settings, setSettings] = useState<SettingsData>(() => ({
-		profile: { name: "Founder", email: "", avatarUrl: "" },
-		products: [],
-		users: [],
-		notifications: {
-			reviewAlerts: true,
-			costAlerts: true,
-			blockerAlerts: true,
-			quietHoursStart: "22:00",
-			quietHoursEnd: "08:00",
-			mutedProducts: [],
-		},
-		appearance: { density: "auto", theme },
-	}));
-
-	// When the API settings arrive, merge them into local state (preserving the
-	// localStorage-backed theme from useTheme() as the source of truth for appearance).
-	// @lore M3 B4: merge with prev to preserve default fields if the API response
-	// is incomplete (e.g. test mocks that only return partial data). This prevents
-	// SettingsPanel from crashing when notifications.quietHoursStart is undefined.
-	useEffect(() => {
-		if (settingsData.data) {
-			setSettings((prev) => ({
-				...prev,
-				...settingsData.data,
-				// Ensure notifications always has defaults (defensive merge).
-				notifications: {
-					...prev.notifications,
-					...(settingsData.data?.notifications ?? {}),
-				},
-				// Preserve the localStorage theme as the single source of truth.
-				appearance: {
-					...(settingsData.data?.appearance ?? prev.appearance),
-					theme: prev.appearance.theme,
-				},
-			}));
-		}
-		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [settingsData.data]);
+	// @lore P4: density is now managed by useDensity (localStorage-backed, reactive).
+	// SettingsAppearance and AppShell both call useDensity() and sync via
+	// 'hyperidle:density-change' custom event so data-density stays live.
 	// @lore K7 / AESTHETICS.md § Mobile & Touch row "Auto-density behavior":
 	// the user's Settings preference is the source of truth. When the
 	// preference is `auto` (factory default) the viewport drives the chosen
 	// preset (≤ 1024px → comfortable). The user override always wins —
 	// once the user picks a non-auto value, that explicit choice persists
-	// across breakpoint changes. Declared AFTER `settings` so the closure
-	// reads the live preference, not a stale hoisted reference.
-	const resolvedDensity = useAutoDensity(settings.appearance.density);
-
-	// Reflect persisted theme changes (e.g. another tab) back into settings draft.
-	useEffect(() => {
-		setSettings((prev) =>
-			prev.appearance.theme === theme
-				? prev
-				: { ...prev, appearance: { ...prev.appearance, theme } },
-		);
-	}, [theme]);
+	// across breakpoint changes.
+	// @lore P4: The old settings state (merged from API + localStorage theme) is removed.
+	// Each settings section (SettingsProfile, SettingsNotifications, SettingsAppearance, etc.)
+	// manages its own state directly. AppShell only needs the density for data-density attribute.
+	const { density: densityPreference } = useDensity();
+	const resolvedDensity = useAutoDensity(densityPreference);
 
 	const commandK = useCommandK();
 
@@ -363,9 +326,11 @@ export function AppShell(): JSX.Element {
 	);
 
 	const handleAvatarClick = useCallback((): void => {
+		setActiveSettingsSection("profile");
 		setSettingsOpen(true);
 	}, []);
 
+	// P4 AC-21: Escape closes the settings overlay.
 	// J3: Command-K pressed while Settings is open must close Settings first,
 	// then open the search. useCommandK's own document listener toggles search;
 	// this effect intercepts the same key chord and routes it through the
@@ -375,6 +340,12 @@ export function AppShell(): JSX.Element {
 	useEffect(() => {
 		if (!settingsOpen) return;
 		const handler = (e: KeyboardEvent): void => {
+			if (e.key === "Escape") {
+				e.preventDefault();
+				e.stopImmediatePropagation();
+				setSettingsOpen(false);
+				return;
+			}
 			if (e.key === "k" && (e.metaKey || e.ctrlKey)) {
 				e.preventDefault();
 				e.stopImmediatePropagation();
@@ -387,23 +358,6 @@ export function AppShell(): JSX.Element {
 			document.removeEventListener("keydown", handler, true);
 		};
 	}, [settingsOpen, commandK]);
-
-	const handleSettingsSave = useCallback(
-		async (next: SettingsData): Promise<void> => {
-			// @lore M3 review C2: use the real save() from useSettings — calls
-			// PATCH /api/settings. Mirror the new draft into local state so density
-			// (and other appearance values) take effect immediately on save.
-			await settingsData.save(next);
-			// K3: theme is persisted via useTheme() (localStorage). Route the
-			// chosen value through setTheme so the boot script picks it up on
-			// the next reload and matchMedia subscription stays correct.
-			if (next.appearance.theme !== theme) {
-				setTheme(next.appearance.theme);
-			}
-			setSettings(next);
-		},
-		[settingsData, setTheme, theme],
-	);
 
 	const handleSearchNavigate = useCallback(
 		(type: string, id: string): void => {
@@ -639,7 +593,7 @@ export function AppShell(): JSX.Element {
 			<div
 				className="flex h-screen bg-base-100 overflow-hidden"
 				data-density={resolvedDensity}
-				data-density-preference={settings.appearance.density}
+				data-density-preference={densityPreference}
 			>
 				<div className={shellWrapperClass} aria-hidden={shellDimmed || undefined}>
 					<IconRail
@@ -649,22 +603,43 @@ export function AppShell(): JSX.Element {
 						badgeCountByView={badgeCountByView}
 					/>
 
+					{/* P4: Settings overlay — swaps Submenu content + main content when open.
+					 * @lore P4: The Submenu shows the settings section nav (7 items) and the
+					 * main area shows the active settings section component. The IconRail +
+					 * old Submenu + main are dimmed via shellWrapperClass. Settings overlay
+					 * uses the same Submenu/main slots but with settings content. */}
 					<Submenu
-						title={submenuConfig.title}
+						title={settingsOpen ? "Settings" : submenuConfig.title}
 						collapsed={submenuCollapsed}
 						onToggleCollapse={toggleSubmenuCollapsed}
-						count={submenuBadgeCount}
-						filters={submenuFilters}
+						count={settingsOpen ? undefined : submenuBadgeCount}
+						filters={settingsOpen ? [] : submenuFilters}
 						activeFilter={submenuFilter}
 						onFilterChange={setSubmenuFilter}
 						onClearFilter={
 							// Only conversations uses the inline clear affordance today;
 							// Knowledge's chip is currently inert (deferred follow-up).
-							activeView === "conversations" ? handleClearFilter : undefined
+							settingsOpen
+								? undefined
+								: activeView === "conversations"
+									? handleClearFilter
+									: undefined
 						}
-						filtersDisabled={filtersDisabled}
+						filtersDisabled={settingsOpen ? false : filtersDisabled}
 					>
-						{activeView === "knowledge" ? (
+						{settingsOpen ? (
+							// P4 AC-12: 7 settings section NavItems when settings overlay is open
+							<ul className="menu menu-sm">
+								{SETTINGS_SECTIONS.map((section) => (
+									<NavItem
+										key={section.id}
+										label={section.label}
+										selected={activeSettingsSection === section.id}
+										onClick={() => setActiveSettingsSection(section.id)}
+									/>
+								))}
+							</ul>
+						) : activeView === "knowledge" ? (
 							<KnowledgeSubmenu
 								scope={currentScope}
 								topics={knowledgeTopics}
@@ -750,28 +725,44 @@ export function AppShell(): JSX.Element {
 						 * are not the same dial. The K11 ladder explicitly
 						 * stops at 24 px (§ 5.3) so K12 cannot quietly push it
 						 * higher.
+						 * @lore P4: when settingsOpen, this pane shows the active settings
+						 * section component instead of the Outlet. aria-hidden is set so the
+						 * normal view content is excluded from the a11y tree during settings.
 						 */
 						className="flex-1 overflow-y-auto px-[var(--density-page-gutter)] py-[var(--density-page-gutter)] text-[length:var(--density-text)]"
 						data-testid="main-content"
 						aria-hidden={shellDimmed || undefined}
 					>
-						<CocContext.Provider value={cocContextValue}>
+						{settingsOpen ? (
+							// P4 AC-11: Main pane shows the active settings section
 							<ErrorBoundary>
-								{/* @lore L8 review (Architecture C2 / Adversary B1):
-								 * the lifted selected-thread id reaches the Main pane
-								 * via Outlet context. ConversationsReview consumes it
-								 * via `useOutletContext<AppShellOutletContext>()` and
-								 * prefers it over the legacy `?id=` URL param.
-								 */}
-								<Outlet
-									context={
-										{
-											selectedThreadId,
-										} satisfies AppShellOutletContext
-									}
-								/>
+								{activeSettingsSection === "profile" && <SettingsProfile />}
+								{activeSettingsSection === "orgchart" && <SettingsOrgChart />}
+								{activeSettingsSection === "credentials" && <SettingsCredentials />}
+								{activeSettingsSection === "notifications" && <SettingsNotifications />}
+								{activeSettingsSection === "appearance" && <SettingsAppearance />}
+								{activeSettingsSection === "products" && <SettingsProducts />}
+								{activeSettingsSection === "backend" && <SettingsBackend />}
 							</ErrorBoundary>
-						</CocContext.Provider>
+						) : (
+							<CocContext.Provider value={cocContextValue}>
+								<ErrorBoundary>
+									{/* @lore L8 review (Architecture C2 / Adversary B1):
+									 * the lifted selected-thread id reaches the Main pane
+									 * via Outlet context. ConversationsReview consumes it
+									 * via `useOutletContext<AppShellOutletContext>()` and
+									 * prefers it over the legacy `?id=` URL param.
+									 */}
+									<Outlet
+										context={
+											{
+												selectedThreadId,
+											} satisfies AppShellOutletContext
+										}
+									/>
+								</ErrorBoundary>
+							</CocContext.Provider>
+						)}
 					</main>
 
 					<Rail
@@ -785,12 +776,9 @@ export function AppShell(): JSX.Element {
 					/>
 				</div>
 
-				<SettingsPanel
-					open={settingsOpen}
-					onClose={() => setSettingsOpen(false)}
-					onSave={handleSettingsSave}
-					settings={settings}
-				/>
+				{/* P4: SettingsPanel modal removed. Settings now use the overlay pattern:
+				 * Submenu swaps to Settings nav + main swaps to active settings section.
+				 * See handleAvatarClick (setSettingsOpen) + Escape key handler above. */}
 
 				<GlobalSearchPanel
 					open={commandK.isOpen}

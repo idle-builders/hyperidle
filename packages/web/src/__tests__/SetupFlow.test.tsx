@@ -78,7 +78,10 @@ describe("SetupFlow", () => {
 		renderSetupFlow();
 
 		const select = screen.getByRole("combobox", { name: /backend mode/i });
-		await user.selectOptions(select, screen.getByRole("option", { name: /connect to shared backend/i }));
+		await user.selectOptions(
+			select,
+			screen.getByRole("option", { name: /connect to shared backend/i }),
+		);
 
 		await waitFor(() => {
 			expect(screen.getByLabelText(/server url/i)).toBeInTheDocument();
@@ -185,10 +188,11 @@ describe("SetupFlow", () => {
 	// Section headings
 	it("renders section headings: Backend Mode, Your Identity, First Product, API Credentials", () => {
 		renderSetupFlow();
-		expect(screen.getByText(/backend mode/i)).toBeInTheDocument();
-		expect(screen.getByText(/your identity/i)).toBeInTheDocument();
-		expect(screen.getByText(/first product/i)).toBeInTheDocument();
-		expect(screen.getByText(/api credentials/i)).toBeInTheDocument();
+		// Use heading role to avoid ambiguity with sr-only label text
+		expect(screen.getByRole("heading", { name: /backend mode/i })).toBeInTheDocument();
+		expect(screen.getByRole("heading", { name: /your identity/i })).toBeInTheDocument();
+		expect(screen.getByRole("heading", { name: /first product/i })).toBeInTheDocument();
+		expect(screen.getByRole("heading", { name: /api credentials/i })).toBeInTheDocument();
 	});
 
 	// Validation error for invalid email

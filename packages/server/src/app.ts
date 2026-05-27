@@ -30,7 +30,7 @@ import { createStatusRoutes } from "./routes/status.js";
 import { createTaskRoutes } from "./routes/tasks.js";
 import { registerTestRoutes } from "./routes/test-routes.js";
 import { createThreadRoutes } from "./routes/threads.js";
-import { createUserRoutes } from "./routes/users.js";
+import { createUserRoutes, createUserSetupRoute } from "./routes/users.js";
 import {
 	type ObservabilityConfig,
 	readObservabilityConfig,
@@ -155,6 +155,14 @@ function createApp(options?: AppOptions): Hono {
 		};
 		return c.json(response);
 	});
+
+	// P4: Public: POST /api/users (setup — no auth required on first run)
+	// @lore P4: Registered BEFORE the auth middleware so setup can succeed
+	// without an API key when no human user exists (fresh install). The route
+	// itself enforces auth once a human user already exists.
+	if (options?.db) {
+		api.route("/users", createUserSetupRoute(options.db));
+	}
 
 	// I2 R1-R5: rate limit BEFORE auth so unauthenticated floods are
 	// throttled without ever touching the database. Per-identity bucket
