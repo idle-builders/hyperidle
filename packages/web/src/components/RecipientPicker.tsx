@@ -17,6 +17,7 @@ import { SearchField, StatusChip, Tag } from "@hyperidle/design-system";
 import { type JSX, type KeyboardEvent, useCallback, useEffect, useRef, useState } from "react";
 import type { Recipient } from "../hooks/useRecipients.js";
 import { useRecipients } from "../hooks/useRecipients.js";
+import { apiFetch } from "../services/api-fetch.js";
 
 export interface RecipientPickerProps {
 	onSelect: (recipient: { id: string; kind: "agent" | "user"; name: string }) => void;
@@ -81,7 +82,7 @@ export function RecipientPicker({ onSelect, onCancel }: RecipientPickerProps): J
 		setSendError(null);
 
 		try {
-			const res = await fetch("/api/threads", {
+			const res = await apiFetch("/api/threads", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({

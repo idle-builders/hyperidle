@@ -14,6 +14,7 @@
 
 import type { WireMoney } from "@hyperidle/shared";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { apiFetch } from "../services/api-fetch.js";
 import type { BetItem, BlockerItem, CostInfo } from "../shell/Rail";
 
 export interface RailData {
@@ -90,7 +91,7 @@ export function useRail(): UseRailResult {
 
 		(async (): Promise<void> => {
 			try {
-				const res = await fetch("/api/rail", { signal: ac.signal });
+				const res = await apiFetch("/api/rail", { signal: ac.signal });
 				if (ac.signal.aborted) return;
 				if (!res.ok) {
 					setError(`HTTP ${res.status}`);
