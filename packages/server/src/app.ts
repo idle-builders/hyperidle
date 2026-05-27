@@ -13,8 +13,9 @@ import { createArtifactRoutes } from "./routes/artifacts.js";
 import { createAuthRoutes } from "./routes/auth.js";
 import { createBetRoutes } from "./routes/bets.js";
 import { createConversationRoutes } from "./routes/conversations.js";
+import { createCredentialRoutes } from "./routes/credentials.js";
 import { createGitExportRoutes } from "./routes/git-export-routes.js";
-import { health } from "./routes/health.js";
+import { authHealth, health } from "./routes/health.js";
 import { createKnowledgeRoutes, createTeamsRoutes } from "./routes/knowledge.js";
 import { createNotificationRoutes } from "./routes/notifications-routes.js";
 import { createObservabilityRoutes } from "./routes/observability-routes.js";
@@ -245,6 +246,9 @@ function createApp(options?: AppOptions): Hono {
 		registerTestRoutes(api);
 	}
 
+	// P3: Authenticated health check — behind auth middleware
+	api.route("/health", authHealth);
+
 	// Register work endpoints if db is provided
 	if (options?.db) {
 		const eventBus = options.eventBus ?? new EventBus();
@@ -273,6 +277,7 @@ function createApp(options?: AppOptions): Hono {
 		api.route("/sessions", createSessionRoutes(options.db, eventBus, activityBuffer));
 		api.route("/status", createStatusRoutes(options.db));
 		api.route("/git-export", createGitExportRoutes(options.db));
+		api.route("/credentials", createCredentialRoutes(options.db));
 		// O3: defaultNotificationAdapterFactory moved to @hyperidle/fabric (imported at top).
 		// Tests may override via notificationAdapterFactory for route-level adapter injection.
 		api.route(

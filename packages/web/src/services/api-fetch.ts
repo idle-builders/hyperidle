@@ -20,7 +20,12 @@ function getApiKey(): string | undefined {
 	if (typeof window !== "undefined" && window.__HYPERIDLE__?.apiKey) {
 		return window.__HYPERIDLE__.apiKey;
 	}
-	// Vite dev: VITE_ prefix required by Vite to expose to client code
+	// DEV-ONLY convenience: VITE_HYPERIDLE_API_KEY is set in .env for `bun dev` runs.
+	// No user should ever need to set this env var — it is purely a developer tool.
+	// In production (Electron), the API key comes from window.__HYPERIDLE__.apiKey (path 1).
+	// @lore P3 AC-14: This env var path is intentionally preserved for developer workflow
+	// (bun dev) but is NOT a user requirement. Never document it in user-facing guides.
+	// Vite requires the VITE_ prefix to expose env vars to client-side code.
 	if (import.meta.env.VITE_HYPERIDLE_API_KEY) {
 		// @lore N2 (L-2): TypeScript's narrowing on import.meta.env properties can
 		// be unreliable even with a truthy guard. The `as string` cast is defensive

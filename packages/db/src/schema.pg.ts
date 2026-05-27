@@ -596,3 +596,27 @@ export type NewKnowledgeStrategyFabricRow = typeof knowledgeStrategyFabric.$infe
 
 export type TaskStrategyFabricRow = typeof taskStrategyFabric.$inferSelect;
 export type NewTaskStrategyFabricRow = typeof taskStrategyFabric.$inferInsert;
+
+// --- P3: Server-side credential storage (shared mode) ---
+
+export const serverCredentials = pgTable("server_credentials", {
+	name: text("name").primaryKey(),
+	encryptedValue: text("encrypted_value").notNull(),
+	validationState: text("validation_state").notNull().default("present_untested"),
+	lastValidatedAt: text("last_validated_at"),
+	updatedAt: text("updated_at").notNull(),
+});
+
+// --- P3: Typed server config ---
+
+export const serverConfig = pgTable("server_config", {
+	id: text("id").primaryKey().default("default"),
+	config: text("config").notNull().default("{}"),
+	updatedAt: text("updated_at").notNull(),
+});
+
+export type ServerCredential = typeof serverCredentials.$inferSelect;
+export type NewServerCredential = typeof serverCredentials.$inferInsert;
+
+export type ServerConfigRow = typeof serverConfig.$inferSelect;
+export type NewServerConfigRow = typeof serverConfig.$inferInsert;

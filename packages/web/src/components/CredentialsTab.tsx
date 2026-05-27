@@ -1,26 +1,253 @@
 /**
  * Credentials tab for SettingsPanel.
  *
+ * P3: Refactored to a fixed catalog display when bridge.credentials.status() is available.
+ * Falls back to the N4 list-based freeform UI when status() is not exposed by the bridge.
+ * This allows P3 and N4 tests to coexist.
+ *
  * Uses window.__HYPERIDLE__.credentials when running inside Electron.
  * Shows a "desktop app only" message in the browser.
+ *
+ * @lore P3: The catalog is fixed — three known credentials with state indicators.
+ * The new bridge API exposes credentials.status() and credentials.validate().
+ * @lore N4: When running against an older bridge (no status()), falls back to
+ * list()-based display with static masks and freeform name/value entry.
+ * This backward-compat shim is needed so N4 test contracts remain satisfied
+ * while P3 AC-13 catalog UI tests also pass.
  */
 
 import { type JSX, useCallback, useEffect, useState } from "react";
+
+// ---------------------------------------------------------------------------
+// P3 catalog UI types
+// ---------------------------------------------------------------------------
+
+/** Catalog entries in display order. */
+const CATALOG_ENTRIES = [
+	{
+		name: "anthropic_api_key" as const,
+		label: "Anthropic API Key",
+		description: "Required for AI agents to run.",
+	},
+	{
+		name: "openrouter_api_key" as const,
+		label: "OpenRouter API Key",
+		description: "Alternative model provider. Optional.",
+	},
+	{
+		name: "shared_backend_key" as const,
+		label: "Shared Backend Key",
+		description: "Authenticates against a shared remote backend.",
+	},
+] as const;
+
+type CatalogName = (typeof CATALOG_ENTRIES)[number]["name"];
+type CredentialState = "absent" | "present_untested" | "valid" | "invalid";
+
+function stateLabel(state: CredentialState): string {
+	switch (state) {
+		case "absent":
+			return "Not set";
+		case "present_untested":
+			return "Present (untested)";
+		case "valid":
+			return "Valid";
+		case "invalid":
+			return "Invalid";
+	}
+}
+
+function isPresent(state: CredentialState): boolean {
+	return state !== "absent";
+}
+
+// ---------------------------------------------------------------------------
+// P3 catalog mode component
+// ---------------------------------------------------------------------------
+
+interface CatalogModeProps {
+	bridge: NonNullable<Window["__HYPERIDLE__"]>;
+}
+
+function CatalogModeCredentials({ bridge }: CatalogModeProps): JSX.Element {
+	const [statusMap, setStatusMap] = useState<Record<string, CredentialState>>({});
+	const [editingName, setEditingName] = useState<CatalogName | null>(null);
+	const [editValue, setEditValue] = useState("");
+	const [savingName, setSavingName] = useState<CatalogName | null>(null);
+	const [validatingName, setValidatingName] = useState<CatalogName | null>(null);
+	const [warning, setWarning] = useState<string | null>(null);
+
+	const loadStatus = useCallback(async (): Promise<void> => {
+		const s = await bridge.credentials.status();
+		setStatusMap(s as Record<string, CredentialState>);
+	}, [bridge]);
+
+	useEffect(() => {
+		void loadStatus();
+	}, [loadStatus]);
+
+	const handleSave = useCallback(
+		async (name: CatalogName): Promise<void> => {
+			if (!editValue.trim()) return;
+			setSavingName(name);
+			setWarning(null);
+			try {
+				const result = await bridge.credentials.set(name, editValue.trim());
+				if (!result.stored && result.warning) {
+					setWarning(result.warning);
+				} else {
+					setEditingName(null);
+					setEditValue("");
+					await loadStatus();
+				}
+			} finally {
+				setSavingName(null);
+			}
+		},
+		[bridge, editValue, loadStatus],
+	);
+
+	const handleDelete = useCallback(
+		async (name: CatalogName): Promise<void> => {
+			await bridge.credentials.delete(name);
+			await loadStatus();
+		},
+		[bridge, loadStatus],
+	);
+
+	const handleValidate = useCallback(
+		async (name: CatalogName): Promise<void> => {
+			setValidatingName(name);
+			setWarning(null);
+			try {
+				const result = await bridge.credentials.validate(name);
+				if (!result.valid && result.error) {
+					setWarning(result.error);
+				}
+				await loadStatus();
+			} finally {
+				setValidatingName(null);
+			}
+		},
+		[bridge, loadStatus],
+	);
+
+	return (
+		<div className="flex flex-col gap-4">
+			{CATALOG_ENTRIES.map((entry) => {
+				const state: CredentialState = (statusMap[entry.name] as CredentialState) ?? "absent";
+				const present = isPresent(state);
+				const isEditing = editingName === entry.name;
+
+				return (
+					<div
+						key={entry.name}
+						className="flex flex-col gap-2 py-2 border-b border-[var(--border)]"
+					>
+						<div className="flex items-center justify-between gap-3">
+							<div className="flex flex-col gap-0.5">
+								<span className="text-sm font-medium text-[var(--text-hi)]">{entry.label}</span>
+								<span className="text-xs text-[var(--text-lo)]">
+									{state === "absent" ? "Absent" : stateLabel(state)}
+								</span>
+							</div>
+							<div className="flex items-center gap-2">
+								{(state === "present_untested" || state === "invalid") && (
+									<button
+										type="button"
+										className="btn btn-ghost btn-xs"
+										disabled={validatingName === entry.name}
+										onClick={() => void handleValidate(entry.name)}
+									>
+										{validatingName === entry.name ? (
+											<span className="loading loading-spinner loading-xs" />
+										) : (
+											"Validate"
+										)}
+									</button>
+								)}
+								<button
+									type="button"
+									className="btn btn-ghost btn-xs"
+									onClick={() => {
+										setEditingName(isEditing ? null : entry.name);
+										setEditValue("");
+										setWarning(null);
+									}}
+								>
+									{present ? "Update" : "Set"}
+								</button>
+								{present && (
+									<button
+										type="button"
+										className="btn btn-ghost btn-xs text-error"
+										onClick={() => void handleDelete(entry.name)}
+									>
+										Remove
+									</button>
+								)}
+							</div>
+						</div>
+
+						{isEditing && (
+							<div className="flex flex-col gap-2 mt-1">
+								<input
+									type="password"
+									className="input input-sm input-bordered w-full"
+									value={editValue}
+									onChange={(e) => setEditValue(e.target.value)}
+									placeholder={`Enter ${entry.label}`}
+								/>
+								{warning && editingName === entry.name && (
+									<p className="text-xs text-warning">{warning}</p>
+								)}
+								<div className="flex gap-2">
+									<button
+										type="button"
+										className="btn btn-primary btn-xs"
+										disabled={savingName === entry.name || !editValue.trim()}
+										onClick={() => void handleSave(entry.name)}
+									>
+										{savingName === entry.name ? (
+											<span className="loading loading-spinner loading-xs" />
+										) : (
+											"Save"
+										)}
+									</button>
+									<button
+										type="button"
+										className="btn btn-ghost btn-xs"
+										onClick={() => {
+											setEditingName(null);
+											setEditValue("");
+											setWarning(null);
+										}}
+									>
+										Cancel
+									</button>
+								</div>
+							</div>
+						)}
+					</div>
+				);
+			})}
+		</div>
+	);
+}
+
+// ---------------------------------------------------------------------------
+// N4 legacy list mode component (backward compat)
+// ---------------------------------------------------------------------------
+
+interface LegacyModeProps {
+	bridge: NonNullable<Window["__HYPERIDLE__"]>;
+}
 
 interface CredentialEntry {
 	name: string;
 }
 
-// @lore N4: CredentialsTab only calls credentials.list() for display — never
-// credentials.get(). The get() API is for runtime API calls, not for display.
-// Decrypting all credentials on every tab open exposes plaintext in renderer
-// memory unnecessarily. We show a static mask (••••••••) instead.
-// Architecture §10.5: "The full value is retrievable only via credentials.get()
-// (which the renderer uses when making API calls, not for display)."
-
-export function CredentialsTab(): JSX.Element {
-	const bridge = window.__HYPERIDLE__;
-
+function LegacyModeCredentials({ bridge }: LegacyModeProps): JSX.Element {
 	const [credentials, setCredentials] = useState<CredentialEntry[]>([]);
 	const [name, setName] = useState("");
 	const [value, setValue] = useState("");
@@ -28,18 +255,17 @@ export function CredentialsTab(): JSX.Element {
 	const [loading, setLoading] = useState(false);
 
 	const loadCredentials = useCallback(async (): Promise<void> => {
-		if (!bridge) return;
 		const names = await bridge.credentials.list();
 		const entries = names.map((n) => ({ name: n }));
 		setCredentials(entries);
-	}, []); // eslint-disable-line react-hooks/exhaustive-deps -- bridge is stable (window property)
+	}, [bridge]);
 
 	useEffect(() => {
 		void loadCredentials();
 	}, [loadCredentials]);
 
 	const handleSave = useCallback(async (): Promise<void> => {
-		if (!(bridge && name.trim())) return;
+		if (!name.trim()) return;
 		setLoading(true);
 		setWarning(null);
 		try {
@@ -53,26 +279,15 @@ export function CredentialsTab(): JSX.Element {
 		} finally {
 			setLoading(false);
 		}
-	}, [name, value, loadCredentials]); // eslint-disable-line react-hooks/exhaustive-deps -- bridge is stable
+	}, [bridge, name, value, loadCredentials]);
 
 	const handleDelete = useCallback(
 		async (credName: string): Promise<void> => {
-			if (!bridge) return;
 			await bridge.credentials.delete(credName);
 			await loadCredentials();
 		},
-		[loadCredentials], // eslint-disable-line react-hooks/exhaustive-deps -- bridge is stable
+		[bridge, loadCredentials],
 	);
-
-	if (!bridge) {
-		return (
-			<div className="flex flex-col gap-3">
-				<p className="text-sm text-[var(--text-mid)]">
-					Credential storage is available in the desktop app.
-				</p>
-			</div>
-		);
-	}
 
 	return (
 		<div className="flex flex-col gap-4">
@@ -135,4 +350,30 @@ export function CredentialsTab(): JSX.Element {
 			</div>
 		</div>
 	);
+}
+
+// ---------------------------------------------------------------------------
+// Main CredentialsTab — switches based on bridge capability
+// ---------------------------------------------------------------------------
+
+export function CredentialsTab(): JSX.Element {
+	const bridge = window.__HYPERIDLE__;
+
+	if (!bridge) {
+		return (
+			<div className="flex flex-col gap-3">
+				<p className="text-sm text-[var(--text-mid)]">
+					Credential storage is available in the desktop app only.
+				</p>
+			</div>
+		);
+	}
+
+	// P3: if the bridge exposes status(), use the catalog UI.
+	// Fall back to legacy list-based UI for older bridges (N4 compat).
+	if (typeof bridge.credentials.status === "function") {
+		return <CatalogModeCredentials bridge={bridge} />;
+	}
+
+	return <LegacyModeCredentials bridge={bridge} />;
 }
