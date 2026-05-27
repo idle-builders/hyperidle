@@ -139,14 +139,40 @@ vi.mock("../src/safe-credentials.js", () => ({
 	})),
 }));
 
+vi.mock("../src/client-config.js", () => ({
+	loadClientConfig: vi.fn(() => ({
+		backendMode: null,
+		serverUrl: null,
+		lastView: null,
+		windowState: {
+			x: undefined,
+			y: undefined,
+			width: 1280,
+			height: 800,
+			isMaximized: false,
+			isFullScreen: false,
+		},
+	})),
+	saveClientConfig: vi.fn(),
+	migrateWindowState: vi.fn(),
+	DEFAULTS: {
+		backendMode: null,
+		serverUrl: null,
+		lastView: null,
+		windowState: { width: 1280, height: 800, isMaximized: false, isFullScreen: false },
+	},
+}));
+
 // ---------------------------------------------------------------------------
 // Import functions under test
 // ---------------------------------------------------------------------------
 import {
 	checkSingleInstanceLock,
 	getBeforeQuitHandler,
+	readAnthropicKeyFromStore,
 	readOrGenerateApiKey,
 	resolveDbPath,
+	waitForRemoteHealth,
 } from "../src/main.js";
 
 let tmpDir: string;
@@ -319,5 +345,106 @@ describe("getBeforeQuitHandler", () => {
 		const handler = getBeforeQuitHandler(mockHandle, null);
 		expect(() => handler()).not.toThrow();
 		expect(mockDispose).toHaveBeenCalled();
+	});
+});
+
+// ---------------------------------------------------------------------------
+// P3 AC-12: readAnthropicKeyFromStore
+// ---------------------------------------------------------------------------
+describe("readAnthropicKeyFromStore (P3 AC-12)", () => {
+	it("returns null when credentials file does not exist", () => {
+		const mockSafeStorage = {
+			isEncryptionAvailable: vi.fn(() => true),
+			decryptString: vi.fn(() => "decrypted"),
+		};
+		const nonExistent = path.join(tmpDir, "nofile.json");
+		const result = readAnthropicKeyFromStore(nonExistent, mockSafeStorage);
+		expect(result).toBeNull();
+	});
+
+	it("returns null when anthropic_api_key is not in the store", () => {
+		const mockSafeStorage = {
+			isEncryptionAvailable: vi.fn(() => true),
+			decryptString: vi.fn(() => "decrypted"),
+		};
+		const credPath = path.join(tmpDir, "credentials.json");
+		fs.writeFileSync(credPath, JSON.stringify({ openrouter_api_key: "somevalue" }), {
+			mode: 0o600,
+		});
+		const result = readAnthropicKeyFromStore(credPath, mockSafeStorage);
+		expect(result).toBeNull();
+	});
+
+	it("returns null when encryption is not available", () => {
+		const mockSafeStorage = {
+			isEncryptionAvailable: vi.fn(() => false),
+			decryptString: vi.fn(() => "decrypted"),
+		};
+		const credPath = path.join(tmpDir, "credentials.json");
+		const encoded = Buffer.from("fake-encrypted-value").toString("base64");
+		fs.writeFileSync(credPath, JSON.stringify({ anthropic_api_key: encoded }), { mode: 0o600 });
+		const result = readAnthropicKeyFromStore(credPath, mockSafeStorage);
+		expect(result).toBeNull();
+	});
+
+	it("decrypts and returns the anthropic_api_key when available", () => {
+		const expectedKey = "sk-ant-api03-test-decrypted-key";
+		const mockSafeStorage = {
+			isEncryptionAvailable: vi.fn(() => true),
+			decryptString: vi.fn(() => expectedKey),
+		};
+		const credPath = path.join(tmpDir, "credentials.json");
+		const encoded = Buffer.from("fake-encrypted-value").toString("base64");
+		fs.writeFileSync(credPath, JSON.stringify({ anthropic_api_key: encoded }), { mode: 0o600 });
+		const result = readAnthropicKeyFromStore(credPath, mockSafeStorage);
+		expect(result).toBe(expectedKey);
+		expect(mockSafeStorage.decryptString).toHaveBeenCalledWith(Buffer.from(encoded, "base64"));
+	});
+
+	it("returns null on corrupt credentials.json", () => {
+		const mockSafeStorage = {
+			isEncryptionAvailable: vi.fn(() => true),
+			decryptString: vi.fn(() => "decrypted"),
+		};
+		const credPath = path.join(tmpDir, "credentials.json");
+		fs.writeFileSync(credPath, "NOTJSON", { mode: 0o600 });
+		const result = readAnthropicKeyFromStore(credPath, mockSafeStorage);
+		expect(result).toBeNull();
+	});
+});
+
+// ---------------------------------------------------------------------------
+// P3 AC-4: waitForRemoteHealth
+// ---------------------------------------------------------------------------
+describe("waitForRemoteHealth (P3 AC-4)", () => {
+	it("resolves when the remote server responds 200", async () => {
+		// Use a real HTTP server to verify
+		const mockFetch = vi.fn().mockResolvedValue({ ok: true, status: 200 });
+		vi.stubGlobal("fetch", mockFetch);
+
+		await expect(waitForRemoteHealth("http://remote-server:3001", 5000)).resolves.toBeUndefined();
+
+		expect(mockFetch).toHaveBeenCalledWith("http://remote-server:3001/api/health");
+		vi.unstubAllGlobals();
+	});
+
+	it("throws when remote server never responds within timeout", async () => {
+		const mockFetch = vi.fn().mockRejectedValue(new Error("Connection refused"));
+		vi.stubGlobal("fetch", mockFetch);
+
+		await expect(waitForRemoteHealth("http://remote-server:3001", 150)).rejects.toThrow(
+			"Remote health check failed",
+		);
+		vi.unstubAllGlobals();
+	});
+
+	it("strips trailing slash from serverUrl before appending /api/health", async () => {
+		const mockFetch = vi.fn().mockResolvedValue({ ok: true, status: 200 });
+		vi.stubGlobal("fetch", mockFetch);
+
+		await waitForRemoteHealth("http://remote-server:3001/", 5000);
+
+		expect(mockFetch).toHaveBeenCalledWith("http://remote-server:3001/api/health");
+		vi.unstubAllGlobals();
 	});
 });

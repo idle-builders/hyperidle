@@ -133,6 +133,13 @@
 			"when": 1748400000000,
 			"tag": "0018_P2_rename_agents_to_users",
 			"breakpoints": true
+		},
+		{
+			"idx": 19,
+			"version": "6",
+			"when": 1748500000000,
+			"tag": "0019_P3_config_credentials",
+			"breakpoints": true
 		}
 	]
 }

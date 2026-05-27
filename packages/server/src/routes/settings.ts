@@ -1,6 +1,6 @@
 /**
  * GET /api/settings — return application settings for the authenticated founder.
- * PATCH /api/settings — persist notification preferences to factorySettings.
+ * PATCH /api/settings — persist notification preferences to server_config.
  *
  * @lore M3 B1: This endpoint replaces the DEFAULT_SETTINGS hardcoded mock in
  * the web client. It reads from factorySettings and the agents/products tables
@@ -10,14 +10,20 @@
  * @lore M3 B1: avatarUrl is null (not "") since no avatar upload exists yet.
  * active is derived from product.phase !== "archived". paused is derived from
  * agent.status === "paused".
+ *
+ * @lore P3: Notification prefs migrated from factorySettings to server_config.
+ * The factorySettings table is not dropped — it still serves observability config,
+ * git-export, and other consumers. The settings route now reads/writes notifications
+ * via readServerConfig/updateServerConfig.
  */
 
-import { factorySettings, type HyperIdleDb, products, users } from "@hyperidle/db";
+import { type HyperIdleDb, products, users } from "@hyperidle/db";
 import type { EventBus } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
 import { Hono } from "hono";
 import z from "zod";
 import type { HyperIdleEnv } from "../middleware/auth.js";
+import { readServerConfig, updateServerConfig } from "../services/server-config.js";
 
 /**
  * @lore M3 review W2: Zod validation for the PATCH body so we reject malformed
@@ -73,44 +79,15 @@ export function createSettingsRoutes(db: HyperIdleDb, _eventBus: EventBus): Hono
 		}
 		const body: SettingsPatchBody = parsed.data;
 
-		const now = new Date().toISOString();
-		const notif = body.notifications;
-		if (notif) {
-			if (notif.reviewAlerts !== undefined) {
-				persistSetting(db, "notifications_review_alerts", String(notif.reviewAlerts), now);
-			}
-			if (notif.costAlerts !== undefined) {
-				persistSetting(db, "notifications_cost_alerts", String(notif.costAlerts), now);
-			}
-			if (notif.blockerAlerts !== undefined) {
-				persistSetting(db, "notifications_blocker_alerts", String(notif.blockerAlerts), now);
-			}
-			if (notif.quietHoursStart !== undefined) {
-				persistSetting(db, "notifications_quiet_hours_start", notif.quietHoursStart, now);
-			}
-			if (notif.quietHoursEnd !== undefined) {
-				persistSetting(db, "notifications_quiet_hours_end", notif.quietHoursEnd, now);
-			}
-			// @lore M3 review W3: persist mutedProducts as a comma-separated list in factorySettings.
-			if (notif.mutedProducts !== undefined) {
-				persistSetting(db, "notifications_muted_products", notif.mutedProducts.join(","), now);
-			}
+		// @lore P3: Write notifications to server_config instead of factorySettings.
+		if (body.notifications) {
+			updateServerConfig(db, { notifications: body.notifications });
 		}
 
 		return c.json(readSettings());
 	});
 
 	return router;
-}
-
-function persistSetting(db: HyperIdleDb, key: string, value: string, updatedAt: string): void {
-	// Try update first; if no row exists, insert
-	const existing = db.select().from(factorySettings).where(eq(factorySettings.key, key)).get();
-	if (existing) {
-		db.update(factorySettings).set({ value, updatedAt }).where(eq(factorySettings.key, key)).run();
-	} else {
-		db.insert(factorySettings).values({ key, value, updatedAt }).run();
-	}
 }
 
 /**
@@ -120,6 +97,7 @@ function persistSetting(db: HyperIdleDb, key: string, value: string, updatedAt: 
  * @lore P2: profile now reads from users table (kind = 'human') instead of
  * factorySettings founder_name/founder_email. The `agents` field renamed to `users`
  * but returns only AI users (kind = 'ai') for the settings panel display.
+ * @lore P3: notifications now read from server_config table via readServerConfig.
  */
 function buildSettingsResponse(db: HyperIdleDb): {
 	profile: { name: string; email: string; avatarUrl: null };
@@ -137,38 +115,8 @@ function buildSettingsResponse(db: HyperIdleDb): {
 	// P2: Read founder profile from users table (kind = 'human')
 	const humanUser = db.select().from(users).where(eq(users.kind, "human")).limit(1).get();
 
-	// Read notification settings (with defaults if not configured)
-	const reviewAlertsRow = db
-		.select()
-		.from(factorySettings)
-		.where(eq(factorySettings.key, "notifications_review_alerts"))
-		.get();
-	const costAlertsRow = db
-		.select()
-		.from(factorySettings)
-		.where(eq(factorySettings.key, "notifications_cost_alerts"))
-		.get();
-	const blockerAlertsRow = db
-		.select()
-		.from(factorySettings)
-		.where(eq(factorySettings.key, "notifications_blocker_alerts"))
-		.get();
-	const quietStartRow = db
-		.select()
-		.from(factorySettings)
-		.where(eq(factorySettings.key, "notifications_quiet_hours_start"))
-		.get();
-	const quietEndRow = db
-		.select()
-		.from(factorySettings)
-		.where(eq(factorySettings.key, "notifications_quiet_hours_end"))
-		.get();
-	// @lore M3 review W3: mutedProducts is stored as a comma-separated list in factorySettings
-	const mutedProductsRow = db
-		.select()
-		.from(factorySettings)
-		.where(eq(factorySettings.key, "notifications_muted_products"))
-		.get();
+	// P3: Read notification settings from server_config (defaults if not configured)
+	const serverCfg = readServerConfig(db);
 
 	// Products — active derived from phase !== "archived"
 	const productRows = db.select().from(products).all();
@@ -193,14 +141,12 @@ function buildSettingsResponse(db: HyperIdleDb): {
 			paused: u.status === "paused",
 		})),
 		notifications: {
-			reviewAlerts: reviewAlertsRow?.value !== "false",
-			costAlerts: costAlertsRow?.value !== "false",
-			blockerAlerts: blockerAlertsRow?.value !== "false",
-			quietHoursStart: quietStartRow?.value ?? "22:00",
-			quietHoursEnd: quietEndRow?.value ?? "08:00",
-			mutedProducts: mutedProductsRow?.value
-				? mutedProductsRow.value.split(",").filter(Boolean)
-				: [],
+			reviewAlerts: serverCfg.notifications.reviewAlerts,
+			costAlerts: serverCfg.notifications.costAlerts,
+			blockerAlerts: serverCfg.notifications.blockerAlerts,
+			quietHoursStart: serverCfg.notifications.quietHoursStart,
+			quietHoursEnd: serverCfg.notifications.quietHoursEnd,
+			mutedProducts: serverCfg.notifications.mutedProducts,
 		},
 	};
 }

@@ -598,6 +598,47 @@ export const artifacts = sqliteTable(
 	],
 );
 
+// --- P3: Server-side credential storage (shared mode) ---
+
+/**
+ * Encrypted credential storage for shared-mode deployments.
+ * Values are AES-256-GCM encrypted with key derived from HYPERIDLE_API_KEY via HKDF.
+ *
+ * @lore P3: Only used in shared mode. In local mode, credentials live in
+ * safeStorage on the desktop. The name column is constrained to the
+ * CREDENTIAL_NAMES catalog at the application layer (not the DB layer).
+ */
+export const serverCredentials = sqliteTable("server_credentials", {
+	/** CredentialName from catalog — anthropic_api_key | openrouter_api_key | shared_backend_key */
+	name: text("name").primaryKey(),
+	/** AES-256-GCM encrypted value. Format: base64(iv + ciphertext + authTag). */
+	encryptedValue: text("encrypted_value").notNull(),
+	/** Validation state: "present_untested" | "valid" | "invalid". */
+	validationState: text("validation_state").notNull().default("present_untested"),
+	/** When the credential was last validated. */
+	lastValidatedAt: text("last_validated_at"),
+	updatedAt: text("updated_at").notNull(),
+});
+
+// --- P3: Typed server config ---
+
+/**
+ * Singleton-row typed config table. Replaces factorySettings for new structured
+ * config. The config column holds a Zod-validated JSON blob.
+ *
+ * @lore P3: Single-row table (id = "default") holds all server config as a
+ * JSON blob. SQLite serializes writes so no concurrent-write conflicts.
+ * Zod validation on read/write provides type safety. See architecture.md
+ * Decision 2.
+ */
+export const serverConfig = sqliteTable("server_config", {
+	/** Singleton row. Always "default". */
+	id: text("id").primaryKey().default("default"),
+	/** JSON blob validated by Zod on read/write. */
+	config: text("config").notNull().default("{}"),
+	updatedAt: text("updated_at").notNull(),
+});
+
 // --- Inferred types ---
 
 export type Product = typeof products.$inferSelect;
@@ -665,3 +706,9 @@ export type NewKnowledgeStrategyFabricRow = typeof knowledgeStrategyFabric.$infe
 
 export type TaskStrategyFabricRow = typeof taskStrategyFabric.$inferSelect;
 export type NewTaskStrategyFabricRow = typeof taskStrategyFabric.$inferInsert;
+
+export type ServerCredential = typeof serverCredentials.$inferSelect;
+export type NewServerCredential = typeof serverCredentials.$inferInsert;
+
+export type ServerConfigRow = typeof serverConfig.$inferSelect;
+export type NewServerConfigRow = typeof serverConfig.$inferInsert;

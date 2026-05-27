@@ -25,6 +25,14 @@ export {
 	normalisedPayload,
 	slug,
 } from "./blocks/index.js";
+// ── Credential catalog (P3) ──
+export type { CredentialCatalogEntry, CredentialName, CredentialState } from "./credential.js";
+export {
+	CREDENTIAL_CATALOG,
+	CREDENTIAL_NAMES,
+	CREDENTIAL_STATES,
+	isCredentialName,
+} from "./credential.js";
 export {
 	ActiveRoutinesError,
 	CapacityExceededError,
