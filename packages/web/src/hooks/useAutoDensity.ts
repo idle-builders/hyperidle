@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import type { Density, ResolvedDensity } from "../components/SettingsPanel";
+import type { Density, ResolvedDensity } from "../settings/settings-types.js";
 
 /**
  * @lore K7 / AESTHETICS.md § Mobile & Touch row "Auto-density behavior":

@@ -312,6 +312,8 @@ export function AppShell(): JSX.Element {
 
 	const handleViewChange = useCallback(
 		(view: ViewId): void => {
+			// P4: close settings before navigating so the view change is visible.
+			setSettingsOpen(false);
 			// L9: conversations navigates to the canonical queue route.
 			if (view === "conversations") {
 				navigate("/conversations");
@@ -574,19 +576,14 @@ export function AppShell(): JSX.Element {
 		[navigate],
 	);
 
-	// J3: when Settings overlay is open, hide all shell regions from the
-	// accessibility tree and dim them visually. We also disable pointer
-	// events so clicks cannot leak through the backdrop to focusable elements
-	// like Rail/submenu nav items. The overlay itself lives outside this
-	// wrapper so focus-trap still finds tabbable nodes.
+	// J3: when Settings overlay is open, dim the Rail/IconRail region visually and
+	// disable pointer-events on them. Submenu and Main are NOT dimmed — they show
+	// the settings nav and settings content respectively and must remain interactive.
+	// @lore P4 fix: the old approach applied pointer-events-none to a wrapper that
+	// contained Submenu and Main, making settings forms non-functional in a real
+	// browser. The fix applies dimming per-element (Rail wrapper only) rather than
+	// the parent. Submenu and Main get pointer-events-auto when settingsOpen is true.
 	const shellDimmed = settingsOpen;
-	// @lore J3: aria-hidden and inert on the wrapper propagate to descendants
-	// in the accessibility tree; we keep the wrapper as flex so children lay
-	// out exactly as before, and flex-wide when dimmed so the overlay sits
-	// above it via z-40 without displacing the layout.
-	const shellWrapperClass = shellDimmed
-		? "flex flex-1 min-w-0 pointer-events-none opacity-60"
-		: "flex flex-1 min-w-0";
 
 	return (
 		<ToastRegion>
@@ -595,176 +592,186 @@ export function AppShell(): JSX.Element {
 				data-density={resolvedDensity}
 				data-density-preference={densityPreference}
 			>
-				<div className={shellWrapperClass} aria-hidden={shellDimmed || undefined}>
-					<IconRail
-						activeView={activeView}
-						onViewChange={handleViewChange}
-						onAvatarClick={handleAvatarClick}
-						badgeCountByView={badgeCountByView}
-					/>
+				{/* @lore P4 fix: IconRail is NOT wrapped in the dimmed element so it
+				 * stays interactive when settings is open — clicking a view icon closes
+				 * settings and navigates. Rail IS wrapped so it dims during settings. */}
+				<IconRail
+					activeView={activeView}
+					onViewChange={handleViewChange}
+					onAvatarClick={handleAvatarClick}
+					badgeCountByView={badgeCountByView}
+				/>
 
-					{/* P4: Settings overlay — swaps Submenu content + main content when open.
-					 * @lore P4: The Submenu shows the settings section nav (7 items) and the
-					 * main area shows the active settings section component. The IconRail +
-					 * old Submenu + main are dimmed via shellWrapperClass. Settings overlay
-					 * uses the same Submenu/main slots but with settings content. */}
-					<Submenu
-						title={settingsOpen ? "Settings" : submenuConfig.title}
-						collapsed={submenuCollapsed}
-						onToggleCollapse={toggleSubmenuCollapsed}
-						count={settingsOpen ? undefined : submenuBadgeCount}
-						filters={settingsOpen ? [] : submenuFilters}
-						activeFilter={submenuFilter}
-						onFilterChange={setSubmenuFilter}
-						onClearFilter={
-							// Only conversations uses the inline clear affordance today;
-							// Knowledge's chip is currently inert (deferred follow-up).
-							settingsOpen
-								? undefined
-								: activeView === "conversations"
-									? handleClearFilter
-									: undefined
-						}
-						filtersDisabled={settingsOpen ? false : filtersDisabled}
-					>
-						{settingsOpen ? (
-							// P4 AC-12: 7 settings section NavItems when settings overlay is open
-							<ul className="menu menu-sm">
-								{SETTINGS_SECTIONS.map((section) => (
-									<NavItem
-										key={section.id}
-										label={section.label}
-										selected={activeSettingsSection === section.id}
-										onClick={() => setActiveSettingsSection(section.id)}
-									/>
-								))}
-							</ul>
-						) : activeView === "knowledge" ? (
-							<KnowledgeSubmenu
-								scope={currentScope}
-								topics={knowledgeTopics}
-								onScopeChange={handleScopeChange}
-							/>
-						) : activeView === "conversations" ? (
-							// Q1 §4.9: Conversations submenu shows either the RecipientPicker
-							// (when showRecipientPicker is true) or the thread list with a
-							// "New Thread" button above. The button is always rendered above
-							// the picker/list so the user can always start a new thread.
-							<>
-								{!showRecipientPicker && (
-									<div className="px-[2px] pb-[4px]">
-										<button
-											type="button"
-											className="btn btn-ghost btn-xs w-full justify-start gap-[6px] text-[var(--text-lo)] hover:text-[var(--text-mid)]"
-											onClick={() => setShowRecipientPicker(true)}
-											data-testid="new-thread-btn"
-											aria-label="New Thread"
+				{/* P4: Settings overlay — swaps Submenu content + main content when open.
+				 * @lore P4: The Submenu shows the settings section nav (7 items) and the
+				 * main area shows the active settings section component. Submenu and Main
+				 * are always interactive. Rail is dimmed when settings is open. */}
+				<Submenu
+					title={settingsOpen ? "Settings" : submenuConfig.title}
+					collapsed={submenuCollapsed}
+					onToggleCollapse={toggleSubmenuCollapsed}
+					count={settingsOpen ? undefined : submenuBadgeCount}
+					filters={settingsOpen ? [] : submenuFilters}
+					activeFilter={submenuFilter}
+					onFilterChange={setSubmenuFilter}
+					onClearFilter={
+						// Only conversations uses the inline clear affordance today;
+						// Knowledge's chip is currently inert (deferred follow-up).
+						settingsOpen
+							? undefined
+							: activeView === "conversations"
+								? handleClearFilter
+								: undefined
+					}
+					filtersDisabled={settingsOpen ? false : filtersDisabled}
+				>
+					{settingsOpen ? (
+						// P4 AC-12: 7 settings section NavItems when settings overlay is open
+						<ul className="menu menu-sm">
+							{SETTINGS_SECTIONS.map((section) => (
+								<NavItem
+									key={section.id}
+									label={section.label}
+									selected={activeSettingsSection === section.id}
+									onClick={() => setActiveSettingsSection(section.id)}
+								/>
+							))}
+						</ul>
+					) : activeView === "knowledge" ? (
+						<KnowledgeSubmenu
+							scope={currentScope}
+							topics={knowledgeTopics}
+							onScopeChange={handleScopeChange}
+						/>
+					) : activeView === "conversations" ? (
+						// Q1 §4.9: Conversations submenu shows either the RecipientPicker
+						// (when showRecipientPicker is true) or the thread list with a
+						// "New Thread" button above. The button is always rendered above
+						// the picker/list so the user can always start a new thread.
+						<>
+							{!showRecipientPicker && (
+								<div className="px-[2px] pb-[4px]">
+									<button
+										type="button"
+										className="btn btn-ghost btn-xs w-full justify-start gap-[6px] text-[var(--text-lo)] hover:text-[var(--text-mid)]"
+										onClick={() => setShowRecipientPicker(true)}
+										data-testid="new-thread-btn"
+										aria-label="New Thread"
+									>
+										<svg
+											viewBox="0 0 16 16"
+											fill="currentColor"
+											className="w-[12px] h-[12px] flex-shrink-0"
+											aria-hidden="true"
 										>
-											<svg
-												viewBox="0 0 16 16"
-												fill="currentColor"
-												className="w-[12px] h-[12px] flex-shrink-0"
-												aria-hidden="true"
-											>
-												<path d="M8 1a.75.75 0 01.75.75v5.5h5.5a.75.75 0 010 1.5h-5.5v5.5a.75.75 0 01-1.5 0v-5.5H1.75a.75.75 0 010-1.5h5.5v-5.5A.75.75 0 018 1z" />
-											</svg>
-											New Thread
-										</button>
-									</div>
-								)}
-								{showRecipientPicker ? (
-									<RecipientPicker
-										onSelect={handleRecipientPickerSelect}
-										onCancel={handleRecipientPickerCancel}
-									/>
-								) : (
-									// @lore L10: chip-driven filtering is now wired here.
-									// `activeFilter` is the narrowed `ConversationsFilter`
-									// derived from `submenuFilter`. ThreadSections owns the
-									// predicate; AppShell consumes the same predicate via
-									// `predicateFor()` for the post-filter count badge so
-									// the count and the rendered list cannot drift.
-									<ThreadSections
-										threads={conversationsThreads.threads}
-										selectedId={selectedThreadId}
-										onSelect={handleSelectThread}
-										loading={conversationsThreads.status === "loading"}
-										errorMessage={
-											conversationsThreads.status === "error"
-												? (conversationsThreads.error ?? "Network error")
-												: null
-										}
-										onRetry={conversationsThreads.retry}
-										activeFilter={conversationsFilter}
-										onClearFilter={handleClearFilter}
-									/>
-								)}
-							</>
-						) : (
-							<ul className="menu menu-sm">
-								{submenuConfig.items.map((item) => (
-									<NavItem
-										key={item.path}
-										label={item.label}
-										count={item.count}
-										selected={location.pathname === item.path}
-										onClick={() => navigate(item.path)}
-									/>
-								))}
-							</ul>
-						)}
-					</Submenu>
+											<path d="M8 1a.75.75 0 01.75.75v5.5h5.5a.75.75 0 010 1.5h-5.5v5.5a.75.75 0 01-1.5 0v-5.5H1.75a.75.75 0 010-1.5h5.5v-5.5A.75.75 0 018 1z" />
+										</svg>
+										New Thread
+									</button>
+								</div>
+							)}
+							{showRecipientPicker ? (
+								<RecipientPicker
+									onSelect={handleRecipientPickerSelect}
+									onCancel={handleRecipientPickerCancel}
+								/>
+							) : (
+								// @lore L10: chip-driven filtering is now wired here.
+								// `activeFilter` is the narrowed `ConversationsFilter`
+								// derived from `submenuFilter`. ThreadSections owns the
+								// predicate; AppShell consumes the same predicate via
+								// `predicateFor()` for the post-filter count badge so
+								// the count and the rendered list cannot drift.
+								<ThreadSections
+									threads={conversationsThreads.threads}
+									selectedId={selectedThreadId}
+									onSelect={handleSelectThread}
+									loading={conversationsThreads.status === "loading"}
+									errorMessage={
+										conversationsThreads.status === "error"
+											? (conversationsThreads.error ?? "Network error")
+											: null
+									}
+									onRetry={conversationsThreads.retry}
+									activeFilter={conversationsFilter}
+									onClearFilter={handleClearFilter}
+								/>
+							)}
+						</>
+					) : (
+						<ul className="menu menu-sm">
+							{submenuConfig.items.map((item) => (
+								<NavItem
+									key={item.path}
+									label={item.label}
+									count={item.count}
+									selected={location.pathname === item.path}
+									onClick={() => navigate(item.path)}
+								/>
+							))}
+						</ul>
+					)}
+				</Submenu>
 
-					<main
-						/*
-						 * @lore K11: page gutter → --density-page-gutter
-						 * (8/16/24) per density-audit.md § 3.5. Previously the
-						 * `<main>` shared --density-pad-x with component
-						 * interiors, so widening padding on a card and
-						 * widening the page margin became the same dial. They
-						 * are not the same dial. The K11 ladder explicitly
-						 * stops at 24 px (§ 5.3) so K12 cannot quietly push it
-						 * higher.
-						 * @lore P4: when settingsOpen, this pane shows the active settings
-						 * section component instead of the Outlet. aria-hidden is set so the
-						 * normal view content is excluded from the a11y tree during settings.
-						 */
-						className="flex-1 overflow-y-auto px-[var(--density-page-gutter)] py-[var(--density-page-gutter)] text-[length:var(--density-text)]"
-						data-testid="main-content"
-						aria-hidden={shellDimmed || undefined}
-					>
-						{settingsOpen ? (
-							// P4 AC-11: Main pane shows the active settings section
+				<main
+					/*
+					 * @lore K11: page gutter → --density-page-gutter
+					 * (8/16/24) per density-audit.md § 3.5. Previously the
+					 * `<main>` shared --density-pad-x with component
+					 * interiors, so widening padding on a card and
+					 * widening the page margin became the same dial. They
+					 * are not the same dial. The K11 ladder explicitly
+					 * stops at 24 px (§ 5.3) so K12 cannot quietly push it
+					 * higher.
+					 * @lore P4: when settingsOpen, this pane shows the active settings
+					 * section component instead of the Outlet. The main pane is always
+					 * interactive (pointer-events-auto). aria-hidden is set when showing
+					 * normal view content under settings, but NOT when showing settings content.
+					 */
+					className="flex-1 overflow-y-auto px-[var(--density-page-gutter)] py-[var(--density-page-gutter)] text-[length:var(--density-text)]"
+					data-testid="main-content"
+				>
+					{settingsOpen ? (
+						// P4 AC-11: Main pane shows the active settings section
+						<ErrorBoundary>
+							{activeSettingsSection === "profile" && <SettingsProfile />}
+							{activeSettingsSection === "orgchart" && <SettingsOrgChart />}
+							{activeSettingsSection === "credentials" && <SettingsCredentials />}
+							{activeSettingsSection === "notifications" && <SettingsNotifications />}
+							{activeSettingsSection === "appearance" && <SettingsAppearance />}
+							{activeSettingsSection === "products" && <SettingsProducts />}
+							{activeSettingsSection === "backend" && <SettingsBackend />}
+						</ErrorBoundary>
+					) : (
+						<CocContext.Provider value={cocContextValue}>
 							<ErrorBoundary>
-								{activeSettingsSection === "profile" && <SettingsProfile />}
-								{activeSettingsSection === "orgchart" && <SettingsOrgChart />}
-								{activeSettingsSection === "credentials" && <SettingsCredentials />}
-								{activeSettingsSection === "notifications" && <SettingsNotifications />}
-								{activeSettingsSection === "appearance" && <SettingsAppearance />}
-								{activeSettingsSection === "products" && <SettingsProducts />}
-								{activeSettingsSection === "backend" && <SettingsBackend />}
+								{/* @lore L8 review (Architecture C2 / Adversary B1):
+								 * the lifted selected-thread id reaches the Main pane
+								 * via Outlet context. ConversationsReview consumes it
+								 * via `useOutletContext<AppShellOutletContext>()` and
+								 * prefers it over the legacy `?id=` URL param.
+								 */}
+								<Outlet
+									context={
+										{
+											selectedThreadId,
+										} satisfies AppShellOutletContext
+									}
+								/>
 							</ErrorBoundary>
-						) : (
-							<CocContext.Provider value={cocContextValue}>
-								<ErrorBoundary>
-									{/* @lore L8 review (Architecture C2 / Adversary B1):
-									 * the lifted selected-thread id reaches the Main pane
-									 * via Outlet context. ConversationsReview consumes it
-									 * via `useOutletContext<AppShellOutletContext>()` and
-									 * prefers it over the legacy `?id=` URL param.
-									 */}
-									<Outlet
-										context={
-											{
-												selectedThreadId,
-											} satisfies AppShellOutletContext
-										}
-									/>
-								</ErrorBoundary>
-							</CocContext.Provider>
-						)}
-					</main>
+						</CocContext.Provider>
+					)}
+				</main>
 
+				{/* @lore P4 fix: Rail is dimmed (pointer-events-none, opacity-60, aria-hidden)
+				 * when settings is open so users cannot interact with the right panel
+				 * while editing settings. IconRail (left of Submenu) stays interactive
+				 * so clicking a view icon closes settings and navigates. */}
+				<div
+					className={shellDimmed ? "pointer-events-none opacity-60" : ""}
+					aria-hidden={shellDimmed || undefined}
+					data-testid="rail-wrapper"
+				>
 					<Rail
 						expanded={railExpanded}
 						onToggleExpand={toggleRailExpanded}

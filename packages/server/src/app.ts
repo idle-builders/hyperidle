@@ -156,14 +156,6 @@ function createApp(options?: AppOptions): Hono {
 		return c.json(response);
 	});
 
-	// P4: Public: POST /api/users (setup — no auth required on first run)
-	// @lore P4: Registered BEFORE the auth middleware so setup can succeed
-	// without an API key when no human user exists (fresh install). The route
-	// itself enforces auth once a human user already exists.
-	if (options?.db) {
-		api.route("/users", createUserSetupRoute(options.db));
-	}
-
 	// I2 R1-R5: rate limit BEFORE auth so unauthenticated floods are
 	// throttled without ever touching the database. Per-identity bucket
 	// (API-key first, then trusted XFF, then direct connection).
@@ -185,6 +177,15 @@ function createApp(options?: AppOptions): Hono {
 			skipPaths: ["/api/health", "/api/status/health", "/api/auth"],
 		}),
 	);
+
+	// P4: Public: POST /api/users (setup — no auth required on first run)
+	// @lore P4: Registered AFTER the rate limiter so DoS floods are throttled
+	// before reaching the setup route. The route itself enforces auth once a
+	// human user already exists (setup-complete guard). Registered BEFORE the
+	// auth middleware so the initial setup call can succeed without an API key.
+	if (options?.db) {
+		api.route("/users", createUserSetupRoute(options.db));
+	}
 
 	// I2 review O6 / arch H-1: the WS-token mint endpoint gets its OWN
 	// rate-limit bucket so a WS reconnect storm cannot starve the API

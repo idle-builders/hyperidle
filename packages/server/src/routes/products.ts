@@ -239,6 +239,45 @@ export function createProductRoutes(db: HyperIdleDb, _eventBus: EventBus): Hono 
 		return c.json(result, 201);
 	});
 
+	// PATCH /:productId — update product phase (active ↔ archived)
+	// P4 AC-18: SettingsProducts needs to toggle product active/archived state.
+	router.patch("/:productId", async (c) => {
+		const productId = c.req.param("productId");
+
+		const product = db.select().from(products).where(eq(products.id, productId)).get();
+		if (!product) {
+			return c.json({ error: "Product not found", code: "not_found" }, 404);
+		}
+
+		let body: unknown;
+		try {
+			body = await c.req.json();
+		} catch {
+			return c.json({ error: "Invalid JSON", code: "validation_error" }, 400);
+		}
+
+		const { phase } = body as { phase?: string };
+		const VALID_PHASES = ["build", "live", "archived"] as const;
+		type ProductPhase = (typeof VALID_PHASES)[number];
+		if (!phase || !(VALID_PHASES as readonly string[]).includes(phase)) {
+			return c.json(
+				{ error: `phase must be one of: ${VALID_PHASES.join(", ")}`, code: "validation_error" },
+				400,
+			);
+		}
+
+		db.update(products)
+			.set({ phase: phase as ProductPhase })
+			.where(eq(products.id, productId))
+			.run();
+
+		const updated = db.select().from(products).where(eq(products.id, productId)).get();
+		if (!updated) {
+			return c.json({ error: "Product not found after update", code: "internal_error" }, 500);
+		}
+		return c.json({ id: updated.id, name: updated.name, phase: updated.phase });
+	});
+
 	// GET /:productId — full ProductDetail
 	router.get("/:productId", (c) => {
 		const productId = c.req.param("productId");

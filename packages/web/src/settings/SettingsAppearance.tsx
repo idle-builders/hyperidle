@@ -7,10 +7,10 @@
  */
 
 import { type JSX, useCallback } from "react";
-import type { Density } from "../components/SettingsPanel.js";
 import { useDensity } from "../hooks/useDensity.js";
 import { useTheme } from "../hooks/useTheme.js";
 import { useToast } from "../shell/ToastRegion.js";
+import type { Density } from "./settings-types.js";
 
 const DENSITY_OPTIONS: Array<{ value: Density; label: string }> = [
 	{ value: "auto", label: "Auto" },

@@ -17,7 +17,7 @@
  */
 
 import { useCallback, useEffect, useState } from "react";
-import type { Density } from "../components/SettingsPanel.js";
+import type { Density } from "../settings/settings-types.js";
 
 export const DENSITY_STORAGE_KEY = "hyperidle:density";
 const DENSITY_CHANGE_EVENT = "hyperidle:density-change";

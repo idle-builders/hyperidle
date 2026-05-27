@@ -170,7 +170,7 @@ describe("AppShell — P4 Settings overlay", () => {
 	});
 
 	// AC-23: Rail is dimmed when settings is open
-	it("main shell wrapper has opacity-60 class when settings is open", async () => {
+	it("rail wrapper has opacity-60 class when settings is open", async () => {
 		const user = userEvent.setup();
 		renderShell();
 
@@ -184,9 +184,10 @@ describe("AppShell — P4 Settings overlay", () => {
 			expect(screen.getByText("Settings")).toBeInTheDocument();
 		});
 
-		// The shell wrapper should have dimming classes
-		const mainContent = screen.getByTestId("main-content");
-		expect(mainContent.getAttribute("aria-hidden")).toBe("true");
+		// The rail wrapper is dimmed (pointer-events-none opacity-60) when settings is open.
+		// The main-content pane is NOT dimmed — it shows settings content and must be interactive.
+		const railWrapper = screen.getByTestId("rail-wrapper");
+		expect(railWrapper.getAttribute("aria-hidden")).toBe("true");
 	});
 
 	// AC-11: Main pane shows Profile form when settings opened

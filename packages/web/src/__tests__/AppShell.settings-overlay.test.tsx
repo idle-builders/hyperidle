@@ -76,7 +76,7 @@ describe("AppShell — Settings overlay + Command-K priority (J3)", () => {
 		}
 	});
 
-	it("marks main content as inert / aria-hidden while Settings is open", async () => {
+	it("main-content is NOT aria-hidden when Settings is open (it shows settings content)", async () => {
 		const user = userEvent.setup();
 		renderShell();
 		await waitFor(() => {
@@ -88,8 +88,15 @@ describe("AppShell — Settings overlay + Command-K priority (J3)", () => {
 		await waitFor(() => {
 			expect(screen.getByText("Settings")).toBeInTheDocument();
 		});
+		// @lore P4 fix: main-content shows settings section content when settings is open
+		// so it must NOT be aria-hidden (screen readers need to access the forms).
+		// The rail-wrapper is aria-hidden instead (it is decorative during settings).
 		const main = screen.getByTestId("main-content");
-		expect(main.getAttribute("aria-hidden")).toBe("true");
+		expect(main.getAttribute("aria-hidden")).toBeNull();
+
+		// Rail wrapper IS aria-hidden when settings is open
+		const railWrapper = screen.getByTestId("rail-wrapper");
+		expect(railWrapper.getAttribute("aria-hidden")).toBe("true");
 	});
 
 	it("Command-K pressed while Settings is open closes Settings and opens search", async () => {

@@ -15,7 +15,7 @@
  */
 
 import { useCallback, useEffect, useState } from "react";
-import type { SettingsData } from "../components/SettingsPanel";
+import type { SettingsData } from "../settings/settings-types.js";
 import { getInitialTheme } from "./useTheme";
 
 export type UseSettingsStatus = "loading" | "ready" | "error";

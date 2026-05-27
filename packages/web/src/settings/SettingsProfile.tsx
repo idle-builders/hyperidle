@@ -11,6 +11,7 @@
 
 import { type JSX, useCallback, useEffect, useState } from "react";
 import { useCurrentUser } from "../hooks/useCurrentUser.js";
+import { apiFetch } from "../services/api-fetch.js";
 import { useToast } from "../shell/ToastRegion.js";
 
 export function SettingsProfile(): JSX.Element {
@@ -40,7 +41,7 @@ export function SettingsProfile(): JSX.Element {
 		if (!(user && isDirty)) return;
 		setSaving(true);
 		try {
-			const res = await fetch(`/api/users/${user.id}`, {
+			const res = await apiFetch(`/api/users/${user.id}`, {
 				method: "PATCH",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ name, email }),
