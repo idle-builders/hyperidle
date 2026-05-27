@@ -1,4 +1,4 @@
-#!/usr/bin/env bun
+#!/usr/bin/env tsx
 // Lint wrapper (biome + eslint). Groups errors by file, caps at 10 files, outputs TOON.
 // Called via: bun run lint
 
@@ -65,8 +65,8 @@ function parseEslintErrors(output: string): FileErrors[] {
 }
 
 const [biome, eslint] = await Promise.all([
-	runTool({ name: "biome", cmd: "bun", args: ["run", "lint:biome"] }),
-	runTool({ name: "eslint", cmd: "bunx", args: ["--bun", "eslint", ".", "--quiet"] }),
+	runTool({ name: "biome", cmd: "npm", args: ["run", "lint:biome"] }),
+	runTool({ name: "eslint", cmd: "npx", args: ["eslint", ".", "--quiet"] }),
 ]);
 
 if (biome.ok && eslint.ok) {

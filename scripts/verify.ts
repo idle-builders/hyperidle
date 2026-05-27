@@ -1,4 +1,4 @@
-#!/usr/bin/env bun
+#!/usr/bin/env tsx
 // Block 1a — TE-3: single global verify orchestrator.
 //
 // Runs check + lint:biome + lint:eslint + test in parallel-friendly order,
@@ -8,10 +8,10 @@
 // on red).
 //
 // Usage:
-//   bun run verify           # full: check + lint + test (TOON summary)
-//   bun run verify --quick   # quick: check + lint only (no tests)
-//   bun run verify --raw     # forward each tool's full stdout/stderr
-//   bun run verify --only=test,lint:eslint
+//   npm run verify           # full: check + lint + test (TOON summary)
+//   npm run verify --quick   # quick: check + lint only (no tests)
+//   npm run verify --raw     # forward each tool's full stdout/stderr
+//   npm run verify --only=test,lint:eslint
 //
 // Exit code is the count of failing tools (0 = all green).
 
@@ -48,28 +48,28 @@ const TEST_OUTPUT_FILE = "test-output.toon";
 
 const TOOLS: Tool[] = [
 	{ name: "check", cmd: "tsc", args: ["--noEmit", "-p", "tsconfig.json"], timeoutMs: 60_000 },
-	{ name: "lint:biome", cmd: "bun", args: ["run", "lint:biome"], timeoutMs: 60_000 },
-	{ name: "lint:eslint", cmd: "bunx", args: ["--bun", "eslint", ".", "--quiet"], timeoutMs: 60_000 },
-	{ name: "knip", cmd: "bunx", args: ["knip"], timeoutMs: 60_000 },
+	{ name: "lint:biome", cmd: "npm", args: ["run", "lint:biome"], timeoutMs: 60_000 },
+	{ name: "lint:eslint", cmd: "npx", args: ["eslint", ".", "--quiet"], timeoutMs: 60_000 },
+	{ name: "knip", cmd: "npx", args: ["knip"], timeoutMs: 60_000 },
 	{
 		name: "mock-inventory",
-		cmd: "bun",
-		args: ["run", "scripts/mock-inventory.ts", "--check"],
+		cmd: "npx",
+		args: ["tsx", "scripts/mock-inventory.ts", "--check"],
 		timeoutMs: 30_000,
 	},
 	{
 		name: "test",
-		cmd: "bun",
+		cmd: "npm",
 		args: ["run", "test:raw"],
 		env: { VITEST_TOON_OUTPUT: TEST_OUTPUT_FILE },
 		timeoutMs: 300_000,
 	},
-	{ name: "build", cmd: "bun", args: ["run", "build"], timeoutMs: 60_000 },
+	{ name: "build", cmd: "npm", args: ["run", "build"], timeoutMs: 60_000 },
 	// e2e disabled — needs full rebuild of Playwright fixture/server setup
 	// {
 	// 	name: "e2e",
-	// 	cmd: "bunx",
-	// 	args: ["--bun", "playwright", "test", "--reporter=list"],
+	// 	cmd: "npx",
+	// 	args: ["playwright", "test", "--reporter=list"],
 	// 	cwd: "packages/web",
 	// 	timeoutMs: 600_000,
 	// },

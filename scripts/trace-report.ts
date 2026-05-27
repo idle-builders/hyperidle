@@ -1,4 +1,4 @@
-#!/usr/bin/env bun
+#!/usr/bin/env tsx
 // DuckDB-backed query layer over the JSONL the collector writes. Each
 // invocation spins an in-memory DuckDB, points read_json_auto at the
 // JSONL file, and runs the requested report.

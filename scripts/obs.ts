@@ -1,16 +1,16 @@
-#!/usr/bin/env bun
+#!/usr/bin/env tsx
 // Local-observability CLI for the DuckDB-backed trace collector
 // (scripts/trace-collector.ts → .pipeline/traces.jsonl).
 //
 // Subcommands: env | smoke | run
 //
 // Examples:
-//   source <(bun run obs:env)                                # tag this shell with OTel env
-//   source <(bun run obs:env --in-container)                 # same, container-side rewrite
-//   source <(bun run obs:env --ab=block-1 --variant=baseline) # OTel env + ab.test/ab.arm tags
-//   source <(bun run obs:env --workpackage=L15)              # OTel env + hyperidle.workpackage tag
-//   bun run obs:smoke                                        # emit one span; verify ingest
-//   bun run obs:run -- bun bin/pipeline L15                  # run a command with OTel env set
+//   source <(npm run obs:env)                                # tag this shell with OTel env
+//   source <(npm run obs:env --in-container)                 # same, container-side rewrite
+//   source <(npm run obs:env --ab=block-1 --variant=baseline) # OTel env + ab.test/ab.arm tags
+//   source <(npm run obs:env --workpackage=L15)              # OTel env + hyperidle.workpackage tag
+//   npm run obs:smoke                                        # emit one span; verify ingest
+//   npm run obs:run -- bin/pipeline L15                  # run a command with OTel env set
 
 import { type Span, SpanStatusCode, trace } from "@opentelemetry/api";
 import { OTLPTraceExporter } from "@opentelemetry/exporter-trace-otlp-http";
@@ -69,7 +69,7 @@ function env(args: string[]): void {
 	const workpackage = flagValue(args, "workpackage") ?? flagValue(args, "wp");
 	if ((ab && !variant) || (variant && !ab)) {
 		console.error("Pass --ab and --variant together (or neither).");
-		console.error("  source <(bun run obs:env --ab=block-1 --variant=baseline)");
+		console.error("  source <(npm run obs:env --ab=block-1 --variant=baseline)");
 		process.exit(2);
 	}
 
@@ -124,24 +124,29 @@ async function smoke(): Promise<void> {
 	await provider.forceFlush();
 	await provider.shutdown();
 	console.log("✓ Span emitted and flushed.");
-	console.log("  Confirm with: bun run obs:report summary");
+	console.log("  Confirm with: npm run obs:report summary");
 }
 
 async function run(rest: string[]): Promise<void> {
 	if (rest.length === 0) {
-		console.error("Usage: bun run obs:run <command> [args…]");
+		console.error("Usage: npm run obs:run <command> [args…]");
 		process.exit(2);
 	}
 	const merged: Record<string, string> = {};
 	for (const [k, v] of Object.entries(process.env)) if (v !== undefined) merged[k] = v;
 	for (const [k, v] of Object.entries(OTEL_ENV)) merged[k] = v;
-	const proc = Bun.spawn({
-		cmd: rest,
+	const { spawn } = await import("node:child_process");
+	const [cmd, ...args] = rest;
+	const proc = spawn(cmd ?? "", args, {
 		env: merged,
-		stdio: ["inherit", "inherit", "inherit"],
+		stdio: "inherit",
 	});
-	const code = await proc.exited;
-	process.exit(code ?? 0);
+	await new Promise<void>((resolve) => {
+		proc.on("close", (code) => {
+			process.exit(code ?? 0);
+			resolve();
+		});
+	});
 }
 
 const [, , cmd, ...rest] = process.argv;
@@ -156,7 +161,7 @@ switch (cmd) {
 		await run(rest);
 		break;
 	default:
-		console.error(`Usage: bun run scripts/obs.ts <env|smoke|run>`);
+		console.error(`Usage: npm run obs:run <env|smoke|run>`);
 		console.error(`  env [--in-container] [--ab=<test> --variant=<arm>] [--workpackage=<id>]`);
 		console.error(`               print export lines for OTLP env vars; A/B flags`);
 		console.error(`               append ab.test / ab.arm / hyperidle.workpackage`);

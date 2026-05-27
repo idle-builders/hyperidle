@@ -15,7 +15,7 @@
 		"migrate:pg": "drizzle-kit migrate --config=./drizzle.config.pg.ts"
 	},
 	"dependencies": {
-		"@hyperidle/shared": "workspace:*",
+		"@hyperidle/shared": "*",
 		"better-sqlite3": "^12.9.0",
 		"drizzle-orm": "^0.39.0",
 		"drizzle-zod": "^0.8.3",

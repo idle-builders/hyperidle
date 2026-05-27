@@ -8,7 +8,7 @@ set -euo pipefail
 #   - Developer ID Application certificate in your keychain
 #   - APPLE_ID, APPLE_APP_SPECIFIC_PASSWORD, APPLE_TEAM_ID in .env or environment
 #   - gh CLI authenticated
-#   - bun, node installed
+#   - node, npm, npx installed
 #
 # Usage: ./scripts/release.sh <version>
 #   e.g. ./scripts/release.sh 0.1.0
@@ -65,14 +65,14 @@ node -e "
 
 # Build everything
 echo "==> Building web SPA"
-bun run --filter @hyperidle/web build
+npm run -w @hyperidle/web build
 
 echo "==> Bundling desktop (esbuild → dist/main.cjs)"
-bun packages/desktop/scripts/bundle.ts
+npx tsx packages/desktop/scripts/bundle.ts
 
-# @lore N5: electron-rebuild needs a package-lock.json but bun uses bun.lockb.
-# npm install --package-lock-only fails in workspace root due to workspace:*
-# protocol. Workaround: generate in an isolated temp dir with only better-sqlite3.
+# @lore N5: electron-rebuild needs a package-lock.json scoped to just better-sqlite3.
+# npm install --package-lock-only fails in workspace root due to cross-package deps.
+# Workaround: generate in an isolated temp dir with only better-sqlite3.
 echo "==> Generating package-lock.json for electron-rebuild"
 ISOLATED=$(mktemp -d)
 node -e "

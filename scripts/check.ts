@@ -1,4 +1,4 @@
-#!/usr/bin/env bun
+#!/usr/bin/env tsx
 // Typecheck wrapper. Groups errors by file, caps at 10 files, outputs TOON.
 // Called via: bun run check
 

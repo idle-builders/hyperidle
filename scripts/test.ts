@@ -1,4 +1,4 @@
-#!/usr/bin/env bun
+#!/usr/bin/env tsx
 // Test wrapper. Groups failures by file, caps at 10 files, outputs TOON.
 // Called via: bun run test
 
@@ -11,7 +11,7 @@ const MAX_FILES = 10;
 const TEST_OUTPUT_FILE = "test-output.toon";
 
 const extraArgs = process.argv.slice(2);
-const child = spawn("bun", ["run", "test:raw", ...extraArgs], {
+const child = spawn("npm", ["run", "test:raw", ...extraArgs], {
 	stdio: ["ignore", "pipe", "pipe"],
 	env: { ...process.env, VITEST_TOON_OUTPUT: TEST_OUTPUT_FILE },
 });

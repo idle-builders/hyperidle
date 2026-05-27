@@ -11,13 +11,13 @@ REPO_ROOT="$(git rev-parse --show-toplevel)"
 DESKTOP_DIR="$REPO_ROOT/packages/desktop"
 
 echo "==> Building web SPA"
-bun run --filter @hyperidle/web build
+npm run -w @hyperidle/web build
 
 echo "==> Bundling desktop (esbuild → dist/main.cjs)"
-bun "$DESKTOP_DIR/scripts/bundle.ts"
+npx tsx "$DESKTOP_DIR/scripts/bundle.ts"
 
-# electron-rebuild needs package-lock.json but bun uses bun.lockb.
-# Generate in an isolated temp dir to avoid workspace:* protocol issues.
+# electron-rebuild needs a package-lock.json scoped to just better-sqlite3.
+# Generate in an isolated temp dir to avoid cross-package dependency issues.
 echo "==> Generating package-lock.json for electron-rebuild"
 ISOLATED=$(mktemp -d)
 node -e "
@@ -42,10 +42,10 @@ CSC_IDENTITY_AUTO_DISCOVERY=false \
 cd "$REPO_ROOT"
 
 # electron-builder's npmRebuild recompiles better-sqlite3 for Electron's Node
-# ABI, breaking it for Bun/Node dev tooling. Restore the dev-compatible binary.
+# ABI, breaking it for Node dev tooling. Restore the dev-compatible binary.
 echo "==> Restoring dev-compatible native modules"
 cd "$REPO_ROOT"
-bun install --force 2>/dev/null
+npm rebuild better-sqlite3 2>/dev/null
 
 echo ""
 echo "Done! Unsigned app built."

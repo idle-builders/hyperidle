@@ -1,4 +1,4 @@
-#!/usr/bin/env bun
+#!/usr/bin/env tsx
 /**
  * K4 — DS-vs-Custom CLI Inspector.
  *
@@ -25,6 +25,7 @@
 
 import { existsSync, readFileSync, statSync } from "node:fs";
 import { dirname, isAbsolute, join, relative, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import * as ts from "typescript";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -552,9 +553,10 @@ function main(argv: string[]): number {
 	return 0;
 }
 
-// Bun runs this file directly; only execute CLI when invoked as the entrypoint.
-// `import.meta.main` is true when this file is the script entry under Bun.
-const meta = import.meta as ImportMeta & { main?: boolean };
-if (meta.main) {
+// Node-compatible entrypoint check (replaces Bun's import.meta.main).
+const isEntrypoint =
+	process.argv[1] ===
+	(typeof __filename === "string" ? __filename : fileURLToPath(import.meta.url));
+if (isEntrypoint) {
 	process.exit(main(process.argv));
 }
