@@ -352,7 +352,7 @@ async function runMigrationsWithRetry(
 	let migrated = false;
 	while (!migrated) {
 		try {
-			runMigrations(dbPath, migrationsFolder);
+			await runMigrations(dbPath, migrationsFolder);
 			migrated = true;
 		} catch (err) {
 			const nodeErr = err as NodeJS.ErrnoException;
@@ -447,9 +447,9 @@ async function bootLocalMode(ctx: BootContext, apiKey: string): Promise<void> {
 		PORT: process.env.PORT ?? "(default)",
 	});
 
-	let handle: ReturnType<typeof startServer>;
+	let handle: Awaited<ReturnType<typeof startServer>>;
 	try {
-		handle = startServer();
+		handle = await startServer();
 	} catch (err) {
 		log("boot:local server start FAILED", { error: (err as Error).message, stack: (err as Error).stack });
 		await showStartupError("Server failed to start.", (err as Error).message, ctx.logDir);
