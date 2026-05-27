@@ -45,7 +45,7 @@ User request arrives
 | "This is too simple for /pipeline" | Simple workpackages have the highest skip rate and highest regression rate. |
 | "I already know what to do" | The skill isn't about knowing — it's about the process gates that catch what you missed. |
 | "The skill will slow me down" | A 5-minute skill invocation prevents a 2-hour rework. |
-| "I'll just do a quick fix" | Quick fixes that skip `bun run check && bun run lint && bun run test` leave broken states for the next agent. |
+| "I'll just do a quick fix" | Quick fixes that skip `npm run check && npm run lint && npm run test` leave broken states for the next agent. |
 | "The user didn't ask for a review" | If code changed, it needs review. That's not optional. |
 | "I can skip the design phase" | You can. You shouldn't. The critique exists because your designs have blind spots. |
 | "I don't need to plan, I'll figure it out as I go" | That's how you end up rewriting half the implementation. 10 minutes of /architecture saves hours of rework. |

@@ -38,7 +38,7 @@ After resolving conflicts, commit the merge. The working tree must be **complete
 ### 3. Pre-flight validation (MANDATORY — do not skip)
 
 ```bash
-bun run verify
+npm run verify
 ```
 
 This is non-negotiable. Do not ship with failures. Do not use `--no-verify`. Do not rationalize "pre-existing failures" — if it's red, fix it or document why it's blocked and stop.
@@ -68,7 +68,7 @@ If no PR exists yet:
 
 ```bash
 gh pr create --title "<type>(<scope>): <description>" \
-  --body "## Summary\n\n<what changed and why>\n\n## Verification\n\nbun run verify — all green (attestation attached)"
+  --body "## Summary\n\n<what changed and why>\n\n## Verification\n\nnpm run verify — all green (attestation attached)"
 ```
 
 If a draft PR already exists (pipeline mode), flip it ready:
@@ -106,7 +106,7 @@ done
 1. Pull the failure log: `gh run view <run-id> --log-failed`
 2. Read the error message — common causes:
    - `HMAC signature invalid` → secret mismatch; re-run `gh secret set VERIFY_SECRET < ~/.config/hyperidle/verify-secret`
-   - `partial verify` → re-run `bun run verify` without `--quick` or `--only`
+   - `partial verify` → re-run `npm run verify` without `--quick` or `--only`
    - `working tree dirty` → commit everything, merge main, then re-run verify
    - `source files changed after verify` → code was committed after verify; re-run verify and re-commit attestation
 3. Fix the issue, then re-run from step 2 (merge main, verify, attest, push).
@@ -133,7 +133,7 @@ git commit -m "feat(web): add onboarding flow"
 git fetch origin main && git merge origin/main --no-edit
 
 # 3. Verify (writes attestation on green)
-bun run verify
+npm run verify
 
 # 4. Commit attestation + push
 git add .verify-attestation.json
@@ -164,7 +164,7 @@ gh pr checks <number>  # poll until green
 The HMAC secret must exist both locally and in GitHub Actions:
 
 ```bash
-# Local key is auto-generated on first `bun run verify` green run.
+# Local key is auto-generated on first `npm run verify` green run.
 # Add it to GitHub:
 gh secret set VERIFY_SECRET < ~/.config/hyperidle/verify-secret
 ```
@@ -193,7 +193,7 @@ If yes, the release flow runs from the repo root. It builds, signs, notarizes, a
 
 This script does everything in sequence:
 - Bumps `packages/desktop/package.json` version
-- Builds the web SPA (`bun run --filter @hyperidle/web build`)
+- Builds the web SPA (`npm run -w @hyperidle/web build`)
 - Bundles desktop (`bun packages/desktop/scripts/bundle.ts`)
 - Generates `package-lock.json` for electron-rebuild
 - Runs `electron-builder` with signing + notarization

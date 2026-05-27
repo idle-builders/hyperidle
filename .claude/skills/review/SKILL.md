@@ -68,7 +68,7 @@ Check every component against its spec. If the spec says 4 columns, count the co
 
 ### Visual verification
 
-Look at pixels, not code. Run `cd packages/web && bun run visual:compare <reference-name>` to generate pixel diffs. Read the reference.png, implementation.png, and diff.png. Include screenshot paths and match percentages in findings.
+Look at pixels, not code. Run `cd packages/web && npm run visual:compare <reference-name>` to generate pixel diffs. Read the reference.png, implementation.png, and diff.png. Include screenshot paths and match percentages in findings.
 
 ---
 
@@ -161,11 +161,11 @@ Watch for subtle incompleteness:
 
 | Criterion type | How to prove it | Example |
 |---------------|----------------|---------|
-| Schema/data model | Run the migration, inspect the DB | `bun run db:migrate && sqlite3 data.db ".schema"` |
+| Schema/data model | Run the migration, inspect the DB | `npm run db:migrate && sqlite3 data.db ".schema"` |
 | API endpoint | Call it and show the response | `curl localhost:3001/api/health` or integration test |
-| Type safety | Run the type checker | `bun run check` — zero errors |
-| Test coverage | Run tests with coverage | `bun run test:coverage` — show % for new files |
-| Behavior | Run the specific test that exercises it | `bun run test -- schema.test.ts` |
+| Type safety | Run the type checker | `npm run check` — zero errors |
+| Test coverage | Run tests with coverage | `npm run test:coverage` — show % for new files |
+| Behavior | Run the specific test that exercises it | `npm run test -- schema.test.ts` |
 | UI/visual | **Take a Playwright screenshot and look at it** | `cd packages/web && npx playwright screenshot http://localhost:5173/<route> /tmp/review-<name>.png --wait-for-timeout=3000` then read the PNG |
 | Error handling | Trigger the error path in a test | Test that sends bad input and asserts expected error |
 | FK/constraints | Insert violating data, show it rejects | Test that inserts orphan row and asserts FK error |
