@@ -3,7 +3,7 @@ import { sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/pglite";
 import { describe, expect, it } from "vitest";
 import { createPgTestDb } from "../pg-test-utils.js";
-import * as pgSchema from "../schema.pg.js";
+import * as pgSchema from "../schema.js";
 
 /**
  * H4 AC3: Migrations apply cleanly on Postgres.
@@ -29,18 +29,19 @@ describe("H4 AC3: PG migrations apply to a fresh pglite DB", () => {
 			// are migration artifacts.
 			expect(tableNames).toEqual(
 				expect.arrayContaining([
-					// @lore P2: agents → users, agent_skills → user_skills
 					"users",
 					"user_skills",
 					"bets",
 					"factory_settings",
-					"file_leases",
+					"hint_progress",
 					"items",
 					"knowledge_edit_log",
 					"knowledge_items",
 					"messages",
 					"products",
 					"routines",
+					"server_config",
+					"server_credentials",
 					"sessions",
 					"tasks",
 					"teams",
@@ -48,7 +49,7 @@ describe("H4 AC3: PG migrations apply to a fresh pglite DB", () => {
 				]),
 			);
 			expect(tableNames).not.toContain("responses");
-			expect(tableNames.length).toBeGreaterThanOrEqual(15);
+			expect(tableNames.length).toBeGreaterThanOrEqual(17);
 		} finally {
 			await close();
 		}

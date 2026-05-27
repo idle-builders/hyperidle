@@ -31,8 +31,6 @@
 		"verify": "npx tsx scripts/verify.ts",
 		"db:generate": "npm run -w @hyperidle/db generate",
 		"db:migrate": "npm run -w @hyperidle/db migrate",
-		"db:generate:pg": "npm run -w @hyperidle/db generate:pg",
-		"db:migrate:pg": "npm run -w @hyperidle/db migrate:pg",
 		"db:seed:pg": "npx tsx packages/db/src/seed-pg-cli.ts",
 		"setup": "tsx packages/db/src/setup-cli.ts",
 		"test:pg": "npx tsx packages/db/src/pg-test-runner.ts",

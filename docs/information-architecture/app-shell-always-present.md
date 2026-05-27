@@ -6,7 +6,7 @@ The shell is the fixed frame around every view. Four zones, always rendered:
 ┌──────────┬──────────────┬──────────────────────────┬──────────┐
 │          │              │                          │          │
 │  Icon    │   Submenu    │       Main Pane          │   Rail   │
-│  Menu    │  (per-view,  │    (view content)        │  (right  │
+│  Rail    │  (per-view,  │    (view content)        │  (right  │
 │  (left)  │  collapsible)│                          │  sidebar)│
 │          │              │                          │          │
 └──────────┴──────────────┴──────────────────────────┴──────────┘
@@ -18,9 +18,11 @@ A narrow vertical strip on the far left. Always visible, never changes.
 
 | Component | Information | Actions |
 |---|---|---|
+| **Logo** | HyperIdle logo at top | — |
 | **View icons** (3) | Conversations, Work, Knowledge — icon + active indicator | Click to switch view; updates submenu + main pane |
 | **Active view indicator** | Left border highlight on selected icon | Visual only |
-| **User avatar** | Profile image | Click for profile/settings |
+| **Settings icon** | Gear icon at bottom | Click to open settings overlay |
+| **User avatar** | Profile image at bottom | — |
 
 ### 1.2 Rail (Right Sidebar)
 
@@ -41,13 +43,13 @@ Always present. Two states: minimized (icon strip) and expanded (full panel).
 |---|---|---|
 | **Active bets list** | Per bet: title, product, progress (tasks done/total), time (week X of Y), status (on track/behind/blocked) | Click bet → navigate to Work bet detail |
 | **Blocked agents list** | Per blocker: agent name, reason, duration | Click blocker → navigate to relevant Conversations thread |
-| **Knowledge additions count** | New items since last Knowledge view visit | Click → navigate to Knowledge "recently created" |
-| **Cost burn card** | Today spend vs. daily budget, week spend vs. weekly budget, burn-down indicator | Read-only |
+| **Cost burn card** | Today spend vs. daily budget, week spend vs. weekly budget, token spend, burn-down indicator | Read-only |
 | **System stability** | Active agents count, session failures, knowledge conflicts | Read-only |
 | **Unread breakdown** | X blocking reviews, Y non-blocking reviews, Z chats | Click → navigate to Conversations |
-| **Agent activity summary** | Active agent count, per-agent: name, current task, progress indicator | Read-only; click agent → Conversations thread |
-| **Recent completions feed** | Last 3 resolved items (shipped bets, approved reviews, closed threads) | Click → navigate to relevant view |
 | **Minimize affordance** | Arrow/chevron | Click to collapse to icon strip |
+| **CoS button** | Chief of Staff access (bottom-right) | Click to open Chief of Staff overlay |
+
+**Important:** The Rail is the only notification surface. No dedicated notification icon, bell, or top-bar toasts. The minimized Rail strip shows counts (blocked, unread, cost); the expanded panel shows details. All alert routing goes through the Rail or Conversations thread list.
 
 ### 1.3 Submenu & Main (Slots)
 
@@ -55,23 +57,20 @@ Always present. Two states: minimized (icon strip) and expanded (full panel).
 
 **Main** (center pane): View content — review thread, portfolio overview, knowledge list, etc.
 
-### 1.4 Top Bar
+### 1.4 Settings (Overlay)
 
-| Component | Information | Actions |
+Settings opens as an overlay — the Submenu swaps to a settings nav, and the Main pane shows the active section. The Rail and IconRail dim with `pointer-events-none` but remain visible. Press Escape to close and return to the previous view.
+
+Seven settings sections:
+
+| Section | Information | Actions |
 |---|---|---|
-| **App name** | "HyperIdle" or logo | — |
-| **Global search** | Search input with ⌘K shortcut hint | Type to search across all views — results grouped by type (Threads, Bets/Tasks, Knowledge Items). ⌘K from any view. |
-
-**Important:** The Rail is the only notification surface. No dedicated notification icon, bell, or top-bar toasts. The minimized Rail strip shows counts (blocked, unread, cost); the expanded panel shows details. All alert routing goes through the Rail or Conversations thread list.
-
-### 1.5 Settings (accessed via user avatar)
-
-| Component | Information | Actions |
-|---|---|---|
-| **Notifications tab** | Per-type toggles (review, cost, blocker), quiet hours, per-product mute | Toggle on/off |
-| **Budgets tab** | Daily/weekly cost caps per agent, per team, factory-wide | Edit values |
-| **Agents & Permissions tab** | Agent list, autonomy levels per skill, pause/reactivate | Edit levels, pause agent |
-| **Cycles tab** | Cycle length, cool-down duration, current cycle phase | Edit values, advance cycle |
-| **Knowledge tab** | Auto-archive stale threshold, conflict resolution rules, import/export | Toggle, upload, download |
+| **Profile** | Name, email | Edit name and email |
+| **Org Chart** | Review routing edges between users/agents | Add, edit, delete routing edges (direct, function, team mechanisms) |
+| **Credentials** | API keys and shared credentials | Add/remove credentials; desktop uses safeStorage, shared uses encrypted DB |
+| **Notifications** | Per-type toggles (review, cost, blocker), quiet hours (HH:MM), per-product mute | Toggle on/off, set times |
+| **Appearance** | Density (auto/compact/default/comfortable), theme (light/dark/system) | Select options |
+| **Products** | Product list with active/archived status | Toggle active/archived |
+| **Backend** | Current backend mode, desktop-only gate | View mode, switch button with restart warning |
 
 ---

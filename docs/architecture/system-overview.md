@@ -5,13 +5,13 @@ HyperIdle is a meta layer that sits between agent harnesses (which run agents) a
 ```
 ┌─────────────────────────────────────────────────────────────────┐
 │                     HUMAN INTERFACE                              │
-│  The Factory (PWA + optional Tauri shell)                       │
+│  The Factory (Electron desktop app)                             │
 │  ┌──────────┐ ┌──────────┐ ┌───────────┐ ┌─────────────────┐   │
 │  │Conversa-  │ │ Rail     │ │ Work      │ │ Knowledge       │   │
 │  │ tions     │ │ (HUD)   │ │ (Bets,    │ │ (Wiki)          │   │
 │  │ (Review,  │ │          │ │  Tasks)   │ │                 │   │
 │  │  Chat,    │ │          │ │           │ │                 │   │
-│  │  Coach)   │ │          │ │           │ │                 │   │
+│  │  Create)  │ │          │ │           │ │                 │   │
 │  └─────┬─────┘ └────┬─────┘ └─────┬─────┘ └──────┬──────────┘   │
 │        │            │             │               │              │
 │        └────────────┴──────┬──────┴───────────────┘              │
@@ -22,7 +22,7 @@ HyperIdle is a meta layer that sits between agent harnesses (which run agents) a
 └────────────────────────────┼─────────────────────────────────────┘
                              │
 ┌────────────────────────────┼─────────────────────────────────────┐
-│                     META LAYER                                    │
+│                     META LAYER (Kernel + Fabric)                  │
 │                                                                   │
 │  ┌──────────────┐  ┌──────────────┐  ┌────────────────────────┐  │
 │  │ Router       │  │ Scheduler    │  │ Knowledge Fabric       │  │
@@ -36,8 +36,8 @@ HyperIdle is a meta layer that sits between agent harnesses (which run agents) a
 │         │                 │                     │                 │
 │  ┌──────┴─────────────────┴─────────────────────┴──────────────┐ │
 │  │                   Primitive Store                            │ │
-│  │  Bets · Tasks · Sessions · Teams · Routines · Inbox · Items │ │
-│  │                     (SQLite)                                │ │
+│  │  Users · Bets · Tasks · Sessions · Teams · Routines ·       │ │
+│  │  Threads · Messages · Knowledge Items       (SQLite)        │ │
 │  └─────────────────────────┬───────────────────────────────────┘ │
 └────────────────────────────┼─────────────────────────────────────┘
                              │
@@ -48,13 +48,14 @@ HyperIdle is a meta layer that sits between agent harnesses (which run agents) a
 │  │ Workspace    │  │ Harness      │  │ Observability        │    │
 │  │ Adapter      │  │ Adapter      │  │ Adapter              │    │
 │  │              │  │              │  │                      │    │
-│  │ Docker/E2B/  │  │ Claude SDK/  │  │ Console / no-op /    │    │
-│  │ Daytona/Git  │  │ Letta/Goose/ │  │ OTel (planned)       │    │
-│  │              │  │ OpenHands    │  │                      │    │
+│  │ Local /      │  │ Claude SDK   │  │ Console / no-op /    │    │
+│  │ Docker / E2B │  │              │  │ OTel (planned)       │    │
 │  └──────────────┘  └──────────────┘  └──────────────────────┘    │
 └──────────────────────────────────────────────────────────────────┘
 ```
 
 The layering is strict. Arrows point down (dependency direction). The Human Interface depends on the Meta Layer. The Meta Layer depends on the Agent Runtime adapters. No layer reaches past its neighbor.
+
+The Meta Layer is split into two packages at the code level: **Kernel** (stable protocols — routing, persistence, events) and **Fabric** (volatile heuristics — scoring, propagation, notifications). The kernel never imports from fabric; fabric subscribes to kernel events.
 
 ---

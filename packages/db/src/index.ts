@@ -99,7 +99,6 @@ export {
 	userSkills,
 	users,
 } from "./schema.js";
-export * as pgSchema from "./schema.pg.js";
 export { seed } from "./seed.js";
 export { type SeedablePgDb, seedPg } from "./seed-pg.js";
 export { type RunSetupContext, type RunSetupIo, runSetup } from "./setup-cli.js";

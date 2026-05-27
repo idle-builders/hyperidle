@@ -2,7 +2,7 @@ import { resolve } from "node:path";
 import { PGlite } from "@electric-sql/pglite";
 import { drizzle, type PgliteDatabase } from "drizzle-orm/pglite";
 import { migrate } from "drizzle-orm/pglite/migrator";
-import * as pgSchema from "./schema.pg.js";
+import * as pgSchema from "./schema.js";
 
 // @lore pglite runs real Postgres queries inside a WASM binary; drizzle's
 // pglite driver lets our Postgres migrations execute inside the test
@@ -26,7 +26,7 @@ export interface PgTestDbOptions {
 
 /** Folder where the Postgres migration set lives. */
 function pgMigrationsFolder(): string {
-	return resolve(__dirname, "../drizzle-pg");
+	return resolve(__dirname, "../drizzle");
 }
 
 /** Apply the full pg migration set to a pglite-backed Drizzle instance. */

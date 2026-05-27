@@ -1,6 +1,6 @@
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres, { type Sql } from "postgres";
-import * as pgSchema from "./schema.pg.js";
+import * as pgSchema from "./schema.js";
 
 // @lore The `postgres` package is a connection pool by design; its `max`
 // option is the pool size. Drizzle's postgres-js driver wraps this client,

@@ -10,7 +10,7 @@ import {
 	tasks,
 	teams,
 	users,
-} from "./schema.pg.js";
+} from "./schema.js";
 import {
 	BUILTIN_ROUTINE_SEEDS,
 	COMMUNITY_DISPLAY_NAMES,

@@ -1,17 +1,12 @@
 {
-	"sha": "17faf60b2d1e3a1ee464e207b40766b893d525c8",
+	"sha": "fa5c71d36f5742df737daca72ced0a162f1543cd",
 	"status": "passed",
-	"dirty": false,
+	"dirty": true,
 	"tools": [
 		"check",
-		"lint:biome",
 		"lint:eslint",
-		"knip",
-		"mock-inventory",
 		"test",
-		"build",
-		"build:desktop",
-		"server:load"
+		"build:desktop"
 	],
 	"allTools": [
 		"check",
@@ -24,7 +19,7 @@
 		"build:desktop",
 		"server:load"
 	],
-	"partial": false,
-	"timestamp": "2026-05-27T21:10:09.415Z",
-	"hmac": "507eb8427c4bd3e8d59f06158632649e3febf87a1c8ae96ee6651d4416dfba0d"
+	"partial": true,
+	"timestamp": "2026-05-27T21:54:25.525Z",
+	"hmac": "c6a7c50e6994122e2f6ce7019ef7dac75e3d5e7c7b14c5bfb2b9f4a7eff162e5"
 }

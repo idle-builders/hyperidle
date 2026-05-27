@@ -1,26 +1,28 @@
-## Laptop
+## Development Setup
 
-Single-machine development. SQLite file, local workspace adapter, no
-external services.
+Local development runs the server and web client as separate processes with hot reload.
 
 **Prerequisites**
-- Bun ≥ 1.1
-- Node 20+ (for Playwright binaries)
+- Node 20+
+- npm
 
 **Setup**
 ```
 npm install
-npm run setup --profile laptop
 npm run dev
 ```
 
-The setup command:
-1. Creates `./hyperidle.db` (configurable via `--db-path`).
-2. Runs the SQLite migrations from `packages/db/drizzle/`.
-3. Seeds initial data (products, agents, routines).
-4. Prints a ready banner. `npm run dev` then starts server + web.
+This starts:
+1. Hono API server on `http://localhost:3001` (via `@hono/node-server`)
+2. Vite dev server on `http://localhost:5173` (React SPA with HMR)
+
+The dev server uses `better-sqlite3` with the database at `packages/hyperidle.db`. Migrations run automatically on server start from `packages/db/drizzle/`.
+
+**Auth in dev mode:** Set `VITE_HYPERIDLE_API_KEY` in `.env` or let the server generate one on first start.
 
 **Verification**
 ```
-npm run test
+npm run verify
 ```
+
+Runs type-checking, linting, and tests in one orchestrated pass.
