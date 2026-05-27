@@ -51,7 +51,6 @@ const FACILITATOR_ROLES: ReadonlySet<string> = new Set([
 
 const NON_FACILITATOR_MAX_LAYER: ReadonlySet<KnowledgeLayer> = new Set(["L0", "L1", "L2"]);
 
-// biome-ignore lint/suspicious/useAwait: ToolDefinition.handler requires async signature
 async function handler(args: WriteMemoryInput, ctx: ToolContext): Promise<ToolResult> {
 	const parsed = writeMemoryInputSchema.safeParse(args);
 	if (!parsed.success) {
@@ -61,14 +60,18 @@ async function handler(args: WriteMemoryInput, ctx: ToolContext): Promise<ToolRe
 
 	// I6: restrict non-facilitator agents to L0-L2 only
 	if (!NON_FACILITATOR_MAX_LAYER.has(layer)) {
-		const agent = ctx.db.select().from(users).where(eq(users.id, ctx.agentId)).get();
+		const [agent] = await ctx.db
+			.select()
+			.from(users)
+			.where(eq(users.id, ctx.agentId))
+			.limit(1);
 		const role = agent?.role ?? "";
 		if (!FACILITATOR_ROLES.has(role)) {
 			return err("FORBIDDEN", `insufficient role for ${layer}`);
 		}
 	}
 
-	const created = createKnowledgeItem(ctx.db, {
+	const created = await createKnowledgeItem(ctx.db, {
 		layer,
 		kind,
 		title,

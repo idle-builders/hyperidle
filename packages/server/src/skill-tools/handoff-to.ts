@@ -36,7 +36,11 @@ async function handler(args: HandoffToInput, ctx: ToolContext): Promise<ToolResu
 	// Pre-validate target agent so we can return a structured NOT_FOUND
 	// instead of letting the service throw.
 	if (input.toAgent) {
-		const target = ctx.db.select().from(users).where(eq(users.id, input.toAgent)).get();
+		const [target] = await ctx.db
+			.select()
+			.from(users)
+			.where(eq(users.id, input.toAgent))
+			.limit(1);
 		if (!target) {
 			return err("NOT_FOUND", `Target agent not found: ${input.toAgent}`);
 		}

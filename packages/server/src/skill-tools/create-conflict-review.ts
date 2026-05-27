@@ -32,16 +32,15 @@ interface CreateConflictReviewData {
 	readonly status: "open";
 }
 
-// biome-ignore lint/suspicious/useAwait: ToolDefinition.handler requires async signature
 async function handler(
 	input: CreateConflictReviewInput,
 	ctx: ToolContext,
 ): Promise<ToolResult<CreateConflictReviewData>> {
-	const item = ctx.db
+	const [item] = await ctx.db
 		.select()
 		.from(knowledgeItems)
 		.where(eq(knowledgeItems.id, input.knowledgeItemId))
-		.get();
+		.limit(1);
 	if (!item) {
 		return err("NOT_FOUND", `Knowledge item not found: ${input.knowledgeItemId}`);
 	}
@@ -59,7 +58,7 @@ async function handler(
 	// refuse. Without this, a misbehaving agent could file the same conflict
 	// repeatedly — each new row blocks `promote_knowledge → validated`, so
 	// unbounded inserts would DoS the promotion pipeline.
-	const existing = ctx.db
+	const [existing] = await ctx.db
 		.select()
 		.from(knowledgeConflicts)
 		.where(
@@ -69,7 +68,7 @@ async function handler(
 				eq(knowledgeConflicts.status, "open"),
 			),
 		)
-		.get();
+		.limit(1);
 	if (existing) {
 		return err(
 			"DUPLICATE",
@@ -80,7 +79,7 @@ async function handler(
 	const conflictId = randomUUID();
 	const now = new Date().toISOString();
 
-	ctx.db
+	await ctx.db
 		.insert(knowledgeConflicts)
 		.values({
 			id: conflictId,
@@ -92,8 +91,7 @@ async function handler(
 			proposedBy,
 			status: "open",
 			createdAt: now,
-		})
-		.run();
+		});
 
 	return ok<CreateConflictReviewData>({
 		conflictId,

@@ -14,7 +14,6 @@ const sendMessageInputSchema = z.object({
 
 type SendMessageInput = z.infer<typeof sendMessageInputSchema>;
 
-// biome-ignore lint/suspicious/useAwait: ToolDefinition.handler requires async signature
 async function handler(args: SendMessageInput, ctx: ToolContext): Promise<ToolResult> {
 	const parsed = sendMessageInputSchema.safeParse(args);
 	if (!parsed.success) {
@@ -22,7 +21,7 @@ async function handler(args: SendMessageInput, ctx: ToolContext): Promise<ToolRe
 	}
 	const { to, subject, body } = parsed.data;
 
-	const recipient = ctx.db.select().from(users).where(eq(users.id, to)).get();
+	const [recipient] = await ctx.db.select().from(users).where(eq(users.id, to)).limit(1);
 	if (!recipient) {
 		return err("NOT_FOUND", `Recipient agent not found: ${to}`);
 	}
@@ -35,7 +34,7 @@ async function handler(args: SendMessageInput, ctx: ToolContext): Promise<ToolRe
 
 	const messageId = crypto.randomUUID();
 	const text = subject ? `${subject}\n\n${body}` : body;
-	ctx.db
+	await ctx.db
 		.insert(messages)
 		.values({
 			id: messageId,
@@ -45,8 +44,7 @@ async function handler(args: SendMessageInput, ctx: ToolContext): Promise<ToolRe
 			payload: JSON.stringify({ text }),
 			clientKey: messageId,
 			createdAt: now,
-		})
-		.run();
+		});
 
 	return ok({ messageId, threadId });
 }
