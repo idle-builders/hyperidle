@@ -46,8 +46,6 @@
 		"knip": "npx knip",
 		"mock-inventory": "npx tsx scripts/mock-inventory.ts",
 		"mock-inventory:check": "npx tsx scripts/mock-inventory.ts --check",
-		"native:electron": "cd packages/desktop && npx electron-rebuild -f -w better-sqlite3 -m ../..",
-		"native:node": "npm rebuild better-sqlite3",
 		"check:native": "npx tsx packages/desktop/scripts/check-native.ts"
 	},
 	"overrides": {

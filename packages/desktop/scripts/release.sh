@@ -70,21 +70,7 @@ npm run -w @hyperidle/web build
 echo "==> Bundling desktop (esbuild → dist/main.cjs)"
 npx tsx packages/desktop/scripts/bundle.ts
 
-# @lore N5: electron-rebuild needs a package-lock.json scoped to just better-sqlite3.
-# npm install --package-lock-only fails in workspace root due to cross-package deps.
-# Workaround: generate in an isolated temp dir with only better-sqlite3.
-echo "==> Generating package-lock.json for electron-rebuild"
-ISOLATED=$(mktemp -d)
-node -e "
-  const fs = require('fs');
-  const pkg = JSON.parse(fs.readFileSync('$DESKTOP_DIR/package.json', 'utf-8'));
-  const minimal = { name: pkg.name, version: pkg.version,
-    dependencies: { 'better-sqlite3': pkg.dependencies['better-sqlite3'] } };
-  fs.writeFileSync(process.argv[1] + '/package.json', JSON.stringify(minimal, null, 2));
-" "$ISOLATED"
-(cd "$ISOLATED" && npm install --package-lock-only --ignore-scripts 2>/dev/null)
-cp "$ISOLATED/package-lock.json" "$DESKTOP_DIR/package-lock.json"
-rm -rf "$ISOLATED"
+# @lore PGlite migration: no native module rebuild needed. PGlite is pure WASM.
 
 echo "==> Building, signing, and notarizing DMG"
 cd "$DESKTOP_DIR"

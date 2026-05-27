@@ -48,7 +48,7 @@
 		"packages/desktop": {
 			"entry": ["src/preload.ts"],
 			"ignoreBinaries": ["electron-builder"],
-			"ignoreDependencies": ["better-sqlite3", "@electron/rebuild"]
+			"ignoreDependencies": []
 		},
 		"packages/eslint-plugin-design": {},
 		"scripts": {

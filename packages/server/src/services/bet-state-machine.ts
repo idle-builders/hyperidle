@@ -81,10 +81,9 @@ function addRevisionEntry(
  * @lore I1 B1-B3: the two mutating writes — `teams.activeBets` delta and
  * `bets` status/log — live inside `db.transaction((tx) => {...})` so they
  * commit atomically. The capacity re-check is ALSO inside the tx (re-reading
- * the team via `tx`) so two concurrent commits serialize via SQLite's
- * write-locking rather than racing on a stale `activeBets` snapshot. Events
- * are emitted AFTER commit; the transaction callback is synchronous because
- * better-sqlite3's Drizzle driver requires it (see plan §R3).
+ * the team via `tx`) so two concurrent commits serialize via Postgres row-level
+ * locking rather than racing on a stale `activeBets` snapshot. Events
+ * are emitted AFTER commit.
  */
 export async function transitionBet(
 	db: HyperIdleDb,

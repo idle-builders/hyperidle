@@ -2,7 +2,7 @@
  * N5 — bundle script content validation tests
  *
  * AC coverage:
- *   AC1: esbuild bundles to single CJS, externalizing better-sqlite3 + electron built-ins. No tsx in bundle.
+ *   AC1: esbuild bundles to single CJS, externalizing PGlite + electron built-ins.
  *   AC12: Self-contained bundle — no npm install on user's Mac.
  *
  * These tests inspect the bundle SCRIPT (packages/desktop/scripts/bundle.ts) to
@@ -55,37 +55,40 @@ describe("bundle script (AC1, AC12)", () => {
 		expect(src).toMatch(/external/);
 	});
 
-	it("bundle script externalizes better-sqlite3 (AC1 — native module, cannot be bundled)", () => {
+	it("bundle script externalizes @electric-sql/pglite (WASM binary must load from disk)", () => {
 		const src = fs.readFileSync(BUNDLE_SCRIPT, "utf-8");
-		expect(src).toMatch(/["']better-sqlite3["']/);
+		expect(src).toMatch(/@electric-sql\/pglite/);
+		const externalsMatch = src.match(/const EXTERNALS\s*=\s*\[([^\]]*)\]/s);
+		expect(externalsMatch).toBeTruthy();
+		expect(externalsMatch?.[1]).toContain("@electric-sql/pglite");
 	});
 
-	it("bundle script stubs postgres via pgStubPlugin (desktop uses SQLite only)", () => {
+	it("bundle script stubs postgres via pgStubPlugin (desktop uses PGlite, not postgres-js)", () => {
 		const src = fs.readFileSync(BUNDLE_SCRIPT, "utf-8");
 		expect(src).toMatch(/pgStubPlugin/);
 		expect(src).toMatch(/["']postgres["']/);
 	});
 
-	it("bundle script stubs drizzle-orm/postgres-js via pgStubPlugin (db barrel re-exports pg-connection)", () => {
+	it("bundle script stubs drizzle-orm/postgres-js via pgStubPlugin (VPS/cloud only)", () => {
 		const src = fs.readFileSync(BUNDLE_SCRIPT, "utf-8");
 		expect(src).toMatch(/pgStubPlugin/);
 		expect(src).toMatch(/drizzle-orm\/postgres-js/);
 	});
 
-	it("bundle script stubs @electric-sql/pglite via pgStubPlugin (not needed in desktop)", () => {
+	it("bundle script does NOT stub @electric-sql/pglite (desktop uses PGlite as its DB engine)", () => {
 		const src = fs.readFileSync(BUNDLE_SCRIPT, "utf-8");
-		expect(src).toMatch(/pgStubPlugin/);
-		expect(src).toMatch(/@electric-sql\/pglite/);
+		const stubMatch = src.match(/const PG_STUB_MODULES\s*=\s*\[([^\]]*)\]/s);
+		expect(stubMatch).toBeTruthy();
+		expect(stubMatch?.[1]).not.toContain("pglite");
 	});
 
-	it("bundle script does NOT externalize pg modules (v0.1.0 bug — dangling require in packaged app)", () => {
+	it("bundle script does NOT externalize postgres-js modules (v0.1.0 bug — dangling require)", () => {
 		const src = fs.readFileSync(BUNDLE_SCRIPT, "utf-8");
 		const externalsMatch = src.match(/const EXTERNALS\s*=\s*\[([^\]]*)\]/s);
 		expect(externalsMatch).toBeTruthy();
 		const externalsContent = externalsMatch?.[1] ?? "";
 		expect(externalsContent).not.toContain("postgres");
 		expect(externalsContent).not.toContain("drizzle-orm");
-		expect(externalsContent).not.toContain("pglite");
 	});
 
 	it("bundle script validates the output for dangling requires", () => {

@@ -119,8 +119,7 @@ export function validateDbPath(input: string, cwd: string): string {
 		}
 	}
 	// Probe writability with fs.accessSync. On failure we surface an
-	// explicit message rather than letting better-sqlite3 throw a SQLite
-	// "unable to open database" error that's harder to diagnose.
+	// explicit message rather than letting PGlite throw a cryptic error.
 	try {
 		fs.accessSync(parent, fs.constants.W_OK);
 	} catch {

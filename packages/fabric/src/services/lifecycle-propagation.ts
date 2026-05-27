@@ -145,12 +145,9 @@ const PROPAGATABLE_BET_STATES: ReadonlySet<BetStatus> = new Set([
 /**
  * Synchronously transition a bet to 'review' for propagation purposes.
  *
- * @lore L20: We cannot call transitionBet() (which is async) from a
- * synchronous EventBus handler without losing synchronous execution semantics.
- * transitionBet() has no real async work (uses synchronous better-sqlite3),
- * but its async signature means .then() executes in the microtask queue —
- * after tests assert results. This synchronous version duplicates the minimal
- * bet-to-review transition logic. See architecture trade-off §12.1.
+ * @lore L20: Duplicates the minimal bet-to-review transition logic from
+ * transitionBet() for use in EventBus handlers where we fire-and-forget.
+ * See architecture trade-off §12.1.
  *
  * We handle the compare-and-set (CAS) pattern the same way transitionBet does:
  * WHERE status = fromState — if 0 rows updated, throw InvalidTransitionError.
