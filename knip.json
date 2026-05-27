@@ -16,9 +16,7 @@
 		},
 		"packages/shared": {},
 		"packages/db": {
-			"entry": [
-				"drizzle.config.pg.ts"
-			]
+			"entry": ["drizzle.config.pg.ts"]
 		},
 		"packages/fabric": {},
 		"packages/api-contract": {},
