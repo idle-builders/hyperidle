@@ -28,7 +28,7 @@ If you cannot define how to verify a criterion, clarify the requirement before w
 
 ## Validation
 
-Before any work is complete: `bun run check` (zero type errors) + `bun run lint` (zero lint errors) + `bun run test` (all green). Target 100% test coverage of new code including Playwright E2E tests for all user-facing features. Every change must be independently verifiable by agents — if it can't be proven with a test, it's not done.
+Before any work is complete: `npm run check` (zero type errors) + `npm run lint` (zero lint errors) + `npm run test` (all green). Target 100% test coverage of new code including Playwright E2E tests for all user-facing features. Every change must be independently verifiable by agents — if it can't be proven with a test, it's not done.
 
 ## Proof & Definition of Done
 
@@ -77,7 +77,7 @@ Each folder has an `index.md` with section links. `/concept` and `/architecture`
 
 ## Tech Stack
 
-Bun, TypeScript strict, Hono, Drizzle ORM (SQLite + PostgreSQL), React + Vite, Tailwind CSS + DaisyUI (factory-dark theme), Vitest, Playwright, Biome, BullMQ.
+Node.js, npm, TypeScript strict, Hono, Drizzle ORM (SQLite + PostgreSQL), React + Vite, Tailwind CSS + DaisyUI (factory-dark theme), Vitest, Playwright, Biome, BullMQ.
 
 ---
 
@@ -89,7 +89,7 @@ Bun, TypeScript strict, Hono, Drizzle ORM (SQLite + PostgreSQL), React + Vite, T
 
 ## Commands
 
-`bun install`, `bun dev` (server 3001 + web 5173), `bun run verify` (orchestrated check + lint + test in one summary — preferred for completion checks), `bun run test` (Vitest via package.json script — do NOT use bare `bun test` which invokes Bun's native runner), `bun run check` (typecheck), `bun run lint` (Biome + ESLint), `bun run lint:biome`, `bun run lint:eslint`, `bun run lint:fix`, `bun run db:generate`, `bun run db:migrate`.
+`npm install`, `npm run dev` (server 3001 + web 5173), `npm run verify` (orchestrated check + lint + test in one summary — preferred for completion checks), `npm run test` (Vitest), `npm run check` (typecheck), `npm run lint` (Biome + ESLint), `npm run lint:biome`, `npm run lint:eslint`, `npm run lint:fix`, `npm run db:generate`, `npm run db:migrate`.
 
 ---
 
@@ -101,7 +101,7 @@ When you call multiple tools and there are no dependencies between them, make al
 
 ## Git
 
-Branch naming: `<type>/<workpackage-id>-<description>`. Commit: imperative mood, reference workpackage ID. One logical change per commit. Main is protected and clean by default (bun verify succeeds required for merge). Always use a pull request to add features to main. Always push your changes after commit. **Every feature branch must be based on `origin/main` and every PR must target `main`.** No stacked PRs — never target another feature branch. Also you are not an admin user and cannot bypass any branch protication.
+Branch naming: `<type>/<workpackage-id>-<description>`. Commit: imperative mood, reference workpackage ID. One logical change per commit. Main is protected and clean by default (npm run verify succeeds required for merge). Always use a pull request to add features to main. Always push your changes after commit. **Every feature branch must be based on `origin/main` and every PR must target `main`.** No stacked PRs — never target another feature branch. Also you are not an admin user and cannot bypass any branch protication.
 
 ---
 

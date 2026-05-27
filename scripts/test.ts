@@ -1,6 +1,6 @@
 #!/usr/bin/env tsx
 // Test wrapper. Groups failures by file, caps at 10 files, outputs TOON.
-// Called via: bun run test
+// Called via: npm run test
 
 import { spawn } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";

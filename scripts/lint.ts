@@ -1,6 +1,6 @@
 #!/usr/bin/env tsx
 // Lint wrapper (biome + eslint). Groups errors by file, caps at 10 files, outputs TOON.
-// Called via: bun run lint
+// Called via: npm run lint
 
 import { spawn } from "node:child_process";
 import { capByFile, type FileErrors, groupByFile, toToon } from "./lib/output-cap.js";

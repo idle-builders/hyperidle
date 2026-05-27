@@ -3,17 +3,17 @@
 // invocation spins an in-memory DuckDB, points read_json_auto at the
 // JSONL file, and runs the requested report.
 //
-//   bun run obs:report                       # overall summary (last 24h)
-//   bun run obs:report sessions              # list sessions, latest first
-//   bun run obs:report session <session-id>  # span breakdown for one session
-//   bun run obs:report ab <test-id>          # arm-by-arm comparison
-//   bun run obs:report tools                 # tool-call rollup
-//   bun run obs:report models                # per-model token totals
-//   bun run obs:report costs                 # cost breakdown by model, session, workpackage
-//   bun run obs:report workpackages          # per-workpackage rollup
-//   bun run obs:report workpackage <wp-id>   # drill into one workpackage
-//   bun run obs:report bash                  # bash command audit (from hook)
-//   bun run obs:report sql "<query>"         # arbitrary SQL against `spans` view
+//   npm run obs:report                       # overall summary (last 24h)
+//   npm run obs:report sessions              # list sessions, latest first
+//   npm run obs:report session <session-id>  # span breakdown for one session
+//   npm run obs:report ab <test-id>          # arm-by-arm comparison
+//   npm run obs:report tools                 # tool-call rollup
+//   npm run obs:report models                # per-model token totals
+//   npm run obs:report costs                 # cost breakdown by model, session, workpackage
+//   npm run obs:report workpackages          # per-workpackage rollup
+//   npm run obs:report workpackage <wp-id>   # drill into one workpackage
+//   npm run obs:report bash                  # bash command audit (from hook)
+//   npm run obs:report sql "<query>"         # arbitrary SQL against `spans` view
 //
 // Concurrent with a running collector — JSONL is append-only so DuckDB
 // reads happily without locking anything.
@@ -26,7 +26,7 @@ const TRACE_FILE = resolve(process.env.HYPERIDLE_TRACE_FILE ?? ".pipeline/traces
 
 if (!existsSync(TRACE_FILE)) {
 	console.error(`No trace file at ${TRACE_FILE}.`);
-	console.error("Start the collector first: bun run obs:collector");
+	console.error("Start the collector first: npm run obs:collector");
 	process.exit(1);
 }
 
@@ -605,14 +605,14 @@ switch (cmd) {
 		break;
 	case "session":
 		if (!rest[0]) {
-			console.error("Usage: bun run obs:report session <session-id>");
+			console.error("Usage: npm run obs:report session <session-id>");
 			process.exit(2);
 		}
 		await session(rest[0]);
 		break;
 	case "ab":
 		if (!rest[0]) {
-			console.error("Usage: bun run obs:report ab <test-id>");
+			console.error("Usage: npm run obs:report ab <test-id>");
 			process.exit(2);
 		}
 		await ab(rest[0]);
@@ -634,14 +634,14 @@ switch (cmd) {
 		break;
 	case "workpackage":
 		if (!rest[0]) {
-			console.error("Usage: bun run obs:report workpackage <wp-id>");
+			console.error("Usage: npm run obs:report workpackage <wp-id>");
 			process.exit(2);
 		}
 		await workpackage(rest[0]);
 		break;
 	case "sql":
 		if (!rest[0]) {
-			console.error('Usage: bun run obs:report sql "<query>"');
+			console.error('Usage: npm run obs:report sql "<query>"');
 			process.exit(2);
 		}
 		await sqlCmd(rest.join(" "));

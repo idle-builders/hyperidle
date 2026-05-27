@@ -11,23 +11,18 @@
 	"workspaces": {
 		".": {
 			"entry": ["scripts/*.ts"],
-			"ignoreBinaries": ["bin/pipeline", "electron-builder"],
+			"ignoreBinaries": ["bin/pipeline", "electron-rebuild"],
 			"ignoreDependencies": ["@typescript-eslint/utils"]
 		},
 		"packages/shared": {},
 		"packages/db": {
 			"entry": [
-				"src/setup-cli.ts",
-				"src/seed-pg-cli.ts",
-				"src/pg-test-runner.ts",
 				"drizzle.config.pg.ts"
 			]
 		},
 		"packages/fabric": {},
 		"packages/api-contract": {},
-		"packages/server": {
-			"ignoreDependencies": ["ws", "@types/ws"]
-		},
+		"packages/server": {},
 		"packages/design-system": {
 			"entry": [
 				"src/**/*.stories.tsx",
@@ -51,12 +46,10 @@
 				"config": ["playwright.config.ts"]
 			}
 		},
-		"packages/pipeline": {
-			"ignoreBinaries": ["src/index.ts"]
-		},
+		"packages/pipeline": {},
 		"packages/desktop": {
-			"entry": ["src/preload.ts", "scripts/bundle.ts"],
-			"ignoreBinaries": ["electron", "electron-builder"],
+			"entry": ["src/preload.ts"],
+			"ignoreBinaries": ["electron-builder"],
 			"ignoreDependencies": ["better-sqlite3", "@electron/rebuild"]
 		},
 		"packages/eslint-plugin-design": {},

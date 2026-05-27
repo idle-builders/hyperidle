@@ -15,7 +15,7 @@ die() { echo "error: $1" >&2; exit 1; }
 ensure_built() {
 	if [ ! -f "$REPO_DIR/packages/web/dist/index.html" ]; then
 		echo "Building frontend..."
-		(cd "$REPO_DIR" && bun run build)
+		(cd "$REPO_DIR" && npm run build)
 	fi
 }
 
@@ -29,9 +29,9 @@ cmd_install() {
 		exit 1
 	fi
 
-	# Find bun
-	local bun_path
-	bun_path="$(command -v bun)" || die "bun not found in PATH"
+	# Find node
+	local node_path
+	node_path="$(command -v node)" || die "node not found in PATH"
 
 	# Build frontend if needed
 	ensure_built
@@ -41,7 +41,7 @@ cmd_install() {
 
 	# Generate plist from template
 	sed \
-		-e "s|__BUN_PATH__|$bun_path|g" \
+		-e "s|__NODE_PATH__|$node_path|g" \
 		-e "s|__REPO_DIR__|$REPO_DIR|g" \
 		-e "s|__API_KEY__|$api_key|g" \
 		"$PLIST_TEMPLATE" > "$PLIST_DEST"
@@ -116,7 +116,7 @@ cmd_logs() {
 
 cmd_rebuild() {
 	echo "Rebuilding frontend..."
-	(cd "$REPO_DIR" && bun run build)
+	(cd "$REPO_DIR" && npm run build)
 	echo "Done. Run 'bin/service restart' to pick up the new build."
 }
 
