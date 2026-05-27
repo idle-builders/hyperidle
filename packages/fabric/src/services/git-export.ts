@@ -202,11 +202,11 @@ function compareEntries(a: ExportPlanEntry, b: ExportPlanEntry): number {
  * without a fabric row (no layer assigned) are automatically excluded.
  * The status filter is on the kernel table as before.
  */
-export function computeExportPlan(db: HyperIdleDb): ExportPlan {
+export async function computeExportPlan(db: HyperIdleDb): Promise<ExportPlan> {
 	// @lore O2: INNER JOIN with knowledgeStrategyFabric so only items that
 	// have a fabric row (and thus a layer assignment) are included. Items
 	// without a fabric row have no layer and are not exportable.
-	const rows = db
+	const rows = await db
 		.select({
 			item: knowledgeItems,
 			fabric: knowledgeStrategyFabric,
@@ -229,8 +229,7 @@ export function computeExportPlan(db: HyperIdleDb): ExportPlan {
 					"stale",
 				]),
 			),
-		)
-		.all();
+		);
 	const entries: ExportPlanEntry[] = [];
 	const rejected: Array<{ itemId: string; reason: string }> = [];
 	for (const joined of rows) {
@@ -392,7 +391,7 @@ export async function runGitExport(
 ): Promise<GitExportResult> {
 	// We need to know the repoPath to scope the mutex. Load config outside
 	// the mutex — it's a cheap DB read and mutex scoping depends on it.
-	const cfg = deps.force ? readGitExportConfig(db) : loadGitExportConfig(db);
+	const cfg = deps.force ? await readGitExportConfig(db) : await loadGitExportConfig(db);
 	if (!cfg) return { status: "disabled" };
 	if (!cfg.repoPath || cfg.repoPath.length === 0) {
 		if (!deps.force) return { status: "disabled" };
@@ -419,7 +418,7 @@ async function runGitExportInner(
 
 	let plan: ExportPlan;
 	try {
-		plan = computeExportPlan(db);
+		plan = await computeExportPlan(db);
 	} catch (err) {
 		logger.error("git-export: plan failed", { error: String(err) });
 		return { status: "error", error: String(err), phase: "init" };
@@ -472,7 +471,7 @@ async function runGitExportInner(
 
 	// Commit succeeded locally — record it. `last_push_at` stays unchanged.
 	const committedAt = nowFn();
-	writeLastCommit(db, sha, committedAt);
+	await writeLastCommit(db, sha, committedAt);
 
 	if (cfg.remoteUrl) {
 		try {
@@ -481,7 +480,7 @@ async function runGitExportInner(
 			logger.error("git-export: push failed", { error: String(err) });
 			return { status: "error", error: String(err), phase: "push" };
 		}
-		writeLastPush(db, committedAt);
+		await writeLastPush(db, committedAt);
 		return { status: "pushed", commitSha: sha, filesChanged, filesDeleted, message };
 	}
 
@@ -530,7 +529,7 @@ export function registerGitExportHandler(
 		try {
 			// Re-check config AFTER debounce — operator may have disabled us
 			// between the event and now. Silent drop is correct.
-			const cfg = loadGitExportConfig(db);
+			const cfg = await loadGitExportConfig(db);
 			if (!cfg) return;
 			const runner = opts.runnerFactory ? opts.runnerFactory(cfg.repoPath) : opts.runner;
 			if (!runner) {
@@ -556,28 +555,30 @@ export function registerGitExportHandler(
 		if (disposed) return;
 		// @lore O2: layer/kind are in knowledgeStrategyFabric. LEFT JOIN to
 		// get fabric fields for the updated item; skip if no fabric row.
-		const row = db
-			.select({ item: knowledgeItems, fabric: knowledgeStrategyFabric })
-			.from(knowledgeItems)
-			.leftJoin(
-				knowledgeStrategyFabric,
-				eq(knowledgeStrategyFabric.knowledgeItemId, knowledgeItems.id),
-			)
-			.where(eq(knowledgeItems.id, event.itemId))
-			.get();
-		if (!row) return;
-		const fabricLayer = row.fabric?.layer ?? null;
-		const fabricKind = row.fabric?.kind ?? null;
-		if (!isExportedLayer(fabricLayer ?? "")) return;
-		if (!(fabricKind && EXPORTED_KINDS.has(fabricKind.toUpperCase()))) return;
+		void (async () => {
+			const [row] = await db
+				.select({ item: knowledgeItems, fabric: knowledgeStrategyFabric })
+				.from(knowledgeItems)
+				.leftJoin(
+					knowledgeStrategyFabric,
+					eq(knowledgeStrategyFabric.knowledgeItemId, knowledgeItems.id),
+				)
+				.where(eq(knowledgeItems.id, event.itemId))
+				.limit(1);
+			if (!row) return;
+			const fabricLayer = row.fabric?.layer ?? null;
+			const fabricKind = row.fabric?.kind ?? null;
+			if (!isExportedLayer(fabricLayer ?? "")) return;
+			if (!(fabricKind && EXPORTED_KINDS.has(fabricKind.toUpperCase()))) return;
 
-		const cfg = loadGitExportConfig(db);
-		if (!cfg) return;
-		const debounceMs = opts.debounceMs ?? cfg.debounceMs;
-		clearPending();
-		pending = setTimeout(() => {
-			void fire();
-		}, debounceMs);
+			const cfg = await loadGitExportConfig(db);
+			if (!cfg) return;
+			const debounceMs = opts.debounceMs ?? cfg.debounceMs;
+			clearPending();
+			pending = setTimeout(() => {
+				void fire();
+			}, debounceMs);
+		})();
 	};
 
 	const unsubscribe = eventBus.on("knowledge_updated", handler);

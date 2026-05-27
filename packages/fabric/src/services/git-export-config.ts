@@ -38,8 +38,8 @@ const KEYS = {
 	repoRoot: `${PREFIX}repo_root`,
 } as const;
 
-function readAllSettings(db: HyperIdleDb): Map<string, string> {
-	const rows = db.select().from(factorySettings).all();
+async function readAllSettings(db: HyperIdleDb): Promise<Map<string, string>> {
+	const rows = await db.select().from(factorySettings);
 	const map = new Map<string, string>();
 	for (const r of rows) {
 		if (r.key.startsWith(PREFIX)) map.set(r.key, r.value);
@@ -76,21 +76,21 @@ function buildConfig(kv: Map<string, string>): GitExportConfig {
  * `repoPath` is empty — the orchestrator short-circuits to
  * `{status:"disabled"}` in that case.
  */
-export function readGitExportConfig(db: HyperIdleDb): GitExportConfig {
-	return buildConfig(readAllSettings(db));
+export async function readGitExportConfig(db: HyperIdleDb): Promise<GitExportConfig> {
+	return buildConfig(await readAllSettings(db));
 }
 
-export function loadGitExportConfig(db: HyperIdleDb): GitExportConfig | null {
-	const cfg = buildConfig(readAllSettings(db));
+export async function loadGitExportConfig(db: HyperIdleDb): Promise<GitExportConfig | null> {
+	const cfg = buildConfig(await readAllSettings(db));
 	if (!cfg.enabled) return null;
 	if (cfg.repoPath.length === 0) return null;
 	// Defense-in-depth: if somebody seeded `repo_path` directly (bypassing
 	// PATCH /config's sanitizer), re-validate at load time. Reject rather
 	// than silently letting the orchestrator write outside the allow-list.
-	const check = sanitizeRepoPath(cfg.repoPath, readRepoAllowRoots(db));
+	const check = sanitizeRepoPath(cfg.repoPath, await readRepoAllowRoots(db));
 	if (!check.ok) return null;
 	if (cfg.remoteUrl !== null) {
-		const opts = { allowFileRemote: readAllowFileRemote(db) };
+		const opts = { allowFileRemote: await readAllowFileRemote(db) };
 		const remoteCheck = sanitizeRemoteUrl(cfg.remoteUrl, opts);
 		if (!remoteCheck.ok) {
 			// Treat an invalid stored remote as "no remote" — commit only.
@@ -110,14 +110,14 @@ export interface GitExportConfigPatch {
 	debounceMs?: number;
 }
 
-function upsert(db: HyperIdleDb, key: string, value: string, now: string): void {
-	db.insert(factorySettings)
+async function upsert(db: HyperIdleDb, key: string, value: string, now: string): Promise<void> {
+	await db
+		.insert(factorySettings)
 		.values({ key, value, updatedAt: now })
 		.onConflictDoUpdate({
 			target: factorySettings.key,
 			set: { value, updatedAt: now },
-		})
-		.run();
+		});
 }
 
 /**
@@ -127,38 +127,38 @@ function upsert(db: HyperIdleDb, key: string, value: string, now: string): void 
  * All upserts share a single `updatedAt` timestamp so one logical patch
  * has one timestamp across rows.
  */
-export function updateGitExportConfig(
+export async function updateGitExportConfig(
 	db: HyperIdleDb,
 	patch: GitExportConfigPatch,
-): GitExportConfig {
+): Promise<GitExportConfig> {
 	const now = new Date().toISOString();
-	if (patch.enabled !== undefined) upsert(db, KEYS.enabled, patch.enabled ? "true" : "false", now);
-	if (patch.repoPath !== undefined) upsert(db, KEYS.repoPath, patch.repoPath, now);
-	if (patch.branch !== undefined) upsert(db, KEYS.branch, patch.branch, now);
-	if (patch.authorName !== undefined) upsert(db, KEYS.authorName, patch.authorName, now);
-	if (patch.authorEmail !== undefined) upsert(db, KEYS.authorEmail, patch.authorEmail, now);
-	if (patch.debounceMs !== undefined) upsert(db, KEYS.debounceMs, String(patch.debounceMs), now);
+	if (patch.enabled !== undefined) await upsert(db, KEYS.enabled, patch.enabled ? "true" : "false", now);
+	if (patch.repoPath !== undefined) await upsert(db, KEYS.repoPath, patch.repoPath, now);
+	if (patch.branch !== undefined) await upsert(db, KEYS.branch, patch.branch, now);
+	if (patch.authorName !== undefined) await upsert(db, KEYS.authorName, patch.authorName, now);
+	if (patch.authorEmail !== undefined) await upsert(db, KEYS.authorEmail, patch.authorEmail, now);
+	if (patch.debounceMs !== undefined) await upsert(db, KEYS.debounceMs, String(patch.debounceMs), now);
 	if (patch.remoteUrl !== undefined) {
 		if (patch.remoteUrl === null || patch.remoteUrl.length === 0) {
-			db.delete(factorySettings).where(eq(factorySettings.key, KEYS.remoteUrl)).run();
+			await db.delete(factorySettings).where(eq(factorySettings.key, KEYS.remoteUrl));
 		} else {
-			upsert(db, KEYS.remoteUrl, patch.remoteUrl, now);
+			await upsert(db, KEYS.remoteUrl, patch.remoteUrl, now);
 		}
 	}
 	return readGitExportConfig(db);
 }
 
 /** Persist the commit stamps after a successful local commit. */
-export function writeLastCommit(db: HyperIdleDb, sha: string, at: Date): void {
+export async function writeLastCommit(db: HyperIdleDb, sha: string, at: Date): Promise<void> {
 	const now = new Date().toISOString();
-	upsert(db, KEYS.lastCommitAt, at.toISOString(), now);
-	upsert(db, KEYS.lastCommitSha, sha, now);
+	await upsert(db, KEYS.lastCommitAt, at.toISOString(), now);
+	await upsert(db, KEYS.lastCommitSha, sha, now);
 }
 
 /** Persist the push stamp after a successful remote push. */
-export function writeLastPush(db: HyperIdleDb, at: Date): void {
+export async function writeLastPush(db: HyperIdleDb, at: Date): Promise<void> {
 	const now = new Date().toISOString();
-	upsert(db, KEYS.lastPushAt, at.toISOString(), now);
+	await upsert(db, KEYS.lastPushAt, at.toISOString(), now);
 }
 
 export interface LastExportMeta {
@@ -167,8 +167,8 @@ export interface LastExportMeta {
 	lastPushAt: string | null;
 }
 
-export function getLastExportMeta(db: HyperIdleDb): LastExportMeta {
-	const rows = db.select().from(factorySettings).all();
+export async function getLastExportMeta(db: HyperIdleDb): Promise<LastExportMeta> {
+	const rows = await db.select().from(factorySettings);
 	let lastCommitAt: string | null = null;
 	let lastCommitSha: string | null = null;
 	let lastPushAt: string | null = null;
@@ -206,17 +206,17 @@ const DENIED_ROOT_PREFIXES: readonly string[] = [
 	"/var/log",
 ];
 
-function readAllowFileRemote(db: HyperIdleDb): boolean {
-	const row = db
+async function readAllowFileRemote(db: HyperIdleDb): Promise<boolean> {
+	const [row] = await db
 		.select()
 		.from(factorySettings)
 		.where(eq(factorySettings.key, KEYS.allowFileRemote))
-		.get();
+		.limit(1);
 	return row?.value === "true";
 }
 
-function readRepoAllowRoots(db: HyperIdleDb): readonly string[] {
-	const row = db.select().from(factorySettings).where(eq(factorySettings.key, KEYS.repoRoot)).get();
+async function readRepoAllowRoots(db: HyperIdleDb): Promise<readonly string[]> {
+	const [row] = await db.select().from(factorySettings).where(eq(factorySettings.key, KEYS.repoRoot)).limit(1);
 	if (!row || row.value.length === 0) return [];
 	return row.value
 		.split(":")

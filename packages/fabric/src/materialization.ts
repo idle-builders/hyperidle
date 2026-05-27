@@ -129,17 +129,17 @@ function setContextReadOnly(workspacePath: string): void {
 }
 
 /** Fetch all items for a layer, handling pagination. */
-function fetchAllForLayer(
+async function fetchAllForLayer(
 	db: HyperIdleDb,
 	layer: "L0" | "L1" | "L2" | "L3" | "L4",
 	scopeId?: string,
-): KnowledgeItem[] {
+): Promise<KnowledgeItem[]> {
 	const batchSize = 500;
 	const allItems: KnowledgeItem[] = [];
 	let offset = 0;
 
 	while (true) {
-		const batch = list(db, {
+		const batch = await list(db, {
 			layer,
 			scopeId,
 			limit: batchSize,
@@ -170,20 +170,22 @@ export async function materialize(
 	const manifestItems: Record<string, ManifestEntry> = {};
 
 	// Fetch all items by layer
-	const l4Items = fetchAllForLayer(db, "L4");
-	const l2Items = fetchAllForLayer(db, "L2", config.productId);
 	const community = ROLE_TO_COMMUNITY[config.agentRole];
-	const l3Items = fetchAllForLayer(db, "L3", community);
+	const [l4Items, l2Items, l3Items] = await Promise.all([
+		fetchAllForLayer(db, "L4"),
+		fetchAllForLayer(db, "L2", config.productId),
+		fetchAllForLayer(db, "L3", community),
+	]);
 
 	// @lore I6: apply rankAndBudget() before writing items to workspace.
 	// This ensures that the agent's context window is not overwhelmed by
 	// low-relevance knowledge. Items are scored against the task context
 	// and trimmed to fit the configured token budget.
-	const weights = loadScoringWeights(db);
+	const weights = await loadScoringWeights(db);
 
 	// Build a minimal scoring context from materialization config.
 	// Task description is fetched from the DB if available.
-	const task = db.select().from(tasks).where(eq(tasks.id, config.taskId)).get();
+	const [task] = await db.select().from(tasks).where(eq(tasks.id, config.taskId)).limit(1);
 	const scoringContext: ScoringContext = {
 		taskDescription: task?.description ?? task?.title ?? "",
 		taskTags: [],
@@ -229,7 +231,7 @@ export async function materialize(
 	}
 
 	// Build session.toon -> context/session.toon
-	const sessionToon = buildSessionContext(db, {
+	const sessionToon = await buildSessionContext(db, {
 		sessionId: config.sessionId,
 		taskId: config.taskId,
 		agentId: config.agentId,

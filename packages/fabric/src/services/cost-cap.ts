@@ -106,12 +106,12 @@ function tryRecordDedupKey(
  * accumulated on users.costActual (integer minor units). This column is the
  * authoritative running total for an agent's spend within the current cycle.
  */
-function getAgentSpend(db: HyperIdleDb, agentId: string): number {
-	const row = db
+async function getAgentSpend(db: HyperIdleDb, agentId: string): Promise<number> {
+	const [row] = await db
 		.select({ costActual: users.costActual })
 		.from(users)
 		.where(eq(users.id, agentId))
-		.get();
+		.limit(1);
 	return row?.costActual ?? 0;
 }
 
@@ -121,12 +121,12 @@ function getAgentSpend(db: HyperIdleDb, agentId: string): number {
  * @lore O2: reads teams.costActual, which is the running minor-unit total
  * accumulated across all users in the team for the current billing cycle.
  */
-function getTeamSpend(db: HyperIdleDb, teamId: string): number {
-	const row = db
+async function getTeamSpend(db: HyperIdleDb, teamId: string): Promise<number> {
+	const [row] = await db
 		.select({ costActual: teams.costActual })
 		.from(teams)
 		.where(eq(teams.id, teamId))
-		.get();
+		.limit(1);
 	return row?.costActual ?? 0;
 }
 
@@ -143,14 +143,13 @@ function getTeamSpend(db: HyperIdleDb, teamId: string): number {
  * addMoney()'s currency-mismatch guard is not invoked here because we operate
  * directly on integer minor units for efficiency.
  */
-// biome-ignore lint/suspicious/useAwait: callers expect Promise return for consistency with async service layer
 export async function checkCostCap(
 	db: HyperIdleDb,
 	_eventBus: EventBus,
 	params: CheckCostCapParams,
 ): Promise<CostCapResult> {
 	// 1. Check agent cap
-	const agent = db.select().from(users).where(eq(users.id, params.agentId)).get();
+	const [agent] = await db.select().from(users).where(eq(users.id, params.agentId)).limit(1);
 	if (!agent) {
 		throw new Error(`Agent not found: ${params.agentId}`);
 	}
@@ -158,7 +157,7 @@ export async function checkCostCap(
 	// L17: prefer costCapMinor (new column) over costCap (legacy)
 	const agentCap = agent.costCapMinor ?? agent.costCap;
 	if (agentCap != null) {
-		const agentSpend = getAgentSpend(db, params.agentId);
+		const agentSpend = await getAgentSpend(db, params.agentId);
 		if (agentSpend >= agentCap) {
 			return {
 				allowed: false,
@@ -171,11 +170,11 @@ export async function checkCostCap(
 
 	// 2. Check team cap
 	if (params.teamId) {
-		const team = db.select().from(teams).where(eq(teams.id, params.teamId)).get();
+		const [team] = await db.select().from(teams).where(eq(teams.id, params.teamId)).limit(1);
 		// L17: prefer costCapMinor (new column) over costCap (legacy)
 		const teamCap = team?.costCapMinor ?? team?.costCap;
 		if (teamCap != null) {
-			const teamSpend = getTeamSpend(db, params.teamId);
+			const teamSpend = await getTeamSpend(db, params.teamId);
 			if (teamSpend >= teamCap) {
 				return {
 					allowed: false,
@@ -206,7 +205,6 @@ export async function checkCostCap(
  * Record cost for a session and check for warnings/breaches.
  * Updates the session cost, then checks thresholds and emits events.
  */
-// biome-ignore lint/suspicious/useAwait: callers expect Promise return for consistency with async service layer
 export async function recordCostAndCheck(
 	db: HyperIdleDb,
 	eventBus: EventBus,
@@ -220,21 +218,21 @@ export async function recordCostAndCheck(
 
 	if (effectiveCostMinor > 0) {
 		// Accumulate on agent
-		db.update(users)
+		await db
+			.update(users)
 			.set({ costActual: sql`coalesce(${users.costActual}, 0) + ${effectiveCostMinor}` })
-			.where(eq(users.id, params.agentId))
-			.run();
+			.where(eq(users.id, params.agentId));
 
 		// Accumulate on team if provided
 		if (params.teamId) {
-			db.update(teams)
+			await db
+				.update(teams)
 				.set({ costActual: sql`coalesce(${teams.costActual}, 0) + ${effectiveCostMinor}` })
-				.where(eq(teams.id, params.teamId))
-				.run();
+				.where(eq(teams.id, params.teamId));
 		}
 	}
 
-	const agent = db.select().from(users).where(eq(users.id, params.agentId)).get();
+	const [agent] = await db.select().from(users).where(eq(users.id, params.agentId)).limit(1);
 	if (!agent) {
 		throw new Error(`Agent not found: ${params.agentId}`);
 	}
@@ -246,8 +244,8 @@ export async function recordCostAndCheck(
 
 	// Check agent cap
 	if (agentCap != null) {
-		const agentSpend = getAgentSpend(db, params.agentId);
-		checkAndEmit(db, eventBus, {
+		const agentSpend = await getAgentSpend(db, params.agentId);
+		await checkAndEmit(db, eventBus, {
 			sessionId: params.sessionId,
 			capLevel: "agent",
 			entityId: params.agentId,
@@ -262,12 +260,12 @@ export async function recordCostAndCheck(
 
 	// Check team cap
 	if (params.teamId) {
-		const team = db.select().from(teams).where(eq(teams.id, params.teamId)).get();
+		const [team] = await db.select().from(teams).where(eq(teams.id, params.teamId)).limit(1);
 		// L17: prefer costCapMinor (new column) over costCap (legacy)
 		const teamCap = team?.costCapMinor ?? team?.costCap;
 		if (teamCap != null) {
-			const teamSpend = getTeamSpend(db, params.teamId);
-			checkAndEmit(db, eventBus, {
+			const teamSpend = await getTeamSpend(db, params.teamId);
+			await checkAndEmit(db, eventBus, {
 				sessionId: params.sessionId,
 				capLevel: "team",
 				entityId: params.teamId,
@@ -284,7 +282,7 @@ export async function recordCostAndCheck(
 	// Check factory cap
 	if (params.factoryCap != null) {
 		const factorySpend = (params.factorySpend ?? 0) + effectiveCostMinor;
-		checkAndEmit(db, eventBus, {
+		await checkAndEmit(db, eventBus, {
 			sessionId: params.sessionId,
 			capLevel: "factory",
 			entityId: "factory",
@@ -311,7 +309,7 @@ interface CheckAndEmitParams {
 	teamId?: string;
 }
 
-function checkAndEmit(db: HyperIdleDb, eventBus: EventBus, params: CheckAndEmitParams): void {
+async function checkAndEmit(db: HyperIdleDb, eventBus: EventBus, params: CheckAndEmitParams): Promise<void> {
 	const ratio = params.spend / params.cap;
 
 	// Breach at 100%
@@ -339,7 +337,7 @@ function checkAndEmit(db: HyperIdleDb, eventBus: EventBus, params: CheckAndEmitP
 
 			// Create review item on breach (AC8)
 			if (params.reviewThreadId) {
-				createReviewItem(db, eventBus, params);
+				await createReviewItem(db, eventBus, params);
 			}
 		}
 	}
@@ -370,25 +368,23 @@ function checkAndEmit(db: HyperIdleDb, eventBus: EventBus, params: CheckAndEmitP
 	}
 }
 
-function createReviewItem(db: HyperIdleDb, _eventBus: EventBus, params: CheckAndEmitParams): void {
+async function createReviewItem(db: HyperIdleDb, _eventBus: EventBus, params: CheckAndEmitParams): Promise<void> {
 	if (!params.reviewThreadId) return;
 
 	const itemId = crypto.randomUUID();
 	const now = new Date().toISOString();
 
-	db.insert(items)
-		.values({
-			id: itemId,
-			sourceAgentId: params.entityId !== "factory" ? params.entityId : null,
-			kind: "cost_cap_breach",
-			title: `Cost cap breached: ${params.capLevel} ${params.entityId} (${params.spend}/${params.cap})`,
-			body: `The ${params.capLevel}-level cost cap has been breached. Entity: ${params.entityId}, Spend: ${params.spend} cents, Cap: ${params.cap} cents.`,
-			threadId: params.reviewThreadId,
-			riskTier: "high",
-			blocking: 1,
-			createdAt: now,
-		})
-		.run();
+	await db.insert(items).values({
+		id: itemId,
+		sourceAgentId: params.entityId !== "factory" ? params.entityId : null,
+		kind: "cost_cap_breach",
+		title: `Cost cap breached: ${params.capLevel} ${params.entityId} (${params.spend}/${params.cap})`,
+		body: `The ${params.capLevel}-level cost cap has been breached. Entity: ${params.entityId}, Spend: ${params.spend} cents, Cap: ${params.cap} cents.`,
+		threadId: params.reviewThreadId,
+		riskTier: "high",
+		blocking: 1,
+		createdAt: now,
+	});
 }
 
 /**
@@ -434,19 +430,19 @@ export async function resetCosts(
 	switch (normalizedParams.level) {
 		case "agent": {
 			if (!normalizedParams.id) throw new Error("Agent ID required for agent reset");
-			db.update(users).set({ costActual: 0 }).where(eq(users.id, normalizedParams.id)).run();
+			await db.update(users).set({ costActual: 0 }).where(eq(users.id, normalizedParams.id));
 			break;
 		}
 		case "team": {
 			if (!normalizedParams.id) throw new Error("Team ID required for team reset");
-			db.update(teams).set({ costActual: 0 }).where(eq(teams.id, normalizedParams.id)).run();
+			await db.update(teams).set({ costActual: 0 }).where(eq(teams.id, normalizedParams.id));
 			break;
 		}
 		case "factory": {
 			// eslint-disable-next-line drizzle/enforce-update-with-where -- intentional: factory reset clears ALL rows
-			db.update(users).set({ costActual: 0 }).run();
+			await db.update(users).set({ costActual: 0 });
 			// eslint-disable-next-line drizzle/enforce-update-with-where -- intentional: factory reset clears ALL rows
-			db.update(teams).set({ costActual: 0 }).run();
+			await db.update(teams).set({ costActual: 0 });
 			break;
 		}
 	}

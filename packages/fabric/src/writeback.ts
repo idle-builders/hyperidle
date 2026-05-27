@@ -1,3 +1,4 @@
+import * as crypto from "node:crypto";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { type HyperIdleDb, knowledgeConflicts, sessions } from "@hyperidle/db";
@@ -78,10 +79,10 @@ function titleFromFilename(filename: string): string {
 }
 
 /** Process a batch of writeback changes. */
-export function processWriteback(
+export async function processWriteback(
 	config: WritebackConfig,
 	changes: WritebackChange[],
-): WritebackResult {
+): Promise<WritebackResult> {
 	const result: WritebackResult = {
 		processed: 0,
 		created: 0,
@@ -97,7 +98,7 @@ export function processWriteback(
 
 		// Handle session notes specially
 		if (isSessionNotesPath(relativePath) && change.type !== "delete") {
-			handleSessionNotes(config, change);
+			await handleSessionNotes(config, change);
 			result.processed++;
 			result.updated++;
 			continue;
@@ -111,12 +112,12 @@ export function processWriteback(
 
 		switch (change.type) {
 			case "create":
-				handleCreate(config, change, manifest);
+				await handleCreate(config, change, manifest);
 				result.created++;
 				break;
 			case "modify":
 				{
-					const modifyResult = handleModify(config, change, manifest);
+					const modifyResult = await handleModify(config, change, manifest);
 					if (modifyResult === "conflict") {
 						result.conflicts++;
 						result.updated++;
@@ -129,7 +130,7 @@ export function processWriteback(
 				break;
 			case "delete":
 				{
-					const deleted = handleDelete(config, change, manifest);
+					const deleted = await handleDelete(config, change, manifest);
 					if (deleted) {
 						result.deleted++;
 					}
@@ -146,7 +147,11 @@ export function processWriteback(
 }
 
 /** Handle a new file in knowledge/. */
-function handleCreate(config: WritebackConfig, change: WritebackChange, manifest: Manifest): void {
+async function handleCreate(
+	config: WritebackConfig,
+	change: WritebackChange,
+	manifest: Manifest,
+): Promise<void> {
 	const body = fs.readFileSync(change.fullPath, "utf-8");
 	const title = titleFromFilename(change.relativePath);
 
@@ -160,7 +165,7 @@ function handleCreate(config: WritebackConfig, change: WritebackChange, manifest
 		else if (subdir === "practices") kind = "pattern";
 	}
 
-	const item = repo.create(config.db, {
+	const item = await repo.create(config.db, {
 		layer: "L1",
 		kind,
 		title,
@@ -179,23 +184,23 @@ function handleCreate(config: WritebackConfig, change: WritebackChange, manifest
 }
 
 /** Handle a modified file in knowledge/. Returns outcome type. */
-function handleModify(
+async function handleModify(
 	config: WritebackConfig,
 	change: WritebackChange,
 	manifest: Manifest,
-): "updated" | "created" | "conflict" {
+): Promise<"updated" | "created" | "conflict"> {
 	const existing = findItemByPath(manifest, change.relativePath);
 
 	if (!existing) {
 		// File exists on disk but not in manifest — treat as create
-		handleCreate(config, change, manifest);
+		await handleCreate(config, change, manifest);
 		return "created";
 	}
 
 	const body = fs.readFileSync(change.fullPath, "utf-8");
 
 	try {
-		const updated = repo.update(
+		const updated = await repo.update(
 			config.db,
 			existing.itemId,
 			{
@@ -212,19 +217,16 @@ function handleModify(
 		if (err instanceof VersionConflictError) {
 			// Create conflict record
 			const conflictId = crypto.randomUUID();
-			config.db
-				.insert(knowledgeConflicts)
-				.values({
-					id: conflictId,
-					itemId: existing.itemId,
-					versionBase: existing.entry.version,
-					versionCurrent: err.currentVersion,
-					proposedBody: body,
-					proposedBy: `session:${config.sessionId}`,
-					status: "open",
-					createdAt: new Date().toISOString(),
-				})
-				.run();
+			await config.db.insert(knowledgeConflicts).values({
+				id: conflictId,
+				itemId: existing.itemId,
+				versionBase: existing.entry.version,
+				versionCurrent: err.currentVersion,
+				proposedBody: body,
+				proposedBy: `session:${config.sessionId}`,
+				status: "open",
+				createdAt: new Date().toISOString(),
+			});
 
 			// Update manifest to current version so subsequent writes don't keep conflicting
 			manifest.items[existing.itemId].version = err.currentVersion;
@@ -236,11 +238,11 @@ function handleModify(
 }
 
 /** Handle a deleted file — flag for facilitator review, don't auto-delete. Returns true if flagged. */
-function handleDelete(
+async function handleDelete(
 	config: WritebackConfig,
 	change: WritebackChange,
 	manifest: Manifest,
-): boolean {
+): Promise<boolean> {
 	const existing = findItemByPath(manifest, change.relativePath);
 
 	if (!existing) {
@@ -249,19 +251,16 @@ function handleDelete(
 
 	// Create a review item flagging the deletion for facilitator
 	const conflictId = crypto.randomUUID();
-	config.db
-		.insert(knowledgeConflicts)
-		.values({
-			id: conflictId,
-			itemId: existing.itemId,
-			versionBase: existing.entry.version,
-			versionCurrent: existing.entry.version,
-			proposedBody: "[DELETED]",
-			proposedBy: `session:${config.sessionId}`,
-			status: "open",
-			createdAt: new Date().toISOString(),
-		})
-		.run();
+	await config.db.insert(knowledgeConflicts).values({
+		id: conflictId,
+		itemId: existing.itemId,
+		versionBase: existing.entry.version,
+		versionCurrent: existing.entry.version,
+		proposedBody: "[DELETED]",
+		proposedBy: `session:${config.sessionId}`,
+		status: "open",
+		createdAt: new Date().toISOString(),
+	});
 
 	// Remove from manifest (file is gone)
 	delete manifest.items[existing.itemId];
@@ -270,8 +269,11 @@ function handleDelete(
 }
 
 /** Handle session notes update. */
-function handleSessionNotes(config: WritebackConfig, change: WritebackChange): void {
+async function handleSessionNotes(config: WritebackConfig, change: WritebackChange): Promise<void> {
 	const body = fs.readFileSync(change.fullPath, "utf-8");
 
-	config.db.update(sessions).set({ notes: body }).where(eq(sessions.id, config.sessionId)).run();
+	await config.db
+		.update(sessions)
+		.set({ notes: body })
+		.where(eq(sessions.id, config.sessionId));
 }

@@ -119,12 +119,12 @@ export function mergeStructuredEdits(
 // --- Main entry points ---
 
 /** Resolve concurrent edits to a knowledge item. */
-export function resolveConflict(
+export async function resolveConflict(
 	db: HyperIdleDb,
 	itemId: string,
 	edits: ConcurrentEdit[],
-): ConflictResult {
-	const item = repo.getById(db, itemId);
+): Promise<ConflictResult> {
+	const item = await repo.getById(db, itemId);
 	if (!item) {
 		throw new Error(`Knowledge item ${itemId} not found`);
 	}
@@ -137,11 +137,11 @@ export function resolveConflict(
 	return resolveProse(db, item, edits);
 }
 
-function resolveStructured(
+async function resolveStructured(
 	db: HyperIdleDb,
 	item: KnowledgeItemWithFabric,
 	edits: ConcurrentEdit[],
-): ConflictResult {
+): Promise<ConflictResult> {
 	const existing: Record<string, unknown> = {
 		title: item.title,
 		body: item.body,
@@ -160,22 +160,20 @@ function resolveStructured(
 	const { merged, fieldConflicts } = mergeStructuredEdits(existing, mergeInputs);
 
 	// Apply merged changes
-	const updatedItem = repo.update(db, item.id, merged, item.version);
+	const updatedItem = await repo.update(db, item.id, merged, item.version);
 
 	// Create conflict records for any field-level conflicts (auto-resolved via LWW)
 	for (const fc of fieldConflicts) {
-		db.insert(knowledgeConflicts)
-			.values({
-				id: generateId(),
-				itemId: item.id,
-				versionBase: item.version,
-				versionCurrent: updatedItem.version,
-				proposedBody: JSON.stringify({ field: fc.field, value: fc.loserValue }),
-				proposedBy: fc.loserEditor,
-				status: "resolved",
-				createdAt: now(),
-			})
-			.run();
+		await db.insert(knowledgeConflicts).values({
+			id: generateId(),
+			itemId: item.id,
+			versionBase: item.version,
+			versionCurrent: updatedItem.version,
+			proposedBody: JSON.stringify({ field: fc.field, value: fc.loserValue }),
+			proposedBy: fc.loserEditor,
+			status: "resolved",
+			createdAt: now(),
+		});
 	}
 
 	return {
@@ -185,11 +183,11 @@ function resolveStructured(
 	};
 }
 
-function resolveProse(
+async function resolveProse(
 	db: HyperIdleDb,
 	item: KnowledgeItemWithFabric,
 	edits: ConcurrentEdit[],
-): ConflictResult {
+): Promise<ConflictResult> {
 	// Sort by timestamp ascending - older first
 	const sorted = [...edits].sort((a, b) => a.timestamp.localeCompare(b.timestamp));
 	const older = sorted[0];
@@ -200,7 +198,7 @@ function resolveProse(
 	}
 
 	// Apply the older version (keep it active)
-	const updatedItem = repo.update(db, item.id, older.changes, item.version);
+	const updatedItem = await repo.update(db, item.id, older.changes, item.version);
 
 	// Store newer as conflict record with status 'open'
 	const conflictField: FieldConflict = {
@@ -211,18 +209,16 @@ function resolveProse(
 		loserEditor: newer.editor,
 	};
 
-	db.insert(knowledgeConflicts)
-		.values({
-			id: generateId(),
-			itemId: item.id,
-			versionBase: item.version,
-			versionCurrent: updatedItem.version,
-			proposedBody: newer.changes.body ?? JSON.stringify(newer.changes),
-			proposedBy: newer.editor,
-			status: "open",
-			createdAt: now(),
-		})
-		.run();
+	await db.insert(knowledgeConflicts).values({
+		id: generateId(),
+		itemId: item.id,
+		versionBase: item.version,
+		versionCurrent: updatedItem.version,
+		proposedBody: newer.changes.body ?? JSON.stringify(newer.changes),
+		proposedBy: newer.editor,
+		status: "open",
+		createdAt: now(),
+	});
 
 	return {
 		merged: false,
@@ -232,46 +228,45 @@ function resolveProse(
 }
 
 /** Check whether an item can be promoted (no open conflicts). */
-export function canPromote(db: HyperIdleDb, itemId: string): boolean {
-	const openConflicts = db
+export async function canPromote(db: HyperIdleDb, itemId: string): Promise<boolean> {
+	const openConflicts = await db
 		.select()
 		.from(knowledgeConflicts)
-		.where(and(eq(knowledgeConflicts.itemId, itemId), eq(knowledgeConflicts.status, "open")))
-		.all();
+		.where(and(eq(knowledgeConflicts.itemId, itemId), eq(knowledgeConflicts.status, "open")));
 
 	return openConflicts.length === 0;
 }
 
 /** Mark a conflict record as resolved, writing the resolution text and timestamp. */
-export function resolveConflictRecord(
+export async function resolveConflictRecord(
 	db: HyperIdleDb,
 	conflictId: string,
 	resolution: string,
-): void {
+): Promise<void> {
 	// @lore I6: previously ignored the resolution parameter. Now writes it to
 	// resolvedBy (used for both human name and system resolution text) and
 	// sets resolvedAt to the current timestamp.
-	db.update(knowledgeConflicts)
+	await db
+		.update(knowledgeConflicts)
 		.set({
 			status: "resolved",
 			resolvedBy: resolution,
 			resolvedAt: new Date().toISOString(),
 		})
-		.where(eq(knowledgeConflicts.id, conflictId))
-		.run();
+		.where(eq(knowledgeConflicts.id, conflictId));
 }
 
 /** Promote an item to a target status. Fails if open conflicts exist. */
-export function promote(
+export async function promote(
 	db: HyperIdleDb,
 	itemId: string,
 	targetStatus: KnowledgeStatus,
-): KnowledgeItemWithFabric {
-	if (!canPromote(db, itemId)) {
+): Promise<KnowledgeItemWithFabric> {
+	if (!(await canPromote(db, itemId))) {
 		throw new Error(`Cannot promote item ${itemId}: open conflict(s) exist`);
 	}
 
-	const item = repo.getById(db, itemId);
+	const item = await repo.getById(db, itemId);
 	if (!item) {
 		throw new Error(`Knowledge item ${itemId} not found`);
 	}
