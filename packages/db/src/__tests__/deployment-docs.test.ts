@@ -33,7 +33,7 @@ describe("H4 AC6: deployment documentation", () => {
 		const vps = fs.readFileSync(path.join(deployDir, "vps.md"), "utf-8");
 		const cloud = fs.readFileSync(path.join(deployDir, "cloud.md"), "utf-8");
 		const combined = laptop + vps + cloud;
-		expect(combined).toMatch(/bun run setup/);
+		expect(combined).toMatch(/npm run setup/);
 	});
 
 	it("references the DATABASE_URL env var for pg profiles", () => {
