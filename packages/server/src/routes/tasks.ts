@@ -132,13 +132,13 @@ export function createTaskRoutes(db: HyperIdleDb, eventBus: EventBus): Hono {
 	});
 
 	// POST /tasks/:id/transition — state transition
-	router.post("/:id/transition", validateBody(transitionTaskSchema), (c) => {
+	router.post("/:id/transition", validateBody(transitionTaskSchema), async (c) => {
 		const taskId = c.req.param("id");
 		const body = c.req.valid("json" as never) as z.infer<typeof transitionTaskSchema>;
 
-		transitionTask(db, eventBus, taskId, body.state);
+		await transitionTask(db, eventBus, taskId, body.state);
 
-		const updated = db.select().from(tasks).where(eq(tasks.id, taskId)).get();
+		const [updated] = await db.select().from(tasks).where(eq(tasks.id, taskId)).limit(1);
 		return c.json(updated);
 	});
 

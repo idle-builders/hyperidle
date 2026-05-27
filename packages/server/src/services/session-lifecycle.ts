@@ -51,17 +51,17 @@ export async function createSession(
 	params: CreateSessionParams,
 ): Promise<SessionContext> {
 	// 1. Check concurrency limit
-	const agent = db.select().from(users).where(eq(users.id, params.agentId)).get();
+	const [agent] = await db.select().from(users).where(eq(users.id, params.agentId)).limit(1);
 
 	if (!agent) {
 		throw new Error(`Agent not found: ${params.agentId}`);
 	}
 
-	const activeCount = db
+	const [activeCount] = await db
 		.select({ count: sql<number>`count(*)` })
 		.from(sessions)
 		.where(and(eq(sessions.agentId, params.agentId), eq(sessions.state, "active")))
-		.get();
+		.limit(1);
 
 	if ((activeCount?.count ?? 0) >= agent.maxConcurrentSessions) {
 		throw new ConcurrencyLimitError(params.agentId, agent.maxConcurrentSessions);
@@ -77,17 +77,15 @@ export async function createSession(
 	// @lore O2: cost, costMinor, costCurrency, traceId columns stripped from
 	// sessions table. traceId is kept in-memory on SessionContext only.
 	const now = new Date().toISOString();
-	db.insert(sessions)
-		.values({
-			id: sessionId,
-			taskId: params.taskId,
-			agentId: params.agentId,
-			modelTier: params.modelTier,
-			startedAt: now,
-			state: "active",
-			workspaceSnapshot: workspacePath,
-		})
-		.run();
+	await db.insert(sessions).values({
+		id: sessionId,
+		taskId: params.taskId,
+		agentId: params.agentId,
+		modelTier: params.modelTier,
+		startedAt: now,
+		state: "active",
+		workspaceSnapshot: workspacePath,
+	});
 
 	// 4. Materialize workspace
 	await materialize(db, {
@@ -150,14 +148,14 @@ export async function endSession(
 	void baselineCost;
 	void costInCents;
 	const now = new Date().toISOString();
-	db.update(sessions)
+	await db
+		.update(sessions)
 		.set({
 			state: "done",
 			outcome: "completed",
 			endedAt: now,
 		})
-		.where(eq(sessions.id, context.sessionId))
-		.run();
+		.where(eq(sessions.id, context.sessionId));
 
 	// 3. Emit session_ended event
 	eventBus.emit({
@@ -188,7 +186,6 @@ export async function endSession(
  * Crash a session: same as end but state=crashed, outcome=crashed,
  * with try-catch around watcher.stop().
  */
-// biome-ignore lint/suspicious/useAwait: callers expect Promise return for consistency with async service layer
 export async function crashSession(
 	db: HyperIdleDb,
 	eventBus: EventBus,
@@ -208,14 +205,14 @@ export async function crashSession(
 	void baselineCost;
 	void costInCents;
 	const now = new Date().toISOString();
-	db.update(sessions)
+	await db
+		.update(sessions)
 		.set({
 			state: "crashed",
 			outcome: "crashed",
 			endedAt: now,
 		})
-		.where(eq(sessions.id, context.sessionId))
-		.run();
+		.where(eq(sessions.id, context.sessionId));
 
 	// 3. Emit session_ended event
 	eventBus.emit({

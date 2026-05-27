@@ -30,7 +30,7 @@ async function handler(args: SendMessageInput, ctx: ToolContext): Promise<ToolRe
 
 	// L1 step5 (W14): direct-thread reuse lives in `services/direct-thread.ts`
 	// to avoid drift with the agent-inbox route.
-	const threadId = findOrCreateDirectThread(ctx.db, ctx.agentId, to, now);
+	const threadId = await findOrCreateDirectThread(ctx.db, ctx.agentId, to, now);
 
 	const messageId = crypto.randomUUID();
 	const text = subject ? `${subject}\n\n${body}` : body;

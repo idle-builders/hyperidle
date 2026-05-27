@@ -51,8 +51,8 @@ function clampInt(raw: string | undefined, fallback: number, min: number, max: n
 	return floored;
 }
 
-function readAllSettings(db: HyperIdleDb): Map<string, string> {
-	const rows = db.select().from(factorySettings).all();
+async function readAllSettings(db: HyperIdleDb): Promise<Map<string, string>> {
+	const rows = await db.select().from(factorySettings);
 	const map = new Map<string, string>();
 	for (const row of rows) {
 		if (row.key.startsWith(PREFIX)) map.set(row.key, row.value);
@@ -91,8 +91,8 @@ function buildConfig(kv: Map<string, string>): ObservabilityConfig {
  * surface values. Callers that want a null short-circuit when
  * observability is disabled inline the `cfg.enabled` check.
  */
-export function readObservabilityConfig(db: HyperIdleDb): ObservabilityConfig {
-	return buildConfig(readAllSettings(db));
+export async function readObservabilityConfig(db: HyperIdleDb): Promise<ObservabilityConfig> {
+	return buildConfig(await readAllSettings(db));
 }
 
 /**
@@ -114,26 +114,28 @@ export interface ObservabilityConfigPatch {
 	bufferCap?: number;
 }
 
-function upsert(db: HyperIdleDb, key: string, value: string, now: string): void {
-	db.insert(factorySettings)
+async function upsert(db: HyperIdleDb, key: string, value: string, now: string): Promise<void> {
+	await db
+		.insert(factorySettings)
 		.values({ key, value, updatedAt: now })
 		.onConflictDoUpdate({
 			target: factorySettings.key,
 			set: { value, updatedAt: now },
-		})
-		.run();
+		});
 }
 
-export function updateObservabilityConfig(
+export async function updateObservabilityConfig(
 	db: HyperIdleDb,
 	patch: ObservabilityConfigPatch,
-): ObservabilityConfig {
+): Promise<ObservabilityConfig> {
 	const now = new Date().toISOString();
-	if (patch.enabled !== undefined) upsert(db, KEYS.enabled, patch.enabled ? "true" : "false", now);
-	if (patch.adapter !== undefined) upsert(db, KEYS.adapter, patch.adapter, now);
-	if (patch.batchSize !== undefined) upsert(db, KEYS.batchSize, String(patch.batchSize), now);
+	if (patch.enabled !== undefined)
+		await upsert(db, KEYS.enabled, patch.enabled ? "true" : "false", now);
+	if (patch.adapter !== undefined) await upsert(db, KEYS.adapter, patch.adapter, now);
+	if (patch.batchSize !== undefined)
+		await upsert(db, KEYS.batchSize, String(patch.batchSize), now);
 	if (patch.flushIntervalMs !== undefined)
-		upsert(db, KEYS.flushIntervalMs, String(patch.flushIntervalMs), now);
-	if (patch.bufferCap !== undefined) upsert(db, KEYS.bufferCap, String(patch.bufferCap), now);
+		await upsert(db, KEYS.flushIntervalMs, String(patch.flushIntervalMs), now);
+	if (patch.bufferCap !== undefined) await upsert(db, KEYS.bufferCap, String(patch.bufferCap), now);
 	return readObservabilityConfig(db);
 }

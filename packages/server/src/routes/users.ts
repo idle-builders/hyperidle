@@ -333,7 +333,7 @@ export function createUserRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hype
 	});
 
 	// POST /:id/inbox — Send message to user
-	router.post("/:id/inbox", validateBody(sendMessageSchema), (c) => {
+	router.post("/:id/inbox", validateBody(sendMessageSchema), async (c) => {
 		const recipientId = c.req.param("id");
 		const body = c.req.valid("json" as never) as z.infer<typeof sendMessageSchema>;
 
@@ -350,35 +350,33 @@ export function createUserRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hype
 			);
 		}
 
-		const user = db.select().from(users).where(eq(users.id, recipientId)).get();
+		const [user] = await db.select().from(users).where(eq(users.id, recipientId)).limit(1);
 		if (!user) {
 			return c.json({ error: "User not found", code: API_ERROR_CODES.NOT_FOUND }, 404);
 		}
 
-		const senderUser = db.select().from(users).where(eq(users.id, senderId)).get();
+		const [senderUser] = await db.select().from(users).where(eq(users.id, senderId)).limit(1);
 		if (!senderUser) {
 			return c.json({ error: "Sender identity not found", code: API_ERROR_CODES.NOT_FOUND }, 404);
 		}
 
 		const now = new Date().toISOString();
 
-		const threadId = findOrCreateDirectThread(db, senderId, recipientId, now);
+		const threadId = await findOrCreateDirectThread(db, senderId, recipientId, now);
 
 		const messageId = crypto.randomUUID();
 		const text = body.subject ? `${body.subject}\n\n${body.body}` : body.body;
-		db.insert(messages)
-			.values({
-				id: messageId,
-				senderId,
-				threadId,
-				type: "plain",
-				payload: JSON.stringify({ text }),
-				clientKey: messageId,
-				createdAt: now,
-			})
-			.run();
+		await db.insert(messages).values({
+			id: messageId,
+			senderId,
+			threadId,
+			type: "plain",
+			payload: JSON.stringify({ text }),
+			clientKey: messageId,
+			createdAt: now,
+		});
 
-		const created = db.select().from(messages).where(eq(messages.id, messageId)).get();
+		const [created] = await db.select().from(messages).where(eq(messages.id, messageId)).limit(1);
 		return c.json(created, 201);
 	});
 
