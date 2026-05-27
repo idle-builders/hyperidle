@@ -15,7 +15,6 @@
 		"build:desktop": "bun run --filter @hyperidle/web build && bun run --filter @hyperidle/desktop build",
 		"build:desktop:local": "bash packages/desktop/scripts/build-local.sh",
 		"start": "HYPERIDLE_STATIC_DIR=packages/web/dist bun run --filter @hyperidle/server start",
-		"start:node": "bun run --filter @hyperidle/server build:node && node packages/server/dist/index.cjs",
 		"test": "bun scripts/test.ts",
 		"test:raw": "vitest run",
 		"test:verbose": "vitest run --reporter=verbose",
