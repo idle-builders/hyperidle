@@ -29,6 +29,7 @@ import { formatMoney } from "@hyperidle/shared";
 import type { JSX } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { ArtifactSection, useArtifactOpen } from "../components/ArtifactSection.js";
+import { useHint } from "../hooks/useHints";
 import { useProduct } from "../hooks/useProduct";
 
 export interface WorkProductProps {
@@ -46,12 +47,26 @@ export interface WorkProductProps {
 	 * Override the error state. When set, the appropriate error UI is shown.
 	 */
 	overrideError?: Error | null;
+	/**
+	 * When true, the ArtifactSection is not rendered. Used by hint integration
+	 * tests to prevent ArtifactSection from consuming mocked fetch responses
+	 * before HintProvider can read them.
+	 *
+	 * @lore P5: React runs child effects before parent effects. ArtifactSection
+	 * (child deep) fires useFetch before HintProvider (parent outer). When both
+	 * components are active and fetch is mocked with mockResolvedValueOnce, the
+	 * child consumes the mock first. Pass skipArtifacts={true} to prevent this
+	 * in hint tests. The L12 artifact-section test does NOT pass this prop
+	 * (defaults false) and mocks ArtifactSection via vi.mock() instead.
+	 */
+	skipArtifacts?: boolean;
 }
 
 export function WorkProduct({
 	overrideData,
 	overrideLoading,
 	overrideError,
+	skipArtifacts = false,
 }: WorkProductProps = {}): JSX.Element {
 	const { productId } = useParams<{ productId: string }>();
 
@@ -119,14 +134,30 @@ export function WorkProduct({
 		);
 	}
 
-	return <WorkProductLoaded data={data} />;
+	return <WorkProductLoaded data={data} skipArtifacts={skipArtifacts} />;
 }
 
 /** Internal component rendered when data is fully resolved. */
-function WorkProductLoaded({ data }: { data: ProductDetail }): JSX.Element {
+function WorkProductLoaded({
+	data,
+	skipArtifacts = false,
+}: {
+	data: ProductDetail;
+	/**
+	 * When true, the ArtifactSection is not rendered. Used by test overrides
+	 * (overrideData prop) to prevent ArtifactSection from calling fetch and
+	 * consuming mocked responses meant for other hooks (e.g. HintProvider).
+	 *
+	 * @lore P5: ArtifactSection's useFetch fires before HintProvider's useEffect
+	 * because React flushes child effects before parent effects. When using
+	 * overrideData in tests, skipping ArtifactSection prevents fetch-order races.
+	 */
+	skipArtifacts?: boolean;
+}): JSX.Element {
 	const navigate = useNavigate();
 	const { product, roster, burn, activeBets } = data;
 	const onOpenArtifact = useArtifactOpen();
+	const hintCreateBet = useHint("create-bet");
 
 	// D2: Resolve lead display name from roster instead of showing the agent id.
 	const leadName =
@@ -204,11 +235,33 @@ function WorkProductLoaded({ data }: { data: ProductDetail }): JSX.Element {
 					Active Bets
 				</h2>
 				{activeBets.length === 0 ? (
-					<EmptyState
-						title="No active bets"
-						description="This product team has no bets in flight."
-						dataTestId="product-active-bets-empty"
-					/>
+					<>
+						<EmptyState
+							title="No active bets"
+							description="This product team has no bets in flight."
+							dataTestId="product-active-bets-empty"
+						/>
+						{hintCreateBet.visible && (
+							<div
+								role="status"
+								data-testid={hintCreateBet.testId}
+								className="rounded-[var(--r1)] bg-[var(--surface-2)] p-[var(--density-card-pad)] flex flex-col gap-[var(--density-card-gap)] mt-2"
+							>
+								<p className="text-[length:var(--density-text)] text-[var(--text-mid)] leading-[var(--leading-body)]">
+									{hintCreateBet.copy}
+								</p>
+								<div className="flex gap-2">
+									<button
+										type="button"
+										className="btn btn-ghost btn-xs text-[var(--text-lo)] min-h-[44px]"
+										onClick={hintCreateBet.dismiss}
+									>
+										Got it
+									</button>
+								</div>
+							</div>
+						)}
+					</>
 				) : (
 					<div className="flex flex-col gap-[var(--density-card-gap)]">
 						{activeBets.map((bet) => (
@@ -262,14 +315,16 @@ function WorkProductLoaded({ data }: { data: ProductDetail }): JSX.Element {
 			</section>
 
 			{/* L12: Artifact stack — product axis, limit=10, replaces placeholder */}
-			<ArtifactSection
-				filter={{ axis: "product", productId: product.id }}
-				layout="stack"
-				limit={10}
-				heading="Artifacts"
-				emptyDescription="Artifacts appear as agents complete tasks for this product."
-				onOpen={onOpenArtifact}
-			/>
+			{!skipArtifacts && (
+				<ArtifactSection
+					filter={{ axis: "product", productId: product.id }}
+					layout="stack"
+					limit={10}
+					heading="Artifacts"
+					emptyDescription="Artifacts appear as agents complete tasks for this product."
+					onOpen={onOpenArtifact}
+				/>
+			)}
 		</div>
 	);
 }

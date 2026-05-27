@@ -105,7 +105,7 @@ describe("P5 AC5: Hint #1 (create-bet) on WorkProduct", () => {
 			new Response(JSON.stringify({ dismissed: [] }), { status: 200 }),
 		);
 
-		renderWithHints(<WorkProduct overrideData={BASE_PRODUCT_DETAIL} />);
+		renderWithHints(<WorkProduct overrideData={BASE_PRODUCT_DETAIL} skipArtifacts />);
 
 		await waitFor(() => {
 			expect(screen.getByTestId("hint-create-bet")).toBeInTheDocument();
@@ -118,7 +118,7 @@ describe("P5 AC5: Hint #1 (create-bet) on WorkProduct", () => {
 			new Response(JSON.stringify({ dismissed: [] }), { status: 200 }),
 		);
 
-		renderWithHints(<WorkProduct overrideData={BASE_PRODUCT_DETAIL} />);
+		renderWithHints(<WorkProduct overrideData={BASE_PRODUCT_DETAIL} skipArtifacts />);
 
 		await waitFor(() => {
 			expect(screen.getByTestId("hint-create-bet")).toBeInTheDocument();
@@ -133,7 +133,7 @@ describe("P5 AC5: Hint #1 (create-bet) on WorkProduct", () => {
 			new Response(JSON.stringify({ dismissed: [] }), { status: 200 }),
 		);
 
-		renderWithHints(<WorkProduct overrideData={PRODUCT_WITH_ACTIVE_BET} />);
+		renderWithHints(<WorkProduct overrideData={PRODUCT_WITH_ACTIVE_BET} skipArtifacts />);
 
 		await waitFor(() => {
 			// Wait for the API fetch to complete
@@ -154,7 +154,7 @@ describe("P5 AC5: Hint #1 (create-bet) on WorkProduct", () => {
 			),
 		);
 
-		renderWithHints(<WorkProduct overrideData={BASE_PRODUCT_DETAIL} />);
+		renderWithHints(<WorkProduct overrideData={BASE_PRODUCT_DETAIL} skipArtifacts />);
 
 		await waitFor(() => {
 			expect(fetchSpy).toHaveBeenCalledTimes(1);
@@ -174,7 +174,7 @@ describe("P5 AC5: Hint #1 (create-bet) on WorkProduct", () => {
 		// POST dismiss fire-and-forget response
 		fetchSpy.mockResolvedValueOnce(new Response(JSON.stringify({ ok: true }), { status: 200 }));
 
-		renderWithHints(<WorkProduct overrideData={BASE_PRODUCT_DETAIL} />);
+		renderWithHints(<WorkProduct overrideData={BASE_PRODUCT_DETAIL} skipArtifacts />);
 
 		// Wait for hint to appear
 		await waitFor(() => {
@@ -195,7 +195,7 @@ describe("P5 AC5: Hint #1 (create-bet) on WorkProduct", () => {
 			new Response(JSON.stringify({ dismissed: [] }), { status: 200 }),
 		);
 
-		renderWithHints(<WorkProduct overrideData={BASE_PRODUCT_DETAIL} />);
+		renderWithHints(<WorkProduct overrideData={BASE_PRODUCT_DETAIL} skipArtifacts />);
 
 		await waitFor(() => {
 			expect(screen.getByTestId("hint-create-bet")).toBeInTheDocument();
@@ -220,7 +220,7 @@ describe("P5 AC5: Hint #1 (create-bet) on WorkProduct", () => {
 			),
 		);
 
-		renderWithHints(<WorkProduct overrideData={BASE_PRODUCT_DETAIL} />);
+		renderWithHints(<WorkProduct overrideData={BASE_PRODUCT_DETAIL} skipArtifacts />);
 
 		await waitFor(() => {
 			expect(fetchSpy).toHaveBeenCalledTimes(1);
@@ -235,7 +235,7 @@ describe("P5 AC5: Hint #1 (create-bet) on WorkProduct", () => {
 			new Response(JSON.stringify({ error: "Server error" }), { status: 500 }),
 		);
 
-		renderWithHints(<WorkProduct overrideData={BASE_PRODUCT_DETAIL} />);
+		renderWithHints(<WorkProduct overrideData={BASE_PRODUCT_DETAIL} skipArtifacts />);
 
 		await waitFor(() => {
 			expect(fetchSpy).toHaveBeenCalledTimes(1);

@@ -10,6 +10,7 @@ import type { BetStatus, WireMoney } from "@hyperidle/shared";
 import { formatMoney, formatTokenCount } from "@hyperidle/shared";
 import { type JSX, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useHint } from "../hooks/useHints";
 import { useRovingFocus } from "./use-roving-focus";
 
 /**
@@ -233,6 +234,7 @@ export function Rail({
 	cocOverlayOpen = false,
 }: RailProps): JSX.Element {
 	const navigate = useNavigate();
+	const hintRailIndicators = useHint("rail-indicators");
 
 	const [openSections, setOpenSections] = useState({
 		bets: true,
@@ -356,6 +358,28 @@ export function Rail({
 					</svg>
 				</button>
 			</div>
+
+			{/* P5: Hint #5 — rail-indicators. Shows on first rail expansion. */}
+			{hintRailIndicators.visible && expanded && (
+				<div
+					role="status"
+					data-testid={hintRailIndicators.testId}
+					className="rounded-[var(--r1)] bg-[var(--surface-2)] p-[var(--density-card-pad)] flex flex-col gap-[var(--density-card-gap)]"
+				>
+					<p className="text-[length:var(--density-text)] text-[var(--text-mid)] leading-[var(--leading-body)]">
+						{hintRailIndicators.copy}
+					</p>
+					<div className="flex gap-2">
+						<button
+							type="button"
+							className="btn btn-ghost btn-xs text-[var(--text-lo)] min-h-[44px]"
+							onClick={hintRailIndicators.dismiss}
+						>
+							Got it
+						</button>
+					</div>
+				</div>
+			)}
 
 			{/* Active Bets Section */}
 			<div>

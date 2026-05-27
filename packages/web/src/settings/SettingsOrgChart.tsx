@@ -91,7 +91,7 @@ export function SettingsOrgChart(): JSX.Element {
 	);
 
 	const handleAdd = useCallback(async (): Promise<void> => {
-		if (!fromUserId || !target) return;
+		if (!(fromUserId && target)) return;
 		setAdding(true);
 		try {
 			const res = await apiFetch("/api/org/edges", {

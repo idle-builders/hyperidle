@@ -37,6 +37,7 @@ import { type JSX, useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { KnowledgeTopicGroup } from "../components/KnowledgeTopicGroup";
 import { useFetch } from "../hooks/useFetch";
+import { useHint } from "../hooks/useHints";
 import { relativeTime } from "../utils/relative-time";
 import { KnowledgeCreateDialog } from "./knowledge/KnowledgeCreateDialog";
 
@@ -205,6 +206,7 @@ export function KnowledgeList({
 	error = null,
 }: KnowledgeListProps = {}): JSX.Element {
 	const navigate = useNavigate();
+	const hintKnowledgeEmpty = useHint("knowledge-empty");
 	const [searchParams, setSearchParams] = useSearchParams();
 	const scope = deriveScope(searchParams);
 	const sort = deriveSort(searchParams);
@@ -437,11 +439,33 @@ export function KnowledgeList({
 					{apiLoading ? (
 						<SkeletonList rows={4} ariaLabel="Loading curated items" />
 					) : grouped.length === 0 ? (
-						<EmptyState
-							title="No knowledge items yet"
-							description="Agents will populate this scope as they learn. Check back after the next review cycle."
-							dataTestId="knowledge-curated-empty"
-						/>
+						<>
+							<EmptyState
+								title="No knowledge items yet"
+								description="Agents will populate this scope as they learn. Check back after the next review cycle."
+								dataTestId="knowledge-curated-empty"
+							/>
+							{hintKnowledgeEmpty.visible && (
+								<div
+									role="status"
+									data-testid={hintKnowledgeEmpty.testId}
+									className="rounded-[var(--r1)] bg-[var(--surface-2)] p-[var(--density-card-pad)] flex flex-col gap-[var(--density-card-gap)] mt-2"
+								>
+									<p className="text-[length:var(--density-text)] text-[var(--text-mid)] leading-[var(--leading-body)]">
+										{hintKnowledgeEmpty.copy}
+									</p>
+									<div className="flex gap-2">
+										<button
+											type="button"
+											className="btn btn-ghost btn-xs text-[var(--text-lo)] min-h-[44px]"
+											onClick={hintKnowledgeEmpty.dismiss}
+										>
+											Got it
+										</button>
+									</div>
+								</div>
+							)}
+						</>
 					) : (
 						grouped.map((g) => (
 							<KnowledgeTopicGroup

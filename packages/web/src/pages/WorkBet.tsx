@@ -43,6 +43,7 @@ import { ArtifactThreadsSummary } from "../components/ArtifactThreadsSummary.js"
 import { CocAttachButton } from "../components/CocAttachButton";
 import { useBet } from "../hooks/useBet";
 import { useCurrentUser } from "../hooks/useCurrentUser.js";
+import { useHint } from "../hooks/useHints";
 import { useHostThread } from "../hooks/useHostThread.js";
 import { isValidHarnessUrl } from "../lib/url-utils.js";
 import { apiFetch } from "../services/api-fetch.js";
@@ -613,6 +614,7 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 	const navigate = useNavigate();
 	const { user } = useCurrentUser();
 	const onOpenArtifact = useArtifactOpen();
+	const hintAddCredential = useHint("add-credential");
 
 	// Only call useBet when there is no override. When overrideBet is provided,
 	// pass undefined so the hook short-circuits to { data: null, loading: false, error: null }.
@@ -866,6 +868,28 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 
 			{/* L14: Bet action bar — shown for active bets only */}
 			<BetActionsBar bet={bet} onAction={handleAction} />
+
+			{/* P5: Hint #2 — add-credential. Shows when the first bet is loaded. */}
+			{hintAddCredential.visible && (
+				<div
+					role="status"
+					data-testid={hintAddCredential.testId}
+					className="rounded-[var(--r1)] bg-[var(--surface-2)] p-[var(--density-card-pad)] flex flex-col gap-[var(--density-card-gap)]"
+				>
+					<p className="text-[length:var(--density-text)] text-[var(--text-mid)] leading-[var(--leading-body)]">
+						{hintAddCredential.copy}
+					</p>
+					<div className="flex gap-2">
+						<button
+							type="button"
+							className="btn btn-ghost btn-xs text-[var(--text-lo)] min-h-[44px]"
+							onClick={hintAddCredential.dismiss}
+						>
+							Got it
+						</button>
+					</div>
+				</div>
+			)}
 
 			{/* Q2: Add knowledge button — opens KnowledgeCreateDialog with bet scope locked */}
 			<div className="flex items-center gap-2">
