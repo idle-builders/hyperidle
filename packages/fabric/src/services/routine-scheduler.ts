@@ -396,7 +396,7 @@ export async function registerEventTriggers(
 	const eventRoutines = await db
 		.select()
 		.from(routines)
-		.where(and(eq(routines.triggerType, "event"), eq(routines.active, 1)));
+		.where(and(eq(routines.triggerType, "event"), eq(routines.active, true)));
 
 	const unsubscribers: Array<() => void> = [];
 
@@ -442,7 +442,7 @@ export async function startRoutineScheduler(
 	const intervalId = setInterval(() => {
 		const now = new Date().toISOString();
 		void (async () => {
-			const allRoutines = await db.select().from(routines).where(eq(routines.active, 1));
+			const allRoutines = await db.select().from(routines).where(eq(routines.active, true));
 			const dueRoutines = allRoutines.filter((r) => {
 				if (r.triggerType === "event") return false;
 				if (!r.nextRunAt) return false;
