@@ -259,7 +259,7 @@ export function createProductRoutes(db: HyperIdleDb, _eventBus: EventBus): Hono 
 		const { phase } = body as { phase?: string };
 		const VALID_PHASES = ["build", "live", "archived"] as const;
 		type ProductPhase = (typeof VALID_PHASES)[number];
-		if (!phase || !(VALID_PHASES as readonly string[]).includes(phase)) {
+		if (!(phase && (VALID_PHASES as readonly string[]).includes(phase))) {
 			return c.json(
 				{ error: `phase must be one of: ${VALID_PHASES.join(", ")}`, code: "validation_error" },
 				400,

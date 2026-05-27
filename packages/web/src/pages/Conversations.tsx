@@ -34,6 +34,7 @@ import {
 } from "react";
 import { Link, useParams } from "react-router-dom";
 import { SessionActivityPanel } from "../components/SessionActivityPanel";
+import { useHint } from "../hooks/useHints";
 import { useThreadDetail } from "../hooks/useThreadDetail";
 import { apiFetch } from "../services/api-fetch.js";
 import {
@@ -198,6 +199,7 @@ function classifyHttpError(status: number): string {
 
 function ConversationsDetail({ threadId }: { threadId: string }): JSX.Element {
 	const { status, data, error, retry } = useThreadDetail(threadId);
+	const hintReviewVerdict = useHint("review-verdict");
 	// @lore L9: read ToastContext directly (not useToast) so the page renders
 	// in unit tests / Storybook without a <ToastRegion> ancestor. Production
 	// always has the provider via AppShell. When absent, async-ack falls back
@@ -364,9 +366,32 @@ function ConversationsDetail({ threadId }: { threadId: string }): JSX.Element {
 		);
 	}
 
+	// P5: Hint #4 — review-verdict. Trigger: thread is loaded with review messages.
+	const hasReviewMessages = data.messages.some((m) => m.type === "review");
+
 	return (
 		<div className="flex flex-col h-full" data-testid="conversations-page">
 			{dialInHeader}
+			{hintReviewVerdict.visible && hasReviewMessages && (
+				<div
+					role="status"
+					data-testid={hintReviewVerdict.testId}
+					className="rounded-[var(--r1)] bg-[var(--surface-2)] p-[var(--density-card-pad)] flex flex-col gap-[var(--density-card-gap)] flex-shrink-0"
+				>
+					<p className="text-[length:var(--density-text)] text-[var(--text-mid)] leading-[var(--leading-body)]">
+						{hintReviewVerdict.copy}
+					</p>
+					<div className="flex gap-2">
+						<button
+							type="button"
+							className="btn btn-ghost btn-xs text-[var(--text-lo)] min-h-[44px]"
+							onClick={hintReviewVerdict.dismiss}
+						>
+							Got it
+						</button>
+					</div>
+				</div>
+			)}
 			<ThreadShell
 				thread={data.thread}
 				messages={data.messages}

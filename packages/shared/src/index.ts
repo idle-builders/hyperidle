@@ -98,6 +98,9 @@ export type {
 	ToolCallEvent,
 } from "./harness/index.js";
 export { MockHarnessAdapter } from "./harness/index.js";
+// ── Hint catalog (P5) ──
+export type { HintCatalogEntry, HintId } from "./hint.js";
+export { HINT_CATALOG, HINT_IDS, isHintId } from "./hint.js";
 export { createLogger, type Logger } from "./logger.js";
 // SSRF utilities use node:dns/net/util and cannot be imported in the browser.
 // Server code imports them via "@hyperidle/shared/net" subpath export instead.
