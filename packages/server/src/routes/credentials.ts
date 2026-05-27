@@ -176,8 +176,8 @@ export function createCredentialRoutes(db: HyperIdleDb): Hono<HyperIdleEnv> {
 	const router = new Hono<HyperIdleEnv>();
 
 	/** GET /api/credentials — list all catalog entries with state */
-	router.get("/", (c) => {
-		const rows = db.select().from(serverCredentials).all();
+	router.get("/", async (c) => {
+		const rows = await db.select().from(serverCredentials);
 		const rowMap = new Map(rows.map((r) => [r.name, r]));
 
 		const response: CredentialStatusResponse[] = CREDENTIAL_CATALOG.map((entry) =>
@@ -215,47 +215,49 @@ export function createCredentialRoutes(db: HyperIdleDb): Hono<HyperIdleEnv> {
 		const now = new Date().toISOString();
 
 		// Upsert: update if exists, insert if not
-		const existing = db
+		const [existing] = await db
 			.select()
 			.from(serverCredentials)
 			.where(eq(serverCredentials.name, name))
-			.get();
+			.limit(1);
 
 		if (existing) {
-			db.update(serverCredentials)
+			await db
+				.update(serverCredentials)
 				.set({
 					encryptedValue,
 					validationState: "present_untested",
 					lastValidatedAt: null,
 					updatedAt: now,
 				})
-				.where(eq(serverCredentials.name, name))
-				.run();
+				.where(eq(serverCredentials.name, name));
 		} else {
-			db.insert(serverCredentials)
-				.values({
-					name,
-					encryptedValue,
-					validationState: "present_untested",
-					lastValidatedAt: null,
-					updatedAt: now,
-				})
-				.run();
+			await db.insert(serverCredentials).values({
+				name,
+				encryptedValue,
+				validationState: "present_untested",
+				lastValidatedAt: null,
+				updatedAt: now,
+			});
 		}
 
-		const row = db.select().from(serverCredentials).where(eq(serverCredentials.name, name)).get();
+		const [row] = await db
+			.select()
+			.from(serverCredentials)
+			.where(eq(serverCredentials.name, name))
+			.limit(1);
 
 		return c.json(buildStatusResponse(name, row));
 	});
 
 	/** DELETE /api/credentials/:name — remove credential */
-	router.delete("/:name", mutateLimiter, (c) => {
+	router.delete("/:name", mutateLimiter, async (c) => {
 		const name = c.req.param("name");
 		if (!isCredentialName(name)) {
 			return c.json({ error: "Unknown credential name", code: "VALIDATION_ERROR" }, 400);
 		}
 
-		db.delete(serverCredentials).where(eq(serverCredentials.name, name)).run();
+		await db.delete(serverCredentials).where(eq(serverCredentials.name, name));
 
 		return c.body(null, 204);
 	});
@@ -268,7 +270,11 @@ export function createCredentialRoutes(db: HyperIdleDb): Hono<HyperIdleEnv> {
 		}
 
 		// Check if credential exists
-		const row = db.select().from(serverCredentials).where(eq(serverCredentials.name, name)).get();
+		const [row] = await db
+			.select()
+			.from(serverCredentials)
+			.where(eq(serverCredentials.name, name))
+			.limit(1);
 
 		if (!row) {
 			return c.json({ valid: false, error: "Credential not set" }, 200);
@@ -311,10 +317,10 @@ export function createCredentialRoutes(db: HyperIdleDb): Hono<HyperIdleEnv> {
 		const now = new Date().toISOString();
 		const newState: CredentialState = validationResult.valid ? "valid" : "invalid";
 
-		db.update(serverCredentials)
+		await db
+			.update(serverCredentials)
 			.set({ validationState: newState, lastValidatedAt: now, updatedAt: now })
-			.where(eq(serverCredentials.name, name))
-			.run();
+			.where(eq(serverCredentials.name, name));
 
 		// Response MUST NOT include the raw value
 		const result: { valid: boolean; error?: string } = { valid: validationResult.valid };

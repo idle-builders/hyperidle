@@ -31,7 +31,7 @@ export function createRecipientRoutes(db: HyperIdleDb): Hono;
 export function createRecipientRoutes(db: HyperIdleDb, _eventBus?: EventBus): Hono {
 	const router = new Hono();
 
-	router.get("/", (c) => {
+	router.get("/", async (c) => {
 		const q = c.req.query("q") ?? "";
 		const kind = c.req.query("kind");
 
@@ -41,14 +41,13 @@ export function createRecipientRoutes(db: HyperIdleDb, _eventBus?: EventBus): Ho
 		// No kind filter returns all users (AI + human).
 		const allUsers =
 			q.length > 0
-				? db
+				? await db
 						.select()
 						.from(users)
 						.where(
 							sql`LOWER(${users.name}) LIKE ${`%${escapeLikePattern(q.toLowerCase())}%`} ESCAPE '\\'`,
 						)
-						.all()
-				: db.select().from(users).all();
+				: await db.select().from(users);
 
 		// Apply kind filter post-query (human/ai kinds both live in users table)
 		const filtered =
@@ -59,7 +58,10 @@ export function createRecipientRoutes(db: HyperIdleDb, _eventBus?: EventBus): Ho
 					: allUsers;
 
 		// Fetch active sessions to determine hasActiveSession
-		const activeSessions = db.select().from(sessions).where(eq(sessions.state, "active")).all();
+		const activeSessions = await db
+			.select()
+			.from(sessions)
+			.where(eq(sessions.state, "active"));
 		const activeUserIds = new Set(activeSessions.map((s) => s.agentId));
 
 		const recipients: RecipientRow[] = filtered.map((user) => ({

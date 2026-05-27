@@ -280,7 +280,7 @@ export function createNotificationRoutes(
 		return c.json(result);
 	});
 
-	router.get("/queue", (c) => {
+	router.get("/queue", async (c) => {
 		const statusParam = c.req.query("status") ?? "pending";
 		const limitParam = c.req.query("limit");
 		const limitNum = limitParam ? Number.parseInt(limitParam, 10) : 50;
@@ -297,13 +297,12 @@ export function createNotificationRoutes(
 			};
 			return c.json(response, 400);
 		}
-		const rows = db
+		const rows = await db
 			.select()
 			.from(notificationQueue)
 			.where(eq(notificationQueue.status, parsed.data))
 			.orderBy(desc(notificationQueue.createdAt))
-			.limit(limit)
-			.all();
+			.limit(limit);
 		return c.json({
 			status: parsed.data,
 			count: rows.length,

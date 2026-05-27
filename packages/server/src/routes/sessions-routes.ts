@@ -43,7 +43,7 @@ export function createSessionRoutes(
 
 	// GET / — List sessions with optional filtering by task_id, agent_id, state.
 	// @lore I6: replaces the bounded resource descriptor with actual filtering.
-	router.get("/", (c) => {
+	router.get("/", async (c) => {
 		const taskId = c.req.query("task_id");
 		const agentId = c.req.query("agent_id");
 		const state = c.req.query("state");
@@ -55,35 +55,33 @@ export function createSessionRoutes(
 		if (agentId) conditions.push(eq(sessions.agentId, agentId));
 		if (state) conditions.push(eq(sessions.state, state));
 
-		const query =
+		const result =
 			conditions.length > 0
-				? db
+				? await db
 						.select()
 						.from(sessions)
 						.where(and(...conditions))
-				: db.select().from(sessions);
-
-		const result = query.limit(limit).offset(offset).all();
+						.limit(limit)
+						.offset(offset)
+				: await db.select().from(sessions).limit(limit).offset(offset);
 
 		return c.json(result);
 	});
 
 	// POST / — Create session
-	router.post("/", validateBody(createSessionSchema), (c) => {
+	router.post("/", validateBody(createSessionSchema), async (c) => {
 		const body = c.req.valid("json" as never) as z.infer<typeof createSessionSchema>;
 		const sessionId = crypto.randomUUID();
 		const now = new Date().toISOString();
 
-		db.insert(sessions)
-			.values({
-				id: sessionId,
-				agentId: body.agentId,
-				taskId: body.taskId,
-				modelTier: body.modelTier,
-				startedAt: now,
-				state: "active",
-			})
-			.run();
+		await db.insert(sessions).values({
+			id: sessionId,
+			agentId: body.agentId,
+			taskId: body.taskId,
+			modelTier: body.modelTier,
+			startedAt: now,
+			state: "active",
+		});
 
 		eventBus.emit<"session_started">({
 			type: "session_started",
@@ -94,16 +92,24 @@ export function createSessionRoutes(
 			timestamp: Date.now(),
 		} satisfies SessionStartedEvent);
 
-		const created = db.select().from(sessions).where(eq(sessions.id, sessionId)).get();
+		const [created] = await db
+			.select()
+			.from(sessions)
+			.where(eq(sessions.id, sessionId))
+			.limit(1);
 		return c.json(created, 201);
 	});
 
 	// GET /:id/activity — Session activity stream (Q1 §3.2)
 	// Returns session metadata + recent activity entries from the in-memory buffer.
 	// Capped at 50 most-recent entries to bound response size.
-	router.get("/:id/activity", (c) => {
+	router.get("/:id/activity", async (c) => {
 		const sessionId = c.req.param("id");
-		const session = db.select().from(sessions).where(eq(sessions.id, sessionId)).get();
+		const [session] = await db
+			.select()
+			.from(sessions)
+			.where(eq(sessions.id, sessionId))
+			.limit(1);
 		if (!session) {
 			return c.json({ error: "Session not found", code: API_ERROR_CODES.NOT_FOUND }, 404);
 		}
@@ -126,11 +132,15 @@ export function createSessionRoutes(
 	});
 
 	// PATCH /:id — Update session state
-	router.patch("/:id", validateBody(updateSessionSchema), (c) => {
+	router.patch("/:id", validateBody(updateSessionSchema), async (c) => {
 		const sessionId = c.req.param("id");
 		const body = c.req.valid("json" as never) as z.infer<typeof updateSessionSchema>;
 
-		const existing = db.select().from(sessions).where(eq(sessions.id, sessionId)).get();
+		const [existing] = await db
+			.select()
+			.from(sessions)
+			.where(eq(sessions.id, sessionId))
+			.limit(1);
 		if (!existing) {
 			return c.json({ error: "Session not found", code: API_ERROR_CODES.NOT_FOUND }, 404);
 		}
@@ -143,7 +153,7 @@ export function createSessionRoutes(
 		if (body.outcome !== undefined) updates.outcome = body.outcome;
 		if (body.notes !== undefined) updates.notes = body.notes;
 
-		db.update(sessions).set(updates).where(eq(sessions.id, sessionId)).run();
+		await db.update(sessions).set(updates).where(eq(sessions.id, sessionId));
 
 		const outcome: SessionOutcome = body.state === "crashed" ? "crashed" : "completed";
 		eventBus.emit<"session_ended">({
@@ -156,7 +166,11 @@ export function createSessionRoutes(
 			outcome,
 		} satisfies SessionEndedEvent);
 
-		const updated = db.select().from(sessions).where(eq(sessions.id, sessionId)).get();
+		const [updated] = await db
+			.select()
+			.from(sessions)
+			.where(eq(sessions.id, sessionId))
+			.limit(1);
 		return c.json(updated);
 	});
 

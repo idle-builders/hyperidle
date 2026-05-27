@@ -71,21 +71,24 @@ function readSenderId(c: {
  * if no `X-Identity` is supplied, default to the first non-founder
  * participant. Plain messages keep the standard founder default (auth context userId).
  *
- * @lore M3 A7 C3: threads.ts:79 previously used DEFAULT_FOUNDER_ID here too.
+ * @lore M3 A7 C3: threads.ts previously used DEFAULT_FOUNDER_ID here too.
  * Both readSenderId and readInitialSenderId now use c.get("userId") as the
  * fallback, resolved from users WHERE kind = 'human' LIMIT 1 by the auth middleware.
+ *
+ * @lore PGlite: readInitialSenderId is now async because it must await the
+ * db.select() lookup for review/questionnaire sender selection.
  */
-function readInitialSenderId(
+async function readInitialSenderId(
 	c: { req: { header: (k: string) => string | undefined }; get: (k: "userId") => string },
 	db: HyperIdleDb,
 	participants: ReadonlyArray<string>,
 	messageType: MessageType,
-): string {
+): Promise<string> {
 	const explicit = c.req.header(SENDER_HEADER);
 	if (explicit) return explicit;
 	if (messageType === "review" || messageType === "questionnaire") {
 		for (const p of participants) {
-			const ag = db.select().from(users).where(eq(users.id, p)).get();
+			const [ag] = await db.select().from(users).where(eq(users.id, p)).limit(1);
 			// @lore P2: "founder" is intentionally NOT in USER_ROLES (the role column is
 			// unconstrained text). This check selects the first non-founder participant as
 			// the sender for review/questionnaire messages. If you rename or remove the
@@ -97,11 +100,10 @@ function readInitialSenderId(
 }
 
 /**
- * @lore L1 step5 (SL-C2): the DB→Message boundary parses the row's JSON
+ * @lore L1 step5 (SL-C2): the DB->Message boundary parses the row's JSON
  * `payload` and `participants` columns through Zod. A malformed row (e.g.
  * legacy data, manual edit) fails loudly here instead of crashing somewhere
- * downstream. The brand-style `as Thread["id"]` aliases are no-ops because
- * `ThreadId` is `string` in `@hyperidle/shared`; we drop them.
+ * downstream.
  */
 function rowToThread(row: DbThread): Thread {
 	const participants = threadParticipantsSchema.parse(JSON.parse(row.participants));
@@ -111,7 +113,8 @@ function rowToThread(row: DbThread): Thread {
 		hostId: row.hostId,
 		initiatorId: row.initiatorId,
 		participants,
-		pinned: row.pinned === 1,
+		// @lore PGlite: pinned is native boolean in Postgres. Accept both for compat.
+		pinned: row.pinned === true || (row.pinned as unknown) === 1,
 		resolvedAt: row.resolvedAt,
 		lastActiveAt: row.lastActiveAt,
 		createdAt: row.createdAt,
@@ -133,8 +136,6 @@ function rowToMessage(row: DbMessage): Message {
 		resolvedAt: row.resolvedAt,
 		createdAt: row.createdAt,
 	} as const;
-	// Switch on the parsed discriminator so each Message variant lines up its
-	// `type` with its `payload` — no cast needed.
 	switch (parsed.type) {
 		case "plain":
 			return { ...base, type: "plain", payload: parsed.payload };
@@ -172,10 +173,8 @@ export function createThreadRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hy
 	// param is NOT verified against the authenticated identity. A holder of
 	// a valid API key can call `?participant_id=<other>` and read another
 	// founder's threads (IDOR). This is inherited from L1a's "API-key holder
-	// is implicit sender" model and is explicitly out of L8's scope. The
-	// fix lives in the auth-middleware story; tracked in
-	// plans/work-packages/follow-ups.md (`auth-middleware-participant-scope`).
-	router.get("/", (c) => {
+	// is implicit sender" model and is explicitly out of L8's scope.
+	router.get("/", async (c) => {
 		const parsed = listThreadsQuerySchema.safeParse({
 			host_kind: c.req.query("host_kind"),
 			host_id: c.req.query("host_id"),
@@ -195,57 +194,45 @@ export function createThreadRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hy
 
 		let rows: DbThread[];
 		if (q.host_kind && q.host_id) {
-			rows = db
+			rows = await db
 				.select()
 				.from(threads)
 				.where(and(eq(threads.hostKind, q.host_kind), eq(threads.hostId, q.host_id)))
 				.orderBy(desc(threads.lastActiveAt), desc(threads.id))
-				.limit(q.limit)
-				.all();
+				.limit(q.limit);
 		} else if (q.host_kind) {
-			rows = db
+			rows = await db
 				.select()
 				.from(threads)
 				.where(eq(threads.hostKind, q.host_kind))
 				.orderBy(desc(threads.lastActiveAt), desc(threads.id))
-				.limit(q.limit)
-				.all();
+				.limit(q.limit);
 		} else {
-			// L1 step5 (W6): participant_id scope used to whole-table-scan into
-			// JS, JSON-parse every row, and `.includes(participant_id)`. We now
-			// pre-filter in SQL with a `LIKE %"<id>"%` probe (the participants
-			// column stores JSON-encoded strings, so quoting the id avoids
-			// prefix-match false positives). We still re-parse the matched
-			// rows in JS to verify membership; a future story projecting
-			// participants into a join table replaces this entirely. The
-			// `ESCAPE '\\'` clause must travel through `sql` because Drizzle's
-			// `like()` helper does not expose the modifier.
+			// L1 step5 (W6): participant_id scope — pre-filter in SQL with LIKE probe,
+			// then re-verify membership in JS.
 			const participantId = q.participant_id ?? "";
 			const probe = `%${escapeLikePattern(JSON.stringify(participantId))}%`;
-			rows = db
+			const rawRows = await db
 				.select()
 				.from(threads)
 				.where(sql`${threads.participants} LIKE ${probe} ESCAPE '\\'`)
 				.orderBy(desc(threads.lastActiveAt), desc(threads.id))
-				.limit(q.limit)
-				.all()
-				.filter((row) => {
-					try {
-						const parts = threadParticipantsSchema.parse(JSON.parse(row.participants));
-						return parts.includes(participantId);
-					} catch {
-						return false;
-					}
-				});
+				.limit(q.limit);
+			rows = rawRows.filter((row) => {
+				try {
+					const parts = threadParticipantsSchema.parse(JSON.parse(row.participants));
+					return parts.includes(participantId);
+				} catch {
+					return false;
+				}
+			});
 		}
 
 		// L8 §3.1: extend list response with `hasUnresolvedReview` per row.
-		// Single batched messages query: any unresolved `review`/`questionnaire`
-		// message in the thread sets the flag.
 		const threadIds = rows.map((r) => r.id);
 		const unresolvedThreadIds = new Set<string>();
 		if (threadIds.length > 0) {
-			const unresolvedRows = db
+			const unresolvedRows = await db
 				.select({ threadId: messages.threadId })
 				.from(messages)
 				.where(
@@ -254,8 +241,7 @@ export function createThreadRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hy
 						inArray(messages.type, ["review", "questionnaire"]),
 						sql`${messages.resolvedAt} IS NULL`,
 					),
-				)
-				.all();
+				);
 			for (const r of unresolvedRows) {
 				unresolvedThreadIds.add(r.threadId);
 			}
@@ -271,21 +257,18 @@ export function createThreadRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hy
 	});
 
 	// --- GET /api/threads/:id -----------------------------------------------
-	router.get("/:id", (c) => {
+	router.get("/:id", async (c) => {
 		const id = c.req.param("id");
-		const row = db.select().from(threads).where(eq(threads.id, id)).get();
+		const [row] = await db.select().from(threads).where(eq(threads.id, id)).limit(1);
 		if (!row) {
 			const e = err(API_ERROR_CODES.NOT_FOUND, "Thread not found", 404);
 			return c.json(e.body, e.status);
 		}
-		// Plan §6.1: "the first page is the most-recent N; subsequent pages
-		// walk backward". Most-recent first.
-		const messageRows = db
+		const messageRows = await db
 			.select()
 			.from(messages)
 			.where(eq(messages.threadId, id))
-			.orderBy(desc(messages.createdAt), desc(messages.id))
-			.all();
+			.orderBy(desc(messages.createdAt), desc(messages.id));
 		const msgsDesc = messageRows.map(rowToMessage);
 		// headCollapsePredicate operates on ASC-sorted messages (concept §4.5.5).
 		const msgsAsc = [...msgsDesc].reverse();
@@ -312,9 +295,8 @@ export function createThreadRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hy
 			return c.json(zodErrorToBody(parsed.error), 400);
 		}
 		const input = parsed.data;
-		const senderId = readInitialSenderId(c, db, input.participants, input.initialMessage.type);
+		const senderId = await readInitialSenderId(c, db, input.participants, input.initialMessage.type);
 
-		// Ensure sender is one of the participants (server-authoritative).
 		const participants = input.participants.includes(senderId)
 			? input.participants
 			: [...input.participants, senderId];
@@ -323,7 +305,7 @@ export function createThreadRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hy
 		const now = new Date().toISOString();
 		const threadId = crypto.randomUUID();
 
-		// Verdict cannot be the initial message — there's no review to resolve.
+		// Verdict cannot be the initial message.
 		if (input.initialMessage.type === "verdict") {
 			const e = err("validation_error", "Initial message cannot be verdict", 400);
 			return c.json(e.body, e.status);
@@ -332,30 +314,28 @@ export function createThreadRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hy
 		const messageId = crypto.randomUUID();
 
 		try {
-			db.transaction((tx) => {
-				tx.insert(threads)
-					.values({
-						id: threadId,
-						hostKind: input.hostKind,
-						hostId: input.hostId,
-						initiatorId: senderId,
-						participants: JSON.stringify(sortedParticipants),
-						pinned: input.pinned ? 1 : 0,
-						lastActiveAt: now,
-						createdAt: now,
-					})
-					.run();
-				tx.insert(messages)
-					.values({
-						id: messageId,
-						senderId,
-						threadId,
-						type: input.initialMessage.type,
-						payload: JSON.stringify(input.initialMessage.payload),
-						clientKey: input.initialMessage.clientKey,
-						createdAt: now,
-					})
-					.run();
+			// @lore PGlite: db.transaction() callback is async (returns Promise<void>).
+			await db.transaction(async (tx) => {
+				await tx.insert(threads).values({
+					id: threadId,
+					hostKind: input.hostKind,
+					hostId: input.hostId,
+					initiatorId: senderId,
+					participants: JSON.stringify(sortedParticipants),
+					// @lore PGlite: pinned is native boolean in Postgres.
+					pinned: input.pinned ?? false,
+					lastActiveAt: now,
+					createdAt: now,
+				});
+				await tx.insert(messages).values({
+					id: messageId,
+					senderId,
+					threadId,
+					type: input.initialMessage.type,
+					payload: JSON.stringify(input.initialMessage.payload),
+					clientKey: input.initialMessage.clientKey,
+					createdAt: now,
+				});
 			});
 		} catch (cause) {
 			return c.json(
@@ -364,7 +344,6 @@ export function createThreadRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hy
 			);
 		}
 
-		// Emit events.
 		const createdEvent: ThreadCreatedEvent = {
 			type: "thread_created",
 			streamId: threadId,
@@ -386,8 +365,8 @@ export function createThreadRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hy
 		};
 		eventBus.emit(appendedEvent);
 
-		const threadRow = db.select().from(threads).where(eq(threads.id, threadId)).get();
-		const msgRow = db.select().from(messages).where(eq(messages.id, messageId)).get();
+		const [threadRow] = await db.select().from(threads).where(eq(threads.id, threadId)).limit(1);
+		const [msgRow] = await db.select().from(messages).where(eq(messages.id, messageId)).limit(1);
 		if (!(threadRow && msgRow)) {
 			const e = err("internal_error", "Created thread missing", 500);
 			return c.json(e.body, e.status);
@@ -421,15 +400,17 @@ export function createThreadRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hy
 			const input = parsed.data;
 			const senderId = readSenderId(c);
 
-			const threadRow = db.select().from(threads).where(eq(threads.id, threadId)).get();
+			const [threadRow] = await db
+				.select()
+				.from(threads)
+				.where(eq(threads.id, threadId))
+				.limit(1);
 			if (!threadRow) {
 				const e = err(API_ERROR_CODES.NOT_FOUND, "Thread not found", 404);
 				return c.json(e.body, e.status);
 			}
-			// L1 step9 (Adv-W2): the previous `as string[]` cast bypassed the
-			// shape guarantee on the participants column. Zod-parse the JSON
-			// so a malformed row fails loudly here instead of silently
-			// accepting an authz bypass.
+			// L1 step9 (Adv-W2): Zod-parse the participants JSON so a malformed row
+			// fails loudly here instead of silently accepting an authz bypass.
 			let participants: ReadonlyArray<string>;
 			try {
 				participants = threadParticipantsSchema.parse(JSON.parse(threadRow.participants));
@@ -445,7 +426,7 @@ export function createThreadRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hy
 			}
 
 			// Idempotency check before transaction.
-			const existing = db
+			const [existing] = await db
 				.select()
 				.from(messages)
 				.where(
@@ -455,14 +436,9 @@ export function createThreadRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hy
 						eq(messages.clientKey, input.clientKey),
 					),
 				)
-				.get();
+				.limit(1);
 			if (existing) {
-				// L1 step9 (Adv-C3): if the replay carries a payload that differs
-				// from the stored row, return 409 Conflict instead of silently
-				// claiming success against the stale record. Plan §6.1's "return
-				// existing canonical id on duplicate" assumes retry semantics
-				// (same payload). A divergent payload is a client bug — the
-				// stored row stays unchanged and the audit trail is honest.
+				// L1 step9 (Adv-C3): divergent payload on replay => 409.
 				const sameType = existing.type === input.type;
 				const samePayload = existing.payload === JSON.stringify(input.payload);
 				if (!(sameType && samePayload)) {
@@ -485,20 +461,22 @@ export function createThreadRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hy
 			// Verdict authorization (plan §6.1 REVISED for adversary C4).
 			let resolvesMessageRow: DbMessage | undefined;
 			if (input.type === "verdict") {
-				resolvesMessageRow = db
+				const [found] = await db
 					.select()
 					.from(messages)
 					.where(eq(messages.id, input.payload.resolvesMessageId))
-					.get();
+					.limit(1);
+				resolvesMessageRow = found;
 				if (!resolvesMessageRow || resolvesMessageRow.threadId !== threadId) {
 					const e = err("validation_error", "resolvesMessageId not found in thread", 400);
 					return c.json(e.body, e.status);
 				}
-				const senderAgent = db.select().from(users).where(eq(users.id, senderId)).get();
-				// @lore P2: "founder" role is NOT in USER_ROLES (role column is unconstrained text).
-				// Verdict authorization is load-bearing: ONLY the founder may post verdict messages,
-				// and not for their own submissions (selfVerdict). If you rename or remove the
-				// "founder" role, update this check and the sender-selection at readInitialSenderId.
+				const [senderAgent] = await db
+					.select()
+					.from(users)
+					.where(eq(users.id, senderId))
+					.limit(1);
+				// @lore P2: "founder" role is NOT in USER_ROLES (unconstrained text).
 				const isFounder = senderAgent?.role === "founder";
 				const selfVerdict = resolvesMessageRow.senderId === senderId;
 				if (!isFounder || selfVerdict) {
@@ -509,58 +487,48 @@ export function createThreadRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hy
 			const now = new Date().toISOString();
 			const messageId = crypto.randomUUID();
 
-			// Re-open semantics (plan §6.1 REVISED for adversary C5).
 			const wasResolved = threadRow.resolvedAt !== null;
 			const willReopen = wasResolved && (input.type === "review" || input.type === "questionnaire");
 
-			// L1 step9 (Adv-W4): guard against two concurrent verdicts on the
-			// same review by adding `WHERE resolvedAt IS NULL` to the
-			// resolve-update. The second verdict's UPDATE matches zero rows;
-			// the transaction body throws a sentinel which the catch maps to
-			// 409. Plan §6.1's first-verdict-wins contract holds without a
-			// global lock.
+			// L1 step9 (Adv-W4): first-verdict-wins via WHERE resolvedAt IS NULL.
+			// @lore PGlite: transaction callback is async. .changes is SQLite-only —
+			// replaced by .returning() + length check.
 			class VerdictRaceConflict extends Error {}
 
 			try {
-				db.transaction((tx) => {
-					tx.insert(messages)
-						.values({
-							id: messageId,
-							senderId,
-							threadId,
-							type: input.type,
-							payload: JSON.stringify(input.payload),
-							clientKey: input.clientKey,
-							createdAt: now,
-						})
-						.run();
+				await db.transaction(async (tx) => {
+					await tx.insert(messages).values({
+						id: messageId,
+						senderId,
+						threadId,
+						type: input.type,
+						payload: JSON.stringify(input.payload),
+						clientKey: input.clientKey,
+						createdAt: now,
+					});
 
 					if (input.type === "verdict" && resolvesMessageRow) {
-						const result = tx
+						const updated = await tx
 							.update(messages)
 							.set({ resolvedAt: now })
 							.where(
 								and(eq(messages.id, resolvesMessageRow.id), sql`${messages.resolvedAt} IS NULL`),
 							)
-							.run();
-						// better-sqlite3 returns `{changes: number}` on `.run()`;
-						// drizzle-orm's typed shim mirrors the same shape. If the
-						// match returns 0, a concurrent verdict already resolved
-						// the review — abort and surface 409 to this caller.
-						if ((result as { changes: number }).changes === 0) {
+							.returning({ id: messages.id });
+						if (updated.length === 0) {
 							throw new VerdictRaceConflict();
 						}
-						tx.update(threads)
+						await tx
+							.update(threads)
 							.set({ resolvedAt: now, lastActiveAt: now })
-							.where(eq(threads.id, threadId))
-							.run();
+							.where(eq(threads.id, threadId));
 					} else if (willReopen) {
-						tx.update(threads)
+						await tx
+							.update(threads)
 							.set({ resolvedAt: null, lastActiveAt: now })
-							.where(eq(threads.id, threadId))
-							.run();
+							.where(eq(threads.id, threadId));
 					} else {
-						tx.update(threads).set({ lastActiveAt: now }).where(eq(threads.id, threadId)).run();
+						await tx.update(threads).set({ lastActiveAt: now }).where(eq(threads.id, threadId));
 					}
 				});
 			} catch (cause) {
@@ -574,7 +542,6 @@ export function createThreadRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hy
 				);
 			}
 
-			// Emit events.
 			const appendedEvent: ThreadMessageAppendedEvent = {
 				type: "thread_message_appended",
 				streamId: threadId,
@@ -607,8 +574,16 @@ export function createThreadRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hy
 				eventBus.emit(reopenedEvent);
 			}
 
-			const updatedThread = db.select().from(threads).where(eq(threads.id, threadId)).get();
-			const created = db.select().from(messages).where(eq(messages.id, messageId)).get();
+			const [updatedThread] = await db
+				.select()
+				.from(threads)
+				.where(eq(threads.id, threadId))
+				.limit(1);
+			const [created] = await db
+				.select()
+				.from(messages)
+				.where(eq(messages.id, messageId))
+				.limit(1);
 			if (!(updatedThread && created)) {
 				const e = err("internal_error", "Created message missing", 500);
 				return c.json(e.body, e.status);

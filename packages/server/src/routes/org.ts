@@ -34,17 +34,16 @@ export function createOrgRoutes(db: HyperIdleDb): Hono<HyperIdleEnv> {
 	const router = new Hono<HyperIdleEnv>();
 
 	// GET / — full org chart
-	router.get("/", (c) => {
-		const edges = db.select().from(orgEdges).all();
-		const allUsers = db
+	router.get("/", async (c) => {
+		const edges = await db.select().from(orgEdges);
+		const allUsers = await db
 			.select({
 				id: users.id,
 				kind: users.kind,
 				name: users.name,
 				role: users.role,
 			})
-			.from(users)
-			.all();
+			.from(users);
 
 		return c.json({ edges, users: allUsers });
 	});
@@ -69,7 +68,7 @@ export function createOrgRoutes(db: HyperIdleDb): Hono<HyperIdleEnv> {
 		const { fromUserId, mechanism, target } = parsed.data;
 
 		// Check if fromUserId exists in users table
-		const fromUser = db.select().from(users).where(eq(users.id, fromUserId)).get();
+		const [fromUser] = await db.select().from(users).where(eq(users.id, fromUserId)).limit(1);
 		if (!fromUser) {
 			return c.json(
 				{ error: `fromUserId not found: ${fromUserId}`, code: "VALIDATION_ERROR" },
@@ -82,7 +81,7 @@ export function createOrgRoutes(db: HyperIdleDb): Hono<HyperIdleEnv> {
 		// "function" targets a UserRole string, "team" targets a teamId. Each has a
 		// distinct existence check so stale/garbage targets are rejected at write time.
 		if (mechanism === "direct") {
-			const targetUser = db.select().from(users).where(eq(users.id, target)).get();
+			const [targetUser] = await db.select().from(users).where(eq(users.id, target)).limit(1);
 			if (!targetUser) {
 				return c.json(
 					{ error: `target userId not found: ${target}`, code: "VALIDATION_ERROR" },
@@ -100,7 +99,7 @@ export function createOrgRoutes(db: HyperIdleDb): Hono<HyperIdleEnv> {
 				);
 			}
 		} else if (mechanism === "team") {
-			const targetTeam = db.select().from(teams).where(eq(teams.id, target)).get();
+			const [targetTeam] = await db.select().from(teams).where(eq(teams.id, target)).limit(1);
 			if (!targetTeam) {
 				return c.json(
 					{ error: `target teamId not found: ${target}`, code: "VALIDATION_ERROR" },
@@ -113,7 +112,7 @@ export function createOrgRoutes(db: HyperIdleDb): Hono<HyperIdleEnv> {
 		// (from_user_id, mechanism, target) — avoids a full-table scan + JS filter.
 		// @lore P2 WARNING-ADV1: replaced the previous .all().find() JS-filter with a
 		// 3-column WHERE clause that hits the org_edges_unique composite index directly.
-		const existing = db
+		const [existing] = await db
 			.select()
 			.from(orgEdges)
 			.where(
@@ -123,7 +122,7 @@ export function createOrgRoutes(db: HyperIdleDb): Hono<HyperIdleEnv> {
 					eq(orgEdges.target, target),
 				),
 			)
-			.get();
+			.limit(1);
 
 		if (existing) {
 			// Upsert: return existing edge with 200
@@ -134,22 +133,22 @@ export function createOrgRoutes(db: HyperIdleDb): Hono<HyperIdleEnv> {
 		const id = crypto.randomUUID();
 		const createdAt = new Date().toISOString();
 
-		db.insert(orgEdges).values({ id, fromUserId, mechanism, target, createdAt }).run();
+		await db.insert(orgEdges).values({ id, fromUserId, mechanism, target, createdAt });
 
-		const created = db.select().from(orgEdges).where(eq(orgEdges.id, id)).get();
+		const [created] = await db.select().from(orgEdges).where(eq(orgEdges.id, id)).limit(1);
 		return c.json(created, 201);
 	});
 
 	// DELETE /edges/:id — delete an edge
-	router.delete("/edges/:id", (c) => {
+	router.delete("/edges/:id", async (c) => {
 		const id = c.req.param("id");
 
-		const existing = db.select().from(orgEdges).where(eq(orgEdges.id, id)).get();
+		const [existing] = await db.select().from(orgEdges).where(eq(orgEdges.id, id)).limit(1);
 		if (!existing) {
 			return c.json({ error: "Edge not found", code: "NOT_FOUND" }, 404);
 		}
 
-		db.delete(orgEdges).where(eq(orgEdges.id, id)).run();
+		await db.delete(orgEdges).where(eq(orgEdges.id, id));
 		return c.body(null, 204);
 	});
 
