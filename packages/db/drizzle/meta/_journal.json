@@ -123,28 +123,28 @@
 		{
 			"idx": 17,
 			"version": "6",
-			"when": 1779817622461,
+			"when": 1783500000000,
 			"tag": "0017_Q2_knowledge_scope",
 			"breakpoints": true
 		},
 		{
 			"idx": 18,
 			"version": "6",
-			"when": 1748400000000,
+			"when": 1783600000000,
 			"tag": "0018_P2_rename_agents_to_users",
 			"breakpoints": true
 		},
 		{
 			"idx": 19,
 			"version": "6",
-			"when": 1748500000000,
+			"when": 1783700000000,
 			"tag": "0019_P3_config_credentials",
 			"breakpoints": true
 		},
 		{
 			"idx": 20,
 			"version": "6",
-			"when": 1748600000000,
+			"when": 1783800000000,
 			"tag": "0020_P5_hint_progress",
 			"breakpoints": true
 		}
