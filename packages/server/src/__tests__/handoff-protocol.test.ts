@@ -10,6 +10,7 @@ import {
 	teams,
 	threads,
 	users,
+	type TestDbHandle
 } from "@hyperidle/db";
 // @lore O2: sessions.cost stripped; cost tracking moved to agents.costActual.
 import { EventBus } from "@hyperidle/shared";
@@ -22,13 +23,13 @@ import type { SessionContext } from "../services/session-lifecycle.js";
 
 function seedPrerequisites(db: HyperIdleDb): void {
 	const now = new Date().toISOString();
-	db.insert(products)
+	await db.insert(products)
 		.values({ id: "p1", name: "Test Product", phase: "build", createdAt: now })
-		.run();
-	db.insert(teams)
+
+	await db.insert(teams)
 		.values({ id: "t1", productId: "p1", capacity: 5, activeBets: 0, formedAt: now })
-		.run();
-	db.insert(bets)
+
+	await db.insert(bets)
 		.values({
 			id: "b1",
 			productId: "p1",
@@ -38,7 +39,7 @@ function seedPrerequisites(db: HyperIdleDb): void {
 			status: "committed",
 			createdAt: now,
 		})
-		.run();
+
 }
 
 function insertAgent(
@@ -49,7 +50,7 @@ function insertAgent(
 	status = "active",
 ): void {
 	const now = new Date().toISOString();
-	db.insert(users)
+	await db.insert(users)
 		.values({
 			id,
 			name: `Agent ${id}`,
@@ -59,13 +60,13 @@ function insertAgent(
 			maxConcurrentSessions: 2,
 			createdAt: now,
 		})
-		.run();
+
 }
 
 function insertTask(db: HyperIdleDb, id: string, state: string, ownerAgentId?: string): void {
 	const now = new Date().toISOString();
 	const threadId = `thread-${id}`;
-	db.insert(threads)
+	await db.insert(threads)
 		.values({
 			id: threadId,
 			hostKind: "task",
@@ -75,8 +76,8 @@ function insertTask(db: HyperIdleDb, id: string, state: string, ownerAgentId?: s
 			lastActiveAt: now,
 			createdAt: now,
 		})
-		.run();
-	db.insert(tasks)
+
+	await db.insert(tasks)
 		.values({
 			id,
 			betId: "b1",
@@ -89,7 +90,7 @@ function insertTask(db: HyperIdleDb, id: string, state: string, ownerAgentId?: s
 			createdAt: now,
 			updatedAt: now,
 		})
-		.run();
+
 }
 
 function insertSession(
@@ -100,7 +101,7 @@ function insertSession(
 	state = "active",
 ): void {
 	const now = new Date().toISOString();
-	db.insert(sessions)
+	await db.insert(sessions)
 		.values({
 			id,
 			taskId,
@@ -109,7 +110,7 @@ function insertSession(
 			startedAt: now,
 			state,
 		})
-		.run();
+
 }
 
 function makeSessionContext(sessionId: string, agentId: string, taskId: string): SessionContext {
@@ -134,11 +135,13 @@ function makeMetadata(overrides?: Partial<HandoffMetadata>): HandoffMetadata {
 }
 
 describe("Handoff Protocol", () => {
+	let handle: TestDbHandle;
 	let db: HyperIdleDb;
 	let eventBus: EventBus;
 
-	beforeEach(() => {
-		db = createTestDb();
+	beforeEach(async () => {
+		handle = await createTestDb();
+		db = handle.db;
 		eventBus = new EventBus();
 		seedPrerequisites(db);
 	});
@@ -162,11 +165,11 @@ describe("Handoff Protocol", () => {
 			expect(result.status).toBe("success");
 
 			// A's session should be ended
-			const session = db.select().from(sessions).where(eq(sessions.id, "session-a")).get();
+			const [session] = await db.select().from(sessions).where(eq(sessions.id, "session-a"));
 			expect(session?.state).toBe("done");
 
 			// B should be the owner
-			const task = db.select().from(tasks).where(eq(tasks.id, "task-1")).get();
+			const [task] = await db.select().from(tasks).where(eq(tasks.id, "task-1"));
 			expect(task?.ownerAgentId).toBe("agent-b");
 
 			// Thread message should exist with handoff metadata
@@ -206,7 +209,7 @@ describe("Handoff Protocol", () => {
 			expect(result.status).toBe("success");
 			expect(result.targetAgentId).toBe("agent-b");
 
-			const task = db.select().from(tasks).where(eq(tasks.id, "task-1")).get();
+			const [task] = await db.select().from(tasks).where(eq(tasks.id, "task-1"));
 			expect(task?.ownerAgentId).toBe("agent-b");
 		});
 
@@ -228,7 +231,7 @@ describe("Handoff Protocol", () => {
 			expect(result.status).toBe("escalated");
 
 			// Escalation item should be created
-			const escalationItems = db.select().from(items).all();
+			const escalationItems = await db.select().from(items);
 			expect(escalationItems).toHaveLength(1);
 			expect(escalationItems[0].kind).toBe("escalation");
 			expect(escalationItems[0].title).toContain("builder");
@@ -271,11 +274,11 @@ describe("Handoff Protocol", () => {
 			expect(result.status).toBe("success");
 
 			// Task should be blocked
-			const task = db.select().from(tasks).where(eq(tasks.id, "task-1")).get();
+			const [task] = await db.select().from(tasks).where(eq(tasks.id, "task-1"));
 			expect(task?.state).toBe("blocked");
 
 			// Review item should be created
-			const reviewItems = db.select().from(items).all();
+			const reviewItems = await db.select().from(items);
 			expect(reviewItems).toHaveLength(1);
 			expect(reviewItems[0].kind).toBe("review");
 			expect(reviewItems[0].title).toContain("task-1");
@@ -373,7 +376,7 @@ describe("Handoff Protocol", () => {
 				metadata,
 			});
 
-			const task = db.select().from(tasks).where(eq(tasks.id, "task-1")).get();
+			const [task] = await db.select().from(tasks).where(eq(tasks.id, "task-1"));
 			const audit = JSON.parse(task?.auditTrail ?? "[]");
 			const handoffEntry = audit.find((e: Record<string, unknown>) => e.type === "handoff");
 			expect(handoffEntry).toBeDefined();
@@ -394,7 +397,7 @@ describe("Handoff Protocol", () => {
 			const existingAudit = [{ from: "proposed", to: "accepted", timestamp: now }];
 			const agentProse = "Pre-handoff agent note prose.";
 			const threadId = "thread-task-2";
-			db.insert(threads)
+			await db.insert(threads)
 				.values({
 					id: threadId,
 					hostKind: "task",
@@ -404,8 +407,8 @@ describe("Handoff Protocol", () => {
 					lastActiveAt: now,
 					createdAt: now,
 				})
-				.run();
-			db.insert(tasks)
+
+			await db.insert(tasks)
 				.values({
 					id: "task-2",
 					betId: "b1",
@@ -420,7 +423,7 @@ describe("Handoff Protocol", () => {
 					createdAt: now,
 					updatedAt: now,
 				})
-				.run();
+
 			insertSession(db, "session-a2", "task-2", "agent-a");
 
 			const ctx = makeSessionContext("session-a2", "agent-a", "task-2");
@@ -432,7 +435,7 @@ describe("Handoff Protocol", () => {
 				metadata,
 			});
 
-			const task = db.select().from(tasks).where(eq(tasks.id, "task-2")).get();
+			const [task] = await db.select().from(tasks).where(eq(tasks.id, "task-2"));
 			const audit = JSON.parse(task?.auditTrail ?? "[]");
 			expect(audit).toHaveLength(2);
 			expect(audit[0].from).toBe("proposed");
@@ -466,7 +469,7 @@ describe("Handoff Protocol", () => {
 				metadata: makeMetadata({ reason: "Second handoff" }),
 			});
 
-			const task = db.select().from(tasks).where(eq(tasks.id, "task-1")).get();
+			const [task] = await db.select().from(tasks).where(eq(tasks.id, "task-1"));
 			const audit = JSON.parse(task?.auditTrail ?? "[]");
 			const handoffEntries = audit.filter((e: Record<string, unknown>) => e.type === "handoff");
 			expect(handoffEntries).toHaveLength(2);
@@ -488,7 +491,7 @@ describe("Handoff Protocol", () => {
 			const now = new Date().toISOString();
 			const agentProse = "Scribbled thought: feature is almost done.";
 			const threadId = "thread-h1";
-			db.insert(threads)
+			await db.insert(threads)
 				.values({
 					id: threadId,
 					hostKind: "task",
@@ -498,8 +501,8 @@ describe("Handoff Protocol", () => {
 					lastActiveAt: now,
 					createdAt: now,
 				})
-				.run();
-			db.insert(tasks)
+
+			await db.insert(tasks)
 				.values({
 					id: "task-h1",
 					betId: "b1",
@@ -513,7 +516,7 @@ describe("Handoff Protocol", () => {
 					createdAt: now,
 					updatedAt: now,
 				})
-				.run();
+
 			insertSession(db, "session-h1", "task-h1", "agent-a");
 
 			const ctx = makeSessionContext("session-h1", "agent-a", "task-h1");
@@ -523,7 +526,7 @@ describe("Handoff Protocol", () => {
 				metadata: makeMetadata({ reason: "H1 reason" }),
 			});
 
-			const task = db.select().from(tasks).where(eq(tasks.id, "task-h1")).get();
+			const [task] = await db.select().from(tasks).where(eq(tasks.id, "task-h1"));
 			// notes prose preserved verbatim.
 			expect(task?.notes).toBe(agentProse);
 			// auditTrail contains the handoff entry (and only JSON, no prose).
@@ -549,7 +552,7 @@ describe("Handoff Protocol", () => {
 				metadata: makeMetadata(),
 			});
 
-			const task = db.select().from(tasks).where(eq(tasks.id, "task-h1-null")).get();
+			const [task] = await db.select().from(tasks).where(eq(tasks.id, "task-h1-null"));
 			// notes must not have been populated with a handoff JSON blob.
 			if (task?.notes !== null && task?.notes !== undefined) {
 				// If anything landed in notes, it must not parse as a JSON
@@ -588,7 +591,7 @@ describe("Handoff Protocol", () => {
 			insertSession(db, "session-h3", "task-h3", "agent-a");
 
 			// Pre-accumulate cost on the agent.
-			db.update(users).set({ costActual: 150 }).where(eq(users.id, "agent-a")).run();
+			await db.update(users).set({ costActual: 150 }).where(eq(users.id, "agent-a"));
 
 			const ctx = makeSessionContext("session-h3", "agent-a", "task-h3");
 			await handoff(db, eventBus, {
@@ -597,11 +600,11 @@ describe("Handoff Protocol", () => {
 				metadata: makeMetadata(),
 			});
 
-			const session = db.select().from(sessions).where(eq(sessions.id, "session-h3")).get();
+			const [session] = await db.select().from(sessions).where(eq(sessions.id, "session-h3"));
 			expect(session?.state).toBe("done");
 			expect(session?.endedAt).toBeTruthy();
 			// Key assertion: agents.costActual must survive the handoff unchanged.
-			const agent = db.select().from(users).where(eq(users.id, "agent-a")).get();
+			const [agent] = await db.select().from(users).where(eq(users.id, "agent-a"));
 			expect(agent?.costActual).toBe(150);
 		});
 	});
@@ -615,7 +618,7 @@ describe("Handoff Protocol", () => {
 			insertSession(db, "session-atomic", "task-atomic", "agent-a");
 			// Bump the agent costActual so we can prove it survives the rollback.
 			// @lore O2: sessions.cost stripped; rollback proof via agents.costActual.
-			db.update(users).set({ costActual: 250 }).where(eq(users.id, "agent-a")).run();
+			await db.update(users).set({ costActual: 250 }).where(eq(users.id, "agent-a"));
 
 			// Force the `messages` INSERT inside the handoff transaction to
 			// throw by dropping the referenced thread row. We temporarily
@@ -624,7 +627,7 @@ describe("Handoff Protocol", () => {
 			// FK-restricted). The pragma is re-enabled before calling
 			// handoff so messages.threadId FK enforcement is live.
 			db.run(sql`PRAGMA foreign_keys = OFF`);
-			db.delete(threads).where(eq(threads.id, "thread-task-atomic")).run();
+			await db.delete(threads).where(eq(threads.id, "thread-task-atomic"));
 			db.run(sql`PRAGMA foreign_keys = ON`);
 
 			// Capture any emitted events — none should fire because the
@@ -648,16 +651,16 @@ describe("Handoff Protocol", () => {
 			expect((thrown as Error).message).toContain("FOREIGN KEY");
 
 			// Session unchanged: still active, no endedAt.
-			const session = db.select().from(sessions).where(eq(sessions.id, "session-atomic")).get();
+			const [session] = await db.select().from(sessions).where(eq(sessions.id, "session-atomic"));
 			expect(session?.state).toBe("active");
 			expect(session?.endedAt).toBeFalsy();
 			// @lore O2: sessions.cost stripped; prove rollback via agents.costActual.
-			const agentRow = db.select().from(users).where(eq(users.id, "agent-a")).get();
+			const [agentRow] = await db.select().from(users).where(eq(users.id, "agent-a"));
 			expect(agentRow?.costActual).toBe(250);
 
 			// Task unchanged: ownership still agent-a, auditTrail has no
 			// handoff entry (the tx rolled back all of its writes).
-			const task = db.select().from(tasks).where(eq(tasks.id, "task-atomic")).get();
+			const [task] = await db.select().from(tasks).where(eq(tasks.id, "task-atomic"));
 			expect(task?.ownerAgentId).toBe("agent-a");
 			const audit = JSON.parse(task?.auditTrail ?? "[]") as Array<Record<string, unknown>>;
 			const handoffEntry = audit.find((e) => e.type === "handoff");

@@ -22,6 +22,7 @@ import {
 	teams,
 	threads,
 	users,
+	type TestDbHandle
 } from "@hyperidle/db";
 import { registerLifecyclePropagation, retryFailedPropagations } from "@hyperidle/fabric";
 import { EventBus, type PropagationAppliedEvent } from "@hyperidle/shared";
@@ -34,13 +35,13 @@ const SYSTEM_PROPAGATION_ID = "system:propagation";
 
 function seedBase(db: HyperIdleDb): void {
 	const now = new Date().toISOString();
-	db.insert(products)
+	await db.insert(products)
 		.values({ id: "prod-1", name: "Test Product", phase: "build", createdAt: now })
-		.run();
-	db.insert(teams)
+
+	await db.insert(teams)
 		.values({ id: "team-1", productId: "prod-1", capacity: 5, activeBets: 1, formedAt: now })
-		.run();
-	db.insert(bets)
+
+	await db.insert(bets)
 		.values({
 			id: "bet-1",
 			productId: "prod-1",
@@ -49,8 +50,8 @@ function seedBase(db: HyperIdleDb): void {
 			status: "in_progress",
 			createdAt: now,
 		})
-		.run();
-	db.insert(users)
+
+	await db.insert(users)
 		.values({
 			id: "agent-1",
 			name: "Builder Agent",
@@ -58,9 +59,9 @@ function seedBase(db: HyperIdleDb): void {
 			status: "active",
 			createdAt: now,
 		})
-		.run();
+
 	// F6: Seed the system propagation agent so review-thread messages can insert
-	db.insert(users)
+	await db.insert(users)
 		.values({
 			id: SYSTEM_PROPAGATION_ID,
 			name: "Propagation System",
@@ -68,12 +69,12 @@ function seedBase(db: HyperIdleDb): void {
 			status: "active",
 			createdAt: now,
 		})
-		.run();
+
 }
 
 function seedTask(db: HyperIdleDb, id: string, state: string, betId = "bet-1"): void {
 	const now = new Date().toISOString();
-	db.insert(tasks)
+	await db.insert(tasks)
 		.values({
 			id,
 			betId,
@@ -84,7 +85,7 @@ function seedTask(db: HyperIdleDb, id: string, state: string, betId = "bet-1"): 
 			createdAt: now,
 			updatedAt: now,
 		})
-		.run();
+
 }
 
 function seedSession(
@@ -94,7 +95,7 @@ function seedSession(
 	state: string,
 	outcome?: string,
 ): void {
-	db.insert(sessions)
+	await db.insert(sessions)
 		.values({
 			id,
 			taskId,
@@ -104,23 +105,25 @@ function seedSession(
 			state,
 			outcome: outcome ?? null,
 		})
-		.run();
+
 }
 
 // ─── Session -> Task propagation ─────────────────────────────────────────────
 
 describe("registerLifecyclePropagation — session -> task", () => {
+	let handle: TestDbHandle;
 	let db: HyperIdleDb;
 	let eventBus: EventBus;
 	let unsubscribe: () => void;
 
-	beforeEach(() => {
-		db = createTestDb();
+	beforeEach(async () => {
+		handle = await createTestDb();
+		db = handle.db;
 		eventBus = new EventBus();
 		seedBase(db);
 	});
 
-	afterEach(() => {
+	afterEach(async () => {
 		unsubscribe?.();
 		vi.restoreAllMocks();
 	});
@@ -143,7 +146,7 @@ describe("registerLifecyclePropagation — session -> task", () => {
 		});
 
 		// Assert: task is now in review
-		const task = db.select().from(tasks).where(eq(tasks.id, "task-1")).get();
+		const [task] = await db.select().from(tasks).where(eq(tasks.id, "task-1"));
 		expect(task?.state).toBe("review");
 	});
 
@@ -195,11 +198,11 @@ describe("registerLifecyclePropagation — session -> task", () => {
 		});
 
 		// Assert: task stays in_progress
-		const task = db.select().from(tasks).where(eq(tasks.id, "task-1")).get();
+		const [task] = await db.select().from(tasks).where(eq(tasks.id, "task-1"));
 		expect(task?.state).toBe("in_progress");
 
 		// And propagation_log records skipped
-		const logs = db.select().from(propagationLog).where(eq(propagationLog.status, "skipped")).all();
+		const logs = await db.select().from(propagationLog).where(eq(propagationLog.status, "skipped"));
 		expect(logs.length).toBeGreaterThanOrEqual(1);
 	});
 
@@ -221,7 +224,7 @@ describe("registerLifecyclePropagation — session -> task", () => {
 		});
 
 		// Assert: task stays in_progress
-		const task = db.select().from(tasks).where(eq(tasks.id, "task-1")).get();
+		const [task] = await db.select().from(tasks).where(eq(tasks.id, "task-1"));
 		expect(task?.state).toBe("in_progress");
 	});
 
@@ -244,7 +247,7 @@ describe("registerLifecyclePropagation — session -> task", () => {
 		});
 
 		// Assert: task still in_progress (session-2 is still running)
-		const task = db.select().from(tasks).where(eq(tasks.id, "task-1")).get();
+		const [task] = await db.select().from(tasks).where(eq(tasks.id, "task-1"));
 		expect(task?.state).toBe("in_progress");
 	});
 
@@ -266,7 +269,7 @@ describe("registerLifecyclePropagation — session -> task", () => {
 		});
 
 		// Assert: task remains in review (not double-transitioned)
-		const task = db.select().from(tasks).where(eq(tasks.id, "task-1")).get();
+		const [task] = await db.select().from(tasks).where(eq(tasks.id, "task-1"));
 		expect(task?.state).toBe("review");
 	});
 
@@ -277,10 +280,9 @@ describe("registerLifecyclePropagation — session -> task", () => {
 		unsubscribe = registerLifecyclePropagation(db, eventBus);
 
 		// Manually transition task to 'review' to simulate race
-		db.update(tasks)
+		await db.update(tasks)
 			.set({ state: "done", updatedAt: new Date().toISOString() })
 			.where(eq(tasks.id, "task-1"))
-			.run();
 
 		// Act: propagation tries to move in_progress -> review but task is 'done'
 		eventBus.emit({
@@ -308,17 +310,19 @@ describe("registerLifecyclePropagation — session -> task", () => {
 // ─── Task -> Bet propagation ──────────────────────────────────────────────────
 
 describe("registerLifecyclePropagation — task -> bet", () => {
+	let handle: TestDbHandle;
 	let db: HyperIdleDb;
 	let eventBus: EventBus;
 	let unsubscribe: () => void;
 
-	beforeEach(() => {
-		db = createTestDb();
+	beforeEach(async () => {
+		handle = await createTestDb();
+		db = handle.db;
 		eventBus = new EventBus();
 		seedBase(db);
 	});
 
-	afterEach(() => {
+	afterEach(async () => {
 		unsubscribe?.();
 		vi.restoreAllMocks();
 	});
@@ -331,10 +335,9 @@ describe("registerLifecyclePropagation — task -> bet", () => {
 
 		// Manually move task-2 to done (bypass state machine for direct DB test)
 		// then fire task_state_changed event
-		db.update(tasks)
+		await db.update(tasks)
 			.set({ state: "done", updatedAt: new Date().toISOString() })
 			.where(eq(tasks.id, "task-2"))
-			.run();
 
 		eventBus.emit({
 			type: "task_state_changed",
@@ -346,7 +349,7 @@ describe("registerLifecyclePropagation — task -> bet", () => {
 		});
 
 		// Assert: bet is now in review
-		const bet = db.select().from(bets).where(eq(bets.id, "bet-1")).get();
+		const [bet] = await db.select().from(bets).where(eq(bets.id, "bet-1"));
 		expect(bet?.status).toBe("review");
 	});
 
@@ -367,7 +370,7 @@ describe("registerLifecyclePropagation — task -> bet", () => {
 		});
 
 		// Assert: bet stays in_progress
-		const bet = db.select().from(bets).where(eq(bets.id, "bet-1")).get();
+		const [bet] = await db.select().from(bets).where(eq(bets.id, "bet-1"));
 		expect(bet?.status).toBe("in_progress");
 	});
 
@@ -378,10 +381,9 @@ describe("registerLifecyclePropagation — task -> bet", () => {
 		unsubscribe = registerLifecyclePropagation(db, eventBus);
 
 		// Move task-2 to killed
-		db.update(tasks)
+		await db.update(tasks)
 			.set({ state: "killed", updatedAt: new Date().toISOString() })
 			.where(eq(tasks.id, "task-2"))
-			.run();
 
 		eventBus.emit({
 			type: "task_state_changed",
@@ -393,7 +395,7 @@ describe("registerLifecyclePropagation — task -> bet", () => {
 		});
 
 		// Assert: bet transitions to review
-		const bet = db.select().from(bets).where(eq(bets.id, "bet-1")).get();
+		const [bet] = await db.select().from(bets).where(eq(bets.id, "bet-1"));
 		expect(bet?.status).toBe("review");
 	});
 
@@ -404,10 +406,9 @@ describe("registerLifecyclePropagation — task -> bet", () => {
 		unsubscribe = registerLifecyclePropagation(db, eventBus);
 
 		// Move task-2 to done
-		db.update(tasks)
+		await db.update(tasks)
 			.set({ state: "done", updatedAt: new Date().toISOString() })
 			.where(eq(tasks.id, "task-2"))
-			.run();
 
 		eventBus.emit({
 			type: "task_state_changed",
@@ -428,7 +429,7 @@ describe("registerLifecyclePropagation — task -> bet", () => {
 
 		// Assert: a message of type review exists in the thread
 		const thread = allThreads[0];
-		const allMessages = db.select().from(messages).where(eq(messages.threadId, thread.id)).all();
+		const allMessages = await db.select().from(messages).where(eq(messages.threadId, thread.id));
 		expect(allMessages.length).toBeGreaterThanOrEqual(1);
 		const reviewMsg = allMessages.find((m) => m.type === "review");
 		expect(reviewMsg).toBeDefined();
@@ -444,18 +445,17 @@ describe("registerLifecyclePropagation — task -> bet", () => {
 		unsubscribe = registerLifecyclePropagation(db, eventBus);
 
 		// Manually kill the bet (simulating concurrent human action)
-		db.update(bets)
+		await db.update(bets)
 			.set({ status: "killed", revisionLog: JSON.stringify([]) })
 			.where(eq(bets.id, "bet-1"))
-			.run();
+
 		// Also decrement activeBets on team (simulate full kill)
-		db.update(teams).set({ activeBets: 0 }).where(eq(teams.id, "team-1")).run();
+		await db.update(teams).set({ activeBets: 0 }).where(eq(teams.id, "team-1"));
 
 		// Move task-2 to done and fire event (propagation will try review but bet is killed)
-		db.update(tasks)
+		await db.update(tasks)
 			.set({ state: "done", updatedAt: new Date().toISOString() })
 			.where(eq(tasks.id, "task-2"))
-			.run();
 
 		eventBus.emit({
 			type: "task_state_changed",
@@ -467,7 +467,7 @@ describe("registerLifecyclePropagation — task -> bet", () => {
 		});
 
 		// Assert: no unhandled exception; propagation_log has a skipped entry for the bet
-		const logs = db.select().from(propagationLog).where(eq(propagationLog.targetId, "bet-1")).all();
+		const logs = await db.select().from(propagationLog).where(eq(propagationLog.targetId, "bet-1"));
 		expect(logs.length).toBeGreaterThanOrEqual(1);
 		const lastLog = logs[logs.length - 1];
 		expect(["skipped", "failed"]).toContain(lastLog.status);
@@ -477,17 +477,19 @@ describe("registerLifecyclePropagation — task -> bet", () => {
 // ─── Re-entrant cascade (F4) ──────────────────────────────────────────────────
 
 describe("registerLifecyclePropagation — re-entrant cascade", () => {
+	let handle: TestDbHandle;
 	let db: HyperIdleDb;
 	let eventBus: EventBus;
 	let unsubscribe: () => void;
 
-	beforeEach(() => {
-		db = createTestDb();
+	beforeEach(async () => {
+		handle = await createTestDb();
+		db = handle.db;
 		eventBus = new EventBus();
 		seedBase(db);
 	});
 
-	afterEach(() => {
+	afterEach(async () => {
 		unsubscribe?.();
 		vi.restoreAllMocks();
 	});
@@ -510,7 +512,7 @@ describe("registerLifecyclePropagation — re-entrant cascade", () => {
 		});
 
 		// Assert: task is in review
-		const taskAfterSession = db.select().from(tasks).where(eq(tasks.id, "task-1")).get();
+		const [taskAfterSession] = await db.select().from(tasks).where(eq(tasks.id, "task-1"));
 		expect(taskAfterSession?.state).toBe("review");
 
 		// Verify hop 1 logged
@@ -528,10 +530,9 @@ describe("registerLifecyclePropagation — re-entrant cascade", () => {
 		expect(hop1Logs.length).toBeGreaterThanOrEqual(1);
 
 		// Act step 2: task manually moved to done -> bet should go to review
-		db.update(tasks)
+		await db.update(tasks)
 			.set({ state: "done", updatedAt: new Date().toISOString() })
 			.where(eq(tasks.id, "task-1"))
-			.run();
 
 		eventBus.emit({
 			type: "task_state_changed",
@@ -543,7 +544,7 @@ describe("registerLifecyclePropagation — re-entrant cascade", () => {
 		});
 
 		// Assert: bet is now in review
-		const bet = db.select().from(bets).where(eq(bets.id, "bet-1")).get();
+		const [bet] = await db.select().from(bets).where(eq(bets.id, "bet-1"));
 		expect(bet?.status).toBe("review");
 
 		// Verify hop 2 logged separately
@@ -565,17 +566,19 @@ describe("registerLifecyclePropagation — re-entrant cascade", () => {
 // ─── Bet -> Product propagation ───────────────────────────────────────────────
 
 describe("registerLifecyclePropagation — bet -> product", () => {
+	let handle: TestDbHandle;
 	let db: HyperIdleDb;
 	let eventBus: EventBus;
 	let unsubscribe: () => void;
 
-	beforeEach(() => {
-		db = createTestDb();
+	beforeEach(async () => {
+		handle = await createTestDb();
+		db = handle.db;
 		eventBus = new EventBus();
 		seedBase(db);
 	});
 
-	afterEach(() => {
+	afterEach(async () => {
 		unsubscribe?.();
 		vi.restoreAllMocks();
 	});
@@ -656,15 +659,17 @@ describe("registerLifecyclePropagation — bet -> product", () => {
 // ─── Retry mechanism ──────────────────────────────────────────────────────────
 
 describe("registerLifecyclePropagation — retry mechanism", () => {
+	let handle: TestDbHandle;
 	let db: HyperIdleDb;
 	let unsubscribe: () => void;
 
-	beforeEach(() => {
-		db = createTestDb();
+	beforeEach(async () => {
+		handle = await createTestDb();
+		db = handle.db;
 		seedBase(db);
 	});
 
-	afterEach(() => {
+	afterEach(async () => {
 		unsubscribe?.();
 		vi.restoreAllMocks();
 	});
@@ -676,7 +681,7 @@ describe("registerLifecyclePropagation — retry mechanism", () => {
 		const now = new Date().toISOString();
 		seedTask(db, "task-retry-1", "in_progress");
 		// Seed the session row as ended+completed so the retry re-execution succeeds
-		db.insert(sessions)
+		await db.insert(sessions)
 			.values({
 				id: "session-retry-1",
 				taskId: "task-retry-1",
@@ -687,9 +692,8 @@ describe("registerLifecyclePropagation — retry mechanism", () => {
 				state: "ended",
 				outcome: "completed",
 			})
-			.run();
 
-		db.insert(propagationLog)
+		await db.insert(propagationLog)
 			.values({
 				id: "log-retry-1",
 				sourceLevel: "session",
@@ -704,7 +708,6 @@ describe("registerLifecyclePropagation — retry mechanism", () => {
 				createdAt: now,
 				appliedAt: null,
 			})
-			.run();
 
 		const eventBus = new EventBus();
 
@@ -712,7 +715,7 @@ describe("registerLifecyclePropagation — retry mechanism", () => {
 		retryFailedPropagations(db, eventBus);
 
 		// Assert: the task was transitioned to review
-		const task = db.select().from(tasks).where(eq(tasks.id, "task-retry-1")).get();
+		const [task] = await db.select().from(tasks).where(eq(tasks.id, "task-retry-1"));
 		expect(task?.state).toBe("review");
 
 		// Assert: a new applied log entry was written for the successful retry
@@ -727,7 +730,7 @@ describe("registerLifecyclePropagation — retry mechanism", () => {
 	it("retryFailedPropagations: row with attempts=3 (at max) changes status to failed and creates notification", () => {
 		// Arrange: insert a pending_retry row that is already at MAX_RETRY_ATTEMPTS (3)
 		const now = new Date().toISOString();
-		db.insert(propagationLog)
+		await db.insert(propagationLog)
 			.values({
 				id: "log-exhausted-1",
 				sourceLevel: "session",
@@ -742,7 +745,6 @@ describe("registerLifecyclePropagation — retry mechanism", () => {
 				createdAt: now,
 				appliedAt: null,
 			})
-			.run();
 
 		const eventBus = new EventBus();
 
@@ -773,17 +775,19 @@ describe("registerLifecyclePropagation — retry mechanism", () => {
 // ─── Propagation log coverage ────────────────────────────────────────────────
 
 describe("registerLifecyclePropagation — propagation log", () => {
+	let handle: TestDbHandle;
 	let db: HyperIdleDb;
 	let eventBus: EventBus;
 	let unsubscribe: () => void;
 
-	beforeEach(() => {
-		db = createTestDb();
+	beforeEach(async () => {
+		handle = await createTestDb();
+		db = handle.db;
 		eventBus = new EventBus();
 		seedBase(db);
 	});
 
-	afterEach(() => {
+	afterEach(async () => {
 		unsubscribe?.();
 		vi.restoreAllMocks();
 	});
@@ -794,7 +798,7 @@ describe("registerLifecyclePropagation — propagation log", () => {
 		seedSession(db, "session-1", "task-1", "active");
 		unsubscribe = registerLifecyclePropagation(db, eventBus);
 
-		const initialLogCount = db.select().from(propagationLog).all().length;
+		const initialLogCount = await db.select().from(propagationLog).length;
 
 		// Act
 		eventBus.emit({
@@ -808,7 +812,7 @@ describe("registerLifecyclePropagation — propagation log", () => {
 		});
 
 		// Assert: at least one new log entry
-		const newLogCount = db.select().from(propagationLog).all().length;
+		const newLogCount = await db.select().from(propagationLog).length;
 		expect(newLogCount).toBeGreaterThan(initialLogCount);
 	});
 
@@ -859,11 +863,11 @@ describe("registerLifecyclePropagation — propagation log", () => {
 		});
 
 		// Assert: no propagation happened (task stays in_progress)
-		const task = db.select().from(tasks).where(eq(tasks.id, "task-1")).get();
+		const [task] = await db.select().from(tasks).where(eq(tasks.id, "task-1"));
 		expect(task?.state).toBe("in_progress");
 
 		// No log entries created
-		const logs = db.select().from(propagationLog).all();
+		const logs = await db.select().from(propagationLog);
 		expect(logs).toHaveLength(0);
 	});
 });

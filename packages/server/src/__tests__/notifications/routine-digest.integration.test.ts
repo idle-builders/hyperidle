@@ -23,6 +23,7 @@ import {
 	tasks,
 	teams,
 	users,
+	type TestDbHandle
 } from "@hyperidle/db";
 import {
 	checkAndFireRoutine,
@@ -60,20 +61,20 @@ function enable(db: HyperIdleDb): void {
 		"notifications.digest_channel": "console",
 	};
 	for (const [key, value] of Object.entries(pairs)) {
-		db.insert(factorySettings)
+		await db.insert(factorySettings)
 			.values({ key, value, updatedAt: now })
 			.onConflictDoUpdate({
 				target: factorySettings.key,
 				set: { value, updatedAt: now },
 			})
-			.run();
+
 	}
 }
 
 function seedFixture(db: HyperIdleDb): void {
 	const now = "2026-04-18T00:00:00.000Z";
-	db.insert(products).values({ id: "p1", name: "Test", phase: "build", createdAt: now }).run();
-	db.insert(teams)
+	await db.insert(products).values({ id: "p1", name: "Test", phase: "build", createdAt: now });
+	await db.insert(teams)
 		.values({
 			id: "t1",
 			productId: "p1",
@@ -81,8 +82,8 @@ function seedFixture(db: HyperIdleDb): void {
 			activeBets: 0,
 			formedAt: now,
 		})
-		.run();
-	db.insert(users)
+
+	await db.insert(users)
 		.values({
 			id: "agent-cos",
 			name: "Chief of Staff",
@@ -91,8 +92,8 @@ function seedFixture(db: HyperIdleDb): void {
 			maxConcurrentSessions: 5,
 			createdAt: now,
 		})
-		.run();
-	db.insert(bets)
+
+	await db.insert(bets)
 		.values({
 			id: "b1",
 			productId: "p1",
@@ -102,8 +103,8 @@ function seedFixture(db: HyperIdleDb): void {
 			status: "shaped",
 			createdAt: now,
 		})
-		.run();
-	db.insert(tasks)
+
+	await db.insert(tasks)
 		.values({
 			id: "task-daily-digest",
 			betId: "b1",
@@ -115,8 +116,8 @@ function seedFixture(db: HyperIdleDb): void {
 			createdAt: now,
 			updatedAt: now,
 		})
-		.run();
-	db.insert(routines)
+
+	await db.insert(routines)
 		.values({
 			id: "routine-daily_digest",
 			ownerAgentId: "agent-cos",
@@ -125,17 +126,19 @@ function seedFixture(db: HyperIdleDb): void {
 				cron: "0 8 * * *",
 				taskId: "task-daily-digest",
 			}),
-			active: 1,
+			active: true,
 		})
-		.run();
+
 }
 
 describe("scheduler → routine_fired → daily digest (AC6 end-to-end)", () => {
+	let handle: TestDbHandle;
 	let db: HyperIdleDb;
 	let bus: EventBus;
 
-	beforeEach(() => {
-		db = createTestDb();
+	beforeEach(async () => {
+		handle = await createTestDb();
+		db = handle.db;
 		bus = new EventBus();
 		seedFixture(db);
 		enable(db);
@@ -143,7 +146,7 @@ describe("scheduler → routine_fired → daily digest (AC6 end-to-end)", () => 
 
 	it("routine-scheduler emits routine_fired and the dispatcher runs the digest", async () => {
 		// Queue one pending digest row.
-		db.insert(notificationQueue)
+		await db.insert(notificationQueue)
 			.values({
 				id: crypto.randomUUID(),
 				eventType: "cost_cap_warning",
@@ -157,7 +160,6 @@ describe("scheduler → routine_fired → daily digest (AC6 end-to-end)", () => 
 				attempts: 0,
 				createdAt: "2026-04-18T00:00:00.000Z",
 			})
-			.run();
 
 		const adapter = createFakeAdapter();
 		const dispose = registerNotificationDispatcher(db, bus, {
@@ -165,7 +167,7 @@ describe("scheduler → routine_fired → daily digest (AC6 end-to-end)", () => 
 		});
 
 		// Fire the routine — emits routine_fired on success.
-		const routine = db.select().from(routines).get();
+		const [routine] = await db.select().from(routines);
 		if (!routine) throw new Error("fixture missing routine");
 		const result = await checkAndFireRoutine(db, bus, routine);
 		expect(result.fired).toBe(true);
@@ -173,7 +175,7 @@ describe("scheduler → routine_fired → daily digest (AC6 end-to-end)", () => 
 		// The dispatcher's routine_fired handler runs asynchronously via
 		// queueMicrotask; wait for the side-effect on the queue.
 		await vi.waitFor(() => {
-			const rows = db.select().from(notificationQueue).all();
+			const rows = await db.select().from(notificationQueue);
 			expect(rows.every((r) => r.status === "sent")).toBe(true);
 		});
 		expect(adapter.calls.length).toBeGreaterThanOrEqual(1);

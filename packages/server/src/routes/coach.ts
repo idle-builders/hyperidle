@@ -61,7 +61,7 @@ function rowToThread(row: {
 		hostId: row.hostId,
 		initiatorId: row.initiatorId,
 		participants,
-		pinned: row.pinned === true || row.pinned === 1,
+		pinned: row.pinned === true,
 		resolvedAt: row.resolvedAt,
 		lastActiveAt: row.lastActiveAt,
 		createdAt: row.createdAt,

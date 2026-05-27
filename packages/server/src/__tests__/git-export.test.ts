@@ -20,6 +20,7 @@ import {
 	type HyperIdleDb,
 	knowledgeItems,
 	knowledgeStrategyFabric,
+	type TestDbHandle
 } from "@hyperidle/db";
 import {
 	buildCommitMessage,
@@ -190,13 +191,13 @@ const REPO = "/tmp/h1-unit-repo";
 
 function setConfigKV(db: HyperIdleDb, pairs: Record<string, string>): void {
 	for (const [key, value] of Object.entries(pairs)) {
-		db.insert(factorySettings)
+		await db.insert(factorySettings)
 			.values({ key, value, updatedAt: NOW_ISO })
 			.onConflictDoUpdate({
 				target: factorySettings.key,
 				set: { value, updatedAt: NOW_ISO },
 			})
-			.run();
+
 	}
 }
 
@@ -231,7 +232,7 @@ function seedKnowledge(
 	// does an INNER JOIN) finds the fabric row.
 	for (const r of rows) {
 		const itemId = r.id ?? crypto.randomUUID();
-		db.insert(knowledgeItems)
+		await db.insert(knowledgeItems)
 			.values({
 				id: itemId,
 				topic: r.topic ?? null,
@@ -244,8 +245,8 @@ function seedKnowledge(
 				createdAt: NOW_ISO,
 				updatedAt: NOW_ISO,
 			})
-			.run();
-		db.insert(knowledgeStrategyFabric)
+
+		await db.insert(knowledgeStrategyFabric)
 			.values({
 				id: `ksf-${itemId}`,
 				knowledgeItemId: itemId,
@@ -254,7 +255,7 @@ function seedKnowledge(
 				scopeId: r.scopeId ?? null,
 			})
 			.onConflictDoNothing()
-			.run();
+
 	}
 }
 
@@ -266,15 +267,17 @@ function getSetting(db: HyperIdleDb, key: string): string | undefined {
 		.find((r) => r.key === key)?.value;
 }
 
-beforeEach(() => {
+beforeEach(async () => {
 	resetExportMutexes();
 });
 
 describe("loadGitExportConfig", () => {
+	let handle: TestDbHandle;
 	let db: HyperIdleDb;
 
-	beforeEach(() => {
-		db = createTestDb();
+	beforeEach(async () => {
+		handle = await createTestDb();
+		db = handle.db;
 	});
 
 	it("returns null when disabled", () => {
@@ -553,10 +556,12 @@ describe("buildCommitMessage (AC2)", () => {
 });
 
 describe("computeExportPlan", () => {
+	let handle: TestDbHandle;
 	let db: HyperIdleDb;
 
-	beforeEach(() => {
-		db = createTestDb();
+	beforeEach(async () => {
+		handle = await createTestDb();
+		db = handle.db;
 	});
 
 	it("maps L4 PRINCIPLES -> factory/PRINCIPLES.md", () => {
@@ -678,10 +683,12 @@ describe("computeExportPlan", () => {
 });
 
 describe("runGitExport", () => {
+	let handle: TestDbHandle;
 	let db: HyperIdleDb;
 
-	beforeEach(() => {
-		db = createTestDb();
+	beforeEach(async () => {
+		handle = await createTestDb();
+		db = handle.db;
 	});
 
 	it("returns {status:'disabled'} when config is disabled", async () => {
@@ -971,6 +978,7 @@ describe("runGitExport", () => {
 });
 
 describe("registerGitExportHandler", () => {
+	let handle: TestDbHandle;
 	let db: HyperIdleDb;
 	let bus: EventBus;
 	let unsubscribe: (() => void) | undefined;
@@ -992,13 +1000,14 @@ describe("registerGitExportHandler", () => {
 		bus.emit(ev);
 	}
 
-	beforeEach(() => {
-		db = createTestDb();
+	beforeEach(async () => {
+		handle = await createTestDb();
+		db = handle.db;
 		bus = new EventBus();
 		enableExport(db);
 	});
 
-	afterEach(() => {
+	afterEach(async () => {
 		unsubscribe?.();
 		unsubscribe = undefined;
 		vi.useRealTimers();
@@ -1119,12 +1128,13 @@ describe("registerGitExportHandler", () => {
  * the handler, and the runner all cooperate.
  */
 describe("createApp -> git-export wiring (AC1 production path)", () => {
-	beforeEach(() => {
+	beforeEach(async () => {
 		vi.stubEnv("HYPERIDLE_API_KEY", "test-key-app-wiring");
 	});
 
-	afterEach(() => {
+	afterEach(async () => {
 		vi.unstubAllEnvs();
+		await handle?.close();
 		vi.useRealTimers();
 	});
 

@@ -7,7 +7,9 @@
  * POST /api/observability/flush    -> triggers drain
  */
 
-import { createTestDb, factorySettings, type HyperIdleDb } from "@hyperidle/db";
+import { createTestDb, factorySettings, type HyperIdleDb ,
+	type TestDbHandle
+} from "@hyperidle/db";
 import type { Logger } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
@@ -29,10 +31,10 @@ function quietAdapter(): ObservabilityAdapter {
 function seedKeys(db: HyperIdleDb, keys: Record<string, string>): void {
 	const now = new Date().toISOString();
 	for (const [k, v] of Object.entries(keys)) {
-		db.insert(factorySettings)
+		await db.insert(factorySettings)
 			.values({ key: k, value: v, updatedAt: now })
 			.onConflictDoUpdate({ target: factorySettings.key, set: { value: v, updatedAt: now } })
-			.run();
+
 	}
 }
 

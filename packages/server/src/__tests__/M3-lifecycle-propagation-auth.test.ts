@@ -15,6 +15,7 @@ import {
 	teams,
 	threads,
 	users,
+	type TestDbHandle
 } from "@hyperidle/db";
 import { registerLifecyclePropagation } from "@hyperidle/fabric";
 import { EventBus } from "@hyperidle/shared";
@@ -27,7 +28,7 @@ function seedBase(db: HyperIdleDb, founderId = "test-founder-1"): void {
 	const now = new Date().toISOString();
 
 	// P2: seed human founder user row (replaces factorySettings.founder_id lookup)
-	db.insert(users)
+	await db.insert(users)
 		.values({
 			id: founderId,
 			kind: "human",
@@ -37,15 +38,14 @@ function seedBase(db: HyperIdleDb, founderId = "test-founder-1"): void {
 			createdAt: now,
 		})
 		.onConflictDoNothing()
-		.run();
 
-	db.insert(products)
+	await db.insert(products)
 		.values({ id: "prod-1", name: "Test Product", phase: "build", createdAt: now })
-		.run();
-	db.insert(teams)
+
+	await db.insert(teams)
 		.values({ id: "team-1", productId: "prod-1", capacity: 5, activeBets: 1, formedAt: now })
-		.run();
-	db.insert(bets)
+
+	await db.insert(bets)
 		.values({
 			id: "bet-1",
 			productId: "prod-1",
@@ -54,8 +54,8 @@ function seedBase(db: HyperIdleDb, founderId = "test-founder-1"): void {
 			status: "in_progress",
 			createdAt: now,
 		})
-		.run();
-	db.insert(users)
+
+	await db.insert(users)
 		.values({
 			id: "agent-1",
 			name: "Builder Agent",
@@ -63,8 +63,8 @@ function seedBase(db: HyperIdleDb, founderId = "test-founder-1"): void {
 			status: "active",
 			createdAt: now,
 		})
-		.run();
-	db.insert(users)
+
+	await db.insert(users)
 		.values({
 			id: SYSTEM_PROPAGATION_ID,
 			name: "Propagation System",
@@ -72,12 +72,12 @@ function seedBase(db: HyperIdleDb, founderId = "test-founder-1"): void {
 			status: "active",
 			createdAt: now,
 		})
-		.run();
+
 }
 
 function seedDoneTasks(db: HyperIdleDb): void {
 	const now = new Date().toISOString();
-	db.insert(tasks)
+	await db.insert(tasks)
 		.values({
 			id: "task-1",
 			betId: "bet-1",
@@ -89,8 +89,8 @@ function seedDoneTasks(db: HyperIdleDb): void {
 			createdAt: now,
 			updatedAt: now,
 		})
-		.run();
-	db.insert(tasks)
+
+	await db.insert(tasks)
 		.values({
 			id: "task-2",
 			betId: "bet-1",
@@ -102,22 +102,24 @@ function seedDoneTasks(db: HyperIdleDb): void {
 			createdAt: now,
 			updatedAt: now,
 		})
-		.run();
+
 }
 
 describe("M3 — lifecycle-propagation: thread participants use users-table founder id (A9)", () => {
+	let handle: TestDbHandle;
 	let db: HyperIdleDb;
 	let eventBus: EventBus;
 
-	beforeEach(() => {
-		db = createTestDb();
+	beforeEach(async () => {
+		handle = await createTestDb();
+		db = handle.db;
 		eventBus = new EventBus();
 		seedBase(db, "test-founder-1");
 		seedDoneTasks(db);
 		registerLifecyclePropagation(db, eventBus);
 	});
 
-	afterEach(() => {
+	afterEach(async () => {
 		vi.restoreAllMocks();
 	});
 
@@ -137,7 +139,7 @@ describe("M3 — lifecycle-propagation: thread participants use users-table foun
 		await new Promise<void>((r) => setTimeout(r, 50));
 
 		// Find threads created by propagation for bet-1
-		const propagationThreads = db.select().from(threads).where(eq(threads.hostId, "bet-1")).all();
+		const propagationThreads = await db.select().from(threads).where(eq(threads.hostId, "bet-1"));
 
 		// A thread may or may not have been created depending on propagation conditions
 		// The key check: if a thread was created, it must NOT contain "u-founder" as participant

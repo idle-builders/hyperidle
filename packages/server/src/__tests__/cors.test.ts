@@ -1,4 +1,6 @@
-import { createTestDb } from "@hyperidle/db";
+import { createTestDb ,
+	type TestDbHandle
+} from "@hyperidle/db";
 import { EventBus } from "@hyperidle/shared";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createTestApp } from "../test-utils.js";
@@ -6,17 +8,17 @@ import { createTestApp } from "../test-utils.js";
 const TEST_API_KEY = "test-key-cors";
 
 describe("CORS middleware", () => {
-	beforeEach(() => {
+	beforeEach(async () => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 	});
 
-	afterEach(() => {
+	afterEach(async () => {
 		vi.unstubAllEnvs();
 	});
 
 	it("sets Access-Control-Allow-Origin for allowed origin (localhost:5173)", async () => {
 		const db = createTestDb();
-		const app = createTestApp({ db, eventBus: new EventBus() });
+		const app = await createTestApp({ db, eventBus: new EventBus() });
 
 		const res = await app.request("/api/health", {
 			headers: { origin: "http://localhost:5173" },
@@ -27,7 +29,7 @@ describe("CORS middleware", () => {
 
 	it("does not set Access-Control-Allow-Origin for disallowed origin", async () => {
 		const db = createTestDb();
-		const app = createTestApp({ db, eventBus: new EventBus() });
+		const app = await createTestApp({ db, eventBus: new EventBus() });
 
 		const res = await app.request("/api/health", {
 			headers: { origin: "http://evil.com" },
@@ -41,7 +43,7 @@ describe("CORS middleware", () => {
 
 	it("responds to OPTIONS preflight with correct headers", async () => {
 		const db = createTestDb();
-		const app = createTestApp({ db, eventBus: new EventBus() });
+		const app = await createTestApp({ db, eventBus: new EventBus() });
 
 		const res = await app.request("/api/health", {
 			method: "OPTIONS",
@@ -62,7 +64,7 @@ describe("CORS middleware", () => {
 	it("allows http://127.0.0.1 on a random high port (Electron renderer origin)", async () => {
 		// Arrange: Electron loads the SPA from a random port assigned by the OS
 		const db = createTestDb();
-		const app = createTestApp({ db, eventBus: new EventBus() });
+		const app = await createTestApp({ db, eventBus: new EventBus() });
 
 		// Act
 		const res = await app.request("/api/health", {
@@ -77,7 +79,7 @@ describe("CORS middleware", () => {
 	it("allows http://127.0.0.1:3001 (Electron accessing same port as server)", async () => {
 		// Arrange
 		const db = createTestDb();
-		const app = createTestApp({ db, eventBus: new EventBus() });
+		const app = await createTestApp({ db, eventBus: new EventBus() });
 
 		// Act
 		const res = await app.request("/api/health", {
@@ -91,7 +93,7 @@ describe("CORS middleware", () => {
 
 	it("denies http://127.0.0.1.evil.com (prefix bypass attempt)", async () => {
 		const db = createTestDb();
-		const app = createTestApp({ db, eventBus: new EventBus() });
+		const app = await createTestApp({ db, eventBus: new EventBus() });
 		const res = await app.request("/api/health", {
 			headers: { origin: "http://127.0.0.1.evil.com" },
 		});
@@ -102,7 +104,7 @@ describe("CORS middleware", () => {
 	it("denies http://127.0.0.2:3001 (not loopback — only exact 127.0.0.1 is allowed)", async () => {
 		// Arrange: 127.0.0.2 is not the canonical loopback address
 		const db = createTestDb();
-		const app = createTestApp({ db, eventBus: new EventBus() });
+		const app = await createTestApp({ db, eventBus: new EventBus() });
 
 		// Act
 		const res = await app.request("/api/health", {
@@ -117,7 +119,7 @@ describe("CORS middleware", () => {
 	it("OPTIONS preflight succeeds for http://127.0.0.1 Electron origins", async () => {
 		// Arrange
 		const db = createTestDb();
-		const app = createTestApp({ db, eventBus: new EventBus() });
+		const app = await createTestApp({ db, eventBus: new EventBus() });
 
 		// Act
 		const res = await app.request("/api/health", {

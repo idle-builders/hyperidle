@@ -8,6 +8,7 @@ import {
 	teams,
 	threads,
 	users,
+	type TestDbHandle
 } from "@hyperidle/db";
 import {
 	clearDeduplicationCache,
@@ -36,8 +37,8 @@ import type { SessionContext } from "../services/session-lifecycle.js";
 const NOW = new Date().toISOString();
 
 function seed(db: HyperIdleDb): void {
-	db.insert(products).values({ id: "p1", name: "P1", phase: "build", createdAt: NOW }).run();
-	db.insert(teams)
+	await db.insert(products).values({ id: "p1", name: "P1", phase: "build", createdAt: NOW });
+	await db.insert(teams)
 		.values({
 			id: "t1",
 			productId: "p1",
@@ -47,8 +48,8 @@ function seed(db: HyperIdleDb): void {
 			costActual: 0,
 			formedAt: NOW,
 		})
-		.run();
-	db.insert(users)
+
+	await db.insert(users)
 		.values({
 			id: "a1",
 			name: "A1",
@@ -60,8 +61,8 @@ function seed(db: HyperIdleDb): void {
 			costActual: 0,
 			createdAt: NOW,
 		})
-		.run();
-	db.insert(users)
+
+	await db.insert(users)
 		.values({
 			id: "a2",
 			name: "A2",
@@ -73,8 +74,8 @@ function seed(db: HyperIdleDb): void {
 			costActual: 0,
 			createdAt: NOW,
 		})
-		.run();
-	db.insert(bets)
+
+	await db.insert(bets)
 		.values({
 			id: "b1",
 			productId: "p1",
@@ -84,9 +85,9 @@ function seed(db: HyperIdleDb): void {
 			status: "committed",
 			createdAt: NOW,
 		})
-		.run();
+
 	const taskThreadId = "thread-task-1";
-	db.insert(threads)
+	await db.insert(threads)
 		.values({
 			id: taskThreadId,
 			hostKind: "task",
@@ -96,8 +97,8 @@ function seed(db: HyperIdleDb): void {
 			lastActiveAt: NOW,
 			createdAt: NOW,
 		})
-		.run();
-	db.insert(tasks)
+
+	await db.insert(tasks)
 		.values({
 			id: "task-1",
 			betId: "b1",
@@ -110,8 +111,8 @@ function seed(db: HyperIdleDb): void {
 			createdAt: NOW,
 			updatedAt: NOW,
 		})
-		.run();
-	db.insert(sessions)
+
+	await db.insert(sessions)
 		.values({
 			id: "sess-1",
 			taskId: "task-1",
@@ -120,16 +121,18 @@ function seed(db: HyperIdleDb): void {
 			startedAt: NOW,
 			state: "active",
 		})
-		.run();
+
 }
 
 describe("I3 review C1: session_ended releases cost-cap dedup", () => {
+	let handle: TestDbHandle;
 	let db: HyperIdleDb;
 	let eventBus: EventBus;
 	let unsubscribe: () => void;
 
-	beforeEach(() => {
-		db = createTestDb();
+	beforeEach(async () => {
+		handle = await createTestDb();
+		db = handle.db;
 		eventBus = new EventBus();
 		clearDeduplicationCache();
 		// Subscribe the cost-cap releaser so emitting session_ended

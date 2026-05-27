@@ -1,4 +1,11 @@
-import { bets, createTestDb, type HyperIdleDb, products, teams } from "@hyperidle/db";
+import {
+	bets,
+	createTestDb,
+	type HyperIdleDb,
+	products,
+	type TestDbHandle,
+	teams,
+} from "@hyperidle/db";
 import { EventBus } from "@hyperidle/shared";
 import type { Hono } from "hono";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -12,37 +19,36 @@ function authHeaders(extra?: Record<string, string>): Record<string, string> {
 
 describe("Bet Endpoints (E3)", () => {
 	let db: HyperIdleDb;
+	let handle: TestDbHandle;
 	let eventBus: EventBus;
 	let app: Hono;
 
-	beforeEach(() => {
+	beforeEach(async () => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		db = createTestDb();
+		handle = await createTestDb();
+		db = handle.db;
 		eventBus = new EventBus();
-		app = createTestApp({ db, eventBus });
+		app = await createTestApp({ db, eventBus });
 
 		// Seed a product and team
-		db.insert(products)
-			.values({
-				id: "prod-1",
-				name: "Test Product",
-				phase: "build",
-				createdAt: new Date().toISOString(),
-			})
-			.run();
-		db.insert(teams)
-			.values({
-				id: "team-1",
-				productId: "prod-1",
-				capacity: 2,
-				activeBets: 0,
-				formedAt: new Date().toISOString(),
-			})
-			.run();
+		await db.insert(products).values({
+			id: "prod-1",
+			name: "Test Product",
+			phase: "build",
+			createdAt: new Date().toISOString(),
+		});
+		await db.insert(teams).values({
+			id: "team-1",
+			productId: "prod-1",
+			capacity: 2,
+			activeBets: 0,
+			formedAt: new Date().toISOString(),
+		});
 	});
 
-	afterEach(() => {
+	afterEach(async () => {
 		vi.unstubAllEnvs();
+		await handle.close();
 	});
 
 	// Helper to create a bet via API
@@ -105,18 +111,16 @@ describe("Bet Endpoints (E3)", () => {
 
 			// Seed a task for this bet
 			const { tasks } = await import("@hyperidle/db");
-			db.insert(tasks)
-				.values({
-					id: "task-1",
-					betId,
-					productId: "prod-1",
-					teamId: "team-1",
-					title: "Implement X",
-					state: "proposed",
-					createdAt: new Date().toISOString(),
-					updatedAt: new Date().toISOString(),
-				})
-				.run();
+			await db.insert(tasks).values({
+				id: "task-1",
+				betId,
+				productId: "prod-1",
+				teamId: "team-1",
+				title: "Implement X",
+				state: "proposed",
+				createdAt: new Date().toISOString(),
+				updatedAt: new Date().toISOString(),
+			});
 
 			const res = await app.request(`/api/bets/${betId}`, { headers: authHeaders() });
 			expect(res.status).toBe(200);
@@ -201,7 +205,8 @@ describe("Bet Endpoints (E3)", () => {
 			expect(body.doneCondition).toBe("All tests pass");
 
 			// Check revision log
-			const betRow = db.select().from(bets).all()[0];
+			const rows = await db.select().from(bets);
+			const betRow = rows[0];
 			const revisionLog = JSON.parse(betRow.revisionLog ?? "[]") as unknown[];
 			expect(revisionLog.length).toBeGreaterThan(0);
 		});
@@ -363,18 +368,22 @@ describe("Bet Endpoints (E3)", () => {
 
 		it("returns zero capacity when no teams exist", async () => {
 			// Use a fresh db with only products (no teams)
-			const freshDb = createTestDb();
-			const freshApp = createTestApp({ db: freshDb, eventBus });
-			freshDb
-				.insert(products)
-				.values({ id: "prod-1", name: "Test", phase: "build", createdAt: new Date().toISOString() })
-				.run();
+			const freshHandle = await createTestDb();
+			const freshDb = freshHandle.db;
+			const freshApp = await createTestApp({ db: freshDb, eventBus });
+			await freshDb.insert(products).values({
+				id: "prod-1",
+				name: "Test",
+				phase: "build",
+				createdAt: new Date().toISOString(),
+			});
 
 			const res = await freshApp.request("/api/bets/canvas", { headers: authHeaders() });
 			expect(res.status).toBe(200);
 			const body = (await res.json()) as { capacity: { used: number; max: number } };
 			expect(body.capacity.used).toBe(0);
 			expect(body.capacity.max).toBe(0);
+			await freshHandle.close();
 		});
 	});
 
@@ -382,7 +391,7 @@ describe("Bet Endpoints (E3)", () => {
 	describe("AC12: Concurrent commit at capacity", () => {
 		it("first commit succeeds, second rejected 409 (no race)", async () => {
 			// eslint-disable-next-line drizzle/enforce-update-with-where -- test setup: single team in test DB
-			db.update(teams).set({ capacity: 1 }).run();
+			await db.update(teams).set({ capacity: 1 });
 
 			const bet1 = await createBet({ pitch: "Bet 1" });
 			const bet2 = await createBet({ pitch: "Bet 2" });

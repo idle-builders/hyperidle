@@ -8,6 +8,7 @@ import {
 	tasks,
 	teams,
 	users,
+	type TestDbHandle
 } from "@hyperidle/db";
 import { type DomainEvent, EventBus } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
@@ -22,26 +23,28 @@ function authHeaders(extra?: Record<string, string>): Record<string, string> {
 }
 
 describe("Routine Endpoints (E6)", () => {
+	let handle: TestDbHandle;
 	let db: HyperIdleDb;
 	let eventBus: EventBus;
 	let app: Hono;
 
-	beforeEach(() => {
+	beforeEach(async () => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		db = createTestDb();
+		handle = await createTestDb();
+		db = handle.db;
 		eventBus = new EventBus();
-		app = createTestApp({ db, eventBus });
+		app = await createTestApp({ db, eventBus });
 
 		// Seed required data
-		db.insert(products)
+		await db.insert(products)
 			.values({
 				id: "prod-1",
 				name: "Test Product",
 				phase: "build",
 				createdAt: new Date().toISOString(),
 			})
-			.run();
-		db.insert(teams)
+
+		await db.insert(teams)
 			.values({
 				id: "team-1",
 				productId: "prod-1",
@@ -49,8 +52,8 @@ describe("Routine Endpoints (E6)", () => {
 				activeBets: 0,
 				formedAt: new Date().toISOString(),
 			})
-			.run();
-		db.insert(users)
+
+		await db.insert(users)
 			.values({
 				id: "agent-1",
 				name: "Builder Bot",
@@ -59,10 +62,9 @@ describe("Routine Endpoints (E6)", () => {
 				teamId: "team-1",
 				createdAt: new Date().toISOString(),
 			})
-			.run();
 
 		// Seed a bet and task for FK references in session creation
-		db.insert(bets)
+		await db.insert(bets)
 			.values({
 				id: "bet-1",
 				productId: "prod-1",
@@ -72,8 +74,8 @@ describe("Routine Endpoints (E6)", () => {
 				status: "committed",
 				createdAt: new Date().toISOString(),
 			})
-			.run();
-		db.insert(tasks)
+
+		await db.insert(tasks)
 			.values({
 				id: "task-1",
 				betId: "bet-1",
@@ -84,25 +86,25 @@ describe("Routine Endpoints (E6)", () => {
 				createdAt: new Date().toISOString(),
 				updatedAt: new Date().toISOString(),
 			})
-			.run();
 
 		// Seed routines
-		db.insert(routines)
+		await db.insert(routines)
 			.values([
 				{
 					id: "routine-1",
 					ownerAgentId: "agent-1",
 					triggerType: "heartbeat",
 					triggerConfig: JSON.stringify({ intervalMs: 60000 }),
-					active: 1,
+					active: true,
 				},
-				{ id: "routine-2", ownerAgentId: "agent-1", triggerType: "calendar", active: 1 },
+				{ id: "routine-2", ownerAgentId: "agent-1", triggerType: "calendar", active: true },
 			])
-			.run();
+
 	});
 
-	afterEach(() => {
+	afterEach(async () => {
 		vi.unstubAllEnvs();
+		await handle?.close();
 	});
 
 	// AC4: GET /api/routines — list with trigger config, last/next run
@@ -196,7 +198,7 @@ describe("Routine Endpoints (E6)", () => {
 			expect(body.state).toBe("active");
 
 			// Verify session was created in DB
-			const allSessions = db.select().from(sessions).all();
+			const allSessions = await db.select().from(sessions);
 			expect(allSessions).toHaveLength(1);
 
 			// Verify event emitted
@@ -228,7 +230,7 @@ describe("Routine Endpoints (E6)", () => {
 
 		// G4 AC8: manual trigger must refuse to fire disabled routines
 		it("returns 403 ROUTINE_DISABLED when routine.active=0", async () => {
-			db.update(routines).set({ active: 0 }).where(eq(routines.id, "routine-1")).run();
+			await db.update(routines).set({ active: false }).where(eq(routines.id, "routine-1"));
 
 			const res = await app.request("/api/routines/routine-1/trigger", {
 				method: "POST",
@@ -240,28 +242,27 @@ describe("Routine Endpoints (E6)", () => {
 			expect(body.code).toBe("FORBIDDEN");
 
 			// Must not have created a session
-			const allSessions = db.select().from(sessions).all();
+			const allSessions = await db.select().from(sessions);
 			expect(allSessions).toHaveLength(0);
 
 			// Must not have updated lastRunAt
-			const updated = db.select().from(routines).where(eq(routines.id, "routine-1")).get();
+			const [updated] = await db.select().from(routines).where(eq(routines.id, "routine-1"));
 			expect(updated?.lastRunAt).toBeNull();
 		});
 
 		// G4 AC7 (via API): manual trigger for a builtin invokes the handler
 		it("invokes builtin handler for builtin:knowledge-decay (no session)", async () => {
 			// Seed builtin routine directly (bypass G4 seed helper in this test file).
-			db.insert(routines)
+			await db.insert(routines)
 				.values({
 					id: "builtin:knowledge-decay",
 					ownerAgentId: "agent-1",
 					triggerType: "calendar",
 					triggerConfig: JSON.stringify({ cron: "0 2 * * *" }),
-					active: 1,
+					active: true,
 				})
-				.run();
 
-			const sessionsBefore = db.select().from(sessions).all();
+			const sessionsBefore = await db.select().from(sessions);
 
 			const res = await app.request("/api/routines/builtin:knowledge-decay/trigger", {
 				method: "POST",
@@ -274,7 +275,7 @@ describe("Routine Endpoints (E6)", () => {
 			expect(body.fired).toBe(true);
 
 			// Builtin manual trigger must NOT create a session
-			const sessionsAfter = db.select().from(sessions).all();
+			const sessionsAfter = await db.select().from(sessions);
 			expect(sessionsAfter).toHaveLength(sessionsBefore.length);
 
 			const updated = db

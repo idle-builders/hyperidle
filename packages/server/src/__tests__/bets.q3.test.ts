@@ -10,7 +10,14 @@
  * AC covered: AC3, AC6, AC7, AC8, AC10
  */
 
-import { bets, createTestDb, type HyperIdleDb, products, teams } from "@hyperidle/db";
+import {
+	bets,
+	createTestDb,
+	type HyperIdleDb,
+	products,
+	type TestDbHandle,
+	teams,
+} from "@hyperidle/db";
 import { EventBus } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
 import type { Hono } from "hono";
@@ -26,37 +33,36 @@ function authHeaders(extra?: Record<string, string>): Record<string, string> {
 
 describe("Bet Endpoints (Q3)", () => {
 	let db: HyperIdleDb;
+	let handle: TestDbHandle;
 	let eventBus: EventBus;
 	let app: Hono;
 
-	beforeEach(() => {
+	beforeEach(async () => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		db = createTestDb();
+		handle = await createTestDb();
+		db = handle.db;
 		eventBus = new EventBus();
-		app = createTestApp({ db, eventBus });
+		app = await createTestApp({ db, eventBus });
 
 		// Seed product and team
-		db.insert(products)
-			.values({
-				id: "prod-1",
-				name: "Test Product",
-				phase: "build",
-				createdAt: new Date().toISOString(),
-			})
-			.run();
-		db.insert(teams)
-			.values({
-				id: "team-1",
-				productId: "prod-1",
-				capacity: 2,
-				activeBets: 0,
-				formedAt: new Date().toISOString(),
-			})
-			.run();
+		await db.insert(products).values({
+			id: "prod-1",
+			name: "Test Product",
+			phase: "build",
+			createdAt: new Date().toISOString(),
+		});
+		await db.insert(teams).values({
+			id: "team-1",
+			productId: "prod-1",
+			capacity: 2,
+			activeBets: 0,
+			formedAt: new Date().toISOString(),
+		});
 	});
 
-	afterEach(() => {
+	afterEach(async () => {
 		vi.unstubAllEnvs();
+		await handle.close();
 	});
 
 	// ── T2: teamId optional, revisionLog seeded, pitch .min(1) ──────────────────
@@ -151,7 +157,7 @@ describe("Bet Endpoints (Q3)", () => {
 			const body = (await res.json()) as { id: string };
 
 			// Check the DB row directly for revisionLog
-			const betRow = db.select().from(bets).where(eq(bets.id, body.id)).get();
+			const [betRow] = await db.select().from(bets).where(eq(bets.id, body.id)).limit(1);
 			expect(betRow).toBeTruthy();
 			const revisionLog = JSON.parse(betRow?.revisionLog ?? "[]") as Array<Record<string, unknown>>;
 			expect(revisionLog).toHaveLength(1);
@@ -340,7 +346,7 @@ describe("Bet Endpoints (Q3)", () => {
 				}),
 			});
 
-			const betRow = db.select().from(bets).where(eq(bets.id, betId)).get();
+			const [betRow] = await db.select().from(bets).where(eq(bets.id, betId)).limit(1);
 			const revisionLog = JSON.parse(betRow?.revisionLog ?? "[]") as Array<Record<string, unknown>>;
 			// At least 2 entries: creation + pitch update
 			expect(revisionLog.length).toBeGreaterThanOrEqual(2);
@@ -478,7 +484,7 @@ describe("Bet Endpoints (Q3)", () => {
 			});
 			expect(patchRes.status).toBe(200);
 
-			const betRow = db.select().from(bets).where(eq(bets.id, betId)).get();
+			const [betRow] = await db.select().from(bets).where(eq(bets.id, betId)).limit(1);
 			const revisionLog = JSON.parse(betRow?.revisionLog ?? "[]") as Array<Record<string, unknown>>;
 			// At minimum 2 entries: creation + agent patch
 			expect(revisionLog.length).toBeGreaterThanOrEqual(2);

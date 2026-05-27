@@ -113,8 +113,7 @@ function rowToThread(row: DbThread): Thread {
 		hostId: row.hostId,
 		initiatorId: row.initiatorId,
 		participants,
-		// @lore PGlite: pinned is native boolean in Postgres. Accept both for compat.
-		pinned: row.pinned === true || (row.pinned as unknown) === 1,
+		pinned: row.pinned === true,
 		resolvedAt: row.resolvedAt,
 		lastActiveAt: row.lastActiveAt,
 		createdAt: row.createdAt,

@@ -38,6 +38,7 @@ import {
 	teams,
 	threads,
 	users,
+	type TestDbHandle
 } from "@hyperidle/db";
 import {
 	clearDeduplicationCache,
@@ -175,15 +176,13 @@ interface SeedOverrides {
 const NOW = "2026-04-16T00:00:00.000Z";
 
 function seedDomain(db: HyperIdleDb, overrides: SeedOverrides = {}): void {
-	db.insert(products)
+	await db.insert(products)
 		.values({ id: "p1", name: "Test Product", phase: "build", createdAt: NOW })
-		.run();
 
-	db.insert(teams)
+	await db.insert(teams)
 		.values({ id: "t1", productId: "p1", capacity: 5, activeBets: 0, formedAt: NOW })
-		.run();
 
-	db.insert(bets)
+	await db.insert(bets)
 		.values({
 			id: "b1",
 			productId: "p1",
@@ -193,9 +192,8 @@ function seedDomain(db: HyperIdleDb, overrides: SeedOverrides = {}): void {
 			status: "committed",
 			createdAt: NOW,
 		})
-		.run();
 
-	db.insert(users)
+	await db.insert(users)
 		.values({
 			id: "agent-1",
 			name: "Builder Agent",
@@ -207,10 +205,9 @@ function seedDomain(db: HyperIdleDb, overrides: SeedOverrides = {}): void {
 			costActual: 0,
 			createdAt: NOW,
 		})
-		.run();
 
 	const mainTaskState = overrides.taskState ?? "accepted";
-	db.insert(tasks)
+	await db.insert(tasks)
 		.values({
 			id: "task-1",
 			betId: "b1",
@@ -221,22 +218,21 @@ function seedDomain(db: HyperIdleDb, overrides: SeedOverrides = {}): void {
 			createdAt: NOW,
 			updatedAt: NOW,
 		})
-		.run();
 
 	// @lore O2: riskTier moved to taskStrategyFabric extension table
 	if (overrides.taskRiskTier != null) {
-		db.insert(taskStrategyFabric)
+		await db.insert(taskStrategyFabric)
 			.values({
 				id: `tsf-task-1`,
 				taskId: "task-1",
 				riskTier: overrides.taskRiskTier,
 			})
-			.run();
+
 	}
 
 	for (let i = 2; i <= (overrides.extraTasks ?? 1) + 1; i++) {
 		if (i === 2 && (overrides.extraTasks ?? 0) === 0) continue;
-		db.insert(tasks)
+		await db.insert(tasks)
 			.values({
 				id: `task-${i}`,
 				betId: "b1",
@@ -247,11 +243,11 @@ function seedDomain(db: HyperIdleDb, overrides: SeedOverrides = {}): void {
 				createdAt: NOW,
 				updatedAt: NOW,
 			})
-			.run();
+
 	}
 
 	// Seed a knowledge item so materialize has something to write.
-	db.insert(knowledgeItems)
+	await db.insert(knowledgeItems)
 		.values({
 			id: "ki-seed-1",
 			title: "Seed Principle",
@@ -263,7 +259,7 @@ function seedDomain(db: HyperIdleDb, overrides: SeedOverrides = {}): void {
 			createdAt: NOW,
 			updatedAt: NOW,
 		})
-		.run();
+
 }
 
 function baseParams(
@@ -282,20 +278,22 @@ function baseParams(
 // --- Suite -------------------------------------------------------------------
 
 describe("Session Provisioning (D5)", () => {
+	let handle: TestDbHandle;
 	let db: HyperIdleDb;
 	let eventBus: EventBus;
 	let tmpDir: string;
 	let workspace: LocalWorkspaceAdapter;
 
-	beforeEach(() => {
-		db = createTestDb();
+	beforeEach(async () => {
+		handle = await createTestDb();
+		db = handle.db;
 		eventBus = new EventBus();
 		tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "d5-session-provisioning-"));
 		workspace = new LocalWorkspaceAdapter();
 		clearDeduplicationCache();
 	});
 
-	afterEach(() => {
+	afterEach(async () => {
 		if (fs.existsSync(tmpDir)) {
 			fs.rmSync(tmpDir, { recursive: true, force: true });
 		}
@@ -351,7 +349,7 @@ describe("Session Provisioning (D5)", () => {
 			const result = await provisionSession(deps, baseParams(tmpDir));
 
 			// (a) session.state = 'done', outcome = 'completed'
-			const session = db.select().from(sessions).where(eq(sessions.id, result.sessionId)).get();
+			const [session] = await db.select().from(sessions).where(eq(sessions.id, result.sessionId));
 			expect(session?.state).toBe("done");
 			expect(session?.outcome).toBe("completed");
 			expect(session?.endedAt).toBeTruthy();
@@ -429,7 +427,7 @@ describe("Session Provisioning (D5)", () => {
 
 			expect(result.outcome).toBe("crashed");
 
-			const session = db.select().from(sessions).where(eq(sessions.id, result.sessionId)).get();
+			const [session] = await db.select().from(sessions).where(eq(sessions.id, result.sessionId));
 			expect(session?.state).toBe("crashed");
 			expect(session?.outcome).toBe("crashed");
 			expect(session?.endedAt).toBeTruthy();
@@ -467,14 +465,14 @@ describe("Session Provisioning (D5)", () => {
 			);
 
 			// No session row created at all.
-			const rows = db.select().from(sessions).all();
+			const rows = await db.select().from(sessions);
 			expect(rows.length).toBe(0);
 
 			// Harness never started.
 			expect(harness.startedConfigs.length).toBe(0);
 
 			// Task not transitioned.
-			const task = db.select().from(tasks).where(eq(tasks.id, "task-1")).get();
+			const [task] = await db.select().from(tasks).where(eq(tasks.id, "task-1"));
 			expect(task?.state).toBe("accepted");
 
 			// No leftover workspace directories under tmpDir.
@@ -565,7 +563,7 @@ describe("Session Provisioning (D5)", () => {
 			expect(ids.size).toBe(3);
 
 			// Distinct workspaces (via sessions.workspaceSnapshot)
-			const sessionRows = db.select().from(sessions).all();
+			const sessionRows = await db.select().from(sessions);
 			expect(sessionRows.length).toBe(3);
 			const paths = new Set(sessionRows.map((s) => s.workspaceSnapshot));
 			expect(paths.size).toBe(3);
@@ -590,7 +588,7 @@ describe("Session Provisioning (D5)", () => {
 
 			// And no knowledge_items row exists attributed to any OTHER source
 			// (no system rows from writeback, no cross-session attribution).
-			const allKi = db.select().from(knowledgeItems).all();
+			const allKi = await db.select().from(knowledgeItems);
 			const fromSessions = allKi.filter((k) => k.updatedBy.startsWith("session:"));
 			expect(fromSessions).toHaveLength(3);
 			const attributions = new Set(fromSessions.map((k) => k.updatedBy));
@@ -604,7 +602,7 @@ describe("Session Provisioning (D5)", () => {
 			seedDomain(db);
 
 			// Sanity-check precondition.
-			const pre = db.select().from(tasks).where(eq(tasks.id, "task-1")).get();
+			const [pre] = await db.select().from(tasks).where(eq(tasks.id, "task-1"));
 			expect(pre?.state).toBe("accepted");
 
 			let taskStateAtStart: string | undefined;
@@ -616,7 +614,7 @@ describe("Session Provisioning (D5)", () => {
 					{ type: "completion", text: "ok" },
 				],
 				onStart: () => {
-					const t = db.select().from(tasks).where(eq(tasks.id, "task-1")).get();
+					const [t] = await db.select().from(tasks).where(eq(tasks.id, "task-1"));
 					taskStateAtStart = t?.state;
 				},
 			});
@@ -658,7 +656,7 @@ describe("Session Provisioning (D5)", () => {
 			const deps: ProvisionSessionDeps = { db, eventBus, harness, workspace };
 			const result = await provisionSession(deps, baseParams(tmpDir));
 
-			const session = db.select().from(sessions).where(eq(sessions.id, result.sessionId)).get();
+			const [session] = await db.select().from(sessions).where(eq(sessions.id, result.sessionId));
 			expect(session?.state).toBe("done");
 			expect(session?.outcome).toBe("completed");
 		});
@@ -792,7 +790,7 @@ describe("Session Provisioning (D5)", () => {
 			seedDomain(db, { taskRiskTier: "medium" });
 
 			// Pre-attach a review thread to the task so the creator has somewhere to file.
-			db.insert(threads)
+			await db.insert(threads)
 				.values({
 					id: "thread-1",
 					hostKind: "task",
@@ -802,8 +800,8 @@ describe("Session Provisioning (D5)", () => {
 					lastActiveAt: NOW,
 					createdAt: NOW,
 				})
-				.run();
-			db.update(tasks).set({ threadId: "thread-1" }).where(eq(tasks.id, "task-1")).run();
+
+			await db.update(tasks).set({ threadId: "thread-1" }).where(eq(tasks.id, "task-1"));
 
 			const unsubscribe = registerSessionReviewCreator(db, eventBus);
 			try {
@@ -818,7 +816,7 @@ describe("Session Provisioning (D5)", () => {
 				const deps: ProvisionSessionDeps = { db, eventBus, harness, workspace };
 				await provisionSession(deps, baseParams(tmpDir));
 
-				const reviewItems = db.select().from(items).where(eq(items.threadId, "thread-1")).all();
+				const reviewItems = await db.select().from(items).where(eq(items.threadId, "thread-1"));
 				expect(reviewItems.length).toBeGreaterThanOrEqual(1);
 				expect(reviewItems[0].kind).toBe("review");
 			} finally {
@@ -857,7 +855,7 @@ describe("Session Provisioning (D5)", () => {
 			await expect(provisionSession(deps, baseParams(tmpDir))).rejects.toThrow(/ENOSPC/);
 
 			// Task must be reverted to `accepted` (not stuck in in_progress).
-			const task = db.select().from(tasks).where(eq(tasks.id, "task-1")).get();
+			const [task] = await db.select().from(tasks).where(eq(tasks.id, "task-1"));
 			expect(task?.state).toBe("accepted");
 
 			// I1 H2: the revert must be recorded in the auditTrail column
@@ -876,14 +874,14 @@ describe("Session Provisioning (D5)", () => {
 			expect(transitions.some((t) => t.from === "in_progress" && t.to === "accepted")).toBe(true);
 
 			// No session row created.
-			const sessionRows = db.select().from(sessions).all();
+			const sessionRows = await db.select().from(sessions);
 			expect(sessionRows.length).toBe(0);
 
 			// Harness never started.
 			expect(harness.startedConfigs.length).toBe(0);
 
 			// Agent cost unchanged.
-			const agent = db.select().from(users).where(eq(users.id, "agent-1")).get();
+			const [agent] = await db.select().from(users).where(eq(users.id, "agent-1"));
 			expect(agent?.costActual).toBe(0);
 		});
 	});
@@ -896,7 +894,7 @@ describe("Session Provisioning (D5)", () => {
 			// Seed agent-authored prose on the task before provisioning; the
 			// revert path must not corrupt this column.
 			const agentProse = "Thinking out loud: will pick this back up tomorrow.";
-			db.update(tasks).set({ notes: agentProse }).where(eq(tasks.id, "task-1")).run();
+			await db.update(tasks).set({ notes: agentProse }).where(eq(tasks.id, "task-1"));
 
 			const failingWorkspace: WorkspaceAdapter = {
 				spawn: async () => {
@@ -920,7 +918,7 @@ describe("Session Provisioning (D5)", () => {
 
 			await expect(provisionSession(deps, baseParams(tmpDir))).rejects.toThrow(/ENOSPC: H2 path/);
 
-			const task = db.select().from(tasks).where(eq(tasks.id, "task-1")).get();
+			const [task] = await db.select().from(tasks).where(eq(tasks.id, "task-1"));
 			// notes prose preserved verbatim.
 			expect(task?.notes).toBe(agentProse);
 			// auditTrail carries the revert entry.
@@ -952,7 +950,7 @@ describe("Session Provisioning (D5)", () => {
 			const deps: ProvisionSessionDeps = { db, eventBus, harness, workspace };
 			const result = await provisionSession(deps, baseParams(tmpDir));
 
-			const session = db.select().from(sessions).where(eq(sessions.id, result.sessionId)).get();
+			const [session] = await db.select().from(sessions).where(eq(sessions.id, result.sessionId));
 			expect(session?.state).toBe("done");
 		});
 	});
@@ -992,10 +990,10 @@ describe("Session Provisioning (D5)", () => {
 			seedDomain(db);
 
 			// Replace the default builder agent on task-1 with a practice_facilitator.
-			db.delete(tasks).where(eq(tasks.id, "task-1")).run();
-			db.delete(users).where(eq(users.id, "agent-1")).run();
+			await db.delete(tasks).where(eq(tasks.id, "task-1"));
+			await db.delete(users).where(eq(users.id, "agent-1"));
 
-			db.insert(users)
+			await db.insert(users)
 				.values({
 					id: "agent-fac",
 					name: "Ops Practice Facilitator",
@@ -1010,8 +1008,8 @@ describe("Session Provisioning (D5)", () => {
 						'{"scope":"ops","tools":["route_item","score_attention","promote_knowledge","create_conflict_review"]}',
 					createdAt: NOW,
 				})
-				.run();
-			db.insert(tasks)
+
+			await db.insert(tasks)
 				.values({
 					id: "task-fac",
 					betId: "b1",
@@ -1022,7 +1020,6 @@ describe("Session Provisioning (D5)", () => {
 					createdAt: NOW,
 					updatedAt: NOW,
 				})
-				.run();
 
 			const harness = new ScriptedHarnessAdapter({
 				events: [
@@ -1088,10 +1085,9 @@ describe("Session Provisioning (D5)", () => {
 			// Mutate the seeded agent to point at a path that resolves outside
 			// docs/souls. The validator must throw before any DB writes or
 			// workspace spawns.
-			db.update(users)
+			await db.update(users)
 				.set({ soulPromptPath: "../../../etc/passwd" })
 				.where(eq(users.id, "agent-1"))
-				.run();
 
 			const harness = new ScriptedHarnessAdapter({ events: [] });
 			const deps: ProvisionSessionDeps = { db, eventBus, harness, workspace };
@@ -1101,10 +1097,10 @@ describe("Session Provisioning (D5)", () => {
 			);
 
 			// No session row created, harness never started, task not transitioned.
-			const rows = db.select().from(sessions).all();
+			const rows = await db.select().from(sessions);
 			expect(rows.length).toBe(0);
 			expect(harness.startedConfigs.length).toBe(0);
-			const t = db.select().from(tasks).where(eq(tasks.id, "task-1")).get();
+			const [t] = await db.select().from(tasks).where(eq(tasks.id, "task-1"));
 			expect(t?.state).toBe("accepted");
 		});
 	});

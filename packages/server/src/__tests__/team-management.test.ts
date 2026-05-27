@@ -8,6 +8,7 @@ import {
 	tasks,
 	teams,
 	users,
+	type TestDbHandle
 } from "@hyperidle/db";
 import { ActiveRoutinesError } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
@@ -24,13 +25,13 @@ import {
 const NOW = "2026-04-15T00:00:00.000Z";
 
 function seedProduct(db: HyperIdleDb): void {
-	db.insert(products)
+	await db.insert(products)
 		.values({ id: "prod-1", name: "TestProduct", phase: "build", createdAt: NOW })
-		.run();
+
 }
 
 function seedAgent(db: HyperIdleDb, id: string): void {
-	db.insert(users)
+	await db.insert(users)
 		.values({
 			id,
 			name: `Agent-${id}`,
@@ -39,14 +40,16 @@ function seedAgent(db: HyperIdleDb, id: string): void {
 			maxConcurrentSessions: 1,
 			createdAt: NOW,
 		})
-		.run();
+
 }
 
 describe("C4: Team Management", () => {
+	let handle: TestDbHandle;
 	let db: HyperIdleDb;
 
-	beforeEach(() => {
-		db = createTestDb();
+	beforeEach(async () => {
+		handle = await createTestDb();
+		db = handle.db;
 		seedProduct(db);
 	});
 
@@ -68,9 +71,9 @@ describe("C4: Team Management", () => {
 			expect(team.activeBets).toBe(0);
 			expect(team.dissolvedAt).toBeNull();
 
-			const a1 = db.select().from(users).where(eq(users.id, "a1")).get();
-			const a2 = db.select().from(users).where(eq(users.id, "a2")).get();
-			const a3 = db.select().from(users).where(eq(users.id, "a3")).get();
+			const [a1] = await db.select().from(users).where(eq(users.id, "a1"));
+			const [a2] = await db.select().from(users).where(eq(users.id, "a2"));
+			const [a3] = await db.select().from(users).where(eq(users.id, "a3"));
 
 			expect(a1?.teamId).toBe(team.id);
 			expect(a2?.teamId).toBe(team.id);
@@ -102,7 +105,7 @@ describe("C4: Team Management", () => {
 
 			addMember(db, team.id, "a1");
 
-			const agent = db.select().from(users).where(eq(users.id, "a1")).get();
+			const [agent] = await db.select().from(users).where(eq(users.id, "a1"));
 			expect(agent?.teamId).toBe(team.id);
 		});
 	});
@@ -116,14 +119,13 @@ describe("C4: Team Management", () => {
 				agentIds: ["a1"],
 			});
 
-			db.insert(routines)
+			await db.insert(routines)
 				.values({
 					id: "routine-1",
 					ownerAgentId: "a1",
 					triggerType: "heartbeat",
-					active: 1,
+					active: true,
 				})
-				.run();
 
 			expect(() => removeMember(db, team.id, "a1")).toThrow(ActiveRoutinesError);
 		});
@@ -138,7 +140,7 @@ describe("C4: Team Management", () => {
 
 			removeMember(db, team.id, "a1");
 
-			const agent = db.select().from(users).where(eq(users.id, "a1")).get();
+			const [agent] = await db.select().from(users).where(eq(users.id, "a1"));
 			expect(agent?.teamId).toBeNull();
 		});
 
@@ -150,18 +152,17 @@ describe("C4: Team Management", () => {
 				agentIds: ["a1"],
 			});
 
-			db.insert(routines)
+			await db.insert(routines)
 				.values({
 					id: "routine-1",
 					ownerAgentId: "a1",
 					triggerType: "heartbeat",
-					active: 0,
+					active: false,
 				})
-				.run();
 
 			removeMember(db, team.id, "a1");
 
-			const agent = db.select().from(users).where(eq(users.id, "a1")).get();
+			const [agent] = await db.select().from(users).where(eq(users.id, "a1"));
 			expect(agent?.teamId).toBeNull();
 		});
 	});
@@ -177,7 +178,7 @@ describe("C4: Team Management", () => {
 
 			expect(getAvailableCapacity(db, team.id)).toBe(5);
 
-			db.update(teams).set({ activeBets: 3 }).where(eq(teams.id, team.id)).run();
+			await db.update(teams).set({ activeBets: 3 }).where(eq(teams.id, team.id));
 
 			expect(getAvailableCapacity(db, team.id)).toBe(2);
 		});
@@ -189,7 +190,7 @@ describe("C4: Team Management", () => {
 				agentIds: [],
 			});
 
-			db.update(teams).set({ activeBets: 2 }).where(eq(teams.id, team.id)).run();
+			await db.update(teams).set({ activeBets: 2 }).where(eq(teams.id, team.id));
 
 			expect(getAvailableCapacity(db, team.id)).toBe(0);
 		});
@@ -207,11 +208,11 @@ describe("C4: Team Management", () => {
 
 			dissolveTeam(db, team.id);
 
-			const dissolved = db.select().from(teams).where(eq(teams.id, team.id)).get();
+			const [dissolved] = await db.select().from(teams).where(eq(teams.id, team.id));
 			expect(dissolved?.dissolvedAt).not.toBeNull();
 
-			const a1 = db.select().from(users).where(eq(users.id, "a1")).get();
-			const a2 = db.select().from(users).where(eq(users.id, "a2")).get();
+			const [a1] = await db.select().from(users).where(eq(users.id, "a1"));
+			const [a2] = await db.select().from(users).where(eq(users.id, "a2"));
 			expect(a1?.teamId).toBeNull();
 			expect(a2?.teamId).toBeNull();
 		});
@@ -228,7 +229,7 @@ describe("C4: Team Management", () => {
 			});
 
 			// Need a bet and task for sessions (FK constraints)
-			db.insert(bets)
+			await db.insert(bets)
 				.values({
 					id: "bet-1",
 					productId: "prod-1",
@@ -238,8 +239,8 @@ describe("C4: Team Management", () => {
 					status: "shaped",
 					createdAt: NOW,
 				})
-				.run();
-			db.insert(tasks)
+
+			await db.insert(tasks)
 				.values({
 					id: "task-1",
 					betId: "bet-1",
@@ -250,11 +251,10 @@ describe("C4: Team Management", () => {
 					createdAt: NOW,
 					updatedAt: NOW,
 				})
-				.run();
 
 			// O2: sessions.cost column stripped — cost tracking is strategy/fabric concern.
 			// getTeamCost now returns 0. Sessions still seeded for FK integrity.
-			db.insert(sessions)
+			await db.insert(sessions)
 				.values({
 					id: "sess-1",
 					taskId: "task-1",
@@ -263,8 +263,8 @@ describe("C4: Team Management", () => {
 					startedAt: "2026-04-10T00:00:00.000Z",
 					state: "completed",
 				})
-				.run();
-			db.insert(sessions)
+
+			await db.insert(sessions)
 				.values({
 					id: "sess-2",
 					taskId: "task-1",
@@ -273,7 +273,6 @@ describe("C4: Team Management", () => {
 					startedAt: "2026-04-12T00:00:00.000Z",
 					state: "completed",
 				})
-				.run();
 
 			const cost = getTeamCost(db, team.id, "2026-04-01T00:00:00.000Z");
 			expect(cost).toBe(0);
@@ -309,7 +308,7 @@ describe("C4: Team Management", () => {
 				agentIds: [],
 			});
 
-			db.update(teams).set({ activeBets: 3 }).where(eq(teams.id, team.id)).run();
+			await db.update(teams).set({ activeBets: 3 }).where(eq(teams.id, team.id));
 
 			expect(getAvailableCapacity(db, team.id)).toBe(0);
 		});

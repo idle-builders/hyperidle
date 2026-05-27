@@ -23,6 +23,7 @@ import {
 	type HyperIdleDb,
 	knowledgeItems,
 	knowledgeStrategyFabric,
+	type TestDbHandle
 } from "@hyperidle/db";
 import {
 	createGitRunner,
@@ -80,13 +81,13 @@ function setCfg(
 	if (cfg.remoteUrl) rows.push({ key: "git_export.remote_url", value: cfg.remoteUrl });
 
 	for (const r of rows) {
-		db.insert(factorySettings)
+		await db.insert(factorySettings)
 			.values({ key: r.key, value: r.value, updatedAt: NOW_ISO })
 			.onConflictDoUpdate({
 				target: factorySettings.key,
 				set: { value: r.value, updatedAt: NOW_ISO },
 			})
-			.run();
+
 	}
 }
 
@@ -94,7 +95,7 @@ function setCfg(
 // identity + content. Both tables must be seeded for computeExportPlan to find
 // the item (INNER JOIN on fabric).
 function seedL4Principles(db: HyperIdleDb, body: string, id = "ki-principles"): void {
-	db.insert(knowledgeItems)
+	await db.insert(knowledgeItems)
 		.values({
 			id,
 			topic: null,
@@ -107,8 +108,8 @@ function seedL4Principles(db: HyperIdleDb, body: string, id = "ki-principles"): 
 			createdAt: NOW_ISO,
 			updatedAt: NOW_ISO,
 		})
-		.run();
-	db.insert(knowledgeStrategyFabric)
+
+	await db.insert(knowledgeStrategyFabric)
 		.values({
 			id: `ksf-${id}`,
 			knowledgeItemId: id,
@@ -117,7 +118,7 @@ function seedL4Principles(db: HyperIdleDb, body: string, id = "ki-principles"): 
 			scopeId: null,
 		})
 		.onConflictDoNothing()
-		.run();
+
 }
 
 function seedL2Brief(
@@ -126,7 +127,7 @@ function seedL2Brief(
 	body: string,
 	id = `ki-${productId}-brief`,
 ): void {
-	db.insert(knowledgeItems)
+	await db.insert(knowledgeItems)
 		.values({
 			id,
 			topic: null,
@@ -139,8 +140,8 @@ function seedL2Brief(
 			createdAt: NOW_ISO,
 			updatedAt: NOW_ISO,
 		})
-		.run();
-	db.insert(knowledgeStrategyFabric)
+
+	await db.insert(knowledgeStrategyFabric)
 		.values({
 			id: `ksf-${id}`,
 			knowledgeItemId: id,
@@ -149,7 +150,7 @@ function seedL2Brief(
 			scopeId: productId,
 		})
 		.onConflictDoNothing()
-		.run();
+
 }
 
 function gitInRepo(repoPath: string, cmd: string): string {
@@ -168,6 +169,7 @@ function commitCount(repoPath: string): number {
 
 describe("Git Export — integration (real git)", () => {
 	let envs: TmpEnv[] = [];
+	let handle: TestDbHandle;
 	let db: HyperIdleDb;
 
 	beforeAll(() => {
@@ -182,11 +184,12 @@ describe("Git Export — integration (real git)", () => {
 	beforeEach((ctx) => {
 		if (!gitAvailable) ctx.skip();
 		resetExportMutexes();
-		db = createTestDb();
+		handle = await createTestDb();
+		db = handle.db;
 		envs = [];
 	});
 
-	afterEach(() => {
+	afterEach(async () => {
 		for (const e of envs) destroyTmpEnv(e);
 		envs = [];
 	});
@@ -307,7 +310,7 @@ describe("Git Export — integration (real git)", () => {
 		setCfg(db, { repoPath: env.repoPath, remoteUrl: env.remoteUrl });
 
 		const big = `${"# 🎯 Reflection\n\n".repeat(5)}${"café résumé ñ 日本語 ☃\n".repeat(2000)}`;
-		db.insert(knowledgeItems)
+		await db.insert(knowledgeItems)
 			.values({
 				id: "ki-refl",
 				topic: "2026-04",
@@ -320,8 +323,8 @@ describe("Git Export — integration (real git)", () => {
 				createdAt: NOW_ISO,
 				updatedAt: NOW_ISO,
 			})
-			.run();
-		db.insert(knowledgeStrategyFabric)
+
+		await db.insert(knowledgeStrategyFabric)
 			.values({
 				id: "ksf-ki-refl",
 				knowledgeItemId: "ki-refl",
@@ -330,7 +333,6 @@ describe("Git Export — integration (real git)", () => {
 				scopeId: null,
 			})
 			.onConflictDoNothing()
-			.run();
 
 		const runner = createGitRunner(env.repoPath);
 		await runGitExport(db, { runner, fs: createNodeFsAdapter() });
@@ -369,7 +371,7 @@ describe("Git Export — integration (real git)", () => {
 
 		// Archive the item — next export should drop the file from the tree.
 		// eslint-disable-next-line drizzle/enforce-update-with-where -- test DB has a single row; updating all is the intent
-		db.update(knowledgeItems).set({ status: "archived" }).run();
+		await db.update(knowledgeItems).set({ status: "archived" });
 
 		const result = await runGitExport(db, { runner, fs: realFs });
 		expect(["committed", "pushed"]).toContain(result.status);
@@ -397,7 +399,7 @@ describe("Git Export — integration (real git)", () => {
 		// A second edit must still result in a clean commit on a branch —
 		// we at minimum want runGitExport to NOT throw and to produce a
 		// meaningful result. Add a new item so there is something to commit.
-		db.insert(knowledgeItems)
+		await db.insert(knowledgeItems)
 			.values({
 				id: "ki-detach-2",
 				topic: null,
@@ -410,8 +412,8 @@ describe("Git Export — integration (real git)", () => {
 				createdAt: NOW_ISO,
 				updatedAt: NOW_ISO,
 			})
-			.run();
-		db.insert(knowledgeStrategyFabric)
+
+		await db.insert(knowledgeStrategyFabric)
 			.values({
 				id: "ksf-ki-detach-2",
 				knowledgeItemId: "ki-detach-2",
@@ -420,7 +422,6 @@ describe("Git Export — integration (real git)", () => {
 				scopeId: "alpha",
 			})
 			.onConflictDoNothing()
-			.run();
 
 		const result = await runGitExport(db, { runner, fs: realFs });
 		// Result may be "committed"/"pushed" or "error" depending on the git
@@ -452,7 +453,7 @@ describe("Git Export — integration (real git)", () => {
 
 		// Modify the seeded item so the next export has a DB-driven diff too.
 		// eslint-disable-next-line drizzle/enforce-update-with-where -- test DB has a single row; updating all is the intent
-		db.update(knowledgeItems).set({ body: "# seeded v2\n", version: 2 }).run();
+		await db.update(knowledgeItems).set({ body: "# seeded v2\n", version: 2 });
 
 		const result = await runGitExport(db, { runner, fs: realFs });
 		expect(["committed", "pushed"]).toContain(result.status);
@@ -484,7 +485,7 @@ describe("Git Export — integration (real git)", () => {
 		expect(commitCount(env.repoPath)).toBe(1);
 
 		// Settings: commit fields populated, push NOT.
-		const rows = db.select().from(factorySettings).all();
+		const rows = await db.select().from(factorySettings);
 		const lastCommitSha = rows.find((r) => r.key === "git_export.last_commit_sha");
 		const lastCommitAt = rows.find((r) => r.key === "git_export.last_commit_at");
 		const lastPushAt = rows.find((r) => r.key === "git_export.last_push_at");

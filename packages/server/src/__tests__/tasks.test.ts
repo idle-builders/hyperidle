@@ -1,4 +1,6 @@
-import { bets, createTestDb, type HyperIdleDb, products, tasks, teams, users } from "@hyperidle/db";
+import { bets, createTestDb, type HyperIdleDb, products, tasks, teams, users ,
+	type TestDbHandle
+} from "@hyperidle/db";
 import { EventBus } from "@hyperidle/shared";
 import type { Hono } from "hono";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -11,25 +13,27 @@ function authHeaders(extra?: Record<string, string>): Record<string, string> {
 }
 
 describe("Task Endpoints (E3)", () => {
+	let handle: TestDbHandle;
 	let db: HyperIdleDb;
 	let eventBus: EventBus;
 	let app: Hono;
 
-	beforeEach(() => {
+	beforeEach(async () => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		db = createTestDb();
+		handle = await createTestDb();
+		db = handle.db;
 		eventBus = new EventBus();
-		app = createTestApp({ db, eventBus });
+		app = await createTestApp({ db, eventBus });
 
 		// Seed product, team, and a bet
 		const now = new Date().toISOString();
-		db.insert(products)
+		await db.insert(products)
 			.values({ id: "prod-1", name: "Test Product", phase: "build", createdAt: now })
-			.run();
-		db.insert(teams)
+
+		await db.insert(teams)
 			.values({ id: "team-1", productId: "prod-1", capacity: 5, activeBets: 0, formedAt: now })
-			.run();
-		db.insert(bets)
+
+		await db.insert(bets)
 			.values({
 				id: "bet-1",
 				productId: "prod-1",
@@ -39,23 +43,24 @@ describe("Task Endpoints (E3)", () => {
 				status: "in_progress",
 				createdAt: now,
 			})
-			.run();
+
 		// Seed agents for FK references
-		db.insert(users)
+		await db.insert(users)
 			.values({ id: "agent-1", name: "Agent 1", role: "builder", status: "active", createdAt: now })
-			.run();
-		db.insert(users)
+
+		await db.insert(users)
 			.values({ id: "agent-2", name: "Agent 2", role: "builder", status: "active", createdAt: now })
-			.run();
+
 	});
 
-	afterEach(() => {
+	afterEach(async () => {
 		vi.unstubAllEnvs();
+		await handle?.close();
 	});
 
 	function seedTask(id: string, overrides?: Record<string, unknown>): void {
 		const now = new Date().toISOString();
-		db.insert(tasks)
+		await db.insert(tasks)
 			.values({
 				id,
 				betId: "bet-1",
@@ -67,7 +72,7 @@ describe("Task Endpoints (E3)", () => {
 				updatedAt: now,
 				...overrides,
 			} as Record<string, unknown>)
-			.run();
+
 	}
 
 	// AC8: GET /api/tasks — list, filterable by bet_id, state, owner
@@ -85,7 +90,7 @@ describe("Task Endpoints (E3)", () => {
 		it("filters by bet_id", async () => {
 			seedTask("t1");
 			// Create another bet and task
-			db.insert(bets)
+			await db.insert(bets)
 				.values({
 					id: "bet-2",
 					productId: "prod-1",
@@ -95,7 +100,7 @@ describe("Task Endpoints (E3)", () => {
 					status: "shaped",
 					createdAt: new Date().toISOString(),
 				})
-				.run();
+
 			seedTask("t2", { betId: "bet-2" });
 
 			const res = await app.request("/api/tasks?bet_id=bet-1", { headers: authHeaders() });

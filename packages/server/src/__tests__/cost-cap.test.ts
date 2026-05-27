@@ -9,6 +9,7 @@ import {
 	teams,
 	threads,
 	users,
+	type TestDbHandle
 } from "@hyperidle/db";
 import {
 	checkCostCap,
@@ -23,11 +24,10 @@ import { beforeEach, describe, expect, it } from "vitest";
 const NOW = new Date().toISOString();
 
 function seedBase(db: HyperIdleDb): void {
-	db.insert(products)
+	await db.insert(products)
 		.values({ id: "p1", name: "Test Product", phase: "build", createdAt: NOW })
-		.run();
 
-	db.insert(teams)
+	await db.insert(teams)
 		.values({
 			id: "t1",
 			productId: "p1",
@@ -37,9 +37,8 @@ function seedBase(db: HyperIdleDb): void {
 			costActual: 0,
 			formedAt: NOW,
 		})
-		.run();
 
-	db.insert(bets)
+	await db.insert(bets)
 		.values({
 			id: "b1",
 			productId: "p1",
@@ -49,9 +48,8 @@ function seedBase(db: HyperIdleDb): void {
 			status: "committed",
 			createdAt: NOW,
 		})
-		.run();
 
-	db.insert(tasks)
+	await db.insert(tasks)
 		.values({
 			id: "task-1",
 			betId: "b1",
@@ -62,9 +60,8 @@ function seedBase(db: HyperIdleDb): void {
 			createdAt: NOW,
 			updatedAt: NOW,
 		})
-		.run();
 
-	db.insert(users)
+	await db.insert(users)
 		.values({
 			id: "agent-1",
 			name: "Builder Agent",
@@ -76,10 +73,9 @@ function seedBase(db: HyperIdleDb): void {
 			costActual: 0,
 			createdAt: NOW,
 		})
-		.run();
 
 	// L1a: threads now require host_kind/host_id/initiator_id/participants/last_active_at.
-	db.insert(threads)
+	await db.insert(threads)
 		.values({
 			id: "thread-1",
 			hostKind: "task",
@@ -89,7 +85,7 @@ function seedBase(db: HyperIdleDb): void {
 			lastActiveAt: NOW,
 			createdAt: NOW,
 		})
-		.run();
+
 }
 
 function insertSession(
@@ -99,7 +95,7 @@ function insertSession(
 	cost: number,
 	state = "done" as string,
 ): void {
-	db.insert(sessions)
+	await db.insert(sessions)
 		.values({
 			id,
 			taskId: "task-1",
@@ -108,14 +104,14 @@ function insertSession(
 			startedAt: NOW,
 			state,
 		})
-		.run();
+
 	// @lore O2: sessions.cost removed; accumulate on agents.costActual and
 	// teams.costActual so checkCostCap can read the running total.
 	if (cost > 0) {
-		db.update(users)
+		await db.update(users)
 			.set({ costActual: sql`coalesce(cost_actual, 0) + ${cost}` })
 			.where(eq(users.id, agentId))
-			.run();
+
 		// Find which team this agent belongs to and accumulate there too
 		const agent = db
 			.select({ teamId: users.teamId })
@@ -123,20 +119,22 @@ function insertSession(
 			.where(eq(users.id, agentId))
 			.get();
 		if (agent?.teamId) {
-			db.update(teams)
+			await db.update(teams)
 				.set({ costActual: sql`coalesce(cost_actual, 0) + ${cost}` })
 				.where(eq(teams.id, agent.teamId))
-				.run();
+
 		}
 	}
 }
 
 describe("Cost Cap Enforcement", () => {
+	let handle: TestDbHandle;
 	let db: HyperIdleDb;
 	let eventBus: EventBus;
 
-	beforeEach(() => {
-		db = createTestDb();
+	beforeEach(async () => {
+		handle = await createTestDb();
+		db = handle.db;
 		eventBus = new EventBus();
 		clearDeduplicationCache();
 		seedBase(db);
@@ -185,7 +183,7 @@ describe("Cost Cap Enforcement", () => {
 
 		it("allows session when agent has no cost cap", async () => {
 			// Create agent without cost cap
-			db.insert(users)
+			await db.insert(users)
 				.values({
 					id: "agent-nocap",
 					name: "No Cap Agent",
@@ -195,7 +193,6 @@ describe("Cost Cap Enforcement", () => {
 					maxConcurrentSessions: 1,
 					createdAt: NOW,
 				})
-				.run();
 
 			// Spend well above agent level but below team cap ($50)
 			insertSession(db, "s1", "agent-nocap", 4000);
@@ -214,7 +211,7 @@ describe("Cost Cap Enforcement", () => {
 	describe("AC2: Team cap enforcement", () => {
 		it("blocks session when team total reaches cap even if agent has budget", async () => {
 			// Add another agent to team
-			db.insert(users)
+			await db.insert(users)
 				.values({
 					id: "agent-2",
 					name: "Agent 2",
@@ -226,7 +223,6 @@ describe("Cost Cap Enforcement", () => {
 					costActual: 0,
 					createdAt: NOW,
 				})
-				.run();
 
 			// agent-2 spent $45, agent-1 spent $5 = team total $50 = team cap
 			insertSession(db, "s1", "agent-2", 4500);
@@ -298,7 +294,7 @@ describe("Cost Cap Enforcement", () => {
 			eventBus.on("cost_cap_breached", (e) => events.push(e));
 
 			// Team at 4800, add 200 to reach 5000 (team cap)
-			db.insert(users)
+			await db.insert(users)
 				.values({
 					id: "agent-2",
 					name: "Agent 2",
@@ -309,7 +305,7 @@ describe("Cost Cap Enforcement", () => {
 					costCap: 5000, // high agent cap
 					createdAt: NOW,
 				})
-				.run();
+
 			insertSession(db, "s-big", "agent-2", 4800);
 			insertSession(db, "s1", "agent-1", 0);
 
@@ -354,7 +350,7 @@ describe("Cost Cap Enforcement", () => {
 			eventBus.on("cost_cap_warning", (e) => warnings.push(e));
 
 			// Agent-2 spent 3800, agent-1 adds 200 = team total 4000 = 80% of 5000
-			db.insert(users)
+			await db.insert(users)
 				.values({
 					id: "agent-2",
 					name: "Agent 2",
@@ -365,7 +361,7 @@ describe("Cost Cap Enforcement", () => {
 					costCap: 5000,
 					createdAt: NOW,
 				})
-				.run();
+
 			insertSession(db, "s-big", "agent-2", 3800);
 			insertSession(db, "s1", "agent-1", 0);
 
@@ -427,7 +423,7 @@ describe("Cost Cap Enforcement", () => {
 		});
 
 		it("allows sessions after team cost reset", async () => {
-			db.insert(users)
+			await db.insert(users)
 				.values({
 					id: "agent-2",
 					name: "Agent 2",
@@ -438,7 +434,6 @@ describe("Cost Cap Enforcement", () => {
 					costCap: 5000,
 					createdAt: NOW,
 				})
-				.run();
 
 			insertSession(db, "s1", "agent-2", 5000); // team at cap
 
@@ -512,7 +507,7 @@ describe("Cost Cap Enforcement", () => {
 				reviewThreadId: "thread-1",
 			});
 
-			const reviewItems = db.select().from(items).all();
+			const reviewItems = await db.select().from(items);
 			expect(reviewItems).toHaveLength(1);
 			expect(reviewItems[0].title).toContain("Cost cap breached");
 			expect(reviewItems[0].threadId).toBe("thread-1");
@@ -585,7 +580,7 @@ describe("Cost Cap Enforcement", () => {
 			insertSession(db, "s1", "agent-1", 1000); // agent at cap
 
 			// Also make team at cap
-			db.insert(users)
+			await db.insert(users)
 				.values({
 					id: "agent-2",
 					name: "Agent 2",
@@ -596,7 +591,7 @@ describe("Cost Cap Enforcement", () => {
 					costCap: 5000,
 					createdAt: NOW,
 				})
-				.run();
+
 			insertSession(db, "s2", "agent-2", 4000);
 
 			const result = await checkCostCap(db, eventBus, {

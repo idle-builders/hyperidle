@@ -9,6 +9,7 @@ import {
 	threads,
 	userSkills,
 	users,
+	type TestDbHandle
 } from "@hyperidle/db";
 import { registerPolicyEngine } from "@hyperidle/fabric";
 import { EventBus, type NotificationEvent } from "@hyperidle/shared";
@@ -47,19 +48,20 @@ function selectVerdictsForItem(
 }
 
 describe("Policy Engine (E7)", () => {
+	let handle: TestDbHandle;
 	let db: HyperIdleDb;
 	let eventBus: EventBus;
 	let unsubscribe: () => void;
 	const now = new Date().toISOString();
 
 	function seedBase(): void {
-		db.insert(products)
+		await db.insert(products)
 			.values({ id: "prod-1", name: "Test Product", phase: "build", createdAt: now })
-			.run();
-		db.insert(teams)
+
+		await db.insert(teams)
 			.values({ id: "team-1", productId: "prod-1", capacity: 3, activeBets: 0, formedAt: now })
-			.run();
-		db.insert(users)
+
+		await db.insert(users)
 			.values([
 				{
 					id: "agent-1",
@@ -83,8 +85,8 @@ describe("Policy Engine (E7)", () => {
 					createdAt: now,
 				},
 			])
-			.run();
-		db.insert(threads)
+
+		await db.insert(threads)
 			.values({
 				id: "thread-1",
 				hostKind: "task",
@@ -94,11 +96,11 @@ describe("Policy Engine (E7)", () => {
 				lastActiveAt: now,
 				createdAt: now,
 			})
-			.run();
+
 	}
 
 	function seedAgentSkill(autonomyLevel: number): void {
-		db.insert(userSkills)
+		await db.insert(userSkills)
 			.values({
 				userId: "agent-1",
 				skillId: "skill-1",
@@ -106,7 +108,7 @@ describe("Policy Engine (E7)", () => {
 				successCount: 0,
 				failureCount: 0,
 			})
-			.run();
+
 	}
 
 	function createItem(
@@ -119,7 +121,7 @@ describe("Policy Engine (E7)", () => {
 		}> = {},
 	): string {
 		const itemId = overrides.id ?? crypto.randomUUID();
-		db.insert(items)
+		await db.insert(items)
 			.values({
 				id: itemId,
 				sourceAgentId: overrides.sourceAgentId ?? "agent-1",
@@ -130,7 +132,7 @@ describe("Policy Engine (E7)", () => {
 				threadId: "thread-1",
 				createdAt: now,
 			})
-			.run();
+
 		return itemId;
 	}
 
@@ -145,13 +147,14 @@ describe("Policy Engine (E7)", () => {
 		});
 	}
 
-	beforeEach(() => {
-		db = createTestDb();
+	beforeEach(async () => {
+		handle = await createTestDb();
+		db = handle.db;
 		eventBus = new EventBus();
 		seedBase();
 	});
 
-	afterEach(() => {
+	afterEach(async () => {
 		unsubscribe?.();
 	});
 
@@ -260,11 +263,11 @@ describe("Policy Engine (E7)", () => {
 
 	it("AC5: silence mode active + non-blocking -> queue all items", () => {
 		seedAgentSkill(2); // Would normally push
-		db.insert(factorySettings).values({ key: "silence_mode", value: "true", updatedAt: now }).run();
+		await db.insert(factorySettings).values({ key: "silence_mode", value: "true", updatedAt: now });
 		const notifications: NotificationEvent[] = [];
 		eventBus.on("notification", (e) => notifications.push(e));
 		unsubscribe = registerPolicyEngine(db, eventBus);
-		const itemId = createItem({ riskTier: "low", blocking: 0 });
+		const itemId = createItem({ riskTier: "low", blocking: false });
 
 		emitItemCreated(itemId);
 
@@ -279,11 +282,11 @@ describe("Policy Engine (E7)", () => {
 
 	it("AC5: silence mode active + blocking -> push (not queued)", () => {
 		seedAgentSkill(2);
-		db.insert(factorySettings).values({ key: "silence_mode", value: "true", updatedAt: now }).run();
+		await db.insert(factorySettings).values({ key: "silence_mode", value: "true", updatedAt: now });
 		const notifications: NotificationEvent[] = [];
 		eventBus.on("notification", (e) => notifications.push(e));
 		unsubscribe = registerPolicyEngine(db, eventBus);
-		const itemId = createItem({ riskTier: "low", blocking: 1 });
+		const itemId = createItem({ riskTier: "low", blocking: true });
 
 		emitItemCreated(itemId);
 
@@ -304,19 +307,19 @@ describe("Policy Engine (E7)", () => {
 		expect(verdicts).toHaveLength(1);
 		expect(verdicts[0].approverId).toBe("policy_engine");
 		expect(verdicts[0].decision).toBe("approve");
-		const message = db.select().from(messages).where(eq(messages.id, verdicts[0].id)).get();
+		const [message] = await db.select().from(messages).where(eq(messages.id, verdicts[0].id));
 		expect(message?.createdAt).toBeTruthy();
 	});
 
 	it("AC10: per-product silence -> items from that product queued", () => {
 		seedAgentSkill(2); // Would normally push
-		db.insert(factorySettings)
+		await db.insert(factorySettings)
 			.values({ key: "silence_product_prod-1", value: "true", updatedAt: now })
-			.run();
+
 		const notifications: NotificationEvent[] = [];
 		eventBus.on("notification", (e) => notifications.push(e));
 		unsubscribe = registerPolicyEngine(db, eventBus);
-		const itemId = createItem({ riskTier: "low", blocking: 0 });
+		const itemId = createItem({ riskTier: "low", blocking: false });
 
 		emitItemCreated(itemId);
 
@@ -332,19 +335,19 @@ describe("Policy Engine (E7)", () => {
 	it("AC11: silence window - current time in window -> queue", () => {
 		seedAgentSkill(2); // Would normally push
 		// Set silence window to cover 00:00–23:59 (always active)
-		db.insert(factorySettings)
+		await db.insert(factorySettings)
 			.values([
 				{ key: "silence_window_start", value: "00:00", updatedAt: now },
 				{ key: "silence_window_end", value: "23:59", updatedAt: now },
 			])
-			.run();
+
 		const notifications: NotificationEvent[] = [];
 		eventBus.on("notification", (e) => notifications.push(e));
 		// Use a `now` parameter in the middle of the window
 		unsubscribe = registerPolicyEngine(db, eventBus, {
 			nowFn: () => new Date("2026-04-16T14:00:00Z"),
 		});
-		const itemId = createItem({ riskTier: "low", blocking: 0 });
+		const itemId = createItem({ riskTier: "low", blocking: false });
 
 		emitItemCreated(itemId);
 
@@ -360,19 +363,19 @@ describe("Policy Engine (E7)", () => {
 	it("AC11: silence window - current time outside window -> normal rules", () => {
 		seedAgentSkill(2); // L2 should push
 		// Set window 22:00–07:00 (overnight)
-		db.insert(factorySettings)
+		await db.insert(factorySettings)
 			.values([
 				{ key: "silence_window_start", value: "22:00", updatedAt: now },
 				{ key: "silence_window_end", value: "07:00", updatedAt: now },
 			])
-			.run();
+
 		const notifications: NotificationEvent[] = [];
 		eventBus.on("notification", (e) => notifications.push(e));
 		// 14:00 is outside 22:00–07:00
 		unsubscribe = registerPolicyEngine(db, eventBus, {
 			nowFn: () => new Date("2026-04-16T14:00:00Z"),
 		});
-		const itemId = createItem({ riskTier: "low", blocking: 0 });
+		const itemId = createItem({ riskTier: "low", blocking: false });
 
 		emitItemCreated(itemId);
 
@@ -382,18 +385,18 @@ describe("Policy Engine (E7)", () => {
 
 	it("AC11: silence window - overnight wrap (e.g. 22:00-07:00), time is 23:00 -> queue", () => {
 		seedAgentSkill(2);
-		db.insert(factorySettings)
+		await db.insert(factorySettings)
 			.values([
 				{ key: "silence_window_start", value: "22:00", updatedAt: now },
 				{ key: "silence_window_end", value: "07:00", updatedAt: now },
 			])
-			.run();
+
 		const notifications: NotificationEvent[] = [];
 		eventBus.on("notification", (e) => notifications.push(e));
 		unsubscribe = registerPolicyEngine(db, eventBus, {
 			nowFn: () => new Date("2026-04-16T23:00:00Z"),
 		});
-		const itemId = createItem({ riskTier: "low", blocking: 0 });
+		const itemId = createItem({ riskTier: "low", blocking: false });
 
 		emitItemCreated(itemId);
 
@@ -408,11 +411,11 @@ describe("Policy Engine (E7)", () => {
 
 	it("high risk items always push even in silence mode", () => {
 		seedAgentSkill(4);
-		db.insert(factorySettings).values({ key: "silence_mode", value: "true", updatedAt: now }).run();
+		await db.insert(factorySettings).values({ key: "silence_mode", value: "true", updatedAt: now });
 		const notifications: NotificationEvent[] = [];
 		eventBus.on("notification", (e) => notifications.push(e));
 		unsubscribe = registerPolicyEngine(db, eventBus);
-		const itemId = createItem({ riskTier: "high", blocking: 0 });
+		const itemId = createItem({ riskTier: "high", blocking: false });
 
 		emitItemCreated(itemId);
 

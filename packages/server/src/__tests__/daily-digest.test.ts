@@ -7,23 +7,25 @@ import {
 	teams,
 	threads,
 	users,
+	type TestDbHandle
 } from "@hyperidle/db";
 import { getDailyDigest } from "@hyperidle/fabric";
 import { beforeEach, describe, expect, it } from "vitest";
 
 describe("Daily Digest (E7)", () => {
+	let handle: TestDbHandle;
 	let db: HyperIdleDb;
 	const now = new Date("2026-04-16T12:00:00Z");
 
 	function seedBase(): void {
 		const ts = now.toISOString();
-		db.insert(products)
+		await db.insert(products)
 			.values({ id: "prod-1", name: "Test Product", phase: "build", createdAt: ts })
-			.run();
-		db.insert(teams)
+
+		await db.insert(teams)
 			.values({ id: "team-1", productId: "prod-1", capacity: 3, activeBets: 0, formedAt: ts })
-			.run();
-		db.insert(users)
+
+		await db.insert(users)
 			.values({
 				id: "agent-1",
 				name: "Builder",
@@ -32,8 +34,8 @@ describe("Daily Digest (E7)", () => {
 				teamId: "team-1",
 				createdAt: ts,
 			})
-			.run();
-		db.insert(threads)
+
+		await db.insert(threads)
 			.values({
 				id: "thread-1",
 				hostKind: "task",
@@ -43,27 +45,28 @@ describe("Daily Digest (E7)", () => {
 				lastActiveAt: ts,
 				createdAt: ts,
 			})
-			.run();
+
 	}
 
 	function createQueuedItem(id: string, createdAt: Date): void {
-		db.insert(items)
+		await db.insert(items)
 			.values({
 				id,
 				sourceAgentId: "agent-1",
 				kind: "approval",
 				title: `Test item ${id}`,
 				riskTier: "low",
-				blocking: 0,
+				blocking: false,
 				threadId: "thread-1",
 				auditTrail: JSON.stringify({ action: "policy_queued" }),
 				createdAt: createdAt.toISOString(),
 			})
-			.run();
+
 	}
 
-	beforeEach(() => {
-		db = createTestDb();
+	beforeEach(async () => {
+		handle = await createTestDb();
+		db = handle.db;
 		seedBase();
 	});
 
@@ -101,7 +104,7 @@ describe("Daily Digest (E7)", () => {
 		// `legacy_item_id` matches the source item. The digest now joins via
 		// messages.legacy_item_id (plan §10 / T8). Seed a `human` agent so
 		// the message FK on sender_id is satisfied.
-		db.insert(users)
+		await db.insert(users)
 			.values({
 				id: "human",
 				name: "Human",
@@ -109,8 +112,8 @@ describe("Daily Digest (E7)", () => {
 				status: "active",
 				createdAt: now.toISOString(),
 			})
-			.run();
-		db.insert(messages)
+
+		await db.insert(messages)
 			.values({
 				id: "resp-1",
 				senderId: "human",
@@ -121,7 +124,6 @@ describe("Daily Digest (E7)", () => {
 				legacyItemId: "item-responded",
 				createdAt: now.toISOString(),
 			})
-			.run();
 
 		const digest = getDailyDigest(db, now);
 		expect(digest.items).toHaveLength(1);

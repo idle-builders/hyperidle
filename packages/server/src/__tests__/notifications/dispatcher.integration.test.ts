@@ -10,6 +10,7 @@ import {
 	items as itemsTable,
 	notificationQueue,
 	threads,
+	type TestDbHandle
 } from "@hyperidle/db";
 import {
 	type Notification,
@@ -49,25 +50,27 @@ function enable(db: HyperIdleDb): void {
 		"notifications.flood_coalesce_window_ms": "60000",
 	};
 	for (const [key, value] of Object.entries(pairs)) {
-		db.insert(factorySettings)
+		await db.insert(factorySettings)
 			.values({ key, value, updatedAt: now })
 			.onConflictDoUpdate({
 				target: factorySettings.key,
 				set: { value, updatedAt: now },
 			})
-			.run();
+
 	}
 }
 
 describe("H2 Dispatcher integration via createApp", () => {
+	let handle: TestDbHandle;
 	let db: HyperIdleDb;
 	let bus: EventBus;
 	let adapter: NotificationAdapter & { calls: AdapterCall[] };
 	let app: ReturnType<typeof createApp>;
 
-	beforeEach(() => {
+	beforeEach(async () => {
 		vi.stubEnv("HYPERIDLE_API_KEY", "test-key-H2");
-		db = createTestDb();
+		handle = await createTestDb();
+		db = handle.db;
 		bus = new EventBus();
 		adapter = createFakeAdapter();
 		// O3: notificationAdapterFactory removed from AppOptions for the dispatcher.
@@ -83,7 +86,7 @@ describe("H2 Dispatcher integration via createApp", () => {
 		});
 	});
 
-	afterEach(() => {
+	afterEach(async () => {
 		disposeApp(app);
 		vi.unstubAllEnvs();
 	});
@@ -91,7 +94,7 @@ describe("H2 Dispatcher integration via createApp", () => {
 	it("subscribes to item_created and pushes on blocking items", async () => {
 		enable(db);
 		const threadId = "thread-app-1";
-		db.insert(threads)
+		await db.insert(threads)
 			.values({
 				id: threadId,
 				hostKind: "task",
@@ -101,18 +104,17 @@ describe("H2 Dispatcher integration via createApp", () => {
 				lastActiveAt: "2026-04-18T00:00:00.000Z",
 				createdAt: "2026-04-18T00:00:00.000Z",
 			})
-			.run();
-		db.insert(itemsTable)
+
+		await db.insert(itemsTable)
 			.values({
 				id: "it-100",
 				kind: "approval",
 				title: "Blocking it",
 				body: "Body",
-				blocking: 1,
+				blocking: true,
 				threadId,
 				createdAt: "2026-04-18T00:00:00.000Z",
 			})
-			.run();
 
 		bus.emit({
 			type: "item_created",
@@ -148,7 +150,7 @@ describe("H2 Dispatcher integration via createApp", () => {
 	it("routine_fired with daily_digest marker triggers runDailyDigest", async () => {
 		enable(db);
 		const now = "2026-04-18T00:00:00.000Z";
-		db.insert(notificationQueue)
+		await db.insert(notificationQueue)
 			.values({
 				id: "q-1",
 				eventType: "item_created",
@@ -162,7 +164,7 @@ describe("H2 Dispatcher integration via createApp", () => {
 				attempts: 0,
 				createdAt: now,
 			})
-			.run();
+
 		const event: RoutineFiredEvent = {
 			type: "routine_fired",
 			streamId: "s",
@@ -172,7 +174,7 @@ describe("H2 Dispatcher integration via createApp", () => {
 		};
 		bus.emit(event);
 		await vi.waitFor(() => {
-			const rows = db.select().from(notificationQueue).all();
+			const rows = await db.select().from(notificationQueue);
 			expect(rows[0].status).toBe("sent");
 		});
 

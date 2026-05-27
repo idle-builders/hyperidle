@@ -6,6 +6,7 @@ import {
 	knowledgeConflicts,
 	knowledgeItems,
 	knowledgeStrategyFabric,
+	type TestDbHandle
 } from "@hyperidle/db";
 import {
 	attentionReviewReasoningMarker,
@@ -60,10 +61,10 @@ function seedKi(db: HyperIdleDb, overrides: SeedKiOverrides): SeedKiOverrides & 
 		createdAt: overrides.createdAt ?? NOW,
 		updatedAt: overrides.updatedAt ?? NOW,
 	};
-	db.insert(knowledgeItems).values(kernelRow).run();
+	await db.insert(knowledgeItems).values(kernelRow);
 
 	// Insert strategy extension row
-	db.insert(knowledgeStrategyFabric)
+	await db.insert(knowledgeStrategyFabric)
 		.values({
 			id: `ksf-${overrides.id}`,
 			knowledgeItemId: overrides.id,
@@ -74,13 +75,12 @@ function seedKi(db: HyperIdleDb, overrides: SeedKiOverrides): SeedKiOverrides & 
 			confidence: overrides.confidence != null ? String(overrides.confidence) : null,
 			meta: overrides.meta ?? null,
 		})
-		.run();
 
 	return overrides;
 }
 
 function seedConflict(db: HyperIdleDb, id: string, itemId: string): void {
-	db.insert(knowledgeConflicts)
+	await db.insert(knowledgeConflicts)
 		.values({
 			id,
 			itemId,
@@ -91,15 +91,17 @@ function seedConflict(db: HyperIdleDb, id: string, itemId: string): void {
 			status: "open",
 			createdAt: NOW,
 		})
-		.run();
+
 }
 
 describe("attention-service", () => {
+	let handle: TestDbHandle;
 	let db: HyperIdleDb;
 	let eventBus: EventBus;
 
-	beforeEach(() => {
-		db = createTestDb();
+	beforeEach(async () => {
+		handle = await createTestDb();
+		db = handle.db;
 		eventBus = new EventBus();
 	});
 
@@ -109,7 +111,7 @@ describe("attention-service", () => {
 		const service = buildAttentionService({ db, eventBus, now: () => NOW_MS });
 		await service.recomputeOne("ki-1");
 		// Kernel version must NOT be bumped
-		const row = db.select().from(knowledgeItems).where(eq(knowledgeItems.id, "ki-1")).get();
+		const [row] = await db.select().from(knowledgeItems).where(eq(knowledgeItems.id, "ki-1"));
 		expect(row?.version).toBe(3);
 		// attentionScore written to fabric extension table
 		const fabric = db
@@ -144,7 +146,7 @@ describe("attention-service", () => {
 		expect(received.length).toBe(1);
 
 		// items row exists
-		const rows = db.select().from(items).all();
+		const rows = await db.select().from(items);
 		const review = rows.find((r) => r.kind === "knowledge");
 		expect(review).toBeDefined();
 		expect(review?.verb).toBe("review");
@@ -329,13 +331,12 @@ describe("attention-service", () => {
 			"usage",
 		];
 		for (const k of zeroKeys) {
-			db.insert(factorySettings)
+			await db.insert(factorySettings)
 				.values({ key: `attention.weight.${k}`, value: "0", updatedAt: NOW })
-				.run();
+
 		}
-		db.insert(factorySettings)
+		await db.insert(factorySettings)
 			.values({ key: "attention.weight.conflict", value: "1", updatedAt: NOW })
-			.run();
 
 		seedKi(db, { id: "with-conflict", confidence: 0.5, attentionScore: 0.1 });
 		seedKi(db, { id: "no-conflict", confidence: 0.5, attentionScore: 0.1 });
@@ -374,10 +375,9 @@ describe("attention-service", () => {
 		// upward crossing (prior<0.7 → current>=0.7). Without idempotency this
 		// would double-create the review item.
 		// @lore O2: attentionScore is in knowledgeStrategyFabric, not knowledgeItems
-		db.update(knowledgeStrategyFabric)
+		await db.update(knowledgeStrategyFabric)
 			.set({ attentionScore: "0.3" })
 			.where(eq(knowledgeStrategyFabric.knowledgeItemId, "ki-dup"))
-			.run();
 
 		const second = await service.recomputeOne("ki-dup");
 		expect(second.crossedThreshold).toBe(true);
@@ -562,10 +562,10 @@ describe("attention-service", () => {
 		// Reset the stored attention and re-run with the same fixed now — the
 		// scorer inputs (recency etc) depend on now, so same now → same score.
 		// @lore O2: attentionScore is in knowledgeStrategyFabric, not knowledgeItems
-		db.update(knowledgeStrategyFabric)
+		await db.update(knowledgeStrategyFabric)
 			.set({ attentionScore: "0.1" })
 			.where(eq(knowledgeStrategyFabric.knowledgeItemId, "det-1"))
-			.run();
+
 		const svcB = buildAttentionService({ db, eventBus, now: () => fixedNow });
 		const b = await svcB.recomputeOne("det-1");
 		expect(b.current).toBe(a.current);

@@ -14,7 +14,9 @@
  * tests only the P3-specific behavior (server_config backing, not factorySettings).
  */
 
-import { createTestDb, type HyperIdleDb, products, users } from "@hyperidle/db";
+import { createTestDb, type HyperIdleDb, products, users ,
+	type TestDbHandle
+} from "@hyperidle/db";
 import { EventBus } from "@hyperidle/shared";
 import type { Hono } from "hono";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -28,7 +30,7 @@ function authHeaders(): Record<string, string> {
 
 function seedFounderProfile(db: HyperIdleDb): void {
 	const now = new Date().toISOString();
-	db.insert(users)
+	await db.insert(users)
 		.values({
 			id: "p3-settings-founder",
 			kind: "human",
@@ -40,24 +42,27 @@ function seedFounderProfile(db: HyperIdleDb): void {
 			createdAt: now,
 		})
 		.onConflictDoNothing()
-		.run();
+
 }
 
 describe("P3 AC-10 — Settings route: server_config backing", () => {
+	let handle: TestDbHandle;
 	let db: HyperIdleDb;
 	let eventBus: EventBus;
 	let app: Hono;
 
-	beforeEach(() => {
+	beforeEach(async () => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		db = createTestDb();
+		handle = await createTestDb();
+		db = handle.db;
 		eventBus = new EventBus();
-		app = createTestApp({ db, eventBus });
+		app = await createTestApp({ db, eventBus });
 		seedFounderProfile(db);
 	});
 
-	afterEach(() => {
+	afterEach(async () => {
 		vi.unstubAllEnvs();
+		await handle?.close();
 	});
 
 	describe("GET /api/settings — notification prefs from server_config", () => {
@@ -179,9 +184,8 @@ describe("P3 AC-10 — Settings route: server_config backing", () => {
 	describe("Products and users still returned (AC-17 compatibility)", () => {
 		it("GET /api/settings still returns profile section", async () => {
 			const now = new Date().toISOString();
-			db.insert(products)
+			await db.insert(products)
 				.values({ id: "p3-prod-1", name: "P3 Test Product", phase: "build", createdAt: now })
-				.run();
 
 			const res = await app.request("/api/settings", { headers: authHeaders() });
 			const body = (await res.json()) as {

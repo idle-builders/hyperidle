@@ -7,7 +7,9 @@
  * - etc.
  * Tests updated to match O2 API shape.
  */
-import { createTestDb, type HyperIdleDb, knowledgeEditLog } from "@hyperidle/db";
+import { createTestDb, type HyperIdleDb, knowledgeEditLog ,
+	type TestDbHandle
+} from "@hyperidle/db";
 import { EventBus } from "@hyperidle/shared";
 import type { Hono } from "hono";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -20,19 +22,22 @@ function authHeaders(extra?: Record<string, string>): Record<string, string> {
 }
 
 describe("Knowledge Endpoints (E4)", () => {
+	let handle: TestDbHandle;
 	let db: HyperIdleDb;
 	let eventBus: EventBus;
 	let app: Hono;
 
-	beforeEach(() => {
+	beforeEach(async () => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		db = createTestDb();
+		handle = await createTestDb();
+		db = handle.db;
 		eventBus = new EventBus();
-		app = createTestApp({ db, eventBus });
+		app = await createTestApp({ db, eventBus });
 	});
 
-	afterEach(() => {
+	afterEach(async () => {
 		vi.unstubAllEnvs();
+		await handle?.close();
 	});
 
 	// Helper to create a knowledge item via API
@@ -469,7 +474,7 @@ describe("Knowledge Endpoints (E4)", () => {
 				}),
 			});
 
-			const logs = db.select().from(knowledgeEditLog).all();
+			const logs = await db.select().from(knowledgeEditLog);
 			// Should have at least entries for title and body changes
 			expect(logs.length).toBeGreaterThanOrEqual(2);
 			const titleLog = logs.find((l) => l.field === "title");

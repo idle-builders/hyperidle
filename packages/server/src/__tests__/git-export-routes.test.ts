@@ -8,7 +8,9 @@
  *   GET    /api/git-export/status  -> { enabled, repoPath, branch, lastCommitAt, lastCommitSha, lastPushAt }
  */
 
-import { createTestDb, factorySettings, type HyperIdleDb, knowledgeItems } from "@hyperidle/db";
+import { createTestDb, factorySettings, type HyperIdleDb, knowledgeItems ,
+	type TestDbHandle
+} from "@hyperidle/db";
 import { type FsAdapter, type GitRunner, resetExportMutexes } from "@hyperidle/fabric";
 import type { ApiErrorResponse } from "@hyperidle/shared";
 import { API_ERROR_CODES } from "@hyperidle/shared";
@@ -32,13 +34,13 @@ function authHeaders(extra?: Record<string, string>): Record<string, string> {
 function setConfigKV(db: HyperIdleDb, pairs: Record<string, string>): void {
 	const now = "2026-04-18T00:00:00.000Z";
 	for (const [key, value] of Object.entries(pairs)) {
-		db.insert(factorySettings)
+		await db.insert(factorySettings)
 			.values({ key, value, updatedAt: now })
 			.onConflictDoUpdate({
 				target: factorySettings.key,
 				set: { value, updatedAt: now },
 			})
-			.run();
+
 	}
 }
 
@@ -148,16 +150,19 @@ function buildApp(
 }
 
 describe("Git Export HTTP routes", () => {
+	let handle: TestDbHandle;
 	let db: HyperIdleDb;
 
-	beforeEach(() => {
+	beforeEach(async () => {
 		resetExportMutexes();
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		db = createTestDb();
+		handle = await createTestDb();
+		db = handle.db;
 	});
 
-	afterEach(() => {
+	afterEach(async () => {
 		vi.unstubAllEnvs();
+		await handle?.close();
 	});
 
 	describe("GET /api/git-export/config", () => {
@@ -382,7 +387,7 @@ describe("Git Export HTTP routes", () => {
 				"git_export.enabled": "false",
 				"git_export.repo_path": REPO,
 			});
-			db.insert(knowledgeItems)
+			await db.insert(knowledgeItems)
 				.values({
 					id: "ki-force",
 					layer: "L4",
@@ -398,7 +403,7 @@ describe("Git Export HTTP routes", () => {
 					createdAt: "2026-04-18T00:00:00.000Z",
 					updatedAt: "2026-04-18T00:00:00.000Z",
 				})
-				.run();
+
 			const runner: GitRunner & { calls: string[] } = {
 				calls: [],
 				async init(branch) {

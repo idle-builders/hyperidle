@@ -7,6 +7,7 @@ import {
 	tasks,
 	teams,
 	users,
+	type TestDbHandle
 } from "@hyperidle/db";
 // @lore These exports do not yet exist on cost-cap.ts as of I3 red phase.
 // The plan §3.7 specifies adding `releaseSessionDedup(sessionId)` and a
@@ -46,11 +47,11 @@ function seedAgentWithCap(
 		costCap,
 	}: { agentId: string; teamId: string; productId: string; costCap: number },
 ): void {
-	db.insert(products)
+	await db.insert(products)
 		.values({ id: productId, name: `P-${productId}`, phase: "build", createdAt: NOW })
 		.onConflictDoNothing()
-		.run();
-	db.insert(teams)
+
+	await db.insert(teams)
 		.values({
 			id: teamId,
 			productId,
@@ -61,8 +62,8 @@ function seedAgentWithCap(
 			formedAt: NOW,
 		})
 		.onConflictDoNothing()
-		.run();
-	db.insert(users)
+
+	await db.insert(users)
 		.values({
 			id: agentId,
 			name: `A-${agentId}`,
@@ -75,7 +76,7 @@ function seedAgentWithCap(
 			createdAt: NOW,
 		})
 		.onConflictDoNothing()
-		.run();
+
 }
 
 function seedSession(
@@ -87,7 +88,7 @@ function seedSession(
 		productId,
 	}: { sessionId: string; agentId: string; teamId: string; productId: string },
 ): void {
-	db.insert(bets)
+	await db.insert(bets)
 		.values({
 			id: `bet-${sessionId}`,
 			productId,
@@ -98,8 +99,8 @@ function seedSession(
 			createdAt: NOW,
 		})
 		.onConflictDoNothing()
-		.run();
-	db.insert(tasks)
+
+	await db.insert(tasks)
 		.values({
 			id: `task-${sessionId}`,
 			betId: `bet-${sessionId}`,
@@ -111,8 +112,8 @@ function seedSession(
 			updatedAt: NOW,
 		})
 		.onConflictDoNothing()
-		.run();
-	db.insert(sessions)
+
+	await db.insert(sessions)
 		.values({
 			id: sessionId,
 			taskId: `task-${sessionId}`,
@@ -122,15 +123,17 @@ function seedSession(
 			state: "active",
 		})
 		.onConflictDoNothing()
-		.run();
+
 }
 
 describe("I3: cost-cap dedup cache bounded", () => {
+	let handle: TestDbHandle;
 	let db: HyperIdleDb;
 	let eventBus: EventBus;
 
-	beforeEach(() => {
-		db = createTestDb();
+	beforeEach(async () => {
+		handle = await createTestDb();
+		db = handle.db;
 		eventBus = new EventBus();
 		clearDeduplicationCache();
 	});

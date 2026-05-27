@@ -7,7 +7,9 @@
  *  - factorySettings are seeded with founder profile keys
  */
 
-import { createTestDb, type HyperIdleDb, products, users } from "@hyperidle/db";
+import { createTestDb, type HyperIdleDb, products, users ,
+	type TestDbHandle
+} from "@hyperidle/db";
 import { EventBus } from "@hyperidle/shared";
 import type { Hono } from "hono";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -25,7 +27,7 @@ function authHeaders(): Record<string, string> {
  */
 function seedFounderProfile(db: HyperIdleDb): void {
 	const now = new Date().toISOString();
-	db.insert(users)
+	await db.insert(users)
 		.values({
 			id: "test-founder-1",
 			kind: "human",
@@ -37,33 +39,34 @@ function seedFounderProfile(db: HyperIdleDb): void {
 			createdAt: now,
 		})
 		.onConflictDoNothing()
-		.run();
+
 }
 
 describe("M3 — GET /api/settings (B1)", () => {
+	let handle: TestDbHandle;
 	let db: HyperIdleDb;
 	let eventBus: EventBus;
 	let app: Hono;
 
-	beforeEach(() => {
+	beforeEach(async () => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		db = createTestDb();
+		handle = await createTestDb();
+		db = handle.db;
 		eventBus = new EventBus();
-		app = createTestApp({ db, eventBus });
+		app = await createTestApp({ db, eventBus });
 
 		const now = new Date().toISOString();
 		seedFounderProfile(db);
 
 		// Seed 2 products
-		db.insert(products)
+		await db.insert(products)
 			.values({ id: "prod-1", name: "Product Alpha", phase: "build", createdAt: now })
-			.run();
-		db.insert(products)
+
+		await db.insert(products)
 			.values({ id: "prod-2", name: "Product Beta", phase: "archived", createdAt: now })
-			.run();
 
 		// Seed 2 AI users (formerly agents)
-		db.insert(users)
+		await db.insert(users)
 			.values({
 				id: "agent-1",
 				kind: "ai",
@@ -72,8 +75,8 @@ describe("M3 — GET /api/settings (B1)", () => {
 				status: "idle",
 				createdAt: now,
 			})
-			.run();
-		db.insert(users)
+
+		await db.insert(users)
 			.values({
 				id: "agent-2",
 				kind: "ai",
@@ -82,11 +85,12 @@ describe("M3 — GET /api/settings (B1)", () => {
 				status: "paused",
 				createdAt: now,
 			})
-			.run();
+
 	});
 
-	afterEach(() => {
+	afterEach(async () => {
 		vi.unstubAllEnvs();
+		await handle?.close();
 	});
 
 	it("returns 200 with profile, products, users, notifications", async () => {
@@ -149,20 +153,23 @@ describe("M3 — GET /api/settings (B1)", () => {
 });
 
 describe("M3 — PATCH /api/settings persists notification preferences (B1)", () => {
+	let handle: TestDbHandle;
 	let db: HyperIdleDb;
 	let eventBus: EventBus;
 	let app: Hono;
 
-	beforeEach(() => {
+	beforeEach(async () => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		db = createTestDb();
+		handle = await createTestDb();
+		db = handle.db;
 		eventBus = new EventBus();
-		app = createTestApp({ db, eventBus });
+		app = await createTestApp({ db, eventBus });
 		seedFounderProfile(db);
 	});
 
-	afterEach(() => {
+	afterEach(async () => {
 		vi.unstubAllEnvs();
+		await handle?.close();
 	});
 
 	it("PATCH with notifications.reviewAlerts=false persists and re-GET reflects change", async () => {

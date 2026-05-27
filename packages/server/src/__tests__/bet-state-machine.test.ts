@@ -1,4 +1,6 @@
-import { bets, createTestDb, type HyperIdleDb, products, teams } from "@hyperidle/db";
+import { bets, createTestDb, type HyperIdleDb, products, teams ,
+	type TestDbHandle
+} from "@hyperidle/db";
 import { CapacityExceededError, EventBus, InvalidTransitionError } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -54,31 +56,32 @@ function makeBet(
 }
 
 function getRevisionLog(db: HyperIdleDb, betId: string): RevisionLogEntry[] {
-	const bet = db.select().from(bets).where(eq(bets.id, betId)).get();
+	const [bet] = await db.select().from(bets).where(eq(bets.id, betId));
 	if (!bet?.revisionLog) return [];
 	return JSON.parse(bet.revisionLog) as RevisionLogEntry[];
 }
 
 describe("bet-state-machine", () => {
+	let handle: TestDbHandle;
 	let db: HyperIdleDb;
 	let eventBus: EventBus;
 
-	beforeEach(() => {
-		db = createTestDb();
+	beforeEach(async () => {
+		handle = await createTestDb();
+		db = handle.db;
 		eventBus = new EventBus();
-		db.insert(products).values(makeProduct()).run();
-		db.insert(teams).values(makeTeam()).run();
+		await db.insert(products).values(makeProduct());
+		await db.insert(teams).values(makeTeam());
 	});
 
 	describe("transitionBet", () => {
 		it("creates bet as shaped, commit transitions to committed with revision log entry", async () => {
-			db.insert(bets)
+			await db.insert(bets)
 				.values(makeBet({ status: "shaped" }))
-				.run();
 
 			await transitionBet(db, eventBus, "bet-1", "committed");
 
-			const bet = db.select().from(bets).where(eq(bets.id, "bet-1")).get();
+			const [bet] = await db.select().from(bets).where(eq(bets.id, "bet-1"));
 			expect(bet?.status).toBe("committed");
 
 			const log = getRevisionLog(db, "bet-1");
@@ -91,54 +94,50 @@ describe("bet-state-machine", () => {
 		});
 
 		it("increments team activeBets on commit", async () => {
-			db.insert(bets)
+			await db.insert(bets)
 				.values(makeBet({ status: "shaped" }))
-				.run();
 
 			await transitionBet(db, eventBus, "bet-1", "committed");
 
-			const team = db.select().from(teams).where(eq(teams.id, "team-1")).get();
+			const [team] = await db.select().from(teams).where(eq(teams.id, "team-1"));
 			expect(team?.activeBets).toBe(1);
 		});
 
 		it("throws CapacityExceededError when team is at capacity", async () => {
-			db.update(teams).set({ activeBets: 3 }).where(eq(teams.id, "team-1")).run();
-			db.insert(bets)
+			await db.update(teams).set({ activeBets: 3 }).where(eq(teams.id, "team-1"));
+			await db.insert(bets)
 				.values(makeBet({ status: "shaped" }))
-				.run();
 
 			await expect(transitionBet(db, eventBus, "bet-1", "committed")).rejects.toThrow(
 				CapacityExceededError,
 			);
 
 			// Bet status should remain shaped
-			const bet = db.select().from(bets).where(eq(bets.id, "bet-1")).get();
+			const [bet] = await db.select().from(bets).where(eq(bets.id, "bet-1"));
 			expect(bet?.status).toBe("shaped");
 		});
 
 		it("transitions committed to in_progress", async () => {
-			db.insert(bets)
+			await db.insert(bets)
 				.values(makeBet({ status: "committed" }))
-				.run();
 
 			await transitionBet(db, eventBus, "bet-1", "in_progress");
 
-			const bet = db.select().from(bets).where(eq(bets.id, "bet-1")).get();
+			const [bet] = await db.select().from(bets).where(eq(bets.id, "bet-1"));
 			expect(bet?.status).toBe("in_progress");
 		});
 
 		it("ships bet with bet_state_changed event (toState=shipped)", async () => {
-			db.update(teams).set({ activeBets: 1 }).where(eq(teams.id, "team-1")).run();
-			db.insert(bets)
+			await db.update(teams).set({ activeBets: 1 }).where(eq(teams.id, "team-1"));
+			await db.insert(bets)
 				.values(makeBet({ status: "in_progress" }))
-				.run();
 
 			const shippedHandler = vi.fn();
 			eventBus.on("bet_state_changed", shippedHandler);
 
 			await transitionBet(db, eventBus, "bet-1", "shipped");
 
-			const bet = db.select().from(bets).where(eq(bets.id, "bet-1")).get();
+			const [bet] = await db.select().from(bets).where(eq(bets.id, "bet-1"));
 			expect(bet?.status).toBe("shipped");
 			expect(bet?.shippedAt).toBeDefined();
 			// Filter for just the shipped transition
@@ -149,14 +148,13 @@ describe("bet-state-machine", () => {
 			);
 
 			// activeBets decremented
-			const team = db.select().from(teams).where(eq(teams.id, "team-1")).get();
+			const [team] = await db.select().from(teams).where(eq(teams.id, "team-1"));
 			expect(team?.activeBets).toBe(0);
 		});
 
 		it("emits bet_state_changed on every transition", async () => {
-			db.insert(bets)
+			await db.insert(bets)
 				.values(makeBet({ status: "shaped" }))
-				.run();
 
 			const stateHandler = vi.fn();
 			eventBus.on("bet_state_changed", stateHandler);
@@ -175,9 +173,8 @@ describe("bet-state-machine", () => {
 		});
 
 		it("throws InvalidTransitionError for invalid transitions", async () => {
-			db.insert(bets)
+			await db.insert(bets)
 				.values(makeBet({ status: "shaped" }))
-				.run();
 
 			await expect(transitionBet(db, eventBus, "bet-1", "shipped")).rejects.toThrow(
 				InvalidTransitionError,
@@ -185,9 +182,8 @@ describe("bet-state-machine", () => {
 		});
 
 		it("throws when killing without reason", async () => {
-			db.insert(bets)
+			await db.insert(bets)
 				.values(makeBet({ status: "shaped" }))
-				.run();
 
 			await expect(transitionBet(db, eventBus, "bet-1", "killed")).rejects.toThrow(
 				"Killing a bet requires a reason",
@@ -195,13 +191,12 @@ describe("bet-state-machine", () => {
 		});
 
 		it("kills bet with reason successfully", async () => {
-			db.insert(bets)
+			await db.insert(bets)
 				.values(makeBet({ status: "shaped" }))
-				.run();
 
 			await transitionBet(db, eventBus, "bet-1", "killed", { reason: "No longer viable" });
 
-			const bet = db.select().from(bets).where(eq(bets.id, "bet-1")).get();
+			const [bet] = await db.select().from(bets).where(eq(bets.id, "bet-1"));
 			expect(bet?.status).toBe("killed");
 
 			const log = getRevisionLog(db, "bet-1");
@@ -209,37 +204,34 @@ describe("bet-state-machine", () => {
 		});
 
 		it("decrements activeBets when killing committed bet", async () => {
-			db.update(teams).set({ activeBets: 1 }).where(eq(teams.id, "team-1")).run();
-			db.insert(bets)
+			await db.update(teams).set({ activeBets: 1 }).where(eq(teams.id, "team-1"));
+			await db.insert(bets)
 				.values(makeBet({ status: "committed" }))
-				.run();
 
 			await transitionBet(db, eventBus, "bet-1", "killed", { reason: "Cancelled" });
 
-			const team = db.select().from(teams).where(eq(teams.id, "team-1")).get();
+			const [team] = await db.select().from(teams).where(eq(teams.id, "team-1"));
 			expect(team?.activeBets).toBe(0);
 		});
 
 		it("decrements activeBets when killing in_progress bet", async () => {
-			db.update(teams).set({ activeBets: 1 }).where(eq(teams.id, "team-1")).run();
-			db.insert(bets)
+			await db.update(teams).set({ activeBets: 1 }).where(eq(teams.id, "team-1"));
+			await db.insert(bets)
 				.values(makeBet({ status: "in_progress" }))
-				.run();
 
 			await transitionBet(db, eventBus, "bet-1", "killed", { reason: "Cancelled" });
 
-			const team = db.select().from(teams).where(eq(teams.id, "team-1")).get();
+			const [team] = await db.select().from(teams).where(eq(teams.id, "team-1"));
 			expect(team?.activeBets).toBe(0);
 		});
 
 		it("reshapes: committed to shaped with reason logged", async () => {
-			db.insert(bets)
+			await db.insert(bets)
 				.values(makeBet({ status: "committed" }))
-				.run();
 
 			await transitionBet(db, eventBus, "bet-1", "shaped", { reason: "Needs more shaping" });
 
-			const bet = db.select().from(bets).where(eq(bets.id, "bet-1")).get();
+			const [bet] = await db.select().from(bets).where(eq(bets.id, "bet-1"));
 			expect(bet?.status).toBe("shaped");
 
 			const log = getRevisionLog(db, "bet-1");
@@ -251,9 +243,8 @@ describe("bet-state-machine", () => {
 		});
 
 		it("throws when reshaping without reason", async () => {
-			db.insert(bets)
+			await db.insert(bets)
 				.values(makeBet({ status: "committed" }))
-				.run();
 
 			await expect(transitionBet(db, eventBus, "bet-1", "shaped")).rejects.toThrow(
 				"Reshaping a bet requires a reason",
@@ -269,9 +260,8 @@ describe("bet-state-machine", () => {
 
 		describe("I1 B1: transitionBet wraps mutating writes in db.transaction", () => {
 			it("calls db.transaction exactly once per transition", async () => {
-				db.insert(bets)
+				await db.insert(bets)
 					.values(makeBet({ status: "shaped" }))
-					.run();
 
 				const txSpy = vi.spyOn(db, "transaction");
 
@@ -285,21 +275,20 @@ describe("bet-state-machine", () => {
 		describe("I1 B2: two sequential commits increment activeBets to 2", () => {
 			it("increments activeBets once per commit with no drift", async () => {
 				// Two shaped bets, capacity 3, team starts at 0.
-				db.insert(bets)
+				await db.insert(bets)
 					.values(makeBet({ id: "bet-a", status: "shaped" }))
-					.run();
-				db.insert(bets)
+
+				await db.insert(bets)
 					.values(makeBet({ id: "bet-b", status: "shaped" }))
-					.run();
 
 				await transitionBet(db, eventBus, "bet-a", "committed");
 				await transitionBet(db, eventBus, "bet-b", "committed");
 
-				const team = db.select().from(teams).where(eq(teams.id, "team-1")).get();
+				const [team] = await db.select().from(teams).where(eq(teams.id, "team-1"));
 				expect(team?.activeBets).toBe(2);
 
-				const a = db.select().from(bets).where(eq(bets.id, "bet-a")).get();
-				const b = db.select().from(bets).where(eq(bets.id, "bet-b")).get();
+				const [a] = await db.select().from(bets).where(eq(bets.id, "bet-a"));
+				const [b] = await db.select().from(bets).where(eq(bets.id, "bet-b"));
 				expect(a?.status).toBe("committed");
 				expect(b?.status).toBe("committed");
 			});
@@ -307,12 +296,11 @@ describe("bet-state-machine", () => {
 
 		describe("I1 B3: failed bet UPDATE rolls back activeBets", () => {
 			it("does not leak an activeBets increment when the bet UPDATE fails inside the transaction", async () => {
-				db.insert(bets)
+				await db.insert(bets)
 					.values(makeBet({ status: "shaped" }))
-					.run();
 
 				// Snapshot pre-condition.
-				const teamBefore = db.select().from(teams).where(eq(teams.id, "team-1")).get();
+				const [teamBefore] = await db.select().from(teams).where(eq(teams.id, "team-1"));
 				expect(teamBefore?.activeBets).toBe(0);
 
 				// Force the bet UPDATE to throw so the transaction rolls back.
@@ -339,10 +327,10 @@ describe("bet-state-machine", () => {
 
 				// Post-condition: team.activeBets is back to 0 (transaction
 				// rolled back the teams UPDATE) and bet.status is unchanged.
-				const teamAfter = db.select().from(teams).where(eq(teams.id, "team-1")).get();
+				const [teamAfter] = await db.select().from(teams).where(eq(teams.id, "team-1"));
 				expect(teamAfter?.activeBets).toBe(0);
 
-				const bet = db.select().from(bets).where(eq(bets.id, "bet-1")).get();
+				const [bet] = await db.select().from(bets).where(eq(bets.id, "bet-1"));
 				expect(bet?.status).toBe("shaped");
 			});
 		});
@@ -350,9 +338,8 @@ describe("bet-state-machine", () => {
 
 	describe("updateBetField", () => {
 		it("updates done_condition on in_progress bet with revision log and item_created event", async () => {
-			db.insert(bets)
+			await db.insert(bets)
 				.values(makeBet({ status: "in_progress", doneCondition: "Old condition" }))
-				.run();
 
 			const itemHandler = vi.fn();
 			eventBus.on("item_created", itemHandler);
@@ -366,7 +353,7 @@ describe("bet-state-machine", () => {
 				"Scope refined",
 			);
 
-			const bet = db.select().from(bets).where(eq(bets.id, "bet-1")).get();
+			const [bet] = await db.select().from(bets).where(eq(bets.id, "bet-1"));
 			expect(bet?.doneCondition).toBe("New condition");
 
 			const log = getRevisionLog(db, "bet-1");
@@ -383,9 +370,8 @@ describe("bet-state-machine", () => {
 		});
 
 		it("rejects field update on non-in_progress bet", async () => {
-			db.insert(bets)
+			await db.insert(bets)
 				.values(makeBet({ status: "shaped" }))
-				.run();
 
 			await expect(
 				updateBetField(db, eventBus, "bet-1", "done_condition", "New", "reason"),
@@ -393,9 +379,8 @@ describe("bet-state-machine", () => {
 		});
 
 		it("rejects unknown field", async () => {
-			db.insert(bets)
+			await db.insert(bets)
 				.values(makeBet({ status: "in_progress" }))
-				.run();
 
 			await expect(
 				updateBetField(db, eventBus, "bet-1", "pitch", "New pitch", "reason"),
@@ -403,31 +388,28 @@ describe("bet-state-machine", () => {
 		});
 
 		it("allows updating hypothesis on in_progress bet", async () => {
-			db.insert(bets)
+			await db.insert(bets)
 				.values(makeBet({ status: "in_progress" }))
-				.run();
 
 			await updateBetField(db, eventBus, "bet-1", "hypothesis", "New hypothesis", "Learnings");
 
-			const bet = db.select().from(bets).where(eq(bets.id, "bet-1")).get();
+			const [bet] = await db.select().from(bets).where(eq(bets.id, "bet-1"));
 			expect(bet?.hypothesis).toBe("New hypothesis");
 		});
 
 		it("allows updating appetite on in_progress bet", async () => {
-			db.insert(bets)
+			await db.insert(bets)
 				.values(makeBet({ status: "in_progress" }))
-				.run();
 
 			await updateBetField(db, eventBus, "bet-1", "appetite", "4 weeks", "Extended");
 
-			const bet = db.select().from(bets).where(eq(bets.id, "bet-1")).get();
+			const [bet] = await db.select().from(bets).where(eq(bets.id, "bet-1"));
 			expect(bet?.appetite).toBe("4 weeks");
 		});
 
 		it("does not emit item_created for hypothesis changes", async () => {
-			db.insert(bets)
+			await db.insert(bets)
 				.values(makeBet({ status: "in_progress" }))
-				.run();
 
 			const itemHandler = vi.fn();
 			eventBus.on("item_created", itemHandler);
@@ -440,9 +422,8 @@ describe("bet-state-machine", () => {
 
 	describe("revision log shape", () => {
 		it("has correct shape with timestamp, field, old_value, new_value, reason", async () => {
-			db.insert(bets)
+			await db.insert(bets)
 				.values(makeBet({ status: "shaped" }))
-				.run();
 
 			await transitionBet(db, eventBus, "bet-1", "committed");
 
@@ -461,9 +442,8 @@ describe("bet-state-machine", () => {
 		});
 
 		it("accumulates entries across multiple transitions", async () => {
-			db.insert(bets)
+			await db.insert(bets)
 				.values(makeBet({ status: "shaped" }))
-				.run();
 
 			await transitionBet(db, eventBus, "bet-1", "committed");
 			await transitionBet(db, eventBus, "bet-1", "in_progress");
@@ -482,9 +462,9 @@ describe("bet-state-machine", () => {
 		it("second transitionBet to shipped throws InvalidTransitionError and does NOT re-emit bet_state_changed", async () => {
 			// Walk the bet forward to `review` so "shipped" is a valid
 			// transition from the read snapshot.
-			db.insert(bets)
+			await db.insert(bets)
 				.values(makeBet({ status: "shaped" }))
-				.run();
+
 			await transitionBet(db, eventBus, "bet-1", "committed");
 			await transitionBet(db, eventBus, "bet-1", "in_progress");
 			await transitionBet(db, eventBus, "bet-1", "review");
@@ -515,7 +495,7 @@ describe("bet-state-machine", () => {
 			expect(stateEvents).toHaveLength(1);
 
 			// The bet row is terminal — still exactly one `shipped` row.
-			const bet = db.select().from(bets).where(eq(bets.id, "bet-1")).get();
+			const [bet] = await db.select().from(bets).where(eq(bets.id, "bet-1"));
 			expect(bet?.status).toBe("shipped");
 			// Revision log has exactly one shipped entry.
 			const log = getRevisionLog(db, "bet-1");

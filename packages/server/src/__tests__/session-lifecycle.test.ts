@@ -11,6 +11,7 @@ import {
 	tasks,
 	teams,
 	users,
+	type TestDbHandle
 } from "@hyperidle/db";
 import {
 	ConcurrencyLimitError,
@@ -31,15 +32,13 @@ import {
 function seedAll(db: HyperIdleDb): void {
 	const now = new Date().toISOString();
 
-	db.insert(products)
+	await db.insert(products)
 		.values({ id: "p1", name: "Test Product", phase: "build", createdAt: now })
-		.run();
 
-	db.insert(teams)
+	await db.insert(teams)
 		.values({ id: "t1", productId: "p1", capacity: 5, activeBets: 0, formedAt: now })
-		.run();
 
-	db.insert(bets)
+	await db.insert(bets)
 		.values({
 			id: "b1",
 			productId: "p1",
@@ -49,9 +48,8 @@ function seedAll(db: HyperIdleDb): void {
 			status: "committed",
 			createdAt: now,
 		})
-		.run();
 
-	db.insert(tasks)
+	await db.insert(tasks)
 		.values({
 			id: "task-1",
 			betId: "b1",
@@ -62,9 +60,8 @@ function seedAll(db: HyperIdleDb): void {
 			createdAt: now,
 			updatedAt: now,
 		})
-		.run();
 
-	db.insert(users)
+	await db.insert(users)
 		.values({
 			id: "agent-1",
 			name: "Builder Agent",
@@ -73,10 +70,9 @@ function seedAll(db: HyperIdleDb): void {
 			maxConcurrentSessions: 1,
 			createdAt: now,
 		})
-		.run();
 
 	// Seed a knowledge item so materialization has content
-	db.insert(knowledgeItems)
+	await db.insert(knowledgeItems)
 		.values({
 			id: "ki-1",
 			layer: "L4",
@@ -90,7 +86,7 @@ function seedAll(db: HyperIdleDb): void {
 			createdAt: now,
 			updatedAt: now,
 		})
-		.run();
+
 }
 
 function makeParams(basePath: string): CreateSessionParams {
@@ -105,19 +101,21 @@ function makeParams(basePath: string): CreateSessionParams {
 }
 
 describe("Session Lifecycle", () => {
+	let handle: TestDbHandle;
 	let db: HyperIdleDb;
 	let eventBus: EventBus;
 	let tmpDir: string;
 	const cleanupContexts: SessionContext[] = [];
 
-	beforeEach(() => {
-		db = createTestDb();
+	beforeEach(async () => {
+		handle = await createTestDb();
+		db = handle.db;
 		eventBus = new EventBus();
 		tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "session-lifecycle-"));
 		seedAll(db);
 	});
 
-	afterEach(() => {
+	afterEach(async () => {
 		// Clean up any leftover workspace dirs
 		for (const ctx of cleanupContexts) {
 			if (fs.existsSync(ctx.workspacePath)) {
@@ -137,7 +135,7 @@ describe("Session Lifecycle", () => {
 		cleanupContexts.push(ctx);
 
 		// Session row exists with state=active
-		const session = db.select().from(sessions).where(eq(sessions.id, ctx.sessionId)).get();
+		const [session] = await db.select().from(sessions).where(eq(sessions.id, ctx.sessionId));
 		expect(session).toBeDefined();
 		expect(session?.state).toBe("active");
 
@@ -166,7 +164,7 @@ describe("Session Lifecycle", () => {
 
 		await endSession(db, eventBus, ctx, 0);
 
-		const session = db.select().from(sessions).where(eq(sessions.id, ctx.sessionId)).get();
+		const [session] = await db.select().from(sessions).where(eq(sessions.id, ctx.sessionId));
 		expect(session?.state).toBe("done");
 		expect(session?.endedAt).toBeTruthy();
 
@@ -184,13 +182,13 @@ describe("Session Lifecycle", () => {
 
 		await crashSession(db, eventBus, ctx, 0);
 
-		const session = db.select().from(sessions).where(eq(sessions.id, ctx.sessionId)).get();
+		const [session] = await db.select().from(sessions).where(eq(sessions.id, ctx.sessionId));
 		expect(session?.state).toBe("crashed");
 		expect(session?.outcome).toBe("crashed");
 		expect(session?.endedAt).toBeTruthy();
 
 		// Knowledge still in DB
-		const ki = db.select().from(knowledgeItems).where(eq(knowledgeItems.id, "ki-1")).get();
+		const [ki] = await db.select().from(knowledgeItems).where(eq(knowledgeItems.id, "ki-1"));
 		expect(ki).toBeDefined();
 		expect(ki?.body).toBe("This is a test principle.");
 	});
@@ -205,7 +203,7 @@ describe("Session Lifecycle", () => {
 		// costInCents param is accepted for API compat but no longer written to DB.
 		await endSession(db, eventBus, ctx, 15);
 
-		const session = db.select().from(sessions).where(eq(sessions.id, ctx.sessionId)).get();
+		const [session] = await db.select().from(sessions).where(eq(sessions.id, ctx.sessionId));
 		expect(session?.state).toBe("done");
 		expect(session?.endedAt).toBeTruthy();
 	});
@@ -231,7 +229,7 @@ describe("Session Lifecycle", () => {
 		const ctx = await createSession(db, eventBus, params);
 		cleanupContexts.push(ctx);
 
-		const session = db.select().from(sessions).where(eq(sessions.id, ctx.sessionId)).get();
+		const [session] = await db.select().from(sessions).where(eq(sessions.id, ctx.sessionId));
 		expect(session?.workspaceSnapshot).toBe(ctx.workspacePath);
 
 		ctx.watcher.stop();

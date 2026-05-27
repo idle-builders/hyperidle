@@ -12,6 +12,7 @@ import {
 	threads,
 	userSkills,
 	users,
+	type TestDbHandle
 } from "@hyperidle/db";
 import {
 	checkAndFireRoutine,
@@ -28,15 +29,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 function seedBase(db: HyperIdleDb): void {
 	const now = new Date().toISOString();
 
-	db.insert(products)
+	await db.insert(products)
 		.values({ id: "p1", name: "Test Product", phase: "build", createdAt: now })
-		.run();
 
-	db.insert(teams)
+	await db.insert(teams)
 		.values({ id: "t1", productId: "p1", capacity: 5, activeBets: 0, formedAt: now })
-		.run();
 
-	db.insert(bets)
+	await db.insert(bets)
 		.values({
 			id: "b1",
 			productId: "p1",
@@ -46,9 +45,8 @@ function seedBase(db: HyperIdleDb): void {
 			status: "committed",
 			createdAt: now,
 		})
-		.run();
 
-	db.insert(tasks)
+	await db.insert(tasks)
 		.values({
 			id: "task-1",
 			betId: "b1",
@@ -59,9 +57,8 @@ function seedBase(db: HyperIdleDb): void {
 			createdAt: now,
 			updatedAt: now,
 		})
-		.run();
 
-	db.insert(users)
+	await db.insert(users)
 		.values({
 			id: "agent-1",
 			kind: "ai",
@@ -72,9 +69,8 @@ function seedBase(db: HyperIdleDb): void {
 			maxConcurrentSessions: 2,
 			createdAt: now,
 		})
-		.run();
 
-	db.insert(users)
+	await db.insert(users)
 		.values({
 			id: "agent-2",
 			kind: "ai",
@@ -85,9 +81,8 @@ function seedBase(db: HyperIdleDb): void {
 			maxConcurrentSessions: 2,
 			createdAt: now,
 		})
-		.run();
 
-	db.insert(userSkills)
+	await db.insert(userSkills)
 		.values({
 			userId: "agent-2",
 			skillId: "deploy",
@@ -95,26 +90,28 @@ function seedBase(db: HyperIdleDb): void {
 			successCount: 0,
 			failureCount: 0,
 		})
-		.run();
+
 }
 
 function getRoutine(db: HyperIdleDb, id: string) {
-	const routine = db.select().from(routines).where(eq(routines.id, id)).get();
+	const [routine] = await db.select().from(routines).where(eq(routines.id, id));
 	if (!routine) throw new Error(`Routine ${id} not found`);
 	return routine;
 }
 
 describe("Routine Scheduler", () => {
+	let handle: TestDbHandle;
 	let db: HyperIdleDb;
 	let eventBus: EventBus;
 
-	beforeEach(() => {
-		db = createTestDb();
+	beforeEach(async () => {
+		handle = await createTestDb();
+		db = handle.db;
 		eventBus = new EventBus();
 		seedBase(db);
 	});
 
-	afterEach(() => {
+	afterEach(async () => {
 		vi.restoreAllMocks();
 	});
 
@@ -182,17 +179,16 @@ describe("Routine Scheduler", () => {
 			const now = new Date();
 			const pastDue = new Date(now.getTime() - 5000).toISOString();
 
-			db.insert(routines)
+			await db.insert(routines)
 				.values({
 					id: "r-heartbeat",
 					ownerAgentId: "agent-1",
 					triggerType: "heartbeat",
 					triggerConfig: JSON.stringify({ intervalSeconds: 60, taskId: "task-1" }),
-					active: 1,
+					active: true,
 					lastRunAt: new Date(now.getTime() - 65000).toISOString(),
 					nextRunAt: pastDue,
 				})
-				.run();
 
 			const routine = getRoutine(db, "r-heartbeat");
 			const result = await checkAndFireRoutine(db, eventBus, routine);
@@ -217,16 +213,15 @@ describe("Routine Scheduler", () => {
 			const now = new Date();
 			const pastDue = new Date(now.getTime() - 5000).toISOString();
 
-			db.insert(routines)
+			await db.insert(routines)
 				.values({
 					id: "r-calendar",
 					ownerAgentId: "agent-1",
 					triggerType: "calendar",
 					triggerConfig: JSON.stringify({ cron: "0 9 * * MON", taskId: "task-1" }),
-					active: 1,
+					active: true,
 					nextRunAt: pastDue,
 				})
-				.run();
 
 			const routine = getRoutine(db, "r-calendar");
 			const result = await checkAndFireRoutine(db, eventBus, routine);
@@ -244,17 +239,16 @@ describe("Routine Scheduler", () => {
 	// AC3: Event-triggered routine fires when event emitted
 	describe("AC3: Event-triggered routine fires on event", () => {
 		it("fires when configured event is emitted", async () => {
-			db.insert(routines)
+			await db.insert(routines)
 				.values({
 					id: "r-event",
 					ownerAgentId: "agent-1",
 					triggerType: "event",
 					triggerConfig: JSON.stringify({ eventType: "bet_state_changed", taskId: "task-1" }),
-					active: 1,
+					active: true,
 				})
-				.run();
 
-			const sessionsBefore = db.select().from(sessions).all();
+			const sessionsBefore = await db.select().from(sessions);
 			expect(sessionsBefore).toHaveLength(0);
 
 			registerEventTriggers(db, eventBus);
@@ -271,7 +265,7 @@ describe("Routine Scheduler", () => {
 			// Handler is synchronous via EventBus, but checkAndFireRoutine is async
 			await new Promise((r) => setTimeout(r, 50));
 
-			const sessionsAfter = db.select().from(sessions).all();
+			const sessionsAfter = await db.select().from(sessions);
 			expect(sessionsAfter).toHaveLength(1);
 			expect(sessionsAfter[0].agentId).toBe("agent-1");
 
@@ -286,7 +280,7 @@ describe("Routine Scheduler", () => {
 			const now = new Date();
 
 			// Put agent-1 at WIP limit (maxConcurrentSessions=2)
-			db.insert(sessions)
+			await db.insert(sessions)
 				.values({
 					id: "s-existing-1",
 					taskId: "task-1",
@@ -296,8 +290,8 @@ describe("Routine Scheduler", () => {
 					state: "active",
 					cost: 0,
 				})
-				.run();
-			db.insert(sessions)
+
+			await db.insert(sessions)
 				.values({
 					id: "s-existing-2",
 					taskId: "task-1",
@@ -307,20 +301,18 @@ describe("Routine Scheduler", () => {
 					state: "active",
 					cost: 0,
 				})
-				.run();
 
-			db.insert(routines)
+			await db.insert(routines)
 				.values({
 					id: "r-delegate",
 					ownerAgentId: "agent-1",
 					triggerType: "heartbeat",
 					triggerConfig: JSON.stringify({ intervalSeconds: 60, taskId: "task-1" }),
 					skillId: "deploy",
-					delegationAllowed: 1,
-					active: 1,
+					delegationAllowed: true,
+					active: true,
 					nextRunAt: new Date(now.getTime() - 5000).toISOString(),
 				})
-				.run();
 
 			const routine = getRoutine(db, "r-delegate");
 			const result = await checkAndFireRoutine(db, eventBus, routine);
@@ -342,23 +334,21 @@ describe("Routine Scheduler", () => {
 		it("skips firing when factory cost cap is reached", async () => {
 			const now = new Date();
 
-			db.insert(factorySettings)
+			await db.insert(factorySettings)
 				.values({ key: "cost_cap", value: "100", updatedAt: now.toISOString() })
-				.run();
-			db.insert(factorySettings)
-				.values({ key: "cost_actual", value: "150", updatedAt: now.toISOString() })
-				.run();
 
-			db.insert(routines)
+			await db.insert(factorySettings)
+				.values({ key: "cost_actual", value: "150", updatedAt: now.toISOString() })
+
+			await db.insert(routines)
 				.values({
 					id: "r-capped",
 					ownerAgentId: "agent-1",
 					triggerType: "heartbeat",
 					triggerConfig: JSON.stringify({ intervalSeconds: 60, taskId: "task-1" }),
-					active: 1,
+					active: true,
 					nextRunAt: new Date(now.getTime() - 5000).toISOString(),
 				})
-				.run();
 
 			const routine = getRoutine(db, "r-capped");
 			const result = await checkAndFireRoutine(db, eventBus, routine);
@@ -371,7 +361,7 @@ describe("Routine Scheduler", () => {
 			const nextRunTime = new Date(updated.nextRunAt ?? "").getTime();
 			expect(nextRunTime).toBeGreaterThan(now.getTime());
 
-			const allSessions = db.select().from(sessions).all();
+			const allSessions = await db.select().from(sessions);
 			expect(allSessions).toHaveLength(0);
 		});
 	});
@@ -381,27 +371,26 @@ describe("Routine Scheduler", () => {
 		it("creates session but no item when silent=true", async () => {
 			const now = new Date();
 
-			db.insert(routines)
+			await db.insert(routines)
 				.values({
 					id: "r-silent",
 					ownerAgentId: "agent-1",
 					triggerType: "heartbeat",
 					triggerConfig: JSON.stringify({ intervalSeconds: 60, taskId: "task-1" }),
-					silent: 1,
-					active: 1,
+					silent: true,
+					active: true,
 					nextRunAt: new Date(now.getTime() - 5000).toISOString(),
 				})
-				.run();
 
 			const routine = getRoutine(db, "r-silent");
 			const result = await checkAndFireRoutine(db, eventBus, routine);
 
 			expect(result.fired).toBe(true);
 
-			const allSessions = db.select().from(sessions).all();
+			const allSessions = await db.select().from(sessions);
 			expect(allSessions).toHaveLength(1);
 
-			const allItems = db.select().from(items).all();
+			const allItems = await db.select().from(items);
 			expect(allItems).toHaveLength(0);
 		});
 	});
@@ -411,29 +400,28 @@ describe("Routine Scheduler", () => {
 		it("creates review item in thread when human_review=true", async () => {
 			const now = new Date();
 
-			db.insert(routines)
+			await db.insert(routines)
 				.values({
 					id: "r-review",
 					ownerAgentId: "agent-1",
 					triggerType: "heartbeat",
 					triggerConfig: JSON.stringify({ intervalSeconds: 60, taskId: "task-1" }),
-					humanReview: 1,
-					active: 1,
+					humanReview: true,
+					active: true,
 					nextRunAt: new Date(now.getTime() - 5000).toISOString(),
 				})
-				.run();
 
 			const routine = getRoutine(db, "r-review");
 			const result = await checkAndFireRoutine(db, eventBus, routine);
 
 			expect(result.fired).toBe(true);
 
-			const allItems = db.select().from(items).all();
+			const allItems = await db.select().from(items);
 			expect(allItems).toHaveLength(1);
 			expect(allItems[0].kind).toBe("review");
 			expect(allItems[0].sourceAgentId).toBe("agent-1");
 
-			const allThreads = db.select().from(threads).all();
+			const allThreads = await db.select().from(threads);
 			expect(allThreads).toHaveLength(1);
 		});
 	});
@@ -444,17 +432,16 @@ describe("Routine Scheduler", () => {
 			const now = new Date();
 			const pastDue = new Date(now.getTime() - 5000).toISOString();
 
-			db.insert(routines)
+			await db.insert(routines)
 				.values({
 					id: "r-timestamps",
 					ownerAgentId: "agent-1",
 					triggerType: "heartbeat",
 					triggerConfig: JSON.stringify({ intervalSeconds: 120, taskId: "task-1" }),
-					active: 1,
+					active: true,
 					lastRunAt: null,
 					nextRunAt: pastDue,
 				})
-				.run();
 
 			const routine = getRoutine(db, "r-timestamps");
 			const result = await checkAndFireRoutine(db, eventBus, routine);

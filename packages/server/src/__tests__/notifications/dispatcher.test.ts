@@ -5,6 +5,7 @@ import {
 	items as itemsTable,
 	notificationQueue,
 	threads,
+	type TestDbHandle
 } from "@hyperidle/db";
 import {
 	dispatchDigest,
@@ -61,19 +62,19 @@ function enableNotifications(db: HyperIdleDb, overrides: Record<string, string> 
 		...overrides,
 	};
 	for (const [key, value] of Object.entries(pairs)) {
-		db.insert(factorySettings)
+		await db.insert(factorySettings)
 			.values({ key, value, updatedAt: now })
 			.onConflictDoUpdate({
 				target: factorySettings.key,
 				set: { value, updatedAt: now },
 			})
-			.run();
+
 	}
 }
 
 function seedThread(db: HyperIdleDb): string {
 	const threadId = "thread-dispatch";
-	db.insert(threads)
+	await db.insert(threads)
 		.values({
 			id: threadId,
 			hostKind: "task",
@@ -83,7 +84,7 @@ function seedThread(db: HyperIdleDb): string {
 			lastActiveAt: "2026-04-18T00:00:00.000Z",
 			createdAt: "2026-04-18T00:00:00.000Z",
 		})
-		.run();
+
 	return threadId;
 }
 
@@ -97,7 +98,7 @@ function createItem(
 		threadId: string;
 	},
 ): void {
-	db.insert(itemsTable)
+	await db.insert(itemsTable)
 		.values({
 			id: params.id,
 			kind: "approval",
@@ -108,7 +109,7 @@ function createItem(
 			threadId: params.threadId,
 			createdAt: "2026-04-18T00:00:00.000Z",
 		})
-		.run();
+
 }
 
 function emitItemCreated(bus: EventBus, itemId: string): void {
@@ -124,23 +125,25 @@ function emitItemCreated(bus: EventBus, itemId: string): void {
 }
 
 describe("H2 Dispatcher (AC4 silence + AC5 policy)", () => {
+	let handle: TestDbHandle;
 	let db: HyperIdleDb;
 	let bus: EventBus;
 	let unsubscribe: () => void;
 
-	beforeEach(() => {
-		db = createTestDb();
+	beforeEach(async () => {
+		handle = await createTestDb();
+		db = handle.db;
 		bus = new EventBus();
 	});
 
-	afterEach(() => {
+	afterEach(async () => {
 		unsubscribe?.();
 	});
 
 	it("AC5a: blocking item → pushes via adapter", async () => {
 		enableNotifications(db);
 		const threadId = seedThread(db);
-		createItem(db, { id: "it-blocking", blocking: 1, riskTier: "medium", threadId });
+		createItem(db, { id: "it-blocking", blocking: true, riskTier: "medium", threadId });
 		const adapter = createFakeAdapter();
 		unsubscribe = registerNotificationDispatcher(db, bus, {
 			adapterFactory: () => adapter,
@@ -196,12 +199,12 @@ describe("H2 Dispatcher (AC4 silence + AC5 policy)", () => {
 		};
 		bus.emit(event);
 		await vi.waitFor(() => {
-			const rows = db.select().from(notificationQueue).all();
+			const rows = await db.select().from(notificationQueue);
 			expect(rows).toHaveLength(1);
 		});
 
 		expect(adapter.calls).toHaveLength(0);
-		const rows = db.select().from(notificationQueue).all();
+		const rows = await db.select().from(notificationQueue);
 		expect(rows[0].severity).toBe("digest");
 		expect(rows[0].reason).toBe("digest");
 	});
@@ -209,7 +212,7 @@ describe("H2 Dispatcher (AC4 silence + AC5 policy)", () => {
 	it("AC5d: low-risk non-blocking item → dropped (no push, no queue)", async () => {
 		enableNotifications(db);
 		const threadId = seedThread(db);
-		createItem(db, { id: "it-low", blocking: 0, riskTier: "low", threadId });
+		createItem(db, { id: "it-low", blocking: false, riskTier: "low", threadId });
 		const adapter = createFakeAdapter();
 		unsubscribe = registerNotificationDispatcher(db, bus, {
 			adapterFactory: () => adapter,
@@ -221,14 +224,14 @@ describe("H2 Dispatcher (AC4 silence + AC5 policy)", () => {
 		await Promise.resolve();
 
 		expect(adapter.calls).toHaveLength(0);
-		const rows = db.select().from(notificationQueue).all();
+		const rows = await db.select().from(notificationQueue);
 		expect(rows).toHaveLength(0);
 	});
 
 	it("AC4: silence mode queues blocking items without pushing", async () => {
 		enableNotifications(db, { silence_mode: "true" });
 		const threadId = seedThread(db);
-		createItem(db, { id: "it-sil", blocking: 1, riskTier: "medium", threadId });
+		createItem(db, { id: "it-sil", blocking: true, riskTier: "medium", threadId });
 		const adapter = createFakeAdapter();
 		unsubscribe = registerNotificationDispatcher(db, bus, {
 			adapterFactory: () => adapter,
@@ -236,12 +239,12 @@ describe("H2 Dispatcher (AC4 silence + AC5 policy)", () => {
 
 		emitItemCreated(bus, "it-sil");
 		await vi.waitFor(() => {
-			const rows = db.select().from(notificationQueue).all();
+			const rows = await db.select().from(notificationQueue);
 			expect(rows).toHaveLength(1);
 		});
 
 		expect(adapter.calls).toHaveLength(0);
-		const rows = db.select().from(notificationQueue).all();
+		const rows = await db.select().from(notificationQueue);
 		expect(rows[0].reason).toBe("silence");
 		expect(rows[0].subjectId).toBe("it-sil");
 		expect(rows[0].severity).toBe("blocking");
@@ -250,8 +253,8 @@ describe("H2 Dispatcher (AC4 silence + AC5 policy)", () => {
 	it("AC4: flushQueue drains pending rows → adapter receives one send per row", async () => {
 		enableNotifications(db, { silence_mode: "true" });
 		const threadId = seedThread(db);
-		createItem(db, { id: "it-a", blocking: 1, threadId });
-		createItem(db, { id: "it-b", blocking: 1, threadId });
+		createItem(db, { id: "it-a", blocking: true, threadId });
+		createItem(db, { id: "it-b", blocking: true, threadId });
 		const adapter = createFakeAdapter();
 		unsubscribe = registerNotificationDispatcher(db, bus, {
 			adapterFactory: () => adapter,
@@ -259,14 +262,14 @@ describe("H2 Dispatcher (AC4 silence + AC5 policy)", () => {
 		emitItemCreated(bus, "it-a");
 		emitItemCreated(bus, "it-b");
 		await vi.waitFor(() => {
-			const rows = db.select().from(notificationQueue).all();
+			const rows = await db.select().from(notificationQueue);
 			expect(rows).toHaveLength(2);
 		});
 		expect(adapter.calls).toHaveLength(0);
 
 		// Lift silence with a proper upsert — the onConflictDoUpdate clause
 		// handles both insert and overwrite cases.
-		db.insert(factorySettings)
+		await db.insert(factorySettings)
 			.values({
 				key: "silence_mode",
 				value: "false",
@@ -276,7 +279,6 @@ describe("H2 Dispatcher (AC4 silence + AC5 policy)", () => {
 				target: factorySettings.key,
 				set: { value: "false", updatedAt: "2026-04-18T00:00:00.000Z" },
 			})
-			.run();
 
 		const cfg = loadNotificationConfig(db);
 		if (!cfg) throw new Error("config unexpectedly disabled");
@@ -285,7 +287,7 @@ describe("H2 Dispatcher (AC4 silence + AC5 policy)", () => {
 		expect(result.failed).toBe(0);
 		expect(result.deferred).toBe(0);
 		expect(adapter.calls).toHaveLength(2);
-		const rows = db.select().from(notificationQueue).all();
+		const rows = await db.select().from(notificationQueue);
 		expect(rows.every((r) => r.status === "sent")).toBe(true);
 	});
 
@@ -296,12 +298,12 @@ describe("H2 Dispatcher (AC4 silence + AC5 policy)", () => {
 			adapterFactory: () => adapter,
 		});
 		const threadId = seedThread(db);
-		createItem(db, { id: "it-x", blocking: 1, threadId });
+		createItem(db, { id: "it-x", blocking: true, threadId });
 		emitItemCreated(bus, "it-x");
 		await Promise.resolve();
 
 		expect(adapter.calls).toHaveLength(0);
-		expect(db.select().from(notificationQueue).all()).toHaveLength(0);
+		expect(await db.select().from(notificationQueue)).toHaveLength(0);
 	});
 
 	it("flood policy coalesces the 4th push in a window into queue with reason=flood_coalesce", async () => {
@@ -312,7 +314,7 @@ describe("H2 Dispatcher (AC4 silence + AC5 policy)", () => {
 		});
 		const threadId = seedThread(db);
 		for (let i = 0; i < 4; i += 1) {
-			createItem(db, { id: `flood-${i}`, blocking: 1, threadId });
+			createItem(db, { id: `flood-${i}`, blocking: true, threadId });
 		}
 		const adapter = createFakeAdapter();
 		unsubscribe = registerNotificationDispatcher(db, bus, {
@@ -378,7 +380,7 @@ describe("enqueueNotification queue cap (QUEUE_CAP eviction)", () => {
 	): void {
 		const baseIso = "2026-04-18T00:00:00.000Z";
 		for (const row of spec) {
-			db.insert(notificationQueue)
+			await db.insert(notificationQueue)
 				.values({
 					id: row.id,
 					eventType: "item_created",
@@ -392,7 +394,7 @@ describe("enqueueNotification queue cap (QUEUE_CAP eviction)", () => {
 					attempts: 0,
 					createdAt: new Date(Date.parse(baseIso) + row.offsetMs).toISOString(),
 				})
-				.run();
+
 		}
 	}
 
@@ -462,7 +464,7 @@ describe("enqueueNotification queue cap (QUEUE_CAP eviction)", () => {
 			3,
 		);
 
-		const allRows = db.select().from(notificationQueue).all();
+		const allRows = await db.select().from(notificationQueue);
 		// The digest enqueue was dropped; no new row was inserted, no
 		// blocking row was evicted.
 		expect(allRows).toHaveLength(3);
@@ -508,17 +510,19 @@ describe("enqueueNotification queue cap (QUEUE_CAP eviction)", () => {
 });
 
 describe("H2 Daily digest (AC6)", () => {
+	let handle: TestDbHandle;
 	let db: HyperIdleDb;
 
-	beforeEach(() => {
-		db = createTestDb();
+	beforeEach(async () => {
+		handle = await createTestDb();
+		db = handle.db;
 	});
 
 	it("dispatchDigest sends one batched notification for three pending rows", async () => {
 		enableNotifications(db);
 		const now = "2026-04-18T08:00:00.000Z";
 		for (const id of ["q-a", "q-b", "q-c"]) {
-			db.insert(notificationQueue)
+			await db.insert(notificationQueue)
 				.values({
 					id,
 					eventType: "item_created",
@@ -532,7 +536,7 @@ describe("H2 Daily digest (AC6)", () => {
 					attempts: 0,
 					createdAt: now,
 				})
-				.run();
+
 		}
 
 		const adapter = createFakeAdapter();
@@ -546,7 +550,7 @@ describe("H2 Daily digest (AC6)", () => {
 		expect(batched.body).toContain("Title q-b");
 		expect(batched.body).toContain("Title q-c");
 
-		const rows = db.select().from(notificationQueue).all();
+		const rows = await db.select().from(notificationQueue);
 		expect(rows.every((r) => r.status === "sent")).toBe(true);
 	});
 
@@ -561,16 +565,18 @@ describe("H2 Daily digest (AC6)", () => {
 });
 
 describe("flushQueue silence gating (adversary review #2)", () => {
+	let handle: TestDbHandle;
 	let db: HyperIdleDb;
 
-	beforeEach(() => {
-		db = createTestDb();
+	beforeEach(async () => {
+		handle = await createTestDb();
+		db = handle.db;
 	});
 
 	it("keeps blocking rows queued when silence_mode is active; digest flushes", async () => {
 		enableNotifications(db, { silence_mode: "true" });
 		const baseIso = "2026-04-18T00:00:00.000Z";
-		db.insert(notificationQueue)
+		await db.insert(notificationQueue)
 			.values({
 				id: "block-sil",
 				eventType: "item_created",
@@ -584,8 +590,8 @@ describe("flushQueue silence gating (adversary review #2)", () => {
 				attempts: 0,
 				createdAt: baseIso,
 			})
-			.run();
-		db.insert(notificationQueue)
+
+		await db.insert(notificationQueue)
 			.values({
 				id: "digest-sil",
 				eventType: "item_created",
@@ -599,7 +605,7 @@ describe("flushQueue silence gating (adversary review #2)", () => {
 				attempts: 0,
 				createdAt: baseIso,
 			})
-			.run();
+
 		const adapter = createFakeAdapter();
 		const cfg = loadNotificationConfig(db);
 		if (!cfg) throw new Error("cfg unexpectedly null");
@@ -618,7 +624,7 @@ describe("flushQueue silence gating (adversary review #2)", () => {
 
 	it("cost_breach severity pages through even during silence", async () => {
 		enableNotifications(db, { silence_mode: "true" });
-		db.insert(notificationQueue)
+		await db.insert(notificationQueue)
 			.values({
 				id: "cost-1",
 				eventType: "cost_cap_breached",
@@ -632,7 +638,7 @@ describe("flushQueue silence gating (adversary review #2)", () => {
 				attempts: 0,
 				createdAt: "2026-04-18T00:00:00.000Z",
 			})
-			.run();
+
 		const adapter = createFakeAdapter();
 		const cfg = loadNotificationConfig(db);
 		if (!cfg) throw new Error("cfg unexpectedly null");
@@ -644,10 +650,12 @@ describe("flushQueue silence gating (adversary review #2)", () => {
 });
 
 describe("flushQueue channel routing (adversary review #18)", () => {
+	let handle: TestDbHandle;
 	let db: HyperIdleDb;
 
-	beforeEach(() => {
-		db = createTestDb();
+	beforeEach(async () => {
+		handle = await createTestDb();
+		db = handle.db;
 	});
 
 	it("picks the adapter per row.channel, not the default", async () => {
@@ -658,7 +666,7 @@ describe("flushQueue channel routing (adversary review #18)", () => {
 			"notifications.primary_channel": "console",
 			"notifications.recipient_ntfy_topic": "alerts",
 		});
-		db.insert(notificationQueue)
+		await db.insert(notificationQueue)
 			.values({
 				id: "q-ntfy",
 				eventType: "item_created",
@@ -672,7 +680,6 @@ describe("flushQueue channel routing (adversary review #18)", () => {
 				attempts: 0,
 				createdAt: "2026-04-18T00:00:00.000Z",
 			})
-			.run();
 
 		const builtChannels: string[] = [];
 		const cfg = loadNotificationConfig(db);
@@ -694,15 +701,17 @@ describe("flushQueue channel routing (adversary review #18)", () => {
 });
 
 describe("At-least-once delivery (claim lease)", () => {
+	let handle: TestDbHandle;
 	let db: HyperIdleDb;
 
-	beforeEach(() => {
-		db = createTestDb();
+	beforeEach(async () => {
+		handle = await createTestDb();
+		db = handle.db;
 	});
 
 	it("claims row as 'sending' before adapter; marks 'sent' after success", async () => {
 		enableNotifications(db);
-		db.insert(notificationQueue)
+		await db.insert(notificationQueue)
 			.values({
 				id: "aq-1",
 				eventType: "item_created",
@@ -716,7 +725,6 @@ describe("At-least-once delivery (claim lease)", () => {
 				attempts: 0,
 				createdAt: "2026-04-18T00:00:00.000Z",
 			})
-			.run();
 
 		let observedStatus: string | null = null;
 		const adapter: NotificationAdapter & { calls: AdapterCall[] } = {
@@ -739,7 +747,7 @@ describe("At-least-once delivery (claim lease)", () => {
 		const result = await flushQueue(db, () => adapter, cfg, new Date());
 		expect(result.flushed).toBe(1);
 		expect(observedStatus).toBe("sending");
-		const row = db.select().from(notificationQueue).where(eq(notificationQueue.id, "aq-1")).get();
+		const [row] = await db.select().from(notificationQueue).where(eq(notificationQueue.id, "aq-1"));
 		expect(row?.status).toBe("sent");
 		expect(row?.claimedAt).toBeNull();
 	});
@@ -747,7 +755,7 @@ describe("At-least-once delivery (claim lease)", () => {
 	it("recoverStuckLeases requeues rows whose 'sending' lease expired", () => {
 		const now = new Date("2026-04-18T01:00:00.000Z");
 		const oldClaim = new Date("2026-04-18T00:00:00.000Z").toISOString(); // 1h ago
-		db.insert(notificationQueue)
+		await db.insert(notificationQueue)
 			.values({
 				id: "stuck-1",
 				eventType: "item_created",
@@ -762,7 +770,7 @@ describe("At-least-once delivery (claim lease)", () => {
 				createdAt: oldClaim,
 				claimedAt: oldClaim,
 			})
-			.run();
+
 		const recovered = recoverStuckLeases(db, now);
 		expect(recovered).toBe(1);
 		const row = db
@@ -777,7 +785,7 @@ describe("At-least-once delivery (claim lease)", () => {
 	it("does not requeue rows whose 'sending' lease is still fresh", () => {
 		const now = new Date("2026-04-18T00:01:00.000Z");
 		const freshClaim = new Date("2026-04-18T00:00:30.000Z").toISOString(); // 30s ago
-		db.insert(notificationQueue)
+		await db.insert(notificationQueue)
 			.values({
 				id: "fresh-1",
 				eventType: "item_created",
@@ -792,7 +800,7 @@ describe("At-least-once delivery (claim lease)", () => {
 				createdAt: freshClaim,
 				claimedAt: freshClaim,
 			})
-			.run();
+
 		const recovered = recoverStuckLeases(db, now);
 		expect(recovered).toBe(0);
 		const row = db
@@ -806,7 +814,7 @@ describe("At-least-once delivery (claim lease)", () => {
 	it("simulates crash-after-adapter-success-before-DB-update → next flush re-sends", async () => {
 		enableNotifications(db);
 		const oldClaim = new Date("2026-04-18T00:00:00.000Z").toISOString();
-		db.insert(notificationQueue)
+		await db.insert(notificationQueue)
 			.values({
 				id: "crash-1",
 				eventType: "item_created",
@@ -821,7 +829,6 @@ describe("At-least-once delivery (claim lease)", () => {
 				createdAt: oldClaim,
 				claimedAt: oldClaim, // lease > 5 min ago
 			})
-			.run();
 
 		const adapter = createFakeAdapter();
 		const cfg = loadNotificationConfig(db);

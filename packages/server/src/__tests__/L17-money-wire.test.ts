@@ -19,6 +19,7 @@ import {
 	tasks,
 	teams,
 	users,
+	type TestDbHandle
 } from "@hyperidle/db";
 import {
 	checkCostCap,
@@ -42,20 +43,21 @@ function authHeaders(extra?: Record<string, string>): Record<string, string> {
 // ── AC13: Cost-cap service with new column names ──────────────────────────────
 
 describe("Cost-cap service with Money columns (AC13)", () => {
+	let handle: TestDbHandle;
 	let db: HyperIdleDb;
 	let eventBus: EventBus;
 
-	beforeEach(() => {
-		db = createTestDb();
+	beforeEach(async () => {
+		handle = await createTestDb();
+		db = handle.db;
 		eventBus = new EventBus();
 		clearDeduplicationCache();
 
 		// Seed base entities using new column names from migration 0010
-		db.insert(products)
+		await db.insert(products)
 			.values({ id: "p1", name: "Test Product", phase: "build", createdAt: NOW })
-			.run();
 
-		db.insert(teams)
+		await db.insert(teams)
 			.values({
 				id: "t1",
 				productId: "p1",
@@ -66,9 +68,8 @@ describe("Cost-cap service with Money columns (AC13)", () => {
 				costCapCurrency: "USD",
 				formedAt: NOW,
 			})
-			.run();
 
-		db.insert(bets)
+		await db.insert(bets)
 			.values({
 				id: "b1",
 				productId: "p1",
@@ -78,9 +79,8 @@ describe("Cost-cap service with Money columns (AC13)", () => {
 				status: "committed",
 				createdAt: NOW,
 			})
-			.run();
 
-		db.insert(tasks)
+		await db.insert(tasks)
 			.values({
 				id: "task-1",
 				betId: "b1",
@@ -91,9 +91,8 @@ describe("Cost-cap service with Money columns (AC13)", () => {
 				createdAt: NOW,
 				updatedAt: NOW,
 			})
-			.run();
 
-		db.insert(users)
+		await db.insert(users)
 			.values({
 				id: "agent-1",
 				name: "Builder Agent",
@@ -106,13 +105,13 @@ describe("Cost-cap service with Money columns (AC13)", () => {
 				costCapCurrency: "USD",
 				createdAt: NOW,
 			})
-			.run();
+
 	});
 
 	function insertSession(id: string, agentId: string): void {
 		// @lore O2: session cost columns (costMinor, costCurrency) stripped from
 		// the kernel sessions table. Sessions no longer carry cost data directly.
-		db.insert(sessions)
+		await db.insert(sessions)
 			.values({
 				id,
 				taskId: "task-1",
@@ -121,7 +120,7 @@ describe("Cost-cap service with Money columns (AC13)", () => {
 				startedAt: NOW,
 				state: "done",
 			})
-			.run();
+
 	}
 
 	it("reads costCapMinor from agents table (not old costCap)", async () => {
@@ -165,7 +164,7 @@ describe("Cost-cap service with Money columns (AC13)", () => {
 		});
 
 		// Session should still be readable; cost data is not in the kernel table
-		const session = db.select().from(sessions).where(eq(sessions.id, "s1")).get();
+		const [session] = await db.select().from(sessions).where(eq(sessions.id, "s1"));
 		expect(session).toBeDefined();
 		// The kernel table doesn't have costMinor; verifying the session exists is sufficient
 		expect(session?.id).toBe("s1");
@@ -189,26 +188,29 @@ describe("Cost-cap service with Money columns (AC13)", () => {
 // ── AC14: Token accumulation by tier ─────────────────────────────────────────
 
 describe("Session token accumulation by tier (AC14)", () => {
+	let handle: TestDbHandle;
 	let db: HyperIdleDb;
 	let eventBus: EventBus;
 	let app: Hono;
 
-	beforeEach(() => {
+	beforeEach(async () => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		db = createTestDb();
+		handle = await createTestDb();
+		db = handle.db;
 		eventBus = new EventBus();
-		app = createTestApp({ db, eventBus });
+		app = await createTestApp({ db, eventBus });
 
-		db.insert(products)
+		await db.insert(products)
 			.values({ id: "prod-1", name: "Test Product", phase: "build", createdAt: NOW })
-			.run();
-		db.insert(teams)
+
+		await db.insert(teams)
 			.values({ id: "team-1", productId: "prod-1", capacity: 2, activeBets: 0, formedAt: NOW })
-			.run();
+
 	});
 
-	afterEach(() => {
+	afterEach(async () => {
 		vi.unstubAllEnvs();
+		await handle?.close();
 	});
 
 	it("session row contains tokensJson after task completes with tier breakdown", async () => {
@@ -244,26 +246,29 @@ describe("Session token accumulation by tier (AC14)", () => {
 // ── AC15: Bet create API ──────────────────────────────────────────────────────
 
 describe("Bet create API — structured costAppetite (AC15)", () => {
+	let handle: TestDbHandle;
 	let db: HyperIdleDb;
 	let eventBus: EventBus;
 	let app: Hono;
 
-	beforeEach(() => {
+	beforeEach(async () => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		db = createTestDb();
+		handle = await createTestDb();
+		db = handle.db;
 		eventBus = new EventBus();
-		app = createTestApp({ db, eventBus });
+		app = await createTestApp({ db, eventBus });
 
-		db.insert(products)
+		await db.insert(products)
 			.values({ id: "prod-1", name: "Test Product", phase: "build", createdAt: NOW })
-			.run();
-		db.insert(teams)
+
+		await db.insert(teams)
 			.values({ id: "team-1", productId: "prod-1", capacity: 2, activeBets: 0, formedAt: NOW })
-			.run();
+
 	});
 
-	afterEach(() => {
+	afterEach(async () => {
 		vi.unstubAllEnvs();
+		await handle?.close();
 	});
 
 	it("accepts costAppetite with minor + currency (structured Money)", async () => {
@@ -348,25 +353,26 @@ describe("Bet create API — structured costAppetite (AC15)", () => {
 // ── AC16: Bet detail returns structured cost fields ───────────────────────────
 
 describe("Bet detail API — structured cost fields (AC16)", () => {
+	let handle: TestDbHandle;
 	let db: HyperIdleDb;
 	let eventBus: EventBus;
 	let app: Hono;
 
-	beforeEach(() => {
+	beforeEach(async () => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		db = createTestDb();
+		handle = await createTestDb();
+		db = handle.db;
 		eventBus = new EventBus();
-		app = createTestApp({ db, eventBus });
+		app = await createTestApp({ db, eventBus });
 
-		db.insert(products)
+		await db.insert(products)
 			.values({ id: "prod-1", name: "Test Product", phase: "build", createdAt: NOW })
-			.run();
-		db.insert(teams)
+
+		await db.insert(teams)
 			.values({ id: "team-1", productId: "prod-1", capacity: 2, activeBets: 0, formedAt: NOW })
-			.run();
 
 		// Seed a bet with structured costAppetite directly in DB
-		db.insert(bets)
+		await db.insert(bets)
 			.values({
 				id: "bet-detail-1",
 				productId: "prod-1",
@@ -377,11 +383,12 @@ describe("Bet detail API — structured cost fields (AC16)", () => {
 				status: "in_progress",
 				createdAt: NOW,
 			})
-			.run();
+
 	});
 
-	afterEach(() => {
+	afterEach(async () => {
 		vi.unstubAllEnvs();
+		await handle?.close();
 	});
 
 	it("GET /bets/:id returns costAppetite as WireMoney object", async () => {

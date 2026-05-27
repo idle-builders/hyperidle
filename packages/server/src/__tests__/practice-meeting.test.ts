@@ -3,6 +3,7 @@ import {
 	type HyperIdleDb,
 	knowledgeItems,
 	knowledgeStrategyFabric,
+	type TestDbHandle
 } from "@hyperidle/db";
 import { createPracticeMeeting, runPracticeMeetingTurn } from "@hyperidle/fabric";
 import { EventBus, type KnowledgeUpdatedEvent } from "@hyperidle/shared";
@@ -13,11 +14,13 @@ const NOW = "2026-04-18T00:00:00.000Z";
 const NOW_MS = new Date(NOW).getTime();
 
 describe("practice-meeting (AC6)", () => {
+	let handle: TestDbHandle;
 	let db: HyperIdleDb;
 	let eventBus: EventBus;
 
-	beforeEach(() => {
-		db = createTestDb();
+	beforeEach(async () => {
+		handle = await createTestDb();
+		db = handle.db;
 		eventBus = new EventBus();
 	});
 
@@ -38,7 +41,7 @@ describe("practice-meeting (AC6)", () => {
 		});
 		// @lore O2: meta moved from knowledgeItems to knowledgeStrategyFabric.
 		// The kernel row has no meta column; meta.role lives in the fabric row.
-		const anchor = db.select().from(knowledgeItems).where(eq(knowledgeItems.id, meetingId)).get();
+		const [anchor] = await db.select().from(knowledgeItems).where(eq(knowledgeItems.id, meetingId));
 		expect(anchor).toBeDefined();
 		const fabricRow = db
 			.select()
@@ -72,7 +75,7 @@ describe("practice-meeting (AC6)", () => {
 		expect(result.createdIds.length).toBe(2);
 
 		for (const id of result.createdIds) {
-			const row = db.select().from(knowledgeItems).where(eq(knowledgeItems.id, id)).get();
+			const [row] = await db.select().from(knowledgeItems).where(eq(knowledgeItems.id, id));
 			expect(row?.status).toBe("captured");
 			// @lore O2: meta moved to knowledgeStrategyFabric.
 			const fabricRow = db
@@ -189,7 +192,7 @@ describe("practice-meeting (AC6)", () => {
 
 		const synthId = t3.createdIds[0];
 		if (!synthId) return;
-		const synth = db.select().from(knowledgeItems).where(eq(knowledgeItems.id, synthId)).get();
+		const [synth] = await db.select().from(knowledgeItems).where(eq(knowledgeItems.id, synthId));
 		expect(synth?.status).toBe("provisional");
 		// @lore O2: meta moved to knowledgeStrategyFabric.
 		const fabricRow = db
@@ -245,7 +248,7 @@ describe("practice-meeting (AC6)", () => {
 		});
 
 		for (const id of [...proposalIds, ...reactionIds]) {
-			const row = db.select().from(knowledgeItems).where(eq(knowledgeItems.id, id)).get();
+			const [row] = await db.select().from(knowledgeItems).where(eq(knowledgeItems.id, id));
 			expect(row?.status).toBe("archived");
 		}
 	});
@@ -321,7 +324,7 @@ describe("practice-meeting (AC6)", () => {
 		// Seed an anchor with a role match but a broken turnsCompleted shape.
 		// @lore O2: meta lives in knowledgeStrategyFabric, not knowledgeItems.
 		const meetingId = seedMeeting();
-		db.update(knowledgeStrategyFabric)
+		await db.update(knowledgeStrategyFabric)
 			.set({
 				meta: JSON.stringify({
 					role: "practice_meeting_anchor",
@@ -331,7 +334,6 @@ describe("practice-meeting (AC6)", () => {
 				}),
 			})
 			.where(eq(knowledgeStrategyFabric.knowledgeItemId, meetingId))
-			.run();
 
 		const result = await runPracticeMeetingTurn(db, eventBus, {
 			meetingId,
@@ -363,7 +365,7 @@ describe("practice-meeting (AC6)", () => {
 
 		function countProposals(): number {
 			// @lore O2: meta lives in knowledgeStrategyFabric, not knowledgeItems.
-			const fabricRows = db.select().from(knowledgeStrategyFabric).all();
+			const fabricRows = await db.select().from(knowledgeStrategyFabric);
 			return fabricRows.filter((r) => {
 				if (!r.meta) return false;
 				try {
@@ -426,7 +428,7 @@ describe("practice-meeting (AC6)", () => {
 										}),
 									})
 									.where(eq(knowledgeStrategyFabric.knowledgeItemId, meetingId))
-									.run();
+
 							}
 							return result;
 						};

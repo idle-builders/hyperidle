@@ -1,4 +1,6 @@
-import { bets, createTestDb, type HyperIdleDb, products, tasks, teams } from "@hyperidle/db";
+import { bets, createTestDb, type HyperIdleDb, products, tasks, teams ,
+	type TestDbHandle
+} from "@hyperidle/db";
 import {
 	EventBus,
 	type NotificationEvent,
@@ -11,13 +13,13 @@ import { checkAndUnblockDependents } from "../services/dependency-watcher.js";
 
 function seedPrerequisites(db: HyperIdleDb): void {
 	const now = new Date().toISOString();
-	db.insert(products)
+	await db.insert(products)
 		.values({ id: "p1", name: "Test Product", phase: "build", createdAt: now })
-		.run();
-	db.insert(teams)
+
+	await db.insert(teams)
 		.values({ id: "t1", productId: "p1", capacity: 5, activeBets: 0, formedAt: now })
-		.run();
-	db.insert(bets)
+
+	await db.insert(bets)
 		.values({
 			id: "b1",
 			productId: "p1",
@@ -27,12 +29,12 @@ function seedPrerequisites(db: HyperIdleDb): void {
 			status: "committed",
 			createdAt: now,
 		})
-		.run();
+
 }
 
 function insertTask(db: HyperIdleDb, id: string, state: TaskState, dependencies?: string[]): void {
 	const now = new Date().toISOString();
-	db.insert(tasks)
+	await db.insert(tasks)
 		.values({
 			id,
 			betId: "b1",
@@ -44,15 +46,17 @@ function insertTask(db: HyperIdleDb, id: string, state: TaskState, dependencies?
 			createdAt: now,
 			updatedAt: now,
 		})
-		.run();
+
 }
 
 describe("Dependency Watcher", () => {
+	let handle: TestDbHandle;
 	let db: HyperIdleDb;
 	let eventBus: EventBus;
 
-	beforeEach(() => {
-		db = createTestDb();
+	beforeEach(async () => {
+		handle = await createTestDb();
+		db = handle.db;
 		eventBus = new EventBus();
 		seedPrerequisites(db);
 	});
@@ -64,7 +68,7 @@ describe("Dependency Watcher", () => {
 
 			checkAndUnblockDependents(db, eventBus, "dep-1");
 
-			const task = db.select().from(tasks).where(eq(tasks.id, "dependent")).get();
+			const [task] = await db.select().from(tasks).where(eq(tasks.id, "dependent"));
 			expect(task?.state).toBe("accepted");
 		});
 
@@ -74,7 +78,7 @@ describe("Dependency Watcher", () => {
 
 			checkAndUnblockDependents(db, eventBus, "dep-1");
 
-			const task = db.select().from(tasks).where(eq(tasks.id, "dependent")).get();
+			const [task] = await db.select().from(tasks).where(eq(tasks.id, "dependent"));
 			expect(task?.state).toBe("in_progress");
 		});
 
@@ -93,7 +97,7 @@ describe("Dependency Watcher", () => {
 
 			checkAndUnblockDependents(db, eventBus, "dep-1");
 
-			const task = db.select().from(tasks).where(eq(tasks.id, "dependent")).get();
+			const [task] = await db.select().from(tasks).where(eq(tasks.id, "dependent"));
 			expect(task?.state).toBe("hold");
 		});
 
@@ -104,7 +108,7 @@ describe("Dependency Watcher", () => {
 
 			checkAndUnblockDependents(db, eventBus, "dep-2");
 
-			const task = db.select().from(tasks).where(eq(tasks.id, "dependent")).get();
+			const [task] = await db.select().from(tasks).where(eq(tasks.id, "dependent"));
 			expect(task?.state).toBe("accepted");
 		});
 	});
@@ -172,7 +176,7 @@ describe("Dependency Watcher", () => {
 			// doesn't.
 			checkAndUnblockDependents(db, eventBus, "any%id");
 
-			const task = db.select().from(tasks).where(eq(tasks.id, "dependent")).get();
+			const [task] = await db.select().from(tasks).where(eq(tasks.id, "dependent"));
 			expect(task?.state).toBe("hold");
 		});
 
@@ -184,7 +188,7 @@ describe("Dependency Watcher", () => {
 			// match `depX1`. Escape forces literal.
 			checkAndUnblockDependents(db, eventBus, "dep_1");
 
-			const task = db.select().from(tasks).where(eq(tasks.id, "dependent")).get();
+			const [task] = await db.select().from(tasks).where(eq(tasks.id, "dependent"));
 			expect(task?.state).toBe("hold");
 		});
 	});
@@ -197,8 +201,8 @@ describe("Dependency Watcher", () => {
 
 			checkAndUnblockDependents(db, eventBus, "dep-1");
 
-			const taskA = db.select().from(tasks).where(eq(tasks.id, "dependent-a")).get();
-			const taskB = db.select().from(tasks).where(eq(tasks.id, "dependent-b")).get();
+			const [taskA] = await db.select().from(tasks).where(eq(tasks.id, "dependent-a"));
+			const [taskB] = await db.select().from(tasks).where(eq(tasks.id, "dependent-b"));
 			expect(taskA?.state).toBe("accepted");
 			expect(taskB?.state).toBe("accepted");
 		});

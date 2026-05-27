@@ -1,4 +1,6 @@
-import { bets, createTestDb, type HyperIdleDb, products, tasks, teams, users } from "@hyperidle/db";
+import { bets, createTestDb, type HyperIdleDb, products, tasks, teams, users ,
+	type TestDbHandle
+} from "@hyperidle/db";
 import {
 	bootstrapFabric,
 	clearDeduplicationCache,
@@ -18,13 +20,15 @@ function authHeaders(extra?: Record<string, string>): Record<string, string> {
 }
 
 describe("Session Endpoints (E6)", () => {
+	let handle: TestDbHandle;
 	let db: HyperIdleDb;
 	let eventBus: EventBus;
 	let app: Hono;
 
-	beforeEach(() => {
+	beforeEach(async () => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		db = createTestDb();
+		handle = await createTestDb();
+		db = handle.db;
 		eventBus = new EventBus();
 		// I3 review C1 / arch H-2: cost-cap dedup map is module-level state.
 		// Reset before each test to avoid bleed between Vitest runs.
@@ -32,18 +36,18 @@ describe("Session Endpoints (E6)", () => {
 		// @lore O3: strategyBootstrap is required for cost-cap dedup releaser to
 		// fire on session_ended. Before O3, app.ts hardwired all 7 register* calls
 		// unconditionally; now they are injected via strategyBootstrap.
-		app = createTestApp({ db, eventBus, strategyBootstrap: bootstrapFabric });
+		app = await createTestApp({ db, eventBus, strategyBootstrap: bootstrapFabric });
 
 		// Seed required data
-		db.insert(products)
+		await db.insert(products)
 			.values({
 				id: "prod-1",
 				name: "Test Product",
 				phase: "build",
 				createdAt: new Date().toISOString(),
 			})
-			.run();
-		db.insert(teams)
+
+		await db.insert(teams)
 			.values({
 				id: "team-1",
 				productId: "prod-1",
@@ -51,8 +55,8 @@ describe("Session Endpoints (E6)", () => {
 				activeBets: 0,
 				formedAt: new Date().toISOString(),
 			})
-			.run();
-		db.insert(users)
+
+		await db.insert(users)
 			.values({
 				id: "agent-1",
 				name: "Builder Bot",
@@ -61,8 +65,8 @@ describe("Session Endpoints (E6)", () => {
 				teamId: "team-1",
 				createdAt: new Date().toISOString(),
 			})
-			.run();
-		db.insert(bets)
+
+		await db.insert(bets)
 			.values({
 				id: "bet-1",
 				productId: "prod-1",
@@ -72,8 +76,8 @@ describe("Session Endpoints (E6)", () => {
 				status: "committed",
 				createdAt: new Date().toISOString(),
 			})
-			.run();
-		db.insert(tasks)
+
+		await db.insert(tasks)
 			.values({
 				id: "task-1",
 				betId: "bet-1",
@@ -84,11 +88,12 @@ describe("Session Endpoints (E6)", () => {
 				createdAt: new Date().toISOString(),
 				updatedAt: new Date().toISOString(),
 			})
-			.run();
+
 	});
 
-	afterEach(() => {
+	afterEach(async () => {
 		vi.unstubAllEnvs();
+		await handle?.close();
 	});
 
 	// AC10: POST /api/sessions — create session
@@ -217,7 +222,7 @@ describe("Session Endpoints (E6)", () => {
 			// Force a dedup-map entry to exist for this session by recording
 			// a cost above the agent cap. This pins the entry the PATCH
 			// must later reclaim.
-			db.update(users).set({ costCap: 100 }).where(eq(users.id, "agent-1")).run();
+			await db.update(users).set({ costCap: 100 }).where(eq(users.id, "agent-1"));
 			await recordCostAndCheck(db, eventBus, {
 				sessionId,
 				cost: 200,
@@ -238,7 +243,7 @@ describe("Session Endpoints (E6)", () => {
 
 		it("PATCH state=crashed releases the cost-cap dedup entry", async () => {
 			const sessionId = await createSession();
-			db.update(users).set({ costCap: 100 }).where(eq(users.id, "agent-1")).run();
+			await db.update(users).set({ costCap: 100 }).where(eq(users.id, "agent-1"));
 			await recordCostAndCheck(db, eventBus, {
 				sessionId,
 				cost: 200,

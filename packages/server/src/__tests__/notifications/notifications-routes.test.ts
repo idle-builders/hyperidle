@@ -11,7 +11,9 @@
  *  - POST /digest: runs digest through adapter
  */
 
-import { createTestDb, factorySettings, type HyperIdleDb, notificationQueue } from "@hyperidle/db";
+import { createTestDb, factorySettings, type HyperIdleDb, notificationQueue ,
+	type TestDbHandle
+} from "@hyperidle/db";
 import type {
 	Notification,
 	NotificationAdapter,
@@ -51,18 +53,20 @@ function headers(extra: Record<string, string> = {}): Record<string, string> {
 }
 
 describe("H2 /api/notifications routes", () => {
+	let handle: TestDbHandle;
 	let db: HyperIdleDb;
 	let app: ReturnType<typeof createApp>;
 	let adapter: NotificationAdapter & { calls: AdapterCall[] };
 
-	beforeEach(() => {
+	beforeEach(async () => {
 		vi.stubEnv("HYPERIDLE_API_KEY", API_KEY);
-		db = createTestDb();
+		handle = await createTestDb();
+		db = handle.db;
 		adapter = createFakeAdapter();
 		app = createApp({ db, notificationAdapterFactory: () => adapter });
 	});
 
-	afterEach(() => {
+	afterEach(async () => {
 		disposeApp(app);
 		vi.unstubAllEnvs();
 	});
@@ -84,13 +88,13 @@ describe("H2 /api/notifications routes", () => {
 			"notifications.smtp_from": "ops@example.com",
 		};
 		for (const [key, value] of Object.entries(seed)) {
-			db.insert(factorySettings)
+			await db.insert(factorySettings)
 				.values({ key, value, updatedAt: now })
 				.onConflictDoUpdate({
 					target: factorySettings.key,
 					set: { value, updatedAt: now },
 				})
-				.run();
+
 		}
 
 		const res = await app.request("/api/notifications/config", { headers: headers() });
@@ -165,13 +169,13 @@ describe("H2 /api/notifications routes", () => {
 		const result = (await res.json()) as SendResult;
 		expect(result.ok).toBe(true);
 		expect(adapter.calls).toHaveLength(1);
-		const queueRows = db.select().from(notificationQueue).all();
+		const queueRows = await db.select().from(notificationQueue);
 		expect(queueRows).toHaveLength(0);
 	});
 
 	it("GET /queue returns pending rows", async () => {
 		const now = "2026-04-18T00:00:00.000Z";
-		db.insert(notificationQueue)
+		await db.insert(notificationQueue)
 			.values({
 				id: "q-1",
 				eventType: "item_created",
@@ -185,7 +189,7 @@ describe("H2 /api/notifications routes", () => {
 				attempts: 0,
 				createdAt: now,
 			})
-			.run();
+
 		const res = await app.request("/api/notifications/queue?status=pending", {
 			headers: headers(),
 		});
@@ -353,7 +357,7 @@ describe("H2 /api/notifications routes", () => {
 			body: JSON.stringify({ enabled: true, primaryChannel: "console" }),
 		});
 		const now = "2026-04-18T00:00:00.000Z";
-		db.insert(notificationQueue)
+		await db.insert(notificationQueue)
 			.values({
 				id: "q-d-1",
 				eventType: "item_created",
@@ -367,7 +371,7 @@ describe("H2 /api/notifications routes", () => {
 				attempts: 0,
 				createdAt: now,
 			})
-			.run();
+
 		const res = await app.request("/api/notifications/digest", {
 			method: "POST",
 			headers: headers(),
@@ -378,7 +382,7 @@ describe("H2 /api/notifications routes", () => {
 		expect(result.status).toBe("sent");
 		expect(result.notificationsIncluded).toBe(1);
 		expect(adapter.calls).toHaveLength(1);
-		const rows = db.select().from(notificationQueue).all();
+		const rows = await db.select().from(notificationQueue);
 		expect(rows[0].status).toBe("sent");
 	});
 });

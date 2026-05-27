@@ -10,6 +10,7 @@ import {
 	teams,
 	threads,
 	users,
+	type TestDbHandle
 } from "@hyperidle/db";
 import { registerSessionReviewCreator } from "@hyperidle/fabric";
 import type { ItemCreatedEvent, SessionEndedEvent } from "@hyperidle/shared";
@@ -18,23 +19,25 @@ import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 describe("registerSessionReviewCreator", () => {
+	let handle: TestDbHandle;
 	let db: HyperIdleDb;
 	let eventBus: EventBus;
 
-	beforeEach(() => {
-		db = createTestDb();
+	beforeEach(async () => {
+		handle = await createTestDb();
+		db = handle.db;
 		eventBus = new EventBus();
 
 		// Seed base data
-		db.insert(products)
+		await db.insert(products)
 			.values({
 				id: "prod-1",
 				name: "Test Product",
 				phase: "build",
 				createdAt: new Date().toISOString(),
 			})
-			.run();
-		db.insert(teams)
+
+		await db.insert(teams)
 			.values({
 				id: "team-1",
 				productId: "prod-1",
@@ -42,8 +45,8 @@ describe("registerSessionReviewCreator", () => {
 				activeBets: 0,
 				formedAt: new Date().toISOString(),
 			})
-			.run();
-		db.insert(bets)
+
+		await db.insert(bets)
 			.values({
 				id: "bet-1",
 				productId: "prod-1",
@@ -53,8 +56,8 @@ describe("registerSessionReviewCreator", () => {
 				status: "in_progress",
 				createdAt: new Date().toISOString(),
 			})
-			.run();
-		db.insert(users)
+
+		await db.insert(users)
 			.values({
 				id: "agent-1",
 				name: "Test Agent",
@@ -62,10 +65,10 @@ describe("registerSessionReviewCreator", () => {
 				status: "active",
 				createdAt: new Date().toISOString(),
 			})
-			.run();
+
 	});
 
-	afterEach(() => {
+	afterEach(async () => {
 		vi.restoreAllMocks();
 	});
 
@@ -73,7 +76,7 @@ describe("registerSessionReviewCreator", () => {
 		const unsubscribe = registerSessionReviewCreator(db, eventBus);
 
 		// Create high-risk task with a thread
-		db.insert(threads)
+		await db.insert(threads)
 			.values({
 				id: "thread-1",
 				hostKind: "task",
@@ -83,8 +86,8 @@ describe("registerSessionReviewCreator", () => {
 				lastActiveAt: new Date().toISOString(),
 				createdAt: new Date().toISOString(),
 			})
-			.run();
-		db.insert(tasks)
+
+		await db.insert(tasks)
 			.values({
 				id: "task-1",
 				betId: "bet-1",
@@ -96,11 +99,11 @@ describe("registerSessionReviewCreator", () => {
 				createdAt: new Date().toISOString(),
 				updatedAt: new Date().toISOString(),
 			})
-			.run();
-		db.insert(taskStrategyFabric)
+
+		await db.insert(taskStrategyFabric)
 			.values({ id: "tsf-task-1", taskId: "task-1", riskTier: "high" })
-			.run();
-		db.insert(sessions)
+
+		await db.insert(sessions)
 			.values({
 				id: "session-1",
 				taskId: "task-1",
@@ -110,7 +113,6 @@ describe("registerSessionReviewCreator", () => {
 				state: "ended",
 				outcome: "success",
 			})
-			.run();
 
 		// Track emitted events
 		const emittedEvents: ItemCreatedEvent[] = [];
@@ -129,7 +131,7 @@ describe("registerSessionReviewCreator", () => {
 		eventBus.emit(event);
 
 		// Verify item was created
-		const createdItems = db.select().from(items).where(eq(items.threadId, "thread-1")).all();
+		const createdItems = await db.select().from(items).where(eq(items.threadId, "thread-1"));
 		expect(createdItems).toHaveLength(1);
 		expect(createdItems[0].kind).toBe("review");
 		expect(createdItems[0].title).toBe("Session completed: success");
@@ -144,7 +146,7 @@ describe("registerSessionReviewCreator", () => {
 	it("does not create review item for low-risk task", () => {
 		const unsubscribe = registerSessionReviewCreator(db, eventBus);
 
-		db.insert(tasks)
+		await db.insert(tasks)
 			.values({
 				id: "task-low",
 				betId: "bet-1",
@@ -155,11 +157,11 @@ describe("registerSessionReviewCreator", () => {
 				createdAt: new Date().toISOString(),
 				updatedAt: new Date().toISOString(),
 			})
-			.run();
-		db.insert(taskStrategyFabric)
+
+		await db.insert(taskStrategyFabric)
 			.values({ id: "tsf-task-low", taskId: "task-low", riskTier: "low" })
-			.run();
-		db.insert(sessions)
+
+		await db.insert(sessions)
 			.values({
 				id: "session-low",
 				taskId: "task-low",
@@ -168,7 +170,6 @@ describe("registerSessionReviewCreator", () => {
 				startedAt: new Date().toISOString(),
 				state: "ended",
 			})
-			.run();
 
 		const event: SessionEndedEvent = {
 			type: "session_ended",
@@ -182,7 +183,7 @@ describe("registerSessionReviewCreator", () => {
 		eventBus.emit(event);
 
 		// No items created
-		const allItems = db.select().from(items).all();
+		const allItems = await db.select().from(items);
 		expect(allItems).toHaveLength(0);
 
 		unsubscribe();
@@ -191,7 +192,7 @@ describe("registerSessionReviewCreator", () => {
 	it("auto-creates thread when task has no threadId", () => {
 		const unsubscribe = registerSessionReviewCreator(db, eventBus);
 
-		db.insert(tasks)
+		await db.insert(tasks)
 			.values({
 				id: "task-no-thread",
 				betId: "bet-1",
@@ -202,11 +203,11 @@ describe("registerSessionReviewCreator", () => {
 				createdAt: new Date().toISOString(),
 				updatedAt: new Date().toISOString(),
 			})
-			.run();
-		db.insert(taskStrategyFabric)
+
+		await db.insert(taskStrategyFabric)
 			.values({ id: "tsf-task-no-thread", taskId: "task-no-thread", riskTier: "medium" })
-			.run();
-		db.insert(sessions)
+
+		await db.insert(sessions)
 			.values({
 				id: "session-no-thread",
 				taskId: "task-no-thread",
@@ -216,7 +217,6 @@ describe("registerSessionReviewCreator", () => {
 				state: "ended",
 				outcome: "partial",
 			})
-			.run();
 
 		const event: SessionEndedEvent = {
 			type: "session_ended",
@@ -231,19 +231,19 @@ describe("registerSessionReviewCreator", () => {
 
 		// L1a: thread shape is host_kind/host_id; legacy review threads
 		// project to host_kind='task' with host_id=task.id (plan §5.3).
-		const allThreads = db.select().from(threads).all();
+		const allThreads = await db.select().from(threads);
 		expect(allThreads).toHaveLength(1);
 		expect(allThreads[0].hostKind).toBe("task");
 		expect(allThreads[0].hostId).toBe("task-no-thread");
 
 		// Verify item was created in the new thread
-		const allItems = db.select().from(items).all();
+		const allItems = await db.select().from(items);
 		expect(allItems).toHaveLength(1);
 		expect(allItems[0].threadId).toBe(allThreads[0].id);
 		expect(allItems[0].title).toBe("Session completed: partial");
 
 		// Verify task was updated with new threadId
-		const updatedTask = db.select().from(tasks).where(eq(tasks.id, "task-no-thread")).get();
+		const [updatedTask] = await db.select().from(tasks).where(eq(tasks.id, "task-no-thread"));
 		expect(updatedTask?.threadId).toBe(allThreads[0].id);
 
 		unsubscribe();
@@ -252,7 +252,7 @@ describe("registerSessionReviewCreator", () => {
 	it("returns an unsubscribe function that stops handling events", () => {
 		const unsubscribe = registerSessionReviewCreator(db, eventBus);
 
-		db.insert(tasks)
+		await db.insert(tasks)
 			.values({
 				id: "task-unsub",
 				betId: "bet-1",
@@ -263,11 +263,11 @@ describe("registerSessionReviewCreator", () => {
 				createdAt: new Date().toISOString(),
 				updatedAt: new Date().toISOString(),
 			})
-			.run();
-		db.insert(taskStrategyFabric)
+
+		await db.insert(taskStrategyFabric)
 			.values({ id: "tsf-task-unsub", taskId: "task-unsub", riskTier: "high" })
-			.run();
-		db.insert(sessions)
+
+		await db.insert(sessions)
 			.values({
 				id: "session-unsub",
 				taskId: "task-unsub",
@@ -276,7 +276,6 @@ describe("registerSessionReviewCreator", () => {
 				startedAt: new Date().toISOString(),
 				state: "ended",
 			})
-			.run();
 
 		// Unsubscribe before emitting
 		unsubscribe();
@@ -293,7 +292,7 @@ describe("registerSessionReviewCreator", () => {
 		eventBus.emit(event);
 
 		// No items created
-		const allItems = db.select().from(items).all();
+		const allItems = await db.select().from(items);
 		expect(allItems).toHaveLength(0);
 	});
 });

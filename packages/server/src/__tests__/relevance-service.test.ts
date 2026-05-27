@@ -11,6 +11,7 @@ import {
 	knowledgeEditLog,
 	knowledgeItems,
 	knowledgeStrategyFabric,
+	type TestDbHandle
 } from "@hyperidle/db";
 import { createRelevanceService } from "@hyperidle/fabric";
 import { eq } from "drizzle-orm";
@@ -28,7 +29,7 @@ function insertItem(
 	}> = {},
 ): string {
 	const id = overrides.id ?? crypto.randomUUID();
-	db.insert(knowledgeItems)
+	await db.insert(knowledgeItems)
 		.values({
 			id,
 			topic: "testing",
@@ -42,7 +43,7 @@ function insertItem(
 			updatedAt: NOW_ISO,
 			meta: null,
 		})
-		.run();
+
 	return id;
 }
 
@@ -55,7 +56,7 @@ async function insertAccessLog(
 ): Promise<void> {
 	// Uses knowledgeAccessLog table — exported from @hyperidle/db since T1
 	const { knowledgeAccessLog } = await import("@hyperidle/db");
-	db.insert(knowledgeAccessLog)
+	await db.insert(knowledgeAccessLog)
 		.values({
 			id: crypto.randomUUID(),
 			itemId,
@@ -63,14 +64,16 @@ async function insertAccessLog(
 			accessorId,
 			accessedAt,
 		})
-		.run();
+
 }
 
 describe("RelevanceService.computeSignals (L22)", () => {
+	let handle: TestDbHandle;
 	let db: HyperIdleDb;
 
-	beforeEach(() => {
-		db = createTestDb();
+	beforeEach(async () => {
+		handle = await createTestDb();
+		db = handle.db;
 	});
 
 	it("returns empty map for empty itemIds array", () => {
@@ -132,7 +135,7 @@ describe("RelevanceService.computeSignals (L22)", () => {
 		const itemId = insertItem(db);
 		// Edit log: edited 2 days ago
 		const editAt = "2026-05-04T00:00:00.000Z";
-		db.insert(knowledgeEditLog)
+		await db.insert(knowledgeEditLog)
 			.values({
 				id: crypto.randomUUID(),
 				itemId,
@@ -143,7 +146,6 @@ describe("RelevanceService.computeSignals (L22)", () => {
 				editType: "edit",
 				createdAt: editAt,
 			})
-			.run();
 
 		// Access log: accessed yesterday
 		const accessAt = "2026-05-05T00:00:00.000Z";
@@ -175,7 +177,7 @@ describe("RelevanceService.computeSignals (L22)", () => {
 	it("uses editor='human' for lastValidatedAt (not 'facilitator')", async () => {
 		const itemId = insertItem(db);
 		const humanEditAt = "2026-05-04T00:00:00.000Z";
-		db.insert(knowledgeEditLog)
+		await db.insert(knowledgeEditLog)
 			.values({
 				id: crypto.randomUUID(),
 				itemId,
@@ -186,7 +188,6 @@ describe("RelevanceService.computeSignals (L22)", () => {
 				editType: "validation",
 				createdAt: humanEditAt,
 			})
-			.run();
 
 		const service = createRelevanceService(db);
 		const result = service.computeSignals([itemId], NOW_MS);
@@ -198,10 +199,12 @@ describe("RelevanceService.computeSignals (L22)", () => {
 });
 
 describe("RelevanceService.recomputeScores (L22)", () => {
+	let handle: TestDbHandle;
 	let db: HyperIdleDb;
 
-	beforeEach(() => {
-		db = createTestDb();
+	beforeEach(async () => {
+		handle = await createTestDb();
+		db = handle.db;
 	});
 
 	it("updates relevanceScore on knowledgeStrategyFabric after recompute", async () => {

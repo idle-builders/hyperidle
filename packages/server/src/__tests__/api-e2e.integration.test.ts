@@ -9,6 +9,7 @@ import {
 	teams,
 	threads,
 	users,
+	type TestDbHandle
 } from "@hyperidle/db";
 import { EventBus } from "@hyperidle/shared";
 import type { Hono } from "hono";
@@ -22,26 +23,28 @@ function auth(extra?: Record<string, string>): Record<string, string> {
 }
 
 describe("E2E API Integration (I5)", () => {
+	let handle: TestDbHandle;
 	let db: HyperIdleDb;
 	let eventBus: EventBus;
 	let app: Hono;
 
-	beforeEach(() => {
+	beforeEach(async () => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		db = createTestDb();
+		handle = await createTestDb();
+		db = handle.db;
 		eventBus = new EventBus();
-		app = createTestApp({ db, eventBus });
+		app = await createTestApp({ db, eventBus });
 
 		// Seed base entities
-		db.insert(products)
+		await db.insert(products)
 			.values({
 				id: "prod-1",
 				name: "E2E Product",
 				phase: "build",
 				createdAt: new Date().toISOString(),
 			})
-			.run();
-		db.insert(teams)
+
+		await db.insert(teams)
 			.values({
 				id: "team-1",
 				productId: "prod-1",
@@ -49,8 +52,8 @@ describe("E2E API Integration (I5)", () => {
 				activeBets: 0,
 				formedAt: new Date().toISOString(),
 			})
-			.run();
-		db.insert(users)
+
+		await db.insert(users)
 			.values([
 				{
 					id: "agent-1",
@@ -72,11 +75,12 @@ describe("E2E API Integration (I5)", () => {
 					createdAt: new Date().toISOString(),
 				},
 			])
-			.run();
+
 	});
 
-	afterEach(() => {
+	afterEach(async () => {
 		vi.unstubAllEnvs();
+		await handle?.close();
 	});
 
 	// -------------------------------------------------------
@@ -210,8 +214,8 @@ describe("E2E API Integration (I5)", () => {
 	// 4. Tasks
 	// -------------------------------------------------------
 	describe("Tasks", () => {
-		beforeEach(() => {
-			db.insert(bets)
+		beforeEach(async () => {
+			await db.insert(bets)
 				.values({
 					id: "bet-1",
 					productId: "prod-1",
@@ -221,8 +225,8 @@ describe("E2E API Integration (I5)", () => {
 					status: "in_progress",
 					createdAt: new Date().toISOString(),
 				})
-				.run();
-			db.insert(tasks)
+
+			await db.insert(tasks)
 				.values({
 					id: "task-1",
 					betId: "bet-1",
@@ -233,7 +237,7 @@ describe("E2E API Integration (I5)", () => {
 					createdAt: new Date().toISOString(),
 					updatedAt: new Date().toISOString(),
 				})
-				.run();
+
 		});
 
 		it("GET /api/tasks lists all tasks", async () => {
@@ -300,8 +304,8 @@ describe("E2E API Integration (I5)", () => {
 	// 5. Conversations
 	// -------------------------------------------------------
 	describe("Conversations", () => {
-		beforeEach(() => {
-			db.insert(threads)
+		beforeEach(async () => {
+			await db.insert(threads)
 				.values({
 					id: "thread-1",
 					hostKind: "task",
@@ -311,15 +315,15 @@ describe("E2E API Integration (I5)", () => {
 					lastActiveAt: new Date().toISOString(),
 					createdAt: new Date().toISOString(),
 				})
-				.run();
-			db.insert(items)
+
+			await db.insert(items)
 				.values({
 					id: "item-1",
 					title: "E2E item",
 					threadId: "thread-1",
 					createdAt: new Date().toISOString(),
 				})
-				.run();
+
 		});
 
 		it("GET /api/conversations lists threads", async () => {
@@ -352,7 +356,7 @@ describe("E2E API Integration (I5)", () => {
 			// `agent-1` is already seeded by the outer `beforeEach`; we just
 			// add a founder so the verdict authz check (founder + not-self)
 			// has a sender to claim.
-			db.insert(users)
+			await db.insert(users)
 				.values({
 					id: "founder-1",
 					name: "Founder",
@@ -360,7 +364,6 @@ describe("E2E API Integration (I5)", () => {
 					status: "active",
 					createdAt: new Date().toISOString(),
 				})
-				.run();
 
 			const create = await app.request("/api/threads", {
 				method: "POST",
@@ -541,8 +544,8 @@ describe("E2E API Integration (I5)", () => {
 	// 8. Sessions
 	// -------------------------------------------------------
 	describe("Sessions", () => {
-		beforeEach(() => {
-			db.insert(bets)
+		beforeEach(async () => {
+			await db.insert(bets)
 				.values({
 					id: "bet-s",
 					productId: "prod-1",
@@ -552,8 +555,8 @@ describe("E2E API Integration (I5)", () => {
 					status: "in_progress",
 					createdAt: new Date().toISOString(),
 				})
-				.run();
-			db.insert(tasks)
+
+			await db.insert(tasks)
 				.values({
 					id: "task-s",
 					betId: "bet-s",
@@ -564,7 +567,7 @@ describe("E2E API Integration (I5)", () => {
 					createdAt: new Date().toISOString(),
 					updatedAt: new Date().toISOString(),
 				})
-				.run();
+
 		});
 
 		it("GET /api/sessions returns session list", async () => {
@@ -718,17 +721,17 @@ describe("E2E API Integration (I5)", () => {
 	// 11. Routines
 	// -------------------------------------------------------
 	describe("Routines", () => {
-		beforeEach(() => {
-			db.insert(routines)
+		beforeEach(async () => {
+			await db.insert(routines)
 				.values({
 					id: "routine-1",
 					ownerAgentId: "agent-1",
 					triggerType: "heartbeat",
 					triggerConfig: JSON.stringify({ intervalMs: 60000 }),
 					autonomyLevel: 2,
-					active: 1,
+					active: true,
 				})
-				.run();
+
 		});
 
 		it("GET /api/routines lists routines", async () => {

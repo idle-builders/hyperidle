@@ -1,4 +1,6 @@
-import { bets, createTestDb, type HyperIdleDb, products, tasks, teams } from "@hyperidle/db";
+import { bets, createTestDb, type HyperIdleDb, products, tasks, teams ,
+	type TestDbHandle
+} from "@hyperidle/db";
 import {
 	EventBus,
 	type NotificationEvent,
@@ -13,13 +15,13 @@ import { InvalidTransitionError, transitionTask } from "../services/task-state-m
 
 function seedPrerequisites(db: HyperIdleDb): void {
 	const now = new Date().toISOString();
-	db.insert(products)
+	await db.insert(products)
 		.values({ id: "p1", name: "Test Product", phase: "build", createdAt: now })
-		.run();
-	db.insert(teams)
+
+	await db.insert(teams)
 		.values({ id: "t1", productId: "p1", capacity: 5, activeBets: 0, formedAt: now })
-		.run();
-	db.insert(bets)
+
+	await db.insert(bets)
 		.values({
 			id: "b1",
 			productId: "p1",
@@ -29,12 +31,12 @@ function seedPrerequisites(db: HyperIdleDb): void {
 			status: "committed",
 			createdAt: now,
 		})
-		.run();
+
 }
 
 function insertTask(db: HyperIdleDb, id: string, state: TaskState, dependencies?: string[]): void {
 	const now = new Date().toISOString();
-	db.insert(tasks)
+	await db.insert(tasks)
 		.values({
 			id,
 			betId: "b1",
@@ -46,15 +48,17 @@ function insertTask(db: HyperIdleDb, id: string, state: TaskState, dependencies?
 			createdAt: now,
 			updatedAt: now,
 		})
-		.run();
+
 }
 
 describe("Task State Machine", () => {
+	let handle: TestDbHandle;
 	let db: HyperIdleDb;
 	let eventBus: EventBus;
 
-	beforeEach(() => {
-		db = createTestDb();
+	beforeEach(async () => {
+		handle = await createTestDb();
+		db = handle.db;
 		eventBus = new EventBus();
 		seedPrerequisites(db);
 	});
@@ -63,56 +67,56 @@ describe("Task State Machine", () => {
 		it("transitions proposed -> accepted", () => {
 			insertTask(db, "task-1", "proposed");
 			transitionTask(db, eventBus, "task-1", "accepted");
-			const task = db.select().from(tasks).where(eq(tasks.id, "task-1")).get();
+			const [task] = await db.select().from(tasks).where(eq(tasks.id, "task-1"));
 			expect(task?.state).toBe("accepted");
 		});
 
 		it("transitions accepted -> in_progress", () => {
 			insertTask(db, "task-1", "accepted");
 			transitionTask(db, eventBus, "task-1", "in_progress");
-			const task = db.select().from(tasks).where(eq(tasks.id, "task-1")).get();
+			const [task] = await db.select().from(tasks).where(eq(tasks.id, "task-1"));
 			expect(task?.state).toBe("in_progress");
 		});
 
 		it("transitions in_progress -> review", () => {
 			insertTask(db, "task-1", "in_progress");
 			transitionTask(db, eventBus, "task-1", "review");
-			const task = db.select().from(tasks).where(eq(tasks.id, "task-1")).get();
+			const [task] = await db.select().from(tasks).where(eq(tasks.id, "task-1"));
 			expect(task?.state).toBe("review");
 		});
 
 		it("transitions review -> done", () => {
 			insertTask(db, "task-1", "review");
 			transitionTask(db, eventBus, "task-1", "done");
-			const task = db.select().from(tasks).where(eq(tasks.id, "task-1")).get();
+			const [task] = await db.select().from(tasks).where(eq(tasks.id, "task-1"));
 			expect(task?.state).toBe("done");
 		});
 
 		it("transitions accepted -> hold", () => {
 			insertTask(db, "task-1", "accepted");
 			transitionTask(db, eventBus, "task-1", "hold");
-			const task = db.select().from(tasks).where(eq(tasks.id, "task-1")).get();
+			const [task] = await db.select().from(tasks).where(eq(tasks.id, "task-1"));
 			expect(task?.state).toBe("hold");
 		});
 
 		it("transitions in_progress -> blocked", () => {
 			insertTask(db, "task-1", "in_progress");
 			transitionTask(db, eventBus, "task-1", "blocked");
-			const task = db.select().from(tasks).where(eq(tasks.id, "task-1")).get();
+			const [task] = await db.select().from(tasks).where(eq(tasks.id, "task-1"));
 			expect(task?.state).toBe("blocked");
 		});
 
 		it("transitions blocked -> in_progress", () => {
 			insertTask(db, "task-1", "blocked");
 			transitionTask(db, eventBus, "task-1", "in_progress");
-			const task = db.select().from(tasks).where(eq(tasks.id, "task-1")).get();
+			const [task] = await db.select().from(tasks).where(eq(tasks.id, "task-1"));
 			expect(task?.state).toBe("in_progress");
 		});
 
 		it("transitions review -> in_progress (rework)", () => {
 			insertTask(db, "task-1", "review");
 			transitionTask(db, eventBus, "task-1", "in_progress");
-			const task = db.select().from(tasks).where(eq(tasks.id, "task-1")).get();
+			const [task] = await db.select().from(tasks).where(eq(tasks.id, "task-1"));
 			expect(task?.state).toBe("in_progress");
 		});
 	});
@@ -228,7 +232,7 @@ describe("Task State Machine", () => {
 			transitionTask(db, eventBus, "task-1", "accepted");
 			transitionTask(db, eventBus, "task-1", "in_progress");
 
-			const task = db.select().from(tasks).where(eq(tasks.id, "task-1")).get();
+			const [task] = await db.select().from(tasks).where(eq(tasks.id, "task-1"));
 			const audit = JSON.parse(task?.auditTrail ?? "[]") as TaskAuditEntry[];
 			expect(audit).toHaveLength(2);
 			const first = audit[0] as StateTransitionAuditEntry;
@@ -244,7 +248,7 @@ describe("Task State Machine", () => {
 			const existingAudit: StateTransitionAuditEntry[] = [
 				{ from: "proposed", to: "accepted", timestamp: now },
 			];
-			db.insert(tasks)
+			await db.insert(tasks)
 				.values({
 					id: "task-existing",
 					betId: "b1",
@@ -256,11 +260,10 @@ describe("Task State Machine", () => {
 					createdAt: now,
 					updatedAt: now,
 				})
-				.run();
 
 			transitionTask(db, eventBus, "task-existing", "accepted");
 
-			const task = db.select().from(tasks).where(eq(tasks.id, "task-existing")).get();
+			const [task] = await db.select().from(tasks).where(eq(tasks.id, "task-existing"));
 			const audit = JSON.parse(task?.auditTrail ?? "[]") as TaskAuditEntry[];
 			expect(audit).toHaveLength(2);
 			const first = audit[0] as StateTransitionAuditEntry;
@@ -307,7 +310,7 @@ describe("Task State Machine", () => {
 			transitionTask(db, eventBus, "task-a", "done");
 			checkAndUnblockDependents(db, eventBus, "task-a");
 
-			const taskB = db.select().from(tasks).where(eq(tasks.id, "task-b")).get();
+			const [taskB] = await db.select().from(tasks).where(eq(tasks.id, "task-b"));
 			expect(taskB?.state).toBe("accepted");
 		});
 

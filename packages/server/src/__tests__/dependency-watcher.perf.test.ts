@@ -1,4 +1,6 @@
-import { bets, createTestDb, type HyperIdleDb, products, tasks, teams } from "@hyperidle/db";
+import { bets, createTestDb, type HyperIdleDb, products, tasks, teams ,
+	type TestDbHandle
+} from "@hyperidle/db";
 import { EventBus, type TaskState } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
 import { beforeEach, describe, expect, it } from "vitest";
@@ -21,13 +23,13 @@ import { checkAndUnblockDependents } from "../services/dependency-watcher.js";
 
 function seedPrerequisites(db: HyperIdleDb): void {
 	const now = new Date().toISOString();
-	db.insert(products)
+	await db.insert(products)
 		.values({ id: "p1", name: "Test Product", phase: "build", createdAt: now })
-		.run();
-	db.insert(teams)
+
+	await db.insert(teams)
 		.values({ id: "t1", productId: "p1", capacity: 5, activeBets: 0, formedAt: now })
-		.run();
-	db.insert(bets)
+
+	await db.insert(bets)
 		.values({
 			id: "b1",
 			productId: "p1",
@@ -37,12 +39,12 @@ function seedPrerequisites(db: HyperIdleDb): void {
 			status: "committed",
 			createdAt: now,
 		})
-		.run();
+
 }
 
 function insertTask(db: HyperIdleDb, id: string, state: TaskState, dependencies?: string[]): void {
 	const now = new Date().toISOString();
-	db.insert(tasks)
+	await db.insert(tasks)
 		.values({
 			id,
 			betId: "b1",
@@ -54,15 +56,17 @@ function insertTask(db: HyperIdleDb, id: string, state: TaskState, dependencies?
 			createdAt: now,
 			updatedAt: now,
 		})
-		.run();
+
 }
 
 describe("I3: dependency-watcher SQL filter benchmark", () => {
+	let handle: TestDbHandle;
 	let db: HyperIdleDb;
 	let eventBus: EventBus;
 
-	beforeEach(() => {
-		db = createTestDb();
+	beforeEach(async () => {
+		handle = await createTestDb();
+		db = handle.db;
 		eventBus = new EventBus();
 		seedPrerequisites(db);
 	});
@@ -89,7 +93,7 @@ describe("I3: dependency-watcher SQL filter benchmark", () => {
 		checkAndUnblockDependents(db, eventBus, "target");
 		const elapsedMs = performance.now() - start;
 
-		const dependent = db.select().from(tasks).where(eq(tasks.id, "dependent")).get();
+		const [dependent] = await db.select().from(tasks).where(eq(tasks.id, "dependent"));
 		expect(dependent?.state).toBe("accepted");
 		expect(elapsedMs, `checkAndUnblockDependents took ${elapsedMs.toFixed(2)}ms`).toBeLessThan(50);
 	});
@@ -110,7 +114,7 @@ describe("I3: dependency-watcher SQL filter benchmark", () => {
 		// A naive load-all-rows implementation calls JSON.parse on every row
 		// and throws on this one.
 		const now = new Date().toISOString();
-		db.insert(tasks)
+		await db.insert(tasks)
 			.values({
 				id: "malformed",
 				betId: "b1",
@@ -122,20 +126,21 @@ describe("I3: dependency-watcher SQL filter benchmark", () => {
 				createdAt: now,
 				updatedAt: now,
 			})
-			.run();
 
 		expect(() => checkAndUnblockDependents(db, eventBus, "target")).not.toThrow();
-		const dependent = db.select().from(tasks).where(eq(tasks.id, "dependent")).get();
+		const [dependent] = await db.select().from(tasks).where(eq(tasks.id, "dependent"));
 		expect(dependent?.state).toBe("accepted");
 	});
 });
 
 describe("I3: dependency-watcher LIKE prefix-collision guard", () => {
+	let handle: TestDbHandle;
 	let db: HyperIdleDb;
 	let eventBus: EventBus;
 
-	beforeEach(() => {
-		db = createTestDb();
+	beforeEach(async () => {
+		handle = await createTestDb();
+		db = handle.db;
 		eventBus = new EventBus();
 		seedPrerequisites(db);
 	});
@@ -149,7 +154,7 @@ describe("I3: dependency-watcher LIKE prefix-collision guard", () => {
 
 		checkAndUnblockDependents(db, eventBus, "dep-1");
 
-		const dependent = db.select().from(tasks).where(eq(tasks.id, "dependent")).get();
+		const [dependent] = await db.select().from(tasks).where(eq(tasks.id, "dependent"));
 		// Must remain in hold — dep-12 is NOT done.
 		expect(dependent?.state).toBe("hold");
 	});
@@ -161,7 +166,7 @@ describe("I3: dependency-watcher LIKE prefix-collision guard", () => {
 
 		checkAndUnblockDependents(db, eventBus, "dep-1");
 
-		const sibling = db.select().from(tasks).where(eq(tasks.id, "sibling")).get();
+		const [sibling] = await db.select().from(tasks).where(eq(tasks.id, "sibling"));
 		expect(sibling?.state).toBe("hold");
 	});
 });
