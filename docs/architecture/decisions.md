@@ -8,7 +8,7 @@
 - **Context compaction detection.** Continuous session notes throughout the session (agent writes to `work/session-notes.md` as it works). Pre-compaction trigger where the harness supports it (part of the Harness Adapter contract). Token-counting heuristic as fallback.
 - **Hot-reload for skills.** Next session picks it up. No mid-session propagation needed.
 - **Desktop shell.** Electron. Server embedded in main process (`@hono/node-server`). SQLite via `better-sqlite3`. Auth via auto-generated API key injected by preload bridge. Distributed as signed/notarized DMG via Homebrew cask.
-- **Mobile strategy.** None. Desktop-only. Two power users at desks.
+- **Mobile strategy.** None. Desktop-only.
 - **Canvas (bet placement) tech.** Simple symbolic UI — not an actual canvas or drag-and-drop zone. A two-column layout (shaped / committed) with a hard capacity cap, rendered as `BetCard`s. Standard React components, no canvas library needed.
 - **Scheduler architecture.** Single-process (Node.js event loop). API server and Scheduler share one process. Materialization and session-start calls run as async tasks so the event loop isn't blocked. **Scaling note:** if measured latency degrades under load, extract Scheduler to its own process communicating via Event Bus. Monitor for this.
 - **No external framework integrations in the meta layer.** No Letta, no Agent Mail, no Temporal, no Inngest. All agentic integrations happen through the Agent Runtime layer (Harness Adapters). The meta layer stays minimal: SQLite, TypeScript/Node.js, the Knowledge Fabric, and the Hono API. Complex dependencies are avoided as long as possible.

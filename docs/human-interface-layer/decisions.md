@@ -7,7 +7,7 @@
 - **Cross-view deep linking:** clicking anything on the Rail links to the corresponding view and item.
 - **Thread primitive:** one Thread model with typed messages (plain, review, questionnaire, verdict). No "review threads" vs "chat threads" as separate types — the distinction is derived from message content. See §4.5.
 - **Chief of Staff:** accessible via overlay triggered from bottom-right Rail button, not a pinned thread in the list. Structurally still a Thread attached to the user host.
-- **Human-initiated conversations:** founders can create threads with agents (RecipientPicker, N key) and dial into live sessions (D key).
+- **Human-initiated conversations:** humans can create threads with agents (RecipientPicker, N key) and dial into live sessions (D key).
 - **Notification adapter:** TBD during development. Will need some notification mechanism; specific technology decided at implementation time.
 - **Knowledge view model:** catalogue with topic/node structure, not page tree. Seven scopes (factory, product, practice, team, bet, task, user). Humans author knowledge at any scope. Threads attach to knowledge items for discussion.
 - **Knowledge view:** three relevance signals on every item (recency, frequency, citation). Two tabs: Triage (draft) and Curated (active).

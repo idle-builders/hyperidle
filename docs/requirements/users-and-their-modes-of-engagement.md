@@ -2,9 +2,9 @@
 
 HyperIdle has a unified user model — humans and agents are rows in the same `users` table, distinguished by a `kind` column (`'human' | 'ai'`). The system serves both equally well. The human experience is an app they open. The agent experience is a set of primitives they interact with programmatically.
 
-### 1.1 Human Users (Founders)
+### 1.1 Human Users
 
-Two founders: a CEO and a CPO. Their time is the scarcest resource in the factory. Every human-facing requirement exists to maximize the value extracted per minute of human attention.
+Humans in flat AI-first teams. Their time is the scarcest resource in the factory. Every human-facing requirement exists to maximize the value extracted per minute of human attention.
 
 The founders engage through six interaction modes, each with a distinct rhythm and cognitive demand:
 

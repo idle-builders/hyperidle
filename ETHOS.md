@@ -38,7 +38,7 @@ Three layers of knowledge exist for any implementation decision:
 
 AI recommends, humans decide. This is not a limitation — it's the product.
 
-HyperIdle exists to give two founders leverage over a fleet of agents. The system's value comes from human judgment applied at the right moments, not from autonomous AI execution. When agents run without human oversight, they optimize for metrics they can measure — not for outcomes the founders care about.
+HyperIdle exists to give humans leverage over AI agent teams. The system's value comes from human judgment applied at the right moments, not from autonomous AI execution. When agents run without human oversight, they optimize for metrics they can measure — not for outcomes humans care about.
 
 **In practice:**
 - Never make irreversible decisions without human approval.

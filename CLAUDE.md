@@ -1,6 +1,6 @@
 # HyperIdle — Claude Code Rules
 
-HyperIdle is an agentic operating system that manages product teams of AI agents. Two founders (CEO + CPO) run a "Product Factory" — a portfolio of digital products where AI agents do the implementation work.
+HyperIdle is an agentic operating system for AI-first companies. Flat teams of humans and AI agents collaborate through conversations, manage work as time-boxed bets, and build shared knowledge — like Slack + Linear + Notion + GitHub in one app, with AI agents as first-class participants.
 
 **Status:** Pre-implementation. Architecture docs are complete. Code is being built workpackage-by-workpackage from `plans/work-packages/` (per-track files).
 
