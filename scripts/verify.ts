@@ -65,6 +65,21 @@ const TOOLS: Tool[] = [
 		timeoutMs: 300_000,
 	},
 	{ name: "build", cmd: "npm", args: ["run", "build"], timeoutMs: 60_000 },
+	{
+		name: "build:desktop",
+		cmd: "npm",
+		args: ["run", "-w", "@hyperidle/desktop", "build"],
+		timeoutMs: 60_000,
+	},
+	{
+		name: "server:load",
+		cmd: "node",
+		args: [
+			"--import", "tsx",
+			"-e", "import('@hyperidle/server/server-factory').then(() => { process.exit(0); })",
+		],
+		timeoutMs: 15_000,
+	},
 	// e2e disabled — needs full rebuild of Playwright fixture/server setup
 	// {
 	// 	name: "e2e",
