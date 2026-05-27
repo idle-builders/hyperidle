@@ -5,7 +5,7 @@ describe("H4 AC1/AC4: Deployment profile resolution", () => {
 	it("exposes defaults for all three profiles", () => {
 		expect(PROFILE_DEFAULTS.laptop).toMatchObject({
 			profile: "laptop",
-			dbDriver: "sqlite",
+			dbDriver: "pglite",
 			workspaceAdapter: "local",
 			requiresDockerCompose: false,
 		});

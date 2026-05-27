@@ -3,15 +3,13 @@ import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 import { redactDbUrl } from "@hyperidle/shared";
 import { type DeploymentProfile, resolveProfile } from "./profiles.js";
-import * as schema from "./schema.js";
 import { seed } from "./seed.js";
 
 const Filename = typeof __filename === "string" ? __filename : fileURLToPath(import.meta.url);
 const Dirname = path.dirname(Filename);
 
-// @lore N1: setup-cli uses better-sqlite3 unconditionally. The Bun-specific
-// SQLite branch was removed in N1. Both Bun and Node now use the same
-// better-sqlite3 code path.
+// @lore Phase 2: setup-cli now uses PGlite for the laptop profile.
+// The `--db-path` argument is now a data directory (not a SQLite file path).
 
 export interface RunSetupIo {
 	stdout: (line: string) => void;
@@ -37,7 +35,7 @@ const USAGE = [
 	"",
 	"Options:",
 	"  --profile <laptop|vps|cloud>  Deployment profile (or HYPERIDLE_PROFILE env).",
-	"  --db-path <path>              SQLite file path (laptop profile). Default: ./hyperidle.db",
+	"  --db-path <path>              PGlite data directory (laptop profile). Default: ./hyperidle-pg",
 	"  --db-url <url>                Postgres URL (vps/cloud profile). Default from env DATABASE_URL.",
 	"  --root <path>                 Repo root override (used to locate docker-compose.yml).",
 	"  --dry-run                     Print planned actions without executing.",
@@ -141,19 +139,17 @@ export function validateDbPath(input: string, cwd: string): string {
  * Architecture §6.1: "Option A. The migration logic must be a single source of
  * truth. The setup-cli and the desktop must run identical migrations."
  */
-async function applyLaptopMigrations(dbPath: string, migrationsFolder: string): Promise<void> {
+async function applyLaptopMigrations(dataDir: string, migrationsFolder: string): Promise<void> {
 	const { applyMigrations } = await import("./migrate.js");
-	applyMigrations(dbPath, migrationsFolder);
+	await applyMigrations(dataDir, migrationsFolder);
 
 	// Seed the database — setup-cli always seeds; desktop does not.
-	const { default: BetterSqlite } = await import("better-sqlite3");
-	const { drizzle: nodeDrizzle } = await import("drizzle-orm/better-sqlite3");
-	const sqlite = new BetterSqlite(dbPath);
+	const { createPgliteDb } = await import("./connection.js");
+	const handle = await createPgliteDb(dataDir);
 	try {
-		const db = nodeDrizzle(sqlite, { schema });
-		seed(db);
+		await seed(handle.db);
 	} finally {
-		sqlite.close();
+		await handle.close();
 	}
 }
 
@@ -163,27 +159,27 @@ async function runLaptop(
 	root: string,
 	cwd: string,
 ): Promise<number> {
-	const rawPath = args.dbPath ?? path.join(root, "hyperidle.db");
+	const rawPath = args.dbPath ?? path.join(root, "hyperidle-pg");
 
-	let dbPath: string;
+	let dataDir: string;
 	try {
-		dbPath = validateDbPath(rawPath, cwd);
+		dataDir = validateDbPath(rawPath, cwd);
 	} catch (err) {
 		io.stderr(`[setup] ${(err as Error).message}`);
 		return 1;
 	}
 
 	if (args.dryRun) {
-		io.stdout(`[setup] (dry-run) Would create SQLite DB at ${dbPath}`);
+		io.stdout(`[setup] (dry-run) Would create PGlite data directory at ${dataDir}`);
 		io.stdout("[setup] (dry-run) Would run migrations from packages/db/drizzle");
 		io.stdout("[setup] (dry-run) Would seed database");
 		return 0;
 	}
 
 	const migrationsFolder = path.resolve(Dirname, "..", "drizzle");
-	await applyLaptopMigrations(dbPath, migrationsFolder);
+	await applyLaptopMigrations(dataDir, migrationsFolder);
 
-	io.stdout(`[setup] Ready. SQLite DB at ${dbPath}`);
+	io.stdout(`[setup] Ready. PGlite data at ${dataDir}`);
 	io.stdout("[setup] Next: run `bun dev` to start the server and web app.");
 	return 0;
 }
