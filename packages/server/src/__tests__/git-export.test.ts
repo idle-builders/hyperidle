@@ -822,10 +822,8 @@ describe("runGitExport", () => {
 		// For every paired add+commit, commit is after the matching add AND
 		// the next add is after that commit (serialization invariant).
 		for (let i = 0; i < commitIdxs.length; i++) {
-			// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
 			expect(commitIdxs[i]!).toBeGreaterThan(addIdxs[i]!);
 			if (i + 1 < addIdxs.length) {
-				// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
 				expect(addIdxs[i + 1]!).toBeGreaterThan(commitIdxs[i]!);
 			}
 		}
