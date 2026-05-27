@@ -80,7 +80,9 @@ describe("H4 honest-state: synchronous Drizzle call-site audit", () => {
 		// removing ~124 sync call sites from the server scan. Snapshot updated.
 		// Q3 added pitch PATCH + product existence check + canvas enrichment
 		// in bets route (~5 new sync call sites). Snapshot bumped to absorb.
-		const SNAPSHOT_COUNT = 1189;
+		// P4 added PATCH /api/users/:id + POST /api/users (setup) routes with
+		// new sync call sites (~58 new sync calls). Snapshot bumped to absorb.
+		const SNAPSHOT_COUNT = 1247;
 		const TOLERANCE = 50; // absorb routine renames without a fail-open
 
 		const humanReport = hits

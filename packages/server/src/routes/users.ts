@@ -11,6 +11,8 @@ import { API_ERROR_CODES, type EventBus, type ItemCreatedEvent } from "@hyperidl
 import { and, desc, eq, sql } from "drizzle-orm";
 import { Hono } from "hono";
 import z from "zod";
+import type { HyperIdleEnv } from "../middleware/auth.js";
+import { constantTimeStringEqual } from "../middleware/timing-safe.js";
 import { validateBody } from "../middleware/validate.js";
 import { findOrCreateDirectThread } from "../services/direct-thread.js";
 import { escapeLikePattern } from "../services/like-escape.js";
@@ -29,14 +31,114 @@ const sendMessageSchema = z
 	.strict();
 
 /**
+ * @lore P4: PATCH /api/users/:id — only name and email are writable by the
+ * authenticated human user. The userId from auth context must match the :id
+ * param to prevent unauthorized profile edits.
+ */
+const patchUserSchema = z.object({
+	name: z.string().min(1).max(200).optional(),
+	email: z.string().email().max(200).optional(),
+});
+
+/**
+ * @lore P4: POST /api/users — create the human user during setup.
+ * Auth bypass: when no human user exists (fresh install), allow creation
+ * without API key. Once a human user exists, require auth.
+ * This prevents unauthorized user creation after setup is complete.
+ */
+const createHumanUserSchema = z.object({
+	name: z.string().min(1).max(200),
+	email: z.string().email().max(200),
+});
+
+/**
+ * Create the pre-auth public route for human user setup.
+ *
+ * @lore P4: POST /api/users for initial setup must bypass the global auth
+ * middleware. When no human user exists (fresh install), allow unauthenticated
+ * creation. When a human user already exists, require auth (prevents
+ * unauthorized user creation after setup is complete).
+ *
+ * This router is registered in app.ts BEFORE the auth middleware so the
+ * POST can succeed without an API key during first-run setup.
+ */
+export function createUserSetupRoute(db: HyperIdleDb): Hono {
+	const router = new Hono();
+
+	router.post("/", async (c) => {
+		let rawBody: unknown;
+		try {
+			rawBody = await c.req.json();
+		} catch {
+			return c.json({ error: "Invalid JSON", code: API_ERROR_CODES.VALIDATION_ERROR }, 400);
+		}
+
+		const parsed = createHumanUserSchema.safeParse(rawBody);
+		if (!parsed.success) {
+			return c.json(
+				{
+					error: "Validation failed",
+					code: API_ERROR_CODES.VALIDATION_ERROR,
+					issues: parsed.error.issues,
+				},
+				400,
+			);
+		}
+
+		// Check if a human user already exists
+		const existingHuman = db.select().from(users).where(eq(users.kind, "human")).limit(1).get();
+
+		if (existingHuman) {
+			// Human user exists: require auth. Check the API key.
+			// @lore P4: Even though this route is pre-auth, we enforce auth here
+			// when a human already exists. This prevents unauthorized user creation
+			// after setup is complete.
+			const apiKey = c.req.header("X-API-Key") ?? "";
+			const expectedKey = process.env.HYPERIDLE_API_KEY ?? "";
+			const ok = constantTimeStringEqual(apiKey, expectedKey);
+			if (!ok) {
+				return c.json(
+					{ error: "Missing or invalid API key", code: API_ERROR_CODES.UNAUTHORIZED },
+					401,
+				);
+			}
+			// Idempotent: return existing human user with 200
+			return c.json(existingHuman, 200);
+		}
+
+		// No human user exists — allow unauthenticated creation (setup mode)
+		const { name, email } = parsed.data;
+		const id = crypto.randomUUID();
+		const now = new Date().toISOString();
+
+		db.insert(users)
+			.values({
+				id,
+				kind: "human",
+				name,
+				email,
+				role: "founder",
+				status: "active",
+				createdAt: now,
+			})
+			.run();
+
+		const created = db.select().from(users).where(eq(users.id, id)).get();
+		return c.json(created, 201);
+	});
+
+	return router;
+}
+
+/**
  * Create Hono routes for user endpoints.
  *
  * @lore P2: Renamed from createAgentRoutes / routes/agents.ts. All endpoints
  * are preserved under /api/users (was /api/agents). The function name and file
  * are the only changes — behavior is identical.
  */
-export function createUserRoutes(db: HyperIdleDb, eventBus: EventBus): Hono {
-	const router = new Hono();
+export function createUserRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<HyperIdleEnv> {
+	const router = new Hono<HyperIdleEnv>();
 
 	// GET / — List all users with active session counts
 	router.get("/", (c) => {
@@ -63,6 +165,57 @@ export function createUserRoutes(db: HyperIdleDb, eventBus: EventBus): Hono {
 		const skills = db.select().from(userSkills).where(eq(userSkills.userId, userId)).all();
 
 		return c.json({ ...user, skills });
+	});
+
+	// PATCH /:id — Update human user profile (name + email)
+	// @lore P4: Only the authenticated user can patch their own profile.
+	// The userId from auth context must match the :id param — 403 otherwise.
+	router.patch("/:id", async (c) => {
+		const targetId = c.req.param("id");
+		const authenticatedUserId = c.get("userId");
+
+		// Enforce self-only edit
+		if (authenticatedUserId !== targetId) {
+			return c.json(
+				{ error: "Forbidden: can only update your own profile", code: API_ERROR_CODES.FORBIDDEN },
+				403,
+			);
+		}
+
+		const target = db.select().from(users).where(eq(users.id, targetId)).get();
+		if (!target) {
+			return c.json({ error: "User not found", code: API_ERROR_CODES.NOT_FOUND }, 404);
+		}
+
+		let rawBody: unknown;
+		try {
+			rawBody = await c.req.json();
+		} catch {
+			return c.json({ error: "Invalid JSON", code: API_ERROR_CODES.VALIDATION_ERROR }, 400);
+		}
+
+		const parsed = patchUserSchema.safeParse(rawBody);
+		if (!parsed.success) {
+			return c.json(
+				{
+					error: "Validation failed",
+					code: API_ERROR_CODES.VALIDATION_ERROR,
+					issues: parsed.error.issues,
+				},
+				400,
+			);
+		}
+
+		const updates: { name?: string; email?: string } = {};
+		if (parsed.data.name !== undefined) updates.name = parsed.data.name;
+		if (parsed.data.email !== undefined) updates.email = parsed.data.email;
+
+		if (Object.keys(updates).length > 0) {
+			db.update(users).set(updates).where(eq(users.id, targetId)).run();
+		}
+
+		const updated = db.select().from(users).where(eq(users.id, targetId)).get();
+		return c.json(updated, 200);
 	});
 
 	// PATCH /:id/skills/:skillId — Update autonomy level

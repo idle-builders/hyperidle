@@ -134,8 +134,10 @@ describe("AppShell", () => {
 
 		await user.click(screen.getByRole("button", { name: /user profile/i }));
 
+		// P4: SettingsPanel modal removed. Settings overlay is now a shell-state
+		// content swap — Submenu shows "Settings" heading + 7 section nav items.
 		await waitFor(() => {
-			expect(screen.getByRole("dialog", { name: /settings/i })).toBeInTheDocument();
+			expect(screen.getByText("Settings")).toBeInTheDocument();
 		});
 	});
 
@@ -202,7 +204,7 @@ describe("AppShell", () => {
 			expect(root?.getAttribute("data-density")).toBe("default");
 		});
 
-		it('changing density to "compact" via SettingsPanel updates data-density on the shell root', async () => {
+		it('changing density to "compact" via SettingsAppearance updates data-density on the shell root', async () => {
 			const user = userEvent.setup();
 			const { container } = renderShell("/conversations");
 
@@ -212,27 +214,28 @@ describe("AppShell", () => {
 			});
 			await user.click(screen.getByRole("button", { name: /user profile/i }));
 
-			// Switch to Appearance tab and pick Compact, then save.
+			// P4: navigate to Appearance section in new settings overlay.
 			await waitFor(() => {
-				expect(screen.getByRole("dialog", { name: /settings/i })).toBeInTheDocument();
+				expect(screen.getByText("Appearance")).toBeInTheDocument();
 			});
-			await user.click(screen.getByRole("tab", { name: "Appearance" }));
+			// Click the Appearance NavItem in the settings Submenu
+			await user.click(screen.getByText("Appearance"));
+
+			// Pick Compact density in the SettingsAppearance select
+			await waitFor(() => {
+				expect(screen.getByLabelText("Density")).toBeInTheDocument();
+			});
 			const densitySelect = screen.getByLabelText("Density");
 			await user.selectOptions(densitySelect, "compact");
-			await user.click(screen.getByRole("button", { name: /save/i }));
 
-			// After save, the shell root's data-density should reflect the new
-			// value. Save closes the panel; we wait for that side-effect.
-			await waitFor(() => {
-				expect(screen.queryByRole("dialog", { name: /settings/i })).not.toBeInTheDocument();
-			});
+			// After selecting, the shell root's data-density should reflect the new value.
 			await waitFor(() => {
 				const root = getDensityRoot(container);
 				expect(root?.getAttribute("data-density")).toBe("compact");
 			});
 		});
 
-		it('changing density to "comfortable" via SettingsPanel updates data-density to comfortable', async () => {
+		it('changing density to "comfortable" via SettingsAppearance updates data-density to comfortable', async () => {
 			const user = userEvent.setup();
 			const { container } = renderShell("/conversations");
 
@@ -240,15 +243,19 @@ describe("AppShell", () => {
 				expect(screen.getByRole("button", { name: /user profile/i })).toBeInTheDocument();
 			});
 			await user.click(screen.getByRole("button", { name: /user profile/i }));
-			await user.click(screen.getByRole("tab", { name: "Appearance" }));
 
-			const densitySelect = screen.getByLabelText("Density");
-			await user.selectOptions(densitySelect, "comfortable");
-			await user.click(screen.getByRole("button", { name: /save/i }));
+			// P4: navigate to Appearance section in new settings overlay.
+			await waitFor(() => {
+				expect(screen.getByText("Appearance")).toBeInTheDocument();
+			});
+			await user.click(screen.getByText("Appearance"));
 
 			await waitFor(() => {
-				expect(screen.queryByRole("dialog", { name: /settings/i })).not.toBeInTheDocument();
+				expect(screen.getByLabelText("Density")).toBeInTheDocument();
 			});
+			const densitySelect = screen.getByLabelText("Density");
+			await user.selectOptions(densitySelect, "comfortable");
+
 			await waitFor(() => {
 				const root = getDensityRoot(container);
 				expect(root?.getAttribute("data-density")).toBe("comfortable");

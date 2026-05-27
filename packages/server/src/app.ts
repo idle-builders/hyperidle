@@ -30,7 +30,7 @@ import { createStatusRoutes } from "./routes/status.js";
 import { createTaskRoutes } from "./routes/tasks.js";
 import { registerTestRoutes } from "./routes/test-routes.js";
 import { createThreadRoutes } from "./routes/threads.js";
-import { createUserRoutes } from "./routes/users.js";
+import { createUserRoutes, createUserSetupRoute } from "./routes/users.js";
 import {
 	type ObservabilityConfig,
 	readObservabilityConfig,
@@ -177,6 +177,15 @@ function createApp(options?: AppOptions): Hono {
 			skipPaths: ["/api/health", "/api/status/health", "/api/auth"],
 		}),
 	);
+
+	// P4: Public: POST /api/users (setup — no auth required on first run)
+	// @lore P4: Registered AFTER the rate limiter so DoS floods are throttled
+	// before reaching the setup route. The route itself enforces auth once a
+	// human user already exists (setup-complete guard). Registered BEFORE the
+	// auth middleware so the initial setup call can succeed without an API key.
+	if (options?.db) {
+		api.route("/users", createUserSetupRoute(options.db));
+	}
 
 	// I2 review O6 / arch H-1: the WS-token mint endpoint gets its OWN
 	// rate-limit bucket so a WS reconnect storm cannot starve the API
