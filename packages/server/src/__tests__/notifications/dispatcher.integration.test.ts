@@ -40,7 +40,7 @@ function createFakeAdapter(): NotificationAdapter & { calls: AdapterCall[] } {
 	};
 }
 
-function enable(db: HyperIdleDb): void {
+async function enable(db: HyperIdleDb): Promise<void> {
 	const now = "2026-04-18T00:00:00.000Z";
 	const pairs: Record<string, string> = {
 		"notifications.enabled": "true",
@@ -92,7 +92,7 @@ describe("H2 Dispatcher integration via createApp", () => {
 	});
 
 	it("subscribes to item_created and pushes on blocking items", async () => {
-		enable(db);
+		await enable(db);
 		const threadId = "thread-app-1";
 		await db.insert(threads)
 			.values({
@@ -130,7 +130,7 @@ describe("H2 Dispatcher integration via createApp", () => {
 	});
 
 	it("subscribes to cost_cap_breached and pushes a cost_breach notification", async () => {
-		enable(db);
+		await enable(db);
 		const event: CostCapBreachedEvent = {
 			type: "cost_cap_breached",
 			streamId: "s",
@@ -148,7 +148,7 @@ describe("H2 Dispatcher integration via createApp", () => {
 	});
 
 	it("routine_fired with daily_digest marker triggers runDailyDigest", async () => {
-		enable(db);
+		await enable(db);
 		const now = "2026-04-18T00:00:00.000Z";
 		await db.insert(notificationQueue)
 			.values({
@@ -173,7 +173,7 @@ describe("H2 Dispatcher integration via createApp", () => {
 			timestamp: Date.now(),
 		};
 		bus.emit(event);
-		await vi.waitFor(() => {
+		await vi.waitFor(async () => {
 			const rows = await db.select().from(notificationQueue);
 			expect(rows[0].status).toBe("sent");
 		});

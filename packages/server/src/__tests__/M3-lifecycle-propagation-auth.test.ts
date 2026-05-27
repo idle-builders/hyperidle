@@ -24,7 +24,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const SYSTEM_PROPAGATION_ID = "system:propagation";
 
-function seedBase(db: HyperIdleDb, founderId = "test-founder-1"): void {
+async function seedBase(db: HyperIdleDb, founderId = "test-founder-1"): Promise<void> {
 	const now = new Date().toISOString();
 
 	// P2: seed human founder user row (replaces factorySettings.founder_id lookup)
@@ -75,7 +75,7 @@ function seedBase(db: HyperIdleDb, founderId = "test-founder-1"): void {
 
 }
 
-function seedDoneTasks(db: HyperIdleDb): void {
+async function seedDoneTasks(db: HyperIdleDb): Promise<void> {
 	const now = new Date().toISOString();
 	await db.insert(tasks)
 		.values({
@@ -114,8 +114,8 @@ describe("M3 — lifecycle-propagation: thread participants use users-table foun
 		handle = await createTestDb();
 		db = handle.db;
 		eventBus = new EventBus();
-		seedBase(db, "test-founder-1");
-		seedDoneTasks(db);
+		await seedBase(db, "test-founder-1");
+		await seedDoneTasks(db);
 		registerLifecyclePropagation(db, eventBus);
 	});
 

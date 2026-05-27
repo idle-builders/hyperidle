@@ -243,7 +243,7 @@ describe("Bet Endpoints (E3)", () => {
 
 		it("emits bet_state_changed event on commit", async () => {
 			const events: unknown[] = [];
-			eventBus.on("bet_state_changed", (e) => events.push(e));
+			eventBus.on("bet_state_changed", (e: unknown) => events.push(e));
 
 			const bet = await createBet();
 			await app.request(`/api/bets/${bet.id}/commit`, {

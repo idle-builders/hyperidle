@@ -20,14 +20,14 @@ import { beforeEach, describe, expect, it } from "vitest";
 const NOW_ISO = "2026-05-06T12:00:00.000Z";
 const NOW_MS = new Date(NOW_ISO).getTime();
 
-function insertItem(
+async function insertItem(
 	db: HyperIdleDb,
 	overrides: Partial<{
 		id: string;
 		title: string;
 		status: string;
 	}> = {},
-): string {
+): Promise<string> {
 	const id = overrides.id ?? crypto.randomUUID();
 	await db.insert(knowledgeItems)
 		.values({
@@ -82,8 +82,8 @@ describe("RelevanceService.computeSignals (L22)", () => {
 		expect(result.size).toBe(0);
 	});
 
-	it("returns null signals for item with no access log or edit log data", () => {
-		const itemId = insertItem(db);
+	it("returns null signals for item with no access log or edit log data", async () => {
+		const itemId = await insertItem(db);
 		const service = createRelevanceService(db);
 		const result = service.computeSignals([itemId], NOW_MS);
 		const signals = result.get(itemId);
@@ -94,7 +94,7 @@ describe("RelevanceService.computeSignals (L22)", () => {
 	});
 
 	it("computes lastAccessedAt from access log and counts accessCount30d", async () => {
-		const itemId = insertItem(db);
+		const itemId = await insertItem(db);
 		// Insert 3 access log entries within 30 days
 		const access1 = "2026-05-05T10:00:00.000Z";
 		const access2 = "2026-05-04T10:00:00.000Z";
@@ -114,7 +114,7 @@ describe("RelevanceService.computeSignals (L22)", () => {
 	});
 
 	it("does not count access logs older than 30 days in accessCount30d", async () => {
-		const itemId = insertItem(db);
+		const itemId = await insertItem(db);
 		// One within 30 days, one outside
 		const recent = "2026-05-01T00:00:00.000Z"; // 5 days ago
 		const old = "2026-03-01T00:00:00.000Z"; // > 30 days ago
@@ -132,7 +132,7 @@ describe("RelevanceService.computeSignals (L22)", () => {
 	});
 
 	it("computes lastActivityAt as max of lastValidatedAt, lastEditedAt, lastAccessedAt", async () => {
-		const itemId = insertItem(db);
+		const itemId = await insertItem(db);
 		// Edit log: edited 2 days ago
 		const editAt = "2026-05-04T00:00:00.000Z";
 		await db.insert(knowledgeEditLog)
@@ -161,8 +161,8 @@ describe("RelevanceService.computeSignals (L22)", () => {
 	});
 
 	it("handles multiple items in a single batch call", async () => {
-		const id1 = insertItem(db, { id: "item-1" });
-		const id2 = insertItem(db, { id: "item-2" });
+		const id1 = await insertItem(db, { id: "item-1" });
+		const id2 = await insertItem(db, { id: "item-2" });
 
 		await insertAccessLog(db, id1, "2026-05-05T00:00:00.000Z");
 
@@ -175,7 +175,7 @@ describe("RelevanceService.computeSignals (L22)", () => {
 	});
 
 	it("uses editor='human' for lastValidatedAt (not 'facilitator')", async () => {
-		const itemId = insertItem(db);
+		const itemId = await insertItem(db);
 		const humanEditAt = "2026-05-04T00:00:00.000Z";
 		await db.insert(knowledgeEditLog)
 			.values({
@@ -208,7 +208,7 @@ describe("RelevanceService.recomputeScores (L22)", () => {
 	});
 
 	it("updates relevanceScore on knowledgeStrategyFabric after recompute", async () => {
-		const itemId = insertItem(db);
+		const itemId = await insertItem(db);
 		// Give it some access history so score is non-null
 		await insertAccessLog(db, itemId, "2026-05-05T00:00:00.000Z");
 
@@ -227,7 +227,7 @@ describe("RelevanceService.recomputeScores (L22)", () => {
 	});
 
 	it("sets relevanceScore to null for items with no signal data", async () => {
-		const itemId = insertItem(db);
+		const itemId = await insertItem(db);
 		// No access log, no edit log
 
 		const service = createRelevanceService(db);

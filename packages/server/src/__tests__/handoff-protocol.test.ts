@@ -10,18 +10,18 @@ import {
 	teams,
 	threads,
 	users,
-	type TestDbHandle
+	type TestDbHandle,
 } from "@hyperidle/db";
 // @lore O2: sessions.cost stripped; cost tracking moved to agents.costActual.
 import { EventBus } from "@hyperidle/shared";
-import { eq, sql } from "drizzle-orm";
-import { beforeEach, describe, expect, it } from "vitest";
+import { eq } from "drizzle-orm";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { type HandoffMetadata, handoff } from "../services/handoff-protocol.js";
 import type { SessionContext } from "../services/session-lifecycle.js";
 
 // --- Test helpers ---
 
-function seedPrerequisites(db: HyperIdleDb): void {
+async function seedPrerequisites(db: HyperIdleDb): Promise<void> {
 	const now = new Date().toISOString();
 	await db.insert(products)
 		.values({ id: "p1", name: "Test Product", phase: "build", createdAt: now })
@@ -42,13 +42,13 @@ function seedPrerequisites(db: HyperIdleDb): void {
 
 }
 
-function insertAgent(
+async function insertAgent(
 	db: HyperIdleDb,
 	id: string,
 	role: string,
 	teamId: string,
 	status = "active",
-): void {
+): Promise<void> {
 	const now = new Date().toISOString();
 	await db.insert(users)
 		.values({
@@ -63,7 +63,7 @@ function insertAgent(
 
 }
 
-function insertTask(db: HyperIdleDb, id: string, state: string, ownerAgentId?: string): void {
+async function insertTask(db: HyperIdleDb, id: string, state: string, ownerAgentId?: string): Promise<void> {
 	const now = new Date().toISOString();
 	const threadId = `thread-${id}`;
 	await db.insert(threads)
@@ -93,13 +93,13 @@ function insertTask(db: HyperIdleDb, id: string, state: string, ownerAgentId?: s
 
 }
 
-function insertSession(
+async function insertSession(
 	db: HyperIdleDb,
 	id: string,
 	taskId: string,
 	agentId: string,
 	state = "active",
-): void {
+): Promise<void> {
 	const now = new Date().toISOString();
 	await db.insert(sessions)
 		.values({
@@ -120,6 +120,7 @@ function makeSessionContext(sessionId: string, agentId: string, taskId: string):
 		taskId,
 		workspacePath: "/tmp/test-workspace",
 		watcher: { stop: () => {} } as SessionContext["watcher"],
+		traceId: "trace-test",
 	};
 }
 
@@ -143,15 +144,19 @@ describe("Handoff Protocol", () => {
 		handle = await createTestDb();
 		db = handle.db;
 		eventBus = new EventBus();
-		seedPrerequisites(db);
+		await seedPrerequisites(db);
+	});
+
+	afterEach(async () => {
+		await handle?.close();
 	});
 
 	describe("AC1: Agent A hands off to agent B", () => {
 		it("ends A's session, sets B as owner, creates thread message with metadata", async () => {
-			insertAgent(db, "agent-a", "builder", "t1");
-			insertAgent(db, "agent-b", "builder", "t1");
-			insertTask(db, "task-1", "in_progress", "agent-a");
-			insertSession(db, "session-a", "task-1", "agent-a");
+			await insertAgent(db, "agent-a", "builder", "t1");
+			await insertAgent(db, "agent-b", "builder", "t1");
+			await insertTask(db, "task-1", "in_progress", "agent-a");
+			await insertSession(db, "session-a", "task-1", "agent-a");
 
 			const ctx = makeSessionContext("session-a", "agent-a", "task-1");
 			const metadata = makeMetadata();
@@ -173,11 +178,10 @@ describe("Handoff Protocol", () => {
 			expect(task?.ownerAgentId).toBe("agent-b");
 
 			// Thread message should exist with handoff metadata
-			const threadMsgs = db
+			const threadMsgs = await db
 				.select()
 				.from(messages)
-				.where(eq(messages.threadId, "thread-task-1"))
-				.all();
+				.where(eq(messages.threadId, "thread-task-1"));
 			expect(threadMsgs).toHaveLength(1);
 			// L1a: handoff message body lives in the JSON `payload` column
 			// (subject/body dropped — see plan §5.3).
@@ -192,10 +196,10 @@ describe("Handoff Protocol", () => {
 
 	describe("AC2: Handoff by role", () => {
 		it("resolves toRole to available agent on same team", async () => {
-			insertAgent(db, "agent-a", "product_manager", "t1");
-			insertAgent(db, "agent-b", "builder", "t1");
-			insertTask(db, "task-1", "in_progress", "agent-a");
-			insertSession(db, "session-a", "task-1", "agent-a");
+			await insertAgent(db, "agent-a", "product_manager", "t1");
+			await insertAgent(db, "agent-b", "builder", "t1");
+			await insertTask(db, "task-1", "in_progress", "agent-a");
+			await insertSession(db, "session-a", "task-1", "agent-a");
 
 			const ctx = makeSessionContext("session-a", "agent-a", "task-1");
 			const metadata = makeMetadata();
@@ -214,10 +218,10 @@ describe("Handoff Protocol", () => {
 		});
 
 		it("creates escalation item when no agent with role available", async () => {
-			insertAgent(db, "agent-a", "product_manager", "t1");
+			await insertAgent(db, "agent-a", "product_manager", "t1");
 			// No builder agents exist
-			insertTask(db, "task-1", "in_progress", "agent-a");
-			insertSession(db, "session-a", "task-1", "agent-a");
+			await insertTask(db, "task-1", "in_progress", "agent-a");
+			await insertSession(db, "session-a", "task-1", "agent-a");
 
 			const ctx = makeSessionContext("session-a", "agent-a", "task-1");
 			const metadata = makeMetadata();
@@ -239,9 +243,9 @@ describe("Handoff Protocol", () => {
 
 		it("excludes the handing-off agent from role resolution", async () => {
 			// Agent A is also a builder -- should not hand off to itself
-			insertAgent(db, "agent-a", "builder", "t1");
-			insertTask(db, "task-1", "in_progress", "agent-a");
-			insertSession(db, "session-a", "task-1", "agent-a");
+			await insertAgent(db, "agent-a", "builder", "t1");
+			await insertTask(db, "task-1", "in_progress", "agent-a");
+			await insertSession(db, "session-a", "task-1", "agent-a");
 
 			const ctx = makeSessionContext("session-a", "agent-a", "task-1");
 			const metadata = makeMetadata();
@@ -258,9 +262,9 @@ describe("Handoff Protocol", () => {
 
 	describe("AC3: Handoff to human", () => {
 		it("transitions task to blocked and creates review item", async () => {
-			insertAgent(db, "agent-a", "builder", "t1");
-			insertTask(db, "task-1", "in_progress", "agent-a");
-			insertSession(db, "session-a", "task-1", "agent-a");
+			await insertAgent(db, "agent-a", "builder", "t1");
+			await insertTask(db, "task-1", "in_progress", "agent-a");
+			await insertSession(db, "session-a", "task-1", "agent-a");
 
 			const ctx = makeSessionContext("session-a", "agent-a", "task-1");
 			const metadata = makeMetadata({ status: "blocked", reason: "Need human review" });
@@ -287,10 +291,10 @@ describe("Handoff Protocol", () => {
 
 	describe("AC4: Thread message contains structured handoff metadata JSON", () => {
 		it("includes all required fields in the thread message body", async () => {
-			insertAgent(db, "agent-a", "builder", "t1");
-			insertAgent(db, "agent-b", "builder", "t1");
-			insertTask(db, "task-1", "in_progress", "agent-a");
-			insertSession(db, "session-a", "task-1", "agent-a");
+			await insertAgent(db, "agent-a", "builder", "t1");
+			await insertAgent(db, "agent-b", "builder", "t1");
+			await insertTask(db, "task-1", "in_progress", "agent-a");
+			await insertSession(db, "session-a", "task-1", "agent-a");
 
 			const ctx = makeSessionContext("session-a", "agent-a", "task-1");
 			const metadata = makeMetadata({
@@ -307,11 +311,10 @@ describe("Handoff Protocol", () => {
 				metadata,
 			});
 
-			const threadMsgs = db
+			const threadMsgs = await db
 				.select()
 				.from(messages)
-				.where(eq(messages.threadId, "thread-task-1"))
-				.all();
+				.where(eq(messages.threadId, "thread-task-1"));
 			expect(threadMsgs).toHaveLength(1);
 			// L1a: handoff message body lives in the JSON `payload` column
 			// (subject/body dropped — see plan §5.3).
@@ -329,10 +332,10 @@ describe("Handoff Protocol", () => {
 
 	describe("AC5: Handoff with status failed includes error information", () => {
 		it("includes error field in thread message when status is failed", async () => {
-			insertAgent(db, "agent-a", "builder", "t1");
-			insertAgent(db, "agent-b", "builder", "t1");
-			insertTask(db, "task-1", "in_progress", "agent-a");
-			insertSession(db, "session-a", "task-1", "agent-a");
+			await insertAgent(db, "agent-a", "builder", "t1");
+			await insertAgent(db, "agent-b", "builder", "t1");
+			await insertTask(db, "task-1", "in_progress", "agent-a");
+			await insertSession(db, "session-a", "task-1", "agent-a");
 
 			const ctx = makeSessionContext("session-a", "agent-a", "task-1");
 			const metadata = makeMetadata({
@@ -347,11 +350,10 @@ describe("Handoff Protocol", () => {
 				metadata,
 			});
 
-			const threadMsgs = db
+			const threadMsgs = await db
 				.select()
 				.from(messages)
-				.where(eq(messages.threadId, "thread-task-1"))
-				.all();
+				.where(eq(messages.threadId, "thread-task-1"));
 			// L1a: handoff message body lives in the JSON `payload` column
 			// (subject/body dropped — see plan §5.3).
 			const body = JSON.parse(threadMsgs[0].payload);
@@ -362,10 +364,10 @@ describe("Handoff Protocol", () => {
 
 	describe("AC6: Task audit trail shows full handoff history", () => {
 		it("logs handoff in task audit trail", async () => {
-			insertAgent(db, "agent-a", "builder", "t1");
-			insertAgent(db, "agent-b", "builder", "t1");
-			insertTask(db, "task-1", "in_progress", "agent-a");
-			insertSession(db, "session-a", "task-1", "agent-a");
+			await insertAgent(db, "agent-a", "builder", "t1");
+			await insertAgent(db, "agent-b", "builder", "t1");
+			await insertTask(db, "task-1", "in_progress", "agent-a");
+			await insertSession(db, "session-a", "task-1", "agent-a");
 
 			const ctx = makeSessionContext("session-a", "agent-a", "task-1");
 			const metadata = makeMetadata();
@@ -387,8 +389,8 @@ describe("Handoff Protocol", () => {
 		});
 
 		it("preserves existing audit entries when adding handoff", async () => {
-			insertAgent(db, "agent-a", "builder", "t1");
-			insertAgent(db, "agent-b", "builder", "t1");
+			await insertAgent(db, "agent-a", "builder", "t1");
+			await insertAgent(db, "agent-b", "builder", "t1");
 
 			// Insert task with existing audit trail (in the auditTrail column,
 			// per the schema contract) AND agent prose in `notes` — handoff
@@ -424,7 +426,7 @@ describe("Handoff Protocol", () => {
 					updatedAt: now,
 				})
 
-			insertSession(db, "session-a2", "task-2", "agent-a");
+			await insertSession(db, "session-a2", "task-2", "agent-a");
 
 			const ctx = makeSessionContext("session-a2", "agent-a", "task-2");
 			const metadata = makeMetadata();
@@ -446,11 +448,11 @@ describe("Handoff Protocol", () => {
 		});
 
 		it("tracks multiple handoffs in sequence", async () => {
-			insertAgent(db, "agent-a", "builder", "t1");
-			insertAgent(db, "agent-b", "builder", "t1");
-			insertAgent(db, "agent-c", "builder", "t1");
-			insertTask(db, "task-1", "in_progress", "agent-a");
-			insertSession(db, "session-a", "task-1", "agent-a");
+			await insertAgent(db, "agent-a", "builder", "t1");
+			await insertAgent(db, "agent-b", "builder", "t1");
+			await insertAgent(db, "agent-c", "builder", "t1");
+			await insertTask(db, "task-1", "in_progress", "agent-a");
+			await insertSession(db, "session-a", "task-1", "agent-a");
 
 			// First handoff: A -> B
 			const ctxA = makeSessionContext("session-a", "agent-a", "task-1");
@@ -461,7 +463,7 @@ describe("Handoff Protocol", () => {
 			});
 
 			// Second handoff: B -> C
-			insertSession(db, "session-b", "task-1", "agent-b");
+			await insertSession(db, "session-b", "task-1", "agent-b");
 			const ctxB = makeSessionContext("session-b", "agent-b", "task-1");
 			await handoff(db, eventBus, {
 				sessionContext: ctxB,
@@ -483,8 +485,8 @@ describe("Handoff Protocol", () => {
 	// ---------------- I1 / Handoff data integrity (H1, H3) ----------------
 	describe("I1 H1: handoff writes to auditTrail, not notes", () => {
 		it("leaves tasks.notes prose untouched and appends handoff entry to tasks.auditTrail", async () => {
-			insertAgent(db, "agent-a", "builder", "t1");
-			insertAgent(db, "agent-b", "builder", "t1");
+			await insertAgent(db, "agent-a", "builder", "t1");
+			await insertAgent(db, "agent-b", "builder", "t1");
 
 			// Seed task with agent-authored prose in `notes`. Handoff must
 			// not touch this column.
@@ -517,7 +519,7 @@ describe("Handoff Protocol", () => {
 					updatedAt: now,
 				})
 
-			insertSession(db, "session-h1", "task-h1", "agent-a");
+			await insertSession(db, "session-h1", "task-h1", "agent-a");
 
 			const ctx = makeSessionContext("session-h1", "agent-a", "task-h1");
 			await handoff(db, eventBus, {
@@ -540,10 +542,10 @@ describe("Handoff Protocol", () => {
 		});
 
 		it("never writes the handoff entry into tasks.notes even when notes starts null", async () => {
-			insertAgent(db, "agent-a", "builder", "t1");
-			insertAgent(db, "agent-b", "builder", "t1");
-			insertTask(db, "task-h1-null", "in_progress", "agent-a");
-			insertSession(db, "session-h1-null", "task-h1-null", "agent-a");
+			await insertAgent(db, "agent-a", "builder", "t1");
+			await insertAgent(db, "agent-b", "builder", "t1");
+			await insertTask(db, "task-h1-null", "in_progress", "agent-a");
+			await insertSession(db, "session-h1-null", "task-h1-null", "agent-a");
 
 			const ctx = makeSessionContext("session-h1-null", "agent-a", "task-h1-null");
 			await handoff(db, eventBus, {
@@ -585,10 +587,10 @@ describe("Handoff Protocol", () => {
 		// @lore O2: sessions.cost stripped; cost tracking moved to agents.costActual.
 		// The test now verifies that agents.costActual is preserved across a handoff.
 		it("preserves the agent's accumulated costActual on handoff", async () => {
-			insertAgent(db, "agent-a", "builder", "t1");
-			insertAgent(db, "agent-b", "builder", "t1");
-			insertTask(db, "task-h3", "in_progress", "agent-a");
-			insertSession(db, "session-h3", "task-h3", "agent-a");
+			await insertAgent(db, "agent-a", "builder", "t1");
+			await insertAgent(db, "agent-b", "builder", "t1");
+			await insertTask(db, "task-h3", "in_progress", "agent-a");
+			await insertSession(db, "session-h3", "task-h3", "agent-a");
 
 			// Pre-accumulate cost on the agent.
 			await db.update(users).set({ costActual: 150 }).where(eq(users.id, "agent-a"));
@@ -612,28 +614,29 @@ describe("Handoff Protocol", () => {
 	// ---------------- I1 adversary-M2 / security-M3: handoff is atomic ----------------
 	describe("I1 M2: handoff wraps all DB mutations in one transaction", () => {
 		it("rolls back session, task, auditTrail when messages INSERT throws", async () => {
-			insertAgent(db, "agent-a", "builder", "t1");
-			insertAgent(db, "agent-b", "builder", "t1");
-			insertTask(db, "task-atomic", "in_progress", "agent-a");
-			insertSession(db, "session-atomic", "task-atomic", "agent-a");
+			await insertAgent(db, "agent-a", "builder", "t1");
+			await insertAgent(db, "agent-b", "builder", "t1");
+			await insertTask(db, "task-atomic", "in_progress", "agent-a");
+			await insertSession(db, "session-atomic", "task-atomic", "agent-a");
 			// Bump the agent costActual so we can prove it survives the rollback.
 			// @lore O2: sessions.cost stripped; rollback proof via agents.costActual.
 			await db.update(users).set({ costActual: 250 }).where(eq(users.id, "agent-a"));
 
 			// Force the `messages` INSERT inside the handoff transaction to
-			// throw by dropping the referenced thread row. We temporarily
-			// disable the foreign_keys pragma so we can delete the thread
-			// while `tasks.threadId` still points at it (tasks.threadId is
-			// FK-restricted). The pragma is re-enabled before calling
-			// handoff so messages.threadId FK enforcement is live.
-			db.run(sql`PRAGMA foreign_keys = OFF`);
-			await db.delete(threads).where(eq(threads.id, "thread-task-atomic"));
-			db.run(sql`PRAGMA foreign_keys = ON`);
+			// throw by pointing the task's threadId to a non-existent thread.
+			// In Postgres, FK constraints are always enforced so we update
+			// tasks.threadId to a phantom id; the messages INSERT will then
+			// fail with a FK violation because that thread doesn't exist.
+			// @lore PGlite: PRAGMA foreign_keys is SQLite-only; Postgres FKs
+			// are always on, so we corrupt the threadId reference instead.
+			await db.update(tasks)
+				.set({ threadId: "thread-nonexistent" })
+				.where(eq(tasks.id, "task-atomic"));
 
 			// Capture any emitted events — none should fire because the
 			// transaction rolls back and emission is post-commit.
 			const emitted: Array<{ type: string }> = [];
-			eventBus.on("*", (e) => emitted.push(e));
+			eventBus.on("*", (e: unknown) => emitted.push(e as { type: string }));
 
 			const ctx = makeSessionContext("session-atomic", "agent-a", "task-atomic");
 			let thrown: unknown = null;
@@ -648,7 +651,10 @@ describe("Handoff Protocol", () => {
 			}
 
 			expect(thrown).toBeInstanceOf(Error);
-			expect((thrown as Error).message).toContain("FOREIGN KEY");
+			// Postgres FK violation: "violates foreign key constraint"
+			// @lore PGlite: SQLite said "FOREIGN KEY constraint failed";
+			// Postgres says "violates foreign key constraint" (lowercase).
+			expect((thrown as Error).message.toLowerCase()).toContain("foreign key");
 
 			// Session unchanged: still active, no endedAt.
 			const [session] = await db.select().from(sessions).where(eq(sessions.id, "session-atomic"));
@@ -658,8 +664,10 @@ describe("Handoff Protocol", () => {
 			const [agentRow] = await db.select().from(users).where(eq(users.id, "agent-a"));
 			expect(agentRow?.costActual).toBe(250);
 
-			// Task unchanged: ownership still agent-a, auditTrail has no
-			// handoff entry (the tx rolled back all of its writes).
+			// Task: ownerAgentId still agent-a (ownership update rolled back),
+			// auditTrail has no handoff entry (the tx rolled back all of its writes).
+			// Note: threadId was updated OUTSIDE the handoff tx, so it remains
+			// "thread-nonexistent" — we only check ownership + auditTrail here.
 			const [task] = await db.select().from(tasks).where(eq(tasks.id, "task-atomic"));
 			expect(task?.ownerAgentId).toBe("agent-a");
 			const audit = JSON.parse(task?.auditTrail ?? "[]") as Array<Record<string, unknown>>;
@@ -673,7 +681,7 @@ describe("Handoff Protocol", () => {
 
 	describe("edge cases", () => {
 		it("throws when task not found", async () => {
-			insertAgent(db, "agent-a", "builder", "t1");
+			await insertAgent(db, "agent-a", "builder", "t1");
 			const ctx = makeSessionContext("session-a", "agent-a", "nonexistent-task");
 			const metadata = makeMetadata();
 
@@ -683,9 +691,9 @@ describe("Handoff Protocol", () => {
 		});
 
 		it("throws when target agent not found", async () => {
-			insertAgent(db, "agent-a", "builder", "t1");
-			insertTask(db, "task-1", "in_progress", "agent-a");
-			insertSession(db, "session-a", "task-1", "agent-a");
+			await insertAgent(db, "agent-a", "builder", "t1");
+			await insertTask(db, "task-1", "in_progress", "agent-a");
+			await insertSession(db, "session-a", "task-1", "agent-a");
 
 			const ctx = makeSessionContext("session-a", "agent-a", "task-1");
 			const metadata = makeMetadata();

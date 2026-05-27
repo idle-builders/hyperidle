@@ -20,7 +20,7 @@ describe("I2 review arch H-3 — `/api/auth/ws-token` is conditional on WS regis
 	});
 
 	it("a createApp() WITHOUT registerWebSocket does not mount /api/auth/ws-token", async () => {
-		const app = createTestApp();
+		const app = await createTestApp();
 
 		const res = await app.request("/api/auth/ws-token", {
 			method: "POST",
@@ -30,7 +30,7 @@ describe("I2 review arch H-3 — `/api/auth/ws-token` is conditional on WS regis
 	});
 
 	it("a createApp() WITH registerWebSocket DOES mount /api/auth/ws-token", async () => {
-		const app = createTestApp({
+		const app = await createTestApp({
 			// Stub: the test cares that mount-vs-no-mount toggles on the
 			// hook's presence; the hook body is irrelevant here.
 			registerWebSocket: () => {},

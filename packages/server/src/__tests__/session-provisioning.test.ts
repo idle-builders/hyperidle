@@ -109,7 +109,7 @@ interface ScriptedHarnessConfig {
 	 * `processWriteback` in the rare case that fs.watch is unreliable under
 	 * concurrency — see AC5).
 	 */
-	readonly afterFileWrites?: (config: SessionConfig) => void;
+	readonly afterFileWrites?: (config: SessionConfig) => Promise<void> | void;
 }
 
 class ScriptedHarnessAdapter implements HarnessAdapter {
@@ -137,7 +137,7 @@ class ScriptedHarnessAdapter implements HarnessAdapter {
 			}
 		}
 		if (this.config.afterFileWrites) {
-			this.config.afterFileWrites(config);
+			await this.config.afterFileWrites(config);
 		}
 		return { sessionId: `scripted-session-${this.nextId++}` };
 	}
@@ -175,7 +175,7 @@ interface SeedOverrides {
 
 const NOW = "2026-04-16T00:00:00.000Z";
 
-function seedDomain(db: HyperIdleDb, overrides: SeedOverrides = {}): void {
+async function seedDomain(db: HyperIdleDb, overrides: SeedOverrides = {}): Promise<void> {
 	await db.insert(products)
 		.values({ id: "p1", name: "Test Product", phase: "build", createdAt: NOW })
 
@@ -302,7 +302,7 @@ describe("Session Provisioning (D5)", () => {
 	// ---------------------------------------------------------------------- AC1
 	describe("AC1: end-to-end mock run", () => {
 		it("provisions, lets agent write a file, flushes to SQLite via writeback, ends, cleans workspace", async () => {
-			seedDomain(db);
+			await seedDomain(db);
 
 			// The harness writes a markdown file into the live workspace
 			// (knowledge/practices/ is a manifest-watched zone). We then
@@ -319,12 +319,12 @@ describe("Session Provisioning (D5)", () => {
 					{ type: "completion", text: "Done." },
 				],
 				fileWrites: [{ relativePath, content }],
-				afterFileWrites: (cfg) => {
-					const sessionRow = db
+				afterFileWrites: async (cfg) => {
+					const [sessionRow] = await db
 						.select()
 						.from(sessions)
 						.where(eq(sessions.workspaceSnapshot, cfg.workspacePath))
-						.get();
+
 					if (!sessionRow) throw new Error("AC1 setup error: no session row");
 					processWriteback(
 						{
@@ -369,11 +369,11 @@ describe("Session Provisioning (D5)", () => {
 			// (e) The writeback pipeline ran: a knowledge_items row attributed
 			// to this session must exist. This proves manifest → writeback
 			// flowed end-to-end — not a DB shortcut.
-			const kiRows = db
+			const kiRows = await db
 				.select()
 				.from(knowledgeItems)
 				.where(eq(knowledgeItems.updatedBy, `session:${result.sessionId}`))
-				.all();
+
 			expect(kiRows).toHaveLength(1);
 			expect(kiRows[0].body).toBe(content);
 		});
@@ -382,7 +382,7 @@ describe("Session Provisioning (D5)", () => {
 	// ---------------------------------------------------------------------- AC3
 	describe("AC3: crash recovery", () => {
 		it("marks session crashed and preserves pre-crash knowledge via writeback", async () => {
-			seedDomain(db);
+			await seedDomain(db);
 
 			// The harness writes a markdown file into the live workspace BEFORE
 			// streaming events, then the single streamed event triggers a
@@ -396,12 +396,12 @@ describe("Session Provisioning (D5)", () => {
 			const harness = new ScriptedHarnessAdapter({
 				events: [{ type: "cost_update", totalCost: 0.0, deltaCost: 0.0 }],
 				fileWrites: [{ relativePath, content }],
-				afterFileWrites: (cfg) => {
-					const sessionRow = db
+				afterFileWrites: async (cfg) => {
+					const [sessionRow] = await db
 						.select()
 						.from(sessions)
 						.where(eq(sessions.workspaceSnapshot, cfg.workspacePath))
-						.get();
+
 					if (!sessionRow) throw new Error("AC3 setup error: no session row");
 					processWriteback(
 						{
@@ -439,11 +439,11 @@ describe("Session Provisioning (D5)", () => {
 			// Pre-crash writes must survive the crash via the writeback layer.
 			// Strict assertion: a knowledge_items row attributed to THIS session
 			// must exist (no DB-shortcut fallback accepted).
-			const rows = db
+			const rows = await db
 				.select()
 				.from(knowledgeItems)
 				.where(eq(knowledgeItems.updatedBy, `session:${result.sessionId}`))
-				.all();
+
 			expect(rows).toHaveLength(1);
 			expect(rows[0].body).toBe(content);
 		});
@@ -455,7 +455,7 @@ describe("Session Provisioning (D5)", () => {
 			// Cap = 0 with zero spend is already a binding breach per
 			// cost-cap.ts: `if (agentSpend >= agent.costCap)` (0 >= 0). No
 			// prior-session crutch needed.
-			seedDomain(db, { agentCostCap: 0 });
+			await seedDomain(db, { agentCostCap: 0 });
 
 			const harness = new ScriptedHarnessAdapter({ events: [] });
 			const deps: ProvisionSessionDeps = { db, eventBus, harness, workspace };
@@ -484,7 +484,7 @@ describe("Session Provisioning (D5)", () => {
 	// ---------------------------------------------------------------------- AC5
 	describe("AC5: concurrent sessions are independent", () => {
 		it("runs 3 sessions in parallel with distinct workspaces, each session's writeback strictly isolated", async () => {
-			seedDomain(db, { agentMaxConcurrentSessions: 3, extraTasks: 2 });
+			await seedDomain(db, { agentMaxConcurrentSessions: 3, extraTasks: 2 });
 
 			// NOTE on watcher reliability under concurrency: `fs.watch` with
 			// `{ recursive: true }` on macOS uses FSEvents and becomes lossy
@@ -497,7 +497,7 @@ describe("Session Provisioning (D5)", () => {
 			// assertion we care about (each knowledge_items row attributed
 			// only to its own session) lives in the WRITEBACK layer, not in
 			// fs.watch's event-delivery layer.
-			function mkHarness(marker: string): ScriptedHarnessAdapter {
+			async function mkHarness(marker: string): ScriptedHarnessAdapter {
 				const relativePath = `knowledge/practices/${marker}.md`;
 				return new ScriptedHarnessAdapter({
 					events: [
@@ -505,17 +505,17 @@ describe("Session Provisioning (D5)", () => {
 						{ type: "completion", text: "ok" },
 					],
 					fileWrites: [{ relativePath, content: `marker:${marker}` }],
-					afterFileWrites: (cfg) => {
+					afterFileWrites: async (cfg) => {
 						// Deterministic writeback so the isolation assertion is
 						// not subject to fs.watch races. We look up the session's
 						// UUID by workspace path (inserted in Phase 5 of the
 						// orchestrator) so the knowledge_items row gets the
 						// correct `session:<uuid>` attribution.
-						const sessionRow = db
+						const [sessionRow] = await db
 							.select()
 							.from(sessions)
 							.where(eq(sessions.workspaceSnapshot, cfg.workspacePath))
-							.get();
+
 						if (!sessionRow) {
 							throw new Error(`AC5 setup error: no session row for workspace ${cfg.workspacePath}`);
 						}
@@ -577,11 +577,11 @@ describe("Session Provisioning (D5)", () => {
 				const sessionRow = sessionRows.find((s) => s.id === r.sessionId);
 				const expectedMarker = `marker:${sessionRow?.taskId}`;
 
-				const rows = db
+				const rows = await db
 					.select()
 					.from(knowledgeItems)
 					.where(eq(knowledgeItems.updatedBy, attribution))
-					.all();
+
 				expect(rows).toHaveLength(1);
 				expect(rows[0].body).toBe(expectedMarker);
 			}
@@ -599,7 +599,7 @@ describe("Session Provisioning (D5)", () => {
 	// ---------------------------------------------------------------------- AC6
 	describe("AC6: task transitions accepted -> in_progress on session start", () => {
 		it("transitions the task before streamEvents is consumed", async () => {
-			seedDomain(db);
+			await seedDomain(db);
 
 			// Sanity-check precondition.
 			const [pre] = await db.select().from(tasks).where(eq(tasks.id, "task-1"));
@@ -613,7 +613,7 @@ describe("Session Provisioning (D5)", () => {
 					{ type: "cost_update", totalCost: 0.0, deltaCost: 0.0 },
 					{ type: "completion", text: "ok" },
 				],
-				onStart: () => {
+				onStart: async () => {
 					const [t] = await db.select().from(tasks).where(eq(tasks.id, "task-1"));
 					taskStateAtStart = t?.state;
 				},
@@ -640,7 +640,7 @@ describe("Session Provisioning (D5)", () => {
 	// ---------------------------------------------------------------------- AC7
 	describe("AC7: sub-agent cost aggregation", () => {
 		it("accumulates cost deltas from main and sub-agents (returned in result)", async () => {
-			seedDomain(db);
+			await seedDomain(db);
 
 			// Main + two sub-agent cost updates. The orchestrator accumulates these.
 			// O2: cost column stripped from sessions — cost returned in result only.
@@ -669,7 +669,7 @@ describe("Session Provisioning (D5)", () => {
 			// must trip the breach. If the orchestrator never forwards to
 			// recordCostAndCheck, this event is never emitted and the test
 			// fails — which is exactly the gap D5 was missing.
-			seedDomain(db, { agentCostCap: 3 });
+			await seedDomain(db, { agentCostCap: 3 });
 
 			const breaches: CostCapBreachedEvent[] = [];
 			eventBus.on("cost_cap_breached", (e) => breaches.push(e));
@@ -698,7 +698,7 @@ describe("Session Provisioning (D5)", () => {
 	// ---------------------------------------------------------------------- AC8
 	describe("AC8: session_ended event carries full payload", () => {
 		it("emits { sessionId, outcome, taskId } on normal end", async () => {
-			seedDomain(db);
+			await seedDomain(db);
 
 			const received: SessionEndedEvent[] = [];
 			eventBus.on("session_ended", (e) => received.push(e));
@@ -723,7 +723,7 @@ describe("Session Provisioning (D5)", () => {
 		});
 
 		it("emits outcome=crashed when the harness throws", async () => {
-			seedDomain(db);
+			await seedDomain(db);
 
 			const received: SessionEndedEvent[] = [];
 			eventBus.on("session_ended", (e) => received.push(e));
@@ -749,7 +749,7 @@ describe("Session Provisioning (D5)", () => {
 			// events that were consumed by the registry but never forwarded
 			// to the EventBus, so `registerObservabilityDispatcher` never
 			// saw them.
-			seedDomain(db);
+			await seedDomain(db);
 			const received: Array<{
 				sessionId: string;
 				toolName: string;
@@ -787,7 +787,7 @@ describe("Session Provisioning (D5)", () => {
 		});
 
 		it("registerSessionReviewCreator creates a review item for a medium-risk task", async () => {
-			seedDomain(db, { taskRiskTier: "medium" });
+			await seedDomain(db, { taskRiskTier: "medium" });
 
 			// Pre-attach a review thread to the task so the creator has somewhere to file.
 			await db.insert(threads)
@@ -828,7 +828,7 @@ describe("Session Provisioning (D5)", () => {
 	// -------------------------------------------------------------- AC error handling
 	describe("AC error handling: workspace spawn failure reverts task state", () => {
 		it("reverts task to accepted, writes no session row, and propagates the error", async () => {
-			seedDomain(db);
+			await seedDomain(db);
 
 			// Mock workspace adapter whose spawn always throws (e.g. disk full).
 			const failingWorkspace: WorkspaceAdapter = {
@@ -889,7 +889,7 @@ describe("Session Provisioning (D5)", () => {
 	// ------------------------------------------------- I1 H2: revert data integrity
 	describe("I1 H2: revertTaskToAccepted writes to auditTrail, preserves notes", () => {
 		it("preserves agent-authored notes prose and appends the revert entry to auditTrail", async () => {
-			seedDomain(db);
+			await seedDomain(db);
 
 			// Seed agent-authored prose on the task before provisioning; the
 			// revert path must not corrupt this column.
@@ -934,7 +934,7 @@ describe("Session Provisioning (D5)", () => {
 	// -------------------------------------------------------------- AC defensive
 	describe("AC defensive: negative deltaCost is clamped to zero", () => {
 		it("ignores negative deltaCost; session ends cleanly", async () => {
-			seedDomain(db);
+			await seedDomain(db);
 
 			// A buggy/malicious harness emits a negative deltaCost first, then a
 			// positive one. O2: cost column stripped from sessions.
@@ -958,7 +958,7 @@ describe("Session Provisioning (D5)", () => {
 	// -------------------------------------------------------------- AC observability
 	describe("AC observability: stopSession errors surface on normal completion", () => {
 		it("propagates a stopSession failure on normal completion instead of swallowing it", async () => {
-			seedDomain(db);
+			await seedDomain(db);
 
 			// Scripted harness with a failing stopSession. On the NORMAL path
 			// (no crash in streamEvents), the orchestrator must NOT swallow a
@@ -987,7 +987,7 @@ describe("Session Provisioning (D5)", () => {
 	describe("G1 AC6: facilitator provisioning + facilitator tools exposed", () => {
 		it("provisions a session for a practice_facilitator agent; registry exposes facilitator tools", async () => {
 			// Seed the full domain first (gives us t1, b1, task-1).
-			seedDomain(db);
+			await seedDomain(db);
 
 			// Replace the default builder agent on task-1 with a practice_facilitator.
 			await db.delete(tasks).where(eq(tasks.id, "task-1"));
@@ -1048,7 +1048,7 @@ describe("Session Provisioning (D5)", () => {
 		});
 
 		it("builder session does NOT expose facilitator tools (role-based authz)", async () => {
-			seedDomain(db);
+			await seedDomain(db);
 
 			const harness = new ScriptedHarnessAdapter({
 				events: [
@@ -1081,7 +1081,7 @@ describe("Session Provisioning (D5)", () => {
 	// --------------- Path traversal guard: soul_prompt_path must stay under docs/souls
 	describe("path traversal guard on soul_prompt_path", () => {
 		it("rejects an agent whose soul_prompt_path escapes docs/souls", async () => {
-			seedDomain(db);
+			await seedDomain(db);
 			// Mutate the seeded agent to point at a path that resolves outside
 			// docs/souls. The validator must throw before any DB writes or
 			// workspace spawns.

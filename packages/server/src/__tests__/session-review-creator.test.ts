@@ -72,7 +72,7 @@ describe("registerSessionReviewCreator", () => {
 		vi.restoreAllMocks();
 	});
 
-	it("creates review item for high-risk task on session_ended", () => {
+	it("creates review item for high-risk task on session_ended", async () => {
 		const unsubscribe = registerSessionReviewCreator(db, eventBus);
 
 		// Create high-risk task with a thread
@@ -143,7 +143,7 @@ describe("registerSessionReviewCreator", () => {
 		unsubscribe();
 	});
 
-	it("does not create review item for low-risk task", () => {
+	it("does not create review item for low-risk task", async () => {
 		const unsubscribe = registerSessionReviewCreator(db, eventBus);
 
 		await db.insert(tasks)
@@ -189,7 +189,7 @@ describe("registerSessionReviewCreator", () => {
 		unsubscribe();
 	});
 
-	it("auto-creates thread when task has no threadId", () => {
+	it("auto-creates thread when task has no threadId", async () => {
 		const unsubscribe = registerSessionReviewCreator(db, eventBus);
 
 		await db.insert(tasks)
@@ -249,7 +249,7 @@ describe("registerSessionReviewCreator", () => {
 		unsubscribe();
 	});
 
-	it("returns an unsubscribe function that stops handling events", () => {
+	it("returns an unsubscribe function that stops handling events", async () => {
 		const unsubscribe = registerSessionReviewCreator(db, eventBus);
 
 		await db.insert(tasks)

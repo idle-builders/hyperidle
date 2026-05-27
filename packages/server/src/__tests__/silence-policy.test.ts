@@ -124,7 +124,7 @@ describe("isSilenced", () => {
 
 	});
 
-	it("returns true when factory-wide silence_mode is enabled", () => {
+	it("returns true when factory-wide silence_mode is enabled", async () => {
 		await db.insert(factorySettings)
 			.values({ key: "silence_mode", value: "true", updatedAt: new Date().toISOString() })
 
@@ -137,7 +137,7 @@ describe("isSilenced", () => {
 		expect(result).toBe(false);
 	});
 
-	it("returns true for per-product silence", () => {
+	it("returns true for per-product silence", async () => {
 		await db.insert(factorySettings)
 			.values({
 				key: "silence_product_prod-1",
@@ -149,7 +149,7 @@ describe("isSilenced", () => {
 		expect(result).toBe(true);
 	});
 
-	it("returns true when current time falls in silence window", () => {
+	it("returns true when current time falls in silence window", async () => {
 		const now = new Date("2026-01-15T23:00:00Z");
 		await db.insert(factorySettings)
 			.values({ key: "silence_window_start", value: "22:00", updatedAt: new Date().toISOString() })
@@ -161,7 +161,7 @@ describe("isSilenced", () => {
 		expect(result).toBe(true);
 	});
 
-	it("returns false when current time is outside silence window", () => {
+	it("returns false when current time is outside silence window", async () => {
 		const now = new Date("2026-01-15T12:00:00Z");
 		await db.insert(factorySettings)
 			.values({ key: "silence_window_start", value: "22:00", updatedAt: new Date().toISOString() })

@@ -53,7 +53,7 @@ function createFakeAdapter(): NotificationAdapter & { calls: AdapterCall[] } {
 	};
 }
 
-function enable(db: HyperIdleDb): void {
+async function enable(db: HyperIdleDb): Promise<void> {
 	const now = "2026-04-18T00:00:00.000Z";
 	const pairs: Record<string, string> = {
 		"notifications.enabled": "true",
@@ -71,7 +71,7 @@ function enable(db: HyperIdleDb): void {
 	}
 }
 
-function seedFixture(db: HyperIdleDb): void {
+async function seedFixture(db: HyperIdleDb): Promise<void> {
 	const now = "2026-04-18T00:00:00.000Z";
 	await db.insert(products).values({ id: "p1", name: "Test", phase: "build", createdAt: now });
 	await db.insert(teams)
@@ -140,8 +140,8 @@ describe("scheduler → routine_fired → daily digest (AC6 end-to-end)", () => 
 		handle = await createTestDb();
 		db = handle.db;
 		bus = new EventBus();
-		seedFixture(db);
-		enable(db);
+		await seedFixture(db);
+		await enable(db);
 	});
 
 	it("routine-scheduler emits routine_fired and the dispatcher runs the digest", async () => {
@@ -174,7 +174,7 @@ describe("scheduler → routine_fired → daily digest (AC6 end-to-end)", () => 
 
 		// The dispatcher's routine_fired handler runs asynchronously via
 		// queueMicrotask; wait for the side-effect on the queue.
-		await vi.waitFor(() => {
+		await vi.waitFor(async () => {
 			const rows = await db.select().from(notificationQueue);
 			expect(rows.every((r) => r.status === "sent")).toBe(true);
 		});

@@ -24,7 +24,7 @@ function authHeaders(extra?: Record<string, string>): Record<string, string> {
  * P2: seed a human founder user row (replaces factorySettings.founder_id lookup).
  * The auth middleware queries `users WHERE kind = 'human' LIMIT 1`.
  */
-function seedFounderUser(db: HyperIdleDb, founderId: string): void {
+async function seedFounderUser(db: HyperIdleDb, founderId: string): Promise<void> {
 	const now = new Date().toISOString();
 	await db.insert(users)
 		.values({
@@ -54,7 +54,7 @@ describe("M3 — Coach route readSenderId uses auth context, not DEFAULT_FOUNDER
 		app = await createTestApp({ db, eventBus });
 
 		const now = new Date().toISOString();
-		seedFounderUser(db, "test-founder-1");
+		await seedFounderUser(db, "test-founder-1");
 
 		// Seed the CoC agent (required for coach route)
 		await db.insert(users)
@@ -101,7 +101,7 @@ describe("M3 — Thread route readSenderId + readInitialSenderId use auth contex
 
 		const now = new Date().toISOString();
 		// P2: seedFounderUser seeds kind='human' so auth middleware resolves this user
-		seedFounderUser(db, "test-founder-1");
+		await seedFounderUser(db, "test-founder-1");
 
 		await db.insert(products)
 			.values({ id: "prod-1", name: "Test Product", phase: "build", createdAt: now })

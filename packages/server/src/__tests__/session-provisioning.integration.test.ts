@@ -36,7 +36,7 @@ import { type ProvisionSessionDeps, provisionSession } from "../services/session
 
 const NOW = "2026-04-16T00:00:00.000Z";
 
-function seedDomain(db: HyperIdleDb): void {
+async function seedDomain(db: HyperIdleDb): Promise<void> {
 	await db.insert(products)
 		.values({ id: "p1", name: "Integration Product", phase: "build", createdAt: NOW })
 
@@ -107,7 +107,7 @@ describe("Session Provisioning — Claude integration (D5/AC2)", () => {
 		eventBus = new EventBus();
 		tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "d5-integration-"));
 		clearDeduplicationCache();
-		seedDomain(db);
+		await seedDomain(db);
 	});
 
 	afterEach(async () => {

@@ -7,12 +7,10 @@
  * POST /api/observability/flush    -> triggers drain
  */
 
-import { createTestDb, factorySettings, type HyperIdleDb ,
-	type TestDbHandle
-} from "@hyperidle/db";
+import { createTestDb, factorySettings, type HyperIdleDb, type TestDbHandle } from "@hyperidle/db";
 import type { Logger } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createObservabilityRoutes } from "../../routes/observability-routes.js";
 import { createObservabilityDispatcher } from "../../services/observability/dispatcher.js";
 import type {
@@ -28,7 +26,7 @@ function quietAdapter(): ObservabilityAdapter {
 	};
 }
 
-function seedKeys(db: HyperIdleDb, keys: Record<string, string>): void {
+async function seedKeys(db: HyperIdleDb, keys: Record<string, string>): Promise<void> {
 	const now = new Date().toISOString();
 	for (const [k, v] of Object.entries(keys)) {
 		await db.insert(factorySettings)
@@ -71,9 +69,20 @@ function appWithRoutes(
 }
 
 describe("H3 observability routes — GET /config", () => {
+	let handle: TestDbHandle;
+	let db: HyperIdleDb;
+
+	beforeEach(async () => {
+		handle = await createTestDb();
+		db = handle.db;
+	});
+
+	afterEach(async () => {
+		await handle?.close();
+	});
+
 	it("returns config shape with no langfuse property", async () => {
-		const db = createTestDb();
-		seedKeys(db, {
+		await seedKeys(db, {
 			"observability.enabled": "true",
 			"observability.adapter": "console",
 		});
@@ -93,7 +102,6 @@ describe("H3 observability routes — GET /config", () => {
 	});
 
 	it("returns enabled=false and adapter=console by default", async () => {
-		const db = createTestDb();
 		const { request } = appWithRoutes(db, null);
 		const body = (await (await request("/config")).json()) as Record<string, unknown>;
 		expect(body.enabled).toBe(false);
@@ -103,8 +111,19 @@ describe("H3 observability routes — GET /config", () => {
 });
 
 describe("H3 observability routes — PATCH /config", () => {
+	let handle: TestDbHandle;
+	let db: HyperIdleDb;
+
+	beforeEach(async () => {
+		handle = await createTestDb();
+		db = handle.db;
+	});
+
+	afterEach(async () => {
+		await handle?.close();
+	});
+
 	it("persists valid patch + emits admin audit", async () => {
-		const db = createTestDb();
 		const { request, auditCalls } = appWithRoutes(db, null);
 		const res = await request("/config", {
 			method: "PATCH",
@@ -126,7 +145,6 @@ describe("H3 observability routes — PATCH /config", () => {
 	});
 
 	it('rejects adapter: "langfuse" with 400 (AC3)', async () => {
-		const db = createTestDb();
 		const { request } = appWithRoutes(db, null);
 		const res = await request("/config", {
 			method: "PATCH",
@@ -137,7 +155,6 @@ describe("H3 observability routes — PATCH /config", () => {
 	});
 
 	it("rejects unknown fields (strict schema)", async () => {
-		const db = createTestDb();
 		const { request } = appWithRoutes(db, null);
 		const res = await request("/config", {
 			method: "PATCH",
@@ -148,8 +165,7 @@ describe("H3 observability routes — PATCH /config", () => {
 	});
 
 	it("accepts enabled=false without other fields (disable path)", async () => {
-		const db = createTestDb();
-		seedKeys(db, { "observability.enabled": "true" });
+		await seedKeys(db, { "observability.enabled": "true" });
 		const { request } = appWithRoutes(db, null);
 		const res = await request("/config", {
 			method: "PATCH",
@@ -157,18 +173,28 @@ describe("H3 observability routes — PATCH /config", () => {
 			body: JSON.stringify({ enabled: false }),
 		});
 		expect(res.status).toBe(200);
-		const row = db
+		const [row] = await db
 			.select()
 			.from(factorySettings)
-			.where(eq(factorySettings.key, "observability.enabled"))
-			.get();
+			.where(eq(factorySettings.key, "observability.enabled"));
 		expect(row?.value).toBe("false");
 	});
 });
 
 describe("H3 observability routes — /status + /flush", () => {
+	let handle: TestDbHandle;
+	let db: HyperIdleDb;
+
+	beforeEach(async () => {
+		handle = await createTestDb();
+		db = handle.db;
+	});
+
+	afterEach(async () => {
+		await handle?.close();
+	});
+
 	it("status reports enabled=false when no dispatcher and disabled in config", async () => {
-		const db = createTestDb();
 		const { request } = appWithRoutes(db, null);
 		const body = (await (await request("/status")).json()) as Record<string, unknown>;
 		expect(body.enabled).toBe(false);
@@ -176,8 +202,7 @@ describe("H3 observability routes — /status + /flush", () => {
 	});
 
 	it("status reports enabled=true + adapter=noop when config is {adapter:noop, enabled:true}", async () => {
-		const db = createTestDb();
-		seedKeys(db, {
+		await seedKeys(db, {
 			"observability.enabled": "true",
 			"observability.adapter": "noop",
 		});
@@ -191,7 +216,6 @@ describe("H3 observability routes — /status + /flush", () => {
 	});
 
 	it("status snapshot includes buffer depth + adapter", async () => {
-		const db = createTestDb();
 		const dispatcher = createObservabilityDispatcher({
 			adapter: quietAdapter(),
 			config: { batchSize: 10, flushIntervalMs: 60_000, bufferCap: 100 },
@@ -213,7 +237,6 @@ describe("H3 observability routes — /status + /flush", () => {
 	});
 
 	it("flush drains buffer", async () => {
-		const db = createTestDb();
 		const dispatcher = createObservabilityDispatcher({
 			adapter: quietAdapter(),
 			config: { batchSize: 10, flushIntervalMs: 60_000, bufferCap: 100 },
@@ -242,7 +265,6 @@ describe("H3 observability routes — /status + /flush", () => {
 	});
 
 	it("flush with no dispatcher returns disabled", async () => {
-		const db = createTestDb();
 		const { request } = appWithRoutes(db, null);
 		const res = await request("/flush", {
 			method: "POST",

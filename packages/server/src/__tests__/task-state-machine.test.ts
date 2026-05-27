@@ -1,6 +1,4 @@
-import { bets, createTestDb, type HyperIdleDb, products, tasks, teams ,
-	type TestDbHandle
-} from "@hyperidle/db";
+import { bets, createTestDb, type HyperIdleDb, products, tasks, teams, type TestDbHandle } from "@hyperidle/db";
 import {
 	EventBus,
 	type NotificationEvent,
@@ -8,12 +6,12 @@ import {
 	type TaskStateChangedEvent,
 } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
-import { beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { checkAndUnblockDependents } from "../services/dependency-watcher.js";
 import type { StateTransitionAuditEntry, TaskAuditEntry } from "../services/task-audit.js";
 import { InvalidTransitionError, transitionTask } from "../services/task-state-machine.js";
 
-function seedPrerequisites(db: HyperIdleDb): void {
+async function seedPrerequisites(db: HyperIdleDb): Promise<void> {
 	const now = new Date().toISOString();
 	await db.insert(products)
 		.values({ id: "p1", name: "Test Product", phase: "build", createdAt: now })
@@ -34,7 +32,7 @@ function seedPrerequisites(db: HyperIdleDb): void {
 
 }
 
-function insertTask(db: HyperIdleDb, id: string, state: TaskState, dependencies?: string[]): void {
+async function insertTask(db: HyperIdleDb, id: string, state: TaskState, dependencies?: string[]): Promise<void> {
 	const now = new Date().toISOString();
 	await db.insert(tasks)
 		.values({
@@ -60,89 +58,93 @@ describe("Task State Machine", () => {
 		handle = await createTestDb();
 		db = handle.db;
 		eventBus = new EventBus();
-		seedPrerequisites(db);
+		await seedPrerequisites(db);
+	});
+
+	afterEach(async () => {
+		await handle?.close();
 	});
 
 	describe("valid transitions", () => {
-		it("transitions proposed -> accepted", () => {
-			insertTask(db, "task-1", "proposed");
-			transitionTask(db, eventBus, "task-1", "accepted");
+		it("transitions proposed -> accepted", async () => {
+			await insertTask(db, "task-1", "proposed");
+			await transitionTask(db, eventBus, "task-1", "accepted");
 			const [task] = await db.select().from(tasks).where(eq(tasks.id, "task-1"));
 			expect(task?.state).toBe("accepted");
 		});
 
-		it("transitions accepted -> in_progress", () => {
-			insertTask(db, "task-1", "accepted");
-			transitionTask(db, eventBus, "task-1", "in_progress");
+		it("transitions accepted -> in_progress", async () => {
+			await insertTask(db, "task-1", "accepted");
+			await transitionTask(db, eventBus, "task-1", "in_progress");
 			const [task] = await db.select().from(tasks).where(eq(tasks.id, "task-1"));
 			expect(task?.state).toBe("in_progress");
 		});
 
-		it("transitions in_progress -> review", () => {
-			insertTask(db, "task-1", "in_progress");
-			transitionTask(db, eventBus, "task-1", "review");
+		it("transitions in_progress -> review", async () => {
+			await insertTask(db, "task-1", "in_progress");
+			await transitionTask(db, eventBus, "task-1", "review");
 			const [task] = await db.select().from(tasks).where(eq(tasks.id, "task-1"));
 			expect(task?.state).toBe("review");
 		});
 
-		it("transitions review -> done", () => {
-			insertTask(db, "task-1", "review");
-			transitionTask(db, eventBus, "task-1", "done");
+		it("transitions review -> done", async () => {
+			await insertTask(db, "task-1", "review");
+			await transitionTask(db, eventBus, "task-1", "done");
 			const [task] = await db.select().from(tasks).where(eq(tasks.id, "task-1"));
 			expect(task?.state).toBe("done");
 		});
 
-		it("transitions accepted -> hold", () => {
-			insertTask(db, "task-1", "accepted");
-			transitionTask(db, eventBus, "task-1", "hold");
+		it("transitions accepted -> hold", async () => {
+			await insertTask(db, "task-1", "accepted");
+			await transitionTask(db, eventBus, "task-1", "hold");
 			const [task] = await db.select().from(tasks).where(eq(tasks.id, "task-1"));
 			expect(task?.state).toBe("hold");
 		});
 
-		it("transitions in_progress -> blocked", () => {
-			insertTask(db, "task-1", "in_progress");
-			transitionTask(db, eventBus, "task-1", "blocked");
+		it("transitions in_progress -> blocked", async () => {
+			await insertTask(db, "task-1", "in_progress");
+			await transitionTask(db, eventBus, "task-1", "blocked");
 			const [task] = await db.select().from(tasks).where(eq(tasks.id, "task-1"));
 			expect(task?.state).toBe("blocked");
 		});
 
-		it("transitions blocked -> in_progress", () => {
-			insertTask(db, "task-1", "blocked");
-			transitionTask(db, eventBus, "task-1", "in_progress");
+		it("transitions blocked -> in_progress", async () => {
+			await insertTask(db, "task-1", "blocked");
+			await transitionTask(db, eventBus, "task-1", "in_progress");
 			const [task] = await db.select().from(tasks).where(eq(tasks.id, "task-1"));
 			expect(task?.state).toBe("in_progress");
 		});
 
-		it("transitions review -> in_progress (rework)", () => {
-			insertTask(db, "task-1", "review");
-			transitionTask(db, eventBus, "task-1", "in_progress");
+		it("transitions review -> in_progress (rework)", async () => {
+			await insertTask(db, "task-1", "review");
+			await transitionTask(db, eventBus, "task-1", "in_progress");
 			const [task] = await db.select().from(tasks).where(eq(tasks.id, "task-1"));
 			expect(task?.state).toBe("in_progress");
 		});
 	});
 
 	describe("invalid transitions", () => {
-		it("throws InvalidTransitionError for proposed -> done", () => {
-			insertTask(db, "task-1", "proposed");
-			expect(() => transitionTask(db, eventBus, "task-1", "done")).toThrow(InvalidTransitionError);
+		it("throws InvalidTransitionError for proposed -> done", async () => {
+			await insertTask(db, "task-1", "proposed");
+			await expect(transitionTask(db, eventBus, "task-1", "done")).rejects.toThrow(InvalidTransitionError);
 		});
 
-		it("throws InvalidTransitionError for done -> proposed", () => {
-			insertTask(db, "task-1", "done");
-			expect(() => transitionTask(db, eventBus, "task-1", "proposed")).toThrow(
+		it("throws InvalidTransitionError for done -> proposed", async () => {
+			await insertTask(db, "task-1", "done");
+			await expect(transitionTask(db, eventBus, "task-1", "proposed")).rejects.toThrow(
 				InvalidTransitionError,
 			);
 		});
 
-		it("throws InvalidTransitionError for proposed -> in_progress", () => {
-			insertTask(db, "task-1", "proposed");
-			expect(() => transitionTask(db, eventBus, "task-1", "in_progress")).toThrow(
+		it("throws InvalidTransitionError for proposed -> in_progress", async () => {
+			await insertTask(db, "task-1", "proposed");
+			await expect(transitionTask(db, eventBus, "task-1", "in_progress")).rejects.toThrow(
 				InvalidTransitionError,
 			);
 		});
 
-		it("throws when task does not exist", () => {
-			expect(() => transitionTask(db, eventBus, "nonexistent", "accepted")).toThrow();
+		it("throws when task does not exist", async () => {
+			await expect(transitionTask(db, eventBus, "nonexistent", "accepted")).rejects.toThrow();
 		});
 	});
 
@@ -158,60 +160,56 @@ describe("Task State Machine", () => {
 		];
 
 		for (const state of allStates) {
-			it(`transitions ${state} -> killed`, () => {
-				insertTask(db, `task-${state}`, state);
-				transitionTask(db, eventBus, `task-${state}`, "killed");
-				const task = db
-					.select()
-					.from(tasks)
-					.where(eq(tasks.id, `task-${state}`))
-					.get();
+			it(`transitions ${state} -> killed`, async () => {
+				await insertTask(db, `task-${state}`, state);
+				await transitionTask(db, eventBus, `task-${state}`, "killed");
+				const [task] = await db.select().from(tasks).where(eq(tasks.id, `task-${state}`));
 				expect(task?.state).toBe("killed");
 			});
 		}
 	});
 
 	describe("all 8 states are achievable", () => {
-		it("can reach all 8 states through valid transitions", () => {
+		it("can reach all 8 states through valid transitions", async () => {
 			const achievedStates = new Set<TaskState>();
 
 			// proposed (initial)
-			insertTask(db, "t-proposed", "proposed");
+			await insertTask(db, "t-proposed", "proposed");
 			achievedStates.add("proposed");
 
 			// proposed -> accepted
-			insertTask(db, "t-accepted", "proposed");
-			transitionTask(db, eventBus, "t-accepted", "accepted");
+			await insertTask(db, "t-accepted", "proposed");
+			await transitionTask(db, eventBus, "t-accepted", "accepted");
 			achievedStates.add("accepted");
 
 			// accepted -> hold
-			insertTask(db, "t-hold", "accepted");
-			transitionTask(db, eventBus, "t-hold", "hold");
+			await insertTask(db, "t-hold", "accepted");
+			await transitionTask(db, eventBus, "t-hold", "hold");
 			achievedStates.add("hold");
 
 			// accepted -> in_progress
-			insertTask(db, "t-in-progress", "accepted");
-			transitionTask(db, eventBus, "t-in-progress", "in_progress");
+			await insertTask(db, "t-in-progress", "accepted");
+			await transitionTask(db, eventBus, "t-in-progress", "in_progress");
 			achievedStates.add("in_progress");
 
 			// in_progress -> blocked
-			insertTask(db, "t-blocked", "in_progress");
-			transitionTask(db, eventBus, "t-blocked", "blocked");
+			await insertTask(db, "t-blocked", "in_progress");
+			await transitionTask(db, eventBus, "t-blocked", "blocked");
 			achievedStates.add("blocked");
 
 			// in_progress -> review
-			insertTask(db, "t-review", "in_progress");
-			transitionTask(db, eventBus, "t-review", "review");
+			await insertTask(db, "t-review", "in_progress");
+			await transitionTask(db, eventBus, "t-review", "review");
 			achievedStates.add("review");
 
 			// review -> done
-			insertTask(db, "t-done", "review");
-			transitionTask(db, eventBus, "t-done", "done");
+			await insertTask(db, "t-done", "review");
+			await transitionTask(db, eventBus, "t-done", "done");
 			achievedStates.add("done");
 
 			// proposed -> killed
-			insertTask(db, "t-killed", "proposed");
-			transitionTask(db, eventBus, "t-killed", "killed");
+			await insertTask(db, "t-killed", "proposed");
+			await transitionTask(db, eventBus, "t-killed", "killed");
 			achievedStates.add("killed");
 
 			expect(achievedStates.size).toBe(8);
@@ -227,10 +225,10 @@ describe("Task State Machine", () => {
 	});
 
 	describe("audit trail", () => {
-		it("logs every transition in the audit trail", () => {
-			insertTask(db, "task-1", "proposed");
-			transitionTask(db, eventBus, "task-1", "accepted");
-			transitionTask(db, eventBus, "task-1", "in_progress");
+		it("logs every transition in the audit trail", async () => {
+			await insertTask(db, "task-1", "proposed");
+			await transitionTask(db, eventBus, "task-1", "accepted");
+			await transitionTask(db, eventBus, "task-1", "in_progress");
 
 			const [task] = await db.select().from(tasks).where(eq(tasks.id, "task-1"));
 			const audit = JSON.parse(task?.auditTrail ?? "[]") as TaskAuditEntry[];
@@ -243,7 +241,7 @@ describe("Task State Machine", () => {
 			expect(second.to).toBe("in_progress");
 		});
 
-		it("preserves existing audit entries when appending new ones", () => {
+		it("preserves existing audit entries when appending new ones", async () => {
 			const now = new Date().toISOString();
 			const existingAudit: StateTransitionAuditEntry[] = [
 				{ from: "proposed", to: "accepted", timestamp: now },
@@ -261,7 +259,7 @@ describe("Task State Machine", () => {
 					updatedAt: now,
 				})
 
-			transitionTask(db, eventBus, "task-existing", "accepted");
+			await transitionTask(db, eventBus, "task-existing", "accepted");
 
 			const [task] = await db.select().from(tasks).where(eq(tasks.id, "task-existing"));
 			const audit = JSON.parse(task?.auditTrail ?? "[]") as TaskAuditEntry[];
@@ -276,12 +274,12 @@ describe("Task State Machine", () => {
 	});
 
 	describe("event emission", () => {
-		it("emits task_state_changed event on valid transition", () => {
-			insertTask(db, "task-1", "proposed");
+		it("emits task_state_changed event on valid transition", async () => {
+			await insertTask(db, "task-1", "proposed");
 			const events: TaskStateChangedEvent[] = [];
 			eventBus.on("task_state_changed", (e) => events.push(e));
 
-			transitionTask(db, eventBus, "task-1", "accepted");
+			await transitionTask(db, eventBus, "task-1", "accepted");
 
 			expect(events).toHaveLength(1);
 			expect(events[0].taskId).toBe("task-1");
@@ -290,61 +288,61 @@ describe("Task State Machine", () => {
 			expect(events[0].streamId).toBe("task-1");
 		});
 
-		it("does not emit event on invalid transition", () => {
-			insertTask(db, "task-1", "proposed");
+		it("does not emit event on invalid transition", async () => {
+			await insertTask(db, "task-1", "proposed");
 			const events: TaskStateChangedEvent[] = [];
 			eventBus.on("task_state_changed", (e) => events.push(e));
 
-			expect(() => transitionTask(db, eventBus, "task-1", "done")).toThrow(InvalidTransitionError);
+			await expect(transitionTask(db, eventBus, "task-1", "done")).rejects.toThrow(InvalidTransitionError);
 			expect(events).toHaveLength(0);
 		});
 	});
 
 	describe("dependency-driven auto-transitions (integration)", () => {
-		it("task B depends on A: complete A -> B auto-transitions to accepted", () => {
-			insertTask(db, "task-a", "in_progress");
-			insertTask(db, "task-b", "hold", ["task-a"]);
+		it("task B depends on A: complete A -> B auto-transitions to accepted", async () => {
+			await insertTask(db, "task-a", "in_progress");
+			await insertTask(db, "task-b", "hold", ["task-a"]);
 
 			// Complete task A through valid path
-			transitionTask(db, eventBus, "task-a", "review");
-			transitionTask(db, eventBus, "task-a", "done");
-			checkAndUnblockDependents(db, eventBus, "task-a");
+			await transitionTask(db, eventBus, "task-a", "review");
+			await transitionTask(db, eventBus, "task-a", "done");
+			await checkAndUnblockDependents(db, eventBus, "task-a");
 
 			const [taskB] = await db.select().from(tasks).where(eq(tasks.id, "task-b"));
 			expect(taskB?.state).toBe("accepted");
 		});
 
-		it("task C depends on A and B: complete A -> C stays hold, complete B -> C transitions", () => {
-			insertTask(db, "task-a", "in_progress");
-			insertTask(db, "task-b", "in_progress");
-			insertTask(db, "task-c", "hold", ["task-a", "task-b"]);
+		it("task C depends on A and B: complete A -> C stays hold, complete B -> C transitions", async () => {
+			await insertTask(db, "task-a", "in_progress");
+			await insertTask(db, "task-b", "in_progress");
+			await insertTask(db, "task-c", "hold", ["task-a", "task-b"]);
 
 			// Complete A
-			transitionTask(db, eventBus, "task-a", "review");
-			transitionTask(db, eventBus, "task-a", "done");
-			checkAndUnblockDependents(db, eventBus, "task-a");
+			await transitionTask(db, eventBus, "task-a", "review");
+			await transitionTask(db, eventBus, "task-a", "done");
+			await checkAndUnblockDependents(db, eventBus, "task-a");
 
-			let taskC = db.select().from(tasks).where(eq(tasks.id, "task-c")).get();
+			let [taskC] = await db.select().from(tasks).where(eq(tasks.id, "task-c"));
 			expect(taskC?.state).toBe("hold");
 
 			// Complete B
-			transitionTask(db, eventBus, "task-b", "review");
-			transitionTask(db, eventBus, "task-b", "done");
-			checkAndUnblockDependents(db, eventBus, "task-b");
+			await transitionTask(db, eventBus, "task-b", "review");
+			await transitionTask(db, eventBus, "task-b", "done");
+			await checkAndUnblockDependents(db, eventBus, "task-b");
 
-			taskC = db.select().from(tasks).where(eq(tasks.id, "task-c")).get();
+			[taskC] = await db.select().from(tasks).where(eq(tasks.id, "task-c"));
 			expect(taskC?.state).toBe("accepted");
 		});
 
-		it("hold -> accepted auto-transition emits notification event", () => {
-			insertTask(db, "task-a", "review");
-			insertTask(db, "task-b", "hold", ["task-a"]);
+		it("hold -> accepted auto-transition emits notification event", async () => {
+			await insertTask(db, "task-a", "review");
+			await insertTask(db, "task-b", "hold", ["task-a"]);
 
 			const notifications: NotificationEvent[] = [];
 			eventBus.on("notification", (e) => notifications.push(e));
 
-			transitionTask(db, eventBus, "task-a", "done");
-			checkAndUnblockDependents(db, eventBus, "task-a");
+			await transitionTask(db, eventBus, "task-a", "done");
+			await checkAndUnblockDependents(db, eventBus, "task-a");
 
 			expect(notifications).toHaveLength(1);
 			expect(notifications[0].targetId).toBe("task-b");

@@ -28,7 +28,7 @@ function authHeaders(): Record<string, string> {
 	return { "X-API-Key": TEST_API_KEY, "Content-Type": "application/json" };
 }
 
-function seedFounderProfile(db: HyperIdleDb): void {
+async function seedFounderProfile(db: HyperIdleDb): Promise<void> {
 	const now = new Date().toISOString();
 	await db.insert(users)
 		.values({
@@ -57,7 +57,7 @@ describe("P3 AC-10 — Settings route: server_config backing", () => {
 		db = handle.db;
 		eventBus = new EventBus();
 		app = await createTestApp({ db, eventBus });
-		seedFounderProfile(db);
+		await seedFounderProfile(db);
 	});
 
 	afterEach(async () => {

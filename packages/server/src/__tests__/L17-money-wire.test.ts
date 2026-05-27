@@ -108,7 +108,7 @@ describe("Cost-cap service with Money columns (AC13)", () => {
 
 	});
 
-	function insertSession(id: string, agentId: string): void {
+	async function insertSession(id: string, agentId: string): Promise<void> {
 		// @lore O2: session cost columns (costMinor, costCurrency) stripped from
 		// the kernel sessions table. Sessions no longer carry cost data directly.
 		await db.insert(sessions)

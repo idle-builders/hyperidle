@@ -1,4 +1,4 @@
-import { type HyperIdleDb, items, threads } from "@hyperidle/db";
+import { type HyperIdleDb, type Item, items, threads } from "@hyperidle/db";
 import type { ApiErrorResponse, EventBus, ItemCreatedEvent } from "@hyperidle/shared";
 import { API_ERROR_CODES } from "@hyperidle/shared";
 import { desc, eq, sql } from "drizzle-orm";
@@ -112,7 +112,7 @@ export function createConversationRoutes(db: HyperIdleDb, eventBus: EventBus): H
 		// the dual-write `POST /responses` path. Verdicts now live on
 		// `GET /api/threads/:id` (messages, type='verdict'). The empty
 		// `responses: []` keeps the wire shape for one release.
-		const itemsWithResponses = threadItems.map((item) => ({
+		const itemsWithResponses = threadItems.map((item: Item) => ({
 			...item,
 			responses: [] as ReadonlyArray<never>,
 		}));

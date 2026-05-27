@@ -29,7 +29,7 @@ import {
 	type SessionContext,
 } from "../services/session-lifecycle.js";
 
-function seedAll(db: HyperIdleDb): void {
+async function seedAll(db: HyperIdleDb): Promise<void> {
 	const now = new Date().toISOString();
 
 	await db.insert(products)
@@ -112,7 +112,7 @@ describe("Session Lifecycle", () => {
 		db = handle.db;
 		eventBus = new EventBus();
 		tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "session-lifecycle-"));
-		seedAll(db);
+		await seedAll(db);
 	});
 
 	afterEach(async () => {

@@ -297,8 +297,8 @@ describe("Knowledge Endpoints (E4)", () => {
 			const body = (await res.json()) as Record<string, unknown>;
 			const items = body.items as Record<string, unknown>[];
 			expect(items).toHaveLength(2);
-			expect(items[0].title).toBe("Part A");
-			expect(items[1].title).toBe("Part B");
+			expect(items[0]?.title).toBe("Part A");
+			expect(items[1]?.title).toBe("Part B");
 			expect((items[0] as Record<string, unknown>).version).toBe(1);
 
 			// Original item should be archived
@@ -423,7 +423,7 @@ describe("Knowledge Endpoints (E4)", () => {
 	describe("AC11: EventBus emits knowledge_updated events", () => {
 		it("emits knowledge_updated event on create", async () => {
 			const events: unknown[] = [];
-			eventBus.on("*", (e) => events.push(e));
+			eventBus.on("*", (e: unknown) => events.push(e));
 
 			await createItem("L0");
 
@@ -438,7 +438,7 @@ describe("Knowledge Endpoints (E4)", () => {
 			const id = item.id as string;
 
 			const events: unknown[] = [];
-			eventBus.on("*", (e) => events.push(e));
+			eventBus.on("*", (e: unknown) => events.push(e));
 
 			await app.request(`/api/knowledge/${id}`, {
 				method: "PATCH",
@@ -477,7 +477,7 @@ describe("Knowledge Endpoints (E4)", () => {
 			const logs = await db.select().from(knowledgeEditLog);
 			// Should have at least entries for title and body changes
 			expect(logs.length).toBeGreaterThanOrEqual(2);
-			const titleLog = logs.find((l) => l.field === "title");
+			const titleLog = logs.find((l: { field: string }) => l.field === "title");
 			expect(titleLog).toBeDefined();
 			expect(titleLog?.oldValue).toBe("Test Pattern");
 			expect(titleLog?.newValue).toBe("Updated Title");
@@ -492,7 +492,7 @@ describe("Knowledge Endpoints (E4)", () => {
 			const id = item.id as string;
 
 			const events: unknown[] = [];
-			eventBus.on("*", (e) => events.push(e));
+			eventBus.on("*", (e: unknown) => events.push(e));
 
 			await app.request(`/api/knowledge/${id}`, {
 				method: "PATCH",

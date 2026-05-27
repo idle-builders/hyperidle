@@ -107,8 +107,8 @@ describe("Conversations Endpoints (E2)", () => {
 				pagination: { page: number; limit: number; total: number };
 			};
 			expect(body.threads).toHaveLength(2);
-			expect(body.threads[0].id).toBe("t-new");
-			expect(body.threads[1].id).toBe("t-old");
+			expect(body.threads[0]?.id).toBe("t-new");
+			expect(body.threads[1]?.id).toBe("t-old");
 			expect(body.pagination.total).toBe(2);
 		});
 
@@ -148,8 +148,8 @@ describe("Conversations Endpoints (E2)", () => {
 				threads: Array<{ id: string }>;
 			};
 			// Falls through to recency — newer thread first
-			expect(body.threads[0].id).toBe("t-newer");
-			expect(body.threads[1].id).toBe("t-older");
+			expect(body.threads[0]?.id).toBe("t-newer");
+			expect(body.threads[1]?.id).toBe("t-older");
 		});
 
 		it("paginates correctly", async () => {
@@ -234,10 +234,10 @@ describe("Conversations Endpoints (E2)", () => {
 			};
 			expect(body.id).toBe("thread-1");
 			expect(body.items).toHaveLength(2);
-			expect(body.items[0].id).toBe("item-1");
-			expect(body.items[0].responses).toEqual([]);
-			expect(body.items[1].id).toBe("item-2");
-			expect(body.items[1].responses).toEqual([]);
+			expect(body.items[0]?.id).toBe("item-1");
+			expect(body.items[0]?.responses).toEqual([]);
+			expect(body.items[1]?.id).toBe("item-2");
+			expect(body.items[1]?.responses).toEqual([]);
 		});
 
 		it("returns 404 for nonexistent thread", async () => {
@@ -301,7 +301,7 @@ describe("Conversations Endpoints (E2)", () => {
 
 		it("emits item_created event", async () => {
 			const emitted: ItemCreatedEvent[] = [];
-			eventBus.on("item_created", (e) => emitted.push(e));
+			eventBus.on("item_created", (e: ItemCreatedEvent) => emitted.push(e));
 
 			await app.request("/api/conversations/items", {
 				method: "POST",
@@ -395,7 +395,7 @@ describe("Conversations Endpoints (E2)", () => {
 				thread: { id: string };
 				messages: Array<{ id: string }>;
 			};
-			const reviewMessageId = created.messages[0].id;
+			const reviewMessageId = created.messages[0]?.id ?? "";
 
 			const res = await app.request(`/api/threads/${created.thread.id}/messages`, {
 				method: "POST",
@@ -446,7 +446,7 @@ describe("Conversations Endpoints (E2)", () => {
 					clientKey: "verdict-b",
 					payload: {
 						decision: "approve",
-						resolvesMessageId: created.messages[0].id,
+						resolvesMessageId: created.messages[0]?.id ?? "",
 					},
 				}),
 			});
@@ -485,7 +485,7 @@ describe("Conversations Endpoints (E2)", () => {
 					clientKey: "verdict-c",
 					payload: {
 						decision: "invalid-decision",
-						resolvesMessageId: created.messages[0].id,
+						resolvesMessageId: created.messages[0]?.id ?? "",
 					},
 				}),
 			});

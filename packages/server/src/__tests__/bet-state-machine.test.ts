@@ -55,7 +55,7 @@ function makeBet(
 	};
 }
 
-function getRevisionLog(db: HyperIdleDb, betId: string): RevisionLogEntry[] {
+async function getRevisionLog(db: HyperIdleDb, betId: string): Promise<RevisionLogEntry[]> {
 	const [bet] = await db.select().from(bets).where(eq(bets.id, betId));
 	if (!bet?.revisionLog) return [];
 	return JSON.parse(bet.revisionLog) as RevisionLogEntry[];
@@ -84,13 +84,13 @@ describe("bet-state-machine", () => {
 			const [bet] = await db.select().from(bets).where(eq(bets.id, "bet-1"));
 			expect(bet?.status).toBe("committed");
 
-			const log = getRevisionLog(db, "bet-1");
+			const log = await getRevisionLog(db, "bet-1");
 			expect(log).toHaveLength(1);
-			expect(log[0].field).toBe("status");
-			expect(log[0].old_value).toBe("shaped");
-			expect(log[0].new_value).toBe("committed");
-			expect(log[0].timestamp).toBeDefined();
-			expect(log[0].reason).toBeDefined();
+			expect(log[0]?.field).toBe("status");
+			expect(log[0]?.old_value).toBe("shaped");
+			expect(log[0]?.new_value).toBe("committed");
+			expect(log[0]?.timestamp).toBeDefined();
+			expect(log[0]?.reason).toBeDefined();
 		});
 
 		it("increments team activeBets on commit", async () => {
@@ -143,7 +143,7 @@ describe("bet-state-machine", () => {
 			// Filter for just the shipped transition
 			const shippedCalls = shippedHandler.mock.calls.filter((c) => c[0].toState === "shipped");
 			expect(shippedCalls).toHaveLength(1);
-			expect(shippedCalls[0][0]).toEqual(
+			expect(shippedCalls[0]?.[0]).toEqual(
 				expect.objectContaining({ type: "bet_state_changed", betId: "bet-1", toState: "shipped" }),
 			);
 
@@ -199,8 +199,8 @@ describe("bet-state-machine", () => {
 			const [bet] = await db.select().from(bets).where(eq(bets.id, "bet-1"));
 			expect(bet?.status).toBe("killed");
 
-			const log = getRevisionLog(db, "bet-1");
-			expect(log[0].reason).toBe("No longer viable");
+			const log = await getRevisionLog(db, "bet-1");
+			expect(log[0]?.reason).toBe("No longer viable");
 		});
 
 		it("decrements activeBets when killing committed bet", async () => {
@@ -234,12 +234,12 @@ describe("bet-state-machine", () => {
 			const [bet] = await db.select().from(bets).where(eq(bets.id, "bet-1"));
 			expect(bet?.status).toBe("shaped");
 
-			const log = getRevisionLog(db, "bet-1");
+			const log = await getRevisionLog(db, "bet-1");
 			expect(log).toHaveLength(1);
-			expect(log[0].field).toBe("status");
-			expect(log[0].old_value).toBe("committed");
-			expect(log[0].new_value).toBe("shaped");
-			expect(log[0].reason).toBe("Needs more shaping");
+			expect(log[0]?.field).toBe("status");
+			expect(log[0]?.old_value).toBe("committed");
+			expect(log[0]?.new_value).toBe("shaped");
+			expect(log[0]?.reason).toBe("Needs more shaping");
 		});
 
 		it("throws when reshaping without reason", async () => {
@@ -356,12 +356,12 @@ describe("bet-state-machine", () => {
 			const [bet] = await db.select().from(bets).where(eq(bets.id, "bet-1"));
 			expect(bet?.doneCondition).toBe("New condition");
 
-			const log = getRevisionLog(db, "bet-1");
+			const log = await getRevisionLog(db, "bet-1");
 			expect(log).toHaveLength(1);
-			expect(log[0].field).toBe("done_condition");
-			expect(log[0].old_value).toBe("Old condition");
-			expect(log[0].new_value).toBe("New condition");
-			expect(log[0].reason).toBe("Scope refined");
+			expect(log[0]?.field).toBe("done_condition");
+			expect(log[0]?.old_value).toBe("Old condition");
+			expect(log[0]?.new_value).toBe("New condition");
+			expect(log[0]?.reason).toBe("Scope refined");
 
 			expect(itemHandler).toHaveBeenCalledTimes(1);
 			expect(itemHandler).toHaveBeenCalledWith(
@@ -427,7 +427,7 @@ describe("bet-state-machine", () => {
 
 			await transitionBet(db, eventBus, "bet-1", "committed");
 
-			const log = getRevisionLog(db, "bet-1");
+			const log = await getRevisionLog(db, "bet-1");
 			expect(log).toHaveLength(1);
 
 			const entry = log[0];
@@ -436,9 +436,9 @@ describe("bet-state-machine", () => {
 			expect(entry).toHaveProperty("old_value");
 			expect(entry).toHaveProperty("new_value");
 			expect(entry).toHaveProperty("reason");
-			expect(typeof entry.timestamp).toBe("string");
+			expect(typeof entry?.timestamp).toBe("string");
 			// Validate ISO timestamp format
-			expect(new Date(entry.timestamp).toISOString()).toBe(entry.timestamp);
+			expect(entry?.timestamp ? new Date(entry.timestamp).toISOString() : null).toBe(entry?.timestamp ?? null);
 		});
 
 		it("accumulates entries across multiple transitions", async () => {
@@ -448,12 +448,12 @@ describe("bet-state-machine", () => {
 			await transitionBet(db, eventBus, "bet-1", "committed");
 			await transitionBet(db, eventBus, "bet-1", "in_progress");
 
-			const log = getRevisionLog(db, "bet-1");
+			const log = await getRevisionLog(db, "bet-1");
 			expect(log).toHaveLength(2);
-			expect(log[0].old_value).toBe("shaped");
-			expect(log[0].new_value).toBe("committed");
-			expect(log[1].old_value).toBe("committed");
-			expect(log[1].new_value).toBe("in_progress");
+			expect(log[0]?.old_value).toBe("shaped");
+			expect(log[0]?.new_value).toBe("committed");
+			expect(log[1]?.old_value).toBe("committed");
+			expect(log[1]?.new_value).toBe("in_progress");
 		});
 	});
 
@@ -470,7 +470,7 @@ describe("bet-state-machine", () => {
 			await transitionBet(db, eventBus, "bet-1", "review");
 
 			const events: Array<{ type: string; betId?: string; toState?: string }> = [];
-			eventBus.on("*", (e) => events.push(e as { type: string; betId?: string; toState?: string }));
+			eventBus.on("*", (e: unknown) => events.push(e as { type: string; betId?: string; toState?: string }));
 
 			// First transition wins — commits and emits bet_state_changed.
 			await transitionBet(db, eventBus, "bet-1", "shipped");
@@ -498,7 +498,7 @@ describe("bet-state-machine", () => {
 			const [bet] = await db.select().from(bets).where(eq(bets.id, "bet-1"));
 			expect(bet?.status).toBe("shipped");
 			// Revision log has exactly one shipped entry.
-			const log = getRevisionLog(db, "bet-1");
+			const log = await getRevisionLog(db, "bet-1");
 			const shippedLogs = log.filter((e) => e.field === "status" && e.new_value === "shipped");
 			expect(shippedLogs).toHaveLength(1);
 		});

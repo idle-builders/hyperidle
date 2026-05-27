@@ -397,7 +397,7 @@ describe("E2E API Integration (I5)", () => {
 					clientKey: "verdict-e2e",
 					payload: {
 						decision: "approve",
-						resolvesMessageId: created.messages[0].id,
+						resolvesMessageId: created.messages[0]?.id ?? "",
 					},
 				}),
 			});
@@ -497,7 +497,7 @@ describe("E2E API Integration (I5)", () => {
 			expect(res.status).toBe(200);
 			const body = (await res.json()) as Array<{ id: string; activeSessions: number }>;
 			expect(body.length).toBeGreaterThanOrEqual(1);
-			expect(body[0].activeSessions).toBe(0);
+			expect(body[0]?.activeSessions).toBe(0);
 		});
 
 		it("GET /api/users/:id returns agent detail", async () => {
@@ -579,7 +579,7 @@ describe("E2E API Integration (I5)", () => {
 
 		it("POST /api/sessions creates a session and emits event", async () => {
 			const events: unknown[] = [];
-			eventBus.on("session_started", (e) => events.push(e));
+			eventBus.on("session_started", (e: unknown) => events.push(e));
 
 			const res = await app.request("/api/sessions", {
 				method: "POST",

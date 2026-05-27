@@ -20,6 +20,7 @@ import * as path from "node:path";
 import {
 	createTestDb,
 	factorySettings,
+	type FactorySetting,
 	type HyperIdleDb,
 	knowledgeItems,
 	knowledgeStrategyFabric,
@@ -64,10 +65,10 @@ function destroyTmpEnv(env: TmpEnv): void {
 	}
 }
 
-function setCfg(
+async function setCfg(
 	db: HyperIdleDb,
 	cfg: Partial<GitExportConfig> & { enabled?: boolean; repoPath: string },
-): void {
+): Promise<void> {
 	const rows: Array<{ key: string; value: string }> = [
 		{ key: "git_export.enabled", value: (cfg.enabled ?? true) ? "true" : "false" },
 		{ key: "git_export.repo_path", value: cfg.repoPath },
@@ -94,7 +95,7 @@ function setCfg(
 // @lore O2: layer/kind/scopeId are in knowledgeStrategyFabric; kernel only holds
 // identity + content. Both tables must be seeded for computeExportPlan to find
 // the item (INNER JOIN on fabric).
-function seedL4Principles(db: HyperIdleDb, body: string, id = "ki-principles"): void {
+async function seedL4Principles(db: HyperIdleDb, body: string, id = "ki-principles"): Promise<void> {
 	await db.insert(knowledgeItems)
 		.values({
 			id,
@@ -121,12 +122,12 @@ function seedL4Principles(db: HyperIdleDb, body: string, id = "ki-principles"): 
 
 }
 
-function seedL2Brief(
+async function seedL2Brief(
 	db: HyperIdleDb,
 	productId: string,
 	body: string,
 	id = `ki-${productId}-brief`,
-): void {
+): Promise<void> {
 	await db.insert(knowledgeItems)
 		.values({
 			id,
@@ -181,7 +182,7 @@ describe("Git Export — integration (real git)", () => {
 		}
 	});
 
-	beforeEach((ctx) => {
+	beforeEach(async (ctx) => {
 		if (!gitAvailable) ctx.skip();
 		resetExportMutexes();
 		handle = await createTestDb();
@@ -206,9 +207,9 @@ describe("Git Export — integration (real git)", () => {
 
 	it("AC1: edit L4 PRINCIPLES -> export runs -> commit with correct file content", async () => {
 		const env = newEnv();
-		setCfg(db, { repoPath: env.repoPath, remoteUrl: env.remoteUrl });
+		await setCfg(db, { repoPath: env.repoPath, remoteUrl: env.remoteUrl });
 		const body = "## Principles\n\n- Ship weekly.\n";
-		seedL4Principles(db, body);
+		await seedL4Principles(db, body);
 
 		const runner = createGitRunner(env.repoPath);
 		const result = await runGitExport(db, {
@@ -227,8 +228,8 @@ describe("Git Export — integration (real git)", () => {
 
 	it("AC2: last commit message includes the item identifier string", async () => {
 		const env = newEnv();
-		setCfg(db, { repoPath: env.repoPath, remoteUrl: env.remoteUrl });
-		seedL4Principles(db, "# body\n");
+		await setCfg(db, { repoPath: env.repoPath, remoteUrl: env.remoteUrl });
+		await seedL4Principles(db, "# body\n");
 
 		const runner = createGitRunner(env.repoPath);
 		await runGitExport(db, { runner, fs: createNodeFsAdapter() });
@@ -239,8 +240,8 @@ describe("Git Export — integration (real git)", () => {
 
 	it("AC3: second export with no changes creates NO new commit", async () => {
 		const env = newEnv();
-		setCfg(db, { repoPath: env.repoPath, remoteUrl: env.remoteUrl });
-		seedL4Principles(db, "# unchanged body\n");
+		await setCfg(db, { repoPath: env.repoPath, remoteUrl: env.remoteUrl });
+		await seedL4Principles(db, "# unchanged body\n");
 
 		const runner = createGitRunner(env.repoPath);
 		const realFs = createNodeFsAdapter();
@@ -255,8 +256,8 @@ describe("Git Export — integration (real git)", () => {
 
 	it("AC3: second export WITH one new item DOES create a new commit (newly-tracked file)", async () => {
 		const env = newEnv();
-		setCfg(db, { repoPath: env.repoPath, remoteUrl: env.remoteUrl });
-		seedL4Principles(db, "# one\n", "ki-one");
+		await setCfg(db, { repoPath: env.repoPath, remoteUrl: env.remoteUrl });
+		await seedL4Principles(db, "# one\n", "ki-one");
 
 		const runner = createGitRunner(env.repoPath);
 		const realFs = createNodeFsAdapter();
@@ -266,7 +267,7 @@ describe("Git Export — integration (real git)", () => {
 		expect(first).toBe(1);
 
 		// Add a second L2 item — change detection must fire on the newly-staged file.
-		seedL2Brief(db, "nimmly", "# nimmly brief\n");
+		await seedL2Brief(db, "nimmly", "# nimmly brief\n");
 		const second = await runGitExport(db, { runner, fs: realFs });
 		expect(["committed", "pushed"]).toContain(second.status);
 		expect(commitCount(env.repoPath)).toBe(first + 1);
@@ -274,9 +275,9 @@ describe("Git Export — integration (real git)", () => {
 
 	it("AC4: exported markdown matches item body exactly (byte-for-byte)", async () => {
 		const env = newEnv();
-		setCfg(db, { repoPath: env.repoPath, remoteUrl: env.remoteUrl });
+		await setCfg(db, { repoPath: env.repoPath, remoteUrl: env.remoteUrl });
 		const body = "---\ntitle: Hello\n---\n\n# Hi\n\nTabs\tand\ttrailing newline preserved.\n";
-		seedL4Principles(db, body);
+		await seedL4Principles(db, body);
 
 		const runner = createGitRunner(env.repoPath);
 		await runGitExport(db, { runner, fs: createNodeFsAdapter() });
@@ -287,12 +288,12 @@ describe("Git Export — integration (real git)", () => {
 
 	it("AC5: honors custom repoPath, remoteUrl, branch", async () => {
 		const env = newEnv();
-		setCfg(db, {
+		await setCfg(db, {
 			repoPath: env.repoPath,
 			remoteUrl: env.remoteUrl,
 			branch: "docs",
 		});
-		seedL4Principles(db, "# custom branch\n");
+		await seedL4Principles(db, "# custom branch\n");
 
 		const runner = createGitRunner(env.repoPath);
 		const result = await runGitExport(db, { runner, fs: createNodeFsAdapter() });
@@ -307,7 +308,7 @@ describe("Git Export — integration (real git)", () => {
 
 	it("handles unicode + large bodies with byte-exact roundtrip", async () => {
 		const env = newEnv();
-		setCfg(db, { repoPath: env.repoPath, remoteUrl: env.remoteUrl });
+		await setCfg(db, { repoPath: env.repoPath, remoteUrl: env.remoteUrl });
 
 		const big = `${"# 🎯 Reflection\n\n".repeat(5)}${"café résumé ñ 日本語 ☃\n".repeat(2000)}`;
 		await db.insert(knowledgeItems)
@@ -347,8 +348,8 @@ describe("Git Export — integration (real git)", () => {
 	it("first-run init: creates repo when the directory does not exist", async () => {
 		const env = newEnv();
 		const notYetCreated = path.join(env.rootDir, "fresh-repo");
-		setCfg(db, { repoPath: notYetCreated, remoteUrl: env.remoteUrl });
-		seedL2Brief(db, "nimmly", "# nimmly\n");
+		await setCfg(db, { repoPath: notYetCreated, remoteUrl: env.remoteUrl });
+		await seedL2Brief(db, "nimmly", "# nimmly\n");
 
 		const runner = createGitRunner(notYetCreated);
 		const result = await runGitExport(db, { runner, fs: createNodeFsAdapter() });
@@ -360,8 +361,8 @@ describe("Git Export — integration (real git)", () => {
 
 	it("deletes a previously-exported file when its knowledge item is archived", async () => {
 		const env = newEnv();
-		setCfg(db, { repoPath: env.repoPath, remoteUrl: env.remoteUrl });
-		seedL4Principles(db, "# v1\n", "ki-del");
+		await setCfg(db, { repoPath: env.repoPath, remoteUrl: env.remoteUrl });
+		await seedL4Principles(db, "# v1\n", "ki-del");
 
 		const runner = createGitRunner(env.repoPath);
 		const realFs = createNodeFsAdapter();
@@ -383,8 +384,8 @@ describe("Git Export — integration (real git)", () => {
 
 	it("handles detached HEAD: exporter re-checks out the configured branch and commits", async () => {
 		const env = newEnv();
-		setCfg(db, { repoPath: env.repoPath, remoteUrl: env.remoteUrl });
-		seedL4Principles(db, "# first\n", "ki-detach");
+		await setCfg(db, { repoPath: env.repoPath, remoteUrl: env.remoteUrl });
+		await seedL4Principles(db, "# first\n", "ki-detach");
 
 		const runner = createGitRunner(env.repoPath);
 		const realFs = createNodeFsAdapter();
@@ -439,8 +440,8 @@ describe("Git Export — integration (real git)", () => {
 		// the working tree has extras. This is an explicit acceptance: v1 does
 		// not reject the working tree, but the commit manifest is still truthful.
 		const env = newEnv();
-		setCfg(db, { repoPath: env.repoPath, remoteUrl: env.remoteUrl });
-		seedL4Principles(db, "# seeded\n", "ki-uncommitted");
+		await setCfg(db, { repoPath: env.repoPath, remoteUrl: env.remoteUrl });
+		await seedL4Principles(db, "# seeded\n", "ki-uncommitted");
 
 		// First export initializes the repo.
 		const runner = createGitRunner(env.repoPath);
@@ -469,11 +470,11 @@ describe("Git Export — integration (real git)", () => {
 		const env = newEnv();
 		// Point at an unreachable remote so `git push` fails.
 		const bogusRemote = path.join(env.rootDir, "does-not-exist");
-		setCfg(db, {
+		await setCfg(db, {
 			repoPath: env.repoPath,
 			remoteUrl: `file://${bogusRemote}`,
 		});
-		seedL4Principles(db, "# push-fail\n");
+		await seedL4Principles(db, "# push-fail\n");
 
 		const runner = createGitRunner(env.repoPath);
 		const result = await runGitExport(db, { runner, fs: createNodeFsAdapter() });
@@ -486,9 +487,9 @@ describe("Git Export — integration (real git)", () => {
 
 		// Settings: commit fields populated, push NOT.
 		const rows = await db.select().from(factorySettings);
-		const lastCommitSha = rows.find((r) => r.key === "git_export.last_commit_sha");
-		const lastCommitAt = rows.find((r) => r.key === "git_export.last_commit_at");
-		const lastPushAt = rows.find((r) => r.key === "git_export.last_push_at");
+		const lastCommitSha = rows.find((r: FactorySetting) => r.key === "git_export.last_commit_sha");
+		const lastCommitAt = rows.find((r: FactorySetting) => r.key === "git_export.last_commit_at");
+		const lastPushAt = rows.find((r: FactorySetting) => r.key === "git_export.last_push_at");
 		expect(lastCommitSha).toBeDefined();
 		expect(lastCommitAt).toBeDefined();
 		expect(lastPushAt).toBeUndefined();

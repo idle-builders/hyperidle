@@ -55,7 +55,7 @@ describe("P2 — resolveReviewRecipients fallback routing (AC8)", () => {
 			expect(result).toHaveLength(0);
 		});
 
-		it("returns all human user IDs when no org edges exist", () => {
+		it("returns all human user IDs when no org edges exist", async () => {
 			// Seed two human users
 			await db.insert(users)
 				.values([
@@ -101,7 +101,7 @@ describe("P2 — resolveReviewRecipients fallback routing (AC8)", () => {
 	// AC8: org edges exist and match → returns matched human user IDs
 	// -------------------------------------------------------------------------
 	describe("AC8: matching org edges → returns matched human users only", () => {
-		it("returns matched fromUserId when a direct edge matches context.userId", () => {
+		it("returns matched fromUserId when a direct edge matches context.userId", async () => {
 			await db.insert(users)
 				.values([
 					{
@@ -146,7 +146,7 @@ describe("P2 — resolveReviewRecipients fallback routing (AC8)", () => {
 			expect(result).not.toContain("u-other-human");
 		});
 
-		it("returns matched fromUserId when a function edge matches context.agentRole", () => {
+		it("returns matched fromUserId when a function edge matches context.agentRole", async () => {
 			await db.insert(users)
 				.values([
 					{
@@ -182,7 +182,7 @@ describe("P2 — resolveReviewRecipients fallback routing (AC8)", () => {
 			expect(result).not.toContain("u-other");
 		});
 
-		it("returns matched fromUserId when a team edge matches context.teamId", () => {
+		it("returns matched fromUserId when a team edge matches context.teamId", async () => {
 			await db.insert(users)
 				.values([
 					{
@@ -218,7 +218,7 @@ describe("P2 — resolveReviewRecipients fallback routing (AC8)", () => {
 			expect(result).not.toContain("u-unrelated");
 		});
 
-		it("deduplicates fromUserId when multiple edges match the same human user", () => {
+		it("deduplicates fromUserId when multiple edges match the same human user", async () => {
 			await db.insert(users)
 				.values({
 					id: "u-multi-match",
@@ -262,7 +262,7 @@ describe("P2 — resolveReviewRecipients fallback routing (AC8)", () => {
 	// AC8: non-matching org edges → falls back to all human users
 	// -------------------------------------------------------------------------
 	describe("AC8: non-matching edges → falls back to all human users", () => {
-		it("returns all human users when edges exist but none match the context", () => {
+		it("returns all human users when edges exist but none match the context", async () => {
 			await db.insert(users)
 				.values([
 					{
@@ -300,7 +300,7 @@ describe("P2 — resolveReviewRecipients fallback routing (AC8)", () => {
 			expect(result).toContain("u-fallback-h2");
 		});
 
-		it("returns all human users when context is empty and edges exist", () => {
+		it("returns all human users when context is empty and edges exist", async () => {
 			await db.insert(users)
 				.values([
 					{

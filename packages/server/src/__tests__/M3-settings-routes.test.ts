@@ -25,7 +25,7 @@ function authHeaders(): Record<string, string> {
  * @lore P2: Profile now comes from `users WHERE kind='human'` instead of
  * factorySettings founder_name/email keys. Seed a human user for profile tests.
  */
-function seedFounderProfile(db: HyperIdleDb): void {
+async function seedFounderProfile(db: HyperIdleDb): Promise<void> {
 	const now = new Date().toISOString();
 	await db.insert(users)
 		.values({
@@ -56,7 +56,7 @@ describe("M3 — GET /api/settings (B1)", () => {
 		app = await createTestApp({ db, eventBus });
 
 		const now = new Date().toISOString();
-		seedFounderProfile(db);
+		await seedFounderProfile(db);
 
 		// Seed 2 products
 		await db.insert(products)
@@ -164,7 +164,7 @@ describe("M3 — PATCH /api/settings persists notification preferences (B1)", ()
 		db = handle.db;
 		eventBus = new EventBus();
 		app = await createTestApp({ db, eventBus });
-		seedFounderProfile(db);
+		await seedFounderProfile(db);
 	});
 
 	afterEach(async () => {

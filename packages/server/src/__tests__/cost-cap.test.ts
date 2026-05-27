@@ -23,7 +23,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 
 const NOW = new Date().toISOString();
 
-function seedBase(db: HyperIdleDb): void {
+async function seedBase(db: HyperIdleDb): Promise<void> {
 	await db.insert(products)
 		.values({ id: "p1", name: "Test Product", phase: "build", createdAt: NOW })
 
@@ -88,13 +88,13 @@ function seedBase(db: HyperIdleDb): void {
 
 }
 
-function insertSession(
+async function insertSession(
 	db: HyperIdleDb,
 	id: string,
 	agentId: string,
 	cost: number,
 	state = "done" as string,
-): void {
+): Promise<void> {
 	await db.insert(sessions)
 		.values({
 			id,
@@ -113,11 +113,11 @@ function insertSession(
 			.where(eq(users.id, agentId))
 
 		// Find which team this agent belongs to and accumulate there too
-		const agent = db
+		const [agent] = await db
 			.select({ teamId: users.teamId })
 			.from(users)
 			.where(eq(users.id, agentId))
-			.get();
+			.limit(1);
 		if (agent?.teamId) {
 			await db.update(teams)
 				.set({ costActual: sql`coalesce(cost_actual, 0) + ${cost}` })
@@ -267,7 +267,7 @@ describe("Cost Cap Enforcement", () => {
 	describe("AC4: Breach events", () => {
 		it("emits cost_cap_breached event when agent cap is breached", async () => {
 			const events: CostCapBreachedEvent[] = [];
-			eventBus.on("cost_cap_breached", (e) => events.push(e));
+			eventBus.on("cost_cap_breached", (e: CostCapBreachedEvent) => events.push(e));
 
 			// Previous session spent 800
 			insertSession(db, "s-prev", "agent-1", 800);
@@ -291,7 +291,7 @@ describe("Cost Cap Enforcement", () => {
 
 		it("emits cost_cap_breached event when team cap is breached", async () => {
 			const events: CostCapBreachedEvent[] = [];
-			eventBus.on("cost_cap_breached", (e) => events.push(e));
+			eventBus.on("cost_cap_breached", (e: CostCapBreachedEvent) => events.push(e));
 
 			// Team at 4800, add 200 to reach 5000 (team cap)
 			await db.insert(users)
@@ -328,7 +328,7 @@ describe("Cost Cap Enforcement", () => {
 	describe("AC5: Warning at 80%", () => {
 		it("emits cost_cap_warning when agent spend reaches 80% of cap", async () => {
 			const warnings: CostCapWarningEvent[] = [];
-			eventBus.on("cost_cap_warning", (e) => warnings.push(e));
+			eventBus.on("cost_cap_warning", (e: CostCapWarningEvent) => warnings.push(e));
 
 			insertSession(db, "s1", "agent-1", 0);
 
@@ -347,7 +347,7 @@ describe("Cost Cap Enforcement", () => {
 
 		it("emits cost_cap_warning when team spend reaches 80% of cap", async () => {
 			const warnings: CostCapWarningEvent[] = [];
-			eventBus.on("cost_cap_warning", (e) => warnings.push(e));
+			eventBus.on("cost_cap_warning", (e: CostCapWarningEvent) => warnings.push(e));
 
 			// Agent-2 spent 3800, agent-1 adds 200 = team total 4000 = 80% of 5000
 			await db.insert(users)
@@ -379,7 +379,7 @@ describe("Cost Cap Enforcement", () => {
 
 		it("emits cost_cap_warning for factory at 80%", async () => {
 			const warnings: CostCapWarningEvent[] = [];
-			eventBus.on("cost_cap_warning", (e) => warnings.push(e));
+			eventBus.on("cost_cap_warning", (e: CostCapWarningEvent) => warnings.push(e));
 
 			insertSession(db, "s1", "agent-1", 0);
 
@@ -484,11 +484,11 @@ describe("Cost Cap Enforcement", () => {
 			expect(result.allowed).toBe(false);
 
 			// But the active session is still active (not killed)
-			const activeSession = db
+			const [activeSession] = await db
 				.select()
 				.from(sessions)
 				.where(and(eq(sessions.id, "s-active"), eq(sessions.state, "active")))
-				.get();
+				.limit(1);
 			expect(activeSession).toBeDefined();
 			expect(activeSession?.state).toBe("active");
 		});
@@ -519,7 +519,7 @@ describe("Cost Cap Enforcement", () => {
 	describe("AC9: Idempotency", () => {
 		it("does not emit duplicate warnings for same session", async () => {
 			const warnings: CostCapWarningEvent[] = [];
-			eventBus.on("cost_cap_warning", (e) => warnings.push(e));
+			eventBus.on("cost_cap_warning", (e: CostCapWarningEvent) => warnings.push(e));
 
 			insertSession(db, "s1", "agent-1", 0);
 
@@ -548,7 +548,7 @@ describe("Cost Cap Enforcement", () => {
 
 		it("does not emit duplicate breach events for same session", async () => {
 			const breaches: CostCapBreachedEvent[] = [];
-			eventBus.on("cost_cap_breached", (e) => breaches.push(e));
+			eventBus.on("cost_cap_breached", (e: CostCapBreachedEvent) => breaches.push(e));
 
 			insertSession(db, "s1", "agent-1", 0);
 

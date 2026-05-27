@@ -31,7 +31,7 @@ function authHeaders(extra?: Record<string, string>): Record<string, string> {
 	};
 }
 
-function setConfigKV(db: HyperIdleDb, pairs: Record<string, string>): void {
+async function setConfigKV(db: HyperIdleDb, pairs: Record<string, string>): Promise<void> {
 	const now = "2026-04-18T00:00:00.000Z";
 	for (const [key, value] of Object.entries(pairs)) {
 		await db.insert(factorySettings)
@@ -44,8 +44,8 @@ function setConfigKV(db: HyperIdleDb, pairs: Record<string, string>): void {
 	}
 }
 
-function enableExport(db: HyperIdleDb, overrides: Record<string, string> = {}): void {
-	setConfigKV(db, {
+async function enableExport(db: HyperIdleDb, overrides: Record<string, string> = {}): Promise<void> {
+	await setConfigKV(db, {
 		"git_export.enabled": "true",
 		"git_export.repo_path": REPO,
 		"git_export.branch": "main",
@@ -175,7 +175,7 @@ describe("Git Export HTTP routes", () => {
 		});
 
 		it("returns the current config as JSON when authed", async () => {
-			enableExport(db, {
+			await enableExport(db, {
 				"git_export.remote_url": "git@example.com:owner/repo.git",
 				"git_export.branch": "docs",
 			});
@@ -200,7 +200,7 @@ describe("Git Export HTTP routes", () => {
 		it("redacts embedded credentials from remoteUrl in the response", async () => {
 			// Somebody seeded `factory_settings` with a credential-bearing URL
 			// via migrations / CLI / bypass. GET /config MUST NOT echo it.
-			enableExport(db, {
+			await enableExport(db, {
 				"git_export.remote_url": "https://user:ghp_secrettoken@github.com/owner/repo.git",
 			});
 			const app = buildApp(db);
@@ -309,7 +309,7 @@ describe("Git Export HTTP routes", () => {
 		});
 
 		it("updates config and returns the patched shape", async () => {
-			enableExport(db);
+			await enableExport(db);
 			const app = buildApp(db);
 			const res = await app.request("/api/git-export/config", {
 				method: "PATCH",
@@ -332,7 +332,7 @@ describe("Git Export HTTP routes", () => {
 		});
 
 		it("accepts toggling enabled to false", async () => {
-			enableExport(db);
+			await enableExport(db);
 			const app = buildApp(db);
 			const res = await app.request("/api/git-export/config", {
 				method: "PATCH",
@@ -353,7 +353,7 @@ describe("Git Export HTTP routes", () => {
 		});
 
 		it("returns a GitExportResult shape when disabled", async () => {
-			setConfigKV(db, {
+			await setConfigKV(db, {
 				"git_export.enabled": "false",
 				"git_export.repo_path": REPO,
 			});
@@ -383,7 +383,7 @@ describe("Git Export HTTP routes", () => {
 		});
 
 		it("supports { force: true } to override disabled", async () => {
-			setConfigKV(db, {
+			await setConfigKV(db, {
 				"git_export.enabled": "false",
 				"git_export.repo_path": REPO,
 			});
@@ -476,7 +476,7 @@ describe("Git Export HTTP routes", () => {
 		});
 
 		it("returns { enabled, repoPath, branch, remoteUrl, lastCommitAt, lastCommitSha, lastPushAt }", async () => {
-			enableExport(db, {
+			await enableExport(db, {
 				"git_export.last_commit_at": "2026-04-18T09:15:00.000Z",
 				"git_export.last_commit_sha": "deadbeefcafef00d1234567890abcdef12345678",
 				"git_export.last_push_at": "2026-04-18T09:15:05.000Z",
@@ -518,7 +518,7 @@ describe("Git Export HTTP routes", () => {
 		});
 
 		it("redacts embedded credentials from remoteUrl", async () => {
-			enableExport(db, {
+			await enableExport(db, {
 				"git_export.remote_url": "https://user:ghp_secret@github.com/owner/repo.git",
 			});
 			const app = buildApp(db);

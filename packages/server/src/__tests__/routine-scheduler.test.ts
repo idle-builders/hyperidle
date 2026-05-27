@@ -26,7 +26,7 @@ import { EventBus } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-function seedBase(db: HyperIdleDb): void {
+async function seedBase(db: HyperIdleDb): Promise<void> {
 	const now = new Date().toISOString();
 
 	await db.insert(products)
@@ -93,7 +93,7 @@ function seedBase(db: HyperIdleDb): void {
 
 }
 
-function getRoutine(db: HyperIdleDb, id: string) {
+async function getRoutine(db: HyperIdleDb, id: string) {
 	const [routine] = await db.select().from(routines).where(eq(routines.id, id));
 	if (!routine) throw new Error(`Routine ${id} not found`);
 	return routine;
@@ -108,7 +108,7 @@ describe("Routine Scheduler", () => {
 		handle = await createTestDb();
 		db = handle.db;
 		eventBus = new EventBus();
-		seedBase(db);
+		await seedBase(db);
 	});
 
 	afterEach(async () => {
@@ -190,12 +190,12 @@ describe("Routine Scheduler", () => {
 					nextRunAt: pastDue,
 				})
 
-			const routine = getRoutine(db, "r-heartbeat");
+			const routine = await getRoutine(db, "r-heartbeat");
 			const result = await checkAndFireRoutine(db, eventBus, routine);
 
 			expect(result.fired).toBe(true);
 
-			const updated = getRoutine(db, "r-heartbeat");
+			const updated = await getRoutine(db, "r-heartbeat");
 			expect(updated.lastRunAt).toBeTruthy();
 			expect(updated.nextRunAt).toBeTruthy();
 
@@ -223,12 +223,12 @@ describe("Routine Scheduler", () => {
 					nextRunAt: pastDue,
 				})
 
-			const routine = getRoutine(db, "r-calendar");
+			const routine = await getRoutine(db, "r-calendar");
 			const result = await checkAndFireRoutine(db, eventBus, routine);
 
 			expect(result.fired).toBe(true);
 
-			const updated = getRoutine(db, "r-calendar");
+			const updated = await getRoutine(db, "r-calendar");
 			const nextRun = new Date(updated.nextRunAt ?? "");
 			expect(nextRun.getUTCDay()).toBe(1);
 			expect(nextRun.getUTCHours()).toBe(9);
@@ -269,7 +269,7 @@ describe("Routine Scheduler", () => {
 			expect(sessionsAfter).toHaveLength(1);
 			expect(sessionsAfter[0].agentId).toBe("agent-1");
 
-			const updated = getRoutine(db, "r-event");
+			const updated = await getRoutine(db, "r-event");
 			expect(updated.lastRunAt).toBeTruthy();
 		});
 	});
@@ -314,7 +314,7 @@ describe("Routine Scheduler", () => {
 					nextRunAt: new Date(now.getTime() - 5000).toISOString(),
 				})
 
-			const routine = getRoutine(db, "r-delegate");
+			const routine = await getRoutine(db, "r-delegate");
 			const result = await checkAndFireRoutine(db, eventBus, routine);
 
 			expect(result.fired).toBe(true);
@@ -350,13 +350,13 @@ describe("Routine Scheduler", () => {
 					nextRunAt: new Date(now.getTime() - 5000).toISOString(),
 				})
 
-			const routine = getRoutine(db, "r-capped");
+			const routine = await getRoutine(db, "r-capped");
 			const result = await checkAndFireRoutine(db, eventBus, routine);
 
 			expect(result.fired).toBe(false);
 			expect(result.reason).toContain("cost");
 
-			const updated = getRoutine(db, "r-capped");
+			const updated = await getRoutine(db, "r-capped");
 			expect(updated.nextRunAt).toBeTruthy();
 			const nextRunTime = new Date(updated.nextRunAt ?? "").getTime();
 			expect(nextRunTime).toBeGreaterThan(now.getTime());
@@ -382,7 +382,7 @@ describe("Routine Scheduler", () => {
 					nextRunAt: new Date(now.getTime() - 5000).toISOString(),
 				})
 
-			const routine = getRoutine(db, "r-silent");
+			const routine = await getRoutine(db, "r-silent");
 			const result = await checkAndFireRoutine(db, eventBus, routine);
 
 			expect(result.fired).toBe(true);
@@ -411,7 +411,7 @@ describe("Routine Scheduler", () => {
 					nextRunAt: new Date(now.getTime() - 5000).toISOString(),
 				})
 
-			const routine = getRoutine(db, "r-review");
+			const routine = await getRoutine(db, "r-review");
 			const result = await checkAndFireRoutine(db, eventBus, routine);
 
 			expect(result.fired).toBe(true);
@@ -443,12 +443,12 @@ describe("Routine Scheduler", () => {
 					nextRunAt: pastDue,
 				})
 
-			const routine = getRoutine(db, "r-timestamps");
+			const routine = await getRoutine(db, "r-timestamps");
 			const result = await checkAndFireRoutine(db, eventBus, routine);
 
 			expect(result.fired).toBe(true);
 
-			const updated = getRoutine(db, "r-timestamps");
+			const updated = await getRoutine(db, "r-timestamps");
 			expect(updated.lastRunAt).toBeTruthy();
 			expect(updated.nextRunAt).toBeTruthy();
 
@@ -464,9 +464,9 @@ describe("Routine Scheduler", () => {
 	});
 
 	describe("startRoutineScheduler", () => {
-		it("starts and stops the scheduler", () => {
+		it("starts and stops the scheduler", async () => {
 			const config: RoutineSchedulerConfig = { pollIntervalMs: 30000 };
-			const scheduler = startRoutineScheduler(db, eventBus, config);
+			const scheduler = await startRoutineScheduler(db, eventBus, config);
 
 			expect(scheduler).toBeDefined();
 			expect(typeof scheduler.stop).toBe("function");

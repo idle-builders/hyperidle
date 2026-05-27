@@ -17,7 +17,7 @@ describe("Daily Digest (E7)", () => {
 	let db: HyperIdleDb;
 	const now = new Date("2026-04-16T12:00:00Z");
 
-	function seedBase(): void {
+	async function seedBase(): Promise<void> {
 		const ts = now.toISOString();
 		await db.insert(products)
 			.values({ id: "prod-1", name: "Test Product", phase: "build", createdAt: ts })
@@ -48,7 +48,7 @@ describe("Daily Digest (E7)", () => {
 
 	}
 
-	function createQueuedItem(id: string, createdAt: Date): void {
+	async function createQueuedItem(id: string, createdAt: Date): Promise<void> {
 		await db.insert(items)
 			.values({
 				id,
@@ -67,38 +67,38 @@ describe("Daily Digest (E7)", () => {
 	beforeEach(async () => {
 		handle = await createTestDb();
 		db = handle.db;
-		seedBase();
+		await seedBase();
 	});
 
-	it("AC9: returns queued items from last 24h", () => {
+	it("AC9: returns queued items from last 24h", async () => {
 		// Item from 6 hours ago
 		const sixHoursAgo = new Date(now.getTime() - 6 * 60 * 60 * 1000);
-		createQueuedItem("item-recent", sixHoursAgo);
+		await createQueuedItem("item-recent", sixHoursAgo);
 
-		const digest = getDailyDigest(db, now);
+		const digest = await getDailyDigest(db, now);
 		expect(digest.items).toHaveLength(1);
 		expect(digest.items[0].id).toBe("item-recent");
 		expect(digest.generatedAt).toBeTruthy();
 	});
 
-	it("AC9: excludes items older than 24h", () => {
+	it("AC9: excludes items older than 24h", async () => {
 		// Item from 25 hours ago
 		const twentyFiveHoursAgo = new Date(now.getTime() - 25 * 60 * 60 * 1000);
-		createQueuedItem("item-old", twentyFiveHoursAgo);
+		await createQueuedItem("item-old", twentyFiveHoursAgo);
 
 		// Item from 6 hours ago
 		const sixHoursAgo = new Date(now.getTime() - 6 * 60 * 60 * 1000);
-		createQueuedItem("item-recent", sixHoursAgo);
+		await createQueuedItem("item-recent", sixHoursAgo);
 
-		const digest = getDailyDigest(db, now);
+		const digest = await getDailyDigest(db, now);
 		expect(digest.items).toHaveLength(1);
 		expect(digest.items[0].id).toBe("item-recent");
 	});
 
-	it("AC9: excludes items that already have responses", () => {
+	it("AC9: excludes items that already have responses", async () => {
 		const sixHoursAgo = new Date(now.getTime() - 6 * 60 * 60 * 1000);
-		createQueuedItem("item-responded", sixHoursAgo);
-		createQueuedItem("item-pending", sixHoursAgo);
+		await createQueuedItem("item-responded", sixHoursAgo);
+		await createQueuedItem("item-pending", sixHoursAgo);
 
 		// L1a: legacy `responses` rows project as verdict-typed messages whose
 		// `legacy_item_id` matches the source item. The digest now joins via
@@ -125,13 +125,13 @@ describe("Daily Digest (E7)", () => {
 				createdAt: now.toISOString(),
 			})
 
-		const digest = getDailyDigest(db, now);
+		const digest = await getDailyDigest(db, now);
 		expect(digest.items).toHaveLength(1);
 		expect(digest.items[0].id).toBe("item-pending");
 	});
 
-	it("returns empty array when no queued items", () => {
-		const digest = getDailyDigest(db, now);
+	it("returns empty array when no queued items", async () => {
+		const digest = await getDailyDigest(db, now);
 		expect(digest.items).toHaveLength(0);
 		expect(digest.generatedAt).toBeTruthy();
 	});
