@@ -16,6 +16,7 @@ import { createConversationRoutes } from "./routes/conversations.js";
 import { createCredentialRoutes } from "./routes/credentials.js";
 import { createGitExportRoutes } from "./routes/git-export-routes.js";
 import { authHealth, health } from "./routes/health.js";
+import { createHintRoutes } from "./routes/hints.js";
 import { createKnowledgeRoutes, createTeamsRoutes } from "./routes/knowledge.js";
 import { createNotificationRoutes } from "./routes/notifications-routes.js";
 import { createObservabilityRoutes } from "./routes/observability-routes.js";
@@ -287,6 +288,7 @@ function createApp(options?: AppOptions): Hono {
 		api.route("/status", createStatusRoutes(options.db));
 		api.route("/git-export", createGitExportRoutes(options.db));
 		api.route("/credentials", createCredentialRoutes(options.db));
+		api.route("/hint-progress", createHintRoutes(options.db));
 		// O3: defaultNotificationAdapterFactory moved to @hyperidle/fabric (imported at top).
 		// Tests may override via notificationAdapterFactory for route-level adapter injection.
 		api.route(

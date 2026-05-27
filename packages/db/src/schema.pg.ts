@@ -620,3 +620,29 @@ export type NewServerCredential = typeof serverCredentials.$inferInsert;
 
 export type ServerConfigRow = typeof serverConfig.$inferSelect;
 export type NewServerConfigRow = typeof serverConfig.$inferInsert;
+
+// --- P5: First-time hint progress ---
+
+/**
+ * Records which first-time hints each user has explicitly dismissed.
+ * Composite PK on (userId, hintId) prevents duplicate dismissals.
+ * Cascade delete ensures rows are cleaned up when the user is deleted.
+ *
+ * @lore P5: hint progress is kernel-level CRUD, not strategy logic.
+ * The hint catalog lives in @hyperidle/shared; this table only stores
+ * the userId + hintId + seenAt dismissal record.
+ */
+export const hintProgress = pgTable(
+	"hint_progress",
+	{
+		userId: text("user_id")
+			.notNull()
+			.references(() => users.id, { onDelete: "cascade" }),
+		hintId: text("hint_id").notNull(),
+		seenAt: text("seen_at").notNull(),
+	},
+	(table) => [primaryKey({ columns: [table.userId, table.hintId] })],
+);
+
+export type HintProgressRow = typeof hintProgress.$inferSelect;
+export type NewHintProgressRow = typeof hintProgress.$inferInsert;
