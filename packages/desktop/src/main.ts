@@ -24,6 +24,12 @@ import { createLogRotator } from "./log-rotation.js";
 import { resolveMigrationsFolder, runMigrations } from "./migrate.js";
 import { createSafeCredentialsManager } from "./safe-credentials.js";
 
+function log(message: string, data?: Record<string, unknown>): void {
+	const ts = new Date().toISOString();
+	const suffix = data ? ` ${JSON.stringify(data)}` : "";
+	process.stderr.write(`${ts} [desktop] ${message}${suffix}\n`);
+}
+
 // @lore N4: IS_DEV uses app.isPackaged which is false when running `electron .`
 // from source and true in the packaged .app bundle. This is the correct way
 // to distinguish dev from production in Electron — not NODE_ENV.
@@ -398,25 +404,36 @@ async function runMigrationsWithRetry(
  * AC-12: anthropic_api_key is read from safeStorage before server boot.
  */
 async function bootLocalMode(ctx: BootContext, apiKey: string): Promise<void> {
+	log("boot:local start", { userDataDir: ctx.userDataDir, isDev: IS_DEV });
+
 	const dbPath = resolveDbPath(ctx.userDataDir);
+	log("boot:local db", { dbPath });
 	const clientConfig = loadClientConfig(ctx.configPath);
 
 	// P3 AC-12: Read anthropic_api_key from safeStorage before server boot
 	const anthropicKey = readAnthropicKeyFromStore(ctx.credentialsPath);
 	if (anthropicKey) {
 		process.env.ANTHROPIC_API_KEY = anthropicKey;
+		log("boot:local anthropic key loaded from safeStorage");
 	}
 
 	const migrationsFolder = resolveMigrationsFolder();
+	log("boot:local migrations", { migrationsFolder, exists: fs.existsSync(migrationsFolder) });
 	const migrated = await runMigrationsWithRetry(dbPath, migrationsFolder, ctx.logDir);
-	if (!migrated) return;
+	if (!migrated) {
+		log("boot:local migrations failed or cancelled");
+		return;
+	}
+	log("boot:local migrations complete");
 
 	process.env.DATABASE_URL = dbPath;
 	process.env.HYPERIDLE_API_KEY = apiKey;
 	if (!IS_DEV) {
 		process.env.NODE_ENV = "production";
 		const staticDir = path.join(process.resourcesPath ?? "", "web-dist");
-		if (fs.existsSync(path.join(staticDir, "index.html"))) {
+		const hasStaticDir = fs.existsSync(path.join(staticDir, "index.html"));
+		log("boot:local static dir", { staticDir, exists: hasStaticDir });
+		if (hasStaticDir) {
 			process.env.HYPERIDLE_STATIC_DIR = staticDir;
 		}
 	}
@@ -424,18 +441,29 @@ async function bootLocalMode(ctx: BootContext, apiKey: string): Promise<void> {
 		process.env.PORT = "3001";
 	}
 
+	log("boot:local starting server", {
+		DATABASE_URL: dbPath,
+		HYPERIDLE_STATIC_DIR: process.env.HYPERIDLE_STATIC_DIR ?? "(unset)",
+		PORT: process.env.PORT ?? "(default)",
+	});
+
 	let handle: ReturnType<typeof startServer>;
 	try {
 		handle = startServer();
 	} catch (err) {
+		log("boot:local server start FAILED", { error: (err as Error).message, stack: (err as Error).stack });
 		await showStartupError("Server failed to start.", (err as Error).message, ctx.logDir);
 		return;
 	}
 	serverHandle = handle;
 
 	const port = getPort(handle);
+	log("boot:local server listening", { port });
+
 	const windowState = clientConfig.windowState;
 	const preloadPath = path.join(Dirname, "preload.js");
+	log("boot:local preload", { preloadPath, exists: fs.existsSync(preloadPath) });
+
 	const mainWindow = new BrowserWindow({
 		x: windowState.x,
 		y: windowState.y,
@@ -463,9 +491,11 @@ async function bootLocalMode(ctx: BootContext, apiKey: string): Promise<void> {
 		);
 	}
 
+	log("boot:local waiting for health check", { port, timeoutMs: 30_000 });
 	try {
 		await waitForHealth(port, 30_000);
 	} catch {
+		log("boot:local health check FAILED — server did not respond within 30s");
 		await showStartupError(
 			"Server not responding.",
 			"The server did not start within 30 seconds.",
@@ -473,9 +503,29 @@ async function bootLocalMode(ctx: BootContext, apiKey: string): Promise<void> {
 		);
 		return;
 	}
+	log("boot:local health check passed");
 
 	const appUrl = IS_DEV ? "http://localhost:5173" : `http://127.0.0.1:${port}`;
+	log("boot:local loading app", { appUrl });
 	mainWindow.loadURL(appUrl);
+
+	// In dev mode, open devtools for debugging
+	if (IS_DEV) {
+		mainWindow.webContents.openDevTools({ mode: "detach" });
+	}
+
+	// Log renderer errors visible in main process
+	mainWindow.webContents.on("did-fail-load", (_event, errorCode, errorDescription, validatedURL) => {
+		log("renderer did-fail-load", { errorCode, errorDescription, validatedURL });
+	});
+	mainWindow.webContents.on("render-process-gone", (_event, details) => {
+		log("renderer process gone", { reason: details.reason, exitCode: details.exitCode });
+	});
+	mainWindow.webContents.on("console-message", (_event, level, message, line, sourceId) => {
+		if (level >= 2) {
+			log("renderer console", { level: level === 2 ? "warn" : "error", message, line, sourceId });
+		}
+	});
 
 	bindWindowStatePersistence(mainWindow, ctx.configPath);
 
@@ -496,6 +546,8 @@ async function bootLocalMode(ctx: BootContext, apiKey: string): Promise<void> {
 	app.on("activate", (): void => {
 		if (BrowserWindow.getAllWindows().length === 0) void startApp();
 	});
+
+	log("boot:local complete", { port, appUrl });
 }
 
 /**
@@ -586,18 +638,31 @@ async function startApp(): Promise<void> {
 	logRotator = createLogRotator(logDir);
 	logRotator.attach();
 
+	log("startApp", {
+		userDataDir,
+		logDir,
+		logFile: logRotator.logPath,
+		isDev: IS_DEV,
+		electronVersion: process.versions.electron,
+		nodeVersion: process.versions.node,
+		platform: process.platform,
+		arch: process.arch,
+	});
+
 	// P3: Migrate window-state.json → config.json on first run after upgrade.
 	migrateWindowState(windowStatePath, configPath);
 
 	// P3: Read client config to determine BackendMode.
 	// @lore P3 AC-3/AC-4/AC-5: null backendMode (first run) defaults to local.
 	const clientConfig = loadClientConfig(configPath);
+	log("startApp config", { backendMode: clientConfig.backendMode ?? "local (default)" });
 	const ctx: BootContext = { userDataDir, logDir, configPath, credentialsPath };
 
 	if (clientConfig.backendMode === "shared") {
 		// SHARED MODE: connect to remote server, no embedded server started.
 		const serverUrl = clientConfig.serverUrl;
 		if (!serverUrl) {
+			log("startApp shared mode FAILED — no serverUrl configured");
 			await showStartupError(
 				"Shared mode requires a server URL.",
 				"Go to Settings → Backend to configure the remote server URL.",
@@ -605,10 +670,12 @@ async function startApp(): Promise<void> {
 			);
 			return;
 		}
+		log("startApp booting shared mode", { serverUrl });
 		await bootSharedMode(ctx, serverUrl);
 	} else {
 		// LOCAL MODE (or null/unset): boot embedded server.
 		const apiKey = readOrGenerateApiKey(secretsPath);
+		log("startApp booting local mode");
 		await bootLocalMode(ctx, apiKey);
 	}
 }
