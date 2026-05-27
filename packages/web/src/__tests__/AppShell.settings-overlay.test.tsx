@@ -57,15 +57,16 @@ describe("AppShell — Settings overlay + Command-K priority (J3)", () => {
 		const user = userEvent.setup();
 		renderShell();
 		await waitFor(() => {
-			expect(screen.getByText("Active Bets")).toBeInTheDocument();
+			expect(screen.getByRole("button", { name: /user profile/i })).toBeInTheDocument();
 		});
 		await user.click(screen.getByRole("button", { name: /user profile/i }));
+		// P4: settings overlay is now a shell-state content swap (not a dialog).
+		// Wait for Settings nav to appear in the Submenu.
 		await waitFor(() => {
-			expect(screen.getByRole("dialog", { name: /settings/i })).toBeInTheDocument();
+			expect(screen.getByText("Settings")).toBeInTheDocument();
 		});
-		// With the overlay present, Rail landmarks must not be reachable.
-		// Accepting either unmount (query returns null) or aria-hidden (query
-		// still finds the node but aria-hidden="true").
+		// With the overlay open, Rail is inside the dimmed shell wrapper (aria-hidden).
+		// Accepting either unmount (query returns null) or aria-hidden (aria-hidden="true").
 		const bets = screen.queryByText("Active Bets");
 		if (bets) {
 			const railRoot = bets.closest("[aria-hidden]");
@@ -75,18 +76,27 @@ describe("AppShell — Settings overlay + Command-K priority (J3)", () => {
 		}
 	});
 
-	it("marks main content as inert / aria-hidden while Settings is open", async () => {
+	it("main-content is NOT aria-hidden when Settings is open (it shows settings content)", async () => {
 		const user = userEvent.setup();
 		renderShell();
 		await waitFor(() => {
 			expect(screen.getByTestId("main-content")).toBeInTheDocument();
 		});
 		await user.click(screen.getByRole("button", { name: /user profile/i }));
+		// P4: settings overlay is now a shell-state content swap (not a dialog).
+		// Wait for Settings nav to appear.
 		await waitFor(() => {
-			expect(screen.getByRole("dialog", { name: /settings/i })).toBeInTheDocument();
+			expect(screen.getByText("Settings")).toBeInTheDocument();
 		});
+		// @lore P4 fix: main-content shows settings section content when settings is open
+		// so it must NOT be aria-hidden (screen readers need to access the forms).
+		// The rail-wrapper is aria-hidden instead (it is decorative during settings).
 		const main = screen.getByTestId("main-content");
-		expect(main.getAttribute("aria-hidden")).toBe("true");
+		expect(main.getAttribute("aria-hidden")).toBeNull();
+
+		// Rail wrapper IS aria-hidden when settings is open
+		const railWrapper = screen.getByTestId("rail-wrapper");
+		expect(railWrapper.getAttribute("aria-hidden")).toBe("true");
 	});
 
 	it("Command-K pressed while Settings is open closes Settings and opens search", async () => {
@@ -96,15 +106,16 @@ describe("AppShell — Settings overlay + Command-K priority (J3)", () => {
 			expect(screen.getByRole("button", { name: /user profile/i })).toBeInTheDocument();
 		});
 		await user.click(screen.getByRole("button", { name: /user profile/i }));
+		// P4: settings overlay is now a shell-state content swap (not a dialog).
 		await waitFor(() => {
-			expect(screen.getByRole("dialog", { name: /settings/i })).toBeInTheDocument();
+			expect(screen.getByText("Settings")).toBeInTheDocument();
 		});
 
 		// Fire Command-K. Settings must close; search dialog must open.
 		await user.keyboard("{Meta>}k{/Meta}");
 
 		await waitFor(() => {
-			expect(screen.queryByRole("dialog", { name: /settings/i })).not.toBeInTheDocument();
+			expect(screen.queryByText("Settings")).not.toBeInTheDocument();
 		});
 		await waitFor(() => {
 			expect(screen.getByRole("dialog", { name: /global search/i })).toBeInTheDocument();
