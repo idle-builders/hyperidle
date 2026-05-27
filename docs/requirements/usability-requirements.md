@@ -20,7 +20,7 @@ The human interface ships as a single native macOS desktop application ("the Fac
 
 **UX-2.3** Chat threads support reply, start-a-task, close, and escalate.
 
-**UX-2.4** The Chief of Staff is accessible via an overlay triggered from a button in the bottom-right of the Rail. Opens as a dedicated overlay surface without leaving the current view context. Same interaction grammar as any other thread.
+**UX-2.4** The Chief of Staff is just another agent — communicated with through normal threads, no special UI surface.
 
 **UX-2.5** Every thread item carries visible `reasoning` — why the agent surfaced this. Non-negotiable for trust.
 
@@ -88,7 +88,7 @@ The human interface ships as a single native macOS desktop application ("the Fac
 
 **UX-7.1** Reasoning visible by default on every item.
 
-**UX-7.2** Cost transparency: every action shows token spend; the Rail has a daily burn-rate strip.
+**UX-7.2** Cost transparency: every action shows token spend. Daily burn rate is always accessible.
 
 **UX-7.3** Reversibility cues: items tagged "reversible" or "irreversible." Reversible items approve with lower friction.
 

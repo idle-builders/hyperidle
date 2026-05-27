@@ -45,16 +45,4 @@ UX / pattern learning:
 - The holistic journey is "open the Factory." Not "check the inbox, then the HUD, then the canvas, then the coach." One door.
 - Mode discipline (what belongs where) is enforced by *view routing inside the app*, not by shipping separate products. If we ever discover Work should collapse into Conversations, we just change the route.
 
-### 3.4 The Chief of Staff overlay
-
-The Chief of Staff's ongoing conversation is accessible via a create-on-the-fly overlay triggered from a button in the bottom-right of the Rail. It opens as a dedicated overlay surface — structurally a Thread (see §4.5) with the *user* as its host, that never auto-archives. Everything about it — replies, attachments, memory, escalation — is identical to any other thread.
-
-The overlay pattern means the founder can access the Chief of Staff from any view without leaving their current context. The thread is always there, always accessible — one button, one overlay, no navigation required.
-
-### 3.5 Why the Rail is a right sidebar, not a view or a widget
-
-Earlier drafts treated the Rail as a menu-bar app or a tray widget. Later drafts made it a regular view in the IconRail. Both were wrong. A menu-bar widget requires a separate binary and a separate notification permission. A regular view means the user loses ambient awareness when they switch to Conversations or Work — the whole point of ambient state is that it's *always there*.
-
-The right model is a persistent sidebar on the right side of the window — the mirror of the IconRail on the left. Minimized, it's a narrow strip of icons showing the critical numbers. Expanded, it's a full dashboard panel. It's a proper layout zone that's always present, on every screen, regardless of which view is active. This gives the app a symmetrical frame: IconRail on the left (navigation), Rail on the right (awareness). The Main pane and Submenu live between them.
-
 ---

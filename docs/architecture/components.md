@@ -116,10 +116,10 @@ IF kind == skill_change                      → Conversations (push notificatio
 IF kind == chat AND flagged_urgent           → Conversations (push notification)
 IF kind == chat AND NOT flagged_urgent       → Conversations (silent, daily digest)
 IF kind == coach                             → Coach thread (pinned)
-IF verb == prioritize                        → Rail
+IF verb == prioritize                        → Ambient awareness
 IF verb == bet                               → Work
 IF verb == curate                            → Knowledge
-ELSE                                         → Rail (catch-all)
+ELSE                                         → Ambient awareness (catch-all)
 ```
 
 **Founder routing.** When the target is Conversations, the Router also decides which founder receives the item based on domain (see AGENT_LAYER §7). Market/growth/portfolio → CEO; product/design/tech/content → CPO; strategic → both.
@@ -197,9 +197,9 @@ GET    /conversations                  → list threads for this human
 GET    /conversations/:id              → thread detail with items
 POST   /conversations/:id/respond      → submit a Response (verdict, comment, etc.)
 
-# Rail
-GET    /rail                          → current Rail state (bets, blockers, cost, unread count)
-WS     /rail/stream                   → real-time Rail updates via WebSocket
+# Status (ambient awareness)
+GET    /status                        → current system state (bets, blockers, cost, unread count)
+WS     /status/stream                 → real-time status updates via WebSocket
 
 # Work (Bets + Tasks)
 GET    /bets/canvas                   → shaped pitches + active bets + capacity zones
@@ -235,7 +235,7 @@ GET    /status                        → factory health, agent count, cost burn
 
 **Auth.** For the initial deployment: API keys per human identity, passed in headers. Tailscale handles network-level access control. OAuth or passkey auth is a v2 concern.
 
-**Real-time updates.** WebSocket connection for the Rail and for new Thread items. The API Layer subscribes to the Event Bus and pushes relevant events to connected clients.
+**Real-time updates.** WebSocket connection for status updates and new Thread items. The API Layer subscribes to the Event Bus and pushes relevant events to connected clients.
 
 ### 2.6 Event Bus
 
@@ -246,16 +246,16 @@ GET    /status                        → factory health, agent count, cost burn
 **Key event types:**
 
 ```
-task_state_changed       → Dependency Watcher, Router, Rail updater
+task_state_changed       → Dependency Watcher, Router, UI push
 item_created             → Router, Notification Adapter, UI push
 response_recorded        → Knowledge Fabric (close the loop), Harness Adapter (unblock agent)
 session_started          → Cost meter, Observability
 session_ended            → Cost meter, Task updater, Memory writer
 routine_fired            → Harness Adapter (start session)
 cost_ceiling_breached    → Scheduler (pause non-essential, downgrade tiers)
-bet_committed            → Team notifier, Rail updater
+bet_committed            → Team notifier, UI push
 bet_shipped              → Retro trigger, Practice updater
-bet_revised              → Audit log, Rail updater
+bet_revised              → Audit log, UI push
 ```
 
 ### 2.7 Harness Adapter
