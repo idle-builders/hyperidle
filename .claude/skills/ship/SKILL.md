@@ -194,7 +194,7 @@ If yes, the release flow runs from the repo root. It builds, signs, notarizes, a
 This script does everything in sequence:
 - Bumps `packages/desktop/package.json` version
 - Builds the web SPA (`npm run -w @hyperidle/web build`)
-- Bundles desktop (`bun packages/desktop/scripts/bundle.ts`)
+- Bundles desktop (`npx tsx packages/desktop/scripts/bundle.ts`)
 - Generates `package-lock.json` for electron-rebuild
 - Runs `electron-builder` with signing + notarization
 - Commits the version bump, tags `v<version>`, pushes both

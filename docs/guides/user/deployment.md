@@ -11,10 +11,10 @@ Three profiles for different environments:
 ### Laptop Setup
 
 ```bash
-bun install
-bun run setup --profile laptop
+npm install
+npm run setup --profile laptop
 export HYPERIDLE_API_KEY=your-secret-key
-bun dev                              # development mode (terminal stays open)
+npm run dev                              # development mode (terminal stays open)
 ```
 
 #### Running as a Background Service (macOS)
@@ -44,19 +44,19 @@ This builds the frontend, installs a macOS LaunchAgent, and starts the server. H
 ```bash
 cp .env.example .env
 # Edit .env — set POSTGRES_PASSWORD at minimum
-bun run setup --profile vps
+npm run setup --profile vps
 docker compose up -d
-bun run db:migrate:pg
-bun run db:seed:pg
+npm run db:migrate:pg
+npm run db:seed:pg
 ```
 
 ### Cloud Setup
 
 ```bash
 export DATABASE_URL=postgres://user:pass@host:5432/hyperidle
-bun run setup --profile cloud
-bun run db:migrate:pg
-bun run db:seed:pg
+npm run setup --profile cloud
+npm run db:migrate:pg
+npm run db:seed:pg
 ```
 
 See `docs/deployment/index.md` for full details.

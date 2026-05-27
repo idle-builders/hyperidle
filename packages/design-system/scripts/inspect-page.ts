@@ -2,7 +2,7 @@
 /**
  * K4 — DS-vs-Custom CLI Inspector.
  *
- * `bun run ds:inspect <page-path>` statically analyzes a TSX file and reports JSX element
+ * `npm run ds:inspect <page-path>` statically analyzes a TSX file and reports JSX element
  * provenance: which elements come from the design system, the web shell, DaisyUI primitives,
  * other custom components, or are inline-styled raw HTML — with reuse-candidate hints.
  *
@@ -526,14 +526,14 @@ function main(argv: string[]): number {
 	const flags = new Set(args.filter((a) => a.startsWith("--")));
 	if (positional.length !== 1) {
 		process.stderr.write(
-			"Usage: bun run ds:inspect <page-path> [--format=json]\n" +
+			"Usage: npm run ds:inspect <page-path> [--format=json]\n" +
 				"  <page-path>   path to a .tsx file under packages/web/src/\n",
 		);
 		return 1;
 	}
 	const file = positional[0];
 	if (!file) {
-		process.stderr.write("Usage: bun run ds:inspect <page-path> [--format=json]\n");
+		process.stderr.write("Usage: npm run ds:inspect <page-path> [--format=json]\n");
 		return 1;
 	}
 	let report: InspectReport;

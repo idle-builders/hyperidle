@@ -5,13 +5,12 @@
  * Static file server on :8098 serving packages/design-system/html/.
  *
  * Usage:
- *   bun run scripts/serve.ts
+ *   npm run ds:serve
  *   # Then open http://localhost:8098/
- *
- * @lore Uses Bun.file() for static serving — no build step needed.
- * The HTML files use CDN React + Babel for in-browser transpilation.
  */
 
+import { createReadStream, existsSync } from "node:fs";
+import { createServer } from "node:http";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -34,52 +33,55 @@ function getMimeType(path: string): string {
 	return MIME_TYPES[ext] ?? "application/octet-stream";
 }
 
-Bun.serve({
-	port: PORT,
-	async fetch(req) {
-		const url = new URL(req.url);
-		let pathname = url.pathname;
+const server = createServer((req, res) => {
+	const url = new URL(req.url ?? "/", `http://localhost:${PORT}`);
+	let pathname = url.pathname;
 
-		// Feedback bookmarklet endpoint
-		if (pathname === "/feedback.js") {
-			const feedbackFile = Bun.file(resolve(SCRIPTS_DIR, "feedback-overlay.js"));
-			if (await feedbackFile.exists()) {
-				return new Response(feedbackFile, {
-					headers: {
-						"Content-Type": "application/javascript",
-						"Access-Control-Allow-Origin": "*",
-						"Cache-Control": "no-store",
-					},
-				});
-			}
-			return new Response("Not Found", { status: 404 });
-		}
-
-		// Root → catalog
-		if (pathname === "/" || pathname === "") {
-			pathname = "/_catalog.html";
-		}
-
-		const filePath = resolve(HTML_DIR, `.${pathname}`);
-
-		// Prevent path traversal
-		if (!filePath.startsWith(HTML_DIR)) {
-			return new Response("Forbidden", { status: 403 });
-		}
-
-		const file = Bun.file(filePath);
-		if (await file.exists()) {
-			return new Response(file, {
-				headers: {
-					"Content-Type": getMimeType(filePath),
-					"Access-Control-Allow-Origin": "*",
-					"Cache-Control": "no-store",
-				},
+	// Feedback bookmarklet endpoint
+	if (pathname === "/feedback.js") {
+		const feedbackPath = resolve(SCRIPTS_DIR, "feedback-overlay.js");
+		if (existsSync(feedbackPath)) {
+			res.writeHead(200, {
+				"Content-Type": "application/javascript",
+				"Access-Control-Allow-Origin": "*",
+				"Cache-Control": "no-store",
 			});
+			createReadStream(feedbackPath).pipe(res);
+			return;
 		}
+		res.writeHead(404);
+		res.end("Not Found");
+		return;
+	}
 
-		return new Response("Not Found", { status: 404 });
-	},
+	// Root → catalog
+	if (pathname === "/" || pathname === "") {
+		pathname = "/_catalog.html";
+	}
+
+	const filePath = resolve(HTML_DIR, `.${pathname}`);
+
+	// Prevent path traversal
+	if (!filePath.startsWith(HTML_DIR)) {
+		res.writeHead(403);
+		res.end("Forbidden");
+		return;
+	}
+
+	if (existsSync(filePath)) {
+		res.writeHead(200, {
+			"Content-Type": getMimeType(filePath),
+			"Access-Control-Allow-Origin": "*",
+			"Cache-Control": "no-store",
+		});
+		createReadStream(filePath).pipe(res);
+		return;
+	}
+
+	res.writeHead(404);
+	res.end("Not Found");
 });
 
-console.log(`Design System server → http://localhost:${PORT}/`);
+server.listen(PORT, () => {
+	console.log(`Design System server → http://localhost:${PORT}/`);
+});

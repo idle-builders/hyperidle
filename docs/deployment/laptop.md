@@ -9,18 +9,18 @@ external services.
 
 **Setup**
 ```
-bun install
-bun run setup --profile laptop
-bun dev
+npm install
+npm run setup --profile laptop
+npm run dev
 ```
 
 The setup command:
 1. Creates `./hyperidle.db` (configurable via `--db-path`).
 2. Runs the SQLite migrations from `packages/db/drizzle/`.
 3. Seeds initial data (products, agents, routines).
-4. Prints a ready banner. `bun dev` then starts server + web.
+4. Prints a ready banner. `npm run dev` then starts server + web.
 
 **Verification**
 ```
-bun run test
+npm run test
 ```

@@ -134,7 +134,7 @@ ELSE                                         → Rail (catch-all)
 2. **Dependency Watcher** — watches task state transitions and notifies owners when dependencies are met.
 3. **Model Tier Selector** — picks the model tier (Reasoning / Workhorse / Fast) for each new session based on: task risk_tier, routine type (sleep-time → Fast), factory cost posture, and explicit skill overrides.
 
-**Technology.** A background worker running in the same Bun process as the API server. Uses `setInterval`-based polling against SQLite + EventBus-triggered routines (`packages/server/src/services/routine-scheduler.ts`). For VPS/cloud profiles: optionally backed by BullMQ for distributed job scheduling.
+**Technology.** A background worker running in the same Node.js process as the API server. Uses `setInterval`-based polling against SQLite + EventBus-triggered routines (`packages/server/src/services/routine-scheduler.ts`). For VPS/cloud profiles: optionally backed by BullMQ for distributed job scheduling.
 
 The scheduler does not call models. It reads the Primitive Store, evaluates trigger conditions, selects the model tier, and emits events (which the Harness Adapter picks up to actually start agent sessions).
 
@@ -187,7 +187,7 @@ One table. Every piece of knowledge — from L4 factory principles to L1 task fa
 
 **What it is.** A thin HTTP API that the Human Interface (the Factory app) talks to. It exposes reads and writes on the Primitive Store, filtered by human identity and routed by the Router.
 
-**Technology.** Hono (TypeScript) running on Bun. Runs as a single process alongside the Scheduler (`packages/server/`). For the laptop profile, this is the only server process.
+**Technology.** Hono (TypeScript) running on Node.js. Runs as a single process alongside the Scheduler (`packages/server/`). For the laptop profile, this is the only server process.
 
 **Key endpoints (REST or WebSocket):**
 

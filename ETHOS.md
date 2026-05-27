@@ -30,7 +30,7 @@ Three layers of knowledge exist for any implementation decision:
 
 **Prize first principles above all.** Tried-and-true patterns exist for historical reasons that may no longer apply. New-and-popular patterns exist because someone wrote a blog post, not because they're correct for your context.
 
-**Applied to HyperIdle:** Before adding a dependency, check if Bun/Hono/Drizzle already provides it. Before creating an abstraction, check if the pattern exists elsewhere in the codebase. Before following a convention, ask whether it actually serves the architecture or just feels familiar.
+**Applied to HyperIdle:** Before adding a dependency, check if Node.js/Hono/Drizzle already provides it. Before creating an abstraction, check if the pattern exists elsewhere in the codebase. Before following a convention, ask whether it actually serves the architecture or just feels familiar.
 
 ---
 

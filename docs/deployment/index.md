@@ -2,7 +2,7 @@
 
 HyperIdle (H4) ships three deployment profiles that each map to a concrete
 (database driver, workspace adapter, orchestration) tuple. Pick the one
-that matches your environment and use the `bun run setup` CLI.
+that matches your environment and use the `npm run setup` CLI.
 
 Profile selection order:
 1. `--profile <laptop|vps|cloud>` CLI flag.

@@ -1,7 +1,6 @@
 ## Prerequisites
 
-- **Bun >= 1.1** — runtime, package manager, and bundler
-- **Node 20+** — needed for Playwright binaries
+- **Node.js >= 24** — runtime (npm included as package manager)
 - **Git** — version control
 
 Optional:
