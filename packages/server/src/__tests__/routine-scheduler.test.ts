@@ -310,11 +310,10 @@ describe("Routine Scheduler", () => {
 			expect(result.fired).toBe(true);
 			expect(result.delegatedTo).toBe("agent-2");
 
-			const delegateSessions = db
+			const delegateSessions = await db
 				.select()
 				.from(sessions)
-				.where(eq(sessions.agentId, "agent-2"))
-				.all();
+				.where(eq(sessions.agentId, "agent-2"));
 			expect(delegateSessions.length).toBeGreaterThanOrEqual(1);
 		});
 	});

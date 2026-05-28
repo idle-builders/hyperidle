@@ -211,11 +211,10 @@ describe("RelevanceService.recomputeScores (L22)", () => {
 		await service.recomputeScores([itemId]);
 
 		// O2: relevanceScore moved to knowledgeStrategyFabric
-		const fabricRow = db
+		const [fabricRow] = await db
 			.select()
 			.from(knowledgeStrategyFabric)
-			.where(eq(knowledgeStrategyFabric.knowledgeItemId, itemId))
-			.get();
+			.where(eq(knowledgeStrategyFabric.knowledgeItemId, itemId));
 		expect(fabricRow).toBeDefined();
 		expect(fabricRow?.relevanceScore).not.toBeNull();
 		expect(typeof Number(fabricRow?.relevanceScore)).toBe("number");
@@ -229,11 +228,10 @@ describe("RelevanceService.recomputeScores (L22)", () => {
 		await service.recomputeScores([itemId]);
 
 		// O2: relevanceScore moved to knowledgeStrategyFabric
-		const fabricRow = db
+		const [fabricRow] = await db
 			.select()
 			.from(knowledgeStrategyFabric)
-			.where(eq(knowledgeStrategyFabric.knowledgeItemId, itemId))
-			.get();
+			.where(eq(knowledgeStrategyFabric.knowledgeItemId, itemId));
 		expect(fabricRow).toBeDefined();
 		expect(fabricRow?.relevanceScore).toBeNull();
 	});

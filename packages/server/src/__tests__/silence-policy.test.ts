@@ -125,12 +125,12 @@ describe("isSilenced", () => {
 			.insert(factorySettings)
 			.values({ key: "silence_mode", value: "true", updatedAt: new Date().toISOString() });
 
-		const result = isSilenced(db, { sourceAgentId: null }, new Date());
+		const result = await isSilenced(db, { sourceAgentId: null }, new Date());
 		expect(result).toBe(true);
 	});
 
-	it("returns false when silence_mode is not set", () => {
-		const result = isSilenced(db, { sourceAgentId: null }, new Date());
+	it("returns false when silence_mode is not set", async () => {
+		const result = await isSilenced(db, { sourceAgentId: null }, new Date());
 		expect(result).toBe(false);
 	});
 
@@ -141,7 +141,7 @@ describe("isSilenced", () => {
 			updatedAt: new Date().toISOString(),
 		});
 
-		const result = isSilenced(db, { sourceAgentId: "agent-1" }, new Date());
+		const result = await isSilenced(db, { sourceAgentId: "agent-1" }, new Date());
 		expect(result).toBe(true);
 	});
 
@@ -155,7 +155,7 @@ describe("isSilenced", () => {
 			.insert(factorySettings)
 			.values({ key: "silence_window_end", value: "07:00", updatedAt: new Date().toISOString() });
 
-		const result = isSilenced(db, { sourceAgentId: null }, now);
+		const result = await isSilenced(db, { sourceAgentId: null }, now);
 		expect(result).toBe(true);
 	});
 
@@ -169,7 +169,7 @@ describe("isSilenced", () => {
 			.insert(factorySettings)
 			.values({ key: "silence_window_end", value: "07:00", updatedAt: new Date().toISOString() });
 
-		const result = isSilenced(db, { sourceAgentId: null }, now);
+		const result = await isSilenced(db, { sourceAgentId: null }, now);
 		expect(result).toBe(false);
 	});
 });

@@ -281,7 +281,7 @@ describe("H2 Dispatcher (AC4 silence + AC5 policy)", () => {
 				set: { value: "false", updatedAt: "2026-04-18T00:00:00.000Z" },
 			});
 
-		const cfg = loadNotificationConfig(db);
+		const cfg = await loadNotificationConfig(db);
 		if (!cfg) throw new Error("config unexpectedly disabled");
 		const result = await flushQueue(db, () => adapter, cfg, new Date());
 		expect(result.flushed).toBe(2);
@@ -325,11 +325,10 @@ describe("H2 Dispatcher (AC4 silence + AC5 policy)", () => {
 
 		await vi.waitFor(() => expect(adapter.calls).toHaveLength(3));
 
-		const coalesced = db
+		const coalesced = await db
 			.select()
 			.from(notificationQueue)
-			.where(eq(notificationQueue.reason, "flood_coalesce"))
-			.all();
+			.where(eq(notificationQueue.reason, "flood_coalesce"));
 		expect(coalesced).toHaveLength(1);
 		expect(coalesced[0].severity).toBe("blocking");
 	});
@@ -375,8 +374,19 @@ describe("enqueueNotification queue cap (QUEUE_CAP eviction)", () => {
 	// branches deterministically. This replaces the earlier tautological
 	// tests noted by the adversary review (#15).
 
+	let handle: TestDbHandle;
+	let db: HyperIdleDb;
+
+	beforeEach(async () => {
+		handle = await createTestDb();
+		db = handle.db;
+	});
+
+	afterEach(async () => {
+		await handle?.close();
+	});
+
 	async function seedPending(
-		db: HyperIdleDb,
 		spec: Array<{ id: string; severity: "blocking" | "digest" | "cost_breach"; offsetMs: number }>,
 	): Promise<void> {
 		const baseIso = "2026-04-18T00:00:00.000Z";
@@ -398,15 +408,14 @@ describe("enqueueNotification queue cap (QUEUE_CAP eviction)", () => {
 	}
 
 	it("blocking enqueue at cap evicts the oldest DIGEST row", async () => {
-		const db = createTestDb();
-		await seedPending(db, [
+		await seedPending([
 			{ id: "digest-1", severity: "digest", offsetMs: 0 },
 			{ id: "digest-2", severity: "digest", offsetMs: 1 },
 			{ id: "block-1", severity: "blocking", offsetMs: 2 },
 		]);
 
 		// Cap = 3 → inserting a 4th blocking row must evict digest-1.
-		enqueueNotification(
+		await enqueueNotification(
 			db,
 			{
 				eventType: "item_created",
@@ -421,18 +430,16 @@ describe("enqueueNotification queue cap (QUEUE_CAP eviction)", () => {
 			3,
 		);
 
-		const pending = db
+		const pending = await db
 			.select()
 			.from(notificationQueue)
-			.where(eq(notificationQueue.status, "pending"))
-			.all();
+			.where(eq(notificationQueue.status, "pending"));
 		expect(pending).toHaveLength(3);
 		// Oldest digest row was dropped.
-		const dropped = db
+		const dropped = await db
 			.select()
 			.from(notificationQueue)
-			.where(eq(notificationQueue.status, "dropped"))
-			.all();
+			.where(eq(notificationQueue.status, "dropped"));
 		expect(dropped).toHaveLength(1);
 		expect(dropped[0].id).toBe("digest-1");
 		// The new blocking row is present.
@@ -441,14 +448,13 @@ describe("enqueueNotification queue cap (QUEUE_CAP eviction)", () => {
 	});
 
 	it("digest enqueue at cap is dropped silently (never evicts blocking rows)", async () => {
-		const db = createTestDb();
-		await seedPending(db, [
+		await seedPending([
 			{ id: "block-1", severity: "blocking", offsetMs: 0 },
 			{ id: "block-2", severity: "blocking", offsetMs: 1 },
 			{ id: "block-3", severity: "blocking", offsetMs: 2 },
 		]);
 
-		enqueueNotification(
+		await enqueueNotification(
 			db,
 			{
 				eventType: "item_created",
@@ -471,13 +477,12 @@ describe("enqueueNotification queue cap (QUEUE_CAP eviction)", () => {
 	});
 
 	it("blocking enqueue with no digest to evict drops the oldest row", async () => {
-		const db = createTestDb();
-		await seedPending(db, [
+		await seedPending([
 			{ id: "block-1", severity: "blocking", offsetMs: 0 },
 			{ id: "block-2", severity: "blocking", offsetMs: 1 },
 		]);
 
-		enqueueNotification(
+		await enqueueNotification(
 			db,
 			{
 				eventType: "item_created",
@@ -492,18 +497,16 @@ describe("enqueueNotification queue cap (QUEUE_CAP eviction)", () => {
 			2,
 		);
 
-		const pending = db
+		const pending = await db
 			.select()
 			.from(notificationQueue)
-			.where(eq(notificationQueue.status, "pending"))
-			.all();
+			.where(eq(notificationQueue.status, "pending"));
 		expect(pending).toHaveLength(2);
 		// The oldest (block-1) was dropped.
-		const dropped = db
+		const dropped = await db
 			.select()
 			.from(notificationQueue)
-			.where(eq(notificationQueue.status, "dropped"))
-			.all();
+			.where(eq(notificationQueue.status, "dropped"));
 		expect(dropped.map((r) => r.id)).toEqual(["block-1"]);
 	});
 });
@@ -602,18 +605,17 @@ describe("flushQueue silence gating (adversary review #2)", () => {
 		});
 
 		const adapter = createFakeAdapter();
-		const cfg = loadNotificationConfig(db);
+		const cfg = await loadNotificationConfig(db);
 		if (!cfg) throw new Error("cfg unexpectedly null");
 		const result = await flushQueue(db, () => adapter, cfg, new Date());
 		expect(result.flushed).toBe(1); // digest only
 		expect(result.deferred).toBe(1); // blocking kept
 		expect(adapter.calls).toHaveLength(1);
 		expect(adapter.calls[0].notification.severity).toBe("digest");
-		const block = db
+		const [block] = await db
 			.select()
 			.from(notificationQueue)
-			.where(eq(notificationQueue.id, "block-sil"))
-			.get();
+			.where(eq(notificationQueue.id, "block-sil"));
 		expect(block?.status).toBe("pending");
 	});
 
@@ -634,7 +636,7 @@ describe("flushQueue silence gating (adversary review #2)", () => {
 		});
 
 		const adapter = createFakeAdapter();
-		const cfg = loadNotificationConfig(db);
+		const cfg = await loadNotificationConfig(db);
 		if (!cfg) throw new Error("cfg unexpectedly null");
 		const result = await flushQueue(db, () => adapter, cfg, new Date());
 		expect(result.flushed).toBe(1);
@@ -675,7 +677,7 @@ describe("flushQueue channel routing (adversary review #18)", () => {
 		});
 
 		const builtChannels: string[] = [];
-		const cfg = loadNotificationConfig(db);
+		const cfg = await loadNotificationConfig(db);
 		if (!cfg) throw new Error("cfg unexpectedly null");
 		const result = await flushQueue(
 			db,
@@ -725,16 +727,15 @@ describe("At-least-once delivery (claim lease)", () => {
 			async send(recipient, notification): Promise<SendResult> {
 				this.calls.push({ recipient, notification });
 				// Peek at the row state mid-send — should be `sending`.
-				const row = db
+				const [row] = await db
 					.select()
 					.from(notificationQueue)
-					.where(eq(notificationQueue.id, "aq-1"))
-					.get();
+					.where(eq(notificationQueue.id, "aq-1"));
 				observedStatus = row?.status ?? null;
 				return { ok: true, channel: "console", sentAt: new Date().toISOString() };
 			},
 		};
-		const cfg = loadNotificationConfig(db);
+		const cfg = await loadNotificationConfig(db);
 		if (!cfg) throw new Error("cfg unexpectedly null");
 		const result = await flushQueue(db, () => adapter, cfg, new Date());
 		expect(result.flushed).toBe(1);
@@ -762,13 +763,12 @@ describe("At-least-once delivery (claim lease)", () => {
 			claimedAt: oldClaim,
 		});
 
-		const recovered = recoverStuckLeases(db, now);
+		const recovered = await recoverStuckLeases(db, now);
 		expect(recovered).toBe(1);
-		const row = db
+		const [row] = await db
 			.select()
 			.from(notificationQueue)
-			.where(eq(notificationQueue.id, "stuck-1"))
-			.get();
+			.where(eq(notificationQueue.id, "stuck-1"));
 		expect(row?.status).toBe("pending");
 		expect(row?.claimedAt).toBeNull();
 	});
@@ -791,13 +791,12 @@ describe("At-least-once delivery (claim lease)", () => {
 			claimedAt: freshClaim,
 		});
 
-		const recovered = recoverStuckLeases(db, now);
+		const recovered = await recoverStuckLeases(db, now);
 		expect(recovered).toBe(0);
-		const row = db
+		const [row] = await db
 			.select()
 			.from(notificationQueue)
-			.where(eq(notificationQueue.id, "fresh-1"))
-			.get();
+			.where(eq(notificationQueue.id, "fresh-1"));
 		expect(row?.status).toBe("sending");
 	});
 
@@ -820,18 +819,17 @@ describe("At-least-once delivery (claim lease)", () => {
 		});
 
 		const adapter = createFakeAdapter();
-		const cfg = loadNotificationConfig(db);
+		const cfg = await loadNotificationConfig(db);
 		if (!cfg) throw new Error("cfg unexpectedly null");
 		const now = new Date("2026-04-18T01:00:00.000Z");
 		const result = await flushQueue(db, () => adapter, cfg, now);
 		// The row was requeued by recoverStuckLeases and then flushed.
 		expect(result.flushed).toBe(1);
 		expect(adapter.calls).toHaveLength(1);
-		const row = db
+		const [row] = await db
 			.select()
 			.from(notificationQueue)
-			.where(eq(notificationQueue.id, "crash-1"))
-			.get();
+			.where(eq(notificationQueue.id, "crash-1"));
 		expect(row?.status).toBe("sent");
 	});
 });

@@ -18,7 +18,7 @@ import { execSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import path from "node:path";
 import { createTestDb, type TestDbHandle } from "@hyperidle/db";
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createObservabilityRoutes } from "../../routes/observability-routes.js";
 import type {
 	ObservabilityConfig,
@@ -48,25 +48,30 @@ describe("P1 AC4 — ObservabilityChannel type is console | noop only", () => {
 		// We verify by checking isAdapter behaviour: a valid adapter string
 		// that the config module would recognise.
 		const { readObservabilityConfig } = await import("../../services/observability/config.js");
-		const db = createTestDb();
-		// Seed "langfuse" as the adapter — if ADAPTERS still contains "langfuse",
-		// readObservabilityConfig will return adapter:"langfuse". After the purge
-		// it must fall back to "console".
-		const { factorySettings } = await import("@hyperidle/db");
-		const now = new Date().toISOString();
-		await db
-			.insert(factorySettings)
-			.values({ key: "observability.adapter", value: "langfuse", updatedAt: now })
-			.onConflictDoUpdate({
-				target: factorySettings.key,
-				set: { value: "langfuse", updatedAt: now },
-			});
+		const testHandle = await createTestDb();
+		const testDb = testHandle.db;
+		try {
+			// Seed "langfuse" as the adapter — if ADAPTERS still contains "langfuse",
+			// readObservabilityConfig will return adapter:"langfuse". After the purge
+			// it must fall back to "console".
+			const { factorySettings } = await import("@hyperidle/db");
+			const now = new Date().toISOString();
+			await testDb
+				.insert(factorySettings)
+				.values({ key: "observability.adapter", value: "langfuse", updatedAt: now })
+				.onConflictDoUpdate({
+					target: factorySettings.key,
+					set: { value: "langfuse", updatedAt: now },
+				});
 
-		const cfg = readObservabilityConfig(db);
-		// After the purge, "langfuse" is NOT in ADAPTERS, so isAdapter returns
-		// false and the config falls back to the default ("console").
-		expect(cfg.adapter).toBe("console");
-		expect(cfg.adapter).not.toBe("langfuse");
+			const cfg = await readObservabilityConfig(testDb);
+			// After the purge, "langfuse" is NOT in ADAPTERS, so isAdapter returns
+			// false and the config falls back to the default ("console").
+			expect(cfg.adapter).toBe("console");
+			expect(cfg.adapter).not.toBe("langfuse");
+		} finally {
+			await testHandle.close();
+		}
 	});
 });
 
@@ -77,20 +82,28 @@ describe("P1 AC4 — ObservabilityChannel type is console | noop only", () => {
 describe("P1 AC2 + AC6 — ObservabilityConfig has no langfuse property", () => {
 	it("ObservabilityConfig type has no langfuse property", async () => {
 		const { readObservabilityConfig } = await import("../../services/observability/config.js");
-		const db = createTestDb();
-		const cfg: ObservabilityConfig = readObservabilityConfig(db);
-		// The langfuse property must not exist on the config object after purge
-		expect(cfg).not.toHaveProperty("langfuse");
+		const testHandle = await createTestDb();
+		try {
+			const cfg: ObservabilityConfig = await readObservabilityConfig(testHandle.db);
+			// The langfuse property must not exist on the config object after purge
+			expect(cfg).not.toHaveProperty("langfuse");
+		} finally {
+			await testHandle.close();
+		}
 	});
 
 	it("SafeObservabilityConfig has no langfuse property", async () => {
 		const { readObservabilityConfig, redactObservabilityConfig } = await import(
 			"../../services/observability/config.js"
 		);
-		const db = createTestDb();
-		const cfg = readObservabilityConfig(db);
-		const safe: SafeObservabilityConfig = redactObservabilityConfig(cfg);
-		expect(safe).not.toHaveProperty("langfuse");
+		const testHandle = await createTestDb();
+		try {
+			const cfg = await readObservabilityConfig(testHandle.db);
+			const safe: SafeObservabilityConfig = redactObservabilityConfig(cfg);
+			expect(safe).not.toHaveProperty("langfuse");
+		} finally {
+			await testHandle.close();
+		}
 	});
 
 	it("ObservabilityConfigPatch type has no langfuseUrl / langfusePublicKey / langfuseSecretKey", () => {
@@ -115,9 +128,18 @@ describe("P1 AC2 + AC6 — ObservabilityConfig has no langfuse property", () => 
 // ---------------------------------------------------------------------------
 
 describe("P1 AC3 — PATCH /config rejects adapter: langfuse with 400", () => {
+	let handle: TestDbHandle;
+
+	beforeEach(async () => {
+		handle = await createTestDb();
+	});
+
+	afterEach(async () => {
+		await handle?.close();
+	});
+
 	it('returns 400 when adapter is "langfuse"', async () => {
-		const db = createTestDb();
-		const router = createObservabilityRoutes(db, {
+		const router = createObservabilityRoutes(handle.db, {
 			getDispatcher: () => null,
 		});
 		const url = new URL("/config", "http://test.local");
@@ -132,8 +154,7 @@ describe("P1 AC3 — PATCH /config rejects adapter: langfuse with 400", () => {
 	});
 
 	it('returns 200 when adapter is "console" (valid after purge)', async () => {
-		const db = createTestDb();
-		const router = createObservabilityRoutes(db, {
+		const router = createObservabilityRoutes(handle.db, {
 			getDispatcher: () => null,
 		});
 		const url = new URL("/config", "http://test.local");
@@ -148,8 +169,7 @@ describe("P1 AC3 — PATCH /config rejects adapter: langfuse with 400", () => {
 	});
 
 	it('returns 200 when adapter is "noop" (valid after purge)', async () => {
-		const db = createTestDb();
-		const router = createObservabilityRoutes(db, {
+		const router = createObservabilityRoutes(handle.db, {
 			getDispatcher: () => null,
 		});
 		const url = new URL("/config", "http://test.local");
@@ -169,9 +189,18 @@ describe("P1 AC3 — PATCH /config rejects adapter: langfuse with 400", () => {
 // ---------------------------------------------------------------------------
 
 describe("P1 AC6 — GET /config response has no langfuse property", () => {
+	let handle: TestDbHandle;
+
+	beforeEach(async () => {
+		handle = await createTestDb();
+	});
+
+	afterEach(async () => {
+		await handle?.close();
+	});
+
 	it("GET /config response body does not contain langfuse key", async () => {
-		const db = createTestDb();
-		const router = createObservabilityRoutes(db, {
+		const router = createObservabilityRoutes(handle.db, {
 			getDispatcher: () => null,
 		});
 		const url = new URL("/config", "http://test.local");
@@ -188,8 +217,7 @@ describe("P1 AC6 — GET /config response has no langfuse property", () => {
 	});
 
 	it("GET /config response JSON string does not contain langfuse anywhere", async () => {
-		const db = createTestDb();
-		const router = createObservabilityRoutes(db, {
+		const router = createObservabilityRoutes(handle.db, {
 			getDispatcher: () => null,
 		});
 		const url = new URL("/config", "http://test.local");

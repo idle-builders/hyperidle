@@ -205,11 +205,8 @@ describe("Routine Endpoints (E6)", () => {
 				headers: authHeaders(),
 			});
 
-			const updated = db
-				.select()
-				.from(routines)
-				.all()
-				.find((r) => r.id === "routine-1");
+			const allRoutines = await db.select().from(routines);
+			const updated = allRoutines.find((r) => r.id === "routine-1");
 			expect(updated?.lastRunAt).toBeTruthy();
 		});
 
@@ -270,11 +267,10 @@ describe("Routine Endpoints (E6)", () => {
 			const sessionsAfter = await db.select().from(sessions);
 			expect(sessionsAfter).toHaveLength(sessionsBefore.length);
 
-			const updated = db
+			const [updated] = await db
 				.select()
 				.from(routines)
-				.where(eq(routines.id, "builtin:knowledge-decay"))
-				.get();
+				.where(eq(routines.id, "builtin:knowledge-decay"));
 			expect(updated?.lastRunAt).toBeTruthy();
 		});
 	});

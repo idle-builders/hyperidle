@@ -29,7 +29,7 @@ import {
 	scrubInlineTokens,
 	type ToolCallRecordedEvent,
 } from "@hyperidle/shared";
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createObservabilityRoutes } from "../../routes/observability-routes.js";
 import {
 	type ObservabilityConfig,
@@ -228,8 +228,18 @@ describe("H3 review fixes — (2) wildcard subscription", () => {
 });
 
 describe("H3 review fixes — (3) PATCH /config live rebuild", () => {
+	let handle: TestDbHandle;
+
+	beforeEach(async () => {
+		handle = await createTestDb();
+	});
+
+	afterEach(async () => {
+		await handle?.close();
+	});
+
 	it("switches adapter + rotates keys without restart", async () => {
-		const db = createTestDb();
+		const db = handle.db;
 		const events: ObservabilityEvent[] = [];
 		const fakeAdapter: ObservabilityAdapter = {
 			name: "console",
@@ -266,7 +276,7 @@ describe("H3 review fixes — (3) PATCH /config live rebuild", () => {
 		}
 
 		// Seed config: observability enabled, adapter=console.
-		updateObservabilityConfig(db, {
+		await updateObservabilityConfig(db, {
 			enabled: true,
 			adapter: "console",
 			batchSize: 10,
@@ -324,8 +334,7 @@ describe("H3 review fixes — (3) PATCH /config live rebuild", () => {
 	});
 
 	it("invalidates /status config cache after PATCH", async () => {
-		const db = createTestDb();
-		const router = createObservabilityRoutes(db, {
+		const router = createObservabilityRoutes(handle.db, {
 			getDispatcher: (): ObservabilityDispatcher | null => null,
 		});
 		// First GET /status — returns enabled=false (default).

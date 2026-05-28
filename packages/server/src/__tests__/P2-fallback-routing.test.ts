@@ -49,8 +49,8 @@ describe("P2 — resolveReviewRecipients fallback routing (AC8)", () => {
 	// AC8: no org edges → all human users receive reviews
 	// -------------------------------------------------------------------------
 	describe("AC8: no org edges → returns all human user IDs", () => {
-		it("returns empty array when no users exist and no org edges exist", () => {
-			const result = resolveReviewRecipients(db, {});
+		it("returns empty array when no users exist and no org edges exist", async () => {
+			const result = await resolveReviewRecipients(db, {});
 			expect(Array.isArray(result)).toBe(true);
 			expect(result).toHaveLength(0);
 		});
@@ -86,7 +86,7 @@ describe("P2 — resolveReviewRecipients fallback routing (AC8)", () => {
 				createdAt: NOW,
 			});
 
-			const result = resolveReviewRecipients(db, {});
+			const result = await resolveReviewRecipients(db, {});
 			// Should return all human users, not AI users
 			expect(result).toHaveLength(2);
 			expect(result).toContain("u-h1");
@@ -136,7 +136,7 @@ describe("P2 — resolveReviewRecipients fallback routing (AC8)", () => {
 				createdAt: NOW,
 			});
 
-			const result = resolveReviewRecipients(db, { userId: "u-target-ai" });
+			const result = await resolveReviewRecipients(db, { userId: "u-target-ai" });
 			// Only u-reviewer has a direct edge to u-target-ai
 			expect(result).toContain("u-reviewer");
 			expect(result).not.toContain("u-other-human");
@@ -171,7 +171,7 @@ describe("P2 — resolveReviewRecipients fallback routing (AC8)", () => {
 				createdAt: NOW,
 			});
 
-			const result = resolveReviewRecipients(db, { agentRole: "builder" });
+			const result = await resolveReviewRecipients(db, { agentRole: "builder" });
 			expect(result).toContain("u-func-reviewer");
 			expect(result).not.toContain("u-other");
 		});
@@ -205,7 +205,7 @@ describe("P2 — resolveReviewRecipients fallback routing (AC8)", () => {
 				createdAt: NOW,
 			});
 
-			const result = resolveReviewRecipients(db, { teamId: "team-alpha" });
+			const result = await resolveReviewRecipients(db, { teamId: "team-alpha" });
 			expect(result).toContain("u-team-reviewer");
 			expect(result).not.toContain("u-unrelated");
 		});
@@ -238,7 +238,7 @@ describe("P2 — resolveReviewRecipients fallback routing (AC8)", () => {
 				},
 			]);
 
-			const result = resolveReviewRecipients(db, {
+			const result = await resolveReviewRecipients(db, {
 				userId: "u-ai-x",
 				agentRole: "builder",
 			});
@@ -282,7 +282,7 @@ describe("P2 — resolveReviewRecipients fallback routing (AC8)", () => {
 			});
 
 			// Query for a completely different userId — no edge matches
-			const result = resolveReviewRecipients(db, { userId: "u-unrelated-ai" });
+			const result = await resolveReviewRecipients(db, { userId: "u-unrelated-ai" });
 			// Falls back to ALL human users
 			expect(result).toContain("u-fallback-h1");
 			expect(result).toContain("u-fallback-h2");
@@ -317,7 +317,7 @@ describe("P2 — resolveReviewRecipients fallback routing (AC8)", () => {
 			});
 
 			// Empty context cannot match any edge — falls back to all humans
-			const result = resolveReviewRecipients(db, {});
+			const result = await resolveReviewRecipients(db, {});
 			expect(result).toContain("u-empty-ctx-h1");
 			expect(result).toContain("u-empty-ctx-h2");
 		});
