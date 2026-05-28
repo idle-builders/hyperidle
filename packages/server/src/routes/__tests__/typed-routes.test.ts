@@ -39,9 +39,9 @@ describe("D1. Bets route factory structure", () => {
 
 	it("createBetRoutes returns a Hono instance", async () => {
 		const mod = await import("../bets.js");
-		const db = createTestDb();
+		const handle = await createTestDb();
 		const eventBus = new EventBus();
-		const router = mod.createBetRoutes(db, eventBus);
+		const router = mod.createBetRoutes(handle.db, eventBus);
 
 		// Should be a Hono instance with routes attached
 		expect(router).toBeDefined();
@@ -56,19 +56,20 @@ describe("D2. GET /api/bets returns betListResponseSchema-conforming response", 
 	let eventBus: EventBus;
 	let app: Hono;
 
-	beforeEach(() => {
+	beforeEach(async () => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		db = createTestDb();
+		const handle = await createTestDb();
+		db = handle.db;
 		eventBus = new EventBus();
-		app = createTestApp({ db, eventBus });
+		app = await createTestApp({ db, eventBus });
 
 		const now = new Date().toISOString();
-		db.insert(products)
-			.values({ id: "prod-d2", name: "Product D2", phase: "build", createdAt: now })
-			.run();
-		db.insert(teams)
-			.values({ id: "team-d2", productId: "prod-d2", capacity: 3, activeBets: 0, formedAt: now })
-			.run();
+		await db
+			.insert(products)
+			.values({ id: "prod-d2", name: "Product D2", phase: "build", createdAt: now });
+		await db
+			.insert(teams)
+			.values({ id: "team-d2", productId: "prod-d2", capacity: 3, activeBets: 0, formedAt: now });
 	});
 
 	afterEach(() => {
@@ -110,29 +111,28 @@ describe("D3. GET /api/bets/:id returns betDetailResponseSchema-conforming respo
 	let eventBus: EventBus;
 	let app: Hono;
 
-	beforeEach(() => {
+	beforeEach(async () => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		db = createTestDb();
+		const handle = await createTestDb();
+		db = handle.db;
 		eventBus = new EventBus();
-		app = createTestApp({ db, eventBus });
+		app = await createTestApp({ db, eventBus });
 
 		const now = new Date().toISOString();
-		db.insert(products)
-			.values({ id: "prod-d3", name: "Product D3", phase: "build", createdAt: now })
-			.run();
-		db.insert(teams)
-			.values({ id: "team-d3", productId: "prod-d3", capacity: 3, activeBets: 0, formedAt: now })
-			.run();
-		db.insert(bets)
-			.values({
-				id: "bet-d3",
-				productId: "prod-d3",
-				teamId: "team-d3",
-				pitch: "# Bet D3\n\nThis is a test bet.",
-				status: "shaped",
-				createdAt: now,
-			})
-			.run();
+		await db
+			.insert(products)
+			.values({ id: "prod-d3", name: "Product D3", phase: "build", createdAt: now });
+		await db
+			.insert(teams)
+			.values({ id: "team-d3", productId: "prod-d3", capacity: 3, activeBets: 0, formedAt: now });
+		await db.insert(bets).values({
+			id: "bet-d3",
+			productId: "prod-d3",
+			teamId: "team-d3",
+			pitch: "# Bet D3\n\nThis is a test bet.",
+			status: "shaped",
+			createdAt: now,
+		});
 	});
 
 	afterEach(() => {
@@ -161,11 +161,12 @@ describe("D4. POST /api/bets with invalid body returns 400 VALIDATION_ERROR", ()
 	let eventBus: EventBus;
 	let app: Hono;
 
-	beforeEach(() => {
+	beforeEach(async () => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		db = createTestDb();
+		const handle = await createTestDb();
+		db = handle.db;
 		eventBus = new EventBus();
-		app = createTestApp({ db, eventBus });
+		app = await createTestApp({ db, eventBus });
 	});
 
 	afterEach(() => {

@@ -24,43 +24,40 @@ describe("I2 V1 — POST /api/tasks/:id/transition Zod enum", () => {
 	let eventBus: EventBus;
 	let app: Hono;
 
-	beforeEach(() => {
+	beforeEach(async () => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		db = createTestDb();
+		const handle = await createTestDb();
+		db = handle.db;
 		eventBus = new EventBus();
-		app = createTestApp({ db, eventBus });
+		app = await createTestApp({ db, eventBus });
 
 		const now = new Date().toISOString();
-		db.insert(products).values({ id: "p1", name: "P", phase: "build", createdAt: now }).run();
-		db.insert(teams)
-			.values({ id: "t1", productId: "p1", capacity: 5, activeBets: 0, formedAt: now })
-			.run();
-		db.insert(bets)
-			.values({
-				id: "bet1",
-				productId: "p1",
-				teamId: "t1",
-				pitch: "x",
-				appetite: "small",
-				status: "in_progress",
-				createdAt: now,
-			})
-			.run();
-		db.insert(users)
-			.values({ id: "a1", name: "A", role: "builder", status: "active", createdAt: now })
-			.run();
-		db.insert(tasks)
-			.values({
-				id: "task1",
-				betId: "bet1",
-				productId: "p1",
-				teamId: "t1",
-				title: "Task",
-				state: "proposed",
-				createdAt: now,
-				updatedAt: now,
-			})
-			.run();
+		await db.insert(products).values({ id: "p1", name: "P", phase: "build", createdAt: now });
+		await db
+			.insert(teams)
+			.values({ id: "t1", productId: "p1", capacity: 5, activeBets: 0, formedAt: now });
+		await db.insert(bets).values({
+			id: "bet1",
+			productId: "p1",
+			teamId: "t1",
+			pitch: "x",
+			appetite: "small",
+			status: "in_progress",
+			createdAt: now,
+		});
+		await db
+			.insert(users)
+			.values({ id: "a1", name: "A", role: "builder", status: "active", createdAt: now });
+		await db.insert(tasks).values({
+			id: "task1",
+			betId: "bet1",
+			productId: "p1",
+			teamId: "t1",
+			title: "Task",
+			state: "proposed",
+			createdAt: now,
+			updatedAt: now,
+		});
 	});
 
 	afterEach(() => {

@@ -201,8 +201,8 @@ export async function runBuiltinRoutine(
 	if (!routine) {
 		return { fired: false, reason: `routine ${routineId} not found` };
 	}
-	if (routine.active === 0) {
-		return { fired: false, reason: `routine ${routineId} is disabled (active=0)` };
+	if (!routine.active) {
+		return { fired: false, reason: `routine ${routineId} is disabled (active=false)` };
 	}
 
 	let result: RunBuiltinResult;
@@ -269,7 +269,7 @@ export function registerBuiltinRoutineHandlers(db: HyperIdleDb, eventBus: EventB
 				.from(routines)
 				.where(eq(routines.id, "builtin:post-bet-retro"))
 				.limit(1);
-			if (!routine || routine.active === 0) return;
+			if (!routine || !routine.active) return;
 			// Best-effort fire-and-forget: the EventBus emit contract is synchronous.
 			// runBuiltinRoutine is async; we await it inside the void wrapper.
 			await runBuiltinRoutine(db, eventBus, "builtin:post-bet-retro", { betId: event.betId });
@@ -648,7 +648,7 @@ async function runKnowledgeDecay(
 	const nowMs = Date.now();
 	// Honor the `silent` column so the seeded built-in decay sweep does
 	// not flood the bus with `knowledge_updated` events on every tick.
-	const silent = routine.silent === 1;
+	const silent = !!routine.silent;
 	const sweep = await runStaleSweep(db, eventBus, nowMs, undefined, { silent });
 	return { fired: true, extra: { markedCount: sweep.markedIds.length } };
 }

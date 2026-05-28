@@ -20,6 +20,7 @@ import {
 	knowledgeEditLog,
 	knowledgeItems,
 	knowledgeStrategyFabric,
+	type TestDbHandle,
 	users,
 } from "@hyperidle/db";
 import { EventBus } from "@hyperidle/shared";
@@ -39,27 +40,31 @@ function authHeaders(extra?: Record<string, string>): Record<string, string> {
  * @lore P2: After the P2 rename, auth reads from users WHERE kind='human' LIMIT 1
  * instead of factorySettings.founder_id. seedFounder inserts a human user row.
  */
-function seedFounder(db: HyperIdleDb, userId: string): void {
-	db.insert(users)
-		.values({
-			id: userId,
-			name: "Founder",
-			role: "founder",
-			status: "active",
-			kind: "human",
-			createdAt: new Date().toISOString(),
-		})
-		.run();
+async function seedFounder(db: HyperIdleDb, userId: string): Promise<void> {
+	await db.insert(users).values({
+		id: userId,
+		name: "Founder",
+		role: "founder",
+		status: "active",
+		kind: "human",
+		createdAt: new Date().toISOString(),
+	});
 }
 
 // ---------------------------------------------------------------------------
 // AC-1: scope_kind + scope_id columns exist on knowledgeItems table
 // ---------------------------------------------------------------------------
 describe("Q2 AC-1: scope_kind + scope_id columns on knowledgeItems", () => {
+	let handle: TestDbHandle;
 	let db: HyperIdleDb;
 
-	beforeEach(() => {
-		db = createTestDb();
+	beforeEach(async () => {
+		handle = await createTestDb();
+		db = handle.db;
+	});
+
+	afterEach(async () => {
+		await handle.close();
 	});
 
 	it("knowledgeItems table has a scope_kind column (NOT NULL, default factory)", () => {
@@ -91,29 +96,26 @@ describe("Q2 AC-1: scope_kind + scope_id columns on knowledgeItems", () => {
 		expect(indexes).toContain("ki_scope_idx");
 	});
 
-	it("can insert a knowledge item with scopeKind=factory and retrieve it", () => {
+	it("can insert a knowledge item with scopeKind=factory and retrieve it", async () => {
 		const now = new Date().toISOString();
-		db.insert(knowledgeItems)
-			.values({
-				id: "ki-scope-1",
-				scopeKind: "factory",
-				scopeId: null,
-				title: "Test",
-				body: "Body",
-				format: "markdown",
-				status: "draft",
-				version: 1,
-				updatedBy: "u-founder",
-				createdAt: now,
-				updatedAt: now,
-			})
-			.run();
+		await db.insert(knowledgeItems).values({
+			id: "ki-scope-1",
+			scopeKind: "factory",
+			scopeId: null,
+			title: "Test",
+			body: "Body",
+			format: "markdown",
+			status: "draft",
+			version: 1,
+			updatedBy: "u-founder",
+			createdAt: now,
+			updatedAt: now,
+		});
 
-		const result = db
+		const [result] = await db
 			.select()
 			.from(knowledgeItems)
-			.where(eq(knowledgeItems.id, "ki-scope-1"))
-			.get();
+			.where(eq(knowledgeItems.id, "ki-scope-1"));
 
 		expect(result?.scopeKind).toBe("factory");
 		expect(result?.scopeId).toBeNull();
@@ -124,18 +126,21 @@ describe("Q2 AC-1: scope_kind + scope_id columns on knowledgeItems", () => {
 // AC-4: API creation validation — scopeKind required, scopeId required for non-factory
 // ---------------------------------------------------------------------------
 describe("Q2 AC-4: POST /api/knowledge scope validation", () => {
+	let handle: TestDbHandle;
 	let db: HyperIdleDb;
 	let app: Hono;
 
-	beforeEach(() => {
+	beforeEach(async () => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		db = createTestDb();
-		seedFounder(db, "u-founder");
-		app = createTestApp({ db, eventBus: new EventBus() });
+		handle = await createTestDb();
+		db = handle.db;
+		await seedFounder(db, "u-founder");
+		app = await createTestApp({ db, eventBus: new EventBus() });
 	});
 
-	afterEach(() => {
+	afterEach(async () => {
 		vi.unstubAllEnvs();
+		await handle.close();
 	});
 
 	it("POST without scopeKind returns 400", async () => {
@@ -252,21 +257,24 @@ describe("Q2 AC-4: POST /api/knowledge scope validation", () => {
 // AC-6: User-scoped items visible only to their author
 // ---------------------------------------------------------------------------
 describe("Q2 AC-6: user-scoped item visibility", () => {
+	let handle: TestDbHandle;
 	let db: HyperIdleDb;
 	let app: Hono;
 
-	beforeEach(() => {
+	beforeEach(async () => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		db = createTestDb();
+		handle = await createTestDb();
+		db = handle.db;
 	});
 
-	afterEach(() => {
+	afterEach(async () => {
 		vi.unstubAllEnvs();
+		await handle.close();
 	});
 
 	it("user-A's private item appears in list for user-A", async () => {
-		seedFounder(db, "user-A");
-		app = createTestApp({ db, eventBus: new EventBus() });
+		await seedFounder(db, "user-A");
+		app = await createTestApp({ db, eventBus: new EventBus() });
 
 		// Create user-scoped item as user-A
 		const createRes = await app.request("/api/knowledge", {
@@ -293,8 +301,8 @@ describe("Q2 AC-6: user-scoped item visibility", () => {
 
 	it("user-A's private item NOT visible to user-B (list endpoint)", async () => {
 		// Create item as user-A
-		seedFounder(db, "user-A");
-		const appA = createTestApp({ db, eventBus: new EventBus() });
+		await seedFounder(db, "user-A");
+		const appA = await createTestApp({ db, eventBus: new EventBus() });
 		const createRes = await appA.request("/api/knowledge", {
 			method: "POST",
 			headers: authHeaders(),
@@ -311,19 +319,17 @@ describe("Q2 AC-6: user-scoped item visibility", () => {
 
 		// Switch to user-B: demote user-A to AI kind, insert user-B as human
 		// @lore P2: auth reads users WHERE kind='human' LIMIT 1, not factorySettings
-		db.update(users).set({ kind: "ai" }).where(eq(users.id, "user-A")).run();
-		db.insert(users)
-			.values({
-				id: "user-B",
-				name: "User B",
-				role: "founder",
-				status: "active",
-				kind: "human",
-				createdAt: new Date().toISOString(),
-			})
-			.run();
+		await db.update(users).set({ kind: "ai" }).where(eq(users.id, "user-A"));
+		await db.insert(users).values({
+			id: "user-B",
+			name: "User B",
+			role: "founder",
+			status: "active",
+			kind: "human",
+			createdAt: new Date().toISOString(),
+		});
 
-		const appB = createTestApp({ db, eventBus: new EventBus() });
+		const appB = await createTestApp({ db, eventBus: new EventBus() });
 		const listRes = await appB.request("/api/knowledge", { headers: authHeaders() });
 		expect(listRes.status).toBe(200);
 		const list = (await listRes.json()) as { items: Array<{ id: string }> };
@@ -333,8 +339,8 @@ describe("Q2 AC-6: user-scoped item visibility", () => {
 
 	it("GET /:id returns 404 for user-A's private item when requested as user-B", async () => {
 		// Create item as user-A
-		seedFounder(db, "user-A");
-		const appA = createTestApp({ db, eventBus: new EventBus() });
+		await seedFounder(db, "user-A");
+		const appA = await createTestApp({ db, eventBus: new EventBus() });
 		const createRes = await appA.request("/api/knowledge", {
 			method: "POST",
 			headers: authHeaders(),
@@ -351,19 +357,17 @@ describe("Q2 AC-6: user-scoped item visibility", () => {
 
 		// Switch to user-B: demote user-A to AI kind, insert user-B as human
 		// @lore P2: auth reads users WHERE kind='human' LIMIT 1, not factorySettings
-		db.update(users).set({ kind: "ai" }).where(eq(users.id, "user-A")).run();
-		db.insert(users)
-			.values({
-				id: "user-B",
-				name: "User B",
-				role: "founder",
-				status: "active",
-				kind: "human",
-				createdAt: new Date().toISOString(),
-			})
-			.run();
+		await db.update(users).set({ kind: "ai" }).where(eq(users.id, "user-A"));
+		await db.insert(users).values({
+			id: "user-B",
+			name: "User B",
+			role: "founder",
+			status: "active",
+			kind: "human",
+			createdAt: new Date().toISOString(),
+		});
 
-		const appB = createTestApp({ db, eventBus: new EventBus() });
+		const appB = await createTestApp({ db, eventBus: new EventBus() });
 		const getRes = await appB.request(`/api/knowledge/${created.id}`, {
 			headers: authHeaders(),
 		});
@@ -376,18 +380,21 @@ describe("Q2 AC-6: user-scoped item visibility", () => {
 // AC-7: PATCH /:id/scope — scope change with version tracking and edit log
 // ---------------------------------------------------------------------------
 describe("Q2 AC-7: PATCH /:id/scope scope mutation", () => {
+	let handle: TestDbHandle;
 	let db: HyperIdleDb;
 	let app: Hono;
 
-	beforeEach(() => {
+	beforeEach(async () => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		db = createTestDb();
-		seedFounder(db, "u-founder");
-		app = createTestApp({ db, eventBus: new EventBus() });
+		handle = await createTestDb();
+		db = handle.db;
+		await seedFounder(db, "u-founder");
+		app = await createTestApp({ db, eventBus: new EventBus() });
 	});
 
-	afterEach(() => {
+	afterEach(async () => {
 		vi.unstubAllEnvs();
+		await handle.close();
 	});
 
 	async function createUserItem(): Promise<{ id: string; version: number }> {
@@ -465,11 +472,10 @@ describe("Q2 AC-7: PATCH /:id/scope scope mutation", () => {
 			}),
 		});
 
-		const logs = db
+		const logs = await db
 			.select()
 			.from(knowledgeEditLog)
-			.where(eq(knowledgeEditLog.itemId, item.id))
-			.all();
+			.where(eq(knowledgeEditLog.itemId, item.id));
 
 		const scopeKindLog = logs.find((l) => l.field === "scope_kind");
 		expect(scopeKindLog).toBeDefined();
@@ -493,11 +499,10 @@ describe("Q2 AC-7: PATCH /:id/scope scope mutation", () => {
 			}),
 		});
 
-		const logs = db
+		const logs = await db
 			.select()
 			.from(knowledgeEditLog)
-			.where(eq(knowledgeEditLog.itemId, item.id))
-			.all();
+			.where(eq(knowledgeEditLog.itemId, item.id));
 
 		// At least one log entry should contain the reason
 		const hasReason = logs.some(
@@ -577,18 +582,21 @@ describe("Q2 AC-7: PATCH /:id/scope scope mutation", () => {
 // AC-8: All 7 scope kinds use the same schema
 // ---------------------------------------------------------------------------
 describe("Q2 AC-8: all scope kinds use the same schema and lifecycle", () => {
+	let handle: TestDbHandle;
 	let db: HyperIdleDb;
 	let app: Hono;
 
-	beforeEach(() => {
+	beforeEach(async () => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		db = createTestDb();
-		seedFounder(db, "u-founder");
-		app = createTestApp({ db, eventBus: new EventBus() });
+		handle = await createTestDb();
+		db = handle.db;
+		await seedFounder(db, "u-founder");
+		app = await createTestApp({ db, eventBus: new EventBus() });
 	});
 
-	afterEach(() => {
+	afterEach(async () => {
 		vi.unstubAllEnvs();
+		await handle.close();
 	});
 
 	const SCOPE_TEST_CASES: Array<{
@@ -657,18 +665,21 @@ describe("Q2 AC-8: all scope kinds use the same schema and lifecycle", () => {
 // AC-9: Fabric layer assigned on creation
 // ---------------------------------------------------------------------------
 describe("Q2 AC-9: fabric layer assignment on creation", () => {
+	let handle: TestDbHandle;
 	let db: HyperIdleDb;
 	let app: Hono;
 
-	beforeEach(() => {
+	beforeEach(async () => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		db = createTestDb();
-		seedFounder(db, "u-founder");
-		app = createTestApp({ db, eventBus: new EventBus() });
+		handle = await createTestDb();
+		db = handle.db;
+		await seedFounder(db, "u-founder");
+		app = await createTestApp({ db, eventBus: new EventBus() });
 	});
 
-	afterEach(() => {
+	afterEach(async () => {
 		vi.unstubAllEnvs();
+		await handle.close();
 	});
 
 	async function createItem(scopeKind: string, scopeId: string | null): Promise<string> {
@@ -694,72 +705,65 @@ describe("Q2 AC-9: fabric layer assignment on creation", () => {
 
 	it("factory-scoped item gets fabric row with layer=L4", async () => {
 		const id = await createItem("factory", null);
-		const fabricRow = db
+		const [fabricRow] = await db
 			.select()
 			.from(knowledgeStrategyFabric)
-			.where(eq(knowledgeStrategyFabric.knowledgeItemId, id))
-			.get();
+			.where(eq(knowledgeStrategyFabric.knowledgeItemId, id));
 		expect(fabricRow?.layer).toBe("L4");
 	});
 
 	it("product-scoped item gets fabric row with layer=L2", async () => {
 		const id = await createItem("product", "prod-1");
-		const fabricRow = db
+		const [fabricRow] = await db
 			.select()
 			.from(knowledgeStrategyFabric)
-			.where(eq(knowledgeStrategyFabric.knowledgeItemId, id))
-			.get();
+			.where(eq(knowledgeStrategyFabric.knowledgeItemId, id));
 		expect(fabricRow?.layer).toBe("L2");
 	});
 
 	it("practice-scoped item gets fabric row with layer=L3", async () => {
 		const id = await createItem("practice", "fe-practice");
-		const fabricRow = db
+		const [fabricRow] = await db
 			.select()
 			.from(knowledgeStrategyFabric)
-			.where(eq(knowledgeStrategyFabric.knowledgeItemId, id))
-			.get();
+			.where(eq(knowledgeStrategyFabric.knowledgeItemId, id));
 		expect(fabricRow?.layer).toBe("L3");
 	});
 
 	it("task-scoped item gets fabric row with layer=L1", async () => {
 		const id = await createItem("task", "task-1");
-		const fabricRow = db
+		const [fabricRow] = await db
 			.select()
 			.from(knowledgeStrategyFabric)
-			.where(eq(knowledgeStrategyFabric.knowledgeItemId, id))
-			.get();
+			.where(eq(knowledgeStrategyFabric.knowledgeItemId, id));
 		expect(fabricRow?.layer).toBe("L1");
 	});
 
 	it("bet-scoped item has no layer (null) in fabric", async () => {
 		const id = await createItem("bet", "bet-1");
-		const fabricRow = db
+		const [fabricRow] = await db
 			.select()
 			.from(knowledgeStrategyFabric)
-			.where(eq(knowledgeStrategyFabric.knowledgeItemId, id))
-			.get();
+			.where(eq(knowledgeStrategyFabric.knowledgeItemId, id));
 		// bet has null layer — fabric row may not exist or has null layer
 		expect(fabricRow?.layer ?? null).toBeNull();
 	});
 
 	it("team-scoped item has no layer (null) in fabric", async () => {
 		const id = await createItem("team", "team-1");
-		const fabricRow = db
+		const [fabricRow] = await db
 			.select()
 			.from(knowledgeStrategyFabric)
-			.where(eq(knowledgeStrategyFabric.knowledgeItemId, id))
-			.get();
+			.where(eq(knowledgeStrategyFabric.knowledgeItemId, id));
 		expect(fabricRow?.layer ?? null).toBeNull();
 	});
 
 	it("user-scoped item has no layer (null) in fabric", async () => {
 		const id = await createItem("user", null);
-		const fabricRow = db
+		const [fabricRow] = await db
 			.select()
 			.from(knowledgeStrategyFabric)
-			.where(eq(knowledgeStrategyFabric.knowledgeItemId, id))
-			.get();
+			.where(eq(knowledgeStrategyFabric.knowledgeItemId, id));
 		expect(fabricRow?.layer ?? null).toBeNull();
 	});
 });
@@ -768,18 +772,21 @@ describe("Q2 AC-9: fabric layer assignment on creation", () => {
 // AC-10: Scope validation — closed enum at API boundary
 // ---------------------------------------------------------------------------
 describe("Q2 AC-10: scope_kind closed enum validation at API boundary", () => {
+	let handle: TestDbHandle;
 	let db: HyperIdleDb;
 	let app: Hono;
 
-	beforeEach(() => {
+	beforeEach(async () => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		db = createTestDb();
-		seedFounder(db, "u-founder");
-		app = createTestApp({ db, eventBus: new EventBus() });
+		handle = await createTestDb();
+		db = handle.db;
+		await seedFounder(db, "u-founder");
+		app = await createTestApp({ db, eventBus: new EventBus() });
 	});
 
-	afterEach(() => {
+	afterEach(async () => {
 		vi.unstubAllEnvs();
+		await handle.close();
 	});
 
 	const INVALID_SCOPES = ["FACTORY", "Practice", "global", "all", "", "null", "undefined"];
@@ -837,18 +844,21 @@ describe("Q2 AC-10: scope_kind closed enum validation at API boundary", () => {
 // AC-9 (continuation): Layer reassignment on scope change
 // ---------------------------------------------------------------------------
 describe("Q2 AC-9: fabric layer reassignment after scope change", () => {
+	let handle: TestDbHandle;
 	let db: HyperIdleDb;
 	let app: Hono;
 
-	beforeEach(() => {
+	beforeEach(async () => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		db = createTestDb();
-		seedFounder(db, "u-founder");
-		app = createTestApp({ db, eventBus: new EventBus() });
+		handle = await createTestDb();
+		db = handle.db;
+		await seedFounder(db, "u-founder");
+		app = await createTestApp({ db, eventBus: new EventBus() });
 	});
 
-	afterEach(() => {
+	afterEach(async () => {
 		vi.unstubAllEnvs();
+		await handle.close();
 	});
 
 	it("fabric layer updated when scope changes from user (null) to product (L2)", async () => {
@@ -868,11 +878,10 @@ describe("Q2 AC-9: fabric layer reassignment after scope change", () => {
 		const created = (await createRes.json()) as { id: string; version: number };
 
 		// Verify no fabric layer initially (user → null)
-		const beforeFabric = db
+		const [beforeFabric] = await db
 			.select()
 			.from(knowledgeStrategyFabric)
-			.where(eq(knowledgeStrategyFabric.knowledgeItemId, created.id))
-			.get();
+			.where(eq(knowledgeStrategyFabric.knowledgeItemId, created.id));
 		expect(beforeFabric?.layer ?? null).toBeNull();
 
 		// Change scope to product
@@ -890,11 +899,10 @@ describe("Q2 AC-9: fabric layer reassignment after scope change", () => {
 		expect(patchRes.status).toBe(200);
 
 		// Verify fabric now has L2
-		const afterFabric = db
+		const [afterFabric] = await db
 			.select()
 			.from(knowledgeStrategyFabric)
-			.where(eq(knowledgeStrategyFabric.knowledgeItemId, created.id))
-			.get();
+			.where(eq(knowledgeStrategyFabric.knowledgeItemId, created.id));
 		expect(afterFabric?.layer).toBe("L2");
 	});
 });
@@ -903,18 +911,21 @@ describe("Q2 AC-9: fabric layer reassignment after scope change", () => {
 // GET /api/teams — new lightweight endpoint
 // ---------------------------------------------------------------------------
 describe("Q2 GET /api/teams endpoint", () => {
+	let handle: TestDbHandle;
 	let db: HyperIdleDb;
 	let app: Hono;
 
-	beforeEach(() => {
+	beforeEach(async () => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		db = createTestDb();
-		seedFounder(db, "u-founder");
-		app = createTestApp({ db, eventBus: new EventBus() });
+		handle = await createTestDb();
+		db = handle.db;
+		await seedFounder(db, "u-founder");
+		app = await createTestApp({ db, eventBus: new EventBus() });
 	});
 
-	afterEach(() => {
+	afterEach(async () => {
 		vi.unstubAllEnvs();
+		await handle.close();
 	});
 
 	it("GET /api/teams returns 200 with teams array", async () => {

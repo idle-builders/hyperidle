@@ -146,12 +146,12 @@ describe("G4: Built-in Routines", () => {
 			expect(byId.get("builtin:knowledge-decay")?.ownerAgentId).toBe("seed-agent-cos");
 		});
 
-		it("sets all builtins active=1 by default", async () => {
+		it("sets all builtins active=true by default", async () => {
 			await seedBuiltinRoutines(db);
 			const rows = await db.select().from(routines);
 			expect(rows).toHaveLength(BUILTIN_ROUTINE_IDS.length);
 			for (const r of rows) {
-				expect(r.active, `${r.id} active`).toBe(1);
+				expect(r.active, `${r.id} active`).toBe(true);
 			}
 		});
 
@@ -669,7 +669,10 @@ describe("G4: Built-in Routines", () => {
 	describe("AC8: Disabled routine prevents firing", () => {
 		it("runBuiltinRoutine returns fired=false when routine active=0", async () => {
 			await seedBuiltinRoutines(db);
-			await db.update(routines).set({ active: false }).where(eq(routines.id, "builtin:cost-sentinel"));
+			await db
+				.update(routines)
+				.set({ active: false })
+				.where(eq(routines.id, "builtin:cost-sentinel"));
 
 			const result = await runBuiltinRoutine(db, eventBus, "builtin:cost-sentinel");
 			expect(result.fired).toBe(false);
@@ -678,7 +681,10 @@ describe("G4: Built-in Routines", () => {
 
 		it("event handler does not run when event routine active=0", async () => {
 			await seedBuiltinRoutines(db);
-			await db.update(routines).set({ active: false }).where(eq(routines.id, "builtin:post-bet-retro"));
+			await db
+				.update(routines)
+				.set({ active: false })
+				.where(eq(routines.id, "builtin:post-bet-retro"));
 			await db.insert(bets).values({
 				id: "bet-inactive-1",
 				productId: "prod-1",

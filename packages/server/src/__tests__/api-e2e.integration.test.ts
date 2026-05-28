@@ -732,8 +732,8 @@ describe("E2E API Integration (I5)", () => {
 				body: JSON.stringify({ active: false }),
 			});
 			expect(res.status).toBe(200);
-			const body = (await res.json()) as { active: number };
-			expect(body.active).toBe(0);
+			const body = (await res.json()) as { active: boolean };
+			expect(body.active).toBe(false);
 		});
 
 		it("POST /api/routines/:id/retire retires routine", async () => {
@@ -742,8 +742,8 @@ describe("E2E API Integration (I5)", () => {
 				headers: auth(),
 			});
 			expect(res.status).toBe(200);
-			const body = (await res.json()) as { active: number };
-			expect(body.active).toBe(0);
+			const body = (await res.json()) as { active: boolean };
+			expect(body.active).toBe(false);
 		});
 
 		it("POST /api/routines/:id/retire returns 404 for unknown routine", async () => {

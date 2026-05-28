@@ -4,34 +4,32 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { createConflictReviewTool } from "../create-conflict-review.js";
 import { makeContext, NOW, seedBase } from "./_helpers.js";
 
-function seedKnowledgeItem(db: HyperIdleDb, id: string, version: number): void {
-	db.insert(knowledgeItems)
-		.values({
-			id,
-			layer: "L3",
-			kind: "pattern",
-			title: `KI ${id}`,
-			body: "Body",
-			format: "markdown",
-			status: "provisional",
-			version,
-			updatedBy: "agent:seed",
-			createdAt: NOW,
-			updatedAt: NOW,
-		})
-		.run();
+async function seedKnowledgeItem(db: HyperIdleDb, id: string, version: number): Promise<void> {
+	await db.insert(knowledgeItems).values({
+		id,
+		layer: "L3",
+		kind: "pattern",
+		title: `KI ${id}`,
+		body: "Body",
+		format: "markdown",
+		status: "provisional",
+		version,
+		updatedBy: "agent:seed",
+		createdAt: NOW,
+		updatedAt: NOW,
+	});
 }
 
 describe("create_conflict_review tool", () => {
 	let db: HyperIdleDb;
 
-	beforeEach(() => {
+	beforeEach(async () => {
 		db = createTestDb();
-		seedBase(db);
+		await seedBase(db);
 	});
 
 	it("inserts an open knowledge_conflicts row referencing the item", async () => {
-		seedKnowledgeItem(db, "ki-1", 3);
+		await seedKnowledgeItem(db, "ki-1", 3);
 		const result = await createConflictReviewTool.handler(
 			{
 				knowledgeItemId: "ki-1",
@@ -44,11 +42,10 @@ describe("create_conflict_review tool", () => {
 		if (!result.success) return;
 		const data = result.data as { conflictId: string; itemId: string; status: string };
 
-		const rows = db
+		const rows = await db
 			.select()
 			.from(knowledgeConflicts)
-			.where(eq(knowledgeConflicts.itemId, "ki-1"))
-			.all();
+			.where(eq(knowledgeConflicts.itemId, "ki-1"));
 		expect(rows.length).toBe(1);
 		expect(rows[0].status).toBe("open");
 		expect(rows[0].versionCurrent).toBe(3);
@@ -74,7 +71,7 @@ describe("create_conflict_review tool", () => {
 	});
 
 	it("INVALID_INPUT when versionBase > item.version", async () => {
-		seedKnowledgeItem(db, "ki-2", 2);
+		await seedKnowledgeItem(db, "ki-2", 2);
 		const result = await createConflictReviewTool.handler(
 			{
 				knowledgeItemId: "ki-2",
@@ -89,7 +86,7 @@ describe("create_conflict_review tool", () => {
 	});
 
 	it("always derives proposedBy from ctx.agentId (no spoofing via payload)", async () => {
-		seedKnowledgeItem(db, "ki-3", 1);
+		await seedKnowledgeItem(db, "ki-3", 1);
 		const result = await createConflictReviewTool.handler(
 			{
 				knowledgeItemId: "ki-3",
@@ -99,11 +96,10 @@ describe("create_conflict_review tool", () => {
 			makeContext(db),
 		);
 		expect(result.success).toBe(true);
-		const rows = db
+		const rows = await db
 			.select()
 			.from(knowledgeConflicts)
-			.where(eq(knowledgeConflicts.itemId, "ki-3"))
-			.all();
+			.where(eq(knowledgeConflicts.itemId, "ki-3"));
 		expect(rows.length).toBe(1);
 		// ctx.agentId = "agent-fac"; the tool MUST derive this and never trust
 		// a payload-supplied proposedBy. A future regression that adds back a
@@ -112,7 +108,7 @@ describe("create_conflict_review tool", () => {
 	});
 
 	it("returns DUPLICATE on a second open conflict from the same agent on the same item", async () => {
-		seedKnowledgeItem(db, "ki-dup", 1);
+		await seedKnowledgeItem(db, "ki-dup", 1);
 		const first = await createConflictReviewTool.handler(
 			{
 				knowledgeItemId: "ki-dup",
@@ -136,11 +132,10 @@ describe("create_conflict_review tool", () => {
 		expect(second.code).toBe("DUPLICATE");
 
 		// Exactly one conflict row exists — the second call did NOT write.
-		const rows = db
+		const rows = await db
 			.select()
 			.from(knowledgeConflicts)
-			.where(eq(knowledgeConflicts.itemId, "ki-dup"))
-			.all();
+			.where(eq(knowledgeConflicts.itemId, "ki-dup"));
 		expect(rows.length).toBe(1);
 		expect(rows[0].proposedBody).toBe("first proposal");
 	});
