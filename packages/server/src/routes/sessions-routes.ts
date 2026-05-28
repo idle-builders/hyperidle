@@ -1,7 +1,10 @@
-import { type HyperIdleDb, sessions } from "@hyperidle/db";
+import { type HyperIdleDb, sessions, tasks } from "@hyperidle/db";
 import {
 	API_ERROR_CODES,
+	ConcurrencyLimitError,
+	CostCapExceededError,
 	type EventBus,
+	type HarnessAdapter,
 	type SessionEndedEvent,
 	type SessionOutcome,
 	type SessionStartedEvent,
@@ -9,8 +12,11 @@ import {
 import { and, eq } from "drizzle-orm";
 import { Hono } from "hono";
 import z from "zod";
+import type { WorkspaceAdapter } from "../harness/workspace-adapter.js";
 import { validateBody } from "../middleware/validate.js";
+import type { CredentialResolver } from "../services/credential-resolver.js";
 import type { SessionActivityBuffer } from "../services/session-activity-buffer.js";
+import { provisionSession } from "../services/session-provisioning.js";
 
 // @lore O2: harnessUrl, tokensInput, tokensOutput fields removed from session
 // schemas. Those columns were stripped from the sessions kernel table as part
@@ -29,15 +35,33 @@ const updateSessionSchema = z.object({
 });
 
 /**
+ * Optional dependency injection for session route provisioning (R1).
+ * When `harnessAdapter` and `workspaceAdapter` are both present, POST /sessions
+ * routes through `provisionSession` instead of a bare DB insert.
+ *
+ * @lore R1: The adapters are injected via this interface rather than being
+ * constructed inside the route handler so tests can supply scripted mocks
+ * without touching process.env or module internals.
+ */
+export interface SessionRouteDeps {
+	readonly harnessAdapter?: HarnessAdapter;
+	readonly workspaceAdapter?: WorkspaceAdapter;
+	readonly workspaceBasePath?: string;
+	readonly credentialResolver?: CredentialResolver;
+}
+
+/**
  * Create Hono routes for session endpoints (E6).
  *
  * @param activityBuffer - Optional in-memory ring buffer for session activity
  *   (Q1 §3.2). When wired, GET /:id/activity returns entries from the buffer.
+ * @param deps - Optional adapter deps for full provisionSession path (R1).
  */
 export function createSessionRoutes(
 	db: HyperIdleDb,
 	eventBus: EventBus,
 	activityBuffer?: SessionActivityBuffer,
+	deps?: SessionRouteDeps,
 ): Hono {
 	const router = new Hono();
 
@@ -68,9 +92,72 @@ export function createSessionRoutes(
 		return c.json(result);
 	});
 
-	// POST / — Create session
+	// @lore R1: When `deps.harnessAdapter` and `deps.workspaceAdapter` are both
+	// present, the route runs the full 11-phase `provisionSession` orchestrator
+	// (credential pre-flight → workspace → materialize → harness → teardown) and
+	// returns 200 with the completed session row. When adapters are absent it
+	// falls back to the legacy bare DB insert returning 201 — this preserves
+	// backward compat for tests and deployments that haven't wired the harness.
 	router.post("/", validateBody(createSessionSchema), async (c) => {
 		const body = c.req.valid("json" as never) as z.infer<typeof createSessionSchema>;
+
+		// ── Full provisionSession path (adapters present) ─────────────────────
+		if (deps?.harnessAdapter && deps.workspaceAdapter) {
+			// AC6/AC7: credential pre-flight — must fail BEFORE any DB write.
+			const apiKey = await deps.credentialResolver?.resolve("anthropic_api_key");
+			if (apiKey == null) {
+				return c.json(
+					{
+						error: "Missing ANTHROPIC_API_KEY credential",
+						code: "MISSING_CREDENTIAL",
+					},
+					500,
+				);
+			}
+
+			// Look up task to get productId.
+			const task = db.select().from(tasks).where(eq(tasks.id, body.taskId)).get();
+			if (!task) {
+				return c.json({ error: "Task not found", code: API_ERROR_CODES.NOT_FOUND }, 404);
+			}
+
+			const workspaceBasePath = deps.workspaceBasePath ?? "/tmp/hyperidle-workspaces";
+
+			try {
+				const result = await provisionSession(
+					{
+						db,
+						eventBus,
+						harness: deps.harnessAdapter,
+						workspace: deps.workspaceAdapter,
+					},
+					{
+						agentId: body.agentId,
+						taskId: body.taskId,
+						productId: task.productId,
+						modelTier: body.modelTier,
+						workspaceBasePath,
+					},
+				);
+
+				const sessionRow = db
+					.select()
+					.from(sessions)
+					.where(eq(sessions.id, result.sessionId))
+					.get();
+				return c.json(sessionRow, 200);
+			} catch (err) {
+				if (err instanceof CostCapExceededError) {
+					return c.json({ error: err.message, code: "COST_CAP_EXCEEDED" }, 422);
+				}
+				if (err instanceof ConcurrencyLimitError) {
+					return c.json({ error: err.message, code: "CONCURRENCY_LIMIT" }, 429);
+				}
+				return c.json({ error: "Session provisioning failed", code: "INTERNAL_ERROR" }, 500);
+			}
+		}
+
+		// ── Legacy bare-insert path (no adapters) ─────────────────────────────
 		const sessionId = crypto.randomUUID();
 		const now = new Date().toISOString();
 

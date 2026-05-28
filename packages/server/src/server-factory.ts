@@ -1,4 +1,5 @@
 import * as fs from "node:fs";
+import * as os from "node:os";
 import * as path from "node:path";
 import { type ServerType, serve, upgradeWebSocket } from "@hono/node-server";
 import { createPgliteDb, createPostgresDb, type DbHandle, resolveProfile } from "@hyperidle/db";
@@ -6,7 +7,10 @@ import { bootstrapFabric } from "@hyperidle/fabric";
 import { EventBus } from "@hyperidle/shared";
 import { WebSocketServer } from "ws";
 import { createApp, disposeApp } from "./app.js";
+import { ClaudeAgentSdkAdapter } from "./harness/claude-agent-sdk-adapter.js";
+import { LocalWorkspaceAdapter } from "./harness/local-workspace-adapter.js";
 import { registerWsRoute } from "./routes/ws.js";
+import { EnvCredentialResolver } from "./services/credential-resolver.js";
 import { createDbSubscribeAuthorizer, WsBroadcaster } from "./services/ws-broadcaster.js";
 
 /**
@@ -110,11 +114,21 @@ export async function createServer(port: number): Promise<ServerHandle> {
 	const db = dbHandle.db;
 	const eventBus = new EventBus();
 
+	const credentialResolver = new EnvCredentialResolver();
+	const harnessAdapter = new ClaudeAgentSdkAdapter({ credentialResolver });
+	const workspaceAdapter = new LocalWorkspaceAdapter();
+	const workspaceBasePath =
+		process.env.HYPERIDLE_WORKSPACES_DIR ?? path.join(os.tmpdir(), "hyperidle-workspaces");
+
 	let wsDispose: (() => void) | null = null;
 	const app = await createApp({
 		db,
 		eventBus,
 		strategyBootstrap: bootstrapFabric,
+		harnessAdapter,
+		workspaceAdapter,
+		workspaceBasePath,
+		credentialResolver,
 		registerWebSocket: (apiRouter, tokenStore) => {
 			// L1 step9 (Adv-C1): production WS subscribe must enforce participant
 			// authz on `thread:<id>` topics. The authorizer reads the threads
