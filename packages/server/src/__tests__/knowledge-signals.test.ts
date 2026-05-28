@@ -4,9 +4,7 @@
  * @lore O2: Knowledge routes rewritten — layer-based URLs removed.
  * GET /api/knowledge returns all items with computed signals from access log.
  */
-import { createTestDb, type HyperIdleDb, knowledgeItems ,
-	type TestDbHandle
-} from "@hyperidle/db";
+import { createTestDb, type HyperIdleDb, knowledgeItems, type TestDbHandle } from "@hyperidle/db";
 import { EventBus } from "@hyperidle/shared";
 import type { Hono } from "hono";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -40,34 +38,30 @@ describe("GET /api/knowledge/:layer — signals in response (L22 AC-5)", () => {
 
 	// @lore O2: knowledgeItems no longer has layer/scopeId/kind/meta columns.
 	async function createItem(id: string, _layer = "L3"): Promise<void> {
-		await db.insert(knowledgeItems)
-			.values({
-				id,
-				topic: "testing",
-				title: `Item ${id}`,
-				body: "Test body",
-				format: "markdown",
-				status: "active",
-				version: 1,
-				updatedBy: "human",
-				createdAt: NOW_ISO,
-				updatedAt: NOW_ISO,
-			})
-
+		await db.insert(knowledgeItems).values({
+			id,
+			topic: "testing",
+			title: `Item ${id}`,
+			body: "Test body",
+			format: "markdown",
+			status: "active",
+			version: 1,
+			updatedBy: "human",
+			createdAt: NOW_ISO,
+			updatedAt: NOW_ISO,
+		});
 	}
 
 	async function insertAccessLog(itemId: string, accessedAt: string): Promise<void> {
 		// knowledgeAccessLog exported from @hyperidle/db since T1
 		const { knowledgeAccessLog } = await import("@hyperidle/db");
-		await db.insert(knowledgeAccessLog)
-			.values({
-				id: crypto.randomUUID(),
-				itemId,
-				accessorKind: "human",
-				accessorId: "user-1",
-				accessedAt,
-			})
-
+		await db.insert(knowledgeAccessLog).values({
+			id: crypto.randomUUID(),
+			itemId,
+			accessorKind: "human",
+			accessorId: "user-1",
+			accessedAt,
+		});
 	}
 
 	// GET / returns items with signals field

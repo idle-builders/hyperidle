@@ -76,10 +76,7 @@ export function createStatusRoutes(db: HyperIdleDb): Hono {
 
 	// GET / — Factory-wide status
 	router.get("/", async (c) => {
-		const activeSessions = await db
-			.select()
-			.from(sessions)
-			.where(eq(sessions.state, "active"));
+		const activeSessions = await db.select().from(sessions).where(eq(sessions.state, "active"));
 
 		const allAgents = await db.select().from(users);
 

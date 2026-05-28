@@ -294,7 +294,12 @@ export function createThreadRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hy
 			return c.json(zodErrorToBody(parsed.error), 400);
 		}
 		const input = parsed.data;
-		const senderId = await readInitialSenderId(c, db, input.participants, input.initialMessage.type);
+		const senderId = await readInitialSenderId(
+			c,
+			db,
+			input.participants,
+			input.initialMessage.type,
+		);
 
 		const participants = input.participants.includes(senderId)
 			? input.participants
@@ -399,11 +404,7 @@ export function createThreadRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hy
 			const input = parsed.data;
 			const senderId = readSenderId(c);
 
-			const [threadRow] = await db
-				.select()
-				.from(threads)
-				.where(eq(threads.id, threadId))
-				.limit(1);
+			const [threadRow] = await db.select().from(threads).where(eq(threads.id, threadId)).limit(1);
 			if (!threadRow) {
 				const e = err(API_ERROR_CODES.NOT_FOUND, "Thread not found", 404);
 				return c.json(e.body, e.status);
@@ -470,11 +471,7 @@ export function createThreadRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hy
 					const e = err("validation_error", "resolvesMessageId not found in thread", 400);
 					return c.json(e.body, e.status);
 				}
-				const [senderAgent] = await db
-					.select()
-					.from(users)
-					.where(eq(users.id, senderId))
-					.limit(1);
+				const [senderAgent] = await db.select().from(users).where(eq(users.id, senderId)).limit(1);
 				// @lore P2: "founder" role is NOT in USER_ROLES (unconstrained text).
 				const isFounder = senderAgent?.role === "founder";
 				const selfVerdict = resolvesMessageRow.senderId === senderId;
@@ -578,11 +575,7 @@ export function createThreadRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hy
 				.from(threads)
 				.where(eq(threads.id, threadId))
 				.limit(1);
-			const [created] = await db
-				.select()
-				.from(messages)
-				.where(eq(messages.id, messageId))
-				.limit(1);
+			const [created] = await db.select().from(messages).where(eq(messages.id, messageId)).limit(1);
 			if (!(updatedThread && created)) {
 				const e = err("internal_error", "Created message missing", 500);
 				return c.json(e.body, e.status);

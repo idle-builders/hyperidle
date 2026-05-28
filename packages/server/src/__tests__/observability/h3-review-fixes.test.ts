@@ -20,9 +20,7 @@
  *     Stripe, PEM (security M-2).
  */
 
-import { createTestDb, factorySettings, type HyperIdleDb ,
-	type TestDbHandle
-} from "@hyperidle/db";
+import { createTestDb, factorySettings, type HyperIdleDb, type TestDbHandle } from "@hyperidle/db";
 import {
 	EventBus,
 	type KnowledgeUpdatedEvent,

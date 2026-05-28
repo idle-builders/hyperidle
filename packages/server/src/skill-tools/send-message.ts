@@ -34,17 +34,15 @@ async function handler(args: SendMessageInput, ctx: ToolContext): Promise<ToolRe
 
 	const messageId = crypto.randomUUID();
 	const text = subject ? `${subject}\n\n${body}` : body;
-	await ctx.db
-		.insert(messages)
-		.values({
-			id: messageId,
-			senderId: ctx.agentId,
-			threadId,
-			type: "plain",
-			payload: JSON.stringify({ text }),
-			clientKey: messageId,
-			createdAt: now,
-		});
+	await ctx.db.insert(messages).values({
+		id: messageId,
+		senderId: ctx.agentId,
+		threadId,
+		type: "plain",
+		payload: JSON.stringify({ text }),
+		clientKey: messageId,
+		createdAt: now,
+	});
 
 	return ok({ messageId, threadId });
 }

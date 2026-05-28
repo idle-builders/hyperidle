@@ -96,11 +96,7 @@ function applyDefaults(raw: RawServerConfig): ServerConfig {
  * Returns defaults if the table is empty or the JSON is corrupt.
  */
 export async function readServerConfig(db: HyperIdleDb): Promise<ServerConfig> {
-	const [row] = await db
-		.select()
-		.from(serverConfig)
-		.where(eq(serverConfig.id, "default"))
-		.limit(1);
+	const [row] = await db.select().from(serverConfig).where(eq(serverConfig.id, "default")).limit(1);
 
 	if (!row) {
 		return DEFAULTS;

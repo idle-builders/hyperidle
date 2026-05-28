@@ -10,9 +10,7 @@
  *    topic. Subsequent broadcasts must skip the would-be subscriber.
  */
 
-import { createTestDb, threads as threadsTable ,
-	type TestDbHandle
-} from "@hyperidle/db";
+import { createTestDb, type TestDbHandle, threads as threadsTable } from "@hyperidle/db";
 import { EventBus, type ThreadMessageAppendedEvent } from "@hyperidle/shared";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
@@ -45,18 +43,16 @@ describe("WsBroadcaster — subscribe authorization (L1 Adv-C1)", () => {
 
 		// Seed a thread whose participants list does NOT include "agent-2".
 		const now = new Date().toISOString();
-		await db.insert(threadsTable)
-			.values({
-				id: "thr-1",
-				hostKind: "task",
-				hostId: "task-1",
-				initiatorId: "u-founder",
-				participants: JSON.stringify(["u-founder", "agent-1"]),
-				pinned: 0,
-				lastActiveAt: now,
-				createdAt: now,
-			})
-
+		await db.insert(threadsTable).values({
+			id: "thr-1",
+			hostKind: "task",
+			hostId: "task-1",
+			initiatorId: "u-founder",
+			participants: JSON.stringify(["u-founder", "agent-1"]),
+			pinned: 0,
+			lastActiveAt: now,
+			createdAt: now,
+		});
 	});
 
 	afterEach(async () => {

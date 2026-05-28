@@ -33,12 +33,12 @@ import {
 	knowledgeItems,
 	products,
 	sessions,
+	type TestDbHandle,
 	taskStrategyFabric,
 	tasks,
 	teams,
 	threads,
 	users,
-	type TestDbHandle
 } from "@hyperidle/db";
 import {
 	clearDeduplicationCache,
@@ -176,90 +176,83 @@ interface SeedOverrides {
 const NOW = "2026-04-16T00:00:00.000Z";
 
 async function seedDomain(db: HyperIdleDb, overrides: SeedOverrides = {}): Promise<void> {
-	await db.insert(products)
-		.values({ id: "p1", name: "Test Product", phase: "build", createdAt: NOW })
+	await db
+		.insert(products)
+		.values({ id: "p1", name: "Test Product", phase: "build", createdAt: NOW });
 
-	await db.insert(teams)
-		.values({ id: "t1", productId: "p1", capacity: 5, activeBets: 0, formedAt: NOW })
+	await db
+		.insert(teams)
+		.values({ id: "t1", productId: "p1", capacity: 5, activeBets: 0, formedAt: NOW });
 
-	await db.insert(bets)
-		.values({
-			id: "b1",
-			productId: "p1",
-			teamId: "t1",
-			pitch: "Test bet",
-			appetite: "small",
-			status: "committed",
-			createdAt: NOW,
-		})
+	await db.insert(bets).values({
+		id: "b1",
+		productId: "p1",
+		teamId: "t1",
+		pitch: "Test bet",
+		appetite: "small",
+		status: "committed",
+		createdAt: NOW,
+	});
 
-	await db.insert(users)
-		.values({
-			id: "agent-1",
-			name: "Builder Agent",
-			role: "builder",
-			status: "active",
-			teamId: "t1",
-			maxConcurrentSessions: overrides.agentMaxConcurrentSessions ?? 1,
-			costCap: overrides.agentCostCap === undefined ? null : overrides.agentCostCap,
-			costActual: 0,
-			createdAt: NOW,
-		})
+	await db.insert(users).values({
+		id: "agent-1",
+		name: "Builder Agent",
+		role: "builder",
+		status: "active",
+		teamId: "t1",
+		maxConcurrentSessions: overrides.agentMaxConcurrentSessions ?? 1,
+		costCap: overrides.agentCostCap === undefined ? null : overrides.agentCostCap,
+		costActual: 0,
+		createdAt: NOW,
+	});
 
 	const mainTaskState = overrides.taskState ?? "accepted";
-	await db.insert(tasks)
-		.values({
-			id: "task-1",
-			betId: "b1",
-			productId: "p1",
-			teamId: "t1",
-			title: "Test task",
-			state: mainTaskState,
-			createdAt: NOW,
-			updatedAt: NOW,
-		})
+	await db.insert(tasks).values({
+		id: "task-1",
+		betId: "b1",
+		productId: "p1",
+		teamId: "t1",
+		title: "Test task",
+		state: mainTaskState,
+		createdAt: NOW,
+		updatedAt: NOW,
+	});
 
 	// @lore O2: riskTier moved to taskStrategyFabric extension table
 	if (overrides.taskRiskTier != null) {
-		await db.insert(taskStrategyFabric)
-			.values({
-				id: `tsf-task-1`,
-				taskId: "task-1",
-				riskTier: overrides.taskRiskTier,
-			})
-
+		await db.insert(taskStrategyFabric).values({
+			id: `tsf-task-1`,
+			taskId: "task-1",
+			riskTier: overrides.taskRiskTier,
+		});
 	}
 
 	for (let i = 2; i <= (overrides.extraTasks ?? 1) + 1; i++) {
 		if (i === 2 && (overrides.extraTasks ?? 0) === 0) continue;
-		await db.insert(tasks)
-			.values({
-				id: `task-${i}`,
-				betId: "b1",
-				productId: "p1",
-				teamId: "t1",
-				title: `Task ${i}`,
-				state: "accepted",
-				createdAt: NOW,
-				updatedAt: NOW,
-			})
-
+		await db.insert(tasks).values({
+			id: `task-${i}`,
+			betId: "b1",
+			productId: "p1",
+			teamId: "t1",
+			title: `Task ${i}`,
+			state: "accepted",
+			createdAt: NOW,
+			updatedAt: NOW,
+		});
 	}
 
 	// Seed a knowledge item so materialize has something to write.
-	await db.insert(knowledgeItems)
-		.values({
-			id: "ki-seed-1",
-			title: "Seed Principle",
-			body: "Seeded body.",
-			format: "markdown",
-			status: "active",
-			version: 1,
-			updatedBy: "system",
-			createdAt: NOW,
-			updatedAt: NOW,
-		})
-
+	await db.insert(knowledgeItems).values({
+		id: "ki-seed-1",
+		title: "Seed Principle",
+		body: "Seeded body.",
+		format: "markdown",
+		status: "active",
+		version: 1,
+		updatedBy: "system",
+		createdAt: NOW,
+		updatedAt: NOW,
+	});
 }
 
 function baseParams(
@@ -323,7 +316,7 @@ describe("Session Provisioning (D5)", () => {
 					const [sessionRow] = await db
 						.select()
 						.from(sessions)
-						.where(eq(sessions.workspaceSnapshot, cfg.workspacePath))
+						.where(eq(sessions.workspaceSnapshot, cfg.workspacePath));
 
 					if (!sessionRow) throw new Error("AC1 setup error: no session row");
 					processWriteback(
@@ -372,7 +365,7 @@ describe("Session Provisioning (D5)", () => {
 			const kiRows = await db
 				.select()
 				.from(knowledgeItems)
-				.where(eq(knowledgeItems.updatedBy, `session:${result.sessionId}`))
+				.where(eq(knowledgeItems.updatedBy, `session:${result.sessionId}`));
 
 			expect(kiRows).toHaveLength(1);
 			expect(kiRows[0].body).toBe(content);
@@ -400,7 +393,7 @@ describe("Session Provisioning (D5)", () => {
 					const [sessionRow] = await db
 						.select()
 						.from(sessions)
-						.where(eq(sessions.workspaceSnapshot, cfg.workspacePath))
+						.where(eq(sessions.workspaceSnapshot, cfg.workspacePath));
 
 					if (!sessionRow) throw new Error("AC3 setup error: no session row");
 					processWriteback(
@@ -442,7 +435,7 @@ describe("Session Provisioning (D5)", () => {
 			const rows = await db
 				.select()
 				.from(knowledgeItems)
-				.where(eq(knowledgeItems.updatedBy, `session:${result.sessionId}`))
+				.where(eq(knowledgeItems.updatedBy, `session:${result.sessionId}`));
 
 			expect(rows).toHaveLength(1);
 			expect(rows[0].body).toBe(content);
@@ -514,7 +507,7 @@ describe("Session Provisioning (D5)", () => {
 						const [sessionRow] = await db
 							.select()
 							.from(sessions)
-							.where(eq(sessions.workspaceSnapshot, cfg.workspacePath))
+							.where(eq(sessions.workspaceSnapshot, cfg.workspacePath));
 
 						if (!sessionRow) {
 							throw new Error(`AC5 setup error: no session row for workspace ${cfg.workspacePath}`);
@@ -580,7 +573,7 @@ describe("Session Provisioning (D5)", () => {
 				const rows = await db
 					.select()
 					.from(knowledgeItems)
-					.where(eq(knowledgeItems.updatedBy, attribution))
+					.where(eq(knowledgeItems.updatedBy, attribution));
 
 				expect(rows).toHaveLength(1);
 				expect(rows[0].body).toBe(expectedMarker);
@@ -790,16 +783,15 @@ describe("Session Provisioning (D5)", () => {
 			await seedDomain(db, { taskRiskTier: "medium" });
 
 			// Pre-attach a review thread to the task so the creator has somewhere to file.
-			await db.insert(threads)
-				.values({
-					id: "thread-1",
-					hostKind: "task",
-					hostId: "task-1",
-					initiatorId: "agent-1",
-					participants: JSON.stringify(["agent-1"]),
-					lastActiveAt: NOW,
-					createdAt: NOW,
-				})
+			await db.insert(threads).values({
+				id: "thread-1",
+				hostKind: "task",
+				hostId: "task-1",
+				initiatorId: "agent-1",
+				participants: JSON.stringify(["agent-1"]),
+				lastActiveAt: NOW,
+				createdAt: NOW,
+			});
 
 			await db.update(tasks).set({ threadId: "thread-1" }).where(eq(tasks.id, "task-1"));
 
@@ -993,33 +985,31 @@ describe("Session Provisioning (D5)", () => {
 			await db.delete(tasks).where(eq(tasks.id, "task-1"));
 			await db.delete(users).where(eq(users.id, "agent-1"));
 
-			await db.insert(users)
-				.values({
-					id: "agent-fac",
-					name: "Ops Practice Facilitator",
-					role: "practice_facilitator",
-					status: "active",
-					teamId: null,
-					maxConcurrentSessions: 1,
-					costCap: null,
-					costActual: 0,
-					soulPromptPath: "docs/souls/practice-facilitator.md",
-					skills:
-						'{"scope":"ops","tools":["route_item","score_attention","promote_knowledge","create_conflict_review"]}',
-					createdAt: NOW,
-				})
+			await db.insert(users).values({
+				id: "agent-fac",
+				name: "Ops Practice Facilitator",
+				role: "practice_facilitator",
+				status: "active",
+				teamId: null,
+				maxConcurrentSessions: 1,
+				costCap: null,
+				costActual: 0,
+				soulPromptPath: "docs/souls/practice-facilitator.md",
+				skills:
+					'{"scope":"ops","tools":["route_item","score_attention","promote_knowledge","create_conflict_review"]}',
+				createdAt: NOW,
+			});
 
-			await db.insert(tasks)
-				.values({
-					id: "task-fac",
-					betId: "b1",
-					productId: "p1",
-					teamId: "t1",
-					title: "Facilitator task",
-					state: "accepted",
-					createdAt: NOW,
-					updatedAt: NOW,
-				})
+			await db.insert(tasks).values({
+				id: "task-fac",
+				betId: "b1",
+				productId: "p1",
+				teamId: "t1",
+				title: "Facilitator task",
+				state: "accepted",
+				createdAt: NOW,
+				updatedAt: NOW,
+			});
 
 			const harness = new ScriptedHarnessAdapter({
 				events: [
@@ -1085,9 +1075,10 @@ describe("Session Provisioning (D5)", () => {
 			// Mutate the seeded agent to point at a path that resolves outside
 			// docs/souls. The validator must throw before any DB writes or
 			// workspace spawns.
-			await db.update(users)
+			await db
+				.update(users)
 				.set({ soulPromptPath: "../../../etc/passwd" })
-				.where(eq(users.id, "agent-1"))
+				.where(eq(users.id, "agent-1"));
 
 			const harness = new ScriptedHarnessAdapter({ events: [] });
 			const deps: ProvisionSessionDeps = { db, eventBus, harness, workspace };

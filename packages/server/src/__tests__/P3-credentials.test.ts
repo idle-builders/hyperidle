@@ -13,9 +13,7 @@
  *  - All endpoints require auth (401 without API key)
  */
 
-import { createTestDb, type HyperIdleDb ,
-	type TestDbHandle
-} from "@hyperidle/db";
+import { createTestDb, type HyperIdleDb, type TestDbHandle } from "@hyperidle/db";
 import { EventBus } from "@hyperidle/shared";
 import type { Hono } from "hono";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";

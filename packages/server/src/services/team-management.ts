@@ -59,10 +59,7 @@ export async function removeMember(
 		.where(and(eq(users.id, agentId), eq(users.teamId, teamId)));
 }
 
-export async function getAvailableCapacity(
-	db: HyperIdleDb,
-	teamId: string,
-): Promise<number> {
+export async function getAvailableCapacity(db: HyperIdleDb, teamId: string): Promise<number> {
 	const [team] = await db.select().from(teams).where(eq(teams.id, teamId)).limit(1);
 	if (!team) {
 		throw new Error(`Team ${teamId} not found`);

@@ -152,11 +152,7 @@ export async function transitionBet(
 		// Capacity check: re-read the team inside the tx so two concurrent
 		// commits cannot both observe `activeBets < capacity` against a stale
 		// snapshot.
-		const [freshTeam] = await tx
-			.select()
-			.from(teams)
-			.where(eq(teams.id, bet.teamId))
-			.limit(1);
+		const [freshTeam] = await tx.select().from(teams).where(eq(teams.id, bet.teamId)).limit(1);
 		if (!freshTeam) {
 			throw new Error(`Team '${bet.teamId}' not found`);
 		}

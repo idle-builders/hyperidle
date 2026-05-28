@@ -119,19 +119,14 @@ async function handler(
 				.set({ attentionScore: String(score) })
 				.where(eq(knowledgeStrategyFabric.knowledgeItemId, id));
 		} else {
-			await ctx.db
-				.insert(knowledgeStrategyFabric)
-				.values({
-					id: `ksf-${id}`,
-					knowledgeItemId: id,
-					attentionScore: String(score),
-				});
+			await ctx.db.insert(knowledgeStrategyFabric).values({
+				id: `ksf-${id}`,
+				knowledgeItemId: id,
+				attentionScore: String(score),
+			});
 		}
 		// Also update kernel updatedAt for recency tracking (no version bump)
-		await ctx.db
-			.update(knowledgeItems)
-			.set({ updatedAt: now })
-			.where(eq(knowledgeItems.id, id));
+		await ctx.db.update(knowledgeItems).set({ updatedAt: now }).where(eq(knowledgeItems.id, id));
 		return ok<ScoreAttentionData>({ target, id, score, mode });
 	}
 

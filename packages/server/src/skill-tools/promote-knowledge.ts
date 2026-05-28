@@ -113,9 +113,7 @@ async function handler(
 			const updated = await tx
 				.update(knowledgeItems)
 				.set({ status: toStatus, updatedAt: now, updatedBy: editor })
-				.where(
-					and(eq(knowledgeItems.id, knowledgeItemId), eq(knowledgeItems.status, fromStatus)),
-				)
+				.where(and(eq(knowledgeItems.id, knowledgeItemId), eq(knowledgeItems.status, fromStatus)))
 				.returning({ id: knowledgeItems.id });
 
 			if (updated.length === 0) {

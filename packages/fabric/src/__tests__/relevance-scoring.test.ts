@@ -46,8 +46,14 @@ describe("relevance-scoring", () => {
 
 	describe("AC1: tag-based relevance scoring", () => {
 		it("file-handling practice scores higher than email-marketing for file-upload task", async () => {
-			const fileHandlingItem = makeItem({ topic: "file-handling", updatedAt: new Date(now).toISOString() });
-			const emailMarketingItem = makeItem({ topic: "email-marketing", updatedAt: new Date(now).toISOString() });
+			const fileHandlingItem = makeItem({
+				topic: "file-handling",
+				updatedAt: new Date(now).toISOString(),
+			});
+			const emailMarketingItem = makeItem({
+				topic: "email-marketing",
+				updatedAt: new Date(now).toISOString(),
+			});
 
 			const context: ScoringContext = {
 				taskDescription: "Handle file uploads",
@@ -62,8 +68,14 @@ describe("relevance-scoring", () => {
 		});
 
 		it("scores higher when meta.tags match task tags", async () => {
-			const matchingItem = makeItem({ meta: JSON.stringify({ tags: ["file-handling", "uploads"] }), updatedAt: new Date(now).toISOString() });
-			const nonMatchingItem = makeItem({ meta: JSON.stringify({ tags: ["billing", "payments"] }), updatedAt: new Date(now).toISOString() });
+			const matchingItem = makeItem({
+				meta: JSON.stringify({ tags: ["file-handling", "uploads"] }),
+				updatedAt: new Date(now).toISOString(),
+			});
+			const nonMatchingItem = makeItem({
+				meta: JSON.stringify({ tags: ["billing", "payments"] }),
+				updatedAt: new Date(now).toISOString(),
+			});
 
 			const matchScore = scoreItem(matchingItem, defaultContext, weights, now);
 			const noMatchScore = scoreItem(nonMatchingItem, defaultContext, weights, now);
@@ -73,8 +85,14 @@ describe("relevance-scoring", () => {
 
 	describe("AC2: recency scoring", () => {
 		it("recently updated item scores higher than stale one with same tags", async () => {
-			const recentItem = makeItem({ topic: "file-handling", updatedAt: new Date(now - 1 * 24 * 60 * 60 * 1000).toISOString() });
-			const staleItem = makeItem({ topic: "file-handling", updatedAt: new Date(now - 29 * 24 * 60 * 60 * 1000).toISOString() });
+			const recentItem = makeItem({
+				topic: "file-handling",
+				updatedAt: new Date(now - 1 * 24 * 60 * 60 * 1000).toISOString(),
+			});
+			const staleItem = makeItem({
+				topic: "file-handling",
+				updatedAt: new Date(now - 29 * 24 * 60 * 60 * 1000).toISOString(),
+			});
 
 			const recentScore = scoreItem(recentItem, defaultContext, weights, now);
 			const staleScore = scoreItem(staleItem, defaultContext, weights, now);
@@ -82,8 +100,14 @@ describe("relevance-scoring", () => {
 		});
 
 		it("item older than 30 days gets zero recency", async () => {
-			const oldItem = makeItem({ topic: "file-handling", updatedAt: new Date(now - 31 * 24 * 60 * 60 * 1000).toISOString() });
-			const freshItem = makeItem({ topic: "file-handling", updatedAt: new Date(now).toISOString() });
+			const oldItem = makeItem({
+				topic: "file-handling",
+				updatedAt: new Date(now - 31 * 24 * 60 * 60 * 1000).toISOString(),
+			});
+			const freshItem = makeItem({
+				topic: "file-handling",
+				updatedAt: new Date(now).toISOString(),
+			});
 
 			const oldScore = scoreItem(oldItem, defaultContext, weights, now);
 			const freshScore = scoreItem(freshItem, defaultContext, weights, now);
@@ -96,7 +120,14 @@ describe("relevance-scoring", () => {
 			const items: KnowledgeItem[] = [];
 			for (let i = 0; i < 200; i++) {
 				const words = Array.from({ length: 250 }, (_, j) => `word${j}`).join(" ");
-				items.push(makeItem({ id: `item-${i}`, topic: i < 50 ? "file-handling" : "other-topic", body: words, updatedAt: new Date(now - i * 60 * 1000).toISOString() }));
+				items.push(
+					makeItem({
+						id: `item-${i}`,
+						topic: i < 50 ? "file-handling" : "other-topic",
+						body: words,
+						updatedAt: new Date(now - i * 60 * 1000).toISOString(),
+					}),
+				);
 			}
 
 			const result = rankAndBudget(items, defaultContext, weights, 40_000, now);
@@ -113,7 +144,9 @@ describe("relevance-scoring", () => {
 		it("returns all items when budget is large enough", async () => {
 			const items: KnowledgeItem[] = [];
 			for (let i = 0; i < 10; i++) {
-				items.push(makeItem({ id: `item-${i}`, body: "short body", updatedAt: new Date(now).toISOString() }));
+				items.push(
+					makeItem({ id: `item-${i}`, body: "short body", updatedAt: new Date(now).toISOString() }),
+				);
 			}
 
 			const result = rankAndBudget(items, defaultContext, weights, 100_000, now);
@@ -123,12 +156,25 @@ describe("relevance-scoring", () => {
 
 	describe("AC4: L4 items always included", () => {
 		it("L4 items are included even when budget is very tight", async () => {
-			const l4Item = makeItem({ id: "l4-factory", layer: "L4", title: "Factory Principle", body: "Important factory context that must always be included.", updatedAt: new Date(now).toISOString() });
+			const l4Item = makeItem({
+				id: "l4-factory",
+				layer: "L4",
+				title: "Factory Principle",
+				body: "Important factory context that must always be included.",
+				updatedAt: new Date(now).toISOString(),
+			});
 
 			const otherItems: KnowledgeItem[] = [];
 			for (let i = 0; i < 50; i++) {
 				const words = Array.from({ length: 100 }, (_, j) => `word${j}`).join(" ");
-				otherItems.push(makeItem({ id: `other-${i}`, layer: "L2", body: words, updatedAt: new Date(now).toISOString() }));
+				otherItems.push(
+					makeItem({
+						id: `other-${i}`,
+						layer: "L2",
+						body: words,
+						updatedAt: new Date(now).toISOString(),
+					}),
+				);
 			}
 
 			const allItems = [l4Item, ...otherItems];
@@ -140,8 +186,19 @@ describe("relevance-scoring", () => {
 		});
 
 		it("L4 items come first in results", async () => {
-			const l4Item = makeItem({ id: "l4-1", layer: "L4", body: "Factory item", updatedAt: new Date(now).toISOString() });
-			const l2Item = makeItem({ id: "l2-1", layer: "L2", topic: "file-handling", body: "High relevance product item", updatedAt: new Date(now).toISOString() });
+			const l4Item = makeItem({
+				id: "l4-1",
+				layer: "L4",
+				body: "Factory item",
+				updatedAt: new Date(now).toISOString(),
+			});
+			const l2Item = makeItem({
+				id: "l2-1",
+				layer: "L2",
+				topic: "file-handling",
+				body: "High relevance product item",
+				updatedAt: new Date(now).toISOString(),
+			});
 
 			const result = rankAndBudget([l2Item, l4Item], defaultContext, weights, 100_000, now);
 			expect(result[0]?.layer).toBe("L4");
@@ -240,8 +297,12 @@ describe("relevance-scoring", () => {
 
 		it("overrides weights from factory_settings", async () => {
 			const timestamp = new Date().toISOString();
-			await db.insert(factorySettings).values({ key: "scoring.weight.tagMatch", value: "0.50", updatedAt: timestamp });
-			await db.insert(factorySettings).values({ key: "scoring.weight.recency", value: "0.25", updatedAt: timestamp });
+			await db
+				.insert(factorySettings)
+				.values({ key: "scoring.weight.tagMatch", value: "0.50", updatedAt: timestamp });
+			await db
+				.insert(factorySettings)
+				.values({ key: "scoring.weight.recency", value: "0.25", updatedAt: timestamp });
 
 			const loaded = await loadScoringWeights(db);
 			expect(loaded.tagMatch).toBe(0.5);
@@ -251,8 +312,12 @@ describe("relevance-scoring", () => {
 
 		it("ignores invalid weight values", async () => {
 			const timestamp = new Date().toISOString();
-			await db.insert(factorySettings).values({ key: "scoring.weight.tagMatch", value: "not-a-number", updatedAt: timestamp });
-			await db.insert(factorySettings).values({ key: "scoring.weight.recency", value: "1.5", updatedAt: timestamp });
+			await db
+				.insert(factorySettings)
+				.values({ key: "scoring.weight.tagMatch", value: "not-a-number", updatedAt: timestamp });
+			await db
+				.insert(factorySettings)
+				.values({ key: "scoring.weight.recency", value: "1.5", updatedAt: timestamp });
 
 			const loaded = await loadScoringWeights(db);
 			expect(loaded.tagMatch).toBe(0.35);
@@ -269,8 +334,14 @@ describe("relevance-scoring", () => {
 				attentionScore: 0.02,
 			};
 
-			const matchingItem = makeItem({ topic: "file-handling", updatedAt: new Date(now).toISOString() });
-			const nonMatchingItem = makeItem({ topic: "email-marketing", updatedAt: new Date(now).toISOString() });
+			const matchingItem = makeItem({
+				topic: "file-handling",
+				updatedAt: new Date(now).toISOString(),
+			});
+			const nonMatchingItem = makeItem({
+				topic: "email-marketing",
+				updatedAt: new Date(now).toISOString(),
+			});
 
 			const matchScore = scoreItem(matchingItem, defaultContext, heavyTagWeights, now);
 			const noMatchScore = scoreItem(nonMatchingItem, defaultContext, heavyTagWeights, now);

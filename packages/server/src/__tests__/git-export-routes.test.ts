@@ -8,8 +8,12 @@
  *   GET    /api/git-export/status  -> { enabled, repoPath, branch, lastCommitAt, lastCommitSha, lastPushAt }
  */
 
-import { createTestDb, factorySettings, type HyperIdleDb, knowledgeItems ,
-	type TestDbHandle
+import {
+	createTestDb,
+	factorySettings,
+	type HyperIdleDb,
+	knowledgeItems,
+	type TestDbHandle,
 } from "@hyperidle/db";
 import { type FsAdapter, type GitRunner, resetExportMutexes } from "@hyperidle/fabric";
 import type { ApiErrorResponse } from "@hyperidle/shared";
@@ -34,17 +38,20 @@ function authHeaders(extra?: Record<string, string>): Record<string, string> {
 async function setConfigKV(db: HyperIdleDb, pairs: Record<string, string>): Promise<void> {
 	const now = "2026-04-18T00:00:00.000Z";
 	for (const [key, value] of Object.entries(pairs)) {
-		await db.insert(factorySettings)
+		await db
+			.insert(factorySettings)
 			.values({ key, value, updatedAt: now })
 			.onConflictDoUpdate({
 				target: factorySettings.key,
 				set: { value, updatedAt: now },
-			})
-
+			});
 	}
 }
 
-async function enableExport(db: HyperIdleDb, overrides: Record<string, string> = {}): Promise<void> {
+async function enableExport(
+	db: HyperIdleDb,
+	overrides: Record<string, string> = {},
+): Promise<void> {
 	await setConfigKV(db, {
 		"git_export.enabled": "true",
 		"git_export.repo_path": REPO,
@@ -387,22 +394,21 @@ describe("Git Export HTTP routes", () => {
 				"git_export.enabled": "false",
 				"git_export.repo_path": REPO,
 			});
-			await db.insert(knowledgeItems)
-				.values({
-					id: "ki-force",
-					layer: "L4",
-					scopeId: null,
-					kind: "PRINCIPLES",
-					topic: null,
-					title: "Force principles",
-					body: "# forced\n",
-					format: "markdown",
-					status: "active",
-					version: 1,
-					updatedBy: "test",
-					createdAt: "2026-04-18T00:00:00.000Z",
-					updatedAt: "2026-04-18T00:00:00.000Z",
-				})
+			await db.insert(knowledgeItems).values({
+				id: "ki-force",
+				layer: "L4",
+				scopeId: null,
+				kind: "PRINCIPLES",
+				topic: null,
+				title: "Force principles",
+				body: "# forced\n",
+				format: "markdown",
+				status: "active",
+				version: 1,
+				updatedBy: "test",
+				createdAt: "2026-04-18T00:00:00.000Z",
+				updatedAt: "2026-04-18T00:00:00.000Z",
+			});
 
 			const runner: GitRunner & { calls: string[] } = {
 				calls: [],

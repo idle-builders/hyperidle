@@ -5,10 +5,10 @@ import {
 	products,
 	routines,
 	sessions,
+	type TestDbHandle,
 	tasks,
 	teams,
 	users,
-	type TestDbHandle
 } from "@hyperidle/db";
 import { ActiveRoutinesError } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
@@ -25,22 +25,20 @@ import {
 const NOW = "2026-04-15T00:00:00.000Z";
 
 async function seedProduct(db: HyperIdleDb): Promise<void> {
-	await db.insert(products)
-		.values({ id: "prod-1", name: "TestProduct", phase: "build", createdAt: NOW })
-
+	await db
+		.insert(products)
+		.values({ id: "prod-1", name: "TestProduct", phase: "build", createdAt: NOW });
 }
 
 async function seedAgent(db: HyperIdleDb, id: string): Promise<void> {
-	await db.insert(users)
-		.values({
-			id,
-			name: `Agent-${id}`,
-			role: "builder",
-			status: "active",
-			maxConcurrentSessions: 1,
-			createdAt: NOW,
-		})
-
+	await db.insert(users).values({
+		id,
+		name: `Agent-${id}`,
+		role: "builder",
+		status: "active",
+		maxConcurrentSessions: 1,
+		createdAt: NOW,
+	});
 }
 
 describe("C4: Team Management", () => {
@@ -119,13 +117,12 @@ describe("C4: Team Management", () => {
 				agentIds: ["a1"],
 			});
 
-			await db.insert(routines)
-				.values({
-					id: "routine-1",
-					ownerAgentId: "a1",
-					triggerType: "heartbeat",
-					active: true,
-				})
+			await db.insert(routines).values({
+				id: "routine-1",
+				ownerAgentId: "a1",
+				triggerType: "heartbeat",
+				active: true,
+			});
 
 			await expect(removeMember(db, team.id, "a1")).rejects.toThrow(ActiveRoutinesError);
 		});
@@ -152,13 +149,12 @@ describe("C4: Team Management", () => {
 				agentIds: ["a1"],
 			});
 
-			await db.insert(routines)
-				.values({
-					id: "routine-1",
-					ownerAgentId: "a1",
-					triggerType: "heartbeat",
-					active: false,
-				})
+			await db.insert(routines).values({
+				id: "routine-1",
+				ownerAgentId: "a1",
+				triggerType: "heartbeat",
+				active: false,
+			});
 
 			await removeMember(db, team.id, "a1");
 
@@ -229,50 +225,46 @@ describe("C4: Team Management", () => {
 			});
 
 			// Need a bet and task for sessions (FK constraints)
-			await db.insert(bets)
-				.values({
-					id: "bet-1",
-					productId: "prod-1",
-					teamId: team.id,
-					pitch: "Test bet",
-					appetite: "2w",
-					status: "shaped",
-					createdAt: NOW,
-				})
+			await db.insert(bets).values({
+				id: "bet-1",
+				productId: "prod-1",
+				teamId: team.id,
+				pitch: "Test bet",
+				appetite: "2w",
+				status: "shaped",
+				createdAt: NOW,
+			});
 
-			await db.insert(tasks)
-				.values({
-					id: "task-1",
-					betId: "bet-1",
-					productId: "prod-1",
-					teamId: team.id,
-					title: "Test task",
-					state: "in_progress",
-					createdAt: NOW,
-					updatedAt: NOW,
-				})
+			await db.insert(tasks).values({
+				id: "task-1",
+				betId: "bet-1",
+				productId: "prod-1",
+				teamId: team.id,
+				title: "Test task",
+				state: "in_progress",
+				createdAt: NOW,
+				updatedAt: NOW,
+			});
 
 			// O2: sessions.cost column stripped — cost tracking is strategy/fabric concern.
 			// getTeamCost now returns 0. Sessions still seeded for FK integrity.
-			await db.insert(sessions)
-				.values({
-					id: "sess-1",
-					taskId: "task-1",
-					agentId: "a1",
-					modelTier: "workhorse",
-					startedAt: "2026-04-10T00:00:00.000Z",
-					state: "completed",
-				})
+			await db.insert(sessions).values({
+				id: "sess-1",
+				taskId: "task-1",
+				agentId: "a1",
+				modelTier: "workhorse",
+				startedAt: "2026-04-10T00:00:00.000Z",
+				state: "completed",
+			});
 
-			await db.insert(sessions)
-				.values({
-					id: "sess-2",
-					taskId: "task-1",
-					agentId: "a2",
-					modelTier: "workhorse",
-					startedAt: "2026-04-12T00:00:00.000Z",
-					state: "completed",
-				})
+			await db.insert(sessions).values({
+				id: "sess-2",
+				taskId: "task-1",
+				agentId: "a2",
+				modelTier: "workhorse",
+				startedAt: "2026-04-12T00:00:00.000Z",
+				state: "completed",
+			});
 
 			const cost = await getTeamCost(db, team.id, "2026-04-01T00:00:00.000Z");
 			expect(cost).toBe(0);

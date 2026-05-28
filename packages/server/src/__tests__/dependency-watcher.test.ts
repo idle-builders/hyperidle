@@ -1,5 +1,11 @@
-import { bets, createTestDb, type HyperIdleDb, products, tasks, teams ,
-	type TestDbHandle
+import {
+	bets,
+	createTestDb,
+	type HyperIdleDb,
+	products,
+	type TestDbHandle,
+	tasks,
+	teams,
 } from "@hyperidle/db";
 import {
 	EventBus,
@@ -13,40 +19,43 @@ import { checkAndUnblockDependents } from "../services/dependency-watcher.js";
 
 async function seedPrerequisites(db: HyperIdleDb): Promise<void> {
 	const now = new Date().toISOString();
-	await db.insert(products)
-		.values({ id: "p1", name: "Test Product", phase: "build", createdAt: now })
+	await db
+		.insert(products)
+		.values({ id: "p1", name: "Test Product", phase: "build", createdAt: now });
 
-	await db.insert(teams)
-		.values({ id: "t1", productId: "p1", capacity: 5, activeBets: 0, formedAt: now })
+	await db
+		.insert(teams)
+		.values({ id: "t1", productId: "p1", capacity: 5, activeBets: 0, formedAt: now });
 
-	await db.insert(bets)
-		.values({
-			id: "b1",
-			productId: "p1",
-			teamId: "t1",
-			pitch: "Test bet",
-			appetite: "small",
-			status: "committed",
-			createdAt: now,
-		})
-
+	await db.insert(bets).values({
+		id: "b1",
+		productId: "p1",
+		teamId: "t1",
+		pitch: "Test bet",
+		appetite: "small",
+		status: "committed",
+		createdAt: now,
+	});
 }
 
-async function insertTask(db: HyperIdleDb, id: string, state: TaskState, dependencies?: string[]): Promise<void> {
+async function insertTask(
+	db: HyperIdleDb,
+	id: string,
+	state: TaskState,
+	dependencies?: string[],
+): Promise<void> {
 	const now = new Date().toISOString();
-	await db.insert(tasks)
-		.values({
-			id,
-			betId: "b1",
-			productId: "p1",
-			teamId: "t1",
-			title: `Task ${id}`,
-			state,
-			dependencies: dependencies ? JSON.stringify(dependencies) : null,
-			createdAt: now,
-			updatedAt: now,
-		})
-
+	await db.insert(tasks).values({
+		id,
+		betId: "b1",
+		productId: "p1",
+		teamId: "t1",
+		title: `Task ${id}`,
+		state,
+		dependencies: dependencies ? JSON.stringify(dependencies) : null,
+		createdAt: now,
+		updatedAt: now,
+	});
 }
 
 describe("Dependency Watcher", () => {

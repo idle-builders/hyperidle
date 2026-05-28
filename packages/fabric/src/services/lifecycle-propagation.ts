@@ -113,11 +113,14 @@ async function transitionTask(
 		timestamp: new Date().toISOString(),
 	});
 
-	await db.update(tasks).set({
-		state: toState,
-		auditTrail: JSON.stringify(existingAudit),
-		updatedAt: new Date().toISOString(),
-	}).where(eq(tasks.id, taskId));
+	await db
+		.update(tasks)
+		.set({
+			state: toState,
+			auditTrail: JSON.stringify(existingAudit),
+			updatedAt: new Date().toISOString(),
+		})
+		.where(eq(tasks.id, taskId));
 
 	eventBus.emit({
 		type: "task_state_changed",
@@ -152,7 +155,11 @@ const PROPAGATABLE_BET_STATES: ReadonlySet<BetStatus> = new Set([
  * We handle the compare-and-set (CAS) pattern the same way transitionBet does:
  * WHERE status = fromState — if 0 rows updated, throw InvalidTransitionError.
  */
-async function transitionBetToReview(db: HyperIdleDb, eventBus: EventBus, betId: string): Promise<void> {
+async function transitionBetToReview(
+	db: HyperIdleDb,
+	eventBus: EventBus,
+	betId: string,
+): Promise<void> {
 	const [bet] = await db.select().from(bets).where(eq(bets.id, betId)).limit(1);
 	if (!bet) throw new Error(`Bet '${betId}' not found`);
 
@@ -378,7 +385,11 @@ async function propagateSessionToTask(
  * async after the PGlite migration. Callers (EventBus handlers) must wrap in
  * void (async () => { ... })() to satisfy the sync handler contract.
  */
-async function propagateTaskToBet(db: HyperIdleDb, eventBus: EventBus, taskId: string): Promise<void> {
+async function propagateTaskToBet(
+	db: HyperIdleDb,
+	eventBus: EventBus,
+	taskId: string,
+): Promise<void> {
 	// Look up the task to get its betId
 	const [task] = await db.select().from(tasks).where(eq(tasks.id, taskId)).limit(1);
 	if (!task) return;

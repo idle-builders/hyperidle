@@ -5,11 +5,11 @@ import {
 	items,
 	products,
 	sessions,
+	type TestDbHandle,
 	tasks,
 	teams,
 	threads,
 	users,
-	type TestDbHandle
 } from "@hyperidle/db";
 import {
 	checkCostCap,
@@ -24,68 +24,63 @@ import { beforeEach, describe, expect, it } from "vitest";
 const NOW = new Date().toISOString();
 
 async function seedBase(db: HyperIdleDb): Promise<void> {
-	await db.insert(products)
-		.values({ id: "p1", name: "Test Product", phase: "build", createdAt: NOW })
+	await db
+		.insert(products)
+		.values({ id: "p1", name: "Test Product", phase: "build", createdAt: NOW });
 
-	await db.insert(teams)
-		.values({
-			id: "t1",
-			productId: "p1",
-			capacity: 5,
-			activeBets: 0,
-			costCap: 5000, // $50 in cents
-			costActual: 0,
-			formedAt: NOW,
-		})
+	await db.insert(teams).values({
+		id: "t1",
+		productId: "p1",
+		capacity: 5,
+		activeBets: 0,
+		costCap: 5000, // $50 in cents
+		costActual: 0,
+		formedAt: NOW,
+	});
 
-	await db.insert(bets)
-		.values({
-			id: "b1",
-			productId: "p1",
-			teamId: "t1",
-			pitch: "Test bet",
-			appetite: "small",
-			status: "committed",
-			createdAt: NOW,
-		})
+	await db.insert(bets).values({
+		id: "b1",
+		productId: "p1",
+		teamId: "t1",
+		pitch: "Test bet",
+		appetite: "small",
+		status: "committed",
+		createdAt: NOW,
+	});
 
-	await db.insert(tasks)
-		.values({
-			id: "task-1",
-			betId: "b1",
-			productId: "p1",
-			teamId: "t1",
-			title: "Test task",
-			state: "in_progress",
-			createdAt: NOW,
-			updatedAt: NOW,
-		})
+	await db.insert(tasks).values({
+		id: "task-1",
+		betId: "b1",
+		productId: "p1",
+		teamId: "t1",
+		title: "Test task",
+		state: "in_progress",
+		createdAt: NOW,
+		updatedAt: NOW,
+	});
 
-	await db.insert(users)
-		.values({
-			id: "agent-1",
-			name: "Builder Agent",
-			role: "builder",
-			status: "active",
-			teamId: "t1",
-			maxConcurrentSessions: 2,
-			costCap: 1000, // $10 in cents
-			costActual: 0,
-			createdAt: NOW,
-		})
+	await db.insert(users).values({
+		id: "agent-1",
+		name: "Builder Agent",
+		role: "builder",
+		status: "active",
+		teamId: "t1",
+		maxConcurrentSessions: 2,
+		costCap: 1000, // $10 in cents
+		costActual: 0,
+		createdAt: NOW,
+	});
 
 	// L1a: threads now require host_kind/host_id/initiator_id/participants/last_active_at.
-	await db.insert(threads)
-		.values({
-			id: "thread-1",
-			hostKind: "task",
-			hostId: "task-1",
-			initiatorId: "agent-1",
-			participants: JSON.stringify(["agent-1"]),
-			lastActiveAt: NOW,
-			createdAt: NOW,
-		})
-
+	await db.insert(threads).values({
+		id: "thread-1",
+		hostKind: "task",
+		hostId: "task-1",
+		initiatorId: "agent-1",
+		participants: JSON.stringify(["agent-1"]),
+		lastActiveAt: NOW,
+		createdAt: NOW,
+	});
 }
 
 async function insertSession(
@@ -95,22 +90,22 @@ async function insertSession(
 	cost: number,
 	state = "done" as string,
 ): Promise<void> {
-	await db.insert(sessions)
-		.values({
-			id,
-			taskId: "task-1",
-			agentId,
-			modelTier: "workhorse",
-			startedAt: NOW,
-			state,
-		})
+	await db.insert(sessions).values({
+		id,
+		taskId: "task-1",
+		agentId,
+		modelTier: "workhorse",
+		startedAt: NOW,
+		state,
+	});
 
 	// @lore O2: sessions.cost removed; accumulate on agents.costActual and
 	// teams.costActual so checkCostCap can read the running total.
 	if (cost > 0) {
-		await db.update(users)
+		await db
+			.update(users)
 			.set({ costActual: sql`coalesce(cost_actual, 0) + ${cost}` })
-			.where(eq(users.id, agentId))
+			.where(eq(users.id, agentId));
 
 		// Find which team this agent belongs to and accumulate there too
 		const [agent] = await db
@@ -119,10 +114,10 @@ async function insertSession(
 			.where(eq(users.id, agentId))
 			.limit(1);
 		if (agent?.teamId) {
-			await db.update(teams)
+			await db
+				.update(teams)
 				.set({ costActual: sql`coalesce(cost_actual, 0) + ${cost}` })
-				.where(eq(teams.id, agent.teamId))
-
+				.where(eq(teams.id, agent.teamId));
 		}
 	}
 }
@@ -183,16 +178,15 @@ describe("Cost Cap Enforcement", () => {
 
 		it("allows session when agent has no cost cap", async () => {
 			// Create agent without cost cap
-			await db.insert(users)
-				.values({
-					id: "agent-nocap",
-					name: "No Cap Agent",
-					role: "builder",
-					status: "active",
-					teamId: "t1",
-					maxConcurrentSessions: 1,
-					createdAt: NOW,
-				})
+			await db.insert(users).values({
+				id: "agent-nocap",
+				name: "No Cap Agent",
+				role: "builder",
+				status: "active",
+				teamId: "t1",
+				maxConcurrentSessions: 1,
+				createdAt: NOW,
+			});
 
 			// Spend well above agent level but below team cap ($50)
 			insertSession(db, "s1", "agent-nocap", 4000);
@@ -211,18 +205,17 @@ describe("Cost Cap Enforcement", () => {
 	describe("AC2: Team cap enforcement", () => {
 		it("blocks session when team total reaches cap even if agent has budget", async () => {
 			// Add another agent to team
-			await db.insert(users)
-				.values({
-					id: "agent-2",
-					name: "Agent 2",
-					role: "builder",
-					status: "active",
-					teamId: "t1",
-					maxConcurrentSessions: 1,
-					costCap: 1000,
-					costActual: 0,
-					createdAt: NOW,
-				})
+			await db.insert(users).values({
+				id: "agent-2",
+				name: "Agent 2",
+				role: "builder",
+				status: "active",
+				teamId: "t1",
+				maxConcurrentSessions: 1,
+				costCap: 1000,
+				costActual: 0,
+				createdAt: NOW,
+			});
 
 			// agent-2 spent $45, agent-1 spent $5 = team total $50 = team cap
 			insertSession(db, "s1", "agent-2", 4500);
@@ -294,17 +287,16 @@ describe("Cost Cap Enforcement", () => {
 			eventBus.on("cost_cap_breached", (e: CostCapBreachedEvent) => events.push(e));
 
 			// Team at 4800, add 200 to reach 5000 (team cap)
-			await db.insert(users)
-				.values({
-					id: "agent-2",
-					name: "Agent 2",
-					role: "builder",
-					status: "active",
-					teamId: "t1",
-					maxConcurrentSessions: 1,
-					costCap: 5000, // high agent cap
-					createdAt: NOW,
-				})
+			await db.insert(users).values({
+				id: "agent-2",
+				name: "Agent 2",
+				role: "builder",
+				status: "active",
+				teamId: "t1",
+				maxConcurrentSessions: 1,
+				costCap: 5000, // high agent cap
+				createdAt: NOW,
+			});
 
 			insertSession(db, "s-big", "agent-2", 4800);
 			insertSession(db, "s1", "agent-1", 0);
@@ -350,17 +342,16 @@ describe("Cost Cap Enforcement", () => {
 			eventBus.on("cost_cap_warning", (e: CostCapWarningEvent) => warnings.push(e));
 
 			// Agent-2 spent 3800, agent-1 adds 200 = team total 4000 = 80% of 5000
-			await db.insert(users)
-				.values({
-					id: "agent-2",
-					name: "Agent 2",
-					role: "builder",
-					status: "active",
-					teamId: "t1",
-					maxConcurrentSessions: 1,
-					costCap: 5000,
-					createdAt: NOW,
-				})
+			await db.insert(users).values({
+				id: "agent-2",
+				name: "Agent 2",
+				role: "builder",
+				status: "active",
+				teamId: "t1",
+				maxConcurrentSessions: 1,
+				costCap: 5000,
+				createdAt: NOW,
+			});
 
 			insertSession(db, "s-big", "agent-2", 3800);
 			insertSession(db, "s1", "agent-1", 0);
@@ -423,17 +414,16 @@ describe("Cost Cap Enforcement", () => {
 		});
 
 		it("allows sessions after team cost reset", async () => {
-			await db.insert(users)
-				.values({
-					id: "agent-2",
-					name: "Agent 2",
-					role: "builder",
-					status: "active",
-					teamId: "t1",
-					maxConcurrentSessions: 1,
-					costCap: 5000,
-					createdAt: NOW,
-				})
+			await db.insert(users).values({
+				id: "agent-2",
+				name: "Agent 2",
+				role: "builder",
+				status: "active",
+				teamId: "t1",
+				maxConcurrentSessions: 1,
+				costCap: 5000,
+				createdAt: NOW,
+			});
 
 			insertSession(db, "s1", "agent-2", 5000); // team at cap
 
@@ -580,17 +570,16 @@ describe("Cost Cap Enforcement", () => {
 			insertSession(db, "s1", "agent-1", 1000); // agent at cap
 
 			// Also make team at cap
-			await db.insert(users)
-				.values({
-					id: "agent-2",
-					name: "Agent 2",
-					role: "builder",
-					status: "active",
-					teamId: "t1",
-					maxConcurrentSessions: 1,
-					costCap: 5000,
-					createdAt: NOW,
-				})
+			await db.insert(users).values({
+				id: "agent-2",
+				name: "Agent 2",
+				role: "builder",
+				status: "active",
+				teamId: "t1",
+				maxConcurrentSessions: 1,
+				costCap: 5000,
+				createdAt: NOW,
+			});
 
 			insertSession(db, "s2", "agent-2", 4000);
 

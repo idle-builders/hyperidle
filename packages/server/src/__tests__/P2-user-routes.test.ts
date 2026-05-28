@@ -15,11 +15,11 @@ import {
 	createTestDb,
 	type HyperIdleDb,
 	products,
+	type TestDbHandle,
 	teams,
 	userSkills,
 	// P2: import new symbols — compile error until implementation done
 	users,
-	type TestDbHandle
 } from "@hyperidle/db";
 import { EventBus } from "@hyperidle/shared";
 import type { Hono } from "hono";
@@ -47,48 +47,45 @@ describe("P2 — /api/users endpoints (AC4, AC10)", () => {
 		app = await createTestApp({ db, eventBus });
 
 		// Seed prerequisite data
-		await db.insert(products)
-			.values({ id: "prod-p2", name: "P2 Product", phase: "build", createdAt: NOW })
+		await db
+			.insert(products)
+			.values({ id: "prod-p2", name: "P2 Product", phase: "build", createdAt: NOW });
 
-		await db.insert(teams)
-			.values({
-				id: "team-p2",
-				productId: "prod-p2",
-				capacity: 5,
-				activeBets: 0,
-				formedAt: NOW,
-			})
+		await db.insert(teams).values({
+			id: "team-p2",
+			productId: "prod-p2",
+			capacity: 5,
+			activeBets: 0,
+			formedAt: NOW,
+		});
 
 		// Seed users (AI kind)
-		await db.insert(users)
-			.values([
-				{
-					id: "user-p2-1",
-					kind: "ai",
-					name: "Builder Bot",
-					role: "builder",
-					status: "active",
-					teamId: "team-p2",
-					createdAt: NOW,
-				},
-				{
-					id: "user-p2-2",
-					kind: "ai",
-					name: "Growth Bot",
-					role: "growth",
-					status: "active",
-					teamId: "team-p2",
-					createdAt: NOW,
-				},
-			])
+		await db.insert(users).values([
+			{
+				id: "user-p2-1",
+				kind: "ai",
+				name: "Builder Bot",
+				role: "builder",
+				status: "active",
+				teamId: "team-p2",
+				createdAt: NOW,
+			},
+			{
+				id: "user-p2-2",
+				kind: "ai",
+				name: "Growth Bot",
+				role: "growth",
+				status: "active",
+				teamId: "team-p2",
+				createdAt: NOW,
+			},
+		]);
 
 		// Seed user skills
-		await db.insert(userSkills)
-			.values([
-				{ userId: "user-p2-1", skillId: "coding", autonomyLevel: 2 },
-				{ userId: "user-p2-1", skillId: "testing", autonomyLevel: 3 },
-			])
-
+		await db.insert(userSkills).values([
+			{ userId: "user-p2-1", skillId: "coding", autonomyLevel: 2 },
+			{ userId: "user-p2-1", skillId: "testing", autonomyLevel: 3 },
+		]);
 	});
 
 	afterEach(async () => {

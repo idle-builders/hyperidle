@@ -79,10 +79,7 @@ describe("N1 AC6: transaction semantics under PGlite", () => {
 		});
 
 		// The row must be visible outside the transaction.
-		const [row] = await db
-			.select()
-			.from(knowledgeItems)
-			.where(eq(knowledgeItems.id, inserted));
+		const [row] = await db.select().from(knowledgeItems).where(eq(knowledgeItems.id, inserted));
 		expect(row).not.toBeUndefined();
 		expect(row?.title).toBe("tx-committed");
 	});
@@ -115,10 +112,7 @@ describe("N1 AC6: transaction semantics under PGlite", () => {
 
 		// The write must NOT be visible — the transaction was rolled back.
 		if (attemptedId) {
-			const rows = await db
-				.select()
-				.from(knowledgeItems)
-				.where(eq(knowledgeItems.id, attemptedId));
+			const rows = await db.select().from(knowledgeItems).where(eq(knowledgeItems.id, attemptedId));
 			expect(rows).toHaveLength(0);
 		} else {
 			expect.unreachable("attemptedId should have been set before the throw");

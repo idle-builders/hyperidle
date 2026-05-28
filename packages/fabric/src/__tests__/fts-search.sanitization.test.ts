@@ -114,7 +114,7 @@ describe("I3: FTS sanitisation — meaningful punctuation preserved", () => {
 		expect(results.length).toBeGreaterThan(0);
 	});
 
-	it("apostrophe tokens like \"don't\" are preserved", async () => {
+	it('apostrophe tokens like "don\'t" are preserved', async () => {
 		const db = await makeDb([
 			{ title: "Habits", body: "Don't repeat yourself." },
 			{ title: "Other", body: "Different topic entirely." },

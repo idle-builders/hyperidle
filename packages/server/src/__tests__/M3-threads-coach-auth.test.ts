@@ -6,8 +6,13 @@
  * Tests seed a human user row to drive identity resolution.
  */
 
-import { createTestDb, type HyperIdleDb, products, teams, users ,
-	type TestDbHandle
+import {
+	createTestDb,
+	type HyperIdleDb,
+	products,
+	type TestDbHandle,
+	teams,
+	users,
 } from "@hyperidle/db";
 import { EventBus } from "@hyperidle/shared";
 import type { Hono } from "hono";
@@ -26,7 +31,8 @@ function authHeaders(extra?: Record<string, string>): Record<string, string> {
  */
 async function seedFounderUser(db: HyperIdleDb, founderId: string): Promise<void> {
 	const now = new Date().toISOString();
-	await db.insert(users)
+	await db
+		.insert(users)
 		.values({
 			id: founderId,
 			kind: "human",
@@ -36,8 +42,7 @@ async function seedFounderUser(db: HyperIdleDb, founderId: string): Promise<void
 			status: "active",
 			createdAt: now,
 		})
-		.onConflictDoNothing()
-
+		.onConflictDoNothing();
 }
 
 describe("M3 — Coach route readSenderId uses auth context, not DEFAULT_FOUNDER_ID (A6)", () => {
@@ -57,15 +62,13 @@ describe("M3 — Coach route readSenderId uses auth context, not DEFAULT_FOUNDER
 		await seedFounderUser(db, "test-founder-1");
 
 		// Seed the CoC agent (required for coach route)
-		await db.insert(users)
-			.values({
-				id: "seed-agent-cos",
-				name: "Chief of Staff",
-				role: "chief_of_staff",
-				status: "active",
-				createdAt: now,
-			})
-
+		await db.insert(users).values({
+			id: "seed-agent-cos",
+			name: "Chief of Staff",
+			role: "chief_of_staff",
+			status: "active",
+			createdAt: now,
+		});
 	});
 
 	afterEach(async () => {
@@ -103,17 +106,17 @@ describe("M3 — Thread route readSenderId + readInitialSenderId use auth contex
 		// P2: seedFounderUser seeds kind='human' so auth middleware resolves this user
 		await seedFounderUser(db, "test-founder-1");
 
-		await db.insert(products)
-			.values({ id: "prod-1", name: "Test Product", phase: "build", createdAt: now })
+		await db
+			.insert(products)
+			.values({ id: "prod-1", name: "Test Product", phase: "build", createdAt: now });
 
-		await db.insert(teams)
-			.values({
-				id: "team-1",
-				productId: "prod-1",
-				capacity: 3,
-				activeBets: 0,
-				formedAt: now,
-			})
+		await db.insert(teams).values({
+			id: "team-1",
+			productId: "prod-1",
+			capacity: 3,
+			activeBets: 0,
+			formedAt: now,
+		});
 
 		// Note: "test-founder-1" is already seeded by seedFounderUser above — no duplicate insert.
 	});
@@ -156,14 +159,13 @@ describe("M3 — Thread route readSenderId + readInitialSenderId use auth contex
 		// A review-type message triggers the readInitialSenderId code path.
 		// Seed an agent participant so the agent lookup inside readInitialSenderId can find a non-founder
 		const now = new Date().toISOString();
-		await db.insert(users)
-			.values({
-				id: "agent-builder-1",
-				name: "Builder Agent",
-				role: "builder",
-				status: "active",
-				createdAt: now,
-			})
+		await db.insert(users).values({
+			id: "agent-builder-1",
+			name: "Builder Agent",
+			role: "builder",
+			status: "active",
+			createdAt: now,
+		});
 
 		const res = await app.request("/api/threads", {
 			method: "POST",

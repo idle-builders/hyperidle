@@ -8,10 +8,10 @@ import {
 	knowledgeItems,
 	products,
 	sessions,
+	type TestDbHandle,
 	tasks,
 	teams,
 	users,
-	type TestDbHandle
 } from "@hyperidle/db";
 import {
 	ConcurrencyLimitError,
@@ -32,61 +32,58 @@ import {
 async function seedAll(db: HyperIdleDb): Promise<void> {
 	const now = new Date().toISOString();
 
-	await db.insert(products)
-		.values({ id: "p1", name: "Test Product", phase: "build", createdAt: now })
+	await db
+		.insert(products)
+		.values({ id: "p1", name: "Test Product", phase: "build", createdAt: now });
 
-	await db.insert(teams)
-		.values({ id: "t1", productId: "p1", capacity: 5, activeBets: 0, formedAt: now })
+	await db
+		.insert(teams)
+		.values({ id: "t1", productId: "p1", capacity: 5, activeBets: 0, formedAt: now });
 
-	await db.insert(bets)
-		.values({
-			id: "b1",
-			productId: "p1",
-			teamId: "t1",
-			pitch: "Test bet",
-			appetite: "small",
-			status: "committed",
-			createdAt: now,
-		})
+	await db.insert(bets).values({
+		id: "b1",
+		productId: "p1",
+		teamId: "t1",
+		pitch: "Test bet",
+		appetite: "small",
+		status: "committed",
+		createdAt: now,
+	});
 
-	await db.insert(tasks)
-		.values({
-			id: "task-1",
-			betId: "b1",
-			productId: "p1",
-			teamId: "t1",
-			title: "Test task",
-			state: "in_progress",
-			createdAt: now,
-			updatedAt: now,
-		})
+	await db.insert(tasks).values({
+		id: "task-1",
+		betId: "b1",
+		productId: "p1",
+		teamId: "t1",
+		title: "Test task",
+		state: "in_progress",
+		createdAt: now,
+		updatedAt: now,
+	});
 
-	await db.insert(users)
-		.values({
-			id: "agent-1",
-			name: "Builder Agent",
-			role: "builder",
-			status: "active",
-			maxConcurrentSessions: 1,
-			createdAt: now,
-		})
+	await db.insert(users).values({
+		id: "agent-1",
+		name: "Builder Agent",
+		role: "builder",
+		status: "active",
+		maxConcurrentSessions: 1,
+		createdAt: now,
+	});
 
 	// Seed a knowledge item so materialization has content
-	await db.insert(knowledgeItems)
-		.values({
-			id: "ki-1",
-			layer: "L4",
-			kind: "principle",
-			title: "Test Principle",
-			body: "This is a test principle.",
-			format: "markdown",
-			status: "active",
-			version: 1,
-			updatedBy: "system",
-			createdAt: now,
-			updatedAt: now,
-		})
-
+	await db.insert(knowledgeItems).values({
+		id: "ki-1",
+		layer: "L4",
+		kind: "principle",
+		title: "Test Principle",
+		body: "This is a test principle.",
+		format: "markdown",
+		status: "active",
+		version: 1,
+		updatedBy: "system",
+		createdAt: now,
+		updatedAt: now,
+	});
 }
 
 function makeParams(basePath: string): CreateSessionParams {

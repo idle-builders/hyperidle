@@ -108,7 +108,7 @@ describe("A2: Migration", () => {
 		for (let i = 1; i < journal.entries.length; i++) {
 			const prev = journal.entries[i - 1];
 			const curr = journal.entries[i];
-			if (!prev || !curr) continue;
+			if (!(prev && curr)) continue;
 			expect(
 				curr.when > prev.when,
 				`Migration ${curr.tag} (idx ${curr.idx}, when=${curr.when}) has a timestamp ≤ ${prev.tag} (idx ${prev.idx}, when=${prev.when}). ` +

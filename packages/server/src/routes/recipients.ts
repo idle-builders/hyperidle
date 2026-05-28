@@ -58,10 +58,7 @@ export function createRecipientRoutes(db: HyperIdleDb, _eventBus?: EventBus): Ho
 					: allUsers;
 
 		// Fetch active sessions to determine hasActiveSession
-		const activeSessions = await db
-			.select()
-			.from(sessions)
-			.where(eq(sessions.state, "active"));
+		const activeSessions = await db.select().from(sessions).where(eq(sessions.state, "active"));
 		const activeUserIds = new Set(activeSessions.map((s) => s.agentId));
 
 		const recipients: RecipientRow[] = filtered.map((user) => ({

@@ -1,5 +1,5 @@
-import { sql } from "drizzle-orm";
 import type { HyperIdleDb } from "@hyperidle/db";
+import { sql } from "drizzle-orm";
 
 // @lore PGlite migration: Replaced SQLite FTS5 with Postgres tsvector/tsquery.
 // PGlite supports standard Postgres full-text search natively. The tsvector

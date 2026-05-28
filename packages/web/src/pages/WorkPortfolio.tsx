@@ -27,8 +27,8 @@ import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { ArtifactSection, useArtifactOpen } from "../components/ArtifactSection.js";
 import { useCanvasBets } from "../hooks/useCanvasBets.js";
-import { apiFetch } from "../services/api-fetch.js";
 import { useProducts } from "../hooks/useProducts";
+import { apiFetch } from "../services/api-fetch.js";
 import { Canvas } from "../shell/Canvas.js";
 import { BetCreateDialog } from "./work/BetCreateDialog.js";
 
@@ -207,7 +207,9 @@ export function WorkPortfolio({ loading = false, products }: WorkPortfolioProps 
 				capacity={canvasCapacity.max}
 				onMoveBet={(betId, targetStatus) => {
 					if (targetStatus === "committed") {
-						void apiFetch(`/api/bets/${betId}/commit`, { method: "POST" }).then(() => refreshCanvas());
+						void apiFetch(`/api/bets/${betId}/commit`, { method: "POST" }).then(() =>
+							refreshCanvas(),
+						);
 					}
 				}}
 				onNewPitch={() => setDialogOpen(true)}

@@ -18,11 +18,11 @@ import {
 	products,
 	propagationLog,
 	sessions,
+	type TestDbHandle,
 	tasks,
 	teams,
 	threads,
 	users,
-	type TestDbHandle
 } from "@hyperidle/db";
 import { registerLifecyclePropagation, retryFailedPropagations } from "@hyperidle/fabric";
 import { EventBus, type PropagationAppliedEvent } from "@hyperidle/shared";
@@ -35,57 +35,58 @@ const SYSTEM_PROPAGATION_ID = "system:propagation";
 
 async function seedBase(db: HyperIdleDb): Promise<void> {
 	const now = new Date().toISOString();
-	await db.insert(products)
-		.values({ id: "prod-1", name: "Test Product", phase: "build", createdAt: now })
+	await db
+		.insert(products)
+		.values({ id: "prod-1", name: "Test Product", phase: "build", createdAt: now });
 
-	await db.insert(teams)
-		.values({ id: "team-1", productId: "prod-1", capacity: 5, activeBets: 1, formedAt: now })
+	await db
+		.insert(teams)
+		.values({ id: "team-1", productId: "prod-1", capacity: 5, activeBets: 1, formedAt: now });
 
-	await db.insert(bets)
-		.values({
-			id: "bet-1",
-			productId: "prod-1",
-			teamId: "team-1",
-			pitch: "Test bet",
-			status: "in_progress",
-			createdAt: now,
-		})
+	await db.insert(bets).values({
+		id: "bet-1",
+		productId: "prod-1",
+		teamId: "team-1",
+		pitch: "Test bet",
+		status: "in_progress",
+		createdAt: now,
+	});
 
-	await db.insert(users)
-		.values({
-			id: "agent-1",
-			name: "Builder Agent",
-			role: "builder",
-			status: "active",
-			createdAt: now,
-		})
+	await db.insert(users).values({
+		id: "agent-1",
+		name: "Builder Agent",
+		role: "builder",
+		status: "active",
+		createdAt: now,
+	});
 
 	// F6: Seed the system propagation agent so review-thread messages can insert
-	await db.insert(users)
-		.values({
-			id: SYSTEM_PROPAGATION_ID,
-			name: "Propagation System",
-			role: "system",
-			status: "active",
-			createdAt: now,
-		})
-
+	await db.insert(users).values({
+		id: SYSTEM_PROPAGATION_ID,
+		name: "Propagation System",
+		role: "system",
+		status: "active",
+		createdAt: now,
+	});
 }
 
-async function seedTask(db: HyperIdleDb, id: string, state: string, betId = "bet-1"): Promise<void> {
+async function seedTask(
+	db: HyperIdleDb,
+	id: string,
+	state: string,
+	betId = "bet-1",
+): Promise<void> {
 	const now = new Date().toISOString();
-	await db.insert(tasks)
-		.values({
-			id,
-			betId,
-			productId: "prod-1",
-			teamId: "team-1",
-			title: `Task ${id}`,
-			state,
-			createdAt: now,
-			updatedAt: now,
-		})
-
+	await db.insert(tasks).values({
+		id,
+		betId,
+		productId: "prod-1",
+		teamId: "team-1",
+		title: `Task ${id}`,
+		state,
+		createdAt: now,
+		updatedAt: now,
+	});
 }
 
 async function seedSession(
@@ -95,17 +96,15 @@ async function seedSession(
 	state: string,
 	outcome?: string,
 ): Promise<void> {
-	await db.insert(sessions)
-		.values({
-			id,
-			taskId,
-			agentId: "agent-1",
-			modelTier: "capable",
-			startedAt: new Date().toISOString(),
-			state,
-			outcome: outcome ?? null,
-		})
-
+	await db.insert(sessions).values({
+		id,
+		taskId,
+		agentId: "agent-1",
+		modelTier: "capable",
+		startedAt: new Date().toISOString(),
+		state,
+		outcome: outcome ?? null,
+	});
 }
 
 // ─── Session -> Task propagation ─────────────────────────────────────────────
@@ -279,9 +278,10 @@ describe("registerLifecyclePropagation — session -> task", () => {
 		unsubscribe = registerLifecyclePropagation(db, eventBus);
 
 		// Manually transition task to 'done' to simulate race
-		await db.update(tasks)
+		await db
+			.update(tasks)
 			.set({ state: "done", updatedAt: new Date().toISOString() })
-			.where(eq(tasks.id, "task-1"))
+			.where(eq(tasks.id, "task-1"));
 
 		// Act: propagation tries to move in_progress -> review but task is 'done'
 		eventBus.emit({
@@ -333,9 +333,10 @@ describe("registerLifecyclePropagation — task -> bet", () => {
 
 		// Manually move task-2 to done (bypass state machine for direct DB test)
 		// then fire task_state_changed event
-		await db.update(tasks)
+		await db
+			.update(tasks)
 			.set({ state: "done", updatedAt: new Date().toISOString() })
-			.where(eq(tasks.id, "task-2"))
+			.where(eq(tasks.id, "task-2"));
 
 		eventBus.emit({
 			type: "task_state_changed",
@@ -379,9 +380,10 @@ describe("registerLifecyclePropagation — task -> bet", () => {
 		unsubscribe = registerLifecyclePropagation(db, eventBus);
 
 		// Move task-2 to killed
-		await db.update(tasks)
+		await db
+			.update(tasks)
 			.set({ state: "killed", updatedAt: new Date().toISOString() })
-			.where(eq(tasks.id, "task-2"))
+			.where(eq(tasks.id, "task-2"));
 
 		eventBus.emit({
 			type: "task_state_changed",
@@ -404,9 +406,10 @@ describe("registerLifecyclePropagation — task -> bet", () => {
 		unsubscribe = registerLifecyclePropagation(db, eventBus);
 
 		// Move task-2 to done
-		await db.update(tasks)
+		await db
+			.update(tasks)
 			.set({ state: "done", updatedAt: new Date().toISOString() })
-			.where(eq(tasks.id, "task-2"))
+			.where(eq(tasks.id, "task-2"));
 
 		eventBus.emit({
 			type: "task_state_changed",
@@ -442,17 +445,19 @@ describe("registerLifecyclePropagation — task -> bet", () => {
 		unsubscribe = registerLifecyclePropagation(db, eventBus);
 
 		// Manually kill the bet (simulating concurrent human action)
-		await db.update(bets)
+		await db
+			.update(bets)
 			.set({ status: "killed", revisionLog: JSON.stringify([]) })
-			.where(eq(bets.id, "bet-1"))
+			.where(eq(bets.id, "bet-1"));
 
 		// Also decrement activeBets on team (simulate full kill)
 		await db.update(teams).set({ activeBets: 0 }).where(eq(teams.id, "team-1"));
 
 		// Move task-2 to done and fire event (propagation will try review but bet is killed)
-		await db.update(tasks)
+		await db
+			.update(tasks)
 			.set({ state: "done", updatedAt: new Date().toISOString() })
-			.where(eq(tasks.id, "task-2"))
+			.where(eq(tasks.id, "task-2"));
 
 		eventBus.emit({
 			type: "task_state_changed",
@@ -526,9 +531,10 @@ describe("registerLifecyclePropagation — re-entrant cascade", () => {
 		expect(hop1Logs.length).toBeGreaterThanOrEqual(1);
 
 		// Act step 2: task manually moved to done -> bet should go to review
-		await db.update(tasks)
+		await db
+			.update(tasks)
 			.set({ state: "done", updatedAt: new Date().toISOString() })
-			.where(eq(tasks.id, "task-1"))
+			.where(eq(tasks.id, "task-1"));
 
 		eventBus.emit({
 			type: "task_state_changed",
@@ -674,33 +680,31 @@ describe("registerLifecyclePropagation — retry mechanism", () => {
 		const now = new Date().toISOString();
 		await seedTask(db, "task-retry-1", "in_progress");
 		// Seed the session row as ended+completed so the retry re-execution succeeds
-		await db.insert(sessions)
-			.values({
-				id: "session-retry-1",
-				taskId: "task-retry-1",
-				agentId: "agent-1",
-				modelTier: "capable",
-				startedAt: now,
-				endedAt: now,
-				state: "ended",
-				outcome: "completed",
-			})
+		await db.insert(sessions).values({
+			id: "session-retry-1",
+			taskId: "task-retry-1",
+			agentId: "agent-1",
+			modelTier: "capable",
+			startedAt: now,
+			endedAt: now,
+			state: "ended",
+			outcome: "completed",
+		});
 
-		await db.insert(propagationLog)
-			.values({
-				id: "log-retry-1",
-				sourceLevel: "session",
-				sourceId: "session-retry-1",
-				sourceEvent: "session_ended",
-				targetLevel: "task",
-				targetId: "task-retry-1",
-				targetTransition: null,
-				status: "pending_retry",
-				failureReason: "Transient DB error",
-				attempts: 1,
-				createdAt: now,
-				appliedAt: null,
-			})
+		await db.insert(propagationLog).values({
+			id: "log-retry-1",
+			sourceLevel: "session",
+			sourceId: "session-retry-1",
+			sourceEvent: "session_ended",
+			targetLevel: "task",
+			targetId: "task-retry-1",
+			targetTransition: null,
+			status: "pending_retry",
+			failureReason: "Transient DB error",
+			attempts: 1,
+			createdAt: now,
+			appliedAt: null,
+		});
 
 		const eventBus = new EventBus();
 
@@ -715,28 +719,29 @@ describe("registerLifecyclePropagation — retry mechanism", () => {
 		const appliedLogs = await db
 			.select()
 			.from(propagationLog)
-			.where(and(eq(propagationLog.targetId, "task-retry-1"), eq(propagationLog.status, "applied")));
+			.where(
+				and(eq(propagationLog.targetId, "task-retry-1"), eq(propagationLog.status, "applied")),
+			);
 		expect(appliedLogs.length).toBeGreaterThanOrEqual(1);
 	});
 
 	it("retryFailedPropagations: row with attempts=3 (at max) changes status to failed and creates notification", async () => {
 		// Arrange: insert a pending_retry row that is already at MAX_RETRY_ATTEMPTS (3)
 		const now = new Date().toISOString();
-		await db.insert(propagationLog)
-			.values({
-				id: "log-exhausted-1",
-				sourceLevel: "session",
-				sourceId: "session-y",
-				sourceEvent: "session_ended",
-				targetLevel: "task",
-				targetId: "task-y",
-				targetTransition: null,
-				status: "pending_retry",
-				failureReason: "Transient DB error",
-				attempts: 3,
-				createdAt: now,
-				appliedAt: null,
-			})
+		await db.insert(propagationLog).values({
+			id: "log-exhausted-1",
+			sourceLevel: "session",
+			sourceId: "session-y",
+			sourceEvent: "session_ended",
+			targetLevel: "task",
+			targetId: "task-y",
+			targetTransition: null,
+			status: "pending_retry",
+			failureReason: "Transient DB error",
+			attempts: 3,
+			createdAt: now,
+			appliedAt: null,
+		});
 
 		const eventBus = new EventBus();
 

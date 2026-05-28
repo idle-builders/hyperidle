@@ -9,8 +9,8 @@ import {
 	type HyperIdleDb,
 	items as itemsTable,
 	notificationQueue,
+	type TestDbHandle,
 	threads,
-	type TestDbHandle
 } from "@hyperidle/db";
 import {
 	type Notification,
@@ -50,13 +50,13 @@ async function enable(db: HyperIdleDb): Promise<void> {
 		"notifications.flood_coalesce_window_ms": "60000",
 	};
 	for (const [key, value] of Object.entries(pairs)) {
-		await db.insert(factorySettings)
+		await db
+			.insert(factorySettings)
 			.values({ key, value, updatedAt: now })
 			.onConflictDoUpdate({
 				target: factorySettings.key,
 				set: { value, updatedAt: now },
-			})
-
+			});
 	}
 }
 
@@ -94,27 +94,25 @@ describe("H2 Dispatcher integration via createApp", () => {
 	it("subscribes to item_created and pushes on blocking items", async () => {
 		await enable(db);
 		const threadId = "thread-app-1";
-		await db.insert(threads)
-			.values({
-				id: threadId,
-				hostKind: "task",
-				hostId: "task-1",
-				initiatorId: "agent-1",
-				participants: JSON.stringify(["agent-1"]),
-				lastActiveAt: "2026-04-18T00:00:00.000Z",
-				createdAt: "2026-04-18T00:00:00.000Z",
-			})
+		await db.insert(threads).values({
+			id: threadId,
+			hostKind: "task",
+			hostId: "task-1",
+			initiatorId: "agent-1",
+			participants: JSON.stringify(["agent-1"]),
+			lastActiveAt: "2026-04-18T00:00:00.000Z",
+			createdAt: "2026-04-18T00:00:00.000Z",
+		});
 
-		await db.insert(itemsTable)
-			.values({
-				id: "it-100",
-				kind: "approval",
-				title: "Blocking it",
-				body: "Body",
-				blocking: true,
-				threadId,
-				createdAt: "2026-04-18T00:00:00.000Z",
-			})
+		await db.insert(itemsTable).values({
+			id: "it-100",
+			kind: "approval",
+			title: "Blocking it",
+			body: "Body",
+			blocking: true,
+			threadId,
+			createdAt: "2026-04-18T00:00:00.000Z",
+		});
 
 		bus.emit({
 			type: "item_created",
@@ -150,20 +148,19 @@ describe("H2 Dispatcher integration via createApp", () => {
 	it("routine_fired with daily_digest marker triggers runDailyDigest", async () => {
 		await enable(db);
 		const now = "2026-04-18T00:00:00.000Z";
-		await db.insert(notificationQueue)
-			.values({
-				id: "q-1",
-				eventType: "item_created",
-				subjectId: "foo",
-				severity: "digest",
-				title: "Queued digest item",
-				body: "body",
-				reason: "digest",
-				channel: "console",
-				status: "pending",
-				attempts: 0,
-				createdAt: now,
-			})
+		await db.insert(notificationQueue).values({
+			id: "q-1",
+			eventType: "item_created",
+			subjectId: "foo",
+			severity: "digest",
+			title: "Queued digest item",
+			body: "body",
+			reason: "digest",
+			channel: "console",
+			status: "pending",
+			attempts: 0,
+			createdAt: now,
+		});
 
 		const event: RoutineFiredEvent = {
 			type: "routine_fired",

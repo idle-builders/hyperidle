@@ -275,10 +275,12 @@ export async function updateNotificationConfig(
 	patch: NotificationConfigPatch,
 ): Promise<NotificationConfig> {
 	const now = new Date().toISOString();
-	if (patch.enabled !== undefined) await upsert(db, KEYS.enabled, patch.enabled ? "true" : "false", now);
+	if (patch.enabled !== undefined)
+		await upsert(db, KEYS.enabled, patch.enabled ? "true" : "false", now);
 	if (patch.primaryChannel !== undefined)
 		await upsert(db, KEYS.primaryChannel, patch.primaryChannel, now);
-	if (patch.digestChannel !== undefined) await upsert(db, KEYS.digestChannel, patch.digestChannel, now);
+	if (patch.digestChannel !== undefined)
+		await upsert(db, KEYS.digestChannel, patch.digestChannel, now);
 	if (patch.ntfyBaseUrl !== undefined) await upsert(db, KEYS.ntfyBaseUrl, patch.ntfyBaseUrl, now);
 	if (patch.smtpPort !== undefined) await upsert(db, KEYS.smtpPort, String(patch.smtpPort), now);
 	if (patch.smtpSecure !== undefined)

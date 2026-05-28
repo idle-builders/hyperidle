@@ -148,7 +148,9 @@ export function createCoachRoutes(db: HyperIdleDb, _eventBus: EventBus): Hono<Hy
 		const [existing] = await db
 			.select()
 			.from(threads)
-			.where(and(eq(threads.hostKind, "user"), eq(threads.hostId, userId), eq(threads.pinned, true)))
+			.where(
+				and(eq(threads.hostKind, "user"), eq(threads.hostId, userId), eq(threads.pinned, true)),
+			)
 			.limit(1);
 
 		if (existing) {

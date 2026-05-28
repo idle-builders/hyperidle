@@ -118,7 +118,8 @@ export function createRailRoutes(db: HyperIdleDb, _eventBus: EventBus): Hono {
 		// @lore O2: cost burn rate computed from factory settings only; session-level
 		// spend aggregation removed (cost columns stripped from sessions table).
 		// todaySpend/weekSpend return null until the strategy/fabric layer provides them.
-		const factoryCurrency = ((await getFactorySetting(db, "cost_currency")) ?? "USD") as CurrencyCode;
+		const factoryCurrency = ((await getFactorySetting(db, "cost_currency")) ??
+			"USD") as CurrencyCode;
 
 		const dailyCapMinor = await getFactorySettingMinor(db, "cost_cap_daily_minor");
 		const weeklyCapMinor = await getFactorySettingMinor(db, "cost_cap_weekly_minor");

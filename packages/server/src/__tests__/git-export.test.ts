@@ -20,7 +20,7 @@ import {
 	type HyperIdleDb,
 	knowledgeItems,
 	knowledgeStrategyFabric,
-	type TestDbHandle
+	type TestDbHandle,
 } from "@hyperidle/db";
 import {
 	buildCommitMessage,
@@ -191,17 +191,20 @@ const REPO = "/tmp/h1-unit-repo";
 
 async function setConfigKV(db: HyperIdleDb, pairs: Record<string, string>): Promise<void> {
 	for (const [key, value] of Object.entries(pairs)) {
-		await db.insert(factorySettings)
+		await db
+			.insert(factorySettings)
 			.values({ key, value, updatedAt: NOW_ISO })
 			.onConflictDoUpdate({
 				target: factorySettings.key,
 				set: { value, updatedAt: NOW_ISO },
-			})
-
+			});
 	}
 }
 
-async function enableExport(db: HyperIdleDb, overrides: Record<string, string> = {}): Promise<void> {
+async function enableExport(
+	db: HyperIdleDb,
+	overrides: Record<string, string> = {},
+): Promise<void> {
 	await setConfigKV(db, {
 		"git_export.enabled": "true",
 		"git_export.repo_path": REPO,
@@ -232,21 +235,21 @@ async function seedKnowledge(
 	// does an INNER JOIN) finds the fabric row.
 	for (const r of rows) {
 		const itemId = r.id ?? crypto.randomUUID();
-		await db.insert(knowledgeItems)
-			.values({
-				id: itemId,
-				topic: r.topic ?? null,
-				title: r.title ?? `${r.layer} ${r.kind}`,
-				body: r.body,
-				format: "markdown",
-				status: r.status ?? "active",
-				version: r.version ?? 1,
-				updatedBy: "test",
-				createdAt: NOW_ISO,
-				updatedAt: NOW_ISO,
-			})
+		await db.insert(knowledgeItems).values({
+			id: itemId,
+			topic: r.topic ?? null,
+			title: r.title ?? `${r.layer} ${r.kind}`,
+			body: r.body,
+			format: "markdown",
+			status: r.status ?? "active",
+			version: r.version ?? 1,
+			updatedBy: "test",
+			createdAt: NOW_ISO,
+			updatedAt: NOW_ISO,
+		});
 
-		await db.insert(knowledgeStrategyFabric)
+		await db
+			.insert(knowledgeStrategyFabric)
 			.values({
 				id: `ksf-${itemId}`,
 				knowledgeItemId: itemId,
@@ -254,15 +257,12 @@ async function seedKnowledge(
 				kind: r.kind,
 				scopeId: r.scopeId ?? null,
 			})
-			.onConflictDoNothing()
-
+			.onConflictDoNothing();
 	}
 }
 
 async function getSetting(db: HyperIdleDb, key: string): Promise<string | undefined> {
-	const rows = await db
-		.select()
-		.from(factorySettings);
+	const rows = await db.select().from(factorySettings);
 	return rows.find((r: { key: string; value: string }) => r.key === key)?.value;
 }
 
@@ -315,7 +315,7 @@ describe("loadGitExportConfig", () => {
 			"git_export.author_email": "bot@example.com",
 			"git_export.debounce_ms": "5000",
 		});
-		const cfg = await loadGitExportConfig(db) as GitExportConfig;
+		const cfg = (await loadGitExportConfig(db)) as GitExportConfig;
 
 		expect(cfg.enabled).toBe(true);
 		expect(cfg.repoPath).toBe("/tmp/custom-repo");
@@ -626,7 +626,9 @@ describe("computeExportPlan", () => {
 	});
 
 	it("matches kind case-insensitively (e.g. 'principles')", async () => {
-		await seedKnowledge(db, [{ layer: "L4", kind: "principles", scopeId: null, body: "lowercase kind" }]);
+		await seedKnowledge(db, [
+			{ layer: "L4", kind: "principles", scopeId: null, body: "lowercase kind" },
+		]);
 		const plan = await computeExportPlan(db);
 		expect(plan.entries).toHaveLength(1);
 		expect(plan.entries[0]?.relPath).toBe("factory/PRINCIPLES.md");
@@ -711,7 +713,9 @@ describe("runGitExport", () => {
 
 	it("commits changed files and returns {status:'committed'} when no remote is configured (AC1)", async () => {
 		await enableExport(db);
-		await seedKnowledge(db, [{ layer: "L4", kind: "PRINCIPLES", scopeId: null, body: "# Principles\n" }]);
+		await seedKnowledge(db, [
+			{ layer: "L4", kind: "PRINCIPLES", scopeId: null, body: "# Principles\n" },
+		]);
 		const runner = new FakeGitRunner(REPO, { diffClean: false });
 		const fs = createMemFs();
 		const result = await runGitExport(db, { runner, fs });

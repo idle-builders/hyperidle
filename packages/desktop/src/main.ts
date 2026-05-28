@@ -454,7 +454,10 @@ async function bootLocalMode(ctx: BootContext, apiKey: string): Promise<void> {
 	try {
 		handle = await startServer();
 	} catch (err) {
-		log("boot:local server start FAILED", { error: (err as Error).message, stack: (err as Error).stack });
+		log("boot:local server start FAILED", {
+			error: (err as Error).message,
+			stack: (err as Error).stack,
+		});
 		await showStartupError("Server failed to start.", (err as Error).message, ctx.logDir);
 		return;
 	}
@@ -518,9 +521,12 @@ async function bootLocalMode(ctx: BootContext, apiKey: string): Promise<void> {
 	}
 
 	// Log renderer errors visible in main process
-	mainWindow.webContents.on("did-fail-load", (_event, errorCode, errorDescription, validatedURL) => {
-		log("renderer did-fail-load", { errorCode, errorDescription, validatedURL });
-	});
+	mainWindow.webContents.on(
+		"did-fail-load",
+		(_event, errorCode, errorDescription, validatedURL) => {
+			log("renderer did-fail-load", { errorCode, errorDescription, validatedURL });
+		},
+	);
 	mainWindow.webContents.on("render-process-gone", (_event, details) => {
 		log("renderer process gone", { reason: details.reason, exitCode: details.exitCode });
 	});

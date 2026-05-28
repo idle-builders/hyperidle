@@ -272,8 +272,5 @@ async function handleDelete(
 async function handleSessionNotes(config: WritebackConfig, change: WritebackChange): Promise<void> {
 	const body = fs.readFileSync(change.fullPath, "utf-8");
 
-	await config.db
-		.update(sessions)
-		.set({ notes: body })
-		.where(eq(sessions.id, config.sessionId));
+	await config.db.update(sessions).set({ notes: body }).where(eq(sessions.id, config.sessionId));
 }

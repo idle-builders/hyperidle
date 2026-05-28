@@ -27,8 +27,8 @@ import {
 	type HyperIdleDb,
 	// P2: import new symbols — compile error until implementation done
 	orgEdges,
+	type TestDbHandle,
 	users,
-	type TestDbHandle
 } from "@hyperidle/db";
 import { beforeEach, describe, expect, it } from "vitest";
 // P2: import new service — this file does not exist yet (red phase)
@@ -57,36 +57,34 @@ describe("P2 — resolveReviewRecipients fallback routing (AC8)", () => {
 
 		it("returns all human user IDs when no org edges exist", async () => {
 			// Seed two human users
-			await db.insert(users)
-				.values([
-					{
-						id: "u-h1",
-						kind: "human",
-						name: "Human 1",
-						role: "founder",
-						status: "active",
-						createdAt: NOW,
-					},
-					{
-						id: "u-h2",
-						kind: "human",
-						name: "Human 2",
-						role: "founder",
-						status: "active",
-						createdAt: NOW,
-					},
-				])
-
-			// Seed an AI user — should NOT be in result
-			await db.insert(users)
-				.values({
-					id: "u-ai1",
-					kind: "ai",
-					name: "AI Bot",
-					role: "builder",
+			await db.insert(users).values([
+				{
+					id: "u-h1",
+					kind: "human",
+					name: "Human 1",
+					role: "founder",
 					status: "active",
 					createdAt: NOW,
-				})
+				},
+				{
+					id: "u-h2",
+					kind: "human",
+					name: "Human 2",
+					role: "founder",
+					status: "active",
+					createdAt: NOW,
+				},
+			]);
+
+			// Seed an AI user — should NOT be in result
+			await db.insert(users).values({
+				id: "u-ai1",
+				kind: "ai",
+				name: "AI Bot",
+				role: "builder",
+				status: "active",
+				createdAt: NOW,
+			});
 
 			const result = resolveReviewRecipients(db, {});
 			// Should return all human users, not AI users
@@ -102,43 +100,41 @@ describe("P2 — resolveReviewRecipients fallback routing (AC8)", () => {
 	// -------------------------------------------------------------------------
 	describe("AC8: matching org edges → returns matched human users only", () => {
 		it("returns matched fromUserId when a direct edge matches context.userId", async () => {
-			await db.insert(users)
-				.values([
-					{
-						id: "u-reviewer",
-						kind: "human",
-						name: "Reviewer",
-						role: "founder",
-						status: "active",
-						createdAt: NOW,
-					},
-					{
-						id: "u-other-human",
-						kind: "human",
-						name: "Other Human",
-						role: "founder",
-						status: "active",
-						createdAt: NOW,
-					},
-					{
-						id: "u-target-ai",
-						kind: "ai",
-						name: "Target AI",
-						role: "builder",
-						status: "active",
-						createdAt: NOW,
-					},
-				])
+			await db.insert(users).values([
+				{
+					id: "u-reviewer",
+					kind: "human",
+					name: "Reviewer",
+					role: "founder",
+					status: "active",
+					createdAt: NOW,
+				},
+				{
+					id: "u-other-human",
+					kind: "human",
+					name: "Other Human",
+					role: "founder",
+					status: "active",
+					createdAt: NOW,
+				},
+				{
+					id: "u-target-ai",
+					kind: "ai",
+					name: "Target AI",
+					role: "builder",
+					status: "active",
+					createdAt: NOW,
+				},
+			]);
 
 			// Edge: u-reviewer reviews u-target-ai directly
-			await db.insert(orgEdges)
-				.values({
-					id: "e-direct",
-					fromUserId: "u-reviewer",
-					mechanism: "direct",
-					target: "u-target-ai",
-					createdAt: NOW,
-				})
+			await db.insert(orgEdges).values({
+				id: "e-direct",
+				fromUserId: "u-reviewer",
+				mechanism: "direct",
+				target: "u-target-ai",
+				createdAt: NOW,
+			});
 
 			const result = resolveReviewRecipients(db, { userId: "u-target-ai" });
 			// Only u-reviewer has a direct edge to u-target-ai
@@ -147,35 +143,33 @@ describe("P2 — resolveReviewRecipients fallback routing (AC8)", () => {
 		});
 
 		it("returns matched fromUserId when a function edge matches context.agentRole", async () => {
-			await db.insert(users)
-				.values([
-					{
-						id: "u-func-reviewer",
-						kind: "human",
-						name: "Function Reviewer",
-						role: "founder",
-						status: "active",
-						createdAt: NOW,
-					},
-					{
-						id: "u-other",
-						kind: "human",
-						name: "Other",
-						role: "founder",
-						status: "active",
-						createdAt: NOW,
-					},
-				])
+			await db.insert(users).values([
+				{
+					id: "u-func-reviewer",
+					kind: "human",
+					name: "Function Reviewer",
+					role: "founder",
+					status: "active",
+					createdAt: NOW,
+				},
+				{
+					id: "u-other",
+					kind: "human",
+					name: "Other",
+					role: "founder",
+					status: "active",
+					createdAt: NOW,
+				},
+			]);
 
 			// Edge: u-func-reviewer reviews all "builder" role agents
-			await db.insert(orgEdges)
-				.values({
-					id: "e-func",
-					fromUserId: "u-func-reviewer",
-					mechanism: "function",
-					target: "builder",
-					createdAt: NOW,
-				})
+			await db.insert(orgEdges).values({
+				id: "e-func",
+				fromUserId: "u-func-reviewer",
+				mechanism: "function",
+				target: "builder",
+				createdAt: NOW,
+			});
 
 			const result = resolveReviewRecipients(db, { agentRole: "builder" });
 			expect(result).toContain("u-func-reviewer");
@@ -183,35 +177,33 @@ describe("P2 — resolveReviewRecipients fallback routing (AC8)", () => {
 		});
 
 		it("returns matched fromUserId when a team edge matches context.teamId", async () => {
-			await db.insert(users)
-				.values([
-					{
-						id: "u-team-reviewer",
-						kind: "human",
-						name: "Team Reviewer",
-						role: "founder",
-						status: "active",
-						createdAt: NOW,
-					},
-					{
-						id: "u-unrelated",
-						kind: "human",
-						name: "Unrelated Human",
-						role: "founder",
-						status: "active",
-						createdAt: NOW,
-					},
-				])
+			await db.insert(users).values([
+				{
+					id: "u-team-reviewer",
+					kind: "human",
+					name: "Team Reviewer",
+					role: "founder",
+					status: "active",
+					createdAt: NOW,
+				},
+				{
+					id: "u-unrelated",
+					kind: "human",
+					name: "Unrelated Human",
+					role: "founder",
+					status: "active",
+					createdAt: NOW,
+				},
+			]);
 
 			// Edge: u-team-reviewer reviews team-alpha
-			await db.insert(orgEdges)
-				.values({
-					id: "e-team",
-					fromUserId: "u-team-reviewer",
-					mechanism: "team",
-					target: "team-alpha",
-					createdAt: NOW,
-				})
+			await db.insert(orgEdges).values({
+				id: "e-team",
+				fromUserId: "u-team-reviewer",
+				mechanism: "team",
+				target: "team-alpha",
+				createdAt: NOW,
+			});
 
 			const result = resolveReviewRecipients(db, { teamId: "team-alpha" });
 			expect(result).toContain("u-team-reviewer");
@@ -219,34 +211,32 @@ describe("P2 — resolveReviewRecipients fallback routing (AC8)", () => {
 		});
 
 		it("deduplicates fromUserId when multiple edges match the same human user", async () => {
-			await db.insert(users)
-				.values({
-					id: "u-multi-match",
-					kind: "human",
-					name: "Multi Match",
-					role: "founder",
-					status: "active",
-					createdAt: NOW,
-				})
+			await db.insert(users).values({
+				id: "u-multi-match",
+				kind: "human",
+				name: "Multi Match",
+				role: "founder",
+				status: "active",
+				createdAt: NOW,
+			});
 
 			// Two edges that both match different aspects of the context
-			await db.insert(orgEdges)
-				.values([
-					{
-						id: "e-multi-direct",
-						fromUserId: "u-multi-match",
-						mechanism: "direct",
-						target: "u-ai-x",
-						createdAt: NOW,
-					},
-					{
-						id: "e-multi-func",
-						fromUserId: "u-multi-match",
-						mechanism: "function",
-						target: "builder",
-						createdAt: NOW,
-					},
-				])
+			await db.insert(orgEdges).values([
+				{
+					id: "e-multi-direct",
+					fromUserId: "u-multi-match",
+					mechanism: "direct",
+					target: "u-ai-x",
+					createdAt: NOW,
+				},
+				{
+					id: "e-multi-func",
+					fromUserId: "u-multi-match",
+					mechanism: "function",
+					target: "builder",
+					createdAt: NOW,
+				},
+			]);
 
 			const result = resolveReviewRecipients(db, {
 				userId: "u-ai-x",
@@ -263,35 +253,33 @@ describe("P2 — resolveReviewRecipients fallback routing (AC8)", () => {
 	// -------------------------------------------------------------------------
 	describe("AC8: non-matching edges → falls back to all human users", () => {
 		it("returns all human users when edges exist but none match the context", async () => {
-			await db.insert(users)
-				.values([
-					{
-						id: "u-fallback-h1",
-						kind: "human",
-						name: "Fallback Human 1",
-						role: "founder",
-						status: "active",
-						createdAt: NOW,
-					},
-					{
-						id: "u-fallback-h2",
-						kind: "human",
-						name: "Fallback Human 2",
-						role: "founder",
-						status: "active",
-						createdAt: NOW,
-					},
-				])
+			await db.insert(users).values([
+				{
+					id: "u-fallback-h1",
+					kind: "human",
+					name: "Fallback Human 1",
+					role: "founder",
+					status: "active",
+					createdAt: NOW,
+				},
+				{
+					id: "u-fallback-h2",
+					kind: "human",
+					name: "Fallback Human 2",
+					role: "founder",
+					status: "active",
+					createdAt: NOW,
+				},
+			]);
 
 			// Edge exists but for a different target
-			await db.insert(orgEdges)
-				.values({
-					id: "e-no-match",
-					fromUserId: "u-fallback-h1",
-					mechanism: "direct",
-					target: "u-some-other-ai",
-					createdAt: NOW,
-				})
+			await db.insert(orgEdges).values({
+				id: "e-no-match",
+				fromUserId: "u-fallback-h1",
+				mechanism: "direct",
+				target: "u-some-other-ai",
+				createdAt: NOW,
+			});
 
 			// Query for a completely different userId — no edge matches
 			const result = resolveReviewRecipients(db, { userId: "u-unrelated-ai" });
@@ -301,34 +289,32 @@ describe("P2 — resolveReviewRecipients fallback routing (AC8)", () => {
 		});
 
 		it("returns all human users when context is empty and edges exist", async () => {
-			await db.insert(users)
-				.values([
-					{
-						id: "u-empty-ctx-h1",
-						kind: "human",
-						name: "Empty Context H1",
-						role: "founder",
-						status: "active",
-						createdAt: NOW,
-					},
-					{
-						id: "u-empty-ctx-h2",
-						kind: "human",
-						name: "Empty Context H2",
-						role: "founder",
-						status: "active",
-						createdAt: NOW,
-					},
-				])
-
-			await db.insert(orgEdges)
-				.values({
-					id: "e-exists-but-empty-ctx",
-					fromUserId: "u-empty-ctx-h1",
-					mechanism: "direct",
-					target: "u-some-ai",
+			await db.insert(users).values([
+				{
+					id: "u-empty-ctx-h1",
+					kind: "human",
+					name: "Empty Context H1",
+					role: "founder",
+					status: "active",
 					createdAt: NOW,
-				})
+				},
+				{
+					id: "u-empty-ctx-h2",
+					kind: "human",
+					name: "Empty Context H2",
+					role: "founder",
+					status: "active",
+					createdAt: NOW,
+				},
+			]);
+
+			await db.insert(orgEdges).values({
+				id: "e-exists-but-empty-ctx",
+				fromUserId: "u-empty-ctx-h1",
+				mechanism: "direct",
+				target: "u-some-ai",
+				createdAt: NOW,
+			});
 
 			// Empty context cannot match any edge — falls back to all humans
 			const result = resolveReviewRecipients(db, {});

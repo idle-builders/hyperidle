@@ -1,4 +1,12 @@
-import { bets, createTestDb, type HyperIdleDb, products, tasks, teams, type TestDbHandle } from "@hyperidle/db";
+import {
+	bets,
+	createTestDb,
+	type HyperIdleDb,
+	products,
+	type TestDbHandle,
+	tasks,
+	teams,
+} from "@hyperidle/db";
 import {
 	EventBus,
 	type NotificationEvent,
@@ -13,40 +21,43 @@ import { InvalidTransitionError, transitionTask } from "../services/task-state-m
 
 async function seedPrerequisites(db: HyperIdleDb): Promise<void> {
 	const now = new Date().toISOString();
-	await db.insert(products)
-		.values({ id: "p1", name: "Test Product", phase: "build", createdAt: now })
+	await db
+		.insert(products)
+		.values({ id: "p1", name: "Test Product", phase: "build", createdAt: now });
 
-	await db.insert(teams)
-		.values({ id: "t1", productId: "p1", capacity: 5, activeBets: 0, formedAt: now })
+	await db
+		.insert(teams)
+		.values({ id: "t1", productId: "p1", capacity: 5, activeBets: 0, formedAt: now });
 
-	await db.insert(bets)
-		.values({
-			id: "b1",
-			productId: "p1",
-			teamId: "t1",
-			pitch: "Test bet",
-			appetite: "small",
-			status: "committed",
-			createdAt: now,
-		})
-
+	await db.insert(bets).values({
+		id: "b1",
+		productId: "p1",
+		teamId: "t1",
+		pitch: "Test bet",
+		appetite: "small",
+		status: "committed",
+		createdAt: now,
+	});
 }
 
-async function insertTask(db: HyperIdleDb, id: string, state: TaskState, dependencies?: string[]): Promise<void> {
+async function insertTask(
+	db: HyperIdleDb,
+	id: string,
+	state: TaskState,
+	dependencies?: string[],
+): Promise<void> {
 	const now = new Date().toISOString();
-	await db.insert(tasks)
-		.values({
-			id,
-			betId: "b1",
-			productId: "p1",
-			teamId: "t1",
-			title: `Task ${id}`,
-			state,
-			dependencies: dependencies ? JSON.stringify(dependencies) : null,
-			createdAt: now,
-			updatedAt: now,
-		})
-
+	await db.insert(tasks).values({
+		id,
+		betId: "b1",
+		productId: "p1",
+		teamId: "t1",
+		title: `Task ${id}`,
+		state,
+		dependencies: dependencies ? JSON.stringify(dependencies) : null,
+		createdAt: now,
+		updatedAt: now,
+	});
 }
 
 describe("Task State Machine", () => {
@@ -126,7 +137,9 @@ describe("Task State Machine", () => {
 	describe("invalid transitions", () => {
 		it("throws InvalidTransitionError for proposed -> done", async () => {
 			await insertTask(db, "task-1", "proposed");
-			await expect(transitionTask(db, eventBus, "task-1", "done")).rejects.toThrow(InvalidTransitionError);
+			await expect(transitionTask(db, eventBus, "task-1", "done")).rejects.toThrow(
+				InvalidTransitionError,
+			);
 		});
 
 		it("throws InvalidTransitionError for done -> proposed", async () => {
@@ -163,7 +176,10 @@ describe("Task State Machine", () => {
 			it(`transitions ${state} -> killed`, async () => {
 				await insertTask(db, `task-${state}`, state);
 				await transitionTask(db, eventBus, `task-${state}`, "killed");
-				const [task] = await db.select().from(tasks).where(eq(tasks.id, `task-${state}`));
+				const [task] = await db
+					.select()
+					.from(tasks)
+					.where(eq(tasks.id, `task-${state}`));
 				expect(task?.state).toBe("killed");
 			});
 		}
@@ -246,18 +262,17 @@ describe("Task State Machine", () => {
 			const existingAudit: StateTransitionAuditEntry[] = [
 				{ from: "proposed", to: "accepted", timestamp: now },
 			];
-			await db.insert(tasks)
-				.values({
-					id: "task-existing",
-					betId: "b1",
-					productId: "p1",
-					teamId: "t1",
-					title: "Existing task",
-					state: "proposed",
-					auditTrail: JSON.stringify(existingAudit),
-					createdAt: now,
-					updatedAt: now,
-				})
+			await db.insert(tasks).values({
+				id: "task-existing",
+				betId: "b1",
+				productId: "p1",
+				teamId: "t1",
+				title: "Existing task",
+				state: "proposed",
+				auditTrail: JSON.stringify(existingAudit),
+				createdAt: now,
+				updatedAt: now,
+			});
 
 			await transitionTask(db, eventBus, "task-existing", "accepted");
 
@@ -293,7 +308,9 @@ describe("Task State Machine", () => {
 			const events: TaskStateChangedEvent[] = [];
 			eventBus.on("task_state_changed", (e) => events.push(e));
 
-			await expect(transitionTask(db, eventBus, "task-1", "done")).rejects.toThrow(InvalidTransitionError);
+			await expect(transitionTask(db, eventBus, "task-1", "done")).rejects.toThrow(
+				InvalidTransitionError,
+			);
 			expect(events).toHaveLength(0);
 		});
 	});

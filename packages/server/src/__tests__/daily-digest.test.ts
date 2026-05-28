@@ -4,10 +4,10 @@ import {
 	items,
 	messages,
 	products,
+	type TestDbHandle,
 	teams,
 	threads,
 	users,
-	type TestDbHandle
 } from "@hyperidle/db";
 import { getDailyDigest } from "@hyperidle/fabric";
 import { beforeEach, describe, expect, it } from "vitest";
@@ -19,49 +19,46 @@ describe("Daily Digest (E7)", () => {
 
 	async function seedBase(): Promise<void> {
 		const ts = now.toISOString();
-		await db.insert(products)
-			.values({ id: "prod-1", name: "Test Product", phase: "build", createdAt: ts })
+		await db
+			.insert(products)
+			.values({ id: "prod-1", name: "Test Product", phase: "build", createdAt: ts });
 
-		await db.insert(teams)
-			.values({ id: "team-1", productId: "prod-1", capacity: 3, activeBets: 0, formedAt: ts })
+		await db
+			.insert(teams)
+			.values({ id: "team-1", productId: "prod-1", capacity: 3, activeBets: 0, formedAt: ts });
 
-		await db.insert(users)
-			.values({
-				id: "agent-1",
-				name: "Builder",
-				role: "builder",
-				status: "idle",
-				teamId: "team-1",
-				createdAt: ts,
-			})
+		await db.insert(users).values({
+			id: "agent-1",
+			name: "Builder",
+			role: "builder",
+			status: "idle",
+			teamId: "team-1",
+			createdAt: ts,
+		});
 
-		await db.insert(threads)
-			.values({
-				id: "thread-1",
-				hostKind: "task",
-				hostId: "task-1",
-				initiatorId: "agent-1",
-				participants: JSON.stringify(["agent-1"]),
-				lastActiveAt: ts,
-				createdAt: ts,
-			})
-
+		await db.insert(threads).values({
+			id: "thread-1",
+			hostKind: "task",
+			hostId: "task-1",
+			initiatorId: "agent-1",
+			participants: JSON.stringify(["agent-1"]),
+			lastActiveAt: ts,
+			createdAt: ts,
+		});
 	}
 
 	async function createQueuedItem(id: string, createdAt: Date): Promise<void> {
-		await db.insert(items)
-			.values({
-				id,
-				sourceAgentId: "agent-1",
-				kind: "approval",
-				title: `Test item ${id}`,
-				riskTier: "low",
-				blocking: false,
-				threadId: "thread-1",
-				auditTrail: JSON.stringify({ action: "policy_queued" }),
-				createdAt: createdAt.toISOString(),
-			})
-
+		await db.insert(items).values({
+			id,
+			sourceAgentId: "agent-1",
+			kind: "approval",
+			title: `Test item ${id}`,
+			riskTier: "low",
+			blocking: false,
+			threadId: "thread-1",
+			auditTrail: JSON.stringify({ action: "policy_queued" }),
+			createdAt: createdAt.toISOString(),
+		});
 	}
 
 	beforeEach(async () => {
@@ -104,26 +101,24 @@ describe("Daily Digest (E7)", () => {
 		// `legacy_item_id` matches the source item. The digest now joins via
 		// messages.legacy_item_id (plan §10 / T8). Seed a `human` agent so
 		// the message FK on sender_id is satisfied.
-		await db.insert(users)
-			.values({
-				id: "human",
-				name: "Human",
-				role: "founder",
-				status: "active",
-				createdAt: now.toISOString(),
-			})
+		await db.insert(users).values({
+			id: "human",
+			name: "Human",
+			role: "founder",
+			status: "active",
+			createdAt: now.toISOString(),
+		});
 
-		await db.insert(messages)
-			.values({
-				id: "resp-1",
-				senderId: "human",
-				threadId: "thread-1",
-				type: "verdict",
-				payload: JSON.stringify({ decision: "approve" }),
-				clientKey: "__l1_legacy_resp-1",
-				legacyItemId: "item-responded",
-				createdAt: now.toISOString(),
-			})
+		await db.insert(messages).values({
+			id: "resp-1",
+			senderId: "human",
+			threadId: "thread-1",
+			type: "verdict",
+			payload: JSON.stringify({ decision: "approve" }),
+			clientKey: "__l1_legacy_resp-1",
+			legacyItemId: "item-responded",
+			createdAt: now.toISOString(),
+		});
 
 		const digest = await getDailyDigest(db, now);
 		expect(digest.items).toHaveLength(1);

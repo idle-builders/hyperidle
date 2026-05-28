@@ -11,8 +11,12 @@
  *  - POST /digest: runs digest through adapter
  */
 
-import { createTestDb, factorySettings, type HyperIdleDb, notificationQueue ,
-	type TestDbHandle
+import {
+	createTestDb,
+	factorySettings,
+	type HyperIdleDb,
+	notificationQueue,
+	type TestDbHandle,
 } from "@hyperidle/db";
 import type {
 	Notification,
@@ -88,13 +92,13 @@ describe("H2 /api/notifications routes", () => {
 			"notifications.smtp_from": "ops@example.com",
 		};
 		for (const [key, value] of Object.entries(seed)) {
-			await db.insert(factorySettings)
+			await db
+				.insert(factorySettings)
 				.values({ key, value, updatedAt: now })
 				.onConflictDoUpdate({
 					target: factorySettings.key,
 					set: { value, updatedAt: now },
-				})
-
+				});
 		}
 
 		const res = await app.request("/api/notifications/config", { headers: headers() });
@@ -175,20 +179,19 @@ describe("H2 /api/notifications routes", () => {
 
 	it("GET /queue returns pending rows", async () => {
 		const now = "2026-04-18T00:00:00.000Z";
-		await db.insert(notificationQueue)
-			.values({
-				id: "q-1",
-				eventType: "item_created",
-				subjectId: "x",
-				severity: "digest",
-				title: "Pending one",
-				body: "body",
-				reason: "digest",
-				channel: "console",
-				status: "pending",
-				attempts: 0,
-				createdAt: now,
-			})
+		await db.insert(notificationQueue).values({
+			id: "q-1",
+			eventType: "item_created",
+			subjectId: "x",
+			severity: "digest",
+			title: "Pending one",
+			body: "body",
+			reason: "digest",
+			channel: "console",
+			status: "pending",
+			attempts: 0,
+			createdAt: now,
+		});
 
 		const res = await app.request("/api/notifications/queue?status=pending", {
 			headers: headers(),
@@ -357,20 +360,19 @@ describe("H2 /api/notifications routes", () => {
 			body: JSON.stringify({ enabled: true, primaryChannel: "console" }),
 		});
 		const now = "2026-04-18T00:00:00.000Z";
-		await db.insert(notificationQueue)
-			.values({
-				id: "q-d-1",
-				eventType: "item_created",
-				subjectId: "x",
-				severity: "digest",
-				title: "Digest one",
-				body: "body",
-				reason: "digest",
-				channel: "console",
-				status: "pending",
-				attempts: 0,
-				createdAt: now,
-			})
+		await db.insert(notificationQueue).values({
+			id: "q-d-1",
+			eventType: "item_created",
+			subjectId: "x",
+			severity: "digest",
+			title: "Digest one",
+			body: "body",
+			reason: "digest",
+			channel: "console",
+			status: "pending",
+			attempts: 0,
+			createdAt: now,
+		});
 
 		const res = await app.request("/api/notifications/digest", {
 			method: "POST",

@@ -3,9 +3,9 @@ import {
 	factorySettings,
 	type HyperIdleDb,
 	products,
+	type TestDbHandle,
 	teams,
 	users,
-	type TestDbHandle
 } from "@hyperidle/db";
 import { isInSilenceWindow, isSilenced } from "@hyperidle/fabric";
 import { beforeEach, describe, expect, it } from "vitest";
@@ -95,38 +95,35 @@ describe("isSilenced", () => {
 	beforeEach(async () => {
 		handle = await createTestDb();
 		db = handle.db;
-		await db.insert(products)
-			.values({
-				id: "prod-1",
-				name: "Test Product",
-				phase: "build",
-				createdAt: new Date().toISOString(),
-			})
+		await db.insert(products).values({
+			id: "prod-1",
+			name: "Test Product",
+			phase: "build",
+			createdAt: new Date().toISOString(),
+		});
 
-		await db.insert(teams)
-			.values({
-				id: "team-1",
-				productId: "prod-1",
-				capacity: 3,
-				activeBets: 0,
-				formedAt: new Date().toISOString(),
-			})
+		await db.insert(teams).values({
+			id: "team-1",
+			productId: "prod-1",
+			capacity: 3,
+			activeBets: 0,
+			formedAt: new Date().toISOString(),
+		});
 
-		await db.insert(users)
-			.values({
-				id: "agent-1",
-				name: "Test Agent",
-				role: "builder",
-				status: "active",
-				teamId: "team-1",
-				createdAt: new Date().toISOString(),
-			})
-
+		await db.insert(users).values({
+			id: "agent-1",
+			name: "Test Agent",
+			role: "builder",
+			status: "active",
+			teamId: "team-1",
+			createdAt: new Date().toISOString(),
+		});
 	});
 
 	it("returns true when factory-wide silence_mode is enabled", async () => {
-		await db.insert(factorySettings)
-			.values({ key: "silence_mode", value: "true", updatedAt: new Date().toISOString() })
+		await db
+			.insert(factorySettings)
+			.values({ key: "silence_mode", value: "true", updatedAt: new Date().toISOString() });
 
 		const result = isSilenced(db, { sourceAgentId: null }, new Date());
 		expect(result).toBe(true);
@@ -138,12 +135,11 @@ describe("isSilenced", () => {
 	});
 
 	it("returns true for per-product silence", async () => {
-		await db.insert(factorySettings)
-			.values({
-				key: "silence_product_prod-1",
-				value: "true",
-				updatedAt: new Date().toISOString(),
-			})
+		await db.insert(factorySettings).values({
+			key: "silence_product_prod-1",
+			value: "true",
+			updatedAt: new Date().toISOString(),
+		});
 
 		const result = isSilenced(db, { sourceAgentId: "agent-1" }, new Date());
 		expect(result).toBe(true);
@@ -151,11 +147,13 @@ describe("isSilenced", () => {
 
 	it("returns true when current time falls in silence window", async () => {
 		const now = new Date("2026-01-15T23:00:00Z");
-		await db.insert(factorySettings)
-			.values({ key: "silence_window_start", value: "22:00", updatedAt: new Date().toISOString() })
+		await db
+			.insert(factorySettings)
+			.values({ key: "silence_window_start", value: "22:00", updatedAt: new Date().toISOString() });
 
-		await db.insert(factorySettings)
-			.values({ key: "silence_window_end", value: "07:00", updatedAt: new Date().toISOString() })
+		await db
+			.insert(factorySettings)
+			.values({ key: "silence_window_end", value: "07:00", updatedAt: new Date().toISOString() });
 
 		const result = isSilenced(db, { sourceAgentId: null }, now);
 		expect(result).toBe(true);
@@ -163,11 +161,13 @@ describe("isSilenced", () => {
 
 	it("returns false when current time is outside silence window", async () => {
 		const now = new Date("2026-01-15T12:00:00Z");
-		await db.insert(factorySettings)
-			.values({ key: "silence_window_start", value: "22:00", updatedAt: new Date().toISOString() })
+		await db
+			.insert(factorySettings)
+			.values({ key: "silence_window_start", value: "22:00", updatedAt: new Date().toISOString() });
 
-		await db.insert(factorySettings)
-			.values({ key: "silence_window_end", value: "07:00", updatedAt: new Date().toISOString() })
+		await db
+			.insert(factorySettings)
+			.values({ key: "silence_window_end", value: "07:00", updatedAt: new Date().toISOString() });
 
 		const result = isSilenced(db, { sourceAgentId: null }, now);
 		expect(result).toBe(false);

@@ -184,11 +184,7 @@ export async function getById(
 	db: HyperIdleDb,
 	id: string,
 ): Promise<KnowledgeItemWithFabric | null> {
-	const [item] = await db
-		.select()
-		.from(knowledgeItems)
-		.where(eq(knowledgeItems.id, id))
-		.limit(1);
+	const [item] = await db.select().from(knowledgeItems).where(eq(knowledgeItems.id, id)).limit(1);
 	if (!item) return null;
 	const fabricRow = await getFabricRow(db, id);
 	return mergeWithFabric(item, fabricRow);
@@ -464,11 +460,7 @@ export async function search(
 	// Fetch items in the order returned by FTS (ranked by relevance)
 	const items: KnowledgeItemWithFabric[] = [];
 	for (const id of ids) {
-		const [item] = await db
-			.select()
-			.from(knowledgeItems)
-			.where(eq(knowledgeItems.id, id))
-			.limit(1);
+		const [item] = await db.select().from(knowledgeItems).where(eq(knowledgeItems.id, id)).limit(1);
 		if (item) {
 			const fabric = await getFabricRow(db, id);
 			items.push(mergeWithFabric(item, fabric));

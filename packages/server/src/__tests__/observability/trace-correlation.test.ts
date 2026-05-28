@@ -6,9 +6,7 @@
  * carries the same traceId the DB populated on session insert.
  */
 
-import { createTestDb ,
-	type TestDbHandle
-} from "@hyperidle/db";
+import { createTestDb, type TestDbHandle } from "@hyperidle/db";
 import {
 	type CostCapBreachedEvent,
 	EventBus,

@@ -7,12 +7,12 @@ import {
 	products,
 	routines,
 	sessions,
+	type TestDbHandle,
 	tasks,
 	teams,
 	threads,
 	userSkills,
 	users,
-	type TestDbHandle
 } from "@hyperidle/db";
 import {
 	checkAndFireRoutine,
@@ -29,68 +29,64 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 async function seedBase(db: HyperIdleDb): Promise<void> {
 	const now = new Date().toISOString();
 
-	await db.insert(products)
-		.values({ id: "p1", name: "Test Product", phase: "build", createdAt: now })
+	await db
+		.insert(products)
+		.values({ id: "p1", name: "Test Product", phase: "build", createdAt: now });
 
-	await db.insert(teams)
-		.values({ id: "t1", productId: "p1", capacity: 5, activeBets: 0, formedAt: now })
+	await db
+		.insert(teams)
+		.values({ id: "t1", productId: "p1", capacity: 5, activeBets: 0, formedAt: now });
 
-	await db.insert(bets)
-		.values({
-			id: "b1",
-			productId: "p1",
-			teamId: "t1",
-			pitch: "Test bet",
-			appetite: "small",
-			status: "committed",
-			createdAt: now,
-		})
+	await db.insert(bets).values({
+		id: "b1",
+		productId: "p1",
+		teamId: "t1",
+		pitch: "Test bet",
+		appetite: "small",
+		status: "committed",
+		createdAt: now,
+	});
 
-	await db.insert(tasks)
-		.values({
-			id: "task-1",
-			betId: "b1",
-			productId: "p1",
-			teamId: "t1",
-			title: "Test task",
-			state: "in_progress",
-			createdAt: now,
-			updatedAt: now,
-		})
+	await db.insert(tasks).values({
+		id: "task-1",
+		betId: "b1",
+		productId: "p1",
+		teamId: "t1",
+		title: "Test task",
+		state: "in_progress",
+		createdAt: now,
+		updatedAt: now,
+	});
 
-	await db.insert(users)
-		.values({
-			id: "agent-1",
-			kind: "ai",
-			name: "Builder Agent",
-			role: "builder",
-			skills: JSON.stringify(["deploy"]),
-			status: "active",
-			maxConcurrentSessions: 2,
-			createdAt: now,
-		})
+	await db.insert(users).values({
+		id: "agent-1",
+		kind: "ai",
+		name: "Builder Agent",
+		role: "builder",
+		skills: JSON.stringify(["deploy"]),
+		status: "active",
+		maxConcurrentSessions: 2,
+		createdAt: now,
+	});
 
-	await db.insert(users)
-		.values({
-			id: "agent-2",
-			kind: "ai",
-			name: "Teammate Agent",
-			role: "builder",
-			skills: JSON.stringify(["deploy"]),
-			status: "active",
-			maxConcurrentSessions: 2,
-			createdAt: now,
-		})
+	await db.insert(users).values({
+		id: "agent-2",
+		kind: "ai",
+		name: "Teammate Agent",
+		role: "builder",
+		skills: JSON.stringify(["deploy"]),
+		status: "active",
+		maxConcurrentSessions: 2,
+		createdAt: now,
+	});
 
-	await db.insert(userSkills)
-		.values({
-			userId: "agent-2",
-			skillId: "deploy",
-			autonomyLevel: 3,
-			successCount: 0,
-			failureCount: 0,
-		})
-
+	await db.insert(userSkills).values({
+		userId: "agent-2",
+		skillId: "deploy",
+		autonomyLevel: 3,
+		successCount: 0,
+		failureCount: 0,
+	});
 }
 
 async function getRoutine(db: HyperIdleDb, id: string) {
@@ -179,16 +175,15 @@ describe("Routine Scheduler", () => {
 			const now = new Date();
 			const pastDue = new Date(now.getTime() - 5000).toISOString();
 
-			await db.insert(routines)
-				.values({
-					id: "r-heartbeat",
-					ownerAgentId: "agent-1",
-					triggerType: "heartbeat",
-					triggerConfig: JSON.stringify({ intervalSeconds: 60, taskId: "task-1" }),
-					active: true,
-					lastRunAt: new Date(now.getTime() - 65000).toISOString(),
-					nextRunAt: pastDue,
-				})
+			await db.insert(routines).values({
+				id: "r-heartbeat",
+				ownerAgentId: "agent-1",
+				triggerType: "heartbeat",
+				triggerConfig: JSON.stringify({ intervalSeconds: 60, taskId: "task-1" }),
+				active: true,
+				lastRunAt: new Date(now.getTime() - 65000).toISOString(),
+				nextRunAt: pastDue,
+			});
 
 			const routine = await getRoutine(db, "r-heartbeat");
 			const result = await checkAndFireRoutine(db, eventBus, routine);
@@ -213,15 +208,14 @@ describe("Routine Scheduler", () => {
 			const now = new Date();
 			const pastDue = new Date(now.getTime() - 5000).toISOString();
 
-			await db.insert(routines)
-				.values({
-					id: "r-calendar",
-					ownerAgentId: "agent-1",
-					triggerType: "calendar",
-					triggerConfig: JSON.stringify({ cron: "0 9 * * MON", taskId: "task-1" }),
-					active: true,
-					nextRunAt: pastDue,
-				})
+			await db.insert(routines).values({
+				id: "r-calendar",
+				ownerAgentId: "agent-1",
+				triggerType: "calendar",
+				triggerConfig: JSON.stringify({ cron: "0 9 * * MON", taskId: "task-1" }),
+				active: true,
+				nextRunAt: pastDue,
+			});
 
 			const routine = await getRoutine(db, "r-calendar");
 			const result = await checkAndFireRoutine(db, eventBus, routine);
@@ -239,14 +233,13 @@ describe("Routine Scheduler", () => {
 	// AC3: Event-triggered routine fires when event emitted
 	describe("AC3: Event-triggered routine fires on event", () => {
 		it("fires when configured event is emitted", async () => {
-			await db.insert(routines)
-				.values({
-					id: "r-event",
-					ownerAgentId: "agent-1",
-					triggerType: "event",
-					triggerConfig: JSON.stringify({ eventType: "bet_state_changed", taskId: "task-1" }),
-					active: true,
-				})
+			await db.insert(routines).values({
+				id: "r-event",
+				ownerAgentId: "agent-1",
+				triggerType: "event",
+				triggerConfig: JSON.stringify({ eventType: "bet_state_changed", taskId: "task-1" }),
+				active: true,
+			});
 
 			const sessionsBefore = await db.select().from(sessions);
 			expect(sessionsBefore).toHaveLength(0);
@@ -280,39 +273,36 @@ describe("Routine Scheduler", () => {
 			const now = new Date();
 
 			// Put agent-1 at WIP limit (maxConcurrentSessions=2)
-			await db.insert(sessions)
-				.values({
-					id: "s-existing-1",
-					taskId: "task-1",
-					agentId: "agent-1",
-					modelTier: "workhorse",
-					startedAt: now.toISOString(),
-					state: "active",
-					cost: 0,
-				})
+			await db.insert(sessions).values({
+				id: "s-existing-1",
+				taskId: "task-1",
+				agentId: "agent-1",
+				modelTier: "workhorse",
+				startedAt: now.toISOString(),
+				state: "active",
+				cost: 0,
+			});
 
-			await db.insert(sessions)
-				.values({
-					id: "s-existing-2",
-					taskId: "task-1",
-					agentId: "agent-1",
-					modelTier: "workhorse",
-					startedAt: now.toISOString(),
-					state: "active",
-					cost: 0,
-				})
+			await db.insert(sessions).values({
+				id: "s-existing-2",
+				taskId: "task-1",
+				agentId: "agent-1",
+				modelTier: "workhorse",
+				startedAt: now.toISOString(),
+				state: "active",
+				cost: 0,
+			});
 
-			await db.insert(routines)
-				.values({
-					id: "r-delegate",
-					ownerAgentId: "agent-1",
-					triggerType: "heartbeat",
-					triggerConfig: JSON.stringify({ intervalSeconds: 60, taskId: "task-1" }),
-					skillId: "deploy",
-					delegationAllowed: true,
-					active: true,
-					nextRunAt: new Date(now.getTime() - 5000).toISOString(),
-				})
+			await db.insert(routines).values({
+				id: "r-delegate",
+				ownerAgentId: "agent-1",
+				triggerType: "heartbeat",
+				triggerConfig: JSON.stringify({ intervalSeconds: 60, taskId: "task-1" }),
+				skillId: "deploy",
+				delegationAllowed: true,
+				active: true,
+				nextRunAt: new Date(now.getTime() - 5000).toISOString(),
+			});
 
 			const routine = await getRoutine(db, "r-delegate");
 			const result = await checkAndFireRoutine(db, eventBus, routine);
@@ -334,21 +324,22 @@ describe("Routine Scheduler", () => {
 		it("skips firing when factory cost cap is reached", async () => {
 			const now = new Date();
 
-			await db.insert(factorySettings)
-				.values({ key: "cost_cap", value: "100", updatedAt: now.toISOString() })
+			await db
+				.insert(factorySettings)
+				.values({ key: "cost_cap", value: "100", updatedAt: now.toISOString() });
 
-			await db.insert(factorySettings)
-				.values({ key: "cost_actual", value: "150", updatedAt: now.toISOString() })
+			await db
+				.insert(factorySettings)
+				.values({ key: "cost_actual", value: "150", updatedAt: now.toISOString() });
 
-			await db.insert(routines)
-				.values({
-					id: "r-capped",
-					ownerAgentId: "agent-1",
-					triggerType: "heartbeat",
-					triggerConfig: JSON.stringify({ intervalSeconds: 60, taskId: "task-1" }),
-					active: true,
-					nextRunAt: new Date(now.getTime() - 5000).toISOString(),
-				})
+			await db.insert(routines).values({
+				id: "r-capped",
+				ownerAgentId: "agent-1",
+				triggerType: "heartbeat",
+				triggerConfig: JSON.stringify({ intervalSeconds: 60, taskId: "task-1" }),
+				active: true,
+				nextRunAt: new Date(now.getTime() - 5000).toISOString(),
+			});
 
 			const routine = await getRoutine(db, "r-capped");
 			const result = await checkAndFireRoutine(db, eventBus, routine);
@@ -371,16 +362,15 @@ describe("Routine Scheduler", () => {
 		it("creates session but no item when silent=true", async () => {
 			const now = new Date();
 
-			await db.insert(routines)
-				.values({
-					id: "r-silent",
-					ownerAgentId: "agent-1",
-					triggerType: "heartbeat",
-					triggerConfig: JSON.stringify({ intervalSeconds: 60, taskId: "task-1" }),
-					silent: true,
-					active: true,
-					nextRunAt: new Date(now.getTime() - 5000).toISOString(),
-				})
+			await db.insert(routines).values({
+				id: "r-silent",
+				ownerAgentId: "agent-1",
+				triggerType: "heartbeat",
+				triggerConfig: JSON.stringify({ intervalSeconds: 60, taskId: "task-1" }),
+				silent: true,
+				active: true,
+				nextRunAt: new Date(now.getTime() - 5000).toISOString(),
+			});
 
 			const routine = await getRoutine(db, "r-silent");
 			const result = await checkAndFireRoutine(db, eventBus, routine);
@@ -400,16 +390,15 @@ describe("Routine Scheduler", () => {
 		it("creates review item in thread when human_review=true", async () => {
 			const now = new Date();
 
-			await db.insert(routines)
-				.values({
-					id: "r-review",
-					ownerAgentId: "agent-1",
-					triggerType: "heartbeat",
-					triggerConfig: JSON.stringify({ intervalSeconds: 60, taskId: "task-1" }),
-					humanReview: true,
-					active: true,
-					nextRunAt: new Date(now.getTime() - 5000).toISOString(),
-				})
+			await db.insert(routines).values({
+				id: "r-review",
+				ownerAgentId: "agent-1",
+				triggerType: "heartbeat",
+				triggerConfig: JSON.stringify({ intervalSeconds: 60, taskId: "task-1" }),
+				humanReview: true,
+				active: true,
+				nextRunAt: new Date(now.getTime() - 5000).toISOString(),
+			});
 
 			const routine = await getRoutine(db, "r-review");
 			const result = await checkAndFireRoutine(db, eventBus, routine);
@@ -432,16 +421,15 @@ describe("Routine Scheduler", () => {
 			const now = new Date();
 			const pastDue = new Date(now.getTime() - 5000).toISOString();
 
-			await db.insert(routines)
-				.values({
-					id: "r-timestamps",
-					ownerAgentId: "agent-1",
-					triggerType: "heartbeat",
-					triggerConfig: JSON.stringify({ intervalSeconds: 120, taskId: "task-1" }),
-					active: true,
-					lastRunAt: null,
-					nextRunAt: pastDue,
-				})
+			await db.insert(routines).values({
+				id: "r-timestamps",
+				ownerAgentId: "agent-1",
+				triggerType: "heartbeat",
+				triggerConfig: JSON.stringify({ intervalSeconds: 120, taskId: "task-1" }),
+				active: true,
+				lastRunAt: null,
+				nextRunAt: pastDue,
+			});
 
 			const routine = await getRoutine(db, "r-timestamps");
 			const result = await checkAndFireRoutine(db, eventBus, routine);

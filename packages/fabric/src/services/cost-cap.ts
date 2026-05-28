@@ -309,7 +309,11 @@ interface CheckAndEmitParams {
 	teamId?: string;
 }
 
-async function checkAndEmit(db: HyperIdleDb, eventBus: EventBus, params: CheckAndEmitParams): Promise<void> {
+async function checkAndEmit(
+	db: HyperIdleDb,
+	eventBus: EventBus,
+	params: CheckAndEmitParams,
+): Promise<void> {
 	const ratio = params.spend / params.cap;
 
 	// Breach at 100%
@@ -368,7 +372,11 @@ async function checkAndEmit(db: HyperIdleDb, eventBus: EventBus, params: CheckAn
 	}
 }
 
-async function createReviewItem(db: HyperIdleDb, _eventBus: EventBus, params: CheckAndEmitParams): Promise<void> {
+async function createReviewItem(
+	db: HyperIdleDb,
+	_eventBus: EventBus,
+	params: CheckAndEmitParams,
+): Promise<void> {
 	if (!params.reviewThreadId) return;
 
 	const itemId = crypto.randomUUID();

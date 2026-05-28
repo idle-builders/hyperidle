@@ -152,7 +152,12 @@ describe("promotion-pipeline", () => {
 				status: "provisional",
 			});
 			// 4 siblings in other scopes (+ subject = 5 distinct scopes total)
-			await seedRepetitionCluster(db, { layer: "L3", topic: "auth", kind: "pattern" }, "sibling", 4);
+			await seedRepetitionCluster(
+				db,
+				{ layer: "L3", topic: "auth", kind: "pattern" },
+				"sibling",
+				4,
+			);
 
 			const result = await checkAutoPromotion(db, subject.id);
 			expect(result.shouldPromote).toBe(true);
@@ -168,7 +173,12 @@ describe("promotion-pipeline", () => {
 				status: "provisional",
 			});
 			// 3 siblings (+ subject = 4 distinct scopes)
-			await seedRepetitionCluster(db, { layer: "L3", topic: "auth", kind: "pattern" }, "sibling", 3);
+			await seedRepetitionCluster(
+				db,
+				{ layer: "L3", topic: "auth", kind: "pattern" },
+				"sibling",
+				3,
+			);
 
 			const result = await checkAutoPromotion(db, subject.id);
 			expect(result.shouldPromote).toBe(false);
@@ -184,12 +194,24 @@ describe("promotion-pipeline", () => {
 				status: "provisional",
 			});
 			// 4 active siblings + 10 archived — archived must not count
-			await seedRepetitionCluster(db, { layer: "L3", topic: "auth", kind: "pattern" }, "archived", 10, {
-				status: "archived",
-			});
-			await seedRepetitionCluster(db, { layer: "L3", topic: "auth", kind: "pattern" }, "sibling", 3, {
-				startIndex: 20,
-			});
+			await seedRepetitionCluster(
+				db,
+				{ layer: "L3", topic: "auth", kind: "pattern" },
+				"archived",
+				10,
+				{
+					status: "archived",
+				},
+			);
+			await seedRepetitionCluster(
+				db,
+				{ layer: "L3", topic: "auth", kind: "pattern" },
+				"sibling",
+				3,
+				{
+					startIndex: 20,
+				},
+			);
 
 			const result = await checkAutoPromotion(db, subject.id);
 			expect(result.shouldPromote).toBe(false);
@@ -529,7 +551,12 @@ describe("promotion-pipeline", () => {
 				topic: "auth",
 				status: "provisional",
 			});
-			await seedRepetitionCluster(db, { layer: "L3", topic: "auth", kind: "pattern" }, "sibling", 4);
+			await seedRepetitionCluster(
+				db,
+				{ layer: "L3", topic: "auth", kind: "pattern" },
+				"sibling",
+				4,
+			);
 		}
 
 		it("promotes provisional→validated when count>=5, no conflicts, no contradictions (AC2)", async () => {

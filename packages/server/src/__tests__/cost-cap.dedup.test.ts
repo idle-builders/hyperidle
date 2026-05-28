@@ -4,10 +4,10 @@ import {
 	type HyperIdleDb,
 	products,
 	sessions,
+	type TestDbHandle,
 	tasks,
 	teams,
 	users,
-	type TestDbHandle
 } from "@hyperidle/db";
 // @lore These exports do not yet exist on cost-cap.ts as of I3 red phase.
 // The plan §3.7 specifies adding `releaseSessionDedup(sessionId)` and a
@@ -47,11 +47,13 @@ async function seedAgentWithCap(
 		costCap,
 	}: { agentId: string; teamId: string; productId: string; costCap: number },
 ): Promise<void> {
-	await db.insert(products)
+	await db
+		.insert(products)
 		.values({ id: productId, name: `P-${productId}`, phase: "build", createdAt: NOW })
-		.onConflictDoNothing()
+		.onConflictDoNothing();
 
-	await db.insert(teams)
+	await db
+		.insert(teams)
 		.values({
 			id: teamId,
 			productId,
@@ -61,9 +63,10 @@ async function seedAgentWithCap(
 			costActual: 0,
 			formedAt: NOW,
 		})
-		.onConflictDoNothing()
+		.onConflictDoNothing();
 
-	await db.insert(users)
+	await db
+		.insert(users)
 		.values({
 			id: agentId,
 			name: `A-${agentId}`,
@@ -75,8 +78,7 @@ async function seedAgentWithCap(
 			costActual: 0,
 			createdAt: NOW,
 		})
-		.onConflictDoNothing()
-
+		.onConflictDoNothing();
 }
 
 async function seedSession(
@@ -88,7 +90,8 @@ async function seedSession(
 		productId,
 	}: { sessionId: string; agentId: string; teamId: string; productId: string },
 ): Promise<void> {
-	await db.insert(bets)
+	await db
+		.insert(bets)
 		.values({
 			id: `bet-${sessionId}`,
 			productId,
@@ -98,9 +101,10 @@ async function seedSession(
 			status: "committed",
 			createdAt: NOW,
 		})
-		.onConflictDoNothing()
+		.onConflictDoNothing();
 
-	await db.insert(tasks)
+	await db
+		.insert(tasks)
 		.values({
 			id: `task-${sessionId}`,
 			betId: `bet-${sessionId}`,
@@ -111,9 +115,10 @@ async function seedSession(
 			createdAt: NOW,
 			updatedAt: NOW,
 		})
-		.onConflictDoNothing()
+		.onConflictDoNothing();
 
-	await db.insert(sessions)
+	await db
+		.insert(sessions)
 		.values({
 			id: sessionId,
 			taskId: `task-${sessionId}`,
@@ -122,8 +127,7 @@ async function seedSession(
 			startedAt: NOW,
 			state: "active",
 		})
-		.onConflictDoNothing()
-
+		.onConflictDoNothing();
 }
 
 describe("I3: cost-cap dedup cache bounded", () => {

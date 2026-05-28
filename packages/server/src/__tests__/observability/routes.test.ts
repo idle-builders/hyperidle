@@ -29,10 +29,10 @@ function quietAdapter(): ObservabilityAdapter {
 async function seedKeys(db: HyperIdleDb, keys: Record<string, string>): Promise<void> {
 	const now = new Date().toISOString();
 	for (const [k, v] of Object.entries(keys)) {
-		await db.insert(factorySettings)
+		await db
+			.insert(factorySettings)
 			.values({ key: k, value: v, updatedAt: now })
-			.onConflictDoUpdate({ target: factorySettings.key, set: { value: v, updatedAt: now } })
-
+			.onConflictDoUpdate({ target: factorySettings.key, set: { value: v, updatedAt: now } });
 	}
 }
 

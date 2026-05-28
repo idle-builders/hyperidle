@@ -92,11 +92,7 @@ export function createSessionRoutes(
 			timestamp: Date.now(),
 		} satisfies SessionStartedEvent);
 
-		const [created] = await db
-			.select()
-			.from(sessions)
-			.where(eq(sessions.id, sessionId))
-			.limit(1);
+		const [created] = await db.select().from(sessions).where(eq(sessions.id, sessionId)).limit(1);
 		return c.json(created, 201);
 	});
 
@@ -105,11 +101,7 @@ export function createSessionRoutes(
 	// Capped at 50 most-recent entries to bound response size.
 	router.get("/:id/activity", async (c) => {
 		const sessionId = c.req.param("id");
-		const [session] = await db
-			.select()
-			.from(sessions)
-			.where(eq(sessions.id, sessionId))
-			.limit(1);
+		const [session] = await db.select().from(sessions).where(eq(sessions.id, sessionId)).limit(1);
 		if (!session) {
 			return c.json({ error: "Session not found", code: API_ERROR_CODES.NOT_FOUND }, 404);
 		}
@@ -136,11 +128,7 @@ export function createSessionRoutes(
 		const sessionId = c.req.param("id");
 		const body = c.req.valid("json" as never) as z.infer<typeof updateSessionSchema>;
 
-		const [existing] = await db
-			.select()
-			.from(sessions)
-			.where(eq(sessions.id, sessionId))
-			.limit(1);
+		const [existing] = await db.select().from(sessions).where(eq(sessions.id, sessionId)).limit(1);
 		if (!existing) {
 			return c.json({ error: "Session not found", code: API_ERROR_CODES.NOT_FOUND }, 404);
 		}
@@ -166,11 +154,7 @@ export function createSessionRoutes(
 			outcome,
 		} satisfies SessionEndedEvent);
 
-		const [updated] = await db
-			.select()
-			.from(sessions)
-			.where(eq(sessions.id, sessionId))
-			.limit(1);
+		const [updated] = await db.select().from(sessions).where(eq(sessions.id, sessionId)).limit(1);
 		return c.json(updated);
 	});
 

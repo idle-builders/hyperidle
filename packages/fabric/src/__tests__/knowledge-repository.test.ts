@@ -129,16 +129,48 @@ describe("knowledge-repository", () => {
 	describe("search", () => {
 		it("returns matching items ranked by relevance from 10 items", async () => {
 			const items = [
-				{ ...baseItem, title: "TypeScript testing patterns", body: "Advanced testing patterns for TypeScript projects." },
-				{ ...baseItem, title: "React component design", body: "How to design reusable React components." },
-				{ ...baseItem, title: "Database optimization", body: "Optimize database queries for performance." },
+				{
+					...baseItem,
+					title: "TypeScript testing patterns",
+					body: "Advanced testing patterns for TypeScript projects.",
+				},
+				{
+					...baseItem,
+					title: "React component design",
+					body: "How to design reusable React components.",
+				},
+				{
+					...baseItem,
+					title: "Database optimization",
+					body: "Optimize database queries for performance.",
+				},
 				{ ...baseItem, title: "API design principles", body: "REST API design best practices." },
-				{ ...baseItem, title: "Testing strategies", body: "Comprehensive testing strategies for modern apps." },
+				{
+					...baseItem,
+					title: "Testing strategies",
+					body: "Comprehensive testing strategies for modern apps.",
+				},
 				{ ...baseItem, title: "CSS architecture", body: "Scalable CSS architecture patterns." },
-				{ ...baseItem, title: "Error handling patterns", body: "Robust error handling in TypeScript." },
-				{ ...baseItem, title: "Deployment automation", body: "CI/CD pipeline automation strategies." },
-				{ ...baseItem, title: "Code review checklist", body: "Essential code review checklist items." },
-				{ ...baseItem, title: "Performance monitoring", body: "Application performance monitoring setup." },
+				{
+					...baseItem,
+					title: "Error handling patterns",
+					body: "Robust error handling in TypeScript.",
+				},
+				{
+					...baseItem,
+					title: "Deployment automation",
+					body: "CI/CD pipeline automation strategies.",
+				},
+				{
+					...baseItem,
+					title: "Code review checklist",
+					body: "Essential code review checklist items.",
+				},
+				{
+					...baseItem,
+					title: "Performance monitoring",
+					body: "Application performance monitoring setup.",
+				},
 			];
 			for (const item of items) {
 				await create(db, item);
@@ -159,7 +191,11 @@ describe("knowledge-repository", () => {
 
 		it("supports pagination in search", async () => {
 			for (let i = 0; i < 5; i++) {
-				await create(db, { ...baseItem, title: `Pattern item ${i}`, body: `Pattern description ${i}` });
+				await create(db, {
+					...baseItem,
+					title: `Pattern item ${i}`,
+					body: `Pattern description ${i}`,
+				});
 			}
 			const page1 = await search(db, "Pattern", { limit: 2, offset: 0 });
 			const page2 = await search(db, "Pattern", { limit: 2, offset: 2 });
@@ -269,10 +305,28 @@ describe("knowledge-repository", () => {
 	describe("filters", () => {
 		beforeEach(async () => {
 			await create(db, { ...baseItem, layer: "L0", kind: "pattern", topic: "arch", scopeId: "s1" });
-			await create(db, { ...baseItem, layer: "L1", kind: "decision", topic: "arch", scopeId: "s1" });
-			await create(db, { ...baseItem, layer: "L1", kind: "pattern", topic: "testing", scopeId: "s2" });
+			await create(db, {
+				...baseItem,
+				layer: "L1",
+				kind: "decision",
+				topic: "arch",
+				scopeId: "s1",
+			});
+			await create(db, {
+				...baseItem,
+				layer: "L1",
+				kind: "pattern",
+				topic: "testing",
+				scopeId: "s2",
+			});
 			await create(db, { ...baseItem, layer: "L2", kind: "brief", topic: "design", scopeId: "s2" });
-			await create(db, { ...baseItem, layer: "L2", kind: "pattern", topic: "testing", scopeId: "s1" });
+			await create(db, {
+				...baseItem,
+				layer: "L2",
+				kind: "pattern",
+				topic: "testing",
+				scopeId: "s1",
+			});
 		});
 
 		it("filters by layer", async () => {

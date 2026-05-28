@@ -36,7 +36,9 @@ async function seedTestData(db: HyperIdleDb): Promise<{
 	const threadId = "thread-1";
 	const sessionId = "sess-1";
 
-	await db.insert(products).values({ id: productId, name: "TestProduct", phase: "build", createdAt: now });
+	await db
+		.insert(products)
+		.values({ id: productId, name: "TestProduct", phase: "build", createdAt: now });
 	await db.insert(teams).values({
 		id: teamId,
 		productId,

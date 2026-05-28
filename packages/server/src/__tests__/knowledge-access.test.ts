@@ -5,9 +5,7 @@
  * 1. packages/db schema has knowledge_access_log table (T1)
  * 2. packages/server/src/routes/knowledge.ts inserts access-log rows (T5)
  */
-import { createTestDb, type HyperIdleDb, knowledgeItems ,
-	type TestDbHandle
-} from "@hyperidle/db";
+import { createTestDb, type HyperIdleDb, knowledgeItems, type TestDbHandle } from "@hyperidle/db";
 import { EventBus } from "@hyperidle/shared";
 import type { Hono } from "hono";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -43,19 +41,18 @@ describe("Knowledge access-log creation (L22 AC-1)", () => {
 		// @lore O2: knowledgeItems no longer has layer/scopeId/kind/meta columns.
 		// The kernel row holds identity+content only.
 		const id = crypto.randomUUID();
-		await db.insert(knowledgeItems)
-			.values({
-				id,
-				topic: "testing",
-				title: "Test Item",
-				body: "Test body",
-				format: "markdown",
-				status: "active",
-				version: 1,
-				updatedBy: "human",
-				createdAt: NOW_ISO,
-				updatedAt: NOW_ISO,
-			})
+		await db.insert(knowledgeItems).values({
+			id,
+			topic: "testing",
+			title: "Test Item",
+			body: "Test body",
+			format: "markdown",
+			status: "active",
+			version: 1,
+			updatedBy: "human",
+			createdAt: NOW_ISO,
+			updatedAt: NOW_ISO,
+		});
 
 		return id;
 	}

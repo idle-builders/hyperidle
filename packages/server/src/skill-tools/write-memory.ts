@@ -60,11 +60,7 @@ async function handler(args: WriteMemoryInput, ctx: ToolContext): Promise<ToolRe
 
 	// I6: restrict non-facilitator agents to L0-L2 only
 	if (!NON_FACILITATOR_MAX_LAYER.has(layer)) {
-		const [agent] = await ctx.db
-			.select()
-			.from(users)
-			.where(eq(users.id, ctx.agentId))
-			.limit(1);
+		const [agent] = await ctx.db.select().from(users).where(eq(users.id, ctx.agentId)).limit(1);
 		const role = agent?.role ?? "";
 		if (!FACILITATOR_ROLES.has(role)) {
 			return err("FORBIDDEN", `insufficient role for ${layer}`);

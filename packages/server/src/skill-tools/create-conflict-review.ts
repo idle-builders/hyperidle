@@ -79,19 +79,17 @@ async function handler(
 	const conflictId = randomUUID();
 	const now = new Date().toISOString();
 
-	await ctx.db
-		.insert(knowledgeConflicts)
-		.values({
-			id: conflictId,
-			itemId: input.knowledgeItemId,
-			versionBase: input.versionBase,
-			versionCurrent: item.version,
-			proposedBody: input.proposedBody,
-			proposedMeta: input.proposedMeta ?? null,
-			proposedBy,
-			status: "open",
-			createdAt: now,
-		});
+	await ctx.db.insert(knowledgeConflicts).values({
+		id: conflictId,
+		itemId: input.knowledgeItemId,
+		versionBase: input.versionBase,
+		versionCurrent: item.version,
+		proposedBody: input.proposedBody,
+		proposedMeta: input.proposedMeta ?? null,
+		proposedBy,
+		status: "open",
+		createdAt: now,
+	});
 
 	return ok<CreateConflictReviewData>({
 		conflictId,

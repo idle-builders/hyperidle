@@ -232,7 +232,10 @@ export async function runBuiltinRoutine(
 	}
 
 	if (result.fired) {
-		await db.update(routines).set({ lastRunAt: new Date().toISOString() }).where(eq(routines.id, routineId));
+		await db
+			.update(routines)
+			.set({ lastRunAt: new Date().toISOString() })
+			.where(eq(routines.id, routineId));
 	}
 
 	return result;
@@ -352,7 +355,11 @@ function classifyLevel(ratio: number): CostSentinelLevel {
 }
 
 async function runCostSentinel(db: HyperIdleDb, eventBus: EventBus): Promise<RunBuiltinResult> {
-	const [capRow] = await db.select().from(factorySettings).where(eq(factorySettings.key, "cost_cap")).limit(1);
+	const [capRow] = await db
+		.select()
+		.from(factorySettings)
+		.where(eq(factorySettings.key, "cost_cap"))
+		.limit(1);
 	const [actualRow] = await db
 		.select()
 		.from(factorySettings)
@@ -418,7 +425,10 @@ async function runCostSentinel(db: HyperIdleDb, eventBus: EventBus): Promise<Run
 
 // --- Practice Meeting routine ---
 
-async function runPracticeMeetingRoutine(db: HyperIdleDb, routine: Routine): Promise<RunBuiltinResult> {
+async function runPracticeMeetingRoutine(
+	db: HyperIdleDb,
+	routine: Routine,
+): Promise<RunBuiltinResult> {
 	// Anchor scope: derive from the owner's facilitator community. The owner
 	// is the facilitation practice facilitator by default, but if an operator
 	// re-points it we still want a valid anchor. Fall back to "facilitation"

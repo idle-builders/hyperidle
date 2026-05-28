@@ -5,10 +5,10 @@ import {
 	products,
 	routines,
 	sessions,
+	type TestDbHandle,
 	tasks,
 	teams,
 	users,
-	type TestDbHandle
 } from "@hyperidle/db";
 import { type DomainEvent, EventBus } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
@@ -36,70 +36,63 @@ describe("Routine Endpoints (E6)", () => {
 		app = await createTestApp({ db, eventBus });
 
 		// Seed required data
-		await db.insert(products)
-			.values({
-				id: "prod-1",
-				name: "Test Product",
-				phase: "build",
-				createdAt: new Date().toISOString(),
-			})
+		await db.insert(products).values({
+			id: "prod-1",
+			name: "Test Product",
+			phase: "build",
+			createdAt: new Date().toISOString(),
+		});
 
-		await db.insert(teams)
-			.values({
-				id: "team-1",
-				productId: "prod-1",
-				capacity: 3,
-				activeBets: 0,
-				formedAt: new Date().toISOString(),
-			})
+		await db.insert(teams).values({
+			id: "team-1",
+			productId: "prod-1",
+			capacity: 3,
+			activeBets: 0,
+			formedAt: new Date().toISOString(),
+		});
 
-		await db.insert(users)
-			.values({
-				id: "agent-1",
-				name: "Builder Bot",
-				role: "builder",
-				status: "idle",
-				teamId: "team-1",
-				createdAt: new Date().toISOString(),
-			})
+		await db.insert(users).values({
+			id: "agent-1",
+			name: "Builder Bot",
+			role: "builder",
+			status: "idle",
+			teamId: "team-1",
+			createdAt: new Date().toISOString(),
+		});
 
 		// Seed a bet and task for FK references in session creation
-		await db.insert(bets)
-			.values({
-				id: "bet-1",
-				productId: "prod-1",
-				teamId: "team-1",
-				pitch: "Test",
-				appetite: "small",
-				status: "committed",
-				createdAt: new Date().toISOString(),
-			})
+		await db.insert(bets).values({
+			id: "bet-1",
+			productId: "prod-1",
+			teamId: "team-1",
+			pitch: "Test",
+			appetite: "small",
+			status: "committed",
+			createdAt: new Date().toISOString(),
+		});
 
-		await db.insert(tasks)
-			.values({
-				id: "task-1",
-				betId: "bet-1",
-				productId: "prod-1",
-				teamId: "team-1",
-				title: "Test Task",
-				state: "in_progress",
-				createdAt: new Date().toISOString(),
-				updatedAt: new Date().toISOString(),
-			})
+		await db.insert(tasks).values({
+			id: "task-1",
+			betId: "bet-1",
+			productId: "prod-1",
+			teamId: "team-1",
+			title: "Test Task",
+			state: "in_progress",
+			createdAt: new Date().toISOString(),
+			updatedAt: new Date().toISOString(),
+		});
 
 		// Seed routines
-		await db.insert(routines)
-			.values([
-				{
-					id: "routine-1",
-					ownerAgentId: "agent-1",
-					triggerType: "heartbeat",
-					triggerConfig: JSON.stringify({ intervalMs: 60000 }),
-					active: true,
-				},
-				{ id: "routine-2", ownerAgentId: "agent-1", triggerType: "calendar", active: true },
-			])
-
+		await db.insert(routines).values([
+			{
+				id: "routine-1",
+				ownerAgentId: "agent-1",
+				triggerType: "heartbeat",
+				triggerConfig: JSON.stringify({ intervalMs: 60000 }),
+				active: true,
+			},
+			{ id: "routine-2", ownerAgentId: "agent-1", triggerType: "calendar", active: true },
+		]);
 	});
 
 	afterEach(async () => {
@@ -253,14 +246,13 @@ describe("Routine Endpoints (E6)", () => {
 		// G4 AC7 (via API): manual trigger for a builtin invokes the handler
 		it("invokes builtin handler for builtin:knowledge-decay (no session)", async () => {
 			// Seed builtin routine directly (bypass G4 seed helper in this test file).
-			await db.insert(routines)
-				.values({
-					id: "builtin:knowledge-decay",
-					ownerAgentId: "agent-1",
-					triggerType: "calendar",
-					triggerConfig: JSON.stringify({ cron: "0 2 * * *" }),
-					active: true,
-				})
+			await db.insert(routines).values({
+				id: "builtin:knowledge-decay",
+				ownerAgentId: "agent-1",
+				triggerType: "calendar",
+				triggerConfig: JSON.stringify({ cron: "0 2 * * *" }),
+				active: true,
+			});
 
 			const sessionsBefore = await db.select().from(sessions);
 

@@ -46,7 +46,9 @@ function createManifest(workspace: string, sessionId: string): string {
 
 async function seedSession(db: HyperIdleDb, sessionId: string): Promise<void> {
 	const now = new Date().toISOString();
-	await db.insert(products).values({ id: "prod-1", name: "Test Product", phase: "build", createdAt: now });
+	await db
+		.insert(products)
+		.values({ id: "prod-1", name: "Test Product", phase: "build", createdAt: now });
 	await db.insert(teams).values({
 		id: "team-1",
 		productId: "prod-1",
@@ -170,7 +172,10 @@ describe("writeback", () => {
 				fullPath: filePath,
 			},
 		];
-		await processWriteback({ db, workspacePath: workspace, sessionId, manifestPath }, createChanges);
+		await processWriteback(
+			{ db, workspacePath: workspace, sessionId, manifestPath },
+			createChanges,
+		);
 
 		const itemsBefore = await db.select().from(knowledgeItems);
 		expect(itemsBefore.length).toBe(1);
@@ -213,9 +218,10 @@ describe("writeback", () => {
 
 		// Now delete
 		fs.unlinkSync(filePath);
-		const result = await processWriteback({ db, workspacePath: workspace, sessionId, manifestPath }, [
-			{ type: "delete", relativePath: "knowledge/practices/to-delete.md", fullPath: filePath },
-		]);
+		const result = await processWriteback(
+			{ db, workspacePath: workspace, sessionId, manifestPath },
+			[{ type: "delete", relativePath: "knowledge/practices/to-delete.md", fullPath: filePath }],
+		);
 
 		expect(result.deleted).toBe(1);
 
@@ -278,9 +284,16 @@ describe("writeback", () => {
 
 		// Now try to modify via writeback (manifest still says version 1)
 		fs.writeFileSync(filePath, "Agent's new content");
-		const result = await processWriteback({ db, workspacePath: workspace, sessionId, manifestPath }, [
-			{ type: "modify", relativePath: "knowledge/practices/conflict-test.md", fullPath: filePath },
-		]);
+		const result = await processWriteback(
+			{ db, workspacePath: workspace, sessionId, manifestPath },
+			[
+				{
+					type: "modify",
+					relativePath: "knowledge/practices/conflict-test.md",
+					fullPath: filePath,
+				},
+			],
+		);
 
 		expect(result.conflicts).toBe(1);
 
@@ -329,11 +342,7 @@ describe("writeback", () => {
 			{ type: "modify", relativePath: "work/session-notes.md", fullPath: notesPath },
 		]);
 
-		const [session] = await db
-			.select()
-			.from(sessions)
-			.where(eq(sessions.id, sessionId))
-			.limit(1);
+		const [session] = await db.select().from(sessions).where(eq(sessions.id, sessionId)).limit(1);
 
 		expect(session).toBeTruthy();
 		expect(session?.notes).toBe("# Session Notes\nImportant observation");

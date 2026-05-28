@@ -6,11 +6,11 @@ import {
 	messages,
 	products,
 	sessions,
+	type TestDbHandle,
 	tasks,
 	teams,
 	threads,
 	users,
-	type TestDbHandle,
 } from "@hyperidle/db";
 // @lore O2: sessions.cost stripped; cost tracking moved to agents.costActual.
 import { EventBus } from "@hyperidle/shared";
@@ -23,23 +23,23 @@ import type { SessionContext } from "../services/session-lifecycle.js";
 
 async function seedPrerequisites(db: HyperIdleDb): Promise<void> {
 	const now = new Date().toISOString();
-	await db.insert(products)
-		.values({ id: "p1", name: "Test Product", phase: "build", createdAt: now })
+	await db
+		.insert(products)
+		.values({ id: "p1", name: "Test Product", phase: "build", createdAt: now });
 
-	await db.insert(teams)
-		.values({ id: "t1", productId: "p1", capacity: 5, activeBets: 0, formedAt: now })
+	await db
+		.insert(teams)
+		.values({ id: "t1", productId: "p1", capacity: 5, activeBets: 0, formedAt: now });
 
-	await db.insert(bets)
-		.values({
-			id: "b1",
-			productId: "p1",
-			teamId: "t1",
-			pitch: "Test bet",
-			appetite: "small",
-			status: "committed",
-			createdAt: now,
-		})
-
+	await db.insert(bets).values({
+		id: "b1",
+		productId: "p1",
+		teamId: "t1",
+		pitch: "Test bet",
+		appetite: "small",
+		status: "committed",
+		createdAt: now,
+	});
 }
 
 async function insertAgent(
@@ -50,47 +50,47 @@ async function insertAgent(
 	status = "active",
 ): Promise<void> {
 	const now = new Date().toISOString();
-	await db.insert(users)
-		.values({
-			id,
-			name: `Agent ${id}`,
-			role,
-			teamId,
-			status,
-			maxConcurrentSessions: 2,
-			createdAt: now,
-		})
-
+	await db.insert(users).values({
+		id,
+		name: `Agent ${id}`,
+		role,
+		teamId,
+		status,
+		maxConcurrentSessions: 2,
+		createdAt: now,
+	});
 }
 
-async function insertTask(db: HyperIdleDb, id: string, state: string, ownerAgentId?: string): Promise<void> {
+async function insertTask(
+	db: HyperIdleDb,
+	id: string,
+	state: string,
+	ownerAgentId?: string,
+): Promise<void> {
 	const now = new Date().toISOString();
 	const threadId = `thread-${id}`;
-	await db.insert(threads)
-		.values({
-			id: threadId,
-			hostKind: "task",
-			hostId: "task-1",
-			initiatorId: "agent-1",
-			participants: JSON.stringify(["agent-1"]),
-			lastActiveAt: now,
-			createdAt: now,
-		})
+	await db.insert(threads).values({
+		id: threadId,
+		hostKind: "task",
+		hostId: "task-1",
+		initiatorId: "agent-1",
+		participants: JSON.stringify(["agent-1"]),
+		lastActiveAt: now,
+		createdAt: now,
+	});
 
-	await db.insert(tasks)
-		.values({
-			id,
-			betId: "b1",
-			productId: "p1",
-			teamId: "t1",
-			ownerAgentId: ownerAgentId ?? null,
-			title: `Task ${id}`,
-			state,
-			threadId,
-			createdAt: now,
-			updatedAt: now,
-		})
-
+	await db.insert(tasks).values({
+		id,
+		betId: "b1",
+		productId: "p1",
+		teamId: "t1",
+		ownerAgentId: ownerAgentId ?? null,
+		title: `Task ${id}`,
+		state,
+		threadId,
+		createdAt: now,
+		updatedAt: now,
+	});
 }
 
 async function insertSession(
@@ -101,16 +101,14 @@ async function insertSession(
 	state = "active",
 ): Promise<void> {
 	const now = new Date().toISOString();
-	await db.insert(sessions)
-		.values({
-			id,
-			taskId,
-			agentId,
-			modelTier: "workhorse",
-			startedAt: now,
-			state,
-		})
-
+	await db.insert(sessions).values({
+		id,
+		taskId,
+		agentId,
+		modelTier: "workhorse",
+		startedAt: now,
+		state,
+	});
 }
 
 function makeSessionContext(sessionId: string, agentId: string, taskId: string): SessionContext {
@@ -399,32 +397,30 @@ describe("Handoff Protocol", () => {
 			const existingAudit = [{ from: "proposed", to: "accepted", timestamp: now }];
 			const agentProse = "Pre-handoff agent note prose.";
 			const threadId = "thread-task-2";
-			await db.insert(threads)
-				.values({
-					id: threadId,
-					hostKind: "task",
-					hostId: "task-1",
-					initiatorId: "agent-1",
-					participants: JSON.stringify(["agent-1"]),
-					lastActiveAt: now,
-					createdAt: now,
-				})
+			await db.insert(threads).values({
+				id: threadId,
+				hostKind: "task",
+				hostId: "task-1",
+				initiatorId: "agent-1",
+				participants: JSON.stringify(["agent-1"]),
+				lastActiveAt: now,
+				createdAt: now,
+			});
 
-			await db.insert(tasks)
-				.values({
-					id: "task-2",
-					betId: "b1",
-					productId: "p1",
-					teamId: "t1",
-					ownerAgentId: "agent-a",
-					title: "Task 2",
-					state: "in_progress",
-					threadId,
-					notes: agentProse,
-					auditTrail: JSON.stringify(existingAudit),
-					createdAt: now,
-					updatedAt: now,
-				})
+			await db.insert(tasks).values({
+				id: "task-2",
+				betId: "b1",
+				productId: "p1",
+				teamId: "t1",
+				ownerAgentId: "agent-a",
+				title: "Task 2",
+				state: "in_progress",
+				threadId,
+				notes: agentProse,
+				auditTrail: JSON.stringify(existingAudit),
+				createdAt: now,
+				updatedAt: now,
+			});
 
 			await insertSession(db, "session-a2", "task-2", "agent-a");
 
@@ -493,31 +489,29 @@ describe("Handoff Protocol", () => {
 			const now = new Date().toISOString();
 			const agentProse = "Scribbled thought: feature is almost done.";
 			const threadId = "thread-h1";
-			await db.insert(threads)
-				.values({
-					id: threadId,
-					hostKind: "task",
-					hostId: "task-1",
-					initiatorId: "agent-1",
-					participants: JSON.stringify(["agent-1"]),
-					lastActiveAt: now,
-					createdAt: now,
-				})
+			await db.insert(threads).values({
+				id: threadId,
+				hostKind: "task",
+				hostId: "task-1",
+				initiatorId: "agent-1",
+				participants: JSON.stringify(["agent-1"]),
+				lastActiveAt: now,
+				createdAt: now,
+			});
 
-			await db.insert(tasks)
-				.values({
-					id: "task-h1",
-					betId: "b1",
-					productId: "p1",
-					teamId: "t1",
-					ownerAgentId: "agent-a",
-					title: "H1 task",
-					state: "in_progress",
-					threadId,
-					notes: agentProse,
-					createdAt: now,
-					updatedAt: now,
-				})
+			await db.insert(tasks).values({
+				id: "task-h1",
+				betId: "b1",
+				productId: "p1",
+				teamId: "t1",
+				ownerAgentId: "agent-a",
+				title: "H1 task",
+				state: "in_progress",
+				threadId,
+				notes: agentProse,
+				createdAt: now,
+				updatedAt: now,
+			});
 
 			await insertSession(db, "session-h1", "task-h1", "agent-a");
 
@@ -629,7 +623,8 @@ describe("Handoff Protocol", () => {
 			// fail with a FK violation because that thread doesn't exist.
 			// @lore PGlite: PRAGMA foreign_keys is SQLite-only; Postgres FKs
 			// are always on, so we corrupt the threadId reference instead.
-			await db.update(tasks)
+			await db
+				.update(tasks)
 				.set({ threadId: "thread-nonexistent" })
 				.where(eq(tasks.id, "task-atomic"));
 

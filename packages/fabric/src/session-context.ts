@@ -40,29 +40,17 @@ export async function buildSessionContext(
 	db: HyperIdleDb,
 	config: SessionContextConfig,
 ): Promise<string> {
-	const [task] = await db
-		.select()
-		.from(tasks)
-		.where(eq(tasks.id, config.taskId))
-		.limit(1);
+	const [task] = await db.select().from(tasks).where(eq(tasks.id, config.taskId)).limit(1);
 	if (!task) {
 		throw new Error(`Task ${config.taskId} not found`);
 	}
 
-	const [bet] = await db
-		.select()
-		.from(bets)
-		.where(eq(bets.id, task.betId))
-		.limit(1);
+	const [bet] = await db.select().from(bets).where(eq(bets.id, task.betId)).limit(1);
 	if (!bet) {
 		throw new Error(`Bet ${task.betId} not found`);
 	}
 
-	const [agent] = await db
-		.select()
-		.from(users)
-		.where(eq(users.id, config.agentId))
-		.limit(1);
+	const [agent] = await db.select().from(users).where(eq(users.id, config.agentId)).limit(1);
 	if (!agent) {
 		throw new Error(`Agent ${config.agentId} not found`);
 	}

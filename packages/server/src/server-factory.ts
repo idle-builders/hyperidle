@@ -1,12 +1,7 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { type ServerType, serve, upgradeWebSocket } from "@hono/node-server";
-import {
-	createPgliteDb,
-	createPostgresDb,
-	type DbHandle,
-	resolveProfile,
-} from "@hyperidle/db";
+import { createPgliteDb, createPostgresDb, type DbHandle, resolveProfile } from "@hyperidle/db";
 import { bootstrapFabric } from "@hyperidle/fabric";
 import { EventBus } from "@hyperidle/shared";
 import { WebSocketServer } from "ws";

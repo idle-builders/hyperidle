@@ -3,7 +3,7 @@ import {
 	type HyperIdleDb,
 	knowledgeItems,
 	knowledgeStrategyFabric,
-	type TestDbHandle
+	type TestDbHandle,
 } from "@hyperidle/db";
 import { createPracticeMeeting, runPracticeMeetingTurn } from "@hyperidle/fabric";
 import { EventBus, type KnowledgeUpdatedEvent } from "@hyperidle/shared";
@@ -320,7 +320,8 @@ describe("practice-meeting (AC6)", () => {
 		// Seed an anchor with a role match but a broken turnsCompleted shape.
 		// @lore O2: meta lives in knowledgeStrategyFabric, not knowledgeItems.
 		const meetingId = await seedMeeting();
-		await db.update(knowledgeStrategyFabric)
+		await db
+			.update(knowledgeStrategyFabric)
 			.set({
 				meta: JSON.stringify({
 					role: "practice_meeting_anchor",
@@ -329,7 +330,7 @@ describe("practice-meeting (AC6)", () => {
 					turnsCompleted: "not-an-array",
 				}),
 			})
-			.where(eq(knowledgeStrategyFabric.knowledgeItemId, meetingId))
+			.where(eq(knowledgeStrategyFabric.knowledgeItemId, meetingId));
 
 		const result = await runPracticeMeetingTurn(db, eventBus, {
 			meetingId,
@@ -429,8 +430,7 @@ describe("practice-meeting (AC6)", () => {
 											raceInjection: true,
 										}),
 									})
-									.where(eq(knowledgeStrategyFabric.knowledgeItemId, meetingId))
-
+									.where(eq(knowledgeStrategyFabric.knowledgeItemId, meetingId));
 							}
 							return result;
 						};

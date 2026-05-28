@@ -27,11 +27,7 @@ export function registerSessionReviewCreator(db: HyperIdleDb, eventBus: EventBus
 			if (!session) return;
 
 			// Look up task
-			const [task] = await db
-				.select()
-				.from(tasks)
-				.where(eq(tasks.id, session.taskId))
-				.limit(1);
+			const [task] = await db.select().from(tasks).where(eq(tasks.id, session.taskId)).limit(1);
 			if (!task) return;
 
 			// @lore O2: riskTier moved from tasks to taskStrategyFabric extension table.

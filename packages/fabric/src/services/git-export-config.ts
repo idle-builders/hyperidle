@@ -132,12 +132,14 @@ export async function updateGitExportConfig(
 	patch: GitExportConfigPatch,
 ): Promise<GitExportConfig> {
 	const now = new Date().toISOString();
-	if (patch.enabled !== undefined) await upsert(db, KEYS.enabled, patch.enabled ? "true" : "false", now);
+	if (patch.enabled !== undefined)
+		await upsert(db, KEYS.enabled, patch.enabled ? "true" : "false", now);
 	if (patch.repoPath !== undefined) await upsert(db, KEYS.repoPath, patch.repoPath, now);
 	if (patch.branch !== undefined) await upsert(db, KEYS.branch, patch.branch, now);
 	if (patch.authorName !== undefined) await upsert(db, KEYS.authorName, patch.authorName, now);
 	if (patch.authorEmail !== undefined) await upsert(db, KEYS.authorEmail, patch.authorEmail, now);
-	if (patch.debounceMs !== undefined) await upsert(db, KEYS.debounceMs, String(patch.debounceMs), now);
+	if (patch.debounceMs !== undefined)
+		await upsert(db, KEYS.debounceMs, String(patch.debounceMs), now);
 	if (patch.remoteUrl !== undefined) {
 		if (patch.remoteUrl === null || patch.remoteUrl.length === 0) {
 			await db.delete(factorySettings).where(eq(factorySettings.key, KEYS.remoteUrl));
@@ -216,7 +218,11 @@ async function readAllowFileRemote(db: HyperIdleDb): Promise<boolean> {
 }
 
 async function readRepoAllowRoots(db: HyperIdleDb): Promise<readonly string[]> {
-	const [row] = await db.select().from(factorySettings).where(eq(factorySettings.key, KEYS.repoRoot)).limit(1);
+	const [row] = await db
+		.select()
+		.from(factorySettings)
+		.where(eq(factorySettings.key, KEYS.repoRoot))
+		.limit(1);
 	if (!row || row.value.length === 0) return [];
 	return row.value
 		.split(":")

@@ -8,9 +8,7 @@
  *  - GET /api/health/auth response includes a timestamp
  */
 
-import { createTestDb, type HyperIdleDb, users ,
-	type TestDbHandle
-} from "@hyperidle/db";
+import { createTestDb, type HyperIdleDb, type TestDbHandle, users } from "@hyperidle/db";
 import { EventBus } from "@hyperidle/shared";
 import type { Hono } from "hono";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -64,32 +62,30 @@ describe("P3 AC-6 — Health check for shared mode", () => {
 
 		it("returns 200 with valid API key", async () => {
 			// Seed a human user so auth resolves properly
-			await db.insert(users)
-				.values({
-					id: "u-health-test",
-					kind: "human",
-					name: "Health Test User",
-					role: "founder",
-					status: "active",
-					email: "health@test.com",
-					createdAt: NOW,
-				})
+			await db.insert(users).values({
+				id: "u-health-test",
+				kind: "human",
+				name: "Health Test User",
+				role: "founder",
+				status: "active",
+				email: "health@test.com",
+				createdAt: NOW,
+			});
 
 			const res = await app.request("/api/health/auth", { headers: authHeaders() });
 			expect(res.status).toBe(200);
 		});
 
 		it("response includes status: 'ok'", async () => {
-			await db.insert(users)
-				.values({
-					id: "u-health-status",
-					kind: "human",
-					name: "Health Status User",
-					role: "founder",
-					status: "active",
-					email: "health-status@test.com",
-					createdAt: NOW,
-				})
+			await db.insert(users).values({
+				id: "u-health-status",
+				kind: "human",
+				name: "Health Status User",
+				role: "founder",
+				status: "active",
+				email: "health-status@test.com",
+				createdAt: NOW,
+			});
 
 			const res = await app.request("/api/health/auth", { headers: authHeaders() });
 			const body = (await res.json()) as { status: string; timestamp: string; userId: string };
@@ -97,16 +93,15 @@ describe("P3 AC-6 — Health check for shared mode", () => {
 		});
 
 		it("response includes a timestamp string", async () => {
-			await db.insert(users)
-				.values({
-					id: "u-health-ts",
-					kind: "human",
-					name: "Timestamp User",
-					role: "founder",
-					status: "active",
-					email: "ts@test.com",
-					createdAt: NOW,
-				})
+			await db.insert(users).values({
+				id: "u-health-ts",
+				kind: "human",
+				name: "Timestamp User",
+				role: "founder",
+				status: "active",
+				email: "ts@test.com",
+				createdAt: NOW,
+			});
 
 			const res = await app.request("/api/health/auth", { headers: authHeaders() });
 			const body = (await res.json()) as { timestamp: string };
@@ -115,16 +110,15 @@ describe("P3 AC-6 — Health check for shared mode", () => {
 		});
 
 		it("response includes a userId field", async () => {
-			await db.insert(users)
-				.values({
-					id: "u-health-userid",
-					kind: "human",
-					name: "User ID Test",
-					role: "founder",
-					status: "active",
-					email: "userid@test.com",
-					createdAt: NOW,
-				})
+			await db.insert(users).values({
+				id: "u-health-userid",
+				kind: "human",
+				name: "User ID Test",
+				role: "founder",
+				status: "active",
+				email: "userid@test.com",
+				createdAt: NOW,
+			});
 
 			const res = await app.request("/api/health/auth", { headers: authHeaders() });
 			const body = (await res.json()) as { userId: string };
@@ -133,16 +127,15 @@ describe("P3 AC-6 — Health check for shared mode", () => {
 		});
 
 		it("returns userId that matches the seeded human user", async () => {
-			await db.insert(users)
-				.values({
-					id: "u-expected-id",
-					kind: "human",
-					name: "Expected User",
-					role: "founder",
-					status: "active",
-					email: "expected@test.com",
-					createdAt: NOW,
-				})
+			await db.insert(users).values({
+				id: "u-expected-id",
+				kind: "human",
+				name: "Expected User",
+				role: "founder",
+				status: "active",
+				email: "expected@test.com",
+				createdAt: NOW,
+			});
 
 			const res = await app.request("/api/health/auth", { headers: authHeaders() });
 			const body = (await res.json()) as { userId: string };

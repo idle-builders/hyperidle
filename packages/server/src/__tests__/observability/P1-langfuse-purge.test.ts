@@ -17,9 +17,7 @@
 import { execSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import path from "node:path";
-import { createTestDb ,
-	type TestDbHandle
-} from "@hyperidle/db";
+import { createTestDb, type TestDbHandle } from "@hyperidle/db";
 import { describe, expect, it } from "vitest";
 import { createObservabilityRoutes } from "../../routes/observability-routes.js";
 import type {
@@ -56,12 +54,13 @@ describe("P1 AC4 — ObservabilityChannel type is console | noop only", () => {
 		// it must fall back to "console".
 		const { factorySettings } = await import("@hyperidle/db");
 		const now = new Date().toISOString();
-		await db.insert(factorySettings)
+		await db
+			.insert(factorySettings)
 			.values({ key: "observability.adapter", value: "langfuse", updatedAt: now })
 			.onConflictDoUpdate({
 				target: factorySettings.key,
 				set: { value: "langfuse", updatedAt: now },
-			})
+			});
 
 		const cfg = readObservabilityConfig(db);
 		// After the purge, "langfuse" is NOT in ADAPTERS, so isAdapter returns

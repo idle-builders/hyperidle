@@ -20,10 +20,10 @@ import {
 	notificationQueue,
 	products,
 	routines,
+	type TestDbHandle,
 	tasks,
 	teams,
 	users,
-	type TestDbHandle
 } from "@hyperidle/db";
 import {
 	checkAndFireRoutine,
@@ -61,74 +61,68 @@ async function enable(db: HyperIdleDb): Promise<void> {
 		"notifications.digest_channel": "console",
 	};
 	for (const [key, value] of Object.entries(pairs)) {
-		await db.insert(factorySettings)
+		await db
+			.insert(factorySettings)
 			.values({ key, value, updatedAt: now })
 			.onConflictDoUpdate({
 				target: factorySettings.key,
 				set: { value, updatedAt: now },
-			})
-
+			});
 	}
 }
 
 async function seedFixture(db: HyperIdleDb): Promise<void> {
 	const now = "2026-04-18T00:00:00.000Z";
 	await db.insert(products).values({ id: "p1", name: "Test", phase: "build", createdAt: now });
-	await db.insert(teams)
-		.values({
-			id: "t1",
-			productId: "p1",
-			capacity: 5,
-			activeBets: 0,
-			formedAt: now,
-		})
+	await db.insert(teams).values({
+		id: "t1",
+		productId: "p1",
+		capacity: 5,
+		activeBets: 0,
+		formedAt: now,
+	});
 
-	await db.insert(users)
-		.values({
-			id: "agent-cos",
-			name: "Chief of Staff",
-			role: "chief_of_staff",
-			status: "active",
-			maxConcurrentSessions: 5,
-			createdAt: now,
-		})
+	await db.insert(users).values({
+		id: "agent-cos",
+		name: "Chief of Staff",
+		role: "chief_of_staff",
+		status: "active",
+		maxConcurrentSessions: 5,
+		createdAt: now,
+	});
 
-	await db.insert(bets)
-		.values({
-			id: "b1",
-			productId: "p1",
-			teamId: "t1",
-			pitch: "seed",
-			appetite: "small",
-			status: "shaped",
-			createdAt: now,
-		})
+	await db.insert(bets).values({
+		id: "b1",
+		productId: "p1",
+		teamId: "t1",
+		pitch: "seed",
+		appetite: "small",
+		status: "shaped",
+		createdAt: now,
+	});
 
-	await db.insert(tasks)
-		.values({
-			id: "task-daily-digest",
-			betId: "b1",
-			productId: "p1",
-			teamId: "t1",
-			ownerAgentId: "agent-cos",
-			title: "Digest anchor",
-			state: "ready",
-			createdAt: now,
-			updatedAt: now,
-		})
+	await db.insert(tasks).values({
+		id: "task-daily-digest",
+		betId: "b1",
+		productId: "p1",
+		teamId: "t1",
+		ownerAgentId: "agent-cos",
+		title: "Digest anchor",
+		state: "ready",
+		createdAt: now,
+		updatedAt: now,
+	});
 
-	await db.insert(routines)
-		.values({
-			id: "routine-daily_digest",
-			ownerAgentId: "agent-cos",
-			triggerType: "calendar",
-			triggerConfig: JSON.stringify({
-				cron: "0 8 * * *",
-				taskId: "task-daily-digest",
-			}),
-			active: true,
-		})
-
+	await db.insert(routines).values({
+		id: "routine-daily_digest",
+		ownerAgentId: "agent-cos",
+		triggerType: "calendar",
+		triggerConfig: JSON.stringify({
+			cron: "0 8 * * *",
+			taskId: "task-daily-digest",
+		}),
+		active: true,
+	});
 }
 
 describe("scheduler → routine_fired → daily digest (AC6 end-to-end)", () => {
@@ -146,20 +140,19 @@ describe("scheduler → routine_fired → daily digest (AC6 end-to-end)", () => 
 
 	it("routine-scheduler emits routine_fired and the dispatcher runs the digest", async () => {
 		// Queue one pending digest row.
-		await db.insert(notificationQueue)
-			.values({
-				id: crypto.randomUUID(),
-				eventType: "cost_cap_warning",
-				subjectId: null,
-				severity: "digest",
-				title: "warning-held",
-				body: "body",
-				reason: "digest",
-				channel: "console",
-				status: "pending",
-				attempts: 0,
-				createdAt: "2026-04-18T00:00:00.000Z",
-			})
+		await db.insert(notificationQueue).values({
+			id: crypto.randomUUID(),
+			eventType: "cost_cap_warning",
+			subjectId: null,
+			severity: "digest",
+			title: "warning-held",
+			body: "body",
+			reason: "digest",
+			channel: "console",
+			status: "pending",
+			attempts: 0,
+			createdAt: "2026-04-18T00:00:00.000Z",
+		});
 
 		const adapter = createFakeAdapter();
 		const dispose = registerNotificationDispatcher(db, bus, {

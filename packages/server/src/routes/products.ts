@@ -101,10 +101,7 @@ export function createProductRoutes(db: HyperIdleDb, _eventBus: EventBus): Hono 
 					.select({ count: count() })
 					.from(bets)
 					.where(
-						and(
-							eq(bets.productId, product.id),
-							inArray(bets.status, ["committed", "in_progress"]),
-						),
+						and(eq(bets.productId, product.id), inArray(bets.status, ["committed", "in_progress"])),
 					)
 					.limit(1);
 				const activeBetCount = activeBetCountRow?.count ?? 0;
@@ -125,10 +122,7 @@ export function createProductRoutes(db: HyperIdleDb, _eventBus: EventBus): Hono 
 					.select({ id: bets.id })
 					.from(bets)
 					.where(
-						and(
-							eq(bets.productId, product.id),
-							inArray(bets.status, ["committed", "in_progress"]),
-						),
+						and(eq(bets.productId, product.id), inArray(bets.status, ["committed", "in_progress"])),
 					);
 
 				let progressDone = 0;
@@ -246,11 +240,7 @@ export function createProductRoutes(db: HyperIdleDb, _eventBus: EventBus): Hono 
 	router.patch("/:productId", async (c) => {
 		const productId = c.req.param("productId");
 
-		const [product] = await db
-			.select()
-			.from(products)
-			.where(eq(products.id, productId))
-			.limit(1);
+		const [product] = await db.select().from(products).where(eq(products.id, productId)).limit(1);
 		if (!product) {
 			return c.json({ error: "Product not found", code: "not_found" }, 404);
 		}
@@ -277,11 +267,7 @@ export function createProductRoutes(db: HyperIdleDb, _eventBus: EventBus): Hono 
 			.set({ phase: phase as ProductPhase })
 			.where(eq(products.id, productId));
 
-		const [updated] = await db
-			.select()
-			.from(products)
-			.where(eq(products.id, productId))
-			.limit(1);
+		const [updated] = await db.select().from(products).where(eq(products.id, productId)).limit(1);
 		if (!updated) {
 			return c.json({ error: "Product not found after update", code: "internal_error" }, 500);
 		}
@@ -293,11 +279,7 @@ export function createProductRoutes(db: HyperIdleDb, _eventBus: EventBus): Hono 
 		const productId = c.req.param("productId");
 
 		// 1. Look up the product
-		const [product] = await db
-			.select()
-			.from(products)
-			.where(eq(products.id, productId))
-			.limit(1);
+		const [product] = await db.select().from(products).where(eq(products.id, productId)).limit(1);
 		if (!product) {
 			return c.json({ error: "Product not found", code: "not_found" }, 404);
 		}

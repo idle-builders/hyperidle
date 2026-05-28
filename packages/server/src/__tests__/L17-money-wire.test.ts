@@ -16,10 +16,10 @@ import {
 	type HyperIdleDb,
 	products,
 	sessions,
+	type TestDbHandle,
 	tasks,
 	teams,
 	users,
-	type TestDbHandle
 } from "@hyperidle/db";
 import {
 	checkCostCap,
@@ -54,73 +54,67 @@ describe("Cost-cap service with Money columns (AC13)", () => {
 		clearDeduplicationCache();
 
 		// Seed base entities using new column names from migration 0010
-		await db.insert(products)
-			.values({ id: "p1", name: "Test Product", phase: "build", createdAt: NOW })
+		await db
+			.insert(products)
+			.values({ id: "p1", name: "Test Product", phase: "build", createdAt: NOW });
 
-		await db.insert(teams)
-			.values({
-				id: "t1",
-				productId: "p1",
-				capacity: 5,
-				activeBets: 0,
-				// New column: cost_cap_minor (was costCap)
-				costCapMinor: 5000, // $50.00 in cents
-				costCapCurrency: "USD",
-				formedAt: NOW,
-			})
+		await db.insert(teams).values({
+			id: "t1",
+			productId: "p1",
+			capacity: 5,
+			activeBets: 0,
+			// New column: cost_cap_minor (was costCap)
+			costCapMinor: 5000, // $50.00 in cents
+			costCapCurrency: "USD",
+			formedAt: NOW,
+		});
 
-		await db.insert(bets)
-			.values({
-				id: "b1",
-				productId: "p1",
-				teamId: "t1",
-				pitch: "Test bet",
-				// appetite_legacy column still exists for rollback but is not used
-				status: "committed",
-				createdAt: NOW,
-			})
+		await db.insert(bets).values({
+			id: "b1",
+			productId: "p1",
+			teamId: "t1",
+			pitch: "Test bet",
+			// appetite_legacy column still exists for rollback but is not used
+			status: "committed",
+			createdAt: NOW,
+		});
 
-		await db.insert(tasks)
-			.values({
-				id: "task-1",
-				betId: "b1",
-				productId: "p1",
-				teamId: "t1",
-				title: "Test task",
-				state: "in_progress",
-				createdAt: NOW,
-				updatedAt: NOW,
-			})
+		await db.insert(tasks).values({
+			id: "task-1",
+			betId: "b1",
+			productId: "p1",
+			teamId: "t1",
+			title: "Test task",
+			state: "in_progress",
+			createdAt: NOW,
+			updatedAt: NOW,
+		});
 
-		await db.insert(users)
-			.values({
-				id: "agent-1",
-				name: "Builder Agent",
-				role: "builder",
-				status: "active",
-				teamId: "t1",
-				maxConcurrentSessions: 2,
-				// New column: cost_cap_minor (was costCap)
-				costCapMinor: 1000, // $10.00 in cents
-				costCapCurrency: "USD",
-				createdAt: NOW,
-			})
-
+		await db.insert(users).values({
+			id: "agent-1",
+			name: "Builder Agent",
+			role: "builder",
+			status: "active",
+			teamId: "t1",
+			maxConcurrentSessions: 2,
+			// New column: cost_cap_minor (was costCap)
+			costCapMinor: 1000, // $10.00 in cents
+			costCapCurrency: "USD",
+			createdAt: NOW,
+		});
 	});
 
 	async function insertSession(id: string, agentId: string): Promise<void> {
 		// @lore O2: session cost columns (costMinor, costCurrency) stripped from
 		// the kernel sessions table. Sessions no longer carry cost data directly.
-		await db.insert(sessions)
-			.values({
-				id,
-				taskId: "task-1",
-				agentId,
-				modelTier: "workhorse",
-				startedAt: NOW,
-				state: "done",
-			})
-
+		await db.insert(sessions).values({
+			id,
+			taskId: "task-1",
+			agentId,
+			modelTier: "workhorse",
+			startedAt: NOW,
+			state: "done",
+		});
 	}
 
 	it("reads costCapMinor from agents table (not old costCap)", async () => {
@@ -200,12 +194,13 @@ describe("Session token accumulation by tier (AC14)", () => {
 		eventBus = new EventBus();
 		app = await createTestApp({ db, eventBus });
 
-		await db.insert(products)
-			.values({ id: "prod-1", name: "Test Product", phase: "build", createdAt: NOW })
+		await db
+			.insert(products)
+			.values({ id: "prod-1", name: "Test Product", phase: "build", createdAt: NOW });
 
-		await db.insert(teams)
-			.values({ id: "team-1", productId: "prod-1", capacity: 2, activeBets: 0, formedAt: NOW })
-
+		await db
+			.insert(teams)
+			.values({ id: "team-1", productId: "prod-1", capacity: 2, activeBets: 0, formedAt: NOW });
 	});
 
 	afterEach(async () => {
@@ -258,12 +253,13 @@ describe("Bet create API — structured costAppetite (AC15)", () => {
 		eventBus = new EventBus();
 		app = await createTestApp({ db, eventBus });
 
-		await db.insert(products)
-			.values({ id: "prod-1", name: "Test Product", phase: "build", createdAt: NOW })
+		await db
+			.insert(products)
+			.values({ id: "prod-1", name: "Test Product", phase: "build", createdAt: NOW });
 
-		await db.insert(teams)
-			.values({ id: "team-1", productId: "prod-1", capacity: 2, activeBets: 0, formedAt: NOW })
-
+		await db
+			.insert(teams)
+			.values({ id: "team-1", productId: "prod-1", capacity: 2, activeBets: 0, formedAt: NOW });
 	});
 
 	afterEach(async () => {
@@ -365,25 +361,25 @@ describe("Bet detail API — structured cost fields (AC16)", () => {
 		eventBus = new EventBus();
 		app = await createTestApp({ db, eventBus });
 
-		await db.insert(products)
-			.values({ id: "prod-1", name: "Test Product", phase: "build", createdAt: NOW })
+		await db
+			.insert(products)
+			.values({ id: "prod-1", name: "Test Product", phase: "build", createdAt: NOW });
 
-		await db.insert(teams)
-			.values({ id: "team-1", productId: "prod-1", capacity: 2, activeBets: 0, formedAt: NOW })
+		await db
+			.insert(teams)
+			.values({ id: "team-1", productId: "prod-1", capacity: 2, activeBets: 0, formedAt: NOW });
 
 		// Seed a bet with structured costAppetite directly in DB
-		await db.insert(bets)
-			.values({
-				id: "bet-detail-1",
-				productId: "prod-1",
-				teamId: "team-1",
-				pitch: "Structured cost test",
-				costAppetiteMinor: 50000,
-				costAppetiteCurrency: "USD",
-				status: "in_progress",
-				createdAt: NOW,
-			})
-
+		await db.insert(bets).values({
+			id: "bet-detail-1",
+			productId: "prod-1",
+			teamId: "team-1",
+			pitch: "Structured cost test",
+			costAppetiteMinor: 50000,
+			costAppetiteCurrency: "USD",
+			status: "in_progress",
+			createdAt: NOW,
+		});
 	});
 
 	afterEach(async () => {

@@ -11,7 +11,7 @@ import {
 	knowledgeEditLog,
 	knowledgeItems,
 	knowledgeStrategyFabric,
-	type TestDbHandle
+	type TestDbHandle,
 } from "@hyperidle/db";
 import { createRelevanceService } from "@hyperidle/fabric";
 import { eq } from "drizzle-orm";
@@ -29,20 +29,19 @@ async function insertItem(
 	}> = {},
 ): Promise<string> {
 	const id = overrides.id ?? crypto.randomUUID();
-	await db.insert(knowledgeItems)
-		.values({
-			id,
-			topic: "testing",
-			title: overrides.title ?? `Item ${id}`,
-			body: "Test body",
-			format: "markdown",
-			status: overrides.status ?? "active",
-			version: 1,
-			updatedBy: "human",
-			createdAt: NOW_ISO,
-			updatedAt: NOW_ISO,
-			meta: null,
-		})
+	await db.insert(knowledgeItems).values({
+		id,
+		topic: "testing",
+		title: overrides.title ?? `Item ${id}`,
+		body: "Test body",
+		format: "markdown",
+		status: overrides.status ?? "active",
+		version: 1,
+		updatedBy: "human",
+		createdAt: NOW_ISO,
+		updatedAt: NOW_ISO,
+		meta: null,
+	});
 
 	return id;
 }
@@ -56,15 +55,13 @@ async function insertAccessLog(
 ): Promise<void> {
 	// Uses knowledgeAccessLog table — exported from @hyperidle/db since T1
 	const { knowledgeAccessLog } = await import("@hyperidle/db");
-	await db.insert(knowledgeAccessLog)
-		.values({
-			id: crypto.randomUUID(),
-			itemId,
-			accessorKind,
-			accessorId,
-			accessedAt,
-		})
-
+	await db.insert(knowledgeAccessLog).values({
+		id: crypto.randomUUID(),
+		itemId,
+		accessorKind,
+		accessorId,
+		accessedAt,
+	});
 }
 
 describe("RelevanceService.computeSignals (L22)", () => {
@@ -135,17 +132,16 @@ describe("RelevanceService.computeSignals (L22)", () => {
 		const itemId = await insertItem(db);
 		// Edit log: edited 2 days ago
 		const editAt = "2026-05-04T00:00:00.000Z";
-		await db.insert(knowledgeEditLog)
-			.values({
-				id: crypto.randomUUID(),
-				itemId,
-				editor: "human",
-				field: "body",
-				oldValue: "old",
-				newValue: "new",
-				editType: "edit",
-				createdAt: editAt,
-			})
+		await db.insert(knowledgeEditLog).values({
+			id: crypto.randomUUID(),
+			itemId,
+			editor: "human",
+			field: "body",
+			oldValue: "old",
+			newValue: "new",
+			editType: "edit",
+			createdAt: editAt,
+		});
 
 		// Access log: accessed yesterday
 		const accessAt = "2026-05-05T00:00:00.000Z";
@@ -177,17 +173,16 @@ describe("RelevanceService.computeSignals (L22)", () => {
 	it("uses editor='human' for lastValidatedAt (not 'facilitator')", async () => {
 		const itemId = await insertItem(db);
 		const humanEditAt = "2026-05-04T00:00:00.000Z";
-		await db.insert(knowledgeEditLog)
-			.values({
-				id: crypto.randomUUID(),
-				itemId,
-				editor: "human",
-				field: "status",
-				oldValue: "provisional",
-				newValue: "validated",
-				editType: "validation",
-				createdAt: humanEditAt,
-			})
+		await db.insert(knowledgeEditLog).values({
+			id: crypto.randomUUID(),
+			itemId,
+			editor: "human",
+			field: "status",
+			oldValue: "provisional",
+			newValue: "validated",
+			editType: "validation",
+			createdAt: humanEditAt,
+		});
 
 		const service = createRelevanceService(db);
 		const result = service.computeSignals([itemId], NOW_MS);

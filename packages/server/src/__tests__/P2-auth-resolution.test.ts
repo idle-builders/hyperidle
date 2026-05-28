@@ -21,9 +21,9 @@ import {
 	createTestDb,
 	type HyperIdleDb,
 	products,
+	type TestDbHandle,
 	// P2: import new symbol — compile error until implementation done
 	users,
-	type TestDbHandle
 } from "@hyperidle/db";
 import { EventBus } from "@hyperidle/shared";
 import type { Hono } from "hono";
@@ -62,16 +62,15 @@ describe("P2 — Auth middleware resolves user from users table (AC7)", () => {
 	describe("AC7: auth middleware resolves userId from users table", () => {
 		it("resolves userId from the human user row in users table", async () => {
 			// Seed a human user — NOT using factorySettings
-			await db.insert(users)
-				.values({
-					id: "u-human-auth-test",
-					kind: "human",
-					name: "Auth Test Human",
-					role: "founder",
-					status: "active",
-					email: "auth@test.com",
-					createdAt: NOW,
-				})
+			await db.insert(users).values({
+				id: "u-human-auth-test",
+				kind: "human",
+				name: "Auth Test Human",
+				role: "founder",
+				status: "active",
+				email: "auth@test.com",
+				createdAt: NOW,
+			});
 
 			const res = await app.request("/api/auth/me", { headers: authHeaders() });
 			expect(res.status).toBe(200);
@@ -83,27 +82,26 @@ describe("P2 — Auth middleware resolves user from users table (AC7)", () => {
 
 		it("resolves the first human user when multiple human rows exist", async () => {
 			// Seed two human users
-			await db.insert(users)
-				.values([
-					{
-						id: "u-human-first",
-						kind: "human",
-						name: "First Human",
-						role: "founder",
-						status: "active",
-						email: "first@test.com",
-						createdAt: NOW,
-					},
-					{
-						id: "u-human-second",
-						kind: "human",
-						name: "Second Human",
-						role: "founder",
-						status: "active",
-						email: "second@test.com",
-						createdAt: NOW,
-					},
-				])
+			await db.insert(users).values([
+				{
+					id: "u-human-first",
+					kind: "human",
+					name: "First Human",
+					role: "founder",
+					status: "active",
+					email: "first@test.com",
+					createdAt: NOW,
+				},
+				{
+					id: "u-human-second",
+					kind: "human",
+					name: "Second Human",
+					role: "founder",
+					status: "active",
+					email: "second@test.com",
+					createdAt: NOW,
+				},
+			]);
 
 			const res = await app.request("/api/auth/me", { headers: authHeaders() });
 			expect(res.status).toBe(200);
@@ -129,16 +127,15 @@ describe("P2 — Auth middleware resolves user from users table (AC7)", () => {
 			// Note: factorySettings table still exists but founder_id key is no longer used
 			// The human user in the users table is what matters
 
-			await db.insert(users)
-				.values({
-					id: "u-real-human",
-					kind: "human",
-					name: "Real Human",
-					role: "founder",
-					status: "active",
-					email: "real@test.com",
-					createdAt: NOW,
-				})
+			await db.insert(users).values({
+				id: "u-real-human",
+				kind: "human",
+				name: "Real Human",
+				role: "founder",
+				status: "active",
+				email: "real@test.com",
+				createdAt: NOW,
+			});
 
 			const res = await app.request("/api/auth/me", { headers: authHeaders() });
 			expect(res.status).toBe(200);
@@ -154,17 +151,16 @@ describe("P2 — Auth middleware resolves user from users table (AC7)", () => {
 	// -------------------------------------------------------------------------
 	describe("AC7: GET /api/auth/me returns data from users table row", () => {
 		it("returns name and email from the human user row", async () => {
-			await db.insert(users)
-				.values({
-					id: "u-me-test",
-					kind: "human",
-					name: "Jane Founder",
-					role: "founder",
-					status: "active",
-					email: "jane@hyperidle.com",
-					avatarUrl: "https://cdn.example.com/jane.png",
-					createdAt: NOW,
-				})
+			await db.insert(users).values({
+				id: "u-me-test",
+				kind: "human",
+				name: "Jane Founder",
+				role: "founder",
+				status: "active",
+				email: "jane@hyperidle.com",
+				avatarUrl: "https://cdn.example.com/jane.png",
+				createdAt: NOW,
+			});
 
 			const res = await app.request("/api/auth/me", { headers: authHeaders() });
 			expect(res.status).toBe(200);
@@ -182,16 +178,15 @@ describe("P2 — Auth middleware resolves user from users table (AC7)", () => {
 		});
 
 		it("returns empty string for email when human user has no email", async () => {
-			await db.insert(users)
-				.values({
-					id: "u-no-email",
-					kind: "human",
-					name: "No Email Founder",
-					role: "founder",
-					status: "active",
-					email: null,
-					createdAt: NOW,
-				})
+			await db.insert(users).values({
+				id: "u-no-email",
+				kind: "human",
+				name: "No Email Founder",
+				role: "founder",
+				status: "active",
+				email: null,
+				createdAt: NOW,
+			});
 
 			const res = await app.request("/api/auth/me", { headers: authHeaders() });
 			expect(res.status).toBe(200);
@@ -214,20 +209,20 @@ describe("P2 — Auth middleware resolves user from users table (AC7)", () => {
 	describe("AC3: factorySettings founder keys are not used in auth resolution", () => {
 		it("GET /api/settings returns profile from users table, not factorySettings", async () => {
 			// Seed human user with specific data
-			await db.insert(users)
-				.values({
-					id: "u-settings-test",
-					kind: "human",
-					name: "Settings Founder",
-					role: "founder",
-					status: "active",
-					email: "settings@hyperidle.com",
-					createdAt: NOW,
-				})
+			await db.insert(users).values({
+				id: "u-settings-test",
+				kind: "human",
+				name: "Settings Founder",
+				role: "founder",
+				status: "active",
+				email: "settings@hyperidle.com",
+				createdAt: NOW,
+			});
 
 			// Also seed a product so settings works
-			await db.insert(products)
-				.values({ id: "prod-auth", name: "Auth Product", phase: "build", createdAt: NOW })
+			await db
+				.insert(products)
+				.values({ id: "prod-auth", name: "Auth Product", phase: "build", createdAt: NOW });
 
 			const res = await app.request("/api/settings", { headers: authHeaders() });
 			expect(res.status).toBe(200);

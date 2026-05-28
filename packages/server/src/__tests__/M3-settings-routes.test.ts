@@ -7,9 +7,7 @@
  *  - factorySettings are seeded with founder profile keys
  */
 
-import { createTestDb, type HyperIdleDb, products, users ,
-	type TestDbHandle
-} from "@hyperidle/db";
+import { createTestDb, type HyperIdleDb, products, type TestDbHandle, users } from "@hyperidle/db";
 import { EventBus } from "@hyperidle/shared";
 import type { Hono } from "hono";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -27,7 +25,8 @@ function authHeaders(): Record<string, string> {
  */
 async function seedFounderProfile(db: HyperIdleDb): Promise<void> {
 	const now = new Date().toISOString();
-	await db.insert(users)
+	await db
+		.insert(users)
 		.values({
 			id: "test-founder-1",
 			kind: "human",
@@ -38,8 +37,7 @@ async function seedFounderProfile(db: HyperIdleDb): Promise<void> {
 			maxConcurrentSessions: 0,
 			createdAt: now,
 		})
-		.onConflictDoNothing()
-
+		.onConflictDoNothing();
 }
 
 describe("M3 — GET /api/settings (B1)", () => {
@@ -59,33 +57,32 @@ describe("M3 — GET /api/settings (B1)", () => {
 		await seedFounderProfile(db);
 
 		// Seed 2 products
-		await db.insert(products)
-			.values({ id: "prod-1", name: "Product Alpha", phase: "build", createdAt: now })
+		await db
+			.insert(products)
+			.values({ id: "prod-1", name: "Product Alpha", phase: "build", createdAt: now });
 
-		await db.insert(products)
-			.values({ id: "prod-2", name: "Product Beta", phase: "archived", createdAt: now })
+		await db
+			.insert(products)
+			.values({ id: "prod-2", name: "Product Beta", phase: "archived", createdAt: now });
 
 		// Seed 2 AI users (formerly agents)
-		await db.insert(users)
-			.values({
-				id: "agent-1",
-				kind: "ai",
-				name: "Builder Bot",
-				role: "builder",
-				status: "idle",
-				createdAt: now,
-			})
+		await db.insert(users).values({
+			id: "agent-1",
+			kind: "ai",
+			name: "Builder Bot",
+			role: "builder",
+			status: "idle",
+			createdAt: now,
+		});
 
-		await db.insert(users)
-			.values({
-				id: "agent-2",
-				kind: "ai",
-				name: "Reviewer Bot",
-				role: "reviewer",
-				status: "paused",
-				createdAt: now,
-			})
-
+		await db.insert(users).values({
+			id: "agent-2",
+			kind: "ai",
+			name: "Reviewer Bot",
+			role: "reviewer",
+			status: "paused",
+			createdAt: now,
+		});
 	});
 
 	afterEach(async () => {

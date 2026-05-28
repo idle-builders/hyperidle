@@ -11,11 +11,11 @@ import {
 	createTestDb,
 	type HyperIdleDb,
 	products,
+	type TestDbHandle,
 	tasks,
 	teams,
 	threads,
 	users,
-	type TestDbHandle
 } from "@hyperidle/db";
 import { registerLifecyclePropagation } from "@hyperidle/fabric";
 import { EventBus } from "@hyperidle/shared";
@@ -28,7 +28,8 @@ async function seedBase(db: HyperIdleDb, founderId = "test-founder-1"): Promise<
 	const now = new Date().toISOString();
 
 	// P2: seed human founder user row (replaces factorySettings.founder_id lookup)
-	await db.insert(users)
+	await db
+		.insert(users)
 		.values({
 			id: founderId,
 			kind: "human",
@@ -37,72 +38,67 @@ async function seedBase(db: HyperIdleDb, founderId = "test-founder-1"): Promise<
 			status: "active",
 			createdAt: now,
 		})
-		.onConflictDoNothing()
+		.onConflictDoNothing();
 
-	await db.insert(products)
-		.values({ id: "prod-1", name: "Test Product", phase: "build", createdAt: now })
+	await db
+		.insert(products)
+		.values({ id: "prod-1", name: "Test Product", phase: "build", createdAt: now });
 
-	await db.insert(teams)
-		.values({ id: "team-1", productId: "prod-1", capacity: 5, activeBets: 1, formedAt: now })
+	await db
+		.insert(teams)
+		.values({ id: "team-1", productId: "prod-1", capacity: 5, activeBets: 1, formedAt: now });
 
-	await db.insert(bets)
-		.values({
-			id: "bet-1",
-			productId: "prod-1",
-			teamId: "team-1",
-			pitch: "Test bet",
-			status: "in_progress",
-			createdAt: now,
-		})
+	await db.insert(bets).values({
+		id: "bet-1",
+		productId: "prod-1",
+		teamId: "team-1",
+		pitch: "Test bet",
+		status: "in_progress",
+		createdAt: now,
+	});
 
-	await db.insert(users)
-		.values({
-			id: "agent-1",
-			name: "Builder Agent",
-			role: "builder",
-			status: "active",
-			createdAt: now,
-		})
+	await db.insert(users).values({
+		id: "agent-1",
+		name: "Builder Agent",
+		role: "builder",
+		status: "active",
+		createdAt: now,
+	});
 
-	await db.insert(users)
-		.values({
-			id: SYSTEM_PROPAGATION_ID,
-			name: "Propagation System",
-			role: "system",
-			status: "active",
-			createdAt: now,
-		})
-
+	await db.insert(users).values({
+		id: SYSTEM_PROPAGATION_ID,
+		name: "Propagation System",
+		role: "system",
+		status: "active",
+		createdAt: now,
+	});
 }
 
 async function seedDoneTasks(db: HyperIdleDb): Promise<void> {
 	const now = new Date().toISOString();
-	await db.insert(tasks)
-		.values({
-			id: "task-1",
-			betId: "bet-1",
-			productId: "prod-1",
-			teamId: "team-1",
-			ownerAgentId: "agent-1",
-			title: "Done task 1",
-			state: "done",
-			createdAt: now,
-			updatedAt: now,
-		})
+	await db.insert(tasks).values({
+		id: "task-1",
+		betId: "bet-1",
+		productId: "prod-1",
+		teamId: "team-1",
+		ownerAgentId: "agent-1",
+		title: "Done task 1",
+		state: "done",
+		createdAt: now,
+		updatedAt: now,
+	});
 
-	await db.insert(tasks)
-		.values({
-			id: "task-2",
-			betId: "bet-1",
-			productId: "prod-1",
-			teamId: "team-1",
-			ownerAgentId: "agent-1",
-			title: "Done task 2",
-			state: "done",
-			createdAt: now,
-			updatedAt: now,
-		})
-
+	await db.insert(tasks).values({
+		id: "task-2",
+		betId: "bet-1",
+		productId: "prod-1",
+		teamId: "team-1",
+		ownerAgentId: "agent-1",
+		title: "Done task 2",
+		state: "done",
+		createdAt: now,
+		updatedAt: now,
+	});
 }
 
 describe("M3 — lifecycle-propagation: thread participants use users-table founder id (A9)", () => {

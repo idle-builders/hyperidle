@@ -7,10 +7,10 @@ import {
 	knowledgeItems,
 	knowledgeStrategyFabric,
 	products,
-	routines,
 	type Routine,
-	teams,
+	routines,
 	type TestDbHandle,
+	teams,
 	users,
 } from "@hyperidle/db";
 import {
@@ -103,7 +103,9 @@ describe("G4: Built-in Routines", () => {
 				a.id.localeCompare(b.id),
 			);
 
-			const byId = new Map<string, Routine>(rows.map((r: Routine) => [r.id, r] as [string, Routine]));
+			const byId = new Map<string, Routine>(
+				rows.map((r: Routine) => [r.id, r] as [string, Routine]),
+			);
 
 			expect(byId.get("builtin:cost-sentinel")?.triggerType).toBe("heartbeat");
 			expect(JSON.parse(byId.get("builtin:cost-sentinel")?.triggerConfig ?? "{}")).toEqual({
@@ -134,7 +136,9 @@ describe("G4: Built-in Routines", () => {
 		it("assigns correct owner agent for each builtin", async () => {
 			await seedBuiltinRoutines(db);
 			const rows = await db.select().from(routines);
-			const byId = new Map<string, Routine>(rows.map((r: Routine) => [r.id, r] as [string, Routine]));
+			const byId = new Map<string, Routine>(
+				rows.map((r: Routine) => [r.id, r] as [string, Routine]),
+			);
 			expect(byId.get("builtin:cost-sentinel")?.ownerAgentId).toBe("seed-agent-cos");
 			expect(byId.get("builtin:practice-meeting")?.ownerAgentId).toBe("seed-agent-pf-facilitation");
 			expect(byId.get("builtin:post-bet-retro")?.ownerAgentId).toBe("seed-agent-pm-nimmly");
@@ -665,10 +669,7 @@ describe("G4: Built-in Routines", () => {
 	describe("AC8: Disabled routine prevents firing", () => {
 		it("runBuiltinRoutine returns fired=false when routine active=0", async () => {
 			await seedBuiltinRoutines(db);
-			await db
-				.update(routines)
-				.set({ active: 0 })
-				.where(eq(routines.id, "builtin:cost-sentinel"));
+			await db.update(routines).set({ active: 0 }).where(eq(routines.id, "builtin:cost-sentinel"));
 
 			const result = await runBuiltinRoutine(db, eventBus, "builtin:cost-sentinel");
 			expect(result.fired).toBe(false);
@@ -677,10 +678,7 @@ describe("G4: Built-in Routines", () => {
 
 		it("event handler does not run when event routine active=0", async () => {
 			await seedBuiltinRoutines(db);
-			await db
-				.update(routines)
-				.set({ active: 0 })
-				.where(eq(routines.id, "builtin:post-bet-retro"));
+			await db.update(routines).set({ active: 0 }).where(eq(routines.id, "builtin:post-bet-retro"));
 			await db.insert(bets).values({
 				id: "bet-inactive-1",
 				productId: "prod-1",

@@ -132,8 +132,7 @@ export async function updateObservabilityConfig(
 	if (patch.enabled !== undefined)
 		await upsert(db, KEYS.enabled, patch.enabled ? "true" : "false", now);
 	if (patch.adapter !== undefined) await upsert(db, KEYS.adapter, patch.adapter, now);
-	if (patch.batchSize !== undefined)
-		await upsert(db, KEYS.batchSize, String(patch.batchSize), now);
+	if (patch.batchSize !== undefined) await upsert(db, KEYS.batchSize, String(patch.batchSize), now);
 	if (patch.flushIntervalMs !== undefined)
 		await upsert(db, KEYS.flushIntervalMs, String(patch.flushIntervalMs), now);
 	if (patch.bufferCap !== undefined) await upsert(db, KEYS.bufferCap, String(patch.bufferCap), now);

@@ -5,11 +5,11 @@ import {
 	items,
 	messages,
 	products,
+	type TestDbHandle,
 	teams,
 	threads,
 	userSkills,
 	users,
-	type TestDbHandle
 } from "@hyperidle/db";
 import { registerPolicyEngine } from "@hyperidle/fabric";
 import { EventBus, type NotificationEvent } from "@hyperidle/shared";
@@ -24,16 +24,15 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 async function selectVerdictsForItem(
 	db: HyperIdleDb,
 	itemId: string,
-): Promise<Array<{
-	id: string;
-	itemId: string;
-	decision: string;
-	approverId: string;
-}>> {
-	const allMessages = await db
-		.select()
-		.from(messages)
-		.where(eq(messages.legacyItemId, itemId));
+): Promise<
+	Array<{
+		id: string;
+		itemId: string;
+		decision: string;
+		approverId: string;
+	}>
+> {
+	const allMessages = await db.select().from(messages).where(eq(messages.legacyItemId, itemId));
 	const rows = allMessages.filter((m) => m.type === "verdict");
 	return rows.map((m) => {
 		const payload = JSON.parse(m.payload) as { decision: string };
@@ -54,60 +53,57 @@ describe("Policy Engine (E7)", () => {
 	const now = new Date().toISOString();
 
 	async function seedBase(): Promise<void> {
-		await db.insert(products)
-			.values({ id: "prod-1", name: "Test Product", phase: "build", createdAt: now })
+		await db
+			.insert(products)
+			.values({ id: "prod-1", name: "Test Product", phase: "build", createdAt: now });
 
-		await db.insert(teams)
-			.values({ id: "team-1", productId: "prod-1", capacity: 3, activeBets: 0, formedAt: now })
+		await db
+			.insert(teams)
+			.values({ id: "team-1", productId: "prod-1", capacity: 3, activeBets: 0, formedAt: now });
 
-		await db.insert(users)
-			.values([
-				{
-					id: "agent-1",
-					kind: "ai",
-					name: "Builder",
-					role: "builder",
-					status: "idle",
-					teamId: "team-1",
-					createdAt: now,
-				},
-				// @lore L1a: synthetic sender for verdict-typed messages emitted by
-				// the policy engine. The new `messages.sender_id` FK requires
-				// the user row to exist (legacy `responses.approver_id` had
-				// no FK). P2: agents → users table.
-				{
-					id: "policy_engine",
-					kind: "ai",
-					name: "Policy Engine",
-					role: "system",
-					status: "active",
-					createdAt: now,
-				},
-			])
-
-		await db.insert(threads)
-			.values({
-				id: "thread-1",
-				hostKind: "task",
-				hostId: "task-1",
-				initiatorId: "agent-1",
-				participants: JSON.stringify(["agent-1"]),
-				lastActiveAt: now,
+		await db.insert(users).values([
+			{
+				id: "agent-1",
+				kind: "ai",
+				name: "Builder",
+				role: "builder",
+				status: "idle",
+				teamId: "team-1",
 				createdAt: now,
-			})
+			},
+			// @lore L1a: synthetic sender for verdict-typed messages emitted by
+			// the policy engine. The new `messages.sender_id` FK requires
+			// the user row to exist (legacy `responses.approver_id` had
+			// no FK). P2: agents → users table.
+			{
+				id: "policy_engine",
+				kind: "ai",
+				name: "Policy Engine",
+				role: "system",
+				status: "active",
+				createdAt: now,
+			},
+		]);
 
+		await db.insert(threads).values({
+			id: "thread-1",
+			hostKind: "task",
+			hostId: "task-1",
+			initiatorId: "agent-1",
+			participants: JSON.stringify(["agent-1"]),
+			lastActiveAt: now,
+			createdAt: now,
+		});
 	}
 
 	async function seedAgentSkill(autonomyLevel: number): Promise<void> {
-		await db.insert(userSkills)
-			.values({
-				userId: "agent-1",
-				skillId: "skill-1",
-				autonomyLevel,
-				successCount: 0,
-				failureCount: 0,
-			})
-
+		await db.insert(userSkills).values({
+			userId: "agent-1",
+			skillId: "skill-1",
+			autonomyLevel,
+			successCount: 0,
+			failureCount: 0,
+		});
 	}
 
 	async function createItem(
@@ -120,17 +116,16 @@ describe("Policy Engine (E7)", () => {
 		}> = {},
 	): Promise<string> {
 		const itemId = overrides.id ?? crypto.randomUUID();
-		await db.insert(items)
-			.values({
-				id: itemId,
-				sourceAgentId: overrides.sourceAgentId ?? "agent-1",
-				kind: overrides.kind ?? "approval",
-				title: "Test item",
-				riskTier: overrides.riskTier ?? "low",
-				blocking: overrides.blocking ?? 0,
-				threadId: "thread-1",
-				createdAt: now,
-			})
+		await db.insert(items).values({
+			id: itemId,
+			sourceAgentId: overrides.sourceAgentId ?? "agent-1",
+			kind: overrides.kind ?? "approval",
+			title: "Test item",
+			riskTier: overrides.riskTier ?? "low",
+			blocking: overrides.blocking ?? 0,
+			threadId: "thread-1",
+			createdAt: now,
+		});
 
 		return itemId;
 	}
@@ -306,8 +301,9 @@ describe("Policy Engine (E7)", () => {
 
 	it("AC10: per-product silence -> items from that product queued", async () => {
 		await seedAgentSkill(2); // Would normally push
-		await db.insert(factorySettings)
-			.values({ key: "silence_product_prod-1", value: "true", updatedAt: now })
+		await db
+			.insert(factorySettings)
+			.values({ key: "silence_product_prod-1", value: "true", updatedAt: now });
 
 		const notifications: NotificationEvent[] = [];
 		eventBus.on("notification", (e) => notifications.push(e));
@@ -325,11 +321,10 @@ describe("Policy Engine (E7)", () => {
 	it("AC11: silence window - current time in window -> queue", async () => {
 		await seedAgentSkill(2); // Would normally push
 		// Set silence window to cover 00:00–23:59 (always active)
-		await db.insert(factorySettings)
-			.values([
-				{ key: "silence_window_start", value: "00:00", updatedAt: now },
-				{ key: "silence_window_end", value: "23:59", updatedAt: now },
-			])
+		await db.insert(factorySettings).values([
+			{ key: "silence_window_start", value: "00:00", updatedAt: now },
+			{ key: "silence_window_end", value: "23:59", updatedAt: now },
+		]);
 
 		const notifications: NotificationEvent[] = [];
 		eventBus.on("notification", (e) => notifications.push(e));
@@ -350,11 +345,10 @@ describe("Policy Engine (E7)", () => {
 	it("AC11: silence window - current time outside window -> normal rules", async () => {
 		await seedAgentSkill(2); // L2 should push
 		// Set window 22:00–07:00 (overnight)
-		await db.insert(factorySettings)
-			.values([
-				{ key: "silence_window_start", value: "22:00", updatedAt: now },
-				{ key: "silence_window_end", value: "07:00", updatedAt: now },
-			])
+		await db.insert(factorySettings).values([
+			{ key: "silence_window_start", value: "22:00", updatedAt: now },
+			{ key: "silence_window_end", value: "07:00", updatedAt: now },
+		]);
 
 		const notifications: NotificationEvent[] = [];
 		eventBus.on("notification", (e) => notifications.push(e));
@@ -372,11 +366,10 @@ describe("Policy Engine (E7)", () => {
 
 	it("AC11: silence window - overnight wrap (e.g. 22:00-07:00), time is 23:00 -> queue", async () => {
 		await seedAgentSkill(2);
-		await db.insert(factorySettings)
-			.values([
-				{ key: "silence_window_start", value: "22:00", updatedAt: now },
-				{ key: "silence_window_end", value: "07:00", updatedAt: now },
-			])
+		await db.insert(factorySettings).values([
+			{ key: "silence_window_start", value: "22:00", updatedAt: now },
+			{ key: "silence_window_end", value: "07:00", updatedAt: now },
+		]);
 
 		const notifications: NotificationEvent[] = [];
 		eventBus.on("notification", (e) => notifications.push(e));

@@ -5,10 +5,10 @@ import {
 	type HyperIdleDb,
 	products,
 	sessions,
+	type TestDbHandle,
 	tasks,
 	teams,
 	users,
-	type TestDbHandle
 } from "@hyperidle/db";
 import { EventBus } from "@hyperidle/shared";
 import type { Hono } from "hono";
@@ -35,68 +35,62 @@ describe("Status & Settings Endpoints (E6)", () => {
 		app = await createTestApp({ db, eventBus });
 
 		// Seed required data
-		await db.insert(products)
-			.values({
-				id: "prod-1",
-				name: "Test Product",
-				phase: "build",
-				createdAt: new Date().toISOString(),
-			})
+		await db.insert(products).values({
+			id: "prod-1",
+			name: "Test Product",
+			phase: "build",
+			createdAt: new Date().toISOString(),
+		});
 
-		await db.insert(teams)
-			.values({
-				id: "team-1",
-				productId: "prod-1",
-				capacity: 3,
-				activeBets: 0,
-				formedAt: new Date().toISOString(),
-			})
+		await db.insert(teams).values({
+			id: "team-1",
+			productId: "prod-1",
+			capacity: 3,
+			activeBets: 0,
+			formedAt: new Date().toISOString(),
+		});
 
-		await db.insert(users)
-			.values([
-				{
-					id: "agent-1",
-					name: "Builder Bot",
-					role: "builder",
-					status: "idle",
-					teamId: "team-1",
-					costActual: 100,
-					createdAt: new Date().toISOString(),
-				},
-				{
-					id: "agent-2",
-					name: "Growth Bot",
-					role: "growth",
-					status: "active",
-					teamId: "team-1",
-					costActual: 200,
-					createdAt: new Date().toISOString(),
-				},
-			])
-
-		await db.insert(bets)
-			.values({
-				id: "bet-1",
-				productId: "prod-1",
+		await db.insert(users).values([
+			{
+				id: "agent-1",
+				name: "Builder Bot",
+				role: "builder",
+				status: "idle",
 				teamId: "team-1",
-				pitch: "Test",
-				appetite: "small",
-				status: "committed",
+				costActual: 100,
 				createdAt: new Date().toISOString(),
-			})
-
-		await db.insert(tasks)
-			.values({
-				id: "task-1",
-				betId: "bet-1",
-				productId: "prod-1",
+			},
+			{
+				id: "agent-2",
+				name: "Growth Bot",
+				role: "growth",
+				status: "active",
 				teamId: "team-1",
-				title: "Test Task",
-				state: "in_progress",
+				costActual: 200,
 				createdAt: new Date().toISOString(),
-				updatedAt: new Date().toISOString(),
-			})
+			},
+		]);
 
+		await db.insert(bets).values({
+			id: "bet-1",
+			productId: "prod-1",
+			teamId: "team-1",
+			pitch: "Test",
+			appetite: "small",
+			status: "committed",
+			createdAt: new Date().toISOString(),
+		});
+
+		await db.insert(tasks).values({
+			id: "task-1",
+			betId: "bet-1",
+			productId: "prod-1",
+			teamId: "team-1",
+			title: "Test Task",
+			state: "in_progress",
+			createdAt: new Date().toISOString(),
+			updatedAt: new Date().toISOString(),
+		});
 	});
 
 	afterEach(async () => {
@@ -123,27 +117,25 @@ describe("Status & Settings Endpoints (E6)", () => {
 
 		it("counts active sessions correctly", async () => {
 			// Create active session
-			await db.insert(sessions)
-				.values({
-					id: "sess-1",
-					agentId: "agent-1",
-					taskId: "task-1",
-					modelTier: "workhorse",
-					startedAt: new Date().toISOString(),
-					state: "active",
-				})
+			await db.insert(sessions).values({
+				id: "sess-1",
+				agentId: "agent-1",
+				taskId: "task-1",
+				modelTier: "workhorse",
+				startedAt: new Date().toISOString(),
+				state: "active",
+			});
 
 			// Create done session (should not count)
-			await db.insert(sessions)
-				.values({
-					id: "sess-2",
-					agentId: "agent-2",
-					taskId: "task-1",
-					modelTier: "fast",
-					startedAt: new Date().toISOString(),
-					state: "done",
-					endedAt: new Date().toISOString(),
-				})
+			await db.insert(sessions).values({
+				id: "sess-2",
+				agentId: "agent-2",
+				taskId: "task-1",
+				modelTier: "fast",
+				startedAt: new Date().toISOString(),
+				state: "done",
+				endedAt: new Date().toISOString(),
+			});
 
 			const res = await app.request("/api/status", { headers: authHeaders() });
 			const body = (await res.json()) as Record<string, unknown>;
@@ -152,12 +144,11 @@ describe("Status & Settings Endpoints (E6)", () => {
 
 		it("uses factory_start_time from settings if available", async () => {
 			const startTime = "2024-01-01T00:00:00.000Z";
-			await db.insert(factorySettings)
-				.values({
-					key: "factory_start_time",
-					value: startTime,
-					updatedAt: new Date().toISOString(),
-				})
+			await db.insert(factorySettings).values({
+				key: "factory_start_time",
+				value: startTime,
+				updatedAt: new Date().toISOString(),
+			});
 
 			const res = await app.request("/api/status", { headers: authHeaders() });
 			const body = (await res.json()) as Record<string, unknown>;
@@ -176,11 +167,10 @@ describe("Status & Settings Endpoints (E6)", () => {
 		});
 
 		it("returns all settings", async () => {
-			await db.insert(factorySettings)
-				.values([
-					{ key: "cost_cap", value: "10000", updatedAt: new Date().toISOString() },
-					{ key: "max_agents", value: "50", updatedAt: new Date().toISOString() },
-				])
+			await db.insert(factorySettings).values([
+				{ key: "cost_cap", value: "10000", updatedAt: new Date().toISOString() },
+				{ key: "max_agents", value: "50", updatedAt: new Date().toISOString() },
+			]);
 
 			const res = await app.request("/api/status/settings", { headers: authHeaders() });
 			const body = (await res.json()) as Array<Record<string, unknown>>;
@@ -205,8 +195,9 @@ describe("Status & Settings Endpoints (E6)", () => {
 
 		it("updates an existing setting (upsert)", async () => {
 			// Create initial
-			await db.insert(factorySettings)
-				.values({ key: "cost_cap", value: "10000", updatedAt: new Date().toISOString() })
+			await db
+				.insert(factorySettings)
+				.values({ key: "cost_cap", value: "10000", updatedAt: new Date().toISOString() });
 
 			// Update
 			const res = await app.request("/api/status/settings", {
@@ -244,8 +235,9 @@ describe("Status & Settings Endpoints (E6)", () => {
 
 		it("does not return raw secret values in the response body", async () => {
 			const now = new Date().toISOString();
-			await db.insert(factorySettings)
-				.values([...SECRET_ROWS, SAFE_ROW].map((r) => ({ ...r, updatedAt: now })))
+			await db
+				.insert(factorySettings)
+				.values([...SECRET_ROWS, SAFE_ROW].map((r) => ({ ...r, updatedAt: now })));
 
 			const res = await app.request("/api/status/settings", { headers: authHeaders() });
 			expect(res.status).toBe(200);

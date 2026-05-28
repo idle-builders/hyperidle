@@ -76,9 +76,9 @@ describe("applyMigrations", () => {
 
 	it("throws if the migrations folder does not exist", async () => {
 		const dataDir = path.join(tmpDir, "pgdata");
-		await expect(
-			applyMigrations(dataDir, "/nonexistent/migrations/folder"),
-		).rejects.toThrow(/no such file|ENOENT|not found|cannot find/i);
+		await expect(applyMigrations(dataDir, "/nonexistent/migrations/folder")).rejects.toThrow(
+			/no such file|ENOENT|not found|cannot find/i,
+		);
 	});
 });
 

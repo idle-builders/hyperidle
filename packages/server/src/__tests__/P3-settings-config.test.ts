@@ -14,9 +14,7 @@
  * tests only the P3-specific behavior (server_config backing, not factorySettings).
  */
 
-import { createTestDb, type HyperIdleDb, products, users ,
-	type TestDbHandle
-} from "@hyperidle/db";
+import { createTestDb, type HyperIdleDb, products, type TestDbHandle, users } from "@hyperidle/db";
 import { EventBus } from "@hyperidle/shared";
 import type { Hono } from "hono";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -30,7 +28,8 @@ function authHeaders(): Record<string, string> {
 
 async function seedFounderProfile(db: HyperIdleDb): Promise<void> {
 	const now = new Date().toISOString();
-	await db.insert(users)
+	await db
+		.insert(users)
 		.values({
 			id: "p3-settings-founder",
 			kind: "human",
@@ -41,8 +40,7 @@ async function seedFounderProfile(db: HyperIdleDb): Promise<void> {
 			maxConcurrentSessions: 0,
 			createdAt: now,
 		})
-		.onConflictDoNothing()
-
+		.onConflictDoNothing();
 }
 
 describe("P3 AC-10 — Settings route: server_config backing", () => {
@@ -184,8 +182,9 @@ describe("P3 AC-10 — Settings route: server_config backing", () => {
 	describe("Products and users still returned (AC-17 compatibility)", () => {
 		it("GET /api/settings still returns profile section", async () => {
 			const now = new Date().toISOString();
-			await db.insert(products)
-				.values({ id: "p3-prod-1", name: "P3 Test Product", phase: "build", createdAt: now })
+			await db
+				.insert(products)
+				.values({ id: "p3-prod-1", name: "P3 Test Product", phase: "build", createdAt: now });
 
 			const res = await app.request("/api/settings", { headers: authHeaders() });
 			const body = (await res.json()) as {

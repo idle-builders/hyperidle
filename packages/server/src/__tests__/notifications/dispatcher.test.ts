@@ -4,8 +4,8 @@ import {
 	type HyperIdleDb,
 	items as itemsTable,
 	notificationQueue,
+	type TestDbHandle,
 	threads,
-	type TestDbHandle
 } from "@hyperidle/db";
 import {
 	dispatchDigest,
@@ -51,7 +51,10 @@ function createFakeAdapter(
 	};
 }
 
-async function enableNotifications(db: HyperIdleDb, overrides: Record<string, string> = {}): Promise<void> {
+async function enableNotifications(
+	db: HyperIdleDb,
+	overrides: Record<string, string> = {},
+): Promise<void> {
 	const now = "2026-04-18T00:00:00.000Z";
 	const pairs: Record<string, string> = {
 		"notifications.enabled": "true",
@@ -62,28 +65,27 @@ async function enableNotifications(db: HyperIdleDb, overrides: Record<string, st
 		...overrides,
 	};
 	for (const [key, value] of Object.entries(pairs)) {
-		await db.insert(factorySettings)
+		await db
+			.insert(factorySettings)
 			.values({ key, value, updatedAt: now })
 			.onConflictDoUpdate({
 				target: factorySettings.key,
 				set: { value, updatedAt: now },
-			})
-
+			});
 	}
 }
 
 async function seedThread(db: HyperIdleDb): Promise<string> {
 	const threadId = "thread-dispatch";
-	await db.insert(threads)
-		.values({
-			id: threadId,
-			hostKind: "task",
-			hostId: "task-1",
-			initiatorId: "agent-1",
-			participants: JSON.stringify(["agent-1"]),
-			lastActiveAt: "2026-04-18T00:00:00.000Z",
-			createdAt: "2026-04-18T00:00:00.000Z",
-		})
+	await db.insert(threads).values({
+		id: threadId,
+		hostKind: "task",
+		hostId: "task-1",
+		initiatorId: "agent-1",
+		participants: JSON.stringify(["agent-1"]),
+		lastActiveAt: "2026-04-18T00:00:00.000Z",
+		createdAt: "2026-04-18T00:00:00.000Z",
+	});
 
 	return threadId;
 }
@@ -98,18 +100,16 @@ async function createItem(
 		threadId: string;
 	},
 ): Promise<void> {
-	await db.insert(itemsTable)
-		.values({
-			id: params.id,
-			kind: "approval",
-			title: params.title ?? `Item ${params.id}`,
-			body: `Body for ${params.id}`,
-			blocking: params.blocking ?? 0,
-			riskTier: params.riskTier ?? null,
-			threadId: params.threadId,
-			createdAt: "2026-04-18T00:00:00.000Z",
-		})
-
+	await db.insert(itemsTable).values({
+		id: params.id,
+		kind: "approval",
+		title: params.title ?? `Item ${params.id}`,
+		body: `Body for ${params.id}`,
+		blocking: params.blocking ?? 0,
+		riskTier: params.riskTier ?? null,
+		threadId: params.threadId,
+		createdAt: "2026-04-18T00:00:00.000Z",
+	});
 }
 
 async function emitItemCreated(bus: EventBus, itemId: string): Promise<void> {
@@ -269,7 +269,8 @@ describe("H2 Dispatcher (AC4 silence + AC5 policy)", () => {
 
 		// Lift silence with a proper upsert — the onConflictDoUpdate clause
 		// handles both insert and overwrite cases.
-		await db.insert(factorySettings)
+		await db
+			.insert(factorySettings)
 			.values({
 				key: "silence_mode",
 				value: "false",
@@ -278,7 +279,7 @@ describe("H2 Dispatcher (AC4 silence + AC5 policy)", () => {
 			.onConflictDoUpdate({
 				target: factorySettings.key,
 				set: { value: "false", updatedAt: "2026-04-18T00:00:00.000Z" },
-			})
+			});
 
 		const cfg = loadNotificationConfig(db);
 		if (!cfg) throw new Error("config unexpectedly disabled");
@@ -380,21 +381,19 @@ describe("enqueueNotification queue cap (QUEUE_CAP eviction)", () => {
 	): Promise<void> {
 		const baseIso = "2026-04-18T00:00:00.000Z";
 		for (const row of spec) {
-			await db.insert(notificationQueue)
-				.values({
-					id: row.id,
-					eventType: "item_created",
-					subjectId: null,
-					severity: row.severity,
-					title: row.id,
-					body: "",
-					reason: row.severity === "digest" ? "digest" : "silence",
-					channel: row.severity === "digest" ? "console" : null,
-					status: "pending",
-					attempts: 0,
-					createdAt: new Date(Date.parse(baseIso) + row.offsetMs).toISOString(),
-				})
-
+			await db.insert(notificationQueue).values({
+				id: row.id,
+				eventType: "item_created",
+				subjectId: null,
+				severity: row.severity,
+				title: row.id,
+				body: "",
+				reason: row.severity === "digest" ? "digest" : "silence",
+				channel: row.severity === "digest" ? "console" : null,
+				status: "pending",
+				attempts: 0,
+				createdAt: new Date(Date.parse(baseIso) + row.offsetMs).toISOString(),
+			});
 		}
 	}
 
@@ -522,21 +521,19 @@ describe("H2 Daily digest (AC6)", () => {
 		await enableNotifications(db);
 		const now = "2026-04-18T08:00:00.000Z";
 		for (const id of ["q-a", "q-b", "q-c"]) {
-			await db.insert(notificationQueue)
-				.values({
-					id,
-					eventType: "item_created",
-					subjectId: id,
-					severity: "digest",
-					title: `Title ${id}`,
-					body: `Body ${id}`,
-					reason: "digest",
-					channel: "console",
-					status: "pending",
-					attempts: 0,
-					createdAt: now,
-				})
-
+			await db.insert(notificationQueue).values({
+				id,
+				eventType: "item_created",
+				subjectId: id,
+				severity: "digest",
+				title: `Title ${id}`,
+				body: `Body ${id}`,
+				reason: "digest",
+				channel: "console",
+				status: "pending",
+				attempts: 0,
+				createdAt: now,
+			});
 		}
 
 		const adapter = createFakeAdapter();
@@ -576,35 +573,33 @@ describe("flushQueue silence gating (adversary review #2)", () => {
 	it("keeps blocking rows queued when silence_mode is active; digest flushes", async () => {
 		await enableNotifications(db, { silence_mode: "true" });
 		const baseIso = "2026-04-18T00:00:00.000Z";
-		await db.insert(notificationQueue)
-			.values({
-				id: "block-sil",
-				eventType: "item_created",
-				subjectId: null,
-				severity: "blocking",
-				title: "held",
-				body: "",
-				reason: "silence",
-				channel: "console",
-				status: "pending",
-				attempts: 0,
-				createdAt: baseIso,
-			})
+		await db.insert(notificationQueue).values({
+			id: "block-sil",
+			eventType: "item_created",
+			subjectId: null,
+			severity: "blocking",
+			title: "held",
+			body: "",
+			reason: "silence",
+			channel: "console",
+			status: "pending",
+			attempts: 0,
+			createdAt: baseIso,
+		});
 
-		await db.insert(notificationQueue)
-			.values({
-				id: "digest-sil",
-				eventType: "item_created",
-				subjectId: null,
-				severity: "digest",
-				title: "batched",
-				body: "",
-				reason: "digest",
-				channel: "console",
-				status: "pending",
-				attempts: 0,
-				createdAt: baseIso,
-			})
+		await db.insert(notificationQueue).values({
+			id: "digest-sil",
+			eventType: "item_created",
+			subjectId: null,
+			severity: "digest",
+			title: "batched",
+			body: "",
+			reason: "digest",
+			channel: "console",
+			status: "pending",
+			attempts: 0,
+			createdAt: baseIso,
+		});
 
 		const adapter = createFakeAdapter();
 		const cfg = loadNotificationConfig(db);
@@ -624,20 +619,19 @@ describe("flushQueue silence gating (adversary review #2)", () => {
 
 	it("cost_breach severity pages through even during silence", async () => {
 		await enableNotifications(db, { silence_mode: "true" });
-		await db.insert(notificationQueue)
-			.values({
-				id: "cost-1",
-				eventType: "cost_cap_breached",
-				subjectId: null,
-				severity: "cost_breach",
-				title: "factory cap",
-				body: "",
-				reason: "silence",
-				channel: "console",
-				status: "pending",
-				attempts: 0,
-				createdAt: "2026-04-18T00:00:00.000Z",
-			})
+		await db.insert(notificationQueue).values({
+			id: "cost-1",
+			eventType: "cost_cap_breached",
+			subjectId: null,
+			severity: "cost_breach",
+			title: "factory cap",
+			body: "",
+			reason: "silence",
+			channel: "console",
+			status: "pending",
+			attempts: 0,
+			createdAt: "2026-04-18T00:00:00.000Z",
+		});
 
 		const adapter = createFakeAdapter();
 		const cfg = loadNotificationConfig(db);
@@ -666,20 +660,19 @@ describe("flushQueue channel routing (adversary review #18)", () => {
 			"notifications.primary_channel": "console",
 			"notifications.recipient_ntfy_topic": "alerts",
 		});
-		await db.insert(notificationQueue)
-			.values({
-				id: "q-ntfy",
-				eventType: "item_created",
-				subjectId: null,
-				severity: "blocking",
-				title: "routed by channel",
-				body: "",
-				reason: "retry",
-				channel: "ntfy",
-				status: "pending",
-				attempts: 0,
-				createdAt: "2026-04-18T00:00:00.000Z",
-			})
+		await db.insert(notificationQueue).values({
+			id: "q-ntfy",
+			eventType: "item_created",
+			subjectId: null,
+			severity: "blocking",
+			title: "routed by channel",
+			body: "",
+			reason: "retry",
+			channel: "ntfy",
+			status: "pending",
+			attempts: 0,
+			createdAt: "2026-04-18T00:00:00.000Z",
+		});
 
 		const builtChannels: string[] = [];
 		const cfg = loadNotificationConfig(db);
@@ -711,20 +704,19 @@ describe("At-least-once delivery (claim lease)", () => {
 
 	it("claims row as 'sending' before adapter; marks 'sent' after success", async () => {
 		await enableNotifications(db);
-		await db.insert(notificationQueue)
-			.values({
-				id: "aq-1",
-				eventType: "item_created",
-				subjectId: null,
-				severity: "digest",
-				title: "digest-alo",
-				body: "",
-				reason: "digest",
-				channel: "console",
-				status: "pending",
-				attempts: 0,
-				createdAt: "2026-04-18T00:00:00.000Z",
-			})
+		await db.insert(notificationQueue).values({
+			id: "aq-1",
+			eventType: "item_created",
+			subjectId: null,
+			severity: "digest",
+			title: "digest-alo",
+			body: "",
+			reason: "digest",
+			channel: "console",
+			status: "pending",
+			attempts: 0,
+			createdAt: "2026-04-18T00:00:00.000Z",
+		});
 
 		let observedStatus: string | null = null;
 		const adapter: NotificationAdapter & { calls: AdapterCall[] } = {
@@ -755,21 +747,20 @@ describe("At-least-once delivery (claim lease)", () => {
 	it("recoverStuckLeases requeues rows whose 'sending' lease expired", async () => {
 		const now = new Date("2026-04-18T01:00:00.000Z");
 		const oldClaim = new Date("2026-04-18T00:00:00.000Z").toISOString(); // 1h ago
-		await db.insert(notificationQueue)
-			.values({
-				id: "stuck-1",
-				eventType: "item_created",
-				subjectId: null,
-				severity: "digest",
-				title: "lost row",
-				body: "",
-				reason: "digest",
-				channel: "console",
-				status: "sending",
-				attempts: 1,
-				createdAt: oldClaim,
-				claimedAt: oldClaim,
-			})
+		await db.insert(notificationQueue).values({
+			id: "stuck-1",
+			eventType: "item_created",
+			subjectId: null,
+			severity: "digest",
+			title: "lost row",
+			body: "",
+			reason: "digest",
+			channel: "console",
+			status: "sending",
+			attempts: 1,
+			createdAt: oldClaim,
+			claimedAt: oldClaim,
+		});
 
 		const recovered = recoverStuckLeases(db, now);
 		expect(recovered).toBe(1);
@@ -785,21 +776,20 @@ describe("At-least-once delivery (claim lease)", () => {
 	it("does not requeue rows whose 'sending' lease is still fresh", async () => {
 		const now = new Date("2026-04-18T00:01:00.000Z");
 		const freshClaim = new Date("2026-04-18T00:00:30.000Z").toISOString(); // 30s ago
-		await db.insert(notificationQueue)
-			.values({
-				id: "fresh-1",
-				eventType: "item_created",
-				subjectId: null,
-				severity: "digest",
-				title: "fresh lease",
-				body: "",
-				reason: "digest",
-				channel: "console",
-				status: "sending",
-				attempts: 1,
-				createdAt: freshClaim,
-				claimedAt: freshClaim,
-			})
+		await db.insert(notificationQueue).values({
+			id: "fresh-1",
+			eventType: "item_created",
+			subjectId: null,
+			severity: "digest",
+			title: "fresh lease",
+			body: "",
+			reason: "digest",
+			channel: "console",
+			status: "sending",
+			attempts: 1,
+			createdAt: freshClaim,
+			claimedAt: freshClaim,
+		});
 
 		const recovered = recoverStuckLeases(db, now);
 		expect(recovered).toBe(0);
@@ -814,21 +804,20 @@ describe("At-least-once delivery (claim lease)", () => {
 	it("simulates crash-after-adapter-success-before-DB-update → next flush re-sends", async () => {
 		await enableNotifications(db);
 		const oldClaim = new Date("2026-04-18T00:00:00.000Z").toISOString();
-		await db.insert(notificationQueue)
-			.values({
-				id: "crash-1",
-				eventType: "item_created",
-				subjectId: null,
-				severity: "digest",
-				title: "interrupted",
-				body: "",
-				reason: "digest",
-				channel: "console",
-				status: "sending",
-				attempts: 1,
-				createdAt: oldClaim,
-				claimedAt: oldClaim, // lease > 5 min ago
-			})
+		await db.insert(notificationQueue).values({
+			id: "crash-1",
+			eventType: "item_created",
+			subjectId: null,
+			severity: "digest",
+			title: "interrupted",
+			body: "",
+			reason: "digest",
+			channel: "console",
+			status: "sending",
+			attempts: 1,
+			createdAt: oldClaim,
+			claimedAt: oldClaim, // lease > 5 min ago
+		});
 
 		const adapter = createFakeAdapter();
 		const cfg = loadNotificationConfig(db);

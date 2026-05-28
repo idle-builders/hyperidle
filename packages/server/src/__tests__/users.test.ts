@@ -11,11 +11,11 @@ import {
 	items,
 	messages,
 	products,
+	type TestDbHandle,
 	teams,
 	threads,
 	userSkills,
 	users,
-	type TestDbHandle
 } from "@hyperidle/db";
 import { type DomainEvent, EventBus } from "@hyperidle/shared";
 import type { Hono } from "hono";
@@ -43,53 +43,48 @@ describe("User Endpoints /api/users (E6 — renamed from agents)", () => {
 		app = await createTestApp({ db, eventBus });
 
 		// Seed product and team
-		await db.insert(products)
-			.values({
-				id: "prod-1",
-				name: "Test Product",
-				phase: "build",
-				createdAt: NOW,
-			})
+		await db.insert(products).values({
+			id: "prod-1",
+			name: "Test Product",
+			phase: "build",
+			createdAt: NOW,
+		});
 
-		await db.insert(teams)
-			.values({
-				id: "team-1",
-				productId: "prod-1",
-				capacity: 3,
-				activeBets: 0,
-				formedAt: NOW,
-			})
+		await db.insert(teams).values({
+			id: "team-1",
+			productId: "prod-1",
+			capacity: 3,
+			activeBets: 0,
+			formedAt: NOW,
+		});
 
 		// Seed AI users (formerly agents)
-		await db.insert(users)
-			.values([
-				{
-					id: "agent-1",
-					kind: "ai",
-					name: "Builder Bot",
-					role: "builder",
-					status: "idle",
-					teamId: "team-1",
-					createdAt: NOW,
-				},
-				{
-					id: "agent-2",
-					kind: "ai",
-					name: "Growth Bot",
-					role: "growth",
-					status: "active",
-					teamId: "team-1",
-					createdAt: NOW,
-				},
-			])
+		await db.insert(users).values([
+			{
+				id: "agent-1",
+				kind: "ai",
+				name: "Builder Bot",
+				role: "builder",
+				status: "idle",
+				teamId: "team-1",
+				createdAt: NOW,
+			},
+			{
+				id: "agent-2",
+				kind: "ai",
+				name: "Growth Bot",
+				role: "growth",
+				status: "active",
+				teamId: "team-1",
+				createdAt: NOW,
+			},
+		]);
 
 		// Seed user skills (formerly agent skills)
-		await db.insert(userSkills)
-			.values([
-				{ userId: "agent-1", skillId: "coding", autonomyLevel: 2 },
-				{ userId: "agent-1", skillId: "testing", autonomyLevel: 3 },
-			])
-
+		await db.insert(userSkills).values([
+			{ userId: "agent-1", skillId: "coding", autonomyLevel: 2 },
+			{ userId: "agent-1", skillId: "testing", autonomyLevel: 3 },
+		]);
 	});
 
 	afterEach(async () => {
@@ -221,27 +216,25 @@ describe("User Endpoints /api/users (E6 — renamed from agents)", () => {
 	describe("AC8: GET /api/users/:id/inbox", () => {
 		it("returns messages for the user", async () => {
 			// Seed a thread and message
-			await db.insert(threads)
-				.values({
-					id: "thread-1",
-					hostKind: "agent",
-					hostId: "agent-1",
-					initiatorId: "agent-2",
-					participants: JSON.stringify(["agent-2", "agent-1"]),
-					lastActiveAt: NOW,
-					createdAt: NOW,
-				})
+			await db.insert(threads).values({
+				id: "thread-1",
+				hostKind: "agent",
+				hostId: "agent-1",
+				initiatorId: "agent-2",
+				participants: JSON.stringify(["agent-2", "agent-1"]),
+				lastActiveAt: NOW,
+				createdAt: NOW,
+			});
 
-			await db.insert(messages)
-				.values({
-					id: "msg-1",
-					senderId: "agent-2",
-					threadId: "thread-1",
-					type: "plain",
-					payload: JSON.stringify({ text: "Hello!" }),
-					clientKey: "msg-1",
-					createdAt: NOW,
-				})
+			await db.insert(messages).values({
+				id: "msg-1",
+				senderId: "agent-2",
+				threadId: "thread-1",
+				type: "plain",
+				payload: JSON.stringify({ text: "Hello!" }),
+				clientKey: "msg-1",
+				createdAt: NOW,
+			});
 
 			const res = await app.request("/api/users/agent-1/inbox", { headers: authHeaders() });
 			expect(res.status).toBe(200);

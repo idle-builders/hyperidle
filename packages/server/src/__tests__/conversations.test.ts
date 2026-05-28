@@ -3,10 +3,10 @@ import {
 	type HyperIdleDb,
 	items,
 	products,
+	type TestDbHandle,
 	teams,
 	threads,
 	users,
-	type TestDbHandle
 } from "@hyperidle/db";
 import type { ItemCreatedEvent } from "@hyperidle/shared";
 import { EventBus } from "@hyperidle/shared";
@@ -34,37 +34,33 @@ describe("Conversations Endpoints (E2)", () => {
 		app = await createTestApp({ db, eventBus });
 
 		// Seed base data
-		await db.insert(products)
-			.values({
-				id: "prod-1",
-				name: "Test Product",
-				phase: "build",
-				createdAt: new Date().toISOString(),
-			})
+		await db.insert(products).values({
+			id: "prod-1",
+			name: "Test Product",
+			phase: "build",
+			createdAt: new Date().toISOString(),
+		});
 
-		await db.insert(teams)
-			.values({
-				id: "team-1",
-				productId: "prod-1",
-				capacity: 3,
-				activeBets: 0,
-				formedAt: new Date().toISOString(),
-			})
+		await db.insert(teams).values({
+			id: "team-1",
+			productId: "prod-1",
+			capacity: 3,
+			activeBets: 0,
+			formedAt: new Date().toISOString(),
+		});
 
 		// L1a: verdict messages set sender_id='policy_engine' as the synthetic
 		// sender for system-recorded verdicts. The new `messages.sender_id` FK
 		// requires the agent to exist (legacy `responses.approver_id` had no
 		// FK). Seeding the synthetic agent satisfies the constraint without
 		// changing test intent.
-		await db.insert(users)
-			.values({
-				id: "policy_engine",
-				name: "Policy Engine",
-				role: "system",
-				status: "active",
-				createdAt: new Date().toISOString(),
-			})
-
+		await db.insert(users).values({
+			id: "policy_engine",
+			name: "Policy Engine",
+			role: "system",
+			status: "active",
+			createdAt: new Date().toISOString(),
+		});
 	});
 
 	afterEach(async () => {
@@ -77,27 +73,25 @@ describe("Conversations Endpoints (E2)", () => {
 	describe("GET /api/conversations", () => {
 		it("lists threads sorted by recency (default)", async () => {
 			const now = Date.now();
-			await db.insert(threads)
-				.values({
-					id: "t-old",
-					hostKind: "task",
-					hostId: "task-1",
-					initiatorId: "agent-1",
-					participants: JSON.stringify(["agent-1"]),
-					lastActiveAt: new Date(now - 10000).toISOString(),
-					createdAt: new Date(now - 10000).toISOString(),
-				})
+			await db.insert(threads).values({
+				id: "t-old",
+				hostKind: "task",
+				hostId: "task-1",
+				initiatorId: "agent-1",
+				participants: JSON.stringify(["agent-1"]),
+				lastActiveAt: new Date(now - 10000).toISOString(),
+				createdAt: new Date(now - 10000).toISOString(),
+			});
 
-			await db.insert(threads)
-				.values({
-					id: "t-new",
-					hostKind: "task",
-					hostId: "task-1",
-					initiatorId: "agent-1",
-					participants: JSON.stringify(["agent-1"]),
-					lastActiveAt: new Date(now).toISOString(),
-					createdAt: new Date(now).toISOString(),
-				})
+			await db.insert(threads).values({
+				id: "t-new",
+				hostKind: "task",
+				hostId: "task-1",
+				initiatorId: "agent-1",
+				participants: JSON.stringify(["agent-1"]),
+				lastActiveAt: new Date(now).toISOString(),
+				createdAt: new Date(now).toISOString(),
+			});
 
 			const res = await app.request("/api/conversations", { headers: authHeaders() });
 			expect(res.status).toBe(200);
@@ -117,27 +111,25 @@ describe("Conversations Endpoints (E2)", () => {
 			// ?sort=attention_score falls through to recency sort. Test verifies
 			// the endpoint still returns 200 with threads in some order.
 			const now = Date.now();
-			await db.insert(threads)
-				.values({
-					id: "t-older",
-					hostKind: "task",
-					hostId: "task-1",
-					initiatorId: "agent-1",
-					participants: JSON.stringify(["agent-1"]),
-					lastActiveAt: new Date(now - 10000).toISOString(),
-					createdAt: new Date(now - 10000).toISOString(),
-				})
+			await db.insert(threads).values({
+				id: "t-older",
+				hostKind: "task",
+				hostId: "task-1",
+				initiatorId: "agent-1",
+				participants: JSON.stringify(["agent-1"]),
+				lastActiveAt: new Date(now - 10000).toISOString(),
+				createdAt: new Date(now - 10000).toISOString(),
+			});
 
-			await db.insert(threads)
-				.values({
-					id: "t-newer",
-					hostKind: "task",
-					hostId: "task-1",
-					initiatorId: "agent-1",
-					participants: JSON.stringify(["agent-1"]),
-					lastActiveAt: new Date(now).toISOString(),
-					createdAt: new Date(now).toISOString(),
-				})
+			await db.insert(threads).values({
+				id: "t-newer",
+				hostKind: "task",
+				hostId: "task-1",
+				initiatorId: "agent-1",
+				participants: JSON.stringify(["agent-1"]),
+				lastActiveAt: new Date(now).toISOString(),
+				createdAt: new Date(now).toISOString(),
+			});
 
 			const res = await app.request("/api/conversations?sort=attention_score", {
 				headers: authHeaders(),
@@ -155,17 +147,15 @@ describe("Conversations Endpoints (E2)", () => {
 		it("paginates correctly", async () => {
 			for (let i = 0; i < 5; i++) {
 				const ts = new Date(Date.now() - i * 1000).toISOString();
-				await db.insert(threads)
-					.values({
-						id: `t-${i}`,
-						hostKind: "task",
-						hostId: "task-1",
-						initiatorId: "agent-1",
-						participants: JSON.stringify(["agent-1"]),
-						lastActiveAt: ts,
-						createdAt: ts,
-					})
-
+				await db.insert(threads).values({
+					id: `t-${i}`,
+					hostKind: "task",
+					hostId: "task-1",
+					initiatorId: "agent-1",
+					participants: JSON.stringify(["agent-1"]),
+					lastActiveAt: ts,
+					createdAt: ts,
+				});
 			}
 
 			const res = await app.request("/api/conversations?page=2&limit=2", {
@@ -197,32 +187,29 @@ describe("Conversations Endpoints (E2)", () => {
 
 	describe("GET /api/conversations/:threadId", () => {
 		it("returns thread with items and an empty responses[] (verdicts now live on /api/threads)", async () => {
-			await db.insert(threads)
-				.values({
-					id: "thread-1",
-					hostKind: "task",
-					hostId: "task-1",
-					initiatorId: "agent-1",
-					participants: JSON.stringify(["agent-1"]),
-					lastActiveAt: new Date().toISOString(),
-					createdAt: new Date().toISOString(),
-				})
+			await db.insert(threads).values({
+				id: "thread-1",
+				hostKind: "task",
+				hostId: "task-1",
+				initiatorId: "agent-1",
+				participants: JSON.stringify(["agent-1"]),
+				lastActiveAt: new Date().toISOString(),
+				createdAt: new Date().toISOString(),
+			});
 
-			await db.insert(items)
-				.values({
-					id: "item-1",
-					title: "First item",
-					threadId: "thread-1",
-					createdAt: new Date().toISOString(),
-				})
+			await db.insert(items).values({
+				id: "item-1",
+				title: "First item",
+				threadId: "thread-1",
+				createdAt: new Date().toISOString(),
+			});
 
-			await db.insert(items)
-				.values({
-					id: "item-2",
-					title: "Second item",
-					threadId: "thread-1",
-					createdAt: new Date(Date.now() + 1000).toISOString(),
-				})
+			await db.insert(items).values({
+				id: "item-2",
+				title: "Second item",
+				threadId: "thread-1",
+				createdAt: new Date(Date.now() + 1000).toISOString(),
+			});
 
 			const res = await app.request("/api/conversations/thread-1", { headers: authHeaders() });
 			expect(res.status).toBe(200);
@@ -253,17 +240,15 @@ describe("Conversations Endpoints (E2)", () => {
 
 	describe("POST /api/conversations/items", () => {
 		beforeEach(async () => {
-			await db.insert(threads)
-				.values({
-					id: "thread-1",
-					hostKind: "task",
-					hostId: "task-1",
-					initiatorId: "agent-1",
-					participants: JSON.stringify(["agent-1"]),
-					lastActiveAt: new Date().toISOString(),
-					createdAt: new Date().toISOString(),
-				})
-
+			await db.insert(threads).values({
+				id: "thread-1",
+				hostKind: "task",
+				hostId: "task-1",
+				initiatorId: "agent-1",
+				participants: JSON.stringify(["agent-1"]),
+				lastActiveAt: new Date().toISOString(),
+				createdAt: new Date().toISOString(),
+			});
 		});
 
 		it("creates item and returns 201", async () => {
@@ -351,24 +336,21 @@ describe("Conversations Endpoints (E2)", () => {
 		beforeEach(async () => {
 			// Seed a founder approver and a non-founder review author so the
 			// canonical route's authz check (founder + not-self) passes.
-			await db.insert(users)
-				.values({
-					id: "founder-1",
-					name: "Founder",
-					role: "founder",
-					status: "active",
-					createdAt: new Date().toISOString(),
-				})
+			await db.insert(users).values({
+				id: "founder-1",
+				name: "Founder",
+				role: "founder",
+				status: "active",
+				createdAt: new Date().toISOString(),
+			});
 
-			await db.insert(users)
-				.values({
-					id: "agent-1",
-					name: "Agent",
-					role: "growth",
-					status: "active",
-					createdAt: new Date().toISOString(),
-				})
-
+			await db.insert(users).values({
+				id: "agent-1",
+				name: "Agent",
+				role: "growth",
+				status: "active",
+				createdAt: new Date().toISOString(),
+			});
 		});
 
 		it("records a verdict on a review and returns 201", async () => {
@@ -500,25 +482,23 @@ describe("Conversations Endpoints (E2)", () => {
 	// not a kernel concern. Tests updated to verify items are created without routing.
 	describe("Founder routing integration (O2: founderRoute removed)", () => {
 		it("agent with role 'growth' -> item created without founderRoute field", async () => {
-			await db.insert(threads)
-				.values({
-					id: "thread-1",
-					hostKind: "task",
-					hostId: "task-1",
-					initiatorId: "agent-1",
-					participants: JSON.stringify(["agent-1"]),
-					lastActiveAt: new Date().toISOString(),
-					createdAt: new Date().toISOString(),
-				})
+			await db.insert(threads).values({
+				id: "thread-1",
+				hostKind: "task",
+				hostId: "task-1",
+				initiatorId: "agent-1",
+				participants: JSON.stringify(["agent-1"]),
+				lastActiveAt: new Date().toISOString(),
+				createdAt: new Date().toISOString(),
+			});
 
-			await db.insert(users)
-				.values({
-					id: "agent-growth",
-					name: "Growth Agent",
-					role: "growth",
-					status: "active",
-					createdAt: new Date().toISOString(),
-				})
+			await db.insert(users).values({
+				id: "agent-growth",
+				name: "Growth Agent",
+				role: "growth",
+				status: "active",
+				createdAt: new Date().toISOString(),
+			});
 
 			const res = await app.request("/api/conversations/items", {
 				method: "POST",
@@ -538,25 +518,23 @@ describe("Conversations Endpoints (E2)", () => {
 		});
 
 		it("agent with role 'builder' -> item created without founderRoute field", async () => {
-			await db.insert(threads)
-				.values({
-					id: "thread-1",
-					hostKind: "task",
-					hostId: "task-1",
-					initiatorId: "agent-1",
-					participants: JSON.stringify(["agent-1"]),
-					lastActiveAt: new Date().toISOString(),
-					createdAt: new Date().toISOString(),
-				})
+			await db.insert(threads).values({
+				id: "thread-1",
+				hostKind: "task",
+				hostId: "task-1",
+				initiatorId: "agent-1",
+				participants: JSON.stringify(["agent-1"]),
+				lastActiveAt: new Date().toISOString(),
+				createdAt: new Date().toISOString(),
+			});
 
-			await db.insert(users)
-				.values({
-					id: "agent-builder",
-					name: "Builder Agent",
-					role: "builder",
-					status: "active",
-					createdAt: new Date().toISOString(),
-				})
+			await db.insert(users).values({
+				id: "agent-builder",
+				name: "Builder Agent",
+				role: "builder",
+				status: "active",
+				createdAt: new Date().toISOString(),
+			});
 
 			const res = await app.request("/api/conversations/items", {
 				method: "POST",

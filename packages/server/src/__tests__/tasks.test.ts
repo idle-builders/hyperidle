@@ -1,4 +1,13 @@
-import { bets, createTestDb, type HyperIdleDb, products, tasks, teams, users, type TestDbHandle } from "@hyperidle/db";
+import {
+	bets,
+	createTestDb,
+	type HyperIdleDb,
+	products,
+	type TestDbHandle,
+	tasks,
+	teams,
+	users,
+} from "@hyperidle/db";
 import { EventBus } from "@hyperidle/shared";
 import type { Hono } from "hono";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -25,30 +34,40 @@ describe("Task Endpoints (E3)", () => {
 
 		// Seed product, team, and a bet
 		const now = new Date().toISOString();
-		await db.insert(products)
-			.values({ id: "prod-1", name: "Test Product", phase: "build", createdAt: now })
+		await db
+			.insert(products)
+			.values({ id: "prod-1", name: "Test Product", phase: "build", createdAt: now });
 
-		await db.insert(teams)
-			.values({ id: "team-1", productId: "prod-1", capacity: 5, activeBets: 0, formedAt: now })
+		await db
+			.insert(teams)
+			.values({ id: "team-1", productId: "prod-1", capacity: 5, activeBets: 0, formedAt: now });
 
-		await db.insert(bets)
-			.values({
-				id: "bet-1",
-				productId: "prod-1",
-				teamId: "team-1",
-				pitch: "Test bet",
-				appetite: "small",
-				status: "in_progress",
-				createdAt: now,
-			})
+		await db.insert(bets).values({
+			id: "bet-1",
+			productId: "prod-1",
+			teamId: "team-1",
+			pitch: "Test bet",
+			appetite: "small",
+			status: "in_progress",
+			createdAt: now,
+		});
 
 		// Seed agents for FK references
-		await db.insert(users)
-			.values({ id: "agent-1", name: "Agent 1", role: "builder", status: "active", createdAt: now })
+		await db.insert(users).values({
+			id: "agent-1",
+			name: "Agent 1",
+			role: "builder",
+			status: "active",
+			createdAt: now,
+		});
 
-		await db.insert(users)
-			.values({ id: "agent-2", name: "Agent 2", role: "builder", status: "active", createdAt: now })
-
+		await db.insert(users).values({
+			id: "agent-2",
+			name: "Agent 2",
+			role: "builder",
+			status: "active",
+			createdAt: now,
+		});
 	});
 
 	afterEach(async () => {
@@ -58,19 +77,17 @@ describe("Task Endpoints (E3)", () => {
 
 	async function seedTask(id: string, overrides?: Record<string, unknown>): Promise<void> {
 		const now = new Date().toISOString();
-		await db.insert(tasks)
-			.values({
-				id,
-				betId: "bet-1",
-				productId: "prod-1",
-				teamId: "team-1",
-				title: `Task ${id}`,
-				state: "proposed",
-				createdAt: now,
-				updatedAt: now,
-				...overrides,
-			} as Record<string, unknown>)
-
+		await db.insert(tasks).values({
+			id,
+			betId: "bet-1",
+			productId: "prod-1",
+			teamId: "team-1",
+			title: `Task ${id}`,
+			state: "proposed",
+			createdAt: now,
+			updatedAt: now,
+			...overrides,
+		} as Record<string, unknown>);
 	}
 
 	// AC8: GET /api/tasks — list, filterable by bet_id, state, owner
@@ -88,16 +105,15 @@ describe("Task Endpoints (E3)", () => {
 		it("filters by bet_id", async () => {
 			await seedTask("t1");
 			// Create another bet and task
-			await db.insert(bets)
-				.values({
-					id: "bet-2",
-					productId: "prod-1",
-					teamId: "team-1",
-					pitch: "Other bet",
-					appetite: "medium",
-					status: "shaped",
-					createdAt: new Date().toISOString(),
-				})
+			await db.insert(bets).values({
+				id: "bet-2",
+				productId: "prod-1",
+				teamId: "team-1",
+				pitch: "Other bet",
+				appetite: "medium",
+				status: "shaped",
+				createdAt: new Date().toISOString(),
+			});
 
 			await seedTask("t2", { betId: "bet-2" });
 

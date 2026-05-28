@@ -43,11 +43,7 @@ export function createRoutineRoutes(db: HyperIdleDb, eventBus: EventBus): Hono {
 		// at every call site — out of scope for the G4 fix-pack.
 		const body = c.req.valid("json" as never) as z.infer<typeof updateRoutineSchema>;
 
-		const [existing] = await db
-			.select()
-			.from(routines)
-			.where(eq(routines.id, routineId))
-			.limit(1);
+		const [existing] = await db.select().from(routines).where(eq(routines.id, routineId)).limit(1);
 		if (!existing) {
 			return c.json({ error: "Routine not found", code: API_ERROR_CODES.NOT_FOUND }, 404);
 		}
@@ -62,11 +58,7 @@ export function createRoutineRoutes(db: HyperIdleDb, eventBus: EventBus): Hono {
 			await db.update(routines).set(updates).where(eq(routines.id, routineId));
 		}
 
-		const [updated] = await db
-			.select()
-			.from(routines)
-			.where(eq(routines.id, routineId))
-			.limit(1);
+		const [updated] = await db.select().from(routines).where(eq(routines.id, routineId)).limit(1);
 		return c.json(updated);
 	});
 
@@ -74,22 +66,14 @@ export function createRoutineRoutes(db: HyperIdleDb, eventBus: EventBus): Hono {
 	router.post("/:id/retire", async (c) => {
 		const routineId = c.req.param("id");
 
-		const [existing] = await db
-			.select()
-			.from(routines)
-			.where(eq(routines.id, routineId))
-			.limit(1);
+		const [existing] = await db.select().from(routines).where(eq(routines.id, routineId)).limit(1);
 		if (!existing) {
 			return c.json({ error: "Routine not found", code: API_ERROR_CODES.NOT_FOUND }, 404);
 		}
 
 		await db.update(routines).set({ active: false }).where(eq(routines.id, routineId));
 
-		const [updated] = await db
-			.select()
-			.from(routines)
-			.where(eq(routines.id, routineId))
-			.limit(1);
+		const [updated] = await db.select().from(routines).where(eq(routines.id, routineId)).limit(1);
 		return c.json(updated);
 	});
 
@@ -97,11 +81,7 @@ export function createRoutineRoutes(db: HyperIdleDb, eventBus: EventBus): Hono {
 	router.post("/:id/trigger", async (c) => {
 		const routineId = c.req.param("id");
 
-		const [routine] = await db
-			.select()
-			.from(routines)
-			.where(eq(routines.id, routineId))
-			.limit(1);
+		const [routine] = await db.select().from(routines).where(eq(routines.id, routineId)).limit(1);
 		if (!routine) {
 			return c.json({ error: "Routine not found", code: API_ERROR_CODES.NOT_FOUND }, 404);
 		}
@@ -188,11 +168,7 @@ export function createRoutineRoutes(db: HyperIdleDb, eventBus: EventBus): Hono {
 			timestamp: Date.now(),
 		} satisfies SessionStartedEvent);
 
-		const [created] = await db
-			.select()
-			.from(sessions)
-			.where(eq(sessions.id, sessionId))
-			.limit(1);
+		const [created] = await db.select().from(sessions).where(eq(sessions.id, sessionId)).limit(1);
 		return c.json(created, 201);
 	});
 

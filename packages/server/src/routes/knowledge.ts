@@ -273,11 +273,7 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 		const id = c.req.param("id");
 		const userId = c.get("userId");
 
-		const [item] = await db
-			.select()
-			.from(knowledgeItems)
-			.where(eq(knowledgeItems.id, id))
-			.limit(1);
+		const [item] = await db.select().from(knowledgeItems).where(eq(knowledgeItems.id, id)).limit(1);
 
 		if (!item) {
 			const response: ApiErrorResponse = {
@@ -769,11 +765,7 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 	router.post("/:id/archive", async (c) => {
 		const id = c.req.param("id");
 
-		const [item] = await db
-			.select()
-			.from(knowledgeItems)
-			.where(eq(knowledgeItems.id, id))
-			.limit(1);
+		const [item] = await db.select().from(knowledgeItems).where(eq(knowledgeItems.id, id)).limit(1);
 
 		if (!item) {
 			const response: ApiErrorResponse = {
@@ -828,11 +820,7 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 		const id = c.req.param("id");
 		const body = c.req.valid("json" as never) as z.infer<typeof flagSchema>;
 
-		const [item] = await db
-			.select()
-			.from(knowledgeItems)
-			.where(eq(knowledgeItems.id, id))
-			.limit(1);
+		const [item] = await db.select().from(knowledgeItems).where(eq(knowledgeItems.id, id)).limit(1);
 
 		if (!item) {
 			const response: ApiErrorResponse = {

@@ -107,8 +107,20 @@ describe("buildAttentionContext", () => {
 			kind: "pattern",
 		});
 		await seedItem(db, { id: "two", layer: "L3", scopeId: "prod", topic: "auth", kind: "pattern" });
-		await seedItem(db, { id: "three", layer: "L3", scopeId: "prod", topic: "auth", kind: "pattern" });
-		await seedItem(db, { id: "other", layer: "L3", scopeId: "prod", topic: "brand", kind: "pattern" });
+		await seedItem(db, {
+			id: "three",
+			layer: "L3",
+			scopeId: "prod",
+			topic: "auth",
+			kind: "pattern",
+		});
+		await seedItem(db, {
+			id: "other",
+			layer: "L3",
+			scopeId: "prod",
+			topic: "brand",
+			kind: "pattern",
+		});
 
 		const ctx = await buildAttentionContext(db, [one], NOW);
 		const key = cohortKey("L3", "prod", "auth", "pattern");
@@ -116,7 +128,13 @@ describe("buildAttentionContext", () => {
 	});
 
 	it("returns crossScopeCount of distinct scopes per (layer, topic, kind), excluding null scope_id", async () => {
-		const a = await seedItem(db, { id: "a", layer: "L3", scopeId: "prod-a", topic: "auth", kind: "pattern" });
+		const a = await seedItem(db, {
+			id: "a",
+			layer: "L3",
+			scopeId: "prod-a",
+			topic: "auth",
+			kind: "pattern",
+		});
 		await seedItem(db, { id: "b", layer: "L3", scopeId: "prod-b", topic: "auth", kind: "pattern" });
 		await seedItem(db, { id: "c", layer: "L3", scopeId: "prod-c", topic: "auth", kind: "pattern" });
 		// Null scope — should NOT count
@@ -128,9 +146,30 @@ describe("buildAttentionContext", () => {
 	});
 
 	it("filters status=archived out of both cohort and cross-scope counts", async () => {
-		const a = await seedItem(db, { id: "a", layer: "L3", scopeId: "s1", topic: "auth", kind: "pattern", status: "active" });
-		await seedItem(db, { id: "b", layer: "L3", scopeId: "s1", topic: "auth", kind: "pattern", status: "archived" });
-		await seedItem(db, { id: "c", layer: "L3", scopeId: "s2", topic: "auth", kind: "pattern", status: "archived" });
+		const a = await seedItem(db, {
+			id: "a",
+			layer: "L3",
+			scopeId: "s1",
+			topic: "auth",
+			kind: "pattern",
+			status: "active",
+		});
+		await seedItem(db, {
+			id: "b",
+			layer: "L3",
+			scopeId: "s1",
+			topic: "auth",
+			kind: "pattern",
+			status: "archived",
+		});
+		await seedItem(db, {
+			id: "c",
+			layer: "L3",
+			scopeId: "s2",
+			topic: "auth",
+			kind: "pattern",
+			status: "archived",
+		});
 
 		const ctx = await buildAttentionContext(db, [a], NOW);
 		expect(ctx.cohortSizeByKey.get(cohortKey("L3", "s1", "auth", "pattern"))).toBe(1);

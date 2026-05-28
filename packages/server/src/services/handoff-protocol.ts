@@ -63,11 +63,7 @@ export async function handoff(
 	// Pre-transaction reads + validation (safe to do outside the tx: these
 	// reads do not mutate state, and the tx callback below re-reads any row
 	// it updates to avoid stale snapshots on concurrent handoffs).
-	const [task] = await db
-		.select()
-		.from(tasks)
-		.where(eq(tasks.id, sessionContext.taskId))
-		.limit(1);
+	const [task] = await db.select().from(tasks).where(eq(tasks.id, sessionContext.taskId)).limit(1);
 	if (!task) {
 		throw new Error(`Task not found: ${sessionContext.taskId}`);
 	}
@@ -269,11 +265,7 @@ export async function handoff(
 
 		// 4. Log the handoff in tasks.auditTrail. Re-read via `tx` so we
 		// observe the state-transition entry appended above (toHuman path).
-		const [freshTask] = await tx
-			.select()
-			.from(tasks)
-			.where(eq(tasks.id, task.id))
-			.limit(1);
+		const [freshTask] = await tx.select().from(tasks).where(eq(tasks.id, task.id)).limit(1);
 		const existingAudit: TaskAuditEntry[] = freshTask?.auditTrail
 			? (JSON.parse(freshTask.auditTrail) as TaskAuditEntry[])
 			: [];

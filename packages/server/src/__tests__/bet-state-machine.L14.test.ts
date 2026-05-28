@@ -5,8 +5,13 @@
  * that file must NOT be changed — these are additive.
  */
 
-import { bets, createTestDb, type HyperIdleDb, products, teams ,
-	type TestDbHandle
+import {
+	bets,
+	createTestDb,
+	type HyperIdleDb,
+	products,
+	type TestDbHandle,
+	teams,
 } from "@hyperidle/db";
 import { EventBus } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";

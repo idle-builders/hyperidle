@@ -19,12 +19,12 @@ import * as os from "node:os";
 import * as path from "node:path";
 import {
 	createTestDb,
-	factorySettings,
 	type FactorySetting,
+	factorySettings,
 	type HyperIdleDb,
 	knowledgeItems,
 	knowledgeStrategyFabric,
-	type TestDbHandle
+	type TestDbHandle,
 } from "@hyperidle/db";
 import {
 	createGitRunner,
@@ -82,35 +82,39 @@ async function setCfg(
 	if (cfg.remoteUrl) rows.push({ key: "git_export.remote_url", value: cfg.remoteUrl });
 
 	for (const r of rows) {
-		await db.insert(factorySettings)
+		await db
+			.insert(factorySettings)
 			.values({ key: r.key, value: r.value, updatedAt: NOW_ISO })
 			.onConflictDoUpdate({
 				target: factorySettings.key,
 				set: { value: r.value, updatedAt: NOW_ISO },
-			})
-
+			});
 	}
 }
 
 // @lore O2: layer/kind/scopeId are in knowledgeStrategyFabric; kernel only holds
 // identity + content. Both tables must be seeded for computeExportPlan to find
 // the item (INNER JOIN on fabric).
-async function seedL4Principles(db: HyperIdleDb, body: string, id = "ki-principles"): Promise<void> {
-	await db.insert(knowledgeItems)
-		.values({
-			id,
-			topic: null,
-			title: "Factory principles",
-			body,
-			format: "markdown",
-			status: "active",
-			version: 1,
-			updatedBy: "test",
-			createdAt: NOW_ISO,
-			updatedAt: NOW_ISO,
-		})
+async function seedL4Principles(
+	db: HyperIdleDb,
+	body: string,
+	id = "ki-principles",
+): Promise<void> {
+	await db.insert(knowledgeItems).values({
+		id,
+		topic: null,
+		title: "Factory principles",
+		body,
+		format: "markdown",
+		status: "active",
+		version: 1,
+		updatedBy: "test",
+		createdAt: NOW_ISO,
+		updatedAt: NOW_ISO,
+	});
 
-	await db.insert(knowledgeStrategyFabric)
+	await db
+		.insert(knowledgeStrategyFabric)
 		.values({
 			id: `ksf-${id}`,
 			knowledgeItemId: id,
@@ -118,8 +122,7 @@ async function seedL4Principles(db: HyperIdleDb, body: string, id = "ki-principl
 			kind: "PRINCIPLES",
 			scopeId: null,
 		})
-		.onConflictDoNothing()
-
+		.onConflictDoNothing();
 }
 
 async function seedL2Brief(
@@ -128,21 +131,21 @@ async function seedL2Brief(
 	body: string,
 	id = `ki-${productId}-brief`,
 ): Promise<void> {
-	await db.insert(knowledgeItems)
-		.values({
-			id,
-			topic: null,
-			title: `${productId} brief`,
-			body,
-			format: "markdown",
-			status: "active",
-			version: 1,
-			updatedBy: "test",
-			createdAt: NOW_ISO,
-			updatedAt: NOW_ISO,
-		})
+	await db.insert(knowledgeItems).values({
+		id,
+		topic: null,
+		title: `${productId} brief`,
+		body,
+		format: "markdown",
+		status: "active",
+		version: 1,
+		updatedBy: "test",
+		createdAt: NOW_ISO,
+		updatedAt: NOW_ISO,
+	});
 
-	await db.insert(knowledgeStrategyFabric)
+	await db
+		.insert(knowledgeStrategyFabric)
 		.values({
 			id: `ksf-${id}`,
 			knowledgeItemId: id,
@@ -150,8 +153,7 @@ async function seedL2Brief(
 			kind: "BRIEF",
 			scopeId: productId,
 		})
-		.onConflictDoNothing()
-
+		.onConflictDoNothing();
 }
 
 function gitInRepo(repoPath: string, cmd: string): string {
@@ -311,21 +313,21 @@ describe("Git Export — integration (real git)", () => {
 		await setCfg(db, { repoPath: env.repoPath, remoteUrl: env.remoteUrl });
 
 		const big = `${"# 🎯 Reflection\n\n".repeat(5)}${"café résumé ñ 日本語 ☃\n".repeat(2000)}`;
-		await db.insert(knowledgeItems)
-			.values({
-				id: "ki-refl",
-				topic: "2026-04",
-				title: "April reflection",
-				body: big,
-				format: "markdown",
-				status: "active",
-				version: 1,
-				updatedBy: "test",
-				createdAt: NOW_ISO,
-				updatedAt: NOW_ISO,
-			})
+		await db.insert(knowledgeItems).values({
+			id: "ki-refl",
+			topic: "2026-04",
+			title: "April reflection",
+			body: big,
+			format: "markdown",
+			status: "active",
+			version: 1,
+			updatedBy: "test",
+			createdAt: NOW_ISO,
+			updatedAt: NOW_ISO,
+		});
 
-		await db.insert(knowledgeStrategyFabric)
+		await db
+			.insert(knowledgeStrategyFabric)
 			.values({
 				id: "ksf-ki-refl",
 				knowledgeItemId: "ki-refl",
@@ -333,7 +335,7 @@ describe("Git Export — integration (real git)", () => {
 				kind: "REFLECTION",
 				scopeId: null,
 			})
-			.onConflictDoNothing()
+			.onConflictDoNothing();
 
 		const runner = createGitRunner(env.repoPath);
 		await runGitExport(db, { runner, fs: createNodeFsAdapter() });
@@ -400,21 +402,21 @@ describe("Git Export — integration (real git)", () => {
 		// A second edit must still result in a clean commit on a branch —
 		// we at minimum want runGitExport to NOT throw and to produce a
 		// meaningful result. Add a new item so there is something to commit.
-		await db.insert(knowledgeItems)
-			.values({
-				id: "ki-detach-2",
-				topic: null,
-				title: "alpha brief",
-				body: "# alpha\n",
-				format: "markdown",
-				status: "active",
-				version: 1,
-				updatedBy: "test",
-				createdAt: NOW_ISO,
-				updatedAt: NOW_ISO,
-			})
+		await db.insert(knowledgeItems).values({
+			id: "ki-detach-2",
+			topic: null,
+			title: "alpha brief",
+			body: "# alpha\n",
+			format: "markdown",
+			status: "active",
+			version: 1,
+			updatedBy: "test",
+			createdAt: NOW_ISO,
+			updatedAt: NOW_ISO,
+		});
 
-		await db.insert(knowledgeStrategyFabric)
+		await db
+			.insert(knowledgeStrategyFabric)
 			.values({
 				id: "ksf-ki-detach-2",
 				knowledgeItemId: "ki-detach-2",
@@ -422,7 +424,7 @@ describe("Git Export — integration (real git)", () => {
 				kind: "BRIEF",
 				scopeId: "alpha",
 			})
-			.onConflictDoNothing()
+			.onConflictDoNothing();
 
 		const result = await runGitExport(db, { runner, fs: realFs });
 		// Result may be "committed"/"pushed" or "error" depending on the git
