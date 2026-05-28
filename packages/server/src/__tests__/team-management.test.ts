@@ -59,7 +59,7 @@ describe("C4: Team Management", () => {
 			await seedAgent(db, "a2");
 			await seedAgent(db, "a3");
 
-			const team = createTeam(db, {
+			const team = await createTeam(db, {
 				productId: "prod-1",
 				capacity: 5,
 				agentIds: ["a1", "a2", "a3"],
@@ -83,7 +83,7 @@ describe("C4: Team Management", () => {
 		it("sets leadAgentId when provided", async () => {
 			await seedAgent(db, "a1");
 
-			const team = createTeam(db, {
+			const team = await createTeam(db, {
 				productId: "prod-1",
 				capacity: 3,
 				leadAgentId: "a1",
@@ -97,13 +97,13 @@ describe("C4: Team Management", () => {
 	describe("addMember", () => {
 		it("updates agent team_id to the target team", async () => {
 			await seedAgent(db, "a1");
-			const team = createTeam(db, {
+			const team = await createTeam(db, {
 				productId: "prod-1",
 				capacity: 5,
 				agentIds: [],
 			});
 
-			addMember(db, team.id, "a1");
+			await addMember(db, team.id, "a1");
 
 			const [agent] = await db.select().from(users).where(eq(users.id, "a1"));
 			expect(agent?.teamId).toBe(team.id);
@@ -113,7 +113,7 @@ describe("C4: Team Management", () => {
 	describe("removeMember", () => {
 		it("throws ActiveRoutinesError when agent has active routines", async () => {
 			await seedAgent(db, "a1");
-			const team = createTeam(db, {
+			const team = await createTeam(db, {
 				productId: "prod-1",
 				capacity: 5,
 				agentIds: ["a1"],
@@ -127,18 +127,18 @@ describe("C4: Team Management", () => {
 					active: true,
 				})
 
-			expect(() => removeMember(db, team.id, "a1")).toThrow(ActiveRoutinesError);
+			await expect(removeMember(db, team.id, "a1")).rejects.toThrow(ActiveRoutinesError);
 		});
 
 		it("removes member successfully when no active routines", async () => {
 			await seedAgent(db, "a1");
-			const team = createTeam(db, {
+			const team = await createTeam(db, {
 				productId: "prod-1",
 				capacity: 5,
 				agentIds: ["a1"],
 			});
 
-			removeMember(db, team.id, "a1");
+			await removeMember(db, team.id, "a1");
 
 			const [agent] = await db.select().from(users).where(eq(users.id, "a1"));
 			expect(agent?.teamId).toBeNull();
@@ -146,7 +146,7 @@ describe("C4: Team Management", () => {
 
 		it("allows removal when agent has only inactive routines", async () => {
 			await seedAgent(db, "a1");
-			const team = createTeam(db, {
+			const team = await createTeam(db, {
 				productId: "prod-1",
 				capacity: 5,
 				agentIds: ["a1"],
@@ -160,7 +160,7 @@ describe("C4: Team Management", () => {
 					active: false,
 				})
 
-			removeMember(db, team.id, "a1");
+			await removeMember(db, team.id, "a1");
 
 			const [agent] = await db.select().from(users).where(eq(users.id, "a1"));
 			expect(agent?.teamId).toBeNull();
@@ -170,21 +170,21 @@ describe("C4: Team Management", () => {
 	describe("getAvailableCapacity", () => {
 		it("returns capacity - activeBets", async () => {
 			await seedAgent(db, "a1");
-			const team = createTeam(db, {
+			const team = await createTeam(db, {
 				productId: "prod-1",
 				capacity: 5,
 				agentIds: ["a1"],
 			});
 
-			expect(getAvailableCapacity(db, team.id)).toBe(5);
+			expect(await getAvailableCapacity(db, team.id)).toBe(5);
 
 			await db.update(teams).set({ activeBets: 3 }).where(eq(teams.id, team.id));
 
-			expect(getAvailableCapacity(db, team.id)).toBe(2);
+			expect(await getAvailableCapacity(db, team.id)).toBe(2);
 		});
 
 		it("returns 0 when at capacity", async () => {
-			const team = createTeam(db, {
+			const team = await createTeam(db, {
 				productId: "prod-1",
 				capacity: 2,
 				agentIds: [],
@@ -192,7 +192,7 @@ describe("C4: Team Management", () => {
 
 			await db.update(teams).set({ activeBets: 2 }).where(eq(teams.id, team.id));
 
-			expect(getAvailableCapacity(db, team.id)).toBe(0);
+			expect(await getAvailableCapacity(db, team.id)).toBe(0);
 		});
 	});
 
@@ -200,13 +200,13 @@ describe("C4: Team Management", () => {
 		it("sets dissolved_at and unlinks all agents", async () => {
 			await seedAgent(db, "a1");
 			await seedAgent(db, "a2");
-			const team = createTeam(db, {
+			const team = await createTeam(db, {
 				productId: "prod-1",
 				capacity: 5,
 				agentIds: ["a1", "a2"],
 			});
 
-			dissolveTeam(db, team.id);
+			await dissolveTeam(db, team.id);
 
 			const [dissolved] = await db.select().from(teams).where(eq(teams.id, team.id));
 			expect(dissolved?.dissolvedAt).not.toBeNull();
@@ -222,7 +222,7 @@ describe("C4: Team Management", () => {
 		it("returns sum of session costs for agents in the current cycle", async () => {
 			await seedAgent(db, "a1");
 			await seedAgent(db, "a2");
-			const team = createTeam(db, {
+			const team = await createTeam(db, {
 				productId: "prod-1",
 				capacity: 5,
 				agentIds: ["a1", "a2"],
@@ -274,35 +274,35 @@ describe("C4: Team Management", () => {
 					state: "completed",
 				})
 
-			const cost = getTeamCost(db, team.id, "2026-04-01T00:00:00.000Z");
+			const cost = await getTeamCost(db, team.id, "2026-04-01T00:00:00.000Z");
 			expect(cost).toBe(0);
 		});
 
-		it("returns 0 when no agents in team", () => {
-			const team = createTeam(db, {
+		it("returns 0 when no agents in team", async () => {
+			const team = await createTeam(db, {
 				productId: "prod-1",
 				capacity: 5,
 				agentIds: [],
 			});
 
-			const cost = getTeamCost(db, team.id, "2026-04-01T00:00:00.000Z");
+			const cost = await getTeamCost(db, team.id, "2026-04-01T00:00:00.000Z");
 			expect(cost).toBe(0);
 		});
 	});
 
 	describe("capacity enforcement", () => {
-		it("capacity 0 means no availability for new bets", () => {
-			const team = createTeam(db, {
+		it("capacity 0 means no availability for new bets", async () => {
+			const team = await createTeam(db, {
 				productId: "prod-1",
 				capacity: 0,
 				agentIds: [],
 			});
 
-			expect(getAvailableCapacity(db, team.id)).toBe(0);
+			expect(await getAvailableCapacity(db, team.id)).toBe(0);
 		});
 
 		it("full capacity returns 0 available", async () => {
-			const team = createTeam(db, {
+			const team = await createTeam(db, {
 				productId: "prod-1",
 				capacity: 3,
 				agentIds: [],
@@ -310,7 +310,7 @@ describe("C4: Team Management", () => {
 
 			await db.update(teams).set({ activeBets: 3 }).where(eq(teams.id, team.id));
 
-			expect(getAvailableCapacity(db, team.id)).toBe(0);
+			expect(await getAvailableCapacity(db, team.id)).toBe(0);
 		});
 	});
 });

@@ -90,7 +90,7 @@ describe("I3: dependency-watcher SQL filter benchmark", () => {
 		}
 
 		const start = performance.now();
-		checkAndUnblockDependents(db, eventBus, "target");
+		await checkAndUnblockDependents(db, eventBus, "target");
 		const elapsedMs = performance.now() - start;
 
 		const [dependent] = await db.select().from(tasks).where(eq(tasks.id, "dependent"));
@@ -127,7 +127,7 @@ describe("I3: dependency-watcher SQL filter benchmark", () => {
 				updatedAt: now,
 			})
 
-		expect(() => checkAndUnblockDependents(db, eventBus, "target")).not.toThrow();
+		await expect(checkAndUnblockDependents(db, eventBus, "target")).resolves.not.toThrow();
 		const [dependent] = await db.select().from(tasks).where(eq(tasks.id, "dependent"));
 		expect(dependent?.state).toBe("accepted");
 	});
@@ -152,7 +152,7 @@ describe("I3: dependency-watcher LIKE prefix-collision guard", () => {
 		await insertTask(db, "dep-12", "in_progress");
 		await insertTask(db, "dependent", "hold", ["dep-12"]);
 
-		checkAndUnblockDependents(db, eventBus, "dep-1");
+		await checkAndUnblockDependents(db, eventBus, "dep-1");
 
 		const [dependent] = await db.select().from(tasks).where(eq(tasks.id, "dependent"));
 		// Must remain in hold — dep-12 is NOT done.
@@ -164,7 +164,7 @@ describe("I3: dependency-watcher LIKE prefix-collision guard", () => {
 		await insertTask(db, "dep-100", "in_progress");
 		await insertTask(db, "sibling", "hold", ["dep-100"]);
 
-		checkAndUnblockDependents(db, eventBus, "dep-1");
+		await checkAndUnblockDependents(db, eventBus, "dep-1");
 
 		const [sibling] = await db.select().from(tasks).where(eq(tasks.id, "sibling"));
 		expect(sibling?.state).toBe("hold");

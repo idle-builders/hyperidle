@@ -66,7 +66,7 @@ describe("Dependency Watcher", () => {
 			await insertTask(db, "dep-1", "done");
 			await insertTask(db, "dependent", "hold", ["dep-1"]);
 
-			checkAndUnblockDependents(db, eventBus, "dep-1");
+			await checkAndUnblockDependents(db, eventBus, "dep-1");
 
 			const [task] = await db.select().from(tasks).where(eq(tasks.id, "dependent"));
 			expect(task?.state).toBe("accepted");
@@ -76,7 +76,7 @@ describe("Dependency Watcher", () => {
 			await insertTask(db, "dep-1", "done");
 			await insertTask(db, "dependent", "in_progress", ["dep-1"]);
 
-			checkAndUnblockDependents(db, eventBus, "dep-1");
+			await checkAndUnblockDependents(db, eventBus, "dep-1");
 
 			const [task] = await db.select().from(tasks).where(eq(tasks.id, "dependent"));
 			expect(task?.state).toBe("in_progress");
@@ -85,7 +85,7 @@ describe("Dependency Watcher", () => {
 		it("handles tasks with no dependents gracefully", async () => {
 			await insertTask(db, "standalone", "done");
 			// Should not throw
-			checkAndUnblockDependents(db, eventBus, "standalone");
+			await checkAndUnblockDependents(db, eventBus, "standalone");
 		});
 	});
 
@@ -95,7 +95,7 @@ describe("Dependency Watcher", () => {
 			await insertTask(db, "dep-2", "in_progress");
 			await insertTask(db, "dependent", "hold", ["dep-1", "dep-2"]);
 
-			checkAndUnblockDependents(db, eventBus, "dep-1");
+			await checkAndUnblockDependents(db, eventBus, "dep-1");
 
 			const [task] = await db.select().from(tasks).where(eq(tasks.id, "dependent"));
 			expect(task?.state).toBe("hold");
@@ -106,7 +106,7 @@ describe("Dependency Watcher", () => {
 			await insertTask(db, "dep-2", "done");
 			await insertTask(db, "dependent", "hold", ["dep-1", "dep-2"]);
 
-			checkAndUnblockDependents(db, eventBus, "dep-2");
+			await checkAndUnblockDependents(db, eventBus, "dep-2");
 
 			const [task] = await db.select().from(tasks).where(eq(tasks.id, "dependent"));
 			expect(task?.state).toBe("accepted");
@@ -121,7 +121,7 @@ describe("Dependency Watcher", () => {
 			const notifications: NotificationEvent[] = [];
 			eventBus.on("notification", (e: unknown) => notifications.push(e));
 
-			checkAndUnblockDependents(db, eventBus, "dep-1");
+			await checkAndUnblockDependents(db, eventBus, "dep-1");
 
 			expect(notifications).toHaveLength(1);
 			expect(notifications[0].targetId).toBe("dependent");
@@ -136,7 +136,7 @@ describe("Dependency Watcher", () => {
 			const events: TaskStateChangedEvent[] = [];
 			eventBus.on("task_state_changed", (e: unknown) => events.push(e));
 
-			checkAndUnblockDependents(db, eventBus, "dep-1");
+			await checkAndUnblockDependents(db, eventBus, "dep-1");
 
 			expect(events).toHaveLength(1);
 			expect(events[0].taskId).toBe("dependent");
@@ -152,7 +152,7 @@ describe("Dependency Watcher", () => {
 			const notifications: NotificationEvent[] = [];
 			eventBus.on("notification", (e: unknown) => notifications.push(e));
 
-			checkAndUnblockDependents(db, eventBus, "dep-1");
+			await checkAndUnblockDependents(db, eventBus, "dep-1");
 
 			expect(notifications).toHaveLength(0);
 		});
@@ -174,7 +174,7 @@ describe("Dependency Watcher", () => {
 			// escape, the SQL LIKE pattern `%"any%id"%` would match the
 			// stored dependency `"anyREALLYid"`. With the escape it
 			// doesn't.
-			checkAndUnblockDependents(db, eventBus, "any%id");
+			await checkAndUnblockDependents(db, eventBus, "any%id");
 
 			const [task] = await db.select().from(tasks).where(eq(tasks.id, "dependent"));
 			expect(task?.state).toBe("hold");
@@ -186,7 +186,7 @@ describe("Dependency Watcher", () => {
 
 			// SQL `_` is single-char wildcard; without escape `dep_1` would
 			// match `depX1`. Escape forces literal.
-			checkAndUnblockDependents(db, eventBus, "dep_1");
+			await checkAndUnblockDependents(db, eventBus, "dep_1");
 
 			const [task] = await db.select().from(tasks).where(eq(tasks.id, "dependent"));
 			expect(task?.state).toBe("hold");
@@ -199,7 +199,7 @@ describe("Dependency Watcher", () => {
 			await insertTask(db, "dependent-a", "hold", ["dep-1"]);
 			await insertTask(db, "dependent-b", "hold", ["dep-1"]);
 
-			checkAndUnblockDependents(db, eventBus, "dep-1");
+			await checkAndUnblockDependents(db, eventBus, "dep-1");
 
 			const [taskA] = await db.select().from(tasks).where(eq(tasks.id, "dependent-a"));
 			const [taskB] = await db.select().from(tasks).where(eq(tasks.id, "dependent-b"));
