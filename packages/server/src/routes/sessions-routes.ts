@@ -116,7 +116,7 @@ export function createSessionRoutes(
 			}
 
 			// Look up task to get productId.
-			const task = db.select().from(tasks).where(eq(tasks.id, body.taskId)).get();
+			const [task] = await db.select().from(tasks).where(eq(tasks.id, body.taskId)).limit(1);
 			if (!task) {
 				return c.json({ error: "Task not found", code: API_ERROR_CODES.NOT_FOUND }, 404);
 			}
@@ -140,11 +140,11 @@ export function createSessionRoutes(
 					},
 				);
 
-				const sessionRow = db
+				const [sessionRow] = await db
 					.select()
 					.from(sessions)
 					.where(eq(sessions.id, result.sessionId))
-					.get();
+					.limit(1);
 				return c.json(sessionRow, 200);
 			} catch (err) {
 				if (err instanceof CostCapExceededError) {
