@@ -1,9 +1,10 @@
 import type { HyperIdleDb } from "@hyperidle/db";
 import { defaultNotificationAdapterFactory } from "@hyperidle/fabric";
-import type { ApiErrorResponse } from "@hyperidle/shared";
+import type { ApiErrorResponse, HarnessAdapter } from "@hyperidle/shared";
 import { API_ERROR_CODES, createLogger, EventBus } from "@hyperidle/shared";
 import { Hono } from "hono";
 import { createUpgradeTokenStore, type UpgradeTokenStore } from "./auth/upgrade-token-store.js";
+import type { WorkspaceAdapter } from "./harness/workspace-adapter.js";
 import { authMiddleware, createAuthMiddleware } from "./middleware/auth.js";
 import { createBodyLimit } from "./middleware/body-limit.js";
 import { corsMiddleware } from "./middleware/cors.js";
@@ -32,6 +33,7 @@ import { createTaskRoutes } from "./routes/tasks.js";
 import { registerTestRoutes } from "./routes/test-routes.js";
 import { createThreadRoutes } from "./routes/threads.js";
 import { createUserRoutes, createUserSetupRoute } from "./routes/users.js";
+import type { CredentialResolver } from "./services/credential-resolver.js";
 import {
 	type ObservabilityConfig,
 	readObservabilityConfig,
@@ -108,6 +110,25 @@ interface AppOptions {
 	 * TTL; production wiring uses `createUpgradeTokenStore()`.
 	 */
 	upgradeTokenStore?: UpgradeTokenStore;
+	/**
+	 * Harness adapter for running agent sessions. When provided alongside
+	 * `workspaceAdapter`, POST /api/sessions routes through `provisionSession`
+	 * instead of a bare DB insert (R1).
+	 */
+	harnessAdapter?: HarnessAdapter;
+	/**
+	 * Workspace adapter for provisioning/destroying agent workspaces (R1).
+	 */
+	workspaceAdapter?: WorkspaceAdapter;
+	/**
+	 * Base path where workspaces are created. Defaults to a tmp directory in
+	 * production (R1).
+	 */
+	workspaceBasePath?: string;
+	/**
+	 * Credential resolver for pre-flight API key checks (R1).
+	 */
+	credentialResolver?: CredentialResolver;
 }
 
 function buildObservabilityAdapter(cfg: ObservabilityConfig): ObservabilityAdapter | null {
@@ -284,7 +305,15 @@ function createApp(options?: AppOptions): Hono {
 		// instance will see the buffer populated correctly.
 		const activityBuffer = new SessionActivityBuffer(eventBus);
 		activityBuffer.start();
-		api.route("/sessions", createSessionRoutes(options.db, eventBus, activityBuffer));
+		api.route(
+			"/sessions",
+			createSessionRoutes(options.db, eventBus, activityBuffer, {
+				harnessAdapter: options.harnessAdapter,
+				workspaceAdapter: options.workspaceAdapter,
+				workspaceBasePath: options.workspaceBasePath,
+				credentialResolver: options.credentialResolver,
+			}),
+		);
 		api.route("/status", createStatusRoutes(options.db));
 		api.route("/git-export", createGitExportRoutes(options.db));
 		api.route("/credentials", createCredentialRoutes(options.db));
