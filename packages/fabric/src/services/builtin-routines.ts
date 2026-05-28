@@ -83,8 +83,8 @@ interface BuiltinSpec {
 	readonly triggerConfig: Record<string, unknown>;
 	readonly skillId: string;
 	readonly doneCondition: string;
-	readonly humanReview: 0 | 1;
-	readonly silent: 0 | 1;
+	readonly humanReview: boolean;
+	readonly silent: boolean;
 }
 
 /**
@@ -99,8 +99,8 @@ const BUILTIN_SPECS: readonly BuiltinSpec[] = [
 		triggerConfig: { intervalSeconds: COST_SENTINEL_INTERVAL_SECONDS },
 		skillId: "cost_watchdog",
 		doneCondition: "Factory cost spend is below warning threshold",
-		humanReview: 0,
-		silent: 1,
+		humanReview: false,
+		silent: true,
 	},
 	{
 		id: "builtin:practice-meeting",
@@ -109,8 +109,8 @@ const BUILTIN_SPECS: readonly BuiltinSpec[] = [
 		triggerConfig: { cron: PRACTICE_MEETING_CRON },
 		skillId: "practice_meeting",
 		doneCondition: "3-turn practice meeting anchor created",
-		humanReview: 0,
-		silent: 0,
+		humanReview: false,
+		silent: false,
 	},
 	{
 		id: "builtin:post-bet-retro",
@@ -119,8 +119,8 @@ const BUILTIN_SPECS: readonly BuiltinSpec[] = [
 		triggerConfig: { eventType: "bet_state_changed" },
 		skillId: "bet_retro",
 		doneCondition: "Review item comparing hypothesis vs reality written",
-		humanReview: 1,
-		silent: 0,
+		humanReview: true,
+		silent: false,
 	},
 	{
 		id: "builtin:portfolio-retro",
@@ -129,8 +129,8 @@ const BUILTIN_SPECS: readonly BuiltinSpec[] = [
 		triggerConfig: { cron: PORTFOLIO_RETRO_CRON },
 		skillId: "portfolio_retro",
 		doneCondition: "Cross-product portfolio review item written",
-		humanReview: 1,
-		silent: 0,
+		humanReview: true,
+		silent: false,
 	},
 	{
 		id: "builtin:knowledge-decay",
@@ -139,8 +139,8 @@ const BUILTIN_SPECS: readonly BuiltinSpec[] = [
 		triggerConfig: { cron: KNOWLEDGE_DECAY_CRON },
 		skillId: "knowledge_decay",
 		doneCondition: "Stale knowledge items transitioned",
-		humanReview: 0,
-		silent: 1,
+		humanReview: false,
+		silent: true,
 	},
 ];
 
@@ -162,10 +162,10 @@ export async function seedBuiltinRoutines(db: HyperIdleDb): Promise<void> {
 				triggerConfig: JSON.stringify(spec.triggerConfig),
 				skillId: spec.skillId,
 				doneCondition: spec.doneCondition,
-				delegationAllowed: 0,
+				delegationAllowed: false,
 				humanReview: spec.humanReview,
 				silent: spec.silent,
-				active: 1,
+				active: true,
 			})
 			.onConflictDoNothing();
 	}

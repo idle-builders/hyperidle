@@ -390,7 +390,7 @@ async function createReviewItem(
 		body: `The ${params.capLevel}-level cost cap has been breached. Entity: ${params.entityId}, Spend: ${params.spend} cents, Cap: ${params.cap} cents.`,
 		threadId: params.reviewThreadId,
 		riskTier: "high",
-		blocking: 1,
+		blocking: true,
 		createdAt: now,
 	});
 }

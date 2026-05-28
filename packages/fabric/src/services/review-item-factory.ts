@@ -91,7 +91,7 @@ export async function createReviewItemForKnowledge(
 		proposedAction: null,
 		options: null,
 		riskTier: input.riskTier,
-		blocking: 0,
+		blocking: false,
 		reasoning: JSON.stringify(reasoningBlob),
 		threadId,
 		createdAt: isoNow,

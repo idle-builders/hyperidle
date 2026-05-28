@@ -49,7 +49,7 @@ describe("WsBroadcaster — subscribe authorization (L1 Adv-C1)", () => {
 			hostId: "task-1",
 			initiatorId: "u-founder",
 			participants: JSON.stringify(["u-founder", "agent-1"]),
-			pinned: 0,
+			pinned: false,
 			lastActiveAt: now,
 			createdAt: now,
 		});

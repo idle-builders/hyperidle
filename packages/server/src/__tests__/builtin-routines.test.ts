@@ -638,7 +638,7 @@ describe("G4: Built-in Routines", () => {
 			// Flip silent off for this test.
 			await db
 				.update(routines)
-				.set({ silent: 0 })
+				.set({ silent: false })
 				.where(eq(routines.id, "builtin:knowledge-decay"));
 
 			const longAgo = new Date(Date.now() - 95 * 24 * 60 * 60 * 1000).toISOString();
@@ -669,7 +669,7 @@ describe("G4: Built-in Routines", () => {
 	describe("AC8: Disabled routine prevents firing", () => {
 		it("runBuiltinRoutine returns fired=false when routine active=0", async () => {
 			await seedBuiltinRoutines(db);
-			await db.update(routines).set({ active: 0 }).where(eq(routines.id, "builtin:cost-sentinel"));
+			await db.update(routines).set({ active: false }).where(eq(routines.id, "builtin:cost-sentinel"));
 
 			const result = await runBuiltinRoutine(db, eventBus, "builtin:cost-sentinel");
 			expect(result.fired).toBe(false);
@@ -678,7 +678,7 @@ describe("G4: Built-in Routines", () => {
 
 		it("event handler does not run when event routine active=0", async () => {
 			await seedBuiltinRoutines(db);
-			await db.update(routines).set({ active: 0 }).where(eq(routines.id, "builtin:post-bet-retro"));
+			await db.update(routines).set({ active: false }).where(eq(routines.id, "builtin:post-bet-retro"));
 			await db.insert(bets).values({
 				id: "bet-inactive-1",
 				productId: "prod-1",
