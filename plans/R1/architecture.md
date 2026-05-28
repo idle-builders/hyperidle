@@ -93,9 +93,11 @@ Current POST returns the session DB row (201). After wiring, it returns `Provisi
 **Criterion:** ANTHROPIC_API_KEY is resolved from process.env (covering both dev mode and desktop mode where safeStorage sets env vars).
 **Verification:** (a) Test: POST /api/sessions with `ANTHROPIC_API_KEY` unset returns 500 with `MissingCredentialError` message (not an unhandled crash). (b) Test: POST /api/sessions with `ANTHROPIC_API_KEY` set (and mock harness) succeeds.
 
+**AMENDED (critique CRITICAL-1):** `MissingCredentialError` from `harness.startSession()` is caught by provisionSession's bare catch (L315) and converted to `crashed=true` — it never propagates to the route. Fix: add an early credential pre-flight check in the route handler BEFORE calling `provisionSession`. Use `credentialResolver.resolve("anthropic_api_key")` — if null, return 500 with `MissingCredentialError` immediately. This avoids entering the 11-phase orchestrator at all when credentials are missing.
+
 ### AC7: Missing credential error handling
 **Criterion:** When no API key is configured, POST /api/sessions fails with a clear error.
-**Verification:** Integration test stubs `ANTHROPIC_API_KEY` to empty string, POSTs to /api/sessions, asserts 500 response with error message containing "credential" or "API key" (not a stack trace).
+**Verification:** Integration test: unset ANTHROPIC_API_KEY, POST to /api/sessions, assert 500 with error about missing credential. No session row should be created (the pre-flight rejects before provisionSession is called).
 
 ## Ordered task list
 
@@ -113,7 +115,7 @@ Current POST returns the session DB row (201). After wiring, it returns `Provisi
   workspaceAdapter?: WorkspaceAdapter;
   /** Base directory for workspace creation. */
   workspaceBasePath?: string;
-  /** Credential resolver for API key resolution. */
+  /** Credential resolver for API key pre-flight check. */
   credentialResolver?: CredentialResolver;
   ```
 - Update `createSessionRoutes` call at L287 to pass the new deps:
@@ -122,6 +124,7 @@ Current POST returns the session DB row (201). After wiring, it returns `Provisi
     harnessAdapter: options.harnessAdapter,
     workspaceAdapter: options.workspaceAdapter,
     workspaceBasePath: options.workspaceBasePath,
+    credentialResolver: options.credentialResolver,
   }));
   ```
 - Add imports for `HarnessAdapter` from `@hyperidle/shared`, `WorkspaceAdapter` from `../harness/workspace-adapter.js`.
@@ -141,6 +144,7 @@ Current POST returns the session DB row (201). After wiring, it returns `Provisi
     readonly harnessAdapter?: HarnessAdapter;
     readonly workspaceAdapter?: WorkspaceAdapter;
     readonly workspaceBasePath?: string;
+    readonly credentialResolver?: CredentialResolver;
   }
 
   export function createSessionRoutes(
@@ -153,12 +157,12 @@ Current POST returns the session DB row (201). After wiring, it returns `Provisi
 - Replace the POST handler body (L72-98). New logic:
   1. Parse body (same `createSessionSchema` -- agentId, taskId, modelTier).
   2. If `deps?.harnessAdapter` and `deps?.workspaceAdapter` are present:
-     a. Look up task row to get `productId`.
-     b. Build `ProvisionSessionDeps` from injected adapters.
-     c. Build `ProvisionSessionParams` from body + task lookup.
-     d. Call `await provisionSession(deps, params)`.
-     e. Query the completed session row and return it.
-     f. Catch `MissingCredentialError` -> 500 with clear message.
+     a. **Credential pre-flight (CRITICAL-1 fix):** Call `deps.credentialResolver?.resolve("anthropic_api_key")`. If null, return 500 with `{ error: "Missing ANTHROPIC_API_KEY credential", code: "MISSING_CREDENTIAL" }` immediately. This prevents entering the 11-phase orchestrator when credentials are missing.
+     b. Look up task row to get `productId`.
+     c. Build `ProvisionSessionDeps` from injected adapters.
+     d. Build `ProvisionSessionParams` from body + task lookup.
+     e. Call `await provisionSession(provisionDeps, params)`.
+     f. Query the completed session row and return it.
      g. Catch `CostCapExceededError` -> 422 with cap info.
      h. Catch `ConcurrencyLimitError` -> 429 with limit info.
      i. Catch other errors -> 500 with generic message.
@@ -218,11 +222,10 @@ Current POST returns the session DB row (201). After wiring, it returns `Provisi
    - Assert: session_started and session_ended events emitted.
 
 2. **POST /api/sessions with missing credential returns clear error** (AC6, AC7)
-   - Unset ANTHROPIC_API_KEY.
-   - Use ClaudeAgentSdkAdapter (not mock -- test the real credential check).
+   - Create app with `credentialResolver` that returns null for "anthropic_api_key" (or use `EnvCredentialResolver` with `ANTHROPIC_API_KEY` unset).
    - POST /api/sessions.
-   - Assert: 500, response body contains error about missing credential.
-   - Assert: no session row created, no task state change.
+   - Assert: 500, response body has `code: "MISSING_CREDENTIAL"`, error about missing API key.
+   - Assert: no session row created (pre-flight rejects before provisionSession is called).
 
 3. **POST /api/sessions with crashed harness returns crashed session** (AC4)
    - Use ScriptedHarnessAdapter with `throwAfter: 1`.
@@ -276,6 +279,7 @@ interface SessionRouteDeps {
   readonly harnessAdapter?: HarnessAdapter;
   readonly workspaceAdapter?: WorkspaceAdapter;
   readonly workspaceBasePath?: string;
+  readonly credentialResolver?: CredentialResolver;
 }
 ```
 
@@ -294,7 +298,7 @@ export function createSessionRoutes(
 
 | Error type | HTTP status | Response shape |
 |---|---|---|
-| `MissingCredentialError` | 500 | `{ error: "...", code: "MISSING_CREDENTIAL" }` |
+| Missing credential (pre-flight) | 500 | `{ error: "Missing ANTHROPIC_API_KEY credential", code: "MISSING_CREDENTIAL" }` |
 | `CostCapExceededError` | 422 | `{ error: "...", code: "COST_CAP_EXCEEDED" }` |
 | `ConcurrencyLimitError` | 429 | `{ error: "...", code: "CONCURRENCY_LIMIT" }` |
 | Task not found | 404 | `{ error: "Task not found", code: "NOT_FOUND" }` |
