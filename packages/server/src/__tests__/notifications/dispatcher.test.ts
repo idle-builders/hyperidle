@@ -94,7 +94,7 @@ async function createItem(
 	db: HyperIdleDb,
 	params: {
 		id: string;
-		blocking?: number;
+		blocking?: boolean;
 		riskTier?: string | null;
 		title?: string;
 		threadId: string;
@@ -105,7 +105,7 @@ async function createItem(
 		kind: "approval",
 		title: params.title ?? `Item ${params.id}`,
 		body: `Body for ${params.id}`,
-		blocking: params.blocking ?? 0,
+		blocking: params.blocking ?? false,
 		riskTier: params.riskTier ?? null,
 		threadId: params.threadId,
 		createdAt: "2026-04-18T00:00:00.000Z",

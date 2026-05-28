@@ -126,7 +126,7 @@ describe("Routine Endpoints (E6)", () => {
 			expect(res.status).toBe(200);
 
 			const body = (await res.json()) as Record<string, unknown>;
-			expect(body.active).toBe(0);
+			expect(body.active).toBe(false);
 		});
 
 		it("updates trigger config and autonomy level", async () => {
@@ -154,7 +154,7 @@ describe("Routine Endpoints (E6)", () => {
 
 	// AC6: POST /api/routines/:id/retire — retire
 	describe("AC6: POST /api/routines/:id/retire — retire routine", () => {
-		it("retires a routine by setting active=0", async () => {
+		it("retires a routine by setting active=false", async () => {
 			const res = await app.request("/api/routines/routine-1/retire", {
 				method: "POST",
 				headers: authHeaders(),
@@ -162,7 +162,7 @@ describe("Routine Endpoints (E6)", () => {
 			expect(res.status).toBe(200);
 
 			const body = (await res.json()) as Record<string, unknown>;
-			expect(body.active).toBe(0);
+			expect(body.active).toBe(false);
 		});
 
 		it("returns 404 for unknown routine", async () => {

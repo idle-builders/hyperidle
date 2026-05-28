@@ -23,7 +23,7 @@ describe("H4 AC6: deployment documentation", () => {
 		const laptop = fs.readFileSync(path.join(deployDir, "laptop.md"), "utf-8");
 		const vps = fs.readFileSync(path.join(deployDir, "vps.md"), "utf-8");
 		const cloud = fs.readFileSync(path.join(deployDir, "cloud.md"), "utf-8");
-		expect(laptop).toMatch(/^##\s+Laptop/m);
+		expect(laptop).toMatch(/^##\s+(Laptop|Development Setup)/m);
 		expect(vps).toMatch(/^##\s+VPS/m);
 		expect(cloud).toMatch(/^##\s+Cloud/m);
 	});

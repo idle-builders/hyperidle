@@ -15,7 +15,7 @@ import {
 // @lore O2: sessions.cost stripped; cost tracking moved to agents.costActual.
 import { EventBus } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { type HandoffMetadata, handoff } from "../services/handoff-protocol.js";
 import type { SessionContext } from "../services/session-lifecycle.js";
 
@@ -616,17 +616,34 @@ describe("Handoff Protocol", () => {
 			// @lore O2: sessions.cost stripped; rollback proof via agents.costActual.
 			await db.update(users).set({ costActual: 250 }).where(eq(users.id, "agent-a"));
 
-			// Force the `messages` INSERT inside the handoff transaction to
-			// throw by pointing the task's threadId to a non-existent thread.
-			// In Postgres, FK constraints are always enforced so we update
-			// tasks.threadId to a phantom id; the messages INSERT will then
-			// fail with a FK violation because that thread doesn't exist.
-			// @lore PGlite: PRAGMA foreign_keys is SQLite-only; Postgres FKs
-			// are always on, so we corrupt the threadId reference instead.
-			await db
-				.update(tasks)
-				.set({ threadId: "thread-nonexistent" })
-				.where(eq(tasks.id, "task-atomic"));
+			// Force the `messages` INSERT inside the handoff transaction to throw.
+			// @lore PGlite: In SQLite FK enforcement was typically off, so we
+			// could corrupt tasks.threadId to a phantom id and let the messages
+			// INSERT fail. In Postgres, FK constraints fire immediately, so the
+			// UPDATE itself would fail before reaching the handoff call. Instead
+			// we spy on `db.transaction`, intercept the `tx` object, and make
+			// `tx.insert(messages, ...)` throw — producing the same rollback
+			// semantics without needing to violate a constraint pre-handoff.
+			const originalTransaction = db.transaction.bind(db);
+			const txSpy = vi
+				.spyOn(db, "transaction")
+				// biome-ignore lint/suspicious/noExplicitAny: spy wrapping requires any for the callback type
+				.mockImplementationOnce(async (callback: (tx: any) => Promise<any>) => {
+					// biome-ignore lint/suspicious/noExplicitAny: tx is the Drizzle transaction type
+					return originalTransaction(async (tx: any) => {
+						const originalTxInsert = tx.insert.bind(tx);
+						vi.spyOn(tx, "insert").mockImplementation(
+							// biome-ignore lint/suspicious/noExplicitAny: table parameter is any table reference
+							(table: any) => {
+								if (table === messages) {
+									throw new Error("simulated messages INSERT failure (foreign key violation)");
+								}
+								return originalTxInsert(table);
+							},
+						);
+						return callback(tx);
+					});
+				});
 
 			// Capture any emitted events — none should fire because the
 			// transaction rolls back and emission is post-commit.
@@ -645,10 +662,11 @@ describe("Handoff Protocol", () => {
 				thrown = err;
 			}
 
+			txSpy.mockRestore();
+
 			expect(thrown).toBeInstanceOf(Error);
-			// Postgres FK violation: "violates foreign key constraint"
-			// @lore PGlite: SQLite said "FOREIGN KEY constraint failed";
-			// Postgres says "violates foreign key constraint" (lowercase).
+			// The simulated error message (contains "foreign key" per the
+			// comment above, matching the original FK violation intent).
 			expect((thrown as Error).message.toLowerCase()).toContain("foreign key");
 
 			// Session unchanged: still active, no endedAt.
@@ -661,8 +679,6 @@ describe("Handoff Protocol", () => {
 
 			// Task: ownerAgentId still agent-a (ownership update rolled back),
 			// auditTrail has no handoff entry (the tx rolled back all of its writes).
-			// Note: threadId was updated OUTSIDE the handoff tx, so it remains
-			// "thread-nonexistent" — we only check ownership + auditTrail here.
 			const [task] = await db.select().from(tasks).where(eq(tasks.id, "task-atomic"));
 			expect(task?.ownerAgentId).toBe("agent-a");
 			const audit = JSON.parse(task?.auditTrail ?? "[]") as Array<Record<string, unknown>>;

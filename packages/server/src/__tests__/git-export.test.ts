@@ -826,9 +826,12 @@ describe("runGitExport", () => {
 		// For every paired add+commit, commit is after the matching add AND
 		// the next add is after that commit (serialization invariant).
 		for (let i = 0; i < commitIdxs.length; i++) {
-			expect(commitIdxs[i]!).toBeGreaterThan(addIdxs[i]!);
+			const commitIdx = commitIdxs[i] ?? -1;
+			const addIdx = addIdxs[i] ?? -1;
+			expect(commitIdx).toBeGreaterThan(addIdx);
 			if (i + 1 < addIdxs.length) {
-				expect(addIdxs[i + 1]!).toBeGreaterThan(commitIdxs[i]!);
+				const nextAddIdx = addIdxs[i + 1] ?? -1;
+				expect(nextAddIdx).toBeGreaterThan(commitIdx);
 			}
 		}
 	});

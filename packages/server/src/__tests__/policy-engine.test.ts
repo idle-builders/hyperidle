@@ -14,7 +14,7 @@ import {
 import { registerPolicyEngine } from "@hyperidle/fabric";
 import { EventBus, type NotificationEvent } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 // L1a: legacy `responses` table dropped (plan §5.2). Verdicts now project as
 // `verdict`-typed messages whose `legacy_item_id` ties them back to the source
@@ -111,7 +111,7 @@ describe("Policy Engine (E7)", () => {
 			id: string;
 			kind: string;
 			riskTier: string;
-			blocking: number;
+			blocking: boolean;
 			sourceAgentId: string;
 		}> = {},
 	): Promise<string> {
@@ -122,7 +122,7 @@ describe("Policy Engine (E7)", () => {
 			kind: overrides.kind ?? "approval",
 			title: "Test item",
 			riskTier: overrides.riskTier ?? "low",
-			blocking: overrides.blocking ?? 0,
+			blocking: overrides.blocking ?? false,
 			threadId: "thread-1",
 			createdAt: now,
 		});
@@ -159,8 +159,11 @@ describe("Policy Engine (E7)", () => {
 
 		emitItemCreated(itemId);
 
+		await vi.waitFor(async () => {
+			const resp = await selectVerdictsForItem(db, itemId);
+			expect(resp).toHaveLength(1);
+		});
 		const resp = await selectVerdictsForItem(db, itemId);
-		expect(resp).toHaveLength(1);
 		expect(resp[0].itemId).toBe(itemId);
 		expect(resp[0].decision).toBe("approve");
 		expect(resp[0].approverId).toBe("policy_engine");
@@ -175,9 +178,12 @@ describe("Policy Engine (E7)", () => {
 
 		emitItemCreated(itemId);
 
-		const allItems = await db.select().from(items);
-		const item = allItems.find((i) => i.id === itemId);
-		expect(item?.auditTrail).toContain("policy_queued");
+		await vi.waitFor(async () => {
+			const allItems = await db.select().from(items);
+			const item = allItems.find((i) => i.id === itemId);
+			expect(item?.auditTrail).toContain("policy_queued");
+		});
+		await new Promise((r) => setTimeout(r, 100));
 		expect(notifications).toHaveLength(0);
 		// No verdict-typed message created (legacy: no row in `responses`).
 		const resp = await selectVerdictsForItem(db, itemId);
@@ -193,7 +199,7 @@ describe("Policy Engine (E7)", () => {
 
 		emitItemCreated(itemId);
 
-		expect(notifications).toHaveLength(1);
+		await vi.waitFor(() => expect(notifications).toHaveLength(1));
 		expect(notifications[0].targetId).toBe(itemId);
 	});
 
@@ -206,7 +212,7 @@ describe("Policy Engine (E7)", () => {
 
 		emitItemCreated(itemId);
 
-		expect(notifications).toHaveLength(1);
+		await vi.waitFor(() => expect(notifications).toHaveLength(1));
 		expect(notifications[0].targetId).toBe(itemId);
 	});
 
@@ -219,7 +225,7 @@ describe("Policy Engine (E7)", () => {
 
 		emitItemCreated(itemId);
 
-		expect(notifications).toHaveLength(1);
+		await vi.waitFor(() => expect(notifications).toHaveLength(1));
 	});
 
 	it("AC7: high risk + L4 -> NEVER auto-resolve, always push", async () => {
@@ -231,11 +237,10 @@ describe("Policy Engine (E7)", () => {
 
 		emitItemCreated(itemId);
 
+		await vi.waitFor(() => expect(notifications).toHaveLength(1));
 		// No auto-resolve
 		const resp = await selectVerdictsForItem(db, itemId);
 		expect(resp).toHaveLength(0);
-		// Push notification
-		expect(notifications).toHaveLength(1);
 	});
 
 	it("AC8: skill-change kind + L4 -> NEVER auto-resolve, always push", async () => {
@@ -247,9 +252,9 @@ describe("Policy Engine (E7)", () => {
 
 		emitItemCreated(itemId);
 
+		await vi.waitFor(() => expect(notifications).toHaveLength(1));
 		const resp = await selectVerdictsForItem(db, itemId);
 		expect(resp).toHaveLength(0);
-		expect(notifications).toHaveLength(1);
 	});
 
 	it("AC5: silence mode active + non-blocking -> queue all items", async () => {
@@ -262,9 +267,12 @@ describe("Policy Engine (E7)", () => {
 
 		emitItemCreated(itemId);
 
-		const allItems = await db.select().from(items);
-		const item = allItems.find((i) => i.id === itemId);
-		expect(item?.auditTrail).toContain("policy_queued");
+		await vi.waitFor(async () => {
+			const allItems = await db.select().from(items);
+			const item = allItems.find((i) => i.id === itemId);
+			expect(item?.auditTrail).toContain("policy_queued");
+		});
+		await new Promise((r) => setTimeout(r, 100));
 		expect(notifications).toHaveLength(0);
 	});
 
@@ -278,7 +286,7 @@ describe("Policy Engine (E7)", () => {
 
 		emitItemCreated(itemId);
 
-		expect(notifications).toHaveLength(1);
+		await vi.waitFor(() => expect(notifications).toHaveLength(1));
 	});
 
 	it("AC6: auto-resolve creates Response with approver=policy_engine", async () => {
@@ -291,8 +299,11 @@ describe("Policy Engine (E7)", () => {
 		// L1a: Response now projects as a verdict-typed message; approver maps
 		// to senderId, decision lives in payload.decision, respondedAt is the
 		// message createdAt.
+		await vi.waitFor(async () => {
+			const verdicts = await selectVerdictsForItem(db, itemId);
+			expect(verdicts).toHaveLength(1);
+		});
 		const verdicts = await selectVerdictsForItem(db, itemId);
-		expect(verdicts).toHaveLength(1);
 		expect(verdicts[0].approverId).toBe("policy_engine");
 		expect(verdicts[0].decision).toBe("approve");
 		const [message] = await db.select().from(messages).where(eq(messages.id, verdicts[0].id));
@@ -312,9 +323,12 @@ describe("Policy Engine (E7)", () => {
 
 		emitItemCreated(itemId);
 
-		const allItems = await db.select().from(items);
-		const item = allItems.find((i) => i.id === itemId);
-		expect(item?.auditTrail).toContain("policy_queued");
+		await vi.waitFor(async () => {
+			const allItems = await db.select().from(items);
+			const item = allItems.find((i) => i.id === itemId);
+			expect(item?.auditTrail).toContain("policy_queued");
+		});
+		await new Promise((r) => setTimeout(r, 100));
 		expect(notifications).toHaveLength(0);
 	});
 
@@ -336,9 +350,12 @@ describe("Policy Engine (E7)", () => {
 
 		emitItemCreated(itemId);
 
-		const allItems = await db.select().from(items);
-		const item = allItems.find((i) => i.id === itemId);
-		expect(item?.auditTrail).toContain("policy_queued");
+		await vi.waitFor(async () => {
+			const allItems = await db.select().from(items);
+			const item = allItems.find((i) => i.id === itemId);
+			expect(item?.auditTrail).toContain("policy_queued");
+		});
+		await new Promise((r) => setTimeout(r, 100));
 		expect(notifications).toHaveLength(0);
 	});
 
@@ -361,7 +378,7 @@ describe("Policy Engine (E7)", () => {
 		emitItemCreated(itemId);
 
 		// Normal L2 behavior: push
-		expect(notifications).toHaveLength(1);
+		await vi.waitFor(() => expect(notifications).toHaveLength(1));
 	});
 
 	it("AC11: silence window - overnight wrap (e.g. 22:00-07:00), time is 23:00 -> queue", async () => {
@@ -380,9 +397,12 @@ describe("Policy Engine (E7)", () => {
 
 		emitItemCreated(itemId);
 
-		const allItems = await db.select().from(items);
-		const item = allItems.find((i) => i.id === itemId);
-		expect(item?.auditTrail).toContain("policy_queued");
+		await vi.waitFor(async () => {
+			const allItems = await db.select().from(items);
+			const item = allItems.find((i) => i.id === itemId);
+			expect(item?.auditTrail).toContain("policy_queued");
+		});
+		await new Promise((r) => setTimeout(r, 100));
 		expect(notifications).toHaveLength(0);
 	});
 
@@ -397,7 +417,7 @@ describe("Policy Engine (E7)", () => {
 		emitItemCreated(itemId);
 
 		// High risk always pushes
-		expect(notifications).toHaveLength(1);
+		await vi.waitFor(() => expect(notifications).toHaveLength(1));
 		const resp = await selectVerdictsForItem(db, itemId);
 		expect(resp).toHaveLength(0);
 	});

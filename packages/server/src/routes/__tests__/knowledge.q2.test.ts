@@ -24,7 +24,7 @@ import {
 	users,
 } from "@hyperidle/db";
 import { EventBus } from "@hyperidle/shared";
-import { eq, sql } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import type { Hono } from "hono";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createTestApp } from "../../test-utils.js";
@@ -67,31 +67,43 @@ describe("Q2 AC-1: scope_kind + scope_id columns on knowledgeItems", () => {
 		await handle.close();
 	});
 
-	it("knowledgeItems table has a scope_kind column (NOT NULL, default factory)", () => {
-		// SQLite PRAGMA returns snake_case column names; use Record<string, unknown>
-		// to avoid biome useNamingConvention lint on the PRAGMA output shape.
-		const columns = db.all<Record<string, unknown>>(sql`PRAGMA table_info(knowledge_items)`);
+	it("knowledgeItems table has a scope_kind column (NOT NULL, default factory)", async () => {
+		// PGlite uses real PostgreSQL — query information_schema instead of SQLite PRAGMA.
+		// Row keys use snake_case from Postgres — access via bracket notation to avoid
+		// biome useNamingConvention on local type definitions.
+		const result = await db.execute(
+			`SELECT column_name, is_nullable, column_default
+			 FROM information_schema.columns
+			 WHERE table_name = 'knowledge_items'` as Parameters<typeof db.execute>[0],
+		);
+		const columns = (result as { rows: Array<Record<string, unknown>> }).rows;
 
-		const scopeKindCol = columns.find((c) => c["name"] === "scope_kind");
+		const scopeKindCol = columns.find((c) => c.column_name === "scope_kind");
 		expect(scopeKindCol).toBeDefined();
-		expect(scopeKindCol?.["notnull"]).toBe(1);
-		expect(scopeKindCol?.["dflt_value"]).toBe("'factory'");
+		expect(scopeKindCol?.is_nullable).toBe("NO");
+		expect(scopeKindCol?.column_default).toBe("'factory'::text");
 	});
 
-	it("knowledgeItems table has a scope_id column (nullable)", () => {
-		const columns = db.all<Record<string, unknown>>(sql`PRAGMA table_info(knowledge_items)`);
+	it("knowledgeItems table has a scope_id column (nullable)", async () => {
+		const result = await db.execute(
+			`SELECT column_name, is_nullable
+			 FROM information_schema.columns
+			 WHERE table_name = 'knowledge_items'` as Parameters<typeof db.execute>[0],
+		);
+		const columns = (result as { rows: Array<Record<string, unknown>> }).rows;
 
-		const scopeIdCol = columns.find((c) => c["name"] === "scope_id");
+		const scopeIdCol = columns.find((c) => c.column_name === "scope_id");
 		expect(scopeIdCol).toBeDefined();
-		expect(scopeIdCol?.["notnull"]).toBe(0);
+		expect(scopeIdCol?.is_nullable).toBe("YES");
 	});
 
-	it("ki_scope_idx index exists on (scope_kind, scope_id)", () => {
-		const indexes = db
-			.all<{ name: string }>(
-				sql`SELECT name FROM sqlite_master WHERE type='index' AND tbl_name='knowledge_items' AND name NOT LIKE 'sqlite_%'`,
-			)
-			.map((r) => r.name);
+	it("ki_scope_idx index exists on (scope_kind, scope_id)", async () => {
+		const result = await db.execute(
+			`SELECT indexname FROM pg_indexes WHERE tablename = 'knowledge_items'` as Parameters<
+				typeof db.execute
+			>[0],
+		);
+		const indexes = (result as { rows: Array<{ indexname: string }> }).rows.map((r) => r.indexname);
 
 		expect(indexes).toContain("ki_scope_idx");
 	});

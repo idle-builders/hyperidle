@@ -50,7 +50,8 @@ describe("create_item tool", () => {
 	let eventBus: EventBus;
 
 	beforeEach(async () => {
-		db = createTestDb();
+		const handle = await createTestDb();
+		db = handle.db;
 		eventBus = new EventBus();
 		await seed(db);
 	});

@@ -65,7 +65,7 @@ describe("H2 Dispatcher integration via createApp", () => {
 	let db: HyperIdleDb;
 	let bus: EventBus;
 	let adapter: NotificationAdapter & { calls: AdapterCall[] };
-	let app: ReturnType<typeof createApp>;
+	let app: Awaited<ReturnType<typeof createApp>>;
 
 	beforeEach(async () => {
 		vi.stubEnv("HYPERIDLE_API_KEY", "test-key-H2");
@@ -75,7 +75,7 @@ describe("H2 Dispatcher integration via createApp", () => {
 		adapter = createFakeAdapter();
 		// O3: notificationAdapterFactory removed from AppOptions for the dispatcher.
 		// Use strategyBootstrap to wire the dispatcher with the fake adapter.
-		app = createApp({
+		app = await createApp({
 			db,
 			eventBus: bus,
 			strategyBootstrap: ({ db: testDb, eventBus: testBus }) => [

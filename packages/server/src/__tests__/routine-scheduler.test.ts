@@ -244,7 +244,7 @@ describe("Routine Scheduler", () => {
 			const sessionsBefore = await db.select().from(sessions);
 			expect(sessionsBefore).toHaveLength(0);
 
-			registerEventTriggers(db, eventBus);
+			await registerEventTriggers(db, eventBus);
 
 			eventBus.emit({
 				type: "bet_state_changed",
@@ -255,12 +255,13 @@ describe("Routine Scheduler", () => {
 				timestamp: Date.now(),
 			});
 
-			// Handler is synchronous via EventBus, but checkAndFireRoutine is async
-			await new Promise((r) => setTimeout(r, 50));
-
-			const sessionsAfter = await db.select().from(sessions);
-			expect(sessionsAfter).toHaveLength(1);
-			expect(sessionsAfter[0].agentId).toBe("agent-1");
+			// Handler is synchronous via EventBus, but checkAndFireRoutine is async —
+			// use vi.waitFor so assertions retry until the async handler completes.
+			await vi.waitFor(async () => {
+				const sessionsAfter = await db.select().from(sessions);
+				expect(sessionsAfter).toHaveLength(1);
+				expect(sessionsAfter[0].agentId).toBe("agent-1");
+			});
 
 			const updated = await getRoutine(db, "r-event");
 			expect(updated.lastRunAt).toBeTruthy();

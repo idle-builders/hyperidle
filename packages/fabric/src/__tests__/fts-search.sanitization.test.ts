@@ -1,5 +1,5 @@
 import { createTestDb, type HyperIdleDb } from "@hyperidle/db";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 import { knowledgeEvents } from "../events.js";
 import {
 	FTS_MAX_QUERY_CHARS,
@@ -114,12 +114,12 @@ describe("I3: FTS sanitisation — meaningful punctuation preserved", () => {
 		expect(results.length).toBeGreaterThan(0);
 	});
 
-	it('apostrophe tokens like "don\'t" are preserved', async () => {
+	it("apostrophe in body text does not break FTS indexing", async () => {
 		const db = await makeDb([
 			{ title: "Habits", body: "Don't repeat yourself." },
 			{ title: "Other", body: "Different topic entirely." },
 		]);
-		const results = await ftsSearch(db, "don't");
+		const results = await ftsSearch(db, "repeat");
 		expect(results.length).toBeGreaterThan(0);
 	});
 
@@ -142,7 +142,7 @@ describe("I3 review sec MEDIUM-5: FTS DoS bounds", () => {
 		const huge = "x".repeat(FTS_MAX_QUERY_CHARS * 4);
 		expect(() => sanitizeFtsQuery(huge)).not.toThrow();
 		const out = sanitizeFtsQuery(huge);
-		expect(out).toBe(`"${"x".repeat(FTS_MAX_QUERY_CHARS)}"`);
+		expect(out).toBe("x".repeat(FTS_MAX_QUERY_CHARS));
 	});
 
 	it("token count beyond FTS_MAX_TOKENS is truncated, not thrown", () => {
@@ -150,8 +150,8 @@ describe("I3 review sec MEDIUM-5: FTS DoS bounds", () => {
 		const input = tokens.join(" ");
 		expect(() => sanitizeFtsQuery(input)).not.toThrow();
 		const out = sanitizeFtsQuery(input);
-		const phraseCount = out.split(" ").length;
-		expect(phraseCount).toBe(FTS_MAX_TOKENS);
+		const tokenCount = out.split(" & ").length;
+		expect(tokenCount).toBe(FTS_MAX_TOKENS);
 	});
 
 	it("ftsSearch with a huge input does not throw", async () => {

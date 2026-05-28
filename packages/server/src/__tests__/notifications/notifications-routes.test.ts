@@ -59,7 +59,7 @@ function headers(extra: Record<string, string> = {}): Record<string, string> {
 describe("H2 /api/notifications routes", () => {
 	let handle: TestDbHandle;
 	let db: HyperIdleDb;
-	let app: ReturnType<typeof createApp>;
+	let app: Awaited<ReturnType<typeof createApp>>;
 	let adapter: NotificationAdapter & { calls: AdapterCall[] };
 
 	beforeEach(async () => {
@@ -67,7 +67,7 @@ describe("H2 /api/notifications routes", () => {
 		handle = await createTestDb();
 		db = handle.db;
 		adapter = createFakeAdapter();
-		app = createApp({ db, notificationAdapterFactory: () => adapter });
+		app = await createApp({ db, notificationAdapterFactory: () => adapter });
 	});
 
 	afterEach(async () => {
@@ -313,7 +313,7 @@ describe("H2 /api/notifications routes", () => {
 			error: () => undefined,
 		};
 		// Build a new app that wires the capture logger.
-		const audit = createApp({
+		const audit = await createApp({
 			db,
 			notificationAdapterFactory: () => adapter,
 		});

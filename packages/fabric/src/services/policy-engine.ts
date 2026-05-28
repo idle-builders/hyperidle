@@ -79,7 +79,7 @@ async function determineAction(
 	// b. Skill-change: ALWAYS push
 	if (item.kind === "skill_change") return "push";
 
-	const isBlocking = (item.blocking ?? 0) !== 0;
+	const isBlocking = !!item.blocking;
 
 	// c. Check silence modes (only for non-blocking items)
 	if (!isBlocking) {

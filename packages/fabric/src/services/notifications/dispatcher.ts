@@ -62,7 +62,7 @@ const QUEUE_CAP = 10_000;
 const LEASE_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes — rollback stuck "sending" rows
 
 function classifyItem(item: Pick<Item, "blocking" | "riskTier">): Classification {
-	if ((item.blocking ?? 0) !== 0) return { kind: "push", severity: "blocking" };
+	if (item.blocking) return { kind: "push", severity: "blocking" };
 	if (item.riskTier === "high") return { kind: "push", severity: "blocking" };
 	if (item.riskTier === "medium") return { kind: "digest", severity: "digest" };
 	return { kind: "drop", reason: "low-risk non-blocking item" };

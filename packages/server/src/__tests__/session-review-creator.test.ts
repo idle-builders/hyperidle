@@ -123,13 +123,14 @@ describe("registerSessionReviewCreator", () => {
 		};
 		eventBus.emit(event);
 
-		// Verify item was created
-		const createdItems = await db.select().from(items).where(eq(items.threadId, "thread-1"));
-		expect(createdItems).toHaveLength(1);
-		expect(createdItems[0].kind).toBe("review");
-		expect(createdItems[0].title).toBe("Session completed: success");
+		// Handler is async — wait for it to complete
+		await vi.waitFor(async () => {
+			const createdItems = await db.select().from(items).where(eq(items.threadId, "thread-1"));
+			expect(createdItems).toHaveLength(1);
+			expect(createdItems[0].kind).toBe("review");
+			expect(createdItems[0].title).toBe("Session completed: success");
+		});
 
-		// Verify event was emitted
 		expect(emittedEvents).toHaveLength(1);
 		expect(emittedEvents[0].kind).toBe("review");
 
@@ -174,7 +175,8 @@ describe("registerSessionReviewCreator", () => {
 		};
 		eventBus.emit(event);
 
-		// No items created
+		// Handler is async — give it a tick to run, then confirm nothing was created
+		await new Promise((r) => setTimeout(r, 50));
 		const allItems = await db.select().from(items);
 		expect(allItems).toHaveLength(0);
 
@@ -220,20 +222,20 @@ describe("registerSessionReviewCreator", () => {
 		};
 		eventBus.emit(event);
 
-		// L1a: thread shape is host_kind/host_id; legacy review threads
-		// project to host_kind='task' with host_id=task.id (plan §5.3).
-		const allThreads = await db.select().from(threads);
-		expect(allThreads).toHaveLength(1);
-		expect(allThreads[0].hostKind).toBe("task");
-		expect(allThreads[0].hostId).toBe("task-no-thread");
+		// Handler is async — wait for it to complete
+		await vi.waitFor(async () => {
+			const allThreads = await db.select().from(threads);
+			expect(allThreads).toHaveLength(1);
+			expect(allThreads[0].hostKind).toBe("task");
+			expect(allThreads[0].hostId).toBe("task-no-thread");
+		});
 
-		// Verify item was created in the new thread
+		const allThreads = await db.select().from(threads);
 		const allItems = await db.select().from(items);
 		expect(allItems).toHaveLength(1);
 		expect(allItems[0].threadId).toBe(allThreads[0].id);
 		expect(allItems[0].title).toBe("Session completed: partial");
 
-		// Verify task was updated with new threadId
 		const [updatedTask] = await db.select().from(tasks).where(eq(tasks.id, "task-no-thread"));
 		expect(updatedTask?.threadId).toBe(allThreads[0].id);
 
@@ -281,7 +283,7 @@ describe("registerSessionReviewCreator", () => {
 		};
 		eventBus.emit(event);
 
-		// No items created
+		await new Promise((r) => setTimeout(r, 50));
 		const allItems = await db.select().from(items);
 		expect(allItems).toHaveLength(0);
 	});

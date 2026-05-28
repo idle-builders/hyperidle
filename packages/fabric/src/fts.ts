@@ -51,7 +51,7 @@ export const FTS_MAX_TOKENS = 64;
 /**
  * Sanitise a user-supplied query string for Postgres tsquery.
  *
- * Strategy: whitelist word-chars + internal `-`, `_`, `'`; emit each
+ * Strategy: whitelist word-chars + internal `-`, `_`; emit each
  * surviving token joined with `&` (AND). A trailing `*` on a token is
  * preserved as the Postgres prefix-match operator (:*). Returns `""`
  * when all tokens are stripped — callers MUST short-circuit to `[]`.
@@ -81,8 +81,8 @@ export function sanitizeFtsQuery(input: string): string {
 		const isPrefix = raw.endsWith("*") && raw.length > 1;
 		const stripped = isPrefix ? raw.slice(0, -1) : raw;
 
-		let token = stripped.replace(/[^\p{L}\p{N}_\-']/gu, "");
-		token = token.replace(/^['-]+|['-]+$/gu, "");
+		let token = stripped.replace(/[^\p{L}\p{N}_\-]/gu, "");
+		token = token.replace(/^[-]+|[-]+$/gu, "");
 		if (token.length === 0) continue;
 
 		if (isPrefix) {

@@ -4,7 +4,7 @@ import { z } from "zod";
 import { validateBody } from "../middleware/validate.js";
 
 /** Helper: build a mini Hono app that accepts POST /test with a given schema. */
-async function buildApp(schema: z.ZodTypeAny): Hono {
+function buildApp(schema: z.ZodTypeAny): Hono {
 	const app = new Hono();
 	app.post("/test", validateBody(schema), async (c) => {
 		// The validated body is stored on the request by zValidator; reading

@@ -4,7 +4,6 @@ import {
 	createNodeFsAdapter,
 	type FsAdapter,
 	type GitExportConfig,
-	type GitExportConfigPatch,
 	type GitRunner,
 	getLastExportMeta,
 	readGitExportConfig,

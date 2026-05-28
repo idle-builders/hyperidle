@@ -73,16 +73,16 @@ describe("RelevanceService.computeSignals (L22)", () => {
 		db = handle.db;
 	});
 
-	it("returns empty map for empty itemIds array", () => {
+	it("returns empty map for empty itemIds array", async () => {
 		const service = createRelevanceService(db);
-		const result = service.computeSignals([], NOW_MS);
+		const result = await service.computeSignals([], NOW_MS);
 		expect(result.size).toBe(0);
 	});
 
 	it("returns null signals for item with no access log or edit log data", async () => {
 		const itemId = await insertItem(db);
 		const service = createRelevanceService(db);
-		const result = service.computeSignals([itemId], NOW_MS);
+		const result = await service.computeSignals([itemId], NOW_MS);
 		const signals = result.get(itemId);
 		expect(signals).toBeDefined();
 		expect(signals?.accessCount30d).toBeNull();
@@ -102,7 +102,7 @@ describe("RelevanceService.computeSignals (L22)", () => {
 		await insertAccessLog(db, itemId, access3);
 
 		const service = createRelevanceService(db);
-		const result = service.computeSignals([itemId], NOW_MS);
+		const result = await service.computeSignals([itemId], NOW_MS);
 		const signals = result.get(itemId);
 
 		expect(signals).toBeDefined();
@@ -120,7 +120,7 @@ describe("RelevanceService.computeSignals (L22)", () => {
 		await insertAccessLog(db, itemId, old);
 
 		const service = createRelevanceService(db);
-		const result = service.computeSignals([itemId], NOW_MS);
+		const result = await service.computeSignals([itemId], NOW_MS);
 		const signals = result.get(itemId);
 
 		expect(signals).toBeDefined();
@@ -148,7 +148,7 @@ describe("RelevanceService.computeSignals (L22)", () => {
 		await insertAccessLog(db, itemId, accessAt);
 
 		const service = createRelevanceService(db);
-		const result = service.computeSignals([itemId], NOW_MS);
+		const result = await service.computeSignals([itemId], NOW_MS);
 		const signals = result.get(itemId);
 
 		expect(signals).toBeDefined();
@@ -163,7 +163,7 @@ describe("RelevanceService.computeSignals (L22)", () => {
 		await insertAccessLog(db, id1, "2026-05-05T00:00:00.000Z");
 
 		const service = createRelevanceService(db);
-		const result = service.computeSignals([id1, id2], NOW_MS);
+		const result = await service.computeSignals([id1, id2], NOW_MS);
 
 		expect(result.size).toBe(2);
 		expect(result.get(id1)?.accessCount30d).toBe(1);
@@ -185,7 +185,7 @@ describe("RelevanceService.computeSignals (L22)", () => {
 		});
 
 		const service = createRelevanceService(db);
-		const result = service.computeSignals([itemId], NOW_MS);
+		const result = await service.computeSignals([itemId], NOW_MS);
 		const signals = result.get(itemId);
 
 		// lastActivityAt should reflect the human validation edit

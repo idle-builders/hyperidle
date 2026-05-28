@@ -292,26 +292,39 @@ describe("bet-state-machine", () => {
 				expect(teamBefore?.activeBets).toBe(0);
 
 				// Force the bet UPDATE to throw so the transaction rolls back.
-				// We spy on `db.update` and intercept calls targeting the
-				// `bets` table; the `teams` update must still pass through so
-				// that a naive (non-transactional) implementation would leave
-				// activeBets at 1 — making the post-condition assertion
-				// meaningful.
-				const originalUpdate = db.update.bind(db);
-				const updateSpy = vi
-					.spyOn(db, "update")
-					.mockImplementation((table: Parameters<typeof originalUpdate>[0]) => {
-						if (table === bets) {
-							throw new Error("simulated bets UPDATE failure");
-						}
-						return originalUpdate(table);
+				// @lore PGlite: Inside db.transaction(), Drizzle passes a `tx`
+				// object (not `db`) to the callback. Spying on `db.update` won't
+				// intercept `tx.update` calls. We spy on `db.transaction` instead,
+				// intercept the `tx` argument, and install a spy on `tx.update`
+				// before invoking the original callback. This ensures the bets
+				// UPDATE throws while the teams UPDATE still runs through, making
+				// a naive (non-transactional) implementation leave activeBets=1.
+				const originalTransaction = db.transaction.bind(db);
+				const txSpy = vi
+					.spyOn(db, "transaction")
+					// biome-ignore lint/suspicious/noExplicitAny: spy wrapping requires any for the callback type
+					.mockImplementation(async (callback: (tx: any) => Promise<any>) => {
+						// biome-ignore lint/suspicious/noExplicitAny: tx is the Drizzle transaction type
+						return originalTransaction(async (tx: any) => {
+							const originalTxUpdate = tx.update.bind(tx);
+							vi.spyOn(tx, "update").mockImplementation(
+								// biome-ignore lint/suspicious/noExplicitAny: table parameter is any table reference
+								(table: any) => {
+									if (table === bets) {
+										throw new Error("simulated bets UPDATE failure");
+									}
+									return originalTxUpdate(table);
+								},
+							);
+							return callback(tx);
+						});
 					});
 
 				await expect(transitionBet(db, eventBus, "bet-1", "committed")).rejects.toThrow(
 					/simulated bets UPDATE failure/,
 				);
 
-				updateSpy.mockRestore();
+				txSpy.mockRestore();
 
 				// Post-condition: team.activeBets is back to 0 (transaction
 				// rolled back the teams UPDATE) and bet.status is unchanged.

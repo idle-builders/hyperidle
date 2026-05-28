@@ -490,7 +490,7 @@ describe("Session Provisioning (D5)", () => {
 			// assertion we care about (each knowledge_items row attributed
 			// only to its own session) lives in the WRITEBACK layer, not in
 			// fs.watch's event-delivery layer.
-			async function mkHarness(marker: string): ScriptedHarnessAdapter {
+			function mkHarness(marker: string): ScriptedHarnessAdapter {
 				const relativePath = `knowledge/practices/${marker}.md`;
 				return new ScriptedHarnessAdapter({
 					events: [

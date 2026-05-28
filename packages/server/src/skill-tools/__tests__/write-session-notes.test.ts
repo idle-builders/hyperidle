@@ -91,7 +91,8 @@ describe("write_session_notes tool", () => {
 	}
 
 	beforeEach(async () => {
-		db = createTestDb();
+		const handle = await createTestDb();
+		db = handle.db;
 		await seed(db);
 		workspacePath = fs.mkdtempSync(path.join(os.tmpdir(), "hi-d4-notes-"));
 	});

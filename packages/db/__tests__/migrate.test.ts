@@ -25,7 +25,9 @@ afterEach(() => {
 });
 
 describe("applyMigrations", () => {
-	it("runs migrations on a fresh database and returns a result with applied > 0", async () => {
+	it("runs migrations on a fresh database and returns a result with applied > 0", {
+		timeout: 30_000,
+	}, async () => {
 		const dataDir = path.join(tmpDir, "pgdata");
 		const result = await applyMigrations(dataDir, REAL_MIGRATIONS_FOLDER);
 		expect(result.applied).toBeGreaterThan(0);

@@ -24,7 +24,8 @@ describe("create_conflict_review tool", () => {
 	let db: HyperIdleDb;
 
 	beforeEach(async () => {
-		db = createTestDb();
+		const handle = await createTestDb();
+		db = handle.db;
 		await seedBase(db);
 	});
 

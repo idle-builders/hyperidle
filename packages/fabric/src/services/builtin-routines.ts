@@ -543,7 +543,7 @@ async function runPostBetRetro(
 	});
 
 	// Respect the `silent` flag on the routine row (E7 hook).
-	if (routine.silent !== 1) {
+	if (!routine.silent) {
 		const evt: ItemCreatedEvent = {
 			type: "item_created",
 			streamId: crypto.randomUUID(),
@@ -623,7 +623,7 @@ async function runPortfolioRetro(
 		});
 	});
 
-	if (routine.silent !== 1) {
+	if (!routine.silent) {
 		const evt: ItemCreatedEvent = {
 			type: "item_created",
 			streamId: crypto.randomUUID(),

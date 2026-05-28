@@ -132,13 +132,13 @@ describe("Cost Cap Enforcement", () => {
 		db = handle.db;
 		eventBus = new EventBus();
 		clearDeduplicationCache();
-		seedBase(db);
+		await seedBase(db);
 	});
 
 	// AC1: Agent cap $10 -> after $10 spent, checkCostCap returns { allowed: false, level: 'agent' }
 	describe("AC1: Agent cap enforcement", () => {
 		it("allows session when agent spend is under cap", async () => {
-			insertSession(db, "s1", "agent-1", 500); // $5
+			await insertSession(db, "s1", "agent-1", 500); // $5
 
 			const result = await checkCostCap(db, eventBus, {
 				agentId: "agent-1",
@@ -149,7 +149,7 @@ describe("Cost Cap Enforcement", () => {
 		});
 
 		it("blocks session when agent spend reaches cap", async () => {
-			insertSession(db, "s1", "agent-1", 1000); // $10 = cap
+			await insertSession(db, "s1", "agent-1", 1000); // $10 = cap
 
 			const result = await checkCostCap(db, eventBus, {
 				agentId: "agent-1",
@@ -165,7 +165,7 @@ describe("Cost Cap Enforcement", () => {
 		});
 
 		it("blocks session when agent spend exceeds cap", async () => {
-			insertSession(db, "s1", "agent-1", 1200); // $12 > $10
+			await insertSession(db, "s1", "agent-1", 1200); // $12 > $10
 
 			const result = await checkCostCap(db, eventBus, {
 				agentId: "agent-1",
@@ -189,7 +189,7 @@ describe("Cost Cap Enforcement", () => {
 			});
 
 			// Spend well above agent level but below team cap ($50)
-			insertSession(db, "s1", "agent-nocap", 4000);
+			await insertSession(db, "s1", "agent-nocap", 4000);
 
 			const result = await checkCostCap(db, eventBus, {
 				agentId: "agent-nocap",
@@ -218,8 +218,8 @@ describe("Cost Cap Enforcement", () => {
 			});
 
 			// agent-2 spent $45, agent-1 spent $5 = team total $50 = team cap
-			insertSession(db, "s1", "agent-2", 4500);
-			insertSession(db, "s2", "agent-1", 500);
+			await insertSession(db, "s1", "agent-2", 4500);
+			await insertSession(db, "s2", "agent-1", 500);
 
 			const result = await checkCostCap(db, eventBus, {
 				agentId: "agent-1",
@@ -238,7 +238,7 @@ describe("Cost Cap Enforcement", () => {
 	// AC3: Factory cap $200 -> no agent can start session when hit
 	describe("AC3: Factory cap enforcement", () => {
 		it("blocks session when factory cap is reached", async () => {
-			insertSession(db, "s1", "agent-1", 900); // agent under cap
+			await insertSession(db, "s1", "agent-1", 900); // agent under cap
 
 			const result = await checkCostCap(db, eventBus, {
 				agentId: "agent-1",
@@ -263,9 +263,9 @@ describe("Cost Cap Enforcement", () => {
 			eventBus.on("cost_cap_breached", (e: CostCapBreachedEvent) => events.push(e));
 
 			// Previous session spent 800
-			insertSession(db, "s-prev", "agent-1", 800);
+			await insertSession(db, "s-prev", "agent-1", 800);
 			// Current session starts at 0
-			insertSession(db, "s1", "agent-1", 0);
+			await insertSession(db, "s1", "agent-1", 0);
 
 			// Record cost of 200 on current session -> total agent spend = 800 + 200 = 1000
 			await recordCostAndCheck(db, eventBus, {
@@ -298,8 +298,8 @@ describe("Cost Cap Enforcement", () => {
 				createdAt: NOW,
 			});
 
-			insertSession(db, "s-big", "agent-2", 4800);
-			insertSession(db, "s1", "agent-1", 0);
+			await insertSession(db, "s-big", "agent-2", 4800);
+			await insertSession(db, "s1", "agent-1", 0);
 
 			await recordCostAndCheck(db, eventBus, {
 				sessionId: "s1",
@@ -322,7 +322,7 @@ describe("Cost Cap Enforcement", () => {
 			const warnings: CostCapWarningEvent[] = [];
 			eventBus.on("cost_cap_warning", (e: CostCapWarningEvent) => warnings.push(e));
 
-			insertSession(db, "s1", "agent-1", 0);
+			await insertSession(db, "s1", "agent-1", 0);
 
 			await recordCostAndCheck(db, eventBus, {
 				sessionId: "s1",
@@ -353,8 +353,8 @@ describe("Cost Cap Enforcement", () => {
 				createdAt: NOW,
 			});
 
-			insertSession(db, "s-big", "agent-2", 3800);
-			insertSession(db, "s1", "agent-1", 0);
+			await insertSession(db, "s-big", "agent-2", 3800);
+			await insertSession(db, "s1", "agent-1", 0);
 
 			await recordCostAndCheck(db, eventBus, {
 				sessionId: "s1",
@@ -372,7 +372,7 @@ describe("Cost Cap Enforcement", () => {
 			const warnings: CostCapWarningEvent[] = [];
 			eventBus.on("cost_cap_warning", (e: CostCapWarningEvent) => warnings.push(e));
 
-			insertSession(db, "s1", "agent-1", 0);
+			await insertSession(db, "s1", "agent-1", 0);
 
 			await recordCostAndCheck(db, eventBus, {
 				sessionId: "s1",
@@ -393,7 +393,7 @@ describe("Cost Cap Enforcement", () => {
 	// AC6: After reset, agents can start sessions again
 	describe("AC6: Cost reset", () => {
 		it("allows sessions after agent cost reset", async () => {
-			insertSession(db, "s1", "agent-1", 1000); // at cap
+			await insertSession(db, "s1", "agent-1", 1000); // at cap
 
 			// Verify blocked before reset
 			const beforeReset = await checkCostCap(db, eventBus, {
@@ -425,7 +425,7 @@ describe("Cost Cap Enforcement", () => {
 				createdAt: NOW,
 			});
 
-			insertSession(db, "s1", "agent-2", 5000); // team at cap
+			await insertSession(db, "s1", "agent-2", 5000); // team at cap
 
 			const beforeReset = await checkCostCap(db, eventBus, {
 				agentId: "agent-1",
@@ -444,7 +444,7 @@ describe("Cost Cap Enforcement", () => {
 		});
 
 		it("resets factory costs", async () => {
-			insertSession(db, "s1", "agent-1", 500);
+			await insertSession(db, "s1", "agent-1", 500);
 
 			await resetCosts(db, { level: "factory" });
 
@@ -462,8 +462,8 @@ describe("Cost Cap Enforcement", () => {
 	// AC7: In-progress sessions NOT killed (finish naturally)
 	describe("AC7: In-progress sessions not killed", () => {
 		it("checkCostCap does not modify active sessions", async () => {
-			insertSession(db, "s-active", "agent-1", 1000, "active"); // at cap, but active
-			insertSession(db, "s-done", "agent-1", 100, "done");
+			await insertSession(db, "s-active", "agent-1", 1000, "active"); // at cap, but active
+			await insertSession(db, "s-done", "agent-1", 100, "done");
 
 			const result = await checkCostCap(db, eventBus, {
 				agentId: "agent-1",
@@ -487,7 +487,7 @@ describe("Cost Cap Enforcement", () => {
 	// AC8: Review thread item created on breach
 	describe("AC8: Review item on breach", () => {
 		it("creates a review item when cost cap is breached", async () => {
-			insertSession(db, "s1", "agent-1", 0);
+			await insertSession(db, "s1", "agent-1", 0);
 
 			await recordCostAndCheck(db, eventBus, {
 				sessionId: "s1",
@@ -511,7 +511,7 @@ describe("Cost Cap Enforcement", () => {
 			const warnings: CostCapWarningEvent[] = [];
 			eventBus.on("cost_cap_warning", (e: CostCapWarningEvent) => warnings.push(e));
 
-			insertSession(db, "s1", "agent-1", 0);
+			await insertSession(db, "s1", "agent-1", 0);
 
 			// First call at 80%
 			await recordCostAndCheck(db, eventBus, {
@@ -540,7 +540,7 @@ describe("Cost Cap Enforcement", () => {
 			const breaches: CostCapBreachedEvent[] = [];
 			eventBus.on("cost_cap_breached", (e: CostCapBreachedEvent) => breaches.push(e));
 
-			insertSession(db, "s1", "agent-1", 0);
+			await insertSession(db, "s1", "agent-1", 0);
 
 			await recordCostAndCheck(db, eventBus, {
 				sessionId: "s1",
@@ -567,7 +567,7 @@ describe("Cost Cap Enforcement", () => {
 	describe("Hierarchy ordering", () => {
 		it("returns agent level when both agent and team caps are breached", async () => {
 			// Both agent ($10) and team ($50) caps breached
-			insertSession(db, "s1", "agent-1", 1000); // agent at cap
+			await insertSession(db, "s1", "agent-1", 1000); // agent at cap
 
 			// Also make team at cap
 			await db.insert(users).values({
@@ -581,7 +581,7 @@ describe("Cost Cap Enforcement", () => {
 				createdAt: NOW,
 			});
 
-			insertSession(db, "s2", "agent-2", 4000);
+			await insertSession(db, "s2", "agent-2", 4000);
 
 			const result = await checkCostCap(db, eventBus, {
 				agentId: "agent-1",

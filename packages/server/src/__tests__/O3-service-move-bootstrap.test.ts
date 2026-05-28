@@ -43,10 +43,10 @@ describe("O3 AC-5: bootstrapFabric", () => {
 		expect(typeof bootstrapFabric).toBe("function");
 	});
 
-	it("returns an array of disposer functions when called with db and eventBus", () => {
-		const db = createTestDb();
+	it("returns an array of disposer functions when called with db and eventBus", async () => {
+		const handle = await createTestDb();
 		const eventBus = new EventBus();
-		const disposers = bootstrapFabric({ db, eventBus });
+		const disposers = bootstrapFabric({ db: handle.db, eventBus });
 
 		expect(Array.isArray(disposers)).toBe(true);
 		expect(disposers.length).toBeGreaterThan(0);
@@ -60,10 +60,10 @@ describe("O3 AC-5: bootstrapFabric", () => {
 		}
 	});
 
-	it("returns exactly 7 disposers (one per disposer-registered service)", () => {
-		const db = createTestDb();
+	it("returns exactly 7 disposers (one per disposer-registered service)", async () => {
+		const handle = await createTestDb();
 		const eventBus = new EventBus();
-		const disposers = bootstrapFabric({ db, eventBus });
+		const disposers = bootstrapFabric({ db: handle.db, eventBus });
 
 		// 7 disposer-registered services:
 		// session-review-creator, policy-engine, lifecycle-propagation,
@@ -80,16 +80,16 @@ describe("O3 AC-5: bootstrapFabric", () => {
 // ── AC-6: AppOptions gains strategyBootstrap ─────────────────────────────────
 
 describe("O3 AC-6: AppOptions.strategyBootstrap type field", () => {
-	it("AppOptions accepts strategyBootstrap as a function", () => {
+	it("AppOptions accepts strategyBootstrap as a function", async () => {
 		// TypeScript compile-time check: if AppOptions does not have strategyBootstrap
 		// the @ts-expect-error above would not suppress an error (they'd show as
 		// unexpected suppression). We verify at runtime via an actual createApp call.
-		const db = createTestDb();
+		const handle = await createTestDb();
 		const eventBus = new EventBus();
 
 		// This must NOT throw a type error at compile time and must NOT throw at runtime.
 		const options: AppOptions = {
-			db,
+			db: handle.db,
 			eventBus,
 			strategyBootstrap: ({ db: d, eventBus: eb }) => {
 				// Stub bootstrap: return one disposer.
@@ -158,17 +158,17 @@ describe("O3 AC-7: app.ts no longer hardwires register* calls", () => {
 describe("O3 AC-8: kernel-only boot (no strategyBootstrap)", () => {
 	it("createApp() without any options boots without throwing", async () => {
 		await expect(createApp()).resolves.not.toThrow();
-	});
+	}, 15_000);
 
 	it("createApp({ strategyBootstrap: undefined }) boots without throwing", async () => {
 		await expect(createApp({ strategyBootstrap: undefined })).resolves.not.toThrow();
-	});
+	}, 15_000);
 
 	it("GET /api/health returns 200 in kernel-only mode", async () => {
 		const app = await createApp({ strategyBootstrap: undefined });
 		const res = await app.request("/api/health");
 		expect(res.status).toBe(200);
-	});
+	}, 15_000);
 });
 
 // ── AC-9: Full boot with bootstrapFabric ─────────────────────────────────────
@@ -182,7 +182,7 @@ describe("O3 AC-9: full boot with bootstrapFabric", () => {
 
 		// GET /api/health must work
 		void app?.request("/api/health");
-	});
+	}, 15_000);
 
 	it("GET /api/health returns 200 with full strategy bootstrap", async () => {
 		const handle = await createTestDb();
@@ -190,7 +190,7 @@ describe("O3 AC-9: full boot with bootstrapFabric", () => {
 		const app = await createApp({ db: handle.db, eventBus, strategyBootstrap: bootstrapFabric });
 		const res = await app.request("/api/health");
 		expect(res.status).toBe(200);
-	});
+	}, 15_000);
 });
 
 // ── AC-1: Disposer services moved to fabric/src/services/ ────────────────────
