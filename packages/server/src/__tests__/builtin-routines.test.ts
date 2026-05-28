@@ -157,7 +157,7 @@ describe("G4: Built-in Routines", () => {
 
 		it("is idempotent: running twice produces no duplicate rows and no error", async () => {
 			await seedBuiltinRoutines(db);
-			await expect(async () => seedBuiltinRoutines(db)).not.toThrow();
+			await expect(seedBuiltinRoutines(db)).resolves.not.toThrow();
 			const rows = await db.select().from(routines);
 			expect(rows).toHaveLength(BUILTIN_ROUTINE_IDS.length);
 		});

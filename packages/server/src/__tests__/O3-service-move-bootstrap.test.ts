@@ -156,16 +156,16 @@ describe("O3 AC-7: app.ts no longer hardwires register* calls", () => {
 // ── AC-8: Kernel-only boot ───────────────────────────────────────────────────
 
 describe("O3 AC-8: kernel-only boot (no strategyBootstrap)", () => {
-	it("createApp() without any options boots without throwing", () => {
-		expect(() => createApp()).not.toThrow();
+	it("createApp() without any options boots without throwing", async () => {
+		await expect(createApp()).resolves.not.toThrow();
 	});
 
-	it("createApp({ strategyBootstrap: undefined }) boots without throwing", () => {
-		expect(() => createApp({ strategyBootstrap: undefined })).not.toThrow();
+	it("createApp({ strategyBootstrap: undefined }) boots without throwing", async () => {
+		await expect(createApp({ strategyBootstrap: undefined })).resolves.not.toThrow();
 	});
 
 	it("GET /api/health returns 200 in kernel-only mode", async () => {
-		const app = createApp({ strategyBootstrap: undefined });
+		const app = await createApp({ strategyBootstrap: undefined });
 		const res = await app.request("/api/health");
 		expect(res.status).toBe(200);
 	});
@@ -174,23 +174,20 @@ describe("O3 AC-8: kernel-only boot (no strategyBootstrap)", () => {
 // ── AC-9: Full boot with bootstrapFabric ─────────────────────────────────────
 
 describe("O3 AC-9: full boot with bootstrapFabric", () => {
-	it("createApp({ db, eventBus, strategyBootstrap: bootstrapFabric }) boots without throwing", () => {
-		const db = createTestDb();
+	it("createApp({ db, eventBus, strategyBootstrap: bootstrapFabric }) boots without throwing", async () => {
+		const handle = await createTestDb();
 		const eventBus = new EventBus();
 
-		let app: ReturnType<typeof createApp> | undefined;
-		expect(() => {
-			app = createApp({ db, eventBus, strategyBootstrap: bootstrapFabric });
-		}).not.toThrow();
+		const app = await createApp({ db: handle.db, eventBus, strategyBootstrap: bootstrapFabric });
 
 		// GET /api/health must work
 		void app?.request("/api/health");
 	});
 
 	it("GET /api/health returns 200 with full strategy bootstrap", async () => {
-		const db = createTestDb();
+		const handle = await createTestDb();
 		const eventBus = new EventBus();
-		const app = createApp({ db, eventBus, strategyBootstrap: bootstrapFabric });
+		const app = await createApp({ db: handle.db, eventBus, strategyBootstrap: bootstrapFabric });
 		const res = await app.request("/api/health");
 		expect(res.status).toBe(200);
 	});
