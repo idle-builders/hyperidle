@@ -49,10 +49,28 @@ const EXTERNALS = ["electron", "@electric-sql/pglite"];
 // runtime. Stubbed at bundle time to avoid dangling require() calls.
 const PG_STUB_MODULES = ["postgres", "drizzle-orm/postgres-js"];
 
+// AJV runtime helpers referenced by dynamically-generated validators inside
+// @modelcontextprotocol/sdk (a transitive dep of @anthropic-ai/claude-agent-sdk).
+// esbuild inlines the validator code but the generated validators re-emit
+// require("ajv/dist/runtime/...") calls at runtime. Since node_modules are NOT
+// packaged with the Electron app (only dist/**/* is included), these sub-path
+// requires would fail at startup. We stub them with minimal shims that satisfy
+// the interface expected by the generated validators.
+// @lore desktop: AJV runtime stubs — generated MCP validators emit require()
+// calls for ajv runtime helpers. Stubs prevent startup failures in packaged app.
+const AJV_STUB_MODULES = [
+	"ajv/dist/runtime/validation_error",
+	"ajv/dist/runtime/uri",
+	"ajv/dist/runtime/ucs2length",
+	"ajv/dist/runtime/equal",
+	"ajv-formats/dist/formats",
+];
+
 const pgStubPlugin: esbuild.Plugin = {
 	name: "pg-stub",
 	setup(build) {
-		const escaped = PG_STUB_MODULES.map((s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
+		const stubModules = [...PG_STUB_MODULES, ...AJV_STUB_MODULES];
+		const escaped = stubModules.map((s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
 		const filter = new RegExp(`^(${escaped.join("|")})$`);
 		build.onResolve({ filter }, (args) => ({
 			path: args.path,
@@ -112,6 +130,16 @@ const ALLOWED_EXTERNALS = new Set([
 	// Optional ws peer deps — ws try/catches these, safe if missing
 	"bufferutil",
 	"utf-8-validate",
+	// AJV runtime helpers appear in the bundle as code-generation string literals
+	// (e.g. `.code = 'require("ajv/dist/runtime/equal").default'`).
+	// These are data strings embedded by AJV for use in generated validator code —
+	// they are not require() calls that execute at module load time. Adding them
+	// here tells the validator to skip these false-positive matches.
+	// @lore desktop: AJV embeds require() strings as code templates. The validator
+	// regex matches them as if they were real requires, but they are never executed
+	// unless AJV compiles new schemas at runtime (which it does not in the desktop
+	// app — all schemas are pre-compiled at build time by the MCP SDK).
+	...AJV_STUB_MODULES,
 ]);
 
 const bundleContent = fs.readFileSync(path.join(DIST_DIR, "main.cjs"), "utf-8");
