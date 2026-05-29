@@ -4,7 +4,7 @@
 
 Forward-only Drizzle migration that renames `products` to `teams` (the domain concept), renames the current `teams` table (agent membership) to `team_members`, simplifies the bet lifecycle enum, renames bet columns, and adds `at_risk`. Cascading type/seed/Zod updates across the monorepo.
 
-**Scope boundary:** U1 is a schema-only migration. API route renaming (e.g., `/api/products` -> `/api/teams`), URL changes, and UI copy changes are explicitly out of scope. Downstream code continues to work against the new schema via updated Drizzle table references and TypeScript types. API and UI renames happen in subsequent workpackages.
+**Scope boundary:** U1 renames the domain concept from Product to Team across schema, types, and internal references. This includes Drizzle schema, Zod schemas, shared types, server services/routes (internal variable and file names), fabric references, and web hooks/pages/fixtures. API URL paths (e.g., `/api/products` stays as-is) and user-facing URL slugs are deferred to subsequent workpackages.
 
 ---
 
@@ -38,18 +38,18 @@ Forward-only Drizzle migration that renames `products` to `teams` (the domain co
 
 After renaming `products` to `teams`, bets/tasks would have a `team_id` pointing at the new `teams` table (formerly products) AND another `team_id` pointing at `team_members` (formerly teams). That is a naming collision.
 
-**Resolution:** The concept doc (U0) states: "Product = Team 1:1 invariant." There is exactly one team_members group per product/team. The `team_id` on bets/tasks that currently points at old `teams` (agent membership) is redundant once `product_id` is renamed to `team_id` and points at the new `teams` (formerly products). The old `team_id` column on bets/tasks should be **dropped** after the migration verifies data integrity.
+**Resolution:** The U0 concept doc (`plans/U0/concept.md` section "Noun 1: Team", Composition) and the `@lore L13` annotation in `packages/shared/src/product.ts` line 8 establish: "Product = Team 1:1 invariant." There is exactly one team_members group per product/team. The `team_id` on bets/tasks that currently points at old `teams` (agent membership) is redundant once `product_id` is renamed to `team_id` and points at the new `teams` (formerly products). The old `team_id` column on bets/tasks should be **dropped** after the migration verifies data integrity.
 
 However, dropping a column that has an index and FK is a heavier migration. **U1 will take the conservative approach:**
 
 1. Rename `products` -> `teams` (the table).
 2. Rename old `teams` -> `team_members`.
 3. On `bets` and `tasks`: rename `product_id` -> `team_id`, and rename old `team_id` -> `team_member_id` (to avoid collision while preserving the FK relationship).
-4. On `users`: `team_id` currently references old `teams.id` (agent membership). After renaming old `teams` to `team_members`, the FK auto-updates in SQLite, so `users.team_id` now references `team_members.id`. Rename it to `team_member_id` for clarity. **Wait** -- this would break every reference to `users.teamId` across the codebase. The concept doc says nothing about renaming this. **Keep `users.team_id` as-is**; the FK target table name changes (SQLite handles this on `ALTER TABLE RENAME`), but the column name stays `team_id`. It will now conceptually point at `team_members.id` which is fine -- it means "which team-member group this user belongs to."
+4. On `users`: `team_id` currently references old `teams.id` (agent membership). After renaming old `teams` to `team_members`, the FK auto-updates in SQLite, so `users.team_id` now references `team_members.id`. Rename it to `team_member_id` for clarity. **Wait** -- this would break every reference to `users.teamId` across the codebase. The U0 concept doc says nothing about renaming this. **Keep `users.team_id` as-is**; the FK target table name changes (SQLite handles this on `ALTER TABLE RENAME`), but the column name stays `team_id`. It will now conceptually point at `team_members.id` which is fine -- it means "which team-member group this user belongs to."
 
 **Final column plan for bets:**
 - `product_id` -> `team_id` (references new `teams.id`, formerly `products.id`)
-- old `team_id` (references old `teams.id`, now `team_members.id`) -> **drop it.** The 1:1 invariant means `team_id` (new, from products) fully determines the team_members group. Keeping a redundant FK adds confusion. The concept doc explicitly says to drop it.
+- old `team_id` (references old `teams.id`, now `team_members.id`) -> **drop it.** The 1:1 invariant means `team_id` (new, from products) fully determines the team_members group. Keeping a redundant FK adds confusion. The U0 concept doc (`plans/U0/concept.md` section "Noun 1: Team", Contracts — "A Bet belongs to exactly one Team") confirms dropping it.
 
 Actually, re-reading the AC: "renames `products` table to `teams` and all `product_id` columns to `team_id` across bets, tasks, threads, and any other referencing tables." This implies `product_id` columns become `team_id`. But bets/tasks already HAVE a `team_id`. So we must handle the collision.
 
@@ -59,12 +59,31 @@ Actually, re-reading the AC: "renames `products` table to `teams` and all `produ
 3. On tables with both `product_id` and `team_id` (bets, tasks): drop the old `team_id` column (which pointed at old teams / now team_members), then rename `product_id` to `team_id`. The 1:1 invariant means no data loss.
 4. Index `bets_product_id_idx` -> recreate as `bets_team_id_idx`. Same for `tasks_product_id_idx`.
 
-### 2.4 Bet Status Changes
+### 2.4 Decision: SCOPE_KINDS, KNOWLEDGE_SCOPES, and SCOPE_TO_LAYER are UNCHANGED in U1
+
+**Problem:** `packages/shared/src/types.ts` defines `SCOPE_KINDS = ["factory", "product", "practice", "team", "bet", "task", "user"]`. Both `"product"` and `"team"` already exist as scope kind values. Renaming `"product"` to something else would collide with the existing `"team"` scope kind (which means a team_members group scope, not the domain entity). Additionally, `knowledge_items.scope_kind` rows contain `"product"` values -- renaming the scope kind would require a data migration on that table.
+
+**Resolution:** The `"product"` scope kind value is **kept as-is in U1**. It is a conceptual scope classification (what layer of the knowledge architecture does this item belong to), not a table name. The `"product"` scope kind means "knowledge scoped to a particular product/team domain" and remains valid regardless of the table rename. The `"team"` scope kind means "knowledge scoped to a team_members group" and is unrelated.
+
+This means the following are **explicitly unchanged** in U1:
+- `SCOPE_KINDS` in `packages/shared/src/types.ts` -- stays `["factory", "product", "practice", "team", "bet", "task", "user"]`
+- `SCOPES_REQUIRING_ID` in `packages/shared/src/types.ts` -- stays `Set(["product", "practice", "team", "bet", "task"])`
+- `KNOWLEDGE_SCOPES` in `packages/fabric/src/types.ts` -- stays `["practice", "product", "factory"]` (deprecated, see `@deprecated` annotation)
+- `SCOPE_TO_LAYER` in `packages/fabric/src/types.ts` -- stays `{ product: "L2", ... }`
+- `scopeToLayer()` function in `packages/fabric/src/types.ts` -- unchanged
+- `knowledge_items.scope_kind` column values -- no data migration
+- All tests referencing `scopeKind: "product"` -- unchanged
+
+**Divergence note:** After U1, the propagation level `"product"` will be renamed to `"team"` (T2.4, T5.1), but the scope kind `"product"` stays. This is intentional: propagation levels track the entity hierarchy (session -> task -> bet -> team -> portfolio), while scope kinds classify knowledge items. The two taxonomies serve different purposes. A follow-up workpackage may align the scope kind naming, but that requires a data migration on `knowledge_items` and is out of U1 scope.
+
+**Also unchanged:** `packages/fabric/src/role-community-map.ts` line 18 mapping `product_manager: "product"` -- this maps a user role to its community/practice scope. The role name `product_manager` is not being renamed in U1 (it is a USER_ROLE constant, not a table reference).
+
+### 2.5 Bet Status Changes
 
 | Old status | New status | Migration rule |
 |---|---|---|
 | `shaped` | `draft` | `UPDATE bets SET status='draft' WHERE status='shaped'` |
-| `committed` | `active` | `UPDATE bets SET status='active' WHERE status='committed'` |
+| `committed` | `active` | `UPDATE bets SET status='active' WHERE status='committed'` (\*) |
 | `in_progress` | `active` | `UPDATE bets SET status='active' WHERE status='in_progress'` |
 | `behind` | `active` | `UPDATE bets SET status='active' WHERE status='behind'` |
 | `blocked` | `active` | `UPDATE bets SET status='active' WHERE status='blocked'` |
@@ -73,14 +92,16 @@ Actually, re-reading the AC: "renames `products` table to `teams` and all `produ
 | `shipped` | `completed` | `UPDATE bets SET status='completed' WHERE status='shipped'` |
 | `killed` | `killed` | No change |
 
-### 2.5 Bet Column Renames
+(\*) **Why `committed` maps to `active`, not `draft`:** In the old lifecycle, `committed` meant "the founders decided to fund this bet and assigned it to a team" -- the bet had already passed the shaping gate and was authorized for execution. In the new lifecycle, `draft` means "created but not yet started." A committed bet has cleared the decision gate and is authorized to proceed, which aligns with `active` (work is sanctioned) rather than `draft` (still pending). The old `shaped -> committed` transition collapses into the new `draft -> active` transition.
+
+### 2.6 Bet Column Renames
 
 | Old column | New column |
 |---|---|
 | `pitch` | `description` |
 | `shipped_at` | `completed_at` |
 
-### 2.6 New Column
+### 2.7 New Column
 
 | Table | Column | Type | Default |
 |---|---|---|---|
@@ -187,13 +208,15 @@ A corresponding snapshot file must be created in `packages/db/drizzle/meta/` tha
 
 ### 3.3 PostgreSQL Migration: `0014_U1_schema_migration.sql`
 
-Same logical operations as SQLite but using PostgreSQL syntax:
-- `ALTER TABLE "teams" RENAME TO "team_members";`
-- `ALTER TABLE "products" RENAME TO "teams";`
-- PostgreSQL ALTER TABLE RENAME COLUMN syntax is identical.
-- `DROP INDEX IF EXISTS` syntax is the same.
-- Boolean columns use `boolean` type instead of `integer`.
-- `at_risk` is `boolean DEFAULT false NOT NULL`.
+The builder derives this line-by-line from the SQLite migration (Section 3.1) with the following PG-specific substitutions:
+
+- **Quoting:** PG uses double-quoted identifiers (`"teams"`) instead of backtick-quoted (`` `teams` ``). The SQLite migration uses backticks throughout.
+- **Boolean type:** `at_risk` column uses `boolean DEFAULT false NOT NULL` (PG native boolean) instead of `integer DEFAULT 0 NOT NULL` (SQLite integer-as-boolean).
+- **Table/column renames:** PG `ALTER TABLE "x" RENAME TO "y"` and `ALTER TABLE "x" RENAME COLUMN "a" TO "b"` syntax is identical to SQLite.
+- **DROP INDEX:** PG syntax is the same (`DROP INDEX IF EXISTS "idx_name"`).
+- **DROP COLUMN:** PG `ALTER TABLE "bets" DROP COLUMN "team_id"` is the same pattern.
+- **UPDATE statements:** Identical SQL (status migration, propagation_log).
+- **FK behavior:** PG does NOT auto-update FK references on table rename (unlike SQLite with `PRAGMA foreign_keys = ON`). However, Drizzle-managed FKs are defined in the TypeScript schema, not as DB-level constraints in PG. The migration only renames tables/columns; FK constraints are managed by Drizzle's schema definition.
 
 The PG migration number continues from the last PG migration (`0013_P2_rename_agents_to_users.sql`).
 
@@ -374,13 +397,13 @@ Rename file. Update all type names:
 - `CreateProductRequest` -> `CreateTeamRequest`
 - `CreateProductResponse` -> `CreateTeamResponse`
 
-Keep `BetCardSummary` in this file (it references team context). Update the `BetCardSummary.status` to use the new `BetStatus` type (now `"draft" | "active" | "completed" | "killed"`).
+Keep `BetCardSummary` in this file (it references team context). Update the `BetCardSummary.status` to use the new `BetStatus` type (now `"draft" | "active" | "completed" | "killed"`). Rename `BetCardSummary.pitchTitle` -> `BetCardSummary.descriptionTitle` (the field derives a display title from the bet's description, formerly called pitch). This rename affects 15+ consumer files across web E2E tests, hooks, pages, stories, and server routes (see full list under T2.5).
 
 Update `ProductDetail.activeBets` comment: statuses filter changes from `committed | in_progress` to `active`.
 
 ### 6.3 `packages/shared/src/index.ts`
 
-Update all re-exports from `./product.js` to `./team.js`. Rename exported types.
+Update all re-exports from `./product.js` to `./team.js`. Rename exported types. Update `deriveTitleFromPitch` re-export to `deriveTitle` (see T2.5).
 
 ### 6.4 `packages/shared/src/events.ts`
 
@@ -425,11 +448,38 @@ Update all named exports:
 
 ### 8.2 `packages/api-contract/src/settings.ts`
 
-`SettingsProduct` -> `SettingsTeam`. `SettingsResponse.products` -> `SettingsResponse.teams`.
+`SettingsProduct` -> `SettingsTeam`. `SettingsResponse.products` -> `SettingsResponse.teams`. `SettingsNotifications.mutedProducts` -> `SettingsNotifications.mutedTeams`.
 
 ### 8.3 `packages/api-contract/src/index.ts`
 
 Update re-exports for renamed types.
+
+### 8.4 `mutedProducts` -> `mutedTeams` Blast Radius
+
+The `mutedProducts` field tracks which teams (formerly products) the user has muted for notifications. It must be renamed to `mutedTeams` across all layers:
+
+| File | Change |
+|---|---|
+| `packages/api-contract/src/settings.ts` (line 55) | `mutedProducts: readonly string[]` -> `mutedTeams: readonly string[]` |
+| `packages/api-contract/src/__tests__/contracts.test.ts` | All `mutedProducts` references -> `mutedTeams` (lines 167, 192-205, 233, 501) |
+| `packages/server/src/services/server-config.ts` (line 35) | Zod schema: `mutedProducts: z.array(z.string()).default([])` -> `mutedTeams` |
+| `packages/server/src/services/server-config.ts` (line 64) | `DeepPartialNotifications.mutedProducts` -> `mutedTeams` |
+| `packages/server/src/routes/settings.ts` (lines 44, 112, 149) | All `mutedProducts` references -> `mutedTeams` |
+| `packages/server/src/services/__tests__/server-config.test.ts` (lines 31, 43, 79-84) | All `mutedProducts` references -> `mutedTeams` |
+| `packages/server/src/__tests__/P3-settings-config.test.ts` (line 75) | `mutedProducts` -> `mutedTeams` |
+| `packages/web/src/settings/settings-types.ts` (line 69) | `mutedProducts: string[]` -> `mutedTeams: string[]` |
+| `packages/web/src/settings/SettingsNotifications.tsx` (lines 171-176) | All `mutedProducts` references -> `mutedTeams` |
+| `packages/web/e2e/fixtures.ts` (line 44) | `mutedProducts: []` -> `mutedTeams: []` |
+| `packages/web/e2e/settings.spec.ts` (line 21) | `mutedProducts: []` -> `mutedTeams: []` |
+| `packages/web/e2e/settings-redesign.spec.ts` (line 41) | `mutedProducts: []` -> `mutedTeams: []` |
+| `packages/web/e2e/M3-api-wiring.spec.ts` (line 26) | `mutedProducts: []` -> `mutedTeams: []` |
+| `packages/web/e2e/mock-data-purge.spec.ts` (line 73) | `mutedProducts: []` -> `mutedTeams: []` |
+| `packages/web/src/__tests__/M3-AppShell.no-mock.test.tsx` (line 58) | `mutedProducts: []` -> `mutedTeams: []` |
+| `packages/web/src/__tests__/AppShell.P4-settings.test.tsx` (line 63) | `mutedProducts: []` -> `mutedTeams: []` |
+| `packages/web/src/__tests__/AppShell.test.tsx` (line 18) | `mutedProducts: []` -> `mutedTeams: []` |
+| `packages/web/src/hooks/__tests__/useSettings.test.ts` (lines 24, 41) | `mutedProducts` -> `mutedTeams` |
+
+**Stored data migration:** The `server_config` table stores notification preferences as a JSON blob. Existing rows may contain `{"notifications": {"mutedProducts": [...]}}`. The server-config reader (`readServerConfig`) uses Zod with `.default([])` -- renaming the Zod key to `mutedTeams` means old stored JSON with `mutedProducts` will fall through to the default (empty array). This is acceptable: muted-product preferences are non-critical and resettable. No SQL data migration needed.
 
 ---
 
@@ -549,13 +599,33 @@ Every file that imports `products` from `@hyperidle/db` or references `Product` 
 **T2.4** Update `packages/shared/src/events.ts`:
 - `PropagationLevelLiteral`: `"product"` -> `"team"`.
 
-**T2.5** Update `packages/shared/src/format/bet.ts` if it references `pitch` -> `description`.
+**T2.5** Update `packages/shared/src/format/bet.ts` — rename function and parameter:
+- `deriveTitleFromPitch(pitch: string, betId: string)` -> `deriveTitle(description: string, betId: string)`.
+- Update the JSDoc: "Derive a display title from the bet's description markdown."
+- Update `@lore` annotation: `pitch` references -> `description`.
+- Update `packages/shared/src/index.ts` re-export: `deriveTitleFromPitch` -> `deriveTitle`.
+- All consumers must update (server routes, web BetCreateDialog, etc. -- see T4.3, T4.4, T6.3).
+
+**T2.6** Update `BetCardSummary.pitchTitle` -> `BetCardSummary.descriptionTitle` in `packages/shared/src/team.ts` (renamed from product.ts in T2.2). Consumer files requiring update:
+- `packages/server/src/routes/products.ts` (line 335, `pitchTitle: derivePitchTitle(...)` -> `descriptionTitle: deriveTitle(...)`) -- also rename the local `derivePitchTitle` wrapper or remove it in favor of the shared `deriveTitle`
+- `packages/web/src/pages/WorkProduct.tsx` (line 344) -> `bet.descriptionTitle`
+- `packages/web/src/pages/WorkProduct.stories.tsx` (lines 26, 34) -> `descriptionTitle`
+- `packages/web/src/__tests__/WorkProduct.test.tsx` (line 38) -> `descriptionTitle`
+- `packages/web/src/hooks/__tests__/useProduct.test.ts` (line 41) -> `descriptionTitle`
+- `packages/web/src/__tests__/hints.integration.test.tsx` (line 60) -> `descriptionTitle`
+- `packages/web/e2e/lifecycle-propagation.spec.ts` (lines 71, 91) -> `descriptionTitle`
+- `packages/web/e2e/L17-cost-tokens.spec.ts` (line 97) -> `descriptionTitle`
+- `packages/web/e2e/L13-product-drilldown.spec.ts` (line 64) -> `descriptionTitle`
+- `packages/web/e2e/accessibility.spec.ts` (line 92) -> `descriptionTitle`
+- `packages/web/e2e/accessibility-K8.spec.ts` (line 101) -> `descriptionTitle`
+- `packages/web/e2e/touch-targets.spec.ts` (line 206) -> `descriptionTitle`
 
 ### Phase 3: API Contract (packages/api-contract)
 
 **T3.1** Update `packages/api-contract/src/settings.ts`:
 - `SettingsProduct` -> `SettingsTeam`.
 - `SettingsResponse.products` -> `SettingsResponse.teams`.
+- `SettingsNotifications.mutedProducts` -> `SettingsNotifications.mutedTeams`.
 
 **T3.2** Update `packages/api-contract/src/index.ts` — re-exports.
 
@@ -603,14 +673,26 @@ Every file that imports `products` from `@hyperidle/db` or references `Product` 
 **T4.8** Update `packages/server/src/schemas/bet.schema.ts`:
 - `betListResponseSchema` buckets updated for new statuses.
 
-**T4.9** Update `packages/server/src/routes/settings.ts` — product references.
+**T4.9** Update `packages/server/src/routes/settings.ts`:
+- Product references -> Team references.
+- `mutedProducts` -> `mutedTeams` (Zod schema on line 44, response type on line 112, response mapping on line 149).
 
-**T4.10** Update remaining server files that reference `productId`, `Product`, `products` (search and replace pass).
+**T4.10** Update `packages/server/src/services/server-config.ts`:
+- `NotificationsSchema`: `mutedProducts` -> `mutedTeams` (line 35).
+- `DeepPartialNotifications`: `mutedProducts` -> `mutedTeams` (line 64).
+
+**T4.11** Update `packages/server/src/routes/bets.ts` and `packages/server/src/routes/products.ts` (before rename to teams-routes.ts):
+- Replace `deriveTitleFromPitch` import with `deriveTitle`.
+- Replace `derivePitchTitle` local wrapper in products.ts with direct `deriveTitle` call.
+- `pitchTitle` in response objects -> `descriptionTitle`.
+
+**T4.12** Update remaining server files that reference `productId`, `Product`, `products` (search and replace pass).
 
 ### Phase 5: Fabric (packages/fabric)
 
 **T5.1** Update `packages/fabric/src/types.ts`:
 - `PropagationLevel`: `"product"` -> `"team"`.
+- **No change** to `KNOWLEDGE_SCOPES`, `KnowledgeScope`, `SCOPE_TO_LAYER`, or `scopeToLayer()` -- per Decision 2.4, `"product"` is kept as a scope kind value.
 
 **T5.2** Update `packages/fabric/src/services/lifecycle-propagation.ts`:
 - `bet.productId` -> `bet.teamId`.
@@ -635,10 +717,10 @@ Every file that imports `products` from `@hyperidle/db` or references `Product` 
 
 **T6.1** Rename and update web type files.
 **T6.2** Update hooks (`useProduct` -> `useTeam`, `useProducts` -> `useTeams`).
-**T6.3** Update pages (WorkProduct -> WorkTeam, WorkPortfolio, WorkBet, BetCreateDialog).
-**T6.4** Update settings components.
+**T6.3** Update pages (WorkProduct -> WorkTeam, WorkPortfolio, WorkBet, BetCreateDialog). In BetCreateDialog: `deriveTitleFromPitch` import -> `deriveTitle`. All `pitchTitle` references -> `descriptionTitle`.
+**T6.4** Update settings components. In `SettingsNotifications.tsx`: `mutedProducts` -> `mutedTeams`. In `settings-types.ts`: `mutedProducts` -> `mutedTeams`.
 **T6.5** Update shell components (Canvas, Rail, Submenu).
-**T6.6** Update router, fixtures, stories.
+**T6.6** Update router, fixtures, stories. In E2E fixtures and specs: `mutedProducts: []` -> `mutedTeams: []`, `pitchTitle` -> `descriptionTitle` (see full file list under Section 8.4 and T2.6).
 
 ### Phase 7: Design System (packages/design-system)
 
@@ -681,7 +763,7 @@ Every file that imports `products` from `@hyperidle/db` or references `Product` 
 
 **Risk:** Existing bets with statuses like `in_progress`, `behind`, `blocked`, `paused`, `review` all collapse to `active`. Information about sub-state (behind/blocked/paused) is lost.
 
-**Mitigation:** This is intentional per the concept doc. The `at_risk` boolean replaces the need for `behind`. `blocked` and `paused` are operational sub-states that the new simpler model does not track at the bet level. The revision log preserves the full history of state transitions.
+**Mitigation:** This is intentional per the U0 concept doc (`plans/U0/concept.md` section "Noun 2: Bet", Lifecycle). The `at_risk` boolean replaces the need for `behind`. `blocked` and `paused` are operational sub-states that the new simpler model does not track at the bet level. The revision log preserves the full history of state transitions.
 
 **Severity:** Low (by design). **Likelihood:** N/A (intended behavior).
 
@@ -722,7 +804,7 @@ Every file that imports `products` from `@hyperidle/db` or references `Product` 
 ## 13. Self-Critique
 
 ### What could be over-engineered?
-- The team_members rename adds complexity. An alternative is to just rename `products` to `teams` and leave the old `teams` table as `agent_teams` or similar. But `team_members` is the concept doc's decision.
+- The team_members rename adds complexity. An alternative is to just rename `products` to `teams` and leave the old `teams` table as `agent_teams` or similar. But `team_members` is the U0 concept doc's decision (`plans/U0/concept.md` section "Noun 1: Team", Schema Migration).
 
 ### What is missing?
 - The PG migration content (Section 3.3) is described but not fully specified. The builder should derive it from the SQLite migration with PG syntax adjustments.
