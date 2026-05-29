@@ -10,11 +10,11 @@
  */
 
 import { createTestDb, type HyperIdleDb, users } from "@hyperidle/db";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Hono } from "hono";
-import { createTestApp } from "../test-utils.js";
-import { createLoginSession, revokeLoginSession } from "../services/login-session.js";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createInvite } from "../services/invite-code.js";
+import { createLoginSession } from "../services/login-session.js";
+import { createTestApp } from "../test-utils.js";
 
 const TEST_API_KEY = "test-key-s1-routes";
 const NOW = new Date().toISOString();
@@ -39,6 +39,7 @@ function apiKeyHeaders(extra?: Record<string, string>): Record<string, string> {
 }
 
 function bearerHeaders(token: string, extra?: Record<string, string>): Record<string, string> {
+	// biome-ignore lint/style/useNamingConvention: HTTP header name
 	return { Authorization: `Bearer ${token}`, "Content-Type": "application/json", ...extra };
 }
 
@@ -74,7 +75,7 @@ describe("S1 — POST /api/auth/invite (admin-only, shared mode)", () => {
 			body: JSON.stringify({ role: "member" }),
 		});
 		expect(res.status).toBe(201);
-		const body = await res.json() as { code: string; expiresAt: string };
+		const body = (await res.json()) as { code: string; expiresAt: string };
 		expect(typeof body.code).toBe("string");
 		expect(body.code.length).toBeGreaterThan(0);
 		expect(typeof body.expiresAt).toBe("string");
@@ -141,7 +142,7 @@ describe("S1 — POST /api/auth/claim (public, no auth)", () => {
 			body: JSON.stringify({ code: invite.code, name: "New Member" }),
 		});
 		expect(res.status).toBe(201);
-		const body = await res.json() as { token: string; user: { id: string; name: string } };
+		const body = (await res.json()) as { token: string; user: { id: string; name: string } };
 		expect(typeof body.token).toBe("string");
 		expect(body.token.length).toBeGreaterThan(0);
 		expect(body.user.name).toBe("New Member");
@@ -162,7 +163,7 @@ describe("S1 — POST /api/auth/claim (public, no auth)", () => {
 			body: JSON.stringify({ code: invite.code, name: "Second" }),
 		});
 		expect(res.status).toBe(410);
-		const body = await res.json() as { code: string };
+		const body = (await res.json()) as { code: string };
 		expect(body.code).toBe("INVITE_CLAIMED");
 	});
 
@@ -174,7 +175,7 @@ describe("S1 — POST /api/auth/claim (public, no auth)", () => {
 			body: JSON.stringify({ code: invite.code, name: "Late Joiner" }),
 		});
 		expect(res.status).toBe(410);
-		const body = await res.json() as { code: string };
+		const body = (await res.json()) as { code: string };
 		expect(body.code).toBe("INVITE_EXPIRED");
 	});
 
@@ -194,14 +195,14 @@ describe("S1 — POST /api/auth/claim (public, no auth)", () => {
 			headers: { "Content-Type": "application/json" },
 			body: JSON.stringify({ code: invite.code, name: "Bearer Tester" }),
 		});
-		const claimBody = await claimRes.json() as { token: string; user: { id: string } };
+		const claimBody = (await claimRes.json()) as { token: string; user: { id: string } };
 
 		// Use the token to call /api/auth/me
 		const meRes = await app.request("/api/auth/me", {
 			headers: bearerHeaders(claimBody.token),
 		});
 		expect(meRes.status).toBe(200);
-		const meBody = await meRes.json() as { id: string };
+		const meBody = (await meRes.json()) as { id: string };
 		expect(meBody.id).toBe(claimBody.user.id);
 	});
 });
@@ -228,7 +229,7 @@ describe("S1 — POST /api/auth/logout", () => {
 			headers: bearerHeaders(token),
 		});
 		expect(res.status).toBe(200);
-		const body = await res.json() as { ok: boolean };
+		const body = (await res.json()) as { ok: boolean };
 		expect(body.ok).toBe(true);
 	});
 
@@ -246,7 +247,7 @@ describe("S1 — POST /api/auth/logout", () => {
 			headers: bearerHeaders(token),
 		});
 		expect(meRes.status).toBe(401);
-		const body = await meRes.json() as { code: string };
+		const body = (await meRes.json()) as { code: string };
 		expect(body.code).toBe("SESSION_REVOKED");
 	});
 
@@ -266,15 +267,17 @@ describe("S1 — GET /api/auth/me (local mode — unchanged)", () => {
 	beforeEach(() => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 		db = createTestDb();
-		db.insert(users).values({
-			id: "u-local-me",
-			kind: "human",
-			name: "Local User",
-			email: "local@example.com",
-			role: "member",
-			status: "active",
-			createdAt: NOW,
-		}).run();
+		db.insert(users)
+			.values({
+				id: "u-local-me",
+				kind: "human",
+				name: "Local User",
+				email: "local@example.com",
+				role: "member",
+				status: "active",
+				createdAt: NOW,
+			})
+			.run();
 		app = makeLocalApp(db);
 	});
 
@@ -287,7 +290,7 @@ describe("S1 — GET /api/auth/me (local mode — unchanged)", () => {
 			headers: { "X-API-Key": TEST_API_KEY },
 		});
 		expect(res.status).toBe(200);
-		const body = await res.json() as { id: string; name: string };
+		const body = (await res.json()) as { id: string; name: string };
 		expect(body.id).toBe("u-local-me");
 	});
 
@@ -314,14 +317,22 @@ describe("S1 — POST /api/auth/ws-token (shared mode uses userId from context)"
 		const { token } = createLoginSession(db, "u-admin-r1");
 		const { createUpgradeTokenStore } = await import("../auth/upgrade-token-store.js");
 		const store = createUpgradeTokenStore();
-		const app = createTestApp({ db, sharedMode: true, upgradeTokenStore: store });
+		// registerWebSocket is required to mount the ws-token route (app.ts design)
+		const app = createTestApp({
+			db,
+			sharedMode: true,
+			upgradeTokenStore: store,
+			registerWebSocket: (_apiRouter, _tokenStore) => {
+				// No-op: just need registerWebSocket present to activate token store
+			},
+		});
 
 		const res = await app.request("/api/auth/ws-token", {
 			method: "POST",
 			headers: bearerHeaders(token),
 		});
 		expect(res.status).toBe(200);
-		const body = await res.json() as { token: string; expiresAt: string };
+		const body = (await res.json()) as { token: string; expiresAt: string };
 		expect(typeof body.token).toBe("string");
 		expect(body.token.length).toBeGreaterThan(0);
 	});

@@ -120,6 +120,13 @@
 			"when": 1782960800000,
 			"tag": "0016_L20_propagation_log",
 			"breakpoints": true
+		},
+		{
+			"idx": 21,
+			"version": "6",
+			"when": 1748700000000,
+			"tag": "0021_S1_login_sessions",
+			"breakpoints": true
 		}
 	]
 }

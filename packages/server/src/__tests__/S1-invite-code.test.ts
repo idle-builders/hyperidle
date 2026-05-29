@@ -9,11 +9,7 @@
 
 import { createTestDb, type HyperIdleDb, users } from "@hyperidle/db";
 import { beforeEach, describe, expect, it } from "vitest";
-import {
-	claimInvite,
-	createInvite,
-	generateInviteCode,
-} from "../services/invite-code.js";
+import { claimInvite, createInvite, generateInviteCode } from "../services/invite-code.js";
 
 const NOW = new Date().toISOString();
 
@@ -134,20 +130,15 @@ describe("S1 — claimInvite (happy path)", () => {
 		}
 	});
 
-	it("marks invite as claimed (claimedBy is set)", () => {
+	it("marks invite as claimed — second claim returns INVITE_CLAIMED", () => {
 		const invite = createInvite(db, "u-admin-1", "member");
 		const result = claimInvite(db, invite.code, "Claimer");
 		expect(result.ok).toBe(true);
-		// The invite should now have claimedBy set to the new user
-		if (result.ok) {
-			// Re-fetch the invite to verify
-			const { inviteCodes } = require("@hyperidle/db");
-			// We verify indirectly: trying to claim again should return INVITE_CLAIMED
-			const result2 = claimInvite(db, invite.code, "Another User");
-			expect(result2.ok).toBe(false);
-			if (!result2.ok) {
-				expect(result2.error).toBe("INVITE_CLAIMED");
-			}
+		// Verify indirectly: second claim attempt returns INVITE_CLAIMED
+		const result2 = claimInvite(db, invite.code, "Another User");
+		expect(result2.ok).toBe(false);
+		if (!result2.ok) {
+			expect(result2.error).toBe("INVITE_CLAIMED");
 		}
 	});
 });
@@ -182,11 +173,7 @@ describe("S1 — claimInvite (error cases)", () => {
 	});
 
 	it("returns INVITE_EXPIRED when code has expired", () => {
-		// Create invite with 1ms TTL (effectively already expired)
-		const invite = createInvite(db, "u-admin-1", "member", 1);
-		// Wait a bit
-		const expiry = new Date(invite.expiresAt);
-		// Force the invite to be expired by creating it 8 days ago
+		// Force the invite to be expired by creating it with a negative TTL (in the past)
 		const expiredInvite = createInvite(db, "u-admin-1", "member", -(8 * 24 * 60 * 60 * 1000));
 
 		const result = claimInvite(db, expiredInvite.code, "Late User");

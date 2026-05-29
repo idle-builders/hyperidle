@@ -11,11 +11,11 @@
  */
 
 import { createTestDb, type HyperIdleDb, users } from "@hyperidle/db";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { createLoginSession, revokeLoginSession } from "../services/login-session.js";
-import { createAuthMiddleware } from "../middleware/auth.js";
 import { Hono } from "hono";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { HyperIdleEnv } from "../middleware/auth.js";
+import { createAuthMiddleware } from "../middleware/auth.js";
+import { createLoginSession, revokeLoginSession } from "../services/login-session.js";
 
 const TEST_API_KEY = "test-key-s1-auth-mw";
 
@@ -32,6 +32,11 @@ function seedUser(db: HyperIdleDb, id = "u-mw-1", role = "member"): void {
 		})
 		.onConflictDoNothing()
 		.run();
+}
+
+function bearerHeaders(token: string): Record<string, string> {
+	// biome-ignore lint/style/useNamingConvention: HTTP header name
+	return { Authorization: `Bearer ${token}` };
 }
 
 /** Build a minimal Hono app that echoes userId, authMethod, loginSessionId from context */
@@ -67,7 +72,7 @@ describe("S1 — Auth middleware: local mode (sharedMode=false)", () => {
 			headers: { "X-API-Key": TEST_API_KEY },
 		});
 		expect(res.status).toBe(200);
-		const body = await res.json() as { userId: string; authMethod: string };
+		const body = (await res.json()) as { userId: string; authMethod: string };
 		expect(body.userId).toBe("u-local-1");
 		expect(body.authMethod).toBe("api_key");
 	});
@@ -91,7 +96,7 @@ describe("S1 — Auth middleware: local mode (sharedMode=false)", () => {
 		const app = makeTestApp(db, false);
 		// Bearer token without X-API-Key should 401 in local mode
 		const res = await app.request("/probe", {
-			headers: { Authorization: `Bearer ${token}` },
+			headers: bearerHeaders(token),
 		});
 		expect(res.status).toBe(401);
 	});
@@ -101,7 +106,7 @@ describe("S1 — Auth middleware: local mode (sharedMode=false)", () => {
 		const res = await app.request("/probe", {
 			headers: { "X-API-Key": TEST_API_KEY },
 		});
-		const body = await res.json() as { loginSessionId: unknown };
+		const body = (await res.json()) as { loginSessionId: unknown };
 		expect(body.loginSessionId).toBeNull();
 	});
 });
@@ -123,10 +128,14 @@ describe("S1 — Auth middleware: shared mode (sharedMode=true)", () => {
 		const { token, session } = createLoginSession(db, "u-shared-1");
 		const app = makeTestApp(db, true);
 		const res = await app.request("/probe", {
-			headers: { Authorization: `Bearer ${token}` },
+			headers: bearerHeaders(token),
 		});
 		expect(res.status).toBe(200);
-		const body = await res.json() as { userId: string; authMethod: string; loginSessionId: string };
+		const body = (await res.json()) as {
+			userId: string;
+			authMethod: string;
+			loginSessionId: string;
+		};
 		expect(body.userId).toBe("u-shared-1");
 		expect(body.authMethod).toBe("login_session");
 		expect(body.loginSessionId).toBe(session.id);
@@ -139,11 +148,11 @@ describe("S1 — Auth middleware: shared mode (sharedMode=true)", () => {
 		vi.advanceTimersByTime(100);
 		const app = makeTestApp(db, true);
 		const res = await app.request("/probe", {
-			headers: { Authorization: `Bearer ${token}` },
+			headers: bearerHeaders(token),
 		});
 		vi.useRealTimers();
 		expect(res.status).toBe(401);
-		const body = await res.json() as { code: string };
+		const body = (await res.json()) as { code: string };
 		expect(body.code).toBe("SESSION_EXPIRED");
 	});
 
@@ -152,10 +161,10 @@ describe("S1 — Auth middleware: shared mode (sharedMode=true)", () => {
 		revokeLoginSession(db, session.id);
 		const app = makeTestApp(db, true);
 		const res = await app.request("/probe", {
-			headers: { Authorization: `Bearer ${token}` },
+			headers: bearerHeaders(token),
 		});
 		expect(res.status).toBe(401);
-		const body = await res.json() as { code: string };
+		const body = (await res.json()) as { code: string };
 		expect(body.code).toBe("SESSION_REVOKED");
 	});
 
@@ -165,7 +174,7 @@ describe("S1 — Auth middleware: shared mode (sharedMode=true)", () => {
 			headers: { "X-API-Key": TEST_API_KEY },
 		});
 		expect(res.status).toBe(200);
-		const body = await res.json() as { userId: string; authMethod: string };
+		const body = (await res.json()) as { userId: string; authMethod: string };
 		expect(body.userId).toBe("u-shared-1");
 		expect(body.authMethod).toBe("api_key");
 	});
@@ -174,7 +183,7 @@ describe("S1 — Auth middleware: shared mode (sharedMode=true)", () => {
 		const app = makeTestApp(db, true);
 		const res = await app.request("/probe");
 		expect(res.status).toBe(401);
-		const body = await res.json() as { code: string };
+		const body = (await res.json()) as { code: string };
 		expect(body.code).toBe("UNAUTHORIZED");
 	});
 
@@ -190,9 +199,9 @@ describe("S1 — Auth middleware: shared mode (sharedMode=true)", () => {
 		const { token, session } = createLoginSession(db, "u-shared-1");
 		const app = makeTestApp(db, true);
 		const res = await app.request("/probe", {
-			headers: { Authorization: `Bearer ${token}` },
+			headers: bearerHeaders(token),
 		});
-		const body = await res.json() as { loginSessionId: string };
+		const body = (await res.json()) as { loginSessionId: string };
 		expect(body.loginSessionId).toBe(session.id);
 	});
 
@@ -201,7 +210,7 @@ describe("S1 — Auth middleware: shared mode (sharedMode=true)", () => {
 		const res = await app.request("/probe", {
 			headers: { "X-API-Key": TEST_API_KEY },
 		});
-		const body = await res.json() as { loginSessionId: unknown };
+		const body = (await res.json()) as { loginSessionId: unknown };
 		expect(body.loginSessionId).toBeNull();
 	});
 });

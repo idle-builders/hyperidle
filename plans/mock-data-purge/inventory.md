@@ -8,10 +8,10 @@ Total offenders: **10**
 
 | path | line | symbol | kind | shape |
 |---|---|---|---|---|
-| `packages/server/src/middleware/auth.ts` | 60 | `u-founder` | literal-id | string |
-| `packages/server/src/middleware/auth.ts` | 86 | `u-founder` | literal-id | string |
-| `packages/server/src/middleware/auth.ts` | 90 | `u-founder` | literal-id | string |
-| `packages/server/src/routes/auth.ts` | 50 | `u-founder` | literal-id | string |
+| `packages/server/src/middleware/auth.ts` | 83 | `u-founder` | literal-id | string |
+| `packages/server/src/middleware/auth.ts` | 168 | `u-founder` | literal-id | string |
+| `packages/server/src/middleware/auth.ts` | 226 | `u-founder` | literal-id | string |
+| `packages/server/src/routes/auth.ts` | 61 | `u-founder` | literal-id | string |
 
 ## borderline (6)
 
