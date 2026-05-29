@@ -31,9 +31,9 @@ describe("Router (P4) — /setup route", () => {
 	});
 
 	// The router should not have /onboarding in its route table
-	// @lore router module initializes createBrowserRouter at import time which can
-	// take >5s on first load in test env — bump timeout to 15s to avoid flake.
-	it("router.tsx does not reference the /onboarding path", async () => {
+	// @lore R3: router.tsx imports many page components causing the dynamic import
+	// to take 10-20s under full suite load. 30s avoids false-positive flakes.
+	it("router.tsx does not reference the /onboarding path", { timeout: 60_000 }, async () => {
 		// We test this by reading the router module's exported router
 		// and verifying that navigating to /onboarding does not render Onboarding content
 		const { router } = await import("../router");
@@ -63,7 +63,7 @@ describe("Router (P4) — /setup route", () => {
 	}, 60_000);
 
 	// /setup route exists in the router
-	it("router.tsx includes /setup path", async () => {
+	it("router.tsx includes /setup path", { timeout: 60_000 }, async () => {
 		const { router } = await import("../router");
 		const routes = router.routes;
 		const flattenRoutes = (rs: typeof routes): string[] => {

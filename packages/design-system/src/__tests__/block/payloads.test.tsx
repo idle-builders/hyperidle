@@ -14,6 +14,11 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 // biome-ignore lint/style/useNamingConvention: React's flag name is fixed.
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
+// @lore R3: dynamic imports under jsdom take 10-30s due to remark/unified
+// (via @hyperidle/shared) cold module loading. All tests in this file use
+// { timeout: 60_000 } to match the pattern in packages/shared and packages/db.
+const TEST_TIMEOUT = { timeout: 60_000 };
+
 describe("Per-kind payload renderers", () => {
 	let container: HTMLDivElement;
 	let root: Root;
@@ -35,7 +40,7 @@ describe("Per-kind payload renderers", () => {
 		});
 	};
 
-	it("HeadingPayload renders the matching h-tag", async () => {
+	it("HeadingPayload renders the matching h-tag", TEST_TIMEOUT, async () => {
 		const { HeadingPayload } = await import("../../block/HeadingPayload.js");
 		await mount(
 			createElement(HeadingPayload, {
@@ -46,7 +51,7 @@ describe("Per-kind payload renderers", () => {
 		expect(container.querySelector("h3")).toBeTruthy();
 	});
 
-	it("ParagraphPayload renders <p>", async () => {
+	it("ParagraphPayload renders <p>", TEST_TIMEOUT, async () => {
 		const { ParagraphPayload } = await import("../../block/ParagraphPayload.js");
 		await mount(
 			createElement(ParagraphPayload, {
@@ -56,7 +61,7 @@ describe("Per-kind payload renderers", () => {
 		expect(container.querySelector("p")).toBeTruthy();
 	});
 
-	it("ListPayload renders <ul> when ordered=false", async () => {
+	it("ListPayload renders <ul> when ordered=false", TEST_TIMEOUT, async () => {
 		const { ListPayload } = await import("../../block/ListPayload.js");
 		await mount(
 			createElement(ListPayload, {
@@ -68,7 +73,7 @@ describe("Per-kind payload renderers", () => {
 		expect(container.querySelector("ul")).toBeTruthy();
 	});
 
-	it("ListPayload renders <ol> when ordered=true", async () => {
+	it("ListPayload renders <ol> when ordered=true", TEST_TIMEOUT, async () => {
 		const { ListPayload } = await import("../../block/ListPayload.js");
 		await mount(
 			createElement(ListPayload, {
@@ -80,7 +85,7 @@ describe("Per-kind payload renderers", () => {
 		expect(container.querySelector("ol")).toBeTruthy();
 	});
 
-	it("QuotePayload renders <blockquote>", async () => {
+	it("QuotePayload renders <blockquote>", TEST_TIMEOUT, async () => {
 		const { QuotePayload } = await import("../../block/QuotePayload.js");
 		await mount(
 			createElement(QuotePayload, {
@@ -91,22 +96,26 @@ describe("Per-kind payload renderers", () => {
 		expect(container.querySelector("blockquote")).toBeTruthy();
 	});
 
-	it("CodePayload renders <pre><code> and is collapsible beyond 20 lines", async () => {
-		const { CodePayload } = await import("../../block/CodePayload.js");
-		const longText = Array.from({ length: 25 }, (_, i) => `line ${i}`).join("\n");
-		await mount(
-			createElement(CodePayload, {
-				lang: "ts",
-				text: longText,
-			}) as ReactElement,
-		);
-		expect(container.querySelector("pre code")).toBeTruthy();
-		// Collapsible state surfaces a control or an aria-expanded attr.
-		const html = container.innerHTML;
-		expect(html.toLowerCase()).toMatch(/collapse|expand|aria-expanded/);
-	});
+	it(
+		"CodePayload renders <pre><code> and is collapsible beyond 20 lines",
+		TEST_TIMEOUT,
+		async () => {
+			const { CodePayload } = await import("../../block/CodePayload.js");
+			const longText = Array.from({ length: 25 }, (_, i) => `line ${i}`).join("\n");
+			await mount(
+				createElement(CodePayload, {
+					lang: "ts",
+					text: longText,
+				}) as ReactElement,
+			);
+			expect(container.querySelector("pre code")).toBeTruthy();
+			// Collapsible state surfaces a control or an aria-expanded attr.
+			const html = container.innerHTML;
+			expect(html.toLowerCase()).toMatch(/collapse|expand|aria-expanded/);
+		},
+	);
 
-	it("TablePayload renders <table> with sticky header markup", async () => {
+	it("TablePayload renders <table> with sticky header markup", TEST_TIMEOUT, async () => {
 		const { TablePayload } = await import("../../block/TablePayload.js");
 		await mount(
 			createElement(TablePayload, {
@@ -119,13 +128,13 @@ describe("Per-kind payload renderers", () => {
 		expect(container.querySelector("thead")).toBeTruthy();
 	});
 
-	it("DividerPayload renders <hr>", async () => {
+	it("DividerPayload renders <hr>", TEST_TIMEOUT, async () => {
 		const { DividerPayload } = await import("../../block/DividerPayload.js");
 		await mount(createElement(DividerPayload, {}) as ReactElement);
 		expect(container.querySelector("hr")).toBeTruthy();
 	});
 
-	it("ImagePayload renders <figure><img> with zoom indicator", async () => {
+	it("ImagePayload renders <figure><img> with zoom indicator", TEST_TIMEOUT, async () => {
 		const { ImagePayload } = await import("../../block/ImagePayload.js");
 		await mount(
 			createElement(ImagePayload, {
@@ -137,7 +146,7 @@ describe("Per-kind payload renderers", () => {
 		expect(container.querySelector("figure img")).toBeTruthy();
 	});
 
-	it("HtmlPayload renders sanitised HTML through the sanitizeHtml prop", async () => {
+	it("HtmlPayload renders sanitised HTML through the sanitizeHtml prop", TEST_TIMEOUT, async () => {
 		const { HtmlPayload } = await import("../../block/HtmlPayload.js");
 		let called = 0;
 		await mount(
@@ -152,25 +161,29 @@ describe("Per-kind payload renderers", () => {
 		expect(called).toBeGreaterThan(0);
 	});
 
-	it("inline link XSS: post-derive+render DOM has no <a href='javascript:'>", async () => {
-		const { deriveBlocks } = await import("@hyperidle/shared");
-		const { Block } = await import("../../Block.js");
-		const md = "see [click](javascript:alert(1)) and [ok](https://example.com)";
-		const { blocks } = deriveBlocks(md, { kind: "bet", id: "x" });
-		await mount(
-			createElement(Block, { id: blocks[0].id, payload: blocks[0].payload }) as ReactElement,
-		);
-		// No anchor with hostile scheme.
-		const anchors = container.querySelectorAll("a");
-		for (const a of Array.from(anchors)) {
-			const href = (a.getAttribute("href") ?? "").toLowerCase();
-			expect(href.startsWith("javascript:")).toBe(false);
-			expect(href.startsWith("data:text")).toBe(false);
-			expect(href.startsWith("vbscript:")).toBe(false);
-		}
-	});
+	it(
+		"inline link XSS: post-derive+render DOM has no <a href='javascript:'>",
+		TEST_TIMEOUT,
+		async () => {
+			const { deriveBlocks } = await import("@hyperidle/shared");
+			const { Block } = await import("../../Block.js");
+			const md = "see [click](javascript:alert(1)) and [ok](https://example.com)";
+			const { blocks } = deriveBlocks(md, { kind: "bet", id: "x" });
+			await mount(
+				createElement(Block, { id: blocks[0].id, payload: blocks[0].payload }) as ReactElement,
+			);
+			// No anchor with hostile scheme.
+			const anchors = container.querySelectorAll("a");
+			for (const a of Array.from(anchors)) {
+				const href = (a.getAttribute("href") ?? "").toLowerCase();
+				expect(href.startsWith("javascript:")).toBe(false);
+				expect(href.startsWith("data:text")).toBe(false);
+				expect(href.startsWith("vbscript:")).toBe(false);
+			}
+		},
+	);
 
-	it("UnknownPayload renders the warn-stripe shell with reason text", async () => {
+	it("UnknownPayload renders the warn-stripe shell with reason text", TEST_TIMEOUT, async () => {
 		const { UnknownPayload } = await import("../../block/UnknownPayload.js");
 		await mount(
 			createElement(UnknownPayload, {
