@@ -190,7 +190,7 @@ const SlashMenuDropdown = forwardRef<SlashMenuDropdownRef, SlashMenuDropdownProp
 					aria-label="Slash commands"
 					className="bg-[var(--surface-2)] border border-[var(--border-default)] rounded-[var(--r2)] py-[4px] min-w-[200px] max-h-[320px] overflow-y-auto shadow-[var(--float)]"
 				>
-					<div className="px-[12px] py-[6px] text-[var(--text-lo)] text-[var(--density-text)]">
+					<div className="px-[12px] py-[8px] text-[var(--text-lo)] text-[var(--density-text)]">
 						No results
 					</div>
 				</div>
@@ -210,7 +210,7 @@ const SlashMenuDropdown = forwardRef<SlashMenuDropdownRef, SlashMenuDropdownProp
 						type="button"
 						role="option"
 						aria-selected={index === selectedIndex}
-						className={`w-full text-left px-[12px] py-[6px] flex flex-col gap-[2px] cursor-pointer ${
+						className={`w-full text-left px-[12px] py-[8px] flex flex-col gap-[4px] cursor-pointer ${
 							index === selectedIndex
 								? "bg-[var(--surface-ghost)]"
 								: "hover:bg-[var(--surface-ghost)]"

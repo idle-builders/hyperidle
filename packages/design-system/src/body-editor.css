@@ -15,175 +15,178 @@
  */
 
 .body-editor .ProseMirror {
-  outline: none;
-  font-family: var(--ui);
-  font-size: var(--density-text);
-  line-height: var(--leading-body);
-  color: var(--text-hi);
+	outline: none;
+	font-family: var(--ui);
+	font-size: var(--density-text);
+	line-height: var(--leading-body);
+	color: var(--text-hi);
 }
 
 /* Headings */
 .body-editor .ProseMirror h1 {
-  font-size: var(--density-text-h1);
-  line-height: var(--leading-heading);
-  font-weight: var(--fw-emphasis);
-  color: var(--text-hi);
-  margin-top: 1.5em;
-  margin-bottom: 0.5em;
+	font-size: var(--density-text-h1);
+	line-height: var(--leading-heading);
+	font-weight: var(--fw-emphasis);
+	color: var(--text-hi);
+	margin-top: 1.5em;
+	margin-bottom: 0.5em;
 }
 
 .body-editor .ProseMirror h2 {
-  font-size: var(--density-text-h2);
-  line-height: var(--leading-heading);
-  font-weight: var(--fw-emphasis);
-  color: var(--text-hi);
-  margin-top: 1.25em;
-  margin-bottom: 0.5em;
+	font-size: var(--density-text-h2);
+	line-height: var(--leading-heading);
+	font-weight: var(--fw-emphasis);
+	color: var(--text-hi);
+	margin-top: 1.25em;
+	margin-bottom: 0.5em;
 }
 
 /* @lore T1: h3 at 90% of h2 keeps it within the closed type scale (I4). */
 .body-editor .ProseMirror h3 {
-  font-size: calc(var(--density-text-h2) * 0.9);
-  line-height: var(--leading-heading);
-  font-weight: var(--fw-medium);
-  color: var(--text-hi);
-  margin-top: 1em;
-  margin-bottom: 0.5em;
+	font-size: calc(var(--density-text-h2) * 0.9);
+	line-height: var(--leading-heading);
+	font-weight: var(--fw-medium);
+	color: var(--text-hi);
+	margin-top: 1em;
+	margin-bottom: 0.5em;
 }
 
 /* Paragraphs */
 .body-editor .ProseMirror p {
-  margin-bottom: 0.5em;
+	margin-bottom: 0.5em;
 }
 
 /* First child removes top margin */
 .body-editor .ProseMirror > :first-child {
-  margin-top: 0;
+	margin-top: 0;
 }
 
 /* Lists */
 .body-editor .ProseMirror ul {
-  list-style-type: disc;
-  padding-left: 1.5em;
-  margin-bottom: 0.5em;
+	list-style-type: disc;
+	padding-left: 1.5em;
+	margin-bottom: 0.5em;
 }
 
 .body-editor .ProseMirror ol {
-  list-style-type: decimal;
-  padding-left: 1.5em;
-  margin-bottom: 0.5em;
+	list-style-type: decimal;
+	padding-left: 1.5em;
+	margin-bottom: 0.5em;
 }
 
 .body-editor .ProseMirror li {
-  margin-bottom: 0.125em;
+	margin-bottom: 0.125em;
 }
 
 /* Blockquote */
 .body-editor .ProseMirror blockquote {
-  border-left: 2px solid var(--border-emphasis);
-  padding-left: 1em;
-  color: var(--text-mid);
-  margin-bottom: 0.5em;
+	border-left: 2px solid var(--border-emphasis);
+	padding-left: 1em;
+	color: var(--text-mid);
+	margin-bottom: 0.5em;
+}
+
+/* Inline code — less specific selector comes first per CSS specificity order */
+.body-editor .ProseMirror code {
+	font-family: var(--mono);
+	font-size: 0.875em;
+	background: var(--surface-ghost);
+	padding: 0.125em 0.375em;
+	border-radius: var(--r1);
+	color: var(--text-hi);
 }
 
 /* Code blocks */
 .body-editor .ProseMirror pre {
-  background: var(--surface-1);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--r1);
-  padding: 0.75em 1em;
-  margin-bottom: 0.5em;
-  overflow-x: auto;
+	background: var(--surface-1);
+	border: 1px solid var(--border-subtle);
+	border-radius: var(--r1);
+	padding: 0.75em 1em;
+	margin-bottom: 0.5em;
+	overflow-x: auto;
 }
 
+/* @lore T1: pre code must come after code (higher specificity after lower) to
+ * avoid biome noDescendingSpecificity lint error. The pre code selector resets
+ * the inline code styles that don't apply inside a code block. */
 .body-editor .ProseMirror pre code {
-  font-family: var(--mono);
-  font-size: 0.875em;
-  color: var(--text-hi);
-  background: none;
-  padding: 0;
-  border: none;
-  border-radius: 0;
-}
-
-/* Inline code */
-.body-editor .ProseMirror code {
-  font-family: var(--mono);
-  font-size: 0.875em;
-  background: var(--surface-ghost);
-  padding: 0.125em 0.375em;
-  border-radius: var(--r1);
-  color: var(--text-hi);
+	font-family: var(--mono);
+	font-size: 0.875em;
+	color: var(--text-hi);
+	background: none;
+	padding: 0;
+	border: none;
+	border-radius: 0;
 }
 
 /* Tables */
 .body-editor .ProseMirror table {
-  border-collapse: collapse;
-  width: 100%;
-  margin-bottom: 0.5em;
+	border-collapse: collapse;
+	width: 100%;
+	margin-bottom: 0.5em;
 }
 
 .body-editor .ProseMirror th,
 .body-editor .ProseMirror td {
-  border: 1px solid var(--border-default);
-  padding: 0.375em 0.75em;
-  text-align: left;
-  font-size: var(--density-text);
-  font-variant-numeric: tabular-nums;
+	border: 1px solid var(--border-default);
+	padding: 0.375em 0.75em;
+	text-align: left;
+	font-size: var(--density-text);
+	font-variant-numeric: tabular-nums;
 }
 
 .body-editor .ProseMirror th {
-  background: var(--surface-1);
-  font-weight: var(--fw-medium);
-  color: var(--text-hi);
+	background: var(--surface-1);
+	font-weight: var(--fw-medium);
+	color: var(--text-hi);
 }
 
 .body-editor .ProseMirror td {
-  color: var(--text-mid);
+	color: var(--text-mid);
 }
 
 /* Horizontal rule */
 .body-editor .ProseMirror hr {
-  border: none;
-  border-top: 1px solid var(--border-subtle);
-  margin: 1em 0;
+	border: none;
+	border-top: 1px solid var(--border-subtle);
+	margin: 1em 0;
 }
 
 /* Images */
 .body-editor .ProseMirror img {
-  max-width: 100%;
-  height: auto;
-  border-radius: var(--r1);
-  margin-bottom: 0.5em;
+	max-width: 100%;
+	height: auto;
+	border-radius: var(--r1);
+	margin-bottom: 0.5em;
 }
 
 /* Links */
 .body-editor .ProseMirror a {
-  color: var(--primary);
-  text-decoration: underline;
+	color: var(--primary);
+	text-decoration: underline;
 }
 
 /* Bold */
 .body-editor .ProseMirror strong {
-  font-weight: var(--fw-emphasis);
+	font-weight: var(--fw-emphasis);
 }
 
 /* Strikethrough */
 .body-editor .ProseMirror s {
-  text-decoration: line-through;
-  color: var(--text-lo);
+	text-decoration: line-through;
+	color: var(--text-lo);
 }
 
 /* Placeholder */
 .body-editor .ProseMirror p.is-editor-empty:first-child::before {
-  content: attr(data-placeholder);
-  float: left;
-  color: var(--text-lo);
-  pointer-events: none;
-  height: 0;
+	content: attr(data-placeholder);
+	float: left;
+	color: var(--text-lo);
+	pointer-events: none;
+	height: 0;
 }
 
 /* Selection */
 .body-editor .ProseMirror ::selection {
-  background: var(--primary-dim);
+	background: var(--primary-dim);
 }
