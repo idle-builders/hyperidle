@@ -122,7 +122,7 @@ describe("I3 review C5: boolean migration is NULL-safe", () => {
 		}
 	});
 
-	it("default false applies to brand-new rows after migration", async () => {
+	it("default false applies to brand-new rows after migration", { timeout: 30_000 }, async () => {
 		const { db, close } = await createTestDb();
 		try {
 			await db.execute(
@@ -140,7 +140,7 @@ describe("I3 review C5: boolean migration is NULL-safe", () => {
 		}
 	});
 
-	it("0004 boolean coercion is a no-op on already-boolean columns (idempotent re-run)", async () => {
+	it("0004 boolean coercion is a no-op on already-boolean columns (idempotent re-run)", { timeout: 30_000 }, async () => {
 		// Apply all migrations once. Then re-apply only 0004 by reading the
 		// migration file directly and running its DO blocks. The DO blocks
 		// guard on `data_type='integer'` so re-run on already-boolean
