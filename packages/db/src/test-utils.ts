@@ -1,5 +1,6 @@
 import { resolve } from "node:path";
 import { PGlite } from "@electric-sql/pglite";
+import { sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/pglite";
 import { migrate } from "drizzle-orm/pglite/migrator";
 import type { HyperIdleDb } from "./connection.js";
@@ -9,6 +10,21 @@ import * as schema from "./schema.js";
 // be async (beforeEach + await). SQLite test-utils were removed because the
 // schema is now PG-only (pgTable). PGlite runs real Postgres semantics in WASM
 // so tests exercise the same dialect as production.
+
+// @lore perf: Per-worker PGlite instance pool. PGlite WASM cold-start (~850ms)
+// + migrations (~150ms) = ~1s per createTestDb() call. With ~350 calls across
+// the suite that's ~350s sequential overhead. The pool pattern:
+// - Pre-warms one instance on first call (cold WASM + migrations, ~1s).
+// - `close()` TRUNCATEs the instance and returns it to the pool (~5ms).
+// - `createTestDb()` takes from the pool if available (~0ms overhead).
+//   Otherwise allocates a new instance with warm WASM (~700ms).
+// - Tests that call createTestDb() multiple times without close() (e.g.,
+//   per-user isolation tests that spin up multiple app instances) each
+//   receive a separate PGlite instance, preserving full isolation. This is
+//   the rare case; the common `beforeEach/afterEach` pattern reuses a single
+//   pooled instance for the file's lifetime.
+// - In-memory PGlite instances are GC'd with the worker — they do not leak.
+// - TRUNCATE uses pg_tables with CASCADE so FK-ordered teardown is automatic.
 
 /** Folder where the Postgres migration set lives. */
 function migrationsFolder(): string {
@@ -22,22 +38,81 @@ export interface TestDbHandle {
 	close(): Promise<void>;
 }
 
+// ---------------------------------------------------------------------------
+// Per-worker instance pool
+// ---------------------------------------------------------------------------
+
+interface PooledInstance {
+	readonly client: PGlite;
+	readonly db: HyperIdleDb;
+}
+
+/** Available (TRUNCATED, ready-to-use) instances. */
+const pool: PooledInstance[] = [];
+
 /**
- * Create a fresh in-memory PGlite database with all migrations applied.
- * Each call returns an isolated DB — safe for parallel test runs.
+ * Create a new PGlite instance and run all migrations.
+ * First call cold-starts the WASM (~850ms). Subsequent calls reuse the
+ * already-loaded WASM module (~700ms) — still fast compared to cold start.
  */
-export async function createTestDb(): Promise<TestDbHandle> {
+async function allocateInstance(): Promise<PooledInstance> {
 	const client = new PGlite();
 	await client.waitReady;
 	const db = drizzle(client, { schema });
 	await migrate(db, { migrationsFolder: migrationsFolder() });
+	return { client, db };
+}
+
+/**
+ * TRUNCATE all public user tables to isolate test state.
+ * Excludes the Drizzle migrations tracking table.
+ * Uses CASCADE so FK-referencing tables are truncated in the right order.
+ */
+async function truncateAllTables(db: HyperIdleDb): Promise<void> {
+	const result = await db.execute(
+		sql`SELECT tablename FROM pg_tables WHERE schemaname = 'public' AND tablename != '__drizzle_migrations' ORDER BY tablename`,
+	);
+	const rows = (result as { rows: Array<{ tablename: string }> }).rows;
+	if (rows.length === 0) return;
+
+	const tableList = rows.map((r) => `"${r.tablename}"`).join(", ");
+	await db.execute(sql.raw(`TRUNCATE TABLE ${tableList} RESTART IDENTITY CASCADE`));
+}
+
+/**
+ * Return a TestDbHandle backed by a pooled PGlite instance.
+ *
+ * If a pre-TRUNCATED instance is available in the pool, it is returned
+ * immediately (~0ms overhead). Otherwise a new instance is allocated:
+ * - First call per worker: cold WASM + migrations (~1s)
+ * - Subsequent allocations: warm WASM + migrations (~700ms)
+ *
+ * `close()` TRUNCATEs the instance and returns it to the pool for reuse.
+ *
+ * Tests that call `createTestDb()` multiple times without calling `close()`
+ * in between (e.g., per-user isolation tests that spin up multiple app
+ * instances) each receive a separate PGlite instance, preserving full
+ * isolation. Each instance is GC'd with the worker — in-memory PGlite
+ * instances do not leak.
+ *
+ * Signature is identical to the original per-call factory so no test files
+ * need changes.
+ */
+export async function createTestDb(): Promise<TestDbHandle> {
+	// Take from pool if available (already TRUNCATED and ready)
+	const pooled = pool.pop();
+	const instance: PooledInstance = pooled ?? (await allocateInstance());
+
+	const { db } = instance;
 	return {
 		db,
 		runMigrations: async () => {
 			await migrate(db, { migrationsFolder: migrationsFolder() });
 		},
 		close: async () => {
-			await client.close();
+			// TRUNCATE and return to pool for reuse by the next test
+			await truncateAllTables(instance.db);
+			pool.push(instance);
 		},
 	};
 }
