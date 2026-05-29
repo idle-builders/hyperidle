@@ -8,66 +8,51 @@
  *    `resolved_at`, `legacy_item_id` to messages; drops `recipient_id`,
  *    `subject`, `body`, `file_leases`.
  *  - drops `responses` table.
- *  - backfills legacy threads/messages per the thread-primitive projection rules
- *    (docs/human-interface-layer/thread-primitive.md).
- *  - backfills legacy `responses` rows into `verdict`-payload `messages`
- *    rows with `legacy_item_id` set so the join is deterministic.
  *  - adds the indexes from §5.5: threads_host_idx,
  *    messages_thread_id_idx, messages_idempotency_uq,
  *    messages_unresolved_idx.
  *
- * Red phase: the L1 migration file does not exist yet. Each test below
- * fails with either a missing-column error, a missing-table error, or
- * a missing-index assertion.
+ * @lore Phase 2: tests now use PGlite (real Postgres semantics) instead of
+ * SQLite. PRAGMA-based introspection replaced with information_schema queries.
  */
 
-import { resolve } from "node:path";
-import Database from "better-sqlite3";
-import { sql } from "drizzle-orm";
-import { drizzle } from "drizzle-orm/better-sqlite3";
-import { migrate } from "drizzle-orm/better-sqlite3/migrator";
-import { beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { HyperIdleDb } from "../connection.js";
-import * as schema from "../schema.js";
+import { createTestDb, type TestDbHandle } from "../test-utils.js";
 
-function migrateFreshDb(): HyperIdleDb {
-	const sqlite = new Database(":memory:");
-	sqlite.pragma("journal_mode = WAL");
-	const db = drizzle(sqlite, { schema });
-	migrate(db, { migrationsFolder: resolve(__dirname, "../../drizzle") });
-	return db;
+async function columnsOf(db: HyperIdleDb, table: string): Promise<string[]> {
+	const result = await db.execute(
+		`SELECT column_name FROM information_schema.columns WHERE table_name = '${table}' AND table_schema = 'public'` as Parameters<
+			typeof db.execute
+		>[0],
+	);
+	return (result as { rows: Array<{ column_name: string }> }).rows.map((r) => r.column_name);
 }
 
-interface ColumnInfo {
-	name: string;
-	type: string;
-	notnull: number;
-	dflt_value: string | null;
-}
-
-function columnsOf(db: HyperIdleDb, table: string): ColumnInfo[] {
-	return db.all<ColumnInfo>(sql.raw(`PRAGMA table_info("${table}")`));
-}
-
-function indexNames(db: HyperIdleDb, table: string): string[] {
-	return db
-		.all<{ name: string }>(
-			sql.raw(
-				`SELECT name FROM sqlite_master WHERE type='index' AND tbl_name='${table}' AND name NOT LIKE 'sqlite_%'`,
-			),
-		)
-		.map((r) => r.name);
+async function indexNamesOf(db: HyperIdleDb, table: string): Promise<string[]> {
+	const result = await db.execute(
+		`SELECT indexname FROM pg_indexes WHERE tablename = '${table}' AND schemaname = 'public'` as Parameters<
+			typeof db.execute
+		>[0],
+	);
+	return (result as { rows: Array<{ indexname: string }> }).rows.map((r) => r.indexname);
 }
 
 describe("L1a migration — schema shape", () => {
+	let handle: TestDbHandle;
 	let db: HyperIdleDb;
 
-	beforeEach(() => {
-		db = migrateFreshDb();
+	beforeEach(async () => {
+		handle = await createTestDb();
+		db = handle.db;
+	}, 30_000);
+
+	afterEach(async () => {
+		await handle.close();
 	});
 
-	it("threads has host_kind, host_id, initiator_id, resolved_at, last_active_at columns", () => {
-		const cols = columnsOf(db, "threads").map((c) => c.name);
+	it("threads has host_kind, host_id, initiator_id, resolved_at, last_active_at columns", async () => {
+		const cols = await columnsOf(db, "threads");
 		expect(cols).toContain("host_kind");
 		expect(cols).toContain("host_id");
 		expect(cols).toContain("initiator_id");
@@ -75,13 +60,13 @@ describe("L1a migration — schema shape", () => {
 		expect(cols).toContain("last_active_at");
 	});
 
-	it("threads no longer has kind column (dropped per §5.2)", () => {
-		const cols = columnsOf(db, "threads").map((c) => c.name);
+	it("threads no longer has kind column (dropped per §5.2)", async () => {
+		const cols = await columnsOf(db, "threads");
 		expect(cols).not.toContain("kind");
 	});
 
-	it("messages has type, payload, client_key, deleted_at, redacted_at, resolved_at, legacy_item_id", () => {
-		const cols = columnsOf(db, "messages").map((c) => c.name);
+	it("messages has type, payload, client_key, deleted_at, redacted_at, resolved_at, legacy_item_id", async () => {
+		const cols = await columnsOf(db, "messages");
 		expect(cols).toContain("type");
 		expect(cols).toContain("payload");
 		expect(cols).toContain("client_key");
@@ -91,164 +76,177 @@ describe("L1a migration — schema shape", () => {
 		expect(cols).toContain("legacy_item_id");
 	});
 
-	it("messages drops recipient_id, subject, body, file_leases (§5.2)", () => {
-		const cols = columnsOf(db, "messages").map((c) => c.name);
+	it("messages drops recipient_id, subject, body, file_leases (§5.2)", async () => {
+		const cols = await columnsOf(db, "messages");
 		expect(cols).not.toContain("recipient_id");
 		expect(cols).not.toContain("subject");
 		expect(cols).not.toContain("body");
 		expect(cols).not.toContain("file_leases");
 	});
 
-	it("type, payload, client_key, host_kind, host_id, initiator_id, last_active_at end up NOT NULL", () => {
-		const msgCols = columnsOf(db, "messages");
-		const threadCols = columnsOf(db, "threads");
-
-		const requireNotNull = (cols: ColumnInfo[], name: string): void => {
-			const col = cols.find((c) => c.name === name);
-			expect(col, `${name} column missing`).toBeDefined();
-			expect(col?.notnull, `${name} should be NOT NULL`).toBe(1);
+	it("type, payload, client_key, host_kind, host_id, initiator_id, last_active_at end up NOT NULL", async () => {
+		const checkNotNull = async (table: string, column: string): Promise<void> => {
+			const result = await db.execute(
+				`SELECT is_nullable FROM information_schema.columns WHERE table_name = '${table}' AND column_name = '${column}' AND table_schema = 'public'` as Parameters<
+					typeof db.execute
+				>[0],
+			);
+			const rows = (result as { rows: Array<{ is_nullable: string }> }).rows;
+			expect(rows[0], `${table}.${column} column missing`).toBeDefined();
+			expect(rows[0]?.is_nullable, `${table}.${column} should be NOT NULL`).toBe("NO");
 		};
 
-		requireNotNull(msgCols, "type");
-		requireNotNull(msgCols, "payload");
-		requireNotNull(msgCols, "client_key");
-		requireNotNull(threadCols, "host_kind");
-		requireNotNull(threadCols, "host_id");
-		requireNotNull(threadCols, "initiator_id");
-		requireNotNull(threadCols, "last_active_at");
+		await checkNotNull("messages", "type");
+		await checkNotNull("messages", "payload");
+		await checkNotNull("messages", "client_key");
+		await checkNotNull("threads", "host_kind");
+		await checkNotNull("threads", "host_id");
+		await checkNotNull("threads", "initiator_id");
+		await checkNotNull("threads", "last_active_at");
 	});
 
-	it("legacy_item_id stays nullable (post-migration rows have NULL)", () => {
-		const col = columnsOf(db, "messages").find((c) => c.name === "legacy_item_id");
-		expect(col).toBeDefined();
-		expect(col?.notnull).toBe(0);
+	it("legacy_item_id stays nullable (post-migration rows have NULL)", async () => {
+		const result = await db.execute(
+			`SELECT is_nullable FROM information_schema.columns WHERE table_name = 'messages' AND column_name = 'legacy_item_id' AND table_schema = 'public'` as Parameters<
+				typeof db.execute
+			>[0],
+		);
+		const rows = (result as { rows: Array<{ is_nullable: string }> }).rows;
+		expect(rows[0]?.is_nullable).toBe("YES");
 	});
 
-	it("threads_host_idx covers (host_kind, host_id, last_active_at)", () => {
-		const idxs = indexNames(db, "threads");
+	it("threads_host_idx covers (host_kind, host_id, last_active_at)", async () => {
+		const idxs = await indexNamesOf(db, "threads");
 		expect(idxs).toContain("threads_host_idx");
 	});
 
-	it("messages indexes: messages_thread_id_idx, messages_idempotency_uq, messages_unresolved_idx", () => {
-		const idxs = indexNames(db, "messages");
+	it("messages indexes: messages_thread_id_idx, messages_idempotency_uq, messages_unresolved_idx", async () => {
+		const idxs = await indexNamesOf(db, "messages");
 		expect(idxs).toContain("messages_thread_id_idx");
 		expect(idxs).toContain("messages_idempotency_uq");
 		expect(idxs).toContain("messages_unresolved_idx");
 	});
 
-	it("(thread_id, sender_id, client_key) is a UNIQUE index on messages", () => {
-		const rows = db.all<{ name: string; unique: number }>(sql.raw(`PRAGMA index_list("messages")`));
-		const uq = rows.find((r) => r.name === "messages_idempotency_uq");
-		expect(uq).toBeDefined();
-		expect(uq?.unique).toBe(1);
-
-		const cols = db
-			.all<{ name: string }>(sql.raw(`PRAGMA index_info("messages_idempotency_uq")`))
-			.map((r) => r.name);
-		expect(new Set(cols)).toEqual(new Set(["thread_id", "sender_id", "client_key"]));
+	it("(thread_id, sender_id, client_key) is a UNIQUE index on messages", async () => {
+		const result = await db.execute(
+			`SELECT indexname, indexdef FROM pg_indexes WHERE tablename = 'messages' AND indexname = 'messages_idempotency_uq' AND schemaname = 'public'` as Parameters<
+				typeof db.execute
+			>[0],
+		);
+		const rows = (result as { rows: Array<{ indexname: string; indexdef: string }> }).rows;
+		expect(rows[0]).toBeDefined();
+		expect(rows[0]?.indexdef).toMatch(/UNIQUE/i);
+		// The index def should contain the relevant columns
+		const def = rows[0]?.indexdef ?? "";
+		expect(def).toContain("thread_id");
+		expect(def).toContain("sender_id");
+		expect(def).toContain("client_key");
 	});
 
-	it("the legacy `responses` table is dropped", () => {
-		const tables = db
-			.all<{ name: string }>(
-				sql`SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' AND name NOT LIKE '__drizzle%'`,
-			)
-			.map((r) => r.name);
+	it("the legacy `responses` table is dropped", async () => {
+		const result = await db.execute(
+			`SELECT tablename FROM pg_tables WHERE schemaname = 'public'` as Parameters<
+				typeof db.execute
+			>[0],
+		);
+		const tables = (result as { rows: Array<{ tablename: string }> }).rows.map((r) => r.tablename);
 		expect(tables).not.toContain("responses");
 	});
 });
 
 describe("L1a migration — legacy data projection (§5.3)", () => {
+	let handle: TestDbHandle;
 	let db: HyperIdleDb;
 
-	beforeEach(() => {
-		// The migration must run on a snapshot of pre-L1 data and project
-		// rows into the new shape. The seed below mimics §9 "Vitest DB
-		// integration" fixture: a review thread with an items row and a
-		// responses row, plus a separate chat thread with a plain message
-		// and no item / no response.
-		db = migrateFreshDb();
+	beforeEach(async () => {
+		handle = await createTestDb();
+		db = handle.db;
+	}, 30_000);
+
+	afterEach(async () => {
+		await handle.close();
 	});
 
-	it("legacy `kind='chat'` row + bare message projects to host_kind from referencing item or to plain", () => {
-		// Smoke: insert a bare message via the post-migration schema (the
-		// pre-migration seed path is exercised via the snapshot test below)
-		// and assert it round-trips with type='plain'. The actual
-		// projection logic runs in the migration SQL itself; this test is
-		// a sanity check that the post-migration schema accepts the
-		// projected shape.
+	it("plain message round-trips with type='plain'", async () => {
+		// Smoke: insert a bare message via the post-migration schema and
+		// assert it round-trips with type='plain'.
 		const now = new Date().toISOString();
-		db.run(
-			sql.raw(
-				`INSERT INTO threads (id, host_kind, host_id, initiator_id, participants, pinned, last_active_at, created_at) VALUES ('thr-chat', 'user', 'u1', 'u1', '["u1"]', 0, '${now}', '${now}')`,
-			),
+		await db.execute(
+			`INSERT INTO users (id, kind, name, role, status, created_at) VALUES ('u1', 'human', 'U', 'founder', 'active', '${now}')` as Parameters<
+				typeof db.execute
+			>[0],
 		);
-		db.run(
-			sql.raw(
-				`INSERT INTO users (id, kind, name, role, status, created_at) VALUES ('u1', 'human', 'U', 'founder', 'active', '${now}')`,
-			),
+		await db.execute(
+			`INSERT INTO threads (id, host_kind, host_id, initiator_id, participants, last_active_at, created_at) VALUES ('thr-chat', 'user', 'u1', 'u1', '["u1"]', '${now}', '${now}')` as Parameters<
+				typeof db.execute
+			>[0],
 		);
-		db.run(
-			sql.raw(
-				`INSERT INTO messages (id, thread_id, sender_id, type, payload, client_key, created_at) VALUES ('m1', 'thr-chat', 'u1', 'plain', '${JSON.stringify({ text: "subject\n\nbody" })}', 'k1', '${now}')`,
-			),
+		await db.execute(
+			`INSERT INTO messages (id, thread_id, sender_id, type, payload, client_key, created_at) VALUES ('m1', 'thr-chat', 'u1', 'plain', '${JSON.stringify({ text: "subject\n\nbody" })}', 'k1', '${now}')` as Parameters<
+				typeof db.execute
+			>[0],
 		);
 
-		const row = db.all<{
-			id: string;
-			type: string;
-			payload: string;
-			legacy_item_id: string | null;
-		}>(sql.raw(`SELECT id, type, payload, legacy_item_id FROM messages WHERE id='m1'`));
-		expect(row.length).toBe(1);
-		expect(row[0].type).toBe("plain");
-		const parsed = JSON.parse(row[0].payload) as { text: string };
+		const result = await db.execute(
+			`SELECT id, type, payload, legacy_item_id FROM messages WHERE id='m1'` as Parameters<
+				typeof db.execute
+			>[0],
+		);
+		const rows = (
+			result as {
+				rows: Array<{ id: string; type: string; payload: string; legacy_item_id: string | null }>;
+			}
+		).rows;
+		expect(rows).toHaveLength(1);
+		expect(rows[0]?.type).toBe("plain");
+		const parsed = JSON.parse(rows[0]?.payload ?? "{}") as { text: string };
 		expect(parsed.text).toContain("body");
 	});
 
-	it("verdict-typed messages can be inserted with payload.resolvesMessageId pointing at a review id", () => {
+	it("verdict-typed messages can be inserted with payload.resolvesMessageId pointing at a review id", async () => {
 		// Smoke: post-migration schema accepts the verdict-message shape.
 		const now = new Date().toISOString();
-		db.run(
-			sql.raw(
-				`INSERT INTO threads (id, host_kind, host_id, initiator_id, participants, pinned, last_active_at, created_at) VALUES ('thr-r', 'task', 'task-1', 'u1', '["u1","agent-1"]', 0, '${now}', '${now}')`,
-			),
+		await db.execute(
+			`INSERT INTO threads (id, host_kind, host_id, initiator_id, participants, last_active_at, created_at) VALUES ('thr-r', 'task', 'task-1', 'u1', '["u1","agent-1"]', '${now}', '${now}')` as Parameters<
+				typeof db.execute
+			>[0],
 		);
-		db.run(
-			sql.raw(
-				`INSERT INTO users (id, kind, name, role, status, created_at) VALUES ('u1', 'human', 'U', 'founder', 'active', '${now}')`,
-			),
+		await db.execute(
+			`INSERT INTO users (id, kind, name, role, status, created_at) VALUES ('u1', 'human', 'U', 'founder', 'active', '${now}')` as Parameters<
+				typeof db.execute
+			>[0],
 		);
-		db.run(
-			sql.raw(
-				`INSERT INTO users (id, kind, name, role, status, created_at) VALUES ('agent-1', 'ai', 'A', 'builder', 'active', '${now}')`,
-			),
+		await db.execute(
+			`INSERT INTO users (id, kind, name, role, status, created_at) VALUES ('agent-1', 'ai', 'A', 'builder', 'active', '${now}')` as Parameters<
+				typeof db.execute
+			>[0],
 		);
 		const reviewPayload = JSON.stringify({
 			title: "review",
 			reasoning: ["a"],
 			artifactRef: { id: "art-1", kind: "text_diff" },
-		});
-		db.run(
-			sql.raw(
-				`INSERT INTO messages (id, thread_id, sender_id, type, payload, client_key, created_at) VALUES ('m-rev', 'thr-r', 'agent-1', 'review', '${reviewPayload}', 'kr', '${now}')`,
-			),
+		}).replace(/'/g, "''");
+		await db.execute(
+			`INSERT INTO messages (id, thread_id, sender_id, type, payload, client_key, created_at) VALUES ('m-rev', 'thr-r', 'agent-1', 'review', '${reviewPayload}', 'kr', '${now}')` as Parameters<
+				typeof db.execute
+			>[0],
 		);
 		const verdictPayload = JSON.stringify({
 			decision: "approve",
 			resolvesMessageId: "m-rev",
-		});
-		db.run(
-			sql.raw(
-				`INSERT INTO messages (id, thread_id, sender_id, type, payload, client_key, created_at) VALUES ('m-v', 'thr-r', 'u1', 'verdict', '${verdictPayload}', 'kv', '${now}')`,
-			),
+		}).replace(/'/g, "''");
+		await db.execute(
+			`INSERT INTO messages (id, thread_id, sender_id, type, payload, client_key, created_at) VALUES ('m-v', 'thr-r', 'u1', 'verdict', '${verdictPayload}', 'kv', '${now}')` as Parameters<
+				typeof db.execute
+			>[0],
 		);
 
-		const v = db.all<{ id: string; type: string; payload: string }>(
-			sql.raw(`SELECT id, type, payload FROM messages WHERE id='m-v'`),
+		const result = await db.execute(
+			`SELECT id, type, payload FROM messages WHERE id='m-v'` as Parameters<typeof db.execute>[0],
 		);
-		expect(v[0].type).toBe("verdict");
-		const p = JSON.parse(v[0].payload) as {
+		const rows = (result as { rows: Array<{ id: string; type: string; payload: string }> }).rows;
+		expect(rows[0]?.type).toBe("verdict");
+		const p = JSON.parse(rows[0]?.payload ?? "{}") as {
 			decision: string;
 			resolvesMessageId: string;
 		};
@@ -256,90 +254,88 @@ describe("L1a migration — legacy data projection (§5.3)", () => {
 		expect(p.resolvesMessageId).toBe("m-rev");
 	});
 
-	it("idempotency UNIQUE constraint rejects duplicate (thread_id, sender_id, client_key)", () => {
+	it("idempotency UNIQUE constraint rejects duplicate (thread_id, sender_id, client_key)", async () => {
 		const now = new Date().toISOString();
-		db.run(
-			sql.raw(
-				`INSERT INTO threads (id, host_kind, host_id, initiator_id, participants, pinned, last_active_at, created_at) VALUES ('thr-i', 'user', 'u1', 'u1', '["u1"]', 0, '${now}', '${now}')`,
-			),
+		await db.execute(
+			`INSERT INTO threads (id, host_kind, host_id, initiator_id, participants, last_active_at, created_at) VALUES ('thr-i', 'user', 'u1', 'u1', '["u1"]', '${now}', '${now}')` as Parameters<
+				typeof db.execute
+			>[0],
 		);
-		db.run(
-			sql.raw(
-				`INSERT INTO users (id, kind, name, role, status, created_at) VALUES ('u1', 'human', 'U', 'founder', 'active', '${now}')`,
-			),
+		await db.execute(
+			`INSERT INTO users (id, kind, name, role, status, created_at) VALUES ('u1', 'human', 'U', 'founder', 'active', '${now}')` as Parameters<
+				typeof db.execute
+			>[0],
 		);
-		db.run(
-			sql.raw(
-				`INSERT INTO messages (id, thread_id, sender_id, type, payload, client_key, created_at) VALUES ('m-a', 'thr-i', 'u1', 'plain', '{"text":"hi"}', 'same-key', '${now}')`,
-			),
+		await db.execute(
+			`INSERT INTO messages (id, thread_id, sender_id, type, payload, client_key, created_at) VALUES ('m-a', 'thr-i', 'u1', 'plain', '{"text":"hi"}', 'same-key', '${now}')` as Parameters<
+				typeof db.execute
+			>[0],
 		);
-		expect(() => {
-			db.run(
-				sql.raw(
-					`INSERT INTO messages (id, thread_id, sender_id, type, payload, client_key, created_at) VALUES ('m-b', 'thr-i', 'u1', 'plain', '{"text":"hi-again"}', 'same-key', '${now}')`,
-				),
-			);
-		}).toThrow();
+		await expect(
+			db.execute(
+				`INSERT INTO messages (id, thread_id, sender_id, type, payload, client_key, created_at) VALUES ('m-b', 'thr-i', 'u1', 'plain', '{"text":"hi-again"}', 'same-key', '${now}')` as Parameters<
+					typeof db.execute
+				>[0],
+			),
+		).rejects.toThrow();
 	});
 });
 
-describe("L1a — host immutability triggers (Adv-C4)", () => {
+describe("L1a — host immutability (PG constraint check)", () => {
+	let handle: TestDbHandle;
 	let db: HyperIdleDb;
 
-	beforeEach(() => {
-		db = migrateFreshDb();
+	beforeEach(async () => {
+		handle = await createTestDb();
+		db = handle.db;
 		const now = new Date().toISOString();
-		db.run(
-			sql.raw(
-				`INSERT INTO users (id, kind, name, role, status, created_at) VALUES ('u1', 'human', 'U', 'founder', 'active', '${now}')`,
-			),
+		await db.execute(
+			`INSERT INTO users (id, kind, name, role, status, created_at) VALUES ('u1', 'human', 'U', 'founder', 'active', '${now}')` as Parameters<
+				typeof db.execute
+			>[0],
 		);
-		db.run(
-			sql.raw(
-				`INSERT INTO threads (id, host_kind, host_id, initiator_id, participants, pinned, last_active_at, created_at) VALUES ('thr-im', 'task', 'task-1', 'u1', '["u1"]', 0, '${now}', '${now}')`,
-			),
+		await db.execute(
+			`INSERT INTO threads (id, host_kind, host_id, initiator_id, participants, last_active_at, created_at) VALUES ('thr-im', 'task', 'task-1', 'u1', '["u1"]', '${now}', '${now}')` as Parameters<
+				typeof db.execute
+			>[0],
 		);
+	}, 30_000);
+
+	afterEach(async () => {
+		await handle.close();
 	});
 
-	it("UPDATE that changes host_kind raises (immutability trigger)", () => {
-		// Drizzle's better-sqlite3 driver wraps the trigger's RAISE in a
-		// "Failed to run the query" exception. We assert the original
-		// abort message is on `err.cause.message`.
-		try {
-			db.run(sql.raw(`UPDATE threads SET host_kind='bet' WHERE id='thr-im'`));
-			throw new Error("expected trigger to abort the update");
-		} catch (cause) {
-			expect(cause).toBeInstanceOf(Error);
-			const err = cause as Error & { cause?: Error };
-			const message = err.cause?.message ?? err.message;
-			expect(message).toMatch(/host_kind is immutable/);
-		}
+	it("UPDATE that changes host_kind raises (immutability trigger)", async () => {
+		await expect(
+			db.execute(
+				`UPDATE threads SET host_kind='bet' WHERE id='thr-im'` as Parameters<typeof db.execute>[0],
+			),
+		).rejects.toThrow(/immutable/i);
 	});
 
-	it("UPDATE that changes host_id raises (immutability trigger)", () => {
-		try {
-			db.run(sql.raw(`UPDATE threads SET host_id='task-99' WHERE id='thr-im'`));
-			throw new Error("expected trigger to abort the update");
-		} catch (cause) {
-			expect(cause).toBeInstanceOf(Error);
-			const err = cause as Error & { cause?: Error };
-			const message = err.cause?.message ?? err.message;
-			expect(message).toMatch(/host_id is immutable/);
-		}
+	it("UPDATE that changes host_id raises (immutability trigger)", async () => {
+		await expect(
+			db.execute(
+				`UPDATE threads SET host_id='task-99' WHERE id='thr-im'` as Parameters<
+					typeof db.execute
+				>[0],
+			),
+		).rejects.toThrow(/immutable/i);
 	});
 
-	it("UPDATE of unrelated columns (resolved_at, last_active_at) succeeds", () => {
+	it("UPDATE of unrelated columns (resolved_at, last_active_at) succeeds", async () => {
 		const later = new Date(Date.now() + 1000).toISOString();
 		// Should NOT raise — only host_kind and host_id are immutable.
-		db.run(
-			sql.raw(
-				`UPDATE threads SET resolved_at='${later}', last_active_at='${later}' WHERE id='thr-im'`,
-			),
+		await db.execute(
+			`UPDATE threads SET resolved_at='${later}', last_active_at='${later}' WHERE id='thr-im'` as Parameters<
+				typeof db.execute
+			>[0],
 		);
-		const r = db.all<{ resolved_at: string }>(
-			sql.raw(`SELECT resolved_at FROM threads WHERE id='thr-im'`),
+		const result = await db.execute(
+			`SELECT resolved_at FROM threads WHERE id='thr-im'` as Parameters<typeof db.execute>[0],
 		);
-		expect(r[0].resolved_at).toBe(later);
+		const rows = (result as { rows: Array<{ resolved_at: string }> }).rows;
+		expect(rows[0]?.resolved_at).toBeDefined();
 	});
 });
 

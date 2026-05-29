@@ -9,10 +9,10 @@ See `ETHOS.md` for the builder philosophy and `CLAUDE.md` for the absolute rules
 ## Quick start (local dev)
 
 ```bash
-bun install
-bun run setup --profile laptop   # creates SQLite DB, runs migrations, seeds data
+npm install
+npm run setup -- --profile laptop   # creates SQLite DB, runs migrations, seeds data
 export HYPERIDLE_API_KEY=my-local-dev-key
-bun dev                          # server :3001 + web :5173
+npm run dev                          # server :3001 + web :5173
 ```
 
 Open <http://localhost:5173>.
@@ -50,7 +50,7 @@ Inside `claude`, type `/pipeline <target>` (e.g. `/pipeline L`) to run the same 
 
 ### Run the pipeline in Docker (recommended)
 
-The repo ships a `Dockerfile` with a full agent-ready toolchain pre-installed (Bun, Node 20, Claude Code, Playwright + Chromium, `git`, `gh`, `sudo`). The container sets `HYPERIDLE_DOCKER=1` so the pipeline runner detects in-container mode.
+The repo ships a `Dockerfile` with a full agent-ready toolchain pre-installed (Node.js, Claude Code, Playwright + Chromium, `git`, `gh`, `sudo`). The container sets `HYPERIDLE_DOCKER=1` so the pipeline runner detects in-container mode.
 
 ```bash
 # 1. Build the image (one-time, or after Dockerfile changes)
@@ -63,11 +63,11 @@ docker run -it -v "$(pwd):/workspace" -p 3001:3001 -p 5173:5173 --name hyperidle
 docker start -ai hyperidle-dev
 
 # 3. Inside the container
-bun install
+npm install
 claude login   
 gh auth login 
 
-# 4. start the pipelin
+# 4. start the pipeline
 bin/pipeline <workpackages>
 ```
 
@@ -75,7 +75,7 @@ Pipeline state is checkpointed per story under `.pipeline/progress/` — re-runn
 
 ### Run the pipeline directly on the host
 
-If you have Bun, Claude Code, and Playwright installed locally, the in-container step is optional:
+If you have Node.js, Claude Code, and Playwright installed locally, the in-container step is optional:
 
 ```bash
 claude                # in this repo root
@@ -93,10 +93,10 @@ Separate from the pipeline container — this is the **deployment** stack (Postg
 ```bash
 cp .env.example .env
 # set POSTGRES_PASSWORD (at minimum)
-bun run setup --profile vps
+npm run setup -- --profile vps
 docker compose up -d
-bun run db:migrate:pg
-bun run db:seed:pg
+npm run db:migrate:pg
+npm run db:seed:pg
 ```
 
 See `docs/deployment/` for the full operator guide.
@@ -107,15 +107,15 @@ See `docs/deployment/` for the full operator guide.
 
 | Command | What |
 |---|---|
-| `bun dev` | Server (3001) + web (5173) in parallel |
-| `bun run check` | TypeScript type check |
-| `bun run lint` | Biome + ESLint |
-| `bun run lint:fix` | Auto-fix lint issues |
-| `bun run test` | Vitest (unit + integration) |
-| `bun run db:generate` | Generate a new Drizzle migration |
-| `bun run db:migrate` | Apply migrations |
-| `bun run ds:serve` | Design-system component viewer (`:8098`) |
-| `bun run ds:sync` | HTML ↔ TSX visual regression check |
+| `npm run dev` | Server (3001) + web (5173) in parallel |
+| `npm run check` | TypeScript type check |
+| `npm run lint` | Biome + ESLint |
+| `npm run lint:fix` | Auto-fix lint issues |
+| `npm run test` | Vitest (unit + integration) |
+| `npm run db:generate` | Generate a new Drizzle migration |
+| `npm run db:migrate` | Apply migrations |
+| `npm run ds:serve` | Design-system component viewer (`:8098`) |
+| `npm run ds:sync` | HTML ↔ TSX visual regression check |
 | `bin/pipeline <target>` | Standalone batch story runner (see Pipeline above) |
 | `bin/service` | Manage a macOS LaunchAgent for the prod server |
 

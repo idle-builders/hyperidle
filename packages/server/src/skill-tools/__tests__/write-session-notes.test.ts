@@ -18,70 +18,60 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { ToolContext } from "../tool-registry.js";
 import { writeSessionNotesTool } from "../write-session-notes.js";
 
-function seed(db: HyperIdleDb): void {
+async function seed(db: HyperIdleDb): Promise<void> {
 	const now = new Date().toISOString();
-	db.insert(products).values({ id: "p1", name: "Test", phase: "build", createdAt: now }).run();
-	db.insert(teams)
-		.values({ id: "t1", productId: "p1", capacity: 5, activeBets: 0, formedAt: now })
-		.run();
-	db.insert(bets)
-		.values({
-			id: "b1",
-			productId: "p1",
-			teamId: "t1",
-			pitch: "Test",
-			appetite: "small",
-			status: "committed",
-			createdAt: now,
-		})
-		.run();
-	db.insert(users)
-		.values({
-			id: "agent-a",
-			name: "A",
-			role: "builder",
-			teamId: "t1",
-			status: "active",
-			maxConcurrentSessions: 2,
-			createdAt: now,
-		})
-		.run();
-	db.insert(threads)
-		.values({
-			id: "thread-task-1",
-			hostKind: "task",
-			hostId: "task-1",
-			initiatorId: "agent-1",
-			participants: JSON.stringify(["agent-1"]),
-			lastActiveAt: now,
-			createdAt: now,
-		})
-		.run();
-	db.insert(tasks)
-		.values({
-			id: "task-1",
-			betId: "b1",
-			productId: "p1",
-			teamId: "t1",
-			ownerAgentId: "agent-a",
-			title: "T",
-			state: "in_progress",
-			threadId: "thread-task-1",
-			createdAt: now,
-			updatedAt: now,
-		})
-		.run();
-	db.insert(sessions)
-		.values({
-			id: "session-1",
-			taskId: "task-1",
-			agentId: "agent-a",
-			modelTier: "workhorse",
-			startedAt: now,
-			state: "active",
-			cost: 0,
-		})
-		.run();
+	await db.insert(products).values({ id: "p1", name: "Test", phase: "build", createdAt: now });
+	await db
+		.insert(teams)
+		.values({ id: "t1", productId: "p1", capacity: 5, activeBets: 0, formedAt: now });
+	await db.insert(bets).values({
+		id: "b1",
+		productId: "p1",
+		teamId: "t1",
+		pitch: "Test",
+		appetite: "small",
+		status: "committed",
+		createdAt: now,
+	});
+	await db.insert(users).values({
+		id: "agent-a",
+		name: "A",
+		role: "builder",
+		teamId: "t1",
+		status: "active",
+		maxConcurrentSessions: 2,
+		createdAt: now,
+	});
+	await db.insert(threads).values({
+		id: "thread-task-1",
+		hostKind: "task",
+		hostId: "task-1",
+		initiatorId: "agent-1",
+		participants: JSON.stringify(["agent-1"]),
+		lastActiveAt: now,
+		createdAt: now,
+	});
+	await db.insert(tasks).values({
+		id: "task-1",
+		betId: "b1",
+		productId: "p1",
+		teamId: "t1",
+		ownerAgentId: "agent-a",
+		title: "T",
+		state: "in_progress",
+		threadId: "thread-task-1",
+		createdAt: now,
+		updatedAt: now,
+	});
+	await db.insert(sessions).values({
+		id: "session-1",
+		taskId: "task-1",
+		agentId: "agent-a",
+		modelTier: "workhorse",
+		startedAt: now,
+		state: "active",
+		cost: 0,
+	});
 }
 
 describe("write_session_notes tool", () => {
@@ -100,9 +90,10 @@ describe("write_session_notes tool", () => {
 		};
 	}
 
-	beforeEach(() => {
-		db = createTestDb();
-		seed(db);
+	beforeEach(async () => {
+		const handle = await createTestDb();
+		db = handle.db;
+		await seed(db);
 		workspacePath = fs.mkdtempSync(path.join(os.tmpdir(), "hi-d4-notes-"));
 	});
 
@@ -126,7 +117,7 @@ describe("write_session_notes tool", () => {
 			const result = await writeSessionNotesTool.handler({ notes: "Reflection X" }, makeContext());
 			expect(result.success).toBe(true);
 
-			const session = db.select().from(sessions).where(eq(sessions.id, "session-1")).get();
+			const [session] = await db.select().from(sessions).where(eq(sessions.id, "session-1"));
 			expect(session?.notes).toBe("Reflection X");
 		});
 

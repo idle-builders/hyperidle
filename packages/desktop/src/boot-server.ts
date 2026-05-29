@@ -2,10 +2,7 @@
  * Server lifecycle: migrate → start → health-check.
  */
 
-// @lore N4: Import @hyperidle/server/server-factory as a static ESM import so
-// vi.mock() in tests can intercept it. A dynamic require() bypasses Vitest's
-// mock hoisting and the real module (which imports better-sqlite3) would run
-// during tests, causing 'better-sqlite3 is not yet supported in Bun' errors.
+// @lore PGlite migration: createServer is now async (awaits PGlite WASM init).
 import { createServer as _createServer, type ServerHandle } from "@hyperidle/server/server-factory";
 
 export type { ServerHandle };
@@ -15,7 +12,7 @@ export type { ServerHandle };
  * Environment variables DATABASE_URL, HYPERIDLE_API_KEY, and
  * HYPERIDLE_STATIC_DIR must be set before calling this.
  */
-export function startServer(): ServerHandle {
+export async function startServer(): Promise<ServerHandle> {
 	return _createServer(0);
 }
 

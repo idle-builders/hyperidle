@@ -34,11 +34,12 @@ describe("POST /api/users — setup user creation", () => {
 	let app: Hono;
 	let db: HyperIdleDb;
 
-	beforeEach(() => {
+	beforeEach(async () => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		db = createTestDb();
+		const handle = await createTestDb();
+		db = handle.db;
 		const eventBus = new EventBus();
-		app = createTestApp({ db, eventBus });
+		app = await createTestApp({ db, eventBus });
 	});
 
 	afterEach(() => {
@@ -105,8 +106,8 @@ describe("POST /api/users — setup user creation", () => {
 		// Empty API key in env simulates local-mode where key is not yet configured
 		vi.stubEnv("HYPERIDLE_API_KEY", "");
 
-		const freshDb = createTestDb();
-		const freshApp = createTestApp({ db: freshDb, eventBus: new EventBus() });
+		const freshHandle = await createTestDb();
+		const freshApp = await createTestApp({ db: freshHandle.db, eventBus: new EventBus() });
 
 		const res = await freshApp.request("/api/users", {
 			method: "POST",
@@ -165,17 +166,15 @@ describe("POST /api/users — setup user creation", () => {
 	// Security: after setup, unauthenticated creation blocked
 	it("blocks unauthenticated POST when a human user already exists", async () => {
 		// Seed a human user
-		db.insert(users)
-			.values({
-				id: "u-human-1",
-				kind: "human",
-				name: "Existing Founder",
-				email: "existing@example.com",
-				role: "founder",
-				status: "active",
-				createdAt: NOW,
-			})
-			.run();
+		await db.insert(users).values({
+			id: "u-human-1",
+			kind: "human",
+			name: "Existing Founder",
+			email: "existing@example.com",
+			role: "founder",
+			status: "active",
+			createdAt: NOW,
+		});
 
 		// Try unauthenticated POST — should be rejected since human exists
 		const res = await app.request("/api/users", {

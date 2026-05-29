@@ -15,34 +15,32 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { sendMessageTool } from "../send-message.js";
 import type { ToolContext } from "../tool-registry.js";
 
-function seedFactory(db: HyperIdleDb): void {
+async function seedFactory(db: HyperIdleDb): Promise<void> {
 	const now = new Date().toISOString();
-	db.insert(products).values({ id: "p1", name: "Test", phase: "build", createdAt: now }).run();
-	db.insert(teams)
-		.values({ id: "t1", productId: "p1", capacity: 5, activeBets: 0, formedAt: now })
-		.run();
-	db.insert(users)
-		.values([
-			{
-				id: "agent-a",
-				name: "A",
-				role: "builder",
-				teamId: "t1",
-				status: "active",
-				maxConcurrentSessions: 2,
-				createdAt: now,
-			},
-			{
-				id: "agent-b",
-				name: "B",
-				role: "builder",
-				teamId: "t1",
-				status: "active",
-				maxConcurrentSessions: 2,
-				createdAt: now,
-			},
-		])
-		.run();
+	await db.insert(products).values({ id: "p1", name: "Test", phase: "build", createdAt: now });
+	await db
+		.insert(teams)
+		.values({ id: "t1", productId: "p1", capacity: 5, activeBets: 0, formedAt: now });
+	await db.insert(users).values([
+		{
+			id: "agent-a",
+			name: "A",
+			role: "builder",
+			teamId: "t1",
+			status: "active",
+			maxConcurrentSessions: 2,
+			createdAt: now,
+		},
+		{
+			id: "agent-b",
+			name: "B",
+			role: "builder",
+			teamId: "t1",
+			status: "active",
+			maxConcurrentSessions: 2,
+			createdAt: now,
+		},
+	]);
 }
 
 function makeContext(db: HyperIdleDb, agentId = "agent-a"): ToolContext {
@@ -60,9 +58,10 @@ function makeContext(db: HyperIdleDb, agentId = "agent-a"): ToolContext {
 describe("send_message tool", () => {
 	let db: HyperIdleDb;
 
-	beforeEach(() => {
-		db = createTestDb();
-		seedFactory(db);
+	beforeEach(async () => {
+		const handle = await createTestDb();
+		db = handle.db;
+		await seedFactory(db);
 	});
 
 	describe("AC2: sends to agent B appears in B's inbox", () => {
@@ -78,11 +77,11 @@ describe("send_message tool", () => {
 			// L1a: messages now carry sender + payload (JSON). Recipient is
 			// derived from the host_id/participants on the thread (legacy
 			// `recipient_id` column dropped — see plan §5.3).
-			const inserted = db.select().from(messages).where(eq(messages.id, data.messageId)).get();
+			const [inserted] = await db.select().from(messages).where(eq(messages.id, data.messageId));
 			expect(inserted?.senderId).toBe("agent-a");
 			const payload = JSON.parse(inserted?.payload ?? "{}") as { text?: string };
 			expect(payload.text).toBe("Hello from A");
-			const thread = db.select().from(threads).where(eq(threads.id, data.threadId)).get();
+			const [thread] = await db.select().from(threads).where(eq(threads.id, data.threadId));
 			expect(thread?.hostId).toBe("agent-b");
 		});
 
@@ -97,7 +96,7 @@ describe("send_message tool", () => {
 
 			// L1a: legacy `kind='direct'` projects as host_kind='agent' with the
 			// recipient as host_id (plan §5.3 thread-primitive projection).
-			const thread = db.select().from(threads).where(eq(threads.id, data.threadId)).get();
+			const [thread] = await db.select().from(threads).where(eq(threads.id, data.threadId));
 			expect(thread?.hostKind).toBe("agent");
 			expect(thread?.hostId).toBe("agent-b");
 			const participants = JSON.parse(thread?.participants ?? "[]") as string[];
@@ -120,7 +119,7 @@ describe("send_message tool", () => {
 			const t2 = (second.data as { threadId: string }).threadId;
 			expect(t1).toBe(t2);
 
-			const threadMsgs = db.select().from(messages).where(eq(messages.threadId, t1)).all();
+			const threadMsgs = await db.select().from(messages).where(eq(messages.threadId, t1));
 			expect(threadMsgs).toHaveLength(2);
 		});
 
@@ -134,7 +133,7 @@ describe("send_message tool", () => {
 			const data = result.data as { messageId: string };
 			// L1a: legacy subject + body collapse into payload.text per the
 			// thread-primitive projection rules (plan §5.3). Subject prefixes the body.
-			const inserted = db.select().from(messages).where(eq(messages.id, data.messageId)).get();
+			const [inserted] = await db.select().from(messages).where(eq(messages.id, data.messageId));
 			const payload = JSON.parse(inserted?.payload ?? "{}") as { text?: string };
 			expect(payload.text).toBe("Urgent\n\nHi");
 		});

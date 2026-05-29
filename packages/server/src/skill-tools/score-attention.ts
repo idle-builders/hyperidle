@@ -72,7 +72,11 @@ async function handler(
 		if (target !== "knowledge_item") {
 			return err("INVALID_INPUT", "recompute mode is only supported for target='knowledge_item'");
 		}
-		const existing = ctx.db.select().from(knowledgeItems).where(eq(knowledgeItems.id, id)).get();
+		const [existing] = await ctx.db
+			.select()
+			.from(knowledgeItems)
+			.where(eq(knowledgeItems.id, id))
+			.limit(1);
 		if (!existing) {
 			return err("NOT_FOUND", `Knowledge item not found: ${id}`);
 		}
@@ -94,35 +98,35 @@ async function handler(
 	const now = new Date().toISOString();
 
 	if (target === "knowledge_item") {
-		const row = ctx.db.select().from(knowledgeItems).where(eq(knowledgeItems.id, id)).get();
+		const [row] = await ctx.db
+			.select()
+			.from(knowledgeItems)
+			.where(eq(knowledgeItems.id, id))
+			.limit(1);
 		if (!row) {
 			return err("NOT_FOUND", `Knowledge item not found: ${id}`);
 		}
 		// @lore O2: attentionScore moved from knowledgeItems to knowledgeStrategyFabric.
 		// Upsert: create fabric row if none exists (kernel items created before fabric).
-		const existingFabric = ctx.db
+		const [existingFabric] = await ctx.db
 			.select()
 			.from(knowledgeStrategyFabric)
 			.where(eq(knowledgeStrategyFabric.knowledgeItemId, id))
-			.get();
+			.limit(1);
 		if (existingFabric) {
-			ctx.db
+			await ctx.db
 				.update(knowledgeStrategyFabric)
 				.set({ attentionScore: String(score) })
-				.where(eq(knowledgeStrategyFabric.knowledgeItemId, id))
-				.run();
+				.where(eq(knowledgeStrategyFabric.knowledgeItemId, id));
 		} else {
-			ctx.db
-				.insert(knowledgeStrategyFabric)
-				.values({
-					id: `ksf-${id}`,
-					knowledgeItemId: id,
-					attentionScore: String(score),
-				})
-				.run();
+			await ctx.db.insert(knowledgeStrategyFabric).values({
+				id: `ksf-${id}`,
+				knowledgeItemId: id,
+				attentionScore: String(score),
+			});
 		}
 		// Also update kernel updatedAt for recency tracking (no version bump)
-		ctx.db.update(knowledgeItems).set({ updatedAt: now }).where(eq(knowledgeItems.id, id)).run();
+		await ctx.db.update(knowledgeItems).set({ updatedAt: now }).where(eq(knowledgeItems.id, id));
 		return ok<ScoreAttentionData>({ target, id, score, mode });
 	}
 
@@ -130,7 +134,7 @@ async function handler(
 	// @lore O2: items.attentionScore stripped from the kernel items table.
 	// The items table no longer tracks attention scores. Score writes are now
 	// best-effort: return ok but skip the DB write.
-	const row = ctx.db.select().from(items).where(eq(items.id, id)).get();
+	const [row] = await ctx.db.select().from(items).where(eq(items.id, id)).limit(1);
 	if (!row) {
 		return err("NOT_FOUND", `Item not found: ${id}`);
 	}

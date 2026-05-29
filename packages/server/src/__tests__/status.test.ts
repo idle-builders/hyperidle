@@ -5,6 +5,7 @@ import {
 	type HyperIdleDb,
 	products,
 	sessions,
+	type TestDbHandle,
 	tasks,
 	teams,
 	users,
@@ -21,83 +22,80 @@ function authHeaders(extra?: Record<string, string>): Record<string, string> {
 }
 
 describe("Status & Settings Endpoints (E6)", () => {
+	let handle: TestDbHandle;
 	let db: HyperIdleDb;
 	let eventBus: EventBus;
 	let app: Hono;
 
-	beforeEach(() => {
+	beforeEach(async () => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		db = createTestDb();
+		handle = await createTestDb();
+		db = handle.db;
 		eventBus = new EventBus();
-		app = createTestApp({ db, eventBus });
+		app = await createTestApp({ db, eventBus });
 
 		// Seed required data
-		db.insert(products)
-			.values({
-				id: "prod-1",
-				name: "Test Product",
-				phase: "build",
-				createdAt: new Date().toISOString(),
-			})
-			.run();
-		db.insert(teams)
-			.values({
-				id: "team-1",
-				productId: "prod-1",
-				capacity: 3,
-				activeBets: 0,
-				formedAt: new Date().toISOString(),
-			})
-			.run();
-		db.insert(users)
-			.values([
-				{
-					id: "agent-1",
-					name: "Builder Bot",
-					role: "builder",
-					status: "idle",
-					teamId: "team-1",
-					costActual: 100,
-					createdAt: new Date().toISOString(),
-				},
-				{
-					id: "agent-2",
-					name: "Growth Bot",
-					role: "growth",
-					status: "active",
-					teamId: "team-1",
-					costActual: 200,
-					createdAt: new Date().toISOString(),
-				},
-			])
-			.run();
-		db.insert(bets)
-			.values({
-				id: "bet-1",
-				productId: "prod-1",
+		await db.insert(products).values({
+			id: "prod-1",
+			name: "Test Product",
+			phase: "build",
+			createdAt: new Date().toISOString(),
+		});
+
+		await db.insert(teams).values({
+			id: "team-1",
+			productId: "prod-1",
+			capacity: 3,
+			activeBets: 0,
+			formedAt: new Date().toISOString(),
+		});
+
+		await db.insert(users).values([
+			{
+				id: "agent-1",
+				name: "Builder Bot",
+				role: "builder",
+				status: "idle",
 				teamId: "team-1",
-				pitch: "Test",
-				appetite: "small",
-				status: "committed",
+				costActual: 100,
 				createdAt: new Date().toISOString(),
-			})
-			.run();
-		db.insert(tasks)
-			.values({
-				id: "task-1",
-				betId: "bet-1",
-				productId: "prod-1",
+			},
+			{
+				id: "agent-2",
+				name: "Growth Bot",
+				role: "growth",
+				status: "active",
 				teamId: "team-1",
-				title: "Test Task",
-				state: "in_progress",
+				costActual: 200,
 				createdAt: new Date().toISOString(),
-				updatedAt: new Date().toISOString(),
-			})
-			.run();
+			},
+		]);
+
+		await db.insert(bets).values({
+			id: "bet-1",
+			productId: "prod-1",
+			teamId: "team-1",
+			pitch: "Test",
+			appetite: "small",
+			status: "committed",
+			createdAt: new Date().toISOString(),
+		});
+
+		await db.insert(tasks).values({
+			id: "task-1",
+			betId: "bet-1",
+			productId: "prod-1",
+			teamId: "team-1",
+			title: "Test Task",
+			state: "in_progress",
+			createdAt: new Date().toISOString(),
+			updatedAt: new Date().toISOString(),
+		});
 	});
 
-	afterEach(() => {
+	afterEach(async () => {
 		vi.unstubAllEnvs();
+		await handle?.close();
 	});
 
 	// AC12: GET /api/status — factory-wide status
@@ -119,28 +117,25 @@ describe("Status & Settings Endpoints (E6)", () => {
 
 		it("counts active sessions correctly", async () => {
 			// Create active session
-			db.insert(sessions)
-				.values({
-					id: "sess-1",
-					agentId: "agent-1",
-					taskId: "task-1",
-					modelTier: "workhorse",
-					startedAt: new Date().toISOString(),
-					state: "active",
-				})
-				.run();
+			await db.insert(sessions).values({
+				id: "sess-1",
+				agentId: "agent-1",
+				taskId: "task-1",
+				modelTier: "workhorse",
+				startedAt: new Date().toISOString(),
+				state: "active",
+			});
+
 			// Create done session (should not count)
-			db.insert(sessions)
-				.values({
-					id: "sess-2",
-					agentId: "agent-2",
-					taskId: "task-1",
-					modelTier: "fast",
-					startedAt: new Date().toISOString(),
-					state: "done",
-					endedAt: new Date().toISOString(),
-				})
-				.run();
+			await db.insert(sessions).values({
+				id: "sess-2",
+				agentId: "agent-2",
+				taskId: "task-1",
+				modelTier: "fast",
+				startedAt: new Date().toISOString(),
+				state: "done",
+				endedAt: new Date().toISOString(),
+			});
 
 			const res = await app.request("/api/status", { headers: authHeaders() });
 			const body = (await res.json()) as Record<string, unknown>;
@@ -149,13 +144,11 @@ describe("Status & Settings Endpoints (E6)", () => {
 
 		it("uses factory_start_time from settings if available", async () => {
 			const startTime = "2024-01-01T00:00:00.000Z";
-			db.insert(factorySettings)
-				.values({
-					key: "factory_start_time",
-					value: startTime,
-					updatedAt: new Date().toISOString(),
-				})
-				.run();
+			await db.insert(factorySettings).values({
+				key: "factory_start_time",
+				value: startTime,
+				updatedAt: new Date().toISOString(),
+			});
 
 			const res = await app.request("/api/status", { headers: authHeaders() });
 			const body = (await res.json()) as Record<string, unknown>;
@@ -174,12 +167,10 @@ describe("Status & Settings Endpoints (E6)", () => {
 		});
 
 		it("returns all settings", async () => {
-			db.insert(factorySettings)
-				.values([
-					{ key: "cost_cap", value: "10000", updatedAt: new Date().toISOString() },
-					{ key: "max_agents", value: "50", updatedAt: new Date().toISOString() },
-				])
-				.run();
+			await db.insert(factorySettings).values([
+				{ key: "cost_cap", value: "10000", updatedAt: new Date().toISOString() },
+				{ key: "max_agents", value: "50", updatedAt: new Date().toISOString() },
+			]);
 
 			const res = await app.request("/api/status/settings", { headers: authHeaders() });
 			const body = (await res.json()) as Array<Record<string, unknown>>;
@@ -204,9 +195,9 @@ describe("Status & Settings Endpoints (E6)", () => {
 
 		it("updates an existing setting (upsert)", async () => {
 			// Create initial
-			db.insert(factorySettings)
-				.values({ key: "cost_cap", value: "10000", updatedAt: new Date().toISOString() })
-				.run();
+			await db
+				.insert(factorySettings)
+				.values({ key: "cost_cap", value: "10000", updatedAt: new Date().toISOString() });
 
 			// Update
 			const res = await app.request("/api/status/settings", {
@@ -220,7 +211,7 @@ describe("Status & Settings Endpoints (E6)", () => {
 			expect(body.value).toBe("20000");
 
 			// Verify only one row
-			const allSettings = db.select().from(factorySettings).all();
+			const allSettings = await db.select().from(factorySettings);
 			expect(allSettings).toHaveLength(1);
 		});
 
@@ -244,9 +235,9 @@ describe("Status & Settings Endpoints (E6)", () => {
 
 		it("does not return raw secret values in the response body", async () => {
 			const now = new Date().toISOString();
-			db.insert(factorySettings)
-				.values([...SECRET_ROWS, SAFE_ROW].map((r) => ({ ...r, updatedAt: now })))
-				.run();
+			await db
+				.insert(factorySettings)
+				.values([...SECRET_ROWS, SAFE_ROW].map((r) => ({ ...r, updatedAt: now })));
 
 			const res = await app.request("/api/status/settings", { headers: authHeaders() });
 			expect(res.status).toBe(200);

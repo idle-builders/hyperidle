@@ -14,7 +14,6 @@ const sendMessageInputSchema = z.object({
 
 type SendMessageInput = z.infer<typeof sendMessageInputSchema>;
 
-// biome-ignore lint/suspicious/useAwait: ToolDefinition.handler requires async signature
 async function handler(args: SendMessageInput, ctx: ToolContext): Promise<ToolResult> {
 	const parsed = sendMessageInputSchema.safeParse(args);
 	if (!parsed.success) {
@@ -22,7 +21,7 @@ async function handler(args: SendMessageInput, ctx: ToolContext): Promise<ToolRe
 	}
 	const { to, subject, body } = parsed.data;
 
-	const recipient = ctx.db.select().from(users).where(eq(users.id, to)).get();
+	const [recipient] = await ctx.db.select().from(users).where(eq(users.id, to)).limit(1);
 	if (!recipient) {
 		return err("NOT_FOUND", `Recipient agent not found: ${to}`);
 	}
@@ -31,22 +30,19 @@ async function handler(args: SendMessageInput, ctx: ToolContext): Promise<ToolRe
 
 	// L1 step5 (W14): direct-thread reuse lives in `services/direct-thread.ts`
 	// to avoid drift with the agent-inbox route.
-	const threadId = findOrCreateDirectThread(ctx.db, ctx.agentId, to, now);
+	const threadId = await findOrCreateDirectThread(ctx.db, ctx.agentId, to, now);
 
 	const messageId = crypto.randomUUID();
 	const text = subject ? `${subject}\n\n${body}` : body;
-	ctx.db
-		.insert(messages)
-		.values({
-			id: messageId,
-			senderId: ctx.agentId,
-			threadId,
-			type: "plain",
-			payload: JSON.stringify({ text }),
-			clientKey: messageId,
-			createdAt: now,
-		})
-		.run();
+	await ctx.db.insert(messages).values({
+		id: messageId,
+		senderId: ctx.agentId,
+		threadId,
+		type: "plain",
+		payload: JSON.stringify({ text }),
+		clientKey: messageId,
+		createdAt: now,
+	});
 
 	return ok({ messageId, threadId });
 }

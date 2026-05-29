@@ -28,26 +28,25 @@ describe("I2 V2 — PATCH /api/bets/:id field enum", () => {
 
 	beforeEach(async () => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		db = createTestDb();
+		const handle = await createTestDb();
+		db = handle.db;
 		eventBus = new EventBus();
-		app = createTestApp({ db, eventBus });
+		app = await createTestApp({ db, eventBus });
 
 		const now = new Date().toISOString();
-		db.insert(products).values({ id: "p1", name: "P", phase: "build", createdAt: now }).run();
-		db.insert(teams)
-			.values({ id: "t1", productId: "p1", capacity: 5, activeBets: 0, formedAt: now })
-			.run();
-		db.insert(bets)
-			.values({
-				id: "bet1",
-				productId: "p1",
-				teamId: "t1",
-				pitch: "x",
-				appetite: "small",
-				status: "shaped",
-				createdAt: now,
-			})
-			.run();
+		await db.insert(products).values({ id: "p1", name: "P", phase: "build", createdAt: now });
+		await db
+			.insert(teams)
+			.values({ id: "t1", productId: "p1", capacity: 5, activeBets: 0, formedAt: now });
+		await db.insert(bets).values({
+			id: "bet1",
+			productId: "p1",
+			teamId: "t1",
+			pitch: "x",
+			appetite: "small",
+			status: "shaped",
+			createdAt: now,
+		});
 		// Move into in_progress so updateBetField doesn't reject on state.
 		await transitionBet(db, eventBus, "bet1", "committed");
 		await transitionBet(db, eventBus, "bet1", "in_progress");

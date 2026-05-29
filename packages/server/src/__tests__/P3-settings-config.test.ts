@@ -14,7 +14,7 @@
  * tests only the P3-specific behavior (server_config backing, not factorySettings).
  */
 
-import { createTestDb, type HyperIdleDb, products, users } from "@hyperidle/db";
+import { createTestDb, type HyperIdleDb, products, type TestDbHandle, users } from "@hyperidle/db";
 import { EventBus } from "@hyperidle/shared";
 import type { Hono } from "hono";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -26,9 +26,10 @@ function authHeaders(): Record<string, string> {
 	return { "X-API-Key": TEST_API_KEY, "Content-Type": "application/json" };
 }
 
-function seedFounderProfile(db: HyperIdleDb): void {
+async function seedFounderProfile(db: HyperIdleDb): Promise<void> {
 	const now = new Date().toISOString();
-	db.insert(users)
+	await db
+		.insert(users)
 		.values({
 			id: "p3-settings-founder",
 			kind: "human",
@@ -39,25 +40,27 @@ function seedFounderProfile(db: HyperIdleDb): void {
 			maxConcurrentSessions: 0,
 			createdAt: now,
 		})
-		.onConflictDoNothing()
-		.run();
+		.onConflictDoNothing();
 }
 
 describe("P3 AC-10 — Settings route: server_config backing", () => {
+	let handle: TestDbHandle;
 	let db: HyperIdleDb;
 	let eventBus: EventBus;
 	let app: Hono;
 
-	beforeEach(() => {
+	beforeEach(async () => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		db = createTestDb();
+		handle = await createTestDb();
+		db = handle.db;
 		eventBus = new EventBus();
-		app = createTestApp({ db, eventBus });
-		seedFounderProfile(db);
+		app = await createTestApp({ db, eventBus });
+		await seedFounderProfile(db);
 	});
 
-	afterEach(() => {
+	afterEach(async () => {
 		vi.unstubAllEnvs();
+		await handle?.close();
 	});
 
 	describe("GET /api/settings — notification prefs from server_config", () => {
@@ -171,7 +174,7 @@ describe("P3 AC-10 — Settings route: server_config backing", () => {
 
 			// Import and directly read server_config to verify DB persistence
 			const { readServerConfig } = await import("../services/server-config.js");
-			const config = readServerConfig(db);
+			const config = await readServerConfig(db);
 			expect(config.notifications.reviewAlerts).toBe(false);
 		});
 	});
@@ -179,9 +182,9 @@ describe("P3 AC-10 — Settings route: server_config backing", () => {
 	describe("Products and users still returned (AC-17 compatibility)", () => {
 		it("GET /api/settings still returns profile section", async () => {
 			const now = new Date().toISOString();
-			db.insert(products)
-				.values({ id: "p3-prod-1", name: "P3 Test Product", phase: "build", createdAt: now })
-				.run();
+			await db
+				.insert(products)
+				.values({ id: "p3-prod-1", name: "P3 Test Product", phase: "build", createdAt: now });
 
 			const res = await app.request("/api/settings", { headers: authHeaders() });
 			const body = (await res.json()) as {

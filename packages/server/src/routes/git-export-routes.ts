@@ -3,6 +3,7 @@ import {
 	createGitRunner,
 	createNodeFsAdapter,
 	type FsAdapter,
+	type GitExportConfig,
 	type GitRunner,
 	getLastExportMeta,
 	readGitExportConfig,
@@ -55,7 +56,7 @@ interface SafeGitExportConfig {
 	debounceMs: number;
 }
 
-function toSafeConfig(raw: ReturnType<typeof readGitExportConfig>): SafeGitExportConfig {
+function toSafeConfig(raw: GitExportConfig): SafeGitExportConfig {
 	return { ...raw, remoteUrl: redactRemoteUrl(raw.remoteUrl) };
 }
 
@@ -119,9 +120,9 @@ export function createGitExportRoutes(
 		}),
 	);
 
-	router.get("/config", (c) => c.json(toSafeConfig(readGitExportConfig(db))));
+	router.get("/config", async (c) => c.json(toSafeConfig(await readGitExportConfig(db))));
 
-	router.patch("/config", validateBody(patchConfigSchema), (c) => {
+	router.patch("/config", validateBody(patchConfigSchema), async (c) => {
 		const body = c.req.valid("json");
 		const reason = validatePatchBody(body);
 		if (reason !== null) {
@@ -131,13 +132,13 @@ export function createGitExportRoutes(
 			};
 			return c.json(response, 400);
 		}
-		const updated = updateGitExportConfig(db, body);
+		const updated = await updateGitExportConfig(db, body);
 		return c.json(toSafeConfig(updated));
 	});
 
 	router.post("/run", validateBody(runBodySchema), async (c) => {
 		const body = c.req.valid("json");
-		const cfg = readGitExportConfig(db);
+		const cfg = await readGitExportConfig(db);
 		if (!cfg.repoPath || cfg.repoPath.length === 0) {
 			const response: ApiErrorResponse = {
 				error: "repoPath is not configured",
@@ -155,9 +156,9 @@ export function createGitExportRoutes(
 		return c.json(result);
 	});
 
-	router.get("/status", (c) => {
-		const cfg = readGitExportConfig(db);
-		const meta = getLastExportMeta(db);
+	router.get("/status", async (c) => {
+		const cfg = await readGitExportConfig(db);
+		const meta = await getLastExportMeta(db);
 		return c.json({
 			enabled: cfg.enabled,
 			repoPath: cfg.repoPath,

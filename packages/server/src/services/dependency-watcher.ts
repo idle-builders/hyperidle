@@ -23,21 +23,20 @@ const logger = createLogger({ pkg: "server.dependency-watcher" });
  * the LIKE match (single `_` matches any char; `%` matches any sequence).
  * The `ESCAPE '\'` clause makes our backslash escape effective.
  */
-export function checkAndUnblockDependents(
+export async function checkAndUnblockDependents(
 	db: HyperIdleDb,
 	eventBus: EventBus,
 	completedTaskId: string,
-): void {
+): Promise<void> {
 	// SQL pre-filter: hold-state tasks whose dependencies include the literal
 	// quoted completedTaskId. The LIKE pattern wraps the id in JSON quotes
 	// so substrings of unrelated IDs ("dep-1" vs "dep-12") don't match.
 	const escapedId = escapeLikePattern(completedTaskId);
 	const pattern = `%"${escapedId}"%`;
-	const candidates = db
+	const candidates = await db
 		.select()
 		.from(tasks)
-		.where(and(eq(tasks.state, "hold"), sql`${tasks.dependencies} LIKE ${pattern} ESCAPE '\\'`))
-		.all();
+		.where(and(eq(tasks.state, "hold"), sql`${tasks.dependencies} LIKE ${pattern} ESCAPE '\\'`));
 
 	for (const task of candidates) {
 		if (!task.dependencies) continue;
@@ -71,15 +70,19 @@ export function checkAndUnblockDependents(
 		if (!deps.includes(completedTaskId)) continue;
 
 		// Check if ALL dependencies are done.
-		const allDone = deps.every((depId) => {
-			const dep = db.select().from(tasks).where(eq(tasks.id, depId)).get();
-			return dep?.state === "done";
-		});
+		let allDone = true;
+		for (const depId of deps) {
+			const [dep] = await db.select().from(tasks).where(eq(tasks.id, depId)).limit(1);
+			if (dep?.state !== "done") {
+				allDone = false;
+				break;
+			}
+		}
 
 		if (!allDone) continue;
 
 		// Auto-transition hold -> accepted
-		transitionTask(db, eventBus, task.id, "accepted");
+		await transitionTask(db, eventBus, task.id, "accepted");
 
 		// Emit notification
 		eventBus.emit({

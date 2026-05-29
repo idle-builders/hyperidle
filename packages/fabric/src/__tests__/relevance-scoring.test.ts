@@ -1,5 +1,5 @@
 import { createTestDb, factorySettings, type HyperIdleDb, type KnowledgeItem } from "@hyperidle/db";
-import { beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { rankAndBudget, scoreItem } from "../relevance-scoring.js";
 import {
 	CONTEXT_WINDOW_TOKENS,
@@ -12,7 +12,6 @@ import {
 } from "../scoring-config.js";
 import { countItemTokens, countTokens, enforceBudget, type ScoredItem } from "../token-budget.js";
 
-/** Create a minimal KnowledgeItem for testing. */
 function makeItem(overrides: Partial<KnowledgeItem> = {}): KnowledgeItem {
 	return {
 		id: overrides.id ?? crypto.randomUUID(),
@@ -45,9 +44,8 @@ describe("relevance-scoring", () => {
 	const weights = getDefaultWeights();
 	const now = Date.now();
 
-	// AC1: Practice tagged "file-handling" scores higher than "email-marketing" for file-upload task
 	describe("AC1: tag-based relevance scoring", () => {
-		it("file-handling practice scores higher than email-marketing for file-upload task", () => {
+		it("file-handling practice scores higher than email-marketing for file-upload task", async () => {
 			const fileHandlingItem = makeItem({
 				topic: "file-handling",
 				updatedAt: new Date(now).toISOString(),
@@ -66,11 +64,10 @@ describe("relevance-scoring", () => {
 
 			const fileScore = scoreItem(fileHandlingItem, context, weights, now);
 			const emailScore = scoreItem(emailMarketingItem, context, weights, now);
-
 			expect(fileScore).toBeGreaterThan(emailScore);
 		});
 
-		it("scores higher when meta.tags match task tags", () => {
+		it("scores higher when meta.tags match task tags", async () => {
 			const matchingItem = makeItem({
 				meta: JSON.stringify({ tags: ["file-handling", "uploads"] }),
 				updatedAt: new Date(now).toISOString(),
@@ -82,33 +79,30 @@ describe("relevance-scoring", () => {
 
 			const matchScore = scoreItem(matchingItem, defaultContext, weights, now);
 			const noMatchScore = scoreItem(nonMatchingItem, defaultContext, weights, now);
-
 			expect(matchScore).toBeGreaterThan(noMatchScore);
 		});
 	});
 
-	// AC2: Recently updated practice scores higher than stale one (same relevance)
 	describe("AC2: recency scoring", () => {
-		it("recently updated item scores higher than stale one with same tags", () => {
+		it("recently updated item scores higher than stale one with same tags", async () => {
 			const recentItem = makeItem({
 				topic: "file-handling",
-				updatedAt: new Date(now - 1 * 24 * 60 * 60 * 1000).toISOString(), // 1 day ago
+				updatedAt: new Date(now - 1 * 24 * 60 * 60 * 1000).toISOString(),
 			});
 			const staleItem = makeItem({
 				topic: "file-handling",
-				updatedAt: new Date(now - 29 * 24 * 60 * 60 * 1000).toISOString(), // 29 days ago
+				updatedAt: new Date(now - 29 * 24 * 60 * 60 * 1000).toISOString(),
 			});
 
 			const recentScore = scoreItem(recentItem, defaultContext, weights, now);
 			const staleScore = scoreItem(staleItem, defaultContext, weights, now);
-
 			expect(recentScore).toBeGreaterThan(staleScore);
 		});
 
-		it("item older than 30 days gets zero recency", () => {
+		it("item older than 30 days gets zero recency", async () => {
 			const oldItem = makeItem({
 				topic: "file-handling",
-				updatedAt: new Date(now - 31 * 24 * 60 * 60 * 1000).toISOString(), // 31 days ago
+				updatedAt: new Date(now - 31 * 24 * 60 * 60 * 1000).toISOString(),
 			});
 			const freshItem = makeItem({
 				topic: "file-handling",
@@ -117,16 +111,12 @@ describe("relevance-scoring", () => {
 
 			const oldScore = scoreItem(oldItem, defaultContext, weights, now);
 			const freshScore = scoreItem(freshItem, defaultContext, weights, now);
-
 			expect(freshScore).toBeGreaterThan(oldScore);
 		});
 	});
 
-	// AC3: Budget enforcement: 200 items, 40K token budget -> only top-scoring items returned
 	describe("AC3: budget enforcement with 200 items", () => {
-		it("returns fewer items than input when budget is tight", () => {
-			// Each item ~250 words body + ~2 words title = ~252 tokens
-			// 200 items * 252 = ~50,400 tokens > 40K budget
+		it("returns fewer items than input when budget is tight", async () => {
 			const items: KnowledgeItem[] = [];
 			for (let i = 0; i < 200; i++) {
 				const words = Array.from({ length: 250 }, (_, j) => `word${j}`).join(" ");
@@ -141,11 +131,9 @@ describe("relevance-scoring", () => {
 			}
 
 			const result = rankAndBudget(items, defaultContext, weights, 40_000, now);
-
 			expect(result.length).toBeLessThan(200);
 			expect(result.length).toBeGreaterThan(0);
 
-			// Verify total tokens within budget
 			let totalTokens = 0;
 			for (const item of result) {
 				totalTokens += countItemTokens(item);
@@ -153,15 +141,11 @@ describe("relevance-scoring", () => {
 			expect(totalTokens).toBeLessThanOrEqual(40_000);
 		});
 
-		it("returns all items when budget is large enough", () => {
+		it("returns all items when budget is large enough", async () => {
 			const items: KnowledgeItem[] = [];
 			for (let i = 0; i < 10; i++) {
 				items.push(
-					makeItem({
-						id: `item-${i}`,
-						body: "short body",
-						updatedAt: new Date(now).toISOString(),
-					}),
+					makeItem({ id: `item-${i}`, body: "short body", updatedAt: new Date(now).toISOString() }),
 				);
 			}
 
@@ -170,9 +154,8 @@ describe("relevance-scoring", () => {
 		});
 	});
 
-	// AC4: L4 factory items always included (non-negotiable context)
 	describe("AC4: L4 items always included", () => {
-		it("L4 items are included even when budget is very tight", () => {
+		it("L4 items are included even when budget is very tight", async () => {
 			const l4Item = makeItem({
 				id: "l4-factory",
 				layer: "L4",
@@ -195,7 +178,6 @@ describe("relevance-scoring", () => {
 			}
 
 			const allItems = [l4Item, ...otherItems];
-			// Set budget to only slightly more than L4 item tokens
 			const l4Tokens = countItemTokens(l4Item);
 			const result = rankAndBudget(allItems, defaultContext, weights, l4Tokens + 10, now);
 
@@ -203,7 +185,7 @@ describe("relevance-scoring", () => {
 			expect(l4InResult).toBeTruthy();
 		});
 
-		it("L4 items come first in results", () => {
+		it("L4 items come first in results", async () => {
 			const l4Item = makeItem({
 				id: "l4-1",
 				layer: "L4",
@@ -219,26 +201,18 @@ describe("relevance-scoring", () => {
 			});
 
 			const result = rankAndBudget([l2Item, l4Item], defaultContext, weights, 100_000, now);
-
 			expect(result[0]?.layer).toBe("L4");
 		});
 	});
 
-	// AC5: 200K context window allocates ~40K for knowledge
 	describe("AC5: context window math", () => {
-		it("200K * 0.2 = 40K tokens for knowledge", () => {
+		it("200K * 0.2 = 40K tokens for knowledge", async () => {
 			expect(CONTEXT_WINDOW_TOKENS).toBe(200_000);
 			expect(KNOWLEDGE_ALLOCATION_RATIO).toBe(0.2);
 			expect(DEFAULT_KNOWLEDGE_BUDGET).toBe(40_000);
 		});
 	});
 
-	// I3 — AC-Rel-1/2/3: confidence and attentionScore factors must NOT be
-	// divided by 100. The schema stores both fields as `real` in [0,1].
-	// Per plan §3.5: removing the `/100` division means a confidence of 0.8
-	// contributes a 0.8 factor (not 0.008). We assert via `scoreItem` with a
-	// weights vector that isolates each factor — the resulting score equals
-	// `factor * 100` when the factor is the only weight.
 	describe("I3: confidence factor (no /100 division)", () => {
 		const isolatedConfidenceWeights: ScoringWeights = {
 			tagMatch: 0,
@@ -249,32 +223,21 @@ describe("relevance-scoring", () => {
 			attentionScore: 0,
 		};
 
-		it("item with confidence 0.8 contributes a factor of 0.8 (score ≈ 80)", () => {
-			const item = makeItem({
-				confidence: 0.8,
-				updatedAt: new Date(now).toISOString(),
-			});
+		it("item with confidence 0.8 contributes a factor of 0.8 (score ≈ 80)", async () => {
+			const item = makeItem({ confidence: 0.8, updatedAt: new Date(now).toISOString() });
 			const score = scoreItem(item, defaultContext, isolatedConfidenceWeights, now);
-			// Using toBeCloseTo to allow rounding (per Adversary H-1).
 			expect(score).toBeCloseTo(80, 0);
-			// And explicitly NOT the buggy 0.8 (i.e. score 1) result.
 			expect(score).toBeGreaterThan(50);
 		});
 
-		it("item with confidence 0.5 contributes a factor of 0.5 (score ≈ 50)", () => {
-			const item = makeItem({
-				confidence: 0.5,
-				updatedAt: new Date(now).toISOString(),
-			});
+		it("item with confidence 0.5 contributes a factor of 0.5 (score ≈ 50)", async () => {
+			const item = makeItem({ confidence: 0.5, updatedAt: new Date(now).toISOString() });
 			const score = scoreItem(item, defaultContext, isolatedConfidenceWeights, now);
 			expect(score).toBeCloseTo(50, 0);
 		});
 
-		it("item with confidence 1.0 contributes a factor of 1.0 (score ≈ 100)", () => {
-			const item = makeItem({
-				confidence: 1.0,
-				updatedAt: new Date(now).toISOString(),
-			});
+		it("item with confidence 1.0 contributes a factor of 1.0 (score ≈ 100)", async () => {
+			const item = makeItem({ confidence: 1.0, updatedAt: new Date(now).toISOString() });
 			const score = scoreItem(item, defaultContext, isolatedConfidenceWeights, now);
 			expect(score).toBeCloseTo(100, 0);
 		});
@@ -290,44 +253,40 @@ describe("relevance-scoring", () => {
 			attentionScore: 1,
 		};
 
-		it("item with attentionScore 0.5 contributes a factor of 0.5 (score ≈ 50)", () => {
-			const item = makeItem({
-				attentionScore: 0.5,
-				updatedAt: new Date(now).toISOString(),
-			});
+		it("item with attentionScore 0.5 contributes a factor of 0.5 (score ≈ 50)", async () => {
+			const item = makeItem({ attentionScore: 0.5, updatedAt: new Date(now).toISOString() });
 			const score = scoreItem(item, defaultContext, isolatedAttentionWeights, now);
 			expect(score).toBeCloseTo(50, 0);
 		});
 
-		it("item with attentionScore 0.8 contributes a factor of 0.8 (score ≈ 80)", () => {
-			const item = makeItem({
-				attentionScore: 0.8,
-				updatedAt: new Date(now).toISOString(),
-			});
+		it("item with attentionScore 0.8 contributes a factor of 0.8 (score ≈ 80)", async () => {
+			const item = makeItem({ attentionScore: 0.8, updatedAt: new Date(now).toISOString() });
 			const score = scoreItem(item, defaultContext, isolatedAttentionWeights, now);
 			expect(score).toBeCloseTo(80, 0);
 		});
 
-		it("item with attentionScore null defaults to 0.5 (neutral)", () => {
-			const item = makeItem({
-				attentionScore: null,
-				updatedAt: new Date(now).toISOString(),
-			});
+		it("item with attentionScore null defaults to 0.5 (neutral)", async () => {
+			const item = makeItem({ attentionScore: null, updatedAt: new Date(now).toISOString() });
 			const score = scoreItem(item, defaultContext, isolatedAttentionWeights, now);
 			expect(score).toBeCloseTo(50, 0);
 		});
 	});
 
-	// AC6: Scoring weights overridable via factory_settings
 	describe("AC6: overridable scoring weights", () => {
 		let db: HyperIdleDb;
+		let handle: Awaited<ReturnType<typeof createTestDb>>;
 
-		beforeEach(() => {
-			db = createTestDb();
+		beforeEach(async () => {
+			handle = await createTestDb();
+			db = handle.db;
 		});
 
-		it("returns default weights when no factory_settings exist", () => {
-			const loaded = loadScoringWeights(db);
+		afterEach(async () => {
+			await handle.close();
+		});
+
+		it("returns default weights when no factory_settings exist", async () => {
+			const loaded = await loadScoringWeights(db);
 			expect(loaded.tagMatch).toBe(0.35);
 			expect(loaded.roleMatch).toBe(0.15);
 			expect(loaded.recency).toBe(0.15);
@@ -336,37 +295,36 @@ describe("relevance-scoring", () => {
 			expect(loaded.attentionScore).toBe(0.1);
 		});
 
-		it("overrides weights from factory_settings", () => {
+		it("overrides weights from factory_settings", async () => {
 			const timestamp = new Date().toISOString();
-			db.insert(factorySettings)
-				.values({ key: "scoring.weight.tagMatch", value: "0.50", updatedAt: timestamp })
-				.run();
-			db.insert(factorySettings)
-				.values({ key: "scoring.weight.recency", value: "0.25", updatedAt: timestamp })
-				.run();
+			await db
+				.insert(factorySettings)
+				.values({ key: "scoring.weight.tagMatch", value: "0.50", updatedAt: timestamp });
+			await db
+				.insert(factorySettings)
+				.values({ key: "scoring.weight.recency", value: "0.25", updatedAt: timestamp });
 
-			const loaded = loadScoringWeights(db);
+			const loaded = await loadScoringWeights(db);
 			expect(loaded.tagMatch).toBe(0.5);
 			expect(loaded.recency).toBe(0.25);
-			// Others remain default
 			expect(loaded.roleMatch).toBe(0.15);
 		});
 
-		it("ignores invalid weight values", () => {
+		it("ignores invalid weight values", async () => {
 			const timestamp = new Date().toISOString();
-			db.insert(factorySettings)
-				.values({ key: "scoring.weight.tagMatch", value: "not-a-number", updatedAt: timestamp })
-				.run();
-			db.insert(factorySettings)
-				.values({ key: "scoring.weight.recency", value: "1.5", updatedAt: timestamp })
-				.run();
+			await db
+				.insert(factorySettings)
+				.values({ key: "scoring.weight.tagMatch", value: "not-a-number", updatedAt: timestamp });
+			await db
+				.insert(factorySettings)
+				.values({ key: "scoring.weight.recency", value: "1.5", updatedAt: timestamp });
 
-			const loaded = loadScoringWeights(db);
-			expect(loaded.tagMatch).toBe(0.35); // default, because "not-a-number" is invalid
-			expect(loaded.recency).toBe(0.15); // default, because 1.5 > 1
+			const loaded = await loadScoringWeights(db);
+			expect(loaded.tagMatch).toBe(0.35);
+			expect(loaded.recency).toBe(0.15);
 		});
 
-		it("overridden weights change scoring results", () => {
+		it("overridden weights change scoring results", async () => {
 			const heavyTagWeights: ScoringWeights = {
 				tagMatch: 0.9,
 				roleMatch: 0.02,
@@ -387,8 +345,6 @@ describe("relevance-scoring", () => {
 
 			const matchScore = scoreItem(matchingItem, defaultContext, heavyTagWeights, now);
 			const noMatchScore = scoreItem(nonMatchingItem, defaultContext, heavyTagWeights, now);
-
-			// The gap should be very large with heavy tag weight
 			expect(matchScore - noMatchScore).toBeGreaterThan(30);
 		});
 	});
@@ -396,36 +352,36 @@ describe("relevance-scoring", () => {
 
 describe("token-budget", () => {
 	describe("countTokens", () => {
-		it("counts whitespace-separated words", () => {
+		it("counts whitespace-separated words", async () => {
 			expect(countTokens("hello world foo bar")).toBe(4);
 		});
 
-		it("returns 0 for empty string", () => {
+		it("returns 0 for empty string", async () => {
 			expect(countTokens("")).toBe(0);
 		});
 
-		it("returns 0 for whitespace-only string", () => {
+		it("returns 0 for whitespace-only string", async () => {
 			expect(countTokens("   ")).toBe(0);
 		});
 
-		it("handles multiple spaces between words", () => {
+		it("handles multiple spaces between words", async () => {
 			expect(countTokens("hello   world")).toBe(2);
 		});
 
-		it("handles newlines and tabs", () => {
+		it("handles newlines and tabs", async () => {
 			expect(countTokens("hello\nworld\tfoo")).toBe(3);
 		});
 	});
 
 	describe("countItemTokens", () => {
-		it("counts tokens in title + body", () => {
+		it("counts tokens in title + body", async () => {
 			const item = makeItem({ title: "two words", body: "three more words" });
 			expect(countItemTokens(item)).toBe(5);
 		});
 	});
 
 	describe("enforceBudget", () => {
-		it("includes all items when budget is sufficient", () => {
+		it("includes all items when budget is sufficient", async () => {
 			const items: ScoredItem[] = [
 				{ item: makeItem({ body: "one two three" }), score: 80 },
 				{ item: makeItem({ body: "four five" }), score: 60 },
@@ -435,23 +391,21 @@ describe("token-budget", () => {
 			expect(result.length).toBe(2);
 		});
 
-		it("excludes items that exceed budget", () => {
+		it("excludes items that exceed budget", async () => {
 			const bigBody = Array.from({ length: 500 }, (_, i) => `word${i}`).join(" ");
 			const items: ScoredItem[] = [
 				{ item: makeItem({ body: bigBody }), score: 80 },
 				{ item: makeItem({ body: bigBody }), score: 60 },
 			];
 
-			// Budget for only ~510 tokens (one item + title)
 			const result = enforceBudget(items, 510);
 			expect(result.length).toBe(1);
 		});
 
-		it("L4 items always included even beyond budget", () => {
+		it("L4 items always included even beyond budget", async () => {
 			const l4Item = makeItem({ layer: "L4", body: "factory context words" });
 			const l2Item = makeItem({ layer: "L2", body: "product context words" });
 
-			// Budget = 0, but L4 still included
 			const result = enforceBudget(
 				[
 					{ item: l2Item, score: 90 },
@@ -464,14 +418,13 @@ describe("token-budget", () => {
 			expect(result[0]?.layer).toBe("L4");
 		});
 
-		it("takes highest-scored items first", () => {
+		it("takes highest-scored items first", async () => {
 			const items: ScoredItem[] = [
 				{ item: makeItem({ id: "low", body: "one two three" }), score: 20 },
 				{ item: makeItem({ id: "high", body: "one two three" }), score: 90 },
 				{ item: makeItem({ id: "mid", body: "one two three" }), score: 50 },
 			];
 
-			// Budget for exactly 2 items (each ~5 tokens including title)
 			const result = enforceBudget(items, 10);
 			expect(result.length).toBe(2);
 			expect(result[0]?.id).toBe("high");

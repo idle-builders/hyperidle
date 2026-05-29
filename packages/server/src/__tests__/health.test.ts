@@ -1,9 +1,12 @@
 import type { HealthResponse } from "@hyperidle/shared";
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 import { createTestApp } from "../test-utils.js";
 
 describe("GET /health", () => {
-	const app = createTestApp();
+	let app: Awaited<ReturnType<typeof createTestApp>>;
+	beforeEach(async () => {
+		app = await createTestApp();
+	});
 
 	it("returns status ok with a timestamp", async () => {
 		const res = await app.request("/health");

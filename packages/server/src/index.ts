@@ -12,6 +12,6 @@ if (envError) {
 
 const port = Number(process.env.PORT) || 3001;
 
-createServer(port);
-
-log.info(`Server running on http://localhost:${port}`);
+createServer(port).then(() => {
+	log.info(`Server running on http://localhost:${port}`);
+});

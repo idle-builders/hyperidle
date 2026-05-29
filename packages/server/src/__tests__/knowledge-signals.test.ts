@@ -4,7 +4,7 @@
  * @lore O2: Knowledge routes rewritten — layer-based URLs removed.
  * GET /api/knowledge returns all items with computed signals from access log.
  */
-import { createTestDb, type HyperIdleDb, knowledgeItems } from "@hyperidle/db";
+import { createTestDb, type HyperIdleDb, knowledgeItems, type TestDbHandle } from "@hyperidle/db";
 import { EventBus } from "@hyperidle/shared";
 import type { Hono } from "hono";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -19,50 +19,49 @@ function authHeaders(): Record<string, string> {
 const NOW_ISO = "2026-05-06T12:00:00.000Z";
 
 describe("GET /api/knowledge/:layer — signals in response (L22 AC-5)", () => {
+	let handle: TestDbHandle;
 	let db: HyperIdleDb;
 	let app: Hono;
 
-	beforeEach(() => {
+	beforeEach(async () => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		db = createTestDb();
+		handle = await createTestDb();
+		db = handle.db;
 		const eventBus = new EventBus();
-		app = createTestApp({ db, eventBus });
+		app = await createTestApp({ db, eventBus });
 	});
 
-	afterEach(() => {
+	afterEach(async () => {
 		vi.unstubAllEnvs();
+		await handle?.close();
 	});
 
 	// @lore O2: knowledgeItems no longer has layer/scopeId/kind/meta columns.
 	async function createItem(id: string, _layer = "L3"): Promise<void> {
-		db.insert(knowledgeItems)
-			.values({
-				id,
-				topic: "testing",
-				title: `Item ${id}`,
-				body: "Test body",
-				format: "markdown",
-				status: "active",
-				version: 1,
-				updatedBy: "human",
-				createdAt: NOW_ISO,
-				updatedAt: NOW_ISO,
-			})
-			.run();
+		await db.insert(knowledgeItems).values({
+			id,
+			topic: "testing",
+			title: `Item ${id}`,
+			body: "Test body",
+			format: "markdown",
+			status: "active",
+			version: 1,
+			updatedBy: "human",
+			createdAt: NOW_ISO,
+			updatedAt: NOW_ISO,
+		});
 	}
 
 	async function insertAccessLog(itemId: string, accessedAt: string): Promise<void> {
 		// knowledgeAccessLog exported from @hyperidle/db since T1
 		const { knowledgeAccessLog } = await import("@hyperidle/db");
-		db.insert(knowledgeAccessLog)
-			.values({
-				id: crypto.randomUUID(),
-				itemId,
-				accessorKind: "human",
-				accessorId: "user-1",
-				accessedAt,
-			})
-			.run();
+		await db.insert(knowledgeAccessLog).values({
+			id: crypto.randomUUID(),
+			itemId,
+			accessorKind: "human",
+			accessorId: "user-1",
+			accessedAt,
+		});
 	}
 
 	// GET / returns items with signals field

@@ -206,12 +206,12 @@ export function createNotificationRoutes(
 		}),
 	);
 
-	router.get("/config", (c) => {
-		const cfg = readNotificationConfig(db);
+	router.get("/config", async (c) => {
+		const cfg = await readNotificationConfig(db);
 		return c.json(redactNotificationConfig(cfg));
 	});
 
-	router.patch("/config", validateBody(patchConfigSchema), (c) => {
+	router.patch("/config", validateBody(patchConfigSchema), async (c) => {
 		const body = c.req.valid("json");
 		const reason = validatePatchBody(body);
 		if (reason !== null) {
@@ -222,7 +222,7 @@ export function createNotificationRoutes(
 			return c.json(response, 400);
 		}
 		const diff = auditDiff(body);
-		const updated = updateNotificationConfig(db, body);
+		const updated = await updateNotificationConfig(db, body);
 		// @lore Emit an admin-action audit record on every PATCH so any
 		// rewrite of `recipientEmail`, `ntfyBaseUrl`, or SMTP creds is
 		// attributable. Secret fields are replaced with "***" before
@@ -238,7 +238,7 @@ export function createNotificationRoutes(
 
 	router.post("/test", validateBody(testBodySchema), async (c) => {
 		const body = c.req.valid("json");
-		const cfg = readNotificationConfig(db);
+		const cfg = await readNotificationConfig(db);
 		const capacity = Math.max(0, cfg.testMaxPerHour);
 		const took = takeTestToken(testBucket, capacity, nowFn().getTime());
 		if (!took) {
@@ -280,7 +280,7 @@ export function createNotificationRoutes(
 		return c.json(result);
 	});
 
-	router.get("/queue", (c) => {
+	router.get("/queue", async (c) => {
 		const statusParam = c.req.query("status") ?? "pending";
 		const limitParam = c.req.query("limit");
 		const limitNum = limitParam ? Number.parseInt(limitParam, 10) : 50;
@@ -297,13 +297,12 @@ export function createNotificationRoutes(
 			};
 			return c.json(response, 400);
 		}
-		const rows = db
+		const rows = await db
 			.select()
 			.from(notificationQueue)
 			.where(eq(notificationQueue.status, parsed.data))
 			.orderBy(desc(notificationQueue.createdAt))
-			.limit(limit)
-			.all();
+			.limit(limit);
 		return c.json({
 			status: parsed.data,
 			count: rows.length,
@@ -324,7 +323,7 @@ export function createNotificationRoutes(
 	});
 
 	router.post("/flush", validateBody(flushBodySchema), async (c) => {
-		const cfg = loadNotificationConfig(db);
+		const cfg = await loadNotificationConfig(db);
 		if (!cfg) {
 			return c.json({ flushed: 0, failed: 0, reason: "disabled" });
 		}

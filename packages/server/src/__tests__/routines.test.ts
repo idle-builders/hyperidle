@@ -5,6 +5,7 @@ import {
 	products,
 	routines,
 	sessions,
+	type TestDbHandle,
 	tasks,
 	teams,
 	users,
@@ -22,87 +23,81 @@ function authHeaders(extra?: Record<string, string>): Record<string, string> {
 }
 
 describe("Routine Endpoints (E6)", () => {
+	let handle: TestDbHandle;
 	let db: HyperIdleDb;
 	let eventBus: EventBus;
 	let app: Hono;
 
-	beforeEach(() => {
+	beforeEach(async () => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		db = createTestDb();
+		handle = await createTestDb();
+		db = handle.db;
 		eventBus = new EventBus();
-		app = createTestApp({ db, eventBus });
+		app = await createTestApp({ db, eventBus });
 
 		// Seed required data
-		db.insert(products)
-			.values({
-				id: "prod-1",
-				name: "Test Product",
-				phase: "build",
-				createdAt: new Date().toISOString(),
-			})
-			.run();
-		db.insert(teams)
-			.values({
-				id: "team-1",
-				productId: "prod-1",
-				capacity: 3,
-				activeBets: 0,
-				formedAt: new Date().toISOString(),
-			})
-			.run();
-		db.insert(users)
-			.values({
-				id: "agent-1",
-				name: "Builder Bot",
-				role: "builder",
-				status: "idle",
-				teamId: "team-1",
-				createdAt: new Date().toISOString(),
-			})
-			.run();
+		await db.insert(products).values({
+			id: "prod-1",
+			name: "Test Product",
+			phase: "build",
+			createdAt: new Date().toISOString(),
+		});
+
+		await db.insert(teams).values({
+			id: "team-1",
+			productId: "prod-1",
+			capacity: 3,
+			activeBets: 0,
+			formedAt: new Date().toISOString(),
+		});
+
+		await db.insert(users).values({
+			id: "agent-1",
+			name: "Builder Bot",
+			role: "builder",
+			status: "idle",
+			teamId: "team-1",
+			createdAt: new Date().toISOString(),
+		});
 
 		// Seed a bet and task for FK references in session creation
-		db.insert(bets)
-			.values({
-				id: "bet-1",
-				productId: "prod-1",
-				teamId: "team-1",
-				pitch: "Test",
-				appetite: "small",
-				status: "committed",
-				createdAt: new Date().toISOString(),
-			})
-			.run();
-		db.insert(tasks)
-			.values({
-				id: "task-1",
-				betId: "bet-1",
-				productId: "prod-1",
-				teamId: "team-1",
-				title: "Test Task",
-				state: "in_progress",
-				createdAt: new Date().toISOString(),
-				updatedAt: new Date().toISOString(),
-			})
-			.run();
+		await db.insert(bets).values({
+			id: "bet-1",
+			productId: "prod-1",
+			teamId: "team-1",
+			pitch: "Test",
+			appetite: "small",
+			status: "committed",
+			createdAt: new Date().toISOString(),
+		});
+
+		await db.insert(tasks).values({
+			id: "task-1",
+			betId: "bet-1",
+			productId: "prod-1",
+			teamId: "team-1",
+			title: "Test Task",
+			state: "in_progress",
+			createdAt: new Date().toISOString(),
+			updatedAt: new Date().toISOString(),
+		});
 
 		// Seed routines
-		db.insert(routines)
-			.values([
-				{
-					id: "routine-1",
-					ownerAgentId: "agent-1",
-					triggerType: "heartbeat",
-					triggerConfig: JSON.stringify({ intervalMs: 60000 }),
-					active: 1,
-				},
-				{ id: "routine-2", ownerAgentId: "agent-1", triggerType: "calendar", active: 1 },
-			])
-			.run();
+		await db.insert(routines).values([
+			{
+				id: "routine-1",
+				ownerAgentId: "agent-1",
+				triggerType: "heartbeat",
+				triggerConfig: JSON.stringify({ intervalMs: 60000 }),
+				active: true,
+			},
+			{ id: "routine-2", ownerAgentId: "agent-1", triggerType: "calendar", active: true },
+		]);
 	});
 
-	afterEach(() => {
+	afterEach(async () => {
 		vi.unstubAllEnvs();
+		await handle?.close();
 	});
 
 	// AC4: GET /api/routines — list with trigger config, last/next run
@@ -131,7 +126,7 @@ describe("Routine Endpoints (E6)", () => {
 			expect(res.status).toBe(200);
 
 			const body = (await res.json()) as Record<string, unknown>;
-			expect(body.active).toBe(0);
+			expect(body.active).toBe(false);
 		});
 
 		it("updates trigger config and autonomy level", async () => {
@@ -159,7 +154,7 @@ describe("Routine Endpoints (E6)", () => {
 
 	// AC6: POST /api/routines/:id/retire — retire
 	describe("AC6: POST /api/routines/:id/retire — retire routine", () => {
-		it("retires a routine by setting active=0", async () => {
+		it("retires a routine by setting active=false", async () => {
 			const res = await app.request("/api/routines/routine-1/retire", {
 				method: "POST",
 				headers: authHeaders(),
@@ -167,7 +162,7 @@ describe("Routine Endpoints (E6)", () => {
 			expect(res.status).toBe(200);
 
 			const body = (await res.json()) as Record<string, unknown>;
-			expect(body.active).toBe(0);
+			expect(body.active).toBe(false);
 		});
 
 		it("returns 404 for unknown routine", async () => {
@@ -196,7 +191,7 @@ describe("Routine Endpoints (E6)", () => {
 			expect(body.state).toBe("active");
 
 			// Verify session was created in DB
-			const allSessions = db.select().from(sessions).all();
+			const allSessions = await db.select().from(sessions);
 			expect(allSessions).toHaveLength(1);
 
 			// Verify event emitted
@@ -210,11 +205,8 @@ describe("Routine Endpoints (E6)", () => {
 				headers: authHeaders(),
 			});
 
-			const updated = db
-				.select()
-				.from(routines)
-				.all()
-				.find((r) => r.id === "routine-1");
+			const allRoutines = await db.select().from(routines);
+			const updated = allRoutines.find((r) => r.id === "routine-1");
 			expect(updated?.lastRunAt).toBeTruthy();
 		});
 
@@ -228,7 +220,7 @@ describe("Routine Endpoints (E6)", () => {
 
 		// G4 AC8: manual trigger must refuse to fire disabled routines
 		it("returns 403 ROUTINE_DISABLED when routine.active=0", async () => {
-			db.update(routines).set({ active: 0 }).where(eq(routines.id, "routine-1")).run();
+			await db.update(routines).set({ active: false }).where(eq(routines.id, "routine-1"));
 
 			const res = await app.request("/api/routines/routine-1/trigger", {
 				method: "POST",
@@ -240,28 +232,26 @@ describe("Routine Endpoints (E6)", () => {
 			expect(body.code).toBe("FORBIDDEN");
 
 			// Must not have created a session
-			const allSessions = db.select().from(sessions).all();
+			const allSessions = await db.select().from(sessions);
 			expect(allSessions).toHaveLength(0);
 
 			// Must not have updated lastRunAt
-			const updated = db.select().from(routines).where(eq(routines.id, "routine-1")).get();
+			const [updated] = await db.select().from(routines).where(eq(routines.id, "routine-1"));
 			expect(updated?.lastRunAt).toBeNull();
 		});
 
 		// G4 AC7 (via API): manual trigger for a builtin invokes the handler
 		it("invokes builtin handler for builtin:knowledge-decay (no session)", async () => {
 			// Seed builtin routine directly (bypass G4 seed helper in this test file).
-			db.insert(routines)
-				.values({
-					id: "builtin:knowledge-decay",
-					ownerAgentId: "agent-1",
-					triggerType: "calendar",
-					triggerConfig: JSON.stringify({ cron: "0 2 * * *" }),
-					active: 1,
-				})
-				.run();
+			await db.insert(routines).values({
+				id: "builtin:knowledge-decay",
+				ownerAgentId: "agent-1",
+				triggerType: "calendar",
+				triggerConfig: JSON.stringify({ cron: "0 2 * * *" }),
+				active: true,
+			});
 
-			const sessionsBefore = db.select().from(sessions).all();
+			const sessionsBefore = await db.select().from(sessions);
 
 			const res = await app.request("/api/routines/builtin:knowledge-decay/trigger", {
 				method: "POST",
@@ -274,14 +264,13 @@ describe("Routine Endpoints (E6)", () => {
 			expect(body.fired).toBe(true);
 
 			// Builtin manual trigger must NOT create a session
-			const sessionsAfter = db.select().from(sessions).all();
+			const sessionsAfter = await db.select().from(sessions);
 			expect(sessionsAfter).toHaveLength(sessionsBefore.length);
 
-			const updated = db
+			const [updated] = await db
 				.select()
 				.from(routines)
-				.where(eq(routines.id, "builtin:knowledge-decay"))
-				.get();
+				.where(eq(routines.id, "builtin:knowledge-decay"));
 			expect(updated?.lastRunAt).toBeTruthy();
 		});
 	});

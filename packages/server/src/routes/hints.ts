@@ -5,9 +5,9 @@
  * POST /api/hint-progress/:id/dismiss — record a hint dismissal (idempotent via 409)
  *
  * @lore P5: POST dismiss uses INSERT ... ON CONFLICT DO NOTHING to avoid
- * race conditions instead of a SELECT-then-INSERT pattern. The `changes()`
- * result (via db.run()) tells us whether the row was inserted (1) or already
- * existed (0), enabling 200 vs 409 differentiation without a second query.
+ * race conditions instead of a SELECT-then-INSERT pattern. We use RETURNING
+ * to detect whether the row was inserted (non-empty result) or already
+ * existed (empty result), enabling 200 vs 409 differentiation without a second query.
  */
 
 import { type HyperIdleDb, hintProgress } from "@hyperidle/db";
@@ -42,9 +42,10 @@ export function createHintRoutes(db: HyperIdleDb): Hono<HyperIdleEnv> {
 	 * Returns 400 if hintId is not in the catalog.
 	 * Returns 409 if the hint was already dismissed.
 	 *
-	 * @lore P5: We use INSERT OR IGNORE (drizzle `.onConflictDoNothing()`)
-	 * followed by checking `changes` to determine success vs. already-dismissed.
-	 * This avoids the SELECT-then-INSERT TOCTOU race condition flagged in review.
+	 * @lore P5 (PGlite migration): We use INSERT ... ON CONFLICT DO NOTHING with
+	 * RETURNING to detect whether the row was inserted (non-empty result) or already
+	 * existed (empty result). This avoids the SELECT-then-INSERT TOCTOU race condition
+	 * and does not rely on the SQLite-only `.changes` property.
 	 */
 	router.post("/:hintId/dismiss", async (c) => {
 		const userId = c.get("userId");
@@ -54,8 +55,8 @@ export function createHintRoutes(db: HyperIdleDb): Hono<HyperIdleEnv> {
 			return c.json({ error: "Unknown hint ID", code: "VALIDATION_ERROR" }, 400);
 		}
 
-		// INSERT OR IGNORE — atomic, no race condition
-		const result = db
+		// INSERT OR IGNORE — atomic, no race condition. RETURNING tells us if it inserted.
+		const inserted = await db
 			.insert(hintProgress)
 			.values({
 				userId,
@@ -63,10 +64,10 @@ export function createHintRoutes(db: HyperIdleDb): Hono<HyperIdleEnv> {
 				seenAt: new Date().toISOString(),
 			})
 			.onConflictDoNothing()
-			.run();
+			.returning({ hintId: hintProgress.hintId });
 
-		// result.changes is 1 if the row was inserted, 0 if it already existed
-		if (result.changes === 0) {
+		// Empty result means the row already existed (conflict was ignored)
+		if (inserted.length === 0) {
 			return c.json({ error: "Already dismissed", code: "CONFLICT" }, 409);
 		}
 

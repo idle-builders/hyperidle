@@ -7,7 +7,7 @@
  * - etc.
  * Tests updated to match O2 API shape.
  */
-import { createTestDb, type HyperIdleDb, knowledgeEditLog } from "@hyperidle/db";
+import { createTestDb, type HyperIdleDb, knowledgeEditLog, type TestDbHandle } from "@hyperidle/db";
 import { EventBus } from "@hyperidle/shared";
 import type { Hono } from "hono";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -20,19 +20,22 @@ function authHeaders(extra?: Record<string, string>): Record<string, string> {
 }
 
 describe("Knowledge Endpoints (E4)", () => {
+	let handle: TestDbHandle;
 	let db: HyperIdleDb;
 	let eventBus: EventBus;
 	let app: Hono;
 
-	beforeEach(() => {
+	beforeEach(async () => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		db = createTestDb();
+		handle = await createTestDb();
+		db = handle.db;
 		eventBus = new EventBus();
-		app = createTestApp({ db, eventBus });
+		app = await createTestApp({ db, eventBus });
 	});
 
-	afterEach(() => {
+	afterEach(async () => {
 		vi.unstubAllEnvs();
+		await handle?.close();
 	});
 
 	// Helper to create a knowledge item via API
@@ -292,8 +295,8 @@ describe("Knowledge Endpoints (E4)", () => {
 			const body = (await res.json()) as Record<string, unknown>;
 			const items = body.items as Record<string, unknown>[];
 			expect(items).toHaveLength(2);
-			expect(items[0].title).toBe("Part A");
-			expect(items[1].title).toBe("Part B");
+			expect(items[0]?.title).toBe("Part A");
+			expect(items[1]?.title).toBe("Part B");
 			expect((items[0] as Record<string, unknown>).version).toBe(1);
 
 			// Original item should be archived
@@ -418,7 +421,7 @@ describe("Knowledge Endpoints (E4)", () => {
 	describe("AC11: EventBus emits knowledge_updated events", () => {
 		it("emits knowledge_updated event on create", async () => {
 			const events: unknown[] = [];
-			eventBus.on("*", (e) => events.push(e));
+			eventBus.on("*", (e: unknown) => events.push(e));
 
 			await createItem("L0");
 
@@ -433,7 +436,7 @@ describe("Knowledge Endpoints (E4)", () => {
 			const id = item.id as string;
 
 			const events: unknown[] = [];
-			eventBus.on("*", (e) => events.push(e));
+			eventBus.on("*", (e: unknown) => events.push(e));
 
 			await app.request(`/api/knowledge/${id}`, {
 				method: "PATCH",
@@ -469,10 +472,10 @@ describe("Knowledge Endpoints (E4)", () => {
 				}),
 			});
 
-			const logs = db.select().from(knowledgeEditLog).all();
+			const logs = await db.select().from(knowledgeEditLog);
 			// Should have at least entries for title and body changes
 			expect(logs.length).toBeGreaterThanOrEqual(2);
-			const titleLog = logs.find((l) => l.field === "title");
+			const titleLog = logs.find((l: { field: string }) => l.field === "title");
 			expect(titleLog).toBeDefined();
 			expect(titleLog?.oldValue).toBe("Test Pattern");
 			expect(titleLog?.newValue).toBe("Updated Title");
@@ -487,7 +490,7 @@ describe("Knowledge Endpoints (E4)", () => {
 			const id = item.id as string;
 
 			const events: unknown[] = [];
-			eventBus.on("*", (e) => events.push(e));
+			eventBus.on("*", (e: unknown) => events.push(e));
 
 			await app.request(`/api/knowledge/${id}`, {
 				method: "PATCH",

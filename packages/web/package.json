@@ -8,14 +8,14 @@
 		"build": "vite build",
 		"check": "tsc --noEmit",
 		"test:e2e": "playwright test",
-		"visual:compare": "bun run scripts/visual-compare.ts"
+		"visual:compare": "npx tsx scripts/visual-compare.ts"
 	},
 	"dependencies": {
 		"@dnd-kit/core": "^6.3.1",
-		"@hyperidle/design-system": "workspace:*",
-		"@hyperidle/fabric": "workspace:*",
-		"@hyperidle/server": "workspace:*",
-		"@hyperidle/shared": "workspace:*",
+		"@hyperidle/design-system": "*",
+		"@hyperidle/fabric": "*",
+		"@hyperidle/server": "*",
+		"@hyperidle/shared": "*",
 		"hono": "^4.12.14",
 		"dompurify": "^3.4.0",
 		"focus-trap-react": "^12.0.0",

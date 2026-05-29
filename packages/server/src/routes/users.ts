@@ -86,7 +86,7 @@ export function createUserSetupRoute(db: HyperIdleDb): Hono {
 		}
 
 		// Check if a human user already exists
-		const existingHuman = db.select().from(users).where(eq(users.kind, "human")).limit(1).get();
+		const [existingHuman] = await db.select().from(users).where(eq(users.kind, "human")).limit(1);
 
 		if (existingHuman) {
 			// Human user exists: require auth. Check the API key.
@@ -111,19 +111,17 @@ export function createUserSetupRoute(db: HyperIdleDb): Hono {
 		const id = crypto.randomUUID();
 		const now = new Date().toISOString();
 
-		db.insert(users)
-			.values({
-				id,
-				kind: "human",
-				name,
-				email,
-				role: "founder",
-				status: "active",
-				createdAt: now,
-			})
-			.run();
+		await db.insert(users).values({
+			id,
+			kind: "human",
+			name,
+			email,
+			role: "founder",
+			status: "active",
+			createdAt: now,
+		});
 
-		const created = db.select().from(users).where(eq(users.id, id)).get();
+		const [created] = await db.select().from(users).where(eq(users.id, id)).limit(1);
 		return c.json(created, 201);
 	});
 
@@ -141,9 +139,9 @@ export function createUserRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hype
 	const router = new Hono<HyperIdleEnv>();
 
 	// GET / — List all users with active session counts
-	router.get("/", (c) => {
-		const allUsers = db.select().from(users).all();
-		const activeSessions = db.select().from(sessions).where(eq(sessions.state, "active")).all();
+	router.get("/", async (c) => {
+		const allUsers = await db.select().from(users);
+		const activeSessions = await db.select().from(sessions).where(eq(sessions.state, "active"));
 
 		const result = allUsers.map((user) => ({
 			...user,
@@ -154,15 +152,15 @@ export function createUserRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hype
 	});
 
 	// GET /:id — User detail with skills
-	router.get("/:id", (c) => {
+	router.get("/:id", async (c) => {
 		const userId = c.req.param("id");
-		const user = db.select().from(users).where(eq(users.id, userId)).get();
+		const [user] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
 
 		if (!user) {
 			return c.json({ error: "User not found", code: API_ERROR_CODES.NOT_FOUND }, 404);
 		}
 
-		const skills = db.select().from(userSkills).where(eq(userSkills.userId, userId)).all();
+		const skills = await db.select().from(userSkills).where(eq(userSkills.userId, userId));
 
 		return c.json({ ...user, skills });
 	});
@@ -182,7 +180,7 @@ export function createUserRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hype
 			);
 		}
 
-		const target = db.select().from(users).where(eq(users.id, targetId)).get();
+		const [target] = await db.select().from(users).where(eq(users.id, targetId)).limit(1);
 		if (!target) {
 			return c.json({ error: "User not found", code: API_ERROR_CODES.NOT_FOUND }, 404);
 		}
@@ -211,24 +209,24 @@ export function createUserRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hype
 		if (parsed.data.email !== undefined) updates.email = parsed.data.email;
 
 		if (Object.keys(updates).length > 0) {
-			db.update(users).set(updates).where(eq(users.id, targetId)).run();
+			await db.update(users).set(updates).where(eq(users.id, targetId));
 		}
 
-		const updated = db.select().from(users).where(eq(users.id, targetId)).get();
+		const [updated] = await db.select().from(users).where(eq(users.id, targetId)).limit(1);
 		return c.json(updated, 200);
 	});
 
 	// PATCH /:id/skills/:skillId — Update autonomy level
-	router.patch("/:id/skills/:skillId", validateBody(updateSkillSchema), (c) => {
+	router.patch("/:id/skills/:skillId", validateBody(updateSkillSchema), async (c) => {
 		const userId = c.req.param("id");
 		const skillId = c.req.param("skillId");
 		const body = c.req.valid("json" as never) as z.infer<typeof updateSkillSchema>;
 
-		const existing = db
+		const [existing] = await db
 			.select()
 			.from(userSkills)
 			.where(and(eq(userSkills.userId, userId), eq(userSkills.skillId, skillId)))
-			.get();
+			.limit(1);
 
 		if (!existing) {
 			return c.json({ error: "User skill not found", code: API_ERROR_CODES.NOT_FOUND }, 404);
@@ -237,50 +235,43 @@ export function createUserRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hype
 		const oldLevel = existing.autonomyLevel;
 		const newLevel = body.autonomyLevel;
 
-		db.update(userSkills)
+		await db
+			.update(userSkills)
 			.set({ autonomyLevel: newLevel })
-			.where(and(eq(userSkills.userId, userId), eq(userSkills.skillId, skillId)))
-			.run();
+			.where(and(eq(userSkills.userId, userId), eq(userSkills.skillId, skillId)));
 
-		const updated = db
+		const [updated] = await db
 			.select()
 			.from(userSkills)
 			.where(and(eq(userSkills.userId, userId), eq(userSkills.skillId, skillId)))
-			.get();
+			.limit(1);
 
-		// If level changed, create a review thread + item
 		if (oldLevel !== newLevel) {
 			const threadId = crypto.randomUUID();
 			const now = new Date().toISOString();
 
-			// L1a: legacy `kind='review'` threads project to host_kind='agent'
-			// for an agent-scoped autonomy review.
-			db.insert(threads)
-				.values({
-					id: threadId,
-					hostKind: "agent",
-					hostId: userId,
-					initiatorId: userId,
-					participants: JSON.stringify([userId]),
-					lastActiveAt: now,
-					createdAt: now,
-				})
-				.run();
+			await db.insert(threads).values({
+				id: threadId,
+				hostKind: "agent",
+				hostId: userId,
+				initiatorId: userId,
+				participants: JSON.stringify([userId]),
+				lastActiveAt: now,
+				createdAt: now,
+			});
 
 			const itemId = crypto.randomUUID();
-			db.insert(items)
-				.values({
-					id: itemId,
-					sourceAgentId: userId,
-					layer: "meta",
-					verb: "review",
-					kind: "autonomy_change",
-					title: `Autonomy level changed for skill ${skillId}`,
-					body: `Autonomy level changed from ${oldLevel} to ${newLevel} for user ${userId}, skill ${skillId}`,
-					threadId,
-					createdAt: now,
-				})
-				.run();
+			await db.insert(items).values({
+				id: itemId,
+				sourceAgentId: userId,
+				layer: "meta",
+				verb: "review",
+				kind: "autonomy_change",
+				title: `Autonomy level changed for skill ${skillId}`,
+				body: `Autonomy level changed from ${oldLevel} to ${newLevel} for user ${userId}, skill ${skillId}`,
+				threadId,
+				createdAt: now,
+			});
 
 			eventBus.emit<"item_created">({
 				type: "item_created",
@@ -296,10 +287,10 @@ export function createUserRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hype
 	});
 
 	// GET /:id/inbox — User's inbox with pagination
-	router.get("/:id/inbox", (c) => {
+	router.get("/:id/inbox", async (c) => {
 		const userId = c.req.param("id");
 
-		const user = db.select().from(users).where(eq(users.id, userId)).get();
+		const [user] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
 		if (!user) {
 			return c.json({ error: "User not found", code: API_ERROR_CODES.NOT_FOUND }, 404);
 		}
@@ -307,18 +298,15 @@ export function createUserRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hype
 		const limit = Math.min(Number.parseInt(c.req.query("limit") ?? "50", 10) || 50, 200);
 		const offset = Number.parseInt(c.req.query("offset") ?? "0", 10) || 0;
 
-		// L1a: messages no longer carry recipient_id; user inbox derives
-		// from threads where the user is a participant.
 		const probe = `%${escapeLikePattern(JSON.stringify(userId))}%`;
-		const inboxRows = db
+		const inboxRows = await db
 			.select()
 			.from(messages)
 			.innerJoin(threads, eq(messages.threadId, threads.id))
 			.where(sql`${threads.participants} LIKE ${probe} ESCAPE '\\'`)
 			.orderBy(desc(messages.createdAt))
 			.limit(limit)
-			.offset(offset)
-			.all();
+			.offset(offset);
 
 		const matched = inboxRows.filter((row) => {
 			try {
@@ -333,7 +321,7 @@ export function createUserRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hype
 	});
 
 	// POST /:id/inbox — Send message to user
-	router.post("/:id/inbox", validateBody(sendMessageSchema), (c) => {
+	router.post("/:id/inbox", validateBody(sendMessageSchema), async (c) => {
 		const recipientId = c.req.param("id");
 		const body = c.req.valid("json" as never) as z.infer<typeof sendMessageSchema>;
 
@@ -350,35 +338,33 @@ export function createUserRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hype
 			);
 		}
 
-		const user = db.select().from(users).where(eq(users.id, recipientId)).get();
+		const [user] = await db.select().from(users).where(eq(users.id, recipientId)).limit(1);
 		if (!user) {
 			return c.json({ error: "User not found", code: API_ERROR_CODES.NOT_FOUND }, 404);
 		}
 
-		const senderUser = db.select().from(users).where(eq(users.id, senderId)).get();
+		const [senderUser] = await db.select().from(users).where(eq(users.id, senderId)).limit(1);
 		if (!senderUser) {
 			return c.json({ error: "Sender identity not found", code: API_ERROR_CODES.NOT_FOUND }, 404);
 		}
 
 		const now = new Date().toISOString();
 
-		const threadId = findOrCreateDirectThread(db, senderId, recipientId, now);
+		const threadId = await findOrCreateDirectThread(db, senderId, recipientId, now);
 
 		const messageId = crypto.randomUUID();
 		const text = body.subject ? `${body.subject}\n\n${body.body}` : body.body;
-		db.insert(messages)
-			.values({
-				id: messageId,
-				senderId,
-				threadId,
-				type: "plain",
-				payload: JSON.stringify({ text }),
-				clientKey: messageId,
-				createdAt: now,
-			})
-			.run();
+		await db.insert(messages).values({
+			id: messageId,
+			senderId,
+			threadId,
+			type: "plain",
+			payload: JSON.stringify({ text }),
+			clientKey: messageId,
+			createdAt: now,
+		});
 
-		const created = db.select().from(messages).where(eq(messages.id, messageId)).get();
+		const [created] = await db.select().from(messages).where(eq(messages.id, messageId)).limit(1);
 		return c.json(created, 201);
 	});
 

@@ -29,13 +29,14 @@ describe("I2 R4 — body-limit middleware returns 413 + JSON ApiErrorResponse", 
 	let db: HyperIdleDb;
 	let app: Hono;
 
-	beforeEach(() => {
+	beforeEach(async () => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 		// Set the limit very small so the test's payload is unambiguously
 		// over budget. The middleware reads HYPERIDLE_MAX_BODY_BYTES.
 		vi.stubEnv("HYPERIDLE_MAX_BODY_BYTES", "1024");
-		db = createTestDb();
-		app = createTestApp({ db, eventBus: new EventBus() });
+		const handle = await createTestDb();
+		db = handle.db;
+		app = await createTestApp({ db, eventBus: new EventBus() });
 	});
 
 	afterEach(() => {

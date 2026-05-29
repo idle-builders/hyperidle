@@ -28,24 +28,23 @@ describe("PATCH /api/users/:id — profile update", () => {
 	let app: Hono;
 	let db: HyperIdleDb;
 
-	beforeEach(() => {
+	beforeEach(async () => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		db = createTestDb();
+		const handle = await createTestDb();
+		db = handle.db;
 		const eventBus = new EventBus();
-		app = createTestApp({ db, eventBus });
+		app = await createTestApp({ db, eventBus });
 
 		// Seed a human user (this becomes the authenticated user)
-		db.insert(users)
-			.values({
-				id: "u-human-1",
-				kind: "human",
-				name: "Alice",
-				email: "alice@example.com",
-				role: "founder",
-				status: "active",
-				createdAt: NOW,
-			})
-			.run();
+		await db.insert(users).values({
+			id: "u-human-1",
+			kind: "human",
+			name: "Alice",
+			email: "alice@example.com",
+			role: "founder",
+			status: "active",
+			createdAt: NOW,
+		});
 	});
 
 	afterEach(() => {
@@ -112,17 +111,15 @@ describe("PATCH /api/users/:id — profile update", () => {
 	// AC-29: PATCH with different userId returns 403
 	it("returns 403 when patching another user's profile", async () => {
 		// Seed a second human user to attempt PATCH on
-		db.insert(users)
-			.values({
-				id: "u-human-2",
-				kind: "human",
-				name: "Bob",
-				email: "bob@example.com",
-				role: "founder",
-				status: "active",
-				createdAt: NOW,
-			})
-			.run();
+		await db.insert(users).values({
+			id: "u-human-2",
+			kind: "human",
+			name: "Bob",
+			email: "bob@example.com",
+			role: "founder",
+			status: "active",
+			createdAt: NOW,
+		});
 
 		// The auth middleware resolves userId from the first human in the DB (u-human-1)
 		// Attempting to PATCH u-human-2 should return 403

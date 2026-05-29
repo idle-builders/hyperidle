@@ -37,50 +37,51 @@ interface AppCtx {
 	eventBus: EventBus;
 }
 
-function setupApp(): AppCtx {
-	const db = createTestDb();
+async function setupApp(): Promise<AppCtx> {
+	const handle = await createTestDb();
+	const db = handle.db;
 	const eventBus = new EventBus();
-	const app = createTestApp({ db, eventBus });
+	const app = await createTestApp({ db, eventBus });
 
 	const now = new Date().toISOString();
 
 	// Seed base product/team
-	db.insert(products)
-		.values({ id: "p1", name: "TestProduct", phase: "build", createdAt: now })
-		.run();
-	db.insert(teams)
-		.values({ id: "t1", productId: "p1", capacity: 5, activeBets: 0, formedAt: now })
-		.run();
+	await db
+		.insert(products)
+		.values({ id: "p1", name: "TestProduct", phase: "build", createdAt: now });
+	await db
+		.insert(teams)
+		.values({ id: "t1", productId: "p1", capacity: 5, activeBets: 0, formedAt: now });
 
 	// Seed founder user
-	db.insert(users)
-		.values({ id: "u-founder", name: "Founder", role: "founder", status: "active", createdAt: now })
-		.run();
+	await db.insert(users).values({
+		id: "u-founder",
+		name: "Founder",
+		role: "founder",
+		status: "active",
+		createdAt: now,
+	});
 
 	// Seed a second user for X-Identity tests
-	db.insert(users)
-		.values({
-			id: "u-other",
-			name: "Other User",
-			role: "founder",
-			status: "active",
-			createdAt: now,
-		})
-		.run();
+	await db.insert(users).values({
+		id: "u-other",
+		name: "Other User",
+		role: "founder",
+		status: "active",
+		createdAt: now,
+	});
 
 	// Seed seed-agent-cos (well-known CoC agent ID — the existing seed agent).
 	// @lore L21: The architecture plan used "agent-coc" but the actual seed
 	// and reviewer feedback use "seed-agent-cos". The coach route constant
 	// must match the real seeded agent id.
-	db.insert(users)
-		.values({
-			id: "seed-agent-cos",
-			name: "Chief of Staff",
-			role: "chief_of_staff",
-			status: "active",
-			createdAt: now,
-		})
-		.run();
+	await db.insert(users).values({
+		id: "seed-agent-cos",
+		name: "Chief of Staff",
+		role: "chief_of_staff",
+		status: "active",
+		createdAt: now,
+	});
 
 	return { app, db, eventBus };
 }
@@ -88,9 +89,9 @@ function setupApp(): AppCtx {
 describe("L21 — GET /api/threads/coach", () => {
 	let ctx: AppCtx;
 
-	beforeEach(() => {
+	beforeEach(async () => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		ctx = setupApp();
+		ctx = await setupApp();
 	});
 
 	afterEach(() => {
@@ -201,16 +202,13 @@ describe("L21 — GET /api/threads/coach", () => {
 			});
 
 			// Only one pinned user-hosted thread should exist for u-founder.
-			const rows = ctx.db
+			const rows = await ctx.db
 				.select()
 				.from(threads)
-				.where(and(eq(threads.hostKind, "user"), eq(threads.hostId, "u-founder")))
-				.all();
+				.where(and(eq(threads.hostKind, "user"), eq(threads.hostId, "u-founder")));
 
 			// Filter to pinned ones only (the coach thread).
-			const pinnedRows = rows.filter(
-				(r: { pinned: number | boolean }) => r.pinned === 1 || r.pinned === true,
-			);
+			const pinnedRows = rows.filter((r: { pinned: boolean }) => r.pinned);
 			expect(pinnedRows.length).toBe(1);
 		});
 	});

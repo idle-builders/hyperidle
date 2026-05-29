@@ -5,8 +5,8 @@ import {
 	PG_POOL_SIZE_ENV,
 	parsePgPoolSize,
 	resolvePgPoolSize,
-} from "../pg-connection.js";
-import { createPgTestDb } from "../pg-test-utils.js";
+} from "../connection.js";
+import { createTestDb } from "../test-utils.js";
 
 describe("H4 AC5: PostgreSQL connection pooling", () => {
 	it("parsePgPoolSize returns default when undefined", () => {
@@ -79,11 +79,11 @@ describe("H4 AC5: PostgreSQL connection pooling", () => {
 });
 
 describe("H4 AC3/AC4: In-memory Postgres via pglite (drizzle-orm/pglite)", () => {
-	it("createPgTestDb returns a usable Drizzle instance", { timeout: 15_000 }, async () => {
-		const { db, close } = await createPgTestDb();
+	it("createTestDb returns a usable Drizzle instance", { timeout: 15_000 }, async () => {
+		const { db, close } = await createTestDb();
 		try {
 			// Exercise the driver — bare SELECT should work on an empty DB.
-			const result = await db.execute("SELECT 1 AS one");
+			const result = await db.execute("SELECT 1 AS one" as Parameters<typeof db.execute>[0]);
 			// pglite result rows shape: { rows: [...] }
 			const rows = (result as { rows: Array<{ one: number }> }).rows;
 			expect(rows[0]?.one).toBe(1);

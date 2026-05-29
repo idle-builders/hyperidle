@@ -86,7 +86,7 @@ export function createAuthMiddleware(db: HyperIdleDb): MiddlewareHandler<HyperId
 		// @lore P2: fallback to "u-founder" for unseeded DBs and existing tests
 		// that don't seed a human user. The fallback is a safety net, not a
 		// design choice — all production paths should have a human user row.
-		const humanUser = db.select().from(users).where(eq(users.kind, "human")).limit(1).get();
+		const [humanUser] = await db.select().from(users).where(eq(users.kind, "human")).limit(1);
 		c.set("userId", humanUser?.id ?? "u-founder");
 
 		await next();

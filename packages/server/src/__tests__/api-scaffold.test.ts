@@ -15,7 +15,7 @@ describe("API Scaffold", () => {
 
 	describe("AC1: GET /api/health returns 200 with status", () => {
 		it("returns 200 with status ok and timestamp", async () => {
-			const app = createTestApp();
+			const app = await createTestApp();
 			const res = await app.request("/api/health");
 
 			expect(res.status).toBe(200);
@@ -28,7 +28,7 @@ describe("API Scaffold", () => {
 
 	describe("AC2: Request without API key returns 401", () => {
 		it("returns 401 with UNAUTHORIZED code for /api routes", async () => {
-			const app = createTestApp();
+			const app = await createTestApp();
 
 			// /api/health is public, so test a protected route
 			const protectedRes = await app.request("/api/protected-test");
@@ -40,7 +40,7 @@ describe("API Scaffold", () => {
 		});
 
 		it("returns 401 for missing X-API-Key header", async () => {
-			const app = createTestApp();
+			const app = await createTestApp();
 			const res = await app.request("/api/protected-test", {
 				headers: {},
 			});
@@ -53,7 +53,7 @@ describe("API Scaffold", () => {
 
 	describe("AC3: Request with valid API key passes auth", () => {
 		it("passes auth with valid X-API-Key header", async () => {
-			const app = createTestApp();
+			const app = await createTestApp();
 			const res = await app.request("/api/health", {
 				headers: { "X-API-Key": TEST_API_KEY },
 			});
@@ -62,7 +62,7 @@ describe("API Scaffold", () => {
 		});
 
 		it("returns 401 with invalid API key", async () => {
-			const app = createTestApp();
+			const app = await createTestApp();
 			const res = await app.request("/api/protected-test", {
 				headers: { "X-API-Key": "wrong-key" },
 			});
@@ -75,7 +75,7 @@ describe("API Scaffold", () => {
 
 	describe("AC4: Invalid JSON body returns 400 with validation errors", () => {
 		it("returns 400 with VALIDATION_ERROR for invalid body", async () => {
-			const app = createTestApp();
+			const app = await createTestApp();
 			const res = await app.request("/api/test-validate", {
 				method: "POST",
 				headers: {
@@ -93,7 +93,7 @@ describe("API Scaffold", () => {
 		});
 
 		it("returns 200 for valid body", async () => {
-			const app = createTestApp();
+			const app = await createTestApp();
 			const res = await app.request("/api/test-validate", {
 				method: "POST",
 				headers: {
@@ -111,7 +111,7 @@ describe("API Scaffold", () => {
 
 	describe("AC5: Unhandled error returns 500 with consistent error shape", () => {
 		it("returns 500 with INTERNAL_ERROR code", async () => {
-			const app = createTestApp();
+			const app = await createTestApp();
 			const res = await app.request("/api/test-error", {
 				headers: { "X-API-Key": TEST_API_KEY },
 			});
@@ -123,7 +123,7 @@ describe("API Scaffold", () => {
 		});
 
 		it("does not include stack trace in error response", async () => {
-			const app = createTestApp();
+			const app = await createTestApp();
 			const res = await app.request("/api/test-error", {
 				headers: { "X-API-Key": TEST_API_KEY },
 			});
@@ -136,7 +136,7 @@ describe("API Scaffold", () => {
 
 	describe("AC7: CORS allows localhost:5173", () => {
 		it("includes CORS headers for localhost:5173 origin", async () => {
-			const app = createTestApp();
+			const app = await createTestApp();
 			const res = await app.request("/api/health", {
 				headers: {
 					// biome-ignore lint/style/useNamingConvention: HTTP header name
@@ -148,7 +148,7 @@ describe("API Scaffold", () => {
 		});
 
 		it("handles CORS preflight requests", async () => {
-			const app = createTestApp();
+			const app = await createTestApp();
 			const res = await app.request("/api/health", {
 				method: "OPTIONS",
 				headers: {
@@ -165,7 +165,7 @@ describe("API Scaffold", () => {
 		});
 
 		it("does not set CORS for disallowed origins", async () => {
-			const app = createTestApp();
+			const app = await createTestApp();
 			const res = await app.request("/api/health", {
 				headers: {
 					// biome-ignore lint/style/useNamingConvention: HTTP header name
@@ -179,7 +179,7 @@ describe("API Scaffold", () => {
 
 	describe("404 for unknown routes", () => {
 		it("returns 404 with NOT_FOUND code for unknown API routes", async () => {
-			const app = createTestApp();
+			const app = await createTestApp();
 			const res = await app.request("/api/nonexistent", {
 				headers: { "X-API-Key": TEST_API_KEY },
 			});
@@ -192,7 +192,7 @@ describe("API Scaffold", () => {
 
 	describe("backward compat: GET /health still works", () => {
 		it("returns 200 without auth", async () => {
-			const app = createTestApp();
+			const app = await createTestApp();
 			const res = await app.request("/health");
 
 			expect(res.status).toBe(200);

@@ -39,28 +39,27 @@ interface AppCtx {
 	db: HyperIdleDb;
 }
 
-function setupApp(): AppCtx {
-	const db = createTestDb();
+async function setupApp(): Promise<AppCtx> {
+	const handle = await createTestDb();
+	const db = handle.db;
 	const eventBus = new EventBus();
-	const app = createTestApp({ db, eventBus });
+	const app = await createTestApp({ db, eventBus });
 
 	const now = new Date().toISOString();
 
-	db.insert(products)
-		.values({ id: "p1", name: "TestProduct", phase: "build", createdAt: now })
-		.run();
-	db.insert(teams)
-		.values({ id: "t1", productId: "p1", capacity: 5, activeBets: 0, formedAt: now })
-		.run();
-	db.insert(users)
-		.values({
-			id: "agent-1",
-			name: "Builder Agent",
-			role: "builder",
-			status: "active",
-			createdAt: now,
-		})
-		.run();
+	await db
+		.insert(products)
+		.values({ id: "p1", name: "TestProduct", phase: "build", createdAt: now });
+	await db
+		.insert(teams)
+		.values({ id: "t1", productId: "p1", capacity: 5, activeBets: 0, formedAt: now });
+	await db.insert(users).values({
+		id: "agent-1",
+		name: "Builder Agent",
+		role: "builder",
+		status: "active",
+		createdAt: now,
+	});
 
 	return { app, db };
 }
@@ -70,9 +69,9 @@ const NOW = new Date().toISOString();
 describe("L19 — GET /api/bets/:id — session enrichment", () => {
 	let ctx: AppCtx;
 
-	beforeEach(() => {
+	beforeEach(async () => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		ctx = setupApp();
+		ctx = await setupApp();
 	});
 
 	afterEach(() => {
@@ -93,42 +92,36 @@ describe("L19 — GET /api/bets/:id — session enrichment", () => {
 	it("task with a session has all latestSession* fields populated", async () => {
 		const { db } = ctx;
 
-		db.insert(bets)
-			.values({
-				id: "bet-enriched",
-				productId: "p1",
-				teamId: "t1",
-				pitch: "Test pitch",
-				appetite: "1 week",
-				status: "in_progress",
-				createdAt: NOW,
-			})
-			.run();
+		await db.insert(bets).values({
+			id: "bet-enriched",
+			productId: "p1",
+			teamId: "t1",
+			pitch: "Test pitch",
+			appetite: "1 week",
+			status: "in_progress",
+			createdAt: NOW,
+		});
 
-		db.insert(tasks)
-			.values({
-				id: "task-with-session",
-				betId: "bet-enriched",
-				productId: "p1",
-				teamId: "t1",
-				title: "Task with session",
-				state: "in_progress",
-				createdAt: NOW,
-				updatedAt: NOW,
-			})
-			.run();
+		await db.insert(tasks).values({
+			id: "task-with-session",
+			betId: "bet-enriched",
+			productId: "p1",
+			teamId: "t1",
+			title: "Task with session",
+			state: "in_progress",
+			createdAt: NOW,
+			updatedAt: NOW,
+		});
 
-		db.insert(sessions)
-			.values({
-				id: "session-1",
-				taskId: "task-with-session",
-				agentId: "agent-1",
-				modelTier: "sonnet",
-				startedAt: NOW,
-				state: "done",
-				outcome: "completed",
-			})
-			.run();
+		await db.insert(sessions).values({
+			id: "session-1",
+			taskId: "task-with-session",
+			agentId: "agent-1",
+			modelTier: "sonnet",
+			startedAt: NOW,
+			state: "done",
+			outcome: "completed",
+		});
 
 		const res = await ctx.app.request("/api/bets/bet-enriched", {
 			method: "GET",
@@ -155,30 +148,26 @@ describe("L19 — GET /api/bets/:id — session enrichment", () => {
 	it("task with no session has null for all latestSession* fields", async () => {
 		const { db } = ctx;
 
-		db.insert(bets)
-			.values({
-				id: "bet-no-session",
-				productId: "p1",
-				teamId: "t1",
-				pitch: "No session pitch",
-				appetite: "2 weeks",
-				status: "in_progress",
-				createdAt: NOW,
-			})
-			.run();
+		await db.insert(bets).values({
+			id: "bet-no-session",
+			productId: "p1",
+			teamId: "t1",
+			pitch: "No session pitch",
+			appetite: "2 weeks",
+			status: "in_progress",
+			createdAt: NOW,
+		});
 
-		db.insert(tasks)
-			.values({
-				id: "task-no-session",
-				betId: "bet-no-session",
-				productId: "p1",
-				teamId: "t1",
-				title: "Task without session",
-				state: "queued",
-				createdAt: NOW,
-				updatedAt: NOW,
-			})
-			.run();
+		await db.insert(tasks).values({
+			id: "task-no-session",
+			betId: "bet-no-session",
+			productId: "p1",
+			teamId: "t1",
+			title: "Task without session",
+			state: "queued",
+			createdAt: NOW,
+			updatedAt: NOW,
+		});
 
 		const res = await ctx.app.request("/api/bets/bet-no-session", {
 			method: "GET",
@@ -203,55 +192,47 @@ describe("L19 — GET /api/bets/:id — session enrichment", () => {
 	it("mixed bet: one task with session, one without — each correctly enriched", async () => {
 		const { db } = ctx;
 
-		db.insert(bets)
-			.values({
-				id: "bet-mixed",
-				productId: "p1",
-				teamId: "t1",
-				pitch: "Mixed tasks pitch",
-				appetite: "6 weeks",
-				status: "in_progress",
-				createdAt: NOW,
-			})
-			.run();
+		await db.insert(bets).values({
+			id: "bet-mixed",
+			productId: "p1",
+			teamId: "t1",
+			pitch: "Mixed tasks pitch",
+			appetite: "6 weeks",
+			status: "in_progress",
+			createdAt: NOW,
+		});
 
-		db.insert(tasks)
-			.values({
-				id: "task-has-session",
-				betId: "bet-mixed",
-				productId: "p1",
-				teamId: "t1",
-				title: "Task with session",
-				state: "done",
-				createdAt: NOW,
-				updatedAt: NOW,
-			})
-			.run();
+		await db.insert(tasks).values({
+			id: "task-has-session",
+			betId: "bet-mixed",
+			productId: "p1",
+			teamId: "t1",
+			title: "Task with session",
+			state: "done",
+			createdAt: NOW,
+			updatedAt: NOW,
+		});
 
-		db.insert(tasks)
-			.values({
-				id: "task-lacks-session",
-				betId: "bet-mixed",
-				productId: "p1",
-				teamId: "t1",
-				title: "Task without session",
-				state: "queued",
-				createdAt: NOW,
-				updatedAt: NOW,
-			})
-			.run();
+		await db.insert(tasks).values({
+			id: "task-lacks-session",
+			betId: "bet-mixed",
+			productId: "p1",
+			teamId: "t1",
+			title: "Task without session",
+			state: "queued",
+			createdAt: NOW,
+			updatedAt: NOW,
+		});
 
-		db.insert(sessions)
-			.values({
-				id: "session-mixed-1",
-				taskId: "task-has-session",
-				agentId: "agent-1",
-				modelTier: "haiku",
-				startedAt: NOW,
-				state: "done",
-				outcome: "completed",
-			})
-			.run();
+		await db.insert(sessions).values({
+			id: "session-mixed-1",
+			taskId: "task-has-session",
+			agentId: "agent-1",
+			modelTier: "haiku",
+			startedAt: NOW,
+			state: "done",
+			outcome: "completed",
+		});
 
 		const res = await ctx.app.request("/api/bets/bet-mixed", {
 			method: "GET",
@@ -281,56 +262,48 @@ describe("L19 — GET /api/bets/:id — session enrichment", () => {
 	it("uses the most recent session (by startedAt) when a task has multiple sessions", async () => {
 		const { db } = ctx;
 
-		db.insert(bets)
-			.values({
-				id: "bet-multi-session",
-				productId: "p1",
-				teamId: "t1",
-				pitch: "Multi-session pitch",
-				appetite: "1 week",
-				status: "in_progress",
-				createdAt: NOW,
-			})
-			.run();
+		await db.insert(bets).values({
+			id: "bet-multi-session",
+			productId: "p1",
+			teamId: "t1",
+			pitch: "Multi-session pitch",
+			appetite: "1 week",
+			status: "in_progress",
+			createdAt: NOW,
+		});
 
-		db.insert(tasks)
-			.values({
-				id: "task-multi-session",
-				betId: "bet-multi-session",
-				productId: "p1",
-				teamId: "t1",
-				title: "Task with multiple sessions",
-				state: "in_progress",
-				createdAt: NOW,
-				updatedAt: NOW,
-			})
-			.run();
+		await db.insert(tasks).values({
+			id: "task-multi-session",
+			betId: "bet-multi-session",
+			productId: "p1",
+			teamId: "t1",
+			title: "Task with multiple sessions",
+			state: "in_progress",
+			createdAt: NOW,
+			updatedAt: NOW,
+		});
 
 		// Older session (earlier startedAt)
-		db.insert(sessions)
-			.values({
-				id: "session-older",
-				taskId: "task-multi-session",
-				agentId: "agent-1",
-				modelTier: "haiku",
-				startedAt: "2026-05-01T10:00:00Z",
-				state: "done",
-				outcome: "failed",
-			})
-			.run();
+		await db.insert(sessions).values({
+			id: "session-older",
+			taskId: "task-multi-session",
+			agentId: "agent-1",
+			modelTier: "haiku",
+			startedAt: "2026-05-01T10:00:00Z",
+			state: "done",
+			outcome: "failed",
+		});
 
 		// Newer session (later startedAt) — this one should be returned
-		db.insert(sessions)
-			.values({
-				id: "session-newer",
-				taskId: "task-multi-session",
-				agentId: "agent-1",
-				modelTier: "sonnet",
-				startedAt: "2026-05-05T10:00:00Z",
-				state: "done",
-				outcome: "completed",
-			})
-			.run();
+		await db.insert(sessions).values({
+			id: "session-newer",
+			taskId: "task-multi-session",
+			agentId: "agent-1",
+			modelTier: "sonnet",
+			startedAt: "2026-05-05T10:00:00Z",
+			state: "done",
+			outcome: "completed",
+		});
 
 		const res = await ctx.app.request("/api/bets/bet-multi-session", {
 			method: "GET",

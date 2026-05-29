@@ -101,8 +101,8 @@ function parsePositiveInt(raw: string | undefined, fallback: number): number {
 	return Math.floor(n);
 }
 
-function readAllSettings(db: HyperIdleDb): Map<string, string> {
-	const rows = db.select().from(factorySettings).all();
+async function readAllSettings(db: HyperIdleDb): Promise<Map<string, string>> {
+	const rows = await db.select().from(factorySettings);
 	const map = new Map<string, string>();
 	for (const row of rows) {
 		if (row.key.startsWith(PREFIX)) map.set(row.key, row.value);
@@ -175,16 +175,16 @@ function buildConfig(kv: Map<string, string>): NotificationConfig {
  * Read the typed config from `factory_settings`. Always returns a shape
  * (even when disabled) so GET /config can surface the current values.
  */
-export function readNotificationConfig(db: HyperIdleDb): NotificationConfig {
-	return buildConfig(readAllSettings(db));
+export async function readNotificationConfig(db: HyperIdleDb): Promise<NotificationConfig> {
+	return buildConfig(await readAllSettings(db));
 }
 
 /**
  * Return `null` when notifications are disabled. Dispatchers use this to
  * short-circuit their event handler.
  */
-export function loadNotificationConfig(db: HyperIdleDb): NotificationConfig | null {
-	const cfg = buildConfig(readAllSettings(db));
+export async function loadNotificationConfig(db: HyperIdleDb): Promise<NotificationConfig | null> {
+	const cfg = buildConfig(await readAllSettings(db));
 	if (!cfg.enabled) return null;
 	return cfg;
 }
@@ -242,64 +242,66 @@ export interface NotificationConfigPatch {
 	digestCron?: string;
 }
 
-function upsert(db: HyperIdleDb, key: string, value: string, now: string): void {
-	db.insert(factorySettings)
+async function upsert(db: HyperIdleDb, key: string, value: string, now: string): Promise<void> {
+	await db
+		.insert(factorySettings)
 		.values({ key, value, updatedAt: now })
 		.onConflictDoUpdate({
 			target: factorySettings.key,
 			set: { value, updatedAt: now },
-		})
-		.run();
+		});
 }
 
-function clearOrSet(
+async function clearOrSet(
 	db: HyperIdleDb,
 	key: string,
 	value: string | null | undefined,
 	now: string,
-): void {
+): Promise<void> {
 	if (value === undefined) return;
 	if (value === null || value.length === 0) {
-		db.delete(factorySettings).where(eq(factorySettings.key, key)).run();
+		await db.delete(factorySettings).where(eq(factorySettings.key, key));
 		return;
 	}
-	upsert(db, key, value, now);
+	await upsert(db, key, value, now);
 }
 
 /**
  * Apply a partial patch to the KV store. `null` on string fields clears
  * the row (treated as unset). Unknown fields are ignored.
  */
-export function updateNotificationConfig(
+export async function updateNotificationConfig(
 	db: HyperIdleDb,
 	patch: NotificationConfigPatch,
-): NotificationConfig {
+): Promise<NotificationConfig> {
 	const now = new Date().toISOString();
-	if (patch.enabled !== undefined) upsert(db, KEYS.enabled, patch.enabled ? "true" : "false", now);
+	if (patch.enabled !== undefined)
+		await upsert(db, KEYS.enabled, patch.enabled ? "true" : "false", now);
 	if (patch.primaryChannel !== undefined)
-		upsert(db, KEYS.primaryChannel, patch.primaryChannel, now);
-	if (patch.digestChannel !== undefined) upsert(db, KEYS.digestChannel, patch.digestChannel, now);
-	if (patch.ntfyBaseUrl !== undefined) upsert(db, KEYS.ntfyBaseUrl, patch.ntfyBaseUrl, now);
-	if (patch.smtpPort !== undefined) upsert(db, KEYS.smtpPort, String(patch.smtpPort), now);
+		await upsert(db, KEYS.primaryChannel, patch.primaryChannel, now);
+	if (patch.digestChannel !== undefined)
+		await upsert(db, KEYS.digestChannel, patch.digestChannel, now);
+	if (patch.ntfyBaseUrl !== undefined) await upsert(db, KEYS.ntfyBaseUrl, patch.ntfyBaseUrl, now);
+	if (patch.smtpPort !== undefined) await upsert(db, KEYS.smtpPort, String(patch.smtpPort), now);
 	if (patch.smtpSecure !== undefined)
-		upsert(db, KEYS.smtpSecure, patch.smtpSecure ? "true" : "false", now);
+		await upsert(db, KEYS.smtpSecure, patch.smtpSecure ? "true" : "false", now);
 	if (patch.floodMaxPerMinute !== undefined)
-		upsert(db, KEYS.floodMaxPerMinute, String(patch.floodMaxPerMinute), now);
+		await upsert(db, KEYS.floodMaxPerMinute, String(patch.floodMaxPerMinute), now);
 	if (patch.floodCoalesceWindowMs !== undefined)
-		upsert(db, KEYS.floodCoalesceWindowMs, String(patch.floodCoalesceWindowMs), now);
+		await upsert(db, KEYS.floodCoalesceWindowMs, String(patch.floodCoalesceWindowMs), now);
 	if (patch.testMaxPerHour !== undefined)
-		upsert(db, KEYS.testMaxPerHour, String(patch.testMaxPerHour), now);
+		await upsert(db, KEYS.testMaxPerHour, String(patch.testMaxPerHour), now);
 	if (patch.smtpIgnoreTls !== undefined)
-		upsert(db, KEYS.smtpIgnoreTls, patch.smtpIgnoreTls ? "true" : "false", now);
-	if (patch.digestCron !== undefined) upsert(db, KEYS.digestCron, patch.digestCron, now);
+		await upsert(db, KEYS.smtpIgnoreTls, patch.smtpIgnoreTls ? "true" : "false", now);
+	if (patch.digestCron !== undefined) await upsert(db, KEYS.digestCron, patch.digestCron, now);
 
-	clearOrSet(db, KEYS.recipientEmail, patch.recipientEmail, now);
-	clearOrSet(db, KEYS.recipientNtfyTopic, patch.recipientNtfyTopic, now);
-	clearOrSet(db, KEYS.ntfyAuthToken, patch.ntfyAuthToken, now);
-	clearOrSet(db, KEYS.smtpHost, patch.smtpHost, now);
-	clearOrSet(db, KEYS.smtpUsername, patch.smtpUsername, now);
-	clearOrSet(db, KEYS.smtpPassword, patch.smtpPassword, now);
-	clearOrSet(db, KEYS.smtpFrom, patch.smtpFrom, now);
+	await clearOrSet(db, KEYS.recipientEmail, patch.recipientEmail, now);
+	await clearOrSet(db, KEYS.recipientNtfyTopic, patch.recipientNtfyTopic, now);
+	await clearOrSet(db, KEYS.ntfyAuthToken, patch.ntfyAuthToken, now);
+	await clearOrSet(db, KEYS.smtpHost, patch.smtpHost, now);
+	await clearOrSet(db, KEYS.smtpUsername, patch.smtpUsername, now);
+	await clearOrSet(db, KEYS.smtpPassword, patch.smtpPassword, now);
+	await clearOrSet(db, KEYS.smtpFrom, patch.smtpFrom, now);
 
 	return readNotificationConfig(db);
 }

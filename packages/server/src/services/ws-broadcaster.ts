@@ -23,7 +23,7 @@ export interface WsClient {
 export type SubscribeResult = "ok" | "forbidden" | "unknown_client";
 
 interface SubscribeAuthorizer {
-	canSubscribe(senderId: string, topic: string): boolean;
+	canSubscribe(senderId: string, topic: string): Promise<boolean>;
 }
 
 export class WsBroadcaster {
@@ -155,13 +155,13 @@ export class WsBroadcaster {
 	 * resolve / reopen event — a confidentiality bypass that survived the
 	 * REST-side participant guard in `routes/threads.ts`.
 	 */
-	subscribe(client: WsClient, topic: string): SubscribeResult {
+	async subscribe(client: WsClient, topic: string): Promise<SubscribeResult> {
 		const topics = this.clients.get(client);
 		if (!topics) return "unknown_client";
 		if (this.authorizer) {
 			const senderId = this.clientIdentities.get(client);
 			if (!senderId) return "forbidden";
-			if (!this.authorizer.canSubscribe(senderId, topic)) {
+			if (!(await this.authorizer.canSubscribe(senderId, topic))) {
 				return "forbidden";
 			}
 		}
@@ -211,7 +211,7 @@ export class WsBroadcaster {
 export function createDbSubscribeAuthorizer(db: HyperIdleDb): SubscribeAuthorizer {
 	const GLOBAL_TOPICS = new Set(["conversations", "work", "rail"]);
 	return {
-		canSubscribe(senderId: string, topic: string): boolean {
+		async canSubscribe(senderId: string, topic: string): Promise<boolean> {
 			if (GLOBAL_TOPICS.has(topic)) return true;
 			// Q1 §3.4: any authenticated identity may subscribe to session topics.
 			// Observation is read-only and intentionally not participant-gated —
@@ -224,7 +224,7 @@ export function createDbSubscribeAuthorizer(db: HyperIdleDb): SubscribeAuthorize
 			if (!topic.startsWith("thread:")) return false;
 			const threadId = topic.slice("thread:".length);
 			if (!threadId) return false;
-			const row = db.select().from(threads).where(eq(threads.id, threadId)).get();
+			const [row] = await db.select().from(threads).where(eq(threads.id, threadId)).limit(1);
 			if (!row) return false;
 			try {
 				const parts = JSON.parse(row.participants);

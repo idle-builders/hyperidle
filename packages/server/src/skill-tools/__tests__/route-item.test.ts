@@ -5,7 +5,7 @@ import { routeItemTool } from "../route-item.js";
 import { buildToolRegistry } from "../tool-registry.js";
 import { makeContext, NOW, seedBase } from "./_helpers.js";
 
-function seedItem(
+async function seedItem(
 	db: HyperIdleDb,
 	overrides: {
 		id?: string;
@@ -13,29 +13,28 @@ function seedItem(
 		verb?: string | null;
 		riskTier?: string | null;
 	} = {},
-): string {
+): Promise<string> {
 	const id = overrides.id ?? `item-${Math.random().toString(36).slice(2, 10)}`;
-	db.insert(items)
-		.values({
-			id,
-			sourceAgentId: "agent-fac",
-			title: "Seeded item",
-			kind: overrides.kind ?? null,
-			verb: overrides.verb ?? null,
-			riskTier: overrides.riskTier ?? null,
-			threadId: "th1",
-			createdAt: NOW,
-		})
-		.run();
+	await db.insert(items).values({
+		id,
+		sourceAgentId: "agent-fac",
+		title: "Seeded item",
+		kind: overrides.kind ?? null,
+		verb: overrides.verb ?? null,
+		riskTier: overrides.riskTier ?? null,
+		threadId: "th1",
+		createdAt: NOW,
+	});
 	return id;
 }
 
 describe("route_item tool", () => {
 	let db: HyperIdleDb;
 
-	beforeEach(() => {
-		db = createTestDb();
-		seedBase(db);
+	beforeEach(async () => {
+		const handle = await createTestDb();
+		db = handle.db;
+		await seedBase(db);
 	});
 
 	it("returns NOT_FOUND for unknown itemId", async () => {
@@ -57,7 +56,7 @@ describe("route_item tool", () => {
 	});
 
 	it("routes a low-risk knowledge item to the knowledge view", async () => {
-		const id = seedItem(db, { kind: "knowledge", riskTier: "low" });
+		const id = await seedItem(db, { kind: "knowledge", riskTier: "low" });
 		const result = await routeItemTool.handler({ itemId: id }, makeContext(db));
 		expect(result.success).toBe(true);
 		if (!result.success) return;
@@ -66,7 +65,7 @@ describe("route_item tool", () => {
 	});
 
 	it("high-risk item routes to conversations", async () => {
-		const id = seedItem(db, { kind: "knowledge", riskTier: "low" });
+		const id = await seedItem(db, { kind: "knowledge", riskTier: "low" });
 		const result = await routeItemTool.handler({ itemId: id, riskTier: "high" }, makeContext(db));
 		expect(result.success).toBe(true);
 		if (!result.success) return;
@@ -75,16 +74,16 @@ describe("route_item tool", () => {
 	});
 
 	it("overrides persist on the items row", async () => {
-		const id = seedItem(db, { kind: "knowledge", riskTier: "low" });
+		const id = await seedItem(db, { kind: "knowledge", riskTier: "low" });
 		await routeItemTool.handler({ itemId: id, riskTier: "high" }, makeContext(db));
-		const row = db.select().from(items).where(eq(items.id, id)).get();
+		const [row] = await db.select().from(items).where(eq(items.id, id));
 		expect(row?.riskTier).toBe("high");
 	});
 
 	it("non-overridden fields remain unchanged", async () => {
-		const id = seedItem(db, { kind: "knowledge", verb: "propose", riskTier: "low" });
+		const id = await seedItem(db, { kind: "knowledge", verb: "propose", riskTier: "low" });
 		await routeItemTool.handler({ itemId: id, riskTier: "high" }, makeContext(db));
-		const row = db.select().from(items).where(eq(items.id, id)).get();
+		const [row] = await db.select().from(items).where(eq(items.id, id));
 		expect(row?.kind).toBe("knowledge");
 		expect(row?.verb).toBe("propose");
 	});

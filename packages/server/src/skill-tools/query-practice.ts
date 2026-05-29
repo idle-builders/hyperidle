@@ -21,7 +21,7 @@ async function handler(args: QueryPracticeInput, ctx: ToolContext): Promise<Tool
 	// `searchKnowledge` (fabric.search) returns FTS-ranked items across all
 	// layers. We then filter to the requested layer in memory; layered FTS is
 	// a future optimization and not required at D4 scale.
-	const allMatches = searchKnowledge(ctx.db, query, { limit: limit * 5 });
+	const allMatches = await searchKnowledge(ctx.db, query, { limit: limit * 5 });
 	const items = allMatches.filter((item) => item.layer === layer).slice(0, limit);
 
 	return ok({ items });

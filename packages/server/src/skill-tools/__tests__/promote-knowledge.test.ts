@@ -11,54 +11,56 @@ import { promoteKnowledgeTool } from "../promote-knowledge.js";
 import { buildToolRegistry } from "../tool-registry.js";
 import { makeContext, NOW, seedBase } from "./_helpers.js";
 
-function seedKnowledgeItem(db: HyperIdleDb, id: string, status: string, version = 1): void {
-	db.insert(knowledgeItems)
-		.values({
-			id,
-			layer: "L3",
-			kind: "pattern",
-			title: `KI ${id}`,
-			body: "Body",
-			format: "markdown",
-			status,
-			version,
-			updatedBy: "agent:seed",
-			createdAt: NOW,
-			updatedAt: NOW,
-		})
-		.run();
+async function seedKnowledgeItem(
+	db: HyperIdleDb,
+	id: string,
+	status: string,
+	version = 1,
+): Promise<void> {
+	await db.insert(knowledgeItems).values({
+		id,
+		layer: "L3",
+		kind: "pattern",
+		title: `KI ${id}`,
+		body: "Body",
+		format: "markdown",
+		status,
+		version,
+		updatedBy: "agent:seed",
+		createdAt: NOW,
+		updatedAt: NOW,
+	});
 }
 
-function seedConflict(
+async function seedConflict(
 	db: HyperIdleDb,
 	id: string,
 	itemId: string,
 	status: "open" | "resolved" | "discarded",
-): void {
-	db.insert(knowledgeConflicts)
-		.values({
-			id,
-			itemId,
-			versionBase: 1,
-			versionCurrent: 1,
-			proposedBody: "proposed",
-			proposedBy: "agent:other",
-			status,
-			createdAt: NOW,
-		})
-		.run();
+): Promise<void> {
+	await db.insert(knowledgeConflicts).values({
+		id,
+		itemId,
+		versionBase: 1,
+		versionCurrent: 1,
+		proposedBody: "proposed",
+		proposedBy: "agent:other",
+		status,
+		createdAt: NOW,
+	});
 }
 
 describe("promote_knowledge tool", () => {
 	let db: HyperIdleDb;
 
-	beforeEach(() => {
-		db = createTestDb();
-		seedBase(db);
+	beforeEach(async () => {
+		const handle = await createTestDb();
+		db = handle.db;
+		await seedBase(db);
 	});
 
 	it("AC5: transitions captured → provisional and persists", async () => {
-		seedKnowledgeItem(db, "ki-a", "captured");
+		await seedKnowledgeItem(db, "ki-a", "captured");
 		const result = await promoteKnowledgeTool.handler(
 			{ knowledgeItemId: "ki-a", toStatus: "provisional" },
 			makeContext(db),
@@ -66,14 +68,13 @@ describe("promote_knowledge tool", () => {
 		expect(result.success).toBe(true);
 		if (!result.success) return;
 
-		const row = db.select().from(knowledgeItems).where(eq(knowledgeItems.id, "ki-a")).get();
+		const [row] = await db.select().from(knowledgeItems).where(eq(knowledgeItems.id, "ki-a"));
 		expect(row?.status).toBe("provisional");
 
-		const logs = db
+		const logs = await db
 			.select()
 			.from(knowledgeEditLog)
-			.where(and(eq(knowledgeEditLog.itemId, "ki-a"), eq(knowledgeEditLog.field, "status")))
-			.all();
+			.where(and(eq(knowledgeEditLog.itemId, "ki-a"), eq(knowledgeEditLog.field, "status")));
 		expect(logs.length).toBeGreaterThanOrEqual(1);
 		const statusLog = logs.find((l) => l.newValue === "provisional");
 		expect(statusLog).toBeDefined();
@@ -82,7 +83,7 @@ describe("promote_knowledge tool", () => {
 	});
 
 	it("returns INVALID_TRANSITION for captured → validated", async () => {
-		seedKnowledgeItem(db, "ki-b", "captured");
+		await seedKnowledgeItem(db, "ki-b", "captured");
 		const result = await promoteKnowledgeTool.handler(
 			{ knowledgeItemId: "ki-b", toStatus: "validated" },
 			makeContext(db),
@@ -93,7 +94,7 @@ describe("promote_knowledge tool", () => {
 	});
 
 	it("returns INVALID_TRANSITION for archived → anything", async () => {
-		seedKnowledgeItem(db, "ki-c", "archived");
+		await seedKnowledgeItem(db, "ki-c", "archived");
 		const result = await promoteKnowledgeTool.handler(
 			{ knowledgeItemId: "ki-c", toStatus: "provisional" },
 			makeContext(db),
@@ -104,8 +105,8 @@ describe("promote_knowledge tool", () => {
 	});
 
 	it("blocks promotion to validated when an open conflict exists (CONFLICT_OPEN)", async () => {
-		seedKnowledgeItem(db, "ki-d", "provisional");
-		seedConflict(db, "conf-1", "ki-d", "open");
+		await seedKnowledgeItem(db, "ki-d", "provisional");
+		await seedConflict(db, "conf-1", "ki-d", "open");
 		const result = await promoteKnowledgeTool.handler(
 			{ knowledgeItemId: "ki-d", toStatus: "validated" },
 			makeContext(db),
@@ -116,15 +117,15 @@ describe("promote_knowledge tool", () => {
 	});
 
 	it("allows promotion to validated when the only conflicts are resolved/discarded", async () => {
-		seedKnowledgeItem(db, "ki-e", "provisional");
-		seedConflict(db, "conf-2", "ki-e", "resolved");
-		seedConflict(db, "conf-3", "ki-e", "discarded");
+		await seedKnowledgeItem(db, "ki-e", "provisional");
+		await seedConflict(db, "conf-2", "ki-e", "resolved");
+		await seedConflict(db, "conf-3", "ki-e", "discarded");
 		const result = await promoteKnowledgeTool.handler(
 			{ knowledgeItemId: "ki-e", toStatus: "validated" },
 			makeContext(db),
 		);
 		expect(result.success).toBe(true);
-		const row = db.select().from(knowledgeItems).where(eq(knowledgeItems.id, "ki-e")).get();
+		const [row] = await db.select().from(knowledgeItems).where(eq(knowledgeItems.id, "ki-e"));
 		expect(row?.status).toBe("validated");
 	});
 
@@ -139,17 +140,17 @@ describe("promote_knowledge tool", () => {
 	});
 
 	it("does NOT bump version on status change", async () => {
-		seedKnowledgeItem(db, "ki-f", "captured", 3);
+		await seedKnowledgeItem(db, "ki-f", "captured", 3);
 		await promoteKnowledgeTool.handler(
 			{ knowledgeItemId: "ki-f", toStatus: "provisional" },
 			makeContext(db),
 		);
-		const row = db.select().from(knowledgeItems).where(eq(knowledgeItems.id, "ki-f")).get();
+		const [row] = await db.select().from(knowledgeItems).where(eq(knowledgeItems.id, "ki-f"));
 		expect(row?.version).toBe(3);
 	});
 
 	it("returns CONCURRENT_MODIFICATION when the status changed out-of-band", async () => {
-		seedKnowledgeItem(db, "ki-g", "provisional");
+		await seedKnowledgeItem(db, "ki-g", "provisional");
 		// Simulate a concurrent racing caller that has already promoted the
 		// item to `validated`. Our caller is still trying to promote from
 		// `provisional` — the conditional UPDATE must reject with 0 rows
@@ -176,21 +177,19 @@ describe("promote_knowledge tool", () => {
 		// Simulates schema drift / upstream bug: the row's status column holds
 		// a value outside the 6 known statuses. The tool must refuse rather
 		// than unsafely cast and branch.
-		db.insert(knowledgeItems)
-			.values({
-				id: "ki-bad-state",
-				layer: "L3",
-				kind: "pattern",
-				title: "Bad state",
-				body: "Body",
-				format: "markdown",
-				status: "zombie",
-				version: 1,
-				updatedBy: "agent:seed",
-				createdAt: NOW,
-				updatedAt: NOW,
-			})
-			.run();
+		await db.insert(knowledgeItems).values({
+			id: "ki-bad-state",
+			layer: "L3",
+			kind: "pattern",
+			title: "Bad state",
+			body: "Body",
+			format: "markdown",
+			status: "zombie",
+			version: 1,
+			updatedBy: "agent:seed",
+			createdAt: NOW,
+			updatedAt: NOW,
+		});
 		const result = await promoteKnowledgeTool.handler(
 			{ knowledgeItemId: "ki-bad-state", toStatus: "provisional" },
 			makeContext(db),
@@ -201,7 +200,7 @@ describe("promote_knowledge tool", () => {
 	});
 
 	it("persists reason into the edit log when provided", async () => {
-		seedKnowledgeItem(db, "ki-reason", "captured");
+		await seedKnowledgeItem(db, "ki-reason", "captured");
 		const result = await promoteKnowledgeTool.handler(
 			{
 				knowledgeItemId: "ki-reason",
@@ -211,18 +210,17 @@ describe("promote_knowledge tool", () => {
 			makeContext(db),
 		);
 		expect(result.success).toBe(true);
-		const logs = db
+		const logs = await db
 			.select()
 			.from(knowledgeEditLog)
-			.where(and(eq(knowledgeEditLog.itemId, "ki-reason"), eq(knowledgeEditLog.field, "status")))
-			.all();
+			.where(and(eq(knowledgeEditLog.itemId, "ki-reason"), eq(knowledgeEditLog.field, "status")));
 		expect(logs.length).toBe(1);
 		expect(logs[0].newValue).toContain("provisional");
 		expect(logs[0].newValue).toContain("used 3 times this week");
 	});
 
 	it("INVALID_INPUT surfaces via registry dispatch on missing toStatus", async () => {
-		seedKnowledgeItem(db, "ki-bad", "captured");
+		await seedKnowledgeItem(db, "ki-bad", "captured");
 		// I2 B1-B4: registry requires explicit role; promote_knowledge is
 		// facilitator-only.
 		const registry = buildToolRegistry(makeContext(db), { role: "chief_of_staff" });

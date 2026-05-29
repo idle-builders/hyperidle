@@ -5,7 +5,14 @@
  * that file must NOT be changed — these are additive.
  */
 
-import { bets, createTestDb, type HyperIdleDb, products, teams } from "@hyperidle/db";
+import {
+	bets,
+	createTestDb,
+	type HyperIdleDb,
+	products,
+	type TestDbHandle,
+	teams,
+} from "@hyperidle/db";
 import { EventBus } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
 import { beforeEach, describe, expect, it } from "vitest";
@@ -39,68 +46,70 @@ function makeBet(status = "shaped") {
 	};
 }
 
-function getLog(db: HyperIdleDb, betId: string): RevisionLogEntry[] {
-	const bet = db.select().from(bets).where(eq(bets.id, betId)).get();
+async function getLog(db: HyperIdleDb, betId: string): Promise<RevisionLogEntry[]> {
+	const [bet] = await db.select().from(bets).where(eq(bets.id, betId));
 	if (!bet?.revisionLog) return [];
 	return JSON.parse(bet.revisionLog) as RevisionLogEntry[];
 }
 
 describe("L14 — RevisionLogEntry actor field (T1)", () => {
+	let handle: TestDbHandle;
 	let db: HyperIdleDb;
 	let eventBus: EventBus;
 
-	beforeEach(() => {
-		db = createTestDb();
+	beforeEach(async () => {
+		handle = await createTestDb();
+		db = handle.db;
 		eventBus = new EventBus();
-		db.insert(products).values(makeProduct()).run();
-		db.insert(teams).values(makeTeam()).run();
+		await db.insert(products).values(makeProduct());
+		await db.insert(teams).values(makeTeam());
 	});
 
 	describe("transitionBet with actor option", () => {
 		it("writes actor to the revision log when actor is provided", async () => {
-			db.insert(bets).values(makeBet("shaped")).run();
+			await db.insert(bets).values(makeBet("shaped"));
 
 			await transitionBet(db, eventBus, "bet-1", "committed", { actor: "u-founder" });
 
-			const log = getLog(db, "bet-1");
+			const log = await getLog(db, "bet-1");
 			expect(log).toHaveLength(1);
-			expect(log[0].actor).toBe("u-founder");
+			expect(log[0]?.actor).toBe("u-founder");
 		});
 
 		it("actor is undefined in log when no actor is provided (backward compat)", async () => {
-			db.insert(bets).values(makeBet("shaped")).run();
+			await db.insert(bets).values(makeBet("shaped"));
 
 			await transitionBet(db, eventBus, "bet-1", "committed");
 
-			const log = getLog(db, "bet-1");
+			const log = await getLog(db, "bet-1");
 			expect(log).toHaveLength(1);
 			// actor field is optional — absence is acceptable
-			expect(log[0].actor).toBeUndefined();
+			expect(log[0]?.actor).toBeUndefined();
 		});
 
 		it("passes actor through kill transition", async () => {
-			db.insert(bets).values(makeBet("shaped")).run();
+			await db.insert(bets).values(makeBet("shaped"));
 
 			await transitionBet(db, eventBus, "bet-1", "killed", {
 				reason: "Not viable",
 				actor: "u-founder",
 			});
 
-			const log = getLog(db, "bet-1");
-			expect(log[0].actor).toBe("u-founder");
+			const log = await getLog(db, "bet-1");
+			expect(log[0]?.actor).toBe("u-founder");
 		});
 
 		it("passes actor through pause transition (in_progress → paused)", async () => {
-			db.insert(bets).values(makeBet("committed")).run();
+			await db.insert(bets).values(makeBet("committed"));
 			await transitionBet(db, eventBus, "bet-1", "in_progress");
-			const logBefore = getLog(db, "bet-1");
+			const logBefore = await getLog(db, "bet-1");
 
 			await transitionBet(db, eventBus, "bet-1", "paused", {
 				reason: "Team overloaded",
 				actor: "u-founder",
 			});
 
-			const log = getLog(db, "bet-1");
+			const log = await getLog(db, "bet-1");
 			const pauseEntry = log.find((e) => e.new_value === "paused");
 			expect(pauseEntry).toBeDefined();
 			expect(pauseEntry?.actor).toBe("u-founder");
@@ -109,7 +118,7 @@ describe("L14 — RevisionLogEntry actor field (T1)", () => {
 		});
 
 		it("passes actor through resume transition (paused → in_progress)", async () => {
-			db.insert(bets).values(makeBet("committed")).run();
+			await db.insert(bets).values(makeBet("committed"));
 			await transitionBet(db, eventBus, "bet-1", "in_progress");
 			await transitionBet(db, eventBus, "bet-1", "paused", { reason: "pause" });
 
@@ -118,7 +127,7 @@ describe("L14 — RevisionLogEntry actor field (T1)", () => {
 				actor: "u-founder",
 			});
 
-			const log = getLog(db, "bet-1");
+			const log = await getLog(db, "bet-1");
 			const resumeEntry = log.find((e) => e.new_value === "in_progress" && e.actor === "u-founder");
 			expect(resumeEntry).toBeDefined();
 		});
@@ -126,7 +135,7 @@ describe("L14 — RevisionLogEntry actor field (T1)", () => {
 
 	describe("updateBetField with actor option", () => {
 		it("writes actor to revision log when actor is provided", async () => {
-			db.insert(bets).values(makeBet("in_progress")).run();
+			await db.insert(bets).values(makeBet("in_progress"));
 
 			await updateBetField(
 				db,
@@ -138,18 +147,18 @@ describe("L14 — RevisionLogEntry actor field (T1)", () => {
 				"u-founder",
 			);
 
-			const log = getLog(db, "bet-1");
+			const log = await getLog(db, "bet-1");
 			expect(log).toHaveLength(1);
-			expect(log[0].actor).toBe("u-founder");
+			expect(log[0]?.actor).toBe("u-founder");
 		});
 
 		it("actor is undefined when not provided (backward compat)", async () => {
-			db.insert(bets).values(makeBet("in_progress")).run();
+			await db.insert(bets).values(makeBet("in_progress"));
 
 			await updateBetField(db, eventBus, "bet-1", "hypothesis", "New", "reason");
 
-			const log = getLog(db, "bet-1");
-			expect(log[0].actor).toBeUndefined();
+			const log = await getLog(db, "bet-1");
+			expect(log[0]?.actor).toBeUndefined();
 		});
 	});
 });

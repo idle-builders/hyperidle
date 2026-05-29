@@ -4,8 +4,8 @@
 # Usage:
 #   cp .env.example .env     # and set POSTGRES_PASSWORD (at minimum)
 #   docker compose up -d
-#   bun run db:migrate:pg
-#   bun run db:seed:pg
+#   npm run db:migrate:pg
+#   npm run db:seed:pg
 #
 # See docs/DEPLOYMENT.md for details.
 
@@ -51,7 +51,7 @@ services:
     # Hono dev server directly.
     ports:
       - "127.0.0.1:3001:3001"
-    command: ["bun", "run", "--filter", "@hyperidle/server", "dev"]
+    command: ["npm", "run", "-w", "@hyperidle/server", "dev"]
 
   web:
     build:
@@ -66,7 +66,7 @@ services:
     # reason as the server; production operators front with nginx + auth.
     ports:
       - "127.0.0.1:5173:5173"
-    command: ["bun", "run", "--filter", "@hyperidle/web", "dev", "--", "--host", "0.0.0.0"]
+    command: ["npm", "run", "-w", "@hyperidle/web", "dev", "--", "--host", "0.0.0.0"]
 
 volumes:
   postgres_data:

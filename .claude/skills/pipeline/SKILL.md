@@ -55,7 +55,7 @@ Set status to `in_progress`. Run the worktree + draft-PR setup once, then dispat
 ```bash
 # 1. Worktree
 git worktree add .worktrees/<id> -b feat/<id>-<desc> main
-cd .worktrees/<id> && bun install
+cd .worktrees/<id> && npm install
 
 # 2. Initial empty commit so the branch exists on the remote
 git commit --allow-empty -m "chore(<id>): open WIP — pipeline scaffolding [skip ci]"
@@ -82,7 +82,7 @@ Each persona phase **commits its output and pushes** before returning:
 | 4 — builder (apply review fixes) | one commit per applied finding batch | run |
 | 5 — Explore agent /retro | prose | `[skip ci]` |
 
-Local `bun run verify` is the gate. Builder runs it (check, lint:biome, lint:eslint, test, e2e — identical tools to CI) and must pass before pushing. On green, verify writes `.verify-attestation.json` (HMAC-signed with `~/.config/hyperidle/verify-secret`). Builder commits the attestation as the last commit before pushing. CI validates the attestation signature (~30s) instead of re-running the full suite (~10min). See `/ship` for the complete commit → verify → attestation → push flow.
+Local `npm run verify` is the gate. Builder runs it (check, lint:biome, lint:eslint, test, e2e — identical tools to CI) and must pass before pushing. On green, verify writes `.verify-attestation.json` (HMAC-signed with `~/.config/hyperidle/verify-secret`). Builder commits the attestation as the last commit before pushing. CI validates the attestation signature (~30s) instead of re-running the full suite (~10min). See `/ship` for the complete commit → verify → attestation → push flow.
 
 Stories touching authentication, schema migrations, or `packages/server/src/agent-runtime/` set `gate: ci-required` in the workpackage spec; Reviewer holds the ready-flip until CI is green. Default for everything else is `gate: local-green`.
 
@@ -93,7 +93,7 @@ Stories touching authentication, schema migrations, or `packages/server/src/agen
 When Reviewer's `/review` pass emits `Verdict: DONE` (after fix cycle), the builder runs `/ship`:
 
 1. Builder commits all remaining code changes.
-2. Builder runs `/ship <id>` — this merges `origin/main`, runs `bun run verify`, commits attestation, pushes, flips draft PR ready, and **waits for CI green**.
+2. Builder runs `/ship <id>` — this merges `origin/main`, runs `npm run verify`, commits attestation, pushes, flips draft PR ready, and **waits for CI green**.
 3. `/ship` is only complete when `gh pr checks` returns green. If CI is red, builder fixes and re-ships (max 3 attempts).
 
 In A/B mode (`PIPELINE_AB_MODE=1`), the builder still runs `/ship` but skips `gh pr ready` — the PR stays draft for replay.
@@ -108,10 +108,10 @@ Then dispatch the persona sessions below, in order. Update `currentStep` in the 
 |---|---|---|---|---|
 | 1 | **designer** | high | `/concept` → `/design` → `/architecture` | Production only. Concept doc + variant exploration + technical plan. |
 | 2 | **reviewer** | high | `/design-critique` → `/architecture-critique` | Evaluates designer output. True producer/evaluator separation — different agent, not just different mode. Context carries to Phase 4. |
-| 3 | **builder** | medium | `/write-tests` → `/write-code` | TDD red then green. Must pass `bun run verify` before pushing. No broken code reaches the reviewer. |
+| 3 | **builder** | medium | `/write-tests` → `/write-code` | TDD red then green. Must pass `npm run verify` before pushing. No broken code reaches the reviewer. |
 | 4 | **reviewer** + **builder** | high | `/review` → `/ship` | Same reviewer from Phase 2 (warm on design/arch). 6 lenses + AC audit. Builder applies fixes. On DONE, builder runs `/ship` (merge main → verify → attest → push → PR ready → CI green). |
 | 5 | **Explore** | low | `/retro` | Fresh-context retro with cost signals. Built-in Explore agent, not a custom persona. |
-| — | scripts | — | CI + PR | `bun run verify --raw` runs as CI on every push. Draft PR opens at worktree setup; `/ship` flips ready + waits for CI green after Reviewer's DONE. |
+| — | scripts | — | CI + PR | `npm run verify --raw` runs as CI on every push. Draft PR opens at worktree setup; `/ship` flips ready + waits for CI green after Reviewer's DONE. |
 
 **Durable agent sessions per story: 3** (designer, reviewer, builder). Spawned once each with named handles (`designer-<id>`, `reviewer-<id>`, `builder-<id>`). After initial spawn, all subsequent communication uses `SendMessage(to=<name>)` to reuse the live session — no re-spawn, no cache-creation cost. Explore agent for retro is ephemeral.
 
@@ -153,7 +153,9 @@ Phase 3 — builder (TDD):
 
   SEND: SendMessage(to="builder-<id>") with /write-code.
   Builder reads the plan + failing tests; writes minimum code to pass.
-  Runs bun run verify — must pass before pushing.
+  If the implementation changes behavior described in docs/, builder
+  updates the relevant doc sections in the same commit (doc sync).
+  Runs npm run verify — must pass before pushing.
   If Builder hits a plan-vs-reality conflict, it raises a BLOCKER rather
   than redesigning in-flight (TE-22).
 
@@ -167,12 +169,12 @@ Phase 4 — review + ship:
 
   If NOT DONE:
     SEND: SendMessage(to="builder-<id>") with findings.
-    Builder applies findings; commits + pushes; runs bun run verify.
+    Builder applies findings; commits + pushes; runs npm run verify.
     SEND back to reviewer for re-review. Max 3 attempts.
 
   If DONE:
     SEND: SendMessage(to="builder-<id>") with /ship <id>.
-    Builder runs /ship: merges origin/main, runs bun run verify,
+    Builder runs /ship: merges origin/main, runs npm run verify,
     commits attestation, pushes, flips PR ready (unless AB mode),
     and waits for CI green. If CI red, builder fixes and re-ships
     (max 3 attempts). /ship is not done until CI green.
@@ -216,7 +218,7 @@ Routine UI (existing component family, known layout) gets 1 variant + a "did we 
 ## Token Efficiency
 
 - **Spawn once, message many.** Each agent is spawned exactly once per story with a stable name. Use `SendMessage` for all follow-up communication. Never re-spawn an agent that's still alive.
-- **Incremental verification.** Builder uses `bun run check` (fast typecheck) after edits. Full `bun run verify` only before pushing.
+- **Incremental verification.** Builder uses `npm run check` (fast typecheck) after edits. Full `npm run verify` only before pushing.
 - **Error output is capped.** The check/lint/test wrappers show max 10 files. Don't re-run hoping for different output — fix the shown errors first.
 
 ## Rules

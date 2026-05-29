@@ -48,7 +48,6 @@ const createItemInputSchema = z.object({
 
 type CreateItemInput = z.infer<typeof createItemInputSchema>;
 
-// biome-ignore lint/suspicious/useAwait: ToolDefinition.handler requires async signature
 async function handler(args: CreateItemInput, ctx: ToolContext): Promise<ToolResult> {
 	const parsed = createItemInputSchema.safeParse(args);
 	if (!parsed.success) {
@@ -60,7 +59,7 @@ async function handler(args: CreateItemInput, ctx: ToolContext): Promise<ToolRes
 
 	let threadId = input.threadId;
 	if (threadId) {
-		const existing = ctx.db.select().from(threads).where(eq(threads.id, threadId)).get();
+		const [existing] = await ctx.db.select().from(threads).where(eq(threads.id, threadId)).limit(1);
 		if (!existing) {
 			return err("NOT_FOUND", `Thread not found: ${threadId}`);
 		}
@@ -68,42 +67,36 @@ async function handler(args: CreateItemInput, ctx: ToolContext): Promise<ToolRes
 		threadId = randomUUID();
 		// L1a: synthesize a host_kind for thread auto-creation. Use 'task' as
 		// a generic carrier (the item will route to a task in most flows).
-		ctx.db
-			.insert(threads)
-			.values({
-				id: threadId,
-				hostKind: "task",
-				hostId: ctx.taskId,
-				initiatorId: ctx.agentId,
-				participants: JSON.stringify([ctx.agentId]),
-				lastActiveAt: now,
-				createdAt: now,
-			})
-			.run();
+		await ctx.db.insert(threads).values({
+			id: threadId,
+			hostKind: "task",
+			hostId: ctx.taskId,
+			initiatorId: ctx.agentId,
+			participants: JSON.stringify([ctx.agentId]),
+			lastActiveAt: now,
+			createdAt: now,
+		});
 	}
 
 	const itemId = randomUUID();
-	ctx.db
-		.insert(items)
-		.values({
-			id: itemId,
-			sourceAgentId: ctx.agentId,
-			layer: input.layer ?? null,
-			verb: input.verb ?? null,
-			kind: input.kind ?? null,
-			title: input.title,
-			body: input.body ?? null,
-			proposedAction: input.proposedAction ?? null,
-			options: input.options ?? null,
-			riskTier: input.riskTier ?? null,
-			attentionScore: input.attentionScore ?? null,
-			blocking: input.blocking ? 1 : 0,
-			reasoning: input.reasoning ?? null,
-			costEstimate: input.costEstimate ?? null,
-			threadId,
-			createdAt: now,
-		})
-		.run();
+	await ctx.db.insert(items).values({
+		id: itemId,
+		sourceAgentId: ctx.agentId,
+		layer: input.layer ?? null,
+		verb: input.verb ?? null,
+		kind: input.kind ?? null,
+		title: input.title,
+		body: input.body ?? null,
+		proposedAction: input.proposedAction ?? null,
+		options: input.options ?? null,
+		riskTier: input.riskTier ?? null,
+		attentionScore: input.attentionScore ?? null,
+		blocking: input.blocking ?? false,
+		reasoning: input.reasoning ?? null,
+		costEstimate: input.costEstimate ?? null,
+		threadId,
+		createdAt: now,
+	});
 
 	const view = routeItem({
 		riskTier: input.riskTier ?? null,

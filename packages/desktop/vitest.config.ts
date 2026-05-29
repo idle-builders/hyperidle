@@ -5,5 +5,6 @@ export default defineProject({
 		name: "desktop",
 		environment: "node",
 		include: ["__tests__/**/*.test.ts"],
+		hookTimeout: 30_000,
 	},
 });

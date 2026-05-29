@@ -2,7 +2,7 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { type ServerType, serve, upgradeWebSocket } from "@hono/node-server";
-import { createDb } from "@hyperidle/db";
+import { createPgliteDb, createPostgresDb, type DbHandle, resolveProfile } from "@hyperidle/db";
 import { bootstrapFabric } from "@hyperidle/fabric";
 import { EventBus } from "@hyperidle/shared";
 import { WebSocketServer } from "ws";
@@ -92,19 +92,26 @@ function createStaticHandler(
  *
  * Pass port 0 for a random available port (useful in tests).
  *
- * @lore N1: production DB path now uses `createDb` from `@hyperidle/db`
- * (better-sqlite3) unconditionally. The `openProductionDb` function that used
- * Bun-specific SQLite drivers was removed — better-sqlite3 works under both
- * Node and Bun via Bun's native module dlopen support (fixed in Bun >=1.1.0).
+ * @lore PGlite migration: production DB uses resolveProfile() to pick the
+ * connection factory — `createPgliteDb` for laptop profile (embedded WASM
+ * Postgres), `createPostgresDb` for vps/cloud (postgres-js). DATABASE_URL
+ * env var overrides the profile default.
  *
  * @lore I1 S1-S5: the previous `createFullApp` factory mounted only
  * `/health`, `/api/health`, and `/api/ws` — every domain route returned 404
  * in production. Converging on `createApp` is the fix; any future divergence
  * would re-introduce the same bug.
  */
-export function createServer(port: number): ServerHandle {
-	const dbPath = process.env.DATABASE_URL ?? "./hyperidle.db";
-	const db = createDb(dbPath);
+export async function createServer(port: number): Promise<ServerHandle> {
+	const profile = resolveProfile({ env: process.env });
+	const dbUrl = process.env.DATABASE_URL ?? profile.dbUrlDefault;
+	let dbHandle: DbHandle;
+	if (profile.dbDriver === "pglite") {
+		dbHandle = await createPgliteDb(dbUrl);
+	} else {
+		dbHandle = createPostgresDb(dbUrl);
+	}
+	const db = dbHandle.db;
 	const eventBus = new EventBus();
 
 	const credentialResolver = new EnvCredentialResolver();
@@ -114,7 +121,7 @@ export function createServer(port: number): ServerHandle {
 		process.env.HYPERIDLE_WORKSPACES_DIR ?? path.join(os.tmpdir(), "hyperidle-workspaces");
 
 	let wsDispose: (() => void) | null = null;
-	const app = createApp({
+	const app = await createApp({
 		db,
 		eventBus,
 		strategyBootstrap: bootstrapFabric,
@@ -165,13 +172,14 @@ export function createServer(port: number): ServerHandle {
 		// observability) outlive the server. If we called `server.close()` or
 		// the WS disposer first, `disposeApp` would still run, but background
 		// handlers could observe events during shutdown against a torn-down
-		// runtime. Order: domain handlers -> WS route -> HTTP server.
+		// runtime. Order: domain handlers -> WS route -> HTTP server -> DB.
 		disposeApp(app);
 		if (wsDispose) {
 			wsDispose();
 			wsDispose = null;
 		}
 		httpServer.close();
+		void dbHandle.close();
 	};
 
 	return { httpServer, dispose };

@@ -8,7 +8,7 @@ import {
 } from "@hyperidle/db";
 import { EventBus, type KnowledgeUpdatedEvent } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
-import { beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { KnowledgeItemWithFabric } from "../knowledge-repository.js";
 import {
 	AUTO_PROMOTION_EDITOR,
@@ -44,7 +44,7 @@ interface SeedOverrides {
  * knowledgeStrategyFabric extension table. Strategy fields (layer, scopeId,
  * kind, meta) are no longer columns on the kernel table.
  */
-function seedKi(db: HyperIdleDb, overrides: SeedOverrides): KnowledgeItemWithFabric {
+async function seedKi(db: HyperIdleDb, overrides: SeedOverrides): Promise<KnowledgeItemWithFabric> {
 	const metaStr =
 		overrides.meta === null || overrides.meta === undefined ? null : JSON.stringify(overrides.meta);
 
@@ -60,21 +60,19 @@ function seedKi(db: HyperIdleDb, overrides: SeedOverrides): KnowledgeItemWithFab
 		createdAt: NOW,
 		updatedAt: overrides.updatedAt ?? NOW,
 	};
-	db.insert(knowledgeItems).values(kernelRow).run();
+	await db.insert(knowledgeItems).values(kernelRow);
 
 	// Insert strategy extension row
-	db.insert(knowledgeStrategyFabric)
-		.values({
-			id: `ksf-${overrides.id}`,
-			knowledgeItemId: overrides.id,
-			layer: overrides.layer ?? "L3",
-			scopeId: overrides.scopeId === undefined ? "scope-a" : overrides.scopeId,
-			kind: overrides.kind ?? "pattern",
-			attentionScore: null,
-			confidence: null,
-			meta: metaStr,
-		})
-		.run();
+	await db.insert(knowledgeStrategyFabric).values({
+		id: `ksf-${overrides.id}`,
+		knowledgeItemId: overrides.id,
+		layer: overrides.layer ?? "L3",
+		scopeId: overrides.scopeId === undefined ? "scope-a" : overrides.scopeId,
+		kind: overrides.kind ?? "pattern",
+		attentionScore: null,
+		confidence: null,
+		meta: metaStr,
+	});
 
 	return {
 		...kernelRow,
@@ -87,37 +85,35 @@ function seedKi(db: HyperIdleDb, overrides: SeedOverrides): KnowledgeItemWithFab
 	};
 }
 
-function seedConflict(
+async function seedConflict(
 	db: HyperIdleDb,
 	id: string,
 	itemId: string,
 	status: "open" | "resolved" | "discarded",
-): void {
-	db.insert(knowledgeConflicts)
-		.values({
-			id,
-			itemId,
-			versionBase: 1,
-			versionCurrent: 1,
-			proposedBody: "proposed",
-			proposedBy: "agent:other",
-			status,
-			createdAt: NOW,
-		})
-		.run();
+): Promise<void> {
+	await db.insert(knowledgeConflicts).values({
+		id,
+		itemId,
+		versionBase: 1,
+		versionCurrent: 1,
+		proposedBody: "proposed",
+		proposedBy: "agent:other",
+		status,
+		createdAt: NOW,
+	});
 }
 
-function seedRepetitionCluster(
+async function seedRepetitionCluster(
 	db: HyperIdleDb,
 	signature: { layer: string; topic: string; kind: string },
 	idPrefix: string,
 	count: number,
 	options: { status?: string; startIndex?: number } = {},
-): void {
+): Promise<void> {
 	const status = options.status ?? "active";
 	const start = options.startIndex ?? 0;
 	for (let i = 0; i < count; i++) {
-		seedKi(db, {
+		await seedKi(db, {
 			id: `${idPrefix}-${start + i}`,
 			layer: signature.layer,
 			scopeId: `scope-${start + i}`,
@@ -130,18 +126,24 @@ function seedRepetitionCluster(
 
 describe("promotion-pipeline", () => {
 	let db: HyperIdleDb;
+	let handle: Awaited<ReturnType<typeof createTestDb>>;
 	let eventBus: EventBus;
 
-	beforeEach(() => {
-		db = createTestDb();
+	beforeEach(async () => {
+		handle = await createTestDb();
+		db = handle.db;
 		eventBus = new EventBus();
+	});
+
+	afterEach(async () => {
+		await handle.close();
 	});
 
 	// --- AC2 — auto-promotion at 5+ cross-scope repetitions ---
 
 	describe("checkAutoPromotion (AC2)", () => {
-		it("returns shouldPromote=true when 5 distinct scopes match signature", () => {
-			const subject = seedKi(db, {
+		it("returns shouldPromote=true when 5 distinct scopes match signature", async () => {
+			const subject = await seedKi(db, {
 				id: "subject",
 				layer: "L3",
 				scopeId: "scope-subject",
@@ -150,14 +152,19 @@ describe("promotion-pipeline", () => {
 				status: "provisional",
 			});
 			// 4 siblings in other scopes (+ subject = 5 distinct scopes total)
-			seedRepetitionCluster(db, { layer: "L3", topic: "auth", kind: "pattern" }, "sibling", 4);
+			await seedRepetitionCluster(
+				db,
+				{ layer: "L3", topic: "auth", kind: "pattern" },
+				"sibling",
+				4,
+			);
 
-			const result = checkAutoPromotion(db, subject.id);
+			const result = await checkAutoPromotion(db, subject.id);
 			expect(result.shouldPromote).toBe(true);
 		});
 
-		it("returns shouldPromote=false at count=4 (just below threshold)", () => {
-			const subject = seedKi(db, {
+		it("returns shouldPromote=false at count=4 (just below threshold)", async () => {
+			const subject = await seedKi(db, {
 				id: "subject",
 				layer: "L3",
 				scopeId: "scope-subject",
@@ -166,14 +173,19 @@ describe("promotion-pipeline", () => {
 				status: "provisional",
 			});
 			// 3 siblings (+ subject = 4 distinct scopes)
-			seedRepetitionCluster(db, { layer: "L3", topic: "auth", kind: "pattern" }, "sibling", 3);
+			await seedRepetitionCluster(
+				db,
+				{ layer: "L3", topic: "auth", kind: "pattern" },
+				"sibling",
+				3,
+			);
 
-			const result = checkAutoPromotion(db, subject.id);
+			const result = await checkAutoPromotion(db, subject.id);
 			expect(result.shouldPromote).toBe(false);
 		});
 
-		it("ignores archived items in the count", () => {
-			const subject = seedKi(db, {
+		it("ignores archived items in the count", async () => {
+			const subject = await seedKi(db, {
 				id: "subject",
 				layer: "L3",
 				scopeId: "scope-subject",
@@ -182,19 +194,31 @@ describe("promotion-pipeline", () => {
 				status: "provisional",
 			});
 			// 4 active siblings + 10 archived — archived must not count
-			seedRepetitionCluster(db, { layer: "L3", topic: "auth", kind: "pattern" }, "archived", 10, {
-				status: "archived",
-			});
-			seedRepetitionCluster(db, { layer: "L3", topic: "auth", kind: "pattern" }, "sibling", 3, {
-				startIndex: 20,
-			});
+			await seedRepetitionCluster(
+				db,
+				{ layer: "L3", topic: "auth", kind: "pattern" },
+				"archived",
+				10,
+				{
+					status: "archived",
+				},
+			);
+			await seedRepetitionCluster(
+				db,
+				{ layer: "L3", topic: "auth", kind: "pattern" },
+				"sibling",
+				3,
+				{
+					startIndex: 20,
+				},
+			);
 
-			const result = checkAutoPromotion(db, subject.id);
+			const result = await checkAutoPromotion(db, subject.id);
 			expect(result.shouldPromote).toBe(false);
 		});
 
-		it("ignores items without scope_id (cannot demonstrate cross-product)", () => {
-			const subject = seedKi(db, {
+		it("ignores items without scope_id (cannot demonstrate cross-product)", async () => {
+			const subject = await seedKi(db, {
 				id: "subject",
 				layer: "L3",
 				scopeId: "scope-subject",
@@ -204,7 +228,7 @@ describe("promotion-pipeline", () => {
 			});
 			// 10 matching items with no scope — must not contribute to distinct-scope count
 			for (let i = 0; i < 10; i++) {
-				seedKi(db, {
+				await seedKi(db, {
 					id: `no-scope-${i}`,
 					layer: "L3",
 					scopeId: null,
@@ -213,7 +237,7 @@ describe("promotion-pipeline", () => {
 					status: "active",
 				});
 			}
-			const result = checkAutoPromotion(db, subject.id);
+			const result = await checkAutoPromotion(db, subject.id);
 			expect(result.shouldPromote).toBe(false);
 		});
 
@@ -234,7 +258,7 @@ describe("promotion-pipeline", () => {
 			// verify only 1 is processed in this pass.
 			for (let i = 0; i < 3; i++) {
 				const subjectId = `subject-${i}`;
-				seedKi(db, {
+				await seedKi(db, {
 					id: subjectId,
 					layer: "L3",
 					scopeId: `subject-scope-${i}`,
@@ -242,7 +266,7 @@ describe("promotion-pipeline", () => {
 					topic: `topic-${i}`,
 					status: "provisional",
 				});
-				seedRepetitionCluster(
+				await seedRepetitionCluster(
 					db,
 					{ layer: "L3", topic: `topic-${i}`, kind: "pattern" },
 					`sibling-${i}`,
@@ -258,7 +282,7 @@ describe("promotion-pipeline", () => {
 		it("runStaleSweep respects maxBatchSize (W4)", async () => {
 			const OLDER = new Date(NOW_MS - STALE_THRESHOLD_MS - 1000).toISOString();
 			for (let i = 0; i < 5; i++) {
-				seedKi(db, { id: `old-${i}`, status: "active", updatedAt: OLDER });
+				await seedKi(db, { id: `old-${i}`, status: "active", updatedAt: OLDER });
 			}
 			const summary = await runStaleSweep(db, eventBus, NOW_MS, STALE_THRESHOLD_MS, {
 				maxBatchSize: 2,
@@ -266,9 +290,9 @@ describe("promotion-pipeline", () => {
 			expect(summary.markedIds.length).toBe(2);
 		});
 
-		it("treats topic=NULL and topic='' as DISTINCT signatures (W1)", () => {
+		it("treats topic=NULL and topic='' as DISTINCT signatures (W1)", async () => {
 			// Subject has topic = null.
-			const subject = seedKi(db, {
+			const subject = await seedKi(db, {
 				id: "subject",
 				layer: "L3",
 				scopeId: "scope-subject",
@@ -279,7 +303,7 @@ describe("promotion-pipeline", () => {
 			// Four siblings with topic = '' (explicitly blank) — these must
 			// NOT count toward the null-topic signature.
 			for (let i = 0; i < 4; i++) {
-				seedKi(db, {
+				await seedKi(db, {
 					id: `empty-${i}`,
 					layer: "L3",
 					scopeId: `scope-empty-${i}`,
@@ -289,15 +313,15 @@ describe("promotion-pipeline", () => {
 				});
 			}
 
-			const result = checkAutoPromotion(db, subject.id);
+			const result = await checkAutoPromotion(db, subject.id);
 			expect(result.shouldPromote).toBe(false);
 			// Only the subject itself matches the null-topic signature =>
 			// distinct scopes = 1.
 			expect(result.distinctScopes).toBe(1);
 		});
 
-		it("treats topic='' and topic=NULL as DISTINCT signatures in the other direction (W1)", () => {
-			const subject = seedKi(db, {
+		it("treats topic='' and topic=NULL as DISTINCT signatures in the other direction (W1)", async () => {
+			const subject = await seedKi(db, {
 				id: "subject",
 				layer: "L3",
 				scopeId: "scope-subject",
@@ -306,7 +330,7 @@ describe("promotion-pipeline", () => {
 				status: "provisional",
 			});
 			for (let i = 0; i < 4; i++) {
-				seedKi(db, {
+				await seedKi(db, {
 					id: `null-${i}`,
 					layer: "L3",
 					scopeId: `scope-null-${i}`,
@@ -316,7 +340,7 @@ describe("promotion-pipeline", () => {
 				});
 			}
 
-			const result = checkAutoPromotion(db, subject.id);
+			const result = await checkAutoPromotion(db, subject.id);
 			expect(result.shouldPromote).toBe(false);
 			expect(result.distinctScopes).toBe(1);
 		});
@@ -325,8 +349,8 @@ describe("promotion-pipeline", () => {
 	// --- AC3 — contradiction check ---
 
 	describe("detectLayerContradiction (AC3)", () => {
-		it("contradicts=true when L4 principle.meta.forbids overlaps L3.meta.claims", () => {
-			const l3 = seedKi(db, {
+		it("contradicts=true when L4 principle.meta.forbids overlaps L3.meta.claims", async () => {
+			const l3 = await seedKi(db, {
 				id: "l3-practice",
 				layer: "L3",
 				kind: "pattern",
@@ -334,7 +358,7 @@ describe("promotion-pipeline", () => {
 				status: "provisional",
 				meta: { claims: ["store-secrets-in-env-vars"] },
 			});
-			seedKi(db, {
+			await seedKi(db, {
 				id: "l4-principle",
 				layer: "L4",
 				kind: "principle",
@@ -343,21 +367,21 @@ describe("promotion-pipeline", () => {
 				meta: { forbids: ["store-secrets-in-env-vars"] },
 			});
 
-			const result = detectLayerContradiction(db, l3.id);
+			const result = await detectLayerContradiction(db, l3.id);
 			expect(result.contradicts).toBe(true);
 			if (!result.contradicts) return;
 			expect(result.withItemId).toBe("l4-principle");
 		});
 
-		it("contradicts=true when L4 principle.meta.forbids contains the L3 item's topic", () => {
-			const l3 = seedKi(db, {
+		it("contradicts=true when L4 principle.meta.forbids contains the L3 item's topic", async () => {
+			const l3 = await seedKi(db, {
 				id: "l3-practice",
 				layer: "L3",
 				kind: "pattern",
 				topic: "use-jwt",
 				status: "provisional",
 			});
-			seedKi(db, {
+			await seedKi(db, {
 				id: "l4-principle",
 				layer: "L4",
 				kind: "principle",
@@ -366,12 +390,12 @@ describe("promotion-pipeline", () => {
 				meta: { forbids: ["use-jwt"] },
 			});
 
-			const result = detectLayerContradiction(db, l3.id);
+			const result = await detectLayerContradiction(db, l3.id);
 			expect(result.contradicts).toBe(true);
 		});
 
-		it("contradicts=false when no overlap", () => {
-			const l3 = seedKi(db, {
+		it("contradicts=false when no overlap", async () => {
+			const l3 = await seedKi(db, {
 				id: "l3-practice",
 				layer: "L3",
 				kind: "pattern",
@@ -379,7 +403,7 @@ describe("promotion-pipeline", () => {
 				status: "provisional",
 				meta: { claims: ["use-oauth"] },
 			});
-			seedKi(db, {
+			await seedKi(db, {
 				id: "l4-principle",
 				layer: "L4",
 				kind: "principle",
@@ -387,12 +411,12 @@ describe("promotion-pipeline", () => {
 				status: "active",
 				meta: { forbids: ["unrelated-thing"] },
 			});
-			const result = detectLayerContradiction(db, l3.id);
+			const result = await detectLayerContradiction(db, l3.id);
 			expect(result.contradicts).toBe(false);
 		});
 
-		it("contradicts=false when topics don't match", () => {
-			const l3 = seedKi(db, {
+		it("contradicts=false when topics don't match", async () => {
+			const l3 = await seedKi(db, {
 				id: "l3-practice",
 				layer: "L3",
 				kind: "pattern",
@@ -400,7 +424,7 @@ describe("promotion-pipeline", () => {
 				status: "provisional",
 				meta: { claims: ["x"] },
 			});
-			seedKi(db, {
+			await seedKi(db, {
 				id: "l4-principle",
 				layer: "L4",
 				kind: "principle",
@@ -408,12 +432,12 @@ describe("promotion-pipeline", () => {
 				status: "active",
 				meta: { forbids: ["x"] },
 			});
-			const result = detectLayerContradiction(db, l3.id);
+			const result = await detectLayerContradiction(db, l3.id);
 			expect(result.contradicts).toBe(false);
 		});
 
-		it("contradicts=false when no L4 principles exist", () => {
-			const l3 = seedKi(db, {
+		it("contradicts=false when no L4 principles exist", async () => {
+			const l3 = await seedKi(db, {
 				id: "l3-only",
 				layer: "L3",
 				kind: "pattern",
@@ -421,12 +445,12 @@ describe("promotion-pipeline", () => {
 				status: "provisional",
 				meta: { claims: ["x"] },
 			});
-			const result = detectLayerContradiction(db, l3.id);
+			const result = await detectLayerContradiction(db, l3.id);
 			expect(result.contradicts).toBe(false);
 		});
 
-		it("contradicts=false when subject item is not L3 (rule applies only to L3 proposals)", () => {
-			const l2 = seedKi(db, {
+		it("contradicts=false when subject item is not L3 (rule applies only to L3 proposals)", async () => {
+			const l2 = await seedKi(db, {
 				id: "l2-item",
 				layer: "L2",
 				kind: "pattern",
@@ -434,7 +458,7 @@ describe("promotion-pipeline", () => {
 				status: "provisional",
 				meta: { claims: ["x"] },
 			});
-			seedKi(db, {
+			await seedKi(db, {
 				id: "l4-principle",
 				layer: "L4",
 				kind: "principle",
@@ -442,7 +466,7 @@ describe("promotion-pipeline", () => {
 				status: "active",
 				meta: { forbids: ["x"] },
 			});
-			const result = detectLayerContradiction(db, l2.id);
+			const result = await detectLayerContradiction(db, l2.id);
 			expect(result.contradicts).toBe(false);
 		});
 	});
@@ -453,45 +477,48 @@ describe("promotion-pipeline", () => {
 		const OLDER_THAN_90_DAYS = new Date(NOW_MS - STALE_THRESHOLD_MS - 1000).toISOString();
 		const WITHIN_90_DAYS = new Date(NOW_MS - 10 * 24 * 60 * 60 * 1000).toISOString();
 
-		it("findStaleItems returns active items with updated_at older than 90 days", () => {
-			seedKi(db, { id: "stale-1", status: "active", updatedAt: OLDER_THAN_90_DAYS });
-			seedKi(db, { id: "fresh-1", status: "active", updatedAt: WITHIN_90_DAYS });
+		it("findStaleItems returns active items with updated_at older than 90 days", async () => {
+			await seedKi(db, { id: "stale-1", status: "active", updatedAt: OLDER_THAN_90_DAYS });
+			await seedKi(db, { id: "fresh-1", status: "active", updatedAt: WITHIN_90_DAYS });
 
-			const stale = findStaleItems(db, NOW_MS);
+			const stale = await findStaleItems(db, NOW_MS);
 			const ids = stale.map((s) => s.id);
 			expect(ids).toContain("stale-1");
 			expect(ids).not.toContain("fresh-1");
 		});
 
-		it("findStaleItems does NOT return active items within 90 days", () => {
-			seedKi(db, { id: "fresh", status: "active", updatedAt: WITHIN_90_DAYS });
-			const stale = findStaleItems(db, NOW_MS);
+		it("findStaleItems does NOT return active items within 90 days", async () => {
+			await seedKi(db, { id: "fresh", status: "active", updatedAt: WITHIN_90_DAYS });
+			const stale = await findStaleItems(db, NOW_MS);
 			expect(stale.some((s) => s.id === "fresh")).toBe(false);
 		});
 
-		it("findStaleItems does NOT return non-active items", () => {
-			seedKi(db, { id: "old-prov", status: "provisional", updatedAt: OLDER_THAN_90_DAYS });
-			seedKi(db, { id: "old-stale", status: "stale", updatedAt: OLDER_THAN_90_DAYS });
-			seedKi(db, { id: "old-arch", status: "archived", updatedAt: OLDER_THAN_90_DAYS });
-			const stale = findStaleItems(db, NOW_MS);
+		it("findStaleItems does NOT return non-active items", async () => {
+			await seedKi(db, { id: "old-prov", status: "provisional", updatedAt: OLDER_THAN_90_DAYS });
+			await seedKi(db, { id: "old-stale", status: "stale", updatedAt: OLDER_THAN_90_DAYS });
+			await seedKi(db, { id: "old-arch", status: "archived", updatedAt: OLDER_THAN_90_DAYS });
+			const stale = await findStaleItems(db, NOW_MS);
 			const ids = stale.map((s) => s.id);
 			expect(ids).not.toContain("old-prov");
 			expect(ids).not.toContain("old-stale");
 			expect(ids).not.toContain("old-arch");
 		});
 
-		it("markStale transitions active→stale and writes edit log with editor='system:auto-promotion'", () => {
-			seedKi(db, { id: "m-1", status: "active", updatedAt: OLDER_THAN_90_DAYS });
-			markStale(db, "m-1");
+		it("markStale transitions active→stale and writes edit log with editor='system:auto-promotion'", async () => {
+			await seedKi(db, { id: "m-1", status: "active", updatedAt: OLDER_THAN_90_DAYS });
+			await markStale(db, "m-1");
 
-			const row = db.select().from(knowledgeItems).where(eq(knowledgeItems.id, "m-1")).get();
+			const [row] = await db
+				.select()
+				.from(knowledgeItems)
+				.where(eq(knowledgeItems.id, "m-1"))
+				.limit(1);
 			expect(row?.status).toBe("stale");
 
-			const log = db
+			const log = await db
 				.select()
 				.from(knowledgeEditLog)
-				.where(eq(knowledgeEditLog.itemId, "m-1"))
-				.all();
+				.where(eq(knowledgeEditLog.itemId, "m-1"));
 			const statusLog = log.find((l) => l.field === "status");
 			expect(statusLog).toBeDefined();
 			expect(statusLog?.editor).toBe("system:auto-promotion");
@@ -500,7 +527,7 @@ describe("promotion-pipeline", () => {
 		});
 
 		it("runStaleSweep emits knowledge_updated action=marked_stale", async () => {
-			seedKi(db, { id: "s-1", status: "active", updatedAt: OLDER_THAN_90_DAYS });
+			await seedKi(db, { id: "s-1", status: "active", updatedAt: OLDER_THAN_90_DAYS });
 			const received: KnowledgeUpdatedEvent[] = [];
 			eventBus.on("knowledge_updated", (e) => {
 				received.push(e);
@@ -515,8 +542,8 @@ describe("promotion-pipeline", () => {
 	// --- AC2 + AC5 integration — sweep respects gates ---
 
 	describe("runAutoPromotionSweep (AC2 + AC3 + AC5)", () => {
-		function seedProvisionalClusterOf5(db: HyperIdleDb, subjectId: string): void {
-			seedKi(db, {
+		async function seedProvisionalClusterOf5(db: HyperIdleDb, subjectId: string): Promise<void> {
+			await seedKi(db, {
 				id: subjectId,
 				layer: "L3",
 				scopeId: "scope-subject",
@@ -524,20 +551,29 @@ describe("promotion-pipeline", () => {
 				topic: "auth",
 				status: "provisional",
 			});
-			seedRepetitionCluster(db, { layer: "L3", topic: "auth", kind: "pattern" }, "sibling", 4);
+			await seedRepetitionCluster(
+				db,
+				{ layer: "L3", topic: "auth", kind: "pattern" },
+				"sibling",
+				4,
+			);
 		}
 
 		it("promotes provisional→validated when count>=5, no conflicts, no contradictions (AC2)", async () => {
-			seedProvisionalClusterOf5(db, "subject");
+			await seedProvisionalClusterOf5(db, "subject");
 			const summary = await runAutoPromotionSweep(db, eventBus);
 			expect(summary.promotedIds).toContain("subject");
 
-			const row = db.select().from(knowledgeItems).where(eq(knowledgeItems.id, "subject")).get();
+			const [row] = await db
+				.select()
+				.from(knowledgeItems)
+				.where(eq(knowledgeItems.id, "subject"))
+				.limit(1);
 			expect(row?.status).toBe("validated");
 		});
 
 		it("emits knowledge_updated action=auto_promoted (AC2)", async () => {
-			seedProvisionalClusterOf5(db, "subject");
+			await seedProvisionalClusterOf5(db, "subject");
 			const received: KnowledgeUpdatedEvent[] = [];
 			eventBus.on("knowledge_updated", (e) => {
 				received.push(e);
@@ -551,28 +587,27 @@ describe("promotion-pipeline", () => {
 		});
 
 		it("writes editor='system:auto-promotion' on the promotion edit log (AC2 constraint)", async () => {
-			seedProvisionalClusterOf5(db, "subject");
+			await seedProvisionalClusterOf5(db, "subject");
 			await runAutoPromotionSweep(db, eventBus);
 
-			const log = db
+			const log = await db
 				.select()
 				.from(knowledgeEditLog)
-				.where(eq(knowledgeEditLog.itemId, "subject"))
-				.all();
+				.where(eq(knowledgeEditLog.itemId, "subject"));
 			const statusLog = log.find((l) => l.field === "status");
 			expect(statusLog).toBeDefined();
 			expect(statusLog?.editor).toBe("system:auto-promotion");
 		});
 
 		it("does NOT promote when contradiction detected, even with 5+ repetitions (AC3)", async () => {
-			seedProvisionalClusterOf5(db, "subject");
+			await seedProvisionalClusterOf5(db, "subject");
 			// Store claims on subject; add a contradicting L4 principle
 			// @lore O2: meta is in knowledgeStrategyFabric, not knowledgeItems
-			db.update(knowledgeStrategyFabric)
+			await db
+				.update(knowledgeStrategyFabric)
 				.set({ meta: JSON.stringify({ claims: ["forbidden-x"] }) })
-				.where(eq(knowledgeStrategyFabric.knowledgeItemId, "subject"))
-				.run();
-			seedKi(db, {
+				.where(eq(knowledgeStrategyFabric.knowledgeItemId, "subject"));
+			await seedKi(db, {
 				id: "l4-forbid",
 				layer: "L4",
 				kind: "principle",
@@ -583,19 +618,23 @@ describe("promotion-pipeline", () => {
 
 			const summary = await runAutoPromotionSweep(db, eventBus);
 			expect(summary.promotedIds).not.toContain("subject");
-			const row = db.select().from(knowledgeItems).where(eq(knowledgeItems.id, "subject")).get();
+			const [row] = await db
+				.select()
+				.from(knowledgeItems)
+				.where(eq(knowledgeItems.id, "subject"))
+				.limit(1);
 			expect(row?.status).toBe("provisional");
 			expect(summary.flaggedForReviewIds).toContain("subject");
 		});
 
 		it("emits knowledge_updated action=contradiction_flagged (AC3)", async () => {
-			seedProvisionalClusterOf5(db, "subject");
+			await seedProvisionalClusterOf5(db, "subject");
 			// @lore O2: meta is in knowledgeStrategyFabric, not knowledgeItems
-			db.update(knowledgeStrategyFabric)
+			await db
+				.update(knowledgeStrategyFabric)
 				.set({ meta: JSON.stringify({ claims: ["forbidden-x"] }) })
-				.where(eq(knowledgeStrategyFabric.knowledgeItemId, "subject"))
-				.run();
-			seedKi(db, {
+				.where(eq(knowledgeStrategyFabric.knowledgeItemId, "subject"));
+			await seedKi(db, {
 				id: "l4-forbid",
 				layer: "L4",
 				kind: "principle",
@@ -615,25 +654,29 @@ describe("promotion-pipeline", () => {
 		});
 
 		it("does NOT promote when an open conflict exists, even with 5+ repetitions (AC5)", async () => {
-			seedProvisionalClusterOf5(db, "subject");
-			seedConflict(db, "conf-open", "subject", "open");
+			await seedProvisionalClusterOf5(db, "subject");
+			await seedConflict(db, "conf-open", "subject", "open");
 			const summary = await runAutoPromotionSweep(db, eventBus);
 			expect(summary.promotedIds).not.toContain("subject");
-			const row = db.select().from(knowledgeItems).where(eq(knowledgeItems.id, "subject")).get();
+			const [row] = await db
+				.select()
+				.from(knowledgeItems)
+				.where(eq(knowledgeItems.id, "subject"))
+				.limit(1);
 			expect(row?.status).toBe("provisional");
 		});
 
 		it("DOES promote when only resolved/discarded conflicts exist (AC5)", async () => {
-			seedProvisionalClusterOf5(db, "subject");
-			seedConflict(db, "conf-1", "subject", "resolved");
-			seedConflict(db, "conf-2", "subject", "discarded");
+			await seedProvisionalClusterOf5(db, "subject");
+			await seedConflict(db, "conf-1", "subject", "resolved");
+			await seedConflict(db, "conf-2", "subject", "discarded");
 			const summary = await runAutoPromotionSweep(db, eventBus);
 			expect(summary.promotedIds).toContain("subject");
 		});
 
 		it("skips items below threshold (no spurious promotions)", async () => {
 			// Only subject — count=1 distinct scope, below threshold
-			seedKi(db, {
+			await seedKi(db, {
 				id: "subject",
 				layer: "L3",
 				scopeId: "scope-solo",

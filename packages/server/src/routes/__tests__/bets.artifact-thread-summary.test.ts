@@ -50,143 +50,130 @@ interface AppCtx {
 	events: DomainEvent[];
 }
 
-function setupApp(): AppCtx {
-	const db = createTestDb();
+async function setupApp(): Promise<AppCtx> {
+	const handle = await createTestDb();
+	const db = handle.db;
 	const eventBus = new EventBus();
 	const events: DomainEvent[] = [];
 	eventBus.on("*", (e) => {
 		events.push(e);
 	});
-	const app = createTestApp({ db, eventBus });
+	const app = await createTestApp({ db, eventBus });
 
 	const now = new Date().toISOString();
 
-	db.insert(products).values({ id: "p1", name: "P", phase: "build", createdAt: now }).run();
-	db.insert(teams)
-		.values({ id: "t1", productId: "p1", capacity: 5, activeBets: 0, formedAt: now })
-		.run();
-	db.insert(users)
-		.values({
-			id: "u-founder",
-			name: "Founder",
-			role: "founder",
-			status: "active",
-			createdAt: now,
-		})
-		.run();
-	db.insert(users)
-		.values({
-			id: "agent-1",
-			name: "Agent",
-			role: "builder",
-			status: "active",
-			createdAt: now,
-		})
-		.run();
+	await db.insert(products).values({ id: "p1", name: "P", phase: "build", createdAt: now });
+	await db
+		.insert(teams)
+		.values({ id: "t1", productId: "p1", capacity: 5, activeBets: 0, formedAt: now });
+	await db.insert(users).values({
+		id: "u-founder",
+		name: "Founder",
+		role: "founder",
+		status: "active",
+		createdAt: now,
+	});
+	await db.insert(users).values({
+		id: "agent-1",
+		name: "Agent",
+		role: "builder",
+		status: "active",
+		createdAt: now,
+	});
 
 	return { app, db, eventBus, events };
 }
 
-function insertBet(db: HyperIdleDb, betId: string): void {
+async function insertBet(db: HyperIdleDb, betId: string): Promise<void> {
 	const now = new Date().toISOString();
-	db.insert(bets)
-		.values({
-			id: betId,
-			productId: "p1",
-			teamId: "t1",
-			pitch: "test pitch",
-			appetite: "small",
-			status: "in_progress",
-			createdAt: now,
-		})
-		.run();
+	await db.insert(bets).values({
+		id: betId,
+		productId: "p1",
+		teamId: "t1",
+		pitch: "test pitch",
+		appetite: "small",
+		status: "in_progress",
+		createdAt: now,
+	});
 }
 
-function insertTask(db: HyperIdleDb, taskId: string, betId: string): void {
+async function insertTask(db: HyperIdleDb, taskId: string, betId: string): Promise<void> {
 	const now = new Date().toISOString();
-	db.insert(tasks)
-		.values({
-			id: taskId,
-			betId,
-			productId: "p1",
-			teamId: "t1",
-			title: `Task ${taskId}`,
-			state: "in_progress",
-			createdAt: now,
-			updatedAt: now,
-		})
-		.run();
+	await db.insert(tasks).values({
+		id: taskId,
+		betId,
+		productId: "p1",
+		teamId: "t1",
+		title: `Task ${taskId}`,
+		state: "in_progress",
+		createdAt: now,
+		updatedAt: now,
+	});
 }
 
-function insertArtifact(
+async function insertArtifact(
 	db: HyperIdleDb,
 	artifactId: string,
 	producingTaskId: string,
 	kind = "code_diff",
-): void {
+): Promise<void> {
 	const now = new Date().toISOString();
-	db.insert(artifacts)
-		.values({
-			id: artifactId,
-			producingTaskId,
-			kind,
-			previewJson: JSON.stringify({ title: `Artifact ${artifactId}` }),
-			createdAt: now,
-		})
-		.run();
+	await db.insert(artifacts).values({
+		id: artifactId,
+		producingTaskId,
+		kind,
+		previewJson: JSON.stringify({ title: `Artifact ${artifactId}` }),
+		createdAt: now,
+	});
 }
 
-function insertThreadWithMessages(
+async function insertThreadWithMessages(
 	db: HyperIdleDb,
 	artifactId: string,
 	threadId: string,
 	messageCount: number,
 	lastMessageAt?: string,
-): void {
+): Promise<void> {
 	const now = new Date().toISOString();
 	const lastAt = lastMessageAt ?? now;
-	db.insert(threads)
-		.values({
-			id: threadId,
-			hostKind: "artifact",
-			hostId: artifactId,
-			initiatorId: "u-founder",
-			participants: JSON.stringify(["u-founder", "agent-1"]),
-			pinned: 0,
-			resolvedAt: null,
-			lastActiveAt: lastAt,
-			createdAt: now,
-		})
-		.run();
+	await db.insert(threads).values({
+		id: threadId,
+		hostKind: "artifact",
+		hostId: artifactId,
+		initiatorId: "u-founder",
+		participants: JSON.stringify(["u-founder", "agent-1"]),
+		pinned: false,
+		resolvedAt: null,
+		lastActiveAt: lastAt,
+		createdAt: now,
+	});
 
 	for (let i = 0; i < messageCount; i++) {
 		const msgAt =
 			i === messageCount - 1
 				? lastAt
 				: new Date(Date.parse(lastAt) - (messageCount - i) * 1000).toISOString();
-		db.insert(messages)
-			.values({
-				id: `${threadId}-msg-${i}`,
-				threadId,
-				senderId: "u-founder",
-				type: "plain",
-				payload: JSON.stringify({ text: `Message ${i} on ${artifactId}` }),
-				clientKey: `ck-${threadId}-${i}`,
-				deletedAt: null,
-				redactedAt: null,
-				resolvedAt: null,
-				createdAt: msgAt,
-			})
-			.run();
+		await db.insert(messages).values({
+			id: `${threadId}-msg-${i}`,
+			threadId,
+			senderId: "u-founder",
+			type: "plain",
+			payload: JSON.stringify({ text: `Message ${i} on ${artifactId}` }),
+			clientKey: `ck-${threadId}-${i}`,
+			deletedAt: null,
+			redactedAt: null,
+			resolvedAt: null,
+			createdAt: msgAt,
+		});
 	}
 }
 
 describe("L18 — GET /api/bets/:id/artifact-thread-summary", () => {
 	let ctx: AppCtx;
 
-	beforeEach(() => {
+	beforeEach(async () => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		ctx = setupApp();
+		ctx = await setupApp();
 	});
 
 	afterEach(() => {
@@ -194,18 +181,18 @@ describe("L18 — GET /api/bets/:id/artifact-thread-summary", () => {
 	});
 
 	it("returns one row per artifact with at least one message, ordered by lastMessageAt desc", async () => {
-		insertBet(ctx.db, "bet-summary-1");
-		insertTask(ctx.db, "task-sum-a", "bet-summary-1");
-		insertTask(ctx.db, "task-sum-b", "bet-summary-1");
-		insertTask(ctx.db, "task-sum-c", "bet-summary-1");
-		insertArtifact(ctx.db, "art-a", "task-sum-a");
-		insertArtifact(ctx.db, "art-b", "task-sum-b");
-		insertArtifact(ctx.db, "art-c", "task-sum-c");
+		await insertBet(ctx.db, "bet-summary-1");
+		await insertTask(ctx.db, "task-sum-a", "bet-summary-1");
+		await insertTask(ctx.db, "task-sum-b", "bet-summary-1");
+		await insertTask(ctx.db, "task-sum-c", "bet-summary-1");
+		await insertArtifact(ctx.db, "art-a", "task-sum-a");
+		await insertArtifact(ctx.db, "art-b", "task-sum-b");
+		await insertArtifact(ctx.db, "art-c", "task-sum-c");
 
 		// art-b: last message at a later time
-		insertThreadWithMessages(ctx.db, "art-b", "t-b", 2, "2026-05-05T10:00:00Z");
+		await insertThreadWithMessages(ctx.db, "art-b", "t-b", 2, "2026-05-05T10:00:00Z");
 		// art-a: last message at an earlier time
-		insertThreadWithMessages(ctx.db, "art-a", "t-a", 1, "2026-05-05T09:00:00Z");
+		await insertThreadWithMessages(ctx.db, "art-a", "t-a", 1, "2026-05-05T09:00:00Z");
 		// art-c: no messages — should be excluded
 
 		const res = await ctx.app.request("/api/bets/bet-summary-1/artifact-thread-summary", {
@@ -236,26 +223,23 @@ describe("L18 — GET /api/bets/:id/artifact-thread-summary", () => {
 	});
 
 	it("filters out artifacts with zero thread messages", async () => {
-		insertBet(ctx.db, "bet-summary-2");
-		insertTask(ctx.db, "task-sum-empty", "bet-summary-2");
-		insertArtifact(ctx.db, "art-empty", "task-sum-empty");
+		await insertBet(ctx.db, "bet-summary-2");
+		await insertTask(ctx.db, "task-sum-empty", "bet-summary-2");
+		await insertArtifact(ctx.db, "art-empty", "task-sum-empty");
 
 		// Artifact with a thread but NO messages
 		const now = new Date().toISOString();
-		ctx.db
-			.insert(threads)
-			.values({
-				id: "t-empty",
-				hostKind: "artifact",
-				hostId: "art-empty",
-				initiatorId: "u-founder",
-				participants: JSON.stringify(["u-founder"]),
-				pinned: 0,
-				resolvedAt: null,
-				lastActiveAt: now,
-				createdAt: now,
-			})
-			.run();
+		await ctx.db.insert(threads).values({
+			id: "t-empty",
+			hostKind: "artifact",
+			hostId: "art-empty",
+			initiatorId: "u-founder",
+			participants: JSON.stringify(["u-founder"]),
+			pinned: false,
+			resolvedAt: null,
+			lastActiveAt: now,
+			createdAt: now,
+		});
 
 		const res = await ctx.app.request("/api/bets/bet-summary-2/artifact-thread-summary", {
 			method: "GET",
@@ -274,17 +258,17 @@ describe("L18 — GET /api/bets/:id/artifact-thread-summary", () => {
 	});
 
 	it("caps results at 10 rows; sets truncated=true and totalCount when more than 10 qualify", async () => {
-		insertBet(ctx.db, "bet-summary-3");
+		await insertBet(ctx.db, "bet-summary-3");
 
 		// Create 12 artifacts (via 12 tasks), each with 1 message
 		for (let i = 1; i <= 12; i++) {
 			const taskId = `task-cap-${String(i).padStart(2, "0")}`;
 			const artId = `art-cap-${String(i).padStart(2, "0")}`;
 			const threadId = `t-cap-${String(i).padStart(2, "0")}`;
-			insertTask(ctx.db, taskId, "bet-summary-3");
-			insertArtifact(ctx.db, artId, taskId);
+			await insertTask(ctx.db, taskId, "bet-summary-3");
+			await insertArtifact(ctx.db, artId, taskId);
 			const msgAt = `2026-05-05T${String(i).padStart(2, "0")}:00:00Z`;
-			insertThreadWithMessages(ctx.db, artId, threadId, 1, msgAt);
+			await insertThreadWithMessages(ctx.db, artId, threadId, 1, msgAt);
 		}
 
 		const res = await ctx.app.request("/api/bets/bet-summary-3/artifact-thread-summary", {
@@ -315,7 +299,7 @@ describe("L18 — GET /api/bets/:id/artifact-thread-summary", () => {
 	});
 
 	it("returns empty summaries array (200) when bet has no artifacts", async () => {
-		insertBet(ctx.db, "bet-no-artifacts");
+		await insertBet(ctx.db, "bet-no-artifacts");
 
 		const res = await ctx.app.request("/api/bets/bet-no-artifacts/artifact-thread-summary", {
 			method: "GET",
@@ -334,42 +318,36 @@ describe("L18 — GET /api/bets/:id/artifact-thread-summary", () => {
 	});
 
 	it("includes lastMessageSnippet from the last plain message", async () => {
-		insertBet(ctx.db, "bet-snippet");
-		insertTask(ctx.db, "task-snip", "bet-snippet");
-		insertArtifact(ctx.db, "art-snip", "task-snip");
+		await insertBet(ctx.db, "bet-snippet");
+		await insertTask(ctx.db, "task-snip", "bet-snippet");
+		await insertArtifact(ctx.db, "art-snip", "task-snip");
 
 		const now = new Date().toISOString();
-		ctx.db
-			.insert(threads)
-			.values({
-				id: "t-snip",
-				hostKind: "artifact",
-				hostId: "art-snip",
-				initiatorId: "u-founder",
-				participants: JSON.stringify(["u-founder"]),
-				pinned: 0,
-				resolvedAt: null,
-				lastActiveAt: now,
-				createdAt: now,
-			})
-			.run();
-		ctx.db
-			.insert(messages)
-			.values({
-				id: "msg-snip-1",
-				threadId: "t-snip",
-				senderId: "u-founder",
-				type: "plain",
-				payload: JSON.stringify({
-					text: "Looks good but the cache TTL is too long for this use case.",
-				}),
-				clientKey: "ck-snip-1",
-				deletedAt: null,
-				redactedAt: null,
-				resolvedAt: null,
-				createdAt: now,
-			})
-			.run();
+		await ctx.db.insert(threads).values({
+			id: "t-snip",
+			hostKind: "artifact",
+			hostId: "art-snip",
+			initiatorId: "u-founder",
+			participants: JSON.stringify(["u-founder"]),
+			pinned: false,
+			resolvedAt: null,
+			lastActiveAt: now,
+			createdAt: now,
+		});
+		await ctx.db.insert(messages).values({
+			id: "msg-snip-1",
+			threadId: "t-snip",
+			senderId: "u-founder",
+			type: "plain",
+			payload: JSON.stringify({
+				text: "Looks good but the cache TTL is too long for this use case.",
+			}),
+			clientKey: "ck-snip-1",
+			deletedAt: null,
+			redactedAt: null,
+			resolvedAt: null,
+			createdAt: now,
+		});
 
 		const res = await ctx.app.request("/api/bets/bet-snippet/artifact-thread-summary", {
 			method: "GET",
