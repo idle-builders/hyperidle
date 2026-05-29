@@ -147,7 +147,14 @@ describe("tokens.css (TSX source) — Hearth token names", () => {
 		]) {
 			expect(props, `expected Hearth token ${token}`).toContain(token);
 		}
-		for (const old of ["--primary", "--primary-dim", "--primary-hover", "--warn", "--ok", "--danger"]) {
+		for (const old of [
+			"--primary",
+			"--primary-dim",
+			"--primary-hover",
+			"--warn",
+			"--ok",
+			"--danger",
+		]) {
 			expect(props, `Lucid token ${old} must not exist in Hearth`).not.toContain(old);
 		}
 	});
@@ -190,7 +197,9 @@ describe("tokens.css (TSX source) — Hearth token names", () => {
 		for (const token of ["--motion-fast", "--motion-default", "--motion-slow", "--motion-ease"]) {
 			expect(props, `expected Hearth motion token ${token}`).toContain(token);
 		}
-		expect(props, "Lucid --motion-medium must not exist in Hearth").not.toContain("--motion-medium");
+		expect(props, "Lucid --motion-medium must not exist in Hearth").not.toContain(
+			"--motion-medium",
+		);
 	});
 
 	it("defines Hearth typography font tokens (--font-sans/mono NOT --ui/--mono)", () => {
@@ -305,11 +314,14 @@ describe("tokens.css — theme selectors", () => {
 	it("has :root default pointing to light mode (color-scheme: light in :root block)", () => {
 		// The :root,[data-theme="hearth-light"] block must contain color-scheme: light
 		// This verifies Hearth is light-first (opposite of Lucid's dark-default)
-		const lightBlock = extractThemeBlock(SRC_TOKENS, ':root,\\s*\\[data-theme="hearth-light"\\]');
+		const _lightBlock = extractThemeBlock(SRC_TOKENS, ':root,\\s*\\[data-theme="hearth-light"\\]');
 		// If block extraction fails, fall back to checking that color-scheme: light appears before color-scheme: dark
 		const lightIdx = SRC_TOKENS.indexOf("color-scheme: light");
 		const darkIdx = SRC_TOKENS.indexOf("color-scheme: dark");
-		expect(lightIdx, "color-scheme: light must appear (and before dark) — Hearth is light-first").toBeGreaterThan(-1);
+		expect(
+			lightIdx,
+			"color-scheme: light must appear (and before dark) — Hearth is light-first",
+		).toBeGreaterThan(-1);
 		expect(
 			lightIdx,
 			"color-scheme: light must appear before color-scheme: dark (light-first default)",
@@ -536,7 +548,10 @@ describe("tokens.css — no cool grays in Hearth theme blocks", () => {
 		expect(lightIdx, "hearth-light selector must exist").toBeGreaterThan(-1);
 		// Find the end of the hearth-light block
 		const afterLight = SRC_TOKENS.indexOf("[data-theme=", lightIdx + 1);
-		const lightBlock = SRC_TOKENS.substring(lightIdx, afterLight > lightIdx ? afterLight : undefined);
+		const lightBlock = SRC_TOKENS.substring(
+			lightIdx,
+			afterLight > lightIdx ? afterLight : undefined,
+		);
 
 		const hexColors = extractHexColors(lightBlock);
 		const coolColors = hexColors.filter(isCoolTinted);
@@ -551,10 +566,7 @@ describe("tokens.css — no cool grays in Hearth theme blocks", () => {
 		expect(darkIdx, "hearth-dark selector must exist").toBeGreaterThan(-1);
 		// Find end of hearth-dark block by finding next major block after it
 		const mediaIdx = SRC_TOKENS.indexOf("@media (prefers-color-scheme:", darkIdx);
-		const darkBlock = SRC_TOKENS.substring(
-			darkIdx,
-			mediaIdx > darkIdx ? mediaIdx : undefined,
-		);
+		const darkBlock = SRC_TOKENS.substring(darkIdx, mediaIdx > darkIdx ? mediaIdx : undefined);
 
 		const hexColors = extractHexColors(darkBlock);
 		const coolColors = hexColors.filter(isCoolTinted);
@@ -593,7 +605,7 @@ describe("tokens.css — spacing tokens on 3px half-grid", () => {
 			expect(val, `${token} must be defined`).not.toBeNull();
 			const px = parsePx(val ?? "");
 			expect(px, `${token} must have a px value`).not.toBeNull();
-			expect(px! % 3, `${token} (${px}px) must be a multiple of 3px`).toBe(0);
+			expect((px as number) % 3, `${token} (${px}px) must be a multiple of 3px`).toBe(0);
 			expect(px, `${token} must equal ${expectedPx}px`).toBe(expectedPx);
 		});
 	}
@@ -633,8 +645,14 @@ describe("tokens.css — density tokens on 6px grid", () => {
 			expect(val, `${token} must be defined`).not.toBeNull();
 			// Verify it contains a px value
 			const px = parsePx(val ?? "");
-			expect(px, `${token} must have a px value (architecture uses px, not rem) — got: ${val}`).not.toBeNull();
-			expect(px! % 6, `${token} (${px}px) must be a multiple of 6px in default density`).toBe(0);
+			expect(
+				px,
+				`${token} must have a px value (architecture uses px, not rem) — got: ${val}`,
+			).not.toBeNull();
+			expect(
+				(px as number) % 6,
+				`${token} (${px}px) must be a multiple of 6px in default density`,
+			).toBe(0);
 			expect(px, `${token} must equal ${expectedPx}px`).toBe(expectedPx);
 		}
 	});
@@ -819,6 +837,9 @@ describe("token sync: src/tokens.css ↔ html/_tokens.css", () => {
 			"--bw-strong",
 		];
 		const missing = required.filter((t) => !htmlProps.includes(t));
-		expect(missing, `html/_tokens.css missing required Hearth tokens: ${missing.join(", ")}`).toEqual([]);
+		expect(
+			missing,
+			`html/_tokens.css missing required Hearth tokens: ${missing.join(", ")}`,
+		).toEqual([]);
 	});
 });

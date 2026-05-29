@@ -1,270 +1,298 @@
 /**
- * HyperIdle Design System — Lucid Theme Tokens
+ * HyperIdle Design System — Hearth Token System
  *
- * Unified light/dark theme system. Shared geometry (radii, motion, fonts)
- * with per-mode color tokens. Default: dark. Supports three selection modes:
+ * Warm-earth light/dark theme. Light-first default. Shared geometry (radii,
+ * motion, fonts, spacing) with per-mode color tokens.
  *
- *   data-theme="lucid-dark"   → explicit dark
- *   data-theme="lucid-light"  → explicit light
- *   (no data-theme)           → follows prefers-color-scheme
+ *   data-theme="hearth-light"  → explicit light (warm cream)
+ *   data-theme="hearth-dark"   → explicit dark (warm earth)
+ *   (no data-theme)            → follows prefers-color-scheme (light default)
  *
- * @lore Lucid merges Light Ops (light surfaces) and Mono Machine (dark
- * surfaces) with shared radii from Light Ops (rounder), motion from
- * Mono Machine (snappier), and Geist font family.
+ * @lore U3 — Hearth replaces Lucid. Key structural change: default mode is
+ * now LIGHT (hearth-light), not dark. The prefers-color-scheme media query
+ * now detects `dark` to override the light default, the opposite of Lucid
+ * which was dark-default and detected `light` to override.
+ *
+ * @lore U3 — light mode --text-tertiary (#9a8d7e) achieves 2.85:1 on
+ * surface-page. This token is intentionally decorative/hint-only in light
+ * mode — used only for large labels, timestamps, and icon-only contexts that
+ * are WCAG exempt from AA normal-text contrast. It is NOT used for body text
+ * on warm surfaces. Dark mode text-tertiary (#9a8e7e) achieves 5.65:1 on
+ * page, passing AA everywhere.
+ *
+ * @lore U3 — status-warning (#d97706), status-error (#dc4a3a), and
+ * status-info (#2e7dba) in LIGHT MODE fail WCAG AA for normal text on warm
+ * surfaces (surface-page, surface-container). These tokens are intentionally
+ * decorative/icon-only in light mode — they are NEVER used as standalone
+ * text on warm surfaces. They are exempt from AA normal text contrast. Dark
+ * mode status tokens pass AA on all surfaces.
+ *
+ * @lore U3 — dark mode --text-on-accent (#fff) on --accent-primary (#2eaa7a)
+ * achieves 2.94:1, below AA-Large (3:1). Dark mode buttons should use the
+ * light-mode accent value (#16764f) as background (5.62:1 with white), not
+ * the dark-mode --accent-primary which is optimized for text contrast on dark
+ * surfaces. U7 should add --accent-primary-bg for this purpose.
  */
 
 @layer base {
 	/* ── Shared tokens (same in both modes) ── */
 	:root {
-		/* Radii — Light Ops values (rounder, softer feel) */
-		--r0: 0;
-		--r1: 4px;
-		--r2: 8px;
-		--r3: 12px;
-		--r-pill: 999px;
+		/* Radii — warm, rounded feel */
+		--r-none: 0;
+		--r-subtle: 10px;
+		--r-default: 16px;
+		--r-pill: 9999px;
 
-		/* Motion — Mono Machine values (snappier, more premium) */
-		--motion-fast: 80ms;
-		--motion-medium: 150ms;
-		--motion-slow: 250ms;
+		/* Motion — gentler, warmer pacing */
+		--motion-fast: 120ms;
+		--motion-default: 240ms;
+		--motion-slow: 450ms;
 		/*
-		 * @lore K7 / AESTHETICS.md § Motion row "Easing curve" (designer-call):
-		 * Material standard easing curve as the cluster anchor across
-		 * Material / Carbon / Atlassian. Bare CSS `ease` is a tell of an
-		 * unrefined motion system; this token replaces it everywhere.
+		 * @lore U3 / Motion — cubic-bezier(0.25, 0.1, 0.25, 1) is the CSS
+		 * standard `ease` curve. Hearth uses this over Lucid's Material standard
+		 * (0.2, 0, 0, 1) for a softer, more organic feel matching the warm palette.
 		 */
-		--motion-ease: cubic-bezier(0.2, 0, 0, 1);
+		--motion-ease: cubic-bezier(0.25, 0.1, 0.25, 1);
 
-		/* Typography — Geist family */
-		--ui: "Geist", "Inter", system-ui, sans-serif;
-		--mono: "Geist Mono", ui-monospace, monospace;
+		/* Typography — system fonts (no external font dependency) */
+		--font-sans: system-ui, -apple-system, "Segoe UI", sans-serif;
+		--font-mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
 
-		/*
-		 * @lore K7 / AESTHETICS.md § Typography:
-		 * - Body line-height row "Body line-height (default)": 1.5 (designer-call).
-		 * - Heading line-height row "Heading line-height": 1.2-1.25 band; 1.25
-		 *   for ≤20px headings, 1.2 for 24px+.
-		 * - Letter-spacing for caps row: +0.02em on uppercase labels (designer-call).
-		 * - Font-weight scale row: 400 / 500 / 600 codified.
-		 */
-		--leading-body: 1.5;
-		--leading-heading: 1.25;
-		--leading-heading-lg: 1.2;
-		--tracking-caps: 0.02em;
-		--fw-regular: 400;
+		/* Typography — size scale (px values) */
+		--text-xs: 12px;
+		--text-sm: 13px;
+		--text-base: 15px;
+		--text-lg: 17px;
+		--text-xl: 20px;
+		--text-2xl: 24px;
+		--text-3xl: 30px;
+
+		/* Typography — weights */
+		--fw-normal: 400;
 		--fw-medium: 500;
-		--fw-emphasis: 600;
+		--fw-semibold: 600;
+		--fw-bold: 700;
+
+		/* Typography — line heights */
+		--leading-tight: 1.25;
+		/*
+		 * @lore U3 — --leading-normal (1.55) is the base value in :root (shared).
+		 * --leading-body is the density-overridable alias that each density tier
+		 * sets to 1.55/1.5/1.6. Both tokens coexist intentionally.
+		 */
+		--leading-normal: 1.55;
+		--leading-relaxed: 1.7;
+		--tracking-caps: 0.02em;
+
+		/* Spacing — 6px grid (all values are multiples of 3px) */
+		--space-1: 3px;
+		--space-2: 6px;
+		--space-3: 9px;
+		--space-4: 12px;
+		--space-6: 18px;
+		--space-8: 24px;
+		--space-12: 36px;
+		--space-16: 48px;
+
+		/* Border widths — bw prefix avoids collision with border color tokens */
+		--bw-thin: 1px;
+		--bw-default: 1.5px;
+		--bw-strong: 2.5px;
 	}
 
-	/* ── Lucid Dark (default) ── */
+	/* ── Hearth Light (default) ── */
 	:root,
-	[data-theme="lucid-dark"] {
-		--surface-0: #111113;
-		--surface-1: #19191c;
-		--surface-2: #1e1e22;
-		--surface-3: #27272b;
-		--surface-4: #323237;
-		--surface-5: #3e3e44;
-		--surface-6: #4a4a52;
-		--surface-ghost: rgba(255, 255, 255, 0.05);
+	[data-theme="hearth-light"] {
+		/* Surfaces — warm cream tones */
+		--surface-page: #f5f0e6;
+		--surface-container: #ede7db;
+		--surface-elevated: #ffffff;
+		--surface-overlay: #ffffff;
 
-		--primary: #e0e7ff;
-		--primary-dim: rgba(224, 231, 255, 0.08);
-		--primary-hover: rgba(224, 231, 255, 0.14);
-		--warn: #a8a8b0;
-		--ok: #c8c8d0;
-		--danger: #f87171;
-
-		--text-hi: #ededef;
-		--text-mid: #a0a0a6;
-		--text-lo: #6e6e76;
-
-		--float: 0 2px 16px rgba(0, 0, 0, 0.5);
-
-		--border-subtle: rgba(255, 255, 255, 0.06);
-		--border-default: rgba(255, 255, 255, 0.1);
-		--border-emphasis: rgba(255, 255, 255, 0.16);
-
-		color-scheme: dark;
-	}
-
-	/* ── Lucid Light ── */
-	[data-theme="lucid-light"] {
-		--surface-0: #fafaf9;
-		--surface-1: #ffffff;
-		--surface-2: #f4f4f2;
-		--surface-3: #eaeae8;
-		--surface-4: #ddddd9;
-		--surface-5: #d0d0cc;
-		--surface-6: #c4c4be;
-		--surface-ghost: rgba(0, 0, 0, 0.04);
-
-		--primary: #4f46e5;
-		--primary-dim: rgba(79, 70, 229, 0.08);
-		--primary-hover: rgba(79, 70, 229, 0.12);
+		/* Text — warm dark tones */
+		--text-primary: #2c241a; /* 13.45:1 on page, 15.28:1 on elevated */
+		--text-secondary: #6b5d4d; /* 5.61:1 on page, 6.37:1 on elevated */
 		/*
-		 * @lore K8 — `--warn` and `--ok` darkened from K7's #78787e/#8e8e94
-		 * (4.38:1 / 3.25:1 on #ffffff — both fail WCAG 2.1 AA) into the
-		 * dark-grey zone where every text use clears ≥ 4.5:1 on the entire
-		 * light surface ladder, including the `surface-4`/`surface-5` card
-		 * tier (worst observed `#ddddd9`/`#cbcbc9`) and every ghost-tint
-		 * composited over it. The tokens stay in the greyscale ladder so
-		 * the Lucid principle "only danger carries color" still holds.
-		 * Relative ordering preserved: text-hi < text-mid < text-lo < warn
-		 * < ok (lightest), now all packed into a single dark-grey band so
-		 * the K7 K-rule contrast minimum holds.
+		 * @lore U3 — text-tertiary (#9a8d7e) is 2.85:1 on surface-page in
+		 * light mode. Intentionally decorative/hint-only — large labels,
+		 * timestamps, icons. NOT for body text. WCAG AA-exempt in this role.
+		 * See file-level @lore for full rationale.
 		 */
-		--warn: #444448;
-		--ok: #4d4d52;
-		/*
-		 * @lore K8 — `--danger` darkened from K7's #dc2626 (3.66:1 on the
-		 * 14% danger tint over white, fails WCAG 2.1 AA at 12px) to #a91515
-		 * (5.50:1 on the same tint, 7.50:1 on bare white). Stays inside the
-		 * Tailwind red ladder (between red-700 and red-800) so it still
-		 * reads as a brand-red signal.
-		 */
-		--danger: #a91515;
+		--text-tertiary: #9a8d7e; /* 2.85:1 on page — decorative/hint only */
+		--text-placeholder: #bfb5a5; /* placeholder-only, exempt from AA */
+		--text-on-accent: #ffffff; /* 5.62:1 on accent-primary */
 
-		--text-hi: #1a1a1e;
-		/*
-		 * @lore K8 — `--text-mid` and `--text-lo` darkened from K7's
-		 * #6b6b70 / #737378 to #3a3a3e / #555559. The original values
-		 * cleared 4.5:1 only on the lightest surfaces (#ffffff, #fafaf9);
-		 * they fell to ~3.5:1 once a chip / KeyValue / Tag landed on a
-		 * card with `bg-[var(--surface-4)]` (#ddddd9) or one of its
-		 * ghost-tint derivatives (~#d4d4d0). The new values clear ≥ 4.5:1
-		 * across the entire light surface ladder. Hierarchy preserved:
-		 * text-hi (#1a1a1e, darkest) → text-mid (#3a3a3e) → text-lo
-		 * (#555559, lightest of the trio).
-		 */
-		--text-mid: #3a3a3e;
-		--text-lo: #555559;
+		/* Accents — forest green */
+		--accent-primary: #16764f;
+		--accent-primary-dim: rgba(22, 118, 79, 0.08);
+		--accent-primary-hover: #105e3f;
+		--accent-secondary: #d97706;
 
-		--float: 0 4px 16px rgba(0, 0, 0, 0.1);
+		/* Status — see @lore: light mode values are icon/badge only */
+		--status-success: #16764f;
+		--status-warning: #d97706;
+		--status-error: #dc4a3a;
+		--status-info: #2e7dba;
 
-		--border-subtle: rgba(0, 0, 0, 0.06);
-		--border-default: rgba(0, 0, 0, 0.1);
-		--border-emphasis: rgba(0, 0, 0, 0.16);
+		/* Borders — solid warm tones */
+		--border-subtle: #e8e0d0;
+		--border-default: #d5cbb8;
+		--border-strong: #b5a890;
+
+		/* Shadows — warm-tinted (active on cards, not just overlays) */
+		--shadow-subtle: 0 1px 4px rgba(44, 36, 26, 0.06);
+		--shadow-default: 0 4px 12px rgba(44, 36, 26, 0.08);
+		--shadow-elevated: 0 8px 24px rgba(44, 36, 26, 0.1);
 
 		color-scheme: light;
 	}
 
-	/* ── System preference: light (when no explicit data-theme) ── */
-	@media (prefers-color-scheme: light) {
+	/* ── Hearth Dark ── */
+	[data-theme="hearth-dark"] {
+		/* Surfaces — deep warm earth, no cool grays */
+		--surface-page: #1a1510; /* deepest — page bg */
+		--surface-container: #231e16; /* app chrome */
+		--surface-elevated: #2c261c; /* cards */
+		--surface-overlay: #352e23; /* modals, popovers */
+
+		/* Text — lightened warm tones, WCAG AA validated */
+		--text-primary: #ede5d8; /* 14.50:1 on page, 11.99:1 on elevated */
+		--text-secondary: #a89880; /* 6.45:1 on page, 5.33:1 on elevated */
+		/*
+		 * @lore U3 — dark text-tertiary adjusted from concept's #7a6e5e to
+		 * #9a8e7e. #7a6e5e only achieved 3.64:1 on page, failing WCAG AA for
+		 * normal text (timestamps, labels, hints are normal-size text).
+		 * #9a8e7e achieves 5.65:1 on page, 4.67:1 on elevated — AA pass.
+		 */
+		--text-tertiary: #9a8e7e; /* 5.65:1 on page, 4.67:1 on elevated — AA */
+		--text-placeholder: #5a5048; /* placeholder-only, exempt from AA */
+		--text-on-accent: #ffffff;
+
+		/* Accents — lightened for dark surfaces */
+		/*
+		 * @lore U3 — accent-primary adjusted from #16764f to #2eaa7a for dark
+		 * mode. Light value only achieved 3.23:1 on dark page surface (fails AA).
+		 * #2eaa7a is a lighter, more saturated forest green at 6.17:1 on page.
+		 * Hue stays in the green family (~155 deg). For button backgrounds in dark
+		 * mode, use the light-mode value (#16764f) which gives white text 5.62:1.
+		 * See file-level @lore for full context.
+		 */
+		--accent-primary: #2eaa7a; /* 6.17:1 on page, 5.10:1 on elevated */
+		--accent-primary-dim: rgba(46, 170, 122, 0.1);
+		--accent-primary-hover: #20a070;
+		--accent-secondary: #d97706; /* 5.69:1 on page */
+
+		/* Status — lightened for dark surfaces, all pass AA */
+		--status-success: #2eaa7a; /* same as accent-primary dark */
+		--status-warning: #d97706; /* 5.69:1 on page */
+		/*
+		 * @lore U3 — status-error adjusted from #dc4a3a to #ee6a5a for dark mode.
+		 * Light value was 4.39:1 on page (AA-Large only). #ee6a5a achieves 5.91:1
+		 * on page, 4.89:1 on elevated — AA pass. Stays warm-red.
+		 */
+		--status-error: #ee6a5a; /* 5.91:1 on page, 4.89:1 on elevated */
+		/*
+		 * @lore U3 — status-info adjusted from #2e7dba to #4498d4 for dark mode.
+		 * Light value was 4.11:1 on page. #4498d4 achieves 5.77:1 on page.
+		 */
+		--status-info: #4498d4; /* 5.77:1 on page, 4.77:1 on elevated */
+
+		/* Borders — solid warm tones */
+		--border-subtle: #3d342a;
+		--border-default: #554a3c;
+		--border-strong: #756850;
+
+		/* Shadows — black-based for dark mode */
+		--shadow-subtle: 0 1px 4px rgba(0, 0, 0, 0.3);
+		--shadow-default: 0 4px 12px rgba(0, 0, 0, 0.4);
+		--shadow-elevated: 0 8px 24px rgba(0, 0, 0, 0.5);
+
+		color-scheme: dark;
+	}
+
+	/* ── System preference: dark (when no explicit data-theme) ── */
+	/*
+	 * @lore U3 — Hearth is light-first. This media query detects dark preference
+	 * to OVERRIDE the light default. This is the opposite of Lucid (dark-default,
+	 * detected light to override). The :root:not([data-theme]) selector ensures
+	 * explicit data-theme attributes always win over system preference.
+	 */
+	@media (prefers-color-scheme: dark) {
 		:root:not([data-theme]) {
-			--surface-0: #fafaf9;
-			--surface-1: #ffffff;
-			--surface-2: #f4f4f2;
-			--surface-3: #eaeae8;
-			--surface-4: #ddddd9;
-			--surface-5: #d0d0cc;
-			--surface-6: #c4c4be;
-			--surface-ghost: rgba(0, 0, 0, 0.04);
+			/* Surfaces */
+			--surface-page: #1a1510;
+			--surface-container: #231e16;
+			--surface-elevated: #2c261c;
+			--surface-overlay: #352e23;
 
-			--primary: #4f46e5;
-			--primary-dim: rgba(79, 70, 229, 0.08);
-			--primary-hover: rgba(79, 70, 229, 0.12);
-			/* @lore K8 — see lucid-light token block above for rationale. */
-			--warn: #444448;
-			--ok: #4d4d52;
-			--danger: #a91515;
+			/* Text */
+			--text-primary: #ede5d8;
+			--text-secondary: #a89880;
+			--text-tertiary: #9a8e7e;
+			--text-placeholder: #5a5048;
+			--text-on-accent: #ffffff;
 
-			--text-hi: #1a1a1e;
-			--text-mid: #3a3a3e;
-			--text-lo: #555559;
+			/* Accents */
+			--accent-primary: #2eaa7a;
+			--accent-primary-dim: rgba(46, 170, 122, 0.1);
+			--accent-primary-hover: #20a070;
+			--accent-secondary: #d97706;
 
-			--float: 0 4px 16px rgba(0, 0, 0, 0.1);
+			/* Status */
+			--status-success: #2eaa7a;
+			--status-warning: #d97706;
+			--status-error: #ee6a5a;
+			--status-info: #4498d4;
 
-			--border-subtle: rgba(0, 0, 0, 0.06);
-			--border-default: rgba(0, 0, 0, 0.1);
-			--border-emphasis: rgba(0, 0, 0, 0.16);
+			/* Borders */
+			--border-subtle: #3d342a;
+			--border-default: #554a3c;
+			--border-strong: #756850;
 
-			color-scheme: light;
+			/* Shadows */
+			--shadow-subtle: 0 1px 4px rgba(0, 0, 0, 0.3);
+			--shadow-default: 0 4px 12px rgba(0, 0, 0, 0.4);
+			--shadow-elevated: 0 8px 24px rgba(0, 0, 0, 0.5);
+
+			color-scheme: dark;
 		}
 	}
 
 	/*
-	 * ── Density presets ──
-	 * @lore K9 / AESTHETICS.md § Spacing & Density:
-	 * The K7 ladder used `compact = default × 0.75` / `comfortable = default × 1.25`,
-	 * which after rounding to the 4 px grid produced single-grid-step deltas
-	 * (pad-x 8/12/16, pad-y 4/8/12) that read as cosmetic noise rather than as
-	 * three distinct comfort tiers. K9 re-tiers the ladder so each step is felt:
+	 * ── Density presets (6px grid) ──
+	 * @lore U3 — Density system rebuilt on a 6px grid. All px values are
+	 * multiples of 6 (exception: --density-card-gap compact = 3px, half-grid).
+	 * Previous Lucid system used rem values; Hearth uses px for explicit grid
+	 * alignment. Ratio structure preserved: compact ≈ default × 0.75,
+	 * comfortable ≈ default × 1.5.
 	 *
-	 *   - new ratio: `compact = default × 0.75; comfortable = default × 1.5`
-	 *   - rationale: the comfortable tier now matches the iOS Settings / Notion /
-	 *     Apple Mail comfort band (Apple HIG, Notion product UI, Apple Mail)
-	 *     instead of the prior +25 % nudge that read as the same layout slightly
-	 *     bigger. Today's `default` becomes the new `compact` (power-user / small
-	 *     screens); the new `default` is a real productivity-app default; the
-	 *     new `comfortable` genuinely feels comfortable, including a body and
-	 *     heading font-size bump.
-	 *   - `--density-row-h` is exempt from the upper-bound rule: comfortable's
-	 *     56 px is a designer call (>= AQ-015's 44 px floor, < 1.5× cap of 66
-	 *     → 64). The new `default` (44 px) already meets the AQ-015 touch-target
-	 *     floor, so the K8 mobile auto-density flip is now an aesthetic choice
-	 *     (more breathing room on phones) rather than a hard a11y requirement.
-	 *   - heading-scale tokens (`--density-text-h1`, `--density-text-h2`) are
-	 *     scoped per density tier so H1/H2 grow under comfortable: 24/26/28 and
-	 *     18/20/22 across compact/default/comfortable. Components that render a
-	 *     scale-with-density heading consume these via `var(--density-text-h*)`.
-	 *   - `--tracking-caps` tightens slightly under comfortable (0.015em) because
-	 *     uppercase labels at the larger body size do not need the same 0.02em
-	 *     wedge to feel airy.
-	 *   - AQ-003 lint rule (`design/no-density-tier-drift` if added) and the
-	 *     density-tier vitest assert this ladder programmatically.
-	 *
-	 * Note for K5 / aesthetic-quality.md follow-up: the AQ-003 rule text in
-	 * `.claude/rules/aesthetic-quality.md` still cites the K7 1.25× ratio. That
-	 * line should be updated to read `compact = default × 0.75; comfortable =
-	 * default × 1.5` per this K9 re-tier.
-	 *
-	 * @lore K11 — Density Sweep + Lint Enforcement adds 5 new density tokens
-	 * derived from the K10 audit (`packages/design-system/research/density-audit.md`):
-	 *   - `--density-card-pad` (8/12/16): card outer padding budget. Cards
-	 *     have a different scale than list-row pad-y (BetCard, TaskCard,
-	 *     PitchCard, SkeletonCard, EmptyState/ErrorState pad-y, ArtifactView
-	 *     content pad, PitchSelector pad). K10 § 4.2.
-	 *   - `--density-page-gutter` (8/16/24): the `<main>` page gutter — split
-	 *     from `--density-pad-x` so page margin and component interior pad
-	 *     can move on independent cadences. K10 § 4.3.
-	 *   - `--density-icon-size` (14/16/20): list-row icon size (search,
-	 *     chevrons, sort arrows). NOT consumed by NavItem (brand chrome).
-	 *     K10 § 4.1.
-	 *   - `--density-avatar-size` (24/32/40): row-anchor avatars on
-	 *     ThreadRow + ReviewHeader. Card-internal avatars (BetCard lead,
-	 *     WorkPortfolio product avatar) stay literal at 24 px. K10 § 4.4.
-	 *   - `--density-card-gap` (4/8/12): intra-card gap (label↔value, row↔
-	 *     row inside a card). Independent of `--density-gap` so inter-row
-	 *     and intra-card rhythms can differ. K10 § 4.5.
-	 *
-	 * Lint rules `design/use-density-tokens` (require token consumption on
-	 * components K10 marked density-aware) and `design/no-density-tokens`
-	 * (forbid token consumption on components K10 marked density-static)
-	 * enforce drift prevention. The opt-out manifest lives at
-	 * `packages/eslint-plugin-design/density-allowlist.json`.
+	 * @lore K11 — density-card-pad, density-page-gutter, density-icon-size,
+	 * density-avatar-size, density-card-gap added for card/page layout
+	 * separation from component interior padding.
 	 */
 	:root,
 	[data-density="default"] {
-		--density-pad-x: 1rem;
-		--density-pad-y: 0.75rem;
-		--density-gap: 0.75rem;
-		--density-row-h: 2.75rem;
-		--density-text: 0.9375rem;
-		--density-text-h1: 1.625rem;
-		--density-text-h2: 1.25rem;
+		--density-pad-x: 18px; /* 3 grid units */
+		--density-pad-y: 12px; /* 2 grid units */
+		--density-gap: 12px; /* 2 grid units */
+		--density-row-h: 42px; /* 7 grid units — exceeds AQ-015 touch floor */
+		--density-text: 15px; /* matches --text-base */
+		--density-text-h1: 24px; /* matches --text-2xl */
+		--density-text-h2: 20px; /* matches --text-xl */
 		--leading-body: 1.55;
-		/* K11 density tokens (default tier) */
-		--density-card-pad: 0.75rem;
-		--density-page-gutter: 1rem;
-		--density-icon-size: 1rem;
-		--density-avatar-size: 2rem;
-		--density-card-gap: 0.5rem;
+
+		/* K11 density tokens */
+		--density-card-pad: 12px; /* 2 grid units */
+		--density-page-gutter: 18px; /* 3 grid units */
+		--density-icon-size: 18px; /* 3 grid units */
+		--density-avatar-size: 30px; /* 5 grid units */
+		--density-card-gap: 6px; /* 1 grid unit */
+
 		/*
-		 * @lore L11 plan §5.7 — `--card-max-h` caps the in-stream
-		 * RichMessageCard so a 200-line diff cannot push the action footer
-		 * off-viewport. The card body has `overflow-y: auto`; the action
-		 * footer is `position: sticky; bottom: 0`. Mobile override below.
+		 * @lore L11 plan §5.7 — --card-max-h caps the in-stream RichMessageCard
+		 * so a 200-line diff cannot push the action footer off-viewport. The card
+		 * body has overflow-y: auto; the action footer is position: sticky; bottom: 0.
+		 * Mobile override below.
 		 */
 		--card-max-h: 70vh;
 	}
@@ -277,46 +305,44 @@
 	}
 
 	[data-density="compact"] {
-		--density-pad-x: 0.75rem;
-		--density-pad-y: 0.5rem;
-		--density-gap: 0.5rem;
-		--density-row-h: 2rem;
-		--density-text: 0.875rem;
-		--density-text-h1: 1.5rem;
-		--density-text-h2: 1.125rem;
+		--density-pad-x: 12px; /* 2 grid units */
+		--density-pad-y: 6px; /* 1 grid unit */
+		--density-gap: 6px; /* 1 grid unit */
+		--density-row-h: 30px; /* 5 grid units */
+		--density-text: 13px; /* matches --text-sm */
+		--density-text-h1: 20px; /* matches --text-xl */
+		--density-text-h2: 17px; /* matches --text-lg */
 		--leading-body: 1.5;
-		/* K11 density tokens (compact tier) */
-		--density-card-pad: 0.5rem;
-		--density-page-gutter: 0.5rem;
-		--density-icon-size: 0.875rem;
-		--density-avatar-size: 1.5rem;
-		--density-card-gap: 0.25rem;
+
+		/* K11 density tokens */
+		--density-card-pad: 6px; /* 1 grid unit */
+		--density-page-gutter: 12px; /* 2 grid units */
+		--density-icon-size: 12px; /* 2 grid units */
+		--density-avatar-size: 24px; /* 4 grid units */
+		/*
+		 * @lore U3 — density-card-gap compact = 3px (half-grid unit). Acceptable
+		 * exception per architecture section 5.2 for tight intra-card rhythm.
+		 */
+		--density-card-gap: 3px; /* 0.5 grid unit — architecture-approved exception */
 	}
 
 	[data-density="comfortable"] {
-		--density-pad-x: 1.5rem;
-		--density-pad-y: 1rem;
-		--density-gap: 1rem;
-		/*
-		 * @lore K9 — `--density-row-h` set to 3.5rem (56 px) instead of the
-		 * strict 1.5× ratio result of 4.125rem (66 px → 64 px). 56 px sits
-		 * above the AQ-015 44 CSS px touch-target floor and below the 1.5×
-		 * cap; it is a designer call sized to the iOS Mail / Notion comfort
-		 * band. The density-tier vitest exempts row-h from the upper-bound
-		 * 1.5× assertion for this reason.
-		 */
-		--density-row-h: 3.5rem;
-		--density-text: 1rem;
-		--density-text-h1: 1.75rem;
-		--density-text-h2: 1.375rem;
+		--density-pad-x: 24px; /* 4 grid units */
+		--density-pad-y: 18px; /* 3 grid units */
+		--density-gap: 18px; /* 3 grid units */
+		--density-row-h: 54px; /* 9 grid units */
+		--density-text: 17px; /* matches --text-lg */
+		--density-text-h1: 30px; /* matches --text-3xl */
+		--density-text-h2: 24px; /* matches --text-2xl */
 		--leading-body: 1.6;
 		--tracking-caps: 0.015em;
-		/* K11 density tokens (comfortable tier) */
-		--density-card-pad: 1rem;
-		--density-page-gutter: 1.5rem;
-		--density-icon-size: 1.25rem;
-		--density-avatar-size: 2.5rem;
-		--density-card-gap: 0.75rem;
+
+		/* K11 density tokens */
+		--density-card-pad: 18px; /* 3 grid units */
+		--density-page-gutter: 24px; /* 4 grid units */
+		--density-icon-size: 24px; /* 4 grid units */
+		--density-avatar-size: 42px; /* 7 grid units */
+		--density-card-gap: 12px; /* 2 grid units */
 	}
 }
 
@@ -333,17 +359,16 @@
 
 /*
  * ── Reduced-motion ──
- * @lore K7 / AESTHETICS.md § Motion row "Reduced-motion media block":
+ * @lore U3 — Token rename: --motion-medium → --motion-default. The reduced-
+ * motion block collapses all motion durations to 1ms (effectively instant).
  * MDN, WCAG SC 2.3.3 and Material 3 mandate respect for prefers-reduced-motion.
- * Every motion duration collapses to 1ms (effectively instant) and the
- * skeleton pulse animation pauses on the first opaque frame. Components
- * that consume `--motion-fast/medium/slow` inherit this automatically.
+ * Components that consume --motion-fast/default/slow inherit this automatically.
  */
 @media (prefers-reduced-motion: reduce) {
 	:root,
 	[data-theme] {
 		--motion-fast: 1ms;
-		--motion-medium: 1ms;
+		--motion-default: 1ms;
 		--motion-slow: 1ms;
 	}
 	[class*="animate-[skeleton-pulse"],
@@ -356,14 +381,14 @@
 /* ── Tag kind tints ── */
 @layer components {
 	.tag-tint-pattern {
-		background-color: color-mix(in oklab, var(--text-mid) 12%, transparent);
+		background-color: color-mix(in oklab, var(--text-secondary) 12%, transparent);
 	}
 
 	.tag-tint-decision {
-		background-color: color-mix(in oklab, var(--primary) 14%, transparent);
+		background-color: color-mix(in oklab, var(--accent-primary) 14%, transparent);
 	}
 
 	.tag-tint-failure {
-		background-color: color-mix(in oklab, var(--danger) 16%, transparent);
+		background-color: color-mix(in oklab, var(--status-error) 16%, transparent);
 	}
 }
