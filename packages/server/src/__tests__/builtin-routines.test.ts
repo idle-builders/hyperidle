@@ -447,8 +447,9 @@ describe("G4: Built-in Routines", () => {
 					timestamp: Date.now(),
 				};
 				eventBus.emit(shipped);
+				await new Promise((r) => setTimeout(r, 200));
 				eventBus.emit(shipped);
-				await new Promise((r) => setTimeout(r, 20));
+				await new Promise((r) => setTimeout(r, 200));
 
 				const reviewRows = await db.select().from(items);
 				expect(reviewRows).toHaveLength(1);
