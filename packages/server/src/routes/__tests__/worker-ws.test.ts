@@ -266,7 +266,7 @@ describe("WorkerConnectionManager — post-registration message routing", () => 
 		expect(selected).not.toBeNull();
 
 		// Start a session on the adapter to get a sessionId
-		const handle = await selected!.adapter.startSession({
+		const handle = await selected?.adapter.startSession({
 			workspacePath: "/workspace/test",
 			soulPromptPath: "",
 			modelTier: "workhorse",
@@ -278,7 +278,7 @@ describe("WorkerConnectionManager — post-registration message routing", () => 
 		// Set up stream consumer
 		const eventsPromise: Promise<Array<{ type: string }>> = (async () => {
 			const collected: Array<{ type: string }> = [];
-			for await (const event of selected!.adapter.streamEvents(handle)) {
+			for await (const event of selected?.adapter.streamEvents(handle) ?? []) {
 				collected.push(event as { type: string });
 			}
 			return collected;

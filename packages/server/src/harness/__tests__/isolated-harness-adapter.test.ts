@@ -16,10 +16,10 @@
  * the mocked `fork` directly to control it per-test via mockImplementation.
  */
 
-import { EventEmitter } from "node:events";
 import { fork } from "node:child_process";
+import { EventEmitter } from "node:events";
 import type { HarnessAdapter } from "@hyperidle/shared";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import type { IsolationConfig } from "../../harness/isolated-harness-adapter.js";
 import { IsolatedHarnessAdapter } from "../../harness/isolated-harness-adapter.js";
 import type { CredentialResolver } from "../../services/credential-resolver.js";
@@ -263,9 +263,9 @@ describe("IsolatedHarnessAdapter duration limit", () => {
 
 		// kill should have been called
 		expect(killMock).not.toBeNull();
-		expect(killMock!).toHaveBeenCalled();
+		expect(killMock).toHaveBeenCalled();
 		// S2-F04: timeout must use SIGKILL (unconditional), not SIGTERM
-		expect(killMock!).toHaveBeenCalledWith("SIGKILL");
+		expect(killMock).toHaveBeenCalledWith("SIGKILL");
 
 		vi.useRealTimers();
 	});
@@ -310,13 +310,13 @@ describe("IsolatedHarnessAdapter stopSession SIGKILL escalation", () => {
 
 		// At 5s: escalation fires and SIGKILL is sent
 		vi.advanceTimersByTime(1);
-		expect(killMock!).toHaveBeenCalledWith("SIGKILL");
+		expect(killMock).toHaveBeenCalledWith("SIGKILL");
 
 		// Simulate child exit after SIGKILL
 		// Manually resolve the session by emitting exit on the child
 		// (we need to verify the mock was called, stop promise may stay pending)
 		// Just verify SIGKILL was called
-		expect(killMock!.mock.calls.some((c) => c[0] === "SIGKILL")).toBe(true);
+		expect(killMock?.mock.calls.some((c) => c[0] === "SIGKILL")).toBe(true);
 
 		// Suppress unhandled promise (stop may never resolve in this mock scenario)
 		stopPromise.catch(() => {});
