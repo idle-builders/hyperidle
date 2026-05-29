@@ -551,3 +551,30 @@ stories:
     track: Q
     depends: []
     complexity: M
+
+  # Track T: Block Editing & Connections
+  - id: T1
+    title: BodyEditor Component (TipTap WYSIWYG)
+    track: T
+    depends: []
+    complexity: M
+  - id: T2
+    title: Knowledge WYSIWYG Editing
+    track: T
+    depends: [T1]
+    complexity: M
+  - id: T3
+    title: Bet Pitch WYSIWYG Editing
+    track: T
+    depends: [T1]
+    complexity: M
+  - id: T4
+    title: Block Reference (Attach Block to Any Thread)
+    track: T
+    depends: []
+    complexity: M
+  - id: T5
+    title: Block Discussion Completion
+    track: T
+    depends: []
+    complexity: M
