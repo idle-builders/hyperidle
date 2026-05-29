@@ -9,8 +9,14 @@ A Block:
   **L1 attachment-vocabulary extension.** L1 (Thread, story L1 in `plans/work-packages/TRACK-L.md` lines 23–67) declares a **closed** attachment-kind enum: `bet | task | knowledge_item | artifact | agent | user`. L2 **extends** that closed set by adding `block` as a seventh attachment kind. This is a concept-level coordination — until the L1 concept doc lands in `docs/`, L2 carries the registered claim. When the L1 concept doc is drafted (or its canonical-shapes row is finalised), it MUST list `block` in the closed attachment vocabulary. `docs/blocks/canonical-shapes.md` records the closed L1 host pair as `'bet' | 'task' | 'knowledge_item' | 'artifact' | 'agent' | 'user'` with no open-ended escape hatch.
 
   > NOTE — to L1 author: the L1 concept doc, when drafted, must include `block` in the closed attachment vocabulary. The seventh kind is L2's contribution; closing the enum without it breaks L26 (per-block discussion).
+- **Is cited by** Messages (per L1) when a message carries a **Block Reference** in its `refs` array — `{ kind: "block", blockId, hostKind, hostId }`. Unlike block-anchored threads (which live within the host's own thread), block references travel on ANY thread: DMs, the Chief of Staff chat, team discussions. The message's rendering surface resolves the ref at read time (fetches body → derives blocks → finds match → renders inline embed). If the block no longer exists (body was edited), the embed shows "source changed."
+
+  **InlineRef vocabulary extension.** `InlineRef.kind` (on `PlainPayload.refs[]`) is a closed enum: `knowledge_item | task | artifact | bet | message`. Block references extend it by adding `block` as a sixth kind. The `block` variant carries additional fields (`blockId`, `hostKind`, `hostId`) making `InlineRef` a discriminated union. This parallels the L2 extension of L1's attachment vocabulary above — both add `block` to a closed enum.
+
+  **Distinction: block anchor vs block reference.** A block anchor (`payload.blockId` on a message within the host's own thread) is _positional_ — the message renders next to the block in the body view. A block reference (`refs[].kind = "block"` on any message in any thread) is _contextual_ — the block content renders as an embed card in the thread. Both use the same `(blockId, hostKind, hostId)` coordinate. Both coexist; neither replaces the other.
+
 - **Carries** a `payload` whose shape depends on `kind`. Payloads are normalised AST nodes (typed per kind) — never raw HTML, never markdown source, never a re-flattened string when structure exists.
 
-The composition is one-way: blocks know nothing about who references them. A thread knows it is anchored to `blockId X on body Y`; the block does not know its inbound threads. This keeps derivation pure (§8).
+The composition is one-way: blocks know nothing about who references them. A thread knows it is anchored to `blockId X on body Y`; a message knows it references `blockId X on body Y`; the block does not know its inbound threads or references. This keeps derivation pure (§8).
 
 ---
