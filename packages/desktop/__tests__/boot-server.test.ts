@@ -16,7 +16,7 @@ import { getPort, startServer, waitForHealth } from "../src/boot-server.js";
 // Mock @hyperidle/server/server-factory subpath export (doesn't exist yet)
 // ---------------------------------------------------------------------------
 vi.mock("@hyperidle/server/server-factory", () => ({
-	createServer: vi.fn((port: number) => ({
+	createServer: vi.fn(async (port: number) => ({
 		httpServer: {
 			address: () => ({ port: port === 0 ? 51234 : port }),
 			close: vi.fn(),
@@ -28,12 +28,12 @@ vi.mock("@hyperidle/server/server-factory", () => ({
 describe("startServer", () => {
 	it("calls createServer with port 0 (OS-assigned random port)", async () => {
 		const { createServer } = await import("@hyperidle/server/server-factory");
-		startServer();
+		await startServer();
 		expect(createServer).toHaveBeenCalledWith(0);
 	});
 
 	it("returns a ServerHandle with httpServer and dispose", async () => {
-		const handle = startServer();
+		const handle = await startServer();
 		expect(handle).toHaveProperty("httpServer");
 		expect(handle).toHaveProperty("dispose");
 		expect(typeof handle.dispose).toBe("function");
