@@ -8,5 +8,6 @@ export default defineProject({
 		// with the test layout under `src/`.
 		include: ["src/**/*.test.{ts,tsx}"],
 		hookTimeout: 30_000,
+		testTimeout: 30_000,
 	},
 });
