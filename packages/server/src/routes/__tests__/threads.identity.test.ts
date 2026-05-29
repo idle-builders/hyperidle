@@ -1,5 +1,5 @@
 /**
- * R4 — Thread Identity Fix tests (RED phase).
+ * R4 — Thread Identity Fix tests.
  *
  * Acceptance criteria:
  *   AC-1: GET /api/threads/:id response includes an identities map matching
@@ -46,82 +46,81 @@ function authHeaders(extra: Record<string, string> = {}): Record<string, string>
 interface AppCtx {
 	app: Hono;
 	db: HyperIdleDb;
+	close: () => Promise<void>;
 }
 
-function setupApp(): AppCtx {
-	const db = createTestDb();
+async function setupApp(): Promise<AppCtx> {
+	const handle = await createTestDb();
+	const db = handle.db;
 	const eventBus = new EventBus();
-	const app = createTestApp({ db, eventBus });
+	const app = await createTestApp({ db, eventBus });
 
 	const now = new Date().toISOString();
 
-	db.insert(products).values({ id: "p1", name: "P", phase: "build", createdAt: now }).run();
-	db.insert(teams)
-		.values({ id: "t1", productId: "p1", capacity: 5, activeBets: 0, formedAt: now })
-		.run();
+	await db.insert(products).values({ id: "p1", name: "P", phase: "build", createdAt: now });
+	await db.insert(teams).values({
+		id: "t1",
+		productId: "p1",
+		capacity: 5,
+		activeBets: 0,
+		formedAt: now,
+	});
 
 	// Human founder user
-	db.insert(users)
-		.values({
-			id: "u-human",
-			kind: "human",
-			name: "Alice Founder",
-			role: "founder",
-			status: "active",
-			createdAt: now,
-		})
-		.run();
+	await db.insert(users).values({
+		id: "u-human",
+		kind: "human",
+		name: "Alice Founder",
+		role: "founder",
+		status: "active",
+		createdAt: now,
+	});
 
 	// AI agent user
-	db.insert(users)
-		.values({
-			id: "agent-builder",
-			kind: "ai",
-			name: "Builder Bot",
-			role: "builder",
-			status: "active",
-			createdAt: now,
-		})
-		.run();
+	await db.insert(users).values({
+		id: "agent-builder",
+		kind: "ai",
+		name: "Builder Bot",
+		role: "builder",
+		status: "active",
+		createdAt: now,
+	});
 
 	// A bet + task so we can host a thread on a task.
-	db.insert(bets)
-		.values({
-			id: "bet-1",
-			productId: "p1",
-			teamId: "t1",
-			pitch: "p",
-			appetite: "small",
-			status: "in_progress",
-			createdAt: now,
-		})
-		.run();
-	db.insert(tasks)
-		.values({
-			id: "task-1",
-			betId: "bet-1",
-			productId: "p1",
-			teamId: "t1",
-			title: "T",
-			state: "in_progress",
-			createdAt: now,
-			updatedAt: now,
-		})
-		.run();
+	await db.insert(bets).values({
+		id: "bet-1",
+		productId: "p1",
+		teamId: "t1",
+		pitch: "p",
+		appetite: "small",
+		status: "in_progress",
+		createdAt: now,
+	});
+	await db.insert(tasks).values({
+		id: "task-1",
+		betId: "bet-1",
+		productId: "p1",
+		teamId: "t1",
+		title: "T",
+		state: "in_progress",
+		createdAt: now,
+		updatedAt: now,
+	});
 
-	return { app, db };
+	return { app, db, close: handle.close };
 }
 
 describe("R4 — GET /api/threads/:id includes identities map", () => {
 	let ctx: AppCtx;
 
-	beforeEach(() => {
+	beforeEach(async () => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		ctx = setupApp();
+		ctx = await setupApp();
 	});
 
-	afterEach(() => {
+	afterEach(async () => {
 		vi.unstubAllEnvs();
+		await ctx.close();
 	});
 
 	describe("AC-1: response shape includes identities field", () => {
@@ -323,27 +322,21 @@ describe("R4 — GET /api/threads/:id includes identities map", () => {
 			// directly into the DB to exercise the zero-message path).
 			const now = new Date().toISOString();
 			const threadId = "r4-zero-msg-thread";
-			ctx.db
-				.insert(threads)
-				.values({
-					id: threadId,
-					hostKind: "task",
-					hostId: "task-1",
-					initiatorId: "u-human",
-					participants: JSON.stringify(["u-human"]),
-					pinned: 0,
-					resolvedAt: null,
-					lastActiveAt: now,
-					createdAt: now,
-				})
-				.run();
+			await ctx.db.insert(threads).values({
+				id: threadId,
+				hostKind: "task",
+				hostId: "task-1",
+				initiatorId: "u-human",
+				participants: JSON.stringify(["u-human"]),
+				pinned: false,
+				resolvedAt: null,
+				lastActiveAt: now,
+				createdAt: now,
+			});
 
 			// Verify no messages exist for this thread.
-			const msgCount = ctx.db
-				.select()
-				.from(messages)
-				.all()
-				.filter((m) => m.threadId === threadId);
+			const allMsgs = await ctx.db.select().from(messages);
+			const msgCount = allMsgs.filter((m) => m.threadId === threadId);
 			expect(msgCount.length).toBe(0);
 
 			// Act
