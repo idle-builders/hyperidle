@@ -21,6 +21,7 @@ import {
 	type HyperIdleDb,
 	products,
 	sessions,
+	type TestDbHandle,
 	tasks,
 	teams,
 	users,
@@ -80,69 +81,71 @@ const LOCAL_META: AdapterMeta = {
 
 const NOW = "2026-05-29T00:00:00.000Z";
 
-function seedDomain(db: HyperIdleDb): void {
-	db.insert(products)
-		.values({ id: "p1", name: "Pool Product", phase: "build", createdAt: NOW })
-		.run();
-	db.insert(teams)
-		.values({ id: "t1", productId: "p1", capacity: 5, activeBets: 0, formedAt: NOW })
-		.run();
-	db.insert(bets)
-		.values({
-			id: "b1",
-			productId: "p1",
-			teamId: "t1",
-			pitch: "Pool bet",
-			appetite: "small",
-			status: "committed",
-			createdAt: NOW,
-		})
-		.run();
-	db.insert(users)
-		.values({
-			id: "agent-pool-1",
-			name: "Pool Agent",
-			role: "builder",
-			status: "active",
-			teamId: "t1",
-			maxConcurrentSessions: 3,
-			costCap: null,
-			costActual: 0,
-			createdAt: NOW,
-		})
-		.run();
-	db.insert(tasks)
-		.values({
-			id: "task-pool-1",
-			betId: "b1",
-			productId: "p1",
-			teamId: "t1",
-			title: "Pool task",
-			state: "accepted",
-			createdAt: NOW,
-			updatedAt: NOW,
-		})
-		.run();
+async function seedDomain(db: HyperIdleDb): Promise<void> {
+	await db
+		.insert(products)
+		.values({ id: "p1", name: "Pool Product", phase: "build", createdAt: NOW });
+	await db
+		.insert(teams)
+		.values({ id: "t1", productId: "p1", capacity: 5, activeBets: 0, formedAt: NOW });
+	await db.insert(bets).values({
+		id: "b1",
+		productId: "p1",
+		teamId: "t1",
+		pitch: "Pool bet",
+		appetite: "small",
+		status: "committed",
+		createdAt: NOW,
+	});
+	await db.insert(users).values({
+		id: "agent-pool-1",
+		name: "Pool Agent",
+		role: "builder",
+		status: "active",
+		teamId: "t1",
+		maxConcurrentSessions: 3,
+		costCap: null,
+		costActual: 0,
+		createdAt: NOW,
+	});
+	await db.insert(tasks).values({
+		id: "task-pool-1",
+		betId: "b1",
+		productId: "p1",
+		teamId: "t1",
+		title: "Pool task",
+		state: "accepted",
+		createdAt: NOW,
+		updatedAt: NOW,
+	});
 }
 
 // ── Tests ──────────────────────────────────────────────────────────────────────
 
+let dbHandle: TestDbHandle;
 let db: HyperIdleDb;
 let eventBus: EventBus;
 let tmpDir: string;
 let workspace: LocalWorkspaceAdapter;
 
 beforeEach(async () => {
-	db = createTestDb();
+	dbHandle = await createTestDb();
+	db = dbHandle.db;
 	eventBus = new EventBus();
 	tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "pool-test-"));
 	workspace = new LocalWorkspaceAdapter();
-	seedDomain(db);
+	await seedDomain(db);
 	clearDeduplicationCache();
-});
+}, 120_000);
 
 afterEach(() => {
 	fs.rmSync(tmpDir, { recursive: true, force: true });
+	// @lore PGLite: NOT calling dbHandle.close() here intentionally. close() would
+	// TRUNCATE (blocking, holds PGlite connection) after provisionSession has left
+	// async state (file watchers, open async generators) that can deadlock the
+	// TRUNCATE under load. Pattern follows session-provisioning.test.ts — each
+	// beforeEach gets a fresh PGlite instance; in-memory instances are GC'd with
+	// the worker. No resource leak occurs.
 });
 
 // ProvisionSessionParams imported for type reference only
@@ -172,7 +175,7 @@ describe("AdapterPool + provisionSession integration (AC3)", () => {
 
 		// After completion, slot must be released
 		expect(pool.list()[0]?.currentLoad).toBe(0);
-	});
+	}, 120_000);
 
 	it("all adapters at capacity → provisioning fails with retriable error, task unchanged", async () => {
 		const pool = new AdapterPool();
@@ -198,7 +201,7 @@ describe("AdapterPool + provisionSession integration (AC3)", () => {
 		).rejects.toThrow();
 
 		// Task state must remain unchanged (not in_progress)
-		const task = db.select().from(tasks).where(eq(tasks.id, "task-pool-1")).get();
+		const [task] = await db.select().from(tasks).where(eq(tasks.id, "task-pool-1"));
 		expect(task?.state).toBe("accepted");
 	});
 });
@@ -232,9 +235,9 @@ describe("AdapterPool backward compat: single adapter pool (AC8)", () => {
 		expect(result.outcome).toBe("completed");
 		expect(result.taskId).toBe("task-pool-1");
 
-		const session = db.select().from(sessions).where(eq(sessions.id, result.sessionId)).get();
+		const [session] = await db.select().from(sessions).where(eq(sessions.id, result.sessionId));
 		expect(session?.state).toBe("done");
-	});
+	}, 120_000);
 });
 
 describe("Server self-registration (AC4)", () => {
