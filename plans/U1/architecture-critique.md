@@ -148,3 +148,151 @@ Migration 0018 (`P2_rename_agents_to_users.sql`) established the pattern for han
 5. **F5:** Explicitly state whether `KNOWLEDGE_SCOPES` and `SCOPE_TO_LAYER` change or stay
 
 After these 5 changes, the plan should score >= 7.0 average and can advance to implementation.
+
+---
+---
+
+# U1 Architecture Critique — Round 2
+
+**Reviewer:** Architecture Critique (Phase 2)
+**Plan:** `plans/U1/architecture.md` (amended)
+**Date:** 2026-05-29
+
+---
+
+## Round 1 Finding Verification
+
+### F1: SCOPE_KINDS collision — RESOLVED
+
+Section 2.4 ("Decision: SCOPE_KINDS, KNOWLEDGE_SCOPES, and SCOPE_TO_LAYER are UNCHANGED in U1") now exists and is thorough. Verified against the codebase:
+
+- The decision to keep `"product"` as a scope kind value is sound. `SCOPE_KINDS` at `packages/shared/src/types.ts` lines 124-132 has both `"product"` and `"team"` as distinct scope kinds with different semantics. Renaming would require a `knowledge_items.scope_kind` data migration that is rightly out of U1 scope.
+- The plan explicitly enumerates seven items that are unchanged: `SCOPE_KINDS`, `SCOPES_REQUIRING_ID`, `KNOWLEDGE_SCOPES`, `SCOPE_TO_LAYER`, `scopeToLayer()`, `knowledge_items.scope_kind` values, and related tests.
+- The divergence note (propagation level `"product"` -> `"team"` while scope kind `"product"` stays) is acknowledged with a clear rationale: propagation levels track the entity hierarchy, scope kinds classify knowledge items — different taxonomies.
+
+This also resolves F5 and F8 from Round 1.
+
+**Verdict: Fixed.**
+
+### F2: Phantom concept doc — RESOLVED
+
+The plan now references `plans/U0/concept.md` with specific section paths (e.g., `section "Noun 1: Team", Composition`, `section "Noun 2: Bet", Lifecycle`). I confirmed that `plans/U0/concept.md` does NOT exist on disk. However, the plan also cites a secondary source: `@lore L13` in `packages/shared/src/product.ts` line 8, which I verified does exist and states "Product = Team 1:1 invariant" with a citation to `plans/L13/concept.md`.
+
+I verified `plans/L13/concept.md` exists and its Section "What 1:1 actually means" (lines 17-43) establishes all five tightenings that the architecture plan relies on: cardinality is 1:1, lifetimes coincide, identity is the product, vocabulary is "Product" front-stage, and acts at the team level address the product. The 1:1 invariant, the decision to drop old `team_id`, and the `team_members` naming are all traceable to this authoritative source.
+
+The `plans/U0/concept.md` path is still a phantom — it does not exist. But because the L13 concept doc provides equivalent authority and the plan cites it as a secondary source, the substantive issue (traceability) is resolved. The `U0` path references are misleading but not blocking.
+
+**Verdict: Substantively fixed. Minor residual: `plans/U0/concept.md` is cited but does not exist. The builder should ignore U0 references and use the L13 concept doc.**
+
+### F3: `mutedProducts` missing — RESOLVED
+
+Section 8.4 ("mutedProducts -> mutedTeams Blast Radius") now provides a comprehensive 18-file inventory. I cross-checked every file path against the codebase via `grep -rn "mutedProducts"` and found exactly 28 lines across 18 files. The plan's inventory matches the codebase precisely — no files are missing, no phantom files are listed.
+
+The stored data migration note is also correct: renaming the Zod key from `mutedProducts` to `mutedTeams` means old JSON blobs with `mutedProducts` will fall through to the `[]` default. This is acceptable for non-critical notification preferences.
+
+New tasks T4.10 (server-config.ts) and T4.9 (settings.ts), plus T6.4 (SettingsNotifications.tsx, settings-types.ts) and T6.6 (E2E fixtures) cover all affected files.
+
+**Verdict: Fixed.**
+
+### F4: `deriveTitleFromPitch` — RESOLVED
+
+T2.5 is now unconditional and specifies the rename: `deriveTitleFromPitch(pitch, betId)` -> `deriveTitle(description, betId)`. T2.6 adds `BetCardSummary.pitchTitle` -> `BetCardSummary.descriptionTitle` with a 12-file consumer list.
+
+I cross-checked T2.6's consumer list against `grep -rn "pitchTitle"` in the codebase. All 12 consumer files are present. Three additional files that reference `deriveTitleFromPitch` (not `pitchTitle`) are covered by separate tasks: T4.11 covers `products.ts` and `bets.ts`; T6.3 covers `BetCreateDialog.tsx`. The `shared/index.ts` re-export is covered by T2.5.
+
+One minor gap: `packages/web/src/__tests__/BetCreateDialog.test.tsx` line 126 has a code comment referencing `deriveTitleFromPitch`. This is not a type error, but a stale comment the builder should update during Phase 8 (test updates). Not blocking.
+
+**Verdict: Fixed.**
+
+### F5: `KNOWLEDGE_SCOPES` — RESOLVED
+
+Covered by the F1 resolution. Section 2.4 explicitly states `KNOWLEDGE_SCOPES` stays as `["practice", "product", "factory"]` with the `@deprecated` annotation. `SCOPE_TO_LAYER` and `scopeToLayer()` are also explicitly listed as unchanged.
+
+**Verdict: Fixed.**
+
+---
+
+## Round 1 Significant Finding Status
+
+### F6: `role-community-map.ts` — RESOLVED
+
+Section 2.4 now explicitly states: "`packages/fabric/src/role-community-map.ts` line 18 mapping `product_manager: "product"` -- this maps a user role to its community/practice scope. The role name `product_manager` is not being renamed in U1 (it is a USER_ROLE constant, not a table reference)." Verified at `packages/fabric/src/role-community-map.ts` line 18.
+
+### F7: Scope boundary contradiction — RESOLVED
+
+Section 1 now reads: "U1 renames the domain concept from Product to Team across schema, types, and internal references. This includes Drizzle schema, Zod schemas, shared types, server services/routes (internal variable and file names), fabric references, and web hooks/pages/fixtures. API URL paths (e.g., `/api/products` stays as-is) and user-facing URL slugs are deferred to subsequent workpackages." This accurately describes the plan's actual scope.
+
+### F8: PropagationLevel divergence — RESOLVED
+
+The divergence note in Section 2.4 explains the split: propagation levels track entity hierarchy (session -> task -> bet -> team -> portfolio), scope kinds classify knowledge items. These are different taxonomies. The justification is sound.
+
+### F9: `committed` maps to `active` — RESOLVED
+
+Section 2.5 now includes a footnote: "Why `committed` maps to `active`, not `draft`: In the old lifecycle, `committed` meant 'the founders decided to fund this bet and assigned it to a team' -- the bet had already passed the shaping gate and was authorized for execution. In the new lifecycle, `draft` means 'created but not yet started.' A committed bet has cleared the decision gate and is authorized to proceed, which aligns with `active` (work is sanctioned) rather than `draft` (still pending)."
+
+### F10: PG migration content — RESOLVED
+
+Section 3.3 now provides a line-by-line derivation guide with 7 explicit substitution rules (quoting, boolean type, rename syntax, DROP INDEX, DROP COLUMN, UPDATE, FK behavior). The key difference (`at_risk boolean DEFAULT false NOT NULL` vs `integer DEFAULT 0 NOT NULL`) is explicitly called out. The builder has sufficient guidance.
+
+---
+
+## New Findings (Round 2)
+
+### N1: `plans/U0/concept.md` still does not exist (Contract Fidelity — minor)
+
+The plan references `plans/U0/concept.md` with specific section paths in four places (lines 41, 48, 52, and the Decision 2.3 justification). This file does not exist on disk. The L13 concept doc (`plans/L13/concept.md`) provides equivalent authority and is cited as a secondary source, so the substantive issue is resolved. But a builder following the plan literally will look for `plans/U0/concept.md` and not find it.
+
+**Impact:** Low. The builder can follow the L13 citation instead. Not a blocking issue.
+
+### N2: `BetCreateDialog.test.tsx` comment references `deriveTitleFromPitch` (Completeness — minor)
+
+`packages/web/src/__tests__/BetCreateDialog.test.tsx` line 126 contains a comment: "Title preview derives from pitch (W-3 design critique -- shared deriveTitleFromPitch)." This is not in T2.6's consumer list. It is a stale comment, not a type error, but it would survive the rename and confuse future readers.
+
+**Impact:** Minimal. The builder should catch this in the Phase 8 grep pass.
+
+### N3: `ProductListItem.shipped` count and `shipRate` — semantic stale field name (Correctness — minor)
+
+`packages/shared/src/product.ts` lines 73-76 define `ProductListItem.shipped: number` (count of shipped bets) and `shipRate: string` (percentage). After the status rename, `shipped` -> `completed` means these field names become semantically misleading (`shipped` counts should reference `completed` status). The plan's T2.2/T6.1 renames `ProductListItem` to `TeamListItem` but does not call out renaming the `shipped` field to `completed` or `completedCount`.
+
+**Impact:** Low. The field name is internal to the wire type and the builder will encounter it during the type rename. The old `shipped` name is not wrong (it describes a past event), but `completed` would be more consistent with the new status vocabulary. This is a judgment call, not a defect.
+
+### N4: `SettingsResponse.products` property rename not in task list (Completeness — moderate)
+
+Section 8.2 states `SettingsResponse.products` -> `SettingsResponse.teams`. T3.1 covers `packages/api-contract/src/settings.ts`. However, `SettingsResponse.products` is a property that returns a list of team/product entries to the frontend. Renaming this property changes the API response shape. Every consumer of `settings.products` in the web layer must update to `settings.teams`. The plan does not enumerate these consumers explicitly.
+
+Checking the codebase: `SettingsResponse` is consumed by web hooks and pages that destructure `products` from the settings response. These should be caught by the TypeScript compiler when the type changes, but the plan should acknowledge that `SettingsResponse.products` -> `SettingsResponse.teams` is a wire format change that affects the API contract between server and web.
+
+**Impact:** Medium. TypeScript will catch the consumers, but the builder should be aware this is an API response shape change, not just a type rename. The server's settings route must also update the response mapping (the key in the JSON response object changes from `"products"` to `"teams"`).
+
+---
+
+## Score Table — Round 2
+
+| # | Dimension            | R1 | R2 | Notes |
+|---|----------------------|-----|-----|-------|
+| 1 | Correctness          | 6   | 8   | All ACs addressed. Status mapping justified. Minor: `shipped` field naming is a judgment call, not wrong. |
+| 2 | Completeness         | 5   | 8   | All five critical gaps filled. `mutedProducts` 18-file inventory verified exact. `deriveTitleFromPitch` consumer list verified. N2 and N4 are minor gaps. |
+| 3 | Feasibility          | 8   | 8   | Unchanged. SQLite rename approach is proven. PG derivation guide is now sufficient. |
+| 4 | Risk Awareness       | 7   | 8   | SCOPE_KINDS decision eliminates the data migration risk. Stored data migration for `mutedProducts` addressed. Divergence between propagation and scope naming acknowledged. |
+| 5 | Simplicity           | 8   | 8   | Unchanged. The approach remains direct. Keeping `"product"` scope kind avoids unnecessary complexity. |
+| 6 | Ordering             | 9   | 9   | Unchanged. Phase ordering is correct. New tasks (T4.10, T4.11, T2.6) slotted into the right phases. |
+| 7 | Testability          | 7   | 7   | Unchanged. Verification map covers all ACs. Migration data integrity tests are specified. No new testability concerns from the amendments. |
+| 8 | Contract Fidelity    | 5   | 7   | L13 concept doc provides traceable authority for the 1:1 invariant and team_members naming. SCOPE_KINDS contract explicitly preserved. Residual: phantom U0 path (minor). |
+| 9 | Blast Radius         | 5   | 8   | Scope boundary corrected. 18-file `mutedProducts` inventory complete. 12-file `pitchTitle` consumer list complete. `role-community-map.ts` explicitly excluded with rationale. |
+
+| **Average** | **R1: 6.7** | **R2: 7.9** |
+|---|---|---|
+
+---
+
+## Verdict: PASS
+
+Average score 7.9 exceeds the 7.0 threshold. All five critical findings from Round 1 are resolved. The four new findings (N1-N4) are minor to moderate and do not block implementation.
+
+**Residual items for the builder to be aware of:**
+1. `plans/U0/concept.md` does not exist -- use `plans/L13/concept.md` as the authoritative concept source.
+2. Update the stale `deriveTitleFromPitch` comment in `BetCreateDialog.test.tsx` during Phase 8.
+3. Consider renaming `ProductListItem.shipped` -> `TeamListItem.completed` for vocabulary consistency (judgment call).
+4. Ensure `SettingsResponse.products` -> `SettingsResponse.teams` is treated as an API response shape change, not just a type rename -- the server settings route JSON key and all web consumers must update together.
+
+The plan is approved for implementation.
