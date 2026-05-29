@@ -201,7 +201,10 @@ describe("registerLifecyclePropagation — session -> task", () => {
 
 		// Assert: task stays in_progress — use vi.waitFor because the handler is async fire-and-forget
 		await vi.waitFor(async () => {
-			const logs = await db.select().from(propagationLog).where(eq(propagationLog.status, "skipped"));
+			const logs = await db
+				.select()
+				.from(propagationLog)
+				.where(eq(propagationLog.status, "skipped"));
 			expect(logs.length).toBeGreaterThanOrEqual(1);
 		});
 		const [task] = await db.select().from(tasks).where(eq(tasks.id, "task-1"));
@@ -227,7 +230,10 @@ describe("registerLifecyclePropagation — session -> task", () => {
 
 		// Assert: task stays in_progress — wait for handler to complete (skipped log entry appears), then check state
 		await vi.waitFor(async () => {
-			const logs = await db.select().from(propagationLog).where(eq(propagationLog.status, "skipped"));
+			const logs = await db
+				.select()
+				.from(propagationLog)
+				.where(eq(propagationLog.status, "skipped"));
 			expect(logs.length).toBeGreaterThanOrEqual(1);
 		});
 		const [task] = await db.select().from(tasks).where(eq(tasks.id, "task-1"));
@@ -254,7 +260,10 @@ describe("registerLifecyclePropagation — session -> task", () => {
 
 		// Assert: task still in_progress (session-2 is still running) — wait for handler to finish
 		await vi.waitFor(async () => {
-			const logs = await db.select().from(propagationLog).where(eq(propagationLog.status, "skipped"));
+			const logs = await db
+				.select()
+				.from(propagationLog)
+				.where(eq(propagationLog.status, "skipped"));
 			expect(logs.length).toBeGreaterThanOrEqual(1);
 		});
 		const [task] = await db.select().from(tasks).where(eq(tasks.id, "task-1"));
@@ -280,7 +289,10 @@ describe("registerLifecyclePropagation — session -> task", () => {
 
 		// Assert: task remains in review (not double-transitioned) — wait for handler to finish
 		await vi.waitFor(async () => {
-			const logs = await db.select().from(propagationLog).where(eq(propagationLog.status, "skipped"));
+			const logs = await db
+				.select()
+				.from(propagationLog)
+				.where(eq(propagationLog.status, "skipped"));
 			expect(logs.length).toBeGreaterThanOrEqual(1);
 		});
 		const [task] = await db.select().from(tasks).where(eq(tasks.id, "task-1"));
@@ -390,7 +402,10 @@ describe("registerLifecyclePropagation — task -> bet", () => {
 
 		// Assert: bet stays in_progress — wait for handler to finish (skipped log entry appears)
 		await vi.waitFor(async () => {
-			const logs = await db.select().from(propagationLog).where(eq(propagationLog.status, "skipped"));
+			const logs = await db
+				.select()
+				.from(propagationLog)
+				.where(eq(propagationLog.status, "skipped"));
 			expect(logs.length).toBeGreaterThanOrEqual(1);
 		});
 		const [bet] = await db.select().from(bets).where(eq(bets.id, "bet-1"));
@@ -497,7 +512,10 @@ describe("registerLifecyclePropagation — task -> bet", () => {
 
 		// Assert: no unhandled exception; propagation_log has a skipped entry for the bet — use vi.waitFor
 		await vi.waitFor(async () => {
-			const logs = await db.select().from(propagationLog).where(eq(propagationLog.targetId, "bet-1"));
+			const logs = await db
+				.select()
+				.from(propagationLog)
+				.where(eq(propagationLog.targetId, "bet-1"));
 			expect(logs.length).toBeGreaterThanOrEqual(1);
 			const lastLog = logs[logs.length - 1];
 			expect(["skipped", "failed"]).toContain(lastLog.status);
