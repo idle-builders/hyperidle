@@ -11,13 +11,11 @@
 	"workspaces": {
 		".": {
 			"entry": ["scripts/*.ts"],
-			"ignoreBinaries": ["bin/pipeline", "electron-rebuild"],
+			"ignoreBinaries": ["bin/pipeline"],
 			"ignoreDependencies": ["@typescript-eslint/utils"]
 		},
 		"packages/shared": {},
-		"packages/db": {
-			"entry": ["drizzle.config.pg.ts"]
-		},
+		"packages/db": {},
 		"packages/fabric": {},
 		"packages/api-contract": {},
 		"packages/server": {},
