@@ -69,6 +69,13 @@ async function allocateInstance(): Promise<PooledInstance> {
  * Uses CASCADE so FK-referencing tables are truncated in the right order.
  */
 async function truncateAllTables(db: HyperIdleDb): Promise<void> {
+	// @lore HyperIdleDb uses the abstract base PgQueryResultHKT, which resolves
+	// db.execute() to PgRaw<unknown>. The runtime shape for PGlite is always
+	// Results<T> = { rows: Row<T>[], ... }. The cast is unavoidable here because
+	// HyperIdleDb must cover both PGlite and postgres-js drivers (both satisfy the
+	// base PgDatabase<PgQueryResultHKT> contract). Making HyperIdleDb generic over
+	// the HKT would propagate the type parameter to every caller — a larger change
+	// than this file warrants. See connection.ts for the design rationale.
 	const result = await db.execute(
 		sql`SELECT tablename FROM pg_tables WHERE schemaname = 'public' AND tablename != '__drizzle_migrations' ORDER BY tablename`,
 	);
