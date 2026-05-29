@@ -144,9 +144,11 @@ describe("registerLifecyclePropagation — session -> task", () => {
 			outcome: "completed",
 		});
 
-		// Assert: task is now in review
-		const [task] = await db.select().from(tasks).where(eq(tasks.id, "task-1"));
-		expect(task?.state).toBe("review");
+		// Assert: task is now in review — use vi.waitFor because the handler is async fire-and-forget
+		await vi.waitFor(async () => {
+			const [task] = await db.select().from(tasks).where(eq(tasks.id, "task-1"));
+			expect(task?.state).toBe("review");
+		});
 	});
 
 	it("logs propagation_log entry with status=applied when transition succeeds", async () => {
@@ -166,16 +168,18 @@ describe("registerLifecyclePropagation — session -> task", () => {
 			outcome: "completed",
 		});
 
-		// Assert: propagation_log has an applied entry
-		const logs = await db
-			.select()
-			.from(propagationLog)
-			.where(and(eq(propagationLog.sourceId, "session-1"), eq(propagationLog.status, "applied")));
-		expect(logs).toHaveLength(1);
-		expect(logs[0].sourceLevel).toBe("session");
-		expect(logs[0].targetLevel).toBe("task");
-		expect(logs[0].targetId).toBe("task-1");
-		expect(logs[0].targetTransition).toBe("in_progress -> review");
+		// Assert: propagation_log has an applied entry — use vi.waitFor because the handler is async fire-and-forget
+		await vi.waitFor(async () => {
+			const logs = await db
+				.select()
+				.from(propagationLog)
+				.where(and(eq(propagationLog.sourceId, "session-1"), eq(propagationLog.status, "applied")));
+			expect(logs).toHaveLength(1);
+			expect(logs[0].sourceLevel).toBe("session");
+			expect(logs[0].targetLevel).toBe("task");
+			expect(logs[0].targetId).toBe("task-1");
+			expect(logs[0].targetTransition).toBe("in_progress -> review");
+		});
 	});
 
 	it("does NOT transition task when session ends with outcome=crashed (F2: crashed stays in_progress)", async () => {
@@ -195,13 +199,13 @@ describe("registerLifecyclePropagation — session -> task", () => {
 			outcome: "crashed",
 		});
 
-		// Assert: task stays in_progress
+		// Assert: task stays in_progress — use vi.waitFor because the handler is async fire-and-forget
+		await vi.waitFor(async () => {
+			const logs = await db.select().from(propagationLog).where(eq(propagationLog.status, "skipped"));
+			expect(logs.length).toBeGreaterThanOrEqual(1);
+		});
 		const [task] = await db.select().from(tasks).where(eq(tasks.id, "task-1"));
 		expect(task?.state).toBe("in_progress");
-
-		// And propagation_log records skipped
-		const logs = await db.select().from(propagationLog).where(eq(propagationLog.status, "skipped"));
-		expect(logs.length).toBeGreaterThanOrEqual(1);
 	});
 
 	it("does NOT transition task when session ends with outcome=stopped (F2: stopped same as crashed)", async () => {
@@ -221,7 +225,11 @@ describe("registerLifecyclePropagation — session -> task", () => {
 			outcome: "stopped",
 		});
 
-		// Assert: task stays in_progress
+		// Assert: task stays in_progress — wait for handler to complete (skipped log entry appears), then check state
+		await vi.waitFor(async () => {
+			const logs = await db.select().from(propagationLog).where(eq(propagationLog.status, "skipped"));
+			expect(logs.length).toBeGreaterThanOrEqual(1);
+		});
 		const [task] = await db.select().from(tasks).where(eq(tasks.id, "task-1"));
 		expect(task?.state).toBe("in_progress");
 	});
@@ -244,7 +252,11 @@ describe("registerLifecyclePropagation — session -> task", () => {
 			outcome: "completed",
 		});
 
-		// Assert: task still in_progress (session-2 is still running)
+		// Assert: task still in_progress (session-2 is still running) — wait for handler to finish
+		await vi.waitFor(async () => {
+			const logs = await db.select().from(propagationLog).where(eq(propagationLog.status, "skipped"));
+			expect(logs.length).toBeGreaterThanOrEqual(1);
+		});
 		const [task] = await db.select().from(tasks).where(eq(tasks.id, "task-1"));
 		expect(task?.state).toBe("in_progress");
 	});
@@ -266,7 +278,11 @@ describe("registerLifecyclePropagation — session -> task", () => {
 			outcome: "completed",
 		});
 
-		// Assert: task remains in review (not double-transitioned)
+		// Assert: task remains in review (not double-transitioned) — wait for handler to finish
+		await vi.waitFor(async () => {
+			const logs = await db.select().from(propagationLog).where(eq(propagationLog.status, "skipped"));
+			expect(logs.length).toBeGreaterThanOrEqual(1);
+		});
 		const [task] = await db.select().from(tasks).where(eq(tasks.id, "task-1"));
 		expect(task?.state).toBe("review");
 	});
@@ -294,14 +310,16 @@ describe("registerLifecyclePropagation — session -> task", () => {
 			outcome: "completed",
 		});
 
-		// Assert: no exception thrown; propagation_log has a skipped or failed entry
-		const logs = await db
-			.select()
-			.from(propagationLog)
-			.where(eq(propagationLog.sourceId, "session-1"));
-		expect(logs.length).toBeGreaterThanOrEqual(1);
-		const lastLog = logs[logs.length - 1];
-		expect(["skipped", "failed"]).toContain(lastLog.status);
+		// Assert: no exception thrown; propagation_log has a skipped or failed entry — use vi.waitFor
+		await vi.waitFor(async () => {
+			const logs = await db
+				.select()
+				.from(propagationLog)
+				.where(eq(propagationLog.sourceId, "session-1"));
+			expect(logs.length).toBeGreaterThanOrEqual(1);
+			const lastLog = logs[logs.length - 1];
+			expect(["skipped", "failed"]).toContain(lastLog.status);
+		});
 	});
 });
 
@@ -347,9 +365,11 @@ describe("registerLifecyclePropagation — task -> bet", () => {
 			timestamp: Date.now(),
 		});
 
-		// Assert: bet is now in review
-		const [bet] = await db.select().from(bets).where(eq(bets.id, "bet-1"));
-		expect(bet?.status).toBe("review");
+		// Assert: bet is now in review — use vi.waitFor because the handler is async fire-and-forget
+		await vi.waitFor(async () => {
+			const [bet] = await db.select().from(bets).where(eq(bets.id, "bet-1"));
+			expect(bet?.status).toBe("review");
+		});
 	});
 
 	it("does NOT transition bet when some tasks are still open", async () => {
@@ -368,7 +388,11 @@ describe("registerLifecyclePropagation — task -> bet", () => {
 			timestamp: Date.now(),
 		});
 
-		// Assert: bet stays in_progress
+		// Assert: bet stays in_progress — wait for handler to finish (skipped log entry appears)
+		await vi.waitFor(async () => {
+			const logs = await db.select().from(propagationLog).where(eq(propagationLog.status, "skipped"));
+			expect(logs.length).toBeGreaterThanOrEqual(1);
+		});
 		const [bet] = await db.select().from(bets).where(eq(bets.id, "bet-1"));
 		expect(bet?.status).toBe("in_progress");
 	});
@@ -394,9 +418,11 @@ describe("registerLifecyclePropagation — task -> bet", () => {
 			timestamp: Date.now(),
 		});
 
-		// Assert: bet transitions to review
-		const [bet] = await db.select().from(bets).where(eq(bets.id, "bet-1"));
-		expect(bet?.status).toBe("review");
+		// Assert: bet transitions to review — use vi.waitFor because the handler is async fire-and-forget
+		await vi.waitFor(async () => {
+			const [bet] = await db.select().from(bets).where(eq(bets.id, "bet-1"));
+			expect(bet?.status).toBe("review");
+		});
 	});
 
 	it("creates a ship-confirmation review thread when bet transitions to review", async () => {
@@ -420,22 +446,23 @@ describe("registerLifecyclePropagation — task -> bet", () => {
 			timestamp: Date.now(),
 		});
 
-		// Assert: a review thread exists with hostKind=bet, hostId=bet-1
-		const allThreads = await db
-			.select()
-			.from(threads)
-			.where(and(eq(threads.hostKind, "bet"), eq(threads.hostId, "bet-1")));
-		expect(allThreads.length).toBeGreaterThanOrEqual(1);
+		// Assert: a review thread and ship-confirmation message exist — use vi.waitFor
+		await vi.waitFor(async () => {
+			const threadRows = await db
+				.select()
+				.from(threads)
+				.where(and(eq(threads.hostKind, "bet"), eq(threads.hostId, "bet-1")));
+			expect(threadRows.length).toBeGreaterThanOrEqual(1);
 
-		// Assert: a message of type review exists in the thread
-		const thread = allThreads[0];
-		const allMessages = await db.select().from(messages).where(eq(messages.threadId, thread.id));
-		expect(allMessages.length).toBeGreaterThanOrEqual(1);
-		const reviewMsg = allMessages.find((m) => m.type === "review");
-		expect(reviewMsg).toBeDefined();
-		if (!reviewMsg) return; // narrowing for TypeScript — expect above ensures this is reached
-		const payload = JSON.parse(reviewMsg.payload) as { kind: string };
-		expect(payload.kind).toBe("ship_confirmation");
+			const thread = threadRows[0];
+			const allMessages = await db.select().from(messages).where(eq(messages.threadId, thread.id));
+			expect(allMessages.length).toBeGreaterThanOrEqual(1);
+			const reviewMsg = allMessages.find((m) => m.type === "review");
+			expect(reviewMsg).toBeDefined();
+			if (!reviewMsg) return; // narrowing for TypeScript
+			const payload = JSON.parse(reviewMsg.payload) as { kind: string };
+			expect(payload.kind).toBe("ship_confirmation");
+		});
 	});
 
 	it("handles concurrent race on bet: InvalidTransitionError caught and logged as skipped (F4)", async () => {
@@ -468,11 +495,13 @@ describe("registerLifecyclePropagation — task -> bet", () => {
 			timestamp: Date.now(),
 		});
 
-		// Assert: no unhandled exception; propagation_log has a skipped entry for the bet
-		const logs = await db.select().from(propagationLog).where(eq(propagationLog.targetId, "bet-1"));
-		expect(logs.length).toBeGreaterThanOrEqual(1);
-		const lastLog = logs[logs.length - 1];
-		expect(["skipped", "failed"]).toContain(lastLog.status);
+		// Assert: no unhandled exception; propagation_log has a skipped entry for the bet — use vi.waitFor
+		await vi.waitFor(async () => {
+			const logs = await db.select().from(propagationLog).where(eq(propagationLog.targetId, "bet-1"));
+			expect(logs.length).toBeGreaterThanOrEqual(1);
+			const lastLog = logs[logs.length - 1];
+			expect(["skipped", "failed"]).toContain(lastLog.status);
+		});
 	});
 });
 
@@ -513,22 +542,26 @@ describe("registerLifecyclePropagation — re-entrant cascade", () => {
 			outcome: "completed",
 		});
 
-		// Assert: task is in review
-		const [taskAfterSession] = await db.select().from(tasks).where(eq(tasks.id, "task-1"));
-		expect(taskAfterSession?.state).toBe("review");
+		// Assert: task is in review — use vi.waitFor because handler is async fire-and-forget
+		await vi.waitFor(async () => {
+			const [taskAfterSession] = await db.select().from(tasks).where(eq(tasks.id, "task-1"));
+			expect(taskAfterSession?.state).toBe("review");
+		});
 
 		// Verify hop 1 logged
-		const hop1Logs = await db
-			.select()
-			.from(propagationLog)
-			.where(
-				and(
-					eq(propagationLog.sourceLevel, "session"),
-					eq(propagationLog.targetLevel, "task"),
-					eq(propagationLog.status, "applied"),
-				),
-			);
-		expect(hop1Logs.length).toBeGreaterThanOrEqual(1);
+		await vi.waitFor(async () => {
+			const hop1Logs = await db
+				.select()
+				.from(propagationLog)
+				.where(
+					and(
+						eq(propagationLog.sourceLevel, "session"),
+						eq(propagationLog.targetLevel, "task"),
+						eq(propagationLog.status, "applied"),
+					),
+				);
+			expect(hop1Logs.length).toBeGreaterThanOrEqual(1);
+		});
 
 		// Act step 2: task manually moved to done -> bet should go to review
 		await db
@@ -545,22 +578,26 @@ describe("registerLifecyclePropagation — re-entrant cascade", () => {
 			timestamp: Date.now(),
 		});
 
-		// Assert: bet is now in review
-		const [bet] = await db.select().from(bets).where(eq(bets.id, "bet-1"));
-		expect(bet?.status).toBe("review");
+		// Assert: bet is now in review — use vi.waitFor
+		await vi.waitFor(async () => {
+			const [bet] = await db.select().from(bets).where(eq(bets.id, "bet-1"));
+			expect(bet?.status).toBe("review");
+		});
 
 		// Verify hop 2 logged separately
-		const hop2Logs = await db
-			.select()
-			.from(propagationLog)
-			.where(
-				and(
-					eq(propagationLog.sourceLevel, "task"),
-					eq(propagationLog.targetLevel, "bet"),
-					eq(propagationLog.status, "applied"),
-				),
-			);
-		expect(hop2Logs.length).toBeGreaterThanOrEqual(1);
+		await vi.waitFor(async () => {
+			const hop2Logs = await db
+				.select()
+				.from(propagationLog)
+				.where(
+					and(
+						eq(propagationLog.sourceLevel, "task"),
+						eq(propagationLog.targetLevel, "bet"),
+						eq(propagationLog.status, "applied"),
+					),
+				);
+			expect(hop2Logs.length).toBeGreaterThanOrEqual(1);
+		});
 	});
 });
 
@@ -600,14 +637,16 @@ describe("registerLifecyclePropagation — bet -> product", () => {
 			timestamp: Date.now(),
 		});
 
-		// Assert: propagation_log records the event
-		const logs = await db
-			.select()
-			.from(propagationLog)
-			.where(and(eq(propagationLog.sourceId, "bet-1"), eq(propagationLog.sourceLevel, "bet")));
-		expect(logs.length).toBeGreaterThanOrEqual(1);
-		expect(logs[0].targetLevel).toBe("product");
-		expect(logs[0].status).toBe("applied");
+		// Assert: propagation_log records the event — use vi.waitFor because the handler is async fire-and-forget
+		await vi.waitFor(async () => {
+			const logs = await db
+				.select()
+				.from(propagationLog)
+				.where(and(eq(propagationLog.sourceId, "bet-1"), eq(propagationLog.sourceLevel, "bet")));
+			expect(logs.length).toBeGreaterThanOrEqual(1);
+			expect(logs[0].targetLevel).toBe("product");
+			expect(logs[0].status).toBe("applied");
+		});
 	});
 
 	it("emits propagation_applied event when bet transitions to shipped", async () => {
@@ -626,10 +665,12 @@ describe("registerLifecyclePropagation — bet -> product", () => {
 			timestamp: Date.now(),
 		});
 
-		// Assert: propagation_applied event emitted
-		expect(propagationEvents).toHaveLength(1);
-		expect(propagationEvents[0].sourceId).toBe("bet-1");
-		expect(propagationEvents[0].targetLevel).toBe("product");
+		// Assert: propagation_applied event emitted — use vi.waitFor because the handler is async fire-and-forget
+		await vi.waitFor(() => {
+			expect(propagationEvents).toHaveLength(1);
+			expect(propagationEvents[0].sourceId).toBe("bet-1");
+			expect(propagationEvents[0].targetLevel).toBe("product");
+		});
 	});
 
 	it("logs propagation entry when bet transitions to killed", async () => {
@@ -646,12 +687,14 @@ describe("registerLifecyclePropagation — bet -> product", () => {
 			timestamp: Date.now(),
 		});
 
-		// Assert: propagation_log records the event
-		const logs = await db
-			.select()
-			.from(propagationLog)
-			.where(and(eq(propagationLog.sourceId, "bet-1"), eq(propagationLog.sourceLevel, "bet")));
-		expect(logs.length).toBeGreaterThanOrEqual(1);
+		// Assert: propagation_log records the event — use vi.waitFor because the handler is async fire-and-forget
+		await vi.waitFor(async () => {
+			const logs = await db
+				.select()
+				.from(propagationLog)
+				.where(and(eq(propagationLog.sourceId, "bet-1"), eq(propagationLog.sourceLevel, "bet")));
+			expect(logs.length).toBeGreaterThanOrEqual(1);
+		});
 	});
 });
 
@@ -807,9 +850,11 @@ describe("registerLifecyclePropagation — propagation log", () => {
 			outcome: "completed",
 		});
 
-		// Assert: at least one new log entry
-		const newLogs = await db.select().from(propagationLog);
-		expect(newLogs.length).toBeGreaterThan(initialLogCount);
+		// Assert: at least one new log entry — use vi.waitFor because the handler is async fire-and-forget
+		await vi.waitFor(async () => {
+			const newLogs = await db.select().from(propagationLog);
+			expect(newLogs.length).toBeGreaterThan(initialLogCount);
+		});
 	});
 
 	it("emits propagation_applied event when session->task propagation succeeds", async () => {
@@ -832,10 +877,12 @@ describe("registerLifecyclePropagation — propagation log", () => {
 			outcome: "completed",
 		});
 
-		// Assert: propagation_applied event was emitted
-		expect(appliedEvents).toHaveLength(1);
-		expect(appliedEvents[0].sourceLevel).toBe("session");
-		expect(appliedEvents[0].targetLevel).toBe("task");
+		// Assert: propagation_applied event was emitted — use vi.waitFor because the handler is async fire-and-forget
+		await vi.waitFor(() => {
+			expect(appliedEvents).toHaveLength(1);
+			expect(appliedEvents[0].sourceLevel).toBe("session");
+			expect(appliedEvents[0].targetLevel).toBe("task");
+		});
 	});
 
 	it("returns unsubscribe function that stops all event handling", async () => {

@@ -424,7 +424,17 @@ async function propagateTaskToBet(
 	// Check: are ALL tasks in terminal state?
 	const allTerminal = allBetTasks.every((t) => TERMINAL_TASK_STATES.has(t.state));
 	if (!allTerminal) {
-		// Some tasks still open — no bet transition
+		// Some tasks still open — no bet transition. Log skipped for observability and test synchronization.
+		await logPropagation(db, {
+			sourceLevel: "task",
+			sourceId: taskId,
+			sourceEvent: "task_state_changed",
+			targetLevel: "bet",
+			targetId: betId,
+			targetTransition: null,
+			status: "skipped",
+			failureReason: "Not all tasks are terminal",
+		});
 		return;
 	}
 
