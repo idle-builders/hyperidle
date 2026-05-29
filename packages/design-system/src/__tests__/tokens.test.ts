@@ -646,10 +646,7 @@ describe("tokens.css — density tokens (K9/K11 spec)", () => {
 			expect(val, `${token} must be defined`).not.toBeNull();
 			// Verify it contains a px value
 			const px = parsePx(val ?? "");
-			expect(
-				px,
-				`${token} must have a px value — got: ${val}`,
-			).not.toBeNull();
+			expect(px, `${token} must have a px value — got: ${val}`).not.toBeNull();
 			expect(px, `${token} must equal ${expectedPx}px (K9/K11 spec)`).toBe(expectedPx);
 		}
 	});
