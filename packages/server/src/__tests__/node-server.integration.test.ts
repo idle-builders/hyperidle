@@ -66,8 +66,11 @@ describe("N1: Node server integration (AC9)", () => {
 			stdio: ["ignore", "pipe", "pipe"],
 		});
 
-		await waitForReady(serverProcess, port);
-	}, 20000);
+		// @lore: Under heavy CI load (10+ parallel worktrees on a 10-core machine),
+		// spawning a real tsx server subprocess can take >20s. 90s for waitForReady
+		// and 120s for the beforeAll hook handle worst-case multi-worktree contention.
+		await waitForReady(serverProcess, port, 90_000);
+	}, 120_000);
 
 	afterAll(() => {
 		serverProcess?.kill();
