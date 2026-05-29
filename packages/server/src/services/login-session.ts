@@ -14,7 +14,7 @@
  */
 
 import { createHash, randomBytes } from "node:crypto";
-import type { HyperIdleDb, LoginSession } from "@hyperidle/db";
+import type { HyperIdleDb, LoginSession, SeedableDb } from "@hyperidle/db";
 import { loginSessions } from "@hyperidle/db";
 import { LOGIN_SESSION_TTL_MS } from "@hyperidle/shared";
 import { and, eq, isNull } from "drizzle-orm";
@@ -45,11 +45,15 @@ export function hashToken(plaintext: string): string {
 /**
  * Create a new LoginSession.
  *
- * Returns the session row and the plaintext bearer token (caller must transmit
- * this once and then discard it — it is never retrievable again).
+ * Accepts `HyperIdleDb` or a Drizzle transaction (`SeedableDb` covers both
+ * since `BetterSQLite3Database` is a structural subtype of `BaseSQLiteDatabase`
+ * and `SQLiteTransaction` also extends `BaseSQLiteDatabase`).
+ *
+ * @lore S1 SF-1: Accepts `SeedableDb` so callers inside `db.transaction()` can
+ * pass `tx` directly without an unsafe `as unknown as HyperIdleDb` cast.
  */
 export function createLoginSession(
-	db: HyperIdleDb,
+	db: HyperIdleDb | SeedableDb,
 	userId: string,
 	ttlMs: number = LOGIN_SESSION_TTL_MS,
 ): { session: LoginSession; token: string } {

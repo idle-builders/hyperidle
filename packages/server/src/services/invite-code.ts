@@ -118,7 +118,7 @@ export function claimInvite(
 		tx.update(inviteCodes).set({ claimedBy: userId }).where(eq(inviteCodes.id, invite.id)).run();
 
 		// Step 7: create LoginSession
-		const { token } = createLoginSession(tx as unknown as HyperIdleDb, userId);
+		const { token } = createLoginSession(tx, userId);
 
 		return { ok: true as const, user, token };
 	});
