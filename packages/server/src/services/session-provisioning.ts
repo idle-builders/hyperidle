@@ -13,7 +13,6 @@ import {
 	ConcurrencyLimitError,
 	CostCapExceededError,
 	type EventBus,
-	type HarnessAdapter,
 	type ModelTier,
 	type SessionHandle,
 	type SessionOutcome,
@@ -23,6 +22,7 @@ import {
 	type UserRole,
 } from "@hyperidle/shared";
 import { and, eq, sql } from "drizzle-orm";
+import type { AdapterPool } from "../harness/adapter-pool.js";
 import type { WorkspaceAdapter, WorkspaceHandle } from "../harness/workspace-adapter.js";
 import { buildToolRegistry, type ToolContext, toolsForRole } from "../skill-tools/tool-registry.js";
 import { summarizeToolArgs } from "./observability/dispatcher.js";
@@ -122,7 +122,7 @@ async function revertTaskToAccepted(
 export interface ProvisionSessionDeps {
 	readonly db: HyperIdleDb;
 	readonly eventBus: EventBus;
-	readonly harness: HarnessAdapter;
+	readonly adapterPool: AdapterPool;
 	readonly workspace: WorkspaceAdapter;
 }
 
@@ -160,7 +160,7 @@ export async function provisionSession(
 	deps: ProvisionSessionDeps,
 	params: ProvisionSessionParams,
 ): Promise<ProvisionSessionResult> {
-	const { db, eventBus, harness, workspace } = deps;
+	const { db, eventBus, adapterPool, workspace } = deps;
 
 	// ── Phase 1: load agent
 	const [agent] = await db.select().from(users).where(eq(users.id, params.agentId)).limit(1);
@@ -195,13 +195,23 @@ export async function provisionSession(
 		);
 	}
 
-	// ── Phase 3: concurrency check + task transition. Both BEFORE workspace spawn.
+	// ── Phase 3: adapter selection + concurrency check + task transition.
+	// Adapter selection MUST come before task transition: if no adapter is
+	// available we should not strand the task in `in_progress`.
+	const selectedAdapter = adapterPool.select();
+	if (!selectedAdapter) {
+		throw new Error("No available adapter in pool — all adapters are at capacity");
+	}
+	const harness = selectedAdapter.adapter;
+	const adapterId = selectedAdapter.id;
+
 	const [activeCount] = await db
 		.select({ count: sql<number>`count(*)` })
 		.from(sessions)
 		.where(and(eq(sessions.agentId, params.agentId), eq(sessions.state, "active")))
 		.limit(1);
 	if ((activeCount?.count ?? 0) >= agent.maxConcurrentSessions) {
+		adapterPool.release(adapterId);
 		throw new ConcurrencyLimitError(params.agentId, agent.maxConcurrentSessions);
 	}
 
@@ -313,6 +323,7 @@ export async function provisionSession(
 	} catch {
 		// startSession failed — treat as crash; nothing to stop.
 		crashed = true;
+		adapterPool.release(adapterId);
 	}
 
 	if (harnessHandle !== null) {
@@ -377,6 +388,7 @@ export async function provisionSession(
 		// Release harness resources. On normal completion we let a stopSession
 		// error propagate — silently swallowing hides runaway subprocesses. On
 		// the crash path we log and continue so the crash teardown completes.
+		// Always release the adapter pool slot after the session ends.
 		if (crashed) {
 			try {
 				await harness.stopSession(harnessHandle);
@@ -390,9 +402,15 @@ export async function provisionSession(
 					`[session-provisioning] stopSession failed during crash teardown for ${sessionId}:`,
 					stopErr,
 				);
+			} finally {
+				adapterPool.release(adapterId);
 			}
 		} else {
-			await harness.stopSession(harnessHandle);
+			try {
+				await harness.stopSession(harnessHandle);
+			} finally {
+				adapterPool.release(adapterId);
+			}
 		}
 	}
 

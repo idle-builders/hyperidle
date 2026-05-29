@@ -514,6 +514,7 @@ describe("ClaudeAgentSdkAdapter (D2)", () => {
 			expect(caps).toEqual({
 				preCompactionTrigger: true,
 				subAgents: true,
+				modelProviders: ["anthropic"],
 			});
 		});
 	});

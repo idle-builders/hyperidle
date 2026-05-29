@@ -1,9 +1,10 @@
 import type { HyperIdleDb } from "@hyperidle/db";
 import { defaultNotificationAdapterFactory } from "@hyperidle/fabric";
-import type { ApiErrorResponse, HarnessAdapter } from "@hyperidle/shared";
+import type { ApiErrorResponse } from "@hyperidle/shared";
 import { API_ERROR_CODES, createLogger, EventBus } from "@hyperidle/shared";
 import { Hono } from "hono";
 import { createUpgradeTokenStore, type UpgradeTokenStore } from "./auth/upgrade-token-store.js";
+import type { AdapterPool } from "./harness/adapter-pool.js";
 import type { WorkspaceAdapter } from "./harness/workspace-adapter.js";
 import { authMiddleware, createAuthMiddleware } from "./middleware/auth.js";
 import { createBodyLimit } from "./middleware/body-limit.js";
@@ -112,11 +113,12 @@ interface AppOptions {
 	 */
 	upgradeTokenStore?: UpgradeTokenStore;
 	/**
-	 * Harness adapter for running agent sessions. When provided alongside
+	 * Adapter pool for running agent sessions. When provided alongside
 	 * `workspaceAdapter`, POST /api/sessions routes through `provisionSession`
 	 * instead of a bare DB insert (R1).
+	 * @lore S2: renamed from harnessAdapter to adapterPool.
 	 */
-	harnessAdapter?: HarnessAdapter;
+	adapterPool?: AdapterPool;
 	/**
 	 * Workspace adapter for provisioning/destroying agent workspaces (R1).
 	 */
@@ -341,7 +343,7 @@ async function createApp(options?: AppOptions): Promise<Hono> {
 		api.route(
 			"/sessions",
 			createSessionRoutes(options.db, eventBus, activityBuffer, {
-				harnessAdapter: options.harnessAdapter,
+				adapterPool: options.adapterPool,
 				workspaceAdapter: options.workspaceAdapter,
 				workspaceBasePath: options.workspaceBasePath,
 				credentialResolver: options.credentialResolver,

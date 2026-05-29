@@ -142,10 +142,12 @@ describe("AdapterPool select — no requirements", () => {
 		const pool = new AdapterPool();
 		pool.register("local", makeAdapter(), LOCAL_META);
 		pool.register("remote-1", makeAdapter(), REMOTE_META);
-		// pre-load local with 2 sessions
-		pool.select();
-		pool.select();
-		// now select again — should pick remote-1 (0 active)
+		// Alternate selection distributes load: local=1, remote-1=1, local=2.
+		// After 3 selects: local has 2 active, remote-1 has 1 active.
+		pool.select(); // → local (tied at 0, pick first)
+		pool.select(); // → remote-1 (0 < 1)
+		pool.select(); // → remote-1 is now tied with local=1; pick first = local → local=2
+		// Now local=2, remote-1=1; next select should pick remote-1 (1 < 2)
 		const entry = pool.select();
 		expect(entry?.meta.name).toBe("remote-1");
 	});
@@ -209,6 +211,7 @@ describe("AdapterPool select — modelProviders requirement", () => {
 		const pool = new AdapterPool();
 		pool.register("multi-provider", makeAdapter(), {
 			...LOCAL_META,
+			name: "multi-provider",
 			modelProviders: ["anthropic", "openai"],
 		});
 		// Adapter has both — should match

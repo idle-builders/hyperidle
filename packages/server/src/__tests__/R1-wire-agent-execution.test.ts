@@ -48,6 +48,7 @@ import {
 import { eq } from "drizzle-orm";
 import type { Hono } from "hono";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { AdapterPool } from "../harness/adapter-pool.js";
 import { LocalWorkspaceAdapter } from "../harness/local-workspace-adapter.js";
 import type { CredentialResolver } from "../services/credential-resolver.js";
 import { createTestApp } from "../test-utils.js";
@@ -105,8 +106,21 @@ class ScriptedHarnessAdapter implements HarnessAdapter {
 	}
 
 	getCapabilities(): HarnessCapabilities {
-		return { preCompactionTrigger: false, subAgents: false };
+		return { preCompactionTrigger: false, subAgents: false, modelProviders: ["anthropic"] };
 	}
+}
+
+// --- Helper: wrap a HarnessAdapter in a single-adapter pool ------------------
+
+function makePool(adapter: HarnessAdapter): AdapterPool {
+	const pool = new AdapterPool();
+	pool.register("local", adapter, {
+		name: "local",
+		kind: "local",
+		modelProviders: ["anthropic"],
+		maxConcurrent: 4,
+	});
+	return pool;
 }
 
 // --- Null credential resolver (simulates missing API key) -------------------
@@ -238,7 +252,7 @@ describe("R1: Wire Agent Execution (route-level)", () => {
 				eventBus,
 				// These new AppOptions fields don't exist yet — TypeScript will
 				// error here until the green phase adds them to AppOptions.
-				harnessAdapter: harness,
+				adapterPool: makePool(harness),
 				workspaceAdapter,
 				workspaceBasePath: tmpDir,
 				credentialResolver: validResolver,
@@ -294,7 +308,7 @@ describe("R1: Wire Agent Execution (route-level)", () => {
 			app = await createTestApp({
 				db,
 				eventBus,
-				harnessAdapter: harness,
+				adapterPool: makePool(harness),
 				workspaceAdapter,
 				workspaceBasePath: tmpDir,
 				// NullCredentialResolver: resolve() always returns null.
@@ -346,7 +360,7 @@ describe("R1: Wire Agent Execution (route-level)", () => {
 			app = await createTestApp({
 				db,
 				eventBus,
-				harnessAdapter: harness,
+				adapterPool: makePool(harness),
 				workspaceAdapter,
 				workspaceBasePath: tmpDir,
 				credentialResolver: validResolver,
@@ -445,7 +459,7 @@ describe("R1: Wire Agent Execution (route-level)", () => {
 			app = await createTestApp({
 				db,
 				eventBus,
-				harnessAdapter: harness,
+				adapterPool: makePool(harness),
 				workspaceAdapter,
 				workspaceBasePath: tmpDir,
 				credentialResolver: validResolver,
@@ -482,7 +496,7 @@ describe("R1: Wire Agent Execution (route-level)", () => {
 			app = await createTestApp({
 				db,
 				eventBus,
-				harnessAdapter: harness,
+				adapterPool: makePool(harness),
 				workspaceAdapter,
 				workspaceBasePath: tmpDir,
 				credentialResolver: validResolver,

@@ -7,7 +7,7 @@ import { bootstrapFabric } from "@hyperidle/fabric";
 import { EventBus } from "@hyperidle/shared";
 import { WebSocketServer } from "ws";
 import { createApp, disposeApp } from "./app.js";
-import { ClaudeAgentSdkAdapter } from "./harness/claude-agent-sdk-adapter.js";
+import { createLocalAdapterPool } from "./harness/adapter-pool.js";
 import { LocalWorkspaceAdapter } from "./harness/local-workspace-adapter.js";
 import { registerWsRoute } from "./routes/ws.js";
 import { EnvCredentialResolver } from "./services/credential-resolver.js";
@@ -115,7 +115,7 @@ export async function createServer(port: number): Promise<ServerHandle> {
 	const eventBus = new EventBus();
 
 	const credentialResolver = new EnvCredentialResolver();
-	const harnessAdapter = new ClaudeAgentSdkAdapter({ credentialResolver });
+	const adapterPool = createLocalAdapterPool();
 	const workspaceAdapter = new LocalWorkspaceAdapter();
 	const workspaceBasePath =
 		process.env.HYPERIDLE_WORKSPACES_DIR ?? path.join(os.tmpdir(), "hyperidle-workspaces");
@@ -125,7 +125,7 @@ export async function createServer(port: number): Promise<ServerHandle> {
 		db,
 		eventBus,
 		strategyBootstrap: bootstrapFabric,
-		harnessAdapter,
+		adapterPool,
 		workspaceAdapter,
 		workspaceBasePath,
 		credentialResolver,
