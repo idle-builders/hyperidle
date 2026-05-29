@@ -31,7 +31,7 @@ interface ParsedArgs {
 }
 
 const USAGE = [
-	"Usage: bun run setup [options]",
+	"Usage: npm run setup [options]",
 	"",
 	"Options:",
 	"  --profile <laptop|vps|cloud>  Deployment profile (or HYPERIDLE_PROFILE env).",
@@ -74,7 +74,7 @@ function parseArgs(argv: readonly string[]): ParsedArgs {
 				root = argv[++i];
 				break;
 			default:
-				// Unknown flag — ignore silently (allow bun/node extras).
+				// Unknown flag — ignore silently (allow npm/node extras).
 				break;
 		}
 	}
@@ -179,7 +179,7 @@ async function runLaptop(
 	await applyLaptopMigrations(dataDir, migrationsFolder);
 
 	io.stdout(`[setup] Ready. PGlite data at ${dataDir}`);
-	io.stdout("[setup] Next: run `bun dev` to start the server and web app.");
+	io.stdout("[setup] Next: run `npm run dev` to start the server and web app.");
 	return 0;
 }
 
@@ -194,7 +194,7 @@ function runVps(args: ParsedArgs, io: RunSetupIo, root: string): number {
 	io.stdout(`[setup]   Compose file: ${composePath}`);
 	io.stdout("[setup]   See docs/deployment/ § VPS for the full bring-up sequence.");
 	io.stdout(
-		"[setup]   Short form: docker compose up -d && bun run db:migrate:pg && bun run db:seed:pg",
+		"[setup]   Short form: docker compose up -d && npm run db:migrate:pg && npm run db:seed:pg",
 	);
 
 	if (args.dryRun) {
@@ -257,7 +257,7 @@ export async function runSetup(
 }
 
 /**
- * Module-level invocation. Running `bun packages/db/src/setup-cli.ts …`
+ * Module-level invocation. Running `npx tsx packages/db/src/setup-cli.ts …`
  * dispatches here.
  */
 /* c8 ignore start */

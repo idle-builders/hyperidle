@@ -40,11 +40,11 @@ export const IS_DEV = !app.isPackaged;
 // ---------------------------------------------------------------------------
 
 /**
- * Resolve the path to the SQLite database file.
- * Lives at userData + '/hyperidle.db'.
+ * Resolve the PGlite data directory.
+ * Lives at userData + '/hyperidle-pg'. PGlite uses a directory, not a single file.
  */
-export function resolveDbPath(userDataDir: string): string {
-	return path.join(userDataDir, "hyperidle.db");
+export function resolveDataDir(userDataDir: string): string {
+	return path.join(userDataDir, "hyperidle-pg");
 }
 
 /**
@@ -409,7 +409,7 @@ async function runMigrationsWithRetry(
 async function bootLocalMode(ctx: BootContext, apiKey: string): Promise<void> {
 	log("boot:local start", { userDataDir: ctx.userDataDir, isDev: IS_DEV });
 
-	const dbPath = resolveDbPath(ctx.userDataDir);
+	const dbPath = resolveDataDir(ctx.userDataDir);
 	log("boot:local db", { dbPath });
 	const clientConfig = loadClientConfig(ctx.configPath);
 

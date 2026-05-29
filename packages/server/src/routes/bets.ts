@@ -634,7 +634,7 @@ export function createBetRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hyper
 		//    - hasUnresolvedReview: whether any review-type message in the thread has resolvedAt IS NULL
 		//
 		// We use Drizzle's sql`` template for the aggregate expressions.
-		// @lore L18: Drizzle SQLite does not expose a built-in correlated-subquery helper.
+		// @lore L18: Drizzle/Postgres does not expose a built-in correlated-subquery helper.
 		// Using sql`` template tags is the idiomatic escape hatch for aggregate queries.
 		const rows = await db
 			.select({
