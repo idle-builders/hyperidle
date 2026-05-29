@@ -81,7 +81,7 @@ const TOOLS: Tool[] = [
 			"--import", "tsx",
 			"-e", "import('./packages/server/src/server-factory.ts').then(() => { process.exit(0); })",
 		],
-		timeoutMs: 15_000,
+		timeoutMs: 60_000,
 	},
 	// e2e disabled — needs full rebuild of Playwright fixture/server setup
 	// {

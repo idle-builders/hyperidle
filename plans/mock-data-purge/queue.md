@@ -7,6 +7,7 @@ Check off rows as they are closed in M3.
 - [ ] `packages/server/src/middleware/auth.ts:u-founder` (straight-swap)
 - [ ] `packages/server/src/middleware/auth.ts:u-founder` (straight-swap)
 - [ ] `packages/server/src/middleware/auth.ts:u-founder` (straight-swap)
+- [ ] `packages/server/src/middleware/auth.ts:u-founder` (straight-swap)
 - [ ] `packages/server/src/routes/auth.ts:u-founder` (straight-swap)
 - [ ] `packages/web/src/fixtures/knowledge-data.ts:MOCK_KNOWLEDGE_ITEMS` (borderline)
 - [ ] `packages/web/src/fixtures/knowledge-data.ts:MOCK_CURATION_SUGGESTIONS` (borderline)

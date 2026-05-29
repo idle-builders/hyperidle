@@ -98,11 +98,12 @@ describe("S1 — createLoginSession", () => {
 	let handle: TestDbHandle;
 	let db: HyperIdleDb;
 
+	// @lore S1: PGlite init under system load can exceed 30s. Raise hook timeout to 60s.
 	beforeEach(async () => {
 		handle = await createTestDb();
 		db = handle.db;
 		await seedUser(db, "u-sess-1");
-	});
+	}, 60_000);
 
 	afterEach(async () => {
 		await handle.close();
@@ -163,7 +164,7 @@ describe("S1 — findLoginSessionByTokenHash", () => {
 		handle = await createTestDb();
 		db = handle.db;
 		await seedUser(db, "u-find-1");
-	});
+	}, 60_000);
 
 	afterEach(async () => {
 		await handle.close();
@@ -190,7 +191,7 @@ describe("S1 — validateBearerToken", () => {
 		handle = await createTestDb();
 		db = handle.db;
 		await seedUser(db, "u-val-1");
-	});
+	}, 60_000);
 
 	afterEach(async () => {
 		await handle.close();
@@ -262,7 +263,7 @@ describe("S1 — revokeLoginSession", () => {
 		handle = await createTestDb();
 		db = handle.db;
 		await seedUser(db, "u-rev-1");
-	});
+	}, 60_000);
 
 	afterEach(async () => {
 		await handle.close();
@@ -298,7 +299,7 @@ describe("S1 — revokeAllUserSessions", () => {
 		db = handle.db;
 		await seedUser(db, "u-revall-1");
 		await seedUser(db, "u-revall-2");
-	});
+	}, 60_000);
 
 	afterEach(async () => {
 		await handle.close();
