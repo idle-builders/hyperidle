@@ -1,6 +1,6 @@
 /**
  * L23 visual proof script — capture screenshots of KnowledgeBody states.
- * Run: bun run scripts/l23-screenshots.ts
+ * Run: npx tsx scripts/l23-screenshots.ts
  */
 
 import { mkdir } from "node:fs/promises";
@@ -8,7 +8,7 @@ import { join } from "node:path";
 import { chromium } from "@playwright/test";
 
 const BASE_URL = "http://localhost:5179";
-const PROOF_DIR = join(import.meta.dir, "../../../../plans/L23/proof");
+const PROOF_DIR = join(import.meta.dirname, "../../../../plans/L23/proof");
 
 async function run(): Promise<void> {
 	await mkdir(PROOF_DIR, { recursive: true });

@@ -16,23 +16,21 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { createItemTool } from "../create-item.js";
 import type { ToolContext } from "../tool-registry.js";
 
-function seed(db: HyperIdleDb): void {
+async function seed(db: HyperIdleDb): Promise<void> {
 	const now = new Date().toISOString();
-	db.insert(products).values({ id: "p1", name: "Test", phase: "build", createdAt: now }).run();
-	db.insert(teams)
-		.values({ id: "t1", productId: "p1", capacity: 5, activeBets: 0, formedAt: now })
-		.run();
-	db.insert(users)
-		.values({
-			id: "agent-a",
-			name: "A",
-			role: "builder",
-			teamId: "t1",
-			status: "active",
-			maxConcurrentSessions: 2,
-			createdAt: now,
-		})
-		.run();
+	await db.insert(products).values({ id: "p1", name: "Test", phase: "build", createdAt: now });
+	await db
+		.insert(teams)
+		.values({ id: "t1", productId: "p1", capacity: 5, activeBets: 0, formedAt: now });
+	await db.insert(users).values({
+		id: "agent-a",
+		name: "A",
+		role: "builder",
+		teamId: "t1",
+		status: "active",
+		maxConcurrentSessions: 2,
+		createdAt: now,
+	});
 }
 
 function makeContext(db: HyperIdleDb, eventBus: EventBus): ToolContext {
@@ -51,10 +49,11 @@ describe("create_item tool", () => {
 	let db: HyperIdleDb;
 	let eventBus: EventBus;
 
-	beforeEach(() => {
-		db = createTestDb();
+	beforeEach(async () => {
+		const handle = await createTestDb();
+		db = handle.db;
 		eventBus = new EventBus();
-		seed(db);
+		await seed(db);
 	});
 
 	describe("AC6: review item with riskTier=high routes to Conversations", () => {
@@ -82,13 +81,13 @@ describe("create_item tool", () => {
 			};
 			expect(data.view).toBe("conversations");
 
-			const row = db.select().from(items).where(eq(items.id, data.itemId)).get();
+			const [row] = await db.select().from(items).where(eq(items.id, data.itemId));
 			expect(row?.kind).toBe("review");
 			expect(row?.riskTier).toBe("high");
 			expect(row?.title).toBe("Please review this design");
 
 			// A review thread should exist
-			const thread = db.select().from(threads).where(eq(threads.id, data.threadId)).get();
+			const [thread] = await db.select().from(threads).where(eq(threads.id, data.threadId));
 			expect(thread).toBeDefined();
 
 			// Event emitted with the item ID
@@ -109,23 +108,21 @@ describe("create_item tool", () => {
 			expect(result.success).toBe(true);
 			if (!result.success) return;
 			const data = result.data as { threadId: string };
-			const thread = db.select().from(threads).where(eq(threads.id, data.threadId)).get();
+			const [thread] = await db.select().from(threads).where(eq(threads.id, data.threadId));
 			expect(thread).toBeDefined();
 		});
 
 		it("reuses an existing thread when threadId is provided", async () => {
 			const now = new Date().toISOString();
-			db.insert(threads)
-				.values({
-					id: "existing-thread",
-					hostKind: "task",
-					hostId: "task-1",
-					initiatorId: "agent-1",
-					participants: JSON.stringify(["agent-1"]),
-					lastActiveAt: now,
-					createdAt: now,
-				})
-				.run();
+			await db.insert(threads).values({
+				id: "existing-thread",
+				hostKind: "task",
+				hostId: "task-1",
+				initiatorId: "agent-1",
+				participants: JSON.stringify(["agent-1"]),
+				lastActiveAt: now,
+				createdAt: now,
+			});
 
 			const result = await createItemTool.handler(
 				{

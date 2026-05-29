@@ -95,8 +95,8 @@ function applyDefaults(raw: RawServerConfig): ServerConfig {
  * Read config from the server_config table.
  * Returns defaults if the table is empty or the JSON is corrupt.
  */
-export function readServerConfig(db: HyperIdleDb): ServerConfig {
-	const row = db.select().from(serverConfig).where(eq(serverConfig.id, "default")).get();
+export async function readServerConfig(db: HyperIdleDb): Promise<ServerConfig> {
+	const [row] = await db.select().from(serverConfig).where(eq(serverConfig.id, "default")).limit(1);
 
 	if (!row) {
 		return DEFAULTS;
@@ -120,8 +120,11 @@ export function readServerConfig(db: HyperIdleDb): ServerConfig {
  * Patch config in the server_config table.
  * Deep-merges with the existing config. Returns the new merged config.
  */
-export function updateServerConfig(db: HyperIdleDb, patch: ServerConfigPatch): ServerConfig {
-	const current = readServerConfig(db);
+export async function updateServerConfig(
+	db: HyperIdleDb,
+	patch: ServerConfigPatch,
+): Promise<ServerConfig> {
+	const current = await readServerConfig(db);
 	const merged: ServerConfig = {
 		...current,
 		notifications:
@@ -134,15 +137,19 @@ export function updateServerConfig(db: HyperIdleDb, patch: ServerConfigPatch): S
 	const configJson = JSON.stringify(merged);
 
 	// Upsert: update if row exists, insert if not
-	const existing = db.select().from(serverConfig).where(eq(serverConfig.id, "default")).get();
+	const [existing] = await db
+		.select()
+		.from(serverConfig)
+		.where(eq(serverConfig.id, "default"))
+		.limit(1);
 
 	if (existing) {
-		db.update(serverConfig)
+		await db
+			.update(serverConfig)
 			.set({ config: configJson, updatedAt: now })
-			.where(eq(serverConfig.id, "default"))
-			.run();
+			.where(eq(serverConfig.id, "default"));
 	} else {
-		db.insert(serverConfig).values({ id: "default", config: configJson, updatedAt: now }).run();
+		await db.insert(serverConfig).values({ id: "default", config: configJson, updatedAt: now });
 	}
 
 	return merged;

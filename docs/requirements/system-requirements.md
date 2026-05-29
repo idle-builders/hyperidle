@@ -1,16 +1,16 @@
 ## 4. System Requirements
 
-### S-1: Deployment Profiles
+### S-1: Deployment
 
-**S-1.1** The system must be deployable across four profiles from day one: laptop (Docker + gVisor or Git repo workspace), self-hosted VPS (Docker + gVisor or Daytona), managed cloud (E2B Desktop Sandbox or Modal), BYO cloud (Daytona when Custom Regions GA).
+**S-1.1** The system ships as a native macOS desktop app (Electron) with the API server embedded in-process. Install via `brew install --cask hyperidle` or DMG download. No Docker, no separate server process.
 
-**S-1.2** A solo builder must be able to install and run HyperIdle on a MacBook in under 30 minutes with nothing beyond Python, SQLite, Docker, and a model API key.
+**S-1.2** A founder must be able to install HyperIdle and reach the Factory shell in under 2 minutes — download, double-click, complete SetupFlow (name, email, first product, optional API key).
 
-**S-1.3** Switching deployment profiles is a configuration change, not a rebuild.
+**S-1.3** The development environment runs via `npm install && npm run dev` (Node 20+). Production uses `@hono/node-server` bundled by esbuild into the Electron main process.
 
 ### S-2: Data Storage
 
-**S-2.1** Primary storage: SQLite by default for all stores — process primitives (Bets, Tasks, Sessions, Teams, Routines, Inbox) and knowledge (`knowledge_items` table). One database file per factory instance. Swappable to Postgres for deployments exceeding ~50 agents.
+**S-2.1** Primary storage: SQLite via `better-sqlite3` at `~/Library/Application Support/HyperIdle/hyperidle.db`. One database file per factory instance. Swappable to Postgres for deployments exceeding ~50 agents.
 
 **S-2.2** Human-readable artifacts (briefs, principles, reflections): stored as rows in `knowledge_items` with format `markdown`. Exported to Git-versioned directories for version history and external access. Git is the backup and audit trail, not the source of truth.
 
@@ -24,9 +24,9 @@
 
 **S-3.1** HyperIdle is a meta layer, not an agent harness. It does not contain a tool-use loop or a model-calling loop. Those live in the harness.
 
-**S-3.2** The system must support multiple harnesses via a thin adapter interface: spawn an agent with a prompt/tools/skills, stream events, stop, read the conversation. Supported harnesses at launch: Claude Agent SDK. Planned: Letta, Goose, OpenHands.
+**S-3.2** The system supports harnesses via a thin adapter interface: spawn an agent with a prompt/tools/skills, stream events, stop, read the conversation. Current harness: Claude Agent SDK via LocalWorkspaceAdapter (desktop gate).
 
-**S-3.3** Workspaces are abstracted behind a thin interface: `spawn`, `exec`, `read`, `write`, `snapshot`, `destroy`.
+**S-3.3** Workspaces are abstracted behind a thin interface: `spawn`, `exec`, `read`, `write`, `snapshot`, `destroy`. The desktop app uses LocalWorkspaceAdapter (filesystem-level isolation on the same machine).
 
 **S-3.4** Model tier assignment happens at session creation time. The Scheduler picks the tier (Reasoning / Workhorse / Fast) based on task risk tier, routine type, and cost posture. The deployer configures which actual models map to each tier.
 
@@ -40,15 +40,15 @@
 
 **S-4.4** Skill changes (new, edit, retire) always require human approval via review thread.
 
-### S-5: Inbox and Messaging
+### S-5: Threads and Messaging
 
-**S-5.1** The inbox is a SQLite table (or Git-tracked message directory). Messages have: sender, recipient, thread, subject, body, attached file leases, timestamps.
+**S-5.1** All human↔agent and agent↔agent communication flows through the Thread primitive. Threads are append-only sequences of typed Messages (`plain`, `review`, `questionnaire`, `verdict`) attached to a host entity.
 
-**S-5.2** Agents read/write inboxes via `read_inbox` / `send_message` skills.
+**S-5.2** Agents read/write threads via the API. Humans read/write threads via the Conversations view and HostThreadSection surfaces mounted on bets, tasks, knowledge items, and artifacts.
 
-**S-5.3** File leases: when an agent modifies an artifact, it reserves a lease. Other agents see the lease and work elsewhere. Humans see leases in the inbox.
+**S-5.3** Humans can initiate conversations with agents (RecipientPicker), not just respond to agent-initiated threads.
 
-**S-5.4** The human inbox (Conversations view in the Factory) reads the same table, with humans as identities.
+**S-5.4** The human inbox (Conversations view in the Factory) renders all threads where the human is a participant, filtered by blocking/async status.
 
 ### S-6: Scheduling and Rhythm
 
@@ -64,7 +64,7 @@
 
 ### S-7: Observability
 
-**S-7.1** Every harness call, tool invocation, skill load, and inbox message emits an OpenTelemetry-style span through one adapter.
+**S-7.1** Every harness call, tool invocation, skill load, and inbox message emits a span through one adapter.
 
 **S-7.2** Default adapter is console for minimal installs. OpenTelemetry integration is planned for production backends.
 
@@ -76,18 +76,18 @@
 
 ### S-9: Cross-Cutting Data Model
 
-**S-9.1** Every item flowing through any view is the same shape (the Item schema from HUMAN_INTERFACE_LAYER §6): id, source (agent identity), layer, verb, kind, title, body, attachments, proposed_action, options, risk_tier, attention_score, blocking, reasoning, cost_estimate, audit_trail, timestamps.
+**S-9.1** The Thread primitive (§4.5 of HUMAN_INTERFACE_LAYER) is the primary interaction data model. Threads carry typed Messages; views render threads filtered by participant, host, and blocking status.
 
-**S-9.2** Every human action is the same shape (the Response schema): item_id, decision, inline_anchor, edits, feedback, approver, view, timestamp.
+**S-9.2** Human actions on review messages use the verdict grammar: `approve`, `approve-with-comments`, `request-changes`, `edit`, `reject` (binding verdicts that resolve the review), plus `comment`, `inline-comment`, `reply` (non-binding actions that append plain messages).
 
-**S-9.3** These two schemas are the contract between the meta layer and the UI. The UI renders Items; the meta layer processes Responses.
+**S-9.3** The unified `users` table (with `kind: 'human' | 'ai'`) is the identity model. Review routing flows through `org_edges` (polymorphic: direct, function, or team targeting).
 
 ### S-10: Security and Isolation
 
-**S-10.1** Agent workspaces are sandboxed. Agents cannot access other agents' workspaces directly; coordination happens through the inbox and shared knowledge stores.
+**S-10.1** Agent workspaces are sandboxed. Agents cannot access other agents' workspaces directly; coordination happens through threads and shared knowledge stores.
 
-**S-10.2** Credentials are injected into workspace environments; agents never see or handle secrets directly.
+**S-10.2** Credentials are stored encrypted (AES-256-GCM) in `server_credentials` for shared deployments, or via Electron `safeStorage` for desktop. Agents receive credentials injected into workspace environments; they never see or handle secrets directly.
 
-**S-10.3** The Factory app is accessible only over Tailscale (or equivalent private network) by default. No public-internet exposure required.
+**S-10.3** The desktop app runs on localhost only. Auth is via auto-generated API key injected by the Electron preload bridge. No public-internet exposure.
 
 ---

@@ -145,8 +145,8 @@ const resumeBetSchema = z.object({
  * backs `GET /api/bets/:id`. If auth evolves to founder-scoped reads this
  * helper is the single place to extend.
  */
-function assertBetReadable(db: HyperIdleDb, betId: string): { id: string } | null {
-	const row = db.select({ id: bets.id }).from(bets).where(eq(bets.id, betId)).get();
+async function assertBetReadable(db: HyperIdleDb, betId: string): Promise<{ id: string } | null> {
+	const [row] = await db.select({ id: bets.id }).from(bets).where(eq(bets.id, betId)).limit(1);
 	return row ?? null;
 }
 
@@ -158,11 +158,11 @@ export function createBetRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hyper
 	const router = new Hono<HyperIdleEnv>();
 
 	// GET /bets — list all bets grouped by status, with pagination
-	router.get("/", (c) => {
+	router.get("/", async (c) => {
 		const limit = Math.min(Number.parseInt(c.req.query("limit") ?? "50", 10) || 50, 200);
 		const offset = Number.parseInt(c.req.query("offset") ?? "0", 10) || 0;
 
-		const allBets = db.select().from(bets).limit(limit).offset(offset).all();
+		const allBets = await db.select().from(bets).limit(limit).offset(offset);
 
 		const grouped = {
 			shaped: allBets.filter((b) => b.status === "shaped"),
@@ -180,15 +180,15 @@ export function createBetRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hyper
 	// @lore Q3 T3: enriched with product name (batch lookup) + derived title +
 	// formatted appetite string. Uses a Map for batch product lookup to avoid
 	// N+1 queries (Q3 arch critique W-4).
-	router.get("/canvas", (c) => {
-		const allBets = db.select().from(bets).all();
-		const allTeams = db.select().from(teams).all();
+	router.get("/canvas", async (c) => {
+		const allBets = await db.select().from(bets);
+		const allTeams = await db.select().from(teams);
 
 		const totalCapacity = allTeams.reduce((sum, t) => sum + t.capacity, 0);
 		const totalUsed = allTeams.reduce((sum, t) => sum + t.activeBets, 0);
 
 		// Batch product lookup — one query, then a Map for O(1) access.
-		const allProducts = db.select({ id: products.id, name: products.name }).from(products).all();
+		const allProducts = await db.select({ id: products.id, name: products.name }).from(products);
 		const productMap = new Map(allProducts.map((p) => [p.id, p.name]));
 
 		/** Shape a bet row into the CanvasBetWire format. */
@@ -241,9 +241,9 @@ export function createBetRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hyper
 	//   - progress: { done, total } computed from the tasks already fetched.
 	// Keeping enrichment in the API layer preserves the three-layer boundary
 	// (client stays thin) and avoids a second API call from the browser.
-	router.get("/:id", (c) => {
+	router.get("/:id", async (c) => {
 		const betId = c.req.param("id");
-		const bet = db.select().from(bets).where(eq(bets.id, betId)).get();
+		const [bet] = await db.select().from(bets).where(eq(bets.id, betId)).limit(1);
 
 		if (!bet) {
 			return c.json({ error: "Bet not found", code: "NOT_FOUND" }, 404);
@@ -263,7 +263,7 @@ export function createBetRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hyper
 		// @lore O2: stripped strategy columns (durability, riskTier, attentionScore,
 		// crossTeam) removed from select. Session cost/token/harness columns also
 		// stripped — those are strategy concerns now in the fabric layer.
-		const betTasks = db
+		const betTasks = await db
 			.select({
 				id: tasks.id,
 				betId: tasks.betId,
@@ -290,16 +290,15 @@ export function createBetRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hyper
 				),
 			})
 			.from(tasks)
-			.where(eq(tasks.betId, betId))
-			.all();
+			.where(eq(tasks.betId, betId));
 
 		const title = deriveTitleFromPitch(bet.pitch, bet.id);
 
-		const productRow = db
+		const [productRow] = await db
 			.select({ name: products.name })
 			.from(products)
 			.where(eq(products.id, bet.productId))
-			.get();
+			.limit(1);
 		const product = productRow?.name ?? bet.productId;
 
 		const team = bet.teamId;
@@ -363,15 +362,15 @@ export function createBetRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hyper
 	// the product's team via loadProductTeam(). Product existence is checked first
 	// (returns 400, not 500) before team lookup. revisionLog is seeded with a
 	// creation entry on every new bet.
-	router.post("/", validateBody(createBetSchema), (c) => {
+	router.post("/", validateBody(createBetSchema), async (c) => {
 		const body = c.req.valid("json" as never) as z.infer<typeof createBetSchema>;
 
 		// Q3 W-3 arch critique: check product existence before team lookup.
-		const productRow = db
+		const [productRow] = await db
 			.select({ id: products.id })
 			.from(products)
 			.where(eq(products.id, body.productId))
-			.get();
+			.limit(1);
 		if (!productRow) {
 			return c.json(
 				{ error: `Product '${body.productId}' not found`, code: "VALIDATION_ERROR" },
@@ -385,7 +384,7 @@ export function createBetRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hyper
 			resolvedTeamId = body.teamId;
 		} else {
 			try {
-				const team = loadProductTeam(db, body.productId);
+				const team = await loadProductTeam(db, body.productId);
 				resolvedTeamId = team.id;
 			} catch (err) {
 				if (err instanceof ApiError) {
@@ -411,23 +410,21 @@ export function createBetRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hyper
 			},
 		];
 
-		db.insert(bets)
-			.values({
-				id,
-				productId: body.productId,
-				teamId: resolvedTeamId,
-				pitch: body.pitch,
-				doneCondition: body.doneCondition ?? null,
-				hypothesis: body.hypothesis ?? null,
-				status: "shaped",
-				createdAt: now,
-				costAppetiteMinor: body.costAppetite?.minor ?? null,
-				costAppetiteCurrency: body.costAppetite?.currency ?? null,
-				revisionLog: JSON.stringify(initialLog),
-			})
-			.run();
+		await db.insert(bets).values({
+			id,
+			productId: body.productId,
+			teamId: resolvedTeamId,
+			pitch: body.pitch,
+			doneCondition: body.doneCondition ?? null,
+			hypothesis: body.hypothesis ?? null,
+			status: "shaped",
+			createdAt: now,
+			costAppetiteMinor: body.costAppetite?.minor ?? null,
+			costAppetiteCurrency: body.costAppetite?.currency ?? null,
+			revisionLog: JSON.stringify(initialLog),
+		});
 
-		const created = db.select().from(bets).where(eq(bets.id, id)).get();
+		const [created] = await db.select().from(bets).where(eq(bets.id, id)).limit(1);
 		if (!created) {
 			return c.json({ error: "Failed to create bet", code: "INTERNAL_ERROR" }, 500);
 		}
@@ -457,7 +454,7 @@ export function createBetRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hyper
 		// NOT shipped or killed. Handled here (not via bet-state-machine.MUTABLE_FIELDS) per
 		// architecture design-it-twice decision.
 		if (body.field === "pitch") {
-			const bet = db.select().from(bets).where(eq(bets.id, betId)).get();
+			const [bet] = await db.select().from(bets).where(eq(bets.id, betId)).limit(1);
 			if (!bet) {
 				return c.json({ error: "Bet not found", code: "NOT_FOUND" }, 404);
 			}
@@ -481,14 +478,14 @@ export function createBetRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hyper
 				reason: body.reason,
 				actor: c.get("userId"),
 			});
-			db.update(bets)
+			await db
+				.update(bets)
 				.set({
 					pitch: body.value,
 					revisionLog: JSON.stringify(revisionLog),
 				})
-				.where(eq(bets.id, betId))
-				.run();
-			const updated = db.select().from(bets).where(eq(bets.id, betId)).get();
+				.where(eq(bets.id, betId));
+			const [updated] = await db.select().from(bets).where(eq(bets.id, betId)).limit(1);
 			return c.json(updated);
 		}
 
@@ -496,7 +493,7 @@ export function createBetRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hyper
 		// updateBetField (which maps fields to single string DB columns). Write
 		// costAppetiteMinor + costAppetiteCurrency directly and add a revision entry.
 		if (body.field === "cost_appetite") {
-			const bet = db.select().from(bets).where(eq(bets.id, betId)).get();
+			const [bet] = await db.select().from(bets).where(eq(bets.id, betId)).limit(1);
 			if (!bet) {
 				return c.json({ error: "Bet not found", code: "NOT_FOUND" }, 404);
 			}
@@ -525,22 +522,22 @@ export function createBetRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hyper
 				reason: body.reason,
 				actor: c.get("userId"),
 			});
-			db.update(bets)
+			await db
+				.update(bets)
 				.set({
 					costAppetiteMinor: body.value?.minor ?? null,
 					costAppetiteCurrency: body.value?.currency ?? null,
 					revisionLog: JSON.stringify(revisionLog),
 				})
-				.where(eq(bets.id, betId))
-				.run();
+				.where(eq(bets.id, betId));
 
-			const updated = db.select().from(bets).where(eq(bets.id, betId)).get();
+			const [updated] = await db.select().from(bets).where(eq(bets.id, betId)).limit(1);
 			return c.json(updated);
 		}
 
 		await updateBetField(db, eventBus, betId, body.field, body.value, body.reason, c.get("userId"));
 
-		const updated = db.select().from(bets).where(eq(bets.id, betId)).get();
+		const [updated] = await db.select().from(bets).where(eq(bets.id, betId)).limit(1);
 		return c.json(updated);
 	});
 
@@ -548,7 +545,7 @@ export function createBetRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hyper
 	router.post("/:id/commit", async (c) => {
 		const betId = c.req.param("id");
 		await transitionBet(db, eventBus, betId, "committed");
-		const updated = db.select().from(bets).where(eq(bets.id, betId)).get();
+		const [updated] = await db.select().from(bets).where(eq(bets.id, betId)).limit(1);
 		return c.json(updated);
 	});
 
@@ -556,14 +553,14 @@ export function createBetRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hyper
 	router.post("/:id/ship", async (c) => {
 		const betId = c.req.param("id");
 		await transitionBet(db, eventBus, betId, "shipped");
-		const updated = db.select().from(bets).where(eq(bets.id, betId)).get();
+		const [updated] = await db.select().from(bets).where(eq(bets.id, betId)).limit(1);
 		return c.json(updated);
 	});
 
 	// POST /bets/:id/kill — kill with reason (required)
 	router.post("/:id/kill", validateBody(killBetSchema), async (c) => {
 		const betId = c.req.param("id");
-		if (!assertBetReadable(db, betId)) {
+		if (!(await assertBetReadable(db, betId))) {
 			return c.json({ error: "Bet not found", code: "NOT_FOUND" }, 404);
 		}
 		const body = c.req.valid("json" as never) as z.infer<typeof killBetSchema>;
@@ -571,7 +568,7 @@ export function createBetRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hyper
 			reason: body.reason,
 			actor: c.get("userId"),
 		});
-		const updated = db.select().from(bets).where(eq(bets.id, betId)).get();
+		const [updated] = await db.select().from(bets).where(eq(bets.id, betId)).limit(1);
 		return c.json(updated);
 	});
 
@@ -579,7 +576,7 @@ export function createBetRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hyper
 	// L14: T3.
 	router.post("/:id/pause", validateBody(pauseBetSchema), async (c) => {
 		const betId = c.req.param("id");
-		if (!assertBetReadable(db, betId)) {
+		if (!(await assertBetReadable(db, betId))) {
 			return c.json({ error: "Bet not found", code: "NOT_FOUND" }, 404);
 		}
 		const body = c.req.valid("json" as never) as z.infer<typeof pauseBetSchema>;
@@ -587,7 +584,7 @@ export function createBetRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hyper
 			reason: body.reason,
 			actor: c.get("userId"),
 		});
-		const updated = db.select().from(bets).where(eq(bets.id, betId)).get();
+		const [updated] = await db.select().from(bets).where(eq(bets.id, betId)).limit(1);
 		return c.json(updated);
 	});
 
@@ -595,7 +592,7 @@ export function createBetRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hyper
 	// L14: T4.
 	router.post("/:id/resume", validateBody(resumeBetSchema), async (c) => {
 		const betId = c.req.param("id");
-		if (!assertBetReadable(db, betId)) {
+		if (!(await assertBetReadable(db, betId))) {
 			return c.json({ error: "Bet not found", code: "NOT_FOUND" }, 404);
 		}
 		const body = c.req.valid("json" as never) as z.infer<typeof resumeBetSchema>;
@@ -603,7 +600,7 @@ export function createBetRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hyper
 			reason: body.reason ?? "Resumed by founder",
 			actor: c.get("userId"),
 		});
-		const updated = db.select().from(bets).where(eq(bets.id, betId)).get();
+		const [updated] = await db.select().from(bets).where(eq(bets.id, betId)).limit(1);
 		return c.json(updated);
 	});
 
@@ -616,15 +613,15 @@ export function createBetRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hyper
 	// fetches the last message in one pass. SQLite handles this efficiently at
 	// expected volumes (< 100 artifacts per bet). The server-enforced cap of 10
 	// bounds the worst-case payload and query cost.
-	router.get("/:id/artifact-thread-summary", (c) => {
+	router.get("/:id/artifact-thread-summary", async (c) => {
 		const betId = c.req.param("id");
 
-		if (!assertBetReadable(db, betId)) {
+		if (!(await assertBetReadable(db, betId))) {
 			return c.json({ error: "Bet not found", code: "NOT_FOUND" }, 404);
 		}
 
 		// 1. Collect all task ids for this bet (fan-out guard: bets have bounded tasks).
-		const taskRows = db.select({ id: tasks.id }).from(tasks).where(eq(tasks.betId, betId)).all();
+		const taskRows = await db.select({ id: tasks.id }).from(tasks).where(eq(tasks.betId, betId));
 		const taskIds = taskRows.map((r) => r.id);
 
 		if (taskIds.length === 0) {
@@ -637,9 +634,9 @@ export function createBetRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hyper
 		//    - hasUnresolvedReview: whether any review-type message in the thread has resolvedAt IS NULL
 		//
 		// We use Drizzle's sql`` template for the aggregate expressions.
-		// @lore L18: Drizzle SQLite does not expose a built-in correlated-subquery helper.
+		// @lore L18: Drizzle/Postgres does not expose a built-in correlated-subquery helper.
 		// Using sql`` template tags is the idiomatic escape hatch for aggregate queries.
-		const rows = db
+		const rows = await db
 			.select({
 				artifactId: artifacts.id,
 				artifactKind: artifacts.kind,
@@ -668,8 +665,7 @@ export function createBetRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hyper
 			.from(artifacts)
 			.innerJoin(tasks, eq(tasks.id, artifacts.producingTaskId))
 			.leftJoin(threads, and(eq(threads.hostKind, "artifact"), eq(threads.hostId, artifacts.id)))
-			.where(inArray(artifacts.producingTaskId, taskIds))
-			.all();
+			.where(inArray(artifacts.producingTaskId, taskIds));
 
 		// 3. Filter to only artifacts with at least one message.
 		const withMessages = rows.filter((r) => r.threadId !== null && (r.messageCount ?? 0) >= 1);

@@ -8,6 +8,7 @@
  */
 
 import { useEffect, useState } from "react";
+import { apiFetch } from "../services/api-fetch.js";
 
 export interface CurrentUser {
 	id: string;
@@ -36,7 +37,7 @@ export function useCurrentUser(): UseCurrentUserResult {
 
 		(async (): Promise<void> => {
 			try {
-				const res = await fetch("/api/auth/me");
+				const res = await apiFetch("/api/auth/me");
 				if (cancelled) return;
 				if (!res.ok) {
 					setError(`HTTP ${res.status}`);

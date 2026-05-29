@@ -29,16 +29,18 @@ export interface ReviewRoutingContext {
  * is out of P2 scope. When no org edges exist (or none match), falls back
  * to ALL human users — ensuring every review always reaches someone.
  */
-export function resolveReviewRecipients(db: HyperIdleDb, context: ReviewRoutingContext): string[] {
+export async function resolveReviewRecipients(
+	db: HyperIdleDb,
+	context: ReviewRoutingContext,
+): Promise<string[]> {
 	const matchedFromUserIds = new Set<string>();
 
 	// Query direct edges (mechanism = "direct", target = userId)
 	if (context.userId) {
-		const directMatches = db
+		const directMatches = await db
 			.select({ fromUserId: orgEdges.fromUserId })
 			.from(orgEdges)
-			.where(and(eq(orgEdges.mechanism, "direct"), eq(orgEdges.target, context.userId)))
-			.all();
+			.where(and(eq(orgEdges.mechanism, "direct"), eq(orgEdges.target, context.userId)));
 		for (const row of directMatches) {
 			matchedFromUserIds.add(row.fromUserId);
 		}
@@ -46,11 +48,10 @@ export function resolveReviewRecipients(db: HyperIdleDb, context: ReviewRoutingC
 
 	// Query function edges (mechanism = "function", target = agentRole)
 	if (context.agentRole) {
-		const functionMatches = db
+		const functionMatches = await db
 			.select({ fromUserId: orgEdges.fromUserId })
 			.from(orgEdges)
-			.where(and(eq(orgEdges.mechanism, "function"), eq(orgEdges.target, context.agentRole)))
-			.all();
+			.where(and(eq(orgEdges.mechanism, "function"), eq(orgEdges.target, context.agentRole)));
 		for (const row of functionMatches) {
 			matchedFromUserIds.add(row.fromUserId);
 		}
@@ -58,11 +59,10 @@ export function resolveReviewRecipients(db: HyperIdleDb, context: ReviewRoutingC
 
 	// Query team edges (mechanism = "team", target = teamId)
 	if (context.teamId) {
-		const teamMatches = db
+		const teamMatches = await db
 			.select({ fromUserId: orgEdges.fromUserId })
 			.from(orgEdges)
-			.where(and(eq(orgEdges.mechanism, "team"), eq(orgEdges.target, context.teamId)))
-			.all();
+			.where(and(eq(orgEdges.mechanism, "team"), eq(orgEdges.target, context.teamId)));
 		for (const row of teamMatches) {
 			matchedFromUserIds.add(row.fromUserId);
 		}
@@ -74,6 +74,6 @@ export function resolveReviewRecipients(db: HyperIdleDb, context: ReviewRoutingC
 	}
 
 	// Fallback: return all human user IDs
-	const humanUsers = db.select({ id: users.id }).from(users).where(eq(users.kind, "human")).all();
+	const humanUsers = await db.select({ id: users.id }).from(users).where(eq(users.kind, "human"));
 	return humanUsers.map((u) => u.id);
 }

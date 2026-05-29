@@ -29,8 +29,8 @@ vi.mock("@hyperidle/db", async (importOriginal) => {
 	const original = await importOriginal<typeof import("@hyperidle/db")>();
 	return {
 		...original,
-		applyMigrations: vi.fn(() => ({ applied: 2, schemaVersion: 2 })),
-		isDowngrade: vi.fn(() => false),
+		applyMigrations: vi.fn(async () => ({ applied: 2, schemaVersion: 2 })),
+		isDowngrade: vi.fn(async () => false),
 		seed: vi.fn(() => {
 			throw new Error("seed must NOT be called from the desktop migration path");
 		}),
@@ -55,7 +55,7 @@ describe("runMigrations", () => {
 		const applyMock = applyMigrations as ReturnType<typeof vi.fn>;
 		applyMock.mockClear();
 
-		runMigrations("/tmp/test.db", "/tmp/drizzle");
+		await runMigrations("/tmp/test.db", "/tmp/drizzle");
 		expect(applyMock).toHaveBeenCalledWith("/tmp/test.db", "/tmp/drizzle");
 	});
 
@@ -64,37 +64,37 @@ describe("runMigrations", () => {
 		const seedMock = seed as ReturnType<typeof vi.fn>;
 		seedMock.mockClear();
 
-		runMigrations("/tmp/test.db", "/tmp/drizzle");
+		await runMigrations("/tmp/test.db", "/tmp/drizzle");
 		expect(seedMock).not.toHaveBeenCalled();
 	});
 
 	it("returns a MigrationOrchestrationResult with applied count", async () => {
 		const { applyMigrations } = await import("@hyperidle/db");
-		(applyMigrations as ReturnType<typeof vi.fn>).mockReturnValueOnce({
+		(applyMigrations as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
 			applied: 5,
 			schemaVersion: 5,
 		});
 
-		const result = runMigrations("/tmp/test.db", "/tmp/drizzle");
+		const result = await runMigrations("/tmp/test.db", "/tmp/drizzle");
 		expect(result.applied).toBe(5);
 		expect(result.schemaVersion).toBe(5);
 	});
 
 	it("throws when isDowngrade() returns true (schema newer than app)", async () => {
 		const { isDowngrade } = await import("@hyperidle/db");
-		(isDowngrade as ReturnType<typeof vi.fn>).mockReturnValueOnce(true);
+		(isDowngrade as ReturnType<typeof vi.fn>).mockResolvedValueOnce(true);
 
-		expect(() => runMigrations("/tmp/test.db", "/tmp/drizzle")).toThrow(/downgrade/i);
+		await expect(runMigrations("/tmp/test.db", "/tmp/drizzle")).rejects.toThrow(/downgrade/i);
 	});
 
 	it("does not call applyMigrations when downgrade is detected", async () => {
 		const { isDowngrade, applyMigrations } = await import("@hyperidle/db");
-		(isDowngrade as ReturnType<typeof vi.fn>).mockReturnValueOnce(true);
+		(isDowngrade as ReturnType<typeof vi.fn>).mockResolvedValueOnce(true);
 		const applyMock = applyMigrations as ReturnType<typeof vi.fn>;
 		applyMock.mockClear();
 
 		try {
-			runMigrations("/tmp/test.db", "/tmp/drizzle");
+			await runMigrations("/tmp/test.db", "/tmp/drizzle");
 		} catch {
 			// expected
 		}
@@ -103,12 +103,10 @@ describe("runMigrations", () => {
 
 	it("propagates errors from applyMigrations", async () => {
 		const { applyMigrations, isDowngrade } = await import("@hyperidle/db");
-		(isDowngrade as ReturnType<typeof vi.fn>).mockReturnValueOnce(false);
-		(applyMigrations as ReturnType<typeof vi.fn>).mockImplementationOnce(() => {
-			throw new Error("SQLITE_IOERR");
-		});
+		(isDowngrade as ReturnType<typeof vi.fn>).mockResolvedValueOnce(false);
+		(applyMigrations as ReturnType<typeof vi.fn>).mockRejectedValueOnce(new Error("SQLITE_IOERR"));
 
-		expect(() => runMigrations("/tmp/test.db", "/tmp/drizzle")).toThrow("SQLITE_IOERR");
+		await expect(runMigrations("/tmp/test.db", "/tmp/drizzle")).rejects.toThrow("SQLITE_IOERR");
 	});
 });
 

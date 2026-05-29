@@ -25,7 +25,6 @@ const NOTE_SEPARATOR = "\n\n---\n\n";
  * eliminates the risk of the tool corrupting an audit JSON blob that lived
  * in the same column under the old (wrong) implementation.
  */
-// biome-ignore lint/suspicious/useAwait: ToolDefinition.handler requires async signature
 async function handler(args: LogTaskInput, ctx: ToolContext): Promise<ToolResult> {
 	const parsed = logTaskInputSchema.safeParse(args);
 	if (!parsed.success) {
@@ -33,7 +32,7 @@ async function handler(args: LogTaskInput, ctx: ToolContext): Promise<ToolResult
 	}
 	const { note } = parsed.data;
 
-	const task = ctx.db.select().from(tasks).where(eq(tasks.id, ctx.taskId)).get();
+	const [task] = await ctx.db.select().from(tasks).where(eq(tasks.id, ctx.taskId)).limit(1);
 	if (!task) {
 		return err("NOT_FOUND", `Task not found: ${ctx.taskId}`);
 	}
@@ -44,11 +43,10 @@ async function handler(args: LogTaskInput, ctx: ToolContext): Promise<ToolResult
 	const combined =
 		task.notes && task.notes.length > 0 ? `${task.notes}${NOTE_SEPARATOR}${entry}` : entry;
 
-	ctx.db
+	await ctx.db
 		.update(tasks)
 		.set({ notes: combined, updatedAt: now })
-		.where(eq(tasks.id, ctx.taskId))
-		.run();
+		.where(eq(tasks.id, ctx.taskId));
 
 	return ok({ taskId: ctx.taskId });
 }

@@ -24,7 +24,7 @@ Progressive disclosure checklist — load when reviewing performance-sensitive c
 - [ ] No unnecessary re-renders (check React DevTools profiler)
 - [ ] Large lists use virtualization (react-virtual)
 - [ ] Images optimized (appropriate format, lazy loading, srcset)
-- [ ] Bundle size checked (`bun run build` + inspect output)
+- [ ] Bundle size checked (`npm run build` + inspect output)
 - [ ] Code splitting on route boundaries
 - [ ] No layout thrashing (batch DOM reads/writes)
 
@@ -39,7 +39,7 @@ Progressive disclosure checklist — load when reviewing performance-sensitive c
 ## Measurement
 
 Always measure before optimizing. Use:
-- `bun test --timeout` for slow test detection
+- `npm run test -- --timeout` for slow test detection
 - Browser DevTools Performance tab for frontend
 - Drizzle query logging for database
 - BullMQ dashboard for job throughput

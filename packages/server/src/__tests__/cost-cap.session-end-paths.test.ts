@@ -4,6 +4,7 @@ import {
 	type HyperIdleDb,
 	products,
 	sessions,
+	type TestDbHandle,
 	tasks,
 	teams,
 	threads,
@@ -35,107 +36,101 @@ import type { SessionContext } from "../services/session-lifecycle.js";
 
 const NOW = new Date().toISOString();
 
-function seed(db: HyperIdleDb): void {
-	db.insert(products).values({ id: "p1", name: "P1", phase: "build", createdAt: NOW }).run();
-	db.insert(teams)
-		.values({
-			id: "t1",
-			productId: "p1",
-			capacity: 5,
-			activeBets: 0,
-			costCap: 1_000_000,
-			costActual: 0,
-			formedAt: NOW,
-		})
-		.run();
-	db.insert(users)
-		.values({
-			id: "a1",
-			name: "A1",
-			role: "builder",
-			status: "active",
-			maxConcurrentSessions: 1,
-			teamId: "t1",
-			costCap: 100,
-			costActual: 0,
-			createdAt: NOW,
-		})
-		.run();
-	db.insert(users)
-		.values({
-			id: "a2",
-			name: "A2",
-			role: "builder",
-			status: "active",
-			maxConcurrentSessions: 1,
-			teamId: "t1",
-			costCap: 100,
-			costActual: 0,
-			createdAt: NOW,
-		})
-		.run();
-	db.insert(bets)
-		.values({
-			id: "b1",
-			productId: "p1",
-			teamId: "t1",
-			pitch: "x",
-			appetite: "small",
-			status: "committed",
-			createdAt: NOW,
-		})
-		.run();
+async function seed(db: HyperIdleDb): Promise<void> {
+	await db.insert(products).values({ id: "p1", name: "P1", phase: "build", createdAt: NOW });
+	await db.insert(teams).values({
+		id: "t1",
+		productId: "p1",
+		capacity: 5,
+		activeBets: 0,
+		costCap: 1_000_000,
+		costActual: 0,
+		formedAt: NOW,
+	});
+
+	await db.insert(users).values({
+		id: "a1",
+		name: "A1",
+		role: "builder",
+		status: "active",
+		maxConcurrentSessions: 1,
+		teamId: "t1",
+		costCap: 100,
+		costActual: 0,
+		createdAt: NOW,
+	});
+
+	await db.insert(users).values({
+		id: "a2",
+		name: "A2",
+		role: "builder",
+		status: "active",
+		maxConcurrentSessions: 1,
+		teamId: "t1",
+		costCap: 100,
+		costActual: 0,
+		createdAt: NOW,
+	});
+
+	await db.insert(bets).values({
+		id: "b1",
+		productId: "p1",
+		teamId: "t1",
+		pitch: "x",
+		appetite: "small",
+		status: "committed",
+		createdAt: NOW,
+	});
+
 	const taskThreadId = "thread-task-1";
-	db.insert(threads)
-		.values({
-			id: taskThreadId,
-			hostKind: "task",
-			hostId: "task-1",
-			initiatorId: "agent-1",
-			participants: JSON.stringify(["agent-1"]),
-			lastActiveAt: NOW,
-			createdAt: NOW,
-		})
-		.run();
-	db.insert(tasks)
-		.values({
-			id: "task-1",
-			betId: "b1",
-			productId: "p1",
-			teamId: "t1",
-			ownerAgentId: "a1",
-			title: "T1",
-			state: "in_progress",
-			threadId: taskThreadId,
-			createdAt: NOW,
-			updatedAt: NOW,
-		})
-		.run();
-	db.insert(sessions)
-		.values({
-			id: "sess-1",
-			taskId: "task-1",
-			agentId: "a1",
-			modelTier: "workhorse",
-			startedAt: NOW,
-			state: "active",
-		})
-		.run();
+	await db.insert(threads).values({
+		id: taskThreadId,
+		hostKind: "task",
+		hostId: "task-1",
+		initiatorId: "agent-1",
+		participants: JSON.stringify(["agent-1"]),
+		lastActiveAt: NOW,
+		createdAt: NOW,
+	});
+
+	await db.insert(tasks).values({
+		id: "task-1",
+		betId: "b1",
+		productId: "p1",
+		teamId: "t1",
+		ownerAgentId: "a1",
+		title: "T1",
+		state: "in_progress",
+		threadId: taskThreadId,
+		createdAt: NOW,
+		updatedAt: NOW,
+	});
+
+	await db.insert(sessions).values({
+		id: "sess-1",
+		taskId: "task-1",
+		agentId: "a1",
+		modelTier: "workhorse",
+		startedAt: NOW,
+		state: "active",
+	});
 }
 
 describe("I3 review C1: session_ended releases cost-cap dedup", () => {
+	let handle: TestDbHandle;
 	let db: HyperIdleDb;
 	let eventBus: EventBus;
 	let unsubscribe: () => void;
 
-	beforeEach(() => {
-		db = createTestDb();
+	beforeEach(async () => {
+		handle = await createTestDb();
+		db = handle.db;
 		eventBus = new EventBus();
 		clearDeduplicationCache();
 		// Subscribe the cost-cap releaser so emitting session_ended
 		// reclaims the dedup entry — same wiring `createApp` performs.
 		unsubscribe = registerCostCapDedupReleaser(eventBus);
-		seed(db);
+		await seed(db);
 	});
 
 	it("emitting session_ended on the bus drops the per-session dedup entry", async () => {
@@ -174,7 +169,7 @@ describe("I3 review C1: session_ended releases cost-cap dedup", () => {
 
 		// Spy: handoff MUST NOT emit session_ended.
 		const sessionEnded: unknown[] = [];
-		eventBus.on("session_ended", (e) => sessionEnded.push(e));
+		eventBus.on("session_ended", (e: unknown) => sessionEnded.push(e));
 
 		const ctx: SessionContext = {
 			sessionId: "sess-1",

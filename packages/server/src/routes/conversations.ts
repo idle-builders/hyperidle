@@ -1,4 +1,4 @@
-import { type HyperIdleDb, items, threads } from "@hyperidle/db";
+import { type HyperIdleDb, type Item, items, threads } from "@hyperidle/db";
 import type { ApiErrorResponse, EventBus, ItemCreatedEvent } from "@hyperidle/shared";
 import { API_ERROR_CODES } from "@hyperidle/shared";
 import { desc, eq, sql } from "drizzle-orm";
@@ -44,7 +44,7 @@ export function createConversationRoutes(db: HyperIdleDb, eventBus: EventBus): H
 
 	// GET / — list threads, paginated, sorted by recency
 	// O2: attention_score sort removed (column stripped from items table)
-	router.get("/", (c) => {
+	router.get("/", async (c) => {
 		const sort = c.req.query("sort") ?? "recency";
 		const page = Math.max(1, Number(c.req.query("page") ?? "1"));
 		const limit = Math.max(1, Math.min(100, Number(c.req.query("limit") ?? "20")));
@@ -54,15 +54,15 @@ export function createConversationRoutes(db: HyperIdleDb, eventBus: EventBus): H
 			// O2: attention_score column stripped from items — fall through to recency sort
 			// @lore O2: attention_score was a strategy concern. Sorting by it from the kernel
 			// route is no longer supported. Callers should use recency or switch to strategy layer.
-			const total = db.select({ count: sql<number>`COUNT(*)` }).from(threads).get()?.count ?? 0;
+			const [countRow] = await db.select({ count: sql<number>`COUNT(*)` }).from(threads).limit(1);
+			const total = countRow?.count ?? 0;
 
-			const allThreads = db
+			const allThreads = await db
 				.select()
 				.from(threads)
 				.orderBy(desc(threads.createdAt))
 				.limit(limit)
-				.offset(offset)
-				.all();
+				.offset(offset);
 
 			return c.json({
 				threads: allThreads,
@@ -71,15 +71,15 @@ export function createConversationRoutes(db: HyperIdleDb, eventBus: EventBus): H
 		}
 
 		// Default: sort by recency (createdAt DESC)
-		const total = db.select({ count: sql<number>`COUNT(*)` }).from(threads).get()?.count ?? 0;
+		const [countRow] = await db.select({ count: sql<number>`COUNT(*)` }).from(threads).limit(1);
+		const total = countRow?.count ?? 0;
 
-		const allThreads = db
+		const allThreads = await db
 			.select()
 			.from(threads)
 			.orderBy(desc(threads.createdAt))
 			.limit(limit)
-			.offset(offset)
-			.all();
+			.offset(offset);
 
 		return c.json({
 			threads: allThreads,
@@ -88,9 +88,9 @@ export function createConversationRoutes(db: HyperIdleDb, eventBus: EventBus): H
 	});
 
 	// GET /:threadId — thread with items and responses
-	router.get("/:threadId", (c) => {
+	router.get("/:threadId", async (c) => {
 		const threadId = c.req.param("threadId");
-		const thread = db.select().from(threads).where(eq(threads.id, threadId)).get();
+		const [thread] = await db.select().from(threads).where(eq(threads.id, threadId)).limit(1);
 
 		if (!thread) {
 			const response: ApiErrorResponse = {
@@ -101,19 +101,18 @@ export function createConversationRoutes(db: HyperIdleDb, eventBus: EventBus): H
 		}
 
 		// Get items sorted by createdAt ASC
-		const threadItems = db
+		const threadItems = await db
 			.select()
 			.from(items)
 			.where(eq(items.threadId, threadId))
-			.orderBy(items.createdAt)
-			.all();
+			.orderBy(items.createdAt);
 
 		// L1 step5 (S-C2): the verdict-projection that re-shaped `verdict`
 		// messages into the legacy `responses` row format was removed alongside
 		// the dual-write `POST /responses` path. Verdicts now live on
 		// `GET /api/threads/:id` (messages, type='verdict'). The empty
 		// `responses: []` keeps the wire shape for one release.
-		const itemsWithResponses = threadItems.map((item) => ({
+		const itemsWithResponses = threadItems.map((item: Item) => ({
 			...item,
 			responses: [] as ReadonlyArray<never>,
 		}));
@@ -123,13 +122,13 @@ export function createConversationRoutes(db: HyperIdleDb, eventBus: EventBus): H
 
 	// POST /items — create item
 	// O2: routeItem/routeToFounder calls removed; view/founderRoute fields removed from response
-	router.post("/items", validateBody(createItemSchema), (c) => {
+	router.post("/items", validateBody(createItemSchema), async (c) => {
 		const body = c.req.valid("json" as never) as z.infer<typeof createItemSchema>;
 		const id = crypto.randomUUID();
 		const now = new Date().toISOString();
 
 		// Verify thread exists
-		const thread = db.select().from(threads).where(eq(threads.id, body.threadId)).get();
+		const [thread] = await db.select().from(threads).where(eq(threads.id, body.threadId)).limit(1);
 		if (!thread) {
 			const response: ApiErrorResponse = {
 				error: "Thread not found",
@@ -139,27 +138,25 @@ export function createConversationRoutes(db: HyperIdleDb, eventBus: EventBus): H
 		}
 
 		// O2: agents routing logic removed; sourceAgentId stored for audit purposes only
-		db.insert(items)
-			.values({
-				id,
-				sourceAgentId: body.sourceAgentId ?? null,
-				layer: body.layer ?? null,
-				verb: body.verb ?? null,
-				kind: body.kind ?? null,
-				title: body.title,
-				body: body.body ?? null,
-				attachments: body.attachments ?? null,
-				proposedAction: body.proposedAction ?? null,
-				options: body.options ?? null,
-				riskTier: body.riskTier ?? null,
-				blocking: body.blocking ? 1 : 0,
-				reasoning: body.reasoning ?? null,
-				threadId: body.threadId,
-				createdAt: now,
-			})
-			.run();
+		await db.insert(items).values({
+			id,
+			sourceAgentId: body.sourceAgentId ?? null,
+			layer: body.layer ?? null,
+			verb: body.verb ?? null,
+			kind: body.kind ?? null,
+			title: body.title,
+			body: body.body ?? null,
+			attachments: body.attachments ?? null,
+			proposedAction: body.proposedAction ?? null,
+			options: body.options ?? null,
+			riskTier: body.riskTier ?? null,
+			blocking: body.blocking ?? false,
+			reasoning: body.reasoning ?? null,
+			threadId: body.threadId,
+			createdAt: now,
+		});
 
-		const created = db.select().from(items).where(eq(items.id, id)).get();
+		const [created] = await db.select().from(items).where(eq(items.id, id)).limit(1);
 
 		// Emit item_created event
 		const event: ItemCreatedEvent = {

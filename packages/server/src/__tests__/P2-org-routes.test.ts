@@ -17,6 +17,7 @@ import {
 	// P2: import new symbols — compile error until implementation done
 	orgEdges,
 	products,
+	type TestDbHandle,
 	teams,
 	users,
 } from "@hyperidle/db";
@@ -32,60 +33,57 @@ function authHeaders(extra?: Record<string, string>): Record<string, string> {
 }
 
 describe("P2 — /api/org endpoints (AC5, AC6, AC10)", () => {
+	let handle: TestDbHandle;
 	let db: HyperIdleDb;
 	let eventBus: EventBus;
 	let app: Hono;
 	const NOW = new Date().toISOString();
 
-	beforeEach(() => {
+	beforeEach(async () => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		db = createTestDb();
+		handle = await createTestDb();
+		db = handle.db;
 		eventBus = new EventBus();
-		app = createTestApp({ db, eventBus });
+		app = await createTestApp({ db, eventBus });
 
 		// Seed prerequisite data
-		db.insert(products)
-			.values({ id: "prod-org", name: "Org Product", phase: "build", createdAt: NOW })
-			.run();
-		db.insert(teams)
-			.values({
-				id: "team-org",
-				productId: "prod-org",
-				capacity: 5,
-				activeBets: 0,
-				formedAt: NOW,
-			})
-			.run();
+		await db
+			.insert(products)
+			.values({ id: "prod-org", name: "Org Product", phase: "build", createdAt: NOW });
+		await db.insert(teams).values({
+			id: "team-org",
+			productId: "prod-org",
+			capacity: 5,
+			activeBets: 0,
+			formedAt: NOW,
+		});
 
 		// Seed a human user (the org edge owner)
-		db.insert(users)
-			.values({
-				id: "u-human-org",
-				kind: "human",
-				name: "Founder",
-				role: "founder",
-				status: "active",
-				email: "founder@example.com",
-				createdAt: NOW,
-			})
-			.run();
+		await db.insert(users).values({
+			id: "u-human-org",
+			kind: "human",
+			name: "Founder",
+			role: "founder",
+			status: "active",
+			email: "founder@example.com",
+			createdAt: NOW,
+		});
 
 		// Seed an AI user (the org edge target)
-		db.insert(users)
-			.values({
-				id: "u-ai-org",
-				kind: "ai",
-				name: "Builder Bot",
-				role: "builder",
-				status: "active",
-				teamId: "team-org",
-				createdAt: NOW,
-			})
-			.run();
+		await db.insert(users).values({
+			id: "u-ai-org",
+			kind: "ai",
+			name: "Builder Bot",
+			role: "builder",
+			status: "active",
+			teamId: "team-org",
+			createdAt: NOW,
+		});
 	});
 
-	afterEach(() => {
+	afterEach(async () => {
 		vi.unstubAllEnvs();
+		await handle?.close();
 	});
 
 	// -------------------------------------------------------------------------
@@ -107,15 +105,13 @@ describe("P2 — /api/org endpoints (AC5, AC6, AC10)", () => {
 
 		it("returns edges with correct shape after inserting one", async () => {
 			// Pre-seed an edge directly in DB
-			db.insert(orgEdges)
-				.values({
-					id: "edge-org-1",
-					fromUserId: "u-human-org",
-					mechanism: "direct",
-					target: "u-ai-org",
-					createdAt: NOW,
-				})
-				.run();
+			await db.insert(orgEdges).values({
+				id: "edge-org-1",
+				fromUserId: "u-human-org",
+				mechanism: "direct",
+				target: "u-ai-org",
+				createdAt: NOW,
+			});
 
 			const res = await app.request("/api/org", { headers: authHeaders() });
 			expect(res.status).toBe(200);

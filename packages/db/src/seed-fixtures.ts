@@ -1,11 +1,9 @@
 /**
- * Shared seed fixture data for SQLite + PG seeders.
+ * Shared seed fixture data for the PG seeder.
  *
- * @lore I3 (TRACK-I.md L161-164): the SQLite seed and PG seed must produce
- * the same logical fixture set. Boolean columns diverge per dialect — SQLite
- * uses 0/1 integers, PG uses true/false. The fixtures here describe the data
- * with `boolean` semantics; each dialect's seeder coerces at the boundary
- * (`asBit01(true)` → 1 for SQLite; `bool` is passed straight through to PG).
+ * @lore I3 (TRACK-I.md L161-164): the SQLite and PG seeds produced the same
+ * logical fixture set. After Phase 2 the schema is PG-only, so `asBit01()`
+ * was removed — booleans are passed straight through to PG as true/false.
  */
 
 export const FACILITATOR_TOOLS = [
@@ -89,8 +87,3 @@ export const BUILTIN_ROUTINE_SEEDS: readonly BuiltinRoutineSeed[] = [
 		silent: true,
 	},
 ];
-
-/** Coerce a boolean to a 0/1 integer for SQLite columns. */
-export function asBit01(value: boolean): 0 | 1 {
-	return value ? 1 : 0;
-}

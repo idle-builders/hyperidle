@@ -12,7 +12,7 @@ Iterative visual fidelity improvement loop. Compare the live implementation agai
 
 ## Prerequisites
 
-- Dev server running on `localhost:5173` (`bun dev` from repo root)
+- Dev server running on `localhost:5173` (`npm run dev` from repo root)
 - Playwright installed (`cd packages/web && bunx playwright install chromium`)
 - Reference mockups attached to `plans/<workpackage-id>/design/approved.md`
 
@@ -21,7 +21,7 @@ Iterative visual fidelity improvement loop. Compare the live implementation agai
 ### 1. Capture & Compare
 
 ```bash
-cd packages/web && bun run visual:compare <reference-name>
+cd packages/web && npm run visual:compare <reference-name>
 ```
 
 This produces in `packages/web/visual-reports/<name>/`:

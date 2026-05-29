@@ -1,10 +1,10 @@
-#!/usr/bin/env bun
-// @lore: CI-side attestation checker. Validates that `bun run verify` passed
+#!/usr/bin/env tsx
+// @lore: CI-side attestation checker. Validates that `npm run verify` passed
 // locally for the code in this PR. Uses HMAC-SHA256 with a shared secret
 // (VERIFY_SECRET) to prevent forgery — the secret lives outside the repo
 // (~/.config/hyperidle/verify-secret locally, GitHub Actions secret in CI).
 // An AI agent CAN find the secret, but computing the HMAC is more work than
-// just running `bun run verify`, which is the design intent.
+// just running `npm run verify`, which is the design intent.
 
 import { execSync } from "node:child_process";
 import { createHmac } from "node:crypto";
@@ -40,7 +40,7 @@ function main(): void {
 		raw = readFileSync(resolve(process.cwd(), ATTESTATION_FILE), "utf-8");
 	} catch {
 		fail(
-			`${ATTESTATION_FILE} not found — run \`bun run verify\` locally, then commit the attestation`,
+			`${ATTESTATION_FILE} not found — run \`npm run verify\` locally, then commit the attestation`,
 		);
 	}
 
@@ -84,7 +84,7 @@ function main(): void {
 
 	if (sneakedFiles.length > 0) {
 		fail(
-			`source files changed after verify ran:\n  ${sneakedFiles.join("\n  ")}\nRe-run \`bun run verify\` and commit the new attestation`,
+			`source files changed after verify ran:\n  ${sneakedFiles.join("\n  ")}\nRe-run \`npm run verify\` and commit the new attestation`,
 		);
 	}
 

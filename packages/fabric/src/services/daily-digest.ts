@@ -23,17 +23,16 @@ interface DailyDigestResult {
  * item creation path) for fresh rows. Until item-creation is fully ported
  * to the thread primitive, the digest joins on `legacy_item_id`.
  */
-export function getDailyDigest(db: HyperIdleDb, now?: Date): DailyDigestResult {
+export async function getDailyDigest(db: HyperIdleDb, now?: Date): Promise<DailyDigestResult> {
 	const currentTime = now ?? new Date();
 	const twentyFourHoursAgo = new Date(currentTime.getTime() - 24 * 60 * 60 * 1000);
 	const cutoff = twentyFourHoursAgo.toISOString();
 
 	// Get all queued items from the last 24h
-	const queuedItems = db
+	const queuedItems = await db
 		.select()
 		.from(items)
-		.where(and(like(items.auditTrail, "%policy_queued%"), gte(items.createdAt, cutoff)))
-		.all();
+		.where(and(like(items.auditTrail, "%policy_queued%"), gte(items.createdAt, cutoff)));
 
 	if (queuedItems.length === 0) {
 		return { items: [], generatedAt: currentTime.toISOString() };
@@ -43,14 +42,12 @@ export function getDailyDigest(db: HyperIdleDb, now?: Date): DailyDigestResult {
 	// candidate set by joining on `legacy_item_id`. Scoped to candidate
 	// ids only, not full table.
 	const candidateIds = queuedItems.map((i) => i.id);
+	const respondedRows = await db
+		.select({ legacyItemId: messages.legacyItemId })
+		.from(messages)
+		.where(and(eq(messages.type, "verdict"), inArray(messages.legacyItemId, candidateIds)));
 	const respondedItemIds = new Set(
-		db
-			.select({ legacyItemId: messages.legacyItemId })
-			.from(messages)
-			.where(and(eq(messages.type, "verdict"), inArray(messages.legacyItemId, candidateIds)))
-			.all()
-			.map((r) => r.legacyItemId)
-			.filter((id): id is string => id !== null),
+		respondedRows.map((r) => r.legacyItemId).filter((id): id is string => id !== null),
 	);
 
 	// Filter out items that already have a verdict-typed message.

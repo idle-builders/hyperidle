@@ -1,12 +1,12 @@
-#!/usr/bin/env bun
+#!/usr/bin/env tsx
 /**
  * Mock-data inventory generator (M1).
  * Walks packages/web/src/ and packages/server/src/, detects mock-data
  * offenders, emits inventory.json + inventory.md + queue.md.
  *
  * Usage:
- *   bun scripts/mock-inventory.ts          # write files
- *   bun scripts/mock-inventory.ts --check  # CI mode: compare, exit 1 on diff
+ *   npm run mock-inventory          # write files
+ *   npm run mock-inventory:check   # CI mode: compare, exit 1 on diff
  *
  * Architecture ref: M1 architecture.md § Phase D, File 6
  */
@@ -494,7 +494,11 @@ function emitQueue(rows: InventoryRow[], repoRoot: string): string {
 // CLI entry point
 // ---------------------------------------------------------------------------
 
-if (import.meta.main) {
+// Node-compatible entrypoint check (replaces Bun's import.meta.main)
+const isEntrypoint =
+	process.argv[1] ===
+	(typeof __filename === "string" ? __filename : fileURLToPath(import.meta.url));
+if (isEntrypoint) {
 	const isCheck = process.argv.includes("--check");
 
 	// Determine repo root from script location
@@ -536,7 +540,7 @@ if (import.meta.main) {
 				}
 			}
 			process.stderr.write(
-				"  Run `bun scripts/mock-inventory.ts` to regenerate, then commit the updated inventory.json.\n",
+				"  Run `npm run mock-inventory` to regenerate, then commit the updated inventory.json.\n",
 			);
 			process.exit(1);
 		}

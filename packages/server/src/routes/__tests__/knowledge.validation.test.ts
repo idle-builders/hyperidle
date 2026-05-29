@@ -24,21 +24,19 @@ function authHeaders(extra?: Record<string, string>): Record<string, string> {
 	return { "X-API-Key": TEST_API_KEY, "Content-Type": "application/json", ...extra };
 }
 
-function seedKi(db: HyperIdleDb, id: string, title: string, body = "body"): void {
+async function seedKi(db: HyperIdleDb, id: string, title: string, body = "body"): Promise<void> {
 	const now = new Date().toISOString();
-	db.insert(knowledgeItems)
-		.values({
-			id,
-			title,
-			body,
-			format: "markdown",
-			status: "active",
-			version: 1,
-			updatedBy: "human",
-			createdAt: now,
-			updatedAt: now,
-		})
-		.run();
+	await db.insert(knowledgeItems).values({
+		id,
+		title,
+		body,
+		format: "markdown",
+		status: "active",
+		version: 1,
+		updatedBy: "human",
+		createdAt: now,
+		updatedAt: now,
+	});
 }
 
 // @lore O2: V3 layer validation tests removed — /:layer URL pattern no longer exists.
@@ -46,10 +44,10 @@ function seedKi(db: HyperIdleDb, id: string, title: string, body = "body"): void
 describe("I2 V3 — O2: /:layer URL returns 404 (layer routing removed)", () => {
 	let app: Hono;
 
-	beforeEach(() => {
+	beforeEach(async () => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		const db = createTestDb();
-		app = createTestApp({ db, eventBus: new EventBus() });
+		const handle = await createTestDb();
+		app = await createTestApp({ db: handle.db, eventBus: new EventBus() });
 	});
 
 	afterEach(() => {
@@ -76,19 +74,16 @@ describe("I2 V4 — GET /api/knowledge/search escapes LIKE wildcards", () => {
 	let db: HyperIdleDb;
 	let app: Hono;
 
-	beforeEach(() => {
+	beforeEach(async () => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		db = createTestDb();
-		app = createTestApp({ db, eventBus: new EventBus() });
+		const handle = await createTestDb();
+		db = handle.db;
+		app = await createTestApp({ db, eventBus: new EventBus() });
 
-		// AB and AxB share the same prefix/suffix. With unescaped LIKE,
-		// `?q=A_B` (where `_` matches any single char) hits both. With
-		// escaping, `?q=A_B` is a literal substring search and only matches
-		// the row that contains "A_B" verbatim.
-		seedKi(db, "ki-ab", "AB"); // literal "AB"
-		seedKi(db, "ki-axb", "AxB"); // would be matched by unescaped `A_B`
-		seedKi(db, "ki-aub", "A_B"); // contains the literal underscore
-		seedKi(db, "ki-pct", "100% off"); // contains literal %
+		await seedKi(db, "ki-ab", "AB");
+		await seedKi(db, "ki-axb", "AxB");
+		await seedKi(db, "ki-aub", "A_B");
+		await seedKi(db, "ki-pct", "100% off");
 	});
 
 	afterEach(() => {

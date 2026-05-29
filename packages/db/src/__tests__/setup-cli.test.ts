@@ -1,7 +1,7 @@
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import Database from "better-sqlite3";
+import { PGlite } from "@electric-sql/pglite";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { runSetup, validateDbPath } from "../setup-cli.js";
 
@@ -32,41 +32,43 @@ afterEach(() => {
 });
 
 describe("H4 AC1: `bun run setup --profile laptop`", () => {
-	it("creates SQLite DB, runs migrations, seeds — end to end", async () => {
-		const dbPath = path.join(tmpdir, "hyperidle.db");
+	it("creates PGlite data dir, runs migrations, seeds — end to end", {
+		timeout: 60_000,
+	}, async () => {
+		const dataDir = path.join(tmpdir, "hyperidle-pg");
 		const { io, captured } = makeIo();
 
-		const exit = await runSetup(["--profile", "laptop", "--db-path", dbPath], io, { env: {} });
+		const exit = await runSetup(["--profile", "laptop", "--db-path", dataDir], io, { env: {} });
 		expect(exit).toBe(0);
 
-		// File exists
-		expect(fs.existsSync(dbPath)).toBe(true);
+		// Data directory exists
+		expect(fs.existsSync(dataDir)).toBe(true);
 
-		// Tables + seed rows present
-		const raw = new Database(dbPath);
+		// Tables + seed rows present — query via PGlite
+		const client = new PGlite(dataDir);
+		await client.waitReady;
 		try {
-			const products = raw.prepare("SELECT id FROM products").all() as Array<{ id: string }>;
-			expect(products.length).toBeGreaterThan(0);
+			const productsResult = await client.query<{ id: string }>("SELECT id FROM products");
+			expect(productsResult.rows.length).toBeGreaterThan(0);
 
-			// @lore P2: agents → users table
-			const agents = raw.prepare("SELECT id FROM users").all() as Array<{ id: string }>;
-			expect(agents.length).toBeGreaterThan(0);
+			const usersResult = await client.query<{ id: string }>("SELECT id FROM users");
+			expect(usersResult.rows.length).toBeGreaterThan(0);
 		} finally {
-			raw.close();
+			await client.close();
 		}
 
 		// Banner emitted
 		const all = captured.stdout.join("\n");
 		expect(all).toMatch(/ready/i);
-		expect(all).toContain(dbPath);
+		expect(all).toContain(dataDir);
 	});
 
-	it("defaults db path to ./hyperidle.db in cwd when not given (dry-run only)", async () => {
+	it("defaults db path to ./hyperidle-pg in cwd when not given (dry-run only)", async () => {
 		const { io, captured } = makeIo();
 		const exit = await runSetup(["--profile", "laptop", "--dry-run"], io, { env: {} });
 		expect(exit).toBe(0);
 		const all = captured.stdout.join("\n");
-		expect(all).toMatch(/hyperidle\.db/);
+		expect(all).toMatch(/hyperidle-pg/);
 		expect(all).toMatch(/dry[-\s]?run/i);
 	});
 });
@@ -131,7 +133,7 @@ describe("H4 security: --db-path validation", () => {
 		fs.mkdirSync(readonlyDir, { recursive: true });
 		try {
 			fs.chmodSync(readonlyDir, 0o444);
-			expect(() => validateDbPath(path.join(readonlyDir, "hyperidle.db"), tmpdir)).toThrow(
+			expect(() => validateDbPath(path.join(readonlyDir, "hyperidle-pg"), tmpdir)).toThrow(
 				/not writable|cannot be created/,
 			);
 		} finally {
@@ -140,13 +142,13 @@ describe("H4 security: --db-path validation", () => {
 	});
 
 	it("resolves a relative path to an absolute path under cwd", () => {
-		const out = validateDbPath("data/hyperidle.db", tmpdir);
+		const out = validateDbPath("data/hyperidle-pg", tmpdir);
 		expect(path.isAbsolute(out)).toBe(true);
 		expect(out.startsWith(tmpdir)).toBe(true);
 	});
 
 	it("accepts an absolute path whose parent is writable", () => {
-		const target = path.join(tmpdir, "sub", "hyperidle.db");
+		const target = path.join(tmpdir, "sub", "hyperidle-pg");
 		const out = validateDbPath(target, tmpdir);
 		expect(out).toBe(target);
 		expect(fs.existsSync(path.dirname(target))).toBe(true);
@@ -164,33 +166,35 @@ describe("H4 security: --db-path validation", () => {
 });
 
 describe("H4 idempotency: laptop setup is safe to run twice", () => {
-	it("running setup --profile laptop twice does not corrupt the DB", async () => {
-		const dbPath = path.join(tmpdir, "hyperidle.db");
+	it("running setup --profile laptop twice does not corrupt the DB", {
+		timeout: 60_000,
+	}, async () => {
+		const dataDir = path.join(tmpdir, "hyperidle-pg");
 		const { io } = makeIo();
 
-		const first = await runSetup(["--profile", "laptop", "--db-path", dbPath], io, {
+		const first = await runSetup(["--profile", "laptop", "--db-path", dataDir], io, {
 			env: {},
 		});
 		expect(first).toBe(0);
 
-		const second = await runSetup(["--profile", "laptop", "--db-path", dbPath], io, {
+		const second = await runSetup(["--profile", "laptop", "--db-path", dataDir], io, {
 			env: {},
 		});
 		expect(second).toBe(0);
 
 		// DB must still open, schema must still be present, seed rows must
 		// still be there exactly once (onConflictDoNothing).
-		const raw = new Database(dbPath);
+		const client = new PGlite(dataDir);
+		await client.waitReady;
 		try {
-			// @lore P2: agents → users table
-			const agents = raw.prepare("SELECT id FROM users").all() as Array<{ id: string }>;
-			expect(agents.length).toBeGreaterThan(0);
-			const products = raw
-				.prepare("SELECT COUNT(*) AS n FROM products WHERE id = 'seed-product-1'")
-				.get() as { n: number };
-			expect(products.n).toBe(1);
+			const usersResult = await client.query<{ id: string }>("SELECT id FROM users");
+			expect(usersResult.rows.length).toBeGreaterThan(0);
+			const productsResult = await client.query<{ n: string }>(
+				"SELECT COUNT(*) AS n FROM products WHERE id = 'seed-product-1'",
+			);
+			expect(Number(productsResult.rows[0]?.n)).toBe(1);
 		} finally {
-			raw.close();
+			await client.close();
 		}
 	});
 });

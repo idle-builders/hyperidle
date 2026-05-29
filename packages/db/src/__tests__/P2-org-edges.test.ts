@@ -1,10 +1,5 @@
 /**
- * P2 RED — org_edges table: CRUD, unique constraint, cascade delete.
- *
- * These tests FAIL until:
- *  - Migration 0017 creates the org_edges table with the correct schema
- *  - schema.ts exports `orgEdges` table and `OrgEdge`/`NewOrgEdge` types
- *  - index.ts re-exports orgEdges, OrgEdge, NewOrgEdge
+ * P2 — org_edges table: CRUD, unique constraint, cascade delete.
  *
  * @lore P2: org_edges has a composite unique index on (from_user_id, mechanism, target).
  * The id column is a UUID primary key for stable REST addressing. The composite
@@ -12,17 +7,18 @@
  * the tuple already exists.
  */
 
-import { eq, sql } from "drizzle-orm";
-import { beforeEach, describe, expect, it } from "vitest";
+import { eq } from "drizzle-orm";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { HyperIdleDb } from "../connection.js";
 // P2: import new symbols — these will fail to compile until implementation is done
 import { type NewOrgEdge, type NewUser, type OrgEdge, orgEdges, users } from "../schema.js";
-import { createTestDb } from "../test-utils.js";
+import { createTestDb, type TestDbHandle } from "../test-utils.js";
 
 const NOW = new Date().toISOString();
 
-function seedHumanUser(db: HyperIdleDb, id = "u-human-1"): void {
-	db.insert(users)
+async function seedHumanUser(db: HyperIdleDb, id = "u-human-1"): Promise<void> {
+	await db
+		.insert(users)
 		.values({
 			id,
 			kind: "human",
@@ -32,12 +28,12 @@ function seedHumanUser(db: HyperIdleDb, id = "u-human-1"): void {
 			email: "human@example.com",
 			createdAt: NOW,
 		} satisfies NewUser)
-		.onConflictDoNothing()
-		.run();
+		.onConflictDoNothing();
 }
 
-function seedAiUser(db: HyperIdleDb, id: string, role = "builder"): void {
-	db.insert(users)
+async function seedAiUser(db: HyperIdleDb, id: string, role = "builder"): Promise<void> {
+	await db
+		.insert(users)
 		.values({
 			id,
 			kind: "ai",
@@ -46,54 +42,65 @@ function seedAiUser(db: HyperIdleDb, id: string, role = "builder"): void {
 			status: "active",
 			createdAt: NOW,
 		} satisfies NewUser)
-		.onConflictDoNothing()
-		.run();
+		.onConflictDoNothing();
 }
 
 describe("P2 — org_edges table (AC5)", () => {
+	let handle: TestDbHandle;
 	let db: HyperIdleDb;
 
-	beforeEach(() => {
-		db = createTestDb();
+	beforeEach(async () => {
+		handle = await createTestDb();
+		db = handle.db;
+	}, 30_000);
+
+	afterEach(async () => {
+		await handle.close();
 	});
 
 	// -------------------------------------------------------------------------
 	// AC5: org_edges table created with correct schema
 	// -------------------------------------------------------------------------
 	describe("AC5: table exists with correct columns", () => {
-		it("org_edges table exists after migration", () => {
-			const tableNames = db
-				.all<{ name: string }>(sql`SELECT name FROM sqlite_master WHERE type='table' ORDER BY name`)
-				.map((r) => r.name);
+		it("org_edges table exists after migration", async () => {
+			const result = await db.execute(
+				`SELECT tablename FROM pg_tables WHERE schemaname = 'public' ORDER BY tablename` as Parameters<
+					typeof db.execute
+				>[0],
+			);
+			const tableNames = (result as { rows: Array<{ tablename: string }> }).rows.map(
+				(r) => r.tablename,
+			);
 
 			expect(tableNames).toContain("org_edges");
 		});
 
-		it("org_edges has all required columns", () => {
-			const cols = db
-				.all<{ name: string; notnull: number }>(sql`PRAGMA table_info(org_edges)`)
-				.reduce<Record<string, { notnull: number }>>((acc, col) => {
-					acc[col.name] = { notnull: col.notnull };
-					return acc;
-				}, {});
+		it("org_edges has all required columns", async () => {
+			const result = await db.execute(
+				`SELECT column_name, is_nullable FROM information_schema.columns WHERE table_name = 'org_edges' AND table_schema = 'public'` as Parameters<
+					typeof db.execute
+				>[0],
+			);
+			const cols = new Set(
+				(result as { rows: Array<{ column_name: string }> }).rows.map((r) => r.column_name),
+			);
 
-			expect(cols["id"]).toBeDefined();
-			expect(cols["from_user_id"]).toBeDefined();
-			expect(cols["from_user_id"]).toMatchObject({ notnull: 1 });
-			expect(cols["mechanism"]).toBeDefined();
-			expect(cols["mechanism"]).toMatchObject({ notnull: 1 });
-			expect(cols["target"]).toBeDefined();
-			expect(cols["target"]).toMatchObject({ notnull: 1 });
-			expect(cols["created_at"]).toBeDefined();
-			expect(cols["created_at"]).toMatchObject({ notnull: 1 });
+			expect(cols.has("id")).toBe(true);
+			expect(cols.has("from_user_id")).toBe(true);
+			expect(cols.has("mechanism")).toBe(true);
+			expect(cols.has("target")).toBe(true);
+			expect(cols.has("created_at")).toBe(true);
 		});
 
-		it("org_edges_unique index exists on (from_user_id, mechanism, target)", () => {
-			const indexes = db
-				.all<{ name: string }>(
-					sql`SELECT name FROM sqlite_master WHERE type='index' AND tbl_name='org_edges'`,
-				)
-				.map((i) => i.name);
+		it("org_edges_unique index exists on (from_user_id, mechanism, target)", async () => {
+			const result = await db.execute(
+				`SELECT indexname FROM pg_indexes WHERE tablename = 'org_edges' AND schemaname = 'public'` as Parameters<
+					typeof db.execute
+				>[0],
+			);
+			const indexes = (result as { rows: Array<{ indexname: string }> }).rows.map(
+				(r) => r.indexname,
+			);
 
 			expect(indexes).toContain("org_edges_unique");
 		});
@@ -103,9 +110,9 @@ describe("P2 — org_edges table (AC5)", () => {
 	// AC5: CRUD operations
 	// -------------------------------------------------------------------------
 	describe("AC5: CRUD operations", () => {
-		it("inserts and reads an org edge", () => {
-			seedHumanUser(db);
-			seedAiUser(db, "u-ai-1", "builder");
+		it("inserts and reads an org edge", async () => {
+			await seedHumanUser(db);
+			await seedAiUser(db, "u-ai-1", "builder");
 
 			const edge: NewOrgEdge = {
 				id: "edge-1",
@@ -115,17 +122,18 @@ describe("P2 — org_edges table (AC5)", () => {
 				createdAt: NOW,
 			};
 
-			db.insert(orgEdges).values(edge).run();
+			await db.insert(orgEdges).values(edge);
 
-			const row = db.select().from(orgEdges).where(eq(orgEdges.id, "edge-1")).get();
+			const rows = await db.select().from(orgEdges).where(eq(orgEdges.id, "edge-1"));
+			const row = rows[0];
 			expect(row).toBeDefined();
 			expect((row as OrgEdge).fromUserId).toBe("u-human-1");
 			expect((row as OrgEdge).mechanism).toBe("direct");
 			expect((row as OrgEdge).target).toBe("u-ai-1");
 		});
 
-		it("inserts an org edge with mechanism = function", () => {
-			seedHumanUser(db);
+		it("inserts an org edge with mechanism = function", async () => {
+			await seedHumanUser(db);
 
 			const edge: NewOrgEdge = {
 				id: "edge-func-1",
@@ -135,15 +143,14 @@ describe("P2 — org_edges table (AC5)", () => {
 				createdAt: NOW,
 			};
 
-			db.insert(orgEdges).values(edge).run();
+			await db.insert(orgEdges).values(edge);
 
-			const row = db.select().from(orgEdges).where(eq(orgEdges.id, "edge-func-1")).get();
-			expect(row).toBeDefined();
-			expect(row).toMatchObject({ mechanism: "function", target: "builder" });
+			const rows = await db.select().from(orgEdges).where(eq(orgEdges.id, "edge-func-1"));
+			expect(rows[0]).toMatchObject({ mechanism: "function", target: "builder" });
 		});
 
-		it("inserts an org edge with mechanism = team", () => {
-			seedHumanUser(db);
+		it("inserts an org edge with mechanism = team", async () => {
+			await seedHumanUser(db);
 
 			const edge: NewOrgEdge = {
 				id: "edge-team-1",
@@ -153,31 +160,28 @@ describe("P2 — org_edges table (AC5)", () => {
 				createdAt: NOW,
 			};
 
-			db.insert(orgEdges).values(edge).run();
+			await db.insert(orgEdges).values(edge);
 
-			const row = db.select().from(orgEdges).where(eq(orgEdges.id, "edge-team-1")).get();
-			expect(row).toBeDefined();
-			expect(row).toMatchObject({ mechanism: "team", target: "team-alpha" });
+			const rows = await db.select().from(orgEdges).where(eq(orgEdges.id, "edge-team-1"));
+			expect(rows[0]).toMatchObject({ mechanism: "team", target: "team-alpha" });
 		});
 
-		it("deletes an org edge by id", () => {
-			seedHumanUser(db);
-			seedAiUser(db, "u-ai-2", "growth");
+		it("deletes an org edge by id", async () => {
+			await seedHumanUser(db);
+			await seedAiUser(db, "u-ai-2", "growth");
 
-			db.insert(orgEdges)
-				.values({
-					id: "edge-delete-me",
-					fromUserId: "u-human-1",
-					mechanism: "direct",
-					target: "u-ai-2",
-					createdAt: NOW,
-				})
-				.run();
+			await db.insert(orgEdges).values({
+				id: "edge-delete-me",
+				fromUserId: "u-human-1",
+				mechanism: "direct",
+				target: "u-ai-2",
+				createdAt: NOW,
+			});
 
-			db.delete(orgEdges).where(eq(orgEdges.id, "edge-delete-me")).run();
+			await db.delete(orgEdges).where(eq(orgEdges.id, "edge-delete-me"));
 
-			const row = db.select().from(orgEdges).where(eq(orgEdges.id, "edge-delete-me")).get();
-			expect(row).toBeUndefined();
+			const rows = await db.select().from(orgEdges).where(eq(orgEdges.id, "edge-delete-me"));
+			expect(rows).toHaveLength(0);
 		});
 	});
 
@@ -185,9 +189,9 @@ describe("P2 — org_edges table (AC5)", () => {
 	// AC5: Unique constraint prevents duplicate (from, mechanism, target) tuples
 	// -------------------------------------------------------------------------
 	describe("AC5: unique constraint on (fromUserId, mechanism, target)", () => {
-		it("rejects a duplicate (fromUserId, mechanism, target) tuple", () => {
-			seedHumanUser(db);
-			seedAiUser(db, "u-ai-dup", "builder");
+		it("rejects a duplicate (fromUserId, mechanism, target) tuple", async () => {
+			await seedHumanUser(db);
+			await seedAiUser(db, "u-ai-dup", "builder");
 
 			const edge1: NewOrgEdge = {
 				id: "edge-dup-1",
@@ -205,40 +209,34 @@ describe("P2 — org_edges table (AC5)", () => {
 				createdAt: NOW,
 			};
 
-			db.insert(orgEdges).values(edge1).run();
+			await db.insert(orgEdges).values(edge1);
 
 			// Second insert with same (fromUserId, mechanism, target) should throw
-			expect(() => {
-				db.insert(orgEdges).values(edge2).run();
-			}).toThrow();
+			await expect(db.insert(orgEdges).values(edge2)).rejects.toThrow();
 		});
 
-		it("allows same fromUserId with different mechanism", () => {
-			seedHumanUser(db);
-			seedAiUser(db, "u-ai-mech", "builder");
+		it("allows same fromUserId with different mechanism", async () => {
+			await seedHumanUser(db);
+			await seedAiUser(db, "u-ai-mech", "builder");
 
-			db.insert(orgEdges)
-				.values({
-					id: "edge-m1",
-					fromUserId: "u-human-1",
-					mechanism: "direct",
-					target: "u-ai-mech",
-					createdAt: NOW,
-				})
-				.run();
+			await db.insert(orgEdges).values({
+				id: "edge-m1",
+				fromUserId: "u-human-1",
+				mechanism: "direct",
+				target: "u-ai-mech",
+				createdAt: NOW,
+			});
 
 			// Different mechanism — should succeed
-			expect(() => {
-				db.insert(orgEdges)
-					.values({
-						id: "edge-m2",
-						fromUserId: "u-human-1",
-						mechanism: "function",
-						target: "builder",
-						createdAt: NOW,
-					})
-					.run();
-			}).not.toThrow();
+			await expect(
+				db.insert(orgEdges).values({
+					id: "edge-m2",
+					fromUserId: "u-human-1",
+					mechanism: "function",
+					target: "builder",
+					createdAt: NOW,
+				}),
+			).resolves.not.toThrow();
 		});
 	});
 
@@ -246,28 +244,25 @@ describe("P2 — org_edges table (AC5)", () => {
 	// AC5: CASCADE delete — deleting a user removes their org edges
 	// -------------------------------------------------------------------------
 	describe("AC5: cascade delete on user deletion", () => {
-		it("deleting a user cascades to their org edges", () => {
-			seedHumanUser(db, "u-cascade-test");
-			seedAiUser(db, "u-ai-cascade", "builder");
+		it("deleting a user cascades to their org edges", async () => {
+			await seedHumanUser(db, "u-cascade-test");
+			await seedAiUser(db, "u-ai-cascade", "builder");
 
-			db.insert(orgEdges)
-				.values({
-					id: "edge-cascade-1",
-					fromUserId: "u-cascade-test",
-					mechanism: "direct",
-					target: "u-ai-cascade",
-					createdAt: NOW,
-				})
-				.run();
+			await db.insert(orgEdges).values({
+				id: "edge-cascade-1",
+				fromUserId: "u-cascade-test",
+				mechanism: "direct",
+				target: "u-ai-cascade",
+				createdAt: NOW,
+			});
 
 			// Delete the fromUserId user — edge should cascade-delete
-			db.delete(users).where(eq(users.id, "u-cascade-test")).run();
+			await db.delete(users).where(eq(users.id, "u-cascade-test"));
 
-			const remaining = db
+			const remaining = await db
 				.select()
 				.from(orgEdges)
-				.where(eq(orgEdges.fromUserId, "u-cascade-test"))
-				.all();
+				.where(eq(orgEdges.fromUserId, "u-cascade-test"));
 			expect(remaining).toHaveLength(0);
 		});
 	});

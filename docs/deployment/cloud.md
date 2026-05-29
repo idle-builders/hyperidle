@@ -11,9 +11,9 @@ production-grade deployments.
 ```
 export DATABASE_URL=postgres://user:pass@host:5432/hyperidle
 export HYPERIDLE_PROFILE=cloud
-bun run setup --profile cloud
-bun run db:migrate:pg
-bun run db:seed:pg
+npm run setup --profile cloud
+npm run db:migrate:pg
+npm run db:seed:pg
 ```
 
 Cloud profile uses connection pooling against the managed Postgres. The

@@ -1,6 +1,6 @@
 export type DeploymentProfile = "laptop" | "vps" | "cloud";
 
-export type DbDriver = "sqlite" | "postgres";
+export type DbDriver = "pglite" | "postgres";
 export type WorkspaceAdapterKind = "local" | "docker" | "e2b";
 
 export interface ProfileDefaults {
@@ -17,8 +17,8 @@ const DEFAULT_PORTS = { server: 3001, web: 5173 } as const;
 export const PROFILE_DEFAULTS: Record<DeploymentProfile, ProfileDefaults> = {
 	laptop: {
 		profile: "laptop",
-		dbDriver: "sqlite",
-		dbUrlDefault: "./hyperidle.db",
+		dbDriver: "pglite",
+		dbUrlDefault: "./hyperidle-pg",
 		workspaceAdapter: "local",
 		requiresDockerCompose: false,
 		ports: DEFAULT_PORTS,

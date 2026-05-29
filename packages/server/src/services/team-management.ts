@@ -9,42 +9,43 @@ interface CreateTeamOpts {
 	agentIds: string[];
 }
 
-export function createTeam(db: HyperIdleDb, opts: CreateTeamOpts): Team {
+export async function createTeam(db: HyperIdleDb, opts: CreateTeamOpts): Promise<Team> {
 	const id = crypto.randomUUID();
 	const now = new Date().toISOString();
 
-	db.insert(teams)
-		.values({
-			id,
-			productId: opts.productId,
-			capacity: opts.capacity,
-			leadAgentId: opts.leadAgentId ?? null,
-			activeBets: 0,
-			formedAt: now,
-		})
-		.run();
+	await db.insert(teams).values({
+		id,
+		productId: opts.productId,
+		capacity: opts.capacity,
+		leadAgentId: opts.leadAgentId ?? null,
+		activeBets: 0,
+		formedAt: now,
+	});
 
 	for (const agentId of opts.agentIds) {
-		db.update(users).set({ teamId: id }).where(eq(users.id, agentId)).run();
+		await db.update(users).set({ teamId: id }).where(eq(users.id, agentId));
 	}
 
-	const team = db.select().from(teams).where(eq(teams.id, id)).get();
+	const [team] = await db.select().from(teams).where(eq(teams.id, id)).limit(1);
 	if (!team) {
 		throw new Error(`Failed to create team ${id}`);
 	}
 	return team;
 }
 
-export function addMember(db: HyperIdleDb, teamId: string, agentId: string): void {
-	db.update(users).set({ teamId }).where(eq(users.id, agentId)).run();
+export async function addMember(db: HyperIdleDb, teamId: string, agentId: string): Promise<void> {
+	await db.update(users).set({ teamId }).where(eq(users.id, agentId));
 }
 
-export function removeMember(db: HyperIdleDb, teamId: string, agentId: string): void {
-	const activeRoutines = db
+export async function removeMember(
+	db: HyperIdleDb,
+	teamId: string,
+	agentId: string,
+): Promise<void> {
+	const activeRoutines = await db
 		.select()
 		.from(routines)
-		.where(and(eq(routines.ownerAgentId, agentId), eq(routines.active, 1)))
-		.all();
+		.where(and(eq(routines.ownerAgentId, agentId), eq(routines.active, true)));
 
 	if (activeRoutines.length > 0) {
 		throw new ActiveRoutinesError(
@@ -52,30 +53,34 @@ export function removeMember(db: HyperIdleDb, teamId: string, agentId: string): 
 		);
 	}
 
-	db.update(users)
+	await db
+		.update(users)
 		.set({ teamId: null })
-		.where(and(eq(users.id, agentId), eq(users.teamId, teamId)))
-		.run();
+		.where(and(eq(users.id, agentId), eq(users.teamId, teamId)));
 }
 
-export function getAvailableCapacity(db: HyperIdleDb, teamId: string): number {
-	const team = db.select().from(teams).where(eq(teams.id, teamId)).get();
+export async function getAvailableCapacity(db: HyperIdleDb, teamId: string): Promise<number> {
+	const [team] = await db.select().from(teams).where(eq(teams.id, teamId)).limit(1);
 	if (!team) {
 		throw new Error(`Team ${teamId} not found`);
 	}
 	return team.capacity - team.activeBets;
 }
 
-export function dissolveTeam(db: HyperIdleDb, teamId: string): void {
+export async function dissolveTeam(db: HyperIdleDb, teamId: string): Promise<void> {
 	const now = new Date().toISOString();
 
-	db.update(teams).set({ dissolvedAt: now }).where(eq(teams.id, teamId)).run();
+	await db.update(teams).set({ dissolvedAt: now }).where(eq(teams.id, teamId));
 
-	db.update(users).set({ teamId: null }).where(eq(users.teamId, teamId)).run();
+	await db.update(users).set({ teamId: null }).where(eq(users.teamId, teamId));
 }
 
-export function getTeamCost(db: HyperIdleDb, teamId: string, _cycleStart: string): number {
-	const teamAgents = db.select({ id: users.id }).from(users).where(eq(users.teamId, teamId)).all();
+export async function getTeamCost(
+	db: HyperIdleDb,
+	teamId: string,
+	_cycleStart: string,
+): Promise<number> {
+	const teamAgents = await db.select({ id: users.id }).from(users).where(eq(users.teamId, teamId));
 
 	if (teamAgents.length === 0) {
 		return 0;

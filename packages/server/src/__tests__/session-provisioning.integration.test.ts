@@ -19,6 +19,7 @@ import {
 	knowledgeItems,
 	products,
 	sessions,
+	type TestDbHandle,
 	tasks,
 	teams,
 	users,
@@ -35,79 +36,78 @@ import { type ProvisionSessionDeps, provisionSession } from "../services/session
 
 const NOW = "2026-04-16T00:00:00.000Z";
 
-function seedDomain(db: HyperIdleDb): void {
-	db.insert(products)
-		.values({ id: "p1", name: "Integration Product", phase: "build", createdAt: NOW })
-		.run();
-	db.insert(teams)
-		.values({ id: "t1", productId: "p1", capacity: 5, activeBets: 0, formedAt: NOW })
-		.run();
-	db.insert(bets)
-		.values({
-			id: "b1",
-			productId: "p1",
-			teamId: "t1",
-			pitch: "Integration bet",
-			appetite: "small",
-			status: "committed",
-			createdAt: NOW,
-		})
-		.run();
-	db.insert(users)
-		.values({
-			id: "agent-1",
-			name: "Integration Agent",
-			role: "builder",
-			status: "active",
-			teamId: "t1",
-			maxConcurrentSessions: 1,
-			costCap: null,
-			createdAt: NOW,
-		})
-		.run();
-	db.insert(tasks)
-		.values({
-			id: "task-1",
-			betId: "b1",
-			productId: "p1",
-			teamId: "t1",
-			title: "Integration task",
-			state: "accepted",
-			createdAt: NOW,
-			updatedAt: NOW,
-		})
-		.run();
-	db.insert(knowledgeItems)
-		.values({
-			id: "ki-seed-1",
-			layer: "L4",
-			kind: "principle",
-			title: "Integration Principle",
-			body: "Integration body.",
-			format: "markdown",
-			status: "active",
-			version: 1,
-			updatedBy: "system",
-			createdAt: NOW,
-			updatedAt: NOW,
-		})
-		.run();
+async function seedDomain(db: HyperIdleDb): Promise<void> {
+	await db
+		.insert(products)
+		.values({ id: "p1", name: "Integration Product", phase: "build", createdAt: NOW });
+
+	await db
+		.insert(teams)
+		.values({ id: "t1", productId: "p1", capacity: 5, activeBets: 0, formedAt: NOW });
+
+	await db.insert(bets).values({
+		id: "b1",
+		productId: "p1",
+		teamId: "t1",
+		pitch: "Integration bet",
+		appetite: "small",
+		status: "committed",
+		createdAt: NOW,
+	});
+
+	await db.insert(users).values({
+		id: "agent-1",
+		name: "Integration Agent",
+		role: "builder",
+		status: "active",
+		teamId: "t1",
+		maxConcurrentSessions: 1,
+		costCap: null,
+		createdAt: NOW,
+	});
+
+	await db.insert(tasks).values({
+		id: "task-1",
+		betId: "b1",
+		productId: "p1",
+		teamId: "t1",
+		title: "Integration task",
+		state: "accepted",
+		createdAt: NOW,
+		updatedAt: NOW,
+	});
+
+	await db.insert(knowledgeItems).values({
+		id: "ki-seed-1",
+		layer: "L4",
+		kind: "principle",
+		title: "Integration Principle",
+		body: "Integration body.",
+		format: "markdown",
+		status: "active",
+		version: 1,
+		updatedBy: "system",
+		createdAt: NOW,
+		updatedAt: NOW,
+	});
 }
 
 describe("Session Provisioning — Claude integration (D5/AC2)", () => {
+	let handle: TestDbHandle;
 	let db: HyperIdleDb;
 	let eventBus: EventBus;
 	let tmpDir: string;
 
-	beforeEach(() => {
-		db = createTestDb();
+	beforeEach(async () => {
+		handle = await createTestDb();
+		db = handle.db;
 		eventBus = new EventBus();
 		tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "d5-integration-"));
 		clearDeduplicationCache();
-		seedDomain(db);
+		await seedDomain(db);
 	});
 
-	afterEach(() => {
+	afterEach(async () => {
 		if (fs.existsSync(tmpDir)) {
 			fs.rmSync(tmpDir, { recursive: true, force: true });
 		}
@@ -130,7 +130,7 @@ describe("Session Provisioning — Claude integration (D5/AC2)", () => {
 			expect(result.outcome).toBe("completed");
 			expect(result.totalCostCents).toBeGreaterThan(0);
 
-			const session = db.select().from(sessions).where(eq(sessions.id, result.sessionId)).get();
+			const [session] = await db.select().from(sessions).where(eq(sessions.id, result.sessionId));
 			expect(session?.state).toBe("done");
 			expect(session?.cost ?? 0).toBeGreaterThan(0);
 		},

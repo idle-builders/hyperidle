@@ -6,7 +6,7 @@ Everything runs on one machine. Single process for the API + Scheduler. Docker c
 
 ```
 MacBook / Linux laptop
-├── hyperidle (Bun process)
+├── hyperidle (Node.js process)
 │   ├── Hono API server (localhost:3001)
 │   ├── Scheduler (in-process)
 │   ├── Event Bus (in-process)
@@ -21,7 +21,7 @@ MacBook / Linux laptop
 └── Browser → http://localhost:5173 (the Factory)
 ```
 
-Install: `bun install && bun run db:migrate && bun dev`
+Install: `npm install && npm run db:migrate && npm run dev`
 
 ### 6.2 VPS Profile
 

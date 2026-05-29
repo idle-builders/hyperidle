@@ -52,40 +52,38 @@ export function createTaskRoutes(db: HyperIdleDb, eventBus: EventBus): Hono {
 	const router = new Hono();
 
 	// POST /tasks — create a new task (agent-driven decomposition)
-	router.post("/", validateBody(createTaskSchema), (c) => {
+	router.post("/", validateBody(createTaskSchema), async (c) => {
 		const body = c.req.valid("json" as never) as z.infer<typeof createTaskSchema>;
 		const now = new Date().toISOString();
 
 		// Validate bet exists
-		const bet = db.select().from(bets).where(eq(bets.id, body.betId)).get();
+		const [bet] = await db.select().from(bets).where(eq(bets.id, body.betId)).limit(1);
 		if (!bet) {
 			return c.json({ error: "Bet not found", code: "NOT_FOUND" }, 404);
 		}
 
 		const taskId = crypto.randomUUID();
-		db.insert(tasks)
-			.values({
-				id: taskId,
-				betId: body.betId,
-				productId: bet.productId,
-				teamId: bet.teamId,
-				title: body.title,
-				description: body.description ?? null,
-				doneCondition: body.doneCondition ?? null,
-				ownerAgentId: body.ownerAgentId ?? null,
-				state: "proposed",
-				costCap: body.costCap ?? null,
-				createdAt: now,
-				updatedAt: now,
-			})
-			.run();
+		await db.insert(tasks).values({
+			id: taskId,
+			betId: body.betId,
+			productId: bet.productId,
+			teamId: bet.teamId,
+			title: body.title,
+			description: body.description ?? null,
+			doneCondition: body.doneCondition ?? null,
+			ownerAgentId: body.ownerAgentId ?? null,
+			state: "proposed",
+			costCap: body.costCap ?? null,
+			createdAt: now,
+			updatedAt: now,
+		});
 
-		const created = db.select().from(tasks).where(eq(tasks.id, taskId)).get();
+		const [created] = await db.select().from(tasks).where(eq(tasks.id, taskId)).limit(1);
 		return c.json(created, 201);
 	});
 
 	// GET /tasks — list, filterable by bet_id, state, owner
-	router.get("/", (c) => {
+	router.get("/", async (c) => {
 		const betId = c.req.query("bet_id");
 		const state = c.req.query("state");
 		const owner = c.req.query("owner");
@@ -97,22 +95,21 @@ export function createTaskRoutes(db: HyperIdleDb, eventBus: EventBus): Hono {
 
 		const result =
 			conditions.length > 0
-				? db
+				? await db
 						.select()
 						.from(tasks)
 						.where(and(...conditions))
-						.all()
-				: db.select().from(tasks).all();
+				: await db.select().from(tasks);
 
 		return c.json(result);
 	});
 
 	// PATCH /tasks/:id — update mutable fields
-	router.patch("/:id", validateBody(updateTaskSchema), (c) => {
+	router.patch("/:id", validateBody(updateTaskSchema), async (c) => {
 		const taskId = c.req.param("id");
 		const body = c.req.valid("json" as never) as z.infer<typeof updateTaskSchema>;
 
-		const task = db.select().from(tasks).where(eq(tasks.id, taskId)).get();
+		const [task] = await db.select().from(tasks).where(eq(tasks.id, taskId)).limit(1);
 		if (!task) {
 			return c.json({ error: "Task not found", code: "NOT_FOUND" }, 404);
 		}
@@ -125,20 +122,20 @@ export function createTaskRoutes(db: HyperIdleDb, eventBus: EventBus): Hono {
 		if (body.doneCondition !== undefined) updates.doneCondition = body.doneCondition;
 		if (body.ownerAgentId !== undefined) updates.ownerAgentId = body.ownerAgentId;
 
-		db.update(tasks).set(updates).where(eq(tasks.id, taskId)).run();
+		await db.update(tasks).set(updates).where(eq(tasks.id, taskId));
 
-		const updated = db.select().from(tasks).where(eq(tasks.id, taskId)).get();
+		const [updated] = await db.select().from(tasks).where(eq(tasks.id, taskId)).limit(1);
 		return c.json(updated);
 	});
 
 	// POST /tasks/:id/transition — state transition
-	router.post("/:id/transition", validateBody(transitionTaskSchema), (c) => {
+	router.post("/:id/transition", validateBody(transitionTaskSchema), async (c) => {
 		const taskId = c.req.param("id");
 		const body = c.req.valid("json" as never) as z.infer<typeof transitionTaskSchema>;
 
-		transitionTask(db, eventBus, taskId, body.state);
+		await transitionTask(db, eventBus, taskId, body.state);
 
-		const updated = db.select().from(tasks).where(eq(tasks.id, taskId)).get();
+		const [updated] = await db.select().from(tasks).where(eq(tasks.id, taskId)).limit(1);
 		return c.json(updated);
 	});
 
@@ -147,12 +144,16 @@ export function createTaskRoutes(db: HyperIdleDb, eventBus: EventBus): Hono {
 		const taskId = c.req.param("id");
 		const body = c.req.valid("json" as never) as z.infer<typeof handoffSchema>;
 
-		const task = db.select().from(tasks).where(eq(tasks.id, taskId)).get();
+		const [task] = await db.select().from(tasks).where(eq(tasks.id, taskId)).limit(1);
 		if (!task) {
 			return c.json({ error: "Task not found", code: API_ERROR_CODES.NOT_FOUND }, 404);
 		}
 
-		const session = db.select().from(sessions).where(eq(sessions.id, body.sessionId)).get();
+		const [session] = await db
+			.select()
+			.from(sessions)
+			.where(eq(sessions.id, body.sessionId))
+			.limit(1);
 		if (!session) {
 			return c.json({ error: "Session not found", code: API_ERROR_CODES.NOT_FOUND }, 404);
 		}

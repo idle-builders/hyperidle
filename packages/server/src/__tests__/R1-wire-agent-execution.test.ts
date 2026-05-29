@@ -29,6 +29,7 @@ import {
 	knowledgeItems,
 	products,
 	sessions,
+	type TestDbHandle,
 	tasks,
 	teams,
 	users,
@@ -120,105 +121,100 @@ class NullCredentialResolver implements CredentialResolver {
 
 const NOW = "2026-05-29T00:00:00.000Z";
 
-function seedDomain(
+async function seedDomain(
 	db: HyperIdleDb,
 	overrides: {
 		agentCostCap?: number | null;
 		agentMaxConcurrentSessions?: number;
 	} = {},
-): void {
-	db.insert(products)
-		.values({ id: "p1", name: "R1 Product", phase: "build", createdAt: NOW })
-		.run();
+): Promise<void> {
+	await db
+		.insert(products)
+		.values({ id: "p1", name: "R1 Product", phase: "build", createdAt: NOW });
 
-	db.insert(teams)
-		.values({ id: "t1", productId: "p1", capacity: 5, activeBets: 0, formedAt: NOW })
-		.run();
+	await db
+		.insert(teams)
+		.values({ id: "t1", productId: "p1", capacity: 5, activeBets: 0, formedAt: NOW });
 
-	db.insert(bets)
-		.values({
-			id: "b1",
-			productId: "p1",
-			teamId: "t1",
-			pitch: "R1 bet",
-			appetite: "small",
-			status: "committed",
-			createdAt: NOW,
-		})
-		.run();
+	await db.insert(bets).values({
+		id: "b1",
+		productId: "p1",
+		teamId: "t1",
+		pitch: "R1 bet",
+		appetite: "small",
+		status: "committed",
+		createdAt: NOW,
+	});
 
-	db.insert(users)
-		.values({
-			id: "agent-r1",
-			name: "R1 Builder Agent",
-			role: "builder",
-			status: "active",
-			teamId: "t1",
-			maxConcurrentSessions: overrides.agentMaxConcurrentSessions ?? 1,
-			costCap: overrides.agentCostCap === undefined ? null : overrides.agentCostCap,
-			costActual: 0,
-			createdAt: NOW,
-		})
-		.run();
+	await db.insert(users).values({
+		id: "agent-r1",
+		name: "R1 Builder Agent",
+		role: "builder",
+		status: "active",
+		teamId: "t1",
+		maxConcurrentSessions: overrides.agentMaxConcurrentSessions ?? 1,
+		costCap: overrides.agentCostCap === undefined ? null : overrides.agentCostCap,
+		costActual: 0,
+		createdAt: NOW,
+	});
 
-	db.insert(tasks)
-		.values({
-			id: "task-r1",
-			betId: "b1",
-			productId: "p1",
-			teamId: "t1",
-			title: "R1 test task",
-			state: "accepted",
-			createdAt: NOW,
-			updatedAt: NOW,
-		})
-		.run();
+	await db.insert(tasks).values({
+		id: "task-r1",
+		betId: "b1",
+		productId: "p1",
+		teamId: "t1",
+		title: "R1 test task",
+		state: "accepted",
+		createdAt: NOW,
+		updatedAt: NOW,
+	});
 
 	// Seed a knowledge item so materialize has something to write during provisioning.
-	db.insert(knowledgeItems)
-		.values({
-			id: "ki-r1",
-			title: "R1 Seed Principle",
-			body: "R1 seeded body.",
-			format: "markdown",
-			status: "active",
-			version: 1,
-			updatedBy: "system",
-			createdAt: NOW,
-			updatedAt: NOW,
-		})
-		.run();
+	await db.insert(knowledgeItems).values({
+		id: "ki-r1",
+		title: "R1 Seed Principle",
+		body: "R1 seeded body.",
+		format: "markdown",
+		status: "active",
+		version: 1,
+		updatedBy: "system",
+		createdAt: NOW,
+		updatedAt: NOW,
+	});
 }
 
 // --- Suite -------------------------------------------------------------------
 
 describe("R1: Wire Agent Execution (route-level)", () => {
+	let handle: TestDbHandle;
 	let db: HyperIdleDb;
 	let eventBus: EventBus;
 	let tmpDir: string;
 	let workspaceAdapter: LocalWorkspaceAdapter;
 	let app: Hono;
 
-	beforeEach(() => {
+	beforeEach(async () => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		db = createTestDb();
+		handle = await createTestDb();
+		db = handle.db;
 		eventBus = new EventBus();
 		tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "r1-wire-tests-"));
 		workspaceAdapter = new LocalWorkspaceAdapter();
 		clearDeduplicationCache();
 	});
 
-	afterEach(() => {
+	afterEach(async () => {
 		vi.unstubAllEnvs();
 		if (fs.existsSync(tmpDir)) {
 			fs.rmSync(tmpDir, { recursive: true, force: true });
 		}
+		await handle?.close();
 	});
 
 	// -------------------------------------------------------------------- AC2, AC3, AC4
 	describe("AC2/AC3/AC4: POST /api/sessions calls provisionSession and returns completed session", () => {
 		it("returns 200 with state=done and outcome=completed, task transitions to in_progress", async () => {
-			seedDomain(db);
+			await seedDomain(db);
 
 			const harness = new ScriptedHarnessAdapter({
 				events: [
@@ -237,7 +233,7 @@ describe("R1: Wire Agent Execution (route-level)", () => {
 				resolve: async () => "fake-api-key",
 			};
 
-			app = createTestApp({
+			app = await createTestApp({
 				db,
 				eventBus,
 				// These new AppOptions fields don't exist yet — TypeScript will
@@ -273,7 +269,7 @@ describe("R1: Wire Agent Execution (route-level)", () => {
 			expect(body.agentId).toBe("agent-r1");
 
 			// Task must have been transitioned to in_progress during provisioning.
-			const task = db.select().from(tasks).where(eq(tasks.id, "task-r1")).get();
+			const [task] = await db.select().from(tasks).where(eq(tasks.id, "task-r1")).limit(1);
 			// After a completed session task may be done/in_progress — at minimum
 			// it must have been transitioned away from accepted.
 			expect(task?.state).not.toBe("accepted");
@@ -291,11 +287,11 @@ describe("R1: Wire Agent Execution (route-level)", () => {
 	// -------------------------------------------------------------------- AC6, AC7
 	describe("AC6/AC7: Missing credential returns clear error and no session row is created", () => {
 		it("returns 500 with code=MISSING_CREDENTIAL and creates no session row", async () => {
-			seedDomain(db);
+			await seedDomain(db);
 
 			const harness = new ScriptedHarnessAdapter({ events: [] });
 
-			app = createTestApp({
+			app = await createTestApp({
 				db,
 				eventBus,
 				harnessAdapter: harness,
@@ -324,7 +320,7 @@ describe("R1: Wire Agent Execution (route-level)", () => {
 			expect((body.error as string).toLowerCase()).toContain("anthropic_api_key");
 
 			// Pre-flight must reject before provisionSession — no session row.
-			const sessionRows = db.select().from(sessions).all();
+			const sessionRows = await db.select().from(sessions);
 			expect(sessionRows.length).toBe(0);
 
 			// Harness must never have been started (pre-flight fires before orchestrator).
@@ -335,7 +331,7 @@ describe("R1: Wire Agent Execution (route-level)", () => {
 	// -------------------------------------------------------------------- AC4 (crash path)
 	describe("AC4: Crashed harness returns crashed session", () => {
 		it("returns 200 with state=crashed when the harness throws during streaming", async () => {
-			seedDomain(db);
+			await seedDomain(db);
 
 			// throwAfter: 1 — yields one event then throws, simulating a crash.
 			const harness = new ScriptedHarnessAdapter({
@@ -347,7 +343,7 @@ describe("R1: Wire Agent Execution (route-level)", () => {
 				resolve: async () => "fake-api-key",
 			};
 
-			app = createTestApp({
+			app = await createTestApp({
 				db,
 				eventBus,
 				harnessAdapter: harness,
@@ -378,48 +374,42 @@ describe("R1: Wire Agent Execution (route-level)", () => {
 	describe("Backward compat: POST /api/sessions without adapters falls back to bare insert", () => {
 		it("returns 201 with bare session row when no harnessAdapter is provided", async () => {
 			// Seed only the minimum needed for the bare insert path.
-			db.insert(products)
-				.values({ id: "p-bare", name: "Bare Product", phase: "build", createdAt: NOW })
-				.run();
-			db.insert(teams)
-				.values({ id: "t-bare", productId: "p-bare", capacity: 3, activeBets: 0, formedAt: NOW })
-				.run();
-			db.insert(users)
-				.values({
-					id: "agent-bare",
-					name: "Bare Agent",
-					role: "builder",
-					status: "idle",
-					teamId: "t-bare",
-					createdAt: NOW,
-				})
-				.run();
-			db.insert(bets)
-				.values({
-					id: "b-bare",
-					productId: "p-bare",
-					teamId: "t-bare",
-					pitch: "Bare bet",
-					appetite: "small",
-					status: "committed",
-					createdAt: NOW,
-				})
-				.run();
-			db.insert(tasks)
-				.values({
-					id: "task-bare",
-					betId: "b-bare",
-					productId: "p-bare",
-					teamId: "t-bare",
-					title: "Bare task",
-					state: "in_progress",
-					createdAt: NOW,
-					updatedAt: NOW,
-				})
-				.run();
+			await db
+				.insert(products)
+				.values({ id: "p-bare", name: "Bare Product", phase: "build", createdAt: NOW });
+			await db
+				.insert(teams)
+				.values({ id: "t-bare", productId: "p-bare", capacity: 3, activeBets: 0, formedAt: NOW });
+			await db.insert(users).values({
+				id: "agent-bare",
+				name: "Bare Agent",
+				role: "builder",
+				status: "idle",
+				teamId: "t-bare",
+				createdAt: NOW,
+			});
+			await db.insert(bets).values({
+				id: "b-bare",
+				productId: "p-bare",
+				teamId: "t-bare",
+				pitch: "Bare bet",
+				appetite: "small",
+				status: "committed",
+				createdAt: NOW,
+			});
+			await db.insert(tasks).values({
+				id: "task-bare",
+				betId: "b-bare",
+				productId: "p-bare",
+				teamId: "t-bare",
+				title: "Bare task",
+				state: "in_progress",
+				createdAt: NOW,
+				updatedAt: NOW,
+			});
 
 			// No harnessAdapter/workspaceAdapter — existing behavior (bare insert).
-			app = createTestApp({ db, eventBus });
+			app = await createTestApp({ db, eventBus });
 
 			const res = await app.request("/api/sessions", {
 				method: "POST",
@@ -445,14 +435,14 @@ describe("R1: Wire Agent Execution (route-level)", () => {
 	describe("Error handling: CostCapExceededError returns 422", () => {
 		it("returns 422 with code=COST_CAP_EXCEEDED when agent cost cap is 0", async () => {
 			// costCap=0 means any session start exceeds the cap immediately.
-			seedDomain(db, { agentCostCap: 0 });
+			await seedDomain(db, { agentCostCap: 0 });
 
 			const harness = new ScriptedHarnessAdapter({ events: [] });
 			const validResolver: CredentialResolver = {
 				resolve: async () => "fake-api-key",
 			};
 
-			app = createTestApp({
+			app = await createTestApp({
 				db,
 				eventBus,
 				harnessAdapter: harness,
@@ -482,14 +472,14 @@ describe("R1: Wire Agent Execution (route-level)", () => {
 	describe("Error handling: ConcurrencyLimitError returns 429", () => {
 		it("returns 429 with code=CONCURRENCY_LIMIT when agent maxConcurrentSessions is 0", async () => {
 			// maxConcurrentSessions=0 means no sessions are allowed.
-			seedDomain(db, { agentMaxConcurrentSessions: 0 });
+			await seedDomain(db, { agentMaxConcurrentSessions: 0 });
 
 			const harness = new ScriptedHarnessAdapter({ events: [] });
 			const validResolver: CredentialResolver = {
 				resolve: async () => "fake-api-key",
 			};
 
-			app = createTestApp({
+			app = await createTestApp({
 				db,
 				eventBus,
 				harnessAdapter: harness,

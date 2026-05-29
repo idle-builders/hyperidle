@@ -42,14 +42,18 @@ interface RailResponse {
 }
 
 /** Read a factory setting string value, or null if not found. */
-function getFactorySetting(db: HyperIdleDb, key: string): string | null {
-	const row = db.select().from(factorySettings).where(eq(factorySettings.key, key)).get();
+async function getFactorySetting(db: HyperIdleDb, key: string): Promise<string | null> {
+	const [row] = await db
+		.select()
+		.from(factorySettings)
+		.where(eq(factorySettings.key, key))
+		.limit(1);
 	return row?.value ?? null;
 }
 
 /** Parse a factory setting as a minor-unit integer, or null if missing/invalid. */
-function getFactorySettingMinor(db: HyperIdleDb, key: string): number | null {
-	const val = getFactorySetting(db, key);
+async function getFactorySettingMinor(db: HyperIdleDb, key: string): Promise<number | null> {
+	const val = await getFactorySetting(db, key);
 	if (val === null) return null;
 	const parsed = Number.parseInt(val, 10);
 	return Number.isNaN(parsed) ? null : parsed;
@@ -69,17 +73,16 @@ export function createRailRoutes(db: HyperIdleDb, _eventBus: EventBus): Hono {
 	const router = new Hono();
 
 	// GET / — current rail state
-	router.get("/", (c) => {
+	router.get("/", async (c) => {
 		const now = Date.now();
 
 		// @lore I6: query active bets with WHERE status IN instead of loading all.
-		const activeBets = db
+		const activeBets = await db
 			.select()
 			.from(bets)
-			.where(inArray(bets.status, ["committed", "in_progress"]))
-			.all();
+			.where(inArray(bets.status, ["committed", "in_progress"]));
 
-		const allTasks = db.select().from(tasks).all();
+		const allTasks = await db.select().from(tasks);
 
 		const railBets: RailBet[] = activeBets.map((b) => {
 			const betTasks = allTasks.filter((t) => t.betId === b.id);
@@ -105,7 +108,7 @@ export function createRailRoutes(db: HyperIdleDb, _eventBus: EventBus): Hono {
 		});
 
 		// Items awaiting ordering (kind = 'ordering')
-		const orderingItems = db.select().from(items).where(eq(items.kind, "ordering")).all();
+		const orderingItems = await db.select().from(items).where(eq(items.kind, "ordering"));
 		const awaitingOrdering = orderingItems.map((i) => ({
 			id: i.id,
 			title: i.title,
@@ -115,10 +118,11 @@ export function createRailRoutes(db: HyperIdleDb, _eventBus: EventBus): Hono {
 		// @lore O2: cost burn rate computed from factory settings only; session-level
 		// spend aggregation removed (cost columns stripped from sessions table).
 		// todaySpend/weekSpend return null until the strategy/fabric layer provides them.
-		const factoryCurrency = (getFactorySetting(db, "cost_currency") ?? "USD") as CurrencyCode;
+		const factoryCurrency = ((await getFactorySetting(db, "cost_currency")) ??
+			"USD") as CurrencyCode;
 
-		const dailyCapMinor = getFactorySettingMinor(db, "cost_cap_daily_minor");
-		const weeklyCapMinor = getFactorySettingMinor(db, "cost_cap_weekly_minor");
+		const dailyCapMinor = await getFactorySettingMinor(db, "cost_cap_daily_minor");
+		const weeklyCapMinor = await getFactorySettingMinor(db, "cost_cap_weekly_minor");
 
 		// @lore O2: session cost columns stripped; spend values return 0 until fabric provides aggregation.
 		const costBurnRate: CostBurnRate = {

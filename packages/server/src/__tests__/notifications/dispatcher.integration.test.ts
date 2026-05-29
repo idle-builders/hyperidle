@@ -9,6 +9,7 @@ import {
 	type HyperIdleDb,
 	items as itemsTable,
 	notificationQueue,
+	type TestDbHandle,
 	threads,
 } from "@hyperidle/db";
 import {
@@ -39,7 +40,7 @@ function createFakeAdapter(): NotificationAdapter & { calls: AdapterCall[] } {
 	};
 }
 
-function enable(db: HyperIdleDb): void {
+async function enable(db: HyperIdleDb): Promise<void> {
 	const now = "2026-04-18T00:00:00.000Z";
 	const pairs: Record<string, string> = {
 		"notifications.enabled": "true",
@@ -49,30 +50,32 @@ function enable(db: HyperIdleDb): void {
 		"notifications.flood_coalesce_window_ms": "60000",
 	};
 	for (const [key, value] of Object.entries(pairs)) {
-		db.insert(factorySettings)
+		await db
+			.insert(factorySettings)
 			.values({ key, value, updatedAt: now })
 			.onConflictDoUpdate({
 				target: factorySettings.key,
 				set: { value, updatedAt: now },
-			})
-			.run();
+			});
 	}
 }
 
 describe("H2 Dispatcher integration via createApp", () => {
+	let handle: TestDbHandle;
 	let db: HyperIdleDb;
 	let bus: EventBus;
 	let adapter: NotificationAdapter & { calls: AdapterCall[] };
-	let app: ReturnType<typeof createApp>;
+	let app: Awaited<ReturnType<typeof createApp>>;
 
-	beforeEach(() => {
+	beforeEach(async () => {
 		vi.stubEnv("HYPERIDLE_API_KEY", "test-key-H2");
-		db = createTestDb();
+		handle = await createTestDb();
+		db = handle.db;
 		bus = new EventBus();
 		adapter = createFakeAdapter();
 		// O3: notificationAdapterFactory removed from AppOptions for the dispatcher.
 		// Use strategyBootstrap to wire the dispatcher with the fake adapter.
-		app = createApp({
+		app = await createApp({
 			db,
 			eventBus: bus,
 			strategyBootstrap: ({ db: testDb, eventBus: testBus }) => [
@@ -83,36 +86,33 @@ describe("H2 Dispatcher integration via createApp", () => {
 		});
 	});
 
-	afterEach(() => {
+	afterEach(async () => {
 		disposeApp(app);
 		vi.unstubAllEnvs();
 	});
 
 	it("subscribes to item_created and pushes on blocking items", async () => {
-		enable(db);
+		await enable(db);
 		const threadId = "thread-app-1";
-		db.insert(threads)
-			.values({
-				id: threadId,
-				hostKind: "task",
-				hostId: "task-1",
-				initiatorId: "agent-1",
-				participants: JSON.stringify(["agent-1"]),
-				lastActiveAt: "2026-04-18T00:00:00.000Z",
-				createdAt: "2026-04-18T00:00:00.000Z",
-			})
-			.run();
-		db.insert(itemsTable)
-			.values({
-				id: "it-100",
-				kind: "approval",
-				title: "Blocking it",
-				body: "Body",
-				blocking: 1,
-				threadId,
-				createdAt: "2026-04-18T00:00:00.000Z",
-			})
-			.run();
+		await db.insert(threads).values({
+			id: threadId,
+			hostKind: "task",
+			hostId: "task-1",
+			initiatorId: "agent-1",
+			participants: JSON.stringify(["agent-1"]),
+			lastActiveAt: "2026-04-18T00:00:00.000Z",
+			createdAt: "2026-04-18T00:00:00.000Z",
+		});
+
+		await db.insert(itemsTable).values({
+			id: "it-100",
+			kind: "approval",
+			title: "Blocking it",
+			body: "Body",
+			blocking: true,
+			threadId,
+			createdAt: "2026-04-18T00:00:00.000Z",
+		});
 
 		bus.emit({
 			type: "item_created",
@@ -128,7 +128,7 @@ describe("H2 Dispatcher integration via createApp", () => {
 	});
 
 	it("subscribes to cost_cap_breached and pushes a cost_breach notification", async () => {
-		enable(db);
+		await enable(db);
 		const event: CostCapBreachedEvent = {
 			type: "cost_cap_breached",
 			streamId: "s",
@@ -146,23 +146,22 @@ describe("H2 Dispatcher integration via createApp", () => {
 	});
 
 	it("routine_fired with daily_digest marker triggers runDailyDigest", async () => {
-		enable(db);
+		await enable(db);
 		const now = "2026-04-18T00:00:00.000Z";
-		db.insert(notificationQueue)
-			.values({
-				id: "q-1",
-				eventType: "item_created",
-				subjectId: "foo",
-				severity: "digest",
-				title: "Queued digest item",
-				body: "body",
-				reason: "digest",
-				channel: "console",
-				status: "pending",
-				attempts: 0,
-				createdAt: now,
-			})
-			.run();
+		await db.insert(notificationQueue).values({
+			id: "q-1",
+			eventType: "item_created",
+			subjectId: "foo",
+			severity: "digest",
+			title: "Queued digest item",
+			body: "body",
+			reason: "digest",
+			channel: "console",
+			status: "pending",
+			attempts: 0,
+			createdAt: now,
+		});
+
 		const event: RoutineFiredEvent = {
 			type: "routine_fired",
 			streamId: "s",
@@ -171,8 +170,8 @@ describe("H2 Dispatcher integration via createApp", () => {
 			timestamp: Date.now(),
 		};
 		bus.emit(event);
-		await vi.waitFor(() => {
-			const rows = db.select().from(notificationQueue).all();
+		await vi.waitFor(async () => {
+			const rows = await db.select().from(notificationQueue);
 			expect(rows[0].status).toBe("sent");
 		});
 

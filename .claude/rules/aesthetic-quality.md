@@ -49,4 +49,4 @@ Lints under `design/no-ai-aesthetic`. Three or more screenshot-detectable tells 
 
 ## Skills triggered
 
-`/design-critique` (every UI change — includes cross-component checks formerly in `/design-lint`), `/visual-polish` (when a reference mockup exists). Token/scale violations are caught by `bun run lint` via `eslint-plugin-design` (K6).
+`/design-critique` (every UI change — includes cross-component checks formerly in `/design-lint`), `/visual-polish` (when a reference mockup exists). Token/scale violations are caught by `npm run lint` via `eslint-plugin-design` (K6).

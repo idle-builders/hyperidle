@@ -10,7 +10,7 @@
  * underlying row would become wrong.
  */
 
-import { createTestDb, factorySettings, type HyperIdleDb } from "@hyperidle/db";
+import { createTestDb, factorySettings, type HyperIdleDb, type TestDbHandle } from "@hyperidle/db";
 import { API_ERROR_CODES, EventBus } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
 import type { Hono } from "hono";
@@ -24,17 +24,20 @@ function authHeaders(extra?: Record<string, string>): Record<string, string> {
 }
 
 describe("I2 V5 — PATCH /api/status/settings blocks reserved-prefix keys", () => {
+	let handle: TestDbHandle;
 	let db: HyperIdleDb;
 	let app: Hono;
 
-	beforeEach(() => {
+	beforeEach(async () => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		db = createTestDb();
-		app = createTestApp({ db, eventBus: new EventBus() });
+		handle = await createTestDb();
+		db = handle.db;
+		app = await createTestApp({ db, eventBus: new EventBus() });
 	});
 
-	afterEach(() => {
+	afterEach(async () => {
 		vi.unstubAllEnvs();
+		await handle.close();
 	});
 
 	const BLOCKED_KEYS = [
@@ -59,7 +62,7 @@ describe("I2 V5 — PATCH /api/status/settings blocks reserved-prefix keys", () 
 			expect(typeof body.error).toBe("string");
 
 			// And the row must NOT be present in factorySettings.
-			const row = db.select().from(factorySettings).where(eq(factorySettings.key, key)).get();
+			const [row] = await db.select().from(factorySettings).where(eq(factorySettings.key, key));
 			expect(row).toBeUndefined();
 		});
 	}
@@ -71,11 +74,10 @@ describe("I2 V5 — PATCH /api/status/settings blocks reserved-prefix keys", () 
 			body: JSON.stringify({ key: "factory_start_time", value: "2026-04-18T00:00:00.000Z" }),
 		});
 		expect(res.status).toBe(200);
-		const row = db
+		const [row] = await db
 			.select()
 			.from(factorySettings)
-			.where(eq(factorySettings.key, "factory_start_time"))
-			.get();
+			.where(eq(factorySettings.key, "factory_start_time"));
 		expect(row?.value).toBe("2026-04-18T00:00:00.000Z");
 	});
 });

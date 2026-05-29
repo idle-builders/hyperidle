@@ -11,13 +11,12 @@
  * require() tricks. See plans/N5/architecture.md §Design-it-twice for the
  * full rationale.
  *
- * @lore N5: postgres, drizzle-orm/postgres-js, and @electric-sql/pglite are
- * stubbed (not externalized) via the pgStubPlugin. The @hyperidle/db barrel
- * re-exports pg-connection.ts which has top-level imports of these modules.
- * Externalizing them leaves dangling require() calls in the bundle that fail
- * at runtime because the modules aren't in the packaged node_modules. The
- * stub plugin replaces them with empty modules at bundle time — desktop only
- * uses SQLite so these code paths are never reached.
+ * @lore PGlite migration: postgres and drizzle-orm/postgres-js are stubbed
+ * (not externalized) via the pgStubPlugin. Desktop uses PGlite (not
+ * postgres-js), so these code paths are never reached. @electric-sql/pglite
+ * is externalized (not stubbed) — it must be available at runtime since
+ * desktop now uses PGlite as its database engine. The WASM binary ships
+ * inside the pglite package and must be resolvable from node_modules.
  *
  * @lore N5: Node target is node22 (NOT node20). Electron 36 ships Node 22.x
  * (ABI 135). Using node20 produces a technically working but incorrect build
@@ -42,19 +41,36 @@ fs.mkdirSync(DIST_DIR, { recursive: true });
 
 // Packages that must NOT be bundled:
 // - electron: provided by the Electron runtime at startup
-// - better-sqlite3: native .node addon, must be rebuilt per ABI and cannot be bundled
-const EXTERNALS = ["electron", "better-sqlite3"];
+// - @electric-sql/pglite: WASM binary must be loaded from disk at runtime
+const EXTERNALS = ["electron", "@electric-sql/pglite"];
 
-// PostgreSQL-only modules that the @hyperidle/db barrel pulls in via
-// pg-connection.ts. Desktop uses SQLite only — these are never called at
-// runtime. Instead of externalizing (which leaves require() calls for
-// modules not in the packaged node_modules), we stub them at bundle time.
-const PG_STUB_MODULES = ["postgres", "drizzle-orm/postgres-js", "@electric-sql/pglite"];
+// VPS/cloud-only modules that the @hyperidle/db barrel pulls in via
+// pg-connection.ts. Desktop uses PGlite only — these are never called at
+// runtime. Stubbed at bundle time to avoid dangling require() calls.
+const PG_STUB_MODULES = ["postgres", "drizzle-orm/postgres-js"];
+
+// AJV runtime helpers referenced by dynamically-generated validators inside
+// @modelcontextprotocol/sdk (a transitive dep of @anthropic-ai/claude-agent-sdk).
+// esbuild inlines the validator code but the generated validators re-emit
+// require("ajv/dist/runtime/...") calls at runtime. Since node_modules are NOT
+// packaged with the Electron app (only dist/**/* is included), these sub-path
+// requires would fail at startup. We stub them with minimal shims that satisfy
+// the interface expected by the generated validators.
+// @lore desktop: AJV runtime stubs — generated MCP validators emit require()
+// calls for ajv runtime helpers. Stubs prevent startup failures in packaged app.
+const AJV_STUB_MODULES = [
+	"ajv/dist/runtime/validation_error",
+	"ajv/dist/runtime/uri",
+	"ajv/dist/runtime/ucs2length",
+	"ajv/dist/runtime/equal",
+	"ajv-formats/dist/formats",
+];
 
 const pgStubPlugin: esbuild.Plugin = {
 	name: "pg-stub",
 	setup(build) {
-		const escaped = PG_STUB_MODULES.map((s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
+		const stubModules = [...PG_STUB_MODULES, ...AJV_STUB_MODULES];
+		const escaped = stubModules.map((s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
 		const filter = new RegExp(`^(${escaped.join("|")})$`);
 		build.onResolve({ filter }, (args) => ({
 			path: args.path,
@@ -114,6 +130,16 @@ const ALLOWED_EXTERNALS = new Set([
 	// Optional ws peer deps — ws try/catches these, safe if missing
 	"bufferutil",
 	"utf-8-validate",
+	// AJV runtime helpers appear in the bundle as code-generation string literals
+	// (e.g. `.code = 'require("ajv/dist/runtime/equal").default'`).
+	// These are data strings embedded by AJV for use in generated validator code —
+	// they are not require() calls that execute at module load time. Adding them
+	// here tells the validator to skip these false-positive matches.
+	// @lore desktop: AJV embeds require() strings as code templates. The validator
+	// regex matches them as if they were real requires, but they are never executed
+	// unless AJV compiles new schemas at runtime (which it does not in the desktop
+	// app — all schemas are pre-compiled at build time by the MCP SDK).
+	...AJV_STUB_MODULES,
 ]);
 
 const bundleContent = fs.readFileSync(path.join(DIST_DIR, "main.cjs"), "utf-8");

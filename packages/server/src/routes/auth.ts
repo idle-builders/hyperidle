@@ -46,7 +46,7 @@ export function createAuthRoutes(
 
 	// GET /me — returns the authenticated user's identity.
 	// P2: reads from users table instead of factorySettings founder_name/founder_email.
-	router.get("/me", (c) => {
+	router.get("/me", async (c) => {
 		const userId = c.get("userId") ?? "u-founder";
 
 		if (!db) {
@@ -59,7 +59,7 @@ export function createAuthRoutes(
 			});
 		}
 
-		const userRow = db.select().from(users).where(eq(users.id, userId)).get();
+		const [userRow] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
 
 		return c.json({
 			id: userId,

@@ -1,7 +1,7 @@
 ## Dev Server
 
 ```bash
-bun dev
+npm run dev
 ```
 
 This runs two processes in parallel via `concurrently`:
@@ -19,7 +19,7 @@ Set `HYPERIDLE_API_KEY` before starting the server — it will exit if this is m
 
 ```bash
 export HYPERIDLE_API_KEY=my-local-dev-key
-bun dev
+npm run dev
 ```
 
 Key variables:

@@ -1,23 +1,29 @@
 import { createTestDb, type HyperIdleDb, knowledgeEditLog } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { VersionConflictError } from "../errors.js";
 import { KnowledgeEventType, knowledgeEvents } from "../events.js";
 import { setupFts } from "../fts.js";
 import { create, getById, list, search, update } from "../knowledge-repository.js";
 
-function makeDb(): HyperIdleDb {
-	const db = createTestDb();
-	setupFts(db);
-	return db;
+let handle: Awaited<ReturnType<typeof createTestDb>>;
+
+async function makeDb(): Promise<HyperIdleDb> {
+	handle = await createTestDb();
+	await setupFts(handle.db);
+	return handle.db;
 }
 
 describe("knowledge-repository", () => {
 	let db: HyperIdleDb;
 
-	beforeEach(() => {
-		db = makeDb();
+	beforeEach(async () => {
+		db = await makeDb();
 		knowledgeEvents.removeAllListeners();
+	});
+
+	afterEach(async () => {
+		await handle.close();
 	});
 
 	const baseItem = {
@@ -32,49 +38,48 @@ describe("knowledge-repository", () => {
 		updatedBy: "agent-1",
 	};
 
-	// AC1: Create, read, update operations succeed with version control
 	describe("create", () => {
 		it("creates a knowledge item with version 1", async () => {
-			const item = create(db, baseItem);
+			const item = await create(db, baseItem);
 			expect(item.id).toBeTruthy();
 			expect(item.version).toBe(1);
 			expect(item.title).toBe("Test Pattern");
 			expect(item.layer).toBe("L1");
 		});
 
-		it("assigns created_at and updated_at timestamps", () => {
-			const item = create(db, baseItem);
+		it("assigns created_at and updated_at timestamps", async () => {
+			const item = await create(db, baseItem);
 			expect(item.createdAt).toBeTruthy();
 			expect(item.updatedAt).toBeTruthy();
 		});
 	});
 
 	describe("getById", () => {
-		it("returns the item by id", () => {
-			const created = create(db, baseItem);
-			const found = getById(db, created.id);
+		it("returns the item by id", async () => {
+			const created = await create(db, baseItem);
+			const found = await getById(db, created.id);
 			expect(found).not.toBeNull();
 			expect(found?.id).toBe(created.id);
 			expect(found?.title).toBe("Test Pattern");
 		});
 
-		it("returns null for non-existent id", () => {
-			const found = getById(db, "non-existent");
+		it("returns null for non-existent id", async () => {
+			const found = await getById(db, "non-existent");
 			expect(found).toBeNull();
 		});
 	});
 
 	describe("update", () => {
-		it("updates fields and increments version", () => {
-			const created = create(db, baseItem);
-			const updated = update(db, created.id, { title: "Updated Title" }, 1);
+		it("updates fields and increments version", async () => {
+			const created = await create(db, baseItem);
+			const updated = await update(db, created.id, { title: "Updated Title" }, 1);
 			expect(updated.title).toBe("Updated Title");
 			expect(updated.version).toBe(2);
 		});
 
-		it("updates multiple fields at once", () => {
-			const created = create(db, baseItem);
-			const updated = update(
+		it("updates multiple fields at once", async () => {
+			const created = await create(db, baseItem);
+			const updated = await update(
 				db,
 				created.id,
 				{ title: "New Title", body: "New body content", topic: "new-topic" },
@@ -86,28 +91,24 @@ describe("knowledge-repository", () => {
 			expect(updated.version).toBe(2);
 		});
 
-		it("updates updatedAt timestamp", () => {
-			const created = create(db, baseItem);
-			// Ensure updatedAt changes by verifying it's set after update
-			const updated = update(db, created.id, { title: "New" }, 1);
+		it("updates updatedAt timestamp", async () => {
+			const created = await create(db, baseItem);
+			const updated = await update(db, created.id, { title: "New" }, 1);
 			expect(updated.updatedAt).toBeTruthy();
-			// updatedAt should be >= createdAt
 			expect(new Date(updated.updatedAt).getTime()).toBeGreaterThanOrEqual(
 				new Date(created.updatedAt).getTime(),
 			);
-			// The update should have set a new updatedAt value (version proves it went through)
 			expect(updated.version).toBe(2);
 		});
 	});
 
-	// AC2: Update with stale version throws VersionConflictError
 	describe("optimistic concurrency", () => {
-		it("throws VersionConflictError on stale version", () => {
-			const created = create(db, baseItem);
-			update(db, created.id, { title: "First update" }, 1);
+		it("throws VersionConflictError on stale version", async () => {
+			const created = await create(db, baseItem);
+			await update(db, created.id, { title: "First update" }, 1);
 
 			try {
-				update(db, created.id, { title: "Stale update" }, 1);
+				await update(db, created.id, { title: "Stale update" }, 1);
 				expect.unreachable("should have thrown");
 			} catch (err) {
 				expect(err).toBeInstanceOf(VersionConflictError);
@@ -116,18 +117,17 @@ describe("knowledge-repository", () => {
 			}
 		});
 
-		it("succeeds with correct version after prior update", () => {
-			const created = create(db, baseItem);
-			update(db, created.id, { title: "V2" }, 1);
-			const v3 = update(db, created.id, { title: "V3" }, 2);
+		it("succeeds with correct version after prior update", async () => {
+			const created = await create(db, baseItem);
+			await update(db, created.id, { title: "V2" }, 1);
+			const v3 = await update(db, created.id, { title: "V3" }, 2);
 			expect(v3.version).toBe(3);
 			expect(v3.title).toBe("V3");
 		});
 	});
 
-	// AC3: FTS5 search on 10 items returns matching items ranked by relevance
 	describe("search", () => {
-		it("returns matching items ranked by relevance from 10 items", () => {
+		it("returns matching items ranked by relevance from 10 items", async () => {
 			const items = [
 				{
 					...baseItem,
@@ -173,57 +173,56 @@ describe("knowledge-repository", () => {
 				},
 			];
 			for (const item of items) {
-				create(db, item);
+				await create(db, item);
 			}
 
-			const results = search(db, "testing");
+			const results = await search(db, "testing");
 			expect(results.length).toBeGreaterThanOrEqual(2);
-			// Items with "testing" in title should rank higher
 			const titles = results.map((r) => r.title);
 			expect(titles).toContain("TypeScript testing patterns");
 			expect(titles).toContain("Testing strategies");
 		});
 
-		it("returns empty array for no matches", () => {
-			create(db, baseItem);
-			const results = search(db, "xyznonexistent");
+		it("returns empty array for no matches", async () => {
+			await create(db, baseItem);
+			const results = await search(db, "xyznonexistent");
 			expect(results).toEqual([]);
 		});
 
-		it("supports pagination in search", () => {
+		it("supports pagination in search", async () => {
 			for (let i = 0; i < 5; i++) {
-				create(db, { ...baseItem, title: `Pattern item ${i}`, body: `Pattern description ${i}` });
+				await create(db, {
+					...baseItem,
+					title: `Pattern item ${i}`,
+					body: `Pattern description ${i}`,
+				});
 			}
-			const page1 = search(db, "Pattern", { limit: 2, offset: 0 });
-			const page2 = search(db, "Pattern", { limit: 2, offset: 2 });
+			const page1 = await search(db, "Pattern", { limit: 2, offset: 0 });
+			const page2 = await search(db, "Pattern", { limit: 2, offset: 2 });
 			expect(page1.length).toBe(2);
 			expect(page2.length).toBe(2);
 		});
 	});
 
-	// AC4: Every update creates knowledge_edit_log entry
 	describe("edit log", () => {
-		it("creates edit log entry on create", () => {
-			const item = create(db, baseItem);
-			const logs = db
+		it("creates edit log entry on create", async () => {
+			const item = await create(db, baseItem);
+			const logs = await db
 				.select()
 				.from(knowledgeEditLog)
-				.where(eq(knowledgeEditLog.itemId, item.id))
-				.all();
+				.where(eq(knowledgeEditLog.itemId, item.id));
 			expect(logs.length).toBe(1);
 			expect(logs[0]?.editType).toBe("create");
 			expect(logs[0]?.editor).toBe("agent-1");
 		});
 
-		it("creates edit log entries on update for each changed field", () => {
-			const item = create(db, baseItem);
-			update(db, item.id, { title: "New Title", body: "New Body" }, 1);
-			const logs = db
+		it("creates edit log entries on update for each changed field", async () => {
+			const item = await create(db, baseItem);
+			await update(db, item.id, { title: "New Title", body: "New Body" }, 1);
+			const logs = await db
 				.select()
 				.from(knowledgeEditLog)
-				.where(eq(knowledgeEditLog.itemId, item.id))
-				.all();
-			// 1 for create + 2 for update (title + body)
+				.where(eq(knowledgeEditLog.itemId, item.id));
 			expect(logs.length).toBe(3);
 			const updateLogs = logs.filter((l) => l.editType === "update");
 			expect(updateLogs.length).toBe(2);
@@ -231,14 +230,13 @@ describe("knowledge-repository", () => {
 			expect(fields).toEqual(["body", "title"]);
 		});
 
-		it("records old and new values in edit log", () => {
-			const item = create(db, baseItem);
-			update(db, item.id, { title: "New Title" }, 1);
-			const logs = db
+		it("records old and new values in edit log", async () => {
+			const item = await create(db, baseItem);
+			await update(db, item.id, { title: "New Title" }, 1);
+			const logs = await db
 				.select()
 				.from(knowledgeEditLog)
-				.where(eq(knowledgeEditLog.itemId, item.id))
-				.all();
+				.where(eq(knowledgeEditLog.itemId, item.id));
 			const titleLog = logs.find((l) => l.editType === "update" && l.field === "title");
 			expect(titleLog).toBeTruthy();
 			expect(titleLog?.oldValue).toBe("Test Pattern");
@@ -246,12 +244,11 @@ describe("knowledge-repository", () => {
 		});
 	});
 
-	// AC5: knowledge_item_updated event fires on every write
 	describe("events", () => {
-		it("emits event on create", () => {
+		it("emits event on create", async () => {
 			const handler = vi.fn();
 			knowledgeEvents.on(KnowledgeEventType.UPDATED, handler);
-			const item = create(db, baseItem);
+			const item = await create(db, baseItem);
 			expect(handler).toHaveBeenCalledOnce();
 			expect(handler).toHaveBeenCalledWith({
 				type: KnowledgeEventType.UPDATED,
@@ -260,11 +257,11 @@ describe("knowledge-repository", () => {
 			});
 		});
 
-		it("emits event on update", () => {
-			const item = create(db, baseItem);
+		it("emits event on update", async () => {
+			const item = await create(db, baseItem);
 			const handler = vi.fn();
 			knowledgeEvents.on(KnowledgeEventType.UPDATED, handler);
-			update(db, item.id, { title: "Changed" }, 1);
+			await update(db, item.id, { title: "Changed" }, 1);
 			expect(handler).toHaveBeenCalledOnce();
 			expect(handler).toHaveBeenCalledWith({
 				type: KnowledgeEventType.UPDATED,
@@ -274,93 +271,107 @@ describe("knowledge-repository", () => {
 		});
 	});
 
-	// AC6: Pagination works: limit 5, offset 0 returns first 5
 	describe("pagination", () => {
-		it("returns first 5 items with limit 5 offset 0", () => {
+		it("returns first 5 items with limit 5 offset 0", async () => {
 			for (let i = 0; i < 10; i++) {
-				create(db, { ...baseItem, title: `Item ${String(i).padStart(2, "0")}` });
+				await create(db, { ...baseItem, title: `Item ${String(i).padStart(2, "0")}` });
 			}
-			const page = list(db, { limit: 5, offset: 0 });
+			const page = await list(db, { limit: 5, offset: 0 });
 			expect(page.length).toBe(5);
 		});
 
-		it("returns next 5 items with limit 5 offset 5", () => {
+		it("returns next 5 items with limit 5 offset 5", async () => {
 			for (let i = 0; i < 10; i++) {
-				create(db, { ...baseItem, title: `Item ${String(i).padStart(2, "0")}` });
+				await create(db, { ...baseItem, title: `Item ${String(i).padStart(2, "0")}` });
 			}
-			const page1 = list(db, { limit: 5, offset: 0 });
-			const page2 = list(db, { limit: 5, offset: 5 });
+			const page1 = await list(db, { limit: 5, offset: 0 });
+			const page2 = await list(db, { limit: 5, offset: 5 });
 			expect(page2.length).toBe(5);
-			// Pages should not overlap
 			const ids1 = new Set(page1.map((i) => i.id));
 			for (const item of page2) {
 				expect(ids1.has(item.id)).toBe(false);
 			}
 		});
 
-		it("returns remaining items when offset + limit exceeds total", () => {
+		it("returns remaining items when offset + limit exceeds total", async () => {
 			for (let i = 0; i < 7; i++) {
-				create(db, { ...baseItem, title: `Item ${i}` });
+				await create(db, { ...baseItem, title: `Item ${i}` });
 			}
-			const page = list(db, { limit: 5, offset: 5 });
+			const page = await list(db, { limit: 5, offset: 5 });
 			expect(page.length).toBe(2);
 		});
 	});
 
-	// AC7: List by layer, scope_id, kind, topic filters correctly
 	describe("filters", () => {
-		beforeEach(() => {
-			create(db, { ...baseItem, layer: "L0", kind: "pattern", topic: "arch", scopeId: "s1" });
-			create(db, { ...baseItem, layer: "L1", kind: "decision", topic: "arch", scopeId: "s1" });
-			create(db, { ...baseItem, layer: "L1", kind: "pattern", topic: "testing", scopeId: "s2" });
-			create(db, { ...baseItem, layer: "L2", kind: "brief", topic: "design", scopeId: "s2" });
-			create(db, { ...baseItem, layer: "L2", kind: "pattern", topic: "testing", scopeId: "s1" });
+		beforeEach(async () => {
+			await create(db, { ...baseItem, layer: "L0", kind: "pattern", topic: "arch", scopeId: "s1" });
+			await create(db, {
+				...baseItem,
+				layer: "L1",
+				kind: "decision",
+				topic: "arch",
+				scopeId: "s1",
+			});
+			await create(db, {
+				...baseItem,
+				layer: "L1",
+				kind: "pattern",
+				topic: "testing",
+				scopeId: "s2",
+			});
+			await create(db, { ...baseItem, layer: "L2", kind: "brief", topic: "design", scopeId: "s2" });
+			await create(db, {
+				...baseItem,
+				layer: "L2",
+				kind: "pattern",
+				topic: "testing",
+				scopeId: "s1",
+			});
 		});
 
-		it("filters by layer", () => {
-			const items = list(db, { layer: "L1" });
+		it("filters by layer", async () => {
+			const items = await list(db, { layer: "L1" });
 			expect(items.length).toBe(2);
 			for (const item of items) {
 				expect(item.layer).toBe("L1");
 			}
 		});
 
-		it("filters by scopeId", () => {
-			const items = list(db, { scopeId: "s2" });
+		it("filters by scopeId", async () => {
+			const items = await list(db, { scopeId: "s2" });
 			expect(items.length).toBe(2);
 			for (const item of items) {
 				expect(item.scopeId).toBe("s2");
 			}
 		});
 
-		it("filters by kind", () => {
-			const items = list(db, { kind: "pattern" });
+		it("filters by kind", async () => {
+			const items = await list(db, { kind: "pattern" });
 			expect(items.length).toBe(3);
 			for (const item of items) {
 				expect(item.kind).toBe("pattern");
 			}
 		});
 
-		it("filters by topic", () => {
-			const items = list(db, { topic: "arch" });
+		it("filters by topic", async () => {
+			const items = await list(db, { topic: "arch" });
 			expect(items.length).toBe(2);
 			for (const item of items) {
 				expect(item.topic).toBe("arch");
 			}
 		});
 
-		it("combines multiple filters", () => {
-			const items = list(db, { layer: "L1", kind: "pattern" });
+		it("combines multiple filters", async () => {
+			const items = await list(db, { layer: "L1", kind: "pattern" });
 			expect(items.length).toBe(1);
 			expect(items[0]?.topic).toBe("testing");
 		});
 
-		it("combines filters with pagination", () => {
-			// Add more L1 items
+		it("combines filters with pagination", async () => {
 			for (let i = 0; i < 8; i++) {
-				create(db, { ...baseItem, layer: "L1", kind: "pattern", topic: `topic-${i}` });
+				await create(db, { ...baseItem, layer: "L1", kind: "pattern", topic: `topic-${i}` });
 			}
-			const page = list(db, { layer: "L1", kind: "pattern", limit: 3, offset: 0 });
+			const page = await list(db, { layer: "L1", kind: "pattern", limit: 3, offset: 0 });
 			expect(page.length).toBe(3);
 			for (const item of page) {
 				expect(item.layer).toBe("L1");

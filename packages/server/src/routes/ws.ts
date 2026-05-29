@@ -105,13 +105,17 @@ function registerWsRoute(
 				pendingIdentity = undefined;
 				ws.send(JSON.stringify({ type: "connected" }));
 			},
-			onMessage(evt, ws) {
+			async onMessage(evt, ws) {
 				const adapter = adapters.get(ws);
 				if (typeof evt.data === "string") {
 					try {
 						const msg = JSON.parse(evt.data) as { type?: string; topic?: string };
 						if (msg.type === "subscribe" && msg.topic && adapter && broadcaster) {
-							const result = broadcaster.subscribe(adapter, msg.topic);
+							// @lore N1: broadcaster.subscribe() is async (DB lookup for thread
+							// participant checks). Must await here — the pre-PGlite sync path
+							// returned a string directly; the async path returns Promise<string>.
+							// Missing await caused result === Promise (truthy), never "ok".
+							const result = await broadcaster.subscribe(adapter, msg.topic);
 							if (result === "ok") {
 								ws.send(JSON.stringify({ type: "subscribed", topic: msg.topic }));
 							} else {
