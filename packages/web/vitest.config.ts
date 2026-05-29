@@ -13,6 +13,9 @@ export default defineConfig({
 		},
 		setupFiles: ["./src/test-setup.ts"],
 		include: ["src/**/*.test.{ts,tsx}"],
-		testTimeout: 15_000,
+		// @lore: Under heavy CI load (10+ parallel worktrees on a 10-core machine),
+		// React module initialization and createBrowserRouter can take >15s.
+		// Increased to 60s to handle worst-case load while keeping reasonable bounds.
+		testTimeout: 60_000,
 	},
 });

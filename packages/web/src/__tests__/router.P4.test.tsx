@@ -58,7 +58,9 @@ describe("Router (P4) — /setup route", () => {
 		const allPaths = flattenRoutes(routes);
 		expect(allPaths).not.toContain("/onboarding");
 		expect(allPaths).not.toContain("onboarding");
-	}, 15000);
+		// @lore: 15s was too tight under 10x CI load; bumped to 60s to match
+		// the global web testTimeout increase for heavy-load machines.
+	}, 60_000);
 
 	// /setup route exists in the router
 	it("router.tsx includes /setup path", async () => {

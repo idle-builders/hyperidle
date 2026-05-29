@@ -109,7 +109,9 @@ describe("I3: dependency-watcher SQL filter benchmark", () => {
 		// ("does NOT load unrelated tasks into memory") is the real regression guard;
 		// this threshold only ensures we're not doing an O(n²) scan.
 		// Under normal load this completes in <10ms; 2000ms is a ~200x safety margin.
-		expect(elapsedMs, `checkAndUnblockDependents took ${elapsedMs.toFixed(2)}ms`).toBeLessThan(2000);
+		expect(elapsedMs, `checkAndUnblockDependents took ${elapsedMs.toFixed(2)}ms`).toBeLessThan(
+			2000,
+		);
 	});
 
 	it("does NOT load unrelated tasks into memory (proxy: row-read counter)", async () => {
