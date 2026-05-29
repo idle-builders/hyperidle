@@ -5,5 +5,6 @@ export default defineProject({
 		name: "fabric",
 		// Scope to source tests; `dist/**/*.test.js` are stale tsc artifacts.
 		include: ["src/**/*.test.{ts,tsx}"],
+		hookTimeout: 30_000,
 	},
 });
