@@ -62,7 +62,10 @@ const TOOLS: Tool[] = [
 		cmd: "npm",
 		args: ["run", "test:raw"],
 		env: { VITEST_TOON_OUTPUT: TEST_OUTPUT_FILE },
-		timeoutMs: 600_000,
+		// @lore: Under heavy CI load (10+ parallel worktrees on 10-core machine),
+		// the full test suite can take 1000s+. 1800s (30min) handles worst-case
+		// multi-worktree contention while still providing a reasonable upper bound.
+		timeoutMs: 1_800_000,
 	},
 	{ name: "build", cmd: "npm", args: ["run", "build"], timeoutMs: 60_000 },
 	{
