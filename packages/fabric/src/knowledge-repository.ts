@@ -85,17 +85,16 @@ function now(): string {
 /**
  * Fetch the fabric extension row for a knowledge item, or null if not found.
  */
-function getFabricRow(
+async function getFabricRow(
 	db: HyperIdleDb,
 	knowledgeItemId: string,
-): typeof knowledgeStrategyFabric.$inferSelect | null {
-	return (
-		db
-			.select()
-			.from(knowledgeStrategyFabric)
-			.where(eq(knowledgeStrategyFabric.knowledgeItemId, knowledgeItemId))
-			.get() ?? null
-	);
+): Promise<typeof knowledgeStrategyFabric.$inferSelect | null> {
+	const [row] = await db
+		.select()
+		.from(knowledgeStrategyFabric)
+		.where(eq(knowledgeStrategyFabric.knowledgeItemId, knowledgeItemId))
+		.limit(1);
+	return row ?? null;
 }
 
 /**
@@ -117,53 +116,50 @@ function mergeWithFabric(
 	};
 }
 
-export function create(db: HyperIdleDb, input: CreateKnowledgeItemInput): KnowledgeItemWithFabric {
+export async function create(
+	db: HyperIdleDb,
+	input: CreateKnowledgeItemInput,
+): Promise<KnowledgeItemWithFabric> {
 	const id = generateId();
 	const timestamp = now();
 
 	// Insert into kernel table (strategy fields excluded)
-	db.insert(knowledgeItems)
-		.values({
-			id,
-			topic: input.topic ?? null,
-			title: input.title,
-			body: input.body,
-			format: input.format,
-			status: input.status,
-			version: 1,
-			updatedBy: input.updatedBy,
-			createdAt: timestamp,
-			updatedAt: timestamp,
-		})
-		.run();
+	await db.insert(knowledgeItems).values({
+		id,
+		topic: input.topic ?? null,
+		title: input.title,
+		body: input.body,
+		format: input.format,
+		status: input.status,
+		version: 1,
+		updatedBy: input.updatedBy,
+		createdAt: timestamp,
+		updatedAt: timestamp,
+	});
 
 	// Insert into strategy extension table
-	db.insert(knowledgeStrategyFabric)
-		.values({
-			id: generateId(),
-			knowledgeItemId: id,
-			layer: input.layer,
-			scopeId: input.scopeId ?? null,
-			kind: input.kind,
-			attentionScore: input.attentionScore != null ? String(input.attentionScore) : null,
-			confidence: input.confidence != null ? String(input.confidence) : null,
-			meta: input.meta ?? null,
-		})
-		.run();
+	await db.insert(knowledgeStrategyFabric).values({
+		id: generateId(),
+		knowledgeItemId: id,
+		layer: input.layer,
+		scopeId: input.scopeId ?? null,
+		kind: input.kind,
+		attentionScore: input.attentionScore != null ? String(input.attentionScore) : null,
+		confidence: input.confidence != null ? String(input.confidence) : null,
+		meta: input.meta ?? null,
+	});
 
 	// Edit log for create
-	db.insert(knowledgeEditLog)
-		.values({
-			id: generateId(),
-			itemId: id,
-			editor: input.updatedBy,
-			field: "*",
-			oldValue: null,
-			newValue: null,
-			editType: "create",
-			createdAt: timestamp,
-		})
-		.run();
+	await db.insert(knowledgeEditLog).values({
+		id: generateId(),
+		itemId: id,
+		editor: input.updatedBy,
+		field: "*",
+		oldValue: null,
+		newValue: null,
+		editType: "create",
+		createdAt: timestamp,
+	});
 
 	// Emit event
 	getKnowledgeEvents().emit(KnowledgeEventType.UPDATED, {
@@ -172,18 +168,25 @@ export function create(db: HyperIdleDb, input: CreateKnowledgeItemInput): Knowle
 		version: 1,
 	});
 
-	const created = db.select().from(knowledgeItems).where(eq(knowledgeItems.id, id)).get();
+	const [created] = await db
+		.select()
+		.from(knowledgeItems)
+		.where(eq(knowledgeItems.id, id))
+		.limit(1);
 	if (!created) {
 		throw new Error(`Failed to read back created knowledge item ${id}`);
 	}
-	const fabricRow = getFabricRow(db, id);
+	const fabricRow = await getFabricRow(db, id);
 	return mergeWithFabric(created, fabricRow);
 }
 
-export function getById(db: HyperIdleDb, id: string): KnowledgeItemWithFabric | null {
-	const item = db.select().from(knowledgeItems).where(eq(knowledgeItems.id, id)).get();
+export async function getById(
+	db: HyperIdleDb,
+	id: string,
+): Promise<KnowledgeItemWithFabric | null> {
+	const [item] = await db.select().from(knowledgeItems).where(eq(knowledgeItems.id, id)).limit(1);
 	if (!item) return null;
-	const fabricRow = getFabricRow(db, id);
+	const fabricRow = await getFabricRow(db, id);
 	return mergeWithFabric(item, fabricRow);
 }
 
@@ -265,98 +268,108 @@ function buildDiff(
 	return { kernelChanges, fabricChanges, editLogEntries };
 }
 
-export function update(
+export async function update(
 	db: HyperIdleDb,
 	id: string,
 	changes: UpdateKnowledgeItemInput,
 	expectedVersion: number,
-): KnowledgeItemWithFabric {
-	// @lore N1/O2: better-sqlite3 issues BEGIN IMMEDIATE (write-ahead) on
-	// db.transaction so concurrent readers are not blocked by the kernel +
-	// extension table update. Do NOT use bun:sqlite — better-sqlite3 is the
-	// sole synchronous SQLite driver in this package.
-	const result = db.transaction((tx) => {
-		const existing = tx.select().from(knowledgeItems).where(eq(knowledgeItems.id, id)).get();
+): Promise<KnowledgeItemWithFabric> {
+	// @lore N1/O2: PGlite uses async transactions. The transaction callback must
+	// be async. All inner DB calls are awaited.
+	const result = await db.transaction(
+		async (tx): Promise<{ updated: KnowledgeItemWithFabric; newVersion: number }> => {
+			const [existing] = await tx
+				.select()
+				.from(knowledgeItems)
+				.where(eq(knowledgeItems.id, id))
+				.limit(1);
 
-		if (!existing) {
-			throw new Error(`Knowledge item ${id} not found`);
-		}
-		if (existing.version !== expectedVersion) {
-			throw new VersionConflictError(id, existing.version);
-		}
+			if (!existing) {
+				throw new Error(`Knowledge item ${id} not found`);
+			}
+			if (existing.version !== expectedVersion) {
+				throw new VersionConflictError(id, existing.version);
+			}
 
-		const fabricRow = tx
-			.select()
-			.from(knowledgeStrategyFabric)
-			.where(eq(knowledgeStrategyFabric.knowledgeItemId, id))
-			.get();
-		const existingWithFabric = mergeWithFabric(existing, fabricRow ?? null);
-
-		const timestamp = now();
-		const newVersion = existing.version + 1;
-		const { kernelChanges, fabricChanges, editLogEntries } = buildDiff(
-			id,
-			existingWithFabric,
-			changes,
-			timestamp,
-		);
-
-		const updateResult = tx
-			.update(knowledgeItems)
-			.set({
-				...kernelChanges,
-				version: newVersion,
-				updatedAt: timestamp,
-			})
-			.where(and(eq(knowledgeItems.id, id), eq(knowledgeItems.version, expectedVersion)))
-			.run();
-
-		if (updateResult.changes === 0) {
-			const current = tx.select().from(knowledgeItems).where(eq(knowledgeItems.id, id)).get();
-			if (!current) throw new ItemDeletedError(id);
-			throw new VersionConflictError(id, current.version);
-		}
-
-		// Update extension table if there are fabric changes
-		if (Object.keys(fabricChanges).length > 0) {
-			const existingFabric = tx
-				.select({ id: knowledgeStrategyFabric.id })
+			const [fabricRow] = await tx
+				.select()
 				.from(knowledgeStrategyFabric)
 				.where(eq(knowledgeStrategyFabric.knowledgeItemId, id))
-				.get();
-			if (existingFabric) {
-				tx.update(knowledgeStrategyFabric)
-					.set(fabricChanges)
+				.limit(1);
+			const existingWithFabric = mergeWithFabric(existing, fabricRow ?? null);
+
+			const timestamp = now();
+			const newVersion = existing.version + 1;
+			const { kernelChanges, fabricChanges, editLogEntries } = buildDiff(
+				id,
+				existingWithFabric,
+				changes,
+				timestamp,
+			);
+
+			const updateRows = await tx
+				.update(knowledgeItems)
+				.set({
+					...kernelChanges,
+					version: newVersion,
+					updatedAt: timestamp,
+				})
+				.where(and(eq(knowledgeItems.id, id), eq(knowledgeItems.version, expectedVersion)))
+				.returning({ id: knowledgeItems.id });
+
+			if (updateRows.length === 0) {
+				const [current] = await tx
+					.select()
+					.from(knowledgeItems)
+					.where(eq(knowledgeItems.id, id))
+					.limit(1);
+				if (!current) throw new ItemDeletedError(id);
+				throw new VersionConflictError(id, current.version);
+			}
+
+			// Update extension table if there are fabric changes
+			if (Object.keys(fabricChanges).length > 0) {
+				const [existingFabric] = await tx
+					.select({ id: knowledgeStrategyFabric.id })
+					.from(knowledgeStrategyFabric)
 					.where(eq(knowledgeStrategyFabric.knowledgeItemId, id))
-					.run();
-			} else {
-				// Create extension row if it doesn't exist
-				tx.insert(knowledgeStrategyFabric)
-					.values({
+					.limit(1);
+				if (existingFabric) {
+					await tx
+						.update(knowledgeStrategyFabric)
+						.set(fabricChanges)
+						.where(eq(knowledgeStrategyFabric.knowledgeItemId, id));
+				} else {
+					// Create extension row if it doesn't exist
+					await tx.insert(knowledgeStrategyFabric).values({
 						id: generateId(),
 						knowledgeItemId: id,
 						...fabricChanges,
-					})
-					.run();
+					});
+				}
 			}
-		}
 
-		// Insert edit log entries
-		for (const entry of editLogEntries) {
-			tx.insert(knowledgeEditLog).values(entry).run();
-		}
+			// Insert edit log entries
+			for (const entry of editLogEntries) {
+				await tx.insert(knowledgeEditLog).values(entry);
+			}
 
-		const updated = tx.select().from(knowledgeItems).where(eq(knowledgeItems.id, id)).get();
-		if (!updated) {
-			throw new Error(`Failed to read back updated knowledge item ${id}`);
-		}
-		const updatedFabric = tx
-			.select()
-			.from(knowledgeStrategyFabric)
-			.where(eq(knowledgeStrategyFabric.knowledgeItemId, id))
-			.get();
-		return { updated: mergeWithFabric(updated, updatedFabric ?? null), newVersion };
-	});
+			const [updated] = await tx
+				.select()
+				.from(knowledgeItems)
+				.where(eq(knowledgeItems.id, id))
+				.limit(1);
+			if (!updated) {
+				throw new Error(`Failed to read back updated knowledge item ${id}`);
+			}
+			const [updatedFabric] = await tx
+				.select()
+				.from(knowledgeStrategyFabric)
+				.where(eq(knowledgeStrategyFabric.knowledgeItemId, id))
+				.limit(1);
+			return { updated: mergeWithFabric(updated, updatedFabric ?? null), newVersion };
+		},
+	);
 
 	// Emit event AFTER the transaction commits
 	getKnowledgeEvents().emit(KnowledgeEventType.UPDATED, {
@@ -368,7 +381,10 @@ export function update(
 	return result.updated;
 }
 
-export function list(db: HyperIdleDb, filters: ListFilters = {}): KnowledgeItemWithFabric[] {
+export async function list(
+	db: HyperIdleDb,
+	filters: ListFilters = {},
+): Promise<KnowledgeItemWithFabric[]> {
 	// For filters on strategy fields (layer, scopeId, kind), we need to JOIN with
 	// the extension table. Start with a base query that always includes the JOIN.
 	const hasStrategyFilter =
@@ -388,12 +404,14 @@ export function list(db: HyperIdleDb, filters: ListFilters = {}): KnowledgeItemW
 		if (kernelConditions.length > 0) {
 			query = query.where(and(...kernelConditions));
 		}
-		const rows = query.limit(limit).offset(offset).all();
+		const rows = await query.limit(limit).offset(offset);
 
-		return rows.map((item) => {
-			const fabric = getFabricRow(db, item.id);
-			return mergeWithFabric(item, fabric);
-		});
+		const result: KnowledgeItemWithFabric[] = [];
+		for (const item of rows) {
+			const fabric = await getFabricRow(db, item.id);
+			result.push(mergeWithFabric(item, fabric));
+		}
+		return result;
 	}
 
 	// Strategy filters: JOIN with extension table
@@ -415,7 +433,7 @@ export function list(db: HyperIdleDb, filters: ListFilters = {}): KnowledgeItemW
 		conditions.push(eq(knowledgeStrategyFabric.kind, filters.kind));
 	}
 
-	const rows = db
+	const rows = await db
 		.select({ item: knowledgeItems, fabric: knowledgeStrategyFabric })
 		.from(knowledgeItems)
 		.innerJoin(
@@ -424,18 +442,17 @@ export function list(db: HyperIdleDb, filters: ListFilters = {}): KnowledgeItemW
 		)
 		.where(and(...conditions))
 		.limit(limit)
-		.offset(offset)
-		.all();
+		.offset(offset);
 
 	return rows.map(({ item, fabric }) => mergeWithFabric(item, fabric));
 }
 
-export function search(
+export async function search(
 	db: HyperIdleDb,
 	query: string,
 	options: FtsSearchOptions = {},
-): KnowledgeItemWithFabric[] {
-	const ids = ftsSearch(db, query, options);
+): Promise<KnowledgeItemWithFabric[]> {
+	const ids = await ftsSearch(db, query, options);
 	if (ids.length === 0) {
 		return [];
 	}
@@ -443,9 +460,9 @@ export function search(
 	// Fetch items in the order returned by FTS (ranked by relevance)
 	const items: KnowledgeItemWithFabric[] = [];
 	for (const id of ids) {
-		const item = db.select().from(knowledgeItems).where(eq(knowledgeItems.id, id)).get();
+		const [item] = await db.select().from(knowledgeItems).where(eq(knowledgeItems.id, id)).limit(1);
 		if (item) {
-			const fabric = getFabricRow(db, id);
+			const fabric = await getFabricRow(db, id);
 			items.push(mergeWithFabric(item, fabric));
 		}
 	}

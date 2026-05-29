@@ -70,7 +70,7 @@ The M1 inventory script also flags hardcoded identity strings used as stand-ins 
 Run the inventory generator locally before pushing:
 
 ```bash
-bun run scripts/mock-inventory.ts
+npm run scripts/mock-inventory.ts
 ```
 
 The script exits non-zero (fails CI) if `inventory.json` differs from the checked-in version.

@@ -1,44 +1,27 @@
 import type { HyperIdleDb } from "@hyperidle/db";
+import { sql } from "drizzle-orm";
+
+// @lore PGlite migration: Replaced SQLite FTS5 with Postgres tsvector/tsquery.
+// PGlite supports standard Postgres full-text search natively. The tsvector
+// column + GIN index approach is simpler than FTS5 (no virtual tables or
+// triggers) and uses Postgres' built-in text search dictionaries.
 
 /**
- * Creates the FTS5 virtual table and triggers to keep it in sync
- * with the knowledge_items table.
- *
- * Must be called once per database connection (FTS5 virtual tables
- * are not managed by Drizzle migrations).
+ * Creates a generated tsvector column and GIN index on knowledge_items
+ * for full-text search. Idempotent — safe to call on every connection.
  */
-export function setupFts(db: HyperIdleDb): void {
-	// Access the underlying better-sqlite3 instance via Drizzle internals
-	// biome-ignore lint/suspicious/noExplicitAny: accessing internal Drizzle session for raw SQL
-	const session = (db as any).session;
-	const sqlite = session.client;
-	const exec = (sql: string): void => {
-		sqlite.exec(sql);
-	};
-
-	exec(`
-		CREATE VIRTUAL TABLE IF NOT EXISTS knowledge_items_fts
-		USING fts5(title, body, content='knowledge_items', content_rowid='rowid');
+export async function setupFts(db: HyperIdleDb): Promise<void> {
+	await db.execute(sql`
+		ALTER TABLE knowledge_items
+		ADD COLUMN IF NOT EXISTS fts_vector tsvector
+		GENERATED ALWAYS AS (
+			to_tsvector('english', coalesce(title, '') || ' ' || coalesce(body, ''))
+		) STORED
 	`);
 
-	// Triggers to keep FTS in sync
-	exec(`
-		CREATE TRIGGER IF NOT EXISTS ki_fts_insert AFTER INSERT ON knowledge_items BEGIN
-			INSERT INTO knowledge_items_fts(rowid, title, body) VALUES (NEW.rowid, NEW.title, NEW.body);
-		END;
-	`);
-
-	exec(`
-		CREATE TRIGGER IF NOT EXISTS ki_fts_update AFTER UPDATE ON knowledge_items BEGIN
-			INSERT INTO knowledge_items_fts(knowledge_items_fts, rowid, title, body) VALUES('delete', OLD.rowid, OLD.title, OLD.body);
-			INSERT INTO knowledge_items_fts(rowid, title, body) VALUES (NEW.rowid, NEW.title, NEW.body);
-		END;
-	`);
-
-	exec(`
-		CREATE TRIGGER IF NOT EXISTS ki_fts_delete AFTER DELETE ON knowledge_items BEGIN
-			INSERT INTO knowledge_items_fts(knowledge_items_fts, rowid, title, body) VALUES('delete', OLD.rowid, OLD.title, OLD.body);
-		END;
+	await db.execute(sql`
+		CREATE INDEX IF NOT EXISTS knowledge_items_fts_idx
+		ON knowledge_items USING gin(fts_vector)
 	`);
 }
 
@@ -66,87 +49,61 @@ export const FTS_MAX_QUERY_CHARS = 1024;
 export const FTS_MAX_TOKENS = 64;
 
 /**
- * Sanitise a user-supplied query string for FTS5 `MATCH`.
+ * Sanitise a user-supplied query string for Postgres tsquery.
  *
- * Strategy: whitelist word-chars + internal `-`, `_`, `'`; lowercase operator
- * keywords (`AND/OR/NOT/NEAR`); wrap each surviving token in double quotes so
- * FTS5 treats it as a literal phrase. A trailing `*` on a token is preserved
- * as the FTS5 prefix-match operator (W5: prefix search support). Returns
- * `""` when all tokens are stripped — callers MUST short-circuit to `[]` on
- * empty output rather than running `MATCH ''` (which throws "syntax error").
+ * Strategy: whitelist word-chars + internal `-`, `_`; emit each
+ * surviving token joined with `&` (AND). A trailing `*` on a token is
+ * preserved as the Postgres prefix-match operator (:*). Returns `""`
+ * when all tokens are stripped — callers MUST short-circuit to `[]`.
  *
  * Bounds: input is truncated at FTS_MAX_QUERY_CHARS, token list at
  * FTS_MAX_TOKENS — anti-DoS, see sec MEDIUM-5.
  *
  * @lore I3 (TRACK-I.md L151-154): prior implementation passed raw input to
- * MATCH, enabling operator injection (`*`, `"…"`, `AND/OR/NOT/NEAR`, `()`,
- * `{}`, `^`). Keeping hyphens/underscores/apostrophes internal preserves
- * meaningful identifier tokens like `react-router`, `my_var`, `don't`.
+ * MATCH, enabling operator injection. Keeping hyphens/underscores/apostrophes
+ * internal preserves meaningful identifier tokens like `react-router`, `my_var`.
  *
- * @lore I3 review W5: prefix search via trailing `*`. Strategy: detect
- * `token*` BEFORE the operator-strip pass, emit `"token" *` (FTS5
- * concatenates a literal phrase + the prefix-match suffix). The `*` only
- * survives when it directly suffixes a sanitised token; standalone `*`
- * or leading `*` is stripped (matches no rows, the previous behaviour).
+ * @lore PGlite migration: Postgres tsquery uses `&` (AND), `|` (OR), `!` (NOT),
+ * `:*` (prefix). We emit sanitized tokens joined with `&` for AND semantics.
  */
 export function sanitizeFtsQuery(input: string): string {
 	if (typeof input !== "string") return "";
 	let trimmed = input.trim();
 	if (trimmed.length === 0) return "";
-	// Anti-DoS: truncate before the regex pass.
 	if (trimmed.length > FTS_MAX_QUERY_CHARS) {
 		trimmed = trimmed.slice(0, FTS_MAX_QUERY_CHARS);
 	}
 
-	// Split on whitespace. Each token gets its operator-relevant chars stripped.
 	const rawTokens = trimmed.split(/\s+/u).slice(0, FTS_MAX_TOKENS);
-	const OPERATOR_WORDS = new Set(["and", "or", "not", "near"]);
 	const sanitized: string[] = [];
 
 	for (const raw of rawTokens) {
-		// W5: detect & preserve a trailing `*` for prefix search. The `*`
-		// must be the FINAL char of the raw token — `*foo` and `f*o` are
-		// not prefix queries and have their `*` stripped by the whitelist.
 		const isPrefix = raw.endsWith("*") && raw.length > 1;
 		const stripped = isPrefix ? raw.slice(0, -1) : raw;
 
-		// Keep letters, digits, underscore, hyphen, apostrophe. Drop
-		// everything else (FTS5 operators: * " ( ) { } ^ : +, and any other
-		// punctuation).
-		let token = stripped.replace(/[^\p{L}\p{N}_\-']/gu, "");
-		// Trim leading/trailing hyphens/apostrophes — only *internal* ones
-		// are meaningful. `react-router` → keep; `-foo` → `foo`.
-		token = token.replace(/^['-]+|['-]+$/gu, "");
+		let token = stripped.replace(/[^\p{L}\p{N}_\-]/gu, "");
+		token = token.replace(/^[-]+|[-]+$/gu, "");
 		if (token.length === 0) continue;
 
-		// Lowercase operator words so FTS5 treats them as literals (FTS5
-		// operators are case-sensitive uppercase).
-		if (OPERATOR_WORDS.has(token.toLowerCase())) {
-			token = token.toLowerCase();
-		}
-
 		if (isPrefix) {
-			// FTS5 prefix syntax is `token*` (no quotes). Emit it bare —
-			// quoting would defeat the prefix operator.
-			sanitized.push(`${token}*`);
+			sanitized.push(`${token}:*`);
 		} else {
-			// Wrap in double quotes → literal phrase.
-			sanitized.push(`"${token}"`);
+			sanitized.push(token);
 		}
 	}
 
-	return sanitized.join(" ");
+	return sanitized.join(" & ");
 }
 
 /**
- * Raw FTS5 search returning matching knowledge_item IDs ranked by relevance.
- * User input is sanitised before being passed to `MATCH`.
+ * Full-text search returning matching knowledge_item IDs ranked by relevance.
+ * User input is sanitised before being passed to tsquery.
  */
-export function ftsSearch(
+export async function ftsSearch(
 	db: HyperIdleDb,
 	query: string,
 	options: FtsSearchOptions = {},
-): string[] {
+): Promise<string[]> {
 	const { limit = 50, offset = 0 } = options;
 
 	const sanitized = sanitizeFtsQuery(query);
@@ -154,19 +111,14 @@ export function ftsSearch(
 		return [];
 	}
 
-	// biome-ignore lint/suspicious/noExplicitAny: accessing internal Drizzle session for raw SQL
-	const session = (db as any).session;
-	const sqlite = session.client;
-
-	const stmt = sqlite.prepare(`
-		SELECT ki.id
-		FROM knowledge_items_fts fts
-		JOIN knowledge_items ki ON ki.rowid = fts.rowid
-		WHERE knowledge_items_fts MATCH ?
-		ORDER BY rank
-		LIMIT ? OFFSET ?
+	const result = await db.execute(sql`
+		SELECT id
+		FROM knowledge_items
+		WHERE fts_vector @@ to_tsquery('english', ${sanitized})
+		ORDER BY ts_rank(fts_vector, to_tsquery('english', ${sanitized})) DESC
+		LIMIT ${limit} OFFSET ${offset}
 	`);
 
-	const rows = stmt.all(sanitized, limit, offset) as Array<{ id: string }>;
+	const rows = (result as { rows: Array<{ id: string }> }).rows;
 	return rows.map((r) => r.id);
 }

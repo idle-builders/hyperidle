@@ -5,7 +5,7 @@
  * 1. packages/db schema has knowledge_access_log table (T1)
  * 2. packages/server/src/routes/knowledge.ts inserts access-log rows (T5)
  */
-import { createTestDb, type HyperIdleDb, knowledgeItems } from "@hyperidle/db";
+import { createTestDb, type HyperIdleDb, knowledgeItems, type TestDbHandle } from "@hyperidle/db";
 import { EventBus } from "@hyperidle/shared";
 import type { Hono } from "hono";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -20,45 +20,47 @@ function authHeaders(): Record<string, string> {
 const NOW_ISO = "2026-05-06T12:00:00.000Z";
 
 describe("Knowledge access-log creation (L22 AC-1)", () => {
+	let handle: TestDbHandle;
 	let db: HyperIdleDb;
 	let app: Hono;
 
-	beforeEach(() => {
+	beforeEach(async () => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		db = createTestDb();
+		handle = await createTestDb();
+		db = handle.db;
 		const eventBus = new EventBus();
-		app = createTestApp({ db, eventBus });
+		app = await createTestApp({ db, eventBus });
 	});
 
-	afterEach(() => {
+	afterEach(async () => {
 		vi.unstubAllEnvs();
+		await handle?.close();
 	});
 
 	async function createItem(_layer = "L3"): Promise<string> {
 		// @lore O2: knowledgeItems no longer has layer/scopeId/kind/meta columns.
 		// The kernel row holds identity+content only.
 		const id = crypto.randomUUID();
-		db.insert(knowledgeItems)
-			.values({
-				id,
-				topic: "testing",
-				title: "Test Item",
-				body: "Test body",
-				format: "markdown",
-				status: "active",
-				version: 1,
-				updatedBy: "human",
-				createdAt: NOW_ISO,
-				updatedAt: NOW_ISO,
-			})
-			.run();
+		await db.insert(knowledgeItems).values({
+			id,
+			topic: "testing",
+			title: "Test Item",
+			body: "Test body",
+			format: "markdown",
+			status: "active",
+			version: 1,
+			updatedBy: "human",
+			createdAt: NOW_ISO,
+			updatedAt: NOW_ISO,
+		});
+
 		return id;
 	}
 
 	async function getAccessLogCount(itemId: string): Promise<number> {
 		// knowledgeAccessLog exported from @hyperidle/db since T1
 		const { knowledgeAccessLog } = await import("@hyperidle/db");
-		const rows = db.select().from(knowledgeAccessLog).all();
+		const rows = await db.select().from(knowledgeAccessLog);
 		return rows.filter((r: { itemId: string }) => r.itemId === itemId).length;
 	}
 
@@ -136,7 +138,7 @@ describe("Knowledge access-log creation (L22 AC-1)", () => {
 
 		// knowledgeAccessLog exported from @hyperidle/db since T1
 		const { knowledgeAccessLog } = await import("@hyperidle/db");
-		const rows = db.select().from(knowledgeAccessLog).all();
+		const rows = await db.select().from(knowledgeAccessLog);
 		const row = rows.find((r: { itemId: string }) => r.itemId === itemId);
 
 		expect(row).toBeDefined();

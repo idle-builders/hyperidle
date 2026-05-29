@@ -54,11 +54,11 @@ async function handler(
 ): Promise<ToolResult<PromoteKnowledgeData>> {
 	const { knowledgeItemId, toStatus, reason } = input;
 
-	const row = ctx.db
+	const [row] = await ctx.db
 		.select()
 		.from(knowledgeItems)
 		.where(eq(knowledgeItems.id, knowledgeItemId))
-		.get();
+		.limit(1);
 	if (!row) {
 		return err("NOT_FOUND", `Knowledge item not found: ${knowledgeItemId}`);
 	}
@@ -79,54 +79,54 @@ async function handler(
 	const editor = `agent:${ctx.agentId}`;
 
 	// Wrap the gate-check + conditional UPDATE + edit-log INSERT in a
-	// transaction. Under SQLite WAL this serializes concurrent promotes so
+	// transaction. Under PGlite/Postgres this serializes concurrent promotes so
 	// two callers racing from `provisional -> validated` cannot both succeed;
 	// the loser sees 0 rows changed and returns CONCURRENT_MODIFICATION.
-	const txResult = ctx.db.transaction((tx): ToolResult<PromoteKnowledgeData> => {
-		// Conflict gate: block promotion to 'validated' while any open conflict
-		// exists on the item (KNOWLEDGE_ARCHITECTURE §6.2). Inside the tx so the
-		// gate read and the status update are atomic.
-		if (toStatus === "validated") {
-			const openConflict = tx
-				.select()
-				.from(knowledgeConflicts)
-				.where(
-					and(
-						eq(knowledgeConflicts.itemId, knowledgeItemId),
-						eq(knowledgeConflicts.status, "open"),
-					),
-				)
-				.get();
-			if (openConflict) {
-				return err("CONFLICT_OPEN", "open conflict blocks promotion to validated");
+	const txResult = await ctx.db.transaction(
+		async (tx): Promise<ToolResult<PromoteKnowledgeData>> => {
+			// Conflict gate: block promotion to 'validated' while any open conflict
+			// exists on the item (KNOWLEDGE_ARCHITECTURE §6.2). Inside the tx so the
+			// gate read and the status update are atomic.
+			if (toStatus === "validated") {
+				const [openConflict] = await tx
+					.select()
+					.from(knowledgeConflicts)
+					.where(
+						and(
+							eq(knowledgeConflicts.itemId, knowledgeItemId),
+							eq(knowledgeConflicts.status, "open"),
+						),
+					)
+					.limit(1);
+				if (openConflict) {
+					return err("CONFLICT_OPEN", "open conflict blocks promotion to validated");
+				}
 			}
-		}
 
-		// @lore: status changes do NOT bump `version` — version is reserved for
-		// content edits, matching knowledge-repository.update conventions.
-		//
-		// Conditional UPDATE: WHERE clause pins `status = fromStatus` so a
-		// racing caller that has already transitioned the row sees 0 changes
-		// and we fail CONCURRENT_MODIFICATION instead of silently clobbering
-		// their write.
-		const updateResult = tx
-			.update(knowledgeItems)
-			.set({ status: toStatus, updatedAt: now, updatedBy: editor })
-			.where(and(eq(knowledgeItems.id, knowledgeItemId), eq(knowledgeItems.status, fromStatus)))
-			.run();
+			// @lore: status changes do NOT bump `version` — version is reserved for
+			// content edits, matching knowledge-repository.update conventions.
+			//
+			// Conditional UPDATE: WHERE clause pins `status = fromStatus` so a
+			// racing caller that has already transitioned the row sees 0 changes
+			// and we fail CONCURRENT_MODIFICATION instead of silently clobbering
+			// their write.
+			const updated = await tx
+				.update(knowledgeItems)
+				.set({ status: toStatus, updatedAt: now, updatedBy: editor })
+				.where(and(eq(knowledgeItems.id, knowledgeItemId), eq(knowledgeItems.status, fromStatus)))
+				.returning({ id: knowledgeItems.id });
 
-		if (updateResult.changes === 0) {
-			return err(
-				"CONCURRENT_MODIFICATION",
-				`knowledge item ${knowledgeItemId} no longer in status ${fromStatus}`,
-			);
-		}
+			if (updated.length === 0) {
+				return err(
+					"CONCURRENT_MODIFICATION",
+					`knowledge item ${knowledgeItemId} no longer in status ${fromStatus}`,
+				);
+			}
 
-		// Persist the promotion reason (if any) alongside the transition in
-		// the edit log so the audit trail is complete.
-		const newValue = reason ? `${toStatus} | reason: ${reason}` : toStatus;
-		tx.insert(knowledgeEditLog)
-			.values({
+			// Persist the promotion reason (if any) alongside the transition in
+			// the edit log so the audit trail is complete.
+			const newValue = reason ? `${toStatus} | reason: ${reason}` : toStatus;
+			await tx.insert(knowledgeEditLog).values({
 				id: randomUUID(),
 				itemId: knowledgeItemId,
 				editor,
@@ -135,15 +135,15 @@ async function handler(
 				newValue,
 				editType: "refinement",
 				createdAt: now,
-			})
-			.run();
+			});
 
-		return ok<PromoteKnowledgeData>({
-			knowledgeItemId,
-			fromStatus,
-			toStatus,
-		});
-	});
+			return ok<PromoteKnowledgeData>({
+				knowledgeItemId,
+				fromStatus,
+				toStatus,
+			});
+		},
+	);
 
 	return txResult;
 }

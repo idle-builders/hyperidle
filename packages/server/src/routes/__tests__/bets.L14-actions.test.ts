@@ -38,28 +38,27 @@ describe("L14 — Bet actions: pause / resume / enrichment / actor", () => {
 	let eventBus: EventBus;
 	let app: Hono;
 
-	beforeEach(() => {
+	beforeEach(async () => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		db = createTestDb();
+		const handle = await createTestDb();
+		db = handle.db;
 		eventBus = new EventBus();
-		app = createTestApp({ db, eventBus });
+		app = await createTestApp({ db, eventBus });
 
 		const now = new Date().toISOString();
-		db.insert(products).values({ id: "p1", name: "Alpha", phase: "build", createdAt: now }).run();
-		db.insert(teams)
-			.values({ id: "t1", productId: "p1", capacity: 5, activeBets: 0, formedAt: now })
-			.run();
-		db.insert(bets)
-			.values({
-				id: "bet1",
-				productId: "p1",
-				teamId: "t1",
-				pitch: "# Hello\nBody text",
-				appetite: "2 weeks",
-				status: "shaped",
-				createdAt: now,
-			})
-			.run();
+		await db.insert(products).values({ id: "p1", name: "Alpha", phase: "build", createdAt: now });
+		await db
+			.insert(teams)
+			.values({ id: "t1", productId: "p1", capacity: 5, activeBets: 0, formedAt: now });
+		await db.insert(bets).values({
+			id: "bet1",
+			productId: "p1",
+			teamId: "t1",
+			pitch: "# Hello\nBody text",
+			appetite: "2 weeks",
+			status: "shaped",
+			createdAt: now,
+		});
 	});
 
 	afterEach(() => {
@@ -455,32 +454,28 @@ describe("L14 — Bet actions: pause / resume / enrichment / actor", () => {
 		it("returns progress with done and total computed from tasks", async () => {
 			const now = new Date().toISOString();
 			// Seed two tasks: one done, one in_progress
-			db.insert(tasks)
-				.values({
-					id: "task-done",
-					betId: "bet1",
-					productId: "p1",
-					teamId: "t1",
-					title: "Done task",
-					state: "done",
-					priority: 0,
-					createdAt: now,
-					updatedAt: now,
-				})
-				.run();
-			db.insert(tasks)
-				.values({
-					id: "task-wip",
-					betId: "bet1",
-					productId: "p1",
-					teamId: "t1",
-					title: "WIP task",
-					state: "in_progress",
-					priority: 1,
-					createdAt: now,
-					updatedAt: now,
-				})
-				.run();
+			await db.insert(tasks).values({
+				id: "task-done",
+				betId: "bet1",
+				productId: "p1",
+				teamId: "t1",
+				title: "Done task",
+				state: "done",
+				priority: 0,
+				createdAt: now,
+				updatedAt: now,
+			});
+			await db.insert(tasks).values({
+				id: "task-wip",
+				betId: "bet1",
+				productId: "p1",
+				teamId: "t1",
+				title: "WIP task",
+				state: "in_progress",
+				priority: 1,
+				createdAt: now,
+				updatedAt: now,
+			});
 
 			const res = await app.request("/api/bets/bet1", {
 				method: "GET",
@@ -502,17 +497,15 @@ describe("L14 — Bet actions: pause / resume / enrichment / actor", () => {
 		it("falls back to bet id when pitch has no heading", async () => {
 			// Create a bet with no heading
 			const now = new Date().toISOString();
-			db.insert(bets)
-				.values({
-					id: "bet-noheading",
-					productId: "p1",
-					teamId: "t1",
-					pitch: "Just some prose with no heading",
-					appetite: "1 week",
-					status: "shaped",
-					createdAt: now,
-				})
-				.run();
+			await db.insert(bets).values({
+				id: "bet-noheading",
+				productId: "p1",
+				teamId: "t1",
+				pitch: "Just some prose with no heading",
+				appetite: "1 week",
+				status: "shaped",
+				createdAt: now,
+			});
 
 			const res = await app.request("/api/bets/bet-noheading", {
 				method: "GET",

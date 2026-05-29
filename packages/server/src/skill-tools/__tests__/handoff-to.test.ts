@@ -18,81 +18,71 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { handoffToTool } from "../handoff-to.js";
 import type { ToolContext } from "../tool-registry.js";
 
-function seed(db: HyperIdleDb): void {
+async function seed(db: HyperIdleDb): Promise<void> {
 	const now = new Date().toISOString();
-	db.insert(products).values({ id: "p1", name: "Test", phase: "build", createdAt: now }).run();
-	db.insert(teams)
-		.values({ id: "t1", productId: "p1", capacity: 5, activeBets: 0, formedAt: now })
-		.run();
-	db.insert(bets)
-		.values({
-			id: "b1",
-			productId: "p1",
+	await db.insert(products).values({ id: "p1", name: "Test", phase: "build", createdAt: now });
+	await db
+		.insert(teams)
+		.values({ id: "t1", productId: "p1", capacity: 5, activeBets: 0, formedAt: now });
+	await db.insert(bets).values({
+		id: "b1",
+		productId: "p1",
+		teamId: "t1",
+		pitch: "Test",
+		appetite: "small",
+		status: "committed",
+		createdAt: now,
+	});
+	await db.insert(users).values([
+		{
+			id: "agent-a",
+			name: "A",
+			role: "builder",
 			teamId: "t1",
-			pitch: "Test",
-			appetite: "small",
-			status: "committed",
+			status: "active",
+			maxConcurrentSessions: 2,
 			createdAt: now,
-		})
-		.run();
-	db.insert(users)
-		.values([
-			{
-				id: "agent-a",
-				name: "A",
-				role: "builder",
-				teamId: "t1",
-				status: "active",
-				maxConcurrentSessions: 2,
-				createdAt: now,
-			},
-			{
-				id: "agent-b",
-				name: "B",
-				role: "builder",
-				teamId: "t1",
-				status: "active",
-				maxConcurrentSessions: 2,
-				createdAt: now,
-			},
-		])
-		.run();
-	db.insert(threads)
-		.values({
-			id: "thread-task-1",
-			hostKind: "task",
-			hostId: "task-1",
-			initiatorId: "agent-1",
-			participants: JSON.stringify(["agent-1"]),
-			lastActiveAt: now,
-			createdAt: now,
-		})
-		.run();
-	db.insert(tasks)
-		.values({
-			id: "task-1",
-			betId: "b1",
-			productId: "p1",
+		},
+		{
+			id: "agent-b",
+			name: "B",
+			role: "builder",
 			teamId: "t1",
-			ownerAgentId: "agent-a",
-			title: "T",
-			state: "in_progress",
-			threadId: "thread-task-1",
+			status: "active",
+			maxConcurrentSessions: 2,
 			createdAt: now,
-			updatedAt: now,
-		})
-		.run();
-	db.insert(sessions)
-		.values({
-			id: "session-1",
-			taskId: "task-1",
-			agentId: "agent-a",
-			modelTier: "workhorse",
-			startedAt: now,
-			state: "active",
-			cost: 0,
-		})
-		.run();
+		},
+	]);
+	await db.insert(threads).values({
+		id: "thread-task-1",
+		hostKind: "task",
+		hostId: "task-1",
+		initiatorId: "agent-1",
+		participants: JSON.stringify(["agent-1"]),
+		lastActiveAt: now,
+		createdAt: now,
+	});
+	await db.insert(tasks).values({
+		id: "task-1",
+		betId: "b1",
+		productId: "p1",
+		teamId: "t1",
+		ownerAgentId: "agent-a",
+		title: "T",
+		state: "in_progress",
+		threadId: "thread-task-1",
+		createdAt: now,
+		updatedAt: now,
+	});
+	await db.insert(sessions).values({
+		id: "session-1",
+		taskId: "task-1",
+		agentId: "agent-a",
+		modelTier: "workhorse",
+		startedAt: now,
+		state: "active",
+		cost: 0,
+	});
 }
 
 function makeContext(db: HyperIdleDb): ToolContext {
@@ -118,9 +108,10 @@ const baseMetadata = {
 describe("handoff_to tool", () => {
 	let db: HyperIdleDb;
 
-	beforeEach(() => {
-		db = createTestDb();
-		seed(db);
+	beforeEach(async () => {
+		const handle = await createTestDb();
+		db = handle.db;
+		await seed(db);
 	});
 
 	describe("AC5: handoff to agent B changes task owner and ends session", () => {
@@ -135,10 +126,10 @@ describe("handoff_to tool", () => {
 			expect(data.status).toBe("success");
 			expect(data.targetAgentId).toBe("agent-b");
 
-			const task = db.select().from(tasks).where(eq(tasks.id, "task-1")).get();
+			const [task] = await db.select().from(tasks).where(eq(tasks.id, "task-1"));
 			expect(task?.ownerAgentId).toBe("agent-b");
 
-			const session = db.select().from(sessions).where(eq(sessions.id, "session-1")).get();
+			const [session] = await db.select().from(sessions).where(eq(sessions.id, "session-1"));
 			expect(session?.state).toBe("done");
 		});
 	});
@@ -168,10 +159,10 @@ describe("handoff_to tool", () => {
 			const data = result.data as { status: string };
 			expect(data.status).toBe("success");
 
-			const task = db.select().from(tasks).where(eq(tasks.id, "task-1")).get();
+			const [task] = await db.select().from(tasks).where(eq(tasks.id, "task-1"));
 			expect(task?.state).toBe("blocked");
 
-			const reviewItems = db.select().from(items).all();
+			const reviewItems = await db.select().from(items);
 			expect(reviewItems.length).toBeGreaterThanOrEqual(1);
 			expect(reviewItems.some((i) => i.kind === "review")).toBe(true);
 		});

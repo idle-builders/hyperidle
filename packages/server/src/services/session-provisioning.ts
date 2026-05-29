@@ -79,13 +79,13 @@ function validateSoulPromptPath(rawPath: string): string {
  * it. We re-use the `StateTransitionAuditEntry` shape so readers can discriminate
  * against `HandoffAuditEntry` via the `type: "handoff"` tag.
  */
-function revertTaskToAccepted(
+async function revertTaskToAccepted(
 	db: HyperIdleDb,
 	eventBus: EventBus,
 	taskId: string,
 	reason: string,
-): void {
-	const task = db.select().from(tasks).where(eq(tasks.id, taskId)).get();
+): Promise<void> {
+	const [task] = await db.select().from(tasks).where(eq(tasks.id, taskId)).limit(1);
 	if (!task) return;
 	const fromState = task.state as TaskState;
 	const toState: TaskState = "accepted";
@@ -100,14 +100,14 @@ function revertTaskToAccepted(
 		reason,
 	};
 
-	db.update(tasks)
+	await db
+		.update(tasks)
 		.set({
 			state: toState,
 			auditTrail: JSON.stringify([...existingAudit, entry]),
 			updatedAt: new Date().toISOString(),
 		})
-		.where(eq(tasks.id, taskId))
-		.run();
+		.where(eq(tasks.id, taskId));
 
 	eventBus.emit({
 		type: "task_state_changed",
@@ -163,7 +163,7 @@ export async function provisionSession(
 	const { db, eventBus, harness, workspace } = deps;
 
 	// ── Phase 1: load agent
-	const agent = db.select().from(users).where(eq(users.id, params.agentId)).get();
+	const [agent] = await db.select().from(users).where(eq(users.id, params.agentId)).limit(1);
 	if (!agent) {
 		throw new Error(`Agent not found: ${params.agentId}`);
 	}
@@ -196,16 +196,16 @@ export async function provisionSession(
 	}
 
 	// ── Phase 3: concurrency check + task transition. Both BEFORE workspace spawn.
-	const activeCount = db
+	const [activeCount] = await db
 		.select({ count: sql<number>`count(*)` })
 		.from(sessions)
 		.where(and(eq(sessions.agentId, params.agentId), eq(sessions.state, "active")))
-		.get();
+		.limit(1);
 	if ((activeCount?.count ?? 0) >= agent.maxConcurrentSessions) {
 		throw new ConcurrencyLimitError(params.agentId, agent.maxConcurrentSessions);
 	}
 
-	transitionTask(db, eventBus, params.taskId, "in_progress");
+	await transitionTask(db, eventBus, params.taskId, "in_progress");
 
 	// ── Phases 4-7 (wrapped): spawn workspace → insert session row →
 	// materialize → start watcher. If any step throws before the session row
@@ -224,17 +224,15 @@ export async function provisionSession(
 		// ── Phase 5: insert session row.
 		sessionId = randomUUID();
 		const startedAt = new Date().toISOString();
-		db.insert(sessions)
-			.values({
-				id: sessionId,
-				taskId: params.taskId,
-				agentId: params.agentId,
-				modelTier,
-				startedAt,
-				state: "active",
-				workspaceSnapshot: workspacePath,
-			})
-			.run();
+		await db.insert(sessions).values({
+			id: sessionId,
+			taskId: params.taskId,
+			agentId: params.agentId,
+			modelTier,
+			startedAt,
+			state: "active",
+			workspaceSnapshot: workspacePath,
+		});
 
 		// ── Phase 6: materialize knowledge into the workspace.
 		await materialize(db, {
@@ -257,7 +255,7 @@ export async function provisionSession(
 		watcher = startWatcher(watcherConfig);
 	} catch (err) {
 		const reason = `provisioning failed: ${err instanceof Error ? err.message : String(err)}`;
-		revertTaskToAccepted(db, eventBus, params.taskId, reason);
+		await revertTaskToAccepted(db, eventBus, params.taskId, reason);
 		throw err;
 	}
 

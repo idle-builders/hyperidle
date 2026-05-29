@@ -1,4 +1,4 @@
-#!/usr/bin/env bun
+#!/usr/bin/env tsx
 /**
  * SessionStart hook — adversarial-persona variant. Injects memory + raw
  * artifact paths only and drops the producer's free-form summaries so

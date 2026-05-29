@@ -4,7 +4,7 @@
  * AC coverage:
  *  - Single-instance lock: app.quit() called if lock not obtained
  *  - Single-instance lock: second-instance event focuses existing window
- *  - resolveDbPath() returns userData + '/hyperidle.db'
+ *  - resolveDataDir() returns userData + '/hyperidle-pg'
  *  - readOrGenerateApiKey() creates secrets.json with 0o600 and returns key
  *  - readOrGenerateApiKey() returns existing key from secrets.json
  *  - getBeforeQuitHandler(): serverHandle.dispose() and logRotator.detach() called
@@ -171,7 +171,7 @@ import {
 	getBeforeQuitHandler,
 	readAnthropicKeyFromStore,
 	readOrGenerateApiKey,
-	resolveDbPath,
+	resolveDataDir,
 	waitForRemoteHealth,
 } from "../src/main.js";
 
@@ -187,14 +187,14 @@ afterEach(() => {
 });
 
 // ---------------------------------------------------------------------------
-describe("resolveDbPath", () => {
-	it("returns userData + /hyperidle.db", () => {
-		const result = resolveDbPath("/custom/userdata");
-		expect(result).toBe("/custom/userdata/hyperidle.db");
+describe("resolveDataDir", () => {
+	it("returns userData + /hyperidle-pg", () => {
+		const result = resolveDataDir("/custom/userdata");
+		expect(result).toBe("/custom/userdata/hyperidle-pg");
 	});
 
 	it("returns an absolute path", () => {
-		const result = resolveDbPath("/some/path");
+		const result = resolveDataDir("/some/path");
 		expect(path.isAbsolute(result)).toBe(true);
 	});
 });

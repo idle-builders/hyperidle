@@ -83,8 +83,8 @@ interface BuiltinSpec {
 	readonly triggerConfig: Record<string, unknown>;
 	readonly skillId: string;
 	readonly doneCondition: string;
-	readonly humanReview: 0 | 1;
-	readonly silent: 0 | 1;
+	readonly humanReview: boolean;
+	readonly silent: boolean;
 }
 
 /**
@@ -99,8 +99,8 @@ const BUILTIN_SPECS: readonly BuiltinSpec[] = [
 		triggerConfig: { intervalSeconds: COST_SENTINEL_INTERVAL_SECONDS },
 		skillId: "cost_watchdog",
 		doneCondition: "Factory cost spend is below warning threshold",
-		humanReview: 0,
-		silent: 1,
+		humanReview: false,
+		silent: true,
 	},
 	{
 		id: "builtin:practice-meeting",
@@ -109,8 +109,8 @@ const BUILTIN_SPECS: readonly BuiltinSpec[] = [
 		triggerConfig: { cron: PRACTICE_MEETING_CRON },
 		skillId: "practice_meeting",
 		doneCondition: "3-turn practice meeting anchor created",
-		humanReview: 0,
-		silent: 0,
+		humanReview: false,
+		silent: false,
 	},
 	{
 		id: "builtin:post-bet-retro",
@@ -119,8 +119,8 @@ const BUILTIN_SPECS: readonly BuiltinSpec[] = [
 		triggerConfig: { eventType: "bet_state_changed" },
 		skillId: "bet_retro",
 		doneCondition: "Review item comparing hypothesis vs reality written",
-		humanReview: 1,
-		silent: 0,
+		humanReview: true,
+		silent: false,
 	},
 	{
 		id: "builtin:portfolio-retro",
@@ -129,8 +129,8 @@ const BUILTIN_SPECS: readonly BuiltinSpec[] = [
 		triggerConfig: { cron: PORTFOLIO_RETRO_CRON },
 		skillId: "portfolio_retro",
 		doneCondition: "Cross-product portfolio review item written",
-		humanReview: 1,
-		silent: 0,
+		humanReview: true,
+		silent: false,
 	},
 	{
 		id: "builtin:knowledge-decay",
@@ -139,8 +139,8 @@ const BUILTIN_SPECS: readonly BuiltinSpec[] = [
 		triggerConfig: { cron: KNOWLEDGE_DECAY_CRON },
 		skillId: "knowledge_decay",
 		doneCondition: "Stale knowledge items transitioned",
-		humanReview: 0,
-		silent: 1,
+		humanReview: false,
+		silent: true,
 	},
 ];
 
@@ -151,9 +151,10 @@ const BUILTIN_SPECS: readonly BuiltinSpec[] = [
  *
  * Uses `onConflictDoNothing` so re-running against an existing DB is a no-op.
  */
-export function seedBuiltinRoutines(db: HyperIdleDb): void {
+export async function seedBuiltinRoutines(db: HyperIdleDb): Promise<void> {
 	for (const spec of BUILTIN_SPECS) {
-		db.insert(routines)
+		await db
+			.insert(routines)
 			.values({
 				id: spec.id,
 				ownerAgentId: spec.ownerAgentId,
@@ -161,13 +162,12 @@ export function seedBuiltinRoutines(db: HyperIdleDb): void {
 				triggerConfig: JSON.stringify(spec.triggerConfig),
 				skillId: spec.skillId,
 				doneCondition: spec.doneCondition,
-				delegationAllowed: 0,
+				delegationAllowed: false,
 				humanReview: spec.humanReview,
 				silent: spec.silent,
-				active: 1,
+				active: true,
 			})
-			.onConflictDoNothing()
-			.run();
+			.onConflictDoNothing();
 	}
 }
 
@@ -191,40 +191,39 @@ export interface PostBetRetroArgs {
  * short-circuits with `{ fired: false, reason: "disabled" }` when
  * `active=0` and delegates to the per-routine implementation otherwise.
  */
-// biome-ignore lint/suspicious/useAwait: callers expect Promise return for consistency with async service layer
 export async function runBuiltinRoutine(
 	db: HyperIdleDb,
 	eventBus: EventBus,
 	routineId: BuiltinRoutineId,
 	args?: PostBetRetroArgs,
 ): Promise<RunBuiltinResult> {
-	const routine = db.select().from(routines).where(eq(routines.id, routineId)).get();
+	const [routine] = await db.select().from(routines).where(eq(routines.id, routineId)).limit(1);
 	if (!routine) {
 		return { fired: false, reason: `routine ${routineId} not found` };
 	}
-	if (routine.active === 0) {
-		return { fired: false, reason: `routine ${routineId} is disabled (active=0)` };
+	if (!routine.active) {
+		return { fired: false, reason: `routine ${routineId} is disabled (active=false)` };
 	}
 
 	let result: RunBuiltinResult;
 	switch (routineId) {
 		case "builtin:cost-sentinel":
-			result = runCostSentinel(db, eventBus);
+			result = await runCostSentinel(db, eventBus);
 			break;
 		case "builtin:practice-meeting":
-			result = runPracticeMeetingRoutine(db, routine);
+			result = await runPracticeMeetingRoutine(db, routine);
 			break;
 		case "builtin:post-bet-retro":
 			if (!args) {
 				return { fired: false, reason: "post-bet-retro requires { betId } args" };
 			}
-			result = runPostBetRetro(db, eventBus, routine, args);
+			result = await runPostBetRetro(db, eventBus, routine, args);
 			break;
 		case "builtin:portfolio-retro":
-			result = runPortfolioRetro(db, eventBus, routine);
+			result = await runPortfolioRetro(db, eventBus, routine);
 			break;
 		case "builtin:knowledge-decay":
-			result = runKnowledgeDecay(db, eventBus, routine);
+			result = await runKnowledgeDecay(db, eventBus, routine);
 			break;
 		default: {
 			const exhaustive: never = routineId;
@@ -233,10 +232,10 @@ export async function runBuiltinRoutine(
 	}
 
 	if (result.fired) {
-		db.update(routines)
+		await db
+			.update(routines)
 			.set({ lastRunAt: new Date().toISOString() })
-			.where(eq(routines.id, routineId))
-			.run();
+			.where(eq(routines.id, routineId));
 	}
 
 	return result;
@@ -264,16 +263,17 @@ export function registerBuiltinRoutineHandlers(db: HyperIdleDb, eventBus: EventB
 
 	const betShippedHandler = (event: BetStateChangedEvent): void => {
 		if (event.toState !== "shipped") return;
-		const routine = db
-			.select()
-			.from(routines)
-			.where(eq(routines.id, "builtin:post-bet-retro"))
-			.get();
-		if (!routine || routine.active === 0) return;
-		// Synchronous-like best-effort: ignore the async promise to keep the
-		// EventBus emit contract (synchronous). The DB writes inside the
-		// handler all run synchronously because drizzle-sqlite is synchronous.
-		void runBuiltinRoutine(db, eventBus, "builtin:post-bet-retro", { betId: event.betId });
+		void (async () => {
+			const [routine] = await db
+				.select()
+				.from(routines)
+				.where(eq(routines.id, "builtin:post-bet-retro"))
+				.limit(1);
+			if (!routine || !routine.active) return;
+			// Best-effort fire-and-forget: the EventBus emit contract is synchronous.
+			// runBuiltinRoutine is async; we await it inside the void wrapper.
+			await runBuiltinRoutine(db, eventBus, "builtin:post-bet-retro", { betId: event.betId });
+		})();
 	};
 	unsubs.push(eventBus.on("bet_state_changed", betShippedHandler));
 
@@ -315,34 +315,34 @@ export function clearBuiltinCostSentinelCache(): void {
 	testResetRequested = true;
 }
 
-function readStoredLevel(db: HyperIdleDb): CostSentinelLevel | null {
+async function readStoredLevel(db: HyperIdleDb): Promise<CostSentinelLevel | null> {
 	if (testResetRequested) return null;
-	const row = db
+	const [row] = await db
 		.select()
 		.from(factorySettings)
 		.where(eq(factorySettings.key, COST_SENTINEL_STATE_KEY))
-		.get();
+		.limit(1);
 	const value = row?.value;
 	if (value === "ok" || value === "warning" || value === "breach") return value;
 	return null;
 }
 
-function writeStoredLevel(db: HyperIdleDb, level: CostSentinelLevel): void {
+async function writeStoredLevel(db: HyperIdleDb, level: CostSentinelLevel): Promise<void> {
 	const isoNow = new Date().toISOString();
-	const existing = db
+	const [existing] = await db
 		.select()
 		.from(factorySettings)
 		.where(eq(factorySettings.key, COST_SENTINEL_STATE_KEY))
-		.get();
+		.limit(1);
 	if (existing) {
-		db.update(factorySettings)
+		await db
+			.update(factorySettings)
 			.set({ value: level, updatedAt: isoNow })
-			.where(eq(factorySettings.key, COST_SENTINEL_STATE_KEY))
-			.run();
+			.where(eq(factorySettings.key, COST_SENTINEL_STATE_KEY));
 	} else {
-		db.insert(factorySettings)
-			.values({ key: COST_SENTINEL_STATE_KEY, value: level, updatedAt: isoNow })
-			.run();
+		await db
+			.insert(factorySettings)
+			.values({ key: COST_SENTINEL_STATE_KEY, value: level, updatedAt: isoNow });
 	}
 	// After any real write, the test-reset flag is consumed.
 	testResetRequested = false;
@@ -354,13 +354,17 @@ function classifyLevel(ratio: number): CostSentinelLevel {
 	return "ok";
 }
 
-function runCostSentinel(db: HyperIdleDb, eventBus: EventBus): RunBuiltinResult {
-	const capRow = db.select().from(factorySettings).where(eq(factorySettings.key, "cost_cap")).get();
-	const actualRow = db
+async function runCostSentinel(db: HyperIdleDb, eventBus: EventBus): Promise<RunBuiltinResult> {
+	const [capRow] = await db
+		.select()
+		.from(factorySettings)
+		.where(eq(factorySettings.key, "cost_cap"))
+		.limit(1);
+	const [actualRow] = await db
 		.select()
 		.from(factorySettings)
 		.where(eq(factorySettings.key, "cost_actual"))
-		.get();
+		.limit(1);
 
 	if (!capRow) {
 		return { fired: true, emitted: [] };
@@ -373,7 +377,7 @@ function runCostSentinel(db: HyperIdleDb, eventBus: EventBus): RunBuiltinResult 
 
 	const ratio = actual / cap;
 	const currentLevel = classifyLevel(ratio);
-	const previousLevel = readStoredLevel(db) ?? "ok";
+	const previousLevel = (await readStoredLevel(db)) ?? "ok";
 	const emitted: string[] = [];
 	const timestamp = Date.now();
 
@@ -413,7 +417,7 @@ function runCostSentinel(db: HyperIdleDb, eventBus: EventBus): RunBuiltinResult 
 	// Always persist the latest level so a reset back to ok is observable
 	// on the next transition.
 	if (currentLevel !== previousLevel || testResetRequested) {
-		writeStoredLevel(db, currentLevel);
+		await writeStoredLevel(db, currentLevel);
 	}
 
 	return { fired: true, emitted };
@@ -421,13 +425,16 @@ function runCostSentinel(db: HyperIdleDb, eventBus: EventBus): RunBuiltinResult 
 
 // --- Practice Meeting routine ---
 
-function runPracticeMeetingRoutine(db: HyperIdleDb, routine: Routine): RunBuiltinResult {
+async function runPracticeMeetingRoutine(
+	db: HyperIdleDb,
+	routine: Routine,
+): Promise<RunBuiltinResult> {
 	// Anchor scope: derive from the owner's facilitator community. The owner
 	// is the facilitation practice facilitator by default, but if an operator
 	// re-points it we still want a valid anchor. Fall back to "facilitation"
 	// when no scope can be derived — keeps anchor creation total.
 	const isoNow = new Date().toISOString();
-	const result = createPracticeMeeting(db, {
+	const result = await createPracticeMeeting(db, {
 		scopeId: "facilitation",
 		title: `Weekly practice meeting — ${isoNow.slice(0, 10)}`,
 		nowMs: Date.now(),
@@ -460,13 +467,13 @@ function postBetRetroBetIdMarker(betId: string): string {
 	return `betId=${betId}`;
 }
 
-function runPostBetRetro(
+async function runPostBetRetro(
 	db: HyperIdleDb,
 	eventBus: EventBus,
 	routine: Routine,
 	args: PostBetRetroArgs,
-): RunBuiltinResult {
-	const bet = db.select().from(bets).where(eq(bets.id, args.betId)).get();
+): Promise<RunBuiltinResult> {
+	const [bet] = await db.select().from(bets).where(eq(bets.id, args.betId)).limit(1);
 	if (!bet) {
 		return { fired: false, reason: `bet ${args.betId} not found` };
 	}
@@ -475,7 +482,7 @@ function runPostBetRetro(
 	// host_kind='bet' + host_id=betId. Dedupe via the host pair + the body
 	// marker; the marker probe alone is selective enough at HyperIdle's scale.
 	const marker = postBetRetroBetIdMarker(args.betId);
-	const existing = db
+	const [existing] = await db
 		.select({ id: items.id })
 		.from(items)
 		.innerJoin(threads, eq(items.threadId, threads.id))
@@ -486,7 +493,7 @@ function runPostBetRetro(
 				like(items.body, `%${marker}%`),
 			),
 		)
-		.get();
+		.limit(1);
 	if (existing) {
 		return { fired: false, reason: "already-retroed" };
 	}
@@ -511,36 +518,32 @@ function runPostBetRetro(
 	const itemId = crypto.randomUUID();
 	const isoNow = new Date().toISOString();
 
-	db.transaction((tx) => {
-		tx.insert(threads)
-			.values({
-				id: threadId,
-				hostKind: "bet",
-				hostId: args.betId,
-				initiatorId: routine.ownerAgentId,
-				participants: JSON.stringify([routine.ownerAgentId]),
-				lastActiveAt: isoNow,
-				createdAt: isoNow,
-			})
-			.run();
+	await db.transaction(async (tx) => {
+		await tx.insert(threads).values({
+			id: threadId,
+			hostKind: "bet",
+			hostId: args.betId,
+			initiatorId: routine.ownerAgentId,
+			participants: JSON.stringify([routine.ownerAgentId]),
+			lastActiveAt: isoNow,
+			createdAt: isoNow,
+		});
 
-		tx.insert(items)
-			.values({
-				id: itemId,
-				sourceAgentId: routine.ownerAgentId,
-				layer: "meta",
-				kind: "review",
-				title: `Post-bet retro: ${bet.pitch}`,
-				body: [marker, `Hypothesis: ${hypothesis}`, "", "Reality:", ...realityLines].join("\n"),
-				threadId,
-				riskTier: "medium",
-				createdAt: isoNow,
-			})
-			.run();
+		await tx.insert(items).values({
+			id: itemId,
+			sourceAgentId: routine.ownerAgentId,
+			layer: "meta",
+			kind: "review",
+			title: `Post-bet retro: ${bet.pitch}`,
+			body: [marker, `Hypothesis: ${hypothesis}`, "", "Reality:", ...realityLines].join("\n"),
+			threadId,
+			riskTier: "medium",
+			createdAt: isoNow,
+		});
 	});
 
 	// Respect the `silent` flag on the routine row (E7 hook).
-	if (routine.silent !== 1) {
+	if (!routine.silent) {
 		const evt: ItemCreatedEvent = {
 			type: "item_created",
 			streamId: crypto.randomUUID(),
@@ -557,16 +560,16 @@ function runPostBetRetro(
 
 // --- Portfolio Retro ---
 
-function runPortfolioRetro(
+async function runPortfolioRetro(
 	db: HyperIdleDb,
 	eventBus: EventBus,
 	routine: Routine,
-): RunBuiltinResult {
+): Promise<RunBuiltinResult> {
 	const nowMs = Date.now();
 	const cutoffIso = new Date(nowMs - PORTFOLIO_WINDOW_MS).toISOString();
 
 	// @lore O2: layer is in knowledgeStrategyFabric. JOIN to filter by layer.
-	const recentRows = db
+	const recentRows = await db
 		.select({ item: knowledgeItems, fabric: knowledgeStrategyFabric })
 		.from(knowledgeItems)
 		.innerJoin(
@@ -578,8 +581,7 @@ function runPortfolioRetro(
 				inArray(knowledgeStrategyFabric.layer, ["L3", "L4"]),
 				gte(knowledgeItems.updatedAt, cutoffIso),
 			),
-		)
-		.all();
+		);
 
 	const bodyLines = [
 		`Portfolio retro — window: last 30 days (since ${cutoffIso})`,
@@ -597,35 +599,31 @@ function runPortfolioRetro(
 	const itemId = crypto.randomUUID();
 	const isoNow = new Date(nowMs).toISOString();
 
-	db.transaction((tx) => {
-		tx.insert(threads)
-			.values({
-				id: threadId,
-				hostKind: "factory",
-				hostId: "portfolio",
-				initiatorId: routine.ownerAgentId,
-				participants: JSON.stringify([routine.ownerAgentId]),
-				lastActiveAt: isoNow,
-				createdAt: isoNow,
-			})
-			.run();
+	await db.transaction(async (tx) => {
+		await tx.insert(threads).values({
+			id: threadId,
+			hostKind: "factory",
+			hostId: "portfolio",
+			initiatorId: routine.ownerAgentId,
+			participants: JSON.stringify([routine.ownerAgentId]),
+			lastActiveAt: isoNow,
+			createdAt: isoNow,
+		});
 
-		tx.insert(items)
-			.values({
-				id: itemId,
-				sourceAgentId: routine.ownerAgentId,
-				layer: "meta",
-				kind: "review",
-				title: `Monthly portfolio retro — ${isoNow.slice(0, 10)}`,
-				body: bodyLines.join("\n"),
-				threadId,
-				riskTier: "low",
-				createdAt: isoNow,
-			})
-			.run();
+		await tx.insert(items).values({
+			id: itemId,
+			sourceAgentId: routine.ownerAgentId,
+			layer: "meta",
+			kind: "review",
+			title: `Monthly portfolio retro — ${isoNow.slice(0, 10)}`,
+			body: bodyLines.join("\n"),
+			threadId,
+			riskTier: "low",
+			createdAt: isoNow,
+		});
 	});
 
-	if (routine.silent !== 1) {
+	if (!routine.silent) {
 		const evt: ItemCreatedEvent = {
 			type: "item_created",
 			streamId: crypto.randomUUID(),
@@ -642,15 +640,15 @@ function runPortfolioRetro(
 
 // --- Knowledge Decay ---
 
-function runKnowledgeDecay(
+async function runKnowledgeDecay(
 	db: HyperIdleDb,
 	eventBus: EventBus,
 	routine: Routine,
-): RunBuiltinResult {
+): Promise<RunBuiltinResult> {
 	const nowMs = Date.now();
 	// Honor the `silent` column so the seeded built-in decay sweep does
 	// not flood the bus with `knowledge_updated` events on every tick.
-	const silent = routine.silent === 1;
-	const sweep = runStaleSweep(db, eventBus, nowMs, undefined, { silent });
+	const silent = !!routine.silent;
+	const sweep = await runStaleSweep(db, eventBus, nowMs, undefined, { silent });
 	return { fired: true, extra: { markedCount: sweep.markedIds.length } };
 }

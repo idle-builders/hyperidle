@@ -41,9 +41,9 @@ When the Scheduler determines an agent should start a session (routine fired, de
 
 The API Layer serves the Factory app. State flows in two directions:
 
-**Down (meta → UI):** Items, thread updates, Rail state, Work data (bets + tasks), Knowledge trees. Delivered via REST endpoints (initial load) and WebSocket (real-time updates).
+**Down (meta → UI):** Items, thread updates, system status, Work data (bets + tasks), Knowledge trees. Delivered via REST endpoints (initial load) and WebSocket (real-time updates).
 
-**Up (UI → meta):** Responses (verdicts, comments, edits), Work actions (commit bet, kill pitch, revise bet), Knowledge actions (merge, split, flag, archive), Rail actions (nudge, acknowledge).
+**Up (UI → meta):** Responses (verdicts, comments, edits), Work actions (commit bet, kill pitch, revise bet), Knowledge actions (merge, split, flag, archive).
 
 ### 4.4 Facilitator → Router → Human Interface
 

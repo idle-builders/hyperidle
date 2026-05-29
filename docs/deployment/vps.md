@@ -11,10 +11,10 @@ Self-hosted single-VPS deployment using Docker Compose: Postgres + server
 ```
 cp .env.example .env
 # Edit .env — at minimum set POSTGRES_PASSWORD.
-bun run setup --profile vps
+npm run setup --profile vps
 docker compose up -d
-bun run db:migrate:pg
-bun run db:seed:pg
+npm run db:migrate:pg
+npm run db:seed:pg
 ```
 
 The `setup --profile vps` step verifies `docker-compose.yml` exists and

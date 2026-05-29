@@ -2,8 +2,8 @@ import { PGlite } from "@electric-sql/pglite";
 import { sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/pglite";
 import { describe, expect, it } from "vitest";
-import { createPgTestDb } from "../pg-test-utils.js";
-import * as pgSchema from "../schema.pg.js";
+import * as pgSchema from "../schema.js";
+import { createTestDb } from "../test-utils.js";
 
 /**
  * H4 AC3: Migrations apply cleanly on Postgres.
@@ -16,7 +16,7 @@ describe("H4 AC3: PG migrations apply to a fresh pglite DB", () => {
 	it("migrated pglite DB has all major tables from the pg migration set", {
 		timeout: 30_000,
 	}, async () => {
-		const { db, close } = await createPgTestDb({ migrate: true });
+		const { db, close } = await createTestDb();
 		try {
 			const result = await db.execute(
 				sql`SELECT tablename FROM pg_tables WHERE schemaname = 'public' ORDER BY tablename`,
@@ -29,18 +29,19 @@ describe("H4 AC3: PG migrations apply to a fresh pglite DB", () => {
 			// are migration artifacts.
 			expect(tableNames).toEqual(
 				expect.arrayContaining([
-					// @lore P2: agents → users, agent_skills → user_skills
 					"users",
 					"user_skills",
 					"bets",
 					"factory_settings",
-					"file_leases",
+					"hint_progress",
 					"items",
 					"knowledge_edit_log",
 					"knowledge_items",
 					"messages",
 					"products",
 					"routines",
+					"server_config",
+					"server_credentials",
 					"sessions",
 					"tasks",
 					"teams",
@@ -48,16 +49,16 @@ describe("H4 AC3: PG migrations apply to a fresh pglite DB", () => {
 				]),
 			);
 			expect(tableNames).not.toContain("responses");
-			expect(tableNames.length).toBeGreaterThanOrEqual(15);
+			expect(tableNames.length).toBeGreaterThanOrEqual(17);
 		} finally {
 			await close();
 		}
 	});
 
 	it("is idempotent: migrating twice does not error", { timeout: 30_000 }, async () => {
-		const { db, runPgMigrations, close } = await createPgTestDb({ migrate: true });
+		const { db, runMigrations, close } = await createTestDb();
 		try {
-			await runPgMigrations(db);
+			await runMigrations();
 			// Just check tables still exist
 			const result = await db.execute(
 				sql`SELECT COUNT(*) AS n FROM pg_tables WHERE schemaname='public'`,
@@ -109,7 +110,7 @@ describe("I3 review C5: boolean migration is NULL-safe", () => {
 				sql`ALTER TABLE items_int_test ALTER COLUMN blocking SET DATA TYPE boolean USING (COALESCE(blocking, 0) <> 0)`,
 			);
 			const result = await db.execute(sql`SELECT id, blocking FROM items_int_test ORDER BY id`);
-			const rows = (result as { rows: Array<{ id: string; blocking: boolean }> }).rows;
+			const rows = (result as unknown as { rows: Array<{ id: string; blocking: boolean }> }).rows;
 			const byId = new Map(rows.map((r) => [r.id, r.blocking]));
 
 			expect(byId.get("null-row"), "NULL must coerce to false (CRITICAL-1)").toBe(false);
@@ -122,7 +123,7 @@ describe("I3 review C5: boolean migration is NULL-safe", () => {
 	});
 
 	it("default false applies to brand-new rows after migration", async () => {
-		const { db, close } = await createPgTestDb({ migrate: true });
+		const { db, close } = await createTestDb();
 		try {
 			await db.execute(
 				// L1a: threads now use host_kind/host_id/initiator/participants/last_active_at (plan §5.3).
@@ -144,7 +145,7 @@ describe("I3 review C5: boolean migration is NULL-safe", () => {
 		// migration file directly and running its DO blocks. The DO blocks
 		// guard on `data_type='integer'` so re-run on already-boolean
 		// columns must execute zero ALTER statements.
-		const { db, close } = await createPgTestDb({ migrate: true });
+		const { db, close } = await createTestDb();
 		try {
 			// Pre-seed a row with blocking=true.
 			await db.execute(

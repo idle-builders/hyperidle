@@ -26,42 +26,42 @@ interface SilenceItem {
  *  3. `factory_settings.silence_window_start` + `silence_window_end` —
  *     UTC time window, supports overnight windows (e.g. 22:00 → 07:00)
  */
-export function isSilenced(db: HyperIdleDb, item: SilenceItem, now: Date): boolean {
+export async function isSilenced(db: HyperIdleDb, item: SilenceItem, now: Date): Promise<boolean> {
 	// 1. Factory-wide silence
-	const silenceMode = db
+	const [silenceMode] = await db
 		.select()
 		.from(factorySettings)
 		.where(eq(factorySettings.key, "silence_mode"))
-		.get();
+		.limit(1);
 	if (silenceMode?.value === "true") return true;
 
 	// 2. Per-product silence
 	if (item.sourceAgentId) {
-		const agent = db.select().from(users).where(eq(users.id, item.sourceAgentId)).get();
+		const [agent] = await db.select().from(users).where(eq(users.id, item.sourceAgentId)).limit(1);
 		if (agent?.teamId) {
-			const team = db.select().from(teams).where(eq(teams.id, agent.teamId)).get();
+			const [team] = await db.select().from(teams).where(eq(teams.id, agent.teamId)).limit(1);
 			if (team) {
-				const productSilence = db
+				const [productSilence] = await db
 					.select()
 					.from(factorySettings)
 					.where(eq(factorySettings.key, `silence_product_${team.productId}`))
-					.get();
+					.limit(1);
 				if (productSilence?.value === "true") return true;
 			}
 		}
 	}
 
 	// 3. Silence window
-	const windowStart = db
+	const [windowStart] = await db
 		.select()
 		.from(factorySettings)
 		.where(eq(factorySettings.key, "silence_window_start"))
-		.get();
-	const windowEnd = db
+		.limit(1);
+	const [windowEnd] = await db
 		.select()
 		.from(factorySettings)
 		.where(eq(factorySettings.key, "silence_window_end"))
-		.get();
+		.limit(1);
 
 	if (windowStart && windowEnd) {
 		if (isInSilenceWindow(windowStart.value, windowEnd.value, now)) return true;

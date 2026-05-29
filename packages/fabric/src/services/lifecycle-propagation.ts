@@ -84,13 +84,13 @@ const VALID_TASK_TRANSITIONS: Record<TaskState, readonly TaskState[]> = {
  * changes to the kernel transitionTask must be mirrored here.
  * See architecture-critique.md CRITICAL finding.
  */
-function transitionTask(
+async function transitionTask(
 	db: HyperIdleDb,
 	eventBus: EventBus,
 	taskId: string,
 	toState: TaskState,
-): void {
-	const task = db.select().from(tasks).where(eq(tasks.id, taskId)).get();
+): Promise<void> {
+	const [task] = await db.select().from(tasks).where(eq(tasks.id, taskId)).limit(1);
 	if (!task) {
 		throw new Error(`Task not found: ${taskId}`);
 	}
@@ -113,14 +113,14 @@ function transitionTask(
 		timestamp: new Date().toISOString(),
 	});
 
-	db.update(tasks)
+	await db
+		.update(tasks)
 		.set({
 			state: toState,
 			auditTrail: JSON.stringify(existingAudit),
 			updatedAt: new Date().toISOString(),
 		})
-		.where(eq(tasks.id, taskId))
-		.run();
+		.where(eq(tasks.id, taskId));
 
 	eventBus.emit({
 		type: "task_state_changed",
@@ -148,18 +148,19 @@ const PROPAGATABLE_BET_STATES: ReadonlySet<BetStatus> = new Set([
 /**
  * Synchronously transition a bet to 'review' for propagation purposes.
  *
- * @lore L20: We cannot call transitionBet() (which is async) from a
- * synchronous EventBus handler without losing synchronous execution semantics.
- * transitionBet() has no real async work (uses synchronous better-sqlite3),
- * but its async signature means .then() executes in the microtask queue —
- * after tests assert results. This synchronous version duplicates the minimal
- * bet-to-review transition logic. See architecture trade-off §12.1.
+ * @lore L20: Duplicates the minimal bet-to-review transition logic from
+ * transitionBet() for use in EventBus handlers where we fire-and-forget.
+ * See architecture trade-off §12.1.
  *
  * We handle the compare-and-set (CAS) pattern the same way transitionBet does:
  * WHERE status = fromState — if 0 rows updated, throw InvalidTransitionError.
  */
-function transitionBetToReviewSync(db: HyperIdleDb, eventBus: EventBus, betId: string): void {
-	const bet = db.select().from(bets).where(eq(bets.id, betId)).get();
+async function transitionBetToReview(
+	db: HyperIdleDb,
+	eventBus: EventBus,
+	betId: string,
+): Promise<void> {
+	const [bet] = await db.select().from(bets).where(eq(bets.id, betId)).limit(1);
 	if (!bet) throw new Error(`Bet '${betId}' not found`);
 
 	const fromState = bet.status as BetStatus;
@@ -184,13 +185,13 @@ function transitionBetToReviewSync(db: HyperIdleDb, eventBus: EventBus, betId: s
 	const updatedLog = JSON.stringify([...existingLog, entry]);
 
 	// CAS update — only if still in fromState
-	const result = db
+	const updateRows = await db
 		.update(bets)
 		.set({ status: "review", revisionLog: updatedLog } as Record<string, string>)
 		.where(and(eq(bets.id, betId), eq(bets.status, fromState)))
-		.run();
+		.returning({ id: bets.id });
 
-	if (result.changes === 0) {
+	if (updateRows.length === 0) {
 		throw new SharedInvalidTransitionError(fromState, "review");
 	}
 
@@ -228,7 +229,7 @@ interface LogPropagationEntry {
 	attempts?: number;
 }
 
-function logPropagation(db: HyperIdleDb, entry: LogPropagationEntry): void {
+async function logPropagation(db: HyperIdleDb, entry: LogPropagationEntry): Promise<void> {
 	const now = new Date().toISOString();
 	const row: NewPropagationLogRow = {
 		id: crypto.randomUUID(),
@@ -244,21 +245,21 @@ function logPropagation(db: HyperIdleDb, entry: LogPropagationEntry): void {
 		createdAt: now,
 		appliedAt: entry.status === "applied" ? now : null,
 	};
-	db.insert(propagationLog).values(row).run();
+	await db.insert(propagationLog).values(row);
 }
 
 // ─── Session -> Task propagation ─────────────────────────────────────────────
 
-function propagateSessionToTask(
+async function propagateSessionToTask(
 	db: HyperIdleDb,
 	eventBus: EventBus,
 	sessionId: string,
 	taskId: string,
 	outcome: string,
-): void {
+): Promise<void> {
 	// F2: Only propagate on completed outcome. crashed and stopped do not trigger transitions.
 	if (outcome !== "completed") {
-		logPropagation(db, {
+		await logPropagation(db, {
 			sourceLevel: "session",
 			sourceId: sessionId,
 			sourceEvent: "session_ended",
@@ -272,9 +273,9 @@ function propagateSessionToTask(
 	}
 
 	// Check task exists and is in_progress
-	const task = db.select().from(tasks).where(eq(tasks.id, taskId)).get();
+	const [task] = await db.select().from(tasks).where(eq(tasks.id, taskId)).limit(1);
 	if (!task) {
-		logPropagation(db, {
+		await logPropagation(db, {
 			sourceLevel: "session",
 			sourceId: sessionId,
 			sourceEvent: "session_ended",
@@ -288,7 +289,7 @@ function propagateSessionToTask(
 	}
 
 	if (task.state !== "in_progress") {
-		logPropagation(db, {
+		await logPropagation(db, {
 			sourceLevel: "session",
 			sourceId: sessionId,
 			sourceEvent: "session_ended",
@@ -302,16 +303,15 @@ function propagateSessionToTask(
 	}
 
 	// Check for other active sessions on this task (exclude the current session)
-	const otherActiveSessions = db
+	const otherActiveSessions = await db
 		.select()
 		.from(sessions)
 		.where(
 			and(eq(sessions.taskId, taskId), eq(sessions.state, "active"), ne(sessions.id, sessionId)),
-		)
-		.all();
+		);
 
 	if (otherActiveSessions.length > 0) {
-		logPropagation(db, {
+		await logPropagation(db, {
 			sourceLevel: "session",
 			sourceId: sessionId,
 			sourceEvent: "session_ended",
@@ -326,8 +326,8 @@ function propagateSessionToTask(
 
 	// Transition task to review
 	try {
-		transitionTask(db, eventBus, taskId, "review");
-		logPropagation(db, {
+		await transitionTask(db, eventBus, taskId, "review");
+		await logPropagation(db, {
 			sourceLevel: "session",
 			sourceId: sessionId,
 			sourceEvent: "session_ended",
@@ -352,7 +352,7 @@ function propagateSessionToTask(
 	} catch (err) {
 		// F1: InvalidTransitionError from a race condition is logged as skipped, not failed.
 		if (isInvalidTransitionError(err)) {
-			logPropagation(db, {
+			await logPropagation(db, {
 				sourceLevel: "session",
 				sourceId: sessionId,
 				sourceEvent: "session_ended",
@@ -365,7 +365,7 @@ function propagateSessionToTask(
 			return;
 		}
 		// Unexpected error — log as pending_retry for the heartbeat to handle
-		logPropagation(db, {
+		await logPropagation(db, {
 			sourceLevel: "session",
 			sourceId: sessionId,
 			sourceEvent: "session_ended",
@@ -381,28 +381,29 @@ function propagateSessionToTask(
 // ─── Task -> Bet propagation ──────────────────────────────────────────────────
 
 /**
- * @lore L20: propagateTaskToBet is intentionally synchronous despite
- * transitionBet being declared async. transitionBet uses only synchronous
- * better-sqlite3 operations (db.transaction is sync). We call it with
- * .then/.catch instead of await to stay synchronous in the EventBus handler
- * context. If transitionBet is ever genuinely async in the future, this
- * function must be updated to be async and callers must await it.
+ * @lore L20: propagateTaskToBet is async — transitionBetToReview is genuinely
+ * async after the PGlite migration. Callers (EventBus handlers) must wrap in
+ * void (async () => { ... })() to satisfy the sync handler contract.
  */
-function propagateTaskToBet(db: HyperIdleDb, eventBus: EventBus, taskId: string): void {
+async function propagateTaskToBet(
+	db: HyperIdleDb,
+	eventBus: EventBus,
+	taskId: string,
+): Promise<void> {
 	// Look up the task to get its betId
-	const task = db.select().from(tasks).where(eq(tasks.id, taskId)).get();
+	const [task] = await db.select().from(tasks).where(eq(tasks.id, taskId)).limit(1);
 	if (!task) return;
 
 	const betId = task.betId;
 
 	// Look up the bet — only propagate if bet is in an active state
-	const bet = db.select().from(bets).where(eq(bets.id, betId)).get();
+	const [bet] = await db.select().from(bets).where(eq(bets.id, betId)).limit(1);
 	if (!bet) return;
 
 	const TERMINAL_BET_STATES = new Set(["shipped", "killed", "review"]);
 	if (TERMINAL_BET_STATES.has(bet.status)) {
 		// Bet is already terminal or in review — nothing to do
-		logPropagation(db, {
+		await logPropagation(db, {
 			sourceLevel: "task",
 			sourceId: taskId,
 			sourceEvent: "task_state_changed",
@@ -416,24 +417,34 @@ function propagateTaskToBet(db: HyperIdleDb, eventBus: EventBus, taskId: string)
 	}
 
 	// Query all tasks on this bet
-	const allBetTasks = db.select().from(tasks).where(eq(tasks.betId, betId)).all();
+	const allBetTasks = await db.select().from(tasks).where(eq(tasks.betId, betId));
 
 	if (allBetTasks.length === 0) return;
 
 	// Check: are ALL tasks in terminal state?
 	const allTerminal = allBetTasks.every((t) => TERMINAL_TASK_STATES.has(t.state));
 	if (!allTerminal) {
-		// Some tasks still open — no bet transition
+		// Some tasks still open — no bet transition. Log skipped for observability and test synchronization.
+		await logPropagation(db, {
+			sourceLevel: "task",
+			sourceId: taskId,
+			sourceEvent: "task_state_changed",
+			targetLevel: "bet",
+			targetId: betId,
+			targetTransition: null,
+			status: "skipped",
+			failureReason: "Not all tasks are terminal",
+		});
 		return;
 	}
 
-	// All tasks are terminal — transition bet to review (synchronously).
+	// All tasks are terminal — transition bet to review.
 	const fromStatus = bet.status;
 
 	try {
-		transitionBetToReviewSync(db, eventBus, betId);
+		await transitionBetToReview(db, eventBus, betId);
 
-		logPropagation(db, {
+		await logPropagation(db, {
 			sourceLevel: "task",
 			sourceId: taskId,
 			sourceEvent: "task_state_changed",
@@ -444,11 +455,11 @@ function propagateTaskToBet(db: HyperIdleDb, eventBus: EventBus, taskId: string)
 		});
 
 		// Create ship-confirmation review thread
-		createShipConfirmationThread(db, eventBus, betId, allBetTasks);
+		await createShipConfirmationThread(db, eventBus, betId, allBetTasks);
 	} catch (err) {
 		if (isInvalidTransitionError(err)) {
 			// F4: Race condition — bet was already moved by human. Log as skipped.
-			logPropagation(db, {
+			await logPropagation(db, {
 				sourceLevel: "task",
 				sourceId: taskId,
 				sourceEvent: "task_state_changed",
@@ -460,7 +471,7 @@ function propagateTaskToBet(db: HyperIdleDb, eventBus: EventBus, taskId: string)
 			});
 			return;
 		}
-		logPropagation(db, {
+		await logPropagation(db, {
 			sourceLevel: "task",
 			sourceId: taskId,
 			sourceEvent: "task_state_changed",
@@ -475,53 +486,49 @@ function propagateTaskToBet(db: HyperIdleDb, eventBus: EventBus, taskId: string)
 
 // ─── Ship-confirmation review thread ─────────────────────────────────────────
 
-function createShipConfirmationThread(
+async function createShipConfirmationThread(
 	db: HyperIdleDb,
 	eventBus: EventBus,
 	betId: string,
 	allBetTasks: Array<{ state: string }>,
-): void {
+): Promise<void> {
 	const now = new Date().toISOString();
 	const threadId = crypto.randomUUID();
 
 	// P2: Read founder from users table (kind = 'human') instead of factorySettings.
 	// @lore P2: fallback to "u-founder" for unseeded DBs — same sentinel as auth middleware.
-	const humanUser = db.select().from(users).where(eq(users.kind, "human")).limit(1).get();
+	const [humanUser] = await db.select().from(users).where(eq(users.kind, "human")).limit(1);
 	const founderId = humanUser?.id ?? "u-founder";
 
 	const doneCount = allBetTasks.filter((t) => t.state === "done").length;
 	const killedCount = allBetTasks.filter((t) => t.state === "killed").length;
 	const totalCount = allBetTasks.length;
 
-	db.insert(threads)
-		.values({
-			id: threadId,
-			hostKind: "bet",
-			hostId: betId,
-			initiatorId: SYSTEM_PROPAGATION_AGENT_ID,
-			participants: JSON.stringify([SYSTEM_PROPAGATION_AGENT_ID, founderId]),
-			lastActiveAt: now,
-			createdAt: now,
-		})
-		.run();
+	await db.insert(threads).values({
+		id: threadId,
+		hostKind: "bet",
+		hostId: betId,
+		initiatorId: SYSTEM_PROPAGATION_AGENT_ID,
+		participants: JSON.stringify([SYSTEM_PROPAGATION_AGENT_ID, founderId]),
+		lastActiveAt: now,
+		createdAt: now,
+	});
 
 	const messageId = crypto.randomUUID();
-	db.insert(messages)
-		.values({
-			id: messageId,
-			senderId: SYSTEM_PROPAGATION_AGENT_ID,
-			threadId,
-			type: "review",
-			payload: JSON.stringify({
-				kind: "ship_confirmation",
-				betId,
-				taskSummary: { done: doneCount, killed: killedCount, total: totalCount },
-				message: "All tasks on this bet are complete. Confirm shipping?",
-			}),
-			clientKey: `propagation-ship-${betId}-${Date.now()}`,
-			createdAt: now,
-		})
-		.run();
+	await db.insert(messages).values({
+		id: messageId,
+		senderId: SYSTEM_PROPAGATION_AGENT_ID,
+		threadId,
+		type: "review",
+		payload: JSON.stringify({
+			kind: "ship_confirmation",
+			betId,
+			taskSummary: { done: doneCount, killed: killedCount, total: totalCount },
+			message: "All tasks on this bet are complete. Confirm shipping?",
+		}),
+		clientKey: `propagation-ship-${betId}-${Date.now()}`,
+		createdAt: now,
+	});
 
 	eventBus.emit({
 		type: "thread_created",
@@ -536,19 +543,19 @@ function createShipConfirmationThread(
 
 // ─── Bet -> Product propagation ───────────────────────────────────────────────
 
-function logBetToProductPropagation(
+async function logBetToProductPropagation(
 	db: HyperIdleDb,
 	eventBus: EventBus,
 	betId: string,
 	newStatus: string,
-): void {
+): Promise<void> {
 	// Look up the bet to find its productId
-	const bet = db.select().from(bets).where(eq(bets.id, betId)).get();
+	const [bet] = await db.select().from(bets).where(eq(bets.id, betId)).limit(1);
 	const productId = bet?.productId ?? betId; // fallback to betId if bet not found (shouldn't happen)
 
 	// Product status is derived on read — no write-time propagation needed.
 	// We log the event for audit and emit propagation_applied.
-	logPropagation(db, {
+	await logPropagation(db, {
 		sourceLevel: "bet",
 		sourceId: betId,
 		sourceEvent: "bet_state_changed",
@@ -581,36 +588,33 @@ function logBetToProductPropagation(
  * (attempts >= MAX_RETRY_ATTEMPTS), marks the row failed and creates a
  * notification queue entry.
  */
-export function retryFailedPropagations(db: HyperIdleDb, eventBus: EventBus): void {
-	const pendingRows = db
+export async function retryFailedPropagations(db: HyperIdleDb, eventBus: EventBus): Promise<void> {
+	const pendingRows = await db
 		.select()
 		.from(propagationLog)
-		.where(eq(propagationLog.status, "pending_retry"))
-		.all();
+		.where(eq(propagationLog.status, "pending_retry"));
 
 	for (const row of pendingRows) {
 		if (row.attempts >= MAX_RETRY_ATTEMPTS) {
 			// Exhausted retries — mark as failed and notify
-			db.update(propagationLog)
+			await db
+				.update(propagationLog)
 				.set({ status: "failed", failureReason: "Max retries exceeded" })
-				.where(eq(propagationLog.id, row.id))
-				.run();
+				.where(eq(propagationLog.id, row.id));
 
 			// Create notification queue entry
 			const now = new Date().toISOString();
-			db.insert(notificationQueue)
-				.values({
-					id: crypto.randomUUID(),
-					eventType: "propagation_exhausted",
-					subjectId: row.id,
-					severity: "warning",
-					title: `Propagation failed after ${MAX_RETRY_ATTEMPTS} attempts`,
-					body: `Source: ${row.sourceLevel}/${row.sourceId} -> ${row.targetLevel}/${row.targetId}. Reason: ${row.failureReason ?? "unknown"}`,
-					reason: "lifecycle-propagation",
-					status: "pending",
-					createdAt: now,
-				})
-				.run();
+			await db.insert(notificationQueue).values({
+				id: crypto.randomUUID(),
+				eventType: "propagation_exhausted",
+				subjectId: row.id,
+				severity: "warning",
+				title: `Propagation failed after ${MAX_RETRY_ATTEMPTS} attempts`,
+				body: `Source: ${row.sourceLevel}/${row.sourceId} -> ${row.targetLevel}/${row.targetId}. Reason: ${row.failureReason ?? "unknown"}`,
+				reason: "lifecycle-propagation",
+				status: "pending",
+				createdAt: now,
+			});
 
 			// Emit propagation_failed event
 			const failedEvent: PropagationFailedEvent = {
@@ -629,16 +633,16 @@ export function retryFailedPropagations(db: HyperIdleDb, eventBus: EventBus): vo
 		}
 
 		// Increment attempts and retry
-		db.update(propagationLog)
+		await db
+			.update(propagationLog)
 			.set({ attempts: row.attempts + 1 })
-			.where(eq(propagationLog.id, row.id))
-			.run();
+			.where(eq(propagationLog.id, row.id));
 
 		// Re-execute the propagation based on source level
 		if (row.sourceLevel === "session" && row.sourceEvent === "session_ended") {
-			propagateSessionToTask(db, eventBus, row.sourceId, row.targetId, "completed");
+			await propagateSessionToTask(db, eventBus, row.sourceId, row.targetId, "completed");
 		} else if (row.sourceLevel === "task" && row.sourceEvent === "task_state_changed") {
-			propagateTaskToBet(db, eventBus, row.sourceId);
+			await propagateTaskToBet(db, eventBus, row.sourceId);
 		}
 	}
 }
@@ -654,26 +658,34 @@ export function retryFailedPropagations(db: HyperIdleDb, eventBus: EventBus): vo
 export function registerLifecyclePropagation(db: HyperIdleDb, eventBus: EventBus): () => void {
 	// Handler 1: session_ended -> evaluate task transition
 	const unsubSessionEnded = eventBus.on("session_ended", (event) => {
-		propagateSessionToTask(db, eventBus, event.sessionId, event.taskId, event.outcome);
+		void (async () => {
+			await propagateSessionToTask(db, eventBus, event.sessionId, event.taskId, event.outcome);
+		})();
 	});
 
 	// Handler 2: task_state_changed -> evaluate bet transition
 	const unsubTaskChanged = eventBus.on("task_state_changed", (event) => {
 		if (event.toState === "done" || event.toState === "killed") {
-			propagateTaskToBet(db, eventBus, event.taskId);
+			void (async () => {
+				await propagateTaskToBet(db, eventBus, event.taskId);
+			})();
 		}
 	});
 
 	// Handler 3: bet_state_changed -> log bet->product propagation (derived on read)
 	const unsubBetChanged = eventBus.on("bet_state_changed", (event) => {
 		if (event.toState === "shipped" || event.toState === "killed") {
-			logBetToProductPropagation(db, eventBus, event.betId, event.toState);
+			void (async () => {
+				await logBetToProductPropagation(db, eventBus, event.betId, event.toState);
+			})();
 		}
 	});
 
 	// Heartbeat: retry failed propagations every 30 seconds
 	const retryInterval = setInterval(() => {
-		retryFailedPropagations(db, eventBus);
+		void (async () => {
+			await retryFailedPropagations(db, eventBus);
+		})();
 	}, 30_000);
 
 	return () => {

@@ -100,9 +100,9 @@ export function createObservabilityRoutes(
 	function invalidateStatusCache(): void {
 		statusCfgCache = null;
 	}
-	function getCachedConfig(): ObservabilityConfig {
+	async function getCachedConfig(): Promise<ObservabilityConfig> {
 		if (statusCfgCache) return statusCfgCache.cfg;
-		const cfg = readObservabilityConfig(db);
+		const cfg = await readObservabilityConfig(db);
 		statusCfgCache = { cfg };
 		return cfg;
 	}
@@ -120,12 +120,12 @@ export function createObservabilityRoutes(
 		}),
 	);
 
-	router.get("/config", (c) => {
-		const cfg = readObservabilityConfig(db);
+	router.get("/config", async (c) => {
+		const cfg = await readObservabilityConfig(db);
 		return c.json(redactObservabilityConfig(cfg));
 	});
 
-	router.patch("/config", requestSizeCap, validateBody(patchConfigSchema), (c) => {
+	router.patch("/config", requestSizeCap, validateBody(patchConfigSchema), async (c) => {
 		const body = c.req.valid("json");
 		const reason = validatePatchBody(body);
 		if (reason !== null) {
@@ -136,7 +136,7 @@ export function createObservabilityRoutes(
 			return c.json(response, 400);
 		}
 		const diff = auditDiff(body);
-		const updated = updateObservabilityConfig(db, body);
+		const updated = await updateObservabilityConfig(db, body);
 		auditLogger.info("config_changed", {
 			resource: "observability.config",
 			actor: "api-key",
@@ -156,7 +156,7 @@ export function createObservabilityRoutes(
 		return c.json(redactObservabilityConfig(updated));
 	});
 
-	router.get("/status", (c) => {
+	router.get("/status", async (c) => {
 		const dispatcher = opts.getDispatcher();
 		if (dispatcher) {
 			const snapshot = dispatcher.status();
@@ -166,7 +166,7 @@ export function createObservabilityRoutes(
 		// adapter is `noop` (which skips dispatcher wiring). Reflect the
 		// persisted config so the UI shows the true enabled/adapter state
 		// instead of always reporting "disabled".
-		const cfg = getCachedConfig();
+		const cfg = await getCachedConfig();
 		return c.json({
 			enabled: cfg.enabled,
 			adapter: cfg.adapter,

@@ -9,129 +9,126 @@
  */
 
 import { eq } from "drizzle-orm";
-import { beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { HyperIdleDb } from "../connection.js";
 import { hintProgress, users } from "../schema.js";
-import { createTestDb } from "../test-utils.js";
+import { createTestDb, type TestDbHandle } from "../test-utils.js";
 
 const NOW = new Date().toISOString();
 
-function seedUser(db: HyperIdleDb, id: string): void {
-	db.insert(users)
-		.values({
-			id,
-			kind: "human",
-			name: "Test User",
-			role: "founder",
-			status: "active",
-			createdAt: NOW,
-		})
-		.run();
+async function seedUser(db: HyperIdleDb, id: string): Promise<void> {
+	await db.insert(users).values({
+		id,
+		kind: "human",
+		name: "Test User",
+		role: "founder",
+		status: "active",
+		createdAt: NOW,
+	});
 }
 
 describe("P5 AC1: hint_progress table", () => {
+	let handle: TestDbHandle;
 	let db: HyperIdleDb;
 
-	beforeEach(() => {
-		db = createTestDb();
+	beforeEach(async () => {
+		handle = await createTestDb();
+		db = handle.db;
+	}, 30_000);
+
+	afterEach(async () => {
+		await handle.close();
 	});
 
 	// AC1a: Insert a row, select it, assert shape
-	it("inserts a hint_progress row and selects it back with the correct shape", () => {
-		seedUser(db, "user-1");
+	it("inserts a hint_progress row and selects it back with the correct shape", async () => {
+		await seedUser(db, "user-1");
 
-		db.insert(hintProgress)
-			.values({
-				userId: "user-1",
-				hintId: "create-bet",
-				seenAt: NOW,
-			})
-			.run();
+		await db.insert(hintProgress).values({
+			userId: "user-1",
+			hintId: "create-bet",
+			seenAt: NOW,
+		});
 
-		const rows = db.select().from(hintProgress).where(eq(hintProgress.userId, "user-1")).all();
+		const rows = await db.select().from(hintProgress).where(eq(hintProgress.userId, "user-1"));
 
 		expect(rows).toHaveLength(1);
 		const row = rows[0];
-		expect(row.userId).toBe("user-1");
-		expect(row.hintId).toBe("create-bet");
-		expect(row.seenAt).toBe(NOW);
+		expect(row?.userId).toBe("user-1");
+		expect(row?.hintId).toBe("create-bet");
+		expect(row?.seenAt).toBe(NOW);
 	});
 
 	// AC1b: Insert duplicate (userId, hintId) — composite primary key violation
-	it("rejects duplicate (userId, hintId) — composite primary key constraint", () => {
-		seedUser(db, "user-1");
+	it("rejects duplicate (userId, hintId) — composite primary key constraint", async () => {
+		await seedUser(db, "user-1");
 
-		db.insert(hintProgress).values({ userId: "user-1", hintId: "create-bet", seenAt: NOW }).run();
+		await db.insert(hintProgress).values({ userId: "user-1", hintId: "create-bet", seenAt: NOW });
 
-		expect(() =>
-			db.insert(hintProgress).values({ userId: "user-1", hintId: "create-bet", seenAt: NOW }).run(),
-		).toThrow(/constraint/i);
+		await expect(
+			db.insert(hintProgress).values({ userId: "user-1", hintId: "create-bet", seenAt: NOW }),
+		).rejects.toThrow();
 	});
 
 	// AC1c: Same user, different hintId — allowed
-	it("allows same user to have multiple different hint dismissals", () => {
-		seedUser(db, "user-1");
+	it("allows same user to have multiple different hint dismissals", async () => {
+		await seedUser(db, "user-1");
 
-		db.insert(hintProgress).values({ userId: "user-1", hintId: "create-bet", seenAt: NOW }).run();
-		db.insert(hintProgress)
-			.values({ userId: "user-1", hintId: "add-credential", seenAt: NOW })
-			.run();
+		await db.insert(hintProgress).values({ userId: "user-1", hintId: "create-bet", seenAt: NOW });
+		await db
+			.insert(hintProgress)
+			.values({ userId: "user-1", hintId: "add-credential", seenAt: NOW });
 
-		const rows = db.select().from(hintProgress).where(eq(hintProgress.userId, "user-1")).all();
+		const rows = await db.select().from(hintProgress).where(eq(hintProgress.userId, "user-1"));
 		expect(rows).toHaveLength(2);
 	});
 
 	// AC1d: FK to non-existent user — FK violation
-	it("rejects insert when userId does not reference an existing user", () => {
-		expect(() =>
-			db
-				.insert(hintProgress)
-				.values({ userId: "ghost-user", hintId: "create-bet", seenAt: NOW })
-				.run(),
-		).toThrow(/constraint/i);
+	it("rejects insert when userId does not reference an existing user", async () => {
+		await expect(
+			db.insert(hintProgress).values({ userId: "ghost-user", hintId: "create-bet", seenAt: NOW }),
+		).rejects.toThrow();
 	});
 
 	// AC1d: Delete user cascades to hint_progress rows
-	it("cascades deletion of hint_progress rows when the user is deleted", () => {
-		seedUser(db, "user-cascade");
+	it("cascades deletion of hint_progress rows when the user is deleted", async () => {
+		await seedUser(db, "user-cascade");
 
-		db.insert(hintProgress)
-			.values({ userId: "user-cascade", hintId: "create-bet", seenAt: NOW })
-			.run();
-		db.insert(hintProgress)
-			.values({ userId: "user-cascade", hintId: "add-credential", seenAt: NOW })
-			.run();
+		await db
+			.insert(hintProgress)
+			.values({ userId: "user-cascade", hintId: "create-bet", seenAt: NOW });
+		await db
+			.insert(hintProgress)
+			.values({ userId: "user-cascade", hintId: "add-credential", seenAt: NOW });
 
 		// Verify rows exist before deletion
-		const before = db
+		const before = await db
 			.select()
 			.from(hintProgress)
-			.where(eq(hintProgress.userId, "user-cascade"))
-			.all();
+			.where(eq(hintProgress.userId, "user-cascade"));
 		expect(before).toHaveLength(2);
 
 		// Delete the user — should cascade
-		db.delete(users).where(eq(users.id, "user-cascade")).run();
+		await db.delete(users).where(eq(users.id, "user-cascade"));
 
 		// hint_progress rows should be gone
-		const after = db
+		const after = await db
 			.select()
 			.from(hintProgress)
-			.where(eq(hintProgress.userId, "user-cascade"))
-			.all();
+			.where(eq(hintProgress.userId, "user-cascade"));
 		expect(after).toHaveLength(0);
 	});
 
 	// Multiple users, same hintId — allowed
-	it("allows multiple users to dismiss the same hint independently", () => {
-		seedUser(db, "user-a");
-		seedUser(db, "user-b");
+	it("allows multiple users to dismiss the same hint independently", async () => {
+		await seedUser(db, "user-a");
+		await seedUser(db, "user-b");
 
-		db.insert(hintProgress).values({ userId: "user-a", hintId: "create-bet", seenAt: NOW }).run();
-		db.insert(hintProgress).values({ userId: "user-b", hintId: "create-bet", seenAt: NOW }).run();
+		await db.insert(hintProgress).values({ userId: "user-a", hintId: "create-bet", seenAt: NOW });
+		await db.insert(hintProgress).values({ userId: "user-b", hintId: "create-bet", seenAt: NOW });
 
-		const rowsA = db.select().from(hintProgress).where(eq(hintProgress.userId, "user-a")).all();
-		const rowsB = db.select().from(hintProgress).where(eq(hintProgress.userId, "user-b")).all();
+		const rowsA = await db.select().from(hintProgress).where(eq(hintProgress.userId, "user-a"));
+		const rowsB = await db.select().from(hintProgress).where(eq(hintProgress.userId, "user-b"));
 
 		expect(rowsA).toHaveLength(1);
 		expect(rowsB).toHaveLength(1);

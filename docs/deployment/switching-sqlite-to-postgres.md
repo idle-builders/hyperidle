@@ -18,7 +18,7 @@ Before a production Postgres deployment, a follow-up story must:
    `await` on the Drizzle builder directly.
 2. Convert the SQLite `seed()` function to a dialect-agnostic async form
    (or duplicate it onto `schema.pg.ts`).
-3. Re-run `bun run test:pg` with a real `DATABASE_URL` and confirm a
+3. Re-run `npm run test:pg` with a real `DATABASE_URL` and confirm a
    full-suite pass.
 
 The `packages/db/src/__tests__/pg-call-site-audit.test.ts` test records

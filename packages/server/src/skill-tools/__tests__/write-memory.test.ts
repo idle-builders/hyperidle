@@ -17,36 +17,32 @@ import { writeMemoryTool } from "../write-memory.js";
 
 const NOW = new Date().toISOString();
 
-function makeDb(): HyperIdleDb {
-	const db = createTestDb();
-	setupFts(db);
-	return db;
+async function makeDb(): Promise<HyperIdleDb> {
+	const handle = await createTestDb();
+	setupFts(handle.db);
+	return handle.db;
 }
 
-function seedFacilitator(db: HyperIdleDb): void {
-	db.insert(users)
-		.values({
-			id: "agent-a",
-			name: "Agent A",
-			role: "practice_facilitator",
-			status: "active",
-			maxConcurrentSessions: 1,
-			createdAt: NOW,
-		})
-		.run();
+async function seedFacilitator(db: HyperIdleDb): Promise<void> {
+	await db.insert(users).values({
+		id: "agent-a",
+		name: "Agent A",
+		role: "practice_facilitator",
+		status: "active",
+		maxConcurrentSessions: 1,
+		createdAt: NOW,
+	});
 }
 
-function seedBuilder(db: HyperIdleDb): void {
-	db.insert(users)
-		.values({
-			id: "agent-builder",
-			name: "Builder Agent",
-			role: "builder",
-			status: "active",
-			maxConcurrentSessions: 1,
-			createdAt: NOW,
-		})
-		.run();
+async function seedBuilder(db: HyperIdleDb): Promise<void> {
+	await db.insert(users).values({
+		id: "agent-builder",
+		name: "Builder Agent",
+		role: "builder",
+		status: "active",
+		maxConcurrentSessions: 1,
+		createdAt: NOW,
+	});
 }
 
 function makeContext(db: HyperIdleDb, agentId = "agent-a"): ToolContext {
@@ -64,9 +60,9 @@ function makeContext(db: HyperIdleDb, agentId = "agent-a"): ToolContext {
 describe("write_memory tool", () => {
 	let db: HyperIdleDb;
 
-	beforeEach(() => {
-		db = makeDb();
-		seedFacilitator(db);
+	beforeEach(async () => {
+		db = await makeDb();
+		await seedFacilitator(db);
 	});
 
 	describe("creates a knowledge item via fabric.create", () => {
@@ -86,19 +82,17 @@ describe("write_memory tool", () => {
 			expect(data.knowledgeItemId).toBeTruthy();
 			expect(data.version).toBe(1);
 
-			const row = db
+			const [row] = await db
 				.select()
 				.from(knowledgeItems)
-				.where(eq(knowledgeItems.id, data.knowledgeItemId))
-				.get();
+				.where(eq(knowledgeItems.id, data.knowledgeItemId));
 			expect(row?.title).toBe("New practice");
 			expect(row?.body).toBe("Always validate input at the boundary.");
 			// O2: layer and kind moved to knowledgeStrategyFabric
-			const fabricRow = db
+			const [fabricRow] = await db
 				.select()
 				.from(knowledgeStrategyFabric)
-				.where(eq(knowledgeStrategyFabric.knowledgeItemId, data.knowledgeItemId))
-				.get();
+				.where(eq(knowledgeStrategyFabric.knowledgeItemId, data.knowledgeItemId));
 			expect(fabricRow?.layer).toBe("L3");
 			expect(fabricRow?.kind).toBe("pattern");
 		});
@@ -116,11 +110,10 @@ describe("write_memory tool", () => {
 			expect(result.success).toBe(true);
 			if (!result.success) return;
 			const data = result.data as { knowledgeItemId: string };
-			const row = db
+			const [row] = await db
 				.select()
 				.from(knowledgeItems)
-				.where(eq(knowledgeItems.id, data.knowledgeItemId))
-				.get();
+				.where(eq(knowledgeItems.id, data.knowledgeItemId));
 			expect(row?.updatedBy).toBe("agent:agent-a");
 		});
 
@@ -137,11 +130,10 @@ describe("write_memory tool", () => {
 			expect(result.success).toBe(true);
 			if (!result.success) return;
 			const data = result.data as { knowledgeItemId: string };
-			const log = db
+			const log = await db
 				.select()
 				.from(knowledgeEditLog)
-				.where(eq(knowledgeEditLog.itemId, data.knowledgeItemId))
-				.all();
+				.where(eq(knowledgeEditLog.itemId, data.knowledgeItemId));
 			expect(log).toHaveLength(1);
 			expect(log[0].editType).toBe("create");
 			expect(log[0].editor).toBe("agent:agent-a");
@@ -161,11 +153,10 @@ describe("write_memory tool", () => {
 			expect(result.success).toBe(true);
 			if (!result.success) return;
 			const data = result.data as { knowledgeItemId: string };
-			const row = db
+			const [row] = await db
 				.select()
 				.from(knowledgeItems)
-				.where(eq(knowledgeItems.id, data.knowledgeItemId))
-				.get();
+				.where(eq(knowledgeItems.id, data.knowledgeItemId));
 			expect(row?.topic).toBe("architecture");
 			expect(row?.format).toBeDefined();
 			expect(row?.status).toBeDefined();
@@ -174,7 +165,7 @@ describe("write_memory tool", () => {
 
 	describe("I6: non-facilitator agents restricted to L0-L2", () => {
 		it("builder agent writing L3 gets FORBIDDEN", async () => {
-			seedBuilder(db);
+			await seedBuilder(db);
 			const result = await writeMemoryTool.handler(
 				{
 					layer: "L3",
@@ -191,7 +182,7 @@ describe("write_memory tool", () => {
 		});
 
 		it("builder agent writing L4 gets FORBIDDEN", async () => {
-			seedBuilder(db);
+			await seedBuilder(db);
 			const result = await writeMemoryTool.handler(
 				{
 					layer: "L4",
@@ -208,7 +199,7 @@ describe("write_memory tool", () => {
 		});
 
 		it("builder agent can write to L0", async () => {
-			seedBuilder(db);
+			await seedBuilder(db);
 			const result = await writeMemoryTool.handler(
 				{
 					layer: "L0",
@@ -222,7 +213,7 @@ describe("write_memory tool", () => {
 		});
 
 		it("builder agent can write to L2", async () => {
-			seedBuilder(db);
+			await seedBuilder(db);
 			const result = await writeMemoryTool.handler(
 				{
 					layer: "L2",

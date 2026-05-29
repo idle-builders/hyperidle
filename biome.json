@@ -2,7 +2,7 @@
 	"$schema": "https://biomejs.dev/schemas/2.4.13/schema.json",
 	"assist": { "actions": { "source": { "organizeImports": "on" } } },
 	"javascript": {
-		"globals": ["React", "JSX", "jest", "Bun"]
+		"globals": ["React", "JSX", "jest"]
 	},
 	"linter": {
 		"enabled": true,

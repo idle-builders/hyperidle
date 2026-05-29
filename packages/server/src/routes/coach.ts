@@ -49,7 +49,7 @@ function rowToThread(row: {
 	hostId: string;
 	initiatorId: string;
 	participants: string;
-	pinned: number;
+	pinned: boolean | number;
 	resolvedAt: string | null;
 	lastActiveAt: string;
 	createdAt: string;
@@ -61,7 +61,7 @@ function rowToThread(row: {
 		hostId: row.hostId,
 		initiatorId: row.initiatorId,
 		participants,
-		pinned: row.pinned === 1,
+		pinned: row.pinned === true,
 		resolvedAt: row.resolvedAt,
 		lastActiveAt: row.lastActiveAt,
 		createdAt: row.createdAt,
@@ -111,11 +111,11 @@ function rowToMessage(row: {
  * Looks up the user's display name from the agents table (fall back to "You").
  * The CoC agent always displays as "Chief of Staff".
  */
-function buildIdentities(
+async function buildIdentities(
 	db: HyperIdleDb,
 	userId: string,
-): Record<string, { name: string; role?: string }> {
-	const userRow = db.select().from(users).where(eq(users.id, userId)).get();
+): Promise<Record<string, { name: string; role?: string }>> {
+	const [userRow] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
 	const userName = userRow?.name ?? "You";
 	const userRole = userRow?.role;
 
@@ -141,28 +141,29 @@ export function createCoachRoutes(db: HyperIdleDb, _eventBus: EventBus): Hono<Hy
 	 * to its creation the way they would to a new task thread. This keeps the
 	 * event stream clean.
 	 */
-	router.get("/", (c) => {
+	router.get("/", async (c) => {
 		const userId = readSenderId(c);
 
 		// Find existing pinned coach thread for this user.
-		const existing = db
+		const [existing] = await db
 			.select()
 			.from(threads)
-			.where(and(eq(threads.hostKind, "user"), eq(threads.hostId, userId), eq(threads.pinned, 1)))
-			.get();
+			.where(
+				and(eq(threads.hostKind, "user"), eq(threads.hostId, userId), eq(threads.pinned, true)),
+			)
+			.limit(1);
 
 		if (existing) {
-			const messageRows = db
+			const messageRows = await db
 				.select()
 				.from(messages)
-				.where(eq(messages.threadId, existing.id))
-				.all();
+				.where(eq(messages.threadId, existing.id));
 
 			return c.json({
 				thread: rowToThread(existing),
 				messages: messageRows.map(rowToMessage),
 				headMessageId: null,
-				identities: buildIdentities(db, userId),
+				identities: await buildIdentities(db, userId),
 			});
 		}
 
@@ -171,19 +172,17 @@ export function createCoachRoutes(db: HyperIdleDb, _eventBus: EventBus): Hono<Hy
 		const now = new Date().toISOString();
 		const participantsList = [userId, COC_AGENT_ID].sort();
 
-		db.insert(threads)
-			.values({
-				id: threadId,
-				hostKind: "user",
-				hostId: userId,
-				initiatorId: userId,
-				participants: JSON.stringify(participantsList),
-				pinned: 1,
-				resolvedAt: null,
-				lastActiveAt: now,
-				createdAt: now,
-			})
-			.run();
+		await db.insert(threads).values({
+			id: threadId,
+			hostKind: "user",
+			hostId: userId,
+			initiatorId: userId,
+			participants: JSON.stringify(participantsList),
+			pinned: true,
+			resolvedAt: null,
+			lastActiveAt: now,
+			createdAt: now,
+		});
 
 		return c.json({
 			thread: rowToThread({
@@ -192,14 +191,14 @@ export function createCoachRoutes(db: HyperIdleDb, _eventBus: EventBus): Hono<Hy
 				hostId: userId,
 				initiatorId: userId,
 				participants: JSON.stringify(participantsList),
-				pinned: 1,
+				pinned: true,
 				resolvedAt: null,
 				lastActiveAt: now,
 				createdAt: now,
 			}),
 			messages: [],
 			headMessageId: null,
-			identities: buildIdentities(db, userId),
+			identities: await buildIdentities(db, userId),
 		});
 	});
 

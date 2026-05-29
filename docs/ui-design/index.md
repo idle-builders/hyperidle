@@ -2,7 +2,7 @@
 
 # UI Design — The Factory
 
-Version 0.3 · Desktop app · Dark / Light / System (Lucid theme)
+Version 0.3 · Electron desktop app · Dark / Light / System (Lucid theme)
 
 ---
 

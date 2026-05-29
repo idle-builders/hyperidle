@@ -168,10 +168,10 @@ function serializeTurnsCompleted(turnsCompleted: readonly number[]): string {
  * the anchor's id which callers pass as `meetingId` to
  * `runPracticeMeetingTurn`.
  */
-export function createPracticeMeeting(
+export async function createPracticeMeeting(
 	db: HyperIdleDb,
 	input: CreatePracticeMeetingInput,
-): CreatePracticeMeetingResult {
+): Promise<CreatePracticeMeetingResult> {
 	const id = randomUUID();
 	const isoNow = new Date(input.nowMs).toISOString();
 	const meta: AnchorMeta = {
@@ -184,43 +184,37 @@ export function createPracticeMeeting(
 	// knowledgeItems; strategy fields (layer, kind, scopeId, meta) go to
 	// knowledgeStrategyFabric. The anchor meta includes the meeting state
 	// so the practice-meeting service can track turn progress.
-	db.insert(knowledgeItems)
-		.values({
-			id,
-			topic: "practice_meeting",
-			title: input.title,
-			body: "Practice meeting anchor — created by practice-meeting service",
-			format: "markdown",
-			status: "captured",
-			version: 1,
-			updatedBy: "agent:practice-meeting",
-			createdAt: isoNow,
-			updatedAt: isoNow,
-		})
-		.run();
-	db.insert(knowledgeStrategyFabric)
-		.values({
-			id: `ksf-${id}`,
-			knowledgeItemId: id,
-			layer: "L2",
-			kind: "reflection",
-			scopeId: input.scopeId,
-			meta: JSON.stringify(meta),
-		})
-		.run();
+	await db.insert(knowledgeItems).values({
+		id,
+		topic: "practice_meeting",
+		title: input.title,
+		body: "Practice meeting anchor — created by practice-meeting service",
+		format: "markdown",
+		status: "captured",
+		version: 1,
+		updatedBy: "agent:practice-meeting",
+		createdAt: isoNow,
+		updatedAt: isoNow,
+	});
+	await db.insert(knowledgeStrategyFabric).values({
+		id: `ksf-${id}`,
+		knowledgeItemId: id,
+		layer: "L2",
+		kind: "reflection",
+		scopeId: input.scopeId,
+		meta: JSON.stringify(meta),
+	});
 
-	db.insert(knowledgeEditLog)
-		.values({
-			id: randomUUID(),
-			itemId: id,
-			editor: "agent:practice-meeting",
-			field: "*",
-			oldValue: null,
-			newValue: null,
-			editType: "create",
-			createdAt: isoNow,
-		})
-		.run();
+	await db.insert(knowledgeEditLog).values({
+		id: randomUUID(),
+		itemId: id,
+		editor: "agent:practice-meeting",
+		field: "*",
+		oldValue: null,
+		newValue: null,
+		editType: "create",
+		createdAt: isoNow,
+	});
 
 	return { meetingId: id };
 }
@@ -277,13 +271,13 @@ export async function runPracticeMeetingTurn(
 	}
 
 	/**
-	 * @lore G3 rollback via throw: better-sqlite3's native transaction
-	 * commits on normal return and rolls back only on a thrown error. For
-	 * the CONCURRENT_MODIFICATION branch we need to roll back the
-	 * per-turn inserts that already ran, so we throw a sentinel error and
-	 * unwrap it outside the tx. For early gate failures (NOT_FOUND,
-	 * INVALID_TURN, INVALID_STATE) we also throw — nothing was written,
-	 * but keeping rollback uniform simplifies reasoning.
+	 * @lore G3 rollback via throw: the async transaction commits on normal
+	 * return and rolls back only on a thrown error. For the
+	 * CONCURRENT_MODIFICATION branch we need to roll back the per-turn
+	 * inserts that already ran, so we throw a sentinel error and unwrap it
+	 * outside the tx. For early gate failures (NOT_FOUND, INVALID_TURN,
+	 * INVALID_STATE) we also throw — nothing was written, but keeping
+	 * rollback uniform simplifies reasoning.
 	 */
 	class PracticeMeetingTxError extends Error {
 		public readonly result: Extract<PracticeMeetingTurnResult, { success: false }>;
@@ -296,8 +290,12 @@ export async function runPracticeMeetingTurn(
 
 	let txOutcome: PracticeMeetingTurnResult;
 	try {
-		txOutcome = db.transaction((tx): PracticeMeetingTurnResult => {
-			const anchor = tx.select().from(knowledgeItems).where(eq(knowledgeItems.id, meetingId)).get();
+		txOutcome = await db.transaction(async (tx): Promise<PracticeMeetingTurnResult> => {
+			const [anchor] = await tx
+				.select()
+				.from(knowledgeItems)
+				.where(eq(knowledgeItems.id, meetingId))
+				.limit(1);
 			if (!anchor) {
 				throw new PracticeMeetingTxError({
 					success: false,
@@ -308,11 +306,11 @@ export async function runPracticeMeetingTurn(
 			// @lore O2: anchor meta and scopeId are in knowledgeStrategyFabric.
 			// Read the fabric row inside the same transaction for atomic meta
 			// pinning on the conditional UPDATE.
-			const anchorFabric = tx
+			const [anchorFabric] = await tx
 				.select()
 				.from(knowledgeStrategyFabric)
 				.where(eq(knowledgeStrategyFabric.knowledgeItemId, meetingId))
-				.get();
+				.limit(1);
 			const parsed = parseAnchorMeta(anchorFabric?.meta ?? null);
 			if (parsed.kind === "not-anchor") {
 				throw new PracticeMeetingTxError({
@@ -345,11 +343,11 @@ export async function runPracticeMeetingTurn(
 
 			let turnResult: PracticeMeetingTurnResult;
 			if (turnNumber === 1 && "proposals" in turnInput) {
-				turnResult = runTurn1(tx, meetingId, anchorScopeId, turnInput.proposals, isoNow);
+				turnResult = await runTurn1(tx, meetingId, anchorScopeId, turnInput.proposals, isoNow);
 			} else if (turnNumber === 2 && "reactions" in turnInput) {
-				turnResult = runTurn2(tx, meetingId, anchorScopeId, turnInput.reactions, isoNow);
+				turnResult = await runTurn2(tx, meetingId, anchorScopeId, turnInput.reactions, isoNow);
 			} else if (turnNumber === 3 && "synthesis" in turnInput) {
-				turnResult = runTurn3(tx, meetingId, anchorScopeId, turnInput.synthesis, isoNow);
+				turnResult = await runTurn3(tx, meetingId, anchorScopeId, turnInput.synthesis, isoNow);
 			} else {
 				// Unreachable — the shape checks above cover all three turns.
 				throw new PracticeMeetingTxError({
@@ -366,7 +364,7 @@ export async function runPracticeMeetingTurn(
 			// Conditional anchor UPDATE: pin the OLD full `meta` blob so a
 			// concurrent turn-N caller cannot also pass the expected-turn
 			// gate. If two callers race on turn 1 the loser's UPDATE
-			// changes=0 and we throw CONCURRENT_MODIFICATION — the tx
+			// returns 0 rows and we throw CONCURRENT_MODIFICATION — the tx
 			// rollback undoes the per-turn inserts the loser wrote.
 			// @lore O2: meta lives in knowledgeStrategyFabric now. The conditional
 			// UPDATE targets that table, pinning via knowledgeItemId + old meta value.
@@ -382,7 +380,7 @@ export async function runPracticeMeetingTurn(
 			// that invariant is ever broken the `eq` below will no-op and
 			// the caller will see CONCURRENT_MODIFICATION — safe default.
 			const pinMeta = anchorFabric?.meta ?? "";
-			const updateRes = tx
+			const updateRows = await tx
 				.update(knowledgeStrategyFabric)
 				.set({ meta: JSON.stringify(nextMeta) })
 				.where(
@@ -391,13 +389,13 @@ export async function runPracticeMeetingTurn(
 						eq(knowledgeStrategyFabric.meta, pinMeta),
 					),
 				)
-				.run();
+				.returning({ id: knowledgeStrategyFabric.id });
 			// Also update kernel updatedAt for recency tracking
-			tx.update(knowledgeItems)
+			await tx
+				.update(knowledgeItems)
 				.set({ updatedAt: isoNow })
-				.where(eq(knowledgeItems.id, meetingId))
-				.run();
-			if (updateRes.changes === 0) {
+				.where(eq(knowledgeItems.id, meetingId));
+			if (updateRows.length === 0) {
 				throw new PracticeMeetingTxError({
 					success: false,
 					code: "CONCURRENT_MODIFICATION",
@@ -452,56 +450,50 @@ export async function runPracticeMeetingTurn(
  * Passing `HyperIdleDb` as the `tx` parameter type is safe — the drizzle
  * transaction object is structurally compatible (same `insert`/`update`/
  * `select` methods) and this avoids depending on drizzle's internal
- * `SQLiteTransaction` type.
+ * transaction type.
  */
-function runTurn1(
+async function runTurn1(
 	tx: HyperIdleDb,
 	meetingId: string,
 	anchorScopeId: string | null,
 	proposals: readonly ProposalInput[],
 	isoNow: string,
-): PracticeMeetingTurnResult {
+): Promise<PracticeMeetingTurnResult> {
 	const createdIds: string[] = [];
 	for (const p of proposals) {
 		const id = randomUUID();
 		// @lore O2: kernel/strategy separation. Kernel row: identity + content.
 		// Strategy row: layer, kind, scopeId, meta (meeting state).
-		tx.insert(knowledgeItems)
-			.values({
-				id,
-				topic: p.topic ?? null,
-				title: p.title,
-				body: p.body,
-				format: "markdown",
-				status: "captured",
-				version: 1,
-				updatedBy: "agent:practice-meeting",
-				createdAt: isoNow,
-				updatedAt: isoNow,
-			})
-			.run();
-		tx.insert(knowledgeStrategyFabric)
-			.values({
-				id: `ksf-${id}`,
-				knowledgeItemId: id,
-				layer: p.layer,
-				kind: p.kind ?? "reflection",
-				scopeId: anchorScopeId,
-				meta: JSON.stringify({ meetingId, meetingPhase: "proposal" }),
-			})
-			.run();
-		tx.insert(knowledgeEditLog)
-			.values({
-				id: randomUUID(),
-				itemId: id,
-				editor: "agent:practice-meeting",
-				field: "*",
-				oldValue: null,
-				newValue: null,
-				editType: "create",
-				createdAt: isoNow,
-			})
-			.run();
+		await tx.insert(knowledgeItems).values({
+			id,
+			topic: p.topic ?? null,
+			title: p.title,
+			body: p.body,
+			format: "markdown",
+			status: "captured",
+			version: 1,
+			updatedBy: "agent:practice-meeting",
+			createdAt: isoNow,
+			updatedAt: isoNow,
+		});
+		await tx.insert(knowledgeStrategyFabric).values({
+			id: `ksf-${id}`,
+			knowledgeItemId: id,
+			layer: p.layer,
+			kind: p.kind ?? "reflection",
+			scopeId: anchorScopeId,
+			meta: JSON.stringify({ meetingId, meetingPhase: "proposal" }),
+		});
+		await tx.insert(knowledgeEditLog).values({
+			id: randomUUID(),
+			itemId: id,
+			editor: "agent:practice-meeting",
+			field: "*",
+			oldValue: null,
+			newValue: null,
+			editType: "create",
+			createdAt: isoNow,
+		});
 		createdIds.push(id);
 	}
 	return {
@@ -512,58 +504,52 @@ function runTurn1(
 	};
 }
 
-function runTurn2(
+async function runTurn2(
 	tx: HyperIdleDb,
 	meetingId: string,
 	anchorScopeId: string | null,
 	reactions: readonly ReactionInput[],
 	isoNow: string,
-): PracticeMeetingTurnResult {
+): Promise<PracticeMeetingTurnResult> {
 	const createdIds: string[] = [];
 	for (const r of reactions) {
 		const id = randomUUID();
 		// @lore O2: kernel/strategy separation.
-		tx.insert(knowledgeItems)
-			.values({
-				id,
-				topic: "practice_meeting_reaction",
-				title: `Reaction to ${r.proposalId}`,
-				body: r.body,
-				format: "markdown",
-				status: "captured",
-				version: 1,
-				updatedBy: "agent:practice-meeting",
-				createdAt: isoNow,
-				updatedAt: isoNow,
-			})
-			.run();
-		tx.insert(knowledgeStrategyFabric)
-			.values({
-				id: `ksf-${id}`,
-				knowledgeItemId: id,
-				layer: "L2",
-				kind: "reflection",
-				scopeId: anchorScopeId,
-				meta: JSON.stringify({
-					meetingId,
-					meetingPhase: "reaction",
-					proposalId: r.proposalId,
-					author: r.author,
-				}),
-			})
-			.run();
-		tx.insert(knowledgeEditLog)
-			.values({
-				id: randomUUID(),
-				itemId: id,
-				editor: "agent:practice-meeting",
-				field: "*",
-				oldValue: null,
-				newValue: null,
-				editType: "create",
-				createdAt: isoNow,
-			})
-			.run();
+		await tx.insert(knowledgeItems).values({
+			id,
+			topic: "practice_meeting_reaction",
+			title: `Reaction to ${r.proposalId}`,
+			body: r.body,
+			format: "markdown",
+			status: "captured",
+			version: 1,
+			updatedBy: "agent:practice-meeting",
+			createdAt: isoNow,
+			updatedAt: isoNow,
+		});
+		await tx.insert(knowledgeStrategyFabric).values({
+			id: `ksf-${id}`,
+			knowledgeItemId: id,
+			layer: "L2",
+			kind: "reflection",
+			scopeId: anchorScopeId,
+			meta: JSON.stringify({
+				meetingId,
+				meetingPhase: "reaction",
+				proposalId: r.proposalId,
+				author: r.author,
+			}),
+		});
+		await tx.insert(knowledgeEditLog).values({
+			id: randomUUID(),
+			itemId: id,
+			editor: "agent:practice-meeting",
+			field: "*",
+			oldValue: null,
+			newValue: null,
+			editType: "create",
+			createdAt: isoNow,
+		});
 		createdIds.push(id);
 	}
 	return {
@@ -574,13 +560,13 @@ function runTurn2(
 	};
 }
 
-function runTurn3(
+async function runTurn3(
 	tx: HyperIdleDb,
 	meetingId: string,
 	anchorScopeId: string | null,
 	synthesis: readonly SynthesisInput[],
 	isoNow: string,
-): PracticeMeetingTurnResult {
+): Promise<PracticeMeetingTurnResult> {
 	const createdIds: string[] = [];
 	const archivedIds: string[] = [];
 
@@ -596,15 +582,14 @@ function runTurn3(
 		anchorScopeId === null
 			? isNull(knowledgeStrategyFabric.scopeId)
 			: eq(knowledgeStrategyFabric.scopeId, anchorScopeId);
-	const candidateRows = tx
+	const candidateRows = await tx
 		.select({ item: knowledgeItems, fabric: knowledgeStrategyFabric })
 		.from(knowledgeItems)
 		.innerJoin(
 			knowledgeStrategyFabric,
 			eq(knowledgeStrategyFabric.knowledgeItemId, knowledgeItems.id),
 		)
-		.where(and(eq(knowledgeItems.status, "captured"), scopeFilter))
-		.all();
+		.where(and(eq(knowledgeItems.status, "captured"), scopeFilter));
 	const intermediates = candidateRows.filter(({ fabric }) => {
 		if (!fabric.meta) return false;
 		try {
@@ -624,68 +609,60 @@ function runTurn3(
 	// @lore O2: kernel/strategy separation.
 	for (const s of synthesis) {
 		const id = randomUUID();
-		tx.insert(knowledgeItems)
-			.values({
-				id,
-				topic: s.topic ?? null,
-				title: s.title,
-				body: s.body,
-				format: "markdown",
-				status: "provisional",
-				version: 1,
-				updatedBy: "agent:practice-meeting",
-				createdAt: isoNow,
-				updatedAt: isoNow,
-			})
-			.run();
-		tx.insert(knowledgeStrategyFabric)
-			.values({
-				id: `ksf-${id}`,
-				knowledgeItemId: id,
-				layer: s.layer,
-				kind: s.kind ?? "pattern",
-				scopeId: anchorScopeId,
-				meta: JSON.stringify({ meetingId, meetingPhase: "synthesis" }),
-			})
-			.run();
-		tx.insert(knowledgeEditLog)
-			.values({
-				id: randomUUID(),
-				itemId: id,
-				editor: "agent:practice-meeting",
-				field: "*",
-				oldValue: null,
-				newValue: null,
-				editType: "create",
-				createdAt: isoNow,
-			})
-			.run();
+		await tx.insert(knowledgeItems).values({
+			id,
+			topic: s.topic ?? null,
+			title: s.title,
+			body: s.body,
+			format: "markdown",
+			status: "provisional",
+			version: 1,
+			updatedBy: "agent:practice-meeting",
+			createdAt: isoNow,
+			updatedAt: isoNow,
+		});
+		await tx.insert(knowledgeStrategyFabric).values({
+			id: `ksf-${id}`,
+			knowledgeItemId: id,
+			layer: s.layer,
+			kind: s.kind ?? "pattern",
+			scopeId: anchorScopeId,
+			meta: JSON.stringify({ meetingId, meetingPhase: "synthesis" }),
+		});
+		await tx.insert(knowledgeEditLog).values({
+			id: randomUUID(),
+			itemId: id,
+			editor: "agent:practice-meeting",
+			field: "*",
+			oldValue: null,
+			newValue: null,
+			editType: "create",
+			createdAt: isoNow,
+		});
 		createdIds.push(id);
 	}
 
 	// Archive all intermediates. Use the standard captured→archived
 	// path (it is a legal transition per the G1 table).
 	for (const { item: inter } of intermediates) {
-		tx.update(knowledgeItems)
+		await tx
+			.update(knowledgeItems)
 			.set({
 				status: "archived",
 				updatedAt: isoNow,
 				updatedBy: "agent:practice-meeting",
 			})
-			.where(eq(knowledgeItems.id, inter.id))
-			.run();
-		tx.insert(knowledgeEditLog)
-			.values({
-				id: randomUUID(),
-				itemId: inter.id,
-				editor: "agent:practice-meeting",
-				field: "status",
-				oldValue: inter.status,
-				newValue: "archived | reason: synthesized into practice meeting output",
-				editType: "refinement",
-				createdAt: isoNow,
-			})
-			.run();
+			.where(eq(knowledgeItems.id, inter.id));
+		await tx.insert(knowledgeEditLog).values({
+			id: randomUUID(),
+			itemId: inter.id,
+			editor: "agent:practice-meeting",
+			field: "status",
+			oldValue: inter.status,
+			newValue: "archived | reason: synthesized into practice meeting output",
+			editType: "refinement",
+			createdAt: isoNow,
+		});
 		archivedIds.push(inter.id);
 	}
 

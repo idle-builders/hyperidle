@@ -112,12 +112,11 @@ On chat threads (message-shaped):
 
 Approve-similar, snooze-all-from-this-agent, mark-all-FYI-as-read. Chat threads are never bulk-actioned — they're individual conversations.
 
-#### Mobile specifics
+#### Human-initiated conversations
 
-- Push only for blocking review items and chat items the agent flagged as urgent. Everything else batches into a daily digest.
-- Each thread fits on one phone screen with action buttons above the fold. Thread history below.
-- Diffs, screenshots, and long reasoning open on tap; never inline.
-- Chat replies are a first-class mobile affordance — keyboard pops, reply, send. Full thread history on swipe.
+Founders can start new threads with agents directly. The RecipientPicker (N key) shows available agents with name, role, and active-session indicator. Select a recipient, type a message, send — the thread appears in the Conversations list. The agent responds asynchronously; thread updates arrive via WebSocket.
+
+Founders can also dial into a running session (D key) to observe an agent's live activity stream. This is read-only — tool calls, reasoning steps, and cost accumulating — with filter tabs (All | Tools | Reasoning | Cost).
 
 #### ArtifactView: five shapes
 
@@ -191,34 +190,42 @@ What does *not* surface in the Rail:
 **Information density:** High.
 **Borrows from:** Shape Up's pitches-and-appetite model, Linear's issues-and-cycles model.
 
-Work has two sub-views that live inside the same pane:
+Work has a five-level drill-down hierarchy:
 
-**The Canvas (planning).** Pitches shaped by the Product Managers show up as cards in a simple two-column layout: *shaped* (available pitches) and *committed* (what we're betting on this cycle). Capacity is shown as a visible limit on the committed column — you can't commit more than fits. The human drags cards from shaped to committed, or sends them back for reshaping. The constraint is numeric (max 2–3 bets per cycle per product), not spatial — a list with a hard cap, not a whiteboard.
+1. **Portfolio** — all products at once. Product cards with velocity sparklines, active bet count, status.
+2. **Product** (= Team) — one product's view. Canvas (shaped/committed bets) + task list.
+3. **Bet Detail** — the full pitch rendered as styled markdown blocks, task list with cost columns, artifact aggregation, thread section for discussion.
+4. **Task** — individual task with owner, status, cost, and linked session outcomes.
+5. **Session** — jump-out only (harness URL). HyperIdle shows session metadata and outcome; the harness hosts the actual session.
 
-**The Kanban (tracking).** Active bets expand into their tasks. Each task shows its owner, state, session count, and cost. Tasks are the objects agents actually work on — the Work view makes them visible without the human needing to dive into individual threads. Think of it as a simplified Linear board: bet → tasks → status, with enough visibility to spot a stuck task without micromanaging.
+**The Canvas (planning).** Pitches shaped by the Product Managers show up as cards in a two-column layout: *shaped* (available pitches) and *committed* (what we're betting on this cycle). Capacity is shown as a visible limit on the committed column — you can't commit more than fits. The constraint is numeric (max 2–3 bets per cycle per product), not spatial — a list with a hard cap, not a whiteboard. Founders can create new bets with markdown pitches via the BetCreateDialog ("+" button on the Canvas).
+
+**Task list (tracking).** Active bets show their tasks. Each task shows its owner, state, cost (money + tokens), and outcome. Tasks are agent-owned — **humans do not drag or manually move tasks between states**. Instead, humans request state changes via thread conversations attached to the bet or task. The task list gives visibility into what agents are working on without the human needing to dive into individual threads.
 
 What surfaces in Work:
 
 - Pitches from Product Managers (sketches, appetite, rabbit-hole notes).
-- Active bets and their status.
-- Tasks per bet — owner, state, blockers.
-- Portfolio-level bets the Chief of Staff is shaping (which products to invest in, which to coast, which to kill).
+- Human-created bets with markdown pitches and appetite budgets.
+- Active bets and their status, with artifact aggregation from tasks.
+- Tasks per bet — owner, state, cost (money + tokens), blockers.
+- Portfolio-level product cards with velocity and cost metrics.
 - Capacity indicator — a hard limit on committed bets, visually obvious.
 
 **Interaction grammar (planning):**
 
-- `drag` a pitch from shaped to committed
-- `comment` — add a note to a pitch to redirect shaping
+- `create bet` — open BetCreateDialog, write markdown pitch, set appetite, create
+- `commit` — move a shaped pitch to committed
+- `comment` — add a note to a pitch to redirect shaping (via thread)
 - `reshape` — send back to a Product Manager with notes (this becomes a review thread)
 - `kill` — drop a pitch; it disappears after this cycle
 - `ship` — close out a finished bet (which triggers a retro prompt in the Chief of Staff's chat)
 
 **Interaction grammar (tracking):**
 
-- `expand` — open a bet to see its tasks
-- `nudge` — reorder tasks or bets
-- `open thread` — jump to the task's conversation in Conversations
-- `flag` — mark a task for the Product Manager's attention
+- `expand` — click a bet to see its tasks and full pitch
+- `open thread` — jump to the task's or bet's conversation thread
+- `bet actions` — pause, stop, adjust appetite (with consequence preview before destructive actions)
+- `harness jump-out` — click session metadata to open in the harness
 
 **Design principle: force trade-offs through limits.** The committed column has a hard cap. You can't commit 5 bets when the team has capacity for 2. The constraint is explicit and numeric, not spatial — simpler to implement, simpler to understand.
 
@@ -226,11 +233,11 @@ What surfaces in Work:
 
 #### PitchCard and bet detail
 
-PitchCard components in the Canvas are **previews** — enough to scan and decide, not enough to read the whole pitch. Each card shows: title, product, appetite (time budget), status, and a one- or two-line summary. Meta fields where valuable: cycle, progress indicator.
+PitchCard components in the Canvas are **previews** — enough to scan and decide, not enough to read the whole pitch. Each card shows: title (derived from first line of pitch markdown), product, appetite (money budget + optional token budget), status, and a one- or two-line summary.
 
-Clicking a PitchCard opens the **bet detail** in the Main pane (with a breadcrumb back to the Canvas). The detail view shows the full markdown body — the shaped pitch from the Product Manager, rendered as readable prose. Below the pitch: the TaskCard list for this bet (each task with owner, state, session count, cost), and a comment thread where the founder and agents discuss the bet. Think of a Linear issue with a rich description rather than a Jira ticket with 30 fields. Tasks within a bet are similarly simple: a title, an owner, a state, and a markdown body for notes. We can always add structured fields later if a pattern emerges.
+Clicking a PitchCard opens the **bet detail** in the Main pane (with a breadcrumb back to the Product view). The detail view shows the full markdown body — the shaped pitch, rendered as styled markdown blocks (the Block primitive, §4.6) with proper heading/paragraph structure. Below the pitch: the task list for this bet (each task with owner, state, cost in money + tokens, outcome), artifact aggregation from tasks (gallery/stack layouts), and a thread section (§4.5) where the founder and agents discuss the bet. Bet-level human actions (pause, stop, adjust appetite) show consequence previews before execution.
 
-**Mobile is read-only.** On mobile the Work tab shows bets and tasks as a flat list with status indicators and nudge-up/nudge-down ordering.
+Appetite uses **money + tokens, never duration**. Bets carry `costCapMinor`/`costCapCurrency` and tasks carry `costActualMinor`/`costActualCurrency` with structured minor-units currency handling.
 
 ---
 
@@ -244,7 +251,7 @@ Clicking a PitchCard opens the **bet detail** in the Main pane (with a breadcrum
 
 #### The nature of this wiki
 
-The Knowledge view is the company's wiki. Think Confluence, not Jira. It is **agent-free** — no human-agent interaction happens here. The human searches, filters, selects, reads, and edits knowledge items directly. Agents contribute separately through their workspaces; humans contribute separately through this view. They meet in Conversations (for proposals and discussions) and the Rail (for recommendations), not here.
+The Knowledge view is the company's wiki. Think Confluence, not Jira. The human searches, filters, selects, reads, edits, and **creates** knowledge items directly. Knowledge items can be authored at any of seven scopes: factory, product, practice, team, bet, task, or user-private. Both humans and agents contribute to the knowledge base — agents through their workspaces, humans through this view and the KnowledgeCreateDialog. Threads (§4.5) can be attached to knowledge items for discussion, and per-block discussion (§4.6) allows anchoring comments to specific sections.
 
 Both humans and agents also need to *find* knowledge items in this catalogue — the human through the Knowledge view UI, the agent through the materialization engine at session start. The access patterns are similar: browse by practice or product, filter by kind and status, search by keyword.
 
@@ -274,7 +281,7 @@ The Knowledge view has three scopes. They share the same data model (`knowledge_
 
 **Factory scope** — the company-level principles, focus areas, and portfolio strategy. Very few knowledge items (5-15). These are the constitution — written by the founders, changing rarely, overriding everything below. Editing a factory-level knowledge item changes how every agent in the company behaves.
 
-All three scopes share the same fundamental structure: **topics containing knowledge items**. The difference is in volume (practices have many, factory has few), change frequency (practices change weekly, factory changes monthly), and who primarily contributes (agents propose practice knowledge, humans author factory knowledge).
+All three scopes share the same fundamental structure: **topics containing knowledge items**. The difference is in volume (practices have many, factory has few), change frequency (practices change weekly, factory changes monthly), and who primarily contributes (agents propose practice knowledge, humans author knowledge at any scope). Knowledge items carry a `scope_kind` and `scope_id` that determine their organizational placement; items scoped to `user` are private and visible only to their author.
 
 #### The catalogue — topics and knowledge items
 
@@ -337,7 +344,8 @@ All async, none blocking:
 - `rename` — fix a topic or knowledge item title that drifted
 - `archive` — move stale knowledge out of ACTIVE status
 - `move` — reassign a knowledge item to a different topic
-- `create` — add a new knowledge item or a new topic
+- `create` — add a new knowledge item at any scope (factory, product, practice, team, bet, task, or user-private) via KnowledgeCreateDialog
+- `change scope` — move a knowledge item to a different scope with reason tracking and version bump
 
 **Design principle: editing collective intelligence, not grading homework.**
 
@@ -351,7 +359,7 @@ The Knowledge view uses the standard IconRail → Submenu → Main pane structur
 
 Both options share the same usability requirements:
 
-**What a KnowledgeRow shows.** Each list row must let the user decide whether to open the item without clicking. Required at a glance: title, a one-line preview (either the first paragraph or a dedicated summary field in the item), and tags for the key metadata — kind (pattern, anti_pattern, decision, failure, etc.), status (captured/active/stale/...), and topic. Optional but valuable: confidence score, last-edited date, access count.
+**What a KnowledgeRow shows.** Each list row must let the user decide whether to open the item without clicking. Required at a glance: title, a one-line preview (either the first paragraph or a dedicated summary field in the item), and tags for the key metadata — kind (pattern, anti_pattern, decision, failure, etc.), status (draft/active/archived), and topic. Each row also displays three relevance signals: last activity timestamp (recency), access count over 30 days (frequency), and citation count (where feasible). Items scoped to `user` show a "Private" badge.
 
 **Grouping by topic.** The default "by topic" view groups items under their topic headers. Each topic header shows: topic name, item count, and a curation health indicator (how many items are active vs. captured/provisional vs. stale). The user must be able to toggle between grouped-by-topic and flat list.
 

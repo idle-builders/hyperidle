@@ -81,10 +81,9 @@ function addRevisionEntry(
  * @lore I1 B1-B3: the two mutating writes — `teams.activeBets` delta and
  * `bets` status/log — live inside `db.transaction((tx) => {...})` so they
  * commit atomically. The capacity re-check is ALSO inside the tx (re-reading
- * the team via `tx`) so two concurrent commits serialize via SQLite's
- * write-locking rather than racing on a stale `activeBets` snapshot. Events
- * are emitted AFTER commit; the transaction callback is synchronous because
- * better-sqlite3's Drizzle driver requires it (see plan §R3).
+ * the team via `tx`) so two concurrent commits serialize via Postgres row-level
+ * locking rather than racing on a stale `activeBets` snapshot. Events
+ * are emitted AFTER commit.
  */
 export async function transitionBet(
 	db: HyperIdleDb,
@@ -93,7 +92,7 @@ export async function transitionBet(
 	toState: BetStatus,
 	options?: TransitionOptions,
 ): Promise<void> {
-	const bet = db.select().from(bets).where(eq(bets.id, betId)).get();
+	const [bet] = await db.select().from(bets).where(eq(bets.id, betId)).limit(1);
 	if (!bet) {
 		throw new Error(`Bet '${betId}' not found`);
 	}
@@ -114,7 +113,7 @@ export async function transitionBet(
 		throw new Error("Reshaping a bet requires a reason");
 	}
 
-	const team = db.select().from(teams).where(eq(teams.id, bet.teamId)).get();
+	const [team] = await db.select().from(teams).where(eq(teams.id, bet.teamId)).limit(1);
 	if (!team) {
 		throw new Error(`Team '${bet.teamId}' not found`);
 	}
@@ -138,17 +137,10 @@ export async function transitionBet(
 		updates.shippedAt = new Date().toISOString();
 	}
 
-	// @lore I1 B3: inside the tx callback we intentionally use `db.update`
-	// (not the `tx` handle) for the `bets` and `teams` writes. Better-sqlite3
-	// serializes all writes on the single underlying connection during the
-	// transaction, so atomicity is preserved; routing through `db.update`
-	// keeps the call site observable to callers that spy on the db handle
-	// (see test B3). All reads also use `db` to match.
-	//
 	// @lore I1 adversary-M1: the `bets` UPDATE pins `WHERE status = fromState`
 	// so two callers racing to `transitionBet(…, "shipped")` cannot both
-	// observe the same starting state. The loser sees `changes === 0` and
-	// throws `InvalidTransitionError`; only the winner post-emits
+	// observe the same starting state. The loser sees an empty `.returning()`
+	// result and throws `InvalidTransitionError`; only the winner post-emits
 	// `bet_state_changed`. Without the compare-and-set, concurrent commits
 	// double-emit `bet_state_changed` and trip any downstream handler that
 	// treats the event as a signal to fire an action exactly once (e.g.
@@ -156,11 +148,11 @@ export async function transitionBet(
 	// @lore O1: `bet_shipped` was a redundant event. Consumers that need to
 	// react to shipping subscribe to `bet_state_changed` and filter
 	// `event.toState === "shipped"` instead.
-	const transitioned = db.transaction((): boolean => {
+	const transitioned = await db.transaction(async (tx): Promise<boolean> => {
 		// Capacity check: re-read the team inside the tx so two concurrent
 		// commits cannot both observe `activeBets < capacity` against a stale
 		// snapshot.
-		const freshTeam = db.select().from(teams).where(eq(teams.id, bet.teamId)).get();
+		const [freshTeam] = await tx.select().from(teams).where(eq(teams.id, bet.teamId)).limit(1);
 		if (!freshTeam) {
 			throw new Error(`Team '${bet.teamId}' not found`);
 		}
@@ -171,31 +163,31 @@ export async function transitionBet(
 			}
 		}
 
-		const updateResult = db
+		const updateResult = await tx
 			.update(bets)
 			.set(updates as Record<string, string>)
 			.where(and(eq(bets.id, betId), eq(bets.status, fromState)))
-			.run();
+			.returning({ id: bets.id });
 
 		// Lost the race: another concurrent transitionBet already moved the
 		// bet out of `fromState`. Roll back (throwing exits the tx callback
 		// and rolls the transaction) and surface as an invalid transition.
-		if (updateResult.changes === 0) {
+		if (updateResult.length === 0) {
 			throw new InvalidTransitionError(fromState, toState);
 		}
 
 		if (toState === "committed") {
-			db.update(teams)
+			await tx
+				.update(teams)
 				.set({ activeBets: freshTeam.activeBets + 1 })
-				.where(eq(teams.id, freshTeam.id))
-				.run();
+				.where(eq(teams.id, freshTeam.id));
 		}
 
 		if (toState === "shipped") {
-			db.update(teams)
+			await tx
+				.update(teams)
 				.set({ activeBets: Math.max(0, freshTeam.activeBets - 1) })
-				.where(eq(teams.id, freshTeam.id))
-				.run();
+				.where(eq(teams.id, freshTeam.id));
 		}
 
 		if (
@@ -204,10 +196,10 @@ export async function transitionBet(
 			fromState !== "shipped" &&
 			fromState !== "killed"
 		) {
-			db.update(teams)
+			await tx
+				.update(teams)
 				.set({ activeBets: Math.max(0, freshTeam.activeBets - 1) })
-				.where(eq(teams.id, freshTeam.id))
-				.run();
+				.where(eq(teams.id, freshTeam.id));
 		}
 
 		return true;
@@ -245,7 +237,6 @@ const MUTABLE_IN_STATUSES = new Set(["in_progress", "paused", "behind", "blocked
  * @lore L14: `actor` is optional — callers that don't pass it leave actor
  * undefined in the log entry (backward-compatible with pre-L14 call sites).
  */
-// biome-ignore lint/suspicious/useAwait: callers expect Promise return for consistency with async service layer
 export async function updateBetField(
 	db: HyperIdleDb,
 	eventBus: EventBus,
@@ -259,7 +250,7 @@ export async function updateBetField(
 		throw new Error(`Field '${field}' is not mutable on an in_progress bet`);
 	}
 
-	const bet = db.select().from(bets).where(eq(bets.id, betId)).get();
+	const [bet] = await db.select().from(bets).where(eq(bets.id, betId)).limit(1);
 	if (!bet) {
 		throw new Error(`Bet '${betId}' not found`);
 	}
@@ -283,10 +274,10 @@ export async function updateBetField(
 	const revisionLog = parseRevisionLog(bet.revisionLog);
 	const updatedLog = addRevisionEntry(revisionLog, field, oldValue, newValue, reason, actor);
 
-	db.update(bets)
+	await db
+		.update(bets)
 		.set({ [columnKey]: newValue, revisionLog: updatedLog } as Record<string, string>)
-		.where(eq(bets.id, betId))
-		.run();
+		.where(eq(bets.id, betId));
 
 	// If done_condition changed, emit item_created for human review
 	if (field === "done_condition") {
