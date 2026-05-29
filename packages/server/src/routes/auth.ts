@@ -139,7 +139,7 @@ export function createAuthRoutes(
 			const resolvedRole = (role as (typeof INVITE_ROLES)[number]) ?? "member";
 			const createdBy = c.get("userId");
 
-			const invite = createInvite(db, createdBy, resolvedRole ?? "member");
+			const invite = await createInvite(db, createdBy, resolvedRole ?? "member");
 
 			return c.json({ code: invite.code, expiresAt: invite.expiresAt }, 201);
 		});
@@ -151,7 +151,7 @@ export function createAuthRoutes(
 		 * Only valid for Bearer token auth (authMethod === "login_session").
 		 * Returns 400 if called with API key (no session to revoke).
 		 */
-		router.post("/logout", (c) => {
+		router.post("/logout", async (c) => {
 			const authMethod = c.get("authMethod");
 
 			if (authMethod !== "login_session") {
@@ -165,7 +165,7 @@ export function createAuthRoutes(
 
 			const sessionId = c.get("loginSessionId");
 			if (sessionId) {
-				revokeLoginSession(db, sessionId);
+				await revokeLoginSession(db, sessionId);
 			}
 
 			return c.json({ ok: true });

@@ -1,9 +1,6 @@
 /**
  * S1 — End-to-end validation scenarios.
  *
- * Red phase: These tests cover the full user journey from admin invite creation
- * through to authenticated requests carrying user identity.
- *
  * Scenarios:
  * 1. Admin creates invite → user claims → bearer token works → messages carry user identity
  * 2. Expired token test
@@ -11,8 +8,13 @@
  * 4. Local mode: auth unchanged
  * 5. Two-user thread: each message has correct authorId/senderId
  * 6. Security: token never appears in response bodies except at creation
+ *
+ * @lore S1 PGLite migration: All tests are now async. createTestDb() returns
+ * Promise<TestDbHandle>, createTestApp() returns Promise<Hono>, and all
+ * service calls are async.
  */
 
+import type { TestDbHandle } from "@hyperidle/db";
 import { createTestDb, type HyperIdleDb, users } from "@hyperidle/db";
 import type { Hono } from "hono";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -23,8 +25,9 @@ import { createTestApp } from "../test-utils.js";
 const TEST_API_KEY = "test-key-s1-e2e";
 const NOW = new Date().toISOString();
 
-function seedAdmin(db: HyperIdleDb, id = "u-e2e-admin"): void {
-	db.insert(users)
+async function seedAdmin(db: HyperIdleDb, id = "u-e2e-admin"): Promise<void> {
+	await db
+		.insert(users)
 		.values({
 			id,
 			kind: "human",
@@ -34,8 +37,7 @@ function seedAdmin(db: HyperIdleDb, id = "u-e2e-admin"): void {
 			status: "active",
 			createdAt: NOW,
 		})
-		.onConflictDoNothing()
-		.run();
+		.onConflictDoNothing();
 }
 
 function apiKeyHeaders(extra?: Record<string, string>): Record<string, string> {
@@ -48,18 +50,21 @@ function bearerHeaders(token: string, extra?: Record<string, string>): Record<st
 }
 
 describe("S1 — E2E: Admin creates invite → user claims → bearer token works", () => {
+	let handle: TestDbHandle;
 	let db: HyperIdleDb;
 	let app: Hono;
 
-	beforeEach(() => {
+	beforeEach(async () => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		db = createTestDb();
-		seedAdmin(db);
-		app = createTestApp({ db, sharedMode: true });
+		handle = await createTestDb();
+		db = handle.db;
+		await seedAdmin(db);
+		app = await createTestApp({ db, sharedMode: true });
 	});
 
-	afterEach(() => {
+	afterEach(async () => {
 		vi.unstubAllEnvs();
+		await handle.close();
 	});
 
 	it("full flow: admin creates invite → user claims → /me returns correct user", async () => {
@@ -99,24 +104,27 @@ describe("S1 — E2E: Admin creates invite → user claims → bearer token work
 });
 
 describe("S1 — E2E: Expired session → 401 SESSION_EXPIRED", () => {
+	let handle: TestDbHandle;
 	let db: HyperIdleDb;
 	let app: Hono;
 
-	beforeEach(() => {
+	beforeEach(async () => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		db = createTestDb();
-		seedAdmin(db, "u-e2e-admin");
-		app = createTestApp({ db, sharedMode: true });
+		handle = await createTestDb();
+		db = handle.db;
+		await seedAdmin(db, "u-e2e-admin");
+		app = await createTestApp({ db, sharedMode: true });
 	});
 
-	afterEach(() => {
+	afterEach(async () => {
 		vi.unstubAllEnvs();
 		vi.useRealTimers();
+		await handle.close();
 	});
 
 	it("expired session returns 401 SESSION_EXPIRED", async () => {
 		// Create a session with 1ms TTL
-		const { token } = createLoginSession(db, "u-e2e-admin", 1);
+		const { token } = await createLoginSession(db, "u-e2e-admin", 1);
 
 		// Advance fake timers to expire the session
 		vi.useFakeTimers();
@@ -134,23 +142,26 @@ describe("S1 — E2E: Expired session → 401 SESSION_EXPIRED", () => {
 });
 
 describe("S1 — E2E: Revoked session → 401 SESSION_REVOKED", () => {
+	let handle: TestDbHandle;
 	let db: HyperIdleDb;
 	let app: Hono;
 
-	beforeEach(() => {
+	beforeEach(async () => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		db = createTestDb();
-		seedAdmin(db, "u-e2e-admin");
-		app = createTestApp({ db, sharedMode: true });
+		handle = await createTestDb();
+		db = handle.db;
+		await seedAdmin(db, "u-e2e-admin");
+		app = await createTestApp({ db, sharedMode: true });
 	});
 
-	afterEach(() => {
+	afterEach(async () => {
 		vi.unstubAllEnvs();
+		await handle.close();
 	});
 
 	it("revoked session returns 401 SESSION_REVOKED", async () => {
-		const { token, session } = createLoginSession(db, "u-e2e-admin");
-		revokeLoginSession(db, session.id);
+		const { token, session } = await createLoginSession(db, "u-e2e-admin");
+		await revokeLoginSession(db, session.id);
 
 		const res = await app.request("/api/auth/me", {
 			headers: bearerHeaders(token),
@@ -162,28 +173,29 @@ describe("S1 — E2E: Revoked session → 401 SESSION_REVOKED", () => {
 });
 
 describe("S1 — E2E: Local mode — auth unchanged", () => {
+	let handle: TestDbHandle;
 	let db: HyperIdleDb;
 	let app: Hono;
 
-	beforeEach(() => {
+	beforeEach(async () => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		db = createTestDb();
-		db.insert(users)
-			.values({
-				id: "u-e2e-local",
-				kind: "human",
-				name: "Local Mode User",
-				email: "local@e2e.com",
-				role: "member",
-				status: "active",
-				createdAt: NOW,
-			})
-			.run();
-		app = createTestApp({ db }); // no sharedMode — defaults to local
+		handle = await createTestDb();
+		db = handle.db;
+		await db.insert(users).values({
+			id: "u-e2e-local",
+			kind: "human",
+			name: "Local Mode User",
+			email: "local@e2e.com",
+			role: "member",
+			status: "active",
+			createdAt: NOW,
+		});
+		app = await createTestApp({ db }); // no sharedMode — defaults to local
 	});
 
-	afterEach(() => {
+	afterEach(async () => {
 		vi.unstubAllEnvs();
+		await handle.close();
 	});
 
 	it("local mode: X-API-Key still works", async () => {
@@ -196,7 +208,7 @@ describe("S1 — E2E: Local mode — auth unchanged", () => {
 	});
 
 	it("local mode: Bearer token is NOT accepted", async () => {
-		const { token } = createLoginSession(db, "u-e2e-local");
+		const { token } = await createLoginSession(db, "u-e2e-local");
 		const res = await app.request("/api/auth/me", {
 			// biome-ignore lint/style/useNamingConvention: HTTP header name
 			headers: { Authorization: `Bearer ${token}` },
@@ -205,7 +217,7 @@ describe("S1 — E2E: Local mode — auth unchanged", () => {
 	});
 
 	it("local mode: claim endpoint is NOT accessible without auth (no public claim route)", async () => {
-		const invite = createInvite(db, "u-e2e-local", "member");
+		const invite = await createInvite(db, "u-e2e-local", "member");
 		const res = await app.request("/api/auth/claim", {
 			method: "POST",
 			headers: { "Content-Type": "application/json" },
@@ -220,36 +232,37 @@ describe("S1 — E2E: Local mode — auth unchanged", () => {
 });
 
 describe("S1 — E2E: Two users post to same thread → correct senderId", () => {
+	let handle: TestDbHandle;
 	let db: HyperIdleDb;
 	let app: Hono;
 
-	beforeEach(() => {
+	beforeEach(async () => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		db = createTestDb();
-		seedAdmin(db, "u-e2e-admin");
+		handle = await createTestDb();
+		db = handle.db;
+		await seedAdmin(db, "u-e2e-admin");
 		// Seed a second user
-		db.insert(users)
-			.values({
-				id: "u-e2e-user2",
-				kind: "human",
-				name: "User Two",
-				email: "user2@e2e.com",
-				role: "member",
-				status: "active",
-				createdAt: NOW,
-			})
-			.run();
-		app = createTestApp({ db, sharedMode: true });
+		await db.insert(users).values({
+			id: "u-e2e-user2",
+			kind: "human",
+			name: "User Two",
+			email: "user2@e2e.com",
+			role: "member",
+			status: "active",
+			createdAt: NOW,
+		});
+		app = await createTestApp({ db, sharedMode: true });
 	});
 
-	afterEach(() => {
+	afterEach(async () => {
 		vi.unstubAllEnvs();
+		await handle.close();
 	});
 
 	it("two users post to thread → each message has correct senderId matching user", async () => {
 		// Get tokens for both users
-		const { token: token1 } = createLoginSession(db, "u-e2e-admin");
-		const { token: token2 } = createLoginSession(db, "u-e2e-user2");
+		const { token: token1 } = await createLoginSession(db, "u-e2e-admin");
+		const { token: token2 } = await createLoginSession(db, "u-e2e-user2");
 
 		// Create a thread first (as admin via API key)
 		const threadRes = await app.request("/api/threads", {
@@ -327,22 +340,25 @@ describe("S1 — E2E: Two users post to same thread → correct senderId", () =>
 });
 
 describe("S1 — Security: token never appears in response except at creation", () => {
+	let handle: TestDbHandle;
 	let db: HyperIdleDb;
 	let app: Hono;
 
-	beforeEach(() => {
+	beforeEach(async () => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		db = createTestDb();
-		seedAdmin(db, "u-e2e-admin");
-		app = createTestApp({ db, sharedMode: true });
+		handle = await createTestDb();
+		db = handle.db;
+		await seedAdmin(db, "u-e2e-admin");
+		app = await createTestApp({ db, sharedMode: true });
 	});
 
-	afterEach(() => {
+	afterEach(async () => {
 		vi.unstubAllEnvs();
+		await handle.close();
 	});
 
 	it("claim response contains token only once (not in subsequent /me)", async () => {
-		const invite = createInvite(db, "u-e2e-admin", "member");
+		const invite = await createInvite(db, "u-e2e-admin", "member");
 		const claimRes = await app.request("/api/auth/claim", {
 			method: "POST",
 			headers: { "Content-Type": "application/json" },

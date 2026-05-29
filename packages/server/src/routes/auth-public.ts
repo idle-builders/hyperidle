@@ -58,7 +58,7 @@ export function createPublicAuthRoutes(db: HyperIdleDb): Hono {
 
 		const emailStr = typeof email === "string" && email.trim().length > 0 ? email : undefined;
 
-		const result = claimInvite(db, code.trim(), name.trim(), emailStr);
+		const result = await claimInvite(db, code.trim(), name.trim(), emailStr);
 
 		if (!result.ok) {
 			if (result.error === "NOT_FOUND") {

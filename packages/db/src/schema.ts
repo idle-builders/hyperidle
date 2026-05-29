@@ -669,11 +669,11 @@ export const hintProgress = pgTable(
  * Plaintext tokens are NEVER stored; only the hash.
  *
  * @lore S1: tokenHash has both a UNIQUE constraint (for data integrity) and an
- * explicit index (for query planning intent). The unique constraint technically
- * implies an index in SQLite but the named index makes the auth hot-path explicit.
+ * explicit index (for query planning intent). The unique constraint implies an
+ * index in Postgres; the named index makes the auth hot-path explicit.
  * onDelete: cascade — sessions have no audit value beyond the user's lifetime.
  */
-export const loginSessions = sqliteTable(
+export const loginSessions = pgTable(
 	"login_sessions",
 	{
 		id: text("id").primaryKey(),
@@ -699,7 +699,7 @@ export const loginSessions = sqliteTable(
  * claiming user is deleted the invite becomes unclaimed rather than cascading.
  * role defaults to "member"; the role system is minimal in S1 (admin vs member).
  */
-export const inviteCodes = sqliteTable(
+export const inviteCodes = pgTable(
 	"invite_codes",
 	{
 		id: text("id").primaryKey(),

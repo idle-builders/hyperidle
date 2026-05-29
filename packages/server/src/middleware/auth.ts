@@ -98,12 +98,12 @@ function rejectUnauthorized(c: Context, message: string, logMessage: string): Re
  * Returns null on INVALID_TOKEN so the caller can fall through to API key check.
  * Returns a Response on SESSION_EXPIRED or SESSION_REVOKED (hard stop).
  */
-function handleBearerAuth(
+async function handleBearerAuth(
 	c: Context<HyperIdleEnv>,
 	db: HyperIdleDb,
 	token: string,
-): Response | null | "ok" {
-	const result = validateBearerToken(db, token);
+): Promise<Response | null | "ok"> {
+	const result = await validateBearerToken(db, token);
 
 	if (result.ok) {
 		c.set("userId", result.session.userId);
@@ -173,7 +173,7 @@ export function createAuthMiddleware(
 			const authHeader = c.req.header("Authorization") ?? "";
 			if (authHeader.startsWith("Bearer ")) {
 				const token = authHeader.slice(7);
-				const bearerResult = handleBearerAuth(c, db, token);
+				const bearerResult = await handleBearerAuth(c, db, token);
 
 				if (bearerResult === "ok") {
 					await next();

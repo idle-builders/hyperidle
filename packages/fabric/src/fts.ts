@@ -81,7 +81,7 @@ export function sanitizeFtsQuery(input: string): string {
 		const isPrefix = raw.endsWith("*") && raw.length > 1;
 		const stripped = isPrefix ? raw.slice(0, -1) : raw;
 
-		let token = stripped.replace(/[^\p{L}\p{N}_\-]/gu, "");
+		let token = stripped.replace(/[^\p{L}\p{N}_-]/gu, "");
 		token = token.replace(/^[-]+|[-]+$/gu, "");
 		if (token.length === 0) continue;
 

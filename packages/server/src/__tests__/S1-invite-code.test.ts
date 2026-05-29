@@ -1,20 +1,25 @@
 /**
  * S1 — Unit tests for invite-code service.
  *
- * Red phase: these tests verify the acceptance criteria for:
+ * Tests verify the acceptance criteria for:
  * - Invite code generation (generateInviteCode)
  * - Create invite (createInvite)
  * - Claim invite: happy path, already claimed (INVITE_CLAIMED), expired (INVITE_EXPIRED), not found (NOT_FOUND)
+ *
+ * @lore S1 PGLite migration: All tests are now async because createTestDb()
+ * returns a Promise<TestDbHandle> and all service functions are async.
  */
 
+import type { TestDbHandle } from "@hyperidle/db";
 import { createTestDb, type HyperIdleDb, users } from "@hyperidle/db";
-import { beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { claimInvite, createInvite, generateInviteCode } from "../services/invite-code.js";
 
 const NOW = new Date().toISOString();
 
-function seedAdminUser(db: HyperIdleDb, id = "u-admin-1"): void {
-	db.insert(users)
+async function seedAdminUser(db: HyperIdleDb, id = "u-admin-1"): Promise<void> {
+	await db
+		.insert(users)
 		.values({
 			id,
 			kind: "human",
@@ -24,8 +29,7 @@ function seedAdminUser(db: HyperIdleDb, id = "u-admin-1"): void {
 			status: "active",
 			createdAt: NOW,
 		})
-		.onConflictDoNothing()
-		.run();
+		.onConflictDoNothing();
 }
 
 describe("S1 — generateInviteCode", () => {
@@ -51,15 +55,21 @@ describe("S1 — generateInviteCode", () => {
 });
 
 describe("S1 — createInvite", () => {
+	let handle: TestDbHandle;
 	let db: HyperIdleDb;
 
-	beforeEach(() => {
-		db = createTestDb();
-		seedAdminUser(db, "u-admin-1");
+	beforeEach(async () => {
+		handle = await createTestDb();
+		db = handle.db;
+		await seedAdminUser(db, "u-admin-1");
 	});
 
-	it("returns an InviteCode row with correct fields", () => {
-		const invite = createInvite(db, "u-admin-1", "member");
+	afterEach(async () => {
+		await handle.close();
+	});
+
+	it("returns an InviteCode row with correct fields", async () => {
+		const invite = await createInvite(db, "u-admin-1", "member");
 		expect(invite).toHaveProperty("id");
 		expect(invite).toHaveProperty("code");
 		expect(invite.createdBy).toBe("u-admin-1");
@@ -67,24 +77,24 @@ describe("S1 — createInvite", () => {
 		expect(invite.claimedBy).toBeNull();
 	});
 
-	it("invite has future expiresAt (default 7 days)", () => {
+	it("invite has future expiresAt (default 7 days)", async () => {
 		const before = Date.now();
-		const invite = createInvite(db, "u-admin-1", "member");
+		const invite = await createInvite(db, "u-admin-1", "member");
 		const expiresAt = new Date(invite.expiresAt).getTime();
 		const sevenDays = 7 * 24 * 60 * 60 * 1000;
 		expect(expiresAt).toBeGreaterThan(before + sevenDays - 1000);
 		expect(expiresAt).toBeLessThan(before + sevenDays + 1000);
 	});
 
-	it("supports admin role", () => {
-		const invite = createInvite(db, "u-admin-1", "admin");
+	it("supports admin role", async () => {
+		const invite = await createInvite(db, "u-admin-1", "admin");
 		expect(invite.role).toBe("admin");
 	});
 
-	it("custom TTL is respected", () => {
+	it("custom TTL is respected", async () => {
 		const ttlMs = 60 * 1000; // 1 minute
 		const before = Date.now();
-		const invite = createInvite(db, "u-admin-1", "member", ttlMs);
+		const invite = await createInvite(db, "u-admin-1", "member", ttlMs);
 		const expiresAt = new Date(invite.expiresAt).getTime();
 		expect(expiresAt).toBeGreaterThan(before + ttlMs - 500);
 		expect(expiresAt).toBeLessThan(before + ttlMs + 500);
@@ -92,16 +102,22 @@ describe("S1 — createInvite", () => {
 });
 
 describe("S1 — claimInvite (happy path)", () => {
+	let handle: TestDbHandle;
 	let db: HyperIdleDb;
 
-	beforeEach(() => {
-		db = createTestDb();
-		seedAdminUser(db, "u-admin-1");
+	beforeEach(async () => {
+		handle = await createTestDb();
+		db = handle.db;
+		await seedAdminUser(db, "u-admin-1");
 	});
 
-	it("returns ok:true with user and token", () => {
-		const invite = createInvite(db, "u-admin-1", "member");
-		const result = claimInvite(db, invite.code, "New User");
+	afterEach(async () => {
+		await handle.close();
+	});
+
+	it("returns ok:true with user and token", async () => {
+		const invite = await createInvite(db, "u-admin-1", "member");
+		const result = await claimInvite(db, invite.code, "New User");
 		expect(result.ok).toBe(true);
 		if (result.ok) {
 			expect(result.user).toHaveProperty("id");
@@ -111,9 +127,9 @@ describe("S1 — claimInvite (happy path)", () => {
 		}
 	});
 
-	it("creates a new user with kind=human", () => {
-		const invite = createInvite(db, "u-admin-1", "member");
-		const result = claimInvite(db, invite.code, "Jane Doe", "jane@example.com");
+	it("creates a new user with kind=human", async () => {
+		const invite = await createInvite(db, "u-admin-1", "member");
+		const result = await claimInvite(db, invite.code, "Jane Doe", "jane@example.com");
 		expect(result.ok).toBe(true);
 		if (result.ok) {
 			expect(result.user.kind).toBe("human");
@@ -121,21 +137,21 @@ describe("S1 — claimInvite (happy path)", () => {
 		}
 	});
 
-	it("creates a new user with role matching invite", () => {
-		const invite = createInvite(db, "u-admin-1", "admin");
-		const result = claimInvite(db, invite.code, "Admin User");
+	it("creates a new user with role matching invite", async () => {
+		const invite = await createInvite(db, "u-admin-1", "admin");
+		const result = await claimInvite(db, invite.code, "Admin User");
 		expect(result.ok).toBe(true);
 		if (result.ok) {
 			expect(result.user.role).toBe("admin");
 		}
 	});
 
-	it("marks invite as claimed — second claim returns INVITE_CLAIMED", () => {
-		const invite = createInvite(db, "u-admin-1", "member");
-		const result = claimInvite(db, invite.code, "Claimer");
+	it("marks invite as claimed — second claim returns INVITE_CLAIMED", async () => {
+		const invite = await createInvite(db, "u-admin-1", "member");
+		const result = await claimInvite(db, invite.code, "Claimer");
 		expect(result.ok).toBe(true);
 		// Verify indirectly: second claim attempt returns INVITE_CLAIMED
-		const result2 = claimInvite(db, invite.code, "Another User");
+		const result2 = await claimInvite(db, invite.code, "Another User");
 		expect(result2.ok).toBe(false);
 		if (!result2.ok) {
 			expect(result2.error).toBe("INVITE_CLAIMED");
@@ -144,50 +160,56 @@ describe("S1 — claimInvite (happy path)", () => {
 });
 
 describe("S1 — claimInvite (error cases)", () => {
+	let handle: TestDbHandle;
 	let db: HyperIdleDb;
 
-	beforeEach(() => {
-		db = createTestDb();
-		seedAdminUser(db, "u-admin-1");
+	beforeEach(async () => {
+		handle = await createTestDb();
+		db = handle.db;
+		await seedAdminUser(db, "u-admin-1");
 	});
 
-	it("returns NOT_FOUND when code does not exist", () => {
-		const result = claimInvite(db, "nonexistent-code-12345", "User");
+	afterEach(async () => {
+		await handle.close();
+	});
+
+	it("returns NOT_FOUND when code does not exist", async () => {
+		const result = await claimInvite(db, "nonexistent-code-12345", "User");
 		expect(result.ok).toBe(false);
 		if (!result.ok) {
 			expect(result.error).toBe("NOT_FOUND");
 		}
 	});
 
-	it("returns INVITE_CLAIMED when code was already claimed", () => {
-		const invite = createInvite(db, "u-admin-1", "member");
+	it("returns INVITE_CLAIMED when code was already claimed", async () => {
+		const invite = await createInvite(db, "u-admin-1", "member");
 		// First claim
-		const first = claimInvite(db, invite.code, "First User");
+		const first = await claimInvite(db, invite.code, "First User");
 		expect(first.ok).toBe(true);
 		// Second claim attempt
-		const second = claimInvite(db, invite.code, "Second User");
+		const second = await claimInvite(db, invite.code, "Second User");
 		expect(second.ok).toBe(false);
 		if (!second.ok) {
 			expect(second.error).toBe("INVITE_CLAIMED");
 		}
 	});
 
-	it("returns INVITE_EXPIRED when code has expired", () => {
+	it("returns INVITE_EXPIRED when code has expired", async () => {
 		// Force the invite to be expired by creating it with a negative TTL (in the past)
-		const expiredInvite = createInvite(db, "u-admin-1", "member", -(8 * 24 * 60 * 60 * 1000));
+		const expiredInvite = await createInvite(db, "u-admin-1", "member", -(8 * 24 * 60 * 60 * 1000));
 
-		const result = claimInvite(db, expiredInvite.code, "Late User");
+		const result = await claimInvite(db, expiredInvite.code, "Late User");
 		expect(result.ok).toBe(false);
 		if (!result.ok) {
 			expect(result.error).toBe("INVITE_EXPIRED");
 		}
 	});
 
-	it("does not create a user when claim fails", () => {
-		const result = claimInvite(db, "bad-code", "Ghost User");
+	it("does not create a user when claim fails", async () => {
+		const result = await claimInvite(db, "bad-code", "Ghost User");
 		expect(result.ok).toBe(false);
 		// No user was created
-		const allUsers = db.select().from(users).all();
+		const allUsers = await db.select().from(users);
 		// Only the admin seeded above
 		const names = allUsers.map((u) => u.name);
 		expect(names).not.toContain("Ghost User");

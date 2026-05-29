@@ -1,15 +1,19 @@
 /**
  * S1 — Auth middleware tests: dual-strategy (shared mode + local mode).
  *
- * Red phase: tests for:
+ * Tests for:
  * - Local mode: unchanged X-API-Key behavior, authMethod="api_key"
  * - Shared mode: Bearer token → LoginSession auth
  * - Shared mode: expired token → 401 SESSION_EXPIRED
  * - Shared mode: revoked token → 401 SESSION_REVOKED
  * - Shared mode: admin key fallback (X-API-Key)
  * - Shared mode: no credentials → 401 UNAUTHORIZED
+ *
+ * @lore S1 PGLite migration: All tests are now async because createTestDb()
+ * returns a Promise<TestDbHandle>. The service calls are async too.
  */
 
+import type { TestDbHandle } from "@hyperidle/db";
 import { createTestDb, type HyperIdleDb, users } from "@hyperidle/db";
 import { Hono } from "hono";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -19,8 +23,9 @@ import { createLoginSession, revokeLoginSession } from "../services/login-sessio
 
 const TEST_API_KEY = "test-key-s1-auth-mw";
 
-function seedUser(db: HyperIdleDb, id = "u-mw-1", role = "member"): void {
-	db.insert(users)
+async function seedUser(db: HyperIdleDb, id = "u-mw-1", role = "member"): Promise<void> {
+	await db
+		.insert(users)
 		.values({
 			id,
 			kind: "human",
@@ -30,8 +35,7 @@ function seedUser(db: HyperIdleDb, id = "u-mw-1", role = "member"): void {
 			status: "active",
 			createdAt: new Date().toISOString(),
 		})
-		.onConflictDoNothing()
-		.run();
+		.onConflictDoNothing();
 }
 
 function bearerHeaders(token: string): Record<string, string> {
@@ -54,16 +58,19 @@ function makeTestApp(db: HyperIdleDb, sharedMode: boolean): Hono {
 }
 
 describe("S1 — Auth middleware: local mode (sharedMode=false)", () => {
+	let handle: TestDbHandle;
 	let db: HyperIdleDb;
 
-	beforeEach(() => {
+	beforeEach(async () => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		db = createTestDb();
-		seedUser(db, "u-local-1");
+		handle = await createTestDb();
+		db = handle.db;
+		await seedUser(db, "u-local-1");
 	});
 
-	afterEach(() => {
+	afterEach(async () => {
 		vi.unstubAllEnvs();
+		await handle.close();
 	});
 
 	it("accepts X-API-Key and sets userId from users table", async () => {
@@ -92,7 +99,7 @@ describe("S1 — Auth middleware: local mode (sharedMode=false)", () => {
 	});
 
 	it("does NOT accept Bearer token in local mode (falls through to API key check)", async () => {
-		const { token } = createLoginSession(db, "u-local-1");
+		const { token } = await createLoginSession(db, "u-local-1");
 		const app = makeTestApp(db, false);
 		// Bearer token without X-API-Key should 401 in local mode
 		const res = await app.request("/probe", {
@@ -112,20 +119,24 @@ describe("S1 — Auth middleware: local mode (sharedMode=false)", () => {
 });
 
 describe("S1 — Auth middleware: shared mode (sharedMode=true)", () => {
+	let handle: TestDbHandle;
 	let db: HyperIdleDb;
 
-	beforeEach(() => {
+	beforeEach(async () => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		db = createTestDb();
-		seedUser(db, "u-shared-1");
+		handle = await createTestDb();
+		db = handle.db;
+		await seedUser(db, "u-shared-1");
 	});
 
-	afterEach(() => {
+	afterEach(async () => {
 		vi.unstubAllEnvs();
+		vi.useRealTimers();
+		await handle.close();
 	});
 
 	it("accepts Bearer token and sets userId from LoginSession", async () => {
-		const { token, session } = createLoginSession(db, "u-shared-1");
+		const { token, session } = await createLoginSession(db, "u-shared-1");
 		const app = makeTestApp(db, true);
 		const res = await app.request("/probe", {
 			headers: bearerHeaders(token),
@@ -142,7 +153,7 @@ describe("S1 — Auth middleware: shared mode (sharedMode=true)", () => {
 	});
 
 	it("returns 401 SESSION_EXPIRED for expired Bearer token", async () => {
-		const { token } = createLoginSession(db, "u-shared-1", 1); // 1ms TTL
+		const { token } = await createLoginSession(db, "u-shared-1", 1); // 1ms TTL
 		// Manually expire by waiting — use fake timers
 		vi.useFakeTimers();
 		vi.advanceTimersByTime(100);
@@ -157,8 +168,8 @@ describe("S1 — Auth middleware: shared mode (sharedMode=true)", () => {
 	});
 
 	it("returns 401 SESSION_REVOKED for revoked Bearer token", async () => {
-		const { token, session } = createLoginSession(db, "u-shared-1");
-		revokeLoginSession(db, session.id);
+		const { token, session } = await createLoginSession(db, "u-shared-1");
+		await revokeLoginSession(db, session.id);
 		const app = makeTestApp(db, true);
 		const res = await app.request("/probe", {
 			headers: bearerHeaders(token),
@@ -196,7 +207,7 @@ describe("S1 — Auth middleware: shared mode (sharedMode=true)", () => {
 	});
 
 	it("sets loginSessionId when using Bearer token", async () => {
-		const { token, session } = createLoginSession(db, "u-shared-1");
+		const { token, session } = await createLoginSession(db, "u-shared-1");
 		const app = makeTestApp(db, true);
 		const res = await app.request("/probe", {
 			headers: bearerHeaders(token),

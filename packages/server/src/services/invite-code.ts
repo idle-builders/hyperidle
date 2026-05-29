@@ -3,9 +3,11 @@
  *
  * @lore S1: The claim flow (steps 5-7 in the architecture plan) is wrapped in
  * a db.transaction() to ensure atomicity: user creation + invite update +
- * LoginSession creation all succeed or all fail together. SQLite serializes
- * writes anyway, but the explicit transaction makes the atomicity intent clear
- * and prevents partial writes on unexpected errors.
+ * LoginSession creation all succeed or all fail together.
+ *
+ * @lore S1 PGLite migration: all DB operations are async (PGLite uses WASM
+ * Postgres semantics — no sync .get()/.run()/.all()). The service uses Drizzle
+ * PG async patterns throughout. db.transaction() is async in PGLite.
  */
 
 import { randomBytes } from "node:crypto";
@@ -32,18 +34,18 @@ export function generateInviteCode(): string {
  * Create an invite code.
  * Admin-only — this is enforced at the route layer, not here.
  */
-export function createInvite(
+export async function createInvite(
 	db: HyperIdleDb,
 	createdBy: string,
 	role: InviteRole,
 	ttlMs: number = INVITE_CODE_TTL_MS,
-): InviteCode {
+): Promise<InviteCode> {
 	const now = new Date();
 	const expiresAt = new Date(now.getTime() + ttlMs);
 	const id = `ic_${randomBytes(12).toString("hex")}`;
 	const code = generateInviteCode();
 
-	return db
+	const [invite] = await db
 		.insert(inviteCodes)
 		.values({
 			id,
@@ -54,8 +56,13 @@ export function createInvite(
 			expiresAt: expiresAt.toISOString(),
 			createdAt: now.toISOString(),
 		})
-		.returning()
-		.get();
+		.returning();
+
+	if (!invite) {
+		throw new Error("createInvite: insert returned no rows");
+	}
+
+	return invite;
 }
 
 /**
@@ -69,16 +76,17 @@ export function createInvite(
  * - Already claimed → `{ ok: false, error: "INVITE_CLAIMED" }`
  * - Expired → `{ ok: false, error: "INVITE_EXPIRED" }`
  */
-export function claimInvite(
+export async function claimInvite(
 	db: HyperIdleDb,
 	code: string,
 	name: string,
 	email?: string,
-):
+): Promise<
 	| { ok: true; user: User; token: string }
-	| { ok: false; error: "INVITE_CLAIMED" | "INVITE_EXPIRED" | "NOT_FOUND" } {
+	| { ok: false; error: "INVITE_CLAIMED" | "INVITE_EXPIRED" | "NOT_FOUND" }
+> {
 	// Step 1: look up the invite code
-	const invite = db.select().from(inviteCodes).where(eq(inviteCodes.code, code)).get();
+	const [invite] = await db.select().from(inviteCodes).where(eq(inviteCodes.code, code)).limit(1);
 
 	if (!invite) {
 		return { ok: false, error: "NOT_FOUND" };
@@ -95,12 +103,14 @@ export function claimInvite(
 	}
 
 	// Steps 4-7: transactional — create user, update invite, create session
-	return db.transaction((tx) => {
+	// @lore S1 PGLite: db.transaction() is async in Drizzle PG. The callback
+	// receives a transaction object (tx) that shares the same async API as db.
+	return await db.transaction(async (tx) => {
 		const now = new Date().toISOString();
 		const userId = `u_${randomBytes(12).toString("hex")}`;
 
 		// Step 5: create user
-		const user = tx
+		const [user] = await tx
 			.insert(users)
 			.values({
 				id: userId,
@@ -111,14 +121,17 @@ export function claimInvite(
 				status: "active",
 				createdAt: now,
 			})
-			.returning()
-			.get();
+			.returning();
+
+		if (!user) {
+			throw new Error("claimInvite: user insert returned no rows");
+		}
 
 		// Step 6: mark invite as claimed
-		tx.update(inviteCodes).set({ claimedBy: userId }).where(eq(inviteCodes.id, invite.id)).run();
+		await tx.update(inviteCodes).set({ claimedBy: userId }).where(eq(inviteCodes.id, invite.id));
 
 		// Step 7: create LoginSession
-		const { token } = createLoginSession(tx, userId);
+		const { token } = await createLoginSession(tx as unknown as HyperIdleDb, userId);
 
 		return { ok: true as const, user, token };
 	});

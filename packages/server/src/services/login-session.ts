@@ -11,10 +11,14 @@
  * no second hash to compare. A constant-time comparison would be comparing two
  * things that are already equal (the stored hash and the re-derived hash of the
  * same input). The indexed hash lookup is sufficient and safe.
+ *
+ * @lore S1 PGLite migration: all DB operations are async (PGLite uses WASM
+ * Postgres semantics — no sync .get()/.run()/.all()). The service uses Drizzle
+ * PG async patterns throughout.
  */
 
 import { createHash, randomBytes } from "node:crypto";
-import type { HyperIdleDb, LoginSession, SeedableDb } from "@hyperidle/db";
+import type { HyperIdleDb, LoginSession } from "@hyperidle/db";
 import { loginSessions } from "@hyperidle/db";
 import { LOGIN_SESSION_TTL_MS } from "@hyperidle/shared";
 import { and, eq, isNull } from "drizzle-orm";
@@ -45,24 +49,20 @@ export function hashToken(plaintext: string): string {
 /**
  * Create a new LoginSession.
  *
- * Accepts `HyperIdleDb` or a Drizzle transaction (`SeedableDb` covers both
- * since `BetterSQLite3Database` is a structural subtype of `BaseSQLiteDatabase`
- * and `SQLiteTransaction` also extends `BaseSQLiteDatabase`).
- *
- * @lore S1 SF-1: Accepts `SeedableDb` so callers inside `db.transaction()` can
- * pass `tx` directly without an unsafe `as unknown as HyperIdleDb` cast.
+ * @lore S1 PGLite: async because PGLite uses WASM Postgres semantics.
+ * Drizzle PG insert returns a Promise; callers must await.
  */
-export function createLoginSession(
-	db: HyperIdleDb | SeedableDb,
+export async function createLoginSession(
+	db: HyperIdleDb,
 	userId: string,
 	ttlMs: number = LOGIN_SESSION_TTL_MS,
-): { session: LoginSession; token: string } {
+): Promise<{ session: LoginSession; token: string }> {
 	const { plaintext, hash } = generateToken();
 	const now = new Date();
 	const expiresAt = new Date(now.getTime() + ttlMs);
 	const id = `ls_${randomBytes(12).toString("hex")}`;
 
-	const session = db
+	const [session] = await db
 		.insert(loginSessions)
 		.values({
 			id,
@@ -72,8 +72,11 @@ export function createLoginSession(
 			createdAt: now.toISOString(),
 			revokedAt: null,
 		})
-		.returning()
-		.get();
+		.returning();
+
+	if (!session) {
+		throw new Error("createLoginSession: insert returned no rows");
+	}
 
 	return { session, token: plaintext };
 }
@@ -82,13 +85,16 @@ export function createLoginSession(
  * Look up a LoginSession by its token hash.
  * Returns null if no session with that hash exists.
  */
-export function findLoginSessionByTokenHash(
+export async function findLoginSessionByTokenHash(
 	db: HyperIdleDb,
 	tokenHash: string,
-): LoginSession | null {
-	return (
-		db.select().from(loginSessions).where(eq(loginSessions.tokenHash, tokenHash)).get() ?? null
-	);
+): Promise<LoginSession | null> {
+	const [session] = await db
+		.select()
+		.from(loginSessions)
+		.where(eq(loginSessions.tokenHash, tokenHash))
+		.limit(1);
+	return session ?? null;
 }
 
 /**
@@ -99,14 +105,15 @@ export function findLoginSessionByTokenHash(
  * Returns `{ ok: true, session }` on success, or
  * `{ ok: false, reason }` on failure.
  */
-export function validateBearerToken(
+export async function validateBearerToken(
 	db: HyperIdleDb,
 	plaintextToken: string,
-):
+): Promise<
 	| { ok: true; session: LoginSession }
-	| { ok: false; reason: "SESSION_EXPIRED" | "SESSION_REVOKED" | "INVALID_TOKEN" } {
+	| { ok: false; reason: "SESSION_EXPIRED" | "SESSION_REVOKED" | "INVALID_TOKEN" }
+> {
 	const tokenHash = hashToken(plaintextToken);
-	const session = findLoginSessionByTokenHash(db, tokenHash);
+	const session = await findLoginSessionByTokenHash(db, tokenHash);
 
 	if (!session) {
 		return { ok: false, reason: "INVALID_TOKEN" };
@@ -129,24 +136,23 @@ export function validateBearerToken(
  * Revoke a LoginSession by setting revokedAt to now.
  * No-op if the session doesn't exist or is already revoked.
  */
-export function revokeLoginSession(db: HyperIdleDb, sessionId: string): void {
-	db.update(loginSessions)
+export async function revokeLoginSession(db: HyperIdleDb, sessionId: string): Promise<void> {
+	await db
+		.update(loginSessions)
 		.set({ revokedAt: new Date().toISOString() })
-		.where(and(eq(loginSessions.id, sessionId), isNull(loginSessions.revokedAt)))
-		.run();
+		.where(and(eq(loginSessions.id, sessionId), isNull(loginSessions.revokedAt)));
 }
 
 /**
  * Revoke all active (non-revoked) LoginSessions for a user.
  * Returns the number of sessions revoked.
  */
-export function revokeAllUserSessions(db: HyperIdleDb, userId: string): number {
+export async function revokeAllUserSessions(db: HyperIdleDb, userId: string): Promise<number> {
 	const now = new Date().toISOString();
-	const result = db
+	const result = await db
 		.update(loginSessions)
 		.set({ revokedAt: now })
 		.where(and(eq(loginSessions.userId, userId), isNull(loginSessions.revokedAt)))
-		.returning()
-		.all();
+		.returning();
 	return result.length;
 }
