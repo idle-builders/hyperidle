@@ -84,6 +84,8 @@ describe("H4 AC3: PG migrations apply to a fresh pglite DB", () => {
  * asserting the row reads as FALSE (the safe default).
  */
 describe("I3 review C5: boolean migration is NULL-safe", () => {
+	// @lore S1: PGlite WASM init can take >5s when the WASM binary is cold-loaded in a parallel
+	// test suite. Timeout raised to 30s to prevent flaky failures in CI.
 	it("a row with blocking=NULL pre-migration ends up as false post-migration", async () => {
 		// This is the brownfield scenario: a DB that ran the OLD 0003 (no
 		// inline boolean coercion) ends up with integer columns. Then 0004
@@ -120,7 +122,7 @@ describe("I3 review C5: boolean migration is NULL-safe", () => {
 		} finally {
 			await client.close();
 		}
-	});
+	}, 30_000);
 
 	it("default false applies to brand-new rows after migration", { timeout: 30_000 }, async () => {
 		const { db, close } = await createTestDb();
