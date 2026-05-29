@@ -1,17 +1,11 @@
 /**
- * R2 — POST /api/users integration tests (updated from P4)
+ * P4 — POST /api/users integration tests (Task 2, AC-28)
  *
- * R2 AC coverage:
- * - Email is optional in user creation (AC-1 / Task 1)
- * - Creating user without email succeeds (AC-1)
- * - Invalid email format still returns 400 when email IS provided (regression guard)
- * - Existing tests that required email have been removed/inverted per reviewer warning
- *
- * P4 AC coverage (retained):
- * - AC-28: POST /api/users endpoint creates a human user
- * - Auth bypass — when no human user exists, allow unauthenticated creation
- * - POST returns 200 for idempotent (not 409)
- * - POST must set role, status, and other required columns
+ * AC coverage:
+ * AC-28: POST /api/users endpoint creates a human user
+ * Reviewer CRITICAL: Auth bypass — when no human user exists, allow unauthenticated creation
+ * Reviewer WARNING: POST returns 200 for idempotent (not 409)
+ * Reviewer WARNING: POST must set role, status, and other required columns
  */
 
 import { createTestDb, type HyperIdleDb, users } from "@hyperidle/db";
@@ -52,7 +46,7 @@ describe("POST /api/users — setup user creation", () => {
 		vi.unstubAllEnvs();
 	});
 
-	// AC-28: POST creates human user with 201 (with email — backward compatible)
+	// AC-28: POST creates human user with 201
 	it("creates a human user and returns 201 when no human user exists", async () => {
 		const res = await app.request("/api/users", {
 			method: "POST",
@@ -68,41 +62,12 @@ describe("POST /api/users — setup user creation", () => {
 		expect(typeof body.id).toBe("string");
 	});
 
-	// R2 AC-1: Email is optional — creating user without email must succeed
-	it("creates user without email (email omitted) — R2: email is optional", async () => {
-		const res = await app.request("/api/users", {
-			method: "POST",
-			headers: noAuthHeaders(),
-			body: JSON.stringify({ name: "Bob NoEmail" }),
-		});
-
-		expect(res.status).toBe(201);
-		const body = (await res.json()) as Record<string, unknown>;
-		expect(body.name).toBe("Bob NoEmail");
-		expect(body.kind).toBe("human");
-		expect(typeof body.id).toBe("string");
-	});
-
-	// R2 AC-1 backward compat: email still accepted when provided
-	it("creates user with email (backward compatible)", async () => {
-		const res = await app.request("/api/users", {
-			method: "POST",
-			headers: noAuthHeaders(),
-			body: JSON.stringify({ name: "Carol WithEmail", email: "carol@example.com" }),
-		});
-
-		expect(res.status).toBe(201);
-		const body = (await res.json()) as Record<string, unknown>;
-		expect(body.name).toBe("Carol WithEmail");
-		expect(body.email).toBe("carol@example.com");
-	});
-
 	// Reviewer WARNING: required columns must be set
 	it("created user has role and status set", async () => {
 		const res = await app.request("/api/users", {
 			method: "POST",
 			headers: noAuthHeaders(),
-			body: JSON.stringify({ name: "Bob" }),
+			body: JSON.stringify({ name: "Bob", email: "bob@example.com" }),
 		});
 
 		expect(res.status).toBe(201);
@@ -147,7 +112,7 @@ describe("POST /api/users — setup user creation", () => {
 		const res = await freshApp.request("/api/users", {
 			method: "POST",
 			headers: noAuthHeaders(), // no API key header
-			body: JSON.stringify({ name: "Setup User" }),
+			body: JSON.stringify({ name: "Setup User", email: "setup@example.com" }),
 		});
 
 		// Should succeed — local mode with no human user allows setup
@@ -165,11 +130,19 @@ describe("POST /api/users — setup user creation", () => {
 		expect(res.status).toBe(400);
 	});
 
-	// R2: email omitted is now valid — this is NOT a 400 (removed old "returns 400 when email is missing" test)
-	// The new behavior is: no email → user created successfully (tested above in "creates user without email")
+	// Validation: missing email returns 400
+	it("returns 400 when email is missing", async () => {
+		const res = await app.request("/api/users", {
+			method: "POST",
+			headers: noAuthHeaders(),
+			body: JSON.stringify({ name: "Alice" }),
+		});
 
-	// Validation: invalid email format returns 400 when email IS provided
-	it("returns 400 for invalid email format when email is provided", async () => {
+		expect(res.status).toBe(400);
+	});
+
+	// Validation: invalid email returns 400
+	it("returns 400 for invalid email format", async () => {
 		const res = await app.request("/api/users", {
 			method: "POST",
 			headers: noAuthHeaders(),
@@ -218,7 +191,7 @@ describe("POST /api/users — setup user creation", () => {
 		const createRes = await app.request("/api/users", {
 			method: "POST",
 			headers: noAuthHeaders(),
-			body: JSON.stringify({ name: "New User" }),
+			body: JSON.stringify({ name: "New User", email: "new@example.com" }),
 		});
 		const created = (await createRes.json()) as Record<string, unknown>;
 
