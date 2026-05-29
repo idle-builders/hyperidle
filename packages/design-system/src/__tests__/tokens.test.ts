@@ -615,31 +615,32 @@ describe("tokens.css — spacing tokens on 3px half-grid", () => {
 // SECTION 7 — Density grid compliance
 // ─────────────────────────────────────────────────────────────────────────────
 
-describe("tokens.css — density tokens on 6px grid", () => {
+describe("tokens.css — density tokens (K9/K11 spec)", () => {
 	/**
-	 * Architecture section 5 specifies all density values are 6px-grid multiples.
-	 * Exception: --density-card-gap compact = 3px (half-grid, per architecture note).
+	 * Density values are owned by K9 and K11 workpackages. U3 (Hearth) only
+	 * changes colour tokens — density values must match K9/K11 spec exactly.
 	 *
-	 * We test that px density values are multiples of 6 (or 3 for card-gap compact).
-	 * The architecture uses px values, NOT rem (this is an intentional change from
-	 * the previous Lucid token system which used rem values).
+	 * @lore U3 — an earlier draft of U3 rebuilt density on a 6px grid, but
+	 * density-tier.test.ts (K9) and the K11 spec pin exact px values that are
+	 * not all 6px-grid multiples (row-h=44, text=15, page-gutter=16, etc.).
+	 * The 6px-grid lore was reverted to preserve K9/K11 AC compliance. Any
+	 * density-grid redesign must go through a K9/K11 update first.
 	 */
 
 	const defaultDensity: Record<string, number> = {
-		"--density-pad-x": 18,
+		"--density-pad-x": 16,
 		"--density-pad-y": 12,
 		"--density-gap": 12,
-		"--density-row-h": 42,
+		"--density-row-h": 44,
 		"--density-card-pad": 12,
-		"--density-page-gutter": 18,
-		"--density-icon-size": 18,
-		"--density-avatar-size": 30,
-		"--density-card-gap": 6,
+		"--density-page-gutter": 16,
+		"--density-icon-size": 16,
+		"--density-avatar-size": 32,
+		"--density-card-gap": 8,
 	};
 
-	it("default density values are correct px values", () => {
-		// We check the CSS for default density tokens.
-		// The :root,[data-density="default"] block should have these values.
+	it("default density values are correct px values (K9/K11 spec)", () => {
+		// The :root,[data-density="default"] block must have K9/K11 spec values.
 		for (const [token, expectedPx] of Object.entries(defaultDensity)) {
 			const val = extractTokenValue(SRC_TOKENS, token);
 			expect(val, `${token} must be defined`).not.toBeNull();
@@ -647,31 +648,27 @@ describe("tokens.css — density tokens on 6px grid", () => {
 			const px = parsePx(val ?? "");
 			expect(
 				px,
-				`${token} must have a px value (architecture uses px, not rem) — got: ${val}`,
+				`${token} must have a px value — got: ${val}`,
 			).not.toBeNull();
-			expect(
-				(px as number) % 6,
-				`${token} (${px}px) must be a multiple of 6px in default density`,
-			).toBe(0);
-			expect(px, `${token} must equal ${expectedPx}px`).toBe(expectedPx);
+			expect(px, `${token} must equal ${expectedPx}px (K9/K11 spec)`).toBe(expectedPx);
 		}
 	});
 
-	it("--density-row-h default is 42px (7 * 6px = 42px)", () => {
-		// Find the default density block first occurrence of density-row-h
+	it("--density-row-h default is 44px (AQ-015 touch-target floor)", () => {
+		// K9 requires default row-h >= 44px for AQ-015 touch-target compliance.
 		const val = extractTokenValue(SRC_TOKENS, "--density-row-h");
 		expect(val, "--density-row-h must be defined").not.toBeNull();
-		expect(val, "--density-row-h must be 42px").toBe("42px");
+		expect(val, "--density-row-h must be 44px").toBe("44px");
 	});
 
-	it("compact density --density-card-gap is 3px (half-grid is acceptable)", () => {
-		// Find compact block
+	it("compact density --density-card-gap is 4px (K11 spec)", () => {
+		// K11 spec: compact card-gap = 4px (within 0.5× of default 8px).
 		const compactIdx = SRC_TOKENS.indexOf('[data-density="compact"]');
 		expect(compactIdx, "compact density block must exist").toBeGreaterThan(-1);
 		const compactBlock = SRC_TOKENS.substring(compactIdx);
 		const val = extractTokenValue(compactBlock, "--density-card-gap");
 		expect(val, "--density-card-gap in compact must be defined").not.toBeNull();
-		expect(val, "--density-card-gap in compact must be 3px").toBe("3px");
+		expect(val, "--density-card-gap in compact must be 4px").toBe("4px");
 	});
 });
 

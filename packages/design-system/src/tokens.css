@@ -259,12 +259,14 @@
 	}
 
 	/*
-	 * ── Density presets (6px grid) ──
-	 * @lore U3 — Density system rebuilt on a 6px grid. All px values are
-	 * multiples of 6 (exception: --density-card-gap compact = 3px, half-grid).
-	 * Previous Lucid system used rem values; Hearth uses px for explicit grid
-	 * alignment. Ratio structure preserved: compact ≈ default × 0.75,
-	 * comfortable ≈ default × 1.5.
+	 * ── Density presets ──
+	 * K9/K11 canonical values. Spacing tokens follow compact ≈ default × 0.75
+	 * and comfortable ≈ default × 1.5 within 4 px tolerance (K9 ratio ladder).
+	 *
+	 * @lore U3 — Hearth replaces Lucid colour tokens but KEEPS the K9/K11
+	 * density values verbatim. K9 and K11 tests pin exact pixel values; the
+	 * density spec is owned by those workpackages, not by the colour theme.
+	 * A 6px-grid rebuild would require a K9/K11 update before any change here.
 	 *
 	 * @lore K11 — density-card-pad, density-page-gutter, density-icon-size,
 	 * density-avatar-size, density-card-gap added for card/page layout
@@ -272,21 +274,26 @@
 	 */
 	:root,
 	[data-density="default"] {
-		--density-pad-x: 18px; /* 3 grid units */
-		--density-pad-y: 12px; /* 2 grid units */
-		--density-gap: 12px; /* 2 grid units */
-		--density-row-h: 42px; /* 7 grid units — exceeds AQ-015 touch floor */
-		--density-text: 15px; /* matches --text-base */
-		--density-text-h1: 24px; /* matches --text-2xl */
-		--density-text-h2: 20px; /* matches --text-xl */
+		--density-pad-x: 16px;
+		--density-pad-y: 12px;
+		--density-gap: 12px;
+		/*
+		 * @lore K9 — 44px satisfies AQ-015 44 CSS px touch-target floor.
+		 * The compact tier (33px) and comfortable tier (56px) are designer calls
+		 * exempt from strict ratio enforcement (see K9 AC tests).
+		 */
+		--density-row-h: 44px;
+		--density-text: 15px;
+		--density-text-h1: 26px;
+		--density-text-h2: 20px;
 		--leading-body: 1.55;
 
 		/* K11 density tokens */
-		--density-card-pad: 12px; /* 2 grid units */
-		--density-page-gutter: 18px; /* 3 grid units */
-		--density-icon-size: 18px; /* 3 grid units */
-		--density-avatar-size: 30px; /* 5 grid units */
-		--density-card-gap: 6px; /* 1 grid unit */
+		--density-card-pad: 12px;
+		--density-page-gutter: 16px;
+		--density-icon-size: 16px;
+		--density-avatar-size: 32px;
+		--density-card-gap: 8px;
 
 		/*
 		 * @lore L11 plan §5.7 — --card-max-h caps the in-stream RichMessageCard
@@ -305,44 +312,46 @@
 	}
 
 	[data-density="compact"] {
-		--density-pad-x: 12px; /* 2 grid units */
-		--density-pad-y: 6px; /* 1 grid unit */
-		--density-gap: 6px; /* 1 grid unit */
-		--density-row-h: 30px; /* 5 grid units */
-		--density-text: 13px; /* matches --text-sm */
-		--density-text-h1: 20px; /* matches --text-xl */
-		--density-text-h2: 17px; /* matches --text-lg */
+		--density-pad-x: 12px;
+		--density-pad-y: 8px;
+		--density-gap: 8px;
+		--density-row-h: 33px;
+		--density-text: 14px;
+		--density-text-h1: 24px;
+		--density-text-h2: 18px;
 		--leading-body: 1.5;
 
 		/* K11 density tokens */
-		--density-card-pad: 6px; /* 1 grid unit */
-		--density-page-gutter: 12px; /* 2 grid units */
-		--density-icon-size: 12px; /* 2 grid units */
-		--density-avatar-size: 24px; /* 4 grid units */
-		/*
-		 * @lore U3 — density-card-gap compact = 3px (half-grid unit). Acceptable
-		 * exception per architecture section 5.2 for tight intra-card rhythm.
-		 */
-		--density-card-gap: 3px; /* 0.5 grid unit — architecture-approved exception */
+		--density-card-pad: 8px;
+		--density-page-gutter: 8px;
+		--density-icon-size: 14px;
+		--density-avatar-size: 24px;
+		--density-card-gap: 4px;
 	}
 
 	[data-density="comfortable"] {
-		--density-pad-x: 24px; /* 4 grid units */
-		--density-pad-y: 18px; /* 3 grid units */
-		--density-gap: 18px; /* 3 grid units */
-		--density-row-h: 54px; /* 9 grid units */
-		--density-text: 17px; /* matches --text-lg */
-		--density-text-h1: 30px; /* matches --text-3xl */
-		--density-text-h2: 24px; /* matches --text-2xl */
+		--density-pad-x: 24px;
+		--density-pad-y: 18px;
+		--density-gap: 18px;
+		/*
+		 * @lore K9 — row-h set to 56px instead of the strict 1.5× ratio result
+		 * (44 × 1.5 = 66 → 64 px). 56px is a designer call sized to the iOS Mail /
+		 * Notion comfort band, above AQ-015 44px floor. The density-tier vitest
+		 * exempts row-h from the upper-bound 1.5× assertion for this reason.
+		 */
+		--density-row-h: 56px;
+		--density-text: 16px;
+		--density-text-h1: 28px;
+		--density-text-h2: 22px;
 		--leading-body: 1.6;
 		--tracking-caps: 0.015em;
 
 		/* K11 density tokens */
-		--density-card-pad: 18px; /* 3 grid units */
-		--density-page-gutter: 24px; /* 4 grid units */
-		--density-icon-size: 24px; /* 4 grid units */
-		--density-avatar-size: 42px; /* 7 grid units */
-		--density-card-gap: 12px; /* 2 grid units */
+		--density-card-pad: 16px;
+		--density-page-gutter: 24px;
+		--density-icon-size: 20px;
+		--density-avatar-size: 40px;
+		--density-card-gap: 12px;
 	}
 }
 
