@@ -178,6 +178,22 @@ export class RemoteHarnessAdapter implements HarnessAdapter {
 		};
 	}
 
+	/**
+	 * Dispatch an incoming message from the worker to the appropriate active session.
+	 *
+	 * Called by WorkerConnectionManager for runtime messages (event, session_result, error)
+	 * that arrive after registration. Exposed as public so the WS route layer can forward
+	 * messages to the adapter without coupling to its internal session map.
+	 *
+	 * @lore S2-F07: WorkerConnectionManager routes the initial `register` message itself
+	 * (to create this adapter). All subsequent messages must be dispatched here so
+	 * streamEvents() generators receive them. Without this, streamEvents() hangs forever
+	 * because the WS onmessage handler in the route layer never reached the adapter.
+	 */
+	dispatchMessage(data: string): void {
+		this.handleMessage(data);
+	}
+
 	private handleMessage(data: string): void {
 		let msg: unknown;
 		try {

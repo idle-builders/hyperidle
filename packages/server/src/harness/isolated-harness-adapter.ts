@@ -73,9 +73,15 @@ export class IsolatedHarnessAdapter implements HarnessAdapter {
 			"isolated-session-worker.js",
 		);
 
+		/**
+		 * @lore S2-F03: maxMemoryMb must be passed as --max-old-space-size so the
+		 * V8 heap is actually bounded. Without execArgv, the config field was accepted
+		 * but silently ignored — the child process could consume unlimited memory.
+		 */
 		const child = fork(workerScript, [], {
 			env: sandboxedEnv,
 			silent: false,
+			execArgv: [`--max-old-space-size=${this.config.maxMemoryMb}`],
 		});
 
 		const sessionId = `isolated-session-${this.nextId++}`;
@@ -180,8 +186,22 @@ export class IsolatedHarnessAdapter implements HarnessAdapter {
 		// Send stop signal to child
 		session.child.send({ type: "stop" });
 
+		/**
+		 * @lore S2-F04: Send SIGTERM first to allow graceful shutdown, then
+		 * escalate to SIGKILL after 5 s if the child has not exited. This prevents
+		 * a misbehaving child from blocking stopSession indefinitely while still
+		 * giving well-behaved children a chance to flush and clean up.
+		 */
+		const escalationTimer = setTimeout(() => {
+			const s = this.sessions.get(handle.sessionId);
+			if (s && !s.done) {
+				s.child.kill("SIGKILL");
+			}
+		}, 5_000);
+
 		return new Promise<SessionResult>((resolve) => {
 			session.resolveStop = (result: SessionResult) => {
+				clearTimeout(escalationTimer);
 				clearTimeout(session.timer);
 				this.sessions.delete(handle.sessionId);
 				resolve(result);
@@ -198,7 +218,12 @@ export class IsolatedHarnessAdapter implements HarnessAdapter {
 		if (!session || session.done) return;
 
 		session.timedOut = true;
-		session.child.kill("SIGTERM");
+		/**
+		 * @lore S2-F04: Architecture plan specifies SIGKILL for timeout — not SIGTERM.
+		 * SIGTERM allows the child to catch the signal and run cleanup code, which
+		 * defeats the purpose of an enforced timeout. SIGKILL is unconditional.
+		 */
+		session.child.kill("SIGKILL");
 		session.done = true;
 		session.result = {
 			outcome: "crashed",

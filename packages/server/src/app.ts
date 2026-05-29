@@ -35,6 +35,7 @@ import { createTaskRoutes } from "./routes/tasks.js";
 import { registerTestRoutes } from "./routes/test-routes.js";
 import { createThreadRoutes } from "./routes/threads.js";
 import { createUserRoutes, createUserSetupRoute } from "./routes/users.js";
+import { createWorkersRoutes } from "./routes/workers.js";
 import type { CredentialResolver } from "./services/credential-resolver.js";
 import {
 	type ObservabilityConfig,
@@ -106,6 +107,17 @@ interface AppOptions {
 	 * test harness — no divergent "minimal app" path.
 	 */
 	registerWebSocket?: (apiRouter: Hono, tokenStore: UpgradeTokenStore) => void;
+	/**
+	 * Optional worker WebSocket registration hook. When provided,
+	 * `createApp` invokes it with the `/api` sub-router at the same point as
+	 * `registerWebSocket` — BEFORE the auth middleware — so workers can
+	 * authenticate via query token without requiring a user API key.
+	 *
+	 * @lore S2-F01: worker WS route must be registered before auth middleware
+	 * (same pattern as user WS route). Production createServer passes this hook
+	 * so dead-code paths are eliminated.
+	 */
+	registerWorkerWebSocket?: (apiRouter: Hono) => void;
 	/**
 	 * Override the upgrade-token store used by `/api/auth/ws-token` and the
 	 * WebSocket auth middleware. Tests inject a custom store with a tiny
@@ -275,6 +287,12 @@ async function createApp(options?: AppOptions): Promise<Hono> {
 		options.registerWebSocket(api, tokenStore);
 	}
 
+	// Register worker WS route BEFORE auth middleware — workers authenticate
+	// via HYPERIDLE_WORKER_TOKEN query param, not via the user API key.
+	if (options?.registerWorkerWebSocket) {
+		options.registerWorkerWebSocket(api);
+	}
+
 	// Auth middleware for all other /api routes (except /health above).
 	// M3 A3: when db is available, use createAuthMiddleware({ db, sharedMode })
 	// to set userId from users table. Without db, fall back to the stateless
@@ -350,6 +368,13 @@ async function createApp(options?: AppOptions): Promise<Hono> {
 			}),
 		);
 		api.route("/status", createStatusRoutes(options.db));
+
+		// S2: worker admin visibility — GET /api/workers lists registered adapters.
+		// Requires X-API-Key matching HYPERIDLE_API_KEY (admin-level auth inside route).
+		// Only mounted when adapterPool is provided so kernel-only mode is unaffected.
+		if (options.adapterPool) {
+			api.route("/workers", createWorkersRoutes(options.adapterPool));
+		}
 		api.route("/git-export", createGitExportRoutes(options.db));
 		api.route("/credentials", createCredentialRoutes(options.db));
 		api.route("/hint-progress", createHintRoutes(options.db));

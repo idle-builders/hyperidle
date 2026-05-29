@@ -9,6 +9,7 @@ import { WebSocketServer } from "ws";
 import { createApp, disposeApp } from "./app.js";
 import { createLocalAdapterPool } from "./harness/adapter-pool.js";
 import { LocalWorkspaceAdapter } from "./harness/local-workspace-adapter.js";
+import { registerWorkerWsRoute } from "./routes/worker-ws.js";
 import { registerWsRoute } from "./routes/ws.js";
 import { EnvCredentialResolver } from "./services/credential-resolver.js";
 import { createDbSubscribeAuthorizer, WsBroadcaster } from "./services/ws-broadcaster.js";
@@ -136,6 +137,14 @@ export async function createServer(port: number): Promise<ServerHandle> {
 			const broadcaster = new WsBroadcaster(eventBus, createDbSubscribeAuthorizer(db));
 			broadcaster.start();
 			wsDispose = registerWsRoute(apiRouter, eventBus, tokenStore, upgradeWebSocket, broadcaster);
+		},
+		/**
+		 * @lore S2-F01: Worker WS route registered BEFORE auth middleware so remote
+		 * workers can authenticate via HYPERIDLE_WORKER_TOKEN query param without
+		 * needing a user API key. Same placement pattern as the user WS route.
+		 */
+		registerWorkerWebSocket: (apiRouter) => {
+			registerWorkerWsRoute(apiRouter, adapterPool, upgradeWebSocket);
 		},
 	});
 

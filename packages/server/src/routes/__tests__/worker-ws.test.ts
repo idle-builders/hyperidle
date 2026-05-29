@@ -6,8 +6,9 @@
  * - registers adapter in pool on WorkerRegisterMessage
  * - unregisters adapter when WebSocket closes
  * - sends { type: "registered" } ack to worker
- *
- * These fail (red phase) until `worker-ws.ts` is created.
+ * - routes runtime messages (event, session_result, error) to the adapter
+ *   after registration (S2-F07 regression guard)
+ * - validates incoming messages with Zod and drops malformed data (S2-F05)
  */
 
 import { describe, expect, it } from "vitest";
@@ -233,5 +234,132 @@ describe("registerWorkerWsRoute — worker lifecycle", () => {
 		manager1.onClose();
 		expect(pool.size).toBe(1);
 		expect(pool.list()[0]?.name).toBe("worker-4");
+	});
+});
+
+// ── Post-registration message routing (S2-F07 regression guard) ──────────────
+
+describe("WorkerConnectionManager — post-registration message routing", () => {
+	it("routes event messages to the adapter after registration", async () => {
+		const { WorkerConnectionManager } = await import("../../routes/worker-ws.js");
+
+		const pool = makePool();
+		const ws = new MockWsContext();
+		const manager = new WorkerConnectionManager(pool);
+
+		// Register the worker
+		manager.onMessage(
+			JSON.stringify({
+				type: "register",
+				id: "w-routing-1",
+				name: "routing-worker",
+				modelProviders: ["anthropic"],
+				maxConcurrent: 2,
+			}),
+			ws as never,
+		);
+
+		expect(pool.size).toBe(1);
+
+		// Get the registered adapter from the pool
+		const selected = pool.select();
+		expect(selected).not.toBeNull();
+
+		// Start a session on the adapter to get a sessionId
+		const handle = await selected!.adapter.startSession({
+			workspacePath: "/workspace/test",
+			soulPromptPath: "",
+			modelTier: "workhorse",
+			tools: [],
+		});
+		const dispatchedMsg = JSON.parse(ws.sent.at(-1) ?? "{}") as { sessionId: string };
+		const sessionId = dispatchedMsg.sessionId;
+
+		// Set up stream consumer
+		const eventsPromise: Promise<Array<{ type: string }>> = (async () => {
+			const collected: Array<{ type: string }> = [];
+			for await (const event of selected!.adapter.streamEvents(handle)) {
+				collected.push(event as { type: string });
+			}
+			return collected;
+		})();
+
+		// Simulate worker sending an event message via the WS handler
+		manager.onMessage(
+			JSON.stringify({
+				type: "event",
+				sessionId,
+				event: { type: "completion", text: "hello" },
+			}),
+			ws as never,
+		);
+
+		// Simulate session completion
+		manager.onMessage(
+			JSON.stringify({
+				type: "session_result",
+				sessionId,
+				result: {
+					outcome: "completed",
+					cost: { minor: 0, currency: "USD" },
+					tokenUsage: { byTier: {} },
+				},
+			}),
+			ws as never,
+		);
+
+		const events = await eventsPromise;
+		expect(events).toHaveLength(1);
+		expect(events[0]?.type).toBe("completion");
+	});
+
+	it("drops malformed messages and does not throw (S2-F05 Zod validation)", async () => {
+		const { WorkerConnectionManager } = await import("../../routes/worker-ws.js");
+
+		const pool = makePool();
+		const ws = new MockWsContext();
+		const manager = new WorkerConnectionManager(pool);
+
+		// Malformed JSON — should be swallowed silently
+		expect(() => manager.onMessage("not-json", ws as never)).not.toThrow();
+
+		// Valid JSON but missing required fields — Zod rejects, no throw
+		expect(() =>
+			manager.onMessage(JSON.stringify({ type: "register", id: "" }), ws as never),
+		).not.toThrow();
+
+		// Pool must remain empty (malformed messages don't register anything)
+		expect(pool.size).toBe(0);
+	});
+
+	it("clears adapter reference on close", async () => {
+		const { WorkerConnectionManager } = await import("../../routes/worker-ws.js");
+
+		const pool = makePool();
+		const ws = new MockWsContext();
+		const manager = new WorkerConnectionManager(pool);
+
+		manager.onMessage(
+			JSON.stringify({
+				type: "register",
+				id: "w-close-1",
+				name: "close-worker",
+				modelProviders: ["anthropic"],
+				maxConcurrent: 1,
+			}),
+			ws as never,
+		);
+
+		expect(pool.size).toBe(1);
+		manager.onClose();
+		expect(pool.size).toBe(0);
+
+		// After close, runtime messages should be silently ignored (no crash)
+		expect(() =>
+			manager.onMessage(
+				JSON.stringify({ type: "event", sessionId: "s1", event: { type: "completion" } }),
+				ws as never,
+			),
+		).not.toThrow();
 	});
 });

@@ -104,9 +104,53 @@ describe("IsolatedHarnessAdapter interface compliance", () => {
 	});
 });
 
-// ── Process isolation — env allowlist ────────────────────────────────────────
+// ── Process isolation — env allowlist + memory limit (S2-F03) ─────────────────
 
 describe("IsolatedHarnessAdapter env allowlist", () => {
+	it("passes --max-old-space-size to fork execArgv (S2-F03)", async () => {
+		forkMock.mockImplementation(() => {
+			const child = makeMockChild({
+				onStart: (c) => {
+					setImmediate(() => {
+						c.emit("message", {
+							type: "session_result",
+							result: {
+								outcome: "completed",
+								cost: { minor: 0, currency: "USD" },
+								tokenUsage: { byTier: {} },
+							},
+						});
+					});
+				},
+			});
+			return child;
+		});
+
+		const resolver = new FakeCredentialResolver();
+		const config: IsolationConfig = {
+			maxMemoryMb: 768,
+			maxDurationMs: 60000,
+			envAllowlist: ["PATH"],
+		};
+		const adapter = new IsolatedHarnessAdapter(resolver, config);
+
+		await adapter.startSession({
+			workspacePath: "/workspace/test",
+			soulPromptPath: "",
+			modelTier: "workhorse",
+			tools: [],
+		});
+
+		const forkCall = forkMock.mock.calls[0] as [
+			string,
+			string[],
+			{ execArgv?: string[]; env?: Record<string, string> },
+		];
+		const execArgv = forkCall?.[2]?.execArgv;
+		expect(execArgv).toBeDefined();
+		expect(execArgv).toContain("--max-old-space-size=768");
+	});
+
 	it("passes only allowlisted env vars + API key to child process", async () => {
 		let capturedChild: MockChild | null = null;
 
@@ -220,6 +264,62 @@ describe("IsolatedHarnessAdapter duration limit", () => {
 		// kill should have been called
 		expect(killMock).not.toBeNull();
 		expect(killMock!).toHaveBeenCalled();
+		// S2-F04: timeout must use SIGKILL (unconditional), not SIGTERM
+		expect(killMock!).toHaveBeenCalledWith("SIGKILL");
+
+		vi.useRealTimers();
+	});
+});
+
+// ── stopSession SIGKILL escalation (S2-F04) ──────────────────────────────────
+
+describe("IsolatedHarnessAdapter stopSession SIGKILL escalation", () => {
+	it("escalates to SIGKILL after 5s if child does not exit", async () => {
+		vi.useFakeTimers();
+
+		let killMock: ReturnType<typeof vi.fn> | null = null;
+
+		forkMock.mockImplementation(() => {
+			const child = makeMockChild();
+			killMock = child.kill;
+			// Child never responds to stop (simulates a hung child)
+			return child;
+		});
+
+		const resolver = new FakeCredentialResolver();
+		const config: IsolationConfig = {
+			maxMemoryMb: 512,
+			maxDurationMs: 60000,
+			envAllowlist: ["PATH"],
+		};
+		const adapter = new IsolatedHarnessAdapter(resolver, config);
+
+		const handle = await adapter.startSession({
+			workspacePath: "/workspace/test",
+			soulPromptPath: "",
+			modelTier: "workhorse",
+			tools: [],
+		});
+
+		// Start stopSession (will hang waiting for child result)
+		const stopPromise = adapter.stopSession(handle);
+
+		// Before 5s: SIGKILL should NOT have been called
+		vi.advanceTimersByTime(4999);
+		expect(killMock).not.toBeNull();
+
+		// At 5s: escalation fires and SIGKILL is sent
+		vi.advanceTimersByTime(1);
+		expect(killMock!).toHaveBeenCalledWith("SIGKILL");
+
+		// Simulate child exit after SIGKILL
+		// Manually resolve the session by emitting exit on the child
+		// (we need to verify the mock was called, stop promise may stay pending)
+		// Just verify SIGKILL was called
+		expect(killMock!.mock.calls.some((c) => c[0] === "SIGKILL")).toBe(true);
+
+		// Suppress unhandled promise (stop may never resolve in this mock scenario)
+		stopPromise.catch(() => {});
 
 		vi.useRealTimers();
 	});

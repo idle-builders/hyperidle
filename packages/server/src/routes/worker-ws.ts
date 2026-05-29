@@ -10,10 +10,51 @@
 
 import type { Hono } from "hono";
 import type { UpgradeWebSocket, WSContext } from "hono/ws";
+import { z } from "zod";
 import type { AdapterPool } from "../harness/adapter-pool.js";
-import type { WorkerRegisterMessage } from "../harness/remote-harness-adapter.js";
 import { RemoteHarnessAdapter } from "../harness/remote-harness-adapter.js";
 import { constantTimeStringEqual } from "../middleware/timing-safe.js";
+
+// ── Zod schemas for worker protocol messages ──────────────────────────────────
+
+/**
+ * @lore S2-F05: Worker WebSocket messages must be Zod-validated before processing
+ * to prevent type-unsafe `as` casts from letting malformed messages through.
+ * Validation rejects malformed messages early rather than propagating bad data
+ * into session routing logic.
+ */
+const WorkerRegisterSchema = z.object({
+	type: z.literal("register"),
+	id: z.string().min(1),
+	name: z.string().min(1),
+	modelProviders: z.array(z.string()),
+	maxConcurrent: z.number().int().positive(),
+});
+
+const WorkerEventSchema = z.object({
+	type: z.literal("event"),
+	sessionId: z.string().min(1),
+	event: z.unknown(),
+});
+
+const WorkerSessionResultSchema = z.object({
+	type: z.literal("session_result"),
+	sessionId: z.string().min(1),
+	result: z.unknown(),
+});
+
+const WorkerErrorSchema = z.object({
+	type: z.literal("error"),
+	sessionId: z.string().min(1),
+	message: z.string(),
+});
+
+const WorkerToServerMessageSchema = z.discriminatedUnion("type", [
+	WorkerRegisterSchema,
+	WorkerEventSchema,
+	WorkerSessionResultSchema,
+	WorkerErrorSchema,
+]);
 
 /**
  * Manages the lifecycle of a single worker WebSocket connection.
@@ -23,6 +64,8 @@ import { constantTimeStringEqual } from "../middleware/timing-safe.js";
 export class WorkerConnectionManager {
 	private readonly pool: AdapterPool;
 	private workerId: string | null = null;
+	/** Set after registration — routes runtime messages to the adapter. */
+	private adapter: RemoteHarnessAdapter | null = null;
 
 	constructor(pool: AdapterPool) {
 		this.pool = pool;
@@ -31,34 +74,54 @@ export class WorkerConnectionManager {
 	/**
 	 * Handle an incoming message from the worker.
 	 * The ws parameter must support send(data: string).
+	 *
+	 * Before registration: only `register` messages are processed.
+	 * After registration: runtime messages (event, session_result, error)
+	 * are dispatched directly to the RemoteHarnessAdapter.
+	 *
+	 * @lore S2-F07: Without this post-registration routing, runtime messages
+	 * arriving via the Hono WS onMessage handler would be passed back to
+	 * manager.onMessage() which previously ignored them — causing streamEvents()
+	 * to hang forever as no session queue would ever receive data.
 	 */
 	onMessage(data: string, ws: { send(data: string): void }): void {
-		let msg: unknown;
+		let raw: unknown;
 		try {
-			msg = JSON.parse(data);
+			raw = JSON.parse(data);
 		} catch {
 			return;
 		}
 
-		if (typeof msg !== "object" || msg === null || !("type" in msg)) return;
-		const typed = msg as { type: string };
+		// Zod-validate before processing — rejects malformed messages
+		const parsed = WorkerToServerMessageSchema.safeParse(raw);
+		if (!parsed.success) {
+			return;
+		}
 
-		if (typed.type === "register") {
-			const regMsg = msg as WorkerRegisterMessage;
-			this.workerId = regMsg.id;
+		const msg = parsed.data;
 
-			// Create a WSContext-compatible adapter for RemoteHarnessAdapter
-			// The ws object passed here is the actual WSContext
-			const adapter = new RemoteHarnessAdapter(ws as never, regMsg);
-			this.pool.register(regMsg.id, adapter, {
-				name: regMsg.name,
+		if (msg.type === "register") {
+			this.workerId = msg.id;
+
+			// Create adapter; it owns the session routing map.
+			// Pass ws as the WsLike interface — RemoteHarnessAdapter.dispatchMessage
+			// is called below for post-registration messages so we do not rely on
+			// ws.onmessage assignment (which WSContext may not support).
+			this.adapter = new RemoteHarnessAdapter(ws as never, msg);
+			this.pool.register(msg.id, this.adapter, {
+				name: msg.name,
 				kind: "remote",
-				modelProviders: regMsg.modelProviders,
-				maxConcurrent: regMsg.maxConcurrent,
+				modelProviders: msg.modelProviders,
+				maxConcurrent: msg.maxConcurrent,
 			});
 
 			// Acknowledge registration
 			ws.send(JSON.stringify({ type: "registered" }));
+		} else if (this.adapter !== null) {
+			// Route runtime messages (event, session_result, error) to the adapter.
+			// Re-serialize the validated message so the adapter's handleMessage
+			// parser receives clean JSON.
+			this.adapter.dispatchMessage(JSON.stringify(msg));
 		}
 	}
 
@@ -68,6 +131,7 @@ export class WorkerConnectionManager {
 			this.pool.unregister(this.workerId);
 			this.workerId = null;
 		}
+		this.adapter = null;
 	}
 }
 
