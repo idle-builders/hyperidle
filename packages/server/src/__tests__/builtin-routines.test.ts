@@ -600,7 +600,7 @@ describe("G4: Built-in Routines", () => {
 				.from(routines)
 				.where(eq(routines.id, "builtin:knowledge-decay"))
 				.limit(1);
-			expect(row?.silent).toBe(1);
+			expect(row?.silent).toBe(true);
 
 			const longAgo = new Date(Date.now() - 95 * 24 * 60 * 60 * 1000).toISOString();
 			for (let i = 0; i < 3; i++) {
