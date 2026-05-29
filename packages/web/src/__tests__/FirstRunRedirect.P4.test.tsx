@@ -22,6 +22,10 @@ function ConversationsStub(): React.JSX.Element {
 	return <div data-testid="landing">conversations</div>;
 }
 
+function WorkPortfolioStub(): React.JSX.Element {
+	return <div data-testid="landing">work-portfolio</div>;
+}
+
 function renderFirstRunRedirect(): typeof screen {
 	render(
 		<MemoryRouter initialEntries={["/"]}>
@@ -29,6 +33,7 @@ function renderFirstRunRedirect(): typeof screen {
 				<Route path="/" element={<FirstRunRedirect />} />
 				<Route path="/setup" element={<SetupStub />} />
 				<Route path="/conversations" element={<ConversationsStub />} />
+				<Route path="/work/portfolio" element={<WorkPortfolioStub />} />
 			</Routes>
 		</MemoryRouter>,
 	);
@@ -102,8 +107,8 @@ describe("FirstRunRedirect (P4) — setup completion check", () => {
 		});
 	});
 
-	// AC-10: when user exists + products exist, redirect to /conversations
-	it("redirects to /conversations when human user exists and products exist", async () => {
+	// R2 AC-5: when user exists + products exist, redirect to /work/portfolio (was /conversations)
+	it("redirects to /work/portfolio when human user exists and products exist", async () => {
 		vi.stubGlobal(
 			"fetch",
 			vi.fn().mockImplementation((url: string) => {
@@ -131,7 +136,7 @@ describe("FirstRunRedirect (P4) — setup completion check", () => {
 		renderFirstRunRedirect();
 
 		await waitFor(() => {
-			expect(screen.getByTestId("landing")).toHaveTextContent("conversations");
+			expect(screen.getByTestId("landing")).toHaveTextContent("work-portfolio");
 		});
 	});
 
