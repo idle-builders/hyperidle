@@ -13,6 +13,9 @@ import { contextBridge, ipcRenderer } from "electron";
 contextBridge.exposeInMainWorld("__HYPERIDLE__", {
 	apiKey: process.argv.find((a: string) => a.startsWith("--api-key="))?.split("=")[1] ?? "",
 	platform: "electron" as const,
+	// S4: backend mode is passed from main process via additionalArguments
+	backendMode: (process.argv.find((a: string) => a.startsWith("--backend-mode="))?.split("=")[1] ??
+		null) as "local" | "shared" | null,
 	credentials: {
 		list: (): Promise<string[]> => ipcRenderer.invoke("credentials:list"),
 		get: (name: string): Promise<string | null> => ipcRenderer.invoke("credentials:get", name),
@@ -33,5 +36,19 @@ contextBridge.exposeInMainWorld("__HYPERIDLE__", {
 	onOpenSettings: (callback: () => void): (() => void) => {
 		ipcRenderer.on("open-settings", callback);
 		return () => ipcRenderer.removeListener("open-settings", callback);
+	},
+	// S4: Worker IPC bridge — only functional in shared-mode Electron
+	worker: {
+		enable: (maxConcurrent: number): Promise<void> =>
+			ipcRenderer.invoke("worker:enable", maxConcurrent),
+		disable: (): Promise<void> => ipcRenderer.invoke("worker:disable"),
+		pause: (): Promise<void> => ipcRenderer.invoke("worker:pause"),
+		resume: (): Promise<void> => ipcRenderer.invoke("worker:resume"),
+		status: (): Promise<unknown> => ipcRenderer.invoke("worker:status"),
+		onStatusChange: (callback: (status: unknown) => void): (() => void) => {
+			const handler = (_event: unknown, s: unknown): void => callback(s);
+			ipcRenderer.on("worker:status-changed", handler);
+			return () => ipcRenderer.removeListener("worker:status-changed", handler);
+		},
 	},
 });

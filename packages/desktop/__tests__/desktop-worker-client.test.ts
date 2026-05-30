@@ -104,13 +104,34 @@ const getClient = async () => {
 	return mod;
 };
 
+/**
+ * Wait for the WS to be created in wsInstances after connect() starts.
+ * connect() does an async fetch first, then creates the WS — so we need
+ * to flush microtasks to let the fetch resolve before accessing wsInstances.
+ *
+ * @lore S4: Test helper needed because connect() is async: fetch() is awaited
+ * before WebSocket creation, so wsInstances[0] is undefined immediately after
+ * calling connect(). This helper polls until the WS appears (up to 100ms).
+ */
+async function waitForWsInstance(): Promise<MockWsInstance> {
+	for (let i = 0; i < 50; i++) {
+		if (wsInstances[0]) return wsInstances[0];
+		await new Promise<void>((resolve) => setTimeout(resolve, 2));
+	}
+	throw new Error("WS instance was not created within timeout");
+}
+
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
 describe("S4 AC-2/AC-3 — DesktopWorkerClient connect/disconnect", () => {
 	it("connect() calls POST /api/auth/worker-token before opening WS", async () => {
 		const { DesktopWorkerClient } = await getClient();
 
-		const MockWebSocket = vi.fn().mockImplementation(() => makeWsInstance());
+		// @lore S4: vi.fn mock must use regular function (not arrow) so `new MockWebSocket()` works
+		// biome-ignore lint/complexity/useArrowFunction: regular function required so `new MockWebSocket()` works via Reflect.construct
+		const MockWebSocket = vi.fn().mockImplementation(function () {
+			return makeWsInstance();
+		});
 		const client = new DesktopWorkerClient(
 			{
 				serverUrl: "http://localhost:3001",
@@ -127,12 +148,11 @@ describe("S4 AC-2/AC-3 — DesktopWorkerClient connect/disconnect", () => {
 		const connectPromise = client.connect();
 
 		// Trigger WS open and registered ack
-		const wsInst = wsInstances[0];
-		if (wsInst) {
-			wsInst.readyState = 1;
-			wsInst.onopen?.();
-			simulateRegisteredAck(wsInst);
-		}
+		// waitForWsInstance() needed because connect() awaits fetch() before creating WS
+		const wsInst = await waitForWsInstance();
+		wsInst.readyState = 1;
+		wsInst.onopen?.();
+		simulateRegisteredAck(wsInst);
 
 		await connectPromise;
 
@@ -149,7 +169,11 @@ describe("S4 AC-2/AC-3 — DesktopWorkerClient connect/disconnect", () => {
 	it("connect() sends WorkerRegisterMessage with correct fields after WS opens", async () => {
 		const { DesktopWorkerClient } = await getClient();
 
-		const MockWebSocket = vi.fn().mockImplementation(() => makeWsInstance());
+		// @lore S4: vi.fn mock must use regular function (not arrow) so `new MockWebSocket()` works
+		// biome-ignore lint/complexity/useArrowFunction: regular function required so `new MockWebSocket()` works via Reflect.construct
+		const MockWebSocket = vi.fn().mockImplementation(function () {
+			return makeWsInstance();
+		});
 		const client = new DesktopWorkerClient(
 			{
 				serverUrl: "http://localhost:3001",
@@ -165,17 +189,15 @@ describe("S4 AC-2/AC-3 — DesktopWorkerClient connect/disconnect", () => {
 
 		const connectPromise = client.connect();
 
-		const wsInst = wsInstances[0];
-		if (wsInst) {
-			wsInst.readyState = 1;
-			wsInst.onopen?.();
-			simulateRegisteredAck(wsInst);
-		}
+		const wsInst = await waitForWsInstance();
+		wsInst.readyState = 1;
+		wsInst.onopen?.();
+		simulateRegisteredAck(wsInst);
 
 		await connectPromise;
 
 		// The register message should have been sent
-		const sentMessages = wsInstances[0]?.sent.map((s) => JSON.parse(s) as unknown) ?? [];
+		const sentMessages = wsInst.sent.map((s) => JSON.parse(s) as unknown);
 		const registerMsg = sentMessages.find(
 			(
 				m,
@@ -200,7 +222,11 @@ describe("S4 AC-2/AC-3 — DesktopWorkerClient connect/disconnect", () => {
 		const { DesktopWorkerClient } = await getClient();
 
 		fetchResponses = [{ ok: false, status: 404, json: async () => ({ error: "not found" }) }];
-		const MockWebSocket = vi.fn().mockImplementation(() => makeWsInstance());
+		// @lore S4: vi.fn mock must use regular function (not arrow) so `new MockWebSocket()` works
+		// biome-ignore lint/complexity/useArrowFunction: regular function required so `new MockWebSocket()` works via Reflect.construct
+		const MockWebSocket = vi.fn().mockImplementation(function () {
+			return makeWsInstance();
+		});
 		const client = new DesktopWorkerClient(
 			{
 				serverUrl: "http://localhost:3001",
@@ -220,7 +246,11 @@ describe("S4 AC-2/AC-3 — DesktopWorkerClient connect/disconnect", () => {
 	it("disconnect() with no active sessions closes WS immediately", async () => {
 		const { DesktopWorkerClient } = await getClient();
 
-		const MockWebSocket = vi.fn().mockImplementation(() => makeWsInstance());
+		// @lore S4: vi.fn mock must use regular function (not arrow) so `new MockWebSocket()` works
+		// biome-ignore lint/complexity/useArrowFunction: regular function required so `new MockWebSocket()` works via Reflect.construct
+		const MockWebSocket = vi.fn().mockImplementation(function () {
+			return makeWsInstance();
+		});
 		const client = new DesktopWorkerClient(
 			{
 				serverUrl: "http://localhost:3001",
@@ -235,17 +265,15 @@ describe("S4 AC-2/AC-3 — DesktopWorkerClient connect/disconnect", () => {
 		);
 
 		const connectPromise = client.connect();
-		const wsInst = wsInstances[0];
-		if (wsInst) {
-			wsInst.readyState = 1;
-			wsInst.onopen?.();
-			simulateRegisteredAck(wsInst);
-		}
+		const wsInst = await waitForWsInstance();
+		wsInst.readyState = 1;
+		wsInst.onopen?.();
+		simulateRegisteredAck(wsInst);
 		await connectPromise;
 
 		await client.disconnect();
 
-		expect(wsInst?.readyState).toBe(3); // CLOSED
+		expect(wsInst.readyState).toBe(3); // CLOSED
 	});
 });
 
@@ -267,19 +295,21 @@ describe("S4 AC-7 — DesktopWorkerClient pause/resume", () => {
 		);
 
 		const connectPromise = client.connect();
-		const wsInst = wsInstances[0];
-		if (wsInst) {
-			wsInst.readyState = 1;
-			wsInst.onopen?.();
-			simulateRegisteredAck(wsInst);
-		}
+		const wsInst = await waitForWsInstance();
+		wsInst.readyState = 1;
+		wsInst.onopen?.();
+		simulateRegisteredAck(wsInst);
 		await connectPromise;
 
 		return { client, wsInst };
 	}
 
 	it("pause() sends { type: 'pause' } via WS", async () => {
-		const MockWebSocket = vi.fn().mockImplementation(() => makeWsInstance());
+		// @lore S4: vi.fn mock must use regular function (not arrow) so `new MockWebSocket()` works
+		// biome-ignore lint/complexity/useArrowFunction: regular function required so `new MockWebSocket()` works via Reflect.construct
+		const MockWebSocket = vi.fn().mockImplementation(function () {
+			return makeWsInstance();
+		});
 		const { client, wsInst } = await makeConnectedClient(MockWebSocket);
 
 		client.pause();
@@ -292,7 +322,11 @@ describe("S4 AC-7 — DesktopWorkerClient pause/resume", () => {
 	});
 
 	it("resume() sends { type: 'resume' } via WS", async () => {
-		const MockWebSocket = vi.fn().mockImplementation(() => makeWsInstance());
+		// @lore S4: vi.fn mock must use regular function (not arrow) so `new MockWebSocket()` works
+		// biome-ignore lint/complexity/useArrowFunction: regular function required so `new MockWebSocket()` works via Reflect.construct
+		const MockWebSocket = vi.fn().mockImplementation(function () {
+			return makeWsInstance();
+		});
 		const { client, wsInst } = await makeConnectedClient(MockWebSocket);
 
 		client.pause();
@@ -309,7 +343,11 @@ describe("S4 AC-7 — DesktopWorkerClient pause/resume", () => {
 describe("S4 AC-6 — DesktopWorkerClient getStatus()", () => {
 	it("getStatus() returns not-connected when not yet connected", async () => {
 		const { DesktopWorkerClient } = await getClient();
-		const MockWebSocket = vi.fn().mockImplementation(() => makeWsInstance());
+		// @lore S4: vi.fn mock must use regular function (not arrow) so `new MockWebSocket()` works
+		// biome-ignore lint/complexity/useArrowFunction: regular function required so `new MockWebSocket()` works via Reflect.construct
+		const MockWebSocket = vi.fn().mockImplementation(function () {
+			return makeWsInstance();
+		});
 
 		const client = new DesktopWorkerClient(
 			{
@@ -335,7 +373,11 @@ describe("S4 AC-6 — DesktopWorkerClient getStatus()", () => {
 
 	it("getStatus().connected is true after connect()", async () => {
 		const { DesktopWorkerClient } = await getClient();
-		const MockWebSocket = vi.fn().mockImplementation(() => makeWsInstance());
+		// @lore S4: vi.fn mock must use regular function (not arrow) so `new MockWebSocket()` works
+		// biome-ignore lint/complexity/useArrowFunction: regular function required so `new MockWebSocket()` works via Reflect.construct
+		const MockWebSocket = vi.fn().mockImplementation(function () {
+			return makeWsInstance();
+		});
 
 		const client = new DesktopWorkerClient(
 			{
@@ -351,12 +393,10 @@ describe("S4 AC-6 — DesktopWorkerClient getStatus()", () => {
 		);
 
 		const connectPromise = client.connect();
-		const wsInst = wsInstances[0];
-		if (wsInst) {
-			wsInst.readyState = 1;
-			wsInst.onopen?.();
-			simulateRegisteredAck(wsInst);
-		}
+		const wsInst = await waitForWsInstance();
+		wsInst.readyState = 1;
+		wsInst.onopen?.();
+		simulateRegisteredAck(wsInst);
 		await connectPromise;
 
 		expect(client.getStatus().connected).toBe(true);
@@ -365,7 +405,11 @@ describe("S4 AC-6 — DesktopWorkerClient getStatus()", () => {
 
 	it("getStatus().paused is true after pause(), false after resume()", async () => {
 		const { DesktopWorkerClient } = await getClient();
-		const MockWebSocket = vi.fn().mockImplementation(() => makeWsInstance());
+		// @lore S4: vi.fn mock must use regular function (not arrow) so `new MockWebSocket()` works
+		// biome-ignore lint/complexity/useArrowFunction: regular function required so `new MockWebSocket()` works via Reflect.construct
+		const MockWebSocket = vi.fn().mockImplementation(function () {
+			return makeWsInstance();
+		});
 
 		const client = new DesktopWorkerClient(
 			{
@@ -381,12 +425,10 @@ describe("S4 AC-6 — DesktopWorkerClient getStatus()", () => {
 		);
 
 		const connectPromise = client.connect();
-		const wsInst = wsInstances[0];
-		if (wsInst) {
-			wsInst.readyState = 1;
-			wsInst.onopen?.();
-			simulateRegisteredAck(wsInst);
-		}
+		const wsInst = await waitForWsInstance();
+		wsInst.readyState = 1;
+		wsInst.onopen?.();
+		simulateRegisteredAck(wsInst);
 		await connectPromise;
 
 		client.pause();
@@ -400,7 +442,11 @@ describe("S4 AC-6 — DesktopWorkerClient getStatus()", () => {
 describe("S4 — DesktopWorkerClient onStatusChange()", () => {
 	it("onStatusChange() callback fired when status changes", async () => {
 		const { DesktopWorkerClient } = await getClient();
-		const MockWebSocket = vi.fn().mockImplementation(() => makeWsInstance());
+		// @lore S4: vi.fn mock must use regular function (not arrow) so `new MockWebSocket()` works
+		// biome-ignore lint/complexity/useArrowFunction: regular function required so `new MockWebSocket()` works via Reflect.construct
+		const MockWebSocket = vi.fn().mockImplementation(function () {
+			return makeWsInstance();
+		});
 
 		const client = new DesktopWorkerClient(
 			{
@@ -421,12 +467,10 @@ describe("S4 — DesktopWorkerClient onStatusChange()", () => {
 		});
 
 		const connectPromise = client.connect();
-		const wsInst = wsInstances[0];
-		if (wsInst) {
-			wsInst.readyState = 1;
-			wsInst.onopen?.();
-			simulateRegisteredAck(wsInst);
-		}
+		const wsInst = await waitForWsInstance();
+		wsInst.readyState = 1;
+		wsInst.onopen?.();
+		simulateRegisteredAck(wsInst);
 		await connectPromise;
 
 		// At least one status change event (connected=true)
@@ -437,7 +481,11 @@ describe("S4 — DesktopWorkerClient onStatusChange()", () => {
 
 	it("unsubscribe() stops further callbacks", async () => {
 		const { DesktopWorkerClient } = await getClient();
-		const MockWebSocket = vi.fn().mockImplementation(() => makeWsInstance());
+		// @lore S4: vi.fn mock must use regular function (not arrow) so `new MockWebSocket()` works
+		// biome-ignore lint/complexity/useArrowFunction: regular function required so `new MockWebSocket()` works via Reflect.construct
+		const MockWebSocket = vi.fn().mockImplementation(function () {
+			return makeWsInstance();
+		});
 
 		const client = new DesktopWorkerClient(
 			{
@@ -458,12 +506,10 @@ describe("S4 — DesktopWorkerClient onStatusChange()", () => {
 		});
 
 		const connectPromise = client.connect();
-		const wsInst = wsInstances[0];
-		if (wsInst) {
-			wsInst.readyState = 1;
-			wsInst.onopen?.();
-			simulateRegisteredAck(wsInst);
-		}
+		const wsInst = await waitForWsInstance();
+		wsInst.readyState = 1;
+		wsInst.onopen?.();
+		simulateRegisteredAck(wsInst);
 		await connectPromise;
 
 		const countAfterConnect = statusChanges.length;
