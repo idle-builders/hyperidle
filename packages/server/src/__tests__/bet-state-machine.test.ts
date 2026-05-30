@@ -57,18 +57,20 @@ function makeBet(
 	};
 }
 
-function getRevisionLog(db: HyperIdleDb, betId: string): RevisionLogEntry[] {
-	const bet = db.select().from(bets).where(eq(bets.id, betId)).get();
+async function getRevisionLog(db: HyperIdleDb, betId: string): Promise<RevisionLogEntry[]> {
+	const [bet] = await db.select().from(bets).where(eq(bets.id, betId));
 	if (!bet?.revisionLog) return [];
 	return JSON.parse(bet.revisionLog) as RevisionLogEntry[];
 }
 
 describe("bet-state-machine", () => {
+	let handle: TestDbHandle;
 	let db: HyperIdleDb;
 	let eventBus: EventBus;
 
-	beforeEach(() => {
-		db = createTestDb();
+	beforeEach(async () => {
+		handle = await createTestDb();
+		db = handle.db;
 		eventBus = new EventBus();
 		db.insert(teams).values(makeProduct()).run();
 		db.insert(teamMembers).values(makeTeamMembers()).run();
@@ -85,7 +87,7 @@ describe("bet-state-machine", () => {
 			const bet = db.select().from(bets).where(eq(bets.id, "bet-1")).get();
 			expect(bet?.status).toBe("active");
 
-			const log = getRevisionLog(db, "bet-1");
+			const log = await getRevisionLog(db, "bet-1");
 			expect(log).toHaveLength(1);
 			expect(log[0].field).toBe("status");
 			expect(log[0].old_value).toBe("draft");
@@ -211,11 +213,11 @@ describe("bet-state-machine", () => {
 
 			await transitionBet(db, eventBus, "bet-1", "killed", { reason: "No longer viable" });
 
-			const bet = db.select().from(bets).where(eq(bets.id, "bet-1")).get();
+			const [bet] = await db.select().from(bets).where(eq(bets.id, "bet-1"));
 			expect(bet?.status).toBe("killed");
 
-			const log = getRevisionLog(db, "bet-1");
-			expect(log[0].reason).toBe("No longer viable");
+			const log = await getRevisionLog(db, "bet-1");
+			expect(log[0]?.reason).toBe("No longer viable");
 		});
 
 		it("decrements activeBets when killing active bet (was committed)", async () => {
@@ -327,7 +329,7 @@ describe("bet-state-machine", () => {
 					/simulated bets UPDATE failure/,
 				);
 
-				updateSpy.mockRestore();
+				txSpy.mockRestore();
 
 				// Post-condition: teamMembers.activeBets is back to 0 (transaction
 				// rolled back) and bet.status is unchanged.
@@ -358,15 +360,15 @@ describe("bet-state-machine", () => {
 				"Scope refined",
 			);
 
-			const bet = db.select().from(bets).where(eq(bets.id, "bet-1")).get();
+			const [bet] = await db.select().from(bets).where(eq(bets.id, "bet-1"));
 			expect(bet?.doneCondition).toBe("New condition");
 
-			const log = getRevisionLog(db, "bet-1");
+			const log = await getRevisionLog(db, "bet-1");
 			expect(log).toHaveLength(1);
-			expect(log[0].field).toBe("done_condition");
-			expect(log[0].old_value).toBe("Old condition");
-			expect(log[0].new_value).toBe("New condition");
-			expect(log[0].reason).toBe("Scope refined");
+			expect(log[0]?.field).toBe("done_condition");
+			expect(log[0]?.old_value).toBe("Old condition");
+			expect(log[0]?.new_value).toBe("New condition");
+			expect(log[0]?.reason).toBe("Scope refined");
 
 			expect(itemHandler).toHaveBeenCalledTimes(1);
 			expect(itemHandler).toHaveBeenCalledWith(
@@ -401,7 +403,7 @@ describe("bet-state-machine", () => {
 
 			await updateBetField(db, eventBus, "bet-1", "hypothesis", "New hypothesis", "Learnings");
 
-			const bet = db.select().from(bets).where(eq(bets.id, "bet-1")).get();
+			const [bet] = await db.select().from(bets).where(eq(bets.id, "bet-1"));
 			expect(bet?.hypothesis).toBe("New hypothesis");
 		});
 
@@ -412,7 +414,7 @@ describe("bet-state-machine", () => {
 
 			await updateBetField(db, eventBus, "bet-1", "appetite", "4 weeks", "Extended");
 
-			const bet = db.select().from(bets).where(eq(bets.id, "bet-1")).get();
+			const [bet] = await db.select().from(bets).where(eq(bets.id, "bet-1"));
 			expect(bet?.appetite).toBe("4 weeks");
 		});
 
@@ -438,7 +440,7 @@ describe("bet-state-machine", () => {
 
 			await transitionBet(db, eventBus, "bet-1", "active");
 
-			const log = getRevisionLog(db, "bet-1");
+			const log = await getRevisionLog(db, "bet-1");
 			expect(log).toHaveLength(1);
 
 			const entry = log[0];
@@ -447,9 +449,11 @@ describe("bet-state-machine", () => {
 			expect(entry).toHaveProperty("old_value");
 			expect(entry).toHaveProperty("new_value");
 			expect(entry).toHaveProperty("reason");
-			expect(typeof entry.timestamp).toBe("string");
+			expect(typeof entry?.timestamp).toBe("string");
 			// Validate ISO timestamp format
-			expect(new Date(entry.timestamp).toISOString()).toBe(entry.timestamp);
+			expect(entry?.timestamp ? new Date(entry.timestamp).toISOString() : null).toBe(
+				entry?.timestamp ?? null,
+			);
 		});
 
 		it("accumulates entries across multiple transitions", async () => {
@@ -460,7 +464,7 @@ describe("bet-state-machine", () => {
 			await transitionBet(db, eventBus, "bet-1", "active");
 			await transitionBet(db, eventBus, "bet-1", "completed");
 
-			const log = getRevisionLog(db, "bet-1");
+			const log = await getRevisionLog(db, "bet-1");
 			expect(log).toHaveLength(2);
 			expect(log[0].old_value).toBe("draft");
 			expect(log[0].new_value).toBe("active");
@@ -478,7 +482,9 @@ describe("bet-state-machine", () => {
 				.run();
 
 			const events: Array<{ type: string; betId?: string; toState?: string }> = [];
-			eventBus.on("*", (e) => events.push(e as { type: string; betId?: string; toState?: string }));
+			eventBus.on("*", (e: unknown) =>
+				events.push(e as { type: string; betId?: string; toState?: string }),
+			);
 
 			// First transition wins — commits and emits bet_state_changed.
 			await transitionBet(db, eventBus, "bet-1", "completed");

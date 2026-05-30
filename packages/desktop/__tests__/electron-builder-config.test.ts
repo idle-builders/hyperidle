@@ -3,8 +3,6 @@
  *
  * AC coverage:
  *   AC2: vite build produces SPA; electron-builder copies into resources.
- *   AC3: package-lock.json generated as CI artifact (not committed).
- *   AC4: electron-rebuild rebuilds better-sqlite3 for arm64 and x64.
  *   AC5: electron-builder.yml: dmg target, hardened runtime, notarize, entitlements.
  *   AC12: Self-contained bundle — no npm install on user's Mac.
  *
@@ -89,9 +87,9 @@ describe("electron-builder.yml — files and resources (AC2, AC12)", () => {
 		expect(config).toMatch(/dist\/\*\*\/\*/);
 	});
 
-	it("includes node_modules/better-sqlite3 in files (AC12 — native module must be in bundle)", () => {
+	it("includes node_modules/@electric-sql/pglite in files (PGlite WASM must be in bundle)", () => {
 		const config = readConfig();
-		expect(config).toMatch(/node_modules\/better-sqlite3/);
+		expect(config).toMatch(/node_modules\/@electric-sql\/pglite/);
 	});
 
 	it("has extraResources with drizzle migrations (resolveMigrationsFolder uses process.resourcesPath)", () => {
@@ -107,9 +105,9 @@ describe("electron-builder.yml — files and resources (AC2, AC12)", () => {
 });
 
 describe("electron-builder.yml — rebuild and publish (AC4, AC9, AC12)", () => {
-	it("has npmRebuild: true (AC4 — electron-rebuild rebuilds better-sqlite3 for Electron ABI)", () => {
+	it("has npmRebuild: false (PGlite is pure WASM — no native modules to rebuild)", () => {
 		const config = readConfig();
-		expect(config).toMatch(/npmRebuild\s*:\s*true/);
+		expect(config).toMatch(/npmRebuild\s*:\s*false/);
 	});
 
 	it("has publish: null (AC12 — no auto-updater; distribution via Homebrew only)", () => {

@@ -28,15 +28,17 @@ function authHeaders(): Record<string, string> {
 }
 
 describe("Rail Endpoint (E5)", () => {
+	let handle: TestDbHandle;
 	let db: HyperIdleDb;
 	let eventBus: EventBus;
 	let app: Hono;
 
-	beforeEach(() => {
+	beforeEach(async () => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		db = createTestDb();
+		handle = await createTestDb();
+		db = handle.db;
 		eventBus = new EventBus();
-		app = createTestApp({ db, eventBus });
+		app = await createTestApp({ db, eventBus });
 
 		// Seed base data
 		db.insert(teams)
@@ -58,8 +60,9 @@ describe("Rail Endpoint (E5)", () => {
 			.run();
 	});
 
-	afterEach(() => {
+	afterEach(async () => {
 		vi.unstubAllEnvs();
+		await handle?.close();
 	});
 
 	// AC1: GET /api/rail returns current state with bets, blockers, awaiting-ordering items, cost burn rate
@@ -99,15 +102,13 @@ describe("Rail Endpoint (E5)", () => {
 				.run();
 
 			// Create agent for owner
-			db.insert(users)
-				.values({
-					id: "agent-1",
-					name: "Builder Bot",
-					role: "builder",
-					status: "active",
-					createdAt: new Date().toISOString(),
-				})
-				.run();
+			await db.insert(users).values({
+				id: "agent-1",
+				name: "Builder Bot",
+				role: "builder",
+				status: "active",
+				createdAt: new Date().toISOString(),
+			});
 
 			// Create a blocked task
 			const blockedAt = new Date(Date.now() - 3600_000).toISOString(); // 1 hour ago
@@ -141,36 +142,30 @@ describe("Rail Endpoint (E5)", () => {
 			// last_active_at instead of `kind`. Legacy `kind='review'` projects
 			// to host_kind='task' for an item-scoped review thread (plan §5.3).
 			const ts = new Date().toISOString();
-			db.insert(threads)
-				.values({
-					id: "thread-1",
-					hostKind: "task",
-					hostId: "task-ok-1",
-					initiatorId: "team-1",
-					participants: JSON.stringify([]),
-					lastActiveAt: ts,
-					createdAt: ts,
-				})
-				.run();
+			await db.insert(threads).values({
+				id: "thread-1",
+				hostKind: "task",
+				hostId: "task-ok-1",
+				initiatorId: "team-1",
+				participants: JSON.stringify([]),
+				lastActiveAt: ts,
+				createdAt: ts,
+			});
 
-			db.insert(items)
-				.values({
-					id: "item-1",
-					title: "Needs ordering",
-					kind: "ordering",
-					threadId: "thread-1",
-					createdAt: new Date().toISOString(),
-				})
-				.run();
+			await db.insert(items).values({
+				id: "item-1",
+				title: "Needs ordering",
+				kind: "ordering",
+				threadId: "thread-1",
+				createdAt: new Date().toISOString(),
+			});
 
 			// Set cost settings — L17: use new minor-unit keys
-			db.insert(factorySettings)
-				.values({
-					key: "cost_cap_daily_minor",
-					value: "10000",
-					updatedAt: new Date().toISOString(),
-				})
-				.run();
+			await db.insert(factorySettings).values({
+				key: "cost_cap_daily_minor",
+				value: "10000",
+				updatedAt: new Date().toISOString(),
+			});
 
 			const res = await app.request("/api/rail", { headers: authHeaders() });
 			expect(res.status).toBe(200);
@@ -270,15 +265,13 @@ describe("Rail Endpoint (E5)", () => {
 				})
 				.run();
 
-			db.insert(users)
-				.values({
-					id: "agent-owner",
-					name: "Owner Agent",
-					role: "builder",
-					status: "active",
-					createdAt: new Date().toISOString(),
-				})
-				.run();
+			await db.insert(users).values({
+				id: "agent-owner",
+				name: "Owner Agent",
+				role: "builder",
+				status: "active",
+				createdAt: new Date().toISOString(),
+			});
 
 			const blockedSince = new Date(Date.now() - 7200_000).toISOString(); // 2 hours ago
 			db.insert(tasks)
@@ -441,13 +434,11 @@ describe("Rail Endpoint (E5)", () => {
 	// AC7 / AC18: Cost burn rate in rail response (L17: WireMoney shape)
 	describe("AC7/AC18: Cost burn rate in rail response", () => {
 		it("returns todayCap from factory settings when cost_cap_daily_minor is set", async () => {
-			db.insert(factorySettings)
-				.values({
-					key: "cost_cap_daily_minor",
-					value: "50000",
-					updatedAt: new Date().toISOString(),
-				})
-				.run();
+			await db.insert(factorySettings).values({
+				key: "cost_cap_daily_minor",
+				value: "50000",
+				updatedAt: new Date().toISOString(),
+			});
 
 			const res = await app.request("/api/rail", { headers: authHeaders() });
 			const body = (await res.json()) as Record<string, unknown>;

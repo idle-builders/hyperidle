@@ -6,6 +6,7 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { apiFetch } from "../services/api-fetch.js";
 
 export interface Recipient {
 	id: string;
@@ -61,7 +62,7 @@ export function useRecipients(query?: string): UseRecipientsResult {
 		(async (): Promise<void> => {
 			try {
 				const url = query ? `/api/recipients?q=${encodeURIComponent(query)}` : "/api/recipients";
-				const res = await fetch(url, { signal: ac.signal });
+				const res = await apiFetch(url, { signal: ac.signal });
 				if (ac.signal.aborted) return;
 				if (!res.ok) {
 					setError(`HTTP ${res.status}`);

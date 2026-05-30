@@ -19,12 +19,10 @@ function authHeaders(extra?: Record<string, string>): Record<string, string> {
 	return { "X-API-Key": TEST_API_KEY, "Content-Type": "application/json", ...extra };
 }
 
-/**
- * Seed a human founder user row. P2: auth resolves from users WHERE kind = 'human'.
- */
-function seedFounderUser(db: HyperIdleDb, founderId = "test-founder-1"): void {
+async function seedFounderUser(db: HyperIdleDb, founderId = "test-founder-1"): Promise<void> {
 	const now = new Date().toISOString();
-	db.insert(users)
+	await db
+		.insert(users)
 		.values({
 			id: founderId,
 			kind: "human",
@@ -34,33 +32,31 @@ function seedFounderUser(db: HyperIdleDb, founderId = "test-founder-1"): void {
 			status: "active",
 			createdAt: now,
 		})
-		.onConflictDoNothing()
-		.run();
+		.onConflictDoNothing();
 }
 
 describe("M3 — Auth middleware: createAuthMiddleware(db) (A3)", () => {
+	let handle: TestDbHandle;
 	let db: HyperIdleDb;
 	let eventBus: EventBus;
 	let app: Hono;
 
-	beforeEach(() => {
+	beforeEach(async () => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		db = createTestDb();
+		handle = await createTestDb();
+		db = handle.db;
 		eventBus = new EventBus();
-		app = createTestApp({ db, eventBus });
+		app = await createTestApp({ db, eventBus });
 	});
 
-	afterEach(() => {
+	afterEach(async () => {
 		vi.unstubAllEnvs();
+		await handle?.close();
 	});
 
 	it("sets userId on context from users table (kind=human)", async () => {
-		seedFounderUser(db, "test-founder-1");
-
-		// Probe via GET /api/auth/me which returns c.get("userId")
+		await seedFounderUser(db, "test-founder-1");
 		const res = await app.request("/api/auth/me", { headers: authHeaders() });
-
-		// Endpoint must exist and return the seeded founder id (not "u-founder")
 		expect(res.status).toBe(200);
 		const body = (await res.json()) as { id: string };
 		expect(body.id).toBe("test-founder-1");
@@ -68,11 +64,9 @@ describe("M3 — Auth middleware: createAuthMiddleware(db) (A3)", () => {
 	});
 
 	it("falls back to u-founder when no human user is seeded (backward compat)", async () => {
-		// Do NOT seed any human user
 		const res = await app.request("/api/auth/me", { headers: authHeaders() });
 		expect(res.status).toBe(200);
 		const body = (await res.json()) as { id: string };
-		// The fallback must be "u-founder" to not break unseeded DBs
 		expect(body.id).toBe("u-founder");
 	});
 
@@ -83,26 +77,28 @@ describe("M3 — Auth middleware: createAuthMiddleware(db) (A3)", () => {
 });
 
 describe("M3 — GET /api/auth/me returns full identity from users table (A4)", () => {
+	let handle: TestDbHandle;
 	let db: HyperIdleDb;
 	let eventBus: EventBus;
 	let app: Hono;
 
-	beforeEach(() => {
+	beforeEach(async () => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		db = createTestDb();
+		handle = await createTestDb();
+		db = handle.db;
 		eventBus = new EventBus();
-		app = createTestApp({ db, eventBus });
-		seedFounderUser(db, "test-founder-1");
+		app = await createTestApp({ db, eventBus });
+		await seedFounderUser(db, "test-founder-1");
 	});
 
-	afterEach(() => {
+	afterEach(async () => {
 		vi.unstubAllEnvs();
+		await handle?.close();
 	});
 
 	it("returns id, name, email, avatarUrl from users table", async () => {
 		const res = await app.request("/api/auth/me", { headers: authHeaders() });
 		expect(res.status).toBe(200);
-
 		const body = (await res.json()) as {
 			id: string;
 			name: string;
@@ -123,15 +119,17 @@ describe("M3 — GET /api/auth/me returns full identity from users table (A4)", 
 });
 
 describe("M3 — Bets routes: revision log actor comes from auth context (A5)", () => {
+	let handle: TestDbHandle;
 	let db: HyperIdleDb;
 	let eventBus: EventBus;
 	let app: Hono;
 
-	beforeEach(() => {
+	beforeEach(async () => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		db = createTestDb();
+		handle = await createTestDb();
+		db = handle.db;
 		eventBus = new EventBus();
-		app = createTestApp({ db, eventBus });
+		app = await createTestApp({ db, eventBus });
 
 		const now = new Date().toISOString();
 		db.insert(teams)
@@ -158,23 +156,18 @@ describe("M3 — Bets routes: revision log actor comes from auth context (A5)", 
 			.run();
 	});
 
-	afterEach(() => {
+	afterEach(async () => {
 		vi.unstubAllEnvs();
+		await handle?.close();
 	});
 
 	it("revision log actor is the seeded human user id, NOT 'u-founder'", async () => {
-		seedFounderUser(db, "test-founder-1");
-
+		await seedFounderUser(db, "test-founder-1");
 		const res = await app.request("/api/bets/bet-1", {
 			method: "PATCH",
 			headers: authHeaders(),
-			body: JSON.stringify({
-				field: "hypothesis",
-				value: "New hypothesis",
-				reason: "Test reason",
-			}),
+			body: JSON.stringify({ field: "hypothesis", value: "New hypothesis", reason: "Test reason" }),
 		});
-
 		expect(res.status).toBe(200);
 		const body = (await res.json()) as { revisionLog?: string };
 		const log = body.revisionLog ? (JSON.parse(body.revisionLog) as Array<{ actor: string }>) : [];

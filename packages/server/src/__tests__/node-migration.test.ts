@@ -97,7 +97,7 @@ describe("N1: Bun-API removal — source file assertions", () => {
 	});
 
 	// ------------------------------------------------------------------ AC3
-	describe("AC3: server-factory.ts — openProductionDb uses better-sqlite3 only; bun:sqlite deleted", () => {
+	describe("AC3: server-factory.ts — uses PGlite/postgres-js; no bun:sqlite or better-sqlite3", () => {
 		it('does not import from "bun:sqlite"', () => {
 			const src = readSrc("server-factory.ts");
 			expect(src).not.toContain("bun:sqlite");
@@ -108,11 +108,16 @@ describe("N1: Bun-API removal — source file assertions", () => {
 			expect(src).not.toContain("drizzle-orm/bun-sqlite");
 		});
 
-		it("imports createDb from @hyperidle/db for production DB", () => {
+		it("does not import better-sqlite3", () => {
 			const src = readSrc("server-factory.ts");
-			// After N1, createDb is explicitly imported from @hyperidle/db.
-			// The import statement must include createDb as a named import.
-			expect(src).toMatch(/import\s*\{[^}]*\bcreateDb\b[^}]*\}\s*from\s*["']@hyperidle\/db["']/);
+			expect(src).not.toContain("better-sqlite3");
+		});
+
+		it("imports createPgliteDb or createPostgresDb from @hyperidle/db", () => {
+			const src = readSrc("server-factory.ts");
+			expect(src).toMatch(
+				/import\s*\{[^}]*\bcreateP(glite|ostgres)Db\b[^}]*\}\s*from\s*["']@hyperidle\/db["']/,
+			);
 		});
 	});
 
@@ -159,21 +164,12 @@ describe("N1: Bun-API removal — source file assertions", () => {
 		});
 	});
 
-	// ------------------------------------------------------------------ AC6 (comment only — transaction test is in fabric)
-	describe("AC6: knowledge-repository.ts comment updated — bun:sqlite reference removed", () => {
-		it("comment at line ~189 does not mention bun:sqlite", () => {
+	// ------------------------------------------------------------------ AC6
+	describe("AC6: knowledge-repository.ts — no bun:sqlite or better-sqlite3 references", () => {
+		it("does not mention bun:sqlite", () => {
 			const fabricSrc = path.resolve(SERVER_SRC, "../../fabric/src");
 			const src = fs.readFileSync(path.join(fabricSrc, "knowledge-repository.ts"), "utf-8");
-			// The comment describing db.transaction should not mention bun:sqlite.
-			// It should only say better-sqlite3.
-			const commentMatch = src.match(/db\.transaction.*BEGIN IMMEDIATE[^\n]*/);
-			if (commentMatch) {
-				expect(commentMatch[0]).not.toContain("bun:sqlite");
-			} else {
-				// The comment block around BEGIN IMMEDIATE should exist.
-				expect(src).toMatch(/BEGIN IMMEDIATE/);
-				expect(src).not.toMatch(/bun:sqlite[^`]*BEGIN IMMEDIATE/s);
-			}
+			expect(src).not.toContain("bun:sqlite");
 		});
 	});
 });

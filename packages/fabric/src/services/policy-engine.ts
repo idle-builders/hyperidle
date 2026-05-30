@@ -23,36 +23,38 @@ export function registerPolicyEngine(
 	const nowFn = options?.nowFn ?? (() => new Date());
 
 	const handler = (event: ItemCreatedEvent): void => {
-		evaluateItem(db, eventBus, event.itemId, nowFn);
+		void (async () => {
+			await evaluateItem(db, eventBus, event.itemId, nowFn);
+		})();
 	};
 
 	return eventBus.on("item_created", handler);
 }
 
-function evaluateItem(
+async function evaluateItem(
 	db: HyperIdleDb,
 	eventBus: EventBus,
 	itemId: string,
 	nowFn: () => Date,
-): void {
+): Promise<void> {
 	// 1. Load the item
-	const item = db.select().from(items).where(eq(items.id, itemId)).get();
+	const [item] = await db.select().from(items).where(eq(items.id, itemId)).limit(1);
 	if (!item) return;
 
 	// 2. Load the source agent's autonomy level
-	const autonomyLevel = getAutonomyLevel(db, item.sourceAgentId);
+	const autonomyLevel = await getAutonomyLevel(db, item.sourceAgentId);
 
 	// 3. Determine action (priority order)
-	const action = determineAction(db, item, autonomyLevel, nowFn);
+	const action = await determineAction(db, item, autonomyLevel, nowFn);
 
 	// 4. Execute the action
-	executeAction(db, eventBus, itemId, action);
+	await executeAction(db, eventBus, itemId, action);
 }
 
-function getAutonomyLevel(db: HyperIdleDb, sourceAgentId: string | null): number {
+async function getAutonomyLevel(db: HyperIdleDb, sourceAgentId: string | null): Promise<number> {
 	if (!sourceAgentId) return 1;
 
-	const skills = db.select().from(userSkills).where(eq(userSkills.userId, sourceAgentId)).all();
+	const skills = await db.select().from(userSkills).where(eq(userSkills.userId, sourceAgentId));
 
 	if (skills.length === 0) return 1;
 
@@ -60,7 +62,7 @@ function getAutonomyLevel(db: HyperIdleDb, sourceAgentId: string | null): number
 	return Math.max(...skills.map((s) => s.autonomyLevel));
 }
 
-function determineAction(
+async function determineAction(
 	db: HyperIdleDb,
 	item: {
 		riskTier: string | null;
@@ -70,18 +72,18 @@ function determineAction(
 	},
 	autonomyLevel: number,
 	nowFn: () => Date,
-): PolicyAction {
+): Promise<PolicyAction> {
 	// a. High-risk: ALWAYS push
 	if (item.riskTier === "high") return "push";
 
 	// b. Skill-change: ALWAYS push
 	if (item.kind === "skill_change") return "push";
 
-	const isBlocking = (item.blocking ?? 0) !== 0;
+	const isBlocking = !!item.blocking;
 
 	// c. Check silence modes (only for non-blocking items)
 	if (!isBlocking) {
-		if (sharedIsSilenced(db, { sourceAgentId: item.sourceAgentId }, nowFn())) return "queue";
+		if (await sharedIsSilenced(db, { sourceAgentId: item.sourceAgentId }, nowFn())) return "queue";
 	}
 
 	// d. Autonomy-based rules
@@ -91,30 +93,29 @@ function determineAction(
 	return "push";
 }
 
-function executeAction(
+async function executeAction(
 	db: HyperIdleDb,
 	eventBus: EventBus,
 	itemId: string,
 	action: PolicyAction,
-): void {
+): Promise<void> {
 	switch (action) {
 		case "auto_resolve": {
 			// L1a M4: write a `verdict`-typed message instead of a row in the
 			// dropped `responses` table. The item carries a `threadId`; the
 			// verdict targets the most recent review-typed message in that
 			// thread (or the legacy item id when no review message exists).
-			const item = db.select().from(items).where(eq(items.id, itemId)).get();
+			const [item] = await db.select().from(items).where(eq(items.id, itemId)).limit(1);
 			if (!item) break;
 			// L1 step5 (W5): push the type filter into SQL and limit to the
 			// most recent review-typed message — the previous query loaded
 			// every message in the thread to JS just to find one.
-			const reviewMessage = db
+			const [reviewMessage] = await db
 				.select()
 				.from(messages)
 				.where(and(eq(messages.threadId, item.threadId), eq(messages.type, "review")))
 				.orderBy(desc(messages.createdAt))
-				.limit(1)
-				.get();
+				.limit(1);
 
 			const messageId = crypto.randomUUID();
 			const respondedAt = new Date().toISOString();
@@ -122,43 +123,41 @@ function executeAction(
 				decision: "approve",
 				resolvesMessageId: reviewMessage?.id ?? itemId,
 			};
-			db.insert(messages)
-				.values({
-					id: messageId,
-					senderId: "policy_engine",
-					threadId: item.threadId,
-					type: "verdict",
-					payload: JSON.stringify(verdictPayload),
-					clientKey: `__l1_policy_${itemId}`,
-					legacyItemId: itemId,
-					createdAt: respondedAt,
-				})
-				.run();
+			await db.insert(messages).values({
+				id: messageId,
+				senderId: "policy_engine",
+				threadId: item.threadId,
+				type: "verdict",
+				payload: JSON.stringify(verdictPayload),
+				clientKey: `__l1_policy_${itemId}`,
+				legacyItemId: itemId,
+				createdAt: respondedAt,
+			});
 			if (reviewMessage) {
-				db.update(messages)
+				await db
+					.update(messages)
 					.set({ resolvedAt: respondedAt })
-					.where(eq(messages.id, reviewMessage.id))
-					.run();
+					.where(eq(messages.id, reviewMessage.id));
 			}
-			db.update(threads)
+			await db
+				.update(threads)
 				.set({ resolvedAt: respondedAt })
-				.where(eq(threads.id, item.threadId))
-				.run();
+				.where(eq(threads.id, item.threadId));
 			break;
 		}
 		case "queue": {
 			// @lore I6: append to auditTrail instead of overwriting to preserve
 			// prior entries (e.g. from re-evaluation after an unqueue).
-			const existing = db.select().from(items).where(eq(items.id, itemId)).get();
+			const [existing] = await db.select().from(items).where(eq(items.id, itemId)).limit(1);
 			// @lore I6: old data may have a plain object instead of an array.
 			// Guard with Array.isArray to avoid crashing on legacy audit trails.
 			const parsed: unknown = existing?.auditTrail ? JSON.parse(existing.auditTrail) : [];
 			const trail: unknown[] = Array.isArray(parsed) ? parsed : [parsed];
 			trail.push({ action: "policy_queued", timestamp: new Date().toISOString() });
-			db.update(items)
+			await db
+				.update(items)
 				.set({ auditTrail: JSON.stringify(trail) })
-				.where(eq(items.id, itemId))
-				.run();
+				.where(eq(items.id, itemId));
 			break;
 		}
 		case "push": {

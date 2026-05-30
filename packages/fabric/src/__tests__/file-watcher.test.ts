@@ -44,7 +44,7 @@ function createManifest(workspace: string, sessionId: string): string {
 	return manifestPath;
 }
 
-function seedSession(db: HyperIdleDb, sessionId: string): void {
+async function seedSession(db: HyperIdleDb, sessionId: string): Promise<void> {
 	const now = new Date().toISOString();
 	// @lore U1: teams is the domain entity (formerly products).
 	db.insert(teams)
@@ -114,22 +114,25 @@ describe("writeback", () => {
 	let workspace: string;
 	let manifestPath: string;
 	let db: HyperIdleDb;
+	let handle: Awaited<ReturnType<typeof createTestDb>>;
 	const sessionId = "sess-test-1";
 
-	beforeEach(() => {
+	beforeEach(async () => {
 		tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "hyperidle-test-"));
 		workspace = createWorkspace(tmpDir);
 		manifestPath = createManifest(workspace, sessionId);
-		db = createTestDb();
-		seedSession(db, sessionId);
+		handle = await createTestDb();
+		db = handle.db;
+		await seedSession(db, sessionId);
 	});
 
-	afterEach(() => {
+	afterEach(async () => {
 		fs.rmSync(tmpDir, { recursive: true, force: true });
+		await handle.close();
 	});
 
 	// AC1: New file in knowledge/ creates knowledge_items row with status CAPTURED within 2 seconds
-	it("AC1: new file in knowledge/ creates knowledge_items row with status captured", () => {
+	it("AC1: new file in knowledge/ creates knowledge_items row with status captured", async () => {
 		const filePath = path.join(workspace, "knowledge/practices/new-pattern.md");
 		fs.writeFileSync(filePath, "# New Pattern\nSome content here");
 
@@ -141,7 +144,7 @@ describe("writeback", () => {
 			},
 		];
 
-		const result = processWriteback(
+		const result = await processWriteback(
 			{ db, workspacePath: workspace, sessionId, manifestPath },
 			changes,
 		);
@@ -149,16 +152,16 @@ describe("writeback", () => {
 		expect(result.created).toBe(1);
 
 		// Verify the item was created with status 'captured'
-		const items = db.select().from(knowledgeItems).all();
+		const items = await db.select().from(knowledgeItems);
 		expect(items.length).toBe(1);
 		expect(items[0].status).toBe("captured");
 		expect(items[0].body).toBe("# New Pattern\nSome content here");
 		// @lore O2: layer moved to knowledgeStrategyFabric extension table
-		const fabric = db
+		const [fabric] = await db
 			.select()
 			.from(knowledgeStrategyFabric)
 			.where(eq(knowledgeStrategyFabric.knowledgeItemId, items[0].id))
-			.get();
+			.limit(1);
 		expect(fabric?.layer).toBe("L1");
 
 		// Verify manifest was updated
@@ -169,7 +172,7 @@ describe("writeback", () => {
 	});
 
 	// AC2: Modified file updates corresponding row, version increments
-	it("AC2: modified file updates row and increments version", () => {
+	it("AC2: modified file updates row and increments version", async () => {
 		// Create initial item
 		const filePath = path.join(workspace, "knowledge/practices/existing.md");
 		fs.writeFileSync(filePath, "Original content");
@@ -181,9 +184,12 @@ describe("writeback", () => {
 				fullPath: filePath,
 			},
 		];
-		processWriteback({ db, workspacePath: workspace, sessionId, manifestPath }, createChanges);
+		await processWriteback(
+			{ db, workspacePath: workspace, sessionId, manifestPath },
+			createChanges,
+		);
 
-		const itemsBefore = db.select().from(knowledgeItems).all();
+		const itemsBefore = await db.select().from(knowledgeItems);
 		expect(itemsBefore.length).toBe(1);
 		expect(itemsBefore[0].version).toBe(1);
 
@@ -196,47 +202,48 @@ describe("writeback", () => {
 				fullPath: filePath,
 			},
 		];
-		const result = processWriteback(
+		const result = await processWriteback(
 			{ db, workspacePath: workspace, sessionId, manifestPath },
 			modifyChanges,
 		);
 
 		expect(result.updated).toBe(1);
-		const itemsAfter = db.select().from(knowledgeItems).all();
+		const itemsAfter = await db.select().from(knowledgeItems);
 		expect(itemsAfter.length).toBe(1);
 		expect(itemsAfter[0].version).toBe(2);
 		expect(itemsAfter[0].body).toBe("Updated content");
 	});
 
 	// AC3: Deleted file flags for facilitator review, NOT auto-deleted
-	it("AC3: deleted file flags for review, not auto-deleted from DB", () => {
+	it("AC3: deleted file flags for review, not auto-deleted from DB", async () => {
 		// Create initial item
 		const filePath = path.join(workspace, "knowledge/practices/to-delete.md");
 		fs.writeFileSync(filePath, "Content to be deleted");
 
-		processWriteback({ db, workspacePath: workspace, sessionId, manifestPath }, [
+		await processWriteback({ db, workspacePath: workspace, sessionId, manifestPath }, [
 			{ type: "create", relativePath: "knowledge/practices/to-delete.md", fullPath: filePath },
 		]);
 
-		const itemsBefore = db.select().from(knowledgeItems).all();
+		const itemsBefore = await db.select().from(knowledgeItems);
 		expect(itemsBefore.length).toBe(1);
 		const itemId = itemsBefore[0].id;
 
 		// Now delete
 		fs.unlinkSync(filePath);
-		const result = processWriteback({ db, workspacePath: workspace, sessionId, manifestPath }, [
-			{ type: "delete", relativePath: "knowledge/practices/to-delete.md", fullPath: filePath },
-		]);
+		const result = await processWriteback(
+			{ db, workspacePath: workspace, sessionId, manifestPath },
+			[{ type: "delete", relativePath: "knowledge/practices/to-delete.md", fullPath: filePath }],
+		);
 
 		expect(result.deleted).toBe(1);
 
 		// Item still exists in DB
-		const itemsAfter = db.select().from(knowledgeItems).all();
+		const itemsAfter = await db.select().from(knowledgeItems);
 		expect(itemsAfter.length).toBe(1);
 		expect(itemsAfter[0].id).toBe(itemId);
 
 		// Conflict record created for review
-		const conflicts = db.select().from(knowledgeConflicts).all();
+		const conflicts = await db.select().from(knowledgeConflicts);
 		expect(conflicts.length).toBe(1);
 		expect(conflicts[0].itemId).toBe(itemId);
 		expect(conflicts[0].proposedBody).toBe("[DELETED]");
@@ -244,7 +251,7 @@ describe("writeback", () => {
 	});
 
 	// AC4: 10 files written in 200ms debounce collapses to <= 10 writeback operations
-	it("AC4: batch of 10 files collapses to at most 10 writeback operations", () => {
+	it("AC4: batch of 10 files collapses to at most 10 writeback operations", async () => {
 		const changes: WritebackChange[] = [];
 		for (let i = 0; i < 10; i++) {
 			const filePath = path.join(workspace, `knowledge/practices/file-${i}.md`);
@@ -256,7 +263,7 @@ describe("writeback", () => {
 			});
 		}
 
-		const result = processWriteback(
+		const result = await processWriteback(
 			{ db, workspacePath: workspace, sessionId, manifestPath },
 			changes,
 		);
@@ -264,38 +271,45 @@ describe("writeback", () => {
 		expect(result.processed).toBeLessThanOrEqual(10);
 		expect(result.created).toBe(10);
 
-		const items = db.select().from(knowledgeItems).all();
+		const items = await db.select().from(knowledgeItems);
 		expect(items.length).toBe(10);
 	});
 
 	// AC5: Version conflict creates knowledge_conflicts row
-	it("AC5: version conflict creates knowledge_conflicts row", () => {
+	it("AC5: version conflict creates knowledge_conflicts row", async () => {
 		// Create initial item
 		const filePath = path.join(workspace, "knowledge/practices/conflict-test.md");
 		fs.writeFileSync(filePath, "Original content");
 
-		processWriteback({ db, workspacePath: workspace, sessionId, manifestPath }, [
+		await processWriteback({ db, workspacePath: workspace, sessionId, manifestPath }, [
 			{ type: "create", relativePath: "knowledge/practices/conflict-test.md", fullPath: filePath },
 		]);
 
-		const items = db.select().from(knowledgeItems).all();
+		const items = await db.select().from(knowledgeItems);
 		const itemId = items[0].id;
 
 		// Simulate external update: bump version in DB directly
-		db.update(knowledgeItems)
+		await db
+			.update(knowledgeItems)
 			.set({ version: 5, body: "Externally updated" })
-			.where(eq(knowledgeItems.id, itemId))
-			.run();
+			.where(eq(knowledgeItems.id, itemId));
 
 		// Now try to modify via writeback (manifest still says version 1)
 		fs.writeFileSync(filePath, "Agent's new content");
-		const result = processWriteback({ db, workspacePath: workspace, sessionId, manifestPath }, [
-			{ type: "modify", relativePath: "knowledge/practices/conflict-test.md", fullPath: filePath },
-		]);
+		const result = await processWriteback(
+			{ db, workspacePath: workspace, sessionId, manifestPath },
+			[
+				{
+					type: "modify",
+					relativePath: "knowledge/practices/conflict-test.md",
+					fullPath: filePath,
+				},
+			],
+		);
 
 		expect(result.conflicts).toBe(1);
 
-		const conflicts = db.select().from(knowledgeConflicts).all();
+		const conflicts = await db.select().from(knowledgeConflicts);
 		expect(conflicts.length).toBe(1);
 		expect(conflicts[0].itemId).toBe(itemId);
 		expect(conflicts[0].versionBase).toBe(1);
@@ -305,11 +319,11 @@ describe("writeback", () => {
 	});
 
 	// AC7: Manifest updated after each writeback
-	it("AC7: manifest updated after each writeback", () => {
+	it("AC7: manifest updated after each writeback", async () => {
 		const filePath = path.join(workspace, "knowledge/decisions/arch-choice.md");
 		fs.writeFileSync(filePath, "We chose X because Y");
 
-		processWriteback({ db, workspacePath: workspace, sessionId, manifestPath }, [
+		await processWriteback({ db, workspacePath: workspace, sessionId, manifestPath }, [
 			{ type: "create", relativePath: "knowledge/decisions/arch-choice.md", fullPath: filePath },
 		]);
 
@@ -321,7 +335,7 @@ describe("writeback", () => {
 
 		// Modify the file
 		fs.writeFileSync(filePath, "Updated decision");
-		processWriteback({ db, workspacePath: workspace, sessionId, manifestPath }, [
+		await processWriteback({ db, workspacePath: workspace, sessionId, manifestPath }, [
 			{ type: "modify", relativePath: "knowledge/decisions/arch-choice.md", fullPath: filePath },
 		]);
 
@@ -332,15 +346,15 @@ describe("writeback", () => {
 	});
 
 	// AC8: work/session-notes.md changes reflected in sessions.notes
-	it("AC8: session-notes.md changes reflected in sessions.notes", () => {
+	it("AC8: session-notes.md changes reflected in sessions.notes", async () => {
 		const notesPath = path.join(workspace, "work/session-notes.md");
 		fs.writeFileSync(notesPath, "# Session Notes\nImportant observation");
 
-		processWriteback({ db, workspacePath: workspace, sessionId, manifestPath }, [
+		await processWriteback({ db, workspacePath: workspace, sessionId, manifestPath }, [
 			{ type: "modify", relativePath: "work/session-notes.md", fullPath: notesPath },
 		]);
 
-		const session = db.select().from(sessions).where(eq(sessions.id, sessionId)).get();
+		const [session] = await db.select().from(sessions).where(eq(sessions.id, sessionId)).limit(1);
 
 		expect(session).toBeTruthy();
 		expect(session?.notes).toBe("# Session Notes\nImportant observation");
@@ -352,18 +366,21 @@ describe("file-watcher (fs.watch)", () => {
 	let workspace: string;
 	let manifestPath: string;
 	let db: HyperIdleDb;
+	let handle: Awaited<ReturnType<typeof createTestDb>>;
 	const sessionId = "sess-watcher-1";
 
-	beforeEach(() => {
+	beforeEach(async () => {
 		tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "hyperidle-watcher-"));
 		workspace = createWorkspace(tmpDir);
 		manifestPath = createManifest(workspace, sessionId);
-		db = createTestDb();
-		seedSession(db, sessionId);
+		handle = await createTestDb();
+		db = handle.db;
+		await seedSession(db, sessionId);
 	});
 
-	afterEach(() => {
+	afterEach(async () => {
 		fs.rmSync(tmpDir, { recursive: true, force: true });
+		await handle.close();
 	});
 
 	// AC1 (timing): file change detected within 2 seconds
@@ -387,7 +404,7 @@ describe("file-watcher (fs.watch)", () => {
 
 		watcher.stop();
 
-		const items = db.select().from(knowledgeItems).all();
+		const items = await db.select().from(knowledgeItems);
 		expect(items.length).toBe(1);
 		expect(items[0].status).toBe("captured");
 	}, 5000);
@@ -418,7 +435,7 @@ describe("file-watcher (fs.watch)", () => {
 
 		watcher.stop();
 
-		const items = db.select().from(knowledgeItems).all();
+		const items = await db.select().from(knowledgeItems);
 		expect(items.length).toBe(10);
 	}, 5000);
 
@@ -443,7 +460,7 @@ describe("file-watcher (fs.watch)", () => {
 		// Stop — final poll should detect and flush the written file
 		watcher.stop();
 
-		const itemsBefore = db.select().from(knowledgeItems).all();
+		const itemsBefore = await db.select().from(knowledgeItems);
 		expect(itemsBefore.length).toBe(1);
 		expect(itemsBefore[0].body).toBe("Before stop");
 
@@ -453,7 +470,7 @@ describe("file-watcher (fs.watch)", () => {
 
 		await sleep(300);
 
-		const itemsAfter = db.select().from(knowledgeItems).all();
+		const itemsAfter = await db.select().from(knowledgeItems);
 		expect(itemsAfter.length).toBe(1); // Still just 1
 	}, 5000);
 
@@ -477,15 +494,15 @@ describe("file-watcher (fs.watch)", () => {
 		await sleep(3000);
 
 		// Verify item was created
-		let items = db.select().from(knowledgeItems).all();
+		let items = await db.select().from(knowledgeItems);
 		expect(items.length).toBe(1);
 		const itemId = items[0].id;
 
 		// T=250ms equivalent: "human" patches the DB directly (external update)
-		db.update(knowledgeItems)
+		await db
+			.update(knowledgeItems)
 			.set({ version: 2, body: "Human patched this" })
-			.where(eq(knowledgeItems.id, itemId))
-			.run();
+			.where(eq(knowledgeItems.id, itemId));
 
 		// Agent modifies the file again
 		fs.writeFileSync(filePath, "Agent overwrites at T=500");
@@ -497,13 +514,13 @@ describe("file-watcher (fs.watch)", () => {
 
 		// The human's DB update should win (it's at version 2, manifest says 1)
 		// A conflict should be flagged
-		const conflicts = db.select().from(knowledgeConflicts).all();
+		const conflicts = await db.select().from(knowledgeConflicts);
 		expect(conflicts.length).toBe(1);
 		expect(conflicts[0].itemId).toBe(itemId);
 		expect(conflicts[0].proposedBody).toBe("Agent overwrites at T=500");
 
 		// Human's content should still be in DB (not overwritten)
-		items = db.select().from(knowledgeItems).all();
+		items = await db.select().from(knowledgeItems);
 		expect(items[0].body).toBe("Human patched this");
 	}, 10000);
 });
@@ -513,18 +530,21 @@ describe("polling-watcher", () => {
 	let workspace: string;
 	let manifestPath: string;
 	let db: HyperIdleDb;
+	let handle: Awaited<ReturnType<typeof createTestDb>>;
 	const sessionId = "sess-poll-1";
 
-	beforeEach(() => {
+	beforeEach(async () => {
 		tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "hyperidle-poll-"));
 		workspace = createWorkspace(tmpDir);
 		manifestPath = createManifest(workspace, sessionId);
-		db = createTestDb();
-		seedSession(db, sessionId);
+		handle = await createTestDb();
+		db = handle.db;
+		await seedSession(db, sessionId);
 	});
 
-	afterEach(() => {
+	afterEach(async () => {
 		fs.rmSync(tmpDir, { recursive: true, force: true });
+		await handle.close();
 	});
 
 	// AC9: Polling fallback detects changes within 3 seconds
@@ -547,7 +567,7 @@ describe("polling-watcher", () => {
 
 		watcher.stop();
 
-		const items = db.select().from(knowledgeItems).all();
+		const items = await db.select().from(knowledgeItems);
 		expect(items.length).toBe(1);
 		expect(items[0].status).toBe("captured");
 		expect(items[0].body).toBe("Polled content");
@@ -560,7 +580,7 @@ describe("polling-watcher", () => {
 		fs.writeFileSync(filePath, "Original polled");
 
 		// Create the item in DB and manifest first
-		processWriteback({ db, workspacePath: workspace, sessionId, manifestPath }, [
+		await processWriteback({ db, workspacePath: workspace, sessionId, manifestPath }, [
 			{ type: "create", relativePath: "knowledge/practices/existing-poll.md", fullPath: filePath },
 		]);
 
@@ -581,7 +601,7 @@ describe("polling-watcher", () => {
 
 		watcher.stop();
 
-		const items = db.select().from(knowledgeItems).all();
+		const items = await db.select().from(knowledgeItems);
 		expect(items.length).toBe(1);
 		expect(items[0].version).toBe(2);
 		expect(items[0].body).toBe("Modified polled content");
@@ -593,7 +613,7 @@ describe("polling-watcher", () => {
 		const filePath = path.join(workspace, "knowledge/practices/delete-poll.md");
 		fs.writeFileSync(filePath, "To delete via poll");
 
-		processWriteback({ db, workspacePath: workspace, sessionId, manifestPath }, [
+		await processWriteback({ db, workspacePath: workspace, sessionId, manifestPath }, [
 			{ type: "create", relativePath: "knowledge/practices/delete-poll.md", fullPath: filePath },
 		]);
 
@@ -613,10 +633,10 @@ describe("polling-watcher", () => {
 		watcher.stop();
 
 		// Item still in DB, conflict record for review
-		const items = db.select().from(knowledgeItems).all();
+		const items = await db.select().from(knowledgeItems);
 		expect(items.length).toBe(1);
 
-		const conflicts = db.select().from(knowledgeConflicts).all();
+		const conflicts = await db.select().from(knowledgeConflicts);
 		expect(conflicts.length).toBe(1);
 		expect(conflicts[0].proposedBody).toBe("[DELETED]");
 	}, 8000);

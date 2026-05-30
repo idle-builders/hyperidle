@@ -72,7 +72,7 @@ export async function handoff(
 	// Pre-transaction reads + validation (safe to do outside the tx: these
 	// reads do not mutate state, and the tx callback below re-reads any row
 	// it updates to avoid stale snapshots on concurrent handoffs).
-	const task = db.select().from(tasks).where(eq(tasks.id, sessionContext.taskId)).get();
+	const [task] = await db.select().from(tasks).where(eq(tasks.id, sessionContext.taskId)).limit(1);
 	if (!task) {
 		throw new Error(`Task not found: ${sessionContext.taskId}`);
 	}
@@ -81,7 +81,11 @@ export async function handoff(
 	// predictable "not found" (keeps error semantics identical to the
 	// pre-transactional implementation).
 	if (params.toAgent) {
-		const targetAgent = db.select().from(users).where(eq(users.id, params.toAgent)).get();
+		const [targetAgent] = await db
+			.select()
+			.from(users)
+			.where(eq(users.id, params.toAgent))
+			.limit(1);
 		if (!targetAgent) {
 			throw new Error(`Agent not found: ${params.toAgent}`);
 		}
@@ -100,13 +104,13 @@ export async function handoff(
 	let taskStateChangedEvent: TaskStateChangedEvent | null = null;
 	let itemCreatedEvent: Extract<DomainEvent, { type: "item_created" }> | null = null;
 
-	const result: HandoffResult = db.transaction((tx): HandoffResult => {
+	const result: HandoffResult = await db.transaction(async (tx): Promise<HandoffResult> => {
 		// 1. End current session (state + endedAt). Cost is preserved —
 		// downstream cost-cap + digest routines depend on it.
-		tx.update(sessions)
+		await tx
+			.update(sessions)
 			.set({ state: "done", endedAt: now })
-			.where(eq(sessions.id, sessionContext.sessionId))
-			.run();
+			.where(eq(sessions.id, sessionContext.sessionId));
 
 		// 2. Perform the handoff-type-specific mutations + capture the
 		// post-commit event shapes.
@@ -123,14 +127,14 @@ export async function handoff(
 				? (JSON.parse(task.auditTrail) as TaskAuditEntry[])
 				: [];
 			existingStateAudit.push({ from: fromState, to: "blocked", timestamp: now });
-			tx.update(tasks)
+			await tx
+				.update(tasks)
 				.set({
 					state: "blocked",
 					auditTrail: JSON.stringify(existingStateAudit),
 					updatedAt: now,
 				})
-				.where(eq(tasks.id, task.id))
-				.run();
+				.where(eq(tasks.id, task.id));
 			taskStateChangedEvent = {
 				type: "task_state_changed",
 				streamId: task.id,
@@ -142,29 +146,25 @@ export async function handoff(
 
 			// Review thread + item
 			const reviewThreadId = crypto.randomUUID();
-			tx.insert(threads)
-				.values({
-					id: reviewThreadId,
-					hostKind: "task",
-					hostId: task.id,
-					initiatorId: sessionContext.agentId,
-					participants: JSON.stringify([sessionContext.agentId]),
-					lastActiveAt: now,
-					createdAt: now,
-				})
-				.run();
+			await tx.insert(threads).values({
+				id: reviewThreadId,
+				hostKind: "task",
+				hostId: task.id,
+				initiatorId: sessionContext.agentId,
+				participants: JSON.stringify([sessionContext.agentId]),
+				lastActiveAt: now,
+				createdAt: now,
+			});
 			const reviewItemId = crypto.randomUUID();
-			tx.insert(items)
-				.values({
-					id: reviewItemId,
-					sourceAgentId: sessionContext.agentId,
-					kind: "review",
-					title: `Human review requested for task ${task.id}`,
-					body: JSON.stringify({ taskId: task.id, reason: metadata.reason, metadata }),
-					threadId: reviewThreadId,
-					createdAt: now,
-				})
-				.run();
+			await tx.insert(items).values({
+				id: reviewItemId,
+				sourceAgentId: sessionContext.agentId,
+				kind: "review",
+				title: `Human review requested for task ${task.id}`,
+				body: JSON.stringify({ taskId: task.id, reason: metadata.reason, metadata }),
+				threadId: reviewThreadId,
+				createdAt: now,
+			});
 			itemCreatedEvent = {
 				type: "item_created",
 				streamId: reviewItemId,
@@ -175,10 +175,10 @@ export async function handoff(
 			};
 			txResult = { status: "success" };
 		} else if (params.toAgent) {
-			tx.update(tasks)
+			await tx
+				.update(tasks)
 				.set({ ownerAgentId: params.toAgent, updatedAt: now })
-				.where(eq(tasks.id, task.id))
-				.run();
+				.where(eq(tasks.id, task.id));
 			txResult = { status: "success", targetAgentId: params.toAgent };
 		} else if (params.toRole) {
 			// @lore U1: users.teamId references teamMembers.id (membership group),
@@ -207,42 +207,38 @@ export async function handoff(
 					: undefined;
 
 			if (availableAgent) {
-				tx.update(tasks)
+				await tx
+					.update(tasks)
 					.set({ ownerAgentId: availableAgent.id, updatedAt: now })
-					.where(eq(tasks.id, task.id))
-					.run();
+					.where(eq(tasks.id, task.id));
 				txResult = { status: "success", targetAgentId: availableAgent.id };
 			} else {
 				const escalationThreadId = crypto.randomUUID();
-				tx.insert(threads)
-					.values({
-						id: escalationThreadId,
-						hostKind: "task",
-						hostId: task.id,
-						initiatorId: sessionContext.agentId,
-						participants: JSON.stringify([sessionContext.agentId]),
-						lastActiveAt: now,
-						createdAt: now,
-					})
-					.run();
+				await tx.insert(threads).values({
+					id: escalationThreadId,
+					hostKind: "task",
+					hostId: task.id,
+					initiatorId: sessionContext.agentId,
+					participants: JSON.stringify([sessionContext.agentId]),
+					lastActiveAt: now,
+					createdAt: now,
+				});
 
 				const escalationItemId = crypto.randomUUID();
-				tx.insert(items)
-					.values({
-						id: escalationItemId,
-						sourceAgentId: sessionContext.agentId,
-						kind: "escalation",
-						title: `No available ${params.toRole} agent for task ${task.id}`,
-						body: JSON.stringify({
-							taskId: task.id,
-							requestedRole: params.toRole,
-							reason: metadata.reason,
-							metadata,
-						}),
-						threadId: escalationThreadId,
-						createdAt: now,
-					})
-					.run();
+				await tx.insert(items).values({
+					id: escalationItemId,
+					sourceAgentId: sessionContext.agentId,
+					kind: "escalation",
+					title: `No available ${params.toRole} agent for task ${task.id}`,
+					body: JSON.stringify({
+						taskId: task.id,
+						requestedRole: params.toRole,
+						reason: metadata.reason,
+						metadata,
+					}),
+					threadId: escalationThreadId,
+					createdAt: now,
+				});
 				itemCreatedEvent = {
 					type: "item_created",
 					streamId: escalationItemId,
@@ -277,22 +273,20 @@ export async function handoff(
 				handoffPayload.error = metadata.error;
 			}
 			const messageId = crypto.randomUUID();
-			tx.insert(messages)
-				.values({
-					id: messageId,
-					senderId: sessionContext.agentId,
-					threadId: task.threadId,
-					type: "handoff",
-					payload: JSON.stringify(handoffPayload),
-					clientKey: messageId,
-					createdAt: now,
-				})
-				.run();
+			await tx.insert(messages).values({
+				id: messageId,
+				senderId: sessionContext.agentId,
+				threadId: task.threadId,
+				type: "handoff",
+				payload: JSON.stringify(handoffPayload),
+				clientKey: messageId,
+				createdAt: now,
+			});
 		}
 
 		// 4. Log the handoff in tasks.auditTrail. Re-read via `tx` so we
 		// observe the state-transition entry appended above (toHuman path).
-		const freshTask = tx.select().from(tasks).where(eq(tasks.id, task.id)).get();
+		const [freshTask] = await tx.select().from(tasks).where(eq(tasks.id, task.id)).limit(1);
 		const existingAudit: TaskAuditEntry[] = freshTask?.auditTrail
 			? (JSON.parse(freshTask.auditTrail) as TaskAuditEntry[])
 			: [];
@@ -304,13 +298,13 @@ export async function handoff(
 			reason: metadata.reason,
 			timestamp: now,
 		};
-		tx.update(tasks)
+		await tx
+			.update(tasks)
 			.set({
 				auditTrail: JSON.stringify([...existingAudit, handoffEntry]),
 				updatedAt: now,
 			})
-			.where(eq(tasks.id, task.id))
-			.run();
+			.where(eq(tasks.id, task.id));
 
 		return txResult;
 	});

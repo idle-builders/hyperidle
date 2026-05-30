@@ -1,156 +1,129 @@
 {
 	"version": "7",
-	"dialect": "sqlite",
+	"dialect": "postgresql",
 	"entries": [
 		{
 			"idx": 0,
-			"version": "6",
-			"when": 1776292318090,
-			"tag": "0000_normal_serpent_society",
+			"version": "7",
+			"when": 1776292956969,
+			"tag": "0000_easy_ted_forrester",
 			"breakpoints": true
 		},
 		{
 			"idx": 1,
-			"version": "6",
-			"when": 1776296378932,
-			"tag": "0001_cultured_kitty_pryde",
+			"version": "7",
+			"when": 1776481034456,
+			"tag": "0001_useful_micromax",
 			"breakpoints": true
 		},
 		{
 			"idx": 2,
-			"version": "6",
-			"when": 1776444441856,
-			"tag": "0002_productive_sentinels",
+			"version": "7",
+			"when": 1776486010729,
+			"tag": "0002_bitter_gwen_stacy",
 			"breakpoints": true
 		},
 		{
 			"idx": 3,
-			"version": "6",
-			"when": 1776481025554,
-			"tag": "0003_damp_wild_pack",
+			"version": "7",
+			"when": 1776518371787,
+			"tag": "0003_nice_metal_master",
 			"breakpoints": true
 		},
 		{
 			"idx": 4,
-			"version": "6",
-			"when": 1776485999346,
-			"tag": "0004_flashy_toad",
+			"version": "7",
+			"when": 1776600000000,
+			"tag": "0004_boolean_coerce",
 			"breakpoints": true
 		},
 		{
 			"idx": 5,
-			"version": "6",
-			"when": 1776518362313,
-			"tag": "0005_empty_sunspot",
+			"version": "7",
+			"when": 1776600100000,
+			"tag": "0005_drop_tasks_state_idx",
 			"breakpoints": true
 		},
 		{
 			"idx": 6,
-			"version": "6",
-			"when": 1776600200000,
-			"tag": "0006_drop_tasks_state_idx",
+			"version": "7",
+			"when": 1782950400000,
+			"tag": "0006_thread_primitive_l1",
 			"breakpoints": true
 		},
 		{
 			"idx": 7,
-			"version": "6",
-			"when": 1782950400000,
-			"tag": "0007_thread_primitive_l1",
+			"version": "7",
+			"when": 1782950500000,
+			"tag": "0007_thread_host_immutability",
 			"breakpoints": true
 		},
 		{
 			"idx": 8,
-			"version": "6",
-			"when": 1782950500000,
-			"tag": "0008_thread_host_immutability",
+			"version": "7",
+			"when": 1782960000000,
+			"tag": "0008_add_artifacts_l3",
 			"breakpoints": true
 		},
 		{
 			"idx": 9,
-			"version": "6",
-			"when": 1777555586095,
-			"tag": "0009_add_artifacts_l3",
+			"version": "7",
+			"when": 1782960100000,
+			"tag": "0009_cost_tokens_l17",
 			"breakpoints": true
 		},
 		{
 			"idx": 10,
-			"version": "6",
-			"when": 1777555646095,
-			"tag": "0010_add_session_harness_fields",
+			"version": "7",
+			"when": 1782960200000,
+			"tag": "0010_knowledge_access_log_l22",
 			"breakpoints": true
 		},
 		{
 			"idx": 11,
-			"version": "6",
-			"when": 1780000000000,
-			"tag": "0011_cost_tokens_l17",
+			"version": "7",
+			"when": 1782960300000,
+			"tag": "0011_o2_kernel_strategy_separation",
 			"breakpoints": true
 		},
 		{
 			"idx": 12,
-			"version": "6",
-			"when": 1746547200000,
-			"tag": "0012_add_propagation_log"
+			"version": "7",
+			"when": 1782960400000,
+			"tag": "0012_Q2_knowledge_scope",
+			"breakpoints": true
 		},
 		{
 			"idx": 13,
-			"version": "6",
-			"when": 1746532800000,
-			"tag": "0013_knowledge_access_log_l22",
+			"version": "7",
+			"when": 1782960500000,
+			"tag": "0013_P2_rename_agents_to_users",
 			"breakpoints": true
 		},
 		{
 			"idx": 14,
-			"version": "6",
-			"when": 1783200000000,
-			"tag": "0014_item_artifact_metadata",
+			"version": "7",
+			"when": 1782960600000,
+			"tag": "0014_P3_config_credentials",
 			"breakpoints": true
 		},
 		{
 			"idx": 15,
-			"version": "6",
-			"when": 1783300000000,
-			"tag": "0015_O2_schema_migration",
+			"version": "7",
+			"when": 1782960700000,
+			"tag": "0015_P5_hint_progress",
 			"breakpoints": true
 		},
 		{
 			"idx": 16,
-			"version": "6",
-			"when": 1783400000000,
-			"tag": "0016_tsf_risk_tier",
-			"breakpoints": true
-		},
-		{
-			"idx": 17,
-			"version": "6",
-			"when": 1779817622461,
-			"tag": "0017_Q2_knowledge_scope",
-			"breakpoints": true
-		},
-		{
-			"idx": 18,
-			"version": "6",
-			"when": 1748400000000,
-			"tag": "0018_P2_rename_agents_to_users",
-			"breakpoints": true
-		},
-		{
-			"idx": 19,
-			"version": "6",
-			"when": 1748500000000,
-			"tag": "0019_P3_config_credentials",
-			"breakpoints": true
-		},
-		{
-			"idx": 20,
-			"version": "6",
-			"when": 1748600000000,
-			"tag": "0020_P5_hint_progress",
+			"version": "7",
+			"when": 1782960800000,
+			"tag": "0016_L20_propagation_log",
 			"breakpoints": true
 		},
 		{
 			"idx": 21,
-			"version": "6",
+			"version": "7",
 			"when": 1748700000000,
 			"tag": "0021_U1_schema_migration",
 			"breakpoints": true

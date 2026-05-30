@@ -45,14 +45,15 @@ interface AppCtx {
 	events: DomainEvent[];
 }
 
-function setupApp(): AppCtx {
-	const db = createTestDb();
+async function setupApp(): Promise<AppCtx> {
+	const handle = await createTestDb();
+	const db = handle.db;
 	const eventBus = new EventBus();
 	const events: DomainEvent[] = [];
 	eventBus.on("*", (e) => {
 		events.push(e);
 	});
-	const app = createTestApp({ db, eventBus });
+	const app = await createTestApp({ db, eventBus });
 
 	const now = new Date().toISOString();
 	db.insert(teams).values({ id: "p1", name: "P", phase: "build", createdAt: now }).run();
@@ -66,33 +67,27 @@ function setupApp(): AppCtx {
 		})
 		.run();
 	// "u-founder" is the founder participant; "agent-1" is an agent.
-	db.insert(users)
-		.values({
-			id: "u-founder",
-			name: "Founder",
-			role: "founder",
-			status: "active",
-			createdAt: now,
-		})
-		.run();
-	db.insert(users)
-		.values({
-			id: "agent-1",
-			name: "Agent",
-			role: "builder",
-			status: "active",
-			createdAt: now,
-		})
-		.run();
-	db.insert(users)
-		.values({
-			id: "agent-2",
-			name: "Other Agent",
-			role: "builder",
-			status: "active",
-			createdAt: now,
-		})
-		.run();
+	await db.insert(users).values({
+		id: "u-founder",
+		name: "Founder",
+		role: "founder",
+		status: "active",
+		createdAt: now,
+	});
+	await db.insert(users).values({
+		id: "agent-1",
+		name: "Agent",
+		role: "builder",
+		status: "active",
+		createdAt: now,
+	});
+	await db.insert(users).values({
+		id: "agent-2",
+		name: "Other Agent",
+		role: "builder",
+		status: "active",
+		createdAt: now,
+	});
 	// A bet + task for host_kind='task' threads.
 	db.insert(bets)
 		.values({
@@ -129,9 +124,9 @@ const validReviewPayload = {
 describe("AC-7 / AC-10 — POST /api/threads creates a thread per host_kind", () => {
 	let ctx: AppCtx;
 
-	beforeEach(() => {
+	beforeEach(async () => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		ctx = setupApp();
+		ctx = await setupApp();
 	});
 
 	afterEach(() => {
@@ -185,7 +180,7 @@ describe("AC-12 — POST /api/threads/:id/messages round-trips every MessageType
 
 	beforeEach(async () => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		ctx = setupApp();
+		ctx = await setupApp();
 
 		const create = await ctx.app.request("/api/threads", {
 			method: "POST",
@@ -275,7 +270,7 @@ describe("Idempotency on (thread_id, sender_id, client_key)", () => {
 
 	beforeEach(async () => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		ctx = setupApp();
+		ctx = await setupApp();
 		const create = await ctx.app.request("/api/threads", {
 			method: "POST",
 			headers: authHeaders(),
@@ -391,9 +386,9 @@ describe("Idempotency on (thread_id, sender_id, client_key)", () => {
 describe("clientKey validation (plan §6.1 + §11)", () => {
 	let ctx: AppCtx;
 
-	beforeEach(() => {
+	beforeEach(async () => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		ctx = setupApp();
+		ctx = await setupApp();
 	});
 
 	afterEach(() => {
@@ -500,7 +495,7 @@ describe("Verdict authorization (plan §6.1 REVISED for adversary C4)", () => {
 
 	beforeEach(async () => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		ctx = setupApp();
+		ctx = await setupApp();
 		const create = await ctx.app.request("/api/threads", {
 			method: "POST",
 			headers: authHeaders(),
@@ -600,7 +595,7 @@ describe("Re-open semantics (plan §6.1 REVISED for adversary C5)", () => {
 
 	beforeEach(async () => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		ctx = setupApp();
+		ctx = await setupApp();
 		// Create + verdict a thread so it ends up resolved.
 		const create = await ctx.app.request("/api/threads", {
 			method: "POST",
@@ -699,9 +694,9 @@ describe("Re-open semantics (plan §6.1 REVISED for adversary C5)", () => {
 describe("List threads + GET /api/threads validation", () => {
 	let ctx: AppCtx;
 
-	beforeEach(() => {
+	beforeEach(async () => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		ctx = setupApp();
+		ctx = await setupApp();
 	});
 
 	afterEach(() => {
@@ -781,9 +776,9 @@ describe("List threads + GET /api/threads validation", () => {
 describe("Event emission (plan §6.3)", () => {
 	let ctx: AppCtx;
 
-	beforeEach(() => {
+	beforeEach(async () => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		ctx = setupApp();
+		ctx = await setupApp();
 	});
 
 	afterEach(() => {
@@ -817,9 +812,9 @@ describe("Event emission (plan §6.3)", () => {
 describe("L8 — GET /api/threads list rows carry hasUnresolvedReview", () => {
 	let ctx: AppCtx;
 
-	beforeEach(() => {
+	beforeEach(async () => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		ctx = setupApp();
+		ctx = await setupApp();
 	});
 
 	afterEach(() => {

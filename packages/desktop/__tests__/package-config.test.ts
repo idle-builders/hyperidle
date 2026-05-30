@@ -3,7 +3,6 @@
  *
  * AC coverage:
  *   AC1: esbuild bundler configured as devDependency.
- *   AC4: better-sqlite3 as direct dependency (electron-rebuild needs it in desktop/node_modules).
  *   AC12: build script defined for bundle step.
  *
  * Root package.json:
@@ -36,10 +35,10 @@ describe("packages/desktop/package.json (AC1, AC4, AC12)", () => {
 		expect(pkg.devDependencies?.["esbuild"]).toBeDefined();
 	});
 
-	it("has better-sqlite3 in dependencies (AC4 — electron-rebuild needs it in desktop/node_modules)", () => {
+	it("has @hyperidle/db in devDependencies (PGlite database via workspace dep)", () => {
 		const pkg = readPkg(DESKTOP_PKG_PATH);
-		expect(pkg.dependencies).toBeDefined();
-		expect(pkg.dependencies?.["better-sqlite3"]).toBeDefined();
+		expect(pkg.devDependencies).toBeDefined();
+		expect(pkg.devDependencies?.["@hyperidle/db"]).toBeDefined();
 	});
 
 	it("has build script (AC12 — runs esbuild bundle step)", () => {

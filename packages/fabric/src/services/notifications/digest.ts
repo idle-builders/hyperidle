@@ -44,12 +44,11 @@ export async function runDailyDigest(
 	cfg: NotificationConfig,
 	now: Date,
 ): Promise<DigestResult> {
-	const pending = db
+	const pending = await db
 		.select()
 		.from(notificationQueue)
 		.where(eq(notificationQueue.status, "pending"))
-		.orderBy(asc(notificationQueue.createdAt))
-		.all();
+		.orderBy(asc(notificationQueue.createdAt));
 	if (pending.length === 0) {
 		return { status: "noop", notificationsIncluded: 0 };
 	}
@@ -68,16 +67,15 @@ export async function runDailyDigest(
 	// will see them as already-claimed and skip.
 	const ids = pending.map((r) => r.id);
 	const claimedAt = now.toISOString();
-	db.update(notificationQueue)
+	await db
+		.update(notificationQueue)
 		.set({ status: "sending", claimedAt })
-		.where(and(inArray(notificationQueue.id, ids), eq(notificationQueue.status, "pending")))
-		.run();
+		.where(and(inArray(notificationQueue.id, ids), eq(notificationQueue.status, "pending")));
 
-	const rows = db
+	const rows = await db
 		.select()
 		.from(notificationQueue)
-		.where(and(inArray(notificationQueue.id, ids), eq(notificationQueue.status, "sending")))
-		.all();
+		.where(and(inArray(notificationQueue.id, ids), eq(notificationQueue.status, "sending")));
 
 	if (rows.length === 0) {
 		return { status: "noop", notificationsIncluded: 0 };
@@ -97,10 +95,10 @@ export async function runDailyDigest(
 	} catch (err) {
 		// Adapter threw — revert claimed rows back to pending so the
 		// next digest (or flush) can retry.
-		db.update(notificationQueue)
+		await db
+			.update(notificationQueue)
 			.set({ status: "pending", claimedAt: null })
-			.where(inArray(notificationQueue.id, ids))
-			.run();
+			.where(inArray(notificationQueue.id, ids));
 		return {
 			status: "error",
 			notificationsIncluded: 0,
@@ -120,10 +118,10 @@ export async function runDailyDigest(
 		});
 		// Adapter returned failure — revert claimed rows so the next
 		// run retries.
-		db.update(notificationQueue)
+		await db
+			.update(notificationQueue)
 			.set({ status: "pending", claimedAt: null, lastError: scrubbed })
-			.where(inArray(notificationQueue.id, ids))
-			.run();
+			.where(inArray(notificationQueue.id, ids));
 		return {
 			status: "error",
 			notificationsIncluded: 0,
@@ -132,13 +130,13 @@ export async function runDailyDigest(
 	}
 
 	// Cross-row transition: every claimed row now sent.
-	db.update(notificationQueue)
+	await db
+		.update(notificationQueue)
 		.set({
 			status: "sent",
 			sentAt: claimedAt,
 			claimedAt: null,
 		})
-		.where(inArray(notificationQueue.id, ids))
-		.run();
+		.where(inArray(notificationQueue.id, ids));
 	return { status: "sent", notificationsIncluded: count };
 }

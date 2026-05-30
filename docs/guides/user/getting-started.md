@@ -5,8 +5,8 @@
 Install HyperIdle and start the server:
 
 ```bash
-brew install hyperidle   # or: git clone + bun install + bun run setup --profile laptop
-hyperidle                # or: bun dev
+brew install hyperidle   # or: git clone + npm install + npm run setup --profile laptop
+hyperidle                # or: npm run dev
 ```
 
 Open [http://localhost:5173](http://localhost:5173).

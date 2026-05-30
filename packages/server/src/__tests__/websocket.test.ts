@@ -3,7 +3,7 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { resolve } from "node:path";
-import { createDb } from "@hyperidle/db";
+import { applyMigrations } from "@hyperidle/db";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import WebSocket from "ws";
 
@@ -13,22 +13,15 @@ describe("AC6: WebSocket upgrade on /api/ws", { timeout: 20_000 }, () => {
 	let serverProcess: ChildProcess;
 	let port: number;
 	let tmpDir: string;
-	let dbPath: string;
 
 	beforeAll(async () => {
 		port = 10000 + Math.floor(Math.random() * 50000);
 		tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "hyperidle-ws-test-"));
-		dbPath = path.join(tmpDir, "test.db");
+		const dataDir = path.join(tmpDir, "pgdata");
 
-		// I1: `createApp` queries `factory_settings` at boot, so the DB must
-		// be migrated before the server starts. Seed it here with the same
-		// migrator the production path uses.
-		const { migrate } = await import("drizzle-orm/better-sqlite3/migrator");
 		const migrationsFolder = resolve(__dirname, "../../../db/drizzle");
-		const db = createDb(dbPath);
-		migrate(db, { migrationsFolder });
+		await applyMigrations(dataDir, migrationsFolder);
 
-		// Resolve the server package root
 		const serverRoot = resolve(__dirname, "../..");
 
 		serverProcess = spawn(resolve(serverRoot, "../../node_modules/.bin/tsx"), ["src/index.ts"], {
@@ -37,15 +30,12 @@ describe("AC6: WebSocket upgrade on /api/ws", { timeout: 20_000 }, () => {
 				...process.env,
 				HYPERIDLE_API_KEY: TEST_API_KEY,
 				PORT: String(port),
-				DATABASE_URL: dbPath,
-				// I2: avoid rate-limit interference between independent
-				// integration suites that may share an IP bucket.
+				DATABASE_URL: dataDir,
 				HYPERIDLE_RATE_LIMIT_PER_MIN: "100000",
 			},
 			stdio: ["ignore", "pipe", "pipe"],
 		});
 
-		// Wait for server to be ready
 		await new Promise<void>((resolve, reject) => {
 			const timeout = setTimeout(() => reject(new Error("Server start timeout")), 8000);
 			serverProcess.stdout?.on("data", (data: Buffer) => {
@@ -68,9 +58,6 @@ describe("AC6: WebSocket upgrade on /api/ws", { timeout: 20_000 }, () => {
 		}
 	});
 
-	// I2 A3: the WS endpoint no longer accepts the raw HYPERIDLE_API_KEY as
-	// `?token=...`. Clients must POST /api/auth/ws-token (with the API key)
-	// to mint a one-shot upgrade token, then open the WS with that token.
 	async function issueUpgradeToken(): Promise<string> {
 		const res = await fetch(`http://localhost:${port}/api/auth/ws-token`, {
 			method: "POST",
@@ -97,20 +84,16 @@ describe("AC6: WebSocket upgrade on /api/ws", { timeout: 20_000 }, () => {
 	});
 
 	it("rejects WebSocket connection without token", async () => {
-		// Without token, the auth middleware returns 401 before upgrade
 		const res = await fetch(`http://localhost:${port}/api/ws`);
-
 		expect(res.status).toBe(401);
 	});
 
 	it("rejects WebSocket connection with invalid token", async () => {
 		const res = await fetch(`http://localhost:${port}/api/ws?token=invalid`);
-
 		expect(res.status).toBe(401);
 	});
 
 	it("rejects WebSocket connection using the raw HYPERIDLE_API_KEY as the token", async () => {
-		// The master key must NOT be accepted on the WS query channel.
 		const res = await fetch(`http://localhost:${port}/api/ws?token=${TEST_API_KEY}`);
 		expect(res.status).toBe(401);
 	});

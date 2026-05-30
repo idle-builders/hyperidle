@@ -1,15 +1,17 @@
-export { createDb, type HyperIdleDb } from "./connection.js";
-export { applyMigrations, isDowngrade, type MigrationResult } from "./migrate.js";
 export {
 	createPgDb,
+	createPgliteDb,
+	createPostgresDb,
+	type DbHandle,
 	DEFAULT_PG_POOL_SIZE,
-	type HyperIdlePgDb,
+	type HyperIdleDb,
 	PG_POOL_SIZE_ENV,
 	type PgDbHandle,
 	type PgDbOptions,
 	parsePgPoolSize,
 	resolvePgPoolSize,
-} from "./pg-connection.js";
+} from "./connection.js";
+export { applyMigrations, isDowngrade, type MigrationResult } from "./migrate.js";
 export {
 	type DbDriver,
 	type DeploymentProfile,
@@ -103,8 +105,6 @@ export {
 	userSkills,
 	users,
 } from "./schema.js";
-export * as pgSchema from "./schema.pg.js";
 export { seed } from "./seed.js";
-export { type SeedablePgDb, seedPg } from "./seed-pg.js";
 export { type RunSetupContext, type RunSetupIo, runSetup } from "./setup-cli.js";
-export { createTestDb } from "./test-utils.js";
+export { createTestDb, type TestDbHandle } from "./test-utils.js";

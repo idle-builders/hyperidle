@@ -29,12 +29,11 @@ interface RouteItemData {
 	readonly verb: string | null;
 }
 
-// biome-ignore lint/suspicious/useAwait: ToolDefinition.handler requires async signature
 async function handler(
 	input: RouteItemInput,
 	ctx: ToolContext,
 ): Promise<ToolResult<RouteItemData>> {
-	const row = ctx.db.select().from(items).where(eq(items.id, input.itemId)).get();
+	const [row] = await ctx.db.select().from(items).where(eq(items.id, input.itemId)).limit(1);
 	if (!row) {
 		return err("NOT_FOUND", `Item not found: ${input.itemId}`);
 	}
@@ -55,7 +54,7 @@ async function handler(
 	if (input.kind !== undefined) updates.kind = input.kind;
 	if (input.verb !== undefined) updates.verb = input.verb;
 	if (Object.keys(updates).length > 0) {
-		ctx.db.update(items).set(updates).where(eq(items.id, input.itemId)).run();
+		await ctx.db.update(items).set(updates).where(eq(items.id, input.itemId));
 	}
 
 	return ok<RouteItemData>({

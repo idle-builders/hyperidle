@@ -31,11 +31,12 @@ describe("GET /api/recipients (Q1 §3.3)", () => {
 	let eventBus: EventBus;
 	let app: Hono;
 
-	beforeEach(() => {
+	beforeEach(async () => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		db = createTestDb();
+		const handle = await createTestDb();
+		db = handle.db;
 		eventBus = new EventBus();
-		app = createTestApp({ db, eventBus });
+		app = await createTestApp({ db, eventBus });
 
 		const NOW = new Date().toISOString();
 
@@ -69,59 +70,49 @@ describe("GET /api/recipients (Q1 §3.3)", () => {
 			.run();
 
 		// Seed users (P2: agents → users table; kind:"ai" for AI agents)
-		db.insert(users)
-			.values({
-				id: "agent-builder",
-				name: "Builder Bot",
-				role: "builder",
-				status: "active",
-				kind: "ai",
-				teamId: "team-1",
-				createdAt: NOW,
-			})
-			.run();
-		db.insert(users)
-			.values({
-				id: "agent-growth",
-				name: "Growth Engine",
-				role: "growth",
-				status: "idle",
-				kind: "ai",
-				createdAt: NOW,
-			})
-			.run();
-		db.insert(users)
-			.values({
-				id: "agent-founder",
-				name: "Founder Self",
-				role: "founder",
-				status: "active",
-				kind: "human",
-				createdAt: NOW,
-			})
-			.run();
-		db.insert(users)
-			.values({
-				id: "agent-retired",
-				name: "Retired Bot",
-				role: "builder",
-				status: "retired",
-				kind: "ai",
-				createdAt: NOW,
-			})
-			.run();
+		await db.insert(users).values({
+			id: "agent-builder",
+			name: "Builder Bot",
+			role: "builder",
+			status: "active",
+			kind: "ai",
+			teamId: "team-1",
+			createdAt: NOW,
+		});
+		await db.insert(users).values({
+			id: "agent-growth",
+			name: "Growth Engine",
+			role: "growth",
+			status: "idle",
+			kind: "ai",
+			createdAt: NOW,
+		});
+		await db.insert(users).values({
+			id: "agent-founder",
+			name: "Founder Self",
+			role: "founder",
+			status: "active",
+			kind: "human",
+			createdAt: NOW,
+		});
+		await db.insert(users).values({
+			id: "agent-retired",
+			name: "Retired Bot",
+			role: "builder",
+			status: "retired",
+			kind: "ai",
+			createdAt: NOW,
+		});
 
 		// Give agent-builder an active session
-		db.insert(sessions)
-			.values({
-				id: "sess-active",
-				agentId: "agent-builder",
-				taskId: "task-1",
-				modelTier: "workhorse",
-				state: "active",
-				startedAt: NOW,
-			})
-			.run();
+		await db.insert(sessions).values({
+			id: "sess-active",
+			agentId: "agent-builder",
+			taskId: "task-1",
+			modelTier: "workhorse",
+			state: "active",
+			startedAt: NOW,
+		});
 	});
 
 	afterEach(() => {

@@ -17,14 +17,16 @@ function authHeaders(extra?: Record<string, string>): Record<string, string> {
 
 describe("Bet Endpoints (E3)", () => {
 	let db: HyperIdleDb;
+	let handle: TestDbHandle;
 	let eventBus: EventBus;
 	let app: Hono;
 
-	beforeEach(() => {
+	beforeEach(async () => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		db = createTestDb();
+		handle = await createTestDb();
+		db = handle.db;
 		eventBus = new EventBus();
-		app = createTestApp({ db, eventBus });
+		app = await createTestApp({ db, eventBus });
 
 		// Seed a product (domain entity) and teamMembers (membership group)
 		db.insert(teams)
@@ -46,8 +48,9 @@ describe("Bet Endpoints (E3)", () => {
 			.run();
 	});
 
-	afterEach(() => {
+	afterEach(async () => {
 		vi.unstubAllEnvs();
+		await handle.close();
 	});
 
 	// Helper to create a bet via API
@@ -205,7 +208,8 @@ describe("Bet Endpoints (E3)", () => {
 			expect(body.doneCondition).toBe("All tests pass");
 
 			// Check revision log
-			const betRow = db.select().from(bets).all()[0];
+			const rows = await db.select().from(bets);
+			const betRow = rows[0];
 			const revisionLog = JSON.parse(betRow.revisionLog ?? "[]") as unknown[];
 			expect(revisionLog.length).toBeGreaterThan(0);
 		});
@@ -243,7 +247,7 @@ describe("Bet Endpoints (E3)", () => {
 
 		it("emits bet_state_changed event on commit", async () => {
 			const events: unknown[] = [];
-			eventBus.on("bet_state_changed", (e) => events.push(e));
+			eventBus.on("bet_state_changed", (e: unknown) => events.push(e));
 
 			const bet = await createBet();
 			await app.request(`/api/bets/${bet.id}/commit`, {
@@ -379,6 +383,7 @@ describe("Bet Endpoints (E3)", () => {
 			const body = (await res.json()) as { capacity: { used: number; max: number } };
 			expect(body.capacity.used).toBe(0);
 			expect(body.capacity.max).toBe(0);
+			await freshHandle.close();
 		});
 	});
 

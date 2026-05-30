@@ -6,7 +6,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
-const schemas = [resolve(__dirname, "../schema.ts"), resolve(__dirname, "../schema.pg.ts")];
+const schemas = [resolve(__dirname, "../schema.ts")];
 
 describe("AC-44 — no block tables or block_id columns added by L2", () => {
 	for (const path of schemas) {

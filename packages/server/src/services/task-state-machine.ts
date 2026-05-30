@@ -41,13 +41,13 @@ export class InvalidTransitionError extends Error {
  * produce values of the same `TaskAuditEntry` union. Readers discriminate via the
  * `type: "handoff"` tag on handoff entries.
  */
-export function transitionTask(
+export async function transitionTask(
 	db: HyperIdleDb,
 	eventBus: EventBus,
 	taskId: string,
 	toState: TaskState,
-): void {
-	const task = db.select().from(tasks).where(eq(tasks.id, taskId)).get();
+): Promise<void> {
+	const [task] = await db.select().from(tasks).where(eq(tasks.id, taskId)).limit(1);
 	if (!task) {
 		throw new Error(`Task not found: ${taskId}`);
 	}
@@ -69,14 +69,14 @@ export function transitionTask(
 	};
 	existingAudit.push(entry);
 
-	db.update(tasks)
+	await db
+		.update(tasks)
 		.set({
 			state: toState,
 			auditTrail: JSON.stringify(existingAudit),
 			updatedAt: new Date().toISOString(),
 		})
-		.where(eq(tasks.id, taskId))
-		.run();
+		.where(eq(tasks.id, taskId));
 
 	eventBus.emit({
 		type: "task_state_changed",

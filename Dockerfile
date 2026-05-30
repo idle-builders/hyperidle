@@ -1,6 +1,6 @@
 # HyperIdle Development Environment
-# Full dev stack: Bun, Node, Claude Code, Playwright, git, gh
-FROM node:20-bookworm
+# Full dev stack: Node.js, Claude Code, Playwright, git, gh
+FROM node:26-bookworm
 
 # System deps: build tools for native addons, git, utilities
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -21,10 +21,8 @@ RUN curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg \
     && apt-get update && apt-get install -y gh \
     && rm -rf /var/lib/apt/lists/*
 
-# Bun (install as root, then make available to all users)
-RUN curl -fsSL https://bun.sh/install | bash \
-    && cp /root/.bun/bin/bun /usr/local/bin/bun \
-    && ln -s /usr/local/bin/bun /usr/local/bin/bunx
+# tsx for TypeScript execution
+RUN npm install -g tsx
 
 # Claude Code CLI
 RUN npm install -g @anthropic-ai/claude-code

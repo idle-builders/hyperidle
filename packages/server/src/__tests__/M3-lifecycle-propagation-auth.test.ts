@@ -23,11 +23,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const SYSTEM_PROPAGATION_ID = "system:propagation";
 
-function seedBase(db: HyperIdleDb, founderId = "test-founder-1"): void {
+async function seedBase(db: HyperIdleDb, founderId = "test-founder-1"): Promise<void> {
 	const now = new Date().toISOString();
 
 	// P2: seed human founder user row (replaces factorySettings.founder_id lookup)
-	db.insert(users)
+	await db
+		.insert(users)
 		.values({
 			id: founderId,
 			kind: "human",
@@ -36,8 +37,7 @@ function seedBase(db: HyperIdleDb, founderId = "test-founder-1"): void {
 			status: "active",
 			createdAt: now,
 		})
-		.onConflictDoNothing()
-		.run();
+		.onConflictDoNothing();
 
 	db.insert(teams)
 		.values({ id: "prod-1", name: "Test Product", phase: "build", createdAt: now })
@@ -75,7 +75,7 @@ function seedBase(db: HyperIdleDb, founderId = "test-founder-1"): void {
 		.run();
 }
 
-function seedDoneTasks(db: HyperIdleDb): void {
+async function seedDoneTasks(db: HyperIdleDb): Promise<void> {
 	const now = new Date().toISOString();
 	// @lore U1: tasks.teamId references `teams` (domain entity), not `teamMembers`.
 	db.insert(tasks)
@@ -105,18 +105,20 @@ function seedDoneTasks(db: HyperIdleDb): void {
 }
 
 describe("M3 — lifecycle-propagation: thread participants use users-table founder id (A9)", () => {
+	let handle: TestDbHandle;
 	let db: HyperIdleDb;
 	let eventBus: EventBus;
 
-	beforeEach(() => {
-		db = createTestDb();
+	beforeEach(async () => {
+		handle = await createTestDb();
+		db = handle.db;
 		eventBus = new EventBus();
-		seedBase(db, "test-founder-1");
-		seedDoneTasks(db);
+		await seedBase(db, "test-founder-1");
+		await seedDoneTasks(db);
 		registerLifecyclePropagation(db, eventBus);
 	});
 
-	afterEach(() => {
+	afterEach(async () => {
 		vi.restoreAllMocks();
 	});
 
@@ -136,7 +138,7 @@ describe("M3 — lifecycle-propagation: thread participants use users-table foun
 		await new Promise<void>((r) => setTimeout(r, 50));
 
 		// Find threads created by propagation for bet-1
-		const propagationThreads = db.select().from(threads).where(eq(threads.hostId, "bet-1")).all();
+		const propagationThreads = await db.select().from(threads).where(eq(threads.hostId, "bet-1"));
 
 		// A thread may or may not have been created depending on propagation conditions
 		// The key check: if a thread was created, it must NOT contain "u-founder" as participant

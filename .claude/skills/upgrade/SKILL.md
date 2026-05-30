@@ -18,10 +18,10 @@ Discover everything that's outdated. Run these and capture structured results:
 
 ```bash
 # Package dependencies (all workspaces)
-bun outdated 2>&1 || true
+npm outdated 2>&1 || true
 
 # Runtime & tooling versions (all managed via Homebrew)
-bun --version
+node --version
 node --version
 git --version
 brew outdated --json 2>/dev/null || true
@@ -34,13 +34,11 @@ grep -r 'uses:' .github/workflows/ 2>/dev/null || true
 ```
 
 Check root `package.json` for existing runtime declarations:
-- `"packageManager"` field (e.g., `"bun@1.3.11"`) — the declared Bun version
 - `"engines"` field (e.g., `{ "node": ">=24.0.0" }`) — the declared Node requirement
-- If these fields don't exist yet, the skill will create them during Tier 6
 
 Compare runtime versions against latest via Homebrew:
-- **Bun/Node/Git:** `brew outdated --json` shows what's behind
-- Cross-check with `bun --version`, `node --version`, `git --version`
+- **Node/Git:** `brew outdated --json` shows what's behind
+- Cross-check with `node --version`, `git --version`
 
 Check GitHub Actions for updates:
 - Parse all `uses: owner/action@vN` references from `.github/workflows/*.yml`
@@ -48,7 +46,7 @@ Check GitHub Actions for updates:
 - Compare current tag against latest (e.g., `actions/checkout@v4` vs latest `v4.x.x` or `v5`)
 - Flag major version bumps separately from minor/patch tag updates
 
-Parse `bun outdated` into a structured list: `{ name, current, wanted, latest, workspace }`.
+Parse `npm outdated` into a structured list: `{ name, current, wanted, latest, workspace }`.
 
 **If nothing is outdated and runtimes are current, report "Everything is up to date" and stop.**
 
@@ -95,22 +93,15 @@ Apply action updates by editing `.github/workflows/*.yml` directly. Commit as `c
 ### Tier 6: Runtime & tooling updates
 Runtimes are real dependencies — treat them like packages, not informational footnotes.
 
-Everything that isn't managed through npm/bun packages is managed through **Homebrew**. Check brew formulae for updates and upgrade them directly.
+Everything that isn't managed through npm packages is managed through **Homebrew**. Check brew formulae for updates and upgrade them directly.
 
 **Scan brew-managed tools:**
 ```bash
 # Check installed versions and available updates
-brew info bun --json | head -1
 brew info node --json | head -1
 brew info git --json | head -1
 brew outdated --json
 ```
-
-**Bun:**
-1. Compare `bun --version` against `brew info bun` latest
-2. If outdated: run `brew upgrade bun`
-3. After upgrade: update (or add) `"packageManager": "bun@{new-version}"` in root `package.json`
-4. Verify: `bun --version` matches, `bun install` succeeds
 
 **Node.js:**
 1. Compare `node --version` against `brew info node` latest
@@ -131,10 +122,10 @@ brew list --formula
 If any project-relevant formulae (e.g., `postgresql`, `redis`) are outdated, upgrade them too.
 
 **Verification after runtime upgrades:**
-- `bun install` must succeed (Bun validates `packageManager` and `engines` fields)
-- `bun run verify` must pass — runtime bumps can expose new behavior
+- `npm install` must succeed
+- `npm run verify` must pass — runtime bumps can expose new behavior
 
-**Commit:** `chore(deps): set runtime versions (bun {version}, node >={version})`
+**Commit:** `chore(deps): set runtime versions (node >={version})`
 
 **Grouping heuristic:** If two packages share an npm scope (`@scope/a`, `@scope/b`) or are from the same upstream monorepo, they belong in the same group. When in doubt, group together — separate upgrades of tightly-coupled packages cause more breakage than joint upgrades.
 
@@ -183,7 +174,7 @@ For each group, in tier order:
 
 ### 4a. Pre-upgrade snapshot
 ```bash
-cp bun.lock bun.lock.backup
+cp package-lock.json package-lock.json.backup
 ```
 
 ### 4b. Update versions
@@ -191,7 +182,7 @@ Edit `package.json` files to set new version ranges (`^{target}`). For monorepo-
 
 ### 4c. Install
 ```bash
-bun install
+npm install
 ```
 
 ### 4d. Apply migration steps
@@ -200,7 +191,7 @@ If the research phase identified code changes needed (renamed APIs, changed impo
 ### 4e. Verify
 Run the full verification pipeline:
 ```bash
-bun run verify
+npm run verify
 ```
 
 If Playwright-tested packages changed:
@@ -211,7 +202,7 @@ cd packages/design-system && npx playwright test
 
 ### 4f. On success — commit
 ```bash
-git add package.json packages/*/package.json bun.lock
+git add package.json packages/*/package.json package-lock.json
 # Also stage any migration code changes
 git commit -m "chore(deps): upgrade {group description}"
 ```
@@ -226,10 +217,10 @@ Use descriptive group names: `chore(deps): upgrade test tooling (vitest, playwri
 3. Re-run verification
 4. If still failing after 3 attempts: **rollback this group**:
    ```bash
-   git checkout -- package.json packages/*/package.json bun.lock
+   git checkout -- package.json packages/*/package.json package-lock.json
    # Also revert any migration code changes
    git checkout -- .
-   bun install
+   npm install
    ```
 5. Log the group as `SKIPPED` with the failure reason and the error output
 
@@ -274,7 +265,6 @@ Produce a final summary:
 - {action}@{tag}: [up to date | upgraded {old} -> {new} | major available (deferred)]
 
 ### Runtime (Homebrew)
-- Bun: {old} -> {new} via `brew upgrade bun`, packageManager set to bun@{new} [up to date | upgraded]
 - Node: {old} -> {new} via `brew upgrade node`, engines.node set to >={major}.0.0 [up to date | upgraded]
 - Git: {old} -> {new} via `brew upgrade git` [up to date | upgraded]
 
@@ -297,7 +287,8 @@ Produce a final summary:
 - **Group monorepo siblings.** Upgrading `drizzle-orm` without `drizzle-kit` (or vice versa) causes version mismatches. Always upgrade together.
 - **Pin, don't widen.** When upgrading, set `^{target}` — don't change to `*` or `>=`.
 - **Rollback beats debugging.** If an upgrade causes mysterious failures, roll it back and research more. Don't burn 30 minutes guessing.
-- **Leave the lockfile clean.** After all upgrades, `bun.lock` should reflect exactly what's in `package.json`. Run `bun install` one final time to confirm.
+- **Leave the lockfile clean.** After all upgrades, `package-lock.json` should reflect exactly what's in `package.json`. Run `npm install` one final time to confirm.
+- **npm is the package manager.** No bun — use `npm install`, `npm run`, `npx` for all operations.
 
 ## Target
 

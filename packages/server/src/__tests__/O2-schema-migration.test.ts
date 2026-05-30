@@ -14,11 +14,15 @@
  * 7. Status simplified to draft | active | archived
  */
 
-import { createTestDb, type HyperIdleDb } from "@hyperidle/db";
-import { EventBus } from "@hyperidle/shared";
+import { createTestDb, type HyperIdleDb, type TestDbHandle } from "@hyperidle/db";
+import { type DomainEvent, EventBus } from "@hyperidle/shared";
+import { sql } from "drizzle-orm";
 import type { Hono } from "hono";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createTestApp } from "../test-utils.js";
+
+// biome-ignore lint/style/useNamingConvention: SQL information_schema returns snake_case column_name
+type SqlColumnRow = { column_name: string };
 
 const TEST_API_KEY = "test-key-O2-migration";
 
@@ -30,16 +34,19 @@ describe("O2 — Schema Migration & Route Rewrite", () => {
 	let db: HyperIdleDb;
 	let eventBus: EventBus;
 	let app: Hono;
+	let handle: TestDbHandle;
 
-	beforeEach(() => {
+	beforeEach(async () => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		db = createTestDb();
+		handle = await createTestDb();
+		db = handle.db;
 		eventBus = new EventBus();
-		app = createTestApp({ db, eventBus });
+		app = await createTestApp({ db, eventBus });
 	});
 
-	afterEach(() => {
+	afterEach(async () => {
 		vi.unstubAllEnvs();
+		await handle?.close();
 	});
 
 	// ---------------------------------------------------------------------------
@@ -47,46 +54,50 @@ describe("O2 — Schema Migration & Route Rewrite", () => {
 	// ---------------------------------------------------------------------------
 
 	describe("1. Extension tables exist with correct structure", () => {
-		it("knowledge_strategy_fabric table exists in the database", () => {
-			// PRAGMA table_info returns rows for existing tables, empty for non-existent
-			const _raw = db.run("PRAGMA table_info(knowledge_strategy_fabric)");
-			// The table should exist — if it doesn't, PRAGMA returns no rows
-			// but doesn't error. We check via SELECT to trigger an error on missing table.
-			expect(() => {
-				db.run("SELECT id FROM knowledge_strategy_fabric LIMIT 1");
-			}).not.toThrow();
+		it("knowledge_strategy_fabric table exists in the database", async () => {
+			// If the table doesn't exist this will throw
+			await expect(
+				db.execute(sql.raw("SELECT id FROM knowledge_strategy_fabric LIMIT 1")),
+			).resolves.toBeDefined();
 		});
 
-		it("task_strategy_fabric table exists in the database", () => {
-			expect(() => {
-				db.run("SELECT id FROM task_strategy_fabric LIMIT 1");
-			}).not.toThrow();
+		it("task_strategy_fabric table exists in the database", async () => {
+			await expect(
+				db.execute(sql.raw("SELECT id FROM task_strategy_fabric LIMIT 1")),
+			).resolves.toBeDefined();
 		});
 
-		it("knowledge_strategy_fabric has FK to knowledge_items with cascade delete", () => {
-			// Verify the table columns exist: id, knowledge_item_id, and strategy data
-			const columns = db.all<{ name: string }>("PRAGMA table_info(knowledge_strategy_fabric)");
-			const colNames = columns.map((c) => c.name);
+		it("knowledge_strategy_fabric has FK to knowledge_items with cascade delete", async () => {
+			const result = await db.execute(
+				sql`SELECT column_name FROM information_schema.columns WHERE table_name = ${"knowledge_strategy_fabric"}`,
+			);
+			const colNames = (result.rows as Array<SqlColumnRow>).map((r) => r.column_name);
 			expect(colNames).toContain("id");
 			expect(colNames).toContain("knowledge_item_id");
 		});
 
-		it("task_strategy_fabric has FK to tasks with cascade delete", () => {
-			const columns = db.all<{ name: string }>("PRAGMA table_info(task_strategy_fabric)");
-			const colNames = columns.map((c) => c.name);
+		it("task_strategy_fabric has FK to tasks with cascade delete", async () => {
+			const result = await db.execute(
+				sql`SELECT column_name FROM information_schema.columns WHERE table_name = ${"task_strategy_fabric"}`,
+			);
+			const colNames = (result.rows as Array<SqlColumnRow>).map((r) => r.column_name);
 			expect(colNames).toContain("id");
 			expect(colNames).toContain("task_id");
 		});
 
-		it("knowledge_strategy_fabric does NOT have a strategy discriminator column", () => {
-			const columns = db.all<{ name: string }>("PRAGMA table_info(knowledge_strategy_fabric)");
-			const colNames = columns.map((c) => c.name);
+		it("knowledge_strategy_fabric does NOT have a strategy discriminator column", async () => {
+			const result = await db.execute(
+				sql`SELECT column_name FROM information_schema.columns WHERE table_name = ${"knowledge_strategy_fabric"}`,
+			);
+			const colNames = (result.rows as Array<SqlColumnRow>).map((r) => r.column_name);
 			expect(colNames).not.toContain("strategy");
 		});
 
-		it("task_strategy_fabric does NOT have a strategy discriminator column", () => {
-			const columns = db.all<{ name: string }>("PRAGMA table_info(task_strategy_fabric)");
-			const colNames = columns.map((c) => c.name);
+		it("task_strategy_fabric does NOT have a strategy discriminator column", async () => {
+			const result = await db.execute(
+				sql`SELECT column_name FROM information_schema.columns WHERE table_name = ${"task_strategy_fabric"}`,
+			);
+			const colNames = (result.rows as Array<SqlColumnRow>).map((r) => r.column_name);
 			expect(colNames).not.toContain("strategy");
 		});
 	});
@@ -96,20 +107,24 @@ describe("O2 — Schema Migration & Route Rewrite", () => {
 	// ---------------------------------------------------------------------------
 
 	describe("2. knowledgeItems kernel table columns stripped", () => {
-		it("knowledgeItems no longer has 'layer' column", () => {
-			const columns = db.all<{ name: string }>("PRAGMA table_info(knowledge_items)");
-			const colNames = columns.map((c) => c.name);
+		it("knowledgeItems no longer has 'layer' column", async () => {
+			const result = await db.execute(
+				sql`SELECT column_name FROM information_schema.columns WHERE table_name = ${"knowledge_items"}`,
+			);
+			const colNames = (result.rows as Array<SqlColumnRow>).map((r) => r.column_name);
 			expect(colNames).not.toContain("layer");
 		});
 
-		it("knowledgeItems no longer has 'scopeId' / 'scope_id' column from the old strategy layer", () => {
+		it("knowledgeItems no longer has 'scopeId' / 'scope_id' column from the old strategy layer", async () => {
 			// @lore Q2: scope_id WAS stripped in O2 (from the strategy layer).
 			// Q2 re-adds scope_kind + scope_id to the KERNEL table so each item
 			// knows its scope. The O2 assertion that scope_id was absent is
 			// superseded by Q2. This test now asserts that scope_kind IS present
 			// (replacing the column that O2 removed with a new kernel-level one).
-			const columns = db.all<{ name: string }>("PRAGMA table_info(knowledge_items)");
-			const colNames = columns.map((c) => c.name);
+			const result = await db.execute(
+				sql`SELECT column_name FROM information_schema.columns WHERE table_name = ${"knowledge_items"}`,
+			);
+			const colNames = (result.rows as Array<SqlColumnRow>).map((r) => r.column_name);
 			// Q2: scope_kind is a kernel column — should exist.
 			expect(colNames).toContain("scope_kind");
 			// scope_id from the strategy layer was removed in O2;
@@ -117,51 +132,67 @@ describe("O2 — Schema Migration & Route Rewrite", () => {
 			expect(colNames).toContain("scope_id");
 		});
 
-		it("knowledgeItems no longer has 'kind' column", () => {
-			const columns = db.all<{ name: string }>("PRAGMA table_info(knowledge_items)");
-			const colNames = columns.map((c) => c.name);
+		it("knowledgeItems no longer has 'kind' column", async () => {
+			const result = await db.execute(
+				sql`SELECT column_name FROM information_schema.columns WHERE table_name = ${"knowledge_items"}`,
+			);
+			const colNames = (result.rows as Array<SqlColumnRow>).map((r) => r.column_name);
 			expect(colNames).not.toContain("kind");
 		});
 
-		it("knowledgeItems no longer has 'attentionScore' / 'attention_score' column", () => {
-			const columns = db.all<{ name: string }>("PRAGMA table_info(knowledge_items)");
-			const colNames = columns.map((c) => c.name);
+		it("knowledgeItems no longer has 'attentionScore' / 'attention_score' column", async () => {
+			const result = await db.execute(
+				sql`SELECT column_name FROM information_schema.columns WHERE table_name = ${"knowledge_items"}`,
+			);
+			const colNames = (result.rows as Array<SqlColumnRow>).map((r) => r.column_name);
 			expect(colNames).not.toContain("attention_score");
 		});
 
-		it("knowledgeItems no longer has 'relevanceScore' / 'relevance_score' column", () => {
-			const columns = db.all<{ name: string }>("PRAGMA table_info(knowledge_items)");
-			const colNames = columns.map((c) => c.name);
+		it("knowledgeItems no longer has 'relevanceScore' / 'relevance_score' column", async () => {
+			const result = await db.execute(
+				sql`SELECT column_name FROM information_schema.columns WHERE table_name = ${"knowledge_items"}`,
+			);
+			const colNames = (result.rows as Array<SqlColumnRow>).map((r) => r.column_name);
 			expect(colNames).not.toContain("relevance_score");
 		});
 
-		it("knowledgeItems no longer has 'citationCount' / 'citation_count' column", () => {
-			const columns = db.all<{ name: string }>("PRAGMA table_info(knowledge_items)");
-			const colNames = columns.map((c) => c.name);
+		it("knowledgeItems no longer has 'citationCount' / 'citation_count' column", async () => {
+			const result = await db.execute(
+				sql`SELECT column_name FROM information_schema.columns WHERE table_name = ${"knowledge_items"}`,
+			);
+			const colNames = (result.rows as Array<SqlColumnRow>).map((r) => r.column_name);
 			expect(colNames).not.toContain("citation_count");
 		});
 
-		it("knowledgeItems no longer has 'lastCitedAt' / 'last_cited_at' column", () => {
-			const columns = db.all<{ name: string }>("PRAGMA table_info(knowledge_items)");
-			const colNames = columns.map((c) => c.name);
+		it("knowledgeItems no longer has 'lastCitedAt' / 'last_cited_at' column", async () => {
+			const result = await db.execute(
+				sql`SELECT column_name FROM information_schema.columns WHERE table_name = ${"knowledge_items"}`,
+			);
+			const colNames = (result.rows as Array<SqlColumnRow>).map((r) => r.column_name);
 			expect(colNames).not.toContain("last_cited_at");
 		});
 
-		it("knowledgeItems no longer has 'confidence' column", () => {
-			const columns = db.all<{ name: string }>("PRAGMA table_info(knowledge_items)");
-			const colNames = columns.map((c) => c.name);
+		it("knowledgeItems no longer has 'confidence' column", async () => {
+			const result = await db.execute(
+				sql`SELECT column_name FROM information_schema.columns WHERE table_name = ${"knowledge_items"}`,
+			);
+			const colNames = (result.rows as Array<SqlColumnRow>).map((r) => r.column_name);
 			expect(colNames).not.toContain("confidence");
 		});
 
-		it("knowledgeItems no longer has 'meta' column", () => {
-			const columns = db.all<{ name: string }>("PRAGMA table_info(knowledge_items)");
-			const colNames = columns.map((c) => c.name);
+		it("knowledgeItems no longer has 'meta' column", async () => {
+			const result = await db.execute(
+				sql`SELECT column_name FROM information_schema.columns WHERE table_name = ${"knowledge_items"}`,
+			);
+			const colNames = (result.rows as Array<SqlColumnRow>).map((r) => r.column_name);
 			expect(colNames).not.toContain("meta");
 		});
 
-		it("knowledgeItems still has 'topic' column", () => {
-			const columns = db.all<{ name: string }>("PRAGMA table_info(knowledge_items)");
-			const colNames = columns.map((c) => c.name);
+		it("knowledgeItems still has 'topic' column", async () => {
+			const result = await db.execute(
+				sql`SELECT column_name FROM information_schema.columns WHERE table_name = ${"knowledge_items"}`,
+			);
+			const colNames = (result.rows as Array<SqlColumnRow>).map((r) => r.column_name);
 			expect(colNames).toContain("topic");
 		});
 	});
@@ -171,27 +202,35 @@ describe("O2 — Schema Migration & Route Rewrite", () => {
 	// ---------------------------------------------------------------------------
 
 	describe("3. tasks kernel table columns stripped", () => {
-		it("tasks no longer has 'risk_tier' column", () => {
-			const columns = db.all<{ name: string }>("PRAGMA table_info(tasks)");
-			const colNames = columns.map((c) => c.name);
+		it("tasks no longer has 'risk_tier' column", async () => {
+			const result = await db.execute(
+				sql`SELECT column_name FROM information_schema.columns WHERE table_name = ${"tasks"}`,
+			);
+			const colNames = (result.rows as Array<SqlColumnRow>).map((r) => r.column_name);
 			expect(colNames).not.toContain("risk_tier");
 		});
 
-		it("tasks no longer has 'attention_score' column", () => {
-			const columns = db.all<{ name: string }>("PRAGMA table_info(tasks)");
-			const colNames = columns.map((c) => c.name);
+		it("tasks no longer has 'attention_score' column", async () => {
+			const result = await db.execute(
+				sql`SELECT column_name FROM information_schema.columns WHERE table_name = ${"tasks"}`,
+			);
+			const colNames = (result.rows as Array<SqlColumnRow>).map((r) => r.column_name);
 			expect(colNames).not.toContain("attention_score");
 		});
 
-		it("tasks no longer has 'durability' column", () => {
-			const columns = db.all<{ name: string }>("PRAGMA table_info(tasks)");
-			const colNames = columns.map((c) => c.name);
+		it("tasks no longer has 'durability' column", async () => {
+			const result = await db.execute(
+				sql`SELECT column_name FROM information_schema.columns WHERE table_name = ${"tasks"}`,
+			);
+			const colNames = (result.rows as Array<SqlColumnRow>).map((r) => r.column_name);
 			expect(colNames).not.toContain("durability");
 		});
 
-		it("tasks no longer has 'cross_team' column", () => {
-			const columns = db.all<{ name: string }>("PRAGMA table_info(tasks)");
-			const colNames = columns.map((c) => c.name);
+		it("tasks no longer has 'cross_team' column", async () => {
+			const result = await db.execute(
+				sql`SELECT column_name FROM information_schema.columns WHERE table_name = ${"tasks"}`,
+			);
+			const colNames = (result.rows as Array<SqlColumnRow>).map((r) => r.column_name);
 			expect(colNames).not.toContain("cross_team");
 		});
 	});
@@ -201,51 +240,67 @@ describe("O2 — Schema Migration & Route Rewrite", () => {
 	// ---------------------------------------------------------------------------
 
 	describe("4. sessions kernel table columns stripped", () => {
-		it("sessions no longer has 'cost' column", () => {
-			const columns = db.all<{ name: string }>("PRAGMA table_info(sessions)");
-			const colNames = columns.map((c) => c.name);
+		it("sessions no longer has 'cost' column", async () => {
+			const result = await db.execute(
+				sql`SELECT column_name FROM information_schema.columns WHERE table_name = ${"sessions"}`,
+			);
+			const colNames = (result.rows as Array<SqlColumnRow>).map((r) => r.column_name);
 			expect(colNames).not.toContain("cost");
 		});
 
-		it("sessions no longer has 'cost_minor' column", () => {
-			const columns = db.all<{ name: string }>("PRAGMA table_info(sessions)");
-			const colNames = columns.map((c) => c.name);
+		it("sessions no longer has 'cost_minor' column", async () => {
+			const result = await db.execute(
+				sql`SELECT column_name FROM information_schema.columns WHERE table_name = ${"sessions"}`,
+			);
+			const colNames = (result.rows as Array<SqlColumnRow>).map((r) => r.column_name);
 			expect(colNames).not.toContain("cost_minor");
 		});
 
-		it("sessions no longer has 'cost_currency' column", () => {
-			const columns = db.all<{ name: string }>("PRAGMA table_info(sessions)");
-			const colNames = columns.map((c) => c.name);
+		it("sessions no longer has 'cost_currency' column", async () => {
+			const result = await db.execute(
+				sql`SELECT column_name FROM information_schema.columns WHERE table_name = ${"sessions"}`,
+			);
+			const colNames = (result.rows as Array<SqlColumnRow>).map((r) => r.column_name);
 			expect(colNames).not.toContain("cost_currency");
 		});
 
-		it("sessions no longer has 'tokens_json' column", () => {
-			const columns = db.all<{ name: string }>("PRAGMA table_info(sessions)");
-			const colNames = columns.map((c) => c.name);
+		it("sessions no longer has 'tokens_json' column", async () => {
+			const result = await db.execute(
+				sql`SELECT column_name FROM information_schema.columns WHERE table_name = ${"sessions"}`,
+			);
+			const colNames = (result.rows as Array<SqlColumnRow>).map((r) => r.column_name);
 			expect(colNames).not.toContain("tokens_json");
 		});
 
-		it("sessions no longer has 'tokens_input' column", () => {
-			const columns = db.all<{ name: string }>("PRAGMA table_info(sessions)");
-			const colNames = columns.map((c) => c.name);
+		it("sessions no longer has 'tokens_input' column", async () => {
+			const result = await db.execute(
+				sql`SELECT column_name FROM information_schema.columns WHERE table_name = ${"sessions"}`,
+			);
+			const colNames = (result.rows as Array<SqlColumnRow>).map((r) => r.column_name);
 			expect(colNames).not.toContain("tokens_input");
 		});
 
-		it("sessions no longer has 'tokens_output' column", () => {
-			const columns = db.all<{ name: string }>("PRAGMA table_info(sessions)");
-			const colNames = columns.map((c) => c.name);
+		it("sessions no longer has 'tokens_output' column", async () => {
+			const result = await db.execute(
+				sql`SELECT column_name FROM information_schema.columns WHERE table_name = ${"sessions"}`,
+			);
+			const colNames = (result.rows as Array<SqlColumnRow>).map((r) => r.column_name);
 			expect(colNames).not.toContain("tokens_output");
 		});
 
-		it("sessions no longer has 'trace_id' column", () => {
-			const columns = db.all<{ name: string }>("PRAGMA table_info(sessions)");
-			const colNames = columns.map((c) => c.name);
+		it("sessions no longer has 'trace_id' column", async () => {
+			const result = await db.execute(
+				sql`SELECT column_name FROM information_schema.columns WHERE table_name = ${"sessions"}`,
+			);
+			const colNames = (result.rows as Array<SqlColumnRow>).map((r) => r.column_name);
 			expect(colNames).not.toContain("trace_id");
 		});
 
-		it("sessions no longer has 'harness_url' column", () => {
-			const columns = db.all<{ name: string }>("PRAGMA table_info(sessions)");
-			const colNames = columns.map((c) => c.name);
+		it("sessions no longer has 'harness_url' column", async () => {
+			const result = await db.execute(
+				sql`SELECT column_name FROM information_schema.columns WHERE table_name = ${"sessions"}`,
+			);
+			const colNames = (result.rows as Array<SqlColumnRow>).map((r) => r.column_name);
 			expect(colNames).not.toContain("harness_url");
 		});
 	});
@@ -255,27 +310,35 @@ describe("O2 — Schema Migration & Route Rewrite", () => {
 	// ---------------------------------------------------------------------------
 
 	describe("5. items kernel table columns stripped", () => {
-		it("items no longer has 'attention_score' column", () => {
-			const columns = db.all<{ name: string }>("PRAGMA table_info(items)");
-			const colNames = columns.map((c) => c.name);
+		it("items no longer has 'attention_score' column", async () => {
+			const result = await db.execute(
+				sql`SELECT column_name FROM information_schema.columns WHERE table_name = ${"items"}`,
+			);
+			const colNames = (result.rows as Array<SqlColumnRow>).map((r) => r.column_name);
 			expect(colNames).not.toContain("attention_score");
 		});
 
-		it("items no longer has 'reversibility' column", () => {
-			const columns = db.all<{ name: string }>("PRAGMA table_info(items)");
-			const colNames = columns.map((c) => c.name);
+		it("items no longer has 'reversibility' column", async () => {
+			const result = await db.execute(
+				sql`SELECT column_name FROM information_schema.columns WHERE table_name = ${"items"}`,
+			);
+			const colNames = (result.rows as Array<SqlColumnRow>).map((r) => r.column_name);
 			expect(colNames).not.toContain("reversibility");
 		});
 
-		it("items no longer has 'sandbox_result' column", () => {
-			const columns = db.all<{ name: string }>("PRAGMA table_info(items)");
-			const colNames = columns.map((c) => c.name);
+		it("items no longer has 'sandbox_result' column", async () => {
+			const result = await db.execute(
+				sql`SELECT column_name FROM information_schema.columns WHERE table_name = ${"items"}`,
+			);
+			const colNames = (result.rows as Array<SqlColumnRow>).map((r) => r.column_name);
 			expect(colNames).not.toContain("sandbox_result");
 		});
 
-		it("items no longer has 'cost_estimate' column", () => {
-			const columns = db.all<{ name: string }>("PRAGMA table_info(items)");
-			const colNames = columns.map((c) => c.name);
+		it("items no longer has 'cost_estimate' column", async () => {
+			const result = await db.execute(
+				sql`SELECT column_name FROM information_schema.columns WHERE table_name = ${"items"}`,
+			);
+			const colNames = (result.rows as Array<SqlColumnRow>).map((r) => r.column_name);
 			expect(colNames).not.toContain("cost_estimate");
 		});
 	});
@@ -285,27 +348,35 @@ describe("O2 — Schema Migration & Route Rewrite", () => {
 	// ---------------------------------------------------------------------------
 
 	describe("6. artifacts kernel table columns stripped", () => {
-		it("artifacts no longer has 'cost_money_micros' column", () => {
-			const columns = db.all<{ name: string }>("PRAGMA table_info(artifacts)");
-			const colNames = columns.map((c) => c.name);
+		it("artifacts no longer has 'cost_money_micros' column", async () => {
+			const result = await db.execute(
+				sql`SELECT column_name FROM information_schema.columns WHERE table_name = ${"artifacts"}`,
+			);
+			const colNames = (result.rows as Array<SqlColumnRow>).map((r) => r.column_name);
 			expect(colNames).not.toContain("cost_money_micros");
 		});
 
-		it("artifacts no longer has 'cost_tokens_input' column", () => {
-			const columns = db.all<{ name: string }>("PRAGMA table_info(artifacts)");
-			const colNames = columns.map((c) => c.name);
+		it("artifacts no longer has 'cost_tokens_input' column", async () => {
+			const result = await db.execute(
+				sql`SELECT column_name FROM information_schema.columns WHERE table_name = ${"artifacts"}`,
+			);
+			const colNames = (result.rows as Array<SqlColumnRow>).map((r) => r.column_name);
 			expect(colNames).not.toContain("cost_tokens_input");
 		});
 
-		it("artifacts no longer has 'cost_tokens_output' column", () => {
-			const columns = db.all<{ name: string }>("PRAGMA table_info(artifacts)");
-			const colNames = columns.map((c) => c.name);
+		it("artifacts no longer has 'cost_tokens_output' column", async () => {
+			const result = await db.execute(
+				sql`SELECT column_name FROM information_schema.columns WHERE table_name = ${"artifacts"}`,
+			);
+			const colNames = (result.rows as Array<SqlColumnRow>).map((r) => r.column_name);
 			expect(colNames).not.toContain("cost_tokens_output");
 		});
 
-		it("artifacts no longer has 'cost_settled_at' column", () => {
-			const columns = db.all<{ name: string }>("PRAGMA table_info(artifacts)");
-			const colNames = columns.map((c) => c.name);
+		it("artifacts no longer has 'cost_settled_at' column", async () => {
+			const result = await db.execute(
+				sql`SELECT column_name FROM information_schema.columns WHERE table_name = ${"artifacts"}`,
+			);
+			const colNames = (result.rows as Array<SqlColumnRow>).map((r) => r.column_name);
 			expect(colNames).not.toContain("cost_settled_at");
 		});
 	});
@@ -449,7 +520,7 @@ describe("O2 — Schema Migration & Route Rewrite", () => {
 	describe("8. Knowledge route emits correct events", () => {
 		it("POST /api/knowledge emits 'knowledge_created' event", async () => {
 			const events: unknown[] = [];
-			eventBus.on("*", (e) => events.push(e));
+			eventBus.on("*", (e: DomainEvent) => events.push(e));
 
 			const res = await app.request("/api/knowledge", {
 				method: "POST",
@@ -489,7 +560,7 @@ describe("O2 — Schema Migration & Route Rewrite", () => {
 			const id = created.id as string;
 
 			const events: unknown[] = [];
-			eventBus.on("*", (e) => events.push(e));
+			eventBus.on("*", (e: DomainEvent) => events.push(e));
 
 			const getRes = await app.request(`/api/knowledge/${id}`, {
 				headers: authHeaders(),
@@ -519,7 +590,7 @@ describe("O2 — Schema Migration & Route Rewrite", () => {
 			const id = created.id as string;
 
 			const events: unknown[] = [];
-			eventBus.on("*", (e) => events.push(e));
+			eventBus.on("*", (e: DomainEvent) => events.push(e));
 
 			const patchRes = await app.request(`/api/knowledge/${id}`, {
 				method: "PATCH",
@@ -555,7 +626,7 @@ describe("O2 — Schema Migration & Route Rewrite", () => {
 			const id = created.id as string;
 
 			const events: unknown[] = [];
-			eventBus.on("*", (e) => events.push(e));
+			eventBus.on("*", (e: DomainEvent) => events.push(e));
 
 			const archiveRes = await app.request(`/api/knowledge/${id}/archive`, {
 				method: "POST",
@@ -586,7 +657,7 @@ describe("O2 — Schema Migration & Route Rewrite", () => {
 			const id = created.id as string;
 
 			const events: unknown[] = [];
-			eventBus.on("*", (e) => events.push(e));
+			eventBus.on("*", (e: DomainEvent) => events.push(e));
 
 			const flagRes = await app.request(`/api/knowledge/${id}/flag`, {
 				method: "POST",
@@ -717,41 +788,44 @@ describe("O2 — Schema Migration & Route Rewrite", () => {
 	// ---------------------------------------------------------------------------
 
 	describe("10. Extension table FK cascade delete", () => {
-		it("deleting a knowledge item cascades to knowledge_strategy_fabric rows", () => {
+		it("deleting a knowledge item cascades to knowledge_strategy_fabric rows", async () => {
 			const itemId = crypto.randomUUID();
 			const now = new Date().toISOString();
 
 			// After O2: knowledge_items has no layer/kind columns.
 			// Insert using the stripped schema columns only.
-			db.run(
-				`INSERT INTO knowledge_items (id, topic, title, body, format, status, version, updated_by, created_at, updated_at)
-				 VALUES ('${itemId}', 'test', 'Test', 'Body', 'markdown', 'draft', 1, 'human', '${now}', '${now}')`,
+			await db.execute(
+				sql.raw(`INSERT INTO knowledge_items (id, topic, title, body, format, status, version, updated_by, created_at, updated_at)
+				 VALUES ('${itemId}', 'test', 'Test', 'Body', 'markdown', 'draft', 1, 'human', '${now}', '${now}')`),
 			);
 
 			// Insert a strategy extension row — table must exist with FK cascade
 			const extId = crypto.randomUUID();
-			db.run(
-				`INSERT INTO knowledge_strategy_fabric (id, knowledge_item_id)
-				 VALUES ('${extId}', '${itemId}')`,
+			await db.execute(
+				sql.raw(
+					`INSERT INTO knowledge_strategy_fabric (id, knowledge_item_id) VALUES ('${extId}', '${itemId}')`,
+				),
 			);
 
 			// Verify extension row exists
-			const before = db.all<{ id: string }>(
-				`SELECT id FROM knowledge_strategy_fabric WHERE knowledge_item_id = '${itemId}'`,
+			const beforeResult = await db.execute(
+				sql.raw(`SELECT id FROM knowledge_strategy_fabric WHERE knowledge_item_id = '${itemId}'`),
 			);
+			const before = beforeResult.rows as Array<{ id: string }>;
 			expect(before).toHaveLength(1);
 
 			// Delete the knowledge item — cascade should remove extension rows
-			db.run(`DELETE FROM knowledge_items WHERE id = '${itemId}'`);
+			await db.execute(sql.raw(`DELETE FROM knowledge_items WHERE id = '${itemId}'`));
 
 			// Extension row should be gone (CASCADE DELETE)
-			const after = db.all<{ id: string }>(
-				`SELECT id FROM knowledge_strategy_fabric WHERE knowledge_item_id = '${itemId}'`,
+			const afterResult = await db.execute(
+				sql.raw(`SELECT id FROM knowledge_strategy_fabric WHERE knowledge_item_id = '${itemId}'`),
 			);
+			const after = afterResult.rows as Array<{ id: string }>;
 			expect(after).toHaveLength(0);
 		});
 
-		it("deleting a task cascades to task_strategy_fabric rows", () => {
+		it("deleting a task cascades to task_strategy_fabric rows", async () => {
 			const now = new Date().toISOString();
 
 			// @lore U1: products→teams, teams→team_members, bets.pitch→description, bets removes product_id
@@ -775,20 +849,24 @@ describe("O2 — Schema Migration & Route Rewrite", () => {
 
 			// Insert extension row — table must exist with FK cascade
 			const extId = crypto.randomUUID();
-			db.run(`INSERT INTO task_strategy_fabric (id, task_id) VALUES ('${extId}', '${taskId}')`);
+			await db.execute(
+				sql.raw(`INSERT INTO task_strategy_fabric (id, task_id) VALUES ('${extId}', '${taskId}')`),
+			);
 
 			// Verify extension row exists
-			const before = db.all<{ id: string }>(
-				`SELECT id FROM task_strategy_fabric WHERE task_id = '${taskId}'`,
+			const beforeResult = await db.execute(
+				sql.raw(`SELECT id FROM task_strategy_fabric WHERE task_id = '${taskId}'`),
 			);
+			const before = beforeResult.rows as Array<{ id: string }>;
 			expect(before).toHaveLength(1);
 
 			// Delete the task — cascade should remove extension rows
-			db.run(`DELETE FROM tasks WHERE id = '${taskId}'`);
+			await db.execute(sql.raw(`DELETE FROM tasks WHERE id = '${taskId}'`));
 
-			const after = db.all<{ id: string }>(
-				`SELECT id FROM task_strategy_fabric WHERE task_id = '${taskId}'`,
+			const afterResult = await db.execute(
+				sql.raw(`SELECT id FROM task_strategy_fabric WHERE task_id = '${taskId}'`),
 			);
+			const after = afterResult.rows as Array<{ id: string }>;
 			expect(after).toHaveLength(0);
 		});
 	});
@@ -798,7 +876,7 @@ describe("O2 — Schema Migration & Route Rewrite", () => {
 	// ---------------------------------------------------------------------------
 
 	describe("11. Route purity — conversations POST /items works without routing", () => {
-		beforeEach(() => {
+		beforeEach(async () => {
 			// Seed required data for conversations/items
 			// @lore U1: products→teams, teams→team_members
 			const now = new Date().toISOString();
@@ -808,15 +886,20 @@ describe("O2 — Schema Migration & Route Rewrite", () => {
 			db.run(
 				`INSERT INTO team_members (id, team_id, capacity, active_bets, formed_at) VALUES ('team-conv', 'prod-conv', 3, 0, '${now}')`,
 			);
-			db.run(
-				`INSERT INTO users (id, name, role, status, created_at) VALUES ('agent-conv', 'Agent', 'builder', 'idle', '${now}')`,
+			await db.execute(
+				sql.raw(
+					`INSERT INTO users (id, name, role, status, created_at) VALUES ('agent-conv', 'Agent', 'builder', 'idle', '${now}')`,
+				),
 			);
-			db.run(
-				`INSERT INTO users (id, name, role, status, created_at) VALUES ('policy_engine', 'Policy Engine', 'system', 'active', '${now}')`,
+			await db.execute(
+				sql.raw(
+					`INSERT INTO users (id, name, role, status, created_at) VALUES ('policy_engine', 'Policy Engine', 'system', 'active', '${now}')`,
+				),
 			);
-			db.run(
-				`INSERT INTO threads (id, host_kind, host_id, initiator_id, participants, last_active_at, created_at)
-				 VALUES ('thread-conv', 'task', 'task-conv', 'agent-conv', '[]', '${now}', '${now}')`,
+			await db.execute(
+				sql.raw(
+					`INSERT INTO threads (id, host_kind, host_id, initiator_id, participants, last_active_at, created_at) VALUES ('thread-conv', 'task', 'task-conv', 'agent-conv', '[]', '${now}', '${now}')`,
+				),
 			);
 		});
 
@@ -842,7 +925,7 @@ describe("O2 — Schema Migration & Route Rewrite", () => {
 
 		it("POST /api/conversations/items emits item_created event", async () => {
 			const events: unknown[] = [];
-			eventBus.on("item_created", (e) => events.push(e));
+			eventBus.on("item_created", (e: DomainEvent) => events.push(e));
 
 			await app.request("/api/conversations/items", {
 				method: "POST",
@@ -871,8 +954,10 @@ describe("O2 — Schema Migration & Route Rewrite", () => {
 			db.run(
 				`INSERT INTO team_members (id, team_id, capacity, active_bets, formed_at) VALUES ('team-sess', 'prod-sess', 3, 0, '${now}')`,
 			);
-			db.run(
-				`INSERT INTO users (id, name, role, status, created_at) VALUES ('agent-sess', 'Agent', 'builder', 'idle', '${now}')`,
+			await db.execute(
+				sql.raw(
+					`INSERT INTO users (id, name, role, status, created_at) VALUES ('agent-sess', 'Agent', 'builder', 'idle', '${now}')`,
+				),
 			);
 			db.run(
 				`INSERT INTO bets (id, team_id, description, status, created_at) VALUES ('bet-sess', 'prod-sess', 'Pitch', 'active', '${now}')`,

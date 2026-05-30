@@ -5,24 +5,22 @@
 	"type": "module",
 	"main": "src/main.ts",
 	"scripts": {
-		"dev": "bun scripts/check-native.ts && NODE_OPTIONS='--import tsx' electron .",
-		"build": "bun scripts/bundle.ts",
+		"dev": "npx tsx scripts/check-native.ts && NODE_OPTIONS='--import tsx' electron .",
+		"build": "npx tsx scripts/bundle.ts",
 		"build:dist": "electron-builder --config electron-builder.yml",
 		"build:local": "bash scripts/build-local.sh",
-		"check:native": "bun scripts/check-native.ts",
+		"check:native": "npx tsx scripts/check-native.ts",
 		"check": "tsc --noEmit",
 		"test": "vitest run"
 	},
 	"dependencies": {
-		"better-sqlite3": "^12.9.0",
 		"zod": "^4.3.6"
 	},
 	"devDependencies": {
-		"@electron/rebuild": "^4.0.4",
-		"@hyperidle/db": "workspace:*",
-		"@hyperidle/server": "workspace:*",
-		"@hyperidle/shared": "workspace:*",
-		"electron": "^36.0.0",
+		"@hyperidle/db": "*",
+		"@hyperidle/server": "*",
+		"@hyperidle/shared": "*",
+		"electron": "36.9.5",
 		"esbuild": "^0.25.0",
 		"vitest": "*"
 	}

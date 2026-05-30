@@ -15,6 +15,7 @@
  * is a type-level check — the runtime tests verify the module structure.
  */
 
+import type { Hono } from "hono";
 import { hc } from "hono/client";
 import { describe, expect, it } from "vitest";
 
@@ -51,11 +52,12 @@ describe("E2. hc<AppType> client constructs typed requests", () => {
 				};
 			};
 		};
-		const client = hc<MinimalType>("http://localhost:3001");
+		// biome-ignore lint/suspicious/noExplicitAny: test-only cast for hc constraint
+		const client = hc<MinimalType & Hono<any, any, any>>("http://localhost:3001");
 		expect(client).toBeDefined();
 		// hc returns a Proxy object — toBeDefined() confirms it was created
 		expect(client.api).toBeDefined();
-		expect(client.api.bets).toBeDefined();
+		expect(client.api?.bets).toBeDefined();
 	});
 });
 
@@ -77,16 +79,17 @@ describe("E3. Client paths match expected route structure", () => {
 			};
 		};
 
-		const client = hc<BetsClientType>("http://localhost:3001");
+		// biome-ignore lint/suspicious/noExplicitAny: test-only cast for hc constraint
+		const client = hc<BetsClientType & Hono<any, any, any>>("http://localhost:3001");
 		// All paths must be accessible (type-level)
-		expect(client.api.bets).toBeDefined();
-		expect(client.api.health).toBeDefined();
-		expect(client.api.products).toBeDefined();
-		expect(client.api.tasks).toBeDefined();
-		expect(client.api.sessions).toBeDefined();
-		expect(client.api.users).toBeDefined();
-		expect(client.api.settings).toBeDefined();
-		expect(client.api.knowledge).toBeDefined();
+		expect(client.api?.bets).toBeDefined();
+		expect(client.api?.health).toBeDefined();
+		expect(client.api?.products).toBeDefined();
+		expect(client.api?.tasks).toBeDefined();
+		expect(client.api?.sessions).toBeDefined();
+		expect(client.api?.users).toBeDefined();
+		expect(client.api?.settings).toBeDefined();
+		expect(client.api?.knowledge).toBeDefined();
 	});
 });
 

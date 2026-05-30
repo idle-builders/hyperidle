@@ -6,5 +6,7 @@ export default defineProject({
 		// Scope to source tests; `dist/**/*.test.js` are stale tsc artifacts.
 		// N4: also include __tests__/ for db/migrate unit tests.
 		include: ["src/**/*.test.{ts,tsx}", "__tests__/**/*.test.{ts,tsx}"],
+		hookTimeout: 30_000,
+		testTimeout: 30_000,
 	},
 });

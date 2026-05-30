@@ -13,11 +13,11 @@
 		"test:visual": "playwright test --config playwright.config.ts",
 		"test:workbench": "playwright test --config playwright.workbench.config.ts",
 		"serve": "vite --config vite.config.ts",
-		"serve:static": "bun run scripts/serve.ts"
+		"serve:static": "npx tsx scripts/serve.ts"
 	},
 	"dependencies": {
-		"@hyperidle/fabric": "workspace:*",
-		"@hyperidle/shared": "workspace:*"
+		"@hyperidle/fabric": "*",
+		"@hyperidle/shared": "*"
 	},
 	"peerDependencies": {
 		"react": "^19.0.0"

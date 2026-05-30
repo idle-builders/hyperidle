@@ -32,11 +32,12 @@ describe("I2 V1 — POST /api/tasks/:id/transition Zod enum", () => {
 	let eventBus: EventBus;
 	let app: Hono;
 
-	beforeEach(() => {
+	beforeEach(async () => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		db = createTestDb();
+		const handle = await createTestDb();
+		db = handle.db;
 		eventBus = new EventBus();
-		app = createTestApp({ db, eventBus });
+		app = await createTestApp({ db, eventBus });
 
 		const now = new Date().toISOString();
 		db.insert(teams).values({ id: "p1", name: "P", phase: "build", createdAt: now }).run();

@@ -149,7 +149,7 @@ The retro reads `rounds=<n>` to track design-quality drift over time.
 
 ## Screenshot Workflow
 
-When the dev server is running (`bun dev` on :5173):
+When the dev server is running (`npm run dev` on :5173):
 
 ```bash
 # Screenshot a specific component
@@ -169,7 +169,7 @@ Read the screenshot. Evaluate it visually. Do not evaluate design from code alon
 
 ## Cross-Component Checks
 
-These checks go beyond what AST linters catch. Token/scale violations (hardcoded colors, off-grid spacing, off-scale radius/font/motion, AI-aesthetic tells) are caught by `bun run lint` via `eslint-plugin-design` — don't duplicate that work here. This section is for the judgment calls the linter can't make.
+These checks go beyond what AST linters catch. Token/scale violations (hardcoded colors, off-grid spacing, off-scale radius/font/motion, AI-aesthetic tells) are caught by `npm run lint` via `eslint-plugin-design` — don't duplicate that work here. This section is for the judgment calls the linter can't make.
 
 ### Consistency & Reuse
 

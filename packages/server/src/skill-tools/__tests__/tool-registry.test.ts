@@ -21,8 +21,9 @@ describe("buildToolRegistry", () => {
 	let db: HyperIdleDb;
 	let eventBus: EventBus;
 
-	beforeEach(() => {
-		db = createTestDb();
+	beforeEach(async () => {
+		const handle = await createTestDb();
+		db = handle.db;
 		eventBus = new EventBus();
 	});
 

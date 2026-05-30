@@ -15,6 +15,7 @@
  */
 
 import { useCallback, useEffect, useState } from "react";
+import { apiFetch } from "../services/api-fetch.js";
 import type { SettingsData } from "../settings/settings-types.js";
 import { getInitialTheme } from "./useTheme";
 
@@ -51,7 +52,7 @@ export function useSettings(): UseSettingsResult {
 
 		(async (): Promise<void> => {
 			try {
-				const res = await fetch("/api/settings");
+				const res = await apiFetch("/api/settings");
 				if (cancelled) return;
 				if (!res.ok) {
 					setError(`HTTP ${res.status}`);
@@ -82,7 +83,7 @@ export function useSettings(): UseSettingsResult {
 	const save = useCallback(async (updated: SettingsData): Promise<void> => {
 		// @lore M3 review W6: errors propagate to the caller — do not swallow.
 		// AppShell.handleSettingsSave or other callers can handle the error.
-		const res = await fetch("/api/settings", {
+		const res = await apiFetch("/api/settings", {
 			method: "PATCH",
 			headers: { "Content-Type": "application/json" },
 			body: JSON.stringify({ notifications: updated.notifications }),

@@ -18,6 +18,7 @@ import {
 	type HyperIdleDb,
 	knowledgeItems,
 	sessions,
+	type TestDbHandle,
 	tasks,
 	teamMembers,
 	teams,
@@ -93,19 +94,21 @@ function seedDomain(db: HyperIdleDb): void {
 }
 
 describe("Session Provisioning — Claude integration (D5/AC2)", () => {
+	let handle: TestDbHandle;
 	let db: HyperIdleDb;
 	let eventBus: EventBus;
 	let tmpDir: string;
 
-	beforeEach(() => {
-		db = createTestDb();
+	beforeEach(async () => {
+		handle = await createTestDb();
+		db = handle.db;
 		eventBus = new EventBus();
 		tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "d5-integration-"));
 		clearDeduplicationCache();
-		seedDomain(db);
+		await seedDomain(db);
 	});
 
-	afterEach(() => {
+	afterEach(async () => {
 		if (fs.existsSync(tmpDir)) {
 			fs.rmSync(tmpDir, { recursive: true, force: true });
 		}
@@ -128,7 +131,7 @@ describe("Session Provisioning — Claude integration (D5/AC2)", () => {
 			expect(result.outcome).toBe("completed");
 			expect(result.totalCostCents).toBeGreaterThan(0);
 
-			const session = db.select().from(sessions).where(eq(sessions.id, result.sessionId)).get();
+			const [session] = await db.select().from(sessions).where(eq(sessions.id, result.sessionId));
 			expect(session?.state).toBe("done");
 			expect(session?.cost ?? 0).toBeGreaterThan(0);
 		},

@@ -166,7 +166,7 @@ function rowToArtifact(row: ArtifactRow, producingTaskTitle: string): Artifact {
 export function createArtifactRoutes(db: HyperIdleDb): Hono {
 	const router = new Hono();
 
-	router.get("/", (c) => {
+	router.get("/", async (c) => {
 		const axis = c.req.query("axis");
 		if (axis !== "task" && axis !== "bet" && axis !== "product" && axis !== "portfolio") {
 			return c.json({ error: "Invalid axis", code: "INVALID_QUERY" }, 400);
@@ -191,12 +191,11 @@ export function createArtifactRoutes(db: HyperIdleDb): Hono {
 				return c.json({ error: "betId required", code: "INVALID_QUERY" }, 400);
 			}
 			// L3 review fix Sec-MED-4: cap intermediate id materialisation.
-			const rows = db
+			const rows = await db
 				.select({ id: tasks.id })
 				.from(tasks)
 				.where(eq(tasks.betId, betId))
-				.limit(MAX_TASK_ID_FANOUT + 1)
-				.all();
+				.limit(MAX_TASK_ID_FANOUT + 1);
 			if (rows.length > MAX_TASK_ID_FANOUT) {
 				return c.json({ error: "Task fan-out too large", code: "FANOUT_TOO_LARGE" }, 400);
 			}
@@ -207,7 +206,7 @@ export function createArtifactRoutes(db: HyperIdleDb): Hono {
 			if (!teamId) {
 				return c.json({ error: "teamId required", code: "INVALID_QUERY" }, 400);
 			}
-			const rows = db
+			const rows = await db
 				.select({ id: tasks.id })
 				.from(tasks)
 				.where(eq(tasks.teamId, teamId))
@@ -252,10 +251,9 @@ export function createArtifactRoutes(db: HyperIdleDb): Hono {
 		const rows =
 			taskIds !== null && taskIds.length === 0
 				? []
-				: (whereClause === undefined ? baseQuery : baseQuery.where(whereClause))
+				: await (whereClause === undefined ? baseQuery : baseQuery.where(whereClause))
 						.orderBy(desc(artifacts.createdAt), desc(artifacts.id))
-						.limit(limit + 1)
-						.all();
+						.limit(limit + 1);
 
 		const sliced = rows.slice(0, limit);
 		const items = sliced.map((r) => rowToArtifact(r.artifact, r.taskTitle));
@@ -267,14 +265,14 @@ export function createArtifactRoutes(db: HyperIdleDb): Hono {
 		return c.json(page);
 	});
 
-	router.get("/:id", (c) => {
+	router.get("/:id", async (c) => {
 		const id = c.req.param("id");
-		const row = db
+		const [row] = await db
 			.select({ artifact: artifacts, taskTitle: tasks.title })
 			.from(artifacts)
 			.innerJoin(tasks, eq(tasks.id, artifacts.producingTaskId))
 			.where(eq(artifacts.id, id))
-			.get();
+			.limit(1);
 		if (!row) return c.json({ error: "Not found", code: "NOT_FOUND" }, 404);
 		return c.json(rowToArtifact(row.artifact, row.taskTitle));
 	});
@@ -283,18 +281,18 @@ export function createArtifactRoutes(db: HyperIdleDb): Hono {
 		"/",
 		createBodyLimit({ maxSize: PREVIEW_BODY_LIMIT }),
 		validateBody(createArtifactSchema),
-		(c) => {
+		async (c) => {
 			const body = c.req.valid("json" as never) as z.infer<typeof createArtifactSchema>;
 
 			if (body.preview && body.preview.kind !== body.kind) {
 				return c.json({ error: "kind/preview discriminant mismatch", code: "KIND_MISMATCH" }, 400);
 			}
 
-			const taskRow = db
+			const [taskRow] = await db
 				.select({ title: tasks.title })
 				.from(tasks)
 				.where(eq(tasks.id, body.producingTaskId))
-				.get();
+				.limit(1);
 			if (!taskRow) {
 				return c.json({ error: "producing_task_id not found", code: "INVALID_TASK" }, 400);
 			}
@@ -305,15 +303,13 @@ export function createArtifactRoutes(db: HyperIdleDb): Hono {
 			// @lore O2: cost fields from the request body are intentionally ignored
 			// (cost columns stripped from artifacts table). The body still accepts
 			// cost for wire compat with existing callers.
-			db.insert(artifacts)
-				.values({
-					id,
-					producingTaskId: body.producingTaskId,
-					kind: body.kind,
-					previewJson: body.preview ? JSON.stringify(body.preview) : null,
-					createdAt: now,
-				})
-				.run();
+			await db.insert(artifacts).values({
+				id,
+				producingTaskId: body.producingTaskId,
+				kind: body.kind,
+				previewJson: body.preview ? JSON.stringify(body.preview) : null,
+				createdAt: now,
+			});
 
 			const result: Artifact = {
 				id,
@@ -333,21 +329,21 @@ export function createArtifactRoutes(db: HyperIdleDb): Hono {
 		"/:id/preview",
 		createBodyLimit({ maxSize: PREVIEW_BODY_LIMIT }),
 		validateBody(patchPreviewSchema),
-		(c) => {
+		async (c) => {
 			const id = c.req.param("id");
 			const body = c.req.valid("json" as never) as z.infer<typeof patchPreviewSchema>;
 			// Race-safe update: only updates rows where preview_json IS NULL.
-			const updated = db
+			const updated = await db
 				.update(artifacts)
 				.set({ previewJson: JSON.stringify(body.preview) })
 				.where(and(eq(artifacts.id, id), isNull(artifacts.previewJson)))
-				.run();
-			if (updated.changes === 0) {
-				const exists = db
+				.returning({ id: artifacts.id });
+			if (updated.length === 0) {
+				const [exists] = await db
 					.select({ id: artifacts.id })
 					.from(artifacts)
 					.where(eq(artifacts.id, id))
-					.get();
+					.limit(1);
 				if (!exists) return c.json({ error: "Not found", code: "NOT_FOUND" }, 404);
 				return c.json({ error: "Preview already set", code: "IMMUTABLE" }, 409);
 			}

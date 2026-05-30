@@ -39,22 +39,21 @@ interface AppCtx {
 	db: HyperIdleDb;
 }
 
-function setupApp(userId = "u-human-1"): AppCtx {
-	const db = createTestDb();
+async function setupApp(userId = "u-human-1"): Promise<AppCtx> {
+	const handle = await createTestDb();
+	const db = handle.db;
 	const eventBus = new EventBus();
-	const app = createTestApp({ db, eventBus });
+	const app = await createTestApp({ db, eventBus });
 
-	db.insert(users)
-		.values({
-			id: userId,
-			kind: "human",
-			name: "Test Founder",
-			email: `${userId}@example.com`,
-			role: "founder",
-			status: "active",
-			createdAt: NOW,
-		})
-		.run();
+	await db.insert(users).values({
+		id: userId,
+		kind: "human",
+		name: "Test Founder",
+		email: `${userId}@example.com`,
+		role: "founder",
+		status: "active",
+		createdAt: NOW,
+	});
 
 	return { app, db };
 }
@@ -62,9 +61,9 @@ function setupApp(userId = "u-human-1"): AppCtx {
 describe("GET /api/hint-progress", () => {
 	let ctx: AppCtx;
 
-	beforeEach(() => {
+	beforeEach(async () => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		ctx = setupApp();
+		ctx = await setupApp();
 	});
 
 	afterEach(() => {
@@ -143,9 +142,9 @@ describe("GET /api/hint-progress", () => {
 describe("POST /api/hint-progress/:hintId/dismiss", () => {
 	let ctx: AppCtx;
 
-	beforeEach(() => {
+	beforeEach(async () => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		ctx = setupApp();
+		ctx = await setupApp();
 	});
 
 	afterEach(() => {
@@ -272,8 +271,8 @@ describe("GET /api/hint-progress — per-user isolation (AC8)", () => {
 	});
 
 	it("user B sees empty dismissed list after user A dismisses a hint", async () => {
-		const ctxA = setupApp("user-a");
-		const ctxB = setupApp("user-b");
+		const ctxA = await setupApp("user-a");
+		const ctxB = await setupApp("user-b");
 
 		// User A dismisses create-bet
 		const dismissRes = await ctxA.app.request("/api/hint-progress/create-bet/dismiss", {
@@ -301,8 +300,8 @@ describe("GET /api/hint-progress — per-user isolation (AC8)", () => {
 	});
 
 	it("dismissals in user A's app do not affect user B's hint state", async () => {
-		const ctxA = setupApp("user-x");
-		const ctxB = setupApp("user-y");
+		const ctxA = await setupApp("user-x");
+		const ctxB = await setupApp("user-y");
 
 		// User A dismisses all 5 hints
 		for (const hintId of [

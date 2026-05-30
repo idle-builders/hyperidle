@@ -5,7 +5,7 @@
  * computeSignals: returns a Map<itemId, SignalSet> for a batch of item IDs.
  * recomputeScores: updates the relevanceScore column on knowledge_items.
  *
- * @lore L22: computeSignals is sync (pure DB reads, no async needed).
+ * @lore L22: computeSignals is now async (PGlite requires async DB access).
  * recomputeScores is async to allow future batching with async boundaries.
  * Both take an explicit itemIds list — never load the full table.
  */
@@ -39,7 +39,7 @@ export interface RelevanceService {
 	 * Compute relevance signals for a batch of item IDs.
 	 * Returns a Map keyed by item ID. Empty IDs array returns empty Map.
 	 */
-	computeSignals(itemIds: readonly string[], nowMs: number): Map<string, SignalSet>;
+	computeSignals(itemIds: readonly string[], nowMs: number): Promise<Map<string, SignalSet>>;
 
 	/**
 	 * Recompute relevanceScore for the given item IDs and write to DB.
@@ -52,7 +52,10 @@ export interface RelevanceService {
  * Create a RelevanceService bound to the given database.
  */
 export function createRelevanceService(db: HyperIdleDb): RelevanceService {
-	function computeSignals(itemIds: readonly string[], nowMs: number): Map<string, SignalSet> {
+	async function computeSignals(
+		itemIds: readonly string[],
+		nowMs: number,
+	): Promise<Map<string, SignalSet>> {
 		if (itemIds.length === 0) {
 			return new Map();
 		}
@@ -62,14 +65,13 @@ export function createRelevanceService(db: HyperIdleDb): RelevanceService {
 
 		// --- Access log: max(accessedAt) per item, count within 30 days ---
 		// Query all access log rows for these items
-		const accessRows = db
+		const accessRows = await db
 			.select({
 				itemId: knowledgeAccessLog.itemId,
 				accessedAt: knowledgeAccessLog.accessedAt,
 			})
 			.from(knowledgeAccessLog)
-			.where(inArray(knowledgeAccessLog.itemId, itemIds as string[]))
-			.all();
+			.where(inArray(knowledgeAccessLog.itemId, itemIds as string[]));
 
 		// Aggregate in JS: maxAccessedAt and count within 30d
 		const maxAccessedAt = new Map<string, string>();
@@ -88,7 +90,7 @@ export function createRelevanceService(db: HyperIdleDb): RelevanceService {
 		}
 
 		// --- Edit log: max(createdAt) per item for editor='human' ---
-		const editRows = db
+		const editRows = await db
 			.select({
 				itemId: knowledgeEditLog.itemId,
 				createdAt: knowledgeEditLog.createdAt,
@@ -99,8 +101,7 @@ export function createRelevanceService(db: HyperIdleDb): RelevanceService {
 					inArray(knowledgeEditLog.itemId, itemIds as string[]),
 					eq(knowledgeEditLog.editor, "human"),
 				),
-			)
-			.all();
+			);
 
 		const maxHumanEditAt = new Map<string, string>();
 		for (const row of editRows) {
@@ -143,15 +144,14 @@ export function createRelevanceService(db: HyperIdleDb): RelevanceService {
 		}
 
 		const nowMs = Date.now();
-		const config = loadRelevanceConfig(db) ?? DEFAULT_RELEVANCE_CONFIG;
-		const signals = computeSignals(itemIds, nowMs);
+		const config = (await loadRelevanceConfig(db)) ?? DEFAULT_RELEVANCE_CONFIG;
+		const signals = await computeSignals(itemIds, nowMs);
 
 		// Fetch items to get their updatedAt for ageDays
-		const rows = db
+		const rows = await db
 			.select({ id: knowledgeItems.id, updatedAt: knowledgeItems.updatedAt })
 			.from(knowledgeItems)
-			.where(inArray(knowledgeItems.id, itemIds as string[]))
-			.all();
+			.where(inArray(knowledgeItems.id, itemIds as string[]));
 
 		const updatedAtById = new Map<string, string>();
 		for (const row of rows) {
@@ -187,26 +187,24 @@ export function createRelevanceService(db: HyperIdleDb): RelevanceService {
 
 			// @lore O2: relevanceScore moved from knowledgeItems to knowledgeStrategyFabric.
 			// Upsert: update if fabric row exists, otherwise insert a minimal row.
-			const existingFabric = db
+			const [existingFabric] = await db
 				.select()
 				.from(knowledgeStrategyFabric)
 				.where(eq(knowledgeStrategyFabric.knowledgeItemId, itemId))
-				.get();
+				.limit(1);
 			if (existingFabric) {
-				db.update(knowledgeStrategyFabric)
+				await db
+					.update(knowledgeStrategyFabric)
 					.set({ relevanceScore: score != null ? String(score) : null })
-					.where(eq(knowledgeStrategyFabric.knowledgeItemId, itemId))
-					.run();
+					.where(eq(knowledgeStrategyFabric.knowledgeItemId, itemId));
 			} else {
-				db.insert(knowledgeStrategyFabric)
-					.values({
-						id: `ksf-recompute-${itemId}`,
-						knowledgeItemId: itemId,
-						layer: "L0",
-						kind: "pattern",
-						relevanceScore: score != null ? String(score) : null,
-					})
-					.run();
+				await db.insert(knowledgeStrategyFabric).values({
+					id: `ksf-recompute-${itemId}`,
+					knowledgeItemId: itemId,
+					layer: "L0",
+					kind: "pattern",
+					relevanceScore: score != null ? String(score) : null,
+				});
 			}
 		}
 	}

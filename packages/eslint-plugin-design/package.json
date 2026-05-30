@@ -16,7 +16,6 @@
 		"typescript": "^6.0.0"
 	},
 	"devDependencies": {
-		"@types/eslint": "^9.6.1",
 		"estree-jsx": "^0.0.1"
 	}
 }

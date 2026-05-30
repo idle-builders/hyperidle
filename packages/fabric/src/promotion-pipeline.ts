@@ -142,12 +142,12 @@ function signatureFor(item: Pick<KnowledgeItemWithFabric, "layer" | "topic" | "k
 	};
 }
 
-function hasOpenConflict(db: HyperIdleDb, itemId: string): boolean {
-	const row = db
+async function hasOpenConflict(db: HyperIdleDb, itemId: string): Promise<boolean> {
+	const [row] = await db
 		.select({ id: knowledgeConflicts.id })
 		.from(knowledgeConflicts)
 		.where(and(eq(knowledgeConflicts.itemId, itemId), eq(knowledgeConflicts.status, "open")))
-		.get();
+		.limit(1);
 	return Boolean(row);
 }
 
@@ -165,10 +165,13 @@ function hasOpenConflict(db: HyperIdleDb, itemId: string): boolean {
  * purpose. Including it would make every item trivially unique and
  * defeat AC2 ("same finding in 5 products → VALIDATED").
  */
-export function checkAutoPromotion(db: HyperIdleDb, knowledgeItemId: string): AutoPromotionResult {
+export async function checkAutoPromotion(
+	db: HyperIdleDb,
+	knowledgeItemId: string,
+): Promise<AutoPromotionResult> {
 	// @lore O2: strategy fields (layer, kind, scopeId) are in knowledgeStrategyFabric.
 	// We LEFT JOIN to get both kernel and fabric columns together.
-	const subjectRow = db
+	const [subjectRow] = await db
 		.select({
 			item: knowledgeItems,
 			fabric: knowledgeStrategyFabric,
@@ -179,7 +182,7 @@ export function checkAutoPromotion(db: HyperIdleDb, knowledgeItemId: string): Au
 			eq(knowledgeStrategyFabric.knowledgeItemId, knowledgeItems.id),
 		)
 		.where(eq(knowledgeItems.id, knowledgeItemId))
-		.get();
+		.limit(1);
 	if (!subjectRow) {
 		return { shouldPromote: false, reason: "NOT_FOUND", distinctScopes: 0 };
 	}
@@ -200,7 +203,7 @@ export function checkAutoPromotion(db: HyperIdleDb, knowledgeItemId: string): Au
 	// Items with NULL scope_id are excluded — they cannot demonstrate
 	// cross-product repetition (which is the whole point of AC2).
 	// @lore O2: JOIN with knowledgeStrategyFabric to filter on layer/kind/scopeId.
-	const row = db
+	const [row] = await db
 		.select({ count: sql<number>`COUNT(DISTINCT ${knowledgeStrategyFabric.scopeId})` })
 		.from(knowledgeItems)
 		.innerJoin(
@@ -224,7 +227,7 @@ export function checkAutoPromotion(db: HyperIdleDb, knowledgeItemId: string): Au
 				isNotNull(knowledgeStrategyFabric.scopeId),
 			),
 		)
-		.get();
+		.limit(1);
 
 	const distinctScopes = Number(row?.count ?? 0);
 
@@ -261,12 +264,12 @@ export function checkAutoPromotion(db: HyperIdleDb, knowledgeItemId: string): Au
  * items share a topic string but semantically don't conflict. Documented
  * limitation — see plans/work-packages/G3-plan.md §3.3.
  */
-export function detectLayerContradiction(
+export async function detectLayerContradiction(
 	db: HyperIdleDb,
 	knowledgeItemId: string,
-): ContradictionResult {
+): Promise<ContradictionResult> {
 	// @lore O2: layer, kind, meta are in knowledgeStrategyFabric. LEFT JOIN to get them.
-	const subjectRow = db
+	const [subjectRow] = await db
 		.select({
 			item: knowledgeItems,
 			fabric: knowledgeStrategyFabric,
@@ -277,7 +280,7 @@ export function detectLayerContradiction(
 			eq(knowledgeStrategyFabric.knowledgeItemId, knowledgeItems.id),
 		)
 		.where(eq(knowledgeItems.id, knowledgeItemId))
-		.get();
+		.limit(1);
 	if (!subjectRow) {
 		return { contradicts: false };
 	}
@@ -299,7 +302,7 @@ export function detectLayerContradiction(
 
 	// Find L4 principles on the same topic.
 	// @lore O2: JOIN with fabric to filter by layer and kind from the extension table.
-	const principleRows = db
+	const principleRows = await db
 		.select({
 			item: knowledgeItems,
 			fabric: knowledgeStrategyFabric,
@@ -316,8 +319,7 @@ export function detectLayerContradiction(
 				eq(knowledgeItems.topic, subjectTopic),
 				ne(knowledgeItems.status, "archived"),
 			),
-		)
-		.all();
+		);
 
 	for (const principleRow of principleRows) {
 		const pMeta = parseMeta(principleRow.fabric?.meta ?? null);
@@ -354,19 +356,18 @@ export function detectLayerContradiction(
  * the caller can bound the working set per pass — additional stale
  * items will be returned by the next scheduled run.
  */
-export function findStaleItems(
+export async function findStaleItems(
 	db: HyperIdleDb,
 	nowMs: number,
 	thresholdMs: number = STALE_THRESHOLD_MS,
 	maxBatchSize: number = DEFAULT_SWEEP_MAX_BATCH_SIZE,
-): readonly KnowledgeItem[] {
+): Promise<readonly KnowledgeItem[]> {
 	const cutoff = new Date(nowMs - thresholdMs).toISOString();
 	return db
 		.select()
 		.from(knowledgeItems)
 		.where(and(eq(knowledgeItems.status, "active"), lt(knowledgeItems.updatedAt, cutoff)))
-		.limit(maxBatchSize)
-		.all();
+		.limit(maxBatchSize);
 }
 
 /**
@@ -378,33 +379,35 @@ export function findStaleItems(
  * provenance. Returns true when the transition succeeded, false when the
  * row was no longer `active` (concurrent modification or not found).
  */
-export function markStale(db: HyperIdleDb, itemId: string): boolean {
+export async function markStale(db: HyperIdleDb, itemId: string): Promise<boolean> {
 	const isoNow = new Date().toISOString();
-	return db.transaction((tx): boolean => {
-		const row = tx.select().from(knowledgeItems).where(eq(knowledgeItems.id, itemId)).get();
+	return db.transaction(async (tx): Promise<boolean> => {
+		const [row] = await tx
+			.select()
+			.from(knowledgeItems)
+			.where(eq(knowledgeItems.id, itemId))
+			.limit(1);
 		if (!row) return false;
 		if (row.status !== "active") return false;
 
-		const updateResult = tx
+		const updateRows = await tx
 			.update(knowledgeItems)
 			.set({ status: "stale", updatedAt: isoNow, updatedBy: AUTO_PROMOTION_EDITOR })
 			.where(and(eq(knowledgeItems.id, itemId), eq(knowledgeItems.status, "active")))
-			.run();
+			.returning({ id: knowledgeItems.id });
 
-		if (updateResult.changes === 0) return false;
+		if (updateRows.length === 0) return false;
 
-		tx.insert(knowledgeEditLog)
-			.values({
-				id: randomUUID(),
-				itemId,
-				editor: AUTO_PROMOTION_EDITOR,
-				field: "status",
-				oldValue: "active",
-				newValue: "stale | reason: no activity in 90+ days",
-				editType: "refinement",
-				createdAt: isoNow,
-			})
-			.run();
+		await tx.insert(knowledgeEditLog).values({
+			id: randomUUID(),
+			itemId,
+			editor: AUTO_PROMOTION_EDITOR,
+			field: "status",
+			oldValue: "active",
+			newValue: "stale | reason: no activity in 90+ days",
+			editType: "refinement",
+			createdAt: isoNow,
+		});
 
 		return true;
 	});
@@ -422,17 +425,16 @@ export function markStale(db: HyperIdleDb, itemId: string): boolean {
  *   Defaults to {@link DEFAULT_SWEEP_MAX_BATCH_SIZE}. Sweeps run on a
  *   schedule so any backlog drains across successive runs.
  */
-export function runAutoPromotionSweep(
+export async function runAutoPromotionSweep(
 	db: HyperIdleDb,
 	eventBus: EventBus,
 	maxBatchSize: number = DEFAULT_SWEEP_MAX_BATCH_SIZE,
-): AutoPromotionSweepResult {
-	const candidates = db
+): Promise<AutoPromotionSweepResult> {
+	const candidates = await db
 		.select()
 		.from(knowledgeItems)
 		.where(eq(knowledgeItems.status, "provisional"))
-		.limit(maxBatchSize)
-		.all();
+		.limit(maxBatchSize);
 
 	const promotedIds: string[] = [];
 	const flaggedForReviewIds: string[] = [];
@@ -440,20 +442,20 @@ export function runAutoPromotionSweep(
 
 	for (const item of candidates) {
 		// AC5 — open conflict blocks auto-promotion
-		if (hasOpenConflict(db, item.id)) {
+		if (await hasOpenConflict(db, item.id)) {
 			skippedIds.push(item.id);
 			continue;
 		}
 
 		// AC2 — cross-scope repetition threshold
-		const rec = checkAutoPromotion(db, item.id);
+		const rec = await checkAutoPromotion(db, item.id);
 		if (!rec.shouldPromote) {
 			skippedIds.push(item.id);
 			continue;
 		}
 
 		// AC3 — structural contradiction with L4 principle
-		const contradiction = detectLayerContradiction(db, item.id);
+		const contradiction = await detectLayerContradiction(db, item.id);
 		if (contradiction.contradicts) {
 			flaggedForReviewIds.push(item.id);
 			const flagEvent: KnowledgeUpdatedEvent = {
@@ -468,7 +470,7 @@ export function runAutoPromotionSweep(
 		}
 
 		// Promote — provisional → validated with AUTO_PROMOTION_EDITOR provenance.
-		const promoted = promoteToValidatedAuto(db, item.id);
+		const promoted = await promoteToValidatedAuto(db, item.id);
 		if (!promoted) {
 			skippedIds.push(item.id);
 			continue;
@@ -523,19 +525,19 @@ export interface StaleSweepOptions {
  * @param options.silent When true, skip emitting events. DB writes still
  *   occur.
  */
-export function runStaleSweep(
+export async function runStaleSweep(
 	db: HyperIdleDb,
 	eventBus: EventBus,
 	nowMs: number,
 	thresholdMs: number = STALE_THRESHOLD_MS,
 	options: StaleSweepOptions = {},
-): StaleSweepResult {
+): Promise<StaleSweepResult> {
 	const maxBatchSize = options.maxBatchSize ?? DEFAULT_SWEEP_MAX_BATCH_SIZE;
 	const silent = options.silent ?? false;
-	const candidates = findStaleItems(db, nowMs, thresholdMs, maxBatchSize);
+	const candidates = await findStaleItems(db, nowMs, thresholdMs, maxBatchSize);
 	const markedIds: string[] = [];
 	for (const item of candidates) {
-		if (markStale(db, item.id)) {
+		if (await markStale(db, item.id)) {
 			markedIds.push(item.id);
 			if (!silent) {
 				const event: KnowledgeUpdatedEvent = {
@@ -569,38 +571,36 @@ export function runStaleSweep(
  * stay in lockstep; any change to one requires the corresponding change
  * here.
  */
-function promoteToValidatedAuto(db: HyperIdleDb, itemId: string): boolean {
+async function promoteToValidatedAuto(db: HyperIdleDb, itemId: string): Promise<boolean> {
 	const isoNow = new Date().toISOString();
-	return db.transaction((tx): boolean => {
+	return db.transaction(async (tx): Promise<boolean> => {
 		// Re-check the open-conflict gate inside the transaction so a
 		// racing conflict insert cannot sneak a promotion through.
-		const openConflict = tx
+		const [openConflict] = await tx
 			.select({ id: knowledgeConflicts.id })
 			.from(knowledgeConflicts)
 			.where(and(eq(knowledgeConflicts.itemId, itemId), eq(knowledgeConflicts.status, "open")))
-			.get();
+			.limit(1);
 		if (openConflict) return false;
 
-		const updateResult = tx
+		const updateRows = await tx
 			.update(knowledgeItems)
 			.set({ status: "validated", updatedAt: isoNow, updatedBy: AUTO_PROMOTION_EDITOR })
 			.where(and(eq(knowledgeItems.id, itemId), eq(knowledgeItems.status, "provisional")))
-			.run();
+			.returning({ id: knowledgeItems.id });
 
-		if (updateResult.changes === 0) return false;
+		if (updateRows.length === 0) return false;
 
-		tx.insert(knowledgeEditLog)
-			.values({
-				id: randomUUID(),
-				itemId,
-				editor: AUTO_PROMOTION_EDITOR,
-				field: "status",
-				oldValue: "provisional",
-				newValue: `validated | reason: auto-promotion at ${AUTO_PROMOTION_REPETITION_THRESHOLD}+ cross-scope repetitions`,
-				editType: "refinement",
-				createdAt: isoNow,
-			})
-			.run();
+		await tx.insert(knowledgeEditLog).values({
+			id: randomUUID(),
+			itemId,
+			editor: AUTO_PROMOTION_EDITOR,
+			field: "status",
+			oldValue: "provisional",
+			newValue: `validated | reason: auto-promotion at ${AUTO_PROMOTION_REPETITION_THRESHOLD}+ cross-scope repetitions`,
+			editType: "refinement",
+			createdAt: isoNow,
+		});
 
 		return true;
 	});

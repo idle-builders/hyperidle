@@ -4,6 +4,7 @@ import {
 	type HyperIdleDb,
 	items,
 	routines,
+	type TestDbHandle,
 	tasks,
 	teamMembers,
 	teams,
@@ -22,15 +23,17 @@ function auth(extra?: Record<string, string>): Record<string, string> {
 }
 
 describe("E2E API Integration (I5)", () => {
+	let handle: TestDbHandle;
 	let db: HyperIdleDb;
 	let eventBus: EventBus;
 	let app: Hono;
 
-	beforeEach(() => {
+	beforeEach(async () => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		db = createTestDb();
+		handle = await createTestDb();
+		db = handle.db;
 		eventBus = new EventBus();
-		app = createTestApp({ db, eventBus });
+		app = await createTestApp({ db, eventBus });
 
 		// Seed base entities
 		db.insert(teams)
@@ -75,8 +78,9 @@ describe("E2E API Integration (I5)", () => {
 			.run();
 	});
 
-	afterEach(() => {
+	afterEach(async () => {
 		vi.unstubAllEnvs();
+		await handle?.close();
 	});
 
 	// -------------------------------------------------------
@@ -301,26 +305,23 @@ describe("E2E API Integration (I5)", () => {
 	// 5. Conversations
 	// -------------------------------------------------------
 	describe("Conversations", () => {
-		beforeEach(() => {
-			db.insert(threads)
-				.values({
-					id: "thread-1",
-					hostKind: "task",
-					hostId: "task-1",
-					initiatorId: "agent-1",
-					participants: JSON.stringify(["agent-1"]),
-					lastActiveAt: new Date().toISOString(),
-					createdAt: new Date().toISOString(),
-				})
-				.run();
-			db.insert(items)
-				.values({
-					id: "item-1",
-					title: "E2E item",
-					threadId: "thread-1",
-					createdAt: new Date().toISOString(),
-				})
-				.run();
+		beforeEach(async () => {
+			await db.insert(threads).values({
+				id: "thread-1",
+				hostKind: "task",
+				hostId: "task-1",
+				initiatorId: "agent-1",
+				participants: JSON.stringify(["agent-1"]),
+				lastActiveAt: new Date().toISOString(),
+				createdAt: new Date().toISOString(),
+			});
+
+			await db.insert(items).values({
+				id: "item-1",
+				title: "E2E item",
+				threadId: "thread-1",
+				createdAt: new Date().toISOString(),
+			});
 		});
 
 		it("GET /api/conversations lists threads", async () => {
@@ -353,15 +354,13 @@ describe("E2E API Integration (I5)", () => {
 			// `agent-1` is already seeded by the outer `beforeEach`; we just
 			// add a founder so the verdict authz check (founder + not-self)
 			// has a sender to claim.
-			db.insert(users)
-				.values({
-					id: "founder-1",
-					name: "Founder",
-					role: "founder",
-					status: "active",
-					createdAt: new Date().toISOString(),
-				})
-				.run();
+			await db.insert(users).values({
+				id: "founder-1",
+				name: "Founder",
+				role: "founder",
+				status: "active",
+				createdAt: new Date().toISOString(),
+			});
 
 			const create = await app.request("/api/threads", {
 				method: "POST",
@@ -395,7 +394,7 @@ describe("E2E API Integration (I5)", () => {
 					clientKey: "verdict-e2e",
 					payload: {
 						decision: "approve",
-						resolvesMessageId: created.messages[0].id,
+						resolvesMessageId: created.messages[0]?.id ?? "",
 					},
 				}),
 			});
@@ -495,7 +494,7 @@ describe("E2E API Integration (I5)", () => {
 			expect(res.status).toBe(200);
 			const body = (await res.json()) as Array<{ id: string; activeSessions: number }>;
 			expect(body.length).toBeGreaterThanOrEqual(1);
-			expect(body[0].activeSessions).toBe(0);
+			expect(body[0]?.activeSessions).toBe(0);
 		});
 
 		it("GET /api/users/:id returns agent detail", async () => {
@@ -577,7 +576,7 @@ describe("E2E API Integration (I5)", () => {
 
 		it("POST /api/sessions creates a session and emits event", async () => {
 			const events: unknown[] = [];
-			eventBus.on("session_started", (e) => events.push(e));
+			eventBus.on("session_started", (e: unknown) => events.push(e));
 
 			const res = await app.request("/api/sessions", {
 				method: "POST",
@@ -719,17 +718,15 @@ describe("E2E API Integration (I5)", () => {
 	// 11. Routines
 	// -------------------------------------------------------
 	describe("Routines", () => {
-		beforeEach(() => {
-			db.insert(routines)
-				.values({
-					id: "routine-1",
-					ownerAgentId: "agent-1",
-					triggerType: "heartbeat",
-					triggerConfig: JSON.stringify({ intervalMs: 60000 }),
-					autonomyLevel: 2,
-					active: 1,
-				})
-				.run();
+		beforeEach(async () => {
+			await db.insert(routines).values({
+				id: "routine-1",
+				ownerAgentId: "agent-1",
+				triggerType: "heartbeat",
+				triggerConfig: JSON.stringify({ intervalMs: 60000 }),
+				autonomyLevel: 2,
+				active: true,
+			});
 		});
 
 		it("GET /api/routines lists routines", async () => {
@@ -746,8 +743,8 @@ describe("E2E API Integration (I5)", () => {
 				body: JSON.stringify({ active: false }),
 			});
 			expect(res.status).toBe(200);
-			const body = (await res.json()) as { active: number };
-			expect(body.active).toBe(0);
+			const body = (await res.json()) as { active: boolean };
+			expect(body.active).toBe(false);
 		});
 
 		it("POST /api/routines/:id/retire retires routine", async () => {
@@ -756,8 +753,8 @@ describe("E2E API Integration (I5)", () => {
 				headers: auth(),
 			});
 			expect(res.status).toBe(200);
-			const body = (await res.json()) as { active: number };
-			expect(body.active).toBe(0);
+			const body = (await res.json()) as { active: boolean };
+			expect(body.active).toBe(false);
 		});
 
 		it("POST /api/routines/:id/retire returns 404 for unknown routine", async () => {

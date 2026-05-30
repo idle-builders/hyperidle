@@ -10,7 +10,6 @@ const readInboxInputSchema = z.object({
 
 type ReadInboxInput = z.infer<typeof readInboxInputSchema>;
 
-// biome-ignore lint/suspicious/useAwait: ToolDefinition.handler requires async signature
 async function handler(args: ReadInboxInput, ctx: ToolContext): Promise<ToolResult> {
 	const parsed = readInboxInputSchema.safeParse(args);
 	if (!parsed.success) {
@@ -23,14 +22,13 @@ async function handler(args: ReadInboxInput, ctx: ToolContext): Promise<ToolResu
 	// We pull more rows than `limit` to allow JSON participant filtering in
 	// JS, then cap to `limit`. For the L1a scope the working set is small;
 	// a future story may project a participants table.
-	const rows = ctx.db
+	const rows = await ctx.db
 		.select()
 		.from(messages)
 		.innerJoin(threads, eq(messages.threadId, threads.id))
 		.where(ne(messages.senderId, ctx.agentId))
 		.orderBy(desc(messages.createdAt))
-		.limit(limit * 4)
-		.all();
+		.limit(limit * 4);
 
 	const filtered = rows
 		.filter((row) => {

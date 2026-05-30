@@ -31,8 +31,8 @@ export class ApiError extends Error {
  * @throws ApiError(500, 'team_missing') if no team exists for the product.
  * @throws ApiError(500, 'invariant_broken') if more than one team exists.
  */
-export function loadProductTeam(db: HyperIdleDb, productId: string): Team {
-	const rows = db.select().from(teams).where(eq(teams.productId, productId)).all();
+export async function loadProductTeam(db: HyperIdleDb, productId: string): Promise<Team> {
+	const rows = await db.select().from(teams).where(eq(teams.productId, productId));
 	if (rows.length === 0) {
 		throw new ApiError(500, "team_missing", `Product ${productId} has no team`);
 	}

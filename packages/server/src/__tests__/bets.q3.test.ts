@@ -29,14 +29,16 @@ function authHeaders(extra?: Record<string, string>): Record<string, string> {
 
 describe("Bet Endpoints (Q3)", () => {
 	let db: HyperIdleDb;
+	let handle: TestDbHandle;
 	let eventBus: EventBus;
 	let app: Hono;
 
-	beforeEach(() => {
+	beforeEach(async () => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		db = createTestDb();
+		handle = await createTestDb();
+		db = handle.db;
 		eventBus = new EventBus();
-		app = createTestApp({ db, eventBus });
+		app = await createTestApp({ db, eventBus });
 
 		// Seed domain entity (teams) and membership group (teamMembers)
 		db.insert(teams)
@@ -58,8 +60,9 @@ describe("Bet Endpoints (Q3)", () => {
 			.run();
 	});
 
-	afterEach(() => {
+	afterEach(async () => {
 		vi.unstubAllEnvs();
+		await handle.close();
 	});
 
 	// ── T2: teamId, revisionLog seeded, description .min(1) ─────────────────────
@@ -140,7 +143,7 @@ describe("Bet Endpoints (Q3)", () => {
 			const body = (await res.json()) as { id: string };
 
 			// Check the DB row directly for revisionLog
-			const betRow = db.select().from(bets).where(eq(bets.id, body.id)).get();
+			const [betRow] = await db.select().from(bets).where(eq(bets.id, body.id)).limit(1);
 			expect(betRow).toBeTruthy();
 			const revisionLog = JSON.parse(betRow?.revisionLog ?? "[]") as Array<Record<string, unknown>>;
 			expect(revisionLog).toHaveLength(1);
@@ -334,7 +337,7 @@ describe("Bet Endpoints (Q3)", () => {
 				}),
 			});
 
-			const betRow = db.select().from(bets).where(eq(bets.id, betId)).get();
+			const [betRow] = await db.select().from(bets).where(eq(bets.id, betId)).limit(1);
 			const revisionLog = JSON.parse(betRow?.revisionLog ?? "[]") as Array<Record<string, unknown>>;
 			// At least 2 entries: creation + description update
 			expect(revisionLog.length).toBeGreaterThanOrEqual(2);
@@ -454,7 +457,7 @@ describe("Bet Endpoints (Q3)", () => {
 			});
 			expect(patchRes.status).toBe(200);
 
-			const betRow = db.select().from(bets).where(eq(bets.id, betId)).get();
+			const [betRow] = await db.select().from(bets).where(eq(bets.id, betId)).limit(1);
 			const revisionLog = JSON.parse(betRow?.revisionLog ?? "[]") as Array<Record<string, unknown>>;
 			// At minimum 2 entries: creation + agent patch
 			expect(revisionLog.length).toBeGreaterThanOrEqual(2);

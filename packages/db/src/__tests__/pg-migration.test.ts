@@ -2,8 +2,8 @@ import { PGlite } from "@electric-sql/pglite";
 import { sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/pglite";
 import { describe, expect, it } from "vitest";
-import { createPgTestDb } from "../pg-test-utils.js";
-import * as pgSchema from "../schema.pg.js";
+import * as pgSchema from "../schema.js";
+import { createTestDb } from "../test-utils.js";
 
 /**
  * H4 AC3: Migrations apply cleanly on Postgres.
@@ -16,7 +16,7 @@ describe("H4 AC3: PG migrations apply to a fresh pglite DB", () => {
 	it("migrated pglite DB has all major tables from the pg migration set", {
 		timeout: 30_000,
 	}, async () => {
-		const { db, close } = await createPgTestDb({ migrate: true });
+		const { db, close } = await createTestDb();
 		try {
 			const result = await db.execute(
 				sql`SELECT tablename FROM pg_tables WHERE schemaname = 'public' ORDER BY tablename`,
@@ -41,6 +41,8 @@ describe("H4 AC3: PG migrations apply to a fresh pglite DB", () => {
 					"knowledge_items",
 					"messages",
 					"routines",
+					"server_config",
+					"server_credentials",
 					"sessions",
 					"tasks",
 					"team_members",
@@ -58,9 +60,9 @@ describe("H4 AC3: PG migrations apply to a fresh pglite DB", () => {
 	});
 
 	it("is idempotent: migrating twice does not error", { timeout: 30_000 }, async () => {
-		const { db, runPgMigrations, close } = await createPgTestDb({ migrate: true });
+		const { db, runMigrations, close } = await createTestDb();
 		try {
-			await runPgMigrations(db);
+			await runMigrations();
 			// Just check tables still exist
 			const result = await db.execute(
 				sql`SELECT COUNT(*) AS n FROM pg_tables WHERE schemaname='public'`,
@@ -114,7 +116,7 @@ describe("I3 review C5: boolean migration is NULL-safe", () => {
 				sql`ALTER TABLE items_int_test ALTER COLUMN blocking SET DATA TYPE boolean USING (COALESCE(blocking, 0) <> 0)`,
 			);
 			const result = await db.execute(sql`SELECT id, blocking FROM items_int_test ORDER BY id`);
-			const rows = (result as { rows: Array<{ id: string; blocking: boolean }> }).rows;
+			const rows = (result as unknown as { rows: Array<{ id: string; blocking: boolean }> }).rows;
 			const byId = new Map(rows.map((r) => [r.id, r.blocking]));
 
 			expect(byId.get("null-row"), "NULL must coerce to false (CRITICAL-1)").toBe(false);
@@ -151,7 +153,7 @@ describe("I3 review C5: boolean migration is NULL-safe", () => {
 		// migration file directly and running its DO blocks. The DO blocks
 		// guard on `data_type='integer'` so re-run on already-boolean
 		// columns must execute zero ALTER statements.
-		const { db, close } = await createPgTestDb({ migrate: true });
+		const { db, close } = await createTestDb();
 		try {
 			// Pre-seed a row with blocking=true.
 			await db.execute(

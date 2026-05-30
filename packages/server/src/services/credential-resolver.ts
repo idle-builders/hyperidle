@@ -51,11 +51,11 @@ export class DbCredentialResolver implements CredentialResolver {
 	) {}
 
 	async resolve(name: CredentialName): Promise<string | null> {
-		const row = this.db
+		const [row] = await this.db
 			.select()
 			.from(serverCredentials)
 			.where(eq(serverCredentials.name, name))
-			.get();
+			.limit(1);
 
 		if (!row) return null;
 		return decryptCredentialValue(row.encryptedValue, this.serverSecret);

@@ -13,7 +13,7 @@ TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 # Classify command into a category for rollup reporting
 CMD_FIRST=$(echo "$COMMAND" | head -1 | awk '{print $1}')
 case "$CMD_FIRST" in
-  tsc|bun)
+  tsc|npm|npx)
     CMD_SECOND=$(echo "$COMMAND" | head -1 | awk '{print $2" "$3}')
     case "$CMD_SECOND" in
       "run check"*) CATEGORY="typecheck" ;;
@@ -24,8 +24,8 @@ case "$CMD_FIRST" in
       "run build"*) CATEGORY="build" ;;
       "run db"*) CATEGORY="database" ;;
       "install"*) CATEGORY="install" ;;
-      "scripts/"*) CATEGORY="script" ;;
-      *) CATEGORY="bun-other" ;;
+      "tsx scripts/"*) CATEGORY="script" ;;
+      *) CATEGORY="npm-other" ;;
     esac
     ;;
   git) CATEGORY="git" ;;

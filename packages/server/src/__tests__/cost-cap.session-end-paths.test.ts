@@ -3,6 +3,7 @@ import {
 	createTestDb,
 	type HyperIdleDb,
 	sessions,
+	type TestDbHandle,
 	tasks,
 	teamMembers,
 	teams,
@@ -122,18 +123,20 @@ function seed(db: HyperIdleDb): void {
 }
 
 describe("I3 review C1: session_ended releases cost-cap dedup", () => {
+	let handle: TestDbHandle;
 	let db: HyperIdleDb;
 	let eventBus: EventBus;
 	let unsubscribe: () => void;
 
-	beforeEach(() => {
-		db = createTestDb();
+	beforeEach(async () => {
+		handle = await createTestDb();
+		db = handle.db;
 		eventBus = new EventBus();
 		clearDeduplicationCache();
 		// Subscribe the cost-cap releaser so emitting session_ended
 		// reclaims the dedup entry — same wiring `createApp` performs.
 		unsubscribe = registerCostCapDedupReleaser(eventBus);
-		seed(db);
+		await seed(db);
 	});
 
 	it("emitting session_ended on the bus drops the per-session dedup entry", async () => {
@@ -172,7 +175,7 @@ describe("I3 review C1: session_ended releases cost-cap dedup", () => {
 
 		// Spy: handoff MUST NOT emit session_ended.
 		const sessionEnded: unknown[] = [];
-		eventBus.on("session_ended", (e) => sessionEnded.push(e));
+		eventBus.on("session_ended", (e: unknown) => sessionEnded.push(e));
 
 		const ctx: SessionContext = {
 			sessionId: "sess-1",

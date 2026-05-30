@@ -40,10 +40,11 @@ interface AppCtx {
 	db: HyperIdleDb;
 }
 
-function setupApp(): AppCtx {
-	const db = createTestDb();
+async function setupApp(): Promise<AppCtx> {
+	const handle = await createTestDb();
+	const db = handle.db;
 	const eventBus = new EventBus();
-	const app = createTestApp({ db, eventBus });
+	const app = await createTestApp({ db, eventBus });
 	return { app, db };
 }
 
@@ -52,9 +53,9 @@ const NOW = new Date().toISOString();
 describe("GET /api/products", () => {
 	let ctx: AppCtx;
 
-	beforeEach(() => {
+	beforeEach(async () => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		ctx = setupApp();
+		ctx = await setupApp();
 	});
 
 	afterEach(() => {
@@ -134,9 +135,9 @@ describe("GET /api/products", () => {
 describe("GET /api/products/:id", () => {
 	let ctx: AppCtx;
 
-	beforeEach(() => {
+	beforeEach(async () => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		ctx = setupApp();
+		ctx = await setupApp();
 	});
 
 	afterEach(() => {
