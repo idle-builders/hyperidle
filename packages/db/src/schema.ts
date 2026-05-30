@@ -662,6 +662,59 @@ export const hintProgress = pgTable(
 	(table) => [primaryKey({ columns: [table.userId, table.hintId] })],
 );
 
+// --- S1: Authentication tables ---
+
+/**
+ * LoginSession — stores per-user bearer token hashes (SHA-256).
+ * Plaintext tokens are NEVER stored; only the hash.
+ *
+ * @lore S1: tokenHash has both a UNIQUE constraint (for data integrity) and an
+ * explicit index (for query planning intent). The unique constraint implies an
+ * index in Postgres; the named index makes the auth hot-path explicit.
+ * onDelete: cascade — sessions have no audit value beyond the user's lifetime.
+ */
+export const loginSessions = pgTable(
+	"login_sessions",
+	{
+		id: text("id").primaryKey(),
+		userId: text("user_id")
+			.notNull()
+			.references(() => users.id, { onDelete: "cascade" }),
+		tokenHash: text("token_hash").notNull().unique(),
+		expiresAt: text("expires_at").notNull(),
+		createdAt: text("created_at").notNull(),
+		revokedAt: text("revoked_at"),
+	},
+	(table) => [
+		index("login_sessions_user_id_idx").on(table.userId),
+		index("login_sessions_token_hash_idx").on(table.tokenHash),
+	],
+);
+
+/**
+ * InviteCode — URL-safe random codes for on-boarding new users.
+ *
+ * @lore S1: createdBy uses RESTRICT — the creator's record must not be deleted
+ * while their invite codes exist (audit trail). claimedBy uses SET NULL — if the
+ * claiming user is deleted the invite becomes unclaimed rather than cascading.
+ * role defaults to "member"; the role system is minimal in S1 (admin vs member).
+ */
+export const inviteCodes = pgTable(
+	"invite_codes",
+	{
+		id: text("id").primaryKey(),
+		code: text("code").notNull().unique(),
+		createdBy: text("created_by")
+			.notNull()
+			.references(() => users.id, { onDelete: "restrict" }),
+		claimedBy: text("claimed_by").references(() => users.id, { onDelete: "set null" }),
+		role: text("role").notNull().default("member"),
+		expiresAt: text("expires_at").notNull(),
+		createdAt: text("created_at").notNull(),
+	},
+	(table) => [uniqueIndex("invite_codes_code_uq").on(table.code)],
+);
+
 // --- Inferred types ---
 
 export type Product = typeof products.$inferSelect;
@@ -738,3 +791,9 @@ export type NewServerConfigRow = typeof serverConfig.$inferInsert;
 
 export type HintProgressRow = typeof hintProgress.$inferSelect;
 export type NewHintProgressRow = typeof hintProgress.$inferInsert;
+
+export type LoginSession = typeof loginSessions.$inferSelect;
+export type NewLoginSession = typeof loginSessions.$inferInsert;
+
+export type InviteCode = typeof inviteCodes.$inferSelect;
+export type NewInviteCode = typeof inviteCodes.$inferInsert;

@@ -6,12 +6,17 @@
  *
  * `POST /api/auth/ws-token` mints a one-shot upgrade token that the client
  * uses to open the `/api/ws` WebSocket. The route itself is protected by
- * the standard `authMiddleware` (X-API-Key); successful issuance proves
- * the caller already has the master key, so handing out a derived,
- * single-use credential is safe.
+ * the standard auth middleware; successful issuance proves the caller is
+ * authenticated, so handing out a derived, single-use credential is safe.
  *
- * @lore I2 A3: this endpoint is the only legitimate source of WS upgrade
- * tokens. The WS handler MUST NOT accept the master HYPERIDLE_API_KEY
+ * `POST /api/auth/invite` (shared mode only) creates an invite code.
+ * Admin-only: requires authMethod === "api_key".
+ *
+ * `POST /api/auth/logout` (shared mode only) revokes the current LoginSession.
+ * Requires authMethod === "login_session" (Bearer token auth).
+ *
+ * @lore I2 A3: the ws-token endpoint is the only legitimate source of WS
+ * upgrade tokens. The WS handler MUST NOT accept the master HYPERIDLE_API_KEY
  * passed via `?token=...` — only tokens minted here.
  *
  * @lore I2 review A1: the minted token must travel in the WS upgrade URL
@@ -22,25 +27,31 @@
  *   (3) consumption is single-shot — the first reader wins,
  *   (4) the token authorizes session establishment ONLY — every
  *       subsequent WS message is gated by the established connection.
- * Future work: switch to `Sec-WebSocket-Protocol` subprotocol header
- * (RFC 6455 §1.9) so the token never enters URL space.
  *
  * @lore M3 A4: createAuthRoutes now accepts an optional db parameter so
  * GET /api/auth/me can read the full founder profile from factorySettings.
  * The /me endpoint is ALWAYS mounted; /ws-token is only mounted when
- * tokenStore is non-null. The restructuring ensures /me is available in
- * all deployments, not just those with WebSocket support.
+ * tokenStore is non-null.
+ *
+ * @lore S1: createAuthRoutes signature gains a `sharedMode` parameter.
+ * /invite and /logout are only mounted in shared mode. /ws-token identity
+ * source changes from X-Identity header to c.get("userId") in shared mode.
  */
 
 import { type HyperIdleDb, users } from "@hyperidle/db";
+import type { ApiErrorResponse } from "@hyperidle/shared";
+import { API_ERROR_CODES, INVITE_ROLES } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
 import { Hono } from "hono";
 import type { UpgradeTokenStore } from "../auth/upgrade-token-store.js";
 import type { HyperIdleEnv } from "../middleware/auth.js";
+import { createInvite } from "../services/invite-code.js";
+import { revokeLoginSession } from "../services/login-session.js";
 
 export function createAuthRoutes(
 	db: HyperIdleDb | null,
 	store: UpgradeTokenStore | null,
+	sharedMode: boolean = false,
 ): Hono<HyperIdleEnv> {
 	const router = new Hono<HyperIdleEnv>();
 
@@ -74,15 +85,90 @@ export function createAuthRoutes(
 		router.post("/ws-token", (c) => {
 			// Clients compute remaining seconds from `expiresAt` themselves; emitting
 			// a server-derived `expiresInSec` adds a clock-skew footgun for no value.
-			// L1 step9 (Adv-C1): bind the authenticated identity to the upgrade
-			// token so the WS subscribe-authz path can check participant
-			// membership. The header may be absent in legacy clients — in that
-			// case the token still authenticates but per-thread subscriptions
-			// fall back to "forbidden" (the broadcaster has no identity to
-			// match against `thread.participants`).
-			const identityId = c.req.header("X-Identity") ?? undefined;
+			// @lore S1: In shared mode, identity comes from the auth middleware context
+			// (already authenticated via Bearer token or API key). In local mode, we
+			// fall back to the X-Identity header for legacy client compatibility.
+			// The X-Identity header is trusted in local mode because local mode requires
+			// the master API key — the caller is already admin.
+			const identityId = sharedMode
+				? c.get("userId")
+				: (c.req.header("X-Identity") ?? c.get("userId"));
 			const { token, expiresAt } = store.issue(identityId);
 			return c.json({ token, expiresAt });
+		});
+	}
+
+	// Shared-mode-only routes
+	if (sharedMode && db) {
+		/**
+		 * POST /api/auth/invite
+		 *
+		 * Admin-only: requires authMethod === "api_key" (admin key holders only).
+		 * Body: { role?: "admin" | "member" }
+		 * Response: { code: string, expiresAt: string } (201)
+		 */
+		router.post("/invite", async (c) => {
+			// Admin key only — Bearer token users cannot create invites
+			if (c.get("authMethod") !== "api_key") {
+				const response: ApiErrorResponse = {
+					error: "Invite creation requires admin key authentication",
+					code: API_ERROR_CODES.FORBIDDEN,
+				};
+				return c.json(response, 403);
+			}
+
+			let data: unknown;
+			try {
+				data = await c.req.json();
+			} catch {
+				data = {};
+			}
+
+			const parsed = data as { role?: unknown } | null;
+			const role =
+				parsed && typeof parsed === "object" && "role" in parsed ? parsed.role : "member";
+
+			if (role !== undefined && !INVITE_ROLES.includes(role as (typeof INVITE_ROLES)[number])) {
+				const response: ApiErrorResponse = {
+					error: `Invalid role. Must be one of: ${INVITE_ROLES.join(", ")}`,
+					code: API_ERROR_CODES.VALIDATION_ERROR,
+				};
+				return c.json(response, 400);
+			}
+
+			const resolvedRole = (role as (typeof INVITE_ROLES)[number]) ?? "member";
+			const createdBy = c.get("userId");
+
+			const invite = await createInvite(db, createdBy, resolvedRole ?? "member");
+
+			return c.json({ code: invite.code, expiresAt: invite.expiresAt }, 201);
+		});
+
+		/**
+		 * POST /api/auth/logout
+		 *
+		 * Revokes the current LoginSession.
+		 * Only valid for Bearer token auth (authMethod === "login_session").
+		 * Returns 400 if called with API key (no session to revoke).
+		 */
+		router.post("/logout", async (c) => {
+			const authMethod = c.get("authMethod");
+
+			if (authMethod !== "login_session") {
+				const response: ApiErrorResponse = {
+					error:
+						"Logout requires Bearer token authentication (no session to revoke for API key auth)",
+					code: API_ERROR_CODES.VALIDATION_ERROR,
+				};
+				return c.json(response, 400);
+			}
+
+			const sessionId = c.get("loginSessionId");
+			if (sessionId) {
+				await revokeLoginSession(db, sessionId);
+			}
+
+			return c.json({ ok: true });
 		});
 	}
 
