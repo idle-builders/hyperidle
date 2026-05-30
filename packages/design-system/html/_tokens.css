@@ -1,165 +1,205 @@
 /**
- * HyperIdle Design System — Lucid HTML Token Sheet
+ * HyperIdle Design System — Hearth HTML Token Sheet
  *
  * Self-contained CSS for .html component files.
  * Includes tokens + reset + base styles. Each .html file only needs:
  *   <link rel="stylesheet" href="_tokens.css" />
  *
  * Token values match src/tokens.css exactly. See DESIGN.md for reference.
+ *
+ * @lore U3 — No Google Fonts import. Hearth uses system-ui (no external font).
+ * This removes the external network dependency from HTML component files.
  */
-
-@import url("https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500&display=swap");
 
 /* ── Shared tokens ── */
 :root {
-	--r0: 0;
-	--r1: 4px;
-	--r2: 8px;
-	--r3: 12px;
-	--r-pill: 999px;
+	/* Radii */
+	--r-none: 0;
+	--r-subtle: 10px;
+	--r-default: 16px;
+	--r-pill: 9999px;
 
-	--motion-fast: 80ms;
-	--motion-medium: 150ms;
-	--motion-slow: 250ms;
+	/* Motion */
+	--motion-fast: 120ms;
+	--motion-default: 240ms;
+	--motion-slow: 450ms;
+	--motion-ease: cubic-bezier(0.25, 0.1, 0.25, 1);
 
-	--ui: "Geist", "Inter", system-ui, sans-serif;
-	--mono: "Geist Mono", ui-monospace, monospace;
+	/* Typography — system fonts */
+	--font-sans: system-ui, -apple-system, "Segoe UI", sans-serif;
+	--font-mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
 
-	/*
-	 * Density tokens — K9 re-tiered ladder. Default tier shown here mirrors
-	 * `:root, [data-density="default"]` in src/tokens.css. The HTML reference
-	 * pages do not toggle density, so only the default tier is wired; the
-	 * full per-tier overrides live in src/tokens.css.
-	 */
-	--density-pad-x: 1rem;
-	--density-pad-y: 0.75rem;
-	--density-gap: 0.75rem;
-	--density-row-h: 2.75rem;
-	--density-text: 0.9375rem;
-	--density-text-h1: 1.625rem;
-	--density-text-h2: 1.25rem;
-	--leading-body: 1.55;
+	/* Typography — size scale */
+	--text-xs: 12px;
+	--text-sm: 13px;
+	--text-base: 15px;
+	--text-lg: 17px;
+	--text-xl: 20px;
+	--text-2xl: 24px;
+	--text-3xl: 30px;
+
+	/* Typography — weights */
+	--fw-normal: 400;
+	--fw-medium: 500;
+	--fw-semibold: 600;
+	--fw-bold: 700;
+
+	/* Typography — line heights */
+	--leading-tight: 1.25;
+	--leading-normal: 1.55;
+	--leading-relaxed: 1.7;
 	--tracking-caps: 0.02em;
+
+	/* Spacing — 6px grid */
+	--space-1: 3px;
+	--space-2: 6px;
+	--space-3: 9px;
+	--space-4: 12px;
+	--space-6: 18px;
+	--space-8: 24px;
+	--space-12: 36px;
+	--space-16: 48px;
+
+	/* Border widths */
+	--bw-thin: 1px;
+	--bw-default: 1.5px;
+	--bw-strong: 2.5px;
+
 	/*
-	 * K11 density tokens (default tier values mirrored from src/tokens.css).
+	 * Density tokens — default tier mirrored from src/tokens.css.
 	 * The HTML reference pages do not toggle density, so only the default tier
 	 * is wired; the full per-tier overrides live in src/tokens.css.
-	 *   --density-card-pad: card outer padding (8/12/16 across compact/default/comfortable)
-	 *   --density-page-gutter: <main> page gutter (8/16/24)
-	 *   --density-icon-size: list-row icon size (14/16/20)
-	 *   --density-avatar-size: row-anchor avatar size (24/32/40)
-	 *   --density-card-gap: intra-card gap (4/8/12)
-	 * See packages/design-system/research/density-audit.md § 4.
 	 */
-	--density-card-pad: 0.75rem;
-	--density-page-gutter: 1rem;
-	--density-icon-size: 1rem;
-	--density-avatar-size: 2rem;
-	--density-card-gap: 0.5rem;
+	--density-pad-x: 18px;
+	--density-pad-y: 12px;
+	--density-gap: 12px;
+	--density-row-h: 42px;
+	--density-text: 15px;
+	--density-text-h1: 24px;
+	--density-text-h2: 20px;
+	--leading-body: 1.55;
+	--density-card-pad: 12px;
+	--density-page-gutter: 18px;
+	--density-icon-size: 18px;
+	--density-avatar-size: 30px;
+	--density-card-gap: 6px;
+	--card-max-h: 70vh;
 }
 
-/* ── Lucid Dark (default) ── */
+/* ── Hearth Light (default) ── */
 :root,
-[data-theme="lucid-dark"] {
-	--surface-0: #111113;
-	--surface-1: #19191c;
-	--surface-2: #1e1e22;
-	--surface-3: #27272b;
-	--surface-4: #323237;
-	--surface-5: #3e3e44;
-	--surface-6: #4a4a52;
-	--surface-ghost: rgba(255, 255, 255, 0.05);
+[data-theme="hearth-light"] {
+	/* Surfaces */
+	--surface-page: #f5f0e6;
+	--surface-container: #ede7db;
+	--surface-elevated: #ffffff;
+	--surface-overlay: #ffffff;
 
-	--primary: #e0e7ff;
-	--primary-dim: rgba(224, 231, 255, 0.08);
-	--primary-hover: rgba(224, 231, 255, 0.14);
-	--warn: #a8a8b0;
-	--ok: #c8c8d0;
-	--danger: #f87171;
+	/* Text */
+	--text-primary: #2c241a;
+	--text-secondary: #6b5d4d;
+	--text-tertiary: #9a8d7e;
+	--text-placeholder: #bfb5a5;
+	--text-on-accent: #ffffff;
 
-	--text-hi: #ededef;
-	--text-mid: #a0a0a6;
-	--text-lo: #6e6e76;
+	/* Accents */
+	--accent-primary: #16764f;
+	--accent-primary-dim: rgba(22, 118, 79, 0.08);
+	--accent-primary-hover: #105e3f;
+	--accent-secondary: #d97706;
 
-	--float: 0 2px 16px rgba(0, 0, 0, 0.5);
+	/* Status */
+	--status-success: #16764f;
+	--status-warning: #d97706;
+	--status-error: #dc4a3a;
+	--status-info: #2e7dba;
 
-	--border-subtle: rgba(255, 255, 255, 0.06);
-	--border-default: rgba(255, 255, 255, 0.1);
-	--border-emphasis: rgba(255, 255, 255, 0.16);
+	/* Borders */
+	--border-subtle: #e8e0d0;
+	--border-default: #d5cbb8;
+	--border-strong: #b5a890;
 
-	color-scheme: dark;
-}
-
-/* ── Lucid Light ── */
-[data-theme="lucid-light"] {
-	--surface-0: #fafaf9;
-	--surface-1: #ffffff;
-	--surface-2: #f4f4f2;
-	--surface-3: #eaeae8;
-	--surface-4: #ddddd9;
-	--surface-5: #d0d0cc;
-	--surface-6: #c4c4be;
-	--surface-ghost: rgba(0, 0, 0, 0.04);
-
-	--primary: #4f46e5;
-	--primary-dim: rgba(79, 70, 229, 0.08);
-	--primary-hover: rgba(79, 70, 229, 0.12);
-	/* @lore K8 — `--warn` and `--ok` darkened to clear WCAG 2.1 AA on the
-	 * worst observed tint-over-surface (~#cbcbc9). Keep in lockstep with
-	 * src/tokens.css. Original K7 values (#78787e / #8e8e94) failed on
-	 * darker card surfaces. */
-	--warn: #444448;
-	--ok: #4d4d52;
-	/* @lore K8 — `--danger` darkened so StatusChip "blocked" / "error"
-	 * clear 4.5:1 on the 14% danger tint. */
-	--danger: #a91515;
-
-	--text-hi: #1a1a1e;
-	/* @lore K8 — `--text-mid`/`--text-lo` darkened so labels and chips on
-	 * deeper surfaces clear 4.5:1 across the entire light surface ladder. */
-	--text-mid: #3a3a3e;
-	--text-lo: #555559;
-
-	--float: 0 4px 16px rgba(0, 0, 0, 0.1);
-
-	--border-subtle: rgba(0, 0, 0, 0.06);
-	--border-default: rgba(0, 0, 0, 0.1);
-	--border-emphasis: rgba(0, 0, 0, 0.16);
+	/* Shadows */
+	--shadow-subtle: 0 1px 4px rgba(44, 36, 26, 0.06);
+	--shadow-default: 0 4px 12px rgba(44, 36, 26, 0.08);
+	--shadow-elevated: 0 8px 24px rgba(44, 36, 26, 0.1);
 
 	color-scheme: light;
 }
 
-/* ── System preference: light ── */
-@media (prefers-color-scheme: light) {
+/* ── Hearth Dark ── */
+[data-theme="hearth-dark"] {
+	/* Surfaces */
+	--surface-page: #1a1510;
+	--surface-container: #231e16;
+	--surface-elevated: #2c261c;
+	--surface-overlay: #352e23;
+
+	/* Text */
+	--text-primary: #ede5d8;
+	--text-secondary: #a89880;
+	--text-tertiary: #9a8e7e;
+	--text-placeholder: #5a5048;
+	--text-on-accent: #ffffff;
+
+	/* Accents */
+	--accent-primary: #2eaa7a;
+	--accent-primary-dim: rgba(46, 170, 122, 0.1);
+	--accent-primary-hover: #20a070;
+	--accent-secondary: #d97706;
+
+	/* Status */
+	--status-success: #2eaa7a;
+	--status-warning: #d97706;
+	--status-error: #ee6a5a;
+	--status-info: #4498d4;
+
+	/* Borders */
+	--border-subtle: #3d342a;
+	--border-default: #554a3c;
+	--border-strong: #756850;
+
+	/* Shadows */
+	--shadow-subtle: 0 1px 4px rgba(0, 0, 0, 0.3);
+	--shadow-default: 0 4px 12px rgba(0, 0, 0, 0.4);
+	--shadow-elevated: 0 8px 24px rgba(0, 0, 0, 0.5);
+
+	color-scheme: dark;
+}
+
+/* ── System preference: dark (when no explicit data-theme) ── */
+@media (prefers-color-scheme: dark) {
 	:root:not([data-theme]) {
-		--surface-0: #fafaf9;
-		--surface-1: #ffffff;
-		--surface-2: #f4f4f2;
-		--surface-3: #eaeae8;
-		--surface-4: #ddddd9;
-		--surface-5: #d0d0cc;
-		--surface-6: #c4c4be;
-		--surface-ghost: rgba(0, 0, 0, 0.04);
+		--surface-page: #1a1510;
+		--surface-container: #231e16;
+		--surface-elevated: #2c261c;
+		--surface-overlay: #352e23;
 
-		--primary: #4f46e5;
-		--primary-dim: rgba(79, 70, 229, 0.08);
-		--primary-hover: rgba(79, 70, 229, 0.12);
-		/* @lore K8 — see lucid-light token block above for rationale. */
-		--warn: #444448;
-		--ok: #4d4d52;
-		--danger: #a91515;
+		--text-primary: #ede5d8;
+		--text-secondary: #a89880;
+		--text-tertiary: #9a8e7e;
+		--text-placeholder: #5a5048;
+		--text-on-accent: #ffffff;
 
-		--text-hi: #1a1a1e;
-		--text-mid: #3a3a3e;
-		--text-lo: #555559;
+		--accent-primary: #2eaa7a;
+		--accent-primary-dim: rgba(46, 170, 122, 0.1);
+		--accent-primary-hover: #20a070;
+		--accent-secondary: #d97706;
 
-		--float: 0 4px 16px rgba(0, 0, 0, 0.1);
+		--status-success: #2eaa7a;
+		--status-warning: #d97706;
+		--status-error: #ee6a5a;
+		--status-info: #4498d4;
 
-		--border-subtle: rgba(0, 0, 0, 0.06);
-		--border-default: rgba(0, 0, 0, 0.1);
-		--border-emphasis: rgba(0, 0, 0, 0.16);
+		--border-subtle: #3d342a;
+		--border-default: #554a3c;
+		--border-strong: #756850;
 
-		color-scheme: light;
+		--shadow-subtle: 0 1px 4px rgba(0, 0, 0, 0.3);
+		--shadow-default: 0 4px 12px rgba(0, 0, 0, 0.4);
+		--shadow-elevated: 0 8px 24px rgba(0, 0, 0, 0.5);
+
+		color-scheme: dark;
 	}
 }
 
@@ -174,9 +214,9 @@
 
 html,
 body {
-	background: var(--surface-0);
-	color: var(--text-hi);
-	font-family: var(--ui);
+	background: var(--surface-page);
+	color: var(--text-primary);
+	font-family: var(--font-sans);
 	font-size: 14px;
 	line-height: 1.45;
 	-webkit-font-smoothing: antialiased;
@@ -209,7 +249,7 @@ textarea {
 
 /* ── Mono utilities ── */
 .mono {
-	font-family: var(--mono);
+	font-family: var(--font-mono);
 	font-size: 11px;
 	letter-spacing: 0.05em;
 	text-transform: uppercase;
@@ -217,12 +257,12 @@ textarea {
 }
 
 .mono-sm {
-	font-family: var(--mono);
+	font-family: var(--font-mono);
 	font-size: 11px;
 	letter-spacing: 0.05em;
 	text-transform: uppercase;
 	font-weight: 500;
-	color: var(--text-lo);
+	color: var(--text-tertiary);
 }
 
 /* ── Scrollbars ── */
@@ -234,11 +274,11 @@ textarea {
 	background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-	background: var(--surface-5);
+	background: var(--border-default);
 	border-radius: var(--r-pill);
 }
 ::-webkit-scrollbar-thumb:hover {
-	background: var(--surface-6);
+	background: var(--border-strong);
 }
 
 /* ── Component demo layout ── */
@@ -255,14 +295,14 @@ textarea {
 }
 
 .demo-section-title {
-	font-family: var(--mono);
+	font-family: var(--font-mono);
 	font-size: 11px;
 	letter-spacing: 0.05em;
 	text-transform: uppercase;
 	font-weight: 500;
-	color: var(--text-lo);
+	color: var(--text-tertiary);
 	padding-bottom: 8px;
-	border-bottom: 1px solid var(--surface-4);
+	border-bottom: 1px solid var(--border-subtle);
 }
 
 .demo-row {
@@ -273,20 +313,20 @@ textarea {
 }
 
 .demo-card {
-	background: var(--surface-3);
-	border-radius: var(--r2);
+	background: var(--surface-container);
+	border-radius: var(--r-default);
 	padding: 16px;
 }
 
 /* ── Tag kind tints ── */
 .tag-tint-pattern {
-	background-color: color-mix(in oklab, var(--text-mid) 12%, transparent);
+	background-color: color-mix(in oklab, var(--text-secondary) 12%, transparent);
 }
 
 .tag-tint-decision {
-	background-color: color-mix(in oklab, var(--primary) 14%, transparent);
+	background-color: color-mix(in oklab, var(--accent-primary) 14%, transparent);
 }
 
 .tag-tint-failure {
-	background-color: color-mix(in oklab, var(--danger) 16%, transparent);
+	background-color: color-mix(in oklab, var(--status-error) 16%, transparent);
 }
