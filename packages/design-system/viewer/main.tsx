@@ -302,7 +302,7 @@ function HtmlComponentView({
 				width: "100%",
 				height: "calc(100vh - 48px)",
 				border: "none",
-				background: "var(--surface-0)",
+				background: "var(--surface-page)",
 				display: "block",
 			}}
 		/>

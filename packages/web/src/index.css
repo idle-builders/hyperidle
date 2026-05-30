@@ -55,7 +55,7 @@
 	[data-knowledge-body] :is(h4, h5, h6) {
 		font-size: var(--density-text);
 		font-weight: 600;
-		color: var(--text-mid);
+		color: var(--text-secondary);
 		margin-top: 4px;
 	}
 }

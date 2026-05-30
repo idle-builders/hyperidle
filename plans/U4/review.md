@@ -111,3 +111,16 @@ Two major findings (F1, F2) must be fixed before the workpackage can ship:
 2. **F2:** `packages/design-system/viewer/main.tsx` line 305 -- replace `var(--surface-0)` with `var(--surface-page)`. This file is in U4's changeset (builder updated theme names) and the stale token will cause the iframe background to not resolve.
 
 Both are one-line fixes. After fixing, run `npm run verify` to confirm no regressions.
+
+---
+
+## Re-review (2026-05-30)
+
+Builder claims F1 and F2 are fixed. Verified by reading the files:
+
+- **F1 (FIXED):** `packages/web/src/index.css` line 58 now reads `color: var(--text-secondary);`. The stale `var(--text-mid)` reference is gone.
+- **F2 (FIXED):** `packages/design-system/viewer/main.tsx` line 305 now reads `background: "var(--surface-page)"`. The stale `var(--surface-0)` reference is gone.
+
+No other findings from the original review remain open (F3 and F4 were nits outside U4's changeset).
+
+## Verdict: **DONE**
