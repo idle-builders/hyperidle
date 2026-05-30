@@ -158,17 +158,17 @@ describe("O3 AC-7: app.ts no longer hardwires register* calls", () => {
 describe("O3 AC-8: kernel-only boot (no strategyBootstrap)", () => {
 	it("createApp() without any options boots without throwing", async () => {
 		await expect(createApp()).resolves.not.toThrow();
-	}, 15_000);
+	}, 120_000);
 
 	it("createApp({ strategyBootstrap: undefined }) boots without throwing", async () => {
 		await expect(createApp({ strategyBootstrap: undefined })).resolves.not.toThrow();
-	}, 15_000);
+	}, 120_000);
 
 	it("GET /api/health returns 200 in kernel-only mode", async () => {
 		const app = await createApp({ strategyBootstrap: undefined });
 		const res = await app.request("/api/health");
 		expect(res.status).toBe(200);
-	}, 15_000);
+	}, 120_000);
 });
 
 // ── AC-9: Full boot with bootstrapFabric ─────────────────────────────────────
@@ -182,7 +182,7 @@ describe("O3 AC-9: full boot with bootstrapFabric", () => {
 
 		// GET /api/health must work
 		void app?.request("/api/health");
-	}, 15_000);
+	}, 120_000);
 
 	it("GET /api/health returns 200 with full strategy bootstrap", async () => {
 		const handle = await createTestDb();
@@ -190,7 +190,7 @@ describe("O3 AC-9: full boot with bootstrapFabric", () => {
 		const app = await createApp({ db: handle.db, eventBus, strategyBootstrap: bootstrapFabric });
 		const res = await app.request("/api/health");
 		expect(res.status).toBe(200);
-	}, 15_000);
+	}, 120_000);
 });
 
 // ── AC-1: Disposer services moved to fabric/src/services/ ────────────────────

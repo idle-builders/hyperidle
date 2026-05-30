@@ -3,53 +3,44 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { resolve } from "node:path";
-import { applyMigrations } from "@hyperidle/db";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import WebSocket from "ws";
+import { createMigratedDb, waitForReady } from "./integration-helpers.js";
 
 const TEST_API_KEY = "test-ws-key-12345";
 
-describe("AC6: WebSocket upgrade on /api/ws", { timeout: 20_000 }, () => {
+describe("AC6: WebSocket upgrade on /api/ws", { timeout: 120_000 }, () => {
 	let serverProcess: ChildProcess;
 	let port: number;
 	let tmpDir: string;
+	let dbPath: string;
 
 	beforeAll(async () => {
 		port = 10000 + Math.floor(Math.random() * 50000);
 		tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "hyperidle-ws-test-"));
-		const dataDir = path.join(tmpDir, "pgdata");
+		dbPath = path.join(tmpDir, "pgdata");
+		await createMigratedDb(dbPath);
 
-		const migrationsFolder = resolve(__dirname, "../../../db/drizzle");
-		await applyMigrations(dataDir, migrationsFolder);
+		const monoRoot = resolve(__dirname, "../../../..");
+		const serverEntrypoint = resolve(__dirname, "../../src/index.ts");
 
-		const serverRoot = resolve(__dirname, "../..");
-
-		serverProcess = spawn(resolve(serverRoot, "../../node_modules/.bin/tsx"), ["src/index.ts"], {
-			cwd: serverRoot,
+		serverProcess = spawn("npx", ["tsx", serverEntrypoint], {
+			cwd: monoRoot,
 			env: {
 				...process.env,
 				HYPERIDLE_API_KEY: TEST_API_KEY,
 				PORT: String(port),
-				DATABASE_URL: dataDir,
+				DATABASE_URL: dbPath,
 				HYPERIDLE_RATE_LIMIT_PER_MIN: "100000",
 			},
 			stdio: ["ignore", "pipe", "pipe"],
 		});
 
-		await new Promise<void>((resolve, reject) => {
-			const timeout = setTimeout(() => reject(new Error("Server start timeout")), 8000);
-			serverProcess.stdout?.on("data", (data: Buffer) => {
-				if (data.toString().includes("Server running")) {
-					clearTimeout(timeout);
-					resolve();
-				}
-			});
-			serverProcess.on("error", (err) => {
-				clearTimeout(timeout);
-				reject(err);
-			});
-		});
-	});
+		// @lore: Under heavy CI load (10+ parallel worktrees on a 10-core machine),
+		// spawning a real tsx server subprocess can take >8s. 90s for waitForReady
+		// and 120s for the beforeAll hook handle worst-case multi-worktree contention.
+		await waitForReady(serverProcess, port, 90_000);
+	}, 120_000);
 
 	afterAll(() => {
 		serverProcess?.kill();

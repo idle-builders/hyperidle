@@ -49,7 +49,7 @@ const TEST_OUTPUT_FILE = "test-output.toon";
 const TOOLS: Tool[] = [
 	{ name: "check", cmd: "tsc", args: ["--noEmit", "-p", "tsconfig.json"], timeoutMs: 60_000 },
 	{ name: "lint:biome", cmd: "npm", args: ["run", "lint:biome"], timeoutMs: 60_000 },
-	{ name: "lint:eslint", cmd: "npx", args: ["eslint", ".", "--quiet"], timeoutMs: 60_000 },
+	{ name: "lint:eslint", cmd: "npx", args: ["eslint", ".", "--quiet"], timeoutMs: 180_000 },
 	{ name: "knip", cmd: "npx", args: ["knip"], timeoutMs: 60_000 },
 	{
 		name: "mock-inventory",
@@ -62,7 +62,10 @@ const TOOLS: Tool[] = [
 		cmd: "npm",
 		args: ["run", "test:raw"],
 		env: { VITEST_TOON_OUTPUT: TEST_OUTPUT_FILE },
-		timeoutMs: 300_000,
+		// @lore: Under heavy CI load (10+ parallel worktrees on 10-core machine),
+		// the full test suite can take 1000s+. 1800s (30min) handles worst-case
+		// multi-worktree contention while still providing a reasonable upper bound.
+		timeoutMs: 1_800_000,
 	},
 	{ name: "build", cmd: "npm", args: ["run", "build"], timeoutMs: 60_000 },
 	{

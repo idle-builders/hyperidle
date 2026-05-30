@@ -96,8 +96,11 @@ describe("server-factory — I1 integration (S1–S5)", () => {
 			stdio: ["ignore", "pipe", "pipe"],
 		});
 
-		await waitForReady(serverProcess, port, 8000);
-	}, 15000);
+		// @lore: Under heavy CI load (10+ parallel worktrees on 10-core machine),
+		// spawning a real tsx server subprocess can take >15s. 90s for waitForReady
+		// and 120s for the beforeAll hook handle worst-case multi-worktree contention.
+		await waitForReady(serverProcess, port, 90_000);
+	}, 120_000);
 
 	afterAll(() => {
 		serverProcess?.kill();
