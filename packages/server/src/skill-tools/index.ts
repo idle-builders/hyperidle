@@ -1,5 +1,6 @@
 export { createConflictReviewTool } from "./create-conflict-review.js";
 export { createItemTool } from "./create-item.js";
+export { createTaskTool } from "./create-task.js";
 export { handoffToTool } from "./handoff-to.js";
 export { logTaskTool } from "./log-task.js";
 export { promoteKnowledgeTool } from "./promote-knowledge.js";
@@ -9,6 +10,7 @@ export { readInboxTool } from "./read-inbox.js";
 export { routeItemTool } from "./route-item.js";
 export { scoreAttentionTool } from "./score-attention.js";
 export { sendMessageTool } from "./send-message.js";
+export { submitReviewTool } from "./submit-review.js";
 export {
 	buildToolRegistry,
 	type ClaudeToolSpec,
