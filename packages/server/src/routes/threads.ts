@@ -100,7 +100,31 @@ async function readInitialSenderId(
 }
 
 /**
- * @lore L1 step5 (SL-C2): the DB->Message boundary parses the row's JSON
+ * Build an identities map for the unique senders in a thread's messages.
+ * Queries the users table for all supplied senderIds in one round-trip.
+ * Returns an empty object when senderIds is empty.
+ *
+ * @lore R4: All senders — human and AI — live in the users table, distinguished
+ * by the `kind` column. We do NOT hard-code agent identities here; a single
+ * inArray query covers every sender type uniformly.
+ *
+ * @lore PGlite: async because PGLite queries are always async (no sync API).
+ */
+async function buildThreadIdentities(
+	db: HyperIdleDb,
+	senderIds: string[],
+): Promise<Record<string, { name: string; role?: string }>> {
+	if (senderIds.length === 0) return {};
+	const rows = await db.select().from(users).where(inArray(users.id, senderIds));
+	const result: Record<string, { name: string; role?: string }> = {};
+	for (const row of rows) {
+		result[row.id] = { name: row.name, ...(row.role ? { role: row.role } : {}) };
+	}
+	return result;
+}
+
+/**
+ * @lore L1 step5 (SL-C2): the DB→Message boundary parses the row's JSON
  * `payload` and `participants` columns through Zod. A malformed row (e.g.
  * legacy data, manual edit) fails loudly here instead of crashing somewhere
  * downstream.
@@ -272,11 +296,14 @@ export function createThreadRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hy
 		// headCollapsePredicate operates on ASC-sorted messages (concept §4.5.5).
 		const msgsAsc = [...msgsDesc].reverse();
 		const head = headCollapsePredicate(msgsAsc);
+		const uniqueSenderIds = [...new Set(messageRows.map((m) => m.senderId))];
+		const identities = await buildThreadIdentities(db, uniqueSenderIds);
 		return c.json({
 			thread: rowToThread(row),
 			messages: msgsDesc,
 			headMessageId: head.headMessageId,
 			nextMessagesCursor: null,
+			identities,
 		});
 	});
 
