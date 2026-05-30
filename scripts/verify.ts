@@ -79,7 +79,7 @@ const TOOLS: Tool[] = [
 		cmd: "node",
 		args: [
 			"--import", "tsx",
-			"-e", "import('@hyperidle/server/server-factory').then(() => { process.exit(0); })",
+			"-e", "import('./packages/server/src/server-factory.ts').then(() => { process.exit(0); })",
 		],
 		timeoutMs: 15_000,
 	},
