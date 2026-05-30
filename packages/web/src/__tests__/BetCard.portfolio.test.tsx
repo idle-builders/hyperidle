@@ -11,7 +11,7 @@ describe("BetCard — portfolio mode (J5)", () => {
 	const baseProps = {
 		title: "HyperIdle Core",
 		product: "HyperIdle",
-		status: "committed" as const,
+		status: "active" as const,
 		appetite: "—",
 	};
 

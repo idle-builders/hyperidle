@@ -62,15 +62,15 @@ const OVERRIDE_RAIL = {
 // Override settings with a custom profile to prove the panel reads from API
 const OVERRIDE_SETTINGS = {
 	profile: { name: "Alice Builder", email: "alice@example.com", avatarUrl: null },
-	products: [],
-	agents: [],
+	teams: [],
+	users: [],
 	notifications: {
 		reviewAlerts: true,
 		costAlerts: true,
 		blockerAlerts: true,
 		quietHoursStart: "22:00",
 		quietHoursEnd: "08:00",
-		mutedProducts: [],
+		mutedTeams: [],
 	},
 };
 

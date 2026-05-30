@@ -59,7 +59,7 @@ const PRODUCT_WITH_ACTIVE_BET: ProductDetail = {
 			id: "b1",
 			pitchTitle: "Active bet",
 			costAppetite: null,
-			status: "committed",
+			status: "active",
 			progressDone: 0,
 			progressTotal: 3,
 		},

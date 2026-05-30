@@ -21,17 +21,11 @@
  * Inputs are text-base (16px) to prevent iOS Safari zoom on focus.
  */
 
-import {
-	CURRENCY_CODES,
-	CURRENCY_SCALE,
-	type CurrencyCode,
-	// @lore U1: `deriveTitle` replaces `deriveTitleFromPitch`. Backward-compat alias kept.
-	deriveTitleFromPitch,
-} from "@hyperidle/shared";
+import { CURRENCY_CODES, CURRENCY_SCALE, type CurrencyCode, deriveTitle } from "@hyperidle/shared";
 import { type JSX, useEffect, useRef, useState } from "react";
 import { apiFetch } from "../../services/api-fetch.js";
 
-export interface BetProduct {
+export interface BetTeam {
 	id: string;
 	name: string;
 }
@@ -40,27 +34,27 @@ export interface BetCreateDialogProps {
 	open: boolean;
 	onClose: () => void;
 	onCreated: () => void;
-	/** List of products to display in the product select. */
-	products: BetProduct[];
+	/** List of teams to display in the team select. */
+	teams: BetTeam[];
 }
 
 export function BetCreateDialog({
 	open,
 	onClose,
 	onCreated,
-	products,
+	teams,
 }: BetCreateDialogProps): JSX.Element | null {
 	const dialogRef = useRef<HTMLDialogElement>(null);
 
-	const [productId, setProductId] = useState("");
+	const [teamId, setTeamId] = useState("");
 	const [pitch, setPitch] = useState("");
 	const [appetiteAmount, setAppetiteAmount] = useState("");
 	const [appetiteCurrency, setAppetiteCurrency] = useState<CurrencyCode>("USD");
 	const [submitting, setSubmitting] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 
-	const derivedTitle = pitch.trim() ? deriveTitleFromPitch(pitch, "") : "";
-	const canCreate = productId.trim().length > 0 && pitch.trim().length > 0 && !submitting;
+	const derivedTitle = pitch.trim() ? deriveTitle(pitch, "") : "";
+	const canCreate = teamId.trim().length > 0 && pitch.trim().length > 0 && !submitting;
 
 	// Sync the native dialog open/closed state with the `open` prop.
 	// @lore Q3: same JSDOM guard as KnowledgeCreateDialog — showModal() is not
@@ -69,7 +63,7 @@ export function BetCreateDialog({
 		if (!dialogRef.current) return;
 		if (open) {
 			// Reset form state on open.
-			setProductId("");
+			setTeamId("");
 			setPitch("");
 			setAppetiteAmount("");
 			setAppetiteCurrency("USD");
@@ -93,8 +87,8 @@ export function BetCreateDialog({
 
 	const handleSubmit = async (): Promise<void> => {
 		const trimmedPitch = pitch.trim();
-		const trimmedProductId = productId.trim();
-		if (!(trimmedPitch && trimmedProductId)) return;
+		const trimmedTeamId = teamId.trim();
+		if (!(trimmedPitch && trimmedTeamId)) return;
 
 		setSubmitting(true);
 		setError(null);
@@ -108,9 +102,8 @@ export function BetCreateDialog({
 			costAppetite = { minor, currency: appetiteCurrency };
 		}
 
-		// @lore U1: `teamId` replaces `productId`, `description` replaces `pitch`.
 		const payload: Record<string, unknown> = {
-			teamId: trimmedProductId,
+			teamId: trimmedTeamId,
 			description: trimmedPitch,
 		};
 		if (costAppetite) {
@@ -149,21 +142,21 @@ export function BetCreateDialog({
 				<div className="p-4 flex flex-col gap-3 min-w-[320px] max-w-[480px] w-full">
 					<h2 className="text-sm font-heading font-semibold uppercase tracking-wider">New pitch</h2>
 
-					{/* Product select */}
+					{/* Team select */}
 					<label className="flex flex-col gap-1">
 						<span className="text-xs text-[var(--text-lo)]">
-							Product <span aria-hidden>(required)</span>
+							Team <span aria-hidden>(required)</span>
 						</span>
 						<select
 							className="select select-bordered select-sm text-base w-full"
-							value={productId}
-							onChange={(e) => setProductId(e.target.value)}
+							value={teamId}
+							onChange={(e) => setTeamId(e.target.value)}
 							disabled={submitting}
 						>
-							<option value="">Select a product…</option>
-							{products.map((p) => (
-								<option key={p.id} value={p.id}>
-									{p.name}
+							<option value="">Select a team…</option>
+							{teams.map((t) => (
+								<option key={t.id} value={t.id}>
+									{t.name}
 								</option>
 							))}
 						</select>

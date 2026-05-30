@@ -6,7 +6,7 @@ import { apiFetch } from "../services/api-fetch.js";
 
 /**
  * @lore P4: Updated to check both human user existence (GET /api/auth/me) AND
- * products existence (GET /api/products) in parallel. Redirects to /setup if
+ * teams existence (GET /api/teams) in parallel. Redirects to /setup if
  * either check fails. This replaces the P3 single-check logic that only checked
  * products and redirected to /onboarding (which no longer exists).
  *
@@ -24,7 +24,7 @@ export function FirstRunRedirect(): JSX.Element {
 		// P4: Run both checks in parallel (architecture Q3 decision).
 		Promise.all([
 			apiFetch("/api/auth/me").then((res) => res.ok),
-			apiFetch("/api/products")
+			apiFetch("/api/teams")
 				.then((res) => {
 					if (!res.ok) return false;
 					// @lore U1: TeamListResponse uses `teams` array.

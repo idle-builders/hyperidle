@@ -27,7 +27,7 @@ const MOCK_BET: BetDetail = {
 	title: "Auth flow",
 	product: "Alpha",
 	team: "Alpha Core",
-	status: "committed",
+	status: "active",
 	appetite: "2 weeks",
 	progress: { done: 1, total: 3 },
 	pitch: "# Problem\n\nAuth is broken.\n",

@@ -69,7 +69,7 @@ const TIER_2: ComponentCase[] = [
 			createElement(BetCard, {
 				title: "Bet",
 				product: "Product",
-				status: "shaped",
+				status: "draft",
 				appetite: "2 weeks",
 			}),
 	},
@@ -114,7 +114,7 @@ const TIER_2: ComponentCase[] = [
 				title: "Pitch",
 				hypothesis: "Hypothesis",
 				proposer: "Alice",
-				status: "shaped",
+				status: "draft",
 				appetite: "1 week",
 			}),
 	},

@@ -30,7 +30,7 @@ const DEFAULT_USER = {
 
 const DEFAULT_SETTINGS = {
 	profile: { name: "Test Founder", email: "test@hyperidle.dev", avatarUrl: null },
-	products: [{ id: "p1", name: "My Product", active: true }],
+	teams: [{ id: "t1", name: "My Team", active: true }],
 	users: [],
 	notifications: {
 		reviewAlerts: true,
@@ -38,7 +38,7 @@ const DEFAULT_SETTINGS = {
 		blockerAlerts: true,
 		quietHoursStart: "22:00",
 		quietHoursEnd: "08:00",
-		mutedProducts: [],
+		mutedTeams: [],
 	},
 };
 

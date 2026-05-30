@@ -75,7 +75,7 @@ describe("P3 AC-10 — Settings route: server_config backing", () => {
 					blockerAlerts: boolean;
 					quietHoursStart: string;
 					quietHoursEnd: string;
-					mutedProducts: string[];
+					mutedTeams: string[];
 				};
 			};
 

@@ -29,9 +29,10 @@ export interface UseCanvasBetsResult {
 	refresh: () => void;
 }
 
+// @lore U1: API now returns `draft` and `active` arrays (renamed from `shaped` and `committed`)
 interface CanvasApiResponse {
-	shaped: CanvasBet[];
-	committed: CanvasBet[];
+	draft: CanvasBet[];
+	active: CanvasBet[];
 	capacity: CanvasCapacity;
 }
 
@@ -57,7 +58,7 @@ export function useCanvasBets(): UseCanvasBetsResult {
 			.then((data) => {
 				if (!cancelled) {
 					setState({
-						bets: [...data.shaped, ...data.committed],
+						bets: [...data.draft, ...data.active],
 						capacity: data.capacity,
 						loading: false,
 						error: null,

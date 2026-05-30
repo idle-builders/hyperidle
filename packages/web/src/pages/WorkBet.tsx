@@ -210,18 +210,13 @@ interface BetActionsBarProps {
 
 function BetActionsBar({ bet, onAction }: BetActionsBarProps): JSX.Element | null {
 	const { status } = bet;
-	if (status === "shipped" || status === "killed") return null;
+	// @lore U1: old "shipped"/"killed" → "completed"/"killed"; old "in_progress"/"paused"/"behind"/"blocked"/"shaped" → "active"/"draft"
+	if (status === "completed" || status === "killed") return null;
 
-	const showPause = status === "in_progress" || status === "behind";
-	const showResume = status === "paused";
-	const showAdjust =
-		status === "in_progress" ||
-		status === "paused" ||
-		status === "behind" ||
-		status === "blocked" ||
-		status === "shaped";
-	const showUnblock =
-		status === "in_progress" || status === "paused" || status === "behind" || status === "blocked";
+	const showPause = status === "active";
+	const showResume = false; // no paused status in new enum
+	const showAdjust = status === "active" || status === "draft";
+	const showUnblock = status === "active";
 	const showKill = true;
 
 	return (

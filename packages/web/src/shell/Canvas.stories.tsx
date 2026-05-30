@@ -5,23 +5,23 @@ import { Canvas } from "./Canvas";
 export default { title: "Canvas", tier: "3" as const, uses: ["BetCard"] };
 
 const sampleBets: CanvasBet[] = [
-	{ id: "b1", title: "Mobile App V2", product: "HyperIdle", status: "shaped", appetite: "6 weeks" },
+	{ id: "b1", title: "Mobile App V2", team: "HyperIdle", status: "draft", appetite: "6 weeks" },
 	{
 		id: "b2",
 		title: "Analytics Dashboard",
-		product: "MetaDash",
-		status: "shaped",
+		team: "MetaDash",
+		status: "draft",
 		appetite: "4 weeks",
 	},
 	{
 		id: "b3",
 		title: "User Onboarding",
-		product: "HyperIdle",
-		status: "committed",
+		team: "HyperIdle",
+		status: "active",
 		appetite: "3 weeks",
 		progress: { done: 2, total: 5 },
 	},
-	{ id: "b4", title: "CLI Tool", product: "DevKit", status: "committed", appetite: "2 weeks" },
+	{ id: "b4", title: "CLI Tool", team: "DevKit", status: "active", appetite: "2 weeks" },
 ];
 
 export const Default = (): React.JSX.Element => (
