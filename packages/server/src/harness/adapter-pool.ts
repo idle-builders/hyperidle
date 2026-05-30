@@ -26,6 +26,8 @@ export interface AdapterInfo {
 	readonly currentLoad: number;
 	readonly maxConcurrent: number;
 	readonly connectedSince: string;
+	/** S4: true when the worker has sent a pause message — skipped by select(). */
+	readonly paused: boolean;
 }
 
 /** Internal pool entry. */
@@ -33,6 +35,8 @@ interface PoolEntry {
 	readonly adapter: HarnessAdapter;
 	readonly meta: AdapterMeta;
 	currentLoad: number;
+	/** S4: marks this entry as paused — select() skips paused entries. */
+	paused: boolean;
 	readonly connectedSince: string;
 }
 
@@ -66,6 +70,7 @@ export class AdapterPool {
 			adapter,
 			meta,
 			currentLoad: 0,
+			paused: false,
 			connectedSince: new Date().toISOString(),
 		});
 	}
@@ -85,7 +90,30 @@ export class AdapterPool {
 			currentLoad: entry.currentLoad,
 			maxConcurrent: entry.meta.maxConcurrent,
 			connectedSince: entry.connectedSince,
+			paused: entry.paused,
 		}));
+	}
+
+	/**
+	 * S4: Mark an adapter as paused — select() will skip it.
+	 * No-op if the ID is unknown.
+	 */
+	pause(id: string): void {
+		const entry = this.entries.get(id);
+		if (entry) {
+			entry.paused = true;
+		}
+	}
+
+	/**
+	 * S4: Clear the paused flag — select() will consider it again.
+	 * No-op if the ID is unknown.
+	 */
+	resume(id: string): void {
+		const entry = this.entries.get(id);
+		if (entry) {
+			entry.paused = false;
+		}
 	}
 
 	/**
@@ -99,6 +127,9 @@ export class AdapterPool {
 		let best: { id: string; entry: PoolEntry } | null = null;
 
 		for (const [id, entry] of this.entries) {
+			// S4: skip paused adapters
+			if (entry.paused) continue;
+
 			// Capacity filter
 			if (entry.currentLoad >= entry.meta.maxConcurrent) continue;
 

@@ -99,14 +99,7 @@ describe("S4: WorkerConnectionManager pause/resume", () => {
 		const pool = new AdapterPool();
 		const ws = new MockWs();
 
-		makeRegisteredManager(pool, ws, "w-rt");
-
-		// Before pause: selectable
-		const before = pool.select();
-		expect(before).not.toBeNull();
-		pool.release("w-rt");
-
-		// Pause via message
+		// Register ONLY w-rt2 via manager2 (no makeRegisteredManager here so only one worker)
 		const manager2 = new WorkerConnectionManager(pool);
 		manager2.onMessage(
 			JSON.stringify({
@@ -119,11 +112,17 @@ describe("S4: WorkerConnectionManager pause/resume", () => {
 			ws,
 		);
 
+		// Before pause: selectable
+		const before = pool.select();
+		expect(before).not.toBeNull();
+		pool.release("w-rt2");
+
+		// Pause via message
 		manager2.onMessage(JSON.stringify({ type: "pause" }), ws);
-		expect(pool.select()).toBeNull(); // all adapters paused
+		expect(pool.select()).toBeNull(); // w-rt2 is paused — only adapter in pool
 
 		manager2.onMessage(JSON.stringify({ type: "resume" }), ws);
-		// "w-rt" still at load=0, "w-rt2" is resumed — should be selectable
+		// "w-rt2" is resumed — should be selectable again
 		const after = pool.select();
 		expect(after).not.toBeNull();
 	});

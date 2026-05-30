@@ -17,6 +17,17 @@ import type { CredentialResolver } from "../services/credential-resolver.js";
 import { resolveModel } from "./model-tier-map.js";
 
 /**
+ * S4: Re-export CredentialResolver so the @hyperidle/server/harness sub-path
+ * export exposes both ClaudeAgentSdkAdapter and the interface it depends on.
+ * Desktop uses: import type { CredentialResolver } from "@hyperidle/server/harness"
+ *
+ * @lore S4 Decision 2: The sub-path export points directly at this adapter file
+ * (not a barrel) per architecture-critique warning. CredentialResolver is re-exported
+ * here so desktop consumers get both symbols from a single import.
+ */
+export type { CredentialResolver } from "../services/credential-resolver.js";
+
+/**
  * Environment variables explicitly forwarded into the agent subprocess.
  * Anything not in this list (DATABASE_URL, HYPERIDLE_API_KEY, SMTP_PASSWORD,
  * observability keys, etc) MUST NOT be visible to the agent.

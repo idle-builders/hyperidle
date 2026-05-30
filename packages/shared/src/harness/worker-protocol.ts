@@ -42,11 +42,29 @@ export interface WorkerErrorMessage {
 	readonly message: string;
 }
 
+/**
+ * S4: Worker sends this to signal it is pausing — the server marks it as
+ * paused in the pool so select() skips it until resume.
+ */
+export interface WorkerPauseMessage {
+	readonly type: "pause";
+}
+
+/**
+ * S4: Worker sends this to signal it is resuming — the server clears the
+ * paused flag so select() considers it again.
+ */
+export interface WorkerResumeMessage {
+	readonly type: "resume";
+}
+
 export type WorkerToServerMessage =
 	| WorkerRegisterMessage
 	| WorkerEventMessage
 	| WorkerSessionResultMessage
-	| WorkerErrorMessage;
+	| WorkerErrorMessage
+	| WorkerPauseMessage
+	| WorkerResumeMessage;
 
 // ── Server → Worker ───────────────────────────────────────────────────────────
 

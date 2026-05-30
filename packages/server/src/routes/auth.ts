@@ -98,6 +98,31 @@ export function createAuthRoutes(
 		});
 	}
 
+	/**
+	 * POST /worker-token — returns HYPERIDLE_WORKER_TOKEN to authenticated users.
+	 *
+	 * S4 Decision 1: Desktop worker clients authenticate to this endpoint with
+	 * their shared_backend_key (X-API-Key) to obtain the worker WS token.
+	 * Returns 404 if HYPERIDLE_WORKER_TOKEN is not configured on this server.
+	 *
+	 * @lore S4: Mirrors the ws-token pattern exactly. Authenticated endpoint so
+	 * only legitimate users can obtain the WS token. Never logged or exposed in
+	 * error messages.
+	 */
+	router.post("/worker-token", (c) => {
+		const workerToken = process.env.HYPERIDLE_WORKER_TOKEN;
+		if (!workerToken) {
+			return c.json(
+				{
+					error: "Worker registration is not enabled on this server",
+					code: "NOT_FOUND",
+				},
+				404,
+			);
+		}
+		return c.json({ token: workerToken });
+	});
+
 	// Shared-mode-only routes
 	if (sharedMode && db) {
 		/**

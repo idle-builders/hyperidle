@@ -49,11 +49,17 @@ const WorkerErrorSchema = z.object({
 	message: z.string(),
 });
 
+/** S4: pause/resume protocol messages */
+const WorkerPauseSchema = z.object({ type: z.literal("pause") });
+const WorkerResumeSchema = z.object({ type: z.literal("resume") });
+
 const WorkerToServerMessageSchema = z.discriminatedUnion("type", [
 	WorkerRegisterSchema,
 	WorkerEventSchema,
 	WorkerSessionResultSchema,
 	WorkerErrorSchema,
+	WorkerPauseSchema,
+	WorkerResumeSchema,
 ]);
 
 /**
@@ -118,10 +124,17 @@ export class WorkerConnectionManager {
 			// Acknowledge registration
 			ws.send(JSON.stringify({ type: "registered" }));
 		} else if (this.adapter !== null) {
-			// Route runtime messages (event, session_result, error) to the adapter.
-			// Re-serialize the validated message so the adapter's handleMessage
-			// parser receives clean JSON.
-			this.adapter.dispatchMessage(JSON.stringify(msg));
+			// S4: handle pause/resume messages — update pool state, don't dispatch
+			if (msg.type === "pause" && this.workerId) {
+				this.pool.pause(this.workerId);
+			} else if (msg.type === "resume" && this.workerId) {
+				this.pool.resume(this.workerId);
+			} else if (msg.type !== "pause" && msg.type !== "resume") {
+				// Route runtime messages (event, session_result, error) to the adapter.
+				// Re-serialize the validated message so the adapter's handleMessage
+				// parser receives clean JSON.
+				this.adapter.dispatchMessage(JSON.stringify(msg));
+			}
 		}
 	}
 
