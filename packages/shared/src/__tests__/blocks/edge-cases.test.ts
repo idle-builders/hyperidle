@@ -21,7 +21,9 @@ describe("deriveBlocks edge cases", () => {
 		expect(MAX_BODY_BYTES).toBe(256 * 1024);
 	});
 
-	it("body exactly at MAX_BODY_BYTES still parses", () => {
+	// @lore R3: parsing a 256KB body through remark/unified is slow (~4-8s).
+	// The default 5s vitest timeout is too short on slower machines or cold runs.
+	it("body exactly at MAX_BODY_BYTES still parses", { timeout: 30_000 }, () => {
 		const padding = "x".repeat(MAX_BODY_BYTES - 4);
 		const body = `# H\n${padding}`;
 		expect(body.length).toBeLessThanOrEqual(MAX_BODY_BYTES);
