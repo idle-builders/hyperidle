@@ -9,8 +9,8 @@
  * KnowledgeList) to avoid page-level coupling. See architecture.md § 3.2.
  */
 
-import { useFetch } from "./useFetch.js";
 import type { FetchState } from "./useFetch.js";
+import { useFetch } from "./useFetch.js";
 
 export interface KnowledgeItemData {
 	id: string;
