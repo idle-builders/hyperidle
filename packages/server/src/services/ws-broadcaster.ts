@@ -89,6 +89,14 @@ export class WsBroadcaster {
 			this.broadcast("rail", JSON.stringify(event));
 		});
 
+		// R6: artifact_created goes to 'work' so the UI can invalidate artifact
+		// galleries (WorkBet ArtifactSection, WorkPortfolio artifact gallery).
+		// @lore R6 W-3: no client subscribes to this yet — it's forward-compatible
+		// infrastructure. Don't debug "why doesn't UI update."
+		const unsubArtifact = this.eventBus.on("artifact_created", (event) => {
+			this.broadcast("work", JSON.stringify(event));
+		});
+
 		// Q1 §3.4: forward session lifecycle and tool-call events to per-session
 		// topic `session:<sessionId>`. Any authenticated client may subscribe —
 		// observe mode is read-only and not gated by participant membership.
@@ -118,6 +126,7 @@ export class WsBroadcaster {
 			unsub13,
 			unsub14,
 			unsub15,
+			unsubArtifact,
 		);
 	}
 

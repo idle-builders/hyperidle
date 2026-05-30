@@ -67,10 +67,11 @@ const tokenUsageSchema = z.record(z.unknown());
  *
  * @lore U1: `pitch` renamed to `description`.
  */
+// @lore U2: `product` field removed (clean cut, no backward compat alias).
+// Only `team` remains. See U2 architecture §3.2.
 export const betDetailResponseSchema = z.object({
 	id: z.string(),
 	title: z.string(),
-	product: z.string(),
 	team: z.string(),
 	// @lore api-typesafety: BET_STATUSES is a readonly string[] from @hyperidle/shared.
 	// Zod v4 requires a [string, ...string[]] tuple for z.enum(). The `as unknown as` cast

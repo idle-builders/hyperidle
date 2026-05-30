@@ -882,7 +882,12 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
  * Updated to select from `teamMembers` (agent membership group). `productId` column
  * dropped — `teamId` is now the FK to the domain entity.
  */
-export function createTeamsRoutes(db: HyperIdleDb): Hono<HyperIdleEnv> {
+/**
+ * @lore U2: renamed from createTeamsRoutes to createTeamMembersRoutes.
+ * Route relocated from /api/teams to /api/team-members to free up /api/teams
+ * for the domain entity (Team, formerly Product). See U2 architecture §3.1.
+ */
+export function createTeamMembersRoutes(db: HyperIdleDb): Hono<HyperIdleEnv> {
 	const router = new Hono<HyperIdleEnv>();
 
 	router.get("/", async (c) => {
