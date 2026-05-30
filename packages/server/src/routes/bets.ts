@@ -10,7 +10,12 @@ import {
 	threads,
 } from "@hyperidle/db";
 import type { ArtifactKind, ArtifactThreadSummary, EventBus } from "@hyperidle/shared";
-import { ARTIFACT_KINDS, CURRENCY_CODES, deriveTitle } from "@hyperidle/shared";
+import {
+	ARTIFACT_KINDS,
+	CURRENCY_CODES,
+	deriveTitle,
+	InvalidTransitionError,
+} from "@hyperidle/shared";
 import { and, eq, inArray, sql } from "drizzle-orm";
 import { Hono } from "hono";
 import z from "zod";
@@ -87,6 +92,16 @@ const updateBetDescriptionSchema = z.object({
 });
 
 /**
+ * @lore U2: at_risk PATCH schema — mutable in draft and active statuses only.
+ * Value must be a boolean (not integer 0/1). Reason is required for audit trail.
+ */
+const updateBetAtRiskSchema = z.object({
+	field: z.literal("at_risk"),
+	value: z.boolean(),
+	reason: z.string().min(1),
+});
+
+/**
  * Statuses in which description is mutable.
  *
  * @lore U1: simplified from the old set (shaped, committed, in_progress, paused, behind, blocked, review)
@@ -94,10 +109,17 @@ const updateBetDescriptionSchema = z.object({
  */
 const DESCRIPTION_MUTABLE_IN_STATUSES = new Set(["draft", "active"]);
 
+/**
+ * @lore U2: Statuses in which at_risk is mutable.
+ * Completed and killed bets cannot be marked at_risk — the risk is resolved.
+ */
+const AT_RISK_MUTABLE_IN_STATUSES = new Set(["draft", "active"]);
+
 const updateBetSchema = z.discriminatedUnion("field", [
 	updateBetStringFieldSchema,
 	updateBetCostAppetiteSchema,
 	updateBetDescriptionSchema,
+	updateBetAtRiskSchema,
 ]);
 
 const killBetSchema = z.object({
@@ -122,6 +144,187 @@ const startBetSchema = z.object({
 async function assertBetReadable(db: HyperIdleDb, betId: string): Promise<{ id: string } | null> {
 	const [row] = await db.select({ id: bets.id }).from(bets).where(eq(bets.id, betId)).limit(1);
 	return row ?? null;
+}
+
+/**
+ * Handle PATCH /bets/:id for field="at_risk".
+ *
+ * @lore U2: Extracted to reduce cognitive complexity of the PATCH route handler.
+ * at_risk is mutable in draft and active statuses. Stored as integer (0/1) in the
+ * DB (see migration 0019_U2_at_risk_integer.sql) but validated as boolean on the wire.
+ *
+ * Returns the updated bet with atRisk normalized to boolean, or an error response.
+ */
+async function patchAtRisk(
+	db: HyperIdleDb,
+	betId: string,
+	value: boolean,
+	reason: string,
+	actor: string | undefined,
+): Promise<
+	| { ok: true; row: Record<string, unknown> }
+	| { ok: false; status: 400 | 404 | 500; body: Record<string, string> }
+> {
+	const [bet] = await db.select().from(bets).where(eq(bets.id, betId)).limit(1);
+	if (!bet) {
+		return { ok: false, status: 404, body: { error: "Bet not found", code: "NOT_FOUND" } };
+	}
+	if (!AT_RISK_MUTABLE_IN_STATUSES.has(bet.status)) {
+		return {
+			ok: false,
+			status: 400,
+			body: {
+				error: `Field 'at_risk' is not mutable in status '${bet.status}'`,
+				code: "VALIDATION_ERROR",
+			},
+		};
+	}
+	const revisionLog: Array<Record<string, unknown>> = bet.revisionLog
+		? (JSON.parse(bet.revisionLog) as Array<Record<string, unknown>>)
+		: [];
+	revisionLog.push({
+		timestamp: new Date().toISOString(),
+		field: "at_risk",
+		old_value: bet.atRisk === 1,
+		new_value: value,
+		reason,
+		actor,
+	});
+	await db
+		.update(bets)
+		.set({ atRisk: value ? 1 : 0, revisionLog: JSON.stringify(revisionLog) })
+		.where(eq(bets.id, betId));
+	const [updated] = await db.select().from(bets).where(eq(bets.id, betId)).limit(1);
+	if (!updated) {
+		return {
+			ok: false,
+			status: 500,
+			body: { error: "Bet not found after update", code: "INTERNAL_ERROR" },
+		};
+	}
+	// @lore U2: normalize atRisk 0/1 to boolean on the wire (architecture-critique §4).
+	return { ok: true, row: { ...updated, atRisk: updated.atRisk === 1 } };
+}
+
+type PatchResult =
+	| { ok: true; row: Record<string, unknown> }
+	| { ok: false; status: 400 | 404 | 500; body: Record<string, string> };
+
+/**
+ * Handle PATCH /bets/:id for field="description".
+ *
+ * @lore Q3: Extracted to reduce cognitive complexity of the PATCH route handler.
+ * description is mutable in draft and active statuses.
+ */
+async function patchDescription(
+	db: HyperIdleDb,
+	betId: string,
+	value: string,
+	reason: string,
+	actor: string | undefined,
+): Promise<PatchResult> {
+	const [bet] = await db.select().from(bets).where(eq(bets.id, betId)).limit(1);
+	if (!bet) {
+		return { ok: false, status: 404, body: { error: "Bet not found", code: "NOT_FOUND" } };
+	}
+	if (!DESCRIPTION_MUTABLE_IN_STATUSES.has(bet.status)) {
+		return {
+			ok: false,
+			status: 400,
+			body: {
+				error: `Field 'description' is not mutable in status '${bet.status}'`,
+				code: "VALIDATION_ERROR",
+			},
+		};
+	}
+	const revisionLog: Array<Record<string, unknown>> = bet.revisionLog
+		? (JSON.parse(bet.revisionLog) as Array<Record<string, unknown>>)
+		: [];
+	revisionLog.push({
+		timestamp: new Date().toISOString(),
+		field: "description",
+		old_value: bet.description,
+		new_value: value,
+		reason,
+		actor,
+	});
+	await db
+		.update(bets)
+		.set({ description: value, revisionLog: JSON.stringify(revisionLog) })
+		.where(eq(bets.id, betId));
+	const [updated] = await db.select().from(bets).where(eq(bets.id, betId)).limit(1);
+	if (!updated) {
+		return {
+			ok: false,
+			status: 500,
+			body: { error: "Bet not found after update", code: "INTERNAL_ERROR" },
+		};
+	}
+	return { ok: true, row: updated as unknown as Record<string, unknown> };
+}
+
+type WireMoney = { minor: number; currency: string } | null;
+
+/**
+ * Handle PATCH /bets/:id for field="cost_appetite".
+ *
+ * @lore L17: Extracted to reduce cognitive complexity. cost_appetite is mutable
+ * in active status only (not draft — cost is negotiated once the bet is committed).
+ */
+async function patchCostAppetite(
+	db: HyperIdleDb,
+	betId: string,
+	value: WireMoney,
+	reason: string,
+	actor: string | undefined,
+): Promise<PatchResult> {
+	const [bet] = await db.select().from(bets).where(eq(bets.id, betId)).limit(1);
+	if (!bet) {
+		return { ok: false, status: 404, body: { error: "Bet not found", code: "NOT_FOUND" } };
+	}
+	const MUTABLE_IN_STATUSES = new Set(["active"]);
+	if (!MUTABLE_IN_STATUSES.has(bet.status)) {
+		return {
+			ok: false,
+			status: 400,
+			body: {
+				error: `Field 'cost_appetite' is not mutable in status '${bet.status}'`,
+				code: "VALIDATION_ERROR",
+			},
+		};
+	}
+	const revisionLog: Array<Record<string, unknown>> = bet.revisionLog
+		? (JSON.parse(bet.revisionLog) as Array<Record<string, unknown>>)
+		: [];
+	const oldAppetite =
+		bet.costAppetiteMinor != null && bet.costAppetiteCurrency != null
+			? { minor: bet.costAppetiteMinor, currency: bet.costAppetiteCurrency }
+			: null;
+	revisionLog.push({
+		timestamp: new Date().toISOString(),
+		field: "cost_appetite",
+		old_value: oldAppetite,
+		new_value: value,
+		reason,
+		actor,
+	});
+	await db
+		.update(bets)
+		.set({
+			costAppetiteMinor: value?.minor ?? null,
+			costAppetiteCurrency: value?.currency ?? null,
+			revisionLog: JSON.stringify(revisionLog),
+		})
+		.where(eq(bets.id, betId));
+	const [updated] = await db.select().from(bets).where(eq(bets.id, betId)).limit(1);
+	if (!updated) {
+		return {
+			ok: false,
+			status: 500,
+			body: { error: "Bet not found after update", code: "INTERNAL_ERROR" },
+		};
+	}
+	return { ok: true, row: updated as unknown as Record<string, unknown> };
 }
 
 /**
@@ -296,10 +499,11 @@ export function createBetRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hyper
 
 		return c.json({
 			...restBet,
+			// @lore U2: `atRisk` DB column is integer (0/1); normalize to boolean on the wire.
+			// See U2 architecture §3.4 and architecture-critique.
+			atRisk: restBet.atRisk === 1,
 			title,
-			// @lore U1: `product` is an alias for `team` (the teams domain entity name).
-			// The betDetailResponseSchema requires both for backward compatibility.
-			product: team,
+			// @lore U2: `product` field removed (clean cut, no backward compat). Only `team` remains.
 			team,
 			progress: { done, total },
 			costAppetite:
@@ -394,87 +598,27 @@ export function createBetRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hyper
 		const body = c.req.valid("json" as never) as z.infer<typeof updateBetSchema>;
 
 		// @lore U1: `description` (formerly `pitch`) is mutable in draft/active.
+		// Delegated to patchDescription() to reduce PATCH handler complexity.
 		if (body.field === "description") {
-			const [bet] = await db.select().from(bets).where(eq(bets.id, betId)).limit(1);
-			if (!bet) {
-				return c.json({ error: "Bet not found", code: "NOT_FOUND" }, 404);
-			}
-			if (!DESCRIPTION_MUTABLE_IN_STATUSES.has(bet.status)) {
-				return c.json(
-					{
-						error: `Field 'description' is not mutable in status '${bet.status}'`,
-						code: "VALIDATION_ERROR",
-					},
-					400,
-				);
-			}
-			const revisionLog: Array<Record<string, unknown>> = bet.revisionLog
-				? (JSON.parse(bet.revisionLog) as Array<Record<string, unknown>>)
-				: [];
-			revisionLog.push({
-				timestamp: new Date().toISOString(),
-				field: "description",
-				old_value: bet.description,
-				new_value: body.value,
-				reason: body.reason,
-				actor: c.get("userId"),
-			});
-			await db
-				.update(bets)
-				.set({
-					description: body.value,
-					revisionLog: JSON.stringify(revisionLog),
-				})
-				.where(eq(bets.id, betId));
-			const [updated] = await db.select().from(bets).where(eq(bets.id, betId)).limit(1);
-			return c.json(updated);
+			const result = await patchDescription(db, betId, body.value, body.reason, c.get("userId"));
+			if (!result.ok) return c.json(result.body, result.status);
+			return c.json(result.row);
 		}
 
-		// @lore L17: cost_appetite is a WireMoney object — it cannot go through
-		// updateBetField (which maps fields to single string DB columns). Write
-		// costAppetiteMinor + costAppetiteCurrency directly and add a revision entry.
-		// @lore U1: mutable in 'active' status (formerly in_progress, paused, behind, blocked).
-		if (body.field === "cost_appetite") {
-			const [bet] = await db.select().from(bets).where(eq(bets.id, betId)).limit(1);
-			if (!bet) {
-				return c.json({ error: "Bet not found", code: "NOT_FOUND" }, 404);
-			}
-			const MUTABLE_IN_STATUSES = new Set(["active"]);
-			if (!MUTABLE_IN_STATUSES.has(bet.status)) {
-				return c.json(
-					{
-						error: `Field 'cost_appetite' is not mutable in status '${bet.status}'`,
-						code: "VALIDATION_ERROR",
-					},
-					400,
-				);
-			}
-			const revisionLog: Array<Record<string, unknown>> = bet.revisionLog
-				? (JSON.parse(bet.revisionLog) as Array<Record<string, unknown>>)
-				: [];
-			const oldAppetite =
-				bet.costAppetiteMinor != null && bet.costAppetiteCurrency != null
-					? { minor: bet.costAppetiteMinor, currency: bet.costAppetiteCurrency }
-					: null;
-			revisionLog.push({
-				timestamp: new Date().toISOString(),
-				field: "cost_appetite",
-				old_value: oldAppetite,
-				new_value: body.value,
-				reason: body.reason,
-				actor: c.get("userId"),
-			});
-			await db
-				.update(bets)
-				.set({
-					costAppetiteMinor: body.value?.minor ?? null,
-					costAppetiteCurrency: body.value?.currency ?? null,
-					revisionLog: JSON.stringify(revisionLog),
-				})
-				.where(eq(bets.id, betId));
+		// @lore U2: at_risk PATCH — delegated to patchAtRisk() for complexity management.
+		if (body.field === "at_risk") {
+			const result = await patchAtRisk(db, betId, body.value, body.reason, c.get("userId"));
+			if (!result.ok) return c.json(result.body, result.status);
+			return c.json(result.row);
+		}
 
-			const [updated] = await db.select().from(bets).where(eq(bets.id, betId)).limit(1);
-			return c.json(updated);
+		// @lore L17: cost_appetite PATCH — delegated to patchCostAppetite().
+		// WireMoney value cannot go through updateBetField (string-only columns).
+		// @lore U1: mutable in 'active' status only.
+		if (body.field === "cost_appetite") {
+			const result = await patchCostAppetite(db, betId, body.value, body.reason, c.get("userId"));
+			if (!result.ok) return c.json(result.body, result.status);
+			return c.json(result.row);
 		}
 
 		await updateBetField(db, eventBus, betId, body.field, body.value, body.reason, c.get("userId"));
@@ -520,10 +664,20 @@ export function createBetRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hyper
 			throw err;
 		}
 
-		await transitionBet(db, eventBus, betId, "active", {
-			reason: reason ?? "Bet activated",
-			actor: c.get("userId"),
-		});
+		// @lore U2: catch InvalidTransitionError here (not global handler) so bets return 400.
+		// Global error handler maps InvalidTransitionError to 409 (CONFLICT) for task transitions.
+		// Bet lifecycle spec explicitly requires 400 with code VALIDATION_ERROR.
+		try {
+			await transitionBet(db, eventBus, betId, "active", {
+				reason: reason ?? "Bet activated",
+				actor: c.get("userId"),
+			});
+		} catch (err) {
+			if (err instanceof InvalidTransitionError) {
+				return c.json({ error: err.message, code: "VALIDATION_ERROR" }, 400);
+			}
+			throw err;
+		}
 		const [updated] = await db.select().from(bets).where(eq(bets.id, betId)).limit(1);
 		return c.json(updated);
 	});
@@ -532,7 +686,15 @@ export function createBetRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hyper
 	// @lore U1: formerly "in_progress→shipped". Now "active→completed".
 	router.post("/:id/ship", async (c) => {
 		const betId = c.req.param("id");
-		await transitionBet(db, eventBus, betId, "completed");
+		// @lore U2: catch InvalidTransitionError here (not global handler) so bets return 400.
+		try {
+			await transitionBet(db, eventBus, betId, "completed");
+		} catch (err) {
+			if (err instanceof InvalidTransitionError) {
+				return c.json({ error: err.message, code: "VALIDATION_ERROR" }, 400);
+			}
+			throw err;
+		}
 		const [updated] = await db.select().from(bets).where(eq(bets.id, betId)).limit(1);
 		return c.json(updated);
 	});
@@ -544,10 +706,18 @@ export function createBetRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hyper
 			return c.json({ error: "Bet not found", code: "NOT_FOUND" }, 404);
 		}
 		const body = c.req.valid("json" as never) as z.infer<typeof killBetSchema>;
-		await transitionBet(db, eventBus, betId, "killed", {
-			reason: body.reason,
-			actor: c.get("userId"),
-		});
+		// @lore U2: catch InvalidTransitionError here (not global handler) so bets return 400.
+		try {
+			await transitionBet(db, eventBus, betId, "killed", {
+				reason: body.reason,
+				actor: c.get("userId"),
+			});
+		} catch (err) {
+			if (err instanceof InvalidTransitionError) {
+				return c.json({ error: err.message, code: "VALIDATION_ERROR" }, 400);
+			}
+			throw err;
+		}
 		const [updated] = await db.select().from(bets).where(eq(bets.id, betId)).limit(1);
 		return c.json(updated);
 	});
