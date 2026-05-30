@@ -17,9 +17,9 @@ import {
 	bets,
 	createTestDb,
 	type HyperIdleDb,
-	products,
 	type TestDbHandle,
 	tasks,
+	teamMembers,
 	teams,
 	users,
 } from "@hyperidle/db";
@@ -31,18 +31,18 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 const NOW = new Date().toISOString();
 
 async function seedBase(db: HyperIdleDb): Promise<void> {
-	await db
-		.insert(products)
-		.values({ id: "p1", name: "Test Product", phase: "build", createdAt: NOW });
+	// @lore U1: teams = domain entity (formerly products); teamMembers = membership group (formerly teams).
 	await db
 		.insert(teams)
-		.values({ id: "t1", productId: "p1", capacity: 5, activeBets: 0, formedAt: NOW });
+		.values({ id: "team-1", name: "Test Team", phase: "build", createdAt: NOW });
+	await db
+		.insert(teamMembers)
+		.values({ id: "tm-1", teamId: "team-1", capacity: 5, activeBets: 0, formedAt: NOW });
 	await db.insert(bets).values({
 		id: "b1",
-		productId: "p1",
-		teamId: "t1",
-		pitch: "Bet pitch",
-		status: "committed",
+		teamId: "team-1",
+		description: "Bet pitch",
+		status: "active",
 		createdAt: NOW,
 	});
 	await db.insert(users).values({
@@ -50,15 +50,14 @@ async function seedBase(db: HyperIdleDb): Promise<void> {
 		name: "Builder Agent",
 		role: "builder",
 		status: "active",
-		teamId: "t1",
+		teamId: "tm-1",
 		maxConcurrentSessions: 2,
 		createdAt: NOW,
 	});
 	await db.insert(tasks).values({
 		id: "task-1",
 		betId: "b1",
-		productId: "p1",
-		teamId: "t1",
+		teamId: "team-1",
 		ownerAgentId: "agent-1",
 		title: "Test task",
 		state: "in_progress",
@@ -90,7 +89,7 @@ describe("recordCostAndCheck — bet cost accumulation (R5 AC4)", () => {
 			costMinor: 100,
 			currency: "USD",
 			agentId: "agent-1",
-			teamId: "t1",
+			teamId: "tm-1",
 			taskId: "task-1",
 		});
 
@@ -112,7 +111,7 @@ describe("recordCostAndCheck — bet cost accumulation (R5 AC4)", () => {
 			costMinor: 100,
 			currency: "USD",
 			agentId: "agent-1",
-			teamId: "t1",
+			teamId: "tm-1",
 			taskId: "task-1",
 		});
 
@@ -121,7 +120,7 @@ describe("recordCostAndCheck — bet cost accumulation (R5 AC4)", () => {
 			costMinor: 75,
 			currency: "USD",
 			agentId: "agent-1",
-			teamId: "t1",
+			teamId: "tm-1",
 			taskId: "task-1",
 		});
 
@@ -139,7 +138,7 @@ describe("recordCostAndCheck — bet cost accumulation (R5 AC4)", () => {
 			costMinor: 500,
 			currency: "USD",
 			agentId: "agent-1",
-			teamId: "t1",
+			teamId: "tm-1",
 			// taskId deliberately omitted
 		});
 
@@ -158,7 +157,7 @@ describe("recordCostAndCheck — bet cost accumulation (R5 AC4)", () => {
 			costMinor: 0,
 			currency: "USD",
 			agentId: "agent-1",
-			teamId: "t1",
+			teamId: "tm-1",
 			taskId: "task-1",
 		});
 
@@ -178,7 +177,7 @@ describe("recordCostAndCheck — bet cost accumulation (R5 AC4)", () => {
 			costMinor: 100,
 			currency: "USD",
 			agentId: "agent-1",
-			teamId: "t1",
+			teamId: "tm-1",
 			taskId: "ghost-task-xyz",
 		});
 

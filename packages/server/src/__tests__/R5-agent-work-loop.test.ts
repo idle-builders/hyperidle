@@ -22,9 +22,9 @@ import {
 	createTestDb,
 	type HyperIdleDb,
 	messages,
-	products,
 	type TestDbHandle,
 	tasks,
+	teamMembers,
 	teams,
 	threads,
 	users,
@@ -48,18 +48,20 @@ function authHeaders(extra?: Record<string, string>): Record<string, string> {
 }
 
 async function seedBase(db: HyperIdleDb): Promise<void> {
-	await db
-		.insert(products)
-		.values({ id: "p1", name: "Test Product", phase: "build", createdAt: NOW });
+	// @lore U1: `teams` is the domain entity (formerly `products`).
+	// `teamMembers` is the membership group (formerly `teams`).
+	// bets/tasks.teamId references teams.id; users.teamId references teamMembers.id.
 	await db
 		.insert(teams)
-		.values({ id: "t1", productId: "p1", capacity: 5, activeBets: 0, formedAt: NOW });
+		.values({ id: "team-1", name: "Test Team", phase: "build", createdAt: NOW });
+	await db
+		.insert(teamMembers)
+		.values({ id: "tm-1", teamId: "team-1", capacity: 5, activeBets: 0, formedAt: NOW });
 	await db.insert(bets).values({
 		id: "b1",
-		productId: "p1",
-		teamId: "t1",
-		pitch: "Implement feature X",
-		status: "committed",
+		teamId: "team-1",
+		description: "Implement feature X",
+		status: "active",
 		createdAt: NOW,
 	});
 	await db.insert(users).values([
@@ -67,7 +69,7 @@ async function seedBase(db: HyperIdleDb): Promise<void> {
 			id: "agent-a",
 			name: "Builder Agent",
 			role: "builder",
-			teamId: "t1",
+			teamId: "tm-1",
 			status: "active",
 			maxConcurrentSessions: 2,
 			createdAt: NOW,
@@ -76,7 +78,7 @@ async function seedBase(db: HyperIdleDb): Promise<void> {
 			id: "founder-1",
 			name: "Founder",
 			role: "founder",
-			teamId: "t1",
+			teamId: "tm-1",
 			status: "active",
 			maxConcurrentSessions: 2,
 			createdAt: NOW,
@@ -85,8 +87,7 @@ async function seedBase(db: HyperIdleDb): Promise<void> {
 	await db.insert(tasks).values({
 		id: "task-1",
 		betId: "b1",
-		productId: "p1",
-		teamId: "t1",
+		teamId: "team-1",
 		ownerAgentId: "agent-a",
 		title: "Parent Task",
 		state: "in_progress",
@@ -311,7 +312,7 @@ describe("R5: Agent Work Loop integration", () => {
 				costMinor: 150,
 				currency: "USD",
 				agentId: "agent-a",
-				teamId: "t1",
+				teamId: "tm-1",
 				taskId: "task-1",
 			});
 
@@ -335,7 +336,7 @@ describe("R5: Agent Work Loop integration", () => {
 				costMinor: 100,
 				currency: "USD",
 				agentId: "agent-a",
-				teamId: "t1",
+				teamId: "tm-1",
 				taskId: "task-1",
 			});
 
@@ -349,7 +350,7 @@ describe("R5: Agent Work Loop integration", () => {
 				costMinor: 75,
 				currency: "USD",
 				agentId: "agent-a",
-				teamId: "t1",
+				teamId: "tm-1",
 				taskId: "task-1",
 			});
 
@@ -373,7 +374,7 @@ describe("R5: Agent Work Loop integration", () => {
 				costMinor: 500,
 				currency: "USD",
 				agentId: "agent-a",
-				teamId: "t1",
+				teamId: "tm-1",
 				// taskId deliberately omitted
 			});
 

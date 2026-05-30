@@ -14,9 +14,9 @@ import {
 	bets,
 	createTestDb,
 	type HyperIdleDb,
-	products,
 	type TestDbHandle,
 	tasks,
+	teamMembers,
 	teams,
 	users,
 } from "@hyperidle/db";
@@ -30,25 +30,25 @@ import type { ToolContext } from "../tool-registry.js";
 const NOW = new Date().toISOString();
 
 async function seed(db: HyperIdleDb): Promise<void> {
-	await db
-		.insert(products)
-		.values({ id: "p1", name: "Test Product", phase: "build", createdAt: NOW });
+	// @lore U1: teams = domain entity (formerly products); teamMembers = membership group (formerly teams).
 	await db
 		.insert(teams)
-		.values({ id: "t1", productId: "p1", capacity: 5, activeBets: 0, formedAt: NOW });
+		.values({ id: "team-1", name: "Test Team", phase: "build", createdAt: NOW });
+	await db
+		.insert(teamMembers)
+		.values({ id: "tm-1", teamId: "team-1", capacity: 5, activeBets: 0, formedAt: NOW });
 	await db.insert(bets).values({
 		id: "b1",
-		productId: "p1",
-		teamId: "t1",
-		pitch: "Implement feature X",
-		status: "committed",
+		teamId: "team-1",
+		description: "Implement feature X",
+		status: "active",
 		createdAt: NOW,
 	});
 	await db.insert(users).values({
 		id: "agent-a",
 		name: "Builder Agent",
 		role: "builder",
-		teamId: "t1",
+		teamId: "tm-1",
 		status: "active",
 		maxConcurrentSessions: 2,
 		createdAt: NOW,
@@ -56,8 +56,7 @@ async function seed(db: HyperIdleDb): Promise<void> {
 	await db.insert(tasks).values({
 		id: "task-1",
 		betId: "b1",
-		productId: "p1",
-		teamId: "t1",
+		teamId: "team-1",
 		ownerAgentId: "agent-a",
 		title: "Parent Task",
 		state: "in_progress",
@@ -112,8 +111,8 @@ describe("create_task tool", () => {
 			const [inserted] = await db.select().from(tasks).where(eq(tasks.id, data.taskId));
 			expect(inserted).toBeDefined();
 			expect(inserted?.betId).toBe("b1");
-			expect(inserted?.productId).toBe("p1");
-			expect(inserted?.teamId).toBe("t1");
+			// @lore U1: tasks.teamId now references teams.id (domain entity), no productId column.
+			expect(inserted?.teamId).toBe("team-1");
 			expect(inserted?.ownerAgentId).toBe("agent-a");
 			expect(inserted?.title).toBe("Implement feature X");
 			expect(inserted?.state).toBe("proposed");

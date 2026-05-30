@@ -17,7 +17,7 @@ type CreateTaskInput = z.infer<typeof createTaskInputSchema>;
 /**
  * Create a new task under the current session's bet.
  *
- * Derives betId, productId, and teamId from the session's parent task so the
+ * Derives betId and teamId from the session's parent task so the
  * agent cannot create tasks on an arbitrary bet. ownerAgentId is set to the
  * calling agent. New tasks start in "proposed" state.
  *
@@ -33,19 +33,19 @@ async function handler(args: CreateTaskInput, ctx: ToolContext): Promise<ToolRes
 	}
 	const input = parsed.data;
 
-	// 1. Look up parent task to derive betId, productId, teamId.
+	// 1. Look up parent task to derive betId and teamId.
 	const [parentTask] = await ctx.db.select().from(tasks).where(eq(tasks.id, ctx.taskId)).limit(1);
 	if (!parentTask) {
 		return err("NOT_FOUND", `Parent task not found: ${ctx.taskId}`);
 	}
 
 	// 2. Insert new task in "proposed" state.
+	// @lore U1: tasks no longer has a productId column. teamId references teams.id (domain entity).
 	const taskId = randomUUID();
 	const now = new Date().toISOString();
 	await ctx.db.insert(tasks).values({
 		id: taskId,
 		betId: parentTask.betId,
-		productId: parentTask.productId,
 		teamId: parentTask.teamId,
 		ownerAgentId: ctx.agentId,
 		title: input.title,
