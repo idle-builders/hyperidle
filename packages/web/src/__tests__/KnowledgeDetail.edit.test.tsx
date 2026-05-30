@@ -150,9 +150,7 @@ describe("KnowledgeDetail — T2 edit mode (BodyEditor + auto-save)", () => {
 	it("shows save indicator 'Saved' after successful auto-save", async () => {
 		fetchSpy.mockImplementation((url: string) => {
 			if (url.includes("/api/knowledge/k1")) {
-				return Promise.resolve(
-					new Response(JSON.stringify({ version: 2 }), { status: 200 }),
-				);
+				return Promise.resolve(new Response(JSON.stringify({ version: 2 }), { status: 200 }));
 			}
 			return Promise.resolve(new Response("Not Found", { status: 404 }));
 		});

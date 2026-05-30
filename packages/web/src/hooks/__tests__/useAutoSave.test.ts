@@ -50,9 +50,7 @@ describe("useAutoSave", () => {
 	});
 
 	it("debounces multiple rapid save calls into one PATCH", async () => {
-		fetchSpy.mockResolvedValueOnce(
-			new Response(JSON.stringify({ version: 2 }), { status: 200 }),
-		);
+		fetchSpy.mockResolvedValueOnce(new Response(JSON.stringify({ version: 2 }), { status: 200 }));
 
 		const { result } = renderHook(() => useAutoSave({ ...DEFAULT_OPTS, debounceMs: 1500 }));
 
@@ -77,9 +75,7 @@ describe("useAutoSave", () => {
 	});
 
 	it("sends correct payload: { body, version, updatedBy }", async () => {
-		fetchSpy.mockResolvedValueOnce(
-			new Response(JSON.stringify({ version: 2 }), { status: 200 }),
-		);
+		fetchSpy.mockResolvedValueOnce(new Response(JSON.stringify({ version: 2 }), { status: 200 }));
 
 		const { result } = renderHook(() =>
 			useAutoSave({ ...DEFAULT_OPTS, version: 5, updatedBy: "alice" }),
@@ -138,9 +134,7 @@ describe("useAutoSave", () => {
 	});
 
 	it("transitions from saved -> idle after 3 seconds", async () => {
-		fetchSpy.mockResolvedValueOnce(
-			new Response(JSON.stringify({ version: 2 }), { status: 200 }),
-		);
+		fetchSpy.mockResolvedValueOnce(new Response(JSON.stringify({ version: 2 }), { status: 200 }));
 
 		const { result } = renderHook(() => useAutoSave(DEFAULT_OPTS));
 
@@ -167,14 +161,10 @@ describe("useAutoSave", () => {
 	});
 
 	it("calls onSaved with new version number from response", async () => {
-		fetchSpy.mockResolvedValueOnce(
-			new Response(JSON.stringify({ version: 7 }), { status: 200 }),
-		);
+		fetchSpy.mockResolvedValueOnce(new Response(JSON.stringify({ version: 7 }), { status: 200 }));
 
 		const onSaved = vi.fn();
-		const { result } = renderHook(() =>
-			useAutoSave({ ...DEFAULT_OPTS, onSaved }),
-		);
+		const { result } = renderHook(() => useAutoSave({ ...DEFAULT_OPTS, onSaved }));
 
 		act(() => {
 			result.current.save("content");
@@ -198,9 +188,7 @@ describe("useAutoSave", () => {
 		fetchSpy.mockResolvedValueOnce(new Response(conflictBody, { status: 409 }));
 
 		const onConflict = vi.fn();
-		const { result } = renderHook(() =>
-			useAutoSave({ ...DEFAULT_OPTS, onConflict }),
-		);
+		const { result } = renderHook(() => useAutoSave({ ...DEFAULT_OPTS, onConflict }));
 
 		act(() => {
 			result.current.save("content");

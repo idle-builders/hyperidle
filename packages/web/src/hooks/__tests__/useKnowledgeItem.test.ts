@@ -55,9 +55,7 @@ describe("useKnowledgeItem", () => {
 	});
 
 	it("fetches from /api/knowledge/:id with the correct URL", async () => {
-		fetchSpy.mockResolvedValueOnce(
-			new Response(JSON.stringify(MOCK_ITEM), { status: 200 }),
-		);
+		fetchSpy.mockResolvedValueOnce(new Response(JSON.stringify(MOCK_ITEM), { status: 200 }));
 
 		renderHook(() => useKnowledgeItem("k-abc"));
 
@@ -67,9 +65,7 @@ describe("useKnowledgeItem", () => {
 	});
 
 	it("returns typed item data on success", async () => {
-		fetchSpy.mockResolvedValueOnce(
-			new Response(JSON.stringify(MOCK_ITEM), { status: 200 }),
-		);
+		fetchSpy.mockResolvedValueOnce(new Response(JSON.stringify(MOCK_ITEM), { status: 200 }));
 
 		const { result } = renderHook(() => useKnowledgeItem("k-abc"));
 

@@ -51,6 +51,19 @@ export interface UseAutoSaveResult {
 	reset: () => void;
 }
 
+function executePatch(
+	endpoint: string,
+	content: string,
+	version: number,
+	updatedBy: string,
+): Promise<Response> {
+	return apiFetch(endpoint, {
+		method: "PATCH",
+		headers: { "Content-Type": "application/json" },
+		body: JSON.stringify({ body: content, version, updatedBy }),
+	});
+}
+
 export function useAutoSave({
 	endpoint,
 	version,
@@ -106,69 +119,63 @@ export function useAutoSave({
 		};
 	}, []);
 
-	const save = useCallback((content: string): void => {
-		// Clear any pending debounce timer
-		if (debounceTimerRef.current !== null) {
-			clearTimeout(debounceTimerRef.current);
+	const handleSaveResponse = useCallback(async (res: Response): Promise<void> => {
+		if (unmountedRef.current) return;
+
+		if (res.status === 409) {
+			const data = (await res.json()) as { details?: { currentVersion?: number } };
+			const currentVersion = data.details?.currentVersion ?? 0;
+			setStatus("conflict");
+			onConflictRef.current?.({ currentVersion });
+			return;
 		}
 
-		debounceTimerRef.current = setTimeout(async () => {
-			if (unmountedRef.current) return;
+		if (!res.ok) {
+			setStatus("error");
+			return;
+		}
 
-			setStatus("saving");
+		const data = (await res.json()) as { version?: number };
+		const newVersion = data.version ?? versionRef.current;
 
-			try {
-				const res = await apiFetch(endpointRef.current, {
-					method: "PATCH",
-					headers: { "Content-Type": "application/json" },
-					body: JSON.stringify({
-						body: content,
-						version: versionRef.current,
-						updatedBy: updatedByRef.current,
-					}),
-				});
+		if (unmountedRef.current) return;
 
-				if (unmountedRef.current) return;
+		setStatus("saved");
+		onSavedRef.current?.(newVersion);
 
-				if (res.status === 409) {
-					const data = (await res.json()) as {
-						details?: { currentVersion?: number };
-					};
-					const currentVersion = data.details?.currentVersion ?? 0;
-					setStatus("conflict");
-					onConflictRef.current?.({ currentVersion });
-					return;
-				}
-
-				if (!res.ok) {
-					setStatus("error");
-					return;
-				}
-
-				const data = (await res.json()) as { version?: number };
-				const newVersion = data.version ?? versionRef.current;
-
-				if (unmountedRef.current) return;
-
-				setStatus("saved");
-				onSavedRef.current?.(newVersion);
-
-				// Auto-clear "saved" status after 3 seconds
-				if (savedTimerRef.current !== null) {
-					clearTimeout(savedTimerRef.current);
-				}
-				savedTimerRef.current = setTimeout(() => {
-					if (!unmountedRef.current) {
-						setStatus("idle");
-					}
-				}, 3000);
-			} catch {
-				if (!unmountedRef.current) {
-					setStatus("error");
-				}
+		// Auto-clear "saved" status after 3 seconds
+		if (savedTimerRef.current !== null) {
+			clearTimeout(savedTimerRef.current);
+		}
+		savedTimerRef.current = setTimeout(() => {
+			if (!unmountedRef.current) {
+				setStatus("idle");
 			}
-		}, debounceMs);
-	}, [debounceMs]);
+		}, 3000);
+	}, []);
+
+	const save = useCallback(
+		(content: string): void => {
+			// Clear any pending debounce timer
+			if (debounceTimerRef.current !== null) {
+				clearTimeout(debounceTimerRef.current);
+			}
+
+			debounceTimerRef.current = setTimeout(() => {
+				if (unmountedRef.current) return;
+				setStatus("saving");
+
+				executePatch(endpointRef.current, content, versionRef.current, updatedByRef.current)
+					.then((res) => handleSaveResponse(res))
+					.catch(() => {
+						if (!unmountedRef.current) {
+							setStatus("error");
+						}
+					});
+			}, debounceMs);
+		},
+		[debounceMs, handleSaveResponse],
+	);
 
 	const reset = useCallback((): void => {
 		setStatus("idle");
