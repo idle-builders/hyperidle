@@ -101,4 +101,3 @@ export function SettingsTeams(): JSX.Element {
 		</ul>
 	);
 }
-

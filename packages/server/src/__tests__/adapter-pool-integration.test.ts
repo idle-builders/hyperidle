@@ -19,10 +19,10 @@ import {
 	bets,
 	createTestDb,
 	type HyperIdleDb,
-	products,
 	sessions,
 	type TestDbHandle,
 	tasks,
+	teamMembers,
 	teams,
 	users,
 } from "@hyperidle/db";
@@ -82,19 +82,16 @@ const LOCAL_META: AdapterMeta = {
 const NOW = "2026-05-29T00:00:00.000Z";
 
 async function seedDomain(db: HyperIdleDb): Promise<void> {
+	await db.insert(teams).values({ id: "p1", name: "Pool Product", phase: "build", createdAt: NOW });
 	await db
-		.insert(products)
-		.values({ id: "p1", name: "Pool Product", phase: "build", createdAt: NOW });
-	await db
-		.insert(teams)
-		.values({ id: "t1", productId: "p1", capacity: 5, activeBets: 0, formedAt: NOW });
+		.insert(teamMembers)
+		.values({ id: "t1", teamId: "p1", capacity: 5, activeBets: 0, formedAt: NOW });
 	await db.insert(bets).values({
 		id: "b1",
-		productId: "p1",
-		teamId: "t1",
-		pitch: "Pool bet",
+		teamId: "p1",
+		description: "Pool bet",
 		appetite: "small",
-		status: "committed",
+		status: "active",
 		createdAt: NOW,
 	});
 	await db.insert(users).values({
@@ -111,8 +108,7 @@ async function seedDomain(db: HyperIdleDb): Promise<void> {
 	await db.insert(tasks).values({
 		id: "task-pool-1",
 		betId: "b1",
-		productId: "p1",
-		teamId: "t1",
+		teamId: "p1",
 		title: "Pool task",
 		state: "accepted",
 		createdAt: NOW,

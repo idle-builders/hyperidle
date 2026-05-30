@@ -13,14 +13,33 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { resolve } from "node:path";
-import { bets, createPgliteDb, teamMembers, teams, threads, users } from "@hyperidle/db";
+import {
+	applyMigrations,
+	bets,
+	createPgliteDb,
+	teamMembers,
+	teams,
+	threads,
+	users,
+} from "@hyperidle/db";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import WebSocket from "ws";
 import { authHeaders, waitForReady } from "./integration-helpers.js";
 
 const TEST_API_KEY = "test-server-factory-I1-key";
 
+/** Resolve the path to the Drizzle migrations folder from within the server package. */
+function dbMigrationsFolder(): string {
+	// @lore server-factory-test: The server package doesn't embed migrations.
+	// They live in packages/db/drizzle. Resolve relative to this file's location:
+	// packages/server/src/__tests__/ → ../../../../packages/db/drizzle
+	return resolve(__dirname, "../../../../packages/db/drizzle");
+}
+
 async function createAndSeedDb(dataDir: string): Promise<void> {
+	// @lore U1: createPgliteDb does NOT run migrations. We must run them manually
+	// before seeding so the renamed tables (teams, team_members) exist.
+	await applyMigrations(dataDir, dbMigrationsFolder());
 	const { db } = await createPgliteDb(dataDir);
 
 	const now = new Date().toISOString();
