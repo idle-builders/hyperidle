@@ -1,6 +1,12 @@
 /**
  * E2E tests for the Knowledge Detail page (J7): factory-scope treatment and
  * the non-factory edit-mode round trip.
+ *
+ * @lore T2: textarea+preview+Save/Cancel replaced by BodyEditor + Done button.
+ * - knowledge-edit-textarea → knowledge-edit-panel (contains TipTap editor)
+ * - knowledge-edit-preview → no longer exists (BodyEditor IS the WYSIWYG view)
+ * - Save button → auto-save (no explicit save action)
+ * - Cancel button → Done button (exits edit mode)
  */
 import { expect, test } from "./fixtures";
 
@@ -16,16 +22,15 @@ test.describe("Knowledge Detail (J7)", () => {
 		const initialUrl = page.url();
 		await editButton.click();
 
-		// Textarea + preview + save/cancel appear; URL unchanged.
-		await expect(page.getByTestId("knowledge-edit-textarea")).toBeVisible();
-		await expect(page.getByTestId("knowledge-edit-preview")).toBeVisible();
-		await expect(page.getByRole("button", { name: /save/i })).toBeVisible();
-		await expect(page.getByRole("button", { name: /cancel/i })).toBeVisible();
+		// T2: BodyEditor edit panel + Done button appear; URL unchanged.
+		// There is no separate preview pane — BodyEditor IS the WYSIWYG editor.
+		await expect(page.getByTestId("knowledge-edit-panel")).toBeVisible();
+		await expect(page.getByRole("button", { name: /done/i })).toBeVisible();
 		expect(page.url()).toBe(initialUrl);
 
-		// Cancel reverts without persisting.
-		await page.getByRole("button", { name: /cancel/i }).click();
-		await expect(page.getByTestId("knowledge-edit-textarea")).toHaveCount(0);
+		// Done exits edit mode and shows the read view.
+		await page.getByRole("button", { name: /done/i }).click();
+		await expect(page.getByTestId("knowledge-edit-panel")).not.toBeVisible();
 		await expect(page.getByTestId("knowledge-body")).toContainText("JWT-based authentication");
 	});
 

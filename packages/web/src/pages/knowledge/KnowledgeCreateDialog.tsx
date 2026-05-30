@@ -17,6 +17,7 @@
  * Inputs are text-base (16px) to prevent iOS Safari zoom on focus.
  */
 
+import { BodyEditor } from "@hyperidle/design-system";
 import { SCOPE_KINDS, SCOPES_REQUIRING_ID, type ScopeKind } from "@hyperidle/shared";
 import { type JSX, useEffect, useRef, useState } from "react";
 import { useCurrentUser } from "../../hooks/useCurrentUser.js";
@@ -149,28 +150,29 @@ export function KnowledgeCreateDialog({
 					/>
 				</label>
 
-				{/* Body textarea */}
-				<label className="flex flex-col gap-1">
+				{/* Body field — T2: replaced textarea with BodyEditor */}
+				{/* @lore T2: <div> instead of <label> — BodyEditor renders a ProseMirror contenteditable
+				    which is not a labelable element; <label> with no associated control triggers
+				    lint/a11y/noLabelWithoutControl. The inner ProseMirror sets its own aria role. */}
+				<div className="flex flex-col gap-1">
 					<span className="text-xs text-[var(--text-lo)]">
 						Body <span aria-hidden>(required)</span>
 					</span>
-					<textarea
-						className="textarea textarea-bordered text-base resize-none h-32 w-full"
+					<BodyEditor
+						initialContent=""
+						onChange={(md) => setBody(md)}
 						placeholder="Describe it in markdown..."
-						value={body}
-						onChange={(e) => setBody(e.target.value)}
-						disabled={submitting}
+						variant="full"
+						minHeight="128px"
+						editable={!submitting}
 					/>
-				</label>
+				</div>
 
 				{/* Scope kind — locked (read-only Tag) or open combobox */}
 				<div className="flex flex-col gap-1">
 					<span className="text-xs text-[var(--text-lo)]">Scope</span>
 					{isLocked ? (
-						<span
-							className="inline-flex items-center px-[8px] py-[2px] rounded-[var(--r2)] text-[12px] bg-[var(--surface-ghost)] text-[var(--text-mid)] w-fit"
-							aria-label={`Scope: ${lockedScopeKind}`}
-						>
+						<span className="inline-flex items-center px-[8px] py-[2px] rounded-[var(--r2)] text-[12px] bg-[var(--surface-ghost)] text-[var(--text-mid)] w-fit">
 							{lockedScopeKind}
 						</span>
 					) : (

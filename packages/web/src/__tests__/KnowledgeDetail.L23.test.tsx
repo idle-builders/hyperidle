@@ -63,35 +63,37 @@ describe("KnowledgeDetail — T8 body is not a <pre>", () => {
 	});
 });
 
-// ── T9 — Edit mode preview is KnowledgeBody, not <pre> ──
+// ── T9 — Edit mode uses BodyEditor (no split preview pane) ──
+// @lore T2: The split textarea+preview pattern from L23 is replaced by a
+// single BodyEditor component. The `knowledge-edit-preview` pane no longer
+// exists in edit mode. Tests updated to reflect T2 behavior.
 
-describe("KnowledgeDetail — T9 edit-mode preview is not a <pre>", () => {
-	it("edit-mode preview pane is NOT a <pre> element", async () => {
+describe("KnowledgeDetail — T9 edit-mode uses BodyEditor (no split preview)", () => {
+	it("edit-mode does NOT have a knowledge-edit-preview pane (split view removed in T2)", async () => {
 		const user = userEvent.setup();
 		renderPage("k1");
 		await user.click(screen.getByRole("button", { name: /edit/i }));
 
-		const preview = screen.getByTestId("knowledge-edit-preview");
-		expect(preview.tagName).not.toBe("PRE");
+		// The split-view preview pane is gone in T2 — BodyEditor replaced it
+		expect(screen.queryByTestId("knowledge-edit-preview")).not.toBeInTheDocument();
 	});
 
-	it("edit-mode preview pane has [data-knowledge-body] attribute (is a KnowledgeBody)", async () => {
+	it("edit-mode shows knowledge-edit-panel (BodyEditor container)", async () => {
 		const user = userEvent.setup();
 		renderPage("k1");
 		await user.click(screen.getByRole("button", { name: /edit/i }));
 
-		const preview = screen.getByTestId("knowledge-edit-preview");
-		expect(preview).toHaveAttribute("data-knowledge-body");
+		// BodyEditor is in an edit panel
+		expect(screen.getByTestId("knowledge-edit-panel")).toBeInTheDocument();
 	});
 
-	it("edit-mode preview shows the current draft content as Blocks", async () => {
-		const user = userEvent.setup();
+	it("read mode still shows KnowledgeBody (blocks, not <pre>)", async () => {
 		renderPage("k1");
-		await user.click(screen.getByRole("button", { name: /edit/i }));
 
-		// k1 content renders as paragraph Blocks in the preview
-		const preview = screen.getByTestId("knowledge-edit-preview");
-		const blocks = preview.querySelectorAll('[data-ds-component="block"]');
+		// In read mode, knowledge-body is visible and has Block shells
+		const body = screen.getByTestId("knowledge-body");
+		expect(body.tagName).not.toBe("PRE");
+		const blocks = body.querySelectorAll('[data-ds-component="block"]');
 		expect(blocks.length).toBeGreaterThanOrEqual(1);
 	});
 });
