@@ -48,12 +48,12 @@ function useHashRoute(): [string, (path: string) => void] {
 
 /* ── Theme ────────────────────────────────────────────────────────── */
 
-type Theme = "lucid-dark" | "lucid-light";
+type Theme = "hearth-dark" | "hearth-light";
 
 function useTheme(): [Theme, (t: Theme) => void] {
 	const [theme, setThemeState] = useState<Theme>(() => {
 		const saved = localStorage.getItem("ds-theme");
-		return saved === "lucid-light" ? "lucid-light" : "lucid-dark";
+		return saved === "hearth-dark" ? "hearth-dark" : "hearth-light";
 	});
 
 	const setTheme = useCallback((t: Theme) => {
@@ -376,15 +376,15 @@ function Toolbar({
 			<div className="toolbar-pill">
 				<button
 					type="button"
-					className={`toolbar-btn ${theme === "lucid-dark" ? "toolbar-btn--active" : ""}`}
-					onClick={() => onThemeChange("lucid-dark")}
+					className={`toolbar-btn ${theme === "hearth-dark" ? "toolbar-btn--active" : ""}`}
+					onClick={() => onThemeChange("hearth-dark")}
 				>
 					Dark
 				</button>
 				<button
 					type="button"
-					className={`toolbar-btn ${theme === "lucid-light" ? "toolbar-btn--active" : ""}`}
-					onClick={() => onThemeChange("lucid-light")}
+					className={`toolbar-btn ${theme === "hearth-light" ? "toolbar-btn--active" : ""}`}
+					onClick={() => onThemeChange("hearth-light")}
 				>
 					Light
 				</button>

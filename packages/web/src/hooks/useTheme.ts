@@ -1,9 +1,9 @@
 /**
- * useTheme — K3 theme persistence hook.
+ * useTheme — K3/U4 theme persistence hook.
  *
  * Reads/writes the user's theme preference (`light` | `dark` | `system`) from
  * `localStorage["hyperidle-theme"]`, applies the resolved theme as
- * `data-theme="lucid-light"` / `"lucid-dark"` on `<html>`, and subscribes to
+ * `data-theme="hearth-light"` / `"hearth-dark"` on `<html>`, and subscribes to
  * `matchMedia("(prefers-color-scheme: dark)")` so `system` mode follows the OS
  * at runtime without a reload.
  *
@@ -51,7 +51,7 @@ function applyTheme(resolved: ResolvedTheme): void {
 	if (typeof document === "undefined") return;
 	document.documentElement.setAttribute(
 		"data-theme",
-		resolved === "dark" ? "lucid-dark" : "lucid-light",
+		resolved === "dark" ? "hearth-dark" : "hearth-light",
 	);
 }
 
