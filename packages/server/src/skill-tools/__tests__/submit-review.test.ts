@@ -16,10 +16,10 @@ import {
 	type HyperIdleDb,
 	messages,
 	products,
+	type TestDbHandle,
 	tasks,
 	teams,
 	threads,
-	type TestDbHandle,
 	users,
 } from "@hyperidle/db";
 import { EventBus } from "@hyperidle/shared";
@@ -31,8 +31,12 @@ import type { ToolContext } from "../tool-registry.js";
 const NOW = new Date().toISOString();
 
 async function seed(db: HyperIdleDb): Promise<void> {
-	await db.insert(products).values({ id: "p1", name: "Test Product", phase: "build", createdAt: NOW });
-	await db.insert(teams).values({ id: "t1", productId: "p1", capacity: 5, activeBets: 0, formedAt: NOW });
+	await db
+		.insert(products)
+		.values({ id: "p1", name: "Test Product", phase: "build", createdAt: NOW });
+	await db
+		.insert(teams)
+		.values({ id: "t1", productId: "p1", capacity: 5, activeBets: 0, formedAt: NOW });
 	await db.insert(bets).values({
 		id: "b1",
 		productId: "p1",
@@ -178,7 +182,7 @@ describe("submit_review tool", () => {
 
 			expect(first.success).toBe(true);
 			expect(second.success).toBe(true);
-			if (!first.success || !second.success) return;
+			if (!(first.success && second.success)) return;
 
 			const d1 = first.data as { threadId: string };
 			const d2 = second.data as { threadId: string };

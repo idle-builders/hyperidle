@@ -87,7 +87,7 @@ export function BetCreateDialog({
 
 	const handleSubmit = async (): Promise<void> => {
 		const trimmedPitch = pitch.trim();
-		if (!trimmedPitch || !resolvedProductId.trim()) return;
+		if (!(trimmedPitch && resolvedProductId.trim())) return;
 
 		setSubmitting(true);
 		setError(null);

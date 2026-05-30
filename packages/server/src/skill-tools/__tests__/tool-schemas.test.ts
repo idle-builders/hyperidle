@@ -14,6 +14,9 @@ const EXPECTED_TOOL_NAMES = [
 	"send_message",
 	"write_memory",
 	"write_session_notes",
+	// R5 agent work loop tools
+	"create_task",
+	"submit_review",
 	// G1 facilitator tools
 	"route_item",
 	"score_attention",

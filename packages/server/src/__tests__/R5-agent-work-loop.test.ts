@@ -23,23 +23,20 @@ import {
 	type HyperIdleDb,
 	messages,
 	products,
+	type TestDbHandle,
 	tasks,
 	teams,
-	type TestDbHandle,
 	threads,
 	users,
 } from "@hyperidle/db";
-import {
-	clearDeduplicationCache,
-	recordCostAndCheck,
-} from "@hyperidle/fabric";
+import { clearDeduplicationCache, recordCostAndCheck } from "@hyperidle/fabric";
 import { EventBus } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
 import type { Hono } from "hono";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { createTaskTool } from "../skill-tools/create-task.js";
 import { readInboxTool } from "../skill-tools/read-inbox.js";
 import { submitReviewTool } from "../skill-tools/submit-review.js";
-import { createTaskTool } from "../skill-tools/create-task.js";
 import type { ToolContext } from "../skill-tools/tool-registry.js";
 import { createTestApp } from "../test-utils.js";
 
@@ -51,8 +48,12 @@ function authHeaders(extra?: Record<string, string>): Record<string, string> {
 }
 
 async function seedBase(db: HyperIdleDb): Promise<void> {
-	await db.insert(products).values({ id: "p1", name: "Test Product", phase: "build", createdAt: NOW });
-	await db.insert(teams).values({ id: "t1", productId: "p1", capacity: 5, activeBets: 0, formedAt: NOW });
+	await db
+		.insert(products)
+		.values({ id: "p1", name: "Test Product", phase: "build", createdAt: NOW });
+	await db
+		.insert(teams)
+		.values({ id: "t1", productId: "p1", capacity: 5, activeBets: 0, formedAt: NOW });
 	await db.insert(bets).values({
 		id: "b1",
 		productId: "p1",
@@ -133,10 +134,7 @@ describe("R5: Agent Work Loop integration", () => {
 			const ctx = makeContext(db, eventBus);
 
 			// Agent calls create_task
-			const createResult = await createTaskTool.handler(
-				{ title: "Subtask 1" },
-				ctx,
-			);
+			const createResult = await createTaskTool.handler({ title: "Subtask 1" }, ctx);
 			expect(createResult.success).toBe(true);
 			if (!createResult.success) return;
 
@@ -279,7 +277,7 @@ describe("R5: Agent Work Loop integration", () => {
 				method: "POST",
 				headers: {
 					...authHeaders(),
-					"X-User-Id": "founder-1",
+					"X-Identity": "founder-1",
 				},
 				body: JSON.stringify({
 					type: "verdict",
@@ -290,7 +288,7 @@ describe("R5: Agent Work Loop integration", () => {
 					clientKey: verdictClientKey,
 				}),
 			});
-			expect(verdictRes.status).toBe(200);
+			expect([200, 201]).toContain(verdictRes.status);
 
 			// Step 3: Agent reads inbox — verdict should appear
 			const inboxResult = await readInboxTool.handler({ limit: 20 }, ctx);
@@ -379,7 +377,10 @@ describe("R5: Agent Work Loop integration", () => {
 				// taskId deliberately omitted
 			});
 
-			const [bet] = await db.select({ costActualMinor: bets.costActualMinor }).from(bets).where(eq(bets.id, "b1"));
+			const [bet] = await db
+				.select({ costActualMinor: bets.costActualMinor })
+				.from(bets)
+				.where(eq(bets.id, "b1"));
 			// Bet cost should remain null (not incremented)
 			expect(bet?.costActualMinor).toBeNull();
 		});

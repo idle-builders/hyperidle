@@ -15,9 +15,9 @@ import {
 	createTestDb,
 	type HyperIdleDb,
 	products,
+	type TestDbHandle,
 	tasks,
 	teams,
-	type TestDbHandle,
 	users,
 } from "@hyperidle/db";
 import type { TaskStateChangedEvent } from "@hyperidle/shared";
@@ -30,8 +30,12 @@ import type { ToolContext } from "../tool-registry.js";
 const NOW = new Date().toISOString();
 
 async function seed(db: HyperIdleDb): Promise<void> {
-	await db.insert(products).values({ id: "p1", name: "Test Product", phase: "build", createdAt: NOW });
-	await db.insert(teams).values({ id: "t1", productId: "p1", capacity: 5, activeBets: 0, formedAt: NOW });
+	await db
+		.insert(products)
+		.values({ id: "p1", name: "Test Product", phase: "build", createdAt: NOW });
+	await db
+		.insert(teams)
+		.values({ id: "t1", productId: "p1", capacity: 5, activeBets: 0, formedAt: NOW });
 	await db.insert(bets).values({
 		id: "b1",
 		productId: "p1",
@@ -138,10 +142,7 @@ describe("create_task tool", () => {
 	// AC5: new tasks from create_task start in proposed state
 	describe("AC5: new task starts in proposed state", () => {
 		it("inserted task has state=proposed", async () => {
-			const result = await createTaskTool.handler(
-				{ title: "Subtask" },
-				makeContext(db, eventBus),
-			);
+			const result = await createTaskTool.handler({ title: "Subtask" }, makeContext(db, eventBus));
 
 			expect(result.success).toBe(true);
 			if (!result.success) return;
@@ -158,10 +159,7 @@ describe("create_task tool", () => {
 			const emitted: TaskStateChangedEvent[] = [];
 			eventBus.on("task_state_changed", (e: TaskStateChangedEvent) => emitted.push(e));
 
-			const result = await createTaskTool.handler(
-				{ title: "New Task" },
-				makeContext(db, eventBus),
-			);
+			const result = await createTaskTool.handler({ title: "New Task" }, makeContext(db, eventBus));
 
 			expect(result.success).toBe(true);
 			expect(emitted).toHaveLength(1);
@@ -188,10 +186,7 @@ describe("create_task tool", () => {
 		});
 
 		it("returns INVALID_INPUT when title is empty string", async () => {
-			const result = await createTaskTool.handler(
-				{ title: "" },
-				makeContext(db, eventBus),
-			);
+			const result = await createTaskTool.handler({ title: "" }, makeContext(db, eventBus));
 
 			expect(result.success).toBe(false);
 			if (result.success) return;

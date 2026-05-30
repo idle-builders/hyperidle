@@ -18,9 +18,9 @@ import {
 	createTestDb,
 	type HyperIdleDb,
 	products,
+	type TestDbHandle,
 	tasks,
 	teams,
-	type TestDbHandle,
 	users,
 } from "@hyperidle/db";
 import { clearDeduplicationCache, recordCostAndCheck } from "@hyperidle/fabric";
@@ -31,8 +31,12 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 const NOW = new Date().toISOString();
 
 async function seedBase(db: HyperIdleDb): Promise<void> {
-	await db.insert(products).values({ id: "p1", name: "Test Product", phase: "build", createdAt: NOW });
-	await db.insert(teams).values({ id: "t1", productId: "p1", capacity: 5, activeBets: 0, formedAt: NOW });
+	await db
+		.insert(products)
+		.values({ id: "p1", name: "Test Product", phase: "build", createdAt: NOW });
+	await db
+		.insert(teams)
+		.values({ id: "t1", productId: "p1", capacity: 5, activeBets: 0, formedAt: NOW });
 	await db.insert(bets).values({
 		id: "b1",
 		productId: "p1",
@@ -91,7 +95,10 @@ describe("recordCostAndCheck — bet cost accumulation (R5 AC4)", () => {
 		});
 
 		const [bet] = await db
-			.select({ costActualMinor: bets.costActualMinor, costActualCurrency: bets.costActualCurrency })
+			.select({
+				costActualMinor: bets.costActualMinor,
+				costActualCurrency: bets.costActualCurrency,
+			})
 			.from(bets)
 			.where(eq(bets.id, "b1"));
 
