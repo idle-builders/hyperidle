@@ -5,6 +5,7 @@ import z from "zod";
 import { createArtifactTool } from "./create-artifact.js";
 import { createConflictReviewTool } from "./create-conflict-review.js";
 import { createItemTool } from "./create-item.js";
+import { createTaskTool } from "./create-task.js";
 import { handoffToTool } from "./handoff-to.js";
 import { logTaskTool } from "./log-task.js";
 import { promoteKnowledgeTool } from "./promote-knowledge.js";
@@ -13,6 +14,7 @@ import { readInboxTool } from "./read-inbox.js";
 import { routeItemTool } from "./route-item.js";
 import { scoreAttentionTool } from "./score-attention.js";
 import { sendMessageTool } from "./send-message.js";
+import { submitReviewTool } from "./submit-review.js";
 import { err, type ToolResult } from "./tool-result.js";
 import { writeMemoryTool } from "./write-memory.js";
 import { writeSessionNotesTool } from "./write-session-notes.js";
@@ -114,6 +116,9 @@ export const ALL_TOOL_DEFINITIONS: readonly ToolDefinition[] = [
 	handoffToTool,
 	createItemTool,
 	writeSessionNotesTool,
+	// R5: new agent work loop tools — available to all roles.
+	createTaskTool,
+	submitReviewTool,
 	// R6: create_artifact is available to all agent roles — no `roles` filter.
 	createArtifactTool,
 	// G1 facilitator tools — restricted to facilitator roles.
