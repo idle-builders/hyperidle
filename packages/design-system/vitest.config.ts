@@ -12,5 +12,16 @@ export default defineProject({
 		// Inline shared so its transitive `zod` import resolves under the
 		// project's node resolver.
 		server: { deps: { inline: ["@hyperidle/shared"] } },
+		// @lore R4: pool:'forks' required for design-system React tests.
+		// Multiple test files mutate globalThis.IS_REACT_ACT_ENVIRONMENT and use
+		// React.createRoot() in the same jsdom environment. With the default
+		// 'threads' pool, async React scheduler work from one file (e.g.
+		// CodePayload with useState) leaks into the next file's rendering,
+		// causing "not wrapped in act()" warnings and empty container assertions.
+		// 'forks' gives each file a completely separate process, preventing
+		// cross-file React state contamination. Slower but reliable.
+		pool: "forks",
+		hookTimeout: 30_000,
+		testTimeout: 30_000,
 	},
 });

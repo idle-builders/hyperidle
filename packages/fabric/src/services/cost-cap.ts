@@ -404,7 +404,6 @@ async function createReviewItem(
  * teamId string (new simplified API). The string form is equivalent to
  * `{ level: "team", id: teamId }` and resets both costMinor and cost columns.
  */
-// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: cost reset branching across agent/team/factory scopes with dedup cleanup
 export async function resetCosts(
 	db: HyperIdleDb,
 	params: ResetCostsParams | string,

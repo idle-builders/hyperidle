@@ -139,7 +139,6 @@ export function RecipientPicker({ onSelect, onCancel }: RecipientPickerProps): J
 		: recipients;
 
 	return (
-		// biome-ignore lint/a11y/useKeyWithClickEvents: key handler on outer div for Escape
 		<div
 			data-testid="recipient-picker"
 			className="flex flex-col gap-[8px] p-[12px] bg-[var(--surface-2)] rounded-[var(--r2)] border border-[var(--border-default)]"
