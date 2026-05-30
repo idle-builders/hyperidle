@@ -17,6 +17,7 @@
  * Inputs are text-base (16px) to prevent iOS Safari zoom on focus.
  */
 
+import { BodyEditor } from "@hyperidle/design-system";
 import { SCOPE_KINDS, SCOPES_REQUIRING_ID, type ScopeKind } from "@hyperidle/shared";
 import { type JSX, useEffect, useRef, useState } from "react";
 import { useCurrentUser } from "../../hooks/useCurrentUser.js";
@@ -149,17 +150,18 @@ export function KnowledgeCreateDialog({
 					/>
 				</label>
 
-				{/* Body textarea */}
+				{/* Body field — T2: replaced textarea with BodyEditor */}
 				<label className="flex flex-col gap-1">
 					<span className="text-xs text-[var(--text-lo)]">
 						Body <span aria-hidden>(required)</span>
 					</span>
-					<textarea
-						className="textarea textarea-bordered text-base resize-none h-32 w-full"
+					<BodyEditor
+						initialContent=""
+						onChange={(md) => setBody(md)}
 						placeholder="Describe it in markdown..."
-						value={body}
-						onChange={(e) => setBody(e.target.value)}
-						disabled={submitting}
+						variant="full"
+						minHeight="128px"
+						editable={!submitting}
 					/>
 				</label>
 
