@@ -102,8 +102,3 @@ export function SettingsTeams(): JSX.Element {
 	);
 }
 
-/**
- * @deprecated Use SettingsTeams.
- * @lore U1: Backward-compat re-export.
- */
-export { SettingsTeams as SettingsProducts };

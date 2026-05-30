@@ -11,14 +11,14 @@
  * PRAGMA table_info).
  */
 
+import { BET_STATUSES } from "@hyperidle/shared";
 import { getTableName, sql } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { BET_STATUSES } from "@hyperidle/shared";
 import type { HyperIdleDb } from "../connection.js";
 import * as schema from "../schema.js";
 import { seed } from "../seed.js";
-import * as zodSchemas from "../zod-schemas.js";
 import { createTestDb, type TestDbHandle } from "../test-utils.js";
+import * as zodSchemas from "../zod-schemas.js";
 
 // ---------------------------------------------------------------------------
 // Helpers
