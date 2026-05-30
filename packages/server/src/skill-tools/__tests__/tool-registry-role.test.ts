@@ -86,10 +86,10 @@ describe("I2 B1/B2/B3 — buildToolRegistry role filter", () => {
 		expect(result.code).toBe("NOT_FOUND");
 	});
 
-	it("B3: chief_of_staff registry includes all 12 tools", () => {
+	it("B3: chief_of_staff registry includes all 13 tools", () => {
 		const registry = buildToolRegistry(makeContext(db), { role: "chief_of_staff" });
 		const names = registry.definitions.map((d) => d.name).sort();
-		expect(names).toHaveLength(12);
+		expect(names).toHaveLength(13);
 		for (const t of FACILITATOR_ONLY) {
 			expect(names).toContain(t);
 		}
